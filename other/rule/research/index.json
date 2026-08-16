@@ -1,0 +1,40 @@
+{
+  "rules": [
+    {
+      "slug": "mahjong-phylogeny",
+      "label": "麻将谱系与分类",
+      "collected_at": "2026-08-14",
+      "count": 53
+    },
+    {
+      "slug": "mahjong-studies",
+      "label": "麻将通论与书志",
+      "collected_at": "2026-08-14",
+      "count": 67
+    },
+    {
+      "slug": "hongkong",
+      "label": "香港麻将",
+      "collected_at": "2026-07-20",
+      "count": 20
+    },
+    {
+      "slug": "drawing-mahjong",
+      "label": "绘图麻雀牌谱（已归入古典麻将）",
+      "collected_at": "2026-08-04",
+      "count": 1
+    },
+    {
+      "slug": "regional-rules",
+      "label": "地方规则资料",
+      "collected_at": "2026-08-14",
+      "count": 27
+    },
+    {
+      "slug": "local-rulebooks",
+      "label": "馆藏规则书",
+      "collected_at": "2026-08-14",
+      "count": 29
+    }
+  ]
+}

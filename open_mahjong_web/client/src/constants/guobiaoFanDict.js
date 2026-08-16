@@ -110,3 +110,26 @@ export const GUOBIAO_FAN_VALUES = {
   huapai: 1,
   mingangang: 5,
 };
+
+const GUOBIAO_FAN_VALUE_BY_NAME = Object.fromEntries(
+  Object.entries(GUOBIAO_FAN_DICT).map(([key, name]) => [name, GUOBIAO_FAN_VALUES[key] ?? 0]),
+)
+GUOBIAO_FAN_VALUE_BY_NAME['七对子'] = GUOBIAO_FAN_VALUES.qiduizi
+
+/** 解析计算器返回的番种名（如「喜相逢*1」）为与虹雀一致的 { name, count, value }。 */
+export function parseGuobiaoFanLabel(raw) {
+  const source = String(raw || '')
+  const match = source.match(/^(.*?)(?:\*(\d+))?$/)
+  const name = (match?.[1] || source).trim()
+  const count = match?.[2] ? Number(match[2]) : 1
+  const value = GUOBIAO_FAN_VALUE_BY_NAME[name] ?? 0
+  return { name, count, value, total: value * count }
+}
+
+/** 国标计算器番种构成展示：清龙 ×1（16 番） */
+export function formatGuobiaoFanComposition(raw) {
+  const fan = parseGuobiaoFanLabel(raw)
+  if (!fan.name) return String(raw || '')
+  if (!fan.value) return fan.count > 1 ? `${fan.name} ×${fan.count}` : fan.name
+  return `${fan.name} ×${fan.count}（${fan.value} 番）`
+}

@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html><head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title> オンライン対戦麻雀 天鳳 / マニュアル</title>
+	<link rel="stylesheet" type="text/css" href="/style.css">
+	<!--[if lte IE 7]>
+	<link rel="stylesheet" type="text/css" href="/stylefix.css">
+	<![endif]-->
+	<style type="text/css">A:link{color:blue;}A:visited{color:blue;}A:hover{color:red;}</style>
+<script type="text/javascript">
+function pe(c,s){document.getElementById(c).innerHTML=s;}
+
+var updated={};
+var dan;
+var arate;
+var dan_total;
+
+function swnreg(n){pe('nreg',n);}
+</script>
+<script type="text/javascript" src="../stat/dan.js"></script>
+</head><body><center>
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+	<br><div class=max728>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+<!-- top -->
+<ins class="adsbygoogle"
+     style="display:inline-block;width:728px;height:90px"
+     data-ad-client="ca-pub-5134426033788917"
+     data-ad-slot="3044744277"></ins>
+<script>
+     (adsbygoogle = window.adsbygoogle || []).push({});
+</script>
+	</div>
+<!-- ---------------------------------------------------------------------------------------------------------------- -->
+	<script type="text/javascript" src="/navi.js"></script>
+	<div class="w max728" style="max-width:660px;line-height:140%;">
+		<span style="white-space:nowrap;">  <a href="#SPEC">仕様</a></span>
+		<span style="white-space:nowrap;">| <a href="#REG">ID登録</a></span>
+		<span style="white-space:nowrap;">| <a href="#LOBBY">ロビー</a></span>
+		<span style="white-space:nowrap;">| <a href="#CS">大会ロビー</a></span>
+		<span style="white-space:nowrap;">| <a href="#LOG">牌譜</a></span>
+		<span style="white-space:nowrap;">| <a href="#WG">観戦</a></span>
+		<span style="white-space:nowrap;">| <a href="#FREETICKETS">無料チケット</a></span>
+		<span style="white-space:nowrap;">| <a href="#DAN">段級位制</a></span>
+		<span style="white-space:nowrap;">| <a href="#RATING">Rating</a></span>
+		<span style="white-space:nowrap;">| <a href="#RANKING">月間ランキング</a></span>
+		<span style="white-space:nowrap;">| <a href="#TT">持ち時間</a></span>
+		<span style="white-space:nowrap;">| <a href="#RULE">ルール</a></span>
+		<span style="white-space:nowrap;">| <a href="#YAKU">役一覧</a></span>
+		<span style="white-space:nowrap;">| <a href="#AI">AI</a></span>
+		<span style="white-space:nowrap;">| <a href="#ETC">その他</a></span>
+		<span style="white-space:nowrap;">| <a href="banner.html">バナー</a></span>
+	</div>
+<!-- ---------------------------------------------------------------------------------------------------------------- -->
+<a name="SPEC"></a>
+	<br>
+	<table cellpadding=0 cellspacing=0 class="s max728" style="background:#FFF url('/img/f0ta.gif') no-repeat left top;background-size:100% auto;">
+	<tr style="background:url('/img/f0ba.gif') no-repeat left bottom;background-size:100% auto;"><td valign=top style="padding:30px;word-break:break-all;">
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> 仕様</h3>
+- 「テストプレイ」のCOMはツモ切り無思考<br>
+- 「鳴かない」モードは、「ロン」以外のポン/明槓/チーをパス<br>
+- 「鳴かない」ボタンは局開始毎に自動クリア<br>
+- 「ツモ切り」モードは、ツモ/ロン/暗槓/加槓/リーチ以外をパス<br>
+- 「ツモ切り」モードでは、字幕表示(和了/流局)の最大待ち時間が半分<br>
+- 「ツモ切り」ボタンはマウスの応答がある場合、局開始時にクリア<br>
+- リーチ後はロン/ツモ/暗槓以外でツモ切り<br>
+- 60秒間マウスの動作/キー入力が発生しなかった場合は強制で「ツモ切り」モード<br>
+- 打牌後は誰も鳴かない場合でも一定の割合で数秒間停止<br>
+- ツモ切り以外の打牌位置はランダム(ツモ牌の位置を含まない)<br>
+- 山牌/王牌は開始前にランダムに並べてから消費(<a href="http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/mt.html">乱数生成機</a> / <a href="#LOG">乱数種と山生成</a>)<br>
+- チーやポンで鳴きに赤を使うか使わないかは選択できない(有料Windows版は選択可能)<br>
+- 途中落ちプレーヤは名前を赤色で表示<br>
+- 回線切断時などの再入場は5回まで<br>
+- チョンボなし<br>
+- 「自動和了」は接続が切れた場合には機能しない<br>
+- チーの複数選択は牌を２枚クリック(有料Windows版のみ)<br>
+- 手動理牌は牌をドラッグ(有料Windows版のみ)<br>
+<br>
+- ダブルクリックでパス/ツモ切り/OK/…(待ち時間切れ動作)<br>
+- 右クリックでパス(Windows版またはFlash版専用ブラウザのみ)<br>
+※ダブルクリックが行なえる場所は、「卓」などの1回目のクリックでカウンタが消えない場所<br>
+※ただし、ツモ/ロンが表示されている場合はダブルクリックは無効<br>
+<br>
+<br>
+<b>Q) 「_bgm0.wav invalid md5」というエラーがでて起動できなくなってしまいました…</b>(Windows版)<br>
+<b>Q) 「ShellExecute failed」というエラーがでて起動できなくなってしまいました…</b>(Windows版)<br>
+<b>Q) 「インターネットに接続してください」というエラーがでて起動できなくなってしまいました…</b>(Windows版)<br>
+非インストール版の天鳳から起動できる場合があるようです。その後は設定が正常に戻り、インストール版の天鳳も起動できるようになることがあるようです。
+次のファイルをダウンロードして実行してください。<br>
+<a href="https://tenhou.net/1/tenhou-launcher130.exe">https://tenhou.net/1/tenhou-launcher130.exe</a> (非インストール版本体)<br>
+<a href="https://tenhou.net/1/tenhou-cleanup130.exe">https://tenhou.net/1/tenhou-cleanup130.exe</a> (手動アンインストーラ)<br>
+<br>
+<br>
+<b>Q) 頻繁にサーバから切断されます…</b>(Flash版/Windows版)<br>
+BGM/SEをカスタマイズしていると切断されることがあるようです。
+BGM/SEをすべて標準にして天鳳以外を起動しない状態で使用してみてください。<br>
+<br>
+WiFi(無線LAN)を使用していませんか？その場合には有線での接続を試してみてください。
+WiFi(無線LAN)は通信が不安定なため応答が極端に遅くなりサーバから切断されることがあります。<br>
+<br>
+(参考情報)無線LANの接続品質を改善する方法として「無線LANブリッジ」を使用する方法があります。
+機材の購入や使用方法などについてはお客様ご自身の判断でお願いいたします。<br>
+<br>
+(参考情報)ADSL回線の場合、有線の場合でも通信品質が低い場合に回線が切断されるケースがあるようです。
+その場合、モデムの交換や屋内配線の交換などをすることで通信品質が安定したという報告もあります。
+工事や機材変更についてはお客様ご自身の判断でお願いします。<br>
+<br>
+<br>
+<b>Q) 接続できません…</b>(Flash版/Windows版)<br>
+次の環境からは接続できません。<br>
+- FlashPlayer 7.0.16.0以降でTCP10080ポートの通信を禁止している環境で、TCP80ポートでゲームの通信を禁止する場合<br>
+- FlashPlayer 7.0.14.0以前でTCP10080ポートの通信を禁止している場合<br>
+- FlashPlayer 9.0.115.0以降でTCP843ポートとの通信が利用できない環境<br>
+- URLとサーバ名が一致しない接続環境<br>
+- プロバイダやウィルス対策ソフトがゲームの通信を禁止している場合<br>
+ぷらら <a href="http://www.plala.or.jp/member/option_service/secuplus/nbb/game.html">http://www.plala.or.jp/member/option_service/secuplus/nbb/game.html</a><br>
+<br>
+<br>
+<b>Q) Windows版が起動しても応答しなくなってしまいました…</b>(Windows版)<br>
+一度コンピュータを再起動してみてからもう一度チャレンジしてみてください。<br>
+それでも動作しない場合には、以下をご覧ください。<br>
+<br>
+<br>
+<b>Q) Windows版でIDやロビー番号が入力できません…</b>(Windows版)<br>
+Microsoft AppLocaleを使っている場合には、それを使用せずに半角英数で入力してください。<br>
+<br>
+<br>
+<!--
+<b>Q) Windows8.1/Windows10/Surface3でフルスクリーンになりません…</b>(Windows版)<br>
+Windows8.1 ⇒ コントロールパネルのディスプレイの設定で「すべてのディスプレイで同じ拡大率を使用する」「小-100%」にすると表示できるようになります。<br>
+<br>
+Windows10 ⇒ 設定 ⇒ システム ⇒ テキスト、アプリ、その他の項目のサイズを変更する ⇒ 100%<br>
+<br>
+<br>
+-->
+<a name="LOADING-FAILED" ></a>
+<b>Q) 突然天鳳が起動できなくなってしまいました。</b>(Windows版)<br>
+<b>Q) Windows版が黒い画面のLOADING...で止まってしまいます…</b>(Windows版)<br>
+<b>Q) 牌譜ファイルがダウンロードできません…</b>(Windows版)<br>
+天鳳のアプリケーションが、ウィルス対策ソフトやファイアーウォール機能などにより
+インターネットへの通信を禁止されている場合、UPDATEが途中でまってしまうことがあります。
+この場合、それらのソフトの設定で次の２つのファイルを許可(または除外の指定)を行えば利用可能になります。<br>
+<br>
+Windows Defenderの場合は、Windowsの設定＞更新とセキュリティ＞Windows Defender＞除外の追加＞＋ファイルを除外する、から次のファイルを指定してください。<br>
+<br>
+[Windows XPの場合]<br>
+C:\Documents and Settings\[アカウント名]\Local Settings\Application Data\C-EGG\tenhou\app\tenhou.exe<br>
+C:\Documents and Settings\[アカウント名]\Local Settings\Application Data\C-EGG\tenhou\app\logana.exe<br>
+<br>
+[Windows Vista/Windows7/Window10の場合]<br>
+C:\Users\[アカウント名]\AppData\Local\C-EGG\tenhou\app\tenhou.exe<br>
+C:\Users\[アカウント名]\AppData\Local\C-EGG\tenhou\app\logana.exe<br>
+<br>
+tenhou.exe = 製品本体 / logana.exe = 牌譜解析ツール<br>
+<br>
+「Norton Internet Security（ノートンインターネットセキュリティ）による誤検出」対策<br>
+SONARの警告画面で「詳細を表示」、次の画面で「オプション」をクリック、「復元」で「このリスクを今後のスキャンから除外する」の操作で、天鳳の警告を除外することができます。<br>
+<br>
+<br>
+<b>Q) 画面が真っ黒のまま先へ進みません…</b>(Flash版)<br>
+<b>Q) 「Load ○○ failed」というメッセージが出てゲームが開けなくなってしまいました…</b>(Flash版)<br>
+<b>Q) ダウンロードが途中で止まってしまい入場できません…</b>(Flash版)<br>
+<a href="http://www.google.co.jp/search?q=%E3%83%96%E3%83%A9%E3%82%A6%E3%82%B6+%E3%82%AD%E3%83%A3%E3%83%83%E3%82%B7%E3%83%A5+%E3%82%AF%E3%83%AA%E3%82%A2+%E6%96%B9%E6%B3%95">ブラウザのキャッシュをクリア</a>してからもう一度開いてみてください。
+ノートンを使っている場合に、広告ブロック機能が有効になっているとFlash版が画面が黒いまま進まなくなってしまうことがあるようです。<br>
+<br>
+<br>
+<b>Q) 「すでに他のブラウザで接続しています」と表示され接続できません…</b>(Flash版)<br>
+接続している状態でブラウザが強制終了した場合（アドオンエラーなど）、このエラーが出続けてしまう場合があります。
+ログオフするかコンピュータを再起動してから接続してください。<br>
+<br>
+<br>
+<b>Q) ゲームが画面に入りきらないのですが…</b>(Flash版)<br>
+F11キーを押してみましょう！<br>
+- IE/FireFoxの場合F11のフルスクリーン(KIOSKモード)表示でツールバー類を隠すことができます。<br>
+- ポップアップブロックを解除してポップアップで開くと少しゲーム画面が広くなります<br>
+- 解像度800x600以下ではフルスクリーンにしても表示できない部分があります。<br>
+<br>
+<br>
+<b>Q)ウィンドウが自動的にフルスクリーン表示になってしまいます…</b>（Windows版）<br>
+タスクバーを横に配置した状態で天鳳を開くとウィンドウで表示されるようになる場合があります。<br>
+※スクリーンサイズが1024x768より大きい1366x768などの場合<br>
+<br>
+<br>
+<b>Q) 配牌時に回線が切れてしまいます…</b>(Flash版/Windows版)<br>
+配牌のアニメーション＋サーバとの通信時間が20秒以上（通常は約7秒）かかる場合、強制的にサーバが回線を切断します。
+その他ゲーム中に長い時間停止する場合も強制切断します。
+他に動いているアプリケーションがあればそれを終了すると少し切れにくくなるかもしれません。
+何も起動していないのに切れる場合はパソコンのスペックが不足している可能性が大きいです…。<br>
+<br>
+<br>
+<b>Q) 接続してから一定時間で回線が切れてしまいます…</b>(Flash版/Windows版)<br>
+10080番ポートへの接続が禁止されている際に使用する80番ポートの通信にproxyなどでタイムアウトが設定される場合やバッファする環境に起こるようです。ゲームサーバとTCPで10080番ポートの送受信ができるように設定を変更すると安定してゲームができるようになります。<br>
+<br>
+<br>
+<b>Q) 対戦中に回線が頻繁に切れるのですが…</b>(Flash版/Windows版)<br>
+無線LANは接続が切れることがあります。有線の接続でもう一度チャレンジしてみてください。<br>
+<br>
+<br>
+<b>Q) Flash版で「エコノミー」が選択できません…(Flash版)</b><br>
+<b>Q) Flash版で入場画面にIDが記憶されません…(Flash版)</b><br>
+<b>Q) Flash版で個室の戦績が記録されません…(Flash版)</b><br>
+<b>Q) Flash版で牌譜が残りません…(Flash版)</b><br>
+IEの場合、インターネットオプションのプライバシー管理で「サイト」ボタンから「常に許可する」に設定すると選択できるようになります。<br>
+<br>
+<b>Q) 4枚目の字牌なのに止まることがあり心臓によくないのですが…</b><br>
+ランダムに待ち時間を入れています。<br>
+<br>
+<br>
+<b>Q) サーバから切断された場合の結果はランキングや戦績に反映されますか？</b>(Flash版/Windows版)<br>
+はい。ツモ切りで最後までプレイした結果が反映されます。<br>
+<br>
+<br>
+<b>Q) 予約が4人なのに開始しません…</b>(Flash版/Windows版)<br>
+ランキング戦ロビーでは異なる4つの接続元IPからの予約が集まった場合にゲーム開始となります。
+大学/会社などで同じNAT下から他に予約している人がいるのかもしれません。
+個室ロビーでは同一IPでもゲームが開始します。<br>
+<br>
+<br>
+<b>Q) 予期しない対戦が開始していてptやRateが下がっています…</b>(Flash版/Windows版)<br>
+予約したまま、パソコンをスリープしたり、ブラウザを閉じたり(Flash版)すると
+予期しない対戦が開始してしまう可能性があります。
+予約をキャンセルしてしばらくしてから、パソコンやブラウザを終了するようにしてください。<br>
+<br>
+<br>
+<b>Q) 意図しないツモ切り（一番右の牌を切る）が発生してしまいます…</b>(Flash版/Windows版)<br>
+ダブルクリックでツモ切りになる仕様が原因です。以下の方法で防ぐことができます。<br>
+<br>
+[Windows版の場合]<br>
+ログイン後にロビー画面で、メニュー⇒設定⇒その他から「対戦中に左ダブルクリックでツモ切りを行う」のチェックをはずしてください。<br>
+<br>
+[Windows版/Flash版の場合]<br>
+OSの設定でダブルクリックの速度を遅くすると防げる可能性があります。以下Windowsの場合の設定方法です。<br>
+<a href="https://www.google.co.jp/search?q=windows+%E3%83%80%E3%83%96%E3%83%AB%E3%82%AF%E3%83%AA%E3%83%83%E3%82%AF+%E9%80%9F%E5%BA%A6">Googleで「windows ダブルクリック 速度」を検索</a><br>
+<br>
+<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<a name="FREEANDPAIDVERSION"></a>
+<h3><font color=#444444 >■</font> 有料版/無料版について</h3>
+<table border=1 bordercolor=#CCCCCC cellpadding=3 cellspacing=0 >
+<tr><th>機能</td>                        <th>Windows版</th><th>Flash Premium版</th><th>Flash Economy版</th><th>Web版</th><th>アプリ版</th><th>Desktop4K版</th></tr>
+<tr><td>段位戦 一般</td>                 <td>有料</td>     <td>無料</td>          <td>無料</td>          <td>無料</td>       <td>無料</td>    <td>無料</td>    </tr>
+<tr><td>段位戦 上級</td>                 <td>有料</td>     <td>無料</td>          <td>無料</td>          <td>無料</td>       <td>無料</td>    <td>有料</td>    </tr>
+<tr><td>段位戦 特上</td>                 <td>有料</td>     <td>無料</td>          <td>無料</td>          <td>無料</td>       <td>無料</td>    <td>有料</td>    </tr>
+<tr><td>段位戦 鳳凰</td>                 <td>有料</td>     <td>有料</td>          <td>×</td>            <td>有料</td>       <td>有料</td>    <td>有料</td>    </tr>
+<tr><td>雀荘 若葉</td>                   <td colspan=6 align=center>閉</td></tr>
+<tr><td>雀荘 銀</td>                     <td colspan=6 align=center>閉</td></tr>
+<tr><td>雀荘 琥珀</td>                   <td>有料</td>     <td>有料</td>          <td>有料</td>          <td>有料</td>       <td>有料</td>    <td>有料</td>    </tr>
+<tr><td>雀荘 孔雀</td>                   <td colspan=6 align=center>閉</td></tr>
+<tr><td>個室ロビー対戦</td>              <td>有料</td>     <td>無料</td>          <td>無料</td>          <td>無料</td>       <td>無料</td>    <td>無料</td>    </tr>
+<tr><td>大会ロビー対戦</td>              <td>有料</td>     <td>無料※4</td>       <td>無料※4</td>       <td>無料※4</td>    <td>無料※4</td> <td>無料※4</td> </tr>
+<tr><td>牌譜/観戦/テストプレイ</td>      <td>無料</td>     <td>無料</td>          <td>無料</td>          <td>無料</td>       <td>無料</td>    <td>無料</td>    </tr>
+<tr><td>右クリックパス</td>              <td>○</td>       <td>○※1</td>         <td>○※1</td>         <td>○</td>         <td>○</td>      <td>○</td>      </tr>
+<tr><td>牌譜ファイルの保存/解析</td>     <td>○</td>       <td>有料※1※3</td>    <td>有料※3</td>       <td>有料※3</td>    <td>有料※3</td> <td>有料※3</td> </tr>
+<tr><td>発声音声</td>                    <td>○</td>       <td>○</td>            <td>×</td>            <td>○</td>         <td>○</td>      <td>○</td>      </tr>
+<tr><td>牌譜/観戦のツモ切り暗転表示</td> <td>○</td>       <td>○</td>            <td>×</td>            <td>○</td>         <td>○</td>      <td>○</td>      </tr>
+<tr><td>牌山(牌譜)・待ちの表示</td>      <td>○</td>       <td>×</td>            <td>×</td>            <td>○</td>         <td>○</td>      <td>○</td>      </tr>
+<tr><td>手動理牌</td>                    <td>○</td>       <td>×</td>            <td>×</td>            <td>○</td>         <td>○</td>      <td>○</td>      </tr>
+<tr><td>背景や牌背の色変更</td>          <td>○</td>       <td>×</td>            <td>×</td>            <td>○</td>         <td>○</td>      <td>○</td>      </tr>
+<tr><td>BGM/SEのカスタマイズ</td>        <td>○</td>       <td>×</td>            <td>×</td>            <td>×</td>         <td>△</td>      <td>△</td>      </tr>
+</table>
+※1 Flash版専用ブラウザ(Ver1.2cβ以降)を利用している場合<br>
+※3 <a href="https://tenhou.net/mjlog.html">https://tenhou.net/mjlog.html</a>より過去１０日までの牌譜が手動でダウンロード可能<br>
+※4 一部有料の大会もあります<br>
+※予告無く仕様を変更する場合があります<br>
+※Flashプレミアム版を上級卓まで無料開放試験中<br>
+<br>
+以下の機能は有料会員にのみ提供されています。<br>
+<br>
+<b>●異なる種類のクライアント間での対戦継続</b><br>
+有料会員の場合のみ、Windows版Flash版Web版アプリ版で対戦を開始しなんらかの原因で継続できなくなった場合でも、
+異なる種類のクライアントで対戦を再開することができます。対戦開始時に複数のクライアントを用意しておくことで
+回線切断からの復旧が早くなります。<br>
+<br>
+<b>●異なる種類のクライアントや端末で打った牌譜をWeb版アプリ版で閲覧可能(解析用にダウンロードも可能)</b><br>
+有料会員の状態で打った牌譜は、こちらのページからダウンロードや閲覧が可能です。<br>
+<a href="https://tenhou.net/mjlog.html">https://tenhou.net/mjlog.html</a><br>
+Web版やアプリ版では「牌譜」タブから「すべての牌譜一覧を表示」でこのページの内容を自動で読み込んで閲覧することができます。<br>
+<br>
+
+<br>
+<br>
+<b>Q) 有料版を間違って使ってしまいました…。解約したいのですがどうしたらいいですか？</b><br>
+有料版は使ったからといって料金がかかるものではありません。 有料になる部分は料金の支払い後に使えるようになっています。 試用期間の料金は無料です。 後日の請求もありません。 不要であればアンインストールしてください。<br>
+<br>
+
+
+
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+	</td></tr></table>
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+
+
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<a name="REG"></a>
+	<br>
+	<table cellpadding=0 cellspacing=0 class="s max728" style="background:#FFF url('/img/f0ta.gif') no-repeat left top;background-size:100% auto;">
+	<tr style="background:url('/img/f0ba.gif') no-repeat left bottom;background-size:100% auto;"><td valign=top style="padding:30px;word-break:break-all;">
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> ID登録</h3>
+累計登録者数 : <span id=nreg >-----</span>人<br>
+アクティブプレーヤ数 : <span id=nact >-----</span>人 (180日以内の対戦履歴があるプレーヤ数)<br>
+<script type="text/javascript" src="../stat/nreg.js"></script>
+※登録せずに対戦しているプレーヤはどちらにも含まれません<br>
+<br>
+
+- ID登録は入場画面(「サーバに接続」の次の画面）のリンクから行ないます<br>
+- 登録を行なうと段級位/ランキング/戦績などのサービスを受けることができます<br>
+- 登録は名前を入力すると直ちに完了します<br>
+- 登録が完了すると次の登録は一定期間（約10日）行なえません<br>
+※有料版の有効期限が切れた状態で180日間対人戦を行なっていないIDは、七段未満の場合は削除され、七段以上の場合はログインができない停止状態になります。停止状態は<a href="/support.html">IDの再発行手順</a>と同じ方法で復元が可能です。<br>
+※IDの削除対象は有効期限の切れる日と最後に対戦した日の新しい方から180日後となります。<br>
+※削除されたプレーヤIDの復元はできません<br>
+※不正/迷惑行為を行なうプレーヤは予告無くIDを削除する場合があります<br>
+<br>
+■IDの再発行について<br>
+- (無料版プレーヤ)メールアドレスなどのユーザを特定する情報とIDの対応が無いため、お問い合わせいただいても再発行することはできません。<br>
+- (有料版プレーヤ)決済情報が確認できれば再発行が可能です。レシートメールなどを添付の上<a href="/support.html">お問い合わせ</a>ください。<br>
+<br>
+<br>
+■ゲストプレーヤとID登録済みプレーヤについて<br>
+<table border=1 bordercolor=#CCCCCC cellpadding=3 cellspacing=0 >
+<tr><th>種類</td>                   <th>ログイン時の入力</th> <th>重複ログイン</th><th>戦績変動</th><th>Window版</th>  <th>Flash版</th><th>スマホWeb版</th></tr>
+<tr><td>NoName</td>                 <td>NoName</td>             <td>可</td>          <td>ナシ</td>    <td>○</td>      <td>○</td>     <td>○</td></tr>
+<tr><td>ゲストプレーヤ</td>         <td>未使用の名前</td>       <td>不可</td>        <td>ナシ</td>    <td>利用不可</td><td>○</td>     <td>○</td></tr>
+<tr><td>ID登録プレーヤ</td>         <td>ID00112233-aabbccdd</td><td>不可</td>        <td>あり</td>    <td>○</td>      <td>○</td>     <td>○</td></tr>
+</table>
+<br>
+<br>
+<b>Q) プレーヤ名を変更したいのですが…</b><br>
+できません。10日ほどすると新しいIDを取得できますので、
+新しいプレーヤ名でIDを取得してください。
+<br>
+<br>
+<b>Q) 戦績をリセットしたいのですが…</b><br>
+できません。<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+	</td></tr></table>
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+
+
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<a name="LOBBY"></a>
+	<br>
+	<table cellpadding=0 cellspacing=0 class="s max728" style="background:#FFF url('/img/f0ta.gif') no-repeat left top;background-size:100% auto;">
+	<tr style="background:url('/img/f0ba.gif') no-repeat left bottom;background-size:100% auto;"><td valign=top style="padding:30px;word-break:break-all;">
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> ロビー</h3>
+【 ロビーの種類 】（ロビー = 対戦を開始するまでに待機する待合室）<br>
+<table border=1 bordercolor=#CCCCCC cellpadding=3 cellspacing=0 >
+<tr><td><br></td><td>同一IP対戦</td><td>ランキング/段級位/Rate</td><td>初期チャット受信</td></tr>
+<tr><td><b>ランキング戦ロビー</b></td><td>不可</td><td>あり</td><td>off</td></tr>
+<tr><td><b>個室ロビー</b></td><td>可</td><td>なし</td><td>on</td></tr>
+<tr><td><b>大会ロビー</b></td><td>可/不可指定可</td><td>なし</td><td>on</td></tr>
+</table>
+※個室の戦績は対戦したコンピュータに保存されます。<br>
+※個室ロビーには https://tenhou.net/0/?0123 のような部屋番号付きの専用URLから入場します。
+URLは掲示板/メール等に自由に転載してください。<br>
+<br>
+<br>
+【 ロビーに表示される人数 】<br>
+<table border=1 bordercolor=#CCCCCC cellpadding=3 cellspacing=0 >
+<tr><td><b>接続</b></td><td>サーバ全体の接続人数(ランキング戦ロビー＋全個室)</td></tr>
+<tr><td><b>待機</b></td><td>同じロビーにいるゲームに参加していない人数(接続放置、ミニゲーム中を含む)</td></tr>
+<tr><td><b>ｵｰﾗｽ</b></td><td>同じロビーにいるゲームのオーラス中の人数</td></tr>
+<tr><td><b>予約</b></td><td>(予約人数):(ゲーム中の人数)</td></tr>
+</table>
+※複数「予約」した場合、最初に面子がそろったゲームが開始します<br>
+※予約は一般/上級/特上/鳳凰卓をまたいで行なうことが可能です<br>
+※チャットは同じロビーにいるプレーヤにのみ送信されます<br>
+※ランキング戦ロビーのチャット受信は発言するまで無効になっています<br>
+※大会ロビーのチャットは常に使用できます<br>
+※個室ロビーは24時間利用が無い場合は空室とみなしてください。<a href="/sc/raw/">個室利用状況</a>(sca*.log.gz)<br>
+<br>
+<br>
+【 ゲーム種類 】<br>
+<table border=1 bordercolor=#CCCCCC cellpadding=3 cellspacing=0 >
+<tr><td>段位戦 一般</td> <td>四段R1800未満</td></tr>
+<tr><td>段位戦 上級</td> <td>１級以上七段R2000未満または１級未満の有料会員※１</td></tr>
+<tr><td>段位戦 特上</td> <td>四段R1800以上</td></tr>
+<tr><td>段位戦 鳳凰</td> <td>七段R2000以上の有料会員</td></tr>
+<tr><td>雀荘 若葉</td>   <td>×</td></tr>
+<tr><td>雀荘 銀</td>     <td>×</td></tr>
+<tr><td>雀荘 琥珀</td>   <td>四段R1800以上の有料会員</td></tr>
+<tr><td>雀荘 孔雀</td>   <td>×</td></tr>
+</table>
+※１　有効期限の残りが６０日以上必要です<br>
+<br>
+<br>
+【 戦績 】(プレーヤID登録者のみ)<br>
+<table border=1 bordercolor=#CCCCCC cellpadding=3 cellspacing=0 >
+<tr><td><b>Rate</b></td>     <td><a href="#RATING">Ratingを参照</a></td></tr>
+<tr><td><b>pt</b></td>       <td><a href="#DAN">段級位制</a>の勝利ポイント</td></tr>
+<tr><td><b>対戦数</b></td>   <td>対戦数</td></tr>
+<tr><td><b>平均得点</b></td> <td>合計得点/対戦数。</td></tr>
+<tr><td><b>平均順位</b></td> <td>合計順位/対戦数。</td></tr>
+<tr><td><b>1～4位率</b></td> <td>各順位の回数/対戦数</td></tr>
+<tr><td><b>飛び率</b></td>   <td>飛び回数/対戦数</td></tr>
+<tr><td><b>和了率</b></td>   <td>和了回数/配牌回数。約.250で4者均等</td></tr>
+<tr><td><b>放銃率</b></td>   <td>放銃回数/配牌回数。約.250で4者均等</td></tr>
+<tr><td><b>副露率</b></td>   <td>終局時に明副露していた回数/配牌回数 ※暗槓/抜きは含まれない</td></tr>
+<tr><td><b>立直率</b></td>   <td>終局時に立直していた回数/配牌回数</td></tr>
+</table>
+※ダブロンは放銃1名和了2名<br>
+※包責者は放銃に含まない<br>
+<br>
+<br>
+【対戦開始時のRate表示】<br>
+R1800以上のプレーヤのみ<br>
+<br>
+<br>
+【戦績の記録場所】<br>
+- <b>ランキング戦</b> = サーバ<br>
+- <b>個室/大会ロビー</b> = 対戦に使用したコンピュータ<br>
+※個室の戦績はリセット可能<br>
+<br>
+<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> チャット</h3>
+- 短時間に連続して発言できません<br>
+- 長い文章は送信できません<br>
+- ID登録をしていないGUESTでは発言できません(2010/02/22)<br>
+<br>
+'/'で開始する文章は、チャットコマンドとして扱われます。<br>
+<br>
+<b><font face="monospace">/lobby (num)</font></b><br>
+(num)で指定した個室ロビーに移動します。0はランキング戦ロビー。例)/lobby 1234<br>
+大会ロビーと他のロビーは行き来できません。<br>
+<br>
+<b><font face="monospace">/chat on</font></b><br>
+<b><font face="monospace">/chat off</font></b><br>
+ランキング戦ロビーのチャットをon/offにします。<br>
+<br>
+<b><font face="monospace">/w</font></b><br>
+参加者一覧を表示。個室/大会ロビーでプレーヤID登録者のみ利用可能。<br>
+ロビーの接続人数が100人を超えている場合は使用できません。<br>
+<br>
+<b><font face="monospace">/cls</font></b><br>
+チャット画面をクリア。<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+	</td></tr></table>
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+
+
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<a name="CS"></a>
+	<br>
+	<table cellpadding=0 cellspacing=0 class="s max728" style="background:#FFF url('/img/f0ta.gif') no-repeat left top;background-size:100% auto;">
+	<tr style="background:url('/img/f0ba.gif') no-repeat left bottom;background-size:100% auto;"><td valign=top style="padding:30px;word-break:break-all;">
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> 大会ロビー / 参加者向け</h3>
+- 大会ロビーの対戦で段位ptやRateは変化しません<br>
+- 開催期間の開始～終了は対戦の予約が出来る期間です。<br>
+- 開催前に参加できる状態の場合には「あと???分」と表示されます<br>
+- 開催中に参加できる状態の場合には「予約」ボタンが使用できます<br>
+- 開催前/開催中に参加できない状態の場合には「参加できません」と表示されます<br>
+- 開催終了以降は全員「終了」と表示されます<br>
+- チャットは常に使用できます<br>
+- ロビーにいる状態で管理者にKickされると接続が切れます<br>
+- 観戦中のチャットはありません。<br>
+<br>
+- 観戦情報は約1分間隔で更新<br>
+- 観戦開始は対戦開始の5分後から<br>
+- 観戦可能な対戦は20個まで<br>
+- 開催期間の判定はサーバ時間(JST)<br>
+- 開催期間終了の30秒前に予約の受付が終了します<br>
+<br>
+<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> 大会ロビー / 管理者向け</h3>
+- 得点の集計は独自に行なってください(<a href="/ranking_tool.html">集計ツール</a>)<br>
+- 開催期間の開始～終了は対戦の予約が出来る期間です。<br>
+- 大会ロビーの対戦人数によって<a href="#FREETICKETS">無料チケット</a>が申請可能です。<br>
+- 大会の賞品には<a href="/reg/transfer.cgi">有効期限の振込みβ</a>機能が利用可能です。<br>
+<br>
+<b>対戦ログについて</b><br>
+- 表示時刻はゲーム開始時刻<br>
+- ログの更新周期は約20分<br>
+※ログは終了した対戦を開始時間順に並べて表示しているため、
+更新時に最新時刻の行よりも前にログが追加される場合があります
+（例：後発ゲームより終了が遅く更新周期をまたいで終了する対戦）。
+掲載期間よりも長く集計する場合には1時間ほどのりしろを取って、新しいもので上書きしながら結合してください。<br>
+<br>
+- 管理用URLを掲示板等で公開しないで下さい<br>
+- 編集が終了したら必ず「Update」ボタンを押してください<br>
+- Update後の情報はログインしているプレーヤにも反映されます<br>
+- 大会ロビーを作成したプレーヤ以外でも管理できます<br>
+- 管理者のプレーヤ名はロビーに表示されません<br>
+- 大会ロビーにいるプレーヤはチャットコマンド"/w"で確認できます<br>
+- チャットは常に使用できます<br>
+- チャットはロビーに接続していないプレーヤ(対戦中/落ち)には送信されません<br>
+<br>
+次の制約を踏まえ無理のない大会を計画してください<br>
+- 約10日以上Updateが行われない場合には大会ロビーは削除されます<br>
+- プレーヤ登録/通報/大会作成を行なってから約7日間は大会ロビーを作成できません<br>
+- 対戦数の上限は設定できません(集計で対応)<br>
+- 誰が予約しているかは表示されません<br>
+- 開催期間の終了直前のゲームも集計できるようにログを余分に取ってください(特に東南戦)<br>
+<br>
+- サーバ落ちの際の集合場所/順延/大会の問い合わせ先などの案内をお忘れなく！<br>
+<br>
+乱数種の固定について<br>
+- default以外の文字列を使用すると山を生成する乱数種を固定できます<br>
+- 「局/本場」が進行する度に乱数を使用して山を生成します<br>
+- 進行によっては 「東１局１本場」と「東２局０本場」の山が同じものになります<br>
+<br>
+「対戦許可」と「予約ボタン」の動作について<br>
+- 対戦許可に名前が入っていると、ランダム対戦を行う「予約」ボタンが表示されます。<br>
+- ランダム対戦を希望しない場合には使用しないでください。
+<br>
+<br>
+「START」で対戦を開始する際の注意点<br>
+- 対戦許可に名前を記載しなくても対戦を開始することが可能です。<br>
+- 対戦準備が整っているかを事前に確認してください<br>
+- 段位&Rate指定とは無関係にゲームが開始します。(指定する場合には事前に予選を行いログを収集など)<br>
+<br>
+<br>
+<b>Q) 大会ロビーのURL、パスワードを紛失してしまいました…</b><br>
+新しい大会ロビーを作成してください。<br>
+<br>
+<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> 大会ロビーランキング</h3>
+	※結果発表は遅くとも05:00台に終了できないと06:00からは翌日のランキングが開始します。<br>
+	※<a href="#RANKING">マニュアル/ランキング</a>の大会ロビーランキングを参照ください<br>
+<br>
+<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> 個別牌山形式の複式麻雀(Duplicate Mahjong)機能の使い方</h3>
+１．個室の大会ロビーを作成する <a href="https://tenhou.net/make_lobby.html">https://tenhou.net/make_lobby.html</a><br>
+２．対戦の開始時間と終了時間の間隔を５分程度にする<br>
+⇒同じ牌山で何度も対戦してよい場合には不要<br>
+３．大会ロビーの設定で「ルール」の下の「乱数種」に適当な文字列を入れる<br>
+例）第２回複式麻雀大会乱数種２３<br>
+※乱数種はみんなで共有して再現できる文字列が良い<br>
+※対戦する座席を指定する機能はありません<br>
+４．告知して開始！！<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+	</td></tr></table>
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+
+
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<a name="FREETICKETS"></a>
+	<br>
+	<table cellpadding=0 cellspacing=0 class="s max728" style="background:#FFF url('/img/f0ta.gif') no-repeat left top;background-size:100% auto;">
+	<tr style="background:url('/img/f0ba.gif') no-repeat left bottom;background-size:100% auto;"><td valign=top style="padding:30px;word-break:break-all;">
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> 無料チケットの配布(大会ロビーでの大会終了後に発券)</h3>
+	天鳳ではユーザ様主催の大会ロビーを使用した麻雀大会に有料版の無料チケットを提供しています。
+	無料チケットで有料版の機能をできるだけ沢山の方に使ってもらいたいという期待がありますので、できるだけ多くの方に配布してください。<br>
+	※予告なく配布条件の変更や配布の終了を行う場合があります。<br>
+	<br>
+	配布条件は「大会ロビー対戦者数２０人につき７日分の無料チケット１枚」です。<br>
+	※対戦人数が２０人以下の場合には申請できません。<br>
+	※対戦人数は大会ロビーの対戦者数で判断します(毎日リセットされるので複数日の開催はできません)<br>
+	<br>
+	(注意)大会のランキングは１日ごとにリセットされています。
+	リセットされると参加人数が変化します。
+	リセット時刻は(6:00頃)で、リセットはその時刻以降の対戦が記録された時点で行われます。
+	ですので、前日の記録を残したままにするにはリセット時刻以降は無料チケットの発行まで対戦を行わないようにお願いします。
+	無料チケットの発行までに対戦を行う必要がある場合には、複数の大会ロビーを使うなどして対応をお願いいたします。<br>
+	例）２つの大会ロビーでローテーションする<br>
+	例）無料チケット発行用の大会ロビーを使用する<br>
+	<br>
+	大会を主催して有料版の無料チケットを賞品として出してみたいという方がいらっしゃいましたら、
+	<b>大会終了後</b>に以下の内容を編集の上お問い合わせ下さい。<br>
+	<br>
+	申請回数は１週間に２回程度までにしてください。<br>
+	<blockquote>
+	■メール宛先：support@c-egg.com<br>
+	■メールタイトル：大会ロビー向け無料チケット発券申し込み<br>
+	■メール本文<br>
+	- 大会告知用場所：https://your.domain.com/taikai.... (掲示板も可)<br>
+	- 使用した大会ロビーの管理用URL：https://tenhou.net/cs/edit/?C0000000011111111<br>
+	- 希望する無料チケット：７日版<br>
+	- 大会概要：(大会の目的・集客状況など。例)コミュの交流大会。配信には２００人ほどが参加。)<br>
+	※発券には数日かかる場合があります。<br>
+	※参加人数の確認は大会ロビーのランキングで行います。<br>
+	</blockquote>
+	配布条件には例外もありますので、特殊なケースの場合には大会概要や希望する枚数などを記載の上お問い合わせください。<br>
+	<br>
+	無料チケット以外にも、大会の賞品には<a href="/reg/transfer.cgi">有効期限の振込みβ</a>機能が利用可能です。<br>
+
+<br>
+<br>
+
+<h3><font color=#444444 >■</font> 無料チケットの配布(リアルイベント、名刺サイズ紙面版、大会前発券)</h3>
+	天鳳では無料チケットを配布/販売しています。<br>
+	麻雀大会、学園祭、オフ会などで楽しく使ってください。<br>
+	※予告なく配布条件の変更や配布の終了を行う場合があります。<br>
+	----------------------------<br>
+	■大学サークル・雀荘・企業が主催して配布実態を第３者が調査できるイベントで参加予定者が２０名以上の場合には、無料で発券できます。<br>
+	<br>
+	■個人が主催するイベント、または、参加予定者が不明な場合・２０人未満の場合は、無料チケットと同じ日数の有効期限と交換して購入する必要があります。<br>
+	※個人が主催するイベントで無料で発券を希望する場合には受け取りに雀荘を指定する必要があります。<br>
+	<br>
+	※過去の配布実績：大学学園祭、大規模オフ会、競技会など<br>
+	<hr>
+	【送信先】support@c-egg.com<br>
+	【メールタイトル】名刺サイズ紙面版無料チケット発券申し込み<br>
+	※以下を本文に記載してください。<br>
+	<br>
+	----(メール本文 ここから)----<br>
+	----(公開情報 ここから)----<br>
+	【配布イベント名】○○○○大学　学園祭<br>
+	【配布日時】<br>
+	○月○日　10:00～17:00<br>
+	○月○日　10:00～17:00<br>
+	【配布会場】○号館○○○教室<br>
+	【主催団体名】○○麻雀サークル<br>
+	【責任者】○○(プレーヤ名可)<br>
+	【後援】雀荘○○<br>
+	----(公開情報 ここまで)----<br>
+	(非公開)【参加予定人数】（例）約40人<br>
+	(非公開)【希望枚数】（例）100枚<br>
+	(非公開)【有効期限引落ID】ID00112233-aabbccdd (必要な場合)<br>
+	(非公開)【媒体】名刺サイズ紙面 or テキストデータ(団体・法人のみ)<br>
+	(非公開)【郵送先住所】〒１６０－００３２　新宿区西新宿○○○-○○<br>
+	(非公開)【郵送先宛名】雀荘○○ 麻雀太郎<br>
+	(非公開)【郵送先電話番号】03-0000-0000<br>
+	(非公開)【過去の開催実績】<br>
+	２０１３年４月　○○オフ　参加者４６人<br>
+	２０１２年１月　○○オフ　参加者２４人<br>
+	----(メール本文 ここまで)----<br>
+	<br>
+	<font color=#FF0000>
+	※無料で発券する場合で会場が雀荘の場合には、郵送先はインターネットで検索可能な雀荘を指定する必要があります。<br>
+	※参加予定人数ｘ２枚以上の申請の場合には購入していただく場合があります<br>
+	※テキストデータは個人では申し込めません。(団体・法人のみ)<br>
+	</font>
+	----------------------------<br>
+	※できるだけ沢山の人に配布することを目的としてください。<br>
+	※「優勝５枚」など複数枚の配布は可能です<br>
+	※後日配布枚数の報告をお願いします。<br>
+	※沢山の方に配布していただければ営利非営利のイベントを問わず申請可能です。<br>
+	※無料チケットには使用期限(３カ月以上)があります。<br>
+	※非公開以外の情報はブログに掲載されます。<br>
+	※発券には１～２週間かかる場合があります。<br>
+	※発券枚数は参加延べ人数に対して1枚程度になります。<br>
+	※再販禁止<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+	</td></tr></table>
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+
+
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<a name="LOG"></a>
+	<br>
+	<table cellpadding=0 cellspacing=0 class="s max728" style="background:#FFF url('/img/f0ta.gif') no-repeat left top;background-size:100% auto;">
+	<tr style="background:url('/img/f0ba.gif') no-repeat left bottom;background-size:100% auto;"><td valign=top style="padding:30px;word-break:break-all;">
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> 牌譜URLオプション </h3>
+	<table cellpadding=4 cellspacing=0 border=1 bordercolor=#CCCCCC>
+	<tr><th>オプション</th><th>値</th>        <th>対応</th><th>説明</th></tr>
+	<tr><td>tw</td>        <td>[0123]</td>    <td>FWJ</td><td>視点</td></tr>
+	<tr><td>ts</td>        <td>数字</td>      <td>FWJ</td><td>東１局０本場から数えた局本場の数</td></tr>
+	<tr><td>tj</td>        <td>数字</td>      <td>  J</td><td>全員の摸打他で加算する巡目</td></tr>
+	<tr><td>n[0123]</td>   <td>プレーヤ名</td><td>  J</td><td>UTF-8をdecodeしたもの</td></tr>
+	</table>
+	※F=Flash版, Windows版, J=HTML5+JS版<br>
+	※&amp;js=1オプションは廃止<br>
+	<br>
+	牌譜URLの/0/を/5/にするとHTML5+JSで再生し、/6/にすると牌譜エディタが開きます。<br>
+	https://tenhou.net/<font color=#FF0000>0</font>/?log=2012060420gm-0009-10011-acfd4b57<br>
+	https://tenhou.net/<font color=#FF0000>5</font>/?log=2012060420gm-0009-10011-acfd4b57<br>
+	https://tenhou.net/<font color=#FF0000>6</font>/?log=2012060420gm-0009-10011-acfd4b57<br>
+<br>
+<br>
+
+<h3><font color=#444444 >■</font> 牌譜</h3>
+- 牌譜ビューア操作 : クリック/キー押下でステップ実行<br>
+- 牌譜ビューア操作 : 右クリックで１つ戻る (Windows版 / Flash専用ブラウザのみ)<br>
+- 閲覧情報の最大保存件数：40件<br>
+※牌譜の閲覧情報(URL他)は対戦に使用したコンピュータに記録されます。<br>
+<br>
+- 牌譜は予告なくサーバから削除する場合があります(不具合などの場合)<br>
+- 書式は予告なく変更する場合があります<br>
+- 牌譜情報が記録されていないコンピュータではプレーヤ名が匿名で表示されます<br>
+※牌譜URL末尾の「&tw=?」を削除すると対戦したプレーヤでも匿名で表示されます<br>
+※ランキング戦の役満和了/閲覧回数の多い牌譜は自動で公開されます<br>
+※牌譜の著作権は天鳳にあるものとします<br>
+<br>
+<br>
+<b>Q) 牌譜をファイルに保存することは可能ですか？</b><br>
+有料のWindows版とFlash専用ブラウザ(FlashPremium版のみ)で牌譜ファイルの保存可能です。<br>
+<br>
+<br>
+<b>Q) 牌譜ファイルのサイズが0のままで中身がありません…</b><br>
+Windows版をご利用の場合には、対戦が終了してロビーに戻ったところで
+自動でダウンロードされます。<br>
+<br>
+Flash版専用ブラウザをご利用の場合には、
+解析を行うまでファイルの中身はダウンロードされません。
+まとめて一度にダウンロード可能ですので、中身が必要になったときに
+解析を行いダウンロードしてください。<br>
+<br>
+<br>
+<b>Q) 牌譜解析でダウンロードのエラーがでて先に進めません…</b><br>
+サーバ障害でゲームが正常に終了できなかった場合エラーが出る牌譜が残ってしまう場合があります。
+そのファイルを削除またはどこかに移動することで解析が可能になります。
+<br>
+<br>
+<b>Q) 牌譜の書式を教えてもらえませんか？</b><br>
+xmlをgz圧縮しています。".xml.gz"をファイル末尾に付けて解凍すればIEなどで閲覧可能です。<br>
+参考) <a href="https://tenhou.net/sc/ykm.html">https://tenhou.net/sc/ykm.html</a><br>
+参考) <a href="https://tenhou.net/img/tehai.js">https://tenhou.net/img/tehai.js</a><br>
+<br>
+<br>
+<b>Q) 乱数種から山を生成する方法を教えてもらえませんか？</b><br>
+ツモ/配牌/王牌などなどは次の方法で乱数種から再現可能です<br>
+■２００９年７月２２日以降<br>
+牌山生成手順 <a href="http://blog.tenhou.net/article/30503297.html">http://blog.tenhou.net/article/30503297.html</a><br>
+牌山生成方法の検証用データ <a href="http://blog.tenhou.net/article/174202532.html">http://blog.tenhou.net/article/174202532.html</a><br>
+牌山生成乱数種のハッシュ公開β <a href="https://tenhou.net/stat/rand/">https://tenhou.net/stat/rand/</a><br>
+<br>
+■２００９年７月２２日以前<br>
+unsigned long seed[n]; // INITのshuffleから生成<br>
+mt.init_by_array(seed,n);<br>
+for(i=0;i&lt;136;++i) yama[i]=i;<br>
+for(i=0;i&lt;136-1;++i) swap(yama[i],yama[i + (mt.genrand_int32()%(136-i))]); // サンマは108<br>
+※yama[135,134,133,132]が親の最初の配牌４枚、yama[0]が１つ目の嶺上牌 <br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+	</td></tr></table>
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+
+
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<a name="WG"></a>
+	<br>
+	<table cellpadding=0 cellspacing=0 class="s max728" style="background:#FFF url('/img/f0ta.gif') no-repeat left top;background-size:100% auto;">
+	<tr style="background:url('/img/f0ba.gif') no-repeat left bottom;background-size:100% auto;"><td valign=top style="padding:30px;word-break:break-all;">
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> 観戦</h3>
+- 実際の対戦とは5分遅れで再生しています<br>
+- 段位戦(L0000)の観戦表示数上限(FlashPremium版=40/FlashEconomy版=20/Windows版=無制限)<br>
+<br>
+<table cellpadding=4 cellspacing=0 border=1 bordercolor=#CCCCCC>
+<tr><th>ロビー種別</th><th>観戦可能な対戦</th></tr>
+<tr><td>ランキング戦</td><td>特上卓、鳳凰卓の対戦</td></tr>
+<tr><td>個室</td><td>すべての対戦</td></tr>
+<tr><td>大会</td><td>観戦を禁止していない対戦</td></tr>
+</table>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+	</td></tr></table>
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+
+
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<a name="DAN"></a>
+	<br>
+	<table cellpadding=0 cellspacing=0 class="s max728" style="background:#FFF url('/img/f0ta.gif') no-repeat left top;background-size:100% auto;">
+	<tr style="background:url('/img/f0ba.gif') no-repeat left bottom;background-size:100% auto;"><td valign=top style="padding:30px;word-break:break-all;">
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> 段級位制</h3>
+- 登録プレーヤのみ<br>
+- ランキング戦ロビー(0000番)のみ<br>
+- 個室ロビー/大会ロビーでptは変動しません<br>
+- 昇段/昇級表は予告なく変更する場合があります<br>
+<br>
+次の段位に進むためのptは、ゲームの得点ではなく次の規則で変動します。<br>
+※2008/09/01 東南戦のpt変動を東風戦の1.5倍に変更<br>
+<br>
+<b>■４人打ち</b>
+<table border=1  bordercolor=#CCCCCC cellpadding=3 cellspacing=0 style="text-align:center" id=dan4 >
+<tr><th width=50 rowspan=2>位</th><th rowspan=2>初期pt</th><th colspan=4>東風戦</th><th colspan=4>東南戦</th><th rowspan=2>昇段pt</th><th rowspan=2>降段</th><th rowspan=2>在位数</th><th rowspan=2>平均R</th></tr>
+<tr><th>1位</th><th>2位</th><th>3位</th><th>4位</th><th>1位</th><th>2位</th><th>3位</th><th>4位</th></tr>
+<tr><td>新人</td><td>0</td>
+	<td rowspan=20 bgcolor=#FFFFFF ><br>一般<br>+20<br><br><br><br><br><br><br><br><br><br>上級<br>+40<br><br><br><br>特上<br>+50<br><br><br><br>鳳凰<br>+60</td>
+	<td rowspan=20 bgcolor=#FFFFFF ><br>一般<br>+10<br><br><br><br><br><br><br><br><br><br>上級<br>+10<br><br><br><br>特上<br>+20<br><br><br><br>鳳凰<br>+30</td>
+	<td rowspan=20 bgcolor=#FFFFFF >+0</td>    <td>   0</td>
+	<td rowspan=20 bgcolor=#FFFFFF ><br>一般<br>+30<br><br><br><br><br><br><br><br><br><br>上級<br>+60<br><br><br><br>特上<br>+75<br><br><br><br>鳳凰<br>+90</td>
+	<td rowspan=20 bgcolor=#FFFFFF ><br>一般<br>+15<br><br><br><br><br><br><br><br><br><br>上級<br>+15<br><br><br><br>特上<br>+30<br><br><br><br>鳳凰<br>+45</td>
+	<td rowspan=20 bgcolor=#FFFFFF >+0</td> <td>   0</td><td>  20</td><td>-</td><td id=dan4_0  >-</td><td id=dan4_0r  >-</td></tr>
+<tr><td>９級</td><td>   0</td> <td>   0</td><td>   0</td><td>  20</td><td>-</td><td id=dan4_1  >-</td><td id=dan4_1r  >-</td></tr>
+<tr><td>８級</td><td>   0</td> <td>   0</td><td>   0</td><td>  20</td><td>-</td><td id=dan4_2  >-</td><td id=dan4_2r  >-</td></tr>
+<tr><td>７級</td><td>   0</td> <td>   0</td><td>   0</td><td>  20</td><td>-</td><td id=dan4_3  >-</td><td id=dan4_3r  >-</td></tr>
+<tr><td>６級</td><td>   0</td> <td>   0</td><td>   0</td><td>  40</td><td>-</td><td id=dan4_4  >-</td><td id=dan4_4r  >-</td></tr>
+<tr><td>５級</td><td>   0</td> <td>   0</td><td>   0</td><td>  60</td><td>-</td><td id=dan4_5  >-</td><td id=dan4_5r  >-</td></tr>
+<tr><td>４級</td><td>   0</td> <td>   0</td><td>   0</td><td>  80</td><td>-</td><td id=dan4_6  >-</td><td id=dan4_6r  >-</td></tr>
+<tr><td>３級</td><td>   0</td> <td>   0</td><td>   0</td><td> 100</td><td>-</td><td id=dan4_7  >-</td><td id=dan4_7r  >-</td></tr>
+<tr><td>２級</td><td>   0</td> <td> -10</td><td> -15</td><td> 100</td><td>-</td><td id=dan4_8  >-</td><td id=dan4_8r  >-</td></tr>
+<tr><td>１級</td><td>   0</td> <td> -20</td><td> -30</td><td> 100</td><td>-</td><td id=dan4_9  >-</td><td id=dan4_9r  >-</td></tr>
+<tr><td>初段</td><td> 200</td> <td> -30</td><td> -45</td><td> 400</td><td>有</td><td id=dan4_10 >-</td><td id=dan4_10r >-</td></tr>
+<tr><td>二段</td><td> 400</td> <td> -40</td><td> -60</td><td> 800</td><td>有</td><td id=dan4_11 >-</td><td id=dan4_11r >-</td></tr>
+<tr><td>三段</td><td> 600</td> <td> -50</td><td> -75</td><td>1200</td><td>有</td><td id=dan4_12 >-</td><td id=dan4_12r >-</td></tr>
+<tr><td>四段</td><td> 800</td> <td> -60</td><td> -90</td><td>1600</td><td>有</td><td id=dan4_13 >-</td><td id=dan4_13r >-</td></tr>
+<tr><td>五段</td><td>1000</td> <td> -70</td><td>-105</td><td>2000</td><td>有</td><td id=dan4_14 >-</td><td id=dan4_14r >-</td></tr>
+<tr><td>六段</td><td>1200</td> <td> -80</td><td>-120</td><td>2400</td><td>有</td><td id=dan4_15 >-</td><td id=dan4_15r >-</td></tr>
+<tr><td>七段</td><td>1400</td> <td> -90</td><td>-135</td><td>2800</td><td>有</td><td id=dan4_16 >-</td><td id=dan4_16r >-</td></tr>
+<tr><td>八段</td><td>1600</td> <td>-100</td><td>-150</td><td>3200</td><td>有</td><td id=dan4_17 >-</td><td id=dan4_17r >-</td></tr>
+<tr><td>九段</td><td>1800</td> <td>-110</td><td>-165</td><td>3600</td><td>有</td><td id=dan4_18 >-</td><td id=dan4_18r >-</td></tr>
+<tr><td>十段</td><td>2000</td> <td>-120</td><td>-180</td><td>4000</td><td>有</td><td id=dan4_19 >-</td><td id=dan4_19r >-</td></tr>
+<tr><td>天鳳位</td><td colspan=10 >---</td><td>-</td><td id=dan4_20 >-</td><td id=dan4_20r >-</td></tr>
+</table>
+※2017.10.24 4人打ち一般卓のptを変更(1位+30 2位0⇒1位+20 2位+10)<br>
+<br>
+<br>
+<b>■３人打ち</b>
+<table border=1 bordercolor=#CCCCCC cellpadding=3 cellspacing=0 style="text-align:center" id=dan3 >
+<tr><th width=50 rowspan=2>位</th><th rowspan=2>初期pt</th><th colspan=3>東風戦</th><th colspan=3>東南戦</th><th rowspan=2>昇段pt</th><th rowspan=2>降段</th><th rowspan=2>在位数</th><th rowspan=2>平均R</th></tr>
+<tr><th>1位</th><th>2位</th><th>3位</th><th>1位</th><th>2位</th><th>3位</th></tr>
+<tr><td>新人</td><td> 0</td>
+	<td rowspan=20 bgcolor=#FFFFFF ><br>一般<br>+30<br><br><br><br><br><br><br><br><br><br>上級<br>+50<br><br><br><br>特上<br>+70<br><br><br><br>鳳凰<br>+90</td>
+	<td rowspan=20 bgcolor=#FFFFFF >+0</td>    <td>   0</td>
+	<td rowspan=20 bgcolor=#FFFFFF ><br>一般<br>+45<br><br><br><br><br><br><br><br><br><br>上級<br>+75<br><br><br><br>特上<br>+105<br><br><br><br>鳳凰<br>+135</td>
+	<td rowspan=20 bgcolor=#FFFFFF >+0</td> <td>   0</td><td>  20</td><td>-</td><td id=dan3_0  >0</td><td id=dan3_0r  >0</td></tr>
+<tr><td>９級</td><td>   0</td> <td>   0</td><td>   0</td><td>  20</td><td>-</td><td id=dan3_1  >-</td><td id=dan3_1r  >-</td></tr>
+<tr><td>８級</td><td>   0</td> <td>   0</td><td>   0</td><td>  20</td><td>-</td><td id=dan3_2  >-</td><td id=dan3_2r  >-</td></tr>
+<tr><td>７級</td><td>   0</td> <td>   0</td><td>   0</td><td>  20</td><td>-</td><td id=dan3_3  >-</td><td id=dan3_3r  >-</td></tr>
+<tr><td>６級</td><td>   0</td> <td>   0</td><td>   0</td><td>  40</td><td>-</td><td id=dan3_4  >-</td><td id=dan3_4r  >-</td></tr>
+<tr><td>５級</td><td>   0</td> <td>   0</td><td>   0</td><td>  60</td><td>-</td><td id=dan3_5  >-</td><td id=dan3_5r  >-</td></tr>
+<tr><td>４級</td><td>   0</td> <td>   0</td><td>   0</td><td>  80</td><td>-</td><td id=dan3_6  >-</td><td id=dan3_6r  >-</td></tr>
+<tr><td>３級</td><td>   0</td> <td>   0</td><td>   0</td><td> 100</td><td>-</td><td id=dan3_7  >-</td><td id=dan3_7r  >-</td></tr>
+<tr><td>２級</td><td>   0</td> <td> -10</td><td> -15</td><td> 100</td><td>-</td><td id=dan3_8  >-</td><td id=dan3_8r  >-</td></tr>
+<tr><td>１級</td><td>   0</td> <td> -20</td><td> -30</td><td> 100</td><td>-</td><td id=dan3_9  >-</td><td id=dan3_9r  >-</td></tr>
+<tr><td>初段</td><td> 200</td> <td> -30</td><td> -45</td><td> 400</td><td>有</td><td id=dan3_10 >-</td><td id=dan3_10r >-</td></tr>
+<tr><td>二段</td><td> 400</td> <td> -40</td><td> -60</td><td> 800</td><td>有</td><td id=dan3_11 >-</td><td id=dan3_11r >-</td></tr>
+<tr><td>三段</td><td> 600</td> <td> -50</td><td> -75</td><td>1200</td><td>有</td><td id=dan3_12 >-</td><td id=dan3_12r >-</td></tr>
+<tr><td>四段</td><td> 800</td> <td> -60</td><td> -90</td><td>1600</td><td>有</td><td id=dan3_13 >-</td><td id=dan3_13r >-</td></tr>
+<tr><td>五段</td><td>1000</td> <td> -70</td><td>-105</td><td>2000</td><td>有</td><td id=dan3_14 >-</td><td id=dan3_14r >-</td></tr>
+<tr><td>六段</td><td>1200</td> <td> -80</td><td>-120</td><td>2400</td><td>有</td><td id=dan3_15 >-</td><td id=dan3_15r >-</td></tr>
+<tr><td>七段</td><td>1400</td> <td> -90</td><td>-135</td><td>2800</td><td>有</td><td id=dan3_16 >-</td><td id=dan3_16r >-</td></tr>
+<tr><td>八段</td><td>1600</td> <td>-100</td><td>-150</td><td>3200</td><td>有</td><td id=dan3_17 >-</td><td id=dan3_17r >-</td></tr>
+<tr><td>九段</td><td>1800</td> <td>-110</td><td>-165</td><td>3600</td><td>有</td><td id=dan3_18 >-</td><td id=dan3_18r >-</td></tr>
+<tr><td>十段</td><td>2000</td> <td>-120</td><td>-180</td><td>4000</td><td>有</td><td id=dan3_19 >-</td><td id=dan3_19r >-</td></tr>
+<tr><td>天鳳位</td><td colspan=8 >---</td><td>-</td><td id=dan3_20 >-</td><td id=dan3_20r >-</td></tr>
+</table>
+<script type="text/javascript">
+function trHover(n,t){
+	var oov=function(){this.style.backgroundColor="#EEEEEE";}
+	var oot=function(){this.style.backgroundColor="";}
+	var c=document.getElementById(n).getElementsByTagName("TR");
+	for(i=2;i<c.length;++i){
+		var e=c[i];
+		e.onmouseover=oov;
+		e.onmouseout =oot;
+	}
+}
+trHover("dan4");
+trHover("dan3");
+</script>
+
+<script type="text/javascript">
+function shownd(){
+	var i;
+	for(i=0;i<=20;++i){
+		pe('dan4_'+i    ,dan [i]);
+		pe('dan4_'+i+'r',dan [i]?arate [i]:"-");
+		pe('dan3_'+i    ,dan3[i]);
+		pe('dan3_'+i+'r',dan3[i]?arate3[i]:"-");
+	}
+	pe('nact',dan_total);
+}
+shownd();
+</script>
+<br>
+<b>初期pt</b> その段位になったときにもらえるpt。これを使い切ると降段します。<br>
+<b>昇段pt</b> 次の段位に進むために必要なpt<br>
+例）現在二段の場合：初期pt=400ptからスタート。三段に進むには昇段pt=800ptが必要。ptがマイナスで降段。<br>
+<br>
+- 初段～十段はマイナスptで降段<br>
+- 降段/昇段時の余剰ptは切り捨て、開始ptからスタート<br>
+- アクティブプレーヤ数：3ヶ月以内に対戦を行なっているプレーヤ<br>
+<br>
+※天鳳位達成の際には<a href="http://c-egg.com/support/">サポート</a>まで１９文字のプレーヤIDを記載の上お問い合わせください。
+歴代の天鳳位の表彰と有料版の有効期限を延長するコードを送付いたします。
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+	</td></tr></table>
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+
+
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<a name="RATING"></a>
+	<br>
+	<table cellpadding=0 cellspacing=0 class="s max728" style="background:#FFF url('/img/f0ta.gif') no-repeat left top;background-size:100% auto;">
+	<tr style="background:url('/img/f0ba.gif') no-repeat left bottom;background-size:100% auto;"><td valign=top style="padding:30px;word-break:break-all;">
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> Rating</h3>
+	- 順位点(10-30)に同卓プレーヤの平均による補正を行ったもの<br>
+	- 初期値=R1500<br>
+	- 卓の平均Rが高いほど大きく上昇します<br>
+	<br>
+	(Rateの変動) = (試合数補正) x ( 対戦結果 + 補正値 ) x (スケーリング係数)<br>
+	試合数補正(400試合未満): 1 - 試合数 x 0.002<br>
+	試合数補正(400試合以上): 0.2<br>
+	対戦結果(段位戦4人打ち): 1位+30 2位+10 3位-10 4位-30<br>
+	対戦結果(段位戦3人打ち): 1位+30 2位0 3位-30<br>
+	対戦結果(雀荘戦): 得点 + 祝儀(得点換算)<br>
+	補正値: ( 卓の平均R - 自分のR ) / 40<br>
+	スケーリング係数(段位戦):1.0<br>
+	スケーリング係数(雀荘戦):(調整中)<br>
+	<br>
+	※2009/09/09 Rate計算後小数第３位以下を切り上げ<br>
+	※2010/02/01 卓の平均Rが1500未満の場合は1500に切り上げ<br>
+	※2010/10/14 雀荘戦に収支制のRatingを導入<br>
+	<br>
+<h3><font color=#444444 >■</font> 変換</h3>
+	牌譜や観戦データに含まれる内部Rから表示Rへは次の方法で変換します。<br>
+	内部Rはスケーリング係数が1で計算されています。<br>
+	<br>
+	表示R = ( 内部R -1500 ) x (スケーリング係数) + 1500<br>
+	<br>
+<h3><font color=#444444 >■</font> Reference</h3>
+	- <a href="https://ja.wikipedia.org/wiki/%E3%82%A4%E3%83%AD%E3%83%AC%E3%83%BC%E3%83%86%E3%82%A3%E3%83%B3%E3%82%B0">Elo rating</a> / Wikipedia<br>
+	- <a href="http://totutohoku.b23.coreserver.jp/hp/Rsystem.pdf">麻雀におけるRating システムに関する改善案</a> / とつげき東北さん<br>
+	- <a href="https://wandm.syakuhati.com/probstat.html">天鳳雀荘戦における収支制レーティングシステムへの提言</a> / 我打麻将さん<br>
+<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+	</td></tr></table>
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+
+
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<a name="RANKING"></a>
+	<br>
+	<table cellpadding=0 cellspacing=0 class="s max728" style="background:#FFF url('/img/f0ta.gif') no-repeat left top;background-size:100% auto;">
+	<tr style="background:url('/img/f0ba.gif') no-repeat left bottom;background-size:100% auto;"><td valign=top style="padding:30px;word-break:break-all;">
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> 月間ランキング</h3>
+- 登録プレーヤのみ<br>
+- ランキング戦ロビー(L0000)のみ<br>
+- 全ての段位を含む全体のランキングを卓別に集計しています<br>
+- Rateランキング以外は毎月リセットされます<br>
+- Webランキングへの掲載は対戦数30以上の成績上位者のみ<br>
+- 役満の掲載は4人打ちのみ<br>
+- 数え役満はドラ以外で13飜以上の場合またはドラを含んで20飜以上の場合のみ掲載<br>
+- 一覧には総合順位の上位を掲載<br>
+- 通算/平均は勝ち越しているプレーヤのみ<br>
+- 平得/平順/ﾄｯﾌﾟ/連対/ラスは対戦数30以上<br>
+- 平順は4人打ち2.5以上、3人打ち2.0以上<br>
+- 連対率=1位率+2位率(4人打ちのみ)<br>
+- 和了/放銃/満貫/ドラ/平和/一色率は「東風全ルール」「東南全ルール」とサンマのみ<br>
+- 更新周期 Web=20分、ゲーム内=約15秒<br>
+※ゲーム内のランキングとWebのランキングは掲載基準(規定対戦数など)が異なるため一致しないことがあります。<br>
+<br>
+<b>総合ランキング</b><br>
+通得 : 通算得点(順位ウマ/オカを含む得点の総和)<br>
+平得 : 平均得点<br>
+通順 : 通算順位点(4人打ち:1位+30 2位+10 3位-10 4位-30 / 3人打ち:1位+30 2位0 3位-30の合計)<br>
+平順 : 平均順位<br>
+総合 : 通得, 平得, 通順, 平順の各順位の和<br>
+<br>
+<b>Rateランキング</b><br>
+- 生涯ランキング(他は月間ランキング)<br>
+- 対象: 400戦以上(生涯) R1800以上 30日以内に約15戦以上対戦したプレーヤ<br>
+- K=800戦未満 L=1200戦未満 M=1200戦以上<br>
+- 戦績のRate順位は400戦未満のプレーヤを含む<br>
+<br>
+<b>段位効率</b><br>
+現在の順位取得回数が無限に続いた場合に到達することができる段位を「段位相当」としてランキングしています。
+数字が大きいほど段位を上げるために効率が良い打ち方をしているということを表します。
+「段位相当」の計算は「安定段位」と同じですが、対戦数が小さいため呼称を変えています。
+<br>
+- ４人打ち段位相当の計算方法<br>
+　一般 = ((１位回数*20 + ２位回数*10)/４位回数 - 20)/10<br>
+　上級 = ((１位回数*40 + ２位回数*10)/４位回数 - 20)/10<br>
+　特上 = ((１位回数*50 + ２位回数*20)/４位回数 - 20)/10<br>
+　鳳凰 = ((１位回数*60 + ２位回数*30)/４位回数 - 20)/10<br>
+- ３人打ち段位相当の計算方法<br>
+　一般 = ((１位回数*30 + ２位回数* 0)/３位回数 - 20)/10<br>
+　上級 = ((１位回数*50 + ２位回数* 0)/３位回数 - 20)/10<br>
+　特上 = ((１位回数*70 + ２位回数* 0)/３位回数 - 20)/10<br>
+　鳳凰 = ((１位回数*90 + ２位回数* 0)/３位回数 - 20)/10<br>
+<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> 大会ロビーランキング</h3>
+- 連続３戦の合計得点: 連続する３戦の合計得点の最大をランキングします。対戦数の上限はありません。<br>
+- 連続５戦の合計得点: 連続する５戦の合計得点の最大をランキングします。対戦数の上限はありません。<br>
+- 役満: 数え役満を含むすべての役満<br>
+- 未登録プレーヤは集計されません。<br>
+- 開催期間とは無関係に24時間(06:00～30:00)の結果を集計しています。<br>
+- 毎日06:00にリセットされ、リセットされたランキングは閲覧できません。<br>
+- 06:00をまたいで開始終了する対戦は集計されません。<br>
+- 掲載は合計得点がプラスのプレーヤのみ<br>
+- 同点の場合はゲーム開始時間順、東1局の風順で順位を決定<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+	</td></tr></table>
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+
+
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<a name="TT"></a>
+	<br>
+	<table cellpadding=0 cellspacing=0 class="s max728" style="background:#FFF url('/img/f0ta.gif') no-repeat left top;background-size:100% auto;">
+	<tr style="background:url('/img/f0ba.gif') no-repeat left bottom;background-size:100% auto;"><td valign=top style="padding:30px;word-break:break-all;">
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> 持ち時間</h3>
+- 表示：(標準の持ち時間）+（予備の持ち時間）<br>
+- 標準の持ち時間を使い切ると予備の持ち時間を消費します<br>
+- 持ち時間が0になるとパスやツモ切りを行ないます<br>
+<br>
+- ツモ巡に1秒以内（数字が出る前）に応答すると予備の持ち時間が1秒回復<br>
+- 鳴きの応答では回復しません<br>
+- 「ツモ切り」モードでも回復<br>
+- 回復の最大は初期値まで<br>
+- 警告音（カチカチ）3回で時間切れ<br>
+- 持ち時間は局開始毎に初期化<br>
+<br>
+(標準の持ち時間）+（予備の持ち時間）<br>
+- 普 5+10秒<br>
+- 速 3+5秒<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+	</td></tr></table>
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+
+
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<a name="RULE"></a>
+	<br>
+	<table cellpadding=0 cellspacing=0 class="s max728" style="background:#FFF url('/img/f0ta.gif') no-repeat left top;background-size:100% auto;">
+	<tr style="background:url('/img/f0ba.gif') no-repeat left bottom;background-size:100% auto;"><td valign=top style="padding:30px;word-break:break-all;">
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> ルール / 段位戦4人打ち</h3>
+- 25000点開始の30000点返し<br>
+- ウマ10-20<br>
+- 後付けあり<br>
+- 喰い替えなし<br>
+- 喰い断なし/あり選択<br>
+- 赤ありルールでの枚数：各1枚<br>
+- ノーテン親流れ、聴牌連荘<br>
+- 東風戦の南入、東南戦の西入あり、以降サドンデスルールで終了。<br>
+- サドンデスルールは、30000点(供託未収)以上になった時点で終了、ただし親の連荘がある場合は連荘を優先する<br>
+- サドンデスの最大局は東風戦は南場まで、東南戦は西場まで<br>
+- 飛び終了あり。点数がマイナスで飛び終了、マイナス点数も集計、0点は続行<br>
+- ラス親トップの自動和了り止め、自動聴牌止めあり<br>
+- 終了時の供託はトップ取り<br>
+- 終了時に同点の場合は東1局の風順で順位を決定<br>
+- 連風牌は4符<br>
+- 嶺上ツモも2符加算<br>
+- 2飜縛りなし/常に1飜縛り<br>
+- 途中流局(九種九牌/四家立直/三家和了/四槓散了/四風連打)あり。すべて連荘<br>
+- 九種九牌はポン/カン/チー/暗槓のない第1ツモで幺九牌が9種以上<br>
+- 流し満貫あり。聴牌清算を満貫清算に代替。親の聴牌で連荘。<br>
+- 流し満貫は、自分の河が鳴かれていない場合に成立。自分が鳴いた場合でも成立。<br>
+- ダブロンあり。積み棒/供託は上家取り。<br>
+- ダブロンは親が含まれれば連荘<br>
+- 大三元/大四喜のパオあり。複合役満を含む得点を、ツモ＝全額・ロン＝折半で支払う。積み棒は包。<br>
+- 四槓子のパオなし<br>
+- 形式聴牌あり。5枚目を待つ聴牌あり(手牌＝純手牌＋副露手牌として純手牌で４枚使用していなければ成立)<br>
+- リーチ宣言は得点が1000点以上でツモ巡がある場合に可能<br>
+- リーチ宣言牌で放銃した場合は供託料は発生しない<br>
+- 振聴リーチあり<br>
+- リーチ後の当たり牌見逃しは以降振聴<br>
+- リーチ後の縛りをクリアしない和了型になる牌は常に見逃し以降振聴(二飜以上縛り時)<br>
+- リーチ後の暗槓は待ちが変わらない場合のみ。送り槓不可、牌姿や役の増減は不問。<br>
+- カンドラ/カン裏あり<br>
+- カンドラは、暗槓は即乗り、明槓/加槓は後めくり（打牌または続く嶺上の直前）<br>
+- 純正巡消しは発声＆和了打診後（加槓のみ)、嶺上ツモの前（連続する加槓の２回目には一発は付かない）<br>
+- 同一巡内の選択ロン和了なし(加槓牌を含む)<br>
+- 同巡振聴の解消は打牌時、逆巡副露では解消しない。<br>
+- 海底牌は鳴けない<br>
+- 八連荘/人和/三連刻/一色三順/十三不塔/…なし<br>
+- 追いつき有利は不採用<br>
+- フリテンは河に捨てられた牌でのみ判定(加槓・抜きでさらした非純手牌を除く)<br>
+- 和了放棄(搶槓を含む)後は同巡フリテンとなり、次の自分のツモ番までロン和了できない<br>
+※2007/03/01 「5本場から二飜縛り」「四槓子の包」を廃止<br>
+※2007/07/17 赤五筒を2枚から1枚に変更<br>
+※2007/11/29 「喰い替え」「リーチ後の送り槓」を禁止<br>
+※2009/07/04 局の最大を東風戦は南場まで、東南戦は西場までに変更<br>
+※2009/08/01 順位ウマを10-20に統一<br>
+※2010/06/01 ラス親トップの自動聴牌止めを導入<br>
+※2022/01/21 終了時の得点の1000点未満の四捨五入を廃止<br>
+<br>
+<b>【補足】サドンデスでの対戦終了判定</b><br>
+- 連荘○　親が原点以上のトップなら和了止め/聴牌止め、他は連荘<br>
+- 連荘×　最大局数以内で原点以上が存在しなければ続行、他は終了<br>
+※最大局数=四東:南4局/四南:西4局/三東:南3局/三南:西3局<br>
+<br>
+<br>
+<b>【補足】リーチ後の暗槓で和了得点に影響する要素</b><br>
+符増加：暗槓<br>
+符減少：嵌張☆<br>
+役増加：表裏赤ドラ、嶺上開花、三槓子、四槓子<br>
+役減少：一盃口☆、三色同順☆、純全帯幺九☆、混全帯幺九☆、九蓮宝燈<br>
+☆牌姿の変わる槓を禁止していないため<br>
+<br>
+<br>
+<b>Q) どういう場合にゲームが終了になりますか？</b><br>
+飛びや天辺が発生した場合はその時点で終了します。<br>
+オーラス以降は上記に加え次の条件で終了になります。<br>
+- 東風戦は南場、東南戦は西場で終了<br>
+- 親が連荘(和了/聴牌)し原点を超えたトップになる(和了/聴牌清算後、供託料を除く)<br>
+- 親がノーテンで原点以上が存在する(聴牌清算後、供託料を除く)<br>
+※親が含まれるダブロンで子のみ原点を超える場合は親の連荘を優先<br>
+※ラス親は原点越えのトップを維持すれば終了<br>
+<br>
+<br>
+<b>Q) 和了れるはずなのにロン/ツモできませんでした…</b><br>
+- 振聴は鳴かれて自分の河に見えない牌も対象になります。<br>
+- 東風戦で南入した場合は、場風の「東」は1飜になりません。<br>
+- 縛りをクリアしない待ち牌は同巡振聴になります。<br>
+<br>
+<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> ルール / 段位戦3人打ち</h3>
+※段位戦4人打と異なる部分のみ記載してあります。<br>
+<br>
+- 35000開始の40000点返し<br>
+- 順位ウマ  +20, 0, -20 (東風戦/東南戦共通)<br>
+- 嶺上牌は8枚<br>
+- 二萬～八萬を使用しない<br>
+- ドラ表示「一萬」のドラは「九萬」、「九萬」のドラは「一萬」<br>
+- チーはできない<br>
+- 北は抜きドラ<br>
+- ポンの直後は抜けない<br>
+- 抜きは鳴きと同じ扱い(一発/地和/九種/両立直は消える)<br>
+- 抜いた北は役満以外でも和了可能<br>
+- 北を面子で使用した場合はオタ風<br>
+- 純正巡消しは発声＆和了打診後（加槓/抜き)、嶺上ツモの前とする<br>
+※2008/02/25 沈みウマを廃止<br>
+<br>
+<br>
+
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> ルール / 雀荘戦</h3>
+※段位戦と異なる部分のみ記載してあります。<br>
+<br>
+- ウマは10-30<br>
+- 切り上げ満貫<br>
+- 槓ドラ即乗り<br>
+- 東風戦はすべて速卓<br>
+- 東風戦は東西場<br>
+- 東風戦のみ1本場1500点<br>
+※1本場得点：四東=1500/四南=300/三東=1000/三南=200<br>
+- 東風戦の南入、東南戦の西入なし<br>
+- サドンデスなし<br>
+- 祝儀は一発/赤/裏/役満<br>
+- 赤の祝儀は副露可<br>
+- 役満祝儀はロン10枚ツモ5枚オール<br>
+- 役満の複合は祝儀も加算<br>
+- 役満祝儀と一発/赤/裏の祝儀は複合<br>
+- 数え役満の役満祝儀はナシ<br>
+- 包発生時の祝儀は包責者が全枚数を負担<br>
+※オープンリーチ/オールスター/白ポッチ/特殊赤牌/飛び祝儀/天辺終了はナシ<br>
+<br>
+
+■卓種別<br>
+喰赤祝０　　東速/東南　(祝儀ナシ)<br>
+喰赤祝２　　東速/東南　(祝儀1枚2000点)<br>
+喰赤祝５　　東速/東南　(祝儀1枚5000点)<br>
+三喰赤祝５　東速/東南　(祝儀1枚5000点)<br>
+<br>
+<br>
+
+
+<h3><font color=#444444 >■</font> その他</h3>
+- <a href="https://ja.wikipedia.org/wiki/%E9%BA%BB%E9%9B%80%E3%81%AE%E3%83%AB%E3%83%BC%E3%83%AB">麻雀のルール</a> / Wikipedia<br>
+- <a href="https://ja.wikipedia.org/wiki/%E9%BA%BB%E9%9B%80%E3%81%AE%E7%82%B9">麻雀の点</a> / Wikipedia<br>
+- <a href="https://ja.wikipedia.org/wiki/%E9%BA%BB%E9%9B%80%E3%81%AE%E5%BE%97%E7%82%B9%E8%A8%88%E7%AE%97">麻雀の得点計算</a> / Wikipedia<br>
+<br>
+<br>
+<!--
+-【 符計算 】<br>
+頭+待ち+面子の符から以下に分岐<br>
+０符 門前 ツモ = 20符 平和1飜 ※自摸八<br>
+０符 門前 ロン = 30符 平和1飜<br>
+０符 非門 ツモ = 22符 平和なし<br>
+０符 非門 ロン = 30符 平和なし ※平和特例<br>
+Ｎ符 門前 ツモ = 22＋Ｎ符 平和なし<br>
+Ｎ符 門前 ロン = 30＋Ｎ符 平和なし<br>
+Ｎ符 非門 ツモ = 22＋Ｎ符 平和なし<br>
+Ｎ符 非門 ロン = 20＋Ｎ符 平和なし<br>
+※七対子は25符2飜、ツモ符なし<br>
+※連風牌は４符<br>
+※嶺上ツモも２符加算<br>
+※端数は切り上げ<br>
+-->
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+	</td></tr></table>
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+
+
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<a name="YAKU"></a>
+	<br>
+	<table cellpadding=0 cellspacing=0 class="s max728" style="background:#FFF url('/img/f0ta.gif') no-repeat left top;background-size:100% auto;">
+	<tr style="background:url('/img/f0ba.gif') no-repeat left bottom;background-size:100% auto;"><td valign=top style="padding:30px;word-break:break-all;">
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> 役一覧</h3>
+▼=食い下がりあり / ★=門前のみ<br>
+<table cellpadding=4 cellspacing=0 border=1 >
+<tr><td align=center width=70><b>【一飜】</b></td><td>
+	<nobr>門前清自摸和</nobr> /
+	<nobr>立直</nobr> /
+	<nobr>槍槓</nobr> /
+	<nobr>嶺上開花</nobr> /
+	<nobr>海底摸月</nobr> /
+	<nobr>河底撈魚</nobr> /
+	<nobr>役牌:門風牌</nobr> /
+	<nobr>役牌:場風牌</nobr> /
+	<nobr>役牌:三元牌</nobr> /
+	<nobr>断幺九</nobr> /
+	<nobr>一盃口★</nobr> /
+	<nobr>平和★</nobr>
+</td></tr>
+<tr><td align=center ><b>【二飜】</b></td><td>
+	<nobr>混全帯幺九▼</nobr> /
+	<nobr>一気通貫▼</nobr> /
+	<nobr>三色同順▼</nobr> /
+	<nobr>両立直</nobr> /
+	<nobr>三色同刻</nobr> /
+	<nobr>三槓子</nobr> /
+	<nobr>対々和</nobr> /
+	<nobr>三暗刻</nobr> /
+	<nobr>小三元</nobr> /
+	<nobr>混老頭</nobr> /
+	<nobr>七対子</nobr>
+</td></tr>
+<tr><td align=center ><b>【三飜】</b></td><td>
+	<nobr>純全帯幺九▼</nobr> /
+	<nobr>混一色▼</nobr> /
+	<nobr>二盃口★</nobr>
+</td></tr>
+<tr><td align=center ><b>【六飜】</b></td><td>
+	<nobr>清一色▼</nobr>
+</td></tr>
+<tr><td align=center ><b>【懸賞】</b></td><td>
+	<nobr>一発</nobr> /
+	<nobr>ドラ</nobr> /
+	<nobr>赤ドラ</nobr> /
+	<nobr>裏ドラ</nobr> /
+	<nobr>抜きドラ</nobr>
+</td></tr>
+<tr><td align=center ><b>【役満】</b></td><td>
+	<nobr>天和</nobr> /
+	<nobr>地和</nobr> /
+	<nobr>大三元</nobr> /
+	<nobr>四暗刻</nobr> /
+	<nobr>四暗刻単騎</nobr> /
+	<nobr>字一色</nobr> /
+	<nobr>緑一色</nobr> /
+	<nobr>清老頭</nobr> /
+	<nobr>国士無双</nobr> /
+	<nobr>国士無双13面</nobr> /
+	<nobr>大四喜</nobr> /
+	<nobr>小四喜</nobr> /
+	<nobr>四槓子</nobr> /
+	<nobr>九蓮宝燈</nobr> /
+	<nobr>純正九蓮宝燈</nobr>
+</td></tr></table>
+<br>
+※懸賞役は縛りの飜数には数えない<br>
+※ツモピン20符<br>
+※一発と嶺上は複合しない<br>
+※海底と嶺上は複合しない<br>
+※一発と槍槓（連続槓の１回目）は複合する<br>
+※七対子は25符2飜、ツモ符なし<br>
+※ロン和了で完成した刻子は明刻子とし順子は暗順子とする<br>
+<br>
+※役満は複合あり、四暗刻単騎・国士無双十三面待ち等はすべてシングル役満<br>
+※天和/地和はポン/カン/チー/暗槓の入らない第1ツモでの和了<br>
+※七対子の字一色あり<br>
+※国士無双13面待ちは13牌振聴対象<br>
+※他家が暗槓した牌では国士無双はあがれない<br>
+※九蓮宝燈は暗槓不可、萬筒索可<br>
+※数え役満は13翻以上<br>
+※緑一色は發がなくても成立<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+	</td></tr></table>
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+
+
+
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<a name="AI"></a>
+	<br>
+	<table cellpadding=0 cellspacing=0 class="s max728" style="background:#FFF url('/img/f0ta.gif') no-repeat left top;background-size:100% auto;">
+	<tr style="background:url('/img/f0ba.gif') no-repeat left bottom;background-size:100% auto;"><td valign=top style="padding:30px;word-break:break-all;">
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> AIで段位戦を打つ場合の注意事項</h3>
+<span style='color:#F00;'>※現在AI専用IDの受け付けは行っておりません</span><br>
+- AIの対戦にはすべての人が賛成しているわけではありません。慎重かつ丁寧にお願いします。<br>
+- 複数のIDで同時に対戦する行為は禁止とします<br>
+- twitterで牌譜URLを公開してください<br>
+- ある程度打てるようになってから対人戦を行ってください。<br>
+＃リーチできない、副露できない、などは開発が不十分と判断します。<br>
+- 鳳凰卓の牌譜を使って十分に対戦技能を検証してください。<br>
+- 人間では対戦できない数の試合を打つ行為や、盲目的な挙動は禁止します。<br>
+- 上級卓以上は専用IDを取得してそのIDでのみ打ってください。<br>
+- 鳳凰卓の対戦は禁止です。<br>
+- 専用IDを発行する際には天鳳の牌譜から不正検出を行っていただきます<br>
+- 通報により迷惑行為と判断された場合はIDを停止します。<br>
+- 天鳳の運営・イベントに協力をお願いいたします。<br>
+※企業として利用する場合には協賛イベントの開催をお願いします。<br>
+＃専用ID取得などのお問い合わせ：support@c-egg.com<br>
+※AI専用IDはオープンに募集されているわけではありません<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> 牌譜を使用する場合の注意事項</h3>
+※天鳳の牌譜は、天鳳での対戦を公正に楽しんでいただく目的で公開されています。<span style='color:#F00;'>天鳳での対戦を必要としないサービス</span>への応用は無償有償ともに行えません。一般の麻雀への応用を目的に牌譜を使用する場合は support@c-egg.com までお問い合わせください。<br>
+※不特定多数が天鳳の牌譜をダウンロードするサービスは作成できません。<br>
+※天鳳と競合する製品への開発・応用を目的として牌譜を使用していただくことはできません。<br>
+※企業として利用する場合には協賛イベントの開催をお願いします。<br>
+	<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+	</td></tr></table>
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+
+
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<a name="ETC"></a>
+	<br>
+	<table cellpadding=0 cellspacing=0 class="s max728" style="background:#FFF url('/img/f0ta.gif') no-repeat left top;background-size:100% auto;">
+	<tr style="background:url('/img/f0ba.gif') no-repeat left bottom;background-size:100% auto;"><td valign=top style="padding:30px;word-break:break-all;">
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> その他</h3>
+- 性別はID情報との関連付けはありません、入場ごとに選択可能です。<br>
+- 性別情報は牌譜に記録されます。<br>
+- 点数付近のバーの色：青(男)、赤(女)、緑(COM)。暫定トップ者は白のグラデーションが入ります。<br>
+- センターパネルにマウスカーソルを合わせると点数差を表示(Flashプレミアム版、Windows版のみ)<br>
+- IDの譲渡、販売、共有など他人に使用させる行為は禁止<br>
+- 有効期限の販売は禁止<br>
+- 本戦参加にあたっての交通費や宿泊費などの補助は、予選大会の告知で明記していない限り支給されません。<br>
+- 停止依頼のあったIDを復元することはできません。<br>
+- 第三者に公開してしまったIDは停止されます。<br>
+- 公序良俗に反するプレーヤ名は予告なく停止する場合があります。<br>
+- 天鳳名人戦への天鳳位参戦枠は、前期の最終節対戦終了時刻までに天鳳位を達成した方を対象とします<br>
+<!--
+- 鳳凰卓で意図的に友人と同卓するのはご遠慮ください。ランダム対戦ではないものはあまり好ましくありません。<br>
+-->
+- 原則として段位戦では意図的に特定のプレーヤと同卓する行為は禁止とします。<br>
+<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> 海外から日本の大会に参加する場合</h3>
+- 日本の競技麻雀の大会に出たことが無い場合は参加をお断りする場合があります<br>
+- 海外のリーチ麻雀の大会への出場経験のみの場合にはルールの差異を回答していただく場合があります<br>
+- 交通費宿泊費の補助はありません。<br>
+- ホテルや航空券の手配はご自身で行ってください。<br>
+- 通訳やガイドは承ることはできません。<br>
+	<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> 配信/生放送</h3>
+- 鳳凰卓では、同卓者への閲覧防止機能がなく、リアルタイムに手牌公開がある配信/生放送は禁止<br>
+＃手牌の状態が類推可能な効果音も放送しないでください<br>
+＃閲覧者を限定した鳳凰卓の配信は、手牌が非公開であることが第３者でも確認できる必要があります<br>
+＃違反者の報告は<a href="/stat/vt/0/">通報機能</a>を利用してください。<br>
+＃一般/上級/特上/雀荘戦/個室/大会の配信、５分遅れの観戦の配信、牌譜再生の配信、は可能です。<br>
+＃公式大会の配信は大会ロビーにの可否については、大会ごとに決定します。<br>
+- 生放送でID流出事故を防止する目的でIDの共有を行う場合は、事前に申し込みを行い専用のIDの発行を受けてください。<br>
+※生放送中に選手交代を行う場合はIDが画面に映らないように注意してください<br>
+※段位戦では共有IDは使用できません(個室はOK)<br>
+※段位戦の生放送で打牌に影響を与えるようなリアルタイムでのアドバイスは好ましくありません(個室はOK)<br>
+※リアルタイムの手牌公開のある配信は、覗き見をされるリスクがあるため、意図的な同卓が可能にならないように最大限努力して予約してください。
+	<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> 不正/迷惑行為対策</h3>
+- 不正/迷惑行為を行なうプレーヤにはサービス停止/接続禁止などの措置をとる場合があります<br>
+- サービスの利用制限は、NoNameより通報が多く、信頼度の高い通報が一定以上集まると自動的に作動します<br>
+- サービスの利用制限は、不正行為の場合は無期限、それ以外の場合には無期限または一定期間の停止を行います。<br>
+- 通報/制限に関する問い合わせにはお答えできません<br>
+- 通報によるID停止期間は１回目＝１ヶ月、２回目＝１ヶ月、３回＝永久停止となります<br>
+- ID停止になったと思われる場合には、公の場で発言する前にサポートまで問い合わせてください。<br>
+	<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> twitter, SNS, ブログなどを利用する際の注意点</h3>
+- 疑われる発言はしない<br>
+- 疑わしい発言は警告してあげる<br>
+- 問題発言だと指摘された場合はすぐに謝罪する<br>
+- あなたが疑われることになりそうな発言を見たら否定する	<br>
+※発言の際には「理不尽な結果に終わったプレーヤが不快に感じないか？」ということを考えてから行ってください。<br>
+	<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> 牌譜を使用する場合の注意事項</h3>
+※天鳳と競合する製品への開発・応用を目的として牌譜を使用していただくことはできません。<br>
+※企業として天鳳の牌譜を使用する場合には天鳳のイベントに協賛をお願いします。<br>
+	<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> クレジット</h3>
+	All Green / <a href="https://michiyomatsushita.amebaownd.com"> (C)MICHIYO MATSUSHITA</a> / Bass	<a href="https://yujiyajima.com/">YUJI YAJIMA</a><br>
+	<a href="http://oo39.com/">oo39.com</a>
+	<a href="http://www.shotoc.com/">SHOTOC</a>
+	<a href="http://bridgeco.jp/">BRIDGEco.</a>
+	<a href="http://osabisi.sakura.ne.jp/m2/">ザ・マッチメイカァズ</a>
+	<br>
+	<br>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+<h3><font color=#444444 >■</font> ヒストリ</h3>
+<table cellpadding=10 ><tr><td valign=top >
+06.02.20 半熟荘β<br>
+06.08.01 正式サービス<br>
+06.10.24 1万ID<br>
+07.01.20 2万ID<br>
+07.03.01 天鳳へ改名<br>
+07.03.19 3万ID<br>
+07.05.19 4万ID<br>
+07.07.08 5万ID<br>
+07.08.25 6万ID<br>
+07.09.28 7万ID<br>
+07.12.03 有料Windows版β<br>
+07.12.25 10万ID<br>
+08.02.01 有料Windows版<br>
+08.04.10 15万ID<br>
+08.06.14 有料Flashプレミアム版<br>
+</td><td valign=top >
+08.07.28 20万ID<br>
+08.11.24 25万ID<br>
+09.02.20 鳳凰卓オープン<br>
+09.02.24 30万ID<br>
+09.06.01 40万ID<br>
+09.08.10 50万ID<br>
+09.10.18 60万ID<br>
+10.01.10 70万ID<br>
+10.03.24 80万ID<br>
+10.06.06 90万ID<br>
+10.08.22 100万ID<br>
+10.10.14 雀荘戦β<br>
+11.09.03 150万ID<br>
+12.06.09 同時接続数１万人<br>
+12.08.14 200万ID<br>
+</td><td valign=top >
+13.03.11 技能戦β<br>
+13.07.10 250万ID<br>
+14.07.17 300万ID<br>
+15.10.05 Web版β<br>
+15.10.17 350万ID<br>
+16.06.06 雀荘βリニューアル<br>
+17.01.25 アプリ版リリース<br>
+17.02.18 400万ID<br>
+18.04.18 450万ID<br>
+19.05.15 500万ID<br>
+20.04.20 550万ID<br>
+21.06.09 600万ID<br>
+26.02.01 735万ID<br>
+</td></tr></table>
+	<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+	</td></tr></table>
+<!-- ---------------------------------------------------------------------------------------------------------------------------- -->
+	<br><div class=max728>
+<script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+<!-- top -->
+<ins class="adsbygoogle"
+     style="display:block"
+     data-ad-client="ca-pub-5134426033788917"
+     data-ad-slot="3044744277"
+     data-ad-format="auto"></ins>
+<script>
+(adsbygoogle = window.adsbygoogle || []).push({});
+</script>
+	</div>
+<!-- ---------------------------------------------------------------------------------------------------------------- -->
+	<br>
+	<div class=w>&copy; C-EGG</div>
+	<br>
+<!-- ---------------------------------------------------------------------------------------------------------------- -->
+<!-- Global Site Tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-229903-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments)};
+  gtag('js', new Date());
+
+  gtag('config', 'UA-229903-1');
+</script>
+<!-- ---------------------------------------------------------------------------------------------------------------- -->
+</center></body></html>

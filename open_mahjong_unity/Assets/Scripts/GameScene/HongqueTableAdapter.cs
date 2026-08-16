@@ -263,16 +263,31 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
 
     private void ApplyRuleTips() {
         if (TipsBlock.Instance == null || TipsContainer.Instance == null) return;
+        NormalGameStateManager gsm = NormalGameStateManager.Instance;
+        string handKey = gsm != null && gsm.selfHandTiles != null
+            ? string.Join(",", gsm.selfHandTiles.OrderBy(id => id))
+            : string.Empty;
+        string meldKey = string.Empty;
+        if (gsm != null
+                && gsm.player_to_info != null
+                && gsm.player_to_info.TryGetValue("self", out PlayerInfoClass selfInfo)
+                && selfInfo.combination_masks != null) {
+            meldKey = string.Join("/", selfInfo.combination_masks
+                .Where(mask => mask != null)
+                .Select(mask => string.Join(",", mask)));
+        }
         string tipsUiKey = string.Join("|", new[] {
             gamestateId ?? string.Empty,
             state.round.ToString(),
             state.action_tick.ToString(),
             state.phase ?? string.Empty,
             state.tips.ToString(),
+            state.current_player.ToString(),
+            state.you.ToString(),
             state.win_hint?.tile ?? string.Empty,
-            string.Join(",", (state.waiting_hints ?? Array.Empty<HongqueScoreHintInfo>())
-                .Where(item => item != null)
-                .Select(item => item.tile ?? string.Empty))
+            lastDiscardTileId.ToString(),
+            handKey,
+            meldKey
         });
         if (tipsUiKey == lastTipsUiKey) return;
         lastTipsUiKey = tipsUiKey;
@@ -285,11 +300,11 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
         bool showStableWaits = state.win_hint == null
             && (state.phase == "turn" || state.phase == "claim")
             && !(state.phase == "turn" && state.current_player == state.you);
-        if (showStableWaits) {
-            NormalGameStateManager gsm = NormalGameStateManager.Instance;
+        if (showStableWaits && gsm != null && gsm.player_to_info != null
+                && gsm.player_to_info.TryGetValue("self", out PlayerInfoClass selfMelds)) {
             waits = HongqueTenpai.BuildScoreHints(
                 gsm.selfHandTiles,
-                gsm.player_to_info["self"].combination_masks,
+                selfMelds.combination_masks,
                 lastDiscardPlayerIndex == state.you ? lastDiscardTileId : (int?)null);
         }
         if (state.win_hint != null || waits.Length > 0) {
@@ -586,6 +601,8 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
         if (current.round_result.multi_ron && current.round_result.winners.Length > 1) {
             // 多家和：按服务端座位顺序依次展示每位赢家的结算面板，
             // 中间面板自动关闭，最后一家才进入确认/准备阶段。
+            EndResultPanel.Instance?.BeginGameResultLifecycle();
+            EndResultPanel.Instance?.SetReadyStatusVisible(false);
             StartCoroutine(ShowMultiRonSequence(current, scores));
             return;
         }
@@ -632,9 +649,8 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
 
     private static string[] BuildFanTokens(HongqueWinnerResultInfo result) {
         return (result?.fans ?? Array.Empty<HongqueFanInfo>())
-            .OrderByDescending(fan => fan.value)
-            .SelectMany(fan => Enumerable.Repeat(
-                $"{fan.name}|{fan.value}", Math.Max(1, fan.count)))
+            // 服务端已把复计番合并为一个条目并给出 total；客户端逐条照单展示。
+            .Select(fan => $"{fan.name}|{fan.total}")
             .ToArray();
     }
 
@@ -669,6 +685,7 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
                 .FirstOrDefault(item => item != null && item.player == order[i]);
             if (result == null) continue;
             bool isLast = i == order.Length - 1;
+            EndResultPanel.Instance?.SetReadyStatusVisible(isLast);
             // 本阶段增减：只带当前赢家自己的加分（虹雀不扣分，无扣分项）。
             // 不能把 round_result.score_changes（所有赢家合并）传给面板，
             // 否则第一家就会把后续赢家的变更一起展示出来。
@@ -717,7 +734,7 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
         HongqueStateInfo current, bool finalPanel,
         Dictionary<int, int[]> simultaneousHuHands = null,
         bool skipHandReveal = false) {
-        // 番种从大到小；可复计番（如清顺/清刻按组计）参照国标展示：按次数展开成多行。
+        // 服务端每个 fans 条目对应客户端一行；复计结果使用服务端合并后的 total。
         string[] fanTokens = BuildFanTokens(result);
         string huClass = current.round_result.reason == "self_draw" ? "hu_self" : "hu";
         // 与其他麻将规则共用完整结算链：清操作与提示 -> 和牌字样/音效 -> 3D 倒牌 -> 结算面板。
@@ -736,7 +753,7 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
     private void PresentHuResult(
         HongqueWinnerResultInfo result, Dictionary<int, int> scores,
         HongqueStateInfo current, bool finalPanel) {
-        // 番种从大到小；可复计番（如清顺/清刻按组计）参照国标展示：按次数展开成多行。
+        // 服务端每个 fans 条目对应客户端一行；复计结果使用服务端合并后的 total。
         string[] fanTokens = BuildFanTokens(result);
         string huClass = current.round_result.reason == "self_draw" ? "hu_self" : "hu";
         // 与其他麻将规则共用完整结算链：清操作与提示 -> 和牌字样/音效 -> 3D 倒牌 -> 结算面板。

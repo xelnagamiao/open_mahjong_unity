@@ -214,7 +214,7 @@
                         :class="[
                           `is-rel-${slot.relative}`,
                           {
-                            'is-ready': slot.player?.ready,
+                            'is-ready': !isMatchEndRoundResult && slot.player?.ready,
                             'is-winner': slot.player
                               && slot.player.player_index === roundResult.hepai_player_index,
                           },
@@ -240,8 +240,8 @@
                       v-if="showReadyButton"
                       type="button"
                       class="end-result-ready-button"
-                      :disabled="readySent"
-                      @click="sendReady"
+                      :disabled="!isMatchEndRoundResult && readySent"
+                      @click="confirmRoundResult"
                     >
                       {{ readyButtonLabel }}
                     </button>
@@ -346,6 +346,7 @@
                       :settings="assistSettings"
                       @moqie-shortcut="setAppearanceField('moqieShortcutMode', $event)"
                       @pass-shortcut="setAppearanceField('passShortcutMode', $event)"
+                      @force-pass="setAppearanceField('forcePassEnabled', $event)"
                       @assist-update="patchAssistSettings"
                     />
                   </div>
@@ -504,6 +505,26 @@ let voteCountdownTimer = null
 /** 国标局中错和：结算 ready 后服务端不回发新局快照，而是直接续打。 */
 let pendingCuoheResume = null
 
+/**
+ * Unity keeps the final game_end message pending while the last winning-hand
+ * settlement is visible. Otherwise the final ranking replaces the settlement
+ * panel before the player can confirm it.
+ */
+let awaitingMatchEndConfirmation = false
+let matchEndConfirmed = false
+let pendingGameEnd = null
+
+function isMatchEndWinResult(result) {
+  return result?.next_status === 'match_end'
+    && typeof result?.hepai_player_index === 'number'
+}
+
+function resetMatchEndConfirmation() {
+  awaitingMatchEndConfirmation = false
+  matchEndConfirmed = false
+  pendingGameEnd = null
+}
+
 function clearResultTimers() {
   for (const id of resultTimers) window.clearTimeout(id)
   resultTimers = []
@@ -597,7 +618,13 @@ function startWinFanRevealSequence(result, token, targetScene) {
     showResultTotal.value = true
     // 高番锣与 3D 总分出现时机对齐，不在弹面板瞬间播。
     targetScene.playResultGong(result.hu_fan ?? [])
-    beginReadyCountdown(token)
+    if (isMatchEndWinResult(result)) {
+      // Match Unity: the final hand has a plain Confirm button and never readies.
+      showReadyButton.value = true
+      readyCountdown.value = 0
+    } else {
+      beginReadyCountdown(token)
+    }
   }, Math.max(delay, HU_BEFORE_TOTAL_MS))
 }
 
@@ -627,6 +654,7 @@ const voteIsBusy = computed(() => (
 ))
 
 const isDrawResult = computed(() => roundResult.value?.hepai_player_index == null)
+const isMatchEndRoundResult = computed(() => isMatchEndWinResult(roundResult.value))
 
 const resultPlayers = computed(() => sidebarPlayers.value
   .map((player) => {
@@ -719,6 +747,7 @@ const fanGridMinHeight = computed(() => {
 })
 
 const readyButtonLabel = computed(() => {
+  if (isMatchEndRoundResult.value) return '确定'
   if (readySent.value) return '已准备，等待其他玩家'
   if (readyCountdown.value > 0) return `确定(${readyCountdown.value})`
   return '确定(0)'
@@ -895,6 +924,16 @@ function applyMessage(response, targetAdapter = adapter, targetScene = scene) {
   try {
     const update = targetAdapter.accept(response)
     if (!update) return
+    const deferGameEnd = Boolean(
+      update.ended && awaitingMatchEndConfirmation && !matchEndConfirmed,
+    )
+    if (deferGameEnd) {
+      pendingGameEnd = {
+        event: update.event ?? null,
+        events: update.events ?? null,
+        ended: update.ended,
+      }
+    }
     registerSelfCutResponse(response, targetAdapter)
     if (update.snapshot) {
       const roundKey = `${update.snapshot.session_id}:${Number(update.snapshot.state.round_counter ?? 0)}`
@@ -912,16 +951,17 @@ function applyMessage(response, targetAdapter = adapter, targetScene = scene) {
           patchAssistSettings({ autoFlower: assistSettings.value.autoFlowerOnMatchStart })
         }
       }
+      resetMatchEndConfirmation()
       clearRoundResultUi()
       targetScene.flushFromSnapshot(update.snapshot)
       hasSnapshot.value = true
       updateSidebarPlayers()
     }
-    if (update.event) {
+    if (update.event && !deferGameEnd) {
       resumeAfterCuoheIfPending(targetScene)
       targetScene.handleEvent(update.event)
     }
-    if (update.events) {
+    if (update.events && !deferGameEnd) {
       resumeAfterCuoheIfPending(targetScene)
       update.events.forEach((event) => targetScene.handleEvent(event))
     }
@@ -929,6 +969,9 @@ function applyMessage(response, targetAdapter = adapter, targetScene = scene) {
       // Unity initializes AutoAction for every hand. Reset immediately at hand
       // end too, rather than carrying temporary choices through settlement.
       resetRoundAssistUi(targetScene)
+      awaitingMatchEndConfirmation = isMatchEndWinResult(update.result)
+      matchEndConfirmed = false
+      pendingGameEnd = null
       readySent.value = false
       resultContentVisible.value = true
       readyStatus.value = Object.fromEntries(sidebarPlayers.value.map((player) => [
@@ -952,7 +995,7 @@ function applyMessage(response, targetAdapter = adapter, targetScene = scene) {
       revealRoundResultAfterHand(update.result, targetScene)
     }
     if (update.ready) readyStatus.value = { ...readyStatus.value, ...update.ready.player_to_ready }
-    if (update.ended) {
+    if (update.ended && !deferGameEnd) {
       resetRoundAssistUi(targetScene)
       clearResultTimers()
       finalResult.value = update.ended
@@ -1070,6 +1113,7 @@ async function mountScene() {
 }
 
 function destroyScene() {
+  resetMatchEndConfirmation()
   clearRoundResultUi()
   clearVoteState()
   sceneReady.value = false
@@ -1189,6 +1233,27 @@ function changeVolume(next) {
 function toggleRatings() {
   ratingsExpanded.value = !ratingsExpanded.value
   window.setTimeout(() => scene?.forceResize(), 100)
+}
+
+function confirmRoundResult() {
+  if (!isMatchEndRoundResult.value) {
+    sendReady()
+    return
+  }
+
+  matchEndConfirmed = true
+  awaitingMatchEndConfirmation = false
+  const deferred = pendingGameEnd
+  pendingGameEnd = null
+  clearRoundResultUi()
+
+  if (deferred?.event) scene?.handleEvent(deferred.event)
+  if (deferred?.events) deferred.events.forEach((event) => scene?.handleEvent(event))
+  if (deferred?.ended) {
+    resetRoundAssistUi(scene)
+    clearResultTimers()
+    finalResult.value = deferred.ended
+  }
 }
 
 function sendReady() {

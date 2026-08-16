@@ -16,6 +16,11 @@ public partial class GameCanvas : MonoBehaviour {
     [SerializeField] private GamePlayerPanel playerTopPanel;     // 上边玩家面板
     [SerializeField] private GamePlayerPanel playerRightPanel;   // 右边玩家面板
 
+    public GamePlayerPanel PlayerSelfPanel => playerSelfPanel;
+    public GamePlayerPanel PlayerLeftPanel => playerLeftPanel;
+    public GamePlayerPanel PlayerTopPanel => playerTopPanel;
+    public GamePlayerPanel PlayerRightPanel => playerRightPanel;
+
     [Header("操作界面")]
     [SerializeField] private Transform handCardsContainer; // 手牌容器（显示手牌 水平布局组）
     [SerializeField] private HandCardDragController handCardDragController;

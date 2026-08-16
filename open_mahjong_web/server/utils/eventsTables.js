@@ -172,6 +172,69 @@ async function ensureEventsTables() {
       ON event_profile_change_requests(event_id)
       WHERE status = 'pending';
   `);
+
+  await pool.query(`
+    ALTER TABLE events
+      ADD COLUMN IF NOT EXISTS kind VARCHAR(16) NOT NULL DEFAULT 'event'
+  `);
+  await pool.query(`ALTER TABLE events DROP CONSTRAINT IF EXISTS events_kind_chk`);
+  await pool.query(`
+    ALTER TABLE events
+      ADD CONSTRAINT events_kind_chk CHECK (kind IN ('event', 'base'))
+  `);
+  await pool.query(`
+    ALTER TABLE events
+      ADD COLUMN IF NOT EXISTS entry_config JSONB NOT NULL DEFAULT '{}'::jsonb
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_events_kind_status ON events(kind, status)`);
+
+  await pool.query(`
+    ALTER TABLE event_applications
+      ADD COLUMN IF NOT EXISTS kind VARCHAR(16) NOT NULL DEFAULT 'event'
+  `);
+  await pool.query(`ALTER TABLE event_applications DROP CONSTRAINT IF EXISTS event_applications_kind_chk`);
+  await pool.query(`
+    ALTER TABLE event_applications
+      ADD CONSTRAINT event_applications_kind_chk CHECK (kind IN ('event', 'base'))
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS event_registrations (
+      event_id     VARCHAR(32) NOT NULL REFERENCES events(event_id) ON DELETE CASCADE,
+      user_id      BIGINT NOT NULL,
+      status       VARCHAR(16) NOT NULL DEFAULT 'pending',
+      contact      TEXT NOT NULL DEFAULT '',
+      remark       TEXT NOT NULL DEFAULT '',
+      reviewed_by  BIGINT NULL,
+      review_note  TEXT NULL,
+      created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (event_id, user_id),
+      CONSTRAINT event_registrations_status_chk
+        CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled'))
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_event_registrations_event_status
+      ON event_registrations(event_id, status, created_at DESC)
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_event_registrations_user
+      ON event_registrations(user_id, created_at DESC)
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS event_ready_pool (
+      event_id  VARCHAR(32) NOT NULL REFERENCES events(event_id) ON DELETE CASCADE,
+      user_id   BIGINT NOT NULL,
+      ready_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (event_id, user_id)
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_event_ready_pool_event
+      ON event_ready_pool(event_id, ready_at)
+  `);
 }
 
 const EVENT_ID_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';

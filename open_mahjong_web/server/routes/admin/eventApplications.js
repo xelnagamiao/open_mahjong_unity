@@ -14,16 +14,22 @@ function normalizeName(name) {
 router.get('/', async (req, res) => {
   try {
     const status = String(req.query.status || '').trim();
+    const kind = req.query.kind === 'base' ? 'base' : req.query.kind === 'event' ? 'event' : '';
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const pageSize = Math.min(50, Math.max(1, parseInt(req.query.page_size, 10) || 20));
     const offset = (page - 1) * pageSize;
 
     const params = [];
-    let where = 'TRUE';
+    const conditions = ['TRUE'];
     if (status && ['pending', 'approved', 'rejected', 'cancelled'].includes(status)) {
       params.push(status);
-      where = `a.status = $${params.length}`;
+      conditions.push(`a.status = $${params.length}`);
     }
+    if (kind) {
+      params.push(kind);
+      conditions.push(`a.kind = $${params.length}`);
+    }
+    const where = conditions.join(' AND ');
 
     const countRes = await pool.query(
       `SELECT COUNT(*)::int AS cnt FROM event_applications a WHERE ${where}`,
@@ -32,7 +38,7 @@ router.get('/', async (req, res) => {
     const listParams = [...params, pageSize, offset];
     const result = await pool.query(
       `SELECT a.application_id, a.applicant_user_id, a.name, a.description, a.remark, a.reason,
-              a.planned_start_at, a.planned_end_at,
+              a.planned_start_at, a.planned_end_at, a.kind,
               a.status, a.reviewer_user_id, a.review_note, a.event_id,
               a.created_at, a.updated_at, a.reviewed_at,
               u.username AS applicant_username
@@ -111,10 +117,14 @@ router.post('/:id/approve', async (req, res) => {
       eventId = generateEventId();
     }
 
+    const kind = application.kind === 'base' ? 'base' : 'event';
+    const entryConfig = kind === 'base'
+      ? { forbid_tourist: true, auto_approve: true, member_can_create_room: true }
+      : { forbid_tourist: false, auto_approve: false, member_can_create_room: false };
     await client.query(
-      `INSERT INTO events (event_id, name, description, status, created_by)
-       VALUES ($1, $2, $3, 'registered', $4)`,
-      [eventId, eventName, eventDescription, req.admin.userId]
+      `INSERT INTO events (event_id, name, description, status, created_by, kind, entry_config)
+       VALUES ($1, $2, $3, 'registered', $4, $5, $6::jsonb)`,
+      [eventId, eventName, eventDescription, req.admin.userId, kind, JSON.stringify(entryConfig)]
     );
     await client.query(
       `INSERT INTO event_admins (event_id, user_id, role, added_by)

@@ -48,6 +48,43 @@ function parseUserId(value, label = '\u7528\u6237 ID') {
   return { value: id };
 }
 
+function parseEntryConfig(raw) {
+  let cfg = raw;
+  if (typeof cfg === 'string') {
+    try {
+      cfg = JSON.parse(cfg);
+    } catch (_) {
+      cfg = {};
+    }
+  }
+  if (!cfg || typeof cfg !== 'object' || Array.isArray(cfg)) cfg = {};
+  return {
+    forbid_tourist: Boolean(cfg.forbid_tourist),
+    auto_approve: Boolean(cfg.auto_approve),
+    member_can_create_room: Boolean(cfg.member_can_create_room),
+    join_code: String(cfg.join_code || '').trim().slice(0, 32),
+  };
+}
+
+function normalizeEntryConfigBody(body, current) {
+  const src = body && typeof body === 'object' ? body : {};
+  const base = parseEntryConfig(current);
+  const next = { ...base };
+  if (Object.prototype.hasOwnProperty.call(src, 'forbid_tourist')) {
+    next.forbid_tourist = Boolean(src.forbid_tourist);
+  }
+  if (Object.prototype.hasOwnProperty.call(src, 'auto_approve')) {
+    next.auto_approve = Boolean(src.auto_approve);
+  }
+  if (Object.prototype.hasOwnProperty.call(src, 'member_can_create_room')) {
+    next.member_can_create_room = Boolean(src.member_can_create_room);
+  }
+  if (Object.prototype.hasOwnProperty.call(src, 'join_code')) {
+    next.join_code = String(src.join_code || '').trim().slice(0, 32);
+  }
+  return next;
+}
+
 async function fetchEventAdmins(eventId) {
   const result = await pool.query(
     `SELECT ea.event_id, ea.user_id, ea.role, ea.added_by, ea.created_at,
@@ -103,6 +140,7 @@ router.get('/:eventId', requireEventMembership, async (req, res) => {
       success: true,
       data: {
         ...req.event,
+        entry_config: parseEntryConfig(req.event.entry_config),
         my_role: req.eventRole,
         admins,
         record_count: recordCount,
@@ -812,6 +850,175 @@ router.post('/:eventId/records/download', requireEventMembership, async (req, re
     if (!res.headersSent) {
       res.status(500).json({ success: false, message: '\u670d\u52a1\u5668\u5185\u90e8\u9519\u8bef' });
     }
+  }
+});
+
+router.get('/:eventId/registrations', requireEventMembership, async (req, res) => {
+  try {
+    const status = String(req.query.status || '').trim();
+    const params = [req.event.event_id];
+    let where = 'r.event_id = $1';
+    if (['pending', 'approved', 'rejected', 'cancelled'].includes(status)) {
+      params.push(status);
+      where += ` AND r.status = $${params.length}`;
+    }
+    const result = await pool.query(
+      `SELECT r.event_id, r.user_id, r.status, r.contact, r.remark, r.review_note,
+              r.created_at, r.updated_at, u.username
+       FROM event_registrations r
+       LEFT JOIN users u ON u.user_id = r.user_id
+       WHERE ${where}
+       ORDER BY CASE r.status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,
+                r.created_at DESC`,
+      params
+    );
+    res.json({ success: true, data: { items: result.rows } });
+  } catch (err) {
+    console.error('event-admin list registrations:', err);
+    res.status(500).json({ success: false, message: '\u670d\u52a1\u5668\u5185\u90e8\u9519\u8bef' });
+  }
+});
+
+router.post('/:eventId/registrations/:userId/review', requireEventMembership, async (req, res) => {
+  try {
+    const parsed = parseUserId(req.params.userId);
+    if (parsed.error) {
+      return res.status(400).json({ success: false, message: parsed.error });
+    }
+    const status = String((req.body || {}).status || '').trim();
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ success: false, message: '\u8bf7\u9009\u62e9\u901a\u8fc7\u6216\u62d2\u7edd' });
+    }
+    const reviewNote = String((req.body || {}).review_note || '').trim().slice(0, 500);
+    const result = await pool.query(
+      `UPDATE event_registrations
+          SET status = $1,
+              reviewed_by = $2,
+              review_note = $3,
+              updated_at = CURRENT_TIMESTAMP
+        WHERE event_id = $4 AND user_id = $5 AND status = 'pending'
+        RETURNING event_id, user_id, status, contact, remark, review_note, created_at, updated_at`,
+      [status, req.eventAdmin.userId, reviewNote, req.event.event_id, parsed.value]
+    );
+    if (result.rows.length === 0) {
+      return res.status(400).json({ success: false, message: '\u8be5\u62a5\u540d\u4e0d\u5b58\u5728\u6216\u5df2\u5ba1\u6838' });
+    }
+    if (status === 'rejected') {
+      await pool.query(
+        `DELETE FROM event_ready_pool WHERE event_id = $1 AND user_id = $2`,
+        [req.event.event_id, parsed.value]
+      );
+    }
+    await writeAudit({
+      adminUserId: req.eventAdmin.userId,
+      action: 'event_admin.registration.review',
+      targetType: 'event',
+      targetId: req.event.event_id,
+      payload: { user_id: parsed.value, status, review_note: reviewNote },
+    });
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    console.error('event-admin review registration:', err);
+    res.status(500).json({ success: false, message: '\u670d\u52a1\u5668\u5185\u90e8\u9519\u8bef' });
+  }
+});
+
+router.get('/:eventId/ready', requireEventMembership, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT p.event_id, p.user_id, p.ready_at, u.username
+       FROM event_ready_pool p
+       LEFT JOIN users u ON u.user_id = p.user_id
+       WHERE p.event_id = $1
+       ORDER BY p.ready_at ASC`,
+      [req.event.event_id]
+    );
+    res.json({ success: true, data: { items: result.rows } });
+  } catch (err) {
+    console.error('event-admin list ready:', err);
+    res.status(500).json({ success: false, message: '\u670d\u52a1\u5668\u5185\u90e8\u9519\u8bef' });
+  }
+});
+
+router.post('/:eventId/seat', requireEventMembership, async (req, res) => {
+  try {
+    if (req.event.status !== 'active') {
+      return res.status(400).json({
+        success: false,
+        message: req.event.status === 'registered'
+          ? '\u8d5b\u4e8b\u5c1a\u672a\u5f00\u542f\uff0c\u65e0\u6cd5\u7ec4\u684c'
+          : '\u8d5b\u4e8b\u5df2\u5173\u95ed\uff0c\u65e0\u6cd5\u7ec4\u684c',
+      });
+    }
+    const { user_ids, room_rule, room_config, reason } = req.body || {};
+    const ids = Array.isArray(user_ids) ? user_ids.map((x) => parseInt(x, 10)) : [];
+    if (ids.length !== 4 || ids.some((id) => Number.isNaN(id) || id <= 0)) {
+      return res.status(400).json({ success: false, message: '\u8bf7\u6070\u597d\u9009\u62e9 4 \u540d\u51c6\u5907\u4e2d\u7684\u73a9\u5bb6' });
+    }
+    const { status, data } = await proxyToGameServer('/admin/event/rooms/seat', {
+      event_id: req.event.event_id,
+      user_ids: ids,
+      room_rule: String(room_rule || 'guobiao').trim() || 'guobiao',
+      room_config: room_config || {},
+      created_by: req.eventAdmin.userId,
+    });
+    if (status >= 400) {
+      return res.status(status).json({
+        success: false,
+        message: data?.detail || data?.message || '\u7ec4\u684c\u5931\u8d25',
+      });
+    }
+    await writeAudit({
+      adminUserId: req.eventAdmin.userId,
+      action: 'event_admin.seat',
+      targetType: 'event',
+      targetId: req.event.event_id,
+      payload: { user_ids: ids, room_rule, room_info: data?.room_info || null },
+      reason: String(reason || '').trim(),
+    });
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('event-admin seat:', err);
+    res.status(500).json({ success: false, message: '\u670d\u52a1\u5668\u5185\u90e8\u9519\u8bef' });
+  }
+});
+
+router.get('/:eventId/entry-config', requireEventMembership, async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: parseEntryConfig(req.event.entry_config),
+    });
+  } catch (err) {
+    console.error('event-admin get entry-config:', err);
+    res.status(500).json({ success: false, message: '\u670d\u52a1\u5668\u5185\u90e8\u9519\u8bef' });
+  }
+});
+
+router.put('/:eventId/entry-config', requireEventMembership, async (req, res) => {
+  try {
+    const next = normalizeEntryConfigBody((req.body || {}).entry_config || req.body, req.event.entry_config);
+    const result = await pool.query(
+      `UPDATE events
+          SET entry_config = $1::jsonb, updated_at = CURRENT_TIMESTAMP
+        WHERE event_id = $2
+        RETURNING event_id, kind, entry_config`,
+      [JSON.stringify(next), req.event.event_id]
+    );
+    await writeAudit({
+      adminUserId: req.eventAdmin.userId,
+      action: 'event_admin.entry_config.update',
+      targetType: 'event',
+      targetId: req.event.event_id,
+      payload: { before: parseEntryConfig(req.event.entry_config), after: next },
+    });
+    res.json({
+      success: true,
+      data: parseEntryConfig(result.rows[0].entry_config),
+    });
+  } catch (err) {
+    console.error('event-admin update entry-config:', err);
+    res.status(500).json({ success: false, message: '\u670d\u52a1\u5668\u5185\u90e8\u9519\u8bef' });
   }
 });
 

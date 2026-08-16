@@ -9,6 +9,7 @@ Shader "Custom/ThreeDTiles"
         _BackTex ("Back Texture (牌背)", 2D) = "white" {}
         _BackColor ("Back Tint", Color) = (1,1,1,1)
         _BackTexBlend ("Back Texture Blend", Range(0, 1)) = 0
+        _BackTexExtendEdge ("Back Tex Extend Edge", Range(0, 1)) = 0
         _BackTilingOffset ("Back Tiling & Offset", Vector) = (1,1,0,0)
         _BackEdgeColor ("Back Edge Color (背面侧边)", Color) = (0.218, 0.372, 0.66, 1)
 
@@ -59,6 +60,7 @@ Shader "Custom/ThreeDTiles"
                 float4 _SideTex_ST;
                 float4 _SideTilingOffset;
                 half _BackTexBlend;
+                half _BackTexExtendEdge;
                 half _FrontRotation;
             CBUFFER_END
 
@@ -162,10 +164,12 @@ Shader "Custom/ThreeDTiles"
                 // 背侧边顶点色为黑色(RGB 和<1)时显示 _BackColor 底色；
                 // 该写法兼容当前模型(首颜色层 alpha=1)与清理后的 alpha 方案(背侧边仍为黑色)。
                 half backEdgeMask = saturate(1.0h - (input.color.r + input.color.g + input.color.b));
-                // 牌背侧边颜色独立可调：默认与牌背颜色同步，取消同步后单独使用 _BackEdgeColor。
+                // 默认背面边缘用纯色；开启延伸后把牌背图铺到背部边缘，方便整张渐变图。
+                half extendEdge = saturate(_BackTexExtendEdge) * saturate(_BackTexBlend) * backSample.a;
+                half3 edgeRgb = lerp(backEdgeColor.rgb, backSample.rgb, extendEdge);
                 half4 col = front * input.color.r + back * input.color.g
                           + side * input.color.b
-                          + backEdgeColor * backEdgeMask;
+                          + half4(edgeRgb, 1.0h) * backEdgeMask;
 
                 half grayScale = (half)instanceParams.x;
                 if (grayScale > 0.0h)

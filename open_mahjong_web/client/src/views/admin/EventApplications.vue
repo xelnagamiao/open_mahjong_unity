@@ -1,7 +1,8 @@
 <template>
   <div class="admin-apps">
+    <h2 class="page-title">{{ isBase ? '办基地申请' : '办赛申请' }}</h2>
     <div class="toolbar">
-      <el-radio-group v-model="statusFilter" size="small" @change="load">
+      <el-radio-group v-model="statusFilter" size="small" @change="onStatusChange">
         <el-radio-button label="">全部</el-radio-button>
         <el-radio-button label="pending">待审</el-radio-button>
         <el-radio-button label="approved">已通过</el-radio-button>
@@ -17,11 +18,11 @@
           {{ row.applicant_username || '—' }} ({{ row.applicant_user_id }})
         </template>
       </el-table-column>
-      <el-table-column prop="name" label="赛事名称" min-width="140" />
+      <el-table-column prop="name" label="名称" min-width="140" />
       <el-table-column label="拟定时间" min-width="180">
         <template #default="{ row }">{{ formatPlannedRange(row) }}</template>
       </el-table-column>
-      <el-table-column label="赛事介绍" min-width="200" show-overflow-tooltip>
+      <el-table-column :label="isBase ? '基地介绍' : '赛事介绍'" min-width="200" show-overflow-tooltip>
         <template #default="{ row }">{{ row.description || row.reason || '—' }}</template>
       </el-table-column>
       <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip>
@@ -44,8 +45,8 @@
           </template>
           <router-link
             v-else-if="row.event_id"
-            :to="`/admin/events/${row.event_id}`"
-          >查看赛事</router-link>
+            :to="detailPath(row.event_id, row.kind)"
+          >查看{{ isBase ? '基地' : '赛事' }}</router-link>
           <span v-else class="muted">—</span>
         </template>
       </el-table-column>
@@ -62,9 +63,9 @@
       />
     </div>
 
-    <el-dialog v-model="approveVisible" title="通过办赛申请" width="420px">
+    <el-dialog v-model="approveVisible" :title="approveTitle" width="420px">
       <el-form label-width="80px">
-        <el-form-item label="赛事名称">
+        <el-form-item :label="approveNameLabel">
           <el-input v-model="approveForm.name" />
         </el-form-item>
         <el-form-item label="备注">
@@ -77,7 +78,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="rejectVisible" title="打回办赛申请" width="420px">
+    <el-dialog v-model="rejectVisible" :title="rejectTitle" width="420px">
       <el-form label-width="80px">
         <el-form-item label="打回原因" required>
           <el-input v-model="rejectForm.review_note" type="textarea" rows="3" />
@@ -89,7 +90,7 @@
       </template>
     </el-dialog>
 
-    <el-divider content-position="left">赛事资料修改审核</el-divider>
+    <el-divider content-position="left">{{ isBase ? '基地资料修改审核' : '赛事资料修改审核' }}</el-divider>
     <div class="toolbar">
       <el-radio-group v-model="profileStatusFilter" size="small" @change="loadProfileChanges">
         <el-radio-button label="pending">待审</el-radio-button>
@@ -101,9 +102,9 @@
     </div>
     <el-table :data="profileItems" v-loading="profileLoading" stripe>
       <el-table-column prop="request_id" label="ID" width="70" />
-      <el-table-column label="赛事" min-width="160">
+      <el-table-column :label="isBase ? '基地' : '赛事'" min-width="160">
         <template #default="{ row }">
-          <router-link :to="`/admin/events/${row.event_id}`">{{ row.current_name }}</router-link>
+          <router-link :to="detailPath(row.event_id)">{{ row.current_name }}</router-link>
         </template>
       </el-table-column>
       <el-table-column label="申请人" min-width="130">
@@ -130,22 +131,32 @@
             <el-button type="success" link @click="approveProfile(row)">通过</el-button>
             <el-button type="danger" link @click="rejectProfile(row)">拒绝</el-button>
           </template>
-          <router-link v-else :to="`/admin/events/${row.event_id}`">查看赛事</router-link>
+          <router-link v-else :to="detailPath(row.event_id, row.kind)">查看{{ isBase ? '基地' : '赛事' }}</router-link>
         </template>
       </el-table-column>
     </el-table>
 
-    <el-dialog v-model="previewVisible" title="赛事页面预览" width="640px">
+    <el-dialog v-model="previewVisible" :title="isBase ? '基地页面预览' : '赛事页面预览'" width="640px">
       <EventPreviewCard v-if="previewEvent" :event="previewEvent" :status-label="previewStatusLabel" />
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import adminApi from '@/api/adminClient'
 import EventPreviewCard from '@/components/EventPreviewCard.vue'
+import { parseVenueKind, venueAdminDetailPath } from '@/utils/eventMeta'
+
+const route = useRoute()
+const isBase = computed(() => parseVenueKind(route.meta.venueKind) === 'base')
+const venueKind = computed(() => (isBase.value ? 'base' : 'event'))
+
+function detailPath(eventId, kind) {
+  return venueAdminDetailPath(kind || venueKind.value, eventId)
+}
 
 const items = ref([])
 const loading = ref(false)
@@ -158,11 +169,16 @@ const total = ref(0)
 const approveVisible = ref(false)
 const rejectVisible = ref(false)
 const currentId = ref(null)
+const currentKind = ref('event')
 const approveForm = reactive({ name: '', review_note: '' })
 const rejectForm = reactive({ review_note: '' })
 const previewVisible = ref(false)
 const previewEvent = ref(null)
 const previewStatusLabel = ref('申请中的赛事页面预览')
+const isCurrentBase = computed(() => currentKind.value === 'base')
+const approveTitle = computed(() => (isCurrentBase.value ? '通过办基地申请' : '通过办赛申请'))
+const approveNameLabel = computed(() => (isCurrentBase.value ? '基地名称' : '赛事名称'))
+const rejectTitle = computed(() => (isCurrentBase.value ? '打回办基地申请' : '打回办赛申请'))
 
 const profileItems = ref([])
 const profileLoading = ref(false)
@@ -204,12 +220,18 @@ function formatPlannedRange(row) {
   return `至 ${end}`
 }
 
+function onStatusChange() {
+  page.value = 1
+  load()
+}
+
 async function load() {
   loading.value = true
   try {
     const res = await adminApi.get('/event-applications', {
       params: {
         status: statusFilter.value || undefined,
+        kind: venueKind.value,
         page: page.value,
         page_size: pageSize,
       },
@@ -225,6 +247,7 @@ async function load() {
 
 function openApprove(row) {
   currentId.value = row.application_id
+  currentKind.value = row.kind === 'base' ? 'base' : 'event'
   approveForm.name = row.name
   approveForm.review_note = ''
   approveVisible.value = true
@@ -232,13 +255,14 @@ function openApprove(row) {
 
 function openReject(row) {
   currentId.value = row.application_id
+  currentKind.value = row.kind === 'base' ? 'base' : 'event'
   rejectForm.review_note = ''
   rejectVisible.value = true
 }
 
 function previewApplication(row) {
   previewEvent.value = row
-  previewStatusLabel.value = '办赛申请预览'
+  previewStatusLabel.value = row.kind === 'base' ? '办基地申请预览' : '办赛申请预览'
   previewVisible.value = true
 }
 
@@ -248,7 +272,7 @@ function previewProfileChange(row) {
     description: row.proposed_description,
     requester_username: row.requester_username,
   }
-  previewStatusLabel.value = '赛事资料修改后预览'
+  previewStatusLabel.value = isBase.value ? '基地资料修改后预览' : '赛事资料修改后预览'
   previewVisible.value = true
 }
 
@@ -259,7 +283,7 @@ async function doApprove() {
       name: approveForm.name,
       review_note: approveForm.review_note,
     })
-    ElMessage.success('已通过并创建赛事')
+    ElMessage.success(isBase.value ? '已通过并创建基地' : '已通过并创建赛事')
     approveVisible.value = false
     await load()
   } catch (e) {
@@ -295,6 +319,7 @@ async function loadProfileChanges() {
     const res = await adminApi.get('/event-profile-changes', {
       params: {
         status: profileStatusFilter.value || undefined,
+        kind: venueKind.value,
         limit: 50,
       },
     })
@@ -344,9 +369,20 @@ onMounted(() => {
   load()
   loadProfileChanges()
 })
+
+watch(() => route.meta.venueKind, () => {
+  page.value = 1
+  load()
+  loadProfileChanges()
+})
 </script>
 
 <style scoped>
+.page-title {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 600;
+}
 .toolbar {
   display: flex;
   align-items: center;

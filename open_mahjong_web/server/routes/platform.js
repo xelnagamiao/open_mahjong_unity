@@ -8,6 +8,7 @@ const {
   querySceneDailyGames,
   queryHomeHierarchyStats,
   queryRecentLadderRecords,
+  listPlatformEvents,
 } = require('../services/platformStats');
 const { getPublicQueueStatus } = require('../services/matchQueueStatus');
 const { getPublicGameRecord, getPublicUnityGameRecord } = require('../services/publicGameRecord');
@@ -50,10 +51,12 @@ router.get('/stats', async (req, res) => {
     }
     if (asOfDate && dateTo > asOfDate) dateTo = asOfDate;
 
-    const [totals, fans, daily] = await Promise.all([
-      querySceneTotals({ asOfDate }),
-      querySceneTotalsFans({ asOfDate }),
-      querySceneDailyGames({ dateFrom, dateTo, asOfDate }),
+    const eventId = typeof req.query.event_id === 'string' ? req.query.event_id.trim() : '';
+    const [totals, fans, daily, events] = await Promise.all([
+      querySceneTotals({ asOfDate, eventId: eventId || null }),
+      querySceneTotalsFans({ asOfDate, eventId: eventId || null }),
+      querySceneDailyGames({ dateFrom, dateTo, asOfDate, eventId: eventId || null }),
+      listPlatformEvents(),
     ]);
 
     res.json({
@@ -62,6 +65,7 @@ router.get('/stats', async (req, res) => {
         totals,
         fans,
         daily,
+        events,
         fan_dict: guobiaoFanDict,
       },
       meta: {
@@ -100,10 +104,12 @@ router.get('/home-stats', async (req, res) => {
 router.get('/recent-records', async (req, res) => {
   try {
     const matchTier = typeof req.query.match_tier === 'string' ? req.query.match_tier : null;
+    const eventId = typeof req.query.event_id === 'string' ? req.query.event_id.trim() : '';
     const limit = parseInt(req.query.limit, 10) || 20;
     const offset = parseInt(req.query.offset, 10) || 0;
     const data = await queryRecentLadderRecords({
       matchTier,
+      eventId: eventId || null,
       limit,
       offset,
     });

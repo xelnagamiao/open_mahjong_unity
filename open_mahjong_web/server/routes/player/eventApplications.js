@@ -64,10 +64,10 @@ router.post('/', async (req, res) => {
     const result = await pool.query(
       `INSERT INTO event_applications
          (applicant_user_id, name, description, remark, reason,
-          planned_start_at, planned_end_at, status)
-       VALUES ($1, $2, $3, $4, $3, $5, $6, 'pending')
+          planned_start_at, planned_end_at, status, kind)
+       VALUES ($1, $2, $3, $4, $3, $5, $6, 'pending', $7)
        RETURNING application_id, applicant_user_id, name, description, remark, reason,
-                 planned_start_at, planned_end_at,
+                 planned_start_at, planned_end_at, kind,
                  status, event_id, created_at, updated_at, reviewed_at, review_note`,
       [
         req.player.userId,
@@ -76,6 +76,7 @@ router.post('/', async (req, res) => {
         v.remark,
         v.planned_start_at,
         v.planned_end_at,
+        v.kind,
       ]
     );
 
@@ -96,7 +97,7 @@ router.get('/mine', async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT application_id, applicant_user_id, name, description, remark, reason,
-              planned_start_at, planned_end_at, status,
+              planned_start_at, planned_end_at, kind, status,
               reviewer_user_id, review_note, event_id,
               created_at, updated_at, reviewed_at
        FROM event_applications
@@ -113,11 +114,12 @@ router.get('/mine', async (req, res) => {
 });
 
 function parseApplicationBody(body) {
-  const { name, description, remark, planned_start_at, planned_end_at } = body || {};
+  const { name, description, remark, planned_start_at, planned_end_at, kind } = body || {};
+  const kindValue = kind === 'base' ? 'base' : 'event';
   const nameParsed = normalizeName(name);
   if (nameParsed.error) return { error: nameParsed.error };
   const startParsed = normalizeDate(planned_start_at, {
-    required: true,
+    required: kindValue === 'event',
     label: '拟定开始时间',
   });
   if (startParsed.error) return { error: startParsed.error };
@@ -131,7 +133,7 @@ function parseApplicationBody(body) {
   }
   const descParsed = normalizeText(description, {
     required: true,
-    label: '赛事介绍',
+    label: kindValue === 'base' ? '基地介绍' : '赛事介绍',
     maxLen: 2000,
   });
   if (descParsed.error) return { error: descParsed.error };
@@ -148,6 +150,7 @@ function parseApplicationBody(body) {
       remark: remarkParsed.value,
       planned_start_at: startParsed.value,
       planned_end_at: endParsed.value,
+      kind: kindValue,
     },
   };
 }
@@ -173,12 +176,13 @@ router.put('/:id', async (req, res) => {
            reason = $2,
            planned_start_at = $4,
            planned_end_at = $5,
+           kind = $6,
            updated_at = CURRENT_TIMESTAMP
-       WHERE application_id = $6
-         AND applicant_user_id = $7
+       WHERE application_id = $7
+         AND applicant_user_id = $8
          AND status = 'pending'
        RETURNING application_id, applicant_user_id, name, description, remark, reason,
-                 planned_start_at, planned_end_at, status, event_id,
+                 planned_start_at, planned_end_at, kind, status, event_id,
                  created_at, updated_at, reviewed_at, review_note`,
       [
         v.name,
@@ -186,6 +190,7 @@ router.put('/:id', async (req, res) => {
         v.remark,
         v.planned_start_at,
         v.planned_end_at,
+        v.kind,
         applicationId,
         req.player.userId,
       ]
@@ -237,17 +242,18 @@ router.post('/:id/resubmit', async (req, res) => {
            reason = $2,
            planned_start_at = $4,
            planned_end_at = $5,
+           kind = $6,
            status = 'pending',
            reviewer_user_id = NULL,
            review_note = NULL,
            reviewed_at = NULL,
            event_id = NULL,
            updated_at = CURRENT_TIMESTAMP
-       WHERE application_id = $6
-         AND applicant_user_id = $7
+       WHERE application_id = $7
+         AND applicant_user_id = $8
          AND status = 'rejected'
        RETURNING application_id, applicant_user_id, name, description, remark, reason,
-                 planned_start_at, planned_end_at, status, event_id,
+                 planned_start_at, planned_end_at, kind, status, event_id,
                  created_at, updated_at, reviewed_at, review_note`,
       [
         v.name,
@@ -255,6 +261,7 @@ router.post('/:id/resubmit', async (req, res) => {
         v.remark,
         v.planned_start_at,
         v.planned_end_at,
+        v.kind,
         applicationId,
         req.player.userId,
       ]

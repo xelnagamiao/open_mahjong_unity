@@ -457,7 +457,7 @@ async function fetchPlayerRank(userId) {
 /** 公开：全部历史赛事（含已关闭），供数据查询站筛选 */
 async function listPublicEvents() {
   const result = await pool.query(
-    `SELECT event_id, name, description, status, closed_at, created_at
+    `SELECT event_id, name, description, status, kind, closed_at, created_at
      FROM events
      ORDER BY
        CASE status WHEN 'active' THEN 0 WHEN 'registered' THEN 1 ELSE 2 END,
@@ -470,7 +470,7 @@ async function fetchPublicEventDetail(eventId) {
   const id = String(eventId || '').trim();
   if (!id) return null;
   const eventRes = await pool.query(
-    `SELECT event_id, name, description, status, closed_at, created_at, updated_at
+    `SELECT event_id, name, description, status, kind, closed_at, created_at, updated_at
      FROM events WHERE event_id = $1`,
     [id]
   );

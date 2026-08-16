@@ -1,0 +1,1328 @@
+{
+  "slug": "mahjong-studies",
+  "label": "麻将通论与书志",
+  "aliases": [
+    "麻将学",
+    "国标出台",
+    "纸牌到麻将",
+    "盛琦"
+  ],
+  "collected_at": "2026-08-14",
+  "notes": "纸牌前史、民初牌谱、国标 1998、盛琦通论；第十四期补分类书：关兆豪史观、韩徐老式麻将、王贤文 2013 使用地理、欢乐麻将目录、赵旭腾起源讲座。版权期内专书只登记书目。",
+  "sources": [
+    {
+      "id": "wiki-yezi",
+      "url": "https://zh.wikipedia.org/wiki/%E8%91%89%E5%AD%90%E6%88%B2",
+      "title": "叶子戏（中文维基百科）",
+      "type": "history",
+      "lang": "zh",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "唐叶子戏初见苏鹗《同昌公主传》。欧阳修《归田录》：唐叶子是骰子格，赏例印在折叶册子上，不是后来的四十张马吊。清人有时把叶子戏当作马吊或纸牌泛称。汪师韩已写明叶格兼用骰子，与马吊、游湖不同。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/wiki-yezi.html",
+      "local_status": "ok",
+      "rules": [
+        "yezi"
+      ]
+    },
+    {
+      "id": "wiki-madiao",
+      "url": "https://zh.wikipedia.org/wiki/%E9%A6%AC%E5%90%8A",
+      "title": "马吊（中文维基百科）",
+      "type": "history",
+      "lang": "zh",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "明末四十张纸牌，万、索、文钱、十字四门，多绘水浒人像，玩法以大击小。与麻将凑刻顺不是一种玩法。牌张花色后来进入默和/碰和再进麻将。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/wiki-madiao.html",
+      "local_status": "ok",
+      "rules": [
+        "madiao"
+      ]
+    },
+    {
+      "id": "wiki-en-cards",
+      "url": "https://en.wikipedia.org/wiki/Chinese_playing_cards",
+      "title": "Chinese playing cards（英文维基）",
+      "type": "history",
+      "lang": "en",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "钱币纹三门（饼、索、万）纸牌与骨牌麻将花色同源。英文综述，细节以 Wilkinson、Culin、Lo 为准。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/wiki-en-cards.html",
+      "local_status": "ok",
+      "rules": [
+        "yezi",
+        "madiao"
+      ]
+    },
+    {
+      "id": "tang-guoshibu",
+      "url": "https://zh.wikisource.org/zh-hans/%E5%94%90%E5%9C%8B%E5%8F%B2%E8%A3%9C",
+      "title": "李肇《唐国史补》",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "开元至长庆笔记。叶子戏史常引唐人记载，本书是唐笔记的底本之一。叶子在唐文献里不等于马吊。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/tang-guoshibu.html",
+      "local_status": "ok",
+      "rules": [
+        "yezi"
+      ]
+    },
+    {
+      "id": "jin-xueshi",
+      "url": "https://zh.wikisource.org/zh-hans/%E7%89%A7%E8%B1%AC%E9%96%92%E8%A9%B1",
+      "title": "金学诗《牧猪闲话》",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "纸牌六十页、三十种，万贯、索子、文钱加么头；默和四人各十页，三四页为一副。加倍一百二十页名碰和，三页同色曰碰。马吊牌另条：四十页、水浒人像、打马吊非李清照打马。碰和玩法是麻将凑牌的前身，马吊不是。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/jin-xueshi.html",
+      "local_status": "ok",
+      "rules": [
+        "mohe",
+        "penghe",
+        "madiao"
+      ]
+    },
+    {
+      "id": "zhangdai-shuihu",
+      "url": "https://zh.wikisource.org/wiki/%E9%99%B6%E5%BA%B5%E5%A4%A2%E6%86%B6/%E5%8D%B706",
+      "title": "张岱《陶庵梦忆》卷六「水浒牌」",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "张岱记陈洪绶为周孔嘉画水浒四十人像，作缘起。是明末水浒纸牌（马吊一系）的画作记录，不是麻将规则。",
+      "accessed": "2026-08-14",
+      "local_status": "ok",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/zhangdai-shuihu.html",
+      "rules": [
+        "madiao"
+      ]
+    },
+    {
+      "id": "qingbai-087",
+      "url": "https://zh.wikisource.org/zh-hans/%E6%B8%85%E7%A8%97%E9%A1%9E%E9%88%94/087",
+      "title": "徐珂《清稗类钞》卷八七 赌博类",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "叉麻雀、碰和、马吊分条。麻雀「始于浙江宁波，其后不胫而走」。不把麻将写成马吊改名。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/qingbai-087.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong",
+        "penghe",
+        "madiao"
+      ]
+    },
+    {
+      "id": "hu-shi-1927",
+      "url": "https://zh.wikisource.org/wiki/%E6%BC%AB%E9%81%8A%E7%9A%84%E6%84%9F%E6%83%B3",
+      "title": "胡适《漫游的感想·麻将》（1927）",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "马吊四十张 → 每色五张纸牌 → 近七八十年每色四张麻将。音变链是胡适的看法，不能代替玩法考证。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/hu-shi-1927.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "wilkinson-1895",
+      "url": "https://archive.org/details/jstor-658442",
+      "title": "W. H. Wilkinson, Chinese Origin of Playing Cards (1895)",
+      "type": "book",
+      "lang": "en",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "American Anthropologist 8: 61–78。钱币纹纸牌 kun p'ai / ma chioh：饼、索、万加白花、红花、老千。主张欧洲花色来自中国钱币牌。IA JSTOR 扫描。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/wilkinson-1895.pdf",
+      "local_status": "ok",
+      "rules": [
+        "madiao",
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "wilkinson-wayback",
+      "url": "https://web.archive.org/web/20160302040523/http://www.gamesmuseum.uwaterloo.ca/Archives/Wilkinson/Wilkinson.html",
+      "title": "Wilkinson 1895 滑铁卢博物馆 HTML 转写",
+      "type": "history",
+      "lang": "en",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "与 JSTOR 扫描同文的网页转写，便于检索。",
+      "accessed": "2026-08-14",
+      "local_status": "ok",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/wilkinson-1895.pdf",
+      "rules": [
+        "madiao",
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "culin-korean-games",
+      "url": "https://archive.org/details/cu31924023272424",
+      "title": "Stewart Culin, Korean Games (1895)",
+      "type": "book",
+      "lang": "en",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "朝鲜纸牌与中国钱币牌对照。Wilkinson 1893 哥伦布博览会中国纸牌目录收入此书系统。麻将专章之前的牌类比较底本。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/culin-korean-games.pdf",
+      "local_status": "ok",
+      "rules": [
+        "madiao"
+      ]
+    },
+    {
+      "id": "culin-1895",
+      "url": "https://archive.org/details/chinesegameswith01culi",
+      "title": "Culin, Chinese Games with Dice and Dominoes (1895)",
+      "type": "book",
+      "lang": "en",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "Glover 福州套与 Wilkinson 宁波中发对照。骨牌形制的麻将前身，不是1910年代规则书。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/culin-1895.pdf",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong",
+        "tianjiu"
+      ]
+    },
+    {
+      "id": "culin-1924",
+      "url": "https://web.archive.org/web/20110516224304/http://www.gamesmuseum.uwaterloo.ca/Archives/Culin/Majong1924/index.html",
+      "title": "Culin, The Game of Ma-Jong (1924)",
+      "type": "book",
+      "lang": "en",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "Brooklyn Museum Quarterly XI: 153–168。1909 上海购牌；店家按客订做；广州同年冬无专用牌。玩法是旧纸牌戏改动，形制来自骨牌。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/culin-1924.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "tileset-1",
+      "url": "https://www.themahjongtileset.co.uk/tile-set-history/mahjongg-before-mahjongg-part-1/",
+      "title": "Mahjong(g) Before Mahjong(g) Part 1",
+      "type": "history",
+      "lang": "en",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "Glover ≤1875、Himly 宁波竹牌、Wilkinson 中发。把牌具年代与玩法年代分开。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/tileset-1.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "tileset-2",
+      "url": "https://www.themahjongtileset.co.uk/tile-set-history/mahjongg-before-mahjongg-part-2/",
+      "title": "Mahjong(g) Before Mahjong(g) Part 2",
+      "type": "history",
+      "lang": "en",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "Culin 1909 上海购牌与 1924 附图对照。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/tileset-2.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "tileset-flowers",
+      "url": "https://www.themahjongtileset.co.uk/tile-set-history/flowers-and-kings-an-hypothesis-of-their-function-in-early-ma-que/",
+      "title": "Flowers and Kings: Early Ma Que",
+      "type": "history",
+      "lang": "en",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "早期麻雀花牌、王化与纸牌百搭的功能假说。不是某省规则。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/tileset-flowers.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "tileset-terms",
+      "url": "https://www.themahjongtileset.co.uk/mahjong-terms-1780-1920/",
+      "title": "Máquè/Májiàng/Mahjong Terms 1780–1920",
+      "type": "history",
+      "lang": "en",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "申报用语与牧猪闲话、金学诗条目的系年。1884 原报页 IA 缺号。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/tileset-terms.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "chen-xiyuan-2009",
+      "url": "https://www.airitilibrary.com/Article/Detail/10124195-200903-80-1-137-196-a",
+      "title": "陈熙远《从马吊到马将》（2009）摘要",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "《汉学研究》27.1。晚明马吊与晚清麻将在士林论述里的位置。华艺摘要免费，全文付费，本馆只收摘要页。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/chen-xiyuan-2009.html",
+      "local_status": "ok",
+      "rules": [
+        "madiao",
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "cctv-yezi-madiao",
+      "url": "http://cctvenchiridion.cctv.com/special/C22126/20080918/101172.shtml",
+      "title": "央视网「从叶子戏、马吊到麻将」（2008）",
+      "type": "media",
+      "lang": "zh",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "通俗系谱：叶子→马吊→斗虎→默和→麻雀。把唐叶子与马吊接成一条直线，与维基叶子戏条冲突。只作大众叙述样本。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/cctv-yezi-madiao.html",
+      "local_status": "ok",
+      "rules": [
+        "yezi",
+        "madiao",
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "shen-yifan-1914",
+      "url": "/rule-research/绘图麻雀牌谱.pdf",
+      "title": "沈一帆《绘图麻雀牌谱》（1914/1924）",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "early-manual"
+      ],
+      "excerpt": "时务书馆 1914，上海游艺社 1924 重印。目前能拿到原件的最早中文牌谱之一。「始于宁波，不过三十余年」。本地已有扫描。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/shen-yifan-1914.pdf",
+      "local_status": "ok",
+      "rules": [
+        "classical"
+      ]
+    },
+    {
+      "id": "wiki-maque-pai",
+      "url": "https://zh.wikipedia.org/wiki/%E9%BA%BB%E9%9B%80%E7%89%8C",
+      "title": "麻雀牌（中文维基百科）书目",
+      "type": "history",
+      "lang": "zh",
+      "tags": [
+        "early-manual"
+      ],
+      "excerpt": "列沈一帆 1914、麻雀大观 1919 等早期牌具与牌谱书目。大观原书未下。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/wiki-maque-pai.html",
+      "local_status": "ok",
+      "rules": [
+        "classical"
+      ]
+    },
+    {
+      "id": "shinbara-1952",
+      "url": "https://mjradio.web.fc2.com/majansite-mirror/rule42.html",
+      "title": "榛原茂树「想定宁波规则」1952 与五书书目",
+      "type": "book",
+      "lang": "ja",
+      "tags": [
+        "early-manual"
+      ],
+      "excerpt": "所据：《麻雀牌谱》《麻雀指南》《麻雀门径》《麻雀必胜术》《麻雀防弊法》。榛原自言据这些书想定危险。五书原件免费扫描仍无。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/shinbara-1952.html",
+      "local_status": "ok",
+      "rules": [
+        "classical"
+      ]
+    },
+    {
+      "id": "zj-classical",
+      "url": "http://www.zj-mahjong.info/book_hk/2.0%20Early%20Classical.html",
+      "title": "关兆豪：早期中国古典麻雀",
+      "type": "history",
+      "lang": "zh",
+      "tags": [
+        "early-manual"
+      ],
+      "excerpt": "采用榛原 1952 为早期古典参考，并说明其资料已是 1910–20 年代刊物。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/zj-classical.html",
+      "local_status": "ok",
+      "rules": [
+        "classical"
+      ]
+    },
+    {
+      "id": "wiki-mcr",
+      "url": "https://zh.wikipedia.org/wiki/%E5%9B%BD%E6%A0%87%E9%BA%BB%E5%B0%86",
+      "title": "国标麻将（中文维基百科）出台年表",
+      "type": "history",
+      "lang": "zh",
+      "tags": [
+        "mcr-1998"
+      ],
+      "excerpt": "1997：试验邀请赛、汇各地打法、草拟框架、10 月北京审定会。1998-01 红牛杯试草案，4 月修订，7 月公布试行规则。参考文献为 1998 人民体育出版社纸书与杜维忠 2006。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/wiki-mcr.html",
+      "local_status": "ok",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "mcr-1998",
+      "url": "https://zh.wikisource.org/wiki/%E4%B8%AD%E5%9B%BD%E9%BA%BB%E5%B0%86%E7%AB%9E%E8%B5%9B%E8%A7%84%E5%88%99",
+      "title": "《中国麻将竞赛规则（试行）》1998-07",
+      "type": "official",
+      "lang": "zh",
+      "tags": [
+        "mcr-1998"
+      ],
+      "excerpt": "国家体育总局社体中心制订，人民体育出版社，ISBN 7-5009-1630-2。前言：军队、地方老干部中已有竞技比赛；历时两年调研、研讨会与试赛。编写组署名。这是竞赛规则，不是某省后裔。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/mcr-1998.html",
+      "local_status": "ok",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "worldcat-mcr-1998",
+      "url": "https://www.worldcat.org/oclc/768652206",
+      "title": "WorldCat：中国麻将竞赛规则（试行）1998",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "mcr-1998"
+      ],
+      "excerpt": "纸书书目。OCLC 768652206。正文已见维基文库，纸书扫描未下。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/worldcat-mcr-1998.html",
+      "local_status": "ok",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "gmw-1998",
+      "url": "https://www.gmw.cn/01shsb/1998-07/29/GB/690%5ESH15-213.htm",
+      "title": "光明网／生活时报：竞技麻将追求「健康」（1998-07-29）",
+      "type": "media",
+      "lang": "zh",
+      "tags": [
+        "mcr-1998"
+      ],
+      "excerpt": "哈尔滨全国首届健康麻将规则培训班。邢小泉：总局宣传谨慎；培训分管理班与技术班，技术班为第一批裁判。新疆已连续十年区级赛。年底将办全国大赛。",
+      "accessed": "2026-08-14",
+      "local_status": "ok",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/gmw-1998.html",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "sina-2008",
+      "url": "http://sports.sina.com.cn/go/2008-11-21/22174084314.shtml",
+      "title": "新浪：中国麻将协会十年难挂牌（2008-11-21）",
+      "type": "media",
+      "lang": "zh",
+      "tags": [
+        "mcr-1998"
+      ],
+      "excerpt": "邢小泉：工作近停滞。张普生 1983 年前后为安徽老干部俱乐部比赛上书，两上北京碰壁。1996 初报告转伍绍祖。1996-08 房山麻将牌座谈会（9 省市 13 单位 20 人），纪要建议列入竞技项目。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/sina-2008.html",
+      "local_status": "ok",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "chinaso-dama",
+      "url": "http://paper.chinaso.com/detail/13618551461408011619569848008.html",
+      "title": "中国搜索：麻将大妈（老干部赛与培训）",
+      "type": "media",
+      "lang": "zh",
+      "tags": [
+        "mcr-1998"
+      ],
+      "excerpt": "麻将成赛事始于老干部群体。1980 年代末全国首届老干部麻将邀请赛（张普生建言）。1998 哈尔滨培训班。陕西国防系统老干部学成后办班。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/chinaso-dama.html",
+      "local_status": "ok",
+      "rules": [
+        "beijing",
+        "hongzhong"
+      ]
+    },
+    {
+      "id": "baike-jingji",
+      "url": "https://baike.so.com/doc/5931051-6143979.html",
+      "title": "360 百科：竞技麻将（张普生／房山会）",
+      "type": "discussion",
+      "lang": "zh",
+      "tags": [
+        "mcr-1998"
+      ],
+      "excerpt": "与新浪 2008 同源的张普生叙述。1996 房山会后形成纪要。百科转写，细节以新浪稿为准。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/baike-jingji.html",
+      "local_status": "ok",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "jiankang-1998",
+      "url": "https://www.jendow.com.tw/wiki/%E7%AC%AC%E4%B8%80%E5%B1%86%E5%81%A5%E5%BA%B7%E9%BA%BB%E5%B0%87%E9%82%80%E8%AB%8B%E8%B3%BD",
+      "title": "丽景湾杯首届健康麻将邀请赛（1998-12）",
+      "type": "official",
+      "lang": "zh",
+      "tags": [
+        "mcr-1998"
+      ],
+      "excerpt": "1998-12-25 至 28 日广州天河体育馆。总局社体中心主办，40 队 160 人。个人冠军广州陈纪恩。这是总局主办的全国赛，其后官方未续办。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/jiankang-1998.html",
+      "local_status": "ok",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "southcn-2016",
+      "url": "http://static.nfapp.southcn.com/content/201609/05/c128084.html",
+      "title": "南方：没有奖金也去奥地利打麻将（2016）",
+      "type": "media",
+      "lang": "zh",
+      "tags": [
+        "mcr-1998"
+      ],
+      "excerpt": "1998-12 广州邀请赛是迄今唯一一次官方主办的全国性麻将邀请赛。邢小泉 2008 年称已停滞。陕西老干部联谊会打的是 98 规。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/southcn-2016.html",
+      "local_status": "ok",
+      "rules": [
+        "guangdong"
+      ]
+    },
+    {
+      "id": "shengqi-bio",
+      "url": "https://www.jendow.com.tw/wiki/%E7%9B%9B%E7%90%A6",
+      "title": "盛琦简介（编写组副组长、执笔）",
+      "type": "history",
+      "lang": "zh",
+      "tags": [
+        "mcr-1998",
+        "shengqi"
+      ],
+      "excerpt": "1934 生，宁波籍，天津四十二中体育教师。1997 年起参与编写《中国麻将竞赛规则》，副组长、主要执笔。1997 成立天津市体育总会麻将运动分会。后办牌王赛、品级制。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/shengqi-bio.html",
+      "local_status": "ok",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "majiang-yundong",
+      "url": "https://www.newton.com.tw/wiki/%E9%BA%BB%E5%B0%87%E9%81%8B%E5%8B%95/8550314",
+      "title": "盛琦《麻将运动》（1996）书目",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "shengqi"
+      ],
+      "excerpt": "天津人民出版社，1996-03，ISBN 7-201-02471-X。目录：概述、探源、误区、重树社会形象、文化遗产，并附竞赛规划章节。第一次把「麻将运动」写成书名。版权期内无合法全文。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/majiang-yundong.html",
+      "local_status": "ok",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "majiang-yundong-jendow",
+      "url": "https://www.jendow.com.tw/wiki/%E9%BA%BB%E5%B0%87%E9%81%8B%E5%8B%95",
+      "title": "盛琦《麻将运动》目录转写",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "shengqi"
+      ],
+      "excerpt": "与牛顿百科同书。列场地器具、比赛方式程序、团体赛等竞赛规划章节。正文未开。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/majiang-yundong-jendow.html",
+      "local_status": "ok",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "majiangxue-douban",
+      "url": "https://book.douban.com/subject/1118511/",
+      "title": "盛琦《麻将学》（1999）豆瓣书目",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "shengqi"
+      ],
+      "excerpt": "同心出版社，1999-01，348 页，ISBN 9787805933542 / 7-80593-354-5。目录含「创编《中国麻将竞赛规则》的主导思想与经过」。版权期内无合法全文。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/majiangxue-douban.html",
+      "local_status": "ok",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "majiangxue-wiki",
+      "url": "https://www.newton.com.tw/wiki/%E9%BA%BB%E5%B0%87%E5%AD%B8",
+      "title": "《麻将学》出版信息与目录",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "shengqi"
+      ],
+      "excerpt": "邢小泉序。理论篇、技艺篇、词诠篇、规则篇。规则篇写 98 规创编经过与番种识记。公开网只有书目，没有正文。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/majiangxue-wiki.html",
+      "local_status": "ok",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "shengqi-2012",
+      "url": "https://book.douban.com/subject/10457067/",
+      "title": "盛琦《打麻将的妙招：麻将博弈术》（2012）",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "shengqi"
+      ],
+      "excerpt": "北京体育大学出版社。后出博弈术，不是 98 规出台史料。版权期内只收书目。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/shengqi-2012.html",
+      "local_status": "ok",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "du-weizhong-2006",
+      "url": "https://www.worldcat.org/oclc/276447975",
+      "title": "杜维忠《中国麻将竞赛规则（试行）问答》（2006）",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "mcr-1998"
+      ],
+      "excerpt": "人民体育出版社，ISBN 7-5009-3062-3。维基国标条多处引此书。WorldCat 有目，无合法 PDF。网盘站跳过。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/du-weizhong-2006.html",
+      "local_status": "ok",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "wmo-2006",
+      "url": "http://aimj.altervista.org/extraregolamenti/mcrcina.pdf",
+      "title": "世界麻将组织《麻将竞赛规则》（2006）PDF",
+      "type": "official",
+      "lang": "zh",
+      "tags": [
+        "mcr-1998"
+      ],
+      "excerpt": "于光远题词「麻将源于中国，属于世界」。2005-10 北京成立世界麻将组织后编译。中英日。版权页署 WMCC。这是 98 规之后的国际赛用本，不是地方规则。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/wmo-2006.pdf",
+      "local_status": "ok",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "xinmin-yuguangyuan",
+      "url": "http://xmzk.xinmin.cn/resfile/2012-11-26/30/029.pdf",
+      "title": "新民周刊：于光远与中华麻将公开赛（2012）",
+      "type": "media",
+      "lang": "zh",
+      "tags": [
+        "mcr-1998"
+      ],
+      "excerpt": "龚育之、李梦华支持。2003 博鳌首届中华麻将论坛（因非典延至 12 月）。2005 推于光远为世界麻将组织主席，江选旗秘书长。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/xinmin-yuguangyuan.pdf",
+      "local_status": "ok",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "rmwz-2014",
+      "url": "https://paper.people.com.cn/rmwz/html/2014-11/01/content_1524605.htm",
+      "title": "人民文摘：麻将申遗与世界麻将组织（2014）",
+      "type": "media",
+      "lang": "zh",
+      "tags": [
+        "mcr-1998"
+      ],
+      "excerpt": "于光远任世界麻将组织主席。荷兰等西方竞赛史简述。申遗叙述是后来舆论，不是 98 规史料。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/rmwz-2014.html",
+      "local_status": "ok",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "wiki-en-mcr",
+      "url": "https://en.wikipedia.org/wiki/Mahjong#Official_International_Rules",
+      "title": "English Wikipedia: Official International Rules / MCR",
+      "type": "history",
+      "lang": "en",
+      "tags": [
+        "mcr-1998"
+      ],
+      "excerpt": "1998 中国官方规则，无赌博、饮酒、吸烟的竞赛原则。国际赛常用此套。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/wiki-en-mcr.html",
+      "local_status": "ok",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "greene-2015",
+      "url": "https://escholarship.org/content/qt02m6693f/qt02m6693f_noSplash_e76666c7561ebe472d69d5e71fa38716.pdf",
+      "title": "Maggie Greene, The Game People Played (2015)",
+      "type": "book",
+      "lang": "en",
+      "tags": [
+        "scholarship"
+      ],
+      "excerpt": "escholarship 免费 PDF。共和国时期麻将、娱乐与政治。引《博史》系统表。社会史，不是牌具年代学。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/greene-2015.pdf",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "heinz-site",
+      "url": "https://www.amheinz.org/",
+      "title": "Annelise Heinz, Mahjong (Oxford, 2021) 作者页",
+      "type": "book",
+      "lang": "en",
+      "tags": [
+        "scholarship"
+      ],
+      "excerpt": "麻将在美国现代文化中的意义。全书需购买。本馆收作者介绍页。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/heinz-site.html",
+      "local_status": "ok",
+      "rules": [
+        "babcock",
+        "nmjl"
+      ]
+    },
+    {
+      "id": "heinz-douban",
+      "url": "https://book.douban.com/subject/35239435/",
+      "title": "Heinz 2021 豆瓣书目",
+      "type": "book",
+      "lang": "en",
+      "tags": [
+        "scholarship"
+      ],
+      "excerpt": "ISBN 9780190081799。书目页。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/heinz-douban.html",
+      "local_status": "ok",
+      "rules": [
+        "babcock",
+        "nmjl"
+      ]
+    },
+    {
+      "id": "heinz-opb",
+      "url": "https://www.opb.org/article/2026/07/09/uo-professor-shares-history-of-mahjong/",
+      "title": "OPB: UO professor on mahjong history",
+      "type": "media",
+      "lang": "en",
+      "tags": [
+        "scholarship"
+      ],
+      "excerpt": "Heinz 书的新闻介绍，不是原书。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/heinz-opb.html",
+      "local_status": "ok",
+      "rules": [
+        "babcock",
+        "nmjl"
+      ]
+    },
+    {
+      "id": "zhao-nblib",
+      "url": "https://www.nblib.cn/information/13420",
+      "title": "宁波图书馆：赵旭腾馆员介绍（著《雀从宁波来》）",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "scholarship"
+      ],
+      "excerpt": "天一阁博物院馆员。著《雀从宁波来——麻将起源史话》（宁波出版社）。全书需购买。论点与 2018 澎湃文一致。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/zhao-nblib.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "zhao-paper-2018",
+      "url": "https://m.thepaper.cn/newsDetail_forward_2626049",
+      "title": "赵旭腾 2018 澎湃文（麻将起源）",
+      "type": "history",
+      "lang": "zh",
+      "tags": [
+        "scholarship"
+      ],
+      "excerpt": "牌张与玩法分开；宁波定型外传；陈鱼门说标孤证。讲座逐字稿仍无稳定地址。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/zhao-paper-2018.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "wiki-zh-mahjong",
+      "url": "https://zh.wikipedia.org/wiki/%E9%BA%BB%E5%B0%86",
+      "title": "麻将（中文维基百科）通论",
+      "type": "history",
+      "lang": "zh",
+      "tags": [
+        "scholarship"
+      ],
+      "excerpt": "起源、名称、1949 后禁止与 1985 解禁、1998 国标。社区综述，细节回原书。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/wiki-zh-mahjong.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "ouyang-guitianlu",
+      "url": "https://zh.wikisource.org/wiki/%E6%AD%B8%E7%94%B0%E9%8C%84",
+      "title": "欧阳修《归田录》（叶子格条）",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "唐人藏书由卷轴改为叶子（册子）。骰子格本备检用，故以叶子写之，因以为名。唐世士人宴聚盛行叶子格，后废。这是骰子格/册子，不是四十张马吊，更不是麻将。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/ouyang-guitianlu.html",
+      "local_status": "ok",
+      "rules": [
+        "yezi"
+      ]
+    },
+    {
+      "id": "su-e-duyang",
+      "url": "https://zh.wikisource.org/wiki/%E6%9D%9C%E9%99%BD%E9%9B%9C%E7%B7%A8",
+      "title": "苏鹗《杜阳杂编》（同昌公主叶子戏）",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "韦氏诸家好为叶子戏。后世纪叶子戏史常从此条起笔。此处叶子未写牌张形制，不能据此写成马吊或麻将。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/su-e-duyang.html",
+      "local_status": "ok",
+      "rules": [
+        "yezi"
+      ]
+    },
+    {
+      "id": "paijing-13",
+      "url": "https://zh.wikisource.org/wiki/%E7%89%8C%E7%B6%93%E5%8D%81%E4%B8%89%E7%AF%87",
+      "title": "冯梦龙《牌经十三篇》（马吊牌经）",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "明末马吊技巧论：吊、发、捉放、门、灭、留。三人同心攻一桩，以大击小。是马吊玩法文本，不是默和/碰和，也不是麻将规则。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/paijing-13.html",
+      "local_status": "ok",
+      "rules": [
+        "madiao"
+      ]
+    },
+    {
+      "id": "fengmenglong-index",
+      "url": "https://zh.wikisource.org/wiki/%E9%A6%AE%E5%A4%A2%E9%BE%8D%E5%85%A8%E9%9B%86",
+      "title": "维基文库：冯梦龙全集（列《牌经》《马吊脚例》）",
+      "type": "history",
+      "lang": "zh",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "目录有《牌经十三篇》《马吊脚例》。脚例正文页尚未录入（红链），公开转写见下条。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/fengmenglong-index.html",
+      "local_status": "ok",
+      "rules": [
+        "madiao"
+      ]
+    },
+    {
+      "id": "madiao-jiaoli-blog",
+      "url": "https://aloneinthefart.blogspot.com/2010/11/blog-post_8946.html",
+      "title": "冯梦龙《马吊脚例》公开转写（2010）",
+      "type": "history",
+      "lang": "zh",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "维基文库尚未录入脚例正文。此页据旧本逐字转写并加标点，是目前能免费读到的马吊出牌例。转写不是原刻本扫描。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/madiao-jiaoli-blog.html",
+      "local_status": "ok",
+      "rules": [
+        "madiao"
+      ]
+    },
+    {
+      "id": "parlett-leaf",
+      "url": "https://www.parlettgames.uk/histocs/leafgame.html",
+      "title": "David Parlett, The Chinese Leaf Game",
+      "type": "history",
+      "lang": "en",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "综述 Andrew Lo 2000：唐叶子格更像升官图一类骰子格，不是纸牌。与欧阳修《归田录》一致。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/parlett-leaf.html",
+      "local_status": "ok",
+      "rules": [
+        "yezi"
+      ]
+    },
+    {
+      "id": "lo-game-of-leaves",
+      "url": "https://www.cambridge.org/core/journals/bulletin-of-the-school-of-oriental-and-african-studies/article/abs/game-of-leaves-an-inquiry-into-the-origin-of-chinese-playing-cards/FCDF32E1461700E7617AAD4AA1750D56",
+      "title": "Andrew Lo, The Game of Leaves (2000) 摘要页",
+      "type": "book",
+      "lang": "en",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "BSOAS 63.3。主张叶子戏不是纸牌。Cambridge 全文付费，本馆只收摘要页。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/lo-game-of-leaves.html",
+      "local_status": "ok",
+      "rules": [
+        "yezi"
+      ]
+    },
+    {
+      "id": "fan-zengxiang-1906",
+      "url": "https://archive.org/details/02106614.cn",
+      "title": "樊增祥《樊山续集》卷二十六《十忆集·忆博》（1906）",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "诗写宁波麻雀。夹注：撮麻雀之戏，二十年前起于宁波，今遍天下矣。丙午春自识，倒推约 1886。CADAL/IA 扫描。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/fan-zengxiang-1906.pdf",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "cinii-boshi",
+      "url": "https://ci.nii.ac.jp/ncid/BA5079123X",
+      "title": "CiNii：杜亚泉《博史：附乐客戏谱》（1933）书目",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "cards-to-mahjong"
+      ],
+      "excerpt": "开明书店，上海，1933.4。麻将通论常引第十二章。免费扫描仍无，本馆只收书目。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/cinii-boshi.html",
+      "local_status": "ok",
+      "rules": [
+        "classical"
+      ]
+    },
+    {
+      "id": "japan-karuta-haibara",
+      "url": "https://japanplayingcardmuseum.com/010-3-mahjong-products-freestyle/",
+      "title": "日本かるた文化馆：榛原所得古牌年代",
+      "type": "history",
+      "lang": "ja",
+      "tags": [
+        "early-manual"
+      ],
+      "excerpt": "榛原 1928 北京购牌自称太平天国前福州牌。此文据牌面形制判为 1920 年代自由麻雀产物，甲子岁当作 1924。是牌具考证，不是某省规则书。",
+      "accessed": "2026-08-14",
+      "local_kind": "file",
+      "local_path": "mahjong-studies/files/japan-karuta-haibara.html",
+      "local_status": "ok",
+      "rules": [
+        "classical",
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "lsqn-jiejin",
+      "url": "https://news.sina.cn/sa/2008-11-15/detail-ikftpnny4072811.d.html",
+      "title": "新京报：麻将解禁（2008-11-15，新浪转载）",
+      "type": "media",
+      "lang": "zh",
+      "tags": [
+        "mcr-1998"
+      ],
+      "excerpt": "专访张普生。1980 公安部《关于禁止制造、销售赌具问题的联合通知》。1985-10 底街上突然能光明正大打牌。1996-08-19 至 24 日房山麻将牌座谈会。手机转载被截断，后半以腾讯 2018 条为准。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/lsqn-jiejin.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "lsqn-jiejin-2",
+      "url": "https://view.inews.qq.com/a/CRI2018082903323900",
+      "title": "腾讯：麻将的解禁（谌旭彬，2018）",
+      "type": "media",
+      "lang": "zh",
+      "tags": [
+        "mcr-1998"
+      ],
+      "excerpt": "转引公文与张普生书：1957 停制售；1980-05-08 七部委联合通知；1983-12-13 再申；1985-10-16 不再干预制造销售、内部掌握不登报。1986-03-05 至 10 日安徽省直老干部首届麻将比赛。1987 张普生《怎样打麻将》。房山会日期 1996-08-19 至 24。注脚指向李雪颜《麻将博弈》2009。这是目前能免费读到的最完整出台前史。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/lsqn-jiejin-2.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "wmo-intro",
+      "url": "http://www.mindmahjong.com/htdocs/pages.asp?id=142",
+      "title": "世界麻将组织简介（mindmahjong）",
+      "type": "official",
+      "lang": "zh",
+      "tags": [
+        "mcr-1998"
+      ],
+      "excerpt": "2005-10 北京成立。推于光远为主席、江选旗为秘书长。其后编译《麻将竞赛规则》、品级认定。协会自述，不是 98 规正文。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/wmo-intro.html",
+      "local_status": "ok",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "majiangxue-dushu",
+      "url": "https://book.douban.com/subject/25869162/",
+      "title": "杨荫深《游戏娱乐》（2014 校订本）豆瓣",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "shengqi"
+      ],
+      "excerpt": "上海辞书出版社。原《事物掌故丛谈》之一。摘录引徐珂：麻雀为马吊音转。作者 1989 年卒，校订本仍在版权期，只收书目。1935《中国游艺研究》同系统，无合法全文。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/majiangxue-dushu.html",
+      "local_status": "ok",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "youyi-worldcat",
+      "url": "http://www.queshu.com/book/11368187/",
+      "title": "严行方《麻将兵法》（2002）缺书网书目",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "scholarship"
+      ],
+      "excerpt": "上海辞书出版社。目录上部有骰子、叶子戏、骨牌、马吊、纸牌到麻将的通论，不是某省规则书。版权期内无合法全文。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/youyi-worldcat.html",
+      "local_status": "ok",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "zhangpusheng-1987",
+      "url": "https://view.inews.qq.com/a/CRI2018082903323900",
+      "title": "张普生《怎样打麻将》（1987）见谌旭彬文注",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "mcr-1998"
+      ],
+      "excerpt": "安徽科学技术出版社。谌旭彬据版权页：截至 1990-05 累计印 21.5 万册；书中第 102–103 页记 1986-03-05 至 10 日安徽省直老干部首届麻将比赛。公开网无合法全文，书目附于腾讯文。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/lsqn-jiejin-2.html",
+      "local_status": "ok",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "lixueyan-2009",
+      "url": "http://www.queshu.com/book/13131125/",
+      "title": "李雪颜《麻将博弈》（2009）缺书网书目",
+      "type": "book",
+      "lang": "zh",
+      "tags": [
+        "mcr-1998"
+      ],
+      "excerpt": "中国社会出版社，2009-04，ISBN 9787508724584。古代博戏文化丛书。谌旭彬注①称第 23–24 页记房山座谈会纪要。版权期内无合法全文。",
+      "accessed": "2026-08-14",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-studies/snapshots/lixueyan-2009.html",
+      "local_status": "ok",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "zj-history-book",
+      "url": "http://www.zj-mahjong.info/book_hk/index.html",
+      "title": "关兆豪《中庸麻雀史观》",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "章法即计分法。历史篇从古典追到旧章／清章、新章、日本、台湾。中庸篇讨论理想章法。官网公开。分类轴：按计分制度，不是按省名。",
+      "rules": [
+        "zungjung",
+        "qingzhang",
+        "taiwan"
+      ],
+      "source_level": "secondary",
+      "reliability": "high",
+      "tags": [
+        "classification"
+      ]
+    },
+    {
+      "id": "han-xubin-classic",
+      "url": "https://www.dushu.com/book/12187910/",
+      "title": "韩桂良、徐斌《麻将和标准老式麻将》",
+      "type": "book",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "上海三联书店。主张「标准老式麻将」：和值+番（台）数、四副一对。质疑国标试行规则与十三烂、七对。规范轴，不是地方变体分类。版权期内只登记书目。",
+      "rules": [
+        "classical",
+        "guobiao"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium",
+      "tags": [
+        "classification"
+      ]
+    },
+    {
+      "id": "arxiv-wang-2013",
+      "url": "https://arxiv.org/abs/1309.0890",
+      "title": "王贤文等 · Regional mahjong usage (2013)",
+      "type": "history",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "excerpt": "用 QQ 游戏在线人数看地方麻将使用地理：川麻集中川渝黔滇，杭麻集中浙沪苏，边界大致省级。是使用图，不是传播树。",
+      "rules": [
+        "sichuan",
+        "hangzhou"
+      ],
+      "source_level": "secondary",
+      "reliability": "high",
+      "tags": [
+        "classification"
+      ]
+    },
+    {
+      "id": "happymj-catalog",
+      "url": "https://baike.baidu.com/item/欢乐麻将/1536001",
+      "title": "百度百科 · 欢乐麻将（玩法目录）",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "腾讯平台目录：血流、血战、长沙、武汉、广东、二人、卡五星、大众麻将、北方推倒胡、贵阳捉鸡等。商品地理目录，能提示缺条，不能当谱系。",
+      "rules": [
+        "kawuxing",
+        "xueliu",
+        "changsha"
+      ],
+      "source_level": "community",
+      "reliability": "medium",
+      "tags": [
+        "classification"
+      ]
+    },
+    {
+      "id": "zhao-xuteng-ningbo",
+      "url": "https://www.thepaper.cn/newsDetail_forward_2042285",
+      "title": "赵旭腾 · 雀从宁波来（澎湃 2018）",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "麻将继承马吊等牌张，玩法是新型；宁波定型外传。起源地理，不分类现行地方桌。讲座同名《雀从宁波来》。",
+      "rules": [
+        "proto-mahjong"
+      ],
+      "source_level": "secondary",
+      "reliability": "high",
+      "tags": [
+        "classification"
+      ]
+    }
+  ]
+}

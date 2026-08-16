@@ -1,0 +1,251 @@
+{
+  "slug": "yuegang",
+  "label": "粤港澳（清章 / 新章 / 鸡平胡 / 推倒胡）",
+  "aliases": [
+    "广东麻将",
+    "粤麻",
+    "鸡平胡",
+    "推倒胡",
+    "推倒和",
+    "跑马仔",
+    "新章",
+    "老章",
+    "清章",
+    "澳门麻将",
+    "传统麻雀",
+    "简易麻雀"
+  ],
+  "collected_at": "2026-08-14",
+  "notes": "香港清章总例不重做，见 hongkong。广东麻将是伞称。MIL 推广本与民间鸡平胡、深莞推倒胡、跑马仔分条。清章/新章命名冲突并列。澳门 1991 训令是赌场法定，总表独立条 macau，不并进民间粤麻。",
+  "sources": [
+    {
+      "id": "mil-gd",
+      "url": "/rulebooks/mil/广东麻将（推广）竞赛规则（试行2023版）.pdf",
+      "title": "广东麻将（推广）竞赛规则（试行 2023 版）",
+      "type": "rulebook",
+      "lang": "zh",
+      "publisher": "国际麻将联盟规则委员会",
+      "published": "2023",
+      "accessed": "2026-08-14",
+      "excerpt": "140 张：万筒索、东南西北中发白，外加梅兰竹菊四花。花牌为鬼，可当任何牌，可打出，不可被碰、杠、和，不可作马。行牌写摸、打、碰、杠，报牌为碰、杠、和，不见吃。起和 4 分且 2 番。截和，不允许一炮多响。自摸后奖马：牌墙前端连续 4 张，鬼牌视为未中马。19 种番。平台/图书馆广东麻将按这一套，不是民间鸡平胡。",
+      "rules": [
+        "guangdong"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/mil/广东麻将（推广）竞赛规则（试行2023版）.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "mil-tuidao",
+      "url": "/rulebooks/mil/推倒和麻将（推广）竞赛规则（试行2024版）.pdf",
+      "title": "推倒和麻将（推广）竞赛规则（试行 2024 版）",
+      "type": "rulebook",
+      "lang": "zh",
+      "publisher": "国际麻将联盟规则委员会",
+      "published": "2024",
+      "accessed": "2026-08-14",
+      "excerpt": "136 张，无花。行牌含吃、碰、杠。须报听；报听后不能吃碰，杠不能改听口。凑齐和牌型即可和（基本型、七对、全不靠、十三幺）。荒庄：牌墙剩 6 墩。基本分=2+番数，32 番封顶，23 种番。与深莞民间「禁吃、只许自摸、买马」不是一套。",
+      "rules": [
+        "tuidao"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/mil/推倒和麻将（推广）竞赛规则（试行2024版）.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "mahjonget-gd",
+      "url": "https://www.mahjonget.com/",
+      "title": "智力运动考级 · 广东麻将（推广）说明",
+      "type": "official",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "推广规则包括广东麻将（推广）。广麻民间有多个变种，主流有推倒和、鸡平和。写 140 张，四张花（梅兰竹菊）作鬼；也有民间 136 张、开局翻鬼。自摸可翻马。快照已在 chuanyu 档案。",
+      "rules": [
+        "guangdong",
+        "jipinghu",
+        "tuidao"
+      ],
+      "source_level": "secondary",
+      "reliability": "high",
+      "local_kind": "snapshot",
+      "local_path": "chuanyu/snapshots/mahjonget.html",
+      "local_status": "ok"
+    },
+    {
+      "id": "wiki-zh-gd-sparrow",
+      "url": "https://zh.wikipedia.org/wiki/廣東麻雀",
+      "title": "维基百科 · 廣東麻雀",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "标题：廣東麻雀另称清章，食糊方式比香港麻雀（另称新章）更多，含六独、十八番、无奇不有。后文又写：现代麻雀由老章演化出新章；香港仍维持清章，因三番起糊、摸到尾及个别新章牌型，现为新派清章。广东牌食糊番数可叠到四十番以上，无上限。与 HKMA「港麻=清章、广东加番=新章」冲突，并列不选边。",
+      "rules": [
+        "guangdong",
+        "qingzhang"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "zj-new-style",
+      "url": "http://www.zj-mahjong.info/book_hk/5.0%20New%20Style.html",
+      "title": "「新章」麻雀 | zj-mahjong.info",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-07-20",
+      "excerpt": "「新章」只是统称，各家各法，无正式统一标准。古典加副要素在新章升为一番；普及有限。快照在 hongkong 档案。",
+      "rules": [
+        "guangdong",
+        "qingzhang"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium",
+      "local_kind": "file",
+      "local_path": "hongkong/files/zj-new-style.html",
+      "local_status": "ok"
+    },
+    {
+      "id": "baike-guangdong",
+      "url": "https://baike.baidu.com/item/广东麻将/4143465",
+      "title": "百度百科 · 广东麻将",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "主要分为鸡平胡、推倒胡、新章、老章四大派系。鸡平胡因节奏快、牌型简单，为珠三角最普及；核心牌型鸡胡、平胡、爆胡。五十年代前流行老章，比鸡平胡复杂；新章约八九十年代从老章简化。深圳较流行推倒胡；粤北、韶关有不带万字的推倒胡。鸡平胡条写 136 张、可吃碰杠、一炮多响、爆胡常见 3 番。C 级。",
+      "rules": [
+        "guangdong",
+        "jipinghu",
+        "tuidao"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "18183-jipinghu",
+      "url": "https://www.18183.com/xxpd/yxzx/8796927.html",
+      "title": "广东鸡平胡规则大全",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "136 张，无花。可吃碰杠，碰优先于吃。鸡胡 0 番，平胡 1 番（全顺无刻），碰碰胡 2 番，混一色 2 番。常规 3 番封顶，清一色等可突破。番是 2 倍：基数×2^番。附加番（自摸、门风、圈风、三元刻）只对未爆胡牌型有效。C 级。",
+      "rules": [
+        "jipinghu"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "gametea-jipinghu",
+      "url": "http://www.gametea.com/news/201106/1903.html",
+      "title": "游戏茶苑 · 广东鸡平胡麻将规则技巧",
+      "type": "discussion",
+      "lang": "zh",
+      "published": "2011-06",
+      "accessed": "2026-08-14",
+      "excerpt": "四大派系说法与百科同。鸡平胡讲鸡胡、平胡、爆胡。漏胡：放弃某张后，同巡再打出同一张不能和，动牌后解除。允许一炮多响。爆胡为 3 番。C 级，2011。",
+      "rules": [
+        "jipinghu"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "jj-gd-tuidao",
+      "url": "https://www.jj.cn/news/320/20111025103000019369.shtml",
+      "title": "JJ · 广东麻将推倒胡游戏规则",
+      "type": "discussion",
+      "lang": "zh",
+      "publisher": "竞技世界",
+      "published": "2011-10-25",
+      "accessed": "2026-08-14",
+      "excerpt": "推倒胡是深圳、东莞等地区流行打法：不许吃，只许自摸，可抢杠，讲究杠牌、买马。136 张无花。发牌后从牌墙末尾定一张马牌，按点数从庄家逆时针数到谁，庄家跟该家再结算一次。连庄可再买马，最多 4 匹。C 级平台桌规。",
+      "rules": [
+        "tuidao"
+      ],
+      "source_level": "community",
+      "reliability": "low",
+      "local_kind": "snapshot",
+      "local_path": "yuegang/snapshots/jj-gd-tuidao.html",
+      "local_status": "ok"
+    },
+    {
+      "id": "360-gd-tuidao",
+      "url": "https://u.360.cn/gl/article/267650/",
+      "title": "360 游戏 · 广东麻将推倒胡规则和技巧详解",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "星辰广东麻将桌规：只能自摸，不能吃，136 张。普通自摸叫平胡 1 番。有鬼、无鬼、杠开、满鬼、抢杠、买马（有鬼 4 马、无鬼 6 马）。与 JJ「发牌定一匹马」细节不同，与 MIL 推倒和也不同。C 级。",
+      "rules": [
+        "tuidao"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "wiki-zh-paomazai",
+      "url": "https://zh.wikipedia.org/wiki/跑馬仔",
+      "title": "维基百科 · 跑馬仔",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "又叫推倒糊或槓牌。只能碰和槓，可出铳，不能上，和牌方式比较简单。和牌不计番数。自摸普遍有奖马，个数开局协商，多为 1–4。简体「推倒胡」条 404，本条是维基侧对应条目。",
+      "rules": [
+        "tuidao"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "bkqs-gd",
+      "url": "https://www.bkqs.com.cn/content/zpe2ojogp.html",
+      "title": "百科全说 · 广东麻将游戏玩法规则",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "四大派系。深圳流行推倒胡，归因移民城市。粤北、韶关流行不带万字的推倒胡，文称听起来像四川规则。鸡平胡由老章简化。C/D，粤北变体只作线索。",
+      "rules": [
+        "guangdong",
+        "tuidao",
+        "jipinghu"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "dicj-macau",
+      "url": "https://www.dicj.gov.mo/web/cn/rules/Mahjong.html",
+      "title": "澳门博彩监察协调局 · 麻雀规则（第 135/91/M 号训令）",
+      "type": "official",
+      "lang": "zh",
+      "publisher": "澳门特别行政区政府博彩监察协调局",
+      "published": "1991",
+      "accessed": "2026-08-14",
+      "excerpt": "批准《麻雀法定博彩规则》。传统麻雀：136 张、四人。简易麻雀：112 张、二至四人。当日抓取页以限红、抽水表为主，条文摘要见公报来源。赌场法定，不是珠三角鸡平胡。总表独立条 macau。不进清章圈。",
+      "rules": [
+        "macau"
+      ],
+      "source_level": "primary",
+      "reliability": "high"
+    },
+    {
+      "id": "bo-macau-135",
+      "url": "https://bo.io.gov.mo/bo/i/91/31/port135_cn.asp?printer=1",
+      "title": "澳门公报 · 第 135/91/M 号训令《麻雀法定博彩规则》",
+      "type": "official",
+      "lang": "zh",
+      "published": "1991",
+      "accessed": "2026-08-14",
+      "excerpt": "第 135/91/M 号训令批准《麻雀法定博彩规则》。传统麻雀：136 张、四人、最先四搭加一对共十四张即食糊。简易麻雀：112 张、二至四人、一搭加一对共五张即食糊。另有清一色九章落地出冲须包输等。赌场法定，不是鸡平胡。总表独立条 macau。",
+      "rules": [
+        "macau"
+      ],
+      "source_level": "primary",
+      "reliability": "medium"
+    }
+  ]
+}

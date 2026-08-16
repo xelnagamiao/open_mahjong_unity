@@ -1,16 +1,16 @@
 /**
  * 麻雀图书馆规则目录
  * categories:
- *   platform - 平台支持
+ *   mahjong  - 麻将（谱系 + 平台可对局）
  *   mil      - MIL 国际麻将联盟
  *   local    - 地方麻将
  *   custom   - 自制规则
  */
 export const LIBRARY_SECTIONS = [
   {
-    key: 'platform',
-    title: '平台支持规则',
-    hint: '本站已实装或可对局的规则',
+    key: 'mahjong',
+    title: '麻将',
+    hint: '本站可对局的规则。',
   },
   {
     key: 'mil',
@@ -20,7 +20,7 @@ export const LIBRARY_SECTIONS = [
   {
     key: 'categorized',
     title: '归类规则',
-    hint: '地方麻将、自制规则与平台尚未实装的玩法',
+    hint: '地方麻将、前史、子规则与尚未实装的玩法。',
   },
   {
     key: 'materials',
@@ -32,6 +32,11 @@ export const LIBRARY_SECTIONS = [
     title: '提交资料',
     hint: '提交新的规则书、牌例或规则研究资料',
   },
+  {
+    key: 'lineage',
+    title: '麻将谱系',
+    hint: '年代表与关系表',
+  },
 ]
 
 export const LIBRARY_RULES = [
@@ -41,7 +46,7 @@ export const LIBRARY_RULES = [
     short: '国标',
     categories: ['platform', 'mil'],
     description:
-      '国标麻将指国家体育总局在1998出台的《中国竞技麻将比赛规则(试行)》中确立的麻将规则。本平台以新编 MCR 作为主规则书。',
+      '国标麻将源于国家体育总局于1998年11月出台的《中国竞技麻将比赛规则(试行)》、是中国唯一由官方确立的竞技麻将规则；本平台参照Natsuki编著的新编MCR撰写运行逻辑，已通过所有牌例验证，如发现测试过程中出现了不符合国标麻将规则预期的行为，请向Q群906497522反馈。',
     accent: '#3b82f6',
     resources: [
       {
@@ -57,7 +62,7 @@ export const LIBRARY_RULES = [
     label: '立直麻将',
     short: '立直',
     categories: ['platform'],
-    description: '立直麻将一般指日本麻将，是麻将规则的一个分支。',
+    description: '立直麻将参照天凤/雀魂规则进行设计，无双倍役满',
     accent: '#ef4444',
     resources: [
       {
@@ -74,7 +79,7 @@ export const LIBRARY_RULES = [
     short: '青雀',
     categories: ['platform', 'custom'],
     description:
-      '青雀由莫莫柴编写，旨在传统行牌框架内平衡做大、抢和与防守，并为各类和牌提供基于美感与难度的赋分参照。',
+      '青雀是由莫莫柴编写的一款麻雀规则，旨在寻求一种在传统麻将行牌规则框架内的做大、抢和、兜牌防守三者平衡的麻雀游戏，同时试图为各类和牌提供基于美感和难度评估的赋分参照；如在测试中发现设计问题或有任何建议，可以联系规则制定人莫莫柴Q1107574，提交bug可在群906497522提交',
     accent: '#10b981',
     resources: [
       {
@@ -125,7 +130,8 @@ export const LIBRARY_RULES = [
     label: '虹雀²',
     short: '虹雀²',
     categories: ['platform', 'custom'],
-    description: '虹雀² v1.6 规则书，介绍牌面、行牌流程、吃碰杠和、补牌及计分规则。',
+    description:
+      '虹雀是由Null设计的一款以彩虹为主题的拉密类桌游，使用十四种花色、九种数字各一张的麻将牌，最先将手牌全部组成顺子或刻子的玩家赢得一局。牌组的种类千变万化，各种起手都存在无限的可能。游戏尚在测试阶段，如对本规则感兴趣或有任何建议都可以添加虹雀官方Q群497685219一同交流。',
     accent: '#f97316',
     resources: [
       {
@@ -142,7 +148,7 @@ export const LIBRARY_RULES = [
     short: '古典',
     categories: ['platform'],
     description:
-      '根据《绘图麻雀牌谱》《想定宁波规则》等文献汇总，试图还原 1920 年代前后早期麻将样貌：番种简洁、重刻杠幺九、未和牌家计分。',
+      '本规则为根据《绘图麻雀牌谱》《想定宁波规则》等书籍文献资料汇总而成的，试图还原1920年代左右或以前的早期麻将样貌的麻将规则。相比现代规则，古典麻雀有番种体系简单、重刻杠幺九、未和牌家计分等特点，具有独特风味。',
     accent: '#a16207',
     resources: [
       {
@@ -151,6 +157,18 @@ export const LIBRARY_RULES = [
         url: '/rulebooks/classical-rulebook.pdf',
         filename: '古典麻将规则.pdf',
       },
+      {
+        title: '绘图麻雀牌谱',
+        desc: '沈一帆 1914 年牌谱。古典麻将按这本书和同层文献还原。',
+        url: '/rulebooks/drawing-mahjong.pdf',
+        filename: '绘图麻雀牌谱.pdf',
+      },
+      {
+        title: '想定宁波规则（榛原 1952）',
+        desc: '榛原茂树据五种民初麻将书想定的宁波打法。',
+        url: '/rulebooks/shinbara-ningbo.html',
+        filename: '想定宁波规则.html',
+      },
     ],
   },
   {
@@ -158,7 +176,7 @@ export const LIBRARY_RULES = [
     label: '四川麻将（SBR）',
     short: '川麻',
     categories: ['platform', 'mil'],
-    description: 'MIL 比赛规则下的四川麻将（血战到底 / SBR 竞赛规则）。',
+    description: '四川麻将（血战到底）',
     accent: '#f59e0b',
     resources: [
       {
@@ -174,7 +192,8 @@ export const LIBRARY_RULES = [
     label: '长沙麻将',
     short: '长沙',
     categories: ['platform', 'local'],
-    description: '湖南地区流行的长沙麻将玩法；本平台实现双鸟变体。',
+    description:
+      '长沙麻将经典双鸟规则：108张数牌，可吃上家牌，258将小胡，大胡可叠加，和牌后翻两只鸟并按座位中鸟加倍。',
     accent: '#ec4899',
     resources: [
       {
@@ -190,7 +209,8 @@ export const LIBRARY_RULES = [
     label: '台湾麻将',
     short: '台麻',
     categories: ['platform', 'local'],
-    description: '采用 144 张牌与 16 张手牌，并以台数结算的台湾麻将规则。',
+    description:
+      '台湾麻将：使用144张牌与16张手牌，按台计分，支持公开报听、食替限制与八仙过海等规则。具体流程与台表可在馆规设置中选择。',
     accent: '#14b8a6',
     resources: [
       {
@@ -206,7 +226,8 @@ export const LIBRARY_RULES = [
     label: '南雀',
     short: '南雀',
     categories: ['platform'],
-    description: '平台轻量入门向规则，便于快速上手对局。',
+    description:
+      '南雀规则由南瓜饼编写，是一个正在测试的规则，目标是在新手易上手与竞技策略深度之间取得平衡。无起和限制。当前版本固定采用一人和牌即止。标准规则将采用三人和牌（血战到底），正在开发中。',
     accent: '#64748b',
     resources: [],
   },
@@ -231,7 +252,8 @@ export const LIBRARY_RULES = [
     label: '国标小林改',
     short: '小林改',
     categories: ['platform', 'custom'],
-    description: '社区修改的中国麻将规则，整体沿用国标番种体系并调整部分条款。',
+    description:
+      '小林改版国标麻将，对国标麻将进行了番数平衡，还处于测试版，取消了8番起胡和底分，改为点和得分x2，自摸番三。非竞技规则，只为娱乐。',
     accent: '#0ea5e9',
     resources: [
       {
@@ -247,7 +269,8 @@ export const LIBRARY_RULES = [
     label: 'K神麻将',
     short: 'K神',
     categories: ['platform', 'custom'],
-    description: '国标 K 神改版规则。',
+    description:
+      'K神改版国标麻将，新增镜同、四连刻等番种，复合番100封顶，默认8番起和。小牌点炮无责：点和12分以下三家各付n；12分以上两家各付12，放铳者付3n-24。自摸三家各付n。可开启错和、可自定义起和番。出现计分bug可在群里向q975653345反馈',
     accent: '#6366f1',
     resources: [
       {
@@ -255,6 +278,23 @@ export const LIBRARY_RULES = [
         desc: 'K 神改版规范说明书。',
         url: '/rulebooks/guobiao-kshen.pdf',
         filename: 'K神麻雀规则说明书.pdf',
+      },
+    ],
+  },
+  {
+    key: 'guobiao-lanshi',
+    label: '国标蓝十改',
+    short: '蓝十改',
+    categories: ['platform', 'custom'],
+    description:
+      '蓝十改版的国标麻将规则，对国标麻将的番种表进行了全面的修改，并根据番种的难度调整了评分，5分起和，授受制为半全铳半分付。如在测试中发现设计问题或有任何建议，可以联系规则制定人蓝十QQ1002094810。',
+    accent: '#0d9488',
+    resources: [
+      {
+        title: '蓝十魔改规则第4版',
+        desc: '蓝十改规则说明。',
+        url: '/rulebooks/guobiao-lanshi.pdf',
+        filename: '蓝十魔改规则第4版.pdf',
       },
     ],
   },
@@ -289,6 +329,9 @@ export function getLibraryRule(key) {
 }
 
 export function rulesForSection(sectionKey) {
+  if (sectionKey === 'mahjong') {
+    return LIBRARY_RULES.filter((r) => r.categories.includes('platform'))
+  }
   if (sectionKey === 'categorized') {
     return LIBRARY_RULES.filter(
       (r) => !r.categories.includes('platform') && !r.categories.includes('mil'),
@@ -301,7 +344,7 @@ export function rulesForSection(sectionKey) {
     const platformMilFiles = new Set(['mil-sichuan', 'mil-mcr', 'mil-riichi'])
     return platformRules.concat(MIL_RULES.filter((r) => !platformMilFiles.has(r.key)))
   }
-  if (sectionKey === 'materials' || sectionKey === 'submit') return []
+  if (sectionKey === 'materials' || sectionKey === 'submit' || sectionKey === 'lineage') return []
   return LIBRARY_RULES.filter((r) => r.categories.includes(sectionKey))
 }
 
@@ -316,13 +359,13 @@ export const LIBRARY_MATERIALS = [
     links: [
       {
         title: '规则资料搜集',
-        desc: '浏览规则研究、牌例与历史资料索引。',
+        desc: '原文档案：谱系史料簿、麻将通论与书志、香港资料。',
         to: '/rule-research',
       },
       {
-        title: '绘图麻雀牌谱',
-        desc: '传统麻将牌谱与牌例资料。',
-        to: '/rule-research/drawing-mahjong',
+        title: '古典麻将文献',
+        desc: '绘图麻雀牌谱、想定宁波规则，以及平台古典麻将规则书。',
+        to: '/library/classical',
       },
       {
         title: 'MIL 资料整理',
@@ -351,10 +394,20 @@ export const LIBRARY_SUBMISSION = [
   },
 ]
 
+export const LIBRARY_LINEAGE = {
+  key: 'lineage',
+  title: '麻将谱系',
+  short: '年代表 · 关系表',
+  description: '纸牌、牌九接到宁波麻将再分化。',
+  to: '/library/lineage',
+  accent: '#1f6b52',
+}
+
 // 图书馆讨论区主题（非规则条目的板块）：key -> 显示名
 export const LIBRARY_TOPIC_LABELS = {
   materials: '其他资料',
   submit: '提交资料',
+  lineage: '麻将谱系',
   public: '主讨论区',
 }
 

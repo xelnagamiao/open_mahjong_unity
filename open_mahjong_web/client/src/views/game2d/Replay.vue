@@ -1014,18 +1014,10 @@ function advanceAnimatedStep() {
   decorateEventRanks(update)
   node.value = nextNode
   if (update) {
-    const snapshotClaimKinds = new Set(['chow', 'pung', 'melded_kong'])
-    if (snapshotClaimKinds.has(String(update.event?.kind || ''))) {
-      // A replay already has the authoritative post-claim hand, river and meld
-      // in nextPosition. Rebuild those three together so an incremental claim
-      // can never leave only the call label without its exposed meld.
-      scene.flushFromSnapshot(nextPosition.snapshot)
-      scene.applyReplayCue('claim', update.event)
-    } else {
-      // Even in instant-panel mode, execute the same table-side win event as a
-      // normal replay step so the hand reveal and final win audio are preserved.
-      scene.handleEvent(update)
-    }
+    // Replay stepping uses the same board mutation path as the live game. In
+    // particular, chow/pung/kong now move tiles out of the river and hand instead
+    // of replacing the whole table with the post-action snapshot.
+    scene.handleEvent(update)
     refreshReplayHints(nextPosition.snapshot)
     actionLabel.value = nextPosition.actionLabel
     const seatMap = replay.value.rounds[roundIndex.value].seats || [0, 1, 2, 3]

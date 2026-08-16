@@ -100,6 +100,10 @@ def test_debug_three_claimants_can_all_chi_peng_win_on_first_discard() -> None:
     asyncio.run(_exercise_debug_tactical_all_claims())
 
 
+def test_debug_ones_nines_opening_hands() -> None:
+    asyncio.run(_exercise_debug_ones_nines())
+
+
 def test_head_bump_only_nearest_ron_wins() -> None:
     asyncio.run(_exercise_head_bump_ron())
 
@@ -114,6 +118,25 @@ def test_kong_extends_open_meld_stepwise() -> None:
 
 def test_supplement_consumes_only_overtime_and_restarts_step_time() -> None:
     asyncio.run(_exercise_supplement_turn_clock())
+
+
+def test_supplement_draws_from_wall_head_like_guobiao_kong() -> None:
+    from server.gamestate.game_hongque.init_tiles import pop_supplement_tile
+
+    state = SimpleNamespace(
+        wall=["AX1", "AX2", "AX3", "AX4"],
+        backward_tiles_list_type="double",
+    )
+    assert pop_supplement_tile(state) == "AX2"
+    assert state.wall == ["AX1", "AX3", "AX4"]
+    assert state.backward_tiles_list_type == "single"
+    assert pop_supplement_tile(state) == "AX1"
+    assert state.wall == ["AX3", "AX4"]
+    assert state.backward_tiles_list_type == "double"
+
+    last = SimpleNamespace(wall=["GX9"], backward_tiles_list_type="double")
+    assert pop_supplement_tile(last) == "GX9"
+    assert last.wall == []
 
 
 def test_group_wait_can_self_win_and_has_score_hint() -> None:
@@ -911,6 +934,43 @@ async def _exercise_debug_tactical_all_claims() -> None:
     await state.cleanup_game_state()
 
 
+async def _exercise_debug_ones_nines() -> None:
+    """自家庄固定起手：1 色为主、下家 GY 顺、对家 AX 顺、上家 9 色为主。"""
+    room = {"room_id": "986", "game_round": 1, "player_list": [101, 102, 103, 104]}
+    state = HongqueGameState(None, room, gamestate_id="debug-ones-nines")
+    state.Debug = True
+    state.debug_scenario = "ones_nines"
+    await state._start_round()
+    p = state.players
+    assert state.dealer_index == 0
+    assert state.current_player_index == 0
+    assert p[0].hand == [
+        "AY1", "BX1", "BY1", "CX1", "CY1", "DX1",
+        "DY1", "EX1", "EY1", "FX1", "FY1", "GX9",
+    ]
+    assert p[0].drawn_tile == "GX9"
+    assert p[1].hand == [
+        "GX1", "GX5",
+        "GY1", "GY2", "GY3", "GY4", "GY5", "GY6", "GY7", "GY8", "GY9",
+    ]
+    assert p[2].hand == [
+        "AX1", "AX2", "AX3", "AX4", "AX5", "AX6", "AX7", "AX8", "AX9",
+        "GX7", "GX8",
+    ]
+    assert p[3].hand == [
+        "AY9", "BX9", "BY9", "CX9", "CY9", "DX9",
+        "DY9", "EX9", "EY9", "FX9", "FY9",
+    ]
+    used = {tile for player in p for tile in player.hand}
+    assert not used.intersection(state.wall)
+    opening_draw = next(
+        event for event in state.events
+        if event["type"] == "draw" and event["player"] == 0
+    )
+    assert opening_draw["tile"] == "GX9"
+    await state.cleanup_game_state()
+
+
 async def _exercise_claim_upgrade_to_higher() -> None:
     """川麻模式：自己先碰（中优先级），别人也碰，自己仍可升级为和（高优先级）。"""
     room = {"room_id": "988", "game_round": 1, "player_list": [101, 102, 103, 104]}
@@ -1287,24 +1347,6 @@ async def _exercise_win_via_kong_finishes_round() -> None:
     assert any(fan["name"] == "海底" for fan in winner["fans"])
     if state._round_task:
         state._round_task.cancel()
-
-
-async def _exercise_wait_hint_marks_kong_win_self_draw_only() -> None:
-    room = {"room_id": "897", "game_round": 1, "player_list": [101, 102, 103, 104]}
-    state = HongqueGameState(None, room, gamestate_id="kong-win-hint")
-    viewer = state.players[3]
-    viewer.hand = ["AX1", "AX2", "AX3"]
-    viewer.melds = [{
-        "kind": "sequence",
-        "tiles": ["AX4", "AX5", "AX6"],
-        "from_player": 1,
-        "claimed_tile": "AX4",
-    }]
-
-    hints = state._wait_hints_for(viewer)
-    ax7 = next(hint for hint in hints if hint["tile"] == "AX7")
-    assert ax7["self_draw_only"] is True
-    assert ax7["points"] > 0
 
 
 async def _exercise_ron_cannot_use_kong_win() -> None:

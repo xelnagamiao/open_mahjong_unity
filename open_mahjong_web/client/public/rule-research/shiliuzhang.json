@@ -1,0 +1,222 @@
+{
+  "slug": "shiliuzhang",
+  "label": "十六张（福州开金 / 台制 / 南北差 / 明星三缺一）",
+  "aliases": [
+    "十六张麻将",
+    "福州麻将",
+    "开金",
+    "台湾麻将",
+    "台制",
+    "港式十六张",
+    "港式台牌",
+    "南部无花",
+    "明星三缺一"
+  ],
+  "collected_at": "2026-08-14",
+  "notes": "台制 1950s–70s 定型后未冻住：南北差并行；2001 明星三缺一定型；2002 ATAW 立案。入台来路两说并列。",
+  "sources": [
+    {
+      "id": "wiki-16",
+      "url": "https://zh.wikipedia.org/wiki/十六張麻將",
+      "title": "维基百科 · 十六张麻将",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "闲家 16、庄 17，和形五搭一对。常见：福州、台湾、福建、港式十六张；扬州江都有记符十六张。京津也曾流行。十三张仍是全球主干。快照在谱系簿。",
+      "rules": [
+        "fuzhou",
+        "taiwan",
+        "hongkong-16"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/wiki-16.html",
+      "local_status": "ok"
+    },
+    {
+      "id": "wiki-zh-fuzhou",
+      "url": "https://zh.wikipedia.org/wiki/福州麻雀",
+      "title": "维基百科 · 福州麻雀",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "补完花后开金。金可代替组对、顺。抢金：庄家打出第一张再抓入金即和，或闲家抓入金即和。三头金／三金倒：手中三张金，可不按常规牌型。金雀：将是金。计分：底分加金、花、杠、连庄，再乘平和／自摸／三金倒／金雀／抢金番数。",
+      "rules": [
+        "fuzhou"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "zingzeu-fz",
+      "url": "https://resource.zingzeu.org/kb/word-lists/mahjong",
+      "title": "福州话资源网 · 福州麻将词表",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "开金：全部人补好花后，在补花侧翻一张摊在牌堆上，叫金。金是替子，和牌时可代替字牌组成雀或顺。抢金只在头圈，每人一次。三头金／三金倒：摸到三张金（除开出的那张外全部在同一人）直接算赢。金雀：对子是两头金。与「金可替任何牌」的平台文冲突，并列。",
+      "rules": [
+        "fuzhou"
+      ],
+      "source_level": "community",
+      "reliability": "medium"
+    },
+    {
+      "id": "baike-fuzhou",
+      "url": "https://baike.baidu.com/item/福州麻将/3993293",
+      "title": "百度百科 · 福州麻将",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "144 张。抢金两种：庄家出首张废牌换金；闲家庄家出过首张后抓进金。优先级天胡高于闲家抢金，闲家抢金高于庄家抢金。三金倒：抓到三张金即可和，不必基本牌型。上手两张金，不能以三金倒和型去抢金。C 级。",
+      "rules": [
+        "fuzhou"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "wiki-tw",
+      "url": "https://zh.wikipedia.org/wiki/臺灣麻將",
+      "title": "维基百科 · 台湾麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "台湾常见十六张，按台计分。有说 20 世纪初由福建十六张转化。连庄拉庄是精髓。北部曾用花、南部不用，现已无区分。快照在谱系簿。",
+      "rules": [
+        "taiwan"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/wiki-tw.html",
+      "local_status": "ok"
+    },
+    {
+      "id": "atawmj-origin",
+      "url": "http://atawmj.org.tw/memu009.htm",
+      "title": "台湾麻将协会「麻将起源」页",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "写民国初年由大陆传入，从广东十三张演成台湾十六张。与维基「福建十六张入台」冲突。协会宣传页，两条都还没有民初规则书。快照在谱系簿。",
+      "rules": [
+        "taiwan"
+      ],
+      "source_level": "community",
+      "reliability": "low",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/atawmj-origin.html",
+      "local_status": "ok"
+    },
+    {
+      "id": "zj-taiwan",
+      "url": "http://www.zj-mahjong.info/book_hk/8.0%20Taiwanese.html",
+      "title": "台湾麻雀 | zj-mahjong.info（关兆豪）",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "十六张来自福建麻雀（据简而清）。计台用加算法，和种近旧章，保留边嵌独。香港流行的「台湾麻雀」与台湾当地颇不相同。港式台湾牌的新章和种从十三张新章传入，不可以为新章和种从台湾牌起源。",
+      "rules": [
+        "taiwan",
+        "hongkong-16"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "wikibooks-tw",
+      "url": "https://zh.wikibooks.org/zh-hant/臺灣麻將",
+      "title": "维基教科书 · 台湾麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "连庄拉庄：连一拉一为三台，公式 2N+1。门清 1 台，不求人 3 台。庄家无论胡或放枪都多算一台。C/B 级整理。",
+      "rules": [
+        "taiwan"
+      ],
+      "source_level": "community",
+      "reliability": "medium"
+    },
+    {
+      "id": "lib-taiwan",
+      "url": "/rulebooks/taiwan-yaku-table.pdf",
+      "title": "台湾麻将役种表（馆藏）",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "平台馆藏台湾役种／台表。",
+      "rules": [
+        "taiwan"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/taiwan-yaku-table.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "hkma-16",
+      "url": "https://www.hkmahjong.org/rules",
+      "title": "香港麻雀协会 · 港式十六张新章麻雀总例（指针）",
+      "type": "official",
+      "lang": "zh",
+      "accessed": "2026-07-20",
+      "excerpt": "港式台牌 16-Tile Modern Mahjong，又名港式十六张新章麻雀、台湾牌（仅限香港本地称呼）。糅合香港麻雀、正宗台湾麻雀、日本麻将及国标。总例与 PDF 在 hongkong 档案，本档不重做。",
+      "rules": [
+        "hongkong-16"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_kind": "snapshot",
+      "local_path": "hongkong/snapshots/hkma-rules-hub.html",
+      "local_status": "ok"
+    },
+    {
+      "id": "eastking-ns",
+      "url": "https://www.eastking.com.tw/blog/posts/mahjong-south-north-differences",
+      "title": "麻将南北差异：花牌、台数与连庄",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "南北最大差异是花牌有无。北部有花、边张中洞单吊有台、满台无上限、庄家台+连拉。南部无花、边嵌单无台、不计庄家台只计连拉。C 级对照，与维基教科书一致。",
+      "rules": [
+        "taiwan",
+        "taiwan-south"
+      ],
+      "source_level": "community",
+      "reliability": "medium"
+    },
+    {
+      "id": "taiwan-md-mingxing",
+      "url": "https://taiwan.md/lifestyle/台灣麻將與明星三缺一/",
+      "title": "台湾麻将：明星三缺一",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "2001 鈊象推出《明星三缺一》PC 版，内建台湾十六张，胡牌时列出台数来源。规则从未被统一，正式规则就是各家的规则。C 级。",
+      "rules": [
+        "taiwan",
+        "taiwan-mingxing"
+      ],
+      "source_level": "community",
+      "reliability": "medium"
+    },
+    {
+      "id": "atawmj-2002",
+      "url": "http://atawmj.org.tw/memu002.htm",
+      "title": "中华麻将竞技协会组织章程",
+      "type": "official",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "91年9月15日第一届第一次会员大会通过。内政部台（九一）内社字第0910031932号。2002 年立案。是竞技社团，不是把南北桌规收成一种。",
+      "rules": [
+        "taiwan",
+        "taiwan-mingxing"
+      ],
+      "source_level": "primary",
+      "reliability": "high"
+    }
+  ]
+}

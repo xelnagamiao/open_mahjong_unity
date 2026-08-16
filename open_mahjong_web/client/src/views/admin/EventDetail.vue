@@ -1,14 +1,14 @@
 <template>
   <div v-loading="loading">
-    <el-page-header @back="$router.push('/admin/events')" content="赛事详情" />
+    <el-page-header @back="$router.push(listPath)" :content="isBase ? '基地详情' : '赛事详情'" />
 
     <template v-if="detail">
       <el-card class="block">
         <template #header>基本信息</template>
         <el-descriptions :column="2" border>
-          <el-descriptions-item label="赛事名称">{{ detail.name }}</el-descriptions-item>
-          <el-descriptions-item label="赛事 ID">{{ detail.event_id }}</el-descriptions-item>
-          <el-descriptions-item label="赛事介绍" :span="2">
+          <el-descriptions-item :label="isBase ? '基地名称' : '赛事名称'">{{ detail.name }}</el-descriptions-item>
+          <el-descriptions-item :label="isBase ? '基地 ID' : '赛事 ID'">{{ detail.event_id }}</el-descriptions-item>
+          <el-descriptions-item :label="isBase ? '基地介绍' : '赛事介绍'" :span="2">
             <span class="desc-text">{{ detail.description || '—' }}</span>
           </el-descriptions-item>
           <el-descriptions-item label="状态">
@@ -31,7 +31,7 @@
             v-if="detail.status === 'registered'"
             type="primary"
             @click="activateEvent"
-          >开启赛事</el-button>
+          >开启{{ venueNoun }}</el-button>
           <el-button
             v-if="detail.status === 'closed' && detail.reopen_requested"
             type="success"
@@ -47,8 +47,8 @@
             type="warning"
             :disabled="detail.status !== 'active'"
             @click="closeEvent"
-          >关闭赛事</el-button>
-          <el-button type="danger" @click="deleteEvent">删除赛事</el-button>
+          >关闭{{ venueNoun }}</el-button>
+          <el-button type="danger" @click="deleteEvent">删除{{ venueNoun }}</el-button>
         </div>
       </el-card>
 
@@ -77,7 +77,7 @@
       </el-card>
 
       <el-card class="block">
-        <template #header>赛事主管理员</template>
+        <template #header>{{ venueNoun }}主管理员</template>
         <el-form inline class="admin-inline-form" @submit.prevent="setOwner">
           <el-form-item label="用户 ID">
             <el-input v-model="ownerForm.user_id" clearable style="width: 160px" />
@@ -87,7 +87,7 @@
           </el-form-item>
           <el-form-item>
             <el-button type="primary" :loading="savingOwner" @click="setOwner">
-              {{ owner ? '更换赛事主管理员' : '指定赛事主管理员' }}
+              {{ owner ? `更换${venueNoun}主管理员` : `指定${venueNoun}主管理员` }}
             </el-button>
           </el-form-item>
         </el-form>
@@ -95,12 +95,12 @@
           当前：{{ owner.username || '-' }}
           <span class="uid">({{ owner.user_id }})</span>
         </p>
-        <p v-else class="muted">尚未指定赛事主管理员</p>
+        <p v-else class="muted">尚未指定{{ venueNoun }}主管理员</p>
       </el-card>
 
       <el-card class="block">
         <template #header>
-          赛事子管理员
+          {{ venueNoun }}子管理员
           <span class="admin-count">（{{ adminList.length }} / 10）</span>
         </template>
         <el-form inline class="admin-inline-form" @submit.prevent="addAdmin">
@@ -115,7 +115,7 @@
           </el-form-item>
         </el-form>
 
-        <el-table :data="adminList" size="small" style="margin-top: 12px" empty-text="暂无赛事子管理员">
+        <el-table :data="adminList" size="small" style="margin-top: 12px" :empty-text="`暂无${venueNoun}子管理员`">
           <el-table-column prop="user_id" label="用户 ID" width="120" />
           <el-table-column prop="username" label="用户名" min-width="140" />
           <el-table-column label="添加时间" min-width="160">
@@ -131,7 +131,14 @@
 
       <el-card class="block">
         <template #header>
-          空房间
+          房间
+          <el-button
+            type="primary"
+            size="small"
+            style="float: right; margin-left: 8px"
+            :disabled="detail.status !== 'active'"
+            @click="roomDialogVisible = true"
+          >创建房间</el-button>
           <el-button
             link
             type="primary"
@@ -141,60 +148,12 @@
           >刷新</el-button>
         </template>
 
-        <el-form class="admin-inline-form" label-width="88px" @submit.prevent="createRoom">
-          <div style="display: flex; flex-wrap: wrap; gap: 0 8px; align-items: flex-start">
-            <el-form-item label="规则">
-              <el-select v-model="roomForm.room_rule" style="width: 140px">
-                <el-option
-                  v-for="opt in roomRuleOptions"
-                  :key="opt.value"
-                  :label="opt.label"
-                  :value="opt.value"
-                />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="房间名">
-              <el-input
-                v-model="roomForm.room_name"
-                clearable
-                style="width: 160px"
-                placeholder="可选"
-              />
-            </el-form-item>
-            <el-form-item label="操作原因">
-              <el-input
-                v-model="roomForm.reason"
-                clearable
-                style="width: 180px"
-                placeholder="审计必填"
-              />
-            </el-form-item>
-            <el-form-item>
-              <el-button
-                type="primary"
-                :loading="creatingRoom"
-                :disabled="detail.status !== 'active'"
-                @click="createRoom"
-              >创建空房间</el-button>
-            </el-form-item>
-          </div>
-          <GuobiaoEmptyRoomConfig v-if="roomForm.room_rule === 'guobiao'" v-model="roomForm" />
-          <el-alert
-            v-else
-            title="当前仅国标空房间提供完整对局配置；其他规则仍按服务端默认参数创建。"
-            type="info"
-            :closable="false"
-            show-icon
-            style="margin-bottom: 12px"
-          />
-        </el-form>
-
         <el-table
           :data="rooms"
           size="small"
           style="margin-top: 12px"
           v-loading="loadingRooms"
-          empty-text="暂无空房间"
+          empty-text="暂无房间"
         >
           <el-table-column prop="room_id" label="房间 ID" min-width="120" />
           <el-table-column prop="room_name" label="名称" min-width="120" />
@@ -332,21 +291,32 @@
           </div>
         </div>
       </el-card>
+
+      <VenueRoomDialog
+        v-model="roomDialogVisible"
+        :form="roomForm"
+        :title="isBase ? '创建基地房间' : '创建赛事房间'"
+        confirm-text="创建房间"
+        :loading="creatingRoom"
+        show-reason
+        :room-rule-options="roomRuleOptions"
+        @confirm="createRoom"
+      />
     </template>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import adminApi from '@/api/adminClient'
-import GuobiaoEmptyRoomConfig from '@/components/GuobiaoEmptyRoomConfig.vue'
+import VenueRoomDialog from '@/components/VenueRoomDialog.vue'
 import {
   buildGuobiaoRoomPayload,
   createDefaultGuobiaoRoomConfig,
 } from '@/utils/guobiaoRoomConfig'
-import { eventStatusLabel, eventStatusTagType } from '@/utils/eventMeta'
+import { eventStatusLabel, eventStatusTagType, parseVenueKind, venueAdminListPath } from '@/utils/eventMeta'
 import { avgRank, buildPlayerStatsRows, rankRate } from '@/utils/statsDisplay'
 
 const RULE_LABELS = {
@@ -380,6 +350,7 @@ function rankOnlyStatsRows(stats) {
 }
 
 const route = useRoute()
+const router = useRouter()
 const loading = ref(false)
 const detail = ref(null)
 const savingOwner = ref(false)
@@ -390,6 +361,7 @@ const adminForm = reactive({ user_id: '', reason: '' })
 const rooms = ref([])
 const loadingRooms = ref(false)
 const creatingRoom = ref(false)
+const roomDialogVisible = ref(false)
 const roomRuleOptions = [
   { value: 'guobiao', label: '国标' },
   { value: 'riichi', label: '立直' },
@@ -418,6 +390,13 @@ const statsRuleOptions = ref([])
 const statsFilter = reactive({ rule: '', game_type: '', q: '' })
 const selectedPlayerId = ref(null)
 
+const isBase = computed(() => {
+  const kind = detail.value?.kind || route.meta.venueKind
+  if (kind) return parseVenueKind(kind) === 'base'
+  return String(route.path || '').includes('/admin/bases')
+})
+const venueNoun = computed(() => (isBase.value ? '基地' : '赛事'))
+const listPath = computed(() => venueAdminListPath(isBase.value ? 'base' : 'event'))
 const owner = computed(() => (detail.value?.admins || []).find((a) => a.role === 'owner') || null)
 const adminList = computed(() => (detail.value?.admins || []).filter((a) => a.role === 'admin'))
 const pendingProfile = ref(null)
@@ -555,7 +534,8 @@ async function createRoom() {
     roomForm.reason = ''
     roomForm.room_name = ''
     roomForm.password = ''
-    ElMessage.success('空房间已创建')
+    roomDialogVisible.value = false
+    ElMessage.success('房间已创建')
     await loadRooms()
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '创建失败')
@@ -566,7 +546,7 @@ async function createRoom() {
 
 async function deleteRoom(row) {
   try {
-    const reason = await promptReason('删除空房间')
+    const reason = await promptReason('删除房间')
     await adminApi.delete(`/events/${route.params.eventId}/rooms/${row.room_id}`, {
       data: { reason },
     })
@@ -580,7 +560,7 @@ async function deleteRoom(row) {
 
 async function setOwner() {
   if (!ownerForm.user_id.trim()) {
-    ElMessage.warning('请填写赛事主管理员用户 ID')
+    ElMessage.warning(`请填写${venueNoun.value}主管理员用户 ID`)
     return
   }
   if (!ownerForm.reason.trim()) {
@@ -595,7 +575,7 @@ async function setOwner() {
     })
     detail.value.admins = res.data.data.admins
     ownerForm.reason = ''
-    ElMessage.success('赛事主管理员已更新')
+    ElMessage.success(`${venueNoun.value}主管理员已更新`)
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '设置失败')
   } finally {
@@ -605,7 +585,7 @@ async function setOwner() {
 
 async function addAdmin() {
   if (!adminForm.user_id.trim()) {
-    ElMessage.warning('请填写赛事子管理员用户 ID')
+    ElMessage.warning(`请填写${venueNoun.value}子管理员用户 ID`)
     return
   }
   if (!adminForm.reason.trim()) {
@@ -621,7 +601,7 @@ async function addAdmin() {
     detail.value.admins = res.data.data.admins
     adminForm.user_id = ''
     adminForm.reason = ''
-    ElMessage.success('赛事子管理员已添加')
+    ElMessage.success(`${venueNoun.value}子管理员已添加`)
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '添加失败')
   } finally {
@@ -631,7 +611,7 @@ async function addAdmin() {
 
 async function removeAdmin(row) {
   try {
-    const reason = await promptReason('移除赛事子管理员')
+    const reason = await promptReason(`移除${venueNoun.value}子管理员`)
     const res = await adminApi.delete(
       `/events/${route.params.eventId}/admins/${row.user_id}`,
       { data: { reason } }
@@ -649,15 +629,15 @@ async function activateEvent() {
   try {
     await ElMessageBox.confirm(
       isReopen
-        ? `确认批准重新开启赛事「${detail.value.name}」？`
-        : `确认开启赛事「${detail.value.name}」？`,
-      isReopen ? '批准重新开启' : '开启赛事',
+        ? `确认批准重新开启${venueNoun.value}「${detail.value.name}」？`
+        : `确认开启${venueNoun.value}「${detail.value.name}」？`,
+      isReopen ? '批准重新开启' : `开启${venueNoun.value}`,
       { type: 'info' }
     )
-    const reason = await promptReason(isReopen ? '批准重新开启' : '开启赛事')
+    const reason = await promptReason(isReopen ? '批准重新开启' : `开启${venueNoun.value}`)
     const res = await adminApi.post(`/events/${route.params.eventId}/activate`, { reason })
     Object.assign(detail.value, res.data.data)
-    ElMessage.success(isReopen ? '已批准重新开启' : '赛事已开启')
+    ElMessage.success(isReopen ? '已批准重新开启' : `${venueNoun.value}已开启`)
   } catch (e) {
     if (e === 'cancel' || e === 'close') return
     ElMessage.error(e.response?.data?.message || '操作失败')
@@ -707,14 +687,14 @@ async function rejectProfileChange() {
 async function closeEvent() {
   try {
     await ElMessageBox.confirm(
-      `确认关闭赛事「${detail.value.name}」？关闭后该赛事将被封存，再次开启需平台管理员进行审核`,
-      '关闭赛事',
+      `确认关闭${venueNoun.value}「${detail.value.name}」？关闭后将被封存，再次开启需平台管理员进行审核`,
+      `关闭${venueNoun.value}`,
       { type: 'warning' }
     )
-    const reason = await promptReason('关闭赛事')
+    const reason = await promptReason(`关闭${venueNoun.value}`)
     const res = await adminApi.post(`/events/${route.params.eventId}/close`, { reason })
     Object.assign(detail.value, res.data.data)
-    ElMessage.success('赛事已关闭')
+    ElMessage.success(`${venueNoun.value}已关闭`)
   } catch (e) {
     if (e === 'cancel' || e === 'close') return
     ElMessage.error(e.response?.data?.message || '关闭失败')
@@ -724,26 +704,26 @@ async function closeEvent() {
 async function deleteEvent() {
   try {
     await ElMessageBox.confirm(
-      `删除赛事将级联删除该赛事下全部牌谱（当前 ${detail.value.record_count ?? 0} 局），且不可恢复。`,
-      '删除赛事',
+      `删除${venueNoun.value}将级联删除其下全部牌谱（当前 ${detail.value.record_count ?? 0} 局），且不可恢复。`,
+      `删除${venueNoun.value}`,
       { type: 'error', confirmButtonText: '继续' }
     )
     const { value: confirmName } = await ElMessageBox.prompt(
-      '请输入完整赛事名称以确认删除',
+      `请输入完整${venueNoun.value}名称以确认删除`,
       '确认删除',
       {
         confirmButtonText: '删除',
         cancelButtonText: '取消',
         inputPattern: /\S+/,
-        inputErrorMessage: '请输入赛事名称',
+        inputErrorMessage: `请输入${venueNoun.value}名称`,
       }
     )
-    const reason = await promptReason('删除赛事')
+    const reason = await promptReason(`删除${venueNoun.value}`)
     const res = await adminApi.delete(`/events/${route.params.eventId}`, {
       data: { reason, confirm_name: confirmName.trim() },
     })
-    ElMessage.success(res.data.message || '赛事已删除')
-    window.location.href = '/admin/events'
+    ElMessage.success(res.data.message || `${venueNoun.value}已删除`)
+    router.push(listPath.value)
   } catch (e) {
     if (e === 'cancel' || e === 'close') return
     ElMessage.error(e.response?.data?.message || '删除失败')

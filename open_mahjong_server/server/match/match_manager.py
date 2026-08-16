@@ -60,9 +60,14 @@ class MatchManager:
         if self._is_user_in_custom_room(user_id):
             return Response(type="tips", success=False, message="请先退出当前房间再进行排位匹配")
 
-        # 已在队列中
+        # 已在队列中：带上 my_queue，方便客户端恢复「正在匹配」而不是只弹错误
         if user_id in self.user_to_queue:
-            return Response(type="tips", success=False, message="您已在匹配队列中")
+            return Response(
+                type="match/join_queue_done",
+                success=False,
+                message="您已在匹配队列中",
+                my_queue=self.user_to_queue[user_id],
+            )
 
         # 已匹配成功但对局尚未结束（覆盖 match_found 到开局之间的空窗，以及掉线/放弃重连
         # 导致 is_user_in_active_game 失效但对局仍在进行的情况）
@@ -102,7 +107,8 @@ class MatchManager:
         return Response(
             type="match/join_queue_done",
             success=True,
-            message=f"已加入 {queue_type_to_display_name(queue_type)} 匹配队列"
+            message=f"已加入 {queue_type_to_display_name(queue_type)} 匹配队列",
+            my_queue=queue_type,
         )
 
     async def leave_queue(self, connect_id: str) -> Response:
@@ -164,6 +170,12 @@ class MatchManager:
                 "playing": self.playing_counts.get(qt, 0),
             }
         return status
+
+    def get_my_match_state(self, user_id: Optional[int]) -> tuple[Optional[str], bool]:
+        """当前玩家所在等待队列，以及是否已匹配成功且对局未结束。"""
+        if not user_id:
+            return None, False
+        return self.user_to_queue.get(user_id), user_id in self.committed_users
 
     # ==================== 匹配与开局 ====================
 

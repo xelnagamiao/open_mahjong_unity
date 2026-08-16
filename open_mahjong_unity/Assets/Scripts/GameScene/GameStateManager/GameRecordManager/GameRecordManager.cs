@@ -654,6 +654,49 @@ public partial class GameRecordManager : MonoBehaviour {
         GotoAction(targetNode);
     }
 
+    /// <summary>
+    /// 仅刷新四角玩家面板的玩家名（牌谱匿名玩家等纯昵称切换用，不重绘牌面 / 操作区）。
+    /// </summary>
+    public void RefreshRecordPlayerPanelNames() {
+        if (GameCanvas.Instance == null || recordPlayerList == null || userIdToUsername == null) return;
+        if (indexToPosition == null) return;
+
+        foreach (var recordPlayer in recordPlayerList) {
+            if (!indexToPosition.TryGetValue(recordPlayer.playerIndex, out string position)) continue;
+            GamePlayerPanel targetPanel = null;
+            switch (position) {
+                case "self":  targetPanel = GameCanvas.Instance.PlayerSelfPanel; break;
+                case "right": targetPanel = GameCanvas.Instance.PlayerRightPanel; break;
+                case "top":   targetPanel = GameCanvas.Instance.PlayerTopPanel; break;
+                case "left":  targetPanel = GameCanvas.Instance.PlayerLeftPanel; break;
+            }
+            if (targetPanel == null) continue;
+
+            PlayerInfo playerInfo = new PlayerInfo {
+                user_id = recordPlayer.userId,
+                username = userIdToUsername.TryGetValue(recordPlayer.userId, out string name) ? name : $"玩家{recordPlayer.userId}",
+                player_index = recordPlayer.playerIndex,
+                original_player_index = recordPlayer.originalPlayerIndex,
+                title_used = recordPlayer.title_used,
+                profile_used = recordPlayer.profile_used,
+                character_used = recordPlayer.character_used,
+                voice_used = recordPlayer.voice_used,
+                hand_tiles_count = 0,
+                hand_tiles = new int[0],
+                discard_tiles = new int[0],
+                discard_origin_tiles = new int[0],
+                combination_tiles = new string[0],
+                combination_mask = new int[0][],
+                huapai_list = new int[0],
+                remaining_time = 0,
+                score = 0,
+                score_history = new string[0],
+                tag_list = new string[0]
+            };
+            targetPanel.SetPlayerInfo(playerInfo, "record");
+        }
+    }
+
     // 执行下一步行动
     private void NextAction() {
         if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData)) {

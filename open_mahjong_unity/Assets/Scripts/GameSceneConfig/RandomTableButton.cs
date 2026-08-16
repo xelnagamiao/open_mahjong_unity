@@ -55,6 +55,15 @@ public class RandomTableButton : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 进入场景设置时预览用：对局/观战/牌谱阅览中静默跳过，不弹提示。
+    /// </summary>
+    public static void TryGeneratePreviewTable()
+    {
+        if (GameSessionGuard.BlocksRandomTable) return;
+        GenerateRandomTable();
+    }
+
     private static List<Button> FindRandomTableButtons()
     {
         List<Button> matches = new List<Button>();

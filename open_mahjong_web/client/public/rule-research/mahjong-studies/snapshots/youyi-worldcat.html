@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<!-- saved locally from http://www.queshu.com/book/11368187/ -->
+<meta charset="utf-8">
+<base href="http://www.queshu.com/book/11368187/">
+
+	<meta charset="UTF-8">
+	<meta name="keywords" content="书名,麻将兵法,作者,严行方  编著,上海辞书出版社,2002.3,7532608859, 9787532608850,购买,价格,邮购,网购,二手,出售,定价,打折,优惠" />
+	<meta name="description" content="《麻将兵法》作者 严行方  编著，出版：上海辞书出版社 2002.3，isbn：7532608859, 9787532608850。缺书网提供准确的比价，齐全的书目检索。" />
+	<title>麻将兵法 - 严行方  编著 - 缺书网</title><link href="/css.css?_=1689777057" rel="stylesheet" type="text/css" /></head>
+<body>
+<div id="wrap">
+
+<script type="text/javascript">
+
+var userid = 0
+function $(id)
+{
+	return (document.getElementById(id))
+}
+
+function displayNode(id_node)
+{
+	$(id_node).style.display = ""
+}
+
+function concealNode(id_node)
+{
+	$(id_node).style.display = "none"
+}
+
+var xmlhttp
+function getXMLDoc(url, cfunc)
+{
+	if(window.XMLHttpRequest)
+		xmlhttp=new XMLHttpRequest()
+	else
+		xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
+	xmlhttp.onreadystatechange=cfunc;
+	xmlhttp.open("GET", url, true);
+	xmlhttp.send();
+}
+
+function postXMLDoc(url,post_text,cfunc)
+{
+	if(window.XMLHttpRequest)
+		xmlhttp=new XMLHttpRequest()
+	else
+		xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
+	xmlhttp.onreadystatechange=cfunc;
+	xmlhttp.open("POST",url,true);
+	xmlhttp.send(post_text);
+}
+
+</script>
+
+	<div id="top">
+		<div id="top_c">
+		<div class="top_right"><a target="_blank" href="http://weibo.com/queshu" title="缺书网官方认证微博"><i class="weibo_image"></i></a><a href="/about/weixin" onmouseover="displayNode('weixin_more')" onmouseout="concealNode('weixin_more')"><i class="weixin_image"></i></a><div id="weixin_more" class="more_share" style="display: none;" onblur="this.style.display='none'"><span><em></em></span><img alt="" src="http://www.queshu.com/pic/gongzhong_120.jpg" width="180"><p>微信公众号：缺书网</p></div><a class="" href="/account/reg">注 册</a><a class="top_link last_right" href="/account/login">登 录</a></div>
+		</div>
+	</div>
+	<div id="header">
+		<div id="header_c">
+			<a id="logo" href="/"><img alt="queshu_logo" src="/pic/logo2.png" border="0"></a>
+			<ul class="nav_ul">
+				<!-- <li class="nav_li"><a href="/i/">原版书</a></li> -->
+				<li class="nav_li"><a href="/sale/">促销</a></li>
+				<li class="nav_li"><a href="/jianlou/">捡漏</a></li>
+			</ul>
+			<div id="search">
+				<form id="search_c" name="input" action="/search/" method="get"><input id="search_input" maxlength="100" type="text" name="c" value="输入书名、作者或ISBN，开始比价" onblur="this.style.color='#999999';if(this.value=='') this.value='输入书名、作者或ISBN，开始比价';" onfocus="this.style.color='#000000';if(this.value=='输入书名、作者或ISBN，开始比价') this.value='';">					<input id="search_btn" type="submit" value="搜 书">
+				</form>
+			</div>
+		</div>
+
+	</div>
+
+
+<script type="text/javascript">
+
+var userpic = ""
+var username = ""
+
+function favorite(type,id,read,ck)
+{
+	if(userid <= 0)
+	{
+		$("favorite_3").innerHTML = '<span id="cheng">请登录</span>'
+		window.location.replace('/account/login')
+		return
+	}
+
+	var have_ini = $("have_ini").value
+	var read_ini = $("read_ini").value
+	var vote_ini = $("vote_ini").value
+	
+	if (type == "wishbook" || (type == "havebook" && id < 0)) {
+		if (type == "havebook" && id < 0) {
+			if ((read == 0 && read_ini == 0) || (read > 0 && have_ini == 0)) {
+				if (!confirm("确认从书架中删除？")) {
+					return
+				}
+			}
+		}
+
+		var url_fav = "/ajax/favorite?type="+type+"&id="+id+"&read="+read+"&ck="+ck
+		getXMLDoc(url_fav, function() {
+			if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+				if (xmlhttp.responseText == "OK" || xmlhttp.responseText == "deleted") {
+					//wish
+					if (type == "wishbook" && id > 0) {
+						$("favorite_1").innerHTML = '<span id="favorite_wish" class="btn_favorite"><span class="favorite_text">想&nbsp;要<a title="从购书单中除去" onclick="favorite(\'wishbook\',-11368187,0,\'\')" href="javascript:;"><span id="favorite_1_s" class="btn_selected">　</span></a></span></span>'
+						$("favorite_3").innerHTML = '<span class="qian">成功收入购书单</span>'
+						$("wish_ini").value = 1
+					}
+					//unwish
+					else if (type == "wishbook") {
+						$("favorite_1").innerHTML = '<a title="加入购书单比价" onclick="favorite(\'wishbook\',11368187,0,\'\')" href="javascript:;"><span id="favorite_wish" class="btn_favorite"><span class="favorite_text">想&nbsp;要　</span></span></a>'
+						$("favorite_3").innerHTML = '<span class="qian">取消想要成功</span>'
+						$("wish_ini").value = 0
+					}
+					//have、unhave、unread
+					else {
+						if (id > 0) {
+							$("favorite_3").innerHTML = '<span class="qian">收入书架成功</span>'
+						}
+						else if (xmlhttp.responseText == "deleted") {
+							$("favorite_3").innerHTML = '<span class="qian">删除成功</span>'
+						}
+						else {
+							$("favorite_3").innerHTML = '<span class="qian">取消成功</span>'
+						}
+						window.location.reload()
+					}
+				}
+
+				else if (xmlhttp.responseText == "0") {
+					$("favorite_3").innerHTML='<span id="cheng">请登录</span>'
+					window.location.replace('/account/login')
+				}
+				else if (xmlhttp.responseText == "-5") {
+					$("favorite_3").innerHTML = '<span id="cheng">正在刷新页面</span>'
+					window.location.reload() 
+				}
+				else {
+					$("favorite_3").innerHTML = '<span class="qian">请刷新页面后重试</span>'
+				}
+				$("favorite_3").style.display = ""
+				setTimeout(function(){$("favorite_3").innerHTML = "";},1500)
+			}
+		})
+	}
+
+	else  //show box
+	{
+		$("have_box").value = have_ini
+		$("read_box").value = read_ini
+		$("vote_box").value = vote_ini
+
+		for(var i = 0; i < 4; i++)  //四个按钮
+		{
+			if(i == read || (i == 0 && (have_ini == 1 || read > 0)) || (read == 0 && i == read_ini))
+				$("box_btn_2" + i).className = "box_btn_s"
+			else
+				$("box_btn_2" + i).className = "box_btn"
+		}
+
+		for(i = 1; i <= 2; i++)  //评价按钮
+		{
+			if(i == vote_ini || (i == 1 && vote_ini == ''))
+				$("box_btn_1" + i).className = "news_dig_" + i + i
+			else
+				$("box_btn_1" + i).className = "news_dig_" + i
+		}
+
+		if(read == 0)  //处理下tag
+		{
+			$("have_box").value = 1
+			$("box_tag_1").innerHTML = ar_tag_read[read_ini]
+			$("box_tag_2").innerHTML = "拥有，"
+		}
+		else if(read >= 1 && read <= 3)  //选我读
+		{
+			$("read_box").value = read
+			$("box_tag_1").innerHTML = ar_tag_read[read]
+
+			$("box_tag_2").innerHTML = "拥有，"
+			$("have_box").value = 1
+		}
+		$("box").style.top = (getScrollTop() + 120) + "px"
+		displayNode("overlay")
+		displayNode("box")
+	}
+}
+
+</script>
+
+<script type="text/javascript" src="/js/book.js"></script>
+
+<script type="text/javascript" src="/js/dig.js"></script>
+
+<div id="body_main"><div id="main"><div id="main_book"><div id="book_left"><h1 id="h1">麻将兵法</h1><div class="bookinfo"><div id="book_pic"><div id="pic200"><img class="img200" height="200" alt="麻将兵法" src="http://img11.360buyimg.com/n7/18597/e1444dbd-e5ef-44dc-9fd7-030df68b0e80.jpg" onerror="this.onerror=null;this.src='/pic/no_image_200.jpg'"></div></div><div class="book_info"><span class="qian">作者：</span>严行方  编著<br><span class="qian">出版：</span><a href="/press/1000272/">上海辞书出版社</a> 2002.3<br><span class="qian">页数：</span>235<br><span class="qian">定价：</span>12.50 元<br><span class="qian">ISBN-10：</span>7532608859<br><span class="qian">ISBN-13：</span>9787532608850&emsp;<a target="_blank" href="http://book.douban.com/isbn/9787532608850/">去豆瓣看看&nbsp;<i class="out_link" style="margin-top:5px;"></i></a></div><div class="book_info"><div id="favorite"><div id="favorite_1"><a title="加入购书单比价" onclick="favorite('wishbook',11368187,0,'')" href="javascript:;"><span id="favorite_wish" class="btn_favorite"><span class="favorite_text">想&nbsp;要　</span></span></a></div><div id="favorite_2" onmouseover="visibleNode('dropdown_favorite')" onmouseout="invisibleNode('dropdown_favorite')"><div id="favorite_have"><a href="javascript:;"><span class="btn_favorite favorite_20"><span class="favorite_text">拥&nbsp;有　</span></span></a></div><div id="dropdown_favorite" style="visibility: hidden;"><div id="favorite_20"><a onclick="favorite('havebook',11368187,0,'')" href="javascript:;"><span class="btn_favorite favorite_20"><span class="favorite_text">拥&nbsp;有　</span></span></a></div><div id="favorite_21"><a onclick="favorite('havebook',11368187,1,'')" href="javascript:;"><span class="btn_favorite favorite_21"><span class="favorite_text">想&nbsp;读　</span></span></a></div><div id="favorite_22"><a onclick="favorite('havebook',11368187,2,'')" href="javascript:;"><span class="btn_favorite favorite_22"><span class="favorite_text">读&nbsp;过　</span></span></a></div><div id="favorite_23"><a onclick="favorite('havebook',11368187,3,'')" href="javascript:;"><span class="btn_favorite favorite_23"><span class="favorite_text">在&nbsp;读　</span></span></a></div></div></div><div id="favorite_3" style="display: none;"></div></div></div></div><div class="bookinfo"><div id="dig_book_11368187" class="dig_book"><a onclick="dig('book',1,11368187,'',1)" href="javascript:;" title="好"><span id="dig_book_11368187_1" class="news_dig_1"><span id="vote_book_11368187_1" class="dig_vote">0</span></span></a><a onclick="dig('book',2,11368187,'',1)" href="javascript:;" title="孬"><span id="dig_book_11368187_2" class="news_dig_2"><span id="vote_book_11368187_2" class="dig_vote">0</span></span></a><span id="book_11368187_info" class="news_dig_info"><span class="font_12">暂无人评价...</span></span></div></div><div class="detail bookinfo" id="detail_catalog" style="display: none;"><div class="detail_head"><span class="sale_btn sale_btn0 right">目　录</span><a href="javascript:;" onclick="concealNode('detail_catalog'); displayNode('detail_intro');"><span id="sale_btn0" class="sale_btn right">内容简介</span></a></div><div class="detail_body">　　上部应知应会篇<br>　　第一章麻将来历<br>　　一、骰子<br>　　二、叶子戏<br>　　三、骨牌<br>　　四、筹码<br>　　五、马吊牌<br>　　六、纸牌<br>　　七、麻将<br>　　第二章麻将魅力<br>　　一、平等<br>　　二、辩证<br>　　三、识人<br>　　四、单干<br>　　五、未知</div></div><div class="detail bookinfo" id="detail_intro" style="display: ;"><div class="detail_head"><a href="javascript:;" onclick="concealNode('detail_intro'); displayNode('detail_catalog');"><span id="sale_btn0" class="sale_btn right">目　录</span></a><span class="sale_btn sale_btn0 right">内容简介</span></div><div class="detail_body">　　    上部主要介绍麻将的基础知识；如麻将的起源及演变、发展过程；麻将的魅力何在；打麻将的基本常识、计番方法及规范打法；各种花样牌的图例及计分；常用麻将口诀；常见麻将舞弊手法及其识别；如何组织麻将比赛等等，供初学者阅读参考。下部主要通过120个牌例，从组牌、吃牌、出牌、蒙牌、诱牌、骗牌、扣牌、诛牌、和牌10个方面，逐一介绍不同时机下的实战技巧，佐以图例来加深理解，供钻研者使用借鉴。<br><br><br><br><br><br></div></div><div id="seller_tabs"><span class="seller_right_now1"><span class="seller_right_now2">比价列表</span></span></div><div class="seller_body left" style="width: 576px;"><div class="price_head"><table class="sellerlist"><tbody><tr><td class="book_site">&nbsp;商家</td><td class="book_score">评价<span class="qian_9 font_12"> (17)</span></td><td class="book_zhe">折扣</td><td class="book_price"><span class="text_price">价格</span></td><td class="book_gengxin"></td></tr></tbody></table></div><div class="price_item"><table class="sellerlist"><tbody><tr><td class="book_site"><a target="_blank" href="/link/11368187/10112455/" title="当当网 - 麻将兵法"><img src="/pic/dangdang.png"></a></td><td class="book_score"><img src="/pic/star_one.gif" /><img src="/pic/star_one.gif" /><img src="/pic/star_one.gif" /><img src="/pic/star_one.gif" /><img src="/pic/star_half.gif" /><br><a target="_blank" href="/link/11368187/10112455/review" title="9.2分 17人评价 点击查看"><span class="pad_3">17</span>人</a></td><td class="book_zhe"></td><td class="book_price"><span class="text_price"><span id="hui_12"><strong>当当缺货</strong></span></span></td><td class="book_gengxin"><a target="_blank" href="/link/11368187/10112455/"><img src="/pic/buy_link_grey.png"></a><br><a target="_blank" href="/link/11368187/10112455/"><span class="qian">17天前更新</span></a></td></tr></tbody></table></div></div></div><div id="book_right"><div class="stacked" id=right_weixin><div class="right_head"><h2 class="title_tab">公众号、微信群<span class="click_right"></span></h2></div><div class="right_item last"><div class="left imgcol_48" style="width: 120px; text-align: center; font-size: 14px; line-height:28px;"><img src="/pic/gongzhong_120.jpg" width="120"><b>缺书网</b><br>微信公众号</div><div class="right imgcol_48" style="width: 120px; text-align: center; font-size: 14px; line-height:28px;"><img src="/pic/jinqun_258.jpg" width="120"><b>扫码进群</b><br>实时获取购书优惠</div></div></div><div class="stacked right_state"><div class="right_head"><h2 class="title_tab qian">近期还没参加过折扣活动<span class="click_right qian font_13"></span></h2></div></div></div></div></div></div><div id="overlay" onclick="concealNode('box'); concealNode('overlay')" style="display: none;"></div><div id="box" style="display: none;"><input id="wish_ini" type="hidden" value="0" autocomplete="off"><input id="have_ini" type="hidden" value="0" autocomplete="off"><input id="read_ini" type="hidden" value="0" autocomplete="off"><input id="vote_ini" type="hidden" value="1" autocomplete="off"><input id="have_box" type="hidden" value="0" autocomplete="off"><input id="read_box" type="hidden" value="0" autocomplete="off"><input id="vote_box" type="hidden" value="1" autocomplete="off"><input id="id_box" type="hidden" value="11368187" autocomplete="off"><input id="ck_box" type="hidden" value="" autocomplete="off"><input id="tags_user" type="hidden" value="" autocomplete="off"><div id="box_title"><h2 id="h2">收入我的书架<a href="javascript:;" onclick="concealNode('box'); concealNode('overlay')"><span class="right closeBox">　×&nbsp;</span></a></h2></div><div class="bookinfo"><div class="box_left">　 收藏到：</div><div class="box_right"><a href="javascript:;" onclick="selectBox(1)"><span class="box_btn" id="box_btn_21">想&nbsp;读</span></a><a href="javascript:;" onclick="selectBox(2)"><span class="box_btn" id="box_btn_22">读&nbsp;过</span></a><a href="javascript:;" onclick="selectBox(3)"><span class="box_btn" id="box_btn_23">在&nbsp;读</span></a><a href="javascript:;" onclick="selectBox(0)"><span class="box_btn" id="box_btn_20">拥&nbsp;有</span></a></div></div><div class="bookinfo"><div class="box_left">书架/标签：</div><div class="box_right"><div class="box_tags"><span id="box_tag_1"></span><span id="box_tag_2"></span><span id="box_tags"></span></div></div></div><div class="bookinfo"><div class="box_left">&nbsp;我的标签：</div><div class="box_right"><div id="user_tags"></div><input id="input_tag" type="text" value="" maxlength="30" width="52px" onkeypress="if(event.keyCode==13) {addTag()}" autocomplete="off"><a href="javascript:;" onclick="addTag()"><span class="btn_blue font_12">添加</span></a>　<span class="hui_6 font_13">（一次添加一个标签）</span><span id="box_info"></span></div></div><div class="bookinfo"><div class="box_left">　　 评价：</div><div class="box_right"><a id="box_vote_11" href="javascript:;" onclick="selectBox(11)"><span class="news_dig_1" id="box_btn_11">&nbsp;好</span></a><a id="box_vote_12" href="javascript:;" onclick="selectBox(12)"><span class="news_dig_2" id="box_btn_12">&nbsp;孬</span></a></div></div><div class="bookinfo"><div class="box_left">　　 短评：</div><div class="box_right"><textarea id="input_commentBox_book_0" class="input_comment_book" style="height:95px;width:449px;" oninput="countChar('commentBox','book',0)" onpropertychange="countChar('commentBox','book',0)" onkeyup="countChar('commentBox','book',0)" maxlength="300"></textarea></div></div><div class="bookinfo"><div class="box_left">　</div><div class="box_right"><a id="submit_commentBox_book_0" class="click_right" onclick="submitBox()" href="javascript:;"><span class="btn_right">保存</span></a><span class="input_length" id="length_commentBox_book_0">300</span></div></div></div></div>
+</div>
+
+
+	<script>
+	var _hmt = _hmt || [];
+	(function() {
+	  var hm = document.createElement("script");
+	  hm.src = "https://hm.baidu.com/hm.js?7f16c13828d80d379d564ef8de665958";
+	  var s = document.getElementsByTagName("script")[0]; 
+	  s.parentNode.insertBefore(hm, s);
+	})();
+	</script>
+<div class="footer">
+	<div class="foot">
+		<span class="left qian">
+			© 2026 queshu.com　　<a href="http://beian.miit.gov.cn">鲁ICP备17055390号-1</a>
+		</span>
+		<span class="right">
+			<a href="/about" id="last">关于我们</a>　　<a href="/about/weixin" id="last">官方微信</a>
+
+	</div>
+</div>
+
+
+
+</body>
+</html>

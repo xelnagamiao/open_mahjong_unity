@@ -1,0 +1,53 @@
+{
+  "slug": "qian",
+  "label": "黔麻（贵州捉鸡）",
+  "aliases": ["贵州麻将", "贵阳捉鸡", "黔麻", "幺鸡", "乌骨鸡"],
+  "collected_at": "2026-08-14",
+  "notes": "核心是捉鸡，不是血战、不是定缺。MIL 2023 是捉鸡赛场本。近川渝是 108 禁吃。平台无对局。",
+  "sources": [
+    {
+      "id": "mil-guizhou",
+      "url": "/rulebooks/mil/贵州麻将（推广）竞赛规则（试行2023版）.pdf",
+      "title": "贵州麻将（推广）竞赛规则（试行 2023 版）",
+      "type": "rulebook",
+      "lang": "zh",
+      "publisher": "国际麻将联盟规则委员会",
+      "published": "2023",
+      "accessed": "2026-08-14",
+      "excerpt": "108 张，不见吃。普通鸡：1 条、8 饼永远是鸡。和牌鸡：牌墙前端第一张的同色下一张（1–9 循环）；海底和则无和牌鸡。冲锋鸡、责任鸡、金鸡（和牌鸡是 1 条或 8 饼则加倍）。憨包杠不计分，可当通行证。平和铳和必须有通行证。一炮多响。流局查叫，不计鸡杠。不见定缺、不见血战。协会本，是捉鸡赛场写法。",
+      "rules": ["mil-guizhou", "guizhou"],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/mil/贵州麻将（推广）竞赛规则（试行2023版）.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "mahjonget-local",
+      "url": "https://www.mahjonget.com/",
+      "title": "麻将运动技术等级评定 · 推广规则（贵州）",
+      "type": "official",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "推广规则列贵州等。贵麻写捉鸡（幺鸡、八筒）。与 MIL 2023 普通鸡一致。快照在 chuanyu 档案。",
+      "rules": ["guizhou", "mil-guizhou"],
+      "source_level": "secondary",
+      "reliability": "high",
+      "local_kind": "snapshot",
+      "local_path": "chuanyu/snapshots/mahjonget.html",
+      "local_status": "ok"
+    },
+    {
+      "id": "dw-guizhou",
+      "url": "https://doublewin.me/guides/mahjong-gz",
+      "title": "贵阳捉鸡规则整理（鸡牌、豆、通行证）",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "108，禁吃，独胜。胡后翻鸡。幺鸡 1 条、乌骨鸡 8 筒。有杠才能点平和。C 级，倍数与 MIL 不完全相同，只核机制。",
+      "rules": ["guizhou"],
+      "source_level": "community",
+      "reliability": "low"
+    }
+  ]
+}

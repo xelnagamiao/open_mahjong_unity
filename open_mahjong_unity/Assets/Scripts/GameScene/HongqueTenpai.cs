@@ -160,6 +160,8 @@ public static class HongqueTenpai {
     public static void ClearCaches() {
         WaitingMasksCache.Clear();
         MeldExtensionsCache.Clear();
+        CanPartitionCache.Clear();
+        PartitionCache.Clear();
     }
 
     /// <summary>枚举掩码的全部合法组划分（对应 group_index.partition_masks）。</summary>
@@ -411,15 +413,103 @@ public static class HongqueTenpai {
         return hints.ToArray();
     }
 
+    private static List<int> TilesFromMeldMask(int[] mask) {
+        List<int> tiles = new List<int>();
+        if (mask == null) return tiles;
+        for (int i = 1; i < mask.Length; i += 2) {
+            if (mask[i] != 0) tiles.Add(mask[i]);
+        }
+        return tiles;
+    }
+
+    private static int[] MaskFromTileIds(List<int> tiles) {
+        int[] mask = new int[tiles.Count * 2];
+        for (int i = 0; i < tiles.Count; i++) {
+            mask[i * 2] = 0;
+            mask[i * 2 + 1] = tiles[i];
+        }
+        return mask;
+    }
+
+    private static List<(BigInteger Group, BigInteger Extra)> MeldExtensions(BigInteger meldMask) {
+        if (MeldExtensionsCache.TryGetValue(
+                meldMask, out List<(BigInteger Group, BigInteger Extra)> cached)) {
+            return cached;
+        }
+        BigInteger anchorBit = meldMask & -meldMask;
+        int anchorIndex = LowestBitIndex(anchorBit);
+        List<(BigInteger, BigInteger)> extensions = new List<(BigInteger, BigInteger)>();
+        foreach (BigInteger group in GroupsByTile[anchorIndex]) {
+            if ((group & meldMask) != meldMask) continue;
+            BigInteger extra = group ^ meldMask;
+            if (extra == 0) continue;
+            extensions.Add((group, extra));
+        }
+        if (MeldExtensionsCache.Count >= TenpaiCacheLimit) MeldExtensionsCache.Clear();
+        MeldExtensionsCache[meldMask] = extensions;
+        return extensions;
+    }
+
     /// <summary>
-    /// 杠和最优听牌：返回“摸到后可直接杠并立即和牌”的每张听牌及其杠后状态。
-    /// 枚举方式与服务端 kong_win_candidates 一致：对每副明牌扫描包含它的合法组
-    /// 超集，超集新增牌中恰好只有一张不在手牌里，且杠完剩余手牌可构成和牌型
-    /// （剩余可为空）。按杠后计分（自摸口径）为每张听牌保留最优杠法。
+    /// 对应 rules.kong_win_candidates：每次只把 1 张手牌并入一副明牌。
+    /// 供 BestWinResult(allowKongWin) 与服务端自摸结算对齐。
     /// </summary>
-    /// <param name="handTileIds">切牌后的手牌（已不含悬停切掉的牌）。</param>
-    /// <param name="meldMasks">自家副露掩码（[flag, tileId] 对）。</param>
-    /// <param name="excludedTileId">已弃/在场不可再摸的牌（如悬停切牌预览的弃牌）。</param>
+    public static List<HongqueKongWinOption> KongWinCandidates(
+        List<int> handTileIds,
+        List<int[]> meldMasks) {
+        List<HongqueKongWinOption> results = new List<HongqueKongWinOption>();
+        if (handTileIds == null || meldMasks == null || meldMasks.Count == 0) {
+            return results;
+        }
+        List<string> handCodes = handTileIds
+            .Select(HongqueTileVisual.ToCode)
+            .Where(code => code != null)
+            .ToList();
+        if (handCodes.Count != handTileIds.Count) return results;
+        BigInteger handMask = MaskFromCodes(handCodes);
+
+        for (int meldIndex = 0; meldIndex < meldMasks.Count; meldIndex++) {
+            int[] mask = meldMasks[meldIndex];
+            List<int> meldTiles = TilesFromMeldMask(mask);
+            if (meldTiles.Count < 3) continue;
+            List<string> meldCodes = meldTiles
+                .Select(HongqueTileVisual.ToCode)
+                .Where(code => code != null)
+                .ToList();
+            if (meldCodes.Count != meldTiles.Count) continue;
+            BigInteger meldMask = MaskFromCodes(meldCodes);
+            foreach ((BigInteger group, BigInteger extra) in MeldExtensions(meldMask)) {
+                if (BitCount(extra) != 1) continue;
+                if ((extra & handMask) != extra) continue;
+                BigInteger rest = handMask ^ extra;
+                if (rest != 0 && !CanPartitionMask(rest)) continue;
+
+                results.Add(new HongqueKongWinOption {
+                    TileId = HongqueTileVisual.FromCode(Deck[LowestBitIndex(extra)]),
+                    HandAfterKong = TileIdsFromMask(rest),
+                    MeldsAfterKong = BuildMeldsAfter(meldMasks, meldIndex, group),
+                });
+            }
+        }
+        return results;
+    }
+
+    private static List<int[]> BuildMeldsAfter(List<int[]> meldMasks, int meldIndex, BigInteger group) {
+        List<int[]> meldsAfter = new List<int[]>();
+        for (int i = 0; i < meldMasks.Count; i++) {
+            if (i != meldIndex) {
+                if (meldMasks[i] != null) meldsAfter.Add(meldMasks[i]);
+                continue;
+            }
+            meldsAfter.Add(MaskFromTileIds(TileIdsFromMask(group)));
+        }
+        return meldsAfter;
+    }
+
+    /// <summary>
+    /// 杠和听牌：摸到后可把若干手牌并入明牌并立即和牌（仅自摸）。
+    /// 超集比明牌多的牌中恰好一张不在手里，其余在手里，杠完剩余可成和牌型。
+    /// </summary>
     public static Dictionary<int, HongqueKongWinOption> BestKongWinOptions(
         List<int> handTileIds,
         List<int[]> meldMasks,
@@ -443,39 +533,24 @@ public static class HongqueTenpai {
             if (excludedCode != null) usedCodes.Add(excludedCode);
         }
         foreach (int[] mask in meldMasks) {
-            if (mask == null) continue;
-            for (int i = 1; i < mask.Length; i += 2) {
-                string code = HongqueTileVisual.ToCode(mask[i]);
+            foreach (int tileId in TilesFromMeldMask(mask)) {
+                string code = HongqueTileVisual.ToCode(tileId);
                 if (code != null) usedCodes.Add(code);
             }
         }
         BigInteger availableMask = FullDeckMask & ~MaskFromCodes(usedCodes);
 
-        foreach (int[] mask in meldMasks) {
-            if (mask == null || mask.Length < 2) continue;
-            List<string> meldCodes = new List<string>();
-            for (int i = 1; i < mask.Length; i += 2) {
-                string code = HongqueTileVisual.ToCode(mask[i]);
-                if (code != null) meldCodes.Add(code);
-            }
-            if (meldCodes.Count < 3) continue;
+        for (int meldIndex = 0; meldIndex < meldMasks.Count; meldIndex++) {
+            int[] mask = meldMasks[meldIndex];
+            List<int> meldTiles = TilesFromMeldMask(mask);
+            if (meldTiles.Count < 3) continue;
+            List<string> meldCodes = meldTiles
+                .Select(HongqueTileVisual.ToCode)
+                .Where(code => code != null)
+                .ToList();
+            if (meldCodes.Count != meldTiles.Count) continue;
             BigInteger meldMask = MaskFromCodes(meldCodes);
-            if (!MeldExtensionsCache.TryGetValue(
-                    meldMask,
-                    out List<(BigInteger Group, BigInteger Extra)> extensions)) {
-                BigInteger anchorBit = meldMask & -meldMask;
-                int anchorIndex = LowestBitIndex(anchorBit);
-                extensions = new List<(BigInteger, BigInteger)>();
-                foreach (BigInteger group in GroupsByTile[anchorIndex]) {
-                    if ((group & meldMask) != meldMask) continue;
-                    BigInteger extra = group ^ meldMask;
-                    if (extra == 0) continue;
-                    extensions.Add((group, extra));
-                }
-                if (MeldExtensionsCache.Count >= TenpaiCacheLimit) MeldExtensionsCache.Clear();
-                MeldExtensionsCache[meldMask] = extensions;
-            }
-            foreach ((BigInteger group, BigInteger extra) in extensions) {
+            foreach ((BigInteger group, BigInteger extra) in MeldExtensions(meldMask)) {
                 BigInteger missing = extra & ~handMask;
                 if (BitCount(missing) != 1) continue;
                 if ((missing & availableMask) == 0) continue;
@@ -484,31 +559,8 @@ public static class HongqueTenpai {
                 int tileId = HongqueTileVisual.FromCode(Deck[LowestBitIndex(missing)]);
                 if (tileId == 0) continue;
 
-                // 构建杠后状态：剩余手牌 + 扩展后的副露掩码（flag 统一 0，计分只读牌 id）。
                 List<int> restTileIds = TileIdsFromMask(rest);
-                List<int[]> meldsAfter = new List<int[]>();
-                foreach (int[] original in meldMasks) {
-                    if (original == null) continue;
-                    if (original != mask) {
-                        meldsAfter.Add(original);
-                        continue;
-                    }
-                    List<int> extended = new List<int>();
-                    BigInteger bits = group;
-                    while (bits != 0) {
-                        BigInteger bit = bits & -bits;
-                        int id = HongqueTileVisual.FromCode(Deck[LowestBitIndex(bit)]);
-                        if (id != 0) extended.Add(id);
-                        bits ^= bit;
-                    }
-                    int[] extendedMask = new int[extended.Count * 2];
-                    for (int j = 0; j < extended.Count; j++) {
-                        extendedMask[j * 2] = 0;
-                        extendedMask[j * 2 + 1] = extended[j];
-                    }
-                    meldsAfter.Add(extendedMask);
-                }
-
+                List<int[]> meldsAfter = BuildMeldsAfter(meldMasks, meldIndex, group);
                 HongqueWinScore score = HongqueScoring.BestWinResult(
                     restTileIds, meldsAfter, true, false, false);
                 if (score == null) continue;

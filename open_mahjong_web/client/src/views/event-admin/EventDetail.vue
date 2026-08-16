@@ -13,7 +13,7 @@ onMounted(() => {
   const eventId = route.params.eventId
   router.replace({
     path: '/account',
-    hash: '#sec-manage',
+    hash: '#sec-manage-event',
     query: eventId ? { manage: String(eventId) } : undefined,
   })
 })

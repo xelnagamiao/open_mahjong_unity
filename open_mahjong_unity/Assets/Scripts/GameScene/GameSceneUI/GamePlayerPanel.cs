@@ -83,6 +83,9 @@ public class GamePlayerPanel : MonoBehaviour {
         if (state == "gamestate") {
             playerNameText.text = StreamerModeHelper.FormatGamestatePlayerName(
                 playerInfo.username, position, playerInfo.user_id);
+        } else if (state == "record" && RecordSetting.Instance != null && RecordSetting.Instance.IsAnonymousPlayers) {
+            // 牌谱匿名玩家：按 original_player_index（0=东 1=南 2=西 3=北）显示"X起玩家"
+            playerNameText.text = RecordSetting.GetAnonymousPlayerName(playerInfo.original_player_index);
         } else {
             playerNameText.text = playerInfo.username;
         }

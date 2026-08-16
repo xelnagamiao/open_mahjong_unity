@@ -9,7 +9,7 @@
     <header class="hero">
       <p class="eyebrow">OPEN ARCHIVE</p>
       <h1 class="brand">麻雀图书馆</h1>
-      <p class="lede">规则书、牌例与讨论。按来源分列，点标签进入条目。</p>
+      <p class="lede">规则书、牌例与讨论。</p>
       <nav class="hero-nav">
         <a
           v-for="sec in sections"
@@ -50,6 +50,56 @@
             <span class="tag-go" aria-hidden="true">→</span>
           </router-link>
         </div>
+        <div v-else-if="sec.key === 'lineage'" class="lineage-wrap">
+          <div class="lineage-btn lineage-split">
+            <span class="lineage-mark" />
+            <span class="lineage-text">
+              <strong>{{ LIBRARY_LINEAGE.title }}</strong>
+              <span>{{ LIBRARY_LINEAGE.description }}</span>
+            </span>
+            <nav class="lineage-links">
+              <router-link to="/library/lineage">年代表</router-link>
+              <router-link to="/library/lineage/related">关系表</router-link>
+            </nav>
+          </div>
+        </div>
+        <div v-else-if="sec.key === 'categorized'" class="family-stack">
+          <p v-if="!loaded" class="fam-empty">加载规则目录…</p>
+          <div v-for="fam in familyGroups" :key="fam.id" class="fam-block">
+            <h3>
+              {{ fam.label }}
+              <em v-if="fam.region">{{ fam.region }}</em>
+            </h3>
+            <p
+              v-if="fam.relatedness"
+              class="clampable"
+              :class="{ open: expandedFam.has(fam.id) }"
+            >{{ fam.relatedness }}</p>
+            <button
+              v-if="fam.relatedness && fam.relatedness.length > 60"
+              type="button"
+              class="fam-toggle"
+              @click="toggleFam(fam.id)"
+            >{{ expandedFam.has(fam.id) ? '收起' : '展开' }}</button>
+            <div class="tags">
+              <router-link
+                v-for="rule in fam.tags"
+                :key="`${fam.id}-${rule.key}`"
+                class="tag"
+                :to="`/library/${rule.key}`"
+                :title="rule.note"
+                :style="{ '--ink': rule.accent }"
+              >
+                <span class="tag-mark" />
+                <span class="tag-text">
+                  <strong>{{ rule.label }}</strong>
+                  <em v-if="rule.short && rule.short !== rule.label">{{ rule.short }}</em>
+                </span>
+                <span class="tag-go" aria-hidden="true">→</span>
+              </router-link>
+            </div>
+          </div>
+        </div>
         <div v-else class="tags">
           <router-link
             v-for="rule in rulesForSection(sec.key)"
@@ -67,7 +117,6 @@
           </router-link>
         </div>
       </section>
-
     </main>
 
     <section id="sec-public" class="bottom">
@@ -104,11 +153,13 @@
 </template>
 
 <script setup>
-import { nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
 import LibraryDiscussion from '@/components/LibraryDiscussion.vue'
+import { useMahjongCatalog } from '@/composables/useMahjongCatalog'
 import {
+  LIBRARY_LINEAGE,
   LIBRARY_MATERIALS,
   LIBRARY_SECTIONS,
   LIBRARY_SUBMISSION,
@@ -118,14 +169,26 @@ import {
 } from '@/constants/libraryRules'
 
 const route = useRoute()
+const { load, loaded, catalogFamilies } = useMahjongCatalog()
+const familyGroups = computed(() => catalogFamilies())
+const expandedFam = ref(new Set())
+
+function toggleFam(id) {
+  const next = new Set(expandedFam.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  expandedFam.value = next
+}
 
 const sections = LIBRARY_SECTIONS.map((s) => ({
   ...s,
   nav: ({
-    platform: '平台',
+    mahjong: '麻将',
     mil: 'MIL',
-    local: '地方',
-    custom: '自制',
+    categorized: '归类',
+    materials: '资料',
+    submit: '提交',
+    lineage: '谱系',
   })[s.key] || s.title,
 }))
 
@@ -165,22 +228,28 @@ function scrollTo(key) {
 
 function scrollToTopic() {
   const topic = route.query.topic
-  if (!topic) return
-  const el = document.getElementById(`sec-${topic}`)
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  if (topic) {
+    scrollTo(topic)
+    return
+  }
+  const hash = route.hash
+  if (hash) {
+    document.querySelector(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 }
 
 onMounted(async () => {
+  load()
   loadRecent()
   await nextTick()
   scrollToTopic()
 })
 
 watch(
-  () => route.query.topic,
+  () => [route.query.topic, route.hash],
   () => {
     nextTick(scrollToTopic)
-  }
+  },
 )
 </script>
 
@@ -350,6 +419,69 @@ watch(
   color: var(--ink-soft);
 }
 
+.family-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.fam-block h3 {
+  margin: 0;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.fam-block h3 em {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  margin-left: 0.5rem;
+}
+
+.fam-block p {
+  margin: 4px 0 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.fam-block p.clampable {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.fam-block p.clampable.open {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  overflow: visible;
+}
+
+.fam-toggle {
+  display: inline-block;
+  margin: -4px 0 8px;
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.fam-empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
 .tags {
   display: flex;
   flex-wrap: wrap;
@@ -418,6 +550,101 @@ watch(
 .tag:hover .tag-go {
   opacity: 1;
   transform: translateX(0);
+}
+
+.lineage-wrap {
+  min-width: 0;
+}
+
+.lineage-btn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 88px;
+  padding: 16px 18px;
+  text-decoration: none;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--accent);
+  box-sizing: border-box;
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.lineage-btn:hover,
+.lineage-split:hover {
+  background: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(16, 40, 32, 0.1);
+}
+
+.lineage-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.lineage-links a {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.28rem 0.7rem;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.lineage-links a:hover {
+  background: var(--ink);
+  color: #f5f1e8;
+  border-color: var(--ink);
+}
+
+.lineage-mark {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.lineage-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.lineage-text strong {
+  font-family: 'Noto Serif SC', 'Songti SC', serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.lineage-text em {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+
+.lineage-text span {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.lineage-go {
+  font-size: 22px;
+  color: var(--accent);
+  flex-shrink: 0;
 }
 
 .bottom {

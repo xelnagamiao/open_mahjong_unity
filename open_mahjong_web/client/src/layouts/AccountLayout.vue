@@ -51,13 +51,21 @@ const asideWidth = computed(() => (isMobile.value ? '132px' : '196px'))
 
 const menuItems = [
   { index: 'sec-account', label: '账户' },
-  { index: 'sec-apply', label: '办赛申请' },
-  { index: 'sec-manage', label: '赛事管理' },
+  { index: 'sec-apply-event', label: '办赛申请' },
+  { index: 'sec-apply-base', label: '办基地申请' },
+  { index: 'sec-manage-event', label: '赛事管理' },
+  { index: 'sec-manage-base', label: '基地管理' },
 ]
+
+const LEGACY_HASH = {
+  'sec-apply': 'sec-apply-event',
+  'sec-manage': 'sec-manage-event',
+}
 
 const activeMenu = computed(() => {
   const hash = (route.hash || '').replace(/^#/, '')
-  if (hash === 'sec-apply' || hash === 'sec-manage' || hash === 'sec-account') return hash
+  const mapped = LEGACY_HASH[hash] || hash
+  if (menuItems.some((item) => item.index === mapped)) return mapped
   return 'sec-account'
 })
 

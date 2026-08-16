@@ -1,0 +1,477 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head id="Head1"><title>
+	National Mah Jongg League : The Store
+</title><meta name="viewport" content="width=device-width" />
+    <noscript><meta http-equiv="refresh" content="0; url=nojavascript.html" /></noscript>
+    <noscript>
+    <meta http-equiv="refresh" content="0; url=nojavascript.html" />
+</noscript>
+
+<link rel="stylesheet" type="text/css" href="css/new.css" />
+
+<!--< script type="text/javascript" src=" https: //ajax.googleapis.com/ajax/libs/jquery/1.7/jquery.min.js">< / s cript>-->
+
+<script type="text/javascript" src="scripts/jquery-3.7.1.min.js"></script>
+<script type="text/javascript" src="scripts/slippry.min.js"></script>
+<link rel="stylesheet" href="css/slippry.css" />
+
+<!-- <script src="scripts/tinynav.min.js" type="text/javascript"></script> -->
+<script type="text/javascript" src="scripts/basic.js"></script>
+<script src="scripts/AC_RunActiveContent.js" type="text/javascript"></script>
+
+<!--< s cript type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js">< / script>-->
+
+
+<script type="text/javascript" src="scripts/googleAnalytics.js"></script>
+
+<style type="text/css">
+    .footertext {
+        color: #ffffff;
+        background-color: #808080;
+        font-family: Georgia, 'Times New Roman', Times, serif;
+        font-size: 12px;
+        line-height: 16px;
+    }
+
+    .footerline {
+        width: 100%;
+        padding: 3px;
+        background-color: #808080;
+    }
+
+    .generalfont {
+        color: #f0f0f0;
+        font-family: Georgia, "Times New Roman", Times, serif;
+        background-color: #000000;
+    }
+
+    .titlefont {
+        color: #FFFFFF;
+        font-family: Georgia, "Times New Roman", Times, serif;
+    }
+
+    body {
+        background-color: #000000;
+    }
+
+    @media print {
+        .noprint {
+            display: none;
+        }
+    }
+</style><link rel="stylesheet" type="text/css" href="css/store.css" />
+    <style type="text/css">
+        .ui-dialog {
+            background-color: #111111;
+            border-style:solid;
+            border-width:thin;
+        }
+
+
+    #popupbox {
+        position: fixed; /* stays in place even when scrolling */
+        width: 5px;
+        height: 5px;
+        background: none;
+        border:none;
+        display: none; /* hidden initially */
+        z-index: 9999; /* floats above other elements */
+        top: 100px; /* fixed offset from top */
+        left: 200px; /* fixed offset from left */
+        padding: 0px;
+    }
+    .hideinfo {
+        visibility:hidden;
+        display:none;
+    }
+
+        .ui-dialog-title {
+           color: #ffffff!important;
+        }
+        .ui-dialog {
+	        border-color:#ffffff!important;
+        }
+
+        p {
+               color: #ffffff;
+            }
+    </style>
+</head>
+<body class="store" >
+
+
+   <div align="center">
+       <div class="outer">
+      <div class="blackbackground">
+
+          <div id="tempQty" class="hidden hideinfo">0</div>
+
+          <style>
+    .full-line {
+        background-color: #ffffff;
+        min-width: 150px !important;
+    }
+
+</style>
+
+
+
+<a href="index.aspx"><img class="img_headerphone noprint" alt="" src="../images/rsz_1rsz_1rsz_mahjong.png" /></a> <a href="index.aspx"><img src="../images/nav_down_01.gif" alt="" class="img_header noprint"
+                                     border="0" id="Image1" /></a>
+    <div class="menudiv noprint full-line">
+        <!--<ul class="hmenu noprint full-line">-->
+            <!--<li><a href="#" target="_self"><img class="img_button" src="../images/nav_blank.gif" alt="" name="" width="30" height="34" border="0" id="" /></a></li>-->
+            <!--<li><a href="league.aspx"><img class="img_button" src="images/nav_down_02.gif" alt="League" name="league" width="107" height="34" border="0" id="league" /></a></li>
+            <li><a href="game.aspx"><img class="img_button" src="images/nav_down_03.gif" alt="Game" name="game" width="93" height="34" border="0" id="game" /></a></li>
+            <li><a href="charitablework.aspx"><img class="img_button" src="images/nav_down_21.gif" alt="Charitablework" name="charitablework" width="118" height="34" border="0" id="charitablework" /></a></li>
+            <li><a href="charities.aspx"><img class="img_button" src="images/nav_down_04.gif" alt="Charities" name="charities" width="118" height="34" border="0" id="charities" /></a></li>-->
+            <!--  <li><a href="../https://www.nmjl.org/" target="_blank"><img class="img_button" src="../images/nav_down_05.gif" alt="game" name="online" width="112" height="34" border="0" id="online" /></a></li> -->
+            <!--<li><a href="store.aspx"><img class="img_button" src="images/nav_down_06.gif" alt="store" name="store" width="91" height="34" border="0" id="store" /></a></li>
+            <li><a href="onlinegame.aspx"><img class="img_button" src="images/nav_down_20.gif" alt="NMJL Online" name="nmjlonline" width="112" height="34" border="0" id="nmjlonline"></a></li>
+            <li><a href="PaperForm.aspx" class="paperform" target="_blank"><img class="img_button" src="images/nav_down_07.gif" alt="Mail" name="mail" width="115" height="34" border="0" id="mail" /></a></li>
+            <li><a href="CollectorKnowInfo.aspx"><img class="img_button" src="images/nav_down_09.gif" alt="Collectors" name="collectors" width="92" height="34" border="0" id="collectors" /></a></li>
+            <li><a href="faq.aspx"><img class="img_button" src="images/nav_down_10.gif" alt="FAQ" name="faq" width="64" height="34" border="0" id="faq"></a></li>
+            <li><a href="contact.aspx"><img class="img_button" src="images/nav_down_11.gif" alt="Contact" name="contact" width="128" height="34" border="0" id="contact"></a></li>-->
+            <!--<li><a href="#" target="_self"><img class="img_button" src="../images/nav_blank.gif" alt="" name="" width="40" height="34" border="0" id="" /></a></li>-->
+
+        <!--</ul>-->
+
+            <ul class="hmenu noprint full-line">
+                <li><a href="#" target="_self"><img class="img_button" src="../images/nav_blank.gif" alt="" name="" width="28" height="34" border="0" id="" /></a></li>
+                <li><a href="league.aspx"><img class="img_button" src="../images/nav_down_02.gif" alt="League" width="96" height="34" /></a></li>
+                <li><a href="game.aspx"><img class="img_button" src="../images/nav_down_03.gif" alt="Game" width="84" height="34" /></a></li>
+                <li><a href="charitablework.aspx"><img class="img_button" src="../images/nav_down_21.gif" alt="Charitablework" width="106" height="34" /></a></li>
+                <li><a href="charities.aspx"><img class="img_button" src="../images/nav_down_04.gif" alt="Charities" width="106" height="34" /></a></li>
+                <li><a href="store.aspx"><img class="img_button" src="../images/nav_down_06.gif" alt="store" width="82" height="34" /></a></li>
+                <li><a href="onlinegame.aspx"><img class="img_button" src="../images/nav_down_20.gif" alt="NMJL Online" width="101" height="34" /></a></li>
+                <li><a href="PaperForm.aspx" class="paperform" target="_blank"><img class="img_button" src="../images/nav_down_07.gif" alt="Mail" width="104" height="34" /></a></li>
+                <li><a href="CollectorKnowInfo.aspx"><img class="img_button" src="../images/nav_down_09.gif" alt="Collectors" width="83" height="34" /></a></li>
+                <li><a href="faq.aspx"><img class="img_button" src="../images/nav_down_10.gif" alt="FAQ" width="58" height="34" /></a></li>
+                <li><a href="contact.aspx"><img class="img_button" src="../images/nav_down_11.gif" alt="Contact" width="115" height="34" /></a></li>
+                <li><a href="#" target="_self"><img class="img_button" src="../images/nav_blank.gif" alt="" name="" width="37" height="34" border="0" id="" /></a></li>
+            </ul>
+
+    </div>
+    <nav>
+        <select id="nav" class="phonemenu noprint">
+            <option value="" selected="selected">Menu</option>
+            <option value="/index.aspx">Home</option>
+            <option value="/league.aspx">The League</option>
+            <option value="/game.aspx">The Game</option>
+            <option value="/charitablework.aspx">Our Donation</option>
+            <option value="/charities.aspx">Our Charities</option>
+            <option value="/onlinegame.aspx">NMJL Online</option>
+            <option value="/store.aspx">The Store</option>
+            <option value="/faq.aspx">FAQ</option>
+            <option value="/contact.aspx">Contact</option>
+        </select>
+    </nav>  
+ 
+                          <div class="tdstore">
+                             <h1 class="phonestorehead">The Store</h1>
+                             <div class="clearme"></div>
+                             <span id="storeMsg"><font size="3"><I><font color="4eff00">We are now accepting orders for the new 2026 card.<br>
+Please note the price remains <font color="yellow">$14</font> for Standard and  <font color="yellow">$15</font> for Large Print Cards. <br />
+<br>PRICES SUBJECT TO CHANGE: Outside US, postage must be added. For cost and instructions you will be notified by mail/e-mail. Payment must be in US funds, through a US bank, or US Money Order.</fo></span>
+                          </div>
+
+                          <table width="100%" style="background-color:Black;">
+	<tr class="blacktr">
+		<td>
+                              
+                           </td>
+	</tr>
+	<tr class="blacktr">
+		<td>
+                                 <table id="tblStoreItems" width="100%">
+			<tr>
+				<td valign="top">
+                                          <table>
+                                             <tr>
+                                               <td width="100px">
+                                                   &nbsp;
+                                                </td>
+                                                <td colspan="2">
+                                                   <div id="itemlist" class="right"><table width='100%'   class='inventory' id='tbl001' itemNbr='001'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink001' class='itemlink'><img src='images/store/pxl150\2026SPx150.jpg' class='itemimg' id='itemimg001' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty001' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='001' id='itemPrice001'>$14.00</span></br><button class='addone' onclick='incrementValue("001")' id='itemQty001' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("001")' id='itemQty001' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>1) 2026 Card <font color="red">(STANDARD Size 5 1/8”x4”)</font></span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal001'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl002' itemNbr='002'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink002' class='itemlink'><img src='images/store/pxl150\2026LPx150.jpg' class='itemimg' id='itemimg002' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty002' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='002' id='itemPrice002'>$15.00</span></br><button class='addone' onclick='incrementValue("002")' id='itemQty002' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("002")' id='itemQty002' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'><span style='font-size:larger'>2) 2026 Card <font color="red">(LARGE Size 6 1/8”x4 3/4”)</font</span></span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal002'>$00.00</span></td></tr></table><table width='100%'   class='subscription' id='tbl038' itemNbr='038'  limitQty='Y'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink038' class='itemlink'><img src='images/store/pxl150\NMJLOnlinelogoX150.jpg' class='itemimg' id='itemimg038' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty038' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='Y' itemCode='038' id='itemPrice038'>$4.99</span></br><button class='addone' onclick='incrementValue("038")' id='itemQty038' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("038")' id='itemQty038' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>38) NMJL ONLINE Game <font color="red">(One Month)</font></span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal038'>$00.00</span></td></tr><tr><td colspan='3'><span class='norefunds'>REMINDER:  There are NO refunds on game subscription puchases or any other digital content</span></td></tr></table><table width='100%'   class='subscription' id='tbl039' itemNbr='039'  limitQty='Y'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink039' class='itemlink'><img src='images/store/pxl150\NMJLOnlinelogoX150.jpg' class='itemimg' id='itemimg039' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty039' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='Y' itemCode='039' id='itemPrice039'>$12.99</span></br><button class='addone' onclick='incrementValue("039")' id='itemQty039' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("039")' id='itemQty039' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>39) NMJL ONLINE Game <font color="red">(Three Months)</font></span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal039'>$00.00</span></td></tr><tr><td colspan='3'><span class='norefunds'>REMINDER:  There are NO refunds on game subscription puchases or any other digital content</span></td></tr></table><table width='100%'   class='subscription' id='tbl040' itemNbr='040'  limitQty='Y'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink040' class='itemlink'><img src='images/store/pxl150\NMJLOnlinelogoX150.jpg' class='itemimg' id='itemimg040' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty040' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='Y' itemCode='040' id='itemPrice040'>$49.99</span></br><button class='addone' onclick='incrementValue("040")' id='itemQty040' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("040")' id='itemQty040' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>40) NMJL ONLINE Game <font color="red">(One Year)</font></span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal040'>$00.00</span></td></tr><tr><td colspan='3'><span class='norefunds'>REMINDER:  There are NO refunds on game subscription puchases or any other digital content</span></td></tr></table><table width='100%'   class='inventory' id='tbl003' itemNbr='003'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink003' class='itemlink'><img src='images/store/pxl150\150tblCvrWPlasticCase.png' class='itemimg' id='itemimg003' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty003' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='003' id='itemPrice003'>$60.00</span></br><button class='addone' onclick='incrementValue("003")' id='itemQty003' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("003")' id='itemQty003' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>3) Table Cover in Plastic Carrying Case</span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal003'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl004' itemNbr='004'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink004' class='itemlink'><img src='images/store/pxl150\smcardholder150.jpg' class='itemimg' id='itemimg004' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty004' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='004' id='itemPrice004'>$9.00</span></br><button class='addone' onclick='incrementValue("004")' id='itemQty004' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("004")' id='itemQty004' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>4) Plastic Holder <font color="red">(Standard Size)</font></span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal004'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl005' itemNbr='005'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink005' class='itemlink'><img src='images/store/pxl150\lgcardholder150.jpg' class='itemimg' id='itemimg005' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty005' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='005' id='itemPrice005'>$10.00</span></br><button class='addone' onclick='incrementValue("005")' id='itemQty005' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("005")' id='itemQty005' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>5) Plastic Holder  <font color="red">(Large Size)</font></span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal005'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl006' itemNbr='006'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink006' class='itemlink'><img src='images/store/pxl150\150instructionbook2024.png' class='itemimg' id='itemimg006' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty006' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='006' id='itemPrice006'>$15.95</span></br><button class='addone' onclick='incrementValue("006")' id='itemQty006' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("006")' id='itemQty006' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>6) Instruction Book "Mah Jongg Made Easy" Revised Edition 2024</span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal006'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl007' itemNbr='007'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink007' class='itemlink'><img src='images/store/pxl150\BETTOR150A.jpg' class='itemimg' id='itemimg007' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty007' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='007' id='itemPrice007'>$12.00</span></br><button class='addone' onclick='incrementValue("007")' id='itemQty007' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("007")' id='itemQty007' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>7) Bettor</span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal007'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl008' itemNbr='008'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink008' class='itemlink'><img src='images/store/pxl150\150jokerdecals150.jpg' class='itemimg' id='itemimg008' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty008' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='008' id='itemPrice008'>$5.95</span></br><button class='addone' onclick='incrementValue("008")' id='itemQty008' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("008")' id='itemQty008' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>8) Joker Decals <font color="red">(Pkg of 8)</font></span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal008'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl009' itemNbr='009'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink009' class='itemlink'><img src='images/store/pxl150\MONEYCHIPSNEW150.jpg' class='itemimg' id='itemimg009' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty009' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='009' id='itemPrice009'>$9.50</span></br><button class='addone' onclick='incrementValue("009")' id='itemQty009' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("009")' id='itemQty009' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>9) Money Chips <font color="red">(100 Chips)</font></span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal009'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl010' itemNbr='010'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink010' class='itemlink'><img src='images/store/pxl150\DECK OF KARD 150.jpg' class='itemimg' id='itemimg010' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty010' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='010' id='itemPrice010'>$30.00</span></br><button class='addone' onclick='incrementValue("010")' id='itemQty010' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("010")' id='itemQty010' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>10) Mah Jongg Playing Kards</span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal010'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl011' itemNbr='011'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink011' class='itemlink'><img src='images/store/pxl150\COMBO 150.jpg' class='itemimg' id='itemimg011' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty011' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='011' id='itemPrice011'>$38.00</span></br><button class='addone' onclick='incrementValue("011")' id='itemQty011' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("011")' id='itemQty011' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>11) Mah Jongg Playing Kards w/INSTRUCTION BOOK</span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal011'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl012' itemNbr='012'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink012' class='itemlink'><img src='images/store/pxl150\SWEATSHIRT150A.jpg' class='itemimg' id='itemimg012' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty012' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='012' id='itemPrice012'>$35.00</span></br><button class='addone' onclick='incrementValue("012")' id='itemQty012' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("012")' id='itemQty012' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>12) Med Mah Jongg Sweatshirt (Pullover-white only-multi imprint)</span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal012'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl013' itemNbr='013'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink013' class='itemlink'><img src='images/store/pxl150\SWEATSHIRT150A.jpg' class='itemimg' id='itemimg013' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty013' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='013' id='itemPrice013'>$35.00</span></br><button class='addone' onclick='incrementValue("013")' id='itemQty013' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("013")' id='itemQty013' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>13) Lg. Mah Jongg Sweatshirt (Pullover-white only-multi imprint)</span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal013'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl016' itemNbr='016'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink016' class='itemlink'><img src='images/store/pxl150\TEESHIRTA150.jpg' class='itemimg' id='itemimg016' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty016' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='016' id='itemPrice016'>$27.00</span></br><button class='addone' onclick='incrementValue("016")' id='itemQty016' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("016")' id='itemQty016' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>16) Med Mah Jongg T-Shirt (Pullover-white only-multi imprint)</span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal016'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl017' itemNbr='017'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink017' class='itemlink'><img src='images/store/pxl150\TEESHIRTA150.jpg' class='itemimg' id='itemimg017' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty017' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='017' id='itemPrice017'>$27.00</span></br><button class='addone' onclick='incrementValue("017")' id='itemQty017' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("017")' id='itemQty017' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>17) Lg. Mah Jongg T-Shirt (Pullover-white only-multi imprint)</span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal017'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl018' itemNbr='018'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink018' class='itemlink'><img src='images/store/pxl150\TEESHIRTA150.jpg' class='itemimg' id='itemimg018' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty018' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='018' id='itemPrice018'>$27.00</span></br><button class='addone' onclick='incrementValue("018")' id='itemQty018' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("018")' id='itemQty018' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>18) XL Mah Jongg T-Shirt (Pullover-white only-multi imprint)</span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal018'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl020' itemNbr='020'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink020' class='itemlink'><img src='images/store/pxl150\150HH.jpg' class='itemimg' id='itemimg020' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty020' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='020' id='itemPrice020'>$48.00</span></br><button class='addone' onclick='incrementValue("020")' id='itemQty020' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("020")' id='itemQty020' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>20) HELPING HANDS  <font color="red">(Pushers) - Set of 4</font></span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal020'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl021' itemNbr='021'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink021' class='itemlink'><img src='images/store/pxl150\clearcolorracks150.jpg' class='itemimg' id='itemimg021' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty021' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='021' id='itemPrice021'>$52.00</span></br><button class='addone' onclick='incrementValue("021")' id='itemQty021' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("021")' id='itemQty021' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>21) RACKS: Set of 4 <font color="red">"PUSHERS NOT INCLUDED"</fo</span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal021'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl022' itemNbr='022'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink022' class='itemlink'><img src='images/store/pxl150\smokieracks150.jpg' class='itemimg' id='itemimg022' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty022' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='022' id='itemPrice022'>$52.00</span></br><button class='addone' onclick='incrementValue("022")' id='itemQty022' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("022")' id='itemQty022' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>22) Smoky Racks <font color="red">(SET OF 4 )</font></span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal022'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl024' itemNbr='024'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink024' class='itemlink'><img src='images/store/pxl150\clear racks.jpg' class='itemimg' id='itemimg024' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty024' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='024' id='itemPrice024'>$52.00</span></br><button class='addone' onclick='incrementValue("024")' id='itemQty024' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("024")' id='itemQty024' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>24) Clear Racks <font color="red">(SET OF 4)</font></span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal024'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl025' itemNbr='025'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink025' class='itemlink'><img src='images/store/pxl150\2026MGx150.jpg' class='itemimg' id='itemimg025' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty025' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='025' id='itemPrice025'>$35.00</span></br><button class='addone' onclick='incrementValue("025")' id='itemQty025' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("025")' id='itemQty025' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>25) 2026 Mega Card <font color="red">(Mailed in Late March)</fon</span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal025'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl026' itemNbr='026'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink026' class='itemlink'><img src='images/store/pxl150\Item29x150.jpg' class='itemimg' id='itemimg026' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty026' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='026' id='itemPrice026'>$110.00</span></br><button class='addone' onclick='incrementValue("026")' id='itemQty026' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("026")' id='itemQty026' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>26) Lightweight Microfibre Carrying Case (Black)</span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal026'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl027' itemNbr='027'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink027' class='itemlink'><img src='images/store/pxl150\WHITETILESONLY2014150.jpg' class='itemimg' id='itemimg027' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty027' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='027' id='itemPrice027'>$85.00</span></br><button class='addone' onclick='incrementValue("027")' id='itemQty027' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("027")' id='itemQty027' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>27) White Tiles Only<font color="red"> (1 3/16" H,7/8" W,9/16"D)</span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal027'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl028' itemNbr='028'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink028' class='itemlink'><img src='images/store/pxl150\PINKTILES ONLY 150PX.jpg' class='itemimg' id='itemimg028' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty028' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='028' id='itemPrice028'>$195.00</span></br><button class='addone' onclick='incrementValue("028")' id='itemQty028' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("028")' id='itemQty028' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>28) Pink Tiles Only<font color="red"> (1 3/16" H,7/8" W,9/16"D)</span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal028'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl029' itemNbr='029'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink029' class='itemlink'><img src='images/store/pxl150\greentiles only150.jpg' class='itemimg' id='itemimg029' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty029' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='029' id='itemPrice029'>$195.00</span></br><button class='addone' onclick='incrementValue("029")' id='itemQty029' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("029")' id='itemQty029' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>29) Green Tiles Only<font color="red"> (1 3/16"H,7/8" W,9/16"D)</span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal029'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl030' itemNbr='030'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink030' class='itemlink'><img src='images/store/pxl150\black tiles only150.jpg' class='itemimg' id='itemimg030' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty030' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='030' id='itemPrice030'>$195.00</span></br><button class='addone' onclick='incrementValue("030")' id='itemQty030' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("030")' id='itemQty030' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>30) Black Tiles Only<font color="red"> (1 3/16" H,7/8" W,9/16"D)</span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal030'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl031' itemNbr='031'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink031' class='itemlink'><img src='images/store/pxl150\red tiles only 150.jpg' class='itemimg' id='itemimg031' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty031' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='031' id='itemPrice031'>$195.00</span></br><button class='addone' onclick='incrementValue("031")' id='itemQty031' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("031")' id='itemQty031' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>31) Red Tiles Only<font color="red"> (1 3/16" H,7/8" W,9/16"D)</span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal031'>$00.00</span></td></tr></table><table width='100%'   class='inventory' id='tbl032' itemNbr='032'  limitQty='N'    ><tr><td rowspan='3' class='itemlisttd'><a href='#' id='itemLink032' class='itemlink'><img src='images/store/pxl150\Item35x150.jpg' class='itemimg' id='itemimg032' /></a><td>&nbsp;</td><td class='itemlisttd2'><span>Qty:&nbsp;</span><input class='itemqty' id='itemQty032' type='text' value='' /></td></tr><tr><td>&nbsp;</td><td class='itemlisttd2'><span>Price:&nbsp;</span><span class='itemprice' limitQty='N' itemCode='032' id='itemPrice032'>$225.00</span></br><button class='addone' onclick='incrementValue("032")' id='itemQty032' type='button'> + 1</button></br><button class='minusone' onclick='decreaseValue("032")' id='itemQty032' type='button'> - 1 </button></td></tr><tr><td>&nbsp</td></tr><tr><td class='itemlisttd'><span class='itemdesc'>32) Soft Black Bag, Complete Mah Jongg Set</span></td><td>&nbsp;</td><td class='itemlisttd2'><span>Total:&nbsp;</span><span class='itemtotal' id='itemTotal032'>$00.00</span></td></tr></table></div>
+                                                </td>
+                                                <div class="ordertotal">
+                                                   <span>Your Order Total is: </span>
+                                                   <br />
+                                                   <span id="orderTotal" class="storeordertotal">$0.00</span>
+                                                   <br />
+                                                   <br />
+                                                   <span>&nbsp;&nbsp;&nbsp;</span>
+                                                   <input id="checkout" type="button" value="Check Out" />
+                                                   <br />
+                                                   <br />
+                                                   <span>&nbsp;&nbsp;&nbsp;</span>
+                                                   <input name="btnCancel2" type="button" id="btnCancel2" value="Cancel Order" />
+                                                   <input onclick="__doPostBack('btnCancel','')" name="btnCancel" type="button" id="btnCancel" value="Cancel Order" class="hiddenbutton" />
+                                                </div>
+                                             </tr>
+                                             <tr>
+                                                <td>
+                                                   &nbsp;
+                                                </td>
+                                                <td align="right">
+                                                   <span>&nbsp;&nbsp;&nbsp;</span>
+                                                </td>
+                                                <td>
+                                                   &nbsp;
+                                                </td>
+                                             </tr>
+                                          </table>
+                                       </td>
+			</tr>
+		</table>
+		
+                                 <form name="form1" method="post" action="./store.aspx" id="form1">
+		<div>
+		<input type="hidden" name="__EVENTTARGET" id="__EVENTTARGET" value="" />
+		<input type="hidden" name="__EVENTARGUMENT" id="__EVENTARGUMENT" value="" />
+		<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="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" />
+		</div>
+		
+<script type="text/javascript">
+//<![CDATA[
+var theForm = document.forms['form1'];
+		if (!theForm) {
+    theForm = document.form1;
+}
+		function __doPostBack(eventTarget, eventArgument) {
+    if (!theForm.onsubmit || (theForm.onsubmit() != false)) {
+        theForm.__EVENTTARGET.value = eventTarget;
+        theForm.__EVENTARGUMENT.value = eventArgument;
+        theForm.submit();
+    }
+}
+		//]]>
+</script>
+
+
+		<div>
+
+			<input type="hidden" name="__VIEWSTATEGENERATOR" id="__VIEWSTATEGENERATOR" value="0F2C5E87" />
+			<input type="hidden" name="__EVENTVALIDATION" id="__EVENTVALIDATION" value="mxDJFx6crv2K6woxZFZ2EBYE7tI9OSaZvgekJZ4I+/OGhxMPqIZBnOIkIXjAU6mrkxqT7SSEvvHkCzcde6NeEshw8Z70qQlc8A0IceBNw+k1uv4dVhEATzteUmLhhGwk3jZsWcn2zDQGuRWU2ITypWBta4AumLLl4gF5ySl4kaHLB8pjENRpklaU5BIr3XmO" />
+		</div>		
+                                 <input name="txtItemsOrdered" type="text" id="txtItemsOrdered" style="display: none" />
+                                 <input name="txtQtysOrdered" type="text" id="txtQtysOrdered" style="display: none" />
+                                 <div id="dialogs"><div id='dlg001' class='itemdlg'><img src='images/store/pxl300\2026SPx300.jpg' class='itemdlgimage'/><p>Item Number:<span>1</span></p><p><span>2026 Card <font color="red">(STANDARD Size 5 1/8”x4”)</font></span></p><br /><p><span></span></p><br /></div><div id='dlg002' class='itemdlg'><img src='images/store/pxl300\2026LPx300.jpg' class='itemdlgimage'/><p>Item Number:<span>2</span></p><p><span>2026 Card <font color="red">(LARGE Size 6 1/8”x4 3/4”)</font</span></p><br /><p><span></span></p><br /></div><div id='dlg038' class='itemdlg'><img src='images/store/pxl300\NMJLOnlinelogoX300.jpg' class='itemdlgimage'/><p>Item Number:<span>38</span></p><p><span>NMJL ONLINE Game <font color="red">(One Month)</font></span></p><br /><p><span>Online Game Subscription for 1 Month</span></p><br /></div><div id='dlg039' class='itemdlg'><img src='images/store/pxl300\NMJLOnlinelogoX300.jpg' class='itemdlgimage'/><p>Item Number:<span>39</span></p><p><span>NMJL ONLINE Game <font color="red">(Three Months)</font></span></p><br /><p><span>Online Game Subscription for 3 months</span></p><br /></div><div id='dlg040' class='itemdlg'><img src='images/store/pxl300\NMJLOnlinelogoX300.jpg' class='itemdlgimage'/><p>Item Number:<span>40</span></p><p><span>NMJL ONLINE Game <font color="red">(One Year)</font></span></p><br /><p><span>Online Game Subscription for 1 Year</span></p><br /></div><div id='dlg003' class='itemdlg'><img src='images/store/pxl300\300tblCvrWPlasticCase.png' class='itemdlgimage'/><p>Item Number:<span>3</span></p><p><span>Table Cover in Plastic Carrying Case</span></p><br /><p><span>Overall size is 40”x 40”  With snaps to reduce size to  37” x37”</span></p><br /></div><div id='dlg004' class='itemdlg'><img src='images/store/pxl300\smcardholder300.jpg' class='itemdlgimage'/><p>Item Number:<span>4</span></p><p><span>Plastic Holder <font color="red">(Standard Size)</font></span></p><br /><p><span></span></p><br /></div><div id='dlg005' class='itemdlg'><img src='images/store/pxl300\lgcardholder300.jpg' class='itemdlgimage'/><p>Item Number:<span>5</span></p><p><span>Plastic Holder  <font color="red">(Large Size)</font></span></p><br /><p><span></span></p><br /></div><div id='dlg006' class='itemdlg'><img src='images/store/pxl300\300instructionbook2024.png' class='itemdlgimage'/><p>Item Number:<span>6</span></p><p><span>Instruction Book "Mah Jongg Made Easy" Revised Edition 2024</span></p><br /><p><span>Revised for 2024</span></p><br /></div><div id='dlg007' class='itemdlg'><img src='images/store/pxl300\BETTOR300A.jpg' class='itemdlgimage'/><p>Item Number:<span>7</span></p><p><span>Bettor</span></p><br /><p><span></span></p><br /></div><div id='dlg008' class='itemdlg'><img src='images/store/pxl300\JOKERSDECALS300.jpg' class='itemdlgimage'/><p>Item Number:<span>8</span></p><p><span>Joker Decals <font color="red">(Pkg of 8)</font></span></p><br /><p><span></span></p><br /></div><div id='dlg009' class='itemdlg'><img src='images/store/pxl300\MONEYCHIPSNEW300.jpg' class='itemdlgimage'/><p>Item Number:<span>9</span></p><p><span>Money Chips <font color="red">(100 Chips)</font></span></p><br /><p><span>Contain  20 Blue Chips, 20 Green Chips, 20 Red Chips, 20 White Chips, 20 Yellow Chips total of 100 Money Chips.</span></p><br /></div><div id='dlg010' class='itemdlg'><img src='images/store/pxl300\DECK OG KARD300.jpg' class='itemdlgimage'/><p>Item Number:<span>10</span></p><p><span>Mah Jongg Playing Kards</span></p><br /><p><span></span></p><br /></div><div id='dlg011' class='itemdlg'><img src='images/store/pxl300\combo300.jpg' class='itemdlgimage'/><p>Item Number:<span>11</span></p><p><span>Mah Jongg Playing Kards w/INSTRUCTION BOOK</span></p><br /><p><span></span></p><br /></div><div id='dlg012' class='itemdlg'><img src='images/store/pxl300\SWEATSHIRT300A.jpg' class='itemdlgimage'/><p>Item Number:<span>12</span></p><p><span>Med Mah Jongg Sweatshirt (Pullover-white only-multi imprint)</span></p><br /><p><span></span></p><br /></div><div id='dlg013' class='itemdlg'><img src='images/store/pxl300\SWEATSHIRT300A.jpg' class='itemdlgimage'/><p>Item Number:<span>13</span></p><p><span>Lg. Mah Jongg Sweatshirt (Pullover-white only-multi imprint)</span></p><br /><p><span></span></p><br /></div><div id='dlg016' class='itemdlg'><img src='images/store/pxl300\TEESHIRTA300.jpg' class='itemdlgimage'/><p>Item Number:<span>16</span></p><p><span>Med Mah Jongg T-Shirt (Pullover-white only-multi imprint)</span></p><br /><p><span></span></p><br /></div><div id='dlg017' class='itemdlg'><img src='images/store/pxl300\TEESHIRTA300.jpg' class='itemdlgimage'/><p>Item Number:<span>17</span></p><p><span>Lg. Mah Jongg T-Shirt (Pullover-white only-multi imprint)</span></p><br /><p><span></span></p><br /></div><div id='dlg018' class='itemdlg'><img src='images/store/pxl300\TEESHIRTA300.jpg' class='itemdlgimage'/><p>Item Number:<span>18</span></p><p><span>XL Mah Jongg T-Shirt (Pullover-white only-multi imprint)</span></p><br /><p><span></span></p><br /></div><div id='dlg020' class='itemdlg'><img src='images/store/pxl300\300HH.jpg' class='itemdlgimage'/><p>Item Number:<span>20</span></p><p><span>HELPING HANDS  <font color="red">(Pushers) - Set of 4</font></span></p><br /><p><span>Mah jongg acrylic pushers set of 4.</span></p><br /></div><div id='dlg021' class='itemdlg'><img src='images/store/pxl300\clearcolorracks300.jpg' class='itemdlgimage'/><p>Item Number:<span>21</span></p><p><span>RACKS: Set of 4 <font color="red">"PUSHERS NOT INCLUDED"</fo</span></p><br /><p><span>Mah jongg acrylic Pink,Green,Yellow,Blue  colored racks set of 4.</span></p><br /></div><div id='dlg022' class='itemdlg'><img src='images/store/pxl300\smokieracks300.jpg' class='itemdlgimage'/><p>Item Number:<span>22</span></p><p><span>Smoky Racks <font color="red">(SET OF 4 )</font></span></p><br /><p><span>Mah jongg plastic smokey racks set of 4.</span></p><br /></div><div id='dlg024' class='itemdlg'><img src='images/store/pxl300\clear racks.jpg' class='itemdlgimage'/><p>Item Number:<span>24</span></p><p><span>Clear Racks <font color="red">(SET OF 4)</font></span></p><br /><p><span>Set of 4 Clear racks</span></p><br /></div><div id='dlg025' class='itemdlg'><img src='images/store/pxl300\2026MGx300.jpg' class='itemdlgimage'/><p>Item Number:<span>25</span></p><p><span>2026 Mega Card <font color="red">(Mailed in Late March)</fon</span></p><br /><p><span>3 Panels Front and Back (8.5" x 11")
+2025 Mega card has sold out!</span></p><br /></div><div id='dlg026' class='itemdlg'><img src='images/store/pxl300\Item29x300.jpg' class='itemdlgimage'/><p>Item Number:<span>26</span></p><p><span>Lightweight Microfibre Carrying Case (Black)</span></p><br /><p><span>Include two black plastic trays & two strap wraps  <font color="red"> COMPATIBLE WITH WHITE TILES ONLY!</font></span></p><br /></div><div id='dlg027' class='itemdlg'><img src='images/store/pxl300\WHITETILESONLY2014300.jpg' class='itemdlgimage'/><p>Item Number:<span>27</span></p><p><span>White Tiles Only<font color="red"> (1 3/16" H,7/8" W,9/16"D)</span></p><br /><p><span></span></p><br /></div><div id='dlg028' class='itemdlg'><img src='images/store/pxl300\pink tiles only 3001PX.jpg' class='itemdlgimage'/><p>Item Number:<span>28</span></p><p><span>Pink Tiles Only<font color="red"> (1 3/16" H,7/8" W,9/16"D)</span></p><br /><p><span></span></p><br /></div><div id='dlg029' class='itemdlg'><img src='images/store/pxl300\green tiles only 300.jpg' class='itemdlgimage'/><p>Item Number:<span>29</span></p><p><span>Green Tiles Only<font color="red"> (1 3/16"H,7/8" W,9/16"D)</span></p><br /><p><span></span></p><br /></div><div id='dlg030' class='itemdlg'><img src='images/store/pxl300\black tiles only 300.jpg' class='itemdlgimage'/><p>Item Number:<span>30</span></p><p><span>Black Tiles Only<font color="red"> (1 3/16" H,7/8" W,9/16"D)</span></p><br /><p><span></span></p><br /></div><div id='dlg031' class='itemdlg'><img src='images/store/pxl300\redtiles only300.jpg' class='itemdlgimage'/><p>Item Number:<span>31</span></p><p><span>Red Tiles Only<font color="red"> (1 3/16" H,7/8" W,9/16"D)</span></p><br /><p><span></span></p><br /></div><div id='dlg032' class='itemdlg'><img src='images/store/pxl300\Item35x300.jpg' class='itemdlgimage'/><p>Item Number:<span>32</span></p><p><span>Soft Black Bag, Complete Mah Jongg Set</span></p><br /><p><span>Lightweight black bag, white tiles, 4 acrylic color racks, instruction book, bettor, current score card</span></p><br /></div></div>
+                                 <!-- end order dlg -->
+                                 </form>
+                              </td>
+	</tr>
+	<tr id="javamessage">
+		<td>
+                                 <div id="divDisplay" align="right" style="color:Yellow; background-color:Black">Javascript is required to experience the full functionality of this website</div>
+                              </td>
+	</tr>
+	<tr>
+		<td>
+                                  <style>
+    .footerbar {
+        background-color: #808080;
+        height: 20px;
+        font-size: 12px;
+    }
+    .footertext2 {
+        background-color: #808080;
+        color: #ffffff;
+        font-size: 12px;
+    }
+</style>
+
+<div class="noprint">
+
+    <p align="center">
+        <table width="100%" align="center" class="footerbar">
+            <tr>
+                <td width="180" align="center" class="footer_link2">
+                    <a class="noprint" href="contact.aspx">
+                        <span class="footertext2">
+                            &copy;
+                            <script type="text/javascript">document.write(new Date().getFullYear())</script> &nbsp;&nbsp; THE NATIONAL MAH JONGG LEAGUE, INC.
+                        </span>
+                    </a>
+                </td>
+                <td width="100" align="center" class="footer_link2">
+                    <a class="noprint" href="SubscriptionPolicy.aspx">
+                        <span class="footertext2">
+                            SUBSCRIPTION POLICY
+                        </span>
+                    </a>
+                </td>
+                <td width="100" align="center" class="footer_link2">
+                    <a class="noprint" href="member_information_policy.aspx">
+                        <span class="footertext2">
+                            MEMBER INFO
+                        </span>
+                    </a>
+                </td>
+                <td width="100" align="center" class="footer_link2">
+                    <a class="noprint" href="terms_and_privacy.aspx">
+                        <span class="footertext2">
+                            TERMS OF USE &amp; PRIVACY
+                        </span>
+                    </a>
+                </td>
+            </tr>
+        </table>
+    </p>
+
+</div>
+<script src="scripts/jquery.cookieMessage.js" type="text/javascript"></script>
+</td>
+	</tr>
+</table>
+
+                  </div>
+
+   </div>
+ </div>
+    <div id="popupbox">&nbsp;</div>
+   <script type="text/javascript" src="scripts/jquery-3.7.1.min.js"></script>
+   <script type="text/javascript" src="scripts/jquery-3.7.1-ui.min.js"> </script>
+   <script type="text/javascript" src="scripts/store.js"></script>
+   <script type="text/javascript">
+
+       $("nav select").change(function () {
+           window.location = $(this).find("option:selected").val();
+       });
+
+      // check if any sub items are > 0
+      var sSubItemSelected = ""
+
+      $('.subscription').each(function () {
+          var sNbr = $(this).attr("itemNbr");
+          var sQtyID = '#itemQty' + sNbr;
+          var iQty = $(sQtyID).val();
+          if (iQty > 0) { sSubItemSelected = sNbr; }
+      });
+
+      // if there is a selected sub, need to hide the others
+
+      if (sSubItemSelected > "") { HideAllSubsButItem(sSubItemSelected); }
+
+      function HideAllSubsButItem(sNbr) {
+          $(".subscription").hide();
+          var sTblID = '#tbl' + sNbr;
+          $(sTblID).show();
+      }
+
+      function ShowAllSubs() {
+          $(".subscription").show();
+      }
+
+
+
+      function incrementValue(m) {
+          // some items only allow a max value of 1 (the online game subscription order)
+          var idd = 'itemQty' + m;
+          var price = 'itemPrice' + m;
+          var subprice = 'itemTotal' + m;
+          var price2 = document.getElementById(price).textContent;
+          var iRef = '#' + price;
+          var limitFlag = $(iRef).attr("limitQty");
+          limitFlag = limitFlag.toLowerCase();
+          var hideOther = false;
+          //window.alert('Increment - limit=['+limitFlag+']');
+
+
+          var valuex = parseInt(document.getElementById(idd).value, 10);
+          valuex = isNaN(valuex) ? 0 : valuex;
+
+          if ((limitFlag == 'n') || (valuex <1)) {
+
+              valuex++;
+
+              if (limitFlag == 'y') {
+                  valuex = 1;
+                  hideOther = true;
+              }
+
+              document.getElementById(idd).value = valuex;
+
+              $('#'+idd).val(valuex);
+              if (price2.charAt(0) === '$') {
+                  price2 = price2.slice(1);
+              }
+
+              var total = document.getElementById('orderTotal').textContent;
+              if (total.charAt(0) === '$') {
+                  total = total.slice(1);
+              }
+              var b = parseFloat(total);
+              var a = parseFloat(price2);
+              var subpricehash = '#' + subprice;
+              var subprice2 = document.getElementById(subprice).textContent;
+
+              if (subprice2.charAt(0) === '$') {
+                  subprice2 = subprice2.slice(1);
+              }
+
+              var c = parseFloat(subprice2);
+              $(subpricehash).html('$' + (c + a).toFixed(2));
+              $("#orderTotal").html('$' + (b + a).toFixed(2));
+              if (hideOther) { HideAllSubsButItem(m);}
+          }
+
+
+
+      }
+
+          function decreaseValue(m) {
+              var idd = 'itemQty' + m;
+              var price = 'itemPrice' + m;
+              var subprice = 'itemTotal' + m;
+              var price2 = document.getElementById(price).textContent;
+              var iRef = '#' + price;
+              var limitFlag = $(iRef).attr("limitQty");
+              limitFlag = limitFlag.toLowerCase();
+
+              var valuex = parseInt(document.getElementById(idd).value, 10);
+              if (valuex > 0) {
+                  valuex = isNaN(valuex) ? 0 : valuex; valuex--; document.getElementById(idd).value = valuex;
+                  if (price2.charAt(0) === '$') {
+                      price2 = price2.slice(1);
+                      var total = document.getElementById('orderTotal').textContent;
+                      if (total.charAt(0) === '$') {
+                          total = total.slice(1);
+                      }
+                      var b = parseFloat(total);
+                      var a = parseFloat(price2);
+                      var subpricehash = '#' + subprice;
+                      var subprice2 = document.getElementById(subprice).textContent;
+
+                      if (subprice2.charAt(0) === '$') {
+                          subprice2 = subprice2.slice(1);
+                      }
+
+                      var c = parseFloat(subprice2);
+                      $(subpricehash).html('$' + (c - a).toFixed(2));
+
+                      $("#orderTotal").html('$' + (b - a).toFixed(2));
+                      if (limitFlag == 'y') { ShowAllSubs();}
+                  }
+              } else { }
+
+          }
+
+$(document).ready(function(){    
+    //Check if the current URL contains '#'
+    if(document.URL.indexOf("#")==-1){
+        // Set the URL to whatever it was plus "#".
+        url = document.URL+"#";
+        location = "#";
+
+        //Reload the page
+        location.reload(true);
+    }
+});
+   </script>
+</body>
+</html>

@@ -29,7 +29,9 @@ from ..public.claim_protection import (
 from ..public.tactical_claim import (
     init_tactical_round_state,
     apply_tactical_claim_if_needed,
+    is_decline_action,
     tactical_mark_player_committed,
+    tactical_mark_player_force_passed,
 )
 from ..public.ask_timing import get_ask_elapsed, note_ask_delivered
 from .boardcast import _send_do_action_payload_to_viewer
@@ -39,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 def select_tactical_initial_submission(game_state, submissions):
     """同批到达时先展示低优先级申请，让更高优先级在战术窗口中抢断。"""
-    non_pass = [item for item in submissions if item[1].get("action_type") != "pass"]
+    non_pass = [item for item in submissions if not is_decline_action(item[1].get("action_type"))]
     candidates = non_pass or submissions
     if not candidates:
         return None
@@ -167,7 +169,9 @@ async def wait_action(self):
                 self.player_list[temp_player_index].remaining_time -= (used_int_time - timeout_grace)
 
             self.action_dict[temp_player_index] = []
-            if temp_action_type != "pass":
+            if temp_action_type == "force_pass":
+                tactical_mark_player_force_passed(self, temp_player_index)
+            elif not is_decline_action(temp_action_type):
                 tactical_mark_player_committed(self, temp_player_index)
             if temp_player_index in self.waiting_players_list:
                 self.waiting_players_list.remove(temp_player_index)
@@ -189,7 +193,7 @@ async def wait_action(self):
                 player_index = temp_player_index
                 logger.debug(f"覆盖action_data: player_index={player_index}, action_data={action_data}")
 
-            tactical_immediate_break = tactical_batch and temp_action_type != "pass"
+            tactical_immediate_break = tactical_batch and not is_decline_action(temp_action_type)
             if do_interrupt or tactical_immediate_break:
                 self.waiting_players_list = []
 
@@ -529,7 +533,7 @@ async def wait_action(self):
                         self.game_status = "onlycut_after_action" # 转移行为
                     return
                 
-                if action_type == "pass":
+                if is_decline_action(action_type):
                     flush_unexecuted_claim_applications(self, tile_id)
                     await finalize_claim_protection(self, _send_do_action_payload_to_viewer)
                     self.game_status = "deal_card" # 历时行为

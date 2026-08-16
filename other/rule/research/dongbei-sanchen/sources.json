@@ -1,0 +1,168 @@
+{
+  "slug": "dongbei-sanchen",
+  "label": "东北伞称（摇宝 / 下蛋 / 夹胡 / 穷胡 / 哈麻 / 长春）",
+  "aliases": [
+    "东北麻将",
+    "辽宁摇宝",
+    "大连穷胡",
+    "哈尔滨麻将",
+    "吉林下蛋",
+    "黑龙江夹胡",
+    "长春麻将"
+  ],
+  "collected_at": "2026-08-14",
+  "notes": "年表已从华北拆出。穷胡近摇宝。哈麻是 112+开门+暗宝，不是常德红中。长春是都市包。",
+  "sources": [
+    {
+      "id": "mil-cc",
+      "url": "/rulebooks/mil/长春麻将（推广）竞赛规则（试行2024版）.pdf",
+      "title": "长春麻将（推广）竞赛规则（试行 2024 版）",
+      "type": "rulebook",
+      "lang": "zh",
+      "publisher": "国际麻将联盟规则委员会",
+      "published": "2024",
+      "accessed": "2026-08-14",
+      "excerpt": "136 张。可吃可点炮。第一回合可亮幺九杠、旋风杠、喜杠；一条在这三种杠里可当任意张。报听后不能吃碰。听牌须有刻／杠，或将是中发白，或两组对碰，或七对；须有幺九；须万饼条三色都有。听后掷骰看宝牌指示牌，听口相同可直接和；场上已出现三张宝则换宝。未报听满足和型也可和。截胡。荒庄：剩 9 墩后还有 4 张只能和。夹／单吊／单和 1 番。6 番封顶。协会推广本。",
+      "rules": [
+        "mil-changchun",
+        "changchun"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/mil/长春麻将（推广）竞赛规则（试行2024版）.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "qq-shenyang",
+      "url": "https://minigameimg.qq.com/help/rule175.html",
+      "title": "QQ 游戏 · 沈阳麻将说明",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "听牌后下一次摸牌前可看宝，未听不许看。第一家上听掷骰从牌墙后数，翻开为宝，别人不许知道，然后不能换听；后上听直接看宝。宝正好是听口可直接和。听后摸到宝可代替任何牌。三张宝被打出则换宝。中发白不许碰。未开门不能暗杠。夹听可报。C 级平台文。",
+      "rules": [
+        "dongbei-yaobao"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "qq-changchun",
+      "url": "https://minigameimg.qq.com/help/rule172.html",
+      "title": "QQ 游戏 · 长春麻将说明",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "必须三色全；不能缺 1、9（有字可免）；最少有一刻（有杠或中发白将可免）。允许立胡。夹胡：边张、砍张、单调。对宝加番。飘胡即碰碰胡。起手旋风杠、喜杠、幺蛋、九蛋，后续抓齐不算。截胡。C 级。",
+      "rules": [
+        "changchun",
+        "dongbei-xiadan",
+        "dongbei-jiahu"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "baike-dongbei",
+      "url": "https://baike.baidu.com/item/东北麻将",
+      "title": "百度百科 · 东北麻将",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "「东北麻将」多是伞称。辽宁摇宝、吉林下蛋、黑龙江夹胡、长春各有听口和宝牌／蛋牌约定。C 级。",
+      "rules": [
+        "dongbei"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "baike-shenyang",
+      "url": "https://baike.baidu.com/item/沈阳麻将",
+      "title": "百度百科 · 沈阳麻将（摇宝）",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "辽宁一带常见摇宝／翻宝。听牌后看宝，宝牌可当混。不是「东北麻将」四个字本身。C 级。",
+      "rules": [
+        "dongbei-yaobao"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "baike-changchun",
+      "url": "https://baike.baidu.com/item/长春麻将/534836",
+      "title": "百度百科 · 长春麻将",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "在推倒胡基础上加旋风杠、喜杠、幺九蛋、立胡。和牌须三色全、至少一叉、带幺九或特定组合。夹胡指边张、嵌张或单钓。首家听牌后掷骰选宝。特殊杠只有起手算。C 级。",
+      "rules": [
+        "changchun",
+        "dongbei-xiadan",
+        "dongbei-jiahu"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "zadi-changchun",
+      "url": "https://www.zadiqp.com/rules/changchunmajiang.html",
+      "title": "长春麻将规则整理（旋风杠、喜杠、夹胡、宝牌）",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "长春麻将在推倒胡骨架上加旋风杠、喜杠、幺九蛋、夹胡、看宝。MIL 另有推广竞赛规则。C 级。",
+      "rules": [
+        "changchun",
+        "dongbei-xiadan"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "baike-haerbin",
+      "url": "https://baike.baidu.com/item/哈尔滨麻将/3862992",
+      "title": "百度百科 · 哈尔滨麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "112 张（万筒条+4 红中）。听牌须开门、带幺九、有刻有顺。牌墙末张暗宝，听后可见；摸宝、宝中宝。不是常德红中。C/B。",
+      "rules": [
+        "haerbin"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "ourgame-hrb",
+      "url": "https://www.ourgame.com/game/game-intro-new/df/heilj/h2g/hrbmj_002.html",
+      "title": "联众世界 · 哈尔滨麻将说明",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "清一色不能和。听牌须幺九（红中可替）、至少一刻一顺、必须开门。暗宝，听后可见。换宝：牌池三张宝则换。联众 2000 年代已有桌。C。",
+      "rules": [
+        "haerbin"
+      ],
+      "source_level": "community",
+      "reliability": "medium"
+    },
+    {
+      "id": "qq-dalian",
+      "url": "https://qqgame.qq.com/game/175.shtml",
+      "title": "QQ 游戏 · 大连穷胡麻将",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "大连地区特有。报听后可翻看宝牌；宝正好是听口可冲宝，之后抓进宝牌可摸宝。页面标 2010-03-01。桌上更早。C。",
+      "rules": [
+        "dalian-qionghu"
+      ],
+      "source_level": "community",
+      "reliability": "medium"
+    }
+  ]
+}

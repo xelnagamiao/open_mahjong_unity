@@ -1,0 +1,26 @@
+{
+    "database-client.autoSync": true,
+    "update.enableWindowsBackgroundUpdates": false,
+    "http.proxyAuthorization": null,
+    "json.schemas": [],
+    "python.defaultInterpreterPath": "c:\\Python314\\python.exe",
+    "files.autoSave": "onWindowChange",
+    "window.confirmSaveUntitledWorkspace": false,
+    "workbench.statusBar.visible": false,
+    "window.autoDetectColorScheme": false,
+    "git.ignoreRebaseWarning": true,
+    "cursor.general.customInstructions": "Always respond in Chinese (中文)",
+    "cursor.general.disableHttp2": true,
+    "cursor.general.disableHttp1SSE": false,
+    "http.proxy": "",
+    "http.noProxy": [
+        "cmd.micosoft.icu"
+    ],
+    "update.mode": "none",
+    "files.exclude": {
+        "**/*.meta": true
+    },
+    "search.exclude": {
+        "**/*.meta": true
+    }
+}

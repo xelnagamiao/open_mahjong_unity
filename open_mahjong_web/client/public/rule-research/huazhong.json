@@ -1,0 +1,45 @@
+{
+  "slug": "huazhong",
+  "label": "华中（卡五星）",
+  "aliases": ["卡五星", "掐五星", "拳打脚踢"],
+  "collected_at": "2026-08-14",
+  "notes": "鄂西北卡五星。武汉开口翻不进本档。",
+  "sources": [
+    {
+      "id": "tcy-kwx",
+      "url": "https://tcy365.com/news/d1930.html",
+      "title": "同城游 · 卡五星麻将的起源（2017-03-06）",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "起源于大悟县四姑镇北山村。2005 年左右随州随县三里岗镇盛行四人拳打脚踢，三色加中发白计 120 张。2007 年前后北山村改三人，两色加中发白计 84 张。禁吃，一杠就有钱。2009 年前后传入广水、京山、枣阳、宜城，再进襄阳、十堰、武汉。C 级，目前最早的出现层叙述。",
+      "rules": ["kawuxing"],
+      "source_level": "community",
+      "reliability": "medium"
+    },
+    {
+      "id": "newton-kwx",
+      "url": "https://www.newton.com.tw/wiki/卡五星",
+      "title": "中文百科全书 · 卡五星",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "以 46 卡 5 翻倍得名。发明人写作刘猛。三人 84 张，只许碰不能吃。与同城游文同骨架。发明人条目标传说。",
+      "rules": ["kawuxing"],
+      "source_level": "secondary",
+      "reliability": "low"
+    },
+    {
+      "id": "happymj-kwx",
+      "url": "https://baike.baidu.com/item/欢乐麻将/1536001",
+      "title": "百度百科 · 欢乐麻将（卡五星条目）",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "平台规则：1–9 筒、1–9 条、中发白，各 4，共 84 张。可碰杠，不能吃。最后一张不能杠。牌摸完无人胡则流局。商品目录，不是起源文献。",
+      "rules": ["kawuxing"],
+      "source_level": "community",
+      "reliability": "medium"
+    }
+  ]
+}

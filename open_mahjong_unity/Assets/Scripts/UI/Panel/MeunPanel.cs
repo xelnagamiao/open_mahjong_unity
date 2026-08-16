@@ -16,7 +16,6 @@ public class MeunPanel : MonoBehaviour {
             return;
         }
         Instance = this;
-        EnsureMatchEntryUi();
     }
 
     private void Start() {
@@ -69,68 +68,4 @@ public class MeunPanel : MonoBehaviour {
         }
     }
 
-    private void EnsureMatchEntryUi() {
-        if (matchEntryButton != null && matchPlayerCountText != null) return;
-
-        var root = new GameObject("MatchEntry", typeof(RectTransform));
-        root.transform.SetParent(transform, false);
-        var rootRect = root.GetComponent<RectTransform>();
-        rootRect.anchorMin = new Vector2(0f, 0.5f);
-        rootRect.anchorMax = new Vector2(0f, 0.5f);
-        rootRect.pivot = new Vector2(0.5f, 0.5f);
-        rootRect.anchoredPosition = new Vector2(229f, -80f);
-        rootRect.sizeDelta = new Vector2(388.88f, 120f);
-
-        TMP_FontAsset font = null;
-        var existingTmp = GetComponentInChildren<TMP_Text>(true);
-        if (existingTmp != null) font = existingTmp.font;
-
-        if (matchPlayerCountText == null) {
-            var countGo = new GameObject("MatchPlayerCountText", typeof(RectTransform));
-            countGo.transform.SetParent(root.transform, false);
-            var countRect = countGo.GetComponent<RectTransform>();
-            countRect.anchorMin = new Vector2(0f, 1f);
-            countRect.anchorMax = new Vector2(1f, 1f);
-            countRect.pivot = new Vector2(0.5f, 1f);
-            countRect.anchoredPosition = Vector2.zero;
-            countRect.sizeDelta = new Vector2(0f, 36f);
-            matchPlayerCountText = countGo.AddComponent<TextMeshProUGUI>();
-            matchPlayerCountText.font = font;
-            matchPlayerCountText.fontSize = 28f;
-            matchPlayerCountText.alignment = TextAlignmentOptions.Center;
-            matchPlayerCountText.color = Color.white;
-            matchPlayerCountText.text = "匹配人数(0)";
-        }
-
-        if (matchEntryButton == null) {
-            var buttonGo = new GameObject("MatchEntryButton", typeof(RectTransform), typeof(Image), typeof(Button));
-            buttonGo.transform.SetParent(root.transform, false);
-            var buttonRect = buttonGo.GetComponent<RectTransform>();
-            buttonRect.anchorMin = new Vector2(0f, 0f);
-            buttonRect.anchorMax = new Vector2(1f, 1f);
-            buttonRect.offsetMin = new Vector2(0f, 0f);
-            buttonRect.offsetMax = new Vector2(0f, -40f);
-
-            var buttonImage = buttonGo.GetComponent<Image>();
-            buttonImage.color = new Color(0.25f, 0.55f, 0.85f, 1f);
-
-            matchEntryButton = buttonGo.GetComponent<Button>();
-            matchEntryButton.targetGraphic = buttonImage;
-
-            var labelGo = new GameObject("Label", typeof(RectTransform));
-            labelGo.transform.SetParent(buttonGo.transform, false);
-            var labelRect = labelGo.GetComponent<RectTransform>();
-            labelRect.anchorMin = Vector2.zero;
-            labelRect.anchorMax = Vector2.one;
-            labelRect.offsetMin = Vector2.zero;
-            labelRect.offsetMax = Vector2.zero;
-            var label = labelGo.AddComponent<TextMeshProUGUI>();
-            label.font = font;
-            label.fontSize = 36f;
-            label.alignment = TextAlignmentOptions.Center;
-            label.color = Color.white;
-            label.text = "排位匹配";
-            label.raycastTarget = false;
-        }
-    }
 }

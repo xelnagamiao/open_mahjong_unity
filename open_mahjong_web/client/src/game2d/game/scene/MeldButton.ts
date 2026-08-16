@@ -6,11 +6,11 @@ import {
 import { Tile } from './Tile'
 import { getGameFontFamily } from '../fontLoader'
 
-export type MeldButtonType = 'chow' | 'pung' | 'ckong' | 'hkong' | 'rkong' | 'hwin' | 'rkwin' | 'flower' | 'pass' | 'final_pass'
+export type MeldButtonType = 'chow' | 'pung' | 'ckong' | 'hkong' | 'rkong' | 'hwin' | 'rkwin' | 'flower' | 'pass' | 'final_pass' | 'force_pass'
 
 const MELD_LABELS: Partial<Record<MeldButtonType, string>> = {
   chow: '吃', pung: '碰', ckong: '杠', hkong: '杠', rkong: '杠', hwin: '和', rkwin: '和',
-  pass: '过', final_pass: '弃',
+  pass: '取消', final_pass: '弃', force_pass: '放弃',
 }
 
 export interface MeldAction {
@@ -38,7 +38,7 @@ export class MeldButton extends Container {
   ) {
     super()
     
-    const isPass = meldType === 'pass' || meldType === 'final_pass'
+    const isPass = meldType === 'pass' || meldType === 'final_pass' || meldType === 'force_pass'
     const isSimple = isPass || meldType === 'flower'
 
     this.bg = new Graphics()

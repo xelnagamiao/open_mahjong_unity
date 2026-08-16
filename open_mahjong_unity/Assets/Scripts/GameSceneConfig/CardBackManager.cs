@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.IO.Compression;
 using UnityEngine;
 
 /// <summary>
@@ -9,15 +10,24 @@ public static class CardBackManager
 {
     public const string MaterialResourcePath = "Materials/Tiles/3DTile";
     public const string BackImageDirName = "CardBacks";
-    public const string WebGLImageKey = "CardBackImageData";
+    public const string HandBgFileName = "hand-bg.png";
+    public const string HandBackFileName = "hand-back.png";
 
     public static Color CurrentColor { get; private set; } = ConfigManager.DefaultCardBackColor;
     public static Texture2D CurrentTexture { get; private set; }
+    public static Texture2D CurrentHandBackground { get; private set; }
+    public static Texture2D CurrentHandBack { get; private set; }
     public static Color CurrentSideColor { get; private set; } = ConfigManager.DefaultSideColor;
     public static Color CurrentBackEdgeColor { get; private set; } = ConfigManager.DefaultBackEdgeColor;
     public static bool BackEdgeSyncEnabled { get; private set; } = true;
     public static CardEdgePanel.BackEdgeMode BackEdgeMode { get; private set; } = CardEdgePanel.BackEdgeMode.FollowBack;
+    public static bool BackTexExtendEdge { get; private set; }
+    public static string HandBgFilePath => Path.Combine(Application.persistentDataPath, BackImageDirName, HandBgFileName);
+    public static string HandBackFilePath => Path.Combine(Application.persistentDataPath, BackImageDirName, HandBackFileName);
+
     private static bool _savedConfigApplied;
+    private static bool _handBgLoaded;
+    private static bool _handBackLoaded;
 
     /// <summary>启动或切换设置后调用：读取 ConfigManager 并应用。</summary>
     public static void ApplySavedConfig()
@@ -30,6 +40,9 @@ public static class CardBackManager
         BackEdgeSyncEnabled = ConfigManager.Instance.BackEdgeSyncEnabled;
         BackEdgeMode = ConfigManager.Instance.BackEdgeMode;
         ApplyBackEdgeColor(ResolveBackEdgeColor(BackEdgeMode, ConfigManager.Instance.BackEdgeColor));
+        ApplyBackTexExtendEdge(ConfigManager.Instance.BackTexExtendEdge);
+        LoadSavedHandBackground();
+        LoadSavedHandBack();
     }
 
     /// <summary>把正面侧边颜色应用到共享材质与所有 Tile3D 实例。</summary>
@@ -178,44 +191,58 @@ public static class CardBackManager
         {
             ApplyBackEdgeColor(color);
         }
+        ApplyBackTexExtendEdge(BackTexExtendEdge);
         _savedConfigApplied = true;
     }
 
-    /// <summary>读取保存的牌背图片（桌面读文件，WebGL 读 PlayerPrefs base64）。</summary>
+    /// <summary>牌背图片是否铺到背部边缘。</summary>
+    public static void ApplyBackTexExtendEdge(bool enabled)
+    {
+        BackTexExtendEdge = enabled;
+        float value = enabled && CurrentTexture != null ? 1f : 0f;
+        Material shared = Resources.Load<Material>(MaterialResourcePath);
+        if (shared != null)
+        {
+            shared.SetFloat("_BackTexExtendEdge", value);
+        }
+        if (CurrentTexture != null)
+        {
+            CurrentTexture.wrapMode = enabled ? TextureWrapMode.Clamp : TextureWrapMode.Repeat;
+        }
+
+        Tile3D[] tiles = UnityEngine.Object.FindObjectsByType<Tile3D>(FindObjectsSortMode.None);
+        foreach (Tile3D tile in tiles)
+        {
+            if (tile != null) tile.ApplyBackVisual(CurrentColor, CurrentTexture);
+        }
+        if (MahjongObjectPool.Instance != null)
+        {
+            MahjongObjectPool.Instance.ForEachPooledTile(pooled =>
+            {
+                Tile3D pooledTile = pooled != null ? pooled.GetComponent<Tile3D>() : null;
+                if (pooledTile != null) pooledTile.ApplyBackVisual(CurrentColor, CurrentTexture);
+            });
+        }
+    }
+
+    /// <summary>读取保存的牌背图片（桌面读文件，WebGL 读 IndexedDB）。</summary>
     public static Texture2D LoadSavedTexture()
     {
         if (ConfigManager.Instance == null) return null;
         (string path, bool isCustom) = ConfigManager.Instance.GetSelectedCardBackImage();
-        if (string.IsNullOrEmpty(path)) return null;
+        if (string.IsNullOrEmpty(path) || !isCustom) return null;
 
-        byte[] bytes = null;
 #if UNITY_WEBGL && !UNITY_EDITOR
-        if (isCustom && PlayerPrefs.HasKey(path))
-        {
-            string data = PlayerPrefs.GetString(path);
-            string[] parts = data.Split('|');
-            if (parts.Length >= 1)
-            {
-                try { bytes = Convert.FromBase64String(parts[0]); }
-                catch (Exception e) { Debug.LogWarning($"牌背图片解码失败: {e.Message}"); }
-            }
-        }
+        return UnityAssetIdb.LoadTexture(path);
 #else
-        if (isCustom && File.Exists(path))
+        if (!File.Exists(path)) return null;
+        try { return LoadTextureFromFile(path); }
+        catch (Exception e)
         {
-            try { bytes = File.ReadAllBytes(path); }
-            catch (Exception e) { Debug.LogWarning($"牌背图片读取失败: {e.Message}"); }
+            Debug.LogWarning($"牌背图片读取失败: {e.Message}");
+            return null;
         }
 #endif
-        if (bytes == null || bytes.Length == 0) return null;
-
-        Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-        if (ImageConversion.LoadImage(tex, bytes))
-        {
-            return tex;
-        }
-        UnityEngine.Object.Destroy(tex);
-        return null;
     }
 
     /// <summary>从磁盘文件加载纹理。</summary>
@@ -226,7 +253,7 @@ public static class CardBackManager
         {
             byte[] data = File.ReadAllBytes(filePath);
             Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-            if (ImageConversion.LoadImage(tex, data)) return tex;
+            if (ImageConversion.LoadImage(tex, data, false)) return tex;
             UnityEngine.Object.Destroy(tex);
         }
         catch (Exception e)
@@ -234,5 +261,333 @@ public static class CardBackManager
             Debug.LogWarning($"加载牌背图片失败: {filePath}, {e.Message}");
         }
         return null;
+    }
+
+    public static Texture2D LoadSavedHandBackground()
+    {
+        if (_handBgLoaded) return CurrentHandBackground;
+        _handBgLoaded = true;
+        if (ConfigManager.Instance == null) return null;
+        (string path, bool isCustom) = ConfigManager.Instance.GetSelectedHandBackground();
+        if (string.IsNullOrEmpty(path) || !isCustom) return null;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        CurrentHandBackground = UnityAssetIdb.LoadTexture(path);
+#else
+        if (!File.Exists(path)) return null;
+        try { CurrentHandBackground = LoadTextureFromFile(path); }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"手牌背景读取失败: {e.Message}");
+            CurrentHandBackground = null;
+        }
+#endif
+        return CurrentHandBackground;
+    }
+
+    public static void PersistHandBackground(byte[] png)
+    {
+        if (png == null || png.Length == 0) return;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        UnityAssetIdb.Put(UnityAssetIdb.KeyHandBg, png, null);
+        if (ConfigManager.Instance != null)
+        {
+            ConfigManager.Instance.SetSelectedHandBackground(UnityAssetIdb.KeyHandBg, true);
+        }
+        ReplaceHandBackground(UnityAssetIdb.ToTexture(png));
+#else
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(Application.persistentDataPath, BackImageDirName));
+            File.WriteAllBytes(HandBgFilePath, png);
+            if (ConfigManager.Instance != null)
+            {
+                ConfigManager.Instance.SetSelectedHandBackground(HandBgFilePath, true);
+            }
+            ReplaceHandBackground(BytesToTexture(png));
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning("保存手牌背景失败: " + e.Message);
+        }
+#endif
+        TileFaceResolver.NotifyHandBackgroundChanged();
+    }
+
+    public static void PersistHandBack(byte[] png)
+    {
+        if (png == null || png.Length == 0) return;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        UnityAssetIdb.Put(UnityAssetIdb.KeyHandBack, png, null);
+        if (ConfigManager.Instance != null)
+        {
+            ConfigManager.Instance.SetSelectedHandBack(UnityAssetIdb.KeyHandBack, true);
+        }
+        ReplaceHandBack(UnityAssetIdb.ToTexture(png));
+#else
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(Application.persistentDataPath, BackImageDirName));
+            File.WriteAllBytes(HandBackFilePath, png);
+            if (ConfigManager.Instance != null)
+            {
+                ConfigManager.Instance.SetSelectedHandBack(HandBackFilePath, true);
+            }
+            ReplaceHandBack(BytesToTexture(png));
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning("保存手牌牌背失败: " + e.Message);
+        }
+#endif
+        TileFaceResolver.NotifyHandBackChanged();
+    }
+
+    public static Texture2D LoadSavedHandBack()
+    {
+        if (_handBackLoaded) return CurrentHandBack;
+        _handBackLoaded = true;
+        if (ConfigManager.Instance == null) return null;
+        (string path, bool isCustom) = ConfigManager.Instance.GetSelectedHandBack();
+        if (string.IsNullOrEmpty(path) || !isCustom) return null;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        CurrentHandBack = UnityAssetIdb.LoadTexture(path);
+#else
+        if (!File.Exists(path)) return null;
+        try { CurrentHandBack = LoadTextureFromFile(path); }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"手牌牌背读取失败: {e.Message}");
+            CurrentHandBack = null;
+        }
+#endif
+        return CurrentHandBack;
+    }
+
+    public static void ClearPersistedHandBack()
+    {
+        if (ConfigManager.Instance != null)
+        {
+            ConfigManager.Instance.SetSelectedHandBack("", false);
+        }
+#if UNITY_WEBGL && !UNITY_EDITOR
+        UnityAssetIdb.Delete(UnityAssetIdb.KeyHandBack, null);
+#else
+        try
+        {
+            if (File.Exists(HandBackFilePath)) File.Delete(HandBackFilePath);
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning("删除手牌牌背失败: " + e.Message);
+        }
+#endif
+        ReplaceHandBack(null);
+        TileFaceResolver.NotifyHandBackChanged();
+    }
+
+    public static void PersistCardBackImage(byte[] png)
+    {
+        if (png == null || png.Length == 0) return;
+        Texture2D tex;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        UnityAssetIdb.Put(UnityAssetIdb.KeyCardBack, png, null);
+        if (ConfigManager.Instance != null)
+        {
+            ConfigManager.Instance.SetSelectedCardBackImage(UnityAssetIdb.KeyCardBack, true);
+        }
+        tex = UnityAssetIdb.ToTexture(png);
+#else
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(Application.persistentDataPath, BackImageDirName));
+            string target = Path.Combine(Application.persistentDataPath, BackImageDirName,
+                "CardBack_" + DateTime.Now.ToString("yyyyMMddHHmmssfff") + ".png");
+            File.WriteAllBytes(target, png);
+            if (ConfigManager.Instance != null)
+            {
+                ConfigManager.Instance.SetSelectedCardBackImage(target, true);
+            }
+            tex = BytesToTexture(png);
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning("保存牌背图片失败: " + e.Message);
+            return;
+        }
+#endif
+        Color color = ConfigManager.Instance != null ? ConfigManager.Instance.CardBackColor : CurrentColor;
+        Apply(color, tex);
+    }
+
+    public static void ClearPersistedCardBack()
+    {
+        if (ConfigManager.Instance != null)
+        {
+            ConfigManager.Instance.SetSelectedCardBackImage("", false);
+        }
+#if UNITY_WEBGL && !UNITY_EDITOR
+        UnityAssetIdb.Delete(UnityAssetIdb.KeyCardBack, null);
+#endif
+        Color color = ConfigManager.Instance != null ? ConfigManager.Instance.CardBackColor : CurrentColor;
+        Apply(color, null);
+    }
+
+    public static void ClearPersistedHandBackground()
+    {
+        if (ConfigManager.Instance != null)
+        {
+            ConfigManager.Instance.SetSelectedHandBackground("", false);
+        }
+#if UNITY_WEBGL && !UNITY_EDITOR
+        UnityAssetIdb.Delete(UnityAssetIdb.KeyHandBg, null);
+#else
+        try
+        {
+            if (File.Exists(HandBgFilePath)) File.Delete(HandBgFilePath);
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning("删除手牌背景失败: " + e.Message);
+        }
+#endif
+        ReplaceHandBackground(null);
+        TileFaceResolver.NotifyHandBackgroundChanged();
+    }
+
+    public static bool IsZip(byte[] bytes)
+    {
+        return bytes != null && bytes.Length >= 4 && bytes[0] == 0x50 && bytes[1] == 0x4B;
+    }
+
+    public static bool TryParseBodyZip(byte[] bytes, out byte[] backPng, out byte[] handBgPng)
+    {
+        backPng = null;
+        handBgPng = null;
+        if (!IsZip(bytes)) return false;
+        try
+        {
+            using (var stream = new MemoryStream(bytes, false))
+            using (var archive = new ZipArchive(stream, ZipArchiveMode.Read, true))
+            {
+                foreach (ZipArchiveEntry entry in archive.Entries)
+                {
+                    if (string.IsNullOrEmpty(entry.Name) || entry.FullName.EndsWith("/")) continue;
+                    string name = Path.GetFileName(entry.FullName).ToLowerInvariant();
+                    if (!name.EndsWith(".png")) continue;
+                    byte[] png;
+                    using (Stream open = entry.Open())
+                    using (var memory = new MemoryStream())
+                    {
+                        open.CopyTo(memory);
+                        png = memory.ToArray();
+                    }
+                    if (IsHandBgFileName(name)) handBgPng = png;
+                    else if (IsBackFileName(name)) backPng = png;
+                }
+            }
+        }
+        catch
+        {
+            return false;
+        }
+        return backPng != null || handBgPng != null;
+    }
+
+    public static bool TryParseFaceBodyZip(byte[] bytes, out byte[] handBackPng, out byte[] handBgPng)
+    {
+        handBackPng = null;
+        handBgPng = null;
+        if (!IsZip(bytes)) return false;
+        try
+        {
+            using (var stream = new MemoryStream(bytes, false))
+            using (var archive = new ZipArchive(stream, ZipArchiveMode.Read, true))
+            {
+                foreach (ZipArchiveEntry entry in archive.Entries)
+                {
+                    if (string.IsNullOrEmpty(entry.Name) || entry.FullName.EndsWith("/")) continue;
+                    string name = Path.GetFileName(entry.FullName).ToLowerInvariant();
+                    if (!name.EndsWith(".png")) continue;
+                    byte[] png;
+                    using (Stream open = entry.Open())
+                    using (var memory = new MemoryStream())
+                    {
+                        open.CopyTo(memory);
+                        png = memory.ToArray();
+                    }
+                    if (IsHandBgFileName(name)) handBgPng = png;
+                    else if (IsHandBackFileName(name)) handBackPng = png;
+                }
+            }
+        }
+        catch
+        {
+            return false;
+        }
+        return handBackPng != null || handBgPng != null;
+    }
+
+    public static bool IsHandBgFileName(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return false;
+        string lower = Path.GetFileName(name).ToLowerInvariant();
+        return lower.Contains("hand-bg") || lower.Contains("handbg") || lower == "front.png";
+    }
+
+    public static bool IsHandBackFileName(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return false;
+        string lower = Path.GetFileName(name).ToLowerInvariant();
+        if (IsHandBgFileName(lower)) return false;
+        return lower.Contains("hand-back")
+            || lower.Contains("handback")
+            || lower.Contains("hand_back")
+            || lower == "0.png"
+            || lower == "back.png"
+            || lower.Contains("ura-back");
+    }
+
+    public static bool IsBackFileName(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return false;
+        string lower = Path.GetFileName(name).ToLowerInvariant();
+        return lower.Contains("cardback") || lower == "back.png" || (lower.Contains("back") && !IsHandBgFileName(lower));
+    }
+
+    private static void ReplaceHandBackground(Texture2D texture)
+    {
+        if (CurrentHandBackground != null && CurrentHandBackground != texture)
+        {
+            UnityEngine.Object.Destroy(CurrentHandBackground);
+        }
+        CurrentHandBackground = texture;
+        _handBgLoaded = true;
+    }
+
+    private static void ReplaceHandBack(Texture2D texture)
+    {
+        if (CurrentHandBack != null && CurrentHandBack != texture)
+        {
+            UnityEngine.Object.Destroy(CurrentHandBack);
+        }
+        CurrentHandBack = texture;
+        _handBackLoaded = true;
+    }
+
+    public static Texture2D DecodePng(byte[] png)
+    {
+        return BytesToTexture(png);
+    }
+
+    private static Texture2D BytesToTexture(byte[] png)
+    {
+        if (png == null || png.Length == 0) return null;
+        var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        if (!ImageConversion.LoadImage(texture, png, false))
+        {
+            UnityEngine.Object.Destroy(texture);
+            return null;
+        }
+        return texture;
     }
 }

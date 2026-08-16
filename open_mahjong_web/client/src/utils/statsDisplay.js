@@ -121,8 +121,46 @@ export const TIER_CHART_COLORS = {
   advanced: '#e6a23c',
   mcrpl: '#f56c6c',
 };
+const EVENT_CHART_PALETTE = ['#9b59b6', '#1abc9c', '#e67e22', '#2ecc71', '#3498db', '#e74c3c'];
 
-export function buildSceneDailyChartOption(rows, { tierOptions, tierLabel, selectedTier = null }) {
+function colorForTier(tier, index) {
+  return TIER_CHART_COLORS[tier] || EVENT_CHART_PALETTE[index % EVENT_CHART_PALETTE.length];
+}
+
+function parseLocalDate(str) {
+  if (!str) return null;
+  const d = new Date(`${String(str).slice(0, 10)}T12:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function formatLocalDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** 闭区间内每一天，避免 0 局日期从曲线横轴消失 */
+export function enumerateDates(dateFrom, dateTo) {
+  const from = parseLocalDate(dateFrom);
+  const to = parseLocalDate(dateTo);
+  if (!from || !to || from > to) return [];
+  const dates = [];
+  const cur = new Date(from);
+  while (cur <= to) {
+    dates.push(formatLocalDate(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dates;
+}
+
+function resolveDailyDates(rowDates, dateFrom, dateTo) {
+  if (dateFrom && dateTo) return enumerateDates(dateFrom, dateTo);
+  if (!rowDates.length) return [];
+  return enumerateDates(rowDates[0], rowDates[rowDates.length - 1]);
+}
+
+export function buildSceneDailyChartOption(rows, { tierOptions, tierLabel, selectedTier = null, dateFrom = null, dateTo = null } = {}) {
   const byDate = {};
   for (const row of rows) {
     const d = row.stat_date;
@@ -130,7 +168,7 @@ export function buildSceneDailyChartOption(rows, { tierOptions, tierLabel, selec
     if (!byDate[d]) byDate[d] = {};
     byDate[d][t] = (byDate[d][t] || 0) + (Number(row.total_games) || 0);
   }
-  const dates = Object.keys(byDate).sort();
+  const dates = resolveDailyDates(Object.keys(byDate).sort(), dateFrom, dateTo);
   const tiers = selectedTier ? [selectedTier] : tierOptions.map((t) => t.value);
   const chartBottom = dates.length > 14 ? 88 : 72;
   return {
@@ -148,12 +186,12 @@ export function buildSceneDailyChartOption(rows, { tierOptions, tierLabel, selec
       axisTick: { alignWithLabel: true },
     },
     yAxis: { type: 'value', minInterval: 1 },
-    series: tiers.map((t) => ({
+    series: tiers.map((t, i) => ({
       name: tierLabel[t] || t,
       type: 'line',
       smooth: true,
       data: dates.map((d) => byDate[d]?.[t] || 0),
-      itemStyle: { color: TIER_CHART_COLORS[t] },
+      itemStyle: { color: colorForTier(t, i) },
     })),
   };
 }

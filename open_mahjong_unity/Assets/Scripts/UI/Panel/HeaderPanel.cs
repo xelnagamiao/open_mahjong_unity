@@ -15,6 +15,7 @@ public class HeaderPanel : MonoBehaviour {
     [SerializeField] private HeaderButton sceneConfigButton;
     [SerializeField] private HeaderButton spectatorButton;
     [SerializeField] private HeaderButton matchButton;
+    [SerializeField] private HeaderButton eventButton;
     [SerializeField] private HeaderButton friendButton;
     [SerializeField] private HeaderButton backToGameButton;
     [SerializeField] private HeaderButton logoutButton;
@@ -50,6 +51,10 @@ public class HeaderPanel : MonoBehaviour {
 
         if (matchButton != null) {
             matchButton.Button.onClick.AddListener(Match);
+        }
+        ResolveEventButton();
+        if (eventButton != null) {
+            eventButton.Button.onClick.AddListener(Event);
         }
 
         if (menuButton != null) menuButton.Button.onClick.AddListener(Menu);
@@ -133,6 +138,16 @@ public class HeaderPanel : MonoBehaviour {
         WindowsManager.Instance.SwitchWindow("match");
     }
 
+    private void Event() {
+        WindowsManager.Instance.SwitchWindow("event");
+    }
+
+    public void RefreshEventButtonVisibility() {
+        ResolveEventButton();
+        if (eventButton == null) return;
+        eventButton.gameObject.SetActive(true);
+    }
+
     /// <summary>
     /// 确保排位匹配导航入口可见；登录成功后由 NetworkManager 调用。
     /// </summary>
@@ -173,6 +188,7 @@ public class HeaderPanel : MonoBehaviour {
         sceneConfigButton?.SetState(_currentWindowName == "sceneConfig", false, default);
         spectatorButton?.SetState(_currentWindowName == "spectator", false, default);
         matchButton?.SetState(_currentWindowName == "match", false, default);
+        eventButton?.SetState(_currentWindowName == "event", false, default);
         friendButton?.SetState(_currentWindowName == "friend", false, default);
         logoutButton?.SetState(false, false, default);
     }
@@ -189,6 +205,7 @@ public class HeaderPanel : MonoBehaviour {
         SetButtonLabel(playerDataButton, HeaderNavItem.PlayerData);
         SetButtonLabel(recordButton, HeaderNavItem.Record);
         SetButtonLabel(matchButton, HeaderNavItem.Match);
+        SetButtonLabel(eventButton, HeaderNavItem.Event);
         SetButtonLabel(sceneConfigButton, HeaderNavItem.SceneConfig);
         SetButtonLabel(aboutUsButton, HeaderNavItem.AboutUs);
         SetButtonLabel(noticeButton, HeaderNavItem.Notice);
@@ -206,5 +223,15 @@ public class HeaderPanel : MonoBehaviour {
             return;
         }
         label.text = AppLanguageTexts.GetHeaderNavLabel(item);
+    }
+
+    private void ResolveEventButton() {
+        if (eventButton != null) return;
+        foreach (var hb in GetComponentsInChildren<HeaderButton>(true)) {
+            if (hb != null && hb.gameObject.name == "Event") {
+                eventButton = hb;
+                return;
+            }
+        }
     }
 }

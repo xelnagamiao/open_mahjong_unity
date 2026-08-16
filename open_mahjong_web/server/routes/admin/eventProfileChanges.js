@@ -7,7 +7,7 @@ async function fetchRequest(requestId) {
   const result = await pool.query(
     `SELECT r.request_id, r.event_id, r.requested_by, r.proposed_name, r.proposed_description,
             r.reason, r.status, r.reviewer_user_id, r.review_note, r.created_at, r.reviewed_at,
-            e.name AS current_name, e.description AS current_description, e.status AS event_status,
+            e.name AS current_name, e.description AS current_description, e.status AS event_status, e.kind,
             u.username AS requester_username
      FROM event_profile_change_requests r
      INNER JOIN events e ON e.event_id = r.event_id
@@ -24,6 +24,7 @@ router.get('/', async (req, res) => {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
     const offset = (page - 1) * limit;
     const status = String(req.query.status || '').trim();
+    const kind = req.query.kind === 'base' ? 'base' : req.query.kind === 'event' ? 'event' : '';
 
     const conditions = [];
     const params = [];
@@ -32,12 +33,16 @@ router.get('/', async (req, res) => {
       conditions.push(`r.status = $${idx++}`);
       params.push(status);
     }
+    if (kind) {
+      conditions.push(`e.kind = $${idx++}`);
+      params.push(kind);
+    }
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const listRes = await pool.query(
       `SELECT r.request_id, r.event_id, r.requested_by, r.proposed_name, r.proposed_description,
               r.reason, r.status, r.created_at, r.reviewed_at,
-              e.name AS current_name, e.description AS current_description,
+              e.name AS current_name, e.description AS current_description, e.kind,
               u.username AS requester_username
        FROM event_profile_change_requests r
        INNER JOIN events e ON e.event_id = r.event_id
@@ -50,7 +55,10 @@ router.get('/', async (req, res) => {
       [...params, limit, offset]
     );
     const countRes = await pool.query(
-      `SELECT COUNT(*)::int AS cnt FROM event_profile_change_requests r ${where}`,
+      `SELECT COUNT(*)::int AS cnt
+       FROM event_profile_change_requests r
+       INNER JOIN events e ON e.event_id = r.event_id
+       ${where}`,
       params
     );
 

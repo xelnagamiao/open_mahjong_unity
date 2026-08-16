@@ -48,10 +48,12 @@ def check_action_after_cut(self,cut_tile):
         if cut_tile in item.waiting_tiles:
             check_hepai(self, temp_action_dict, cut_tile, item.player_index, "dianhe")
 
-    # 如果玩家有操作 则添加pass
+    # 如果玩家有操作 则添加pass；战术鸣牌再附带 force_pass（顺序即协议）
     for i in temp_action_dict:
         if temp_action_dict[i] != []:
             temp_action_dict[i].append("pass")
+            if self.tactical_call:
+                temp_action_dict[i].append("force_pass")
     
     # 不能吃碰杠胡自己的牌
     temp_action_dict[self.current_player_index] = []

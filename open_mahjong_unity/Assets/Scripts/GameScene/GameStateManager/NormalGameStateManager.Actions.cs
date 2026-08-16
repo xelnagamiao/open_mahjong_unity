@@ -466,9 +466,10 @@ public partial class NormalGameStateManager {
             "chi_left", "chi_mid", "chi_right", "peng", "gang",
             "hu", "hu_first", "hu_second", "hu_third", "pass"
         };
+        bool allowForcePass = ConfigManager.Instance != null && ConfigManager.Instance.ForcePassEnabled;
         List<string> result = new List<string>();
         foreach (string action in action_list) {
-            if (allowOtherActionCheck.Contains(action)) {
+            if (allowOtherActionCheck.Contains(action) || (allowForcePass && action == "force_pass")) {
                 result.Add(action);
             }
         }

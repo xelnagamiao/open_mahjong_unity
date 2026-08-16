@@ -21,6 +21,7 @@ async def init_hongque_tiles(game_state) -> None:
 
     game_state.wall = full_deck()
     game_state._rng.shuffle(game_state.wall)
+    game_state.backward_tiles_list_type = "double"
     for player in game_state.players:
         player.hand.clear()
         player.discards.clear()
@@ -64,4 +65,22 @@ def draw_for_current_player(game_state, reason: str = "draw"):
     player.drawn_tile = tile
     player.last_draw_was_supplement = reason == "supplement"
     game_state._record_event(reason, player=player.index, tile=tile)
+    return tile
+
+
+def pop_supplement_tile(game_state) -> str:
+    """补牌取牌，与国标 ``get_gang_tile`` 同一套按墩倒序。
+
+    国标普通摸牌从列表头 ``pop(0)``，杠摸从列表尾：double 取 ``-2``，single 取 ``-1``。
+    虹雀普通摸牌已从列表尾 ``pop()``，补牌改从列表头取同一墩序：double 取 ``[1]``，
+    single 取 ``[0]``；只剩一张则取这张。
+    """
+    wall = game_state.wall
+    if len(wall) <= 1 or game_state.backward_tiles_list_type == "single":
+        tile = wall.pop(0)
+    else:
+        tile = wall.pop(1)
+    game_state.backward_tiles_list_type = (
+        "single" if game_state.backward_tiles_list_type == "double" else "double"
+    )
     return tile

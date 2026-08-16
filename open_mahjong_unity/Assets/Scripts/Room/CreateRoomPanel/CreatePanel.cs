@@ -723,55 +723,19 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private void OnEventModeToggleChanged(bool isOn) {
-        RefreshEventDropdownVisibility();
+        if (EventDropdownPanel != null) EventDropdownPanel.SetActive(false);
     }
 
     private void RefreshEventControls() {
-        if (EventNetworkManager.Instance == null) return;
-        var events = EventNetworkManager.Instance.ActiveEvents;
-        bool hasEvents = events != null && events.Count > 0;
-
         if (EventModeToggle != null) {
-            EventModeToggle.gameObject.SetActive(hasEvents);
-            if (!hasEvents) EventModeToggle.isOn = false;
+            EventModeToggle.gameObject.SetActive(false);
+            EventModeToggle.isOn = false;
         }
-
-        _eventIds.Clear();
-        if (EventDropdown != null) {
-            EventDropdown.ClearOptions();
-            if (hasEvents) {
-                var labels = new List<string>();
-                foreach (var entry in events) {
-                    if (entry == null || string.IsNullOrEmpty(entry.event_id)) continue;
-                    _eventIds.Add(entry.event_id);
-                    labels.Add(string.IsNullOrEmpty(entry.name) ? entry.event_id : entry.name);
-                }
-                EventDropdown.AddOptions(labels);
-                if (_eventIds.Count > 0) {
-                    EventDropdown.value = 0;
-                    EventDropdown.RefreshShownValue();
-                }
-            }
-        }
-
-        RefreshEventDropdownVisibility();
-    }
-
-    private void RefreshEventDropdownVisibility() {
-        bool showDropdown = EventModeToggle != null
-            && EventModeToggle.gameObject.activeSelf
-            && EventModeToggle.isOn
-            && _eventIds.Count > 0;
-        if (EventDropdownPanel != null) EventDropdownPanel.SetActive(showDropdown);
+        if (EventDropdownPanel != null) EventDropdownPanel.SetActive(false);
     }
 
     private string GetSelectedEventId() {
-        if (EventModeToggle == null || !EventModeToggle.isOn || !EventModeToggle.gameObject.activeSelf) {
-            return null;
-        }
-        if (EventDropdown == null || _eventIds.Count == 0) return null;
-        int index = Mathf.Clamp(EventDropdown.value, 0, _eventIds.Count - 1);
-        return _eventIds[index];
+        return null;
     }
 
     private GameObject EnsureClonedDropdownPanel(GameObject template, GameObject existing, string goName, string labelText) {

@@ -4,11 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-/// <summary>
-/// 牌背设置面板：只负责牌背颜色与牌背图片。
-/// 界面已在场景里手工搭建（CardBackPanel），本组件按名字自动查找并挂接事件；
-/// Inspector 里手动拖拽的引用优先。牌边设置由独立的 CardEdgePanel 负责。
-/// </summary>
+/// <summary>牌背颜色与图片。引用由场景写入，运行时只改数值和贴图。</summary>
 public class CardBackConfigPanel : MonoBehaviour
 {
     public static CardBackConfigPanel Instance { get; private set; }
@@ -27,15 +23,8 @@ public class CardBackConfigPanel : MonoBehaviour
         new Color(0.92f, 0.92f, 0.92f, 1f),
     };
 
-#if UNITY_WEBGL && !UNITY_EDITOR
-    [System.Runtime.InteropServices.DllImport("__Internal")]
-    private static extern void UploadFileJS(string gameObjectName, string methodName, string filter);
+    private const string ImageAccept = "image/png,image/jpeg,image/jpg,image/webp,application/zip,.zip";
 
-    [System.Runtime.InteropServices.DllImport("__Internal")]
-    private static extern void InitCardBackDrop(string gameObjectName, string methodName);
-#endif
-
-    [Header("拖拽挂接（留空则按场景内名字自动查找）")]
     [SerializeField] private Image previewImage;
     [SerializeField] private Slider sliderR;
     [SerializeField] private Slider sliderG;
@@ -49,29 +38,12 @@ public class CardBackConfigPanel : MonoBehaviour
     [SerializeField] private Button pickImageButton;
     [SerializeField] private Button dropZoneButton;
     [SerializeField] private Button clearImageButton;
-
-    // 兼容烘焙进场景的旧版 Text/InputField
-    private Text legacyValueR;
-    private Text legacyValueG;
-    private Text legacyValueB;
-    private InputField legacyHexInput;
+    [SerializeField] private Button[] colorSwatches;
 
     private Color currentColor = ConfigManager.DefaultCardBackColor;
     private Texture2D currentTexture;
     private Sprite previewSprite;
     private bool syncing;
-    private bool wired;
-
-    /// <summary>挂到场景里已画好的 CardBackPanel 上；已存在组件则直接复用。</summary>
-    public static CardBackConfigPanel AttachToScenePanel(Transform sceneConfigRoot)
-    {
-        if (sceneConfigRoot == null) return null;
-        CardBackConfigPanel existing = sceneConfigRoot.GetComponentInChildren<CardBackConfigPanel>(true);
-        if (existing != null) return existing;
-        Transform panel = FindChildByName(sceneConfigRoot, "CardBackPanel");
-        if (panel == null) return null;
-        return panel.gameObject.AddComponent<CardBackConfigPanel>();
-    }
 
     private void Awake()
     {
@@ -81,7 +53,7 @@ public class CardBackConfigPanel : MonoBehaviour
             return;
         }
         Instance = this;
-        AutoWire();
+        BindUi();
     }
 
     private void Start()
@@ -89,67 +61,27 @@ public class CardBackConfigPanel : MonoBehaviour
         CardBackManager.ApplySavedConfig();
     }
 
-    private void OnEnable()
+    public void ReloadSaved()
     {
-#if UNITY_WEBGL && !UNITY_EDITOR
-        try
-        {
-            InitCardBackDrop(gameObject.name, "OnCardBackFileDropped");
-        }
-        catch (Exception e)
-        {
-            Debug.LogWarning($"初始化牌背拖拽失败: {e.Message}");
-        }
-#endif
+        LoadSavedIntoUI();
     }
 
-    /// <summary>按名字查找并挂接事件；Inspector 已拖拽的引用优先。</summary>
-    private void AutoWire()
+    private void BindUi()
     {
-        if (wired) return;
-        wired = true;
-
-        if (previewImage == null) previewImage = FindInChildren<Image>(transform, "PreviewImage");
-        if (sliderR == null) sliderR = FindInChildren<Slider>(transform, "RSlider");
-        if (sliderG == null) sliderG = FindInChildren<Slider>(transform, "GSlider");
-        if (sliderB == null) sliderB = FindInChildren<Slider>(transform, "BSlider");
-        if (valueR == null) valueR = FindInChildren<TMP_Text>(transform, "RValue");
-        if (valueG == null) valueG = FindInChildren<TMP_Text>(transform, "GValue");
-        if (valueB == null) valueB = FindInChildren<TMP_Text>(transform, "BValue");
-        if (hexInput == null) hexInput = FindInChildren<TMP_InputField>(transform, "HexInput");
-        if (hexApplyButton == null) hexApplyButton = FindInChildren<Button>(transform, "HexApply");
-        if (restoreButton == null) restoreButton = FindInChildren<Button>(transform, "RestoreButton");
-        if (pickImageButton == null) pickImageButton = FindInChildren<Button>(transform, "PickImageButton");
-        if (dropZoneButton == null) dropZoneButton = FindInChildren<Button>(transform, "DropZone");
-        if (clearImageButton == null) clearImageButton = FindInChildren<Button>(transform, "ClearImageButton");
-
-        // 旧版 Text/InputField 兜底（烘焙进场景的旧版面板）
-        if (valueR == null) legacyValueR = FindInChildren<Text>(transform, "RValue");
-        if (valueG == null) legacyValueG = FindInChildren<Text>(transform, "GValue");
-        if (valueB == null) legacyValueB = FindInChildren<Text>(transform, "BValue");
-        if (hexInput == null) legacyHexInput = FindInChildren<InputField>(transform, "HexInput");
-
-        if (hexApplyButton != null) hexApplyButton.onClick.AddListener(ApplyHex);
-        if (restoreButton != null) restoreButton.onClick.AddListener(RestoreDefault);
-        if (pickImageButton != null) pickImageButton.onClick.AddListener(OpenFilePicker);
-        if (dropZoneButton != null) dropZoneButton.onClick.AddListener(OpenFilePicker);
-        if (clearImageButton != null) clearImageButton.onClick.AddListener(ClearImage);
-
-        if (sliderR != null)
-            sliderR.onValueChanged.AddListener(v => SetColor(new Color(v / 255f, currentColor.g, currentColor.b, 1f)));
-        if (sliderG != null)
-            sliderG.onValueChanged.AddListener(v => SetColor(new Color(currentColor.r, v / 255f, currentColor.b, 1f)));
-        if (sliderB != null)
-            sliderB.onValueChanged.AddListener(v => SetColor(new Color(currentColor.r, currentColor.g, v / 255f, 1f)));
-
-        for (int i = 0; i < PresetColors.Length; i++)
+        hexApplyButton.onClick.AddListener(ApplyHex);
+        restoreButton.onClick.AddListener(RestoreDefault);
+        if (pickImageButton != null) pickImageButton.gameObject.SetActive(false);
+        if (dropZoneButton != null) dropZoneButton.gameObject.SetActive(false);
+        if (clearImageButton != null) clearImageButton.gameObject.SetActive(false);
+        sliderR.onValueChanged.AddListener(v => SetColor(new Color(v / 255f, currentColor.g, currentColor.b, 1f)));
+        sliderG.onValueChanged.AddListener(v => SetColor(new Color(currentColor.r, v / 255f, currentColor.b, 1f)));
+        sliderB.onValueChanged.AddListener(v => SetColor(new Color(currentColor.r, currentColor.g, v / 255f, 1f)));
+        int n = colorSwatches != null ? Mathf.Min(colorSwatches.Length, PresetColors.Length) : 0;
+        for (int i = 0; i < n; i++)
         {
-            Button swatch = FindInChildren<Button>(transform, "Swatch" + i);
-            if (swatch == null) continue;
             Color c = PresetColors[i];
-            swatch.onClick.AddListener(() => SetColor(c));
+            colorSwatches[i].onClick.AddListener(() => SetColor(c));
         }
-
         LoadSavedIntoUI();
     }
 
@@ -185,15 +117,11 @@ public class CardBackConfigPanel : MonoBehaviour
         string g = Mathf.RoundToInt(currentColor.g * 255f).ToString();
         string b = Mathf.RoundToInt(currentColor.b * 255f).ToString();
         if (valueR != null) valueR.text = r;
-        else if (legacyValueR != null) legacyValueR.text = r;
         if (valueG != null) valueG.text = g;
-        else if (legacyValueG != null) legacyValueG.text = g;
         if (valueB != null) valueB.text = b;
-        else if (legacyValueB != null) legacyValueB.text = b;
 
         string hex = ColorUtility.ToHtmlStringRGB(currentColor);
         if (hexInput != null) hexInput.text = hex;
-        else if (legacyHexInput != null) legacyHexInput.text = hex;
         syncing = false;
     }
 
@@ -235,7 +163,7 @@ public class CardBackConfigPanel : MonoBehaviour
 
     private void ApplyHex()
     {
-        string hex = hexInput != null ? hexInput.text : (legacyHexInput != null ? legacyHexInput.text : "");
+        string hex = hexInput != null ? hexInput.text : "";
         if (hex == null) hex = "";
         hex = hex.Trim();
         if (hex.StartsWith("#")) hex = hex.Substring(1);
@@ -255,17 +183,11 @@ public class CardBackConfigPanel : MonoBehaviour
         if (ConfigManager.Instance != null)
         {
             ConfigManager.Instance.SetCardBackColor(currentColor);
-            ConfigManager.Instance.SetSelectedCardBackImage("", false);
-        }
-        if (currentTexture != null)
-        {
-            Destroy(currentTexture);
-            currentTexture = null;
         }
         SyncUIFromColor();
         UpdatePreview();
-        CardBackManager.Apply(currentColor, null);
-        ShowTip("已恢复默认");
+        CardBackManager.Apply(currentColor, currentTexture);
+        ShowTip("已恢复默认颜色（图片请在「牌面背景」中管理）");
     }
 
     private void ClearImage()
@@ -281,7 +203,11 @@ public class CardBackConfigPanel : MonoBehaviour
         }
         UpdatePreview();
         CardBackManager.Apply(currentColor, null);
-        ShowTip("已清除牌背图片");
+        CardBackManager.ClearPersistedHandBackground();
+        ShowTip("已清除牌背与手牌背景");
+#if UNITY_WEBGL && !UNITY_EDITOR
+        UnityAssetIdb.Delete(UnityAssetIdb.KeyCardBack, null);
+#endif
     }
 
     // ==================== 图片上传 ====================
@@ -289,32 +215,33 @@ public class CardBackConfigPanel : MonoBehaviour
     private void OpenFilePicker()
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
-        try
-        {
-            UploadFileJS(gameObject.name, "OnCardBackFileSelected", "image/png,image/jpeg,image/jpg");
-        }
-        catch (Exception e)
-        {
-            Debug.LogError("WebGL 打开文件框失败: " + e.Message);
-        }
+        UnityAssetIdb.PickAndPut(UnityAssetIdb.KeyCardBack, ImageAccept, ApplyPickedAsset, err => {
+            if (!string.IsNullOrEmpty(err) && err != "empty") ShowTip(err);
+        });
 #elif (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
         NativeGallery.GetImageFromGallery(
             path =>
             {
                 if (!string.IsNullOrEmpty(path)) SaveImageFromPath(path);
             },
-            "选择牌背图片",
+            "选择牌体图片",
             "image/*");
 #else
         var extensions = new[]
         {
-            new SFB.ExtensionFilter("Image Files", "png", "jpg", "jpeg", "bmp", "tga"),
+            new SFB.ExtensionFilter("牌体", "zip", "png", "jpg", "jpeg", "bmp", "tga", "webp"),
         };
-        string[] paths = SFB.StandaloneFileBrowser.OpenFilePanel("选择牌背图片", "", extensions, false);
-        if (paths != null && paths.Length > 0 && !string.IsNullOrEmpty(paths[0]))
+        string[] paths = SFB.StandaloneFileBrowser.OpenFilePanel("选择牌背与手牌背景（可多选或 zip）", "", extensions, true);
+        if (paths == null || paths.Length == 0 || string.IsNullOrEmpty(paths[0]))
         {
-            SaveImageFromPath(paths[0]);
+            return;
         }
+        if (paths.Length >= 2)
+        {
+            ApplyTwoFiles(paths[0], paths[1]);
+            return;
+        }
+        SaveImageFromPath(paths[0]);
 #endif
     }
 
@@ -327,6 +254,11 @@ public class CardBackConfigPanel : MonoBehaviour
         }
         try
         {
+            byte[] bytes = File.ReadAllBytes(sourcePath);
+            if (ApplyBodyBytes(bytes))
+            {
+                return;
+            }
             string dir = Path.Combine(Application.persistentDataPath, CardBackManager.BackImageDirName);
             Directory.CreateDirectory(dir);
             string ext = Path.GetExtension(sourcePath);
@@ -339,7 +271,7 @@ public class CardBackConfigPanel : MonoBehaviour
                 ConfigManager.Instance.SetSelectedCardBackImage(target, true);
             }
             Texture2D tex = CardBackManager.LoadTextureFromFile(target);
-            ApplyPickedTexture(tex);
+            ApplyPickedTexture(tex, "牌背图片已应用");
         }
         catch (Exception e)
         {
@@ -348,59 +280,133 @@ public class CardBackConfigPanel : MonoBehaviour
         }
     }
 
-#if UNITY_WEBGL && !UNITY_EDITOR
-    public void OnCardBackFileSelected(string data)
+    private void ApplyTwoFiles(string pathA, string pathB)
     {
-        HandleWebGLFileData(data);
-    }
-
-    public void OnCardBackFileDropped(string data)
-    {
-        HandleWebGLFileData(data);
-    }
-
-    private void HandleWebGLFileData(string data)
-    {
-        if (string.IsNullOrEmpty(data))
+        string handPath = null;
+        string backPath = null;
+        if (CardBackManager.IsHandBgFileName(pathA)) handPath = pathA;
+        else if (CardBackManager.IsBackFileName(pathA)) backPath = pathA;
+        if (CardBackManager.IsHandBgFileName(pathB)) handPath = pathB;
+        else if (CardBackManager.IsBackFileName(pathB)) backPath = pathB;
+        if (handPath == null && backPath == null)
         {
-            ShowTip("未选择文件");
-            return;
+            backPath = pathA;
+            handPath = pathB;
+        }
+        else if (handPath == null)
+        {
+            handPath = backPath == pathA ? pathB : pathA;
+        }
+        else if (backPath == null)
+        {
+            backPath = handPath == pathA ? pathB : pathA;
         }
         try
         {
-            string[] parts = data.Split('|');
-            if (parts.Length < 1) return;
-            string base64 = parts[0];
-            int commaIndex = base64.IndexOf(",");
-            if (commaIndex >= 0) base64 = base64.Substring(commaIndex + 1);
-            byte[] bytes = Convert.FromBase64String(base64);
-            Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-            if (!ImageConversion.LoadImage(tex, bytes))
+            if (!string.IsNullOrEmpty(backPath) && File.Exists(backPath) && !CardBackManager.IsZip(File.ReadAllBytes(backPath)))
             {
-                Destroy(tex);
-                ShowTip("图片解析失败");
-                return;
+                SaveImageFromPath(backPath);
             }
-
-            string ext = parts.Length > 2 ? parts[2] : ".png";
-            string saved = base64 + "|" + ext + "|" + (parts.Length > 1 ? parts[1] : "cardback");
-            PlayerPrefs.SetString(CardBackManager.WebGLImageKey, saved);
-            PlayerPrefs.Save();
-            if (ConfigManager.Instance != null)
+            if (!string.IsNullOrEmpty(handPath) && File.Exists(handPath))
             {
-                ConfigManager.Instance.SetSelectedCardBackImage(CardBackManager.WebGLImageKey, true);
+                CardBackManager.PersistHandBackground(File.ReadAllBytes(handPath));
             }
-            ApplyPickedTexture(tex);
+            ShowTip("牌体已应用");
         }
         catch (Exception e)
         {
-            Debug.LogError("WebGL 牌背图片处理失败: " + e.Message);
-            ShowTip("图片处理失败");
+            Debug.LogError("保存牌体失败: " + e.Message);
+            ShowTip("保存牌体失败");
         }
+    }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+    private void ApplyPickedAsset(string key, byte[] bytes)
+    {
+        if (ApplyBodyBytes(bytes))
+        {
+            return;
+        }
+        ApplyIndexedDbImage(key, bytes);
+    }
+
+    private void ApplyIndexedDbImage(string key, byte[] bytes)
+    {
+        if (ApplyBodyBytes(bytes))
+        {
+            return;
+        }
+        Texture2D tex = UnityAssetIdb.ToTexture(bytes);
+        if (tex == null)
+        {
+            ShowTip("图片解析失败");
+            return;
+        }
+        if (ConfigManager.Instance != null)
+        {
+            ConfigManager.Instance.SetSelectedCardBackImage(string.IsNullOrEmpty(key) ? UnityAssetIdb.KeyCardBack : key, true);
+        }
+        ApplyPickedTexture(tex, "牌背图片已应用");
     }
 #endif
 
-    private void ApplyPickedTexture(Texture2D tex)
+    private bool ApplyBodyBytes(byte[] bytes)
+    {
+        if (bytes == null || bytes.Length == 0) return false;
+        if (CardBackManager.TryParseBodyZip(bytes, out byte[] backPng, out byte[] handBgPng))
+        {
+            if (backPng != null)
+            {
+                PersistCardBackPng(backPng);
+            }
+            if (handBgPng != null)
+            {
+                CardBackManager.PersistHandBackground(handBgPng);
+            }
+            ShowTip(backPng != null && handBgPng != null ? "牌背与手牌背景已应用" : (handBgPng != null ? "手牌背景已应用" : "牌背图片已应用"));
+            return true;
+        }
+        if (CardBackManager.IsZip(bytes))
+        {
+            ShowTip("压缩包需包含 back.png 与 hand-bg.png");
+            return true;
+        }
+        return false;
+    }
+
+    private void PersistCardBackPng(byte[] png)
+    {
+        Texture2D tex = CardBackManager.DecodePng(png);
+#if UNITY_WEBGL && !UNITY_EDITOR
+        UnityAssetIdb.Put(UnityAssetIdb.KeyCardBack, png, null);
+        if (ConfigManager.Instance != null)
+        {
+            ConfigManager.Instance.SetSelectedCardBackImage(UnityAssetIdb.KeyCardBack, true);
+        }
+        ApplyPickedTexture(tex, null);
+#else
+        try
+        {
+            string dir = Path.Combine(Application.persistentDataPath, CardBackManager.BackImageDirName);
+            Directory.CreateDirectory(dir);
+            string target = Path.Combine(dir, "CardBack_" + DateTime.Now.ToString("yyyyMMddHHmmssfff") + ".png");
+            File.WriteAllBytes(target, png);
+            if (ConfigManager.Instance != null)
+            {
+                ConfigManager.Instance.SetSelectedCardBackImage(target, true);
+            }
+            if (tex == null) tex = CardBackManager.LoadTextureFromFile(target);
+            ApplyPickedTexture(tex, null);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("保存牌背失败: " + e.Message);
+            ShowTip("保存牌背失败");
+        }
+#endif
+    }
+
+    private void ApplyPickedTexture(Texture2D tex, string tip)
     {
         if (tex == null)
         {
@@ -414,7 +420,14 @@ public class CardBackConfigPanel : MonoBehaviour
         currentTexture = tex;
         UpdatePreview();
         CardBackManager.Apply(currentColor, currentTexture);
-        ShowTip("牌背图片已应用");
+        if (!string.IsNullOrEmpty(tip)) ShowTip(tip);
+    }
+
+    private static void SetButtonLabel(Button button, string text)
+    {
+        if (button == null) return;
+        TMP_Text tmp = button.GetComponentInChildren<TMP_Text>(true);
+        if (tmp != null) tmp.text = text;
     }
 
     // ==================== 编辑器拖拽（Project 图片资源）====================
@@ -455,7 +468,7 @@ public class CardBackConfigPanel : MonoBehaviour
                 ConfigManager.Instance.SetSelectedCardBackImage(target, true);
             }
             Texture2D tex = CardBackManager.LoadTextureFromFile(target);
-            ApplyPickedTexture(tex);
+            ApplyPickedTexture(tex, "牌背图片已应用");
         }
         catch (Exception ex)
         {
@@ -475,34 +488,5 @@ public class CardBackConfigPanel : MonoBehaviour
         {
             Debug.Log("[CardBackConfigPanel] " + message);
         }
-    }
-
-    // ==================== 场景查找 ====================
-
-    private static Transform FindChildByName(Transform root, string name)
-    {
-        if (root == null) return null;
-        for (int i = 0; i < root.childCount; i++)
-        {
-            Transform child = root.GetChild(i);
-            if (child.name == name) return child;
-        }
-        return null;
-    }
-
-    private static T FindInChildren<T>(Transform root, string name) where T : Component
-    {
-        if (root == null) return null;
-        foreach (Transform child in root)
-        {
-            if (child.name == name)
-            {
-                T comp = child.GetComponent<T>();
-                if (comp != null) return comp;
-            }
-            T nested = FindInChildren<T>(child, name);
-            if (nested != null) return nested;
-        }
-        return null;
     }
 }

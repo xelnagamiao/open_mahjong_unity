@@ -1,16 +1,142 @@
 {
   "rules": [
     {
+      "slug": "mahjong-phylogeny",
+      "label": "麻将谱系与分类",
+      "collected_at": "2026-08-14",
+      "count": 56
+    },
+    {
+      "slug": "mahjong-studies",
+      "label": "麻将通论与书志（含分类）",
+      "collected_at": "2026-08-14",
+      "count": 72
+    },
+    {
       "slug": "hongkong",
       "label": "香港麻将",
       "collected_at": "2026-07-20",
       "count": 20
     },
     {
+      "slug": "ningbo-classical",
+      "label": "古典 / 宁波",
+      "collected_at": "2026-08-14",
+      "count": 6
+    },
+    {
+      "slug": "chuanyu",
+      "label": "川渝家族（血战 / 血流 / 渝麻 / 断卡根）",
+      "collected_at": "2026-08-14",
+      "count": 17
+    },
+    {
+      "slug": "yuegang",
+      "label": "粤港澳（清章 / 新章 / 鸡平胡 / 推倒胡）",
+      "collected_at": "2026-08-14",
+      "count": 14
+    },
+    {
+      "slug": "shiliuzhang",
+      "label": "十六张（福州开金 / 台制 / 南北差 / 明星三缺一）",
+      "collected_at": "2026-08-14",
+      "count": 13
+    },
+    {
+      "slug": "jiangnan-caishen",
+      "label": "江南财神（杭州 / 温州 / 当代甬麻）",
+      "collected_at": "2026-08-14",
+      "count": 14
+    },
+    {
+      "slug": "xiang",
+      "label": "湘式（长沙 258 将 / 扎鸟）",
+      "collected_at": "2026-08-14",
+      "count": 5
+    },
+    {
+      "slug": "dongbei-sanchen",
+      "label": "东北伞称（摇宝 / 下蛋 / 夹胡 / 穷胡 / 哈麻 / 长春）",
+      "collected_at": "2026-08-14",
+      "count": 10
+    },
+    {
+      "slug": "huazhong",
+      "label": "华中（卡五星）",
+      "collected_at": "2026-08-14",
+      "count": 3
+    },
+    {
+      "slug": "hongzhong-laizi",
+      "label": "癞子扩散（常德红中 / 武汉开口翻 / 南昌翻精）",
+      "collected_at": "2026-08-14",
+      "count": 13
+    },
+    {
+      "slug": "lizhi",
+      "label": "立直史（报知成文 / 天凤雀魂 / 三麻 / RCR）",
+      "collected_at": "2026-08-14",
+      "count": 10
+    },
+    {
+      "slug": "nanyang",
+      "label": "南洋（新加坡动物牌 / 马来西亚 / 越南牌具膨胀）",
+      "collected_at": "2026-08-14",
+      "count": 8
+    },
+    {
+      "slug": "american-mj",
+      "label": "美式麻将（Babcock / NMJL 年卡 / Wright-Patterson）",
+      "collected_at": "2026-08-14",
+      "count": 6
+    },
+    {
+      "slug": "jingjin",
+      "label": "京津混儿（北京 / 天津）",
+      "collected_at": "2026-08-14",
+      "count": 4
+    },
+    {
+      "slug": "jinshan",
+      "label": "晋陕（山西伞称 / 太原立四 / 西安）",
+      "collected_at": "2026-08-14",
+      "count": 6
+    },
+    {
+      "slug": "qian",
+      "label": "黔麻（贵州捉鸡）",
+      "collected_at": "2026-08-14",
+      "count": 3
+    },
+    {
+      "slug": "qiaoma",
+      "label": "沪上敲麻",
+      "collected_at": "2026-08-14",
+      "count": 3
+    },
+    {
+      "slug": "suhu-huama",
+      "label": "苏沪宁花麻（算花 / 苏州 / 南京论花）",
+      "collected_at": "2026-08-14",
+      "count": 5
+    },
+    {
       "slug": "drawing-mahjong",
-      "label": "绘图麻雀牌谱",
+      "label": "绘图麻雀牌谱（已归入古典麻将）",
       "collected_at": "2026-08-04",
       "count": 1
+    },
+    {
+      "slug": "regional-rules",
+      "label": "地方规则资料",
+      "collected_at": "2026-08-14",
+      "count": 35
+    },
+    {
+      "slug": "local-rulebooks",
+      "label": "馆藏规则书",
+      "collected_at": "2026-08-14",
+      "count": 29
     }
   ]
 }

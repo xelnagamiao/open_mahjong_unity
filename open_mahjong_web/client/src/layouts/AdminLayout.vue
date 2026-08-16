@@ -41,7 +41,9 @@ const menuItems = [
   { index: '/admin', label: '仪表盘' },
   { index: '/admin/users', label: '用户' },
   { index: '/admin/events', label: '赛事' },
+  { index: '/admin/bases', label: '基地' },
   { index: '/admin/event-applications', label: '办赛申请' },
+  { index: '/admin/base-applications', label: '办基地申请' },
   { index: '/admin/rank', label: '段位' },
   { index: '/admin/games', label: '对局记录' },
   { index: '/admin/game-control', label: '对局管理' },
@@ -54,7 +56,9 @@ const menuItems = [
 
 const activeMenu = computed(() => {
   if (route.path.startsWith('/admin/users')) return '/admin/users'
+  if (route.path.startsWith('/admin/base-applications')) return '/admin/base-applications'
   if (route.path.startsWith('/admin/event-applications')) return '/admin/event-applications'
+  if (route.path.startsWith('/admin/bases')) return '/admin/bases'
   if (route.path.startsWith('/admin/events')) return '/admin/events'
   if (route.path.startsWith('/admin/ip-bans')) return '/admin/ip-bans'
   return route.path

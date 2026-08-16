@@ -1,0 +1,108 @@
+{
+  "slug": "nanyang",
+  "label": "南洋（新加坡动物牌 / 马来西亚 / 越南牌具膨胀）",
+  "aliases": ["新加坡麻将", "马来西亚麻将", "越南麻将", "动物牌", "南洋麻将"],
+  "collected_at": "2026-08-14",
+  "notes": "新加坡、马来西亚、越南不是同一种「南洋麻将」，彼此的牌具和规矩都不一样。越南麻将不用动物牌，和粤港清章的关系也比较松散。目前平台上没有南洋麻将的对局。",
+  "sources": [
+    {
+      "id": "wiki-en-sg",
+      "url": "https://en.wikipedia.org/wiki/Mahjong",
+      "title": "Mahjong (English Wikipedia) variants",
+      "type": "history",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "excerpt": "新加坡／马来西亚近香港规则，特色为猫、鼠、鸡、蜈蚣四张动物花。越南可到 160 张（加花与百搭）。美式 NMJL 用年卡与 joker，有人视为另一游戏。越南的细则以本档 wiki-en-tiles 为准，和新加坡的动物牌是两回事。全文见 mahjong-phylogeny。",
+      "rules": ["singapore", "malaysia", "vietnam"],
+      "source_level": "community",
+      "reliability": "medium",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/wiki-en-sg.html",
+      "local_status": "ok"
+    },
+    {
+      "id": "wiki-en-tiles",
+      "url": "https://en.wikipedia.org/wiki/Mahjong_tiles",
+      "title": "Wikipedia · Mahjong tiles（动物牌、越南百搭、对照表）",
+      "type": "history",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "excerpt": "新加坡套两对动物；四家马来西亚套四对动物。三家马来西亚另有人脸／小丑。越南常见 8 张专用百搭（筒索万总 + 花风元合一类），连到已消失的王麻雀／里花；1975 年后可复制到 176／184。对照表张数：新加坡 156、马来西亚四家 164、三家 84、越南 160。与社区新加坡 148、不强调百搭的写法冲突，并列。",
+      "rules": ["singapore", "malaysia", "vietnam"],
+      "source_level": "community",
+      "reliability": "medium"
+    },
+    {
+      "id": "sgmahjong-rules",
+      "url": "https://sgmahjong.com/rules.html",
+      "title": "sgmahjong.com · Singapore Mahjong Rules",
+      "type": "discussion",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "excerpt": "148 张：序数字牌 136 + 花季 8 + 动物 4（猫鼠鸡蜈蚣）。动物、花摸到即亮，从牌尾补。猫吃鼠、鸡吃蜈蚣。一般四副一对；七对不算。C 级桌规站，只用来对张数和动物功能。",
+      "rules": ["singapore"],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "wiki-en-malaysia",
+      "url": "https://en.wikipedia.org/wiki/Malaysian_mahjong",
+      "title": "Wikipedia · Malaysian mahjong",
+      "type": "variant",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "excerpt": "近新加坡／旧式粤港计番，常有动物牌和加花，家规差得大。独立条是否稳定以现场为准。细则以 wiki-en-tiles 与 sloper-malaysian 为准：四家常 164，不是新加坡 148 复印件。",
+      "rules": ["malaysia"],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "sloper-malaysian",
+      "url": "https://www.sloperama.com/mahjongg/malaysian.html",
+      "title": "Sloperama · 3-Player Malaysian Mah-Jongg（兼转四家 164）",
+      "type": "discussion",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "excerpt": "三家页。转引 Sylvain：四家马来西亚 164 张（16 编号花 + 8 不编号花／动物 + 4 空白百搭）；和牌须全顺、全刻或混／清一色。动物当花用。三家与四家不是一套，也不要和日三麻并条。C 级。",
+      "rules": ["malaysia"],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "wiki-en-vietnam",
+      "url": "https://en.wikipedia.org/wiki/Vietnamese_mahjong",
+      "title": "Wikipedia · Vietnamese mahjong",
+      "type": "variant",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "excerpt": "越南套常加大（加花与专用百搭）。是否算清章的直系还没有定论。旧摘录里的「animals」容易被误读成新加坡的动物牌；以 wiki-en-tiles 为准：越南的主干是皇／后花 + 八张专用百搭，不是动物牌。",
+      "rules": ["vietnam"],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "mcgill-vietnam",
+      "url": "http://mcgillmahjong.blogspot.com/2015/08/a-quick-look-at-mahjong-around-world_6.html",
+      "title": "McGill Mahjong · Vietnamese Mahjong（2015）",
+      "type": "discussion",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "excerpt": "古典套 160，现代 176。除四季四君子外再加八张皇／后当花。八张专用百搭分蓝红两组，按门受限，不是美式任意 joker。现代套每种百搭三份、框形不同。C 级，牌具清单可与维基互核。",
+      "rules": ["vietnam"],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "mahjongpros-vn",
+      "url": "https://mahjongpros.com/blogs/how-to-play/beginners-guide-to-vietnamese-mahjong",
+      "title": "Mahjong Pros · Beginner's Guide to Southern Vietnamese Mahjong",
+      "type": "discussion",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "excerpt": "南越套：144 + 8 张额外花 + 8 张专用百搭 = 160。绿组筒索万总，红组花喜元合；皇 1–4、后 1–4 当花。C 级商业文，只核牌具，不当规则书。",
+      "rules": ["vietnam"],
+      "source_level": "community",
+      "reliability": "low"
+    }
+  ]
+}

@@ -40,8 +40,14 @@ public class MatchNetworkManager : MonoBehaviour {
     }
 
     private void HandleJoinQueueDone(Response response) {
+        if (!string.IsNullOrEmpty(response.my_queue)) {
+            lastJoinedQueueType = response.my_queue;
+        }
         if (!response.success) {
             NotificationManager.Instance.ShowTip("匹配", false, response.message);
+            if (!string.IsNullOrEmpty(response.my_queue)) {
+                RestoreQueueingFromServer(response.my_queue);
+            }
             return;
         }
         if (IsMatchUiLocked()) {
@@ -50,6 +56,16 @@ public class MatchNetworkManager : MonoBehaviour {
         }
         CoroutineManager.Ensure();
         CoroutineManager.Instance.RunNextFrame(ShowQueueingPanelIfStillNeeded, CoroutineKeys.MatchQueueingPanelDelay);
+    }
+
+    private void RestoreQueueingFromServer(string queueType) {
+        lastJoinedQueueType = queueType;
+        MatchStateManager.Instance.EnsureQueueing(MatchQueueDisplayText.GetQueueTitle(queueType));
+        if (IsMatchUiLocked()) {
+            ShowMatchFoundedUi();
+            return;
+        }
+        MatchQueueingPanel.Instance?.RestoreIfQueueing();
     }
 
     private bool IsMatchUiLocked() {
@@ -90,6 +106,7 @@ public class MatchNetworkManager : MonoBehaviour {
     }
 
     private void HandleQueueStatus(Response response) {
+        ApplyServerMatchState(response);
         if (response.queue_status == null) return;
         if (pendingQueueStatusConsumers.Count == 0) return;
 
@@ -100,6 +117,33 @@ public class MatchNetworkManager : MonoBehaviour {
             case MatchQueueStatusConsumer.MatchPanelDetail:
                 MatchPanel.Instance?.UpdateQueueStatus(response.queue_status);
                 break;
+        }
+    }
+
+    /// <summary>
+    /// 用服务端 my_queue / match_committed 恢复本地状态。
+    /// my_queue 为空时不清理本地（避免 join 与 poll 竞态）。
+    /// </summary>
+    private void ApplyServerMatchState(Response response) {
+        if (response.match_committed) {
+            if (!string.IsNullOrEmpty(response.my_queue)) {
+                lastJoinedQueueType = response.my_queue;
+            }
+            isMatchFoundLocked = true;
+            if (!MatchStateManager.Instance.IsMatchFound) {
+                ShowMatchFoundedUi();
+            }
+            return;
+        }
+        if (string.IsNullOrEmpty(response.my_queue)) return;
+        lastJoinedQueueType = response.my_queue;
+        if (IsMatchUiLocked()) return;
+        MatchStateManager.Instance.EnsureQueueing(MatchQueueDisplayText.GetQueueTitle(response.my_queue));
+        if (MatchPanel.Instance != null
+            && MatchPanel.Instance.isActiveAndEnabled
+            && MatchQueueingPanel.Instance != null
+            && !MatchQueueingPanel.Instance.gameObject.activeSelf) {
+            MatchQueueingPanel.Instance.RestoreIfQueueing();
         }
     }
 

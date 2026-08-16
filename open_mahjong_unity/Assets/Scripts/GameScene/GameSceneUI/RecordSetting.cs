@@ -12,6 +12,8 @@ public class RecordSetting : MonoBehaviour {
 
     [SerializeField] private TMP_Text showHepaiAnimationText;
 
+    [SerializeField] private TMP_Text showAnonymousPlayersText; // 匿名玩家
+
     [Header("颜色配置")]
     [SerializeField] private Color falseColor = Color.white;
     [SerializeField] private Color trueColor = new Color(1f, 0.5f, 0f);
@@ -27,6 +29,43 @@ public class RecordSetting : MonoBehaviour {
 
     private bool isShowHepaiAnimation = false;
     public bool IsShowHepaiAnimation { get => isShowHepaiAnimation; }
+
+    private bool isAnonymousPlayers = false;
+    public bool IsAnonymousPlayers { get => isAnonymousPlayers; }
+
+    /// <summary>
+    /// 直接设置匿名玩家开关状态（不翻转）。会刷新 UI 并刷新四角玩家昵称。
+    /// 供 UI/Editor 工具调用。
+    /// </summary>
+    public void SetAnonymousPlayers(bool on, bool refreshPlayerNames = true) {
+        if (isAnonymousPlayers == on) {
+            RefreshUI();
+            return;
+        }
+        isAnonymousPlayers = on;
+        RefreshUI();
+        if (refreshPlayerNames) {
+            var recordMgr = GameRecordManager.Instance;
+            if (recordMgr != null) {
+                recordMgr.RefreshRecordPlayerPanelNames();
+            }
+        }
+    }
+
+    // 牌谱：按 original_player_index（0~3）映射到 东/南/西/北 起玩家
+    private static readonly string[] AnonymousPlayerNamesByOriginIndex = {
+        "东起玩家",
+        "南起玩家",
+        "西起玩家",
+        "北起玩家"
+    };
+
+    public static string GetAnonymousPlayerName(int originalPlayerIndex) {
+        if (originalPlayerIndex < 0 || originalPlayerIndex >= AnonymousPlayerNamesByOriginIndex.Length) {
+            return string.Empty;
+        }
+        return AnonymousPlayerNamesByOriginIndex[originalPlayerIndex];
+    }
 
     private void Awake() {
         if (Instance == null) {
@@ -45,6 +84,9 @@ public class RecordSetting : MonoBehaviour {
             AddClickListener(showChongHintText, ToggleShowChongHint);
         }
         AddClickListener(showHepaiAnimationText, ToggleShowHepaiAnimation);
+        if (showAnonymousPlayersText != null) {
+            AddClickListener(showAnonymousPlayersText, ToggleAnonymousPlayers);
+        }
         RefreshUI();
     }
 
@@ -77,6 +119,16 @@ public class RecordSetting : MonoBehaviour {
         RefreshUI();
     }
 
+    private void ToggleAnonymousPlayers() {
+        isAnonymousPlayers = !isAnonymousPlayers;
+        RefreshUI();
+        // 仅刷新四角玩家昵称显示；牌面/操作区不变，无需 GotoAction
+        var recordMgr = GameRecordManager.Instance;
+        if (recordMgr != null) {
+            recordMgr.RefreshRecordPlayerPanelNames();
+        }
+    }
+
     private void RefreshUI() {
         showCardsModeText.color = isShowCardsMode ? trueColor : falseColor;
         if (showMoqieModeText != null) {
@@ -87,6 +139,9 @@ public class RecordSetting : MonoBehaviour {
         }
         if (showHepaiAnimationText != null) {
             showHepaiAnimationText.color = isShowHepaiAnimation ? trueColor : falseColor;
+        }
+        if (showAnonymousPlayersText != null) {
+            showAnonymousPlayersText.color = isAnonymousPlayers ? trueColor : falseColor;
         }
     }
 

@@ -1,0 +1,74 @@
+{
+  "slug": "xiang",
+  "label": "湘式（长沙 258 将 / 扎鸟）",
+  "aliases": ["长沙麻将", "湘麻", "经典双鸟", "258将", "扎鸟"],
+  "collected_at": "2026-08-14",
+  "notes": "长沙与川麻同出 108 张去字，可吃、258 将、扎鸟，是平行改动。平台按馆藏经典双鸟本。无 MIL 长沙推广本。",
+  "sources": [
+    {
+      "id": "lib-changsha",
+      "url": "/rulebooks/changsha-classic-double-bird-rulebook.pdf",
+      "title": "长沙麻将经典双鸟规则书（2026-07-09）",
+      "type": "rulebook",
+      "lang": "zh",
+      "publisher": "本站",
+      "published": "2026-07-09",
+      "accessed": "2026-08-14",
+      "excerpt": "108 张，无字无花。可吃（只吃上家）。小胡必须普通牌形且将是 2、5、8。大胡不要求 258 将，多个大胡相加。起手胡（四喜、板板胡、缺一色、六六顺、三同）先结算，本局继续。普通胡后固定翻两只鸟，每中一鸟对应支付乘 2。一炮多响。开杠须先听牌。海底漫游。平台长沙对局按这一套。",
+      "rules": ["changsha"],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/changsha-classic-double-bird-rulebook.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "wiki-zh-changsha",
+      "url": "https://zh.wikipedia.org/wiki/长沙麻将",
+      "title": "维基百科 · 长沙麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "去字牌，但可以吃，常要 258 做将，并有扎鸟。和川麻不是一条改法。",
+      "rules": ["changsha"],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "baike-changsha",
+      "url": "https://baike.baidu.com/item/长沙麻将/4143410",
+      "title": "百度百科 · 长沙麻将",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "108 张，无风无字。小胡须 258 做将；大胡乱将。起手胡含四喜、板板胡、六六顺、缺一色。扎鸟：胡后摸紧跟着的牌为鸟，以庄家为 1 逆时针。点炮时鸟中胡家或点炮家则点炮人出双倍。C 级。",
+      "rules": ["changsha"],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "80166-changsha",
+      "url": "https://80166.com/guide/rule/csmj.html",
+      "title": "黄金岛 · 长沙麻将游戏规则",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "108 张允许全部摸完。小胡 258 将，大胡乱将。胡后摸紧跟着的两张为鸟。通炮。飘是同局两人以上选择加注。起手胡后继续。C 级。",
+      "rules": ["changsha"],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "tcy-changsha-258",
+      "url": "https://tcy365.com/news/d30403.html",
+      "title": "同城游 · 长沙麻将 258 将规则详解",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "把 258 将写成碰碰胡、清一色也必须 258。与百科、平台本「大胡乱将」冲突，不采信。只作反例。C 级。",
+      "rules": ["changsha"],
+      "source_level": "community",
+      "reliability": "low"
+    }
+  ]
+}

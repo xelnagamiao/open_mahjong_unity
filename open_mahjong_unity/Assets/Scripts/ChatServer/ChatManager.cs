@@ -1,269 +1,222 @@
-using UnityEngine;
 using System;
-using NativeWebSocket;
-using System.Collections.Generic;
 using System.Collections;
+using System.Collections.Generic;
+using NativeWebSocket;
 using Newtonsoft.Json;
-using System.Collections.Concurrent;
+using UnityEngine;
 
 public class ChatManager : MonoBehaviour {
     public static ChatManager Instance { get; private set; }
-    private bool isConnecting = false; // 定义连接状态
-    private WebSocket websocket;
-    private string connectId; // 唯一标识连接的会话id 不是userid哦
-    private Queue<byte[]> ConcurrentQueue = new Queue<byte[]>(); // 定义消息队列
-    private const int InitialConnectionMaxAttempts = 3;
-    private const float ConnectionAttemptTimeoutSeconds = 10f;
-    private const float InitialConnectionRetryDelaySeconds = 1.5f;
 
-    // 初始化连接
+    private readonly Queue<byte[]> messageQueue = new Queue<byte[]>();
+    private NetworkManager networkManager;
+    private WebSocket websocket;
+    private bool isConnecting;
+    private bool loginSent;
+    private string username;
+    private string userkey;
+
     private void Awake() {
         if (Instance != null && Instance != this) {
-            Debug.Log($"Destroying duplicate ChatManager. Existing: {Instance}, New: {this}");
             Destroy(gameObject);
             return;
         }
         Instance = this;
-        CreateWebSocket();
     }
 
-    private void CreateWebSocket() {
-        connectId = System.Guid.NewGuid().ToString(); // 生成一个不同机器唯一的连接id
+    private IEnumerator Start() {
+        while (NetworkManager.Instance == null) yield return null;
+        if (Instance != this) yield break;
+
+        networkManager = NetworkManager.Instance;
+        networkManager.ConnectionAvailabilityChanged += OnGameConnectionChanged;
+        OnGameConnectionChanged(networkManager.IsWebSocketOpen);
+    }
+
+    /// <summary>
+    /// Go WebSocket 完全跟随 Python WebSocket：断开时关闭，连接时只连接一次。
+    /// Go 自身关闭或失败时不会发起任何重连。
+    /// </summary>
+    private void OnGameConnectionChanged(bool connected) {
+        if (connected) {
+            ConnectChatServer();
+        } else {
+            // 重连后必须等待 Python 新的登录响应，再登录新的 Go 连接。
+            username = null;
+            userkey = null;
+            DisconnectChatServer();
+        }
+    }
+
+    private void ConnectChatServer() {
+        if (isConnecting) return;
+        if (websocket != null
+            && (websocket.State == WebSocketState.Open
+                || websocket.State == WebSocketState.Connecting)) return;
+
+        WebSocket oldSocket = websocket;
+        websocket = null;
+        CloseSocket(oldSocket);
+
+        string connectId = Guid.NewGuid().ToString();
         WebSocket newSocket = new WebSocket($"{ConfigManager.chatUrl}/{connectId}");
         websocket = newSocket;
-        // 配置WebSocket事件处理器（NativeWebSocket格式）
+        isConnecting = true;
+        loginSent = false;
+
         newSocket.OnOpen += () => {
             if (newSocket != websocket) return;
-            Debug.Log("WebSocket To ChatServer连接已打开");
             isConnecting = false;
+            Debug.Log("Python WebSocket 已连接，同步连接 Go ChatServer 成功");
+            SendLoginIfReady();
         };
 
-        newSocket.OnMessage += (bytes) => {
+        newSocket.OnMessage += bytes => {
             if (newSocket != websocket) return;
-            lock(ConcurrentQueue) {
-                ConcurrentQueue.Enqueue(bytes);
-            }
+            lock (messageQueue) messageQueue.Enqueue(bytes);
         };
 
-        newSocket.OnError += (errorMsg) => {
+        newSocket.OnError += error => {
             if (newSocket != websocket) return;
-            Debug.Log($"WebSocket To ChatServer错误: {errorMsg}");
             isConnecting = false;
+            Debug.LogWarning($"Go ChatServer 连接错误: {error}");
         };
 
-        newSocket.OnClose += (code) => {
+        newSocket.OnClose += code => {
             if (newSocket != websocket) return;
-            Debug.Log($"WebSocket To ChatServer已关闭: {code}");
+            websocket = null;
             isConnecting = false;
+            loginSent = false;
+            Debug.Log($"Go ChatServer 已关闭: {code}");
+            // 不重连。下一次连接只能由 Python WebSocket 的 OnOpen 触发。
         };
+
+        ConnectSocket(newSocket);
     }
 
-    private async void RunConnectLoop(WebSocket targetSocket) {
+    private async void ConnectSocket(WebSocket targetSocket) {
         try {
             await targetSocket.Connect();
-        }
-        catch (Exception e) {
+        } catch (Exception exception) {
             if (targetSocket == websocket) {
-                Debug.Log($"连接聊天服务器错误: {e.Message}");
                 isConnecting = false;
+                Debug.LogWarning($"连接 Go ChatServer 失败: {exception.Message}");
             }
         }
     }
 
-    // 连接到聊天服务器；与游戏主连接一致，首次瞬时失败会自动退避重试。
-    private IEnumerator Start() {
-        if (Instance != this || isConnecting) yield break;
-
-        for (int attempt = 1; attempt <= InitialConnectionMaxAttempts; attempt++) {
-            if (attempt > 1) {
-                float retryDelay = InitialConnectionRetryDelaySeconds * (attempt - 1);
-                while (retryDelay > 0f) {
-                    retryDelay -= Time.unscaledDeltaTime;
-                    yield return null;
-                }
-                CreateWebSocket();
-            }
-
-            isConnecting = true;
-            WebSocket attemptSocket = websocket;
-            Debug.Log(
-                $"开始连接聊天服务器，第 {attempt}/{InitialConnectionMaxAttempts} 次尝试，"
-                + $"当前状态: {attemptSocket.State}"
-            );
-            RunConnectLoop(attemptSocket);
-
-            float elapsed = 0f;
-            while (elapsed < ConnectionAttemptTimeoutSeconds) {
-                if (attemptSocket != websocket) yield break;
-                if (attemptSocket.State == WebSocketState.Open) {
-                    Debug.Log($"聊天服务器连接成功（第 {attempt} 次尝试）");
-                    yield break;
-                }
-                if (attemptSocket.State == WebSocketState.Closed) {
-                    break;
-                }
-                elapsed += Time.unscaledDeltaTime;
-                yield return null;
-            }
-
-            Debug.LogWarning(
-                $"聊天服务器第 {attempt}/{InitialConnectionMaxAttempts} 次连接失败"
-                + $"（State={attemptSocket.State}）"
-            );
-            try {
-                attemptSocket.CancelConnection();
-            } catch (Exception e) {
-                Debug.LogWarning($"取消聊天服务器连接尝试时出错: {e.Message}");
-            }
-        }
-
+    private void DisconnectChatServer() {
+        WebSocket oldSocket = websocket;
+        websocket = null;
         isConnecting = false;
-        NotificationManager.Instance.ShowTip(
-            "WebSocket To ChatServer错误",
-            false,
-            "无法连接聊天服务器，请稍后重试"
-        );
+        loginSent = false;
+        lock (messageQueue) messageQueue.Clear();
+        CloseSocket(oldSocket);
     }
 
-    // 收到聊天服务器消息
-    private void GetMessage(byte[] bytes) {
+    private async void CloseSocket(WebSocket targetSocket) {
+        if (targetSocket == null) return;
         try {
-            string jsonStr = System.Text.Encoding.UTF8.GetString(bytes);
-            Debug.Log($"收到聊天服务器消息: {jsonStr}");
-            ProcessChatMessage(jsonStr);
-        }
-        catch (Exception e) {
-            Debug.Log($"解析聊天服务器消息错误: {e.Message}");
-            NotificationManager.Instance.ShowTip("解析聊天服务器消息错误", false, e.Message);
+            if (targetSocket.State == WebSocketState.Connecting) {
+                targetSocket.CancelConnection();
+            } else if (targetSocket.State == WebSocketState.Open) {
+                await targetSocket.Close();
+            }
+        } catch (Exception exception) {
+            Debug.LogWarning($"关闭 Go ChatServer 连接失败: {exception.Message}");
         }
     }
 
-    // 检测消息队列
     private void Update() {
-        // 非WebGL平台需要调用DispatchMessageQueue来处理WebSocket消息
-        #if !UNITY_WEBGL || UNITY_EDITOR
+#if !UNITY_WEBGL || UNITY_EDITOR
         websocket?.DispatchMessageQueue();
-        #endif
-
-        if (ConcurrentQueue.Count > 0) {
-            byte[] messageBytes;
-            lock(ConcurrentQueue) {
-                messageBytes = ConcurrentQueue.Dequeue();
-            }
-            GetMessage(messageBytes);
+#endif
+        byte[] bytes = null;
+        lock (messageQueue) {
+            if (messageQueue.Count > 0) bytes = messageQueue.Dequeue();
         }
+        if (bytes != null) ProcessChatMessage(bytes);
     }
 
-    // 处理聊天消息并触发事件
-    private void ProcessChatMessage(string message) {
+    private void ProcessChatMessage(byte[] bytes) {
         try {
-            // 解析消息
-            ChatResponse response = JsonConvert.DeserializeObject<ChatResponse>(message);
-            Debug.Log($"处理聊天消息: {response.content}");
-            if (response.responseType == "login_kickout") {
-                NotificationManager.Instance.ShowTip(
-                    "账号已在其他位置登录",
-                    false,
-                    response.content
-                );
-                return;
-            }
-            ChatPanel.Instance.ShowChatMessage(response.responseType, response.roomId, response.content);
-        }
-        catch (Exception e) {
-            Debug.Log($"处理聊天消息错误: {e.Message}");
-            NotificationManager.Instance.ShowTip("处理聊天消息错误", false, e.Message);
+            string json = System.Text.Encoding.UTF8.GetString(bytes);
+            ChatResponse response = JsonConvert.DeserializeObject<ChatResponse>(json);
+
+            // Python 游戏服负责账号顶替提示；Go 只负责同步关闭连接。
+            if (response.responseType == "login_kickout") return;
+
+            ChatPanel.Instance?.ShowChatMessage(
+                response.responseType,
+                response.roomId,
+                response.content
+            );
+        } catch (Exception exception) {
+            Debug.LogWarning($"处理 Go ChatServer 消息失败: {exception.Message}");
         }
     }
 
-    // 登录聊天服务器
-    public async void LoginChatServer(string username, string userkey) {
-        Debug.Log($"开始登录聊天服务器，连接ID: {connectId}, 用户名: {username}, 用户密钥: {userkey}");
+    /// <summary>保存 Python 登录响应中的凭据；Go 打开后只发送一次。</summary>
+    public void LoginChatServer(string newUsername, string newUserkey) {
+        username = newUsername;
+        userkey = newUserkey;
+        SendLoginIfReady();
+    }
 
-        // 检查WebSocket连接状态
-        if (websocket == null || websocket.State != WebSocketState.Open) {
-            Debug.Log("WebSocket连接未建立，无法发送登录消息");
-            return;
-        }
+    private async void SendLoginIfReady() {
+        if (loginSent || string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userkey)) return;
+        if (websocket == null || websocket.State != WebSocketState.Open) return;
 
         var request = new ChatRequest {
             type = "login",
             data = new ChatLoginRequest {
                 username = username,
-                userkey = userkey
-            }
+                userkey = userkey,
+            },
         };
-
-        // 发送登录消息
-        string jsonMessage = JsonConvert.SerializeObject(request);
-        Debug.Log($"发送登录聊天服务器消息: {jsonMessage}");
-        await websocket.SendText(jsonMessage);
+        loginSent = true;
+        try {
+            await websocket.SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception exception) {
+            Debug.LogWarning($"登录 Go ChatServer 失败: {exception.Message}");
+        }
     }
 
-    // 发送聊天消息（由 ChatPanel 调用，传入消息内容和目标房间ID）
     public async void SendChatMessage(string message, int targetChannelId) {
-        // 检查WebSocket连接状态
-        if (websocket == null || websocket.State != WebSocketState.Open) {
-            Debug.Log("WebSocket连接未建立，无法发送聊天消息");
-            return;
-        }
-
+        if (websocket == null || websocket.State != WebSocketState.Open) return;
         var request = new ChatRequest {
             type = "sendChat",
             data = new ChatSendChatRequest {
                 content = message.Trim(),
-                roomId = targetChannelId
-            }
+                roomId = targetChannelId,
+            },
         };
-        string jsonMessage = JsonConvert.SerializeObject(request);
-        Debug.Log($"发送聊天消息: {jsonMessage}");
-        await websocket.SendText(jsonMessage);
+        await websocket.SendText(JsonConvert.SerializeObject(request));
     }
 
-    // 加入聊天房间
     public async void JoinRoom(int roomId) {
-        // 检查WebSocket连接状态
-        if (websocket == null || websocket.State != WebSocketState.Open) {
-            Debug.Log("WebSocket连接未建立，无法发送加入房间消息");
-            NotificationManager.Instance.ShowTip("WebSocket连接未建立，无法发送加入房间消息", false, "");
-            return;
-        }
-
+        if (websocket == null || websocket.State != WebSocketState.Open) return;
         var request = new ChatRequest {
             type = "joinRoom",
-            data = new ChatJoinRoomRequest {
-                roomId = roomId
-            }
+            data = new ChatJoinRoomRequest { roomId = roomId },
         };
-        string jsonMessage = JsonConvert.SerializeObject(request);
-        Debug.Log($"发送聊天服务器加入房间消息: {jsonMessage}");
-        await websocket.SendText(jsonMessage);
+        await websocket.SendText(JsonConvert.SerializeObject(request));
     }
 
-    // 离开聊天房间
     public async void LeaveRoom(int roomId) {
-        // 检查WebSocket连接状态
-        if (websocket == null || websocket.State != WebSocketState.Open) {
-            Debug.Log("WebSocket连接未建立，无法发送离开房间消息");
-            NotificationManager.Instance.ShowTip("WebSocket连接未建立，无法发送离开房间消息", false, "");
-            return;
-        }
-
+        if (websocket == null || websocket.State != WebSocketState.Open) return;
         var request = new ChatRequest {
             type = "leaveRoom",
-            data = new ChatLeaveRoomRequest {
-                roomId = roomId
-            }
+            data = new ChatLeaveRoomRequest { roomId = roomId },
         };
-        string jsonMessage = JsonConvert.SerializeObject(request);
-        Debug.Log($"发送聊天服务器离开房间消息: {jsonMessage}");
-        await websocket.SendText(jsonMessage);
+        await websocket.SendText(JsonConvert.SerializeObject(request));
     }
 
-    // 清理资源
-    private async void OnDestroy() {
-        if (websocket != null && websocket.State == WebSocketState.Open) {
-            await websocket.Close();
+    private void OnDestroy() {
+        if (networkManager != null) {
+            networkManager.ConnectionAvailabilityChanged -= OnGameConnectionChanged;
         }
+        DisconnectChatServer();
+        if (Instance == this) Instance = null;
     }
 }

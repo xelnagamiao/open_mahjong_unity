@@ -55,6 +55,55 @@ public class EventListEntry {
     public string name;
     public string status;
     public string role;
+    public string kind;
+    public string description;
+    public EventEntrySummary entry_summary;
+}
+
+public class EventEntrySummary {
+    public bool forbid_tourist;
+    public string min_rank;
+    public string max_rank;
+    public bool has_join_code;
+    public bool member_can_create_room;
+    public bool auto_approve;
+}
+
+public class EventAnnouncementInfo {
+    public long announcement_id;
+    public string title;
+    public string body;
+    public string created_at;
+}
+
+public class EventRegistrationInfo {
+    public string event_id;
+    public int user_id;
+    public string status;
+    public string contact;
+    public string remark;
+    public string review_note;
+}
+
+public class EventReadyPlayer {
+    public string event_id;
+    public int user_id;
+    public string username;
+    public string ready_at;
+}
+
+public class EventDetailInfo {
+    public string event_id;
+    public string name;
+    public string description;
+    public string status;
+    public string kind;
+    public string my_role;
+    public bool is_admin;
+    public bool is_ready;
+    public EventRegistrationInfo registration;
+    public EventEntrySummary entry_summary;
+    public EventAnnouncementInfo[] announcements;
 }
 
 public class GameEndInfo { // 显示游戏结束结果
@@ -422,6 +471,7 @@ public class SpectatorInfo { // 观战信息
     public string player3_name; // 玩家3 用户名
     public string player4_name; // 玩家4 用户名
     public string gamestate_id; // 游戏状态ID
+    public string event_id;
 }
 
 public class FriendInfo { // 好友 / 关注信息
@@ -631,6 +681,8 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public ServerStatsInfo server_stats; // 返回服务器统计信息
     public SpectatorInfo[] spectator_list; // 返回观战列表
     public Dictionary<string, QueueStatusEntry> queue_status; // 匹配队列状态
+    public string my_queue; // 当前玩家所在等待队列（get_queue_status / join_queue_done）
+    public bool match_committed; // 已匹配成功且对局尚未结束
     public long client_ts; // pong 消息回传：客户端发送 ping 的时间戳（毫秒）
     // 好友 / 关注 / 实时观战
     public FriendInfo[] friend_list;             // 关注列表
@@ -651,4 +703,7 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public VoteInfo vote_info; // 房间对局投票暂停/结束状态同步
     public HongqueStateInfo hongque_state; // 虹雀开局/重连数据或实时增量
     public EventListEntry[] event_list; // 当前用户可建房的 active 赛事列表
+    public EventDetailInfo event_detail;
+    public EventReadyPlayer[] ready_players;
+    public EventRegistrationInfo[] registration_list;
 }

@@ -1,0 +1,1082 @@
+{
+  "updated": "2026-08-14",
+  "claim_status": [
+    "attested",
+    "inferred",
+    "disputed",
+    "legend"
+  ],
+  "edge_types": [
+    "descent",
+    "diffusion",
+    "standardization",
+    "constructed",
+    "hypothesis"
+  ],
+  "lede": "格子上的年是桌上能分开讲的出现层，不是规则书出版年。协会本、棋牌站、明星三缺一是后来把桌上规矩写成可核验文本。空格不代表这种打法死了。东北已从华北列拆出：摇宝、下蛋、夹胡、穷胡、哈麻走东北列，京津混儿和晋陕留在华北。台湾十六张约 1950s–70s 定型后并没有冻住：南北差一直并行，2001 年明星三缺一定型一套台数。广东麻将是伞称。平台支持只标在现行实现那一层。",
+  "tracks": [
+    {
+      "id": "paper",
+      "label": "纸牌",
+      "merges_into": "ningbo",
+      "desc": "叶子戏是纸牌源头。马吊约四十张、以大击小；万、索、钱后来变成麻将的万、索、筒。凑刻顺出自默和、碰和；「碰」这个词也从碰和来。花将牌以天地人和为将，连雅堂认为风牌由此变来。"
+    },
+    {
+      "id": "domino",
+      "label": "骨牌",
+      "merges_into": "ningbo",
+      "desc": "天九、牌九是骨牌戏，以点组合定胜负，不是凑面子。后来麻将的牌张与玩法走纸牌一线，牌具改成竹骨时才借用骨牌的形制。"
+    },
+    {
+      "id": "ningbo",
+      "label": "宁波",
+      "span_from": [
+        "paper",
+        "domino"
+      ],
+      "desc": "江南把纸牌戏做到竹骨牌上，时称中发、撮麻雀、叉麻雀。Glover 福州套（≤1875）与 Wilkinson 宁波套（1889/90）是牌具。樊增祥 1906 年夹注「二十年前起于宁波」。沈一帆《绘图麻雀牌谱》（1914）等把番副写成规矩。"
+    },
+    {
+      "id": "yue",
+      "label": "粤港",
+      "desc": "废副、改出铳，走出清章。香港清章渐成三番起糊，协会称港麻为清章；维基有把清章安到广东的写法，命名并列。广东麻将是伞称。新章叠番、鸡平胡、推倒胡从老章分出，平行，不是一条父子链。南洋不是一种麻将：新加坡常见动物牌，马来西亚四家常加花加百搭到 164，越南是专用百搭膨胀，不是动物牌。不要画越南←清章硬边。MIL 广东 2023、推倒和 2024 是协会推广本。澳门 1991 赌场法定不进主线。"
+    },
+    {
+      "id": "jp",
+      "label": "日本",
+      "desc": "1909 名川彦作携牌回日本，章法近中国古典。1952 年天野大三把途中立直、振听写成《报知新闻》连载；赤宝、里宝、食断是往后几十年才陆续定型。天凤前身「半熟荘」2006 年公开，2007 年改名。平台立直按天凤／雀魂，不是报知，也不是 GGHK 大赛本或 MIL／EMA RCR。三麻、韩三麻从报知以后的立直传统分出，不是天凤下级。"
+    },
+    {
+      "id": "sixteen",
+      "label": "十六张",
+      "desc": "福州加一搭成十六张，并走开金。台湾十六张约 1950s–70s 在桌上定型，精髓是台数与连庄拉庄；此后南北差并行（北部有花、南部无花），2001 年明星三缺一定型一套台数，不是冻在 1980。入台来路有福建十六张、广东十三张两说，谱系边标争议。港式十六张不是台制原样。温州十六张兼财神。MIL 温州 2024 按十六张分类。"
+    },
+    {
+      "id": "us",
+      "label": "美式",
+      "outlier": true,
+      "desc": "Babcock 1920 年红皮书把中国古典简化成美式商品规则。1937 年美国全国麻将联盟成立，当时用花当百搭；1961 年起用专用 joker。年卡合法型每年换卡，2026 年卡仍在发售。Wright-Patterson 无 joker。与亚洲四副一对几乎不能同桌。"
+    },
+    {
+      "id": "jiangnan",
+      "label": "江南",
+      "desc": "当代甬麻（花、四台、财神）是 1980 年代前后的地方桌，不要画回 1870 年代祖型。杭州是白板财神；温州是十六张翻财神；苏沪花麻是花数计分；南京论花与苏州近亲不是复印件。上海敲麻是报听加勒子。杭、温、甬不是一条父子链。"
+    },
+    {
+      "id": "chuanyu",
+      "label": "川渝湘",
+      "desc": "川渝去字禁吃在桌上出现时，血战和定缺都还没有。1990 年代末流行缺一门，当时不定张。长沙同样 108 张，但可吃、258 将。成都一带 2000 年后流行血战到底，并改成开局定缺；换三张是开局选项。近缘扩散到重庆、贵州、昆明。大邑、崇州断卡根（72 张、10 张手牌）不进主干。SBR 是 2025 协会本，平台川麻按这一套，不是民间成麻。 贵州近缘是 108 禁吃，核心是捉鸡，不是血战或定缺。MIL 贵州 2023 是捉鸡赛场本。 宜昌／恩施「血流换三张」是棋牌站挂名，不是第四种发明。四川红中是川麻加癞子，不进癞子列。断卡根不进主干。"
+    },
+    {
+      "id": "north",
+      "label": "华北",
+      "desc": "京津晋陕。北京可吃、用混儿；天津禁吃、不点炮、中下滚混儿。山西是伞称；太原立四是都市包。西安禁吃定缺是后起地方改，不是川麻直系。东北已拆出，不进这一列。红中不进这一列。北京也叫推倒和，不进粤港推倒胡。平台「大众麻将／北方推倒胡／河北麻将」近京麻简化，不单独立项。"
+    },
+    {
+      "id": "dongbei",
+      "label": "东北",
+      "desc": "东北十三张从华北拆出。战后先是十三张推倒胡层；1980s–90s 桌上能分开讲辽宁摇宝、吉林下蛋、黑龙江夹胡、大连穷胡、哈尔滨。长春约 2000s 把下蛋、夹胡、宝捆成都市包，不是第四种发明。红中、卡五星不进这一列。"
+    },
+    {
+      "id": "huazhong",
+      "label": "华中",
+      "desc": "鄂西北卡五星：2005 年前后随州四人桌，2007 年前后大悟改三人 84 张。武汉开口翻仍挂癞子列。长沙、常德仍挂川渝湘／常德列，不并进这里。"
+    },
+    {
+      "id": "mcr",
+      "label": "国标",
+      "desc": "1998 年国家体育总局出《中国麻将竞赛规则（试行）》。EMA 办国标／立直欧赛。小林改、K神改、蓝十改是国标改版。"
+    },
+    {
+      "id": "laizi",
+      "label": "癞子",
+      "desc": "红中来自常德：常德麻将加四张万能红中。常德桌上后起，全国上网约 2010s 是扩散。武汉开口翻是翻癞子、红中当杠牌。南昌走开精。卡五星不进这一列。四川红中是川麻加癞子，不进这一列。"
+    },
+    {
+      "id": "custom",
+      "label": "自制规",
+      "desc": "中庸是关兆豪 1997 年起稿、2004 年发布的计分法，2007 年 WSOM 采用。青雀、虹雀、南雀、十样锦是另写的规则。"
+    }
+  ],
+  "appeared": {
+    "nmjl": "1937",
+    "riichi-hochi": "1952",
+    "nmjl-joker": "1961",
+    "nmjl-card": "1971",
+    "sichuan-nochi": "约 1980s",
+    "guobiao": "1998",
+    "sichuan": "约 2000",
+    "zungjung": "2004",
+    "xueliu": "约 2005",
+    "ema": "约 2005",
+    "riichi": "2006",
+    "hongzhong": "常德后起；上网约 2010s",
+    "guobiao-kshen": "约 2010",
+    "guobiao-kobayashi": "约 2015",
+    "guobiao-lanshi": "约 2022",
+    "qingque": "2024",
+    "hongque": "2025",
+    "jiandan": "2025",
+    "shiyangjin": "2026",
+    "huama": "桌上约 1980s",
+    "suzhou": "桌上约 1980s",
+    "nanjing": "桌上约 1980s",
+    "salasasa": "2026年6月",
+    "mil-sichuan": "2025",
+    "quzi": "约 1950s",
+    "mil-guangdong": "2023",
+    "mil-tuidao": "2024",
+    "mil-hangzhou": "2025",
+    "mil-wenzhou": "2024",
+    "mil-red-center": "2024",
+    "mil-changchun": "2024",
+    "mil-shanxi": "2023",
+    "mil-guizhou": "2023",
+    "shanghai": "口述 1980s",
+    "macau": "1991",
+    "duankagen": "桌上更早；App 2012",
+    "yichang-xueliu": "棋牌站 2010s",
+    "sichuan-hongzhong": "约 2010s 平台桌",
+    "changde": "桌上约 1980s",
+    "taiwan": "桌上约 1950s–70s",
+    "taiwan-south": "桌上并行",
+    "taiwan-mingxing": "2001",
+    "ningbo-local": "桌上约 1980s",
+    "dongbei": "十三张 postwar",
+    "dongbei-yaobao": "桌上约 1980s–90s",
+    "dongbei-xiadan": "桌上约 1980s–90s",
+    "dongbei-jiahu": "桌上约 1980s–90s",
+    "haerbin": "桌上约 1990s",
+    "dalian-qionghu": "桌上约 1990s",
+    "changchun": "都市包约 2000s",
+    "kawuxing": "2005／2007"
+  },
+  "eras": [
+    {
+      "id": "e-song",
+      "years": "宋–明",
+      "title": "纸牌与骨牌分途",
+      "desc": "叶子戏是纸牌源头。天九、牌九是骨牌戏，以点组合定胜负，不是凑面子。后来麻将的牌张与玩法走纸牌一线，牌具改成竹骨时才借用骨牌的形制。",
+      "groups": [
+        {
+          "track": "paper",
+          "nodes": [
+            "yezi"
+          ]
+        },
+        {
+          "track": "domino",
+          "nodes": [
+            "tianjiu"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "e-qing",
+      "years": "明–清中叶",
+      "title": "马吊传牌张，默和碰和传玩法",
+      "desc": "马吊约四十张、以大击小。万、索、钱后来变成麻将的万、索、筒。凑刻顺出自默和、碰和；「碰」这个词也从碰和来。花将牌以天地人和为将，连雅堂认为风牌由此变来。",
+      "groups": [
+        {
+          "track": "paper",
+          "nodes": [
+            "madiao",
+            "mohe",
+            "penghe"
+          ]
+        },
+        {
+          "track": "domino",
+          "nodes": [
+            "tianjiu"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "e-proto",
+      "years": "约 1870–1910",
+      "title": "宁波定型：叉麻雀／中发",
+      "desc": "江南把纸牌戏做到竹骨牌上，时称中发、撮麻雀、叉麻雀。Glover 福州套（≤1875）与 Wilkinson 宁波套（1889/90）是牌具。樊增祥 1906 年夹注「二十年前起于宁波」。闽粤海舶说并存。",
+      "groups": [
+        {
+          "track": "ningbo",
+          "nodes": [
+            "proto-mahjong"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "e-classical",
+      "years": "约 1910–1930",
+      "title": "早期规则书",
+      "desc": "民间骨牌戏本无统一规则书。沈一帆《绘图麻雀牌谱》（1914）等把番副写成规矩。榛原 1952 年据 1910 年代书重建「想定宁波」。",
+      "groups": [
+        {
+          "track": "ningbo",
+          "nodes": [
+            "classical"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "e-split1",
+      "years": "约 1920–1950",
+      "title": "第一次分化",
+      "desc": "废副、改出铳，粤港走出清章。1909 名川彦作携牌回日本。福州加一搭成十六张，并走开金。Babcock 1920 年红皮书。当代甬麻、上海敲麻都不要画在这一层。",
+      "groups": [
+        {
+          "track": "yue",
+          "nodes": [
+            "qingzhang"
+          ]
+        },
+        {
+          "track": "jp",
+          "nodes": [
+            "japanese-classical"
+          ]
+        },
+        {
+          "track": "sixteen",
+          "nodes": [
+            "fuzhou"
+          ]
+        },
+        {
+          "track": "us",
+          "nodes": [
+            "babcock",
+            "nmjl"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "e-postwar",
+      "years": "约 1950–1980",
+      "title": "战后桌上定型",
+      "desc": "1952 年报知立直成文。香港清章渐成三番起糊。台湾十六张在桌上定型，南北差已经并行，只是还没有写成对照表。NMJL 1961 年起用专用 joker。北京可吃、用混儿；天津禁吃、不点炮。东北此时还是十三张，尚未按省拆开。川渝去字禁吃在桌上出现，血战和定缺都还没有。",
+      "groups": [
+        {
+          "track": "yue",
+          "nodes": [
+            "hongkong"
+          ]
+        },
+        {
+          "track": "jp",
+          "nodes": [
+            "riichi-hochi"
+          ]
+        },
+        {
+          "track": "sixteen",
+          "nodes": [
+            "taiwan"
+          ]
+        },
+        {
+          "track": "us",
+          "nodes": [
+            "nmjl-joker",
+            "wright-patterson"
+          ]
+        },
+        {
+          "track": "chuanyu",
+          "nodes": [
+            "quzi"
+          ]
+        },
+        {
+          "track": "north",
+          "nodes": [
+            "beijing",
+            "tianjin"
+          ]
+        },
+        {
+          "track": "dongbei",
+          "nodes": [
+            "dongbei"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "e-local",
+      "years": "约 1980–2000",
+      "title": "地方改规与国标",
+      "desc": "这一层写桌上能分开讲的地方改，不成文年。川渝 1990 年代末流行缺一门，当时不定张。长沙可吃、258 将；常德去字禁吃，与长沙平行。1998 年国标是竞赛本。台湾南北差在这一层能写成对照：南部无花、不计庄家台。当代甬麻、杭温财神、苏沪花麻、上海敲麻都在这一层。东北按省能分开：摇宝、下蛋、夹胡、大连穷胡、哈尔滨。山西立四、西安禁吃定缺留在华北。",
+      "show_platform": true,
+      "groups": [
+        {
+          "track": "yue",
+          "nodes": [
+            "guangdong",
+            "jipinghu",
+            "tuidao",
+            "singapore"
+          ]
+        },
+        {
+          "track": "sixteen",
+          "nodes": [
+            "taiwan-south",
+            "hongkong-16",
+            "wenzhou"
+          ]
+        },
+        {
+          "track": "us",
+          "nodes": [
+            "nmjl-card"
+          ]
+        },
+        {
+          "track": "jiangnan",
+          "nodes": [
+            "ningbo-local",
+            "hangzhou",
+            "huama",
+            "suzhou",
+            "shanghai",
+            "nanjing"
+          ]
+        },
+        {
+          "track": "chuanyu",
+          "nodes": [
+            "sichuan-nochi",
+            "changsha",
+            "changde"
+          ]
+        },
+        {
+          "track": "north",
+          "nodes": [
+            "shanxi",
+            "taiyuan-lisi",
+            "xian"
+          ]
+        },
+        {
+          "track": "dongbei",
+          "nodes": [
+            "dongbei-yaobao",
+            "dongbei-xiadan",
+            "dongbei-jiahu",
+            "haerbin",
+            "dalian-qionghu"
+          ]
+        },
+        {
+          "track": "mcr",
+          "nodes": [
+            "guobiao"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "e-net",
+      "years": "约 2000–2015",
+      "title": "上网、定型与血战",
+      "desc": "成都一带 2000 年后流行血战到底并开局定缺。血流：口述 2005 年后；QQ 2005-04 同名桌。2001 年明星三缺一把一套台数写成电脑规则；2002 年中华麻将竞技协会立案。天凤 2006／2007。红中全国上网约 2010s，是常德扩散。卡五星 2005 四人、2007 三人。长春把下蛋、夹胡、宝捆成都市包。中庸 2004 年发布。",
+      "show_platform": true,
+      "groups": [
+        {
+          "track": "jp",
+          "nodes": [
+            "riichi"
+          ]
+        },
+        {
+          "track": "sixteen",
+          "nodes": [
+            "taiwan-mingxing"
+          ]
+        },
+        {
+          "track": "chuanyu",
+          "nodes": [
+            "sichuan",
+            "sichuan-huansanzhang",
+            "xueliu"
+          ]
+        },
+        {
+          "track": "dongbei",
+          "nodes": [
+            "changchun"
+          ]
+        },
+        {
+          "track": "huazhong",
+          "nodes": [
+            "kawuxing"
+          ]
+        },
+        {
+          "track": "mcr",
+          "nodes": [
+            "ema"
+          ]
+        },
+        {
+          "track": "custom",
+          "nodes": [
+            "zungjung"
+          ]
+        },
+        {
+          "track": "laizi",
+          "nodes": [
+            "hongzhong",
+            "wuhan",
+            "nanchang"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "e-now",
+      "years": "约 2015–",
+      "title": "协会本、改版、自制规",
+      "desc": "三麻、韩三麻、MIL 立直竞赛本，是立直圈里的人数或赛制变体。川渝近缘扩散到重庆、贵州、昆明；SBR 是 2025 协会本，平台川麻按这一套血战到底，不是民间成麻。MIL 广东推广 2023、推倒和推广 2024 是协会本：前者 140 张四花为鬼、不见吃；后者可吃须报听。都不是民间鸡平胡或深莞推倒胡。MIL 杭州推广 2025、温州试点 2024 是协会本：前者白板固定、只能自摸；MIL 温州试点 2024 按十六张分类：十六张翻财神，不见跟风。都不是民间桌规原样。小林改、K神改、蓝十改是国标改版。中庸 2004 年发布；青雀、虹雀、南雀、十样锦是另写的规则。美式年卡仍每年改合法型：2026 年卡仍在发售。MIL 红中推广 2024 是协会本，骨架近常德红中（112、不见吃、只能自摸），不是武汉开口翻，也不是川麻加四张红中。MIL 长春推广 2024 是协会本，仍是下蛋 + 夹胡 + 宝这一包。 马来西亚、越南挂在现行层，只表示还在打；越南不画清章硬边。 报知 ≠ 天凤 ≠ GGHK ≠ MIL RCR。 MIL 山西推广 2023 不见立四。MIL 贵州推广 2023 是捉鸡赛场本，不是血战。 澳门 1991 训令不进年表主线。宜昌血流、四川红中、断卡根是具名变体：前两件挂川渝近缘，断卡根单独一组。 东北列现行只挂 MIL 长春；华北列只挂 MIL 山西。卡五星仍是民间／平台桌，无协会本。",
+      "show_platform": true,
+      "groups": [
+        {
+          "track": "yue",
+          "nodes": [
+            "mil-guangdong",
+            "mil-tuidao",
+            "malaysia",
+            "vietnam"
+          ]
+        },
+        {
+          "track": "jp",
+          "nodes": [
+            "japanese-3p",
+            "korean-3p",
+            "mil-riichi"
+          ]
+        },
+        {
+          "track": "us",
+          "nodes": [
+            "nmjl-card"
+          ]
+        },
+        {
+          "track": "chuanyu",
+          "nodes": [
+            "chongqing",
+            "guizhou",
+            "kunming",
+            "mil-sichuan",
+            "mil-guizhou",
+            "sichuan-hongzhong",
+            "yichang-xueliu",
+            "duankagen"
+          ]
+        },
+        {
+          "track": "north",
+          "nodes": [
+            "mil-shanxi"
+          ]
+        },
+        {
+          "track": "dongbei",
+          "nodes": [
+            "mil-changchun"
+          ]
+        },
+        {
+          "track": "mcr",
+          "nodes": [
+            "guobiao-kshen",
+            "guobiao-kobayashi",
+            "guobiao-lanshi",
+            "salasasa"
+          ]
+        },
+        {
+          "track": "sixteen",
+          "nodes": [
+            "mil-wenzhou"
+          ]
+        },
+        {
+          "track": "jiangnan",
+          "nodes": [
+            "mil-hangzhou"
+          ]
+        },
+        {
+          "track": "laizi",
+          "nodes": [
+            "mil-red-center"
+          ]
+        },
+        {
+          "track": "custom",
+          "nodes": [
+            "qingque",
+            "hongque",
+            "jiandan",
+            "shiyangjin"
+          ]
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "yezi",
+      "to": "madiao",
+      "type": "descent",
+      "status": "attested",
+      "note": "叶子戏到马吊。"
+    },
+    {
+      "from": "madiao",
+      "to": "mohe",
+      "type": "descent",
+      "status": "attested",
+      "note": "默和牌「彷马吊牌而损益之」。"
+    },
+    {
+      "from": "mohe",
+      "to": "penghe",
+      "type": "descent",
+      "status": "attested",
+      "note": "加倍为四副则名碰和。"
+    },
+    {
+      "from": "madiao",
+      "to": "proto-mahjong",
+      "type": "descent",
+      "status": "attested",
+      "note": "只传万索钱牌张，不传斗大。"
+    },
+    {
+      "from": "mohe",
+      "to": "proto-mahjong",
+      "type": "descent",
+      "status": "attested",
+      "note": "凑面子、四人。"
+    },
+    {
+      "from": "penghe",
+      "to": "proto-mahjong",
+      "type": "descent",
+      "status": "attested",
+      "note": "碰、四副。"
+    },
+    {
+      "from": "proto-mahjong",
+      "to": "classical",
+      "type": "descent",
+      "status": "inferred",
+      "note": "1910 年代规则书记录当时打法。"
+    },
+    {
+      "from": "classical",
+      "to": "qingzhang",
+      "type": "descent",
+      "status": "attested",
+      "note": "废副、改出铳，变成清章。"
+    },
+    {
+      "from": "qingzhang",
+      "to": "hongkong",
+      "type": "descent",
+      "status": "attested"
+    },
+    {
+      "from": "qingzhang",
+      "to": "guangdong",
+      "type": "descent",
+      "status": "inferred",
+      "note": "新章叠番一支。广东麻将是伞称，这一格不代表鸡平胡。"
+    },
+    {
+      "from": "qingzhang",
+      "to": "singapore",
+      "type": "descent",
+      "status": "inferred",
+      "note": "近港式番，加动物牌。推断。不是马来西亚或越南。"
+    },
+    {
+      "from": "singapore",
+      "to": "malaysia",
+      "type": "descent",
+      "status": "inferred",
+      "note": "侨路近亲，推断。马来西亚四家常 164，不是新加坡 148 复印件。三家 84 另条。"
+    },
+    {
+      "from": "classical",
+      "to": "japanese-classical",
+      "type": "descent",
+      "status": "attested",
+      "note": "1909 年名川彦作把牌带回日本。"
+    },
+    {
+      "from": "japanese-classical",
+      "to": "riichi-hochi",
+      "type": "descent",
+      "status": "attested",
+      "note": "1952 年天野大三把途中立直写成报载规则。"
+    },
+    {
+      "from": "riichi-hochi",
+      "to": "riichi",
+      "type": "standardization",
+      "status": "attested",
+      "note": "天凤 2006 半熟荘、2007 改名。平台按天凤／雀魂。"
+    },
+    {
+      "from": "riichi-hochi",
+      "to": "japanese-3p",
+      "type": "descent",
+      "status": "attested",
+      "note": "人数变体。不是天凤下级。"
+    },
+    {
+      "from": "riichi-hochi",
+      "to": "korean-3p",
+      "type": "diffusion",
+      "status": "inferred",
+      "note": "扩散，推断。旧韩麻与 KML 立直赛不是一条。不是天凤下级。"
+    },
+    {
+      "from": "riichi",
+      "to": "mil-riichi",
+      "type": "standardization",
+      "status": "attested",
+      "note": "EMA RCR 2016 底本 + MIL 2024 细则。协会本，不是天凤，也不是平台对局。"
+    },
+    {
+      "from": "classical",
+      "to": "babcock",
+      "type": "descent",
+      "status": "attested",
+      "note": "1920 年红皮书按当时中国打法简化。"
+    },
+    {
+      "from": "babcock",
+      "to": "nmjl",
+      "type": "descent",
+      "status": "attested",
+      "note": "1937 年联盟成立；当时花当百搭。"
+    },
+    {
+      "from": "nmjl",
+      "to": "nmjl-joker",
+      "type": "descent",
+      "status": "attested",
+      "note": "1961 年起用专用 joker。"
+    },
+    {
+      "from": "nmjl-joker",
+      "to": "nmjl-card",
+      "type": "standardization",
+      "status": "attested",
+      "note": "1971 年定 8 花 8 joker；合法型和牌型每年换卡，至今仍出。"
+    },
+    {
+      "from": "babcock",
+      "to": "wright-patterson",
+      "type": "descent",
+      "status": "inferred"
+    },
+    {
+      "from": "fuzhou",
+      "to": "taiwan",
+      "type": "descent",
+      "status": "disputed",
+      "note": "维基：福建十六张入台。台湾麻将协会：广东十三张演成台制。都还没有民初规则书。"
+    },
+    {
+      "from": "taiwan",
+      "to": "hongkong-16",
+      "type": "diffusion",
+      "status": "inferred",
+      "note": "港称「台湾牌」，不是台制原样。"
+    },
+    {
+      "from": "sichuan-nochi",
+      "to": "sichuan",
+      "type": "descent",
+      "status": "inferred",
+      "note": "约 2000 年后血战到底，并改成开局定缺。"
+    },
+    {
+      "from": "sichuan",
+      "to": "sichuan-huansanzhang",
+      "type": "descent",
+      "status": "inferred"
+    },
+    {
+      "from": "sichuan",
+      "to": "xueliu",
+      "type": "descent",
+      "status": "inferred"
+    },
+    {
+      "from": "sichuan",
+      "to": "chongqing",
+      "type": "diffusion",
+      "status": "inferred"
+    },
+    {
+      "from": "sichuan",
+      "to": "guizhou",
+      "type": "diffusion",
+      "status": "inferred",
+      "note": "近缘是 108 禁吃。贵州核心是捉鸡，不是血战或定缺。"
+    },
+    {
+      "from": "sichuan",
+      "to": "kunming",
+      "type": "diffusion",
+      "status": "inferred"
+    },
+    {
+      "from": "sichuan",
+      "to": "mil-sichuan",
+      "type": "standardization",
+      "status": "attested"
+    },
+    {
+      "from": "dongbei",
+      "to": "dongbei-yaobao",
+      "type": "descent",
+      "status": "inferred",
+      "note": "辽宁摇宝／翻宝。"
+    },
+    {
+      "from": "dongbei",
+      "to": "dongbei-xiadan",
+      "type": "descent",
+      "status": "inferred",
+      "note": "吉林下蛋：蛋牌约定。"
+    },
+    {
+      "from": "dongbei",
+      "to": "dongbei-jiahu",
+      "type": "descent",
+      "status": "inferred",
+      "note": "黑龙江夹胡：听口约定。"
+    },
+    {
+      "from": "dongbei-xiadan",
+      "to": "changchun",
+      "type": "descent",
+      "status": "inferred",
+      "note": "长春桌上把下蛋、夹胡、宝牌捆在一起。"
+    },
+    {
+      "from": "dongbei-jiahu",
+      "to": "changchun",
+      "type": "diffusion",
+      "status": "inferred",
+      "note": "夹胡听口进了长春包。"
+    },
+    {
+      "from": "guobiao",
+      "to": "ema",
+      "type": "standardization",
+      "status": "attested"
+    },
+    {
+      "from": "guobiao",
+      "to": "guobiao-kshen",
+      "type": "constructed",
+      "status": "attested"
+    },
+    {
+      "from": "guobiao",
+      "to": "guobiao-kobayashi",
+      "type": "constructed",
+      "status": "attested"
+    },
+    {
+      "from": "guobiao",
+      "to": "guobiao-lanshi",
+      "type": "constructed",
+      "status": "attested"
+    },
+    {
+      "from": "guobiao",
+      "to": "salasasa",
+      "type": "constructed",
+      "status": "attested",
+      "note": "salasasa 对局入口，挂在国标下面。"
+    },
+    {
+      "from": "huama",
+      "to": "suzhou",
+      "type": "descent",
+      "status": "inferred",
+      "note": "苏州算花：牌张更多，花牌更杂。"
+    },
+    {
+      "from": "huama",
+      "to": "nanjing",
+      "type": "descent",
+      "status": "inferred",
+      "note": "南京论花：20 张硬花。"
+    },
+    {
+      "from": "quzi",
+      "to": "sichuan-nochi",
+      "type": "descent",
+      "status": "inferred",
+      "note": "去字之后，川渝走上禁吃。"
+    },
+    {
+      "from": "quzi",
+      "to": "changsha",
+      "type": "descent",
+      "status": "inferred",
+      "note": "去字之后，长沙可吃、258 将。"
+    },
+    {
+      "from": "zungjung",
+      "to": "jiandan",
+      "type": "constructed",
+      "status": "attested",
+      "note": "南雀是中庸改规。"
+    },
+    {
+      "from": "qingzhang",
+      "to": "jipinghu",
+      "type": "descent",
+      "status": "inferred",
+      "note": "由老章简化，与新章平行；珠三角民间主流。不是新章下级。"
+    },
+    {
+      "from": "qingzhang",
+      "to": "tuidao",
+      "type": "descent",
+      "status": "inferred",
+      "note": "低门槛兄弟。深莞民间禁吃自摸买马；与 MIL 推倒和、跑马仔、北京推倒和都要分开。"
+    },
+    {
+      "from": "guangdong",
+      "to": "mil-guangdong",
+      "type": "standardization",
+      "status": "attested",
+      "note": "MIL 2023 推广本：140 张、四花为鬼、不见吃。不是民间鸡平胡。"
+    },
+    {
+      "from": "tuidao",
+      "to": "mil-tuidao",
+      "type": "standardization",
+      "status": "inferred",
+      "note": "MIL 2024：可吃、须报听。与深莞民间不是一套，边画成标准化，不画成同一规则改名。"
+    },
+    {
+      "from": "classical",
+      "to": "fuzhou",
+      "type": "descent",
+      "status": "inferred",
+      "note": "加一搭成十六张，并走开金。"
+    },
+    {
+      "from": "hongkong",
+      "to": "hongkong-16",
+      "type": "diffusion",
+      "status": "inferred",
+      "note": "港式十六张糅合港麻、台制、立直、国标。新章和种从十三张新章传入，不是台制起源。"
+    },
+    {
+      "from": "hangzhou",
+      "to": "mil-hangzhou",
+      "type": "standardization",
+      "status": "attested",
+      "note": "MIL 2025 推广本：白板固定、只能自摸、流局剩 20 张。不是边锋笃三牢庄桌规。"
+    },
+    {
+      "from": "wenzhou",
+      "to": "mil-wenzhou",
+      "type": "standardization",
+      "status": "attested",
+      "note": "MIL 2024 试点本：十六张、翻财神、白板顶真牌。不见跟风，也不是二人温州。"
+    },
+    {
+      "from": "hongzhong",
+      "to": "mil-red-center",
+      "type": "standardization",
+      "status": "attested",
+      "note": "MIL 2024：112 张、不见吃、只能自摸。骨架近常德，不是武汉开口翻。"
+    },
+    {
+      "from": "changchun",
+      "to": "mil-changchun",
+      "type": "standardization",
+      "status": "attested",
+      "note": "MIL 2024 推广本：仍是下蛋 + 夹胡 + 宝。不是第四种发明。"
+    },
+    {
+      "from": "shanxi",
+      "to": "taiyuan-lisi",
+      "type": "descent",
+      "status": "inferred",
+      "note": "太原立四是山西伞称下的都市包，不是全省山西。"
+    },
+    {
+      "from": "shanxi",
+      "to": "mil-shanxi",
+      "type": "standardization",
+      "status": "attested",
+      "note": "MIL 2023：136 张，必须报听，不见立四。"
+    },
+    {
+      "from": "guizhou",
+      "to": "mil-guizhou",
+      "type": "standardization",
+      "status": "attested",
+      "note": "MIL 2023：捉鸡赛场本。不见定缺、不见血战。"
+    },
+    {
+      "from": "sichuan-nochi",
+      "to": "duankagen",
+      "type": "descent",
+      "status": "inferred",
+      "note": "再去万、10 张手牌。不进川渝主干。"
+    },
+    {
+      "from": "xueliu",
+      "to": "yichang-xueliu",
+      "type": "diffusion",
+      "status": "inferred",
+      "note": "棋牌站把血流换三张挂宜昌或恩施，不是第四种发明。"
+    },
+    {
+      "from": "sichuan",
+      "to": "sichuan-hongzhong",
+      "type": "diffusion",
+      "status": "inferred",
+      "note": "川麻加四张红中。不进癞子列。"
+    },
+    {
+      "from": "changde",
+      "to": "hongzhong",
+      "type": "descent",
+      "status": "attested",
+      "note": "百科：红中麻将是常德麻将加四张万能红中。"
+    },
+    {
+      "from": "taiwan",
+      "to": "taiwan-south",
+      "type": "descent",
+      "status": "attested",
+      "note": "南部无花、不计庄家台、边嵌单常无台。桌上并行，不是后起发明。"
+    },
+    {
+      "from": "taiwan",
+      "to": "taiwan-mingxing",
+      "type": "standardization",
+      "status": "attested",
+      "note": "2001 明星三缺一把一套口传台数写成电脑规则。"
+    },
+    {
+      "from": "dongbei",
+      "to": "haerbin",
+      "type": "descent",
+      "status": "inferred",
+      "note": "哈尔滨都市包：112、开门、暗宝。不是常德红中。"
+    },
+    {
+      "from": "dongbei",
+      "to": "dalian-qionghu",
+      "type": "descent",
+      "status": "inferred",
+      "note": "大连穷胡：报听翻宝。近辽宁摇宝。"
+    },
+    {
+      "from": "dongbei-yaobao",
+      "to": "dalian-qionghu",
+      "type": "diffusion",
+      "status": "inferred",
+      "note": "都是报听后看宝／冲宝。细则不同。"
+    }
+  ],
+  "legends_not_edges": [
+    {
+      "id": "chen-yumen",
+      "label": "陈鱼门 1864 发明"
+    },
+    {
+      "id": "zheng-he",
+      "label": "郑和发明"
+    },
+    {
+      "id": "confucius",
+      "label": "孔子／一行发明"
+    },
+    {
+      "id": "taicang-grain",
+      "label": "太仓护粮牌"
+    }
+  ],
+  "classification_axes": [
+    {
+      "id": "zhangfa",
+      "label": "章法",
+      "source": "关兆豪《中庸麻雀史观》",
+      "note": "按计分法分史：古典副+番 → 清章废副计番 → 新章滥番 → 立直／台数／中庸加法。这是谱系可用的主轴之一。"
+    },
+    {
+      "id": "function",
+      "label": "功能",
+      "source": "盛琦《麻将运动》",
+      "note": "竞技／休闲／赌博。功能轴，不能拿来排地方变体的父子。"
+    },
+    {
+      "id": "intent",
+      "label": "设计意图",
+      "source": "造牌麻将史观（康庄等）",
+      "note": "国标／中庸／K神／康庄划成造牌线，与地方抢和相对。是作者史观，不是田野分类。"
+    },
+    {
+      "id": "origin",
+      "label": "起源地理",
+      "source": "赵旭腾《雀从宁波来》",
+      "note": "马吊+闽粤博戏在宁波定型外传。只解决祖型，不分类现行地方桌。"
+    },
+    {
+      "id": "geo-shop",
+      "label": "商品目录",
+      "source": "欢乐麻将／网易棋牌",
+      "note": "按省区列玩法。能提示缺条（卡五星、穷胡、哈麻），不能当谱系。"
+    },
+    {
+      "id": "use-map",
+      "label": "使用地理",
+      "source": "王贤文等 2013",
+      "note": "用当时 QQ 在线人数看川麻、杭麻的省界。是使用图，不是传播树。"
+    },
+    {
+      "id": "structure",
+      "label": "结构",
+      "source": "本馆关系表",
+      "note": "张数、吃、字牌、计分、癞子。关系表用这一轴。"
+    },
+    {
+      "id": "lineage",
+      "label": "谱系",
+      "source": "本年表",
+      "note": "继承、扩散、标准化、自制。年表按桌上出现排，成文只作推测依据。"
+    }
+  ]
+}

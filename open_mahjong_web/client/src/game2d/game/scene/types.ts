@@ -54,6 +54,8 @@ export interface GameState {
   remaining_tile_count: number
   current_player?: number | null
   last_actor?: number | null
+  /** Seat whose latest discard is still available to be claimed. */
+  last_discarder?: number | null
   last_event_kind?: string | null
   result_source_actor?: number | null
   ended?: boolean

@@ -37,6 +37,8 @@ export type SceneAppearanceSettings = {
   flowerFaceTheme: FlowerFaceTheme
   moqieShortcutMode: MoqieShortcutMode
   passShortcutMode: PassShortcutMode
+  /** 国标战术鸣牌显示「放弃」：默认关，打开后认领 force_pass。 */
+  forcePassEnabled: boolean
   roundLabelFormat: RoundLabelFormat
   fontTheme: GameFontTheme
   latinFontTheme: GameLatinFontTheme
@@ -64,6 +66,7 @@ export const DEFAULT_SCENE_APPEARANCE: SceneAppearanceSettings = {
   flowerFaceTheme: 'unity',
   moqieShortcutMode: 1,
   passShortcutMode: 0,
+  forcePassEnabled: false,
   roundLabelFormat: 'wind-seat',
   fontTheme: 'arphic-ukai',
   latinFontTheme: 'latin-modern',
@@ -168,6 +171,7 @@ export function normalizeSceneAppearanceSettings(
     flowerFaceTheme: value?.flowerFaceTheme === 'flat' ? 'flat' : 'unity',
     moqieShortcutMode: normalizeShortcutMode(value?.moqieShortcutMode, DEFAULT_SCENE_APPEARANCE.moqieShortcutMode),
     passShortcutMode: normalizeShortcutMode(value?.passShortcutMode, DEFAULT_SCENE_APPEARANCE.passShortcutMode),
+    forcePassEnabled: Boolean(value?.forcePassEnabled),
     roundLabelFormat: value?.roundLabelFormat === 'round-number' ? 'round-number' : 'wind-seat',
     fontTheme: normalizeGameFontTheme(value?.fontTheme),
     latinFontTheme: normalizeGameLatinFontTheme(value?.latinFontTheme),

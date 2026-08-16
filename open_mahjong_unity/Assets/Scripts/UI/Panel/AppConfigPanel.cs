@@ -28,6 +28,7 @@ public class AppConfigPanel : MonoBehaviour {
     [SerializeField] private TMP_Dropdown handSortRiichiDragonDropdown;
     [SerializeField] private TMP_Dropdown actionButtonColorDropdown;
     [SerializeField] private TMP_Dropdown openingAutoBuhuaDropdown;
+    [SerializeField] private TMP_Dropdown forcePassDropdown;
     [SerializeField] private TMP_Dropdown meldSpacingDropdown;
     [SerializeField] private TMP_Dropdown vsyncDropdown;
 
@@ -78,6 +79,9 @@ public class AppConfigPanel : MonoBehaviour {
         }
         if (openingAutoBuhuaDropdown != null) {
             openingAutoBuhuaDropdown.onValueChanged.AddListener(OnOpeningAutoBuhuaDropdownChanged);
+        }
+        if (forcePassDropdown != null) {
+            forcePassDropdown.onValueChanged.AddListener(OnForcePassDropdownChanged);
         }
         if (meldSpacingDropdown != null) {
             meldSpacingDropdown.onValueChanged.AddListener(OnMeldSpacingDropdownChanged);
@@ -160,6 +164,10 @@ public class AppConfigPanel : MonoBehaviour {
             openingAutoBuhuaDropdown.ClearOptions();
             openingAutoBuhuaDropdown.AddOptions(new List<string> { "关", "开" });
         }
+        if (forcePassDropdown != null) {
+            forcePassDropdown.ClearOptions();
+            forcePassDropdown.AddOptions(new List<string> { "关", "开" });
+        }
         if (meldSpacingDropdown != null) {
             meldSpacingDropdown.ClearOptions();
             meldSpacingDropdown.AddOptions(new List<string> { "关", "开" });
@@ -224,6 +232,10 @@ public class AppConfigPanel : MonoBehaviour {
         if (openingAutoBuhuaDropdown != null) {
             openingAutoBuhuaDropdown.SetValueWithoutNotify(ConfigManager.Instance.OpeningAutoBuhuaEnabled ? 1 : 0);
             openingAutoBuhuaDropdown.RefreshShownValue();
+        }
+        if (forcePassDropdown != null) {
+            forcePassDropdown.SetValueWithoutNotify(ConfigManager.Instance.ForcePassEnabled ? 1 : 0);
+            forcePassDropdown.RefreshShownValue();
         }
         if (meldSpacingDropdown != null) {
             meldSpacingDropdown.SetValueWithoutNotify(ConfigManager.Instance.MeldSpacingEnabled ? 1 : 0);
@@ -303,6 +315,10 @@ public class AppConfigPanel : MonoBehaviour {
 
     private void OnOpeningAutoBuhuaDropdownChanged(int value) {
         ConfigManager.Instance.SetOpeningAutoBuhuaEnabled(value == 1);
+    }
+
+    private void OnForcePassDropdownChanged(int value) {
+        ConfigManager.Instance.SetForcePassEnabled(value == 1);
     }
 
     private void OnMeldSpacingDropdownChanged(int value) {

@@ -302,6 +302,9 @@ export class RecordReplay {
     if (action === 'cr') event.tile = salasasaTileToMmcr(normalizedTile(int(tick[1])) + 1)
     if (action === 'c') event.use_drawn_tile = bool(tick[2])
     if (action === 'bh') event.use_drawn_tile = tick.length >= 4 && bool(tick[3])
+    if (['cl', 'cm', 'cr', 'p', 'g'].includes(action)) {
+      event.discarder_seat = before.snapshot.state.last_discarder
+    }
     if (action === 'bd') {
       const startPlayer = int(round.start_player_index, 0)
       event.settle_drawn_tile = !mainPhaseStartedBefore(ticks, currentNode)
@@ -409,11 +412,16 @@ export class RecordReplay {
       } else if (action === 'c') {
         const tile = int(tick[1])
         const fromDraw = bool(tick[2])
-        if (fromDraw && state.drawn != null && normalizedTile(state.drawn) === normalizedTile(tile)) {
+        const drawnMatches = state.drawn != null
+          && normalizedTile(state.drawn) === normalizedTile(tile)
+        if (fromDraw && drawnMatches) {
           state.drawn = null
         } else {
-          removeExactOrNormalized(state.hand, tile)
-          if (state.drawn != null) {
+          const removed = removeExactOrNormalized(state.hand, tile)
+          // Same opening-dealer case as buhua: the 2D snapshot parks tile 14
+          // in the draw slot, while the first cut is recorded as a hand cut (F).
+          if (removed == null && drawnMatches) state.drawn = null
+          else if (state.drawn != null) {
             state.hand.push(state.drawn)
             state.drawn = null
           }
@@ -425,8 +433,19 @@ export class RecordReplay {
       } else if (action === 'bh') {
         const tile = int(tick[1])
         const fromDraw = tick.length >= 4 && bool(tick[3])
-        if (fromDraw && state.drawn != null) state.drawn = null
-        else removeExactOrNormalized(state.hand, tile)
+        const drawnMatches = state.drawn != null
+          && normalizedTile(state.drawn) === normalizedTile(tile)
+        if (fromDraw && drawnMatches) {
+          state.drawn = null
+        } else {
+          const removed = removeExactOrNormalized(state.hand, tile)
+          // The opening dealer starts with 14 tiles. The 2D snapshot separates
+          // tile 14 into the draw slot, while opening buhua is recorded as a
+          // hand replacement (F). Unity keeps all 14 tiles in one list, so its
+          // fallback removal also finds a flower in the final slot. Mirror that
+          // behavior when rebuilding a replay node.
+          if (removed == null && drawnMatches) state.drawn = null
+        }
         const recipient = tick.length >= 5 ? int(tick[4], actor) : actor
         if (recipient >= 0 && recipient < 4) states[recipient].flowers.push(tile)
         currentPlayer = actor
@@ -454,6 +473,7 @@ export class RecordReplay {
           chow_mode: action === 'cl' ? 3 : action === 'cm' ? 2 : action === 'cr' ? 1 : 0,
           meld_from_rel: fromRel || 1,
         })
+        lastDiscardPlayer = -1
         currentPlayer = actor
       } else if (action === 'ag') {
         const tile = int(tick[1])
@@ -519,6 +539,7 @@ export class RecordReplay {
           remaining_tile_count: remaining,
           current_player: snapshotCurrentPlayer,
           last_actor: lastActor,
+          last_discarder: lastDiscardPlayer >= 0 ? lastDiscardPlayer : null,
           last_event_kind: node > 0 ? sceneKindForAction(String(ticks[node - 1]?.[0] ?? '')) : 'round_start',
         },
         seats,

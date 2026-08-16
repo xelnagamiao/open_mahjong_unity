@@ -9,6 +9,7 @@ public class TableEdgePanel : MonoBehaviour {
     [SerializeField] public Button deleteButton; // 删除按钮
 
     private List<GameObject> tableEdgeItems = new List<GameObject>();
+    private int customLoadSerial;
 
     // 初始化面板
     public void LoadTableEdges() {
@@ -53,10 +54,14 @@ public class TableEdgePanel : MonoBehaviour {
     // 加载玩家上传的边框
     void LoadCustomTableEdges() {
 #if UNITY_WEBGL && !UNITY_EDITOR
-        // WebGL平台：从PlayerPrefs加载上传的文件
-        LoadCustomTableEdgesFromPlayerPrefs();
+        int serial = ++customLoadSerial;
+        UnityAssetIdb.EnsureReady(() => {
+            if (serial != customLoadSerial) {
+                return;
+            }
+            LoadCustomTableEdgesFromIndexedDb();
+        });
 #else
-        // 其他平台：从文件系统加载
         LoadCustomTableEdgesFromFileSystem();
 #endif
     }
@@ -106,67 +111,22 @@ public class TableEdgePanel : MonoBehaviour {
         }
     }
 
-    // 从PlayerPrefs加载自定义桌边（WebGL平台）
-    void LoadCustomTableEdgesFromPlayerPrefs() {
-        // 遍历所有PlayerPrefs key，查找桌边相关的key
-        List<string> tableEdgeKeys = new List<string>();
-
-        // 从维护的key列表中获取所有桌边key
-        string listKey = "TableEdgeKeysList";
-        string keysList = PlayerPrefs.GetString(listKey, "");
-
-        if (!string.IsNullOrEmpty(keysList)) {
-            string[] keys = keysList.Split(',');
-            foreach (string key in keys) {
-                if (PlayerPrefs.HasKey(key)) {
-                    tableEdgeKeys.Add(key);
-                }
+    // 从 IndexedDB 加载自定义桌边（WebGL）
+    void LoadCustomTableEdgesFromIndexedDb() {
+        List<string> keys = UnityAssetIdb.KeysWithPrefix(UnityAssetIdb.PrefixTableEdge);
+        for (int i = 0; i < keys.Count; i++) {
+            Texture2D texture = UnityAssetIdb.LoadTexture(keys[i]);
+            if (texture == null) {
+                continue;
             }
-        }
-
-        // 兼容旧版本：查找旧的固定key
-        string legacyKey = "UploadedFile_tableedge";
-        if (PlayerPrefs.HasKey(legacyKey) && !tableEdgeKeys.Contains(legacyKey)) {
-            tableEdgeKeys.Add(legacyKey);
-        }
-
-        foreach (string key in tableEdgeKeys) {
-            if (PlayerPrefs.HasKey(key)) {
-                string data = PlayerPrefs.GetString(key);
-                string[] parts = data.Split('|');
-                if (parts.Length >= 2) {
-                    string base64Data = parts[0];
-                    string fileExtension = parts[1];
-                    string originalFileName = parts.Length >= 3 ? parts[2] : "uploaded_file";
-
-                    try {
-                        // 将base64转换为字节数组
-                        byte[] fileData = System.Convert.FromBase64String(base64Data);
-                        Texture2D texture = new Texture2D(2, 2);
-
-                        if (UnityEngine.ImageConversion.LoadImage(texture, fileData)) {
-                            // 实例化预制体
-                            GameObject item = Instantiate(tableEdgePrefab, contentParent);
-
-                            // 获取TableEdge脚本
-                            TableEdge tableEdge = item.GetComponent<TableEdge>();
-
-                            // 使用预设的Image组件设置纹理为Sprite
-                            Sprite sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
-                            tableEdge.tableEdgeImage.sprite = sprite;
-                            tableEdge.tableEdgeImage.color = Color.white; // 确保颜色为白色以正确显示纹理
-
-                            // 设置TableEdge脚本属性
-                            tableEdge.filePath = key; // 使用唯一key作为标识符
-                            tableEdge.isCustom = true;
-
-                            tableEdgeItems.Add(item);
-                        }
-                    } catch (System.Exception e) {
-                        Debug.LogError($"加载PlayerPrefs中的纹理失败: {key}, 错误: {e.Message}");
-                    }
-                }
-            }
+            GameObject item = Instantiate(tableEdgePrefab, contentParent);
+            TableEdge tableEdge = item.GetComponent<TableEdge>();
+            Sprite sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
+            tableEdge.tableEdgeImage.sprite = sprite;
+            tableEdge.tableEdgeImage.color = Color.white;
+            tableEdge.filePath = keys[i];
+            tableEdge.isCustom = true;
+            tableEdgeItems.Add(item);
         }
     }
 

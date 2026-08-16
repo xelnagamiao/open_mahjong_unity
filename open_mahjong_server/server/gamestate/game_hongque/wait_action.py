@@ -88,11 +88,29 @@ def _eligible_recheck_players(window: ClaimWindow) -> set[int]:
 
 def actions_for_viewer(game_state, player_index: int) -> tuple[list[str], list[dict]]:
     """当前窗口向指定玩家开放的动作；不从历史 response 反推。"""
-    window: Optional[ClaimWindow] = getattr(game_state, "claim_window", None)
-    if game_state.phase != "claim" or window is None or player_index not in window.pending:
+    if game_state.phase != "claim":
         return [], []
-    options = _filtered_snapshot(window, player_index)
-    return (["pass", "claim"], list(options)) if options else ([], [])
+    window: Optional[ClaimWindow] = getattr(game_state, "claim_window", None)
+    if window is not None:
+        if player_index not in window.pending:
+            return [], []
+        options = _filtered_snapshot(window, player_index)
+        return (["pass", "claim"], list(options)) if options else ([], [])
+    if player_index not in getattr(game_state, "claim_options", {}):
+        return [], []
+    existing = game_state.claim_responses.get(player_index)
+    upgrade_players = getattr(game_state, "_claim_upgrade_players", set())
+    if (existing is not None and existing.get("action") == "claim"
+            and player_index in upgrade_players):
+        existing_priority = int(existing["candidate"].get("priority", 0) or 0)
+        higher = [
+            item for item in game_state.claim_options[player_index]
+            if int(item.get("priority", 0) or 0) > existing_priority
+        ]
+        return (["claim"], higher) if higher else ([], [])
+    if player_index not in game_state.claim_responses:
+        return ["pass", "claim"], list(game_state.claim_options[player_index])
+    return [], []
 
 
 async def open_claim_window(game_state) -> None:

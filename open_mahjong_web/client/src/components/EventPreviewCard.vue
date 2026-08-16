@@ -1,10 +1,13 @@
 <template>
   <article class="event-preview-card">
     <div class="event-preview-top">
-      <h2>{{ event.name || '未填写赛事名称' }}</h2>
+      <h2>{{ event.name || (event.kind === 'base' ? '未填写基地名称' : '未填写赛事名称') }}</h2>
+      <el-tag v-if="event.kind" :type="event.kind === 'base' ? 'warning' : 'primary'" size="small" effect="plain">
+        {{ event.kind === 'base' ? '基地' : '赛事' }}
+      </el-tag>
       <el-tag type="warning" size="small">{{ statusLabel }}</el-tag>
     </div>
-    <p class="event-preview-description">{{ event.description?.trim() || '暂无赛事介绍' }}</p>
+    <p class="event-preview-description">{{ event.description?.trim() || (event.kind === 'base' ? '暂无基地介绍' : '暂无赛事介绍') }}</p>
     <dl class="event-preview-meta">
       <div v-if="event.planned_start_at || event.planned_end_at">
         <dt>拟定时间</dt>

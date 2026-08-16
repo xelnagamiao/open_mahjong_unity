@@ -7,8 +7,11 @@
           <el-tag :type="eventStatusTagType(detail.status)" size="small" effect="dark">
             {{ eventStatusLabel(detail.status) }}
           </el-tag>
+          <el-tag :type="venueKindTagType(detail.kind)" size="small" effect="plain">
+            {{ venueKindLabel(detail.kind) }}
+          </el-tag>
           <el-tag v-if="detail.reopen_requested" type="warning" size="small">待审核再开</el-tag>
-          <el-tag type="info" size="small" effect="plain">{{ eventRoleLabel(detail.my_role) }}</el-tag>
+          <el-tag type="info" size="small" effect="plain">{{ eventRoleLabel(detail.my_role, detail.kind) }}</el-tag>
           <span class="emp-id">ID {{ detail.event_id }}</span>
           <span class="emp-stat">牌谱 {{ detail.record_count ?? 0 }}</span>
         </div>
@@ -32,12 +35,12 @@
             v-if="detail.status === 'registered'"
             type="primary"
             @click="openEvent"
-          >开始赛事</el-button>
+          >{{ isBase ? '开启基地' : '开始赛事' }}</el-button>
           <el-button
             v-if="detail.status === 'active'"
             type="warning"
             @click="closeEvent"
-          >关闭赛事</el-button>
+          >{{ isBase ? '关闭基地' : '关闭赛事' }}</el-button>
           <el-button
             v-if="detail.status === 'closed' && !detail.reopen_requested"
             type="primary"
@@ -51,7 +54,7 @@
       </section>
 
       <section class="emp-desc">
-        <h3 class="emp-sec-title">赛事介绍</h3>
+        <h3 class="emp-sec-title">{{ isBase ? '基地介绍' : '赛事介绍' }}</h3>
         <p class="emp-desc-body">{{ detail.description?.trim() || '暂无介绍' }}</p>
         <dl class="emp-desc-meta">
           <div><dt>创建时间</dt><dd>{{ formatDate(detail.created_at) }}</dd></div>
@@ -60,9 +63,9 @@
       </section>
 
       <el-tabs v-model="activeTab" class="emp-tabs">
-        <el-tab-pane v-if="isOwner" label="赛事资料" name="profile">
+        <el-tab-pane v-if="isOwner" :label="isBase ? '基地资料' : '赛事资料'" name="profile">
           <el-alert
-            title="修改赛事名或赛事简介需提交平台管理员审核，通过后才会在公开页生效。"
+            :title="isBase ? '修改基地名或简介需提交平台管理员审核，通过后才会在公开页生效。' : '修改赛事名或赛事简介需提交平台管理员审核，通过后才会在公开页生效。'"
             type="info"
             :closable="false"
             show-icon
@@ -77,10 +80,10 @@
             class="emp-alert"
           />
           <el-form label-position="top" class="emp-profile-form" @submit.prevent="submitProfileChange">
-            <el-form-item label="赛事名称">
+            <el-form-item :label="isBase ? '基地名称' : '赛事名称'">
               <el-input v-model="profileForm.name" maxlength="128" show-word-limit />
             </el-form-item>
-            <el-form-item label="赛事简介">
+            <el-form-item :label="isBase ? '基地简介' : '赛事简介'">
               <el-input
                 v-model="profileForm.description"
                 type="textarea"
@@ -108,13 +111,15 @@
           </el-form>
         </el-tab-pane>
 
-        <el-tab-pane label="比赛公告" name="announcements">
+        <el-tab-pane :label="isBase ? '基地公告' : '比赛公告'" name="announcements">
           <el-alert type="info" :closable="false" show-icon class="emp-alert emp-announce-tip">
-            <template #title>发布比赛公告说明</template>
+            <template #title>{{ isBase ? '发布基地公告说明' : '发布比赛公告说明' }}</template>
             <p class="tip-lead">
-              您在包括且不限于以下情形时都可以发布比赛公告，并且您应该在1、4条所属情形发生时发布比赛公告，本平台对此不做严格规定。
+              {{ isBase
+                ? '可用于活动通知、规则变更、精彩片段、排名或违规公示。平台对此不做严格规定。'
+                : '您在包括且不限于以下情形时都可以发布比赛公告，并且您应该在1、4条所属情形发生时发布比赛公告，本平台对此不做严格规定。' }}
             </p>
-            <ol class="tip-list">
+            <ol v-if="!isBase" class="tip-list">
               <li>赛事规则的最新变更或者活动通知</li>
               <li>传达赛事中出现的精彩片段</li>
               <li>发布比赛的中途对阵情况，帮助玩家更好的观看享受比赛</li>
@@ -185,7 +190,7 @@
             </el-form>
             <span class="emp-count">{{ adminList.length }} / 10</span>
           </div>
-          <el-table :data="adminList" size="small" empty-text="暂无赛事子管理员">
+          <el-table :data="adminList" size="small" :empty-text="`暂无${venueNoun}子管理员`">
             <el-table-column prop="username" label="用户名" min-width="120" />
             <el-table-column prop="user_id" label="用户 ID" width="120" />
             <el-table-column label="添加时间" min-width="150">
@@ -202,47 +207,20 @@
         <el-tab-pane label="房间" name="rooms">
           <el-alert
             v-if="detail.status !== 'active'"
-            :title="detail.status === 'registered' ? '赛事尚未开启，无法创建房间' : '赛事已关闭，无法创建房间'"
+            :title="detail.status === 'registered' ? `${venueNoun}尚未开启，无法创建房间` : `${venueNoun}已关闭，无法创建房间`"
             type="info"
             :closable="false"
             show-icon
             class="emp-alert"
           />
-          <el-form class="emp-form emp-room-form" label-width="88px" @submit.prevent="createRoom">
-            <div class="emp-tab-bar">
-              <el-form-item label="规则">
-                <el-select v-model="roomForm.room_rule" style="width: 120px">
-                  <el-option
-                    v-for="opt in roomRuleOptions"
-                    :key="opt.value"
-                    :label="opt.label"
-                    :value="opt.value"
-                  />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="房间名">
-                <el-input v-model="roomForm.room_name" clearable style="width: 160px" placeholder="可选" />
-              </el-form-item>
-              <el-form-item>
-                <el-button
-                  type="primary"
-                  :loading="creatingRoom"
-                  :disabled="detail.status !== 'active'"
-                  @click="createRoom"
-                >创建空房间</el-button>
-              </el-form-item>
-              <el-button text type="primary" :loading="loadingRooms" @click="loadRooms">刷新</el-button>
-            </div>
-            <GuobiaoEmptyRoomConfig v-if="roomForm.room_rule === 'guobiao'" v-model="roomForm" />
-            <el-alert
-              v-else
-              title="当前仅国标空房间提供完整对局配置；其他规则仍按服务端默认参数创建。"
-              type="info"
-              :closable="false"
-              show-icon
-              class="emp-alert"
-            />
-          </el-form>
+          <div class="emp-tab-bar">
+            <el-button
+              type="primary"
+              :disabled="detail.status !== 'active'"
+              @click="openRoomDialog('create')"
+            >创建房间</el-button>
+            <el-button text type="primary" :loading="loadingRooms" @click="loadRooms">刷新</el-button>
+          </div>
           <el-table :data="rooms" size="small" v-loading="loadingRooms" empty-text="暂无房间">
             <el-table-column prop="room_name" label="名称" min-width="100" />
             <el-table-column prop="room_id" label="房间 ID" min-width="100" />
@@ -272,11 +250,125 @@
           </el-table>
         </el-tab-pane>
 
+        <el-tab-pane :label="isBase ? '加入审核' : '报名审核'" name="registrations">
+          <div class="emp-tab-bar">
+            <el-radio-group v-model="registrationFilter" size="small" @change="loadRegistrations">
+              <el-radio-button label="">全部</el-radio-button>
+              <el-radio-button label="pending">待审</el-radio-button>
+              <el-radio-button label="approved">已通过</el-radio-button>
+              <el-radio-button label="rejected">已拒绝</el-radio-button>
+            </el-radio-group>
+            <el-button text type="primary" :loading="loadingRegistrations" @click="loadRegistrations">刷新</el-button>
+          </div>
+          <el-table
+            :data="registrations"
+            size="small"
+            v-loading="loadingRegistrations"
+            :empty-text="isBase ? '暂无加入申请' : '暂无报名'"
+          >
+            <el-table-column prop="username" label="用户名" min-width="110" />
+            <el-table-column prop="user_id" label="用户 ID" width="110" />
+            <el-table-column label="状态" width="90">
+              <template #default="{ row }">
+                <el-tag :type="registrationStatusTagType(row.status)" size="small">
+                  {{ registrationStatusLabel(row.status) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="contact" label="联系方式" min-width="140" show-overflow-tooltip />
+            <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip />
+            <el-table-column label="提交时间" min-width="150">
+              <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="140" fixed="right">
+              <template #default="{ row }">
+                <template v-if="row.status === 'pending'">
+                  <el-button link type="success" @click="reviewRegistration(row, 'approved')">通过</el-button>
+                  <el-button link type="danger" @click="reviewRegistration(row, 'rejected')">拒绝</el-button>
+                </template>
+                <span v-else class="muted">{{ row.review_note || '—' }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane label="准备组桌" name="ready">
+          <el-alert
+            title="从准备池勾选恰好 4 人组一桌。组桌后玩家会被拉进新房间，不会自动开局。"
+            type="info"
+            :closable="false"
+            show-icon
+            class="emp-alert"
+          />
+          <div class="emp-tab-bar emp-ready-bar">
+            <div class="emp-ready-summary">
+              <span>{{ roomSettingsSummary }}</span>
+              <el-button link type="primary" @click="openRoomDialog('settings')">修改对局设置</el-button>
+            </div>
+            <div class="emp-ready-actions">
+              <el-button
+                type="primary"
+                :loading="seatingTable"
+                :disabled="detail.status !== 'active' || selectedReadyIds.length !== 4"
+                @click="seatTable"
+              >组桌（已选 {{ selectedReadyIds.length }}/4）</el-button>
+              <el-button text type="primary" :loading="loadingReady" @click="loadReady">刷新</el-button>
+            </div>
+          </div>
+          <el-table
+            :data="readyPlayers"
+            size="small"
+            v-loading="loadingReady"
+            empty-text="暂无准备中的玩家"
+            @selection-change="onReadySelectionChange"
+          >
+            <el-table-column type="selection" width="42" />
+            <el-table-column prop="username" label="用户名" min-width="120" />
+            <el-table-column prop="user_id" label="用户 ID" width="120" />
+            <el-table-column label="准备时间" min-width="160">
+              <template #default="{ row }">{{ formatDate(row.ready_at) }}</template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane label="准入配置" name="entry">
+          <el-alert
+            :title="isBase ? '基地可配置自动通过、成员建房与加入口令。' : '赛事默认需审核报名；也可改为自动通过或设置口令。'"
+            type="info"
+            :closable="false"
+            show-icon
+            class="emp-alert"
+          />
+          <el-form label-position="top" class="emp-profile-form" @submit.prevent="saveEntryConfig">
+            <el-form-item label="禁止游客报名">
+              <el-switch v-model="entryForm.forbid_tourist" />
+            </el-form-item>
+            <el-form-item label="报名自动通过">
+              <el-switch v-model="entryForm.auto_approve" />
+            </el-form-item>
+            <el-form-item v-if="isBase" label="已通过成员可自行创建房间">
+              <el-switch v-model="entryForm.member_can_create_room" />
+            </el-form-item>
+            <el-form-item label="加入口令（可选）">
+              <el-input
+                v-model="entryForm.join_code"
+                maxlength="32"
+                show-word-limit
+                placeholder="留空则不校验口令"
+                show-password
+              />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" :loading="savingEntry" @click="saveEntryConfig">保存准入配置</el-button>
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
+
         <el-tab-pane label="进行中对局" name="games">
           <div class="emp-tab-bar emp-tab-bar--end">
             <el-button text type="primary" :loading="loadingGames" @click="loadGames">刷新</el-button>
           </div>
-          <el-table :data="games" size="small" v-loading="loadingGames" empty-text="当前没有本赛事进行中的对局">
+          <el-table :data="games" size="small" v-loading="loadingGames" :empty-text="`当前没有本${venueNoun}进行中的对局`">
             <el-table-column prop="gamestate_id" label="对局 ID" min-width="150" />
             <el-table-column prop="room_rule" label="规则" width="90" />
             <el-table-column prop="game_status" label="状态机" width="110" />
@@ -310,7 +402,7 @@
         <el-tab-pane label="统计" name="stats">
           <div class="emp-stats-totals">
             <div class="emp-stats-totals-head">
-              <h4 class="emp-stats-heading">本赛事总计</h4>
+              <h4 class="emp-stats-heading">本{{ venueNoun }}总计</h4>
               <el-button text type="primary" size="small" :loading="loadingStats" @click="refreshStatsTab">
                 刷新
               </el-button>
@@ -513,6 +605,16 @@
         </el-tab-pane>
       </el-tabs>
     </template>
+
+    <VenueRoomDialog
+      v-model="roomDialogVisible"
+      :form="roomForm"
+      :title="roomDialogTitle"
+      :confirm-text="roomDialogMode === 'create' ? '创建房间' : '保存设置'"
+      :loading="creatingRoom"
+      :room-rule-options="roomRuleOptions"
+      @confirm="confirmRoomDialog"
+    />
   </div>
 </template>
 
@@ -522,12 +624,20 @@ import { tr } from '@/i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import eventAdminApi, { getEventAdminToken } from '@/api/eventAdminClient'
 import { useEventAdminAuthStore } from '@/stores/eventAdminAuth'
-import GuobiaoEmptyRoomConfig from '@/components/GuobiaoEmptyRoomConfig.vue'
+import VenueRoomDialog from '@/components/VenueRoomDialog.vue'
 import {
   buildGuobiaoRoomPayload,
   createDefaultGuobiaoRoomConfig,
 } from '@/utils/guobiaoRoomConfig'
-import { eventRoleLabel, eventStatusLabel, eventStatusTagType } from '@/utils/eventMeta'
+import {
+  eventRoleLabel,
+  eventStatusLabel,
+  eventStatusTagType,
+  venueKindLabel,
+  venueKindTagType,
+  registrationStatusLabel,
+  registrationStatusTagType,
+} from '@/utils/eventMeta'
 import { buildPlayerStatsRows } from '@/utils/statsDisplay'
 
 const RULE_LABELS = {
@@ -587,6 +697,18 @@ const adminForm = reactive({ user_id: '' })
 const rooms = ref([])
 const loadingRooms = ref(false)
 const creatingRoom = ref(false)
+const roomDialogVisible = ref(false)
+const roomDialogMode = ref('create')
+const roomDialogTitle = computed(() => {
+  if (roomDialogMode.value === 'settings') return '对局设置'
+  return isBase.value ? '创建基地房间' : '创建赛事房间'
+})
+const roomSettingsSummary = computed(() => {
+  const rule = roomRuleOptions.find((opt) => opt.value === roomForm.room_rule)?.label || roomForm.room_rule
+  if (roomForm.room_rule !== 'guobiao') return rule
+  const round = ({ 1: '东风战', 2: '东南战', 4: '全庄战' })[roomForm.game_round] || `${roomForm.game_round} 圈`
+  return `${rule} · ${round} · 局时 ${roomForm.round_timer}s · 步时 ${roomForm.step_timer}s`
+})
 const roomRuleOptions = [
   { value: 'guobiao', label: '国标' },
   { value: 'riichi', label: '立直' },
@@ -637,7 +759,24 @@ const loadingAnnouncements = ref(false)
 const publishingAnnounce = ref(false)
 const announceForm = reactive({ title: '', body: '' })
 
+const registrations = ref([])
+const loadingRegistrations = ref(false)
+const registrationFilter = ref('pending')
+const readyPlayers = ref([])
+const loadingReady = ref(false)
+const selectedReadyIds = ref([])
+const seatingTable = ref(false)
+const savingEntry = ref(false)
+const entryForm = reactive({
+  forbid_tourist: false,
+  auto_approve: false,
+  member_can_create_room: false,
+  join_code: '',
+})
+
 const isOwner = computed(() => detail.value?.my_role === 'owner')
+const isBase = computed(() => detail.value?.kind === 'base')
+const venueNoun = computed(() => (isBase.value ? '基地' : '赛事'))
 const adminList = computed(() => (detail.value?.admins || []).filter((a) => a.role === 'admin'))
 
 const totalsStatsDisplay = computed(() => rankOnlyStatsRows(statsTotals.value))
@@ -652,16 +791,17 @@ function canDeleteAnnouncement(row) {
 
 const lifecycleHint = computed(() => {
   const s = detail.value?.status
+  const noun = venueNoun.value
   if (s === 'registered') {
-    return '赛事注册成功，在比赛开赛时可点击开始赛事按钮，开启赛事以后可开始创建比赛房间'
+    return `${noun}注册成功，开启后可创建房间、审核报名并组桌。`
   }
   if (s === 'active') {
-    return '赛事已开启，在比赛全程结束后可点击关闭赛事按钮结束赛事，在关闭结束后仍可以查看赛事数据对赛事内容进行统计或查询。'
+    return `${noun}已开启。全程结束后可关闭；关闭后仍可查看数据。`
   }
   if (s === 'closed') {
     return detail.value?.reopen_requested
-      ? '赛事已关闭，重新开启申请审核中。'
-      : '赛事已关闭，无法创建房间。如需再次开启，请提交申请由平台管理员审核。'
+      ? `${noun}已关闭，重新开启申请审核中。`
+      : `${noun}已关闭，无法创建房间。如需再次开启，请提交申请由平台管理员审核。`
   }
   return ''
 })
@@ -937,7 +1077,7 @@ async function searchPlayer() {
     const players = res.data.data?.players || []
     if (!players.length) {
       focusPlayer.value = null
-      ElMessage.warning('未找到该玩家在本赛事的对局')
+      ElMessage.warning(`未找到该玩家在本${venueNoun.value}的对局`)
     } else {
       const exactId = /^\d+$/.test(q)
         ? players.find((p) => String(p.user_id) === q)
@@ -1047,7 +1187,7 @@ async function loadAnnouncements() {
 
 async function submitProfileChange() {
   if (!profileForm.name.trim()) {
-    ElMessage.warning('请填写赛事名称')
+    ElMessage.warning(`请填写${venueNoun.value}名称`)
     return
   }
   savingProfile.value = true
@@ -1116,6 +1256,114 @@ async function deleteAnnouncement(row) {
   }
 }
 
+function applyEntryForm(cfg) {
+  const src = cfg && typeof cfg === 'object' ? cfg : {}
+  entryForm.forbid_tourist = Boolean(src.forbid_tourist)
+  entryForm.auto_approve = Boolean(src.auto_approve)
+  entryForm.member_can_create_room = Boolean(src.member_can_create_room)
+  entryForm.join_code = String(src.join_code || '')
+}
+
+async function loadRegistrations() {
+  loadingRegistrations.value = true
+  try {
+    const res = await eventAdminApi.get(`/events/${props.eventId}/registrations`, {
+      params: { status: registrationFilter.value || undefined },
+    })
+    registrations.value = res.data.data?.items || []
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '加载报名失败')
+    registrations.value = []
+  } finally {
+    loadingRegistrations.value = false
+  }
+}
+
+async function reviewRegistration(row, status) {
+  const action = status === 'approved' ? '通过' : '拒绝'
+  try {
+    await ElMessageBox.confirm(
+      `确认${action}「${row.username || row.user_id}」的报名？`,
+      `${action}报名`,
+      { type: status === 'approved' ? 'info' : 'warning' }
+    )
+    await eventAdminApi.post(`/events/${props.eventId}/registrations/${row.user_id}/review`, {
+      status,
+    })
+    ElMessage.success(`已${action}`)
+    await loadRegistrations()
+  } catch (e) {
+    if (e === 'cancel' || e === 'close') return
+    ElMessage.error(e.response?.data?.message || '操作失败')
+  }
+}
+
+async function loadReady() {
+  loadingReady.value = true
+  try {
+    const res = await eventAdminApi.get(`/events/${props.eventId}/ready`)
+    readyPlayers.value = res.data.data?.items || []
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '加载准备池失败')
+    readyPlayers.value = []
+  } finally {
+    loadingReady.value = false
+  }
+}
+
+function onReadySelectionChange(rows) {
+  selectedReadyIds.value = (rows || []).map((r) => Number(r.user_id)).filter((id) => id > 0)
+}
+
+async function seatTable() {
+  if (selectedReadyIds.value.length !== 4) {
+    ElMessage.warning('请恰好选择 4 名准备中的玩家')
+    return
+  }
+  seatingTable.value = true
+  try {
+    let room_config = {}
+    if (roomForm.room_rule === 'guobiao') {
+      ;({ room_config } = buildGuobiaoRoomPayload(roomForm))
+    } else if (roomForm.room_name.trim()) {
+      room_config.room_name = roomForm.room_name.trim()
+    }
+    await eventAdminApi.post(`/events/${props.eventId}/seat`, {
+      user_ids: selectedReadyIds.value,
+      room_rule: roomForm.room_rule,
+      room_config,
+    })
+    ElMessage.success('已组桌，玩家将进入新房间')
+    selectedReadyIds.value = []
+    await Promise.all([loadReady(), loadRooms()])
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '组桌失败')
+  } finally {
+    seatingTable.value = false
+  }
+}
+
+async function saveEntryConfig() {
+  savingEntry.value = true
+  try {
+    const res = await eventAdminApi.put(`/events/${props.eventId}/entry-config`, {
+      entry_config: {
+        forbid_tourist: entryForm.forbid_tourist,
+        auto_approve: entryForm.auto_approve,
+        member_can_create_room: isBase.value ? entryForm.member_can_create_room : false,
+        join_code: entryForm.join_code,
+      },
+    })
+    applyEntryForm(res.data.data)
+    if (detail.value) detail.value.entry_config = { ...res.data.data }
+    ElMessage.success('准入配置已保存')
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '保存失败')
+  } finally {
+    savingEntry.value = false
+  }
+}
+
 async function load() {
   if (!props.eventId) return
   loading.value = true
@@ -1130,8 +1378,11 @@ async function load() {
       loadEventTotals(),
       loadRecords(),
       loadAnnouncements(),
+      loadRegistrations(),
+      loadReady(),
       isOwner.value ? loadProfileChange() : Promise.resolve(),
     ])
+    applyEntryForm(detail.value?.entry_config)
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '加载失败')
     detail.value = null
@@ -1148,13 +1399,13 @@ function applyEventPatch(data) {
 async function openEvent() {
   try {
     await ElMessageBox.confirm(
-      `确认开启赛事「${detail.value.name}」？`,
-      '开启赛事',
+      `确认开启${venueNoun.value}「${detail.value.name}」？`,
+      `开启${venueNoun.value}`,
       { type: 'info' }
     )
     const res = await eventAdminApi.post(`/events/${props.eventId}/open`, {})
     applyEventPatch(res.data.data)
-    ElMessage.success('赛事已开启')
+    ElMessage.success(`${venueNoun.value}已开启`)
   } catch (e) {
     if (e === 'cancel' || e === 'close') return
     ElMessage.error(e.response?.data?.message || '开启失败')
@@ -1164,13 +1415,13 @@ async function openEvent() {
 async function closeEvent() {
   try {
     await ElMessageBox.confirm(
-      `确认关闭赛事「${detail.value.name}」？关闭后该赛事将被封存，再次开启需平台管理员进行审核`,
-      '关闭赛事',
+      `确认关闭${venueNoun.value}「${detail.value.name}」？关闭后将被封存，再次开启需平台管理员审核`,
+      `关闭${venueNoun.value}`,
       { type: 'warning' }
     )
     const res = await eventAdminApi.post(`/events/${props.eventId}/close`, {})
     applyEventPatch(res.data.data)
-    ElMessage.success('赛事已关闭')
+    ElMessage.success(`${venueNoun.value}已关闭`)
   } catch (e) {
     if (e === 'cancel' || e === 'close') return
     ElMessage.error(e.response?.data?.message || '关闭失败')
@@ -1180,7 +1431,7 @@ async function closeEvent() {
 async function requestReopen() {
   try {
     await ElMessageBox.confirm(
-      `确认申请重新开启赛事「${detail.value.name}」？`,
+      `确认申请重新开启${venueNoun.value}「${detail.value.name}」？`,
       '申请重新开启',
       { type: 'info' }
     )
@@ -1205,7 +1456,7 @@ async function addAdmin() {
     })
     detail.value.admins = res.data.data.admins
     adminForm.user_id = ''
-    ElMessage.success('赛事子管理员已添加')
+    ElMessage.success(`${venueNoun.value}子管理员已添加`)
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '添加失败')
   } finally {
@@ -1216,8 +1467,8 @@ async function addAdmin() {
 async function removeAdmin(row) {
   try {
     await ElMessageBox.confirm(
-      `确认移除赛事子管理员「${row.username || row.user_id}」？`,
-      '移除赛事子管理员',
+      `确认移除${venueNoun.value}子管理员「${row.username || row.user_id}」？`,
+      `移除${venueNoun.value}子管理员`,
       { type: 'warning' }
     )
     const res = await eventAdminApi.delete(`/events/${props.eventId}/admins/${row.user_id}`)
@@ -1246,13 +1497,28 @@ async function createRoom() {
     })
     roomForm.room_name = ''
     roomForm.password = ''
-    ElMessage.success('空房间已创建')
+    roomDialogVisible.value = false
+    ElMessage.success('房间已创建')
     await loadRooms()
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '创建失败')
   } finally {
     creatingRoom.value = false
   }
+}
+
+function openRoomDialog(mode) {
+  roomDialogMode.value = mode === 'settings' ? 'settings' : 'create'
+  roomDialogVisible.value = true
+}
+
+function confirmRoomDialog() {
+  if (roomDialogMode.value === 'settings') {
+    roomDialogVisible.value = false
+    ElMessage.success('对局设置已保存，组桌时将使用当前配置')
+    return
+  }
+  createRoom()
 }
 
 async function deleteRoom(row) {
@@ -1466,8 +1732,21 @@ watch(
   gap: 8px;
   margin-bottom: 8px;
 }
-.emp-tab-bar--end {
-  justify-content: flex-end;
+.emp-ready-bar {
+  align-items: center;
+}
+.emp-ready-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: #606266;
+  font-size: 13px;
+}
+.emp-ready-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 .emp-form {
   flex-wrap: wrap;
@@ -1505,6 +1784,10 @@ watch(
 .player-chip {
   display: inline-block;
   margin-right: 8px;
+  font-size: 12px;
+}
+.muted {
+  color: #909399;
   font-size: 12px;
 }
 .emp-stats-totals,

@@ -173,6 +173,7 @@ function viewerActions(
     switch (action) {
       case 'cut': mapped.push({ kind: 'discard_tile' }); break
       case 'pass': mapped.push({ kind: 'pass' }); break
+      case 'force_pass': mapped.push({ kind: 'force_pass' }); break
       case 'buhua': {
         const flower = flowerTiles.at(-1) ?? targetTile
         mapped.push({ kind: 'flower', tile: salasasaTileToMmcr(flower) })
@@ -615,6 +616,9 @@ export class SalasasaGameAdapter {
     const category = info.is_claim ? 'claim' : 'transition'
     return this.event(category, kind, info.action_player, info.action_tick, viewer, {
       tile: salasasaTileToMmcr(tile),
+      discarder_seat: ['chi_left', 'chi_mid', 'chi_right', 'peng', 'gang'].includes(action)
+        ? (info.cut_from_player ?? this.lastDiscarder)
+        : undefined,
       draw_source: action === 'deal_tile' || action === 'deal_gang_tile' || action === 'deal_buhua_tile'
         ? action
         : undefined,
@@ -773,6 +777,7 @@ export class SalasasaGameAdapter {
     }
     const actionMap: Record<string, string> = {
       pass: 'pass',
+      force_pass: 'force_pass',
       flower: 'buhua',
       concealed_kong: 'angang',
       added_kong: 'jiagang',

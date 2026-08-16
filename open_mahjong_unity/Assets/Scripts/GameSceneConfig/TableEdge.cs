@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -54,49 +53,32 @@ public class TableEdge : MonoBehaviour
 
     // 删除自定义桌边
     private void DeleteCustomTableEdge() {
-        if (!string.IsNullOrEmpty(deletePath)) {
-            try {
+        if (string.IsNullOrEmpty(deletePath)) {
+            return;
+        }
+        try {
 #if UNITY_WEBGL && !UNITY_EDITOR
-                // WebGL平台：删除PlayerPrefs中的数据
-                if (PlayerPrefs.HasKey(deletePath)) {
-                    PlayerPrefs.DeleteKey(deletePath);
-
-                    // 从key列表中移除
-                    string listKey = "TableEdgeKeysList";
-                    string keysList = PlayerPrefs.GetString(listKey, "");
-                    if (!string.IsNullOrEmpty(keysList)) {
-                        string[] keys = keysList.Split(',');
-                        List<string> updatedKeys = new List<string>(keys);
-                        updatedKeys.Remove(deletePath);
-                        string updatedList = string.Join(",", updatedKeys);
-                        PlayerPrefs.SetString(listKey, updatedList);
-                    }
-
-                    PlayerPrefs.Save();
-                    Debug.Log("成功删除WebGL桌边数据: " + deletePath);
-                }
+            UnityAssetIdb.Delete(deletePath, FinishDelete);
 #else
-                // 其他平台：删除文件系统中的文件
-                if (System.IO.File.Exists(deletePath)) {
-                    System.IO.File.Delete(deletePath);
-                    Debug.Log("成功删除自定义桌边文件: " + deletePath);
-                }
-#endif
-
-                // 刷新面板，移除已删除的项目
-                SceneConfigPanel scenePanel = FindObjectOfType<SceneConfigPanel>();
-                if (scenePanel != null) {
-                    scenePanel.RefreshPage();
-                }
-
-                // 隐藏删除按钮
-                TableEdgePanel panel = FindObjectOfType<TableEdgePanel>();
-                if (panel != null && panel.deleteButton != null) {
-                    panel.deleteButton.gameObject.SetActive(false);
-                }
-            } catch (System.Exception e) {
-                Debug.LogError("删除失败: " + e.Message);
+            if (System.IO.File.Exists(deletePath)) {
+                System.IO.File.Delete(deletePath);
+                Debug.Log("成功删除自定义桌边文件: " + deletePath);
             }
+            FinishDelete();
+#endif
+        } catch (System.Exception e) {
+            Debug.LogError("删除失败: " + e.Message);
+        }
+    }
+
+    private void FinishDelete() {
+        SceneConfigPanel scenePanel = FindObjectOfType<SceneConfigPanel>();
+        if (scenePanel != null) {
+            scenePanel.RefreshPage();
+        }
+        TableEdgePanel panel = FindObjectOfType<TableEdgePanel>();
+        if (panel != null && panel.deleteButton != null) {
+            panel.deleteButton.gameObject.SetActive(false);
         }
     }
 }

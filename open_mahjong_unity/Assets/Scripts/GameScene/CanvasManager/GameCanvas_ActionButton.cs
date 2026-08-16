@@ -118,6 +118,7 @@ public partial class GameCanvas : MonoBehaviour {
             case "riichi_cut":
                 return actionButtonColorPresets.riichi;
             case "pass":
+            case "force_pass":
                 return actionButtonColorPresets.pass;
             default:
                 return actionButtonColorPresets.fallback;
@@ -319,6 +320,11 @@ public partial class GameCanvas : MonoBehaviour {
                 TMP_Text buttonText = ActionButtonObj.TextObject;
                 buttonText.text = isSeaBottomAsk ? "不要" : "取消";
                 Debug.Log($"取消按钮: {ActionButtonObj}");
+                ActionButtonObj.actionTypeList.Add(action_list[i]);
+            }
+            else if (action_list[i] == "force_pass"){
+                ActionButton ActionButtonObj = CreateActionButton(colorPreset);
+                ActionButtonObj.TextObject.text = "放弃";
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
         }

@@ -58,6 +58,8 @@ def store_sichuan_game_record(db_manager, game_record: dict, player_list: list, 
         sub_rule = game_title.get("sub_rule", "sichuan/standard")
         match_tier = game_title.get("match_tier")
         event_id = game_title.get("event_id")
+        from ..scene_stats import normalize_scene_fields
+        room_type, match_tier, event_id = normalize_scene_fields(room_type, match_tier, event_id)
         saved_count = 0
         for player in player_list:
             rank = player.record_counter.rank_result

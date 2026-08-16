@@ -109,7 +109,7 @@ public partial class NormalGameStateManager {
     /// </summary>
     private static List<string> BuildRemainingActionsAfterMeldFilter(List<string> source) {
         List<string> remaining = new List<string>(source);
-        remaining.RemoveAll(a => a == "pass" || a == "hongque_pass");
+        remaining.RemoveAll(a => a == "pass" || a == "force_pass" || a == "hongque_pass");
         if (AutoAction.Instance.IsPassChi) {
             remaining.RemoveAll(a => a == "chi_left" || a == "chi_mid" || a == "chi_right"
                 || a == "hongque_group:sequence");
@@ -166,7 +166,7 @@ public partial class NormalGameStateManager {
     /// 例：仅点和且开「不点和」→ 自动 pass；可碰可点和且未开「不碰」→ 保留等待玩家。
     /// </summary>
     private static bool ShouldAutoPassMingPaiAsk(List<string> allowActions) {
-        bool hasOfferedAction = allowActions.Any(a => a != "pass");
+        bool hasOfferedAction = allowActions.Any(a => a != "pass" && a != "force_pass");
         if (!hasOfferedAction) {
             return false;
         }

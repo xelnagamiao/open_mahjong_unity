@@ -1,0 +1,984 @@
+{
+  "slug": "mahjong-phylogeny",
+  "label": "麻将谱系与分类",
+  "aliases": [
+    "麻将起源",
+    "麻将传播",
+    "麻将谱系"
+  ],
+  "collected_at": "2026-08-14",
+  "notes": "第三期已对页：樊山续集卷二十六《忆博》CADAL/IA 扫描；Culin 1895 福州/宁波牌具。申报 1884 原页因 IA 缺号未开；1887 年十月初一扫描已下、机 OCR 不可用。付费报库未用。",
+  "sources": [
+    {
+      "id": "zj-classical",
+      "url": "http://www.zj-mahjong.info/book_hk/2.0%20Early%20Classical.html",
+      "title": "中庸麻雀史观 · 第二章 中国古典麻雀（早期）",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "strong-secondary",
+      "reliability": "high",
+      "excerpt": "关兆豪采用榛原茂树1952年文章为早期古典参考。榛原据五本中国1910–20年代麻雀古籍编成「想定宁波规则」，并假设为最早规则；其资料已是10–20年代刊物，与更早章法会有细节出入。",
+      "local_kind": "file",
+      "local_path": "mahjong-phylogeny/files/zj-classical.html",
+      "local_status": "ok",
+      "rules": [
+        "classical"
+      ]
+    },
+    {
+      "id": "zj-oldstyle",
+      "url": "http://www.zj-mahjong.info/book_hk/4.0%20Old%20Style.html",
+      "title": "中庸麻雀史观 · 第七章 香港旧章麻雀",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "strong-secondary",
+      "reliability": "high",
+      "excerpt": "从古典到香港旧章只需两点：废除副点（光算番数），授受改为出铳么二制。旧章又称香港牌、广东牌或清章麻雀。",
+      "local_kind": "file",
+      "local_path": "mahjong-phylogeny/files/zj-oldstyle.html",
+      "local_status": "ok",
+      "rules": [
+        "qingzhang",
+        "hongkong"
+      ]
+    },
+    {
+      "id": "zj-newstyle",
+      "url": "http://www.zj-mahjong.info/book_hk/5.0%20New%20Style.html",
+      "title": "中庸麻雀史观 · 第九章 新章麻雀",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "strong-secondary",
+      "reliability": "medium",
+      "excerpt": "新章把古典加副要素（边、嵌、单钓）升值为一番，并加将眼等易和种，关兆豪称为滥番。新章部分和种传入日本及台湾，香港后来「集体失忆」。",
+      "local_kind": "file",
+      "local_path": "mahjong-phylogeny/files/zj-newstyle.html",
+      "local_status": "ok",
+      "rules": [
+        "guangdong",
+        "hongkong"
+      ]
+    },
+    {
+      "id": "zj-jp-classical",
+      "url": "http://www.zj-mahjong.info/book_hk/6.0%20Japanese%20Classical.html",
+      "title": "中庸麻雀史观 · 日本古典麻雀",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "strong-secondary",
+      "reliability": "high",
+      "excerpt": "后期中国古典传入日本后称日本古典麻雀。日本章法是主要章法中唯一采用真正全铳制的。现日本已很少人懂，西方因 Kanai & Farrell、Whitney 英文书仍有人玩。",
+      "local_kind": "file",
+      "local_path": "mahjong-phylogeny/files/zj-jp-classical.html",
+      "local_status": "ok",
+      "rules": [
+        "japanese-classical"
+      ]
+    },
+    {
+      "id": "zj-jp-modern",
+      "url": "http://www.zj-mahjong.info/book_hk/7.0%20Japanese%20Modern.html",
+      "title": "中庸麻雀史观 · 第十一章 日本现代麻雀",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "strong-secondary",
+      "reliability": "high",
+      "excerpt": "日本现代麻雀即立直麻雀。门前听牌可宣言立直，以后不能转张，和出加一番；另加ドラ（宝牌）。里ドラ、一发等为更后添加。",
+      "local_kind": "file",
+      "local_path": "mahjong-phylogeny/files/zj-jp-modern.html",
+      "local_status": "ok",
+      "rules": [
+        "riichi"
+      ]
+    },
+    {
+      "id": "wiki-zh-origin",
+      "url": "https://zh.wikipedia.org/wiki/%E9%BA%BB%E5%B0%86",
+      "title": "麻将（中文维基百科）起源与名称",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "community",
+      "reliability": "medium",
+      "excerpt": "发源地有宁波与闽粤二说，尚未定论。沈一帆（1914）「始于宁波，不过三十余年」。徐珂一处宁波始，一处粤寇流入宁波。杜亚泉《博史》主张先闽粤，光绪初由宁波江厦延及津沪。麻将二字一般认为是北部吴语「麻雀」儿化。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/wiki-zh-origin.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "wiki-zh-play",
+      "url": "https://zh.wikipedia.org/wiki/%E9%BA%BB%E5%B0%86",
+      "title": "麻将（中文维基百科）前身与玩法",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "community",
+      "reliability": "medium",
+      "excerpt": "牌张公认来自马吊，玩法来自默和/碰和/十湖，马吊本身是斗大而非凑牌。最早规则书层可追溯到1910年代榛原收集本；计分番副，未和者也计分。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/wiki-zh-origin.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong",
+        "classical"
+      ]
+    },
+    {
+      "id": "wiki-zh-legend",
+      "url": "https://zh.wikipedia.org/wiki/%E9%BA%BB%E5%B0%86",
+      "title": "麻将（中文维基百科）传说",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "community",
+      "reliability": "medium",
+      "excerpt": "陈鱼门说除其人真实外暂无实据；清末民初作家未提陈与麻将有关。Powell 1923 英文「施–陈–张」传说。天一阁宣传之夏福礼日记，Sloper 等向千叶博物馆索副本无馆藏。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/wiki-zh-origin.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "cnnb-2018",
+      "url": "http://news.cnnb.com.cn/system/2018/12/15/030011174.shtml",
+      "title": "专家考证：麻将在宁波定型并走向全国 并非郑和发明",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "strong-secondary",
+      "reliability": "high",
+      "excerpt": "杜亚泉言马将牌先流行于闽粤濒海及海舶，光绪初由宁波江厦演及津沪，五口通商后在宁波改制骨牌再由津沪波及全国。作者认为闽粤说无一手支撑，定型与外传源头应是宁波。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/cnnb-2018.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "paper-2018",
+      "url": "https://m.thepaper.cn/newsDetail_forward_2626049",
+      "title": "麻将起源考：并非郑和发明，在宁波定型并走向全国",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "strong-secondary",
+      "reliability": "high",
+      "excerpt": "起源地说有太仓、宁波、闽粤。太仓护粮牌无清末文献，术语与马吊/碰和牌张谱系冲突，不可信。樊增祥已记麻雀之戏起于宁波。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/paper-2018.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "mahjongtileset-1",
+      "url": "https://www.themahjongtileset.co.uk/tile-set-history/mahjongg-before-mahjongg-part-1/",
+      "title": "Mahjong(g) Before Mahjong(g) Part 1",
+      "type": "history",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "source_level": "strong-secondary",
+      "reliability": "high",
+      "excerpt": "Himly (1889/1901) 记述 Ning bo zhu pai「宁波竹牌」，他 1876 年前离开中国，得牌当在 1868–1876 上海任职期间，与 AMNH Glover 牌同期。Glover 牌是最早与 sparrow 名称相连的牌具之一。",
+      "local_kind": "file",
+      "local_path": "mahjong-phylogeny/files/mahjongtileset-1.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "mahjongtileset-2",
+      "url": "https://www.themahjongtileset.co.uk/tile-set-history/mahjongg-before-mahjongg-part-2/",
+      "title": "Mahjong(g) Before Mahjong(g) Part 2",
+      "type": "history",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "source_level": "strong-secondary",
+      "reliability": "high",
+      "excerpt": "Wilkinson 1889 宁波所购骨木牌含中、发。1893 哥伦布博览会目录第43号亦为宁波所获。牌具标准化年代学被下推到 1872–1875 的福州/宁波一带。",
+      "local_kind": "file",
+      "local_path": "mahjong-phylogeny/files/mahjongtileset-2.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "wilkinson-1890",
+      "url": "https://groups.google.com/g/rec.games.mahjong/c/cMWphED_T2w",
+      "title": "Mahjong rules in... 1890（Wilkinson Chungfa 笔记转写）",
+      "type": "history",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "source_level": "primary",
+      "reliability": "high",
+      "excerpt": "大英博物馆 O.C.26 / 1896,0501.904.a-ej：Chungfa「Hit and Go」，宁波箱，骨与黑木，Stein Room drawer 25。三门一至九各四张，加东南西北中发，另 8 白板常用 4 张，共 140，实玩 136。1925 备忘录（Amsterdam, NOT FOR PUBLICATION）列出刻杠类组合的计值顺序，早于已知中文规则书。备忘录全文仍未公开。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/wilkinson-1890.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "karuta-nagawa",
+      "url": "https://japanplayingcardmuseum.com/mahjongtiles-19thcentury-china/8/",
+      "title": "日本かるた文化馆：名川彦作的麻雀牌",
+      "type": "history",
+      "lang": "ja",
+      "accessed": "2026-08-14",
+      "source_level": "strong-secondary",
+      "reliability": "high",
+      "excerpt": "1909 年在四川省任英语教师的名川彦作于回国途中在上海购牌，同年在桦太向周围人推广。1950 名川去世后牌一度下落不明，1999 由子孙提供给麻雀博物馆，来历清楚。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/karuta-nagawa.html",
+      "local_status": "ok",
+      "rules": [
+        "japanese-classical"
+      ]
+    },
+    {
+      "id": "wiki-riichi",
+      "url": "https://ja.wikipedia.org/wiki/%E7%AB%8B%E7%9B%B4",
+      "title": "立直（日文维基百科）",
+      "type": "history",
+      "lang": "ja",
+      "accessed": "2026-08-14",
+      "source_level": "community",
+      "reliability": "medium",
+      "excerpt": "现中国麻将不用立直。起源说指向中国东北/满洲，由关东军与引扬者传入。本来的立直等于今日双倍立直；途中立直战后普及并夺走「立直」之名。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/wiki-riichi.html",
+      "local_status": "ok",
+      "rules": [
+        "riichi"
+      ]
+    },
+    {
+      "id": "heinz-opb",
+      "url": "https://www.opb.org/article/2026/07/09/uo-professor-shares-history-of-mahjong/",
+      "title": "Annelise Heinz on mahjong origin and US fad",
+      "type": "history",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "source_level": "strong-secondary",
+      "reliability": "high",
+      "excerpt": "Heinz：麻将起源于 19 世纪中后期上海一带长江三角洲，本是少数城市的男性赌博游戏。Babcock 不是唯一把麻将带入美国的人，但是最有影响力的营销者。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/heinz-opb.html",
+      "local_status": "ok",
+      "rules": [
+        "babcock",
+        "nmjl"
+      ]
+    },
+    {
+      "id": "heinz-book",
+      "url": "https://www.amheinz.org/",
+      "title": "Annelise Heinz — Mahjong: A Chinese Game and the Making of Modern American Culture (OUP 2021)",
+      "type": "history",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "source_level": "primary",
+      "reliability": "high",
+      "excerpt": "第一部麻将在美国文化中的学术专史：上海公共租界、天使岛、Wright-Patterson、犹太女性避暑区。材料含手稿、报纸、口述史。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/heinz-book.html",
+      "local_status": "ok",
+      "rules": [
+        "babcock",
+        "nmjl"
+      ]
+    },
+    {
+      "id": "mcr-1998",
+      "url": "https://zh.wikisource.org/wiki/%E4%B8%AD%E5%9B%BD%E9%BA%BB%E5%B0%86%E7%AB%9E%E8%B5%9B%E8%A7%84%E5%88%99",
+      "title": "中国麻将竞赛规则（试行）1998-07",
+      "type": "official",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "primary",
+      "reliability": "high",
+      "excerpt": "国家体育总局授权社体中心历时两年多调研后制订。目的是把麻将从赌博工具转为可裁判的智力运动。1998 年 7 月审定。",
+      "local_kind": "file",
+      "local_path": "mahjong-phylogeny/files/mcr-1998.html",
+      "local_status": "ok",
+      "rules": [
+        "guobiao"
+      ]
+    },
+    {
+      "id": "wiki-16",
+      "url": "https://zh.wikipedia.org/wiki/%E5%8D%81%E5%85%AD%E5%BC%B5%E9%BA%BB%E5%B0%87",
+      "title": "十六张麻将",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "community",
+      "reliability": "medium",
+      "excerpt": "闲家 16、庄 17，和形五搭一对。常见：福州、台湾、福建、港式十六张；扬州江都有记符十六张。京津也曾流行。十三张仍是全球主干。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/wiki-16.html",
+      "local_status": "ok",
+      "rules": [
+        "fuzhou",
+        "taiwan",
+        "hongkong-16"
+      ]
+    },
+    {
+      "id": "wiki-tw",
+      "url": "https://zh.wikipedia.org/wiki/%E5%8F%B0%E7%81%A3%E9%BA%BB%E5%B0%87",
+      "title": "台湾麻将",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "community",
+      "reliability": "medium",
+      "excerpt": "十六张、台数、连庄拉庄。有说 20 世纪初由福建十六张转化。北部曾用花牌、南部不用，现已无区分。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/wiki-tw.html",
+      "local_status": "ok",
+      "rules": [
+        "taiwan"
+      ]
+    },
+    {
+      "id": "cq-2012",
+      "url": "http://district.ce.cn/newarea/roll/201210/26/t20121026_23793241_1.shtml",
+      "title": "解密重庆麻将界的演变史：从承包责任制到血战到底",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "community",
+      "reliability": "low",
+      "excerpt": "口述：成都人学重庆打法并加「打缺」、保留数番；血战为一家和后三家继续；年轻人再发明血流成河（和了还能和）。无精确年份，属 C 级线索。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/cq-2012.html",
+      "local_status": "ok",
+      "rules": [
+        "chongqing",
+        "sichuan"
+      ]
+    },
+    {
+      "id": "arxiv-2013",
+      "url": "https://arxiv.org/abs/1310.0621",
+      "title": "Games and Culture: Using Online-gaming Data to Cluster Chinese Regional Cultures",
+      "type": "map",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "source_level": "strong-secondary",
+      "reliability": "high",
+      "excerpt": "2013-08-09 腾讯 QQ 游戏峰值采样。中国有三十种以上麻将。川麻玩家集中川渝黔滇，杭麻集中浙沪苏，边界大致省级。这是当代使用地理，不是历史传播树。",
+      "local_kind": "file",
+      "local_path": "mahjong-phylogeny/files/arxiv-2013.pdf",
+      "local_status": "ok",
+      "rules": [
+        "sichuan",
+        "taiwan",
+        "hongkong"
+      ]
+    },
+    {
+      "id": "wiki-en-sg",
+      "url": "https://en.wikipedia.org/wiki/Mahjong",
+      "title": "Mahjong (English Wikipedia) variants",
+      "type": "history",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "source_level": "community",
+      "reliability": "medium",
+      "excerpt": "新加坡/马来西亚近香港规则，特色为猫、鼠、鸡、蜈蚣四张动物花。越南可到 160 张（加花与百搭）。美式 NMJL 用年卡与 joker，有人视为另一游戏。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/wiki-en-sg.html",
+      "local_status": "ok",
+      "rules": [
+        "singapore"
+      ]
+    },
+    {
+      "id": "nmjl-joker",
+      "url": "https://mahjonggandme.wordpress.com/2018/05/28/when-did-jokers-start-to-appear/",
+      "title": "When did jokers start to appear in our Mah Jongg sets?",
+      "type": "history",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "source_level": "community",
+      "reliability": "medium",
+      "excerpt": "1961 年前无 Joker，花当百搭。1961 引入 Joker，1971–72 卡稳定为 8 花 + 8 Joker。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/nmjl-joker.html",
+      "local_status": "ok",
+      "rules": [
+        "nmjl",
+        "nmjl-joker",
+        "nmjl-card"
+      ]
+    },
+    {
+      "id": "wp-mahj",
+      "url": "https://mahjlife.com/wiki/wright-patterson-mah-jongg-article-163/",
+      "title": "Wright-Patterson Mah Jongg",
+      "type": "history",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "source_level": "community",
+      "reliability": "medium",
+      "excerpt": "空军军官家属为调动后仍能同桌而编的美式。合法牌型数年一册，无 NMJL 式 joker，计分更近早期西式/广东。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/wp-mahj.html",
+      "local_status": "ok",
+      "rules": [
+        "wright-patterson"
+      ]
+    },
+    {
+      "id": "ema-hist",
+      "url": "https://en.wikipedia.org/wiki/European_Mahjong_Association",
+      "title": "European Mahjong Association",
+      "type": "official",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "source_level": "community",
+      "reliability": "medium",
+      "excerpt": "EMA 2005 年于荷兰奈梅亨首届欧锦赛成立。交替举办国际规则（MCR）与立直欧锦赛。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/ema-hist.html",
+      "local_status": "ok",
+      "rules": [
+        "ema"
+      ]
+    },
+    {
+      "id": "wiki-3p",
+      "url": "https://en.wikipedia.org/wiki/Three-player_mahjong",
+      "title": "Three-player mahjong",
+      "type": "history",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "source_level": "community",
+      "reliability": "medium",
+      "excerpt": "日韩三人是韩国旧规（常去索、禁吃）与日本规则的混合物。日式三人常去掉 2–8 万、禁吃、北作宝牌。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/wiki-3p.html",
+      "local_status": "ok",
+      "rules": [
+        "japanese-3p"
+      ]
+    },
+    {
+      "id": "wiki-ningbo-local",
+      "url": "https://zh.wikipedia.org/wiki/%E5%AF%A7%E6%B3%A2%E9%BA%BB%E5%B0%87",
+      "title": "宁波麻将（当代地方打法）",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "community",
+      "reliability": "medium",
+      "excerpt": "当代宁波麻将用 144 张，四台起和，有风圈、花牌按座次、骰子翻财神。与祖型番副制不是同一套规则。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/wiki-ningbo-local.html",
+      "local_status": "ok",
+      "rules": [
+        "ningbo-local"
+      ]
+    },
+    {
+      "id": "sloper-faq",
+      "url": "https://sloperama.com/mjfaq/mjfaq11d.html",
+      "title": "Tom Sloper FAQ 11d — earliest writings",
+      "type": "history",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "source_level": "community",
+      "reliability": "medium",
+      "excerpt": "Culin 1893 英文世界较早提及。Wilkinson 1895 记 ma chioh 纸牌。Babcock 1920 红皮书标志西传潮开始。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/sloper-faq.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong",
+        "classical"
+      ]
+    },
+    {
+      "id": "drawing-local",
+      "url": "/rule-research/绘图麻雀牌谱.pdf",
+      "title": "绘图麻雀牌谱（馆藏 PDF）",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-04",
+      "local_path": "mahjong-phylogeny/files/drawing-local.pdf",
+      "source_level": "primary",
+      "reliability": "high",
+      "excerpt": "史上第一本麻将牌谱（沈一帆；1914 成书、1924 重印）。馆内已归档，是早期规则书层原典。",
+      "local_kind": "file",
+      "local_status": "ok",
+      "rules": [
+        "classical"
+      ]
+    },
+    {
+      "id": "qingbai-cha-maque",
+      "url": "https://zh.wikisource.org/zh-hans/%E6%B8%85%E7%A8%97%E9%A1%9E%E9%88%94/087",
+      "title": "徐珂《清稗类钞》赌博类·叉麻雀",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "primary",
+      "reliability": "high",
+      "excerpt": "凡一百三十六，曰筒曰索曰万，曰东南西北，曰龙凤白，亦作中发白。始于浙之宁波，其后不胫而走，遂遍南北。同条后又写粤寇军中增化牌流入宁波。又谓麻雀为马吊之音转。三条并置，不能只取一句。",
+      "local_kind": "file",
+      "local_path": "mahjong-phylogeny/files/qingbai-cha-maque.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "qingbai-penghe",
+      "url": "https://zh.wikisource.org/zh-hans/%E6%B8%85%E7%A8%97%E9%A1%9E%E9%88%94/087",
+      "title": "徐珂《清稗类钞》赌博类·纸牌之碰和",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "primary",
+      "reliability": "high",
+      "excerpt": "纸牌仿马吊而损益。四人合局曰碰和。每人各得十页谓之默和。三页同色曰碰。与叉麻雀分条，不把麻将写成马吊改名。",
+      "local_kind": "file",
+      "local_path": "mahjong-phylogeny/files/qingbai-cha-maque.html",
+      "local_status": "ok",
+      "rules": [
+        "penghe"
+      ]
+    },
+    {
+      "id": "hu-shi-1927",
+      "url": "https://zh.wikisource.org/wiki/%E6%BC%AB%E9%81%8A%E7%9A%84%E6%84%9F%E6%83%B3",
+      "title": "胡适《漫游的感想·麻将》（1927）",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "primary",
+      "reliability": "high",
+      "excerpt": "四十张马吊逐渐变成每样五张纸牌，近七八十年又变为每样四张麻将。麻将为麻雀的音变，麻雀为马脚的音变。把麻将定为「国戏」并算时间浪费。音变链是胡适的看法，不是牌具年代学。",
+      "local_kind": "file",
+      "local_path": "mahjong-phylogeny/files/hu-shi-1927.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "zhang-deyi-1889",
+      "url": "https://m.thepaper.cn/newsDetail_forward_2626049",
+      "title": "张德彝《航海述奇·五述奇》光绪十五年正月廿九（赵旭腾转引）",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "primary",
+      "reliability": "high",
+      "excerpt": "牌名麻雀，又名马将。常例：一至九索饼万，申发或龙凤与白版，东南西北，各四扇。可加花：东南西北王、总王、索化万化同化、春夏秋冬等。原书页待核稿本。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/paper-2018.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "fan-zengxiang-1906",
+      "url": "https://archive.org/details/02106614.cn",
+      "title": "樊增祥《樊山续集》卷二十六《十忆集·忆博》（丙午春自识，1906）",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "primary",
+      "reliability": "high",
+      "excerpt": "北大/CADAL 扫描册十二。诗：「花底摴蒱催上场，红毡银烛小排当。宁波麻雀知何味，强与周旋故拙行。」夹注：「撮麻雀之戏，二十年前起于宁波，今遍天下矣。」卷末「丙午春日天琴识」：二百篇告成于今年小花朝，附于续刻紫薇、沆瀣二集之后。倒推约 1886。赵旭腾作 1902 是误用续集始刻年。樊氏湖北人。",
+      "local_kind": "file",
+      "local_path": "mahjong-phylogeny/files/fan-zengxiang-1906.pdf",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "shenbao-1884-terms",
+      "url": "https://www.themahjongtileset.co.uk/mahjong-terms-1780-1920/",
+      "title": "Máquè/Májiàng/Mahjong Terms 1780–1920（《申报》1884 条）",
+      "type": "history",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "source_level": "strong-secondary",
+      "reliability": "high",
+      "excerpt": "记 1884-02-18《申报》出现与牌戏相连的「麻雀」；1884-06-17 出现「叉麻雀」。Internet Archive 1884 年几乎整年缺号，原报页未开。与碰和并列的租界禁赌长段不在 1884，见 1887 年十月初一条。",
+      "local_kind": "file",
+      "local_path": "mahjong-phylogeny/files/shenbao-1884-terms.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "shenbao-1885-cixi",
+      "url": "https://archive.org/details/shenbao-1885.05-141",
+      "title": "《申报》1885-05-28 慈溪赶麻雀（themahjongtileset 转写）",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "strong-secondary",
+      "reliability": "high",
+      "excerpt": "「慈邑赌风最甚，而尤以赶麻雀为时尚。」慈溪属宁波。IA 有 1885 年 5 月扫描，机 OCR 不可用，原文仍据 themahjongtileset。",
+      "local_kind": "file",
+      "local_path": "mahjong-phylogeny/files/shenbao-1885-cixi.pdf",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "shenbao-1887-concession",
+      "url": "https://archive.org/details/shenbao-1887.11-310",
+      "title": "《申报》光绪十三年十月初一 叉麻雀与碰和（themahjongtileset 转写）",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "strong-secondary",
+      "reliability": "high",
+      "excerpt": "报头光绪十三年十月初一（约 1887-11-15），IA 标识 shenbao-1887.11-310。转写：「租界严禁赌博以来，若辈花样翻新，巧立叉麻雀、碰和等名目……麦捕头……谕令嗣后不许有叉麻雀、碰和情事。」叉麻雀与碰和分列，当时仍被当成新赌法名目。机 OCR 不可用，原页图已下。",
+      "local_kind": "file",
+      "local_path": "mahjong-phylogeny/files/shenbao-1887-concession.pdf",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong",
+        "penghe"
+      ]
+    },
+    {
+      "id": "culin-1895",
+      "url": "https://archive.org/details/chinesegameswith01culi",
+      "title": "Stewart Culin, Chinese Games with Dice and Dominoes (Report of the U.S. National Museum, 1893; 1895)",
+      "type": "history",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "source_level": "primary",
+      "reliability": "high",
+      "excerpt": "Glover 赠长岛历史学会福州骨牌：筒索万各四门九色，东南西北中各四，另有五方王、天地人和王及春夏秋冬。Wilkinson 哥伦布博览会宁波套称 chung fa，无上述王与四季，有发四张。这是 1895 年印本对 1870s–1890s 牌具的对照，不是规则书。",
+      "local_kind": "file",
+      "local_path": "mahjong-phylogeny/files/culin-1895.pdf",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong",
+        "tianjiu"
+      ]
+    },
+    {
+      "id": "culin-1924",
+      "url": "https://web.archive.org/web/20110516224304/http://www.gamesmuseum.uwaterloo.ca/Archives/Culin/Majong1924/index.html",
+      "title": "Stewart Culin, The Game of Ma-Jong, Brooklyn Museum Quarterly XI (1924)",
+      "type": "history",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "source_level": "primary",
+      "reliability": "high",
+      "excerpt": "1909 年 12 月上海购牌，三门各九色×4，加风、中发及花。店家按客订做，并无固定标准形。线人称有 wak fa 与 cho ma-cho 两种。同年冬广州买不到专用牌。Culin 认为玩法是旧纸牌戏的改动，牌具形制来自骨牌。",
+      "local_status": "ok",
+      "local_kind": "file",
+      "local_path": "mahjong-phylogeny/files/culin-1924.html",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "shinbara-1952",
+      "url": "https://mjradio.web.fc2.com/majansite-mirror/rule42.html",
+      "title": "榛原茂树「想定宁波规则」1952 改订全文镜像",
+      "type": "history",
+      "lang": "ja",
+      "accessed": "2026-08-14",
+      "source_level": "primary",
+      "reliability": "high",
+      "excerpt": "所据五书：《麻雀牌谱》《麻雀指南》《麻雀门径》《麻雀必胜术》《麻雀防弊法》，约四十年前出版。1930 年首次刊《ファンシイ》，1952 年 1/3/5 月刊《麻雀タイムズ》。副底 10，无圈风，平和抢杠多面听只付副底。榛原自言据这些书想定是危险的。",
+      "local_kind": "file",
+      "local_path": "mahjong-phylogeny/files/shinbara-1952.html",
+      "local_status": "ok",
+      "rules": [
+        "classical"
+      ]
+    },
+    {
+      "id": "ithinc-2009",
+      "url": "https://mjradio.web.fc2.com/majansite-mirror/rule42.html",
+      "title": "ithinc 对「想定宁波规则」的订正（2009-08-09）",
+      "type": "discussion",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "source_level": "community",
+      "reliability": "medium",
+      "excerpt": "「1850 年顷」是想象。岭上开花、大三元等《麻雀牌谱》古役未必存在于 1890 年代。满贯至少从 1890 年代起常见 300 点，不是榛原所定 200 点。",
+      "local_kind": "file",
+      "local_path": "mahjong-phylogeny/files/shinbara-1952.html",
+      "local_status": "ok",
+      "rules": [
+        "classical"
+      ]
+    },
+    {
+      "id": "chen-ailu-1925",
+      "url": "https://m.thepaper.cn/newsDetail_forward_2626049",
+      "title": "陈霭麓《麻雀牌考补》（1925《红玫瑰》，赵旭腾转引）",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "primary",
+      "reliability": "medium",
+      "excerpt": "咸同间蛟川陈鱼门改马将纸牌为筒索万各四张百零八，复增东南西北中发白，后因海风改竹制。「鱼门去今不远，吾甬人之熟于掌故者类能道其轶事」。原刊未打开；事件五十年后的杂志文，标传说。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/paper-2018.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "lian-yatang-1925",
+      "url": "https://zh.wikipedia.org/wiki/%E6%8C%96%E8%8A%B1",
+      "title": "连雅堂《麻雀考原》（1925）转引",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "primary",
+      "reliability": "medium",
+      "excerpt": "花将牌以天地人和为将。连氏认为麻将东南西北是这四将的变相，幺头为中发白，「马将」取马吊之马与花将之将。原书《雅堂先生集外集》待核。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/lian-yatang-1925.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "greene-2015",
+      "url": "https://escholarship.org/content/qt02m6693f/qt02m6693f_noSplash_e76666c7561ebe472d69d5e71fa38716.pdf",
+      "title": "Maggie Greene, The Game People Played: Mahjong in Modern Chinese Society and Culture (2015)",
+      "type": "history",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "source_level": "strong-secondary",
+      "reliability": "high",
+      "excerpt": "引用胡适 1927。据杜亚泉《博史》系统表（fig.2，原书 p.38）：杜把现代麻将放到民国最初十年，把流行放在鸦片战争后南方商埠。社会史论文，不是牌具年代学。",
+      "local_kind": "file",
+      "local_path": "mahjong-phylogeny/files/greene-2015.pdf",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "hochi-seesaawiki",
+      "url": "https://seesaawiki.jp/w/mind_extream/d/%ca%f3%c3%ce%a5%eb%a1%bc%a5%eb",
+      "title": "报知ルール（《报知新闻》1952-11-30–12-05 篇目）",
+      "type": "history",
+      "lang": "ja",
+      "accessed": "2026-08-14",
+      "source_level": "community",
+      "reliability": "medium",
+      "excerpt": "天野大三连载于报知新闻第三版。11/30 入局配牌摸打露牌振听；12/1 立直、两家和三家和、错和；12/2 平局终局计算；12/3 普通役；12/4 小满贯大满贯禁则；12/5 罚则。报纸影印未打开。宝牌是否写入这六天原文，篇目里未见。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/hochi-seesaawiki.html",
+      "local_status": "ok",
+      "rules": [
+        "riichi-hochi",
+        "riichi"
+      ]
+    },
+    {
+      "id": "chengdu-ifeng",
+      "url": "https://ishare.ifeng.com/c/s/7lPeL5fo7rp",
+      "title": "麻将为啥叫麻将：成都麻将小历史（凤凰网）",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "community",
+      "reliability": "low",
+      "excerpt": "九十年代后期「缺一门」流行，当时不定张。2000 年以后血战到底，同时改定缺；计番门槛放松。无报纸原件，C 级。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/chengdu-ifeng.html",
+      "local_status": "ok",
+      "rules": [
+        "sichuan"
+      ]
+    },
+    {
+      "id": "cctv-2009",
+      "url": "http://news.cctv.com/history/20090410/107881.shtml",
+      "title": "探寻麻将起源：源于先秦还是郑和发明？（CCTV 转《人民政协报》2009）",
+      "type": "media",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "community",
+      "reliability": "low",
+      "excerpt": "并列六博、马吊、太平军、陈鱼门、郑和。蔡丰明《游戏史》综述。同治三年误写成 1846。只作媒体如何讲起源，不定年代。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/cctv-2009.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "youtube-chip",
+      "url": "https://www.youtube.com/watch?v=ztvJcne0_c0",
+      "title": "麻将：一张隐藏了中国千年文明的神秘芯片",
+      "type": "media",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "community",
+      "reliability": "low",
+      "excerpt": "通俗片。把马吊说成四人凑组合取胜（错，马吊是斗大），并坐实陈鱼门改骨竹。用来核大众叙述，不进谱系实线。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/youtube-chip.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "tianyige-nbwb-2017",
+      "url": "http://daily.cnnb.com.cn/nbwb/html/2017-06/24/content_1057322.htm?div=-1",
+      "title": "宁波晚报：麻将起源地陈列馆与野口恭一郎捐赠（2017）",
+      "type": "media",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "community",
+      "reliability": "medium",
+      "excerpt": "2001 年陈氏宗祠设馆。野口据称见过夏福礼笔记中陈鱼门发明并传到上海的故事，促成寻访与捐赠。日记仍无刊本。馆方宣传不等于清档。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/tianyige-nbwb-2017.html",
+      "local_status": "ok",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "atawmj-origin",
+      "url": "http://atawmj.org.tw/memu009.htm",
+      "title": "台湾麻将协会「麻将起源」页",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "community",
+      "reliability": "low",
+      "excerpt": "写民国初年由大陆传入，从广东十三张演成台湾十六张。与维基「福建十六张入台」冲突。协会宣传页，两条都还没有民初规则书。",
+      "local_status": "ok",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/atawmj-origin.html",
+      "rules": [
+        "proto-mahjong"
+      ]
+    },
+    {
+      "id": "jin-xueshi",
+      "url": "https://zh.wikisource.org/zh-hans/%E7%89%A7%E8%B1%AC%E9%96%92%E8%A9%B1",
+      "title": "金学诗《牧猪闲话》",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "primary",
+      "reliability": "high",
+      "excerpt": "纸牌六十页三十种，万贯索子文钱加么头，彷马吊而损益，疑始于明之末造。默和：四人各十页，三四页配搭成副。加倍每种四页名碰和，三页同色曰碰。马吊牌另条，四十页，以大击小。骨牌条有天地人和为将的碰花将和。",
+      "local_kind": "file",
+      "local_path": "mahjong-phylogeny/files/jin-xueshi.html",
+      "local_status": "ok",
+      "rules": [
+        "mohe",
+        "penghe",
+        "madiao"
+      ]
+    },
+    {
+      "id": "chinanews-2009-xuezhan",
+      "url": "http://www.chinanews.com.cn/sh/news/2009/05-03/1673608.shtml",
+      "title": "成都放弃申办世麻赛（中新网 2009）",
+      "type": "media",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "source_level": "community",
+      "reliability": "medium",
+      "excerpt": "文殊坊麻将与茶文化博物馆：成都习惯「血战到底」，108 张，相对国标 144 张更简单。只能证明 2009 年以前此名已通行，不能定发明年。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/chinanews-2009-xuezhan.html",
+      "local_status": "ok",
+      "rules": [
+        "sichuan"
+      ]
+    },
+    {
+      "id": "tenhou-man",
+      "url": "https://tenhou.net/man/",
+      "title": "オンライン対戦麻雀 天鳳 / マニュアル（沿革）",
+      "type": "official",
+      "lang": "ja",
+      "accessed": "2026-08-14",
+      "source_level": "primary",
+      "reliability": "high",
+      "excerpt": "官方沿革：2006-02-20 半熟荘β；2006-08-01 正式服务；2007-03-01 改名天凤。这是现行网上立直桌规的年代，不是 1952 报知。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/tenhou-man.html",
+      "local_status": "ok",
+      "rules": [
+        "riichi"
+      ]
+    },
+    {
+      "id": "4gamer-tenhou-2007",
+      "url": "https://www.4gamer.net/games/028/G002859/20070227151343/",
+      "title": "「半熟荘」が「天鳳」にリニューアル",
+      "type": "news",
+      "lang": "ja",
+      "accessed": "2026-08-14",
+      "source_level": "primary",
+      "reliability": "high",
+      "excerpt": "C-EGG 宣布 2007 年 3 月 1 日将半熟荘更名为线上对战麻雀天凤。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/4gamer-tenhou-2007.html",
+      "local_status": "ok",
+      "rules": [
+        "riichi"
+      ]
+    },
+    {
+      "id": "nmjl-store-2026",
+      "url": "https://www.nationalmahjonggleague.org/store.aspx",
+      "title": "National Mah Jongg League Store（2026 年卡）",
+      "type": "official",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "source_level": "primary",
+      "reliability": "high",
+      "excerpt": "联盟店面接受 2026 年卡订购。年卡每年更换合法型，不是冻结规则。",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/nmjl-store-2026.html",
+      "local_status": "ok",
+      "rules": [
+        "nmjl",
+        "nmjl-card"
+      ]
+    }
+  ]
+}

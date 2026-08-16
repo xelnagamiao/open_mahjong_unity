@@ -3,7 +3,7 @@
 创建 / 列出 / 删除比赛场空房间。
 """
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -16,6 +16,14 @@ class AdminEventRoomCreateBody(BaseModel):
     room_rule: str = Field(..., min_length=1)
     room_config: Optional[Dict[str, Any]] = None
     password: str = ""
+    created_by: Optional[int] = None
+
+
+class AdminEventSeatBody(BaseModel):
+    event_id: str = Field(..., min_length=1)
+    user_ids: List[int]
+    room_rule: str = Field(default="guobiao", min_length=1)
+    room_config: Optional[Dict[str, Any]] = None
     created_by: Optional[int] = None
 
 
@@ -66,3 +74,26 @@ def register_admin_event_room_routes(app: FastAPI, game_server) -> None:
         if not response.success:
             raise HTTPException(status_code=400, detail=response.message or "删除房间失败")
         return {"success": True, "message": response.message}
+
+    @app.post("/admin/event/rooms/seat")
+    async def admin_event_room_seat(body: AdminEventSeatBody):
+        if not body.created_by:
+            raise HTTPException(status_code=400, detail="缺少管理员")
+        try:
+            response = await game_server.room_manager.seat_event_table(
+                admin_user_id=body.created_by,
+                event_id=body.event_id,
+                user_ids=body.user_ids,
+                room_rule=body.room_rule,
+                room_config=body.room_config or {},
+            )
+        except Exception as exc:
+            logger.error("赛事组桌失败: %s", exc, exc_info=True)
+            raise HTTPException(status_code=500, detail="组桌失败") from exc
+        if not response.success:
+            raise HTTPException(status_code=400, detail=response.message or "组桌失败")
+        return {
+            "success": True,
+            "message": response.message,
+            "room_info": response.room_info,
+        }

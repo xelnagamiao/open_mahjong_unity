@@ -13,6 +13,8 @@ public class LoginPanel : MonoBehaviour {
     [SerializeField] private Button ShowTestPanelButton;
     [SerializeField] private TMP_Text TestPanelStateText;
     [SerializeField] private GameObject TestPanel;
+    [Header("Debug")]
+    [SerializeField] private GameObject debugObject;
 
     public static LoginPanel Instance { get; private set; }
     private string userNameTips = "输入用户名登录";
@@ -26,6 +28,10 @@ public class LoginPanel : MonoBehaviour {
         } else {
             Destroy(gameObject);
             return;
+        }
+
+        if (debugObject != null) {
+            debugObject.SetActive(ConfigManager.Debug);
         }
 
         loginButton.onClick.AddListener(LoginClick);

@@ -70,7 +70,7 @@
         />
       </section>
 
-      <div v-if="joinedQueue" class="queue-banner">
+      <div v-if="joinedQueue || matchFound" class="queue-banner">
         <div>
           <el-icon class="is-loading"><Loading /></el-icon>
           <span>{{ matchFound ? '匹配成功，正在准备牌桌' : '正在匹配' }}</span>
@@ -307,8 +307,8 @@ const auth = usePlayerAuthStore()
 const roomPanelRef = ref(null)
 const loginBusy = ref(false)
 const queueStatus = ref({})
-const joinedQueue = ref(null)
-const matchFound = ref(false)
+const joinedQueue = computed(() => session.joinedQueue)
+const matchFound = computed(() => session.matchFound)
 const inCustomRoom = ref(false)
 const leaders = ref([])
 const leadersBusy = ref(true)
@@ -359,7 +359,7 @@ const joinedQueueLabel = computed(() => {
     const queue = tier.queues.find((item) => item.queueKey === joinedQueue.value)
     if (queue) return `${tier.title} · ${queue.title}`
   }
-  return joinedQueue.value
+  return joinedQueue.value || '排位场'
 })
 
 function formatPt(value) {
@@ -416,24 +416,12 @@ function handleResponse(response) {
     return
   }
   if (response.type === 'match/queue_status' && response.queue_status) queueStatus.value = response.queue_status
-  if (response.type === 'match/join_queue_done' && response.success) ElMessage.success(response.message || '已加入匹配')
-  if (response.type === 'match/leave_queue_done' && response.success) {
-    joinedQueue.value = null
-    matchFound.value = false
-    ElMessage.success(response.message || '已取消匹配')
-  }
-  if (response.type === 'match/match_found') {
-    matchFound.value = true
-    ElMessage.success(response.message || '匹配成功，即将开局')
-  }
   if (response.type === 'tips' && response.message) {
-    if (response.success === false) joinedQueue.value = null
     ElMessage[response.success === false ? 'error' : 'info'](response.message)
   }
   if (response.type === 'error_message' && response.message) {
     ElMessage.error(response.message)
   }
-  if (response.type === 'gamestate/guobiao/game_start') router.push('/2d/game')
 }
 
 async function refreshQueueStatus() {
@@ -476,11 +464,11 @@ function joinQueue(queueKey) {
     ElMessage.warning('请先离开自定义房间再匹配')
     return
   }
+  session.noteJoinAttempt(queueKey)
   if (!salasasaClient.send({ type: 'match/join_queue', queue_type: queueKey })) {
+    session.clearMatch()
     ElMessage.error('游戏连接尚未就绪')
-    return
   }
-  joinedQueue.value = queueKey
 }
 
 function leaveQueue() {
@@ -510,8 +498,6 @@ async function connectWithWebsite({ silent = false } = {}) {
 }
 
 function handleLogout() {
-  joinedQueue.value = null
-  matchFound.value = false
   inCustomRoom.value = false
   auth.logout()
 }

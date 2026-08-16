@@ -120,6 +120,7 @@ public class CreateTaiwanRoomRequest { // 创建台湾麻将房间请求
 public class GetRoomListRequest { // 获取房间列表请求
     public string type;
     public bool show_tip; // True=手动刷新显示tips，False=静默刷新
+    public string event_id;
 }
 
 public class SyncMyRoomRequest { // 同步当前玩家房间状态（重连后拉取权威房间信息）

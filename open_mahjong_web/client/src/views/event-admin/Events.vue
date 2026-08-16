@@ -3,7 +3,14 @@
     <h2 class="page-title">我的赛事</h2>
     <el-card>
       <el-table :data="items" v-loading="loading" size="small" empty-text="暂无管理的赛事">
-        <el-table-column prop="name" label="赛事名称" min-width="160" show-overflow-tooltip />
+        <el-table-column prop="name" label="名称" min-width="160" show-overflow-tooltip />
+        <el-table-column label="类型" width="80">
+          <template #default="{ row }">
+            <el-tag :type="row.kind === 'base' ? 'warning' : 'primary'" size="small" effect="plain">
+              {{ row.kind === 'base' ? '基地' : '赛事' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="event_id" label="赛事 ID" min-width="140" />
         <el-table-column label="状态" width="120">
           <template #default="{ row }">
@@ -17,7 +24,7 @@
         </el-table-column>
         <el-table-column label="我的角色" width="130">
           <template #default="{ row }">
-            {{ eventRoleLabel(row.role) }}
+            {{ eventRoleLabel(row.role, row.kind) }}
           </template>
         </el-table-column>
         <el-table-column prop="admin_count" label="子管理员" width="90" />

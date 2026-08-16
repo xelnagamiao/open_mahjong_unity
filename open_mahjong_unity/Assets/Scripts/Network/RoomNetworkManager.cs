@@ -74,7 +74,11 @@ public class RoomNetworkManager : MonoBehaviour {
     /// 处理获取房间列表响应（根据服务端回显的 show_tip 决定是否显示 tips）
     /// </summary>
     private void HandleGetRoomListResponse(Response response) {
-        RoomListPanel.Instance.GetRoomListResponse(response.success, response.message, response.room_list);
+        if (EventNetworkManager.Instance != null && EventNetworkManager.Instance.TryConsumePendingRoomListEventId(out _)) {
+            EventNetworkManager.Instance.HandleVenueRoomList(response);
+            return;
+        }
+        RoomListPanel.Instance?.GetRoomListResponse(response.success, response.message, response.room_list);
         if (response.show_tip) {
             NotificationManager.Instance.ShowTip("get_room_list", true, "刷新房间列表成功");
         }
@@ -124,6 +128,17 @@ public class RoomNetworkManager : MonoBehaviour {
         );
         UserDataManager.Instance.SetRoomId(roomId);
         AutoReconnect.OnRoomSyncDone();
+    }
+
+    public void AcceptForcedRoomEntry(RoomInfo roomInfo) {
+        if (roomInfo == null || string.IsNullOrEmpty(roomInfo.room_id)) return;
+        _pendingEnterRoomId = roomInfo.room_id;
+        HandleGetRoomInfoResponse(new Response {
+            type = "room/refresh_room_info",
+            success = true,
+            message = "管理员组桌",
+            room_info = roomInfo
+        });
     }
 
     private void HandleSyncNotInRoomResponse(Response response) {

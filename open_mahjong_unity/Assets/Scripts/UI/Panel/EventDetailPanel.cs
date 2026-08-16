@@ -1,0 +1,460 @@
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+
+/// <summary>
+/// 赛事/基地详情：节点全部在场景中绘制，运行时只填数据、克隆场景里的房间/牌谱示例预制体。
+/// </summary>
+public class EventDetailPanel : MonoBehaviour {
+    public static EventDetailPanel Instance { get; private set; }
+
+    private const float ItemScale = 0.85f;
+
+    private enum Page { Home, Rooms, Spectate, Records }
+
+    [Header("导航")]
+    [SerializeField] private Button backButton;
+    [SerializeField] private TMP_Text pageTitle;
+    [SerializeField] private Button homeNav;
+    [SerializeField] private Button roomsNav;
+    [SerializeField] private Button spectateNav;
+    [SerializeField] private Button recordsNav;
+    [SerializeField] private Image homeNavImage;
+    [SerializeField] private Image roomsNavImage;
+    [SerializeField] private Image spectateNavImage;
+    [SerializeField] private Image recordsNavImage;
+
+    [Header("页面")]
+    [SerializeField] private GameObject homePage;
+    [SerializeField] private GameObject roomsPage;
+    [SerializeField] private GameObject spectatePage;
+    [SerializeField] private GameObject recordsPage;
+
+    [Header("描述页")]
+    [SerializeField] private TMP_Text titleText;
+    [SerializeField] private TMP_Text descText;
+    [SerializeField] private TMP_Text statusText;
+    [SerializeField] private TMP_Text announceText;
+    [SerializeField] private Button registerButton;
+    [SerializeField] private Button readyButton;
+    [SerializeField] private TMP_Text registerLabel;
+    [SerializeField] private TMP_Text readyLabel;
+
+    [Header("加入房间")]
+    [SerializeField] private Transform roomContent;
+    [SerializeField] private Transform readyContent;
+    [SerializeField] private GameObject adminBar;
+    [SerializeField] private Button createRoomButton;
+    [SerializeField] private Button seatButton;
+    [SerializeField] private GameObject roomItemPrefab;
+
+    [Header("观战 / 牌谱")]
+    [SerializeField] private Transform spectateContent;
+    [SerializeField] private Transform recordContent;
+    [SerializeField] private GameObject recordItemPrefab;
+
+    [Header("行模板（观战/准备池/空提示）")]
+    [SerializeField] private GameObject actionRowTemplate;
+    [SerializeField] private GameObject readyRowTemplate;
+    [SerializeField] private GameObject emptyRowTemplate;
+
+    [Header("报名弹窗")]
+    [SerializeField] private GameObject registerPopup;
+    [SerializeField] private TMP_InputField contactInput;
+    [SerializeField] private TMP_InputField remarkInput;
+    [SerializeField] private TMP_InputField joinCodeInput;
+    [SerializeField] private Button submitRegisterButton;
+    [SerializeField] private Button cancelRegisterButton;
+
+    private string _eventId;
+    private string _kind = "event";
+    private EventDetailInfo _detail;
+    private Page _page = Page.Home;
+    private readonly List<int> _selectedReady = new List<int>();
+    private static readonly Color NavActive = new Color(1f, 0.62f, 0.08f, 1f);
+    private static readonly Color NavIdle = new Color(0.13f, 0.13f, 0.13f, 1f);
+
+    private void Awake() {
+        Instance = this;
+        HideSceneTemplate(actionRowTemplate);
+        HideSceneTemplate(readyRowTemplate);
+        HideSceneTemplate(emptyRowTemplate);
+        if (registerPopup != null) registerPopup.SetActive(false);
+        if (adminBar != null) adminBar.SetActive(false);
+        if (backButton != null) backButton.onClick.AddListener(() => EventLobbyPanel.Instance?.ShowLobby());
+        if (homeNav != null) homeNav.onClick.AddListener(() => ShowPage(Page.Home));
+        if (roomsNav != null) roomsNav.onClick.AddListener(() => ShowPage(Page.Rooms));
+        if (spectateNav != null) spectateNav.onClick.AddListener(() => ShowPage(Page.Spectate));
+        if (recordsNav != null) recordsNav.onClick.AddListener(() => ShowPage(Page.Records));
+        if (registerButton != null) registerButton.onClick.AddListener(OnRegisterClicked);
+        if (readyButton != null) readyButton.onClick.AddListener(OnReadyClicked);
+        if (createRoomButton != null) createRoomButton.onClick.AddListener(CreateEmptyRoom);
+        if (seatButton != null) seatButton.onClick.AddListener(SeatSelected);
+        if (submitRegisterButton != null) submitRegisterButton.onClick.AddListener(SubmitRegister);
+        if (cancelRegisterButton != null) cancelRegisterButton.onClick.AddListener(() => registerPopup.SetActive(false));
+    }
+
+    private static void HideSceneTemplate(GameObject template) {
+        if (template != null && template.scene.IsValid()) template.SetActive(false);
+    }
+
+    private void OnEnable() {
+        if (EventNetworkManager.Instance != null) {
+            EventNetworkManager.Instance.OnEventDetailUpdated += OnDetail;
+            EventNetworkManager.Instance.OnVenueRoomsUpdated += OnRooms;
+            EventNetworkManager.Instance.OnReadyPlayersUpdated += OnReadyPlayers;
+            EventNetworkManager.Instance.OnEventRecordsUpdated += OnRecords;
+        }
+    }
+
+    private void OnDisable() {
+        if (EventNetworkManager.Instance != null) {
+            EventNetworkManager.Instance.OnEventDetailUpdated -= OnDetail;
+            EventNetworkManager.Instance.OnVenueRoomsUpdated -= OnRooms;
+            EventNetworkManager.Instance.OnReadyPlayersUpdated -= OnReadyPlayers;
+            EventNetworkManager.Instance.OnEventRecordsUpdated -= OnRecords;
+        }
+    }
+
+    public void Open(string eventId, string kind) {
+        _eventId = eventId;
+        _kind = string.IsNullOrEmpty(kind) ? "event" : kind;
+        ShowPage(Page.Home);
+        EventNetworkManager.Instance?.GetEventDetail(eventId);
+    }
+
+    public void OnSpectatorList(SpectatorInfo[] list) {
+        if (!isActiveAndEnabled || _page != Page.Spectate) return;
+        ClearSpawned(spectateContent);
+        if (list == null || list.Length == 0) {
+            AddEmptyRow(spectateContent, "暂无可观战对局");
+            return;
+        }
+        int count = 0;
+        foreach (var item in list) {
+            if (item == null) continue;
+            if (!string.IsNullOrEmpty(_eventId) && item.event_id != _eventId) continue;
+            count++;
+            var captured = item;
+            AddActionRow(spectateContent, $"{item.player1_name} / {item.player2_name} / {item.player3_name} / {item.player4_name}", "观战", () => {
+                GameStateNetworkManager.Instance.AddSpectator(captured.gamestate_id);
+            });
+        }
+        if (count == 0) AddEmptyRow(spectateContent, "暂无可观战对局");
+    }
+
+    private void OnDetail() {
+        _detail = EventNetworkManager.Instance != null ? EventNetworkManager.Instance.CurrentDetail : null;
+        ApplyHome();
+        if (adminBar != null) adminBar.SetActive(_detail != null && _detail.is_admin);
+        if (_page == Page.Rooms && _detail != null && _detail.is_admin) {
+            EventNetworkManager.Instance.ListReadyPlayers(_eventId);
+        }
+    }
+
+    private void OnRooms() {
+        if (_page != Page.Rooms) return;
+        RenderRooms();
+    }
+
+    private void OnReadyPlayers() {
+        if (_page != Page.Rooms) return;
+        RenderReady();
+    }
+
+    private void OnRecords() {
+        if (_page != Page.Records) return;
+        RenderRecords();
+    }
+
+    private void ApplyHome() {
+        bool isBase = (_detail != null ? _detail.kind : _kind) == "base";
+        string name = _detail != null ? (_detail.name ?? "") : "";
+        if (titleText != null) titleText.text = name;
+        if (pageTitle != null) pageTitle.text = string.IsNullOrEmpty(name) ? (isBase ? "基地详情" : "赛事详情") : name;
+        if (descText != null) descText.text = _detail != null && !string.IsNullOrEmpty(_detail.description) ? _detail.description : "暂无介绍";
+        if (statusText != null) {
+            string status = _detail != null ? StatusLabel(_detail.status) : "";
+            string mine = RegistrationLabel(_detail);
+            string ready = _detail != null && _detail.is_ready ? "准备中" : "";
+            statusText.text = $"{status}\n{mine}{(string.IsNullOrEmpty(ready) ? "" : "\n" + ready)}";
+        }
+        if (announceText != null) {
+            if (_detail == null || _detail.announcements == null || _detail.announcements.Length == 0) {
+                announceText.text = "暂无公告";
+            } else {
+                var lines = new List<string>();
+                foreach (var a in _detail.announcements) {
+                    if (a == null) continue;
+                    lines.Add($"【{a.title}】\n{a.body}");
+                }
+                announceText.text = lines.Count > 0 ? string.Join("\n\n", lines) : "暂无公告";
+            }
+        }
+        if (registerLabel != null) {
+            registerLabel.text = isBase ? "申请加入基地" : "报名比赛";
+            var reg = _detail != null ? _detail.registration : null;
+            if (reg != null && (reg.status == "pending" || reg.status == "approved")) {
+                registerLabel.text = "取消报名";
+            }
+        }
+        if (readyLabel != null) {
+            readyLabel.text = _detail != null && _detail.is_ready ? "取消准备" : "加入准备";
+        }
+        if (registerButton != null) registerButton.interactable = true;
+        if (readyButton != null) readyButton.interactable = true;
+    }
+
+    private static string StatusLabel(string status) {
+        switch (status) {
+            case "active": return "状态：进行中";
+            case "registered": return "状态：已注册未开启";
+            case "closed": return "状态：已关闭";
+            default: return string.IsNullOrEmpty(status) ? "" : "状态：" + status;
+        }
+    }
+
+    private static string RegistrationLabel(EventDetailInfo detail) {
+        if (detail == null || detail.registration == null) return "报名：未报名";
+        switch (detail.registration.status) {
+            case "pending": return "报名：待审核";
+            case "approved": return "报名：已通过";
+            case "rejected": return "报名：未通过";
+            case "cancelled": return "报名：已取消";
+            default: return "报名：" + detail.registration.status;
+        }
+    }
+
+    private void ShowPage(Page page) {
+        _page = page;
+        if (homePage != null) homePage.SetActive(page == Page.Home);
+        if (roomsPage != null) roomsPage.SetActive(page == Page.Rooms);
+        if (spectatePage != null) spectatePage.SetActive(page == Page.Spectate);
+        if (recordsPage != null) recordsPage.SetActive(page == Page.Records);
+        SetNav(homeNavImage, page == Page.Home);
+        SetNav(roomsNavImage, page == Page.Rooms);
+        SetNav(spectateNavImage, page == Page.Spectate);
+        SetNav(recordsNavImage, page == Page.Records);
+        if (page == Page.Rooms) {
+            EventNetworkManager.Instance?.ListVenueRooms(_eventId);
+            if (_detail != null && _detail.is_admin) EventNetworkManager.Instance?.ListReadyPlayers(_eventId);
+        } else if (page == Page.Spectate) {
+            GameStateNetworkManager.Instance?.GetSpectatorList();
+        } else if (page == Page.Records) {
+            EventNetworkManager.Instance?.ListEventRecords(_eventId);
+        }
+    }
+
+    private static void SetNav(Image image, bool active) {
+        if (image != null) image.color = active ? NavActive : NavIdle;
+        if (image == null) return;
+        TMP_Text label = image.GetComponentInChildren<TMP_Text>(true);
+        if (label == null && image.transform.parent != null) {
+            label = image.transform.parent.GetComponentInChildren<TMP_Text>(true);
+        }
+        if (label != null) {
+            label.color = active ? new Color(0.12f, 0.06f, 0.02f, 1f) : Color.white;
+        }
+    }
+
+    private static bool IsLoggedIn() {
+        return UserDataManager.Instance != null && UserDataManager.Instance.UserId > 0 && !UserDataManager.Instance.IsTourist;
+    }
+
+    private void OnRegisterClicked() {
+        if (!IsLoggedIn()) {
+            NotificationManager.Instance.ShowTip("event", false, "请先登录后再报名");
+            return;
+        }
+        var reg = _detail != null ? _detail.registration : null;
+        if (reg != null && (reg.status == "pending" || reg.status == "approved")) {
+            EventNetworkManager.Instance.CancelRegister(_eventId);
+            return;
+        }
+        if (registerPopup != null) registerPopup.SetActive(true);
+    }
+
+    private void SubmitRegister() {
+        EventNetworkManager.Instance.Register(
+            _eventId,
+            contactInput != null ? contactInput.text : "",
+            remarkInput != null ? remarkInput.text : "",
+            joinCodeInput != null ? joinCodeInput.text : ""
+        );
+        if (registerPopup != null) registerPopup.SetActive(false);
+    }
+
+    private void OnReadyClicked() {
+        if (!IsLoggedIn()) {
+            NotificationManager.Instance.ShowTip("event", false, "请先登录后再加入准备");
+            return;
+        }
+        bool approved = _detail != null && _detail.registration != null && _detail.registration.status == "approved";
+        bool admin = _detail != null && _detail.is_admin;
+        if (!approved && !admin) {
+            NotificationManager.Instance.ShowTip("event", false, "报名通过后才能加入准备");
+            return;
+        }
+        if (_detail != null && _detail.is_ready) EventNetworkManager.Instance.Unready(_eventId);
+        else EventNetworkManager.Instance.Ready(_eventId);
+    }
+
+    private void RenderRooms() {
+        ClearSpawned(roomContent);
+        var rooms = EventNetworkManager.Instance != null ? EventNetworkManager.Instance.VenueRooms : null;
+        if (rooms == null || rooms.Length == 0) {
+            AddEmptyRow(roomContent, "暂无房间");
+            return;
+        }
+        GameObject prefab = roomItemPrefab;
+        if (prefab == null && RoomListPanel.Instance != null) prefab = RoomListPanel.Instance.RoomItemPrefab;
+        foreach (var room in rooms) {
+            if (room == null) continue;
+            if (prefab != null) {
+                var go = Instantiate(prefab, roomContent);
+                go.SetActive(true);
+                go.transform.localScale = Vector3.one * ItemScale;
+                var item = go.GetComponent<RoomItem>();
+                if (item != null) item.SetRoomInfo(room);
+            } else {
+                var captured = room;
+                AddActionRow(roomContent, $"{captured.room_name}  {captured.room_id}", "加入", () => {
+                    JoinRoom(captured.room_id, captured.has_password);
+                });
+            }
+        }
+    }
+
+    private static void JoinRoom(string roomId, bool needPassword) {
+        if (RoomListPanel.Instance != null) {
+            RoomListPanel.Instance.JoinClicked(roomId, needPassword);
+            return;
+        }
+        if (needPassword) {
+            NotificationManager.Instance.ShowTip("join_room", false, "该房间需要密码，请从房间页加入");
+            return;
+        }
+        RoomNetworkManager.Instance.JoinRoom(roomId, "");
+    }
+
+    private void RenderReady() {
+        ClearSpawned(readyContent);
+        _selectedReady.Clear();
+        var list = EventNetworkManager.Instance != null ? EventNetworkManager.Instance.ReadyPlayers : null;
+        if (list == null || list.Length == 0) {
+            AddEmptyRow(readyContent, "准备池为空");
+            return;
+        }
+        foreach (var p in list) {
+            if (p == null) continue;
+            AddReadyRow(p);
+        }
+    }
+
+    private void RenderRecords() {
+        ClearSpawned(recordContent);
+        var list = EventNetworkManager.Instance != null ? EventNetworkManager.Instance.EventRecords : null;
+        if (list == null || list.Length == 0) {
+            AddEmptyRow(recordContent, "暂无牌谱");
+            return;
+        }
+        foreach (var rec in list) {
+            if (rec == null) continue;
+            if (recordItemPrefab != null) {
+                var go = Instantiate(recordItemPrefab, recordContent);
+                go.SetActive(true);
+                go.transform.localScale = Vector3.one * ItemScale;
+                var layout = go.GetComponent<LayoutElement>() ?? go.AddComponent<LayoutElement>();
+                layout.minHeight = 182f;
+                layout.preferredHeight = 182f;
+                var item = go.GetComponent<RecordPrefab>() ?? go.GetComponentInChildren<RecordPrefab>(true);
+                if (item != null) {
+                    item.InitializeRecordItem(
+                        rec.game_id,
+                        rec.sub_rule ?? "",
+                        rec.match_type ?? "",
+                        rec.created_at,
+                        rec.players,
+                        rec.is_favorite
+                    );
+                }
+            } else {
+                string captured = rec.game_id;
+                AddActionRow(recordContent, rec.game_id, "查看", () => {
+                    DataNetworkManager.Instance.GetRecordById(captured);
+                });
+            }
+        }
+        if (recordContent is RectTransform rt) {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
+        }
+    }
+
+    private void CreateEmptyRoom() {
+        if (_detail == null || !_detail.is_admin) {
+            NotificationManager.Instance.ShowTip("event", false, "仅管理员可以创建空房");
+            return;
+        }
+        EventNetworkManager.Instance.CreateEmptyRoom(_eventId, "guobiao", _detail != null ? _detail.name : "");
+    }
+
+    private void SeatSelected() {
+        if (_selectedReady.Count != 4) {
+            NotificationManager.Instance.ShowTip("event", false, "请恰好选择 4 名准备中的玩家");
+            return;
+        }
+        EventNetworkManager.Instance.SeatTable(_eventId, _selectedReady.ToArray(), "guobiao");
+    }
+
+    private void AddEmptyRow(Transform parent, string text) {
+        if (parent == null || emptyRowTemplate == null) return;
+        var go = Instantiate(emptyRowTemplate, parent);
+        go.SetActive(true);
+        var label = go.GetComponentInChildren<TMP_Text>(true);
+        if (label != null) label.text = text;
+    }
+
+    private void AddActionRow(Transform parent, string text, string action, UnityEngine.Events.UnityAction onClick) {
+        if (parent == null || actionRowTemplate == null) return;
+        var go = Instantiate(actionRowTemplate, parent);
+        go.SetActive(true);
+        var label = go.transform.Find("Label")?.GetComponent<TMP_Text>();
+        if (label == null) label = go.GetComponentInChildren<TMP_Text>(true);
+        if (label != null) label.text = text;
+        var btn = go.transform.Find("Act")?.GetComponent<Button>() ?? go.GetComponentInChildren<Button>(true);
+        var btnLabel = btn != null ? btn.GetComponentInChildren<TMP_Text>(true) : null;
+        if (btnLabel != null) btnLabel.text = action;
+        if (btn != null) {
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(onClick);
+        }
+    }
+
+    private void AddReadyRow(EventReadyPlayer player) {
+        if (readyContent == null || readyRowTemplate == null) return;
+        var go = Instantiate(readyRowTemplate, readyContent);
+        go.SetActive(true);
+        var label = go.GetComponentInChildren<TMP_Text>(true);
+        if (label != null) label.text = $"{player.username} ({player.user_id})";
+        var toggle = go.GetComponent<Toggle>() ?? go.GetComponentInChildren<Toggle>(true);
+        if (toggle == null) return;
+        int uid = player.user_id;
+        toggle.isOn = false;
+        toggle.onValueChanged.RemoveAllListeners();
+        toggle.onValueChanged.AddListener(on => {
+            if (on) {
+                if (!_selectedReady.Contains(uid)) _selectedReady.Add(uid);
+            } else {
+                _selectedReady.Remove(uid);
+            }
+        });
+    }
+
+    private static void ClearSpawned(Transform parent) {
+        if (parent == null) return;
+        for (int i = parent.childCount - 1; i >= 0; i--) {
+            Destroy(parent.GetChild(i).gameObject);
+        }
+    }
+}

@@ -32,6 +32,7 @@ public class MahjongObjectPool : MonoBehaviour {
     private Dictionary<int, Queue<GameObject>> poolDictionary;
     private Dictionary<int, Sprite> spriteCache = new Dictionary<int, Sprite>();
     private Dictionary<int, Material> hongqueMaterialCache = new Dictionary<int, Material>();
+    private Dictionary<int, Material> customStandardMaterialCache = new Dictionary<int, Material>();
 
     private void Awake() {
         if (Instance == null) {
@@ -343,16 +344,7 @@ public class MahjongObjectPool : MonoBehaviour {
                 return;
             }
             if (!hongqueMaterialCache.TryGetValue(tileId, out Material material)) {
-                Renderer renderer = cardObj.GetComponent<Renderer>() ?? cardObj.GetComponentInChildren<Renderer>();
-                Material template = null;
-                if (renderer != null) {
-                    foreach (Material candidate in renderer.sharedMaterials) {
-                        if (candidate != null && candidate.shader != null && candidate.shader.name == "Custom/ThreeDTiles") {
-                            template = candidate;
-                            break;
-                        }
-                    }
-                }
+                Material template = FindTileMaterialTemplate(cardObj);
                 if (template == null) return;
                 material = new Material(template) { name = $"Hongque_{HongqueTileVisual.ToCode(tileId)}" };
                 material.SetTexture("_FrontTex", texture);
@@ -361,6 +353,21 @@ public class MahjongObjectPool : MonoBehaviour {
             tile3D.SetStandaloneCardTexture(tileId, texture, material);
             return;
         }
+
+        Texture2D customTexture = TileFaceResolver.LoadTableTexture(tileId);
+        if (customTexture != null) {
+            if (!customStandardMaterialCache.TryGetValue(tileId, out Material customMaterial)) {
+                Material template = FindTileMaterialTemplate(cardObj);
+                if (template == null) return;
+                customMaterial = new Material(template) { name = $"CustomFace_{tileId}" };
+                customStandardMaterialCache[tileId] = customMaterial;
+            }
+            customMaterial.SetTexture("_FrontTex", customTexture);
+            tile3D.SetStandaloneCardTextureContain(tileId, customTexture, customMaterial);
+            return;
+        }
+
+        tile3D.RestoreAtlasMaterial();
         if (spriteCache.TryGetValue(tileId, out Sprite cachedSprite)) {
             tile3D.SetCardSprite(tileId, cachedSprite, CARD_FACE_VERTICAL_STRETCH);
         }
@@ -368,5 +375,53 @@ public class MahjongObjectPool : MonoBehaviour {
             && spriteCache.TryGetValue(BlankPoolTileId, out Sprite blankSprite)) {
             tile3D.SetCardSprite(tileId, blankSprite, CARD_FACE_VERTICAL_STRETCH);
         }
+    }
+
+    /// <summary>自定义标准牌面变更后，刷新池内与场上非虹雀 3D 牌。</summary>
+    public void RefreshCustomStandardFaces() {
+        Dictionary<int, Material> previous = customStandardMaterialCache;
+        customStandardMaterialCache = new Dictionary<int, Material>();
+        ForEachPooledTile(tile => {
+            if (tile == null) return;
+            Tile3D pooled = tile.GetComponent<Tile3D>();
+            int poolId = pooled != null ? pooled.GetPoolTileId() : -1;
+            if (poolId > 0 && !HongqueTileVisual.IsHongqueId(poolId)) {
+                ApplyCardTexture(tile, poolId);
+            }
+        });
+        Tile3D[] active = Object.FindObjectsByType<Tile3D>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        for (int i = 0; i < active.Length; i++) {
+            Tile3D activeTile = active[i];
+            if (activeTile == null) continue;
+            int poolId = activeTile.GetPoolTileId();
+            if (poolId > 0 && !HongqueTileVisual.IsHongqueId(poolId)) {
+                ApplyCardTexture(activeTile.gameObject, poolId);
+            }
+        }
+        foreach (var pair in previous) {
+            if (pair.Value != null && !customStandardMaterialCache.ContainsValue(pair.Value)) {
+                Object.Destroy(pair.Value);
+            }
+        }
+    }
+
+    private static Material FindTileMaterialTemplate(GameObject cardObj) {
+        Renderer renderer = cardObj.GetComponent<Renderer>() ?? cardObj.GetComponentInChildren<Renderer>();
+        if (renderer == null) {
+            return Resources.Load<Material>(CardBackManager.MaterialResourcePath);
+        }
+        foreach (Material candidate in renderer.sharedMaterials) {
+            if (candidate != null && candidate.shader != null && candidate.shader.name == "Custom/ThreeDTiles"
+                && !candidate.name.StartsWith("Hongque_")
+                && !candidate.name.StartsWith("CustomFace_")) {
+                return candidate;
+            }
+        }
+        foreach (Material candidate in renderer.sharedMaterials) {
+            if (candidate != null && candidate.shader != null && candidate.shader.name == "Custom/ThreeDTiles") {
+                return candidate;
+            }
+        }
+        return Resources.Load<Material>(CardBackManager.MaterialResourcePath);
     }
 }

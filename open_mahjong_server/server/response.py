@@ -392,6 +392,7 @@ class SpectatorInfo(BaseModel):
     player3_name: str  # 玩家3 用户名
     player4_name: str  # 玩家4 用户名
     gamestate_id: str  # 游戏状态ID
+    event_id: Optional[str] = None
 
 class FriendInfo(BaseModel):
     """好友/关注信息"""
@@ -490,3 +491,9 @@ class Response(BaseModel):
     vote_info: Optional[Dict] = None
     # 赛事：当前用户可管理的 active 赛事列表 [{event_id, name, status, role}, ...]
     event_list: Optional[List[Dict]] = None
+    event_detail: Optional[Dict] = None
+    ready_players: Optional[List[Dict]] = None
+    registration_list: Optional[List[Dict]] = None
+    # 匹配：当前连接玩家所在队列 / 是否已匹配成功（对局尚未结束）
+    my_queue: Optional[str] = None
+    match_committed: Optional[bool] = None

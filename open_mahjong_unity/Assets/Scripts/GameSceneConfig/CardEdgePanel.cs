@@ -2,11 +2,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-/// <summary>
-/// 牌边设置面板（独立于牌背面板）：负责正面边缘颜色与背面边缘颜色。
-/// 场景里已画好的控件按名字自动挂接；Inspector 拖拽引用优先。
-/// 背面边缘颜色三选一：独立 / 跟随牌背 / 跟随正面边缘，选中项显示橙色，模式持久化保存。
-/// </summary>
+/// <summary>正面/背面边缘颜色。引用由场景写入，运行时只改颜色和模式。</summary>
 public class CardEdgePanel : MonoBehaviour
 {
     public static CardEdgePanel Instance { get; private set; }
@@ -39,28 +35,26 @@ public class CardEdgePanel : MonoBehaviour
     private static readonly Color SelectedColor = new Color(1f, 0.55f, 0f, 1f); // 橙色
     private static readonly Color UnselectedColor = new Color(0.2f, 0.24f, 0.32f, 1f);
 
-    [Header("正面边缘（拖拽挂接，留空按名字自动查找）")]
     [SerializeField] private Image sidePreview;
     [SerializeField] private TMP_InputField sideHexInput;
     [SerializeField] private Button sideHexApplyButton;
-
-    [Header("背面边缘模式（三选一 Toggle，选中橙色）")]
     [SerializeField] private Toggle backEdgeModeIndependent;
     [SerializeField] private Toggle backEdgeModeFollowBack;
     [SerializeField] private Toggle backEdgeModeFollowFront;
-
-    [Header("背面边缘")]
+    [SerializeField] private Toggle backTexExtendEdgeToggle;
     [SerializeField] private Image backSidePreview;
     [SerializeField] private TMP_InputField backEdgeHexInput;
     [SerializeField] private Button backEdgeHexApplyButton;
     [SerializeField] private Button restoreFrontEdgeButton;
     [SerializeField] private Button restoreBackEdgeButton;
+    [SerializeField] private CanvasGroup backEdgeSectionGroup;
+    [SerializeField] private Button[] sideSwatches;
+    [SerializeField] private Button[] backEdgeSwatches;
 
     private Color currentSideColor = ConfigManager.DefaultSideColor;
     private Color currentBackEdgeColor = ConfigManager.DefaultBackEdgeColor;
     private BackEdgeMode currentBackEdgeMode = BackEdgeMode.FollowBack;
     private bool syncing;
-    private bool wired;
 
     private void Awake()
     {
@@ -70,55 +64,36 @@ public class CardEdgePanel : MonoBehaviour
             return;
         }
         Instance = this;
-        AutoWire();
+        BindUi();
     }
 
-    private void AutoWire()
+    private void BindUi()
     {
-        if (wired) return;
-        wired = true;
-
-        if (sidePreview == null) sidePreview = FindInChildren<Image>(transform, "SidePreview");
-        if (sideHexInput == null) sideHexInput = FindInChildren<TMP_InputField>(transform, "SideHexInput");
-        if (sideHexApplyButton == null) sideHexApplyButton = FindInChildren<Button>(transform, "SideHexApply");
-        if (backEdgeModeIndependent == null) backEdgeModeIndependent = FindInChildren<Toggle>(transform, "BackEdgeModeIndependent");
-        if (backEdgeModeFollowBack == null) backEdgeModeFollowBack = FindInChildren<Toggle>(transform, "BackEdgeModeFollowBack");
-        if (backEdgeModeFollowFront == null) backEdgeModeFollowFront = FindInChildren<Toggle>(transform, "BackEdgeModeFollowFront");
-        if (backSidePreview == null) backSidePreview = FindInChildren<Image>(transform, "BackSidePreview");
-        if (backEdgeHexInput == null) backEdgeHexInput = FindInChildren<TMP_InputField>(transform, "BackEdgeHexInput");
-        if (backEdgeHexApplyButton == null) backEdgeHexApplyButton = FindInChildren<Button>(transform, "BackEdgeHexApply");
-        if (restoreFrontEdgeButton == null)
-            restoreFrontEdgeButton = FindInChildren<Button>(transform, "RestoreFrontEdgeButton");
-        if (restoreBackEdgeButton == null)
-            restoreBackEdgeButton = FindInChildren<Button>(transform, "RestoreBackEdgeButton");
-
-        if (sideHexApplyButton != null) sideHexApplyButton.onClick.AddListener(ApplySideHex);
-        if (backEdgeHexApplyButton != null) backEdgeHexApplyButton.onClick.AddListener(ApplyBackEdgeHex);
-        if (restoreFrontEdgeButton != null) restoreFrontEdgeButton.onClick.AddListener(RestoreFrontEdgeDefault);
-        if (restoreBackEdgeButton != null) restoreBackEdgeButton.onClick.AddListener(RestoreBackEdgeDefault);
-        if (backEdgeModeIndependent != null) backEdgeModeIndependent.onValueChanged.AddListener(on => { if (on) SetBackEdgeMode(BackEdgeMode.Independent); });
-        if (backEdgeModeFollowBack != null) backEdgeModeFollowBack.onValueChanged.AddListener(on => { if (on) SetBackEdgeMode(BackEdgeMode.FollowBack); });
-        if (backEdgeModeFollowFront != null) backEdgeModeFollowFront.onValueChanged.AddListener(on => { if (on) SetBackEdgeMode(BackEdgeMode.FollowFront); });
-
-        for (int i = 0; i < PresetColors.Length; i++)
-        {
-            Button sideSwatch = FindInChildren<Button>(transform, "SideSwatch" + i);
-            if (sideSwatch != null)
-            {
-                Color c = PresetColors[i];
-                sideSwatch.onClick.AddListener(() => SetSideColor(c));
-            }
-
-            Button backEdgeSwatch = FindInChildren<Button>(transform, "BackEdgeSwatch" + i);
-            if (backEdgeSwatch != null)
-            {
-                Color c = PresetColors[i];
-                backEdgeSwatch.onClick.AddListener(() => SetBackEdgeColor(c));
-            }
+        sideHexApplyButton.onClick.AddListener(ApplySideHex);
+        backEdgeHexApplyButton.onClick.AddListener(ApplyBackEdgeHex);
+        restoreFrontEdgeButton.onClick.AddListener(RestoreFrontEdgeDefault);
+        restoreBackEdgeButton.onClick.AddListener(RestoreBackEdgeDefault);
+        backEdgeModeIndependent.onValueChanged.AddListener(on => { if (on) SetBackEdgeMode(BackEdgeMode.Independent); });
+        backEdgeModeFollowBack.onValueChanged.AddListener(on => { if (on) SetBackEdgeMode(BackEdgeMode.FollowBack); });
+        backEdgeModeFollowFront.onValueChanged.AddListener(on => { if (on) SetBackEdgeMode(BackEdgeMode.FollowFront); });
+        EnsureBackTexExtendEdgeToggle();
+        if (backTexExtendEdgeToggle != null) {
+            backTexExtendEdgeToggle.onValueChanged.AddListener(OnBackTexExtendEdgeChanged);
         }
-
+        BindSwatches(sideSwatches, SetSideColor);
+        BindSwatches(backEdgeSwatches, SetBackEdgeColor);
         LoadSavedIntoUI();
         ApplyBackEdgeInteractable();
+    }
+
+    private static void BindSwatches(Button[] buttons, System.Action<Color> apply)
+    {
+        int n = buttons != null ? Mathf.Min(buttons.Length, PresetColors.Length) : 0;
+        for (int i = 0; i < n; i++)
+        {
+            Color c = PresetColors[i];
+            buttons[i].onClick.AddListener(() => apply(c));
+        }
     }
 
     /// <summary>把正面边缘颜色还原为初始默认值。</summary>
@@ -176,6 +151,9 @@ public class CardEdgePanel : MonoBehaviour
         if (backEdgeModeIndependent != null) backEdgeModeIndependent.isOn = currentBackEdgeMode == BackEdgeMode.Independent;
         if (backEdgeModeFollowBack != null) backEdgeModeFollowBack.isOn = currentBackEdgeMode == BackEdgeMode.FollowBack;
         if (backEdgeModeFollowFront != null) backEdgeModeFollowFront.isOn = currentBackEdgeMode == BackEdgeMode.FollowFront;
+        if (backTexExtendEdgeToggle != null) {
+            backTexExtendEdgeToggle.isOn = ConfigManager.Instance != null && ConfigManager.Instance.BackTexExtendEdge;
+        }
         syncing = false;
 
         UpdateModeToggleColors();
@@ -266,17 +244,11 @@ public class CardEdgePanel : MonoBehaviour
         if (backEdgeHexInput != null) backEdgeHexInput.interactable = editable;
         if (backEdgeHexApplyButton != null) backEdgeHexApplyButton.interactable = editable;
 
-        Transform section = transform.Find("BackEdgeSection");
-        if (section != null)
+        if (backEdgeSectionGroup != null)
         {
-            CanvasGroup group = section.GetComponent<CanvasGroup>();
-            if (group == null)
-            {
-                group = section.gameObject.AddComponent<CanvasGroup>();
-            }
-            group.interactable = true;
-            group.blocksRaycasts = true;
-            group.alpha = editable ? 1f : 0.55f;
+            backEdgeSectionGroup.interactable = true;
+            backEdgeSectionGroup.blocksRaycasts = true;
+            backEdgeSectionGroup.alpha = editable ? 1f : 0.55f;
         }
     }
 
@@ -286,6 +258,71 @@ public class CardEdgePanel : MonoBehaviour
         SetToggleColor(backEdgeModeIndependent, currentBackEdgeMode == BackEdgeMode.Independent);
         SetToggleColor(backEdgeModeFollowBack, currentBackEdgeMode == BackEdgeMode.FollowBack);
         SetToggleColor(backEdgeModeFollowFront, currentBackEdgeMode == BackEdgeMode.FollowFront);
+        SetToggleColor(backTexExtendEdgeToggle, backTexExtendEdgeToggle != null && backTexExtendEdgeToggle.isOn);
+    }
+
+    private void OnBackTexExtendEdgeChanged(bool enabled)
+    {
+        if (syncing) return;
+        if (ConfigManager.Instance != null)
+        {
+            ConfigManager.Instance.SetBackTexExtendEdge(enabled);
+        }
+        CardBackManager.ApplyBackTexExtendEdge(enabled);
+        UpdateModeToggleColors();
+        ShowTip(enabled ? "牌背图片将延伸到背部边缘" : "牌背图片仅覆盖牌背大面");
+    }
+
+    private void EnsureBackTexExtendEdgeToggle()
+    {
+        if (backTexExtendEdgeToggle != null) return;
+        Toggle template = backEdgeModeFollowFront != null ? backEdgeModeFollowFront
+            : (backEdgeModeFollowBack != null ? backEdgeModeFollowBack : backEdgeModeIndependent);
+        if (template == null) return;
+
+        Transform parent = template.transform.parent;
+        Transform existing = parent != null ? parent.Find("BackTexExtendEdge") : null;
+        if (existing != null)
+        {
+            backTexExtendEdgeToggle = existing.GetComponent<Toggle>();
+            return;
+        }
+
+        GameObject clone = Object.Instantiate(template.gameObject, parent, false);
+        clone.name = "BackTexExtendEdge";
+        RectTransform rt = clone.GetComponent<RectTransform>();
+        if (rt != null)
+        {
+            RectTransform independentRt = backEdgeModeIndependent != null
+                ? backEdgeModeIndependent.GetComponent<RectTransform>() : null;
+            RectTransform followFrontRt = backEdgeModeFollowFront != null
+                ? backEdgeModeFollowFront.GetComponent<RectTransform>() : null;
+            float left = independentRt != null
+                ? independentRt.anchoredPosition.x - independentRt.sizeDelta.x * 0.5f
+                : template.GetComponent<RectTransform>().anchoredPosition.x - 160f;
+            float right = followFrontRt != null
+                ? followFrontRt.anchoredPosition.x + followFrontRt.sizeDelta.x * 0.5f
+                : template.GetComponent<RectTransform>().anchoredPosition.x + 160f;
+            float width = Mathf.Max(150f, right - left);
+            rt.anchoredPosition = new Vector2((left + right) * 0.5f, template.GetComponent<RectTransform>().anchoredPosition.y - 54f);
+            rt.sizeDelta = new Vector2(width, template.GetComponent<RectTransform>().sizeDelta.y);
+        }
+
+        TMP_Text label = clone.GetComponentInChildren<TMP_Text>(true);
+        if (label != null)
+        {
+            label.text = "牌背图片延伸牌背边缘";
+            label.enableWordWrapping = false;
+            label.overflowMode = TextOverflowModes.Overflow;
+        }
+
+        backTexExtendEdgeToggle = clone.GetComponent<Toggle>();
+        if (backTexExtendEdgeToggle != null)
+        {
+            backTexExtendEdgeToggle.onValueChanged.RemoveAllListeners();
+            backTexExtendEdgeToggle.group = null;
+            backTexExtendEdgeToggle.isOn = false;
+        }
     }
 
     private static void SetToggleColor(Toggle toggle, bool selected)
@@ -350,20 +387,4 @@ public class CardEdgePanel : MonoBehaviour
         ShowTip("侧面贴图已应用");
     }
 #endif
-
-    private static T FindInChildren<T>(Transform root, string name) where T : Component
-    {
-        if (root == null) return null;
-        foreach (Transform child in root)
-        {
-            if (child.name == name)
-            {
-                T comp = child.GetComponent<T>();
-                if (comp != null) return comp;
-            }
-            T nested = FindInChildren<T>(child, name);
-            if (nested != null) return nested;
-        }
-        return null;
-    }
 }

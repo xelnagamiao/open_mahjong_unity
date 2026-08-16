@@ -91,7 +91,10 @@ public class MatchButton : MonoBehaviour {
             NotificationManager.Instance.ShowTip("匹配", false, "游客无法进行排位匹配，请先注册账号");
             return;
         }
-        if (mask != null && mask.activeSelf) return;
+        if (mask != null && mask.activeSelf) {
+            NotificationManager.Instance.ShowTip("匹配", false, "当前段位无法加入该队列");
+            return;
+        }
         Debug.Log($"[MatchButton] 点击匹配按钮，queueType={QueueType}");
         MatchNetworkManager.Instance.SendJoinQueue(QueueType);
     }

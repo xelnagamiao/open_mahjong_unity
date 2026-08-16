@@ -5,22 +5,47 @@
     </p>
 
     <section class="section-card">
-      <h3 class="section-title">天梯场次历史总计</h3>
-      <div v-loading="loading">
-        <el-tabs v-model="totalsTierTab" class="totals-tabs">
-          <el-tab-pane
-            v-for="t in TOTALS_TIER_OPTIONS"
-            :key="t.value"
-            :label="t.label"
-            :name="t.value"
+      <div class="totals-toolbar">
+        <h3 class="section-title">{{ totalsTitle }}</h3>
+        <div class="tier-bar">
+          <el-radio-group
+            class="tier-group"
+            :model-value="selectedEventId ? '' : totalsTierTab"
+            @change="onTierClick"
           >
+            <el-radio-button
+              v-for="t in TOTALS_TIER_OPTIONS"
+              :key="t.value"
+              :value="t.value"
+            >{{ t.label }}</el-radio-button>
+          </el-radio-group>
+          <el-select
+            v-model="selectedEventId"
+            clearable
+            filterable
+            placeholder="阅览比赛"
+            class="event-select"
+            :class="{ 'is-active': !!selectedEventId }"
+            @change="onEventSelect"
+          >
+            <el-option value="all" label="全部比赛" />
+            <el-option
+              v-for="ev in eventOptions"
+              :key="ev.event_id"
+              :label="eventOptionLabel(ev)"
+              :value="ev.event_id"
+            />
+          </el-select>
+        </div>
+      </div>
+      <div v-loading="loading">
             <div v-if="activeTierTotals" class="stats-grid">
               <div v-for="row in buildPlatformStatsRows(activeTierTotals)" :key="row.label" class="stats-cell">
                 <span class="stats-label">{{ row.label }}</span>
                 <span class="stats-value">{{ row.value }}</span>
               </div>
             </div>
-            <p v-else class="empty-hint">暂无该场次累计数据</p>
+            <p v-else class="empty-hint">{{ selectedEventId ? '暂无该比赛累计数据' : '暂无该场次累计数据' }}</p>
             <el-collapse class="fan-collapse">
               <el-collapse-item name="fan">
                 <template #title>
@@ -67,14 +92,12 @@
                 <div v-show="fanView === 'bar'" ref="fanChartRef" class="fan-chart"></div>
               </el-collapse-item>
             </el-collapse>
-          </el-tab-pane>
-        </el-tabs>
       </div>
     </section>
 
     <section class="section-card">
       <div class="section-head">
-        <h3 class="section-title">天梯场次每日对局数</h3>
+        <h3 class="section-title">{{ dailyTitle }}</h3>
         <div class="filter-row">
           <el-date-picker
             v-model="dateRange"
@@ -98,11 +121,11 @@
       <el-table :data="dailyTable" size="small" empty-text="暂无数据" max-height="360" class="detail-table">
         <el-table-column label="日期" prop="stat_date" width="120" />
         <el-table-column
-          v-for="t in TIER_OPTIONS"
+          v-for="t in dailyColumnOptions"
           :key="t.value"
           :label="t.label"
           :prop="t.value"
-          width="100"
+          min-width="100"
         />
       </el-table>
     </section>
@@ -110,7 +133,7 @@
     <section class="section-card">
       <div class="section-head">
         <h3 class="section-title">最近对局牌谱</h3>
-        <span class="records-hint">{{ TIER_LABEL[totalsTierTab] }} · 共 {{ recentTotal }} 局</span>
+        <span class="records-hint">{{ recordsHint }} · 共 {{ recentTotal }} 局</span>
       </div>
       <el-table
         :data="recentRecords"
@@ -227,13 +250,8 @@ const fanSort = ref('count')
 const fanChartRef = ref(null)
 let fanChart = null
 
-/** 番种柱状图容器：同一模板在 5 个场次页签中各有一份，ref 是数组，取当前可见的那个 */
-const getFanChartEl = () => {
-  const v = fanChartRef.value
-  if (!v) return null
-  const list = Array.isArray(v) ? v : [v]
-  return list.find((el) => el && el.clientHeight > 0) || list[0] || null
-}
+/** 番种柱状图容器 */
+const getFanChartEl = () => fanChartRef.value
 
 const formatLocalDate = (d) => {
   const y = d.getFullYear()
@@ -256,6 +274,8 @@ const sceneTotals = ref([])
 const sceneTierFans = ref({})
 const sceneDaily = ref([])
 const totalsTierTab = ref('beginner')
+const selectedEventId = ref('')
+const eventOptions = ref([])
 const dateRange = ref(makeRange(30))
 const recentRecords = ref([])
 const recentTotal = ref(0)
@@ -264,7 +284,60 @@ const recordsPage = reactive({ current: 1, size: 20 })
 const sceneChartRef = ref(null)
 let sceneChart = null
 
+const eventLabelMap = computed(() => {
+  const m = { all: '全部比赛', total: '总计' }
+  for (const ev of eventOptions.value) {
+    m[ev.event_id] = ev.name
+  }
+  return m
+})
+
+const eventOptionLabel = (ev) => {
+  const status = ev.status === 'closed' ? '（已关闭）' : ev.status === 'registered' ? '（已注册）' : ''
+  const count = ev.game_count != null ? ` · ${ev.game_count}局` : ''
+  return `${ev.name}${status}${count}`
+}
+
+const selectedEventName = computed(() => {
+  if (!selectedEventId.value) return ''
+  if (selectedEventId.value === 'all') return '全部比赛'
+  return eventLabelMap.value[selectedEventId.value] || selectedEventId.value
+})
+
+const totalsTitle = computed(() =>
+  selectedEventId.value ? `${selectedEventName.value} 历史总计` : '天梯场次历史总计'
+)
+const dailyTitle = computed(() =>
+  selectedEventId.value ? `${selectedEventName.value} 每日对局数` : '天梯场次每日对局数'
+)
+const recordsHint = computed(() =>
+  selectedEventId.value ? selectedEventName.value : (TIER_LABEL[totalsTierTab.value] || '天梯')
+)
+
+const dailyColumnOptions = computed(() => {
+  if (!selectedEventId.value) return TIER_OPTIONS
+  if (selectedEventId.value === 'all') {
+    const fromDaily = [...new Set(sceneDaily.value.map((r) => r.match_tier).filter(Boolean))]
+    const fromEvents = eventOptions.value.filter((ev) => ev.game_count > 0).map((ev) => ev.event_id)
+    const ids = fromDaily.length ? fromDaily : fromEvents
+    return ids.map((id) => ({ value: id, label: eventLabelMap.value[id] || id }))
+  }
+  return [{ value: selectedEventId.value, label: selectedEventName.value }]
+})
+
+const dailyColumnLabel = computed(() => {
+  const m = { ...TIER_LABEL, ...eventLabelMap.value }
+  for (const col of dailyColumnOptions.value) m[col.value] = col.label
+  return m
+})
+
 const activeTierTotals = computed(() => {
+  if (selectedEventId.value) {
+    const row = sceneTotals.value.find((r) => r.match_tier === 'total')
+    if (row) return row
+    const rows = sceneTotals.value.filter((r) => r.match_tier && r.match_tier !== 'total')
+    return rows.length ? sumSceneTotals(rows) : null
+  }
   if (totalsTierTab.value === 'total') {
     const row = sceneTotals.value.find((r) => r.match_tier === 'total')
     if (row) return row
@@ -275,10 +348,13 @@ const activeTierTotals = computed(() => {
 })
 
 const tierFanEntries = computed(() => {
-  const fans = totalsTierTab.value === 'total'
+  const fans = selectedEventId.value
     ? (sceneTierFans.value.total
-      || sumTierFans(sceneTierFans.value, TIER_OPTIONS.map((t) => t.value)))
-    : sceneTierFans.value[totalsTierTab.value];
+      || sumTierFans(sceneTierFans.value, Object.keys(sceneTierFans.value).filter((k) => k !== 'total')))
+    : (totalsTierTab.value === 'total'
+      ? (sceneTierFans.value.total
+        || sumTierFans(sceneTierFans.value, TIER_OPTIONS.map((t) => t.value)))
+      : sceneTierFans.value[totalsTierTab.value]);
   const entries = buildAllFanEntries(
     fans,
     GUOBIAO_FAN_DICT,
@@ -297,7 +373,7 @@ const tierFanEntries = computed(() => {
 })
 
 const dailyTable = computed(() =>
-  buildSceneDailyTable(sceneDaily.value, TIER_OPTIONS, TIER_LABEL)
+  buildSceneDailyTable(sceneDaily.value, dailyColumnOptions.value, dailyColumnLabel.value)
 )
 
 const gameTypeLabel = (matchType) => {
@@ -307,7 +383,12 @@ const gameTypeLabel = (matchType) => {
 }
 
 const sceneLabel = (row) => {
-  if (row.match_tier) return TIER_LABEL[row.match_tier] || row.match_tier
+  if (row.room_type === 'events' || selectedEventId.value) {
+    if (row.event_name) return row.event_name
+    if (row.event_id) return eventLabelMap.value[row.event_id] || row.event_id
+    return '比赛场'
+  }
+  if (row.match_tier) return TIER_LABEL[row.match_tier] || eventLabelMap.value[row.match_tier] || row.match_tier
   if (row.room_type === 'match') return '天梯'
   return row.room_type || row.rule || '-'
 }
@@ -339,8 +420,10 @@ const downloadOne = (gameId) => {
 const renderSceneChart = () => {
   if (!sceneChartRef.value) return
   const opt = buildSceneDailyChartOption(sceneDaily.value, {
-    tierOptions: TIER_OPTIONS,
-    tierLabel: TIER_LABEL,
+    tierOptions: dailyColumnOptions.value,
+    tierLabel: dailyColumnLabel.value,
+    dateFrom: dateRange.value?.[0],
+    dateTo: dateRange.value?.[1],
   })
   if (!sceneChart) sceneChart = echarts.init(sceneChartRef.value)
   sceneChart.setOption(opt, true)
@@ -417,7 +500,9 @@ const loadRecentRecords = async () => {
     const offset = (recordsPage.current - 1) * recordsPage.size
     const res = await axios.get('/api/platform/recent-records', {
       params: {
-        ...(totalsTierTab.value === 'total' ? {} : { match_tier: totalsTierTab.value }),
+        ...(selectedEventId.value
+          ? { event_id: selectedEventId.value }
+          : (totalsTierTab.value === 'total' ? {} : { match_tier: totalsTierTab.value })),
         limit: recordsPage.size,
         offset,
       },
@@ -449,11 +534,13 @@ const loadStats = async () => {
     } else {
       params.days = 30
     }
+    if (selectedEventId.value) params.event_id = selectedEventId.value
     const res = await axios.get('/api/platform/stats', { params })
     const payload = res.data?.data || {}
     sceneTotals.value = payload.totals || []
     sceneTierFans.value = payload.fans || {}
     sceneDaily.value = payload.daily || []
+    eventOptions.value = payload.events || eventOptions.value
     meta.value = res.data?.meta || {}
     if (meta.value.as_of_date && dateRange.value?.[1] > meta.value.as_of_date) {
       dateRange.value = makeRange(30, meta.value.as_of_date)
@@ -475,10 +562,19 @@ watch([tierFanEntries, fanView, showFanPercent], () => nextTick(() => renderFanC
 watch(fanView, (v) => {
   if (v === 'bar') nextTick(() => renderFanChart())
 })
-watch(totalsTierTab, () => {
+const onTierClick = (tier) => {
+  totalsTierTab.value = tier
+  selectedEventId.value = ''
   recordsPage.current = 1
+  loadStats()
   loadRecentRecords()
-})
+}
+
+const onEventSelect = () => {
+  recordsPage.current = 1
+  loadStats()
+  loadRecentRecords()
+}
 
 onMounted(() => {
   loadStats()
@@ -523,6 +619,48 @@ onBeforeUnmount(() => {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
+}
+.totals-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.tier-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  border-bottom: 1px solid #dcdfe6;
+  padding-bottom: 8px;
+}
+.tier-group :deep(.el-radio-button__inner) {
+  height: 32px;
+  line-height: 30px;
+  padding: 0 16px;
+}
+.event-select {
+  width: 200px;
+  flex-shrink: 0;
+}
+.event-select :deep(.el-select__wrapper),
+.event-select :deep(.el-input__wrapper) {
+  min-height: 32px;
+  height: 32px;
+  box-shadow: 0 0 0 1px #dcdfe6 inset;
+}
+.event-select.is-active :deep(.el-select__wrapper),
+.event-select.is-active :deep(.el-input__wrapper) {
+  background: #409eff;
+  box-shadow: 0 0 0 1px #409eff inset;
+}
+.event-select.is-active :deep(.el-select__selected-item),
+.event-select.is-active :deep(.el-select__placeholder),
+.event-select.is-active :deep(.el-select__caret),
+.event-select.is-active :deep(.el-input__inner),
+.event-select.is-active :deep(.el-input__suffix) {
+  color: #fff;
 }
 .filter-row {
   display: flex;

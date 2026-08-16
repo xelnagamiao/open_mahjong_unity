@@ -1,0 +1,232 @@
+using System;
+using System.IO;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+/// <summary>
+/// 场景设置「牌面背景」页：手牌牌面背景与 2D 手牌牌背（里宝暗面）分开上传。
+/// </summary>
+public class CardFaceBackgroundPanel : MonoBehaviour {
+    public static CardFaceBackgroundPanel Instance { get; private set; }
+
+    public const string FormatHelp =
+        "手牌牌面背景：2D 牌体（含顶部牌沿），建议 272×389。\n"
+        + "手牌牌背：2D 暗面图样（里宝牌未翻开等），不是 3D 牌背。\n"
+        + "也可上传 zip：hand-back.png + hand-bg.png。\n"
+        + "3D 牌背颜色请到「牌背」页设置。\n"
+        + "透明花纹牌面请在「牌面」页打开「使用牌面背景」，整图牌面请关闭。";
+
+    private const string ImageAccept = "image/png,image/jpeg,image/jpg,image/webp,application/zip,.zip";
+
+    [SerializeField] private Image handBgPreview;
+    [SerializeField] private Image cardBackPreview;
+    [SerializeField] private Button uploadHandBgButton;
+    [SerializeField] private Button uploadCardBackButton;
+    [SerializeField] private Button uploadPairZipButton;
+    [SerializeField] private Button restoreHandBgButton;
+    [SerializeField] private Button clearCardBackButton;
+    [SerializeField] private Button closeButton;
+    [SerializeField] private TMP_Text statusText;
+    [SerializeField] private TMP_Text helpText;
+
+    private enum PickMode { HandBg, CardBack, Pair }
+
+    private PickMode pickMode = PickMode.Pair;
+    private Sprite handBgSprite;
+    private Sprite cardBackSprite;
+
+    private void Awake() {
+        Instance = this;
+        if (uploadHandBgButton != null) uploadHandBgButton.onClick.AddListener(() => OpenPicker(PickMode.HandBg));
+        if (uploadCardBackButton != null) uploadCardBackButton.onClick.AddListener(() => OpenPicker(PickMode.CardBack));
+        if (uploadPairZipButton != null) uploadPairZipButton.onClick.AddListener(() => OpenPicker(PickMode.Pair));
+        if (restoreHandBgButton != null) restoreHandBgButton.onClick.AddListener(RestoreHandBg);
+        if (clearCardBackButton != null) clearCardBackButton.onClick.AddListener(ClearCardBack);
+        if (closeButton != null) closeButton.onClick.AddListener(HidePanel);
+        if (helpText != null) helpText.text = FormatHelp;
+    }
+
+    private void OnEnable() {
+        RefreshPreviews();
+#if UNITY_WEBGL && !UNITY_EDITOR
+        UnityAssetIdb.BindDrop(UnityAssetIdb.KeyHandBg, OnWebGlBytes, err => {
+            if (!string.IsNullOrEmpty(err) && err != "empty") ShowTip(err);
+        });
+#endif
+    }
+
+    private void OnDisable() {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        UnityAssetIdb.UnbindDrop();
+#endif
+    }
+
+    public void ShowPanel() {
+        gameObject.SetActive(true);
+        RefreshPreviews();
+    }
+
+    public void HidePanel() {
+        gameObject.SetActive(false);
+    }
+
+    private void OpenPicker(PickMode mode) {
+        pickMode = mode;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        string key = mode == PickMode.CardBack ? UnityAssetIdb.KeyHandBack : UnityAssetIdb.KeyHandBg;
+        UnityAssetIdb.PickAndPut(key, ImageAccept, OnWebGlBytes, err => {
+            if (!string.IsNullOrEmpty(err) && err != "empty") ShowTip(err);
+        });
+#elif (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
+        NativeGallery.GetImageFromGallery(path => {
+            if (!string.IsNullOrEmpty(path)) ApplyLocalPath(path);
+        }, mode == PickMode.HandBg ? "选择手牌背景" : "选择手牌牌背", "image/*");
+#else
+        bool multi = mode == PickMode.Pair;
+        var extensions = new[] {
+            new SFB.ExtensionFilter("牌面背景", "zip", "png", "jpg", "jpeg", "webp", "bmp"),
+        };
+        string title = mode == PickMode.HandBg ? "选择手牌牌面背景"
+            : mode == PickMode.CardBack ? "选择手牌牌背"
+            : "选择手牌牌背与手牌背景（zip 或两张图）";
+        string[] paths = SFB.StandaloneFileBrowser.OpenFilePanel(title, "", extensions, multi);
+        if (paths == null || paths.Length == 0 || string.IsNullOrEmpty(paths[0])) return;
+        if (paths.Length >= 2) {
+            ApplyTwoFiles(paths[0], paths[1]);
+            return;
+        }
+        ApplyLocalPath(paths[0]);
+#endif
+    }
+
+    private void ApplyLocalPath(string path) {
+        if (string.IsNullOrEmpty(path) || !File.Exists(path)) {
+            ShowTip("文件不存在");
+            return;
+        }
+        try {
+            ApplyBytes(File.ReadAllBytes(path), Path.GetFileName(path));
+        }
+        catch (Exception e) {
+            ShowTip("读取失败: " + e.Message);
+        }
+    }
+
+    private void ApplyTwoFiles(string pathA, string pathB) {
+        string handPath = CardBackManager.IsHandBgFileName(pathA) ? pathA
+            : CardBackManager.IsHandBgFileName(pathB) ? pathB : pathB;
+        string backPath = CardBackManager.IsHandBackFileName(pathA) ? pathA
+            : CardBackManager.IsHandBackFileName(pathB) ? pathB : pathA;
+        if (handPath == backPath) {
+            handPath = pathB;
+            backPath = pathA;
+        }
+        try {
+            if (File.Exists(backPath)) CardBackManager.PersistHandBack(File.ReadAllBytes(backPath));
+            if (File.Exists(handPath)) CardBackManager.PersistHandBackground(File.ReadAllBytes(handPath));
+            SetStatus("手牌牌背与手牌背景已应用");
+            ShowTip("手牌牌背与手牌背景已应用");
+            RefreshPreviews();
+        }
+        catch (Exception e) {
+            ShowTip("保存失败: " + e.Message);
+        }
+    }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+    private void OnWebGlBytes(string key, byte[] bytes) {
+        ApplyBytes(bytes, key);
+    }
+#endif
+
+    private void ApplyBytes(byte[] bytes, string name) {
+        if (bytes == null || bytes.Length == 0) return;
+        if (CardBackManager.TryParseFaceBodyZip(bytes, out byte[] handBackPng, out byte[] handBgPng)) {
+            if (handBackPng != null) CardBackManager.PersistHandBack(handBackPng);
+            if (handBgPng != null) CardBackManager.PersistHandBackground(handBgPng);
+            SetStatus("已从 zip 应用牌体");
+            ShowTip("手牌牌背与手牌背景已应用");
+            RefreshPreviews();
+            return;
+        }
+        if (CardBackManager.IsZip(bytes)) {
+            ShowTip("压缩包需包含 hand-back.png 与 hand-bg.png");
+            return;
+        }
+        if (pickMode == PickMode.HandBg || CardBackManager.IsHandBgFileName(name)) {
+            CardBackManager.PersistHandBackground(bytes);
+            SetStatus("手牌牌面背景已应用");
+            ShowTip("手牌牌面背景已应用");
+        }
+        else {
+            CardBackManager.PersistHandBack(bytes);
+            SetStatus("手牌牌背已应用");
+            ShowTip("手牌牌背已应用");
+        }
+        RefreshPreviews();
+    }
+
+    private void RestoreHandBg() {
+        CardBackManager.ClearPersistedHandBackground();
+        SetStatus("已恢复默认手牌背景");
+        ShowTip("已恢复默认手牌背景");
+        RefreshPreviews();
+    }
+
+    private void ClearCardBack() {
+        CardBackManager.ClearPersistedHandBack();
+        SetStatus("已恢复默认手牌牌背");
+        ShowTip("已恢复默认手牌牌背");
+        RefreshPreviews();
+    }
+
+    private void RefreshPreviews() {
+        AssignPreview(handBgPreview, ref handBgSprite, ResolveHandBgTexture());
+        AssignPreview(cardBackPreview, ref cardBackSprite, ResolveHandBackTexture());
+        bool customBg = ConfigManager.Instance != null && ConfigManager.Instance.GetSelectedHandBackground().isCustom;
+        bool customBack = ConfigManager.Instance != null && ConfigManager.Instance.GetSelectedHandBack().isCustom;
+        SetStatus((customBg ? "手牌背景：已上传" : "手牌背景：默认")
+            + "　"
+            + (customBack ? "手牌牌背：已上传" : "手牌牌背：默认"));
+    }
+
+    private static Texture2D ResolveHandBgTexture() {
+        Texture2D custom = CardBackManager.LoadSavedHandBackground();
+        if (custom != null) return custom;
+        return TileFaceResolver.PeekHandBackgroundTexture();
+    }
+
+    private static Texture2D ResolveHandBackTexture() {
+        Texture2D custom = CardBackManager.LoadSavedHandBack();
+        if (custom != null) return custom;
+        return TileFaceResolver.PeekDefaultHandBackTexture();
+    }
+
+    private static void AssignPreview(Image image, ref Sprite sprite, Texture2D texture) {
+        if (image == null) return;
+        if (sprite != null) {
+            UnityEngine.Object.Destroy(sprite);
+            sprite = null;
+        }
+        if (texture == null) {
+            image.sprite = null;
+            image.color = new Color(0.18f, 0.20f, 0.24f, 1f);
+            return;
+        }
+        sprite = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f));
+        image.sprite = sprite;
+        image.color = Color.white;
+        image.preserveAspect = true;
+    }
+
+    private void SetStatus(string message) {
+        if (statusText != null) statusText.text = message ?? "";
+    }
+
+    private static void ShowTip(string message) {
+        if (NotificationManager.Instance != null) {
+            NotificationManager.Instance.ShowTip("设置", true, message);
+        }
+    }
+}
