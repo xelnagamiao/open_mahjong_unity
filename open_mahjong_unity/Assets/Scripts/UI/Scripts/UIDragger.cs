@@ -34,6 +34,8 @@ public class UIDragger : MonoBehaviour,
     private CanvasGroup canvasGroup;
     private UnityEngine.UI.LayoutGroup parentLayout;
     private bool parentLayoutWasEnabled;
+    private Vector2 lastScreenPos;
+    private bool hasLastScreenPos;
 
     private void Awake() {
         rect = GetComponent<RectTransform>();
@@ -62,6 +64,9 @@ public class UIDragger : MonoBehaviour,
         if (logDrag) {
             Debug.Log($"[UIDragger] BeginDrag on '{name}' pos={rect.anchoredPosition}");
         }
+
+        lastScreenPos = eventData.position;
+        hasLastScreenPos = true;
     }
 
     public void OnDrag(PointerEventData eventData) {
@@ -72,10 +77,20 @@ public class UIDragger : MonoBehaviour,
         RectTransform parentRect = rect.parent as RectTransform;
         if (parentRect == null) return;
 
-        Vector2 delta;
-        if (RectTransformUtility.ScreenDeltaToLocalPointInRectangle(
-                parentRect, eventData.delta, eventData.pressEventCamera, out delta)) {
-            rect.anchoredPosition += delta;
+        Vector2 currentScreenPos = eventData.position;
+        if (!hasLastScreenPos) {
+            lastScreenPos = currentScreenPos;
+            hasLastScreenPos = true;
+            return;
+        }
+
+        Vector2 screenDelta = currentScreenPos - lastScreenPos;
+        lastScreenPos = currentScreenPos;
+
+        Camera cam = eventData.pressEventCamera;
+        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(parentRect, currentScreenPos, cam, out Vector2 currentLocal) &&
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(parentRect, currentScreenPos - screenDelta, cam, out Vector2 prevLocal)) {
+            rect.anchoredPosition += currentLocal - prevLocal;
         }
 
         if (clampToParent) {
@@ -96,6 +111,8 @@ public class UIDragger : MonoBehaviour,
         if (logDrag) {
             Debug.Log($"[UIDragger] EndDrag on '{name}' pos={rect.anchoredPosition}");
         }
+
+        hasLastScreenPos = false;
     }
 
     private void ClampInsideParent(RectTransform parentRect) {
