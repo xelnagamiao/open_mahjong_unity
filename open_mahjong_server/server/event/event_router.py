@@ -64,18 +64,7 @@ async def handle_event_message(game_server, Connect_id: str, message: dict, webs
     db = game_server.db_manager
 
     try:
-        if message_type == "event/list_my_active":
-            events = db.list_user_active_events(user_id)
-            await _send(
-                websocket,
-                Response(
-                    type="event/list_my_active",
-                    success=True,
-                    message="ok",
-                    event_list=events,
-                ),
-            )
-        elif message_type == "event/list_public":
+        if message_type == "event/list_public":
             kind = (message.get("kind") or "").strip() or None
             if kind not in (None, "event", "base"):
                 kind = None

@@ -21,6 +21,7 @@ MATCH_TIERS = ("beginner", "intermediate", "advanced", "mcrpl")
 MATCH_TIER_SQL = ", ".join(f"'{t}'" for t in MATCH_TIERS)
 DAU_METRIC_BACKFILL_META_KEY = "daily_stats_dau_v1"
 QINGQUE_CLASSICAL_RULE_FIX_META_KEY = "fix_qingque_classical_history_rule_v1"
+GUOBIAO_RECORD_RESET_XUNMU_META_KEY = "guobiao_record_reset_xunmu_v1"
 
 _HISTORY_STAT_SUM_COLUMNS = [
     "total_games", "total_rounds", "win_count", "self_draw_count", "deal_in_count",
@@ -298,6 +299,19 @@ def run_qingque_classical_rule_fix_once(db_manager) -> None:
         logger.error("青雀/古典 rule 修正中断，下次启动将重试: %s", e, exc_info=True)
 
 
+def run_guobiao_record_reset_xunmu_once(db_manager) -> None:
+    """一次性：历史国标牌谱补 reset，并按周巡目重算和了巡目。"""
+    if _is_meta_done(db_manager, GUOBIAO_RECORD_RESET_XUNMU_META_KEY):
+        return
+    try:
+        from .guobiao.backfill_record_reset_xunmu import backfill_guobiao_record_reset_xunmu
+        backfill_guobiao_record_reset_xunmu(db_manager)
+        _mark_meta_done(db_manager, GUOBIAO_RECORD_RESET_XUNMU_META_KEY)
+        logger.info("国标牌谱 reset/巡目回填完成")
+    except Exception as e:
+        logger.error("国标牌谱 reset/巡目回填中断，下次启动将重试: %s", e, exc_info=True)
+
+
 def run_dau_metric_backfill_once(db_manager) -> None:
     """一次性：为已有统计日重算日活与修正后的活跃用户（含游客对局）。"""
     if _is_meta_done(db_manager, DAU_METRIC_BACKFILL_META_KEY):
@@ -413,6 +427,11 @@ def run_startup_stats_restore(
         run_qingque_classical_rule_fix_once(db_manager)
     except Exception as e:
         logger.warning("青雀/古典 rule 启动修正失败: %s", e)
+
+    try:
+        run_guobiao_record_reset_xunmu_once(db_manager)
+    except Exception as e:
+        logger.warning("国标牌谱 reset/巡目启动回填失败: %s", e)
 
     from .backfill_game_player_metrics import (
         backfill_missing_game_player_metrics,

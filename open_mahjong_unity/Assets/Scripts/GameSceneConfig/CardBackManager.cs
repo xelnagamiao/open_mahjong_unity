@@ -589,19 +589,6 @@ public static class CardBackManager
         ApplyFrontTexExtendEdge(coverFace ? false : ResolveFrontTexExtendEdge());
     }
 
-    /// <summary>把 3D 牌面背景写入共享材质：仅在 UseTableFaceBackground=true 且有纹理时启用混合。</summary>
-    [System.Obsolete("请改用 SetTableFaceBackgroundEnabled(bool) + PersistTableBackground/ClearPersistedTableBackground")]
-    public static void ApplyTableFaceBackground(bool enabled, Texture2D bgTexture)
-    {
-        // 兼容旧调用：仅当 bgTexture 与当前不同（说明有人传了新纹理进来）时替换；
-        // 否则只切 blend，避免覆盖已上传的 CurrentTableBackground。
-        if (bgTexture != null && bgTexture != CurrentTableBackground)
-        {
-            ReplaceTableBackground(bgTexture);
-        }
-        SetTableFaceBackgroundEnabled(enabled);
-    }
-
     /// <summary>把 3D 牌正面侧边颜色应用到共享材质与所有 Tile3D 实例。</summary>
     public static void ApplyFrontEdgeColor(Color color)
     {

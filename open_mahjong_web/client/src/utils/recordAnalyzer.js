@@ -8,41 +8,70 @@ const HU_ACTIONS = new Set(['hu_self', 'hu_first', 'hu_second', 'hu_third']);
 const RON_ACTIONS = new Set(['hu_first', 'hu_second', 'hu_third']);
 // 明副露 tick 码（不含 ag 暗杠）；cl/cm/cr=吃 p=碰 g=明杠 jg=加杠
 const VISIBLE_FULU_CODES = new Set(['cl', 'cm', 'cr', 'p', 'g', 'jg']);
-const DRAW_CODES = new Set(['d', 'bd', 'gd', 'mo']);
-// 鸣牌 tick 码：tick[2] 为鸣牌者 seat
 const CLAIM_CODES = new Set(['cl', 'cm', 'cr', 'p', 'g']);
 
+function tickInt(tick, index, fallback = null) {
+  if (!Array.isArray(tick) || index >= tick.length) return fallback;
+  const value = tick[index];
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && /^-?\d+$/.test(value)) return Number(value);
+  return fallback;
+}
+
 /**
- * 从一局 action_ticks 推理每位 seat 的和巡总和。
- * 国标 xunmu 初值 1，seat 0 每次切牌后 +1；和牌时 win_turn += xunmu（错和不计）。
- * 牌谱未存巡目，按 tick 序列模拟 seat 流转重建。
+ * 从一局 action_ticks 按 player_index_go_to 语义推理每位 seat 的和巡总和。
+ * 指针跨过东家且庄家已切过牌才 +1；reset/bh/bd/鸣牌显式 go_to，d 视为下一家。
  */
 function reconstructRoundWinTurns(rd) {
   const ticks = rd?.action_ticks;
   if (!Array.isArray(ticks)) return {};
-  const start = (typeof rd.start_player_index === 'number') ? rd.start_player_index
-    : (typeof rd.dealer_index === 'number' ? rd.dealer_index : 0);
-  let currentSeat = ((start % 4) + 4) % 4;
+  const dealer = ((typeof rd.start_player_index === 'number' ? rd.start_player_index
+    : (typeof rd.dealer_index === 'number' ? rd.dealer_index : 0)) % 4 + 4) % 4;
+  let currentSeat = dealer;
+  const history = [];
   let xunmu = 1;
+  let dealerDiscarded = false;
   const bySeat = {};
+
+  const goTo = (seat) => {
+    const next = ((seat % 4) + 4) % 4;
+    if (history.length && next !== history[history.length - 1] && next < history[history.length - 1] && dealerDiscarded) {
+      xunmu += 1;
+    }
+    history.push(next);
+    currentSeat = next;
+  };
+
   for (const tick of ticks) {
     if (!Array.isArray(tick) || tick.length === 0) continue;
     const code = tick[0];
-    if (DRAW_CODES.has(code)) continue;
+    if (code === 'end') break;
+    if (code === 'reset') {
+      const seat = tickInt(tick, 1, currentSeat);
+      if (seat != null) goTo(seat);
+      continue;
+    }
+    if (code === 'bh' || code === 'bd') {
+      const seat = tickInt(tick, 2, currentSeat);
+      if (seat != null) goTo(seat);
+      continue;
+    }
+    if (code === 'd' || code === 'mo') {
+      goTo(currentSeat === 3 ? 0 : currentSeat + 1);
+      continue;
+    }
     if (code === 'c') {
-      if (currentSeat === 0) xunmu += 1;
-      currentSeat = (currentSeat + 1) % 4;
-    } else if (CLAIM_CODES.has(code)) {
-      if (typeof tick[2] === 'number') currentSeat = ((tick[2] % 4) + 4) % 4;
-    } else if (code === 'ca') {
-      if (typeof tick[1] === 'number') currentSeat = ((tick[1] % 4) + 4) % 4;
-    } else if (code === 'end') {
-      break;
-    } else {
-      const hu = parseHuTick(tick);
-      if (hu && !isCuohe(hu.yaku)) {
-        bySeat[hu.winnerSeat] = (bySeat[hu.winnerSeat] || 0) + xunmu;
-      }
+      if (currentSeat === dealer) dealerDiscarded = true;
+      continue;
+    }
+    if (CLAIM_CODES.has(code)) {
+      const seat = tickInt(tick, 2);
+      if (seat != null) goTo(seat);
+      continue;
+    }
+    const hu = parseHuTick(tick);
+    if (hu && !isCuohe(hu.yaku)) {
+      bySeat[hu.winnerSeat] = (bySeat[hu.winnerSeat] || 0) + xunmu;
     }
   }
   return bySeat;

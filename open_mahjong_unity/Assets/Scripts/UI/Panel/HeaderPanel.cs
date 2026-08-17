@@ -52,7 +52,6 @@ public class HeaderPanel : MonoBehaviour {
         if (matchButton != null) {
             matchButton.Button.onClick.AddListener(Match);
         }
-        ResolveEventButton();
         if (eventButton != null) {
             eventButton.Button.onClick.AddListener(Event);
         }
@@ -143,7 +142,6 @@ public class HeaderPanel : MonoBehaviour {
     }
 
     public void RefreshEventButtonVisibility() {
-        ResolveEventButton();
         if (eventButton == null) return;
         eventButton.gameObject.SetActive(true);
     }
@@ -223,15 +221,5 @@ public class HeaderPanel : MonoBehaviour {
             return;
         }
         label.text = AppLanguageTexts.GetHeaderNavLabel(item);
-    }
-
-    private void ResolveEventButton() {
-        if (eventButton != null) return;
-        foreach (var hb in GetComponentsInChildren<HeaderButton>(true)) {
-            if (hb != null && hb.gameObject.name == "Event") {
-                eventButton = hb;
-                return;
-            }
-        }
     }
 }

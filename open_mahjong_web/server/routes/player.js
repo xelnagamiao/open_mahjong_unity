@@ -54,10 +54,11 @@ const analyzeLimiter = createWindowLimiter({
 router.get('/info/:key', playerQueryLimiter, handlePlayerInfo);
 router.get('/records/:key', playerQueryLimiter, handlePlayerRecords);
 
-// 历史赛事列表（含已关闭），供比赛场筛选下拉
+// 历史赛事/基地列表（含已关闭）。?kind=event|base 过滤
 router.get('/events', async (req, res) => {
   try {
-    const items = await listPublicEvents();
+    const kind = req.query.kind === 'base' ? 'base' : req.query.kind === 'event' ? 'event' : '';
+    const items = await listPublicEvents(kind);
     res.json({ success: true, data: { items } });
   } catch (error) {
     console.error('player events list:', error);

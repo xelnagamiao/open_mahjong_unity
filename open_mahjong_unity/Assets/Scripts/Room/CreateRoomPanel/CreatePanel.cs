@@ -213,7 +213,6 @@ public partial class CreatePanel : MonoBehaviour {
     [SerializeField] private Toggle ChangshaInitialSanTongToggle;
     [SerializeField] private Toggle ChangshaDealerBirdToggle;
     [SerializeField] private Toggle ChangshaBaseScoreNoDealerToggle;
-    [SerializeField] private Toggle EventModeToggle;
 
     [Header("面板")]
     [SerializeField] private GameObject SetRandomSeedPanel;
@@ -232,9 +231,6 @@ public partial class CreatePanel : MonoBehaviour {
     [SerializeField] private GameObject ChangshaBigHuScorePanel;
     [SerializeField] private TMP_InputField ChangshaSmallHuScoreInput;
     [SerializeField] private TMP_InputField ChangshaBigHuScoreInput;
-    [SerializeField] private GameObject EventDropdownPanel;
-    [SerializeField] private TMP_Dropdown EventDropdown;
-    private readonly List<string> _eventIds = new List<string>();
 
     [Header("输入字段")]
     [SerializeField] private TMP_InputField roomNameInput;
@@ -310,31 +306,16 @@ public partial class CreatePanel : MonoBehaviour {
         EnsureCuoheTypePanel();
         InitCuoheTypeDropdown();
         EnsureChangshaOptionControls();
-        EnsureEventControls();
         InitSubRuleDropdown();
         ApplyRuleDefaults(_ruleState);
         RefreshVisibility();
         RefreshSubRuleDescription();
-        if (EventNetworkManager.Instance != null) {
-            EventNetworkManager.Instance.OnActiveEventsUpdated -= RefreshEventControls;
-            EventNetworkManager.Instance.OnActiveEventsUpdated += RefreshEventControls;
-        }
-        RefreshEventControls();
 
         NetworkManager.Instance.CreateRoomResponse.AddListener(CreateRoomResponse);
     }
 
-    private void OnEnable() {
-        if (EventNetworkManager.Instance == null) return;
-        EventNetworkManager.Instance.OnActiveEventsUpdated -= RefreshEventControls;
-        EventNetworkManager.Instance.OnActiveEventsUpdated += RefreshEventControls;
-        RefreshEventControls();
-    }
-
     private void OnDisable() {
         CancelDetailedConfigChanges();
-        if (EventNetworkManager.Instance == null) return;
-        EventNetworkManager.Instance.OnActiveEventsUpdated -= RefreshEventControls;
     }
 
     private void OnRuleDropdownChanged(int selectedIndex) {
@@ -707,37 +688,6 @@ public partial class CreatePanel : MonoBehaviour {
         if (ChangshaBigHuScorePanel != null) ChangshaBigHuScorePanel.SetActive(visible);
     }
 
-    private void EnsureEventControls() {
-        EventModeToggle = EnsureClonedToggle(TouristLimitToggle, EventModeToggle, "EventModeToggle", "比赛场", false);
-        if (EventModeToggle != null) {
-            EventModeToggle.onValueChanged.RemoveListener(OnEventModeToggleChanged);
-            EventModeToggle.onValueChanged.AddListener(OnEventModeToggleChanged);
-        }
-
-        EventDropdownPanel = EnsureClonedDropdownPanel(HepaiWayPanel, EventDropdownPanel, "EventDropdownPanel", "赛事");
-        EventDropdown = EventDropdownPanel != null
-            ? EventDropdownPanel.GetComponentInChildren<TMP_Dropdown>(true)
-            : null;
-        if (EventDropdownPanel != null) EventDropdownPanel.SetActive(false);
-        if (EventModeToggle != null) EventModeToggle.gameObject.SetActive(false);
-    }
-
-    private void OnEventModeToggleChanged(bool isOn) {
-        if (EventDropdownPanel != null) EventDropdownPanel.SetActive(false);
-    }
-
-    private void RefreshEventControls() {
-        if (EventModeToggle != null) {
-            EventModeToggle.gameObject.SetActive(false);
-            EventModeToggle.isOn = false;
-        }
-        if (EventDropdownPanel != null) EventDropdownPanel.SetActive(false);
-    }
-
-    private string GetSelectedEventId() {
-        return null;
-    }
-
     private GameObject EnsureClonedDropdownPanel(GameObject template, GameObject existing, string goName, string labelText) {
         if (existing != null) return existing;
         if (template == null) return null;
@@ -927,7 +877,7 @@ public partial class CreatePanel : MonoBehaviour {
             OpenXiru = XiruToggle != null ? XiruToggle.isOn : (bool)RuleConfigs["riichi"][CfgOpenXiru],
             OpenTobi = TobiToggle != null ? TobiToggle.isOn : (bool)RuleConfigs["riichi"][CfgOpenTobi],
             HepaiWay = hepaiWay,
-            EventId = GetSelectedEventId(),
+            EventId = null,
         };
 
         if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
@@ -979,7 +929,7 @@ public partial class CreatePanel : MonoBehaviour {
             TouristLimit = TouristLimitToggle.isOn,
             AllowSpectator = AllowSpectatorToggle.isOn,
             TacticalCall = TacticalCallToggle.isOn,
-            EventId = GetSelectedEventId(),
+            EventId = null,
         };
 
         if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
@@ -1004,7 +954,7 @@ public partial class CreatePanel : MonoBehaviour {
             TouristLimit = TouristLimitToggle.isOn,
             AllowSpectator = AllowSpectatorToggle.isOn,
             TacticalCall = TacticalCallToggle.isOn,
-            EventId = GetSelectedEventId(),
+            EventId = null,
         };
 
         if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
@@ -1031,7 +981,7 @@ public partial class CreatePanel : MonoBehaviour {
             CuoHe = CuoHeheToggle.isOn,
             CuoheType = GetSelectedCuoheType(),
             DetailedConfig = BuildDetailedConfigValues("taiwan"),
-            EventId = GetSelectedEventId(),
+            EventId = null,
         };
 
         if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
@@ -1055,7 +1005,7 @@ public partial class CreatePanel : MonoBehaviour {
             Tips = tipsToggle.isOn,
             TouristLimit = TouristLimitToggle.isOn,
             AllowSpectator = AllowSpectatorToggle.isOn,
-            EventId = GetSelectedEventId(),
+            EventId = null,
         };
 
         if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
@@ -1085,7 +1035,7 @@ public partial class CreatePanel : MonoBehaviour {
             AllowSpectator = AllowSpectatorToggle.isOn,
             TacticalCall = TacticalCallToggle.isOn,
             BloodBattle = bloodBattle,
-            EventId = GetSelectedEventId(),
+            EventId = null,
         };
 
         if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
@@ -1110,7 +1060,7 @@ public partial class CreatePanel : MonoBehaviour {
             TouristLimit = TouristLimitToggle.isOn,
             AllowSpectator = AllowSpectatorToggle.isOn,
             TacticalCall = false,
-            EventId = GetSelectedEventId(),
+            EventId = null,
         };
 
         if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
@@ -1175,7 +1125,7 @@ public partial class CreatePanel : MonoBehaviour {
             BaseScoreNoDealer = ChangshaBaseScoreNoDealerToggle != null && ChangshaBaseScoreNoDealerToggle.isOn,
             SmallHuScore = ReadChangshaScore(ChangshaSmallHuScoreInput, 2),
             BigHuScore = ReadChangshaScore(ChangshaBigHuScoreInput, 8),
-            EventId = GetSelectedEventId(),
+            EventId = null,
         };
 
         if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {

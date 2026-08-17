@@ -39,7 +39,7 @@ from .guobiao_debug import (
 )
 from .lanshi_scoring import calculate_lanshi_score_changes
 from .buhua_broadcast import HAND_SETTLE_GAP_SEC, perform_buhua_and_broadcast
-from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record,build_score_changes_by_seat,build_score_changes_dict,capture_player_entry_order
+from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record,build_score_changes_by_seat,build_score_changes_dict,capture_player_entry_order,player_action_record_reset
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
 from ..public.random_seed_manager import setup_random_seed_system
@@ -516,6 +516,7 @@ class GuobiaoGameState:
             # 初始行为
             self.game_status = "waiting_hand_action" # 初始行动
             self.player_index_go_to(get_debug_buhua_start_index(self) if self.Debug else self.dealer_index)
+            player_action_record_reset(self, self.current_player_index)
             self._opening_buhua_complete_pending = not self.Debug
             # 开局补花结束只清闲家临时槽。首个出牌者若补过花，保留其
             # 最后一张替代牌作为一次性摸牌槽；未补花则仍按普通首打手切。

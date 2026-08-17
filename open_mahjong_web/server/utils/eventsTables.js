@@ -12,7 +12,10 @@ async function ensureEventsTables() {
       closed_at  TIMESTAMP NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      CONSTRAINT events_status_chk CHECK (status IN ('registered', 'active', 'closed'))
+      kind VARCHAR(16) NOT NULL DEFAULT 'event',
+      entry_config JSONB NOT NULL DEFAULT '{}'::jsonb,
+      CONSTRAINT events_status_chk CHECK (status IN ('registered', 'active', 'closed')),
+      CONSTRAINT events_kind_chk CHECK (kind IN ('event', 'base'))
     );
   `);
   await pool.query(`
@@ -71,8 +74,12 @@ async function ensureEventsTables() {
       created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       reviewed_at        TIMESTAMP NULL,
+      planned_start_at   DATE NULL,
+      planned_end_at     DATE NULL,
+      kind               VARCHAR(16) NOT NULL DEFAULT 'event',
       CONSTRAINT event_applications_status_chk
-        CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled'))
+        CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled')),
+      CONSTRAINT event_applications_kind_chk CHECK (kind IN ('event', 'base'))
     );
   `);
   await pool.query(`
@@ -105,11 +112,6 @@ async function ensureEventsTables() {
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_event_applications_status
       ON event_applications(status, created_at DESC);
-  `);
-  await pool.query(`
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_event_applications_one_pending
-      ON event_applications(applicant_user_id)
-      WHERE status = 'pending';
   `);
 
   await pool.query(`
@@ -196,6 +198,13 @@ async function ensureEventsTables() {
   await pool.query(`
     ALTER TABLE event_applications
       ADD CONSTRAINT event_applications_kind_chk CHECK (kind IN ('event', 'base'))
+  `);
+  // 必须在 kind 列存在之后再建：办赛 / 办基地各允许一条待审
+  await pool.query(`DROP INDEX IF EXISTS idx_event_applications_one_pending`);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_event_applications_one_pending_kind
+      ON event_applications(applicant_user_id, kind)
+      WHERE status = 'pending';
   `);
 
   await pool.query(`

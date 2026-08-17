@@ -212,30 +212,46 @@
                     </div>
                   </template>
 
-                  <aside class="continuity-meta" data-continuity-row="1">
-                    <span class="continuity-label">现在还在打的延续线</span>
-                    <span class="continuity-hint">下方每个节点对应一个当年出现在这一列、但没有再分出新规则的桌规</span>
-                  </aside>
-                  <div
-                    v-for="t in band.tracks"
-                    :key="band.key + '-cont-' + t.id"
-                    class="continuity-cell"
-                    :data-track="t.id"
-                    :data-continuity-row="1"
-                    :style="spanStyle(t)"
-                  >
-                    <template v-if="continuityBySubtrack(band, t.id)">
-                      <div
-                        v-for="subInfo in continuityBySubtrack(band, t.id).track.subtracks"
-                        :key="band.key + '-cont-' + t.id + '-sg-' + subInfo.id"
-                        class="subtrack-group"
-                        :data-subtrack="subInfo.id"
-                      >
-                        <div class="subtrack-head muted">{{ subInfo.label }}</div>
+                  <template v-if="band.showContinuity">
+                    <aside class="continuity-meta" data-continuity-row="1">
+                      <span class="continuity-label">现在还在打</span>
+                      <span class="continuity-hint">这一列里没有再分出新规则、但现在仍在打的桌规</span>
+                    </aside>
+                    <div
+                      v-for="t in band.tracks"
+                      :key="band.key + '-cont-' + t.id"
+                      class="continuity-cell"
+                      :data-track="t.id"
+                      :data-continuity-row="1"
+                      :style="spanStyle(t)"
+                    >
+                      <template v-if="continuityBySubtrack(band, t.id)">
+                        <div
+                          v-for="subInfo in continuityBySubtrack(band, t.id).track.subtracks"
+                          :key="band.key + '-cont-' + t.id + '-sg-' + subInfo.id"
+                          class="subtrack-group"
+                          :data-subtrack="subInfo.id"
+                        >
+                          <div class="subtrack-head muted">{{ subInfo.label }}</div>
+                          <router-link
+                            v-for="id in (continuityBySubtrack(band, t.id).bySub[subInfo.id] || [])"
+                            :key="'cont-' + id + subInfo.id"
+                            class="node continuity"
+                            :class="nodeClass(id)"
+                            :to="ruleHref(id)"
+                            @mouseenter="enterNode(id)"
+                            @mouseleave="leaveNode"
+                          >
+                            <span class="node-name">{{ ruleName(id) }}</span>
+                            <span class="node-year">{{ appeared(id) || '—' }}</span>
+                            <span class="tag cont">现存</span>
+                          </router-link>
+                        </div>
+                      </template>
+                      <template v-else>
                         <router-link
-                          v-for="id in (continuityBySubtrack(band, t.id).bySub[subInfo.id] || [])"
-                          :key="'cont-' + id + subInfo.id"
-                          :data-node="id"
+                          v-for="id in continuityAt(band, t.id)"
+                          :key="'cont-' + id"
                           class="node continuity"
                           :class="nodeClass(id)"
                           :to="ruleHref(id)"
@@ -246,25 +262,9 @@
                           <span class="node-year">{{ appeared(id) || '—' }}</span>
                           <span class="tag cont">现存</span>
                         </router-link>
-                      </div>
-                    </template>
-                    <template v-else>
-                      <router-link
-                        v-for="id in continuityAt(band, t.id)"
-                        :key="'cont-' + id"
-                        :data-node="id"
-                        class="node continuity"
-                        :class="nodeClass(id)"
-                        :to="ruleHref(id)"
-                        @mouseenter="enterNode(id)"
-                        @mouseleave="leaveNode"
-                      >
-                        <span class="node-name">{{ ruleName(id) }}</span>
-                        <span class="node-year">{{ appeared(id) || '—' }}</span>
-                        <span class="tag cont">现存</span>
-                      </router-link>
-                    </template>
-                  </div>
+                      </template>
+                    </div>
+                  </template>
                 </div>
               </div>
             </div>
@@ -522,10 +522,15 @@ const eraBands = computed(() => {
     if (current && current.key === key) {
       current.rows.push(row)
     } else {
-      current = { key, tracks, rows: [row], continuityNodes: continuity.slice() }
+      current = { key, tracks, rows: [row], continuityNodes: [], showContinuity: false }
       bands.push(current)
     }
   })
+  if (bands.length) {
+    const last = bands[bands.length - 1]
+    last.continuityNodes = continuity
+    last.showContinuity = true
+  }
   return bands
 })
 
@@ -540,7 +545,9 @@ function spanStyle(t) {
 }
 
 function ruleName(id) {
-  return nameMap.value[id] || id
+  const slug = typeof id === 'string' ? id : id?.id
+  if (!slug) return ''
+  return nameMap.value[slug] || slug
 }
 
 function ruleBySlug(id) {
@@ -614,20 +621,21 @@ function nodesBySubtrack(era, trackId) {
 }
 
 function continuityAt(band, trackId) {
-  // 把「现在仍在打、但没分出后代」的规则，按列放回它当初出现的那一支。
-  return band.continuityNodes.filter((entry) => entry.track === trackId)
+  return (band.continuityNodes || [])
+    .filter((entry) => entry.track === trackId)
+    .map((entry) => entry.id)
 }
 
 function continuityBySubtrack(band, trackId) {
   const track = (props.phy?.tracks || []).find((t) => t.id === trackId)
   if (!track?.subtracks?.length) return null
-  const entries = continuityAt(band, trackId)
+  const ids = continuityAt(band, trackId)
   const bySub = {}
-  for (const e of entries) {
-    const r = catalogMap.value[e.id]
+  for (const id of ids) {
+    const r = catalogMap.value[id]
     const sub = r?.subtrack || track.subtracks[0].id
     if (!bySub[sub]) bySub[sub] = []
-    bySub[sub].push(e.id)
+    bySub[sub].push(id)
   }
   return { track, bySub }
 }
@@ -642,14 +650,18 @@ const visibleFamilies = computed(() => {
   return list.filter((f) => (f.shared || []).includes(isoFilter.value))
 })
 
+function nodeEls(root, id) {
+  return [...root.querySelectorAll(`.cell [data-node="${id}"]`)]
+}
+
 function collect(root, id, pick) {
-  const els = [...root.querySelectorAll(`[data-node="${id}"]`)]
+  const els = nodeEls(root, id)
   if (!els.length) return null
   return pick === 'last' ? els[els.length - 1] : els[0]
 }
 
 function collectAbove(root, fromId, toEl) {
-  const els = [...root.querySelectorAll(`[data-node="${fromId}"]`)]
+  const els = nodeEls(root, fromId)
   if (!els.length) return null
   const toTop = toEl.getBoundingClientRect().top
   const above = els.filter((el) => el.getBoundingClientRect().bottom <= toTop + 2)
@@ -1390,6 +1402,28 @@ onBeforeUnmount(() => {
   align-self: flex-start;
 }
 
+.node.continuity.play,
+.node.continuity.salasasa,
+.node.continuity.play:hover,
+.node.continuity.salasasa:hover {
+  background: #fff;
+  color: var(--ink);
+  border-color: #1a7a5e;
+}
+
+.node.continuity.play .node-name,
+.node.continuity.salasasa .node-name,
+.node.continuity.play .node-year,
+.node.continuity.salasasa .node-year {
+  color: var(--ink);
+}
+
+.node.continuity.play .tag.cont,
+.node.continuity.salasasa .tag.cont {
+  background: #1a7a5e;
+  color: #fff;
+}
+
 .subtrack-group {
   display: flex;
   flex-direction: column;
@@ -1515,15 +1549,26 @@ onBeforeUnmount(() => {
   border-color: #1a2e28;
 }
 
+.node.play .node-name,
 .node.play .node-year,
-.node.play small {
-  color: #c9d4ce;
+.node.play small,
+.node.play .tag {
+  color: #f4efe6;
 }
 
 .node.play:hover,
 .node.play:focus {
   background: var(--accent);
   border-color: var(--accent);
+  color: #f4efe6;
+}
+
+.node.play:hover .node-name,
+.node.play:focus .node-name,
+.node.play:hover .node-year,
+.node.play:focus .node-year,
+.node.play:hover .tag,
+.node.play:focus .tag {
   color: #f4efe6;
 }
 

@@ -3,10 +3,15 @@ const router = express.Router();
 const pool = require('../../config/database');
 const { requirePlayer } = require('../../middleware/requirePlayer');
 
-function normalizeName(name) {
+function venueApplyLabel(kind) {
+  return kind === 'base' ? '办基地申请' : '办赛申请';
+}
+
+function normalizeName(name, kind) {
+  const label = kind === 'base' ? '基地名称' : '赛事名称';
   const text = String(name || '').trim();
-  if (!text) return { error: '请填写赛事名称' };
-  if (text.length > 128) return { error: '赛事名称过长（最多 128 字）' };
+  if (!text) return { error: `请填写${label}` };
+  if (text.length > 128) return { error: `${label}过长（最多 128 字）` };
   return { value: text };
 }
 
@@ -50,14 +55,16 @@ router.post('/', async (req, res) => {
 
     const pending = await pool.query(
       `SELECT application_id FROM event_applications
-       WHERE applicant_user_id = $1 AND status = 'pending'
+       WHERE applicant_user_id = $1
+         AND status = 'pending'
+         AND COALESCE(kind, 'event') = $2
        LIMIT 1`,
-      [req.player.userId]
+      [req.player.userId, v.kind]
     );
     if (pending.rows.length > 0) {
       return res.status(400).json({
         success: false,
-        message: '您已有一条待审核的办赛申请，请等待处理后再提交',
+        message: `您已有一条待审核的${venueApplyLabel(v.kind)}，请等待处理后再提交`,
       });
     }
 
@@ -85,7 +92,7 @@ router.post('/', async (req, res) => {
     if (err.code === '23505') {
       return res.status(400).json({
         success: false,
-        message: '您已有一条待审核的办赛申请，请等待处理后再提交',
+        message: `您已有一条待审核的${venueApplyLabel(parsed?.value?.kind)}，请等待处理后再提交`,
       });
     }
     console.error('player event-applications create:', err);
@@ -116,7 +123,7 @@ router.get('/mine', async (req, res) => {
 function parseApplicationBody(body) {
   const { name, description, remark, planned_start_at, planned_end_at, kind } = body || {};
   const kindValue = kind === 'base' ? 'base' : 'event';
-  const nameParsed = normalizeName(name);
+  const nameParsed = normalizeName(name, kindValue);
   if (nameParsed.error) return { error: nameParsed.error };
   const startParsed = normalizeDate(planned_start_at, {
     required: kindValue === 'event',
@@ -203,6 +210,12 @@ router.put('/:id', async (req, res) => {
     }
     res.json({ success: true, data: result.rows[0], message: '申请已更新' });
   } catch (err) {
+    if (err.code === '23505') {
+      return res.status(400).json({
+        success: false,
+        message: `您已有一条待审核的${venueApplyLabel(req.body?.kind)}`,
+      });
+    }
     console.error('player event-applications update:', err);
     res.status(500).json({ success: false, message: '服务器内部错误' });
   }
@@ -223,14 +236,17 @@ router.post('/:id/resubmit', async (req, res) => {
 
     const otherPending = await pool.query(
       `SELECT application_id FROM event_applications
-       WHERE applicant_user_id = $1 AND status = 'pending' AND application_id <> $2
+       WHERE applicant_user_id = $1
+         AND status = 'pending'
+         AND application_id <> $2
+         AND COALESCE(kind, 'event') = $3
        LIMIT 1`,
-      [req.player.userId, applicationId]
+      [req.player.userId, applicationId, v.kind]
     );
     if (otherPending.rows.length > 0) {
       return res.status(400).json({
         success: false,
-        message: '您已有一条待审核的办赛申请，请等待处理后再重新提交',
+        message: `您已有一条待审核的${venueApplyLabel(v.kind)}，请等待处理后再重新提交`,
       });
     }
 
@@ -281,7 +297,7 @@ router.post('/:id/resubmit', async (req, res) => {
     if (err.code === '23505') {
       return res.status(400).json({
         success: false,
-        message: '您已有一条待审核的办赛申请，请等待处理后再重新提交',
+        message: `您已有一条待审核的${venueApplyLabel(parsed?.value?.kind)}，请等待处理后再重新提交`,
       });
     }
     console.error('player event-applications resubmit:', err);

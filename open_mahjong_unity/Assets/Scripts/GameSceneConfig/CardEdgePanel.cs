@@ -92,14 +92,21 @@ public class CardEdgePanel : MonoBehaviour
 
     private void BindUi()
     {
-        sideHexApplyButton.onClick.AddListener(ApplySideHex);
-        backEdgeHexApplyButton.onClick.AddListener(ApplyBackEdgeHex);
-        restoreFrontEdgeButton.onClick.AddListener(RestoreFrontEdgeDefault);
-        restoreBackEdgeButton.onClick.AddListener(RestoreBackEdgeDefault);
-        backEdgeModeIndependent.onValueChanged.AddListener(on => { if (on) SetBackEdgeMode(BackEdgeMode.Independent); });
-        backEdgeModeFollowBack.onValueChanged.AddListener(on => { if (on) SetBackEdgeMode(BackEdgeMode.FollowBack); });
-        backEdgeModeFollowFront.onValueChanged.AddListener(on => { if (on) SetBackEdgeMode(BackEdgeMode.FollowFront); });
-        EnsureBackTexExtendEdgeToggle();
+        AutoWireMissingRefs();
+
+        if (sideHexApplyButton != null) sideHexApplyButton.onClick.AddListener(ApplySideHex);
+        if (backEdgeHexApplyButton != null) backEdgeHexApplyButton.onClick.AddListener(ApplyBackEdgeHex);
+        if (restoreFrontEdgeButton != null) restoreFrontEdgeButton.onClick.AddListener(RestoreFrontEdgeDefault);
+        if (restoreBackEdgeButton != null) restoreBackEdgeButton.onClick.AddListener(RestoreBackEdgeDefault);
+        if (backEdgeModeIndependent != null) {
+            backEdgeModeIndependent.onValueChanged.AddListener(on => { if (on) SetBackEdgeMode(BackEdgeMode.Independent); });
+        }
+        if (backEdgeModeFollowBack != null) {
+            backEdgeModeFollowBack.onValueChanged.AddListener(on => { if (on) SetBackEdgeMode(BackEdgeMode.FollowBack); });
+        }
+        if (backEdgeModeFollowFront != null) {
+            backEdgeModeFollowFront.onValueChanged.AddListener(on => { if (on) SetBackEdgeMode(BackEdgeMode.FollowFront); });
+        }
         if (backTexExtendEdgeToggle != null) {
             backTexExtendEdgeToggle.onValueChanged.AddListener(OnBackTexExtendEdgeChanged);
         }
@@ -122,9 +129,57 @@ public class CardEdgePanel : MonoBehaviour
         BindSwatches(sideSwatches, SetSideColor);
         BindSwatches(backEdgeSwatches, SetBackEdgeColor);
         BindSwatches(frontEdgeSwatches, SetFrontEdgeColor);
+        BindNamedSwatches("SideSwatch", SetSideColor, sideSwatches);
+        BindNamedSwatches("BackEdgeSwatch", SetBackEdgeColor, backEdgeSwatches);
+        BindNamedSwatches("FrontEdgeSwatch", SetFrontEdgeColor, frontEdgeSwatches);
         LoadSavedIntoUI();
         ApplyBackEdgeInteractable();
         ApplyFrontEdgeInteractable();
+    }
+
+    /// <summary>
+    /// 场景 Inspector 引用经常是空的（控件在，没拖上去）。按子物体名字补挂，避免 BindUi 空引用。
+    /// </summary>
+    private void AutoWireMissingRefs()
+    {
+        if (sidePreview == null) {
+            sidePreview = FindInChildren<Image>(transform, "SidePreview")
+                ?? FindInChildren<Image>(transform, "FrontSidePreview");
+        }
+        if (sideHexInput == null) sideHexInput = FindInChildren<TMP_InputField>(transform, "SideHexInput");
+        if (sideHexApplyButton == null) sideHexApplyButton = FindInChildren<Button>(transform, "SideHexApply");
+        if (backEdgeModeIndependent == null) backEdgeModeIndependent = FindInChildren<Toggle>(transform, "BackEdgeModeIndependent");
+        if (backEdgeModeFollowBack == null) backEdgeModeFollowBack = FindInChildren<Toggle>(transform, "BackEdgeModeFollowBack");
+        if (backEdgeModeFollowFront == null) backEdgeModeFollowFront = FindInChildren<Toggle>(transform, "BackEdgeModeFollowFront");
+        if (backTexExtendEdgeToggle == null) backTexExtendEdgeToggle = FindInChildren<Toggle>(transform, "BackTexExtendEdge");
+        if (frontEdgeModeIndependent == null) frontEdgeModeIndependent = FindInChildren<Toggle>(transform, "FrontEdgeModeIndependent");
+        if (frontEdgeModeFollowTableBg == null) frontEdgeModeFollowTableBg = FindInChildren<Toggle>(transform, "FrontEdgeModeFollowTableBg");
+        if (frontEdgeModeFollowBackEdge == null) frontEdgeModeFollowBackEdge = FindInChildren<Toggle>(transform, "FrontEdgeModeFollowBackEdge");
+        if (frontTexFollowTableBgToggle == null) frontTexFollowTableBgToggle = FindInChildren<Toggle>(transform, "FrontTexFollowTableBg");
+        if (frontTexFollowTableBgToEdgeToggle == null) {
+            frontTexFollowTableBgToEdgeToggle = FindInChildren<Toggle>(transform, "FrontTexFollowTableBgToEdge");
+        }
+        if (backSidePreview == null) backSidePreview = FindInChildren<Image>(transform, "BackSidePreview");
+        if (frontSidePreview == null) frontSidePreview = FindInChildren<Image>(transform, "FrontSidePreview");
+        if (backEdgeHexInput == null) backEdgeHexInput = FindInChildren<TMP_InputField>(transform, "BackEdgeHexInput");
+        if (backEdgeHexApplyButton == null) backEdgeHexApplyButton = FindInChildren<Button>(transform, "BackEdgeHexApply");
+        if (frontEdgeHexInput == null) {
+            frontEdgeHexInput = FindInChildren<TMP_InputField>(transform, "FrontEdgeHexInput")
+                ?? sideHexInput;
+        }
+        if (frontEdgeHexApplyButton == null) {
+            frontEdgeHexApplyButton = FindInChildren<Button>(transform, "FrontEdgeHexApply");
+        }
+        if (restoreFrontEdgeButton == null) restoreFrontEdgeButton = FindInChildren<Button>(transform, "RestoreFrontEdgeButton");
+        if (restoreBackEdgeButton == null) restoreBackEdgeButton = FindInChildren<Button>(transform, "RestoreBackEdgeButton");
+        if (backEdgeSectionGroup == null) {
+            Transform section = FindInChildren<Transform>(transform, "BackEdgeSection");
+            if (section != null) backEdgeSectionGroup = section.GetComponent<CanvasGroup>();
+        }
+        if (frontEdgeSectionGroup == null) {
+            Transform section = FindInChildren<Transform>(transform, "FrontEdgeSection");
+            if (section != null) frontEdgeSectionGroup = section.GetComponent<CanvasGroup>();
+        }
     }
 
     private static void BindSwatches(Button[] buttons, System.Action<Color> apply)
@@ -132,9 +187,38 @@ public class CardEdgePanel : MonoBehaviour
         int n = buttons != null ? Mathf.Min(buttons.Length, PresetColors.Length) : 0;
         for (int i = 0; i < n; i++)
         {
+            if (buttons[i] == null) continue;
             Color c = PresetColors[i];
             buttons[i].onClick.AddListener(() => apply(c));
         }
+    }
+
+    private void BindNamedSwatches(string prefix, System.Action<Color> apply, Button[] alreadyBound)
+    {
+        if (alreadyBound != null && alreadyBound.Length > 0) return;
+        for (int i = 0; i < PresetColors.Length; i++)
+        {
+            Button button = FindInChildren<Button>(transform, prefix + i);
+            if (button == null) continue;
+            Color c = PresetColors[i];
+            button.onClick.AddListener(() => apply(c));
+        }
+    }
+
+    private static T FindInChildren<T>(Transform root, string name) where T : Component
+    {
+        if (root == null || string.IsNullOrEmpty(name)) return null;
+        foreach (Transform child in root)
+        {
+            if (child.name == name)
+            {
+                T comp = child.GetComponent<T>();
+                if (comp != null) return comp;
+            }
+            T nested = FindInChildren<T>(child, name);
+            if (nested != null) return nested;
+        }
+        return null;
     }
 
     /// <summary>把正面边缘颜色还原为初始默认值。</summary>
@@ -443,58 +527,6 @@ public class CardEdgePanel : MonoBehaviour
         CardBackManager.ApplyBackTexExtendEdge(enabled);
         UpdateModeToggleColors();
         ShowTip(enabled ? "牌背图片将延伸到背部边缘" : "牌背图片仅覆盖牌背大面");
-    }
-
-    private void EnsureBackTexExtendEdgeToggle()
-    {
-        if (backTexExtendEdgeToggle != null) return;
-        Toggle template = backEdgeModeFollowFront != null ? backEdgeModeFollowFront
-            : (backEdgeModeFollowBack != null ? backEdgeModeFollowBack : backEdgeModeIndependent);
-        if (template == null) return;
-
-        Transform parent = template.transform.parent;
-        Transform existing = parent != null ? parent.Find("BackTexExtendEdge") : null;
-        if (existing != null)
-        {
-            backTexExtendEdgeToggle = existing.GetComponent<Toggle>();
-            return;
-        }
-
-        GameObject clone = Object.Instantiate(template.gameObject, parent, false);
-        clone.name = "BackTexExtendEdge";
-        RectTransform rt = clone.GetComponent<RectTransform>();
-        if (rt != null)
-        {
-            RectTransform independentRt = backEdgeModeIndependent != null
-                ? backEdgeModeIndependent.GetComponent<RectTransform>() : null;
-            RectTransform followFrontRt = backEdgeModeFollowFront != null
-                ? backEdgeModeFollowFront.GetComponent<RectTransform>() : null;
-            float left = independentRt != null
-                ? independentRt.anchoredPosition.x - independentRt.sizeDelta.x * 0.5f
-                : template.GetComponent<RectTransform>().anchoredPosition.x - 160f;
-            float right = followFrontRt != null
-                ? followFrontRt.anchoredPosition.x + followFrontRt.sizeDelta.x * 0.5f
-                : template.GetComponent<RectTransform>().anchoredPosition.x + 160f;
-            float width = Mathf.Max(150f, right - left);
-            rt.anchoredPosition = new Vector2((left + right) * 0.5f, template.GetComponent<RectTransform>().anchoredPosition.y - 54f);
-            rt.sizeDelta = new Vector2(width, template.GetComponent<RectTransform>().sizeDelta.y);
-        }
-
-        TMP_Text label = clone.GetComponentInChildren<TMP_Text>(true);
-        if (label != null)
-        {
-            label.text = "牌背图片延伸牌背边缘";
-            label.enableWordWrapping = false;
-            label.overflowMode = TextOverflowModes.Overflow;
-        }
-
-        backTexExtendEdgeToggle = clone.GetComponent<Toggle>();
-        if (backTexExtendEdgeToggle != null)
-        {
-            backTexExtendEdgeToggle.onValueChanged.RemoveAllListeners();
-            backTexExtendEdgeToggle.group = null;
-            backTexExtendEdgeToggle.isOn = false;
-        }
     }
 
     private static void SetToggleColor(Toggle toggle, bool selected)

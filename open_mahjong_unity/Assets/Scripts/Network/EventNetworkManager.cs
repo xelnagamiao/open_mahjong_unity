@@ -10,14 +10,12 @@ using System.Collections.Generic;
 public class EventNetworkManager : MonoBehaviour {
     public static EventNetworkManager Instance { get; private set; }
 
-    public List<EventListEntry> ActiveEvents { get; private set; } = new List<EventListEntry>();
     public List<EventListEntry> PublicEvents { get; private set; } = new List<EventListEntry>();
     public EventDetailInfo CurrentDetail { get; private set; }
     public RoomInfo[] VenueRooms { get; private set; }
     public EventReadyPlayer[] ReadyPlayers { get; private set; }
     public RecordInfo[] EventRecords { get; private set; }
 
-    public event Action OnActiveEventsUpdated;
     public event Action OnPublicEventsUpdated;
     public event Action OnEventDetailUpdated;
     public event Action OnVenueRoomsUpdated;
@@ -37,12 +35,6 @@ public class EventNetworkManager : MonoBehaviour {
     public void HandleEventMessage(Response response) {
         if (response == null || string.IsNullOrEmpty(response.type)) return;
         switch (response.type) {
-            case "event/list_my_active":
-                ActiveEvents = response.event_list != null
-                    ? new List<EventListEntry>(response.event_list)
-                    : new List<EventListEntry>();
-                OnActiveEventsUpdated?.Invoke();
-                break;
             case "event/list_public":
                 PublicEvents = response.event_list != null
                     ? new List<EventListEntry>(response.event_list)
@@ -119,10 +111,6 @@ public class EventNetworkManager : MonoBehaviour {
         } catch (Exception e) {
             Debug.LogError($"[EventNetworkManager] 发送失败: {e.Message}");
         }
-    }
-
-    public void ListMyActiveEvents() {
-        _Send(new { type = "event/list_my_active" });
     }
 
     public void ListPublicEvents(string kind) {

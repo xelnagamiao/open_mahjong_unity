@@ -69,7 +69,6 @@ public static class ScoreHistoryRecordSettlementExtractor {
         int lastWinnableTileId = -1;
         RecordScoreRow lastRow = null;
         int currentPlayerIndex = round.startPlayerIndex;
-        bool mainPhaseStarted = false;
         bool isSichuan = subRule != null && subRule.StartsWith("sichuan");
         bool isSichuanBlood = isSichuan && ReadTitleString(gameTitle, "blood_battle", "true") != "false";
         int sichuanHuCount = 0;
@@ -83,7 +82,11 @@ public static class ScoreHistoryRecordSettlementExtractor {
                 continue;
             }
 
-            // 开局补花阶段：与 GameRecordManager.EnsureRecordMainPhaseStarted 对齐，不推进主巡目
+            if (action == "reset") {
+                currentPlayerIndex = ParseInt(tick, 1);
+                continue;
+            }
+
             if (action == "bh" || action == "bd") {
                 int flowerActingIndex = GameRecordJsonDecoder.ResolveRecordActingPlayerIndex(
                     tick, action, currentPlayerIndex);
@@ -96,12 +99,6 @@ public static class ScoreHistoryRecordSettlementExtractor {
                 }
                 currentPlayerIndex = flowerActingIndex;
                 continue;
-            }
-
-            // 主局首个摸切/鸣牌前，巡目回到庄家（补花结束后并非最后补花者出牌）
-            if (!mainPhaseStarted) {
-                currentPlayerIndex = round.startPlayerIndex;
-                mainPhaseStarted = true;
             }
 
             int previousPlayerIndex = currentPlayerIndex;

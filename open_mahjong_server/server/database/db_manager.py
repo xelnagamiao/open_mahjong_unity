@@ -60,6 +60,18 @@ class DatabaseManager:
         """将连接归还到连接池"""
         if self.pool:
             self.pool.putconn(conn)
+
+    @staticmethod
+    def _ddl_ignore(cursor, savepoint, sql, codes=("42701", "42710")):
+        """忽略已存在的列/约束/索引，避免整段 init 回滚。"""
+        cursor.execute(f"SAVEPOINT {savepoint};")
+        try:
+            cursor.execute(sql)
+        except Error as e:
+            if getattr(e, "pgcode", None) in codes:
+                cursor.execute(f"ROLLBACK TO SAVEPOINT {savepoint};")
+            else:
+                raise
     
     def init_database(self):
         conn = None
@@ -950,29 +962,40 @@ class DatabaseManager:
                 );
             """)
 
-            # 比赛场：赛事实体与管理员（room_type='events' + event_id）
+            # 比赛场：与 Node ensureEventsTables 对齐（events / 申请 / 公告 / 报名 / 组桌池）
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS events (
                     event_id   VARCHAR(32) PRIMARY KEY,
                     name       VARCHAR(128) NOT NULL,
+                    description TEXT NOT NULL DEFAULT '',
                     status     VARCHAR(16) NOT NULL DEFAULT 'registered',
+                    reopen_requested BOOLEAN NOT NULL DEFAULT FALSE,
                     created_by BIGINT NOT NULL,
                     closed_at  TIMESTAMP NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    CONSTRAINT events_status_chk CHECK (status IN ('registered', 'active', 'closed'))
+                    kind VARCHAR(16) NOT NULL DEFAULT 'event',
+                    entry_config JSONB NOT NULL DEFAULT '{}'::jsonb,
+                    CONSTRAINT events_status_chk CHECK (status IN ('registered', 'active', 'closed')),
+                    CONSTRAINT events_kind_chk CHECK (kind IN ('event', 'base'))
                 );
             """)
-            cursor.execute("SAVEPOINT sp_events_reopen;")
-            try:
-                cursor.execute(
-                    "ALTER TABLE events ADD COLUMN reopen_requested BOOLEAN NOT NULL DEFAULT FALSE;"
-                )
-            except Error as e:
-                if getattr(e, "pgcode", None) == "42701":
-                    cursor.execute("ROLLBACK TO SAVEPOINT sp_events_reopen;")
-                else:
-                    raise
+            self._ddl_ignore(
+                cursor, "sp_events_description",
+                "ALTER TABLE events ADD COLUMN description TEXT NOT NULL DEFAULT '';",
+            )
+            self._ddl_ignore(
+                cursor, "sp_events_reopen",
+                "ALTER TABLE events ADD COLUMN reopen_requested BOOLEAN NOT NULL DEFAULT FALSE;",
+            )
+            self._ddl_ignore(
+                cursor, "sp_events_kind",
+                "ALTER TABLE events ADD COLUMN kind VARCHAR(16) NOT NULL DEFAULT 'event';",
+            )
+            self._ddl_ignore(
+                cursor, "sp_events_entry_config",
+                "ALTER TABLE events ADD COLUMN entry_config JSONB NOT NULL DEFAULT '{}'::jsonb;",
+            )
             cursor.execute("SAVEPOINT sp_events_status_chk;")
             try:
                 cursor.execute("ALTER TABLE events DROP CONSTRAINT IF EXISTS events_status_chk;")
@@ -982,14 +1005,18 @@ class DatabaseManager:
                 )
             except Error:
                 cursor.execute("ROLLBACK TO SAVEPOINT sp_events_status_chk;")
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_events_status
-                ON events(status);
-            """)
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_events_created_at
-                ON events(created_at DESC);
-            """)
+            cursor.execute("SAVEPOINT sp_events_kind_chk;")
+            try:
+                cursor.execute("ALTER TABLE events DROP CONSTRAINT IF EXISTS events_kind_chk;")
+                cursor.execute(
+                    "ALTER TABLE events ADD CONSTRAINT events_kind_chk "
+                    "CHECK (kind IN ('event', 'base'));"
+                )
+            except Error:
+                cursor.execute("ROLLBACK TO SAVEPOINT sp_events_kind_chk;")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_events_status ON events(status);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at DESC);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_events_kind_status ON events(kind, status);")
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS event_admins (
                     event_id   VARCHAR(32) NOT NULL REFERENCES events(event_id) ON DELETE CASCADE,
@@ -1001,49 +1028,82 @@ class DatabaseManager:
                     CONSTRAINT event_admins_role_chk CHECK (role IN ('owner', 'admin'))
                 );
             """)
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_event_admins_user ON event_admins(user_id);")
             cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_event_admins_user
-                ON event_admins(user_id);
+                CREATE TABLE IF NOT EXISTS event_applications (
+                    application_id     BIGSERIAL PRIMARY KEY,
+                    applicant_user_id  BIGINT NOT NULL,
+                    name               VARCHAR(128) NOT NULL,
+                    description        TEXT NOT NULL DEFAULT '',
+                    remark             TEXT NOT NULL DEFAULT '',
+                    reason             TEXT NOT NULL DEFAULT '',
+                    status             VARCHAR(16) NOT NULL DEFAULT 'pending',
+                    reviewer_user_id   BIGINT NULL,
+                    review_note        TEXT NULL,
+                    event_id           VARCHAR(32) NULL REFERENCES events(event_id) ON DELETE SET NULL,
+                    created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    reviewed_at        TIMESTAMP NULL,
+                    planned_start_at   DATE NULL,
+                    planned_end_at     DATE NULL,
+                    kind               VARCHAR(16) NOT NULL DEFAULT 'event',
+                    CONSTRAINT event_applications_status_chk
+                        CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled')),
+                    CONSTRAINT event_applications_kind_chk CHECK (kind IN ('event', 'base'))
+                );
             """)
-            cursor.execute("SAVEPOINT sp_events_kind;")
+            self._ddl_ignore(
+                cursor, "sp_event_app_kind",
+                "ALTER TABLE event_applications ADD COLUMN kind VARCHAR(16) NOT NULL DEFAULT 'event';",
+            )
+            self._ddl_ignore(
+                cursor, "sp_event_app_description",
+                "ALTER TABLE event_applications ADD COLUMN description TEXT NOT NULL DEFAULT '';",
+            )
+            self._ddl_ignore(
+                cursor, "sp_event_app_remark",
+                "ALTER TABLE event_applications ADD COLUMN remark TEXT NOT NULL DEFAULT '';",
+            )
+            self._ddl_ignore(
+                cursor, "sp_event_app_start",
+                "ALTER TABLE event_applications ADD COLUMN planned_start_at DATE NULL;",
+            )
+            self._ddl_ignore(
+                cursor, "sp_event_app_end",
+                "ALTER TABLE event_applications ADD COLUMN planned_end_at DATE NULL;",
+            )
+            cursor.execute("SAVEPOINT sp_event_app_kind_chk;")
             try:
                 cursor.execute(
-                    "ALTER TABLE events ADD COLUMN kind VARCHAR(16) NOT NULL DEFAULT 'event';"
+                    "ALTER TABLE event_applications DROP CONSTRAINT IF EXISTS event_applications_kind_chk;"
                 )
-            except Error as e:
-                if getattr(e, "pgcode", None) == "42701":
-                    cursor.execute("ROLLBACK TO SAVEPOINT sp_events_kind;")
-                else:
-                    raise
-            cursor.execute("SAVEPOINT sp_events_kind_chk;")
-            try:
-                cursor.execute("ALTER TABLE events DROP CONSTRAINT IF EXISTS events_kind_chk;")
                 cursor.execute(
-                    "ALTER TABLE events ADD CONSTRAINT events_kind_chk "
+                    "ALTER TABLE event_applications ADD CONSTRAINT event_applications_kind_chk "
                     "CHECK (kind IN ('event', 'base'));"
                 )
             except Error:
-                cursor.execute("ROLLBACK TO SAVEPOINT sp_events_kind_chk;")
-            cursor.execute("SAVEPOINT sp_events_entry_config;")
-            try:
-                cursor.execute(
-                    "ALTER TABLE events ADD COLUMN entry_config JSONB NOT NULL DEFAULT '{}'::jsonb;"
-                )
-            except Error as e:
-                if getattr(e, "pgcode", None) == "42701":
-                    cursor.execute("ROLLBACK TO SAVEPOINT sp_events_entry_config;")
-                else:
-                    raise
-            cursor.execute("SAVEPOINT sp_event_app_kind;")
-            try:
-                cursor.execute(
-                    "ALTER TABLE event_applications ADD COLUMN kind VARCHAR(16) NOT NULL DEFAULT 'event';"
-                )
-            except Error as e:
-                if getattr(e, "pgcode", None) == "42701":
-                    cursor.execute("ROLLBACK TO SAVEPOINT sp_event_app_kind;")
-                else:
-                    raise
+                cursor.execute("ROLLBACK TO SAVEPOINT sp_event_app_kind_chk;")
+            cursor.execute("DROP INDEX IF EXISTS idx_event_applications_one_pending;")
+            cursor.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_event_applications_one_pending_kind
+                ON event_applications(applicant_user_id, kind)
+                WHERE status = 'pending';
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS event_announcements (
+                    announcement_id BIGSERIAL PRIMARY KEY,
+                    event_id        VARCHAR(32) NOT NULL REFERENCES events(event_id) ON DELETE CASCADE,
+                    title           VARCHAR(200) NOT NULL,
+                    body            TEXT NOT NULL,
+                    created_by      BIGINT NOT NULL,
+                    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_event_announcements_event
+                ON event_announcements(event_id, created_at DESC);
+            """)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS event_registrations (
                     event_id     VARCHAR(32) NOT NULL REFERENCES events(event_id) ON DELETE CASCADE,
@@ -2604,35 +2664,6 @@ class DatabaseManager:
             if conn:
                 conn.rollback()
             return None
-        finally:
-            if conn:
-                cursor.close()
-                self._put_connection(conn)
-
-    def list_user_active_events(self, user_id: int) -> List[Dict[str, Any]]:
-        """列出用户可管理且 status=active 的赛事。"""
-        if not user_id:
-            return []
-        conn = None
-        try:
-            conn = self._get_connection()
-            cursor = conn.cursor(cursor_factory=RealDictCursor)
-            cursor.execute(
-                """
-                SELECT e.event_id, e.name, e.status, e.kind, ea.role
-                FROM event_admins ea
-                INNER JOIN events e ON e.event_id = ea.event_id
-                WHERE ea.user_id = %s AND e.status = 'active'
-                ORDER BY e.created_at DESC
-                """,
-                (user_id,),
-            )
-            return [dict(row) for row in cursor.fetchall()]
-        except Error as e:
-            logger.error(f'list_user_active_events 失败: {e}')
-            if conn:
-                conn.rollback()
-            return []
         finally:
             if conn:
                 cursor.close()

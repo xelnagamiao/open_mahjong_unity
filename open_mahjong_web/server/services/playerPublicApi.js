@@ -454,14 +454,22 @@ async function fetchPlayerRank(userId) {
   };
 }
 
-/** 公开：全部历史赛事（含已关闭），供数据查询站筛选 */
-async function listPublicEvents() {
+/** 公开：全部历史赛事/基地（含已关闭）。kind=event|base 时只返回对应一类。 */
+async function listPublicEvents(kind) {
+  const params = [];
+  let where = '';
+  if (kind === 'event' || kind === 'base') {
+    params.push(kind);
+    where = `WHERE CASE WHEN COALESCE(kind, 'event') = 'base' THEN 'base' ELSE 'event' END = $1`;
+  }
   const result = await pool.query(
     `SELECT event_id, name, description, status, kind, closed_at, created_at
      FROM events
+     ${where}
      ORDER BY
        CASE status WHEN 'active' THEN 0 WHEN 'registered' THEN 1 ELSE 2 END,
-       created_at DESC`
+       created_at DESC`,
+    params
   );
   return result.rows;
 }

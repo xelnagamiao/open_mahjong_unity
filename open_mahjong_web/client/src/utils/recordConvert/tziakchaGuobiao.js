@@ -10,6 +10,7 @@ import {
   discarderFromHuClass,
   parseJsonInput
 } from './tiles.js'
+import { insertOpeningReset } from './openingReset.js'
 
 export const FAN_NAMES = [
   '无', '大四喜', '大三元', '绿一色', '九莲宝灯', '四杠', '连七对', '十三幺', '清幺九', '小四喜',
@@ -391,6 +392,8 @@ export function convertTziakchaStepToSalasasaRound(step, roundOrdinal = 1, recor
     ticks.push(['end'])
   }
 
+  insertOpeningReset(ticks, 0)
+
   const round = {
     round_index: roundOrdinal,
     current_round: roundI + 1,
@@ -602,7 +605,7 @@ export function convertSalasasaRoundToTziakchaStep(round, title = {}, roundOrdin
   while (i < ticks.length) {
     const tick = ticks[i]
     const code = tick[0]
-    if (code === 'end' || code === 'liuju') {
+    if (code === 'end' || code === 'liuju' || code === 'reset') {
       i++
       continue
     }

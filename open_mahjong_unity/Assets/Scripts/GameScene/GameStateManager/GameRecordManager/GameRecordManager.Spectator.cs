@@ -359,14 +359,23 @@ public partial class GameRecordManager {
 
     private string PeekNextTickAction() {
         if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData)) return "";
-        if (roundData.actionTicks == null || currentNode >= roundData.actionTicks.Count) return "";
-        List<string> tick = roundData.actionTicks[currentNode];
-        return (tick != null && tick.Count > 0) ? tick[0] : "";
+        if (roundData.actionTicks == null) return "";
+        int node = currentNode;
+        while (node < roundData.actionTicks.Count && IsRecordSilentTick(roundData.actionTicks[node])) {
+            node++;
+        }
+        if (node >= roundData.actionTicks.Count) return "";
+        List<string> tick = roundData.actionTicks[node];
+        return tick[0];
     }
 
     private float GetSpectatorDelay(string action) {
         switch (action) {
             case "state": return 0f;
+            case "reset":
+            case "ask_hand":
+            case "ask_other":
+            case "ca": return 0f;
             case "d":
             case "gd":
             case "bd": return 0.3f;
@@ -441,14 +450,11 @@ public partial class GameRecordManager {
 
     private void SpectatorNextAction() {
         if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData)) return;
-        if (roundData.actionTicks == null || currentNode >= roundData.actionTicks.Count) return;
+        if (roundData.actionTicks == null) return;
+        ConsumeRecordSilentTicks(roundData);
+        if (currentNode >= roundData.actionTicks.Count) return;
 
         List<string> tick = roundData.actionTicks[currentNode];
-        if (tick == null || tick.Count == 0) {
-            currentNode++;
-            return;
-        }
-
         string action = tick[0];
 
         if (action == "end") {

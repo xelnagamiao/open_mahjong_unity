@@ -198,6 +198,10 @@ def resolve_hepai_tile_for_record(gs, hu_class: str, hepai_player_index: int):
 def player_action_record_buhua(self, max_tile: int, action_player: int, is_mo_buhua: bool = False):
     append_action_tick(self, ["bh", max_tile, action_player, "T" if is_mo_buhua else "F"])
 
+# 牌谱指针跳转：补花轮结束回庄等，不改变手牌/牌山
+def player_action_record_reset(self, player_index: int):
+    append_action_tick(self, ["reset", player_index])
+
 # 牌谱记录摸牌 deal_type: "d" 普通摸牌, "gd" 杠后摸牌, "bd" 补花后摸牌（须带 action_player）
 def player_action_record_deal(self, deal_tile: int, deal_type: str = "d", action_player: int = None):
     if deal_type == "bd":

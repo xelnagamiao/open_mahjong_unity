@@ -6,10 +6,10 @@
       <el-radio-button label="base">基地</el-radio-button>
     </el-radio-group>
     <div v-if="loading" class="tip">加载中…</div>
-    <div v-else-if="!filteredItems.length" class="tip">{{ kindFilter === 'base' ? '暂无基地' : '暂无赛事' }}</div>
+    <div v-else-if="!items.length" class="tip">{{ kindFilter === 'base' ? '暂无基地' : '暂无赛事' }}</div>
     <div v-else class="list">
       <router-link
-        v-for="ev in filteredItems"
+        v-for="ev in items"
         :key="ev.event_id"
         class="item"
         :to="`/events/${ev.event_id}`"
@@ -26,17 +26,13 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import { eventStatusLabel, venueKindLabel } from '@/utils/eventMeta'
 
 const items = ref([])
 const loading = ref(true)
 const kindFilter = ref('event')
-
-const filteredItems = computed(() =>
-  items.value.filter((ev) => (ev.kind === 'base' ? 'base' : 'event') === kindFilter.value)
-)
 
 function formatDate(v) {
   if (!v) return ''
@@ -45,17 +41,20 @@ function formatDate(v) {
   return d.toLocaleString('zh-CN', { hour12: false })
 }
 
-onMounted(async () => {
+async function load() {
   loading.value = true
   try {
-    const res = await axios.get('/api/player/events')
+    const res = await axios.get('/api/player/events', { params: { kind: kindFilter.value } })
     items.value = res.data?.data?.items || []
   } catch {
     items.value = []
   } finally {
     loading.value = false
   }
-})
+}
+
+watch(kindFilter, load)
+onMounted(load)
 </script>
 
 <style scoped>

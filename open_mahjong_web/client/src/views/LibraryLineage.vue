@@ -34,7 +34,7 @@ import { useMahjongCatalog } from '@/composables/useMahjongCatalog'
 const route = useRoute()
 const { catalog, phy, areal, loadError, load } = useMahjongCatalog()
 const mapTab = computed(() => (route.meta.lineageTab === 'rel' ? 'rel' : 'year'))
-const yearLede = '纸牌、牌九接到宁波麻将再分化，1950 年以后按成文、地方改规、上网、现行分开写；虚线接到表底的是还没分出后代但仍在打的规则。'
+const yearLede = '从纸牌、骨牌到各地现行打法，按出现年代排列。点规则名可打开对应条目。'
 const relLede = '按张数、吃、字牌、计分、癞子这类结构特征分组，不是按省名；同组不代表玩法完全一样。'
 
 function syncTitle() {

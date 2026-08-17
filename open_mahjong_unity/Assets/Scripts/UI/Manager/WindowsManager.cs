@@ -55,7 +55,6 @@ public class WindowsManager : MonoBehaviour {
             return;
         }
         Instance = this;
-        ResolveEventPanel();
         ApplyColdBootHiddenState(); // 未登录前关掉场景中的一级窗口，避免子面板 Start 协程读到空用户名等
         StreamerModeHelper.OnChanged += ApplyStreamerModePanels;
         SwitchWindow("login"); // 初始化窗口 游戏初始应当在mainCanvas中显示登录窗口
@@ -418,17 +417,4 @@ public class WindowsManager : MonoBehaviour {
     /// 获取当前窗口标识（如 "menu"、"room"、"game" 等），供 NetworkManager 等判断是否在主菜单等。
     /// </summary>
     public string GetCurrentWindow() => currentWindow;
-
-    private void ResolveEventPanel() {
-        if (eventPanel == null) {
-            foreach (var t in Resources.FindObjectsOfTypeAll<Transform>()) {
-                if (t == null || t.name != "EventPanel") continue;
-                if (!t.gameObject.scene.IsValid()) continue;
-                eventPanel = t.gameObject;
-                break;
-            }
-        }
-        if (eventPanel == null) return;
-    }
-
 }
