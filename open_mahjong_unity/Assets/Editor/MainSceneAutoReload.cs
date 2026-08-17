@@ -8,6 +8,12 @@ using UnityEngine;
 internal static class MainSceneReloadMenu {
     private const string SceneAssetPath = "Assets/Scenes/MainScene.unity";
 
+    [InitializeOnLoadMethod]
+    private static void RestoreEventUiAfterReload()
+    {
+        EditorApplication.delayCall += EventPanelBaker.RestoreIfMissing;
+    }
+
     [MenuItem("Tools/重新加载 MainScene")]
     public static void ReloadMainScene() {
         if (!File.Exists(Path.GetFullPath(SceneAssetPath))) {

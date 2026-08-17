@@ -454,7 +454,9 @@ public class EventDetailPanel : MonoBehaviour {
     private static void ClearSpawned(Transform parent) {
         if (parent == null) return;
         for (int i = parent.childCount - 1; i >= 0; i--) {
-            Destroy(parent.GetChild(i).gameObject);
+            GameObject child = parent.GetChild(i).gameObject;
+            if (child.name.EndsWith("Example") || child.name.EndsWith("Template")) continue;
+            Destroy(child);
         }
     }
 }

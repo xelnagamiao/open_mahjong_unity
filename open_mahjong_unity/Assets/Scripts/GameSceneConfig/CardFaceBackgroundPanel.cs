@@ -15,6 +15,7 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         + "手牌牌背：2D 暗面图样（里宝牌未翻开等），不是 3D 牌背。\n"
         + "也可上传 zip：hand-back.png + hand-bg.png。\n"
         + "3D 牌背颜色请到「牌背」页设置。\n"
+        + "3D 牌面纯色与「使用 3D 牌面背景」互斥，开启后花纹仍保留、底色换成所选颜色。\n"
         + "透明花纹牌面请在「牌面」页打开「使用牌面背景」，整图牌面请关闭。";
 
     private const string ImageAccept = "image/png,image/jpeg,image/jpg,image/webp,application/zip,.zip";
@@ -30,7 +31,12 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
     [SerializeField] private Button uploadTableBgButton;
     [SerializeField] private Button restoreTableBgButton;
     [SerializeField] private Button clearTableBgButton;
-    [SerializeField] private Button closeButton;
+    [SerializeField] private Image tableFaceColorPreview;
+    [SerializeField] private TMP_InputField tableFaceHexInput;
+    [SerializeField] private Button tableFaceHexApplyButton;
+    [SerializeField] private Button useTableFaceSolidButton;
+    [SerializeField] private Button noTableFaceSolidButton;
+    [SerializeField] private Button restoreTableFaceColorButton;
     [SerializeField] private TMP_Text statusText;
     [SerializeField] private TMP_Text helpText;
 
@@ -51,12 +57,16 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         if (uploadTableBgButton != null) uploadTableBgButton.onClick.AddListener(() => OpenPicker(PickMode.TableBg));
         if (restoreTableBgButton != null) restoreTableBgButton.onClick.AddListener(RestoreTableBg);
         if (clearTableBgButton != null) clearTableBgButton.onClick.AddListener(ClearTableBg);
-        if (closeButton != null) closeButton.onClick.AddListener(HidePanel);
+        if (tableFaceHexApplyButton != null) tableFaceHexApplyButton.onClick.AddListener(ApplyTableFaceHex);
+        if (useTableFaceSolidButton != null) useTableFaceSolidButton.onClick.AddListener(() => SetTableFaceSolid(true));
+        if (noTableFaceSolidButton != null) noTableFaceSolidButton.onClick.AddListener(() => SetTableFaceSolid(false));
+        if (restoreTableFaceColorButton != null) restoreTableFaceColorButton.onClick.AddListener(RestoreTableFaceColor);
         if (helpText != null) helpText.text = FormatHelp;
     }
 
     private void OnEnable() {
         RefreshPreviews();
+        RefreshSolidColorUi();
 #if UNITY_WEBGL && !UNITY_EDITOR
         UnityAssetIdb.BindDrop(UnityAssetIdb.KeyHandBg, OnWebGlBytes, err => {
             if (!string.IsNullOrEmpty(err) && err != "empty") ShowTip(err);
@@ -225,6 +235,7 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         AssignPreview(handBgPreview, ref handBgSprite, ResolveHandBgTexture());
         AssignPreview(cardBackPreview, ref cardBackSprite, ResolveHandBackTexture());
         AssignPreview(tableBgPreview, ref tableBgSprite, ResolveTableBgTexture());
+        RefreshSolidColorUi();
         bool customBg = ConfigManager.Instance != null && ConfigManager.Instance.GetSelectedHandBackground().isCustom;
         bool customBack = ConfigManager.Instance != null && ConfigManager.Instance.GetSelectedHandBack().isCustom;
         bool customTable = ConfigManager.Instance != null && ConfigManager.Instance.GetSelectedTableBackground().isCustom;
@@ -250,6 +261,68 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
     private static Texture2D ResolveTableBgTexture() {
         Texture2D custom = CardBackManager.LoadSavedTableBackground();
         return custom;
+    }
+
+    public void RefreshSolidColorUi() {
+        Color color = ConfigManager.Instance != null
+            ? ConfigManager.Instance.TableFaceColor
+            : ConfigManager.DefaultTableFaceColor;
+        bool useSolid = ConfigManager.Instance != null && ConfigManager.Instance.TableFaceUseSolidColor;
+        if (tableFaceColorPreview != null) {
+            tableFaceColorPreview.sprite = null;
+            tableFaceColorPreview.color = color;
+        }
+        if (tableFaceHexInput != null) {
+            tableFaceHexInput.text = ColorUtility.ToHtmlStringRGB(color);
+        }
+        SetSolidButton(useTableFaceSolidButton, useSolid);
+        SetSolidButton(noTableFaceSolidButton, !useSolid);
+    }
+
+    private void ApplyTableFaceHex() {
+        if (tableFaceHexInput == null) return;
+        string hex = (tableFaceHexInput.text ?? "").Trim().TrimStart('#');
+        if (hex.Length == 6) hex += "FF";
+        if (hex.Length != 8 || !ColorUtility.TryParseHtmlString("#" + hex, out Color color)) {
+            ShowTip("颜色格式应为 RRGGBB");
+            return;
+        }
+        color.a = 1f;
+        CardBackManager.SetTableFaceColor(color);
+        RefreshSolidColorUi();
+        ShowTip("已应用 3D 牌面纯色");
+    }
+
+    private void SetTableFaceSolid(bool enabled) {
+        CardBackManager.SetTableFaceSolidColorEnabled(enabled);
+        RefreshSolidColorUi();
+        if (CardFaceConfigPanel.Instance != null) {
+            CardFaceConfigPanel.Instance.RefreshHighlights();
+        }
+        ShowTip(enabled ? "已使用 3D 牌面纯色（已关闭 3D 牌面背景）" : "已关闭 3D 牌面纯色");
+    }
+
+    private void RestoreTableFaceColor() {
+        CardBackManager.SetTableFaceColor(ConfigManager.DefaultTableFaceColor);
+        CardBackManager.SetTableFaceSolidColorEnabled(false);
+        RefreshSolidColorUi();
+        if (CardFaceConfigPanel.Instance != null) {
+            CardFaceConfigPanel.Instance.RefreshHighlights();
+        }
+        ShowTip("已恢复默认 3D 牌面颜色");
+    }
+
+    private static void SetSolidButton(Button button, bool on) {
+        if (button == null) return;
+        if (button.transition != Selectable.Transition.None) {
+            button.transition = Selectable.Transition.None;
+        }
+        Image image = button.GetComponent<Image>();
+        if (image != null) {
+            image.color = on
+                ? new Color(0.28f, 0.48f, 0.92f, 1f)
+                : new Color(0.17f, 0.21f, 0.30f, 1f);
+        }
     }
 
     private static void AssignPreview(Image image, ref Sprite sprite, Texture2D texture) {

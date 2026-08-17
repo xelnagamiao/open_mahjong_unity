@@ -8,6 +8,10 @@ import {
   winningDecompositions,
   meldCandidateTiles,
   inferMeldKind,
+  waitingTiles,
+  waitingTilesAfterDiscards,
+  calculateHongquePaili,
+  hongqueHandShanten,
 } from '../src/game2d/calc/hongque/index.ts'
 
 const flags = {
@@ -235,5 +239,114 @@ test('hongque: 三数 remains an exact arithmetic triple', () => {
     const names = new Set(result.fans.map((fan) => fan.name))
     assert.ok(names.has('三数'))
     assert.ok(!names.has('四数'))
+  }
+})
+
+test('hongque: already-winning hand still waits for unique extension tiles', () => {
+  const hand = ['AX1', 'AX2', 'AX3']
+  assert.equal(isWinningHand(hand, []), true)
+  const waits = waitingTiles(hand, hand)
+  assert.ok(waits.includes('AX4'))
+  assert.ok(!waits.includes('AX1'))
+  assert.ok(!waits.includes('AX2'))
+  assert.ok(!waits.includes('AX3'))
+  assert.equal(new Set(waits).size, waits.length)
+})
+
+test('hongque: discarded unique tile cannot be waited again', () => {
+  const hand = ['AX1', 'AX2', 'AX3', 'AX4']
+  const rows = waitingTilesAfterDiscards(hand, hand)
+  const discardAx4 = rows.find((row) => row.discard === 'AX4')
+  assert.ok(discardAx4)
+  assert.ok(!discardAx4.waits.includes('AX4'))
+  assert.ok(discardAx4.waits.includes('AX5') || isWinningHand(['AX1', 'AX2', 'AX3'], []))
+})
+
+test('hongque paili: winning 12-tile still lists unique extension waits', () => {
+  const hand = 'AX1 AX2 AX3 BX4 BX5 BX6 CX7 CX8 CX9 DX1 DX2 DX3'.split(' ')
+  const result = calculateHongquePaili(hand)
+  assert.equal(result.mode, 'shanten')
+  assert.equal(result.shanten, -1)
+  assert.equal(result.is_hepai, true)
+  assert.ok(result.total_accept > 0)
+  assert.ok(!result.accept.some((item) => hand.includes(item.tile)))
+})
+
+test('hongque paili: 1-shanten hand lists improving tiles', () => {
+  const hand = 'AX1 AX2 AX3 BX4 BX5 BX6 CX7 CX8 CX9 DY1 DY2 GY9'.split(' ')
+  const result = calculateHongquePaili(hand)
+  assert.equal(result.mode, 'shanten')
+  assert.ok(result.shanten >= 1)
+  assert.ok(result.total_accept > 0)
+  assert.ok(result.accept.some((item) => item.tile === 'DY3'))
+  assert.ok(!result.accept.some((item) => hand.includes(item.tile)))
+})
+
+test('hongque paili: 14-tile discard reports shanten and ukeire per cut', () => {
+  const hand = 'AX1 AX2 AX3 BX4 BX5 BX6 CX7 CX8 GY9 DY1 DY2 EY5 FX3 GX8'.split(' ')
+  const result = calculateHongquePaili(hand)
+  assert.equal(result.mode, 'discard')
+  assert.equal(result.discards.length, 14)
+  assert.ok(result.discards.every((row) => typeof row.shanten === 'number'))
+  const best = result.discards[0]
+  assert.ok(best.shanten <= result.discards[result.discards.length - 1].shanten)
+  if (best.shanten <= 2) assert.ok(best.total_accept >= 0)
+})
+
+test('hongque paili: 2-shanten hand lists improving tiles', () => {
+  const hand = 'AX1 AX2 BX5 CX7 DY1 EY5 FY9 GX2 GY8 AY4 BY8 DX3'.split(' ')
+  const result = calculateHongquePaili(hand)
+  assert.equal(result.mode, 'shanten')
+  assert.equal(result.shanten, 2)
+  assert.ok(result.total_accept > 0)
+  assert.ok(!result.accept.some((item) => hand.includes(item.tile)))
+})
+
+test('hongque paili: 3-shanten hand lists improving tiles', () => {
+  const hand = 'GY6 FX6 CX7 CY6 CX5 FX7 DY3 FX4 GY5 DX2 DY6 EX8'.split(' ')
+  const result = calculateHongquePaili(hand)
+  assert.equal(result.mode, 'shanten')
+  assert.equal(result.shanten, 3)
+  assert.ok(result.total_accept > 0)
+  assert.ok(!result.accept.some((item) => hand.includes(item.tile)))
+})
+
+test('hongque paili: 4-shanten hand lists improving tiles', () => {
+  const hand = 'CX5 DY9 FY3 AY5 CY2 AX2 AX4 EY1 DX2 GY7 GX1 CX3'.split(' ')
+  const result = calculateHongquePaili(hand)
+  assert.equal(result.mode, 'shanten')
+  assert.equal(result.shanten, 4)
+  assert.ok(result.total_accept > 0)
+  assert.ok(!result.accept.some((item) => hand.includes(item.tile)))
+})
+
+test('hongque paili: 5-shanten path still lists improving tiles when it appears', () => {
+  // 12 张随机手在虹雀里几乎到不了 5 向听（实测 1500 副最高 4）。
+  // 用一副 4 向听确认高向听分支有进张；5 向听走同一套换张搜索。
+  const four = calculateHongquePaili('CX5 DY9 FY3 AY5 CY2 AX2 AX4 EY1 DX2 GY7 GX1 CX3'.split(' '))
+  assert.equal(four.mode, 'shanten')
+  assert.equal(four.shanten, 4)
+  assert.ok(four.total_accept > 0)
+  assert.equal(hongqueHandShanten('AX1 AX2 AX3 BX4 BX5 BX6 CX7 CX8 CX9 DY1 DY2 GY9'.split(' ')), 1)
+})
+
+test('hongque paili: ukeire timing across shanten levels', () => {
+  const cases = [
+    ['win12', 'AX1 AX2 AX3 BX4 BX5 BX6 CX7 CX8 CX9 DX1 DX2 DX3'],
+    ['iishanten12', 'AX1 AX2 AX3 BX4 BX5 BX6 CX7 CX8 CX9 DY1 DY2 GY9'],
+    ['two12', 'AX1 AX2 BX5 CX7 DY1 EY5 FY9 GX2 GY8 AY4 BY8 DX3'],
+    ['three12', 'GY6 FX6 CX7 CY6 CX5 FX7 DY3 FX4 GY5 DX2 DY6 EX8'],
+    ['four12', 'CX5 DY9 FY3 AY5 CY2 AX2 AX4 EY1 DX2 GY7 GX1 CX3'],
+    ['discard14', 'AX1 AX2 AX3 BX4 BX5 BX6 CX7 CX8 GY9 DY1 DY2 EY5 FX3 GX8'],
+  ]
+  for (const [label, text] of cases) {
+    const start = performance.now()
+    const result = calculateHongquePaili(text.split(' '))
+    const ms = performance.now() - start
+    const shanten = result.mode === 'shanten' ? result.shanten : result.best_shanten
+    const accepts = result.mode === 'shanten' ? result.total_accept : result.discards[0].total_accept
+    console.log(`paili ${label}: shanten=${shanten} accepts=${accepts} ${ms.toFixed(1)}ms`)
+    const limit = label === 'discard14' ? 5_000 : 2_000
+    assert.ok(ms < limit, `${label} too slow: ${ms.toFixed(1)}ms`)
   }
 })

@@ -18,9 +18,9 @@ from .boardcast import (
     reconnected_send_pending_ask,
     send_realtime_spectator_snapshot,
 )
-from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num, assign_competition_final_ranks
+from ..public.logic_common import get_index_relative_position, player_index_go_to, player_index_next, next_current_num, back_current_num, assign_competition_final_ranks
 from .init_tiles import init_guobiao_tiles
-from ..public.next_game_round import next_game_round_switchseat
+from ..public.next_game_round import next_game_round_guobiao_switchseat
 from ..public.round_end_timing import (
     liuju_ready_wait_seconds,
 )
@@ -202,6 +202,7 @@ class GuobiaoGameState:
         self.dealer_index = 0 # 国标每局换位后庄家始终是逻辑座位 0
         self._opening_buhua_complete_pending = False
         self.xunmu = 1 # 巡目
+        self.action_history = [] # 历史操作玩家
         self.master_seed: int = 0  # 主种子
         self.commitment: int = 0 # 承诺值
         self.salt = "" # 盐字符串
@@ -489,7 +490,7 @@ class GuobiaoGameState:
             buhua_start = get_debug_buhua_start_index(self) if self.Debug else 0
             for offset in range(4):
                 i = (buhua_start + offset) % 4
-                self.current_player_index = i
+                self.player_index_go_to(i)
                 action_anymore = True
                 while action_anymore: # 如果单个玩家可以补花
                     self.action_dict = check_action_buhua(self, i)
@@ -514,7 +515,7 @@ class GuobiaoGameState:
 
             # 初始行为
             self.game_status = "waiting_hand_action" # 初始行动
-            self.current_player_index = get_debug_buhua_start_index(self) if self.Debug else self.dealer_index
+            self.player_index_go_to(get_debug_buhua_start_index(self) if self.Debug else self.dealer_index)
             self._opening_buhua_complete_pending = not self.Debug
             # 开局补花结束只清闲家临时槽。首个出牌者若补过花，保留其
             # 最后一张替代牌作为一次性摸牌槽；未补花则仍按普通首打手切。
@@ -903,7 +904,7 @@ class GuobiaoGameState:
                 else:
                     fan_count = len(hu_fan) if hu_fan else 0
                     await self.run_hu_result_ready_phase(fan_count)
-                next_game_round_switchseat(self)
+                next_game_round_guobiao_switchseat(self)
                 logger.info("重新开始下一局")
             else:
                 logger.info("最后一局结束，不再推进局数")
@@ -1097,5 +1098,7 @@ GuobiaoGameState.reconnected_send_pending_ask = reconnected_send_pending_ask
 GuobiaoGameState.send_realtime_spectator_snapshot = send_realtime_spectator_snapshot
 
 # 挂载功能函数于GuobiaoGameState实例
-GuobiaoGameState.next_current_index = next_current_index
+GuobiaoGameState.player_index_go_to = player_index_go_to
+GuobiaoGameState.player_index_next = player_index_next
+GuobiaoGameState.next_current_index = player_index_next
 GuobiaoGameState.refresh_waiting_tiles = refresh_waiting_tiles

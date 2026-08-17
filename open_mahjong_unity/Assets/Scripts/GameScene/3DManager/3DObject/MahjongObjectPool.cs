@@ -348,6 +348,7 @@ public class MahjongObjectPool : MonoBehaviour {
                 if (template == null) return;
                 material = new Material(template) { name = $"Hongque_{HongqueTileVisual.ToCode(tileId)}" };
                 material.SetTexture("_FrontTex", texture);
+                ApplyTableFaceFallback(material);
                 hongqueMaterialCache[tileId] = material;
             }
             tile3D.SetStandaloneCardTexture(tileId, texture, material);
@@ -363,6 +364,7 @@ public class MahjongObjectPool : MonoBehaviour {
                 customStandardMaterialCache[tileId] = customMaterial;
             }
             customMaterial.SetTexture("_FrontTex", customTexture);
+            ApplyTableFaceFallback(customMaterial);
             tile3D.SetStandaloneCardTextureContain(tileId, customTexture, customMaterial);
             return;
         }
@@ -403,6 +405,15 @@ public class MahjongObjectPool : MonoBehaviour {
                 Object.Destroy(pair.Value);
             }
         }
+    }
+
+    /// <summary>
+    /// fluffy / hkmahjong 3D 牌面已把原米色做成透明；无 3D 牌面背景时用兜底色填回。
+    /// </summary>
+    private static void ApplyTableFaceFallback(Material material) {
+        if (material == null) return;
+        material.SetColor("_TableFaceFallbackColor", ConfigManager.DefaultTableFaceFallbackColor);
+        material.SetFloat("_TableFaceFallbackEnabled", 1f);
     }
 
     private static Material FindTileMaterialTemplate(GameObject cardObj) {

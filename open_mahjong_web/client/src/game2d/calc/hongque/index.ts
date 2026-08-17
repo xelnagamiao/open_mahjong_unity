@@ -265,6 +265,49 @@ function generateGroupMasks(): bigint[] {
 }
 
 const GROUP_MASKS = generateGroupMasks()
+const FULL_DECK_MASK = (1n << BigInt(DECK.length)) - 1n
+
+function lowestBitIndex(bit: bigint): number {
+  let index = 0
+  let value = bit
+  while ((value & 1n) === 0n) {
+    value >>= 1n
+    index += 1
+  }
+  return index
+}
+
+const GROUPS_BY_TILE: bigint[][] = Array.from({ length: DECK.length }, () => [])
+for (const groupMask of GROUP_MASKS) {
+  let remaining = groupMask
+  while (remaining) {
+    const bit = remaining & -remaining
+    GROUPS_BY_TILE[lowestBitIndex(bit)].push(groupMask)
+    remaining ^= bit
+  }
+}
+
+const PARTITION_MEMO = new Map<bigint, boolean>()
+function canPartitionMask(mask: bigint): boolean {
+  if (mask === 0n) return true
+  const cached = PARTITION_MEMO.get(mask)
+  if (cached !== undefined) return cached
+  const anchor = mask & -mask
+  let ok = false
+  for (const groupMask of GROUPS_BY_TILE[lowestBitIndex(anchor)]) {
+    if ((groupMask & mask) === groupMask && canPartitionMask(mask ^ groupMask)) {
+      ok = true
+      break
+    }
+  }
+  if (PARTITION_MEMO.size >= 16384) PARTITION_MEMO.clear()
+  PARTITION_MEMO.set(mask, ok)
+  return ok
+}
+
+function isWinningMask(mask: bigint): boolean {
+  return mask !== 0n && canPartitionMask(mask)
+}
 
 function codesFromMask(mask: bigint): string[] {
   const codes: string[] = []
@@ -379,9 +422,507 @@ function groupSortKey(group: string[]): number {
 
 export function isWinningHand(hand: string[], openMelds: OpenMeld[] = []): boolean {
   try {
-    return winningDecompositions(hand, openMelds).length > 0
+    const codes = hand.map((code) => parseTile(code).code)
+    if (new Set(codes).size !== codes.length) return false
+    const mask = maskFromCodes(codes)
+    if (mask === 0n) return openMelds.length > 0
+    return canPartitionMask(mask)
   } catch (_) {
     return false
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Waiting tiles (group_index.waiting_mask / waiting_masks_after_discards)
+// 已和牌仍可继续听：合法组可继续加长，摸进一张后只要仍能完整拆组即可。
+// 每种牌只有一张，已用手牌/副露/弃牌都不可再摸。
+// ---------------------------------------------------------------------------
+
+function partitionCheckerWithin(containerMask: bigint): (mask: bigint) => boolean {
+  const byAnchor = new Map<bigint, bigint[]>()
+  const containerSize = bitCount(containerMask)
+  for (const groupMask of GROUP_MASKS) {
+    if (bitCount(groupMask) > containerSize) break
+    if ((groupMask & containerMask) !== groupMask) continue
+    let bits = groupMask
+    while (bits) {
+      const bit = bits & -bits
+      const list = byAnchor.get(bit)
+      if (list) list.push(groupMask)
+      else byAnchor.set(bit, [groupMask])
+      bits ^= bit
+    }
+  }
+  const memo = new Map<bigint, boolean>()
+  const canPartitionSubset = (mask: bigint): boolean => {
+    if (mask === 0n) return true
+    const cached = memo.get(mask)
+    if (cached !== undefined) return cached
+    let ok = false
+    const anchor = mask & -mask
+    for (const groupMask of byAnchor.get(anchor) || []) {
+      if ((groupMask & mask) === groupMask && canPartitionSubset(mask ^ groupMask)) {
+        ok = true
+        break
+      }
+    }
+    memo.set(mask, ok)
+    return ok
+  }
+  return canPartitionSubset
+}
+
+function tryMaskFromCodes(codes: Iterable<string>): bigint | null {
+  try {
+    return maskFromCodes([...codes])
+  } catch (_) {
+    return null
+  }
+}
+
+/** 当前手牌再摸一张即可和的牌（已和牌也会返回可继续扩展的进张）。 */
+export function waitingTiles(hand: string[], used: Iterable<string> = hand): string[] {
+  const handMask = tryMaskFromCodes(hand)
+  const usedMask = tryMaskFromCodes(used)
+  if (handMask === null || usedMask === null) return []
+  const availableMask = FULL_DECK_MASK & ~usedMask
+  const canPartitionSubset = partitionCheckerWithin(handMask)
+  let waits = 0n
+  for (const groupMask of GROUP_MASKS) {
+    const overlap = groupMask & handMask
+    const overlapSize = bitCount(overlap)
+    if (overlapSize !== bitCount(groupMask) - 1 || overlapSize < 2) continue
+    if (canPartitionSubset(handMask ^ overlap)) waits |= groupMask ^ overlap
+  }
+  return codesFromMask(waits & availableMask)
+}
+
+/**
+ * 对每张可切牌一次扫描后的听牌。
+ * used 应包含切牌前完整手牌：虹雀每种牌只有一张，切出后不可再摸。
+ */
+export function waitingTilesAfterDiscards(
+  hand: string[],
+  used: Iterable<string> = hand,
+): { discard: string; waits: string[] }[] {
+  const handMask = tryMaskFromCodes(hand)
+  const usedMask = tryMaskFromCodes(used)
+  if (handMask === null || usedMask === null) return []
+
+  const discardBits: bigint[] = []
+  let remaining = handMask
+  while (remaining) {
+    const bit = remaining & -remaining
+    discardBits.push(bit)
+    remaining ^= bit
+  }
+  const waitsByDiscard = new Map<bigint, bigint>()
+  for (const bit of discardBits) waitsByDiscard.set(bit, 0n)
+  if (!discardBits.length) return []
+
+  const availableMask = FULL_DECK_MASK & ~usedMask
+  const canPartitionSubset = partitionCheckerWithin(handMask)
+  const handSize = bitCount(handMask)
+
+  for (const groupMask of GROUP_MASKS) {
+    const groupSize = bitCount(groupMask)
+    if (groupSize > handSize) break
+    const overlap = groupMask & handMask
+    const overlapSize = bitCount(overlap)
+    if (overlapSize !== groupSize - 1 || overlapSize < 2) continue
+    const missing = groupMask ^ overlap
+    if ((missing & availableMask) === 0n) continue
+    let eligibleDiscards = handMask & ~overlap
+    while (eligibleDiscards) {
+      const discardBit = eligibleDiscards & -eligibleDiscards
+      const remainder = handMask ^ discardBit ^ overlap
+      if (canPartitionSubset(remainder)) {
+        waitsByDiscard.set(discardBit, (waitsByDiscard.get(discardBit) || 0n) | missing)
+      }
+      eligibleDiscards ^= discardBit
+    }
+  }
+
+  return discardBits.map((bit) => ({
+    discard: codesFromMask(bit)[0],
+    waits: codesFromMask((waitsByDiscard.get(bit) || 0n) & availableMask),
+  }))
+}
+
+function waitingMaskBits(handMask: bigint, usedMask: bigint): bigint {
+  const availableMask = FULL_DECK_MASK & ~usedMask
+  const canPartitionSubset = partitionCheckerWithin(handMask)
+  let waits = 0n
+  for (const groupMask of GROUP_MASKS) {
+    const overlap = groupMask & handMask
+    const overlapSize = bitCount(overlap)
+    if (overlapSize !== bitCount(groupMask) - 1 || overlapSize < 2) continue
+    if (canPartitionSubset(handMask ^ overlap)) waits |= groupMask ^ overlap
+  }
+  return waits & availableMask
+}
+
+// ---------------------------------------------------------------------------
+// Paili / shanten efficiency (frontend-only)
+// Distance DP: efficiency_bot._structural_value
+// 已和牌仍列出可扩展进张；所有向听都计算能减少向听的进张。
+// ---------------------------------------------------------------------------
+
+export interface HongquePailiAccept {
+  tile: string
+}
+
+export interface HongquePailiShantenResult {
+  mode: 'shanten'
+  shanten: number
+  is_tingpai: boolean
+  is_hepai: boolean
+  accept: HongquePailiAccept[]
+  total_accept: number
+}
+
+export interface HongquePailiDiscard {
+  discard: string
+  shanten: number
+  accept: HongquePailiAccept[]
+  total_accept: number
+}
+
+export interface HongquePailiDiscardResult {
+  mode: 'discard'
+  is_hepai: boolean
+  best_shanten: number
+  discards: HongquePailiDiscard[]
+}
+
+export type HongquePailiResult = HongquePailiShantenResult | HongquePailiDiscardResult
+
+const STRUCTURAL_CACHE = new Map<bigint, { distance: number; flexibility: number }>()
+const SHANTEN_CACHE = new Map<string, number>()
+const MAX_HAND_TILES = 14
+
+function structuralValue(handMask: bigint): { distance: number; flexibility: number } {
+  const cached = STRUCTURAL_CACHE.get(handMask)
+  if (cached) return cached
+  const handSize = bitCount(handMask)
+  if (handSize === 0) {
+    const empty = { distance: 2, flexibility: 0 }
+    STRUCTURAL_CACHE.set(handMask, empty)
+    return empty
+  }
+  const targetSize = handSize + 1
+  const variantCounts = new Map<string, { overlap: bigint; groupSize: number; count: number }>()
+  const seenGroups = new Set<bigint>()
+  let remainingTiles = handMask
+  while (remainingTiles) {
+    const bit = remainingTiles & -remainingTiles
+    remainingTiles ^= bit
+    for (const groupMask of GROUPS_BY_TILE[lowestBitIndex(bit)]) {
+      if (seenGroups.has(groupMask)) continue
+      seenGroups.add(groupMask)
+      const groupSize = bitCount(groupMask)
+      if (groupSize > targetSize) continue
+      const overlap = groupMask & handMask
+      if (bitCount(overlap) < 2) continue
+      const key = `${overlap.toString(16)}:${groupSize}`
+      const existing = variantCounts.get(key)
+      if (existing) existing.count += 1
+      else variantCounts.set(key, { overlap, groupSize, count: 1 })
+    }
+  }
+
+  const sizesByOverlap = new Map<bigint, number>()
+  let flexibility = 0
+  for (const item of variantCounts.values()) {
+    const overlapSize = bitCount(item.overlap)
+    const missing = item.groupSize - overlapSize
+    flexibility += (Math.min(item.count, 32) * overlapSize * overlapSize * 8) / (missing + 1) | 0
+    sizesByOverlap.set(item.overlap, (sizesByOverlap.get(item.overlap) || 0) | (1 << item.groupSize))
+  }
+
+  const byAnchor = new Map<bigint, { overlap: bigint; overlapSize: number; groupSizes: number[] }[]>()
+  for (const [overlap, sizeBits] of sizesByOverlap) {
+    const overlapSize = bitCount(overlap)
+    const groupSizes: number[] = []
+    for (let size = 3; size <= targetSize; size++) {
+      if (sizeBits & (1 << size)) groupSizes.push(size)
+    }
+    let remaining = overlap
+    while (remaining) {
+      const bit = remaining & -remaining
+      const list = byAnchor.get(bit)
+      const entry = { overlap, overlapSize, groupSizes }
+      if (list) list.push(entry)
+      else byAnchor.set(bit, [entry])
+      remaining ^= bit
+    }
+  }
+
+  const stride = targetSize + 1
+  const costCaps: bigint[] = Array.from({ length: targetSize + 1 }, () => 0n)
+  for (let groupSize = 3; groupSize <= targetSize; groupSize++) {
+    const row = (1n << BigInt(targetSize - groupSize + 1)) - 1n
+    let cap = 0n
+    for (let kept = 0; kept <= handSize; kept++) {
+      cap |= row << BigInt(kept * stride)
+    }
+    costCaps[groupSize] = cap
+  }
+
+  const reachableMemo = new Map<bigint, bigint>()
+  const reachable = (mask: bigint): bigint => {
+    if (mask === 0n) return 1n
+    const hit = reachableMemo.get(mask)
+    if (hit !== undefined) return hit
+    const anchor = mask & -mask
+    let states = reachable(mask ^ anchor)
+    for (const item of byAnchor.get(anchor) || []) {
+      if ((item.overlap & mask) !== item.overlap) continue
+      const tail = reachable(mask ^ item.overlap)
+      const keptShift = item.overlapSize * stride
+      for (const groupSize of item.groupSizes) {
+        states |= (tail & costCaps[groupSize]) << BigInt(keptShift + groupSize)
+      }
+    }
+    reachableMemo.set(mask, states)
+    return states
+  }
+
+  const states = reachable(handMask)
+  let validCosts = 1n << BigInt(targetSize)
+  if (targetSize >= 3) validCosts |= (1n << BigInt(targetSize - 2)) - 1n
+  let result = { distance: handSize, flexibility: Math.max(0, flexibility) }
+  for (let kept = handSize; kept >= 0; kept--) {
+    const row = states >> BigInt(kept * stride)
+    if (row & validCosts) {
+      result = { distance: handSize - kept, flexibility: Math.max(0, flexibility) }
+      break
+    }
+  }
+  if (STRUCTURAL_CACHE.size >= 8192) STRUCTURAL_CACHE.clear()
+  STRUCTURAL_CACHE.set(handMask, result)
+  return result
+}
+
+function evaluateShanten(handMask: bigint, usedMask: bigint): number {
+  const key = `${handMask.toString(16)}|${usedMask.toString(16)}`
+  const cached = SHANTEN_CACHE.get(key)
+  if (cached !== undefined) return cached
+  let shanten: number
+  if (isWinningMask(handMask)) shanten = -1
+  else if (waitingMaskBits(handMask, usedMask) !== 0n) shanten = 0
+  else {
+    const distance = structuralValue(handMask).distance
+    shanten = distance === 0 ? 1 : distance
+  }
+  if (SHANTEN_CACHE.size >= 8192) SHANTEN_CACHE.clear()
+  SHANTEN_CACHE.set(key, shanten)
+  return shanten
+}
+
+function ukeireToWinMask(handMask: bigint, usedMask: bigint): bigint {
+  let accepts = 0n
+  let remaining = handMask
+  while (remaining) {
+    const discardBit = remaining & -remaining
+    accepts |= waitingMaskBits(handMask ^ discardBit, usedMask)
+    remaining ^= discardBit
+  }
+  return accepts
+}
+
+function rankedUkeireCandidates(
+  handMask: bigint,
+  usedMask: bigint,
+  minOverlap: number,
+  limit: number,
+  maxGroupSize = 6,
+): bigint[] {
+  const available = FULL_DECK_MASK & ~usedMask
+  const scores = new Map<bigint, number>()
+  const seen = new Set<bigint>()
+  let remaining = handMask
+  while (remaining) {
+    const bit = remaining & -remaining
+    remaining ^= bit
+    for (const groupMask of GROUPS_BY_TILE[lowestBitIndex(bit)]) {
+      if (seen.has(groupMask)) continue
+      seen.add(groupMask)
+      const groupSize = bitCount(groupMask)
+      if (groupSize > maxGroupSize) continue
+      const overlapSize = bitCount(groupMask & handMask)
+      if (overlapSize < minOverlap) continue
+      const missing = groupMask & available
+      if (missing === 0n) continue
+      const quality = (overlapSize * overlapSize * 8) / (groupSize - overlapSize + 1) | 0
+      let missingBits = missing
+      while (missingBits) {
+        const tileBit = missingBits & -missingBits
+        scores.set(tileBit, (scores.get(tileBit) || 0) + quality)
+        missingBits ^= tileBit
+      }
+    }
+  }
+  return [...scores.entries()]
+    .sort((left, right) => right[1] - left[1] || (left[0] < right[0] ? -1 : 1))
+    .slice(0, Math.max(1, limit))
+    .map(([bit]) => bit)
+}
+
+function lowestConnectivityBits(handMask: bigint, limit: number): bigint[] {
+  const scores = new Map<bigint, number>()
+  let remaining = handMask
+  while (remaining) {
+    const bit = remaining & -remaining
+    scores.set(bit, 0)
+    remaining ^= bit
+  }
+  const seen = new Set<bigint>()
+  remaining = handMask
+  while (remaining) {
+    const bit = remaining & -remaining
+    remaining ^= bit
+    for (const groupMask of GROUPS_BY_TILE[lowestBitIndex(bit)]) {
+      if (seen.has(groupMask)) continue
+      seen.add(groupMask)
+      const overlap = groupMask & handMask
+      const overlapSize = bitCount(overlap)
+      if (overlapSize < 2) continue
+      const missing = bitCount(groupMask) - overlapSize
+      const quality = (overlapSize * overlapSize * 8) / (missing + 1) | 0
+      let overlapBits = overlap
+      while (overlapBits) {
+        const tileBit = overlapBits & -overlapBits
+        scores.set(tileBit, (scores.get(tileBit) || 0) + quality)
+        overlapBits ^= tileBit
+      }
+    }
+  }
+  return [...scores.entries()]
+    .sort((left, right) => left[1] - right[1] || (left[0] < right[0] ? -1 : 1))
+    .slice(0, Math.max(1, limit))
+    .map(([bit]) => bit)
+}
+
+/**
+ * n>=2 时比较向听：跳过听牌扫描。
+ * 结构距离 0 会记成 1 向听，对 n>=2 仍小于 n，不会漏掉听牌进张。
+ */
+function shantenLessThan(handMask: bigint, n: number): boolean {
+  if (isWinningMask(handMask)) return true
+  const distance = structuralValue(handMask).distance
+  const shanten = distance === 0 ? 1 : distance
+  return shanten < n
+}
+
+function improvingTiles(
+  handMask: bigint,
+  usedMask: bigint,
+  currentShanten: number,
+  maxDiscards = 12,
+): string[] {
+  if (currentShanten <= 0) return codesFromMask(waitingMaskBits(handMask, usedMask))
+  if (currentShanten === 1) return codesFromMask(ukeireToWinMask(handMask, usedMask))
+
+  const candidateLimit = currentShanten >= 5 ? 20 : 32
+  const discardLimit = currentShanten >= 3 ? Math.min(maxDiscards, 6) : Math.min(maxDiscards, 8)
+  const seen = new Set<bigint>()
+  const candidates: bigint[] = []
+  for (const tileBit of rankedUkeireCandidates(handMask, usedMask, 2, candidateLimit)) {
+    seen.add(tileBit)
+    candidates.push(tileBit)
+  }
+  if (currentShanten >= 4) {
+    for (const tileBit of rankedUkeireCandidates(handMask, usedMask, 1, candidateLimit, 3)) {
+      if (seen.has(tileBit)) continue
+      seen.add(tileBit)
+      candidates.push(tileBit)
+      if (candidates.length >= candidateLimit) break
+    }
+  }
+  const discardBits = lowestConnectivityBits(handMask, discardLimit)
+  let accepts = 0n
+  for (const tileBit of candidates) {
+    for (const discardBit of discardBits) {
+      if (shantenLessThan((handMask ^ discardBit) | tileBit, currentShanten)) {
+        accepts |= tileBit
+        break
+      }
+    }
+  }
+  return codesFromMask(accepts)
+}
+
+function toAccept(codes: string[]): HongquePailiAccept[] {
+  return codes.map((tile) => ({ tile }))
+}
+
+function analyzeWaitingHand(
+  handMask: bigint,
+  usedMask: bigint,
+  maxDiscards = 12,
+): {
+  shanten: number
+  accept: HongquePailiAccept[]
+} {
+  const shanten = evaluateShanten(handMask, usedMask)
+  return { shanten, accept: toAccept(improvingTiles(handMask, usedMask, shanten, maxDiscards)) }
+}
+
+/** 只算向听，不算进张。 */
+export function hongqueHandShanten(hand: string[]): number {
+  const codes = hand.map((code) => parseTile(code).code)
+  if (new Set(codes).size !== codes.length) throw new Error('虹雀牌不可重复')
+  return evaluateShanten(maskFromCodes(codes), maskFromCodes(codes))
+}
+
+/** 12/13 张看听牌与进张效率，14 张看切牌效率。全程前端计算。 */
+export function calculateHongquePaili(hand: string[]): HongquePailiResult {
+  const codes = hand.map((code) => parseTile(code).code)
+  if (new Set(codes).size !== codes.length) throw new Error('虹雀牌不可重复')
+  const handMask = maskFromCodes(codes)
+  const usedMask = handMask
+  if (codes.length === MAX_HAND_TILES) {
+    const pending: { discardBit: bigint; shanten: number }[] = []
+    let remaining = handMask
+    let bestShanten = 99
+    while (remaining) {
+      const discardBit = remaining & -remaining
+      const shanten = evaluateShanten(handMask ^ discardBit, usedMask)
+      pending.push({ discardBit, shanten })
+      if (shanten < bestShanten) bestShanten = shanten
+      remaining ^= discardBit
+    }
+    const discards: HongquePailiDiscard[] = pending.map(({ discardBit, shanten }) => {
+      const maxDiscards = shanten === bestShanten ? 4 : 3
+      const accept = toAccept(improvingTiles(handMask ^ discardBit, usedMask, shanten, maxDiscards))
+      return {
+        discard: codesFromMask(discardBit)[0],
+        shanten,
+        accept,
+        total_accept: accept.length,
+      }
+    })
+    discards.sort((left, right) =>
+      left.shanten - right.shanten ||
+      right.total_accept - left.total_accept ||
+      left.discard.localeCompare(right.discard)
+    )
+    return {
+      mode: 'discard',
+      is_hepai: isWinningMask(handMask),
+      best_shanten: discards[0]?.shanten ?? 1,
+      discards,
+    }
+  }
+  const after = analyzeWaitingHand(handMask, usedMask)
+  return {
+    mode: 'shanten',
+    shanten: after.shanten,
+    is_tingpai: after.shanten === 0,
+    is_hepai: after.shanten === -1,
+    accept: after.accept,
+    total_accept: after.accept.length,
   }
 }
 

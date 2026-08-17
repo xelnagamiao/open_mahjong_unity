@@ -96,6 +96,9 @@ public class ConfigManager : MonoBehaviour {
     private const string KEY_FRONT_EDGE_SYNC = "FrontEdgeSync";
     private const string KEY_FRONT_EDGE_MODE = "FrontEdgeMode";
     private const string KEY_FRONT_TEX_FOLLOW_TABLE_BG = "FrontTexFollowTableBg";
+    private const string KEY_TABLE_FACE_COLOR = "TableFaceColor";
+    private const string KEY_TABLE_FACE_USE_SOLID = "TableFaceUseSolidColor";
+    private const string KEY_FRONT_TEX_FOLLOW_TABLE_BG_TO_EDGE = "FrontTexFollowTableBgToEdge";
 
     /// <summary>3D card back default color (same as 3DTile.mat _BackColor).</summary>
     public static readonly Color DefaultCardBackColor = new Color(0.218f, 0.372f, 0.66f, 1f);
@@ -103,6 +106,13 @@ public class ConfigManager : MonoBehaviour {
     public static readonly Color DefaultSideColor = new Color(0.7132075f, 0.7132075f, 0.7132075f, 1f);
     /// <summary>背面侧边默认颜色：默认与牌背颜色同步（跟随 DefaultCardBackColor）。</summary>
     public static readonly Color DefaultBackEdgeColor = DefaultCardBackColor;
+    /// <summary>3D 牌面纯色默认：米色（与官方牌面 + 整体设计观感一致）。</summary>
+    public static readonly Color DefaultTableFaceColor = new Color(0.95294f, 0.94118f, 0.86667f, 1f);
+    /// <summary>
+    /// fluffy / hkmahjong 3D 牌面 PNG 原米色 (245,246,247)，透明化后 shader 无底图时的兜底色。
+    /// 与 DefaultTableFaceColor（用户可选的纯色默认）不是同一套。
+    /// </summary>
+    public static readonly Color DefaultTableFaceFallbackColor = new Color(0.961f, 0.965f, 0.969f, 1f);
 
     private static AppLanguage _languageMode = AppLanguage.SimplifiedChinese;
     public static event Action OnLanguageChanged;
@@ -179,6 +189,12 @@ public class ConfigManager : MonoBehaviour {
     public CardEdgePanel.FrontEdgeMode FrontEdgeMode { get; private set; } = CardEdgePanel.FrontEdgeMode.Independent;
     /// <summary>3D 牌正面贴图是否跟随「使用 3D 牌面背景」开关自动启用 _FrontTexExtendEdge。默认关。</summary>
     public bool FrontTexFollowTableBg { get; private set; }
+    /// <summary>3D 牌面纯色：与「3D 牌面背景」互斥。开启时牌面渲染该纯色，关闭时按 _FrontTex/_FrontBgTex 行为渲染。</summary>
+    public Color TableFaceColor { get; private set; } = DefaultTableFaceColor;
+    /// <summary>是否使用 3D 牌面纯色（开启后「使用 3D 牌面背景」自动关闭）。</summary>
+    public bool TableFaceUseSolidColor { get; private set; }
+    /// <summary>3D 牌面背景跟随模式下，是否把底图拉伸到整张牌的正面 + 侧面边缘（关时仅铺正面）。</summary>
+    public bool FrontTexFollowTableBgToEdge { get; private set; }
 
     public static readonly string[] TileOutlinePresetLabels = {
         "预设1",
@@ -252,6 +268,9 @@ public class ConfigManager : MonoBehaviour {
             PlayerPrefs.GetInt(KEY_FRONT_EDGE_MODE, FrontEdgeSyncEnabled ? 1 : 0), 0, 2);
         FrontTexExtendEdge = PlayerPrefs.GetInt(KEY_FRONT_TEX_EXTEND_EDGE, 0) == 1;
         FrontTexFollowTableBg = PlayerPrefs.GetInt(KEY_FRONT_TEX_FOLLOW_TABLE_BG, 0) == 1;
+        FrontTexFollowTableBgToEdge = PlayerPrefs.GetInt(KEY_FRONT_TEX_FOLLOW_TABLE_BG_TO_EDGE, 0) == 1;
+        TableFaceColor = LoadTableFaceColor();
+        TableFaceUseSolidColor = PlayerPrefs.GetInt(KEY_TABLE_FACE_USE_SOLID, 0) == 1;
         UseTableFaceBackground = LoadUseTableFaceBackground();
         StandardTilePackId = LoadStandardTilePackId();
         UseHandFaceBackground = LoadUseHandFaceBackground(StandardTilePackId);
@@ -301,6 +320,11 @@ public class ConfigManager : MonoBehaviour {
     public void SetUseTableFaceBackground(bool enabled) {
         UseTableFaceBackground = enabled;
         PlayerPrefs.SetInt(KEY_USE_TABLE_FACE_BACKGROUND, enabled ? 1 : 0);
+        // 与「使用 3D 牌面纯色」互斥
+        if (enabled) {
+            TableFaceUseSolidColor = false;
+            PlayerPrefs.SetInt(KEY_TABLE_FACE_USE_SOLID, 0);
+        }
         PlayerPrefs.Save();
     }
 
@@ -318,6 +342,30 @@ public class ConfigManager : MonoBehaviour {
     public void SetFrontTexFollowTableBg(bool enabled) {
         FrontTexFollowTableBg = enabled;
         PlayerPrefs.SetInt(KEY_FRONT_TEX_FOLLOW_TABLE_BG, enabled ? 1 : 0);
+        PlayerPrefs.Save();
+    }
+
+    public void SetFrontTexFollowTableBgToEdge(bool enabled) {
+        FrontTexFollowTableBgToEdge = enabled;
+        PlayerPrefs.SetInt(KEY_FRONT_TEX_FOLLOW_TABLE_BG_TO_EDGE, enabled ? 1 : 0);
+        PlayerPrefs.Save();
+    }
+
+    /// <summary>设置 3D 牌面纯色（与「使用 3D 牌面背景」互斥）。开启后背景自动关闭。</summary>
+    public void SetTableFaceColor(Color color) {
+        TableFaceColor = color;
+        PlayerPrefs.SetString(KEY_TABLE_FACE_COLOR, ColorUtility.ToHtmlStringRGBA(color));
+        PlayerPrefs.Save();
+    }
+
+    public void SetTableFaceUseSolidColor(bool enabled) {
+        TableFaceUseSolidColor = enabled;
+        PlayerPrefs.SetInt(KEY_TABLE_FACE_USE_SOLID, enabled ? 1 : 0);
+        // 与「使用 3D 牌面背景」互斥
+        if (enabled) {
+            UseTableFaceBackground = false;
+            PlayerPrefs.SetInt(KEY_USE_TABLE_FACE_BACKGROUND, 0);
+        }
         PlayerPrefs.Save();
     }
 
@@ -550,6 +598,17 @@ public class ConfigManager : MonoBehaviour {
             }
         }
         return DefaultBackEdgeColor;
+    }
+
+    private static Color LoadTableFaceColor() {
+        string hex = PlayerPrefs.GetString(KEY_TABLE_FACE_COLOR, "");
+        if (!string.IsNullOrEmpty(hex)) {
+            string normalized = hex.StartsWith("#") ? hex : "#" + hex;
+            if (ColorUtility.TryParseHtmlString(normalized, out Color color)) {
+                return color;
+            }
+        }
+        return DefaultTableFaceColor;
     }
 
     public static string GetTitleText(int titleId) {

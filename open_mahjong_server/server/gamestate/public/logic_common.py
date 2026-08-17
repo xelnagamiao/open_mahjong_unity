@@ -78,11 +78,40 @@ def get_index_relative_position(self_index: int, other_index: int) -> str:
 
 # 递进下一个玩家索引 东 → 南 → 西 → 北 → 东 0 → 1 → 2 → 3 → 0
 def next_current_index(self):
-    """递进当前玩家索引"""
+    """递进当前玩家索引（不含巡目；国标请用 player_index_next）"""
     if self.current_player_index == 3:
         self.current_player_index = 0
     else:
         self.current_player_index += 1
+
+
+def player_index_go_to(self, player_index: int):
+    """ 通过action_history历史行动列表，保存此前所有的操作player_index，示例：[0,1,1,2,2,3,0,1,1]，其中0指东家，1、2、3指南西北家
+        指针每次重新指向的时候判断
+        1.开局1巡，亲家出牌列表为空不加巡目
+        2.如果指针指向的是action_history[-1]，则Skip
+        3.如果历史行动列表往前追溯时指向玩家小于上一个玩家，则巡目+1
+        以下是示例情况
+        A.南家补花 0 1 1 跳过
+        B.亲家补花 0 0 跳过
+        C.南家碰北家 3 1 加巡目
+        D.轮到亲家摸牌 3 0 加巡目
+    """
+    history = self.action_history
+    if (
+        history
+        and player_index != history[-1]
+        and player_index < history[-1]
+        and self.player_list[0].discard_tiles
+    ):
+        self.xunmu += 1
+    history.append(player_index)
+    self.current_player_index = player_index
+
+
+def player_index_next(self):
+    """历时：东→南→西→北→东，并更新巡目。"""
+    player_index_go_to(self, 0 if self.current_player_index == 3 else self.current_player_index + 1)
 
 # 输入玩家索引，获取下一个玩家索引
 def next_current_num(num: int) -> int:

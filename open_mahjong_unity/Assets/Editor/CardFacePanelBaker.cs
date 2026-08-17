@@ -80,14 +80,6 @@ public static class CardFacePanelBaker
         TMP_Text title = NewText(panelRt, "Title", "牌面设置", 22, Color.white, TextAnchor.MiddleCenter);
         StretchTop(title.rectTransform, 0f, 40f, 0f);
 
-        Button closeBtn = NewButton(panelRt, "CloseButton", "关闭", ButtonBg, Color.white);
-        RectTransform closeRt = (RectTransform)closeBtn.transform;
-        closeRt.anchorMin = new Vector2(1f, 1f);
-        closeRt.anchorMax = new Vector2(1f, 1f);
-        closeRt.pivot = new Vector2(1f, 1f);
-        closeRt.anchoredPosition = new Vector2(-8f, -6f);
-        closeRt.sizeDelta = new Vector2(56f, 30f);
-
         Button tabStd = NewButton(panelRt, "TabStandard", "标准麻将牌", Accent, Color.white);
         PlaceTop(tabStd.transform as RectTransform, 20f, 56f, 160f, 36f);
         Button tabHq = NewButton(panelRt, "TabHongque", "虹雀麻将牌", ButtonBg, Color.white);
@@ -110,19 +102,23 @@ public static class CardFacePanelBaker
         PlaceLeft(hk.transform as RectTransform, 342f, 0f, 100f, 36f);
 
         RectTransform viewActions = NewRect("StandardViewActions", panelRt);
-        StretchTop(viewActions, 20f, 40f, 176f);
+        StretchTop(viewActions, 20f, 80f, 176f);
+
+        // 3×2 网格布局：3列×2行，每按钮 280×36，间隔 10px，列间距 10px
+        GridLayoutGroup viewGrid = viewActions.gameObject.AddComponent<GridLayoutGroup>();
+        viewGrid.cellSize = new Vector2(280f, 36f);
+        viewGrid.spacing = new Vector2(10f, 8f);
+        viewGrid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        viewGrid.constraintCount = 3;
+        viewGrid.childAlignment = TextAnchor.UpperLeft;
+        viewGrid.padding = new RectOffset(0, 0, 0, 0);
+
         Button showHand = NewButton(viewActions, "ShowHandButton", "显示手牌牌面", Accent, Color.white);
-        PlaceLeft(showHand.transform as RectTransform, 0f, 0f, 140f, 36f);
         Button showTable = NewButton(viewActions, "ShowTableButton", "显示3D牌面", ButtonBg, Color.white);
-        PlaceLeft(showTable.transform as RectTransform, 148f, 0f, 130f, 36f);
         Button useBg = NewButton(viewActions, "UseBgButton", "使用牌面背景", ButtonBg, Color.white);
-        PlaceLeft(useBg.transform as RectTransform, 286f, 0f, 140f, 36f);
         Button noBg = NewButton(viewActions, "NoBgButton", "不使用牌面背景", ButtonBg, Color.white);
-        PlaceLeft(noBg.transform as RectTransform, 434f, 0f, 160f, 36f);
         Button useTableBg = NewButton(viewActions, "UseTableBgButton", "使用3D牌面背景", ButtonBg, Color.white);
-        PlaceLeft(useTableBg.transform as RectTransform, 602f, 0f, 160f, 36f);
         Button noTableBg = NewButton(viewActions, "NoTableBgButton", "不使用3D牌面背景", ButtonBg, Color.white);
-        PlaceLeft(noTableBg.transform as RectTransform, 770f, 0f, 180f, 36f);
 
         GameObject standardScroll = BuildPreviewScroll(
             panelRt,
@@ -155,7 +151,6 @@ public static class CardFacePanelBaker
         so.FindProperty("noTableBackgroundButton").objectReferenceValue = noTableBg;
         so.FindProperty("showHandButton").objectReferenceValue = showHand;
         so.FindProperty("showTableButton").objectReferenceValue = showTable;
-        so.FindProperty("closeButton").objectReferenceValue = closeBtn;
         so.FindProperty("statusText").objectReferenceValue = status;
         so.FindProperty("helpText").objectReferenceValue = help;
         so.FindProperty("standardActions").objectReferenceValue = actions.gameObject;
@@ -189,6 +184,116 @@ public static class CardFacePanelBaker
 
         EditorSceneManager.MarkSceneDirty(scp.gameObject.scene);
         return true;
+    }
+
+    /// <summary>
+    /// 不重建面板：只修 StandardViewActions 3×2、按名删除 CloseButton、补上 3D 牌面纯色控件。
+    /// 不要用脚本直接改场景 YAML。
+    /// </summary>
+    public static bool PatchExistingScene()
+    {
+        SceneConfigPanel scp = Object.FindFirstObjectByType<SceneConfigPanel>();
+        if (scp == null) return false;
+
+        Transform cardFacePanel = scp.transform.Find("CardFacePanel");
+        if (cardFacePanel != null)
+        {
+            PatchStandardViewActions(cardFacePanel);
+            DestroyExactChild(cardFacePanel, "CloseButton");
+        }
+
+        Transform faceBgPanel = scp.transform.Find("CardFaceBackgroundPanel");
+        if (faceBgPanel != null)
+        {
+            DestroyExactChild(faceBgPanel, "CloseButton");
+            EnsureTableFaceColorUi(faceBgPanel.GetComponent<CardFaceBackgroundPanel>());
+        }
+
+        EditorSceneManager.MarkSceneDirty(scp.gameObject.scene);
+        return true;
+    }
+
+    private static void PatchStandardViewActions(Transform cardFacePanel)
+    {
+        Transform viewActions = cardFacePanel.Find("StandardViewActions");
+        if (viewActions == null) return;
+
+        RectTransform rt = viewActions.GetComponent<RectTransform>();
+        if (rt != null)
+        {
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.anchoredPosition = new Vector2(0f, -176f);
+            rt.sizeDelta = new Vector2(-40f, 88f);
+        }
+
+        foreach (Transform child in viewActions)
+        {
+            LayoutElement le = child.GetComponent<LayoutElement>();
+            if (le != null) Object.DestroyImmediate(le);
+        }
+
+        ContentSizeFitter fitter = viewActions.GetComponent<ContentSizeFitter>();
+        if (fitter != null) Object.DestroyImmediate(fitter);
+
+        GridLayoutGroup grid = viewActions.GetComponent<GridLayoutGroup>();
+        if (grid == null) grid = viewActions.gameObject.AddComponent<GridLayoutGroup>();
+        grid.cellSize = new Vector2(280f, 36f);
+        grid.spacing = new Vector2(10f, 8f);
+        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        grid.constraintCount = 3;
+        grid.childAlignment = TextAnchor.UpperLeft;
+        grid.padding = new RectOffset(0, 0, 0, 0);
+    }
+
+    private static void DestroyExactChild(Transform parent, string childName)
+    {
+        Transform child = parent.Find(childName);
+        if (child != null) Object.DestroyImmediate(child.gameObject);
+    }
+
+    private static void EnsureTableFaceColorUi(CardFaceBackgroundPanel panel)
+    {
+        if (panel == null) return;
+        RectTransform panelRt = panel.transform as RectTransform;
+        if (panelRt == null) return;
+
+        SerializedObject so = new SerializedObject(panel);
+        SerializedProperty previewProp = so.FindProperty("tableFaceColorPreview");
+        if (previewProp == null) return;
+        Image preview = previewProp.objectReferenceValue as Image;
+        if (preview == null)
+        {
+            Transform existing = panelRt.Find("TableFaceColorPreview");
+            preview = existing != null ? existing.GetComponent<Image>() : null;
+        }
+        if (preview == null)
+        {
+            TMP_Text solidLabel = NewText(panelRt, "TableFaceColorLabel", "3D 牌面纯色（与 3D 牌面背景互斥）", 16, LabelColor, TextAnchor.MiddleLeft);
+            PlaceTop(solidLabel.rectTransform, 260f, 572f, 520f, 28f);
+            preview = NewPreview(panelRt, "TableFaceColorPreview", 260f, 604f, 36f, 36f);
+            preview.color = ConfigManager.DefaultTableFaceColor;
+            preview.preserveAspect = false;
+            TMP_InputField hex = CreateInput(panelRt, "TableFaceHexInput", "RRGGBB");
+            PlaceTop(hex.transform as RectTransform, 304f, 604f, 140f, 36f);
+            Button hexApply = NewButton(panelRt, "TableFaceHexApplyButton", "应用", Accent, Color.white);
+            PlaceTop(hexApply.transform as RectTransform, 452f, 604f, 72f, 36f);
+            Button useSolid = NewButton(panelRt, "UseTableFaceSolidButton", "使用纯色", ButtonBg, Color.white);
+            PlaceTop(useSolid.transform as RectTransform, 260f, 648f, 140f, 36f);
+            Button noSolid = NewButton(panelRt, "NoTableFaceSolidButton", "不使用纯色", ButtonBg, Color.white);
+            PlaceTop(noSolid.transform as RectTransform, 408f, 648f, 140f, 36f);
+            Button restoreSolid = NewButton(panelRt, "RestoreTableFaceColorButton", "恢复米色", ButtonBg, Color.white);
+            PlaceTop(restoreSolid.transform as RectTransform, 556f, 648f, 140f, 36f);
+
+            so.FindProperty("tableFaceColorPreview").objectReferenceValue = preview;
+            so.FindProperty("tableFaceHexInput").objectReferenceValue = hex;
+            so.FindProperty("tableFaceHexApplyButton").objectReferenceValue = hexApply;
+            so.FindProperty("useTableFaceSolidButton").objectReferenceValue = useSolid;
+            so.FindProperty("noTableFaceSolidButton").objectReferenceValue = noSolid;
+            so.FindProperty("restoreTableFaceColorButton").objectReferenceValue = restoreSolid;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
     }
 
     /// <summary>给所有设置面板挂 UIDragger，幂等。</summary>
@@ -236,14 +341,6 @@ public static class CardFacePanelBaker
         TMP_Text title = NewText(panelRt, "Title", "牌面背景", 22, Color.white, TextAnchor.MiddleCenter);
         StretchTop(title.rectTransform, 0f, 40f, 0f);
 
-        Button closeBtn = NewButton(panelRt, "CloseButton", "关闭", ButtonBg, Color.white);
-        RectTransform closeRt = (RectTransform)closeBtn.transform;
-        closeRt.anchorMin = new Vector2(1f, 1f);
-        closeRt.anchorMax = new Vector2(1f, 1f);
-        closeRt.pivot = new Vector2(1f, 1f);
-        closeRt.anchoredPosition = new Vector2(-8f, -6f);
-        closeRt.sizeDelta = new Vector2(56f, 30f);
-
         TMP_Text handLabel = NewText(panelRt, "HandBgLabel", "手牌牌面背景", 16, LabelColor, TextAnchor.MiddleLeft);
         PlaceTop(handLabel.rectTransform, 40f, 56f, 360f, 28f);
         Image handPreview = NewPreview(panelRt, "HandBgPreview", 40f, 92f, 200f, 286f);
@@ -275,8 +372,24 @@ public static class CardFacePanelBaker
         Button clearTable = NewButton(panelRt, "ClearTableBgButton", "删除背景", ButtonBg, Color.white);
         PlaceTop(clearTable.transform as RectTransform, 620f, 526f, 140f, 36f);
 
+        TMP_Text solidLabel = NewText(panelRt, "TableFaceColorLabel", "3D 牌面纯色（与 3D 牌面背景互斥）", 16, LabelColor, TextAnchor.MiddleLeft);
+        PlaceTop(solidLabel.rectTransform, 260f, 572f, 520f, 28f);
+        Image tableFacePreview = NewPreview(panelRt, "TableFaceColorPreview", 260f, 604f, 36f, 36f);
+        tableFacePreview.color = ConfigManager.DefaultTableFaceColor;
+        tableFacePreview.preserveAspect = false;
+        TMP_InputField tableFaceHex = CreateInput(panelRt, "TableFaceHexInput", "RRGGBB");
+        PlaceTop(tableFaceHex.transform as RectTransform, 304f, 604f, 140f, 36f);
+        Button tableFaceHexApply = NewButton(panelRt, "TableFaceHexApplyButton", "应用", Accent, Color.white);
+        PlaceTop(tableFaceHexApply.transform as RectTransform, 452f, 604f, 72f, 36f);
+        Button useSolid = NewButton(panelRt, "UseTableFaceSolidButton", "使用纯色", ButtonBg, Color.white);
+        PlaceTop(useSolid.transform as RectTransform, 260f, 648f, 140f, 36f);
+        Button noSolid = NewButton(panelRt, "NoTableFaceSolidButton", "不使用纯色", ButtonBg, Color.white);
+        PlaceTop(noSolid.transform as RectTransform, 408f, 648f, 140f, 36f);
+        Button restoreSolid = NewButton(panelRt, "RestoreTableFaceColorButton", "恢复米色", ButtonBg, Color.white);
+        PlaceTop(restoreSolid.transform as RectTransform, 556f, 648f, 140f, 36f);
+
         TMP_Text status = NewText(panelRt, "StatusText", "手牌背景：默认　手牌牌背：默认　3D 牌面背景：默认", 14, LabelColor, TextAnchor.MiddleLeft);
-        StretchTop(status.rectTransform, 20f, 28f, 580f);
+        StretchTop(status.rectTransform, 20f, 28f, 700f);
         status.enableWordWrapping = true;
         status.overflowMode = TextOverflowModes.Ellipsis;
 
@@ -302,7 +415,12 @@ public static class CardFacePanelBaker
         so.FindProperty("uploadTableBgButton").objectReferenceValue = uploadTable;
         so.FindProperty("restoreTableBgButton").objectReferenceValue = restoreTable;
         so.FindProperty("clearTableBgButton").objectReferenceValue = clearTable;
-        so.FindProperty("closeButton").objectReferenceValue = closeBtn;
+        so.FindProperty("tableFaceColorPreview").objectReferenceValue = tableFacePreview;
+        so.FindProperty("tableFaceHexInput").objectReferenceValue = tableFaceHex;
+        so.FindProperty("tableFaceHexApplyButton").objectReferenceValue = tableFaceHexApply;
+        so.FindProperty("useTableFaceSolidButton").objectReferenceValue = useSolid;
+        so.FindProperty("noTableFaceSolidButton").objectReferenceValue = noSolid;
+        so.FindProperty("restoreTableFaceColorButton").objectReferenceValue = restoreSolid;
         so.FindProperty("statusText").objectReferenceValue = status;
         so.FindProperty("helpText").objectReferenceValue = help;
         so.ApplyModifiedPropertiesWithoutUndo();
@@ -643,6 +761,31 @@ public static class CardFacePanelBaker
             case TextAnchor.MiddleCenter: return TextAlignmentOptions.Midline;
             default: return TextAlignmentOptions.Midline;
         }
+    }
+
+    private static TMP_InputField CreateInput(RectTransform parent, string name, string placeholderText)
+    {
+        RectTransform rt = NewRect(name, parent);
+        Image img = rt.gameObject.AddComponent<Image>();
+        img.color = new Color(0.13f, 0.15f, 0.20f, 1f);
+
+        TMP_Text text = NewText(rt, "Text", "", 14, Color.white, TextAnchor.MiddleLeft);
+        RectTransform textRt = text.rectTransform;
+        Stretch(textRt);
+        textRt.offsetMin = new Vector2(8f, 0f);
+        textRt.offsetMax = new Vector2(-8f, 0f);
+
+        TMP_Text ph = NewText(rt, "Placeholder", placeholderText, 14, new Color(1f, 1f, 1f, 0.35f), TextAnchor.MiddleLeft);
+        RectTransform phRt = ph.rectTransform;
+        Stretch(phRt);
+        phRt.offsetMin = new Vector2(8f, 0f);
+        phRt.offsetMax = new Vector2(-8f, 0f);
+
+        TMP_InputField input = rt.gameObject.AddComponent<TMP_InputField>();
+        input.targetGraphic = img;
+        input.textComponent = text;
+        input.placeholder = ph;
+        return input;
     }
 
     private static Button NewButton(RectTransform parent, string name, string label, Color bg, Color textColor)

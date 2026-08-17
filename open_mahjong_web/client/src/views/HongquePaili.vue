@@ -1,16 +1,16 @@
-<!--
+﻿<!--
   虹雀² 牌理页面（路由 /paili/hongque）
-  基于虹雀² v1.6 规则：分析手牌听牌/进张（12/13张），或切牌分析（14张）。
-  所有牌必须组成 3+ 张的合法牌组，无雀头。
-  牌面使用虹雀手牌贴图。
+  前端计算向听与进张效率：已和仍可扩展听牌；所有向听（含 3/4/5 向听以上）都列出能减少向听的进张。
+  每种牌只有一张。不请求服务器。
 -->
 <template>
   <div class="hongque-paili">
     <div class="page-header">
       <PailiSwitcher />
       <p class="subtitle">
-        12/13 张直接显示听牌与进张，14 张显示切牌分析。
-        输入为空时将随机生成示例。
+        12/13 张显示向听与进张效率，14 张显示切牌效率。
+        已和牌仍会列出可继续扩展的进张；一向听、两向听、三向听及以上都会计算能减少向听的进张。
+        每种牌只有一张。输入为空时随机生成 14 张。计算在浏览器本地完成。
       </p>
     </div>
 
@@ -40,11 +40,7 @@
           <span class="row-label">手牌 {{ form.hand.length }} 张</span>
           <el-tag size="small" :type="handCountTagType" effect="plain">{{ handCountText }}</el-tag>
         </div>
-        <div
-          class="hand-bar"
-          :class="{ active: activeFuluIdx < 0 }"
-          @click="activateHand"
-        >
+        <div class="hand-bar">
           <span
             v-for="(code, idx) in form.hand"
             :key="'h-' + code + '-' + idx"
@@ -64,31 +60,31 @@
           <span>正在计算...</span>
         </div>
         <div v-else-if="!result" class="empty">
-          <span class="input-target-bar">{{ inputTargetLabel }}</span>
+          <span class="input-target-bar">输入手牌后计算向听与进张</span>
         </div>
         <template v-else-if="result && result.mode === 'shanten'">
           <div class="meta-line nowrap">
             <span>当前向听 <strong>{{ formatShanten(result.shanten) }}</strong></span>
           </div>
-          <div class="banner" :class="result.is_tingpai ? 'success' : 'warning'">
-            <strong>{{ result.is_tingpai ? '听牌' : `向听 ${formatShanten(result.shanten)}` }}</strong>
-            <span class="banner-sub">进张 {{ result.total_accept }} 张 · {{ result.accept.length }} 种</span>
+          <div class="banner" :class="result.shanten < 1 ? 'success' : 'warning'">
+            <strong>{{ result.shanten === -1 ? '和牌' : (result.is_tingpai ? '听牌' : formatShanten(result.shanten)) }}</strong>
+            <span class="banner-sub">{{ acceptCaption(result.shanten) }} {{ result.total_accept }} 张</span>
           </div>
           <div class="paili-block">
-            <h4>进张</h4>
+            <h4>{{ acceptCaption(result.shanten) }}</h4>
             <div class="accept-list nowrap-scroll">
               <span v-for="a in result.accept" :key="'a-' + a.tile" class="accept-inline">
                 <span class="hq-tile hq-tile-mini" :title="a.tile">
                   <img :src="tileFaceUrl(a.tile)" :alt="a.tile" draggable="false" @error="onTileError" />
                 </span>
-                <span class="accept-count">{{ a.remaining }}</span>
               </span>
-              <span v-if="result.accept.length === 0" class="hint">已和牌或无进张</span>
+              <span v-if="result.accept.length === 0" class="hint">无进张</span>
             </div>
           </div>
         </template>
         <template v-else-if="result && result.mode === 'discard'">
           <div class="meta-line nowrap">
+            <span v-if="result.is_hepai">当前已和牌，切牌后仍可继续听</span>
             <span>最佳向听 <strong>{{ formatShanten(result.best_shanten) }}</strong></span>
           </div>
           <div class="discard-table">
@@ -96,7 +92,7 @@
               <span class="col-tile">切</span>
               <span class="col-shanten">向听</span>
               <span class="col-total">进张</span>
-              <span class="col-accept-h">摸</span>
+              <span class="col-accept-h">有效进张</span>
             </div>
             <div
               v-for="d in result.discards"
@@ -111,7 +107,7 @@
               </span>
               <span class="col-shanten">{{ formatShanten(d.shanten) }}</span>
               <span class="col-total">
-                <strong>{{ d.total_accept }}</strong><span class="hint">/{{ d.accept.length }}</span>
+                <strong>{{ d.total_accept }}</strong>
               </span>
               <span class="col-accept">
                 <span v-if="d.accept.length === 0" class="hint">无</span>
@@ -120,7 +116,6 @@
                     <span class="hq-tile hq-tile-mini" :title="a.tile">
                       <img :src="tileFaceUrl(a.tile)" :alt="a.tile" draggable="false" @error="onTileError" />
                     </span>
-                    <span class="accept-count-mini">{{ a.remaining }}</span>
                   </span>
                 </span>
               </span>
@@ -158,13 +153,14 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 import PailiSwitcher from '@/components/PailiSwitcher.vue'
-import { winningDecompositions } from '@/game2d/calc/hongque'
+import { calculateHongquePaili } from '@/game2d/calc/hongque'
 
 const TILE_BASE_URL = '/game2d-assets/hongque-hand/'
+const MAX_HAND = 14
 
 const COLOUR_GROUPS = [
   { codePrefix: 'AX', colour: 0 },
@@ -184,6 +180,9 @@ const COLOUR_GROUPS = [
 ]
 
 const paletteGroups = COLOUR_GROUPS
+const ALL_CODES = COLOUR_GROUPS.flatMap((group) =>
+  Array.from({ length: 9 }, (_, index) => group.codePrefix + (index + 1)),
+)
 
 function hueOf(colour) {
   return Math.round((colour / 14) * 360)
@@ -196,33 +195,69 @@ function tileFaceUrl(code) {
 const textInput = ref('')
 const loading = ref(false)
 const result = ref(null)
-const activeFuluIdx = ref(-1)
+const form = reactive({ hand: [] })
 
-const form = reactive({
-  hand: [],
-})
+const workerRequests = new Map()
+let pailiWorker = null
+let workerRequestId = 0
 
-const expectedCount = 14
+const terminateWorker = (error) => {
+  pailiWorker?.terminate()
+  pailiWorker = null
+  for (const request of workerRequests.values()) {
+    clearTimeout(request.timer)
+    request.reject(error)
+  }
+  workerRequests.clear()
+}
+
+const getWorker = () => {
+  if (pailiWorker || typeof Worker === 'undefined') return pailiWorker
+  try {
+    pailiWorker = new Worker(
+      new URL('../utils/hongquePailiWorker.ts', import.meta.url),
+      { type: 'module' },
+    )
+    pailiWorker.onmessage = ({ data }) => {
+      const request = workerRequests.get(data.id)
+      if (!request) return
+      workerRequests.delete(data.id)
+      clearTimeout(request.timer)
+      if (data.error) request.reject(new Error(data.error))
+      else request.resolve(data.result)
+    }
+    pailiWorker.onerror = () => {
+      terminateWorker(new Error('Web Worker 运行失败'))
+    }
+  } catch (error) {
+    pailiWorker = null
+    console.warn('无法创建虹雀牌理 Worker，将在主线程计算', error)
+  }
+  return pailiWorker
+}
+
+const calculateInWorker = (hand) => {
+  const worker = getWorker()
+  if (!worker) return Promise.resolve(calculateHongquePaili(hand))
+  return new Promise((resolve, reject) => {
+    const id = ++workerRequestId
+    const timer = setTimeout(() => {
+      terminateWorker(new Error('Web Worker 计算超时'))
+    }, 20_000)
+    workerRequests.set(id, { resolve, reject, timer })
+    worker.postMessage({ id, hand })
+  })
+}
+
+onBeforeUnmount(() => terminateWorker(new Error('页面已关闭')))
 
 const allUsedCodes = computed(() => new Set(form.hand))
-
-const totalTiles = computed(() => form.hand.length)
-
 const isUsed = (code) => allUsedCodes.value.has(code)
-
-const handCountText = computed(() => `${form.hand.length}/${expectedCount}`)
-
+const handCountText = computed(() => `${form.hand.length}/${MAX_HAND}`)
 const handCountTagType = computed(() => {
-  if (form.hand.length === 0) return 'warning'
-  if (form.hand.length === 12 || form.hand.length === 13) return 'success'
-  if (form.hand.length === expectedCount) return 'success'
-  if (form.hand.length > expectedCount) return 'danger'
+  if (form.hand.length === 12 || form.hand.length === 13 || form.hand.length === MAX_HAND) return 'success'
+  if (form.hand.length > MAX_HAND) return 'danger'
   return 'warning'
-})
-
-const inputTargetLabel = computed(() => {
-  if (activeFuluIdx.value >= 0) return `输入副露 #${activeFuluIdx.value + 1}`
-  return '输入手牌'
 })
 
 const formatShanten = (s) => {
@@ -232,7 +267,12 @@ const formatShanten = (s) => {
   return `${s} 向听`
 }
 
-// Parse tile codes from text input
+const acceptCaption = (shanten) => {
+  if (shanten === -1) return '可继续扩展'
+  if (shanten === 0) return '听牌进张'
+  return '有效进张'
+}
+
 const parseCodes = (text) => {
   const tokens = String(text || '')
     .split(/[\s,，;；]+/)
@@ -243,186 +283,30 @@ const parseCodes = (text) => {
     if (!/^[A-G][XY][1-9]$/.test(token)) {
       throw new Error(`非法牌码：${token}（应为 AX1～GY9 格式）`)
     }
+    if (codes.includes(token)) throw new Error(`虹雀牌不可重复：${token}`)
     codes.push(token)
   }
   return codes
 }
 
-// Sort hand codes by (colour, number)
 const sortHandCodes = (codes) => {
   codes.sort((a, b) => {
-    const colourA = COLOUR_GROUPS.findIndex(g => g.codePrefix === a.slice(0, 2))
-    const colourB = COLOUR_GROUPS.findIndex(g => g.codePrefix === b.slice(0, 2))
+    const colourA = COLOUR_GROUPS.findIndex((group) => group.codePrefix === a.slice(0, 2))
+    const colourB = COLOUR_GROUPS.findIndex((group) => group.codePrefix === b.slice(0, 2))
     if (colourA !== colourB) return colourA - colourB
     return Number(a[2]) - Number(b[2])
   })
   return codes
 }
 
-// Count remaining tiles in deck
-function countRemainingInDeck(hand, tile) {
-  const DECK_SIZE = 3 // Each tile appears 3 times in the deck
-  return DECK_SIZE - hand.filter(t => t === tile).length
-}
-
-// Calculate shanten for Hongque hand
-// Shanten = how many tiles needed to reach a winning hand
-// Winning hand: all tiles form valid groups (3+ each), total 12-14 tiles
-function calculateShanten(hand) {
-  // A winning Hongque hand must have 12-14 tiles all in valid groups
-  // Total tiles = 3 * groupCount (no head/pair)
-  const n = hand.length
-  if (n === 0) return 14
-  if (n < 12) return 12 - n
-  if (n === 12 || n === 13 || n === 14) {
-    // Check if it's a winning hand
-    const decomps = winningDecompositions(hand, [])
-    if (decomps.length > 0) return -1 // Already winning (tenpai)
-    // Not winning, calculate shanten
-    if (n === 14) {
-      // For 14 tiles, we need to find the best discard
-      // Shanten = minimum tiles needed to reach a winning state
-      // For a 14-tile hand, shanten = 2 means: removing one tile gives a 13-tile hand with shanten=1
-      // Removing one tile from winning hand gives shanten = 1
-      // Removing two tiles from winning hand gives shanten = 2
-      return Math.max(0, 2 - (14 - n))
-    }
-    return 1 // 12 or 13 tiles not winning -> at least 1 away
-  }
-  return 14 - n
-}
-
-// Find all winning decompositions for a hand
-function findWinners(hand) {
-  return winningDecompositions(hand, [])
-}
-
-// Analyze tingpai (waiting) - for 12/13 tile hands
-function analyzeTingpai(hand) {
-  if (hand.length < 12 || hand.length > 13) return null
-
-  // Check if hand is already winning
-  const winners = findWinners(hand)
-  if (winners.length > 0) {
-    return {
-      mode: 'shanten',
-      shanten: -1,
-      is_tingpai: true,
-      accept: [],
-      total_accept: 0,
-    }
-  }
-
-  // For each possible tile to draw, check if it completes a winning hand
-  const accept = []
-  const tried = new Set(hand)
-  for (const code of tried) continue // skip tiles already in hand
-
-  // Try each possible tile
-  const allCodes = COLOUR_GROUPS.flatMap(group =>
-    Array.from({ length: 9 }, (_, i) => group.codePrefix + (i + 1))
-  )
-
-  for (const candidate of allCodes) {
-    if (tried.has(candidate)) continue
-    const testHand = [...hand, candidate]
-    const decomps = winningDecompositions(testHand, [])
-    if (decomps.length > 0) {
-      accept.push({
-        tile: candidate,
-        remaining: countRemainingInDeck(hand, candidate),
-      })
-    }
-  }
-
-  const shanten = hand.length < 12 ? 12 - hand.length : 1
-  return {
-    mode: 'shanten',
-    shanten,
-    is_tingpai: accept.length > 0,
-    accept: accept.sort((a, b) => a.tile.localeCompare(b.tile)),
-    total_accept: accept.reduce((sum, a) => sum + a.remaining, 0),
-  }
-}
-
-// Analyze discards (for 14 tile hands)
-function analyzeDiscards(hand) {
-  if (hand.length !== 14) return null
-
-  const winners = findWinners(hand)
-  if (winners.length > 0) {
-    return {
-      mode: 'shanten',
-      shanten: -1,
-      is_tingpai: true,
-      accept: [],
-      total_accept: 0,
-    }
-  }
-
-  const discardResults = []
-
-  for (let i = 0; i < hand.length; i++) {
-    const discarded = hand[i]
-    const remaining = hand.filter((_, idx) => idx !== i)
-    const decomps = winningDecompositions(remaining, [])
-
-    let shanten = 1 // Removing one tile from 14 -> 13 tiles, usually shanten=1 unless already winning
-    if (decomps.length > 0) {
-      shanten = 0 // Removing this tile makes it a winning hand -> tenpai
-    }
-
-    // Find accept tiles for the remaining hand
-    const accept = []
-    const tried = new Set(remaining)
-    const allCodes = COLOUR_GROUPS.flatMap(group =>
-      Array.from({ length: 9 }, (_, i) => group.codePrefix + (i + 1))
-    )
-
-    for (const candidate of allCodes) {
-      if (tried.has(candidate)) continue
-      const testHand = [...remaining, candidate]
-      const candDecomps = winningDecompositions(testHand, [])
-      if (candDecomps.length > 0) {
-        accept.push({
-          tile: candidate,
-          remaining: countRemainingInDeck(remaining, candidate),
-        })
-      }
-    }
-
-    discardResults.push({
-      discard: discarded,
-      shanten,
-      accept: accept.sort((a, b) => a.tile.localeCompare(b.tile)),
-      total_accept: accept.reduce((sum, a) => sum + a.remaining, 0),
-    })
-  }
-
-  // Sort by shanten (best first), then by total accept (most first)
-  discardResults.sort((a, b) => {
-    if (a.shanten !== b.shanten) return a.shanten - b.shanten
-    return b.total_accept - a.total_accept
-  })
-
-  return {
-    mode: 'discard',
-    best_shanten: discardResults[0]?.shanten ?? 1,
-    discards: discardResults,
-  }
-}
-
-const onPalettePick = (code) => {
-  addHandTile(code)
-}
-
 const addHandTile = (code) => {
   if (form.hand.includes(code)) {
-    removeHandTile(form.hand.indexOf(code))
+    form.hand.splice(form.hand.indexOf(code), 1)
+    textInput.value = form.hand.join(' ')
     return
   }
-  if (form.hand.length >= expectedCount) {
-    ElMessage.warning(`手牌已达上限 ${expectedCount} 张`)
+  if (form.hand.length >= MAX_HAND) {
+    ElMessage.warning(`手牌已达上限 ${MAX_HAND} 张`)
     return
   }
   form.hand.push(code)
@@ -435,25 +319,11 @@ const removeHandTile = (idx) => {
   textInput.value = form.hand.join(' ')
 }
 
-const onHandChipClick = (idx) => {
-  activateHand()
-  removeHandTile(idx)
-}
-
-const activateHand = () => {
-  activeFuluIdx.value = -1
-}
-
-const activateFulu = (idx) => {
-  activeFuluIdx.value = idx
-}
-
-const syncTextInput = () => {
-  textInput.value = form.hand.join(' ')
-}
+const onPalettePick = (code) => addHandTile(code)
+const onHandChipClick = (idx) => removeHandTile(idx)
 
 const loadDemo = () => {
-  form.hand = sortHandCodes(parseCodes('AX1 AX2 AX3 BX4 BX5 BX6 CX7 CX8 CX9'))
+  form.hand = sortHandCodes(parseCodes('AX1 AX2 AX3 BX4 BX5 BX6 CX7 CX8 CX9 DY1 DY2 GY9'))
   textInput.value = form.hand.join(' ')
   analyze()
 }
@@ -462,12 +332,10 @@ const resetAll = () => {
   form.hand = []
   textInput.value = ''
   result.value = null
-  activeFuluIdx.value = -1
 }
 
 const onTileError = (event) => {
-  const img = event.target
-  img.style.opacity = '0.25'
+  event.target.style.opacity = '0.25'
 }
 
 const ensureReadyForAnalyze = () => {
@@ -475,49 +343,45 @@ const ensureReadyForAnalyze = () => {
     try {
       form.hand = sortHandCodes(parseCodes(textInput.value))
       textInput.value = form.hand.join(' ')
-    } catch (e) {
-      ElMessage.error(`简写解析失败：${e.message}`)
+    } catch (error) {
+      ElMessage.error(`简写解析失败：${error.message}`)
       return false
     }
   }
   if (form.hand.length === 0) {
-    // Random demo
-    const demoCodes = COLOUR_GROUPS.flatMap(group =>
-      Array.from({ length: 9 }, (_, i) => group.codePrefix + (i + 1))
-    )
-    const shuffled = demoCodes.sort(() => Math.random() - 0.5)
-    form.hand = sortHandCodes(shuffled.slice(0, 14))
+    const shuffled = [...ALL_CODES]
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+    }
+    form.hand = sortHandCodes(shuffled.slice(0, MAX_HAND))
     textInput.value = form.hand.join(' ')
     return true
   }
-  if (form.hand.length < 12 || form.hand.length > 14) {
+  if (form.hand.length < 12 || form.hand.length > MAX_HAND) {
     ElMessage.error(`手牌须为 12～14 张，当前 ${form.hand.length} 张`)
     return false
   }
   return true
 }
 
-const analyze = () => {
+const analyze = async () => {
   if (!ensureReadyForAnalyze()) return
   loading.value = true
   result.value = null
-
-  setTimeout(() => {
+  try {
     try {
-      if (form.hand.length === 14) {
-        const r = analyzeDiscards(form.hand)
-        if (r) result.value = r
-      } else {
-        const r = analyzeTingpai(form.hand)
-        if (r) result.value = r
-      }
-    } catch (err) {
-      console.error(err)
-      ElMessage.error(`计算失败：${err.message}`)
-    } finally {
-      loading.value = false
+      result.value = await calculateInWorker([...form.hand])
+    } catch (workerError) {
+      console.warn('虹雀牌理 Worker 不可用，将在主线程重试', workerError)
+      result.value = calculateHongquePaili([...form.hand])
     }
-  }, 0)
+  } catch (error) {
+    console.error(error)
+    ElMessage.error(`计算失败：${error.message}`)
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
@@ -533,14 +397,6 @@ const analyze = () => {
   text-align: center;
   margin: 0 auto 16px;
   color: white;
-}
-
-.page-header h1 {
-  font-size: 1.75rem;
-  margin: 0 0 6px;
-  font-weight: bold;
-  color: white;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .subtitle {
@@ -613,15 +469,7 @@ const analyze = () => {
   background: #f8fafc;
   border-radius: 6px;
   border: 1px dashed #93c5fd;
-  cursor: pointer;
-  transition: border-color 0.12s ease, background 0.12s ease;
   align-items: center;
-}
-
-.hand-bar.active {
-  border-color: #2563eb;
-  border-style: solid;
-  background: #eff6ff;
 }
 
 .empty-hint {
@@ -713,19 +561,6 @@ const analyze = () => {
   align-items: baseline;
   gap: 2px;
   margin-right: 6px;
-}
-
-.accept-count {
-  font-size: 10px;
-  color: #475569;
-  font-family: var(--omu-mono, 'Consolas', monospace);
-}
-
-.accept-count-mini {
-  font-size: 9px;
-  color: #94a3b8;
-  font-family: var(--omu-mono, 'Consolas', monospace);
-  margin-right: 4px;
 }
 
 .discard-table {

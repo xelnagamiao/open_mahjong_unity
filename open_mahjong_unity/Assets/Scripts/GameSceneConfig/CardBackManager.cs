@@ -55,6 +55,14 @@ public static class CardBackManager
         ApplyFrontEdgeColor(ResolveFrontEdgeColor(ConfigManager.Instance.FrontEdgeMode, ConfigManager.Instance.FrontEdgeColor));
         ApplyFrontTexExtendEdge(ResolveFrontTexExtendEdge());
         SetTableFaceBackgroundEnabled(ConfigManager.Instance.UseTableFaceBackground);
+        // 3D 牌面纯色：单独应用，与「使用 3D 牌面背景」互斥已在 ConfigManager setter 处理。
+        Material shared = Resources.Load<Material>(MaterialResourcePath);
+        if (shared != null)
+        {
+            shared.SetColor("_TableFaceColor", ConfigManager.Instance.TableFaceColor);
+            shared.SetFloat("_TableFaceBlend", ConfigManager.Instance.TableFaceUseSolidColor ? 1f : 0f);
+            shared.SetFloat("_TableBgCoverFace", ConfigManager.Instance.FrontTexFollowTableBgToEdge ? 1f : 0f);
+        }
     }
 
     /// <summary>把正面侧边颜色应用到共享材质与所有 Tile3D 实例。</summary>
@@ -393,6 +401,8 @@ public static class CardBackManager
             CurrentTableBackground = null;
         }
 #endif
+        // 重启时把已存的 3D 牌面背景 aspect 同步到 shader，避免首次切「使用」时仍按整张 UV 采样
+        ApplyTableBackgroundAspect(CurrentTableBackground);
         return CurrentTableBackground;
     }
 
@@ -405,7 +415,9 @@ public static class CardBackManager
         {
             ConfigManager.Instance.SetSelectedTableBackground(UnityAssetIdb.KeyTableBg, true);
         }
-        ReplaceTableBackground(UnityAssetIdb.ToTexture(png));
+        Texture2D tex = UnityAssetIdb.ToTexture(png);
+        ReplaceTableBackground(tex);
+        ApplyTableBackgroundAspect(tex);
 #else
         try
         {
@@ -415,7 +427,9 @@ public static class CardBackManager
             {
                 ConfigManager.Instance.SetSelectedTableBackground(TableBgFilePath, true);
             }
-            ReplaceTableBackground(BytesToTexture(png));
+            Texture2D tex = BytesToTexture(png);
+            ReplaceTableBackground(tex);
+            ApplyTableBackgroundAspect(tex);
         }
         catch (Exception e)
         {
@@ -425,6 +439,19 @@ public static class CardBackManager
 #endif
         // 上传背景后自动开启「使用 3D 牌面背景」，避免出现图已上传但 UI 还是关闭态。
         SetTableFaceBackgroundEnabled(true);
+    }
+
+    /// <summary>把上传 3D 牌面背景的宽高比写入共享材质，shader 据此按 220:366 比例压缩 UV。</summary>
+    private static void ApplyTableBackgroundAspect(Texture2D tex)
+    {
+        float aspect = (tex != null && tex.height > 0)
+            ? (float)tex.width / tex.height
+            : 0f;
+        Material shared = Resources.Load<Material>(MaterialResourcePath);
+        if (shared != null)
+        {
+            shared.SetFloat("_FrontBgTexAspect", aspect);
+        }
     }
 
     public static void ClearPersistedTableBackground()
@@ -448,6 +475,12 @@ public static class CardBackManager
         ReplaceTableBackground(null);
         // 清空背景后顺手关闭「使用 3D 牌面背景」，与手牌牌面背景行为一致。
         SetTableFaceBackgroundEnabled(false);
+        // 清空纹理后让 shader 回退到按整张牌面采样的原行为
+        Material shared = Resources.Load<Material>(MaterialResourcePath);
+        if (shared != null)
+        {
+            shared.SetFloat("_FrontBgTexAspect", 0f);
+        }
     }
 
     /// <summary>
@@ -467,6 +500,8 @@ public static class CardBackManager
         {
             shared.SetTexture("_FrontBgTex", CurrentTableBackground);
             shared.SetFloat("_FrontBgBlend", (enabled && hasTex) ? 1f : 0f);
+            // 开启背景时关掉纯色；关闭背景时不要动纯色，否则「不使用背景」会把已开的纯色冲掉。
+            if (enabled) shared.SetFloat("_TableFaceBlend", 0f);
         }
         Texture2D active = (enabled && hasTex) ? CurrentTableBackground : null;
         Tile3D[] tiles = UnityEngine.Object.FindObjectsByType<Tile3D>(FindObjectsSortMode.None);
@@ -484,6 +519,74 @@ public static class CardBackManager
         }
         // 跟随 3D 牌面背景开关同时切换正面贴图延伸
         ApplyFrontTexExtendEdge(ResolveFrontTexExtendEdge());
+    }
+
+    /// <summary>3D 牌面纯色：与「使用 3D 牌面背景」互斥，开启后自动关闭背景。</summary>
+    public static void SetTableFaceSolidColorEnabled(bool enabled)
+    {
+        if (ConfigManager.Instance != null)
+        {
+            ConfigManager.Instance.SetTableFaceUseSolidColor(enabled);
+        }
+        Material shared = Resources.Load<Material>(MaterialResourcePath);
+        if (shared != null)
+        {
+            shared.SetFloat("_TableFaceBlend", enabled ? 1f : 0f);
+            shared.SetColor("_TableFaceColor",
+                ConfigManager.Instance != null ? ConfigManager.Instance.TableFaceColor : Color.white);
+            if (enabled)
+            {
+                shared.SetFloat("_FrontBgBlend", 0f);
+            }
+        }
+        bool showBg = !enabled
+            && ConfigManager.Instance != null
+            && ConfigManager.Instance.UseTableFaceBackground
+            && CurrentTableBackground != null;
+        Texture2D activeBg = showBg ? CurrentTableBackground : null;
+        Tile3D[] tiles = UnityEngine.Object.FindObjectsByType<Tile3D>(FindObjectsSortMode.None);
+        foreach (Tile3D tile in tiles)
+        {
+            if (tile != null) tile.ApplyFrontBgVisual(activeBg);
+        }
+        if (MahjongObjectPool.Instance != null)
+        {
+            MahjongObjectPool.Instance.ForEachPooledTile(pooled =>
+            {
+                Tile3D pooledTile = pooled != null ? pooled.GetComponent<Tile3D>() : null;
+                if (pooledTile != null) pooledTile.ApplyFrontBgVisual(activeBg);
+            });
+        }
+        ApplyFrontTexExtendEdge(ResolveFrontTexExtendEdge());
+    }
+
+    public static void SetTableFaceColor(Color color)
+    {
+        if (ConfigManager.Instance != null)
+        {
+            ConfigManager.Instance.SetTableFaceColor(color);
+        }
+        Material shared = Resources.Load<Material>(MaterialResourcePath);
+        if (shared != null)
+        {
+            shared.SetColor("_TableFaceColor", color);
+        }
+    }
+
+    /// <summary>设置 3D 牌面背景是否铺满整张牌面+侧面（与「使用 3D 牌面背景」配合使用）。</summary>
+    public static void SetTableBackgroundCoverFace(bool coverFace)
+    {
+        if (ConfigManager.Instance != null)
+        {
+            ConfigManager.Instance.SetFrontTexFollowTableBgToEdge(coverFace);
+        }
+        Material shared = Resources.Load<Material>(MaterialResourcePath);
+        if (shared != null)
+        {
+            shared.SetFloat("_TableBgCoverFace", coverFace ? 1f : 0f);
+        }
+        // 覆盖模式与延伸互斥：开启覆盖时把 _FrontTexExtendEdge 置 0
+        ApplyFrontTexExtendEdge(coverFace ? false : ResolveFrontTexExtendEdge());
     }
 
     /// <summary>把 3D 牌面背景写入共享材质：仅在 UseTableFaceBackground=true 且有纹理时启用混合。</summary>

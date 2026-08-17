@@ -39,7 +39,6 @@ public class CardFaceConfigPanel : MonoBehaviour {
     [SerializeField] private Button noTableBackgroundButton;
     [SerializeField] private Button showHandButton;
     [SerializeField] private Button showTableButton;
-    [SerializeField] private Button closeButton;
     [SerializeField] private TMP_Text statusText;
     [SerializeField] private TMP_Text helpText;
     [SerializeField] private GameObject standardActions;
@@ -82,7 +81,6 @@ public class CardFaceConfigPanel : MonoBehaviour {
         if (showTableButton != null) {
             showTableButton.onClick.AddListener(() => OnTogglePreview(true));
         }
-        closeButton.onClick.AddListener(HidePanel);
         helpText.text = FormatHelp;
         standardSlots = standardPreviewRoot.GetComponentsInChildren<CardFacePreviewSlot>(true);
         hongqueSlots = hongquePreviewRoot.GetComponentsInChildren<CardFacePreviewSlot>(true);
@@ -132,8 +130,17 @@ public class CardFaceConfigPanel : MonoBehaviour {
         HighlightPackButtons();
     }
 
+    public void RefreshHighlights() {
+        HighlightPackButtons();
+    }
+
     private static void SetTabColor(Button button, bool on) {
-        Image image = button.GetComponent<Image>();
+        // 关闭 Button 的 ColorTint transition，避免 Unity 默认 SelectedColor 覆盖我们手控颜色。
+        if (button != null && button.transition != Selectable.Transition.None)
+        {
+            button.transition = Selectable.Transition.None;
+        }
+        Image image = button != null ? button.GetComponent<Image>() : null;
         if (image != null) image.color = on ? TabOn : TabOff;
     }
 
@@ -223,6 +230,9 @@ public class CardFaceConfigPanel : MonoBehaviour {
         // 关闭后 CurrentTableBackground 仍保留，下次打开会立刻生效。
         CardBackManager.SetTableFaceBackgroundEnabled(enabled);
         HighlightPackButtons();
+        if (CardFaceBackgroundPanel.Instance != null) {
+            CardFaceBackgroundPanel.Instance.RefreshSolidColorUi();
+        }
         RefreshPreview();
         ShowTip(enabled ? "已使用 3D 牌面背景" : "已关闭 3D 牌面背景");
     }

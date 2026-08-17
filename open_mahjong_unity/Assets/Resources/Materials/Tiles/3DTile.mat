@@ -127,7 +127,8 @@ Material:
     - _DstBlend: 0
     - _DstBlendAlpha: 0
     - _EnvironmentReflections: 1
-    - _FrontBgBlend: 1
+    - _FrontBgBlend: 0
+    - _FrontBgTexAspect: 0
     - _FrontRotation: 270
     - _GlossMapScale: 1
     - _Glossiness: 0.5
@@ -146,6 +147,9 @@ Material:
     - _SrcBlend: 1
     - _SrcBlendAlpha: 1
     - _Surface: 0
+    - _TableBgCoverFace: 0
+    - _TableFaceBlend: 0
+    - _TableFaceFallbackEnabled: 1
     - _UVSec: 0
     - _WorkflowMode: 1
     - _ZWrite: 1
@@ -163,6 +167,8 @@ Material:
     - _SideColor: {r: 0.7137255, g: 0.7137255, b: 0.7137255, a: 1}
     - _SideTilingOffset: {r: 1, g: 1, b: 0, a: 0}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
+    - _TableFaceColor: {r: 0.95294, g: 0.94118, b: 0.86667, a: 1}
+    - _TableFaceFallbackColor: {r: 0.961, g: 0.965, b: 0.969, a: 1}
     - _TileInstanceParams: {r: 0, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

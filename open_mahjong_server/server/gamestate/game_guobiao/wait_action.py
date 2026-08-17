@@ -250,8 +250,6 @@ async def wait_action(self):
                     self.player_list[player_index].discard_tiles.append(tile_id)
                     player_action_record_cut(self,cut_tile = tile_id,is_moqie = is_moqie)
                     # 广播切牌操作
-                    if self.current_player_index == 0:
-                        self.xunmu += 1
                     refresh_waiting_tiles(self, self.current_player_index)
                     pre_action_dict = check_action_after_cut(self, tile_id)
                     begin_claim_protection_interval(self, pre_action_dict, self.current_player_index)
@@ -373,9 +371,6 @@ async def wait_action(self):
                 self.player_list[self.current_player_index].discard_tiles.append(tile_id)
                 player_action_record_cut(self,cut_tile = tile_id,is_moqie = is_moqie)
                 # 广播摸切操作
-                if self.current_player_index == 0:
-                    self.xunmu += 1
-                
                 refresh_waiting_tiles(self, self.current_player_index)
                 pre_action_dict = check_action_after_cut(self, tile_id)
                 begin_claim_protection_interval(self, pre_action_dict, self.current_player_index)
@@ -513,7 +508,7 @@ async def wait_action(self):
                     self.player_list[self.current_player_index].discard_origin_tiles.append(tile_id) # 添加弃牌理论弃牌
                     self.player_list[player_index].combination_mask.append(combination_mask) # 添加组合掩码
                     clear_draw_slot(self.player_list[player_index]) # 清除摸牌区
-                    self.current_player_index = player_index # 转移行为后 当前玩家索引变为操作玩家索引
+                    self.player_index_go_to(player_index) # 转移行为后 当前玩家索引变为操作玩家索引
                     flush_unexecuted_claim_applications(
                         self,
                         tile_id,

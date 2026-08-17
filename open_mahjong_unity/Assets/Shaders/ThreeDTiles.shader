@@ -11,6 +11,18 @@ Shader "Custom/ThreeDTiles"
         _FrontBgBlend ("Front Bg Blend (0=整面 _FrontTex, 1=底图+前景)", Range(0, 1)) = 0
         _FrontBgColor ("Front Bg Tint", Color) = (1,1,1,1)
         _FrontBgTilingOffset ("Front Bg Tiling & Offset", Vector) = (1,1,0,0)
+        // 上传图的宽高比（0 表示未设置 → 不动 UV）。CardBackManager 在 PersistTableBackground 时写入。
+        _FrontBgTexAspect ("Front Bg Tex Aspect (w/h)", Range(0, 16)) = 0
+        // 3D 牌面背景铺满模式：0=仅中央 220:366 区 1=铺到整张牌面+侧面边缘（拉伸覆盖）。
+        _TableBgCoverFace ("Table Bg Cover Face (0=中央 1=整张)", Range(0, 1)) = 0
+        // 3D 牌面纯色（与 3D 牌面背景互斥）：纯色铺底，花纹按 alpha 保留。
+        _TableFaceColor ("Table Face Color (纯色)", Color) = (1,1,1,1)
+        _TableFaceBlend ("Table Face Blend (0=前景 1=纯色)", Range(0, 1)) = 0
+        // 3D 牌面前景无 alpha 通道区域（fluffy/hkmahjong 已透明化的米色背景）的 fallback 颜色；
+        // 当 _FrontBgBlend=0 时显示该色，保证原图视觉一致；启用 3D 牌面背景时该色被底图取代。
+        _TableFaceFallbackColor ("Table Face Fallback Color (前景透明区)", Color) = (0.961, 0.965, 0.969, 1)
+        // 是否启用 fallback 色（仅在不使用 3D 牌面背景时生效）：1=启用，0=前景完全透传（露出底层几何/侧面）。
+        _TableFaceFallbackEnabled ("Table Face Fallback Enabled", Range(0, 1)) = 1
 
         _BackTex ("Back Texture (牌背)", 2D) = "white" {}
         _BackColor ("Back Tint", Color) = (1,1,1,1)
@@ -55,24 +67,12 @@ Shader "Custom/ThreeDTiles"
             #pragma multi_compile_instancing
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "ThreeDTilesInput.hlsl"
 
             TEXTURE2D(_FrontTex); SAMPLER(sampler_FrontTex);
             TEXTURE2D(_FrontBgTex); SAMPLER(sampler_FrontBgTex);
             TEXTURE2D(_BackTex);  SAMPLER(sampler_BackTex);
             TEXTURE2D(_SideTex);  SAMPLER(sampler_SideTex);
-
-            CBUFFER_START(UnityPerMaterial)
-                float4 _FrontTex_ST;
-                float4 _FrontBgTex_ST;
-                float4 _BackTex_ST;
-                float4 _SideTex_ST;
-                float4 _SideTilingOffset;
-                half _BackTexBlend;
-                half _BackTexExtendEdge;
-                half _FrontRotation;
-                half _FrontBgBlend;
-                half4 _FrontBgColor;
-            CBUFFER_END
 
             UNITY_INSTANCING_BUFFER_START(TilePerInstance)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _FrontTilingOffset)
@@ -160,25 +160,57 @@ Shader "Custom/ThreeDTiles"
                 // _FrontBgTex：当 _FrontBgBlend=1 时，_FrontBgTex 作为底图铺满牌面，
                 // _FrontTex（前景花纹）按其 RGB 与 alpha 覆盖在底图上方（无花纹处仍透底图色），
                 // 与手牌牌面背景的「透明花纹叠在底图上」完全一致。
-                // 默认 _FrontBgBlend=0 时整面保持原 _FrontTex 行为。
+                // 默认 _FrontBgBlend=0 时整面保持原 _FrontTex 行为；前景 alpha=0 区域
+                // （fluffy/hkmahjong 已透明化的米色背景）使用 _TableFaceFallbackColor 兜底，
+                // 启用 3D 牌面背景时该色被底图取代。
                 half4 front = SAMPLE_TEXTURE2D(_FrontTex, sampler_FrontTex, frontUV) * frontColor;
+                half frontAlpha = saturate(front.a);
                 if (saturate(_FrontBgBlend) > 0.0h)
                 {
-                    float4 frontBgTilingOffset = float4(1.0h, 1.0h, 0.0h, 0.0h);
-                    float2 frontBgUV = input.uvFront * frontBgTilingOffset.xy + frontBgTilingOffset.zw;
+                    half2 frontBgUV = input.uvFront;
+                    if (saturate(_TableBgCoverFace) < 0.5h)
+                    {
+                        // 中央 220:366 区：按牌面纵横居中压缩 _FrontBgTex 采样区域，
+                        // 方形上传图 Cover 铺满，左右不露牌体。
+                        const half faceAspect = 220.0h / 366.0h;
+                        half texAspect = _FrontBgTexAspect;
+                        if (texAspect > 0.0h)
+                        {
+                            if (texAspect > faceAspect)
+                            {
+                                half tilingX = faceAspect / texAspect;
+                                frontBgUV = half2((frontBgUV.x - 0.5h) * tilingX + 0.5h, frontBgUV.y);
+                            }
+                            else if (texAspect < faceAspect)
+                            {
+                                half tilingY = texAspect / faceAspect;
+                                frontBgUV = half2(frontBgUV.x, (frontBgUV.y - 0.5h) * tilingY + 0.5h);
+                            }
+                        }
+                    }
+                    // 铺满模式（_TableBgCoverFace=1）：直接用整张 UV，覆盖到整张牌面 + 侧面边缘。
                     if (_FrontRotation != 0.0h)
                     {
                         frontBgUV = RotateUV(frontBgUV, _FrontRotation);
                     }
                     half4 bgSample = SAMPLE_TEXTURE2D(_FrontBgTex, sampler_FrontBgTex, frontBgUV);
-                    // 底图 RGB 铺底；前景花纹 RGB 按其 alpha 覆盖在底图上方（alpha=0 时仍透底图）。
-                    // _FrontBgBlend 仅作启用开关：0 = 关闭底图（前景占满），1 = 启用底图（与「使用/不使用 3D 牌面背景」toggle 对应）。
                     half bgAlpha = bgSample.a * saturate(_FrontBgBlend);
                     half3 bgRgb = lerp(front.rgb, bgSample.rgb, bgAlpha);
-                    // 前景有花纹处（front.a > 0）显示花纹 RGB，否则透出底图 RGB。
-                    half3 composedRgb = lerp(bgRgb, front.rgb, saturate(front.a));
-                    half composedA = max(saturate(front.a), bgAlpha);
+                    half3 composedRgb = lerp(bgRgb, front.rgb, frontAlpha);
+                    half composedA = max(frontAlpha, bgAlpha);
                     front = half4(composedRgb, composedA);
+                }
+                else if (saturate(_TableFaceBlend) > 0.0h)
+                {
+                    // 纯色铺底，花纹（front.a>0）保留。与背景互斥。
+                    half3 solidRgb = lerp(_TableFaceColor.rgb, front.rgb, frontAlpha);
+                    front = half4(solidRgb, max(frontAlpha, 0.5h));
+                }
+                else if (saturate(_TableFaceFallbackEnabled) > 0.5h)
+                {
+                    // 未启用背景/纯色：透明化后的米色区用 fallback 兜底，花纹仍走前景 RGB。
+                    half3 fallbackRgb = lerp(_TableFaceFallbackColor.rgb, front.rgb, frontAlpha);
+                    front = half4(fallbackRgb, max(frontAlpha, 0.5h));
                 }
                 float2 backUV = input.uvBack;
                 if (backRotation != 0.0f)
@@ -234,6 +266,7 @@ Shader "Custom/ThreeDTiles"
             #pragma multi_compile_instancing
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "ThreeDTilesInput.hlsl"
 
             UNITY_INSTANCING_BUFFER_START(TilePerInstance)
                 // x = gray scale, y = outline ObjectID
@@ -294,16 +327,7 @@ Shader "Custom/ThreeDTiles"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
-
-            CBUFFER_START(UnityPerMaterial)
-                float4 _FrontTex_ST;
-                float4 _FrontBgTex_ST;
-                float4 _BackTex_ST;
-                float4 _SideTex_ST;
-                float4 _SideTilingOffset;
-                half _FrontRotation;
-                half4 _FrontBgColor;
-            CBUFFER_END
+            #include "ThreeDTilesInput.hlsl"
 
             float3 _LightDirection;
             float3 _LightPosition;
@@ -373,16 +397,7 @@ Shader "Custom/ThreeDTiles"
             #pragma multi_compile_instancing
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-
-            CBUFFER_START(UnityPerMaterial)
-                float4 _FrontTex_ST;
-                float4 _FrontBgTex_ST;
-                float4 _BackTex_ST;
-                float4 _SideTex_ST;
-                float4 _SideTilingOffset;
-                half _FrontRotation;
-                half4 _FrontBgColor;
-            CBUFFER_END
+            #include "ThreeDTilesInput.hlsl"
 
             struct Attributes
             {

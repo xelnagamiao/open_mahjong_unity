@@ -57,6 +57,7 @@ public class CardEdgePanel : MonoBehaviour
     [SerializeField] private Toggle frontEdgeModeFollowTableBg;
     [SerializeField] private Toggle frontEdgeModeFollowBackEdge;
     [SerializeField] private Toggle frontTexFollowTableBgToggle;
+    [SerializeField] private Toggle frontTexFollowTableBgToEdgeToggle;
     [SerializeField] private Image backSidePreview;
     [SerializeField] private Image frontSidePreview;
     [SerializeField] private TMP_InputField backEdgeHexInput;
@@ -113,6 +114,9 @@ public class CardEdgePanel : MonoBehaviour
         }
         if (frontTexFollowTableBgToggle != null) {
             frontTexFollowTableBgToggle.onValueChanged.AddListener(OnFrontTexFollowTableBgChanged);
+        }
+        if (frontTexFollowTableBgToEdgeToggle != null) {
+            frontTexFollowTableBgToEdgeToggle.onValueChanged.AddListener(OnFrontTexFollowTableBgToEdgeChanged);
         }
         if (frontEdgeHexApplyButton != null) frontEdgeHexApplyButton.onClick.AddListener(ApplyFrontEdgeHex);
         BindSwatches(sideSwatches, SetSideColor);
@@ -203,6 +207,11 @@ public class CardEdgePanel : MonoBehaviour
         if (frontEdgeModeFollowBackEdge != null) frontEdgeModeFollowBackEdge.isOn = currentFrontEdgeMode == FrontEdgeMode.FollowBackEdge;
         if (frontTexFollowTableBgToggle != null) {
             frontTexFollowTableBgToggle.isOn = ConfigManager.Instance != null && ConfigManager.Instance.FrontTexFollowTableBg;
+        }
+        if (frontTexFollowTableBgToEdgeToggle != null) {
+            frontTexFollowTableBgToEdgeToggle.isOn = ConfigManager.Instance != null && ConfigManager.Instance.FrontTexFollowTableBgToEdge;
+            // 跟随 3D 牌面背景未启用时禁用「到边缘」选项，避免视觉冲突
+            frontTexFollowTableBgToEdgeToggle.interactable = frontTexFollowTableBgToggle != null && frontTexFollowTableBgToggle.isOn;
         }
         syncing = false;
 
@@ -378,9 +387,36 @@ public class CardEdgePanel : MonoBehaviour
         {
             ConfigManager.Instance.SetFrontTexFollowTableBg(enabled);
         }
+        // 「跟随到边缘」依赖「跟随 3D 牌面背景」开关，关闭联动时禁用
+        if (frontTexFollowTableBgToEdgeToggle != null)
+        {
+            frontTexFollowTableBgToEdgeToggle.interactable = enabled;
+            if (!enabled && frontTexFollowTableBgToEdgeToggle.isOn)
+            {
+                frontTexFollowTableBgToEdgeToggle.isOn = false;
+                if (ConfigManager.Instance != null)
+                {
+                    ConfigManager.Instance.SetFrontTexFollowTableBgToEdge(false);
+                }
+                CardBackManager.SetTableBackgroundCoverFace(false);
+            }
+        }
         CardBackManager.ApplyFrontTexExtendEdge(enabled || (ConfigManager.Instance != null && ConfigManager.Instance.FrontTexExtendEdge));
         UpdateModeToggleColors();
         ShowTip(enabled ? "正面贴图将跟随 3D 牌面背景延伸" : "正面贴图不再跟随 3D 牌面背景");
+    }
+
+    /// <summary>正面贴图跟随 3D 牌面背景时，是否把背景拉伸到整张牌正面+侧面边缘。</summary>
+    private void OnFrontTexFollowTableBgToEdgeChanged(bool enabled)
+    {
+        if (syncing) return;
+        if (ConfigManager.Instance != null)
+        {
+            ConfigManager.Instance.SetFrontTexFollowTableBgToEdge(enabled);
+        }
+        CardBackManager.SetTableBackgroundCoverFace(enabled);
+        UpdateModeToggleColors();
+        ShowTip(enabled ? "3D 牌面背景将拉伸到整张牌正面+侧面边缘" : "3D 牌面背景仅覆盖中央 220:366 区");
     }
 
     /// <summary>选中的模式 Toggle 显示橙色，其余恢复默认色。</summary>
@@ -394,6 +430,7 @@ public class CardEdgePanel : MonoBehaviour
         SetToggleColor(frontEdgeModeFollowTableBg, currentFrontEdgeMode == FrontEdgeMode.FollowTableBg);
         SetToggleColor(frontEdgeModeFollowBackEdge, currentFrontEdgeMode == FrontEdgeMode.FollowBackEdge);
         SetToggleColor(frontTexFollowTableBgToggle, frontTexFollowTableBgToggle != null && frontTexFollowTableBgToggle.isOn);
+        SetToggleColor(frontTexFollowTableBgToEdgeToggle, frontTexFollowTableBgToEdgeToggle != null && frontTexFollowTableBgToEdgeToggle.isOn);
     }
 
     private void OnBackTexExtendEdgeChanged(bool enabled)
@@ -463,10 +500,27 @@ public class CardEdgePanel : MonoBehaviour
     private static void SetToggleColor(Toggle toggle, bool selected)
     {
         if (toggle == null) return;
-        Graphic graphic = toggle.targetGraphic != null ? toggle.targetGraphic : toggle.graphic;
-        if (graphic != null)
+        // 关闭 ColorTint 等 transition，避免 Unity 默认 Selectable 在 hover/press 时用 SelectedColor/PressedColor
+        // 覆盖我们手动控制的颜色（导致"鼠标指向消失 / 点击有奇怪感觉"）。
+        if (toggle.transition != Selectable.Transition.None)
         {
-            graphic.color = selected ? SelectedColor : UnselectedColor;
+            toggle.transition = Selectable.Transition.None;
+        }
+        // Unity Toggle：background 通常挂在 targetGraphic（Image），checkmark 挂在 graphic。
+        // 我们手动让 background = selected 橙、其余深蓝；checkmark 用白色（透明度区分）。
+        Image bg = toggle.targetGraphic as Image;
+        if (bg != null)
+        {
+            bg.color = selected ? SelectedColor : UnselectedColor;
+        }
+        else if (toggle.targetGraphic != null)
+        {
+            toggle.targetGraphic.color = selected ? SelectedColor : UnselectedColor;
+        }
+        Image check = toggle.graphic as Image;
+        if (check != null && check != bg)
+        {
+            check.color = selected ? Color.white : new Color(1f, 1f, 1f, 0.35f);
         }
     }
 
