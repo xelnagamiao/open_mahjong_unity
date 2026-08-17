@@ -28,6 +28,20 @@ function sendError(res, err) {
   return res.status(status).json({ success: false, message });
 }
 
+async function writeAuditSafe(req, action, targetId, payload) {
+  try {
+    await writeAudit({
+      adminUserId: req.admin.userId,
+      action,
+      targetType: 'activity',
+      targetId,
+      payload,
+    });
+  } catch (err) {
+    console.error('activity audit skipped:', err.message || err);
+  }
+}
+
 function wrap(handler) {
   return async (req, res) => {
     try {
@@ -61,13 +75,7 @@ router.post(
       sort: req.body.sort,
       published: req.body.published,
     });
-    await writeAudit({
-      adminUserId: req.admin.userId,
-      action: 'activity.create',
-      targetType: 'activity',
-      targetId: item.id,
-      payload: { title: item.title },
-    });
+    await writeAuditSafe(req, 'activity.create', item.id, { title: item.title });
     res.json({ success: true, data: item, message: '活动已创建' });
   })
 );
@@ -82,12 +90,9 @@ router.put(
       published: req.body.published,
       image_urls: req.body.image_urls,
     });
-    await writeAudit({
-      adminUserId: req.admin.userId,
-      action: 'activity.update',
-      targetType: 'activity',
-      targetId: item.id,
-      payload: { title: item.title, published: item.published },
+    await writeAuditSafe(req, 'activity.update', item.id, {
+      title: item.title,
+      published: item.published,
     });
     res.json({ success: true, data: item, message: '活动已保存' });
   })
@@ -97,12 +102,7 @@ router.delete(
   '/:id',
   wrap(async (req, res) => {
     store.deleteActivity(req.params.id);
-    await writeAudit({
-      adminUserId: req.admin.userId,
-      action: 'activity.delete',
-      targetType: 'activity',
-      targetId: req.params.id,
-    });
+    await writeAuditSafe(req, 'activity.delete', req.params.id);
     res.json({ success: true, message: '活动已删除' });
   })
 );
@@ -122,12 +122,7 @@ router.post(
       return res.status(400).json({ success: false, message: '请选择封面图' });
     }
     const item = store.saveCover(req.params.id, req.file);
-    await writeAudit({
-      adminUserId: req.admin.userId,
-      action: 'activity.cover',
-      targetType: 'activity',
-      targetId: item.id,
-    });
+    await writeAuditSafe(req, 'activity.cover', item.id);
     res.json({ success: true, data: item, message: '封面已更新' });
   })
 );
@@ -140,12 +135,7 @@ router.post(
       return res.status(400).json({ success: false, message: '请选择图片' });
     }
     const item = store.addBodyImage(req.params.id, req.file);
-    await writeAudit({
-      adminUserId: req.admin.userId,
-      action: 'activity.image.add',
-      targetType: 'activity',
-      targetId: item.id,
-    });
+    await writeAuditSafe(req, 'activity.image.add', item.id);
     res.json({ success: true, data: item, message: '图片已添加' });
   })
 );
@@ -154,14 +144,19 @@ router.delete(
   '/:id/images/:filename',
   wrap(async (req, res) => {
     const item = store.removeBodyImage(req.params.id, req.params.filename);
-    await writeAudit({
-      adminUserId: req.admin.userId,
-      action: 'activity.image.remove',
-      targetType: 'activity',
-      targetId: item.id,
-      payload: { filename: req.params.filename },
+    await writeAuditSafe(req, 'activity.image.remove', item.id, {
+      filename: req.params.filename,
     });
     res.json({ success: true, data: item, message: '图片已删除' });
+  })
+);
+
+router.delete(
+  '/:id/cover',
+  wrap(async (req, res) => {
+    const item = store.removeCover(req.params.id);
+    await writeAuditSafe(req, 'activity.cover.remove', item.id);
+    res.json({ success: true, data: item, message: '封面已移除' });
   })
 );
 

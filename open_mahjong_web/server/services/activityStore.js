@@ -36,7 +36,9 @@ function resolveAssetsDir() {
     const staticRoot = deploy.staticRoot || '/www/wwwroot/salasasa.cn/dist';
     return path.join(staticRoot, 'activity-assets');
   }
-  return path.join(__dirname, '../../client/public/activity-assets');
+  // 开发环境不要写进 Vite public/：改文件会触发整页刷新，
+  // 浏览器会把已成功的创建/保存请求当成失败。
+  return path.join(__dirname, '../../data/activity-assets');
 }
 
 function resolveCatalogDir() {
@@ -80,9 +82,14 @@ function activityDir(id) {
 function writeJsonAtomic(filePath, data) {
   const dir = path.dirname(filePath);
   fs.mkdirSync(dir, { recursive: true });
-  const tmp = `${filePath}.${process.pid}.tmp`;
+  const tmp = `${filePath}.${process.pid}.${Date.now()}.tmp`;
   fs.writeFileSync(tmp, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
-  fs.renameSync(tmp, filePath);
+  try {
+    fs.renameSync(tmp, filePath);
+  } catch {
+    fs.copyFileSync(tmp, filePath);
+    fs.unlinkSync(tmp);
+  }
 }
 
 function readJson(filePath, fallback) {
@@ -305,6 +312,21 @@ function addBodyImage(id, file) {
   return getById(id);
 }
 
+function removeCover(id) {
+  const catalog = loadCatalog();
+  const item = catalog.items.find((row) => row.id === id);
+  if (!item) {
+    throw Object.assign(new Error('活动不存在'), { status: 404 });
+  }
+  const dir = activityDir(id);
+  removeFilesByPrefix(dir, 'cover.');
+  item.cover_url = '';
+  item.updated_at = nowIso();
+  writeMeta(item);
+  saveCatalog(catalog);
+  return item;
+}
+
 function removeBodyImage(id, filename) {
   const safe = path.basename(filename || '');
   if (!safe || safe !== filename || !safe.startsWith('img_')) {
@@ -327,9 +349,21 @@ function removeBodyImage(id, filename) {
   return getById(id);
 }
 
+function migrateLegacyPublicAssets(dest) {
+  const legacy = path.join(__dirname, '../../client/public/activity-assets');
+  if (!fs.existsSync(legacy) || path.resolve(legacy) === path.resolve(dest)) return;
+  for (const name of fs.readdirSync(legacy)) {
+    const from = path.join(legacy, name);
+    const to = path.join(dest, name);
+    if (fs.existsSync(to)) continue;
+    fs.cpSync(from, to, { recursive: true });
+  }
+}
+
 function ensureSeedFiles() {
   const dir = assetsDir();
   catalogDir();
+  migrateLegacyPublicAssets(dir);
   if (!fs.existsSync(catalogPath())) {
     const legacy = readJson(legacyCatalogPath(), { items: [] });
     writeJsonAtomic(catalogPath(), legacy);
@@ -351,5 +385,6 @@ module.exports = {
   deleteActivity,
   saveCover,
   addBodyImage,
+  removeCover,
   removeBodyImage,
 };

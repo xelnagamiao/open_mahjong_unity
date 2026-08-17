@@ -69,13 +69,25 @@
             <el-form-item label="封面">
               <div class="cover-row">
                 <img v-if="form.cover_url" class="cover-preview" :src="form.cover_url" alt="" />
-                <el-upload
-                  :show-file-list="false"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  :http-request="uploadCover"
-                >
-                  <el-button :loading="uploadingCover">上传封面</el-button>
-                </el-upload>
+                <div v-else class="cover-preview empty">未上传</div>
+                <el-space wrap>
+                  <el-upload
+                    :show-file-list="false"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    :http-request="uploadCover"
+                  >
+                    <el-button :loading="uploadingCover">
+                      {{ form.cover_url ? '更换封面' : '上传封面' }}
+                    </el-button>
+                  </el-upload>
+                  <el-button
+                    v-if="form.cover_url"
+                    :loading="removingCover"
+                    @click="removeCover"
+                  >
+                    取消封面
+                  </el-button>
+                </el-space>
               </div>
               <div class="field-hint">单张不超过 2MB，建议 16:9</div>
             </el-form-item>
@@ -93,7 +105,16 @@
               <div class="body-images">
                 <div v-for="url in form.image_urls" :key="url" class="body-image">
                   <img :src="url" alt="" />
-                  <el-button link type="danger" @click="removeImage(url)">删除</el-button>
+                  <el-button
+                    class="remove-image"
+                    type="danger"
+                    plain
+                    size="small"
+                    :loading="removingImageUrl === url"
+                    @click="removeImage(url)"
+                  >
+                    取消上传
+                  </el-button>
                 </div>
               </div>
               <el-upload
@@ -136,6 +157,8 @@ const saving = ref(false)
 const removing = ref(false)
 const uploadingCover = ref(false)
 const uploadingImage = ref(false)
+const removingCover = ref(false)
+const removingImageUrl = ref('')
 
 const form = reactive({
   id: '',
@@ -202,8 +225,10 @@ async function createDraft() {
       published: false,
       sort: items.value.length,
     })
+    const created = res.data.data
+    if (created?.id) applyItem(created)
     ElMessage.success(res.data.message || '已创建')
-    await loadList(res.data.data.id)
+    await loadList(created?.id)
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '创建失败')
   } finally {
@@ -261,8 +286,8 @@ async function uploadCover({ file }) {
     data.append('file', file)
     const res = await adminApi.post(`/activities/${form.id}/cover`, data)
     applyItem(res.data.data)
-    await loadList(form.id)
     ElMessage.success('封面已更新')
+    await loadList(form.id)
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '封面上传失败')
   } finally {
@@ -286,14 +311,33 @@ async function uploadBodyImage({ file }) {
   }
 }
 
+async function removeCover() {
+  if (!form.id || !form.cover_url) return
+  removingCover.value = true
+  try {
+    const res = await adminApi.delete(`/activities/${form.id}/cover`)
+    applyItem(res.data.data)
+    ElMessage.success('封面已取消')
+    await loadList(form.id)
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '取消封面失败')
+  } finally {
+    removingCover.value = false
+  }
+}
+
 async function removeImage(url) {
   const filename = url.split('/').pop()
   if (!filename || !form.id) return
+  removingImageUrl.value = url
   try {
-    const res = await adminApi.delete(`/activities/${form.id}/images/${filename}`)
+    const res = await adminApi.delete(`/activities/${form.id}/images/${encodeURIComponent(filename)}`)
     applyItem(res.data.data)
+    ElMessage.success('图片已取消')
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '删除图片失败')
+    ElMessage.error(e.response?.data?.message || '取消图片失败')
+  } finally {
+    removingImageUrl.value = ''
   }
 }
 
@@ -352,6 +396,13 @@ onMounted(() => {
   border-radius: 6px;
   background: #ebeef5;
 }
+.cover-preview.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #909399;
+  font-size: 13px;
+}
 .body-images {
   display: flex;
   flex-wrap: wrap;
@@ -360,6 +411,10 @@ onMounted(() => {
 }
 .body-image {
   width: 120px;
+}
+.body-image .remove-image {
+  width: 100%;
+  margin-top: 6px;
 }
 .body-image img {
   width: 120px;
