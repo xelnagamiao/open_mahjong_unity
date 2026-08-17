@@ -15,7 +15,6 @@ public class EventDetailPanel : MonoBehaviour {
 
     [Header("导航")]
     [SerializeField] private Button backButton;
-    [SerializeField] private TMP_Text pageTitle;
     [SerializeField] private Button homeNav;
     [SerializeField] private Button roomsNav;
     [SerializeField] private Button spectateNav;
@@ -24,6 +23,12 @@ public class EventDetailPanel : MonoBehaviour {
     [SerializeField] private Image roomsNavImage;
     [SerializeField] private Image spectateNavImage;
     [SerializeField] private Image recordsNavImage;
+
+    [Header("导航颜色")]
+    [SerializeField] private Color navActiveColor = new Color(1f, 0.62f, 0.08f, 1f);
+    [SerializeField] private Color navIdleColor = new Color(0.13f, 0.13f, 0.13f, 1f);
+    [SerializeField] private Color navActiveLabelColor = new Color(0.12f, 0.06f, 0.02f, 1f);
+    [SerializeField] private Color navIdleLabelColor = Color.white;
 
     [Header("页面")]
     [SerializeField] private GameObject homePage;
@@ -40,6 +45,10 @@ public class EventDetailPanel : MonoBehaviour {
     [SerializeField] private Button readyButton;
     [SerializeField] private TMP_Text registerLabel;
     [SerializeField] private TMP_Text readyLabel;
+    [SerializeField] private TMP_Text waitingCountText;
+    [SerializeField] private Image readyImage;
+    [SerializeField] private Color readyWaitingColor = Color.white;
+    [SerializeField] private Color readyWaitingLabelColor = Color.white;
 
     [Header("加入房间")]
     [SerializeField] private Transform roomContent;
@@ -54,9 +63,8 @@ public class EventDetailPanel : MonoBehaviour {
     [SerializeField] private Transform recordContent;
     [SerializeField] private GameObject recordItemPrefab;
 
-    [Header("行模板（观战/准备池/空提示）")]
+    [Header("行模板（观战/空提示）")]
     [SerializeField] private GameObject actionRowTemplate;
-    [SerializeField] private GameObject readyRowTemplate;
     [SerializeField] private GameObject emptyRowTemplate;
 
     [Header("报名弹窗")]
@@ -72,16 +80,21 @@ public class EventDetailPanel : MonoBehaviour {
     private EventDetailInfo _detail;
     private Page _page = Page.Home;
     private readonly List<int> _selectedReady = new List<int>();
-    private static readonly Color NavActive = new Color(1f, 0.62f, 0.08f, 1f);
-    private static readonly Color NavIdle = new Color(0.13f, 0.13f, 0.13f, 1f);
+    private Color _readyIdleColor = Color.white;
+    private Color _readyLabelIdleColor = Color.white;
 
     private void Awake() {
         Instance = this;
         HideSceneTemplate(actionRowTemplate);
-        HideSceneTemplate(readyRowTemplate);
         HideSceneTemplate(emptyRowTemplate);
         if (registerPopup != null) registerPopup.SetActive(false);
         if (adminBar != null) adminBar.SetActive(false);
+        if (readyContent != null) readyContent.gameObject.SetActive(false);
+        if (readyImage == null && readyButton != null) {
+            readyImage = readyButton.targetGraphic as Image;
+        }
+        if (readyImage != null) _readyIdleColor = readyImage.color;
+        if (readyLabel != null) _readyLabelIdleColor = readyLabel.color;
         if (backButton != null) backButton.onClick.AddListener(() => EventLobbyPanel.Instance?.ShowLobby());
         if (homeNav != null) homeNav.onClick.AddListener(() => ShowPage(Page.Home));
         if (roomsNav != null) roomsNav.onClick.AddListener(() => ShowPage(Page.Rooms));
@@ -103,7 +116,6 @@ public class EventDetailPanel : MonoBehaviour {
         if (EventNetworkManager.Instance != null) {
             EventNetworkManager.Instance.OnEventDetailUpdated += OnDetail;
             EventNetworkManager.Instance.OnVenueRoomsUpdated += OnRooms;
-            EventNetworkManager.Instance.OnReadyPlayersUpdated += OnReadyPlayers;
             EventNetworkManager.Instance.OnEventRecordsUpdated += OnRecords;
         }
     }
@@ -112,7 +124,6 @@ public class EventDetailPanel : MonoBehaviour {
         if (EventNetworkManager.Instance != null) {
             EventNetworkManager.Instance.OnEventDetailUpdated -= OnDetail;
             EventNetworkManager.Instance.OnVenueRoomsUpdated -= OnRooms;
-            EventNetworkManager.Instance.OnReadyPlayersUpdated -= OnReadyPlayers;
             EventNetworkManager.Instance.OnEventRecordsUpdated -= OnRecords;
         }
     }
@@ -148,19 +159,11 @@ public class EventDetailPanel : MonoBehaviour {
         _detail = EventNetworkManager.Instance != null ? EventNetworkManager.Instance.CurrentDetail : null;
         ApplyHome();
         if (adminBar != null) adminBar.SetActive(_detail != null && _detail.is_admin);
-        if (_page == Page.Rooms && _detail != null && _detail.is_admin) {
-            EventNetworkManager.Instance.ListReadyPlayers(_eventId);
-        }
     }
 
     private void OnRooms() {
         if (_page != Page.Rooms) return;
         RenderRooms();
-    }
-
-    private void OnReadyPlayers() {
-        if (_page != Page.Rooms) return;
-        RenderReady();
     }
 
     private void OnRecords() {
@@ -172,13 +175,11 @@ public class EventDetailPanel : MonoBehaviour {
         bool isBase = (_detail != null ? _detail.kind : _kind) == "base";
         string name = _detail != null ? (_detail.name ?? "") : "";
         if (titleText != null) titleText.text = name;
-        if (pageTitle != null) pageTitle.text = string.IsNullOrEmpty(name) ? (isBase ? "基地详情" : "赛事详情") : name;
         if (descText != null) descText.text = _detail != null && !string.IsNullOrEmpty(_detail.description) ? _detail.description : "暂无介绍";
         if (statusText != null) {
             string status = _detail != null ? StatusLabel(_detail.status) : "";
             string mine = RegistrationLabel(_detail);
-            string ready = _detail != null && _detail.is_ready ? "准备中" : "";
-            statusText.text = $"{status}\n{mine}{(string.IsNullOrEmpty(ready) ? "" : "\n" + ready)}";
+            statusText.text = string.IsNullOrEmpty(mine) ? status : $"{status}\n{mine}";
         }
         if (announceText != null) {
             if (_detail == null || _detail.announcements == null || _detail.announcements.Length == 0) {
@@ -200,10 +201,28 @@ public class EventDetailPanel : MonoBehaviour {
             }
         }
         if (readyLabel != null) {
-            readyLabel.text = _detail != null && _detail.is_ready ? "取消准备" : "加入准备";
+            if (_detail != null && _detail.is_ready) {
+                readyLabel.text = isBase ? "基地等待中" : "比赛等待中";
+            } else {
+                readyLabel.text = "加入等待";
+            }
+        }
+        ApplyReadyVisual(_detail != null && _detail.is_ready);
+        if (waitingCountText != null) {
+            int n = _detail != null ? Mathf.Max(0, _detail.ready_count) : 0;
+            waitingCountText.text = $"等待玩家：{n}";
         }
         if (registerButton != null) registerButton.interactable = true;
         if (readyButton != null) readyButton.interactable = true;
+    }
+
+    private void ApplyReadyVisual(bool waiting) {
+        if (readyImage != null) {
+            readyImage.color = waiting ? readyWaitingColor : _readyIdleColor;
+        }
+        if (readyLabel != null) {
+            readyLabel.color = waiting ? readyWaitingLabelColor : _readyLabelIdleColor;
+        }
     }
 
     private static string StatusLabel(string status) {
@@ -238,7 +257,6 @@ public class EventDetailPanel : MonoBehaviour {
         SetNav(recordsNavImage, page == Page.Records);
         if (page == Page.Rooms) {
             EventNetworkManager.Instance?.ListVenueRooms(_eventId);
-            if (_detail != null && _detail.is_admin) EventNetworkManager.Instance?.ListReadyPlayers(_eventId);
         } else if (page == Page.Spectate) {
             GameStateNetworkManager.Instance?.GetSpectatorList();
         } else if (page == Page.Records) {
@@ -246,15 +264,15 @@ public class EventDetailPanel : MonoBehaviour {
         }
     }
 
-    private static void SetNav(Image image, bool active) {
-        if (image != null) image.color = active ? NavActive : NavIdle;
+    private void SetNav(Image image, bool active) {
+        if (image != null) image.color = active ? navActiveColor : navIdleColor;
         if (image == null) return;
         TMP_Text label = image.GetComponentInChildren<TMP_Text>(true);
         if (label == null && image.transform.parent != null) {
             label = image.transform.parent.GetComponentInChildren<TMP_Text>(true);
         }
         if (label != null) {
-            label.color = active ? new Color(0.12f, 0.06f, 0.02f, 1f) : Color.white;
+            label.color = active ? navActiveLabelColor : navIdleLabelColor;
         }
     }
 
@@ -287,13 +305,13 @@ public class EventDetailPanel : MonoBehaviour {
 
     private void OnReadyClicked() {
         if (!IsLoggedIn()) {
-            NotificationManager.Instance.ShowTip("event", false, "请先登录后再加入准备");
+            NotificationManager.Instance.ShowTip("event", false, "请先登录后再加入等待");
             return;
         }
         bool approved = _detail != null && _detail.registration != null && _detail.registration.status == "approved";
         bool admin = _detail != null && _detail.is_admin;
         if (!approved && !admin) {
-            NotificationManager.Instance.ShowTip("event", false, "报名通过后才能加入准备");
+            NotificationManager.Instance.ShowTip("event", false, "报名通过后才能加入等待");
             return;
         }
         if (_detail != null && _detail.is_ready) EventNetworkManager.Instance.Unready(_eventId);
@@ -336,20 +354,6 @@ public class EventDetailPanel : MonoBehaviour {
             return;
         }
         RoomNetworkManager.Instance.JoinRoom(roomId, "");
-    }
-
-    private void RenderReady() {
-        ClearSpawned(readyContent);
-        _selectedReady.Clear();
-        var list = EventNetworkManager.Instance != null ? EventNetworkManager.Instance.ReadyPlayers : null;
-        if (list == null || list.Length == 0) {
-            AddEmptyRow(readyContent, "准备池为空");
-            return;
-        }
-        foreach (var p in list) {
-            if (p == null) continue;
-            AddReadyRow(p);
-        }
     }
 
     private void RenderRecords() {
@@ -429,26 +433,6 @@ public class EventDetailPanel : MonoBehaviour {
             btn.onClick.RemoveAllListeners();
             btn.onClick.AddListener(onClick);
         }
-    }
-
-    private void AddReadyRow(EventReadyPlayer player) {
-        if (readyContent == null || readyRowTemplate == null) return;
-        var go = Instantiate(readyRowTemplate, readyContent);
-        go.SetActive(true);
-        var label = go.GetComponentInChildren<TMP_Text>(true);
-        if (label != null) label.text = $"{player.username} ({player.user_id})";
-        var toggle = go.GetComponent<Toggle>() ?? go.GetComponentInChildren<Toggle>(true);
-        if (toggle == null) return;
-        int uid = player.user_id;
-        toggle.isOn = false;
-        toggle.onValueChanged.RemoveAllListeners();
-        toggle.onValueChanged.AddListener(on => {
-            if (on) {
-                if (!_selectedReady.Contains(uid)) _selectedReady.Add(uid);
-            } else {
-                _selectedReady.Remove(uid);
-            }
-        });
     }
 
     private static void ClearSpawned(Transform parent) {

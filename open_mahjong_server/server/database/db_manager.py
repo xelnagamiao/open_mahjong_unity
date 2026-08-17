@@ -2928,6 +2928,29 @@ class DatabaseManager:
                 cursor.close()
                 self._put_connection(conn)
 
+    def count_event_ready_players(self, event_id: str) -> int:
+        if not event_id:
+            return 0
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT COUNT(*) FROM event_ready_pool WHERE event_id = %s",
+                (event_id,),
+            )
+            row = cursor.fetchone()
+            return int(row[0]) if row else 0
+        except Error as e:
+            logger.error(f'count_event_ready_players 失败: {e}')
+            if conn:
+                conn.rollback()
+            return 0
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
     def is_user_event_ready(self, event_id: str, user_id: int) -> bool:
         conn = None
         try:

@@ -101,6 +101,7 @@ public class EventDetailInfo {
     public string my_role;
     public bool is_admin;
     public bool is_ready;
+    public int ready_count;
     public EventRegistrationInfo registration;
     public EventEntrySummary entry_summary;
     public EventAnnouncementInfo[] announcements;

@@ -140,6 +140,7 @@ async def _handle_get_detail(game_server, user_id, player, message, websocket):
         "is_admin": bool(role),
         "registration": registration,
         "is_ready": ready,
+        "ready_count": game_server.db_manager.count_event_ready_players(event_id),
         "entry_summary": _public_entry_summary(cfg),
         "announcements": announcements,
     }
@@ -200,7 +201,7 @@ async def _handle_ready(game_server, user_id, player, message, websocket, ready:
         await _send(websocket, Response(type=type_name, success=False, message="场馆未开启"))
         return
     if ready:
-        blocked = game_server.room_manager._reject_room_entry_conflicts(user_id, "加入准备")
+        blocked = game_server.room_manager._reject_room_entry_conflicts(user_id, "加入等待")
         if blocked:
             await _send(websocket, Response(type=type_name, success=False, message=blocked.message))
             return
@@ -212,7 +213,7 @@ async def _handle_ready(game_server, user_id, player, message, websocket, ready:
     ok = game_server.db_manager.set_event_ready(event_id, user_id, ready)
     await _send(
         websocket,
-        Response(type=type_name, success=ok, message="已加入准备" if ready else "已取消准备"),
+        Response(type=type_name, success=ok, message="已加入等待" if ready else "已取消等待"),
     )
 
 
