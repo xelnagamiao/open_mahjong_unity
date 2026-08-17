@@ -6,6 +6,12 @@ Shader "Custom/ThreeDTiles"
         _FrontColor ("Front Tint", Color) = (1,1,1,1)
         _FrontTilingOffset ("Front Tiling & Offset", Vector) = (1,1,0,0)
 
+        // 3D 牌面背景：可由「牌面背景」页上传；前景花纹（_FrontTex）按 alpha 叠加在上面。
+        _FrontBgTex ("Front Bg Texture (3D 牌面背景)", 2D) = "white" {}
+        _FrontBgBlend ("Front Bg Blend (0=整面 _FrontTex, 1=底图+前景)", Range(0, 1)) = 0
+        _FrontBgColor ("Front Bg Tint", Color) = (1,1,1,1)
+        _FrontBgTilingOffset ("Front Bg Tiling & Offset", Vector) = (1,1,0,0)
+
         _BackTex ("Back Texture (牌背)", 2D) = "white" {}
         _BackColor ("Back Tint", Color) = (1,1,1,1)
         _BackTexBlend ("Back Texture Blend", Range(0, 1)) = 0
@@ -51,17 +57,21 @@ Shader "Custom/ThreeDTiles"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
             TEXTURE2D(_FrontTex); SAMPLER(sampler_FrontTex);
+            TEXTURE2D(_FrontBgTex); SAMPLER(sampler_FrontBgTex);
             TEXTURE2D(_BackTex);  SAMPLER(sampler_BackTex);
             TEXTURE2D(_SideTex);  SAMPLER(sampler_SideTex);
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _FrontTex_ST;
+                float4 _FrontBgTex_ST;
                 float4 _BackTex_ST;
                 float4 _SideTex_ST;
                 float4 _SideTilingOffset;
                 half _BackTexBlend;
                 half _BackTexExtendEdge;
                 half _FrontRotation;
+                half _FrontBgBlend;
+                half4 _FrontBgColor;
             CBUFFER_END
 
             UNITY_INSTANCING_BUFFER_START(TilePerInstance)
@@ -147,7 +157,29 @@ Shader "Custom/ThreeDTiles"
                     frontUV = RotateUV(frontUV, _FrontRotation);
                 }
 
+                // _FrontBgTex：当 _FrontBgBlend=1 时，_FrontBgTex 作为底图铺满牌面，
+                // _FrontTex（前景花纹）按其 RGB 与 alpha 覆盖在底图上方（无花纹处仍透底图色），
+                // 与手牌牌面背景的「透明花纹叠在底图上」完全一致。
+                // 默认 _FrontBgBlend=0 时整面保持原 _FrontTex 行为。
                 half4 front = SAMPLE_TEXTURE2D(_FrontTex, sampler_FrontTex, frontUV) * frontColor;
+                if (saturate(_FrontBgBlend) > 0.0h)
+                {
+                    float4 frontBgTilingOffset = float4(1.0h, 1.0h, 0.0h, 0.0h);
+                    float2 frontBgUV = input.uvFront * frontBgTilingOffset.xy + frontBgTilingOffset.zw;
+                    if (_FrontRotation != 0.0h)
+                    {
+                        frontBgUV = RotateUV(frontBgUV, _FrontRotation);
+                    }
+                    half4 bgSample = SAMPLE_TEXTURE2D(_FrontBgTex, sampler_FrontBgTex, frontBgUV);
+                    // 底图 RGB 铺底；前景花纹 RGB 按其 alpha 覆盖在底图上方（alpha=0 时仍透底图）。
+                    // _FrontBgBlend 仅作启用开关：0 = 关闭底图（前景占满），1 = 启用底图（与「使用/不使用 3D 牌面背景」toggle 对应）。
+                    half bgAlpha = bgSample.a * saturate(_FrontBgBlend);
+                    half3 bgRgb = lerp(front.rgb, bgSample.rgb, bgAlpha);
+                    // 前景有花纹处（front.a > 0）显示花纹 RGB，否则透出底图 RGB。
+                    half3 composedRgb = lerp(bgRgb, front.rgb, saturate(front.a));
+                    half composedA = max(saturate(front.a), bgAlpha);
+                    front = half4(composedRgb, composedA);
+                }
                 float2 backUV = input.uvBack;
                 if (backRotation != 0.0f)
                 {
@@ -265,10 +297,12 @@ Shader "Custom/ThreeDTiles"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _FrontTex_ST;
+                float4 _FrontBgTex_ST;
                 float4 _BackTex_ST;
                 float4 _SideTex_ST;
                 float4 _SideTilingOffset;
                 half _FrontRotation;
+                half4 _FrontBgColor;
             CBUFFER_END
 
             float3 _LightDirection;
@@ -342,10 +376,12 @@ Shader "Custom/ThreeDTiles"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _FrontTex_ST;
+                float4 _FrontBgTex_ST;
                 float4 _BackTex_ST;
                 float4 _SideTex_ST;
                 float4 _SideTilingOffset;
                 half _FrontRotation;
+                half4 _FrontBgColor;
             CBUFFER_END
 
             struct Attributes

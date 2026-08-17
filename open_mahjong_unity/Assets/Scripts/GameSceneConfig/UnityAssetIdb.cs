@@ -12,6 +12,7 @@ public static class UnityAssetIdb {
     public const string KeyCardBack = "cardBack";
     public const string KeyHandBg = "handBg";
     public const string KeyHandBack = "handBack";
+    public const string KeyTableBg = "tableBg";
     public const string PrefixTablecloth = "tablecloth/";
     public const string PrefixTableEdge = "tableedge/";
     public const int MaxImageBytes = 8 * 1024 * 1024;

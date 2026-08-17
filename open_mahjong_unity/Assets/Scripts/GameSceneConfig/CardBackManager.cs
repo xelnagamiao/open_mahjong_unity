@@ -12,22 +12,27 @@ public static class CardBackManager
     public const string BackImageDirName = "CardBacks";
     public const string HandBgFileName = "hand-bg.png";
     public const string HandBackFileName = "hand-back.png";
+    public const string TableBgFileName = "table-bg.png";
 
     public static Color CurrentColor { get; private set; } = ConfigManager.DefaultCardBackColor;
     public static Texture2D CurrentTexture { get; private set; }
     public static Texture2D CurrentHandBackground { get; private set; }
     public static Texture2D CurrentHandBack { get; private set; }
+    public static Texture2D CurrentTableBackground { get; private set; }
     public static Color CurrentSideColor { get; private set; } = ConfigManager.DefaultSideColor;
     public static Color CurrentBackEdgeColor { get; private set; } = ConfigManager.DefaultBackEdgeColor;
+    public static Color CurrentFrontEdgeColor { get; private set; } = Color.white;
     public static bool BackEdgeSyncEnabled { get; private set; } = true;
     public static CardEdgePanel.BackEdgeMode BackEdgeMode { get; private set; } = CardEdgePanel.BackEdgeMode.FollowBack;
     public static bool BackTexExtendEdge { get; private set; }
     public static string HandBgFilePath => Path.Combine(Application.persistentDataPath, BackImageDirName, HandBgFileName);
     public static string HandBackFilePath => Path.Combine(Application.persistentDataPath, BackImageDirName, HandBackFileName);
+    public static string TableBgFilePath => Path.Combine(Application.persistentDataPath, BackImageDirName, TableBgFileName);
 
     private static bool _savedConfigApplied;
     private static bool _handBgLoaded;
     private static bool _handBackLoaded;
+    private static bool _tableBgLoaded;
 
     /// <summary>启动或切换设置后调用：读取 ConfigManager 并应用。</summary>
     public static void ApplySavedConfig()
@@ -43,6 +48,13 @@ public static class CardBackManager
         ApplyBackTexExtendEdge(ConfigManager.Instance.BackTexExtendEdge);
         LoadSavedHandBackground();
         LoadSavedHandBack();
+        LoadSavedTableBackground();
+        CurrentFrontEdgeColor = ConfigManager.Instance.FrontEdgeColor;
+        // 先确保共享材质上的 _FrontBgTex 与 CurrentTableBackground 已同步，
+        // 再按 UseTableFaceBackground 开关只切 blend，不会清空已上传的纹理。
+        ApplyFrontEdgeColor(ResolveFrontEdgeColor(ConfigManager.Instance.FrontEdgeMode, ConfigManager.Instance.FrontEdgeColor));
+        ApplyFrontTexExtendEdge(ResolveFrontTexExtendEdge());
+        SetTableFaceBackgroundEnabled(ConfigManager.Instance.UseTableFaceBackground);
     }
 
     /// <summary>把正面侧边颜色应用到共享材质与所有 Tile3D 实例。</summary>
@@ -363,6 +375,201 @@ public static class CardBackManager
         return CurrentHandBack;
     }
 
+    public static Texture2D LoadSavedTableBackground()
+    {
+        if (_tableBgLoaded) return CurrentTableBackground;
+        _tableBgLoaded = true;
+        if (ConfigManager.Instance == null) return null;
+        (string path, bool isCustom) = ConfigManager.Instance.GetSelectedTableBackground();
+        if (string.IsNullOrEmpty(path) || !isCustom) return null;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        CurrentTableBackground = UnityAssetIdb.LoadTexture(path);
+#else
+        if (!File.Exists(path)) return null;
+        try { CurrentTableBackground = LoadTextureFromFile(path); }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"3D 牌面背景读取失败: {e.Message}");
+            CurrentTableBackground = null;
+        }
+#endif
+        return CurrentTableBackground;
+    }
+
+    public static void PersistTableBackground(byte[] png)
+    {
+        if (png == null || png.Length == 0) return;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        UnityAssetIdb.Put(UnityAssetIdb.KeyTableBg, png, null);
+        if (ConfigManager.Instance != null)
+        {
+            ConfigManager.Instance.SetSelectedTableBackground(UnityAssetIdb.KeyTableBg, true);
+        }
+        ReplaceTableBackground(UnityAssetIdb.ToTexture(png));
+#else
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(Application.persistentDataPath, BackImageDirName));
+            File.WriteAllBytes(TableBgFilePath, png);
+            if (ConfigManager.Instance != null)
+            {
+                ConfigManager.Instance.SetSelectedTableBackground(TableBgFilePath, true);
+            }
+            ReplaceTableBackground(BytesToTexture(png));
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning("保存 3D 牌面背景失败: " + e.Message);
+            return;
+        }
+#endif
+        // 上传背景后自动开启「使用 3D 牌面背景」，避免出现图已上传但 UI 还是关闭态。
+        SetTableFaceBackgroundEnabled(true);
+    }
+
+    public static void ClearPersistedTableBackground()
+    {
+        if (ConfigManager.Instance != null)
+        {
+            ConfigManager.Instance.SetSelectedTableBackground("", false);
+        }
+#if UNITY_WEBGL && !UNITY_EDITOR
+        UnityAssetIdb.Delete(UnityAssetIdb.KeyTableBg, null);
+#else
+        try
+        {
+            if (File.Exists(TableBgFilePath)) File.Delete(TableBgFilePath);
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning("删除 3D 牌面背景失败: " + e.Message);
+        }
+#endif
+        ReplaceTableBackground(null);
+        // 清空背景后顺手关闭「使用 3D 牌面背景」，与手牌牌面背景行为一致。
+        SetTableFaceBackgroundEnabled(false);
+    }
+
+    /// <summary>
+    /// 「使用 / 不使用 3D 牌面背景」开关：只切 blend，不动 <see cref="CurrentTableBackground"/> 与磁盘存档。
+    /// 持久化与纹理替换由 <see cref="PersistTableBackground"/> / <see cref="ClearPersistedTableBackground"/> 单独完成。
+    /// </summary>
+    public static void SetTableFaceBackgroundEnabled(bool enabled)
+    {
+        if (ConfigManager.Instance != null)
+        {
+            ConfigManager.Instance.SetUseTableFaceBackground(enabled);
+        }
+        // 当前纹理可能为空（如刚启动且还未加载），enabled=true 但无纹理时直接关闭 blend 即可。
+        bool hasTex = CurrentTableBackground != null;
+        Material shared = Resources.Load<Material>(MaterialResourcePath);
+        if (shared != null)
+        {
+            shared.SetTexture("_FrontBgTex", CurrentTableBackground);
+            shared.SetFloat("_FrontBgBlend", (enabled && hasTex) ? 1f : 0f);
+        }
+        Texture2D active = (enabled && hasTex) ? CurrentTableBackground : null;
+        Tile3D[] tiles = UnityEngine.Object.FindObjectsByType<Tile3D>(FindObjectsSortMode.None);
+        foreach (Tile3D tile in tiles)
+        {
+            if (tile != null) tile.ApplyFrontBgVisual(active);
+        }
+        if (MahjongObjectPool.Instance != null)
+        {
+            MahjongObjectPool.Instance.ForEachPooledTile(pooled =>
+            {
+                Tile3D pooledTile = pooled != null ? pooled.GetComponent<Tile3D>() : null;
+                if (pooledTile != null) pooledTile.ApplyFrontBgVisual(active);
+            });
+        }
+        // 跟随 3D 牌面背景开关同时切换正面贴图延伸
+        ApplyFrontTexExtendEdge(ResolveFrontTexExtendEdge());
+    }
+
+    /// <summary>把 3D 牌面背景写入共享材质：仅在 UseTableFaceBackground=true 且有纹理时启用混合。</summary>
+    [System.Obsolete("请改用 SetTableFaceBackgroundEnabled(bool) + PersistTableBackground/ClearPersistedTableBackground")]
+    public static void ApplyTableFaceBackground(bool enabled, Texture2D bgTexture)
+    {
+        // 兼容旧调用：仅当 bgTexture 与当前不同（说明有人传了新纹理进来）时替换；
+        // 否则只切 blend，避免覆盖已上传的 CurrentTableBackground。
+        if (bgTexture != null && bgTexture != CurrentTableBackground)
+        {
+            ReplaceTableBackground(bgTexture);
+        }
+        SetTableFaceBackgroundEnabled(enabled);
+    }
+
+    /// <summary>把 3D 牌正面侧边颜色应用到共享材质与所有 Tile3D 实例。</summary>
+    public static void ApplyFrontEdgeColor(Color color)
+    {
+        CurrentFrontEdgeColor = color;
+        Material shared = Resources.Load<Material>(MaterialResourcePath);
+        if (shared != null)
+        {
+            shared.SetColor("_FrontEdgeColor", color);
+        }
+        Tile3D[] tiles = UnityEngine.Object.FindObjectsByType<Tile3D>(FindObjectsSortMode.None);
+        foreach (Tile3D tile in tiles)
+        {
+            if (tile != null) tile.ApplyFrontEdgeVisual(color);
+        }
+        if (MahjongObjectPool.Instance != null)
+        {
+            MahjongObjectPool.Instance.ForEachPooledTile(pooled =>
+            {
+                Tile3D pooledTile = pooled != null ? pooled.GetComponent<Tile3D>() : null;
+                if (pooledTile != null) pooledTile.ApplyFrontEdgeVisual(color);
+            });
+        }
+    }
+
+    /// <summary>3D 牌正面贴图是否铺到正面边缘，便于整张渐变图。</summary>
+    public static void ApplyFrontTexExtendEdge(bool enabled)
+    {
+        Material shared = Resources.Load<Material>(MaterialResourcePath);
+        if (shared != null)
+        {
+            shared.SetFloat("_FrontTexExtendEdge", enabled ? 1f : 0f);
+        }
+    }
+
+    private static bool ResolveFrontTexExtendEdge()
+    {
+        if (ConfigManager.Instance == null) return false;
+        bool follow = ConfigManager.Instance.FrontTexFollowTableBg
+            && ConfigManager.Instance.UseTableFaceBackground
+            && CurrentTableBackground != null;
+        return ConfigManager.Instance.FrontTexExtendEdge || follow;
+    }
+
+    private static Color ResolveFrontEdgeColor(CardEdgePanel.FrontEdgeMode mode, Color independentColor)
+    {
+        switch (mode)
+        {
+            case CardEdgePanel.FrontEdgeMode.FollowTableBg:
+                return CurrentTableBackground != null
+                    ? Color.white
+                    : independentColor;
+            case CardEdgePanel.FrontEdgeMode.FollowBackEdge:
+                return CurrentBackEdgeColor;
+            default:
+                return independentColor;
+        }
+    }
+
+    /// <summary>由 CardEdgePanel / ConfigManager 调用：整体应用正面边缘模式。</summary>
+    public static void SetFrontEdgeMode(CardEdgePanel.FrontEdgeMode mode, Color independentColor)
+    {
+        Color resolved = ResolveFrontEdgeColor(mode, independentColor);
+        if (ConfigManager.Instance != null)
+        {
+            ConfigManager.Instance.SetFrontEdgeColor(independentColor);
+            ConfigManager.Instance.SetFrontEdgeMode(mode);
+        }
+        CurrentFrontEdgeColor = resolved;
+        ApplyFrontEdgeColor(resolved);
+    }
+
     public static void ClearPersistedHandBack()
     {
         if (ConfigManager.Instance != null)
@@ -527,6 +734,38 @@ public static class CardBackManager
         return handBackPng != null || handBgPng != null;
     }
 
+    public static bool TryParseTableBgZip(byte[] bytes, out byte[] tableBgPng)
+    {
+        tableBgPng = null;
+        if (!IsZip(bytes)) return false;
+        try
+        {
+            using (var stream = new MemoryStream(bytes, false))
+            using (var archive = new ZipArchive(stream, ZipArchiveMode.Read, true))
+            {
+                foreach (ZipArchiveEntry entry in archive.Entries)
+                {
+                    if (string.IsNullOrEmpty(entry.Name) || entry.FullName.EndsWith("/")) continue;
+                    string name = Path.GetFileName(entry.FullName).ToLowerInvariant();
+                    if (!name.EndsWith(".png")) continue;
+                    if (!IsTableBgFileName(name)) continue;
+                    using (Stream open = entry.Open())
+                    using (var memory = new MemoryStream())
+                    {
+                        open.CopyTo(memory);
+                        tableBgPng = memory.ToArray();
+                    }
+                    break;
+                }
+            }
+        }
+        catch
+        {
+            return false;
+        }
+        return tableBgPng != null;
+    }
+
     public static bool IsHandBgFileName(string name)
     {
         if (string.IsNullOrEmpty(name)) return false;
@@ -551,7 +790,19 @@ public static class CardBackManager
     {
         if (string.IsNullOrEmpty(name)) return false;
         string lower = Path.GetFileName(name).ToLowerInvariant();
-        return lower.Contains("cardback") || lower == "back.png" || (lower.Contains("back") && !IsHandBgFileName(lower));
+        return lower.Contains("cardback") || lower == "back.png" || (lower.Contains("back") && !IsHandBgFileName(lower) && !IsTableBgFileName(lower));
+    }
+
+    public static bool IsTableBgFileName(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return false;
+        string lower = Path.GetFileName(name).ToLowerInvariant();
+        if (IsHandBgFileName(lower)) return false;
+        return lower.Contains("table-bg")
+            || lower.Contains("tablebg")
+            || lower.Contains("table_bg")
+            || lower == "table.png"
+            || lower.Contains("3d-bg");
     }
 
     private static void ReplaceHandBackground(Texture2D texture)
@@ -572,6 +823,16 @@ public static class CardBackManager
         }
         CurrentHandBack = texture;
         _handBackLoaded = true;
+    }
+
+    private static void ReplaceTableBackground(Texture2D texture)
+    {
+        if (CurrentTableBackground != null && CurrentTableBackground != texture)
+        {
+            UnityEngine.Object.Destroy(CurrentTableBackground);
+        }
+        CurrentTableBackground = texture;
+        _tableBgLoaded = true;
     }
 
     public static Texture2D DecodePng(byte[] png)

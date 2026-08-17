@@ -35,6 +35,8 @@ public class CardFaceConfigPanel : MonoBehaviour {
     [SerializeField] private Button packHkButton;
     [SerializeField] private Button useBackgroundButton;
     [SerializeField] private Button noBackgroundButton;
+    [SerializeField] private Button useTableBackgroundButton;
+    [SerializeField] private Button noTableBackgroundButton;
     [SerializeField] private Button showHandButton;
     [SerializeField] private Button showTableButton;
     [SerializeField] private Button closeButton;
@@ -67,6 +69,12 @@ public class CardFaceConfigPanel : MonoBehaviour {
         }
         if (noBackgroundButton != null) {
             noBackgroundButton.onClick.AddListener(() => OnToggleBackground(false));
+        }
+        if (useTableBackgroundButton != null) {
+            useTableBackgroundButton.onClick.AddListener(() => OnToggleTableBackground(true));
+        }
+        if (noTableBackgroundButton != null) {
+            noTableBackgroundButton.onClick.AddListener(() => OnToggleTableBackground(false));
         }
         if (showHandButton != null) {
             showHandButton.onClick.AddListener(() => OnTogglePreview(false));
@@ -114,8 +122,10 @@ public class CardFaceConfigPanel : MonoBehaviour {
         restoreButton.gameObject.SetActive(!showingHongque);
         if (packFluffyButton != null) packFluffyButton.gameObject.SetActive(!showingHongque);
         if (packHkButton != null) packHkButton.gameObject.SetActive(!showingHongque);
-        if (useBackgroundButton != null) useBackgroundButton.gameObject.SetActive(!showingHongque);
-        if (noBackgroundButton != null) noBackgroundButton.gameObject.SetActive(!showingHongque);
+        if (useBackgroundButton != null) useBackgroundButton.gameObject.SetActive(!showingHongque && !showingTablePreview);
+        if (noBackgroundButton != null) noBackgroundButton.gameObject.SetActive(!showingHongque && !showingTablePreview);
+        if (useTableBackgroundButton != null) useTableBackgroundButton.gameObject.SetActive(!showingHongque && showingTablePreview);
+        if (noTableBackgroundButton != null) noTableBackgroundButton.gameObject.SetActive(!showingHongque && showingTablePreview);
         if (showHandButton != null) showHandButton.gameObject.SetActive(!showingHongque);
         if (showTableButton != null) showTableButton.gameObject.SetActive(!showingHongque);
         if (standardViewActions != null) standardViewActions.SetActive(!showingHongque);
@@ -194,6 +204,9 @@ public class CardFaceConfigPanel : MonoBehaviour {
         bool useBg = ConfigManager.Instance != null && ConfigManager.Instance.UseHandFaceBackground;
         if (useBackgroundButton != null) SetTabColor(useBackgroundButton, useBg);
         if (noBackgroundButton != null) SetTabColor(noBackgroundButton, !useBg);
+        bool useTableBg = ConfigManager.Instance != null && ConfigManager.Instance.UseTableFaceBackground;
+        if (useTableBackgroundButton != null) SetTabColor(useTableBackgroundButton, useTableBg);
+        if (noTableBackgroundButton != null) SetTabColor(noTableBackgroundButton, !useTableBg);
         if (showHandButton != null) SetTabColor(showHandButton, !showingTablePreview);
         if (showTableButton != null) SetTabColor(showTableButton, showingTablePreview);
     }
@@ -203,6 +216,15 @@ public class CardFaceConfigPanel : MonoBehaviour {
         HighlightPackButtons();
         RefreshPreview();
         ShowTip(enabled ? "已使用牌面背景（花纹原样叠加）" : "已关闭牌面背景");
+    }
+
+    private void OnToggleTableBackground(bool enabled) {
+        // 只切「使用/不使用」开关，不动已上传的 3D 牌面背景纹理：
+        // 关闭后 CurrentTableBackground 仍保留，下次打开会立刻生效。
+        CardBackManager.SetTableFaceBackgroundEnabled(enabled);
+        HighlightPackButtons();
+        RefreshPreview();
+        ShowTip(enabled ? "已使用 3D 牌面背景" : "已关闭 3D 牌面背景");
     }
 
     private void OnTogglePreview(bool table) {
@@ -225,17 +247,30 @@ public class CardFaceConfigPanel : MonoBehaviour {
             : TilePackIds.PackOfficial;
         int customCount = TilePackIds.IsLayeredPack(packId) ? TileFaceResolver.CountPackFaces() : 0;
         bool useBg = ConfigManager.Instance != null && ConfigManager.Instance.UseHandFaceBackground;
+        bool useTableBg = ConfigManager.Instance != null && ConfigManager.Instance.UseTableFaceBackground;
         if (packId == TilePackIds.PackFluffy) {
-            SetStatus($"当前：FluffyStuff（{customCount} 张）" + (useBg ? "，使用牌面背景" : "，不使用牌面背景"));
+            SetStatus($"当前：FluffyStuff（{customCount} 张）"
+                + (showingTablePreview
+                    ? (useTableBg ? "，使用 3D 牌面背景" : "，不使用 3D 牌面背景")
+                    : (useBg ? "，使用牌面背景" : "，不使用牌面背景")));
         }
         else if (packId == TilePackIds.PackHkMahjong) {
-            SetStatus($"当前：香港麻将（{customCount} 张）" + (useBg ? "，使用牌面背景" : "，不使用牌面背景"));
+            SetStatus($"当前：香港麻将（{customCount} 张）"
+                + (showingTablePreview
+                    ? (useTableBg ? "，使用 3D 牌面背景" : "，不使用 3D 牌面背景")
+                    : (useBg ? "，使用牌面背景" : "，不使用牌面背景")));
         }
         else if (packId == TilePackIds.PackCustom) {
-            SetStatus($"当前：自定义标准牌面（{customCount} 张）" + (useBg ? "，使用牌面背景" : "，不使用牌面背景"));
+            SetStatus($"当前：自定义标准牌面（{customCount} 张）"
+                + (showingTablePreview
+                    ? (useTableBg ? "，使用 3D 牌面背景" : "，不使用 3D 牌面背景")
+                    : (useBg ? "，使用牌面背景" : "，不使用牌面背景")));
         }
         else {
-            SetStatus("当前：官方标准牌面（雪风）" + (useBg ? "，使用牌面背景" : "，不使用牌面背景"));
+            SetStatus("当前：官方标准牌面（雪风）"
+                + (showingTablePreview
+                    ? (useTableBg ? "，使用 3D 牌面背景" : "，不使用 3D 牌面背景")
+                    : (useBg ? "，使用牌面背景" : "，不使用牌面背景")));
         }
         ApplySlots(standardSlots, TilePackIds.IsLayeredPack(packId));
     }
@@ -245,7 +280,17 @@ public class CardFaceConfigPanel : MonoBehaviour {
         bool useBg = !table
             && ConfigManager.Instance != null
             && ConfigManager.Instance.UseHandFaceBackground;
-        Sprite background = useBg ? TileFaceResolver.LoadHandBackground() : null;
+        Sprite handBackground = useBg ? TileFaceResolver.LoadHandBackground() : null;
+        bool useTableBg = table
+            && ConfigManager.Instance != null
+            && ConfigManager.Instance.UseTableFaceBackground
+            && CardBackManager.CurrentTableBackground != null;
+        Texture2D tableTex = useTableBg ? CardBackManager.CurrentTableBackground : null;
+        Sprite tableBackground = tableTex != null
+            ? Sprite.Create(tableTex,
+                new Rect(0f, 0f, tableTex.width, tableTex.height),
+                new Vector2(0.5f, 0.5f), 100f)
+            : null;
         for (int i = 0; i < slots.Length; i++) {
             CardFacePreviewSlot slot = slots[i];
             if (slot == null) continue;
@@ -253,8 +298,11 @@ public class CardFaceConfigPanel : MonoBehaviour {
             Sprite sprite = table
                 ? TileFaceResolver.LoadTableSprite(slot.tileId)
                 : TileFaceResolver.LoadSprite(slot.tileId);
-            bool layer = useBg && background != null && TileFaceResolver.ShouldLayerHandFace(slot.tileId);
-            slot.Apply(sprite, layer ? background : null, dim);
+            // 3D 牌面预览：启用 3D 牌面背景时，tableBackground 作为底图，3D 牌面 sprite 作为前景花纹。
+            // 2D 手牌牌面预览：handBackground 作为底图，sprite 作为前景。
+            Sprite baseSprite = useTableBg ? tableBackground : (useBg ? handBackground : null);
+            bool layer = baseSprite != null && sprite != null;
+            slot.Apply(sprite, layer ? baseSprite : null, dim);
         }
     }
 

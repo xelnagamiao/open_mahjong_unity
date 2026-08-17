@@ -88,6 +88,14 @@ public class ConfigManager : MonoBehaviour {
     private const string KEY_HAND_BACK_PATH = "HandBackImagePath";
     private const string KEY_HAND_BACK_IS_CUSTOM = "HandBackImageIsCustom";
     private const string KEY_USE_HAND_FACE_BACKGROUND = "UseHandFaceBackground";
+    private const string KEY_TABLE_BG_PATH = "TableBgImagePath";
+    private const string KEY_TABLE_BG_IS_CUSTOM = "TableBgImageIsCustom";
+    private const string KEY_USE_TABLE_FACE_BACKGROUND = "UseTableFaceBackground";
+    private const string KEY_FRONT_TEX_EXTEND_EDGE = "FrontTexExtendEdge";
+    private const string KEY_FRONT_EDGE_COLOR = "FrontEdgeColor";
+    private const string KEY_FRONT_EDGE_SYNC = "FrontEdgeSync";
+    private const string KEY_FRONT_EDGE_MODE = "FrontEdgeMode";
+    private const string KEY_FRONT_TEX_FOLLOW_TABLE_BG = "FrontTexFollowTableBg";
 
     /// <summary>3D card back default color (same as 3DTile.mat _BackColor).</summary>
     public static readonly Color DefaultCardBackColor = new Color(0.218f, 0.372f, 0.66f, 1f);
@@ -159,6 +167,18 @@ public class ConfigManager : MonoBehaviour {
     public bool CustomStandardTilePackEnabled => TilePackIds.IsLayeredPack(StandardTilePackId);
     /// <summary>2D 手牌是否在花纹下叠手牌牌面背景。官方整图默认关；透明花纹套装默认开。</summary>
     public bool UseHandFaceBackground { get; private set; }
+    /// <summary>3D 牌正面是否在花纹下叠 3D 牌面背景。独立开关，默认关（保持现有贴图行为）。</summary>
+    public bool UseTableFaceBackground { get; private set; }
+    /// <summary>3D 牌正面贴图是否铺到正面边缘，便于整张渐变图（默认关）。</summary>
+    public bool FrontTexExtendEdge { get; private set; }
+    /// <summary>3D 牌正面侧边颜色（默认跟随 _FrontColor=白）。</summary>
+    public Color FrontEdgeColor { get; private set; } = Color.white;
+    /// <summary>3D 牌正面侧边颜色是否与牌面背景同步（默认关）。</summary>
+    public bool FrontEdgeSyncEnabled { get; private set; }
+    /// <summary>3D 牌正面侧边颜色模式：独立 / 跟随牌面背景 / 跟随背面边缘。</summary>
+    public CardEdgePanel.FrontEdgeMode FrontEdgeMode { get; private set; } = CardEdgePanel.FrontEdgeMode.Independent;
+    /// <summary>3D 牌正面贴图是否跟随「使用 3D 牌面背景」开关自动启用 _FrontTexExtendEdge。默认关。</summary>
+    public bool FrontTexFollowTableBg { get; private set; }
 
     public static readonly string[] TileOutlinePresetLabels = {
         "预设1",
@@ -226,6 +246,13 @@ public class ConfigManager : MonoBehaviour {
         BackEdgeMode = (CardEdgePanel.BackEdgeMode)Mathf.Clamp(
             PlayerPrefs.GetInt(KEY_BACK_EDGE_MODE, BackEdgeSyncEnabled ? 1 : 0), 0, 2);
         BackTexExtendEdge = PlayerPrefs.GetInt(KEY_BACK_TEX_EXTEND_EDGE, 0) == 1;
+        FrontEdgeColor = LoadFrontEdgeColor();
+        FrontEdgeSyncEnabled = PlayerPrefs.GetInt(KEY_FRONT_EDGE_SYNC, 0) == 1;
+        FrontEdgeMode = (CardEdgePanel.FrontEdgeMode)Mathf.Clamp(
+            PlayerPrefs.GetInt(KEY_FRONT_EDGE_MODE, FrontEdgeSyncEnabled ? 1 : 0), 0, 2);
+        FrontTexExtendEdge = PlayerPrefs.GetInt(KEY_FRONT_TEX_EXTEND_EDGE, 0) == 1;
+        FrontTexFollowTableBg = PlayerPrefs.GetInt(KEY_FRONT_TEX_FOLLOW_TABLE_BG, 0) == 1;
+        UseTableFaceBackground = LoadUseTableFaceBackground();
         StandardTilePackId = LoadStandardTilePackId();
         UseHandFaceBackground = LoadUseHandFaceBackground(StandardTilePackId);
         TileIdOrder.SetSortRule(HandSortSuitOrderMode, HandSortHonorOrderMode, HandSortDragonOrderMode, HandSortRiichiDragonOrderMode);
@@ -269,6 +296,55 @@ public class ConfigManager : MonoBehaviour {
         UseHandFaceBackground = enabled;
         PlayerPrefs.SetInt(KEY_USE_HAND_FACE_BACKGROUND, enabled ? 1 : 0);
         PlayerPrefs.Save();
+    }
+
+    public void SetUseTableFaceBackground(bool enabled) {
+        UseTableFaceBackground = enabled;
+        PlayerPrefs.SetInt(KEY_USE_TABLE_FACE_BACKGROUND, enabled ? 1 : 0);
+        PlayerPrefs.Save();
+    }
+
+    private static bool LoadUseTableFaceBackground() {
+        if (!PlayerPrefs.HasKey(KEY_USE_TABLE_FACE_BACKGROUND)) return false;
+        return PlayerPrefs.GetInt(KEY_USE_TABLE_FACE_BACKGROUND, 0) == 1;
+    }
+
+    public void SetFrontTexExtendEdge(bool enabled) {
+        FrontTexExtendEdge = enabled;
+        PlayerPrefs.SetInt(KEY_FRONT_TEX_EXTEND_EDGE, enabled ? 1 : 0);
+        PlayerPrefs.Save();
+    }
+
+    public void SetFrontTexFollowTableBg(bool enabled) {
+        FrontTexFollowTableBg = enabled;
+        PlayerPrefs.SetInt(KEY_FRONT_TEX_FOLLOW_TABLE_BG, enabled ? 1 : 0);
+        PlayerPrefs.Save();
+    }
+
+    public void SetFrontEdgeColor(Color color) {
+        FrontEdgeColor = color;
+        PlayerPrefs.SetString(KEY_FRONT_EDGE_COLOR, ColorUtility.ToHtmlStringRGBA(color));
+        PlayerPrefs.Save();
+    }
+
+    public void SetFrontEdgeMode(CardEdgePanel.FrontEdgeMode mode) {
+        FrontEdgeMode = mode;
+        FrontEdgeSyncEnabled = mode == CardEdgePanel.FrontEdgeMode.FollowTableBg;
+        PlayerPrefs.SetInt(KEY_FRONT_EDGE_MODE, (int)mode);
+        PlayerPrefs.SetInt(KEY_FRONT_EDGE_SYNC, FrontEdgeSyncEnabled ? 1 : 0);
+        PlayerPrefs.Save();
+    }
+
+    public void SetSelectedTableBackground(string path, bool isCustom) {
+        PlayerPrefs.SetString(KEY_TABLE_BG_PATH, path ?? "");
+        PlayerPrefs.SetInt(KEY_TABLE_BG_IS_CUSTOM, isCustom ? 1 : 0);
+        PlayerPrefs.Save();
+    }
+
+    public (string path, bool isCustom) GetSelectedTableBackground() {
+        string path = PlayerPrefs.GetString(KEY_TABLE_BG_PATH, "");
+        bool isCustom = PlayerPrefs.GetInt(KEY_TABLE_BG_IS_CUSTOM, 0) == 1;
+        return (path, isCustom);
     }
 
     private static bool LoadUseHandFaceBackground(string packId) {
@@ -452,6 +528,17 @@ public class ConfigManager : MonoBehaviour {
             }
         }
         return DefaultSideColor;
+    }
+
+    private static Color LoadFrontEdgeColor() {
+        string hex = PlayerPrefs.GetString(KEY_FRONT_EDGE_COLOR, "");
+        if (!string.IsNullOrEmpty(hex)) {
+            string normalized = hex.StartsWith("#") ? hex : "#" + hex;
+            if (ColorUtility.TryParseHtmlString(normalized, out Color color)) {
+                return color;
+            }
+        }
+        return Color.white;
     }
 
     private static Color LoadBackEdgeColor() {

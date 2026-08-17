@@ -119,6 +119,10 @@ public static class CardFacePanelBaker
         PlaceLeft(useBg.transform as RectTransform, 286f, 0f, 140f, 36f);
         Button noBg = NewButton(viewActions, "NoBgButton", "不使用牌面背景", ButtonBg, Color.white);
         PlaceLeft(noBg.transform as RectTransform, 434f, 0f, 160f, 36f);
+        Button useTableBg = NewButton(viewActions, "UseTableBgButton", "使用3D牌面背景", ButtonBg, Color.white);
+        PlaceLeft(useTableBg.transform as RectTransform, 602f, 0f, 160f, 36f);
+        Button noTableBg = NewButton(viewActions, "NoTableBgButton", "不使用3D牌面背景", ButtonBg, Color.white);
+        PlaceLeft(noTableBg.transform as RectTransform, 770f, 0f, 180f, 36f);
 
         GameObject standardScroll = BuildPreviewScroll(
             panelRt,
@@ -147,6 +151,8 @@ public static class CardFacePanelBaker
         so.FindProperty("packHkButton").objectReferenceValue = hk;
         so.FindProperty("useBackgroundButton").objectReferenceValue = useBg;
         so.FindProperty("noBackgroundButton").objectReferenceValue = noBg;
+        so.FindProperty("useTableBackgroundButton").objectReferenceValue = useTableBg;
+        so.FindProperty("noTableBackgroundButton").objectReferenceValue = noTableBg;
         so.FindProperty("showHandButton").objectReferenceValue = showHand;
         so.FindProperty("showTableButton").objectReferenceValue = showTable;
         so.FindProperty("closeButton").objectReferenceValue = closeBtn;
@@ -174,8 +180,37 @@ public static class CardFacePanelBaker
 
         panelRt.gameObject.SetActive(false);
         BakeFaceBgPanel(scp);
+
+        // 给所有可拖动面板补挂 UIDragger（之前丢失的拖拽一键恢复）
+        EnsureUIDraggers(scp);
+
+        // 编辑器拖拽接收（图片拖到牌面背景面板会写到 3D 牌面背景）
+        CardBackEditorDragReceiver.EnsureOnRoot(scp.gameObject);
+
         EditorSceneManager.MarkSceneDirty(scp.gameObject.scene);
         return true;
+    }
+
+    /// <summary>给所有设置面板挂 UIDragger，幂等。</summary>
+    private static void EnsureUIDraggers(SceneConfigPanel scp)
+    {
+        string[] draggablePanelNames =
+        {
+            "CardFacePanel",
+            "CardFaceBackgroundPanel",
+            "CardBackPanel",
+            "CardEdgePanel",
+            "CardFacePanelContainer",
+        };
+        foreach (string name in draggablePanelNames)
+        {
+            Transform t = scp.transform.Find(name);
+            if (t == null) continue;
+            if (t.GetComponent<UIDragger>() == null)
+            {
+                t.gameObject.AddComponent<UIDragger>();
+            }
+        }
     }
 
     private static void BakeFaceBgPanel(SceneConfigPanel scp)
@@ -228,8 +263,22 @@ public static class CardFacePanelBaker
         Button uploadPair = NewButton(panelRt, "UploadPairZipButton", "上传成对 zip", ButtonBg, Color.white);
         PlaceTop(uploadPair.transform as RectTransform, 40f, 436f, 200f, 36f);
 
-        TMP_Text status = NewText(panelRt, "StatusText", "手牌背景：默认　手牌牌背：默认", 15, LabelColor, TextAnchor.MiddleLeft);
-        StretchTop(status.rectTransform, 20f, 24f, 484f);
+        // 3D 牌面背景区（位于手牌牌面背景与手牌牌背下方，跨越整面板）
+        TMP_Text tableLabel = NewText(panelRt, "TableBgLabel", "3D 牌面背景", 16, LabelColor, TextAnchor.MiddleLeft);
+        PlaceTop(tableLabel.rectTransform, 40f, 490f, 360f, 28f);
+        Image tablePreview = NewPreview(panelRt, "TableBgPreview", 40f, 526f, 200f, 220f);
+
+        Button uploadTable = NewButton(panelRt, "UploadTableBgButton", "上传 3D 牌面背景", Accent, Color.white);
+        PlaceTop(uploadTable.transform as RectTransform, 260f, 526f, 200f, 36f);
+        Button restoreTable = NewButton(panelRt, "RestoreTableBgButton", "恢复默认", ButtonBg, Color.white);
+        PlaceTop(restoreTable.transform as RectTransform, 470f, 526f, 140f, 36f);
+        Button clearTable = NewButton(panelRt, "ClearTableBgButton", "删除背景", ButtonBg, Color.white);
+        PlaceTop(clearTable.transform as RectTransform, 620f, 526f, 140f, 36f);
+
+        TMP_Text status = NewText(panelRt, "StatusText", "手牌背景：默认　手牌牌背：默认　3D 牌面背景：默认", 14, LabelColor, TextAnchor.MiddleLeft);
+        StretchTop(status.rectTransform, 20f, 28f, 580f);
+        status.enableWordWrapping = true;
+        status.overflowMode = TextOverflowModes.Ellipsis;
 
         TMP_Text help = NewText(panelRt, "HelpText", CardFaceBackgroundPanel.FormatHelp, 14, LabelColor, TextAnchor.UpperLeft);
         help.rectTransform.anchorMin = new Vector2(0f, 0f);
@@ -244,11 +293,15 @@ public static class CardFacePanelBaker
         SerializedObject so = new SerializedObject(panel);
         so.FindProperty("handBgPreview").objectReferenceValue = handPreview;
         so.FindProperty("cardBackPreview").objectReferenceValue = backPreview;
+        so.FindProperty("tableBgPreview").objectReferenceValue = tablePreview;
         so.FindProperty("uploadHandBgButton").objectReferenceValue = uploadHand;
         so.FindProperty("uploadCardBackButton").objectReferenceValue = uploadBack;
         so.FindProperty("uploadPairZipButton").objectReferenceValue = uploadPair;
         so.FindProperty("restoreHandBgButton").objectReferenceValue = restoreHand;
         so.FindProperty("clearCardBackButton").objectReferenceValue = clearBack;
+        so.FindProperty("uploadTableBgButton").objectReferenceValue = uploadTable;
+        so.FindProperty("restoreTableBgButton").objectReferenceValue = restoreTable;
+        so.FindProperty("clearTableBgButton").objectReferenceValue = clearTable;
         so.FindProperty("closeButton").objectReferenceValue = closeBtn;
         so.FindProperty("statusText").objectReferenceValue = status;
         so.FindProperty("helpText").objectReferenceValue = help;

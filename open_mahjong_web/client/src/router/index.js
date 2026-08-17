@@ -15,6 +15,7 @@ import Account from '@/views/Account.vue'
 import EventsList from '@/views/EventsList.vue'
 import EventDetail from '@/views/EventDetail.vue'
 import CalculatorView from '@/views/CalculatorView.vue'
+import PailiView from '@/views/PailiView.vue'
 import PlayerData from '@/views/PlayerData.vue'
 import PlatformData from '@/views/PlatformData.vue'
 import UnityGame from '@/views/UnityGame.vue'
@@ -24,7 +25,6 @@ import LibraryRule from '@/views/LibraryRule.vue'
 import LibraryLineage from '@/views/LibraryLineage.vue'
 import LibraryLayout from '@/layouts/LibraryLayout.vue'
 import RuleResearch from '@/views/RuleResearch.vue'
-import Paili from '@/views/Paili.vue'
 import SeedVerify from '@/views/SeedVerify.vue'
 import MobileDownload from '@/views/MobileDownload.vue'
 import UsageGuide from '@/views/UsageGuide.vue'
@@ -94,8 +94,13 @@ const routes = [
       {
         path: 'paili',
         name: 'Paili',
-        component: Paili,
+        component: PailiView,
         meta: { title: '牌理 - salasasa.cn' }
+      },
+      {
+        path: 'paili/hongque',
+        name: 'PailiHongque',
+        component: PailiView
       },
       {
         path: 'calc/chinese',

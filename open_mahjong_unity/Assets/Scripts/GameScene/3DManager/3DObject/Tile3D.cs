@@ -14,9 +14,13 @@ public class Tile3D : MonoBehaviour
     private static readonly int BackTexExtendEdgeId = Shader.PropertyToID("_BackTexExtendEdge");
     private static readonly int SideColorId = Shader.PropertyToID("_SideColor");
     private static readonly int BackEdgeColorId = Shader.PropertyToID("_BackEdgeColor");
+    private static readonly int FrontEdgeColorId = Shader.PropertyToID("_FrontEdgeColor");
     private static readonly int TileInstanceParamsId = Shader.PropertyToID("_TileInstanceParams");
     private static readonly int FrontTexId = Shader.PropertyToID("_FrontTex");
     private static readonly int BackTexId = Shader.PropertyToID("_BackTex");
+    private static readonly int FrontBgTexId = Shader.PropertyToID("_FrontBgTex");
+    private static readonly int FrontBgBlendId = Shader.PropertyToID("_FrontBgBlend");
+    private static readonly int FrontTexExtendEdgeId = Shader.PropertyToID("_FrontTexExtendEdge");
 
     private Renderer cardRenderer;
     private Material sharedTileMaterial;
@@ -32,10 +36,12 @@ public class Tile3D : MonoBehaviour
     private Color baseBackColor = Color.white;
     private Color baseSideColor = Color.white;
     private Color baseBackEdgeColor = Color.white;
+    private Color baseFrontEdgeColor = Color.white;
     private Color instanceFrontColor = Color.white;
     private Color instanceBackColor = Color.white;
     private Color instanceSideColor = Color.white;
     private Color instanceBackEdgeColor = Color.white;
+    private Color instanceFrontEdgeColor = Color.white;
     private float baseGrayScale;
     private float instanceGrayScale;
     private bool materialDefaultsCached;
@@ -185,11 +191,13 @@ public class Tile3D : MonoBehaviour
             baseBackColor = sharedTileMaterial.GetColor(BackColorId);
             baseSideColor = sharedTileMaterial.GetColor(SideColorId);
             baseBackEdgeColor = sharedTileMaterial.GetColor(BackEdgeColorId);
+            baseFrontEdgeColor = sharedTileMaterial.GetColor(FrontEdgeColorId);
             baseGrayScale = sharedTileMaterial.GetFloat("_GrayScale");
             instanceFrontColor = baseFrontColor;
             instanceBackColor = baseBackColor;
             instanceSideColor = baseSideColor;
             instanceBackEdgeColor = baseBackEdgeColor;
+            instanceFrontEdgeColor = baseFrontEdgeColor;
             instanceGrayScale = baseGrayScale;
             materialDefaultsCached = true;
         }
@@ -232,6 +240,7 @@ public class Tile3D : MonoBehaviour
         propBlock.SetColor(BackColorId, instanceBackColor);
         propBlock.SetColor(SideColorId, instanceSideColor);
         propBlock.SetColor(BackEdgeColorId, instanceBackEdgeColor);
+        propBlock.SetColor(FrontEdgeColorId, instanceFrontEdgeColor);
         propBlock.SetVector(
             TileInstanceParamsId,
             new Vector4(instanceGrayScale, outlineId, 0f, 0f));
@@ -378,6 +387,27 @@ public class Tile3D : MonoBehaviour
     }
 
     /// <summary>
+    /// 应用 3D 牌面背景：写共享材质 _FrontBgTex 与 _FrontBgBlend；所有牌共享同一张底图。
+    /// </summary>
+    public void ApplyFrontBgVisual(Texture2D bgTexture) {
+        InitializeComponents();
+        if (cardRenderer == null || tileMaterialIndex < 0) return;
+        if (sharedTileMaterial != null) {
+            sharedTileMaterial.SetTexture(FrontBgTexId, bgTexture);
+            sharedTileMaterial.SetFloat(FrontBgBlendId, bgTexture != null ? 1f : 0f);
+        }
+    }
+
+    /// <summary>正面侧边颜色：跟随 3D 牌面背景开关的颜色或独立设置。</summary>
+    public void ApplyFrontEdgeVisual(Color color) {
+        InitializeComponents();
+        if (cardRenderer == null || tileMaterialIndex < 0) return;
+        instanceFrontEdgeColor = color;
+        baseFrontEdgeColor = color;
+        ApplyPropertyBlock();
+    }
+
+    /// <summary>
     /// 统一牌背朝向：暗面/暗杠与和牌倒牌立牌的“牌背可见”场景统一旋转 180°（u/v 同时取反），
     /// 使背图正对该牌所属玩家的正面方向（图案顶朝桌心，玩家可正常阅读），并保持与正常立牌背面一致。
     /// 只影响牌背 UV 采样，不影响牌面；悬停 peek 只翻转网格（SetPeekFaceUp），不会重算此值，
@@ -431,6 +461,7 @@ public class Tile3D : MonoBehaviour
         instanceBackColor = baseBackColor;
         instanceSideColor = baseSideColor;
         instanceBackEdgeColor = baseBackEdgeColor;
+        instanceFrontEdgeColor = baseFrontEdgeColor;
         instanceGrayScale = baseGrayScale;
         backRotation = 0f;
         ApplyPropertyBlock();

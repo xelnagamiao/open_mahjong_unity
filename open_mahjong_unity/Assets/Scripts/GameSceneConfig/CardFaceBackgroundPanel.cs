@@ -21,20 +21,25 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
 
     [SerializeField] private Image handBgPreview;
     [SerializeField] private Image cardBackPreview;
+    [SerializeField] private Image tableBgPreview;
     [SerializeField] private Button uploadHandBgButton;
     [SerializeField] private Button uploadCardBackButton;
     [SerializeField] private Button uploadPairZipButton;
     [SerializeField] private Button restoreHandBgButton;
     [SerializeField] private Button clearCardBackButton;
+    [SerializeField] private Button uploadTableBgButton;
+    [SerializeField] private Button restoreTableBgButton;
+    [SerializeField] private Button clearTableBgButton;
     [SerializeField] private Button closeButton;
     [SerializeField] private TMP_Text statusText;
     [SerializeField] private TMP_Text helpText;
 
-    private enum PickMode { HandBg, CardBack, Pair }
+    private enum PickMode { HandBg, CardBack, TableBg, Pair }
 
     private PickMode pickMode = PickMode.Pair;
     private Sprite handBgSprite;
     private Sprite cardBackSprite;
+    private Sprite tableBgSprite;
 
     private void Awake() {
         Instance = this;
@@ -43,6 +48,9 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         if (uploadPairZipButton != null) uploadPairZipButton.onClick.AddListener(() => OpenPicker(PickMode.Pair));
         if (restoreHandBgButton != null) restoreHandBgButton.onClick.AddListener(RestoreHandBg);
         if (clearCardBackButton != null) clearCardBackButton.onClick.AddListener(ClearCardBack);
+        if (uploadTableBgButton != null) uploadTableBgButton.onClick.AddListener(() => OpenPicker(PickMode.TableBg));
+        if (restoreTableBgButton != null) restoreTableBgButton.onClick.AddListener(RestoreTableBg);
+        if (clearTableBgButton != null) clearTableBgButton.onClick.AddListener(ClearTableBg);
         if (closeButton != null) closeButton.onClick.AddListener(HidePanel);
         if (helpText != null) helpText.text = FormatHelp;
     }
@@ -74,14 +82,19 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
     private void OpenPicker(PickMode mode) {
         pickMode = mode;
 #if UNITY_WEBGL && !UNITY_EDITOR
-        string key = mode == PickMode.CardBack ? UnityAssetIdb.KeyHandBack : UnityAssetIdb.KeyHandBg;
+        string key = mode == PickMode.CardBack ? UnityAssetIdb.KeyHandBack
+            : mode == PickMode.TableBg ? UnityAssetIdb.KeyTableBg
+            : UnityAssetIdb.KeyHandBg;
         UnityAssetIdb.PickAndPut(key, ImageAccept, OnWebGlBytes, err => {
             if (!string.IsNullOrEmpty(err) && err != "empty") ShowTip(err);
         });
 #elif (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
         NativeGallery.GetImageFromGallery(path => {
             if (!string.IsNullOrEmpty(path)) ApplyLocalPath(path);
-        }, mode == PickMode.HandBg ? "选择手牌背景" : "选择手牌牌背", "image/*");
+        }, mode == PickMode.HandBg ? "选择手牌背景"
+            : mode == PickMode.CardBack ? "选择手牌牌背"
+            : mode == PickMode.TableBg ? "选择 3D 牌面背景"
+            : "选择手牌牌背与手牌背景（zip 或两张图）", "image/*");
 #else
         bool multi = mode == PickMode.Pair;
         var extensions = new[] {
@@ -89,6 +102,7 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         };
         string title = mode == PickMode.HandBg ? "选择手牌牌面背景"
             : mode == PickMode.CardBack ? "选择手牌牌背"
+            : mode == PickMode.TableBg ? "选择 3D 牌面背景"
             : "选择手牌牌背与手牌背景（zip 或两张图）";
         string[] paths = SFB.StandaloneFileBrowser.OpenFilePanel(title, "", extensions, multi);
         if (paths == null || paths.Length == 0 || string.IsNullOrEmpty(paths[0])) return;
@@ -150,11 +164,23 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
             RefreshPreviews();
             return;
         }
-        if (CardBackManager.IsZip(bytes)) {
-            ShowTip("压缩包需包含 hand-back.png 与 hand-bg.png");
+        if (CardBackManager.TryParseTableBgZip(bytes, out byte[] tableBgPng)) {
+            CardBackManager.PersistTableBackground(tableBgPng);
+            SetStatus("已从 zip 应用 3D 牌面背景");
+            ShowTip("3D 牌面背景已应用");
+            RefreshPreviews();
             return;
         }
-        if (pickMode == PickMode.HandBg || CardBackManager.IsHandBgFileName(name)) {
+        if (CardBackManager.IsZip(bytes)) {
+            ShowTip("压缩包需包含 hand-back.png / hand-bg.png 或 table-bg.png");
+            return;
+        }
+        if (pickMode == PickMode.TableBg || CardBackManager.IsTableBgFileName(name)) {
+            CardBackManager.PersistTableBackground(bytes);
+            SetStatus("3D 牌面背景已应用");
+            ShowTip("3D 牌面背景已应用");
+        }
+        else if (pickMode == PickMode.HandBg || CardBackManager.IsHandBgFileName(name)) {
             CardBackManager.PersistHandBackground(bytes);
             SetStatus("手牌牌面背景已应用");
             ShowTip("手牌牌面背景已应用");
@@ -181,14 +207,32 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         RefreshPreviews();
     }
 
+    private void RestoreTableBg() {
+        CardBackManager.ClearPersistedTableBackground();
+        SetStatus("已恢复默认 3D 牌面背景");
+        ShowTip("已恢复默认 3D 牌面背景");
+        RefreshPreviews();
+    }
+
+    private void ClearTableBg() {
+        CardBackManager.ClearPersistedTableBackground();
+        SetStatus("已删除 3D 牌面背景");
+        ShowTip("已删除 3D 牌面背景");
+        RefreshPreviews();
+    }
+
     private void RefreshPreviews() {
         AssignPreview(handBgPreview, ref handBgSprite, ResolveHandBgTexture());
         AssignPreview(cardBackPreview, ref cardBackSprite, ResolveHandBackTexture());
+        AssignPreview(tableBgPreview, ref tableBgSprite, ResolveTableBgTexture());
         bool customBg = ConfigManager.Instance != null && ConfigManager.Instance.GetSelectedHandBackground().isCustom;
         bool customBack = ConfigManager.Instance != null && ConfigManager.Instance.GetSelectedHandBack().isCustom;
+        bool customTable = ConfigManager.Instance != null && ConfigManager.Instance.GetSelectedTableBackground().isCustom;
         SetStatus((customBg ? "手牌背景：已上传" : "手牌背景：默认")
             + "　"
-            + (customBack ? "手牌牌背：已上传" : "手牌牌背：默认"));
+            + (customBack ? "手牌牌背：已上传" : "手牌牌背：默认")
+            + "　"
+            + (customTable ? "3D 牌面背景：已上传" : "3D 牌面背景：默认"));
     }
 
     private static Texture2D ResolveHandBgTexture() {
@@ -201,6 +245,11 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         Texture2D custom = CardBackManager.LoadSavedHandBack();
         if (custom != null) return custom;
         return TileFaceResolver.PeekDefaultHandBackTexture();
+    }
+
+    private static Texture2D ResolveTableBgTexture() {
+        Texture2D custom = CardBackManager.LoadSavedTableBackground();
+        return custom;
     }
 
     private static void AssignPreview(Image image, ref Sprite sprite, Texture2D texture) {
@@ -229,4 +278,25 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
             NotificationManager.Instance.ShowTip("设置", true, message);
         }
     }
+
+#if UNITY_EDITOR
+    /// <summary>编辑器拖拽入口：把拖入的图片应用到 3D 牌面背景。</summary>
+    public void ApplyEditorDroppedTableBackground(Texture2D source) {
+        if (source == null) return;
+        RenderTexture rt = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.ARGB32);
+        Graphics.Blit(source, rt);
+        RenderTexture prev = RenderTexture.active;
+        RenderTexture.active = rt;
+        Texture2D copy = new Texture2D(source.width, source.height, TextureFormat.RGBA32, false);
+        copy.ReadPixels(new Rect(0f, 0f, source.width, source.height), 0, 0);
+        copy.Apply();
+        RenderTexture.active = prev;
+        RenderTexture.ReleaseTemporary(rt);
+        byte[] png = copy.EncodeToPNG();
+        UnityEngine.Object.DestroyImmediate(copy);
+        CardBackManager.PersistTableBackground(png);
+        RefreshPreviews();
+        ShowTip("3D 牌面背景已应用");
+    }
+#endif
 }

@@ -2,7 +2,7 @@
 <template>
   <div class="paili">
     <div class="page-header">
-      <h1>牌理</h1>
+      <PailiSwitcher />
       <p class="subtitle">13 张直接显示听牌与进张，14 张显示切牌分析（副露按等价张数计算）。输入为空时将随机生成示例。</p>
     </div>
 
@@ -192,6 +192,7 @@ import TileMiniGlyph from '@/components/TileMiniGlyph.vue'
 import FuluSlots from '@/components/FuluSlots.vue'
 import TileFaceStyleSwitch from '@/components/TileFaceStyleSwitch.vue'
 import MahjongNotationHelp from '@/components/MahjongNotationHelp.vue'
+import PailiSwitcher from '@/components/PailiSwitcher.vue'
 import {
   TILE_NAME,
   parseNotationText,
