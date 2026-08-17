@@ -283,6 +283,23 @@ onMounted(() => {
   .nav-link.auth {
     margin-left: auto;
   }
+
+  .calc-nav {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .calc-nav :deep(.el-tooltip__trigger) {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .calc-trigger {
+    justify-content: center;
+    width: 100%;
+    height: auto;
+  }
 }
 </style>
 

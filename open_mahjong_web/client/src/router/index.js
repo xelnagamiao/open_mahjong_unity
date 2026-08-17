@@ -46,6 +46,7 @@ import AdminStats from '@/views/admin/Stats.vue'
 import AdminEvents from '@/views/admin/Events.vue'
 import AdminEventDetail from '@/views/admin/EventDetail.vue'
 import AdminEventApplications from '@/views/admin/EventApplications.vue'
+import AdminActivities from '@/views/admin/Activities.vue'
 import EventAdminLayout from '@/layouts/EventAdminLayout.vue'
 import EventAdminLogin from '@/views/event-admin/Login.vue'
 import EventAdminEvents from '@/views/event-admin/Events.vue'
@@ -334,6 +335,7 @@ const routes = [
       { path: 'game-control', name: 'AdminGameControl', component: AdminGameControl, meta: { title: '对局管理' } },
       { path: 'audit', name: 'AdminAudit', component: AdminAudit, meta: { title: '操作审计' } },
       { path: 'messages', name: 'AdminMessages', component: AdminMessages, meta: { title: '消息推送' } },
+      { path: 'activities', name: 'AdminActivities', component: AdminActivities, meta: { title: '活动设计' } },
       { path: 'send-email', name: 'AdminSendEmail', component: AdminSendEmail, meta: { title: '发送邮件' } },
       { path: 'ip-bans', name: 'AdminIpBans', component: AdminIpBans, meta: { title: 'IP 封禁' } },
       { path: 'stats', name: 'AdminStats', component: AdminStats, meta: { title: '全站统计' } }

@@ -2642,6 +2642,51 @@ class DatabaseManager:
                 cursor.close()
                 self._put_connection(conn)
 
+    def get_event_schedule(self, event_id: str) -> Dict[str, str]:
+        """取已批准办赛申请上的拟定起止日；没有则空字符串。"""
+        empty = {"planned_start_at": "", "planned_end_at": ""}
+        if not event_id:
+            return empty
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                """
+                SELECT planned_start_at, planned_end_at
+                FROM event_applications
+                WHERE event_id = %s AND status = 'approved'
+                ORDER BY reviewed_at DESC NULLS LAST, application_id DESC
+                LIMIT 1
+                """,
+                (event_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return empty
+
+            def _day(value):
+                if value is None:
+                    return ""
+                if hasattr(value, "isoformat"):
+                    return value.isoformat()[:10]
+                text = str(value).strip()
+                return text[:10] if text and text.lower() != "none" else ""
+
+            return {
+                "planned_start_at": _day(row.get("planned_start_at")),
+                "planned_end_at": _day(row.get("planned_end_at")),
+            }
+        except Error as e:
+            logger.error(f'get_event_schedule 失败: {e}')
+            if conn:
+                conn.rollback()
+            return empty
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
     def get_event_admin_role(self, event_id: str, user_id: int) -> Optional[str]:
         """返回用户在赛事中的角色 owner/admin；无权限返回 None。"""
         if not event_id or not user_id:

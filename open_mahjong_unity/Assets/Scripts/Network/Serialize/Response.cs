@@ -102,6 +102,10 @@ public class EventDetailInfo {
     public bool is_admin;
     public bool is_ready;
     public int ready_count;
+    public string created_at;
+    public string closed_at;
+    public string planned_start_at;
+    public string planned_end_at;
     public EventRegistrationInfo registration;
     public EventEntrySummary entry_summary;
     public EventAnnouncementInfo[] announcements;

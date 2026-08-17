@@ -23,6 +23,7 @@ public class EventNetworkManager : MonoBehaviour {
     public event Action OnEventRecordsUpdated;
 
     private string _pendingRoomListEventId;
+    private string _lastDetailEventId;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -54,7 +55,12 @@ public class EventNetworkManager : MonoBehaviour {
             case "event/ready":
             case "event/unready":
                 NotificationManager.Instance.ShowTip("event", response.success, response.message);
-                if (!string.IsNullOrEmpty(CurrentDetail?.event_id)) GetEventDetail(CurrentDetail.event_id);
+                if (response.success && response.type == "event/register"
+                    && CurrentDetail != null && response.event_detail?.registration != null) {
+                    CurrentDetail.registration = response.event_detail.registration;
+                    OnEventDetailUpdated?.Invoke();
+                }
+                RefreshCurrentDetail();
                 break;
             case "event/list_ready":
                 ReadyPlayers = response.ready_players;
@@ -118,7 +124,15 @@ public class EventNetworkManager : MonoBehaviour {
     }
 
     public void GetEventDetail(string eventId) {
+        if (!string.IsNullOrEmpty(eventId)) _lastDetailEventId = eventId;
         _Send(new { type = "event/get_detail", event_id = eventId });
+    }
+
+    public void RefreshCurrentDetail() {
+        string eventId = !string.IsNullOrEmpty(CurrentDetail?.event_id)
+            ? CurrentDetail.event_id
+            : _lastDetailEventId;
+        if (!string.IsNullOrEmpty(eventId)) GetEventDetail(eventId);
     }
 
     public void Register(string eventId, string contact, string remark, string joinCode) {

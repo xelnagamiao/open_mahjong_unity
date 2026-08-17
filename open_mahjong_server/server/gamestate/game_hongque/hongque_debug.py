@@ -16,7 +16,7 @@ from __future__ import annotations
 from .tile import full_deck
 
 # 切换调试场景：改此常量即可
-HONGQUE_DEBUG_SCENARIO = "ones_nines"
+HONGQUE_DEBUG_SCENARIO = "tactical_all_claims"
 
 DEBUG_SCENARIOS = (
     "double_ron",

@@ -50,6 +50,17 @@ def game_server_parse_config(event: dict) -> dict:
     return DatabaseManager.parse_entry_config(event.get("entry_config"))
 
 
+def _fmt_day(value) -> str:
+    if value is None:
+        return ""
+    if hasattr(value, "isoformat"):
+        return value.isoformat()[:10]
+    text = str(value).strip()
+    if not text or text.lower() == "none":
+        return ""
+    return text[:10]
+
+
 async def handle_event_message(game_server, Connect_id: str, message: dict, websocket):
     message_type = message.get("type", "").strip("/")
 
@@ -128,14 +139,17 @@ async def _handle_get_detail(game_server, user_id, player, message, websocket):
     ready = game_server.db_manager.is_user_event_ready(event_id, user_id)
     announcements = game_server.db_manager.list_event_announcements(event_id)
     cfg = game_server_parse_config(event)
+    schedule = game_server.db_manager.get_event_schedule(event_id)
     detail = {
         "event_id": event.get("event_id"),
         "name": event.get("name"),
         "description": event.get("description") or "",
         "status": event.get("status"),
         "kind": event.get("kind") or "event",
-        "created_at": str(event.get("created_at") or ""),
-        "closed_at": str(event.get("closed_at") or "") if event.get("closed_at") else None,
+        "created_at": _fmt_day(event.get("created_at")),
+        "closed_at": _fmt_day(event.get("closed_at")) or None,
+        "planned_start_at": schedule.get("planned_start_at") or "",
+        "planned_end_at": schedule.get("planned_end_at") or "",
         "my_role": role,
         "is_admin": bool(role),
         "registration": registration,

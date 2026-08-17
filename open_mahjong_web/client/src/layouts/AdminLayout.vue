@@ -49,6 +49,7 @@ const menuItems = [
   { index: '/admin/game-control', label: '对局管理' },
   { index: '/admin/audit', label: '审计' },
   { index: '/admin/messages', label: '消息' },
+  { index: '/admin/activities', label: '活动' },
   { index: '/admin/send-email', label: '发送邮件' },
   { index: '/admin/ip-bans', label: 'IP 封禁' },
   { index: '/admin/stats', label: '全站统计' },

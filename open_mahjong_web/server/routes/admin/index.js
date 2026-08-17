@@ -16,6 +16,7 @@ const statsRoutes = require('./stats');
 const eventsRoutes = require('./events');
 const eventApplicationsRoutes = require('./eventApplications');
 const eventProfileChangesRoutes = require('./eventProfileChanges');
+const activitiesRoutes = require('./activities');
 
 const router = express.Router();
 
@@ -45,5 +46,6 @@ router.use('/stats', statsRoutes);
 router.use('/events', eventsRoutes);
 router.use('/event-applications', eventApplicationsRoutes);
 router.use('/event-profile-changes', eventProfileChangesRoutes);
+router.use('/activities', activitiesRoutes);
 
 module.exports = router;

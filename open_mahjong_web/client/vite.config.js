@@ -14,6 +14,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const deployConfigPath = resolve(__dirname, '../deploy.config.json')
 const deployConfig = JSON.parse(readFileSync(deployConfigPath, 'utf-8'))
 const manualGamePackages = new Set(deployConfig.manualGamePackages || [])
+const preserveStaticDirs = new Set([
+  ...manualGamePackages,
+  ...(deployConfig.preserveStaticDirs || [])
+])
 
 /**
  * 读取 open_mahjong_web/deploy.config.json：
@@ -43,11 +47,11 @@ function skipManualGamePackages() {
     buildStart() {
       if (existsSync(distDir)) {
         for (const name of readdirSync(distDir)) {
-          if (manualGamePackages.has(name)) continue
+          if (preserveStaticDirs.has(name)) continue
           rmSync(join(distDir, name), { recursive: true, force: true })
         }
       }
-      for (const name of manualGamePackages) {
+      for (const name of preserveStaticDirs) {
         const from = join(publicDir, name)
         const to = join(publicDir, `.${name}.buildskip`)
         if (existsSync(from)) {

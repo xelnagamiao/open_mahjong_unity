@@ -53,6 +53,8 @@ const { ensureUserEmailTables } = require('./utils/userEmailTables');
 const { ensureLibraryTables } = require('./utils/libraryTables');
 const { ensureGuessFanTables } = require('./utils/guessFanTables');
 const libraryRoutes = require('./routes/library');
+const { registerGuessFanHandlers } = require('./guessfan/rooms');
+const { ensureSeedFiles, assetsDir } = require('./services/activityStore');
 
 // 牌理 / 听牌 / 国标算分等转发 Python：每 IP 每分钟约 40 次
 const mahjongCalcLimiter = createWindowLimiter({
@@ -82,8 +84,26 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/event-admin', eventAdminRoutes);
 app.use('/api/bot', botapiRoutes);
 app.use('/api/library', libraryRoutes);
-
-const { registerGuessFanHandlers } = require('./guessfan/rooms');
+app.use('/activity-assets', (req, res, next) => {
+  if (String(req.path || '').includes('_catalog')) {
+    return res.status(404).end();
+  }
+  next();
+});
+app.use(
+  '/activity-assets',
+  express.static(assetsDir(), {
+    index: false,
+    etag: true,
+    setHeaders(res, filePath) {
+      if (filePath.endsWith('.json')) {
+        res.setHeader('Cache-Control', 'public, max-age=30');
+      } else {
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+      }
+    },
+  })
+);
 
 // WebSocket连接处理
 io.on('connection', (socket) => {
@@ -160,6 +180,12 @@ async function startServer() {
     console.log('猜番对抗排行表已就绪');
   } catch (err) {
     console.error('猜番对抗排行表初始化失败:', err);
+  }
+  try {
+    const dir = ensureSeedFiles();
+    console.log(`活动静态目录已就绪: ${dir}`);
+  } catch (err) {
+    console.error('活动静态目录初始化失败:', err);
   }
   server.listen(config.app.port, () => {
     console.log(`服务器运行在端口 ${config.app.port}`);

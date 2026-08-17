@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -49,6 +50,13 @@ public class EventDetailPanel : MonoBehaviour {
     [SerializeField] private Image readyImage;
     [SerializeField] private Color readyWaitingColor = Color.white;
     [SerializeField] private Color readyWaitingLabelColor = Color.white;
+
+    [Header("状态颜色")]
+    [SerializeField] private Color statusActiveColor = new Color(0.02f, 0.72f, 0.32f, 1f);
+    [SerializeField] private Color statusIdleColor = new Color(0.90f, 0.72f, 0.08f, 1f);
+    [SerializeField] private Color statusClosedColor = new Color(0.77f, 0.34f, 0.34f, 1f);
+    [SerializeField] private Color qualifyNoneColor = new Color(0.90f, 0.72f, 0.08f, 1f);
+    [SerializeField] private Color qualifyOkColor = new Color(0.02f, 0.72f, 0.32f, 1f);
 
     [Header("加入房间")]
     [SerializeField] private Transform roomContent;
@@ -177,9 +185,8 @@ public class EventDetailPanel : MonoBehaviour {
         if (titleText != null) titleText.text = name;
         if (descText != null) descText.text = _detail != null && !string.IsNullOrEmpty(_detail.description) ? _detail.description : "暂无介绍";
         if (statusText != null) {
-            string status = _detail != null ? StatusLabel(_detail.status) : "";
-            string mine = RegistrationLabel(_detail);
-            statusText.text = string.IsNullOrEmpty(mine) ? status : $"{status}\n{mine}";
+            statusText.richText = true;
+            statusText.text = BuildStatusText(_detail);
         }
         if (announceText != null) {
             if (_detail == null || _detail.announcements == null || _detail.announcements.Length == 0) {
@@ -225,24 +232,55 @@ public class EventDetailPanel : MonoBehaviour {
         }
     }
 
-    private static string StatusLabel(string status) {
-        switch (status) {
-            case "active": return "状态：进行中";
-            case "registered": return "状态：已注册未开启";
-            case "closed": return "状态：已关闭";
-            default: return string.IsNullOrEmpty(status) ? "" : "状态：" + status;
+    private string BuildStatusText(EventDetailInfo detail) {
+        string statusKey = detail != null ? detail.status : "";
+        string statusLabel;
+        Color statusColor;
+        switch (statusKey) {
+            case "active":
+                statusLabel = "进行中";
+                statusColor = statusActiveColor;
+                break;
+            case "closed":
+                statusLabel = "已关闭";
+                statusColor = statusClosedColor;
+                break;
+            default:
+                statusLabel = "未开赛";
+                statusColor = statusIdleColor;
+                break;
         }
+
+        bool qualified = detail != null && detail.registration != null
+            && (detail.registration.status == "approved" || detail.registration.status == "pending");
+        string qualifyLabel = qualified ? "已报名" : "未报名";
+        Color qualifyColor = qualified ? qualifyOkColor : qualifyNoneColor;
+
+        string start = FirstDay(detail != null ? detail.planned_start_at : null, detail != null ? detail.created_at : null);
+        string end = FirstDay(detail != null ? detail.planned_end_at : null, detail != null ? detail.closed_at : null);
+        if (string.IsNullOrEmpty(start)) start = "未定";
+        if (string.IsNullOrEmpty(end)) end = "未定";
+
+        return
+            $"{Colorize("状态：" + statusLabel, statusColor)}\n" +
+            $"开始时间：{start}\n" +
+            $"结束时间：{end}\n" +
+            Colorize("资格：" + qualifyLabel, qualifyColor);
     }
 
-    private static string RegistrationLabel(EventDetailInfo detail) {
-        if (detail == null || detail.registration == null) return "报名：未报名";
-        switch (detail.registration.status) {
-            case "pending": return "报名：待审核";
-            case "approved": return "报名：已通过";
-            case "rejected": return "报名：未通过";
-            case "cancelled": return "报名：已取消";
-            default: return "报名：" + detail.registration.status;
-        }
+    private static string FirstDay(string preferred, string fallback) {
+        string a = FormatDay(preferred);
+        return !string.IsNullOrEmpty(a) ? a : FormatDay(fallback);
+    }
+
+    private static string FormatDay(string raw) {
+        if (string.IsNullOrEmpty(raw)) return "";
+        if (DateTime.TryParse(raw, out DateTime d)) return d.ToString("yyyy-MM-dd");
+        return raw.Length >= 10 ? raw.Substring(0, 10) : raw;
+    }
+
+    private static string Colorize(string text, Color color) {
+        return $"<color=#{ColorUtility.ToHtmlStringRGB(color)}>{text}</color>";
     }
 
     private void ShowPage(Page page) {
@@ -255,7 +293,9 @@ public class EventDetailPanel : MonoBehaviour {
         SetNav(roomsNavImage, page == Page.Rooms);
         SetNav(spectateNavImage, page == Page.Spectate);
         SetNav(recordsNavImage, page == Page.Records);
-        if (page == Page.Rooms) {
+        if (page == Page.Home) {
+            if (!string.IsNullOrEmpty(_eventId)) EventNetworkManager.Instance?.GetEventDetail(_eventId);
+        } else if (page == Page.Rooms) {
             EventNetworkManager.Instance?.ListVenueRooms(_eventId);
         } else if (page == Page.Spectate) {
             GameStateNetworkManager.Instance?.GetSpectatorList();
