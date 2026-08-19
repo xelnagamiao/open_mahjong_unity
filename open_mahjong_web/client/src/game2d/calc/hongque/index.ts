@@ -1171,7 +1171,7 @@ function scorePartition(
 
   const isHeavenly = flags.selfDraw && flags.beforeFirstDiscard && concealed
   if (isHeavenly) fans.push(entry('天和', 18))
-  else if (concealed) fans.push(entry('门清', 1))
+  if (concealed) fans.push(entry('门清', 1))
   if (flags.selfDraw && flags.wallEmpty) fans.push(entry('海底', 2))
 
   if (allTriplets && numbers.length > 2) fans.push(entry('碰碰和', 3))

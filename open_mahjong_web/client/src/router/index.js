@@ -328,7 +328,7 @@ const routes = [
         path: 'base-applications',
         name: 'AdminBaseApplications',
         component: AdminEventApplications,
-        meta: { title: '办基地申请', venueKind: 'base' }
+        meta: { title: '基地申请', venueKind: 'base' }
       },
       { path: 'rank', name: 'AdminRank', component: AdminRank, meta: { title: '段位管理' } },
       { path: 'games', name: 'AdminGames', component: AdminGames, meta: { title: '对局记录管理' } },

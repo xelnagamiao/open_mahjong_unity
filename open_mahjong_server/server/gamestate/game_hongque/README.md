@@ -37,11 +37,13 @@
 
 ```text
 waiting
-  -> waiting_hand_action
-  -> resolving_discard
-  -> waiting_action_after_cut
-  -> waiting_hand_action / waiting_ready
-  -> END
+  -> waiting_hand_action          # 开局摸牌后
+  -> resolving_discard            # 切牌
+  -> waiting_action_after_cut     # 有人可鸣牌
+  -> onlycut_after_action         # 亮牌落地：切 / 加杠 / 补（补牌后才能和）
+  -> deal_card                    # 无人鸣牌后历时摸牌
+  -> waiting_hand_action          # 摸牌或补牌后
+  -> waiting_ready / END
 ```
 
 网络字段 `phase` 仅用于兼容旧客户端；`game_status` 是权威状态，

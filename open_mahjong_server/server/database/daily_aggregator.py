@@ -21,7 +21,7 @@ MATCH_TIERS = ("beginner", "intermediate", "advanced", "mcrpl")
 MATCH_TIER_SQL = ", ".join(f"'{t}'" for t in MATCH_TIERS)
 DAU_METRIC_BACKFILL_META_KEY = "daily_stats_dau_v1"
 QINGQUE_CLASSICAL_RULE_FIX_META_KEY = "fix_qingque_classical_history_rule_v1"
-GUOBIAO_RECORD_RESET_XUNMU_META_KEY = "guobiao_record_reset_xunmu_v1"
+GUOBIAO_RECORD_RESET_XUNMU_META_KEY = "guobiao_record_reset_xunmu_v2"
 
 _HISTORY_STAT_SUM_COLUMNS = [
     "total_games", "total_rounds", "win_count", "self_draw_count", "deal_in_count",

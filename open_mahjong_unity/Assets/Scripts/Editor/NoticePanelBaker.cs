@@ -6,7 +6,8 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
-/// 用 Editor API 生成活动预制体，并在 NoticePanel 里搭标准 Scroll View + 示例卡片。
+/// 用 Editor API 在已打开的 MainScene 里绘制通知活动面板，不直接改 YAML。
+/// 场景调好后可再删此工具。
 /// </summary>
 public static class NoticePanelBaker {
     private const string PrefabDir = "Assets/Prefabs/Notice";
@@ -19,42 +20,20 @@ public static class NoticePanelBaker {
     private static readonly Color HeaderGold = new Color(1f, 0.62f, 0.08f, 1f);
 
     private static readonly ExampleSpec[] Examples = {
-        new ExampleSpec(
-            "春季公开赛",
-            "4 月开赛，欢迎报名",
-            "这是示例活动。正式内容由管理后台上传后，会通过 /activity-assets 以 HTTP 静态文件下发。",
-            new Color(0.16f, 0.28f, 0.48f, 1f)
-        ),
-        new ExampleSpec(
-            "周末活动室",
-            "长期开放的练习场",
-            "示例专栏：用于确认滚动列表和卡片高度会随条目自动往下长。",
-            new Color(0.28f, 0.2f, 0.08f, 1f)
-        ),
-        new ExampleSpec(
-            "新规则体验",
-            "南雀规则试玩周",
-            "点开后顶部是活动名称，下方正文可滚动。正式环境会再显示后台上传的图片。",
-            new Color(0.12f, 0.32f, 0.22f, 1f)
-        ),
-        new ExampleSpec(
-            "平台维护通知",
-            "周四凌晨例行维护",
-            "示例通知。维护结束后此条可在后台下架。",
-            new Color(0.36f, 0.14f, 0.14f, 1f)
-        ),
+        new ExampleSpec("春季公开赛", "4 月开赛，欢迎报名", new Color(0.16f, 0.28f, 0.48f, 1f)),
+        new ExampleSpec("周末活动室", "长期开放的练习场", new Color(0.28f, 0.2f, 0.08f, 1f)),
+        new ExampleSpec("新规则体验", "南雀规则试玩周", new Color(0.12f, 0.32f, 0.22f, 1f)),
+        new ExampleSpec("平台维护通知", "周四凌晨例行维护", new Color(0.36f, 0.14f, 0.14f, 1f)),
     };
 
     private struct ExampleSpec {
         public readonly string Title;
         public readonly string Desc;
-        public readonly string Body;
         public readonly Color Cover;
 
-        public ExampleSpec(string title, string desc, string body, Color cover) {
+        public ExampleSpec(string title, string desc, Color cover) {
             Title = title;
             Desc = desc;
-            Body = body;
             Cover = cover;
         }
     }
@@ -97,7 +76,7 @@ public static class NoticePanelBaker {
         Selection.activeGameObject = notice;
         EditorUtility.DisplayDialog(
             "通知面板",
-            "已生成预制体 Assets/Prefabs/Notice/ActivityItem.prefab，\n并在 Scroll View/Viewport/Content 下放入 4 条示例。\n请保存场景。",
+            "已在 NoticePanel 下绘制 Header、标准 Scroll View、4 条示例和详情窗。\n请保存场景。运行时会隐藏示例并加载 /activity-assets。",
             "好的"
         );
     }
@@ -191,10 +170,17 @@ public static class NoticePanelBaker {
             GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, content);
             instance.name = "Example_" + (i + 1);
             Undo.RegisterCreatedObjectUndo(instance, "活动示例");
-            ActivityItem item = instance.GetComponent<ActivityItem>();
-            if (item != null) {
-                item.BindPreview(spec.Title, spec.Desc, spec.Body);
-                item.SetCoverColor(spec.Cover);
+            TMP_Text title = instance.transform.Find("Title")?.GetComponent<TMP_Text>();
+            TMP_Text desc = instance.transform.Find("Desc")?.GetComponent<TMP_Text>();
+            RawImage cover = instance.transform.Find("Cover")?.GetComponent<RawImage>();
+            if (title != null) title.text = spec.Title;
+            if (desc != null) {
+                desc.text = spec.Desc;
+                desc.gameObject.SetActive(true);
+            }
+            if (cover != null) {
+                cover.texture = null;
+                cover.color = spec.Cover;
             }
             EditorUtility.SetDirty(instance);
         }

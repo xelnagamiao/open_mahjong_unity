@@ -43,7 +43,7 @@ const menuItems = [
   { index: '/admin/events', label: '赛事' },
   { index: '/admin/bases', label: '基地' },
   { index: '/admin/event-applications', label: '办赛申请' },
-  { index: '/admin/base-applications', label: '办基地申请' },
+  { index: '/admin/base-applications', label: '基地申请' },
   { index: '/admin/rank', label: '段位' },
   { index: '/admin/games', label: '对局记录' },
   { index: '/admin/game-control', label: '对局管理' },

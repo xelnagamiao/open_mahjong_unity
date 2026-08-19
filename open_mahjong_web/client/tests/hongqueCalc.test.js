@@ -56,11 +56,26 @@ test('hongque: rulebook 1008 point example (all 14 colour levels of number 1)', 
   })
   assert.ok(result)
   assert.equal(result.base, 16)
-  assert.equal(result.fanTotal, 63)
-  assert.equal(result.points, 1008)
+  assert.equal(result.fanTotal, 64)
+  assert.equal(result.points, 1024)
   assert.deepEqual(new Set(Object.keys(fanMap(result))), new Set([
-    '天和', '清一数', '全彩', '金龙', '彩虹', '全带幺', '清刻',
+    '天和', '门清', '清一数', '全彩', '金龙', '彩虹', '全带幺', '清刻',
   ]))
+})
+
+test('hongque: heavenly win also counts menqing', () => {
+  const hand = 'AX1 AY9 BX1 BY9 CX1 CY9 DX9 DY1 EX9 EY1 FX9 FY1 GX9 GY1'.split(' ')
+  const result = bestWinResult(hand, [], {
+    selfDraw: true,
+    beforeFirstDiscard: true,
+    wallEmpty: false,
+  })
+  assert.ok(result)
+  const fans = fanMap(result)
+  assert.equal(fans['天和'], 18)
+  assert.equal(fans['门清'], 1)
+  assert.equal(result.fanTotal, 51)
+  assert.equal(result.points, 357)
 })
 
 test('hongque: exposed groups complete the win, no pair head', () => {

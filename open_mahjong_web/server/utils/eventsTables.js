@@ -199,7 +199,7 @@ async function ensureEventsTables() {
     ALTER TABLE event_applications
       ADD CONSTRAINT event_applications_kind_chk CHECK (kind IN ('event', 'base'))
   `);
-  // 必须在 kind 列存在之后再建：办赛 / 办基地各允许一条待审
+  // 必须在 kind 列存在之后再建：办赛 / 基地各允许一条待审
   await pool.query(`DROP INDEX IF EXISTS idx_event_applications_one_pending`);
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_event_applications_one_pending_kind

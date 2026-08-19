@@ -64,8 +64,12 @@ def test_multiple_discards_advance_players_and_wall() -> None:
     asyncio.run(_exercise_turn_progression())
 
 
-def test_complete_hand_can_win_immediately_after_a_call() -> None:
+def test_complete_hand_must_supplement_before_win_after_a_call() -> None:
     asyncio.run(_exercise_self_win_qualification())
+
+
+def test_onlycut_after_claim_allows_kong_on_last_tile() -> None:
+    asyncio.run(_exercise_onlycut_allows_kong_on_last_tile())
 
 
 def test_multiple_ron_winners_and_nearest_winner_becomes_dealer() -> None:
@@ -325,6 +329,8 @@ async def _exercise_self_win_qualification() -> None:
     state.players[0].discards = ["AX1"]
     player.hand = ["AX2", "AX3"]
     state.last_discard = {"player": 0, "tile": "AX1"}
+    # 补 AX4 后可并入刚亮的顺子成杠和。
+    state.wall = ["AX4"]
     candidate = {
         "id": "call-0",
         "kind": "sequence",
@@ -340,12 +346,68 @@ async def _exercise_self_win_qualification() -> None:
     await state._resolve_claims()
 
     assert player.hand == []
-    assert state.build_state(1)["legal_actions"] == ["win"]
+    assert state.game_status == "onlycut_after_action"
+    assert state.build_state(1)["legal_actions"] == ["supplement"]
+    try:
+        await state.submit_action(player.user_id, "win", action_tick=state.action_tick)
+        raise AssertionError("onlycut 空手不得直接和牌")
+    except ValueError:
+        pass
+
+    await state.submit_action(player.user_id, "supplement", action_tick=state.action_tick)
+    assert player.hand == ["AX4"]
+    assert state.game_status == "waiting_hand_action"
+    assert "win" in state.build_state(1)["legal_actions"]
     await state.submit_action(player.user_id, "win", action_tick=state.action_tick)
     assert state.phase == "round_end"
-    assert state.round_result["winners"][0]["groups"] == [["AX1", "AX2", "AX3"]]
+    assert state.round_result["winners"][0]["groups"] == [["AX1", "AX2", "AX3", "AX4"]]
     if state._round_task:
         state._round_task.cancel()
+
+
+async def _exercise_onlycut_allows_kong_on_last_tile() -> None:
+    """亮牌后进入 onlycut：手上最后一张仍可加杠，这是相对摸牌后检查多出的一项。"""
+    room = {"room_id": "322", "game_round": 1, "player_list": [101, 102, 103, 104]}
+    state = HongqueGameState(None, room, gamestate_id="onlycut-kong-test")
+    player = state.players[1]
+    state.players[0].discards = ["AX1"]
+    player.hand = ["AX2", "AX3", "AX4"]
+    state.last_discard = {"player": 0, "tile": "AX1"}
+    candidate = {
+        "id": "call-0",
+        "kind": "sequence",
+        "priority": 2,
+        "hand_tiles": ["AX2", "AX3"],
+        "tiles": ["AX1", "AX2", "AX3"],
+    }
+    state.claim_options = {1: [candidate]}
+    state.claim_window = ClaimWindow(options=state.claim_options, pending=set())
+    state.claim_window.submit(1, candidate)
+    state.phase = "claim"
+    state.wall = ["GX9"]
+
+    await state._resolve_claims()
+
+    assert player.hand == ["AX4"]
+    assert state.game_status == "onlycut_after_action"
+    actions, candidates = state._legal_turn_actions(player)
+    assert "kong" in actions
+    assert "win" not in actions
+    assert "supplement" in actions
+    assert any(item["kind"] == "kong" for item in candidates)
+
+    kong = next(item for item in candidates if item["kind"] == "kong")
+    await state.submit_action(
+        player.user_id, "kong", candidate_id=kong["id"], action_tick=state.action_tick
+    )
+    assert player.hand == []
+    assert player.melds[0]["tiles"] == ["AX1", "AX2", "AX3", "AX4"]
+    assert state.game_status == "onlycut_after_action"
+
+    await state.submit_action(player.user_id, "supplement", action_tick=state.action_tick)
+    assert state.game_status == "waiting_hand_action"
+    assert player.hand == ["GX9"]
+    await state.cleanup_game_state()
 
 
 async def _exercise_multiple_ron() -> None:

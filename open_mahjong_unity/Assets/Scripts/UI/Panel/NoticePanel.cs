@@ -1,12 +1,10 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// 顶栏「通知」：标准 Scroll View + 活动预制体。
-/// 场景与预制体由菜单 Tools/Notice/重建通知活动面板 生成，运行时只填数据。
+/// 顶栏「通知」：场景里的示例只用于排版，运行时立刻隐藏，再按 HTTP 静态列表实例化预制体。
 /// </summary>
 public class NoticePanel : MonoBehaviour {
     public static NoticePanel Instance { get; private set; }
@@ -20,18 +18,15 @@ public class NoticePanel : MonoBehaviour {
 
     private readonly List<GameObject> _spawned = new List<GameObject>();
     private readonly List<Texture2D> _covers = new List<Texture2D>();
-    private readonly List<GameObject> _examples = new List<GameObject>();
     private Coroutine _loadRoutine;
 
     private void Awake() {
         Instance = this;
-        ResolveRefs();
-        CacheExamples();
         if (detailPanel != null) {
             detailPanel.Wire(ShowList);
             detailPanel.gameObject.SetActive(false);
         }
-        WireExampleClicks();
+        HideEditorExamples();
     }
 
     private void OnEnable() {
@@ -47,7 +42,6 @@ public class NoticePanel : MonoBehaviour {
     }
 
     public void Reload() {
-        ResolveRefs();
         ShowList();
         if (_loadRoutine != null) StopCoroutine(_loadRoutine);
         _loadRoutine = StartCoroutine(LoadIndex());
@@ -66,6 +60,7 @@ public class NoticePanel : MonoBehaviour {
     }
 
     private IEnumerator LoadIndex() {
+        HideEditorExamples();
         SetEmpty("正在加载活动…", true);
         ActivityIndexFile index = null;
         string error = null;
@@ -75,6 +70,7 @@ public class NoticePanel : MonoBehaviour {
             err => error = err
         );
         ClearSpawned();
+        HideEditorExamples();
 
         int count = 0;
         if (index != null && index.items != null) {
@@ -86,14 +82,6 @@ public class NoticePanel : MonoBehaviour {
         }
 
         if (count > 0) {
-            SetExamplesVisible(false);
-            SetEmpty(null, false);
-            yield break;
-        }
-
-        SetExamplesVisible(true);
-        bool hasExample = HasVisibleExample();
-        if (hasExample) {
             SetEmpty(null, false);
         } else {
             SetEmpty(string.IsNullOrEmpty(error) ? "暂无活动" : "活动加载失败", true);
@@ -114,22 +102,9 @@ public class NoticePanel : MonoBehaviour {
             }
             yield break;
         }
-        ShowDetail(detail);
-    }
-
-    private void ShowDetail(ActivityDetail detail) {
         if (listRoot != null) listRoot.SetActive(false);
         if (headerTitle != null) headerTitle.gameObject.SetActive(false);
         if (detailPanel != null) detailPanel.Open(detail);
-    }
-
-    private void OpenPreview(ActivityItem item) {
-        if (item == null) return;
-        ShowDetail(new ActivityDetail {
-            title = item.PreviewTitle,
-            body = item.PreviewBody,
-            image_urls = null,
-        });
     }
 
     private void SpawnItem(ActivityIndexItem entry) {
@@ -167,66 +142,22 @@ public class NoticePanel : MonoBehaviour {
         ActivityHttp.DestroyTextures(_covers);
     }
 
-    private void CacheExamples() {
-        _examples.Clear();
+    private void HideEditorExamples() {
         if (listContent == null) return;
+        if (itemTemplate != null && itemTemplate.scene.IsValid()) {
+            itemTemplate.SetActive(false);
+        }
         for (int i = 0; i < listContent.childCount; i++) {
             Transform child = listContent.GetChild(i);
-            if (child.name.StartsWith("Example_")) _examples.Add(child.gameObject);
+            if (emptyHint != null && child.gameObject == emptyHint.gameObject) continue;
+            if (_spawned.Contains(child.gameObject)) continue;
+            child.gameObject.SetActive(false);
         }
-    }
-
-    private void WireExampleClicks() {
-        for (int i = 0; i < _examples.Count; i++) {
-            if (_examples[i] == null) continue;
-            ActivityItem item = _examples[i].GetComponent<ActivityItem>();
-            if (item == null) continue;
-            ActivityItem captured = item;
-            item.SetClick(() => OpenPreview(captured));
-        }
-    }
-
-    private void SetExamplesVisible(bool visible) {
-        for (int i = 0; i < _examples.Count; i++) {
-            if (_examples[i] != null) _examples[i].SetActive(visible);
-        }
-    }
-
-    private bool HasVisibleExample() {
-        for (int i = 0; i < _examples.Count; i++) {
-            if (_examples[i] != null && _examples[i].activeSelf) return true;
-        }
-        return false;
     }
 
     private void SetEmpty(string text, bool visible) {
         if (emptyHint == null) return;
         if (text != null) emptyHint.text = text;
         emptyHint.gameObject.SetActive(visible);
-    }
-
-    private void ResolveRefs() {
-        Transform chrome = transform.Find("Panel");
-        if (chrome == null) chrome = transform;
-        if (headerTitle == null) {
-            Transform header = chrome.Find("Header/Title");
-            if (header != null) headerTitle = header.GetComponent<TMP_Text>();
-        }
-        if (listRoot == null) {
-            Transform scroll = chrome.Find("Scroll View");
-            if (scroll != null) listRoot = scroll.gameObject;
-        }
-        if (listContent == null && listRoot != null) {
-            Transform content = listRoot.transform.Find("Viewport/Content");
-            if (content != null) listContent = content;
-        }
-        if (emptyHint == null) {
-            Transform hint = chrome.Find("EmptyHint");
-            if (hint != null) emptyHint = hint.GetComponent<TMP_Text>();
-        }
-        if (detailPanel == null) {
-            Transform detail = chrome.Find("ActivityDetailPanel");
-            if (detail != null) detailPanel = detail.GetComponent<ActivityDetailPanel>();
-        }
     }
 }

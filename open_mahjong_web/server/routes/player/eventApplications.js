@@ -4,7 +4,7 @@ const pool = require('../../config/database');
 const { requirePlayer } = require('../../middleware/requirePlayer');
 
 function venueApplyLabel(kind) {
-  return kind === 'base' ? '办基地申请' : '办赛申请';
+  return kind === 'base' ? '基地申请' : '办赛申请';
 }
 
 function normalizeName(name, kind) {

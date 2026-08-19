@@ -28,6 +28,40 @@ def _parse_score_changes(raw: Any) -> Optional[List[int]]:
     return None
 
 
+def infer_guobiao_seats(current_round: int) -> List[int]:
+    """seats[original] = 当局 player_index。对齐 next_game_round_guobiao_switchseat。"""
+    seats = [0, 1, 2, 3]
+    if not isinstance(current_round, int) or current_round <= 1:
+        return seats
+    for cr in range(2, current_round + 1):
+        seats = [3 if s == 0 else s - 1 for s in seats]
+        if cr == 5:
+            seats = [1, 0, 3, 2]
+        elif cr == 9:
+            seats = [3, 2, 0, 1]
+        elif cr == 13:
+            seats = [2, 3, 1, 0]
+    return seats
+
+
+def resolve_round_seats(rd: Dict[str, Any]) -> List[int]:
+    """优先用牌谱 seats；旧牌谱缺字段时按国标换位从 current_round 还原。"""
+    seats = rd.get("seats") if isinstance(rd, dict) else None
+    if isinstance(seats, list) and len(seats) == 4:
+        try:
+            parsed = [int(s) % 4 for s in seats]
+            if len(set(parsed)) == 4:
+                return parsed
+        except (TypeError, ValueError):
+            pass
+    current_round = rd.get("current_round") if isinstance(rd, dict) else None
+    if not isinstance(current_round, int):
+        current_round = rd.get("round_index") if isinstance(rd, dict) else None
+    if isinstance(current_round, int):
+        return infer_guobiao_seats(current_round)
+    return [0, 1, 2, 3]
+
+
 def _seat_index_for_original(seats: List[int], original_player_index: int) -> int:
     if not seats or original_player_index < 0 or original_player_index >= len(seats):
         return original_player_index
@@ -50,7 +84,7 @@ def extract_player_round_deltas(record: Dict[str, Any], original_player_index: i
     deltas: List[int] = []
     for round_key in round_keys:
         round_data = game_round.get(round_key) or {}
-        seats = round_data.get("seats") or [0, 1, 2, 3]
+        seats = resolve_round_seats(round_data)
         seat_idx = _seat_index_for_original(seats, original_player_index)
         round_delta = 0
         for tick in round_data.get("action_ticks") or []:

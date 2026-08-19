@@ -248,7 +248,7 @@ def score_partition(
     is_heavenly = self_draw and before_first_discard and concealed
     if is_heavenly:
         fans.append(_entry("天和", 18))
-    elif concealed:
+    if concealed:
         fans.append(_entry("门清", 1))
     if self_draw and wall_empty:
         fans.append(_entry("海底", 2))

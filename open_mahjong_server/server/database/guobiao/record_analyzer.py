@@ -4,7 +4,7 @@
 """
 from typing import Any, Dict, Optional
 
-from .round_score_utils import _parse_score_changes
+from .round_score_utils import _parse_score_changes, resolve_round_seats
 from .store_guobiao import FAN_NAME_TO_FIELD, STACKABLE_FANS
 
 HU_ACTIONS = frozenset({"hu_self", "hu_first", "hu_second", "hu_third"})
@@ -23,21 +23,23 @@ def _parse_hu_tick(tick: list) -> Optional[dict]:
         hu_class = tick[2]
         if not isinstance(hu_class, str) or hu_class not in HU_ACTIONS:
             return None
-        if not isinstance(tick[1], int):
+        seat = _tick_int(tick, 1)
+        if seat is None:
             return None
         return {
             "hu_class": hu_class,
-            "winner_seat": tick[1] % 4,
+            "winner_seat": seat % 4,
             "fan_score": int(tick[3]) if isinstance(tick[3], (int, float)) else 0,
             "yaku": tick[5] if len(tick) > 5 else [],
             "score_changes": _parse_score_changes(tick[6]),
         }
     if code in HU_ACTIONS and len(tick) >= 5:
-        if not isinstance(tick[1], int):
+        seat = _tick_int(tick, 1)
+        if seat is None:
             return None
         return {
             "hu_class": code,
-            "winner_seat": tick[1] % 4,
+            "winner_seat": seat % 4,
             "fan_score": int(tick[2]) if isinstance(tick[2], (int, float)) else 0,
             "yaku": tick[3] if len(tick) > 3 else [],
             "score_changes": _parse_score_changes(tick[4]),
@@ -143,7 +145,16 @@ def reconstruct_round_win_turns(rd: Dict[str, Any]) -> Dict[int, int]:
                 go_to(seat)
             continue
         if code in ("d", "mo"):
-            go_to(0 if current_seat == 3 else current_seat + 1)
+            explicit = _tick_int(tick, 2)
+            if explicit is not None and 0 <= explicit <= 3:
+                go_to(explicit)
+            else:
+                go_to(0 if current_seat == 3 else current_seat + 1)
+            continue
+        if code == "gd":
+            explicit = _tick_int(tick, 2)
+            if explicit is not None and 0 <= explicit <= 3:
+                go_to(explicit)
             continue
         if code == "c":
             if current_seat == dealer:
@@ -189,7 +200,7 @@ def analyze_record_for_player(record: Dict[str, Any], original_player_index: int
     for rd in game_round.values():
         if not isinstance(rd, dict):
             continue
-        seat2orig = seat_to_original_map(rd.get("seats"))
+        seat2orig = seat_to_original_map(resolve_round_seats(rd))
         my_seat = None
         for s, o in seat2orig.items():
             if o == original_player_index:
@@ -203,7 +214,7 @@ def analyze_record_for_player(record: Dict[str, Any], original_player_index: int
             if not isinstance(tick, list) or not tick:
                 continue
             code = tick[0]
-            if code in VISIBLE_FULU_CODES and len(tick) >= 3 and tick[2] == my_seat:
+            if code in VISIBLE_FULU_CODES and _tick_int(tick, 2) == my_seat:
                 had_fulu = True
             hu = _parse_hu_tick(tick)
             if hu is None:
@@ -275,7 +286,7 @@ def collect_fans_for_player(record: Dict[str, Any], original_player_index: int) 
     for rd in game_round.values():
         if not isinstance(rd, dict):
             continue
-        seat2orig = seat_to_original_map(rd.get("seats"))
+        seat2orig = seat_to_original_map(resolve_round_seats(rd))
         my_seat = None
         for s, o in seat2orig.items():
             if o == original_player_index:
@@ -289,7 +300,7 @@ def collect_fans_for_player(record: Dict[str, Any], original_player_index: int) 
             code = tick[0]
             if code not in HU_ACTIONS:
                 continue
-            if tick[1] != my_seat:
+            if _tick_int(tick, 1) != my_seat:
                 continue
             hu_fan = tick[3] if len(tick) > 3 else []
             if isinstance(hu_fan, list) and any("错和" in str(f) for f in hu_fan):

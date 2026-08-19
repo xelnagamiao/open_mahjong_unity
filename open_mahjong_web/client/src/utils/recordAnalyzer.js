@@ -18,6 +18,32 @@ function tickInt(tick, index, fallback = null) {
   return fallback;
 }
 
+/** seats[original] = 当局 player_index。对齐 next_game_round_guobiao_switchseat。 */
+export function inferGuobiaoSeats(currentRound) {
+  let seats = [0, 1, 2, 3];
+  const round = Number(currentRound);
+  if (!Number.isInteger(round) || round <= 1) return seats;
+  for (let cr = 2; cr <= round; cr += 1) {
+    seats = seats.map((s) => (s === 0 ? 3 : s - 1));
+    if (cr === 5) seats = [1, 0, 3, 2];
+    else if (cr === 9) seats = [3, 2, 0, 1];
+    else if (cr === 13) seats = [2, 3, 1, 0];
+  }
+  return seats;
+}
+
+export function resolveRoundSeats(rd) {
+  const raw = rd?.seats;
+  if (Array.isArray(raw) && raw.length === 4) {
+    const parsed = raw.map((s) => ((Number(s) % 4) + 4) % 4);
+    if (parsed.every((s) => Number.isInteger(s)) && new Set(parsed).size === 4) {
+      return parsed;
+    }
+  }
+  const currentRound = Number.isInteger(rd?.current_round) ? rd.current_round : rd?.round_index;
+  return inferGuobiaoSeats(currentRound);
+}
+
 /**
  * 从一局 action_ticks 按 player_index_go_to 语义推理每位 seat 的和巡总和。
  * 指针跨过东家且庄家已切过牌才 +1；reset/bh/bd/鸣牌显式 go_to，d 视为下一家。
@@ -57,7 +83,14 @@ function reconstructRoundWinTurns(rd) {
       continue;
     }
     if (code === 'd' || code === 'mo') {
-      goTo(currentSeat === 3 ? 0 : currentSeat + 1);
+      const explicit = tickInt(tick, 2);
+      if (explicit != null && explicit >= 0 && explicit <= 3) goTo(explicit);
+      else goTo(currentSeat === 3 ? 0 : currentSeat + 1);
+      continue;
+    }
+    if (code === 'gd') {
+      const explicit = tickInt(tick, 2);
+      if (explicit != null && explicit >= 0 && explicit <= 3) goTo(explicit);
       continue;
     }
     if (code === 'c') {
@@ -117,20 +150,22 @@ function parseHuTick(tick) {
   if (code === 'hu_riichi' && tick.length >= 7) {
     const huClass = tick[2];
     if (typeof huClass !== 'string' || !HU_ACTIONS.has(huClass)) return null;
-    if (typeof tick[1] !== 'number') return null;
+    const seat = tickInt(tick, 1);
+    if (seat == null) return null;
     return {
       huClass,
-      winnerSeat: ((tick[1] % 4) + 4) % 4,
+      winnerSeat: ((seat % 4) + 4) % 4,
       fanScore: Number(tick[3]) || 0,
       yaku: tick[5] || [],
       scoreChanges: toScoreChanges(tick[6]),
     };
   }
   if (HU_ACTIONS.has(code) && tick.length >= 5) {
-    if (typeof tick[1] !== 'number') return null;
+    const seat = tickInt(tick, 1);
+    if (seat == null) return null;
     return {
       huClass: code,
-      winnerSeat: ((tick[1] % 4) + 4) % 4,
+      winnerSeat: ((seat % 4) + 4) % 4,
       fanScore: Number(tick[2]) || 0,
       yaku: tick[3] || [],
       scoreChanges: toScoreChanges(tick[4]),
@@ -160,7 +195,7 @@ function analyzeOneRecord(record, userId, acc) {
 
   for (const key of roundKeys) {
     const rd = gameRound[key] || {};
-    const seats = rd.seats || [0, 1, 2, 3];
+    const seats = resolveRoundSeats(rd);
     const mySeat = seatForOriginal(seats, originalIndex);
     const ticks = rd.action_ticks || [];
     let hadFulu = false;
@@ -169,7 +204,7 @@ function analyzeOneRecord(record, userId, acc) {
       if (!Array.isArray(tick) || tick.length === 0) continue;
       const code = tick[0];
 
-      if (VISIBLE_FULU_CODES.has(code) && tick.length >= 3 && tick[2] === mySeat) {
+      if (VISIBLE_FULU_CODES.has(code) && tickInt(tick, 2) === mySeat) {
         hadFulu = true;
       }
 
@@ -277,7 +312,7 @@ function computeFinalScore(record, originalIndex) {
   for (const key of Object.keys(gameRound)) {
     if (!key.startsWith('round_index_')) continue;
     const rd = gameRound[key] || {};
-    const seats = rd.seats || [0, 1, 2, 3];
+    const seats = resolveRoundSeats(rd);
     const mySeat = seatForOriginal(seats, originalIndex);
     for (const tick of rd.action_ticks || []) {
       const hu = parseHuTick(tick);

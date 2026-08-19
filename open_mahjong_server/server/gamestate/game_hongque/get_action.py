@@ -105,6 +105,11 @@ async def bot_turn(game_state, tick: int) -> None:
         game_state.events = []
         player = game_state.players[player_index]
         action = plan.get("action")
+        if game_state.game_status == "onlycut_after_action" and action == "win":
+            if player.supplements < 2 and game_state.wall:
+                action = "supplement"
+            else:
+                action = "discard"
         if action in {"win", "supplement"}:
             await game_state._handle_turn_action(player, action, None, None)
             return

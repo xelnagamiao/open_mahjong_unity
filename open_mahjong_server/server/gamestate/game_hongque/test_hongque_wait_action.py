@@ -172,6 +172,7 @@ async def _three_chi_levels() -> None:
 
     await _pass_all_pending(state)
     assert state.phase == "turn"
+    assert state.game_status == "onlycut_after_action"
     assert state.current_player_index == 1
     assert state.players[1].melds[-1]["kind"] == "sequence"
     await state.cleanup_game_state()
@@ -203,6 +204,7 @@ async def _three_peng_levels() -> None:
 
     await _pass_all_pending(state)
     assert state.phase == "turn"
+    assert state.game_status == "onlycut_after_action"
     assert state.current_player_index == 1
     assert state.players[1].melds[-1]["kind"] == "triplet"
     await state.cleanup_game_state()
@@ -246,6 +248,7 @@ async def _three_hong_levels() -> None:
 
     await _pass_all_pending(state)
     assert state.phase == "turn"
+    assert state.game_status == "onlycut_after_action"
     assert state.current_player_index == 1
     assert state.players[1].melds[-1]["kind"] == "rainbow"
     await state.cleanup_game_state()

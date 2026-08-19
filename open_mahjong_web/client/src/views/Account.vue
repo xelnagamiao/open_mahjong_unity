@@ -171,7 +171,7 @@
         <template #header>{{ isBaseManage ? '基地管理' : '赛事管理' }}</template>
         <p class="hint">
           {{ isBaseManage
-            ? '查看办基地申请与已注册基地；点击「管理」在下方展开管理面板。'
+            ? '查看基地申请与已注册基地；点击「管理」在下方展开管理面板。'
             : '查看办赛申请与已注册赛事；点击「管理」在下方展开管理面板。' }}
         </p>
 
@@ -349,14 +349,14 @@ const visibleEvents = computed(() =>
 )
 const applyCardTitle = computed(() => {
   if (editingApplicationId.value) {
-    return isBaseApply.value ? '修改办基地申请' : '修改办赛申请'
+    return isBaseApply.value ? '修改基地申请' : '修改办赛申请'
   }
-  return isBaseApply.value ? '提交办基地申请' : '提交办赛申请'
+  return isBaseApply.value ? '提交基地申请' : '提交办赛申请'
 })
 const applySubmitLabel = computed(() => {
   if (editingApplicationId.value && editingApplicationStatus.value === 'rejected') return '修改并重新提交'
   if (editingApplicationId.value) return '保存申请修改'
-  return isBaseApply.value ? '提交办基地申请' : '提交办赛申请'
+  return isBaseApply.value ? '提交基地申请' : '提交办赛申请'
 })
 
 function toggleManage(eventId) {

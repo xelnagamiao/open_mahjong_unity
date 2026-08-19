@@ -6,23 +6,17 @@ import random
 import time
 from typing import Any, Optional, Sequence
 
-from .rules import (
-    call_candidates,
-    classify_meld,
-    kong_candidates,
-)
+from .rules import classify_meld
 from .scoring import best_win_result
-from .tile import HongqueTile
 from .player import HongquePlayer
-from .win_check import is_winning_hand
 from .action_check import (
     can_self_draw_win,
+    check_action_after_cut,
     check_action_hand_action,
 )
 from .init_tiles import (
     draw_for_current_player as init_draw_for_current_player,
     init_hongque_tiles,
-    pop_supplement_tile,
 )
 from .boardcast import (
     broadcast_state as hongque_broadcast_state,
@@ -53,7 +47,13 @@ from .hongque_debug import (
 )
 from .action_priority import HONGQUE_ACTION_PRIORITY
 from .state_machine import HongqueStateMachine, HongqueStatus
-from .wait_action import ClaimWindow
+from .wait_action import (
+    ClaimWindow,
+    advance_after_unclaimed_discard,
+    deal_card as hongque_deal_card,
+    enter_onlycut_after_action,
+    handle_hand_action,
+)
 
 logger = logging.getLogger(__name__)
 BOT_ACTION_DELAY = 0.5
@@ -182,9 +182,9 @@ class HongqueGameState:
     async def run_game_loop(self) -> None:
         try:
             await self._start_round()
-            # 虹雀是事件驱动状态机，没有其它规则的 while game_status 主循环。
-            # 在暂停期间持有状态锁，玩家、超时和机器人任务都无法推进牌局。
-            while True:
+            # 与国标/青雀相同：主循环按 game_status 推进历时状态。
+            # 手牌与鸣牌等待仍由 submit_action / 超时任务写入结果。
+            while self.state_machine.status is not HongqueStatus.END:
                 vote_manager = getattr(self, "vote_manager", None)
                 if vote_manager is not None and vote_manager.phase == "pause_pending":
                     async with self._lock:
@@ -194,7 +194,19 @@ class HongqueGameState:
                             self._shift_clocks_after_vote_pause(
                                 time.monotonic() - paused_at
                             )
-                await asyncio.sleep(0.05)
+                match self.state_machine.status:
+                    case HongqueStatus.DEAL_CARD:
+                        async with self._lock:
+                            if self.state_machine.status == HongqueStatus.DEAL_CARD:
+                                await hongque_deal_card(self)
+                    case HongqueStatus.RESOLVING_DISCARD:
+                        async with self._lock:
+                            if self.state_machine.status == HongqueStatus.RESOLVING_DISCARD:
+                                await self._open_claim_window()
+                    case HongqueStatus.END:
+                        break
+                    case _:
+                        await asyncio.sleep(0.05)
         except asyncio.CancelledError:
             raise
 
@@ -325,6 +337,15 @@ class HongqueGameState:
                                 else player.hand[-1]
                             )
                     else:
+                        # 亮牌后空手不得直接和，超时改为自动补牌。
+                        if (self.game_status == "onlycut_after_action"
+                                and player.supplements < 2 and self.wall):
+                            await handle_hand_action(
+                                self, player, "supplement", None, None
+                            )
+                            return
+                        if self.game_status == "onlycut_after_action":
+                            return
                         result = best_win_result(
                             player.hand,
                             player.melds,
@@ -369,59 +390,7 @@ class HongqueGameState:
 
     async def _handle_turn_action(self, player: HongquePlayer, action: str,
                                   tile: Optional[str], candidate_id: Optional[str]) -> None:
-        if player.index != self.current_player_index:
-            raise ValueError("还没有轮到你")
-        if action == "discard":
-            code = HongqueTile.parse(tile or "").code
-            if code not in player.hand:
-                raise ValueError("手牌中没有这张牌")
-            self._consume_time_bank(player, self.turn_started_at)
-            await self._discard_and_open_claim(player, code)
-            return
-        if action == "supplement":
-            if player.supplements >= 2 or not self.wall:
-                raise ValueError("本局补牌次数已用尽或牌库已空")
-            self._consume_time_bank(player, self.turn_started_at)
-            player.supplements += 1
-            tile = pop_supplement_tile(self)
-            player.hand.append(tile)
-            player.drawn_tile = tile
-            player.last_draw_was_supplement = True
-            self._record_event("supplement", player=player.index, tile=tile)
-            self.message = f"{player.username} 补牌"
-        elif action == "kong":
-            if len(player.hand) == 1:
-                # 手牌只剩最后一张时杠后必然空手成和，直接走“和”即可，普通杠不单独成立。
-                raise ValueError("手牌只剩一张时请使用和")
-            candidates = kong_candidates(player.hand, player.melds)
-            candidate = next((item for item in candidates if item["id"] == candidate_id), None)
-            if candidate is None:
-                raise ValueError("杠牌候选无效")
-            self._consume_time_bank(player, self.turn_started_at)
-            self._apply_kong(player, candidate)
-            self.message = f"{player.username} 杠牌"
-        elif action == "win":
-            result = best_win_result(
-                player.hand,
-                player.melds,
-                self_draw=True,
-                before_first_discard=not any(item.discards for item in self.players),
-                wall_empty=not self.wall,
-                allow_kong_win=True,
-            )
-            if result is None:
-                raise ValueError("当前手牌不能和牌")
-            self._consume_time_bank(player, self.turn_started_at)
-            result["winning_hand"] = list(player.hand)
-            await self._finish_round([(player, result)], "self_draw")
-            return
-        else:
-            raise ValueError("未知的回合操作")
-        self._start_turn_clock()
-        self._advance_tick()
-        await self.broadcast_state()
-        self._schedule_turn_timeout()
-        self._schedule_bot_if_needed()
+        await handle_hand_action(self, player, action, tile, candidate_id)
 
     def _apply_kong(self, player: HongquePlayer, candidate: dict) -> None:
         """把杠/杠和候选中的手牌并入对应明牌，同步手牌、副露与事件。"""
@@ -472,40 +441,23 @@ class HongqueGameState:
 
     async def _open_claim_window(self) -> None:
         assert self.last_discard is not None
-        discard_player = self.last_discard["player"]
-        discarded = self.last_discard["tile"]
-        self.claim_options = {}
+        self.claim_options = check_action_after_cut(self)
         self.claim_responses = {}
         self._claim_apply_broadcast.clear()
         self._claim_upgrade_players.clear()
         self._claim_applied = None
         self._claim_grace_active = False
         self._grace_passed_players.clear()
-        for player in self.players:
-            if player.index == discard_player:
-                continue
-            options = call_candidates(
-                player.hand,
-                discarded,
-                claimant_index=player.index,
-                discarder_index=discard_player,
-            )
-            if is_winning_hand(player.hand + [discarded], player.melds):
-                options.insert(0, {
-                    "id": "ron",
-                    "kind": "win",
-                    "action_type": "win",
-                    "priority": 7,
-                    "tiles": [discarded],
-                    "hand_tiles": [],
-                })
-            if options:
-                self.claim_options[player.index] = options
         if not self.claim_options:
             await self._advance_after_unclaimed_discard()
             return
         self.claim_window = ClaimWindow(options=self.claim_options, pending=set(self.claim_options))
-        self.phase = "claim"
+        if self.state_machine.status in (
+            HongqueStatus.WAITING_HAND_ACTION,
+            HongqueStatus.ONLYCUT_AFTER_ACTION,
+        ):
+            self._transition(HongqueStatus.RESOLVING_DISCARD)
+        self._transition(HongqueStatus.WAITING_ACTION_AFTER_CUT)
         self._start_claim_clock()
         self.message = "等待亮牌或捉和"
         self._advance_tick()
@@ -888,9 +840,6 @@ class HongqueGameState:
         if discarder_player.discards and discarder_player.discards[-1] == self.last_discard["tile"]:
             discarder_player.discards.pop()
         self.current_player_index = winner_index
-        winner.drawn_tile = None
-        self.phase = "turn"
-        self._start_turn_clock()
         claim_applied = self._claim_apply_broadcast.get(winner_index) == candidate.get("id")
         self._record_event(
             candidate["kind"],
@@ -906,28 +855,10 @@ class HongqueGameState:
         self.claim_options.clear()
         self.claim_responses.clear()
         self.claim_window = None
-        self._advance_tick()
-        await self.broadcast_state()
-        self._schedule_turn_timeout()
-        self._schedule_bot_if_needed()
+        await enter_onlycut_after_action(self)
 
     async def _advance_after_unclaimed_discard(self) -> None:
-        self.claim_options.clear()
-        self.claim_responses.clear()
-        self._claim_upgrade_players.clear()
-        self.claim_window = None
-        if not self.wall:
-            await self._finish_round([], "draw")
-            return
-        self.current_player_index = (self.last_discard["player"] + 1) % 4
-        self._start_turn_clock()
-        self._draw_for_current_player()
-        self.phase = "turn"
-        self.message = f"轮到 {self.players[self.current_player_index].username}"
-        self._advance_tick()
-        await self.broadcast_state()
-        self._schedule_turn_timeout()
-        self._schedule_bot_if_needed()
+        await advance_after_unclaimed_discard(self)
 
     async def _finish_round(
         self,

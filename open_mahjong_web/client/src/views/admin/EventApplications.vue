@@ -1,6 +1,6 @@
 <template>
   <div class="admin-apps">
-    <h2 class="page-title">{{ isBase ? '办基地申请' : '办赛申请' }}</h2>
+    <h2 class="page-title">{{ isBase ? '基地申请' : '办赛申请' }}</h2>
     <div class="toolbar">
       <el-radio-group v-model="statusFilter" size="small" @change="onStatusChange">
         <el-radio-button label="">全部</el-radio-button>
@@ -176,9 +176,9 @@ const previewVisible = ref(false)
 const previewEvent = ref(null)
 const previewStatusLabel = ref('申请中的赛事页面预览')
 const isCurrentBase = computed(() => currentKind.value === 'base')
-const approveTitle = computed(() => (isCurrentBase.value ? '通过办基地申请' : '通过办赛申请'))
+const approveTitle = computed(() => (isCurrentBase.value ? '通过基地申请' : '通过办赛申请'))
 const approveNameLabel = computed(() => (isCurrentBase.value ? '基地名称' : '赛事名称'))
-const rejectTitle = computed(() => (isCurrentBase.value ? '打回办基地申请' : '打回办赛申请'))
+const rejectTitle = computed(() => (isCurrentBase.value ? '打回基地申请' : '打回办赛申请'))
 
 const profileItems = ref([])
 const profileLoading = ref(false)
@@ -262,7 +262,7 @@ function openReject(row) {
 
 function previewApplication(row) {
   previewEvent.value = row
-  previewStatusLabel.value = row.kind === 'base' ? '办基地申请预览' : '办赛申请预览'
+  previewStatusLabel.value = row.kind === 'base' ? '基地申请预览' : '办赛申请预览'
   previewVisible.value = true
 }
 
