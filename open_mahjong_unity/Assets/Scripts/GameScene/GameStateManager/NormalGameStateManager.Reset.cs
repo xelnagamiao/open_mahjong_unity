@@ -33,6 +33,7 @@ public partial class NormalGameStateManager {
         subRule = null;
         detailedConfig.Clear();
         ResetSelfReadyQualification();
+        ClearStickerMutes();
         changshaBaseScoreNoDealer = false;
         changshaSmallHuScore = 2;
         changshaBigHuScore = 8;

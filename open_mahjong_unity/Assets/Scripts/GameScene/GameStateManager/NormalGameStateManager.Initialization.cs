@@ -15,6 +15,7 @@ public partial class NormalGameStateManager {
         bool isNewMatch = string.IsNullOrEmpty(gamestateId) || gamestateId != gameInfo.gamestate_id;
         if (isNewMatch) {
             ClearRoundSettlementHistory();
+            ClearStickerMutes();
         }
         if (!IsRealtimeSpectator) {
             UserDataManager.Instance.SetRoomId(gameInfo.room_id.ToString());

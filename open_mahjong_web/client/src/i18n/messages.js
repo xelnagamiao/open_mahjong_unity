@@ -1226,7 +1226,7 @@ Object.assign(en, {
   '负责人': 'Organizer',
   '姓名': 'Name',
   '手机号': 'Phone',
-  '请填写真实姓名与可联系的手机号，供平台审核与联络使用。': 'Enter a real name and a reachable mobile number for review and contact.',
+  '请填写真实姓名与24小时内能够联系上的联系方式，手机号仅作为实名验证使用，如果不希望平台使用手机号进行联系，可以在备注内填写偏好的联系方式，平台绝不会通过偏好联系方式以外的方式联系您；如果不希望暴露真实姓名，可以填写惯用id，只需要手机号是实名的即可。': 'Enter a real name and a contact method that can reach you within 24 hours. The phone number is only used for real-name verification. If you do not want the platform to contact you by phone, put your preferred contact method in the notes; the platform will not contact you by any other means. If you do not want to show your real name, you may use a usual ID, as long as the phone number is real-name registered.',
   '请填写赛事负责人姓名': 'Enter the event organizer’s name',
   '请填写基地负责人姓名': 'Enter the base organizer’s name',
   '请填写负责人手机号': 'Enter the organizer’s phone number',

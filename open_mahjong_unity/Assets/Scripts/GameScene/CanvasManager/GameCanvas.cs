@@ -174,6 +174,7 @@ public partial class GameCanvas : MonoBehaviour {
         ClearActionDisplay();
         HideStickerPanel();
         ClearAllStickers();
+        HideAllPlayerActionMenus();
         HideDingqueSelection();
         SetScoreRecordOpen(false);
         if (langyongWaveIndicator != null) langyongWaveIndicator.SetActive(false);
@@ -191,6 +192,7 @@ public partial class GameCanvas : MonoBehaviour {
         SetActionButtonContainerVisible(true);
         HideStickerPanel();
         ClearAllStickers();
+        HideAllPlayerActionMenus();
         SetStickerUiForRecordMode(false);
         HideDingqueSelection();
         // 新一局开始先清空各家定缺标记，待服务端定缺同步后再显示
@@ -255,6 +257,7 @@ public partial class GameCanvas : MonoBehaviour {
         SetActionButtonContainerVisible(true);
         HideStickerPanel();
         ClearAllStickers();
+        HideAllPlayerActionMenus();
         SetStickerUiForRecordMode(true);
         HideDingqueSelection();
         playerSelfPanel?.SetDingque(0);

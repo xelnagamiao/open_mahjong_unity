@@ -144,6 +144,23 @@
             </p>
           </el-form-item>
 
+          <el-form-item :label="isBaseApply ? '基地负责人' : '赛事负责人'" required>
+            <div class="organizer-row">
+              <el-input
+                v-model="applyForm.organizer_name"
+                maxlength="32"
+                show-word-limit
+                placeholder="姓名"
+              />
+              <el-input
+                v-model="applyForm.organizer_phone"
+                maxlength="20"
+                placeholder="手机号"
+              />
+            </div>
+            <p class="field-note">请填写真实姓名与24小时内能够联系上的联系方式，手机号仅作为实名验证使用，如果不希望平台使用手机号进行联系，可以在备注内填写偏好的联系方式，平台绝不会通过偏好联系方式以外的方式联系您；如果不希望暴露真实姓名，可以填写惯用id，只需要手机号是实名的即可。</p>
+          </el-form-item>
+
           <el-form-item :label="editingApplicationId ? '追加备注' : '备注'">
             <ApplicationRemarkThread
               v-if="editingApplicationId"
@@ -161,23 +178,6 @@
             <p class="field-note">
               给予管理员的说明，或不希望在公开介绍中展示、但需预先告知的特殊声明。修改申请、保存修改、重新提交时填写的内容会按时间追加到双方往来备注栏。
             </p>
-          </el-form-item>
-
-          <el-form-item :label="isBaseApply ? '基地负责人' : '赛事负责人'" required>
-            <div class="organizer-row">
-              <el-input
-                v-model="applyForm.organizer_name"
-                maxlength="32"
-                show-word-limit
-                placeholder="姓名"
-              />
-              <el-input
-                v-model="applyForm.organizer_phone"
-                maxlength="20"
-                placeholder="手机号"
-              />
-            </div>
-            <p class="field-note">请填写真实姓名与可联系的手机号，供平台审核与联络使用。</p>
           </el-form-item>
 
           <el-form-item>
