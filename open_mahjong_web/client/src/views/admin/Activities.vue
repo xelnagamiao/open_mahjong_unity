@@ -5,7 +5,7 @@
       class="hint"
       type="info"
       :closable="false"
-      title="活动以静态文件发布：封面和正文图写入 /activity-assets，游戏客户端走 HTTP 拉取，不经过 WebSocket。"
+      title="保存只更新文案和图片，不会改变发布状态。新建为草稿，发布、结束、下架在页面底部单独操作。"
     />
 
     <div class="layout">
@@ -14,15 +14,17 @@
           <div class="card-head">
             <span>专栏列表</span>
             <el-button type="primary" size="small" :loading="creating" @click="createDraft">
-              新建活动
+              新建草稿
             </el-button>
           </div>
         </template>
         <el-table
           :data="items"
+          row-key="id"
           v-loading="loading"
           size="small"
           highlight-current-row
+          :current-row-key="form.id || undefined"
           @current-change="onSelect"
         >
           <el-table-column label="封面" width="72">
@@ -32,10 +34,10 @@
             </template>
           </el-table-column>
           <el-table-column prop="title" label="名称" min-width="140" show-overflow-tooltip />
-          <el-table-column label="状态" width="80">
+          <el-table-column label="状态" width="96">
             <template #default="{ row }">
-              <el-tag :type="row.published ? 'success' : 'info'" size="small">
-                {{ row.published ? '已上架' : '草稿' }}
+              <el-tag :type="statusMeta(row.status).type" size="small">
+                {{ statusMeta(row.status).label }}
               </el-tag>
             </template>
           </el-table-column>
@@ -46,7 +48,13 @@
       <el-card class="editor-card" shadow="never">
         <template #header>
           <div class="card-head">
-            <span>{{ form.id ? '编辑活动' : '请选择或新建活动' }}</span>
+            <div class="editor-title">
+              <span>{{ form.id ? '编辑活动' : '请选择或新建活动' }}</span>
+              <el-tag v-if="form.id" :type="statusMeta(form.status).type" size="small">
+                {{ statusMeta(form.status).label }}
+              </el-tag>
+              <span v-if="dirty" class="dirty-dot">未保存</span>
+            </div>
             <el-space v-if="form.id">
               <el-button :loading="saving" type="primary" @click="save">保存</el-button>
               <el-button :loading="removing" type="danger" plain @click="remove">删除</el-button>
@@ -62,9 +70,6 @@
             <el-form-item label="排序">
               <el-input-number v-model="form.sort" :min="0" :max="9999" />
               <span class="field-hint">数字越小越靠前</span>
-            </el-form-item>
-            <el-form-item label="上架">
-              <el-switch v-model="form.published" />
             </el-form-item>
             <el-form-item label="封面">
               <div class="cover-row">
@@ -129,17 +134,59 @@
 
           <div class="preview-block">
             <div class="preview-label">客户端预览</div>
-            <div class="preview-card">
+            <div class="preview-card" :class="{ dimmed: form.status === 'offline' || form.status === 'draft' }">
               <div class="preview-cover" :style="coverStyle">{{ form.cover_url ? '' : '封面' }}</div>
               <div class="preview-title">{{ form.title || '活动名称' }}</div>
+              <div v-if="form.status === 'ended'" class="preview-ended">活动已结束</div>
+              <div v-if="form.status === 'draft'" class="preview-hidden">草稿，通知页不显示</div>
+              <div v-if="form.status === 'offline'" class="preview-hidden">已下架，通知页不显示</div>
             </div>
             <div class="preview-detail">
               <div class="preview-detail-head">{{ form.title || '活动名称' }}</div>
+              <div v-if="form.status === 'ended'" class="preview-ended">活动已结束</div>
               <pre class="preview-body">{{ form.body || '正文将显示在这里' }}</pre>
             </div>
           </div>
+
+          <div class="lifecycle">
+            <div class="lifecycle-title">发布与下架</div>
+            <p class="lifecycle-hint">{{ lifecycleHint }}</p>
+            <el-space wrap>
+              <el-button
+                v-if="form.status === 'draft' || form.status === 'offline'"
+                type="primary"
+                :loading="changingStatus"
+                @click="changeStatus('published', publishConfirm)"
+              >
+                {{ form.status === 'offline' ? '重新发布' : '发布到通知页' }}
+              </el-button>
+              <el-button
+                v-if="form.status === 'ended'"
+                :loading="changingStatus"
+                @click="changeStatus('published', reopenConfirm)"
+              >
+                恢复进行中
+              </el-button>
+              <el-button
+                v-if="form.status === 'published'"
+                type="warning"
+                plain
+                :loading="changingStatus"
+                @click="changeStatus('ended', endConfirm)"
+              >
+                结束活动
+              </el-button>
+              <el-button
+                v-if="form.status === 'published' || form.status === 'ended'"
+                :loading="changingStatus"
+                @click="changeStatus('offline', offlineConfirm)"
+              >
+                下架活动
+              </el-button>
+            </el-space>
+          </div>
         </template>
-        <el-empty v-else description="从左侧选择活动，或新建一个专栏标签" />
+        <el-empty v-else description="从左侧选择活动，或新建一份草稿" />
       </el-card>
     </div>
   </div>
@@ -150,15 +197,24 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import adminApi from '@/api/adminClient'
 
+const STATUS_META = {
+  draft: { label: '草稿', type: 'info' },
+  published: { label: '已发布', type: 'success' },
+  ended: { label: '已结束', type: 'warning' },
+  offline: { label: '已下架', type: 'danger' },
+}
+
 const items = ref([])
 const loading = ref(false)
 const creating = ref(false)
 const saving = ref(false)
 const removing = ref(false)
+const changingStatus = ref(false)
 const uploadingCover = ref(false)
 const uploadingImage = ref(false)
 const removingCover = ref(false)
 const removingImageUrl = ref('')
+const savedSnapshot = ref('')
 
 const form = reactive({
   id: '',
@@ -166,7 +222,7 @@ const form = reactive({
   body: '',
   cover_url: '',
   image_urls: [],
-  published: false,
+  status: 'draft',
   sort: 0,
 })
 
@@ -176,14 +232,36 @@ const coverStyle = computed(() =>
     : {}
 )
 
+const dirty = computed(() => !!form.id && snapshotOf(form) !== savedSnapshot.value)
+
+const lifecycleHint = computed(() => {
+  if (form.status === 'published') return '玩家打开通知即可看到。结束活动仍会显示，但会标明「活动已结束」；下架后通知页不再出现。'
+  if (form.status === 'ended') return '玩家仍能在通知页看到，并显示「活动已结束」。下架后不再显示。'
+  if (form.status === 'offline') return '通知页已不再显示。内容仍保留，可以重新发布。'
+  return '当前是草稿。点保存只留下内容；点「发布到通知页」后玩家才能看到。'
+})
+
+function statusMeta(status) {
+  return STATUS_META[status] || STATUS_META.draft
+}
+
+function snapshotOf(item) {
+  return JSON.stringify({
+    title: item.title || '',
+    body: item.body || '',
+    sort: Number(item.sort) || 0,
+  })
+}
+
 function applyItem(item) {
   form.id = item.id
   form.title = item.title || ''
   form.body = item.body || ''
   form.cover_url = item.cover_url || ''
   form.image_urls = Array.isArray(item.image_urls) ? [...item.image_urls] : []
-  form.published = !!item.published
+  form.status = item.status || (item.published ? 'published' : 'draft')
   form.sort = Number(item.sort) || 0
+  savedSnapshot.value = snapshotOf(form)
 }
 
 function clearForm() {
@@ -192,24 +270,47 @@ function clearForm() {
   form.body = ''
   form.cover_url = ''
   form.image_urls = []
-  form.published = false
+  form.status = 'draft'
   form.sort = 0
+  savedSnapshot.value = ''
 }
 
 async function loadList(selectId) {
   loading.value = true
   try {
     const res = await adminApi.get('/activities')
-    items.value = res.data.data?.items || []
+    const remote = res.data.data?.items || []
     const keepId = selectId || form.id
+    items.value = mergeLocalItem(remote, keepId)
     const current = items.value.find((row) => row.id === keepId)
     if (current) applyItem(current)
-    else if (!items.value.some((row) => row.id === form.id)) clearForm()
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '加载活动失败')
   } finally {
     loading.value = false
   }
+}
+
+function mergeLocalItem(remote, keepId) {
+  if (!keepId) return remote
+  if (remote.some((row) => row.id === keepId)) return remote
+  const local = items.value.find((row) => row.id === keepId)
+  if (!local && form.id !== keepId) return remote
+  const fallback = local || {
+    id: form.id,
+    title: form.title,
+    body: form.body,
+    cover_url: form.cover_url,
+    image_urls: [...form.image_urls],
+    status: form.status,
+    sort: form.sort,
+  }
+  return [fallback, ...remote.filter((row) => row.id !== fallback.id)]
+}
+
+function upsertItem(item) {
+  if (!item?.id) return
+  items.value = [item, ...items.value.filter((row) => row.id !== item.id)]
 }
 
 function onSelect(row) {
@@ -222,12 +323,14 @@ async function createDraft() {
     const res = await adminApi.post('/activities', {
       title: '未命名活动',
       body: '',
-      published: false,
       sort: items.value.length,
     })
     const created = res.data.data
-    if (created?.id) applyItem(created)
-    ElMessage.success(res.data.message || '已创建')
+    if (created?.id) {
+      upsertItem(created)
+      applyItem(created)
+    }
+    ElMessage.success(res.data.message || '已创建草稿')
     await loadList(created?.id)
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '创建失败')
@@ -243,16 +346,62 @@ async function save() {
     const res = await adminApi.put(`/activities/${form.id}`, {
       title: form.title,
       body: form.body,
-      published: form.published,
       sort: form.sort,
     })
     applyItem(res.data.data)
-    ElMessage.success(res.data.message || '已保存')
+    ElMessage.success(res.data.message || '内容已保存')
     await loadList(form.id)
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '保存失败')
   } finally {
     saving.value = false
+  }
+}
+
+const publishConfirm = {
+  title: '发布到通知页',
+  message: '发布后玩家打开通知即可看到该活动。确认发布？',
+}
+
+const reopenConfirm = {
+  title: '恢复进行中',
+  message: '将取消「活动已结束」标记，玩家会再次看到进行中的活动。确认恢复？',
+}
+
+const endConfirm = {
+  title: '结束活动',
+  message: '结束后玩家仍能在通知页看到，但会显示「活动已结束」。确认结束？',
+}
+
+const offlineConfirm = {
+  title: '下架活动',
+  message: '下架后通知页不再显示该活动，内容仍保留，之后可以重新发布。确认下架？',
+}
+
+async function changeStatus(status, confirm) {
+  if (!form.id) return
+  try {
+    await ElMessageBox.confirm(confirm.message, confirm.title, { type: 'warning' })
+  } catch {
+    return
+  }
+  changingStatus.value = true
+  try {
+    if (dirty.value) {
+      await adminApi.put(`/activities/${form.id}`, {
+        title: form.title,
+        body: form.body,
+        sort: form.sort,
+      })
+    }
+    const res = await adminApi.post(`/activities/${form.id}/status`, { status })
+    applyItem(res.data.data)
+    ElMessage.success(res.data.message || '状态已更新')
+    await loadList(form.id)
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '更新状态失败')
+  } finally {
+    changingStatus.value = false
   }
 }
 
@@ -359,11 +508,34 @@ onMounted(() => {
   gap: 16px;
   align-items: start;
 }
+.list-card {
+  min-width: 0;
+}
+.list-card :deep(.el-card__body) {
+  padding: 8px 12px 12px;
+}
+.list-card :deep(.el-table) {
+  width: 100%;
+}
+.list-card :deep(.el-table__body-wrapper) {
+  max-height: min(70vh, 640px);
+  overflow-y: auto;
+}
 .card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+.editor-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.dirty-dot {
+  color: #e6a23c;
+  font-size: 12px;
 }
 .thumb {
   width: 48px;
@@ -441,6 +613,9 @@ onMounted(() => {
   overflow: hidden;
   margin-bottom: 12px;
 }
+.preview-card.dimmed {
+  opacity: 0.72;
+}
 .preview-cover {
   height: 132px;
   background: #1f2937 center/cover no-repeat;
@@ -451,8 +626,19 @@ onMounted(() => {
 }
 .preview-title {
   color: #fde68a;
-  padding: 10px 12px 12px;
+  padding: 10px 12px 4px;
   font-weight: 600;
+}
+.preview-ended {
+  color: #f59e0b;
+  font-size: 13px;
+  padding: 0 12px 10px;
+  font-weight: 600;
+}
+.preview-hidden {
+  color: #9ca3af;
+  font-size: 12px;
+  padding: 0 12px 12px;
 }
 .preview-detail {
   max-width: 420px;
@@ -466,11 +652,31 @@ onMounted(() => {
   font-weight: 600;
   margin-bottom: 8px;
 }
+.preview-detail .preview-ended {
+  padding: 0 0 8px;
+}
 .preview-body {
   margin: 0;
   color: #e5e7eb;
   white-space: pre-wrap;
   font-family: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.lifecycle {
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  background: #fafafa;
+}
+.lifecycle-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.lifecycle-hint {
+  margin: 0 0 12px;
+  color: #606266;
   font-size: 13px;
   line-height: 1.6;
 }

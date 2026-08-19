@@ -25,8 +25,8 @@
       <el-table-column :label="isBase ? '基地介绍' : '赛事介绍'" min-width="200" show-overflow-tooltip>
         <template #default="{ row }">{{ row.description || row.reason || '—' }}</template>
       </el-table-column>
-      <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip>
-        <template #default="{ row }">{{ row.remark || '—' }}</template>
+      <el-table-column :label="isBase ? '基地负责人' : '赛事负责人'" min-width="150">
+        <template #default="{ row }">{{ organizerText(row) }}</template>
       </el-table-column>
       <el-table-column label="状态" width="90">
         <template #default="{ row }">
@@ -63,13 +63,21 @@
       />
     </div>
 
-    <el-dialog v-model="approveVisible" :title="approveTitle" width="420px">
-      <el-form label-width="80px">
+    <el-dialog v-model="approveVisible" :title="approveTitle" width="680px">
+      <div v-if="currentApplication" class="review-history">
+        <p class="organizer-line">
+          {{ isCurrentBase ? '基地负责人' : '赛事负责人' }}：
+          {{ organizerText(currentApplication) }}
+        </p>
+        <div class="thread-label">双方备注往来</div>
+        <ApplicationRemarkThread :items="currentApplication.remark_history || []" />
+      </div>
+      <el-form label-width="88px">
         <el-form-item :label="approveNameLabel">
           <el-input v-model="approveForm.name" />
         </el-form-item>
-        <el-form-item label="备注">
-          <el-input v-model="approveForm.review_note" type="textarea" rows="2" />
+        <el-form-item label="审核意见">
+          <el-input v-model="approveForm.review_note" type="textarea" rows="3" placeholder="可选，将追加到双方往来备注栏" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -78,10 +86,18 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="rejectVisible" :title="rejectTitle" width="420px">
-      <el-form label-width="80px">
-        <el-form-item label="打回原因" required>
-          <el-input v-model="rejectForm.review_note" type="textarea" rows="3" />
+    <el-dialog v-model="rejectVisible" :title="rejectTitle" width="680px">
+      <div v-if="currentApplication" class="review-history">
+        <p class="organizer-line">
+          {{ isCurrentBase ? '基地负责人' : '赛事负责人' }}：
+          {{ organizerText(currentApplication) }}
+        </p>
+        <div class="thread-label">双方备注往来</div>
+        <ApplicationRemarkThread :items="currentApplication.remark_history || []" />
+      </div>
+      <el-form label-width="88px">
+        <el-form-item label="审核意见" required>
+          <el-input v-model="rejectForm.review_note" type="textarea" rows="3" placeholder="打回原因将追加到双方往来备注栏" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -136,7 +152,7 @@
       </el-table-column>
     </el-table>
 
-    <el-dialog v-model="previewVisible" :title="isBase ? '基地页面预览' : '赛事页面预览'" width="640px">
+    <el-dialog v-model="previewVisible" :title="isBase ? '基地页面预览' : '赛事页面预览'" width="720px">
       <EventPreviewCard v-if="previewEvent" :event="previewEvent" :status-label="previewStatusLabel" />
     </el-dialog>
   </div>
@@ -148,6 +164,7 @@ import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import adminApi from '@/api/adminClient'
 import EventPreviewCard from '@/components/EventPreviewCard.vue'
+import ApplicationRemarkThread from '@/components/ApplicationRemarkThread.vue'
 import { parseVenueKind, venueAdminDetailPath } from '@/utils/eventMeta'
 
 const route = useRoute()
@@ -170,6 +187,7 @@ const approveVisible = ref(false)
 const rejectVisible = ref(false)
 const currentId = ref(null)
 const currentKind = ref('event')
+const currentApplication = ref(null)
 const approveForm = reactive({ name: '', review_note: '' })
 const rejectForm = reactive({ review_note: '' })
 const previewVisible = ref(false)
@@ -190,6 +208,13 @@ function statusLabel(s) {
 
 function statusType(s) {
   return ({ pending: 'warning', approved: 'success', rejected: 'danger', cancelled: 'info' })[s] || 'info'
+}
+
+function organizerText(row) {
+  const name = String(row?.organizer_name || '').trim()
+  const phone = String(row?.organizer_phone || '').trim()
+  if (name && phone) return `${name} ${phone}`
+  return name || phone || '—'
 }
 
 function formatDate(v) {
@@ -248,6 +273,7 @@ async function load() {
 function openApprove(row) {
   currentId.value = row.application_id
   currentKind.value = row.kind === 'base' ? 'base' : 'event'
+  currentApplication.value = row
   approveForm.name = row.name
   approveForm.review_note = ''
   approveVisible.value = true
@@ -256,6 +282,7 @@ function openApprove(row) {
 function openReject(row) {
   currentId.value = row.application_id
   currentKind.value = row.kind === 'base' ? 'base' : 'event'
+  currentApplication.value = row
   rejectForm.review_note = ''
   rejectVisible.value = true
 }
@@ -397,4 +424,16 @@ watch(() => route.meta.venueKind, () => {
   justify-content: flex-end;
 }
 .muted { color: #999; }
+.review-history {
+  margin-bottom: 16px;
+}
+.organizer-line {
+  margin: 0 0 10px;
+  color: #303133;
+}
+.thread-label {
+  margin-bottom: 6px;
+  color: #909399;
+  font-size: 12px;
+}
 </style>

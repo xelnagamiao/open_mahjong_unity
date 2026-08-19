@@ -64,8 +64,7 @@ public class NoticePanel : MonoBehaviour {
         SetEmpty("正在加载活动…", true);
         ActivityIndexFile index = null;
         string error = null;
-        yield return ActivityHttp.GetJson<ActivityIndexFile>(
-            ActivityHttp.IndexPath,
+        yield return ActivityHttp.GetIndex(
             data => index = data,
             err => error = err
         );
@@ -76,6 +75,7 @@ public class NoticePanel : MonoBehaviour {
         if (index != null && index.items != null) {
             foreach (ActivityIndexItem entry in index.items) {
                 if (entry == null || string.IsNullOrEmpty(entry.id)) continue;
+                if (!ActivityStatus.IsClientVisible(entry.status, entry.ended)) continue;
                 SpawnItem(entry);
                 count++;
             }
@@ -83,6 +83,8 @@ public class NoticePanel : MonoBehaviour {
 
         if (count > 0) {
             SetEmpty(null, false);
+        } else if (itemTemplate == null) {
+            SetEmpty("通知面板未绑定活动卡片，请重建通知活动面板", true);
         } else {
             SetEmpty(string.IsNullOrEmpty(error) ? "暂无活动" : "活动加载失败", true);
         }
@@ -92,7 +94,7 @@ public class NoticePanel : MonoBehaviour {
         ActivityDetail detail = null;
         string error = null;
         yield return ActivityHttp.GetJson<ActivityDetail>(
-            ActivityHttp.MetaPath(activityId),
+            ActivityHttp.WithCacheBust(ActivityHttp.MetaPath(activityId)),
             data => detail = data,
             err => error = err
         );
@@ -102,13 +104,26 @@ public class NoticePanel : MonoBehaviour {
             }
             yield break;
         }
+        if (!ActivityStatus.IsClientVisible(detail.status, detail.ended)) {
+            if (NotificationManager.Instance != null) {
+                NotificationManager.Instance.ShowTip("活动", false, "活动不可用");
+            }
+            yield break;
+        }
         if (listRoot != null) listRoot.SetActive(false);
         if (headerTitle != null) headerTitle.gameObject.SetActive(false);
         if (detailPanel != null) detailPanel.Open(detail);
     }
 
     private void SpawnItem(ActivityIndexItem entry) {
-        if (listContent == null || itemTemplate == null) return;
+        if (listContent == null) {
+            Debug.LogError("NoticePanel.listContent 未绑定");
+            return;
+        }
+        if (itemTemplate == null) {
+            Debug.LogError("NoticePanel.itemTemplate 未绑定，请在 Unity 执行 Tools / Notice / 重建通知活动面板");
+            return;
+        }
         GameObject go = Instantiate(itemTemplate, listContent);
         go.name = "ActivityItem_" + entry.id;
         go.SetActive(true);

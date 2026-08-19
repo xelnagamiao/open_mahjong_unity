@@ -97,7 +97,7 @@ app.use(
     etag: true,
     setHeaders(res, filePath) {
       if (filePath.endsWith('.json')) {
-        res.setHeader('Cache-Control', 'public, max-age=30');
+        res.setHeader('Cache-Control', 'no-store');
       } else {
         res.setHeader('Cache-Control', 'public, max-age=86400');
       }
@@ -131,7 +131,7 @@ io.on('connection', (socket) => {
 // 开发环境将非 API 请求重定向到 Vite dev server
 if (!config.isProduction) {
   app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api')) {
+    if (req.path.startsWith('/api') || req.path.startsWith('/activity-assets')) {
       return next();
     }
     res.redirect('http://localhost:5173' + req.url);

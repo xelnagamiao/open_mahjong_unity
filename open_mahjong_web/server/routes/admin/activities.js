@@ -73,10 +73,9 @@ router.post(
       title: req.body.title,
       body: req.body.body,
       sort: req.body.sort,
-      published: req.body.published,
     });
-    await writeAuditSafe(req, 'activity.create', item.id, { title: item.title });
-    res.json({ success: true, data: item, message: '活动已创建' });
+    await writeAuditSafe(req, 'activity.create', item.id, { title: item.title, status: item.status });
+    res.json({ success: true, data: item, message: '已创建草稿' });
   })
 );
 
@@ -87,14 +86,31 @@ router.put(
       title: req.body.title,
       body: req.body.body,
       sort: req.body.sort,
-      published: req.body.published,
       image_urls: req.body.image_urls,
     });
     await writeAuditSafe(req, 'activity.update', item.id, {
       title: item.title,
-      published: item.published,
+      status: item.status,
     });
-    res.json({ success: true, data: item, message: '活动已保存' });
+    res.json({ success: true, data: item, message: '内容已保存' });
+  })
+);
+
+router.post(
+  '/:id/status',
+  wrap(async (req, res) => {
+    const item = store.setActivityStatus(req.params.id, req.body.status);
+    await writeAuditSafe(req, 'activity.status', item.id, { status: item.status });
+    const messages = {
+      published: '已发布到通知页',
+      ended: '已标记为结束，玩家仍能看到',
+      offline: '已下架，通知页不再显示',
+    };
+    res.json({
+      success: true,
+      data: item,
+      message: messages[item.status] || '状态已更新',
+    });
   })
 );
 

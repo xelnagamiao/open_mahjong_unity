@@ -1047,6 +1047,9 @@ class DatabaseManager:
                     planned_start_at   DATE NULL,
                     planned_end_at     DATE NULL,
                     kind               VARCHAR(16) NOT NULL DEFAULT 'event',
+                    organizer_name     VARCHAR(64) NOT NULL DEFAULT '',
+                    organizer_phone    VARCHAR(32) NOT NULL DEFAULT '',
+                    remark_history     JSONB NOT NULL DEFAULT '[]'::jsonb,
                     CONSTRAINT event_applications_status_chk
                         CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled')),
                     CONSTRAINT event_applications_kind_chk CHECK (kind IN ('event', 'base'))
@@ -1071,6 +1074,18 @@ class DatabaseManager:
             self._ddl_ignore(
                 cursor, "sp_event_app_end",
                 "ALTER TABLE event_applications ADD COLUMN planned_end_at DATE NULL;",
+            )
+            self._ddl_ignore(
+                cursor, "sp_event_app_organizer_name",
+                "ALTER TABLE event_applications ADD COLUMN organizer_name VARCHAR(64) NOT NULL DEFAULT '';",
+            )
+            self._ddl_ignore(
+                cursor, "sp_event_app_organizer_phone",
+                "ALTER TABLE event_applications ADD COLUMN organizer_phone VARCHAR(32) NOT NULL DEFAULT '';",
+            )
+            self._ddl_ignore(
+                cursor, "sp_event_app_remark_history",
+                "ALTER TABLE event_applications ADD COLUMN remark_history JSONB NOT NULL DEFAULT '[]'::jsonb;",
             )
             cursor.execute("SAVEPOINT sp_event_app_kind_chk;")
             try:

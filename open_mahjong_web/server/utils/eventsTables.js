@@ -77,6 +77,9 @@ async function ensureEventsTables() {
       planned_start_at   DATE NULL,
       planned_end_at     DATE NULL,
       kind               VARCHAR(16) NOT NULL DEFAULT 'event',
+      organizer_name     VARCHAR(64) NOT NULL DEFAULT '',
+      organizer_phone    VARCHAR(32) NOT NULL DEFAULT '',
+      remark_history     JSONB NOT NULL DEFAULT '[]'::jsonb,
       CONSTRAINT event_applications_status_chk
         CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled')),
       CONSTRAINT event_applications_kind_chk CHECK (kind IN ('event', 'base'))
@@ -198,6 +201,52 @@ async function ensureEventsTables() {
   await pool.query(`
     ALTER TABLE event_applications
       ADD CONSTRAINT event_applications_kind_chk CHECK (kind IN ('event', 'base'))
+  `);
+  await pool.query(`
+    ALTER TABLE event_applications
+      ADD COLUMN IF NOT EXISTS organizer_name VARCHAR(64) NOT NULL DEFAULT ''
+  `);
+  await pool.query(`
+    ALTER TABLE event_applications
+      ADD COLUMN IF NOT EXISTS organizer_phone VARCHAR(32) NOT NULL DEFAULT ''
+  `);
+  await pool.query(`
+    ALTER TABLE event_applications
+      ADD COLUMN IF NOT EXISTS remark_history JSONB NOT NULL DEFAULT '[]'::jsonb
+  `);
+  await pool.query(`
+    UPDATE event_applications
+       SET remark_history = COALESCE(
+         CASE
+           WHEN remark <> '' AND COALESCE(review_note, '') <> '' THEN
+             jsonb_build_array(
+               jsonb_build_object('at', created_at, 'role', 'applicant', 'action', 'submit', 'text', remark),
+               jsonb_build_object(
+                 'at', COALESCE(reviewed_at, updated_at),
+                 'role', 'admin',
+                 'action', CASE WHEN status = 'approved' THEN 'approve' ELSE 'reject' END,
+                 'text', review_note
+               )
+             )
+           WHEN remark <> '' THEN
+             jsonb_build_array(
+               jsonb_build_object('at', created_at, 'role', 'applicant', 'action', 'submit', 'text', remark)
+             )
+           WHEN COALESCE(review_note, '') <> '' THEN
+             jsonb_build_array(
+               jsonb_build_object(
+                 'at', COALESCE(reviewed_at, updated_at),
+                 'role', 'admin',
+                 'action', CASE WHEN status = 'approved' THEN 'approve' ELSE 'reject' END,
+                 'text', review_note
+               )
+             )
+           ELSE remark_history
+         END,
+         '[]'::jsonb
+       )
+     WHERE COALESCE(jsonb_array_length(remark_history), 0) = 0
+       AND (remark <> '' OR COALESCE(review_note, '') <> '')
   `);
   // 必须在 kind 列存在之后再建：办赛 / 基地各允许一条待审
   await pool.query(`DROP INDEX IF EXISTS idx_event_applications_one_pending`);

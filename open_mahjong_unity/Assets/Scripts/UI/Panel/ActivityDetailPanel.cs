@@ -9,6 +9,7 @@ using TMPro;
 /// </summary>
 public class ActivityDetailPanel : MonoBehaviour {
     [SerializeField] private TMP_Text titleText;
+    [SerializeField] private TMP_Text statusText;
     [SerializeField] private TMP_Text bodyText;
     [SerializeField] private Button closeButton;
     [SerializeField] private Transform bodyContent;
@@ -33,9 +34,19 @@ public class ActivityDetailPanel : MonoBehaviour {
                 ? detail.title
                 : "活动";
         }
+        bool ended = detail != null && ActivityStatus.IsEnded(detail.status, detail.ended);
+        if (statusText == null) {
+            Transform found = transform.Find("Header/Status");
+            if (found != null) statusText = found.GetComponent<TMP_Text>();
+        }
+        if (statusText != null) {
+            statusText.text = "活动已结束";
+            statusText.gameObject.SetActive(ended);
+        }
         if (bodyText != null) {
             string body = detail != null ? detail.body : null;
-            bodyText.text = string.IsNullOrEmpty(body) ? "暂无正文" : body;
+            if (string.IsNullOrEmpty(body)) body = "暂无正文";
+            bodyText.text = ended && statusText == null ? "活动已结束\n\n" + body : body;
         }
         ClearImages();
         if (bodyScroll != null) bodyScroll.verticalNormalizedPosition = 1f;

@@ -230,7 +230,12 @@ public static class NoticePanelBaker {
         title.alignment = TextAlignmentOptions.MidlineLeft;
         title.enableWordWrapping = false;
         title.overflowMode = TextOverflowModes.Ellipsis;
-        Stretch(title.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(28f, 0f), new Vector2(-100f, 0f));
+        Stretch(title.rectTransform, new Vector2(0f, 0.38f), new Vector2(1f, 1f), new Vector2(28f, 0f), new Vector2(-100f, 0f));
+
+        TMP_Text status = AddTmp(CreateUi("Status", header.transform), "活动已结束", 20, HeaderGold);
+        status.alignment = TextAlignmentOptions.TopLeft;
+        Stretch(status.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 0.42f), new Vector2(28f, 8f), new Vector2(-100f, 0f));
+        status.gameObject.SetActive(false);
 
         GameObject closeGo = CreateUi("Close", header.transform);
         RectTransform closeRt = closeGo.GetComponent<RectTransform>();
@@ -273,6 +278,7 @@ public static class NoticePanelBaker {
         ActivityDetailPanel panel = root.AddComponent<ActivityDetailPanel>();
         SerializedObject so = new SerializedObject(panel);
         so.FindProperty("titleText").objectReferenceValue = title;
+        so.FindProperty("statusText").objectReferenceValue = status;
         so.FindProperty("bodyText").objectReferenceValue = bodyText;
         so.FindProperty("closeButton").objectReferenceValue = closeBtn;
         so.FindProperty("bodyContent").objectReferenceValue = bodyScroll.Content;

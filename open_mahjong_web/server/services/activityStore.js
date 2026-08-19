@@ -124,32 +124,53 @@ function saveCatalog(catalog) {
   rebuildPublicIndex(catalog);
 }
 
-function rebuildPublicIndex(catalog) {
-  const items = (catalog.items || [])
-    .filter((item) => item && item.published)
-    .sort((a, b) => {
-      const sortA = Number(a.sort) || 0;
-      const sortB = Number(b.sort) || 0;
-      if (sortA !== sortB) return sortA - sortB;
-      return String(b.updated_at || '').localeCompare(String(a.updated_at || ''));
-    })
-    .map((item) => ({
-      id: item.id,
-      title: item.title,
-      cover_url: item.cover_url || '',
-      updated_at: item.updated_at,
-      sort: Number(item.sort) || 0,
-    }));
-  writeJsonAtomic(indexPath(), {
-    updated_at: nowIso(),
-    items,
-  });
+const STATUSES = new Set(['draft', 'published', 'ended', 'offline']);
+
+function normalizeStatus(item) {
+  const status = String(item?.status || '');
+  if (STATUSES.has(status)) return status;
+  return item?.published ? 'published' : 'draft';
 }
 
-function listAll() {
-  const catalog = loadCatalog();
-  return catalog.items
-    .slice()
+function isClientVisible(status) {
+  return status === 'published' || status === 'ended';
+}
+
+function persistStatus(item) {
+  const status = normalizeStatus(item);
+  item.status = status;
+  item.published = isClientVisible(status);
+  item.ended = status === 'ended';
+  return status;
+}
+
+function decorate(item) {
+  if (!item) return item;
+  const status = normalizeStatus(item);
+  return {
+    ...item,
+    status,
+    published: isClientVisible(status),
+    ended: status === 'ended',
+  };
+}
+
+function toPublicIndexItem(item) {
+  const status = normalizeStatus(item);
+  return {
+    id: item.id,
+    title: item.title,
+    cover_url: item.cover_url || '',
+    updated_at: item.updated_at,
+    sort: Number(item.sort) || 0,
+    status,
+    ended: status === 'ended',
+  };
+}
+
+function publishedItems(catalog) {
+  return (catalog.items || [])
+    .filter((item) => item && isClientVisible(normalizeStatus(item)))
     .sort((a, b) => {
       const sortA = Number(a.sort) || 0;
       const sortB = Number(b.sort) || 0;
@@ -158,12 +179,51 @@ function listAll() {
     });
 }
 
+function getPublicIndex() {
+  const items = publishedItems(loadCatalog()).map(toPublicIndexItem);
+  return {
+    updated_at: nowIso(),
+    items,
+  };
+}
+
+function rebuildPublicIndex(catalog) {
+  const items = publishedItems(catalog).map(toPublicIndexItem);
+  const prev = readJson(indexPath(), null);
+  if (prev && JSON.stringify(prev.items || []) === JSON.stringify(items)) {
+    return;
+  }
+  writeJsonAtomic(indexPath(), {
+    updated_at: nowIso(),
+    items,
+  });
+}
+
+function listAll() {
+  const catalog = loadCatalog();
+  const rank = {
+    draft: 0,
+    offline: 1,
+    published: 2,
+    ended: 3,
+  };
+  return catalog.items
+    .slice()
+    .sort((a, b) => {
+      const rankA = rank[normalizeStatus(a)] ?? 9;
+      const rankB = rank[normalizeStatus(b)] ?? 9;
+      if (rankA !== rankB) return rankA - rankB;
+      return String(b.updated_at || '').localeCompare(String(a.updated_at || ''));
+    })
+    .map(decorate);
+}
+
 function getById(id) {
   const item = loadCatalog().items.find((row) => row.id === id);
   if (!item) {
     throw Object.assign(new Error('活动不存在'), { status: 404 });
   }
-  return item;
+  return decorate(item);
 }
 
 function normalizeTitle(raw) {
@@ -188,20 +248,23 @@ function normalizeBody(raw) {
 function writeMeta(item) {
   const dir = activityDir(item.id);
   fs.mkdirSync(dir, { recursive: true });
+  const status = persistStatus(item);
   writeJsonAtomic(path.join(dir, 'meta.json'), {
     id: item.id,
     title: item.title,
     body: item.body || '',
     cover_url: item.cover_url || '',
     image_urls: item.image_urls || [],
-    published: !!item.published,
+    status,
+    published: isClientVisible(status),
+    ended: status === 'ended',
     sort: Number(item.sort) || 0,
     created_at: item.created_at,
     updated_at: item.updated_at,
   });
 }
 
-function createActivity({ title, body = '', sort = 0, published = false }) {
+function createActivity({ title, body = '', sort = 0 }) {
   const catalog = loadCatalog();
   const item = {
     id: newId(),
@@ -209,7 +272,9 @@ function createActivity({ title, body = '', sort = 0, published = false }) {
     body: normalizeBody(body),
     cover_url: '',
     image_urls: [],
-    published: !!published,
+    status: 'draft',
+    published: false,
+    ended: false,
     sort: Number(sort) || 0,
     created_at: nowIso(),
     updated_at: nowIso(),
@@ -217,7 +282,7 @@ function createActivity({ title, body = '', sort = 0, published = false }) {
   catalog.items.push(item);
   writeMeta(item);
   saveCatalog(catalog);
-  return item;
+  return decorate(item);
 }
 
 function updateActivity(id, patch) {
@@ -229,14 +294,42 @@ function updateActivity(id, patch) {
   if (patch.title !== undefined) item.title = normalizeTitle(patch.title);
   if (patch.body !== undefined) item.body = normalizeBody(patch.body);
   if (patch.sort !== undefined) item.sort = Number(patch.sort) || 0;
-  if (patch.published !== undefined) item.published = !!patch.published;
   if (Array.isArray(patch.image_urls)) {
     item.image_urls = patch.image_urls.filter((url) => typeof url === 'string');
   }
+  persistStatus(item);
   item.updated_at = nowIso();
   writeMeta(item);
   saveCatalog(catalog);
-  return item;
+  return decorate(item);
+}
+
+function setActivityStatus(id, nextStatus) {
+  const status = String(nextStatus || '');
+  if (!STATUSES.has(status) || status === 'draft') {
+    throw Object.assign(new Error('无效的活动状态'), { status: 400 });
+  }
+  const catalog = loadCatalog();
+  const item = catalog.items.find((row) => row.id === id);
+  if (!item) {
+    throw Object.assign(new Error('活动不存在'), { status: 404 });
+  }
+  const current = normalizeStatus(item);
+  if (status === 'ended' && current !== 'published' && current !== 'ended') {
+    throw Object.assign(new Error('只有已发布的活动可以结束'), { status: 400 });
+  }
+  if (status === 'offline' && current !== 'published' && current !== 'ended' && current !== 'offline') {
+    throw Object.assign(new Error('草稿无需下架'), { status: 400 });
+  }
+  if (status === 'published' && current === 'published') {
+    return decorate(item);
+  }
+  item.status = status;
+  persistStatus(item);
+  item.updated_at = nowIso();
+  writeMeta(item);
+  saveCatalog(catalog);
+  return decorate(item);
 }
 
 function deleteActivity(id) {
@@ -284,6 +377,7 @@ function saveCover(id, file) {
   if (row) {
     row.cover_url = item.cover_url;
     row.updated_at = item.updated_at;
+    persistStatus(row);
     saveCatalog(catalog);
   }
   return getById(id);
@@ -307,6 +401,7 @@ function addBodyImage(id, file) {
   if (row) {
     row.image_urls = item.image_urls;
     row.updated_at = item.updated_at;
+    persistStatus(row);
     saveCatalog(catalog);
   }
   return getById(id);
@@ -321,10 +416,11 @@ function removeCover(id) {
   const dir = activityDir(id);
   removeFilesByPrefix(dir, 'cover.');
   item.cover_url = '';
+  persistStatus(item);
   item.updated_at = nowIso();
   writeMeta(item);
   saveCatalog(catalog);
-  return item;
+  return decorate(item);
 }
 
 function removeBodyImage(id, filename) {
@@ -344,6 +440,7 @@ function removeBodyImage(id, filename) {
   if (row) {
     row.image_urls = item.image_urls;
     row.updated_at = item.updated_at;
+    persistStatus(row);
     saveCatalog(catalog);
   }
   return getById(id);
@@ -368,8 +465,16 @@ function ensureSeedFiles() {
     const legacy = readJson(legacyCatalogPath(), { items: [] });
     writeJsonAtomic(catalogPath(), legacy);
   }
-  if (!fs.existsSync(indexPath())) {
-    rebuildPublicIndex(loadCatalog());
+  const catalog = loadCatalog();
+  let migrated = false;
+  for (const item of catalog.items) {
+    if (!item) continue;
+    const before = item.status;
+    persistStatus(item);
+    if (item.status !== before) migrated = true;
+  }
+  if (migrated || !fs.existsSync(indexPath())) {
+    saveCatalog(catalog);
   }
   return dir;
 }
@@ -379,9 +484,11 @@ module.exports = {
   assetsDir,
   ensureSeedFiles,
   listAll,
+  getPublicIndex,
   getById,
   createActivity,
   updateActivity,
+  setActivityStatus,
   deleteActivity,
   saveCover,
   addBodyImage,

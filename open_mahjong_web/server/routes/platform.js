@@ -12,6 +12,7 @@ const {
 } = require('../services/platformStats');
 const { getPublicQueueStatus } = require('../services/matchQueueStatus');
 const { getPublicGameRecord, getPublicUnityGameRecord } = require('../services/publicGameRecord');
+const activityStore = require('../services/activityStore');
 
 function defaultDateRange(asOfDate, days = 30) {
   const to = asOfDate ? new Date(`${asOfDate}T12:00:00`) : new Date();
@@ -25,6 +26,17 @@ function defaultDateRange(asOfDate, days = 30) {
   };
   return { date_from: fmt(from), date_to: fmt(to) };
 }
+
+/** 通知页活动列表：每次从目录现读，避免静态 index.json 被缓存成空列表。 */
+router.get('/activities', (_req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    return res.json({ success: true, data: activityStore.getPublicIndex() });
+  } catch (error) {
+    console.error('platform activities error:', error);
+    return res.status(500).json({ success: false, message: '活动列表读取失败' });
+  }
+});
 
 /** 2D 大厅公开只读匹配人数；加入队列等操作仍必须登录游戏服。 */
 router.get('/queue-status', async (_req, res) => {

@@ -22,8 +22,12 @@ public class ActivityItem : MonoBehaviour {
                 : "未命名活动";
         }
         if (descText != null) {
-            descText.text = "";
-            descText.gameObject.SetActive(false);
+            bool ended = entry != null && ActivityStatus.IsEnded(entry.status, entry.ended);
+            descText.text = ended ? "活动已结束" : "";
+            descText.gameObject.SetActive(ended);
+            if (ended) {
+                descText.color = new Color(1f, 0.62f, 0.08f, 1f);
+            }
         }
         Button target = button != null ? button : GetComponent<Button>();
         if (target == null) return;
