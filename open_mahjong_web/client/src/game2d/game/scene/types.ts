@@ -37,6 +37,7 @@ export interface ViewerAction {
   tile?: number
   use_drawn_tile?: boolean
   ui64_value?: number
+  server_action?: string
 }
 
 export interface ViewerSnapshot {

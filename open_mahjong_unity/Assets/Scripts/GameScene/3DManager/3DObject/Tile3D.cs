@@ -20,7 +20,6 @@ public class Tile3D : MonoBehaviour
     private static readonly int BackTexId = Shader.PropertyToID("_BackTex");
     private static readonly int FrontBgTexId = Shader.PropertyToID("_FrontBgTex");
     private static readonly int FrontBgBlendId = Shader.PropertyToID("_FrontBgBlend");
-    private static readonly int FrontTexExtendEdgeId = Shader.PropertyToID("_FrontTexExtendEdge");
 
     private Renderer cardRenderer;
     private Material sharedTileMaterial;
@@ -167,7 +166,9 @@ public class Tile3D : MonoBehaviour
         // Layer 10：ObjectID 描边过滤 + peek 物理
         SetLayerRecursively(gameObject, tileLayer);
 
-        cardRenderer = GetComponent<Renderer>() ?? GetComponentInChildren<Renderer>();
+        // 对象池牌在 Instantiate 后立刻 SetActive(false)；默认 GetComponentInChildren
+        // 找不到 inactive 子物体上的 MeshRenderer，后续 Apply*Visual 会静默跳过。
+        cardRenderer = GetComponent<Renderer>() ?? GetComponentInChildren<Renderer>(true);
         if (cardRenderer == null) return;
 
         Material[] shared = cardRenderer.sharedMaterials;
@@ -430,6 +431,16 @@ public class Tile3D : MonoBehaviour
             return;
         }
         SetBackRotation(0f);
+    }
+
+    /// <summary>当前实例实际使用的 ThreeDTiles 材质（图集共享或虹雀/自定义克隆）。</summary>
+    public Material SharedTileMaterial
+    {
+        get
+        {
+            InitializeComponents();
+            return sharedTileMaterial;
+        }
     }
 
     /// <summary>

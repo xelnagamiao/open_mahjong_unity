@@ -853,13 +853,18 @@ export class MahjongScene {
     this.clearMeldChoices()
     this.hands[0].unwaitDiscard()
     this.waitDisplay.visible = false
+    this.sendViewerAction(action)
+    return true
+  }
+
+  private sendViewerAction(action: Record<string, any>): void {
     this.sendGameInput({
       kind: action.kind,
       tile: action.tile,
       use_drawn_tile: action.use_drawn_tile,
       ui64_value: action.ui64_value,
+      server_action: action.server_action,
     })
-    return true
   }
 
   private scheduleAutoWinAction(action: Record<string, any>): boolean {
@@ -908,7 +913,7 @@ export class MahjongScene {
       return this.triggerAutoAction(passAction)
     }
 
-    // 3) 自动和牌（受不点和 / 不抢杠 / 不自摸 / 选中牌不自动自摸 约束）
+    // 3) 自动和牌。抢杠和不得当作点和：否则「不点和」会跳过自动和并在下一步把和牌 pass 掉。
     if (this.assist.autoWin) {
       if (claimRobAction && !this.assist.noRobKong) {
         return this.scheduleAutoWinAction(claimRobAction)
@@ -987,7 +992,7 @@ export class MahjongScene {
       if (this.assist.passChi && action.kind === 'chow') return false
       if (this.assist.passPeng && action.kind === 'pung') return false
       if (this.assist.passMingGang && action.kind === 'melded_kong') return false
-      // 不点和仅剔除 discard_win；不抢杠/不自摸不参与自动过牌筛除（对齐 Unity）。
+      // 不点和仅剔除 discard_win；抢杠和 / 不抢杠 / 不自摸不参与自动过牌筛除。
       if (this.shouldFilterRonForAutoPass() && action.kind === 'discard_win') return false
       return true
     })
@@ -1003,6 +1008,7 @@ export class MahjongScene {
   /** Unity ShouldFilterRonForAutoPass: 不点和 removes ron unless another unblocked meld remains. */
   private shouldFilterRonForAutoPass(): boolean {
     if (!this.assist.noRon || !this.hasAction('discard_win')) return false
+    if (this.hasAction('rob_added_kong_win')) return false
     return !this.hasUnblockedMeldOption()
   }
 
@@ -2461,12 +2467,7 @@ export class MahjongScene {
           this.requestPassAction()
           return false
         }
-        this.sendGameInput({
-          kind: action.kind,
-          tile: action.tile,
-          use_drawn_tile: action.use_drawn_tile,
-          ui64_value: action.ui64_value,
-        })
+        this.sendViewerAction(action)
         return true
       },
       () => { this.meldChoicesPanel = null },

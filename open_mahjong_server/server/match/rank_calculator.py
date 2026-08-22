@@ -76,7 +76,7 @@ RANK_AVG_LOSS_PT = {
 TIER_MIN_RANK_INDEX = {
     "beginner": 0,       # 所有人
     "intermediate": 8,   # 2级（index 8）
-    "advanced": 12,      # 三段（index 12）
+    "advanced": 13,      # 四段（index 13）
     "mcrpl": 0,          # MCRPL 由 is_mcrpl_qualified 控制，不用段位限制
 }
 

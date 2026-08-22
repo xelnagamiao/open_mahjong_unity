@@ -10,6 +10,7 @@ CBUFFER_START(UnityPerMaterial)
     float4 _SideTilingOffset;
     half _BackTexBlend;
     half _BackTexExtendEdge;
+    half _FrontTexExtendEdge;
     half _FrontRotation;
     half _FrontBgBlend;
     half4 _FrontBgColor;

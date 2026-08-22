@@ -179,22 +179,16 @@ public class ConfigManager : MonoBehaviour {
     public bool UseHandFaceBackground { get; private set; }
     /// <summary>3D 牌正面是否在花纹下叠 3D 牌面背景。独立开关，默认关（保持现有贴图行为）。</summary>
     public bool UseTableFaceBackground { get; private set; }
-    /// <summary>3D 牌正面贴图是否铺到正面边缘，便于整张渐变图（默认关）。</summary>
-    public bool FrontTexExtendEdge { get; private set; }
     /// <summary>3D 牌正面侧边颜色（默认跟随 _FrontColor=白）。</summary>
     public Color FrontEdgeColor { get; private set; } = Color.white;
     /// <summary>3D 牌正面侧边颜色是否与牌面背景同步（默认关）。</summary>
     public bool FrontEdgeSyncEnabled { get; private set; }
-    /// <summary>3D 牌正面侧边颜色模式：独立 / 跟随牌面背景 / 跟随背面边缘。</summary>
+    /// <summary>3D 牌正面侧边模式：独立颜色 / 拉伸牌面到侧面 / 跟随背面独立边缘色。</summary>
     public CardEdgePanel.FrontEdgeMode FrontEdgeMode { get; private set; } = CardEdgePanel.FrontEdgeMode.Independent;
-    /// <summary>3D 牌正面贴图是否跟随「使用 3D 牌面背景」开关自动启用 _FrontTexExtendEdge。默认关。</summary>
-    public bool FrontTexFollowTableBg { get; private set; }
     /// <summary>3D 牌面纯色：与「3D 牌面背景」互斥。开启时牌面渲染该纯色，关闭时按 _FrontTex/_FrontBgTex 行为渲染。</summary>
     public Color TableFaceColor { get; private set; } = DefaultTableFaceColor;
     /// <summary>是否使用 3D 牌面纯色（开启后「使用 3D 牌面背景」自动关闭）。</summary>
     public bool TableFaceUseSolidColor { get; private set; }
-    /// <summary>3D 牌面背景跟随模式下，是否把底图拉伸到整张牌的正面 + 侧面边缘（关时仅铺正面）。</summary>
-    public bool FrontTexFollowTableBgToEdge { get; private set; }
 
     public static readonly string[] TileOutlinePresetLabels = {
         "预设1",
@@ -266,9 +260,7 @@ public class ConfigManager : MonoBehaviour {
         FrontEdgeSyncEnabled = PlayerPrefs.GetInt(KEY_FRONT_EDGE_SYNC, 0) == 1;
         FrontEdgeMode = (CardEdgePanel.FrontEdgeMode)Mathf.Clamp(
             PlayerPrefs.GetInt(KEY_FRONT_EDGE_MODE, FrontEdgeSyncEnabled ? 1 : 0), 0, 2);
-        FrontTexExtendEdge = PlayerPrefs.GetInt(KEY_FRONT_TEX_EXTEND_EDGE, 0) == 1;
-        FrontTexFollowTableBg = PlayerPrefs.GetInt(KEY_FRONT_TEX_FOLLOW_TABLE_BG, 0) == 1;
-        FrontTexFollowTableBgToEdge = PlayerPrefs.GetInt(KEY_FRONT_TEX_FOLLOW_TABLE_BG_TO_EDGE, 0) == 1;
+        MigrateLegacyFrontTexFollowFlags();
         TableFaceColor = LoadTableFaceColor();
         TableFaceUseSolidColor = PlayerPrefs.GetInt(KEY_TABLE_FACE_USE_SOLID, 0) == 1;
         UseTableFaceBackground = LoadUseTableFaceBackground();
@@ -333,21 +325,19 @@ public class ConfigManager : MonoBehaviour {
         return PlayerPrefs.GetInt(KEY_USE_TABLE_FACE_BACKGROUND, 0) == 1;
     }
 
-    public void SetFrontTexExtendEdge(bool enabled) {
-        FrontTexExtendEdge = enabled;
-        PlayerPrefs.SetInt(KEY_FRONT_TEX_EXTEND_EDGE, enabled ? 1 : 0);
-        PlayerPrefs.Save();
-    }
-
-    public void SetFrontTexFollowTableBg(bool enabled) {
-        FrontTexFollowTableBg = enabled;
-        PlayerPrefs.SetInt(KEY_FRONT_TEX_FOLLOW_TABLE_BG, enabled ? 1 : 0);
-        PlayerPrefs.Save();
-    }
-
-    public void SetFrontTexFollowTableBgToEdge(bool enabled) {
-        FrontTexFollowTableBgToEdge = enabled;
-        PlayerPrefs.SetInt(KEY_FRONT_TEX_FOLLOW_TABLE_BG_TO_EDGE, enabled ? 1 : 0);
+    /// <summary>
+    /// 旧版「跟随 3D 牌面背景 / 拉伸到边缘」独立开关已并入 FrontEdgeMode.FollowTableBg。
+    /// </summary>
+    private void MigrateLegacyFrontTexFollowFlags()
+    {
+        bool legacyStretch = PlayerPrefs.GetInt(KEY_FRONT_TEX_FOLLOW_TABLE_BG, 0) == 1
+            || PlayerPrefs.GetInt(KEY_FRONT_TEX_FOLLOW_TABLE_BG_TO_EDGE, 0) == 1
+            || PlayerPrefs.GetInt(KEY_FRONT_TEX_EXTEND_EDGE, 0) == 1;
+        if (!legacyStretch || FrontEdgeMode != CardEdgePanel.FrontEdgeMode.Independent) return;
+        FrontEdgeMode = CardEdgePanel.FrontEdgeMode.FollowTableBg;
+        FrontEdgeSyncEnabled = true;
+        PlayerPrefs.SetInt(KEY_FRONT_EDGE_MODE, (int)FrontEdgeMode);
+        PlayerPrefs.SetInt(KEY_FRONT_EDGE_SYNC, 1);
         PlayerPrefs.Save();
     }
 

@@ -24,6 +24,7 @@ public static class CardBackManager
     public static Color CurrentFrontEdgeColor { get; private set; } = Color.white;
     public static bool BackEdgeSyncEnabled { get; private set; } = true;
     public static CardEdgePanel.BackEdgeMode BackEdgeMode { get; private set; } = CardEdgePanel.BackEdgeMode.FollowBack;
+    public static CardEdgePanel.FrontEdgeMode FrontEdgeMode { get; private set; } = CardEdgePanel.FrontEdgeMode.Independent;
     public static bool BackTexExtendEdge { get; private set; }
     public static string HandBgFilePath => Path.Combine(Application.persistentDataPath, BackImageDirName, HandBgFileName);
     public static string HandBackFilePath => Path.Combine(Application.persistentDataPath, BackImageDirName, HandBackFileName);
@@ -33,6 +34,93 @@ public static class CardBackManager
     private static bool _handBgLoaded;
     private static bool _handBackLoaded;
     private static bool _tableBgLoaded;
+
+    /// <summary>
+    /// 场上 + 对象池（含 inactive）全部 Tile3D。
+    /// 默认 FindObjectsByType 漏掉池内未激活牌，下次 Spawn 会仍是旧牌边。
+    /// </summary>
+    private static void ForEachTile3D(Action<Tile3D> apply)
+    {
+        if (apply == null) return;
+        Tile3D[] tiles = UnityEngine.Object.FindObjectsByType<Tile3D>(
+            FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int i = 0; i < tiles.Length; i++)
+        {
+            Tile3D tile = tiles[i];
+            if (tile != null) apply(tile);
+        }
+        if (MahjongObjectPool.Instance == null) return;
+        MahjongObjectPool.Instance.ForEachPooledTile(pooled =>
+        {
+            Tile3D pooledTile = MahjongObjectPool.GetTile3D(pooled);
+            if (pooledTile != null) apply(pooledTile);
+        });
+    }
+
+    private static void ForEachVisualMaterial(Action<Material> apply)
+    {
+        if (apply == null) return;
+        Material shared = Resources.Load<Material>(MaterialResourcePath);
+        if (shared != null) apply(shared);
+        if (MahjongObjectPool.Instance != null)
+        {
+            MahjongObjectPool.Instance.ForEachStandaloneMaterial(apply);
+        }
+    }
+
+    /// <summary>把当前牌边/牌背/牌面背景写到材质（不含每牌唯一的 _FrontTex）。</summary>
+    public static void SyncSharedVisualsToMaterial(Material mat)
+    {
+        if (mat == null) return;
+        bool useSolid = ConfigManager.Instance != null && ConfigManager.Instance.TableFaceUseSolidColor;
+        bool useBg = ConfigManager.Instance != null
+            && ConfigManager.Instance.UseTableFaceBackground
+            && CurrentTableBackground != null
+            && !useSolid;
+        bool coverFace = ResolveTableBgCoverFace();
+        float aspect = (CurrentTableBackground != null && CurrentTableBackground.height > 0)
+            ? (float)CurrentTableBackground.width / CurrentTableBackground.height
+            : 0f;
+
+        mat.SetTexture("_BackTex", CurrentTexture);
+        mat.SetFloat("_BackTexBlend", CurrentTexture != null ? 1f : 0f);
+        mat.SetFloat("_BackTexExtendEdge", BackTexExtendEdge && CurrentTexture != null ? 1f : 0f);
+        mat.SetColor("_BackColor", CurrentColor);
+        mat.SetColor("_SideColor", CurrentSideColor);
+        mat.SetColor("_BackEdgeColor", CurrentBackEdgeColor);
+        mat.SetColor("_FrontEdgeColor", CurrentFrontEdgeColor);
+        mat.SetTexture("_FrontBgTex", CurrentTableBackground);
+        mat.SetFloat("_FrontBgBlend", useBg ? 1f : 0f);
+        mat.SetFloat("_FrontBgTexAspect", aspect);
+        mat.SetFloat("_TableBgCoverFace", coverFace ? 1f : 0f);
+        mat.SetFloat("_FrontTexExtendEdge", 0f);
+        mat.SetColor("_TableFaceColor",
+            ConfigManager.Instance != null ? ConfigManager.Instance.TableFaceColor : Color.white);
+        mat.SetFloat("_TableFaceBlend", useSolid ? 1f : 0f);
+    }
+
+    /// <summary>Spawn / 改设置：实例 MPB + 该牌实际材质（含虹雀/自定义克隆）跟上当前牌边。</summary>
+    public static void ApplyInstanceVisuals(Tile3D tile)
+    {
+        if (tile == null) return;
+        SyncSharedVisualsToMaterial(tile.SharedTileMaterial);
+        tile.ApplyBackVisual(CurrentColor, CurrentTexture);
+        tile.ApplySideVisual(CurrentSideColor);
+        tile.ApplyBackEdgeVisual(CurrentBackEdgeColor);
+        tile.ApplyFrontEdgeVisual(CurrentFrontEdgeColor);
+        bool useSolid = ConfigManager.Instance != null && ConfigManager.Instance.TableFaceUseSolidColor;
+        bool showBg = ConfigManager.Instance != null
+            && ConfigManager.Instance.UseTableFaceBackground
+            && CurrentTableBackground != null
+            && !useSolid;
+        tile.ApplyFrontBgVisual(showBg ? CurrentTableBackground : null);
+    }
+
+    private static void ApplyInstanceVisualsToAllTiles()
+    {
+        ForEachVisualMaterial(SyncSharedVisualsToMaterial);
+        ForEachTile3D(ApplyInstanceVisuals);
+    }
 
     /// <summary>启动或切换设置后调用：读取 ConfigManager 并应用。</summary>
     public static void ApplySavedConfig()
@@ -49,20 +137,13 @@ public static class CardBackManager
         LoadSavedHandBackground();
         LoadSavedHandBack();
         LoadSavedTableBackground();
+        FrontEdgeMode = ConfigManager.Instance.FrontEdgeMode;
         CurrentFrontEdgeColor = ConfigManager.Instance.FrontEdgeColor;
         // 先确保共享材质上的 _FrontBgTex 与 CurrentTableBackground 已同步，
         // 再按 UseTableFaceBackground 开关只切 blend，不会清空已上传的纹理。
-        ApplyFrontEdgeColor(ResolveFrontEdgeColor(ConfigManager.Instance.FrontEdgeMode, ConfigManager.Instance.FrontEdgeColor));
-        ApplyFrontTexExtendEdge(ResolveFrontTexExtendEdge());
+        ApplyFrontEdgeColor(ResolveFrontEdgeColor(FrontEdgeMode, ConfigManager.Instance.FrontEdgeColor));
         SetTableFaceBackgroundEnabled(ConfigManager.Instance.UseTableFaceBackground);
-        // 3D 牌面纯色：单独应用，与「使用 3D 牌面背景」互斥已在 ConfigManager setter 处理。
-        Material shared = Resources.Load<Material>(MaterialResourcePath);
-        if (shared != null)
-        {
-            shared.SetColor("_TableFaceColor", ConfigManager.Instance.TableFaceColor);
-            shared.SetFloat("_TableFaceBlend", ConfigManager.Instance.TableFaceUseSolidColor ? 1f : 0f);
-            shared.SetFloat("_TableBgCoverFace", ConfigManager.Instance.FrontTexFollowTableBgToEdge ? 1f : 0f);
-        }
+        ApplyInstanceVisualsToAllTiles();
     }
 
     /// <summary>把正面侧边颜色应用到共享材质与所有 Tile3D 实例。</summary>
@@ -70,34 +151,8 @@ public static class CardBackManager
     {
         CurrentSideColor = color;
 
-        Material shared = Resources.Load<Material>(MaterialResourcePath);
-        if (shared != null)
-        {
-            shared.SetColor("_SideColor", color);
-        }
-
-        Tile3D[] tiles = UnityEngine.Object.FindObjectsByType<Tile3D>(FindObjectsSortMode.None);
-        foreach (Tile3D tile in tiles)
-        {
-            if (tile != null) tile.ApplySideVisual(color);
-        }
-
-        // 对象池内未部署的牌也要同步：FindObjectsByType 只找得到激活实例，
-        // 池内 inactive 牌的实例颜色若不更新，下次 Spawn 时仍是旧的正边缘颜色。
-        if (MahjongObjectPool.Instance != null)
-        {
-            MahjongObjectPool.Instance.ForEachPooledTile(pooled =>
-            {
-                Tile3D pooledTile = pooled != null ? pooled.GetComponent<Tile3D>() : null;
-                if (pooledTile != null) pooledTile.ApplySideVisual(color);
-            });
-        }
-
-        // 背面边缘颜色跟随正面边缘模式时，正面边缘变化会连带更新背面边缘。
-        if (BackEdgeMode == CardEdgePanel.BackEdgeMode.FollowFront)
-        {
-            ApplyBackEdgeColor(color);
-        }
+        ForEachVisualMaterial(mat => mat.SetColor("_SideColor", color));
+        ForEachTile3D(tile => tile.ApplySideVisual(color));
     }
 
     /// <summary>把背面侧边颜色应用到共享材质与所有 Tile3D 实例。</summary>
@@ -105,26 +160,8 @@ public static class CardBackManager
     {
         CurrentBackEdgeColor = color;
 
-        Material shared = Resources.Load<Material>(MaterialResourcePath);
-        if (shared != null)
-        {
-            shared.SetColor("_BackEdgeColor", color);
-        }
-
-        Tile3D[] tiles = UnityEngine.Object.FindObjectsByType<Tile3D>(FindObjectsSortMode.None);
-        foreach (Tile3D tile in tiles)
-        {
-            if (tile != null) tile.ApplyBackEdgeVisual(color);
-        }
-
-        if (MahjongObjectPool.Instance != null)
-        {
-            MahjongObjectPool.Instance.ForEachPooledTile(pooled =>
-            {
-                Tile3D pooledTile = pooled != null ? pooled.GetComponent<Tile3D>() : null;
-                if (pooledTile != null) pooledTile.ApplyBackEdgeVisual(color);
-            });
-        }
+        ForEachVisualMaterial(mat => mat.SetColor("_BackEdgeColor", color));
+        ForEachTile3D(tile => tile.ApplyBackEdgeVisual(color));
     }
 
     /// <summary>
@@ -147,14 +184,14 @@ public static class CardBackManager
         ApplyBackEdgeColor(ResolveBackEdgeColor(mode, independentColor));
     }
 
-    private static Color ResolveBackEdgeColor(CardEdgePanel.BackEdgeMode mode, Color independentColor)
+    public static Color ResolveBackEdgeColor(CardEdgePanel.BackEdgeMode mode, Color independentColor)
     {
         switch (mode)
         {
             case CardEdgePanel.BackEdgeMode.FollowBack:
                 return CurrentColor;
             case CardEdgePanel.BackEdgeMode.FollowFront:
-                return CurrentSideColor;
+                return ConfigManager.Instance != null ? ConfigManager.Instance.FrontEdgeColor : independentColor;
             default:
                 return independentColor;
         }
@@ -178,33 +215,14 @@ public static class CardBackManager
         CurrentColor = color;
         CurrentTexture = texture;
 
-        // 共享材质：之后新生成的牌自动继承
-        Material shared = Resources.Load<Material>(MaterialResourcePath);
-        if (shared != null)
+        ForEachVisualMaterial(mat =>
         {
-            shared.SetColor("_BackColor", color);
-            shared.SetTexture("_BackTex", texture);
-            // 图片叠加在牌背颜色上方：有图时 blend=1（不乘算颜色），无图时 blend=0（纯色）
-            shared.SetFloat("_BackTexBlend", texture != null ? 1f : 0f);
-        }
+            mat.SetColor("_BackColor", color);
+            mat.SetTexture("_BackTex", texture);
+            mat.SetFloat("_BackTexBlend", texture != null ? 1f : 0f);
+        });
 
-        // 已有实例：更新实例颜色 + 材质贴图
-        Tile3D[] tiles = UnityEngine.Object.FindObjectsByType<Tile3D>(FindObjectsSortMode.None);
-        foreach (Tile3D tile in tiles)
-        {
-            if (tile != null) tile.ApplyBackVisual(color, texture);
-        }
-
-        // 对象池内未部署的牌也要同步：FindObjectsByType 只找得到激活实例，
-        // 池内 inactive 牌的实例颜色若不更新，下次 Spawn 时仍是旧牌背。
-        if (MahjongObjectPool.Instance != null)
-        {
-            MahjongObjectPool.Instance.ForEachPooledTile(pooled =>
-            {
-                Tile3D pooledTile = pooled != null ? pooled.GetComponent<Tile3D>() : null;
-                if (pooledTile != null) pooledTile.ApplyBackVisual(color, texture);
-            });
-        }
+        ForEachTile3D(tile => tile.ApplyBackVisual(color, texture));
 
         // 背面侧边颜色跟随牌背模式时，牌背颜色变化会连带更新背面侧边。
         if (BackEdgeMode == CardEdgePanel.BackEdgeMode.FollowBack)
@@ -213,6 +231,7 @@ public static class CardBackManager
         }
         ApplyBackTexExtendEdge(BackTexExtendEdge);
         _savedConfigApplied = true;
+        RefreshEdgePanelPreviews();
     }
 
     /// <summary>牌背图片是否铺到背部边缘。</summary>
@@ -220,29 +239,13 @@ public static class CardBackManager
     {
         BackTexExtendEdge = enabled;
         float value = enabled && CurrentTexture != null ? 1f : 0f;
-        Material shared = Resources.Load<Material>(MaterialResourcePath);
-        if (shared != null)
-        {
-            shared.SetFloat("_BackTexExtendEdge", value);
-        }
         if (CurrentTexture != null)
         {
             CurrentTexture.wrapMode = enabled ? TextureWrapMode.Clamp : TextureWrapMode.Repeat;
         }
 
-        Tile3D[] tiles = UnityEngine.Object.FindObjectsByType<Tile3D>(FindObjectsSortMode.None);
-        foreach (Tile3D tile in tiles)
-        {
-            if (tile != null) tile.ApplyBackVisual(CurrentColor, CurrentTexture);
-        }
-        if (MahjongObjectPool.Instance != null)
-        {
-            MahjongObjectPool.Instance.ForEachPooledTile(pooled =>
-            {
-                Tile3D pooledTile = pooled != null ? pooled.GetComponent<Tile3D>() : null;
-                if (pooledTile != null) pooledTile.ApplyBackVisual(CurrentColor, CurrentTexture);
-            });
-        }
+        ForEachVisualMaterial(mat => mat.SetFloat("_BackTexExtendEdge", value));
+        ForEachTile3D(tile => tile.ApplyBackVisual(CurrentColor, CurrentTexture));
     }
 
     /// <summary>读取保存的牌背图片（桌面读文件，WebGL 读 IndexedDB）。</summary>
@@ -447,11 +450,7 @@ public static class CardBackManager
         float aspect = (tex != null && tex.height > 0)
             ? (float)tex.width / tex.height
             : 0f;
-        Material shared = Resources.Load<Material>(MaterialResourcePath);
-        if (shared != null)
-        {
-            shared.SetFloat("_FrontBgTexAspect", aspect);
-        }
+        ForEachVisualMaterial(mat => mat.SetFloat("_FrontBgTexAspect", aspect));
     }
 
     public static void ClearPersistedTableBackground()
@@ -475,12 +474,7 @@ public static class CardBackManager
         ReplaceTableBackground(null);
         // 清空背景后顺手关闭「使用 3D 牌面背景」，与手牌牌面背景行为一致。
         SetTableFaceBackgroundEnabled(false);
-        // 清空纹理后让 shader 回退到按整张牌面采样的原行为
-        Material shared = Resources.Load<Material>(MaterialResourcePath);
-        if (shared != null)
-        {
-            shared.SetFloat("_FrontBgTexAspect", 0f);
-        }
+        ForEachVisualMaterial(mat => mat.SetFloat("_FrontBgTexAspect", 0f));
     }
 
     /// <summary>
@@ -493,32 +487,8 @@ public static class CardBackManager
         {
             ConfigManager.Instance.SetUseTableFaceBackground(enabled);
         }
-        // 当前纹理可能为空（如刚启动且还未加载），enabled=true 但无纹理时直接关闭 blend 即可。
-        bool hasTex = CurrentTableBackground != null;
-        Material shared = Resources.Load<Material>(MaterialResourcePath);
-        if (shared != null)
-        {
-            shared.SetTexture("_FrontBgTex", CurrentTableBackground);
-            shared.SetFloat("_FrontBgBlend", (enabled && hasTex) ? 1f : 0f);
-            // 开启背景时关掉纯色；关闭背景时不要动纯色，否则「不使用背景」会把已开的纯色冲掉。
-            if (enabled) shared.SetFloat("_TableFaceBlend", 0f);
-        }
-        Texture2D active = (enabled && hasTex) ? CurrentTableBackground : null;
-        Tile3D[] tiles = UnityEngine.Object.FindObjectsByType<Tile3D>(FindObjectsSortMode.None);
-        foreach (Tile3D tile in tiles)
-        {
-            if (tile != null) tile.ApplyFrontBgVisual(active);
-        }
-        if (MahjongObjectPool.Instance != null)
-        {
-            MahjongObjectPool.Instance.ForEachPooledTile(pooled =>
-            {
-                Tile3D pooledTile = pooled != null ? pooled.GetComponent<Tile3D>() : null;
-                if (pooledTile != null) pooledTile.ApplyFrontBgVisual(active);
-            });
-        }
-        // 跟随 3D 牌面背景开关同时切换正面贴图延伸
-        ApplyFrontTexExtendEdge(ResolveFrontTexExtendEdge());
+        ApplyInstanceVisualsToAllTiles();
+        RefreshFollowedFrontEdge();
     }
 
     /// <summary>3D 牌面纯色：与「使用 3D 牌面背景」互斥，开启后自动关闭背景。</summary>
@@ -528,36 +498,8 @@ public static class CardBackManager
         {
             ConfigManager.Instance.SetTableFaceUseSolidColor(enabled);
         }
-        Material shared = Resources.Load<Material>(MaterialResourcePath);
-        if (shared != null)
-        {
-            shared.SetFloat("_TableFaceBlend", enabled ? 1f : 0f);
-            shared.SetColor("_TableFaceColor",
-                ConfigManager.Instance != null ? ConfigManager.Instance.TableFaceColor : Color.white);
-            if (enabled)
-            {
-                shared.SetFloat("_FrontBgBlend", 0f);
-            }
-        }
-        bool showBg = !enabled
-            && ConfigManager.Instance != null
-            && ConfigManager.Instance.UseTableFaceBackground
-            && CurrentTableBackground != null;
-        Texture2D activeBg = showBg ? CurrentTableBackground : null;
-        Tile3D[] tiles = UnityEngine.Object.FindObjectsByType<Tile3D>(FindObjectsSortMode.None);
-        foreach (Tile3D tile in tiles)
-        {
-            if (tile != null) tile.ApplyFrontBgVisual(activeBg);
-        }
-        if (MahjongObjectPool.Instance != null)
-        {
-            MahjongObjectPool.Instance.ForEachPooledTile(pooled =>
-            {
-                Tile3D pooledTile = pooled != null ? pooled.GetComponent<Tile3D>() : null;
-                if (pooledTile != null) pooledTile.ApplyFrontBgVisual(activeBg);
-            });
-        }
-        ApplyFrontTexExtendEdge(ResolveFrontTexExtendEdge());
+        ApplyInstanceVisualsToAllTiles();
+        RefreshFollowedFrontEdge();
     }
 
     public static void SetTableFaceColor(Color color)
@@ -566,82 +508,34 @@ public static class CardBackManager
         {
             ConfigManager.Instance.SetTableFaceColor(color);
         }
-        Material shared = Resources.Load<Material>(MaterialResourcePath);
-        if (shared != null)
-        {
-            shared.SetColor("_TableFaceColor", color);
-        }
-    }
-
-    /// <summary>设置 3D 牌面背景是否铺满整张牌面+侧面（与「使用 3D 牌面背景」配合使用）。</summary>
-    public static void SetTableBackgroundCoverFace(bool coverFace)
-    {
-        if (ConfigManager.Instance != null)
-        {
-            ConfigManager.Instance.SetFrontTexFollowTableBgToEdge(coverFace);
-        }
-        Material shared = Resources.Load<Material>(MaterialResourcePath);
-        if (shared != null)
-        {
-            shared.SetFloat("_TableBgCoverFace", coverFace ? 1f : 0f);
-        }
-        // 覆盖模式与延伸互斥：开启覆盖时把 _FrontTexExtendEdge 置 0
-        ApplyFrontTexExtendEdge(coverFace ? false : ResolveFrontTexExtendEdge());
+        ForEachVisualMaterial(mat => mat.SetColor("_TableFaceColor", color));
+        RefreshFollowedFrontEdge();
     }
 
     /// <summary>把 3D 牌正面侧边颜色应用到共享材质与所有 Tile3D 实例。</summary>
     public static void ApplyFrontEdgeColor(Color color)
     {
         CurrentFrontEdgeColor = color;
-        Material shared = Resources.Load<Material>(MaterialResourcePath);
-        if (shared != null)
-        {
-            shared.SetColor("_FrontEdgeColor", color);
-        }
-        Tile3D[] tiles = UnityEngine.Object.FindObjectsByType<Tile3D>(FindObjectsSortMode.None);
-        foreach (Tile3D tile in tiles)
-        {
-            if (tile != null) tile.ApplyFrontEdgeVisual(color);
-        }
-        if (MahjongObjectPool.Instance != null)
-        {
-            MahjongObjectPool.Instance.ForEachPooledTile(pooled =>
-            {
-                Tile3D pooledTile = pooled != null ? pooled.GetComponent<Tile3D>() : null;
-                if (pooledTile != null) pooledTile.ApplyFrontEdgeVisual(color);
-            });
-        }
+        ForEachVisualMaterial(mat => mat.SetColor("_FrontEdgeColor", color));
+        ForEachTile3D(tile => tile.ApplyFrontEdgeVisual(color));
     }
 
-    /// <summary>3D 牌正面贴图是否铺到正面边缘，便于整张渐变图。</summary>
-    public static void ApplyFrontTexExtendEdge(bool enabled)
-    {
-        Material shared = Resources.Load<Material>(MaterialResourcePath);
-        if (shared != null)
-        {
-            shared.SetFloat("_FrontTexExtendEdge", enabled ? 1f : 0f);
-        }
-    }
-
-    private static bool ResolveFrontTexExtendEdge()
-    {
-        if (ConfigManager.Instance == null) return false;
-        bool follow = ConfigManager.Instance.FrontTexFollowTableBg
-            && ConfigManager.Instance.UseTableFaceBackground
-            && CurrentTableBackground != null;
-        return ConfigManager.Instance.FrontTexExtendEdge || follow;
-    }
-
-    private static Color ResolveFrontEdgeColor(CardEdgePanel.FrontEdgeMode mode, Color independentColor)
+    public static Color ResolveFrontEdgeColor(CardEdgePanel.FrontEdgeMode mode, Color independentColor)
     {
         switch (mode)
         {
             case CardEdgePanel.FrontEdgeMode.FollowTableBg:
-                return CurrentTableBackground != null
-                    ? Color.white
-                    : independentColor;
+                if (ConfigManager.Instance != null && ConfigManager.Instance.TableFaceUseSolidColor)
+                    return ConfigManager.Instance.TableFaceColor;
+                if (ConfigManager.Instance != null
+                    && ConfigManager.Instance.UseTableFaceBackground
+                    && CurrentTableBackground != null)
+                    return Color.white;
+                return ConfigManager.DefaultTableFaceFallbackColor;
             case CardEdgePanel.FrontEdgeMode.FollowBackEdge:
-                return CurrentBackEdgeColor;
+                return ConfigManager.Instance != null
+                    ? ConfigManager.Instance.BackEdgeColor
+                    : independentColor;
             default:
                 return independentColor;
         }
@@ -650,6 +544,7 @@ public static class CardBackManager
     /// <summary>由 CardEdgePanel / ConfigManager 调用：整体应用正面边缘模式。</summary>
     public static void SetFrontEdgeMode(CardEdgePanel.FrontEdgeMode mode, Color independentColor)
     {
+        FrontEdgeMode = mode;
         Color resolved = ResolveFrontEdgeColor(mode, independentColor);
         if (ConfigManager.Instance != null)
         {
@@ -658,6 +553,35 @@ public static class CardBackManager
         }
         CurrentFrontEdgeColor = resolved;
         ApplyFrontEdgeColor(resolved);
+        ApplyInstanceVisualsToAllTiles();
+    }
+
+    private static bool ResolveTableBgCoverFace()
+    {
+        CardEdgePanel.FrontEdgeMode mode = ConfigManager.Instance != null
+            ? ConfigManager.Instance.FrontEdgeMode
+            : FrontEdgeMode;
+        return mode == CardEdgePanel.FrontEdgeMode.FollowTableBg;
+    }
+
+    private static void RefreshFollowedFrontEdge()
+    {
+        CardEdgePanel.FrontEdgeMode mode = ConfigManager.Instance != null
+            ? ConfigManager.Instance.FrontEdgeMode
+            : FrontEdgeMode;
+        Color independent = ConfigManager.Instance != null
+            ? ConfigManager.Instance.FrontEdgeColor
+            : CurrentFrontEdgeColor;
+        ApplyFrontEdgeColor(ResolveFrontEdgeColor(mode, independent));
+        RefreshEdgePanelPreviews();
+    }
+
+    private static void RefreshEdgePanelPreviews()
+    {
+        if (CardEdgePanel.Instance != null)
+        {
+            CardEdgePanel.Instance.RefreshPreviews();
+        }
     }
 
     public static void ClearPersistedHandBack()

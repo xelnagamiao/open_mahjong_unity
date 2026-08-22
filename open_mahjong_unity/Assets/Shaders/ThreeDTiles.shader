@@ -34,6 +34,8 @@ Shader "Custom/ThreeDTiles"
         _SideTex ("Side Texture (侧面)", 2D) = "white" {}
         _SideColor ("Side Tint", Color) = (1,1,1,1)
         _SideTilingOffset ("Side Tiling & Offset", Vector) = (1,1,0,0)
+        _FrontEdgeColor ("Front Edge Color (正面边缘)", Color) = (1,1,1,1)
+        _FrontTexExtendEdge ("Front Tex Extend Edge", Range(0, 1)) = 0
 
         _GrayScale ("Gray Scale", Range(0, 1)) = 0.0
         _FrontRotation ("Front Rotation (度)", Range(0, 360)) = 0.0
@@ -82,6 +84,7 @@ Shader "Custom/ThreeDTiles"
                 UNITY_DEFINE_INSTANCED_PROP(float4, _BackColor)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _SideColor)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _BackEdgeColor)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _FrontEdgeColor)
                 // x = gray scale, y = outline ObjectID
                 UNITY_DEFINE_INSTANCED_PROP(float4, _TileInstanceParams)
             UNITY_INSTANCING_BUFFER_END(TilePerInstance)
@@ -147,6 +150,8 @@ Shader "Custom/ThreeDTiles"
                     UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _SideColor);
                 half4 backEdgeColor =
                     UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _BackEdgeColor);
+                half4 frontEdgeColor =
+                    UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _FrontEdgeColor);
                 float4 instanceParams =
                     UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _TileInstanceParams);
 
@@ -223,7 +228,11 @@ Shader "Custom/ThreeDTiles"
                 half3 backRgb = lerp(backColor.rgb, backSample.rgb, saturate(_BackTexBlend) * backSample.a);
                 half4 back = half4(backRgb, 1.0h);
                 float2 sideUV = input.uvSide * _SideTilingOffset.xy + _SideTilingOffset.zw;
-                half4 side = SAMPLE_TEXTURE2D(_SideTex, sampler_SideTex, sideUV) * sideColor;
+                half4 side = SAMPLE_TEXTURE2D(_SideTex, sampler_SideTex, sideUV)
+                    * sideColor * frontEdgeColor;
+                // 铺满/延伸：把已合成的正面（含 3D 牌面背景）铺到四侧，而不是只改正面 UV。
+                half sideMix = saturate(max(_TableBgCoverFace, _FrontTexExtendEdge));
+                side = lerp(side, front, sideMix);
 
                 // 背侧边顶点色为黑色(RGB 和<1)时显示 _BackColor 底色；
                 // 该写法兼容当前模型(首颜色层 alpha=1)与清理后的 alpha 方案(背侧边仍为黑色)。

@@ -22,7 +22,7 @@ public static class RankConfig {
         switch (tier) {
             case "beginner": return true;
             case "intermediate": return rankLevel < 16 && (rankLevel >= 8 || isSponsor); // 七段不可进入；赞助者可突破最低段位
-            case "advanced": return rankLevel >= 12;       // 三段
+            case "advanced": return rankLevel >= 13;       // 四段
             case "mcrpl": return isMcrplQualified;
             default: return false;
         }

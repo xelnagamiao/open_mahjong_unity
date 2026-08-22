@@ -1469,7 +1469,7 @@ Object.assign(en, {
   '无提示、无指针提示、错和、战术鸣牌': 'No hints, no pointer hints, false wins enabled, tactical calls',
   '无提示、无指针提示、错和、战术鸣牌、禁止聊天、仅 PC 端': 'No hints, no pointer hints, false wins enabled, tactical calls, chat disabled, PC only',
   '2级及以上，七段及以上不可进入；赞助者可突破最低段位': 'Level 2 or higher; 7 Duan and above cannot enter. Sponsors may bypass the minimum rank.',
-  '三段及以上': '3 Duan or higher',
+  '四段及以上': '4 Duan or higher',
   'Salasasa七段及以上或职业五段及以上并实名注册': 'Salasasa 7 Duan or higher, or professional 5 Duan or higher, with verified registration',
   '10级－3级': 'Level 10–Level 3',
 })
@@ -1507,7 +1507,7 @@ Object.assign(ja, {
   '无提示、无指针提示、错和、战术鸣牌': 'ヒントなし、ポインターヒントなし、錯和あり、戦術的な副露あり',
   '无提示、无指针提示、错和、战术鸣牌、禁止聊天、仅 PC 端': 'ヒントなし、ポインターヒントなし、錯和あり、戦術的な副露あり、チャット禁止、PC版のみ',
   '2级及以上，七段及以上不可进入；赞助者可突破最低段位': '2級以上。七段以上は参加不可。スポンサーは最低段位条件を免除されます。',
-  '三段及以上': '三段以上',
+  '四段及以上': '四段以上',
   'Salasasa七段及以上或职业五段及以上并实名注册': 'Salasasa七段以上、またはプロ五段以上で実名登録済み',
   '10级－3级': '10級～3級',
   'Salasasa国标麻将对战平台-萨拉飒飒': 'Salasasa国標麻雀対戦プラットフォーム',

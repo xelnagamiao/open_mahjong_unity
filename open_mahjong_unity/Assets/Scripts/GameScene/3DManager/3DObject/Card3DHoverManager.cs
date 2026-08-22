@@ -153,18 +153,7 @@ public class Card3DHoverManager : MonoBehaviour
         if (!tileIdToCards.ContainsKey(tileId)) return;
         foreach (GameObject cardObj in tileIdToCards[tileId]) {
             if (cardMaterialData.ContainsKey(cardObj)) {
-                CardMaterialData data = cardMaterialData[cardObj];
-                Color baseFront = GetBaseColor(data.originalFrontColor, data);
-                Color baseBack = GetBaseColor(data.originalBackColor, data);
-                Color baseSide = GetBaseColor(data.originalSideColor, data);
-                Color front = Color.Lerp(baseFront, hoverColor, hoverIntensity);
-                Color back = Color.Lerp(baseBack, hoverColor, hoverIntensity);
-                Color side = Color.Lerp(baseSide, hoverColor, hoverIntensity);
-                front.a = baseFront.a;
-                back.a = baseBack.a;
-                side.a = baseSide.a;
-                data.tile3D?.SetInstanceVisualState(
-                    front, back, side, data.originalGrayScale);
+                ApplyCardVisual(cardMaterialData[cardObj], true);
             }
         }
     }
@@ -247,23 +236,24 @@ public class Card3DHoverManager : MonoBehaviour
     }
 
     private void ApplyCardVisual(CardMaterialData data, bool hovered) {
-        Color front = GetBaseColor(data.originalFrontColor, data);
-        Color back = GetBaseColor(data.originalBackColor, data);
-        Color side = GetBaseColor(data.originalSideColor, data);
+        Tile3D tile3D = data.tile3D;
+        if (tile3D == null) return;
+        Color origFront = tile3D.BaseFrontColor;
+        Color origBack = tile3D.BaseBackColor;
+        Color origSide = tile3D.BaseSideColor;
+        Color front = GetBaseColor(origFront, data);
+        Color back = GetBaseColor(origBack, data);
+        Color side = GetBaseColor(origSide, data);
         if (hovered) {
             front = Color.Lerp(front, hoverColor, hoverIntensity);
             back = Color.Lerp(back, hoverColor, hoverIntensity);
             side = Color.Lerp(side, hoverColor, hoverIntensity);
-            front.a = data.originalFrontColor.a;
-            back.a = data.originalBackColor.a;
-            side.a = data.originalSideColor.a;
+            front.a = origFront.a;
+            back.a = origBack.a;
+            side.a = origSide.a;
         }
-        // Unity 的 == 能识别已销毁对象；?. 只查 C# 空引用，场景销毁时仍会进入
-        // 已销毁 Tile3D 的 gameObject 访问并抛 MissingReferenceException。
-        Tile3D tile3D = data.tile3D;
-        if (tile3D == null) return;
         tile3D.SetInstanceVisualState(
-            front, back, side, data.originalGrayScale);
+            front, back, side, tile3D.BaseGrayScale);
     }
 
     /// <summary>

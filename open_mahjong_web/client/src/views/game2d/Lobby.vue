@@ -271,7 +271,7 @@ const MATCH_HELP_TIERS = [
     settings: '无提示、错和、战术鸣牌',
   },
   {
-    key: 'advanced', title: '高级场', admission: '三段及以上', base: 105, time: '20+5',
+    key: 'advanced', title: '高级场', admission: '四段及以上', base: 105, time: '20+5',
     settings: '无提示、无指针提示、错和、战术鸣牌',
   },
   {
@@ -380,7 +380,7 @@ function canEnterTier(tierKey) {
   if (tierKey === 'intermediate') {
     return rankIndex < 16 && (rankIndex >= 8 || Boolean(session.rank?.is_sponsor))
   }
-  if (tierKey === 'advanced') return rankIndex >= 12
+  if (tierKey === 'advanced') return rankIndex >= 13
   if (tierKey === 'mcrpl') return Boolean(session.rank?.is_mcrpl_qualified)
   return false
 }
