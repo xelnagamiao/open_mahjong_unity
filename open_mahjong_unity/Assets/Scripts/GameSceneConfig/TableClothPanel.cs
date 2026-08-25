@@ -32,22 +32,7 @@ public class TableClothPanel : MonoBehaviour {
         Texture2D[] textures = Resources.LoadAll<Texture2D>(resourcePath);
 
         foreach (Texture2D texture in textures) {
-            // 实例化预制体
-            GameObject item = Instantiate(tableclothPrefab, contentParent);
-
-            // 获取TableCloth脚本
-            TableCloth tableCloth = item.GetComponent<TableCloth>();
-
-            // 使用预设的Image组件设置纹理为Sprite
-            Sprite sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
-            tableCloth.tableClothImage.sprite = sprite;
-            tableCloth.tableClothImage.color = Color.white; // 确保颜色为白色以正确显示纹理
-
-            // 设置TableCloth脚本属性
-            tableCloth.filePath = texture.name; // 保存纹理名称作为标识符
-            tableCloth.isCustom = false;
-
-            tableclothItems.Add(item);
+            AddTableclothItem(texture, texture.name, false);
         }
     }
 
@@ -85,28 +70,9 @@ public class TableClothPanel : MonoBehaviour {
         }
 
         foreach (string filePath in imageFiles) {
-            // 实例化预制体
-            GameObject item = Instantiate(tableclothPrefab, contentParent);
-
-            // 加载纹理
             Texture2D texture = LoadTextureFromFile(filePath);
             if (texture != null) {
-                // 获取TableCloth脚本
-                TableCloth tableCloth = item.GetComponent<TableCloth>();
-
-                // 使用预设的Image组件设置纹理为Sprite
-                Sprite sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
-                tableCloth.tableClothImage.sprite = sprite;
-                tableCloth.tableClothImage.color = Color.white; // 确保颜色为白色以正确显示纹理
-
-                // 设置TableCloth脚本属性
-                tableCloth.filePath = filePath;
-                tableCloth.isCustom = true;
-
-                tableclothItems.Add(item);
-            } else {
-                // 加载失败，销毁预制体
-                Destroy(item);
+                AddTableclothItem(texture, filePath, true);
             }
         }
     }
@@ -119,15 +85,19 @@ public class TableClothPanel : MonoBehaviour {
             if (texture == null) {
                 continue;
             }
-            GameObject item = Instantiate(tableclothPrefab, contentParent);
-            TableCloth tableCloth = item.GetComponent<TableCloth>();
-            Sprite sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
-            tableCloth.tableClothImage.sprite = sprite;
-            tableCloth.tableClothImage.color = Color.white;
-            tableCloth.filePath = keys[i];
-            tableCloth.isCustom = true;
-            tableclothItems.Add(item);
+            AddTableclothItem(texture, keys[i], true);
         }
+    }
+
+    void AddTableclothItem(Texture2D texture, string path, bool custom) {
+        GameObject item = Instantiate(tableclothPrefab, contentParent);
+        TableCloth tableCloth = item.GetComponent<TableCloth>();
+        Sprite sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
+        tableCloth.tableClothImage.sprite = sprite;
+        tableCloth.tableClothImage.color = Color.white;
+        tableCloth.filePath = path;
+        tableCloth.isCustom = custom;
+        tableclothItems.Add(item);
     }
 
     // 从文件路径加载纹理

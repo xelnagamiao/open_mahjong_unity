@@ -19,7 +19,8 @@ public class TableCloth : MonoBehaviour
 
     public void OnTableClothButtonClick() { // 保存桌布选择
         ConfigManager.Instance.SetSelectedTableCloth(filePath, isCustom); // 保存选中路径到配置管理器
-        FindObjectOfType<TableClothPanel>().ClearAllTableClothSelection(); // 清除其他选中状态并显示自身选中
+        TableClothPanel panel = GetComponentInParent<TableClothPanel>(true);
+        if (panel != null) panel.ClearAllTableClothSelection();
         tableClothChoseImage.gameObject.SetActive(true); // 显示选中图片
 
         // 根据配置刷新桌布和边框
@@ -36,7 +37,7 @@ public class TableCloth : MonoBehaviour
 
     // 显示或隐藏删除按钮（仅对自定义项目）
     private void ShowDeleteButtonForCustomItem() {
-        TableClothPanel panel = FindObjectOfType<TableClothPanel>();
+        TableClothPanel panel = GetComponentInParent<TableClothPanel>(true);
         if (panel != null && panel.deleteButton != null) {
             if (isCustom) {
                 panel.deleteButton.gameObject.SetActive(true);
@@ -72,11 +73,11 @@ public class TableCloth : MonoBehaviour
     }
 
     private void FinishDelete() {
-        SceneConfigPanel scenePanel = FindObjectOfType<SceneConfigPanel>();
+        SceneConfigPanel scenePanel = GetComponentInParent<SceneConfigPanel>(true);
         if (scenePanel != null) {
             scenePanel.RefreshPage();
         }
-        TableClothPanel panel = FindObjectOfType<TableClothPanel>();
+        TableClothPanel panel = GetComponentInParent<TableClothPanel>(true);
         if (panel != null && panel.deleteButton != null) {
             panel.deleteButton.gameObject.SetActive(false);
         }

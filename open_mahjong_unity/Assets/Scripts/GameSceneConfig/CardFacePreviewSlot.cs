@@ -5,8 +5,7 @@ using UnityEngine.UI;
 public class CardFacePreviewSlot : MonoBehaviour {
     public int tileId;
     public Image image;
-
-    private Image overlay;
+    [SerializeField] private Image overlay;
 
     public void Apply(Sprite sprite, bool dimMissingCustom) {
         Apply(sprite, null, dimMissingCustom);

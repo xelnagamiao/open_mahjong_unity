@@ -32,22 +32,7 @@ public class TableEdgePanel : MonoBehaviour {
         Texture2D[] textures = Resources.LoadAll<Texture2D>(resourcePath);
 
         foreach (Texture2D texture in textures) {
-            // 实例化预制体
-            GameObject item = Instantiate(tableEdgePrefab, contentParent);
-
-            // 获取TableEdge脚本
-            TableEdge tableEdge = item.GetComponent<TableEdge>();
-
-            // 使用预设的Image组件设置纹理为Sprite
-            Sprite sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
-            tableEdge.tableEdgeImage.sprite = sprite;
-            tableEdge.tableEdgeImage.color = Color.white; // 确保颜色为白色以正确显示纹理
-
-            // 设置TableEdge脚本属性
-            tableEdge.filePath = texture.name; // 保存纹理名称作为标识符
-            tableEdge.isCustom = false;
-
-            tableEdgeItems.Add(item);
+            AddTableEdgeItem(texture, texture.name, false);
         }
     }
 
@@ -85,28 +70,9 @@ public class TableEdgePanel : MonoBehaviour {
         }
 
         foreach (string filePath in imageFiles) {
-            // 实例化预制体
-            GameObject item = Instantiate(tableEdgePrefab, contentParent);
-
-            // 加载纹理
             Texture2D texture = LoadTextureFromFile(filePath);
             if (texture != null) {
-                // 获取TableEdge脚本
-                TableEdge tableEdge = item.GetComponent<TableEdge>();
-
-                // 使用预设的Image组件设置纹理为Sprite
-                Sprite sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
-                tableEdge.tableEdgeImage.sprite = sprite;
-                tableEdge.tableEdgeImage.color = Color.white; // 确保颜色为白色以正确显示纹理
-
-                // 设置TableEdge脚本属性
-                tableEdge.filePath = filePath;
-                tableEdge.isCustom = true;
-
-                tableEdgeItems.Add(item);
-            } else {
-                // 加载失败，销毁预制体
-                Destroy(item);
+                AddTableEdgeItem(texture, filePath, true);
             }
         }
     }
@@ -119,15 +85,19 @@ public class TableEdgePanel : MonoBehaviour {
             if (texture == null) {
                 continue;
             }
-            GameObject item = Instantiate(tableEdgePrefab, contentParent);
-            TableEdge tableEdge = item.GetComponent<TableEdge>();
-            Sprite sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
-            tableEdge.tableEdgeImage.sprite = sprite;
-            tableEdge.tableEdgeImage.color = Color.white;
-            tableEdge.filePath = keys[i];
-            tableEdge.isCustom = true;
-            tableEdgeItems.Add(item);
+            AddTableEdgeItem(texture, keys[i], true);
         }
+    }
+
+    void AddTableEdgeItem(Texture2D texture, string path, bool custom) {
+        GameObject item = Instantiate(tableEdgePrefab, contentParent);
+        TableEdge tableEdge = item.GetComponent<TableEdge>();
+        Sprite sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
+        tableEdge.tableEdgeImage.sprite = sprite;
+        tableEdge.tableEdgeImage.color = Color.white;
+        tableEdge.filePath = path;
+        tableEdge.isCustom = custom;
+        tableEdgeItems.Add(item);
     }
 
     // 从文件路径加载纹理

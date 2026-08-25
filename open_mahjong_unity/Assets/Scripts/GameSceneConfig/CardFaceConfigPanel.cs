@@ -24,9 +24,6 @@ public class CardFaceConfigPanel : MonoBehaviour {
         + "• 缺图回退官方牌面；虹雀锁定官方 HQv3.1\n"
         + "• 透明花纹请打开「使用牌面背景」；已自带牌体的整图请选「不使用牌面背景」";
 
-    private static readonly Color TabOn = new Color(0.28f, 0.48f, 0.92f, 1f);
-    private static readonly Color TabOff = new Color(0.17f, 0.21f, 0.30f, 1f);
-
     [SerializeField] private Button tabStandardButton;
     [SerializeField] private Button tabHongqueButton;
     [SerializeField] private Button uploadButton;
@@ -57,31 +54,17 @@ public class CardFaceConfigPanel : MonoBehaviour {
         tabHongqueButton.onClick.AddListener(() => SetTab(true));
         uploadButton.onClick.AddListener(OnUploadClicked);
         restoreButton.onClick.AddListener(OnRestoreClicked);
-        if (packFluffyButton != null) {
-            packFluffyButton.onClick.AddListener(() => OnSelectPack(TilePackIds.PackFluffy));
+        SceneConfigUi.BindClick(packFluffyButton, () => OnSelectPack(TilePackIds.PackFluffy));
+        SceneConfigUi.BindClick(packHkButton, () => OnSelectPack(TilePackIds.PackHkMahjong));
+        SceneConfigUi.BindClick(useBackgroundButton, () => OnToggleBackground(true));
+        SceneConfigUi.BindClick(noBackgroundButton, () => OnToggleBackground(false));
+        SceneConfigUi.BindClick(useTableBackgroundButton, () => OnToggleTableBackground(true));
+        SceneConfigUi.BindClick(noTableBackgroundButton, () => OnToggleTableBackground(false));
+        SceneConfigUi.BindClick(showHandButton, () => OnTogglePreview(false));
+        SceneConfigUi.BindClick(showTableButton, () => OnTogglePreview(true));
+        if (helpText != null && string.IsNullOrWhiteSpace(helpText.text)) {
+            helpText.text = FormatHelp;
         }
-        if (packHkButton != null) {
-            packHkButton.onClick.AddListener(() => OnSelectPack(TilePackIds.PackHkMahjong));
-        }
-        if (useBackgroundButton != null) {
-            useBackgroundButton.onClick.AddListener(() => OnToggleBackground(true));
-        }
-        if (noBackgroundButton != null) {
-            noBackgroundButton.onClick.AddListener(() => OnToggleBackground(false));
-        }
-        if (useTableBackgroundButton != null) {
-            useTableBackgroundButton.onClick.AddListener(() => OnToggleTableBackground(true));
-        }
-        if (noTableBackgroundButton != null) {
-            noTableBackgroundButton.onClick.AddListener(() => OnToggleTableBackground(false));
-        }
-        if (showHandButton != null) {
-            showHandButton.onClick.AddListener(() => OnTogglePreview(false));
-        }
-        if (showTableButton != null) {
-            showTableButton.onClick.AddListener(() => OnTogglePreview(true));
-        }
-        helpText.text = FormatHelp;
         standardSlots = standardPreviewRoot.GetComponentsInChildren<CardFacePreviewSlot>(true);
         hongqueSlots = hongquePreviewRoot.GetComponentsInChildren<CardFacePreviewSlot>(true);
     }
@@ -135,13 +118,7 @@ public class CardFaceConfigPanel : MonoBehaviour {
     }
 
     private static void SetTabColor(Button button, bool on) {
-        // 关闭 Button 的 ColorTint transition，避免 Unity 默认 SelectedColor 覆盖我们手控颜色。
-        if (button != null && button.transition != Selectable.Transition.None)
-        {
-            button.transition = Selectable.Transition.None;
-        }
-        Image image = button != null ? button.GetComponent<Image>() : null;
-        if (image != null) image.color = on ? TabOn : TabOff;
+        SceneConfigUi.SetButtonSelected(button, on);
     }
 
     private void OnUploadClicked() {
@@ -150,7 +127,7 @@ public class CardFaceConfigPanel : MonoBehaviour {
         TilePackStorage.PickZip(OnZipBytes, err => {
             if (!string.IsNullOrEmpty(err) && err != "empty") {
                 SetStatus(err);
-                ShowTip(err);
+                SceneConfigUi.ShowTip(err);
             }
         });
     }
@@ -159,8 +136,8 @@ public class CardFaceConfigPanel : MonoBehaviour {
         TilePackImporter.Result imported = TilePackImporter.Import(zipBytes);
         if (imported == null || !imported.Success) {
             string error = imported != null ? imported.Error : "导入失败";
-            SetStatus(error);
-            ShowTip(error);
+        SetStatus(error);
+        SceneConfigUi.ShowTip(error);
             return;
         }
         TileFaceResolver.ApplyImported(imported, persist: true, enableFlag: true);
@@ -173,7 +150,7 @@ public class CardFaceConfigPanel : MonoBehaviour {
             status += "。" + imported.Warnings[0];
         }
         SetStatus(status);
-        ShowTip("自定义牌面已应用");
+        SceneConfigUi.ShowTip("自定义牌面已应用");
         RefreshPreview();
     }
 
@@ -186,13 +163,13 @@ public class CardFaceConfigPanel : MonoBehaviour {
         HighlightPackButtons();
         RefreshPreview();
         if (packId == TilePackIds.PackOfficial) {
-            ShowTip("已切换官方标准牌面");
+            SceneConfigUi.ShowTip("已切换官方标准牌面");
         }
         else if (packId == TilePackIds.PackFluffy) {
-            ShowTip("已切换 FluffyStuff 牌面");
+            SceneConfigUi.ShowTip("已切换 FluffyStuff 牌面");
         }
         else if (packId == TilePackIds.PackHkMahjong) {
-            ShowTip("已切换香港麻将牌面");
+            SceneConfigUi.ShowTip("已切换香港麻将牌面");
         }
     }
 
@@ -222,7 +199,7 @@ public class CardFaceConfigPanel : MonoBehaviour {
         TileFaceResolver.SetUseHandFaceBackground(enabled);
         HighlightPackButtons();
         RefreshPreview();
-        ShowTip(enabled ? "已使用牌面背景（花纹原样叠加）" : "已关闭牌面背景");
+        SceneConfigUi.ShowTip(enabled ? "已使用牌面背景（花纹原样叠加）" : "已关闭牌面背景");
     }
 
     private void OnToggleTableBackground(bool enabled) {
@@ -234,7 +211,7 @@ public class CardFaceConfigPanel : MonoBehaviour {
             CardFaceBackgroundPanel.Instance.RefreshSolidColorUi();
         }
         RefreshPreview();
-        ShowTip(enabled ? "已使用 3D 牌面背景" : "已关闭 3D 牌面背景");
+        SceneConfigUi.ShowTip(enabled ? "已使用 3D 牌面背景" : "已关闭 3D 牌面背景");
     }
 
     private void OnTogglePreview(bool table) {
@@ -318,11 +295,5 @@ public class CardFaceConfigPanel : MonoBehaviour {
 
     private void SetStatus(string message) {
         statusText.text = message ?? "";
-    }
-
-    private static void ShowTip(string message) {
-        if (NotificationManager.Instance != null) {
-            NotificationManager.Instance.ShowTip("设置", true, message);
-        }
     }
 }

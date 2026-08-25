@@ -33,47 +33,41 @@ public class SceneConfigPanel : MonoBehaviour
             ShowCardFaceBgPanelButton.onClick.AddListener(ShowCardFaceBgPanel);
         }
         HideAllPanelButton.onClick.AddListener(HideAllPanel);
-        tableClothPanel.gameObject.SetActive(false);
-        tableEdgePanel.gameObject.SetActive(false);
-        characterPanel.gameObject.SetActive(false);
-        if (cardBackPanel != null) cardBackPanel.HidePanel();
-        if (cardEdgePanel != null) cardEdgePanel.gameObject.SetActive(false);
-        if (cardFacePanel != null) cardFacePanel.HidePanel();
-        if (cardFaceBgPanel != null) cardFaceBgPanel.HidePanel();
-        RandomTableButton.HookExistingButton();
-#if UNITY_EDITOR
-        CardBackEditorDragReceiver.EnsureOnRoot(gameObject);
-#endif
+        HideContentPanels();
         ShowTableClothPanel();
     }
 
     private void HideContentPanels() {
-        tableClothPanel.gameObject.SetActive(false);
-        tableEdgePanel.gameObject.SetActive(false);
-        characterPanel.gameObject.SetActive(false);
+        SetActive(tableClothPanel, false);
+        SetActive(tableEdgePanel, false);
+        SetActive(characterPanel, false);
         if (cardBackPanel != null) cardBackPanel.HidePanel();
-        if (cardEdgePanel != null) cardEdgePanel.gameObject.SetActive(false);
+        SetActive(cardEdgePanel, false);
         if (cardFacePanel != null) cardFacePanel.HidePanel();
         if (cardFaceBgPanel != null) cardFaceBgPanel.HidePanel();
     }
 
+    private static void SetActive(Component panel, bool active) {
+        if (panel != null) panel.gameObject.SetActive(active);
+    }
+
     private void ShowTableClothPanel() {
         HideContentPanels();
-        tableClothPanel.gameObject.SetActive(true);
-        tableClothPanel.LoadTablecloths();
+        SetActive(tableClothPanel, true);
+        if (tableClothPanel != null) tableClothPanel.LoadTablecloths();
         nowPage = "TableCloth";
     }
 
     private void ShowTableEdgePanel() {
         HideContentPanels();
-        tableEdgePanel.gameObject.SetActive(true);
-        tableEdgePanel.LoadTableEdges();
+        SetActive(tableEdgePanel, true);
+        if (tableEdgePanel != null) tableEdgePanel.LoadTableEdges();
         nowPage = "TableEdge";
     }
 
     private void ShowCharacterPanel() {
         HideContentPanels();
-        characterPanel.gameObject.SetActive(true);
+        SetActive(characterPanel, true);
         nowPage = "Character";
     }
 
@@ -87,7 +81,7 @@ public class SceneConfigPanel : MonoBehaviour
     public void ShowCardEdgePanel() {
         if (cardEdgePanel == null) return;
         HideContentPanels();
-        cardEdgePanel.gameObject.SetActive(true);
+        SetActive(cardEdgePanel, true);
         nowPage = "CardEdge";
     }
 
@@ -112,13 +106,13 @@ public class SceneConfigPanel : MonoBehaviour
 
     public void RefreshPage() {
         if (nowPage == "TableCloth") {
-            tableClothPanel.LoadTablecloths();
+            if (tableClothPanel != null) tableClothPanel.LoadTablecloths();
         } else if (nowPage == "TableEdge") {
-            tableEdgePanel.LoadTableEdges();
+            if (tableEdgePanel != null) tableEdgePanel.LoadTableEdges();
         } else if (nowPage == "CardBack") {
             if (cardBackPanel != null) cardBackPanel.ShowPanel();
         } else if (nowPage == "CardEdge") {
-            if (cardEdgePanel != null) cardEdgePanel.gameObject.SetActive(true);
+            SetActive(cardEdgePanel, true);
         } else if (nowPage == "CardFace") {
             if (cardFacePanel != null) cardFacePanel.ShowPanel();
         } else if (nowPage == "CardFaceBg") {

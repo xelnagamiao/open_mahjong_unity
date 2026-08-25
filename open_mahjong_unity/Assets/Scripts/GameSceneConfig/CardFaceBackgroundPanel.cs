@@ -61,7 +61,7 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         if (useTableFaceSolidButton != null) useTableFaceSolidButton.onClick.AddListener(() => SetTableFaceSolid(true));
         if (noTableFaceSolidButton != null) noTableFaceSolidButton.onClick.AddListener(() => SetTableFaceSolid(false));
         if (restoreTableFaceColorButton != null) restoreTableFaceColorButton.onClick.AddListener(RestoreTableFaceColor);
-        if (helpText != null) helpText.text = FormatHelp;
+        if (helpText != null && string.IsNullOrWhiteSpace(helpText.text)) helpText.text = FormatHelp;
     }
 
     private void OnEnable() {
@@ -69,7 +69,7 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         RefreshSolidColorUi();
 #if UNITY_WEBGL && !UNITY_EDITOR
         UnityAssetIdb.BindDrop(UnityAssetIdb.KeyHandBg, OnWebGlBytes, err => {
-            if (!string.IsNullOrEmpty(err) && err != "empty") ShowTip(err);
+            if (!string.IsNullOrEmpty(err) && err != "empty") SceneConfigUi.ShowTip(err);
         });
 #endif
     }
@@ -96,7 +96,7 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
             : mode == PickMode.TableBg ? UnityAssetIdb.KeyTableBg
             : UnityAssetIdb.KeyHandBg;
         UnityAssetIdb.PickAndPut(key, ImageAccept, OnWebGlBytes, err => {
-            if (!string.IsNullOrEmpty(err) && err != "empty") ShowTip(err);
+            if (!string.IsNullOrEmpty(err) && err != "empty") SceneConfigUi.ShowTip(err);
         });
 #elif (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
         NativeGallery.GetImageFromGallery(path => {
@@ -126,14 +126,14 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
 
     private void ApplyLocalPath(string path) {
         if (string.IsNullOrEmpty(path) || !File.Exists(path)) {
-            ShowTip("文件不存在");
+            SceneConfigUi.ShowTip("文件不存在");
             return;
         }
         try {
             ApplyBytes(File.ReadAllBytes(path), Path.GetFileName(path));
         }
         catch (Exception e) {
-            ShowTip("读取失败: " + e.Message);
+            SceneConfigUi.ShowTip("读取失败: " + e.Message);
         }
     }
 
@@ -150,11 +150,11 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
             if (File.Exists(backPath)) CardBackManager.PersistHandBack(File.ReadAllBytes(backPath));
             if (File.Exists(handPath)) CardBackManager.PersistHandBackground(File.ReadAllBytes(handPath));
             SetStatus("手牌牌背与手牌背景已应用");
-            ShowTip("手牌牌背与手牌背景已应用");
+            SceneConfigUi.ShowTip("手牌牌背与手牌背景已应用");
             RefreshPreviews();
         }
         catch (Exception e) {
-            ShowTip("保存失败: " + e.Message);
+            SceneConfigUi.ShowTip("保存失败: " + e.Message);
         }
     }
 
@@ -170,35 +170,35 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
             if (handBackPng != null) CardBackManager.PersistHandBack(handBackPng);
             if (handBgPng != null) CardBackManager.PersistHandBackground(handBgPng);
             SetStatus("已从 zip 应用牌体");
-            ShowTip("手牌牌背与手牌背景已应用");
+            SceneConfigUi.ShowTip("手牌牌背与手牌背景已应用");
             RefreshPreviews();
             return;
         }
         if (CardBackManager.TryParseTableBgZip(bytes, out byte[] tableBgPng)) {
             CardBackManager.PersistTableBackground(tableBgPng);
             SetStatus("已从 zip 应用 3D 牌面背景");
-            ShowTip("3D 牌面背景已应用");
+            SceneConfigUi.ShowTip("3D 牌面背景已应用");
             RefreshPreviews();
             return;
         }
         if (CardBackManager.IsZip(bytes)) {
-            ShowTip("压缩包需包含 hand-back.png / hand-bg.png 或 table-bg.png");
+            SceneConfigUi.ShowTip("压缩包需包含 hand-back.png / hand-bg.png 或 table-bg.png");
             return;
         }
         if (pickMode == PickMode.TableBg || CardBackManager.IsTableBgFileName(name)) {
             CardBackManager.PersistTableBackground(bytes);
             SetStatus("3D 牌面背景已应用");
-            ShowTip("3D 牌面背景已应用");
+            SceneConfigUi.ShowTip("3D 牌面背景已应用");
         }
         else if (pickMode == PickMode.HandBg || CardBackManager.IsHandBgFileName(name)) {
             CardBackManager.PersistHandBackground(bytes);
             SetStatus("手牌牌面背景已应用");
-            ShowTip("手牌牌面背景已应用");
+            SceneConfigUi.ShowTip("手牌牌面背景已应用");
         }
         else {
             CardBackManager.PersistHandBack(bytes);
             SetStatus("手牌牌背已应用");
-            ShowTip("手牌牌背已应用");
+            SceneConfigUi.ShowTip("手牌牌背已应用");
         }
         RefreshPreviews();
     }
@@ -206,28 +206,28 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
     private void RestoreHandBg() {
         CardBackManager.ClearPersistedHandBackground();
         SetStatus("已恢复默认手牌背景");
-        ShowTip("已恢复默认手牌背景");
+        SceneConfigUi.ShowTip("已恢复默认手牌背景");
         RefreshPreviews();
     }
 
     private void ClearCardBack() {
         CardBackManager.ClearPersistedHandBack();
         SetStatus("已恢复默认手牌牌背");
-        ShowTip("已恢复默认手牌牌背");
+        SceneConfigUi.ShowTip("已恢复默认手牌牌背");
         RefreshPreviews();
     }
 
     private void RestoreTableBg() {
         CardBackManager.ClearPersistedTableBackground();
         SetStatus("已恢复默认 3D 牌面背景");
-        ShowTip("已恢复默认 3D 牌面背景");
+        SceneConfigUi.ShowTip("已恢复默认 3D 牌面背景");
         RefreshPreviews();
     }
 
     private void ClearTableBg() {
         CardBackManager.ClearPersistedTableBackground();
         SetStatus("已删除 3D 牌面背景");
-        ShowTip("已删除 3D 牌面背景");
+        SceneConfigUi.ShowTip("已删除 3D 牌面背景");
         RefreshPreviews();
     }
 
@@ -281,16 +281,14 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
 
     private void ApplyTableFaceHex() {
         if (tableFaceHexInput == null) return;
-        string hex = (tableFaceHexInput.text ?? "").Trim().TrimStart('#');
-        if (hex.Length == 6) hex += "FF";
-        if (hex.Length != 8 || !ColorUtility.TryParseHtmlString("#" + hex, out Color color)) {
-            ShowTip("颜色格式应为 RRGGBB");
+        if (!SceneConfigUi.TryParseHex(tableFaceHexInput.text, out Color color)) {
+            SceneConfigUi.ShowTip("颜色格式应为 RRGGBB");
             return;
         }
         color.a = 1f;
         CardBackManager.SetTableFaceColor(color);
         RefreshSolidColorUi();
-        ShowTip("已应用 3D 牌面纯色");
+        SceneConfigUi.ShowTip("已应用 3D 牌面纯色");
     }
 
     private void SetTableFaceSolid(bool enabled) {
@@ -299,7 +297,7 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         if (CardFaceConfigPanel.Instance != null) {
             CardFaceConfigPanel.Instance.RefreshHighlights();
         }
-        ShowTip(enabled ? "已使用 3D 牌面纯色（已关闭 3D 牌面背景）" : "已关闭 3D 牌面纯色");
+        SceneConfigUi.ShowTip(enabled ? "已使用 3D 牌面纯色（已关闭 3D 牌面背景）" : "已关闭 3D 牌面纯色");
     }
 
     private void RestoreTableFaceColor() {
@@ -309,20 +307,11 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         if (CardFaceConfigPanel.Instance != null) {
             CardFaceConfigPanel.Instance.RefreshHighlights();
         }
-        ShowTip("已恢复默认 3D 牌面颜色");
+        SceneConfigUi.ShowTip("已恢复默认 3D 牌面颜色");
     }
 
     private static void SetSolidButton(Button button, bool on) {
-        if (button == null) return;
-        if (button.transition != Selectable.Transition.None) {
-            button.transition = Selectable.Transition.None;
-        }
-        Image image = button.GetComponent<Image>();
-        if (image != null) {
-            image.color = on
-                ? new Color(0.28f, 0.48f, 0.92f, 1f)
-                : new Color(0.17f, 0.21f, 0.30f, 1f);
-        }
+        SceneConfigUi.SetButtonSelected(button, on);
     }
 
     private static void AssignPreview(Image image, ref Sprite sprite, Texture2D texture) {
@@ -346,12 +335,6 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         if (statusText != null) statusText.text = message ?? "";
     }
 
-    private static void ShowTip(string message) {
-        if (NotificationManager.Instance != null) {
-            NotificationManager.Instance.ShowTip("设置", true, message);
-        }
-    }
-
 #if UNITY_EDITOR
     /// <summary>编辑器拖拽入口：把拖入的图片应用到 3D 牌面背景。</summary>
     public void ApplyEditorDroppedTableBackground(Texture2D source) {
@@ -369,7 +352,7 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         UnityEngine.Object.DestroyImmediate(copy);
         CardBackManager.PersistTableBackground(png);
         RefreshPreviews();
-        ShowTip("3D 牌面背景已应用");
+        SceneConfigUi.ShowTip("3D 牌面背景已应用");
     }
 #endif
 }

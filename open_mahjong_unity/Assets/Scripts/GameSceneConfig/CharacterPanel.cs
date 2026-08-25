@@ -1,9 +1,6 @@
 using UnityEngine;
 
-public class CharacterPanel : MonoBehaviour {
-    // 初始化面板
-    public void Init() {
-        // 这里添加角色面板的初始化逻辑
-        Debug.Log("角色面板已初始化");
-    }
+/// <summary>角色页由场景绘制，当前无额外运行时逻辑。</summary>
+public class CharacterPanel : MonoBehaviour
+{
 }

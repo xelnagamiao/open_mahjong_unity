@@ -138,7 +138,7 @@ public class UploadFile : MonoBehaviour {
     // 通知SceneConfigPanel刷新当前页面
     private void NotifyPanelRefresh() {
         NotificationManager.Instance.ShowTip("",true,"文件上传成功");
-        SceneConfigPanel sceneConfigPanel = FindObjectOfType<SceneConfigPanel>();
+        SceneConfigPanel sceneConfigPanel = GetComponentInParent<SceneConfigPanel>(true);
         if (sceneConfigPanel != null) {
             sceneConfigPanel.RefreshPage();
             Debug.Log("已通知SceneConfigPanel刷新页面");

@@ -19,11 +19,11 @@ public static class CardBackEdgePanelBinder
     [MenuItem("Tools/Game/挂载牌背与牌边面板")]
     public static void BindFromMenu()
     {
-        int n = BindOpenScene(organize: true);
+        int n = BindOpenScene(organize: false);
         EditorUtility.DisplayDialog(
             "牌背 / 牌边面板",
             n > 0
-                ? "已挂载 Inspector 引用，并整理色块嵌套（世界坐标不变）。\n请立刻 Ctrl+S 保存场景。"
+                ? "已挂载 Inspector 引用。\n请立刻 Ctrl+S 保存场景。绘制请用「Tools/Game/烘焙场景设置绘制」。"
                 : "当前打开的场景里找不到 CardBackPanel 或 EdgeSection。请先打开 MainScene。",
             "好的");
     }
