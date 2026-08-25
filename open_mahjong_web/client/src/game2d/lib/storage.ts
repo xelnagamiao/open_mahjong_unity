@@ -34,7 +34,18 @@ export function loadStoredSceneAppearance(): SceneAppearanceSettings {
       stored.flowerAreaColor = DEFAULT_SCENE_APPEARANCE.flowerAreaColor
       stored.flowerAreaAlpha = DEFAULT_SCENE_APPEARANCE.flowerAreaAlpha
     }
-    return normalizeSceneAppearanceSettings(stored)
+    const flowerImageDefaultKey = 'mmcr14.flowerFaceImageDefault'
+    let migratedFlowerDefault = false
+    if (!localStorage.getItem(flowerImageDefaultKey)) {
+      stored.flowerFaceTheme = 'unity'
+      localStorage.setItem(flowerImageDefaultKey, '1')
+      migratedFlowerDefault = true
+    }
+    const normalized = normalizeSceneAppearanceSettings(stored)
+    if (migratedFlowerDefault) {
+      localStorage.setItem(SCENE_APPEARANCE_STORAGE_KEY, JSON.stringify(normalized))
+    }
+    return normalized
   } catch {
     localStorage.removeItem(SCENE_APPEARANCE_STORAGE_KEY)
     return DEFAULT_SCENE_APPEARANCE

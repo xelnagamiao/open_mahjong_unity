@@ -48,7 +48,7 @@ export function tileFaceAssetUrl(
     return `${root}/${folder}/Back.svg`
   }
   if (isFlowerFaceId(faceId) && options.unityFlower) {
-    return `${root}/Unity/${faceId}.png`
+    return `${root}/Unity/${faceId}.svg`
   }
   const folder = options.black && !isFlowerFaceId(faceId) ? 'Black' : 'Regular'
   return `${root}/${folder}/${faceId}.svg`

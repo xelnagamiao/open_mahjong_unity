@@ -34,7 +34,7 @@ test('white dragon url is 46.svg, not z6 or Bai', () => {
   assert.equal(url, '/game2d-assets/textures/riichi-mahjong-tiles/Regular/46.svg')
 })
 
-test('unity flowers use numeric png names', () => {
+test('unity flowers use numeric svg names', () => {
   const url = tileFaceAssetUrl(52, { baseUrl: '/', unityFlower: true })
-  assert.equal(url, '/game2d-assets/textures/riichi-mahjong-tiles/Unity/52.png')
+  assert.equal(url, '/game2d-assets/textures/riichi-mahjong-tiles/Unity/52.svg')
 })

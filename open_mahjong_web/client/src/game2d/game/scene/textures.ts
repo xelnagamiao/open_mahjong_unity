@@ -5,7 +5,7 @@ import type { FlowerFaceTheme, TileFaceTheme } from '../../lib/sceneAppearance'
 let loaded = false
 let loadPromise: Promise<void> | null = null
 let tileFaceTheme: TileFaceTheme = 'regular'
-let flowerFaceTheme: FlowerFaceTheme = 'flat'
+let flowerFaceTheme: FlowerFaceTheme = 'unity'
 
 export function setTileThemes(tileTheme: TileFaceTheme, flowerTheme: FlowerFaceTheme): void {
   tileFaceTheme = tileTheme

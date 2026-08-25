@@ -37,8 +37,10 @@
       :aria-pressed="appearance.forcePassEnabled"
       @click="$emit('force-pass', !appearance.forcePassEnabled)"
     >
-      <span class="assist-switch__label">战术鸣牌放弃</span>
-      <span class="assist-switch__value">{{ appearance.forcePassEnabled ? '开' : '关' }}</span>
+      <span class="assist-switch__label">显示放弃按钮</span>
+      <span class="assist-switch__track" aria-hidden="true">
+        <span class="assist-switch__thumb" />
+      </span>
     </button>
 
     <button
@@ -62,7 +64,9 @@
       @click="$emit('assist-update', { confirmDiscard: !settings.confirmDiscard })"
     >
       <span class="assist-switch__label">二次点击确认出牌</span>
-      <span class="assist-switch__value">{{ settings.confirmDiscard ? '是' : '否' }}</span>
+      <span class="assist-switch__track" aria-hidden="true">
+        <span class="assist-switch__thumb" />
+      </span>
     </button>
   </div>
 </template>

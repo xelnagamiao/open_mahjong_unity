@@ -42,7 +42,7 @@ export const TILE_TEXTURE_PATHS: { alias: string; src: string }[] = [
   })),
   ...FLOWER_IDS.map((id) => ({
     alias: `unity-${id}`,
-    src: `${TILE_ROOT}/Unity/${id}.png`,
+    src: `${TILE_ROOT}/Unity/${id}.svg`,
   })),
 ]
 

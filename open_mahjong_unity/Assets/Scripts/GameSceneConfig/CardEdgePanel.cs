@@ -87,6 +87,12 @@ public class CardEdgePanel : MonoBehaviour
         BindUi();
     }
 
+    private void Start()
+    {
+        // Toggle.Start 可能在本脚本 Awake 之后再 CrossFadeAlpha；再刷一次底色。
+        UpdateModeToggleColors();
+    }
+
     private void BindUi()
     {
         AutoWireMissingRefs();
@@ -114,6 +120,12 @@ public class CardEdgePanel : MonoBehaviour
             frontEdgeModeFollowBackEdge.onValueChanged.AddListener(on => { if (on) SetFrontEdgeMode(FrontEdgeMode.FollowBackEdge); });
         }
         if (frontEdgeHexApplyButton != null) frontEdgeHexApplyButton.onClick.AddListener(ApplyFrontEdgeHex);
+        PrepareModeToggle(backEdgeModeIndependent);
+        PrepareModeToggle(backEdgeModeFollowBack);
+        PrepareModeToggle(backEdgeModeFollowFront);
+        PrepareModeToggle(frontEdgeModeIndependent);
+        PrepareModeToggle(frontEdgeModeFollowTableBg);
+        PrepareModeToggle(frontEdgeModeFollowBackEdge);
         BindSwatches(sideSwatches, SetSideColor);
         BindSwatches(backEdgeSwatches, SetBackEdgeColor);
         BindSwatches(frontEdgeSwatches, SetFrontEdgeColor);
@@ -499,25 +511,57 @@ public class CardEdgePanel : MonoBehaviour
         SetToggleColor(frontEdgeModeFollowBackEdge, currentFrontEdgeMode == FrontEdgeMode.FollowBackEdge);
     }
 
+    /// <summary>
+    /// 场景里这几个模式 Toggle 把同一张 Image 既当底又当 checkmark。
+    /// Unity Toggle Fade 会按 isOn 把 graphic 透明度打到 0，未选中就变成全透明。
+    /// </summary>
+    private static void PrepareModeToggle(Toggle toggle)
+    {
+        if (toggle == null) return;
+        toggle.transition = Selectable.Transition.None;
+        toggle.toggleTransition = Toggle.ToggleTransition.None;
+        if (toggle.graphic != null && toggle.graphic == toggle.targetGraphic)
+        {
+            toggle.graphic = null;
+        }
+        Image bg = toggle.targetGraphic as Image;
+        if (bg == null) bg = toggle.GetComponent<Image>();
+        if (bg == null) return;
+        if (bg.sprite == null)
+        {
+            bg.sprite = DefaultUiSprite();
+            bg.type = Image.Type.Simple;
+        }
+        bg.canvasRenderer.SetAlpha(1f);
+    }
+
+    private static Sprite _defaultUiSprite;
+
+    private static Sprite DefaultUiSprite()
+    {
+        if (_defaultUiSprite != null) return _defaultUiSprite;
+        _defaultUiSprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/UISprite.psd");
+        if (_defaultUiSprite != null) return _defaultUiSprite;
+        Texture2D tex = Texture2D.whiteTexture;
+        _defaultUiSprite = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
+        return _defaultUiSprite;
+    }
+
     private static void SetToggleColor(Toggle toggle, bool selected)
     {
         if (toggle == null) return;
-        // 关闭 ColorTint 等 transition，避免 Unity 默认 Selectable 在 hover/press 时用 SelectedColor/PressedColor
-        // 覆盖我们手动控制的颜色（导致"鼠标指向消失 / 点击有奇怪感觉"）。
-        if (toggle.transition != Selectable.Transition.None)
-        {
-            toggle.transition = Selectable.Transition.None;
-        }
-        // Unity Toggle：background 通常挂在 targetGraphic（Image），checkmark 挂在 graphic。
-        // 我们手动让 background = selected 橙、其余深蓝；checkmark 用白色（透明度区分）。
+        PrepareModeToggle(toggle);
         Image bg = toggle.targetGraphic as Image;
+        if (bg == null) bg = toggle.GetComponent<Image>();
         if (bg != null)
         {
             bg.color = selected ? SelectedColor : UnselectedColor;
+            bg.canvasRenderer.SetAlpha(1f);
         }
         else if (toggle.targetGraphic != null)
         {
             toggle.targetGraphic.color = selected ? SelectedColor : UnselectedColor;
+            toggle.targetGraphic.canvasRenderer.SetAlpha(1f);
         }
         Image check = toggle.graphic as Image;
         if (check != null && check != bg)
