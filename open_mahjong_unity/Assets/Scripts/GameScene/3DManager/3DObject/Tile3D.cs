@@ -382,7 +382,7 @@ public class Tile3D : MonoBehaviour
         if (sharedTileMaterial != null) {
             sharedTileMaterial.SetTexture(BackTexId, backTexture);
             sharedTileMaterial.SetFloat(BackTexBlendId, backTexture != null ? 1f : 0f);
-            sharedTileMaterial.SetFloat(BackTexExtendEdgeId, CardBackManager.BackTexExtendEdge && backTexture != null ? 1f : 0f);
+            sharedTileMaterial.SetFloat(BackTexExtendEdgeId, 0f);
         }
         ApplyPropertyBlock();
     }

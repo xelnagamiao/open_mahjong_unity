@@ -6,7 +6,8 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
-/// 用 Editor API 把信息/屏蔽菜单挂到四个玩家面板，并用 SerializedObject 写入 Inspector 引用（相当于拖拽赋值）。
+/// 仅菜单执行：把信息/屏蔽菜单挂到四个玩家面板，并用 SerializedObject 写入 Inspector。
+/// 禁止 InitializeOnLoad 自动跑。
 /// </summary>
 public static class PlayerActionMenuBaker {
     const string VisibleSpritePath = "Assets/Resources/Icon/iconmonstr.com/iconmonstr-x-mark-square-lined-240.png";

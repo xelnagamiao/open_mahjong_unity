@@ -6,8 +6,8 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
-/// 用 Editor API 在已打开的 MainScene 里绘制通知活动面板，不直接改 YAML。
-/// 场景调好后可再删此工具。
+/// 仅菜单执行：用 Editor API 在已打开的 MainScene 里绘制通知活动面板。
+/// 禁止 InitializeOnLoad 自动跑。执行后必须手动保存场景。
 /// </summary>
 public static class NoticePanelBaker {
     private const string PrefabDir = "Assets/Prefabs/Notice";
@@ -40,11 +40,20 @@ public static class NoticePanelBaker {
 
     [MenuItem("Tools/Notice/重建通知活动面板")]
     public static void Build() {
-        GameObject notice = FindInOpenScenes("NoticePanel");
-        if (notice == null) {
+        if (!BuildSilent()) {
             EditorUtility.DisplayDialog("通知面板", "当前打开的场景里找不到 NoticePanel。请先打开 MainScene。", "好的");
             return;
         }
+        EditorUtility.DisplayDialog(
+            "通知面板",
+            "已在 NoticePanel 下绘制 Header、标准 Scroll View、4 条示例和详情窗。\n请立刻 Ctrl+S 保存场景，否则关闭时选 Don't Save 会全部丢掉。运行时会隐藏示例并加载 /activity-assets。",
+            "好的"
+        );
+    }
+
+    public static bool BuildSilent() {
+        GameObject notice = FindInOpenScenes("NoticePanel");
+        if (notice == null) return false;
 
         Undo.RegisterFullObjectHierarchyUndo(notice, "重建通知活动面板");
         GameObject itemPrefab = SaveActivityItemPrefab();
@@ -70,15 +79,23 @@ public static class NoticePanelBaker {
         so.FindProperty("headerTitle").objectReferenceValue = headerTitle;
         so.ApplyModifiedPropertiesWithoutUndo();
 
+        ClearImageSprites(notice);
+        if (itemPrefab != null) ClearImageSprites(itemPrefab);
+
         EditorUtility.SetDirty(notice);
         EditorUtility.SetDirty(panel);
         if (notice.scene.IsValid()) EditorSceneManager.MarkSceneDirty(notice.scene);
-        Selection.activeGameObject = notice;
-        EditorUtility.DisplayDialog(
-            "通知面板",
-            "已在 NoticePanel 下绘制 Header、标准 Scroll View、4 条示例和详情窗。\n请保存场景。运行时会隐藏示例并加载 /activity-assets。",
-            "好的"
-        );
+        return true;
+    }
+
+    public static void ClearImageSprites(GameObject root) {
+        if (root == null) return;
+        Image[] images = root.GetComponentsInChildren<Image>(true);
+        for (int i = 0; i < images.Length; i++) {
+            if (images[i] == null) continue;
+            images[i].sprite = null;
+            EditorUtility.SetDirty(images[i]);
+        }
     }
 
     private static GameObject SaveActivityItemPrefab() {
@@ -96,8 +113,7 @@ public static class NoticePanelBaker {
     private static GameObject BuildActivityItemObject(Transform parent) {
         GameObject root = CreateUi("ActivityItem", parent);
         Image bg = root.AddComponent<Image>();
-        bg.sprite = UiSprite();
-        bg.type = Image.Type.Sliced;
+        bg.sprite = null;
         bg.color = CardBg;
         bg.raycastTarget = true;
         Button button = root.AddComponent<Button>();
@@ -214,7 +230,7 @@ public static class NoticePanelBaker {
         GameObject root = CreateUi("ActivityDetailPanel", chrome);
         Stretch(root.GetComponent<RectTransform>());
         Image dim = root.AddComponent<Image>();
-        dim.sprite = UiSprite();
+        dim.sprite = null;
         dim.color = new Color(0.05f, 0.06f, 0.08f, 0.98f);
         dim.raycastTarget = true;
 
@@ -245,7 +261,7 @@ public static class NoticePanelBaker {
         closeRt.anchoredPosition = new Vector2(-20f, 0f);
         closeRt.sizeDelta = new Vector2(72f, 40f);
         Image closeBg = closeGo.AddComponent<Image>();
-        closeBg.sprite = UiSprite();
+        closeBg.sprite = null;
         closeBg.color = HeaderGold;
         Button closeBtn = closeGo.AddComponent<Button>();
         closeBtn.targetGraphic = closeBg;
@@ -298,8 +314,7 @@ public static class NoticePanelBaker {
         GameObject root = CreateUi(name, parent);
         Stretch(root.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, offsetMin, offsetMax);
         Image rootImage = root.AddComponent<Image>();
-        rootImage.sprite = UiSprite();
-        rootImage.type = Image.Type.Sliced;
+        rootImage.sprite = null;
         rootImage.color = new Color(1f, 1f, 1f, 0.04f);
         rootImage.raycastTarget = true;
         ScrollRect scroll = root.AddComponent<ScrollRect>();
@@ -307,11 +322,10 @@ public static class NoticePanelBaker {
         GameObject viewport = CreateUi("Viewport", root.transform);
         Stretch(viewport.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, Vector2.zero, new Vector2(-20f, 0f));
         Image viewportImage = viewport.AddComponent<Image>();
-        viewportImage.sprite = UiSprite();
-        viewportImage.color = Color.white;
+        viewportImage.sprite = null;
+        viewportImage.color = new Color(1f, 1f, 1f, 0.001f);
         viewportImage.raycastTarget = true;
-        Mask mask = viewport.AddComponent<Mask>();
-        mask.showMaskGraphic = false;
+        viewport.AddComponent<RectMask2D>();
 
         GameObject content = CreateUi("Content", viewport.transform);
         RectTransform contentRt = content.GetComponent<RectTransform>();
@@ -340,8 +354,7 @@ public static class NoticePanelBaker {
         barRt.anchoredPosition = Vector2.zero;
         barRt.sizeDelta = new Vector2(16f, 0f);
         Image barBg = barGo.AddComponent<Image>();
-        barBg.sprite = UiSprite();
-        barBg.type = Image.Type.Sliced;
+        barBg.sprite = null;
         barBg.color = new Color(0.2f, 0.22f, 0.26f, 0.7f);
         Scrollbar bar = barGo.AddComponent<Scrollbar>();
         bar.direction = Scrollbar.Direction.BottomToTop;
@@ -351,8 +364,7 @@ public static class NoticePanelBaker {
         GameObject handle = CreateUi("Handle", sliding.transform);
         Stretch(handle.GetComponent<RectTransform>());
         Image handleImage = handle.AddComponent<Image>();
-        handleImage.sprite = UiSprite();
-        handleImage.type = Image.Type.Sliced;
+        handleImage.sprite = null;
         handleImage.color = new Color(1f, 0.62f, 0.08f, 0.85f);
         bar.targetGraphic = handleImage;
         bar.handleRect = handle.GetComponent<RectTransform>();
@@ -427,7 +439,7 @@ public static class NoticePanelBaker {
     }
 
     private static Sprite UiSprite() {
-        return AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+        return null;
     }
 
     private static GameObject FindInOpenScenes(string name) {

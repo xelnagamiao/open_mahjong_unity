@@ -25,7 +25,6 @@ public static class CardBackManager
     public static bool BackEdgeSyncEnabled { get; private set; } = true;
     public static CardEdgePanel.BackEdgeMode BackEdgeMode { get; private set; } = CardEdgePanel.BackEdgeMode.FollowBack;
     public static CardEdgePanel.FrontEdgeMode FrontEdgeMode { get; private set; } = CardEdgePanel.FrontEdgeMode.Independent;
-    public static bool BackTexExtendEdge { get; private set; }
     public static string HandBgFilePath => Path.Combine(Application.persistentDataPath, BackImageDirName, HandBgFileName);
     public static string HandBackFilePath => Path.Combine(Application.persistentDataPath, BackImageDirName, HandBackFileName);
     public static string TableBgFilePath => Path.Combine(Application.persistentDataPath, BackImageDirName, TableBgFileName);
@@ -84,7 +83,7 @@ public static class CardBackManager
 
         mat.SetTexture("_BackTex", CurrentTexture);
         mat.SetFloat("_BackTexBlend", CurrentTexture != null ? 1f : 0f);
-        mat.SetFloat("_BackTexExtendEdge", BackTexExtendEdge && CurrentTexture != null ? 1f : 0f);
+        mat.SetFloat("_BackTexExtendEdge", 0f);
         mat.SetColor("_BackColor", CurrentColor);
         mat.SetColor("_SideColor", CurrentSideColor);
         mat.SetColor("_BackEdgeColor", CurrentBackEdgeColor);
@@ -133,7 +132,6 @@ public static class CardBackManager
         BackEdgeSyncEnabled = ConfigManager.Instance.BackEdgeSyncEnabled;
         BackEdgeMode = ConfigManager.Instance.BackEdgeMode;
         ApplyBackEdgeColor(ResolveBackEdgeColor(BackEdgeMode, ConfigManager.Instance.BackEdgeColor));
-        ApplyBackTexExtendEdge(ConfigManager.Instance.BackTexExtendEdge);
         LoadSavedHandBackground();
         LoadSavedHandBack();
         LoadSavedTableBackground();
@@ -229,23 +227,8 @@ public static class CardBackManager
         {
             ApplyBackEdgeColor(color);
         }
-        ApplyBackTexExtendEdge(BackTexExtendEdge);
         _savedConfigApplied = true;
         RefreshEdgePanelPreviews();
-    }
-
-    /// <summary>牌背图片是否铺到背部边缘。</summary>
-    public static void ApplyBackTexExtendEdge(bool enabled)
-    {
-        BackTexExtendEdge = enabled;
-        float value = enabled && CurrentTexture != null ? 1f : 0f;
-        if (CurrentTexture != null)
-        {
-            CurrentTexture.wrapMode = enabled ? TextureWrapMode.Clamp : TextureWrapMode.Repeat;
-        }
-
-        ForEachVisualMaterial(mat => mat.SetFloat("_BackTexExtendEdge", value));
-        ForEachTile3D(tile => tile.ApplyBackVisual(CurrentColor, CurrentTexture));
     }
 
     /// <summary>读取保存的牌背图片（桌面读文件，WebGL 读 IndexedDB）。</summary>

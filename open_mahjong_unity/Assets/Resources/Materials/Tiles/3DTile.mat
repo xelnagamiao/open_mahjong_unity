@@ -130,6 +130,7 @@ Material:
     - _FrontBgBlend: 0
     - _FrontBgTexAspect: 0
     - _FrontRotation: 270
+    - _FrontTexExtendEdge: 0
     - _GlossMapScale: 1
     - _Glossiness: 0.5
     - _GlossyReflections: 1
@@ -163,6 +164,7 @@ Material:
     - _FrontBgColor: {r: 1, g: 1, b: 1, a: 1}
     - _FrontBgTilingOffset: {r: 1, g: 1, b: 0, a: 0}
     - _FrontColor: {r: 1, g: 1, b: 1, a: 1}
+    - _FrontEdgeColor: {r: 0.21960784, g: 0.37254903, b: 0.65882355, a: 1}
     - _FrontTilingOffset: {r: 1, g: 1, b: 0, a: 0}
     - _SideColor: {r: 0.7137255, g: 0.7137255, b: 0.7137255, a: 1}
     - _SideTilingOffset: {r: 1, g: 1, b: 0, a: 0}

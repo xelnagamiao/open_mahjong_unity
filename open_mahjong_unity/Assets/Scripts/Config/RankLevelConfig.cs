@@ -37,7 +37,7 @@ public static class RankLevelConfig {
         {"mcrpl", 135f},
     };
 
-    // 各段位均失pt（三四名扣分基准）
+    // 各段位均失pt（三四名扣分基准，再乘局制系数）
     public static readonly Dictionary<string, float> RankAvgLossPt = new Dictionary<string, float> {
         {"10级", 0f},
         {"9级", 0f},

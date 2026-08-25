@@ -21,6 +21,35 @@ test('mixed shifted chows: gap-step (隔步 3-5-7) does NOT score sansesanbugao'
   assert.ok(result.fan < 8)
 })
 
+test('open 111+999 plus 2345678 must not score 九莲宝灯', () => {
+  const openMelds = ['k11', 'k19']
+  const waits = [
+    { hand: [12, 13, 14, 15, 16, 17, 18, 12], tile: 12, expectedFan: 27 },
+    { hand: [12, 13, 14, 15, 16, 17, 18, 15], tile: 15, expectedFan: 26 },
+    { hand: [12, 13, 14, 15, 16, 17, 18, 18], tile: 18, expectedFan: 27 },
+  ]
+  for (const { hand, tile, expectedFan } of waits) {
+    const result = hepaiCheck(hand, openMelds, ['点和'], tile, false)
+    assert.ok(
+      !result.fanNames.some((name) => name.includes('九莲宝灯')),
+      `open nine-gates shape must not score 九莲宝灯, got ${JSON.stringify(result)}`,
+    )
+    assert.equal(result.fan, expectedFan, `unexpected fan for win ${tile}: ${JSON.stringify(result)}`)
+  }
+
+  const closed = hepaiCheck(
+    [11, 11, 11, 12, 13, 14, 15, 16, 17, 18, 19, 19, 19, 15],
+    [],
+    ['点和'],
+    15,
+    false,
+  )
+  assert.ok(
+    closed.fanNames.some((name) => name.includes('九莲宝灯')),
+    `closed nine-gates must still score, got ${JSON.stringify(closed)}`,
+  )
+})
+
 test('mixed shifted chows: consecutive-step (连步) still scores', () => {
   // rulebook-ish: chi 234p + chi 456m + 789m + 234s + 66s ron 2s
   const result = hepaiCheck(
@@ -50,7 +79,7 @@ test('all annotated Python scoring examples stay in parity', () => {
     return match ? [{ input: JSON.parse(match[1]), expectedFan: Number(match[2]) }] : []
   })
 
-  assert.equal(examples.length, 234, 'Python reference example count changed')
+  assert.equal(examples.length, 237, 'Python reference example count changed')
 
   const failures = []
   for (const { input, expectedFan } of examples) {

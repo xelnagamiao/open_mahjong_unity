@@ -27,11 +27,13 @@ public class PlayerTiles {
     public List<string> fan_list;
     public Dictionary<string, int> point_count_dict; // 存储和牌得分
     public List<string> fan_count_list; // 存储和牌文本
+    public int initial_combination_count; // 副露数；九莲宝灯必须门清
 
     public PlayerTiles(List<int> tiles_list, List<string> combination_list, int complete_step) {
         hand_tiles = new List<int>(tiles_list);
         hand_tiles.Sort();
         this.combination_list = new List<string>(combination_list);
+        this.initial_combination_count = combination_list.Count;
         this.complete_step = complete_step;
         fan_list = new List<string>();
         point_count_dict = new Dictionary<string, int>();
@@ -46,6 +48,7 @@ public class PlayerTiles {
             complete_step
         );
         new_instance.fan_list = new List<string>(fan_list);
+        new_instance.initial_combination_count = initial_combination_count;
         return new_instance;
     }
 }
@@ -691,7 +694,7 @@ public class Chinese_Hepai_Check {
                         save_list.Add(rank);
                     }
                     DebugPrint(string.Join(",", save_list));
-                    if (save_list.SequenceEqual(jiulianbaodeng_list)) {
+                    if (player_tiles.initial_combination_count == 0 && save_list.SequenceEqual(jiulianbaodeng_list)) {
                         player_tiles.fan_list.Add("jiulianbaodeng"); // 九莲宝灯
                     } else {
                         player_tiles.fan_list.Add("qingyise"); // 清一色

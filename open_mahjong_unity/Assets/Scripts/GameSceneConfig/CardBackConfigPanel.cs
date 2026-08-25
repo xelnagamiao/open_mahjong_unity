@@ -68,21 +68,92 @@ public class CardBackConfigPanel : MonoBehaviour
 
     private void BindUi()
     {
-        hexApplyButton.onClick.AddListener(ApplyHex);
-        restoreButton.onClick.AddListener(RestoreDefault);
+        AutoWireMissingRefs();
+
+        if (hexApplyButton != null) hexApplyButton.onClick.AddListener(ApplyHex);
+        if (restoreButton != null) restoreButton.onClick.AddListener(RestoreDefault);
         if (pickImageButton != null) pickImageButton.gameObject.SetActive(false);
         if (dropZoneButton != null) dropZoneButton.gameObject.SetActive(false);
         if (clearImageButton != null) clearImageButton.gameObject.SetActive(false);
-        sliderR.onValueChanged.AddListener(v => SetColor(new Color(v / 255f, currentColor.g, currentColor.b, 1f)));
-        sliderG.onValueChanged.AddListener(v => SetColor(new Color(currentColor.r, v / 255f, currentColor.b, 1f)));
-        sliderB.onValueChanged.AddListener(v => SetColor(new Color(currentColor.r, currentColor.g, v / 255f, 1f)));
+        if (sliderR != null) {
+            sliderR.onValueChanged.AddListener(v => SetColor(new Color(v / 255f, currentColor.g, currentColor.b, 1f)));
+        }
+        if (sliderG != null) {
+            sliderG.onValueChanged.AddListener(v => SetColor(new Color(currentColor.r, v / 255f, currentColor.b, 1f)));
+        }
+        if (sliderB != null) {
+            sliderB.onValueChanged.AddListener(v => SetColor(new Color(currentColor.r, currentColor.g, v / 255f, 1f)));
+        }
         int n = colorSwatches != null ? Mathf.Min(colorSwatches.Length, PresetColors.Length) : 0;
+        bool boundFromArray = false;
         for (int i = 0; i < n; i++)
         {
+            if (colorSwatches[i] == null) continue;
             Color c = PresetColors[i];
             colorSwatches[i].onClick.AddListener(() => SetColor(c));
+            boundFromArray = true;
+        }
+        if (!boundFromArray)
+        {
+            for (int i = 0; i < PresetColors.Length; i++)
+            {
+                Button button = FindInChildren<Button>(transform, "Swatch" + i);
+                if (button == null) continue;
+                Color c = PresetColors[i];
+                button.onClick.AddListener(() => SetColor(c));
+            }
         }
         LoadSavedIntoUI();
+    }
+
+    /// <summary>场景 Inspector 引用经常是空的。按子物体名字补挂。</summary>
+    private void AutoWireMissingRefs()
+    {
+        if (previewImage == null) previewImage = FindInChildren<Image>(transform, "PreviewImage");
+        if (sliderR == null) sliderR = FindInChildren<Slider>(transform, "RSlider");
+        if (sliderG == null) sliderG = FindInChildren<Slider>(transform, "GSlider");
+        if (sliderB == null) sliderB = FindInChildren<Slider>(transform, "BSlider");
+        if (valueR == null) valueR = FindInChildren<TMP_Text>(transform, "RValue");
+        if (valueG == null) valueG = FindInChildren<TMP_Text>(transform, "GValue");
+        if (valueB == null) valueB = FindInChildren<TMP_Text>(transform, "BValue");
+        if (hexInput == null) hexInput = FindInChildren<TMP_InputField>(transform, "HexInput");
+        if (hexApplyButton == null) hexApplyButton = FindInChildren<Button>(transform, "HexApply");
+        if (restoreButton == null) restoreButton = FindInChildren<Button>(transform, "RestoreButton");
+        if (pickImageButton == null) pickImageButton = FindInChildren<Button>(transform, "PickImageButton");
+        if (dropZoneButton == null) dropZoneButton = FindInChildren<Button>(transform, "DropZone");
+        if (clearImageButton == null) clearImageButton = FindInChildren<Button>(transform, "ClearImageButton");
+        if (colorSwatches == null || colorSwatches.Length == 0)
+        {
+            colorSwatches = CollectNamedButtons(transform, "Swatch", PresetColors.Length);
+        }
+    }
+
+    private static Button[] CollectNamedButtons(Transform root, string prefix, int maxCount)
+    {
+        var list = new System.Collections.Generic.List<Button>();
+        for (int i = 0; i < maxCount; i++)
+        {
+            Button button = FindInChildren<Button>(root, prefix + i);
+            if (button == null) break;
+            list.Add(button);
+        }
+        return list.ToArray();
+    }
+
+    private static T FindInChildren<T>(Transform root, string name) where T : Component
+    {
+        if (root == null || string.IsNullOrEmpty(name)) return null;
+        foreach (Transform child in root)
+        {
+            if (child.name == name)
+            {
+                T comp = child.GetComponent<T>();
+                if (comp != null) return comp;
+            }
+            T nested = FindInChildren<T>(child, name);
+            if (nested != null) return nested;
+        }
+        return null;
     }
 
     public void ShowPanel()

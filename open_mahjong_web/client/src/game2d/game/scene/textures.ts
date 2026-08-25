@@ -1,5 +1,5 @@
 import { Assets, Texture } from 'pixi.js'
-import { tileIdToAlias, TILE_TEXTURE_PATHS } from './constants'
+import { isFlowerFaceId, tileIdToAlias, TILE_TEXTURE_PATHS } from './constants'
 import type { FlowerFaceTheme, TileFaceTheme } from '../../lib/sceneAppearance'
 
 let loaded = false
@@ -31,7 +31,7 @@ export function getTexture(tid: number): Texture {
     return (Assets.get(`${theme}-Back`) as Texture | undefined) ?? Texture.WHITE
   }
   const alias = tileIdToAlias(tid)
-  const isFlower = alias.startsWith('Flower')
+  const isFlower = isFlowerFaceId(Number(alias))
   if (isFlower && flowerFaceTheme === 'unity') {
     return (Assets.get(`unity-${alias}`) as Texture | undefined)
       ?? (Assets.get(`regular-${alias}`) as Texture | undefined)

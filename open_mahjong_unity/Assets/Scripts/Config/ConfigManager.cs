@@ -80,7 +80,6 @@ public class ConfigManager : MonoBehaviour {
     private const string KEY_BACK_EDGE_COLOR = "BackEdgeColor";
     private const string KEY_BACK_EDGE_SYNC = "BackEdgeSync";
     private const string KEY_BACK_EDGE_MODE = "BackEdgeMode";
-    private const string KEY_BACK_TEX_EXTEND_EDGE = "BackTexExtendEdge";
     private const string KEY_CUSTOM_STANDARD_TILE_PACK = "CustomStandardTilePack";
     private const string KEY_STANDARD_TILE_PACK_ID = "StandardTilePackId";
     private const string KEY_HAND_BG_PATH = "HandBgImagePath";
@@ -169,8 +168,6 @@ public class ConfigManager : MonoBehaviour {
     public bool BackEdgeSyncEnabled { get; private set; } = true;
     /// <summary>背面边缘颜色模式：独立 / 跟随牌背 / 跟随正面边缘。</summary>
     public CardEdgePanel.BackEdgeMode BackEdgeMode { get; private set; } = CardEdgePanel.BackEdgeMode.FollowBack;
-    /// <summary>3D 牌背图片是否铺到背部边缘，便于整张渐变图。</summary>
-    public bool BackTexExtendEdge { get; private set; }
     /// <summary>标准麻将牌面套装：official / fluffy / hkmahjong / custom。虹雀始终用官方图。</summary>
     public string StandardTilePackId { get; private set; } = TilePackIds.PackOfficial;
     /// <summary>是否使用非官方标准牌面（分层预装或自定义 zip）。</summary>
@@ -255,7 +252,6 @@ public class ConfigManager : MonoBehaviour {
         BackEdgeSyncEnabled = PlayerPrefs.GetInt(KEY_BACK_EDGE_SYNC, 1) == 1;
         BackEdgeMode = (CardEdgePanel.BackEdgeMode)Mathf.Clamp(
             PlayerPrefs.GetInt(KEY_BACK_EDGE_MODE, BackEdgeSyncEnabled ? 1 : 0), 0, 2);
-        BackTexExtendEdge = PlayerPrefs.GetInt(KEY_BACK_TEX_EXTEND_EDGE, 0) == 1;
         FrontEdgeColor = LoadFrontEdgeColor();
         FrontEdgeSyncEnabled = PlayerPrefs.GetInt(KEY_FRONT_EDGE_SYNC, 0) == 1;
         FrontEdgeMode = (CardEdgePanel.FrontEdgeMode)Mathf.Clamp(
@@ -496,13 +492,6 @@ public class ConfigManager : MonoBehaviour {
         BackEdgeMode = enabled ? CardEdgePanel.BackEdgeMode.FollowBack : CardEdgePanel.BackEdgeMode.Independent;
         PlayerPrefs.SetInt(KEY_BACK_EDGE_SYNC, enabled ? 1 : 0);
         PlayerPrefs.SetInt(KEY_BACK_EDGE_MODE, (int)BackEdgeMode);
-        PlayerPrefs.Save();
-    }
-
-    /// <summary>3D 牌背图片是否铺到背部边缘。</summary>
-    public void SetBackTexExtendEdge(bool enabled) {
-        BackTexExtendEdge = enabled;
-        PlayerPrefs.SetInt(KEY_BACK_TEX_EXTEND_EDGE, enabled ? 1 : 0);
         PlayerPrefs.Save();
     }
 

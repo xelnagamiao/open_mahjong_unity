@@ -1,4 +1,5 @@
 import { isMobile } from 'pixi.js'
+import { STANDARD_FACE_IDS, isFlowerFaceId, mmcrFaceId } from '../../lib/tileFaceAsset'
 
 // ── Geometry ──────────────────────────────────────────────────────────
 export const TILE_WIDTH = 360
@@ -23,48 +24,34 @@ export const IS_MOBILE_PHONE = isMobile.any
 export const IS_MOBILE_ANY = isMobile.any
 
 // ── Textures ──────────────────────────────────────────────────────────
-const STANDARD_TILE_NAMES: string[] = []
-for (let i = 1; i <= 9; i += 1) STANDARD_TILE_NAMES.push(`Man${i}`)
-for (let i = 1; i <= 9; i += 1) STANDARD_TILE_NAMES.push(`Pin${i}`)
-for (let i = 1; i <= 9; i += 1) STANDARD_TILE_NAMES.push(`Sou${i}`)
-for (let i = 1; i <= 7; i += 1) STANDARD_TILE_NAMES.push(`z${i}`)
-const TILE_NAMES = [...STANDARD_TILE_NAMES]
-for (let i = 1; i <= 8; i += 1) TILE_NAMES.push(`Flower${i}`)
-
 const ASSET_ROOT = import.meta.env.BASE_URL
+const TILE_ROOT = `${ASSET_ROOT}game2d-assets/textures/riichi-mahjong-tiles`
+const FLOWER_IDS = STANDARD_FACE_IDS.filter(isFlowerFaceId)
+const TABLE_FACE_IDS = STANDARD_FACE_IDS.filter((id) => !isFlowerFaceId(id))
 
 export const TILE_TEXTURE_PATHS: { alias: string; src: string }[] = [
-  { alias: 'regular-Back', src: `${ASSET_ROOT}game2d-assets/textures/riichi-mahjong-tiles/Regular/Back.svg` },
-  ...TILE_NAMES.map((name) => ({
-    alias: `regular-${name}`,
-    src: `${ASSET_ROOT}game2d-assets/textures/riichi-mahjong-tiles/Regular/${name}.svg`,
+  { alias: 'regular-Back', src: `${TILE_ROOT}/Regular/Back.svg` },
+  { alias: 'black-Back', src: `${TILE_ROOT}/Black/Back.svg` },
+  ...STANDARD_FACE_IDS.map((id) => ({
+    alias: `regular-${id}`,
+    src: `${TILE_ROOT}/Regular/${id}.svg`,
   })),
-  { alias: 'black-Back', src: `${ASSET_ROOT}game2d-assets/textures/riichi-mahjong-tiles/Black/Back.svg` },
-  ...STANDARD_TILE_NAMES.map((name) => ({
-    alias: `black-${name}`,
-    src: `${ASSET_ROOT}game2d-assets/textures/riichi-mahjong-tiles/Black/${name}.svg`,
+  ...TABLE_FACE_IDS.map((id) => ({
+    alias: `black-${id}`,
+    src: `${TILE_ROOT}/Black/${id}.svg`,
   })),
-  ...Array.from({ length: 8 }, (_, index) => ({
-    alias: `unity-Flower${index + 1}`,
-    src: `${ASSET_ROOT}game2d-assets/textures/riichi-mahjong-tiles/Unity/Flower${index + 1}.png`,
+  ...FLOWER_IDS.map((id) => ({
+    alias: `unity-${id}`,
+    src: `${TILE_ROOT}/Unity/${id}.png`,
   })),
 ]
 
-/**
- * Map tile id → texture alias (e.g. 0b01000001 → "Man1").
- * Honor ranks follow salasasa/server ids: z5=中 z6=白 z7=发
- * (not Japanese pack order 白发中).
- */
+/** MMCR tile id → 国标数字文件名（11.svg / 46.svg …）。 */
 export function tileIdToAlias(tid: number): string {
-  const suit = tid & 0b11100000
-  const num = tid & 0b00001111
-  if (suit === 0b01000000) return `Man${num}`
-  if (suit === 0b01100000) return `Pin${num}`
-  if (suit === 0b11000000) return `Sou${num}`
-  if (suit === 0b10100000) return `z${num}`
-  if (suit === 0b11100000) return `Flower${num}`
-  return 'z7'
+  return String(mmcrFaceId(tid))
 }
+
+export { isFlowerFaceId }
 
 // ── Sound aliases ─────────────────────────────────────────────────────
 export const SOUND_FILES = [

@@ -661,7 +661,7 @@ public class Kshen_Hepai_Check {
                         save_list.Add(rank);
                     }
                     DebugPrint(string.Join(",", save_list));
-                    if (save_list.SequenceEqual(jiulianbaodeng_list)) {
+                    if (player_tiles.initial_combination_count == 0 && save_list.SequenceEqual(jiulianbaodeng_list)) {
                         player_tiles.fan_list.Add("jiulianbaodeng"); // 九莲宝灯
                     } else {
                         player_tiles.fan_list.Add("qingyise"); // 清一色

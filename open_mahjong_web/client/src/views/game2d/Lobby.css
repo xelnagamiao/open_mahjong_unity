@@ -221,13 +221,12 @@
 .battle-mode .queue-banner + .lobby-grid { margin-top: 20px; }
 
 .match-help-content { color: #262626; }
-.match-help-intro { margin: 0 0 14px; color: #595959; line-height: 1.65; }
 .match-help-meta { margin: 2px 0 14px; display: grid; gap: 8px; }
 .match-help-meta > div { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 10px; }
 .match-help-meta dt { color: #8c8c8c; }
 .match-help-meta dd { margin: 0; color: #262626; }
 .match-help-table-wrap { overflow-x: auto; border: 1px solid #e8e8e8; border-radius: 6px; }
-.match-help-table { width: 100%; min-width: 520px; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.match-help-table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
 .match-help-table th,
 .match-help-table td { padding: 9px 12px; border-bottom: 1px solid #f0f0f0; text-align: left; white-space: nowrap; }
 .match-help-table th { background: #fafafa; color: #595959; font-weight: 600; }
@@ -236,7 +235,8 @@
 .match-loss-section h3 { margin: 0 0 7px; font-size: 17px; }
 .match-loss-section p { margin: 0 0 12px; color: #595959; line-height: 1.65; }
 .match-loss-table-wrap { max-height: 290px; overflow: auto; }
-.match-loss-table { min-width: 460px; }
+.match-loss-table { min-width: 720px; }
+.match-loss-table thead th { vertical-align: middle; }
 
 :global(.match-help-dialog.el-dialog) { max-height: calc(100vh - 32px); display: flex; flex-direction: column; border-radius: 10px; }
 :global(.match-help-dialog .el-dialog__header) { margin-right: 0; padding-bottom: 12px; border-bottom: 1px solid #f0f0f0; }

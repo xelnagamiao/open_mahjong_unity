@@ -52,13 +52,9 @@ public class CardEdgePanel : MonoBehaviour
     [SerializeField] private Toggle backEdgeModeIndependent;
     [SerializeField] private Toggle backEdgeModeFollowBack;
     [SerializeField] private Toggle backEdgeModeFollowFront;
-    [SerializeField] private Toggle backTexExtendEdgeToggle;
     [SerializeField] private Toggle frontEdgeModeIndependent;
     [SerializeField] private Toggle frontEdgeModeFollowTableBg;
     [SerializeField] private Toggle frontEdgeModeFollowBackEdge;
-    // 旧版额外开关，场景里可能还在；运行时隐藏，不再绑定逻辑。
-    [SerializeField] private Toggle frontTexFollowTableBgToggle;
-    [SerializeField] private Toggle frontTexFollowTableBgToEdgeToggle;
     [SerializeField] private Image backSidePreview;
     [SerializeField] private Image frontSidePreview;
     [SerializeField] private TMP_InputField backEdgeHexInput;
@@ -108,9 +104,6 @@ public class CardEdgePanel : MonoBehaviour
         if (backEdgeModeFollowFront != null) {
             backEdgeModeFollowFront.onValueChanged.AddListener(on => { if (on) SetBackEdgeMode(BackEdgeMode.FollowFront); });
         }
-        if (backTexExtendEdgeToggle != null) {
-            backTexExtendEdgeToggle.onValueChanged.AddListener(OnBackTexExtendEdgeChanged);
-        }
         if (frontEdgeModeIndependent != null) {
             frontEdgeModeIndependent.onValueChanged.AddListener(on => { if (on) SetFrontEdgeMode(FrontEdgeMode.Independent); });
         }
@@ -146,15 +139,9 @@ public class CardEdgePanel : MonoBehaviour
         if (backEdgeModeIndependent == null) backEdgeModeIndependent = FindInChildren<Toggle>(transform, "BackEdgeModeIndependent");
         if (backEdgeModeFollowBack == null) backEdgeModeFollowBack = FindInChildren<Toggle>(transform, "BackEdgeModeFollowBack");
         if (backEdgeModeFollowFront == null) backEdgeModeFollowFront = FindInChildren<Toggle>(transform, "BackEdgeModeFollowFront");
-        if (backTexExtendEdgeToggle == null) backTexExtendEdgeToggle = FindInChildren<Toggle>(transform, "BackTexExtendEdge");
         if (frontEdgeModeIndependent == null) frontEdgeModeIndependent = FindInChildren<Toggle>(transform, "FrontEdgeModeIndependent");
         if (frontEdgeModeFollowTableBg == null) frontEdgeModeFollowTableBg = FindInChildren<Toggle>(transform, "FrontEdgeModeFollowTableBg");
         if (frontEdgeModeFollowBackEdge == null) frontEdgeModeFollowBackEdge = FindInChildren<Toggle>(transform, "FrontEdgeModeFollowBackEdge");
-        if (frontTexFollowTableBgToggle == null) frontTexFollowTableBgToggle = FindInChildren<Toggle>(transform, "FrontTexFollowTableBg");
-        if (frontTexFollowTableBgToEdgeToggle == null) {
-            frontTexFollowTableBgToEdgeToggle = FindInChildren<Toggle>(transform, "FrontTexFollowTableBgToEdge");
-        }
-        HideObsoleteFrontTexToggles();
         if (backSidePreview == null) backSidePreview = FindInChildren<Image>(transform, "BackSidePreview");
         if (frontSidePreview == null) frontSidePreview = FindInChildren<Image>(transform, "FrontSidePreview");
         if (backEdgeHexInput == null) backEdgeHexInput = FindInChildren<TMP_InputField>(transform, "BackEdgeHexInput");
@@ -176,6 +163,27 @@ public class CardEdgePanel : MonoBehaviour
             Transform section = FindInChildren<Transform>(transform, "FrontEdgeSection");
             if (section != null) frontEdgeSectionGroup = section.GetComponent<CanvasGroup>();
         }
+        if (sideSwatches == null || sideSwatches.Length == 0) {
+            sideSwatches = CollectNamedButtons(transform, "SideSwatch", PresetColors.Length);
+        }
+        if (backEdgeSwatches == null || backEdgeSwatches.Length == 0) {
+            backEdgeSwatches = CollectNamedButtons(transform, "BackEdgeSwatch", PresetColors.Length);
+        }
+        if (frontEdgeSwatches == null || frontEdgeSwatches.Length == 0) {
+            frontEdgeSwatches = CollectNamedButtons(transform, "FrontEdgeSwatch", PresetColors.Length);
+        }
+    }
+
+    private static Button[] CollectNamedButtons(Transform root, string prefix, int maxCount)
+    {
+        var list = new System.Collections.Generic.List<Button>();
+        for (int i = 0; i < maxCount; i++)
+        {
+            Button button = FindInChildren<Button>(root, prefix + i);
+            if (button == null) break;
+            list.Add(button);
+        }
+        return list.ToArray();
     }
 
     private static void BindSwatches(Button[] buttons, System.Action<Color> apply)
@@ -289,9 +297,6 @@ public class CardEdgePanel : MonoBehaviour
         if (backEdgeModeIndependent != null) backEdgeModeIndependent.isOn = currentBackEdgeMode == BackEdgeMode.Independent;
         if (backEdgeModeFollowBack != null) backEdgeModeFollowBack.isOn = currentBackEdgeMode == BackEdgeMode.FollowBack;
         if (backEdgeModeFollowFront != null) backEdgeModeFollowFront.isOn = currentBackEdgeMode == BackEdgeMode.FollowFront;
-        if (backTexExtendEdgeToggle != null) {
-            backTexExtendEdgeToggle.isOn = ConfigManager.Instance != null && ConfigManager.Instance.BackTexExtendEdge;
-        }
         if (frontEdgeModeIndependent != null) frontEdgeModeIndependent.isOn = currentFrontEdgeMode == FrontEdgeMode.Independent;
         if (frontEdgeModeFollowTableBg != null) frontEdgeModeFollowTableBg.isOn = currentFrontEdgeMode == FrontEdgeMode.FollowTableBg;
         if (frontEdgeModeFollowBackEdge != null) frontEdgeModeFollowBackEdge.isOn = currentFrontEdgeMode == FrontEdgeMode.FollowBackEdge;
@@ -474,25 +479,6 @@ public class CardEdgePanel : MonoBehaviour
         ShowTip("正面边缘颜色已应用");
     }
 
-    /// <summary>场景里遗留的「跟随 3D 牌面背景 / 拉伸到边缘」开关已取消，运行时隐藏。</summary>
-    private void HideObsoleteFrontTexToggles()
-    {
-        HideNamedControl(frontTexFollowTableBgToggle, "FrontTexFollowTableBg");
-        HideNamedControl(frontTexFollowTableBgToEdgeToggle, "FrontTexFollowTableBgToEdge");
-    }
-
-    private void HideNamedControl(Toggle toggle, string name)
-    {
-        Transform target = toggle != null ? toggle.transform : FindInChildren<Transform>(transform, name);
-        if (target == null) return;
-        if (target.parent != null && target.parent != transform
-            && target.parent.name.IndexOf("FrontTexFollow", System.StringComparison.Ordinal) >= 0)
-        {
-            target = target.parent;
-        }
-        target.gameObject.SetActive(false);
-    }
-
     /// <summary>牌背/牌面变化后刷新预览色（不改独立色存储）。</summary>
     public void RefreshPreviews()
     {
@@ -508,22 +494,9 @@ public class CardEdgePanel : MonoBehaviour
         SetToggleColor(backEdgeModeIndependent, currentBackEdgeMode == BackEdgeMode.Independent);
         SetToggleColor(backEdgeModeFollowBack, currentBackEdgeMode == BackEdgeMode.FollowBack);
         SetToggleColor(backEdgeModeFollowFront, currentBackEdgeMode == BackEdgeMode.FollowFront);
-        SetToggleColor(backTexExtendEdgeToggle, backTexExtendEdgeToggle != null && backTexExtendEdgeToggle.isOn);
         SetToggleColor(frontEdgeModeIndependent, currentFrontEdgeMode == FrontEdgeMode.Independent);
         SetToggleColor(frontEdgeModeFollowTableBg, currentFrontEdgeMode == FrontEdgeMode.FollowTableBg);
         SetToggleColor(frontEdgeModeFollowBackEdge, currentFrontEdgeMode == FrontEdgeMode.FollowBackEdge);
-    }
-
-    private void OnBackTexExtendEdgeChanged(bool enabled)
-    {
-        if (syncing) return;
-        if (ConfigManager.Instance != null)
-        {
-            ConfigManager.Instance.SetBackTexExtendEdge(enabled);
-        }
-        CardBackManager.ApplyBackTexExtendEdge(enabled);
-        UpdateModeToggleColors();
-        ShowTip(enabled ? "牌背图片将延伸到背部边缘" : "牌背图片仅覆盖牌背大面");
     }
 
     private static void SetToggleColor(Toggle toggle, bool selected)

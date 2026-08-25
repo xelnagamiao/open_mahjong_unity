@@ -411,6 +411,7 @@ import {
   mmcrSettlementSortKey,
   splitSettlementHand,
 } from '@/game2d/lib/settlementHand'
+import { mmcrFaceId, tileFaceAssetUrl } from '@/game2d/lib/tileFaceAsset'
 import type { ActiveSessionSnapshot, MeldSnapshot } from '@/game2d/game/scene/types'
 import GameScoreboardPanel from './GameScoreboardPanel.vue'
 import SceneAppearancePanel from './SceneAppearancePanel.vue'
@@ -1343,18 +1344,12 @@ function onGameInfoWheel(event: WheelEvent) {
 }
 
 function mmcrTileAsset(tid: number) {
-  const suit = Number(tid) & 0xe0
-  const rank = Number(tid) & 0x0f
-  let prefix = 'z'
-  if (suit === 0x40) prefix = 'Man'
-  else if (suit === 0x60) prefix = 'Pin'
-  else if (suit === 0xc0) prefix = 'Sou'
-  else if (suit === 0xe0) prefix = 'Flower'
-  const folder = appearance.value.tileFaceTheme === 'black' && prefix !== 'Flower' ? 'Black' : 'Regular'
-  if (prefix === 'Flower' && appearance.value.flowerFaceTheme === 'unity') {
-    return `${import.meta.env.BASE_URL}game2d-assets/textures/riichi-mahjong-tiles/Unity/${prefix}${rank}.png`
-  }
-  return `${import.meta.env.BASE_URL}game2d-assets/textures/riichi-mahjong-tiles/${folder}/${prefix}${rank}.svg`
+  const faceId = mmcrFaceId(tid)
+  return tileFaceAssetUrl(faceId, {
+    baseUrl: import.meta.env.BASE_URL,
+    black: appearance.value.tileFaceTheme === 'black',
+    unityFlower: appearance.value.flowerFaceTheme === 'unity' && faceId >= 51 && faceId <= 58,
+  })
 }
 
 function persistAppearance(next: typeof appearance.value) {

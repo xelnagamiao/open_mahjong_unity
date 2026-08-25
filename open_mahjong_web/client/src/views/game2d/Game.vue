@@ -439,6 +439,7 @@ import {
   salasasaSettlementSortKey,
   splitSettlementHand,
 } from '@/game2d/lib/settlementHand'
+import { mmcrFaceId, salasasaFaceId, tileFaceAssetUrl } from '@/game2d/lib/tileFaceAsset'
 import {
   clearStoredSceneBackgroundImage,
   loadStoredSceneBackgroundImage,
@@ -1313,29 +1314,22 @@ function patchAssistSettings(partial) {
   scene?.setAssistSettings(assistSettings.value)
 }
 
+function faceAssetOptions(faceId) {
+  return {
+    baseUrl: import.meta.env.BASE_URL,
+    black: appearance.value.tileFaceTheme === 'black',
+    unityFlower: appearance.value.flowerFaceTheme === 'unity' && faceId >= 51 && faceId <= 58,
+  }
+}
+
 function mmcrTileAsset(tid) {
-  const suit = Number(tid) & 0xe0
-  const rank = Number(tid) & 0x0f
-  let prefix = 'z'
-  if (suit === 0x40) prefix = 'Man'
-  else if (suit === 0x60) prefix = 'Pin'
-  else if (suit === 0xc0) prefix = 'Sou'
-  else if (suit === 0xa0) prefix = 'z'
-  else if (suit === 0xe0) prefix = 'Flower'
-  const folder = appearance.value.tileFaceTheme === 'black' && prefix !== 'Flower' ? 'Black' : 'Regular'
-  return `${import.meta.env.BASE_URL}game2d-assets/textures/riichi-mahjong-tiles/${folder}/${prefix}${rank}.svg`
+  const faceId = mmcrFaceId(tid)
+  return tileFaceAssetUrl(faceId, faceAssetOptions(faceId))
 }
 
 function tileAsset(tile) {
-  const normalized = Number(tile) >= 100 ? Number(tile) % 100 : Number(tile)
-  const suit = Math.floor(normalized / 10)
-  const rank = normalized % 10
-  const prefix = ({ 1: 'Man', 2: 'Pin', 3: 'Sou', 4: 'z', 5: 'Flower' })[suit] || 'z'
-  if (suit === 5 && appearance.value.flowerFaceTheme === 'unity') {
-    return `${import.meta.env.BASE_URL}game2d-assets/textures/riichi-mahjong-tiles/Unity/${prefix}${rank}.png`
-  }
-  const folder = appearance.value.tileFaceTheme === 'black' && suit !== 5 ? 'Black' : 'Regular'
-  return `${import.meta.env.BASE_URL}game2d-assets/textures/riichi-mahjong-tiles/${folder}/${prefix}${rank}.svg`
+  const faceId = salasasaFaceId(tile)
+  return tileFaceAssetUrl(faceId, faceAssetOptions(faceId))
 }
 
 watch(() => session.player?.user_id, async (userId) => {
