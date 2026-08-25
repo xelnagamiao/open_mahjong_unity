@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 /// <summary>
 /// 场景设置「牌面」页：标准麻将可上传 zip，虹雀只读官方图。
-/// 引用由场景烘焙写入，运行时只换图和切 tab。
+/// 引用由场景拖好，运行时只换图和切 tab。
 /// </summary>
 public class CardFaceConfigPanel : MonoBehaviour {
     public static CardFaceConfigPanel Instance { get; private set; }
@@ -62,9 +62,6 @@ public class CardFaceConfigPanel : MonoBehaviour {
         SceneConfigUi.BindClick(noTableBackgroundButton, () => OnToggleTableBackground(false));
         SceneConfigUi.BindClick(showHandButton, () => OnTogglePreview(false));
         SceneConfigUi.BindClick(showTableButton, () => OnTogglePreview(true));
-        if (helpText != null && string.IsNullOrWhiteSpace(helpText.text)) {
-            helpText.text = FormatHelp;
-        }
         standardSlots = standardPreviewRoot.GetComponentsInChildren<CardFacePreviewSlot>(true);
         hongqueSlots = hongquePreviewRoot.GetComponentsInChildren<CardFacePreviewSlot>(true);
     }
@@ -101,15 +98,15 @@ public class CardFaceConfigPanel : MonoBehaviour {
         standardActions.SetActive(!showingHongque);
         uploadButton.gameObject.SetActive(!showingHongque);
         restoreButton.gameObject.SetActive(!showingHongque);
-        if (packFluffyButton != null) packFluffyButton.gameObject.SetActive(!showingHongque);
-        if (packHkButton != null) packHkButton.gameObject.SetActive(!showingHongque);
-        if (useBackgroundButton != null) useBackgroundButton.gameObject.SetActive(!showingHongque && !showingTablePreview);
-        if (noBackgroundButton != null) noBackgroundButton.gameObject.SetActive(!showingHongque && !showingTablePreview);
-        if (useTableBackgroundButton != null) useTableBackgroundButton.gameObject.SetActive(!showingHongque && showingTablePreview);
-        if (noTableBackgroundButton != null) noTableBackgroundButton.gameObject.SetActive(!showingHongque && showingTablePreview);
-        if (showHandButton != null) showHandButton.gameObject.SetActive(!showingHongque);
-        if (showTableButton != null) showTableButton.gameObject.SetActive(!showingHongque);
-        if (standardViewActions != null) standardViewActions.SetActive(!showingHongque);
+        packFluffyButton.gameObject.SetActive(!showingHongque);
+        packHkButton.gameObject.SetActive(!showingHongque);
+        useBackgroundButton.gameObject.SetActive(!showingHongque && !showingTablePreview);
+        noBackgroundButton.gameObject.SetActive(!showingHongque && !showingTablePreview);
+        useTableBackgroundButton.gameObject.SetActive(!showingHongque && showingTablePreview);
+        noTableBackgroundButton.gameObject.SetActive(!showingHongque && showingTablePreview);
+        showHandButton.gameObject.SetActive(!showingHongque);
+        showTableButton.gameObject.SetActive(!showingHongque);
+        standardViewActions.SetActive(!showingHongque);
         HighlightPackButtons();
     }
 
@@ -179,20 +176,16 @@ public class CardFaceConfigPanel : MonoBehaviour {
             : TilePackIds.PackOfficial;
         SetTabColor(restoreButton, packId == TilePackIds.PackOfficial);
         SetTabColor(uploadButton, packId == TilePackIds.PackCustom);
-        if (packFluffyButton != null) {
-            SetTabColor(packFluffyButton, packId == TilePackIds.PackFluffy);
-        }
-        if (packHkButton != null) {
-            SetTabColor(packHkButton, packId == TilePackIds.PackHkMahjong);
-        }
+        SetTabColor(packFluffyButton, packId == TilePackIds.PackFluffy);
+        SetTabColor(packHkButton, packId == TilePackIds.PackHkMahjong);
         bool useBg = ConfigManager.Instance != null && ConfigManager.Instance.UseHandFaceBackground;
-        if (useBackgroundButton != null) SetTabColor(useBackgroundButton, useBg);
-        if (noBackgroundButton != null) SetTabColor(noBackgroundButton, !useBg);
+        SetTabColor(useBackgroundButton, useBg);
+        SetTabColor(noBackgroundButton, !useBg);
         bool useTableBg = ConfigManager.Instance != null && ConfigManager.Instance.UseTableFaceBackground;
-        if (useTableBackgroundButton != null) SetTabColor(useTableBackgroundButton, useTableBg);
-        if (noTableBackgroundButton != null) SetTabColor(noTableBackgroundButton, !useTableBg);
-        if (showHandButton != null) SetTabColor(showHandButton, !showingTablePreview);
-        if (showTableButton != null) SetTabColor(showTableButton, showingTablePreview);
+        SetTabColor(useTableBackgroundButton, useTableBg);
+        SetTabColor(noTableBackgroundButton, !useTableBg);
+        SetTabColor(showHandButton, !showingTablePreview);
+        SetTabColor(showTableButton, showingTablePreview);
     }
 
     private void OnToggleBackground(bool enabled) {
@@ -280,7 +273,6 @@ public class CardFaceConfigPanel : MonoBehaviour {
             : null;
         for (int i = 0; i < slots.Length; i++) {
             CardFacePreviewSlot slot = slots[i];
-            if (slot == null) continue;
             bool dim = dimMissingCustom && !TileFaceResolver.HasCustomFace(slot.tileId);
             Sprite sprite = table
                 ? TileFaceResolver.LoadTableSprite(slot.tileId)

@@ -35,6 +35,9 @@ CODE_TO_ID.update({
 for n in range(1, 9):
     CODE_TO_ID[f"{n}f"] = 50 + n
 CODE_TO_ID["blank"] = 2
+# FluffyStuff 日式四君子是 梅蘭菊竹（7f=菊、8f=竹）。
+# 国标/台湾 ID 是 梅兰竹菊：57=竹、58=菊。只在 fluffy 导出时对调，港式花牌自带 3/4 数字不能对调。
+FLUFFY_FLOWER_ID_REMAP = {57: 58, 58: 57}
 
 ROOT = Path(__file__).resolve().parents[2]
 FLUFFY = Path(r"C:\Users\Administrator\Downloads\tiles\FluffyStuff")
@@ -314,10 +317,12 @@ def write_source_pack(pack_id: str, sources: dict[int, Path]):
     ensure_dir(hand_dir)
     ensure_dir(table_dir)
     for tile_id, src_path in sorted(sources.items()):
+        out_id = FLUFFY_FLOWER_ID_REMAP.get(tile_id, tile_id) if pack_id == "fluffy" else tile_id
         src = Image.open(src_path)
-        save_png(fit_hand(src), hand_dir / f"{tile_id}.png")
-        save_png(fit_table(src), table_dir / f"{tile_id}.png")
-        print(f"  {pack_id} {tile_id} <- {src_path.name} {src.size}")
+        save_png(fit_hand(src), hand_dir / f"{out_id}.png")
+        save_png(fit_table(src), table_dir / f"{out_id}.png")
+        note = f" -> {out_id}" if out_id != tile_id else ""
+        print(f"  {pack_id} {tile_id}{note} <- {src_path.name} {src.size}")
     print("wrote", PACKS / pack_id, "tiles", len(sources))
 
 

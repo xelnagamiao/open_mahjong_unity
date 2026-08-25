@@ -1233,7 +1233,7 @@ function changeVolume(next) {
 
 function toggleRatings() {
   ratingsExpanded.value = !ratingsExpanded.value
-  window.setTimeout(() => scene?.forceResize(), 100)
+  scheduleFeltResize()
 }
 
 function confirmRoundResult() {
@@ -1269,6 +1269,7 @@ function sendReady() {
 }
 
 function scheduleFeltResize() {
+  if (window.matchMedia('(min-width: 901px)').matches) return
   window.setTimeout(() => scene?.forceResize(), 100)
 }
 

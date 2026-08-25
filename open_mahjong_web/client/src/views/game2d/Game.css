@@ -603,12 +603,6 @@
   transition: transform .16s ease;
 }
 
-.assist-switch__value {
-  min-width: 20px;
-  font-weight: 700;
-  text-align: center;
-}
-
 .assist-switch.is-on .assist-switch__thumb {
   transform: translateX(16px);
 }
@@ -1290,6 +1284,47 @@
   .game-felt-playfield {
     height: calc(100dvh - 40px);
     min-height: calc(100dvh - 40px);
+  }
+}
+
+/*
+ * Wide desktop: sidebar sits beside the table. Lock the page to one viewport
+ * and let the rail scroll, so opening settings cannot grow a blank strip
+ * under the felt. Narrower layouts keep page-level scroll for phones.
+ */
+@media (min-width: 901px) {
+  html:has(.mahjongGame:not(.replay-page)),
+  body:has(.mahjongGame:not(.replay-page)) {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .mahjongGame:not(.replay-page) {
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .mahjongGame:not(.replay-page) .game-page__layout,
+  .mahjongGame:not(.replay-page) .game-page__board-panel,
+  .mahjongGame:not(.replay-page) .game-page__stage-shell,
+  .mahjongGame:not(.replay-page) .game-felt-layout {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .mahjongGame:not(.replay-page) .game-felt-playfield {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .mahjongGame:not(.replay-page) .game-felt-rail {
+    align-self: stretch;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 }
 

@@ -70,7 +70,7 @@ public class EndGamePanel : MonoBehaviour {
             display.username.text = StreamerModeHelper.FormatGamestatePlayerName(username, null, userId);
             display.score.text = playerData["score"].ToString();
             display.rank.text = playerData["rank"].ToString();
-            display.pt.text = $"{System.Convert.ToSingle(playerData["pt"]):F1}";
+            display.pt.text = $"{System.Convert.ToSingle(playerData["pt"]):F2}";
         }
         normalizedMasterSeed = CommitmentSaltDisplay.NormalizeCommitment(master_seed);
         gameRandomSeed.text = "主种子: " + normalizedMasterSeed

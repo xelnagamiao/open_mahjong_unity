@@ -8,16 +8,6 @@ using UnityEngine;
 /// </summary>
 public class CardBackEditorDragReceiver : MonoBehaviour
 {
-    public static void EnsureOnRoot(GameObject anyObject)
-    {
-        if (anyObject == null) return;
-        GameObject root = anyObject.transform.root.gameObject;
-        if (root.GetComponent<CardBackEditorDragReceiver>() == null)
-        {
-            root.AddComponent<CardBackEditorDragReceiver>();
-        }
-    }
-
     private void OnGUI()
     {
         Event e = Event.current;

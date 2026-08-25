@@ -49,19 +49,18 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
 
     private void Awake() {
         Instance = this;
-        if (uploadHandBgButton != null) uploadHandBgButton.onClick.AddListener(() => OpenPicker(PickMode.HandBg));
-        if (uploadCardBackButton != null) uploadCardBackButton.onClick.AddListener(() => OpenPicker(PickMode.CardBack));
-        if (uploadPairZipButton != null) uploadPairZipButton.onClick.AddListener(() => OpenPicker(PickMode.Pair));
-        if (restoreHandBgButton != null) restoreHandBgButton.onClick.AddListener(RestoreHandBg);
-        if (clearCardBackButton != null) clearCardBackButton.onClick.AddListener(ClearCardBack);
-        if (uploadTableBgButton != null) uploadTableBgButton.onClick.AddListener(() => OpenPicker(PickMode.TableBg));
-        if (restoreTableBgButton != null) restoreTableBgButton.onClick.AddListener(RestoreTableBg);
-        if (clearTableBgButton != null) clearTableBgButton.onClick.AddListener(ClearTableBg);
-        if (tableFaceHexApplyButton != null) tableFaceHexApplyButton.onClick.AddListener(ApplyTableFaceHex);
-        if (useTableFaceSolidButton != null) useTableFaceSolidButton.onClick.AddListener(() => SetTableFaceSolid(true));
-        if (noTableFaceSolidButton != null) noTableFaceSolidButton.onClick.AddListener(() => SetTableFaceSolid(false));
-        if (restoreTableFaceColorButton != null) restoreTableFaceColorButton.onClick.AddListener(RestoreTableFaceColor);
-        if (helpText != null && string.IsNullOrWhiteSpace(helpText.text)) helpText.text = FormatHelp;
+        uploadHandBgButton.onClick.AddListener(() => OpenPicker(PickMode.HandBg));
+        uploadCardBackButton.onClick.AddListener(() => OpenPicker(PickMode.CardBack));
+        uploadPairZipButton.onClick.AddListener(() => OpenPicker(PickMode.Pair));
+        restoreHandBgButton.onClick.AddListener(RestoreHandBg);
+        clearCardBackButton.onClick.AddListener(ClearCardBack);
+        uploadTableBgButton.onClick.AddListener(() => OpenPicker(PickMode.TableBg));
+        restoreTableBgButton.onClick.AddListener(RestoreTableBg);
+        clearTableBgButton.onClick.AddListener(ClearTableBg);
+        tableFaceHexApplyButton.onClick.AddListener(ApplyTableFaceHex);
+        useTableFaceSolidButton.onClick.AddListener(() => SetTableFaceSolid(true));
+        noTableFaceSolidButton.onClick.AddListener(() => SetTableFaceSolid(false));
+        restoreTableFaceColorButton.onClick.AddListener(RestoreTableFaceColor);
     }
 
     private void OnEnable() {
@@ -268,19 +267,14 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
             ? ConfigManager.Instance.TableFaceColor
             : ConfigManager.DefaultTableFaceColor;
         bool useSolid = ConfigManager.Instance != null && ConfigManager.Instance.TableFaceUseSolidColor;
-        if (tableFaceColorPreview != null) {
-            tableFaceColorPreview.sprite = null;
-            tableFaceColorPreview.color = color;
-        }
-        if (tableFaceHexInput != null) {
-            tableFaceHexInput.text = ColorUtility.ToHtmlStringRGB(color);
-        }
+        tableFaceColorPreview.sprite = null;
+        tableFaceColorPreview.color = color;
+        tableFaceHexInput.text = ColorUtility.ToHtmlStringRGB(color);
         SetSolidButton(useTableFaceSolidButton, useSolid);
         SetSolidButton(noTableFaceSolidButton, !useSolid);
     }
 
     private void ApplyTableFaceHex() {
-        if (tableFaceHexInput == null) return;
         if (!SceneConfigUi.TryParseHex(tableFaceHexInput.text, out Color color)) {
             SceneConfigUi.ShowTip("颜色格式应为 RRGGBB");
             return;
@@ -315,7 +309,6 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
     }
 
     private static void AssignPreview(Image image, ref Sprite sprite, Texture2D texture) {
-        if (image == null) return;
         if (sprite != null) {
             UnityEngine.Object.Destroy(sprite);
             sprite = null;
@@ -332,7 +325,7 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
     }
 
     private void SetStatus(string message) {
-        if (statusText != null) statusText.text = message ?? "";
+        statusText.text = message ?? "";
     }
 
 #if UNITY_EDITOR

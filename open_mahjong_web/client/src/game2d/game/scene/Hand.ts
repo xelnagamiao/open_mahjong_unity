@@ -86,6 +86,12 @@ export class Hand extends Container {
     parent.addChild(this)
   }
 
+  private releaseHoveredTile(tile: Tile | null): void {
+    if (!tile || this.hoveredHandTile !== tile) return
+    this.hoveredHandTile = null
+    this.restoreMatchHighlight()
+  }
+
   // ── Tile lookup ──────────────────────────────────────────────────
 
   private popFromHand(tid: number, checkDrawn: boolean = false): Tile | null {
@@ -93,6 +99,7 @@ export class Hand extends Container {
       const tile = this.drawnTile
       this.drawnTile = null
       this.discardIndex = -1
+      this.releaseHoveredTile(tile)
       return tile
     }
     let idx = -1
@@ -117,7 +124,9 @@ export class Hand extends Container {
     if (idx < 0) {
       return null
     }
-    return this.rightList.splice(idx, 1)[0] ?? null
+    const tile = this.rightList.splice(idx, 1)[0] ?? null
+    this.releaseHoveredTile(tile)
+    return tile
   }
 
   private popMultiple(tid: number, count: number): Tile[] {
@@ -311,7 +320,7 @@ export class Hand extends Container {
   }
 
   private restoreMatchHighlight(): void {
-    const tid = this.hoveredHandTile?.tid ?? this.pendingDiscardTile?.tid ?? 0
+    const tid = this.hoveredHandTile?.tid ?? 0
     if (tid > 0) this.matchHighlight?.highlight(tid)
     else this.matchHighlight?.clear()
   }
@@ -529,7 +538,7 @@ export class Hand extends Container {
       tile.setSelectionTint(true)
       helper?.setSelected(true)
       this.waitDisplay?.loadData(tile.tid)
-      this.matchHighlight?.highlight(tile.tid)
+      this.restoreMatchHighlight()
     }
 
     if (IS_MOBILE_PHONE) {
@@ -573,6 +582,7 @@ export class Hand extends Container {
       this.hoveredHandTile = null
     }
     this.clearPendingDiscardSelection()
+    this.restoreMatchHighlight()
     for (const t of this.rightList) { t.off('pointerdown'); t.off('pointertap'); t.setHoverEnabled(t.shown) }
     if (this.drawnTile) {
       this.drawnTile.off('pointerdown'); this.drawnTile.off('pointertap')
@@ -863,6 +873,7 @@ export class Hand extends Container {
       }
     }
     if (!tile) return
+    this.releaseHoveredTile(tile)
     tile.setRecordDangerHighlighted(false)
     tile.updateTid(tid); tile.show(); tile.scale.set(1.0)
     river.waiting = true

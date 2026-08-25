@@ -65,6 +65,6 @@ public class UserContainer : MonoBehaviour {
             // 进度按 0 → 升段分（与文案 score/promoteScore、Web 一致）
             rankProgressBar.value = promoteScore > 0 ? Mathf.Clamp01(score / promoteScore) : 0;
         }
-        if (rankScoreText != null) rankScoreText.text = $"{score:F1}/{promoteScore}";
+        if (rankScoreText != null) rankScoreText.text = $"{score:F2}/{promoteScore}";
     }
 }
