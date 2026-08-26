@@ -37,7 +37,6 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
     [SerializeField] private Button useTableFaceSolidButton;
     [SerializeField] private Button noTableFaceSolidButton;
     [SerializeField] private Button restoreTableFaceColorButton;
-    [SerializeField] private TMP_Text statusText;
     [SerializeField] private TMP_Text helpText;
 
     private enum PickMode { HandBg, CardBack, TableBg, Pair }
@@ -148,7 +147,6 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         try {
             if (File.Exists(backPath)) CardBackManager.PersistHandBack(File.ReadAllBytes(backPath));
             if (File.Exists(handPath)) CardBackManager.PersistHandBackground(File.ReadAllBytes(handPath));
-            SetStatus("手牌牌背与手牌背景已应用");
             SceneConfigUi.ShowTip("手牌牌背与手牌背景已应用");
             RefreshPreviews();
         }
@@ -168,14 +166,12 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         if (CardBackManager.TryParseFaceBodyZip(bytes, out byte[] handBackPng, out byte[] handBgPng)) {
             if (handBackPng != null) CardBackManager.PersistHandBack(handBackPng);
             if (handBgPng != null) CardBackManager.PersistHandBackground(handBgPng);
-            SetStatus("已从 zip 应用牌体");
             SceneConfigUi.ShowTip("手牌牌背与手牌背景已应用");
             RefreshPreviews();
             return;
         }
         if (CardBackManager.TryParseTableBgZip(bytes, out byte[] tableBgPng)) {
             CardBackManager.PersistTableBackground(tableBgPng);
-            SetStatus("已从 zip 应用 3D 牌面背景");
             SceneConfigUi.ShowTip("3D 牌面背景已应用");
             RefreshPreviews();
             return;
@@ -186,17 +182,14 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         }
         if (pickMode == PickMode.TableBg || CardBackManager.IsTableBgFileName(name)) {
             CardBackManager.PersistTableBackground(bytes);
-            SetStatus("3D 牌面背景已应用");
             SceneConfigUi.ShowTip("3D 牌面背景已应用");
         }
         else if (pickMode == PickMode.HandBg || CardBackManager.IsHandBgFileName(name)) {
             CardBackManager.PersistHandBackground(bytes);
-            SetStatus("手牌牌面背景已应用");
             SceneConfigUi.ShowTip("手牌牌面背景已应用");
         }
         else {
             CardBackManager.PersistHandBack(bytes);
-            SetStatus("手牌牌背已应用");
             SceneConfigUi.ShowTip("手牌牌背已应用");
         }
         RefreshPreviews();
@@ -204,28 +197,24 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
 
     private void RestoreHandBg() {
         CardBackManager.ClearPersistedHandBackground();
-        SetStatus("已恢复默认手牌背景");
         SceneConfigUi.ShowTip("已恢复默认手牌背景");
         RefreshPreviews();
     }
 
     private void ClearCardBack() {
         CardBackManager.ClearPersistedHandBack();
-        SetStatus("已恢复默认手牌牌背");
         SceneConfigUi.ShowTip("已恢复默认手牌牌背");
         RefreshPreviews();
     }
 
     private void RestoreTableBg() {
         CardBackManager.ClearPersistedTableBackground();
-        SetStatus("已恢复默认 3D 牌面背景");
         SceneConfigUi.ShowTip("已恢复默认 3D 牌面背景");
         RefreshPreviews();
     }
 
     private void ClearTableBg() {
         CardBackManager.ClearPersistedTableBackground();
-        SetStatus("已删除 3D 牌面背景");
         SceneConfigUi.ShowTip("已删除 3D 牌面背景");
         RefreshPreviews();
     }
@@ -235,14 +224,6 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         AssignPreview(cardBackPreview, ref cardBackSprite, ResolveHandBackTexture());
         AssignPreview(tableBgPreview, ref tableBgSprite, ResolveTableBgTexture());
         RefreshSolidColorUi();
-        bool customBg = ConfigManager.Instance != null && ConfigManager.Instance.GetSelectedHandBackground().isCustom;
-        bool customBack = ConfigManager.Instance != null && ConfigManager.Instance.GetSelectedHandBack().isCustom;
-        bool customTable = ConfigManager.Instance != null && ConfigManager.Instance.GetSelectedTableBackground().isCustom;
-        SetStatus((customBg ? "手牌背景：已上传" : "手牌背景：默认")
-            + "　"
-            + (customBack ? "手牌牌背：已上传" : "手牌牌背：默认")
-            + "　"
-            + (customTable ? "3D 牌面背景：已上传" : "3D 牌面背景：默认"));
     }
 
     private static Texture2D ResolveHandBgTexture() {
@@ -322,10 +303,6 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         image.sprite = sprite;
         image.color = Color.white;
         image.preserveAspect = true;
-    }
-
-    private void SetStatus(string message) {
-        statusText.text = message ?? "";
     }
 
 #if UNITY_EDITOR

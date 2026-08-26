@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""用 fluffy 花牌 3D 素材重做官方 51–58。
+"""用 fluffy 花牌素材重做官方 51–58。
 
-3D：插画裁切后铺满 220×366 不透明米色底。
-手牌：同一套插画铺满手牌白色牌面（避开顶沿）。
+3D：按原图比例 cover 裁切进 220×366 米色底，不拉伸。
+手牌：花纹按原比例叠在牌体上，再放大 HAND_SCALE。
 
-FluffyStuff 日式四君子是 梅蘭菊竹（7f=菊、8f=竹）。
-国标/台湾 ID 是 梅兰竹菊：57=竹、58=菊。本脚本会把 fluffy 包里
-对调的 57/58 纠正后再生成官方图。
-
-位置微调只改下面几个常量后重跑本脚本。
+源图用手牌牌面（等比过的花纹），不用已拉高的 3D PNG。
 """
 from __future__ import annotations
 
@@ -21,20 +17,15 @@ from PIL import Image
 TABLE_W, TABLE_H = 220, 366
 BEIGE = (245, 246, 247, 255)
 HAND_W, HAND_H = 272, 389
-HAND_RIM_TOP = 50
-HAND_PAD_X = 8
-HAND_PAD_BOTTOM = 8
-TABLE_MARGIN = 3
-ART_BBOX_PAD = 2
+ART_BBOX_PAD = 12
 FLOWER_IDS = range(51, 59)
 
-# 相对铺满后的额外缩放与像素偏移，正 x 向右、正 y 向下。
-FLOWER_TABLE_SCALE = 1.0
+# 3D 目标框占画布比例。高度低于 1，避免为铺满 366 而把左右裁掉太多。
+TABLE_COVER_W = 0.92
+TABLE_COVER_H = 0.82
 FLOWER_TABLE_OFFSET_X = 0
 FLOWER_TABLE_OFFSET_Y = 0
-FLOWER_HAND_SCALE = 1.0
-FLOWER_HAND_OFFSET_X = 0
-FLOWER_HAND_OFFSET_Y = 0
+HAND_SCALE = 1.06
 BEIGE_KNOCKOUT = 16
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -77,6 +68,28 @@ def crop_art(im: Image.Image, pad: int = ART_BBOX_PAD) -> Image.Image:
     return im.crop((left, top, right, bottom))
 
 
+def resize_cover(
+    art: Image.Image,
+    dest_w: int,
+    dest_h: int,
+    offset_x: int = 0,
+    offset_y: int = 0,
+) -> Image.Image:
+    """等比放大到盖住目标框，居中裁切多出的边。"""
+    src_w, src_h = art.size
+    if src_w <= 0 or src_h <= 0:
+        return Image.new("RGBA", (dest_w, dest_h), (0, 0, 0, 0))
+    scale = max(dest_w / src_w, dest_h / src_h)
+    nw = max(dest_w, int(round(src_w * scale)))
+    nh = max(dest_h, int(round(src_h * scale)))
+    resized = art.resize((nw, nh), Image.Resampling.LANCZOS)
+    left = (nw - dest_w) // 2 + offset_x
+    top = (nh - dest_h) // 2 + offset_y
+    left = max(0, min(left, nw - dest_w))
+    top = max(0, min(top, nh - dest_h))
+    return resized.crop((left, top, left + dest_w, top + dest_h))
+
+
 def composite_at(dst: Image.Image, src: Image.Image, xy: tuple[int, int]) -> None:
     x, y = xy
     sw, sh = src.size
@@ -96,55 +109,38 @@ def composite_at(dst: Image.Image, src: Image.Image, xy: tuple[int, int]) -> Non
     dst.alpha_composite(cropped, (x + src_box[0], y + src_box[1]))
 
 
-def place_filled(
-    art: Image.Image,
-    canvas_size: tuple[int, int],
-    box: tuple[int, int, int, int],
-    scale: float,
-    offset_x: int,
-    offset_y: int,
-) -> Image.Image:
-    """把花纹拉伸进 box=(x, y, w, h)，再按 scale/offset 微调。"""
-    layer = Image.new("RGBA", canvas_size, (0, 0, 0, 0))
-    box_x, box_y, box_w, box_h = box
-    nw = max(1, int(round(box_w * scale)))
-    nh = max(1, int(round(box_h * scale)))
-    resized = art.resize((nw, nh), Image.Resampling.LANCZOS)
-    ox = box_x + (box_w - nw) // 2 + offset_x
-    oy = box_y + (box_h - nh) // 2 + offset_y
-    composite_at(layer, resized, (ox, oy))
-    return layer
-
-
 def make_table(art: Image.Image) -> Image.Image:
     canvas = Image.new("RGBA", (TABLE_W, TABLE_H), BEIGE)
-    inner_w = TABLE_W - TABLE_MARGIN * 2
-    inner_h = TABLE_H - TABLE_MARGIN * 2
-    layer = place_filled(
+    inner_w = max(1, int(round(TABLE_W * TABLE_COVER_W)))
+    inner_h = max(1, int(round(TABLE_H * TABLE_COVER_H)))
+    covered = resize_cover(
         art,
-        (TABLE_W, TABLE_H),
-        (TABLE_MARGIN, TABLE_MARGIN, inner_w, inner_h),
-        FLOWER_TABLE_SCALE,
+        inner_w,
+        inner_h,
         FLOWER_TABLE_OFFSET_X,
         FLOWER_TABLE_OFFSET_Y,
     )
-    canvas.alpha_composite(layer)
+    ox = (TABLE_W - inner_w) // 2
+    oy = (TABLE_H - inner_h) // 2
+    canvas.alpha_composite(covered, (ox, oy))
     return canvas.convert("RGB").convert("RGBA")
 
 
-def make_hand(art: Image.Image, bg: Image.Image) -> Image.Image:
+def make_hand(src_hand: Image.Image, bg: Image.Image) -> Image.Image:
     canvas = bg.copy()
-    inner_w = HAND_W - HAND_PAD_X * 2
-    inner_h = HAND_H - HAND_RIM_TOP - HAND_PAD_BOTTOM
-    layer = place_filled(
-        art,
-        (HAND_W, HAND_H),
-        (HAND_PAD_X, HAND_RIM_TOP, inner_w, inner_h),
-        FLOWER_HAND_SCALE,
-        FLOWER_HAND_OFFSET_X,
-        FLOWER_HAND_OFFSET_Y,
-    )
-    canvas.alpha_composite(layer)
+    art = knockout_beige(src_hand)
+    bbox = art.getchannel("A").getbbox()
+    if bbox is None:
+        return canvas
+    cropped = art.crop(bbox)
+    nw = max(1, int(round(cropped.size[0] * HAND_SCALE)))
+    nh = max(1, int(round(cropped.size[1] * HAND_SCALE)))
+    resized = cropped.resize((nw, nh), Image.Resampling.LANCZOS)
+    cx = (bbox[0] + bbox[2]) / 2
+    cy = (bbox[1] + bbox[3]) / 2
+    ox = int(round(cx - nw / 2))
+    oy = int(round(cy - nh / 2))
+    composite_at(canvas, resized, (ox, oy))
     return canvas
 
 
@@ -208,29 +204,18 @@ def main() -> None:
         raise SystemExit(f"hand-bg size {bg.size}, expected {(HAND_W, HAND_H)}")
 
     for tile_id in FLOWER_IDS:
-        src_path = FLUFFY_TABLE / f"{tile_id}.png"
+        src_path = FLUFFY_HAND / f"{tile_id}.png"
         if not src_path.is_file():
             raise SystemExit(f"missing {src_path}")
-        art = crop_art(knockout_beige(Image.open(src_path)))
-        table = make_table(art)
-        hand = make_hand(art, bg)
-
-        table_dests = (
-            OFFICIAL_TABLE / f"{tile_id}.png",
-            OFFICIAL_PACK_TABLE / f"{tile_id}.png",
-        )
+        src_hand = Image.open(src_path)
+        hand = make_hand(src_hand, bg)
         hand_dests = (
             OFFICIAL_HAND / f"{tile_id}.png",
             OFFICIAL_PACK_HAND / f"{tile_id}.png",
         )
-        save_png(table, table_dests[0])
         save_png(hand, hand_dests[0])
-        shutil.copyfile(table_dests[0], table_dests[1])
         shutil.copyfile(hand_dests[0], hand_dests[1])
-        print(
-            f"{tile_id} art={art.size} table={table.size} "
-            f"hand={hand.size} <- {src_path.name}"
-        )
+        print(f"{tile_id} hand={hand.size} scale={HAND_SCALE} <- {src_path.name}")
 
 
 if __name__ == "__main__":
