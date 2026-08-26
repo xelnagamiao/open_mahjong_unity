@@ -1,31 +1,28 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using TMPro;
 
 /// <summary>
-/// 顶栏「通知」：场景里的示例只用于排版，运行时立刻隐藏，再按 HTTP 静态列表实例化预制体。
+/// 顶栏「通知」：侧栏活动标签 + 常亮详情。打开时显示上次选中的活动，没有则显示第一条。
 /// </summary>
 public class NoticePanel : MonoBehaviour {
     public static NoticePanel Instance { get; private set; }
 
+    private const string PrefSelectedId = "notice.selected_activity_id";
+
     [SerializeField] private Transform listContent;
     [SerializeField] private GameObject itemTemplate;
-    [SerializeField] private GameObject listRoot;
     [SerializeField] private ActivityDetailPanel detailPanel;
-    [SerializeField] private TMP_Text emptyHint;
-    [SerializeField] private TMP_Text headerTitle;
 
     private readonly List<GameObject> _spawned = new List<GameObject>();
     private readonly List<Texture2D> _covers = new List<Texture2D>();
+    private readonly List<string> _visibleIds = new List<string>();
     private Coroutine _loadRoutine;
+    private string _selectedId;
 
     private void Awake() {
         Instance = this;
-        if (detailPanel != null) {
-            detailPanel.Wire(ShowList);
-            detailPanel.gameObject.SetActive(false);
-        }
+        if (detailPanel != null) detailPanel.gameObject.SetActive(true);
         HideEditorExamples();
     }
 
@@ -42,52 +39,47 @@ public class NoticePanel : MonoBehaviour {
     }
 
     public void Reload() {
-        ShowList();
         if (_loadRoutine != null) StopCoroutine(_loadRoutine);
         _loadRoutine = StartCoroutine(LoadIndex());
     }
 
-    public void ShowList() {
-        if (detailPanel != null) detailPanel.Close();
-        if (listRoot != null) listRoot.SetActive(true);
-        if (headerTitle != null) headerTitle.gameObject.SetActive(true);
-    }
-
     public void OpenDetail(string activityId) {
         if (string.IsNullOrEmpty(activityId)) return;
+        SelectId(activityId);
         if (_loadRoutine != null) StopCoroutine(_loadRoutine);
         _loadRoutine = StartCoroutine(LoadAndOpen(activityId));
     }
 
     private IEnumerator LoadIndex() {
         HideEditorExamples();
-        SetEmpty("正在加载活动…", true);
         ActivityIndexFile index = null;
-        string error = null;
-        yield return ActivityHttp.GetIndex(
-            data => index = data,
-            err => error = err
-        );
+        yield return ActivityHttp.GetIndex(data => index = data, _ => { });
         ClearSpawned();
         HideEditorExamples();
+        _visibleIds.Clear();
 
-        int count = 0;
         if (index != null && index.items != null) {
             foreach (ActivityIndexItem entry in index.items) {
                 if (entry == null || string.IsNullOrEmpty(entry.id)) continue;
                 if (!ActivityStatus.IsClientVisible(entry.status, entry.ended)) continue;
                 SpawnItem(entry);
-                count++;
+                _visibleIds.Add(entry.id);
             }
         }
 
-        if (count > 0) {
-            SetEmpty(null, false);
-        } else if (itemTemplate == null) {
-            SetEmpty("通知面板未绑定活动卡片，请重建通知活动面板", true);
-        } else {
-            SetEmpty(string.IsNullOrEmpty(error) ? "暂无活动" : "活动加载失败", true);
+        string preferred = PlayerPrefs.GetString(PrefSelectedId, _selectedId ?? "");
+        string openId = null;
+        if (!string.IsNullOrEmpty(preferred) && _visibleIds.Contains(preferred)) {
+            openId = preferred;
+        } else if (_visibleIds.Count > 0) {
+            openId = _visibleIds[0];
         }
+
+        if (string.IsNullOrEmpty(openId)) {
+            if (detailPanel != null) detailPanel.ShowEmpty();
+            yield break;
+        }
+        yield return LoadAndOpen(openId);
     }
 
     private IEnumerator LoadAndOpen(string activityId) {
@@ -110,9 +102,23 @@ public class NoticePanel : MonoBehaviour {
             }
             yield break;
         }
-        if (listRoot != null) listRoot.SetActive(false);
-        if (headerTitle != null) headerTitle.gameObject.SetActive(false);
-        if (detailPanel != null) detailPanel.Open(detail);
+        SelectId(activityId);
+        if (detailPanel != null) {
+            detailPanel.gameObject.SetActive(true);
+            detailPanel.Open(detail);
+        }
+    }
+
+    private void SelectId(string activityId) {
+        _selectedId = activityId;
+        PlayerPrefs.SetString(PrefSelectedId, activityId ?? "");
+        PlayerPrefs.Save();
+        for (int i = 0; i < _spawned.Count; i++) {
+            if (_spawned[i] == null) continue;
+            ActivityItem binder = _spawned[i].GetComponent<ActivityItem>()
+                ?? _spawned[i].GetComponentInChildren<ActivityItem>(true);
+            if (binder != null) binder.SetSelected(binder.ActivityId == activityId);
+        }
     }
 
     private void SpawnItem(ActivityIndexItem entry) {
@@ -121,7 +127,7 @@ public class NoticePanel : MonoBehaviour {
             return;
         }
         if (itemTemplate == null) {
-            Debug.LogError("NoticePanel.itemTemplate 未绑定，请在 Unity 执行 Tools / Notice / 重建通知活动面板");
+            Debug.LogError("NoticePanel.itemTemplate 未绑定");
             return;
         }
         GameObject go = Instantiate(itemTemplate, listContent);
@@ -164,15 +170,8 @@ public class NoticePanel : MonoBehaviour {
         }
         for (int i = 0; i < listContent.childCount; i++) {
             Transform child = listContent.GetChild(i);
-            if (emptyHint != null && child.gameObject == emptyHint.gameObject) continue;
             if (_spawned.Contains(child.gameObject)) continue;
             child.gameObject.SetActive(false);
         }
-    }
-
-    private void SetEmpty(string text, bool visible) {
-        if (emptyHint == null) return;
-        if (text != null) emptyHint.text = text;
-        emptyHint.gameObject.SetActive(visible);
     }
 }

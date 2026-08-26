@@ -60,6 +60,7 @@ public class CardEdgePanel : MonoBehaviour
     private FrontEdgeMode currentFrontEdgeMode = FrontEdgeMode.Independent;
     private bool syncing;
     private bool toggleColorReady;
+    private bool toggleColorsNeedRefresh;
 
     private void Awake()
     {
@@ -74,6 +75,14 @@ public class CardEdgePanel : MonoBehaviour
 
     private void OnEnable()
     {
+        toggleColorsNeedRefresh = true;
+        UpdateModeToggleColors(instant: true);
+    }
+
+    private void LateUpdate()
+    {
+        if (!toggleColorsNeedRefresh) return;
+        toggleColorsNeedRefresh = false;
         UpdateModeToggleColors(instant: true);
     }
 

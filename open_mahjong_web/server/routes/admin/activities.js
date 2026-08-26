@@ -4,25 +4,31 @@ const { writeAudit } = require('../../utils/audit');
 const store = require('../../services/activityStore');
 
 const router = express.Router();
-const MAX_FILE_BYTES = 2 * 1024 * 1024;
+const COVER_MAX_BYTES = 2 * 1024 * 1024;
+const BODY_IMAGE_MAX_BYTES = 12 * 1024 * 1024;
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_FILE_BYTES, files: 1 },
-  fileFilter: (_req, file, cb) => {
-    if (!file.mimetype || !file.mimetype.startsWith('image/')) {
-      cb(Object.assign(new Error('请上传图片文件'), { status: 400 }));
-      return;
-    }
-    cb(null, true);
-  },
-});
+function makeUpload(maxBytes) {
+  return multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: maxBytes, files: 1 },
+    fileFilter: (_req, file, cb) => {
+      if (!file.mimetype || !file.mimetype.startsWith('image/')) {
+        cb(Object.assign(new Error('请上传图片文件'), { status: 400 }));
+        return;
+      }
+      cb(null, true);
+    },
+  });
+}
+
+const uploadCoverFile = makeUpload(COVER_MAX_BYTES);
+const uploadBodyFile = makeUpload(BODY_IMAGE_MAX_BYTES);
 
 function sendError(res, err) {
   const status = err.status || (err.code === 'LIMIT_FILE_SIZE' ? 400 : 500);
   const message =
     err.code === 'LIMIT_FILE_SIZE'
-      ? '图片不能超过 2MB'
+      ? '图片过大，标题图不超过 2MB，正文图不超过 12MB'
       : err.message || '服务器内部错误';
   if (status >= 500) console.error('admin activities:', err);
   return res.status(status).json({ success: false, message });
@@ -86,6 +92,8 @@ router.put(
       title: req.body.title,
       body: req.body.body,
       sort: req.body.sort,
+      blocks: req.body.blocks,
+      images: req.body.images,
       image_urls: req.body.image_urls,
     });
     await writeAuditSafe(req, 'activity.update', item.id, {
@@ -123,8 +131,15 @@ router.delete(
   })
 );
 
-function receiveFile(req, res, next) {
-  upload.single('file')(req, res, (err) => {
+function receiveCover(req, res, next) {
+  uploadCoverFile.single('file')(req, res, (err) => {
+    if (err) return sendError(res, err);
+    next();
+  });
+}
+
+function receiveBodyImage(req, res, next) {
+  uploadBodyFile.single('file')(req, res, (err) => {
     if (err) return sendError(res, err);
     next();
   });
@@ -132,7 +147,7 @@ function receiveFile(req, res, next) {
 
 router.post(
   '/:id/cover',
-  receiveFile,
+  receiveCover,
   wrap(async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ success: false, message: '请选择封面图' });
@@ -145,14 +160,19 @@ router.post(
 
 router.post(
   '/:id/images',
-  receiveFile,
+  receiveBodyImage,
   wrap(async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ success: false, message: '请选择图片' });
     }
-    const item = store.addBodyImage(req.params.id, req.file);
-    await writeAuditSafe(req, 'activity.image.add', item.id);
-    res.json({ success: true, data: item, message: '图片已添加' });
+    const result = store.addBodyImage(req.params.id, req.file);
+    await writeAuditSafe(req, 'activity.image.add', req.params.id);
+    res.json({
+      success: true,
+      data: result.item,
+      url: result.url,
+      message: '图片已添加',
+    });
   })
 );
 

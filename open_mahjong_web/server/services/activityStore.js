@@ -15,7 +15,11 @@ const MIME_EXT = {
 
 const TITLE_MAX = 80;
 const BODY_MAX = 20000;
-const MAX_BODY_IMAGES = 20;
+const MAX_BODY_IMAGES = 30;
+const BLOCKS_MAX = 40;
+const FONT_MIN = 14;
+const FONT_MAX = 48;
+const DEFAULT_FONT = 22;
 
 function loadDeployConfig() {
   try {
@@ -147,11 +151,22 @@ function persistStatus(item) {
 function decorate(item) {
   if (!item) return item;
   const status = normalizeStatus(item);
+  const blocks = normalizeBlocks(item.blocks, item);
+  const images = blocks
+    .filter((row) => row.type === 'image')
+    .map((row) => ({ url: row.url, href: row.href || '', size: row.size }));
   return {
     ...item,
     status,
     published: isClientVisible(status),
     ended: status === 'ended',
+    blocks,
+    images,
+    image_urls: images.map((row) => row.url),
+    body: blocks
+      .filter((row) => row.type === 'text')
+      .map((row) => row.text)
+      .join('\n\n'),
   };
 }
 
@@ -174,7 +189,7 @@ function publishedItems(catalog) {
     .sort((a, b) => {
       const sortA = Number(a.sort) || 0;
       const sortB = Number(b.sort) || 0;
-      if (sortA !== sortB) return sortA - sortB;
+      if (sortA !== sortB) return sortB - sortA;
       return String(b.updated_at || '').localeCompare(String(a.updated_at || ''));
     });
 }
@@ -201,18 +216,12 @@ function rebuildPublicIndex(catalog) {
 
 function listAll() {
   const catalog = loadCatalog();
-  const rank = {
-    draft: 0,
-    offline: 1,
-    published: 2,
-    ended: 3,
-  };
   return catalog.items
     .slice()
     .sort((a, b) => {
-      const rankA = rank[normalizeStatus(a)] ?? 9;
-      const rankB = rank[normalizeStatus(b)] ?? 9;
-      if (rankA !== rankB) return rankA - rankB;
+      const sortA = Number(a.sort) || 0;
+      const sortB = Number(b.sort) || 0;
+      if (sortA !== sortB) return sortB - sortA;
       return String(b.updated_at || '').localeCompare(String(a.updated_at || ''));
     })
     .map(decorate);
@@ -245,16 +254,167 @@ function normalizeBody(raw) {
   return body;
 }
 
+const HREF_MAX = 2048;
+
+function normalizeHref(raw) {
+  const href = String(raw || '').trim();
+  if (!href) return '';
+  if (href.length > HREF_MAX) {
+    throw Object.assign(new Error('图片链接过长'), { status: 400 });
+  }
+  const lower = href.toLowerCase();
+  if (lower.startsWith('javascript:') || lower.startsWith('data:') || lower.startsWith('vbscript:')) {
+    throw Object.assign(new Error('图片链接不支持该协议'), { status: 400 });
+  }
+  if (/^https?:\/\//i.test(href) || href.startsWith('/')) return href;
+  throw Object.assign(new Error('图片链接需以 https://、http:// 或 / 开头'), { status: 400 });
+}
+
+function normalizeImageList(raw) {
+  const list = [];
+  if (!Array.isArray(raw)) return list;
+  for (const entry of raw) {
+    if (typeof entry === 'string') {
+      if (entry) list.push({ url: entry, href: '' });
+      continue;
+    }
+    if (!entry || typeof entry.url !== 'string' || !entry.url) continue;
+    list.push({
+      url: entry.url,
+      href: normalizeHref(entry.href),
+      size: entry.size === 'small' ? 'small' : 'large',
+    });
+  }
+  return list.slice(0, MAX_BODY_IMAGES);
+}
+
+function imagesFromItem(item) {
+  if (Array.isArray(item?.images)) {
+    return normalizeImageList(item.images);
+  }
+  return normalizeImageList(item?.image_urls);
+}
+
+function clampFontSize(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return DEFAULT_FONT;
+  return Math.min(FONT_MAX, Math.max(FONT_MIN, Math.round(n)));
+}
+
+function blocksFromLegacy(item) {
+  const blocks = [];
+  const body = String(item?.body || '');
+  if (body) {
+    blocks.push({ type: 'text', text: body, fontSize: DEFAULT_FONT });
+  }
+  for (const image of imagesFromItem(item)) {
+    blocks.push({
+      type: 'image',
+      size: image.size === 'small' ? 'small' : 'large',
+      url: image.url,
+      href: image.href || '',
+    });
+  }
+  return blocks;
+}
+
+function normalizeBlocks(raw, fallbackItem, options = {}) {
+  const strict = options.strict === true;
+  const source = Array.isArray(raw) ? raw : blocksFromLegacy(fallbackItem || {});
+  const out = [];
+  let textLen = 0;
+  for (const row of source) {
+    if (!row || typeof row !== 'object') continue;
+    if (row.type === 'text') {
+      let text = String(row.text || '');
+      if (textLen + text.length > BODY_MAX) {
+        if (strict) {
+          throw Object.assign(new Error(`正文不能超过 ${BODY_MAX} 字`), { status: 400 });
+        }
+        text = text.slice(0, Math.max(0, BODY_MAX - textLen));
+      }
+      textLen += text.length;
+      out.push({
+        type: 'text',
+        text,
+        fontSize: clampFontSize(row.fontSize),
+      });
+      continue;
+    }
+    if (row.type === 'image') {
+      const url = typeof row.url === 'string' ? row.url : '';
+      if (!url) continue;
+      out.push({
+        type: 'image',
+        size: row.size === 'small' ? 'small' : 'large',
+        url,
+        href: strict ? normalizeHref(row.href) : String(row.href || '').trim(),
+      });
+    }
+  }
+  if (out.length > BLOCKS_MAX) {
+    if (strict) {
+      throw Object.assign(new Error(`正文块不能超过 ${BLOCKS_MAX} 个`), { status: 400 });
+    }
+    return out.slice(0, BLOCKS_MAX);
+  }
+  const imageCount = out.filter((row) => row.type === 'image').length;
+  if (imageCount > MAX_BODY_IMAGES) {
+    if (strict) {
+      throw Object.assign(new Error(`正文图片最多 ${MAX_BODY_IMAGES} 张`), { status: 400 });
+    }
+    let kept = 0;
+    return out.filter((row) => {
+      if (row.type !== 'image') return true;
+      kept += 1;
+      return kept <= MAX_BODY_IMAGES;
+    });
+  }
+  return out;
+}
+
+function syncFromBlocks(item) {
+  item.blocks = normalizeBlocks(item.blocks, item, { strict: true });
+  item.images = item.blocks
+    .filter((row) => row.type === 'image')
+    .map((row) => ({ url: row.url, href: row.href || '', size: row.size }));
+  item.image_urls = item.images.map((row) => row.url);
+  item.body = item.blocks
+    .filter((row) => row.type === 'text')
+    .map((row) => row.text)
+    .join('\n\n');
+}
+
+function pruneUnusedImages(item) {
+  const dir = activityDir(item.id);
+  if (!fs.existsSync(dir)) return;
+  const used = new Set(
+    (item.blocks || [])
+      .filter((row) => row.type === 'image' && row.url)
+      .map((row) => path.basename(row.url))
+  );
+  for (const name of fs.readdirSync(dir)) {
+    if (!name.startsWith('img_')) continue;
+    if (!used.has(name)) fs.unlinkSync(path.join(dir, name));
+  }
+}
+
 function writeMeta(item) {
   const dir = activityDir(item.id);
   fs.mkdirSync(dir, { recursive: true });
   const status = persistStatus(item);
+  const blocks = normalizeBlocks(item.blocks, item);
+  const images = blocks
+    .filter((row) => row.type === 'image')
+    .map((row) => ({ url: row.url, href: row.href || '', size: row.size }));
   writeJsonAtomic(path.join(dir, 'meta.json'), {
     id: item.id,
     title: item.title,
-    body: item.body || '',
+    body: blocks.filter((row) => row.type === 'text').map((row) => row.text).join('\n\n'),
     cover_url: item.cover_url || '',
-    image_urls: item.image_urls || [],
+    blocks,
+    images,
+    image_urls: images.map((row) => row.url),
     status,
     published: isClientVisible(status),
     ended: status === 'ended',
@@ -264,18 +424,30 @@ function writeMeta(item) {
   });
 }
 
-function createActivity({ title, body = '', sort = 0 }) {
+function nextSortValue(catalog) {
+  let max = 0;
+  for (const item of catalog.items || []) {
+    const n = Number(item?.sort) || 0;
+    if (n > max) max = n;
+  }
+  return Math.min(9999, max + 1);
+}
+
+function createActivity({ title, body = '', sort } = {}) {
   const catalog = loadCatalog();
+  const parsed = Number(sort);
   const item = {
     id: newId(),
     title: normalizeTitle(title),
     body: normalizeBody(body),
     cover_url: '',
+    blocks: body ? [{ type: 'text', text: normalizeBody(body), fontSize: DEFAULT_FONT }] : [],
+    images: [],
     image_urls: [],
     status: 'draft',
     published: false,
     ended: false,
-    sort: Number(sort) || 0,
+    sort: Number.isFinite(parsed) && parsed > 0 ? parsed : nextSortValue(catalog),
     created_at: nowIso(),
     updated_at: nowIso(),
   };
@@ -292,10 +464,30 @@ function updateActivity(id, patch) {
     throw Object.assign(new Error('活动不存在'), { status: 404 });
   }
   if (patch.title !== undefined) item.title = normalizeTitle(patch.title);
-  if (patch.body !== undefined) item.body = normalizeBody(patch.body);
   if (patch.sort !== undefined) item.sort = Number(patch.sort) || 0;
-  if (Array.isArray(patch.image_urls)) {
-    item.image_urls = patch.image_urls.filter((url) => typeof url === 'string');
+  if (patch.blocks !== undefined) {
+    item.blocks = patch.blocks;
+    syncFromBlocks(item);
+    pruneUnusedImages(item);
+  } else if (patch.body !== undefined || patch.images !== undefined || Array.isArray(patch.image_urls)) {
+    if (patch.body !== undefined) item.body = normalizeBody(patch.body);
+    if (patch.images !== undefined) {
+      item.images = normalizeImageList(patch.images);
+      item.image_urls = item.images.map((row) => row.url);
+    } else if (Array.isArray(patch.image_urls)) {
+      const hrefByUrl = new Map(imagesFromItem(item).map((row) => [row.url, row.href]));
+      const sizeByUrl = new Map(imagesFromItem(item).map((row) => [row.url, row.size]));
+      item.images = patch.image_urls
+        .filter((url) => typeof url === 'string' && url)
+        .map((url) => ({
+          url,
+          href: hrefByUrl.get(url) || '',
+          size: sizeByUrl.get(url) || 'large',
+        }));
+      item.image_urls = item.images.map((row) => row.url);
+    }
+    item.blocks = blocksFromLegacy(item);
+    syncFromBlocks(item);
   }
   persistStatus(item);
   item.updated_at = nowIso();
@@ -384,27 +576,17 @@ function saveCover(id, file) {
 }
 
 function addBodyImage(id, file) {
-  const item = getById(id);
-  if ((item.image_urls || []).length >= MAX_BODY_IMAGES) {
-    throw Object.assign(new Error(`正文图片最多 ${MAX_BODY_IMAGES} 张`), { status: 400 });
-  }
+  getById(id);
   const dir = activityDir(id);
   fs.mkdirSync(dir, { recursive: true });
   const ext = extForUpload(file);
   const filename = `img_${crypto.randomBytes(4).toString('hex')}${ext}`;
   fs.writeFileSync(path.join(dir, filename), file.buffer);
-  item.image_urls = [...(item.image_urls || []), publicUrl(id, filename)];
-  item.updated_at = nowIso();
-  writeMeta(item);
-  const catalog = loadCatalog();
-  const row = catalog.items.find((entry) => entry.id === id);
-  if (row) {
-    row.image_urls = item.image_urls;
-    row.updated_at = item.updated_at;
-    persistStatus(row);
-    saveCatalog(catalog);
-  }
-  return getById(id);
+  return {
+    url: publicUrl(id, filename),
+    filename,
+    item: getById(id),
+  };
 }
 
 function removeCover(id) {
@@ -428,22 +610,22 @@ function removeBodyImage(id, filename) {
   if (!safe || safe !== filename || !safe.startsWith('img_')) {
     throw Object.assign(new Error('无效的图片文件名'), { status: 400 });
   }
-  const item = getById(id);
+  const catalog = loadCatalog();
+  const item = catalog.items.find((row) => row.id === id);
+  if (!item) {
+    throw Object.assign(new Error('活动不存在'), { status: 404 });
+  }
   const targetUrl = publicUrl(id, safe);
-  item.image_urls = (item.image_urls || []).filter((url) => url !== targetUrl);
+  if (!Array.isArray(item.blocks)) item.blocks = blocksFromLegacy(item);
+  item.blocks = item.blocks.filter((row) => !(row.type === 'image' && row.url === targetUrl));
+  syncFromBlocks(item);
   const filePath = path.join(activityDir(id), safe);
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  persistStatus(item);
   item.updated_at = nowIso();
   writeMeta(item);
-  const catalog = loadCatalog();
-  const row = catalog.items.find((entry) => entry.id === id);
-  if (row) {
-    row.image_urls = item.image_urls;
-    row.updated_at = item.updated_at;
-    persistStatus(row);
-    saveCatalog(catalog);
-  }
-  return getById(id);
+  saveCatalog(catalog);
+  return decorate(item);
 }
 
 function migrateLegacyPublicAssets(dest) {

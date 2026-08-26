@@ -352,9 +352,6 @@ public class WindowsManager : MonoBehaviour {
                 break;
             case "notice":
                 On(noticePanel);
-                if (noticePanel != null && noticePanel.GetComponent<NoticePanel>() == null) {
-                    noticePanel.AddComponent<NoticePanel>();
-                }
                 break;
             case "aboutUs":
                 On(aboutUsPanel);

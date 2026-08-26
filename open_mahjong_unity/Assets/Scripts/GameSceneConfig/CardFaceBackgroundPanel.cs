@@ -32,6 +32,12 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
     [SerializeField] private Button restoreTableBgButton;
     [SerializeField] private Button clearTableBgButton;
     [SerializeField] private Image tableFaceColorPreview;
+    [SerializeField] private Slider tableFaceSliderR;
+    [SerializeField] private Slider tableFaceSliderG;
+    [SerializeField] private Slider tableFaceSliderB;
+    [SerializeField] private TMP_Text tableFaceValueR;
+    [SerializeField] private TMP_Text tableFaceValueG;
+    [SerializeField] private TMP_Text tableFaceValueB;
     [SerializeField] private TMP_InputField tableFaceHexInput;
     [SerializeField] private Button tableFaceHexApplyButton;
     [SerializeField] private Button useTableFaceSolidButton;
@@ -45,6 +51,7 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
     private Sprite handBgSprite;
     private Sprite cardBackSprite;
     private Sprite tableBgSprite;
+    private bool syncingTableFaceColor;
 
     private void Awake() {
         Instance = this;
@@ -60,6 +67,9 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         useTableFaceSolidButton.onClick.AddListener(() => SetTableFaceSolid(true));
         noTableFaceSolidButton.onClick.AddListener(() => SetTableFaceSolid(false));
         restoreTableFaceColorButton.onClick.AddListener(RestoreTableFaceColor);
+        tableFaceSliderR.onValueChanged.AddListener(v => SetTableFaceRgb(v / 255f, CurrentTableFaceColor.g, CurrentTableFaceColor.b));
+        tableFaceSliderG.onValueChanged.AddListener(v => SetTableFaceRgb(CurrentTableFaceColor.r, v / 255f, CurrentTableFaceColor.b));
+        tableFaceSliderB.onValueChanged.AddListener(v => SetTableFaceRgb(CurrentTableFaceColor.r, CurrentTableFaceColor.g, v / 255f));
     }
 
     private void OnEnable() {
@@ -243,16 +253,33 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         return custom;
     }
 
+    private static Color CurrentTableFaceColor => ConfigManager.Instance != null
+        ? ConfigManager.Instance.TableFaceColor
+        : ConfigManager.DefaultTableFaceColor;
+
     public void RefreshSolidColorUi() {
-        Color color = ConfigManager.Instance != null
-            ? ConfigManager.Instance.TableFaceColor
-            : ConfigManager.DefaultTableFaceColor;
+        Color color = CurrentTableFaceColor;
         bool useSolid = ConfigManager.Instance != null && ConfigManager.Instance.TableFaceUseSolidColor;
         tableFaceColorPreview.sprite = null;
         tableFaceColorPreview.color = color;
         tableFaceHexInput.text = ColorUtility.ToHtmlStringRGB(color);
         SetSolidButton(useTableFaceSolidButton, useSolid);
         SetSolidButton(noTableFaceSolidButton, !useSolid);
+        syncingTableFaceColor = true;
+        tableFaceSliderR.value = color.r * 255f;
+        tableFaceSliderG.value = color.g * 255f;
+        tableFaceSliderB.value = color.b * 255f;
+        tableFaceValueR.text = Mathf.RoundToInt(color.r * 255f).ToString();
+        tableFaceValueG.text = Mathf.RoundToInt(color.g * 255f).ToString();
+        tableFaceValueB.text = Mathf.RoundToInt(color.b * 255f).ToString();
+        syncingTableFaceColor = false;
+    }
+
+    private void SetTableFaceRgb(float r, float g, float b) {
+        if (syncingTableFaceColor) return;
+        Color color = new Color(r, g, b, 1f);
+        CardBackManager.SetTableFaceColor(color);
+        RefreshSolidColorUi();
     }
 
     private void ApplyTableFaceHex() {

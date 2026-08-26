@@ -88,7 +88,7 @@ public static class SceneConfigUi
 
     /// <summary>
     /// 未选中 defaultColor，选中 selectedColor。
-    /// Image.color 作为可恢复的真值，避免切回面板时 CanvasRenderer 被重建成白/不透明。
+    /// Image.color 保持白（顶点色），显示色只走 CanvasRenderer，避免两者相乘变黑。
     /// </summary>
     public static void SetToggleSelected(
         Toggle toggle,
@@ -102,16 +102,8 @@ public static class SceneConfigUi
         toggle.toggleTransition = Toggle.ToggleTransition.None;
         toggle.graphic = null;
         Image bg = (Image)toggle.targetGraphic;
+        bg.color = Color.white;
         Color target = selected ? selectedColor : defaultColor;
-        if (instant || !bg.isActiveAndEnabled)
-        {
-            bg.color = target;
-            bg.canvasRenderer.SetColor(target);
-            return;
-        }
-        Color from = bg.canvasRenderer.GetColor();
-        bg.color = target;
-        bg.canvasRenderer.SetColor(from);
-        bg.CrossFadeColor(target, fade, true, true);
+        bg.CrossFadeColor(target, instant || !bg.isActiveAndEnabled ? 0f : fade, true, true);
     }
 }

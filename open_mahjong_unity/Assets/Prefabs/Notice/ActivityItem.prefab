@@ -34,10 +34,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 3486828674482629343}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 200, y: 50}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 50, y: -255.81499}
+  m_SizeDelta: {x: 76, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &7505474862884083162
 CanvasRenderer:
@@ -70,13 +70,13 @@ MonoBehaviour:
   m_text: "\u6D3B\u52A8\u7B80\u4ECB"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: bae11b662bda1504e8546327cf07ae25, type: 2}
-  m_sharedMaterial: {fileID: 8663839655035142134, guid: bae11b662bda1504e8546327cf07ae25, type: 2}
+  m_sharedMaterial: {fileID: -7501245431862323401, guid: bae11b662bda1504e8546327cf07ae25, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
+    rgba: 4292267207
   m_fontColor: {r: 0.78, g: 0.8, b: 0.84, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
@@ -89,7 +89,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -216,7 +216,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 100, y: 100}
+  m_SizeDelta: {x: 100, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &4010905334038554174
 CanvasRenderer:
@@ -445,13 +445,13 @@ MonoBehaviour:
   m_text: "\u5C01\u9762"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: bae11b662bda1504e8546327cf07ae25, type: 2}
-  m_sharedMaterial: {fileID: 8663839655035142134, guid: bae11b662bda1504e8546327cf07ae25, type: 2}
+  m_sharedMaterial: {fileID: -7501245431862323401, guid: bae11b662bda1504e8546327cf07ae25, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
+    rgba: 1509949439
   m_fontColor: {r: 1, g: 1, b: 1, a: 0.35}
   m_enableVertexGradient: 0
   m_colorMode: 3
@@ -464,7 +464,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -548,10 +548,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 3486828674482629343}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 200, y: 50}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 50, y: -201.605}
+  m_SizeDelta: {x: 76, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &1398452256656138314
 CanvasRenderer:
@@ -584,13 +584,13 @@ MonoBehaviour:
   m_text: "\u6D3B\u52A8\u540D\u79F0"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: bae11b662bda1504e8546327cf07ae25, type: 2}
-  m_sharedMaterial: {fileID: 8663839655035142134, guid: bae11b662bda1504e8546327cf07ae25, type: 2}
+  m_sharedMaterial: {fileID: -7501245431862323401, guid: bae11b662bda1504e8546327cf07ae25, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
+    rgba: 4287424255
   m_fontColor: {r: 1, g: 0.9, b: 0.55, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
@@ -603,7 +603,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -721,10 +721,10 @@ RectTransform:
   - {fileID: 3061006195157242082}
   m_Father: {fileID: 3486828674482629343}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 100, y: 100}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &6695210686447627133
 CanvasRenderer:

@@ -105,13 +105,10 @@ public class ConfigManager : MonoBehaviour {
     public static readonly Color DefaultSideColor = new Color(0.7132075f, 0.7132075f, 0.7132075f, 1f);
     /// <summary>背面侧边默认颜色：默认与牌背颜色同步（跟随 DefaultCardBackColor）。</summary>
     public static readonly Color DefaultBackEdgeColor = DefaultCardBackColor;
-    /// <summary>3D 牌面纯色默认：米色（与官方牌面 + 整体设计观感一致）。</summary>
-    public static readonly Color DefaultTableFaceColor = new Color(0.95294f, 0.94118f, 0.86667f, 1f);
-    /// <summary>
-    /// fluffy / hkmahjong 3D 牌面 PNG 原米色 (245,246,247)，透明化后 shader 无底图时的兜底色。
-    /// 与 DefaultTableFaceColor（用户可选的纯色默认）不是同一套。
-    /// </summary>
+    /// <summary>3D 牌面纯色默认：与牌面兜底色相同（245, 246, 247）。</summary>
     public static readonly Color DefaultTableFaceFallbackColor = new Color(0.961f, 0.965f, 0.969f, 1f);
+    /// <summary>3D 牌面纯色默认，与 <see cref="DefaultTableFaceFallbackColor"/> 一致。</summary>
+    public static readonly Color DefaultTableFaceColor = DefaultTableFaceFallbackColor;
 
     private static AppLanguage _languageMode = AppLanguage.SimplifiedChinese;
     public static event Action OnLanguageChanged;

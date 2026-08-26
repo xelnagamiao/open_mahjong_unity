@@ -5,7 +5,7 @@
       class="hint"
       type="info"
       :closable="false"
-      title="保存只更新文案和图片，不会改变发布状态。新建为草稿，发布、结束、下架在页面底部单独操作。"
+      title="保存只更新文案和图片，不会改变发布状态。正文可按任意顺序穿插文本、小图和大图。新建为草稿，发布、结束、下架在页面底部单独操作。"
     />
 
     <div class="layout">
@@ -27,7 +27,7 @@
           :current-row-key="form.id || undefined"
           @current-change="onSelect"
         >
-          <el-table-column label="封面" width="72">
+          <el-table-column label="标题图" width="72">
             <template #default="{ row }">
               <img v-if="row.cover_url" class="thumb" :src="row.cover_url" alt="" />
               <div v-else class="thumb empty">无图</div>
@@ -69,9 +69,9 @@
             </el-form-item>
             <el-form-item label="排序">
               <el-input-number v-model="form.sort" :min="0" :max="9999" />
-              <span class="field-hint">数字越小越靠前</span>
+              <span class="field-hint">数字越大越靠前，新建会自动取当前最大值 + 1</span>
             </el-form-item>
-            <el-form-item label="封面">
+            <el-form-item label="标题图片">
               <div class="cover-row">
                 <img v-if="form.cover_url" class="cover-preview" :src="form.cover_url" alt="" />
                 <div v-else class="cover-preview empty">未上传</div>
@@ -79,10 +79,10 @@
                   <el-upload
                     :show-file-list="false"
                     accept="image/jpeg,image/png,image/webp,image/gif"
-                    :http-request="uploadCover"
+                    :http-request="pickCover"
                   >
                     <el-button :loading="uploadingCover">
-                      {{ form.cover_url ? '更换封面' : '上传封面' }}
+                      {{ form.cover_url ? '裁切并更换' : '裁切并上传' }}
                     </el-button>
                   </el-upload>
                   <el-button
@@ -90,62 +90,159 @@
                     :loading="removingCover"
                     @click="removeCover"
                   >
-                    取消封面
+                    取消图片
                   </el-button>
                 </el-space>
               </div>
-              <div class="field-hint">单张不超过 2MB，建议 16:9</div>
+              <div class="field-hint">上传后裁切到约 2.2:1，输出不超过 2MB</div>
             </el-form-item>
             <el-form-item label="正文">
-              <el-input
-                v-model="form.body"
-                type="textarea"
-                :rows="8"
-                maxlength="20000"
-                show-word-limit
-                placeholder="玩家点开活动后，标题下方展示这段文字"
-              />
-            </el-form-item>
-            <el-form-item label="正文图片">
-              <div class="body-images">
-                <div v-for="url in form.image_urls" :key="url" class="body-image">
-                  <img :src="url" alt="" />
-                  <el-button
-                    class="remove-image"
-                    type="danger"
-                    plain
-                    size="small"
-                    :loading="removingImageUrl === url"
-                    @click="removeImage(url)"
+              <div class="block-editor">
+                <p class="block-hint">
+                  文本、小图、大图可任意穿插。小图按正常尺寸居中；大图固定满宽、高度按原图比例。正文图不超过 12MB。
+                </p>
+                <div class="block-toolbar">
+                  <el-button size="small" @click="addTextBlock">添加文本</el-button>
+                  <el-upload
+                    class="block-upload"
+                    :show-file-list="false"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    :http-request="(opt) => uploadBodyImage(opt, 'small')"
                   >
-                    取消上传
-                  </el-button>
+                    <el-button size="small" :loading="uploadingImage === 'small'">上传小图</el-button>
+                  </el-upload>
+                  <el-upload
+                    class="block-upload"
+                    :show-file-list="false"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    :http-request="(opt) => uploadBodyImage(opt, 'large')"
+                  >
+                    <el-button size="small" :loading="uploadingImage === 'large'">上传大图</el-button>
+                  </el-upload>
+                </div>
+                <div v-if="!form.blocks.length" class="block-empty">还没有正文，先添加文本或图片</div>
+                <div
+                  v-for="(block, index) in form.blocks"
+                  :key="block.key"
+                  class="block-card"
+                >
+                <div class="block-head">
+                  <span class="block-type">{{ blockLabel(block) }}</span>
+                  <el-space wrap>
+                    <template v-if="block.type === 'text'">
+                      <span class="block-size-label">字号</span>
+                      <el-select v-model="block.fontSize" size="small" style="width: 88px">
+                        <el-option
+                          v-for="size in FONT_SIZES"
+                          :key="size"
+                          :label="`${size}px`"
+                          :value="size"
+                        />
+                      </el-select>
+                      <el-button size="small" @click="insertLink(index)">插入链接</el-button>
+                    </template>
+                    <el-button size="small" :disabled="index === 0" @click="moveBlock(index, -1)">上移</el-button>
+                    <el-button
+                      size="small"
+                      :disabled="index === form.blocks.length - 1"
+                      @click="moveBlock(index, 1)"
+                    >
+                      下移
+                    </el-button>
+                    <el-button
+                      size="small"
+                      type="danger"
+                      plain
+                      :loading="removingImageUrl === block.url"
+                      @click="removeBlock(index)"
+                    >
+                      删除
+                    </el-button>
+                  </el-space>
+                </div>
+                <el-input
+                  v-if="block.type === 'text'"
+                  :ref="(el) => setTextRef(index, el)"
+                  v-model="block.text"
+                  type="textarea"
+                  :rows="5"
+                  maxlength="8000"
+                  show-word-limit
+                  placeholder="正文。选中文字后点「插入链接」，格式为 [文字](https://…)"
+                />
+                <div v-else class="block-image">
+                  <img
+                    :src="block.url"
+                    alt=""
+                    :class="block.size === 'large' ? 'is-large' : 'is-small'"
+                  />
+                  <el-input
+                    v-model="block.href"
+                    size="small"
+                    placeholder="点击图片打开的链接，可空"
+                    @blur="persistContent"
+                  />
                 </div>
               </div>
-              <el-upload
-                :show-file-list="false"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                :http-request="uploadBodyImage"
-              >
-                <el-button :loading="uploadingImage">添加图片</el-button>
-              </el-upload>
+              </div>
             </el-form-item>
           </el-form>
 
           <div class="preview-block">
-            <div class="preview-label">客户端预览</div>
-            <div class="preview-card" :class="{ dimmed: form.status === 'offline' || form.status === 'draft' }">
-              <div class="preview-cover" :style="coverStyle">{{ form.cover_url ? '' : '封面' }}</div>
-              <div class="preview-title">{{ form.title || '活动名称' }}</div>
-              <div v-if="form.status === 'ended'" class="preview-ended">活动已结束</div>
-              <div v-if="form.status === 'draft'" class="preview-hidden">草稿，通知页不显示</div>
-              <div v-if="form.status === 'offline'" class="preview-hidden">已下架，通知页不显示</div>
+            <div class="preview-label">客户端场景预览（按通知页布局缩放）</div>
+            <div ref="sceneWrap" class="scene-wrap" :style="{ height: `${900 * sceneScale}px` }">
+              <div class="scene-canvas" :style="{ transform: `scale(${sceneScale})` }">
+                <div class="scene-gutter" />
+                <div class="scene-sidebar">
+                  <div
+                    v-for="row in sceneList"
+                    :key="row.id"
+                    class="preview-card"
+                    :class="{
+                      selected: row.id === form.id,
+                      dimmed: row.status === 'offline' || row.status === 'draft',
+                    }"
+                  >
+                    <div
+                      class="preview-cover"
+                      :style="row.cover_url ? { backgroundImage: `url(${row.cover_url})` } : {}"
+                    >
+                      {{ row.cover_url ? '' : '标题图片' }}
+                    </div>
+                    <div class="preview-title">{{ row.title || '活动名称' }}</div>
+                  </div>
+                </div>
+                <div class="preview-detail">
+                  <div class="preview-detail-head">{{ form.title || '活动名称' }}</div>
+                  <div v-if="form.status === 'ended'" class="preview-ended">活动已结束</div>
+                  <div class="preview-body-flow">
+                    <template v-for="block in form.blocks" :key="block.key">
+                      <div
+                        v-if="block.type === 'text' && block.text"
+                        class="preview-body"
+                        :style="{ fontSize: `${block.fontSize || 22}px` }"
+                        v-html="textToHtml(block.text)"
+                      />
+                      <a
+                        v-else-if="block.type === 'image'"
+                        class="preview-image"
+                        :class="block.size === 'small' ? 'is-small' : 'is-large'"
+                        :href="block.href || undefined"
+                        :target="block.href ? '_blank' : undefined"
+                        :rel="block.href ? 'noopener noreferrer' : undefined"
+                        @click="onPreviewImageClick($event, block)"
+                      >
+                        <img :src="block.url" alt="" />
+                        <span v-if="block.href" class="preview-image-link">点击跳转</span>
+                      </a>
+                    </template>
+                  </div>
+                </div>
+                <div class="scene-gutter" />
+              </div>
             </div>
-            <div class="preview-detail">
-              <div class="preview-detail-head">{{ form.title || '活动名称' }}</div>
-              <div v-if="form.status === 'ended'" class="preview-ended">活动已结束</div>
-              <pre class="preview-body">{{ form.body || '正文将显示在这里' }}</pre>
-            </div>
+            <div v-if="form.status === 'draft'" class="preview-hidden">草稿，通知页不显示</div>
+            <div v-if="form.status === 'offline'" class="preview-hidden">已下架，通知页不显示</div>
           </div>
 
           <div class="lifecycle">
@@ -189,13 +286,20 @@
         <el-empty v-else description="从左侧选择活动，或新建一份草稿" />
       </el-card>
     </div>
+
+    <CoverCropDialog
+      v-model="cropOpen"
+      :file="cropFile"
+      @confirm="uploadCroppedCover"
+    />
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import adminApi from '@/api/adminClient'
+import CoverCropDialog from '@/components/CoverCropDialog.vue'
 
 const STATUS_META = {
   draft: { label: '草稿', type: 'info' },
@@ -204,6 +308,8 @@ const STATUS_META = {
   offline: { label: '已下架', type: 'danger' },
 }
 
+const FONT_SIZES = [14, 18, 22, 26, 30, 36]
+
 const items = ref([])
 const loading = ref(false)
 const creating = ref(false)
@@ -211,28 +317,46 @@ const saving = ref(false)
 const removing = ref(false)
 const changingStatus = ref(false)
 const uploadingCover = ref(false)
-const uploadingImage = ref(false)
+const uploadingImage = ref('')
 const removingCover = ref(false)
 const removingImageUrl = ref('')
 const savedSnapshot = ref('')
+const cropOpen = ref(false)
+const cropFile = ref(null)
+const sceneWrap = ref(null)
+const sceneScale = ref(0.48)
+const textRefs = []
 
 const form = reactive({
   id: '',
   title: '',
-  body: '',
   cover_url: '',
-  image_urls: [],
+  blocks: [],
   status: 'draft',
   sort: 0,
 })
 
-const coverStyle = computed(() =>
-  form.cover_url
-    ? { backgroundImage: `url(${form.cover_url})` }
-    : {}
-)
-
 const dirty = computed(() => !!form.id && snapshotOf(form) !== savedSnapshot.value)
+
+const sceneList = computed(() => {
+  const byId = new Map()
+  for (const row of items.value) {
+    const visible = row.status === 'published' || row.status === 'ended' || row.id === form.id
+    if (!visible) continue
+    byId.set(row.id, row)
+  }
+  if (form.id) {
+    byId.set(form.id, {
+      ...byId.get(form.id),
+      id: form.id,
+      title: form.title,
+      cover_url: form.cover_url,
+      status: form.status,
+      sort: form.sort,
+    })
+  }
+  return [...byId.values()].sort((a, b) => (Number(b.sort) || 0) - (Number(a.sort) || 0))
+})
 
 const lifecycleHint = computed(() => {
   if (form.status === 'published') return '玩家打开通知即可看到。结束活动仍会显示，但会标明「活动已结束」；下架后通知页不再出现。'
@@ -245,50 +369,253 @@ function statusMeta(status) {
   return STATUS_META[status] || STATUS_META.draft
 }
 
-function snapshotOf(item) {
-  return JSON.stringify({
-    title: item.title || '',
-    body: item.body || '',
-    sort: Number(item.sort) || 0,
+function blockLabel(block) {
+  if (block.type === 'text') return '文本'
+  return block.size === 'small' ? '小图' : '大图'
+}
+
+function newKey(prefix) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
+}
+
+function toBlocks(item) {
+  if (Array.isArray(item?.blocks) && item.blocks.length) {
+    return item.blocks.map((row, index) => {
+      if (row.type === 'image') {
+        return {
+          type: 'image',
+          size: row.size === 'small' ? 'small' : 'large',
+          url: row.url,
+          href: row.href || '',
+          key: row.url || newKey(`img${index}`),
+        }
+      }
+      return {
+        type: 'text',
+        text: row.text || '',
+        fontSize: Number(row.fontSize) || 22,
+        key: newKey(`text${index}`),
+      }
+    })
+  }
+  const blocks = []
+  if (item?.body) {
+    blocks.push({ type: 'text', text: item.body, fontSize: 22, key: newKey('text') })
+  }
+  const images = Array.isArray(item?.images) ? item.images : []
+  for (const image of images) {
+    const url = typeof image === 'string' ? image : image.url
+    if (!url) continue
+    blocks.push({
+      type: 'image',
+      size: image.size === 'small' ? 'small' : 'large',
+      url,
+      href: typeof image === 'string' ? '' : image.href || '',
+      key: url,
+    })
+  }
+  return blocks
+}
+
+function payloadBlocks() {
+  return form.blocks.map((block) => {
+    if (block.type === 'image') {
+      return { type: 'image', size: block.size === 'small' ? 'small' : 'large', url: block.url, href: block.href || '' }
+    }
+    return { type: 'text', text: block.text || '', fontSize: Number(block.fontSize) || 22 }
   })
 }
 
-function applyItem(item) {
+function snapshotOf(item) {
+  return JSON.stringify({
+    title: item.title || '',
+    sort: Number(item.sort) || 0,
+    blocks: (item.blocks || []).map((block) => {
+      if (block.type === 'image') {
+        return { type: 'image', size: block.size, url: block.url, href: block.href || '' }
+      }
+      return { type: 'text', text: block.text || '', fontSize: Number(block.fontSize) || 22 }
+    }),
+  })
+}
+
+function applyItem(item, { keepBlocks } = {}) {
   form.id = item.id
   form.title = item.title || ''
-  form.body = item.body || ''
   form.cover_url = item.cover_url || ''
-  form.image_urls = Array.isArray(item.image_urls) ? [...item.image_urls] : []
   form.status = item.status || (item.published ? 'published' : 'draft')
   form.sort = Number(item.sort) || 0
+  if (!keepBlocks) form.blocks = toBlocks(item)
   savedSnapshot.value = snapshotOf(form)
+}
+
+function patchListRow(id, patch) {
+  items.value = items.value.map((row) => (row.id === id ? { ...row, ...patch } : row))
+}
+
+function syncListFromForm() {
+  if (!form.id) return
+  patchListRow(form.id, {
+    title: form.title,
+    cover_url: form.cover_url,
+    status: form.status,
+    sort: form.sort,
+    blocks: payloadBlocks(),
+  })
+  items.value = sortItems(items.value)
 }
 
 function clearForm() {
   form.id = ''
   form.title = ''
-  form.body = ''
   form.cover_url = ''
-  form.image_urls = []
+  form.blocks = []
   form.status = 'draft'
   form.sort = 0
   savedSnapshot.value = ''
 }
 
-async function loadList(selectId) {
+function contentPayload() {
+  return {
+    title: form.title,
+    sort: form.sort,
+    blocks: payloadBlocks(),
+  }
+}
+
+function isSafeHref(href) {
+  const value = String(href || '').trim()
+  if (!value) return false
+  const lower = value.toLowerCase()
+  if (lower.startsWith('javascript:') || lower.startsWith('data:') || lower.startsWith('vbscript:')) return false
+  return /^https?:\/\//i.test(value) || value.startsWith('/')
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function textToHtml(text) {
+  const src = String(text || '')
+  const re = /\[([^\]]+)\]\(([^)]+)\)/g
+  let out = ''
+  let last = 0
+  let match
+  while ((match = re.exec(src))) {
+    out += escapeHtml(src.slice(last, match.index)).replace(/\n/g, '<br>')
+    const label = escapeHtml(match[1])
+    const href = String(match[2] || '').trim()
+    if (isSafeHref(href)) {
+      out += `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${label}</a>`
+    } else {
+      out += label
+    }
+    last = match.index + match[0].length
+  }
+  out += escapeHtml(src.slice(last)).replace(/\n/g, '<br>')
+  return out
+}
+
+function setTextRef(index, el) {
+  textRefs[index] = el
+}
+
+function addTextBlock() {
+  if (form.blocks.length >= 40) {
+    ElMessage.error('正文块不能超过 40 个')
+    return
+  }
+  form.blocks.push({ type: 'text', text: '', fontSize: 22, key: newKey('text') })
+}
+
+function moveBlock(index, delta) {
+  const next = index + delta
+  if (next < 0 || next >= form.blocks.length) return
+  const copy = form.blocks.splice(index, 1)[0]
+  form.blocks.splice(next, 0, copy)
+}
+
+async function removeBlock(index) {
+  const block = form.blocks[index]
+  if (block?.type === 'image' && block.url) {
+    const filename = block.url.split('/').pop()
+    if (filename && form.id) {
+      removingImageUrl.value = block.url
+      try {
+        await adminApi.delete(`/activities/${form.id}/images/${encodeURIComponent(filename)}`)
+      } catch (e) {
+        ElMessage.error(e.response?.data?.message || '取消图片失败')
+        removingImageUrl.value = ''
+        return
+      } finally {
+        removingImageUrl.value = ''
+      }
+    }
+  }
+  form.blocks.splice(index, 1)
+  if (block?.type === 'image') await persistContent()
+}
+
+async function insertLink(index) {
+  const block = form.blocks[index]
+  if (!block || block.type !== 'text') return
+  const comp = textRefs[index]
+  const textarea = comp?.textarea || comp?.$el?.querySelector?.('textarea')
+  const start = textarea?.selectionStart ?? block.text.length
+  const end = textarea?.selectionEnd ?? block.text.length
+  const selected = block.text.slice(start, end) || '链接文字'
+  try {
+    const { value } = await ElMessageBox.prompt('填写 https://、http:// 或 / 开头的地址', '插入链接', {
+      confirmButtonText: '插入',
+      inputPattern: /^(https?:\/\/|\/)\S+$/i,
+      inputErrorMessage: '链接需以 https://、http:// 或 / 开头',
+    })
+    const wrapped = `[${selected}](${value.trim()})`
+    block.text = `${block.text.slice(0, start)}${wrapped}${block.text.slice(end)}`
+    await nextTick()
+    if (textarea) {
+      const caret = start + wrapped.length
+      textarea.focus()
+      textarea.setSelectionRange(caret, caret)
+    }
+  } catch {
+    /* cancel */
+  }
+}
+
+async function loadList(selectId, { apply = true } = {}) {
   loading.value = true
   try {
     const res = await adminApi.get('/activities')
     const remote = res.data.data?.items || []
     const keepId = selectId || form.id
-    items.value = mergeLocalItem(remote, keepId)
+    items.value = sortItems(mergeLocalItem(remote, keepId))
     const current = items.value.find((row) => row.id === keepId)
-    if (current) applyItem(current)
+    if (!current) return
+    if (apply && !(form.id === current.id && dirty.value)) {
+      applyItem(current)
+    } else if (form.id === current.id) {
+      form.status = current.status || form.status
+      syncListFromForm()
+    }
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '加载活动失败')
   } finally {
     loading.value = false
   }
+}
+
+function sortItems(list) {
+  return list.slice().sort((a, b) => {
+    const sortA = Number(a.sort) || 0
+    const sortB = Number(b.sort) || 0
+    if (sortA !== sortB) return sortB - sortA
+    return String(b.updated_at || '').localeCompare(String(a.updated_at || ''))
+  })
 }
 
 function mergeLocalItem(remote, keepId) {
@@ -299,9 +626,8 @@ function mergeLocalItem(remote, keepId) {
   const fallback = local || {
     id: form.id,
     title: form.title,
-    body: form.body,
     cover_url: form.cover_url,
-    image_urls: [...form.image_urls],
+    blocks: payloadBlocks(),
     status: form.status,
     sort: form.sort,
   }
@@ -310,7 +636,7 @@ function mergeLocalItem(remote, keepId) {
 
 function upsertItem(item) {
   if (!item?.id) return
-  items.value = [item, ...items.value.filter((row) => row.id !== item.id)]
+  items.value = sortItems([item, ...items.value.filter((row) => row.id !== item.id)])
 }
 
 function onSelect(row) {
@@ -323,7 +649,6 @@ async function createDraft() {
     const res = await adminApi.post('/activities', {
       title: '未命名活动',
       body: '',
-      sort: items.value.length,
     })
     const created = res.data.data
     if (created?.id) {
@@ -331,7 +656,7 @@ async function createDraft() {
       applyItem(created)
     }
     ElMessage.success(res.data.message || '已创建草稿')
-    await loadList(created?.id)
+    await loadList(created?.id, { apply: false })
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '创建失败')
   } finally {
@@ -343,18 +668,25 @@ async function save() {
   if (!form.id) return
   saving.value = true
   try {
-    const res = await adminApi.put(`/activities/${form.id}`, {
-      title: form.title,
-      body: form.body,
-      sort: form.sort,
-    })
+    const res = await adminApi.put(`/activities/${form.id}`, contentPayload())
     applyItem(res.data.data)
     ElMessage.success(res.data.message || '内容已保存')
-    await loadList(form.id)
+    await loadList(form.id, { apply: false })
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '保存失败')
   } finally {
     saving.value = false
+  }
+}
+
+async function persistContent() {
+  if (!form.id) return
+  try {
+    await adminApi.put(`/activities/${form.id}`, contentPayload())
+    savedSnapshot.value = snapshotOf(form)
+    syncListFromForm()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '保存失败')
   }
 }
 
@@ -388,16 +720,12 @@ async function changeStatus(status, confirm) {
   changingStatus.value = true
   try {
     if (dirty.value) {
-      await adminApi.put(`/activities/${form.id}`, {
-        title: form.title,
-        body: form.body,
-        sort: form.sort,
-      })
+      await adminApi.put(`/activities/${form.id}`, contentPayload())
     }
     const res = await adminApi.post(`/activities/${form.id}/status`, { status })
     applyItem(res.data.data)
     ElMessage.success(res.data.message || '状态已更新')
-    await loadList(form.id)
+    await loadList(form.id, { apply: false })
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '更新状态失败')
   } finally {
@@ -427,16 +755,21 @@ async function remove() {
   }
 }
 
-async function uploadCover({ file }) {
+function pickCover({ file }) {
+  cropFile.value = file
+  cropOpen.value = true
+}
+
+async function uploadCroppedCover(file) {
   if (!form.id) return
   uploadingCover.value = true
   try {
     const data = new FormData()
     data.append('file', file)
     const res = await adminApi.post(`/activities/${form.id}/cover`, data)
-    applyItem(res.data.data)
-    ElMessage.success('封面已更新')
-    await loadList(form.id)
+    form.cover_url = res.data.data?.cover_url || form.cover_url
+    syncListFromForm()
+    ElMessage.success('标题图片已更新')
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '封面上传失败')
   } finally {
@@ -444,19 +777,36 @@ async function uploadCover({ file }) {
   }
 }
 
-async function uploadBodyImage({ file }) {
+async function uploadBodyImage({ file }, size) {
   if (!form.id) return
-  uploadingImage.value = true
+  if (form.blocks.length >= 40) {
+    ElMessage.error('正文块不能超过 40 个')
+    return
+  }
+  if (form.blocks.filter((row) => row.type === 'image').length >= 30) {
+    ElMessage.error('正文图片最多 30 张')
+    return
+  }
+  uploadingImage.value = size
   try {
     const data = new FormData()
     data.append('file', file)
     const res = await adminApi.post(`/activities/${form.id}/images`, data)
-    applyItem(res.data.data)
-    ElMessage.success('图片已添加')
+    const url = res.data.url
+    if (!url) throw new Error('未返回图片地址')
+    form.blocks.push({
+      type: 'image',
+      size: size === 'small' ? 'small' : 'large',
+      url,
+      href: '',
+      key: url,
+    })
+    await persistContent()
+    ElMessage.success(size === 'small' ? '小图已添加' : '大图已添加')
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '图片上传失败')
+    ElMessage.error(e.response?.data?.message || e.message || '图片上传失败')
   } finally {
-    uploadingImage.value = false
+    uploadingImage.value = ''
   }
 }
 
@@ -465,9 +815,9 @@ async function removeCover() {
   removingCover.value = true
   try {
     const res = await adminApi.delete(`/activities/${form.id}/cover`)
-    applyItem(res.data.data)
+    form.cover_url = res.data.data?.cover_url || ''
+    syncListFromForm()
     ElMessage.success('封面已取消')
-    await loadList(form.id)
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '取消封面失败')
   } finally {
@@ -475,23 +825,31 @@ async function removeCover() {
   }
 }
 
-async function removeImage(url) {
-  const filename = url.split('/').pop()
-  if (!filename || !form.id) return
-  removingImageUrl.value = url
-  try {
-    const res = await adminApi.delete(`/activities/${form.id}/images/${encodeURIComponent(filename)}`)
-    applyItem(res.data.data)
-    ElMessage.success('图片已取消')
-  } catch (e) {
-    ElMessage.error(e.response?.data?.message || '取消图片失败')
-  } finally {
-    removingImageUrl.value = ''
-  }
+function onPreviewImageClick(event, image) {
+  if (!image.href) event.preventDefault()
 }
+
+let sceneObserver = null
+
+function bindSceneObserver(el) {
+  if (sceneObserver) sceneObserver.disconnect()
+  if (!el) return
+  sceneObserver = new ResizeObserver(() => {
+    sceneScale.value = Math.max(0.28, el.clientWidth / 1920)
+  })
+  sceneObserver.observe(el)
+  sceneScale.value = Math.max(0.28, el.clientWidth / 1920)
+}
+
+watch(sceneWrap, (el) => bindSceneObserver(el))
 
 onMounted(() => {
   loadList()
+  bindSceneObserver(sceneWrap.value)
+})
+
+onBeforeUnmount(() => {
+  if (sceneObserver) sceneObserver.disconnect()
 })
 </script>
 
@@ -533,6 +891,9 @@ onMounted(() => {
   gap: 8px;
   min-width: 0;
 }
+.editor-card :deep(.el-form-item__content) {
+  display: block;
+}
 .dirty-dot {
   color: #e6a23c;
   font-size: 12px;
@@ -562,11 +923,11 @@ onMounted(() => {
   gap: 12px;
 }
 .cover-preview {
-  width: 160px;
-  height: 90px;
+  width: 176px;
+  height: 80px;
   object-fit: cover;
   border-radius: 6px;
-  background: #ebeef5;
+  background: #242e42;
 }
 .cover-preview.empty {
   display: flex;
@@ -575,26 +936,96 @@ onMounted(() => {
   color: #909399;
   font-size: 13px;
 }
-.body-images {
+.field-hint-block {
+  display: block;
+  margin: 8px 0 12px;
+  margin-left: 0;
+}
+.block-editor {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+}
+.block-hint {
+  display: block;
+  width: 100%;
+  margin: 0 0 10px;
+  color: #909399;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.block-toolbar {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 12px;
+}
+.block-upload {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+.block-upload :deep(.el-upload) {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+.block-toolbar :deep(.el-button) {
+  margin: 0;
+  height: 24px;
+}
+.block-empty {
+  color: #909399;
+  font-size: 13px;
+  padding: 16px 0;
+}
+.block-card {
+  width: 100%;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 10px 12px 12px;
+  margin-bottom: 10px;
+  background: #fafafa;
+  box-sizing: border-box;
+}
+.block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 8px;
 }
-.body-image {
-  width: 120px;
+.block-type {
+  font-weight: 600;
+  color: #303133;
 }
-.body-image .remove-image {
+.block-size-label {
+  color: #909399;
+  font-size: 12px;
+}
+.block-image {
   width: 100%;
-  margin-top: 6px;
 }
-.body-image img {
-  width: 120px;
-  height: 80px;
-  object-fit: cover;
-  border-radius: 6px;
+.block-image img {
   display: block;
+  border-radius: 4px;
   background: #ebeef5;
+  margin-bottom: 8px;
+}
+.block-image img.is-small {
+  max-width: 324px;
+  height: auto;
+  margin-left: auto;
+  margin-right: auto;
+}
+.block-image img.is-large {
+  width: 100%;
+  height: auto;
 }
 .preview-block {
   margin-top: 8px;
@@ -606,62 +1037,141 @@ onMounted(() => {
   font-size: 13px;
   margin-bottom: 10px;
 }
-.preview-card {
-  width: 280px;
-  background: #111827;
-  border-radius: 10px;
+.scene-wrap {
+  width: 100%;
   overflow: hidden;
+  border-radius: 8px;
+  background: #07080c;
+}
+.scene-canvas {
+  width: 1920px;
+  height: 900px;
+  display: grid;
+  grid-template-columns: 192px 384px 960px 384px;
+  transform-origin: top left;
+  background: rgba(0, 0, 0, 0.39);
+}
+.scene-gutter {
+  min-width: 0;
+}
+.scene-sidebar {
+  padding: 18px 18px 24px;
+  box-sizing: border-box;
+  overflow: auto;
+}
+.preview-card {
+  width: 348px;
+  background: #141c2e;
+  border-radius: 8px;
+  overflow: hidden;
+  padding: 12px;
+  box-sizing: border-box;
   margin-bottom: 12px;
 }
 .preview-card.dimmed {
   opacity: 0.72;
 }
+.preview-card.selected {
+  background: #ffd16b;
+}
 .preview-cover {
-  height: 132px;
-  background: #1f2937 center/cover no-repeat;
-  color: #6b7280;
+  width: 100%;
+  height: 148px;
+  border-radius: 4px;
+  background: #242e42 center/cover no-repeat;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .preview-title {
-  color: #fde68a;
-  padding: 10px 12px 4px;
-  font-weight: 600;
+  color: #ffe68c;
+  font-size: 24px;
+  line-height: 32px;
+  min-height: 32px;
+  margin-top: 8px;
+  font-weight: 400;
+}
+.preview-card.selected .preview-title {
+  color: #141c2e;
 }
 .preview-ended {
   color: #f59e0b;
   font-size: 13px;
-  padding: 0 12px 10px;
+  padding: 0 30px;
   font-weight: 600;
 }
 .preview-hidden {
   color: #9ca3af;
   font-size: 12px;
-  padding: 0 12px 12px;
+  margin-top: 8px;
 }
 .preview-detail {
-  max-width: 420px;
-  background: #111827;
-  border-radius: 10px;
-  padding: 12px 14px;
+  background: rgba(13, 15, 20, 0.98);
+  overflow: auto;
 }
 .preview-detail-head {
   color: #fff;
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 8px;
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 72px;
+  height: 72px;
+  padding: 0 30px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.preview-detail .preview-ended {
-  padding: 0 0 8px;
+.preview-body-flow {
+  padding: 8px 8px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  gap: 12px;
 }
 .preview-body {
   margin: 0;
-  color: #e5e7eb;
-  white-space: pre-wrap;
+  padding: 0 16px;
+  width: 100%;
+  box-sizing: border-box;
+  color: #ebebeb;
   font-family: inherit;
-  font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.45;
+  word-break: break-word;
+}
+.preview-body :deep(a) {
+  color: #7ec8ff;
+}
+.preview-image {
+  display: block;
+  width: 100%;
+  flex: none;
+  color: inherit;
+  text-decoration: none;
+}
+.preview-image.is-large img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.preview-image.is-small {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.preview-image.is-small img {
+  max-width: 324px;
+  width: auto;
+  height: auto;
+  display: block;
+}
+.preview-image-link {
+  display: block;
+  color: #fbbf24;
+  font-size: 12px;
+  margin-top: 4px;
+  text-align: center;
 }
 .lifecycle {
   margin-top: 24px;
