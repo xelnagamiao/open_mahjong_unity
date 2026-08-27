@@ -13,13 +13,11 @@ public class EventNetworkManager : MonoBehaviour {
     public List<EventListEntry> PublicEvents { get; private set; } = new List<EventListEntry>();
     public EventDetailInfo CurrentDetail { get; private set; }
     public RoomInfo[] VenueRooms { get; private set; }
-    public EventReadyPlayer[] ReadyPlayers { get; private set; }
     public RecordInfo[] EventRecords { get; private set; }
 
     public event Action OnPublicEventsUpdated;
     public event Action OnEventDetailUpdated;
     public event Action OnVenueRoomsUpdated;
-    public event Action OnReadyPlayersUpdated;
     public event Action OnEventRecordsUpdated;
 
     private string _pendingRoomListEventId;
@@ -61,21 +59,6 @@ public class EventNetworkManager : MonoBehaviour {
                     OnEventDetailUpdated?.Invoke();
                 }
                 RefreshCurrentDetail();
-                break;
-            case "event/list_ready":
-                ReadyPlayers = response.ready_players;
-                OnReadyPlayersUpdated?.Invoke();
-                break;
-            case "event/create_empty_room":
-                NotificationManager.Instance.ShowTip("event", response.success, response.message);
-                if (response.success && CurrentDetail != null) ListVenueRooms(CurrentDetail.event_id);
-                break;
-            case "event/seat_table":
-                NotificationManager.Instance.ShowTip("event", response.success, response.message);
-                if (response.success && CurrentDetail != null) {
-                    ListVenueRooms(CurrentDetail.event_id);
-                    ListReadyPlayers(CurrentDetail.event_id);
-                }
                 break;
             case "event/seated":
                 if (response.success && response.room_info != null) {
@@ -157,31 +140,9 @@ public class EventNetworkManager : MonoBehaviour {
         _Send(new { type = "event/unready", event_id = eventId });
     }
 
-    public void ListReadyPlayers(string eventId) {
-        _Send(new { type = "event/list_ready", event_id = eventId });
-    }
-
     public void ListVenueRooms(string eventId) {
         _pendingRoomListEventId = eventId;
         _Send(new { type = "room/get_room_list", show_tip = false, event_id = eventId });
-    }
-
-    public void CreateEmptyRoom(string eventId, string roomRule, string roomName) {
-        _Send(new {
-            type = "event/create_empty_room",
-            event_id = eventId,
-            room_rule = roomRule,
-            room_config = new { room_name = string.IsNullOrEmpty(roomName) ? "赛事房间" : roomName + "桌" }
-        });
-    }
-
-    public void SeatTable(string eventId, int[] userIds, string roomRule) {
-        _Send(new {
-            type = "event/seat_table",
-            event_id = eventId,
-            user_ids = userIds,
-            room_rule = roomRule
-        });
     }
 
     public void ListEventRecords(string eventId) {

@@ -67,6 +67,8 @@ public class EventEntrySummary {
     public bool has_join_code;
     public bool member_can_create_room;
     public bool auto_approve;
+    public bool unregistered_can_create_room;
+    public bool unregistered_can_ready;
 }
 
 public class EventAnnouncementInfo {

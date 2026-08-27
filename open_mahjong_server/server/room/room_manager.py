@@ -106,7 +106,9 @@ class RoomManager:
         if role:
             return True
         cfg = self.game_server.db_manager.parse_entry_config(event.get("entry_config"))
-        if event.get("kind") != "base" or not cfg.get("member_can_create_room"):
+        if cfg.get("unregistered_can_create_room"):
+            return True
+        if not cfg.get("member_can_create_room"):
             return False
         registration = self.game_server.db_manager.get_event_registration(event_id, user_id)
         return bool(registration and registration.get("status") == "approved")

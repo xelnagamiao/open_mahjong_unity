@@ -121,8 +121,8 @@ router.post('/:id/approve', async (req, res) => {
 
     const kind = application.kind === 'base' ? 'base' : 'event';
     const entryConfig = kind === 'base'
-      ? { forbid_tourist: true, auto_approve: true, member_can_create_room: true }
-      : { forbid_tourist: false, auto_approve: false, member_can_create_room: false };
+      ? { forbid_tourist: true, auto_approve: true, member_can_create_room: true, unregistered_can_create_room: false, unregistered_can_ready: false }
+      : { forbid_tourist: false, auto_approve: false, member_can_create_room: false, unregistered_can_create_room: false, unregistered_can_ready: false };
     await client.query(
       `INSERT INTO events (event_id, name, description, status, created_by, kind, entry_config)
        VALUES ($1, $2, $3, 'registered', $4, $5, $6::jsonb)`,

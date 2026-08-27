@@ -62,6 +62,8 @@ function parseEntryConfig(raw) {
     forbid_tourist: Boolean(cfg.forbid_tourist),
     auto_approve: Boolean(cfg.auto_approve),
     member_can_create_room: Boolean(cfg.member_can_create_room),
+    unregistered_can_create_room: Boolean(cfg.unregistered_can_create_room),
+    unregistered_can_ready: Boolean(cfg.unregistered_can_ready),
     join_code: String(cfg.join_code || '').trim().slice(0, 32),
   };
 }
@@ -78,6 +80,12 @@ function normalizeEntryConfigBody(body, current) {
   }
   if (Object.prototype.hasOwnProperty.call(src, 'member_can_create_room')) {
     next.member_can_create_room = Boolean(src.member_can_create_room);
+  }
+  if (Object.prototype.hasOwnProperty.call(src, 'unregistered_can_create_room')) {
+    next.unregistered_can_create_room = Boolean(src.unregistered_can_create_room);
+  }
+  if (Object.prototype.hasOwnProperty.call(src, 'unregistered_can_ready')) {
+    next.unregistered_can_ready = Boolean(src.unregistered_can_ready);
   }
   if (Object.prototype.hasOwnProperty.call(src, 'join_code')) {
     next.join_code = String(src.join_code || '').trim().slice(0, 32);
@@ -98,7 +106,7 @@ async function fetchEventAdmins(eventId) {
   return result.rows;
 }
 
-async function resolveRegisteredUser(userId) {
+async function resolveRegisteredUser(userId, touristError = '\u4e0d\u80fd\u5c06\u6e38\u5ba2\u8bbe\u4e3a\u8d5b\u4e8b\u5b50\u7ba1\u7406\u5458') {
   const result = await pool.query(
     `SELECT user_id, username, is_tourist FROM users WHERE user_id = $1`,
     [userId]
@@ -108,10 +116,26 @@ async function resolveRegisteredUser(userId) {
   }
   const user = result.rows[0];
   if (user.is_tourist) {
-    return { error: '\u4e0d\u80fd\u5c06\u6e38\u5ba2\u8bbe\u4e3a\u8d5b\u4e8b\u5b50\u7ba1\u7406\u5458' };
+    return { error: touristError };
   }
   return { user };
 }
+
+function mapRegistrationRow(row) {
+  return {
+    ...row,
+    user_id: Number(row.user_id),
+    username: row.username || '',
+    guobiao_rank: row.guobiao_rank || '',
+  };
+}
+
+const REGISTRATION_SELECT = `SELECT r.event_id, r.user_id, r.status, r.contact, r.remark, r.review_note,
+              r.created_at, r.updated_at, u.username,
+              COALESCE(rd.guobiao_rank, '') AS guobiao_rank
+       FROM event_registrations r
+       LEFT JOIN users u ON u.user_id = r.user_id
+       LEFT JOIN rank_data rd ON rd.user_id = r.user_id`;
 
 async function countEventRecords(eventId) {
   const result = await pool.query(
@@ -863,18 +887,59 @@ router.get('/:eventId/registrations', requireEventMembership, async (req, res) =
       where += ` AND r.status = $${params.length}`;
     }
     const result = await pool.query(
-      `SELECT r.event_id, r.user_id, r.status, r.contact, r.remark, r.review_note,
-              r.created_at, r.updated_at, u.username
-       FROM event_registrations r
-       LEFT JOIN users u ON u.user_id = r.user_id
+      `${REGISTRATION_SELECT}
        WHERE ${where}
        ORDER BY CASE r.status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,
                 r.created_at DESC`,
       params
     );
-    res.json({ success: true, data: { items: result.rows } });
+    res.json({ success: true, data: { items: result.rows.map(mapRegistrationRow) } });
   } catch (err) {
     console.error('event-admin list registrations:', err);
+    res.status(500).json({ success: false, message: '\u670d\u52a1\u5668\u5185\u90e8\u9519\u8bef' });
+  }
+});
+
+router.post('/:eventId/registrations', requireEventMembership, async (req, res) => {
+  try {
+    const parsed = parseUserId((req.body || {}).user_id);
+    if (parsed.error) {
+      return res.status(400).json({ success: false, message: parsed.error });
+    }
+    const resolved = await resolveRegisteredUser(parsed.value, '\u4e0d\u80fd\u6dfb\u52a0\u6e38\u5ba2');
+    if (resolved.error) {
+      return res.status(400).json({ success: false, message: resolved.error });
+    }
+    const upsert = await pool.query(
+      `INSERT INTO event_registrations
+          (event_id, user_id, status, contact, remark, reviewed_by, review_note, updated_at)
+       VALUES ($1, $2, 'approved', '', '\u7ba1\u7406\u5458\u76f4\u63a5\u6dfb\u52a0', $3, '\u7ba1\u7406\u5458\u76f4\u63a5\u6dfb\u52a0', CURRENT_TIMESTAMP)
+       ON CONFLICT (event_id, user_id) DO UPDATE SET
+          status = 'approved',
+          reviewed_by = EXCLUDED.reviewed_by,
+          review_note = EXCLUDED.review_note,
+          updated_at = CURRENT_TIMESTAMP
+       RETURNING event_id, user_id`,
+      [req.event.event_id, parsed.value, req.eventAdmin.userId]
+    );
+    await writeAudit({
+      adminUserId: req.eventAdmin.userId,
+      action: 'event_admin.registration.add',
+      targetType: 'event',
+      targetId: req.event.event_id,
+      payload: { user_id: parsed.value, username: resolved.user.username },
+    });
+    const detail = await pool.query(
+      `${REGISTRATION_SELECT}
+       WHERE r.event_id = $1 AND r.user_id = $2`,
+      [req.event.event_id, parsed.value]
+    );
+    res.json({
+      success: true,
+      data: { item: mapRegistrationRow(detail.rows[0] || upsert.rows[0]) },
+    });
+  } catch (err) {
+    console.error('event-admin add registration:', err);
     res.status(500).json({ success: false, message: '\u670d\u52a1\u5668\u5185\u90e8\u9519\u8bef' });
   }
 });

@@ -258,16 +258,32 @@
               <el-radio-button label="approved">已通过</el-radio-button>
               <el-radio-button label="rejected">已拒绝</el-radio-button>
             </el-radio-group>
+            <el-form inline class="emp-form" @submit.prevent="addPlayerByUid">
+              <el-form-item :label="isBase ? '直接加入 UID' : '直接参赛 UID'">
+                <el-input v-model="addPlayerForm.user_id" clearable style="width: 180px" placeholder="玩家 UID" />
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" :loading="addingPlayer" @click="addPlayerByUid">添加</el-button>
+              </el-form-item>
+            </el-form>
             <el-button text type="primary" :loading="loadingRegistrations" @click="loadRegistrations">刷新</el-button>
           </div>
           <el-table
             :data="registrations"
             size="small"
+            class="emp-reg-table"
             v-loading="loadingRegistrations"
             :empty-text="isBase ? '暂无加入申请' : '暂无报名'"
           >
-            <el-table-column prop="username" label="用户名" min-width="110" />
-            <el-table-column prop="user_id" label="用户 ID" width="110" />
+            <el-table-column label="用户名" min-width="180">
+              <template #default="{ row }">{{ row.username || '—' }}</template>
+            </el-table-column>
+            <el-table-column label="UID" min-width="140">
+              <template #default="{ row }">{{ row.user_id }}</template>
+            </el-table-column>
+            <el-table-column label="段位" min-width="110">
+              <template #default="{ row }">{{ row.guobiao_rank || '—' }}</template>
+            </el-table-column>
             <el-table-column label="状态" width="90">
               <template #default="{ row }">
                 <el-tag :type="registrationStatusTagType(row.status)" size="small">
@@ -333,7 +349,7 @@
 
         <el-tab-pane label="准入配置" name="entry">
           <el-alert
-            :title="isBase ? '基地可配置自动通过、成员建房与加入口令。' : '赛事默认需审核报名；也可改为自动通过或设置口令。'"
+            title="可配置自动通过、建房权限、等待队列与加入口令。"
             type="info"
             :closable="false"
             show-icon
@@ -343,11 +359,17 @@
             <el-form-item label="禁止游客报名">
               <el-switch v-model="entryForm.forbid_tourist" />
             </el-form-item>
-            <el-form-item label="报名自动通过">
+            <el-form-item label="自动通过报名">
               <el-switch v-model="entryForm.auto_approve" />
             </el-form-item>
-            <el-form-item v-if="isBase" label="已通过成员可自行创建房间">
+            <el-form-item label="已通过成员可自行创建房间">
               <el-switch v-model="entryForm.member_can_create_room" />
+            </el-form-item>
+            <el-form-item label="允许未报名玩家创建房间">
+              <el-switch v-model="entryForm.unregistered_can_create_room" />
+            </el-form-item>
+            <el-form-item label="允许未报名玩家进入玩家队列">
+              <el-switch v-model="entryForm.unregistered_can_ready" />
             </el-form-item>
             <el-form-item label="加入口令（可选）">
               <el-input
@@ -762,6 +784,8 @@ const announceForm = reactive({ title: '', body: '' })
 const registrations = ref([])
 const loadingRegistrations = ref(false)
 const registrationFilter = ref('pending')
+const addingPlayer = ref(false)
+const addPlayerForm = reactive({ user_id: '' })
 const readyPlayers = ref([])
 const loadingReady = ref(false)
 const selectedReadyIds = ref([])
@@ -771,6 +795,8 @@ const entryForm = reactive({
   forbid_tourist: false,
   auto_approve: false,
   member_can_create_room: false,
+  unregistered_can_create_room: false,
+  unregistered_can_ready: false,
   join_code: '',
 })
 
@@ -1261,6 +1287,8 @@ function applyEntryForm(cfg) {
   entryForm.forbid_tourist = Boolean(src.forbid_tourist)
   entryForm.auto_approve = Boolean(src.auto_approve)
   entryForm.member_can_create_room = Boolean(src.member_can_create_room)
+  entryForm.unregistered_can_create_room = Boolean(src.unregistered_can_create_room)
+  entryForm.unregistered_can_ready = Boolean(src.unregistered_can_ready)
   entryForm.join_code = String(src.join_code || '')
 }
 
@@ -1276,6 +1304,28 @@ async function loadRegistrations() {
     registrations.value = []
   } finally {
     loadingRegistrations.value = false
+  }
+}
+
+async function addPlayerByUid() {
+  const uid = addPlayerForm.user_id.trim()
+  if (!uid) {
+    ElMessage.warning('请填写玩家 UID')
+    return
+  }
+  addingPlayer.value = true
+  try {
+    await eventAdminApi.post(`/events/${props.eventId}/registrations`, { user_id: uid })
+    ElMessage.success('已将该玩家加入')
+    addPlayerForm.user_id = ''
+    if (registrationFilter.value && registrationFilter.value !== 'approved') {
+      registrationFilter.value = 'approved'
+    }
+    await loadRegistrations()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '添加失败')
+  } finally {
+    addingPlayer.value = false
   }
 }
 
@@ -1350,7 +1400,9 @@ async function saveEntryConfig() {
       entry_config: {
         forbid_tourist: entryForm.forbid_tourist,
         auto_approve: entryForm.auto_approve,
-        member_can_create_room: isBase.value ? entryForm.member_can_create_room : false,
+        member_can_create_room: entryForm.member_can_create_room,
+        unregistered_can_create_room: entryForm.unregistered_can_create_room,
+        unregistered_can_ready: entryForm.unregistered_can_ready,
         join_code: entryForm.join_code,
       },
     })
@@ -1750,6 +1802,11 @@ watch(
 }
 .emp-form {
   flex-wrap: wrap;
+}
+.emp-reg-table :deep(.cell) {
+  white-space: normal;
+  word-break: break-all;
+  line-height: 1.45;
 }
 .emp-count {
   color: #909399;

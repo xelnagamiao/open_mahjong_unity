@@ -32,6 +32,8 @@ def _public_entry_summary(entry_config: dict) -> dict:
         "has_join_code": bool(str(cfg.get("join_code") or "").strip()),
         "member_can_create_room": bool(cfg.get("member_can_create_room", False)),
         "auto_approve": bool(cfg.get("auto_approve", False)),
+        "unregistered_can_create_room": bool(cfg.get("unregistered_can_create_room", False)),
+        "unregistered_can_ready": bool(cfg.get("unregistered_can_ready", False)),
     }
 
 
@@ -221,7 +223,9 @@ async def _handle_ready(game_server, user_id, player, message, websocket, ready:
             return
         registration = game_server.db_manager.get_event_registration(event_id, user_id)
         role = game_server.db_manager.get_event_admin_role(event_id, user_id)
-        if not role and (not registration or registration.get("status") != "approved"):
+        approved = bool(registration and registration.get("status") == "approved")
+        cfg = game_server_parse_config(event)
+        if not role and not approved and not cfg.get("unregistered_can_ready"):
             await _send(websocket, Response(type=type_name, success=False, message="请先通过报名"))
             return
     ok = game_server.db_manager.set_event_ready(event_id, user_id, ready)

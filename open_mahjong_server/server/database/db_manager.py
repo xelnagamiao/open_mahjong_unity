@@ -2957,9 +2957,11 @@ class DatabaseManager:
                 cursor.execute(
                     """
                     SELECT r.event_id, r.user_id, r.status, r.contact, r.remark, r.review_note,
-                           r.created_at, r.updated_at, u.username
+                           r.created_at, r.updated_at, u.username,
+                           COALESCE(rd.guobiao_rank, '') AS guobiao_rank
                     FROM event_registrations r
                     LEFT JOIN users u ON u.user_id = r.user_id
+                    LEFT JOIN rank_data rd ON rd.user_id = r.user_id
                     WHERE r.event_id = %s AND r.status = %s
                     ORDER BY r.created_at DESC
                     """,
@@ -2969,9 +2971,11 @@ class DatabaseManager:
                 cursor.execute(
                     """
                     SELECT r.event_id, r.user_id, r.status, r.contact, r.remark, r.review_note,
-                           r.created_at, r.updated_at, u.username
+                           r.created_at, r.updated_at, u.username,
+                           COALESCE(rd.guobiao_rank, '') AS guobiao_rank
                     FROM event_registrations r
                     LEFT JOIN users u ON u.user_id = r.user_id
+                    LEFT JOIN rank_data rd ON rd.user_id = r.user_id
                     WHERE r.event_id = %s
                     ORDER BY r.created_at DESC
                     """,
