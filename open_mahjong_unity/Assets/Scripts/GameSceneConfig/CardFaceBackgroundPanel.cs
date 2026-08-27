@@ -107,12 +107,11 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
             if (!string.IsNullOrEmpty(err) && err != "empty") SceneConfigUi.ShowTip(err);
         });
 #elif (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
-        NativeGallery.GetImageFromGallery(path => {
-            if (!string.IsNullOrEmpty(path)) ApplyLocalPath(path);
-        }, mode == PickMode.HandBg ? "选择手牌背景"
-            : mode == PickMode.CardBack ? "选择手牌牌背"
-            : mode == PickMode.TableBg ? "选择 3D 牌面背景"
-            : "选择手牌牌背与手牌背景（zip 或两张图）", "image/*");
+        LocalAssetPick.ReadFile(LocalAssetPick.ImageAndZipFileTypes, (bytes, name) => {
+            ApplyBytes(bytes, name);
+        }, err => {
+            if (!string.IsNullOrEmpty(err) && err != "empty") SceneConfigUi.ShowTip(err);
+        });
 #else
         bool multi = mode == PickMode.Pair;
         var extensions = new[] {

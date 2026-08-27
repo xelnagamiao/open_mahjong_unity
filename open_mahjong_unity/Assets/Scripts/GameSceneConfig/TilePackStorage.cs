@@ -44,8 +44,15 @@ public static class TilePackStorage {
     }
 
     public static void PickZip(Action<byte[], string> onZip, Action<string> onError) {
+#if UNITY_WEBGL && !UNITY_EDITOR
         TilePackWebGlBridge.Ensure();
         TilePackWebGlBridge.Instance.BeginPick(onZip, onError);
+#elif (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
+        LocalAssetPick.ReadFile(LocalAssetPick.ZipFileTypes, onZip, onError);
+#else
+        TilePackWebGlBridge.Ensure();
+        TilePackWebGlBridge.Instance.BeginPick(onZip, onError);
+#endif
     }
 
     public static void LoadZipFromIndexedDb(Action<byte[]> onZip, Action<string> onError) {
@@ -168,8 +175,6 @@ public sealed class TilePackWebGlBridge : MonoBehaviour {
         catch (Exception e) {
             errorCallback?.Invoke("无法打开文件选择: " + e.Message);
         }
-#elif (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
-        errorCallback?.Invoke("移动端请使用电脑制作 zip 后拷入，或在 WebGL/桌面客户端上传");
 #else
         var extensions = new[] { new SFB.ExtensionFilter("Tile Pack", "zip") };
         string[] paths = SFB.StandaloneFileBrowser.OpenFilePanel("选择牌面包 zip", "", extensions, false);

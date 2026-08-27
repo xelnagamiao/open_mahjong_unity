@@ -199,9 +199,11 @@ public class CardBackConfigPanel : MonoBehaviour
             if (!string.IsNullOrEmpty(err) && err != "empty") SceneConfigUi.ShowTip(err);
         });
 #elif (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
-        NativeGallery.GetImageFromGallery(path => {
-            if (!string.IsNullOrEmpty(path)) ApplyLocalPath(path);
-        }, "选择牌背图片", "image/*");
+        LocalAssetPick.ReadFile(LocalAssetPick.ImageAndZipFileTypes, (bytes, name) => {
+            ApplyBodyBytes(bytes, name);
+        }, err => {
+            if (!string.IsNullOrEmpty(err) && err != "empty") SceneConfigUi.ShowTip(err);
+        });
 #else
         var extensions = new[]
         {
