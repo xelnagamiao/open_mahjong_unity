@@ -1,46 +1,17 @@
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// 随机桌面按钮挂接：自动查找名字含“随机桌面 / RandomTable”的按钮并绑定点击事件；
-/// 也可手动把按钮拖到 targetButton。点击后调用 Game3DManager.GenerateRandomTable()。
+/// 随机桌面：场景里把按钮拖到 targetButton。
 /// </summary>
 public class RandomTableButton : MonoBehaviour
 {
-    [Tooltip("可选：手动指定按钮；留空则按名字自动查找")]
     [SerializeField] private Button targetButton;
 
     private void Awake()
     {
-        if (targetButton != null)
-        {
-            targetButton.onClick.RemoveListener(GenerateRandomTable);
-            targetButton.onClick.AddListener(GenerateRandomTable);
-            return;
-        }
-        List<Button> buttons = FindRandomTableButtons();
-        if (buttons.Count == 0)
-        {
-            Debug.LogWarning("[RandomTableButton] 未找到随机桌面按钮（按钮名需包含“随机桌面/RandomTable/RandomorFushi”）");
-            return;
-        }
-        foreach (Button btn in buttons)
-        {
-            btn.onClick.RemoveListener(GenerateRandomTable);
-            btn.onClick.AddListener(GenerateRandomTable);
-        }
-    }
-
-    /// <summary>场景设置打开时调用：把场景里手工添加的随机桌面按钮挂到生成逻辑上。</summary>
-    public static void HookExistingButton()
-    {
-        foreach (Button btn in FindRandomTableButtons())
-        {
-            if (btn == null) continue;
-            btn.onClick.RemoveListener(GenerateRandomTable);
-            btn.onClick.AddListener(GenerateRandomTable);
-        }
+        targetButton.onClick.RemoveListener(GenerateRandomTable);
+        targetButton.onClick.AddListener(GenerateRandomTable);
     }
 
     public static void GenerateRandomTable()
@@ -55,20 +26,9 @@ public class RandomTableButton : MonoBehaviour
         }
     }
 
-    private static List<Button> FindRandomTableButtons()
+    public static void TryGeneratePreviewTable()
     {
-        List<Button> matches = new List<Button>();
-        Button[] all = Object.FindObjectsByType<Button>(FindObjectsSortMode.None);
-        foreach (Button b in all)
-        {
-            if (b == null || b.gameObject == null) continue;
-            string name = b.gameObject.name;
-            if (string.IsNullOrEmpty(name)) continue;
-            if (!name.Contains("随机桌面") && !name.Contains("RandomTable") && !name.Contains("RandomorFushi")) continue;
-            // 代码内置的牌背面盘按钮已自带监听，跳过避免重复触发
-            if (CardBackConfigPanel.Instance != null && b.transform.IsChildOf(CardBackConfigPanel.Instance.transform)) continue;
-            matches.Add(b);
-        }
-        return matches;
+        if (GameSessionGuard.BlocksRandomTable) return;
+        GenerateRandomTable();
     }
 }

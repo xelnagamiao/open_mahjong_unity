@@ -19,16 +19,38 @@ def can_self_draw_win(hand: Sequence[str], melds: Sequence[dict]) -> bool:
 def check_action_hand_action(game_state, player) -> tuple[list[str], list[dict]]:
     if game_state.phase != "turn" or player.index != game_state.current_player_index:
         return [], []
+    if game_state.game_status == "onlycut_after_action":
+        return check_only_cut(game_state, player)
     actions = ["discard"] if player.hand else []
     candidates: list[dict] = []
     if can_self_draw_win(player.hand, player.melds):
         actions.append("win")
-    # 最后一张手牌杠后直接形成杠和，只下发“和”。
+    # 摸牌后：最后一张手牌杠后直接形成杠和，只下发“和”。
     if len(player.hand) != 1:
         kong = kong_candidates(player.hand, player.melds)
         if kong:
             actions.append("kong")
             candidates.extend(kong)
+    if player.supplements < 2 and game_state.wall:
+        actions.append("supplement")
+    return actions, candidates
+
+
+def check_only_cut(game_state, player) -> tuple[list[str], list[dict]]:
+    """亮牌后手牌检查，对齐青雀 ``check_only_cut``。
+
+    青雀在吃碰后允许切牌 / 暗杠 / 加杠。虹雀没有暗杠，杠是明牌单张增量，
+    因此这里允许多一个加杠（含手上只剩一张的加杠），并允许补牌。
+    亮牌后未补牌前不得宣称摸和：必须补牌进入 ``waiting_hand_action`` 后才能和。
+    """
+    if player.index != game_state.current_player_index:
+        return [], []
+    actions = ["discard"] if player.hand else []
+    candidates: list[dict] = []
+    kong = kong_candidates(player.hand, player.melds)
+    if kong:
+        actions.append("kong")
+        candidates.extend(kong)
     if player.supplements < 2 and game_state.wall:
         actions.append("supplement")
     return actions, candidates

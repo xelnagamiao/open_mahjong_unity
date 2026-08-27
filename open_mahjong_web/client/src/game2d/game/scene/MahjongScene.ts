@@ -21,6 +21,7 @@ import {
 } from '../fontLoader'
 import { FROM_DRAWN_TINT, Tile } from './Tile'
 import { River } from './River'
+import { RiverMatchHighlight } from './RiverMatchHighlight'
 import { WaitDisplay, type WaitInfoData } from './WaitDisplay'
 import { Hand } from './Hand'
 import { Display, Countdown, DirLabel, TempLabel, TenpaiTipButton } from './Display'
@@ -72,6 +73,9 @@ function readCurrentPlayer(state: Record<string, any>): number | null {
 
 function readWaitingDiscarderSeat(snapshot: ActiveSessionSnapshot): number | null {
   const state = snapshot.state as Record<string, any>
+  if (typeof state.last_discarder === 'number' && state.last_discarder >= 0) {
+    return state.last_discarder
+  }
   const lastEventKind = typeof state.last_event_kind === 'string' ? state.last_event_kind : null
   if (lastEventKind === 'discard_tile' && typeof state.last_actor === 'number') {
     return state.last_actor
@@ -117,6 +121,7 @@ export class MahjongScene {
   private waitDisplay!: WaitDisplay
   private rivers!: [River, River, River, River]
   private hands!: [Hand, Hand, Hand, Hand]
+  private readonly riverMatchHighlight = new RiverMatchHighlight()
   private stateDisplay!: Display
   private tempDisplay!: Display
   private volDisplay!: Display
@@ -704,9 +709,12 @@ export class MahjongScene {
 
   private rememberViewer(viewer: Record<string, any>): void {
     this.currentPendingStatus = typeof viewer.pending === 'string' ? viewer.pending : 'none'
-    this.currentViewerActions = Array.isArray(viewer.available_actions)
+    const incoming = Array.isArray(viewer.available_actions)
       ? viewer.available_actions as Array<Record<string, any>>
       : []
+    this.currentViewerActions = this.appearance.forcePassEnabled
+      ? incoming
+      : incoming.filter((action) => action.kind !== 'force_pass')
   }
 
   private canAct(): boolean {
@@ -845,13 +853,18 @@ export class MahjongScene {
     this.clearMeldChoices()
     this.hands[0].unwaitDiscard()
     this.waitDisplay.visible = false
+    this.sendViewerAction(action)
+    return true
+  }
+
+  private sendViewerAction(action: Record<string, any>): void {
     this.sendGameInput({
       kind: action.kind,
       tile: action.tile,
       use_drawn_tile: action.use_drawn_tile,
       ui64_value: action.ui64_value,
+      server_action: action.server_action,
     })
-    return true
   }
 
   private scheduleAutoWinAction(action: Record<string, any>): boolean {
@@ -900,7 +913,7 @@ export class MahjongScene {
       return this.triggerAutoAction(passAction)
     }
 
-    // 3) 自动和牌（受不点和 / 不抢杠 / 不自摸 / 选中牌不自动自摸 约束）
+    // 3) 自动和牌。抢杠和不得当作点和：否则「不点和」会跳过自动和并在下一步把和牌 pass 掉。
     if (this.assist.autoWin) {
       if (claimRobAction && !this.assist.noRobKong) {
         return this.scheduleAutoWinAction(claimRobAction)
@@ -972,12 +985,14 @@ export class MahjongScene {
 
   /** Remaining non-pass actions after 不吃/不碰/不明杠/不点和 filters. */
   private remainingActionsAfterMeldFilter(): Array<Record<string, any>> {
-    const actions = this.currentViewerActions.filter((action) => action.kind !== 'pass' && action.kind !== 'final_pass')
+    const actions = this.currentViewerActions.filter((action) => (
+      action.kind !== 'pass' && action.kind !== 'final_pass' && action.kind !== 'force_pass'
+    ))
     return actions.filter((action) => {
       if (this.assist.passChi && action.kind === 'chow') return false
       if (this.assist.passPeng && action.kind === 'pung') return false
       if (this.assist.passMingGang && action.kind === 'melded_kong') return false
-      // 不点和仅剔除 discard_win；不抢杠/不自摸不参与自动过牌筛除（对齐 Unity）。
+      // 不点和仅剔除 discard_win；抢杠和 / 不抢杠 / 不自摸不参与自动过牌筛除。
       if (this.shouldFilterRonForAutoPass() && action.kind === 'discard_win') return false
       return true
     })
@@ -993,11 +1008,14 @@ export class MahjongScene {
   /** Unity ShouldFilterRonForAutoPass: 不点和 removes ron unless another unblocked meld remains. */
   private shouldFilterRonForAutoPass(): boolean {
     if (!this.assist.noRon || !this.hasAction('discard_win')) return false
+    if (this.hasAction('rob_added_kong_win')) return false
     return !this.hasUnblockedMeldOption()
   }
 
   private shouldAutoPassAfterMeldFilter(): boolean {
-    const offered = this.currentViewerActions.some((action) => action.kind !== 'pass' && action.kind !== 'final_pass')
+    const offered = this.currentViewerActions.some((action) => (
+      action.kind !== 'pass' && action.kind !== 'final_pass' && action.kind !== 'force_pass'
+    ))
     if (!offered) return false
     return this.remainingActionsAfterMeldFilter().length === 0
   }
@@ -1361,7 +1379,14 @@ export class MahjongScene {
   }
 
   private createHand(direction: number, parent: Container, river: River, waitDisplay: WaitDisplay | null): Hand {
-    return new Hand(direction, parent, river, waitDisplay, this.presentationMode === 'replay')
+    return new Hand(
+      direction,
+      parent,
+      river,
+      waitDisplay,
+      this.presentationMode === 'replay',
+      this.riverMatchHighlight,
+    )
   }
 
   private createRiver(direction: number, parent: Container): River {
@@ -1423,6 +1448,7 @@ export class MahjongScene {
       this.createRiver(2, c),
       this.createRiver(3, c),
     ]
+    this.riverMatchHighlight.bind(this.rivers)
 
     this.hands = [
       this.createHand(0, c, this.rivers[0], this.waitDisplay),
@@ -1552,6 +1578,7 @@ export class MahjongScene {
       this.createRiver(2, c),
       this.createRiver(3, c),
     ]
+    this.riverMatchHighlight.bind(this.rivers)
     this.hands = [
       this.createHand(0, c, this.rivers[0], this.waitDisplay),
       this.createHand(1, c, this.rivers[1], null),
@@ -1758,6 +1785,11 @@ export class MahjongScene {
     const actorSeat: number = event.actor_seat ?? 0
     const actorDir = transDir(actorSeat, this.selfDir)
     const tile: number | undefined = event.tile
+    const claimDiscarderSeat = typeof event.discarder_seat === 'number'
+      && event.discarder_seat >= 0
+      && event.discarder_seat < 4
+      ? event.discarder_seat
+      : this.lastDiscarderSeat
 
     // Opening flower replacements are part of the initial hand on the server.
     // Merge every replacement tile after the flower round so all 14 dealer
@@ -1810,6 +1842,7 @@ export class MahjongScene {
             this.createRiver(2, c),
             this.createRiver(3, c),
           ]
+          this.riverMatchHighlight.bind(this.rivers)
           this.hands = [
             this.createHand(0, c, this.rivers[0], this.waitDisplay),
             this.createHand(1, c, this.rivers[1], null),
@@ -1891,7 +1924,8 @@ export class MahjongScene {
           break
         }
         case 'chow': {
-          const discarderRelDir = transDir(this.lastDiscarderSeat, this.selfDir)
+          this.lastDiscarderSeat = claimDiscarderSeat
+          const discarderRelDir = transDir(claimDiscarderSeat, this.selfDir)
           const centralTile = tile ?? 0
           const chowMode = event.ui64_value ?? 0
           this.hands[actorDir].chowFromRiver(this.rivers[discarderRelDir], centralTile, chowMode)
@@ -1902,8 +1936,9 @@ export class MahjongScene {
           break
         }
         case 'pung': {
-          const discarderRelDir = transDir(this.lastDiscarderSeat, this.selfDir)
-          const meldFromRel = backendMeldFromRel(actorSeat, this.lastDiscarderSeat)
+          this.lastDiscarderSeat = claimDiscarderSeat
+          const discarderRelDir = transDir(claimDiscarderSeat, this.selfDir)
+          const meldFromRel = backendMeldFromRel(actorSeat, claimDiscarderSeat)
           const t = tile ?? 0
           this.hands[actorDir].pungFromRiver(this.rivers[discarderRelDir], meldFromRel, t)
           if (this.presentationMode === 'replay' && !event.silent) {
@@ -1913,9 +1948,10 @@ export class MahjongScene {
           break
         }
         case 'melded_kong': {
-          const discarderRelDir = transDir(this.lastDiscarderSeat, this.selfDir)
+          this.lastDiscarderSeat = claimDiscarderSeat
+          const discarderRelDir = transDir(claimDiscarderSeat, this.selfDir)
           const t = tile ?? 0
-          const meldFromRel = backendMeldFromRel(actorSeat, this.lastDiscarderSeat)
+          const meldFromRel = backendMeldFromRel(actorSeat, claimDiscarderSeat)
           this.hands[actorDir].meldedKongFromRiver(this.rivers[discarderRelDir], meldFromRel, t)
           if (this.presentationMode === 'replay' && !event.silent) {
             this.showReplayClaimLabel(actorDir, tr('杠'), true)
@@ -2431,12 +2467,7 @@ export class MahjongScene {
           this.requestPassAction()
           return false
         }
-        this.sendGameInput({
-          kind: action.kind,
-          tile: action.tile,
-          use_drawn_tile: action.use_drawn_tile,
-          ui64_value: action.ui64_value,
-        })
+        this.sendViewerAction(action)
         return true
       },
       () => { this.meldChoicesPanel = null },

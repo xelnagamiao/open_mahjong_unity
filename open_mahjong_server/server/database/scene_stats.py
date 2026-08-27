@@ -4,9 +4,13 @@
 """
 import logging
 from psycopg2 import Error
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
+
+# 主 title：room_type = match / custom / events
+# 次级 sign：match_tier；天梯为 beginner/intermediate/advanced/mcrpl，比赛场填 event_id
+LADDER_TIERS = ("beginner", "intermediate", "advanced", "mcrpl")
 
 # match_type → 局制 game_type
 _GAME_TYPE_MAP = {
@@ -15,6 +19,40 @@ _GAME_TYPE_MAP = {
     "3/4": "xifeng",
     "4/4": "quanzhuang", "4/4_rank": "quanzhuang",
 }
+
+
+def _blank_to_none(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def normalize_scene_fields(
+    room_type: Optional[str],
+    match_tier: Optional[str],
+    event_id: Optional[str],
+) -> tuple:
+    """统一场次三元组：比赛场用 event_id 填充次级 match_tier。"""
+    room_type = _blank_to_none(room_type)
+    match_tier = _blank_to_none(match_tier)
+    event_id = _blank_to_none(event_id)
+    if room_type == "events" and event_id:
+        match_tier = event_id
+    return room_type, match_tier, event_id
+
+
+def should_record_scene_metrics(
+    room_type: Optional[str],
+    match_tier: Optional[str],
+    event_id: Optional[str] = None,
+) -> bool:
+    room_type, match_tier, event_id = normalize_scene_fields(room_type, match_tier, event_id)
+    if room_type == "match" and match_tier in LADDER_TIERS:
+        return True
+    if room_type == "events" and event_id:
+        return True
+    return False
 
 
 def derive_game_type(match_type: Optional[str]) -> Optional[str]:
@@ -47,10 +85,10 @@ def record_game_metrics(
         player_list: 玩家列表，每个玩家含 record_counter
         scene: {rule, sub_rule, room_type, match_tier, event_id, match_type}
     """
-    room_type = scene.get("room_type")
-    match_tier = scene.get("match_tier")
-    # 场次指标仅记录天梯四档，减少写入开销
-    if room_type != "match" or match_tier not in ("beginner", "intermediate", "advanced", "mcrpl"):
+    room_type, match_tier, event_id = normalize_scene_fields(
+        scene.get("room_type"), scene.get("match_tier"), scene.get("event_id"),
+    )
+    if not should_record_scene_metrics(room_type, match_tier, event_id):
         return
 
     conn = None
@@ -96,9 +134,9 @@ def record_game_metrics(
                 getattr(player, "username", f"用户{user_id}"),
                 scene.get("rule"),
                 scene.get("sub_rule"),
-                scene.get("room_type"),
-                scene.get("match_tier"),
-                scene.get("event_id"),
+                room_type,
+                match_tier,
+                event_id,
                 game_type,
                 match_type,
                 getattr(player, "score", 0) or 0,

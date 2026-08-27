@@ -36,7 +36,8 @@ async function requireEventMembership(req, res, next) {
     }
 
     const eventRes = await pool.query(
-      `SELECT event_id, name, description, status, reopen_requested, created_by, closed_at, created_at, updated_at
+      `SELECT event_id, name, description, status, kind, entry_config,
+              reopen_requested, created_by, closed_at, created_at, updated_at
        FROM events WHERE event_id = $1`,
       [eventId]
     );

@@ -9,6 +9,7 @@ public class RoomListPanel : MonoBehaviour {
     [Header("UI References")]
     [SerializeField] private Transform roomListContent; // 房间列表容器
     [SerializeField] private GameObject roomItemPrefab; // 房间预制体
+    public GameObject RoomItemPrefab => roomItemPrefab;
     [SerializeField] private TMP_InputField RoomIdInput;        // 房间ID输入框
     [SerializeField] private Button createButton;      // 创建房间按钮
     [SerializeField] private Button refreshButton;     // 刷新按钮

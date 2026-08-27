@@ -8,6 +8,7 @@ class PlayerTiles:
     def __init__(self, tiles_list, combination_list, complete_step):
         self.hand_tiles = sorted(tiles_list)
         self.combination_list = combination_list
+        self.initial_combination_count = len(combination_list)
         self.complete_step = complete_step  # +3 +3 +3 +3 +2 = 14
         self.fan_list = []
         self.point_count_dict = {}  # 存储和牌得分
@@ -17,6 +18,7 @@ class PlayerTiles:
         new_instance = PlayerTiles(self.hand_tiles[:],
                                  self.combination_list[:],
                                  self.complete_step)
+        new_instance.initial_combination_count = self.initial_combination_count
         new_instance.fan_list = self.fan_list[:]
         return new_instance
 
@@ -532,7 +534,7 @@ class Chinese_Hepai_Check:
                     rank = i % 10
                     save_list.append(rank)
                 self.debug_print(save_list)
-                if save_list == self.jiulianbaodeng_list:
+                if player_tiles.initial_combination_count == 0 and save_list == self.jiulianbaodeng_list:
                     player_tiles.fan_list.append("jiulianbaodeng") # 九莲宝灯
                 else:
                     player_tiles.fan_list.append("qingyise") # 清一色

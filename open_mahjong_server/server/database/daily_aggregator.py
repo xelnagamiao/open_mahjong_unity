@@ -16,11 +16,12 @@ STAT_DAY_OFFSET_HOURS = 4  # 统计日边界：04:00 切日
 SHANGHAI_TZ = timezone(timedelta(hours=8))
 REGISTERED_USER_ID_MIN = 10000000
 DEFAULT_RESTORE_SINCE = date(2026, 6, 6)
-# 场次指标仅统计天梯四档
+# 场次指标：天梯四档 + 比赛场（match_tier = event_id）
 MATCH_TIERS = ("beginner", "intermediate", "advanced", "mcrpl")
 MATCH_TIER_SQL = ", ".join(f"'{t}'" for t in MATCH_TIERS)
 DAU_METRIC_BACKFILL_META_KEY = "daily_stats_dau_v1"
 QINGQUE_CLASSICAL_RULE_FIX_META_KEY = "fix_qingque_classical_history_rule_v1"
+GUOBIAO_RECORD_RESET_XUNMU_META_KEY = "guobiao_record_reset_xunmu_v2"
 
 _HISTORY_STAT_SUM_COLUMNS = [
     "total_games", "total_rounds", "win_count", "self_draw_count", "deal_in_count",
@@ -115,7 +116,7 @@ def aggregate_daily_stats(db_manager, stat_date: date, max_online: int = None) -
 
 
 def aggregate_scene_daily_stats(db_manager, stat_date: date) -> None:
-    """聚合某统计日的天梯场次 scene_daily_stats（仅 beginner/intermediate/advanced/mcrpl）。
+    """聚合某统计日的 scene_daily_stats（天梯四档 + 比赛场）。
 
     单日 DELETE + INSERT，04:00 定时任务调用，开销可控。
     """
@@ -127,8 +128,10 @@ def aggregate_scene_daily_stats(db_manager, stat_date: date) -> None:
             f"""
             DELETE FROM scene_daily_stats
             WHERE stat_date = %s
-              AND room_type = 'match'
-              AND match_tier IN ({MATCH_TIER_SQL})
+              AND (
+                (room_type = 'match' AND match_tier IN ({MATCH_TIER_SQL}))
+                OR room_type = 'events'
+              )
             """,
             (stat_date,),
         )
@@ -171,8 +174,10 @@ def aggregate_scene_daily_stats(db_manager, stat_date: date) -> None:
                        SUM(total_round_score) AS total_round_score
                 FROM game_player_metrics
                 WHERE {date_expr} = %s
-                  AND room_type = 'match'
-                  AND match_tier IN ({MATCH_TIER_SQL})
+                  AND (
+                    (room_type = 'match' AND match_tier IN ({MATCH_TIER_SQL}))
+                    OR (room_type = 'events' AND event_id IS NOT NULL)
+                  )
                 GROUP BY game_id, room_type, match_tier, event_id, rule, game_type
             ) g
             GROUP BY room_type, match_tier, event_id, rule, game_type
@@ -184,7 +189,7 @@ def aggregate_scene_daily_stats(db_manager, stat_date: date) -> None:
             (stat_date, stat_date),
         )
         conn.commit()
-        logger.info("scene_daily_stats 已聚合 %s（天梯四档）", stat_date)
+        logger.info("scene_daily_stats 已聚合 %s（天梯四档 + 比赛场）", stat_date)
         try:
             from .tier_fan_aggregator import increment_scene_tier_fan_for_date
             increment_scene_tier_fan_for_date(db_manager, stat_date)
@@ -292,6 +297,19 @@ def run_qingque_classical_rule_fix_once(db_manager) -> None:
         logger.info("青雀/古典 rule 修正完成，累计处理错误行约 %d", total)
     except Exception as e:
         logger.error("青雀/古典 rule 修正中断，下次启动将重试: %s", e, exc_info=True)
+
+
+def run_guobiao_record_reset_xunmu_once(db_manager) -> None:
+    """一次性：历史国标牌谱补 reset，并按周巡目重算和了巡目。"""
+    if _is_meta_done(db_manager, GUOBIAO_RECORD_RESET_XUNMU_META_KEY):
+        return
+    try:
+        from .guobiao.backfill_record_reset_xunmu import backfill_guobiao_record_reset_xunmu
+        backfill_guobiao_record_reset_xunmu(db_manager)
+        _mark_meta_done(db_manager, GUOBIAO_RECORD_RESET_XUNMU_META_KEY)
+        logger.info("国标牌谱 reset/巡目回填完成")
+    except Exception as e:
+        logger.error("国标牌谱 reset/巡目回填中断，下次启动将重试: %s", e, exc_info=True)
 
 
 def run_dau_metric_backfill_once(db_manager) -> None:
@@ -410,7 +428,20 @@ def run_startup_stats_restore(
     except Exception as e:
         logger.warning("青雀/古典 rule 启动修正失败: %s", e)
 
-    from .backfill_game_player_metrics import backfill_missing_game_player_metrics
+    try:
+        run_guobiao_record_reset_xunmu_once(db_manager)
+    except Exception as e:
+        logger.warning("国标牌谱 reset/巡目启动回填失败: %s", e)
+
+    from .backfill_game_player_metrics import (
+        backfill_missing_game_player_metrics,
+        fill_event_match_tier_on_records,
+    )
+
+    try:
+        fill_event_match_tier_on_records(db_manager)
+    except Exception as e:
+        logger.warning("填充比赛场 match_tier 失败: %s", e)
 
     logger.info("统计维护：增量回填未合并 metrics（%s ~ %s）", since_date, date_to)
     rows = backfill_missing_game_player_metrics(
@@ -419,6 +450,7 @@ def run_startup_stats_restore(
 
     logger.info("统计维护：补齐未聚合统计日（%s ~ %s）", since_date, date_to)
     run_catchup_aggregation(db_manager, since_date=since_date, date_to=date_to)
+    run_event_scene_catchup(db_manager, since_date=since_date, date_to=date_to)
 
     try:
         conn = db_manager._get_connection()
@@ -436,6 +468,52 @@ def run_startup_stats_restore(
 
     run_dau_metric_backfill_once(db_manager)
     logger.info("统计维护完成（metrics 增量 %d 行）", rows)
+
+
+def run_event_scene_catchup(
+    db_manager,
+    since_date: Optional[date] = None,
+    date_to: Optional[date] = None,
+) -> None:
+    """补齐已有比赛场 metrics、但尚未写入 scene_daily_stats 的统计日。"""
+    conn = None
+    end = date_to or current_stat_date()
+    start = since_date or DEFAULT_RESTORE_SINCE
+    date_expr = _stat_date_expr("created_at")
+    try:
+        conn = db_manager._get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""
+            SELECT DISTINCT {date_expr} AS stat_date
+            FROM game_player_metrics
+            WHERE room_type = 'events'
+              AND event_id IS NOT NULL
+              AND {date_expr} >= %s
+              AND {date_expr} <= %s
+              AND {date_expr} NOT IN (
+                  SELECT DISTINCT stat_date FROM scene_daily_stats
+                  WHERE room_type = 'events'
+              )
+            ORDER BY stat_date
+            """,
+            (start, end),
+        )
+        missing = [r[0] for r in cursor.fetchall()]
+    except Error as e:
+        logger.error("查询比赛场缺失聚合日失败: %s", e, exc_info=True)
+        missing = []
+    finally:
+        if conn:
+            cursor.close()
+            db_manager._put_connection(conn)
+
+    if not missing:
+        logger.info("比赛场 scene_daily_stats 无需补齐")
+        return
+    for stat_date in missing:
+        logger.info("补齐比赛场每日统计: %s", stat_date)
+        aggregate_scene_daily_stats(db_manager, stat_date)
 
 
 def run_catchup_aggregation(

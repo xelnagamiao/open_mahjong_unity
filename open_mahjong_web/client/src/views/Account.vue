@@ -79,25 +79,31 @@
         </el-form>
       </el-card>
 
-      <el-card v-show="activeSection === 'sec-apply'" id="sec-apply" class="block section" data-sec="sec-apply">
-        <template #header>{{ editingApplicationId ? '修改办赛申请' : '提交办赛申请' }}</template>
+      <el-card v-show="isApplySection" class="block section">
+        <template #header>{{ applyCardTitle }}</template>
         <div class="event-application-rules">
-          <strong>Salasasa 平台赛事规约</strong>
-          <ol>
+          <strong>{{ isBaseApply ? 'Salasasa 平台基地规约' : 'Salasasa 平台赛事规约' }}</strong>
+          <ol v-if="isBaseApply">
+            <li>创建基地后，玩家可以在基地中进行对局，同时管理员对对局状态、玩家牌谱与数据统计均有管理权能，如果有长期月赛或者其他非杯赛的不定期活动，使用基地来创建也是可以的。</li>
+            <li>如果社团活动涉及烟、酒、槟榔等成瘾品赞助的相关内容，请在申请基地的介绍或者发布相关公告之前联系平台管理员。</li>
+          </ol>
+          <ol v-else>
             <li>赛事的组织、奖金等各项成本开支不得低于报名费的 80%，如赛事奖励中提供更上级比赛名额或特殊奖励的，可以进行独立核算。</li>
             <li>收取报名费的赛事必须明确规定赛事规则与奖励方式；该内容同样受赛事介绍中平台可能对赛制争端进行介入的声明约束。</li>
             <li>涉及烟、酒、槟榔等成瘾品赞助的赛事，须提前联系平台管理员后再申报。</li>
           </ol>
         </div>
         <el-form label-position="top" class="apply-form" @submit.prevent="submitApplication">
-          <el-form-item label="赛事名称" required>
+          <el-form-item :label="isBaseApply ? '基地名称' : '赛事名称'" required>
             <el-input v-model="applyForm.name" maxlength="128" show-word-limit />
             <p class="field-note">
-              赛事名称必须提交中文、英文或其他语言的完整赛事全称，不得使用简写、表述不清或者有公共性质的赛事名称；错误案例：国标麻将比赛、FST杯；正确案例：第一届神秘嘉宾杯国标麻将比赛、咕咕嘎嘎国标麻将群内赛。
+              {{ isBaseApply
+                ? '基地名称必须提交中文、英文或其他语言的完整赛事全称，不得使用简写、表述不清或者有公共性质的基地名称；错误案例：「国标麻将基地」、「salasasa麻将群」、「麻将活动室」等。'
+                : '赛事名称必须提交中文、英文或其他语言的完整赛事全称，不得使用简写、表述不清或者有公共性质的赛事名称；错误案例：国标麻将比赛、FST杯；正确案例：第一届神秘嘉宾杯国标麻将比赛、咕咕嘎嘎国标麻将群内赛。' }}
             </p>
           </el-form-item>
 
-          <el-form-item label="拟定开始时间 / 拟定结束时间" required>
+          <el-form-item :label="isBaseApply ? '拟定时间（可选）' : '拟定开始时间 / 拟定结束时间'" :required="!isBaseApply">
             <div class="date-row">
               <el-date-picker
                 v-model="applyForm.planned_start_at"
@@ -117,11 +123,13 @@
               />
             </div>
             <p class="field-note">
-              拟定开始时间和结束时间只是申请的开启赛事和关闭赛事的大致时间范围，赛事的开启与关闭将由比赛管理员自行决定；如果是长期的月赛或者季度赛，可以不设截止时间或连续申报比赛，在确定拟定日期以后也可以随时进行更改。
+              {{ isBaseApply
+                ? '对基地的持续时间不设限制，时间设置由基地管理员自行决定。'
+                : '拟定开始时间和结束时间只是申请的开启赛事和关闭赛事的大致时间范围，赛事的开启与关闭将由比赛管理员自行决定；\n如果是长期的月赛或者季度赛，可以不设截止时间或连续申报比赛，在确定拟定日期以后也可以随时进行更改。' }}
             </p>
           </el-form-item>
 
-          <el-form-item label="赛事介绍" required>
+          <el-form-item :label="isBaseApply ? '基地介绍' : '赛事介绍'" required>
             <el-input
               v-model="applyForm.description"
               type="textarea"
@@ -130,56 +138,82 @@
               show-word-limit
             />
             <p class="field-note">
-              赛事介绍中必须包含明确的报名联系方式，对于实际赛程这里可以不予规定、即使予以规定，后期也可以进行更改。但是，如果赛事在实际赛程中规定了某些赛事规则或者奖励方式但未达成，或者在临时更改赛制以后出现了争议或争端，平台也会一定程度上对赛事进行一些介入监管；包括且不限于，批评、取消办赛资格、封禁个别账户等惩罚，请务必注意这一点。
+              {{ isBaseApply
+                ? '基地介绍中必须包含基地/社团的简单介绍，不得留空，如果不希望对外发展社团成员，可以不留下联系方式。'
+                : '赛事介绍中必须包含明确的报名联系方式，对于实际赛程这里可以不予规定、即使予以规定，后期也可以进行更改。但是，如果赛事在实际赛程中规定了某些赛事规则或者奖励方式但未达成，或者在临时更改赛制以后出现了争议或争端，平台也会一定程度上对赛事进行一些介入监管；包括且不限于，批评、取消办赛资格、封禁个别账户等惩罚，请务必注意这一点。' }}
             </p>
           </el-form-item>
 
-          <el-form-item label="备注">
+          <el-form-item :label="isBaseApply ? '基地负责人' : '赛事负责人'" required>
+            <div class="organizer-row">
+              <el-input
+                v-model="applyForm.organizer_name"
+                maxlength="32"
+                show-word-limit
+                placeholder="姓名"
+              />
+              <el-input
+                v-model="applyForm.organizer_phone"
+                maxlength="20"
+                placeholder="手机号"
+              />
+            </div>
+            <p class="field-note">请填写真实姓名与24小时内能够联系上的联系方式，手机号仅作为实名验证使用，如果不希望平台使用手机号进行联系，可以在备注内填写偏好的联系方式，平台绝不会通过偏好联系方式以外的方式联系您；如果不希望暴露真实姓名，可以填写惯用id，只需要手机号是实名的即可。</p>
+          </el-form-item>
+
+          <el-form-item :label="editingApplicationId ? '追加备注' : '备注'">
+            <ApplicationRemarkThread
+              v-if="editingApplicationId"
+              :items="editingRemarkHistory"
+              class="remark-history"
+            />
             <el-input
               v-model="applyForm.remark"
               type="textarea"
               :rows="3"
-              maxlength="1000"
+              maxlength="2000"
               show-word-limit
+              :placeholder="editingApplicationId ? '可追加一条新备注，将写入双方往来记录' : '可选'"
             />
             <p class="field-note">
-              给予管理员的审核意见，或者不希望在赛事介绍中展示、但是需要预先告知的特殊声明。
+              给予管理员的说明，或不希望在公开介绍中展示、但需预先告知的特殊声明。修改申请、保存修改、重新提交时填写的内容会按时间追加到双方往来备注栏。
             </p>
           </el-form-item>
 
           <el-form-item>
             <el-button type="primary" :loading="applyLoading" @click="submitApplication">
-              {{ editingApplicationId && editingApplicationStatus === 'rejected' ? '修改并重新提交' : editingApplicationId ? '保存申请修改' : '提交办赛申请' }}
+              {{ applySubmitLabel }}
             </el-button>
             <el-button v-if="editingApplicationId" @click="cancelApplicationEdit">取消修改</el-button>
           </el-form-item>
         </el-form>
       </el-card>
 
-      <el-card v-show="activeSection === 'sec-manage'" id="sec-manage" class="block section" data-sec="sec-manage">
-        <template #header>赛事管理</template>
-        <p class="hint">查看办赛申请与已注册赛事；点击「管理赛事」在下方展开管理面板。</p>
+      <el-card v-show="isManageSection" class="block section">
+        <template #header>{{ isBaseManage ? '基地管理' : '赛事管理' }}</template>
+        <p class="hint">
+          {{ isBaseManage
+            ? '查看基地申请与已注册基地；点击「管理」在下方展开管理面板。'
+            : '查看办赛申请与已注册赛事；点击「管理」在下方展开管理面板。' }}
+        </p>
 
-        <el-divider content-position="left">赛事申请</el-divider>
+        <el-divider content-position="left">申请记录</el-divider>
         <div class="fit-table-wrap">
-          <el-table :data="myApplications" size="small" empty-text="暂无申请记录" class="fit-table">
-            <el-table-column prop="name" label="赛事名称" min-width="120" />
+          <el-table :data="visibleApplications" size="small" empty-text="暂无申请记录" class="fit-table">
+            <el-table-column prop="name" label="名称" min-width="140" />
             <el-table-column label="拟定时间" min-width="150">
               <template #default="{ row }">{{ formatPlannedRange(row) }}</template>
             </el-table-column>
             <el-table-column label="介绍" min-width="160" show-overflow-tooltip>
               <template #default="{ row }">{{ row.description || row.reason || '—' }}</template>
             </el-table-column>
-            <el-table-column label="备注" min-width="100" show-overflow-tooltip>
-              <template #default="{ row }">{{ row.remark || '—' }}</template>
+            <el-table-column label="负责人" min-width="140">
+              <template #default="{ row }">{{ organizerText(row) }}</template>
             </el-table-column>
             <el-table-column label="状态" width="90">
               <template #default="{ row }">
                 <el-tag :type="appStatusType(row.status)" size="small">{{ appStatusLabel(row.status) }}</el-tag>
               </template>
-            </el-table-column>
-            <el-table-column label="审核意见" min-width="140" show-overflow-tooltip>
-              <template #default="{ row }">{{ row.review_note || '—' }}</template>
             </el-table-column>
             <el-table-column label="提交时间" width="160">
               <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
@@ -204,21 +238,21 @@
           </el-table>
         </div>
 
-        <el-divider content-position="left">已注册赛事</el-divider>
+        <el-divider content-position="left">{{ isBaseManage ? '已注册基地' : '已注册赛事' }}</el-divider>
         <div class="fit-table-wrap">
           <el-table
             v-loading="eventsLoading"
-            :data="myEvents"
+            :data="visibleEvents"
             size="small"
-            empty-text="暂无管理中的赛事"
+            :empty-text="isBaseManage ? '暂无管理中的基地' : '暂无管理中的赛事'"
             class="fit-table"
           >
-            <el-table-column prop="name" label="赛事名称" min-width="140" />
+            <el-table-column prop="name" label="名称" min-width="160" />
             <el-table-column label="介绍" min-width="160" show-overflow-tooltip>
               <template #default="{ row }">{{ row.description || '—' }}</template>
             </el-table-column>
             <el-table-column label="角色" width="120">
-              <template #default="{ row }">{{ eventRoleLabel(row.role) }}</template>
+              <template #default="{ row }">{{ eventRoleLabel(row.role, row.kind) }}</template>
             </el-table-column>
             <el-table-column label="状态" width="110">
               <template #default="{ row }">
@@ -239,8 +273,8 @@
                   link
                   :type="managingEventId === row.event_id ? 'warning' : 'danger'"
                   @click="toggleManage(row.event_id)"
-                >{{ managingEventId === row.event_id ? '收起' : '管理赛事' }}</el-button>
-                <el-button link type="primary" @click="$router.push(`/events/${row.event_id}`)">赛事页面</el-button>
+                >{{ managingEventId === row.event_id ? '收起' : '管理' }}</el-button>
+                <el-button link type="primary" @click="$router.push(`/events/${row.event_id}`)">公开页</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -254,7 +288,7 @@
         />
       </el-card>
 
-      <el-dialog v-model="applicationPreviewVisible" title="赛事页面预览" width="640px">
+      <el-dialog v-model="applicationPreviewVisible" :title="isBaseApply || previewedApplication?.kind === 'base' ? '基地页面预览' : '赛事页面预览'" width="720px">
         <EventPreviewCard v-if="previewedApplication" :event="previewedApplication" />
       </el-dialog>
     </template>
@@ -270,20 +304,34 @@ import { useEventAdminAuthStore } from '@/stores/eventAdminAuth'
 import playerApi from '@/api/playerClient'
 import EventManagePanel from '@/components/EventManagePanel.vue'
 import EventPreviewCard from '@/components/EventPreviewCard.vue'
-import { eventRoleLabel, eventStatusLabel, eventStatusTagType } from '@/utils/eventMeta'
+import ApplicationRemarkThread from '@/components/ApplicationRemarkThread.vue'
+import { eventRoleLabel, eventStatusLabel, eventStatusTagType, parseVenueKind, venueApplyHash, venueManageHash } from '@/utils/eventMeta'
 
 const auth = usePlayerAuthStore()
 const eventAuth = useEventAdminAuthStore()
 const router = useRouter()
 const route = useRoute()
 
-const sectionIds = ['sec-account', 'sec-apply', 'sec-manage']
+const SECTION_IDS = ['sec-account', 'sec-apply-event', 'sec-apply-base', 'sec-manage-event', 'sec-manage-base']
+const LEGACY_HASH = {
+  'sec-apply': 'sec-apply-event',
+  'sec-manage': 'sec-manage-event',
+}
 let cooldownTimer = null
 
 const activeSection = computed(() => {
   const hash = (route.hash || '').replace(/^#/, '')
-  if (sectionIds.includes(hash)) return hash
+  const mapped = LEGACY_HASH[hash] || hash
+  if (SECTION_IDS.includes(mapped)) return mapped
   return 'sec-account'
+})
+const isApplySection = computed(() => activeSection.value === 'sec-apply-event' || activeSection.value === 'sec-apply-base')
+const isManageSection = computed(() => activeSection.value === 'sec-manage-event' || activeSection.value === 'sec-manage-base')
+const isBaseManage = computed(() => activeSection.value === 'sec-manage-base')
+const currentVenueKind = computed(() => {
+  if (isApplySection.value) return activeSection.value === 'sec-apply-base' ? 'base' : 'event'
+  if (isManageSection.value) return isBaseManage.value ? 'base' : 'event'
+  return 'event'
 })
 
 const pwd = reactive({ old: '', next: '', confirm: '' })
@@ -296,49 +344,86 @@ const emailUnbinding = ref(false)
 const sendCooldown = ref(0)
 
 const applyForm = reactive({
+  kind: 'event',
   name: '',
   planned_start_at: null,
   planned_end_at: null,
   description: '',
   remark: '',
+  organizer_name: '',
+  organizer_phone: '',
 })
 const applyLoading = ref(false)
 const editingApplicationId = ref(null)
 const editingApplicationStatus = ref('')
+const editingRemarkHistory = ref([])
 const applicationPreviewVisible = ref(false)
 const previewedApplication = ref(null)
 const myApplications = ref([])
 const myEvents = ref([])
 const eventsLoading = ref(false)
 const managingEventId = ref(null)
+const isBaseApply = computed(() => currentVenueKind.value === 'base' && isApplySection.value)
+const visibleApplications = computed(() =>
+  myApplications.value.filter((row) => parseVenueKind(row.kind) === currentVenueKind.value)
+)
+const visibleEvents = computed(() =>
+  myEvents.value.filter((row) => parseVenueKind(row.kind) === currentVenueKind.value)
+)
+const applyCardTitle = computed(() => {
+  if (editingApplicationId.value) {
+    return isBaseApply.value ? '修改基地申请' : '修改办赛申请'
+  }
+  return isBaseApply.value ? '提交基地申请' : '提交办赛申请'
+})
+const applySubmitLabel = computed(() => {
+  if (editingApplicationId.value && editingApplicationStatus.value === 'rejected') return '修改并重新提交'
+  if (editingApplicationId.value) return '保存申请修改'
+  return isBaseApply.value ? '提交基地申请' : '提交办赛申请'
+})
 
 function toggleManage(eventId) {
   managingEventId.value = managingEventId.value === eventId ? null : eventId
 }
 
+function organizerText(row) {
+  const name = String(row?.organizer_name || '').trim()
+  const phone = String(row?.organizer_phone || '').trim()
+  if (name && phone) return `${name} ${phone}`
+  return name || phone || '—'
+}
+
 function applyApplicationToForm(row) {
+  applyForm.kind = row.kind === 'base' ? 'base' : 'event'
   applyForm.name = row.name || ''
   applyForm.planned_start_at = formatDay(row.planned_start_at) || null
   applyForm.planned_end_at = formatDay(row.planned_end_at) || null
   applyForm.description = row.description || row.reason || ''
-  applyForm.remark = row.remark || ''
+  applyForm.remark = ''
+  applyForm.organizer_name = row.organizer_name || ''
+  applyForm.organizer_phone = row.organizer_phone || ''
+  editingRemarkHistory.value = Array.isArray(row.remark_history) ? row.remark_history : []
 }
 
 function editApplication(row) {
   editingApplicationId.value = row.application_id
   editingApplicationStatus.value = row.status
   applyApplicationToForm(row)
-  router.push({ path: '/account', hash: '#sec-apply' })
+  router.push({ path: '/account', hash: venueApplyHash(row.kind) })
 }
 
 function cancelApplicationEdit() {
   editingApplicationId.value = null
   editingApplicationStatus.value = ''
+  editingRemarkHistory.value = []
+  applyForm.kind = isApplySection.value && activeSection.value === 'sec-apply-base' ? 'base' : 'event'
   applyForm.name = ''
   applyForm.planned_start_at = null
   applyForm.planned_end_at = null
   applyForm.description = ''
   applyForm.remark = ''
+  applyForm.organizer_name = ''
+  applyForm.organizer_phone = ''
 }
 
 function previewApplication(row) {
@@ -429,8 +514,10 @@ function openManageFromQuery() {
   const manageId = typeof route.query.manage === 'string' ? route.query.manage : ''
   if (!manageId) return
   managingEventId.value = manageId
-  if (activeSection.value !== 'sec-manage') {
-    router.replace({ path: '/account', hash: '#sec-manage', query: route.query })
+  const row = myEvents.value.find((item) => item.event_id === manageId)
+  const hash = venueManageHash(row?.kind)
+  if (activeSection.value !== hash.slice(1)) {
+    router.replace({ path: '/account', hash, query: route.query })
   }
 }
 
@@ -450,7 +537,17 @@ watch(
   }
 )
 
-watch(activeSection, async () => {
+watch(activeSection, async (section) => {
+  if (section === 'sec-apply-event' || section === 'sec-apply-base') {
+    const kind = section === 'sec-apply-base' ? 'base' : 'event'
+    if (editingApplicationId.value && applyForm.kind !== kind) cancelApplicationEdit()
+    applyForm.kind = kind
+  }
+  if (section === 'sec-manage-event' || section === 'sec-manage-base') {
+    const kind = section === 'sec-manage-base' ? 'base' : 'event'
+    const current = myEvents.value.find((item) => item.event_id === managingEventId.value)
+    if (current && parseVenueKind(current.kind) !== kind) managingEventId.value = null
+  }
   await nextTick()
   const main = document.querySelector('.account-main')
   if (main) main.scrollTop = 0
@@ -541,25 +638,41 @@ async function unbindEmail() {
 
 async function submitApplication() {
   if (!applyForm.name.trim()) {
-    ElMessage.warning('请填写赛事名称')
+    ElMessage.warning(isBaseApply.value ? '请填写基地名称' : '请填写赛事名称')
     return
   }
-  if (!applyForm.planned_start_at) {
+  if (!isBaseApply.value && !applyForm.planned_start_at) {
     ElMessage.warning('请填写拟定开始时间')
     return
   }
   if (!applyForm.description.trim()) {
-    ElMessage.warning('请填写赛事介绍')
+    ElMessage.warning(isBaseApply.value ? '请填写基地介绍' : '请填写赛事介绍')
+    return
+  }
+  if (!applyForm.organizer_name.trim()) {
+    ElMessage.warning(isBaseApply.value ? '请填写基地负责人姓名' : '请填写赛事负责人姓名')
+    return
+  }
+  const phone = applyForm.organizer_phone.replace(/[\s-]/g, '')
+  if (!phone) {
+    ElMessage.warning('请填写负责人手机号')
+    return
+  }
+  if (!/^1\d{10}$/.test(phone) && !/^\+?\d{7,15}$/.test(phone)) {
+    ElMessage.warning('负责人手机号格式不正确')
     return
   }
   applyLoading.value = true
   try {
     const payload = {
+      kind: applyForm.kind === 'base' ? 'base' : 'event',
       name: applyForm.name,
       planned_start_at: applyForm.planned_start_at,
       planned_end_at: applyForm.planned_end_at || null,
       description: applyForm.description,
       remark: applyForm.remark,
+      organizer_name: applyForm.organizer_name,
+      organizer_phone: phone,
     }
     if (editingApplicationId.value) {
       if (editingApplicationStatus.value === 'rejected') {
@@ -626,6 +739,7 @@ async function submitApplication() {
 }
 .apply-form :deep(.el-form-item__content) {
   max-width: 100%;
+  flex-wrap: wrap;
 }
 .apply-form :deep(.el-input),
 .apply-form :deep(.el-textarea) {
@@ -636,6 +750,8 @@ async function submitApplication() {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  width: 100%;
+  flex: 1 0 100%;
   max-width: 100%;
 }
 .date-picker {
@@ -651,14 +767,31 @@ async function submitApplication() {
   color: #909399;
   font-size: 13px;
 }
+.organizer-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  flex: 1 0 100%;
+}
+.organizer-row :deep(.el-input) {
+  flex: 1;
+  min-width: 180px;
+}
+.remark-history {
+  margin-bottom: 10px;
+}
 .field-note {
   margin: 8px 0 0;
+  width: 100%;
+  flex: 1 0 100%;
   color: #606266;
   font-size: 12px;
   line-height: 1.65;
   background: #f5f7fa;
   border-left: 3px solid #409eff;
   padding: 8px 10px;
+  white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: anywhere;
 }

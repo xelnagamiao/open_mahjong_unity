@@ -51,7 +51,7 @@ function parseUserId(value, label = '用户 ID') {
 
 async function fetchEventRow(eventId) {
   const result = await pool.query(
-    `SELECT event_id, name, description, status, reopen_requested, created_by, closed_at, created_at, updated_at
+    `SELECT event_id, name, description, status, kind, reopen_requested, created_by, closed_at, created_at, updated_at
      FROM events WHERE event_id = $1`,
     [eventId]
   );
@@ -102,6 +102,7 @@ router.get('/', async (req, res) => {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
     const offset = (page - 1) * limit;
     const status = (req.query.status || '').trim();
+    const kind = req.query.kind === 'base' ? 'base' : req.query.kind === 'event' ? 'event' : '';
     const reopenRequested = ['1', 'true', 'yes'].includes(
       String(req.query.reopen_requested || '').trim().toLowerCase()
     );
@@ -113,13 +114,17 @@ router.get('/', async (req, res) => {
       conditions.push(`e.status = $${idx++}`);
       params.push(status);
     }
+    if (kind) {
+      conditions.push(`e.kind = $${idx++}`);
+      params.push(kind);
+    }
     if (reopenRequested) {
       conditions.push(`e.reopen_requested = TRUE`);
     }
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const listRes = await pool.query(
-      `SELECT e.event_id, e.name, e.description, e.status, e.reopen_requested, e.created_by, e.closed_at, e.created_at, e.updated_at,
+      `SELECT e.event_id, e.name, e.description, e.status, e.kind, e.reopen_requested, e.created_by, e.closed_at, e.created_at, e.updated_at,
               owner.user_id AS owner_user_id,
               owner_u.username AS owner_username,
               (
@@ -163,10 +168,11 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   const client = await pool.connect();
   try {
-    const { name, description, owner_user_id, reason } = req.body || {};
+    const { name, description, owner_user_id, reason, kind } = req.body || {};
     if (!reason || !String(reason).trim()) {
       return res.status(400).json({ success: false, message: '请填写操作原因' });
     }
+    const kindValue = kind === 'base' ? 'base' : 'event';
     const nameParsed = normalizeName(name);
     if (nameParsed.error) {
       return res.status(400).json({ success: false, message: nameParsed.error });
@@ -199,11 +205,14 @@ router.post('/', async (req, res) => {
       eventId = generateEventId();
     }
 
+    const entryConfig = kindValue === 'base'
+      ? { forbid_tourist: true, auto_approve: true, member_can_create_room: true, unregistered_can_create_room: false, unregistered_can_ready: false }
+      : { forbid_tourist: false, auto_approve: false, member_can_create_room: false, unregistered_can_create_room: false, unregistered_can_ready: false };
     await client.query('BEGIN');
     await client.query(
-      `INSERT INTO events (event_id, name, description, status, created_by)
-       VALUES ($1, $2, $3, 'registered', $4)`,
-      [eventId, nameParsed.value, descriptionText, req.admin.userId]
+      `INSERT INTO events (event_id, name, description, status, created_by, kind, entry_config)
+       VALUES ($1, $2, $3, 'registered', $4, $5, $6::jsonb)`,
+      [eventId, nameParsed.value, descriptionText, req.admin.userId, kindValue, JSON.stringify(entryConfig)]
     );
     if (ownerId != null) {
       await client.query(

@@ -54,6 +54,8 @@ public class NetworkManager : MonoBehaviour {
     public int LatencyMs => _latencyMs;
     /// <summary>当前 WebSocket 是否处于已连接状态。</summary>
     public bool IsWebSocketOpen => websocket != null && websocket.State == WebSocketState.Open;
+    /// <summary>主游戏连接的权威生命周期事件，供聊天等从属连接订阅。</summary>
+    public event Action<bool> ConnectionAvailabilityChanged;
     /// <summary>延迟变更事件。每次收到 pong 或 ping 超时时触发，参数为最新延迟（毫秒）。</summary>
     public event Action<int> OnLatencyChanged;
 
@@ -62,6 +64,7 @@ public class NetworkManager : MonoBehaviour {
     // 断线弹窗状态：仅 Disconnected 时弹窗；NoMatch 等状态不弹
     private enum DisconnectDialogState { Start, Connected, Disconnected, Shown, NoMatch }
     private DisconnectDialogState _disconnectDialogState = DisconnectDialogState.Start;
+    private bool connectionAvailable;
     // 解析后的 WebSocket URL（用于存储 DNS 解析结果）
 
     // 1.Awake方法用于实例化单例进入DontDestroyOnLoad，并配置WebSocket基础的方法
@@ -146,6 +149,7 @@ public class NetworkManager : MonoBehaviour {
             if (ws != websocket) return;
             Debug.Log($"WebSocket已关闭: {code}");
             isConnecting = false;
+            SetConnectionAvailable(false);
             if (suppressConnectionFailureUi) return;
             ExecuteOnMainThread(() => {
                 if (ws != websocket) return;
@@ -160,6 +164,13 @@ public class NetworkManager : MonoBehaviour {
 
     private void OnConnectionEstablished() {
         _disconnectDialogState = DisconnectDialogState.Start;
+        SetConnectionAvailable(true);
+    }
+
+    private void SetConnectionAvailable(bool available) {
+        if (connectionAvailable == available) return;
+        connectionAvailable = available;
+        ConnectionAvailabilityChanged?.Invoke(available);
     }
 
     private void MarkDisconnected() {
@@ -245,6 +256,7 @@ public class NetworkManager : MonoBehaviour {
     }
 
     public WebSocket BeginNewConnection() {
+        SetConnectionAvailable(false);
         WebSocket oldSocket = websocket;
         websocket = null;
 
@@ -296,6 +308,7 @@ public class NetworkManager : MonoBehaviour {
     }
 
     private IEnumerator RestartLoginConnectionRoutine(int version) {
+        SetConnectionAvailable(false);
         WebSocket oldSocket = websocket;
         // 先切断身份关系。旧连接从这一刻起不能再投递消息或改变 UI。
         websocket = null;
@@ -540,6 +553,7 @@ public class NetworkManager : MonoBehaviour {
                 response.login_info.is_tourist
             );
             HeaderPanel.Instance?.RefreshMatchButtonVisibility();
+            HeaderPanel.Instance?.RefreshEventButtonVisibility();
             // 保存用户信息
             if (response.user_settings != null) {
                 UserDataManager.Instance.SetUserSettings(
@@ -559,7 +573,6 @@ public class NetworkManager : MonoBehaviour {
             }
             UserContainer.Instance.ShowUserSettings(response.user_settings);
             FriendNetworkManager.Instance?.ListFriends();
-            EventNetworkManager.Instance?.ListMyActiveEvents();
         }
     }
 

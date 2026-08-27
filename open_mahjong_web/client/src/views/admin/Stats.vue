@@ -380,6 +380,8 @@ const renderSceneChart = () => {
     tierOptions: visibleTierColumns.value,
     tierLabel: TIER_LABEL,
     selectedTier: statsTier.value,
+    dateFrom: sceneDateRange.value?.[0],
+    dateTo: sceneDateRange.value?.[1],
   })
   if (!sceneLineChart) sceneLineChart = echarts.init(sceneLineChartRef.value)
   sceneLineChart.setOption(opt, true)

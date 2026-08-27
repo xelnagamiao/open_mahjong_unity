@@ -125,10 +125,10 @@
             <div class="banner-text">{{ result.is_hepai ? '番' : '不能和牌' }}</div>
           </div>
           <div v-if="result.is_hepai" class="fan-block">
-            <h4>番种构成</h4>
+            <h4>番种构成（{{ result.fan_list.length }} 项）</h4>
             <div class="fan-tags nowrap-scroll">
               <el-tag v-for="(name, idx) in result.fan_list" :key="idx" type="success" effect="plain" size="small">
-                {{ name }}
+                {{ formatGuobiaoFanComposition(name) }}
               </el-tag>
             </div>
           </div>
@@ -181,7 +181,7 @@
           </div>
           <div class="decomp-fans">
             <el-tag v-for="(name, fIdx) in item.fan_list" :key="fIdx" size="small" effect="plain">
-              {{ name }}
+              {{ formatGuobiaoFanComposition(name) }}
             </el-tag>
           </div>
         </div>
@@ -210,6 +210,7 @@ import {
   meldDisplayTiles,
 } from '@/composables/useMahjongTiles'
 import { useFuluSlots } from '@/composables/useFuluSlots'
+import { formatGuobiaoFanComposition } from '@/constants/guobiaoFanDict'
 
 const textInput = ref('')
 

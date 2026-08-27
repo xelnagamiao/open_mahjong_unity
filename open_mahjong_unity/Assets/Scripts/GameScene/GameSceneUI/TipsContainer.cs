@@ -194,47 +194,6 @@ public class TipsContainer : MonoBehaviour
         UpdateRyuukyokuTenpaiChoice(shownWaits);
     }
 
-    /// <summary>
-    /// 虹雀切牌预测：展示打出该牌后的和牌张，并本地计算每张的直接分值。
-    /// handTiles 为切掉悬停牌后的手牌；每张和牌张按 handTiles + 该张 计分。
-    /// </summary>
-    private void ShowHongqueCutPreviewTiles(
-        List<int> handTiles,
-        List<int[]> meldMasks,
-        List<int> waitingTiles) {
-        // 杠和听牌只能自摸和：本地按服务端同一掩码算法枚举，非普通和牌张时黄色叠底。
-        Dictionary<int, HongqueKongWinOption> kongWinOptions =
-            HongqueTenpai.BestKongWinOptions(handTiles, meldMasks, _pendingCutTileId);
-        HashSet<int> kongWinOnly = new HashSet<int>(kongWinOptions.Keys);
-        kongWinOnly.ExceptWith(waitingTiles);
-
-        List<int> allTiles = new List<int>(waitingTiles);
-        allTiles.AddRange(kongWinOnly);
-        allTiles = allTiles.Distinct().ToList();
-        allTiles.Sort();
-        // 虹雀每张牌唯一：听牌张若已在任一玩家牌河或副露，则永远无法再摸到/点和，按灰色显示。
-        HashSet<int> unavailableTiles = CollectHongqueUnavailableTiles();
-        foreach (int tileId in allTiles) {
-            InstantiateTipsTile(tileId);
-            HongqueWinScore score;
-            if (kongWinOnly.Contains(tileId)
-                    && kongWinOptions.TryGetValue(tileId, out HongqueKongWinOption option)) {
-                score = option.Score;
-            } else {
-                List<int> winHand = new List<int>(handTiles);
-                winHand.Add(tileId);
-                score = HongqueScoring.BestWinResult(
-                    winHand, meldMasks, false, false, false);
-            }
-            GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
-            string label = score != null ? $"{score.Points}分" : "0分";
-            string colorType = unavailableTiles.Contains(tileId) ? "exhausted"
-                : (kongWinOnly.Contains(tileId) ? "zimo" : "dianhe");
-            fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(
-                label, colorType);
-        }
-    }
-
     /// <summary>收集全部玩家牌河与副露中的牌（虹雀每张唯一，已公开的听牌张无法再获得）。</summary>
     private static HashSet<int> CollectHongqueUnavailableTiles() {
         HashSet<int> unavailable = new HashSet<int>();
@@ -271,7 +230,15 @@ public class TipsContainer : MonoBehaviour
         _pendingCutTileId = pendingCutTileId;
         UpdateRyuukyokuTenpaiChoice(waitingTiles);
 
-        // 收集子对象
+        if (NormalGameStateManager.Instance.roomRule == "hongque") {
+            HongqueScoreHintInfo[] localHints = HongqueTenpai.BuildScoreHints(
+                handTiles,
+                NormalGameStateManager.Instance.player_to_info["self"].combination_masks,
+                _pendingCutTileId);
+            SetHongqueCutPreviewHints(localHints, _pendingCutTileId ?? 0);
+            return;
+        }
+
         List<Transform> toDestroy = new List<Transform>();
         foreach (Transform child in TileContainer.transform){
             toDestroy.Add(child);
@@ -279,21 +246,10 @@ public class TipsContainer : MonoBehaviour
         foreach (Transform child in FanContainer.transform){
             toDestroy.Add(child);
         }
-
-        // 销毁子对象
         foreach (Transform child in toDestroy){
             Destroyer.Instance.AddToDestroyer(child);
         }
 
-        if (NormalGameStateManager.Instance.roomRule == "hongque") {
-            ShowHongqueCutPreviewTiles(
-                handTiles,
-                NormalGameStateManager.Instance.player_to_info["self"].combination_masks,
-                waitingTiles);
-            return;
-        }
-
-        // 获取游戏管理器实例
         NormalGameStateManager gameManager = NormalGameStateManager.Instance;
         BuildVisibleTileCounts(gameManager, handTiles);
 

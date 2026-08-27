@@ -6,9 +6,13 @@ using TMPro;
 public partial class GameCanvas : MonoBehaviour {
     [System.Serializable]
     public class ActionButtonColorPreset {
+        [InspectorName("普通")]
         public Color normalColor = new Color(0.341367f, 0.538903f, 0.841509f, 1f);
+        [InspectorName("高亮")]
         public Color highlightedColor = new Color(0.033236448f, 0f, 0.4943396f, 1f);
+        [InspectorName("按下")]
         public Color pressedColor = new Color(0.1764706f, 0.1764706f, 0.1764706f, 1f);
+        [InspectorName("禁用")]
         public Color disabledColor = new Color(0.1764706f, 0.1764706f, 0.1764706f, 0.5019608f);
 
         public ColorBlock ToColorBlock() {
@@ -26,18 +30,31 @@ public partial class GameCanvas : MonoBehaviour {
 
     [System.Serializable]
     public class ActionButtonColorPresets {
+        [InspectorName("吃")]
         public ActionButtonColorPreset chi = new ActionButtonColorPreset();
+        [InspectorName("碰")]
         public ActionButtonColorPreset peng = new ActionButtonColorPreset();
+        [InspectorName("杠")]
         public ActionButtonColorPreset gang = new ActionButtonColorPreset();
+        [InspectorName("补张")]
         public ActionButtonColorPreset buzhang = new ActionButtonColorPreset();
+        [InspectorName("暗杠")]
         public ActionButtonColorPreset angang = new ActionButtonColorPreset();
+        [InspectorName("加杠")]
         public ActionButtonColorPreset jiagang = new ActionButtonColorPreset();
+        [InspectorName("和")]
         public ActionButtonColorPreset hu = new ActionButtonColorPreset();
+        [InspectorName("自摸")]
         public ActionButtonColorPreset huSelf = new ActionButtonColorPreset();
+        [InspectorName("补花")]
         public ActionButtonColorPreset buhua = new ActionButtonColorPreset();
+        [InspectorName("九种九牌")]
         public ActionButtonColorPreset jiuzhongjiupai = new ActionButtonColorPreset();
+        [InspectorName("立直")]
         public ActionButtonColorPreset riichi = new ActionButtonColorPreset();
+        [InspectorName("过")]
         public ActionButtonColorPreset pass = new ActionButtonColorPreset();
+        [InspectorName("默认")]
         public ActionButtonColorPreset fallback = new ActionButtonColorPreset();
     }
 
@@ -118,6 +135,7 @@ public partial class GameCanvas : MonoBehaviour {
             case "riichi_cut":
                 return actionButtonColorPresets.riichi;
             case "pass":
+            case "force_pass":
                 return actionButtonColorPresets.pass;
             default:
                 return actionButtonColorPresets.fallback;
@@ -319,6 +337,11 @@ public partial class GameCanvas : MonoBehaviour {
                 TMP_Text buttonText = ActionButtonObj.TextObject;
                 buttonText.text = isSeaBottomAsk ? "不要" : "取消";
                 Debug.Log($"取消按钮: {ActionButtonObj}");
+                ActionButtonObj.actionTypeList.Add(action_list[i]);
+            }
+            else if (action_list[i] == "force_pass"){
+                ActionButton ActionButtonObj = CreateActionButton(colorPreset);
+                ActionButtonObj.TextObject.text = "放弃";
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
         }

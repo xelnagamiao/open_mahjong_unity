@@ -1,6 +1,6 @@
 <template>
   <div class="event-detail-page">
-    <div class="sec-h">■ 比赛详情</div>
+    <div class="sec-h">■ {{ event?.kind === 'base' ? '基地详情' : '比赛详情' }}</div>
     <div v-if="loading" class="tip">加载中…</div>
     <div v-else-if="!event" class="tip">赛事不存在</div>
     <template v-else>
@@ -8,11 +8,12 @@
         <div class="hero-top">
           <h1>{{ event.name }}</h1>
           <span :class="['st', event.status]">{{ eventStatusLabel(event.status) }}</span>
+          <span class="kind">{{ venueKindLabel(event.kind) }}</span>
         </div>
-        <p class="desc">{{ event.description?.trim() || '暂无赛事介绍' }}</p>
+        <p class="desc">{{ event.description?.trim() || (event.kind === 'base' ? '暂无基地介绍' : '暂无赛事介绍') }}</p>
         <dl class="meta">
           <div>
-            <dt>赛事主管理员</dt>
+            <dt>{{ event.kind === 'base' ? '基地主管理员' : '赛事主管理员' }}</dt>
             <dd>{{ event.owner_username || '—' }}</dd>
           </div>
           <div>
@@ -28,7 +29,7 @@
             <dd>{{ formatDate(event.closed_at) }}</dd>
           </div>
           <div>
-            <dt>赛事 ID</dt>
+            <dt>{{ event.kind === 'base' ? '基地 ID' : '赛事 ID' }}</dt>
             <dd class="mono">{{ event.event_id }}</dd>
           </div>
         </dl>
@@ -40,7 +41,7 @@
 
       <section class="announcements">
         <div class="ann-head">
-          <h2>比赛公告</h2>
+          <h2>{{ event.kind === 'base' ? '基地公告' : '比赛公告' }}</h2>
           <span class="ann-count">{{ announcements.length === 1 ? tr('1 条公告') : tr('公告数量({count})', { count: announcements.length }) }}</span>
         </div>
         <div v-if="!announcements.length" class="ann-empty">暂无公告</div>
@@ -65,7 +66,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
-import { eventStatusLabel } from '@/utils/eventMeta'
+import { eventStatusLabel, venueKindLabel } from '@/utils/eventMeta'
 import { locale, tr } from '@/i18n'
 
 const route = useRoute()
@@ -123,6 +124,10 @@ watch(() => route.params.eventId, load)
   align-items: baseline;
   gap: 12px;
   margin-bottom: 14px;
+}
+.kind {
+  font-size: 13px;
+  color: #888;
 }
 .hero h1 {
   margin: 0;

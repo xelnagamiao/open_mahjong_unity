@@ -1,0 +1,526 @@
+{
+  "slug": "regional-rules",
+  "label": "地方规则资料",
+  "aliases": [
+    "地方麻将",
+    "子规则"
+  ],
+  "collected_at": "2026-08-14",
+  "notes": "按规则标签归档的地方打法介绍。百科和网站整理只作入口，细则以规则书和现场约定为准。",
+  "sources": [
+    {
+      "id": "wiki-zh-shanghai",
+      "url": "https://zh.wikipedia.org/wiki/上海麻将",
+      "title": "维基百科 · 上海麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "沪麻又称敲麻。常用 144 张（含八花）。须报听才能和；常见只许碰碰和、清一色、混一色等，不算普通平胡。另有花分、辣子封顶、三口包牌等本地约定。细则见 qiaoma。敲麻 ≠ 花麻 ≠ 杭麻。不要挂进宁波祖型。",
+      "rules": [
+        "shanghai"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "wiki-zh-tuidao",
+      "url": "https://zh.wikipedia.org/wiki/跑馬仔",
+      "title": "维基百科 · 跑馬仔（推倒糊）",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "跑马仔又叫推倒糊：只能碰杠、不能上、可出铳，和牌不计番，自摸常奖马。简体「推倒胡」条 404。MIL 推倒和、深莞民间推倒胡、北京「推倒和」不是一套。",
+      "rules": [
+        "tuidao"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "wiki-zh-jipinghu",
+      "url": "https://zh.wikipedia.org/wiki/鸡平胡",
+      "title": "维基百科 · 鸡平胡",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "广东一线里偏鸡胡、平胡的打法。番种门槛比清章新章低，各地叫法不一。",
+      "rules": [
+        "jipinghu"
+      ],
+      "source_level": "secondary",
+      "reliability": "low"
+    },
+    {
+      "id": "dw-hangzhou",
+      "url": "https://doublewin.me/guides/mahjong-hangzhou",
+      "title": "杭州麻将规则整理（白板财神、飘牌、三摊）",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "杭麻常用 136 张。白板作固定财神；打出白板进入飘。可吃，吃同一人三次承包。细则与冲突见 jiangnan-caishen。MIL 另有杭州麻将推广竞赛规则，不是民间原样。",
+      "rules": [
+        "hangzhou"
+      ],
+      "source_level": "secondary",
+      "reliability": "low"
+    },
+    {
+      "id": "mahjonget-local",
+      "url": "https://www.mahjonget.com/",
+      "title": "麻将运动技术等级评定 · 竞技规则与推广规则",
+      "type": "official",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "竞技规则列国标、立直、四川血战。推广规则列广东、贵州、杭州等。杭麻写白板财神；贵麻写捉鸡（幺鸡、八筒）。贵麻捉鸡细则见 qian。MIL 2023 是赛场本。",
+      "rules": [
+        "hangzhou",
+        "guizhou",
+        "guangdong",
+        "guobiao",
+        "riichi",
+        "sichuan",
+        "mil-guizhou"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "wiki-zh-wenzhou",
+      "url": "https://zh.wikipedia.org/wiki/温州麻将",
+      "title": "维基百科 · 温州麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "简体标题 404（2026-08-14 核验）。十六张维基条没有把温州列进常见十六张。改见 jiangnan-caishen 档案。",
+      "rules": [
+        "wenzhou"
+      ],
+      "source_level": "secondary",
+      "reliability": "low",
+      "local_status": "failed"
+    },
+    {
+      "id": "dw-xuezhan",
+      "url": "https://doublewin.me/guides/mahjong-xuezhandaodi",
+      "title": "血战到底规则整理（定缺、换三张、查花猪）",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "川麻血战：108 张、不能吃、定缺。一家和了其他人继续，一局最多三家和。换三张是开局常见选项，不是另一种麻将。",
+      "rules": [
+        "sichuan",
+        "sichuan-huansanzhang"
+      ],
+      "source_level": "secondary",
+      "reliability": "low"
+    },
+    {
+      "id": "cmp-xueliu-xuezhan",
+      "url": "https://www.18183.com/xxpd/yxzx/8800977.html",
+      "title": "血流成河与血战到底的规则差异对照",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "血战：和了的人退出，其余人继续。血流：和了的人还留在局里，可以再和，直到牌墙摸完。",
+      "rules": [
+        "xueliu",
+        "sichuan"
+      ],
+      "source_level": "secondary",
+      "reliability": "low"
+    },
+    {
+      "id": "wiki-zh-changsha",
+      "url": "https://zh.wikipedia.org/wiki/长沙麻将",
+      "title": "维基百科 · 长沙麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "长沙麻将去字牌，但可以吃，常要 258 做将，并有扎鸟。和川麻不是一条改法。细则见 xiang。平台按经典双鸟本。",
+      "rules": [
+        "changsha"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "wiki-zh-beijing",
+      "url": "https://zh.wikipedia.org/wiki/北京麻将",
+      "title": "维基百科 · 北京麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "京麻常见混儿（癞子）。各地混儿怎么翻、怎么算，桌上约定不一样。细则见 jingjin。也叫推倒和，不是深莞推倒胡，也不是 MIL《推倒和》。",
+      "rules": [
+        "beijing"
+      ],
+      "source_level": "secondary",
+      "reliability": "low"
+    },
+    {
+      "id": "baike-wuhan",
+      "url": "https://baike.baidu.com/item/武汉麻将",
+      "title": "百度百科 · 武汉麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "武汉地方麻将。开口翻等细则按当地。开口翻细则见 hongzhong-laizi。不是网上通用红中。",
+      "rules": [
+        "wuhan"
+      ],
+      "source_level": "secondary",
+      "reliability": "low"
+    },
+    {
+      "id": "baike-nanchang",
+      "url": "https://baike.baidu.com/item/南昌麻将",
+      "title": "百度百科 · 南昌麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "南昌地方麻将，常有翻精。翻精细则见 hongzhong-laizi。不是红中下级。",
+      "rules": [
+        "nanchang"
+      ],
+      "source_level": "secondary",
+      "reliability": "low"
+    },
+    {
+      "id": "baike-dongbei",
+      "url": "https://baike.baidu.com/item/东北麻将",
+      "title": "百度百科 · 东北麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "「东北麻将」多是伞称。辽宁摇宝、吉林下蛋、黑龙江夹胡、长春各有听口和宝牌／蛋牌约定。伞称拆条见 dongbei-sanchen。",
+      "rules": [
+        "dongbei"
+      ],
+      "source_level": "secondary",
+      "reliability": "low"
+    },
+    {
+      "id": "baike-shenyang",
+      "url": "https://baike.baidu.com/item/沈阳麻将",
+      "title": "百度百科 · 沈阳麻将（摇宝）",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "辽宁一带常见摇宝／翻宝。听牌后看宝，宝牌可当混。不是「东北麻将」四个字本身。摇宝细则见 dongbei-sanchen。",
+      "rules": [
+        "dongbei-yaobao"
+      ],
+      "source_level": "secondary",
+      "reliability": "low"
+    },
+    {
+      "id": "zadi-changchun",
+      "url": "https://www.zadiqp.com/rules/changchunmajiang.html",
+      "title": "长春麻将规则整理（旋风杠、喜杠、夹胡、宝牌）",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "长春麻将在推倒胡骨架上加旋风杠、喜杠、幺九蛋、夹胡、看宝。MIL 另有长春麻将推广竞赛规则。长春都市包见 dongbei-sanchen。MIL 另有推广本。",
+      "rules": [
+        "changchun",
+        "dongbei-xiadan"
+      ],
+      "source_level": "secondary",
+      "reliability": "low"
+    },
+    {
+      "id": "baike-changchun",
+      "url": "https://baike.baidu.com/item/长春麻将/534836",
+      "title": "百度百科 · 长春麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "常见要求三色全、带幺九、至少一叉。夹胡指边张、嵌张或单钓一类听口。长春都市包见 dongbei-sanchen。",
+      "rules": [
+        "changchun",
+        "dongbei-jiahu"
+      ],
+      "source_level": "secondary",
+      "reliability": "low"
+    },
+    {
+      "id": "baike-shanxi",
+      "url": "https://baike.baidu.com/item/山西麻将",
+      "title": "百度百科 · 山西麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "山西地方麻将，有的桌上禁吃或立四。MIL 有推广竞赛规则。目前没有记到可靠的上级。伞称拆条见 jinshan。太原立四 ≠ MIL 山西 2023。",
+      "rules": [
+        "shanxi"
+      ],
+      "source_level": "secondary",
+      "reliability": "low"
+    },
+    {
+      "id": "baike-xian",
+      "url": "https://baike.baidu.com/item/西安麻将",
+      "title": "百度百科 · 西安麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "西安／陕麻常禁吃、定缺，是后起地方改，不是川麻直系。细则见 jinshan。不是川麻直系。与 136 可吃陕麻冲突，并列。",
+      "rules": [
+        "xian"
+      ],
+      "source_level": "secondary",
+      "reliability": "low"
+    },
+    {
+      "id": "baike-kunming",
+      "url": "https://baike.baidu.com/item/昆明麻将",
+      "title": "百度百科 · 昆明麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "昆明／滇麻打法靠近川滇血战一线：去字、禁吃、定缺等常见。仍薄，指针见 chuanyu。近川滇血战，不要并进贵州捉鸡。无协会本。",
+      "rules": [
+        "kunming"
+      ],
+      "source_level": "secondary",
+      "reliability": "low"
+    },
+    {
+      "id": "wiki-en-malaysia",
+      "url": "https://en.wikipedia.org/wiki/Malaysian_mahjong",
+      "title": "Wikipedia · Malaysian mahjong",
+      "type": "variant",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "excerpt": "Malaysian tables are close to Singapore / old-style Cantonese scoring, often with animal tiles and extra flowers. Local house rules vary。细则见 nanyang。四家常 164，不是新加坡 148 复印件。",
+      "rules": [
+        "malaysia"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "wiki-en-vietnam",
+      "url": "https://en.wikipedia.org/wiki/Vietnamese_mahjong",
+      "title": "Wikipedia · Vietnamese mahjong",
+      "type": "variant",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "excerpt": "Vietnamese sets are often enlarged (extra tiles / animals). Whether this descends directly from old-style Cantonese play is not settled, so the lineage map does not draw a hard line。细则见 nanyang。专用百搭膨胀，不是动物牌。谱系不画清章硬边。",
+      "rules": [
+        "vietnam"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "wiki-en-korean",
+      "url": "https://en.wikipedia.org/wiki/Mahjong#South_Korea",
+      "title": "Wikipedia · Mahjong in South Korea",
+      "type": "variant",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "excerpt": "Korean three-player mahjong is commonly played without one suit. It spread from Japanese three-player practice and then picked up local scoring habits。细则见 lizhi。韩三麻从报知以后的立直传统扩散，不是天凤下级。旧韩麻 ≠ KML 立直赛。",
+      "rules": [
+        "korean-3p"
+      ],
+      "source_level": "secondary",
+      "reliability": "low"
+    },
+    {
+      "id": "wiki-en-ema",
+      "url": "https://en.wikipedia.org/wiki/European_Mahjong_Association",
+      "title": "Wikipedia · European Mahjong Association",
+      "type": "official",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "excerpt": "EMA tournament mahjong uses the Chinese Official / MCR fan table, with European event regulations on top.",
+      "rules": [
+        "ema",
+        "guobiao"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "zj-official",
+      "url": "https://zj-mahjong.info/index.html",
+      "title": "中庸麻雀计分法公式网站",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "关兆豪编的中庸麻雀计分法。另写一套加算番种。站点同时收《中庸麻雀史观》。",
+      "rules": [
+        "zungjung"
+      ],
+      "source_level": "primary",
+      "reliability": "high"
+    },
+    {
+      "id": "zj-rules-en",
+      "url": "http://www.zj-mahjong.info/zj33_rules_eng.html",
+      "title": "Zung Jung Mahjong Scoring System v3.3",
+      "type": "rulebook",
+      "lang": "en",
+      "accessed": "2026-08-14",
+      "excerpt": "44 patterns, additive scoring, no basic points. Chicken hand scores 1; an official variant requires 5 points to win.",
+      "rules": [
+        "zungjung"
+      ],
+      "source_level": "primary",
+      "reliability": "high"
+    },
+    {
+      "id": "wiki-zh-hongzhong",
+      "url": "https://zh.wikipedia.org/wiki/红中麻将",
+      "title": "维基百科 · 红中麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "红中当癞子的打法，各地细则不同。MIL 另有推广竞赛规则。红中与武汉开口翻、MIL 112 张分条，见 hongzhong-laizi。",
+      "rules": [
+        "hongzhong"
+      ],
+      "source_level": "secondary",
+      "reliability": "low"
+    },
+    {
+      "id": "wiki-zh-chongqing",
+      "url": "https://zh.wikipedia.org/wiki/重庆麻将",
+      "title": "维基百科 · 重庆麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "渝麻近四川血战：去字、禁吃、定缺，细节按当地习惯。",
+      "rules": [
+        "chongqing"
+      ],
+      "source_level": "secondary",
+      "reliability": "low"
+    },
+    {
+      "id": "wiki-zh-tianjin",
+      "url": "https://zh.wikipedia.org/wiki/天津麻將",
+      "title": "维基百科 · 天津麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "许碰、不许吃、没有放炮；中下滚混儿。常见和型包括混儿吊、捉伍儿、龙。与北京麻将都用混儿，但不是一种规则。细则见 jingjin。与北京都用混儿，不是一种规则。",
+      "rules": [
+        "tianjin"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium",
+      "local_kind": "snapshot",
+      "local_path": "regional-rules/snapshots/wiki-zh-tianjin.html",
+      "local_status": "ok"
+    },
+    {
+      "id": "tjmj-sourceforge",
+      "url": "https://tjmj.sourceforge.net/rules.html",
+      "title": "天津麻将规则（tjmj.sourceforge.net）",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "行牌没有吃，只有碰和杠；没有炮和（包括抢杠和），只能自摸和（包括杠开）。中下滚混儿。混儿吊、捉伍儿、龙。",
+      "rules": [
+        "tianjin"
+      ],
+      "source_level": "community",
+      "reliability": "medium",
+      "local_kind": "snapshot",
+      "local_path": "regional-rules/snapshots/tjmj-sourceforge.html",
+      "local_status": "ok"
+    },
+    {
+      "id": "baike-hangzhou",
+      "url": "https://baike.baidu.com/item/杭州麻将/4143444",
+      "title": "百度百科 · 杭州麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "136 张，无花牌。白板定为财神；也有翻财神桌上选项。含爆头、财飘、杠开。可吃。细则见 jiangnan-caishen。",
+      "rules": [
+        "hangzhou"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "gameabc-hangzhou",
+      "url": "https://gameabc.com/news/201910/6021.html",
+      "title": "边锋 · 杭州麻将的游戏规则",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "财神多作白板。摊：对一人吃碰杠一次记一摊。三摊承包、倒承包。打出财神后进入抓打（飘）。边锋另有笃三牢庄可点炮，见 jiangnan-caishen。",
+      "rules": [
+        "hangzhou"
+      ],
+      "source_level": "community",
+      "reliability": "medium"
+    },
+    {
+      "id": "tcy-suzhou",
+      "url": "https://tcy365.com/news/d8469.html",
+      "title": "同城游 · 苏州麻将规则",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "硬花含中发白与季节花。禁吃。三花自摸、四花放铳；大门清、清一色、七对等可免门槛。花数可累加。细则见 suhu-huama。花麻 ≠ 敲麻。",
+      "rules": [
+        "suzhou",
+        "huama"
+      ],
+      "source_level": "community",
+      "reliability": "medium",
+      "local_kind": "snapshot",
+      "local_path": "regional-rules/snapshots/tcy-suzhou.html",
+      "local_status": "ok"
+    },
+    {
+      "id": "baike-suzhou",
+      "url": "https://baike.baidu.com/item/苏州麻将/4160265",
+      "title": "百度百科 · 苏州麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "152 张，28 张花牌（中发白、百搭、季节花，有的桌加猫鼠财神等）。以花数为核心。禁吃。细则见 suhu-huama。",
+      "rules": [
+        "suzhou",
+        "huama"
+      ],
+      "source_level": "secondary",
+      "reliability": "low"
+    },
+    {
+      "id": "wiki-zh-shanghai-knock",
+      "url": "https://zh.wikipedia.org/wiki/上海麻将",
+      "title": "维基百科 · 上海麻将（敲麻）",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "又称敲麻。144 张含八花。须报听。常见只许碰碰和以上。花分与勒子封顶。细则见 qiaoma。",
+      "rules": [
+        "shanghai"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "wangchao-nanjing",
+      "url": "http://baike.wangchao.net.cn/detail_1325620.html",
+      "title": "王朝百科 · 南京麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "144 张，20 张硬花（中发白各四加季节花）。禁吃。论花；软花含风对、边嵌钓。细则见 suhu-huama。南京论花 20 硬花，不是苏州 152 复印件。",
+      "rules": [
+        "nanjing",
+        "huama"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    }
+  ]
+}

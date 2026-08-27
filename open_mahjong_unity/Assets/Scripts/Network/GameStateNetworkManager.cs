@@ -401,6 +401,7 @@ public class GameStateNetworkManager : MonoBehaviour {
     private void HandleGetSpectatorListResponse(Response response) {
         Debug.Log($"收到观战列表: {response.message}");
         SpectatorPanel.Instance?.GetSpectatorListResponse(response.success, response.message, response.spectator_list);
+        EventDetailPanel.Instance?.OnSpectatorList(response.spectator_list);
     }
 
     // ========== 游戏状态相关的发送方法 ==========

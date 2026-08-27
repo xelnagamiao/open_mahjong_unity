@@ -1,0 +1,103 @@
+{
+  "slug": "ningbo-classical",
+  "label": "古典 / 宁波",
+  "aliases": [
+    "古典麻将",
+    "绘图麻雀牌谱",
+    "想定宁波规则",
+    "宁波地方麻将",
+    "甬麻"
+  ],
+  "collected_at": "2026-08-14",
+  "notes": "第 2 期第一波。祖型史料仍以 mahjong-phylogeny 为准。当代甬麻不是 1870 年代祖型。找手游旧链已失效，未入簿。",
+  "sources": [
+    {
+      "id": "lib-classical",
+      "url": "/rulebooks/classical-rulebook.pdf",
+      "title": "古典麻将规则书",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "平台现行古典麻将版本。据《绘图麻雀牌谱》《想定宁波规则》等汇总，试图还原 1920 年代左右或以前的早期麻将。",
+      "rules": ["classical"],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/classical-rulebook.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "lib-drawing",
+      "url": "/rulebooks/drawing-mahjong.pdf",
+      "title": "绘图麻雀牌谱",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "沈一帆 1914 年牌谱。馆藏古典麻将的主要底本之一。",
+      "rules": ["classical", "drawing-mahjong"],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/drawing-mahjong.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "lib-shinbara",
+      "url": "/rulebooks/shinbara-ningbo.html",
+      "title": "想定宁波规则（榛原 1952）",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "榛原茂树据五种民初麻将书想定的宁波打法。他自己写过：这不是最古现场规则。",
+      "rules": ["classical"],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/shinbara-ningbo.html",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "wiki-zh-ningbo-mj",
+      "url": "https://zh.wikipedia.org/wiki/寧波麻將",
+      "title": "维基百科 · 宁波麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "流行于宁波及附近。144 张，不规定特定胡牌牌型，但要求 4 台起胡。有风圈。花牌按座次：东南西北各对梅兰竹菊与春夏秋冬，只有摸到自己的花并杠出才计台。财神按骰子翻出，其余三张为财神；翻出花牌则同色花为财神。相关台数有摸搭、无搭、还搭、三百搭。",
+      "rules": ["ningbo-local"],
+      "source_level": "secondary",
+      "reliability": "medium",
+      "local_kind": "snapshot",
+      "local_path": "ningbo-classical/snapshots/wiki-zh-ningbo.html",
+      "local_status": "failed"
+    },
+    {
+      "id": "tcy-ningbo",
+      "url": "http://www.tcy365.com/game/dnbmj214.html",
+      "title": "同城游 · 宁波麻将游戏规则介绍",
+      "type": "discussion",
+      "lang": "zh",
+      "publisher": "浙江畅唐网络",
+      "accessed": "2026-08-14",
+      "excerpt": "144 张，设百搭（财神），可吃碰杠，4 台起胡。清一色、字一色 4 台；混一色、碰碰胡 2 台。满 4 台可胡；财神单吊不能捉冲，只能自摸。没有一炮多响；一局只有一位胡牌者。可吃张打同张。C 级平台桌规。",
+      "rules": ["ningbo-local"],
+      "source_level": "community",
+      "reliability": "low",
+      "local_kind": "snapshot",
+      "local_path": "ningbo-classical/snapshots/tcy-ningbo.html",
+      "local_status": "ok"
+    },
+    {
+      "id": "baike-ningbo",
+      "url": "https://baike.baidu.com/item/宁波麻将/8740528",
+      "title": "百度百科 · 宁波麻将",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "同页两说并列，不选边。一处：翻牌即财神，财神只有三个；胡牌按台数，须大于 4 台。另一处：只有清一色、混一色、碰碰胡才能胡；百搭为翻牌和翻牌加 1，共 7 个。C/D 级，不作定稿。",
+      "rules": ["ningbo-local"],
+      "source_level": "community",
+      "reliability": "low"
+    }
+  ]
+}

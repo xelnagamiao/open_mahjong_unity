@@ -100,13 +100,18 @@ public class MatchFoundedPanel : MonoBehaviour {
     }
 
     private IEnumerator CountdownRoutine() {
-        for (int i = 5; i > 0; i--) {
-            if (foundedCountdownText != null) {
-                foundedCountdownText.text = $"{i} 秒后进入游戏...";
+        while (true) {
+            float remaining = MatchStateManager.Instance.MatchFoundRemaining;
+            int display = Mathf.CeilToInt(remaining);
+            if (display < 1) {
+                ResetCanvasGroupBeforeHide();
+                gameObject.SetActive(false);
+                yield break;
             }
-            yield return new WaitForSeconds(1f);
+            if (foundedCountdownText != null) {
+                foundedCountdownText.text = $"{display} 秒后进入游戏...";
+            }
+            yield return new WaitForSecondsRealtime(0.1f);
         }
-        ResetCanvasGroupBeforeHide();
-        gameObject.SetActive(false);
     }
 }

@@ -37,6 +37,7 @@ export interface ViewerAction {
   tile?: number
   use_drawn_tile?: boolean
   ui64_value?: number
+  server_action?: string
 }
 
 export interface ViewerSnapshot {
@@ -54,6 +55,8 @@ export interface GameState {
   remaining_tile_count: number
   current_player?: number | null
   last_actor?: number | null
+  /** Seat whose latest discard is still available to be claimed. */
+  last_discarder?: number | null
   last_event_kind?: string | null
   result_source_actor?: number | null
   ended?: boolean

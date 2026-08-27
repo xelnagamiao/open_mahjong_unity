@@ -132,11 +132,23 @@ function patch(key, value) {
 
 <style scoped>
 .gb-room-config {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
   width: 100%;
-  margin-bottom: 4px;
+}
+.gb-room-config :deep(.el-form-item) {
+  margin-bottom: 12px;
+}
+.gb-room-config :deep(.el-select),
+.gb-room-config :deep(.el-input),
+.gb-room-config :deep(.el-input-number) {
+  width: 100%;
+}
+@media (max-width: 640px) {
+  .gb-room-config {
+    grid-template-columns: 1fr;
+  }
 }
 
 </style>

@@ -181,7 +181,7 @@ public static class HongqueScoring {
     private sealed class FanEntry {
         public string Name;
         public int Value;
-        public int Count;
+        public int Count = 1;
         public int Total => Value * Count;
     }
 
@@ -362,7 +362,7 @@ public static class HongqueScoring {
 
         List<FanEntry> fans = new List<FanEntry>();
         // 清顺：仅“花色相同”（ColourStep 0）且非彩虹的顺子，按组复计。
-        int cleanSequences = shapes.Count(s => s.Kind == "sequence" && s.ColourStep == 0);
+        int cleanSequences = shapes.Count(s => s.BaseKind == "sequence" && s.ColourStep == 0 && !s.IsRainbow);
         int cleanTriplets = shapes.Count(s => s.BaseKind == "triplet" && s.Tiles.Count >= 4);
         if (cleanSequences > 0) fans.Add(new FanEntry { Name = "清顺", Value = 1, Count = cleanSequences });
         if (cleanTriplets > 0) fans.Add(new FanEntry { Name = "清刻", Value = 1, Count = cleanTriplets });
@@ -418,7 +418,7 @@ public static class HongqueScoring {
 
         bool heavenly = selfDraw && beforeFirstDiscard && concealed;
         if (heavenly) fans.Add(new FanEntry { Name = "天和", Value = 18 });
-        else if (concealed) fans.Add(new FanEntry { Name = "门清", Value = 1 });
+        if (concealed) fans.Add(new FanEntry { Name = "门清", Value = 1 });
         if (selfDraw && wallEmpty) fans.Add(new FanEntry { Name = "海底", Value = 2 });
         // 清一数、二数均不计碰碰和。
         if (allTriplets && numbers.Count > 2) fans.Add(new FanEntry { Name = "碰碰和", Value = 3 });
@@ -439,18 +439,29 @@ public static class HongqueScoring {
         };
     }
 
+    private static bool BetterScore(HongqueWinScore candidate, HongqueWinScore best) {
+        if (candidate == null) return false;
+        if (best == null) return true;
+        return candidate.Points > best.Points
+            || (candidate.Points == best.Points && candidate.FanTotal > best.FanTotal)
+            || (candidate.Points == best.Points && candidate.FanTotal == best.FanTotal
+                && candidate.Base > best.Base);
+    }
+
     /// <summary>
     /// 最优和牌分值（对应 scoring.best_win_result）。
     /// handTileIds 为暗手；meldMasks 为副露掩码（[flag, tileId] 对）。
+    /// allowKongWin 与服务端一致：自摸时允许把 1 张手牌并入明牌后再计分。
     /// </summary>
     public static HongqueWinScore BestWinResult(
         List<int> handTileIds,
         List<int[]> meldMasks,
         bool selfDraw,
         bool beforeFirstDiscard,
-        bool wallEmpty) {
+        bool wallEmpty,
+        bool allowKongWin = false) {
         string cacheKey = BuildWinResultCacheKey(
-            handTileIds, meldMasks, selfDraw, beforeFirstDiscard, wallEmpty);
+            handTileIds, meldMasks, selfDraw, beforeFirstDiscard, wallEmpty, allowKongWin);
         if (BestWinResultCache.TryGetValue(cacheKey, out HongqueWinScore cached)) {
             return cached;
         }
@@ -462,12 +473,18 @@ public static class HongqueScoring {
             HongqueWinScore score = ScorePartition(
                 decomposition.Groups, masks, decomposition.Pair,
                 selfDraw, beforeFirstDiscard, wallEmpty);
-            if (score == null) continue;
-            if (best == null
-                || score.Points > best.Points
-                || (score.Points == best.Points && score.FanTotal > best.FanTotal)
-                || (score.Points == best.Points && score.FanTotal == best.FanTotal && score.Base > best.Base)) {
-                best = score;
+            if (BetterScore(score, best)) best = score;
+        }
+        if (allowKongWin) {
+            foreach (HongqueKongWinOption option in HongqueTenpai.KongWinCandidates(handTileIds, masks)) {
+                List<HongqueWinDecomposition> kongDecomps =
+                    WinningDecompositions(option.HandAfterKong, true);
+                foreach (HongqueWinDecomposition decomposition in kongDecomps) {
+                    HongqueWinScore score = ScorePartition(
+                        decomposition.Groups, option.MeldsAfterKong, decomposition.Pair,
+                        selfDraw, beforeFirstDiscard, wallEmpty);
+                    if (BetterScore(score, best)) best = score;
+                }
             }
         }
         if (BestWinResultCache.Count >= BestWinResultCacheLimit) BestWinResultCache.Clear();
@@ -480,7 +497,8 @@ public static class HongqueScoring {
         List<int[]> meldMasks,
         bool selfDraw,
         bool beforeFirstDiscard,
-        bool wallEmpty) {
+        bool wallEmpty,
+        bool allowKongWin) {
         System.Text.StringBuilder key = new System.Text.StringBuilder(64);
         if (handTileIds != null) {
             List<int> sorted = new List<int>(handTileIds);
@@ -508,6 +526,7 @@ public static class HongqueScoring {
         key.Append(selfDraw ? 'T' : 'F');
         key.Append(beforeFirstDiscard ? 'T' : 'F');
         key.Append(wallEmpty ? 'T' : 'F');
+        key.Append(allowKongWin ? 'K' : 'N');
         return key.ToString();
     }
 }

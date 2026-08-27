@@ -8,16 +8,6 @@ using UnityEngine;
 /// </summary>
 public class CardBackEditorDragReceiver : MonoBehaviour
 {
-    public static void EnsureOnRoot(GameObject anyObject)
-    {
-        if (anyObject == null) return;
-        GameObject root = anyObject.transform.root.gameObject;
-        if (root.GetComponent<CardBackEditorDragReceiver>() == null)
-        {
-            root.AddComponent<CardBackEditorDragReceiver>();
-        }
-    }
-
     private void OnGUI()
     {
         Event e = Event.current;
@@ -38,35 +28,42 @@ public class CardBackEditorDragReceiver : MonoBehaviour
                 e.Use();
             }
         }
-        else if (e.type == EventType.DragPerform)
-        {
-            bool applied = false;
-            foreach (Object obj in DragAndDrop.objectReferences)
+else if (e.type == EventType.DragPerform)
             {
-                Texture2D tex = obj as Texture2D;
-                if (tex == null && obj is Sprite sprite)
+                bool applied = false;
+                foreach (Object obj in DragAndDrop.objectReferences)
                 {
-                    tex = sprite.texture;
-                }
-                if (tex == null) continue;
+                    Texture2D tex = obj as Texture2D;
+                    if (tex == null && obj is Sprite sprite)
+                    {
+                        tex = sprite.texture;
+                    }
+                    if (tex == null) continue;
 
-                // 牌边面板激活时拖入的图片应用到侧面贴图，否则作为牌背图片。
-                if (CardEdgePanel.Instance != null && CardEdgePanel.Instance.gameObject.activeInHierarchy)
-                {
-                    CardEdgePanel.Instance.ApplyEditorDroppedTexture(tex);
+                    // 牌面背景面板激活时拖入的图片应用到 3D 牌面背景（新建/替换），避免误改牌背。
+                    if (CardFaceBackgroundPanel.Instance != null && CardFaceBackgroundPanel.Instance.gameObject.activeInHierarchy)
+                    {
+                        CardFaceBackgroundPanel.Instance.ApplyEditorDroppedTableBackground(tex);
+                        applied = true;
+                        continue;
+                    }
+                    // 牌边面板激活时拖入的图片应用到侧面贴图，否则作为牌背图片。
+                    if (CardEdgePanel.Instance != null && CardEdgePanel.Instance.gameObject.activeInHierarchy)
+                    {
+                        CardEdgePanel.Instance.ApplyEditorDroppedTexture(tex);
+                    }
+                    else if (CardBackConfigPanel.Instance != null)
+                    {
+                        CardBackConfigPanel.Instance.ApplyEditorDroppedTexture(tex);
+                    }
+                    applied = true;
                 }
-                else if (CardBackConfigPanel.Instance != null)
+                if (applied)
                 {
-                    CardBackConfigPanel.Instance.ApplyEditorDroppedTexture(tex);
+                    DragAndDrop.AcceptDrag();
+                    e.Use();
                 }
-                applied = true;
             }
-            if (applied)
-            {
-                DragAndDrop.AcceptDrag();
-                e.Use();
-            }
-        }
     }
 }
 #endif

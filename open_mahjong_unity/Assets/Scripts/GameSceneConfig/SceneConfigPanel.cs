@@ -6,12 +6,18 @@ public class SceneConfigPanel : MonoBehaviour
     [SerializeField] private TableClothPanel tableClothPanel;
     [SerializeField] private TableEdgePanel tableEdgePanel;
     [SerializeField] private CharacterPanel characterPanel;
-    private CardBackConfigPanel cardBackPanel;
-    private CardEdgePanel cardEdgePanel;
+    [SerializeField] private CardBackConfigPanel cardBackPanel;
+    [SerializeField] private CardEdgePanel cardEdgePanel;
+    [SerializeField] private CardFaceConfigPanel cardFacePanel;
+    [SerializeField] private CardFaceBackgroundPanel cardFaceBgPanel;
 
     [SerializeField] private Button ShowTableClothPanelButton;
     [SerializeField] private Button ShowTableEdgePanelButton;
     [SerializeField] private Button ShowCharacterPanelButton;
+    [SerializeField] private Button ShowCardBackPanelButton;
+    [SerializeField] private Button ShowCardEdgePanelButton;
+    [SerializeField] private Button ShowCardFacePanelButton;
+    [SerializeField] private Button ShowCardFaceBgPanelButton;
     [SerializeField] private Button HideAllPanelButton;
 
     private string nowPage = "";
@@ -20,131 +26,91 @@ public class SceneConfigPanel : MonoBehaviour
         ShowTableClothPanelButton.onClick.AddListener(ShowTableClothPanel);
         ShowTableEdgePanelButton.onClick.AddListener(ShowTableEdgePanel);
         ShowCharacterPanelButton.onClick.AddListener(ShowCharacterPanel);
+        ShowCardBackPanelButton.onClick.AddListener(ShowCardBackPanel);
+        ShowCardEdgePanelButton.onClick.AddListener(ShowCardEdgePanel);
+        ShowCardFacePanelButton.onClick.AddListener(ShowCardFacePanel);
+        ShowCardFaceBgPanelButton.onClick.AddListener(ShowCardFaceBgPanel);
         HideAllPanelButton.onClick.AddListener(HideAllPanel);
-        tableClothPanel.gameObject.SetActive(false);
-        tableEdgePanel.gameObject.SetActive(false);
-        characterPanel.gameObject.SetActive(false);
-        CardBackConfigPanel.AttachToScenePanel(transform);
-        cardBackPanel = GetComponentInChildren<CardBackConfigPanel>(true);
-        if (cardBackPanel != null) cardBackPanel.HidePanel();
-        cardEdgePanel = GetComponentInChildren<CardEdgePanel>(true);
-        if (cardEdgePanel != null) cardEdgePanel.gameObject.SetActive(false);
-        HookCardBackButton();
-        HookCardEdgeButton();
-        RandomTableButton.HookExistingButton();
-#if UNITY_EDITOR
-        CardBackEditorDragReceiver.EnsureOnRoot(gameObject);
-#endif
+        HideContentPanels();
         ShowTableClothPanel();
     }
 
-    /// <summary>把场景里手工画好的“牌边”导航按钮挂到面板切换逻辑上（切到边缘模式）。</summary>
-    private void HookCardEdgeButton()
-    {
-        Button[] buttons = GetComponentsInChildren<Button>(true);
-        foreach (Button button in buttons)
-        {
-            if (button == null || button.gameObject == null) continue;
-            string name = button.gameObject.name;
-            if (string.IsNullOrEmpty(name)) continue;
-            if (!name.Contains("CardEdge") && !name.Contains("牌边")) continue;
-            if (cardBackPanel != null && button.transform.IsChildOf(cardBackPanel.transform)) continue;
-            button.onClick.RemoveListener(ShowCardEdgePanel);
-            button.onClick.AddListener(ShowCardEdgePanel);
-            return;
-        }
+    private void HideContentPanels() {
+        SetActive(tableClothPanel, false);
+        SetActive(tableEdgePanel, false);
+        SetActive(characterPanel, false);
+        cardBackPanel.HidePanel();
+        SetActive(cardEdgePanel, false);
+        cardFacePanel.HidePanel();
+        cardFaceBgPanel.HidePanel();
     }
 
-    /// <summary>把场景里手工画好的“牌背”导航按钮挂到面板切换逻辑上。</summary>
-    private void HookCardBackButton()
-    {
-        Button[] buttons = GetComponentsInChildren<Button>(true);
-        foreach (Button button in buttons)
-        {
-            if (button == null || button.gameObject == null) continue;
-            string name = button.gameObject.name;
-            if (string.IsNullOrEmpty(name)) continue;
-            if (!name.Contains("CardBack") && !name.Contains("牌背")) continue;
-            if (cardBackPanel != null && button.transform.IsChildOf(cardBackPanel.transform)) continue;
-            button.onClick.RemoveListener(ShowCardBackPanel);
-            button.onClick.AddListener(ShowCardBackPanel);
-            return;
-        }
+    private static void SetActive(Component panel, bool active) {
+        panel.gameObject.SetActive(active);
     }
 
     private void ShowTableClothPanel() {
-
-        tableClothPanel.gameObject.SetActive(true);
-        tableEdgePanel.gameObject.SetActive(false);
-        characterPanel.gameObject.SetActive(false);
-        if (cardBackPanel != null) cardBackPanel.HidePanel();
-        if (cardEdgePanel != null) cardEdgePanel.gameObject.SetActive(false);
-
+        HideContentPanels();
+        SetActive(tableClothPanel, true);
         tableClothPanel.LoadTablecloths();
         nowPage = "TableCloth";
     }
-    private void ShowTableEdgePanel() {
-        tableEdgePanel.gameObject.SetActive(true);
-        tableClothPanel.gameObject.SetActive(false);
-        characterPanel.gameObject.SetActive(false);
-        if (cardBackPanel != null) cardBackPanel.HidePanel();
-        if (cardEdgePanel != null) cardEdgePanel.gameObject.SetActive(false);
 
+    private void ShowTableEdgePanel() {
+        HideContentPanels();
+        SetActive(tableEdgePanel, true);
         tableEdgePanel.LoadTableEdges();
         nowPage = "TableEdge";
     }
+
     private void ShowCharacterPanel() {
-        characterPanel.gameObject.SetActive(true);
-        tableClothPanel.gameObject.SetActive(false);
-        tableEdgePanel.gameObject.SetActive(false);
-        if (cardBackPanel != null) cardBackPanel.HidePanel();
-        if (cardEdgePanel != null) cardEdgePanel.gameObject.SetActive(false);
+        HideContentPanels();
+        SetActive(characterPanel, true);
         nowPage = "Character";
     }
 
     public void ShowCardBackPanel() {
-        if (cardBackPanel == null) return;
+        HideContentPanels();
         cardBackPanel.ShowPanel();
-        if (cardEdgePanel != null) cardEdgePanel.gameObject.SetActive(false);
-        tableClothPanel.gameObject.SetActive(false);
-        tableEdgePanel.gameObject.SetActive(false);
-        characterPanel.gameObject.SetActive(false);
         nowPage = "CardBack";
     }
 
-    /// <summary>显示独立的牌边设置面板。</summary>
     public void ShowCardEdgePanel() {
-        if (cardBackPanel != null) cardBackPanel.HidePanel();
-        if (cardEdgePanel == null) return;
-        cardEdgePanel.gameObject.SetActive(true);
-        tableClothPanel.gameObject.SetActive(false);
-        tableEdgePanel.gameObject.SetActive(false);
-        characterPanel.gameObject.SetActive(false);
+        HideContentPanels();
+        SetActive(cardEdgePanel, true);
         nowPage = "CardEdge";
     }
 
+    public void ShowCardFacePanel() {
+        HideContentPanels();
+        cardFacePanel.ShowPanel();
+        nowPage = "CardFace";
+    }
+
+    public void ShowCardFaceBgPanel() {
+        HideContentPanels();
+        cardFaceBgPanel.ShowPanel();
+        nowPage = "CardFaceBg";
+    }
+
     private void HideAllPanel() {
-        tableClothPanel.gameObject.SetActive(false);
-        tableEdgePanel.gameObject.SetActive(false);
-        characterPanel.gameObject.SetActive(false);
-        if (cardBackPanel != null) cardBackPanel.HidePanel();
-        if (cardEdgePanel != null) cardEdgePanel.gameObject.SetActive(false);
+        HideContentPanels();
         nowPage = "Clear";
     }
 
-    public void RefreshPage(){
-        if (nowPage == "TableCloth"){
+    public void RefreshPage() {
+        if (nowPage == "TableCloth") {
             tableClothPanel.LoadTablecloths();
-        }else if (nowPage == "TableEdge"){
+        } else if (nowPage == "TableEdge") {
             tableEdgePanel.LoadTableEdges();
-        }else if (nowPage == "Character"){
-            //
-        }else if (nowPage == "CardBack"){
-            if (cardBackPanel != null) cardBackPanel.ShowPanel();
-        }else if (nowPage == "CardEdge"){
-            if (cardEdgePanel != null) cardEdgePanel.gameObject.SetActive(true);
-        }else if (nowPage == "Clear"){
-            //
+        } else if (nowPage == "CardBack") {
+            cardBackPanel.ShowPanel();
+        } else if (nowPage == "CardEdge") {
+            SetActive(cardEdgePanel, true);
+        } else if (nowPage == "CardFace") {
+            cardFacePanel.ShowPanel();
+        } else if (nowPage == "CardFaceBg") {
+            cardFaceBgPanel.ShowPanel();
         }
     }
 }

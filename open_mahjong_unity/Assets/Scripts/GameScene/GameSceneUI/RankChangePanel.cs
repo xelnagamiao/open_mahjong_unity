@@ -31,7 +31,7 @@ public class RankChangePanel : MonoBehaviour {
         gameObject.SetActive(true);
         confirmButton.interactable = false;
 
-        ptChangeText.text = pt >= 0 ? $"+{pt:F1}" : $"{pt:F1}";
+        ptChangeText.text = pt >= 0 ? $"+{pt:F2}" : $"{pt:F2}";
 
         if (animCoroutine != null) StopCoroutine(animCoroutine);
         animCoroutine = StartCoroutine(PlayRankChangeAnimation(oldRank, oldScore, newRank, newScore));
@@ -108,17 +108,17 @@ public class RankChangePanel : MonoBehaviour {
             float currentScore = Mathf.Lerp(fromScore, toScore, t);
             // 进度按 0 → 升段分
             progressBar.value = promoteScore > 0 ? Mathf.Clamp01(currentScore / promoteScore) : 0;
-            scoreText.text = $"{currentScore:F1}/{promoteScore}";
+            scoreText.text = $"{currentScore:F2}/{promoteScore}";
             yield return null;
         }
         progressBar.value = promoteScore > 0 ? Mathf.Clamp01(toScore / promoteScore) : 0;
-        scoreText.text = $"{toScore:F1}/{promoteScore}";
+        scoreText.text = $"{toScore:F2}/{promoteScore}";
     }
 
     private void SetProgressBar(int rankIdx, float score) {
         var (_, _, promoteScore) = RankConfig.RankTable[rankIdx];
         progressBar.value = promoteScore > 0 ? Mathf.Clamp01(score / promoteScore) : 0;
-        scoreText.text = $"{score:F1}/{promoteScore}";
+        scoreText.text = $"{score:F2}/{promoteScore}";
     }
 
     private void OnConfirm() {

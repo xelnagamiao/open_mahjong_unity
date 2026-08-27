@@ -558,6 +558,12 @@ class GameStateManager:
                 player4_name = game_state.player_list[3].username or str(game_state.player_list[3].user_id)
                 
                 # 创建观战信息
+                event_id = getattr(game_state, "event_id", None)
+                if not event_id:
+                    room_id = getattr(game_state, "room_id", None)
+                    room = self.game_server.room_manager.rooms.get(room_id) if room_id else None
+                    if room:
+                        event_id = room.get("event_id")
                 spectator_info = SpectatorInfo(
                     rule=rule,
                     sub_rule=sub_rule,
@@ -565,7 +571,8 @@ class GameStateManager:
                     player2_name=player2_name,
                     player3_name=player3_name,
                     player4_name=player4_name,
-                    gamestate_id=gamestate_id
+                    gamestate_id=gamestate_id,
+                    event_id=event_id,
                 )
                 spectator_list.append(spectator_info)
         

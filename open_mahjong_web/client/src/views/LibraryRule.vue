@@ -1,6 +1,6 @@
-<!-- 麻雀图书馆 · 规则条目（资源 + 讨论） -->
+<!-- 麻雀图书馆 · 规则条目（谱系 + 规则书 + 资料 + 讨论） -->
 <template>
-  <div v-if="entry" class="rule" :style="{ '--ink': entry.accent }">
+  <div v-if="entry" class="rule" :style="{ '--ink': entry.accent || '#1f6b52' }">
     <div class="rule-bg" aria-hidden="true">
       <div class="grain" />
     </div>
@@ -8,56 +8,69 @@
     <header class="top">
       <router-link class="back" to="/library">← 馆藏目录</router-link>
       <div class="title-block">
-        <p class="eyebrow">{{ isRule ? 'RULE ENTRY' : 'LIBRARY TAG' }}</p>
+        <p class="eyebrow">{{ isSpecial ? 'LIBRARY TAG' : 'RULE ENTRY' }}</p>
         <h1>{{ entry.title || entry.label }}</h1>
-        <p class="desc">{{ entry.description }}</p>
+        <p v-if="entry.description || row?.blurb" class="desc">{{ entry.description || row.blurb }}</p>
+        <p v-if="row?.names?.length" class="aka">也叫 {{ row.names.join('、') }}</p>
       </div>
     </header>
 
     <main class="body">
-      <section class="block resources">
-        <div class="block-head">
-          <h2>资源存放处</h2>
-          <span>{{ (entry.resources?.length || entry.links?.length || 0) }} 项</span>
-        </div>
-        <div v-if="entry.resources?.length" class="res-grid">
-          <article v-for="doc in entry.resources" :key="doc.url" class="res-card">
-            <h3>{{ doc.title }}</h3>
-            <p v-if="doc.desc">{{ doc.desc }}</p>
-            <div class="res-actions">
-              <button type="button" class="btn primary" @click="openInNewTab(doc.url)">阅读</button>
-              <button type="button" class="btn" @click="downloadDoc(doc.url, doc.filename)">下载</button>
-            </div>
-          </article>
-        </div>
-        <div v-else-if="entry.links?.length" class="res-grid">
-          <article v-for="link in entry.links" :key="link.to" class="res-card">
-            <h3>{{ link.title }}</h3>
-            <p v-if="link.desc">{{ link.desc }}</p>
-            <div class="res-actions">
-              <router-link class="btn primary" :to="link.to">前往</router-link>
-            </div>
-          </article>
-        </div>
-        <p v-else class="empty">暂无 PDF 资源，可在讨论区补充说明。</p>
-      </section>
+      <template v-if="isSpecial">
+        <section class="block resources">
+          <div class="block-head">
+            <h2>资源存放处</h2>
+            <span>{{ (entry.resources?.length || entry.links?.length || 0) }} 项</span>
+          </div>
+          <div v-if="entry.links?.length" class="res-grid">
+            <article v-for="link in entry.links" :key="link.to" class="res-card">
+              <h3>{{ link.title }}</h3>
+              <p v-if="link.desc">{{ link.desc }}</p>
+              <div class="res-actions">
+                <router-link class="btn primary" :to="link.to">前往</router-link>
+              </div>
+            </article>
+          </div>
+        </section>
+      </template>
+      <RuleIdentityPanel
+        v-else
+        :slug="catalogSlug"
+        :stub="row"
+        :docs="docs"
+        :sources="sources"
+        :parents="parents"
+        :children="children"
+        :families="families"
+        :era-info="eraInfo"
+        :appeared="appeared"
+        :playable="playable"
+        :href-for="ruleHref"
+        :name-for="ruleName"
+      />
 
       <section class="block forum">
-        <LibraryDiscussion :topic-key="entry.key" title="讨论区" />
+        <LibraryDiscussion :topic-key="topicKey" title="讨论区" />
       </section>
     </main>
   </div>
 
+  <div v-else-if="!loaded" class="missing">
+    <p>{{ loadError || '加载中…' }}</p>
+  </div>
+
   <div v-else class="missing">
-    <p>未找到该条目。</p>
+    <p>{{ loadError || '未找到该条目。' }}</p>
     <router-link to="/library">返回馆藏目录</router-link>
   </div>
 </template>
 
 <script setup>
-import { computed, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import LibraryDiscussion from '@/components/LibraryDiscussion.vue'
+import RuleIdentityPanel from '@/components/RuleIdentityPanel.vue'
+import { useMahjongCatalog } from '@/composables/useMahjongCatalog'
 import {
   getLibraryRule,
   LIBRARY_MATERIALS,
@@ -65,39 +78,100 @@ import {
 } from '@/constants/libraryRules'
 
 const route = useRoute()
+const router = useRouter()
+const {
+  load,
+  loaded,
+  loadError,
+  catalogRow,
+  libraryEntry,
+  ruleHref,
+  ruleName,
+  parentsOf,
+  childrenOf,
+  familiesOf,
+  eraOf,
+  appearedOf,
+  sourcesFor,
+  isPlayable,
+  isArchiveOnly,
+} = useMahjongCatalog()
 
 const ruleKey = computed(() => String(route.params.rule || ''))
-const rule = computed(() => getLibraryRule(ruleKey.value))
 const specialTag = computed(() => {
   if (ruleKey.value === 'materials') return LIBRARY_MATERIALS[0] || null
   if (ruleKey.value === 'submit') return LIBRARY_SUBMISSION[0] || null
   return null
 })
-const entry = computed(() => rule.value || specialTag.value)
-const isRule = computed(() => !!rule.value)
+const isSpecial = computed(() => !!specialTag.value)
+const lib = computed(() => libraryEntry(ruleKey.value) || getLibraryRule(ruleKey.value))
+const row = computed(() => catalogRow(ruleKey.value))
+const catalogSlug = computed(() => row.value?.slug || ruleKey.value)
+const topicKey = computed(() => lib.value?.key || row.value?.library_key || catalogSlug.value)
+const docs = computed(() => {
+  const fromLib = lib.value?.resources || []
+  if (fromLib.length) return fromLib
+  return sources.value
+    .filter((s) => s.type === 'rulebook')
+    .map((s) => ({
+      title: s.title,
+      desc: s.excerpt || '',
+      url: s.url,
+      filename: '',
+    }))
+})
+const sources = computed(() => (isSpecial.value ? [] : sourcesFor(ruleKey.value)))
+const parents = computed(() => parentsOf(catalogSlug.value))
+const children = computed(() => childrenOf(catalogSlug.value))
+const families = computed(() => familiesOf(catalogSlug.value))
+const eraInfo = computed(() => eraOf(catalogSlug.value))
+const appeared = computed(() => appearedOf(catalogSlug.value))
+const playable = computed(() => isPlayable(ruleKey.value))
+
+const catalogEntry = computed(() => {
+  if (!row.value) return null
+  return {
+    key: topicKey.value,
+    title: lib.value?.label || row.value.name_zh,
+    label: lib.value?.label || row.value.name_zh,
+    description: lib.value?.description || row.value.blurb || '',
+    accent: lib.value?.accent || '#1f6b52',
+  }
+})
+
+const entry = computed(() => specialTag.value || lib.value || catalogEntry.value)
 
 watch(
   entry,
   (e) => {
     if (e) document.title = `${e.title || e.label} · 麻雀图书馆`
   },
-  { immediate: true }
+  { immediate: true },
 )
 
-function openInNewTab(url) {
-  window.open(url, '_blank')
-}
+watch(
+  [ruleKey, loaded, row],
+  () => {
+    const key = ruleKey.value
+    if (!key) return
+    if (isArchiveOnly(key)) {
+      router.replace(`/rule-research/${key}`)
+      return
+    }
+    if (row.value?.enter_href) {
+      router.replace(row.value.enter_href)
+      return
+    }
+    if (row.value?.fold_into && row.value.fold_into !== key) {
+      router.replace(`/library/${row.value.fold_into}`)
+    }
+  },
+  { immediate: true },
+)
 
-function downloadDoc(url, filename) {
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename || ''
-  a.target = '_blank'
-  a.rel = 'noopener'
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-}
+onMounted(() => {
+  load()
+})
 </script>
 
 <style scoped>
@@ -109,6 +183,8 @@ function downloadDoc(url, filename) {
   --ink-soft: #3d5a4c;
   --line: rgba(16, 40, 32, 0.14);
   --ink: #1f6b52;
+  --accent: var(--ink);
+  --muted: var(--ink-soft);
   position: relative;
   min-height: 100vh;
   color: var(--ink-base);
@@ -138,7 +214,7 @@ function downloadDoc(url, filename) {
 .body {
   position: relative;
   z-index: 1;
-  max-width: 860px;
+  max-width: 920px;
   margin: 0 auto;
   padding-left: clamp(18px, 4vw, 32px);
   padding-right: clamp(18px, 4vw, 32px);
@@ -186,6 +262,12 @@ function downloadDoc(url, filename) {
   max-width: 42em;
   font-size: 14px;
   line-height: 1.65;
+  color: var(--ink-soft);
+}
+
+.aka {
+  margin: 8px 0 0;
+  font-size: 13px;
   color: var(--ink-soft);
 }
 
@@ -275,6 +357,7 @@ function downloadDoc(url, filename) {
   font-weight: 600;
   padding: 6px 12px;
   cursor: pointer;
+  text-decoration: none;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
@@ -297,12 +380,6 @@ function downloadDoc(url, filename) {
 .btn.primary:hover:not(:disabled) {
   filter: brightness(1.08);
   color: #fff;
-}
-
-.empty {
-  margin: 0;
-  font-size: 13px;
-  color: var(--ink-soft);
 }
 
 .missing {

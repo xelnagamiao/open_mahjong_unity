@@ -382,7 +382,7 @@ import { ElMessage } from 'element-plus'
 import { MahjongScene } from '@/game2d/game/scene/MahjongScene'
 import { GAME_SOUND_ASSETS, getPreloadedSoundUrl } from '@/game2d/game/resources'
 import { playerProfileUrl, publicApiGet, publicRecordUrl } from '@/game2d/salasasa/api'
-import { RecordReplay, type PublicGameRecord, type RecordRound, type RecordTick } from '@/game2d/replay/recordReplay'
+import { RecordReplay, isRecordSilentTick, type PublicGameRecord, type RecordRound, type RecordTick } from '@/game2d/replay/recordReplay'
 import { isLocalReplayRecord, loadLocalReplayRecord } from '@/game2d/replay/localReplayRecord'
 import {
   loadStoredSceneAppearance,
@@ -411,6 +411,7 @@ import {
   mmcrSettlementSortKey,
   splitSettlementHand,
 } from '@/game2d/lib/settlementHand'
+import { mmcrFaceId, tileFaceAssetUrl } from '@/game2d/lib/tileFaceAsset'
 import type { ActiveSessionSnapshot, MeldSnapshot } from '@/game2d/game/scene/types'
 import GameScoreboardPanel from './GameScoreboardPanel.vue'
 import SceneAppearancePanel from './SceneAppearancePanel.vue'
@@ -959,20 +960,50 @@ function presentTerminalResult(action: string, handRevealApplied = false) {
   }, 1500)
 }
 
+function nextVisibleNode(ticks: RecordTick[], node: number): number {
+  let index = node
+  while (index < ticks.length && isRecordSilentTick(ticks[index])) index += 1
+  return index
+}
+
+function previousUserStepNode(ticks: RecordTick[], node: number): number {
+  let lastVisible = -1
+  for (let index = node - 1; index >= 0; index -= 1) {
+    if (!isRecordSilentTick(ticks[index])) {
+      lastVisible = index
+      break
+    }
+  }
+  if (lastVisible < 0) return 0
+  let start = lastVisible
+  while (start > 0 && isRecordSilentTick(ticks[start - 1])) start -= 1
+  return start
+}
+
 function step(delta: number) {
   if (terminalLocked.value) return
   stopPlaying()
   resetTerminalPresentation()
+  const ticks = currentRound.value?.action_ticks ?? []
   if (delta > 0 && node.value < maxNode.value) {
     advanceAnimatedStep()
+    return
+  }
+  if (delta < 0) {
+    const prev = previousUserStepNode(ticks, node.value)
+    if (prev < node.value) {
+      node.value = prev
+      return
+    }
+    if (roundIndex.value > 0) {
+      roundIndex.value -= 1
+      node.value = roundBackTargetNode(roundIndex.value)
+    }
     return
   }
   const next = node.value + delta
   if (next >= 0 && next <= maxNode.value) {
     node.value = next
-  } else if (next < 0 && roundIndex.value > 0) {
-    roundIndex.value -= 1
-    node.value = roundBackTargetNode(roundIndex.value)
   } else if (next > maxNode.value && replay.value && roundIndex.value < replay.value.rounds.length - 1) {
     roundIndex.value += 1
     node.value = 0
@@ -993,17 +1024,23 @@ function roundBackTargetNode(index: number): number {
 
 function advanceAnimatedStep() {
   if (!scene || !replay.value || node.value >= maxNode.value) return
-  const nextNode = node.value + 1
-  const tick = currentRound.value?.action_ticks?.[node.value]
+  const ticks = currentRound.value?.action_ticks ?? []
+  const playNode = nextVisibleNode(ticks, node.value)
+  if (playNode >= ticks.length) {
+    node.value = ticks.length
+    return
+  }
+  const tick = ticks[playNode]
   const action = String(tick?.[0] ?? '')
   const rawUpdate = replay.value.eventForStep(
     roundIndex.value,
-    node.value,
+    playNode,
     viewerOriginal.value,
     showOtherHands.value,
   )
   // 错和不是本局终点：只推进节点，不执行和牌展示，避免牌桌停留在亮牌状态。
   const update = isCuoheTick(tick) ? null : rawUpdate
+  const nextNode = playNode + 1
   const nextPosition = replay.value.build(
     roundIndex.value,
     nextNode,
@@ -1014,18 +1051,10 @@ function advanceAnimatedStep() {
   decorateEventRanks(update)
   node.value = nextNode
   if (update) {
-    const snapshotClaimKinds = new Set(['chow', 'pung', 'melded_kong'])
-    if (snapshotClaimKinds.has(String(update.event?.kind || ''))) {
-      // A replay already has the authoritative post-claim hand, river and meld
-      // in nextPosition. Rebuild those three together so an incremental claim
-      // can never leave only the call label without its exposed meld.
-      scene.flushFromSnapshot(nextPosition.snapshot)
-      scene.applyReplayCue('claim', update.event)
-    } else {
-      // Even in instant-panel mode, execute the same table-side win event as a
-      // normal replay step so the hand reveal and final win audio are preserved.
-      scene.handleEvent(update)
-    }
+    // Replay stepping uses the same board mutation path as the live game. In
+    // particular, chow/pung/kong now move tiles out of the river and hand instead
+    // of replacing the whole table with the post-action snapshot.
+    scene.handleEvent(update)
     refreshReplayHints(nextPosition.snapshot)
     actionLabel.value = nextPosition.actionLabel
     const seatMap = replay.value.rounds[roundIndex.value].seats || [0, 1, 2, 3]
@@ -1231,7 +1260,7 @@ function waitingForDrawAfterCut(snapshot: ActiveSessionSnapshot): boolean {
   const ticks = currentRound.value?.action_ticks ?? []
   for (let index = Math.min(node.value, ticks.length) - 1; index >= 0; index -= 1) {
     const action = String(ticks[index]?.[0] ?? '')
-    if (!action || ['ask_hand', 'ask_other', 'ca'].includes(action)) continue
+    if (!action || isRecordSilentTick(ticks[index])) continue
     return action === 'c'
   }
   return snapshot.state.last_event_kind === 'discard_tile'
@@ -1315,18 +1344,12 @@ function onGameInfoWheel(event: WheelEvent) {
 }
 
 function mmcrTileAsset(tid: number) {
-  const suit = Number(tid) & 0xe0
-  const rank = Number(tid) & 0x0f
-  let prefix = 'z'
-  if (suit === 0x40) prefix = 'Man'
-  else if (suit === 0x60) prefix = 'Pin'
-  else if (suit === 0xc0) prefix = 'Sou'
-  else if (suit === 0xe0) prefix = 'Flower'
-  const folder = appearance.value.tileFaceTheme === 'black' && prefix !== 'Flower' ? 'Black' : 'Regular'
-  if (prefix === 'Flower' && appearance.value.flowerFaceTheme === 'unity') {
-    return `${import.meta.env.BASE_URL}game2d-assets/textures/riichi-mahjong-tiles/Unity/${prefix}${rank}.png`
-  }
-  return `${import.meta.env.BASE_URL}game2d-assets/textures/riichi-mahjong-tiles/${folder}/${prefix}${rank}.svg`
+  const faceId = mmcrFaceId(tid)
+  return tileFaceAssetUrl(faceId, {
+    baseUrl: import.meta.env.BASE_URL,
+    black: appearance.value.tileFaceTheme === 'black',
+    unityFlower: appearance.value.flowerFaceTheme === 'unity' && faceId >= 51 && faceId <= 58,
+  })
 }
 
 function persistAppearance(next: typeof appearance.value) {

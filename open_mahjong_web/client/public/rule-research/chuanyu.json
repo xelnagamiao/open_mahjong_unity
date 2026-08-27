@@ -1,0 +1,307 @@
+{
+  "slug": "chuanyu",
+  "label": "川渝家族（血战 / 血流 / 渝麻）",
+  "aliases": [
+    "四川麻将",
+    "成麻",
+    "血战到底",
+    "血流成河",
+    "重庆麻将",
+    "换三张",
+    "SBR"
+  ],
+  "collected_at": "2026-08-14",
+  "notes": "这一支和古典、宁波麻将是并行发展的关系。平台上的川麻大多按 MIL《四川麻将（SBR）》。换三张究竟是开局默认还是可选项、血流开局是否要报缺，各来源说法不一致，这里先并列列出，不选边下结论。T/TFMJ 01-2024 只登记了书目信息。断卡根、宜昌血流各自单独立条，不算主干发明出来的分支。",
+  "sources": [
+    {
+      "id": "lib-sichuan",
+      "url": "/rulebooks/sichuan-sbr.pdf",
+      "title": "四川麻将（SBR）竞赛规则",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "四川麻将（SBR）竞赛规则（试行 2025 版）。平台川麻按这一套对局。",
+      "rules": [
+        "mil-sichuan",
+        "sichuan"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/sichuan-sbr.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "mahjonget-sbr",
+      "url": "https://www.mahjonget.com/",
+      "title": "智力运动考级 · 四川麻将（SBR）说明",
+      "type": "official",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "竞技规则包括国标 MCR、立直 RCR、四川 SBR。川麻民间俗称血战到底：108 张、无吃只能碰、缺门、血战到底、流局查叫、刮风下雨。竞技化后设番数封顶、自摸加底、去除运气番型，2016 年被 MIL 认证为三大国际竞技麻将规则之一。",
+      "rules": [
+        "mil-sichuan",
+        "sichuan"
+      ],
+      "source_level": "secondary",
+      "reliability": "high",
+      "local_kind": "snapshot",
+      "local_path": "chuanyu/snapshots/mahjonget.html",
+      "local_status": "ok"
+    },
+    {
+      "id": "mil-sbr-2016",
+      "url": "https://mahjong-mil.org/sichuan-majestic-trip-to-the-land-of-pandas/",
+      "title": "Sichuan: Majestic Trip to the Land of Pandas（MIL）",
+      "type": "official",
+      "lang": "en",
+      "publisher": "Mahjong International League",
+      "accessed": "2026-08-14",
+      "excerpt": "MIL 称调研显示四川血战是中国最流行的打法。2016 年办 Sichuan Bloody Rules Grand-Prix。SBR：108 张，一家和了不散桌，打到三家和或牌墙摸完。",
+      "rules": [
+        "mil-sichuan",
+        "sichuan"
+      ],
+      "source_level": "secondary",
+      "reliability": "high"
+    },
+    {
+      "id": "tencent-tmt-2016",
+      "url": "https://majiang.qq.com/webplat/info/news_version3/7207/25932/25972/m16557/201611/523252.shtml",
+      "title": "2016 TMT 赛事规则（川麻）",
+      "type": "official",
+      "lang": "zh",
+      "publisher": "腾讯欢乐麻将",
+      "published": "2016-11-14",
+      "accessed": "2026-08-14",
+      "excerpt": "以血战到底为基础。108 张；不可以吃；必须缺门；起手扣牌定缺。血战：一家和后未和者继续，已和者不再行牌，直到三家和或流局。允许一炮多响。流局先查卫生（花猪扣 48），再查大叫；未听者退税。未写换三张。B/C 级赛事规程，不是 SBR 2025。",
+      "rules": [
+        "sichuan"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium",
+      "local_kind": "snapshot",
+      "local_path": "chuanyu/snapshots/tencent-tmt-2016.html",
+      "local_status": "ok"
+    },
+    {
+      "id": "wiki-zh-sichuan",
+      "url": "https://zh.wikipedia.org/wiki/四川麻将",
+      "title": "维基百科 · 四川麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "核心是打缺门、刮风下雨、成都计番、流局查卫生。无风牌，可碰杠不可吃，缺一门才能胡，点炮一家付。标准血战：第一家胡后其余继续，直到剩下最后一家或摸完。另有「断卡根」流行于大邑、崇州：去掉万子，只打索饼，手牌 10 张，核心打法为断幺，是单独立档的分支，不算主干发明。",
+      "rules": [
+        "sichuan",
+        "duankagen",
+        "sichuan-nochi"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium",
+      "local_kind": "snapshot",
+      "local_path": "chuanyu/snapshots/wiki-zh-sichuan.html",
+      "local_status": "failed"
+    },
+    {
+      "id": "ndls-tfmj-2024",
+      "url": "https://www.ndls.org.cn/standard/detail/32dcbcf0ee708b7b40eaa7cd51accf68",
+      "title": "T/TFMJ 01-2024 四川麻将竞赛规则（国家标准馆书目）",
+      "type": "rulebook",
+      "lang": "zh",
+      "publisher": "四川天府新区麻将运动协会",
+      "published": "2024-07-12",
+      "accessed": "2026-08-14",
+      "excerpt": "团体标准，2024-07-12 发布并实施。书目称含术语、场地器材、比赛通则、行牌与和牌、番种分值与计分、罚则与申诉。全文未入馆，不从转载站下载。",
+      "rules": [
+        "sichuan"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "dw-xuezhan",
+      "url": "https://doublewin.me/guides/mahjong-xuezhandaodi",
+      "title": "血战到底规则整理（定缺、换三张、查花猪）",
+      "type": "discussion",
+      "lang": "zh",
+      "published": "2026-04-10",
+      "accessed": "2026-08-14",
+      "excerpt": "平台整理：108 张、不能吃、定缺。一家和了其他人继续，一局最多三家和。把换三张写成开局步骤。与总表「换三张是选项」、TMT 2016 未写换三张冲突，C 级。",
+      "rules": [
+        "sichuan",
+        "sichuan-huansanzhang"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "91y-xuezhan-xueliu",
+      "url": "http://mj.91y.com/bzzx/33.html",
+      "title": "91y · 血战到底和血流成河有何不同",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "两者都要求缺门成和，但报缺不同：血战开局摸完 13 张后须报缺；血流不需要报缺，最后手上少于或等于两种颜色即可和。血战已和者退出；血流已和者继续摸打，除和牌外只能摸什么打什么。血战刮风下雨当场收；血流杠进杠出，明杠一番暗杠两番，终局结算。花猪：血战赔最大番，血流赔最大番的 5 倍。C 级平台对照，与 JJ 2012 冲突处并列。",
+      "rules": [
+        "sichuan",
+        "xueliu"
+      ],
+      "source_level": "community",
+      "reliability": "low",
+      "local_kind": "snapshot",
+      "local_path": "chuanyu/snapshots/91y-xuezhan-xueliu.html",
+      "local_status": "ok"
+    },
+    {
+      "id": "jj-xueliu-2012",
+      "url": "https://www.jj.cn/news/320/20120925153300025557.shtml",
+      "title": "JJ · 血流成河（甩三张）游戏规则",
+      "type": "discussion",
+      "lang": "zh",
+      "publisher": "竞技世界",
+      "published": "2012-09-25",
+      "accessed": "2026-08-14",
+      "excerpt": "108 张，无字无花。抓牌后每人甩三张同色。可碰杠不能吃，胡牌必须缺一门。胡后继续抓打，不能换张；胡后不能明杠，可以续杠和暗杠。不允许天胡。牌墙抓完后查听；花猪赔已听者 2 倍最大自摸。C 级。与 91y「血流不用报缺」并列，不选边。",
+      "rules": [
+        "xueliu",
+        "sichuan-huansanzhang"
+      ],
+      "source_level": "community",
+      "reliability": "low",
+      "local_kind": "snapshot",
+      "local_path": "chuanyu/snapshots/jj-xueliu-2012.html",
+      "local_status": "ok"
+    },
+    {
+      "id": "cmp-xueliu-xuezhan",
+      "url": "https://www.18183.com/xxpd/yxzx/8800977.html",
+      "title": "血流成河与血战到底的规则差异对照",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "血战：和了的人退出，其余人继续。血流：和了的人还留在局里，可以再和，直到牌墙摸完。质量低，只作 C/D。",
+      "rules": [
+        "xueliu",
+        "sichuan"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "wiki-zh-chongqing",
+      "url": "https://zh.wikipedia.org/wiki/重庆麻将",
+      "title": "维基百科 · 重庆麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "渝麻近四川血战：去字、禁吃、定缺，细节按当地习惯。还不能据此把渝麻从成麻里拆成另一套主规则。",
+      "rules": [
+        "chongqing"
+      ],
+      "source_level": "secondary",
+      "reliability": "low"
+    },
+    {
+      "id": "chengdu-ifeng",
+      "url": "https://ishare.ifeng.com/c/s/7lPeL5fo7rp",
+      "title": "麻将为啥叫麻将：成都麻将小历史（凤凰网）",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "九十年代后期「缺一门」流行，当时不定张。2000 年以后血战到底，同时改定缺；计番门槛放松。无报纸原件，C 级。快照在谱系簿。",
+      "rules": [
+        "sichuan"
+      ],
+      "source_level": "community",
+      "reliability": "low",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/chengdu-ifeng.html",
+      "local_status": "ok"
+    },
+    {
+      "id": "cq-2012",
+      "url": "http://district.ce.cn/newarea/roll/201210/26/t20121026_23793241_1.shtml",
+      "title": "解密重庆麻将界的演变史：从承包责任制到血战到底",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "口述：成都人学重庆打法并加「打缺」、保留数番；血战为一家和后三家继续；年轻人再发明血流成河（和了还能和）。无精确年份，C 级。快照在谱系簿。",
+      "rules": [
+        "chongqing",
+        "sichuan",
+        "xueliu"
+      ],
+      "source_level": "community",
+      "reliability": "low",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/cq-2012.html",
+      "local_status": "ok"
+    },
+    {
+      "id": "chinanews-2009-xuezhan",
+      "url": "http://www.chinanews.com.cn/sh/news/2009/05-03/1673608.shtml",
+      "title": "成都放弃申办世麻赛（中新网 2009）",
+      "type": "media",
+      "lang": "zh",
+      "published": "2009-05-03",
+      "accessed": "2026-08-14",
+      "excerpt": "文殊坊麻将与茶文化博物馆：成都习惯「血战到底」，108 张，相对国标 144 张更简单。只能证明 2009 年以前此名已通行，不能定发明年。快照在谱系簿。",
+      "rules": [
+        "sichuan"
+      ],
+      "source_level": "community",
+      "reliability": "medium",
+      "local_kind": "snapshot",
+      "local_path": "mahjong-phylogeny/snapshots/chinanews-2009-xuezhan.html",
+      "local_status": "ok"
+    },
+    {
+      "id": "arxiv-2013",
+      "url": "https://arxiv.org/abs/1310.0621",
+      "title": "Games and Culture: Using Online-gaming Data to Cluster Chinese Regional Cultures",
+      "type": "map",
+      "lang": "en",
+      "published": "2013-08-09",
+      "accessed": "2026-08-14",
+      "excerpt": "腾讯 QQ 游戏峰值采样。中国有三十种以上麻将。川麻玩家集中川渝黔滇。这是当代使用地理，不是历史传播树。PDF 在谱系簿。",
+      "rules": [
+        "sichuan"
+      ],
+      "source_level": "strong-secondary",
+      "reliability": "high",
+      "local_kind": "file",
+      "local_path": "mahjong-phylogeny/files/arxiv-2013.pdf",
+      "local_status": "ok"
+    },
+    {
+      "id": "tcy-duankagen",
+      "url": "https://tcy365.com/game/dczsm50.html",
+      "title": "同城游 · 断卡钩",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "写成崇州「断卡钩」：条筒各 36，共 72 张。App 三人桌，可碰杠不可吃，一家胡后继续至两家胡或摸完，流局查叫。与维基断卡根（2–4 人、10 张手牌、断幺）同骨架不同叫法，人数并列。C 级。",
+      "rules": [
+        "duankagen"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "yichang-laiyouxi",
+      "url": "https://static.laiyouxi.com/news/46.html",
+      "title": "来游戏 · 宜昌麻将血流成河换三张",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "108 张，禁吃，换三张（骰子定下家／对家／上家），胡牌须缺一门，胡后继续摸打直到摸完。另有棋牌站写成恩施先有血流再传到宜昌，或写成血战（继续至三家胡）。C 级广告，不是第四种发明。",
+      "rules": [
+        "yichang-xueliu",
+        "xueliu"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    }
+  ]
+}

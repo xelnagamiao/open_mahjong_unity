@@ -9,6 +9,7 @@ export interface ViewerAction {
   tile?: number
   use_drawn_tile?: boolean
   ui64_value?: number
+  server_action?: string
 }
 
 /** Minimal viewer snapshot for meld choices. */
@@ -63,7 +64,7 @@ export class MeldChoices extends Container {
     const actionPriority: Record<string, number> = {
       flower: 9, discard_win: 10, rob_added_kong_win: 11, self_drawn_win: 12,
       melded_kong: 13, added_kong: 14, concealed_kong: 15,
-      pung: 16, chow: 17, pass: 0, final_pass: 1,
+      pung: 16, chow: 17, pass: 0, final_pass: 1, force_pass: 1,
     }
 
     const sorted = [...viewer.available_actions]
@@ -79,7 +80,8 @@ export class MeldChoices extends Container {
     // Size = length of ordered list - 1('pass' and 'final_pass' both exists)
     const hasPass = ordered.some((a) => a.kind === 'pass')
     const hasFinalPass = ordered.some((a) => a.kind === 'final_pass')
-    const hasBothPass = hasPass && hasFinalPass
+    const hasForcePass = ordered.some((a) => a.kind === 'force_pass')
+    const hasBothPass = hasPass && (hasFinalPass || hasForcePass)
     const showFinalPassAsPass = !hasPass && hasFinalPass
     const size = ordered.length - (hasBothPass ? 1 : 0)
 
@@ -100,7 +102,7 @@ export class MeldChoices extends Container {
       if (hasBothPass && action.kind === 'pass') {
         small = -1
       }
-      if (hasBothPass && action.kind === 'final_pass') {
+      if (hasBothPass && (action.kind === 'final_pass' || action.kind === 'force_pass')) {
         small = 1
       }
 
@@ -149,6 +151,7 @@ function actionKindToMeldType(kind: ViewerAction['kind']): MeldButtonType {
     case 'flower': return 'flower'
     case 'pass': return 'pass'
     case 'final_pass': return 'final_pass'
+    case 'force_pass': return 'force_pass'
     default: return 'final_pass'
   }
 }

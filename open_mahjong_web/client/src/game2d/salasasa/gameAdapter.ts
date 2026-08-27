@@ -19,7 +19,7 @@ import type {
   SalasasaResponse,
 } from './types'
 import type { WaitInfoData } from '../game/scene/WaitDisplay'
-import { buildLocalWaitData, type LocalWaitInfoData } from '../calc/guobiao'
+import { buildLocalWaitData, type WaitInfoData as LocalWaitInfoData } from '../calc/guobiao/waitTips'
 
 /** Salasasa/server tile ids: 45中 46白 47发 → mmcr honor ranks z5/z6/z7 (same order). */
 export function salasasaTileToMmcr(tile: number | null | undefined): number {
@@ -167,12 +167,14 @@ function viewerActions(
   concealedKongTiles: number[] = [],
   addedKongTiles: number[] = [],
   flowerTiles: number[] = [],
+  robKong = false,
 ): ViewerAction[] {
   const mapped: ViewerAction[] = []
   for (const action of actions) {
     switch (action) {
       case 'cut': mapped.push({ kind: 'discard_tile' }); break
       case 'pass': mapped.push({ kind: 'pass' }); break
+      case 'force_pass': mapped.push({ kind: 'force_pass' }); break
       case 'buhua': {
         const flower = flowerTiles.at(-1) ?? targetTile
         mapped.push({ kind: 'flower', tile: salasasaTileToMmcr(flower) })
@@ -189,13 +191,19 @@ function viewerActions(
       // MeldButton 以被吃的切牌为基准，用 ui64_value(1/2/3) 推算手牌两张：
       // 1=<1>23(chi_right)  2=1<2>3(chi_mid)  3=12<3>(chi_left)
       // 不可传入顺子中间牌，否则预览会整体偏移（如 2s 吃显示成 45s）并可能变成非法牌 ID（白牌）。
-      case 'chi_left': mapped.push({ kind: 'chow', tile: salasasaTileToMmcr(targetTile), ui64_value: 3 }); break
-      case 'chi_mid': mapped.push({ kind: 'chow', tile: salasasaTileToMmcr(targetTile), ui64_value: 2 }); break
-      case 'chi_right': mapped.push({ kind: 'chow', tile: salasasaTileToMmcr(targetTile), ui64_value: 1 }); break
-      case 'hu_self': mapped.push({ kind: 'self_drawn_win' }); break
+      case 'chi_left': mapped.push({ kind: 'chow', tile: salasasaTileToMmcr(targetTile), ui64_value: 3, server_action: action }); break
+      case 'chi_mid': mapped.push({ kind: 'chow', tile: salasasaTileToMmcr(targetTile), ui64_value: 2, server_action: action }); break
+      case 'chi_right': mapped.push({ kind: 'chow', tile: salasasaTileToMmcr(targetTile), ui64_value: 1, server_action: action }); break
+      case 'hu_self': mapped.push({ kind: 'self_drawn_win', server_action: action }); break
       case 'hu_first':
       case 'hu_second':
-      case 'hu_third': mapped.push({ kind: 'discard_win', tile: salasasaTileToMmcr(targetTile) }); break
+      case 'hu_third':
+        mapped.push({
+          kind: robKong ? 'rob_added_kong_win' : 'discard_win',
+          tile: salasasaTileToMmcr(targetTile),
+          server_action: action,
+        })
+        break
       default: break
     }
   }
@@ -221,6 +229,9 @@ export class SalasasaGameAdapter {
   private gameInfoValue: SalasasaGameInfo | null = null
   private lastDiscarder = 0
   private lastDiscardTile = 0
+  /** Seat that just added a kong; set until the rob-kong window closes. */
+  private pendingRobKongSeat: number | null = null
+  private lastAddedKongTile = 0
   private selfSeat = 0
   private selfHandRaw: number[] = []
   private selfMeldTargets: string[] = []
@@ -263,16 +274,16 @@ export class SalasasaGameAdapter {
       case 'gamestate/guobiao/show_result':
         if (!message.show_result_info) return null
         {
+          const isRobKong = this.pendingRobKongSeat != null
           const result = {
             ...message.show_result_info,
             hepai_tile: message.show_result_info.hu_class === 'hu_self'
               ? message.show_result_info.hepai_player_hand?.at(-1)
-              : this.lastDiscardTile,
+              : (isRobKong ? this.lastAddedKongTile : this.lastDiscardTile),
           }
-          return {
-            event: this.fromResult(result),
-            result,
-          }
+          const event = this.fromResult(result, isRobKong)
+          this.clearPendingRobKong()
+          return { event, result }
         }
       case 'gamestate/guobiao/game_end':
         return message.game_end_info ? { event: this.fromEnd(message.game_end_info), ended: message.game_end_info } : null
@@ -291,6 +302,7 @@ export class SalasasaGameAdapter {
     const selfSeat = findSelfSeat(normalizedGame, this.userId)
     const selfPlayer = playersInfo.find((player) => Number(player.user_id) === Number(this.userId))
     this.selfSeat = selfSeat
+    this.clearPendingRobKong()
     this.selfHandRaw = [...(selfPlayer?.hand_tiles ?? [])]
     this.selfMeldTargets = [...(selfPlayer?.combination_tiles ?? [])]
     this.selfHuapai = [...(selfPlayer?.huapai_list ?? [])]
@@ -418,14 +430,24 @@ export class SalasasaGameAdapter {
     // 避免把别人的吃碰杠和按钮显示在本家牌桌上。
     if (typeof info.player_index === 'number' && info.player_index !== this.selfSeat) return null
     const snapshot = this.ensureSnapshot()
+    const robSourceSeat = this.robKongSourceSeat()
+    const isRobKong = robSourceSeat != null
+    const claimSourceSeat = robSourceSeat ?? this.lastDiscarder
     const viewer: ViewerSnapshot = {
       seat_index: snapshot.viewer.seat_index,
       pending: info.action_list.length ? 'decision' : 'none',
       decision_timer_ms: this.decisionTimerMs(info.remaining_time, Boolean(info.is_tactical_recheck)),
-      available_actions: viewerActions(info.action_list, info.cut_tile),
+      available_actions: viewerActions(
+        info.action_list,
+        info.cut_tile,
+        [],
+        [],
+        [],
+        isRobKong,
+      ),
       wait_data: snapshot.viewer.wait_data ?? null,
     }
-    return this.event('control', 'claim_prompt', this.lastDiscarder, info.action_tick, viewer, {
+    return this.event('control', 'claim_prompt', claimSourceSeat, info.action_tick, viewer, {
       tile: salasasaTileToMmcr(info.cut_tile),
     })
   }
@@ -594,27 +616,53 @@ export class SalasasaGameAdapter {
         kind = 'discard_tile'
         this.lastDiscarder = info.action_player
         this.lastDiscardTile = info.cut_tile ?? 0
+        this.clearPendingRobKong()
         break
       case 'deal_tile':
       case 'deal_gang_tile':
-      case 'deal_buhua_tile': kind = 'draw_tile'; tile = info.deal_tile; break
-      case 'chi_left': kind = 'chow'; tile = this.lastDiscardTile - 1; ui64Value = 3; break
-      case 'chi_mid': kind = 'chow'; tile = this.lastDiscardTile; ui64Value = 2; break
-      case 'chi_right': kind = 'chow'; tile = this.lastDiscardTile + 1; ui64Value = 1; break
-      case 'peng': kind = 'pung'; tile = info.cut_tile ?? this.lastDiscardTile; break
-      case 'gang': kind = 'melded_kong'; tile = info.cut_tile ?? this.lastDiscardTile; break
-      case 'angang': kind = 'concealed_kong'; tile = Number(info.combination_target?.slice(1)); break
-      case 'jiagang': kind = 'added_kong'; tile = Number(info.combination_target?.slice(1)); break
-      case 'buhua': kind = 'flower'; tile = info.buhua_tile; break
-      case 'hu_self': kind = 'self_drawn_win'; break
+      case 'deal_buhua_tile':
+        kind = 'draw_tile'
+        tile = info.deal_tile
+        this.clearPendingRobKong()
+        break
+      case 'chi_left': kind = 'chow'; tile = this.lastDiscardTile - 1; ui64Value = 3; this.clearPendingRobKong(); break
+      case 'chi_mid': kind = 'chow'; tile = this.lastDiscardTile; ui64Value = 2; this.clearPendingRobKong(); break
+      case 'chi_right': kind = 'chow'; tile = this.lastDiscardTile + 1; ui64Value = 1; this.clearPendingRobKong(); break
+      case 'peng': kind = 'pung'; tile = info.cut_tile ?? this.lastDiscardTile; this.clearPendingRobKong(); break
+      case 'gang': kind = 'melded_kong'; tile = info.cut_tile ?? this.lastDiscardTile; this.clearPendingRobKong(); break
+      case 'angang': kind = 'concealed_kong'; tile = Number(info.combination_target?.slice(1)); this.clearPendingRobKong(); break
+      case 'jiagang': {
+        kind = 'added_kong'
+        tile = Number(info.combination_target?.slice(1))
+        this.pendingRobKongSeat = info.action_player
+        this.lastAddedKongTile = tile || 0
+        break
+      }
+      case 'buhua': kind = 'flower'; tile = info.buhua_tile; this.clearPendingRobKong(); break
+      case 'hu_self': kind = 'self_drawn_win'; this.clearPendingRobKong(); break
       case 'hu_first':
       case 'hu_second':
-      case 'hu_third': kind = 'discard_win'; tile = this.lastDiscardTile; break
-      default: break
+      case 'hu_third': {
+        const robSource = this.robKongSourceSeat()
+        if (robSource != null) {
+          kind = 'rob_added_kong_win'
+          tile = this.lastAddedKongTile || this.lastDiscardTile
+        } else {
+          kind = 'discard_win'
+          tile = this.lastDiscardTile
+        }
+        break
+      }
+      default:
+        this.clearPendingRobKong()
+        break
     }
     const category = info.is_claim ? 'claim' : 'transition'
     return this.event(category, kind, info.action_player, info.action_tick, viewer, {
       tile: salasasaTileToMmcr(tile),
+      discarder_seat: ['chi_left', 'chi_mid', 'chi_right', 'peng', 'gang'].includes(action)
+        ? (info.cut_from_player ?? this.lastDiscarder)
+        : undefined,
       draw_source: action === 'deal_tile' || action === 'deal_gang_tile' || action === 'deal_buhua_tile'
         ? action
         : undefined,
@@ -707,7 +755,7 @@ export class SalasasaGameAdapter {
     }
   }
 
-  private fromResult(info: SalasasaResultInfo): GameEventPayload {
+  private fromResult(info: SalasasaResultInfo, isRobKong = false): GameEventPayload {
     const snapshot = this.ensureSnapshot()
     const winner = info.hepai_player_index ?? 0
     const isDraw = info.hepai_player_index === undefined || info.hepai_player_index === null
@@ -724,7 +772,13 @@ export class SalasasaGameAdapter {
       decision_timer_ms: null,
       available_actions: [],
     }
-    return this.event('transition', isDraw ? 'drawn_game' : isSelfDrawn ? 'self_drawn_win' : 'discard_win', winner, info.action_tick ?? snapshot.state.stage_counter + 1, viewer, {
+    const sourceSeat = isRobKong
+      ? (this.robKongSourceSeat() ?? this.lastDiscarder)
+      : this.lastDiscarder
+    if (!isDraw) {
+      snapshot.state.result_source_actor = isSelfDrawn ? winner : sourceSeat
+    }
+    return this.event('transition', isDraw ? 'drawn_game' : isSelfDrawn ? 'self_drawn_win' : isRobKong ? 'rob_added_kong_win' : 'discard_win', winner, info.action_tick ?? snapshot.state.stage_counter + 1, viewer, {
       tile: salasasaTileToMmcr(info.hepai_tile),
       revealed_hand_tiles: info.hepai_player_hand?.map(salasasaTileToMmcr),
       // Tactical claim already played the call. The server marks show_result
@@ -773,16 +827,20 @@ export class SalasasaGameAdapter {
     }
     const actionMap: Record<string, string> = {
       pass: 'pass',
+      force_pass: 'force_pass',
       flower: 'buhua',
       concealed_kong: 'angang',
       added_kong: 'jiagang',
       melded_kong: 'gang',
       pung: 'peng',
       self_drawn_win: 'hu_self',
-      discard_win: this.resolveDiscardWinAction(),
-      chow: this.resolveChowAction(Number(payload.ui64_value)),
     }
-    const action = actionMap[kind]
+    let action = actionMap[kind]
+    if (kind === 'chow') {
+      action = this.resolveChowAction(Number(payload.ui64_value))
+    } else if (kind === 'discard_win' || kind === 'rob_added_kong_win') {
+      action = this.resolveWinAction(payload, kind === 'rob_added_kong_win')
+    }
     if (!action) return null
     return {
       type: 'gamestate/GB/send_action',
@@ -812,11 +870,36 @@ export class SalasasaGameAdapter {
     return 'chi_right'
   }
 
-  private resolveDiscardWinAction(): string {
+  private resolveWinAction(payload: Record<string, unknown>, isRobKong: boolean): string {
+    const raw = String(payload.server_action ?? '')
+    if (raw === 'hu_first' || raw === 'hu_second' || raw === 'hu_third') return raw
+    const sourceSeat = isRobKong
+      ? (this.robKongSourceSeat() ?? this.lastDiscarder)
+      : this.lastDiscarder
+    return this.resolveDiscardWinAction(sourceSeat)
+  }
+
+  private resolveDiscardWinAction(sourceSeat: number = this.lastDiscarder): string {
     const selfSeat = this.snapshotValue?.viewer.seat_index ?? 0
-    const delta = (selfSeat - this.lastDiscarder + 4) % 4
+    const delta = (selfSeat - sourceSeat + 4) % 4
     if (delta === 1) return 'hu_first'
     if (delta === 2) return 'hu_second'
     return 'hu_third'
+  }
+
+  private robKongSourceSeat(): number | null {
+    if (this.pendingRobKongSeat != null) return this.pendingRobKongSeat
+    if (
+      this.snapshotValue?.state.last_event_kind === 'added_kong'
+      && typeof this.snapshotValue.state.last_actor === 'number'
+    ) {
+      return this.snapshotValue.state.last_actor
+    }
+    return null
+  }
+
+  private clearPendingRobKong(): void {
+    this.pendingRobKongSeat = null
+    this.lastAddedKongTile = 0
   }
 }

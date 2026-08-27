@@ -70,7 +70,7 @@
         />
       </section>
 
-      <div v-if="joinedQueue" class="queue-banner">
+      <div v-if="joinedQueue || matchFound" class="queue-banner">
         <div>
           <el-icon class="is-loading"><Loading /></el-icon>
           <span>{{ matchFound ? '匹配成功，正在准备牌桌' : '正在匹配' }}</span>
@@ -172,11 +172,10 @@
       v-model="matchHelpVisible"
       class="match-help-dialog"
       title="匹配场说明"
-      width="min(820px, calc(100vw - 28px))"
+      width="min(960px, calc(100vw - 28px))"
       append-to-body
     >
       <div class="match-help-content">
-        <p class="match-help-intro">配置与 Unity 版一致。第一、第二名获得 PT；第三、第四名按本人段位扣减 PT。</p>
         <el-tabs v-model="activeHelpTier" class="match-help-tabs">
           <el-tab-pane
             v-for="tier in MATCH_HELP_TIERS"
@@ -192,13 +191,26 @@
             <div class="match-help-table-wrap">
               <table class="match-help-table">
                 <thead>
-                  <tr><th>局制</th><th>小局数</th><th>场得 PT</th><th>时间限制</th></tr>
+                  <tr>
+                    <th>局制</th>
+                    <th>小局数</th>
+                    <th>场得 PT</th>
+                    <th>第一名</th>
+                    <th>第二名</th>
+                    <th>第三名</th>
+                    <th>第四名</th>
+                    <th>时间限制</th>
+                  </tr>
                 </thead>
                 <tbody>
                   <tr v-for="format in tier.formats" :key="format.key">
                     <td>{{ format.title }}</td>
                     <td>{{ format.rounds }}</td>
                     <td>{{ format.gain }}</td>
+                    <td>{{ format.first }}</td>
+                    <td>{{ format.second }}</td>
+                    <td>{{ format.third }}</td>
+                    <td>{{ format.fourth }}</td>
                     <td>{{ tier.time }}</td>
                   </tr>
                 </tbody>
@@ -209,18 +221,35 @@
 
         <section class="match-loss-section">
           <h3>扣减分逻辑</h3>
-          <p>第三名扣除“段位均失 PT × 0.3”，第四名扣除“段位均失 PT × 0.7”；与匹配场次和局制无关。</p>
+          <p>第三名扣除“段位均失 PT × 0.3 × 局制系数”，第四名扣除“段位均失 PT × 0.7 × 局制系数”。东风 0.49、半庄 0.7、全庄 1。</p>
           <div class="match-help-table-wrap match-loss-table-wrap">
             <table class="match-help-table match-loss-table">
               <thead>
-                <tr><th>段位</th><th>段位均失 PT</th><th>第三名</th><th>第四名</th></tr>
+                <tr>
+                  <th rowspan="2">段位</th>
+                  <th rowspan="2">段位均失 PT</th>
+                  <th colspan="3">第三名</th>
+                  <th colspan="3">第四名</th>
+                </tr>
+                <tr>
+                  <th>全庄</th>
+                  <th>半庄</th>
+                  <th>东风</th>
+                  <th>全庄</th>
+                  <th>半庄</th>
+                  <th>东风</th>
+                </tr>
               </thead>
               <tbody>
                 <tr v-for="row in RANK_LOSS_ROWS" :key="row.rank">
                   <td>{{ row.rank }}</td>
                   <td>{{ row.loss }}</td>
-                  <td>{{ formatLoss(row.loss, 0.3) }}</td>
-                  <td>{{ formatLoss(row.loss, 0.7) }}</td>
+                  <td>{{ formatLoss(row.loss, 0.3, 1) }}</td>
+                  <td>{{ formatLoss(row.loss, 0.3, 0.7) }}</td>
+                  <td>{{ formatLoss(row.loss, 0.3, 0.49) }}</td>
+                  <td>{{ formatLoss(row.loss, 0.7, 1) }}</td>
+                  <td>{{ formatLoss(row.loss, 0.7, 0.7) }}</td>
+                  <td>{{ formatLoss(row.loss, 0.7, 0.49) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -261,6 +290,33 @@ const FORMATS = [
   { key: 'quanzhuang', title: '全庄', rounds: '16 小局' },
 ]
 
+const FORMAT_GAIN_MULTIPLIER = {
+  quanzhuang: 1,
+  banzhuang: 0.7,
+  dongfeng: 0.49,
+}
+
+function formatHelpNumber(value) {
+  return Number(Number(value).toFixed(2))
+}
+
+function formatGainPt(base, formatKey) {
+  const multiplier = FORMAT_GAIN_MULTIPLIER[formatKey] ?? 1
+  const actual = formatHelpNumber(base * multiplier)
+  if (multiplier === 1) return String(actual)
+  return `${actual}（${base} × ${multiplier}）`
+}
+
+function formatPlaceGain(base, formatKey, placeCoeff) {
+  const multiplier = FORMAT_GAIN_MULTIPLIER[formatKey] ?? 1
+  return String(formatHelpNumber(base * multiplier * placeCoeff))
+}
+
+function formatLossFormula(placeCoeff, formatKey) {
+  const multiplier = FORMAT_GAIN_MULTIPLIER[formatKey] ?? 1
+  return `-${placeCoeff} × 均失 × ${multiplier}`
+}
+
 const MATCH_HELP_TIERS = [
   {
     key: 'beginner', title: '初级场', admission: '无', base: 30, time: '20+5',
@@ -271,7 +327,7 @@ const MATCH_HELP_TIERS = [
     settings: '无提示、错和、战术鸣牌',
   },
   {
-    key: 'advanced', title: '高级场', admission: '三段及以上', base: 105, time: '20+5',
+    key: 'advanced', title: '高级场', admission: '四段及以上', base: 105, time: '20+5',
     settings: '无提示、无指针提示、错和、战术鸣牌',
   },
   {
@@ -282,7 +338,11 @@ const MATCH_HELP_TIERS = [
   ...tier,
   formats: FORMATS.map((format) => ({
     ...format,
-    gain: `${tier.base}${format.key === 'quanzhuang' ? '' : format.key === 'banzhuang' ? ' × 0.7' : ' × 0.49'}`,
+    gain: formatGainPt(tier.base, format.key),
+    first: formatPlaceGain(tier.base, format.key, 0.8),
+    second: formatPlaceGain(tier.base, format.key, 0.2),
+    third: formatLossFormula(0.3, format.key),
+    fourth: formatLossFormula(0.7, format.key),
   })),
 }))
 
@@ -307,8 +367,8 @@ const auth = usePlayerAuthStore()
 const roomPanelRef = ref(null)
 const loginBusy = ref(false)
 const queueStatus = ref({})
-const joinedQueue = ref(null)
-const matchFound = ref(false)
+const joinedQueue = computed(() => session.joinedQueue)
+const matchFound = computed(() => session.matchFound)
 const inCustomRoom = ref(false)
 const leaders = ref([])
 const leadersBusy = ref(true)
@@ -359,7 +419,7 @@ const joinedQueueLabel = computed(() => {
     const queue = tier.queues.find((item) => item.queueKey === joinedQueue.value)
     if (queue) return `${tier.title} · ${queue.title}`
   }
-  return joinedQueue.value
+  return joinedQueue.value || '排位场'
 })
 
 function formatPt(value) {
@@ -380,7 +440,7 @@ function canEnterTier(tierKey) {
   if (tierKey === 'intermediate') {
     return rankIndex < 16 && (rankIndex >= 8 || Boolean(session.rank?.is_sponsor))
   }
-  if (tierKey === 'advanced') return rankIndex >= 12
+  if (tierKey === 'advanced') return rankIndex >= 13
   if (tierKey === 'mcrpl') return Boolean(session.rank?.is_mcrpl_qualified)
   return false
 }
@@ -416,24 +476,12 @@ function handleResponse(response) {
     return
   }
   if (response.type === 'match/queue_status' && response.queue_status) queueStatus.value = response.queue_status
-  if (response.type === 'match/join_queue_done' && response.success) ElMessage.success(response.message || '已加入匹配')
-  if (response.type === 'match/leave_queue_done' && response.success) {
-    joinedQueue.value = null
-    matchFound.value = false
-    ElMessage.success(response.message || '已取消匹配')
-  }
-  if (response.type === 'match/match_found') {
-    matchFound.value = true
-    ElMessage.success(response.message || '匹配成功，即将开局')
-  }
   if (response.type === 'tips' && response.message) {
-    if (response.success === false) joinedQueue.value = null
     ElMessage[response.success === false ? 'error' : 'info'](response.message)
   }
   if (response.type === 'error_message' && response.message) {
     ElMessage.error(response.message)
   }
-  if (response.type === 'gamestate/guobiao/game_start') router.push('/2d/game')
 }
 
 async function refreshQueueStatus() {
@@ -449,8 +497,8 @@ async function refreshQueueStatus() {
   }
 }
 
-function formatLoss(loss, coefficient) {
-  const value = Number((loss * coefficient).toFixed(2))
+function formatLoss(loss, placeCoeff, formatMult = 1) {
+  const value = formatHelpNumber(loss * placeCoeff * formatMult)
   return value ? `-${value}` : '0'
 }
 
@@ -476,11 +524,11 @@ function joinQueue(queueKey) {
     ElMessage.warning('请先离开自定义房间再匹配')
     return
   }
+  session.noteJoinAttempt(queueKey)
   if (!salasasaClient.send({ type: 'match/join_queue', queue_type: queueKey })) {
+    session.clearMatch()
     ElMessage.error('游戏连接尚未就绪')
-    return
   }
-  joinedQueue.value = queueKey
 }
 
 function leaveQueue() {
@@ -510,8 +558,6 @@ async function connectWithWebsite({ silent = false } = {}) {
 }
 
 function handleLogout() {
-  joinedQueue.value = null
-  matchFound.value = false
   inCustomRoom.value = false
   auth.logout()
 }

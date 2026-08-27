@@ -130,6 +130,15 @@ public class RoomItem : MonoBehaviour {
     }
 
     private void JoinClick() {
-        RoomListPanel.Instance.JoinClicked(roomId, needPassword);
+        if (string.IsNullOrEmpty(roomId)) return;
+        if (RoomListPanel.Instance != null) {
+            RoomListPanel.Instance.JoinClicked(roomId, needPassword);
+            return;
+        }
+        if (needPassword) {
+            NotificationManager.Instance.ShowTip("join_room", false, "该房间需要密码，请从房间页加入");
+            return;
+        }
+        RoomNetworkManager.Instance.JoinRoom(roomId, "");
     }
 }

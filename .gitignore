@@ -64,6 +64,13 @@ open_mahjong_web/.env
 open_mahjong_web/.env.local
 open_mahjong_web/.env.*.local
 
+# 活动专栏静态文件与目录（开发写 data/，勿提交上传图）
+open_mahjong_web/client/public/activity-assets/
+open_mahjong_web/data/activities/**
+!open_mahjong_web/data/activities/.gitkeep
+open_mahjong_web/data/activity-assets/**
+!open_mahjong_web/data/activity-assets/.gitkeep
+
 # Ignore built Vue static files under dist, keep placeholder md files
 open_mahjong_web/client/dist/*
 !open_mahjong_web/client/dist/android-game/

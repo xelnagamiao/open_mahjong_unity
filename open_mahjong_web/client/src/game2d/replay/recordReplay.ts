@@ -114,7 +114,7 @@ function scoreChangeFromTick(tick: RecordTick): number[] | null {
 function actionName(tick: RecordTick | undefined): string {
   if (!tick?.length) return '局初'
   const names: Record<string, string> = {
-    d: '摸牌', gd: '杠后摸牌', bd: '补花摸牌', c: '出牌', bh: '补花',
+    d: '摸牌', gd: '杠后摸牌', bd: '补花摸牌', c: '出牌', bh: '补花', reset: '跳转',
     cl: '吃', cm: '吃', cr: '吃', p: '碰', g: '明杠', ag: '暗杠', jg: '加杠',
     hu_self: '自摸', hu_first: '和牌', hu_second: '和牌', hu_third: '和牌',
     liuju: '流局', ryuukyoku: '流局', end: '本局结束',
@@ -133,11 +133,16 @@ function sceneKindForAction(action: string): string {
   return kinds[action] || action
 }
 
-function mainPhaseStartedBefore(ticks: RecordTick[], node: number): boolean {
-  const openingActions = new Set(['bh', 'bd', 'ask_hand', 'ask_other', 'ca'])
+export const RECORD_SILENT_ACTIONS = new Set(['reset', 'ask_hand', 'ask_other', 'ca'])
+
+export function isRecordSilentTick(tick?: RecordTick): boolean {
+  const action = String(tick?.[0] ?? '')
+  return !action || RECORD_SILENT_ACTIONS.has(action)
+}
+
+function hasResetBefore(ticks: RecordTick[], node: number): boolean {
   for (let index = 0; index < node; index += 1) {
-    const action = String(ticks[index]?.[0] ?? '')
-    if (action && !openingActions.has(action)) return true
+    if (String(ticks[index]?.[0] ?? '') === 'reset') return true
   }
   return false
 }
@@ -230,20 +235,18 @@ export class RecordReplay {
     const ticks = round.action_ticks || []
     const selectedSeat = this.seatsOf(round)[Math.max(0, Math.min(3, viewerOriginal))] ?? 0
     let currentPlayer = int(round.start_player_index, 0)
-    let mainPhaseStarted = false
     const nodes = [0]
-    const meta = new Set(['ask_hand', 'ask_other', 'ca', 'end', 'dora', 'riichi', 'state'])
     for (let node = 0; node < ticks.length; node += 1) {
       const tick = ticks[node]
       const action = String(tick?.[0] ?? '')
       if (!action) continue
+      if (action === 'reset') {
+        currentPlayer = int(tick[1], currentPlayer)
+        continue
+      }
       if (action === 'bh' || action === 'bd') {
         currentPlayer = tick.length >= 3 ? int(tick[2], currentPlayer) : currentPlayer
         continue
-      }
-      if (!mainPhaseStarted && !meta.has(action)) {
-        currentPlayer = int(round.start_player_index, 0)
-        mainPhaseStarted = true
       }
       if (action === 'c') {
         if (currentPlayer === selectedSeat && node > 0) nodes.push(node)
@@ -282,9 +285,7 @@ export class RecordReplay {
     if (actorSeat < 0 || actorSeat > 3) actorSeat = 0
 
     const kind = sceneKindForAction(action)
-    // ask/ca nodes are bookkeeping only. Advancing them should update the node
-    // counter without replaying or fabricating a visible board action.
-    if (['ask_hand', 'ask_other', 'ca'].includes(action)) return null
+    if (['ask_hand', 'ask_other', 'ca', 'reset'].includes(action)) return null
 
     const event: Record<string, any> = {
       kind,
@@ -302,9 +303,12 @@ export class RecordReplay {
     if (action === 'cr') event.tile = salasasaTileToMmcr(normalizedTile(int(tick[1])) + 1)
     if (action === 'c') event.use_drawn_tile = bool(tick[2])
     if (action === 'bh') event.use_drawn_tile = tick.length >= 4 && bool(tick[3])
+    if (['cl', 'cm', 'cr', 'p', 'g'].includes(action)) {
+      event.discarder_seat = before.snapshot.state.last_discarder
+    }
     if (action === 'bd') {
       const startPlayer = int(round.start_player_index, 0)
-      event.settle_drawn_tile = !mainPhaseStartedBefore(ticks, currentNode)
+      event.settle_drawn_tile = !hasResetBefore(ticks, currentNode)
         && actorSeat !== startPlayer
     }
     if (action === 'cl') event.ui64_value = 3
@@ -377,14 +381,15 @@ export class RecordReplay {
     let lastActor: number | null = null
     let lastDiscardPlayer = -1
     let remaining = (round.tiles_list || []).length
-    let mainPhaseStarted = false
+    let seenReset = false
 
     for (const tick of ticks.slice(0, node)) {
       const action = String(tick[0] ?? '')
       if (!action || ['ask_hand', 'ask_other', 'ca'].includes(action)) continue
-      if (!mainPhaseStarted && !['bh', 'bd'].includes(action)) {
-        currentPlayer = startPlayer
-        mainPhaseStarted = true
+      if (action === 'reset') {
+        currentPlayer = int(tick[1], currentPlayer)
+        seenReset = true
+        continue
       }
       const explicitActorActions = ['bh', 'bd', 'cl', 'cm', 'cr', 'p', 'g']
       let actor = explicitActorActions.includes(action) && tick.length >= 3
@@ -398,7 +403,7 @@ export class RecordReplay {
       if (['d', 'gd', 'bd'].includes(action)) {
         if (state.drawn != null) state.hand.push(state.drawn)
         const drawnTile = int(tick[1])
-        if (action === 'bd' && !mainPhaseStarted && actor !== startPlayer) {
+        if (action === 'bd' && !seenReset && actor !== startPlayer) {
           state.hand.push(drawnTile)
           state.drawn = null
         } else {
@@ -409,11 +414,16 @@ export class RecordReplay {
       } else if (action === 'c') {
         const tile = int(tick[1])
         const fromDraw = bool(tick[2])
-        if (fromDraw && state.drawn != null && normalizedTile(state.drawn) === normalizedTile(tile)) {
+        const drawnMatches = state.drawn != null
+          && normalizedTile(state.drawn) === normalizedTile(tile)
+        if (fromDraw && drawnMatches) {
           state.drawn = null
         } else {
-          removeExactOrNormalized(state.hand, tile)
-          if (state.drawn != null) {
+          const removed = removeExactOrNormalized(state.hand, tile)
+          // Same opening-dealer case as buhua: the 2D snapshot parks tile 14
+          // in the draw slot, while the first cut is recorded as a hand cut (F).
+          if (removed == null && drawnMatches) state.drawn = null
+          else if (state.drawn != null) {
             state.hand.push(state.drawn)
             state.drawn = null
           }
@@ -425,8 +435,19 @@ export class RecordReplay {
       } else if (action === 'bh') {
         const tile = int(tick[1])
         const fromDraw = tick.length >= 4 && bool(tick[3])
-        if (fromDraw && state.drawn != null) state.drawn = null
-        else removeExactOrNormalized(state.hand, tile)
+        const drawnMatches = state.drawn != null
+          && normalizedTile(state.drawn) === normalizedTile(tile)
+        if (fromDraw && drawnMatches) {
+          state.drawn = null
+        } else {
+          const removed = removeExactOrNormalized(state.hand, tile)
+          // The opening dealer starts with 14 tiles. The 2D snapshot separates
+          // tile 14 into the draw slot, while opening buhua is recorded as a
+          // hand replacement (F). Unity keeps all 14 tiles in one list, so its
+          // fallback removal also finds a flower in the final slot. Mirror that
+          // behavior when rebuilding a replay node.
+          if (removed == null && drawnMatches) state.drawn = null
+        }
         const recipient = tick.length >= 5 ? int(tick[4], actor) : actor
         if (recipient >= 0 && recipient < 4) states[recipient].flowers.push(tile)
         currentPlayer = actor
@@ -454,6 +475,7 @@ export class RecordReplay {
           chow_mode: action === 'cl' ? 3 : action === 'cm' ? 2 : action === 'cr' ? 1 : 0,
           meld_from_rel: fromRel || 1,
         })
+        lastDiscardPlayer = -1
         currentPlayer = actor
       } else if (action === 'ag') {
         const tile = int(tick[1])
@@ -486,9 +508,6 @@ export class RecordReplay {
     }
 
     const viewerSeat = seatMap[Math.max(0, Math.min(3, viewerOriginal))] ?? 0
-    // 开局补花属于发牌阶段，不会改变庄家的首次行动权。若当前节点仍未
-    // 进入正常行牌阶段，下一位行动者必须保持为 start_player_index。
-    const snapshotCurrentPlayer = mainPhaseStarted ? currentPlayer : startPlayer
     const seats: SeatSnapshot[] = states.map((state, seat) => {
       const player = this.playerForSeat(round, seat)
       return {
@@ -517,8 +536,9 @@ export class RecordReplay {
           round_counter: int(round.current_round, safeRoundIndex + 1),
           stage_counter: node,
           remaining_tile_count: remaining,
-          current_player: snapshotCurrentPlayer,
+          current_player: currentPlayer,
           last_actor: lastActor,
+          last_discarder: lastDiscardPlayer >= 0 ? lastDiscardPlayer : null,
           last_event_kind: node > 0 ? sceneKindForAction(String(ticks[node - 1]?.[0] ?? '')) : 'round_start',
         },
         seats,

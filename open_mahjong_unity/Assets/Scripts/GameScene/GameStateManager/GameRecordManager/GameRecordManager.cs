@@ -80,13 +80,6 @@ public partial class GameRecordManager : MonoBehaviour {
     private Dictionary<int, int> xunmuToNode = new Dictionary<int, int>();
     private List<int> xunmuNodeList = new List<int>();
 
-    /// <summary>
-    /// 本局主巡目是否已开始。开局补花（bh/bd）结束后并非最后补花者出牌，
-    /// 首个主局行动前须把 currentPlayerIndex 拉回 startPlayerIndex。
-    /// 与 ScoreHistoryRecordSettlementExtractor 对齐。
-    /// </summary>
-    private bool mainPhaseStarted;
-
     // 牌山管理：当前牌山列表（动态变化）和原始牌山列表（不变）
     private List<int> currentTilesList = new List<int>();
     private List<int> originalTilesList = new List<int>();
@@ -403,7 +396,6 @@ public partial class GameRecordManager : MonoBehaviour {
 
         // 重置局内行动节点
         currentNode = 0;
-        mainPhaseStarted = false;
 
         // 计算截至当前局之前的累计分数（起手分 + 前面各局 scoreChanges）
         int[] cumulativeByOrig = BuildCumulativeScoresBeforeRound(roundIndex);
@@ -654,24 +646,64 @@ public partial class GameRecordManager : MonoBehaviour {
         GotoAction(targetNode);
     }
 
+    /// <summary>
+    /// 仅刷新四角玩家面板的玩家名（牌谱匿名玩家等纯昵称切换用，不重绘牌面 / 操作区）。
+    /// </summary>
+    public void RefreshRecordPlayerPanelNames() {
+        if (GameCanvas.Instance == null || recordPlayerList == null || userIdToUsername == null) return;
+        if (indexToPosition == null) return;
+
+        foreach (var recordPlayer in recordPlayerList) {
+            if (!indexToPosition.TryGetValue(recordPlayer.playerIndex, out string position)) continue;
+            GamePlayerPanel targetPanel = null;
+            switch (position) {
+                case "self":  targetPanel = GameCanvas.Instance.PlayerSelfPanel; break;
+                case "right": targetPanel = GameCanvas.Instance.PlayerRightPanel; break;
+                case "top":   targetPanel = GameCanvas.Instance.PlayerTopPanel; break;
+                case "left":  targetPanel = GameCanvas.Instance.PlayerLeftPanel; break;
+            }
+            if (targetPanel == null) continue;
+
+            PlayerInfo playerInfo = new PlayerInfo {
+                user_id = recordPlayer.userId,
+                username = userIdToUsername.TryGetValue(recordPlayer.userId, out string name) ? name : $"玩家{recordPlayer.userId}",
+                player_index = recordPlayer.playerIndex,
+                original_player_index = recordPlayer.originalPlayerIndex,
+                title_used = recordPlayer.title_used,
+                profile_used = recordPlayer.profile_used,
+                character_used = recordPlayer.character_used,
+                voice_used = recordPlayer.voice_used,
+                hand_tiles_count = 0,
+                hand_tiles = new int[0],
+                discard_tiles = new int[0],
+                discard_origin_tiles = new int[0],
+                combination_tiles = new string[0],
+                combination_mask = new int[0][],
+                huapai_list = new int[0],
+                remaining_time = 0,
+                score = 0,
+                score_history = new string[0],
+                tag_list = new string[0]
+            };
+            targetPanel.SetPlayerInfo(playerInfo, "record");
+        }
+    }
+
     // 执行下一步行动
     private void NextAction() {
         if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData)) {
             return;
         }
-        if (roundData.actionTicks == null || currentNode >= roundData.actionTicks.Count) {
+        if (roundData.actionTicks == null) {
+            return;
+        }
+        ConsumeRecordSilentTicks(roundData);
+        if (currentNode >= roundData.actionTicks.Count) {
             return;
         }
 
         List<string> tick = roundData.actionTicks[currentNode];
-        if (tick == null || tick.Count == 0) {
-            currentNode++;
-            UpdateCurrentXunmuText();
-            return;
-        }
-
         string action = tick[0];
-        EnsureRecordMainPhaseStarted(action, updateBoardHighlight: true);
         int previousPlayerIndex = currentPlayerIndex;
         int actingPlayerIndex = GameRecordJsonDecoder.ResolveRecordActingPlayerIndex(tick, action, currentPlayerIndex);
 
@@ -1896,7 +1928,6 @@ public partial class GameRecordManager : MonoBehaviour {
         }
 
         int simulateCurrentPlayerIndex = roundData.startPlayerIndex;
-        bool simulateMainPhaseStarted = false;
         int xunmu = 0;
         int selectedIndex = selectedPlayerIndex;
 
@@ -1909,16 +1940,14 @@ public partial class GameRecordManager : MonoBehaviour {
             if (tick == null || tick.Count == 0) continue;
             string action = tick[0];
 
+            if (action == "reset") {
+                simulateCurrentPlayerIndex = ParseTickInt(tick, 1);
+                continue;
+            }
             if (action == "bh" || action == "bd") {
                 simulateCurrentPlayerIndex = GameRecordJsonDecoder.ResolveRecordActingPlayerIndex(
                     tick, action, simulateCurrentPlayerIndex);
                 continue;
-            }
-
-            // 开局补花结束后，主局巡目回到庄家（与 EnsureRecordMainPhaseStarted 一致）
-            if (!simulateMainPhaseStarted && !IsRecordMetaAction(action)) {
-                simulateCurrentPlayerIndex = roundData.startPlayerIndex;
-                simulateMainPhaseStarted = true;
             }
 
             if (action == "c") {
@@ -1983,27 +2012,44 @@ public partial class GameRecordManager : MonoBehaviour {
         }
     }
 
-    /// <summary>牌谱元事件：不改变手牌巡目，也不应触发「主局开始回庄」。</summary>
-    private static bool IsRecordMetaAction(string action) {
-        return action == "ask_hand" || action == "ask_other" || action == "ca"
-            || action == "end" || action == "dora" || action == "riichi"
-            || action == "state";
+    private static bool IsRecordSilentTick(List<string> tick) {
+        if (tick == null || tick.Count == 0) return true;
+        string action = tick[0];
+        return action == "reset" || action == "ask_hand" || action == "ask_other" || action == "ca";
     }
 
-    /// <summary>
-    /// 开局补花结束后、主局首个摸切/鸣牌前，巡目回到庄家。
-    /// 观战增量下开局常先空 ticks，不能只靠事先推断的主局首节点下标。
-    /// </summary>
-    private void EnsureRecordMainPhaseStarted(string action, bool updateBoardHighlight) {
-        if (mainPhaseStarted) return;
-        if (action == "bh" || action == "bd" || IsRecordMetaAction(action)) return;
-        if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData)) return;
-
-        currentPlayerIndex = roundData.startPlayerIndex;
-        mainPhaseStarted = true;
-        if (updateBoardHighlight) {
-            BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], GetRecordRemainTiles());
+    private void ApplyRecordSilentTick(List<string> tick) {
+        if (tick == null || tick.Count == 0) return;
+        if (tick[0] == "reset") {
+            currentPlayerIndex = ParseTickInt(tick, 1);
         }
+    }
+
+    private void ConsumeRecordSilentTicks(Round roundData) {
+        if (roundData?.actionTicks == null) return;
+        while (currentNode < roundData.actionTicks.Count && IsRecordSilentTick(roundData.actionTicks[currentNode])) {
+            ApplyRecordSilentTick(roundData.actionTicks[currentNode]);
+            currentNode++;
+        }
+    }
+
+    private int FindPreviousUserStepNode(int node) {
+        if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData) || roundData.actionTicks == null) {
+            return Mathf.Max(0, node - 1);
+        }
+        int lastVisible = -1;
+        for (int i = node - 1; i >= 0; i--) {
+            if (!IsRecordSilentTick(roundData.actionTicks[i])) {
+                lastVisible = i;
+                break;
+            }
+        }
+        if (lastVisible < 0) return 0;
+        int start = lastVisible;
+        while (start > 0 && IsRecordSilentTick(roundData.actionTicks[start - 1])) {
+            start--;
+        }
+        return start;
     }
 
     /// <summary>

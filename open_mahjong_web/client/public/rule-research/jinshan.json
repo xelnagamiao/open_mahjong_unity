@@ -1,0 +1,86 @@
+{
+  "slug": "jinshan",
+  "label": "晋陕（山西伞称 / 太原立四 / 西安）",
+  "aliases": ["山西麻将", "立四", "太原立四", "西安麻将", "陕麻"],
+  "collected_at": "2026-08-14",
+  "notes": "山西是伞称。太原立四不是 MIL 山西 2023。西安禁吃定缺不是川麻直系。平台无对局。",
+  "sources": [
+    {
+      "id": "mil-shanxi",
+      "url": "/rulebooks/mil/山西麻将（推广）竞赛规则（试行2023版）.pdf",
+      "title": "山西麻将（推广）竞赛规则（试行 2023 版）",
+      "type": "rulebook",
+      "lang": "zh",
+      "publisher": "国际麻将联盟规则委员会",
+      "published": "2023",
+      "accessed": "2026-08-14",
+      "excerpt": "136 张：万筒索 + 东南西北中发白，无花。行牌只见碰、杠，不见吃。必须报听才能和。自摸所和之牌点数 ≥3，点炮 ≥6；报听时所听之牌至少有一种点数 ≥6。风牌点数按 10。流局剩 7 墩。和牌分 = 牌型分 + 所和牌张点数，庄分 5。截和。全文不见立四、不见起手四张立着。协会本，不是太原立四。",
+      "rules": ["mil-shanxi", "shanxi"],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/mil/山西麻将（推广）竞赛规则（试行2023版）.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "wiki-taiyuan-lisi",
+      "url": "https://zh.wikipedia.org/wiki/太原立四麻将",
+      "title": "维基百科 · 太原立四麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "流行于太原及周边。136 张无花。不许吃。听牌时从立牌区取出一张，牌面朝下打出。不是全省山西麻将，也不是 MIL 2023。",
+      "rules": ["taiyuan-lisi", "shanxi"],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "dt-lisi",
+      "url": "https://www.dtgames.cn/e/",
+      "title": "大唐麻将 · 立四玩法",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "起手第一把四张立在门前。可与后面九张凑面子、可碰杠；听牌必须打出其中一张。碰杠后手里还得留一张立牌。C 级棋牌站。",
+      "rules": ["taiyuan-lisi"],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "baike-shanxi",
+      "url": "https://baike.baidu.com/item/山西麻将",
+      "title": "百度百科 · 山西麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "山西地方麻将，有的桌上禁吃或立四。MIL 有推广竞赛规则。伞称，不是一种桌规。细则见本档。",
+      "rules": ["shanxi"],
+      "source_level": "secondary",
+      "reliability": "low"
+    },
+    {
+      "id": "baike-xian",
+      "url": "https://baike.baidu.com/item/西安麻将",
+      "title": "百度百科 · 西安麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "西安／陕麻常禁吃、定缺，是后起地方改，不是川麻直系。与同城游 136 可吃的「陕西麻将」冲突，并列。",
+      "rules": ["xian"],
+      "source_level": "secondary",
+      "reliability": "low"
+    },
+    {
+      "id": "tcy-shanxi",
+      "url": "https://tcy365.com/news/d2241.html",
+      "title": "同城游 · 陕西麻将游戏的步骤／方法（2018）",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "写成 136 张有字，下家可以吃。与百科西安 108 禁吃定缺冲突，不采信为西安协会本。只作反例。C 级。",
+      "rules": ["xian"],
+      "source_level": "community",
+      "reliability": "low"
+    }
+  ]
+}

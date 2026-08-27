@@ -8,6 +8,7 @@ import {
   huClassFromRelative,
   parseJsonInput
 } from './tiles.js'
+import { insertOpeningReset } from './openingReset.js'
 
 function ensureGuobiao(title) {
   if (title?.rule && title.rule !== 'guobiao') {
@@ -77,6 +78,10 @@ function convertRoundToBotzoneLines(round, title, roundIdx) {
   while (i < ticks.length) {
     const t = ticks[i]
     const code = t[0]
+    if (code === 'reset') {
+      i++
+      continue
+    }
     if (code === 'bh') {
       const player = t[2]
       lines.push(`3 ${player} BUHUA ${tileToBz(t[1])}`)
@@ -365,6 +370,7 @@ function parseBotzoneBlock(block, roundIndex) {
     }
   }
   ticks.push(['end'])
+  insertOpeningReset(ticks, 0)
 
   return {
     round_index: roundIndex,

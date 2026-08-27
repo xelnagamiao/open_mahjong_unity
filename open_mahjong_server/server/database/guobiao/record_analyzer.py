@@ -4,14 +4,14 @@
 """
 from typing import Any, Dict, Optional
 
-from .round_score_utils import _parse_score_changes
+from .round_score_utils import _parse_score_changes, resolve_round_seats
 from .store_guobiao import FAN_NAME_TO_FIELD, STACKABLE_FANS
 
 HU_ACTIONS = frozenset({"hu_self", "hu_first", "hu_second", "hu_third"})
 RON_ACTIONS = frozenset({"hu_first", "hu_second", "hu_third"})
 VISIBLE_FULU_CODES = frozenset({"cl", "cm", "cr", "p", "g", "jg"})
-DRAW_CODES = frozenset({"d", "bd", "gd", "mo"})
 CLAIM_CODES = frozenset({"cl", "cm", "cr", "p", "g"})
+OPENING_FLOWER_CODES = frozenset({"bh", "bd"})
 
 
 def _parse_hu_tick(tick: list) -> Optional[dict]:
@@ -23,21 +23,23 @@ def _parse_hu_tick(tick: list) -> Optional[dict]:
         hu_class = tick[2]
         if not isinstance(hu_class, str) or hu_class not in HU_ACTIONS:
             return None
-        if not isinstance(tick[1], int):
+        seat = _tick_int(tick, 1)
+        if seat is None:
             return None
         return {
             "hu_class": hu_class,
-            "winner_seat": tick[1] % 4,
+            "winner_seat": seat % 4,
             "fan_score": int(tick[3]) if isinstance(tick[3], (int, float)) else 0,
             "yaku": tick[5] if len(tick) > 5 else [],
             "score_changes": _parse_score_changes(tick[6]),
         }
     if code in HU_ACTIONS and len(tick) >= 5:
-        if not isinstance(tick[1], int):
+        seat = _tick_int(tick, 1)
+        if seat is None:
             return None
         return {
             "hu_class": code,
-            "winner_seat": tick[1] % 4,
+            "winner_seat": seat % 4,
             "fan_score": int(tick[2]) if isinstance(tick[2], (int, float)) else 0,
             "yaku": tick[3] if len(tick) > 3 else [],
             "score_changes": _parse_score_changes(tick[4]),
@@ -45,45 +47,131 @@ def _parse_hu_tick(tick: list) -> Optional[dict]:
     return None
 
 
-def reconstruct_round_win_turns(rd: Dict[str, Any]) -> Dict[int, int]:
-    """从一局 action_ticks 推理每位 seat 的和巡总和。"""
-    ticks = rd.get("action_ticks") or []
-    if not isinstance(ticks, list):
-        return {}
+def _tick_int(tick: list, index: int, default: Optional[int] = None) -> Optional[int]:
+    if index >= len(tick):
+        return default
+    value = tick[index]
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.lstrip("-").isdigit():
+        return int(value)
+    return default
+
+
+def round_start_player(rd: Dict[str, Any]) -> int:
     start = rd.get("start_player_index")
     if not isinstance(start, int):
         start = rd.get("dealer_index")
     if not isinstance(start, int):
         start = 0
-    current_seat = start % 4
+    return start % 4
+
+
+def insert_opening_reset(ticks: list, start_player_index: int) -> bool:
+    """在开局 bh/bd 前缀后插入 ['reset', start]。已有则跳过。返回是否插入。"""
+    if not isinstance(ticks, list):
+        return False
+    start = start_player_index % 4
+    index = 0
+    while index < len(ticks):
+        tick = ticks[index]
+        if not isinstance(tick, list) or not tick:
+            index += 1
+            continue
+        if tick[0] in OPENING_FLOWER_CODES:
+            index += 1
+            continue
+        break
+    if index < len(ticks) and isinstance(ticks[index], list) and ticks[index] and ticks[index][0] == "reset":
+        return False
+    ticks.insert(index, ["reset", start])
+    return True
+
+
+def patch_guobiao_record_resets(record: Dict[str, Any]) -> int:
+    """给国标牌谱每局补上开局 reset。返回插入条数。"""
+    game_round = record.get("game_round") or {}
+    if not isinstance(game_round, dict):
+        return 0
+    inserted = 0
+    for rd in game_round.values():
+        if not isinstance(rd, dict):
+            continue
+        ticks = rd.get("action_ticks")
+        if not isinstance(ticks, list):
+            ticks = []
+            rd["action_ticks"] = ticks
+        if insert_opening_reset(ticks, round_start_player(rd)):
+            inserted += 1
+    return inserted
+
+
+def reconstruct_round_win_turns(rd: Dict[str, Any]) -> Dict[int, int]:
+    """从一局 action_ticks 按 player_index_go_to 语义推理每位 seat 的和巡总和。"""
+    ticks = rd.get("action_ticks") or []
+    if not isinstance(ticks, list):
+        return {}
+    dealer = round_start_player(rd)
+    current_seat = dealer
+    history: list = []
     xunmu = 1
+    dealer_discarded = False
     win_turn_by_seat: Dict[int, int] = {}
+
+    def go_to(seat: int) -> None:
+        nonlocal current_seat, xunmu
+        seat = seat % 4
+        if history and seat != history[-1] and seat < history[-1] and dealer_discarded:
+            xunmu += 1
+        history.append(seat)
+        current_seat = seat
+
     for tick in ticks:
         if not isinstance(tick, list) or not tick:
             continue
         code = tick[0]
-        if code in DRAW_CODES:
+        if code == "end":
+            break
+        if code == "reset":
+            seat = _tick_int(tick, 1, current_seat)
+            if seat is not None:
+                go_to(seat)
+            continue
+        if code in ("bh", "bd"):
+            seat = _tick_int(tick, 2, current_seat)
+            if seat is not None:
+                go_to(seat)
+            continue
+        if code in ("d", "mo"):
+            explicit = _tick_int(tick, 2)
+            if explicit is not None and 0 <= explicit <= 3:
+                go_to(explicit)
+            else:
+                go_to(0 if current_seat == 3 else current_seat + 1)
+            continue
+        if code == "gd":
+            explicit = _tick_int(tick, 2)
+            if explicit is not None and 0 <= explicit <= 3:
+                go_to(explicit)
             continue
         if code == "c":
-            if current_seat == 0:
-                xunmu += 1
-            current_seat = (current_seat + 1) % 4
-        elif code in CLAIM_CODES:
-            if len(tick) >= 3 and isinstance(tick[2], int):
-                current_seat = tick[2] % 4
-        elif code == "ca":
-            if len(tick) >= 2 and isinstance(tick[1], int):
-                current_seat = tick[1] % 4
-        elif code == "end":
-            break
-        else:
-            hu = _parse_hu_tick(tick)
-            if hu:
-                yaku = hu["yaku"]
-                is_cuohe = isinstance(yaku, list) and any("错和" in str(f) for f in yaku)
-                if not is_cuohe:
-                    win_seat = hu["winner_seat"]
-                    win_turn_by_seat[win_seat] = win_turn_by_seat.get(win_seat, 0) + xunmu
+            if current_seat == dealer:
+                dealer_discarded = True
+            continue
+        if code in CLAIM_CODES:
+            seat = _tick_int(tick, 2)
+            if seat is not None:
+                go_to(seat)
+            continue
+        hu = _parse_hu_tick(tick)
+        if hu:
+            yaku = hu["yaku"]
+            is_cuohe = isinstance(yaku, list) and any("错和" in str(f) for f in yaku)
+            if not is_cuohe:
+                win_seat = hu["winner_seat"]
+                win_turn_by_seat[win_seat] = win_turn_by_seat.get(win_seat, 0) + xunmu
     return win_turn_by_seat
 
 
@@ -112,7 +200,7 @@ def analyze_record_for_player(record: Dict[str, Any], original_player_index: int
     for rd in game_round.values():
         if not isinstance(rd, dict):
             continue
-        seat2orig = seat_to_original_map(rd.get("seats"))
+        seat2orig = seat_to_original_map(resolve_round_seats(rd))
         my_seat = None
         for s, o in seat2orig.items():
             if o == original_player_index:
@@ -126,7 +214,7 @@ def analyze_record_for_player(record: Dict[str, Any], original_player_index: int
             if not isinstance(tick, list) or not tick:
                 continue
             code = tick[0]
-            if code in VISIBLE_FULU_CODES and len(tick) >= 3 and tick[2] == my_seat:
+            if code in VISIBLE_FULU_CODES and _tick_int(tick, 2) == my_seat:
                 had_fulu = True
             hu = _parse_hu_tick(tick)
             if hu is None:
@@ -198,7 +286,7 @@ def collect_fans_for_player(record: Dict[str, Any], original_player_index: int) 
     for rd in game_round.values():
         if not isinstance(rd, dict):
             continue
-        seat2orig = seat_to_original_map(rd.get("seats"))
+        seat2orig = seat_to_original_map(resolve_round_seats(rd))
         my_seat = None
         for s, o in seat2orig.items():
             if o == original_player_index:
@@ -212,7 +300,7 @@ def collect_fans_for_player(record: Dict[str, Any], original_player_index: int) 
             code = tick[0]
             if code not in HU_ACTIONS:
                 continue
-            if tick[1] != my_seat:
+            if _tick_int(tick, 1) != my_seat:
                 continue
             hu_fan = tick[3] if len(tick) > 3 else []
             if isinstance(hu_fan, list) and any("错和" in str(f) for f in hu_fan):

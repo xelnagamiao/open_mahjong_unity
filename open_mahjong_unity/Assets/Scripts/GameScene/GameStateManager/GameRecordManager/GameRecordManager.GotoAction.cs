@@ -21,7 +21,6 @@ public partial class GameRecordManager
         Game3DManager.Instance.Clear3DTile();
         currentNode = 0;
         currentPlayerIndex = roundData.startPlayerIndex;
-        mainPhaseStarted = false;
         lastDiscardPlayerIndex = -1;
         lastDiscardTileId = -1;
         lastWinnableTileId = -1;
@@ -95,12 +94,15 @@ public partial class GameRecordManager
 
         string action = tick[0];
 
+        if (action == "reset") {
+            currentPlayerIndex = ParseTickInt(tick, 1);
+            return;
+        }
+
         // 观战 ask 事件不改变对局状态，快进时跳过
         if (action == "ask_hand" || action == "ask_other" || action == "ca") {
             return;
         }
-
-        EnsureRecordMainPhaseStarted(action, updateBoardHighlight: false);
 
         int actingPlayerIndex = GameRecordJsonDecoder.ResolveRecordActingPlayerIndex(tick, action, currentPlayerIndex);
 

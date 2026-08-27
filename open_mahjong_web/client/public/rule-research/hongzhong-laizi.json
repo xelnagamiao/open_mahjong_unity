@@ -1,0 +1,212 @@
+{
+  "slug": "hongzhong-laizi",
+  "label": "癞子扩散（常德红中 / 武汉开口翻 / 南昌翻精）",
+  "aliases": [
+    "红中麻将",
+    "红中癞子",
+    "红中赖子杠",
+    "开口翻",
+    "南昌麻将",
+    "翻精",
+    "常德麻将",
+    "常德红中"
+  ],
+  "collected_at": "2026-08-14",
+  "notes": "红中麻将来自常德，不是网上凭空发明出来的，也不是东北或京津的直系后代。武汉开口翻和「红中」这个名字没有关系。南昌翻精也不是红中的下级分支。四川红中是川麻加癞子，挂在川渝湘一支，不算癞子系的主干。MIL 红中 2024 的骨架接近常德的打法。",
+  "sources": [
+    {
+      "id": "mil-hzhong",
+      "url": "/rulebooks/mil/红中麻将（推广）竞赛规则（试行2024版）.pdf",
+      "title": "红中麻将（推广）竞赛规则（试行 2024 版）",
+      "type": "rulebook",
+      "lang": "zh",
+      "publisher": "国际麻将联盟规则委员会",
+      "published": "2024",
+      "accessed": "2026-08-14",
+      "excerpt": "112 张：万筒索各 36，红中 4 张，无其他字牌。红中是万能牌，可打出，不可被碰、杠、和。行牌写摸打碰杠，报牌为碰、杠、和，不见吃。只能自摸。流局摸完牌墙。自摸后扎鸟 2 张，159 与红中为中，每中一张向三家各收 1 分。4 番封顶。无定缺、无血战。协会推广本，不是武汉开口翻，也不是川麻加四张红中。骨架近常德红中，不是 136 可吃的后起平台桌。",
+      "rules": [
+        "mil-red-center",
+        "hongzhong",
+        "changde"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/mil/红中麻将（推广）竞赛规则（试行2024版）.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "wiki-zh-hongzhong",
+      "url": "https://zh.wikipedia.org/wiki/红中麻将",
+      "title": "维基百科 · 红中麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "红中当癞子。百科与棋牌站把身份写成常德麻将加四张红中（112、禁吃）。维基本条偏各地细则不同。常德身份见 baike-hongzhong。MIL 另有推广本。",
+      "rules": [
+        "hongzhong",
+        "changde"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "baike-hz-laizigang",
+      "url": "https://baike.baidu.com/item/红中赖子杠/1810660",
+      "title": "百度百科 · 红中赖子杠",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "可吃碰杠，但不能吃碰杠红中或癞子。红中不能碰、明杠、暗杠，手上持有红中时不能胡。癞子是抓完牌后翻一张 +1（风字跳过红中）。必须开口才能胡。小胡将须 258。两个癞子不能胡小胡。这是武汉开口翻，不是 MIL 112 张红中本身即癞子。C 级。",
+      "rules": [
+        "wuhan"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "tcy-hz-laizigang",
+      "url": "https://m.tcy365.com/news/d27405.html",
+      "title": "同城游 · 红中赖子杠麻将规则",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "红中癞子杠就是武汉麻将又称开口翻。核心是二五八、癞子、开口翻。红中可随时杠或打出算红中杠。C 级。",
+      "rules": [
+        "wuhan"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "baike-wuhan",
+      "url": "https://baike.baidu.com/item/武汉麻将",
+      "title": "百度百科 · 武汉麻将",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "武汉地方麻将。开口翻等细则按当地。与红中赖子杠条对照见本档。C 级。",
+      "rules": [
+        "wuhan"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "wiki-zh-nanchang",
+      "url": "https://zh.wikipedia.org/wiki/南昌麻将",
+      "title": "维基百科 · 南昌麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "配牌后掷骰翻精。正精为翻开的那张，副精为 +1，二者可当万能牌，终局另算精分。不重复的三张风牌可成顺，中发白不重复也可成顺。精不是红中。",
+      "rules": [
+        "nanchang"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "qq-nanchang",
+      "url": "https://minigameimg.qq.com/help/rule197.html",
+      "title": "QQ 游戏 · 南昌麻将说明",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "136 张。上精：翻出为正精，+1 为副精，有万能牌功能。下精：同一墩下层，多半只算分。精可以本张吃碰杠。C 级。",
+      "rules": [
+        "nanchang"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "baike-nanchang",
+      "url": "https://baike.baidu.com/item/南昌麻将/5232809",
+      "title": "百度百科 · 南昌麻将",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "上下翻精是最大特色。上精万能，下精多半只算分。正精 2 子、副精 1 子，终局与和牌分开算。不同类牌可成顺。C 级。",
+      "rules": [
+        "nanchang"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "dw-sichuan-hz",
+      "url": "https://doublewin.me/guides/mahjong-hz",
+      "title": "DoubleWin · 四川红中赖子",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "112 张（108+4 红中），不能吃，定缺，血战。红中万能。这是川麻加癞子的分支，不算红中麻将的主干，也不能替代民间血战。可信度 C 级。总表里单独立条 sichuan-hongzhong，归在川渝湘一支，不算癞子系的主干。",
+      "rules": [
+        "sichuan-hongzhong",
+        "sichuan"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "tcy-sichuan-hz",
+      "url": "http://www.tcy365.com/news/d24953.html",
+      "title": "同城游 · 四川麻将红中打法",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "112 张（万筒索 + 4 红中），可选 8 张红中共 116。禁吃。红中癞子，不能拿去碰杠。起手四个红中可直接胡。与 DoubleWin 的定缺血战写法同方向，张数选项并列。C 级。不是网上通用红中，也不是 MIL 红中。",
+      "rules": [
+        "sichuan-hongzhong"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "baike-hongzhong",
+      "url": "https://baike.baidu.com/item/红中麻将/22046045",
+      "title": "百度百科 · 红中麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "源自湖南常德。在常德麻将基础上加四张红中作万能牌。常德麻将去字、不能吃。红中常见 112 张（可选 8 张红中共 116）。手中无红中常多奖（杀鬼）。起源具体年无确证。C/B。",
+      "rules": [
+        "hongzhong",
+        "changde"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "baike-changde",
+      "url": "https://baike.baidu.com/item/常德麻将/16837861",
+      "title": "百度百科 · 常德麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "万条筒 108 张，去掉东南西北中发白。不能吃，只能碰杠和。加 4 张红中的 112 张打法即红中麻将。杠即时计分，胡后奖码。C/B。",
+      "rules": [
+        "changde",
+        "hongzhong"
+      ],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "netease-hongzhong",
+      "url": "https://m.163.com/dy/article/DUTA34M605383C84.html",
+      "title": "网易 · 时下最流行的红中麻将",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "红中麻将是常德麻将中的一种，最近兴起。112 张，禁吃，只能自摸／抢杠／四红中。扎码 159，红中算 1；手中无红中加一码。C 级，与百科同骨架。",
+      "rules": [
+        "hongzhong",
+        "changde"
+      ],
+      "source_level": "community",
+      "reliability": "low"
+    }
+  ]
+}

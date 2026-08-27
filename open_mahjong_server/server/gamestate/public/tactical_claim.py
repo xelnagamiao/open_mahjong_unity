@@ -21,6 +21,7 @@ TACTICAL_PRE_GRACE_DELAY = 0.5
 TACTICAL_GRACE_SECONDS = 5.0
 
 _CHI_ACTIONS = frozenset({"chi_left", "chi_mid", "chi_right"})
+_DECLINE_ACTIONS = frozenset({"pass", "force_pass"})
 # 荣和/抢杠和：执行不走带音效的 do_action，须靠 is_claim 申请帧发声
 _HU_CLAIM_ACTIONS = frozenset({
     "hu", "hu_self", "hu_first", "hu_second", "hu_third",
@@ -31,6 +32,10 @@ BroadcastFn = Callable[..., Awaitable[Any]]
 
 def is_chi_action(action_type: str) -> bool:
     return action_type in _CHI_ACTIONS
+
+
+def is_decline_action(action_type: str) -> bool:
+    return action_type in _DECLINE_ACTIONS
 
 
 def is_hu_claim_action(action_type: str) -> bool:
@@ -71,16 +76,19 @@ def init_tactical_round_state(gs) -> None:
             pid: list(alist) for pid, alist in gs.action_dict.items()
         }
         gs._tactical_passed_players = set()
+        gs._tactical_force_passed_players = set()
         gs._tactical_committed_players = set()
     else:
         gs._tactical_action_snapshot = None
         gs._tactical_passed_players = set()
+        gs._tactical_force_passed_players = set()
         gs._tactical_committed_players = set()
 
 
 def clear_tactical_round_state(gs) -> None:
     gs._tactical_action_snapshot = None
     gs._tactical_passed_players = set()
+    gs._tactical_force_passed_players = set()
     gs._tactical_committed_players = set()
 
 
@@ -105,6 +113,20 @@ def tactical_player_has_passed(gs, player_index: int) -> bool:
     return passed is not None and player_index in passed
 
 
+def tactical_mark_player_force_passed(gs, player_index: int) -> None:
+    """本张弃牌彻底退出竞争；不被 clear_tactical_grace_passes 清掉。"""
+    force_passed = getattr(gs, "_tactical_force_passed_players", None)
+    if force_passed is None:
+        gs._tactical_force_passed_players = {player_index}
+    else:
+        force_passed.add(player_index)
+
+
+def tactical_player_has_force_passed(gs, player_index: int) -> bool:
+    force_passed = getattr(gs, "_tactical_force_passed_players", None)
+    return force_passed is not None and player_index in force_passed
+
+
 def get_higher_priority_snapshot(gs, action_type, player_index):
     """从开局冻结快照重算「更高优先级竞争者」；主询问 pass 不排除。"""
     current_priority = gs.action_priority[action_type]
@@ -114,14 +136,18 @@ def get_higher_priority_snapshot(gs, action_type, player_index):
     for pid in range(4):
         if pid == player_index or tactical_player_has_passed(gs, pid):
             continue
+        if tactical_player_has_force_passed(gs, pid):
+            continue
         if tactical_player_is_committed(gs, pid):
             continue
+        source_actions = source.get(pid, [])
+        declines = [a for a in source_actions if is_decline_action(a)]
         filtered = [
-            a for a in source.get(pid, [])
-            if a != "pass" and gs.action_priority[a] > current_priority
+            a for a in source_actions
+            if not is_decline_action(a) and gs.action_priority[a] > current_priority
         ]
         if filtered:
-            higher_action_dict[pid] = filtered + ["pass"]
+            higher_action_dict[pid] = filtered + declines
             any_higher = True
     return higher_action_dict, any_higher
 
@@ -154,7 +180,7 @@ async def tactical_grace_phase(
 
         if not is_chi_action(action_type) and not any_higher:
             # 无更高竞争者：若本轮尚未发过申请帧（例如 grace 内被更高优抢断），补发 is_claim
-            if action_type != "pass" and not skip_claim_broadcast:
+            if not is_decline_action(action_type) and not skip_claim_broadcast:
                 await broadcast_do_action(
                     gs,
                     action_list=[action_type],
@@ -177,7 +203,7 @@ async def tactical_grace_phase(
                 except Exception:
                     break
                 d_type = drained.get("action_type")
-                if not d_type or d_type == "pass":
+                if not d_type or is_decline_action(d_type):
                     continue
                 d_priority = gs.action_priority.get(d_type, -1)
                 if d_priority <= current_priority:
@@ -207,7 +233,7 @@ async def tactical_grace_phase(
             )
             continue
 
-        if action_type != "pass" and not skip_claim_broadcast:
+        if not is_decline_action(action_type) and not skip_claim_broadcast:
             await broadcast_do_action(
                 gs,
                 action_list=[action_type],
@@ -259,7 +285,9 @@ async def tactical_grace_phase(
                 temp_data = await gs.action_queues[temp_pid].get()
                 temp_type = temp_data.get("action_type")
                 gs.action_events[temp_pid].clear()
-                if temp_type == "pass":
+                if is_decline_action(temp_type):
+                    if temp_type == "force_pass":
+                        tactical_mark_player_force_passed(gs, temp_pid)
                     tactical_mark_player_passed_in_grace(gs, temp_pid)
                     gs.action_dict[temp_pid] = []
                     continue
@@ -302,7 +330,7 @@ async def apply_tactical_claim_if_needed(
     if not (
         getattr(gs, "tactical_call", False)
         and action_data
-        and action_type != "pass"
+        and not is_decline_action(action_type)
         and gs.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
     ):
         return action_type, player_index, action_data, False

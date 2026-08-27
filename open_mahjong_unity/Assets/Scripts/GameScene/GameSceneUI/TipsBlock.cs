@@ -58,9 +58,9 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
                 );
             }
             else if (NormalGameStateManager.Instance.roomRule == "hongque"){
-                // 虹雀使用变长组合与 126 张唯一牌，由 HongqueTableAdapter 在动作处理后
-                // 调用统一的 C# 听牌与计分入口，再通过 ShowHongqueTips 展示。
-                waitingTiles = new HashSet<int>();
+                // 虹雀听牌由 HongqueTableAdapter / TileCard 本地按服务端口径计算，
+                // 不能走通用 TingpaiCheck：这里若清空缓存会把刚算好的提示抹掉。
+                return;
             }
             else{
                 Debug.LogWarning($"未知的规则类型: {NormalGameStateManager.Instance.roomRule}");

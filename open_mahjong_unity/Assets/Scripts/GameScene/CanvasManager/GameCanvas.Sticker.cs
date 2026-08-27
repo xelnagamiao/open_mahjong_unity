@@ -193,8 +193,24 @@ public partial class GameCanvas {
                 $"ShowSticker: 未知 original_player_index={originalPlayerIndex}, player_index={playerIndex}");
             return;
         }
+        if (IsStickerMutedAtPosition(mgr, position)) return;
         GamePlayerPanel panel = GetPlayerPanelByPosition(position);
         panel?.ShowSticker(sticker);
+    }
+
+    static bool IsStickerMutedAtPosition(NormalGameStateManager mgr, string position) {
+        if (mgr.player_to_info == null || string.IsNullOrEmpty(position)) return false;
+        if (!mgr.player_to_info.TryGetValue(position, out PlayerInfoClass info) || info == null) {
+            return false;
+        }
+        return mgr.IsStickerMuted(info.userId);
+    }
+
+    public void HideAllPlayerActionMenus() {
+        playerSelfPanel?.HideActionMenu();
+        playerLeftPanel?.HideActionMenu();
+        playerTopPanel?.HideActionMenu();
+        playerRightPanel?.HideActionMenu();
     }
 
     private static string FindPositionByOriginalPlayerIndex(NormalGameStateManager mgr, int originalPlayerIndex) {

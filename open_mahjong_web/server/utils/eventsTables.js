@@ -12,7 +12,10 @@ async function ensureEventsTables() {
       closed_at  TIMESTAMP NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      CONSTRAINT events_status_chk CHECK (status IN ('registered', 'active', 'closed'))
+      kind VARCHAR(16) NOT NULL DEFAULT 'event',
+      entry_config JSONB NOT NULL DEFAULT '{}'::jsonb,
+      CONSTRAINT events_status_chk CHECK (status IN ('registered', 'active', 'closed')),
+      CONSTRAINT events_kind_chk CHECK (kind IN ('event', 'base'))
     );
   `);
   await pool.query(`
@@ -71,8 +74,15 @@ async function ensureEventsTables() {
       created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       reviewed_at        TIMESTAMP NULL,
+      planned_start_at   DATE NULL,
+      planned_end_at     DATE NULL,
+      kind               VARCHAR(16) NOT NULL DEFAULT 'event',
+      organizer_name     VARCHAR(64) NOT NULL DEFAULT '',
+      organizer_phone    VARCHAR(32) NOT NULL DEFAULT '',
+      remark_history     JSONB NOT NULL DEFAULT '[]'::jsonb,
       CONSTRAINT event_applications_status_chk
-        CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled'))
+        CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled')),
+      CONSTRAINT event_applications_kind_chk CHECK (kind IN ('event', 'base'))
     );
   `);
   await pool.query(`
@@ -105,11 +115,6 @@ async function ensureEventsTables() {
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_event_applications_status
       ON event_applications(status, created_at DESC);
-  `);
-  await pool.query(`
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_event_applications_one_pending
-      ON event_applications(applicant_user_id)
-      WHERE status = 'pending';
   `);
 
   await pool.query(`
@@ -171,6 +176,122 @@ async function ensureEventsTables() {
     CREATE UNIQUE INDEX IF NOT EXISTS idx_event_profile_change_one_pending
       ON event_profile_change_requests(event_id)
       WHERE status = 'pending';
+  `);
+
+  await pool.query(`
+    ALTER TABLE events
+      ADD COLUMN IF NOT EXISTS kind VARCHAR(16) NOT NULL DEFAULT 'event'
+  `);
+  await pool.query(`ALTER TABLE events DROP CONSTRAINT IF EXISTS events_kind_chk`);
+  await pool.query(`
+    ALTER TABLE events
+      ADD CONSTRAINT events_kind_chk CHECK (kind IN ('event', 'base'))
+  `);
+  await pool.query(`
+    ALTER TABLE events
+      ADD COLUMN IF NOT EXISTS entry_config JSONB NOT NULL DEFAULT '{}'::jsonb
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_events_kind_status ON events(kind, status)`);
+
+  await pool.query(`
+    ALTER TABLE event_applications
+      ADD COLUMN IF NOT EXISTS kind VARCHAR(16) NOT NULL DEFAULT 'event'
+  `);
+  await pool.query(`ALTER TABLE event_applications DROP CONSTRAINT IF EXISTS event_applications_kind_chk`);
+  await pool.query(`
+    ALTER TABLE event_applications
+      ADD CONSTRAINT event_applications_kind_chk CHECK (kind IN ('event', 'base'))
+  `);
+  await pool.query(`
+    ALTER TABLE event_applications
+      ADD COLUMN IF NOT EXISTS organizer_name VARCHAR(64) NOT NULL DEFAULT ''
+  `);
+  await pool.query(`
+    ALTER TABLE event_applications
+      ADD COLUMN IF NOT EXISTS organizer_phone VARCHAR(32) NOT NULL DEFAULT ''
+  `);
+  await pool.query(`
+    ALTER TABLE event_applications
+      ADD COLUMN IF NOT EXISTS remark_history JSONB NOT NULL DEFAULT '[]'::jsonb
+  `);
+  await pool.query(`
+    UPDATE event_applications
+       SET remark_history = COALESCE(
+         CASE
+           WHEN remark <> '' AND COALESCE(review_note, '') <> '' THEN
+             jsonb_build_array(
+               jsonb_build_object('at', created_at, 'role', 'applicant', 'action', 'submit', 'text', remark),
+               jsonb_build_object(
+                 'at', COALESCE(reviewed_at, updated_at),
+                 'role', 'admin',
+                 'action', CASE WHEN status = 'approved' THEN 'approve' ELSE 'reject' END,
+                 'text', review_note
+               )
+             )
+           WHEN remark <> '' THEN
+             jsonb_build_array(
+               jsonb_build_object('at', created_at, 'role', 'applicant', 'action', 'submit', 'text', remark)
+             )
+           WHEN COALESCE(review_note, '') <> '' THEN
+             jsonb_build_array(
+               jsonb_build_object(
+                 'at', COALESCE(reviewed_at, updated_at),
+                 'role', 'admin',
+                 'action', CASE WHEN status = 'approved' THEN 'approve' ELSE 'reject' END,
+                 'text', review_note
+               )
+             )
+           ELSE remark_history
+         END,
+         '[]'::jsonb
+       )
+     WHERE COALESCE(jsonb_array_length(remark_history), 0) = 0
+       AND (remark <> '' OR COALESCE(review_note, '') <> '')
+  `);
+  // 必须在 kind 列存在之后再建：办赛 / 基地各允许一条待审
+  await pool.query(`DROP INDEX IF EXISTS idx_event_applications_one_pending`);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_event_applications_one_pending_kind
+      ON event_applications(applicant_user_id, kind)
+      WHERE status = 'pending';
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS event_registrations (
+      event_id     VARCHAR(32) NOT NULL REFERENCES events(event_id) ON DELETE CASCADE,
+      user_id      BIGINT NOT NULL,
+      status       VARCHAR(16) NOT NULL DEFAULT 'pending',
+      contact      TEXT NOT NULL DEFAULT '',
+      remark       TEXT NOT NULL DEFAULT '',
+      reviewed_by  BIGINT NULL,
+      review_note  TEXT NULL,
+      created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (event_id, user_id),
+      CONSTRAINT event_registrations_status_chk
+        CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled'))
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_event_registrations_event_status
+      ON event_registrations(event_id, status, created_at DESC)
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_event_registrations_user
+      ON event_registrations(user_id, created_at DESC)
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS event_ready_pool (
+      event_id  VARCHAR(32) NOT NULL REFERENCES events(event_id) ON DELETE CASCADE,
+      user_id   BIGINT NOT NULL,
+      ready_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (event_id, user_id)
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_event_ready_pool_event
+      ON event_ready_pool(event_id, ready_at)
   `);
 }
 

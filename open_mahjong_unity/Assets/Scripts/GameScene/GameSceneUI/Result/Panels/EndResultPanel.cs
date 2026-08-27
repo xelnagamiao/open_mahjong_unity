@@ -81,6 +81,8 @@ public class EndResultPanel : MonoBehaviour {
     private readonly Dictionary<int, bool> cachedReadyStatus = new Dictionary<int, bool>();
     // 从收到 show_result 起到新一局清场止为 true；允许在倒牌动画期间提前缓存本轮准备广播。
     private bool gameResultLifecycleActive = false;
+    // 多家和的中间面板只缓存权威 ready 状态；最后一家面板才允许把它绘制出来。
+    private bool readyStatusVisible = true;
     // 当前“被检查”的座位 player_index（川麻终局逐家查牌/查叫高亮）；-1 表示无
     private int checkedFocusSeat = -1;
     // 当前查叫面板是否含退税（用于补“退税”标签与延长停留）
@@ -957,6 +959,12 @@ public class EndResultPanel : MonoBehaviour {
         ApplySeatVisuals();
     }
 
+    /// <summary>缓存 ready 广播不受影响；仅控制当前面板是否绘制准备文字与准备配色。</summary>
+    public void SetReadyStatusVisible(bool visible) {
+        readyStatusVisible = visible;
+        ApplySeatVisuals();
+    }
+
     private Image SeatBackground(string position) {
         switch (position) {
             case "self": return SelfPanelBackground;
@@ -988,7 +996,8 @@ public class EndResultPanel : MonoBehaviour {
         foreach (var kvp in NormalGameStateManager.Instance.indexToPosition) {
             int seat = kvp.Key;
             string position = kvp.Value;
-            bool isReady = cachedReadyStatus.TryGetValue(seat, out bool r) && r;
+            bool isReady = readyStatusVisible
+                && cachedReadyStatus.TryGetValue(seat, out bool r) && r;
             // 准备色优先于被检查色：末步等待准备时仍能直观看到谁已准备
             SeatVisual visual = isReady
                 ? SeatVisual.Ready
@@ -1013,6 +1022,7 @@ public class EndResultPanel : MonoBehaviour {
     /// <summary>收到服务端 show_result 时开启本轮结算生命周期。</summary>
     public void BeginGameResultLifecycle() {
         gameResultLifecycleActive = true;
+        readyStatusVisible = true;
         cachedReadyStatus.Clear();
         checkedFocusSeat = -1;
         ResetSeatVisualsToNormal();
@@ -1159,6 +1169,7 @@ public class EndResultPanel : MonoBehaviour {
         matchEndMode = false;
         currentWinnerPointDelta = null;
         gameResultLifecycleActive = false;
+        readyStatusVisible = true;
         // 新一局：清空准备缓存与被检查高亮，座位配色复位
         cachedReadyStatus.Clear();
         checkedFocusSeat = -1;

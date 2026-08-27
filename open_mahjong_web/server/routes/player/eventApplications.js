@@ -2,11 +2,17 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../../config/database');
 const { requirePlayer } = require('../../middleware/requirePlayer');
+const { appendRemark, ensureHistory, withRemarkHistory } = require('../../utils/applicationRemarks');
 
-function normalizeName(name) {
+function venueApplyLabel(kind) {
+  return kind === 'base' ? '基地申请' : '办赛申请';
+}
+
+function normalizeName(name, kind) {
+  const label = kind === 'base' ? '基地名称' : '赛事名称';
   const text = String(name || '').trim();
-  if (!text) return { error: '请填写赛事名称' };
-  if (text.length > 128) return { error: '赛事名称过长（最多 128 字）' };
+  if (!text) return { error: `请填写${label}` };
+  if (text.length > 128) return { error: `${label}过长（最多 128 字）` };
   return { value: text };
 }
 
@@ -20,6 +26,22 @@ function normalizeText(value, { required, label, maxLen }) {
     return { error: `${label}过长（最多 ${maxLen} 字）` };
   }
   return { value: text };
+}
+
+function normalizeOrganizerName(name) {
+  const text = String(name || '').trim();
+  if (!text) return { error: '请填写负责人姓名' };
+  if (text.length > 32) return { error: '负责人姓名过长（最多 32 字）' };
+  return { value: text };
+}
+
+function normalizeOrganizerPhone(phone) {
+  const compact = String(phone || '').replace(/[\s-]/g, '');
+  if (!compact) return { error: '请填写负责人手机号' };
+  if (!/^1\d{10}$/.test(compact) && !/^\+?\d{7,15}$/.test(compact)) {
+    return { error: '负责人手机号格式不正确' };
+  }
+  return { value: compact };
 }
 
 function normalizeDate(value, { required, label }) {
@@ -50,25 +72,29 @@ router.post('/', async (req, res) => {
 
     const pending = await pool.query(
       `SELECT application_id FROM event_applications
-       WHERE applicant_user_id = $1 AND status = 'pending'
+       WHERE applicant_user_id = $1
+         AND status = 'pending'
+         AND COALESCE(kind, 'event') = $2
        LIMIT 1`,
-      [req.player.userId]
+      [req.player.userId, v.kind]
     );
     if (pending.rows.length > 0) {
       return res.status(400).json({
         success: false,
-        message: '您已有一条待审核的办赛申请，请等待处理后再提交',
+        message: `您已有一条待审核的${venueApplyLabel(v.kind)}，请等待处理后再提交`,
       });
     }
 
+    const history = v.remark
+      ? appendRemark([], { role: 'applicant', action: 'submit', text: v.remark })
+      : [];
     const result = await pool.query(
       `INSERT INTO event_applications
          (applicant_user_id, name, description, remark, reason,
-          planned_start_at, planned_end_at, status)
-       VALUES ($1, $2, $3, $4, $3, $5, $6, 'pending')
-       RETURNING application_id, applicant_user_id, name, description, remark, reason,
-                 planned_start_at, planned_end_at,
-                 status, event_id, created_at, updated_at, reviewed_at, review_note`,
+          planned_start_at, planned_end_at, status, kind,
+          organizer_name, organizer_phone, remark_history)
+       VALUES ($1, $2, $3, $4, $3, $5, $6, 'pending', $7, $8, $9, $10::jsonb)
+       RETURNING *`,
       [
         req.player.userId,
         v.name,
@@ -76,15 +102,19 @@ router.post('/', async (req, res) => {
         v.remark,
         v.planned_start_at,
         v.planned_end_at,
+        v.kind,
+        v.organizer_name,
+        v.organizer_phone,
+        JSON.stringify(history),
       ]
     );
 
-    res.json({ success: true, data: result.rows[0] });
+    res.json({ success: true, data: withRemarkHistory(result.rows[0]) });
   } catch (err) {
     if (err.code === '23505') {
       return res.status(400).json({
         success: false,
-        message: '您已有一条待审核的办赛申请，请等待处理后再提交',
+        message: `您已有一条待审核的${venueApplyLabel(parsed?.value?.kind)}，请等待处理后再提交`,
       });
     }
     console.error('player event-applications create:', err);
@@ -95,17 +125,14 @@ router.post('/', async (req, res) => {
 router.get('/mine', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT application_id, applicant_user_id, name, description, remark, reason,
-              planned_start_at, planned_end_at, status,
-              reviewer_user_id, review_note, event_id,
-              created_at, updated_at, reviewed_at
+      `SELECT *
        FROM event_applications
        WHERE applicant_user_id = $1
        ORDER BY created_at DESC
        LIMIT 50`,
       [req.player.userId]
     );
-    res.json({ success: true, data: { items: result.rows } });
+    res.json({ success: true, data: { items: result.rows.map(withRemarkHistory) } });
   } catch (err) {
     console.error('player event-applications mine:', err);
     res.status(500).json({ success: false, message: '服务器内部错误' });
@@ -113,11 +140,15 @@ router.get('/mine', async (req, res) => {
 });
 
 function parseApplicationBody(body) {
-  const { name, description, remark, planned_start_at, planned_end_at } = body || {};
-  const nameParsed = normalizeName(name);
+  const {
+    name, description, remark, planned_start_at, planned_end_at, kind,
+    organizer_name, organizer_phone,
+  } = body || {};
+  const kindValue = kind === 'base' ? 'base' : 'event';
+  const nameParsed = normalizeName(name, kindValue);
   if (nameParsed.error) return { error: nameParsed.error };
   const startParsed = normalizeDate(planned_start_at, {
-    required: true,
+    required: kindValue === 'event',
     label: '拟定开始时间',
   });
   if (startParsed.error) return { error: startParsed.error };
@@ -131,16 +162,20 @@ function parseApplicationBody(body) {
   }
   const descParsed = normalizeText(description, {
     required: true,
-    label: '赛事介绍',
+    label: kindValue === 'base' ? '基地介绍' : '赛事介绍',
     maxLen: 2000,
   });
   if (descParsed.error) return { error: descParsed.error };
   const remarkParsed = normalizeText(remark, {
     required: false,
     label: '备注',
-    maxLen: 1000,
+    maxLen: 2000,
   });
   if (remarkParsed.error) return { error: remarkParsed.error };
+  const organizerNameParsed = normalizeOrganizerName(organizer_name);
+  if (organizerNameParsed.error) return { error: organizerNameParsed.error };
+  const organizerPhoneParsed = normalizeOrganizerPhone(organizer_phone);
+  if (organizerPhoneParsed.error) return { error: organizerPhoneParsed.error };
   return {
     value: {
       name: nameParsed.value,
@@ -148,6 +183,9 @@ function parseApplicationBody(body) {
       remark: remarkParsed.value,
       planned_start_at: startParsed.value,
       planned_end_at: endParsed.value,
+      kind: kindValue,
+      organizer_name: organizerNameParsed.value,
+      organizer_phone: organizerPhoneParsed.value,
     },
   };
 }
@@ -165,6 +203,27 @@ router.put('/:id', async (req, res) => {
     }
     const v = parsed.value;
 
+    const current = await pool.query(
+      `SELECT * FROM event_applications
+       WHERE application_id = $1
+         AND applicant_user_id = $2
+         AND status = 'pending'`,
+      [applicationId, req.player.userId]
+    );
+    if (current.rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: '只能修改本人的待审核申请',
+      });
+    }
+    const existing = current.rows[0];
+    const prior = ensureHistory(existing);
+    const history = appendRemark(prior, {
+      role: 'applicant',
+      action: prior.length === 0 ? 'submit' : 'save',
+      text: v.remark,
+    });
+    const remarkSnapshot = v.remark || existing.remark || '';
     const result = await pool.query(
       `UPDATE event_applications
        SET name = $1,
@@ -173,19 +232,25 @@ router.put('/:id', async (req, res) => {
            reason = $2,
            planned_start_at = $4,
            planned_end_at = $5,
+           kind = $6,
+           organizer_name = $7,
+           organizer_phone = $8,
+           remark_history = $9::jsonb,
            updated_at = CURRENT_TIMESTAMP
-       WHERE application_id = $6
-         AND applicant_user_id = $7
+       WHERE application_id = $10
+         AND applicant_user_id = $11
          AND status = 'pending'
-       RETURNING application_id, applicant_user_id, name, description, remark, reason,
-                 planned_start_at, planned_end_at, status, event_id,
-                 created_at, updated_at, reviewed_at, review_note`,
+       RETURNING *`,
       [
         v.name,
         v.description,
-        v.remark,
+        remarkSnapshot,
         v.planned_start_at,
         v.planned_end_at,
+        v.kind,
+        v.organizer_name,
+        v.organizer_phone,
+        JSON.stringify(history),
         applicationId,
         req.player.userId,
       ]
@@ -196,8 +261,14 @@ router.put('/:id', async (req, res) => {
         message: '只能修改本人的待审核申请',
       });
     }
-    res.json({ success: true, data: result.rows[0], message: '申请已更新' });
+    res.json({ success: true, data: withRemarkHistory(result.rows[0]), message: '申请已更新' });
   } catch (err) {
+    if (err.code === '23505') {
+      return res.status(400).json({
+        success: false,
+        message: `您已有一条待审核的${venueApplyLabel(req.body?.kind)}`,
+      });
+    }
     console.error('player event-applications update:', err);
     res.status(500).json({ success: false, message: '服务器内部错误' });
   }
@@ -218,17 +289,40 @@ router.post('/:id/resubmit', async (req, res) => {
 
     const otherPending = await pool.query(
       `SELECT application_id FROM event_applications
-       WHERE applicant_user_id = $1 AND status = 'pending' AND application_id <> $2
+       WHERE applicant_user_id = $1
+         AND status = 'pending'
+         AND application_id <> $2
+         AND COALESCE(kind, 'event') = $3
        LIMIT 1`,
-      [req.player.userId, applicationId]
+      [req.player.userId, applicationId, v.kind]
     );
     if (otherPending.rows.length > 0) {
       return res.status(400).json({
         success: false,
-        message: '您已有一条待审核的办赛申请，请等待处理后再重新提交',
+        message: `您已有一条待审核的${venueApplyLabel(v.kind)}，请等待处理后再重新提交`,
       });
     }
 
+    const current = await pool.query(
+      `SELECT * FROM event_applications
+       WHERE application_id = $1
+         AND applicant_user_id = $2
+         AND status = 'rejected'`,
+      [applicationId, req.player.userId]
+    );
+    if (current.rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: '只能重新提交本人被拒绝的申请',
+      });
+    }
+    const existing = current.rows[0];
+    const history = appendRemark(ensureHistory(existing), {
+      role: 'applicant',
+      action: 'resubmit',
+      text: v.remark,
+    });
+    const remarkSnapshot = v.remark || existing.remark || '';
     const result = await pool.query(
       `UPDATE event_applications
        SET name = $1,
@@ -237,24 +331,29 @@ router.post('/:id/resubmit', async (req, res) => {
            reason = $2,
            planned_start_at = $4,
            planned_end_at = $5,
+           kind = $6,
+           organizer_name = $7,
+           organizer_phone = $8,
+           remark_history = $9::jsonb,
            status = 'pending',
            reviewer_user_id = NULL,
-           review_note = NULL,
            reviewed_at = NULL,
            event_id = NULL,
            updated_at = CURRENT_TIMESTAMP
-       WHERE application_id = $6
-         AND applicant_user_id = $7
+       WHERE application_id = $10
+         AND applicant_user_id = $11
          AND status = 'rejected'
-       RETURNING application_id, applicant_user_id, name, description, remark, reason,
-                 planned_start_at, planned_end_at, status, event_id,
-                 created_at, updated_at, reviewed_at, review_note`,
+       RETURNING *`,
       [
         v.name,
         v.description,
-        v.remark,
+        remarkSnapshot,
         v.planned_start_at,
         v.planned_end_at,
+        v.kind,
+        v.organizer_name,
+        v.organizer_phone,
+        JSON.stringify(history),
         applicationId,
         req.player.userId,
       ]
@@ -267,14 +366,14 @@ router.post('/:id/resubmit', async (req, res) => {
     }
     res.json({
       success: true,
-      data: result.rows[0],
+      data: withRemarkHistory(result.rows[0]),
       message: '已重新提交，请等待管理员审核',
     });
   } catch (err) {
     if (err.code === '23505') {
       return res.status(400).json({
         success: false,
-        message: '您已有一条待审核的办赛申请，请等待处理后再重新提交',
+        message: `您已有一条待审核的${venueApplyLabel(parsed?.value?.kind)}，请等待处理后再重新提交`,
       });
     }
     console.error('player event-applications resubmit:', err);

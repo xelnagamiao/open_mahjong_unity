@@ -7,10 +7,12 @@ public class HoverEventTrigger : MonoBehaviour, IPointerEnterHandler, IPointerEx
 
     [Header("UI Components")]
     [SerializeField] private Image tileImage;    // 牌面图片组件
+    [SerializeField] private Image faceBackground; // 手牌背景，悬停时与花纹一起上浮
     [SerializeField] private Button tileButton;  // 按钮组件
 
     private RectTransform imageRect;
     private RectTransform buttonRect;
+    private RectTransform backgroundRect;
     private bool isHoverLifted;
     private bool isArmedLifted;
     private bool isVisuallyLifted;
@@ -18,6 +20,9 @@ public class HoverEventTrigger : MonoBehaviour, IPointerEnterHandler, IPointerEx
     private void Awake() {
         imageRect = tileImage.GetComponent<RectTransform>();
         buttonRect = tileButton.GetComponent<RectTransform>();
+        if (faceBackground != null) {
+            backgroundRect = faceBackground.rectTransform;
+        }
     }
 
     private bool IsHoverLiftDisabled() {
@@ -67,6 +72,9 @@ public class HoverEventTrigger : MonoBehaviour, IPointerEnterHandler, IPointerEx
         Vector3 delta = Vector3.up * hoverOffset * (lift ? 1f : -1f);
         imageRect.localPosition += delta;
         buttonRect.localPosition += delta;
+        if (backgroundRect != null) {
+            backgroundRect.localPosition += delta;
+        }
         isVisuallyLifted = lift;
     }
 }

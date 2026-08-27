@@ -354,8 +354,8 @@ class GameServer:
         return await self.room_manager.create_Taiwan_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, open_cuohe, cuohe_type, detailed_config, event_id)
 
     # 获取房间列表
-    def get_room_list(self, show_tip: bool = False) -> Response:
-        return self.room_manager.get_room_list(show_tip=show_tip)
+    def get_room_list(self, show_tip: bool = False, event_id=None) -> Response:
+        return self.room_manager.get_room_list(show_tip=show_tip, event_id=event_id)
 
     async def sync_my_room(self, Connect_id: str) -> Response:
         return await self.room_manager.sync_my_room(Connect_id)

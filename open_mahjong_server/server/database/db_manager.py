@@ -60,6 +60,18 @@ class DatabaseManager:
         """将连接归还到连接池"""
         if self.pool:
             self.pool.putconn(conn)
+
+    @staticmethod
+    def _ddl_ignore(cursor, savepoint, sql, codes=("42701", "42710")):
+        """忽略已存在的列/约束/索引，避免整段 init 回滚。"""
+        cursor.execute(f"SAVEPOINT {savepoint};")
+        try:
+            cursor.execute(sql)
+        except Error as e:
+            if getattr(e, "pgcode", None) in codes:
+                cursor.execute(f"ROLLBACK TO SAVEPOINT {savepoint};")
+            else:
+                raise
     
     def init_database(self):
         conn = None
@@ -795,7 +807,7 @@ class DatabaseManager:
                     rule VARCHAR(10) NOT NULL,
                     sub_rule VARCHAR(32) NULL,
                     room_type VARCHAR(16) NULL,
-                    match_tier VARCHAR(24) NULL,
+                    match_tier VARCHAR(64) NULL,
                     event_id VARCHAR(64) NULL,
                     game_type VARCHAR(16) NULL,
                     match_type VARCHAR(24) NULL,
@@ -832,6 +844,26 @@ class DatabaseManager:
                 "WHERE room_type = 'match' AND match_tier IN "
                 "('beginner', 'intermediate', 'advanced', 'mcrpl');"
             )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_game_player_metrics_events_day "
+                "ON game_player_metrics (created_at, match_tier) "
+                "WHERE room_type = 'events';"
+            )
+            # 比赛场次级 sign 使用 event_id（最长 32/64），加宽 match_tier
+            for table, column in (
+                ("game_player_records", "match_tier"),
+                ("game_player_metrics", "match_tier"),
+                ("scene_daily_stats", "match_tier"),
+                ("scene_tier_fan_daily", "match_tier"),
+            ):
+                sp = f"sp_widen_{table}_{column}"
+                cursor.execute(f"SAVEPOINT {sp};")
+                try:
+                    cursor.execute(
+                        f"ALTER TABLE {table} ALTER COLUMN {column} TYPE VARCHAR(64)"
+                    )
+                except Error:
+                    cursor.execute(f"ROLLBACK TO SAVEPOINT {sp};")
 
             # 每日全站统计：对局数 / 日活 / 活跃用户 / 最大在线
             cursor.execute("""
@@ -893,7 +925,7 @@ class DatabaseManager:
                     id BIGSERIAL PRIMARY KEY,
                     stat_date DATE NOT NULL,
                     room_type VARCHAR(16) NULL,
-                    match_tier VARCHAR(24) NULL,
+                    match_tier VARCHAR(64) NULL,
                     event_id VARCHAR(64) NULL,
                     rule VARCHAR(10) NOT NULL,
                     game_type VARCHAR(16) NULL,
@@ -921,7 +953,7 @@ class DatabaseManager:
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS scene_tier_fan_daily (
                     stat_date DATE NOT NULL,
-                    match_tier VARCHAR(24) NOT NULL,
+                    match_tier VARCHAR(64) NOT NULL,
                     rule VARCHAR(10) NOT NULL DEFAULT 'guobiao',
                     fan_field VARCHAR(32) NOT NULL,
                     fan_count INT NOT NULL DEFAULT 0,
@@ -930,29 +962,40 @@ class DatabaseManager:
                 );
             """)
 
-            # 比赛场：赛事实体与管理员（room_type='events' + event_id）
+            # 比赛场：与 Node ensureEventsTables 对齐（events / 申请 / 公告 / 报名 / 组桌池）
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS events (
                     event_id   VARCHAR(32) PRIMARY KEY,
                     name       VARCHAR(128) NOT NULL,
+                    description TEXT NOT NULL DEFAULT '',
                     status     VARCHAR(16) NOT NULL DEFAULT 'registered',
+                    reopen_requested BOOLEAN NOT NULL DEFAULT FALSE,
                     created_by BIGINT NOT NULL,
                     closed_at  TIMESTAMP NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    CONSTRAINT events_status_chk CHECK (status IN ('registered', 'active', 'closed'))
+                    kind VARCHAR(16) NOT NULL DEFAULT 'event',
+                    entry_config JSONB NOT NULL DEFAULT '{}'::jsonb,
+                    CONSTRAINT events_status_chk CHECK (status IN ('registered', 'active', 'closed')),
+                    CONSTRAINT events_kind_chk CHECK (kind IN ('event', 'base'))
                 );
             """)
-            cursor.execute("SAVEPOINT sp_events_reopen;")
-            try:
-                cursor.execute(
-                    "ALTER TABLE events ADD COLUMN reopen_requested BOOLEAN NOT NULL DEFAULT FALSE;"
-                )
-            except Error as e:
-                if getattr(e, "pgcode", None) == "42701":
-                    cursor.execute("ROLLBACK TO SAVEPOINT sp_events_reopen;")
-                else:
-                    raise
+            self._ddl_ignore(
+                cursor, "sp_events_description",
+                "ALTER TABLE events ADD COLUMN description TEXT NOT NULL DEFAULT '';",
+            )
+            self._ddl_ignore(
+                cursor, "sp_events_reopen",
+                "ALTER TABLE events ADD COLUMN reopen_requested BOOLEAN NOT NULL DEFAULT FALSE;",
+            )
+            self._ddl_ignore(
+                cursor, "sp_events_kind",
+                "ALTER TABLE events ADD COLUMN kind VARCHAR(16) NOT NULL DEFAULT 'event';",
+            )
+            self._ddl_ignore(
+                cursor, "sp_events_entry_config",
+                "ALTER TABLE events ADD COLUMN entry_config JSONB NOT NULL DEFAULT '{}'::jsonb;",
+            )
             cursor.execute("SAVEPOINT sp_events_status_chk;")
             try:
                 cursor.execute("ALTER TABLE events DROP CONSTRAINT IF EXISTS events_status_chk;")
@@ -962,14 +1005,18 @@ class DatabaseManager:
                 )
             except Error:
                 cursor.execute("ROLLBACK TO SAVEPOINT sp_events_status_chk;")
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_events_status
-                ON events(status);
-            """)
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_events_created_at
-                ON events(created_at DESC);
-            """)
+            cursor.execute("SAVEPOINT sp_events_kind_chk;")
+            try:
+                cursor.execute("ALTER TABLE events DROP CONSTRAINT IF EXISTS events_kind_chk;")
+                cursor.execute(
+                    "ALTER TABLE events ADD CONSTRAINT events_kind_chk "
+                    "CHECK (kind IN ('event', 'base'));"
+                )
+            except Error:
+                cursor.execute("ROLLBACK TO SAVEPOINT sp_events_kind_chk;")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_events_status ON events(status);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at DESC);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_events_kind_status ON events(kind, status);")
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS event_admins (
                     event_id   VARCHAR(32) NOT NULL REFERENCES events(event_id) ON DELETE CASCADE,
@@ -981,9 +1028,128 @@ class DatabaseManager:
                     CONSTRAINT event_admins_role_chk CHECK (role IN ('owner', 'admin'))
                 );
             """)
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_event_admins_user ON event_admins(user_id);")
             cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_event_admins_user
-                ON event_admins(user_id);
+                CREATE TABLE IF NOT EXISTS event_applications (
+                    application_id     BIGSERIAL PRIMARY KEY,
+                    applicant_user_id  BIGINT NOT NULL,
+                    name               VARCHAR(128) NOT NULL,
+                    description        TEXT NOT NULL DEFAULT '',
+                    remark             TEXT NOT NULL DEFAULT '',
+                    reason             TEXT NOT NULL DEFAULT '',
+                    status             VARCHAR(16) NOT NULL DEFAULT 'pending',
+                    reviewer_user_id   BIGINT NULL,
+                    review_note        TEXT NULL,
+                    event_id           VARCHAR(32) NULL REFERENCES events(event_id) ON DELETE SET NULL,
+                    created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    reviewed_at        TIMESTAMP NULL,
+                    planned_start_at   DATE NULL,
+                    planned_end_at     DATE NULL,
+                    kind               VARCHAR(16) NOT NULL DEFAULT 'event',
+                    organizer_name     VARCHAR(64) NOT NULL DEFAULT '',
+                    organizer_phone    VARCHAR(32) NOT NULL DEFAULT '',
+                    remark_history     JSONB NOT NULL DEFAULT '[]'::jsonb,
+                    CONSTRAINT event_applications_status_chk
+                        CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled')),
+                    CONSTRAINT event_applications_kind_chk CHECK (kind IN ('event', 'base'))
+                );
+            """)
+            self._ddl_ignore(
+                cursor, "sp_event_app_kind",
+                "ALTER TABLE event_applications ADD COLUMN kind VARCHAR(16) NOT NULL DEFAULT 'event';",
+            )
+            self._ddl_ignore(
+                cursor, "sp_event_app_description",
+                "ALTER TABLE event_applications ADD COLUMN description TEXT NOT NULL DEFAULT '';",
+            )
+            self._ddl_ignore(
+                cursor, "sp_event_app_remark",
+                "ALTER TABLE event_applications ADD COLUMN remark TEXT NOT NULL DEFAULT '';",
+            )
+            self._ddl_ignore(
+                cursor, "sp_event_app_start",
+                "ALTER TABLE event_applications ADD COLUMN planned_start_at DATE NULL;",
+            )
+            self._ddl_ignore(
+                cursor, "sp_event_app_end",
+                "ALTER TABLE event_applications ADD COLUMN planned_end_at DATE NULL;",
+            )
+            self._ddl_ignore(
+                cursor, "sp_event_app_organizer_name",
+                "ALTER TABLE event_applications ADD COLUMN organizer_name VARCHAR(64) NOT NULL DEFAULT '';",
+            )
+            self._ddl_ignore(
+                cursor, "sp_event_app_organizer_phone",
+                "ALTER TABLE event_applications ADD COLUMN organizer_phone VARCHAR(32) NOT NULL DEFAULT '';",
+            )
+            self._ddl_ignore(
+                cursor, "sp_event_app_remark_history",
+                "ALTER TABLE event_applications ADD COLUMN remark_history JSONB NOT NULL DEFAULT '[]'::jsonb;",
+            )
+            cursor.execute("SAVEPOINT sp_event_app_kind_chk;")
+            try:
+                cursor.execute(
+                    "ALTER TABLE event_applications DROP CONSTRAINT IF EXISTS event_applications_kind_chk;"
+                )
+                cursor.execute(
+                    "ALTER TABLE event_applications ADD CONSTRAINT event_applications_kind_chk "
+                    "CHECK (kind IN ('event', 'base'));"
+                )
+            except Error:
+                cursor.execute("ROLLBACK TO SAVEPOINT sp_event_app_kind_chk;")
+            cursor.execute("DROP INDEX IF EXISTS idx_event_applications_one_pending;")
+            cursor.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_event_applications_one_pending_kind
+                ON event_applications(applicant_user_id, kind)
+                WHERE status = 'pending';
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS event_announcements (
+                    announcement_id BIGSERIAL PRIMARY KEY,
+                    event_id        VARCHAR(32) NOT NULL REFERENCES events(event_id) ON DELETE CASCADE,
+                    title           VARCHAR(200) NOT NULL,
+                    body            TEXT NOT NULL,
+                    created_by      BIGINT NOT NULL,
+                    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_event_announcements_event
+                ON event_announcements(event_id, created_at DESC);
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS event_registrations (
+                    event_id     VARCHAR(32) NOT NULL REFERENCES events(event_id) ON DELETE CASCADE,
+                    user_id      BIGINT NOT NULL,
+                    status       VARCHAR(16) NOT NULL DEFAULT 'pending',
+                    contact      TEXT NOT NULL DEFAULT '',
+                    remark       TEXT NOT NULL DEFAULT '',
+                    reviewed_by  BIGINT NULL,
+                    review_note  TEXT NULL,
+                    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (event_id, user_id),
+                    CONSTRAINT event_registrations_status_chk
+                        CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled'))
+                );
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_event_registrations_event_status
+                ON event_registrations(event_id, status, created_at DESC);
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS event_ready_pool (
+                    event_id  VARCHAR(32) NOT NULL REFERENCES events(event_id) ON DELETE CASCADE,
+                    user_id   BIGINT NOT NULL,
+                    ready_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (event_id, user_id)
+                );
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_event_ready_pool_event
+                ON event_ready_pool(event_id, ready_at);
             """)
 
             conn.commit() # 提交
@@ -2473,7 +2639,8 @@ class DatabaseManager:
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute(
                 """
-                SELECT event_id, name, status, created_by, closed_at, created_at, updated_at
+                SELECT event_id, name, description, status, kind, entry_config,
+                       created_by, closed_at, created_at, updated_at
                 FROM events WHERE event_id = %s
                 """,
                 (event_id,),
@@ -2485,6 +2652,51 @@ class DatabaseManager:
             if conn:
                 conn.rollback()
             return None
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def get_event_schedule(self, event_id: str) -> Dict[str, str]:
+        """取已批准办赛申请上的拟定起止日；没有则空字符串。"""
+        empty = {"planned_start_at": "", "planned_end_at": ""}
+        if not event_id:
+            return empty
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                """
+                SELECT planned_start_at, planned_end_at
+                FROM event_applications
+                WHERE event_id = %s AND status = 'approved'
+                ORDER BY reviewed_at DESC NULLS LAST, application_id DESC
+                LIMIT 1
+                """,
+                (event_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return empty
+
+            def _day(value):
+                if value is None:
+                    return ""
+                if hasattr(value, "isoformat"):
+                    return value.isoformat()[:10]
+                text = str(value).strip()
+                return text[:10] if text and text.lower() != "none" else ""
+
+            return {
+                "planned_start_at": _day(row.get("planned_start_at")),
+                "planned_end_at": _day(row.get("planned_end_at")),
+            }
+        except Error as e:
+            logger.error(f'get_event_schedule 失败: {e}')
+            if conn:
+                conn.rollback()
+            return empty
         finally:
             if conn:
                 cursor.close()
@@ -2517,9 +2729,68 @@ class DatabaseManager:
                 cursor.close()
                 self._put_connection(conn)
 
-    def list_user_active_events(self, user_id: int) -> List[Dict[str, Any]]:
-        """列出用户可管理且 status=active 的赛事。"""
-        if not user_id:
+    @staticmethod
+    def parse_entry_config(raw) -> Dict[str, Any]:
+        if isinstance(raw, dict):
+            return raw
+        if not raw:
+            return {}
+        if isinstance(raw, str):
+            try:
+                parsed = json.loads(raw)
+                return parsed if isinstance(parsed, dict) else {}
+            except (TypeError, ValueError):
+                return {}
+        return {}
+
+    def list_public_active_venues(self, kind: Optional[str] = None) -> List[Dict[str, Any]]:
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            if kind in ("event", "base"):
+                cursor.execute(
+                    """
+                    SELECT event_id, name, description, status, kind, entry_config, created_at
+                    FROM events
+                    WHERE status IN ('active', 'registered')
+                      AND CASE WHEN COALESCE(kind, 'event') = 'base' THEN 'base' ELSE 'event' END = %s
+                    ORDER BY CASE status WHEN 'active' THEN 0 ELSE 1 END, created_at DESC
+                    """,
+                    (kind,),
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT event_id, name, description, status, kind, entry_config, created_at
+                    FROM events
+                    WHERE status IN ('active', 'registered')
+                    ORDER BY CASE status WHEN 'active' THEN 0 ELSE 1 END, kind ASC, created_at DESC
+                    """
+                )
+            rows = []
+            for row in cursor.fetchall():
+                item = dict(row)
+                item["entry_config"] = self.parse_entry_config(item.get("entry_config"))
+                created = item.get("created_at")
+                if created is not None:
+                    item["created_at"] = created.isoformat() if hasattr(created, "isoformat") else str(created)
+                desc = item.get("description") or ""
+                item["description"] = desc[:180]
+                rows.append(item)
+            return rows
+        except Error as e:
+            logger.error(f'list_public_active_venues 失败: {e}')
+            if conn:
+                conn.rollback()
+            return []
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def list_event_announcements(self, event_id: str, limit: int = 20) -> List[Dict[str, Any]]:
+        if not event_id:
             return []
         conn = None
         try:
@@ -2527,17 +2798,410 @@ class DatabaseManager:
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute(
                 """
-                SELECT e.event_id, e.name, e.status, ea.role
-                FROM event_admins ea
-                INNER JOIN events e ON e.event_id = ea.event_id
-                WHERE ea.user_id = %s AND e.status = 'active'
-                ORDER BY e.created_at DESC
+                SELECT announcement_id, event_id, title, body, created_by, created_at
+                FROM event_announcements
+                WHERE event_id = %s
+                ORDER BY created_at DESC
+                LIMIT %s
                 """,
-                (user_id,),
+                (event_id, max(1, min(50, int(limit)))),
             )
             return [dict(row) for row in cursor.fetchall()]
         except Error as e:
-            logger.error(f'list_user_active_events 失败: {e}')
+            logger.error(f'list_event_announcements 失败: {e}')
+            if conn:
+                conn.rollback()
+            return []
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def get_event_registration(self, event_id: str, user_id: int) -> Optional[Dict[str, Any]]:
+        if not event_id or not user_id:
+            return None
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                """
+                SELECT event_id, user_id, status, contact, remark, review_note, created_at, updated_at
+                FROM event_registrations
+                WHERE event_id = %s AND user_id = %s
+                """,
+                (event_id, user_id),
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+        except Error as e:
+            logger.error(f'get_event_registration 失败: {e}')
+            if conn:
+                conn.rollback()
+            return None
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def upsert_event_registration(
+        self, event_id: str, user_id: int, contact: str, remark: str, status: str
+    ) -> Optional[Dict[str, Any]]:
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                """
+                INSERT INTO event_registrations (event_id, user_id, status, contact, remark, updated_at)
+                VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                ON CONFLICT (event_id, user_id) DO UPDATE SET
+                    status = EXCLUDED.status,
+                    contact = EXCLUDED.contact,
+                    remark = EXCLUDED.remark,
+                    review_note = NULL,
+                    reviewed_by = NULL,
+                    updated_at = CURRENT_TIMESTAMP
+                RETURNING event_id, user_id, status, contact, remark, review_note, created_at, updated_at
+                """,
+                (event_id, user_id, status, contact or "", remark or ""),
+            )
+            row = cursor.fetchone()
+            conn.commit()
+            return dict(row) if row else None
+        except Error as e:
+            logger.error(f'upsert_event_registration 失败: {e}')
+            if conn:
+                conn.rollback()
+            return None
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def cancel_event_registration(self, event_id: str, user_id: int) -> bool:
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE event_registrations
+                   SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
+                 WHERE event_id = %s AND user_id = %s
+                   AND status IN ('pending', 'approved')
+                """,
+                (event_id, user_id),
+            )
+            cursor.execute(
+                "DELETE FROM event_ready_pool WHERE event_id = %s AND user_id = %s",
+                (event_id, user_id),
+            )
+            conn.commit()
+            return cursor.rowcount >= 0
+        except Error as e:
+            logger.error(f'cancel_event_registration 失败: {e}')
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def review_event_registration(
+        self, event_id: str, user_id: int, status: str, reviewer_id: int, review_note: str = ""
+    ) -> Optional[Dict[str, Any]]:
+        if status not in ("approved", "rejected"):
+            return None
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                """
+                UPDATE event_registrations
+                   SET status = %s,
+                       reviewed_by = %s,
+                       review_note = %s,
+                       updated_at = CURRENT_TIMESTAMP
+                 WHERE event_id = %s AND user_id = %s AND status = 'pending'
+                RETURNING event_id, user_id, status, contact, remark, review_note, created_at, updated_at
+                """,
+                (status, reviewer_id, review_note or "", event_id, user_id),
+            )
+            row = cursor.fetchone()
+            if status == "rejected":
+                cursor.execute(
+                    "DELETE FROM event_ready_pool WHERE event_id = %s AND user_id = %s",
+                    (event_id, user_id),
+                )
+            conn.commit()
+            return dict(row) if row else None
+        except Error as e:
+            logger.error(f'review_event_registration 失败: {e}')
+            if conn:
+                conn.rollback()
+            return None
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def list_event_registrations(self, event_id: str, status: Optional[str] = None) -> List[Dict[str, Any]]:
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            if status:
+                cursor.execute(
+                    """
+                    SELECT r.event_id, r.user_id, r.status, r.contact, r.remark, r.review_note,
+                           r.created_at, r.updated_at, u.username,
+                           COALESCE(rd.guobiao_rank, '') AS guobiao_rank
+                    FROM event_registrations r
+                    LEFT JOIN users u ON u.user_id = r.user_id
+                    LEFT JOIN rank_data rd ON rd.user_id = r.user_id
+                    WHERE r.event_id = %s AND r.status = %s
+                    ORDER BY r.created_at DESC
+                    """,
+                    (event_id, status),
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT r.event_id, r.user_id, r.status, r.contact, r.remark, r.review_note,
+                           r.created_at, r.updated_at, u.username,
+                           COALESCE(rd.guobiao_rank, '') AS guobiao_rank
+                    FROM event_registrations r
+                    LEFT JOIN users u ON u.user_id = r.user_id
+                    LEFT JOIN rank_data rd ON rd.user_id = r.user_id
+                    WHERE r.event_id = %s
+                    ORDER BY r.created_at DESC
+                    """,
+                    (event_id,),
+                )
+            return [dict(row) for row in cursor.fetchall()]
+        except Error as e:
+            logger.error(f'list_event_registrations 失败: {e}')
+            if conn:
+                conn.rollback()
+            return []
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def count_event_ready_players(self, event_id: str) -> int:
+        if not event_id:
+            return 0
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT COUNT(*) FROM event_ready_pool WHERE event_id = %s",
+                (event_id,),
+            )
+            row = cursor.fetchone()
+            return int(row[0]) if row else 0
+        except Error as e:
+            logger.error(f'count_event_ready_players 失败: {e}')
+            if conn:
+                conn.rollback()
+            return 0
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def is_user_event_ready(self, event_id: str, user_id: int) -> bool:
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT 1 FROM event_ready_pool WHERE event_id = %s AND user_id = %s",
+                (event_id, user_id),
+            )
+            return cursor.fetchone() is not None
+        except Error as e:
+            logger.error(f'is_user_event_ready 失败: {e}')
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def set_event_ready(self, event_id: str, user_id: int, ready: bool) -> bool:
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            if ready:
+                cursor.execute(
+                    """
+                    INSERT INTO event_ready_pool (event_id, user_id, ready_at)
+                    VALUES (%s, %s, CURRENT_TIMESTAMP)
+                    ON CONFLICT (event_id, user_id) DO UPDATE SET ready_at = CURRENT_TIMESTAMP
+                    """,
+                    (event_id, user_id),
+                )
+            else:
+                cursor.execute(
+                    "DELETE FROM event_ready_pool WHERE event_id = %s AND user_id = %s",
+                    (event_id, user_id),
+                )
+            conn.commit()
+            return True
+        except Error as e:
+            logger.error(f'set_event_ready 失败: {e}')
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def list_event_ready_players(self, event_id: str) -> List[Dict[str, Any]]:
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                """
+                SELECT p.event_id, p.user_id, p.ready_at, u.username
+                FROM event_ready_pool p
+                LEFT JOIN users u ON u.user_id = p.user_id
+                WHERE p.event_id = %s
+                ORDER BY p.ready_at ASC
+                """,
+                (event_id,),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+        except Error as e:
+            logger.error(f'list_event_ready_players 失败: {e}')
+            if conn:
+                conn.rollback()
+            return []
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def clear_event_ready_players(self, event_id: str, user_ids: List[int]) -> None:
+        if not event_id or not user_ids:
+            return
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "DELETE FROM event_ready_pool WHERE event_id = %s AND user_id = ANY(%s)",
+                (event_id, user_ids),
+            )
+            conn.commit()
+        except Error as e:
+            logger.error(f'clear_event_ready_players 失败: {e}')
+            if conn:
+                conn.rollback()
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def update_event_entry_config(self, event_id: str, entry_config: Dict[str, Any]) -> bool:
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE events
+                   SET entry_config = %s::jsonb, updated_at = CURRENT_TIMESTAMP
+                 WHERE event_id = %s
+                """,
+                (json.dumps(entry_config or {}), event_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        except Error as e:
+            logger.error(f'update_event_entry_config 失败: {e}')
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def list_event_records(self, event_id: str, limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
+        if not event_id:
+            return []
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                """
+                SELECT DISTINCT gpr.game_id, gr.created_at
+                FROM game_player_records gpr
+                INNER JOIN game_records gr ON gpr.game_id = gr.game_id
+                WHERE gpr.event_id = %s
+                ORDER BY gr.created_at DESC, gpr.game_id DESC
+                LIMIT %s OFFSET %s
+                """,
+                (event_id, max(1, min(50, int(limit))), max(0, int(offset))),
+            )
+            id_rows = cursor.fetchall()
+            if not id_rows:
+                return []
+            game_ids = [row["game_id"] for row in id_rows]
+            placeholders = ",".join(["%s"] * len(game_ids))
+            cursor.execute(
+                f"""
+                SELECT gpr.game_id, gpr.user_id, gpr.username, gpr.score, gpr.rank,
+                       gpr.original_player_index, gpr.rule, gpr.sub_rule, gpr.match_type,
+                       gpr.room_type, gr.created_at
+                FROM game_player_records gpr
+                INNER JOIN game_records gr ON gpr.game_id = gr.game_id
+                WHERE gpr.game_id IN ({placeholders})
+                ORDER BY gpr.rank, gpr.original_player_index NULLS LAST, gpr.score DESC
+                """,
+                game_ids,
+            )
+            games_dict = {}
+            for row in cursor.fetchall():
+                game_id = row["game_id"]
+                if game_id not in games_dict:
+                    games_dict[game_id] = {
+                        "game_id": game_id,
+                        "created_at": str(row["created_at"]),
+                        "rule": row["rule"],
+                        "sub_rule": row.get("sub_rule"),
+                        "match_type": row.get("match_type"),
+                        "room_type": row.get("room_type"),
+                        "players": [],
+                    }
+                games_dict[game_id]["players"].append(
+                    {
+                        "user_id": row["user_id"],
+                        "username": row["username"],
+                        "score": row["score"],
+                        "rank": row["rank"],
+                        "original_player_index": row.get("original_player_index"),
+                    }
+                )
+            ordered = []
+            for game_id in game_ids:
+                if game_id in games_dict:
+                    ordered.append(games_dict[game_id])
+            return ordered
+        except Error as e:
+            logger.error(f'list_event_records 失败: {e}')
             if conn:
                 conn.rollback()
             return []

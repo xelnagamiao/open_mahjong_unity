@@ -7,9 +7,13 @@
   真人固定 seat0（自家），首家出牌者固定为上家 seat3。
 - tactical_all_claims — 玩家1(seat0)首打 AX1；玩家2/3/4 都同时可以吃、碰、和，
   仅固定牌组与候选，所有真人操作均由对应客户端手动提交。
+- ones_nines — 自家庄：起手多为 1 + GX9；下家 GY 顺；对家 AX 顺；上家多为 9。
+  不强制首打，牌山剔除已发牌张以免重复。
 """
 
 from __future__ import annotations
+
+from .tile import full_deck
 
 # 切换调试场景：改此常量即可
 HONGQUE_DEBUG_SCENARIO = "tactical_all_claims"
@@ -17,18 +21,21 @@ HONGQUE_DEBUG_SCENARIO = "tactical_all_claims"
 DEBUG_SCENARIOS = (
     "double_ron",
     "tactical_all_claims",
+    "ones_nines",
 )
 
 # 真人固定座位（自家）；未列出的场景不旋转（保持进房顺序）
 DEBUG_SELF_PLAYER_INDEX_BY_SCENARIO = {
     "double_ron": 0,
     "tactical_all_claims": 0,
+    "ones_nines": 0,
 }
 
-# 场景庄家（首家出牌者）：上家 seat3
+# 场景庄家（首家出牌者）
 DEBUG_DEALER_INDEX_BY_SCENARIO = {
     "double_ron": 3,
     "tactical_all_claims": 0,
+    "ones_nines": 0,
 }
 
 # 两家和牌场景：上家首打 AX1，自家/下家都听 AX1
@@ -78,6 +85,10 @@ def apply_hongque_debug_hands(game_state) -> None:
         _fix_opening_draw_event(game_state)
     elif scenario == "tactical_all_claims":
         _apply_tactical_all_claims(game_state.players)
+        _fix_opening_draw_event(game_state)
+    elif scenario == "ones_nines":
+        _apply_ones_nines(game_state.players)
+        _rebuild_wall_excluding_hands(game_state)
         _fix_opening_draw_event(game_state)
 
 
@@ -155,3 +166,32 @@ def _apply_tactical_all_claims(players) -> None:
         "BX2", "CX3", "FX1", "GX1", "EX1",
         "FY4", "FY5", "FY6", "GY7", "GY8", "GY9",
     ]
+
+
+def _apply_ones_nines(players) -> None:
+    """自家(0)庄：12 张多为 1；下家 GY 顺；对家 AX 顺；上家多为 9。"""
+    players[0].hand = [
+        "AY1", "BX1", "BY1", "CX1", "CY1", "DX1",
+        "DY1", "EX1", "EY1", "FX1", "FY1", "GX9",
+    ]
+    players[0].drawn_tile = "GX9"
+    players[1].hand = [
+        "GX1", "GX5",
+        "GY1", "GY2", "GY3", "GY4", "GY5", "GY6", "GY7", "GY8", "GY9",
+    ]
+    players[2].hand = [
+        "AX1", "AX2", "AX3", "AX4", "AX5", "AX6", "AX7", "AX8", "AX9",
+        "GX7", "GX8",
+    ]
+    players[3].hand = [
+        "AY9", "BX9", "BY9", "CX9", "CY9", "DX9",
+        "DY9", "EX9", "EY9", "FX9", "FY9",
+    ]
+
+
+def _rebuild_wall_excluding_hands(game_state) -> None:
+    """覆盖手牌后重建牌山，去掉已在手中的牌，避免后续摸到重复张。"""
+    used = {tile for player in game_state.players for tile in player.hand}
+    wall = [tile for tile in full_deck() if tile not in used]
+    game_state._rng.shuffle(wall)
+    game_state.wall = wall

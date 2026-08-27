@@ -1,0 +1,63 @@
+{
+  "slug": "jingjin",
+  "label": "京津混儿（北京 / 天津）",
+  "aliases": ["京麻", "津麻", "混儿", "北京推倒和"],
+  "collected_at": "2026-08-14",
+  "notes": "京津都用混儿，姐妹，不是一种规则。北京也叫推倒和，不是深莞推倒胡，也不是 MIL《推倒和》。不要挂到红中下面。无协会本。",
+  "sources": [
+    {
+      "id": "wiki-zh-beijing",
+      "url": "https://zh.wikipedia.org/wiki/北京麻将",
+      "title": "维基百科 · 北京麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "1990 年代以后逐渐形成的北京地域规则。也叫推倒和、吃碰提。有一张混儿。旧摸法倒数第 7 墩上张；后来改圈内第一张为混坯，上滚常见。无混儿和牌称素。打出混儿为相公。三张混儿只能自摸。混儿不能拿去吃碰。不是深莞推倒胡，也不是 MIL 推倒和。",
+      "rules": ["beijing"],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "baike-beijing",
+      "url": "https://baike.baidu.com/item/北京麻将/2093558",
+      "title": "百度百科 · 北京麻将",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "可随意吃碰；又写吃碰提：吃碰过后只能自摸。与维基冲突，并列。烧庄：庄家第一张后三家跟打同张则庄家赔。捉五魁（只和五万）。荒牌留 7 墩。起源明朝不采信。C 级。",
+      "rules": ["beijing"],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "wiki-zh-tianjin",
+      "url": "https://zh.wikipedia.org/wiki/天津麻將",
+      "title": "维基百科 · 天津麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "许碰、不许吃、没有放炮；中下滚混儿。常见和型包括混儿吊、捉伍儿、龙。与北京麻将都用混儿，但不是一种规则。快照在 regional-rules。",
+      "rules": ["tianjin"],
+      "source_level": "secondary",
+      "reliability": "medium",
+      "local_kind": "snapshot",
+      "local_path": "regional-rules/snapshots/wiki-zh-tianjin.html",
+      "local_status": "ok"
+    },
+    {
+      "id": "tjmj-sourceforge",
+      "url": "https://tjmj.sourceforge.net/rules.html",
+      "title": "天津麻将规则（tjmj.sourceforge.net）",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "行牌没有吃，只有碰和杠；没有炮和（包括抢杠和），只能自摸和（包括杠开）。中下滚混儿。混儿吊、捉伍儿、龙。快照在 regional-rules。",
+      "rules": ["tianjin"],
+      "source_level": "community",
+      "reliability": "medium",
+      "local_kind": "snapshot",
+      "local_path": "regional-rules/snapshots/tjmj-sourceforge.html",
+      "local_status": "ok"
+    }
+  ]
+}

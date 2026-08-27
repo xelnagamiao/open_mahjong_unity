@@ -22,10 +22,15 @@ async def handle_match_message(game_server, connect_id: str, message: dict, webs
 
     elif message_type == "match/get_queue_status":
         status = game_server.match_manager.get_queue_status()
+        player = game_server.players.get(connect_id)
+        user_id = getattr(player, "user_id", None) if player else None
+        my_queue, match_committed = game_server.match_manager.get_my_match_state(user_id)
         response = Response(
             type="match/queue_status",
             success=True,
             message="队列状态",
+            my_queue=my_queue,
+            match_committed=match_committed,
         )
         response_dict = response.dict(exclude_none=True)
         response_dict["queue_status"] = status

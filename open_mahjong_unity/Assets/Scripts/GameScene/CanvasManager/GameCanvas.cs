@@ -16,6 +16,11 @@ public partial class GameCanvas : MonoBehaviour {
     [SerializeField] private GamePlayerPanel playerTopPanel;     // 上边玩家面板
     [SerializeField] private GamePlayerPanel playerRightPanel;   // 右边玩家面板
 
+    public GamePlayerPanel PlayerSelfPanel => playerSelfPanel;
+    public GamePlayerPanel PlayerLeftPanel => playerLeftPanel;
+    public GamePlayerPanel PlayerTopPanel => playerTopPanel;
+    public GamePlayerPanel PlayerRightPanel => playerRightPanel;
+
     [Header("操作界面")]
     [SerializeField] private Transform handCardsContainer; // 手牌容器（显示手牌 水平布局组）
     [SerializeField] private HandCardDragController handCardDragController;
@@ -169,6 +174,7 @@ public partial class GameCanvas : MonoBehaviour {
         ClearActionDisplay();
         HideStickerPanel();
         ClearAllStickers();
+        HideAllPlayerActionMenus();
         HideDingqueSelection();
         SetScoreRecordOpen(false);
         if (langyongWaveIndicator != null) langyongWaveIndicator.SetActive(false);
@@ -186,6 +192,7 @@ public partial class GameCanvas : MonoBehaviour {
         SetActionButtonContainerVisible(true);
         HideStickerPanel();
         ClearAllStickers();
+        HideAllPlayerActionMenus();
         SetStickerUiForRecordMode(false);
         HideDingqueSelection();
         // 新一局开始先清空各家定缺标记，待服务端定缺同步后再显示
@@ -250,6 +257,7 @@ public partial class GameCanvas : MonoBehaviour {
         SetActionButtonContainerVisible(true);
         HideStickerPanel();
         ClearAllStickers();
+        HideAllPlayerActionMenus();
         SetStickerUiForRecordMode(true);
         HideDingqueSelection();
         playerSelfPanel?.SetDingque(0);

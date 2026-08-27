@@ -21,9 +21,8 @@ public partial class Game3DManager : MonoBehaviour
     /// <summary>随机生成整桌：每家副露 + 手牌合计 13 张，另有随机牌河。</summary>
     public void GenerateRandomTable()
     {
-        // 对局/观战进行中（含回主菜单挂后台）禁止清空牌桌生成随机桌面，
-        // 否则会破坏正在运行的对局 3D 表现。
-        if (GameSessionGuard.BlockIfExclusiveSession("生成随机桌面")) return;
+        // 对局/观战/牌谱阅览进行中（含回主菜单挂后台）禁止清空牌桌生成随机桌面。
+        if (GameSessionGuard.BlockIfRandomTableBlocked("生成随机桌面")) return;
         if (MahjongObjectPool.Instance == null)
         {
             Debug.LogWarning("GenerateRandomTable: MahjongObjectPool 不存在");

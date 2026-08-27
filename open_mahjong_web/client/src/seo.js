@@ -35,7 +35,7 @@ export const SEO_PAGES = [
   {
     path: '/library',
     title: '麻雀图书馆：麻将规则书、牌例与资料归档 - Salasasa',
-    description: '开放收录的麻将规则与资料馆：平台支持规则、MIL 竞赛规则、地方麻将、自制规则，附讨论区。',
+    description: '开放收录的麻将规则与资料馆：麻将谱系、可对局规则、MIL 竞赛规则、地方与自制规则，附讨论区。',
     keywords: '麻雀图书馆,麻将规则资料,麻将规则书,麻将牌例',
   },
   {
@@ -43,6 +43,18 @@ export const SEO_PAGES = [
     title: '麻将规则书与牌例 - Salasasa 麻雀图书馆',
     description: '查阅各麻将规则的规则书 PDF、牌例与讨论，可在线阅读或下载。',
     keywords: '麻将规则书,麻将规则,麻将牌例,麻将资料',
+  },
+  {
+    path: '/library/lineage',
+    title: '麻将年代表 - Salasasa 麻雀图书馆',
+    description: '麻将年代表：纸牌、牌九接到宁波麻将再分化。',
+    keywords: '麻将谱系,麻将分类,麻将年代表,国标麻将,四川麻将,东北麻将',
+  },
+  {
+    path: '/library/lineage/related',
+    title: '麻将关系表 - Salasasa 麻雀图书馆',
+    description: '麻将关系表：按后起改动把相近打法放在一起。',
+    keywords: '麻将谱系,麻将分类,麻将关系表,国标麻将,四川麻将,东北麻将',
   },
   {
     path: '/rule-research',
@@ -181,6 +193,8 @@ export const PRERENDER_PATHS = [
   '/',
   '/rulebook',
   '/library',
+  '/library/lineage',
+  '/library/lineage/related',
   ...LIBRARY_RULE_PATHS.map((rule) => `/library/${rule}`),
   '/rule-research',
   '/calc/chinese',

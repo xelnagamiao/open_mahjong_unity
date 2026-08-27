@@ -12,10 +12,7 @@ from psycopg2 import Error
 
 from .guobiao.record_analyzer import analyze_record_for_player
 from .guobiao.round_score_utils import sum_player_round_score
-from .scene_stats import derive_game_type
-from .daily_aggregator import MATCH_TIERS
-
-MATCH_TIER_SET = set(MATCH_TIERS)
+from .scene_stats import derive_game_type, normalize_scene_fields, should_record_scene_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +59,7 @@ def _resolve_scene_fields(
                 match_tier = "beginner" if tips.lower() in ("true", "1", "yes") else "intermediate"
             else:
                 match_tier = "beginner" if tips else "intermediate"
-    return room_type, match_tier, event_id
+    return normalize_scene_fields(room_type, match_tier, event_id)
 
 
 def _count_rounds(record: Dict[str, Any]) -> int:
@@ -159,6 +156,38 @@ def _get_ai_game_ids(cursor) -> Set[str]:
     return {r[0] for r in cursor.fetchall()}
 
 
+def fill_event_match_tier_on_records(db_manager) -> int:
+    """比赛场次级 sign 填 event_id（原先留空）。"""
+    conn = None
+    try:
+        conn = db_manager._get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE game_player_records
+               SET match_tier = event_id
+             WHERE room_type = 'events'
+               AND event_id IS NOT NULL
+               AND btrim(event_id) <> ''
+               AND (match_tier IS NULL OR btrim(match_tier) = '' OR match_tier <> event_id)
+            """
+        )
+        updated = cursor.rowcount or 0
+        conn.commit()
+        if updated:
+            logger.info("已将 %d 行比赛场 game_player_records.match_tier 填为 event_id", updated)
+        return updated
+    except Error as e:
+        logger.error("填充比赛场 match_tier 失败: %s", e, exc_info=True)
+        if conn:
+            conn.rollback()
+        raise
+    finally:
+        if conn:
+            cursor.close()
+            db_manager._put_connection(conn)
+
+
 def backfill_missing_game_player_metrics(
     db_manager,
     date_from: Optional[date] = None,
@@ -211,7 +240,7 @@ def backfill_missing_game_player_metrics(
             room_type, match_tier, event_id = _resolve_scene_fields(
                 record, room_type, match_tier, event_id,
             )
-            if room_type != "match" or match_tier not in MATCH_TIER_SET:
+            if not should_record_scene_metrics(room_type, match_tier, event_id):
                 continue
             try:
                 orig_idx = int(opi) if opi is not None else None

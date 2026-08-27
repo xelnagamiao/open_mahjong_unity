@@ -37,42 +37,15 @@ public class Desktop : MonoBehaviour {
 
         // 从ConfigManager获取桌布设置
         Texture2D tableclothTexture = null;
-
-        var (clothPath, clothIsCustom) = ConfigManager.Instance.GetSelectedTableCloth();
+        string clothPath = "";
+        bool clothIsCustom = false;
+        if (ConfigManager.Instance != null) {
+            (clothPath, clothIsCustom) = ConfigManager.Instance.GetSelectedTableCloth();
+        }
 
         if (!string.IsNullOrEmpty(clothPath)) {
             if (clothIsCustom) {
-                // 加载自定义桌布
-#if UNITY_WEBGL && !UNITY_EDITOR
-                // WebGL平台：从PlayerPrefs加载
-                if (PlayerPrefs.HasKey(clothPath)) {
-                    string data = PlayerPrefs.GetString(clothPath);
-                    string[] parts = data.Split('|');
-                    if (parts.Length >= 1) {
-                        try {
-                            byte[] fileData = System.Convert.FromBase64String(parts[0]);
-                            tableclothTexture = new Texture2D(2, 2);
-                            if (UnityEngine.ImageConversion.LoadImage(tableclothTexture, fileData)) {
-                                // 成功加载
-                            } else {
-                                Destroy(tableclothTexture);
-                                tableclothTexture = null;
-                            }
-                        } catch (System.Exception e) {
-                            Debug.LogError($"加载WebGL桌布失败: {e.Message}");
-                            if (tableclothTexture != null) {
-                                Destroy(tableclothTexture);
-                                tableclothTexture = null;
-                            }
-                        }
-                    }
-                }
-#else
-                // 其他平台：从文件系统加载
-                if (File.Exists(clothPath)) {
-                    tableclothTexture = LoadTextureFromFile(clothPath);
-                }
-#endif
+                tableclothTexture = LoadCustomTexture(clothPath);
             } else {
                 // 加载内置桌布（从Resources文件夹加载）
                 string resourcePath = "image/Board/TableCloth/" + clothPath;
@@ -107,42 +80,15 @@ public class Desktop : MonoBehaviour {
 
         // 从ConfigManager获取桌边设置
         Texture2D edgeTexture = null;
-
-        var (edgePath, edgeIsCustom) = ConfigManager.Instance.GetSelectedTableEdge();
+        string edgePath = "";
+        bool edgeIsCustom = false;
+        if (ConfigManager.Instance != null) {
+            (edgePath, edgeIsCustom) = ConfigManager.Instance.GetSelectedTableEdge();
+        }
 
         if (!string.IsNullOrEmpty(edgePath)) {
             if (edgeIsCustom) {
-                // 加载自定义桌边
-#if UNITY_WEBGL && !UNITY_EDITOR
-                // WebGL平台：从PlayerPrefs加载
-                if (PlayerPrefs.HasKey(edgePath)) {
-                    string data = PlayerPrefs.GetString(edgePath);
-                    string[] parts = data.Split('|');
-                    if (parts.Length >= 1) {
-                        try {
-                            byte[] fileData = System.Convert.FromBase64String(parts[0]);
-                            edgeTexture = new Texture2D(2, 2);
-                            if (UnityEngine.ImageConversion.LoadImage(edgeTexture, fileData)) {
-                                // 成功加载
-                            } else {
-                                Destroy(edgeTexture);
-                                edgeTexture = null;
-                            }
-                        } catch (System.Exception e) {
-                            Debug.LogError($"加载WebGL桌边失败: {e.Message}");
-                            if (edgeTexture != null) {
-                                Destroy(edgeTexture);
-                                edgeTexture = null;
-                            }
-                        }
-                    }
-                }
-#else
-                // 其他平台：从文件系统加载
-                if (File.Exists(edgePath)) {
-                    edgeTexture = LoadTextureFromFile(edgePath);
-                }
-#endif
+                edgeTexture = LoadCustomTexture(edgePath);
             } else {
                 // 加载内置桌边（从Resources文件夹加载）
                 string resourcePath = "image/Board/Edge/" + edgePath;
@@ -160,8 +106,19 @@ public class Desktop : MonoBehaviour {
         }
     }
 
+    private static Texture2D LoadCustomTexture(string path) {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        return UnityAssetIdb.LoadTexture(path);
+#else
+        if (File.Exists(path)) {
+            return LoadTextureFromFile(path);
+        }
+        return null;
+#endif
+    }
+
     // 从文件路径加载纹理
-    private Texture2D LoadTextureFromFile(string filePath){
+    private static Texture2D LoadTextureFromFile(string filePath){
         try{
             byte[] fileData = File.ReadAllBytes(filePath);
             Texture2D texture = new Texture2D(2, 2);

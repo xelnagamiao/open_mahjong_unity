@@ -141,7 +141,7 @@
           :value="appearance.flowerFaceTheme"
           @change="$emit('flower-face-theme', $event.target.value)"
         >
-          <option value="unity">Unity 样式</option>
+          <option value="unity">图像样式</option>
           <option value="flat">平面文字样式</option>
         </select>
       </label>

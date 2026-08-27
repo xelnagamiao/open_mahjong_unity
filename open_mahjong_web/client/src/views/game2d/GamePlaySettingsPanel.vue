@@ -33,6 +33,19 @@
     <button
       type="button"
       class="assist-switch assist-switch--row"
+      :class="{ 'is-on': appearance.forcePassEnabled }"
+      :aria-pressed="appearance.forcePassEnabled"
+      @click="$emit('force-pass', !appearance.forcePassEnabled)"
+    >
+      <span class="assist-switch__label">显示放弃按钮</span>
+      <span class="assist-switch__track" aria-hidden="true">
+        <span class="assist-switch__thumb" />
+      </span>
+    </button>
+
+    <button
+      type="button"
+      class="assist-switch assist-switch--row"
       :class="{ 'is-on': settings.autoFlowerOnMatchStart }"
       :aria-pressed="settings.autoFlowerOnMatchStart"
       @click="$emit('assist-update', { autoFlowerOnMatchStart: !settings.autoFlowerOnMatchStart })"
@@ -51,7 +64,9 @@
       @click="$emit('assist-update', { confirmDiscard: !settings.confirmDiscard })"
     >
       <span class="assist-switch__label">二次点击确认出牌</span>
-      <span class="assist-switch__value">{{ settings.confirmDiscard ? '是' : '否' }}</span>
+      <span class="assist-switch__track" aria-hidden="true">
+        <span class="assist-switch__thumb" />
+      </span>
     </button>
   </div>
 </template>
@@ -62,5 +77,5 @@ defineProps({
   settings: { type: Object, required: true },
 })
 
-defineEmits(['moqie-shortcut', 'pass-shortcut', 'assist-update'])
+defineEmits(['moqie-shortcut', 'pass-shortcut', 'force-pass', 'assist-update'])
 </script>

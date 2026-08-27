@@ -348,7 +348,7 @@ public partial class GameRecordManager {
         if (IsSpectatorSession && CurrentMode == RecordManagerMode.Spectator) {
             SwitchToRecordMode();
         }
-        GotoAction(currentNode - 1);
+        GotoAction(FindPreviousUserStepNode(currentNode));
         if (IsSpectatorSession) RefreshSpectatorModeByNodePosition();
     }
 

@@ -8,9 +8,11 @@ const {
   querySceneDailyGames,
   queryHomeHierarchyStats,
   queryRecentLadderRecords,
+  listPlatformEvents,
 } = require('../services/platformStats');
 const { getPublicQueueStatus } = require('../services/matchQueueStatus');
 const { getPublicGameRecord, getPublicUnityGameRecord } = require('../services/publicGameRecord');
+const activityStore = require('../services/activityStore');
 
 function defaultDateRange(asOfDate, days = 30) {
   const to = asOfDate ? new Date(`${asOfDate}T12:00:00`) : new Date();
@@ -24,6 +26,17 @@ function defaultDateRange(asOfDate, days = 30) {
   };
   return { date_from: fmt(from), date_to: fmt(to) };
 }
+
+/** 通知页活动列表：每次从目录现读，避免静态 index.json 被缓存成空列表。 */
+router.get('/activities', (_req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    return res.json({ success: true, data: activityStore.getPublicIndex() });
+  } catch (error) {
+    console.error('platform activities error:', error);
+    return res.status(500).json({ success: false, message: '活动列表读取失败' });
+  }
+});
 
 /** 2D 大厅公开只读匹配人数；加入队列等操作仍必须登录游戏服。 */
 router.get('/queue-status', async (_req, res) => {
@@ -50,10 +63,12 @@ router.get('/stats', async (req, res) => {
     }
     if (asOfDate && dateTo > asOfDate) dateTo = asOfDate;
 
-    const [totals, fans, daily] = await Promise.all([
-      querySceneTotals({ asOfDate }),
-      querySceneTotalsFans({ asOfDate }),
-      querySceneDailyGames({ dateFrom, dateTo, asOfDate }),
+    const eventId = typeof req.query.event_id === 'string' ? req.query.event_id.trim() : '';
+    const [totals, fans, daily, events] = await Promise.all([
+      querySceneTotals({ asOfDate, eventId: eventId || null }),
+      querySceneTotalsFans({ asOfDate, eventId: eventId || null }),
+      querySceneDailyGames({ dateFrom, dateTo, asOfDate, eventId: eventId || null }),
+      listPlatformEvents(),
     ]);
 
     res.json({
@@ -62,6 +77,7 @@ router.get('/stats', async (req, res) => {
         totals,
         fans,
         daily,
+        events,
         fan_dict: guobiaoFanDict,
       },
       meta: {
@@ -100,10 +116,12 @@ router.get('/home-stats', async (req, res) => {
 router.get('/recent-records', async (req, res) => {
   try {
     const matchTier = typeof req.query.match_tier === 'string' ? req.query.match_tier : null;
+    const eventId = typeof req.query.event_id === 'string' ? req.query.event_id.trim() : '';
     const limit = parseInt(req.query.limit, 10) || 20;
     const offset = parseInt(req.query.offset, 10) || 0;
     const data = await queryRecentLadderRecords({
       matchTier,
+      eventId: eventId || null,
       limit,
       offset,
     });

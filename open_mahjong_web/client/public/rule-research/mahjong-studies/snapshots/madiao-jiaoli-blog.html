@@ -1,0 +1,3375 @@
+<!DOCTYPE html>
+<html dir='ltr' xmlns='http://www.w3.org/1999/xhtml' xmlns:b='http://www.google.com/2005/gml/b' xmlns:data='http://www.google.com/2005/gml/data' xmlns:expr='http://www.google.com/2005/gml/expr'>
+<head>
+<!-- saved locally from https://aloneinthefart.blogspot.com/2010/11/blog-post_8946.html -->
+<meta charset="utf-8">
+<base href="https://aloneinthefart.blogspot.com/2010/11/blog-post_8946.html">
+
+<link href='https://www.blogger.com/static/v1/widgets/4165133002-widget_css_bundle.css' rel='stylesheet' type='text/css'/>
+<link href="//fonts.googleapis.com/css?family=Reenie+Beanie" rel="stylesheet" type="text/css">
+<meta content='text/html; charset=UTF-8' http-equiv='Content-Type'/>
+<meta content='blogger' name='generator'/>
+<link href='https://aloneinthefart.blogspot.com/favicon.ico' rel='icon' type='image/x-icon'/>
+<link href='https://aloneinthefart.blogspot.com/2010/11/blog-post_8946.html' rel='canonical'/>
+<link rel="alternate" type="application/atom+xml" title="Alone in the Fart - Atom" href="https://aloneinthefart.blogspot.com/feeds/posts/default" />
+<link rel="alternate" type="application/rss+xml" title="Alone in the Fart - RSS" href="https://aloneinthefart.blogspot.com/feeds/posts/default?alt=rss" />
+<link rel="service.post" type="application/atom+xml" title="Alone in the Fart - Atom" href="https://www.blogger.com/feeds/6484621943586274574/posts/default" />
+
+<link rel="alternate" type="application/atom+xml" title="Alone in the Fart - Atom" href="https://aloneinthefart.blogspot.com/feeds/6086976338818075734/comments/default" />
+<!--Can't find substitution for tag [blog.ieCssRetrofitLinks]-->
+<meta content='https://aloneinthefart.blogspot.com/2010/11/blog-post_8946.html' property='og:url'/>
+<meta content='馮夢龍《馬弔脚例》全文' property='og:title'/>
+<meta content='每當人們提起麻雀或中國紙牌的歷史，總會扯上馬弔，然而所謂馬弔是怎麼一回事，又沒有人說得清楚。   民間相傳，馬弔是宋朝產物。此說不知真假，若然為真，當時玩法亦早已失傳。現存最早的馬弔例書，是明代文學家 馮夢龍 （龍子猶）所著的 《馬弔脚例》 （下稱「腳例」），同代其他有關馬弔的著...' property='og:description'/>
+<title>Alone in the Fart: 馮夢龍&#12298;馬弔脚例&#12299;全文</title>
+<!--========== MathJax ==========-->
+<script src="//cdn.mathjax.org/mathjax/2.6-latest/MathJax.js?config=TeX-AMS_CHTML" type="text/javascript"></script>
+<script type='text/x-mathjax-config'>
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["$$","$$"] ],
+      processEscapes: true
+    }
+  });
+</script>
+<!--==== Prevent redirection ====-->
+<script type='text/javascript'>
+     
+      // Written by Amit Agarwal
+      
+      /* Get the full URL of the current blogger page */
+      var blog = document.location.href.toLowerCase();
+     
+      /* Do not redirect if the domain is .com already */
+      if (!blog.match(/\.blogspot\.com/)) {
+     
+        /* Replace the country TLD with .com and ncr switch */
+        blog = blog.replace(/\.blogspot\..*?\//, ".blogspot.com/ncr/");
+     
+        /* Redirect to the new .com URL in the current tab */
+        window.location.replace(blog);
+      }
+     
+      // Source: http://labnol.org/?p=21031
+      
+    </script>
+<!--========== Quiz ==========-->
+<script type='text/javascript'>
+//<![CDATA[
+
+function ResetQuiz(topsize)
+{
+  for (var i=1; i<=topsize; i++)
+  {
+    eval("document.a"+i).src = document.none_img.getAttribute("src");
+    document.getElementById("l" + i).innerHTML = " ";
+    eval("document.woo.s" + i + "[0].disabled=false");
+    eval("document.woo.s" + i + "[1].disabled=false");
+    eval("document.woo.s" + i + "[0].checked=false");
+    eval("document.woo.s" + i + "[1].checked=false");
+  }
+  location.href="#";
+}
+
+function ShowResults(topsize, score, score_choice1, score_choice2)
+{
+  alert(
+"Your scores --\n\n"
++ "overall: " + score + "/" + topsize + " = " + (100*score/topsize) + "%,\n\n"
++ document.choice1_img.alt + ": " + score_choice1 + "/" + (topsize/2) + " = " + (200*score_choice1/topsize) + "%,\n\n"
++ document.choice2_img.alt + ": " + score_choice2 + "/" + (topsize/2) + " = "  + (200*score_choice2/topsize) + "%."
+       );
+}
+
+function check(topsize)
+{
+  var i=0;
+  var score=0;
+  var score_choice1=0;
+  var score_choice2=0;
+  var finished=0;
+
+  while (i++ < topsize)
+  {
+    var rb1 = eval("document.woo.s" + i + "[0]");
+    var rb2 = eval("document.woo.s" + i + "[1]");
+    var answer = (rb1.value == 'true');
+
+    if (rb1.checked || rb2.checked)
+    {
+      if (rb1.checked == answer)  // correct
+      {
+        eval("document.a"+i).src = document.tick_img.getAttribute("src");
+        score++;
+        if (answer)
+          score_choice1++;
+        else
+          score_choice2++;
+      }
+      else  // incorrect
+        eval("document.a"+i).src = document.cross_img.getAttribute("src");
+
+      rb1.disabled='true';
+      rb2.disabled='true';
+
+      if (answer)
+        document.getElementById("l" + i).innerHTML = document.choice1_img.alt;
+      else
+        document.getElementById("l" + i).innerHTML = document.choice2_img.alt;
+      finished++; 
+    }
+  }
+
+  if (finished==topsize)
+    ShowResults(topsize, score, score_choice1, score_choice2);
+}
+
+//]]>
+</script>
+<style id='page-skin-1' type='text/css'><!--
+/*
+-----------------------------------------------
+Blogger Template Style
+Name:     Stretch Denim
+Designer: Darren Delaye
+URL:      www.DarrenDelaye.com
+Date:     11 Jul 2006
+-----------------------------------------------
+*/
+/* Variable definitions
+====================
+<Variable name="bgColor" description="Page Background Color"
+type="color" default="#efefef">
+<Variable name="textColor" description="Text Color"
+type="color" default="#333333">
+<Variable name="linkColor" description="Link Color"
+type="color" default="#336699">
+<Variable name="headerBgColor" description="Page Header Background Color"
+type="color" default="#336699">
+<Variable name="headerTextColor" description="Page Header Text Color"
+type="color" default="#ffffff">
+<Variable name="headerCornersColor" description="Page Header Corners Color"
+type="color" default="#528bc5">
+<Variable name="mainBgColor" description="Main Background Color"
+type="color" default="#ffffff">
+<Variable name="borderColor" description="Border Color"
+type="color" default="#ffffff">
+<Variable name="dateHeaderColor" description="Date Header Color"
+type="color" default="#999999">
+<Variable name="sidebarTitleBgColor" description="Sidebar Title Background Color"
+type="color" default="#ffd595">
+<Variable name="sidebarTitleTextColor" description="Sidebar Title Text Color"
+type="color" default="#333333">
+<Variable name="bodyFont" description="Text Font"
+type="font" default="normal normal 100% Verdana, Arial, Sans-serif;">
+<Variable name="headerFont" description="Page Header Font"
+type="font" default="normal normal 210% Verdana, Arial, Sans-serif;">
+<Variable name="startSide" description="Start side in blog language"
+type="automatic" default="left">
+<Variable name="endSide" description="End side in blog language"
+type="automatic" default="right">
+*/
+body {
+background: #efefef;
+margin: 0;
+padding: 0px;
+font: x-small Verdana, Arial;
+text-align: center;
+color: #333333;
+font-size/* */:/**/small;
+font-size: /**/small;
+}
+a:link {
+color: #336699;
+}
+a:visited {
+color: #336699;
+}
+a img {
+border-width: 0;
+}
+#outer-wrapper {
+font: normal normal 100% Verdana, Arial, Sans-serif;;
+}
+/* Header
+----------------------------------------------- */
+#header-wrapper {
+margin:0;
+padding: 0;
+background-color: #528bc5;
+text-align: left;
+}
+#header {
+margin: 0 2%;
+background-color: #336699;
+color: #ffffff;
+padding: 0;
+font: normal normal 210% Verdana, Arial, Sans-serif;;
+position: relative;
+}
+h1.title {
+padding-top: 25px;
+margin: 0 1% .1em;
+line-height: 1.2em;
+font-size: 150%;
+font-family: 'Reenie Beanie', arial, serif;
+}
+h1.title a, h1.title a:visited {
+color: #ffffff;
+text-decoration: none;
+}
+#header .description {
+display: block;
+margin: 0 1%;
+padding: 0 0 25px;
+line-height: 1.4em;
+font-size: 50%;
+}
+/* Content
+----------------------------------------------- */
+.clear {
+clear: both;
+}
+#content-wrapper {
+margin: 0 2%;
+padding: 0 0 15px;
+text-align: left;
+background-color: #ffffff;
+border: 1px solid #ffffff;
+border-top: 0;
+}
+#main-wrapper {
+margin-left: 1%;
+width: 64%;
+float: left;
+background-color: #ffffff;
+display: inline;       /* fix for doubling margin in IE */
+word-wrap: break-word; /* fix for long text breaking sidebar float in IE */
+overflow: hidden;      /* fix for long non-text content breaking IE sidebar float */
+}
+#sidebar-wrapper {
+margin-right: 1%;
+width: 29%;
+float: right;
+background-color: #ffffff;
+display: inline;       /* fix for doubling margin in IE */
+word-wrap: break-word; /* fix for long text breaking sidebar float in IE */
+overflow: hidden;      /* fix for long non-text content breaking IE sidebar float */
+}
+/* Headings
+----------------------------------------------- */
+h2, h3 {
+margin: 0;
+}
+/* Posts
+----------------------------------------------- */
+pre {
+background: #F0F0F0 url(https://lh3.googleusercontent.com/blogger_img_proxy/AEn0k_s-_J3GJC4VHZqCpZ8nFOUB57T-6-lQB8F5A3Qjf588RM0XaDvCZb5ejqIIhJo8bFDWhunM0XVH9_0t-_zGNEq2qWwWP4OVLXE7uW4AhFy24dzx7ajG0g=s0-d)  repeat-y scroll left top;
+border: 1px solid #CCCCCC;
+color: #333333;
+display: block;
+font-family: Courier New;
+font-size: 10pt;
+line-height: 120%;
+margin: 5px 0 0 20px;
+max-height: 200px;
+overflow: auto;
+padding: 10px 10px 10px 21px;
+width: 90%;
+}
+.date-header {
+margin: 1.5em 0 0;
+font-weight: normal;
+color: #999999;
+font-size: 100%;
+}
+.post {
+margin: 0 0 1.5em;
+padding-bottom: 1.5em;
+}
+.post-title {
+margin: 0;
+padding: 0;
+font-size: 125%;
+font-weight: bold;
+line-height: 1.1em;
+}
+.post-title a, .post-title a:visited, .post-title strong {
+text-decoration: none;
+color: #333333;
+font-weight: bold;
+}
+.post div {
+margin: 0 0 .75em;
+line-height: 1.3em;
+}
+.post-footer {
+margin: -.25em 0 0;
+color: #333333;
+font-size: 87%;
+}
+.post-footer .span {
+margin-right: .3em;
+}
+.post img {
+padding: 4px;
+border: 1px solid #ffffff;
+}
+.post blockquote {
+margin: 1em 20px;
+}
+.post blockquote p {
+margin: .75em 0;
+}
+/* Comments
+----------------------------------------------- */
+#comments h4 {
+margin: 1em 0;
+color: #999999;
+}
+#comments h4 strong {
+font-size: 110%;
+}
+#comments-block {
+margin: 1em 0 1.5em;
+line-height: 1.3em;
+}
+#comments-block dt {
+margin: .5em 0;
+}
+#comments-block dd {
+margin: .25em 0 0;
+}
+#comments-block dd.comment-footer {
+margin: -.25em 0 2em;
+line-height: 1.4em;
+font-size: 78%;
+}
+#comments-block dd p {
+margin: 0 0 .75em;
+}
+.deleted-comment {
+font-style:italic;
+color:gray;
+}
+.feed-links {
+clear: both;
+line-height: 2.5em;
+}
+#blog-pager-newer-link {
+float: left;
+}
+#blog-pager-older-link {
+float: right;
+}
+#blog-pager {
+text-align: center;
+}
+/* Sidebar Content
+----------------------------------------------- */
+.sidebar h2 {
+margin: 1.6em 0 .5em;
+padding: 4px 5px;
+background-color: #ffd595;
+font-size: 100%;
+color: #333333;
+}
+.sidebar ul {
+margin: 0;
+padding: 0;
+list-style: none;
+}
+.sidebar li {
+margin: 0;
+padding-top: 0;
+padding-right: 0;
+padding-bottom: .5em;
+padding-left: 15px;
+text-indent: -15px;
+line-height: 1.5em;
+}
+.sidebar {
+color: #333333;
+line-height:1.3em;
+}
+.sidebar .widget {
+margin-bottom: 1em;
+}
+.sidebar .widget-content {
+margin: 0 5px;
+}
+/* Profile
+----------------------------------------------- */
+.profile-img {
+float: left;
+margin-top: 0;
+margin-right: 5px;
+margin-bottom: 5px;
+margin-left: 0;
+padding: 4px;
+border: 1px solid #ffffff;
+}
+.profile-data {
+margin:0;
+text-transform:uppercase;
+letter-spacing:.1em;
+font-weight: bold;
+line-height: 1.6em;
+font-size: 78%;
+}
+.profile-datablock {
+margin:.5em 0 .5em;
+}
+.profile-textblock {
+margin: 0.5em 0;
+line-height: 1.6em;
+}
+/* Footer
+----------------------------------------------- */
+#footer {
+clear: both;
+text-align: center;
+color: #333333;
+}
+#footer .widget {
+margin:.5em;
+padding-top: 20px;
+font-size: 85%;
+line-height: 1.5em;
+text-align: left;
+}
+/** Page structure tweaks for layout editor wireframe */
+body#layout #header {
+width: 750px;
+}
+
+--></style>
+<link href='https://www.blogger.com/dyn-css/authorization.css?targetBlogID=6484621943586274574&amp;zx=432fb520-afe2-4a75-8e2b-5ec2a6e54652' media='none' onload='if(media!=&#39;all&#39;)media=&#39;all&#39;' rel='stylesheet'/><noscript><link href='https://www.blogger.com/dyn-css/authorization.css?targetBlogID=6484621943586274574&amp;zx=432fb520-afe2-4a75-8e2b-5ec2a6e54652' rel='stylesheet'/></noscript>
+<meta name='google-adsense-platform-account' content='ca-host-pub-1556223355139109'/>
+<meta name='google-adsense-platform-domain' content='blogspot.com'/>
+
+</head>
+<body>
+<div class='navbar section' id='navbar'><div class='widget Navbar' data-version='1' id='Navbar1'><script type="text/javascript">
+    function setAttributeOnload(object, attribute, val) {
+      if(window.addEventListener) {
+        window.addEventListener('load',
+          function(){ object[attribute] = val; }, false);
+      } else {
+        window.attachEvent('onload', function(){ object[attribute] = val; });
+      }
+    }
+  </script>
+<div id="navbar-iframe-container"></div>
+<script type="text/javascript" src="https://apis.google.com/js/platform.js"></script>
+<script type="text/javascript">
+      gapi.load("gapi.iframes:gapi.iframes.style.bubble", function() {
+        if (gapi.iframes && gapi.iframes.getContext) {
+          gapi.iframes.getContext().openChild({
+              url: 'https://www.blogger.com/navbar/6484621943586274574?po\x3d6086976338818075734\x26origin\x3dhttps://aloneinthefart.blogspot.com',
+              where: document.getElementById("navbar-iframe-container"),
+              id: "navbar-iframe"
+          });
+        }
+      });
+    </script><script type="text/javascript">
+(function() {
+var script = document.createElement('script');
+script.type = 'text/javascript';
+script.src = '//pagead2.googlesyndication.com/pagead/js/google_top_exp.js';
+var head = document.getElementsByTagName('head')[0];
+if (head) {
+head.appendChild(script);
+}})();
+</script>
+</div></div>
+<div id='outer-wrapper'><div id='wrap2'>
+<!-- skip links for text browsers -->
+<span id='skiplinks' style='display:none;'>
+<a href='#main'>skip to main </a> |
+      <a href='#sidebar'>skip to sidebar</a>
+</span>
+<div id='header-wrapper'>
+<div class='header section' id='header'><div class='widget Header' data-version='1' id='Header1'>
+<div id='header-inner'>
+<div class='titlewrapper'>
+<h1 class='title'>
+<a href='https://aloneinthefart.blogspot.com/'>
+Alone in the Fart
+</a>
+</h1>
+</div>
+<div class='descriptionwrapper'>
+<p class='description'><span>
+</span></p>
+</div>
+</div>
+</div></div>
+</div>
+<div id='content-wrapper'>
+<div id='crosscol-wrapper' style='text-align:center'>
+<div class='crosscol no-items section' id='crosscol'></div>
+</div>
+<div id='main-wrapper'>
+<div class='main section' id='main'><div class='widget Blog' data-version='1' id='Blog1'>
+<div class='blog-posts hfeed'>
+
+          <div class="date-outer">
+        
+<h2 class='date-header'><span>2010年11月21日星期日</span></h2>
+
+          <div class="date-posts">
+        
+<div class='post-outer'>
+<div class='post hentry'>
+<a name='6086976338818075734'></a>
+<h3 class='post-title entry-title'>
+<a href='https://aloneinthefart.blogspot.com/2010/11/blog-post_8946.html'>馮夢龍&#12298;馬弔脚例&#12299;全文</a>
+</h3>
+<div class='post-header-line-1'></div>
+<div class='post-body entry-content'>
+每當人們提起麻雀或中國紙牌的歷史&#65292;總會扯上馬弔&#65292;然而所謂馬弔是怎麼一回事&#65292;又沒有人說得清楚&#12290;<br />
+<br />
+民間相傳&#65292;馬弔是宋朝產物&#12290;此說不知真假&#65292;若然為真&#65292;當時玩法亦早已失傳&#12290;現存最早的馬弔例書&#65292;是明代文學家<b><a href="http://zh.wikipedia.org/zh-hk/%E5%86%AF%E6%A2%A6%E9%BE%99">馮夢龍</a></b>&#65288;龍子猶&#65289;所著的<b>&#12298;馬弔脚例&#12299;</b>&#65288;下稱&#12300;腳例&#12301;&#65289;&#65292;同代其他有關馬弔的著作&#65292;除了如<b>潘之恆</b>的<b>&#12298;葉子譜&#12299;</b>說得很玄之外&#65292;其餘作品&#65292;包括潘的&#12298;續葉子譜&#12299;&#12289;黎遂球的&#12298;運掌經&#12299;以及馮夢龍的&#12298;牌經十三篇&#12299;等等&#65292;都沒有交代馬弔的玩法&#12290;<br />
+<br />
+清代倒有許多弔譜&#65292;根據<b>郭雙林</b>及<b>蕭梅花</b>的<b>&#12298;中國賭博史&#12299;</b>(1996)&#65292;有&#12298;馬弔譜&#12299;&#12289;&#12298;馬弔新譜&#12299;&#12289;&#12298;弔譜&#12299;&#12289;&#12298;弔譜補遺&#12299;&#12289;&#12298;不鬥賀例&#12299;&#12289;&#12298;戳出賀例&#12299;&#12289;&#12298;百老凡例&#12299;&#12289;&#12298;賠例&#12299;&#12289;&#12298;賠趣例&#12299;&#12289;&#12298;雜項凡例&#12299;及&#12298;罰例&#12299;等等&#65292;不過郭蕭二人指這些弔譜基本上只是抄錄了腳例的內容&#12290;<br />
+<br />
+至於近代人對中國牌戲的研究&#65292;英文文獻當以 <a href="http://en.wikipedia.org/wiki/Stewart_Culin"><b>Stewart Culin</b></a> (1858-1929) 及 <a href="http://en.wikipedia.org/wiki/William_Henry_Wilkinson"><b>William Henry Wilkinson</b></a>&#65288;<a href="http://zh.wikipedia.org/zh-hant/%E5%8B%99%E8%AC%B9%E9%A0%86">務謹順</a>&#65292;1858-1930&#65289;的著作為代表&#65292;中文則以<b><a href="http://zh.wikipedia.org/zh-hk/%E6%9D%9C%E4%BA%9A%E6%B3%89">杜亞泉</a></b>的<b>&#12298;博史&#12299;</b>(1933)&#12289;<b><a href="http://zh.wikipedia.org/zh-hk/%E6%A5%8A%E8%94%AD%E6%B7%B1">楊蔭深</a></b>的<b>&#12298;中國遊藝研究&#12299;</b>(1946)  及前述的&#12298;中國賭博史&#12299;一書為佼佼者&#65292;可是這些著作一樣沒有解釋清楚馬弔的規則 &#9472;&#9472;  Culin 與 Wilkinson 並無研究過馬弔&#65292;楊蔭深算是用自己的文字解釋了一小部份&#65292;郭雙林及蕭梅花則聲稱根據&#12298;牌經十三篇&#12299;及&#12298;馬弔脚例&#12299;&#65292;將正確打法重塑出來&#65292;但實際上只是照抄腳例而已&#12290;腳例中沒有說明的地方&#65292;郭蕭的&#12300;重塑&#12301;一樣沒有解釋&#12290;原文有些艱澀的地方&#65292;郭蕭甚至干脆去掉&#12290;故此&#65292;若要真的重塑馬弔規則的話&#65292;馮夢龍的&#12298;馬弔脚例&#12299;&#65292;就是最重要的文本&#12290;以下謹附腳例全文&#65292;以饗讀者&#12290;<br />
+<br />
+下文於 2010-11-22 二校&#65292;2011-04-06 三校&#12290;三校後發現只漏一字&#65292;相信下列抄本現已完全&#12290;文中標點符號為博主所加&#12290;原文所有通假字&#65288;如&#12300;卓&#12301;通&#12300;桌&#12301;&#65292;&#12300;止&#12301;通&#12300;只&#12301;&#65289;&#65292;此處皆保留&#65292;即使原文有時正寫&#65288;如&#12300;桌&#12301;&#65289;&#65292;有時通假&#65288;如&#12300;卓&#12301;&#65289;&#65292;此處亦跟隨而不統一&#12290;異體字亦盡量跟從&#65292;例如原文&#12300;腳&#12301;&#12289;&#12300;脚&#12301;並存&#65292;此處亦如是&#65292;唯無法或太難輸入的&#65292;改以所謂正體字代替&#65288;包括麤&#12289;留&#12289;氈&#12289;款&#12289;翻&#12289;罰等等&#65289;&#12290;錯別字則全數保留&#65292;例如有牌組在文中一處稱為&#12300;假達&#12301;&#65292;另兩處卻寫&#12300;假逵&#12301;&#65292;究竟那個才對&#65292;留待讀者判斷&#12290;&#65288;本人亦將於&#12298;<a href="http://aloneinthefart.blogspot.com/2010/11/blog-post_23.html">重構明代馬弔牌例</a>&#12299;文章系列中&#65292;用現代文字解釋馬弔規則&#65292;敬希留意&#12290;&#65289;<br />
+<br />
+<span style="font-size: small;">順帶一提&#65292;腳例首句&#12300;鬭法利病&#65292;經中言之最悉&#65292;其規條似吾杭差勝&#65292;故從吾杭損益之&#12301;當中的經書乃何所指&#65292;待考&#12290;它可能指傳說中由北宋楊大年所著的&#12298;馬弔經&#12299;&#65292;或馮夢龍自己的另一本著作&#12298;牌經十三篇&#12299;&#65292;又或者馮夢龍那個年代眾所周知&#65292;但現今已無從稽考的某本馬弔經&#12290;</span><br />
+<br />
+<span style="font-size: x-small;">&#65288;關鍵詞&#65306;馬弔&#12289;馬吊&#12289;打馬吊&#12289;馬吊牌&#65289;</span><br />
+<br />
+<hr />
+<br />
+<b>馬弔脚例</b> <span style="font-size: x-small;">吳龍子猶箸</span><br />
+<br />
+鬭法利病&#65292;經中言之最悉&#65292;其規條似吾杭差勝&#65292;故從吾杭損益之&#12290;<br />
+<br />
+<b>一緣起</b><br />
+四路之中&#65292;惟十門居多&#65292;萬萬正賞&#65292;千萬次之&#12290;百為盈數&#65292;不甘噲伍&#65292;特置賞格&#65292;以卜造化&#65292;尊為百老&#65292;不亦宜乎&#12290;<br />
+<br />
+<b>一名目</b><br />
+得牌曰上卓&#65292;得二牌曰正本&#65292;多曰弔&#65292;被弔不正本曰死&#65292;無卓曰赤脚<span style="font-size: x-small;">&#65288;兩牌如雙履&#65292;不可缺一&#65289;</span>&#12290;獨贏一家曰獨弔&#65292;共贏一家曰合弔&#65292;兩家分贏曰各弔&#65292;四家正本曰四和氣&#12290;百萬曰百老&#65292;又曰大公突&#12290;九十曰小公突&#12290;五&#12289;六&#12289;八萬俱曰雌突<span style="font-size: x-small;">&#65288;以其皆有雙人突出也&#65289;</span>&#12290;百老上卓又正本曰大活百&#65292;隨配一雌突曰大活百突<span style="font-size: x-small;">&#65288;凡有公無雌&#65292;有雌無公&#65292;俱不作突&#65289;</span>&#12290;止正本百老不上卓曰小活百&#65292;隨配一雌突曰小活百突&#12290;有百老既不上卓又不正本曰死百&#65292;或止上卓不正本亦曰死百&#65292;隨配一雌突曰死百突&#12290;九十隨配一雌突曰小突&#12290;百老&#12289;九十&#12289;五&#12289;六&#12289;八萬俱全曰全突大活&#12290;開散家各一注曰敲門&#12290;四尊曰賞&#65292;四副尊曰次賞&#12290;賞上曰活&#65292;否曰死&#12290;四小曰極&#12290;無制曰真&#65292;有制曰假&#12290;取之曰捉&#65292;縱之曰放&#65292;縱而復來曰還&#65292;故縱曰讓&#12290;填之曰滅&#12290;初出張曰發&#65292;後曰出&#65292;留以制人曰關&#12290;買家曰樁&#65292;出注曰衝<span style="font-size: x-small;">&#65288;如加注則曰加一衝&#12289;二衝之類&#65289;</span>&#12290;贏籌曰開&#12290;先樁而顛倒之曰洗&#65292;或曰清&#65292;或曰溲&#12290;中而剖之曰拍&#65292;散之曰分&#12290;散之起卒曰頭&#12289;曰末&#12290;百千萬俱上卓曰三開&#12290;百千萬配空文曰四紅&#12290;次賞上卓而底牌次張值正賞曰假達&#12290;八牌俱上卓曰八卓全收&#12290;<br />
+<br />
+<b>一牌式</b><br />
+牌式必須官樣&#65292;如太倉衛前&#12289;崑山司馬橋&#12289;蘇州桃花塢&#65292;並稱牌藪&#12290;以夾青純綿紙者為上&#12290;若細畫者謂之小娘牌&#65292;狹小者謂之轎夫牌<span style="font-size: x-small;">&#65288;如蘇州葑門牌類&#65289;</span>&#65292;矮闊麤惡者謂之孤老院牌<span style="font-size: x-small;">&#65288;如蘇州唐家牌類&#65289;</span>&#65292;墨寫糢糊難辨者謂之鬼牌<span style="font-size: x-small;">&#65288;江西多用之&#65289;</span>&#65292;俱勿用&#12290;<br />
+<br />
+<b>一坐次拍散</b><br />
+牌卓貴方&#65292;坐用四面&#65292;卓上鋪氈&#65292;以防污損&#12290;或錢或馬&#65292;多寡隨意&#12290;派定四脚&#65292;他客別以戲具自誤&#65292;慎勿聚觀取厭&#12290;腳數既定&#65292;先以牌分四聚&#65292;人拈其一&#65292;視大小為坐次<span style="font-size: x-small;">&#65288;萬萬最尊&#65292;空文最卑&#65289;</span>&#12290;然後再分再拈&#65292;以定樁首&#12290;四人輪樁&#65292;周而復始&#65292;惟大活留樁&#65292;異賞奪樁&#12290;樁上首洗牌&#65292;下首拍而散之&#12290;散牌數法&#65292;樁對面起<span style="font-size: x-small;">&#65288;故馬弔脚又名四不閑也&#65289;</span>&#12290;四八自得&#65292;三七到樁&#65292;一五九過身&#65292;空百千萬俱作一數&#12290;每人八葉&#65292;各四而再周之&#12290;<br />
+<br />
+<b>一買注</b><br />
+公議若干起&#65292;若干止&#65292;即大負之後&#65292;不得溢額以圖僥倖&#12290;<br />
+<br />
+<b>一鬭百老法</b><br />
+百老既分死活&#65292;則十門為虛位&#12290;非百老在手&#65292;不可鬭也&#12290;千&#12289;萬為留守&#65292;非百老已出&#65292;不可鬭也&#12290;若千萬俱有&#65292;又可出萬以圖尊&#65292;留千以制百&#12290;若三路既竭&#65292;十亦竟出&#65292;縱活百老&#65292;亦不代賠&#12290;<br />
+<br />
+<b>一弔法</b><br />
+止一牌上卓&#65292;輸一弔&#65307;即二牌俱不上卓&#65292;亦止輸一弔&#65307;有三牌贏一弔&#65307;即有五牌亦止贏一弔&#65292;所謂臭五桌是也&#12290;若兩人無牌&#65292;兩人四卓&#65292;則各贏一弔&#12290;若兩人三卓&#65292;一人無牌&#65292;則分贏一弔&#65292;故出注宜雙不宜單&#65292;以便分也&#12290;<br />
+<br />
+<b>一看賞法</b><br />
+四尊曰正賞&#65292;其次曰次賞&#12290;正賞在面&#65292;次賞代之<span style="font-size: x-small;">&#65288;如拍出九萬&#65292;則以八萬代正賞&#65289;</span>&#12290;看賞用底牌面葉之次&#65292;倘次逢正賞&#65292;則次賞謂之假逵&#65292;罰與三人各一注&#12290;若預先滅死&#65292;不論&#12290;凡賞須上卓&#65292;須正本&#12290;不上桌&#65292;即上卓而不正本&#65292;皆係死賞&#65292;不論&#12290;<br />
+<br />
+<b>一免鬭</b><br />
+四極開三家各一注&#65292;免鬭&#12290;十門滿五張者免鬭&#12290;餘三門滿六張者免鬭&#12290;凡遇免鬭&#65292;俱另拈樁&#12290;<br />
+<br />
+<b> 一開注</b><br />
+賞一注&#12290;大活敲門一注&#12290;死百一注&#12290;假逵三家各開一注&#12290;四極開三家各一注&#12290;弔一注&#12290;小突一注&#12290;小活二注&#12290;死百突二注&#12290;大活三注&#12290;三開三注&#12290;小活百突四注&#12290;四紅四注&#12290;大活百突六注<span style="font-size: x-small;">&#65288;凡突隨百開&#65292;如妻以夫貴&#65289;</span>&#12290;八卓全收八注<span style="font-size: x-small;">&#65288;七卓亦謂之全收&#65292;以俱打倒也&#65307;若他人先得一桌&#65292;以後得七桌&#65292;不算&#65289;</span>&#12290;<br />
+<br />
+以上樁家開散家&#12290;散家止開樁家&#12290;遇重款&#65292;即重開&#12290;大活散家不敲樁家&#65292;樁家不敲散家&#65292;止散家大活敲二散家&#12290;<br />
+<br />
+如牌有異賞&#65292;三家齊賀<span style="font-size: x-small;">&#65288;不論當樁與不當樁&#65289;</span>&#12290;<br />
+<br />
+四尊四極全賀八注&#12290;八紅賀六注&#12290;八紅有百老者賀七注&#12290;渾成賀四注<span style="font-size: x-small;">&#65288;八牌一門&#65289;</span>&#12290;十門渾成有百老者賀五注&#12290;全突賀五注&#12290;四尊賀四注&#12290;四尊有百老者賀五注&#12290;<br />
+<br />
+以上俱以全弔論&#65292;不許復角&#65292;竟奪作樁&#12290;止有百老之家免賀&#12290;<br />
+<br />
+<b>一罰例</b><br />
+應洗牌不洗者罰一注&#65292;仍洗&#12290;不應洗誤洗者罰一注&#65292;改正&#12290;洗畢見百老者&#65292;罰一注&#65292;另拈樁&#12290;洗畢錯授人者&#65292;罰一注&#65292;改正&#12290;拍牌見百老者&#65292;罰一注&#65292;另拈樁&#12290;誤分者&#65292;未看牌罰一注&#65292;改正&#65307;已看牌罰五注&#65292;給有百老之家&#65292;免鬭<span style="font-size: x-small;">&#65288;誤多&#12289;誤少&#12289;錯分&#12289;不輪分而分&#65292;俱謂之錯&#65289;</span>&#12290;分牌失手&#65292;翻轉白者一注&#12289;紅二注&#12289;賞三注&#12289;百老四注&#65292;所罰給被翻之家&#65292;惟翻百老者另拈樁&#12290;誤出者罰二注&#65292;另改正&#12290;誤捉者罰二注&#65292;作滅&#12290;所出非賞而越牌越次者&#65292;罰二注&#12290;顯滅者罰二注&#12290;<span style="font-size: x-small;">&#65288;以上從誤出至顯滅&#65292;四野如有關係&#65292;俱代人認開數&#12290;&#65289;</span>竊看底牌&#12289;面張者&#65292;罰二注&#12290;竊看他人滅牌者罰二注&#12290;相顧抽張及明言者罰五注&#12290;出十門千&#12289;萬&#65292;致活百老者&#65292;及故縱樁牌活賞者&#65292;鬭法低矢致活樁家者&#65292;俱代人認開數<span style="font-size: x-small;">&#65288;如已正本者止認一開&#65292;未正本者認二開&#65292;活散家止代樁認&#65292;若活樁家則兼三家認&#65289;</span>&#12290;雖千&#12289;萬係正賞&#65292;亦不得藉口&#12290;願認者聽&#12290;誤出至第二牌者&#65292;舉出免鬭&#12290;如有百老與賞家&#65292;舉出罰如分錯例&#12290;多張者及少張者&#65292;俱不准捉<span style="font-size: x-small;">&#65288;多張則留門既多&#65292;未免有弊&#65292;若少張則直作已滅&#65292;故俱不准捉&#65292;雖賞亦不論&#65289;</span>&#12290;末張多者不准留<span style="font-size: x-small;">&#65288;謂末張故留二為觀望也&#65289;</span>&#12290;<br />
+<br />
+以上凡罰&#65292;俱入官堆&#65292;俟後大活百得之&#12290;如一牌未有大活&#65292;則人加一子入官堆&#12290;
+<div style='clear: both;'></div>
+</div>
+<div class='post-footer'>
+<div class='post-footer-line post-footer-line-1'><span class='post-labels'>
+Label(s)&#65306;
+<a href='https://aloneinthefart.blogspot.com/search/label/%E5%82%B3%E7%B5%B1%E9%81%8A%E8%97%9D%EF%BC%88%E5%A4%A9%E4%B9%9D%E3%80%81%E9%A6%AC%E5%BC%94%E3%80%81%E9%BA%BB%E9%9B%80%20%E2%80%A6%EF%BC%89' rel='tag'>傳統遊藝&#65288;天九&#12289;馬弔&#12289;麻雀 &#8230;&#65289;</a>
+</span>
+<span class='post-icons'>
+<span class='item-control blog-admin pid-565947394'>
+<a href='https://www.blogger.com/post-edit.g?blogID=6484621943586274574&postID=6086976338818075734&from=pencil' title='編輯文章'>
+<img alt='' class='icon-action' height='18' src='https://resources.blogblog.com/img/icon18_edit_allbkg.gif' width='18'/>
+</a>
+</span>
+</span>
+</div>
+<div class='post-footer-line post-footer-line-2'><span class='post-comment-link'>
+</span>
+</div>
+<div class='post-footer-line post-footer-line-3'></div>
+</div>
+</div>
+<div class='comments' id='comments'>
+<a name='comments'></a>
+<h4>12 則留言:</h4>
+<div id='Blog1_comments-block-wrapper'>
+<dl class='avatar-comment-indent' id='comments-block'>
+<dt class='comment-author ' id='c8480884836173428072'>
+<a name='c8480884836173428072'></a>
+<div class="avatar-image-container avatar-stock"><span dir="ltr"><a href="http://blog.tiney.com" target="" rel="nofollow" onclick=""><img src="//resources.blogblog.com/img/blank.gif" width="35" height="35" alt="" title="Chainsaw Riot">
+
+</a></span></div>
+<a href='http://blog.tiney.com' rel='nofollow'>Chainsaw Riot</a>
+說...
+</dt>
+<dd class='comment-body' id='Blog1_cmt-8480884836173428072'>
+<p>
+Culin 都有中文名叫柯林&#65292;不過應該是譯名&#12290;而不是像 Wilkinson 的公式中文名&#65292;英國人才流行這樣&#12290;
+</p>
+</dd>
+<dd class='comment-footer'>
+<span class='comment-timestamp'>
+<a href='https://aloneinthefart.blogspot.com/2010/11/blog-post_8946.html?showComment=1290351009101#c8480884836173428072' title='comment permalink'>
+2010年11月21日 下午10:50
+</a>
+<span class='item-control blog-admin pid-393666689'>
+<a class='comment-delete' href='https://www.blogger.com/comment/delete/6484621943586274574/8480884836173428072' title='刪除留言'>
+<img src='https://resources.blogblog.com/img/icon_delete13.gif'/>
+</a>
+</span>
+</span>
+</dd>
+<dt class='comment-author blog-author' id='c3075729420718801607'>
+<a name='c3075729420718801607'></a>
+<div class="avatar-image-container vcard"><span dir="ltr"><a href="https://www.blogger.com/profile/13350798058606286845" target="" rel="nofollow" onclick="" class="avatar-hovercard" id="av-3075729420718801607-13350798058606286845"><img src="https://resources.blogblog.com/img/blank.gif" width="35" height="35" class="delayLoad" style="display: none;" longdesc="//blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEir1AU6G4_txquAmVB7RSfoIAgB3_ZtEHxjY6U34CJ2YJStyrIIlSri2-hJJB34UdoaL1OA9if1vF5GNpt6VqnkKQB5D9usx6TLifuM7mV4-r3t2WUHWv2LMt2YS3_JEw/s45-c/darthvader.jpg" alt="" title="The suffocated">
+
+<noscript><img src="//blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEir1AU6G4_txquAmVB7RSfoIAgB3_ZtEHxjY6U34CJ2YJStyrIIlSri2-hJJB34UdoaL1OA9if1vF5GNpt6VqnkKQB5D9usx6TLifuM7mV4-r3t2WUHWv2LMt2YS3_JEw/s45-c/darthvader.jpg" width="35" height="35" class="photo" alt=""></noscript></a></span></div>
+<a href='https://www.blogger.com/profile/13350798058606286845' rel='nofollow'>The suffocated</a>
+說...
+</dt>
+<dd class='comment-body' id='Blog1_cmt-3075729420718801607'>
+<p>
+曾經見過有內地人將 Wilkinson 譯作&#12300;威爾金森&#12301;&#65292;算是正路的譯法&#65292;不過可能我做女王陛下子民的日子比做中國殖民地屁民的日子長&#65292;總覺得英式漢譯比較中聽&#12290;
+</p>
+</dd>
+<dd class='comment-footer'>
+<span class='comment-timestamp'>
+<a href='https://aloneinthefart.blogspot.com/2010/11/blog-post_8946.html?showComment=1290402088394#c3075729420718801607' title='comment permalink'>
+2010年11月22日 下午1:01
+</a>
+<span class='item-control blog-admin pid-565947394'>
+<a class='comment-delete' href='https://www.blogger.com/comment/delete/6484621943586274574/3075729420718801607' title='刪除留言'>
+<img src='https://resources.blogblog.com/img/icon_delete13.gif'/>
+</a>
+</span>
+</span>
+</dd>
+<dt class='comment-author ' id='c1457345494482366564'>
+<a name='c1457345494482366564'></a>
+<div class="avatar-image-container vcard"><span dir="ltr"><a href="https://www.blogger.com/profile/09003274280645590717" target="" rel="nofollow" onclick="" class="avatar-hovercard" id="av-1457345494482366564-09003274280645590717"><img src="https://resources.blogblog.com/img/blank.gif" width="35" height="35" class="delayLoad" style="display: none;" longdesc="//blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhk0ba-AKn1i0riU1Fx2xaUI3LAY5iPTLQrbj1w8dBseimyoD_F6lxxa2hD1A3NeNTlrMH-2atLjq1SVAeLMJK2RNgV0Tq7eyLKIx7VXRzvaSTsFcL-0oabOE5hAmMo5Q/s45-c/72x72hd.png" alt="" title="Lingkun Cheng">
+
+<noscript><img src="//blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhk0ba-AKn1i0riU1Fx2xaUI3LAY5iPTLQrbj1w8dBseimyoD_F6lxxa2hD1A3NeNTlrMH-2atLjq1SVAeLMJK2RNgV0Tq7eyLKIx7VXRzvaSTsFcL-0oabOE5hAmMo5Q/s45-c/72x72hd.png" width="35" height="35" class="photo" alt=""></noscript></a></span></div>
+<a href='https://www.blogger.com/profile/09003274280645590717' rel='nofollow'>Lingkun Cheng</a>
+說...
+</dt>
+<dd class='comment-body' id='Blog1_cmt-1457345494482366564'>
+<p>
+謝謝關於&#12300;假逵&#12301;的說明&#12290;<br />另外&#65292;文中題及&#12300;八紅&#12301;&#65292;按圖來看應該是&#65306;<br />  萬萬&#65292;千萬&#65292;百萬&#65292;九十&#65292;<br />  九萬&#65292;<br />  九索&#65292;<br />  空文&#65292;半文&#65292;<br /><br />但如此一來&#65292;八紅已包括了百萬&#65288;百老&#65289;&#12290;就不會有文中說的&#65306;&#12300;八紅賀六注&#12290;八紅有百老者賀七注&#12290;&#12301;請問已解開此中的疑團了嗎&#65311;
+</p>
+</dd>
+<dd class='comment-footer'>
+<span class='comment-timestamp'>
+<a href='https://aloneinthefart.blogspot.com/2010/11/blog-post_8946.html?showComment=1302073809597#c1457345494482366564' title='comment permalink'>
+2011年4月6日 下午3:10
+</a>
+<span class='item-control blog-admin pid-731493050'>
+<a class='comment-delete' href='https://www.blogger.com/comment/delete/6484621943586274574/1457345494482366564' title='刪除留言'>
+<img src='https://resources.blogblog.com/img/icon_delete13.gif'/>
+</a>
+</span>
+</span>
+</dd>
+<dt class='comment-author blog-author' id='c1883886477590639941'>
+<a name='c1883886477590639941'></a>
+<div class="avatar-image-container vcard"><span dir="ltr"><a href="https://www.blogger.com/profile/13350798058606286845" target="" rel="nofollow" onclick="" class="avatar-hovercard" id="av-1883886477590639941-13350798058606286845"><img src="https://resources.blogblog.com/img/blank.gif" width="35" height="35" class="delayLoad" style="display: none;" longdesc="//blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEir1AU6G4_txquAmVB7RSfoIAgB3_ZtEHxjY6U34CJ2YJStyrIIlSri2-hJJB34UdoaL1OA9if1vF5GNpt6VqnkKQB5D9usx6TLifuM7mV4-r3t2WUHWv2LMt2YS3_JEw/s45-c/darthvader.jpg" alt="" title="The suffocated">
+
+<noscript><img src="//blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEir1AU6G4_txquAmVB7RSfoIAgB3_ZtEHxjY6U34CJ2YJStyrIIlSri2-hJJB34UdoaL1OA9if1vF5GNpt6VqnkKQB5D9usx6TLifuM7mV4-r3t2WUHWv2LMt2YS3_JEw/s45-c/darthvader.jpg" width="35" height="35" class="photo" alt=""></noscript></a></span></div>
+<a href='https://www.blogger.com/profile/13350798058606286845' rel='nofollow'>The suffocated</a>
+說...
+</dt>
+<dd class='comment-body' id='Blog1_cmt-1883886477590639941'>
+<p>
+&#65288;致其他讀者&#65306;有關&#12300;假逵&#12301;的討論&#65292;請閱&#12298;<a href="http://aloneinthefart.blogspot.com/2011/01/blog-post_28.html" rel="nofollow">客家六虎牌例</a>&#12299;第15&#12289;16條留言&#12290;&#65289;<br /><br />&#12300;八紅&#12301;的意思&#65292;是將某十隻牌當中任何八隻弄上桌&#65292;故此未必有百老&#12290;至於那十隻牌的真身為何&#65292;且看下回分解&#65292;不過早先花了太多心力編寫維基百科的麻雀條目&#65292;現在要好好歇一歇&#65292;下回未有這麼快面世&#12290;
+</p>
+</dd>
+<dd class='comment-footer'>
+<span class='comment-timestamp'>
+<a href='https://aloneinthefart.blogspot.com/2010/11/blog-post_8946.html?showComment=1302084926372#c1883886477590639941' title='comment permalink'>
+2011年4月6日 下午6:15
+</a>
+<span class='item-control blog-admin pid-565947394'>
+<a class='comment-delete' href='https://www.blogger.com/comment/delete/6484621943586274574/1883886477590639941' title='刪除留言'>
+<img src='https://resources.blogblog.com/img/icon_delete13.gif'/>
+</a>
+</span>
+</span>
+</dd>
+<dt class='comment-author ' id='c6866575159467840406'>
+<a name='c6866575159467840406'></a>
+<div class="avatar-image-container avatar-stock"><span dir="ltr"><a href="http://(&#36984;&#29992;)" target="" rel="nofollow" onclick=""><img src="//resources.blogblog.com/img/blank.gif" width="35" height="35" alt="" title="&#38364;&#35352;">
+
+</a></span></div>
+<a href='http://%28%E9%81%B8%E7%94%A8%29' rel='nofollow'>關記</a>
+說...
+</dt>
+<dd class='comment-body' id='Blog1_cmt-6866575159467840406'>
+<p>
+借問, 現在在香港哪裡還有這種牌買?
+</p>
+</dd>
+<dd class='comment-footer'>
+<span class='comment-timestamp'>
+<a href='https://aloneinthefart.blogspot.com/2010/11/blog-post_8946.html?showComment=1305111203960#c6866575159467840406' title='comment permalink'>
+2011年5月11日 下午6:53
+</a>
+<span class='item-control blog-admin pid-393666689'>
+<a class='comment-delete' href='https://www.blogger.com/comment/delete/6484621943586274574/6866575159467840406' title='刪除留言'>
+<img src='https://resources.blogblog.com/img/icon_delete13.gif'/>
+</a>
+</span>
+</span>
+</dd>
+<dt class='comment-author blog-author' id='c3711758964854515127'>
+<a name='c3711758964854515127'></a>
+<div class="avatar-image-container vcard"><span dir="ltr"><a href="https://www.blogger.com/profile/13350798058606286845" target="" rel="nofollow" onclick="" class="avatar-hovercard" id="av-3711758964854515127-13350798058606286845"><img src="https://resources.blogblog.com/img/blank.gif" width="35" height="35" class="delayLoad" style="display: none;" longdesc="//blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEir1AU6G4_txquAmVB7RSfoIAgB3_ZtEHxjY6U34CJ2YJStyrIIlSri2-hJJB34UdoaL1OA9if1vF5GNpt6VqnkKQB5D9usx6TLifuM7mV4-r3t2WUHWv2LMt2YS3_JEw/s45-c/darthvader.jpg" alt="" title="The suffocated">
+
+<noscript><img src="//blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEir1AU6G4_txquAmVB7RSfoIAgB3_ZtEHxjY6U34CJ2YJStyrIIlSri2-hJJB34UdoaL1OA9if1vF5GNpt6VqnkKQB5D9usx6TLifuM7mV4-r3t2WUHWv2LMt2YS3_JEw/s45-c/darthvader.jpg" width="35" height="35" class="photo" alt=""></noscript></a></span></div>
+<a href='https://www.blogger.com/profile/13350798058606286845' rel='nofollow'>The suffocated</a>
+說...
+</dt>
+<dd class='comment-body' id='Blog1_cmt-3711758964854515127'>
+<p>
+馬弔無得賣&#65281;不過一副六虎牌只比馬弔少兩張&#65292;所以你可以買兩副六虎牌&#65292;其中一副抽出兩隻&#65292;用墨水筆更改花色&#65292;再併入另一副就行&#12290;
+</p>
+</dd>
+<dd class='comment-footer'>
+<span class='comment-timestamp'>
+<a href='https://aloneinthefart.blogspot.com/2010/11/blog-post_8946.html?showComment=1305122798929#c3711758964854515127' title='comment permalink'>
+2011年5月11日 下午10:06
+</a>
+<span class='item-control blog-admin pid-565947394'>
+<a class='comment-delete' href='https://www.blogger.com/comment/delete/6484621943586274574/3711758964854515127' title='刪除留言'>
+<img src='https://resources.blogblog.com/img/icon_delete13.gif'/>
+</a>
+</span>
+</span>
+</dd>
+<dt class='comment-author ' id='c3063448379997390333'>
+<a name='c3063448379997390333'></a>
+<div class="avatar-image-container avatar-stock"><span dir="ltr"><img src="//resources.blogblog.com/img/blank.gif" width="35" height="35" alt="" title="&#25105;&#34892;&#25105;&#36895;">
+
+</span></div>
+我行我速
+說...
+</dt>
+<dd class='comment-body' id='Blog1_cmt-3063448379997390333'>
+<p>
+首句断句我觉得这样比较好&#65306;<br />&#12298;鬭法利病經&#12299;中言之最悉&#65292;其規條似吾杭差勝&#65292;故從吾杭損益之&#12290;
+</p>
+</dd>
+<dd class='comment-footer'>
+<span class='comment-timestamp'>
+<a href='https://aloneinthefart.blogspot.com/2010/11/blog-post_8946.html?showComment=1408677707701#c3063448379997390333' title='comment permalink'>
+2014年8月22日 上午11:21
+</a>
+<span class='item-control blog-admin pid-393666689'>
+<a class='comment-delete' href='https://www.blogger.com/comment/delete/6484621943586274574/3063448379997390333' title='刪除留言'>
+<img src='https://resources.blogblog.com/img/icon_delete13.gif'/>
+</a>
+</span>
+</span>
+</dd>
+<dt class='comment-author blog-author' id='c8723264040784618764'>
+<a name='c8723264040784618764'></a>
+<div class="avatar-image-container vcard"><span dir="ltr"><a href="https://www.blogger.com/profile/13350798058606286845" target="" rel="nofollow" onclick="" class="avatar-hovercard" id="av-8723264040784618764-13350798058606286845"><img src="https://resources.blogblog.com/img/blank.gif" width="35" height="35" class="delayLoad" style="display: none;" longdesc="//blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEir1AU6G4_txquAmVB7RSfoIAgB3_ZtEHxjY6U34CJ2YJStyrIIlSri2-hJJB34UdoaL1OA9if1vF5GNpt6VqnkKQB5D9usx6TLifuM7mV4-r3t2WUHWv2LMt2YS3_JEw/s45-c/darthvader.jpg" alt="" title="The suffocated">
+
+<noscript><img src="//blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEir1AU6G4_txquAmVB7RSfoIAgB3_ZtEHxjY6U34CJ2YJStyrIIlSri2-hJJB34UdoaL1OA9if1vF5GNpt6VqnkKQB5D9usx6TLifuM7mV4-r3t2WUHWv2LMt2YS3_JEw/s45-c/darthvader.jpg" width="35" height="35" class="photo" alt=""></noscript></a></span></div>
+<a href='https://www.blogger.com/profile/13350798058606286845' rel='nofollow'>The suffocated</a>
+說...
+</dt>
+<dd class='comment-body' id='Blog1_cmt-8723264040784618764'>
+<p>
+&#12298;鬭法利病經&#12299;&#65311;&#65281;是武林秘笈嗎&#65311;你一定是開玩笑吧&#12290;這是很普通的古文&#65292;不可能解成你說的那個樣子&#12290;如下面般斷句倒是可以&#65306;<br /><br />鬭法利病&#65292;經中言之最悉&#65292;其規條似吾杭差勝&#65292;故從吾杭損益之&#12290;<br /><br />&#65288;鬭法的利弊&#65292;&#12300;經書&#12301;說得最詳盡&#65292;其規條似以我們杭州較高明&#65292;故本腳例將從我們杭州玩法增刪&#12290;&#65289;<br /><br />此處的&#12300;經書&#12301;&#65292;可能指傳說中由北宋楊大年所著的&#12298;馬弔經&#12299;&#65292;或馮夢龍自己的另一本著作&#12298;牌經十三篇&#12299;&#65288;這個可能較低&#65292;因為&#12298;牌經十三篇&#12299;全文好像沒有說過杭州玩法最好&#65292;而且自己讚自己說得最詳盡&#65292;也沒多少說服力&#65289;&#65292;又或者馮夢龍那個年代眾所周知&#65292;但現今已無從稽考的某本名作&#12290;<br /><br />不過重讀一次&#65292;我本來的斷句的確可能有錯&#12290;待我想想可以怎樣說明&#12290;
+</p>
+</dd>
+<dd class='comment-footer'>
+<span class='comment-timestamp'>
+<a href='https://aloneinthefart.blogspot.com/2010/11/blog-post_8946.html?showComment=1408985576428#c8723264040784618764' title='comment permalink'>
+2014年8月26日 上午12:52
+</a>
+<span class='item-control blog-admin pid-565947394'>
+<a class='comment-delete' href='https://www.blogger.com/comment/delete/6484621943586274574/8723264040784618764' title='刪除留言'>
+<img src='https://resources.blogblog.com/img/icon_delete13.gif'/>
+</a>
+</span>
+</span>
+</dd>
+<dt class='comment-author ' id='c8112607398428717522'>
+<a name='c8112607398428717522'></a>
+<div class="avatar-image-container avatar-stock"><span dir="ltr"><img src="//resources.blogblog.com/img/blank.gif" width="35" height="35" alt="" title="&#25105;&#34892;&#25105;&#36895;">
+
+</span></div>
+我行我速
+說...
+</dt>
+<dd class='comment-body' id='Blog1_cmt-8112607398428717522'>
+<p>
+嗯&#65292;应该你最新的断句是正确的&#12290;&#8220;经&#8221;应该是指馮夢龍自己的&#12298;牌經十三篇&#12299;&#65292;&#12298;牌經十三篇&#12299;里确实讲的&#8220;鬭法利病&#8221;&#65292;而这篇&#12298;馬弔脚例&#12299;就是专述&#8220;規條&#8221;的&#12290;
+</p>
+</dd>
+<dd class='comment-footer'>
+<span class='comment-timestamp'>
+<a href='https://aloneinthefart.blogspot.com/2010/11/blog-post_8946.html?showComment=1409208312442#c8112607398428717522' title='comment permalink'>
+2014年8月28日 下午2:45
+</a>
+<span class='item-control blog-admin pid-393666689'>
+<a class='comment-delete' href='https://www.blogger.com/comment/delete/6484621943586274574/8112607398428717522' title='刪除留言'>
+<img src='https://resources.blogblog.com/img/icon_delete13.gif'/>
+</a>
+</span>
+</span>
+</dd>
+<dt class='comment-author blog-author' id='c4765936903823954494'>
+<a name='c4765936903823954494'></a>
+<div class="avatar-image-container vcard"><span dir="ltr"><a href="https://www.blogger.com/profile/13350798058606286845" target="" rel="nofollow" onclick="" class="avatar-hovercard" id="av-4765936903823954494-13350798058606286845"><img src="https://resources.blogblog.com/img/blank.gif" width="35" height="35" class="delayLoad" style="display: none;" longdesc="//blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEir1AU6G4_txquAmVB7RSfoIAgB3_ZtEHxjY6U34CJ2YJStyrIIlSri2-hJJB34UdoaL1OA9if1vF5GNpt6VqnkKQB5D9usx6TLifuM7mV4-r3t2WUHWv2LMt2YS3_JEw/s45-c/darthvader.jpg" alt="" title="The suffocated">
+
+<noscript><img src="//blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEir1AU6G4_txquAmVB7RSfoIAgB3_ZtEHxjY6U34CJ2YJStyrIIlSri2-hJJB34UdoaL1OA9if1vF5GNpt6VqnkKQB5D9usx6TLifuM7mV4-r3t2WUHWv2LMt2YS3_JEw/s45-c/darthvader.jpg" width="35" height="35" class="photo" alt=""></noscript></a></span></div>
+<a href='https://www.blogger.com/profile/13350798058606286845' rel='nofollow'>The suffocated</a>
+說...
+</dt>
+<dd class='comment-body' id='Blog1_cmt-4765936903823954494'>
+<p>
+喔&#65292;&#12300;故從吾杭損益之&#12301;的&#12300;損益&#12301;應解作&#12300;計算輸贏&#12301;而非&#12300;增刪&#12301;才對&#65292;不過這與斷句無關就是了&#12290;
+</p>
+</dd>
+<dd class='comment-footer'>
+<span class='comment-timestamp'>
+<a href='https://aloneinthefart.blogspot.com/2010/11/blog-post_8946.html?showComment=1409239656035#c4765936903823954494' title='comment permalink'>
+2014年8月28日 下午11:27
+</a>
+<span class='item-control blog-admin pid-565947394'>
+<a class='comment-delete' href='https://www.blogger.com/comment/delete/6484621943586274574/4765936903823954494' title='刪除留言'>
+<img src='https://resources.blogblog.com/img/icon_delete13.gif'/>
+</a>
+</span>
+</span>
+</dd>
+<dt class='comment-author ' id='c3561874617470066700'>
+<a name='c3561874617470066700'></a>
+<div class="avatar-image-container avatar-stock"><span dir="ltr"><a href="https://www.blogger.com/profile/08472453062106229947" target="" rel="nofollow" onclick="" class="avatar-hovercard" id="av-3561874617470066700-08472453062106229947"><img src="//www.blogger.com/img/blogger_logo_round_35.png" width="35" height="35" alt="" title="okplaymayday">
+
+</a></span></div>
+<a href='https://www.blogger.com/profile/08472453062106229947' rel='nofollow'>okplaymayday</a>
+說...
+</dt>
+<dd class='comment-body' id='Blog1_cmt-3561874617470066700'>
+<p>
+&#12298;馮夢龍全集&#12299;有收入此文&#65292;不知道先生有無讀過&#65311;
+</p>
+</dd>
+<dd class='comment-footer'>
+<span class='comment-timestamp'>
+<a href='https://aloneinthefart.blogspot.com/2010/11/blog-post_8946.html?showComment=1470682740342#c3561874617470066700' title='comment permalink'>
+2016年8月9日 上午2:59
+</a>
+<span class='item-control blog-admin pid-657954231'>
+<a class='comment-delete' href='https://www.blogger.com/comment/delete/6484621943586274574/3561874617470066700' title='刪除留言'>
+<img src='https://resources.blogblog.com/img/icon_delete13.gif'/>
+</a>
+</span>
+</span>
+</dd>
+<dt class='comment-author blog-author' id='c7413857324296979338'>
+<a name='c7413857324296979338'></a>
+<div class="avatar-image-container vcard"><span dir="ltr"><a href="https://www.blogger.com/profile/13350798058606286845" target="" rel="nofollow" onclick="" class="avatar-hovercard" id="av-7413857324296979338-13350798058606286845"><img src="https://resources.blogblog.com/img/blank.gif" width="35" height="35" class="delayLoad" style="display: none;" longdesc="//blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEir1AU6G4_txquAmVB7RSfoIAgB3_ZtEHxjY6U34CJ2YJStyrIIlSri2-hJJB34UdoaL1OA9if1vF5GNpt6VqnkKQB5D9usx6TLifuM7mV4-r3t2WUHWv2LMt2YS3_JEw/s45-c/darthvader.jpg" alt="" title="The suffocated">
+
+<noscript><img src="//blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEir1AU6G4_txquAmVB7RSfoIAgB3_ZtEHxjY6U34CJ2YJStyrIIlSri2-hJJB34UdoaL1OA9if1vF5GNpt6VqnkKQB5D9usx6TLifuM7mV4-r3t2WUHWv2LMt2YS3_JEw/s45-c/darthvader.jpg" width="35" height="35" class="photo" alt=""></noscript></a></span></div>
+<a href='https://www.blogger.com/profile/13350798058606286845' rel='nofollow'>The suffocated</a>
+說...
+</dt>
+<dd class='comment-body' id='Blog1_cmt-7413857324296979338'>
+<p>
+okplaymayday, 我未讀過&#12298;馮夢龍全集&#12299;&#12290;有幾本古籍都收錄了&#12298;馬弔腳例&#12299;與&#12298;牌經十三篇&#12299;&#65292;譬如&#12298;葉戲原起&#12299;&#12290;互聯網發展一日千里&#65292;而今許多古籍都可於網上瀏覽&#65292;不過我覺得&#65292;始終還是將腳例原文重新打一次出來&#65292;才夠方便讀者&#12290;
+</p>
+</dd>
+<dd class='comment-footer'>
+<span class='comment-timestamp'>
+<a href='https://aloneinthefart.blogspot.com/2010/11/blog-post_8946.html?showComment=1470813867648#c7413857324296979338' title='comment permalink'>
+2016年8月10日 下午3:24
+</a>
+<span class='item-control blog-admin pid-565947394'>
+<a class='comment-delete' href='https://www.blogger.com/comment/delete/6484621943586274574/7413857324296979338' title='刪除留言'>
+<img src='https://resources.blogblog.com/img/icon_delete13.gif'/>
+</a>
+</span>
+</span>
+</dd>
+</dl>
+</div>
+<p class='comment-footer'>
+<a href='https://www.blogger.com/comment/fullpage/post/6484621943586274574/6086976338818075734' onclick=''>發佈留言</a>
+</p>
+</div>
+</div>
+
+        </div></div>
+      
+</div>
+<div class='blog-pager' id='blog-pager'>
+<span id='blog-pager-newer-link'>
+<a class='blog-pager-newer-link' href='https://aloneinthefart.blogspot.com/2010/11/blog-post_23.html' id='Blog1_blog-pager-newer-link' title='較新的文章'>較新的文章</a>
+</span>
+<span id='blog-pager-older-link'>
+<a class='blog-pager-older-link' href='https://aloneinthefart.blogspot.com/2010/11/blog-post_21.html' id='Blog1_blog-pager-older-link' title='較舊的文章'>較舊的文章</a>
+</span>
+<a class='home-link' href='https://aloneinthefart.blogspot.com/'>首頁</a>
+</div>
+<div class='clear'></div>
+<div class='post-feeds'>
+<div class='feed-links'>
+訂閱&#65306;
+<a class='feed-link' href='https://aloneinthefart.blogspot.com/feeds/6086976338818075734/comments/default' target='_blank' type='application/atom+xml'>發佈留言 (Atom)</a>
+</div>
+</div>
+</div></div>
+</div>
+<div id='sidebar-wrapper'>
+<div class='sidebar section' id='sidebar'><div class='widget TextList' data-version='1' id='TextList1'>
+<h2>Recently read</h2>
+<div class='widget-content'>
+<ul>
+<li><a href="https://www.zeit.de/politik/ausland/2021-05/francis-fukuyama-usa-donald-trump-democracy-republicans/komplettansicht">There is no American identity anymore</a></li>
+<li><a href="https://www.nature.com/articles/d41586-021-00251-4">COVID-19 rarely spreads through surfaces. So why are we still deep cleaning?</a></li>
+<li><a href="https://www.chinalawblog.com/2020/11/u-s-china-policy-under-biden-new-ground-or-back-to-the-past.html">U.S. China Policy Under Biden: New Ground or Back to the Past?</a></li>
+<li><a href="https://timhamlett.com/2020/11/07/looking-from-the-bottom-up-at-the-rule-of-law/">Looking from the bottom up at the Rule of Law</a></li>
+<li><a href="https://unherd.com/2020/08/anti-colonialists-must-tell-the-truth-about-empire/">Not all the facts fit the anti-colonialist narrative</a></li>
+</ul>
+<div class='clear'></div>
+</div>
+</div><div class='widget BlogArchive' data-version='1' id='BlogArchive1'>
+<h2>堆填區</h2>
+<div class='widget-content'>
+<div id='ArchiveList'>
+<div id='BlogArchive1_ArchiveList'>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2026/'>
+2026
+</a>
+<span class='post-count' dir='ltr'>(2)</span>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2026/07/'>
+7月
+</a>
+<span class='post-count' dir='ltr'>(2)</span>
+</li>
+</ul>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2025/'>
+2025
+</a>
+<span class='post-count' dir='ltr'>(2)</span>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2025/11/'>
+11月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2025/06/'>
+6月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2024/'>
+2024
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2024/12/'>
+12月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2023/'>
+2023
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2023/09/'>
+9月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2022/'>
+2022
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2022/02/'>
+2月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2021/'>
+2021
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2021/06/'>
+6月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2020/'>
+2020
+</a>
+<span class='post-count' dir='ltr'>(5)</span>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2020/09/'>
+9月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2020/03/'>
+3月
+</a>
+<span class='post-count' dir='ltr'>(4)</span>
+</li>
+</ul>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2019/'>
+2019
+</a>
+<span class='post-count' dir='ltr'>(9)</span>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2019/12/'>
+12月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2019/08/'>
+8月
+</a>
+<span class='post-count' dir='ltr'>(2)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2019/07/'>
+7月
+</a>
+<span class='post-count' dir='ltr'>(5)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2019/01/'>
+1月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2018/'>
+2018
+</a>
+<span class='post-count' dir='ltr'>(9)</span>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2018/12/'>
+12月
+</a>
+<span class='post-count' dir='ltr'>(2)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2018/08/'>
+8月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2018/04/'>
+4月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2018/03/'>
+3月
+</a>
+<span class='post-count' dir='ltr'>(2)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2018/02/'>
+2月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2018/01/'>
+1月
+</a>
+<span class='post-count' dir='ltr'>(2)</span>
+</li>
+</ul>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2017/'>
+2017
+</a>
+<span class='post-count' dir='ltr'>(19)</span>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2017/11/'>
+11月
+</a>
+<span class='post-count' dir='ltr'>(4)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2017/10/'>
+10月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2017/09/'>
+9月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2017/08/'>
+8月
+</a>
+<span class='post-count' dir='ltr'>(4)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2017/05/'>
+5月
+</a>
+<span class='post-count' dir='ltr'>(2)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2017/04/'>
+4月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2017/03/'>
+3月
+</a>
+<span class='post-count' dir='ltr'>(3)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2017/02/'>
+2月
+</a>
+<span class='post-count' dir='ltr'>(2)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2017/01/'>
+1月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2016/'>
+2016
+</a>
+<span class='post-count' dir='ltr'>(23)</span>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2016/12/'>
+12月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2016/11/'>
+11月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2016/10/'>
+10月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2016/09/'>
+9月
+</a>
+<span class='post-count' dir='ltr'>(7)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2016/07/'>
+7月
+</a>
+<span class='post-count' dir='ltr'>(2)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2016/06/'>
+6月
+</a>
+<span class='post-count' dir='ltr'>(2)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2016/05/'>
+5月
+</a>
+<span class='post-count' dir='ltr'>(3)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2016/04/'>
+4月
+</a>
+<span class='post-count' dir='ltr'>(3)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2016/03/'>
+3月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2016/01/'>
+1月
+</a>
+<span class='post-count' dir='ltr'>(2)</span>
+</li>
+</ul>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2015/'>
+2015
+</a>
+<span class='post-count' dir='ltr'>(28)</span>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2015/12/'>
+12月
+</a>
+<span class='post-count' dir='ltr'>(3)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2015/11/'>
+11月
+</a>
+<span class='post-count' dir='ltr'>(6)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2015/10/'>
+10月
+</a>
+<span class='post-count' dir='ltr'>(2)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2015/09/'>
+9月
+</a>
+<span class='post-count' dir='ltr'>(3)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2015/07/'>
+7月
+</a>
+<span class='post-count' dir='ltr'>(3)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2015/06/'>
+6月
+</a>
+<span class='post-count' dir='ltr'>(5)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2015/05/'>
+5月
+</a>
+<span class='post-count' dir='ltr'>(2)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2015/04/'>
+4月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2015/03/'>
+3月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2015/02/'>
+2月
+</a>
+<span class='post-count' dir='ltr'>(2)</span>
+</li>
+</ul>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2014/'>
+2014
+</a>
+<span class='post-count' dir='ltr'>(44)</span>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2014/12/'>
+12月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2014/11/'>
+11月
+</a>
+<span class='post-count' dir='ltr'>(2)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2014/10/'>
+10月
+</a>
+<span class='post-count' dir='ltr'>(2)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2014/09/'>
+9月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2014/08/'>
+8月
+</a>
+<span class='post-count' dir='ltr'>(4)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2014/07/'>
+7月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2014/06/'>
+6月
+</a>
+<span class='post-count' dir='ltr'>(4)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2014/05/'>
+5月
+</a>
+<span class='post-count' dir='ltr'>(2)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2014/04/'>
+4月
+</a>
+<span class='post-count' dir='ltr'>(4)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2014/03/'>
+3月
+</a>
+<span class='post-count' dir='ltr'>(9)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2014/02/'>
+2月
+</a>
+<span class='post-count' dir='ltr'>(8)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2014/01/'>
+1月
+</a>
+<span class='post-count' dir='ltr'>(6)</span>
+</li>
+</ul>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2013/'>
+2013
+</a>
+<span class='post-count' dir='ltr'>(41)</span>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2013/12/'>
+12月
+</a>
+<span class='post-count' dir='ltr'>(5)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2013/11/'>
+11月
+</a>
+<span class='post-count' dir='ltr'>(6)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2013/10/'>
+10月
+</a>
+<span class='post-count' dir='ltr'>(7)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2013/09/'>
+9月
+</a>
+<span class='post-count' dir='ltr'>(4)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2013/08/'>
+8月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2013/07/'>
+7月
+</a>
+<span class='post-count' dir='ltr'>(5)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2013/06/'>
+6月
+</a>
+<span class='post-count' dir='ltr'>(2)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2013/05/'>
+5月
+</a>
+<span class='post-count' dir='ltr'>(4)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2013/04/'>
+4月
+</a>
+<span class='post-count' dir='ltr'>(3)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2013/03/'>
+3月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2013/02/'>
+2月
+</a>
+<span class='post-count' dir='ltr'>(3)</span>
+</li>
+</ul>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2012/'>
+2012
+</a>
+<span class='post-count' dir='ltr'>(70)</span>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2012/12/'>
+12月
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2012/11/'>
+11月
+</a>
+<span class='post-count' dir='ltr'>(4)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2012/10/'>
+10月
+</a>
+<span class='post-count' dir='ltr'>(6)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2012/09/'>
+9月
+</a>
+<span class='post-count' dir='ltr'>(6)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2012/08/'>
+8月
+</a>
+<span class='post-count' dir='ltr'>(11)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2012/07/'>
+7月
+</a>
+<span class='post-count' dir='ltr'>(9)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2012/06/'>
+6月
+</a>
+<span class='post-count' dir='ltr'>(4)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2012/05/'>
+5月
+</a>
+<span class='post-count' dir='ltr'>(7)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2012/04/'>
+4月
+</a>
+<span class='post-count' dir='ltr'>(6)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2012/03/'>
+3月
+</a>
+<span class='post-count' dir='ltr'>(5)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2012/02/'>
+2月
+</a>
+<span class='post-count' dir='ltr'>(6)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2012/01/'>
+1月
+</a>
+<span class='post-count' dir='ltr'>(5)</span>
+</li>
+</ul>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2011/'>
+2011
+</a>
+<span class='post-count' dir='ltr'>(91)</span>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2011/12/'>
+12月
+</a>
+<span class='post-count' dir='ltr'>(9)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2011/11/'>
+11月
+</a>
+<span class='post-count' dir='ltr'>(9)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2011/10/'>
+10月
+</a>
+<span class='post-count' dir='ltr'>(5)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2011/09/'>
+9月
+</a>
+<span class='post-count' dir='ltr'>(8)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2011/08/'>
+8月
+</a>
+<span class='post-count' dir='ltr'>(2)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2011/07/'>
+7月
+</a>
+<span class='post-count' dir='ltr'>(7)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2011/06/'>
+6月
+</a>
+<span class='post-count' dir='ltr'>(5)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2011/05/'>
+5月
+</a>
+<span class='post-count' dir='ltr'>(10)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2011/04/'>
+4月
+</a>
+<span class='post-count' dir='ltr'>(5)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2011/03/'>
+3月
+</a>
+<span class='post-count' dir='ltr'>(8)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2011/02/'>
+2月
+</a>
+<span class='post-count' dir='ltr'>(8)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2011/01/'>
+1月
+</a>
+<span class='post-count' dir='ltr'>(15)</span>
+</li>
+</ul>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate expanded'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy toggle-open'>
+
+        &#9660;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2010/'>
+2010
+</a>
+<span class='post-count' dir='ltr'>(97)</span>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2010/12/'>
+12月
+</a>
+<span class='post-count' dir='ltr'>(11)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate expanded'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy toggle-open'>
+
+        &#9660;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2010/11/'>
+11月
+</a>
+<span class='post-count' dir='ltr'>(9)</span>
+<ul class='posts'>
+<li><a href='https://aloneinthefart.blogspot.com/2010/11/blog-post_30.html'>維基解密密電讀後感</a></li>
+<li><a href='https://aloneinthefart.blogspot.com/2010/11/blog-post_29.html'>書釘偶拾 &#9472;&#9472; 誰&quot;動&quot;了清明上河圖</a></li>
+<li><a href='https://aloneinthefart.blogspot.com/2010/11/blog-post_5737.html'>鬼揞眼</a></li>
+<li><a href='https://aloneinthefart.blogspot.com/2010/11/blog-post_27.html'>客家六虎牌&#65288;三&#65289;</a></li>
+<li><a href='https://aloneinthefart.blogspot.com/2010/11/blog-post_23.html'>重構明代馬弔牌例&#65288;一&#65289;</a></li>
+<li><a href='https://aloneinthefart.blogspot.com/2010/11/blog-post_8946.html'>馮夢龍&#12298;馬弔脚例&#12299;全文</a></li>
+<li><a href='https://aloneinthefart.blogspot.com/2010/11/blog-post_21.html'>毒</a></li>
+<li><a href='https://aloneinthefart.blogspot.com/2010/11/blog-post_17.html'>客家六虎牌&#65288;二&#65289;</a></li>
+<li><a href='https://aloneinthefart.blogspot.com/2010/11/blog-post.html'>客家六虎牌&#65288;一&#65289;</a></li>
+</ul>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2010/10/'>
+10月
+</a>
+<span class='post-count' dir='ltr'>(9)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2010/09/'>
+9月
+</a>
+<span class='post-count' dir='ltr'>(5)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2010/08/'>
+8月
+</a>
+<span class='post-count' dir='ltr'>(11)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2010/07/'>
+7月
+</a>
+<span class='post-count' dir='ltr'>(8)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2010/06/'>
+6月
+</a>
+<span class='post-count' dir='ltr'>(5)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2010/05/'>
+5月
+</a>
+<span class='post-count' dir='ltr'>(6)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2010/04/'>
+4月
+</a>
+<span class='post-count' dir='ltr'>(9)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2010/03/'>
+3月
+</a>
+<span class='post-count' dir='ltr'>(8)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2010/02/'>
+2月
+</a>
+<span class='post-count' dir='ltr'>(7)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2010/01/'>
+1月
+</a>
+<span class='post-count' dir='ltr'>(9)</span>
+</li>
+</ul>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2009/'>
+2009
+</a>
+<span class='post-count' dir='ltr'>(161)</span>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2009/12/'>
+12月
+</a>
+<span class='post-count' dir='ltr'>(9)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2009/11/'>
+11月
+</a>
+<span class='post-count' dir='ltr'>(7)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2009/10/'>
+10月
+</a>
+<span class='post-count' dir='ltr'>(15)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2009/09/'>
+9月
+</a>
+<span class='post-count' dir='ltr'>(10)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2009/08/'>
+8月
+</a>
+<span class='post-count' dir='ltr'>(15)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2009/07/'>
+7月
+</a>
+<span class='post-count' dir='ltr'>(10)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2009/06/'>
+6月
+</a>
+<span class='post-count' dir='ltr'>(15)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2009/05/'>
+5月
+</a>
+<span class='post-count' dir='ltr'>(13)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2009/04/'>
+4月
+</a>
+<span class='post-count' dir='ltr'>(11)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2009/03/'>
+3月
+</a>
+<span class='post-count' dir='ltr'>(18)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2009/02/'>
+2月
+</a>
+<span class='post-count' dir='ltr'>(21)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2009/01/'>
+1月
+</a>
+<span class='post-count' dir='ltr'>(17)</span>
+</li>
+</ul>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2008/'>
+2008
+</a>
+<span class='post-count' dir='ltr'>(247)</span>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2008/12/'>
+12月
+</a>
+<span class='post-count' dir='ltr'>(16)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2008/11/'>
+11月
+</a>
+<span class='post-count' dir='ltr'>(18)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2008/10/'>
+10月
+</a>
+<span class='post-count' dir='ltr'>(15)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2008/09/'>
+9月
+</a>
+<span class='post-count' dir='ltr'>(27)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2008/08/'>
+8月
+</a>
+<span class='post-count' dir='ltr'>(30)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2008/07/'>
+7月
+</a>
+<span class='post-count' dir='ltr'>(23)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2008/06/'>
+6月
+</a>
+<span class='post-count' dir='ltr'>(17)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2008/05/'>
+5月
+</a>
+<span class='post-count' dir='ltr'>(24)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2008/04/'>
+4月
+</a>
+<span class='post-count' dir='ltr'>(31)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2008/03/'>
+3月
+</a>
+<span class='post-count' dir='ltr'>(15)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2008/02/'>
+2月
+</a>
+<span class='post-count' dir='ltr'>(17)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='https://aloneinthefart.blogspot.com/2008/01/'>
+1月
+</a>
+<span class='post-count' dir='ltr'>(14)</span>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div class='clear'></div>
+</div>
+</div><div class='widget LinkList' data-version='1' id='LinkList2'>
+<h2>語文工具書</h2>
+<div class='widget-content'>
+<ul>
+<li><a href='http://www.edbchinese.hk/lexlist_ch/index.htm'>香港小學學習字詞表</a></li>
+<li><a href='http://dict.revised.moe.edu.tw/index.html'>重編國語辭典修訂本</a></li>
+<li><a href='http://kanji-database.sourceforge.net/dict/swjz/index.html'>說文解字</a></li>
+<li><a href='http://www.iso10646hk.net/jp/database/index.jsp'>粵拼資料庫</a></li>
+<li><a href='http://kanji-database.sourceforge.net/dict/sbgy/index.html'>廣韻</a></li>
+<li><a href='http://www.chinapage.com/language/suyu/gdfy/gdfymain.html'>廣東俗語考</a></li>
+<li><a href='http://www.archive.org/details/06052887.cn'>字鑑 (Internet Archive)</a></li>
+<li><a href='http://catalog.digitalarchives.tw/dacs5/System/Exhibition/Detail.jsp?OID=518271'>字鑑 (digitalarchives.tw)</a></li>
+<li><a href='http://cls.hs.yzu.edu.tw/CSP/W_DB/index.htm'>唐宋詞全文檢索系統</a></li>
+<li><a href='http://cls.hs.yzu.edu.tw/tang/Database/index.html'>全唐詩檢索系統</a></li>
+</ul>
+<div class='clear'></div>
+</div>
+</div><div class='widget Label' data-version='1' id='Label1'>
+<h2>Label</h2>
+<div class='widget-content list-label-widget-content'>
+<ul>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/Yet%20another%20blog%20entry'>Yet another blog entry</a>
+<span dir='ltr'>(83)</span>
+</li>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/%E6%96%87%E5%AD%97%E6%98%AF%E5%90%B5%E6%9E%B6%E7%9A%84%E9%A1%8F%E8%89%B2'>文字是吵架的顏色</a>
+<span dir='ltr'>(71)</span>
+</li>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/Computing'>Computing</a>
+<span dir='ltr'>(47)</span>
+</li>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/Seriously%20Sir'>Seriously Sir</a>
+<span dir='ltr'>(47)</span>
+</li>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/%E5%82%B3%E7%B5%B1%E9%81%8A%E8%97%9D%EF%BC%88%E5%A4%A9%E4%B9%9D%E3%80%81%E9%A6%AC%E5%BC%94%E3%80%81%E9%BA%BB%E9%9B%80%20%E2%80%A6%EF%BC%89'>傳統遊藝&#65288;天九&#12289;馬弔&#12289;麻雀 &#8230;&#65289;</a>
+<span dir='ltr'>(45)</span>
+</li>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/%E4%B8%8D%E5%AD%B8%E7%84%A1%E8%A1%93'>不學無術</a>
+<span dir='ltr'>(34)</span>
+</li>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/Adventure%20game'>Adventure game</a>
+<span dir='ltr'>(29)</span>
+</li>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/%E6%9E%9C%20D%20%E5%94%94%E7%9F%A5%E5%85%A5%E5%94%94%E5%85%A5%E6%B5%81%E7%9A%84%E6%96%87%E5%8C%96%E9%87%8E'>果 D 唔知入唔入流的文化野</a>
+<span dir='ltr'>(21)</span>
+</li>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/I%20%E2%99%A5%20HK'>I &#9829; HK</a>
+<span dir='ltr'>(18)</span>
+</li>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/Religion'>Religion</a>
+<span dir='ltr'>(13)</span>
+</li>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/%E6%B7%AB%E5%AF%A9'>淫審</a>
+<span dir='ltr'>(13)</span>
+</li>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/%E5%9B%9B%E5%B7%9D%E5%9C%B0%E9%9C%87'>四川地震</a>
+<span dir='ltr'>(12)</span>
+</li>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/%E6%82%B2%E3%80%81%E7%85%8E%E3%80%81%E6%8B%97%E3%80%81%E5%86%A4'>悲&#12289;煎&#12289;拗&#12289;冤</a>
+<span dir='ltr'>(12)</span>
+</li>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/%E8%BF%BD%E6%86%B6%E4%BC%BC%E6%B0%B4%E5%B9%B4%E8%8F%AF'>追憶似水年華</a>
+<span dir='ltr'>(10)</span>
+</li>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/%E4%BA%BA%E6%B5%B7%E4%B8%AD%E7%9A%84%E5%B0%8F%E6%95%85%E4%BA%8B'>人海中的小故事</a>
+<span dir='ltr'>(7)</span>
+</li>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/%E9%9B%9C%E7%82%92%E7%B3%BB%E5%88%97'>雜炒系列</a>
+<span dir='ltr'>(7)</span>
+</li>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/%E9%AB%98%E8%80%83%2F%E6%9C%83%E8%80%83%E7%B3%BB%E5%88%97'>高考/會考系列</a>
+<span dir='ltr'>(7)</span>
+</li>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/%E5%A4%A7%E5%AD%B8%E5%A5%87%E8%AD%9A'>大學奇譚</a>
+<span dir='ltr'>(3)</span>
+</li>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/%E7%84%A1%E8%81%8A%20quiz'>無聊 quiz</a>
+<span dir='ltr'>(3)</span>
+</li>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/%E7%A5%9E%E6%A3%8D'>神棍</a>
+<span dir='ltr'>(3)</span>
+</li>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/%E8%87%AA%E5%AE%AE%E7%BE%A4%E8%8B%B1'>自宮群英</a>
+<span dir='ltr'>(2)</span>
+</li>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/%E9%8A%80%E6%B2%B3%E8%8B%B1%E9%9B%84%E5%82%B3%E8%AA%AA'>銀河英雄傳說</a>
+<span dir='ltr'>(2)</span>
+</li>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/BlogDay2008'>BlogDay2008</a>
+<span dir='ltr'>(1)</span>
+</li>
+<li>
+<a dir='ltr' href='https://aloneinthefart.blogspot.com/search/label/Revisionist%20history'>Revisionist history</a>
+<span dir='ltr'>(1)</span>
+</li>
+</ul>
+<div class='clear'></div>
+</div>
+</div></div>
+</div>
+<!-- spacer for skins that want sidebar and main to be the same height-->
+<div class='clear'>&#160;</div>
+</div>
+<!-- end content-wrapper -->
+<div id='footer-wrapper'>
+<div class='footer no-items section' id='footer'></div>
+</div>
+</div></div>
+<!-- end outer-wrapper -->
+
+<script type="text/javascript" src="https://www.blogger.com/static/v1/widgets/4033524873-widgets.js"></script>
+<script type='text/javascript'>
+window['__wavt'] = 'ACvIOeDBDyGlwuE939zHi-Tbhge5:1786660761153';_WidgetManager._Init('//www.blogger.com/rearrange?blogID\x3d6484621943586274574','//aloneinthefart.blogspot.com/2010/11/blog-post_8946.html','6484621943586274574');
+_WidgetManager._SetDataContext([{'name': 'blog', 'data': {'blogId': '6484621943586274574', 'title': 'Alone in the Fart', 'url': 'https://aloneinthefart.blogspot.com/2010/11/blog-post_8946.html', 'canonicalUrl': 'https://aloneinthefart.blogspot.com/2010/11/blog-post_8946.html', 'homepageUrl': 'https://aloneinthefart.blogspot.com/', 'searchUrl': 'https://aloneinthefart.blogspot.com/search', 'canonicalHomepageUrl': 'https://aloneinthefart.blogspot.com/', 'blogspotFaviconUrl': 'https://aloneinthefart.blogspot.com/favicon.ico', 'bloggerUrl': 'https://www.blogger.com', 'hasCustomDomain': false, 'httpsEnabled': true, 'enabledCommentProfileImages': true, 'gPlusViewType': 'FILTERED_POSTMOD', 'adultContent': false, 'analyticsAccountNumber': '', 'encoding': 'UTF-8', 'locale': 'zh-HK', 'localeUnderscoreDelimited': 'zh_hk', 'languageDirection': 'ltr', 'isPrivate': false, 'isMobile': false, 'isMobileRequest': false, 'mobileClass': '', 'isPrivateBlog': false, 'isDynamicViewsAvailable': false, 'feedLinks': '\x3clink rel\x3d\x22alternate\x22 type\x3d\x22application/atom+xml\x22 title\x3d\x22Alone in the Fart - Atom\x22 href\x3d\x22https://aloneinthefart.blogspot.com/feeds/posts/default\x22 /\x3e\n\x3clink rel\x3d\x22alternate\x22 type\x3d\x22application/rss+xml\x22 title\x3d\x22Alone in the Fart - RSS\x22 href\x3d\x22https://aloneinthefart.blogspot.com/feeds/posts/default?alt\x3drss\x22 /\x3e\n\x3clink rel\x3d\x22service.post\x22 type\x3d\x22application/atom+xml\x22 title\x3d\x22Alone in the Fart - Atom\x22 href\x3d\x22https://www.blogger.com/feeds/6484621943586274574/posts/default\x22 /\x3e\n\n\x3clink rel\x3d\x22alternate\x22 type\x3d\x22application/atom+xml\x22 title\x3d\x22Alone in the Fart - Atom\x22 href\x3d\x22https://aloneinthefart.blogspot.com/feeds/6086976338818075734/comments/default\x22 /\x3e\n', 'meTag': '', 'adsenseHostId': 'ca-host-pub-1556223355139109', 'adsenseHasAds': false, 'adsenseAutoAds': false, 'boqCommentIframeForm': true, 'loginRedirectParam': '', 'isGoogleEverywhereLinkTooltipEnabled': true, 'view': '', 'dynamicViewsCommentsSrc': '//www.blogblog.com/dynamicviews/4224c15c4e7c9321/js/comments.js', 'dynamicViewsScriptSrc': '//www.blogblog.com/dynamicviews/d9e3b6f1f0b3dbd1', 'plusOneApiSrc': 'https://apis.google.com/js/platform.js', 'disableGComments': true, 'interstitialAccepted': false, 'sharing': {'platforms': [{'name': '\u53d6\u5f97\u9023\u7d50', 'key': 'link', 'shareMessage': '\u53d6\u5f97\u9023\u7d50', 'target': ''}, {'name': 'Facebook', 'key': 'facebook', 'shareMessage': '\u5206\u4eab\u5230 Facebook', 'target': 'facebook'}, {'name': 'BlogThis\uff01', 'key': 'blogThis', 'shareMessage': 'BlogThis\uff01', 'target': 'blog'}, {'name': 'X', 'key': 'twitter', 'shareMessage': '\u5206\u4eab\u5230 X', 'target': 'twitter'}, {'name': 'Pinterest', 'key': 'pinterest', 'shareMessage': '\u5206\u4eab\u5230 Pinterest', 'target': 'pinterest'}, {'name': '\u96fb\u5b50\u90f5\u4ef6', 'key': 'email', 'shareMessage': '\u96fb\u5b50\u90f5\u4ef6', 'target': 'email'}], 'disableGooglePlus': true, 'googlePlusShareButtonWidth': 0, 'googlePlusBootstrap': '\x3cscript type\x3d\x22text/javascript\x22\x3ewindow.___gcfg \x3d {\x27lang\x27: \x27zh_HK\x27};\x3c/script\x3e'}, 'hasCustomJumpLinkMessage': false, 'jumpLinkMessage': '\u95b1\u8b80\u66f4\u591a', 'pageType': 'item', 'postId': '6086976338818075734', 'pageName': '\u99ae\u5922\u9f8d\u300a\u99ac\u5f14\u811a\u4f8b\u300b\u5168\u6587', 'pageTitle': 'Alone in the Fart: \u99ae\u5922\u9f8d\u300a\u99ac\u5f14\u811a\u4f8b\u300b\u5168\u6587'}}, {'name': 'features', 'data': {}}, {'name': 'messages', 'data': {'edit': '\u7de8\u8f2f', 'linkCopiedToClipboard': '\u9023\u7d50\u5df2\u8907\u88fd\u5230\u526a\u8cbc\u7c3f\uff01', 'ok': '\u78ba\u5b9a', 'postLink': '\u6587\u7ae0\u9023\u7d50'}}, {'name': 'template', 'data': {'name': 'custom', 'localizedName': '\u81ea\u8a02', 'isResponsive': false, 'isAlternateRendering': false, 'isCustom': true}}, {'name': 'view', 'data': {'classic': {'name': 'classic', 'url': '?view\x3dclassic'}, 'flipcard': {'name': 'flipcard', 'url': '?view\x3dflipcard'}, 'magazine': {'name': 'magazine', 'url': '?view\x3dmagazine'}, 'mosaic': {'name': 'mosaic', 'url': '?view\x3dmosaic'}, 'sidebar': {'name': 'sidebar', 'url': '?view\x3dsidebar'}, 'snapshot': {'name': 'snapshot', 'url': '?view\x3dsnapshot'}, 'timeslide': {'name': 'timeslide', 'url': '?view\x3dtimeslide'}, 'isMobile': false, 'title': '\u99ae\u5922\u9f8d\u300a\u99ac\u5f14\u811a\u4f8b\u300b\u5168\u6587', 'description': '\u6bcf\u7576\u4eba\u5011\u63d0\u8d77\u9ebb\u96c0\u6216\u4e2d\u570b\u7d19\u724c\u7684\u6b77\u53f2\uff0c\u7e3d\u6703\u626f\u4e0a\u99ac\u5f14\uff0c\u7136\u800c\u6240\u8b02\u99ac\u5f14\u662f\u600e\u9ebc\u4e00\u56de\u4e8b\uff0c\u53c8\u6c92\u6709\u4eba\u8aaa\u5f97\u6e05\u695a\u3002   \u6c11\u9593\u76f8\u50b3\uff0c\u99ac\u5f14\u662f\u5b8b\u671d\u7522\u7269\u3002\u6b64\u8aaa\u4e0d\u77e5\u771f\u5047\uff0c\u82e5\u7136\u70ba\u771f\uff0c\u7576\u6642\u73a9\u6cd5\u4ea6\u65e9\u5df2\u5931\u50b3\u3002\u73fe\u5b58\u6700\u65e9\u7684\u99ac\u5f14\u4f8b\u66f8\uff0c\u662f\u660e\u4ee3\u6587\u5b78\u5bb6 \u99ae\u5922\u9f8d \uff08\u9f8d\u5b50\u7336\uff09\u6240\u8457\u7684 \u300a\u99ac\u5f14\u811a\u4f8b\u300b \uff08\u4e0b\u7a31\u300c\u8173\u4f8b\u300d\uff09\uff0c\u540c\u4ee3\u5176\u4ed6\u6709\u95dc\u99ac\u5f14\u7684\u8457...', 'url': 'https://aloneinthefart.blogspot.com/2010/11/blog-post_8946.html', 'type': 'item', 'isSingleItem': true, 'isMultipleItems': false, 'isError': false, 'isPage': false, 'isPost': true, 'isHomepage': false, 'isArchive': false, 'isLabelSearch': false, 'postId': 6086976338818075734}}]);
+_WidgetManager._RegisterWidget('_NavbarView', new _WidgetInfo('Navbar1', 'navbar', document.getElementById('Navbar1'), {}, 'displayModeFull'));
+_WidgetManager._RegisterWidget('_HeaderView', new _WidgetInfo('Header1', 'header', document.getElementById('Header1'), {}, 'displayModeFull'));
+_WidgetManager._RegisterWidget('_BlogView', new _WidgetInfo('Blog1', 'main', document.getElementById('Blog1'), {'cmtInteractionsEnabled': false, 'lightboxEnabled': true, 'lightboxModuleUrl': 'https://www.blogger.com/static/v1/jsbin/2630883120-lbx__zh_hk.js', 'lightboxCssUrl': 'https://www.blogger.com/static/v1/v-css/828616780-lightbox_bundle.css'}, 'displayModeFull'));
+_WidgetManager._RegisterWidget('_TextListView', new _WidgetInfo('TextList1', 'sidebar', document.getElementById('TextList1'), {}, 'displayModeFull'));
+_WidgetManager._RegisterWidget('_BlogArchiveView', new _WidgetInfo('BlogArchive1', 'sidebar', document.getElementById('BlogArchive1'), {'languageDirection': 'ltr', 'loadingMessage': '\u6b63\u5728\u8f09\u5165\u2026'}, 'displayModeFull'));
+_WidgetManager._RegisterWidget('_LinkListView', new _WidgetInfo('LinkList2', 'sidebar', document.getElementById('LinkList2'), {}, 'displayModeFull'));
+_WidgetManager._RegisterWidget('_LabelView', new _WidgetInfo('Label1', 'sidebar', document.getElementById('Label1'), {}, 'displayModeFull'));
+</script>
+</body>
+</html>

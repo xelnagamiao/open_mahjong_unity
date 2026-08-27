@@ -1,0 +1,1155 @@
+{
+  "updated": "2026-08-14",
+  "lede": "关系表按结构特征分组，不是省名。东北组与京津、晋陕分开。台湾组里南部无花和明星三缺一是同一十六张底下的后起分叉与定型，不是另一种麻将。",
+  "isoglosses": [
+    {
+      "id": "hand-16",
+      "label": "十六张手牌"
+    },
+    {
+      "id": "tiles-108",
+      "label": "108 张（无字）"
+    },
+    {
+      "id": "no-chi",
+      "label": "禁吃"
+    },
+    {
+      "id": "xuezhan",
+      "label": "一家和后继续"
+    },
+    {
+      "id": "dingque",
+      "label": "定缺／缺门"
+    },
+    {
+      "id": "joker",
+      "label": "癞子／财神／金／混"
+    },
+    {
+      "id": "fu-han",
+      "label": "番副计分"
+    },
+    {
+      "id": "riichi",
+      "label": "立直"
+    },
+    {
+      "id": "animals",
+      "label": "动物牌"
+    },
+    {
+      "id": "nmjl-card",
+      "label": "年卡合法型"
+    },
+    {
+      "id": "mcr-fan",
+      "label": "国标番种库"
+    },
+    {
+      "id": "jiang-258",
+      "label": "258 将"
+    },
+    {
+      "id": "hua-count",
+      "label": "花数计分"
+    }
+  ],
+  "families": [
+    {
+      "id": "pre-paper",
+      "region": "前史 · 纸牌",
+      "label": "叶子、马吊、默和、碰和",
+      "kinship": "源流",
+      "relatedness": "牌张走马吊，玩法走默和碰和。还不是麻将。",
+      "shared": [],
+      "trunk": "yezi",
+      "members": [
+        {
+          "id": "yezi",
+          "role": "trunk",
+          "note": "宋–明纸牌"
+        },
+        {
+          "id": "madiao",
+          "role": "sub",
+          "note": "斗大；万索钱传到麻将"
+        },
+        {
+          "id": "mohe",
+          "role": "sub",
+          "note": "四人凑面子"
+        },
+        {
+          "id": "penghe",
+          "role": "sub",
+          "note": "碰的词源；四副"
+        }
+      ]
+    },
+    {
+      "id": "pre-domino",
+      "region": "前史 · 骨牌",
+      "label": "天九／牌九",
+      "kinship": "形制借用",
+      "relatedness": "与麻将并行的骨牌戏。麻将改竹骨时借用牌具形制，玩法不是牌九。",
+      "shared": [],
+      "trunk": "tianjiu",
+      "members": [
+        {
+          "id": "tianjiu",
+          "role": "trunk",
+          "note": "天九、牌九、花将"
+        }
+      ]
+    },
+    {
+      "id": "ningbo-trunk",
+      "region": "江南定型",
+      "label": "宁波主干",
+      "kinship": "直系",
+      "relatedness": "晚清中发／叉麻雀 → 1910 年代规则书层。当代宁波地方打法已加财神、花牌。上海敲麻不是这一组：机制是报听和勒子，已拆到沪上敲麻。",
+      "shared": [
+        "fu-han"
+      ],
+      "trunk": "proto-mahjong",
+      "members": [
+        {
+          "id": "proto-mahjong",
+          "role": "trunk",
+          "note": "中发、叉麻雀"
+        },
+        {
+          "id": "classical",
+          "role": "sub",
+          "note": "番副；文献含绘图牌谱、想定宁波"
+        },
+        {
+          "id": "ningbo-local",
+          "role": "sub",
+          "note": "今甬麻：四台、财神、花"
+        }
+      ]
+    },
+    {
+      "id": "yue-fan",
+      "region": "粤港澳",
+      "label": "清章圈（粤港澳）",
+      "kinship": "平行分化",
+      "relatedness": "十三张、用字牌、废副算番。香港清章和广东新章像一对姐妹，命名上有点冲突。鸡平胡、推倒胡和新章是平行发展的关系，不是新章的下级分支。MIL 推广本单独记录。澳门 1991 年的赌场法规不算这一组的一部分。潮汕、湛江挂在推倒胡系下面，但潮汕的来源说法零散、互相矛盾，湛江到底算推倒胡的分支还是粤西自己独立的打法也还没定论，这两条证据都偏弱。",
+      "shared": [],
+      "trunk": "qingzhang",
+      "members": [
+        {
+          "id": "qingzhang",
+          "role": "trunk",
+          "note": "旧章：废副、出铳么二"
+        },
+        {
+          "id": "hongkong",
+          "role": "sub",
+          "note": "清章，常三番起糊；协会称港麻为清章"
+        },
+        {
+          "id": "guangdong",
+          "role": "sub",
+          "note": "新章叠番；伞称，不是鸡平胡"
+        },
+        {
+          "id": "jipinghu",
+          "role": "sub",
+          "note": "珠三角民间主流，由老章简化"
+        },
+        {
+          "id": "tuidao",
+          "role": "sub",
+          "note": "粤港低门槛；至少三套，北京另条"
+        },
+        {
+          "id": "chaoshan",
+          "role": "sub",
+          "note": "潮汕；资料零散互相矛盾，数据薄"
+        },
+        {
+          "id": "zhanjiang",
+          "role": "sub",
+          "note": "湛江；禁吃重自摸"
+        },
+        {
+          "id": "mil-guangdong",
+          "role": "sub",
+          "note": "MIL 2023 推广本"
+        },
+        {
+          "id": "mil-tuidao",
+          "role": "sub",
+          "note": "MIL 2024 推广本"
+        }
+      ]
+    },
+    {
+      "id": "macau-casino",
+      "region": "澳门",
+      "label": "澳门赌场法定",
+      "kinship": "法定文本",
+      "relatedness": "第 135/91/M 号训令。传统 136／简易 112。赌场法定，不是鸡平胡，也不进清章圈。",
+      "shared": [
+        "statutory"
+      ],
+      "trunk": "macau",
+      "members": [
+        {
+          "id": "macau",
+          "role": "trunk",
+          "note": "训令两种玩法，不是民间粤麻"
+        }
+      ]
+    },
+    {
+      "id": "seasia",
+      "region": "东南亚",
+      "label": "南洋动物牌",
+      "kinship": "侨路近亲",
+      "relatedness": "算番方式接近港式，是华侨迁移路线留下的印象，但牌具其实不是同一套。新加坡常见 148 张（四张动物：猫鼠鸡蜈蚣，成对即付）；维基对照表写成 156 张。马来西亚四家桌常到 164 张，三家桌另有 84 张的版本，不是新加坡的照搬。越南常见 160 张（皇／后花 + 八张专用百搭），不带动物牌；现代的套数可以到 176 或 184 张。这三个地方的打法不是同一种「南洋麻将」，越南和粤港清章的关系也比较松散。",
+      "shared": [
+        "animals"
+      ],
+      "trunk": "singapore",
+      "members": [
+        {
+          "id": "singapore",
+          "role": "trunk",
+          "note": "动物牌；社区 148，维基表 156"
+        },
+        {
+          "id": "malaysia",
+          "role": "sub",
+          "note": "四家常 164；三家 84；不是新加坡复印件"
+        },
+        {
+          "id": "vietnam",
+          "role": "sub",
+          "note": "160 张专用百搭，不是动物牌，和清章的关系比较松散"
+        }
+      ]
+    },
+    {
+      "id": "riichi-circle",
+      "region": "日本／韩国",
+      "label": "立直圈",
+      "kinship": "直系 + 借用",
+      "relatedness": "日本古典近中国古典。1952 报知把途中立直写成规则书骨架。天凤／雀魂是后来的网上桌规，有赤宝、里宝、食断；平台按这一层。GGHK 大赛本无赤。MIL／EMA RCR 不设赤宝、不设多倍役满。三麻、韩三麻从报知以后的立直传统分出，不是天凤下级。",
+      "shared": [
+        "riichi",
+        "fu-han"
+      ],
+      "trunk": "japanese-classical",
+      "members": [
+        {
+          "id": "japanese-classical",
+          "role": "trunk",
+          "note": "战前近中国古典"
+        },
+        {
+          "id": "riichi-hochi",
+          "role": "sub",
+          "note": "1952 报知成文；不是平台"
+        },
+        {
+          "id": "riichi",
+          "role": "sub",
+          "note": "天凤／雀魂现行；平台在这一层"
+        },
+        {
+          "id": "japanese-3p",
+          "role": "sub",
+          "note": "三麻；不是天凤下级"
+        },
+        {
+          "id": "korean-3p",
+          "role": "sub",
+          "note": "韩三麻；旧韩麻 ≠ KML 立直赛"
+        },
+        {
+          "id": "mil-riichi",
+          "role": "sub",
+          "note": "EMA／MIL RCR；不设赤宝"
+        }
+      ]
+    },
+    {
+      "id": "sixteen-tile",
+      "region": "闽台港澳／温州",
+      "label": "十六张",
+      "kinship": "平行加搭",
+      "relatedness": "闲家 16、五搭一对。福州走开金。台湾按台、连庄拉庄；南部无花是地理差，明星三缺一是 2001 定型层。入台来路两说未钉死。港式十六张不是台制原样。温州兼财神。MIL 温州 2024 按十六张分类。",
+      "shared": [
+        "hand-16"
+      ],
+      "trunk": "fuzhou",
+      "members": [
+        {
+          "id": "fuzhou",
+          "role": "trunk",
+          "note": "开金、抢金、三金倒"
+        },
+        {
+          "id": "taiwan",
+          "role": "sub",
+          "note": "台数、拉庄；来路有争议"
+        },
+        {
+          "id": "taiwan-south",
+          "role": "sub",
+          "note": "南部无花；桌上并行"
+        },
+        {
+          "id": "taiwan-mingxing",
+          "role": "sub",
+          "note": "2001 电脑定型一套台数"
+        },
+        {
+          "id": "hongkong-16",
+          "role": "sub",
+          "note": "港式台牌，糅合多源"
+        },
+        {
+          "id": "wenzhou",
+          "role": "sub",
+          "note": "十六张 + 财神"
+        },
+        {
+          "id": "mil-wenzhou",
+          "role": "sub",
+          "note": "MIL 2024：十六张协会本"
+        }
+      ]
+    },
+    {
+      "id": "min-jin",
+      "region": "闽南／闽西",
+      "label": "闽金（厦门 / 泉州 / 龙岩）",
+      "kinship": "机制近亲，结构分歧",
+      "relatedness": "开金（翻牌当万能百搭）这个机制和福州、台湾同源，但厦门、泉州、龙岩的和牌结构是十三张（四组+一对），福州、台湾是十六张（五组+一对），两边结构不同，不能并进 sixteen-tile 直系。这里单独立组，只认「开金」机制近亲，不认牌数结构同源。厦门可吃，龙岩禁吃，客家闽南在这条上分岔。",
+      "shared": [
+        "joker"
+      ],
+      "trunk": "xiamen",
+      "members": [
+        {
+          "id": "xiamen",
+          "role": "trunk",
+          "note": "十三张结构；游金／双游／三游"
+        },
+        {
+          "id": "quanzhou",
+          "role": "sub",
+          "note": "无花牌；暗／明游金两制"
+        },
+        {
+          "id": "longyan",
+          "role": "sub",
+          "note": "禁吃；客家聚居区"
+        }
+      ]
+    },
+    {
+      "id": "guangxi-guiliu",
+      "region": "广西/海南",
+      "label": "桂柳与南宁",
+      "kinship": "省内平行",
+      "relatedness": "柳州、桂林共用一套桂柳麻将（钓鱼加倍机制），南宁另走买马+封胡。海南「有番才能胡」把点炮门槛卡死，与两广写法不对应，先并列不强行认亲，只因地理相邻归一组。",
+      "shared": [],
+      "trunk": "liuzhou-guilin",
+      "members": [
+        {
+          "id": "nanning",
+          "role": "sub",
+          "note": "9 分起胡；买马、封胡"
+        },
+        {
+          "id": "liuzhou-guilin",
+          "role": "trunk",
+          "note": "桂柳麻将：钓鱼加倍"
+        },
+        {
+          "id": "hainan",
+          "role": "sub",
+          "note": "有番才能胡"
+        }
+      ]
+    },
+    {
+      "id": "henan-hun",
+      "region": "河南",
+      "label": "河南（郑州混牌 / 洛阳杠呲）",
+      "kinship": "省内平行",
+      "relatedness": "郑州不吃、常只自摸，靠下跑加注和混牌（翻牌+1）；洛阳把杠上开花做成核心玩法（杠呲），与郑州是两条不同发明。开封只查到平台功能列表，数据薄。",
+      "shared": [],
+      "trunk": "zhengzhou",
+      "members": [
+        {
+          "id": "zhengzhou",
+          "role": "trunk",
+          "note": "不吃；下跑加注；混牌"
+        },
+        {
+          "id": "luoyang",
+          "role": "sub",
+          "note": "杠呲：翻墙末张为呲"
+        },
+        {
+          "id": "kaifeng",
+          "role": "sub",
+          "note": "数据薄，只有功能列表"
+        }
+      ]
+    },
+    {
+      "id": "jiangnan-caishen",
+      "region": "浙沪",
+      "label": "江南财神",
+      "kinship": "后起共用",
+      "relatedness": "都用翻财神或固定百搭牌，但这更像是后起各地共用的一个玩法元素，彼此不算严格的父子传承。杭州现在主流是白板固定财神，不用花牌。温州是十六张翻财神，也算在十六张这一组里。当代甬麻用花牌、四台起胡，和杭麻是两种打法。MIL 杭州 2025 是协会本。MIL 温州 2024 按十六张分类。",
+      "shared": [
+        "joker"
+      ],
+      "trunk": "hangzhou",
+      "members": [
+        {
+          "id": "hangzhou",
+          "role": "trunk",
+          "note": "白板固定财神；翻财神是桌上选项；不是 MIL 原样"
+        },
+        {
+          "id": "ningbo-local",
+          "role": "sub",
+          "note": "今甬麻：有花、四台；不是祖型，也不是杭麻"
+        },
+        {
+          "id": "wenzhou",
+          "role": "sub",
+          "note": "十六张 + 翻财神；跟风是民间桌规"
+        },
+        {
+          "id": "mil-hangzhou",
+          "role": "sub",
+          "note": "MIL 2025 推广本"
+        },
+        {
+          "id": "mil-wenzhou",
+          "role": "sub",
+          "note": "MIL 2024 试点本"
+        }
+      ]
+    },
+    {
+      "id": "huama-hua",
+      "region": "苏沪宁",
+      "label": "花麻（算花）",
+      "kinship": "后起共用",
+      "relatedness": "计分看花数。中发白常当硬花，再加季节花。禁吃。门槛常是三花自摸、四花放铳；大番可免。苏州 152 张、花牌更多；南京论花 144 张、20 硬花、软花、砸 2。跟杭州白板财神、上海敲麻都不是一套。除了花，章法接近推倒胡。",
+      "shared": [
+        "hua-count",
+        "no-chi"
+      ],
+      "trunk": "huama",
+      "members": [
+        {
+          "id": "huama",
+          "role": "trunk",
+          "note": "花数门槛，不是财神"
+        },
+        {
+          "id": "suzhou",
+          "role": "sub",
+          "note": "苏州算花，152 张，花牌更多"
+        },
+        {
+          "id": "nanjing",
+          "role": "sub",
+          "note": "南京论花：20 硬花、软花、砸 2"
+        }
+      ]
+    },
+    {
+      "id": "jiangsu-other",
+      "region": "江苏（苏中苏北）",
+      "label": "江苏其它地市",
+      "kinship": "省内并列",
+      "relatedness": "无锡花分计分接近算花带但不禁吃；扬州三式并行（新／标准／跌倒胡）；徐州配儿百搭是自产癞子；常州百搭台数计分资料单薄。都是省内各市各写各的，不强行接到苏州南京算花带或杭州财神带。",
+      "shared": [],
+      "trunk": "yangzhou",
+      "members": [
+        {
+          "id": "wuxi",
+          "role": "sub",
+          "note": "144 张有花；可吃"
+        },
+        {
+          "id": "yangzhou",
+          "role": "trunk",
+          "note": "新式／标准式／跌倒胡三式并行"
+        },
+        {
+          "id": "xuzhou",
+          "role": "sub",
+          "note": "配儿百搭；须有夹"
+        },
+        {
+          "id": "changzhou",
+          "role": "sub",
+          "note": "百搭台数；数据薄"
+        }
+      ]
+    },
+    {
+      "id": "anhui-baba",
+      "region": "安徽",
+      "label": "安徽（八张 / 钻牌）",
+      "kinship": "地理近缘",
+      "relatedness": "合肥走删牌：84 张去幺九去字，只能暗杠，靠够八支胡牌。安庆走加百搭：136 张常规牌具，翻钻牌当万能，只能自摸。两条路线方向相反，只是地理相邻，不当作直系。",
+      "shared": [],
+      "trunk": "hefei",
+      "members": [
+        {
+          "id": "hefei",
+          "role": "trunk",
+          "note": "84 张删牌；只能暗杠"
+        },
+        {
+          "id": "anqing",
+          "role": "sub",
+          "note": "136 张加钻牌；只能自摸"
+        }
+      ]
+    },
+    {
+      "id": "jiangxi-jing",
+      "region": "江西",
+      "label": "江西精牌带",
+      "kinship": "省内平行",
+      "relatedness": "九江走「炮」计分、抢庄制，与其余三市不同体系。抚州、赣州、景德镇都用精牌（翻出的万能牌），细则各地略有差异：赣州多精钓、德中德，景德镇多冲关。南昌翻精单独归在癞子扩散带，这里不重复挂。",
+      "shared": [
+        "joker"
+      ],
+      "trunk": "fuzhou-jiangxi",
+      "members": [
+        {
+          "id": "jiujiang",
+          "role": "sub",
+          "note": "打炮：120 张，抢庄制"
+        },
+        {
+          "id": "fuzhou-jiangxi",
+          "role": "trunk",
+          "note": "翻精"
+        },
+        {
+          "id": "ganzhou",
+          "role": "sub",
+          "note": "精钓、德中德"
+        },
+        {
+          "id": "jingdezhen",
+          "role": "sub",
+          "note": "精牌 + 冲关"
+        }
+      ]
+    },
+    {
+      "id": "qiaoma",
+      "region": "沪上",
+      "label": "沪上敲麻",
+      "kinship": "后起地方打法",
+      "relatedness": "须报听（敲），常见只许碰碰和以上。花分加勒子是计分封顶，不是花麻那种花数门槛。不是杭麻，不是当代甬麻，也不要挂进宁波祖型。无协会本。",
+      "shared": [
+        "ting-required",
+        "hua-lezi"
+      ],
+      "trunk": "shanghai",
+      "members": [
+        {
+          "id": "shanghai",
+          "role": "trunk",
+          "note": "敲麻：报听、番型门槛、勒子"
+        }
+      ]
+    },
+    {
+      "id": "chuanyu-108",
+      "region": "川渝黔滇",
+      "label": "四川麻将及其子规则",
+      "kinship": "直系子规则",
+      "relatedness": "先去掉字牌，川渝这一支走上禁吃，后来才有血战、定缺；长沙则可以吃牌、用 258 将、扎鸟，是另一条路线。换三张是常见的开局选项。大邑、崇州的断卡根是单独一支，不算这一组的延伸。四川红中是川麻加癞子。宜昌、恩施的血流换三张是棋牌平台起的名字。平台上的川麻大多按 SBR 来，和民间的成都麻将不完全一样。重庆本地常常并存三种打法：倒倒糊、血战到底、换三张，不是单一的一种渝麻。贵州遵义的幺筒赖子（144 张有赖子）和贵阳的捉鸡完全是两套不同的规则，只是同属贵州省才并列在一起，暂不判断谁更主流。云南西双版纳的卡二条资料还很薄，先挂在昆明滇麻下面。西藏、拉萨的麻将从网上资料看基本套用四川血战到底的规则，没查到独立地方变体的证据，暂不单独立项。",
+      "shared": [
+        "tiles-108",
+        "no-chi",
+        "dingque",
+        "xuezhan"
+      ],
+      "trunk": "quzi",
+      "members": [
+        {
+          "id": "quzi",
+          "role": "trunk",
+          "note": "去字牌"
+        },
+        {
+          "id": "sichuan-nochi",
+          "role": "trunk",
+          "note": "去字、禁吃"
+        },
+        {
+          "id": "sichuan",
+          "role": "sub",
+          "note": "血战到底 + 开局定缺"
+        },
+        {
+          "id": "sichuan-huansanzhang",
+          "role": "sub",
+          "note": "换三张"
+        },
+        {
+          "id": "xueliu",
+          "role": "sub",
+          "note": "血流成河"
+        },
+        {
+          "id": "chongqing",
+          "role": "sub",
+          "note": "渝麻"
+        },
+        {
+          "id": "guizhou",
+          "role": "sub",
+          "note": "捉鸡；近缘是 108 禁吃，不是血战"
+        },
+        {
+          "id": "kunming",
+          "role": "sub",
+          "note": "滇麻：近川滇血战，仍薄，无协会本"
+        },
+        {
+          "id": "mil-sichuan",
+          "role": "sub",
+          "note": "平台按此对局（SBR 血战到底）"
+        },
+        {
+          "id": "mil-guizhou",
+          "role": "sub",
+          "note": "MIL 2023：捉鸡，不是血战"
+        },
+        {
+          "id": "sichuan-hongzhong",
+          "role": "sub",
+          "note": "川麻加红中癞子，算川渝湘的分支，不是癞子系的主干"
+        },
+        {
+          "id": "yichang-xueliu",
+          "role": "sub",
+          "note": "棋牌站挂名的血流换三张，不是新发明"
+        },
+        {
+          "id": "zunyi-laizi",
+          "role": "sub",
+          "note": "贵州遵义；144 张赖子，不是贵阳捉鸡的子规则"
+        },
+        {
+          "id": "xishuangbanna-ka2tiao",
+          "role": "sub",
+          "note": "云南西双版纳；数据薄"
+        }
+      ]
+    },
+    {
+      "id": "duankagen",
+      "region": "川西",
+      "label": "断卡根（删牌）",
+      "kinship": "后起删改",
+      "relatedness": "去字再去万，72 张，手牌 10 张，核心断幺。不进川渝 108 主干。同城游「断卡钩」三人桌与维基 2–4 人并列。",
+      "shared": [
+        "tiles-72",
+        "hand-10",
+        "duanyao"
+      ],
+      "trunk": "duankagen",
+      "members": [
+        {
+          "id": "duankagen",
+          "role": "trunk",
+          "note": "大邑／崇州；不进成麻主干"
+        }
+      ]
+    },
+    {
+      "id": "xiang-258",
+      "region": "湖南",
+      "label": "长沙麻将",
+      "kinship": "平行创新",
+      "relatedness": "108、258 将、鸟。长沙与川麻同出去字，平行。常德／红中是湖南另一支：禁吃，不是长沙下级。衡阳同样小胡须 258，但禁吃，与长沙（可吃）在这一点上分岔。",
+      "shared": [
+        "tiles-108",
+        "jiang-258"
+      ],
+      "trunk": "changsha",
+      "members": [
+        {
+          "id": "changsha",
+          "role": "trunk",
+          "note": "平台经典双鸟；小胡 258，大胡乱将；可吃"
+        },
+        {
+          "id": "hengyang-258",
+          "role": "sub",
+          "note": "小胡 258；禁吃，与长沙分岔"
+        }
+      ]
+    },
+    {
+      "id": "changde-hz",
+      "region": "湘北",
+      "label": "常德 / 红中",
+      "kinship": "直系加癞子",
+      "relatedness": "常德麻将：108 张、去字、禁吃、扎码。红中麻将是在此基础上加四张万能红中，和长沙（可以吃牌、用 258 将）是不同的打法。MIL 红中 2024 的骨架接近常德。136 张可吃的平台红中是后来才改出来的版本，不算这一组的主干。邵阳同样是 108 张去字禁吃，但明确不用 258 将，这正是它和长沙、衡阳的区别所在，暂且挂在常德下面。",
+      "shared": [
+        "tiles-108-or-112",
+        "no-chi",
+        "zama"
+      ],
+      "trunk": "changde",
+      "members": [
+        {
+          "id": "changde",
+          "role": "trunk",
+          "note": "108、去字、禁吃"
+        },
+        {
+          "id": "hongzhong",
+          "role": "sub",
+          "note": "常德 + 4 红中"
+        },
+        {
+          "id": "shaoyang",
+          "role": "sub",
+          "note": "108 去字禁吃；明确不要 258 将"
+        },
+        {
+          "id": "mil-red-center",
+          "role": "sub",
+          "note": "MIL 2024：近常德骨架"
+        }
+      ]
+    },
+    {
+      "id": "dongbei-family",
+      "region": "东北",
+      "label": "东北麻将",
+      "kinship": "地域伞称",
+      "relatedness": "东北的打法已经从华北这一支单独拆出来讲。辽宁摇宝偏重宝牌，吉林下蛋偏重蛋牌，黑龙江夹胡偏重听口约定。大连穷胡接近辽宁摇宝。哈尔滨是 112 张、开门、暗宝的都市包玩法，不是常德红中。长春把下蛋、夹胡、宝这几样捆在一起，不是又发明了第四种打法。红中麻将和卡五星都不属于东北这一支。辽源、延边是吉林另外两个市，各有本地的小和型（鱼／脖／喜、青一色）。锦州接近辽宁摇宝，但不看宝。牡丹江、佳木斯、齐齐哈尔都属于黑龙江夹胡这一支下报听看宝的变体。内蒙古东部的通辽（120 张无字）、赤峰（136 张有字）、呼伦贝尔（资料还较薄）在牌具和门槛上互不相同，只是地理相邻才并列在这一组。",
+      "shared": [],
+      "trunk": "dongbei",
+      "members": [
+        {
+          "id": "dongbei",
+          "role": "trunk",
+          "note": "伞称，不是一种桌规"
+        },
+        {
+          "id": "dongbei-yaobao",
+          "role": "sub",
+          "note": "辽宁摇宝"
+        },
+        {
+          "id": "dongbei-xiadan",
+          "role": "sub",
+          "note": "吉林下蛋"
+        },
+        {
+          "id": "dongbei-jiahu",
+          "role": "sub",
+          "note": "黑龙江夹胡"
+        },
+        {
+          "id": "haerbin",
+          "role": "sub",
+          "note": "112、开门、暗宝；不是常德红中"
+        },
+        {
+          "id": "dalian-qionghu",
+          "role": "sub",
+          "note": "报听翻宝；近摇宝"
+        },
+        {
+          "id": "changchun",
+          "role": "sub",
+          "note": "都市包：下蛋+夹胡+宝；不是第四种发明"
+        },
+        {
+          "id": "mil-changchun",
+          "role": "sub",
+          "note": "MIL 2024 推广本"
+        },
+        {
+          "id": "liaoyuan",
+          "role": "sub",
+          "note": "吉林辽源：漂 + 鱼／脖／喜"
+        },
+        {
+          "id": "yanbian",
+          "role": "sub",
+          "note": "吉林延边：扣听、手把一、青一色"
+        },
+        {
+          "id": "jinzhou",
+          "role": "sub",
+          "note": "辽宁锦州：112 张，红中万能兼碰杠"
+        },
+        {
+          "id": "mudanjiang",
+          "role": "sub",
+          "note": "黑龙江牡丹江：开门+有刻+带幺九三条件"
+        },
+        {
+          "id": "jiamusi",
+          "role": "sub",
+          "note": "黑龙江佳木斯：报听看宝"
+        },
+        {
+          "id": "qiqihaer",
+          "role": "sub",
+          "note": "黑龙江齐齐哈尔：两色以上+有幺九+有刻"
+        },
+        {
+          "id": "tongliao",
+          "role": "sub",
+          "note": "内蒙古通辽：120 张无字，禁吃"
+        },
+        {
+          "id": "chifeng",
+          "role": "sub",
+          "note": "内蒙古赤峰：136 张有字"
+        },
+        {
+          "id": "hulunbeier",
+          "role": "sub",
+          "note": "内蒙古呼伦贝尔：数据薄"
+        }
+      ]
+    },
+    {
+      "id": "hebei-hun",
+      "region": "河北",
+      "label": "河北混牌带",
+      "kinship": "地方近缘",
+      "relatedness": "河北几市各写各的门槛：唐山靠翻混（开口后混牌褪色）、石家庄靠「游戏／缺门」两种可选门槛、保定禁吃靠老式两墩摸牌法，张家口叫「扣张」但规则书未找到。彼此不是同一本，只是地理相邻，先并列，不并入京津混儿。",
+      "shared": [],
+      "trunk": "tangshan",
+      "members": [
+        {
+          "id": "tangshan",
+          "role": "trunk",
+          "note": "翻混；开口后混牌褪色"
+        },
+        {
+          "id": "shijiazhuang",
+          "role": "sub",
+          "note": "游戏／缺门两种门槛"
+        },
+        {
+          "id": "baoding",
+          "role": "sub",
+          "note": "禁吃；两墩一组摸牌"
+        },
+        {
+          "id": "zhangjiakou",
+          "role": "sub",
+          "note": "扣张；规则书未找到，数据薄"
+        }
+      ]
+    },
+    {
+      "id": "jing-jin",
+      "region": "京津",
+      "label": "混儿：北京与天津",
+      "kinship": "姐妹",
+      "relatedness": "北京可吃、有点炮、用混儿。天津禁吃、不点炮，中下滚混儿。平台「大众麻将／北方推倒胡／河北麻将」近京麻简化，不单独立项。东北已另组。不要挂到红中下面。",
+      "shared": [
+        "joker"
+      ],
+      "trunk": "beijing",
+      "members": [
+        {
+          "id": "beijing",
+          "role": "trunk",
+          "note": "可吃、点炮、混儿；也叫推倒和，另条"
+        },
+        {
+          "id": "tianjin",
+          "role": "sub",
+          "note": "禁吃、不点炮、滚混儿"
+        }
+      ]
+    },
+    {
+      "id": "kawuxing",
+      "region": "鄂西北",
+      "label": "卡五星",
+      "kinship": "后起地方改",
+      "relatedness": "2005 随州四人 120 张，2007 大悟三人 84 张。禁吃，卡 5 翻倍。不是武汉开口翻，不是川麻，不进东北。",
+      "shared": [
+        "no-chi"
+      ],
+      "trunk": "kawuxing",
+      "members": [
+        {
+          "id": "kawuxing",
+          "role": "trunk",
+          "note": "2005／2007；三人 84 张"
+        }
+      ]
+    },
+    {
+      "id": "laizi-belt",
+      "region": "华中／平台／闽",
+      "label": "癞子扩散",
+      "kinship": "后起共用",
+      "relatedness": "红中麻将的主干是常德麻将加四张癞子，后来通过互联网扩散到全国，不是东北或京津的直系后代。武汉开口翻是翻牌癞子玩法，红中当杠牌用。南昌走开精。福州开金兼十六张打法。四川红中是川麻加癞子，算川渝湘的分支，不算这一组的主干。MIL 红中的骨架接近常德。",
+      "shared": [
+        "joker"
+      ],
+      "trunk": "hongzhong",
+      "members": [
+        {
+          "id": "hongzhong",
+          "role": "trunk",
+          "note": "常德红中；全国上网是扩散"
+        },
+        {
+          "id": "wuhan",
+          "role": "sub",
+          "note": "开口翻：翻癞子，红中是杠牌"
+        },
+        {
+          "id": "nanchang",
+          "role": "sub",
+          "note": "翻精，不是红中下级"
+        },
+        {
+          "id": "fuzhou",
+          "role": "sub",
+          "note": "开金，兼十六张"
+        },
+        {
+          "id": "mil-red-center",
+          "role": "sub",
+          "note": "MIL 2024：近常德，不是武汉"
+        }
+      ]
+    },
+    {
+      "id": "north-west",
+      "region": "华北西北",
+      "label": "山西、西安及甘宁青蒙西",
+      "kinship": "地方近缘",
+      "relatedness": "山西是伞称。太原立四：起手四张立着，不许吃。MIL 山西 2023 是协会本，不见立四。西安常见 108 禁吃定缺，不是川麻直系；与棋牌站 136 可吃陕麻冲突，并列。兰州「包扣到底」听牌后杠牌被限死；宁夏划水靠霸王庄+胡牌公式；青海「二五八将」和长沙 258 将同名异源，不连线；呼和浩特一口香、包头数嘴子同属内蒙古蹲拉跑体系。这几市各写各的门槛，只是地理相邻并列在一起，不强行认亲。",
+      "shared": [],
+      "trunk": "shanxi",
+      "members": [
+        {
+          "id": "shanxi",
+          "role": "trunk",
+          "note": "伞称，不是一种桌规"
+        },
+        {
+          "id": "taiyuan-lisi",
+          "role": "sub",
+          "note": "立四：起手四张立着"
+        },
+        {
+          "id": "xian",
+          "role": "sub",
+          "note": "常见 108 禁吃定缺；与 136 可吃陕麻冲突"
+        },
+        {
+          "id": "mil-shanxi",
+          "role": "sub",
+          "note": "MIL 2023：不见立四"
+        },
+        {
+          "id": "lanzhou",
+          "role": "sub",
+          "note": "甘肃兰州：包扣到底"
+        },
+        {
+          "id": "ningxia-huashui",
+          "role": "sub",
+          "note": "宁夏：霸王庄 + 胡牌公式"
+        },
+        {
+          "id": "qinghai",
+          "role": "sub",
+          "note": "青海：二五八将，与长沙同名异源"
+        },
+        {
+          "id": "huhehaote",
+          "role": "sub",
+          "note": "内蒙古呼和浩特：一口香"
+        },
+        {
+          "id": "baotou",
+          "role": "sub",
+          "note": "内蒙古包头：数嘴子"
+        },
+        {
+          "id": "xinjiang",
+          "role": "sub",
+          "note": "禁点炮，只能自摸或杠后花；机制与本组其它市差异很大，仅地理相邻"
+        }
+      ]
+    },
+    {
+      "id": "shandong-258",
+      "region": "山东",
+      "label": "山东 258 将",
+      "kinship": "省内平行",
+      "relatedness": "山东系的 258 将门槛（须以 2/5/8 做对子）与长沙 258 将撞名但机制不同：山东配的是明楼（报听后亮牌只能自摸、被点炮赔双倍），长沙没有这条。济南、淄博都认 258 将，细节上淄博去花牌、留 14 张臭牌、报听可撤，济南报听后锁死。济宁不强调 258 将，改走跑钱+十三不靠，是否算这一支存疑，先并列。",
+      "shared": ["jiang-258"],
+      "trunk": "jinan",
+      "members": [
+        {
+          "id": "jinan",
+          "role": "trunk",
+          "note": "258 将 + 明楼；报听后锁死"
+        },
+        {
+          "id": "zibo",
+          "role": "sub",
+          "note": "留 14 张臭牌；报听可撤"
+        },
+        {
+          "id": "jining",
+          "role": "sub",
+          "note": "跑钱+十三不靠；是否认 258 将存疑"
+        }
+      ]
+    },
+    {
+      "id": "american-card",
+      "region": "美国",
+      "label": "美式年卡",
+      "kinship": "简化后再标准化",
+      "relatedness": "Babcock 红皮书之后，NMJL 1937 年用花当百搭，1961 年改专用 joker，1971 年稳住 8 花 8 joker。年卡每年仍换合法型，2026 年卡仍在发售。Wright-Patterson 无 joker。与亚洲四副一对几乎不能同桌。",
+      "shared": [
+        "nmjl-card"
+      ],
+      "trunk": "babcock",
+      "members": [
+        {
+          "id": "babcock",
+          "role": "trunk",
+          "note": "1920 红皮书"
+        },
+        {
+          "id": "nmjl",
+          "role": "sub",
+          "note": "1937 成立，花当百搭"
+        },
+        {
+          "id": "nmjl-joker",
+          "role": "sub",
+          "note": "1961 专用 joker"
+        },
+        {
+          "id": "nmjl-card",
+          "role": "sub",
+          "note": "1971 起年卡，2026 仍在发售"
+        },
+        {
+          "id": "wright-patterson",
+          "role": "sub",
+          "note": "无 joker；不是 NMJL 下级"
+        }
+      ]
+    },
+    {
+      "id": "mcr-family",
+      "region": "竞赛规则",
+      "label": "国标麻将",
+      "kinship": "竞赛规则和它的改版",
+      "relatedness": "1998 年国家体育总局出的竞赛规则。EMA、小林改、K神改、蓝十改都改这一套番种。",
+      "shared": [
+        "mcr-fan"
+      ],
+      "trunk": "guobiao",
+      "members": [
+        {
+          "id": "guobiao",
+          "role": "trunk",
+          "note": "8 番起和"
+        },
+        {
+          "id": "ema",
+          "role": "sub",
+          "note": "欧洲赛制"
+        },
+        {
+          "id": "guobiao-kshen",
+          "role": "sub",
+          "note": "K神改"
+        },
+        {
+          "id": "guobiao-kobayashi",
+          "role": "sub",
+          "note": "小林改 2026"
+        },
+        {
+          "id": "guobiao-lanshi",
+          "role": "sub",
+          "note": "蓝十改 2026"
+        },
+        {
+          "id": "salasasa",
+          "role": "sub",
+          "note": "进入平台"
+        }
+      ]
+    },
+    {
+      "id": "constructed",
+      "region": "自制规",
+      "label": "另写的规则",
+      "kinship": "作者新编",
+      "relatedness": "中庸：关兆豪 1997 年起稿、2004 年发布，2007 年 WSOM 采用。青雀、虹雀、南雀是另写的规则。",
+      "shared": [],
+      "trunk": "zungjung",
+      "members": [
+        {
+          "id": "zungjung",
+          "role": "trunk",
+          "note": "2004 发布；2007 WSOM"
+        },
+        {
+          "id": "qingque",
+          "role": "sub",
+          "note": "2025"
+        },
+        {
+          "id": "hongque",
+          "role": "sub",
+          "note": "2025"
+        },
+        {
+          "id": "jiandan",
+          "role": "sub",
+          "note": "中庸改规"
+        },
+        {
+          "id": "shiyangjin",
+          "role": "sub",
+          "note": "待考"
+        }
+      ]
+    }
+  ]
+}

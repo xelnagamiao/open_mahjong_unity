@@ -15,15 +15,16 @@ import Account from '@/views/Account.vue'
 import EventsList from '@/views/EventsList.vue'
 import EventDetail from '@/views/EventDetail.vue'
 import CalculatorView from '@/views/CalculatorView.vue'
+import PailiView from '@/views/PailiView.vue'
 import PlayerData from '@/views/PlayerData.vue'
 import PlatformData from '@/views/PlatformData.vue'
 import UnityGame from '@/views/UnityGame.vue'
 import Rulebook from '@/views/Rulebook.vue'
 import Library from '@/views/Library.vue'
 import LibraryRule from '@/views/LibraryRule.vue'
+import LibraryLineage from '@/views/LibraryLineage.vue'
 import LibraryLayout from '@/layouts/LibraryLayout.vue'
 import RuleResearch from '@/views/RuleResearch.vue'
-import Paili from '@/views/Paili.vue'
 import SeedVerify from '@/views/SeedVerify.vue'
 import MobileDownload from '@/views/MobileDownload.vue'
 import UsageGuide from '@/views/UsageGuide.vue'
@@ -45,6 +46,7 @@ import AdminStats from '@/views/admin/Stats.vue'
 import AdminEvents from '@/views/admin/Events.vue'
 import AdminEventDetail from '@/views/admin/EventDetail.vue'
 import AdminEventApplications from '@/views/admin/EventApplications.vue'
+import AdminActivities from '@/views/admin/Activities.vue'
 import EventAdminLayout from '@/layouts/EventAdminLayout.vue'
 import EventAdminLogin from '@/views/event-admin/Login.vue'
 import EventAdminEvents from '@/views/event-admin/Events.vue'
@@ -78,7 +80,7 @@ const routes = [
         path: 'events',
         name: 'EventsList',
         component: EventsList,
-        meta: { title: '比赛 - salasasa.cn' }
+        meta: { title: '比赛 / 基地 - salasasa.cn' }
       },
       {
         path: 'events/:eventId',
@@ -93,8 +95,13 @@ const routes = [
       {
         path: 'paili',
         name: 'Paili',
-        component: Paili,
+        component: PailiView,
         meta: { title: '牌理 - salasasa.cn' }
+      },
+      {
+        path: 'paili/hongque',
+        name: 'PailiHongque',
+        component: PailiView
       },
       {
         path: 'calc/chinese',
@@ -161,6 +168,18 @@ const routes = [
         name: 'Library',
         component: Library,
         meta: { title: '麻雀图书馆' }
+      },
+      {
+        path: 'lineage/related',
+        name: 'LibraryRelatedness',
+        component: LibraryLineage,
+        meta: { title: '麻将关系表 · 麻雀图书馆', lineageTab: 'rel' }
+      },
+      {
+        path: 'lineage',
+        name: 'LibraryLineage',
+        component: LibraryLineage,
+        meta: { title: '麻将年代表 · 麻雀图书馆', lineageTab: 'year' }
       },
       {
         path: ':rule',
@@ -285,24 +304,38 @@ const routes = [
         component: AdminUserDetail,
         meta: { title: '用户详情' }
       },
-      { path: 'events', name: 'AdminEvents', component: AdminEvents, meta: { title: '赛事管理' } },
+      { path: 'events', name: 'AdminEvents', component: AdminEvents, meta: { title: '赛事管理', venueKind: 'event' } },
+      { path: 'bases', name: 'AdminBases', component: AdminEvents, meta: { title: '基地管理', venueKind: 'base' } },
       {
         path: 'events/:eventId',
         name: 'AdminEventDetail',
         component: AdminEventDetail,
-        meta: { title: '赛事详情' }
+        meta: { title: '赛事详情', venueKind: 'event' }
+      },
+      {
+        path: 'bases/:eventId',
+        name: 'AdminBaseDetail',
+        component: AdminEventDetail,
+        meta: { title: '基地详情', venueKind: 'base' }
       },
       {
         path: 'event-applications',
         name: 'AdminEventApplications',
         component: AdminEventApplications,
-        meta: { title: '办赛申请' }
+        meta: { title: '办赛申请', venueKind: 'event' }
+      },
+      {
+        path: 'base-applications',
+        name: 'AdminBaseApplications',
+        component: AdminEventApplications,
+        meta: { title: '基地申请', venueKind: 'base' }
       },
       { path: 'rank', name: 'AdminRank', component: AdminRank, meta: { title: '段位管理' } },
       { path: 'games', name: 'AdminGames', component: AdminGames, meta: { title: '对局记录管理' } },
       { path: 'game-control', name: 'AdminGameControl', component: AdminGameControl, meta: { title: '对局管理' } },
       { path: 'audit', name: 'AdminAudit', component: AdminAudit, meta: { title: '操作审计' } },
       { path: 'messages', name: 'AdminMessages', component: AdminMessages, meta: { title: '消息推送' } },
+      { path: 'activities', name: 'AdminActivities', component: AdminActivities, meta: { title: '活动设计' } },
       { path: 'send-email', name: 'AdminSendEmail', component: AdminSendEmail, meta: { title: '发送邮件' } },
       { path: 'ip-bans', name: 'AdminIpBans', component: AdminIpBans, meta: { title: 'IP 封禁' } },
       { path: 'stats', name: 'AdminStats', component: AdminStats, meta: { title: '全站统计' } }
@@ -391,7 +424,7 @@ router.beforeEach(async (to, from, next) => {
 
   // 取消独立赛事后台入口：列表/登录并入账户页；保留赛事详情管理路由
   if (to.path === '/event-admin' || to.path === '/event-admin/' || to.path === '/event-admin/login') {
-    return next({ path: '/account', hash: '#sec-manage' })
+    return next({ path: '/account', hash: '#sec-manage-event' })
   }
 
   if (to.path.startsWith('/event-admin')) {

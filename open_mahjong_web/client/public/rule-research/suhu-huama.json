@@ -1,0 +1,72 @@
+{
+  "slug": "suhu-huama",
+  "label": "苏沪宁花麻（算花 / 苏州 / 南京论花）",
+  "aliases": ["花麻", "算花", "苏州麻将", "南京论花", "硬花"],
+  "collected_at": "2026-08-14",
+  "notes": "花麻 ≠ 敲麻 ≠ 杭麻。苏州与南京是近亲，不是复印件。无协会本。",
+  "sources": [
+    {
+      "id": "tcy-suzhou",
+      "url": "https://tcy365.com/news/d8469.html",
+      "title": "同城游 · 苏州麻将规则",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "硬花含中发白与季节花。禁吃。三花自摸、四花放铳；大门清、清一色、七对等可免门槛。花数可累加。快照在 regional-rules。",
+      "rules": ["suzhou", "huama"],
+      "source_level": "community",
+      "reliability": "medium",
+      "local_kind": "snapshot",
+      "local_path": "regional-rules/snapshots/tcy-suzhou.html",
+      "local_status": "ok"
+    },
+    {
+      "id": "baike-suzhou",
+      "url": "https://baike.baidu.com/item/苏州麻将/4160265",
+      "title": "百度百科 · 苏州麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "152 张，约 28 张花牌（中发白、百搭、季节花，有的桌加猫鼠财神等）。以花数为核心。禁吃。不是敲麻，也不是杭麻。",
+      "rules": ["suzhou", "huama"],
+      "source_level": "secondary",
+      "reliability": "low"
+    },
+    {
+      "id": "nanjing-tangren",
+      "url": "https://nanjingmj.uc55.com/Rule/Detail/201802_000241.html",
+      "title": "唐人游 · 南京麻将规则",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "144 张。硬花 20：中发白各四 + 春夏秋冬梅兰竹菊。禁吃。软花：风对、压档、独占、边枝、缺一。胡后花数乘 2（砸 2），另加成牌 20 花（跑 20）。小胡非门清须四硬花以上。C 级。",
+      "rules": ["nanjing", "huama"],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "qp49-nanjing",
+      "url": "https://www.qp49.com/2019/05/08/2088.html",
+      "title": "地方麻将规则整理 · 南京麻将（2019）",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "与唐人游同骨架：20 硬花、软花、砸 2、跑 20。花杠、大／小杠开花、压绝、无花果另加花。跑 20 与另一篇「跑 10」冲突，并列。C 级。",
+      "rules": ["nanjing"],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "wangchao-nanjing",
+      "url": "http://baike.wangchao.net.cn/detail_1325620.html",
+      "title": "王朝百科 · 南京麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "144 张，20 张硬花（中发白各四加季节花）。禁吃。论花；软花含风对、边嵌钓。已在 regional-rules。",
+      "rules": ["nanjing", "huama"],
+      "source_level": "community",
+      "reliability": "low"
+    }
+  ]
+}

@@ -55,6 +55,9 @@ def build_state(game_state, viewer_index: int, *, sync_mode: str = "events",
     if claim_window is not None:
         state["claim_stage"] = claim_window.stage
         state["claim_pending_players"] = sorted(claim_window.pending)
+    elif getattr(game_state, "_claim_grace_active", False):
+        state["claim_stage"] = "tactical"
+        state["claim_pending_players"] = game_state._claim_grace_pending()
 
     # 虹雀更新包保持完整权威快照；客户端仍用 sync_mode/events 决定是否重建桌面。
     # 这与其它规则的广播结构一致，也让断线边缘状态无需依赖上一包缓存。

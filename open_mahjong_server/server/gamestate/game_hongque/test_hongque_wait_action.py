@@ -12,6 +12,7 @@ def _state() -> HongqueGameState:
         "game_round": 1,
         "player_list": [101, 102, 103, 104],
         "tactical_grace_seconds": 5.0,
+        "tactical_pre_grace_delay": 0.0,
     }
     state = HongqueGameState(None, room, gamestate_id="hongque-wait-action")
     state.Debug = True
@@ -33,8 +34,21 @@ async def _opened_state() -> HongqueGameState:
 
 
 async def _pass_all_pending(state: HongqueGameState) -> None:
-    while state.phase == "claim" and state.claim_window.pending:
-        player_index = next(iter(state.claim_window.pending))
+    while state.phase == "claim":
+        pending = set(state._claim_grace_pending())
+        if state.claim_window is not None:
+            pending.update(state.claim_window.pending)
+        unresolved = [
+            player_index for player_index in pending
+            if player_index not in state.claim_responses
+        ]
+        if not unresolved:
+            if state._claim_grace_timeout_task:
+                await state._claim_grace_timeout_task
+            elif state.phase == "claim":
+                await state._resolve_claims()
+            break
+        player_index = unresolved[0]
         await state.submit_action(
             state.players[player_index].user_id,
             "pass",
@@ -84,25 +98,23 @@ async def _upgrade_after_interrupt() -> None:
         state.players[2].user_id, "claim",
         candidate_id=chi["id"], action_tick=state.action_tick,
     )
-    assert chi["action_type"] == "chi_second"
-    assert 2 not in state.claim_window.pending
-    assert state.build_state(2)["legal_actions"] == []
+    assert chi.get("action_type") == "chi_second"
+    assert state._claim_applied[0] == 2
 
     chi_first = _candidate(state, 1, "sequence")
-    previous_deadline = state.claim_window.deadline
+    previous_deadline = state._claim_grace_deadline
     await state.submit_action(
         state.players[1].user_id, "claim",
         candidate_id=chi_first["id"], action_tick=state.action_tick,
     )
-    assert chi_first["action_type"] == "chi_first"
-    assert state.claim_window.active.player_index == 1
-    assert 2 in state.claim_window.pending
+    assert chi_first.get("action_type") == "chi_first"
+    assert state._claim_applied[0] == 1
+    assert 2 in state._claim_upgrade_players
     offered = state.build_state(2)["candidates"]
     assert {candidate["kind"] for candidate in offered} >= {"triplet", "win"}
     assert all(candidate["priority"] > chi_first["priority"] for candidate in offered)
     assert all(candidate["id"] != chi["id"] for candidate in offered)
-    assert 2 not in state.claim_responses
-    assert state.claim_window.deadline >= previous_deadline
+    assert state._claim_grace_deadline >= previous_deadline
 
     peng = next(candidate for candidate in offered if candidate["kind"] == "triplet")
     await state.submit_action(
@@ -131,12 +143,11 @@ async def _pass_is_reasked_after_claim() -> None:
         candidate_id=chi_third["id"], action_tick=state.action_tick,
     )
 
-    assert 2 in state.claim_window.pending
     assert 2 not in state.claim_responses
     offered = state.build_state(2)["candidates"]
     assert offered
     assert all(candidate["priority"] > chi_third["priority"] for candidate in offered)
-    assert any(candidate["action_type"] == "chi_second" for candidate in offered)
+    assert any(candidate.get("action_type") == "chi_second" for candidate in offered)
     await state.cleanup_game_state()
 
 
@@ -161,6 +172,7 @@ async def _three_chi_levels() -> None:
 
     await _pass_all_pending(state)
     assert state.phase == "turn"
+    assert state.game_status == "onlycut_after_action"
     assert state.current_player_index == 1
     assert state.players[1].melds[-1]["kind"] == "sequence"
     await state.cleanup_game_state()
@@ -192,6 +204,7 @@ async def _three_peng_levels() -> None:
 
     await _pass_all_pending(state)
     assert state.phase == "turn"
+    assert state.game_status == "onlycut_after_action"
     assert state.current_player_index == 1
     assert state.players[1].melds[-1]["kind"] == "triplet"
     await state.cleanup_game_state()
@@ -235,6 +248,7 @@ async def _three_hong_levels() -> None:
 
     await _pass_all_pending(state)
     assert state.phase == "turn"
+    assert state.game_status == "onlycut_after_action"
     assert state.current_player_index == 1
     assert state.players[1].melds[-1]["kind"] == "rainbow"
     await state.cleanup_game_state()
@@ -283,10 +297,8 @@ async def _multiple_ron() -> None:
             candidate_id=ron2["id"], action_tick=opening_tick,
         ),
     )
-    assert state.claim_window.pending == {3}
-    await state.submit_action(
-        state.players[3].user_id, "pass", action_tick=state.action_tick,
-    )
+    assert 3 not in state.claim_responses
+    await _pass_all_pending(state)
 
     assert state.phase == "round_end"
     assert state.round_result["winner_indices"] == [1, 2]

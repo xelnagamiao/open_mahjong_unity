@@ -11,14 +11,19 @@ public class Tile3D : MonoBehaviour
     private static readonly int FrontColorId = Shader.PropertyToID("_FrontColor");
     private static readonly int BackColorId = Shader.PropertyToID("_BackColor");
     private static readonly int BackTexBlendId = Shader.PropertyToID("_BackTexBlend");
+    private static readonly int BackTexExtendEdgeId = Shader.PropertyToID("_BackTexExtendEdge");
     private static readonly int SideColorId = Shader.PropertyToID("_SideColor");
     private static readonly int BackEdgeColorId = Shader.PropertyToID("_BackEdgeColor");
+    private static readonly int FrontEdgeColorId = Shader.PropertyToID("_FrontEdgeColor");
     private static readonly int TileInstanceParamsId = Shader.PropertyToID("_TileInstanceParams");
     private static readonly int FrontTexId = Shader.PropertyToID("_FrontTex");
     private static readonly int BackTexId = Shader.PropertyToID("_BackTex");
+    private static readonly int FrontBgTexId = Shader.PropertyToID("_FrontBgTex");
+    private static readonly int FrontBgBlendId = Shader.PropertyToID("_FrontBgBlend");
 
     private Renderer cardRenderer;
     private Material sharedTileMaterial;
+    private Material originalAtlasMaterial;
     private int tileMaterialIndex = -1;
     private int currentTileId = -1;
     private int currentPoolTileId = -1;
@@ -30,10 +35,12 @@ public class Tile3D : MonoBehaviour
     private Color baseBackColor = Color.white;
     private Color baseSideColor = Color.white;
     private Color baseBackEdgeColor = Color.white;
+    private Color baseFrontEdgeColor = Color.white;
     private Color instanceFrontColor = Color.white;
     private Color instanceBackColor = Color.white;
     private Color instanceSideColor = Color.white;
     private Color instanceBackEdgeColor = Color.white;
+    private Color instanceFrontEdgeColor = Color.white;
     private float baseGrayScale;
     private float instanceGrayScale;
     private bool materialDefaultsCached;
@@ -159,7 +166,9 @@ public class Tile3D : MonoBehaviour
         // Layer 10：ObjectID 描边过滤 + peek 物理
         SetLayerRecursively(gameObject, tileLayer);
 
-        cardRenderer = GetComponent<Renderer>() ?? GetComponentInChildren<Renderer>();
+        // 对象池牌在 Instantiate 后立刻 SetActive(false)；默认 GetComponentInChildren
+        // 找不到 inactive 子物体上的 MeshRenderer，后续 Apply*Visual 会静默跳过。
+        cardRenderer = GetComponent<Renderer>() ?? GetComponentInChildren<Renderer>(true);
         if (cardRenderer == null) return;
 
         Material[] shared = cardRenderer.sharedMaterials;
@@ -169,6 +178,11 @@ public class Tile3D : MonoBehaviour
                 && sharedMat.shader.name == "Custom/ThreeDTiles") {
                 tileMaterialIndex = i;
                 sharedTileMaterial = sharedMat;
+                if (originalAtlasMaterial == null
+                    && !sharedMat.name.StartsWith("Hongque_")
+                    && !sharedMat.name.StartsWith("CustomFace_")) {
+                    originalAtlasMaterial = sharedMat;
+                }
                 break;
             }
         }
@@ -178,11 +192,13 @@ public class Tile3D : MonoBehaviour
             baseBackColor = sharedTileMaterial.GetColor(BackColorId);
             baseSideColor = sharedTileMaterial.GetColor(SideColorId);
             baseBackEdgeColor = sharedTileMaterial.GetColor(BackEdgeColorId);
+            baseFrontEdgeColor = sharedTileMaterial.GetColor(FrontEdgeColorId);
             baseGrayScale = sharedTileMaterial.GetFloat("_GrayScale");
             instanceFrontColor = baseFrontColor;
             instanceBackColor = baseBackColor;
             instanceSideColor = baseSideColor;
             instanceBackEdgeColor = baseBackEdgeColor;
+            instanceFrontEdgeColor = baseFrontEdgeColor;
             instanceGrayScale = baseGrayScale;
             materialDefaultsCached = true;
         }
@@ -225,6 +241,7 @@ public class Tile3D : MonoBehaviour
         propBlock.SetColor(BackColorId, instanceBackColor);
         propBlock.SetColor(SideColorId, instanceSideColor);
         propBlock.SetColor(BackEdgeColorId, instanceBackEdgeColor);
+        propBlock.SetColor(FrontEdgeColorId, instanceFrontEdgeColor);
         propBlock.SetVector(
             TileInstanceParamsId,
             new Vector4(instanceGrayScale, outlineId, 0f, 0f));
@@ -284,7 +301,7 @@ public class Tile3D : MonoBehaviour
     /// 虹雀资源并非现有麻将 SpriteAtlas 的一部分，因此为每个唯一牌面复用一份独立材质。
     /// 虹雀牌在牌库中各一张，这条低频路径不会影响普通麻将的 GPU Instancing。
     /// </summary>
-    public void SetStandaloneCardTexture(int tileId, Texture2D texture, Material faceMaterial) {
+    public void SetStandaloneCardTexture(int tileId, Texture2D texture, Material faceMaterial, bool contain = false) {
         InitializeComponents();
         if (cardRenderer == null || tileMaterialIndex < 0 || texture == null || faceMaterial == null) return;
         Material[] materials = cardRenderer.sharedMaterials;
@@ -293,11 +310,51 @@ public class Tile3D : MonoBehaviour
         sharedTileMaterial = faceMaterial;
         currentTileId = tileId;
         currentPoolTileId = tileId;
-        const float stretch = 1.1f;
-        float tiling = 1f / stretch;
-        frontTilingOffset = new Vector4(tiling, 1f, (1f - tiling) * 0.5f, 0f);
+        frontTilingOffset = contain
+            ? ComputeCoverTiling(texture)
+            : new Vector4(1f / 1.1f, 1f, (1f - 1f / 1.1f) * 0.5f, 0f);
         if (isActiveAndEnabled && outlineId <= 0) AcquireOutlineId();
         ApplyPropertyBlock();
+    }
+
+    /// <summary>自定义标准牌面：已是 220:366 则铺满（缩小和留白在贴图里）；否则按原图比例居中，不拉伸。</summary>
+    public void SetStandaloneCardTextureContain(int tileId, Texture2D texture, Material faceMaterial) {
+        SetStandaloneCardTexture(tileId, texture, faceMaterial, true);
+    }
+
+    public void RestoreAtlasMaterial() {
+        InitializeComponents();
+        if (originalAtlasMaterial == null || cardRenderer == null || tileMaterialIndex < 0) {
+            return;
+        }
+        if (sharedTileMaterial == originalAtlasMaterial) {
+            return;
+        }
+        Material[] materials = cardRenderer.sharedMaterials;
+        materials[tileMaterialIndex] = originalAtlasMaterial;
+        cardRenderer.sharedMaterials = materials;
+        sharedTileMaterial = originalAtlasMaterial;
+    }
+
+    /// <summary>
+    /// 按 220:366 覆盖裁切：源图更宽则切左右，更高则切上下。
+    /// 已是该比例时 UV 铺满。
+    /// </summary>
+    private static Vector4 ComputeCoverTiling(Texture2D texture) {
+        const float faceAspect = 220f / 366f;
+        if (texture == null || texture.height <= 0) {
+            return new Vector4(1f, 1f, 0f, 0f);
+        }
+        float texAspect = (float)texture.width / texture.height;
+        if (Mathf.Abs(texAspect - faceAspect) <= 0.01f) {
+            return new Vector4(1f, 1f, 0f, 0f);
+        }
+        if (texAspect > faceAspect) {
+            float tilingX = faceAspect / texAspect;
+            return new Vector4(tilingX, 1f, (1f - tilingX) * 0.5f, 0f);
+        }
+        float tilingY = texAspect / faceAspect;
+        return new Vector4(1f, tilingY, 0f, (1f - tilingY) * 0.5f);
     }
 
     /// <summary>应用逐牌颜色/灰度，只更新实例数据，不创建或修改材质实例。</summary>
@@ -325,7 +382,29 @@ public class Tile3D : MonoBehaviour
         if (sharedTileMaterial != null) {
             sharedTileMaterial.SetTexture(BackTexId, backTexture);
             sharedTileMaterial.SetFloat(BackTexBlendId, backTexture != null ? 1f : 0f);
+            sharedTileMaterial.SetFloat(BackTexExtendEdgeId, 0f);
         }
+        ApplyPropertyBlock();
+    }
+
+    /// <summary>
+    /// 应用 3D 牌面背景：写共享材质 _FrontBgTex 与 _FrontBgBlend；所有牌共享同一张底图。
+    /// </summary>
+    public void ApplyFrontBgVisual(Texture2D bgTexture) {
+        InitializeComponents();
+        if (cardRenderer == null || tileMaterialIndex < 0) return;
+        if (sharedTileMaterial != null) {
+            sharedTileMaterial.SetTexture(FrontBgTexId, bgTexture);
+            sharedTileMaterial.SetFloat(FrontBgBlendId, bgTexture != null ? 1f : 0f);
+        }
+    }
+
+    /// <summary>正面侧边颜色：跟随 3D 牌面背景开关的颜色或独立设置。</summary>
+    public void ApplyFrontEdgeVisual(Color color) {
+        InitializeComponents();
+        if (cardRenderer == null || tileMaterialIndex < 0) return;
+        instanceFrontEdgeColor = color;
+        baseFrontEdgeColor = color;
         ApplyPropertyBlock();
     }
 
@@ -352,6 +431,16 @@ public class Tile3D : MonoBehaviour
             return;
         }
         SetBackRotation(0f);
+    }
+
+    /// <summary>当前实例实际使用的 ThreeDTiles 材质（图集共享或虹雀/自定义克隆）。</summary>
+    public Material SharedTileMaterial
+    {
+        get
+        {
+            InitializeComponents();
+            return sharedTileMaterial;
+        }
     }
 
     /// <summary>
@@ -383,6 +472,7 @@ public class Tile3D : MonoBehaviour
         instanceBackColor = baseBackColor;
         instanceSideColor = baseSideColor;
         instanceBackEdgeColor = baseBackEdgeColor;
+        instanceFrontEdgeColor = baseFrontEdgeColor;
         instanceGrayScale = baseGrayScale;
         backRotation = 0f;
         ApplyPropertyBlock();

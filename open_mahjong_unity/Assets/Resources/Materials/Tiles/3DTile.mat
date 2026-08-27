@@ -65,6 +65,10 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _FrontBgTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _FrontTex:
         m_Texture: {fileID: 8711939763936270973, guid: 1e2396d3be1aa9f46a0065c7abebb859, type: 3}
         m_Scale: {x: 1, y: 1}
@@ -109,7 +113,8 @@ Material:
     m_Floats:
     - _AlphaClip: 0
     - _AlphaToMask: 0
-    - _BackTexBlend: 1
+    - _BackTexBlend: 0
+    - _BackTexExtendEdge: 0
     - _Blend: 0
     - _BlendModePreserveSpecular: 1
     - _BumpScale: 1
@@ -122,7 +127,10 @@ Material:
     - _DstBlend: 0
     - _DstBlendAlpha: 0
     - _EnvironmentReflections: 1
+    - _FrontBgBlend: 0
+    - _FrontBgTexAspect: 0
     - _FrontRotation: 270
+    - _FrontTexExtendEdge: 0
     - _GlossMapScale: 1
     - _Glossiness: 0.5
     - _GlossyReflections: 1
@@ -140,6 +148,9 @@ Material:
     - _SrcBlend: 1
     - _SrcBlendAlpha: 1
     - _Surface: 0
+    - _TableBgCoverFace: 1
+    - _TableFaceBlend: 0
+    - _TableFaceFallbackEnabled: 1
     - _UVSec: 0
     - _WorkflowMode: 1
     - _ZWrite: 1
@@ -150,11 +161,16 @@ Material:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _FrontBgColor: {r: 1, g: 1, b: 1, a: 1}
+    - _FrontBgTilingOffset: {r: 1, g: 1, b: 0, a: 0}
     - _FrontColor: {r: 1, g: 1, b: 1, a: 1}
+    - _FrontEdgeColor: {r: 0.961, g: 0.965, b: 0.969, a: 1}
     - _FrontTilingOffset: {r: 1, g: 1, b: 0, a: 0}
-    - _SideColor: {r: 0.7137255, g: 0.7137255, b: 0.7137255, a: 1}
+    - _SideColor: {r: 0.72156864, g: 0.101960786, b: 0.14117648, a: 1}
     - _SideTilingOffset: {r: 1, g: 1, b: 0, a: 0}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
+    - _TableFaceColor: {r: 0.9607843, g: 0.9647059, b: 0.96862745, a: 1}
+    - _TableFaceFallbackColor: {r: 0.961, g: 0.965, b: 0.969, a: 1}
     - _TileInstanceParams: {r: 0, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

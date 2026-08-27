@@ -24,6 +24,7 @@ public class WindowsManager : MonoBehaviour {
     [SerializeField] private GameObject sceneConfigPanel; // 场景配置窗口
     [SerializeField] private GameObject spectatorPanel; // 观战窗口
     [SerializeField] private GameObject matchPanel; // 匹配窗口（段位匹配等）
+    [SerializeField] private GameObject eventPanel; // 赛事/基地窗口
     [SerializeField] private GameObject friendPanel; // 好友/关注窗口
 
     [Header("窗口切换动画")]
@@ -45,7 +46,7 @@ public class WindowsManager : MonoBehaviour {
     private static bool IsLobbyTab(string window) {
         return window == "menu" || window == "room" || window == "record" || window == "player"
             || window == "config" || window == "notice" || window == "aboutUs" || window == "sceneConfig"
-            || window == "spectator" || window == "match" || window == "friend";
+            || window == "spectator" || window == "match" || window == "event" || window == "friend";
     }
 
     private void Awake() {
@@ -148,6 +149,7 @@ public class WindowsManager : MonoBehaviour {
         off(sceneConfigPanel);
         off(spectatorPanel);
         off(matchPanel);
+        off(eventPanel);
         off(friendPanel);
         off(gamePanel);
         loginPanel.SetActive(true);
@@ -195,6 +197,7 @@ public class WindowsManager : MonoBehaviour {
     }
 
     private IEnumerator SwitchWindowRoutine(string targetWindow, bool ensureHeader = false) {
+        bool enteringSceneConfig = targetWindow == "sceneConfig" && currentWindow != "sceneConfig";
         var wasActive = new HashSet<GameObject>(); // 当前激活窗口集合
         CollectCurrentlyActiveManaged(wasActive); // 读取 activeSelf 现况
         var willActive = new HashSet<GameObject>(wasActive); // 目标集合
@@ -225,26 +228,34 @@ public class WindowsManager : MonoBehaviour {
         WindowFadeTransition.PrepareFadeIn(fadeIn); // 统一淡入初态
         WindowFadeTransition.PrepareFadeOut(fadeOut); // 统一淡出初态
         if (fadeOut.Count == 0 && fadeIn.Count == 0) {
-            RefreshLobbyDataOnSwitch(targetWindow);
+            RefreshLobbyDataOnSwitch(targetWindow, enteringSceneConfig);
             _switchRoutine = null; // 清理协程引用
             yield break;
         }
         float duration = windowFadeDuration <= 0f ? 0f : windowFadeDuration; // 渐变时长
         yield return WindowFadeTransition.Fade(fadeOut, fadeIn, duration); // 执行渐隐渐显
-        RefreshLobbyDataOnSwitch(targetWindow);
+        RefreshLobbyDataOnSwitch(targetWindow, enteringSceneConfig);
         _switchRoutine = null; // 协程结束
     }
 
     /// <summary>
     /// 切换到大厅页后立即拉取一次最新数据（与轮询互补，重复进入同一页也会刷新）。
     /// </summary>
-    private static void RefreshLobbyDataOnSwitch(string targetWindow) {
+    private static void RefreshLobbyDataOnSwitch(string targetWindow, bool enteringSceneConfig = false) {
         switch (targetWindow) {
             case "menu":
                 RoomNetworkManager.Instance.GetRoomList(showTipOnSuccess: false);
                 break;
             case "match":
                 MatchNetworkManager.Instance.RequestQueueStatusForMatchPanel();
+                break;
+            case "event":
+                EventNetworkManager.Instance?.ListPublicEvents("event");
+                break;
+            case "sceneConfig":
+                if (enteringSceneConfig) {
+                    RandomTableButton.TryGeneratePreviewTable();
+                }
                 break;
         }
     }
@@ -282,6 +293,7 @@ public class WindowsManager : MonoBehaviour {
         addIfActive(sceneConfigPanel);
         addIfActive(spectatorPanel);
         addIfActive(matchPanel);
+        addIfActive(eventPanel);
         addIfActive(friendPanel);
         addIfActive(gamePanel);
     }
@@ -306,6 +318,7 @@ public class WindowsManager : MonoBehaviour {
         Off(sceneConfigPanel);
         Off(spectatorPanel);
         Off(matchPanel);
+        Off(eventPanel);
         Off(friendPanel);
         if (ensureHeader) {
             Off(gamePanel);
@@ -358,6 +371,9 @@ public class WindowsManager : MonoBehaviour {
             case "match":
                 if (matchPanel != null) On(matchPanel);
                 break;
+            case "event":
+                if (eventPanel != null) On(eventPanel);
+                break;
             case "friend":
                 if (friendPanel != null) On(friendPanel);
                 break;
@@ -392,6 +408,7 @@ public class WindowsManager : MonoBehaviour {
         norm(sceneConfigPanel);
         norm(spectatorPanel);
         norm(matchPanel);
+        norm(eventPanel);
         norm(friendPanel);
         norm(gamePanel);
     }
@@ -400,5 +417,4 @@ public class WindowsManager : MonoBehaviour {
     /// 获取当前窗口标识（如 "menu"、"room"、"game" 等），供 NetworkManager 等判断是否在主菜单等。
     /// </summary>
     public string GetCurrentWindow() => currentWindow;
-
 }

@@ -2,14 +2,21 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-/// <summary>
-/// 牌边设置面板（独立于牌背面板）：负责正面边缘颜色与背面边缘颜色。
-/// 场景里已画好的控件按名字自动挂接；Inspector 拖拽引用优先。
-/// 背面边缘颜色三选一：独立 / 跟随牌背 / 跟随正面边缘，选中项显示橙色，模式持久化保存。
-/// </summary>
+/// <summary>正面/背面边缘颜色。引用由场景写入，运行时只改颜色和模式。</summary>
 public class CardEdgePanel : MonoBehaviour
 {
     public static CardEdgePanel Instance { get; private set; }
+
+    /// <summary>正面边缘颜色模式（与背面边缘三档对称）。</summary>
+    public enum FrontEdgeMode
+    {
+        /// <summary>独立设置正面边缘颜色。</summary>
+        Independent = 0,
+        /// <summary>把 3D 牌面背景颜色与图像拉伸到侧面。</summary>
+        FollowTableBg = 1,
+        /// <summary>正面边缘跟随背面边缘的独立颜色（不拉伸贴图）。</summary>
+        FollowBackEdge = 2,
+    }
 
     /// <summary>背面边缘颜色模式。</summary>
     public enum BackEdgeMode
@@ -18,49 +25,42 @@ public class CardEdgePanel : MonoBehaviour
         Independent = 0,
         /// <summary>背面边缘颜色跟随牌背颜色。</summary>
         FollowBack = 1,
-        /// <summary>背面边缘颜色跟随正面边缘颜色。</summary>
+        /// <summary>背面边缘跟随正面边缘的独立颜色（不拉伸贴图）。</summary>
         FollowFront = 2,
     }
 
-    private static readonly Color[] PresetColors =
-    {
-        new Color(0.218f, 0.372f, 0.66f, 1f),  // 默认蓝
-        new Color(0.72f, 0.10f, 0.14f, 1f),
-        new Color(0.95f, 0.55f, 0.10f, 1f),
-        new Color(0.93f, 0.80f, 0.20f, 1f),
-        new Color(0.12f, 0.55f, 0.25f, 1f),
-        new Color(0.10f, 0.65f, 0.65f, 1f),
-        new Color(0.45f, 0.25f, 0.70f, 1f),
-        new Color(0.80f, 0.30f, 0.55f, 1f),
-        new Color(0.15f, 0.15f, 0.18f, 1f),
-        new Color(0.92f, 0.92f, 0.92f, 1f),
-    };
-
-    private static readonly Color SelectedColor = new Color(1f, 0.55f, 0f, 1f); // 橙色
-    private static readonly Color UnselectedColor = new Color(0.2f, 0.24f, 0.32f, 1f);
-
-    [Header("正面边缘（拖拽挂接，留空按名字自动查找）")]
     [SerializeField] private Image sidePreview;
     [SerializeField] private TMP_InputField sideHexInput;
     [SerializeField] private Button sideHexApplyButton;
-
-    [Header("背面边缘模式（三选一 Toggle，选中橙色）")]
     [SerializeField] private Toggle backEdgeModeIndependent;
     [SerializeField] private Toggle backEdgeModeFollowBack;
     [SerializeField] private Toggle backEdgeModeFollowFront;
-
-    [Header("背面边缘")]
+    [SerializeField] private Toggle frontEdgeModeIndependent;
+    [SerializeField] private Toggle frontEdgeModeFollowTableBg;
+    [SerializeField] private Toggle frontEdgeModeFollowBackEdge;
     [SerializeField] private Image backSidePreview;
+    [SerializeField] private Image frontSidePreview;
     [SerializeField] private TMP_InputField backEdgeHexInput;
     [SerializeField] private Button backEdgeHexApplyButton;
+    [SerializeField] private TMP_InputField frontEdgeHexInput;
+    [SerializeField] private Button frontEdgeHexApplyButton;
     [SerializeField] private Button restoreFrontEdgeButton;
     [SerializeField] private Button restoreBackEdgeButton;
+    [SerializeField] private Button[] sideSwatches;
+    [SerializeField] private Button[] backEdgeSwatches;
+    [Header("模式 Toggle 颜色（含 Alpha，可在 Inspector 改）")]
+    [SerializeField] private Color toggleDefaultColor = new Color(0.28f, 0.48f, 0.92f, 1f);
+    [SerializeField] private Color toggleSelectedColor = new Color(1f, 0.5f, 0f, 1f);
+    [SerializeField] private float toggleColorFade = 0.1f;
 
     private Color currentSideColor = ConfigManager.DefaultSideColor;
     private Color currentBackEdgeColor = ConfigManager.DefaultBackEdgeColor;
+    private Color currentFrontEdgeColor = Color.white;
     private BackEdgeMode currentBackEdgeMode = BackEdgeMode.FollowBack;
+    private FrontEdgeMode currentFrontEdgeMode = FrontEdgeMode.Independent;
     private bool syncing;
-    private bool wired;
+    private bool toggleColorReady;
+    private bool toggleColorsNeedRefresh;
 
     private void Awake()
     {
@@ -70,70 +70,78 @@ public class CardEdgePanel : MonoBehaviour
             return;
         }
         Instance = this;
-        AutoWire();
+        BindUi();
     }
 
-    private void AutoWire()
+    private void OnEnable()
     {
-        if (wired) return;
-        wired = true;
+        toggleColorsNeedRefresh = true;
+        UpdateModeToggleColors(instant: true);
+    }
 
-        if (sidePreview == null) sidePreview = FindInChildren<Image>(transform, "SidePreview");
-        if (sideHexInput == null) sideHexInput = FindInChildren<TMP_InputField>(transform, "SideHexInput");
-        if (sideHexApplyButton == null) sideHexApplyButton = FindInChildren<Button>(transform, "SideHexApply");
-        if (backEdgeModeIndependent == null) backEdgeModeIndependent = FindInChildren<Toggle>(transform, "BackEdgeModeIndependent");
-        if (backEdgeModeFollowBack == null) backEdgeModeFollowBack = FindInChildren<Toggle>(transform, "BackEdgeModeFollowBack");
-        if (backEdgeModeFollowFront == null) backEdgeModeFollowFront = FindInChildren<Toggle>(transform, "BackEdgeModeFollowFront");
-        if (backSidePreview == null) backSidePreview = FindInChildren<Image>(transform, "BackSidePreview");
-        if (backEdgeHexInput == null) backEdgeHexInput = FindInChildren<TMP_InputField>(transform, "BackEdgeHexInput");
-        if (backEdgeHexApplyButton == null) backEdgeHexApplyButton = FindInChildren<Button>(transform, "BackEdgeHexApply");
-        if (restoreFrontEdgeButton == null)
-            restoreFrontEdgeButton = FindInChildren<Button>(transform, "RestoreFrontEdgeButton");
-        if (restoreBackEdgeButton == null)
-            restoreBackEdgeButton = FindInChildren<Button>(transform, "RestoreBackEdgeButton");
+    private void LateUpdate()
+    {
+        if (!toggleColorsNeedRefresh) return;
+        toggleColorsNeedRefresh = false;
+        UpdateModeToggleColors(instant: true);
+    }
 
-        if (sideHexApplyButton != null) sideHexApplyButton.onClick.AddListener(ApplySideHex);
-        if (backEdgeHexApplyButton != null) backEdgeHexApplyButton.onClick.AddListener(ApplyBackEdgeHex);
-        if (restoreFrontEdgeButton != null) restoreFrontEdgeButton.onClick.AddListener(RestoreFrontEdgeDefault);
-        if (restoreBackEdgeButton != null) restoreBackEdgeButton.onClick.AddListener(RestoreBackEdgeDefault);
-        if (backEdgeModeIndependent != null) backEdgeModeIndependent.onValueChanged.AddListener(on => { if (on) SetBackEdgeMode(BackEdgeMode.Independent); });
-        if (backEdgeModeFollowBack != null) backEdgeModeFollowBack.onValueChanged.AddListener(on => { if (on) SetBackEdgeMode(BackEdgeMode.FollowBack); });
-        if (backEdgeModeFollowFront != null) backEdgeModeFollowFront.onValueChanged.AddListener(on => { if (on) SetBackEdgeMode(BackEdgeMode.FollowFront); });
+    private void Start()
+    {
+        UpdateModeToggleColors(instant: true);
+        toggleColorReady = true;
+    }
 
-        for (int i = 0; i < PresetColors.Length; i++)
-        {
-            Button sideSwatch = FindInChildren<Button>(transform, "SideSwatch" + i);
-            if (sideSwatch != null)
-            {
-                Color c = PresetColors[i];
-                sideSwatch.onClick.AddListener(() => SetSideColor(c));
-            }
+#if UNITY_EDITOR
+    private void OnValidate()
+    {
+        if (!Application.isPlaying || !isActiveAndEnabled) return;
+        UpdateModeToggleColors(instant: true);
+    }
+#endif
 
-            Button backEdgeSwatch = FindInChildren<Button>(transform, "BackEdgeSwatch" + i);
-            if (backEdgeSwatch != null)
-            {
-                Color c = PresetColors[i];
-                backEdgeSwatch.onClick.AddListener(() => SetBackEdgeColor(c));
-            }
-        }
-
+    private void BindUi()
+    {
+        SceneConfigUi.BindClick(sideHexApplyButton, ApplySideHex);
+        SceneConfigUi.BindClick(backEdgeHexApplyButton, ApplyBackEdgeHex);
+        SceneConfigUi.BindClick(frontEdgeHexApplyButton, ApplyFrontEdgeHex);
+        SceneConfigUi.BindClick(restoreFrontEdgeButton, RestoreFrontEdgeDefault);
+        SceneConfigUi.BindClick(restoreBackEdgeButton, RestoreBackEdgeDefault);
+        SceneConfigUi.ConfigureToggle(backEdgeModeIndependent);
+        SceneConfigUi.ConfigureToggle(backEdgeModeFollowBack);
+        SceneConfigUi.ConfigureToggle(backEdgeModeFollowFront);
+        SceneConfigUi.ConfigureToggle(frontEdgeModeIndependent);
+        SceneConfigUi.ConfigureToggle(frontEdgeModeFollowTableBg);
+        SceneConfigUi.ConfigureToggle(frontEdgeModeFollowBackEdge);
+        SceneConfigUi.BindToggleOn(backEdgeModeIndependent, () => SetBackEdgeMode(BackEdgeMode.Independent));
+        SceneConfigUi.BindToggleOn(backEdgeModeFollowBack, () => SetBackEdgeMode(BackEdgeMode.FollowBack));
+        SceneConfigUi.BindToggleOn(backEdgeModeFollowFront, () => SetBackEdgeMode(BackEdgeMode.FollowFront));
+        SceneConfigUi.BindToggleOn(frontEdgeModeIndependent, () => SetFrontEdgeMode(FrontEdgeMode.Independent));
+        SceneConfigUi.BindToggleOn(frontEdgeModeFollowTableBg, () => SetFrontEdgeMode(FrontEdgeMode.FollowTableBg));
+        SceneConfigUi.BindToggleOn(frontEdgeModeFollowBackEdge, () => SetFrontEdgeMode(FrontEdgeMode.FollowBackEdge));
+        SceneConfigUi.BindSwatches(sideSwatches, SetSideColor);
+        SceneConfigUi.BindSwatches(backEdgeSwatches, SetBackEdgeColor);
         LoadSavedIntoUI();
-        ApplyBackEdgeInteractable();
     }
 
     /// <summary>把正面边缘颜色还原为初始默认值。</summary>
     public void RestoreFrontEdgeDefault()
     {
-        currentSideColor = ConfigManager.DefaultSideColor;
+        currentFrontEdgeColor = Color.white;
+        currentFrontEdgeMode = FrontEdgeMode.Independent;
 
         if (ConfigManager.Instance != null)
         {
-            ConfigManager.Instance.SetSideColor(currentSideColor);
+            ConfigManager.Instance.SetFrontEdgeMode(currentFrontEdgeMode);
+            ConfigManager.Instance.SetFrontEdgeColor(currentFrontEdgeColor);
         }
 
         SyncUIFromColor();
-        CardBackManager.ApplySideColor(currentSideColor);
-        ShowTip("已恢复默认");
+        CardBackManager.SetFrontEdgeMode(currentFrontEdgeMode, currentFrontEdgeColor);
+        if (currentBackEdgeMode == BackEdgeMode.FollowFront)
+        {
+            CardBackManager.ApplyBackEdgeColor(currentFrontEdgeColor);
+        }
     }
 
     /// <summary>把背面边缘还原为初始默认：颜色跟随牌背，模式恢复为跟随牌背。</summary>
@@ -150,8 +158,10 @@ public class CardEdgePanel : MonoBehaviour
 
         SyncUIFromColor();
         CardBackManager.SetBackEdgeMode(currentBackEdgeMode, currentBackEdgeColor);
-        ApplyBackEdgeInteractable();
-        ShowTip("已恢复默认");
+        if (currentFrontEdgeMode == FrontEdgeMode.FollowBackEdge)
+        {
+            CardBackManager.ApplyFrontEdgeColor(currentBackEdgeColor);
+        }
     }
 
     private void LoadSavedIntoUI()
@@ -161,6 +171,8 @@ public class CardEdgePanel : MonoBehaviour
             currentSideColor = ConfigManager.Instance.SideColor;
             currentBackEdgeColor = ConfigManager.Instance.BackEdgeColor;
             currentBackEdgeMode = ConfigManager.Instance.BackEdgeMode;
+            currentFrontEdgeColor = ConfigManager.Instance.FrontEdgeColor;
+            currentFrontEdgeMode = ConfigManager.Instance.FrontEdgeMode;
         }
         SyncUIFromColor();
     }
@@ -168,17 +180,23 @@ public class CardEdgePanel : MonoBehaviour
     private void SyncUIFromColor()
     {
         syncing = true;
-        if (sideHexInput != null) sideHexInput.text = ColorUtility.ToHtmlStringRGB(currentSideColor);
-        if (sidePreview != null) sidePreview.color = currentSideColor;
-        if (backEdgeHexInput != null) backEdgeHexInput.text = ColorUtility.ToHtmlStringRGB(currentBackEdgeColor);
-        if (backSidePreview != null) backSidePreview.color = currentBackEdgeColor;
+        Color backPreview = CardBackManager.ResolveBackEdgeColor(currentBackEdgeMode, currentBackEdgeColor);
+        Color frontPreview = CardBackManager.ResolveFrontEdgeColor(currentFrontEdgeMode, currentFrontEdgeColor);
+        sideHexInput.text = ColorUtility.ToHtmlStringRGB(currentSideColor);
+        sidePreview.color = currentSideColor;
+        backEdgeHexInput.text = ColorUtility.ToHtmlStringRGB(backPreview);
+        backSidePreview.color = backPreview;
+        frontEdgeHexInput.text = ColorUtility.ToHtmlStringRGB(frontPreview);
+        frontSidePreview.color = frontPreview;
 
-        if (backEdgeModeIndependent != null) backEdgeModeIndependent.isOn = currentBackEdgeMode == BackEdgeMode.Independent;
-        if (backEdgeModeFollowBack != null) backEdgeModeFollowBack.isOn = currentBackEdgeMode == BackEdgeMode.FollowBack;
-        if (backEdgeModeFollowFront != null) backEdgeModeFollowFront.isOn = currentBackEdgeMode == BackEdgeMode.FollowFront;
+        backEdgeModeIndependent.isOn = currentBackEdgeMode == BackEdgeMode.Independent;
+        backEdgeModeFollowBack.isOn = currentBackEdgeMode == BackEdgeMode.FollowBack;
+        backEdgeModeFollowFront.isOn = currentBackEdgeMode == BackEdgeMode.FollowFront;
+        frontEdgeModeIndependent.isOn = currentFrontEdgeMode == FrontEdgeMode.Independent;
+        frontEdgeModeFollowTableBg.isOn = currentFrontEdgeMode == FrontEdgeMode.FollowTableBg;
+        frontEdgeModeFollowBackEdge.isOn = currentFrontEdgeMode == FrontEdgeMode.FollowBackEdge;
         syncing = false;
-
-        UpdateModeToggleColors();
+        UpdateModeToggleColors(!toggleColorReady);
     }
 
     private void SetSideColor(Color color)
@@ -195,18 +213,7 @@ public class CardEdgePanel : MonoBehaviour
 
     private void ApplySideHex()
     {
-        string hex = sideHexInput != null ? sideHexInput.text : "";
-        if (hex == null) hex = "";
-        hex = hex.Trim();
-        if (hex.StartsWith("#")) hex = hex.Substring(1);
-        if (hex.Length == 6) hex += "FF";
-        if (hex.Length != 8 || !ColorUtility.TryParseHtmlString("#" + hex, out Color color))
-        {
-            ShowTip("HEX 格式不正确");
-            return;
-        }
-        SetSideColor(color);
-        ShowTip("正面边缘颜色已应用");
+        ApplyHex(sideHexInput, SetSideColor, "正面边缘颜色已应用");
     }
 
     private void SetBackEdgeColor(Color color)
@@ -226,104 +233,116 @@ public class CardEdgePanel : MonoBehaviour
         {
             SyncUIFromColor();
             CardBackManager.ApplyBackEdgeColor(currentBackEdgeColor);
+            if (currentFrontEdgeMode == FrontEdgeMode.FollowBackEdge)
+            {
+                CardBackManager.ApplyFrontEdgeColor(currentBackEdgeColor);
+            }
         }
     }
 
-    /// <summary>设置背面边缘颜色模式：独立 / 跟随牌背 / 跟随正面边缘。</summary>
+    private void SetFrontEdgeColor(Color color)
+    {
+        color.a = 1f;
+        currentFrontEdgeColor = color;
+        if (ConfigManager.Instance != null)
+        {
+            ConfigManager.Instance.SetFrontEdgeColor(currentFrontEdgeColor);
+        }
+        if (currentFrontEdgeMode != FrontEdgeMode.Independent)
+        {
+            SetFrontEdgeMode(FrontEdgeMode.Independent);
+        }
+        else
+        {
+            SyncUIFromColor();
+            CardBackManager.ApplyFrontEdgeColor(currentFrontEdgeColor);
+            if (currentBackEdgeMode == BackEdgeMode.FollowFront)
+            {
+                CardBackManager.ApplyBackEdgeColor(currentFrontEdgeColor);
+            }
+        }
+    }
+
+    /// <summary>设置背面边缘颜色模式：独立 / 跟随牌背 / 跟随正面独立边缘色。</summary>
     public void SetBackEdgeMode(BackEdgeMode mode)
     {
         if (syncing) return;
         currentBackEdgeMode = mode;
 
-        if (mode == BackEdgeMode.FollowBack)
-        {
-            currentBackEdgeColor = CardBackManager.CurrentColor;
-        }
-        else if (mode == BackEdgeMode.FollowFront)
-        {
-            currentBackEdgeColor = currentSideColor;
-        }
-
         if (ConfigManager.Instance != null)
         {
             ConfigManager.Instance.SetBackEdgeMode(mode);
-            ConfigManager.Instance.SetBackEdgeColor(currentBackEdgeColor);
         }
 
         SyncUIFromColor();
         CardBackManager.SetBackEdgeMode(mode, currentBackEdgeColor);
-        ApplyBackEdgeInteractable();
-    }
-
-    /// <summary>
-    /// 背面边缘区交互状态：独立模式可编辑；跟随模式仅做视觉提示（变暗），
-    /// 色块始终可点（点击自动切到独立模式并应用）。
-    /// </summary>
-    private void ApplyBackEdgeInteractable()
-    {
-        bool editable = currentBackEdgeMode == BackEdgeMode.Independent;
-        if (backSidePreview != null) backSidePreview.color = currentBackEdgeColor;
-        if (backEdgeHexInput != null) backEdgeHexInput.interactable = editable;
-        if (backEdgeHexApplyButton != null) backEdgeHexApplyButton.interactable = editable;
-
-        Transform section = transform.Find("BackEdgeSection");
-        if (section != null)
+        if (currentFrontEdgeMode == FrontEdgeMode.FollowBackEdge)
         {
-            CanvasGroup group = section.GetComponent<CanvasGroup>();
-            if (group == null)
-            {
-                group = section.gameObject.AddComponent<CanvasGroup>();
-            }
-            group.interactable = true;
-            group.blocksRaycasts = true;
-            group.alpha = editable ? 1f : 0.55f;
+            CardBackManager.ApplyFrontEdgeColor(
+                ConfigManager.Instance != null ? ConfigManager.Instance.BackEdgeColor : currentBackEdgeColor);
         }
     }
 
-    /// <summary>选中的模式 Toggle 显示橙色，其余恢复默认色。</summary>
-    private void UpdateModeToggleColors()
+    /// <summary>设置正面边缘颜色模式：独立 / 跟随牌面（拉伸到侧面） / 跟随背面独立边缘色。</summary>
+    public void SetFrontEdgeMode(FrontEdgeMode mode)
     {
-        SetToggleColor(backEdgeModeIndependent, currentBackEdgeMode == BackEdgeMode.Independent);
-        SetToggleColor(backEdgeModeFollowBack, currentBackEdgeMode == BackEdgeMode.FollowBack);
-        SetToggleColor(backEdgeModeFollowFront, currentBackEdgeMode == BackEdgeMode.FollowFront);
+        if (syncing) return;
+        currentFrontEdgeMode = mode;
+
+        if (ConfigManager.Instance != null)
+        {
+            ConfigManager.Instance.SetFrontEdgeMode(mode);
+        }
+
+        SyncUIFromColor();
+        CardBackManager.SetFrontEdgeMode(mode, currentFrontEdgeColor);
+        if (currentBackEdgeMode == BackEdgeMode.FollowFront)
+        {
+            CardBackManager.ApplyBackEdgeColor(
+                ConfigManager.Instance != null ? ConfigManager.Instance.FrontEdgeColor : currentFrontEdgeColor);
+        }
     }
 
-    private static void SetToggleColor(Toggle toggle, bool selected)
+    private void ApplyFrontEdgeHex()
     {
-        if (toggle == null) return;
-        Graphic graphic = toggle.targetGraphic != null ? toggle.targetGraphic : toggle.graphic;
-        if (graphic != null)
-        {
-            graphic.color = selected ? SelectedColor : UnselectedColor;
-        }
+        ApplyHex(frontEdgeHexInput, SetFrontEdgeColor, "正面边缘颜色已应用");
     }
 
     private void ApplyBackEdgeHex()
     {
-        string hex = backEdgeHexInput != null ? backEdgeHexInput.text : "";
-        if (hex == null) hex = "";
-        hex = hex.Trim();
-        if (hex.StartsWith("#")) hex = hex.Substring(1);
-        if (hex.Length == 6) hex += "FF";
-        if (hex.Length != 8 || !ColorUtility.TryParseHtmlString("#" + hex, out Color color))
-        {
-            ShowTip("HEX 格式不正确");
-            return;
-        }
-        SetBackEdgeColor(color);
-        ShowTip("背面边缘颜色已应用");
+        ApplyHex(backEdgeHexInput, SetBackEdgeColor, "背面边缘颜色已应用");
     }
 
-    private void ShowTip(string message)
+    private static void ApplyHex(TMP_InputField input, System.Action<Color> apply, string okTip)
     {
-        if (NotificationManager.Instance != null)
+        if (!SceneConfigUi.TryParseHex(input.text, out Color color))
         {
-            NotificationManager.Instance.ShowTip("设置", true, message);
+            SceneConfigUi.ShowTip("HEX 格式不正确");
+            return;
         }
-        else
-        {
-            Debug.Log("[CardEdgePanel] " + message);
-        }
+        apply(color);
+        SceneConfigUi.ShowTip(okTip);
+    }
+
+    /// <summary>牌背/牌面变化后刷新预览色（不改独立色存储）。</summary>
+    public void RefreshPreviews()
+    {
+        if (!isActiveAndEnabled) return;
+        SyncUIFromColor();
+    }
+
+    /// <summary>未选中默认色，选中高亮色；打开面板瞬间到位，点击切换带过渡。</summary>
+    private void UpdateModeToggleColors(bool instant)
+    {
+        float fade = toggleColorFade;
+        Color def = toggleDefaultColor;
+        Color on = toggleSelectedColor;
+        SceneConfigUi.SetToggleSelected(backEdgeModeIndependent, currentBackEdgeMode == BackEdgeMode.Independent, def, on, instant, fade);
+        SceneConfigUi.SetToggleSelected(backEdgeModeFollowBack, currentBackEdgeMode == BackEdgeMode.FollowBack, def, on, instant, fade);
+        SceneConfigUi.SetToggleSelected(backEdgeModeFollowFront, currentBackEdgeMode == BackEdgeMode.FollowFront, def, on, instant, fade);
+        SceneConfigUi.SetToggleSelected(frontEdgeModeIndependent, currentFrontEdgeMode == FrontEdgeMode.Independent, def, on, instant, fade);
+        SceneConfigUi.SetToggleSelected(frontEdgeModeFollowTableBg, currentFrontEdgeMode == FrontEdgeMode.FollowTableBg, def, on, instant, fade);
+        SceneConfigUi.SetToggleSelected(frontEdgeModeFollowBackEdge, currentFrontEdgeMode == FrontEdgeMode.FollowBackEdge, def, on, instant, fade);
     }
 
 #if UNITY_EDITOR
@@ -347,23 +366,14 @@ public class CardEdgePanel : MonoBehaviour
         {
             shared.SetTexture("_SideTex", copy);
         }
-        ShowTip("侧面贴图已应用");
+        if (MahjongObjectPool.Instance != null)
+        {
+            MahjongObjectPool.Instance.ForEachStandaloneMaterial(mat =>
+            {
+                if (mat != null) mat.SetTexture("_SideTex", copy);
+            });
+        }
+        SceneConfigUi.ShowTip("侧面贴图已应用");
     }
 #endif
-
-    private static T FindInChildren<T>(Transform root, string name) where T : Component
-    {
-        if (root == null) return null;
-        foreach (Transform child in root)
-        {
-            if (child.name == name)
-            {
-                T comp = child.GetComponent<T>();
-                if (comp != null) return comp;
-            }
-            T nested = FindInChildren<T>(child, name);
-            if (nested != null) return nested;
-        }
-        return null;
-    }
 }

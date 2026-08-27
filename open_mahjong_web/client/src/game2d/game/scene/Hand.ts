@@ -5,6 +5,7 @@ import {
 } from './constants'
 import { Tile, TILE_HOVER_TINT } from './Tile'
 import { River } from './River'
+import type { RiverMatchHighlight } from './RiverMatchHighlight'
 import { DiscardHelper } from './DiscardHelper'
 import { WaitDisplay } from './WaitDisplay'
 import { splitWinningTileFromRevealedHand } from '../../lib/settlementHand.js'
@@ -39,9 +40,11 @@ export class Hand extends Container {
   private readonly discardHelperList: DiscardHelper[] = []
   private pendingDiscardTile: Tile | null = null
   private pendingDiscardHelper: DiscardHelper | null = null
+  private hoveredHandTile: Tile | null = null
   private requireDiscardConfirmation = false
   private readonly handScale: number
   private readonly replayStyle: boolean
+  private readonly matchHighlight: RiverMatchHighlight | null
 
   constructor(
     direction: number,
@@ -49,6 +52,7 @@ export class Hand extends Container {
     river: River | null = null,
     assocWaitDisplay: WaitDisplay | null = null,
     replayStyle = false,
+    matchHighlight: RiverMatchHighlight | null = null,
   ) {
     super()
     this.direction = direction
@@ -56,6 +60,7 @@ export class Hand extends Container {
     this.waitDisplay = assocWaitDisplay
     this.handScale = direction === 0 ? SELF_HAND_SCALE : 1.0
     this.replayStyle = replayStyle
+    this.matchHighlight = matchHighlight
 
     const offsets: readonly [number, number][] = [
       [0, SCALE_FACTOR / 2 - TILE_HEIGHT / 2],
@@ -70,9 +75,21 @@ export class Hand extends Container {
 
     this.eventMode = 'passive'
     this.on('pointerout', () => {
-      this.waitDisplay?.reset()
+      this.hoveredHandTile = null
+      if (this.pendingDiscardTile) {
+        this.waitDisplay?.loadData(this.pendingDiscardTile.tid)
+      } else {
+        this.waitDisplay?.reset()
+      }
+      this.restoreMatchHighlight()
     })
     parent.addChild(this)
+  }
+
+  private releaseHoveredTile(tile: Tile | null): void {
+    if (!tile || this.hoveredHandTile !== tile) return
+    this.hoveredHandTile = null
+    this.restoreMatchHighlight()
   }
 
   // ── Tile lookup ──────────────────────────────────────────────────
@@ -82,6 +99,7 @@ export class Hand extends Container {
       const tile = this.drawnTile
       this.drawnTile = null
       this.discardIndex = -1
+      this.releaseHoveredTile(tile)
       return tile
     }
     let idx = -1
@@ -106,7 +124,9 @@ export class Hand extends Container {
     if (idx < 0) {
       return null
     }
-    return this.rightList.splice(idx, 1)[0] ?? null
+    const tile = this.rightList.splice(idx, 1)[0] ?? null
+    this.releaseHoveredTile(tile)
+    return tile
   }
 
   private popMultiple(tid: number, count: number): Tile[] {
@@ -280,13 +300,29 @@ export class Hand extends Container {
   }
 
   private bindWaitHover(tile: Tile): void {
-    if (this.direction !== 0 || !this.waitDisplay) return
+    if (this.direction !== 0) return
     tile.setHoverCallbacks(
-      () => this.waitDisplay?.loadData(tile.tid),
       () => {
-        this.waitDisplay?.restoreDefault()
+        this.hoveredHandTile = tile
+        this.waitDisplay?.loadData(tile.tid)
+        this.matchHighlight?.highlight(tile.tid)
+      },
+      () => {
+        if (this.hoveredHandTile === tile) this.hoveredHandTile = null
+        if (this.pendingDiscardTile) {
+          this.waitDisplay?.loadData(this.pendingDiscardTile.tid)
+        } else {
+          this.waitDisplay?.restoreDefault()
+        }
+        this.restoreMatchHighlight()
       },
     )
+  }
+
+  private restoreMatchHighlight(): void {
+    const tid = this.hoveredHandTile?.tid ?? 0
+    if (tid > 0) this.matchHighlight?.highlight(tid)
+    else this.matchHighlight?.clear()
   }
 
   addRightList(tile: Tile): void {
@@ -501,6 +537,8 @@ export class Hand extends Container {
       this.pendingDiscardHelper = helper
       tile.setSelectionTint(true)
       helper?.setSelected(true)
+      this.waitDisplay?.loadData(tile.tid)
+      this.restoreMatchHighlight()
     }
 
     if (IS_MOBILE_PHONE) {
@@ -525,10 +563,12 @@ export class Hand extends Container {
   }
 
   private clearPendingDiscardSelection(): void {
+    const wasSelected = this.pendingDiscardTile != null
     this.pendingDiscardTile?.setSelectionTint(false)
     this.pendingDiscardHelper?.setSelected(false)
     this.pendingDiscardTile = null
     this.pendingDiscardHelper = null
+    if (wasSelected) this.restoreMatchHighlight()
   }
 
   setDiscardConfirmationRequired(required: boolean): void {
@@ -537,7 +577,12 @@ export class Hand extends Container {
   }
 
   unwaitDiscard(): void {
+    if (this.hoveredHandTile && !this.rightList.includes(this.hoveredHandTile)
+      && this.hoveredHandTile !== this.drawnTile) {
+      this.hoveredHandTile = null
+    }
     this.clearPendingDiscardSelection()
+    this.restoreMatchHighlight()
     for (const t of this.rightList) { t.off('pointerdown'); t.off('pointertap'); t.setHoverEnabled(t.shown) }
     if (this.drawnTile) {
       this.drawnTile.off('pointerdown'); this.drawnTile.off('pointertap')
@@ -811,23 +856,29 @@ export class Hand extends Container {
 
   discardTile(tid: number, useDrawnTile: boolean): void {
     const river = this.river; if (!river) return
-    if (useDrawnTile && this.drawnTile) {
+    const inHand = this.rightList.some((item) => item.tid === tid)
+    const drawnMatches = this.drawnTile != null && this.drawnTile.tid === tid
+    // 开局庄家第 14 张在摸牌区，但牌谱记手切。与 flowerFromHand / Unity 跨切兜底一致。
+    const fromDrawn = (useDrawnTile && this.drawnTile != null) || (!inHand && drawnMatches)
+    let tile: Tile | null = null
+    if (fromDrawn && this.drawnTile) {
       this.discardIndex = -1
-      const dt = this.drawnTile  // capture before nulling
-      dt.setRecordDangerHighlighted(false)
-      dt.updateTid(tid); dt.show(); dt.scale.set(1.0)
-      river.waiting = true
-      const [rx, ry] = [river.getX(river.num), river.getY(river.num)]
+      tile = this.drawnTile
       this.drawnTile = null
-      dt.generalMove(river as Container, rx, ry, 0).catch(() => {})
     } else {
-      const tile = this.popFromHand(tid); if (!tile) return
-      tile.setRecordDangerHighlighted(false)
-      tile.updateTid(tid); tile.show(); tile.scale.set(1.0)
-      river.waiting = true
-      const [rx, ry] = [river.getX(river.num), river.getY(river.num)]
-      tile.generalMove(river as Container, rx, ry, 0).catch(() => {})
+      tile = this.popFromHand(tid)
+      if (!tile && this.drawnTile?.tid === tid) {
+        tile = this.drawnTile
+        this.drawnTile = null
+      }
     }
+    if (!tile) return
+    this.releaseHoveredTile(tile)
+    tile.setRecordDangerHighlighted(false)
+    tile.updateTid(tid); tile.show(); tile.scale.set(1.0)
+    river.waiting = true
+    const [rx, ry] = [river.getX(river.num), river.getY(river.num)]
+    tile.generalMove(river as Container, rx, ry, 0).catch(() => {})
     this.updateDisplay(true, false, false, false, true, true, true)
   }
 }

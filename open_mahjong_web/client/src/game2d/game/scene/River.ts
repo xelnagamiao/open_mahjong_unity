@@ -52,6 +52,8 @@ export class River extends Container {
   private flowerAreaHovered = false
   num = 0
   waiting = false
+  /** 牌河新增牌后同步同类高亮（由 RiverMatchHighlight 绑定）。 */
+  onTileRegistered: ((tile: Tile) => void) | null = null
 
   constructor(
     direction: number,
@@ -359,6 +361,7 @@ export class River extends Container {
         child.setInputEnabled(false)
         this.num += 1
         this.tileList.push(child)
+        this.onTileRegistered?.(child)
       }
     }
     return super.addChild(...children)
@@ -368,6 +371,7 @@ export class River extends Container {
   removeChild<U extends ContainerChild[]>(...children: U): U[0] {
     for (const child of children) {
       if (child instanceof Tile) {
+        child.setMatchHighlight(false)
         this.num -= 1
         const idx = this.tileList.indexOf(child)
         if (idx >= 0) this.tileList.splice(idx, 1)
@@ -403,6 +407,7 @@ export class River extends Container {
     tile.setInputEnabled(false)
     this.num += 1
     this.tileList.push(tile)
+    this.onTileRegistered?.(tile)
   }
 
   /** Add a tile for snapshot building (no animation). */
@@ -434,6 +439,7 @@ export class River extends Container {
   popTile(): Tile | null {
     const last = this.tileList.pop()
     if (last) {
+      last.setMatchHighlight(false)
       this.num -= 1
       super.removeChild(last)
     }

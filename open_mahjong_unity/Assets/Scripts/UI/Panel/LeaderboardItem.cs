@@ -25,7 +25,7 @@ public class LeaderboardItem : MonoBehaviour {
             string rank = entry.guobiao_rank ?? "10级";
             int idx = RankConfig.GetRankIndex(rank);
             var (_, _, promoteScore) = RankConfig.RankTable[idx];
-            scoreText.text = $"{entry.guobiao_score:F1}/{promoteScore}";
+            scoreText.text = $"{entry.guobiao_score:F2}/{promoteScore}";
         }
 
         LoadAvatar(entry.profile_image_id);

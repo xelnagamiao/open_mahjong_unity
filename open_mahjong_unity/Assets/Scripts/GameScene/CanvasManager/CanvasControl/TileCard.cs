@@ -10,12 +10,14 @@ using System.Linq;
 /// 层级结构：
 /// TileCard (空物体)
 /// ├── fill（原槽位，仅点击出牌，不触发拖拽）
-/// ├── TileImage (Image组件)
-/// └── TileButton (Button组件，拖拽与点牌面)
+/// ├── FaceBackground（手牌背景，官方套隐藏）
+/// ├── Image (花纹)
+/// └── Button（拖拽与点牌面）
 /// </summary>
 public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler {
     [Header("UI Components")]
     [SerializeField] private Image tileImage;    // 牌面图片组件
+    [SerializeField] private Image faceBackground; // 手牌背景（官方套隐藏）
     [SerializeField] private Button tileButton;  // 按钮组件
 
     // 将私有字段改为公共属性
@@ -286,23 +288,10 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         currentGetTile = isCurrentGetTile;
         isDrawSlotPinned = isCurrentGetTile;   // 新摸入牌默认固定在摸牌区，手动理牌时再清除
 
-        int faceResourceId = id;
-        if (ConfigManager.Instance.UseBlankWhiteDragonFace(id)) {
-            faceResourceId = ConfigManager.BlankFaceImageId;
+        if (!TileFaceFit.ApplyHandLayers(transform as RectTransform, tileImage, faceBackground, id)) {
+            Debug.LogError($"找不到牌面图片: {id}");
         }
-        // 不需要添加扩展名
-        string path = HongqueTileVisual.IsHongqueId(id)
-            ? HongqueTileVisual.ResourcePath(id)
-            : $"image/CardFaceImage_xuefun/{faceResourceId}";
-        Sprite sprite = HongqueTileVisual.IsHongqueId(id)
-            ? HongqueTileVisual.LoadSprite(id)
-            : Resources.Load<Sprite>(path);
-
-        if (sprite != null) {
-            tileImage.sprite = sprite;
-        } else {
-            Debug.LogError($"找不到牌面图片: {path}");
-        }
+        ApplyDisplayColor();
     }
 
     /// OntileClick 是出牌方法 如果牌属性currentGetTile为flase则为手切，如果为true则为摸切
@@ -381,11 +370,17 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
     private void ApplyDisplayColor() {
         if (tileImage == null) return;
+        Color color = Color.white;
         if (!isSelectable) {
-            tileImage.color = new Color(0.55f, 0.55f, 0.55f, 1f);
-            return;
+            color = new Color(0.55f, 0.55f, 0.55f, 1f);
         }
-        tileImage.color = hasDangerOverlay ? DangerOverlayColor : Color.white;
+        else if (hasDangerOverlay) {
+            color = DangerOverlayColor;
+        }
+        tileImage.color = color;
+        if (faceBackground != null && faceBackground.enabled) {
+            faceBackground.color = color;
+        }
     }
 
     /// <summary>

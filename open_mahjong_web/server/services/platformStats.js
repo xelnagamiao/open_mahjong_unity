@@ -2,6 +2,7 @@ const pool = require('../config/database');
 const { GUOBIAO_FAN_KEYS } = require('../constants/guobiaoFanDict');
 
 const LADDER_TIERS = ['beginner', 'intermediate', 'advanced', 'mcrpl'];
+const EVENT_ALL = 'all';
 const STAT_DATE_EXPR = "((created_at AT TIME ZONE 'Asia/Shanghai') - interval '4 hours')::date";
 const CURRENT_STAT_DATE_EXPR = "((NOW() AT TIME ZONE 'Asia/Shanghai') - interval '4 hours')::date";
 
@@ -46,10 +47,20 @@ function mapTotalsRow(row) {
   const out = { match_tier: row.match_tier };
   if (row.rule != null) out.rule = row.rule;
   if (row.game_type != null) out.game_type = row.game_type;
+  if (row.event_id != null) out.event_id = row.event_id;
+  if (row.room_type != null) out.room_type = row.room_type;
   for (const k of SCENE_METRIC_KEYS) {
     out[k] = Number(row[k]) || 0;
   }
   return out;
+}
+
+function isEventScope(eventId) {
+  return eventId != null && String(eventId).trim() !== '';
+}
+
+function isAllEvents(eventId) {
+  return String(eventId || '').trim().toLowerCase() === EVENT_ALL;
 }
 
 /**
@@ -66,13 +77,17 @@ function appendSceneTotalRow(rows, enabled) {
   return [...rows, total];
 }
 
-function buildSceneTotalsQuery(groupByTierOnly, extraWhere, params) {
-  const tierPlaceholders = LADDER_TIERS.map((_, i) => `$${i + 1}`).join(', ');
+function buildSceneTotalsQuery(groupByTierOnly, extraWhere, params, { roomType = 'match' } = {}) {
   const innerWhere = [
-    "room_type = 'match'",
-    `match_tier IN (${tierPlaceholders})`,
-    ...extraWhere,
+    roomType === 'events'
+      ? "room_type = 'events' AND event_id IS NOT NULL"
+      : "room_type = 'match'",
   ];
+  if (roomType !== 'events') {
+    const tierPlaceholders = LADDER_TIERS.map((_, i) => `$${i + 1}`).join(', ');
+    innerWhere.push(`match_tier IN (${tierPlaceholders})`);
+  }
+  innerWhere.push(...extraWhere);
   const inner = `
     SELECT game_id, room_type, match_tier, event_id, rule, game_type,
            MAX(total_rounds) AS per_game_rounds,
@@ -94,19 +109,22 @@ function buildSceneTotalsQuery(groupByTierOnly, extraWhere, params) {
     GROUP BY game_id, room_type, match_tier, event_id, rule, game_type
   `;
   if (groupByTierOnly) {
+    const orderSql = roomType === 'events'
+      ? 'ORDER BY match_tier'
+      : "ORDER BY array_position(ARRAY['beginner','intermediate','advanced','mcrpl']::varchar[], match_tier)";
     return {
       sql: `
-        SELECT match_tier, ${SCENE_METRIC_SUMS}
+        SELECT match_tier, MAX(event_id) AS event_id, MAX(room_type) AS room_type, ${SCENE_METRIC_SUMS}
         FROM (${inner}) g
         GROUP BY match_tier
-        ORDER BY array_position(ARRAY['beginner','intermediate','advanced','mcrpl']::varchar[], match_tier)
+        ${orderSql}
       `,
       params,
     };
   }
   return {
     sql: `
-      SELECT match_tier, rule, game_type, ${SCENE_METRIC_SUMS}
+      SELECT match_tier, rule, game_type, MAX(event_id) AS event_id, MAX(room_type) AS room_type, ${SCENE_METRIC_SUMS}
       FROM (${inner}) g
       GROUP BY match_tier, rule, game_type
       ORDER BY match_tier, rule, game_type
@@ -120,16 +138,27 @@ async function getAsOfStatDate() {
   return formatStatDate(result.rows[0]?.as_of);
 }
 
-async function querySceneTotals({ asOfDate, tier, gameType, rule, detail } = {}) {
+async function querySceneTotals({ asOfDate, tier, gameType, rule, detail, eventId } = {}) {
   const extraWhere = [];
-  const params = [...LADDER_TIERS];
+  let params;
+  let roomType = 'match';
+  if (isEventScope(eventId)) {
+    roomType = 'events';
+    params = [];
+    if (!isAllEvents(eventId)) {
+      params.push(String(eventId).trim());
+      extraWhere.push(`(event_id = $${params.length} OR match_tier = $${params.length})`);
+    }
+  } else {
+    params = [...LADDER_TIERS];
+    if (tier && LADDER_TIERS.includes(tier)) {
+      params.push(tier);
+      extraWhere.push(`match_tier = $${params.length}`);
+    }
+  }
   if (asOfDate) {
     params.push(asOfDate);
     extraWhere.push(`${STAT_DATE_EXPR} <= $${params.length}::date`);
-  }
-  if (tier && LADDER_TIERS.includes(tier)) {
-    params.push(tier);
-    extraWhere.push(`match_tier = $${params.length}`);
   }
   if (gameType) {
     params.push(gameType);
@@ -140,37 +169,55 @@ async function querySceneTotals({ asOfDate, tier, gameType, rule, detail } = {})
     extraWhere.push(`rule = $${params.length}`);
   }
   const groupByTierOnly = detail !== '1';
-  const { sql, params: queryParams } = buildSceneTotalsQuery(groupByTierOnly, extraWhere, params);
+  const { sql, params: queryParams } = buildSceneTotalsQuery(
+    groupByTierOnly, extraWhere, params, { roomType },
+  );
   const result = await pool.query(sql, queryParams);
   return appendSceneTotalRow(result.rows.map(mapTotalsRow), groupByTierOnly);
 }
 
-function fillFanByTier(rawByTier) {
+function fillFanByKeys(rawByTier, keys) {
   const byTier = {};
-  for (const tier of LADDER_TIERS) {
-    byTier[tier] = {};
-    for (const key of GUOBIAO_FAN_KEYS) {
-      byTier[tier][key] = Number(rawByTier[tier]?.[key]) || 0;
+  for (const key of keys) {
+    byTier[key] = {};
+    for (const fanKey of GUOBIAO_FAN_KEYS) {
+      byTier[key][fanKey] = Number(rawByTier[key]?.[fanKey]) || 0;
     }
   }
   const total = {};
-  for (const key of GUOBIAO_FAN_KEYS) {
-    total[key] = LADDER_TIERS.reduce((sum, tier) => sum + (byTier[tier][key] || 0), 0);
+  for (const fanKey of GUOBIAO_FAN_KEYS) {
+    total[fanKey] = keys.reduce((sum, key) => sum + (byTier[key][fanKey] || 0), 0);
   }
   byTier.total = total;
   return byTier;
 }
 
-async function querySceneTotalsFans({ asOfDate, tier, rule } = {}) {
-  const where = [`match_tier IN (${LADDER_TIERS.map((_, i) => `$${i + 1}`).join(', ')})`];
-  const params = [...LADDER_TIERS];
+function fillFanByTier(rawByTier) {
+  return fillFanByKeys(rawByTier, LADDER_TIERS);
+}
+
+async function querySceneTotalsFans({ asOfDate, tier, rule, eventId } = {}) {
+  const where = [];
+  const params = [];
+  if (isEventScope(eventId)) {
+    if (isAllEvents(eventId)) {
+      where.push('match_tier IN (SELECT event_id FROM events)');
+    } else {
+      params.push(String(eventId).trim());
+      where.push(`match_tier = $${params.length}`);
+    }
+  } else {
+    const start = params.length;
+    params.push(...LADDER_TIERS);
+    where.push(`match_tier IN (${LADDER_TIERS.map((_, i) => `$${start + i + 1}`).join(', ')})`);
+    if (tier && LADDER_TIERS.includes(tier)) {
+      params.push(tier);
+      where.push(`match_tier = $${params.length}`);
+    }
+  }
   if (asOfDate) {
     params.push(asOfDate);
     where.push(`stat_date <= $${params.length}::date`);
-  }
-  if (tier && LADDER_TIERS.includes(tier)) {
-    params.push(tier);
-    where.push(`match_tier = $${params.length}`);
   }
   if (rule) {
     params.push(rule);
@@ -191,15 +238,33 @@ async function querySceneTotalsFans({ asOfDate, tier, rule } = {}) {
     if (!rawByTier[row.match_tier]) rawByTier[row.match_tier] = {};
     rawByTier[row.match_tier][row.fan_field] = Number(row.fan_count) || 0;
   }
+  if (isEventScope(eventId)) {
+    const keys = isAllEvents(eventId)
+      ? Object.keys(rawByTier)
+      : [String(eventId).trim()];
+    return fillFanByKeys(rawByTier, keys);
+  }
   return fillFanByTier(rawByTier);
 }
 
-async function querySceneDailyGames({ dateFrom, dateTo, asOfDate, tier, gameType, rule } = {}) {
-  const where = [
-    "room_type = 'match'",
-    `match_tier IN (${LADDER_TIERS.map((_, i) => `$${i + 1}`).join(', ')})`,
-  ];
-  const params = [...LADDER_TIERS];
+async function querySceneDailyGames({ dateFrom, dateTo, asOfDate, tier, gameType, rule, eventId } = {}) {
+  const where = [];
+  const params = [];
+  if (isEventScope(eventId)) {
+    where.push("room_type = 'events'");
+    if (!isAllEvents(eventId)) {
+      params.push(String(eventId).trim());
+      where.push(`(event_id = $${params.length} OR match_tier = $${params.length})`);
+    }
+  } else {
+    where.push("room_type = 'match'");
+    params.push(...LADDER_TIERS);
+    where.push(`match_tier IN (${LADDER_TIERS.map((_, i) => `$${i + 1}`).join(', ')})`);
+    if (tier && LADDER_TIERS.includes(tier)) {
+      params.push(tier);
+      where.push(`match_tier = $${params.length}`);
+    }
+  }
   if (dateFrom) {
     params.push(dateFrom);
     where.push(`stat_date >= $${params.length}::date`);
@@ -210,10 +275,6 @@ async function querySceneDailyGames({ dateFrom, dateTo, asOfDate, tier, gameType
   } else if (asOfDate) {
     params.push(asOfDate);
     where.push(`stat_date <= $${params.length}::date`);
-  }
-  if (tier && LADDER_TIERS.includes(tier)) {
-    params.push(tier);
-    where.push(`match_tier = $${params.length}`);
   }
   if (gameType) {
     params.push(gameType);
@@ -427,21 +488,30 @@ async function queryHomeHierarchyStats() {
 }
 
 /**
- * 平台最近天梯牌谱（与数据站对局记录字段对齐，含同桌玩家）
- * @param {{ matchTier?: string|null, limit?: number, offset?: number }} opts
+ * 平台最近牌谱（天梯或比赛场，与数据站对局记录字段对齐，含同桌玩家）
+ * @param {{ matchTier?: string|null, eventId?: string|null, limit?: number, offset?: number }} opts
  */
-async function queryRecentLadderRecords({ matchTier = null, limit = 20, offset = 0 } = {}) {
+async function queryRecentLadderRecords({ matchTier = null, eventId = null, limit = 20, offset = 0 } = {}) {
   const lim = Math.min(50, Math.max(1, parseInt(limit, 10) || 20));
   const off = Math.max(0, parseInt(offset, 10) || 0);
   const params = [];
-  const conditions = [`gpr.room_type = 'match'`];
+  const conditions = [];
 
-  if (matchTier && LADDER_TIERS.includes(matchTier)) {
-    params.push(matchTier);
-    conditions.push(`gpr.match_tier = $${params.length}`);
+  if (isEventScope(eventId)) {
+    conditions.push(`gpr.room_type = 'events'`);
+    if (!isAllEvents(eventId)) {
+      params.push(String(eventId).trim());
+      conditions.push(`gpr.event_id = $${params.length}`);
+    }
   } else {
-    params.push(LADDER_TIERS);
-    conditions.push(`gpr.match_tier = ANY($${params.length}::varchar[])`);
+    conditions.push(`gpr.room_type = 'match'`);
+    if (matchTier && LADDER_TIERS.includes(matchTier)) {
+      params.push(matchTier);
+      conditions.push(`gpr.match_tier = $${params.length}`);
+    } else {
+      params.push(LADDER_TIERS);
+      conditions.push(`gpr.match_tier = ANY($${params.length}::varchar[])`);
+    }
   }
 
   const whereSql = conditions.join(' AND ');
@@ -450,18 +520,23 @@ async function queryRecentLadderRecords({ matchTier = null, limit = 20, offset =
   params.push(lim, off);
 
   const listRes = await pool.query(
-    `SELECT gr.game_id, gr.created_at,
-            MAX(gpr.rule) AS rule,
-            MAX(gpr.sub_rule) AS sub_rule,
-            MAX(gpr.match_type) AS match_type,
-            MAX(gpr.room_type) AS room_type,
-            MAX(gpr.match_tier) AS match_tier
-     FROM game_records gr
-     JOIN game_player_records gpr ON gpr.game_id = gr.game_id
-     WHERE ${whereSql}
-     GROUP BY gr.game_id, gr.created_at
-     ORDER BY gr.created_at DESC
-     LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+    `SELECT x.*, ev.name AS event_name
+     FROM (
+       SELECT gr.game_id, gr.created_at,
+              MAX(gpr.rule) AS rule,
+              MAX(gpr.sub_rule) AS sub_rule,
+              MAX(gpr.match_type) AS match_type,
+              MAX(gpr.room_type) AS room_type,
+              MAX(gpr.match_tier) AS match_tier,
+              MAX(gpr.event_id) AS event_id
+       FROM game_records gr
+       JOIN game_player_records gpr ON gpr.game_id = gr.game_id
+       WHERE ${whereSql}
+       GROUP BY gr.game_id, gr.created_at
+       ORDER BY gr.created_at DESC
+       LIMIT $${limitIdx} OFFSET $${offsetIdx}
+     ) x
+     LEFT JOIN events ev ON ev.event_id = x.event_id`,
     params
   );
 
@@ -495,8 +570,10 @@ async function queryRecentLadderRecords({ matchTier = null, limit = 20, offset =
     rule: row.rule,
     sub_rule: row.sub_rule,
     match_type: row.match_type,
-    room_type: row.room_type || 'match',
+    room_type: row.room_type || (isEventScope(eventId) ? 'events' : 'match'),
     match_tier: row.match_tier,
+    event_id: row.event_id,
+    event_name: row.event_name,
     players: playersByGame.get(row.game_id) || [],
   }));
 
@@ -508,8 +585,24 @@ async function queryRecentLadderRecords({ matchTier = null, limit = 20, offset =
   };
 }
 
+async function listPlatformEvents() {
+  const result = await pool.query(
+    `SELECT e.event_id, e.name, e.status, e.created_at,
+            COUNT(DISTINCT gpr.game_id)::int AS game_count
+     FROM events e
+     LEFT JOIN game_player_records gpr
+       ON gpr.event_id = e.event_id AND gpr.room_type = 'events'
+     GROUP BY e.event_id, e.name, e.status, e.created_at
+     ORDER BY
+       CASE e.status WHEN 'active' THEN 0 WHEN 'registered' THEN 1 ELSE 2 END,
+       e.created_at DESC`
+  );
+  return result.rows;
+}
+
 module.exports = {
   LADDER_TIERS,
+  EVENT_ALL,
   STAT_DATE_EXPR,
   CURRENT_STAT_DATE_EXPR,
   formatStatDate,
@@ -521,6 +614,7 @@ module.exports = {
   querySceneDailyGames,
   queryHomeHierarchyStats,
   queryRecentLadderRecords,
+  listPlatformEvents,
   fillFanByTier,
   GUOBIAO_FAN_KEYS,
   MODE_TO_GAME_TYPE,

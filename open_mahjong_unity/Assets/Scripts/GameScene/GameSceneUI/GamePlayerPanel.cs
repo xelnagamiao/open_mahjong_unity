@@ -3,7 +3,9 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class GamePlayerPanel : MonoBehaviour {
+public partial class GamePlayerPanel : MonoBehaviour {
+    public const string ActionMenuName = "PlayerActionMenu";
+
     [Header("玩家信息UI组件")]
     [SerializeField] private TMP_Text playerNameText;        // 玩家名称文本
     [SerializeField] private TMP_Text playerTitleText;       // 玩家头衔文本
@@ -13,13 +15,20 @@ public class GamePlayerPanel : MonoBehaviour {
     [SerializeField] private GameObject playerIsPeidaPicture; // 玩家是否陪打图片
     [SerializeField] private GameObject playerLangyongBadge; // 浪涌麻将：鸣牌次数标记（tag: langyong_N）
     [SerializeField] private TMP_Text playerLangyongCountText; // 浪涌鸣牌次数文字（可选）
-    [SerializeField] private GameObject playerHuOrderBadge; // 四川血战：和牌顺序（first_hu/second_hu/third_hu）
-    [SerializeField] private TMP_Text playerHuOrderText;
     [SerializeField] private Button GoToRecordSelectButton; // 牌谱模式下切换到该玩家视角
 
     [Header("四川·定缺标记")]
     [SerializeField] private Image playerDingqueImage;   // 定缺底图（按花色变色）
     [SerializeField] private TMP_Text playerDingqueText; // 定缺文字（缺万/缺饼/缺条）
+
+    [Header("对局操作菜单")]
+    [SerializeField] private GameObject actionMenu;
+    [SerializeField] private Button infoButton;
+    [SerializeField] private Button muteButton;
+    [SerializeField] private Image muteButtonImage;
+    [SerializeField] private TMP_Text muteButtonLabel;
+    [SerializeField] private Sprite stickerVisibleSprite;
+    [SerializeField] private Sprite stickerMutedSprite;
 
     [Header("表情包显示")]
     [SerializeField] private Transform showStickerPos;   // 弹出表情锚点
@@ -47,6 +56,12 @@ public class GamePlayerPanel : MonoBehaviour {
         if (playerLangyongBadge != null) playerLangyongBadge.SetActive(false);
         SetDingque(0);
         EnsureShowStickerPos();
+        EnsureActionMenu();
+        HideActionMenu();
+        if (playerProfileEdgePicture != null
+            && playerProfileEdgePicture.GetComponent<PlayerPanelClickRelay>() == null) {
+            playerProfileEdgePicture.gameObject.AddComponent<PlayerPanelClickRelay>();
+        }
     }
 
     private void OnDisable() {
@@ -83,6 +98,9 @@ public class GamePlayerPanel : MonoBehaviour {
         if (state == "gamestate") {
             playerNameText.text = StreamerModeHelper.FormatGamestatePlayerName(
                 playerInfo.username, position, playerInfo.user_id);
+        } else if (state == "record" && RecordSetting.Instance != null && RecordSetting.Instance.IsAnonymousPlayers) {
+            // 牌谱匿名玩家：按 original_player_index（0=东 1=南 2=西 3=北）显示"X起玩家"
+            playerNameText.text = RecordSetting.GetAnonymousPlayerName(playerInfo.original_player_index);
         } else {
             playerNameText.text = playerInfo.username;
         }
@@ -96,12 +114,14 @@ public class GamePlayerPanel : MonoBehaviour {
                 playerProfilePicture.sprite = profileSprite;
             }
 
-            // 设置 ProfileOnClick 的 user_id
             ProfileOnClick profileOnClick = playerProfilePicture.gameObject.GetComponent<ProfileOnClick>();
             if (profileOnClick != null) {
                 profileOnClick.user_id = playerInfo.user_id;
             }
         }
+
+        BindActionMenuContext(playerInfo.user_id, state, position);
+        HideActionMenu();
 
         UpdateTagList(playerInfo.tag_list);
 
@@ -121,35 +141,21 @@ public class GamePlayerPanel : MonoBehaviour {
         }
     }
 
-    // 更新标签列表显示（立直/振听由对局内其他 UI 表现，此处处理掉线、陪打、浪涌鸣牌次数、报听等）
+    // 更新标签列表显示（立直/振听由对局内其他 UI 表现，此处处理掉线、陪打、浪涌鸣牌次数等）
     public void UpdateTagList(string[] tag_list, string roomRule = null) {
         playerIslossconnPicture.gameObject.SetActive(false);
         playerIsPeidaPicture.gameObject.SetActive(false);
         if (playerLangyongBadge != null) playerLangyongBadge.SetActive(false);
         if (playerLangyongCountText != null) playerLangyongCountText.text = "";
-        if (playerHuOrderBadge != null) playerHuOrderBadge.SetActive(false);
-        if (playerHuOrderText != null) playerHuOrderText.text = "";
 
         if (tag_list != null) {
             int langyongCount = -1;
-            string huOrderLabel = null;
             foreach(var item in tag_list) {
                 if (item == "offline") {
                     playerIslossconnPicture.gameObject.SetActive(true);
                 }
                 if (item == "peida") {
                     playerIsPeidaPicture.gameObject.SetActive(true);
-                }
-                if (item == "first_hu") huOrderLabel = "一和";
-                else if (item == "second_hu") huOrderLabel = "二和";
-                else if (item == "third_hu") huOrderLabel = "三和";
-                else if (item == "declared_ready") {
-                    huOrderLabel = ReadyDeclarationTextDictionary.GetReadyDeclarationText(
-                        !string.IsNullOrEmpty(roomRule)
-                            ? roomRule
-                            : NormalGameStateManager.Instance != null
-                                ? NormalGameStateManager.Instance.roomRule
-                                : null);
                 }
                 // langyong_wave 由 GameCanvas 全局显示；此处仅显示该玩家个人鸣牌次数 langyong_N
                 if (item != null && item.StartsWith("langyong_") && item != "langyong_wave") {
@@ -163,10 +169,6 @@ public class GamePlayerPanel : MonoBehaviour {
                 if (playerLangyongCountText != null) {
                     playerLangyongCountText.text = $"浪涌点数*{langyongCount}";
                 }
-            }
-            if (!string.IsNullOrEmpty(huOrderLabel)) {
-                if (playerHuOrderBadge != null) playerHuOrderBadge.SetActive(true);
-                if (playerHuOrderText != null) playerHuOrderText.text = huOrderLabel;
             }
         }
     }
@@ -270,6 +272,8 @@ public class GamePlayerPanel : MonoBehaviour {
         UpdateTagList(null);
         SetDingque(0);
         ClearSticker();
+        HideActionMenu();
+        BindActionMenuContext(0, null, null);
         if (GoToRecordSelectButton != null) GoToRecordSelectButton.gameObject.SetActive(false);
     }
 }

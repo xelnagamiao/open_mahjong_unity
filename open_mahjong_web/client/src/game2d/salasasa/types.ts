@@ -26,6 +26,8 @@ export interface SalasasaResponse {
   login_info?: SalasasaLoginInfo
   rank_data?: SalasasaRankData
   queue_status?: Record<string, { waiting: number; playing: number }>
+  my_queue?: string | null
+  match_committed?: boolean
   game_info?: SalasasaGameInfo
   ask_hand_action_info?: SalasasaAskHandInfo
   ask_other_action_info?: SalasasaAskOtherInfo

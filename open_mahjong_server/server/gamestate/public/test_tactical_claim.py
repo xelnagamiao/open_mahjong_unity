@@ -6,6 +6,7 @@ from server.gamestate.public.tactical_claim import (
     apply_tactical_claim_if_needed,
     get_higher_priority_snapshot,
     tactical_grace_phase,
+    tactical_mark_player_force_passed,
 )
 from server.gamestate.game_guobiao.wait_action import select_tactical_initial_submission
 from server.gamestate.public.ai.get_action import get_ai_action
@@ -155,6 +156,47 @@ def test_claimant_cannot_interrupt_own_chi_with_peng():
 
     assert any_higher is False
     assert higher == {0: [], 1: [], 2: [], 3: []}
+
+
+def test_force_pass_excludes_peng_from_chi_recheck():
+    """主询问 force_pass 后，吃牌申请不再询问该座碰牌。"""
+    gs = _FakeGameState()
+    gs.action_priority = {"pass": 0, "force_pass": 0, "chi_left": 1, "peng": 2}
+    gs._tactical_action_snapshot = {
+        0: [],
+        1: ["chi_left", "pass", "force_pass"],
+        2: ["peng", "pass", "force_pass"],
+        3: [],
+    }
+    gs._tactical_passed_players = set()
+    gs._tactical_force_passed_players = set()
+    gs._tactical_committed_players = set()
+    tactical_mark_player_force_passed(gs, 2)
+
+    higher, any_higher = get_higher_priority_snapshot(gs, "chi_left", 1)
+
+    assert any_higher is False
+    assert higher == {0: [], 1: [], 2: [], 3: []}
+
+
+def test_pass_still_allows_peng_recheck_after_chi():
+    """主询问普通 pass 不排除重问；快照回拷 pass/force_pass 后缀。"""
+    gs = _FakeGameState()
+    gs.action_priority = {"pass": 0, "force_pass": 0, "chi_left": 1, "peng": 2}
+    gs._tactical_action_snapshot = {
+        0: [],
+        1: ["chi_left", "pass", "force_pass"],
+        2: ["peng", "pass", "force_pass"],
+        3: [],
+    }
+    gs._tactical_passed_players = set()
+    gs._tactical_force_passed_players = set()
+    gs._tactical_committed_players = set()
+
+    higher, any_higher = get_higher_priority_snapshot(gs, "chi_left", 1)
+
+    assert any_higher is True
+    assert higher[2] == ["peng", "pass", "force_pass"]
 
 
 def test_committed_bot_cannot_queue_a_second_claim():

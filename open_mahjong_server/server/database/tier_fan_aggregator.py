@@ -38,7 +38,11 @@ def _accumulate_tier_fans(cursor, game_ids: list, fan_agg: Dict[tuple, Dict[str,
         room_type, match_tier, event_id = _resolve_scene_fields(
             record, room_type, match_tier, event_id,
         )
-        if room_type != "match" or match_tier not in MATCH_TIERS:
+        if room_type == "match" and match_tier in MATCH_TIERS:
+            key_tier = match_tier
+        elif room_type == "events" and event_id:
+            key_tier = match_tier or event_id
+        else:
             continue
         if rule != "guobiao":
             continue
@@ -49,7 +53,7 @@ def _accumulate_tier_fans(cursor, game_ids: list, fan_agg: Dict[tuple, Dict[str,
         fans = collect_fans_for_player(record, orig_idx)
         if not fans:
             continue
-        key = (match_tier, rule)
+        key = (key_tier, rule)
         bucket = fan_agg.setdefault(key, {f: 0 for f in FAN_FIELDS})
         for field, cnt in fans.items():
             bucket[field] = bucket.get(field, 0) + cnt
@@ -94,8 +98,10 @@ def rebuild_scene_tier_fan_daily_range(
             cursor.execute(f"""
                 SELECT DISTINCT game_id FROM game_player_metrics
                 WHERE {date_expr} = %s
-                  AND room_type = 'match'
-                  AND match_tier IN ({MATCH_TIER_SQL})
+                  AND (
+                    (room_type = 'match' AND match_tier IN ({MATCH_TIER_SQL}))
+                    OR (room_type = 'events' AND event_id IS NOT NULL)
+                  )
                   AND rule = 'guobiao'
             """, (current,))
             game_ids = [r[0] for r in cursor.fetchall()]
@@ -129,8 +135,10 @@ def increment_scene_tier_fan_for_date(db_manager, stat_date: date) -> None:
         cursor.execute(f"""
             SELECT DISTINCT game_id FROM game_player_metrics
             WHERE {date_expr} = %s
-              AND room_type = 'match'
-              AND match_tier IN ({MATCH_TIER_SQL})
+              AND (
+                (room_type = 'match' AND match_tier IN ({MATCH_TIER_SQL}))
+                OR (room_type = 'events' AND event_id IS NOT NULL)
+              )
               AND rule = 'guobiao'
         """, (stat_date,))
         game_ids = [r[0] for r in cursor.fetchall()]

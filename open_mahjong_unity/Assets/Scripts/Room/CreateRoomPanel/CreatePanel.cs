@@ -177,6 +177,7 @@ public partial class CreatePanel : MonoBehaviour {
 
     /// <summary>规则状态：guobiao / riichi / qingque / classical / sichuan / changsha / jiandan / taiwan。</summary>
     private string _ruleState = "guobiao";
+    private string _venueEventId;
 
     [Header("Dropdown")]
     [SerializeField] private TMP_Dropdown chooseRule;
@@ -213,7 +214,6 @@ public partial class CreatePanel : MonoBehaviour {
     [SerializeField] private Toggle ChangshaInitialSanTongToggle;
     [SerializeField] private Toggle ChangshaDealerBirdToggle;
     [SerializeField] private Toggle ChangshaBaseScoreNoDealerToggle;
-    [SerializeField] private Toggle EventModeToggle;
 
     [Header("面板")]
     [SerializeField] private GameObject SetRandomSeedPanel;
@@ -232,9 +232,6 @@ public partial class CreatePanel : MonoBehaviour {
     [SerializeField] private GameObject ChangshaBigHuScorePanel;
     [SerializeField] private TMP_InputField ChangshaSmallHuScoreInput;
     [SerializeField] private TMP_InputField ChangshaBigHuScoreInput;
-    [SerializeField] private GameObject EventDropdownPanel;
-    [SerializeField] private TMP_Dropdown EventDropdown;
-    private readonly List<string> _eventIds = new List<string>();
 
     [Header("输入字段")]
     [SerializeField] private TMP_InputField roomNameInput;
@@ -272,12 +269,6 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private void Start() {
-        if (SubRuleText == null) {
-            Transform subRuleTextTransform = transform.Find("HeaderPanel/SubRuleText");
-            if (subRuleTextTransform != null) {
-                SubRuleText = subRuleTextTransform.GetComponent<TMP_Text>();
-            }
-        }
         BindDetailedConfigControls("taiwan");
         EnsureRuleDropdownOptions();
         chooseRule.onValueChanged.AddListener(OnRuleDropdownChanged);
@@ -310,31 +301,16 @@ public partial class CreatePanel : MonoBehaviour {
         EnsureCuoheTypePanel();
         InitCuoheTypeDropdown();
         EnsureChangshaOptionControls();
-        EnsureEventControls();
         InitSubRuleDropdown();
         ApplyRuleDefaults(_ruleState);
         RefreshVisibility();
         RefreshSubRuleDescription();
-        if (EventNetworkManager.Instance != null) {
-            EventNetworkManager.Instance.OnActiveEventsUpdated -= RefreshEventControls;
-            EventNetworkManager.Instance.OnActiveEventsUpdated += RefreshEventControls;
-        }
-        RefreshEventControls();
 
         NetworkManager.Instance.CreateRoomResponse.AddListener(CreateRoomResponse);
     }
 
-    private void OnEnable() {
-        if (EventNetworkManager.Instance == null) return;
-        EventNetworkManager.Instance.OnActiveEventsUpdated -= RefreshEventControls;
-        EventNetworkManager.Instance.OnActiveEventsUpdated += RefreshEventControls;
-        RefreshEventControls();
-    }
-
     private void OnDisable() {
         CancelDetailedConfigChanges();
-        if (EventNetworkManager.Instance == null) return;
-        EventNetworkManager.Instance.OnActiveEventsUpdated -= RefreshEventControls;
     }
 
     private void OnRuleDropdownChanged(int selectedIndex) {
@@ -707,73 +683,6 @@ public partial class CreatePanel : MonoBehaviour {
         if (ChangshaBigHuScorePanel != null) ChangshaBigHuScorePanel.SetActive(visible);
     }
 
-    private void EnsureEventControls() {
-        EventModeToggle = EnsureClonedToggle(TouristLimitToggle, EventModeToggle, "EventModeToggle", "比赛场", false);
-        if (EventModeToggle != null) {
-            EventModeToggle.onValueChanged.RemoveListener(OnEventModeToggleChanged);
-            EventModeToggle.onValueChanged.AddListener(OnEventModeToggleChanged);
-        }
-
-        EventDropdownPanel = EnsureClonedDropdownPanel(HepaiWayPanel, EventDropdownPanel, "EventDropdownPanel", "赛事");
-        EventDropdown = EventDropdownPanel != null
-            ? EventDropdownPanel.GetComponentInChildren<TMP_Dropdown>(true)
-            : null;
-        if (EventDropdownPanel != null) EventDropdownPanel.SetActive(false);
-        if (EventModeToggle != null) EventModeToggle.gameObject.SetActive(false);
-    }
-
-    private void OnEventModeToggleChanged(bool isOn) {
-        RefreshEventDropdownVisibility();
-    }
-
-    private void RefreshEventControls() {
-        if (EventNetworkManager.Instance == null) return;
-        var events = EventNetworkManager.Instance.ActiveEvents;
-        bool hasEvents = events != null && events.Count > 0;
-
-        if (EventModeToggle != null) {
-            EventModeToggle.gameObject.SetActive(hasEvents);
-            if (!hasEvents) EventModeToggle.isOn = false;
-        }
-
-        _eventIds.Clear();
-        if (EventDropdown != null) {
-            EventDropdown.ClearOptions();
-            if (hasEvents) {
-                var labels = new List<string>();
-                foreach (var entry in events) {
-                    if (entry == null || string.IsNullOrEmpty(entry.event_id)) continue;
-                    _eventIds.Add(entry.event_id);
-                    labels.Add(string.IsNullOrEmpty(entry.name) ? entry.event_id : entry.name);
-                }
-                EventDropdown.AddOptions(labels);
-                if (_eventIds.Count > 0) {
-                    EventDropdown.value = 0;
-                    EventDropdown.RefreshShownValue();
-                }
-            }
-        }
-
-        RefreshEventDropdownVisibility();
-    }
-
-    private void RefreshEventDropdownVisibility() {
-        bool showDropdown = EventModeToggle != null
-            && EventModeToggle.gameObject.activeSelf
-            && EventModeToggle.isOn
-            && _eventIds.Count > 0;
-        if (EventDropdownPanel != null) EventDropdownPanel.SetActive(showDropdown);
-    }
-
-    private string GetSelectedEventId() {
-        if (EventModeToggle == null || !EventModeToggle.isOn || !EventModeToggle.gameObject.activeSelf) {
-            return null;
-        }
-        if (EventDropdown == null || _eventIds.Count == 0) return null;
-        int index = Mathf.Clamp(EventDropdown.value, 0, _eventIds.Count - 1);
-        return _eventIds[index];
-    }
-
     private GameObject EnsureClonedDropdownPanel(GameObject template, GameObject existing, string goName, string labelText) {
         if (existing != null) return existing;
         if (template == null) return null;
@@ -875,7 +784,28 @@ public partial class CreatePanel : MonoBehaviour {
         return toggle != null ? toggle.GetComponentInChildren<TMP_Text>(true) : null;
     }
 
+    public bool IsVenueMode => !string.IsNullOrEmpty(_venueEventId);
+
+    public void OpenForVenue(string eventId) {
+        _venueEventId = string.IsNullOrEmpty(eventId) ? null : eventId;
+        transform.SetAsLastSibling();
+        gameObject.SetActive(true);
+        if (roomNameInput != null && string.IsNullOrWhiteSpace(roomNameInput.text)) {
+            roomNameInput.text = GetDefaultRoomName();
+        }
+    }
+
+    public void CloseVenueMode() {
+        _venueEventId = null;
+        gameObject.SetActive(false);
+    }
+
     private void ClosePanel() {
+        if (IsVenueMode) {
+            CloseVenueMode();
+            EventLobbyPanel.Instance?.OnVenueCreateClosed();
+            return;
+        }
         WindowsManager.Instance.SwitchWindow("menu");
     }
 
@@ -963,7 +893,7 @@ public partial class CreatePanel : MonoBehaviour {
             OpenXiru = XiruToggle != null ? XiruToggle.isOn : (bool)RuleConfigs["riichi"][CfgOpenXiru],
             OpenTobi = TobiToggle != null ? TobiToggle.isOn : (bool)RuleConfigs["riichi"][CfgOpenTobi],
             HepaiWay = hepaiWay,
-            EventId = GetSelectedEventId(),
+            EventId = _venueEventId,
         };
 
         if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
@@ -1015,7 +945,7 @@ public partial class CreatePanel : MonoBehaviour {
             TouristLimit = TouristLimitToggle.isOn,
             AllowSpectator = AllowSpectatorToggle.isOn,
             TacticalCall = TacticalCallToggle.isOn,
-            EventId = GetSelectedEventId(),
+            EventId = _venueEventId,
         };
 
         if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
@@ -1040,7 +970,7 @@ public partial class CreatePanel : MonoBehaviour {
             TouristLimit = TouristLimitToggle.isOn,
             AllowSpectator = AllowSpectatorToggle.isOn,
             TacticalCall = TacticalCallToggle.isOn,
-            EventId = GetSelectedEventId(),
+            EventId = _venueEventId,
         };
 
         if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
@@ -1067,7 +997,7 @@ public partial class CreatePanel : MonoBehaviour {
             CuoHe = CuoHeheToggle.isOn,
             CuoheType = GetSelectedCuoheType(),
             DetailedConfig = BuildDetailedConfigValues("taiwan"),
-            EventId = GetSelectedEventId(),
+            EventId = _venueEventId,
         };
 
         if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
@@ -1091,7 +1021,7 @@ public partial class CreatePanel : MonoBehaviour {
             Tips = tipsToggle.isOn,
             TouristLimit = TouristLimitToggle.isOn,
             AllowSpectator = AllowSpectatorToggle.isOn,
-            EventId = GetSelectedEventId(),
+            EventId = _venueEventId,
         };
 
         if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
@@ -1121,7 +1051,7 @@ public partial class CreatePanel : MonoBehaviour {
             AllowSpectator = AllowSpectatorToggle.isOn,
             TacticalCall = TacticalCallToggle.isOn,
             BloodBattle = bloodBattle,
-            EventId = GetSelectedEventId(),
+            EventId = _venueEventId,
         };
 
         if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
@@ -1146,7 +1076,7 @@ public partial class CreatePanel : MonoBehaviour {
             TouristLimit = TouristLimitToggle.isOn,
             AllowSpectator = AllowSpectatorToggle.isOn,
             TacticalCall = false,
-            EventId = GetSelectedEventId(),
+            EventId = _venueEventId,
         };
 
         if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
@@ -1177,7 +1107,7 @@ public partial class CreatePanel : MonoBehaviour {
             AllowSpectator = false,
             TacticalCall = false,
             HepaiWay = hepaiWay,
-            EventId = null,
+            EventId = _venueEventId,
         };
         if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
             NotificationManager.Instance.ShowTip("create_room", false, $"创建房间失败: {error}");
@@ -1211,7 +1141,7 @@ public partial class CreatePanel : MonoBehaviour {
             BaseScoreNoDealer = ChangshaBaseScoreNoDealerToggle != null && ChangshaBaseScoreNoDealerToggle.isOn,
             SmallHuScore = ReadChangshaScore(ChangshaSmallHuScoreInput, 2),
             BigHuScore = ReadChangshaScore(ChangshaBigHuScoreInput, 8),
-            EventId = GetSelectedEventId(),
+            EventId = _venueEventId,
         };
 
         if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {

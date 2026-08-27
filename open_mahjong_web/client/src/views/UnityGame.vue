@@ -32,12 +32,10 @@ let unityInstance = null
 let unityMountGeneration = 0
 let skipLeaveConfirm = false
 let leavingByHardNav = false
-let androidPopStateHandler = null
+let leaveConfirmOpen = false
+let popStateHandler = null
 const UNITY_LOADER_SCRIPT_ID = 'unity-webgl-loader-script'
-
-function isAndroidWeb() {
-  return typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '')
-}
+const LEAVE_GUARD_STATE = { unityGameLeaveGuard: true }
 
 async function confirmLeavePlatform() {
   try {
@@ -52,6 +50,19 @@ async function confirmLeavePlatform() {
     return true
   } catch {
     return false
+  }
+}
+
+async function askLeaveOrStay() {
+  if (skipLeaveConfirm || leavingByHardNav) return true
+  if (leaveConfirmOpen) return false
+  leaveConfirmOpen = true
+  try {
+    const ok = await confirmLeavePlatform()
+    if (ok) skipLeaveConfirm = true
+    return ok
+  } finally {
+    leaveConfirmOpen = false
   }
 }
 
@@ -77,52 +88,46 @@ function hardNavigateAway(targetPath) {
   }
 }
 
-function installAndroidLeaveGuard() {
-  if (!isAndroidWeb()) return
-
-  history.pushState({ unityGameLeaveGuard: true }, '')
-
-  androidPopStateHandler = async () => {
-    if (skipLeaveConfirm || leavingByHardNav) return
-
-    const ok = await confirmLeavePlatform()
-    if (ok) {
-      skipLeaveConfirm = true
-      hardNavigateAway('/')
-    } else {
-      history.pushState({ unityGameLeaveGuard: true }, '')
-    }
-  }
-
-  window.addEventListener('popstate', androidPopStateHandler)
+function restoreLeaveGuardState() {
+  history.pushState({ ...(history.state || {}), ...LEAVE_GUARD_STATE }, '')
 }
 
-function removeAndroidLeaveGuard() {
-  if (androidPopStateHandler) {
-    window.removeEventListener('popstate', androidPopStateHandler)
-    androidPopStateHandler = null
+/**
+ * 桌面后退/鼠标侧键、手机系统返回，都是浏览器历史导航。
+ * 垫一层同 URL 的 history，popstate 时先垫回再询问，取消则留在游戏页。
+ * 不能依赖 Vue Router 的 next(false)：后退场景下会 history.go(1)，和整页跳转打架。
+ */
+function installLeaveGuard() {
+  restoreLeaveGuardState()
+
+  popStateHandler = async () => {
+    if (skipLeaveConfirm || leavingByHardNav) return
+    restoreLeaveGuardState()
+    if (await askLeaveOrStay()) hardNavigateAway('/')
+  }
+
+  window.addEventListener('popstate', popStateHandler)
+}
+
+function removeLeaveGuard() {
+  if (popStateHandler) {
+    window.removeEventListener('popstate', popStateHandler)
+    popStateHandler = null
   }
 }
 
 onBeforeRouteLeave(async (to, _from, next) => {
   if (leavingByHardNav) {
-    // 硬跳转已开始，阻止 Vue 再做软卸载
     next(false)
     return
   }
 
-  if (isAndroidWeb() && !skipLeaveConfirm) {
-    const ok = await confirmLeavePlatform()
-    if (!ok) {
-      next(false)
-      return
-    }
-    skipLeaveConfirm = true
+  if (!await askLeaveOrStay()) {
+    next(false)
+    return
   }
 
-  // 不要 next(false)：后退场景下会 history.go(1) 抢回游戏页，和整页跳转打架
-  // 也不要 next()：会触发 SPA 卸载 Unity
-  // 直接整页离开；不调用 next，文档卸载后守卫自然结束
+  // 不要 next()：会触发 SPA 卸载 Unity。直接整页离开，文档卸载后守卫自然结束。
   hardNavigateAway(to.fullPath || '/')
 })
 
@@ -306,12 +311,13 @@ onMounted(() => {
 
   skipLeaveConfirm = false
   leavingByHardNav = false
+  leaveConfirmOpen = false
 
   const gen = ++unityMountGeneration
   adjustUnityContainer()
   window.addEventListener('resize', adjustUnityContainer)
   window.addEventListener('orientationchange', onOrientationChange)
-  installAndroidLeaveGuard()
+  installLeaveGuard()
 
   nextTick(() => {
     requestAnimationFrame(() => {
@@ -328,7 +334,7 @@ onUnmounted(() => {
   unityMountGeneration++
   window.removeEventListener('resize', adjustUnityContainer)
   window.removeEventListener('orientationchange', onOrientationChange)
-  removeAndroidLeaveGuard()
+  removeLeaveGuard()
 
   // 故意不调用 Quit：SPA 卸载时 Quit 会冻死主线程；硬跳转路径由浏览器整页回收
   unityInstance = null

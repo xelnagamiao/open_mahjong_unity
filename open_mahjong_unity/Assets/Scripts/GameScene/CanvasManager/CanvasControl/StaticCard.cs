@@ -4,6 +4,7 @@ using UnityEngine.EventSystems;
 
 public class StaticCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler {
     [SerializeField] private Image tileImage;
+    [SerializeField] private Image faceBackground;
 
     private int tileId = -1;
     private bool hasDangerTint;
@@ -17,27 +18,16 @@ public class StaticCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         tileId = tile;
         hasDangerTint = false;
         hasZimoTint = false;
-        int faceResourceId = tile;
-        if (ConfigManager.Instance.UseBlankWhiteDragonFace(tile)) {
-            faceResourceId = ConfigManager.BlankFaceImageId;
+        if (!TileFaceFit.ApplyHandLayers(transform as RectTransform, tileImage, faceBackground, tile)) {
+            Debug.LogError($"找不到牌面图片: {tile}");
+            return;
         }
-        string path = HongqueTileVisual.IsHongqueId(tile)
-            ? HongqueTileVisual.ResourcePath(tile)
-            : $"image/CardFaceImage_xuefun/{faceResourceId}";
-        Sprite sprite = HongqueTileVisual.IsHongqueId(tile)
-            ? HongqueTileVisual.LoadSprite(tile)
-            : Resources.Load<Sprite>(path);
-        if (sprite != null) {
-            tileImage.sprite = sprite;
-            ApplyWallVisual(1f, false, false);
-        } else {
-            Debug.LogError($"找不到牌面图片: {path}");
-        }
+        ApplyWallVisual(1f, false, false);
     }
 
     public void SetTileImageColor(Color color) {
-        if (tileImage == null) return;
-        tileImage.color = color;
+        if (tileImage != null) tileImage.color = color;
+        if (faceBackground != null && faceBackground.enabled) faceBackground.color = color;
     }
 
     public void SetOpacity(float alpha) {
@@ -77,6 +67,9 @@ public class StaticCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         }
         c.a = Mathf.Clamp01(alpha);
         tileImage.color = c;
+        if (faceBackground != null && faceBackground.enabled) {
+            faceBackground.color = c;
+        }
     }
 
     public void OnPointerEnter(PointerEventData eventData) {

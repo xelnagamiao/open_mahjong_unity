@@ -2,7 +2,7 @@ const pool = require('../config/database');
 
 async function listUserEvents(userId) {
   const result = await pool.query(
-    `SELECT e.event_id, e.name, e.description, e.status, e.reopen_requested, e.closed_at, e.created_at, e.updated_at,
+    `SELECT e.event_id, e.name, e.description, e.status, e.kind, e.reopen_requested, e.closed_at, e.created_at, e.updated_at,
             ea.role,
             (
               SELECT COUNT(*)::int FROM event_admins ea2

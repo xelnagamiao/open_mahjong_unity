@@ -32,6 +32,7 @@ public class MahjongObjectPool : MonoBehaviour {
     private Dictionary<int, Queue<GameObject>> poolDictionary;
     private Dictionary<int, Sprite> spriteCache = new Dictionary<int, Sprite>();
     private Dictionary<int, Material> hongqueMaterialCache = new Dictionary<int, Material>();
+    private Dictionary<int, Material> customStandardMaterialCache = new Dictionary<int, Material>();
 
     private void Awake() {
         if (Instance == null) {
@@ -166,13 +167,13 @@ public class MahjongObjectPool : MonoBehaviour {
 
     public void RefreshTileCollider(GameObject obj) {
         EnsureTileCollider(obj);
-        Tile3D tile3D = obj.GetComponent<Tile3D>();
+        Tile3D tile3D = GetTile3D(obj);
         tile3D?.RefreshPeekCollider();
     }
 
     /// <summary>
     /// 遍历对象池内所有牌对象（含未部署的 inactive 牌），供批量同步牌背等共享视觉。
-    /// FindObjectsByType 只能找到激活实例，池内牌必须走本方法同步。
+    /// FindObjectsByType 默认找不到 inactive 实例，池内牌必须走本方法或 FindObjectsInactive.Include。
     /// </summary>
     public void ForEachPooledTile(System.Action<GameObject> action) {
         if (action == null || poolDictionary == null) return;
@@ -183,8 +184,25 @@ public class MahjongObjectPool : MonoBehaviour {
         }
     }
 
+    /// <summary>虹雀 / 自定义牌面的独立材质（不共享 3DTile.mat），改牌边/背景时必须一并写入。</summary>
+    public void ForEachStandaloneMaterial(System.Action<Material> action) {
+        if (action == null) return;
+        foreach (Material material in hongqueMaterialCache.Values) {
+            if (material != null) action(material);
+        }
+        foreach (Material material in customStandardMaterialCache.Values) {
+            if (material != null) action(material);
+        }
+    }
+
+    public static Tile3D GetTile3D(GameObject obj) {
+        if (obj == null) return null;
+        Tile3D tile = obj.GetComponent<Tile3D>();
+        return tile != null ? tile : obj.GetComponentInChildren<Tile3D>(true);
+    }
+
     private static void EnsureTileCollider(GameObject obj) {
-        Renderer renderer = obj.GetComponent<Renderer>() ?? obj.GetComponentInChildren<Renderer>();
+        Renderer renderer = obj.GetComponent<Renderer>() ?? obj.GetComponentInChildren<Renderer>(true);
         if (renderer == null) return;
 
         GameObject colliderHost = renderer.gameObject;
@@ -257,12 +275,7 @@ public class MahjongObjectPool : MonoBehaviour {
         tile.transform.rotation = rotation;
         EnsureTileCollider(tile);
         ApplyCardTexture(tile, type);
-        Tile3D spawnedTile3D = tile.GetComponent<Tile3D>();
-        if (spawnedTile3D != null) {
-            spawnedTile3D.ApplyBackVisual(
-                CardBackManager.CurrentColor,
-                CardBackManager.CurrentTexture);
-        }
+        CardBackManager.ApplyInstanceVisuals(GetTile3D(tile));
         return tile;
     }
 
@@ -343,24 +356,34 @@ public class MahjongObjectPool : MonoBehaviour {
                 return;
             }
             if (!hongqueMaterialCache.TryGetValue(tileId, out Material material)) {
-                Renderer renderer = cardObj.GetComponent<Renderer>() ?? cardObj.GetComponentInChildren<Renderer>();
-                Material template = null;
-                if (renderer != null) {
-                    foreach (Material candidate in renderer.sharedMaterials) {
-                        if (candidate != null && candidate.shader != null && candidate.shader.name == "Custom/ThreeDTiles") {
-                            template = candidate;
-                            break;
-                        }
-                    }
-                }
+                Material template = FindTileMaterialTemplate(cardObj);
                 if (template == null) return;
                 material = new Material(template) { name = $"Hongque_{HongqueTileVisual.ToCode(tileId)}" };
                 material.SetTexture("_FrontTex", texture);
+                ApplyTableFaceFallback(material);
+                CardBackManager.SyncSharedVisualsToMaterial(material);
                 hongqueMaterialCache[tileId] = material;
             }
             tile3D.SetStandaloneCardTexture(tileId, texture, material);
             return;
         }
+
+        Texture2D customTexture = TileFaceResolver.LoadTableTexture(tileId);
+        if (customTexture != null) {
+            if (!customStandardMaterialCache.TryGetValue(tileId, out Material customMaterial)) {
+                Material template = FindTileMaterialTemplate(cardObj);
+                if (template == null) return;
+                customMaterial = new Material(template) { name = $"CustomFace_{tileId}" };
+                customStandardMaterialCache[tileId] = customMaterial;
+            }
+            customMaterial.SetTexture("_FrontTex", customTexture);
+            ApplyTableFaceFallback(customMaterial);
+            CardBackManager.SyncSharedVisualsToMaterial(customMaterial);
+            tile3D.SetStandaloneCardTextureContain(tileId, customTexture, customMaterial);
+            return;
+        }
+
+        tile3D.RestoreAtlasMaterial();
         if (spriteCache.TryGetValue(tileId, out Sprite cachedSprite)) {
             tile3D.SetCardSprite(tileId, cachedSprite, CARD_FACE_VERTICAL_STRETCH);
         }
@@ -368,5 +391,64 @@ public class MahjongObjectPool : MonoBehaviour {
             && spriteCache.TryGetValue(BlankPoolTileId, out Sprite blankSprite)) {
             tile3D.SetCardSprite(tileId, blankSprite, CARD_FACE_VERTICAL_STRETCH);
         }
+    }
+
+    /// <summary>自定义标准牌面变更后，刷新池内与场上非虹雀 3D 牌。</summary>
+    public void RefreshCustomStandardFaces() {
+        Dictionary<int, Material> previous = customStandardMaterialCache;
+        customStandardMaterialCache = new Dictionary<int, Material>();
+        ForEachPooledTile(tile => {
+            if (tile == null) return;
+            Tile3D pooled = GetTile3D(tile);
+            int poolId = pooled != null ? pooled.GetPoolTileId() : -1;
+            if (poolId > 0 && !HongqueTileVisual.IsHongqueId(poolId)) {
+                ApplyCardTexture(tile, poolId);
+                CardBackManager.ApplyInstanceVisuals(pooled);
+            }
+        });
+        Tile3D[] active = Object.FindObjectsByType<Tile3D>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int i = 0; i < active.Length; i++) {
+            Tile3D activeTile = active[i];
+            if (activeTile == null) continue;
+            int poolId = activeTile.GetPoolTileId();
+            if (poolId > 0 && !HongqueTileVisual.IsHongqueId(poolId)) {
+                ApplyCardTexture(activeTile.gameObject, poolId);
+                CardBackManager.ApplyInstanceVisuals(activeTile);
+            }
+        }
+        foreach (var pair in previous) {
+            if (pair.Value != null && !customStandardMaterialCache.ContainsValue(pair.Value)) {
+                Object.Destroy(pair.Value);
+            }
+        }
+    }
+
+    /// <summary>
+    /// fluffy / hkmahjong 3D 牌面已把原米色做成透明；无 3D 牌面背景时用兜底色填回。
+    /// </summary>
+    private static void ApplyTableFaceFallback(Material material) {
+        if (material == null) return;
+        material.SetColor("_TableFaceFallbackColor", ConfigManager.DefaultTableFaceFallbackColor);
+        material.SetFloat("_TableFaceFallbackEnabled", 1f);
+    }
+
+    private static Material FindTileMaterialTemplate(GameObject cardObj) {
+        Renderer renderer = cardObj.GetComponent<Renderer>() ?? cardObj.GetComponentInChildren<Renderer>(true);
+        if (renderer == null) {
+            return Resources.Load<Material>(CardBackManager.MaterialResourcePath);
+        }
+        foreach (Material candidate in renderer.sharedMaterials) {
+            if (candidate != null && candidate.shader != null && candidate.shader.name == "Custom/ThreeDTiles"
+                && !candidate.name.StartsWith("Hongque_")
+                && !candidate.name.StartsWith("CustomFace_")) {
+                return candidate;
+            }
+        }
+        foreach (Material candidate in renderer.sharedMaterials) {
+            if (candidate != null && candidate.shader != null && candidate.shader.name == "Custom/ThreeDTiles") {
+                return candidate;
+            }
+        }
+        return Resources.Load<Material>(CardBackManager.MaterialResourcePath);
     }
 }

@@ -1,0 +1,45 @@
+{
+  "slug": "qiaoma",
+  "label": "沪上敲麻",
+  "aliases": ["上海麻将", "敲麻", "沪麻", "勒子", "辣子"],
+  "collected_at": "2026-08-14",
+  "notes": "敲麻 ≠ 花麻 ≠ 杭麻。核心是报听和番型门槛。无协会本。不要挂进宁波祖型。",
+  "sources": [
+    {
+      "id": "wiki-zh-shanghai",
+      "url": "https://zh.wikipedia.org/wiki/上海麻将",
+      "title": "维基百科 · 上海麻将",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "沪上及附近。须报听。番型相对少，常荒庄。花分：花牌、风刻、中发白刻、明暗杠各有花。事先约定底和辣子（封顶）。清一色、清碰、风一色、风碰按勒子倍数。三口包牌有大包／小包。门清、大吊车、杠开、抢杠、海底另约定。",
+      "rules": ["shanghai"],
+      "source_level": "secondary",
+      "reliability": "medium"
+    },
+    {
+      "id": "baike-shanghai",
+      "url": "https://baike.baidu.com/item/上海麻将/1688864",
+      "title": "百度百科 · 上海麻将（敲麻）",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "又称敲麻。144 张含八花。必须报听。常见碰碰和及以上。花分与勒子：1 勒子 = 10 花，封顶常见 5 勒。后起有把中发白也算进花牌堆的写法，与花麻 20／28 硬花不是一套。C 级。",
+      "rules": ["shanghai"],
+      "source_level": "community",
+      "reliability": "low"
+    },
+    {
+      "id": "tcy-shanghai",
+      "url": "https://m.tcy365.com/news/d25048.html",
+      "title": "同城游 · 上海麻将怎么玩",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "敲后不能改张、不能漏胡。不敲而和算诈和，赔三家。有的桌不带七对。不规定底则一般只能碰不能吃。与维基默认可吃、百科未禁七对冲突，并列。C 级。",
+      "rules": ["shanghai"],
+      "source_level": "community",
+      "reliability": "low"
+    }
+  ]
+}

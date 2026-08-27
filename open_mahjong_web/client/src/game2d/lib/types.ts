@@ -82,6 +82,8 @@ export interface ViewerAction {
   tile?: number
   use_drawn_tile?: boolean
   ui64_value?: number
+  /** Original Salasasa action (hu_first / chi_left / …) so encode does not re-derive. */
+  server_action?: string
 }
 
 export interface SeatSnapshot {

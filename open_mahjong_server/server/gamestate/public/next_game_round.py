@@ -150,3 +150,60 @@ def next_game_round_random_switchseat(self, keep_current_round: bool = False, ke
 def next_game_round_qingque_switchseat(self):
     """青雀：每局 back 轮转；5/9/13 风圈切换时用 derive_round_seed 随机重排座位。"""
     next_game_round_random_switchseat(self)
+
+
+def next_game_round_guobiao_switchseat(self):
+    """国标：换位进下一局，并清空巡目指针历史。"""
+    self.current_round += 1
+    self.round_index += 1
+    self.current_player_index = 0
+    self.xunmu = 1
+    self.action_history = []
+    self.action_dict: Dict[int, list] = {0: [], 1: [], 2: [], 3: []}
+    self.backward_tiles_list_type = "double"
+    self.hu_class = None
+    for i in self.player_list:
+        i.hand_tiles = []
+        i.huapai_list = []
+        i.discard_tiles = []
+        i.waiting_tiles = set()
+        i.combination_tiles = []
+        i.combination_mask = []
+        i.remaining_time = self.round_time
+        if "peida" in i.tag_list:
+            i.tag_list.remove("peida")
+        i.player_index = back_current_num(i.player_index)
+
+    if self.current_round in [5, 9, 13]:
+        if self.current_round == 5:
+            for i in self.player_list:
+                if i.original_player_index == 0:
+                    i.player_index = 1
+                elif i.original_player_index == 1:
+                    i.player_index = 0
+                elif i.original_player_index == 2:
+                    i.player_index = 3
+                elif i.original_player_index == 3:
+                    i.player_index = 2
+        elif self.current_round == 9:
+            for i in self.player_list:
+                if i.original_player_index == 0:
+                    i.player_index = 3
+                elif i.original_player_index == 1:
+                    i.player_index = 2
+                elif i.original_player_index == 2:
+                    i.player_index = 0
+                elif i.original_player_index == 3:
+                    i.player_index = 1
+        elif self.current_round == 13:
+            for i in self.player_list:
+                if i.original_player_index == 0:
+                    i.player_index = 2
+                elif i.original_player_index == 1:
+                    i.player_index = 3
+                elif i.original_player_index == 2:
+                    i.player_index = 1
+                elif i.original_player_index == 3:
+                    i.player_index = 0
+
+    self.player_list.sort(key=lambda x: x.player_index)

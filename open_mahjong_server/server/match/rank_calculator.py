@@ -49,7 +49,7 @@ GAME_TYPE_MULTIPLIER = {
 # 名次系数 [1名, 2名, 3名, 4名]
 RANK_COEFFICIENTS = [0.8, 0.2, 0.3, 0.7]
 
-# 各段位“均失pt”（用于三四名扣分，和场次无关）
+# 各段位“均失pt”（用于三四名扣分；再乘局制系数）
 RANK_AVG_LOSS_PT = {
     "10级": 0,
     "9级": 0,
@@ -76,7 +76,7 @@ RANK_AVG_LOSS_PT = {
 TIER_MIN_RANK_INDEX = {
     "beginner": 0,       # 所有人
     "intermediate": 8,   # 2级（index 8）
-    "advanced": 12,      # 三段（index 12）
+    "advanced": 13,      # 四段（index 13）
     "mcrpl": 0,          # MCRPL 由 is_mcrpl_qualified 控制，不用段位限制
 }
 
@@ -119,16 +119,16 @@ def calculate_pt(tier: str, game_type: str, rank_position: int, rank_name: str) 
     Returns:
         PT 值（浮点数，由调用方决定是否取整）
     """
+    multiplier = GAME_TYPE_MULTIPLIER.get(game_type, 1.0)
     if rank_position in (1, 2):
         base = TIER_BASE_SCORE.get(tier, 30)
-        multiplier = GAME_TYPE_MULTIPLIER.get(game_type, 1.0)
         coeff = RANK_COEFFICIENTS[rank_position - 1]
         return round(base * multiplier * coeff, 2)
 
-    # 第三/第四名扣分：由段位均失pt决定，与场次/局制无关
+    # 第三/第四名扣分：段位均失pt × 名次系数 × 局制系数
     avg_loss = RANK_AVG_LOSS_PT.get(rank_name, 0)
     coeff = RANK_COEFFICIENTS[rank_position - 1]
-    return round(-avg_loss * coeff, 2)
+    return round(-avg_loss * coeff * multiplier, 2)
 
 
 def apply_pt(rank_name: str, score: float, pt: float) -> Tuple[str, float]:

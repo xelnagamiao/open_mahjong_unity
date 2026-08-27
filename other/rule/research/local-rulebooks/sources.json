@@ -1,0 +1,506 @@
+{
+  "slug": "local-rulebooks",
+  "label": "馆藏规则书",
+  "collected_at": "2026-08-14",
+  "notes": "平台与 MIL 已收入的规则书，按规则标签挂到对应条目。",
+  "sources": [
+    {
+      "id": "lib-classical",
+      "url": "/rulebooks/classical-rulebook.pdf",
+      "title": "古典麻将规则书",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "平台现行古典麻将版本。",
+      "rules": [
+        "classical"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/classical-rulebook.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "lib-drawing",
+      "url": "/rulebooks/drawing-mahjong.pdf",
+      "title": "绘图麻雀牌谱",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "沈一帆 1914 年牌谱。",
+      "rules": [
+        "classical"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/drawing-mahjong.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "lib-shinbara",
+      "url": "/rulebooks/shinbara-ningbo.html",
+      "title": "想定宁波规则（榛原 1952）",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "榛原茂树据五种民初麻将书想定的宁波打法。他自己写过：这不是最古现场规则。",
+      "rules": [
+        "classical"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/shinbara-ningbo.html",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "lib-guobiao",
+      "url": "/rulebooks/guobiao-mcr.pdf",
+      "title": "国标麻将（新编 MCR）",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "平台使用的新编 MCR。",
+      "rules": [
+        "guobiao"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/guobiao-mcr.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "lib-riichi",
+      "url": "/rulebooks/riichi-rulebook.pdf",
+      "title": "GGHK 立直麻雀规则（香港麻雀协会，2023-05-17）",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "香港大赛本：无赤有有制，有里宝，不设途中流局及流局满贯。不是天凤，也不是 1952 报知。平台对局另按天凤／雀魂。细则见 lizhi。",
+      "rules": [
+        "riichi"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/riichi-rulebook.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "lib-qingque-one",
+      "url": "/rulebooks/qingque-onepage.pdf",
+      "title": "青雀一页纸",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "一页纸番种速记。",
+      "rules": [
+        "qingque"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/qingque-onepage.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "lib-qingque-paili",
+      "url": "/rulebooks/qingque-paili.pdf",
+      "title": "青雀牌例",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "番种详解与牌例。",
+      "rules": [
+        "qingque"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/qingque-paili.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "lib-qingque-book",
+      "url": "/rulebooks/qingque-rulebook.pdf",
+      "title": "青雀规则文档",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "行牌逻辑与概念解释。",
+      "rules": [
+        "qingque"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/qingque-rulebook.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "lib-hongque",
+      "url": "/rulebooks/hongque-v1.6.pdf",
+      "title": "虹雀² v1.6 规则书",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "虹雀² v1.6 完整规则说明。",
+      "rules": [
+        "hongque"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/hongque-v1.6.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "lib-sichuan",
+      "url": "/rulebooks/sichuan-sbr.pdf",
+      "title": "四川麻将（SBR）竞赛规则",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "四川麻将（SBR）竞赛规则（试行 2025 版）。",
+      "rules": [
+        "sichuan",
+        "mil-sichuan"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/sichuan-sbr.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "lib-changsha",
+      "url": "/rulebooks/changsha-classic-double-bird-rulebook.pdf",
+      "title": "长沙麻将（双鸟）规则书",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "本平台长沙麻将规则说明。",
+      "rules": [
+        "changsha"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/changsha-classic-double-bird-rulebook.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "lib-taiwan",
+      "url": "/rulebooks/taiwan-yaku-table.pdf",
+      "title": "台湾麻将台数表",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "本平台台湾麻将采用的台数参考表。",
+      "rules": [
+        "taiwan"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/taiwan-yaku-table.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "lib-shiyangjin",
+      "url": "/rulebooks/shiyangjin.pdf",
+      "title": "十样锦麻将规则书",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "十样锦麻将规则说明。",
+      "rules": [
+        "shiyangjin"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/shiyangjin.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "lib-kobayashi",
+      "url": "/rulebooks/guobiao-kobayashi.pdf",
+      "title": "中国麻将（小林改版）规则书",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "小林改版修订条款说明。",
+      "rules": [
+        "guobiao-kobayashi"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/guobiao-kobayashi.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "lib-kshen",
+      "url": "/rulebooks/guobiao-kshen.pdf",
+      "title": "K神麻雀规则说明书",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "K 神改版规范说明书。",
+      "rules": [
+        "guobiao-kshen"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/guobiao-kshen.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "lib-lanshi",
+      "url": "/rulebooks/guobiao-lanshi.pdf",
+      "title": "蓝十魔改规则第4版",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "蓝十改规则说明。",
+      "rules": [
+        "guobiao-lanshi"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/guobiao-lanshi.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "mil-sbr",
+      "url": "/rulebooks/mil/四川麻将（SBR）竞赛规则（试行2025版） (1).pdf",
+      "title": "四川麻将（SBR）竞赛规则（试行2025版）",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "MIL 四川麻将竞赛规则。",
+      "rules": [
+        "mil-sichuan",
+        "sichuan"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/mil/四川麻将（SBR）竞赛规则（试行2025版） (1).pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "mil-mcr",
+      "url": "/rulebooks/mil/国标麻将（MCR）竞赛规则Chinese_mahjong_rules_try (1).pdf",
+      "title": "国标麻将（MCR）竞赛规则",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "MIL 国标竞赛规则。",
+      "rules": [
+        "guobiao"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/mil/国标麻将（MCR）竞赛规则Chinese_mahjong_rules_try (1).pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "mil-mcr-sup",
+      "url": "/rulebooks/mil/国标麻将（MCR）规则补充细则（试行，2025） (1).pdf",
+      "title": "国标麻将（MCR）规则补充细则",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "MIL 国标补充细则。",
+      "rules": [
+        "guobiao"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/mil/国标麻将（MCR）规则补充细则（试行，2025） (1).pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "mil-shanxi",
+      "url": "/rulebooks/mil/山西麻将（推广）竞赛规则（试行2023版）.pdf",
+      "title": "山西麻将（推广）竞赛规则（试行 2023 版）",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "MIL 山西 2023：136 张有字，不见吃，必须报听，点和有点数门槛。不是太原立四。细则见 jinshan。",
+      "rules": [
+        "mil-shanxi",
+        "shanxi"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/mil/山西麻将（推广）竞赛规则（试行2023版）.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "mil-gd",
+      "url": "/rulebooks/mil/广东麻将（推广）竞赛规则（试行2023版）.pdf",
+      "title": "广东麻将（推广）竞赛规则",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "MIL 广东麻将推广竞赛规则。",
+      "rules": [
+        "guangdong"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/mil/广东麻将（推广）竞赛规则（试行2023版）.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "mil-tuidao",
+      "url": "/rulebooks/mil/推倒和麻将（推广）竞赛规则（试行2024版）.pdf",
+      "title": "推倒和麻将（推广）竞赛规则",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "MIL 推倒和推广竞赛规则。",
+      "rules": [
+        "tuidao"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/mil/推倒和麻将（推广）竞赛规则（试行2024版）.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "mil-hz",
+      "url": "/rulebooks/mil/杭州麻将（推广）竞赛规则（试行2025版）.pdf",
+      "title": "杭州麻将（推广）竞赛规则",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "MIL 杭州麻将推广竞赛规则。",
+      "rules": [
+        "hangzhou"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/mil/杭州麻将（推广）竞赛规则（试行2025版）.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "mil-wz",
+      "url": "/rulebooks/mil/温州麻将（试点）竞赛规则（试行2024版）.pdf",
+      "title": "温州麻将（试点）竞赛规则",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "MIL 温州麻将试点竞赛规则。",
+      "rules": [
+        "wenzhou"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/mil/温州麻将（试点）竞赛规则（试行2024版）.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "mil-rcr",
+      "url": "/rulebooks/mil/立直麻将竞赛规则riichirules2016.pdf",
+      "title": "EMA Rules for Japanese Mahjong（RCR 2016）",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "馆藏文件名是立直竞赛规则，正文是 EMA 2016 本。去掉赤 5，食断可副露，不设多倍役满。协会本，不是天凤。细则见 lizhi。",
+      "rules": [
+        "mil-riichi",
+        "riichi"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/mil/立直麻将竞赛规则riichirules2016.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "mil-rcr-sup",
+      "url": "/rulebooks/mil/立直麻将（RCR）竞赛规则补充细则（2024版）.pdf",
+      "title": "立直麻将（RCR）竞赛规则补充细则",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "MIL 2024：不设赤宝，不设多倍役满，不设多家和（截和）。协会本，不是天凤，也不是平台对局。细则见 lizhi。",
+      "rules": [
+        "mil-riichi"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/mil/立直麻将（RCR）竞赛规则补充细则（2024版）.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "mil-hzhong",
+      "url": "/rulebooks/mil/红中麻将（推广）竞赛规则（试行2024版）.pdf",
+      "title": "红中麻将（推广）竞赛规则",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "MIL 红中麻将推广竞赛规则。",
+      "rules": [
+        "hongzhong"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/mil/红中麻将（推广）竞赛规则（试行2024版）.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "mil-gz",
+      "url": "/rulebooks/mil/贵州麻将（推广）竞赛规则（试行2023版）.pdf",
+      "title": "贵州麻将（推广）竞赛规则（试行 2023 版）",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "MIL 贵州 2023：108 张，不见吃，捉鸡（1 条、8 饼、和牌鸡）。不是血战，不是定缺。细则见 qian。",
+      "rules": [
+        "mil-guizhou",
+        "guizhou"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/mil/贵州麻将（推广）竞赛规则（试行2023版）.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    },
+    {
+      "id": "mil-cc",
+      "url": "/rulebooks/mil/长春麻将（推广）竞赛规则（试行2024版）.pdf",
+      "title": "长春麻将（推广）竞赛规则",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-14",
+      "excerpt": "MIL 长春麻将推广竞赛规则。",
+      "rules": [
+        "changchun"
+      ],
+      "source_level": "primary",
+      "reliability": "high",
+      "local_path": "rulebooks/mil/长春麻将（推广）竞赛规则（试行2024版）.pdf",
+      "local_kind": "file",
+      "local_status": "ok"
+    }
+  ]
+}
