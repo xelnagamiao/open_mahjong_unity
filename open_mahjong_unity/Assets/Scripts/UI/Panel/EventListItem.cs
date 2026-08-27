@@ -38,42 +38,11 @@ public class EventListItem : MonoBehaviour {
             enterLabel.text = isBase ? "进入基地" : "进入赛事";
         }
 
-        Button enter = ResolveEnterButton();
+        Button enter = button;
         if (enter == null) return;
         enter.onClick.RemoveAllListeners();
         string captured = _eventId;
         enter.onClick.AddListener(() => onView?.Invoke(captured));
-    }
-
-    private Button ResolveEnterButton() {
-        if (button != null) return button;
-        Transform named = transform.Find("Enter");
-        if (named == null) named = FindDeep(transform, "Enter");
-        if (named != null) {
-            button = named.GetComponent<Button>();
-            if (button != null) return button;
-        }
-        Button[] buttons = GetComponentsInChildren<Button>(true);
-        foreach (Button candidate in buttons) {
-            if (candidate == null) continue;
-            TMP_Text label = candidate.GetComponentInChildren<TMP_Text>(true);
-            if (label != null && !string.IsNullOrEmpty(label.text) && label.text.Contains("进入")) {
-                button = candidate;
-                return button;
-            }
-        }
-        if (buttons.Length > 0) button = buttons[0];
-        return button;
-    }
-
-    private static Transform FindDeep(Transform root, string name) {
-        for (int i = 0; i < root.childCount; i++) {
-            Transform child = root.GetChild(i);
-            if (child.name == name) return child;
-            Transform nested = FindDeep(child, name);
-            if (nested != null) return nested;
-        }
-        return null;
     }
 
     private static string StatusLabel(string status) {

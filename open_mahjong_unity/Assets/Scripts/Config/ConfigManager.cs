@@ -82,6 +82,7 @@ public class ConfigManager : MonoBehaviour {
     private const string KEY_BACK_EDGE_MODE = "BackEdgeMode";
     private const string KEY_CUSTOM_STANDARD_TILE_PACK = "CustomStandardTilePack";
     private const string KEY_STANDARD_TILE_PACK_ID = "StandardTilePackId";
+    private const string KEY_CUSTOM_TILE_PACK_FILE_NAME = "CustomTilePackFileName";
     private const string KEY_HAND_BG_PATH = "HandBgImagePath";
     private const string KEY_HAND_BG_IS_CUSTOM = "HandBgImageIsCustom";
     private const string KEY_HAND_BACK_PATH = "HandBackImagePath";
@@ -167,6 +168,8 @@ public class ConfigManager : MonoBehaviour {
     public CardEdgePanel.BackEdgeMode BackEdgeMode { get; private set; } = CardEdgePanel.BackEdgeMode.FollowBack;
     /// <summary>标准麻将牌面套装：official / fluffy / hkmahjong / custom。虹雀始终用官方图。</summary>
     public string StandardTilePackId { get; private set; } = TilePackIds.PackOfficial;
+    /// <summary>最近一次上传的自定义牌面 zip 文件名（不含路径）。新上传覆盖。</summary>
+    public string CustomTilePackFileName { get; private set; } = "";
     /// <summary>是否使用非官方标准牌面（分层预装或自定义 zip）。</summary>
     public bool CustomStandardTilePackEnabled => TilePackIds.IsLayeredPack(StandardTilePackId);
     /// <summary>2D 手牌是否在花纹下叠手牌牌面背景。官方整图默认关；透明花纹套装默认开。</summary>
@@ -258,6 +261,7 @@ public class ConfigManager : MonoBehaviour {
         TableFaceUseSolidColor = PlayerPrefs.GetInt(KEY_TABLE_FACE_USE_SOLID, 0) == 1;
         UseTableFaceBackground = LoadUseTableFaceBackground();
         StandardTilePackId = LoadStandardTilePackId();
+        CustomTilePackFileName = PlayerPrefs.GetString(KEY_CUSTOM_TILE_PACK_FILE_NAME, "");
         UseHandFaceBackground = LoadUseHandFaceBackground(StandardTilePackId);
         TileIdOrder.SetSortRule(HandSortSuitOrderMode, HandSortHonorOrderMode, HandSortDragonOrderMode, HandSortRiichiDragonOrderMode);
         VsyncEnabled = PlayerPrefs.GetInt(KEY_VSYNC_ENABLED, 1) == 1;
@@ -294,6 +298,14 @@ public class ConfigManager : MonoBehaviour {
         PlayerPrefs.SetString(KEY_STANDARD_TILE_PACK_ID, StandardTilePackId);
         PlayerPrefs.SetInt(KEY_CUSTOM_STANDARD_TILE_PACK, CustomStandardTilePackEnabled ? 1 : 0);
         SetUseHandFaceBackground(TilePackIds.DefaultUseHandFaceBackground(StandardTilePackId));
+    }
+
+    public void SetCustomTilePackFileName(string fileName) {
+        CustomTilePackFileName = string.IsNullOrEmpty(fileName)
+            ? ""
+            : System.IO.Path.GetFileName(fileName);
+        PlayerPrefs.SetString(KEY_CUSTOM_TILE_PACK_FILE_NAME, CustomTilePackFileName);
+        PlayerPrefs.Save();
     }
 
     public void SetUseHandFaceBackground(bool enabled) {

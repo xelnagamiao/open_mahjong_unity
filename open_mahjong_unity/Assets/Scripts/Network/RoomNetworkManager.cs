@@ -408,6 +408,7 @@ public class RoomNetworkManager : MonoBehaviour {
                 allow_spectator = false,
                 tactical_call = false,
                 hepai_way = string.IsNullOrEmpty(config.HepaiWay) ? "multi_ron" : config.HepaiWay,
+                event_id = string.IsNullOrEmpty(config.EventId) ? null : config.EventId,
             };
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {

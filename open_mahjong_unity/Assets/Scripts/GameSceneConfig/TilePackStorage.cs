@@ -43,7 +43,7 @@ public static class TilePackStorage {
 #endif
     }
 
-    public static void PickZip(Action<byte[]> onZip, Action<string> onError) {
+    public static void PickZip(Action<byte[], string> onZip, Action<string> onError) {
         TilePackWebGlBridge.Ensure();
         TilePackWebGlBridge.Instance.BeginPick(onZip, onError);
     }
@@ -128,7 +128,7 @@ public static class TilePackStorage {
 public sealed class TilePackWebGlBridge : MonoBehaviour {
     public static TilePackWebGlBridge Instance { get; private set; }
 
-    private Action<byte[]> zipCallback;
+    private Action<byte[], string> zipCallback;
     private Action<string> errorCallback;
     private Action clearCallback;
     private Action<byte[]> streamingCallback;
@@ -158,7 +158,7 @@ public sealed class TilePackWebGlBridge : MonoBehaviour {
         Instance = go.AddComponent<TilePackWebGlBridge>();
     }
 
-    public void BeginPick(Action<byte[]> onZip, Action<string> onError) {
+    public void BeginPick(Action<byte[], string> onZip, Action<string> onError) {
         zipCallback = onZip;
         errorCallback = onError;
 #if UNITY_WEBGL && !UNITY_EDITOR
@@ -178,7 +178,7 @@ public sealed class TilePackWebGlBridge : MonoBehaviour {
         }
         try {
             byte[] bytes = File.ReadAllBytes(paths[0]);
-            zipCallback?.Invoke(bytes);
+            zipCallback?.Invoke(bytes, Path.GetFileName(paths[0]));
         }
         catch (Exception e) {
             errorCallback?.Invoke("读取 zip 失败: " + e.Message);
@@ -187,7 +187,7 @@ public sealed class TilePackWebGlBridge : MonoBehaviour {
     }
 
     public void BeginLoad(Action<byte[]> onZip, Action<string> onError) {
-        zipCallback = onZip;
+        zipCallback = (bytes, _) => onZip?.Invoke(bytes);
         errorCallback = onError;
 #if UNITY_WEBGL && !UNITY_EDITOR
         try {
@@ -233,7 +233,7 @@ public sealed class TilePackWebGlBridge : MonoBehaviour {
         }
     }
 
-    // JS SendMessage 回调：ok|{len} / empty / cancel / error|{msg}
+    // JS SendMessage 回调：ok|{len} 或 ok|{len}|{fileName} / empty / cancel / error|{msg}
     public void OnZipReady(string message) {
         if (string.IsNullOrEmpty(message) || message == "cancel" || message == "empty") {
             if (message == "empty") {
@@ -245,9 +245,15 @@ public sealed class TilePackWebGlBridge : MonoBehaviour {
             errorCallback?.Invoke(message.Substring(6));
             return;
         }
-        if (!message.StartsWith("ok|", StringComparison.Ordinal)
-            || !int.TryParse(message.Substring(3), out expectedLength)
-            || expectedLength <= 0) {
+        if (!message.StartsWith("ok|", StringComparison.Ordinal)) {
+            errorCallback?.Invoke("IndexedDB 回调无效");
+            return;
+        }
+        string rest = message.Substring(3);
+        int sep = rest.IndexOf('|');
+        string lenPart = sep >= 0 ? rest.Substring(0, sep) : rest;
+        string fileName = sep >= 0 ? rest.Substring(sep + 1) : "";
+        if (!int.TryParse(lenPart, out expectedLength) || expectedLength <= 0) {
             errorCallback?.Invoke("IndexedDB 回调无效");
             return;
         }
@@ -256,7 +262,7 @@ public sealed class TilePackWebGlBridge : MonoBehaviour {
             errorCallback?.Invoke("从 IndexedDB 拷贝 zip 失败");
             return;
         }
-        zipCallback?.Invoke(bytes);
+        zipCallback?.Invoke(bytes, fileName);
     }
 
     public void OnZipCleared(string message) {

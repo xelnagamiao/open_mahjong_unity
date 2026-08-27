@@ -142,7 +142,6 @@ public class CardEdgePanel : MonoBehaviour
         {
             CardBackManager.ApplyBackEdgeColor(currentFrontEdgeColor);
         }
-        SceneConfigUi.ShowTip("正面边缘已恢复默认");
     }
 
     /// <summary>把背面边缘还原为初始默认：颜色跟随牌背，模式恢复为跟随牌背。</summary>
@@ -163,7 +162,6 @@ public class CardEdgePanel : MonoBehaviour
         {
             CardBackManager.ApplyFrontEdgeColor(currentBackEdgeColor);
         }
-        SceneConfigUi.ShowTip("已恢复默认");
     }
 
     private void LoadSavedIntoUI()

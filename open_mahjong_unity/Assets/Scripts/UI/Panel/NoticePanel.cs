@@ -3,12 +3,11 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 顶栏「通知」：侧栏活动标签 + 常亮详情。打开时显示上次选中的活动，没有则显示第一条。
+/// 顶栏「通知」：侧栏活动标签 + 常亮详情。
+/// 本次运行内记住当前选中；下次启动仍从列表第一条开始。
 /// </summary>
 public class NoticePanel : MonoBehaviour {
     public static NoticePanel Instance { get; private set; }
-
-    private const string PrefSelectedId = "notice.selected_activity_id";
 
     [SerializeField] private Transform listContent;
     [SerializeField] private GameObject itemTemplate;
@@ -67,19 +66,20 @@ public class NoticePanel : MonoBehaviour {
             }
         }
 
-        string preferred = PlayerPrefs.GetString(PrefSelectedId, _selectedId ?? "");
-        string openId = null;
-        if (!string.IsNullOrEmpty(preferred) && _visibleIds.Contains(preferred)) {
-            openId = preferred;
-        } else if (_visibleIds.Count > 0) {
-            openId = _visibleIds[0];
-        }
-
+        string openId = PickOpenId();
+        SelectId(openId);
         if (string.IsNullOrEmpty(openId)) {
             if (detailPanel != null) detailPanel.ShowEmpty();
             yield break;
         }
         yield return LoadAndOpen(openId);
+    }
+
+    private string PickOpenId() {
+        if (!string.IsNullOrEmpty(_selectedId) && _visibleIds.Contains(_selectedId)) {
+            return _selectedId;
+        }
+        return _visibleIds.Count > 0 ? _visibleIds[0] : null;
     }
 
     private IEnumerator LoadAndOpen(string activityId) {
@@ -111,8 +111,6 @@ public class NoticePanel : MonoBehaviour {
 
     private void SelectId(string activityId) {
         _selectedId = activityId;
-        PlayerPrefs.SetString(PrefSelectedId, activityId ?? "");
-        PlayerPrefs.Save();
         for (int i = 0; i < _spawned.Count; i++) {
             if (_spawned[i] == null) continue;
             ActivityItem binder = _spawned[i].GetComponent<ActivityItem>()

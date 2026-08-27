@@ -207,19 +207,16 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
 
     private void RestoreHandBg() {
         CardBackManager.ClearPersistedHandBackground();
-        SceneConfigUi.ShowTip("已恢复默认手牌背景");
         RefreshPreviews();
     }
 
     private void ClearCardBack() {
         CardBackManager.ClearPersistedHandBack();
-        SceneConfigUi.ShowTip("已恢复默认手牌牌背");
         RefreshPreviews();
     }
 
     private void RestoreTableBg() {
         CardBackManager.ClearPersistedTableBackground();
-        SceneConfigUi.ShowTip("已恢复默认 3D 牌面背景");
         RefreshPreviews();
     }
 
@@ -299,7 +296,6 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         if (CardFaceConfigPanel.Instance != null) {
             CardFaceConfigPanel.Instance.RefreshHighlights();
         }
-        SceneConfigUi.ShowTip(enabled ? "已使用 3D 牌面纯色（已关闭 3D 牌面背景）" : "已关闭 3D 牌面纯色");
     }
 
     private void RestoreTableFaceColor() {
@@ -309,7 +305,6 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         if (CardFaceConfigPanel.Instance != null) {
             CardFaceConfigPanel.Instance.RefreshHighlights();
         }
-        SceneConfigUi.ShowTip("已恢复默认 3D 牌面颜色");
     }
 
     private static void SetSolidButton(Button button, bool on) {

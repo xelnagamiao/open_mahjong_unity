@@ -173,7 +173,6 @@ public class CardBackConfigPanel : MonoBehaviour
         CardBackManager.ClearPersistedCardBack();
         SyncUIFromColor();
         UpdatePreview();
-        SceneConfigUi.ShowTip("已恢复默认颜色并清除牌背图片");
     }
 
     private void ClearImage()

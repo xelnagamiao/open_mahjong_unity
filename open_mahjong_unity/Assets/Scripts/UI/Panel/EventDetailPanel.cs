@@ -65,6 +65,7 @@ public class EventDetailPanel : MonoBehaviour {
     [SerializeField] private Button createRoomButton;
     [SerializeField] private Button seatButton;
     [SerializeField] private GameObject roomItemPrefab;
+    [SerializeField] private CreatePanel venueCreatePanel;
 
     [Header("观战 / 牌谱")]
     [SerializeField] private Transform spectateContent;
@@ -110,7 +111,7 @@ public class EventDetailPanel : MonoBehaviour {
         if (recordsNav != null) recordsNav.onClick.AddListener(() => ShowPage(Page.Records));
         if (registerButton != null) registerButton.onClick.AddListener(OnRegisterClicked);
         if (readyButton != null) readyButton.onClick.AddListener(OnReadyClicked);
-        if (createRoomButton != null) createRoomButton.onClick.AddListener(CreateEmptyRoom);
+        if (createRoomButton != null) createRoomButton.onClick.AddListener(OpenVenueCreatePanel);
         if (seatButton != null) seatButton.onClick.AddListener(SeatSelected);
         if (submitRegisterButton != null) submitRegisterButton.onClick.AddListener(SubmitRegister);
         if (cancelRegisterButton != null) cancelRegisterButton.onClick.AddListener(() => registerPopup.SetActive(false));
@@ -139,8 +140,25 @@ public class EventDetailPanel : MonoBehaviour {
     public void Open(string eventId, string kind) {
         _eventId = eventId;
         _kind = string.IsNullOrEmpty(kind) ? "event" : kind;
+        HideVenueCreate();
         ShowPage(Page.Home);
         EventNetworkManager.Instance?.GetEventDetail(eventId);
+    }
+
+    public void ShowRoomsAfterCreate() {
+        HideVenueCreate();
+        ShowPage(Page.Rooms);
+        if (!string.IsNullOrEmpty(_eventId)) {
+            EventNetworkManager.Instance?.ListVenueRooms(_eventId);
+        }
+    }
+
+    public void HideVenueCreate() {
+        if (venueCreatePanel != null && venueCreatePanel.IsVenueMode) {
+            venueCreatePanel.CloseVenueMode();
+        } else if (venueCreatePanel != null) {
+            venueCreatePanel.gameObject.SetActive(false);
+        }
     }
 
     public void OnSpectatorList(SpectatorInfo[] list) {
@@ -166,7 +184,9 @@ public class EventDetailPanel : MonoBehaviour {
     private void OnDetail() {
         _detail = EventNetworkManager.Instance != null ? EventNetworkManager.Instance.CurrentDetail : null;
         ApplyHome();
-        if (adminBar != null) adminBar.SetActive(_detail != null && _detail.is_admin);
+        if (adminBar != null) adminBar.SetActive(CanCreateRoom() || (_detail != null && _detail.is_admin));
+        if (createRoomButton != null) createRoomButton.gameObject.SetActive(CanCreateRoom());
+        if (seatButton != null) seatButton.gameObject.SetActive(_detail != null && _detail.is_admin);
     }
 
     private void OnRooms() {
@@ -435,12 +455,29 @@ public class EventDetailPanel : MonoBehaviour {
         }
     }
 
-    private void CreateEmptyRoom() {
-        if (_detail == null || !_detail.is_admin) {
-            NotificationManager.Instance.ShowTip("event", false, "仅管理员可以创建空房");
+    private bool CanCreateRoom() {
+        if (_detail == null) return false;
+        if (_detail.is_admin) return true;
+        if (_detail.kind != "base") return false;
+        bool memberCreate = _detail.entry_summary != null && _detail.entry_summary.member_can_create_room;
+        bool approved = _detail.registration != null && _detail.registration.status == "approved";
+        return memberCreate && approved;
+    }
+
+    private void OpenVenueCreatePanel() {
+        if (!CanCreateRoom()) {
+            NotificationManager.Instance.ShowTip("event", false, "当前没有建房权限");
             return;
         }
-        EventNetworkManager.Instance.CreateEmptyRoom(_eventId, "guobiao", _detail != null ? _detail.name : "");
+        if (UserDataManager.Instance.RoomId != UserDataManager.ROOM_ID_NONE) {
+            NotificationManager.Instance.ShowTip("create_room", false, "必须先退出当前房间才能创建房间");
+            return;
+        }
+        if (venueCreatePanel == null) {
+            NotificationManager.Instance.ShowTip("event", false, "未挂载创建房间面板");
+            return;
+        }
+        venueCreatePanel.OpenForVenue(_eventId);
     }
 
     private void SeatSelected() {

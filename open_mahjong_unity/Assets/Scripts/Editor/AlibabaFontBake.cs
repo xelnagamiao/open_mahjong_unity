@@ -28,6 +28,7 @@ public static class AlibabaFontBake
 
     private static void TryRunRequestedBake()
     {
+        EventVenueSceneTool.TryRun();
         var workspaceRoot = Directory.GetParent(Directory.GetParent(Application.dataPath).FullName).FullName;
         var marker = Path.Combine(workspaceRoot, ".om_workspace", "AlibabaFontBake.request");
         if (!File.Exists(marker))

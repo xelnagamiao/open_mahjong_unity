@@ -82,20 +82,39 @@ public class EventLobbyPanel : MonoBehaviour {
     }
 
     public void ShowLobby() {
-        if (detailPanel != null) detailPanel.gameObject.SetActive(false);
-        if (listRoot != null) listRoot.SetActive(true);
-        if (eventTab != null) eventTab.gameObject.SetActive(true);
-        if (baseTab != null) baseTab.gameObject.SetActive(true);
+        if (detailPanel != null) {
+            detailPanel.HideVenueCreate();
+            detailPanel.gameObject.SetActive(false);
+        }
+        SetListChrome(true);
         RequestList();
+    }
+
+    public void OnVenueCreateClosed() {
+        if (detailPanel != null) {
+            detailPanel.gameObject.SetActive(true);
+            detailPanel.ShowRoomsAfterCreate();
+        }
     }
 
     public void OpenDetail(string eventId) {
         if (string.IsNullOrEmpty(eventId) || detailPanel == null) return;
-        if (listRoot != null) listRoot.SetActive(false);
-        if (eventTab != null) eventTab.gameObject.SetActive(false);
-        if (baseTab != null) baseTab.gameObject.SetActive(false);
+        SetListChrome(false);
         detailPanel.gameObject.SetActive(true);
         detailPanel.Open(eventId, _kind);
+    }
+
+    private void SetListChrome(bool show) {
+        if (listRoot != null) listRoot.SetActive(show);
+        Transform side = null;
+        if (eventTab != null && eventTab.transform.parent != null && eventTab.transform.parent.name == "EventSideNav") {
+            side = eventTab.transform.parent;
+        }
+        if (side != null) {
+            side.gameObject.SetActive(show);
+        }
+        if (eventTab != null) eventTab.gameObject.SetActive(show);
+        if (baseTab != null) baseTab.gameObject.SetActive(show);
     }
 
     private void RequestList() {
