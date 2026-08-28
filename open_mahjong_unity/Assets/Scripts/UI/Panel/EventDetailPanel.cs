@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -96,6 +97,8 @@ public class EventDetailPanel : MonoBehaviour {
     private string _kind = "event";
     private EventDetailInfo _detail;
     private Page _page = Page.Home;
+    private Coroutine _pageFade;
+    private Coroutine _venueFade;
     private Color _readyIdleColor = Color.white;
     private Color _readyLabelIdleColor = Color.white;
     private readonly List<GameObject> _roomSpawned = new List<GameObject>();
@@ -138,24 +141,49 @@ public class EventDetailPanel : MonoBehaviour {
         _eventId = eventId;
         _kind = string.IsNullOrEmpty(kind) ? "event" : kind;
         HideVenueCreate();
-        ShowPage(Page.Home);
+        ShowPage(Page.Home, true);
         EventNetworkManager.Instance?.GetEventDetail(eventId);
     }
 
     public void ShowRoomsAfterCreate() {
         HideVenueCreate();
-        ShowPage(Page.Rooms);
+        ShowPage(Page.Rooms, true);
         if (!string.IsNullOrEmpty(_eventId)) {
             EventNetworkManager.Instance?.ListVenueRooms(_eventId);
         }
     }
 
     public void HideVenueCreate() {
-        if (venueCreatePanel.IsVenueMode) {
-            venueCreatePanel.CloseVenueMode();
-        } else {
-            venueCreatePanel.gameObject.SetActive(false);
+        if (_venueFade != null) {
+            StopCoroutine(_venueFade);
+            _venueFade = null;
         }
+        venueCreatePanel.CloseVenueMode();
+    }
+
+    public void CloseVenueCreateFaded() {
+        if (_venueFade != null) {
+            StopCoroutine(_venueFade);
+            _venueFade = null;
+        }
+        _venueFade = StartCoroutine(CloseVenueCreateRoutine());
+    }
+
+    private IEnumerator OpenVenueCreateRoutine() {
+        venueCreatePanel.OpenForVenue(_eventId);
+        yield return WindowFadeTransition.FadeOverlayIn(
+            venueCreatePanel.gameObject, WindowFadeTransition.DurationSeconds);
+        _venueFade = null;
+    }
+
+    private IEnumerator CloseVenueCreateRoutine() {
+        if (venueCreatePanel.gameObject.activeSelf) {
+            yield return WindowFadeTransition.FadeOverlayOut(
+                venueCreatePanel.gameObject, WindowFadeTransition.DurationSeconds);
+        }
+        venueCreatePanel.CloseVenueMode();
+        EventLobbyPanel.Instance?.OnVenueCreateClosed();
+        _venueFade = null;
     }
 
     public void OnSpectatorList(SpectatorInfo[] list) {
@@ -273,7 +301,22 @@ public class EventDetailPanel : MonoBehaviour {
             $"{Colorize("状态：" + statusLabel, statusColor)}\n" +
             $"开始时间：{start}\n" +
             $"结束时间：{end}\n" +
-            Colorize("资格：" + qualifyLabel, qualifyColor);
+            $"{Colorize("资格：" + qualifyLabel, qualifyColor)}\n" +
+            BuildEntryConfigText(detail);
+    }
+
+    private string BuildEntryConfigText(EventDetailInfo detail) {
+        EventEntrySummary summary = detail != null ? detail.entry_summary : null;
+        return
+            $"{FormatSwitch("自动通过报名", summary != null && summary.auto_approve)}\n" +
+            $"{FormatSwitch("允许未报名玩家创建房间", summary != null && summary.unregistered_can_create_room)}\n" +
+            FormatSwitch("允许未报名玩家进入玩家队列", summary != null && summary.unregistered_can_ready);
+    }
+
+    private string FormatSwitch(string label, bool on) {
+        string value = on ? "开" : "关";
+        Color color = on ? qualifyOkColor : qualifyNoneColor;
+        return Colorize($"{label}：{value}", color);
     }
 
     private static string FirstDay(string preferred, string fallback) {
@@ -291,16 +334,26 @@ public class EventDetailPanel : MonoBehaviour {
         return $"<color=#{ColorUtility.ToHtmlStringRGB(color)}>{text}</color>";
     }
 
-    private void ShowPage(Page page) {
+    private void ShowPage(Page page, bool instant = false) {
+        Page previous = _page;
         _page = page;
-        homePage.SetActive(page == Page.Home);
-        roomsPage.SetActive(page == Page.Rooms);
-        spectatePage.SetActive(page == Page.Spectate);
-        recordsPage.SetActive(page == Page.Records);
         SetNav(homeNavImage, page == Page.Home);
         SetNav(roomsNavImage, page == Page.Rooms);
         SetNav(spectateNavImage, page == Page.Spectate);
         SetNav(recordsNavImage, page == Page.Records);
+        FetchPageData(page);
+        if (instant || previous == page) {
+            InstantShowPages(page);
+            return;
+        }
+        if (_pageFade != null) {
+            InstantShowPages(page);
+            return;
+        }
+        _pageFade = StartCoroutine(FadeToPageRoutine(previous, page));
+    }
+
+    private void FetchPageData(Page page) {
         if (page == Page.Home) {
             if (!string.IsNullOrEmpty(_eventId)) EventNetworkManager.Instance?.GetEventDetail(_eventId);
         } else if (page == Page.Rooms) {
@@ -310,6 +363,41 @@ public class EventDetailPanel : MonoBehaviour {
         } else if (page == Page.Records) {
             EventNetworkManager.Instance?.ListEventRecords(_eventId);
         }
+    }
+
+    private GameObject PageGo(Page page) {
+        switch (page) {
+            case Page.Home: return homePage;
+            case Page.Rooms: return roomsPage;
+            case Page.Spectate: return spectatePage;
+            default: return recordsPage;
+        }
+    }
+
+    private void InstantShowPages(Page page) {
+        if (_pageFade != null) {
+            StopCoroutine(_pageFade);
+            _pageFade = null;
+        }
+        ApplyPageActive(page);
+    }
+
+    private void ApplyPageActive(Page page) {
+        homePage.SetActive(page == Page.Home);
+        roomsPage.SetActive(page == Page.Rooms);
+        spectatePage.SetActive(page == Page.Spectate);
+        recordsPage.SetActive(page == Page.Records);
+        WindowFadeTransition.Normalize(homePage);
+        WindowFadeTransition.Normalize(roomsPage);
+        WindowFadeTransition.Normalize(spectatePage);
+        WindowFadeTransition.Normalize(recordsPage);
+    }
+
+    private IEnumerator FadeToPageRoutine(Page fromPage, Page toPage) {
+        yield return WindowFadeTransition.FadeSwap(
+            PageGo(fromPage), PageGo(toPage), WindowFadeTransition.DurationSeconds);
+        ApplyPageActive(toPage);
+        _pageFade = null;
     }
 
     private void SetNav(Image image, bool active) {
@@ -433,7 +521,14 @@ public class EventDetailPanel : MonoBehaviour {
             NotificationManager.Instance.ShowTip("create_room", false, "必须先退出当前房间才能创建房间");
             return;
         }
-        venueCreatePanel.OpenForVenue(_eventId);
+        if (venueCreatePanel.IsVenueMode && venueCreatePanel.gameObject.activeSelf && _venueFade == null) {
+            return;
+        }
+        if (_venueFade != null) {
+            StopCoroutine(_venueFade);
+            _venueFade = null;
+        }
+        _venueFade = StartCoroutine(OpenVenueCreateRoutine());
     }
 
     private static void ShowEmptyHint(TMP_Text hint, bool empty, string text) {

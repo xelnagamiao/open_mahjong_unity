@@ -3,6 +3,22 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public static class WindowFadeTransition {
+    public static float DurationSeconds {
+        get {
+            WindowsManager wm = WindowsManager.Instance;
+            return wm != null ? wm.WindowFadeDuration : 0.2f;
+        }
+    }
+
+    public static void Normalize(GameObject go) {
+        if (go == null) return;
+        CanvasGroup cg = go.GetComponent<CanvasGroup>();
+        if (cg == null) return;
+        cg.alpha = 1f;
+        cg.interactable = true;
+        cg.blocksRaycasts = true;
+    }
+
     /// <summary>单面板淡入：与主窗口切换相同的 Prepare + Fade 流程。</summary>
     public static IEnumerator FadeOverlayIn(GameObject panel, float durationSeconds) {
         var fadeIn = new List<(GameObject go, CanvasGroup cg)> { (panel, EnsureCanvasGroup(panel)) };
@@ -17,6 +33,42 @@ public static class WindowFadeTransition {
         PrepareFadeOut(fadeOut);
         var fadeIn = new List<(GameObject go, CanvasGroup cg)>();
         yield return Fade(fadeOut, fadeIn, durationSeconds);
+    }
+
+    public static IEnumerator FadeSwap(GameObject hide, GameObject show, float durationSeconds) {
+        yield return FadeSwapMany(
+            hide != null ? new[] { hide } : null,
+            show != null ? new[] { show } : null,
+            durationSeconds);
+    }
+
+    public static IEnumerator FadeSwapMany(GameObject[] hide, GameObject[] show, float durationSeconds) {
+        var fadeOut = new List<(GameObject go, CanvasGroup cg)>();
+        var fadeIn = new List<(GameObject go, CanvasGroup cg)>();
+        var hideSet = new HashSet<GameObject>();
+        if (hide != null) {
+            for (int i = 0; i < hide.Length; i++) {
+                GameObject go = hide[i];
+                if (go == null || !go.activeSelf) continue;
+                if (!hideSet.Add(go)) continue;
+                fadeOut.Add((go, EnsureCanvasGroup(go)));
+            }
+        }
+        if (show != null) {
+            for (int i = 0; i < show.Length; i++) {
+                GameObject go = show[i];
+                if (go == null || hideSet.Contains(go) || go.activeSelf) continue;
+                fadeIn.Add((go, EnsureCanvasGroup(go)));
+            }
+        }
+        if (fadeOut.Count == 0 && fadeIn.Count == 0) yield break;
+        PrepareFadeOut(fadeOut);
+        PrepareFadeIn(fadeIn);
+        yield return Fade(fadeOut, fadeIn, durationSeconds);
+    }
+
+    public static CanvasGroup GetOrAddCanvasGroup(GameObject go) {
+        return EnsureCanvasGroup(go);
     }
 
     private static CanvasGroup EnsureCanvasGroup(GameObject go) {

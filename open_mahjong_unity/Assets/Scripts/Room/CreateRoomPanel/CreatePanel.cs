@@ -789,7 +789,6 @@ public partial class CreatePanel : MonoBehaviour {
     public void OpenForVenue(string eventId) {
         _venueEventId = string.IsNullOrEmpty(eventId) ? null : eventId;
         transform.SetAsLastSibling();
-        gameObject.SetActive(true);
         if (roomNameInput != null && string.IsNullOrWhiteSpace(roomNameInput.text)) {
             roomNameInput.text = GetDefaultRoomName();
         }
@@ -797,13 +796,17 @@ public partial class CreatePanel : MonoBehaviour {
 
     public void CloseVenueMode() {
         _venueEventId = null;
-        gameObject.SetActive(false);
+        if (gameObject.activeSelf) gameObject.SetActive(false);
+        WindowFadeTransition.Normalize(gameObject);
     }
 
     private void ClosePanel() {
         if (IsVenueMode) {
-            CloseVenueMode();
-            EventLobbyPanel.Instance?.OnVenueCreateClosed();
+            if (EventDetailPanel.Instance != null) {
+                EventDetailPanel.Instance.CloseVenueCreateFaded();
+            } else {
+                CloseVenueMode();
+            }
             return;
         }
         WindowsManager.Instance.SwitchWindow("menu");
