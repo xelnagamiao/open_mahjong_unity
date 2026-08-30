@@ -117,7 +117,7 @@ class HongqueGameState:
         )
         # 如果您在管理自己规则内的分支，请不要将 Debug = True 的配置上传到公共代码仓库。
         # 与其它规则一致：这是虹雀子规则的固定牌例开关，不跟随服务器全局 Debug。
-        self.Debug = True
+        self.Debug = False
         self.debug_scenario = HONGQUE_DEBUG_SCENARIO
         # 和牌方式：multi_ron = 多家可同时荣和（依次展示结算面板）；
         # head_bump = 头跳，只由距出牌者最近的荣和者截和。

@@ -788,7 +788,6 @@ public partial class CreatePanel : MonoBehaviour {
 
     public void OpenForVenue(string eventId) {
         _venueEventId = string.IsNullOrEmpty(eventId) ? null : eventId;
-        transform.SetAsLastSibling();
         if (roomNameInput != null && string.IsNullOrWhiteSpace(roomNameInput.text)) {
             roomNameInput.text = GetDefaultRoomName();
         }

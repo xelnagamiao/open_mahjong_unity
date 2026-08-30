@@ -22,7 +22,6 @@ public class EventLobbyPanel : MonoBehaviour {
 
     private string _kind = "event";
     private Coroutine _fadeRoutine;
-    private GameObject _listGhost;
     private readonly List<GameObject> _spawned = new List<GameObject>();
     private static readonly Color TabActive = new Color(1f, 0.62f, 0.08f, 1f);
     private static readonly Color TabIdle = new Color(0.08f, 0.11f, 0.18f, 1f);
@@ -31,15 +30,10 @@ public class EventLobbyPanel : MonoBehaviour {
 
     public string CurrentKind => _kind;
 
-    private GameObject SideNav {
-        get {
-            if (eventTab != null && eventTab.transform.parent != null
-                && eventTab.transform.parent.name == "EventSideNav") {
-                return eventTab.transform.parent.gameObject;
-            }
-            return null;
-        }
-    }
+    private GameObject SideNav =>
+        eventTab != null && eventTab.transform.parent != null
+            ? eventTab.transform.parent.gameObject
+            : null;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -79,52 +73,9 @@ public class EventLobbyPanel : MonoBehaviour {
     }
 
     private void SwitchKind(string kind) {
-        bool same = kind == _kind;
         _kind = kind;
         ApplyTabVisual();
-        if (same) {
-            RequestList();
-            return;
-        }
-        if (listRoot == null || !listRoot.activeSelf) {
-            RequestList();
-            return;
-        }
-        StopFade();
-        _fadeRoutine = StartCoroutine(SwitchKindRoutine());
-    }
-
-    private IEnumerator SwitchKindRoutine() {
-        _listGhost = Instantiate(listRoot, listRoot.transform.parent);
-        _listGhost.name = "EventListFadeGhost";
-        _listGhost.transform.SetSiblingIndex(listRoot.transform.GetSiblingIndex());
-        CanvasGroup ghostCg = WindowFadeTransition.GetOrAddCanvasGroup(_listGhost);
-        ghostCg.interactable = false;
-        ghostCg.blocksRaycasts = false;
-        ClearListImmediate();
-        listRoot.SetActive(false);
-        yield return WindowFadeTransition.CrossFade(_listGhost, listRoot, WindowFadeTransition.DurationSeconds);
-        DestroyListGhost();
         RequestList();
-        _fadeRoutine = null;
-    }
-
-    private void ClearListImmediate() {
-        foreach (var go in _spawned) {
-            if (go != null) Destroy(go);
-        }
-        _spawned.Clear();
-        HideEditorExamples();
-        if (emptyHint != null) {
-            emptyHint.gameObject.SetActive(true);
-            emptyHint.text = _kind == "base" ? "暂无基地" : "暂无赛事";
-        }
-    }
-
-    private void DestroyListGhost() {
-        if (_listGhost == null) return;
-        Destroy(_listGhost);
-        _listGhost = null;
     }
 
     private void ApplyTabVisual() {
@@ -202,25 +153,20 @@ public class EventLobbyPanel : MonoBehaviour {
         var roots = new List<GameObject>();
         if (listRoot != null) roots.Add(listRoot);
         GameObject side = SideNav;
-        if (side != null) {
-            roots.Add(side);
-        } else {
-            if (eventTab != null) roots.Add(eventTab.gameObject);
-            if (baseTab != null) roots.Add(baseTab.gameObject);
-        }
+        if (side != null) roots.Add(side);
         return roots.ToArray();
     }
 
     private void SetListChrome(bool show) {
-        if (listRoot != null) listRoot.SetActive(show);
-        WindowFadeTransition.Normalize(listRoot);
+        if (listRoot != null) {
+            listRoot.SetActive(show);
+            WindowFadeTransition.Normalize(listRoot);
+        }
         GameObject side = SideNav;
         if (side != null) {
             side.SetActive(show);
             WindowFadeTransition.Normalize(side);
         }
-        if (eventTab != null) eventTab.gameObject.SetActive(show);
-        if (baseTab != null) baseTab.gameObject.SetActive(show);
     }
 
     private void StopFade() {
@@ -228,7 +174,6 @@ public class EventLobbyPanel : MonoBehaviour {
             StopCoroutine(_fadeRoutine);
             _fadeRoutine = null;
         }
-        DestroyListGhost();
         WindowFadeTransition.Normalize(listRoot);
         WindowFadeTransition.Normalize(SideNav);
         if (detailPanel != null) WindowFadeTransition.Normalize(detailPanel.gameObject);
@@ -256,7 +201,7 @@ public class EventLobbyPanel : MonoBehaviour {
                 if (entryKind != _kind) continue;
                 var item = Instantiate(itemTemplate, listContent);
                 item.SetActive(true);
-                var binder = item.GetComponent<EventListItem>() ?? item.GetComponentInChildren<EventListItem>(true);
+                var binder = item.GetComponent<EventListItem>();
                 if (binder != null) binder.Bind(entry, OpenDetail);
                 _spawned.Add(item);
                 count++;

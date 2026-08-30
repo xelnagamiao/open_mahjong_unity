@@ -89,12 +89,18 @@ open_mahjong_web/client/dist/*
 # Private keys (do not commit)
 *.pem
 
-# 本地隔离工作区：密钥 / 部署打包 / 临时文件（仅保留 README）
-.om_workspace/*
-!.om_workspace/README.md
+# 本地隔离工作区：密钥 / 部署打包 / 临时文件（勿提交）
+.om_workspace/
 
 # 已废弃的部署暂存目录（误提交过，勿再使用）
 .deploy_staging/
+
+# 误提交的本机路径、一次性脚本、agent 临时目录
+%APPDATA%/
+tools/
+.worktrees/
+.codex_tmp*/
+.agents/
 
 # Local verification/build artifacts
 /tmp/

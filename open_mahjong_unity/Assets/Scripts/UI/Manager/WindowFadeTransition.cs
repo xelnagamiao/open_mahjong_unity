@@ -35,16 +35,8 @@ public static class WindowFadeTransition {
         yield return Fade(fadeOut, fadeIn, durationSeconds);
     }
 
-    public static IEnumerator FadeSwap(GameObject hide, GameObject show, float durationSeconds) {
-        yield return CrossFade(hide, show, durationSeconds);
-    }
-
-    public static IEnumerator FadeSwapMany(GameObject[] hide, GameObject[] show, float durationSeconds) {
-        yield return CrossFade(hide, show, durationSeconds);
-    }
-
     /// <summary>
-    /// 与 Header 一级窗口相同：旧面板渐隐、新面板渐显同时进行。
+    /// 与 Header 一级窗口相同：旧面板渐隐、新面板渐显同时进行。不改场景层级顺序。
     /// </summary>
     public static IEnumerator CrossFade(GameObject hide, GameObject show, float durationSeconds, System.Action afterPrepare = null) {
         yield return CrossFade(
@@ -77,17 +69,10 @@ public static class WindowFadeTransition {
             afterPrepare?.Invoke();
             yield break;
         }
-        for (int i = 0; i < fadeIn.Count; i++) {
-            fadeIn[i].go.transform.SetAsLastSibling();
-        }
         PrepareFadeOut(fadeOut);
         PrepareFadeIn(fadeIn);
         afterPrepare?.Invoke();
         yield return Fade(fadeOut, fadeIn, durationSeconds);
-    }
-
-    public static CanvasGroup GetOrAddCanvasGroup(GameObject go) {
-        return EnsureCanvasGroup(go);
     }
 
     private static CanvasGroup EnsureCanvasGroup(GameObject go) {

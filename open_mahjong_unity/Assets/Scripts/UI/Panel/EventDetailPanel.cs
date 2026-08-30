@@ -11,8 +11,6 @@ using TMPro;
 public class EventDetailPanel : MonoBehaviour {
     public static EventDetailPanel Instance { get; private set; }
 
-    private const float ItemScale = 0.85f;
-
     private enum Page { Home, Rooms, Spectate, Records }
 
     [Header("导航")]
@@ -108,9 +106,6 @@ public class EventDetailPanel : MonoBehaviour {
     private void Awake() {
         Instance = this;
         registerPopup.SetActive(false);
-        NeutralizePageBackdrop(roomsPage);
-        NeutralizePageBackdrop(spectatePage);
-        NeutralizePageBackdrop(recordsPage);
         _readyIdleColor = readyImage.color;
         _readyLabelIdleColor = readyLabel.color;
         backButton.onClick.AddListener(() => EventLobbyPanel.Instance?.ShowLobby());
@@ -145,15 +140,11 @@ public class EventDetailPanel : MonoBehaviour {
         _kind = string.IsNullOrEmpty(kind) ? "event" : kind;
         HideVenueCreate();
         ShowPage(Page.Home, true);
-        EventNetworkManager.Instance?.GetEventDetail(eventId);
     }
 
     public void ShowRoomsAfterCreate() {
         HideVenueCreate();
         ShowPage(Page.Rooms, true);
-        if (!string.IsNullOrEmpty(_eventId)) {
-            EventNetworkManager.Instance?.ListVenueRooms(_eventId);
-        }
     }
 
     public void HideVenueCreate() {
@@ -199,8 +190,7 @@ public class EventDetailPanel : MonoBehaviour {
                 if (!string.IsNullOrEmpty(_eventId) && item.event_id != _eventId) continue;
                 var go = Instantiate(spectateItemPrefab, spectateContent);
                 go.SetActive(true);
-                go.transform.localScale = Vector3.one * ItemScale;
-                var binder = go.GetComponent<SpectatorPrefab>() ?? go.GetComponentInChildren<SpectatorPrefab>(true);
+                var binder = go.GetComponent<SpectatorPrefab>();
                 binder.InitializeSpectatorItem(
                     item.rule,
                     item.sub_rule,
@@ -237,10 +227,7 @@ public class EventDetailPanel : MonoBehaviour {
         bool isBase = (_detail != null ? _detail.kind : _kind) == "base";
         titleText.text = _detail != null ? (_detail.name ?? "") : "";
         descText.text = _detail != null && !string.IsNullOrEmpty(_detail.description) ? _detail.description : "暂无介绍";
-        statusText.richText = true;
-        statusText.overflowMode = TextOverflowModes.Overflow;
         statusText.text = BuildStatusText(_detail);
-        FitStatusHeight();
         if (_detail == null || _detail.announcements == null || _detail.announcements.Length == 0) {
             announceText.text = "暂无公告";
         } else {
@@ -264,29 +251,6 @@ public class EventDetailPanel : MonoBehaviour {
         ApplyReadyVisual(_detail != null && _detail.is_ready);
         int n = _detail != null ? Mathf.Max(0, _detail.ready_count) : 0;
         waitingCountText.text = $"等待玩家：{n}";
-        registerButton.interactable = true;
-        readyButton.interactable = true;
-    }
-
-    private void FitStatusHeight() {
-        statusText.ForceMeshUpdate();
-        RectTransform rt = statusText.rectTransform;
-        float preferred = statusText.preferredHeight + 4f;
-        RectTransform parent = rt.parent as RectTransform;
-        float maxH = preferred;
-        if (parent != null) {
-            float reserved = 0f;
-            for (int i = 0; i < parent.childCount; i++) {
-                RectTransform child = parent.GetChild(i) as RectTransform;
-                if (child == null || child == rt || !child.gameObject.activeSelf) continue;
-                reserved += child.rect.height;
-            }
-            maxH = Mathf.Max(72f, parent.rect.height - reserved);
-        }
-        rt.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.Clamp(preferred, 72f, maxH));
-        if (parent != null) {
-            LayoutRebuilder.ForceRebuildLayoutImmediate(parent);
-        }
     }
 
     private void ApplyReadyVisual(bool waiting) {
@@ -368,7 +332,11 @@ public class EventDetailPanel : MonoBehaviour {
         SetNav(recordsNavImage, page == Page.Records);
         if (instant || previous == page) {
             _page = page;
-            InstantShowPages(page);
+            if (_pageFade != null) {
+                StopCoroutine(_pageFade);
+                _pageFade = null;
+            }
+            ApplyPageActive(page);
             FetchPageData(page);
             return;
         }
@@ -403,14 +371,6 @@ public class EventDetailPanel : MonoBehaviour {
         }
     }
 
-    private void InstantShowPages(Page page) {
-        if (_pageFade != null) {
-            StopCoroutine(_pageFade);
-            _pageFade = null;
-        }
-        ApplyPageActive(page);
-    }
-
     private void ApplyPageActive(Page page) {
         homePage.SetActive(page == Page.Home);
         roomsPage.SetActive(page == Page.Rooms);
@@ -429,19 +389,10 @@ public class EventDetailPanel : MonoBehaviour {
         _pageFade = null;
     }
 
-    private static void NeutralizePageBackdrop(GameObject page) {
-        Image image = page.GetComponent<Image>();
-        if (image == null) return;
-        Color color = image.color;
-        if (color.a > 0.01f && color.r > 0.85f && color.g > 0.85f && color.b > 0.85f) {
-            image.color = new Color(0f, 0f, 0f, 0f);
-        }
-    }
-
     private void SetNav(Image image, bool active) {
         image.color = active ? navActiveColor : navIdleColor;
         TMP_Text label = image.GetComponentInChildren<TMP_Text>(true);
-        if (label == null && image.transform.parent != null) {
+        if (label == null) {
             label = image.transform.parent.GetComponentInChildren<TMP_Text>(true);
         }
         if (label != null) {
@@ -502,7 +453,6 @@ public class EventDetailPanel : MonoBehaviour {
                 if (room == null) continue;
                 var go = Instantiate(roomItemPrefab, roomContent);
                 go.SetActive(true);
-                go.transform.localScale = Vector3.one * ItemScale;
                 go.GetComponent<RoomItem>().SetRoomInfo(room);
                 _roomSpawned.Add(go);
                 count++;
@@ -520,11 +470,7 @@ public class EventDetailPanel : MonoBehaviour {
                 if (rec == null) continue;
                 var go = Instantiate(recordItemPrefab, recordContent);
                 go.SetActive(true);
-                go.transform.localScale = Vector3.one * ItemScale;
-                var layout = go.GetComponent<LayoutElement>() ?? go.AddComponent<LayoutElement>();
-                layout.minHeight = 182f;
-                layout.preferredHeight = 182f;
-                var item = go.GetComponent<RecordPrefab>() ?? go.GetComponentInChildren<RecordPrefab>(true);
+                var item = go.GetComponent<RecordPrefab>();
                 item.InitializeRecordItem(
                     rec.game_id,
                     rec.sub_rule ?? "",
@@ -538,7 +484,6 @@ public class EventDetailPanel : MonoBehaviour {
             }
         }
         ShowEmptyHint(recordsEmptyHint, count == 0, "暂无牌谱");
-        LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)recordContent);
     }
 
     private bool CanCreateRoom() {
@@ -573,7 +518,6 @@ public class EventDetailPanel : MonoBehaviour {
         if (hint == null) return;
         hint.text = text;
         hint.gameObject.SetActive(empty);
-        if (empty) hint.transform.SetAsLastSibling();
     }
 
     private static void ClearSpawned(Transform parent, List<GameObject> spawned, TMP_Text emptyHint) {
