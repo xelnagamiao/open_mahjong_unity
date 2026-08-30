@@ -20,13 +20,19 @@ public class EventLobbyPanel : MonoBehaviour {
     [SerializeField] private EventDetailPanel detailPanel;
     [SerializeField] private TMP_Text emptyHint;
 
+    [Header("侧栏颜色")]
+    [InspectorName("选中底色")]
+    [SerializeField] private Color tabActiveColor = new Color(1f, 0.62f, 0.08f, 1f);
+    [InspectorName("未选底色")]
+    [SerializeField] private Color tabIdleColor = new Color(0.08f, 0.11f, 0.18f, 1f);
+    [InspectorName("选中文字")]
+    [SerializeField] private Color tabActiveLabelColor = new Color(0.12f, 0.06f, 0.02f, 1f);
+    [InspectorName("未选文字")]
+    [SerializeField] private Color tabIdleLabelColor = new Color(1f, 0.9f, 0.55f, 1f);
+
     private string _kind = "event";
     private Coroutine _fadeRoutine;
     private readonly List<GameObject> _spawned = new List<GameObject>();
-    private static readonly Color TabActive = new Color(1f, 0.62f, 0.08f, 1f);
-    private static readonly Color TabIdle = new Color(0.08f, 0.11f, 0.18f, 1f);
-    private static readonly Color TabLabelOnGold = new Color(0.12f, 0.06f, 0.02f, 1f);
-    private static readonly Color TabLabelOnDark = new Color(1f, 0.9f, 0.55f, 1f);
 
     public string CurrentKind => _kind;
 
@@ -79,18 +85,24 @@ public class EventLobbyPanel : MonoBehaviour {
     }
 
     private void ApplyTabVisual() {
-        if (eventTabImage != null) eventTabImage.color = _kind == "event" ? TabActive : TabIdle;
-        if (baseTabImage != null) baseTabImage.color = _kind == "base" ? TabActive : TabIdle;
+        if (eventTabImage != null) eventTabImage.color = _kind == "event" ? tabActiveColor : tabIdleColor;
+        if (baseTabImage != null) baseTabImage.color = _kind == "base" ? tabActiveColor : tabIdleColor;
         SetTabLabel(eventTab, _kind == "event");
         SetTabLabel(baseTab, _kind == "base");
     }
 
-    private static void SetTabLabel(Button tab, bool active) {
+    private void SetTabLabel(Button tab, bool active) {
         if (tab == null) return;
         TMP_Text label = tab.GetComponentInChildren<TMP_Text>(true);
         if (label == null) return;
-        label.color = active ? TabLabelOnGold : TabLabelOnDark;
+        label.color = active ? tabActiveLabelColor : tabIdleLabelColor;
     }
+
+#if UNITY_EDITOR
+    private void OnValidate() {
+        ApplyTabVisual();
+    }
+#endif
 
     public void ShowLobby() {
         ShowLobby(false);

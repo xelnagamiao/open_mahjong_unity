@@ -83,11 +83,11 @@ public static class WindowFadeTransition {
     public static void PrepareFadeIn(List<(GameObject go, CanvasGroup cg)> fadeIn) {
         for (int i = 0; i < fadeIn.Count; i++) {
             (GameObject go, CanvasGroup cg) = fadeIn[i];
-            go.SetActive(true); // 先激活再改 alpha，避免没渲染
-            UnifyChildCanvasGroupAlphas(go, cg); // 子级 CanvasGroup alpha 统一为 1
-            cg.alpha = 0f; // 从透明开始
-            cg.interactable = true; // 保持 Button 等按 Normal 状态渲染
-            cg.blocksRaycasts = false; // 过渡中禁止点击
+            cg.alpha = 0f; // 先透明再激活，避免白底页闪一帧
+            cg.interactable = true;
+            cg.blocksRaycasts = false;
+            go.SetActive(true);
+            UnifyChildCanvasGroupAlphas(go, cg);
         }
     }
 

@@ -11,7 +11,6 @@ HU_ACTIONS = frozenset({"hu_self", "hu_first", "hu_second", "hu_third"})
 RON_ACTIONS = frozenset({"hu_first", "hu_second", "hu_third"})
 VISIBLE_FULU_CODES = frozenset({"cl", "cm", "cr", "p", "g", "jg"})
 CLAIM_CODES = frozenset({"cl", "cm", "cr", "p", "g"})
-OPENING_FLOWER_CODES = frozenset({"bh", "bd"})
 
 
 def _parse_hu_tick(tick: list) -> Optional[dict]:
@@ -67,45 +66,6 @@ def round_start_player(rd: Dict[str, Any]) -> int:
     if not isinstance(start, int):
         start = 0
     return start % 4
-
-
-def insert_opening_reset(ticks: list, start_player_index: int) -> bool:
-    """在开局 bh/bd 前缀后插入 ['reset', start]。已有则跳过。返回是否插入。"""
-    if not isinstance(ticks, list):
-        return False
-    start = start_player_index % 4
-    index = 0
-    while index < len(ticks):
-        tick = ticks[index]
-        if not isinstance(tick, list) or not tick:
-            index += 1
-            continue
-        if tick[0] in OPENING_FLOWER_CODES:
-            index += 1
-            continue
-        break
-    if index < len(ticks) and isinstance(ticks[index], list) and ticks[index] and ticks[index][0] == "reset":
-        return False
-    ticks.insert(index, ["reset", start])
-    return True
-
-
-def patch_guobiao_record_resets(record: Dict[str, Any]) -> int:
-    """给国标牌谱每局补上开局 reset。返回插入条数。"""
-    game_round = record.get("game_round") or {}
-    if not isinstance(game_round, dict):
-        return 0
-    inserted = 0
-    for rd in game_round.values():
-        if not isinstance(rd, dict):
-            continue
-        ticks = rd.get("action_ticks")
-        if not isinstance(ticks, list):
-            ticks = []
-            rd["action_ticks"] = ticks
-        if insert_opening_reset(ticks, round_start_player(rd)):
-            inserted += 1
-    return inserted
 
 
 def reconstruct_round_win_turns(rd: Dict[str, Any]) -> Dict[int, int]:

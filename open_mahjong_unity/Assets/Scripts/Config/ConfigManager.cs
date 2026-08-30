@@ -9,7 +9,7 @@ using UnityEngine.Rendering.Universal;
 public class ConfigManager : MonoBehaviour {
     public static ConfigManager Instance { get; private set; }
 
-    public static bool Debug = true;
+    public static bool Debug = false;
 
     /// <summary>Steam 构建开关：为 true 时，场景中挂载 SteamBuildHider 的物体列表会被隐藏。</summary>
     public static bool BuildForSteam = true;
