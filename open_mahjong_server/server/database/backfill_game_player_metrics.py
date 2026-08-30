@@ -148,11 +148,38 @@ def _build_metrics_row(
     )
 
 
-def _get_ai_game_ids(cursor) -> Set[str]:
-    cursor.execute("""
-        SELECT DISTINCT game_id FROM game_player_records
-        WHERE user_id <= %s
-    """, (REGISTERED_USER_ID_MIN,))
+def _get_ai_game_ids(
+    cursor,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+) -> Set[str]:
+    where = ["gpr.user_id <= %s"]
+    params: list = [REGISTERED_USER_ID_MIN]
+    if date_from or date_to:
+        where.append("gr.created_at IS NOT NULL")
+        if date_from:
+            where.append(f"{_stat_date_expr('gr.created_at')} >= %s")
+            params.append(date_from)
+        if date_to:
+            where.append(f"{_stat_date_expr('gr.created_at')} <= %s")
+            params.append(date_to)
+        cursor.execute(
+            f"""
+            SELECT DISTINCT gpr.game_id
+            FROM game_player_records gpr
+            INNER JOIN game_records gr ON gr.game_id = gpr.game_id
+            WHERE {' AND '.join(where)}
+            """,
+            params,
+        )
+    else:
+        cursor.execute(
+            """
+            SELECT DISTINCT game_id FROM game_player_records
+            WHERE user_id <= %s
+            """,
+            (REGISTERED_USER_ID_MIN,),
+        )
     return {r[0] for r in cursor.fetchall()}
 
 
@@ -200,7 +227,7 @@ def backfill_missing_game_player_metrics(
         conn = db_manager._get_connection()
         cursor = conn.cursor()
 
-        exclude_games = _get_ai_game_ids(cursor)
+        exclude_games = _get_ai_game_ids(cursor, date_from=date_from, date_to=date_to)
 
         where = [
             "gpr.user_id > %s",

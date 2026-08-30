@@ -93,15 +93,9 @@ public static class ActivityHttp {
             return pathOrUrl;
         }
         string path = pathOrUrl.StartsWith("/") ? pathOrUrl : "/" + pathOrUrl;
-#if UNITY_EDITOR
-        return "http://localhost:3000" + path;
-#elif UNITY_WEBGL && !UNITY_EDITOR
-        return path;
-#else
-        string root = ConfigManager.webUrl;
-        if (string.IsNullOrEmpty(root)) root = "https://salasasa.cn";
+        string root = ConfigManager.webApiUrl;
+        if (string.IsNullOrEmpty(root)) return path;
         return root.TrimEnd('/') + path;
-#endif
     }
 
     public static ActivityContentBlock[] BlocksOf(ActivityDetail detail) {

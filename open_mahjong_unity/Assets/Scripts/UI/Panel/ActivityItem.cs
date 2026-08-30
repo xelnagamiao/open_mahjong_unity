@@ -11,6 +11,9 @@ public class ActivityItem : MonoBehaviour {
     [SerializeField] private TMP_Text descText;
     [SerializeField] private TMP_Text placeholderText;
     [SerializeField] private Button button;
+    [SerializeField] private GameObject badgeRoot;
+    [SerializeField] private Image badgeImage;
+    [SerializeField] private Color badgeColor = new Color(0.91f, 0.22f, 0.22f, 1f);
 
     private static readonly Color SelectedTint = new Color(1f, 0.82f, 0.42f, 1f);
     private static readonly Color NormalBg = new Color(0.08f, 0.11f, 0.18f, 1f);
@@ -27,12 +30,26 @@ public class ActivityItem : MonoBehaviour {
     private void Awake() {
         HideDesc();
         CacheChrome();
+        ApplyBadgeColor();
+        RefreshBadge();
     }
 
     private void OnEnable() {
         CacheChrome();
         ApplySelected();
+        UnreadBadgeStore.OnChanged += RefreshBadge;
+        RefreshBadge();
     }
+
+    private void OnDisable() {
+        UnreadBadgeStore.OnChanged -= RefreshBadge;
+    }
+
+#if UNITY_EDITOR
+    private void OnValidate() {
+        ApplyBadgeColor();
+    }
+#endif
 
     public void Bind(ActivityIndexItem entry, System.Action<string> onOpen) {
         CacheChrome();
@@ -43,6 +60,7 @@ public class ActivityItem : MonoBehaviour {
                 : "未命名活动";
         }
         HideDesc();
+        RefreshBadge();
         if (_button == null) return;
         _button.onClick.RemoveAllListeners();
         string captured = _activityId;
@@ -72,6 +90,15 @@ public class ActivityItem : MonoBehaviour {
         if (placeholderText != null) {
             placeholderText.gameObject.SetActive(texture == null);
         }
+    }
+
+    private void RefreshBadge() {
+        ApplyBadgeColor();
+        if (badgeRoot != null) badgeRoot.SetActive(UnreadBadgeStore.IsNoticeUnseen(_activityId));
+    }
+
+    private void ApplyBadgeColor() {
+        if (badgeImage != null) badgeImage.color = badgeColor;
     }
 
     private void HideDesc() {

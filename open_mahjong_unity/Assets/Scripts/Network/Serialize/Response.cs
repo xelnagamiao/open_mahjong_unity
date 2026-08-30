@@ -493,6 +493,7 @@ public class FriendRequestInfo { // 好友申请信息
     public int user_id;
     public string username;
     public int profile_image_id;
+    public int created_at; // unix 秒，拒绝后再申请会得到新值
 }
 
 public class RealtimeSpectatorEntry { // 实时观战者条目

@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -9,8 +10,6 @@ using TMPro;
 /// </summary>
 public class EventDetailPanel : MonoBehaviour {
     public static EventDetailPanel Instance { get; private set; }
-
-    private const float ItemScale = 0.85f;
 
     private enum Page { Home, Rooms, Spectate, Records }
 
@@ -96,6 +95,8 @@ public class EventDetailPanel : MonoBehaviour {
     private string _kind = "event";
     private EventDetailInfo _detail;
     private Page _page = Page.Home;
+    private Coroutine _pageFade;
+    private Coroutine _venueFade;
     private Color _readyIdleColor = Color.white;
     private Color _readyLabelIdleColor = Color.white;
     private readonly List<GameObject> _roomSpawned = new List<GameObject>();
@@ -138,24 +139,45 @@ public class EventDetailPanel : MonoBehaviour {
         _eventId = eventId;
         _kind = string.IsNullOrEmpty(kind) ? "event" : kind;
         HideVenueCreate();
-        ShowPage(Page.Home);
-        EventNetworkManager.Instance?.GetEventDetail(eventId);
+        ShowPage(Page.Home, true);
     }
 
     public void ShowRoomsAfterCreate() {
         HideVenueCreate();
-        ShowPage(Page.Rooms);
-        if (!string.IsNullOrEmpty(_eventId)) {
-            EventNetworkManager.Instance?.ListVenueRooms(_eventId);
-        }
+        ShowPage(Page.Rooms, true);
     }
 
     public void HideVenueCreate() {
-        if (venueCreatePanel.IsVenueMode) {
-            venueCreatePanel.CloseVenueMode();
-        } else {
-            venueCreatePanel.gameObject.SetActive(false);
+        if (_venueFade != null) {
+            StopCoroutine(_venueFade);
+            _venueFade = null;
         }
+        venueCreatePanel.CloseVenueMode();
+    }
+
+    public void CloseVenueCreateFaded() {
+        if (_venueFade != null) {
+            StopCoroutine(_venueFade);
+            _venueFade = null;
+        }
+        _venueFade = StartCoroutine(CloseVenueCreateRoutine());
+    }
+
+    private IEnumerator OpenVenueCreateRoutine() {
+        venueCreatePanel.OpenForVenue(_eventId);
+        yield return WindowFadeTransition.FadeOverlayIn(
+            venueCreatePanel.gameObject, WindowFadeTransition.DurationSeconds);
+        _venueFade = null;
+    }
+
+    private IEnumerator CloseVenueCreateRoutine() {
+        if (venueCreatePanel.gameObject.activeSelf) {
+            yield return WindowFadeTransition.FadeOverlayOut(
+                venueCreatePanel.gameObject, WindowFadeTransition.DurationSeconds);
+        }
+        venueCreatePanel.CloseVenueMode();
+        EventLobbyPanel.Instance?.OnVenueCreateClosed();
+        _venueFade = null;
     }
 
     public void OnSpectatorList(SpectatorInfo[] list) {
@@ -168,8 +190,7 @@ public class EventDetailPanel : MonoBehaviour {
                 if (!string.IsNullOrEmpty(_eventId) && item.event_id != _eventId) continue;
                 var go = Instantiate(spectateItemPrefab, spectateContent);
                 go.SetActive(true);
-                go.transform.localScale = Vector3.one * ItemScale;
-                var binder = go.GetComponent<SpectatorPrefab>() ?? go.GetComponentInChildren<SpectatorPrefab>(true);
+                var binder = go.GetComponent<SpectatorPrefab>();
                 binder.InitializeSpectatorItem(
                     item.rule,
                     item.sub_rule,
@@ -206,7 +227,6 @@ public class EventDetailPanel : MonoBehaviour {
         bool isBase = (_detail != null ? _detail.kind : _kind) == "base";
         titleText.text = _detail != null ? (_detail.name ?? "") : "";
         descText.text = _detail != null && !string.IsNullOrEmpty(_detail.description) ? _detail.description : "暂无介绍";
-        statusText.richText = true;
         statusText.text = BuildStatusText(_detail);
         if (_detail == null || _detail.announcements == null || _detail.announcements.Length == 0) {
             announceText.text = "暂无公告";
@@ -231,8 +251,6 @@ public class EventDetailPanel : MonoBehaviour {
         ApplyReadyVisual(_detail != null && _detail.is_ready);
         int n = _detail != null ? Mathf.Max(0, _detail.ready_count) : 0;
         waitingCountText.text = $"等待玩家：{n}";
-        registerButton.interactable = true;
-        readyButton.interactable = true;
     }
 
     private void ApplyReadyVisual(bool waiting) {
@@ -273,7 +291,22 @@ public class EventDetailPanel : MonoBehaviour {
             $"{Colorize("状态：" + statusLabel, statusColor)}\n" +
             $"开始时间：{start}\n" +
             $"结束时间：{end}\n" +
-            Colorize("资格：" + qualifyLabel, qualifyColor);
+            $"{Colorize("资格：" + qualifyLabel, qualifyColor)}\n" +
+            BuildEntryConfigText(detail);
+    }
+
+    private string BuildEntryConfigText(EventDetailInfo detail) {
+        EventEntrySummary summary = detail != null ? detail.entry_summary : null;
+        return
+            $"{FormatSwitch("自动通过报名", summary != null && summary.auto_approve)}\n" +
+            $"{FormatSwitch("允许未报名玩家创建房间", summary != null && summary.unregistered_can_create_room)}\n" +
+            FormatSwitch("允许未报名玩家进入队列", summary != null && summary.unregistered_can_ready);
+    }
+
+    private string FormatSwitch(string label, bool on) {
+        string value = on ? "是" : "否";
+        Color color = on ? qualifyOkColor : qualifyNoneColor;
+        return Colorize($"{label}：{value}", color);
     }
 
     private static string FirstDay(string preferred, string fallback) {
@@ -291,16 +324,33 @@ public class EventDetailPanel : MonoBehaviour {
         return $"<color=#{ColorUtility.ToHtmlStringRGB(color)}>{text}</color>";
     }
 
-    private void ShowPage(Page page) {
-        _page = page;
-        homePage.SetActive(page == Page.Home);
-        roomsPage.SetActive(page == Page.Rooms);
-        spectatePage.SetActive(page == Page.Spectate);
-        recordsPage.SetActive(page == Page.Records);
+    private void ShowPage(Page page, bool instant = false) {
+        Page previous = _page;
         SetNav(homeNavImage, page == Page.Home);
         SetNav(roomsNavImage, page == Page.Rooms);
         SetNav(spectateNavImage, page == Page.Spectate);
         SetNav(recordsNavImage, page == Page.Records);
+        if (instant || previous == page) {
+            _page = page;
+            if (_pageFade != null) {
+                StopCoroutine(_pageFade);
+                _pageFade = null;
+            }
+            ApplyPageActive(page);
+            FetchPageData(page);
+            return;
+        }
+        if (_pageFade != null) {
+            StopCoroutine(_pageFade);
+            _pageFade = null;
+            WindowFadeTransition.Normalize(PageGo(previous));
+            WindowFadeTransition.Normalize(PageGo(page));
+        }
+        _page = page;
+        _pageFade = StartCoroutine(FadeToPageRoutine(previous, page));
+    }
+
+    private void FetchPageData(Page page) {
         if (page == Page.Home) {
             if (!string.IsNullOrEmpty(_eventId)) EventNetworkManager.Instance?.GetEventDetail(_eventId);
         } else if (page == Page.Rooms) {
@@ -312,10 +362,37 @@ public class EventDetailPanel : MonoBehaviour {
         }
     }
 
+    private GameObject PageGo(Page page) {
+        switch (page) {
+            case Page.Home: return homePage;
+            case Page.Rooms: return roomsPage;
+            case Page.Spectate: return spectatePage;
+            default: return recordsPage;
+        }
+    }
+
+    private void ApplyPageActive(Page page) {
+        homePage.SetActive(page == Page.Home);
+        roomsPage.SetActive(page == Page.Rooms);
+        spectatePage.SetActive(page == Page.Spectate);
+        recordsPage.SetActive(page == Page.Records);
+        WindowFadeTransition.Normalize(homePage);
+        WindowFadeTransition.Normalize(roomsPage);
+        WindowFadeTransition.Normalize(spectatePage);
+        WindowFadeTransition.Normalize(recordsPage);
+    }
+
+    private IEnumerator FadeToPageRoutine(Page fromPage, Page toPage) {
+        yield return WindowFadeTransition.CrossFade(
+            PageGo(fromPage), PageGo(toPage), WindowFadeTransition.DurationSeconds);
+        FetchPageData(toPage);
+        _pageFade = null;
+    }
+
     private void SetNav(Image image, bool active) {
         image.color = active ? navActiveColor : navIdleColor;
         TMP_Text label = image.GetComponentInChildren<TMP_Text>(true);
-        if (label == null && image.transform.parent != null) {
+        if (label == null) {
             label = image.transform.parent.GetComponentInChildren<TMP_Text>(true);
         }
         if (label != null) {
@@ -376,7 +453,6 @@ public class EventDetailPanel : MonoBehaviour {
                 if (room == null) continue;
                 var go = Instantiate(roomItemPrefab, roomContent);
                 go.SetActive(true);
-                go.transform.localScale = Vector3.one * ItemScale;
                 go.GetComponent<RoomItem>().SetRoomInfo(room);
                 _roomSpawned.Add(go);
                 count++;
@@ -394,11 +470,7 @@ public class EventDetailPanel : MonoBehaviour {
                 if (rec == null) continue;
                 var go = Instantiate(recordItemPrefab, recordContent);
                 go.SetActive(true);
-                go.transform.localScale = Vector3.one * ItemScale;
-                var layout = go.GetComponent<LayoutElement>() ?? go.AddComponent<LayoutElement>();
-                layout.minHeight = 182f;
-                layout.preferredHeight = 182f;
-                var item = go.GetComponent<RecordPrefab>() ?? go.GetComponentInChildren<RecordPrefab>(true);
+                var item = go.GetComponent<RecordPrefab>();
                 item.InitializeRecordItem(
                     rec.game_id,
                     rec.sub_rule ?? "",
@@ -412,7 +484,6 @@ public class EventDetailPanel : MonoBehaviour {
             }
         }
         ShowEmptyHint(recordsEmptyHint, count == 0, "暂无牌谱");
-        LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)recordContent);
     }
 
     private bool CanCreateRoom() {
@@ -433,14 +504,20 @@ public class EventDetailPanel : MonoBehaviour {
             NotificationManager.Instance.ShowTip("create_room", false, "必须先退出当前房间才能创建房间");
             return;
         }
-        venueCreatePanel.OpenForVenue(_eventId);
+        if (venueCreatePanel.IsVenueMode && venueCreatePanel.gameObject.activeSelf && _venueFade == null) {
+            return;
+        }
+        if (_venueFade != null) {
+            StopCoroutine(_venueFade);
+            _venueFade = null;
+        }
+        _venueFade = StartCoroutine(OpenVenueCreateRoutine());
     }
 
     private static void ShowEmptyHint(TMP_Text hint, bool empty, string text) {
         if (hint == null) return;
         hint.text = text;
         hint.gameObject.SetActive(empty);
-        if (empty) hint.transform.SetAsLastSibling();
     }
 
     private static void ClearSpawned(Transform parent, List<GameObject> spawned, TMP_Text emptyHint) {

@@ -30,6 +30,8 @@ public class WindowsManager : MonoBehaviour {
     [Header("窗口切换动画")]
     [SerializeField] private float windowFadeDuration = 0.2f;
 
+    public float WindowFadeDuration => windowFadeDuration;
+
     /*
     windowsmanager管理所有的一级窗口 所有mainCanvas的一级窗口都应在windowsmanager中管理
     如果一级窗口例如createRoomPanel有多个创建不同规则的子窗口 从属createRoomPanel窗口本身管理
@@ -250,7 +252,8 @@ public class WindowsManager : MonoBehaviour {
                 MatchNetworkManager.Instance.RequestQueueStatusForMatchPanel();
                 break;
             case "event":
-                EventNetworkManager.Instance?.ListPublicEvents("event");
+                EventNetworkManager.Instance?.ListPublicEvents(
+                    EventLobbyPanel.Instance != null ? EventLobbyPanel.Instance.CurrentKind : "event");
                 break;
             case "sceneConfig":
                 if (enteringSceneConfig) {

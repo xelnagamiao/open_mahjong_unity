@@ -52,7 +52,11 @@ public class NoticePanel : MonoBehaviour {
     private IEnumerator LoadIndex() {
         HideEditorExamples();
         ActivityIndexFile index = null;
-        yield return ActivityHttp.GetIndex(data => index = data, _ => { });
+        string indexError = null;
+        yield return ActivityHttp.GetIndex(data => index = data, err => indexError = err);
+        if (index == null && !string.IsNullOrEmpty(indexError) && NotificationManager.Instance != null) {
+            NotificationManager.Instance.ShowTip("活动", false, indexError);
+        }
         ClearSpawned();
         HideEditorExamples();
         _visibleIds.Clear();
@@ -66,6 +70,9 @@ public class NoticePanel : MonoBehaviour {
             }
         }
 
+        if (index != null) {
+            UnreadBadgeStore.ReplaceNoticeIds(_visibleIds);
+        }
         string openId = PickOpenId();
         SelectId(openId);
         if (string.IsNullOrEmpty(openId)) {
@@ -103,6 +110,7 @@ public class NoticePanel : MonoBehaviour {
             yield break;
         }
         SelectId(activityId);
+        UnreadBadgeStore.MarkNoticeSeen(activityId);
         if (detailPanel != null) {
             detailPanel.gameObject.SetActive(true);
             detailPanel.Open(detail);

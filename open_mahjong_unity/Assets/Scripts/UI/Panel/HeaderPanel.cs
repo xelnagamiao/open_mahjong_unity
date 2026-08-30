@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 
 public class HeaderPanel : MonoBehaviour {
     public static HeaderPanel Instance { get; private set; }
@@ -69,11 +68,14 @@ public class HeaderPanel : MonoBehaviour {
         if (logoutButton != null) logoutButton.Button.onClick.AddListener(Logout);
 
         ConfigManager.OnLanguageChanged += RefreshHeaderLabels;
+        UnreadBadgeStore.OnChanged += RefreshUnreadBadges;
         RefreshHeaderLabels();
+        RefreshUnreadBadges();
     }
 
     private void OnDestroy() {
         ConfigManager.OnLanguageChanged -= RefreshHeaderLabels;
+        UnreadBadgeStore.OnChanged -= RefreshUnreadBadges;
         UserDataManager.Instance.OnRoomIdChanged -= RefreshButtonAppearance;
     }
 
@@ -216,10 +218,11 @@ public class HeaderPanel : MonoBehaviour {
         if (button == null) {
             return;
         }
-        TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
-        if (label == null) {
-            return;
-        }
-        label.text = AppLanguageTexts.GetHeaderNavLabel(item);
+        button.SetLabel(AppLanguageTexts.GetHeaderNavLabel(item));
+    }
+
+    private void RefreshUnreadBadges() {
+        noticeButton?.SetBadgeCount(UnreadBadgeStore.NoticeUnread);
+        friendButton?.SetBadgeCount(UnreadBadgeStore.FriendUnread);
     }
 }

@@ -191,6 +191,17 @@ async function ensureEventsTables() {
     ALTER TABLE events
       ADD COLUMN IF NOT EXISTS entry_config JSONB NOT NULL DEFAULT '{}'::jsonb
   `);
+  await pool.query(`
+    UPDATE events SET entry_config = COALESCE(entry_config, '{}'::jsonb)
+      || CASE WHEN COALESCE(entry_config, '{}'::jsonb) ? 'auto_approve'
+           THEN '{}'::jsonb ELSE '{"auto_approve": false}'::jsonb END
+      || CASE WHEN COALESCE(entry_config, '{}'::jsonb) ? 'member_can_create_room'
+           THEN '{}'::jsonb ELSE '{"member_can_create_room": false}'::jsonb END
+      || CASE WHEN COALESCE(entry_config, '{}'::jsonb) ? 'unregistered_can_create_room'
+           THEN '{}'::jsonb ELSE '{"unregistered_can_create_room": false}'::jsonb END
+      || CASE WHEN COALESCE(entry_config, '{}'::jsonb) ? 'unregistered_can_ready'
+           THEN '{}'::jsonb ELSE '{"unregistered_can_ready": false}'::jsonb END
+  `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_events_kind_status ON events(kind, status)`);
 
   await pool.query(`

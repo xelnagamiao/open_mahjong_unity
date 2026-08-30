@@ -3,6 +3,22 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public static class WindowFadeTransition {
+    public static float DurationSeconds {
+        get {
+            WindowsManager wm = WindowsManager.Instance;
+            return wm != null ? wm.WindowFadeDuration : 0.2f;
+        }
+    }
+
+    public static void Normalize(GameObject go) {
+        if (go == null) return;
+        CanvasGroup cg = go.GetComponent<CanvasGroup>();
+        if (cg == null) return;
+        cg.alpha = 1f;
+        cg.interactable = true;
+        cg.blocksRaycasts = true;
+    }
+
     /// <summary>单面板淡入：与主窗口切换相同的 Prepare + Fade 流程。</summary>
     public static IEnumerator FadeOverlayIn(GameObject panel, float durationSeconds) {
         var fadeIn = new List<(GameObject go, CanvasGroup cg)> { (panel, EnsureCanvasGroup(panel)) };
@@ -19,6 +35,46 @@ public static class WindowFadeTransition {
         yield return Fade(fadeOut, fadeIn, durationSeconds);
     }
 
+    /// <summary>
+    /// 与 Header 一级窗口相同：旧面板渐隐、新面板渐显同时进行。不改场景层级顺序。
+    /// </summary>
+    public static IEnumerator CrossFade(GameObject hide, GameObject show, float durationSeconds, System.Action afterPrepare = null) {
+        yield return CrossFade(
+            hide != null ? new[] { hide } : null,
+            show != null ? new[] { show } : null,
+            durationSeconds,
+            afterPrepare);
+    }
+
+    public static IEnumerator CrossFade(GameObject[] hide, GameObject[] show, float durationSeconds, System.Action afterPrepare = null) {
+        var fadeOut = new List<(GameObject go, CanvasGroup cg)>();
+        var fadeIn = new List<(GameObject go, CanvasGroup cg)>();
+        var hideSet = new HashSet<GameObject>();
+        if (hide != null) {
+            for (int i = 0; i < hide.Length; i++) {
+                GameObject go = hide[i];
+                if (go == null || !go.activeSelf) continue;
+                if (!hideSet.Add(go)) continue;
+                fadeOut.Add((go, EnsureCanvasGroup(go)));
+            }
+        }
+        if (show != null) {
+            for (int i = 0; i < show.Length; i++) {
+                GameObject go = show[i];
+                if (go == null || hideSet.Contains(go)) continue;
+                fadeIn.Add((go, EnsureCanvasGroup(go)));
+            }
+        }
+        if (fadeOut.Count == 0 && fadeIn.Count == 0) {
+            afterPrepare?.Invoke();
+            yield break;
+        }
+        PrepareFadeOut(fadeOut);
+        PrepareFadeIn(fadeIn);
+        afterPrepare?.Invoke();
+        yield return Fade(fadeOut, fadeIn, durationSeconds);
+    }
+
     private static CanvasGroup EnsureCanvasGroup(GameObject go) {
         CanvasGroup cg = go.GetComponent<CanvasGroup>();
         if (cg == null) cg = go.AddComponent<CanvasGroup>();
@@ -27,11 +83,11 @@ public static class WindowFadeTransition {
     public static void PrepareFadeIn(List<(GameObject go, CanvasGroup cg)> fadeIn) {
         for (int i = 0; i < fadeIn.Count; i++) {
             (GameObject go, CanvasGroup cg) = fadeIn[i];
-            go.SetActive(true); // 先激活再改 alpha，避免没渲染
-            UnifyChildCanvasGroupAlphas(go, cg); // 子级 CanvasGroup alpha 统一为 1
-            cg.alpha = 0f; // 从透明开始
-            cg.interactable = true; // 保持 Button 等按 Normal 状态渲染
-            cg.blocksRaycasts = false; // 过渡中禁止点击
+            cg.alpha = 0f; // 先透明再激活，避免白底页闪一帧
+            cg.interactable = true;
+            cg.blocksRaycasts = false;
+            go.SetActive(true);
+            UnifyChildCanvasGroupAlphas(go, cg);
         }
     }
 

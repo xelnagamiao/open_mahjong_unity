@@ -21,6 +21,10 @@ public class FriendPanel : MonoBehaviour {
     [SerializeField] private Button followingTabButton;
     [SerializeField] private Button friendsTabButton;
     [SerializeField] private Button requestsTabButton;
+    [SerializeField] private GameObject requestTabBadge;
+    [SerializeField] private Image requestTabBadgeImage;
+    [SerializeField] private TMP_Text requestTabBadgeText;
+    [SerializeField] private Color requestTabBadgeColor = new Color(0.91f, 0.22f, 0.22f, 1f);
 
     [Header("子面板")]
     [SerializeField] private GameObject followingPanel;
@@ -71,18 +75,29 @@ public class FriendPanel : MonoBehaviour {
         if (addFollowingButton != null) addFollowingButton.onClick.AddListener(OnClickAddFollowing);
         if (requestFriendButton != null) requestFriendButton.onClick.AddListener(OnClickRequestFriend);
         ClearAllItems();
+        ApplyRequestTabBadgeColor();
+        RefreshRequestTabBadge();
     }
 
+#if UNITY_EDITOR
+    private void OnValidate() {
+        ApplyRequestTabBadgeColor();
+    }
+#endif
+
     private void OnEnable() {
+        UnreadBadgeStore.OnChanged += RefreshRequestTabBadge;
         ClearAllItems();
         SwitchTab(Tab.Friends);
         UpdateCountTexts(0, 0, 0);
+        RefreshRequestTabBadge();
         FriendNetworkManager.Instance.ListAllFriendPanels();
         if (_pollingCoroutine != null) StopCoroutine(_pollingCoroutine);
         _pollingCoroutine = StartCoroutine(CoPollFriendList());
     }
 
     private void OnDisable() {
+        UnreadBadgeStore.OnChanged -= RefreshRequestTabBadge;
         if (_pollingCoroutine != null) {
             StopCoroutine(_pollingCoroutine);
             _pollingCoroutine = null;
@@ -101,6 +116,21 @@ public class FriendPanel : MonoBehaviour {
         if (followingPanel != null) followingPanel.SetActive(tab == Tab.Following);
         if (friendsPanel != null) friendsPanel.SetActive(tab == Tab.Friends);
         if (requestsPanel != null) requestsPanel.SetActive(tab == Tab.Requests);
+        if (tab == Tab.Requests) {
+            UnreadBadgeStore.MarkFriendRequestsKnown();
+        }
+    }
+
+    private void RefreshRequestTabBadge() {
+        ApplyRequestTabBadgeColor();
+        int count = UnreadBadgeStore.FriendUnread;
+        bool show = count > 0;
+        if (requestTabBadge != null) requestTabBadge.SetActive(show);
+        if (requestTabBadgeText != null && show) requestTabBadgeText.text = count.ToString();
+    }
+
+    private void ApplyRequestTabBadgeColor() {
+        if (requestTabBadgeImage != null) requestTabBadgeImage.color = requestTabBadgeColor;
     }
 
     private void OnClickAddFollowing() {
@@ -164,6 +194,7 @@ public class FriendPanel : MonoBehaviour {
         }
         if (response.success && friendUidInput != null) friendUidInput.text = string.Empty;
         ApplyFriendList(response);
+        if (response.friend_request_list != null) ApplyFriendRequestList(response);
     }
 
     public void OnDeleteFriendResponse(Response response) {

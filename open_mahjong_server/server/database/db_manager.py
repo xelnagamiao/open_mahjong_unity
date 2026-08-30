@@ -996,6 +996,19 @@ class DatabaseManager:
                 cursor, "sp_events_entry_config",
                 "ALTER TABLE events ADD COLUMN entry_config JSONB NOT NULL DEFAULT '{}'::jsonb;",
             )
+            cursor.execute(
+                """
+                UPDATE events SET entry_config = COALESCE(entry_config, '{}'::jsonb)
+                  || CASE WHEN COALESCE(entry_config, '{}'::jsonb) ? 'auto_approve'
+                       THEN '{}'::jsonb ELSE '{"auto_approve": false}'::jsonb END
+                  || CASE WHEN COALESCE(entry_config, '{}'::jsonb) ? 'member_can_create_room'
+                       THEN '{}'::jsonb ELSE '{"member_can_create_room": false}'::jsonb END
+                  || CASE WHEN COALESCE(entry_config, '{}'::jsonb) ? 'unregistered_can_create_room'
+                       THEN '{}'::jsonb ELSE '{"unregistered_can_create_room": false}'::jsonb END
+                  || CASE WHEN COALESCE(entry_config, '{}'::jsonb) ? 'unregistered_can_ready'
+                       THEN '{}'::jsonb ELSE '{"unregistered_can_ready": false}'::jsonb END
+                """
+            )
             cursor.execute("SAVEPOINT sp_events_status_chk;")
             try:
                 cursor.execute("ALTER TABLE events DROP CONSTRAINT IF EXISTS events_status_chk;")
@@ -2556,7 +2569,8 @@ class DatabaseManager:
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute(
                 """
-                SELECT u.user_id, u.username, COALESCE(us.profile_image_id, 1) AS profile_image_id
+                SELECT u.user_id, u.username, COALESCE(us.profile_image_id, 1) AS profile_image_id,
+                       r.created_at
                 FROM user_friend_requests r
                 INNER JOIN users u ON u.user_id = r.from_user_id
                 LEFT JOIN user_settings us ON us.user_id = r.from_user_id
@@ -2731,17 +2745,39 @@ class DatabaseManager:
 
     @staticmethod
     def parse_entry_config(raw) -> Dict[str, Any]:
+        parsed: Dict[str, Any] = {}
         if isinstance(raw, dict):
-            return raw
-        if not raw:
-            return {}
-        if isinstance(raw, str):
+            parsed = dict(raw)
+        elif isinstance(raw, str) and raw.strip():
             try:
-                parsed = json.loads(raw)
-                return parsed if isinstance(parsed, dict) else {}
+                loaded = json.loads(raw)
+                if isinstance(loaded, dict):
+                    parsed = loaded
             except (TypeError, ValueError):
-                return {}
-        return {}
+                parsed = {}
+        out: Dict[str, Any] = {
+            "forbid_tourist": False,
+            "auto_approve": False,
+            "member_can_create_room": False,
+            "unregistered_can_create_room": False,
+            "unregistered_can_ready": False,
+            "join_code": "",
+            "min_rank": "",
+            "max_rank": "",
+        }
+        out.update(parsed)
+        for key in (
+            "forbid_tourist",
+            "auto_approve",
+            "member_can_create_room",
+            "unregistered_can_create_room",
+            "unregistered_can_ready",
+        ):
+            out[key] = bool(out.get(key, False))
+        out["join_code"] = str(out.get("join_code") or "").strip()
+        out["min_rank"] = str(out.get("min_rank") or "")
+        out["max_rank"] = str(out.get("max_rank") or "")
+        return out
 
     def list_public_active_venues(self, kind: Optional[str] = None) -> List[Dict[str, Any]]:
         conn = None

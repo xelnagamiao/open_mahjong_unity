@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 /// <summary>
@@ -9,6 +10,8 @@ public class RoomWindowsManager : MonoBehaviour {
     [SerializeField] private GameObject createRoomPanel; // 创建房间窗口
 
     public static RoomWindowsManager Instance { get; private set; }
+
+    private Coroutine _switchRoutine;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -25,31 +28,65 @@ public class RoomWindowsManager : MonoBehaviour {
     /// </summary>
     /// <param name="targetWindow">目标窗口：roomList, roomInfo, createRoom</param>
     public void SwitchRoomWindow(string targetWindow) {
-        Debug.Log($"切换到房间窗口: {targetWindow}");
+        GameObject target = Resolve(targetWindow);
+        if (target == null) return;
 
-        // 先关闭所有房间窗口
-        roomPanel.SetActive(false);
-        createRoomPanel.SetActive(false);
+        GameObject current = null;
+        if (roomPanel != null && roomPanel.activeInHierarchy) current = roomPanel;
+        else if (createRoomPanel != null && createRoomPanel.activeInHierarchy) current = createRoomPanel;
 
-        // 根据目标窗口打开对应窗口
+        if (current == target) return;
+
+        if (_switchRoutine != null) {
+            StopCoroutine(_switchRoutine);
+            _switchRoutine = null;
+            WindowFadeTransition.Normalize(roomPanel);
+            WindowFadeTransition.Normalize(createRoomPanel);
+        }
+
+        if (current == null) {
+            InstantSwitch(target);
+            return;
+        }
+
+        _switchRoutine = StartCoroutine(SwitchRoutine(current, target));
+    }
+
+    private GameObject Resolve(string targetWindow) {
         switch (targetWindow) {
             case "roomInfo":
-                roomPanel.SetActive(true);
-                break;
+                return roomPanel;
             case "createRoom":
-                createRoomPanel.SetActive(true);
-                break;
+                return createRoomPanel;
             default:
                 Debug.LogWarning($"未知的房间窗口类型: {targetWindow}");
-                break;
+                return null;
         }
+    }
+
+    private void InstantSwitch(GameObject target) {
+        if (roomPanel != null) roomPanel.SetActive(target == roomPanel);
+        if (createRoomPanel != null) createRoomPanel.SetActive(target == createRoomPanel);
+        WindowFadeTransition.Normalize(roomPanel);
+        WindowFadeTransition.Normalize(createRoomPanel);
+    }
+
+    private IEnumerator SwitchRoutine(GameObject from, GameObject to) {
+        yield return WindowFadeTransition.CrossFade(from, to, WindowFadeTransition.DurationSeconds);
+        _switchRoutine = null;
     }
 
     /// <summary>
     /// 关闭所有房间窗口
     /// </summary>
     public void CloseAllRoomWindows() {
-        roomPanel.SetActive(false);
-        createRoomPanel.SetActive(false);
+        if (_switchRoutine != null) {
+            StopCoroutine(_switchRoutine);
+            _switchRoutine = null;
+        }
+        if (roomPanel != null) roomPanel.SetActive(false);
+        if (createRoomPanel != null) createRoomPanel.SetActive(false);
+        WindowFadeTransition.Normalize(roomPanel);
+        WindowFadeTransition.Normalize(createRoomPanel);
     }
 }

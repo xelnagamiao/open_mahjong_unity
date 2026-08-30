@@ -21,7 +21,7 @@ MATCH_TIERS = ("beginner", "intermediate", "advanced", "mcrpl")
 MATCH_TIER_SQL = ", ".join(f"'{t}'" for t in MATCH_TIERS)
 DAU_METRIC_BACKFILL_META_KEY = "daily_stats_dau_v1"
 QINGQUE_CLASSICAL_RULE_FIX_META_KEY = "fix_qingque_classical_history_rule_v1"
-GUOBIAO_RECORD_RESET_XUNMU_META_KEY = "guobiao_record_reset_xunmu_v2"
+STATS_CATCHUP_THROUGH_META_KEY = "stats_catchup_through"
 
 _HISTORY_STAT_SUM_COLUMNS = [
     "total_games", "total_rounds", "win_count", "self_draw_count", "deal_in_count",
@@ -299,19 +299,6 @@ def run_qingque_classical_rule_fix_once(db_manager) -> None:
         logger.error("青雀/古典 rule 修正中断，下次启动将重试: %s", e, exc_info=True)
 
 
-def run_guobiao_record_reset_xunmu_once(db_manager) -> None:
-    """一次性：历史国标牌谱补 reset，并按周巡目重算和了巡目。"""
-    if _is_meta_done(db_manager, GUOBIAO_RECORD_RESET_XUNMU_META_KEY):
-        return
-    try:
-        from .guobiao.backfill_record_reset_xunmu import backfill_guobiao_record_reset_xunmu
-        backfill_guobiao_record_reset_xunmu(db_manager)
-        _mark_meta_done(db_manager, GUOBIAO_RECORD_RESET_XUNMU_META_KEY)
-        logger.info("国标牌谱 reset/巡目回填完成")
-    except Exception as e:
-        logger.error("国标牌谱 reset/巡目回填中断，下次启动将重试: %s", e, exc_info=True)
-
-
 def run_dau_metric_backfill_once(db_manager) -> None:
     """一次性：为已有统计日重算日活与修正后的活跃用户（含游客对局）。"""
     if _is_meta_done(db_manager, DAU_METRIC_BACKFILL_META_KEY):
@@ -351,7 +338,7 @@ def run_dau_metric_backfill_once(db_manager) -> None:
     logger.info("日活指标一次性回填完成，共 %d 个统计日", len(dates))
 
 
-def _is_meta_done(db_manager, meta_key: str) -> bool:
+def _get_meta_value(db_manager, meta_key: str) -> Optional[str]:
     conn = None
     try:
         conn = db_manager._get_connection()
@@ -361,16 +348,16 @@ def _is_meta_done(db_manager, meta_key: str) -> bool:
             (meta_key,),
         )
         row = cursor.fetchone()
-        return row is not None and row[0] == "1"
+        return str(row[0]) if row and row[0] is not None else None
     except Exception:
-        return False
+        return None
     finally:
         if conn:
             cursor.close()
             db_manager._put_connection(conn)
 
 
-def _mark_meta_done(db_manager, meta_key: str) -> None:
+def _set_meta_value(db_manager, meta_key: str, meta_value: str) -> None:
     conn = None
     try:
         conn = db_manager._get_connection()
@@ -390,11 +377,11 @@ def _mark_meta_done(db_manager, meta_key: str) -> None:
                 meta_value = EXCLUDED.meta_value,
                 updated_at = CURRENT_TIMESTAMP
             """,
-            (meta_key, "1"),
+            (meta_key, meta_value),
         )
         conn.commit()
     except Exception as e:
-        logger.error("标记 meta %s 失败: %s", meta_key, e, exc_info=True)
+        logger.error("写入 meta %s 失败: %s", meta_key, e, exc_info=True)
         if conn:
             conn.rollback()
     finally:
@@ -403,11 +390,12 @@ def _mark_meta_done(db_manager, meta_key: str) -> None:
             db_manager._put_connection(conn)
 
 
-def run_daily_aggregation_range(db_manager, date_from: date, date_to: date) -> None:
-    current = date_from
-    while current <= date_to:
-        run_daily_aggregation(db_manager, current)
-        current += timedelta(days=1)
+def _is_meta_done(db_manager, meta_key: str) -> bool:
+    return _get_meta_value(db_manager, meta_key) == "1"
+
+
+def _mark_meta_done(db_manager, meta_key: str) -> None:
+    _set_meta_value(db_manager, meta_key, "1")
 
 
 def run_startup_stats_restore(
@@ -415,23 +403,33 @@ def run_startup_stats_restore(
     since_date: date = DEFAULT_RESTORE_SINCE,
     date_to: Optional[date] = None,
 ) -> None:
-    """启动维护：修正历史脏数据、增量回填 metrics，再补齐未聚合的统计日。"""
+    """启动时补缺日和未合并 metrics。已有游标则只从上次补齐日起扫。"""
     if date_to is None:
         date_to = current_stat_date()
+
+    last_raw = _get_meta_value(db_manager, STATS_CATCHUP_THROUGH_META_KEY)
+    last_through = None
+    if last_raw:
+        try:
+            last_through = date.fromisoformat(last_raw[:10])
+        except ValueError:
+            last_through = None
+    if last_through is not None:
+        since_date = max(since_date, last_through)
 
     if date_to < since_date:
         logger.info("统计维护跳过：结束日 %s 早于起始日 %s", date_to, since_date)
         return
 
+    if last_through is None:
+        logger.info("统计维护：首次检查缺失日 %s ~ %s", since_date, date_to)
+    else:
+        logger.info("统计维护：从上次补齐日 %s 起重扫 %s ~ %s", last_through, since_date, date_to)
+
     try:
         run_qingque_classical_rule_fix_once(db_manager)
     except Exception as e:
         logger.warning("青雀/古典 rule 启动修正失败: %s", e)
-
-    try:
-        run_guobiao_record_reset_xunmu_once(db_manager)
-    except Exception as e:
-        logger.warning("国标牌谱 reset/巡目启动回填失败: %s", e)
 
     from .backfill_game_player_metrics import (
         backfill_missing_game_player_metrics,
@@ -467,7 +465,8 @@ def run_startup_stats_restore(
         logger.warning("检查/重建 scene_tier_fan_daily 失败: %s", e)
 
     run_dau_metric_backfill_once(db_manager)
-    logger.info("统计维护完成（metrics 增量 %d 行）", rows)
+    _set_meta_value(db_manager, STATS_CATCHUP_THROUGH_META_KEY, date_to.isoformat())
+    logger.info("统计维护完成（metrics 增量 %d 行，补齐至 %s）", rows, date_to)
 
 
 def run_event_scene_catchup(

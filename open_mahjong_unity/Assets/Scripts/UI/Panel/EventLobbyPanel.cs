@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -19,12 +20,26 @@ public class EventLobbyPanel : MonoBehaviour {
     [SerializeField] private EventDetailPanel detailPanel;
     [SerializeField] private TMP_Text emptyHint;
 
+    [Header("侧栏颜色")]
+    [InspectorName("选中底色")]
+    [SerializeField] private Color tabActiveColor = new Color(1f, 0.62f, 0.08f, 1f);
+    [InspectorName("未选底色")]
+    [SerializeField] private Color tabIdleColor = new Color(0.08f, 0.11f, 0.18f, 1f);
+    [InspectorName("选中文字")]
+    [SerializeField] private Color tabActiveLabelColor = new Color(0.12f, 0.06f, 0.02f, 1f);
+    [InspectorName("未选文字")]
+    [SerializeField] private Color tabIdleLabelColor = new Color(1f, 0.9f, 0.55f, 1f);
+
     private string _kind = "event";
+    private Coroutine _fadeRoutine;
     private readonly List<GameObject> _spawned = new List<GameObject>();
-    private static readonly Color TabActive = new Color(1f, 0.62f, 0.08f, 1f);
-    private static readonly Color TabIdle = new Color(0.08f, 0.11f, 0.18f, 1f);
-    private static readonly Color TabLabelOnGold = new Color(0.12f, 0.06f, 0.02f, 1f);
-    private static readonly Color TabLabelOnDark = new Color(1f, 0.9f, 0.55f, 1f);
+
+    public string CurrentKind => _kind;
+
+    private GameObject SideNav =>
+        eventTab != null && eventTab.transform.parent != null
+            ? eventTab.transform.parent.gameObject
+            : null;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -40,10 +55,12 @@ public class EventLobbyPanel : MonoBehaviour {
         if (EventNetworkManager.Instance != null) {
             EventNetworkManager.Instance.OnPublicEventsUpdated += RefreshList;
         }
-        ShowLobby();
+        ShowLobby(true);
     }
 
     private void OnDisable() {
+        StopFade();
+        if (detailPanel != null) detailPanel.HideVenueCreate();
         if (EventNetworkManager.Instance != null) {
             EventNetworkManager.Instance.OnPublicEventsUpdated -= RefreshList;
         }
@@ -68,53 +85,110 @@ public class EventLobbyPanel : MonoBehaviour {
     }
 
     private void ApplyTabVisual() {
-        if (eventTabImage != null) eventTabImage.color = _kind == "event" ? TabActive : TabIdle;
-        if (baseTabImage != null) baseTabImage.color = _kind == "base" ? TabActive : TabIdle;
+        if (eventTabImage != null) eventTabImage.color = _kind == "event" ? tabActiveColor : tabIdleColor;
+        if (baseTabImage != null) baseTabImage.color = _kind == "base" ? tabActiveColor : tabIdleColor;
         SetTabLabel(eventTab, _kind == "event");
         SetTabLabel(baseTab, _kind == "base");
     }
 
-    private static void SetTabLabel(Button tab, bool active) {
+    private void SetTabLabel(Button tab, bool active) {
         if (tab == null) return;
         TMP_Text label = tab.GetComponentInChildren<TMP_Text>(true);
         if (label == null) return;
-        label.color = active ? TabLabelOnGold : TabLabelOnDark;
+        label.color = active ? tabActiveLabelColor : tabIdleLabelColor;
     }
 
+#if UNITY_EDITOR
+    private void OnValidate() {
+        ApplyTabVisual();
+    }
+#endif
+
     public void ShowLobby() {
-        if (detailPanel != null) {
-            detailPanel.HideVenueCreate();
-            detailPanel.gameObject.SetActive(false);
+        ShowLobby(false);
+    }
+
+    private void ShowLobby(bool instant) {
+        if (detailPanel != null) detailPanel.HideVenueCreate();
+        if (instant) {
+            StopFade();
+            if (detailPanel != null) detailPanel.gameObject.SetActive(false);
+            SetListChrome(true);
+            RequestList();
+            return;
         }
+        StopFade();
+        _fadeRoutine = StartCoroutine(ShowLobbyRoutine());
+    }
+
+    private IEnumerator ShowLobbyRoutine() {
+        GameObject detailGo = detailPanel != null ? detailPanel.gameObject : null;
+        if (detailGo == null || !detailGo.activeSelf) {
+            SetListChrome(true);
+            RequestList();
+            _fadeRoutine = null;
+            yield break;
+        }
+        yield return WindowFadeTransition.CrossFade(
+            new[] { detailGo },
+            ListChromeRoots(),
+            WindowFadeTransition.DurationSeconds);
         SetListChrome(true);
         RequestList();
+        _fadeRoutine = null;
     }
 
     public void OnVenueCreateClosed() {
         if (detailPanel != null) {
-            detailPanel.gameObject.SetActive(true);
+            if (!detailPanel.gameObject.activeSelf) detailPanel.gameObject.SetActive(true);
             detailPanel.ShowRoomsAfterCreate();
         }
     }
 
     public void OpenDetail(string eventId) {
         if (string.IsNullOrEmpty(eventId) || detailPanel == null) return;
+        StopFade();
+        _fadeRoutine = StartCoroutine(OpenDetailRoutine(eventId));
+    }
+
+    private IEnumerator OpenDetailRoutine(string eventId) {
+        yield return WindowFadeTransition.CrossFade(
+            ListChromeRoots(),
+            new[] { detailPanel.gameObject },
+            WindowFadeTransition.DurationSeconds,
+            () => detailPanel.Open(eventId, _kind));
         SetListChrome(false);
-        detailPanel.gameObject.SetActive(true);
-        detailPanel.Open(eventId, _kind);
+        _fadeRoutine = null;
+    }
+
+    private GameObject[] ListChromeRoots() {
+        var roots = new List<GameObject>();
+        if (listRoot != null) roots.Add(listRoot);
+        GameObject side = SideNav;
+        if (side != null) roots.Add(side);
+        return roots.ToArray();
     }
 
     private void SetListChrome(bool show) {
-        if (listRoot != null) listRoot.SetActive(show);
-        Transform side = null;
-        if (eventTab != null && eventTab.transform.parent != null && eventTab.transform.parent.name == "EventSideNav") {
-            side = eventTab.transform.parent;
+        if (listRoot != null) {
+            listRoot.SetActive(show);
+            WindowFadeTransition.Normalize(listRoot);
         }
+        GameObject side = SideNav;
         if (side != null) {
-            side.gameObject.SetActive(show);
+            side.SetActive(show);
+            WindowFadeTransition.Normalize(side);
         }
-        if (eventTab != null) eventTab.gameObject.SetActive(show);
-        if (baseTab != null) baseTab.gameObject.SetActive(show);
+    }
+
+    private void StopFade() {
+        if (_fadeRoutine != null) {
+            StopCoroutine(_fadeRoutine);
+            _fadeRoutine = null;
+        }
+        WindowFadeTransition.Normalize(listRoot);
+        WindowFadeTransition.Normalize(SideNav);
+        if (detailPanel != null) WindowFadeTransition.Normalize(detailPanel.gameObject);
     }
 
     private void RequestList() {
@@ -139,7 +213,7 @@ public class EventLobbyPanel : MonoBehaviour {
                 if (entryKind != _kind) continue;
                 var item = Instantiate(itemTemplate, listContent);
                 item.SetActive(true);
-                var binder = item.GetComponent<EventListItem>() ?? item.GetComponentInChildren<EventListItem>(true);
+                var binder = item.GetComponent<EventListItem>();
                 if (binder != null) binder.Bind(entry, OpenDetail);
                 _spawned.Add(item);
                 count++;
