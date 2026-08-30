@@ -24,6 +24,7 @@ public static class AppSession {
         }
 
         UserDataManager.Instance?.ClearSessionState();
+        UnreadBadgeStore.BindUser(0);
         HeaderPanel.Instance?.SetBackToGameVisible(false);
         HeaderPanel.Instance?.RefreshMatchButtonVisibility();
 

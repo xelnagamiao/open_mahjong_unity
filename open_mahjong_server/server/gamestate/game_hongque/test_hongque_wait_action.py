@@ -12,7 +12,6 @@ def _state() -> HongqueGameState:
         "game_round": 1,
         "player_list": [101, 102, 103, 104],
         "tactical_grace_seconds": 5.0,
-        "tactical_pre_grace_delay": 0.0,
     }
     state = HongqueGameState(None, room, gamestate_id="hongque-wait-action")
     state.Debug = True
@@ -35,20 +34,15 @@ async def _opened_state() -> HongqueGameState:
 
 async def _pass_all_pending(state: HongqueGameState) -> None:
     while state.phase == "claim":
-        pending = set(state._claim_grace_pending())
-        if state.claim_window is not None:
-            pending.update(state.claim_window.pending)
-        unresolved = [
-            player_index for player_index in pending
-            if player_index not in state.claim_responses
-        ]
-        if not unresolved:
-            if state._claim_grace_timeout_task:
-                await state._claim_grace_timeout_task
+        window = state.claim_window
+        pending = set(window.pending) if window is not None else set()
+        if not pending:
+            if state._claim_timeout_task:
+                await state._claim_timeout_task
             elif state.phase == "claim":
                 await state._resolve_claims()
             break
-        player_index = unresolved[0]
+        player_index = next(iter(pending))
         await state.submit_action(
             state.players[player_index].user_id,
             "pass",
@@ -99,22 +93,22 @@ async def _upgrade_after_interrupt() -> None:
         candidate_id=chi["id"], action_tick=state.action_tick,
     )
     assert chi.get("action_type") == "chi_second"
-    assert state._claim_applied[0] == 2
+    assert state.claim_window.active.player_index == 2
 
     chi_first = _candidate(state, 1, "sequence")
-    previous_deadline = state._claim_grace_deadline
+    previous_deadline = state.claim_window.deadline
     await state.submit_action(
         state.players[1].user_id, "claim",
         candidate_id=chi_first["id"], action_tick=state.action_tick,
     )
     assert chi_first.get("action_type") == "chi_first"
-    assert state._claim_applied[0] == 1
-    assert 2 in state._claim_upgrade_players
+    assert state.claim_window.active.player_index == 1
+    assert 2 in state.claim_window.pending
     offered = state.build_state(2)["candidates"]
     assert {candidate["kind"] for candidate in offered} >= {"triplet", "win"}
     assert all(candidate["priority"] > chi_first["priority"] for candidate in offered)
     assert all(candidate["id"] != chi["id"] for candidate in offered)
-    assert state._claim_grace_deadline >= previous_deadline
+    assert state.claim_window.deadline >= previous_deadline
 
     peng = next(candidate for candidate in offered if candidate["kind"] == "triplet")
     await state.submit_action(

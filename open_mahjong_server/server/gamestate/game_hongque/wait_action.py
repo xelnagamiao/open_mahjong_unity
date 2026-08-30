@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from .action_check import check_action_after_cut
+from .hongque_debug import resolve_debug_scenario
 from .init_tiles import pop_supplement_tile
 from .ron_resolution import resolve_collected_rons
 from .rules import kong_candidates
@@ -102,16 +103,6 @@ def actions_for_viewer(game_state, player_index: int) -> tuple[list[str], list[d
         return (["pass", "claim"], list(options)) if options else ([], [])
     if player_index not in getattr(game_state, "claim_options", {}):
         return [], []
-    existing = game_state.claim_responses.get(player_index)
-    upgrade_players = getattr(game_state, "_claim_upgrade_players", set())
-    if (existing is not None and existing.get("action") == "claim"
-            and player_index in upgrade_players):
-        existing_priority = int(existing["candidate"].get("priority", 0) or 0)
-        higher = [
-            item for item in game_state.claim_options[player_index]
-            if int(item.get("priority", 0) or 0) > existing_priority
-        ]
-        return (["claim"], higher) if higher else ([], [])
     if player_index not in game_state.claim_responses:
         return ["pass", "claim"], list(game_state.claim_options[player_index])
     return [], []
@@ -148,7 +139,13 @@ async def open_claim_window(game_state) -> None:
     # 普通机器人仍使用自己的 AI；调试模式绝不把真人加入自动任务。
     for player_index in tuple(options):
         player = game_state.players[player_index]
-        if player.user_id in (2, 3):
+        debug_force_ron = (
+            game_state.Debug
+            and resolve_debug_scenario(game_state) == "double_ron"
+            and player_index == 1
+            and any(option.get("kind") == "win" for option in options[player_index])
+        )
+        if player.user_id in (2, 3) or debug_force_ron:
             game_state._schedule_bot_claim(player_index, game_state.action_tick)
         elif player.is_bot:
             await handle_claim_action(game_state, player, "pass", None)
@@ -455,6 +452,3 @@ def clear_claim_window(game_state) -> None:
     game_state.claim_responses.clear()
     game_state.claim_started_at = None
     game_state.claim_deadlines.clear()
-    upgrade_players = getattr(game_state, "_claim_upgrade_players", None)
-    if upgrade_players is not None:
-        upgrade_players.clear()

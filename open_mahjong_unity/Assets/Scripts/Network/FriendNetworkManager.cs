@@ -33,6 +33,9 @@ public class FriendNetworkManager : MonoBehaviour {
     public void HandleFriendMessage(Response response) {
         if (response == null || string.IsNullOrEmpty(response.type)) return;
         SyncFriendListCache(response);
+        if (response.friend_request_list != null) {
+            UnreadBadgeStore.ReplaceFriendRequests(response.friend_request_list);
+        }
         switch (response.type) {
             case "friend/list_following":
                 FriendPanel.Instance?.OnFollowingListResponse(response);

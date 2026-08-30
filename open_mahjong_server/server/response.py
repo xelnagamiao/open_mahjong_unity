@@ -407,6 +407,7 @@ class FriendRequestInfo(BaseModel):
     user_id: int
     username: str
     profile_image_id: int = 1
+    created_at: int = 0  # unix 秒，拒绝后再申请会得到新值
 
 class RealtimeSpectatorEntry(BaseModel):
     """实时观战者条目（用于推送给被观战玩家显示列表）"""

@@ -2,6 +2,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using TMPro;
 
 /// <summary>
 /// 导航栏单个按钮：管理图标 Image 的常态/选中/按下颜色与按下·松开渐变，悬停时在现有 Sprite 上向白色插值实现变亮。不依赖 Panel 的全局颜色。
@@ -27,6 +28,12 @@ public class HeaderButton : MonoBehaviour {
     [SerializeField] private float pressLerpDuration = 0.06f;
     [SerializeField] private float releaseLerpDuration = 0.1f;
 
+    [Header("未读红点")]
+    [SerializeField] private GameObject badgeRoot;
+    [SerializeField] private Image badgeImage;
+    [SerializeField] private TMP_Text badgeText;
+    [SerializeField] private Color badgeColor = new Color(0.91f, 0.22f, 0.22f, 1f);
+
     private Color _restColor;
     private Coroutine _tween;
     private bool _pointerInside;
@@ -35,6 +42,18 @@ public class HeaderButton : MonoBehaviour {
 
     private void Awake() {
         if (button != null) button.transition = Selectable.Transition.None;
+        ApplyBadgeColor();
+        SetBadgeCount(0);
+    }
+
+#if UNITY_EDITOR
+    private void OnValidate() {
+        ApplyBadgeColor();
+    }
+#endif
+
+    private void ApplyBadgeColor() {
+        if (badgeImage != null) badgeImage.color = badgeColor;
     }
 
     private void Start() {
@@ -114,6 +133,27 @@ public class HeaderButton : MonoBehaviour {
         if (_tween != null) {
             StopCoroutine(_tween);
             _tween = null;
+        }
+    }
+
+    public void SetBadgeCount(int count) {
+        ApplyBadgeColor();
+        bool show = count > 0;
+        if (badgeRoot != null) badgeRoot.SetActive(show);
+        if (badgeText != null && show) badgeText.text = count.ToString();
+    }
+
+    public void SetLabel(string text) {
+        TMP_Text[] texts = GetComponentsInChildren<TMP_Text>(true);
+        for (int i = 0; i < texts.Length; i++) {
+            TMP_Text candidate = texts[i];
+            if (candidate == null || candidate == badgeText) continue;
+            if (badgeRoot != null && (candidate.transform == badgeRoot.transform
+                || candidate.transform.IsChildOf(badgeRoot.transform))) {
+                continue;
+            }
+            candidate.text = text;
+            return;
         }
     }
 

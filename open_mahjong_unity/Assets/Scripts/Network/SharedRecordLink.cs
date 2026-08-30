@@ -156,7 +156,10 @@ public sealed class SharedRecordLink : MonoBehaviour {
 
     private IEnumerator FetchAndOpen(string gameId) {
         IsPublicSharePlayback = false;
-        string endpoint = $"{ConfigManager.webUrl}/api/platform/unity-record/{UnityWebRequest.EscapeURL(gameId)}";
+        string apiRoot = string.IsNullOrEmpty(ConfigManager.webApiUrl)
+            ? ""
+            : ConfigManager.webApiUrl.TrimEnd('/');
+        string endpoint = $"{apiRoot}/api/platform/unity-record/{UnityWebRequest.EscapeURL(gameId)}";
 
         using (UnityWebRequest request = UnityWebRequest.Get(endpoint)) {
             request.timeout = 20;

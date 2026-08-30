@@ -33,25 +33,6 @@ public class RecordSetting : MonoBehaviour {
     private bool isAnonymousPlayers = false;
     public bool IsAnonymousPlayers { get => isAnonymousPlayers; }
 
-    /// <summary>
-    /// 直接设置匿名玩家开关状态（不翻转）。会刷新 UI 并刷新四角玩家昵称。
-    /// 供 UI/Editor 工具调用。
-    /// </summary>
-    public void SetAnonymousPlayers(bool on, bool refreshPlayerNames = true) {
-        if (isAnonymousPlayers == on) {
-            RefreshUI();
-            return;
-        }
-        isAnonymousPlayers = on;
-        RefreshUI();
-        if (refreshPlayerNames) {
-            var recordMgr = GameRecordManager.Instance;
-            if (recordMgr != null) {
-                recordMgr.RefreshRecordPlayerPanelNames();
-            }
-        }
-    }
-
     // 牌谱：按 original_player_index（0~3）映射到 东/南/西/北 起玩家
     private static readonly string[] AnonymousPlayerNamesByOriginIndex = {
         "东起玩家",

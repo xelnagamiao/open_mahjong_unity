@@ -10,8 +10,9 @@ import asyncio
 import logging
 import time
 import uuid
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import Dict, List, Optional, TYPE_CHECKING, Any
 
 from ..response import Response, RealtimeSpectatorEntry, GameInfo, Ask_hand_action_info, Ask_other_action_info
 
@@ -131,6 +132,19 @@ class FriendManager:
         rows = self.game_server.db_manager.list_mutual_friends(user_id)
         return self._build_user_state_payload(rows)
 
+    @staticmethod
+    def _created_at_unix(value: Any) -> int:
+        if value is None:
+            return 0
+        if isinstance(value, datetime):
+            if value.tzinfo is None:
+                return int(value.replace(tzinfo=timezone.utc).timestamp())
+            return int(value.timestamp())
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
     def build_friend_request_list_payload(self, user_id: int) -> List[Dict]:
         """读取发给 user_id 的好友申请。"""
         rows = self.game_server.db_manager.list_friend_requests(user_id)
@@ -139,6 +153,7 @@ class FriendManager:
                 "user_id": int(row["user_id"]),
                 "username": row.get("username", ""),
                 "profile_image_id": int(row.get("profile_image_id") or 1),
+                "created_at": self._created_at_unix(row.get("created_at")),
             }
             for row in rows
         ]

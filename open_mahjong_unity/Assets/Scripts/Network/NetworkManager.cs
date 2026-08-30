@@ -572,8 +572,17 @@ public class NetworkManager : MonoBehaviour {
                 );
             }
             UserContainer.Instance.ShowUserSettings(response.user_settings);
+            UnreadBadgeStore.BindUser(response.login_info.user_id);
             FriendNetworkManager.Instance?.ListFriends();
+            FriendNetworkManager.Instance?.ListFriendRequests();
+            StartCoroutine(LoadNoticeBadgeIndex());
         }
+    }
+
+    private IEnumerator LoadNoticeBadgeIndex() {
+        ActivityIndexFile index = null;
+        yield return ActivityHttp.GetIndex(data => index = data, _ => { });
+        UnreadBadgeStore.ReplaceNoticeIndex(index);
     }
 
     // 显示服务器统计信息（简化版，直接使用服务器返回的数据）

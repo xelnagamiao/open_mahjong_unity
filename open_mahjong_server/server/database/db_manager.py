@@ -2569,7 +2569,8 @@ class DatabaseManager:
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute(
                 """
-                SELECT u.user_id, u.username, COALESCE(us.profile_image_id, 1) AS profile_image_id
+                SELECT u.user_id, u.username, COALESCE(us.profile_image_id, 1) AS profile_image_id,
+                       r.created_at
                 FROM user_friend_requests r
                 INNER JOIN users u ON u.user_id = r.from_user_id
                 LEFT JOIN user_settings us ON us.user_id = r.from_user_id

@@ -176,6 +176,7 @@ async def _handle_request_friend(game_server, user_id: int, message: dict, webso
         return
     result = game_server.db_manager.send_friend_request(user_id, target_user_id)
     friend_list = game_server.friend_manager.build_friend_list_payload(user_id)
+    request_list = game_server.friend_manager.build_friend_request_list_payload(user_id)
     await _send(
         websocket,
         Response(
@@ -185,8 +186,20 @@ async def _handle_request_friend(game_server, user_id: int, message: dict, webso
             friend_list=[FriendInfo(**item) for item in friend_list],
             friend_count=len(friend_list),
             friend_max=game_server.db_manager.FRIEND_MAX,
+            friend_request_list=[FriendRequestInfo(**item) for item in request_list],
         ),
     )
+    if result["success"]:
+        target_rows = game_server.friend_manager.build_friend_request_list_payload(target_user_id)
+        await game_server.friend_manager._send_to_user(
+            target_user_id,
+            Response(
+                type="friend/list_friend_requests",
+                success=True,
+                message="ok",
+                friend_request_list=[FriendRequestInfo(**item) for item in target_rows],
+            ),
+        )
 
 
 async def _handle_list_friend_requests(game_server, user_id: int, websocket):
