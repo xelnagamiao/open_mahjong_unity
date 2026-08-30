@@ -108,6 +108,9 @@ public class EventDetailPanel : MonoBehaviour {
     private void Awake() {
         Instance = this;
         registerPopup.SetActive(false);
+        NeutralizePageBackdrop(roomsPage);
+        NeutralizePageBackdrop(spectatePage);
+        NeutralizePageBackdrop(recordsPage);
         _readyIdleColor = readyImage.color;
         _readyLabelIdleColor = readyLabel.color;
         backButton.onClick.AddListener(() => EventLobbyPanel.Instance?.ShowLobby());
@@ -235,7 +238,9 @@ public class EventDetailPanel : MonoBehaviour {
         titleText.text = _detail != null ? (_detail.name ?? "") : "";
         descText.text = _detail != null && !string.IsNullOrEmpty(_detail.description) ? _detail.description : "暂无介绍";
         statusText.richText = true;
+        statusText.overflowMode = TextOverflowModes.Overflow;
         statusText.text = BuildStatusText(_detail);
+        FitStatusHeight();
         if (_detail == null || _detail.announcements == null || _detail.announcements.Length == 0) {
             announceText.text = "暂无公告";
         } else {
@@ -261,6 +266,27 @@ public class EventDetailPanel : MonoBehaviour {
         waitingCountText.text = $"等待玩家：{n}";
         registerButton.interactable = true;
         readyButton.interactable = true;
+    }
+
+    private void FitStatusHeight() {
+        statusText.ForceMeshUpdate();
+        RectTransform rt = statusText.rectTransform;
+        float preferred = statusText.preferredHeight + 4f;
+        RectTransform parent = rt.parent as RectTransform;
+        float maxH = preferred;
+        if (parent != null) {
+            float reserved = 0f;
+            for (int i = 0; i < parent.childCount; i++) {
+                RectTransform child = parent.GetChild(i) as RectTransform;
+                if (child == null || child == rt || !child.gameObject.activeSelf) continue;
+                reserved += child.rect.height;
+            }
+            maxH = Mathf.Max(72f, parent.rect.height - reserved);
+        }
+        rt.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.Clamp(preferred, 72f, maxH));
+        if (parent != null) {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(parent);
+        }
     }
 
     private void ApplyReadyVisual(bool waiting) {
@@ -310,11 +336,11 @@ public class EventDetailPanel : MonoBehaviour {
         return
             $"{FormatSwitch("自动通过报名", summary != null && summary.auto_approve)}\n" +
             $"{FormatSwitch("允许未报名玩家创建房间", summary != null && summary.unregistered_can_create_room)}\n" +
-            FormatSwitch("允许未报名玩家进入玩家队列", summary != null && summary.unregistered_can_ready);
+            FormatSwitch("允许未报名玩家进入队列", summary != null && summary.unregistered_can_ready);
     }
 
     private string FormatSwitch(string label, bool on) {
-        string value = on ? "开" : "关";
+        string value = on ? "是" : "否";
         Color color = on ? qualifyOkColor : qualifyNoneColor;
         return Colorize($"{label}：{value}", color);
     }
@@ -336,20 +362,23 @@ public class EventDetailPanel : MonoBehaviour {
 
     private void ShowPage(Page page, bool instant = false) {
         Page previous = _page;
-        _page = page;
         SetNav(homeNavImage, page == Page.Home);
         SetNav(roomsNavImage, page == Page.Rooms);
         SetNav(spectateNavImage, page == Page.Spectate);
         SetNav(recordsNavImage, page == Page.Records);
-        FetchPageData(page);
         if (instant || previous == page) {
+            _page = page;
             InstantShowPages(page);
+            FetchPageData(page);
             return;
         }
         if (_pageFade != null) {
-            InstantShowPages(page);
-            return;
+            StopCoroutine(_pageFade);
+            _pageFade = null;
+            WindowFadeTransition.Normalize(PageGo(previous));
+            WindowFadeTransition.Normalize(PageGo(page));
         }
+        _page = page;
         _pageFade = StartCoroutine(FadeToPageRoutine(previous, page));
     }
 
@@ -394,10 +423,19 @@ public class EventDetailPanel : MonoBehaviour {
     }
 
     private IEnumerator FadeToPageRoutine(Page fromPage, Page toPage) {
-        yield return WindowFadeTransition.FadeSwap(
+        yield return WindowFadeTransition.CrossFade(
             PageGo(fromPage), PageGo(toPage), WindowFadeTransition.DurationSeconds);
-        ApplyPageActive(toPage);
+        FetchPageData(toPage);
         _pageFade = null;
+    }
+
+    private static void NeutralizePageBackdrop(GameObject page) {
+        Image image = page.GetComponent<Image>();
+        if (image == null) return;
+        Color color = image.color;
+        if (color.a > 0.01f && color.r > 0.85f && color.g > 0.85f && color.b > 0.85f) {
+            image.color = new Color(0f, 0f, 0f, 0f);
+        }
     }
 
     private void SetNav(Image image, bool active) {

@@ -72,7 +72,7 @@ public class RoomWindowsManager : MonoBehaviour {
     }
 
     private IEnumerator SwitchRoutine(GameObject from, GameObject to) {
-        yield return WindowFadeTransition.FadeSwap(from, to, WindowFadeTransition.DurationSeconds);
+        yield return WindowFadeTransition.CrossFade(from, to, WindowFadeTransition.DurationSeconds);
         _switchRoutine = null;
     }
 

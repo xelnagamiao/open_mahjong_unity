@@ -36,13 +36,25 @@ public static class WindowFadeTransition {
     }
 
     public static IEnumerator FadeSwap(GameObject hide, GameObject show, float durationSeconds) {
-        yield return FadeSwapMany(
-            hide != null ? new[] { hide } : null,
-            show != null ? new[] { show } : null,
-            durationSeconds);
+        yield return CrossFade(hide, show, durationSeconds);
     }
 
     public static IEnumerator FadeSwapMany(GameObject[] hide, GameObject[] show, float durationSeconds) {
+        yield return CrossFade(hide, show, durationSeconds);
+    }
+
+    /// <summary>
+    /// 与 Header 一级窗口相同：旧面板渐隐、新面板渐显同时进行。
+    /// </summary>
+    public static IEnumerator CrossFade(GameObject hide, GameObject show, float durationSeconds, System.Action afterPrepare = null) {
+        yield return CrossFade(
+            hide != null ? new[] { hide } : null,
+            show != null ? new[] { show } : null,
+            durationSeconds,
+            afterPrepare);
+    }
+
+    public static IEnumerator CrossFade(GameObject[] hide, GameObject[] show, float durationSeconds, System.Action afterPrepare = null) {
         var fadeOut = new List<(GameObject go, CanvasGroup cg)>();
         var fadeIn = new List<(GameObject go, CanvasGroup cg)>();
         var hideSet = new HashSet<GameObject>();
@@ -57,13 +69,20 @@ public static class WindowFadeTransition {
         if (show != null) {
             for (int i = 0; i < show.Length; i++) {
                 GameObject go = show[i];
-                if (go == null || hideSet.Contains(go) || go.activeSelf) continue;
+                if (go == null || hideSet.Contains(go)) continue;
                 fadeIn.Add((go, EnsureCanvasGroup(go)));
             }
         }
-        if (fadeOut.Count == 0 && fadeIn.Count == 0) yield break;
+        if (fadeOut.Count == 0 && fadeIn.Count == 0) {
+            afterPrepare?.Invoke();
+            yield break;
+        }
+        for (int i = 0; i < fadeIn.Count; i++) {
+            fadeIn[i].go.transform.SetAsLastSibling();
+        }
         PrepareFadeOut(fadeOut);
         PrepareFadeIn(fadeIn);
+        afterPrepare?.Invoke();
         yield return Fade(fadeOut, fadeIn, durationSeconds);
     }
 

@@ -22,6 +22,7 @@ public class EventLobbyPanel : MonoBehaviour {
 
     private string _kind = "event";
     private Coroutine _fadeRoutine;
+    private GameObject _listGhost;
     private readonly List<GameObject> _spawned = new List<GameObject>();
     private static readonly Color TabActive = new Color(1f, 0.62f, 0.08f, 1f);
     private static readonly Color TabIdle = new Color(0.08f, 0.11f, 0.18f, 1f);
@@ -78,22 +79,52 @@ public class EventLobbyPanel : MonoBehaviour {
     }
 
     private void SwitchKind(string kind) {
-        if (_fadeRoutine != null) return;
         bool same = kind == _kind;
         _kind = kind;
         ApplyTabVisual();
-        if (same || listRoot == null || !listRoot.activeSelf) {
+        if (same) {
             RequestList();
             return;
         }
+        if (listRoot == null || !listRoot.activeSelf) {
+            RequestList();
+            return;
+        }
+        StopFade();
         _fadeRoutine = StartCoroutine(SwitchKindRoutine());
     }
 
     private IEnumerator SwitchKindRoutine() {
-        yield return WindowFadeTransition.FadeOverlayOut(listRoot, WindowFadeTransition.DurationSeconds);
+        _listGhost = Instantiate(listRoot, listRoot.transform.parent);
+        _listGhost.name = "EventListFadeGhost";
+        _listGhost.transform.SetSiblingIndex(listRoot.transform.GetSiblingIndex());
+        CanvasGroup ghostCg = WindowFadeTransition.GetOrAddCanvasGroup(_listGhost);
+        ghostCg.interactable = false;
+        ghostCg.blocksRaycasts = false;
+        ClearListImmediate();
+        listRoot.SetActive(false);
+        yield return WindowFadeTransition.CrossFade(_listGhost, listRoot, WindowFadeTransition.DurationSeconds);
+        DestroyListGhost();
         RequestList();
-        yield return WindowFadeTransition.FadeOverlayIn(listRoot, WindowFadeTransition.DurationSeconds);
         _fadeRoutine = null;
+    }
+
+    private void ClearListImmediate() {
+        foreach (var go in _spawned) {
+            if (go != null) Destroy(go);
+        }
+        _spawned.Clear();
+        HideEditorExamples();
+        if (emptyHint != null) {
+            emptyHint.gameObject.SetActive(true);
+            emptyHint.text = _kind == "base" ? "暂无基地" : "暂无赛事";
+        }
+    }
+
+    private void DestroyListGhost() {
+        if (_listGhost == null) return;
+        Destroy(_listGhost);
+        _listGhost = null;
     }
 
     private void ApplyTabVisual() {
@@ -135,7 +166,7 @@ public class EventLobbyPanel : MonoBehaviour {
             _fadeRoutine = null;
             yield break;
         }
-        yield return WindowFadeTransition.FadeSwapMany(
+        yield return WindowFadeTransition.CrossFade(
             new[] { detailGo },
             ListChromeRoots(),
             WindowFadeTransition.DurationSeconds);
@@ -152,26 +183,17 @@ public class EventLobbyPanel : MonoBehaviour {
     }
 
     public void OpenDetail(string eventId) {
-        if (string.IsNullOrEmpty(eventId) || detailPanel == null || _fadeRoutine != null) return;
+        if (string.IsNullOrEmpty(eventId) || detailPanel == null) return;
+        StopFade();
         _fadeRoutine = StartCoroutine(OpenDetailRoutine(eventId));
     }
 
     private IEnumerator OpenDetailRoutine(string eventId) {
-        var fadeOut = new List<(GameObject go, CanvasGroup cg)>();
-        var fadeIn = new List<(GameObject go, CanvasGroup cg)>();
-        GameObject[] chrome = ListChromeRoots();
-        for (int i = 0; i < chrome.Length; i++) {
-            GameObject go = chrome[i];
-            if (go != null && go.activeSelf) {
-                fadeOut.Add((go, WindowFadeTransition.GetOrAddCanvasGroup(go)));
-            }
-        }
-        GameObject detailGo = detailPanel.gameObject;
-        fadeIn.Add((detailGo, WindowFadeTransition.GetOrAddCanvasGroup(detailGo)));
-        WindowFadeTransition.PrepareFadeOut(fadeOut);
-        WindowFadeTransition.PrepareFadeIn(fadeIn);
-        detailPanel.Open(eventId, _kind);
-        yield return WindowFadeTransition.Fade(fadeOut, fadeIn, WindowFadeTransition.DurationSeconds);
+        yield return WindowFadeTransition.CrossFade(
+            ListChromeRoots(),
+            new[] { detailPanel.gameObject },
+            WindowFadeTransition.DurationSeconds,
+            () => detailPanel.Open(eventId, _kind));
         SetListChrome(false);
         _fadeRoutine = null;
     }
@@ -206,6 +228,7 @@ public class EventLobbyPanel : MonoBehaviour {
             StopCoroutine(_fadeRoutine);
             _fadeRoutine = null;
         }
+        DestroyListGhost();
         WindowFadeTransition.Normalize(listRoot);
         WindowFadeTransition.Normalize(SideNav);
         if (detailPanel != null) WindowFadeTransition.Normalize(detailPanel.gameObject);

@@ -184,9 +184,7 @@ async def _handle_register(game_server, user_id, player, message, websocket):
         await _send(websocket, Response(type="event/register", success=False, message="您已通过报名"))
         return
     cfg = game_server_parse_config(event)
-    auto = bool(cfg.get("auto_approve")) or (event.get("kind") == "base" and cfg.get("auto_approve", True))
-    if event.get("kind") == "base" and "auto_approve" not in cfg:
-        auto = True
+    auto = bool(cfg.get("auto_approve"))
     status = "approved" if auto else "pending"
     contact = str(message.get("contact") or "").strip()[:200]
     remark = str(message.get("remark") or "").strip()[:500]
