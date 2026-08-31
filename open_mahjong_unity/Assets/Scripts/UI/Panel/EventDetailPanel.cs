@@ -210,7 +210,7 @@ public class EventDetailPanel : MonoBehaviour {
     private void OnDetail() {
         _detail = EventNetworkManager.Instance != null ? EventNetworkManager.Instance.CurrentDetail : null;
         ApplyHome();
-        createRoomButton.gameObject.SetActive(CanCreateRoom());
+        createRoomButton.gameObject.SetActive(true);
     }
 
     private void OnRooms() {
@@ -299,8 +299,15 @@ public class EventDetailPanel : MonoBehaviour {
         EventEntrySummary summary = detail != null ? detail.entry_summary : null;
         return
             $"{FormatSwitch("自动通过报名", summary != null && summary.auto_approve)}\n" +
-            $"{FormatSwitch("允许未报名玩家创建房间", summary != null && summary.unregistered_can_create_room)}\n" +
+            $"{FormatCreateRoomPermission(summary)}\n" +
             FormatSwitch("允许未报名玩家进入队列", summary != null && summary.unregistered_can_ready);
+    }
+
+    private string FormatCreateRoomPermission(EventEntrySummary summary) {
+        string perm = summary != null ? summary.ResolvedCreateRoomPermission() : "admin";
+        string label = perm == "all" ? "所有" : perm == "registered" ? "已报名" : "管理员";
+        Color color = perm == "all" ? qualifyOkColor : perm == "registered" ? statusIdleColor : qualifyNoneColor;
+        return Colorize($"创建房间权限：{label}", color);
     }
 
     private string FormatSwitch(string label, bool on) {
@@ -489,15 +496,36 @@ public class EventDetailPanel : MonoBehaviour {
     private bool CanCreateRoom() {
         if (_detail == null) return false;
         if (_detail.is_admin) return true;
-        EventEntrySummary summary = _detail.entry_summary;
-        if (summary != null && summary.unregistered_can_create_room) return true;
-        bool approved = _detail.registration != null && _detail.registration.status == "approved";
-        return summary != null && summary.member_can_create_room && approved;
+        string perm = _detail.entry_summary != null
+            ? _detail.entry_summary.ResolvedCreateRoomPermission()
+            : "admin";
+        if (perm == "all") return true;
+        if (perm != "registered") return false;
+        return _detail.registration != null && _detail.registration.status == "approved";
+    }
+
+    private string CreateRoomDeniedTip() {
+        string perm = _detail != null && _detail.entry_summary != null
+            ? _detail.entry_summary.ResolvedCreateRoomPermission()
+            : "admin";
+        if (perm == "admin") {
+            bool isBase = (_detail != null ? _detail.kind : _kind) == "base";
+            return isBase ? "本基地仅限管理员创建房间" : "本赛事仅限管理员创建房间";
+        }
+        return "报名后可以创建房间";
     }
 
     private void OpenVenueCreatePanel() {
+        if (!IsLoggedIn()) {
+            NotificationManager.Instance.ShowTip("event", false, "请先登录后再创建房间");
+            return;
+        }
+        if (_detail == null) {
+            NotificationManager.Instance.ShowTip("event", false, "场馆信息加载中");
+            return;
+        }
         if (!CanCreateRoom()) {
-            NotificationManager.Instance.ShowTip("event", false, "当前没有建房权限");
+            NotificationManager.Instance.ShowTip("event", false, CreateRoomDeniedTip());
             return;
         }
         if (UserDataManager.Instance.RoomId != UserDataManager.ROOM_ID_NONE) {

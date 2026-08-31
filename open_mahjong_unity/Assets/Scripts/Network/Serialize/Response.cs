@@ -69,6 +69,18 @@ public class EventEntrySummary {
     public bool auto_approve;
     public bool unregistered_can_create_room;
     public bool unregistered_can_ready;
+    public string create_room_permission;
+
+    public string ResolvedCreateRoomPermission() {
+        if (create_room_permission == "all"
+            || create_room_permission == "registered"
+            || create_room_permission == "admin") {
+            return create_room_permission;
+        }
+        if (unregistered_can_create_room) return "all";
+        if (member_can_create_room) return "registered";
+        return "admin";
+    }
 }
 
 public class EventAnnouncementInfo {

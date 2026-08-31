@@ -34,6 +34,7 @@ def _public_entry_summary(entry_config: dict) -> dict:
         "auto_approve": bool(cfg.get("auto_approve", False)),
         "unregistered_can_create_room": bool(cfg.get("unregistered_can_create_room", False)),
         "unregistered_can_ready": bool(cfg.get("unregistered_can_ready", False)),
+        "create_room_permission": cfg.get("create_room_permission") or "admin",
     }
 
 
@@ -83,7 +84,7 @@ async def handle_event_message(game_server, Connect_id: str, message: dict, webs
                 kind = None
             events = db.list_public_active_venues(kind)
             for item in events:
-                item["entry_summary"] = _public_entry_summary(item.get("entry_config") or {})
+                item["entry_summary"] = _public_entry_summary(game_server_parse_config(item))
                 item.pop("entry_config", None)
             await _send(
                 websocket,

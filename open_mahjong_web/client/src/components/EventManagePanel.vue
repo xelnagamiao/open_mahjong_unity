@@ -362,11 +362,12 @@
             <el-form-item label="自动通过报名">
               <el-switch v-model="entryForm.auto_approve" />
             </el-form-item>
-            <el-form-item label="已通过成员可自行创建房间">
-              <el-switch v-model="entryForm.member_can_create_room" />
-            </el-form-item>
-            <el-form-item label="允许未报名玩家创建房间">
-              <el-switch v-model="entryForm.unregistered_can_create_room" />
+            <el-form-item label="创建房间权限">
+              <el-radio-group v-model="entryForm.create_room_permission">
+                <el-radio-button label="all">所有</el-radio-button>
+                <el-radio-button label="registered">已报名</el-radio-button>
+                <el-radio-button label="admin">管理员</el-radio-button>
+              </el-radio-group>
             </el-form-item>
             <el-form-item label="允许未报名玩家进入玩家队列">
               <el-switch v-model="entryForm.unregistered_can_ready" />
@@ -794,8 +795,7 @@ const savingEntry = ref(false)
 const entryForm = reactive({
   forbid_tourist: false,
   auto_approve: false,
-  member_can_create_room: false,
-  unregistered_can_create_room: false,
+  create_room_permission: 'admin',
   unregistered_can_ready: false,
   join_code: '',
 })
@@ -1282,12 +1282,19 @@ async function deleteAnnouncement(row) {
   }
 }
 
+function resolveCreateRoomPermission(src) {
+  const raw = String(src.create_room_permission || '').trim().toLowerCase()
+  if (raw === 'all' || raw === 'registered' || raw === 'admin') return raw
+  if (src.unregistered_can_create_room) return 'all'
+  if (src.member_can_create_room) return 'registered'
+  return 'admin'
+}
+
 function applyEntryForm(cfg) {
   const src = cfg && typeof cfg === 'object' ? cfg : {}
   entryForm.forbid_tourist = Boolean(src.forbid_tourist)
   entryForm.auto_approve = Boolean(src.auto_approve)
-  entryForm.member_can_create_room = Boolean(src.member_can_create_room)
-  entryForm.unregistered_can_create_room = Boolean(src.unregistered_can_create_room)
+  entryForm.create_room_permission = resolveCreateRoomPermission(src)
   entryForm.unregistered_can_ready = Boolean(src.unregistered_can_ready)
   entryForm.join_code = String(src.join_code || '')
 }
@@ -1400,8 +1407,7 @@ async function saveEntryConfig() {
       entry_config: {
         forbid_tourist: entryForm.forbid_tourist,
         auto_approve: entryForm.auto_approve,
-        member_can_create_room: entryForm.member_can_create_room,
-        unregistered_can_create_room: entryForm.unregistered_can_create_room,
+        create_room_permission: entryForm.create_room_permission,
         unregistered_can_ready: entryForm.unregistered_can_ready,
         join_code: entryForm.join_code,
       },

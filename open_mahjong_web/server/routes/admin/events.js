@@ -206,8 +206,8 @@ router.post('/', async (req, res) => {
     }
 
     const entryConfig = kindValue === 'base'
-      ? { forbid_tourist: true, auto_approve: true, member_can_create_room: true, unregistered_can_create_room: false, unregistered_can_ready: false }
-      : { forbid_tourist: false, auto_approve: false, member_can_create_room: false, unregistered_can_create_room: false, unregistered_can_ready: false };
+      ? { forbid_tourist: true, auto_approve: true, create_room_permission: 'registered', member_can_create_room: true, unregistered_can_create_room: false, unregistered_can_ready: false }
+      : { forbid_tourist: false, auto_approve: false, create_room_permission: 'admin', member_can_create_room: false, unregistered_can_create_room: false, unregistered_can_ready: false };
     await client.query('BEGIN');
     await client.query(
       `INSERT INTO events (event_id, name, description, status, created_by, kind, entry_config)
