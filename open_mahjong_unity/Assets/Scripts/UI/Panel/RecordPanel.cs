@@ -97,13 +97,23 @@ public class RecordPanel : MonoBehaviour {
     }
 
     private void ConfirmLoadRecordById() {
-        string id = RecordIdInputField.text.Trim();
-        if (string.IsNullOrEmpty(id)) {
+        string raw = RecordIdInputField.text.Trim();
+        if (string.IsNullOrEmpty(raw)) {
             NotificationManager.Instance.ShowTip("牌谱", false, "请输入牌谱ID");
             return;
         }
+        if (!SharedRecordLink.TryExtractGameId(raw, out string gameId)) {
+            SharedRecordLink.ClearPendingJump();
+            NotificationManager.Instance.ShowTip(
+                "牌谱",
+                false,
+                SharedRecordLink.LooksLikeShareLink(raw) ? "无法从链接中识别牌谱ID" : "请输入牌谱ID"
+            );
+            return;
+        }
+        SharedRecordLink.CapturePosition(raw);
         recordIdInputPopup.Hide();
-        DataNetworkManager.Instance.GetRecordById(id);
+        DataNetworkManager.Instance.GetRecordById(gameId);
     }
 
     private void OnRecordScrollChanged(Vector2 _) {
@@ -263,7 +273,9 @@ public class RecordPanel : MonoBehaviour {
 
         try {
             GameRecordManager.Instance.LoadRecord(recordJson, detail.players);
+            SharedRecordLink.ApplyPendingJumpIfAny();
         } catch (System.Exception e) {
+            SharedRecordLink.ClearPendingJump();
             Debug.LogError($"加载牌谱失败: {e.Message}");
             NotificationManager.Instance.ShowTip("牌谱", false, $"解析牌谱失败: {e.Message}");
         }

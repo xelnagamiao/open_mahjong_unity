@@ -46,12 +46,12 @@ public partial class NormalGameStateManager {
     private void HandleRealtimeKicked(Response response) {
         if (!IsRealtimeSpectator) return;
         NotificationManager.Instance.ShowTip("实时观战", false, response?.message ?? "您已被踢出实时观战");
-        PostGameNavigator.ExitToFriend();
+        PostGameNavigator.ExitToLobby(forceTeardown: true);
     }
 
     private void HandleRealtimeEnded(Response response) {
         if (!IsRealtimeSpectator) return;
         NotificationManager.Instance.ShowTip("实时观战", true, response?.message ?? "被观战的对局已结束");
-        PostGameNavigator.ExitToFriend();
+        PostGameNavigator.ExitToLobby(forceTeardown: true);
     }
 }

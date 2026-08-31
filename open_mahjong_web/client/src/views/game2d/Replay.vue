@@ -283,20 +283,28 @@
 
         <div v-if="!localRecord" class="replay-share">
           <div class="replay-share__split">
-            <button type="button" class="replay-primary-button replay-primary-button--2d" @click="copyShareLink('2d')">
-              {{ copiedKind === '2d' ? '链接已复制' : '复制分享链接' }}
-            </button>
             <div class="replay-share__row">
+              <button type="button" class="replay-primary-button replay-primary-button--2d" @click="copyShareLink('2d')">
+                {{ copiedKind === '2d' ? '链接已复制' : '复制分享链接' }}
+              </button>
               <button
                 type="button"
-                class="replay-primary-button replay-primary-button--node"
-                title="复制当前局数与节点位置链接"
-                @click="copyShareLink('node')"
+                class="replay-primary-button replay-primary-button--2d-node"
+                @click="copyShareLink('2d-node')"
               >
-                {{ copiedKind === 'node' ? '已复制' : '复制当前node' }}
+                {{ copiedKind === '2d-node' ? '已复制' : '复制当前Node' }}
               </button>
+            </div>
+            <div class="replay-share__row">
               <button type="button" class="replay-primary-button replay-primary-button--3d" @click="copyShareLink('3d')">
-                {{ copiedKind === '3d' ? '已复制' : '复制 3D' }}
+                {{ copiedKind === '3d' ? '已复制' : '复制3D链接' }}
+              </button>
+              <button
+                type="button"
+                class="replay-primary-button replay-primary-button--3d-node"
+                @click="copyShareLink('3d-node')"
+              >
+                {{ copiedKind === '3d-node' ? '已复制' : '复制3D Node' }}
               </button>
             </div>
           </div>
@@ -407,6 +415,7 @@ import { mmcrTileToSalasasa, salasasaTileToMmcr } from '@/game2d/salasasa/gameAd
 import { formatFanField, resolveFanLabel } from '@/constants/guessFanCatalog'
 import { formatFanCount, translateFanName } from '@/i18n/fanNames'
 import { locale, roundLabelKey, tr } from '@/i18n'
+import { replaySharePath } from '@/utils/recordShareLink'
 import {
   mmcrSettlementSortKey,
   splitSettlementHand,
@@ -429,7 +438,7 @@ const viewerOriginal = ref(0)
 const actionLabel = ref('局初')
 const playing = ref(false)
 const sceneReady = ref(false)
-const copiedKind = ref<'2d' | '3d' | 'node' | null>(null)
+const copiedKind = ref<'2d' | '2d-node' | '3d' | '3d-node' | null>(null)
 const localRecord = computed(() => isLocalReplayRecord(route.params.gameId))
 const currentScores = ref<number[]>([])
 const showOtherHands = ref(true)
@@ -1435,19 +1444,15 @@ function changeVolume(next: number) {
   scene?.setVolume(volume.value)
 }
 
-async function copyShareLink(kind: '2d' | '3d' | 'node') {
+async function copyShareLink(kind: '2d' | '2d-node' | '3d' | '3d-node') {
   const gameId = String(detail.value?.game_id || route.params.gameId)
-  const path = kind === '3d'
-    ? `/game-unity?recordId=${encodeURIComponent(gameId)}`
-    : kind === 'node'
-      ? `/2d/record/${encodeURIComponent(gameId)}?round=${roundIndex.value + 1}&node=${node.value}`
-      : `/2d/record/${encodeURIComponent(gameId)}`
-  const url = new URL(path, window.location.origin).toString()
+  const round = roundIndex.value + 1
+  const url = new URL(replaySharePath(kind, gameId, round, node.value), window.location.origin).toString()
   try {
     await navigator.clipboard.writeText(url)
     copiedKind.value = kind
-    if (kind === 'node') {
-      ElMessage.success(`已复制当前位置链接（第${roundIndex.value + 1}局 node ${node.value}）`)
+    if (kind === '2d-node' || kind === '3d-node') {
+      ElMessage.success(`已复制${kind === '3d-node' ? '3D' : '2D'}当前位置（第${round}局 node ${node.value}）`)
     }
     window.setTimeout(() => {
       if (copiedKind.value === kind) copiedKind.value = null

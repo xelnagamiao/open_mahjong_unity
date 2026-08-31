@@ -418,7 +418,7 @@ public static class HongqueScoring {
 
         bool heavenly = selfDraw && beforeFirstDiscard && concealed;
         if (heavenly) fans.Add(new FanEntry { Name = "天和", Value = 18 });
-        if (concealed) fans.Add(new FanEntry { Name = "门清", Value = 1 });
+        else if (concealed) fans.Add(new FanEntry { Name = "门清", Value = 1 });
         if (selfDraw && wallEmpty) fans.Add(new FanEntry { Name = "海底", Value = 2 });
         // 清一数、二数均不计碰碰和。
         if (allTriplets && numbers.Count > 2) fans.Add(new FanEntry { Name = "碰碰和", Value = 3 });

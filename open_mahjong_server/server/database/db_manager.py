@@ -1009,6 +1009,26 @@ class DatabaseManager:
                        THEN '{}'::jsonb ELSE '{"unregistered_can_ready": false}'::jsonb END
                 """
             )
+            cursor.execute(
+                """
+                UPDATE events SET entry_config = COALESCE(entry_config, '{}'::jsonb)
+                  || jsonb_build_object(
+                       'create_room_permission',
+                       CASE
+                         WHEN lower(COALESCE(entry_config->>'unregistered_can_create_room', ''))
+                              IN ('true', 't', '1') THEN 'all'
+                         WHEN lower(COALESCE(entry_config->>'member_can_create_room', ''))
+                              IN ('true', 't', '1') THEN 'registered'
+                         ELSE 'admin'
+                       END
+                     )
+                WHERE NOT (
+                  COALESCE(entry_config, '{}'::jsonb) ? 'create_room_permission'
+                  AND COALESCE(entry_config->>'create_room_permission', '')
+                      IN ('all', 'registered', 'admin')
+                )
+                """
+            )
             cursor.execute("SAVEPOINT sp_events_status_chk;")
             try:
                 cursor.execute("ALTER TABLE events DROP CONSTRAINT IF EXISTS events_status_chk;")
@@ -2744,15 +2764,42 @@ class DatabaseManager:
                 self._put_connection(conn)
 
     @staticmethod
+    def _json_bool(value, default: bool = False) -> bool:
+        if isinstance(value, bool):
+            return value
+        if value is None:
+            return default
+        if isinstance(value, (int, float)):
+            return value != 0
+        text = str(value).strip().lower()
+        if text in ("1", "true", "t", "yes", "y", "on"):
+            return True
+        if text in ("0", "false", "f", "no", "n", "off", ""):
+            return False
+        return default
+
+    @staticmethod
     def parse_entry_config(raw) -> Dict[str, Any]:
         parsed: Dict[str, Any] = {}
         if isinstance(raw, dict):
             parsed = dict(raw)
+        elif isinstance(raw, (bytes, bytearray, memoryview)):
+            try:
+                loaded = json.loads(bytes(raw).decode("utf-8"))
+                if isinstance(loaded, dict):
+                    parsed = loaded
+            except (TypeError, ValueError, UnicodeDecodeError):
+                parsed = {}
         elif isinstance(raw, str) and raw.strip():
             try:
                 loaded = json.loads(raw)
                 if isinstance(loaded, dict):
                     parsed = loaded
+            except (TypeError, ValueError):
+                parsed = {}
+        elif raw is not None and hasattr(raw, "items"):
+            try:
+                parsed = dict(raw)
             except (TypeError, ValueError):
                 parsed = {}
         out: Dict[str, Any] = {
@@ -2761,6 +2808,7 @@ class DatabaseManager:
             "member_can_create_room": False,
             "unregistered_can_create_room": False,
             "unregistered_can_ready": False,
+            "create_room_permission": "",
             "join_code": "",
             "min_rank": "",
             "max_rank": "",
@@ -2773,11 +2821,26 @@ class DatabaseManager:
             "unregistered_can_create_room",
             "unregistered_can_ready",
         ):
-            out[key] = bool(out.get(key, False))
+            out[key] = DatabaseManager._json_bool(out.get(key), False)
+        perm = DatabaseManager.resolve_create_room_permission(out)
+        out["create_room_permission"] = perm
+        out["unregistered_can_create_room"] = perm == "all"
+        out["member_can_create_room"] = perm in ("all", "registered")
         out["join_code"] = str(out.get("join_code") or "").strip()
         out["min_rank"] = str(out.get("min_rank") or "")
         out["max_rank"] = str(out.get("max_rank") or "")
         return out
+
+    @staticmethod
+    def resolve_create_room_permission(cfg: Dict[str, Any]) -> str:
+        raw = str((cfg or {}).get("create_room_permission") or "").strip().lower()
+        if raw in ("all", "registered", "admin"):
+            return raw
+        if (cfg or {}).get("unregistered_can_create_room"):
+            return "all"
+        if (cfg or {}).get("member_can_create_room"):
+            return "registered"
+        return "admin"
 
     def list_public_active_venues(self, kind: Optional[str] = None) -> List[Dict[str, Any]]:
         conn = None
@@ -2925,16 +2988,18 @@ class DatabaseManager:
                 UPDATE event_registrations
                    SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
                  WHERE event_id = %s AND user_id = %s
-                   AND status IN ('pending', 'approved')
+                   AND status = 'pending'
                 """,
                 (event_id, user_id),
             )
-            cursor.execute(
-                "DELETE FROM event_ready_pool WHERE event_id = %s AND user_id = %s",
-                (event_id, user_id),
-            )
+            updated = cursor.rowcount
+            if updated:
+                cursor.execute(
+                    "DELETE FROM event_ready_pool WHERE event_id = %s AND user_id = %s",
+                    (event_id, user_id),
+                )
             conn.commit()
-            return cursor.rowcount >= 0
+            return updated > 0
         except Error as e:
             logger.error(f'cancel_event_registration 失败: {e}')
             if conn:

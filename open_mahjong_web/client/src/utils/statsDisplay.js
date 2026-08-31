@@ -96,11 +96,18 @@ export const sumTierFans = (fansByTier, tiers) => {
 
 /**
  * 番种条目：count 为达成数量；传入 winCount 时额外计算 percent（占和牌次数的达成率）；
- * 传入 fanValues 时附加 value（番数）；sortBy 支持 'count'（从多到少）/ 'default'（字典顺序）
+ * 传入 fanValues 时附加 value（番数）；sortBy 支持 'count'（从多到少）/ 'default'（番种表顺序）
  */
 export function buildAllFanEntries(fans, fanDict, winCount, fanValues, sortBy = 'count') {
   const dict = fanDict || {};
-  const entries = Object.keys(dict).map((key) => {
+  const dictKeys = Object.keys(dict);
+  const keys = fanValues
+    ? [
+      ...Object.keys(fanValues).filter((key) => Object.prototype.hasOwnProperty.call(dict, key)),
+      ...dictKeys.filter((key) => !Object.prototype.hasOwnProperty.call(fanValues, key)),
+    ]
+    : dictKeys;
+  const entries = keys.map((key) => {
     const count = Number(fans?.[key]) || 0;
     const entry = { key, label: dict[key] || key, count };
     if (winCount !== undefined && winCount !== null) {

@@ -22,6 +22,8 @@ public class EventNetworkManager : MonoBehaviour {
 
     private string _pendingRoomListEventId;
     private string _lastDetailEventId;
+    private string _latestPublicListKind;
+    private readonly Queue<string> _publicListKinds = new Queue<string>();
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -35,6 +37,14 @@ public class EventNetworkManager : MonoBehaviour {
         if (response == null || string.IsNullOrEmpty(response.type)) return;
         switch (response.type) {
             case "event/list_public":
+                string requestedKind = _publicListKinds.Count > 0
+                    ? _publicListKinds.Dequeue()
+                    : _latestPublicListKind;
+                if (!string.IsNullOrEmpty(requestedKind)
+                    && !string.IsNullOrEmpty(_latestPublicListKind)
+                    && requestedKind != _latestPublicListKind) {
+                    break;
+                }
                 PublicEvents = response.event_list != null
                     ? new List<EventListEntry>(response.event_list)
                     : new List<EventListEntry>();
@@ -103,7 +113,10 @@ public class EventNetworkManager : MonoBehaviour {
     }
 
     public void ListPublicEvents(string kind) {
-        _Send(new { type = "event/list_public", kind });
+        string k = kind == "base" ? "base" : "event";
+        _latestPublicListKind = k;
+        _publicListKinds.Enqueue(k);
+        _Send(new { type = "event/list_public", kind = k });
     }
 
     public void GetEventDetail(string eventId) {

@@ -100,7 +100,7 @@ def test_2_23_4_pattern_is_not_dual_colour() -> None:
 
 def test_rulebook_1008_point_example() -> None:
     # Page 8, first example: all 14 colour levels of number 1 form one long
-    # triplet.  天和与门清叠计后为 16 底、64 番、1024 分。
+    # triplet.  天和不计门清：16 底、63 番、1008 分。
     hand = [f"{letter}{half}1" for letter in "ABCDEFG" for half in "XY"]
     result = best_win_result(
         hand,
@@ -111,14 +111,14 @@ def test_rulebook_1008_point_example() -> None:
     )
     assert result is not None
     assert result["base"] == 16
-    assert result["fan_total"] == 64
-    assert result["points"] == 1024
+    assert result["fan_total"] == 63
+    assert result["points"] == 1008
     assert {fan["name"] for fan in result["fans"]} == {
-        "天和", "门清", "清一数", "全彩", "金龙", "彩虹", "全带幺", "清刻",
+        "天和", "清一数", "全彩", "金龙", "彩虹", "全带幺", "清刻",
     }
 
 
-def test_heavenly_win_also_counts_menqing() -> None:
+def test_heavenly_win_does_not_count_menqing() -> None:
     hand = (
         "AX1 AY9 BX1 BY9 CX1 CY9 DX9 DY1 EX9 EY1 FX9 FY1 GX9 GY1"
     ).split()
@@ -132,9 +132,9 @@ def test_heavenly_win_also_counts_menqing() -> None:
     assert result is not None
     names = {fan["name"]: fan["total"] for fan in result["fans"]}
     assert names["天和"] == 18
-    assert names["门清"] == 1
-    assert result["fan_total"] == 51
-    assert result["points"] == 357
+    assert "门清" not in names
+    assert result["fan_total"] == 50
+    assert result["points"] == 350
 
 
 def test_exposed_groups_with_concealed_group_complete_the_win() -> None:

@@ -83,7 +83,7 @@ public static class TilePackImporter {
         }
 
         if (result.HandPngs.Count == 0 || result.TablePngs.Count == 0) {
-            result.Error = "压缩包必须同时包含「手牌牌面」(hand/) 和「3D牌面」(table/) 两个文件夹";
+            result.Error = "压缩包必须同时包含 hand/ 和 table/ 两个文件夹（也可用「手牌牌面」「3D牌面」）";
         }
         else {
             int missing = 0;
@@ -149,7 +149,7 @@ public static class TilePackImporter {
         bool isTable = TilePackIds.IsTableFolder(full);
         bool isHand = TilePackIds.IsHandFolder(full);
         if (!isTable && !isHand) {
-            result.Warnings.Add("牌面 PNG 必须放在 手牌牌面/ 或 3D牌面/（也可用 hand/、table/）: " + full);
+            result.Warnings.Add("牌面 PNG 必须放在 hand/ 或 table/（也可用 手牌牌面/、3D牌面/）: " + full);
             return;
         }
         if (isTable) {

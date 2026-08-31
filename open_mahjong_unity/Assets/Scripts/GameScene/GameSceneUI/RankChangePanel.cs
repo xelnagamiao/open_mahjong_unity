@@ -123,6 +123,6 @@ public class RankChangePanel : MonoBehaviour {
 
     private void OnConfirm() {
         gameObject.SetActive(false);
-        PostGameNavigator.NavigateAfterGameEnd();
+        PostGameNavigator.ExitToLobby(forceTeardown: true);
     }
 }

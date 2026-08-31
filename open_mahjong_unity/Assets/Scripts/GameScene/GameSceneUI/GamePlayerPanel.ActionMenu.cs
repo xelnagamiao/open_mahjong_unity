@@ -24,9 +24,16 @@ public partial class GamePlayerPanel {
         if (actionMenu != null) actionMenu.SetActive(false);
     }
 
-    /// <summary>对局内点头像/面板时弹出信息+屏蔽菜单；返回 true 表示已处理。</summary>
+    /// <summary>对局内点头像/面板：自己直接打开资料；他人弹出信息+屏蔽菜单。返回 true 表示已处理。</summary>
     public bool TryHandleProfileClick() {
         if (_boundState != "gamestate") return false;
+
+        if (IsSelfPanel()) {
+            GameCanvas.Instance?.HideAllPlayerActionMenus();
+            ProfileOnClick.OpenPlayerInfo(_boundUserId);
+            return true;
+        }
+
         EnsureActionMenu();
         if (actionMenu == null) return false;
 
@@ -37,6 +44,7 @@ public partial class GamePlayerPanel {
         RefreshMuteVisual();
         if (infoButton != null) infoButton.gameObject.SetActive(true);
         if (muteButton != null) muteButton.gameObject.SetActive(_boundUserId >= 10);
+        ApplyActionMenuPosition();
         actionMenu.SetActive(true);
         actionMenu.transform.SetAsLastSibling();
         RectTransform menuRt = actionMenu.transform as RectTransform;
@@ -80,11 +88,6 @@ public partial class GamePlayerPanel {
         bool muted = mgr.ToggleStickerMute(_boundUserId);
         if (muted) ClearSticker();
         RefreshMuteVisual();
-        string name = playerNameText != null ? playerNameText.text : "该玩家";
-        NotificationManager.Instance?.ShowTip(
-            "system",
-            true,
-            muted ? $"已屏蔽 {name} 的表情（本场有效）" : $"已恢复显示 {name} 的表情");
     }
 
     void RefreshMuteVisual() {
@@ -229,15 +232,27 @@ public partial class GamePlayerPanel {
         return button;
     }
 
+    bool IsSelfPanel() {
+        if (_boundPosition == "self") return true;
+        if (gameObject.name == "#SelfPlayer") return true;
+        return GameCanvas.Instance != null && GameCanvas.Instance.PlayerSelfPanel == this;
+    }
+
+    bool IsLeftPanel() {
+        if (_boundPosition == "left") return true;
+        return GameCanvas.Instance != null && GameCanvas.Instance.PlayerLeftPanel == this;
+    }
+
     void ApplyActionMenuPosition() {
         if (actionMenu == null) return;
         RectTransform rt = actionMenu.transform as RectTransform;
         if (rt == null) return;
-        bool placeLeft = gameObject.name != "#SelfPlayer";
+        // 左侧玩家贴屏幕左缘，菜单放到头像右侧；其余对手放到头像左侧。
+        bool placeOnRight = IsLeftPanel();
         rt.anchorMin = new Vector2(0.5f, 0.5f);
         rt.anchorMax = new Vector2(0.5f, 0.5f);
-        rt.pivot = new Vector2(placeLeft ? 1f : 0f, 0.5f);
-        rt.anchoredPosition = new Vector2(placeLeft ? -58f : 58f, 54f);
+        rt.pivot = new Vector2(placeOnRight ? 0f : 1f, 0.5f);
+        rt.anchoredPosition = new Vector2(placeOnRight ? 58f : -58f, 54f);
     }
 
     void LoadMuteSpritesIfNeeded() {

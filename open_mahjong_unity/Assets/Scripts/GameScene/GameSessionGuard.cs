@@ -5,17 +5,26 @@
 /// </summary>
 public static class GameSessionGuard {
     /// <summary>
+    /// 是否处于实时观战、延时观战或待加入的延时观战（不含座位对局）。
+    /// </summary>
+    public static bool IsSpectatorSession {
+        get {
+            var gsm = NormalGameStateManager.Instance;
+            if (gsm != null && gsm.IsRealtimeSpectator) return true;
+            if (GameRecordManager.HasPendingDelayedSpectatorSessionStatic) return true;
+            var grm = GameRecordManager.Instance;
+            return grm != null && grm.IsSpectating;
+        }
+    }
+
+    /// <summary>
     /// 是否处于互斥的进行中会话：对局、实时观战、延时观战（牌谱流观战）。
     /// </summary>
     public static bool HasExclusiveSession {
         get {
             var gsm = NormalGameStateManager.Instance;
-            if (gsm != null && (gsm.IsGameActive || gsm.IsRealtimeSpectator)) {
-                return true;
-            }
-            if (GameRecordManager.HasPendingDelayedSpectatorSessionStatic) return true;
-            var grm = GameRecordManager.Instance;
-            return grm != null && grm.IsSpectating;
+            if (gsm != null && gsm.IsGameActive) return true;
+            return IsSpectatorSession;
         }
     }
 

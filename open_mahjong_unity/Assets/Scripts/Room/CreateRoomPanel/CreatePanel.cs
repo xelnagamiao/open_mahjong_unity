@@ -285,8 +285,10 @@ public partial class CreatePanel : MonoBehaviour {
         InputHepaiLimitPlane.SetActive(false);
         if (CuoheTypePanel != null) CuoheTypePanel.SetActive(false);
 
-        HepaiWayDropdown.ClearOptions();
-        HepaiWayDropdown.AddOptions(new List<string> { "允许多家和牌", "三家和了流局", "头跳" });
+        if (chooseRule != null && chooseRule.options.Count > 0) {
+            _ruleState = CreateRoomRuleTextConfigCatalog.GetRule(chooseRule.value).Rule;
+        }
+        RebuildHepaiWayOptions();
 
         passwordToggle.onValueChanged.AddListener(TogglePassword);
         SetRandomSeedToggle.onValueChanged.AddListener(ToggleSetRandomSeed);
@@ -305,8 +307,6 @@ public partial class CreatePanel : MonoBehaviour {
         ApplyRuleDefaults(_ruleState);
         RefreshVisibility();
         RefreshSubRuleDescription();
-
-        NetworkManager.Instance.CreateRoomResponse.AddListener(CreateRoomResponse);
     }
 
     private void OnDisable() {
@@ -371,7 +371,10 @@ public partial class CreatePanel : MonoBehaviour {
             case CfgAllowKuikae:    if (KuikaeToggle != null) KuikaeToggle.isOn = !(bool)value; break;
             case CfgOpenXiru:       if (XiruToggle != null) XiruToggle.isOn = (bool)value; break;
             case CfgOpenTobi:       if (TobiToggle != null) TobiToggle.isOn = (bool)value; break;
-            case CfgHepaiWay:       HepaiWayDropdown.value = (int)value; break;
+            case CfgHepaiWay:
+                HepaiWayDropdown.value = (int)value;
+                HepaiWayDropdown.RefreshShownValue();
+                break;
             case CfgTacticalCall:   TacticalCallToggle.isOn = (bool)value; break;
             case CfgBloodBattle:    if (BloodBattleToggle != null) BloodBattleToggle.isOn = (bool)value; break;
             case CfgCsOpenKongCount: SetChangshaOpenKongCount((int)value); break;
@@ -868,7 +871,7 @@ public partial class CreatePanel : MonoBehaviour {
             0 => "multi_ron",
             1 => "three_ron_abort",
             2 => "head_bump",
-            _ => "head_bump",
+            _ => "multi_ron",
         };
 
         int hepaiLimit = (int)RuleConfigs["riichi"][CfgHepaiLimit];
@@ -1193,10 +1196,6 @@ public partial class CreatePanel : MonoBehaviour {
             4 => 40,
             _ => 5
         };
-    }
-
-    private void CreateRoomResponse(bool success, string message) {
-        Debug.Log($"创建房间响应: {success}, {message}");
     }
 
     private void TogglePassword(bool isOn) {

@@ -31,12 +31,12 @@ public static class RankConfig {
     // 国标番种英文 -> 中文
     public static readonly Dictionary<string, string> GuobiaoFanTranslation = new Dictionary<string, string> {
         {"dasixi", "大四喜"}, {"dasanyuan", "大三元"}, {"lvyise", "绿一色"},
-        {"jiulianbaodeng", "九莲宝灯"}, {"sigang", "四杠"}, {"sangang", "三杠"},
+        {"jiulianbaodeng", "九莲宝灯"}, {"sigang", "四杠"},
         {"lianqidui", "连七对"}, {"shisanyao", "十三幺"}, {"qingyaojiu", "清幺九"},
         {"xiaosixi", "小四喜"}, {"xiaosanyuan", "小三元"}, {"ziyise", "字一色"},
         {"sianke", "四暗刻"}, {"yiseshuanglonghui", "一色双龙会"},
         {"yisesitongshun", "一色四同顺"}, {"yisesijiegao", "一色四节高"},
-        {"yisesibugao", "一色四步高"}, {"hunyaojiu", "混幺九"}, {"qiduizi", "七对"},
+        {"yisesibugao", "一色四步高"}, {"sangang", "三杠"}, {"hunyaojiu", "混幺九"}, {"qiduizi", "七对"},
         {"qixingbukao", "七星不靠"}, {"quanshuangke", "全双刻"}, {"qingyise", "清一色"},
         {"yisesantongshun", "一色三同顺"}, {"yisesanjiegao", "一色三节高"},
         {"quanda", "全大"}, {"quanzhong", "全中"}, {"quanxiao", "全小"},

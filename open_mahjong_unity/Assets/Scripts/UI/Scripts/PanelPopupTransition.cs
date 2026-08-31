@@ -17,10 +17,15 @@ public class PanelPopupTransition : MonoBehaviour {
     private CanvasGroup _cg;
     private RectTransform _rt;
     private Coroutine _routine;
+    private bool _shown;
 
     private void Awake() {
         _cg = GetComponent<CanvasGroup>();
         _rt = GetComponent<RectTransform>();
+        // Overlay 上的密码框场景默认激活；登录页不会走 RoomListPanel.Start。
+        if (!_shown && gameObject.name.StartsWith("PasswordInputPanel")) {
+            gameObject.SetActive(false);
+        }
     }
 
     private void EnsureComponents() {
@@ -33,6 +38,7 @@ public class PanelPopupTransition : MonoBehaviour {
     /// </summary>
     public void Show(Action onComplete = null) {
         EnsureComponents();
+        _shown = true;
         gameObject.SetActive(true);
         _cg.alpha = 0f;
         _rt.localScale = Vector3.one * OvershootScale;

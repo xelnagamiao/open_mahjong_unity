@@ -93,7 +93,7 @@ const items = [
   { to: '/game-unity', label: '进入平台', match: (p) => p.startsWith('/game-unity') },
   { to: '/2d', label: '2D版', match: (p) => p === '/2d' || p.startsWith('/2d/') },
   { href: STEAM_STORE_URL, label: 'Steam商店' },
-  { to: '/player-data', label: '历史记录', match: (p) => p === '/player-data' || p === '/player-data/' },
+  { to: '/player-data', label: '历史记录', match: (p) => p === '/player-data' || p === '/player-data/' || p.startsWith('/player-data/analysis') },
   { to: '/player-data/platform', label: '数据统计', match: (p) => p.includes('/platform') },
   { to: '/paili', label: '牌理' },
   { to: '/rulebook', label: '规则书', match: (p) => p.startsWith('/rulebook') },

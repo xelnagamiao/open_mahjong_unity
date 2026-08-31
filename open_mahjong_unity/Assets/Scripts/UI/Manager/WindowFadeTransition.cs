@@ -19,6 +19,44 @@ public static class WindowFadeTransition {
         cg.blocksRaycasts = true;
     }
 
+    /// <summary>
+    /// 打断淡入淡出后立刻收到目标态：隐藏节点关掉并复位 CanvasGroup，显示节点打开并复位。
+    /// StopCoroutine 不会走到 FinishAfterFade，必须由调用方 Snap。
+    /// </summary>
+    public static void Snap(GameObject hide, GameObject show) {
+        Snap(
+            hide != null ? new[] { hide } : null,
+            show != null ? new[] { show } : null);
+    }
+
+    public static void Snap(GameObject hide, GameObject[] show) {
+        Snap(hide != null ? new[] { hide } : null, show);
+    }
+
+    public static void Snap(GameObject[] hide, GameObject show) {
+        Snap(hide, show != null ? new[] { show } : null);
+    }
+
+    public static void Snap(GameObject[] hide, GameObject[] show) {
+        var hideSet = new HashSet<GameObject>();
+        if (hide != null) {
+            for (int i = 0; i < hide.Length; i++) {
+                GameObject go = hide[i];
+                if (go == null || !hideSet.Add(go)) continue;
+                go.SetActive(false);
+                Normalize(go);
+            }
+        }
+        if (show != null) {
+            for (int i = 0; i < show.Length; i++) {
+                GameObject go = show[i];
+                if (go == null || hideSet.Contains(go)) continue;
+                go.SetActive(true);
+                Normalize(go);
+            }
+        }
+    }
+
     /// <summary>单面板淡入：与主窗口切换相同的 Prepare + Fade 流程。</summary>
     public static IEnumerator FadeOverlayIn(GameObject panel, float durationSeconds) {
         var fadeIn = new List<(GameObject go, CanvasGroup cg)> { (panel, EnsureCanvasGroup(panel)) };

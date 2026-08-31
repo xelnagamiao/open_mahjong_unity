@@ -98,17 +98,19 @@
 }
 .replay-share__row {
   display: grid;
-  grid-template-columns: 3fr 1fr;
+  grid-template-columns: 1fr 1fr;
   overflow: hidden;
   border-radius: 6px;
 }
-.replay-primary-button { width: 100%; min-width: 0; min-height: 38px; border-radius: 0; color: #fff; font-size: 14px; font-weight: 700; }
-.replay-primary-button--2d { border-color: #c86818; background: #d8741f; }
+.replay-primary-button { width: 100%; min-width: 0; min-height: 38px; border: 0; border-radius: 0; color: #fff; font-size: 14px; font-weight: 700; white-space: nowrap; padding: 0 8px; }
+.replay-primary-button--2d { background: #d8741f; }
 .replay-primary-button--2d:hover { background: #e17c25; }
-.replay-primary-button--node { border-color: #3d6d99; background: #3a6a94; font-size: 12px; }
-.replay-primary-button--node:hover { background: #4679a8; }
-.replay-primary-button--3d { border-color: #9f3030; background: #b93b3b; font-size: 12px; }
-.replay-primary-button--3d:hover { background: #c84848; }
+.replay-primary-button--2d-node { background: #287c4b; }
+.replay-primary-button--2d-node:hover { background: #30945a; }
+.replay-primary-button--3d { background: #315f9d; }
+.replay-primary-button--3d:hover { background: #3b72b5; }
+.replay-primary-button--3d-node { background: #b93b3b; }
+.replay-primary-button--3d-node:hover { background: #c84848; }
 .replay-keyboard { color: #aeb4b6; font-size: 11px; line-height: 1.5; }
 .replay-header,
 .replay-share,

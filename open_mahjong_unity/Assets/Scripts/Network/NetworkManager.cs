@@ -33,7 +33,6 @@ public class NetworkManager : MonoBehaviour {
     private const string MatchFoundTypeJson = "\"type\":\"match/match_found\"";
 
     public GameEvent ErrorResponse = new GameEvent(); // 定义错误响应事件
-    public GameEvent CreateRoomResponse = new GameEvent(); // 定义创建房间响应事件
 
     // 心跳/延迟测量
     private const float PingIntervalSeconds = 2f; // ping 发送间隔

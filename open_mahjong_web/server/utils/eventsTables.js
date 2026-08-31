@@ -202,6 +202,24 @@ async function ensureEventsTables() {
       || CASE WHEN COALESCE(entry_config, '{}'::jsonb) ? 'unregistered_can_ready'
            THEN '{}'::jsonb ELSE '{"unregistered_can_ready": false}'::jsonb END
   `);
+  await pool.query(`
+    UPDATE events SET entry_config = COALESCE(entry_config, '{}'::jsonb)
+      || jsonb_build_object(
+           'create_room_permission',
+           CASE
+             WHEN lower(COALESCE(entry_config->>'unregistered_can_create_room', ''))
+                  IN ('true', 't', '1') THEN 'all'
+             WHEN lower(COALESCE(entry_config->>'member_can_create_room', ''))
+                  IN ('true', 't', '1') THEN 'registered'
+             ELSE 'admin'
+           END
+         )
+    WHERE NOT (
+      COALESCE(entry_config, '{}'::jsonb) ? 'create_room_permission'
+      AND COALESCE(entry_config->>'create_room_permission', '')
+          IN ('all', 'registered', 'admin')
+    )
+  `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_events_kind_status ON events(kind, status)`);
 
   await pool.query(`

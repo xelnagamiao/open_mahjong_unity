@@ -48,6 +48,30 @@ function parseUserId(value, label = '\u7528\u6237 ID') {
   return { value: id };
 }
 
+function resolveCreateRoomPermission(cfg) {
+  const raw = String((cfg && cfg.create_room_permission) || '').trim().toLowerCase();
+  if (raw === 'all' || raw === 'registered' || raw === 'admin') return raw;
+  if (cfg && cfg.unregistered_can_create_room) return 'all';
+  if (cfg && cfg.member_can_create_room) return 'registered';
+  return 'admin';
+}
+
+function applyCreateRoomPermission(cfg, permission) {
+  const source = { ...(cfg || {}) };
+  if (permission === '') {
+    source.create_room_permission = '';
+  } else if (permission) {
+    source.create_room_permission = permission;
+  }
+  const perm = resolveCreateRoomPermission(source);
+  return {
+    ...source,
+    create_room_permission: perm,
+    unregistered_can_create_room: perm === 'all',
+    member_can_create_room: perm === 'all' || perm === 'registered',
+  };
+}
+
 function parseEntryConfig(raw) {
   let cfg = raw;
   if (typeof cfg === 'string') {
@@ -58,37 +82,47 @@ function parseEntryConfig(raw) {
     }
   }
   if (!cfg || typeof cfg !== 'object' || Array.isArray(cfg)) cfg = {};
-  return {
+  const parsed = {
     forbid_tourist: Boolean(cfg.forbid_tourist),
     auto_approve: Boolean(cfg.auto_approve),
     member_can_create_room: Boolean(cfg.member_can_create_room),
     unregistered_can_create_room: Boolean(cfg.unregistered_can_create_room),
     unregistered_can_ready: Boolean(cfg.unregistered_can_ready),
+    create_room_permission: cfg.create_room_permission,
     join_code: String(cfg.join_code || '').trim().slice(0, 32),
   };
+  return applyCreateRoomPermission(parsed, parsed.create_room_permission);
 }
 
 function normalizeEntryConfigBody(body, current) {
   const src = body && typeof body === 'object' ? body : {};
   const base = parseEntryConfig(current);
-  const next = { ...base };
+  let next = { ...base };
   if (Object.prototype.hasOwnProperty.call(src, 'forbid_tourist')) {
     next.forbid_tourist = Boolean(src.forbid_tourist);
   }
   if (Object.prototype.hasOwnProperty.call(src, 'auto_approve')) {
     next.auto_approve = Boolean(src.auto_approve);
   }
-  if (Object.prototype.hasOwnProperty.call(src, 'member_can_create_room')) {
-    next.member_can_create_room = Boolean(src.member_can_create_room);
-  }
-  if (Object.prototype.hasOwnProperty.call(src, 'unregistered_can_create_room')) {
-    next.unregistered_can_create_room = Boolean(src.unregistered_can_create_room);
-  }
   if (Object.prototype.hasOwnProperty.call(src, 'unregistered_can_ready')) {
     next.unregistered_can_ready = Boolean(src.unregistered_can_ready);
   }
   if (Object.prototype.hasOwnProperty.call(src, 'join_code')) {
     next.join_code = String(src.join_code || '').trim().slice(0, 32);
+  }
+  if (Object.prototype.hasOwnProperty.call(src, 'create_room_permission')) {
+    next = applyCreateRoomPermission(next, src.create_room_permission);
+  } else if (
+    Object.prototype.hasOwnProperty.call(src, 'member_can_create_room')
+    || Object.prototype.hasOwnProperty.call(src, 'unregistered_can_create_room')
+  ) {
+    if (Object.prototype.hasOwnProperty.call(src, 'member_can_create_room')) {
+      next.member_can_create_room = Boolean(src.member_can_create_room);
+    }
+    if (Object.prototype.hasOwnProperty.call(src, 'unregistered_can_create_room')) {
+      next.unregistered_can_create_room = Boolean(src.unregistered_can_create_room);
+    }
+    next = applyCreateRoomPermission(next, '');
   }
   return next;
 }

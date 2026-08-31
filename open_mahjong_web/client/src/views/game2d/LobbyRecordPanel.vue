@@ -6,7 +6,7 @@
         <h2 id="record-browser-title">牌谱阅览</h2>
       </div>
       <div class="record-browser__lookup">
-        <el-input v-model="recordId" clearable autocomplete="off" placeholder="牌谱 ID 或分享链接" @keyup.enter="openRecord" />
+        <el-input v-model="recordId" clearable autocomplete="off" placeholder="牌谱 ID 或 2D/3D 分享链接" @keyup.enter="openRecord" />
         <el-button type="primary" @click="openRecord">打开</el-button>
       </div>
     </header>
@@ -61,6 +61,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { game2dPlayerApi, publicApiGet } from '@/game2d/salasasa/api'
+import { parseRecordShareInput } from '@/utils/recordShareLink'
 
 const router = useRouter()
 const auth = usePlayerAuthStore()
@@ -106,19 +107,22 @@ function playerName(player) {
   return value.length > 10 ? `${value.slice(0, 10)}…` : value
 }
 
-function openGame(gameId) {
-  router.push(`/2d/record/${encodeURIComponent(String(gameId))}`)
+function openGame(gameId, query = {}) {
+  const path = `/2d/record/${encodeURIComponent(String(gameId))}`
+  const hasQuery = query.round != null || query.node != null
+  router.push(hasQuery ? { path, query } : path)
 }
 
 function openRecord() {
-  const raw = recordId.value.trim()
-  const fromLink = raw.match(/\/2d\/record\/([0-9A-Za-z]{1,16})(?:[/?#]|$)/i)?.[1]
-  const gameId = fromLink || raw
-  if (!/^[0-9A-Za-z]{1,16}$/.test(gameId)) {
-    ElMessage.warning('请输入正确的牌谱 ID 或 2D 牌谱分享链接')
+  const parsed = parseRecordShareInput(recordId.value)
+  if (!parsed) {
+    ElMessage.warning('请输入正确的牌谱 ID 或 2D/3D 牌谱分享链接')
     return
   }
-  openGame(gameId)
+  const query = {}
+  if (parsed.round != null) query.round = String(parsed.round)
+  if (parsed.node != null) query.node = String(parsed.node)
+  openGame(parsed.gameId, query)
 }
 
 function goLogin() {

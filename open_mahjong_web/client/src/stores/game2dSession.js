@@ -50,6 +50,8 @@ export const useGame2dSessionStore = defineStore('game2dSession', {
       this.matchFound = false
     },
     applyServerMatchState(message) {
+      // match_committed 覆盖整场对局；已进桌后大厅轮询不得再显示「匹配成功」。
+      if (salasasaClient.lastGameStart) return
       if (message.match_committed) {
         this.matchFound = true
         if (message.my_queue) this.joinedQueue = message.my_queue

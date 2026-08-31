@@ -410,7 +410,7 @@ public partial class GameRecordManager {
     }
 
     private void QuitRecord() {
-        PostGameNavigator.ExitToRecord();
+        PostGameNavigator.ExitToLobby(forceTeardown: true);
     }
 
     private static readonly HashSet<string> XunmuPauseActionKeys = new HashSet<string> {

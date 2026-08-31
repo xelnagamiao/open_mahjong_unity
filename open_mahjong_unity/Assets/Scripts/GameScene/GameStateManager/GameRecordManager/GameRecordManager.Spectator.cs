@@ -282,7 +282,7 @@ public partial class GameRecordManager {
     }
 
     private void OnClickExitSpectator() {
-        PostGameNavigator.ExitToSpectator();
+        PostGameNavigator.ExitToLobby();
     }
 
     private void ShowSpectatorModePanel(bool show) {

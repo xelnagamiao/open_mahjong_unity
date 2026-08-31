@@ -40,8 +40,8 @@ public class RoomWindowsManager : MonoBehaviour {
         if (_switchRoutine != null) {
             StopCoroutine(_switchRoutine);
             _switchRoutine = null;
-            WindowFadeTransition.Normalize(roomPanel);
-            WindowFadeTransition.Normalize(createRoomPanel);
+            InstantSwitch(target);
+            return;
         }
 
         if (current == null) {
@@ -65,10 +65,8 @@ public class RoomWindowsManager : MonoBehaviour {
     }
 
     private void InstantSwitch(GameObject target) {
-        if (roomPanel != null) roomPanel.SetActive(target == roomPanel);
-        if (createRoomPanel != null) createRoomPanel.SetActive(target == createRoomPanel);
-        WindowFadeTransition.Normalize(roomPanel);
-        WindowFadeTransition.Normalize(createRoomPanel);
+        GameObject hide = target == roomPanel ? createRoomPanel : roomPanel;
+        WindowFadeTransition.Snap(hide, target);
     }
 
     private IEnumerator SwitchRoutine(GameObject from, GameObject to) {
@@ -84,9 +82,6 @@ public class RoomWindowsManager : MonoBehaviour {
             StopCoroutine(_switchRoutine);
             _switchRoutine = null;
         }
-        if (roomPanel != null) roomPanel.SetActive(false);
-        if (createRoomPanel != null) createRoomPanel.SetActive(false);
-        WindowFadeTransition.Normalize(roomPanel);
-        WindowFadeTransition.Normalize(createRoomPanel);
+        WindowFadeTransition.Snap(new[] { roomPanel, createRoomPanel }, (GameObject[])null);
     }
 }

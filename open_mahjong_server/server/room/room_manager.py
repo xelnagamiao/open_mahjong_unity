@@ -81,7 +81,7 @@ class RoomManager:
         return text or None
 
     def _validate_event_for_room(self, event_id: Optional[str], user_id: Optional[int] = None) -> Optional[Response]:
-        """校验赛事可建房。user_id 有值时额外校验该用户为赛事管理员。"""
+        """校验赛事可建房。user_id 有值时按创建房间权限（所有 / 已报名 / 管理员）校验。"""
         if not event_id:
             return None
         event = self.game_server.db_manager.get_event(event_id)
@@ -97,7 +97,11 @@ class RoomManager:
                 msg = "赛事未激活，无法创建比赛房间"
             return Response(type="tips", success=False, message=msg)
         if user_id is not None and not self._can_create_venue_room(event, user_id):
-            return Response(type="tips", success=False, message="您没有该场馆的建房权限")
+            return Response(
+                type="tips",
+                success=False,
+                message=self._venue_create_denied_message(event),
+            )
         return None
 
     def _can_create_venue_room(self, event: dict, user_id: int) -> bool:
@@ -106,12 +110,23 @@ class RoomManager:
         if role:
             return True
         cfg = self.game_server.db_manager.parse_entry_config(event.get("entry_config"))
-        if cfg.get("unregistered_can_create_room"):
+        perm = cfg.get("create_room_permission") or "admin"
+        if perm == "all":
             return True
-        if not cfg.get("member_can_create_room"):
+        if perm != "registered":
             return False
         registration = self.game_server.db_manager.get_event_registration(event_id, user_id)
         return bool(registration and registration.get("status") == "approved")
+
+    def _venue_create_denied_message(self, event: dict) -> str:
+        cfg = self.game_server.db_manager.parse_entry_config(event.get("entry_config"))
+        perm = cfg.get("create_room_permission") or "admin"
+        if perm == "admin":
+            kind = event.get("kind") or "event"
+            return "本基地仅限管理员创建房间" if kind == "base" else "本赛事仅限管理员创建房间"
+        if perm == "registered":
+            return "报名后可以创建房间"
+        return "您没有该场馆的建房权限"
 
     def _can_join_venue_room(self, event_id: Optional[str], user_id: int) -> Optional[str]:
         event_id = self._normalize_event_id(event_id)
@@ -127,6 +142,10 @@ class RoomManager:
             return None
         registration = self.game_server.db_manager.get_event_registration(event_id, user_id)
         if registration and registration.get("status") == "approved":
+            return None
+        cfg = self.game_server.db_manager.parse_entry_config(event.get("entry_config"))
+        # 创建房间权限为「所有」时，未报名玩家也可以进入该场馆的房间。
+        if (cfg.get("create_room_permission") or "admin") == "all":
             return None
         return "请先在赛事/基地页报名并通过后再加入房间"
 
