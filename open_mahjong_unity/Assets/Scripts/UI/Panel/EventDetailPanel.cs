@@ -106,6 +106,7 @@ public class EventDetailPanel : MonoBehaviour {
     private void Awake() {
         Instance = this;
         registerPopup.SetActive(false);
+        venueCreatePanel.gameObject.SetActive(false);
         _readyIdleColor = readyImage.color;
         _readyLabelIdleColor = readyLabel.color;
         backButton.onClick.AddListener(() => EventLobbyPanel.Instance?.ShowLobby());

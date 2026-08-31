@@ -52,6 +52,7 @@ const { ensureEventsTables } = require('./utils/eventsTables');
 const { ensureUserEmailTables } = require('./utils/userEmailTables');
 const { ensureLibraryTables } = require('./utils/libraryTables');
 const { ensureGuessFanTables } = require('./utils/guessFanTables');
+const { ensureRecordDownloadQuotaTable } = require('./utils/recordDownloadQuota');
 const libraryRoutes = require('./routes/library');
 const { registerGuessFanHandlers } = require('./guessfan/rooms');
 const { ensureSeedFiles, assetsDir } = require('./services/activityStore');
@@ -180,6 +181,12 @@ async function startServer() {
     console.log('猜番对抗排行表已就绪');
   } catch (err) {
     console.error('猜番对抗排行表初始化失败:', err);
+  }
+  try {
+    await ensureRecordDownloadQuotaTable();
+    console.log('牌谱下载配额表已就绪');
+  } catch (err) {
+    console.error('牌谱下载配额表初始化失败:', err);
   }
   try {
     const dir = ensureSeedFiles();

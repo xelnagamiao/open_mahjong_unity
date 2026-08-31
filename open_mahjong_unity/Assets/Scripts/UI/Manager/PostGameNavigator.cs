@@ -49,11 +49,6 @@ public static class PostGameNavigator {
             case "friend":
                 FriendNetworkManager.Instance.ListAllFriendPanels();
                 break;
-            case "room":
-                if (UserDataManager.Instance.RoomId != UserDataManager.ROOM_ID_NONE) {
-                    RoomWindowsManager.Instance.SwitchRoomWindow("roomInfo");
-                }
-                break;
         }
     }
 

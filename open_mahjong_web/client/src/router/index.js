@@ -18,6 +18,7 @@ import CalculatorView from '@/views/CalculatorView.vue'
 import PailiView from '@/views/PailiView.vue'
 import PlayerData from '@/views/PlayerData.vue'
 import PlatformData from '@/views/PlatformData.vue'
+import RecordAnalysis from '@/views/RecordAnalysis.vue'
 import UnityGame from '@/views/UnityGame.vue'
 import Rulebook from '@/views/Rulebook.vue'
 import Library from '@/views/Library.vue'
@@ -264,6 +265,12 @@ const routes = [
         name: 'PlatformData',
         component: PlatformData,
         meta: { title: '平台数据统计 - salasasa.cn' }
+      },
+      {
+        path: 'analysis',
+        name: 'RecordAnalysis',
+        component: RecordAnalysis,
+        meta: { title: '牌谱分析 - salasasa.cn' }
       }
     ]
   },

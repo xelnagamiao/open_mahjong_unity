@@ -1,8 +1,14 @@
 /**
  * 牌谱客户端分析器：从 record JSON 重建目标玩家的统计指标。
  * 与服务端 backfill_history_stats / round_score_utils 逻辑一致，
- * 用于「每日分析」对未预存（如场次等级 初级/中级/高级/mcrpl）数据的本地计算。
+ * 用于牌谱分析页对已下载到本地的牌谱做常规统计。
  */
+
+import {
+  GUOBIAO_FAN_KEY_BY_NAME,
+  GUOBIAO_STACKABLE_FANS,
+  parseGuobiaoFanLabel,
+} from '../constants/guobiaoFanDict.js'
 
 const HU_ACTIONS = new Set(['hu_self', 'hu_first', 'hu_second', 'hu_third']);
 const RON_ACTIONS = new Set(['hu_first', 'hu_second', 'hu_third']);
@@ -119,14 +125,14 @@ function toScoreChanges(raw) {
   }
 }
 
-function seatForOriginal(seats, originalIndex) {
+export function seatForOriginal(seats, originalIndex) {
   if (!Array.isArray(seats) || originalIndex < 0 || originalIndex >= seats.length) {
     return originalIndex;
   }
   return Number(seats[originalIndex]);
 }
 
-function findOriginalIndex(record, userId) {
+export function findOriginalIndex(record, userId) {
   const title = record?.game_title;
   if (!title) return -1;
   for (let i = 0; i < 4; i++) {
@@ -135,8 +141,40 @@ function findOriginalIndex(record, userId) {
   return -1;
 }
 
-function isCuohe(huFan) {
+export function isCuohe(huFan) {
   return Array.isArray(huFan) && huFan.some((f) => String(f).includes('错和'));
+}
+
+export function asTileId(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  const t = value >= 100 ? value % 100 : Math.trunc(value);
+  if ((t >= 11 && t <= 19) || (t >= 21 && t <= 29) || (t >= 31 && t <= 39)
+    || (t >= 41 && t <= 47) || (t >= 51 && t <= 58)) {
+    return t;
+  }
+  return null;
+}
+
+function extractHepaiTile(tick) {
+  if (!Array.isArray(tick) || tick.length < 6) return null;
+  // 国标新谱：[hu, seat, score, yaku, changes, hepai_tile]
+  // 带副底：[hu, seat, score, yaku, changes, base_fu, fu_fan_list, hepai_tile]
+  if (Array.isArray(tick[6])) return asTileId(tick[7]);
+  return asTileId(tick[5]);
+}
+
+/**
+ * 与 2D 回放相同的小局排序：round_index，缺省则取键名末尾数字。
+ * 分享链接 round 参数 = 本数组下标 + 1。
+ */
+export function listSortedRoundEntries(record) {
+  const gameRound = record?.game_round;
+  if (!gameRound || typeof gameRound !== 'object') return [];
+  return Object.entries(gameRound).sort((left, right) => {
+    const li = Number(left[1]?.round_index ?? left[0].match(/\d+$/)?.[0]) || 0;
+    const ri = Number(right[1]?.round_index ?? right[0].match(/\d+$/)?.[0]) || 0;
+    return li - ri;
+  });
 }
 
 /**
@@ -144,7 +182,7 @@ function isCuohe(huFan) {
  * 日麻: [hu_riichi, seat, hu_class, han, fu, yaku[], score_changes[], ...]
  * 其他: [hu_class, seat, fanScore, yaku[], score_changes[], ...]
  */
-function parseHuTick(tick) {
+export function parseHuTick(tick) {
   if (!Array.isArray(tick) || tick.length === 0) return null;
   const code = tick[0];
   if (code === 'hu_riichi' && tick.length >= 7) {
@@ -158,6 +196,7 @@ function parseHuTick(tick) {
       fanScore: Number(tick[3]) || 0,
       yaku: tick[5] || [],
       scoreChanges: toScoreChanges(tick[6]),
+      hepaiTile: asTileId(tick[10]) || asTileId(tick[11]) || null,
     };
   }
   if (HU_ACTIONS.has(code) && tick.length >= 5) {
@@ -169,6 +208,7 @@ function parseHuTick(tick) {
       fanScore: Number(tick[2]) || 0,
       yaku: tick[3] || [],
       scoreChanges: toScoreChanges(tick[4]),
+      hepaiTile: extractHepaiTile(tick),
     };
   }
   return null;
@@ -227,6 +267,7 @@ function analyzeOneRecord(record, userId, acc) {
         if (hu.huClass === 'hu_self') acc.self_draw_count += 1;
         else acc.deal_in_win_count += 1; // 荣和计数（并入 win_count）
         acc.total_fan_score += hu.fanScore;
+        addFanStats(acc, hu.yaku);
       } else if (RON_ACTIONS.has(hu.huClass) && myDelta < 0) {
         // 放铳：取本局负分最小者为放铳方
         const neg = sc.filter((x) => x < 0);
@@ -278,6 +319,7 @@ export function analyzeRecords(items, userId) {
     second_place_count: 0,
     third_place_count: 0,
     fourth_place_count: 0,
+    fan_stats: {},
     _finalScores: [],
   };
 
@@ -323,4 +365,19 @@ function computeFinalScore(record, originalIndex) {
     }
   }
   return total;
+}
+
+function addFanStats(acc, yaku) {
+  if (!Array.isArray(yaku)) return
+  for (const raw of yaku) {
+    const source = String(raw || '')
+    const parsed = parseGuobiaoFanLabel(source)
+    if (!parsed.name || parsed.name.includes('错和')) continue
+    const key = GUOBIAO_FAN_KEY_BY_NAME[parsed.name]
+    if (!key) continue
+    const starred = /\*\d+$/.test(source)
+    if (starred && !GUOBIAO_STACKABLE_FANS.has(parsed.name)) continue
+    const n = starred ? (Number(parsed.count) || 1) : 1
+    acc.fan_stats[key] = (acc.fan_stats[key] || 0) + n
+  }
 }

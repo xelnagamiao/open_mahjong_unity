@@ -59,6 +59,7 @@ public class MatchNetworkManager : MonoBehaviour {
     }
 
     private void RestoreQueueingFromServer(string queueType) {
+        if (IsBoundToLiveGame()) return;
         lastJoinedQueueType = queueType;
         MatchStateManager.Instance.EnsureQueueing(MatchQueueDisplayText.GetQueueTitle(queueType));
         if (IsMatchUiLocked()) {
@@ -73,12 +74,24 @@ public class MatchNetworkManager : MonoBehaviour {
             || MatchStateManager.Instance.IsMatchFound;
     }
 
+    /// <summary>
+    /// 已经进桌，或本地仍绑定 gamestate（对局挂后台、重连拆桌后等待 game_start）。
+    /// 服务端 match_committed 覆盖整场对局，不能据此再弹出进桌倒计时。
+    /// </summary>
+    private static bool IsBoundToLiveGame() {
+        if (GameSessionGuard.HasExclusiveSession) return true;
+        var udm = UserDataManager.Instance;
+        return udm != null && !string.IsNullOrEmpty(udm.GamestateId);
+    }
+
     private void ShowMatchFoundedUi() {
+        if (IsBoundToLiveGame()) return;
         MatchQueueingPanel.Instance?.HideImmediately();
         MatchFoundedPanel.Instance?.Show(MatchQueueDisplayText.GetQueueTitle(lastJoinedQueueType));
     }
 
     private void ShowQueueingPanelIfStillNeeded() {
+        if (IsBoundToLiveGame()) return;
         if (IsMatchUiLocked()) {
             ShowMatchFoundedUi();
             return;
@@ -123,8 +136,11 @@ public class MatchNetworkManager : MonoBehaviour {
     /// <summary>
     /// 用服务端 my_queue / match_committed 恢复本地状态。
     /// my_queue 为空时不清理本地（避免 join 与 poll 竞态）。
+    /// match_committed 只在尚未进桌时恢复倒计时（重连卡在开局前 5 秒）；
+    /// 对局进行中该标志仍为真，不得再弹匹配成功面板。
     /// </summary>
     private void ApplyServerMatchState(Response response) {
+        if (IsBoundToLiveGame()) return;
         if (response.match_committed) {
             if (!string.IsNullOrEmpty(response.my_queue)) {
                 lastJoinedQueueType = response.my_queue;

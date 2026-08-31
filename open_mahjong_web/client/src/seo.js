@@ -147,6 +147,12 @@ export const SEO_PAGES = [
     keywords: '麻将平台数据,麻将统计,平台对局',
   },
   {
+    path: '/player-data/analysis',
+    title: '麻将牌谱分析 - Salasasa',
+    description: '下载牌谱到本地，用标准分析工具统计顺位、和牌率与副露等指标。',
+    keywords: '麻将牌谱分析,牌谱下载,对局统计',
+  },
+  {
     path: '/game-unity',
     title: '麻将在线对战平台：国标、立直、青雀、川麻 - Salasasa',
     description: '进入 Salasasa 对战平台，支持国标、立直、青雀、川麻、长沙麻将，网页/PC/手机三端互通。',
@@ -209,6 +215,7 @@ export const PRERENDER_PATHS = [
   '/2d',
   '/player-data',
   '/player-data/platform',
+  '/player-data/analysis',
   '/game-unity',
   // 以下为 noindex 壳页，避免搜索引擎通过 SPA fallback 收录到错误的首页 TDK
   '/login',

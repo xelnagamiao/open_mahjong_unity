@@ -8,6 +8,7 @@
           <nav class="pd-section-nav">
             <router-link to="/player-data" class="pd-nav-link" exact-active-class="active">玩家数据</router-link>
             <router-link to="/player-data/platform" class="pd-nav-link" exact-active-class="active">平台数据</router-link>
+            <router-link to="/player-data/analysis" class="pd-nav-link" active-class="active">牌谱分析</router-link>
           </nav>
         </div>
         <nav class="pd-topnav">
@@ -22,7 +23,7 @@
 </template>
 
 <script setup>
-// 独立全屏布局：玩家数据 + 平台数据
+// 独立全屏布局：玩家数据 + 平台数据 + 牌谱分析
 </script>
 
 <style scoped>
@@ -104,6 +105,7 @@
   max-width: 1280px;
   margin: 0 auto;
   padding: 16px 20px 48px;
+  min-width: 0;
 }
 @media (max-width: 720px) {
   .pd-topbar-inner { height: auto; min-height: 48px; padding-top: 8px; padding-bottom: 8px; }

@@ -141,6 +141,12 @@
         >{{ l.label }}</button>
       </div>
 
+      <div class="analyze-bar">
+        <el-button size="small" type="primary" @click="goToAnalysis(true)">下载并分析</el-button>
+        <el-button size="small" @click="goToAnalysis(false)">分析</el-button>
+        <span class="analyze-bar-tip">{{ analyzeQuotaTip }}</span>
+      </div>
+
       <!-- 数据统计 -->
       <div class="stats-area">
         <template v-if="showStatsTable">
@@ -150,17 +156,9 @@
               <span class="stats-value">{{ item.value }}</span>
             </div>
           </div>
-          <div v-if="analyzedStats" class="stats-source-tag">本地分析</div>
         </template>
         <div v-if="needsLocalAnalysis" class="no-prestored" :class="{ compact: showStatsTable }">
-          <span>没有预存数据，可使用「每日分析」在本地计算统计</span>
-          <p class="quota-tip analyze-quota">{{ analyzeQuotaTip }}</p>
-          <el-button
-            size="small"
-            type="primary"
-            :loading="analyzing"
-            @click="runDailyAnalysis"
-          >{{ analyzeButtonLabel }}</el-button>
+          <span>该场次无预存统计</span>
         </div>
       </div>
 
@@ -216,9 +214,9 @@
         <el-collapse-item :title="`番种统计（${fanEntries.length}）`" name="fan">
           <div class="fan-grid">
             <div v-for="[fanKey, fanName] in fanEntries" :key="fanKey" class="fan-item">
-              <span class="fan-name">{{ fanName }}</span>
-              <span class="fan-value">{{ getFanValue(fanKey) }}</span>
-            </div>
+                  <span class="fan-name">{{ fanName }}<span v-if="fanPts(fanKey)" class="fan-pts">（{{ fanPts(fanKey) }} 番）</span></span>
+                  <span class="fan-value">{{ getFanValue(fanKey) }}</span>
+                </div>
           </div>
         </el-collapse-item>
       </el-collapse>
@@ -351,34 +349,32 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { useRoute, useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import axios from 'axios'
-import { analyzeRecords } from '../utils/recordAnalyzer'
 import { buildPlayerStatsRows, rankRatePieLabel, rankedGames } from '../utils/statsDisplay'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
+import { getPlayerToken } from '@/api/playerClient'
 import { tr } from '@/i18n'
+import { GUOBIAO_FAN_VALUES, listGuobiaoFanEntries } from '@/constants/guobiaoFanDict'
 
 const route = useRoute()
+const router = useRouter()
 const auth = usePlayerAuthStore()
 const IS_DEV_CLIENT = import.meta.env.DEV
-const ANALYZE_DAILY_MAX = 3
 
 const pageQuotaTip = computed(() =>
   IS_DEV_CLIENT
-    ? '开发模式：每日分析与请求不限次数'
-    : `每日分析每个 IP 每日 ${ANALYZE_DAILY_MAX} 次（凌晨 4 点刷新）；牌谱下载每个 IP 限 10 次/天`
+    ? '开发模式：牌谱下载不限局数'
+    : '牌谱下载需登录，每人每天 200 局（凌晨 4 点刷新）；分析在本地进行，不限次数'
 )
 const analyzeQuotaTip = computed(() =>
   IS_DEV_CLIENT
-    ? '开发模式不限分析次数；单次最多 500 局'
-    : `每个 IP 每天 ${ANALYZE_DAILY_MAX} 次分析机会，凌晨 4 点刷新；单次最多 500 局`
-)
-const analyzeButtonLabel = computed(() =>
-  IS_DEV_CLIENT ? '每日分析' : `每日分析（今日最多 ${ANALYZE_DAILY_MAX} 次）`
+    ? '开发模式下载不限局数。前往牌谱分析页下载并在本地统计。'
+    : '前往牌谱分析页下载牌谱并在本地统计。每人每天可下载 200 局，凌晨 4 点刷新。'
 )
 const downloadQuotaTip = computed(() =>
-  IS_DEV_CLIENT ? '开发模式不限下载次数' : '每 IP 每日限 10 次下载'
+  IS_DEV_CLIENT ? '开发模式不限下载局数' : '需登录，每人每天 200 局'
 )
 
 const RULE_DEFS = [
@@ -454,7 +450,6 @@ const searched = ref(false)
 const loading = ref(false)
 let searchSeq = 0
 const downloading = ref(false)
-const analyzing = ref(false)
 
 const playerRank = computed(() => playerInfo.value?.rank || null)
 const formatPt = (v) => {
@@ -485,9 +480,6 @@ const sceneToFilter = (s = scene.value) => {
 
 const scope = computed(() => sceneToFilter().scope)
 const tier = computed(() => sceneToFilter().tier)
-
-// 每日分析结果：仅当当前筛选与已分析筛选一致时采用
-const analyzedResult = ref(null)
 
 const page = reactive({ current: 1, size: 20 })
 const selectedIds = ref([])
@@ -611,12 +603,6 @@ const filterKey = computed(() => buildFilterKey())
 
 const rankStatsForFilter = computed(() => rankStatsCache.value[filterKey.value] ?? null)
 
-const analyzedStats = computed(() => {
-  if (!analyzedResult.value) return null
-  if (analyzedResult.value.filterKey !== filterKey.value) return null
-  return analyzedResult.value.stats
-})
-
 const mergedPrestored = computed(() => {
   const total = { ...EMPTY_TOTAL, fan_stats: {} }
   for (const stat of filteredPrestoredStats.value) {
@@ -657,7 +643,6 @@ const mergeRankFields = (base, rankRow) => {
 }
 
 const activeStats = computed(() => {
-  if (analyzedStats.value) return analyzedStats.value
   const rankRow = rankStatsForFilter.value
   if (prestoredAvailable.value) {
     return mergeRankFields(mergedPrestored.value, rankRow)
@@ -666,8 +651,8 @@ const activeStats = computed(() => {
   return null
 })
 
-/** 有预存或已本地分析 → 完整统计；否则需本地分析补全和牌率等 */
-const needsLocalAnalysis = computed(() => !prestoredAvailable.value && !analyzedStats.value)
+/** 无预存场次 → 引导前往牌谱分析页 */
+const needsLocalAnalysis = computed(() => !prestoredAvailable.value)
 const showStatsTable = computed(() => !!activeStats.value)
 
 const statsDisplay = computed(() => activeStats.value ? buildPlayerStatsRows(activeStats.value) : [])
@@ -747,16 +732,23 @@ const currentFanDict = computed(() => {
 })
 
 const fanEntries = computed(() => {
+  if (currentRule.value === 'guobiao') {
+    return listGuobiaoFanEntries().map((item) => [item.key, item.name])
+  }
   const d = currentFanDict.value
   if (!d || typeof d !== 'object') return []
   return Object.entries(d)
 })
 
+const fanPts = (fanKey) => {
+  if (currentRule.value !== 'guobiao') return 0
+  return GUOBIAO_FAN_VALUES[fanKey] || 0
+}
+
 const getFanValue = (fanKey) => activeStats.value?.fan_stats?.[fanKey] || 0
 
 const switchRule = (rule) => {
   currentRule.value = rule
-  analyzedResult.value = null
   rankStatsCache.value = {}
   scopeCountsFromApi.value = null
   onFilterChange()
@@ -766,13 +758,11 @@ const selectScene = (s) => {
   scene.value = s
   if (s === 'events') loadEventOptions()
   else selectedEventId.value = null
-  analyzedResult.value = null
   onFilterChange()
 }
 
 const selectLength = (l) => {
   length.value = l
-  analyzedResult.value = null
   onFilterChange()
 }
 
@@ -793,7 +783,6 @@ const loadEventOptions = async () => {
 }
 
 const onEventFilterChange = () => {
-  analyzedResult.value = null
   onFilterChange()
 }
 
@@ -917,7 +906,7 @@ const prefetchRankStats = () => {
 
 const loadRankStats = async () => {
   const userId = playerInfo.value?.user_id
-  if (!userId || analyzedStats.value) return
+  if (!userId) return
   const key = filterKey.value
   if (rankStatsCache.value[key]) return
   const seq = ++rankStatsSeq
@@ -990,77 +979,34 @@ const formatDate = (dateString) => {
   })
 }
 
-// ===== 每日分析：客户端下载并本地分析未预存数据 =====
-const runDailyAnalysis = async () => {
-  const userId = playerInfo.value?.user_id
-  if (!userId) return
-  const quotaLine = IS_DEV_CLIENT
-    ? '开发模式不限分析次数；单次最多 500 局。'
-    : `每个 IP 每天 ${ANALYZE_DAILY_MAX} 次分析机会，凌晨 4 点刷新；单次最多 500 局。`
-  const dialogTitle = IS_DEV_CLIENT
-    ? '每日分析'
-    : `每日分析（今日最多 ${ANALYZE_DAILY_MAX} 次）`
-  try {
-    await ElMessageBox.confirm(
-      `将下载当前筛选下的牌谱并在本地分析。\n\n${quotaLine}请确认筛选条件后再开始。`,
-      dialogTitle,
-      { confirmButtonText: '开始分析', cancelButtonText: '取消', type: 'warning' }
-    )
-  } catch (_) {
-    return
+const goToAnalysis = (autodownload) => {
+  const uid = playerInfo.value?.user_id
+  if (!uid) return
+  const query = {
+    q: String(uid),
+    rule: currentRule.value,
+    scene: scene.value,
   }
+  if (length.value) query.length = length.value
+  if (selectedEventId.value) query.event_id = selectedEventId.value
+  if (dateRange.value && dateRange.value.length === 2) {
+    query.date_from = dateRange.value[0]
+    query.date_to = dateRange.value[1]
+  }
+  if (autodownload) query.autodownload = '1'
+  router.push({ path: '/player-data/analysis', query })
+}
 
-  // 先查总数判断是否超 500
-  try {
-    const countResp = await axios.get(`/api/player/records/${userId}`, {
-      params: { limit: 1, offset: 0, ...filterPayload() }
-    })
-    const total = countResp.data.success ? (countResp.data.data?.total || 0) : 0
-    if (total > 500) {
-      ElMessage.warning('计算数据超出 500 局，请联系网站管理员')
-      return
-    }
-    if (total === 0) {
-      ElMessage.info('当前筛选下没有对局数据')
-      return
-    }
-  } catch (e) {
-    handleAxiosError(e, '获取对局数量失败')
-    return
-  }
+const ensureDownloadLogin = () => {
+  if (auth.isLoggedIn) return true
+  ElMessage.warning('请先登录后再下载牌谱')
+  router.push({ path: '/login', query: { redirect: route.fullPath } })
+  return false
+}
 
-  analyzing.value = true
-  try {
-    const resp = await fetch('/api/player/records/batch-json', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId, ...filterPayload() })
-    })
-    if (resp.status === 429) {
-      ElMessage.error(`今日分析次数已用完（每个 IP 每天 ${ANALYZE_DAILY_MAX} 次，凌晨 4 点刷新）`)
-      analyzing.value = false
-      return
-    }
-    if (!resp.ok) {
-      ElMessage.error('拉取牌谱失败')
-      analyzing.value = false
-      return
-    }
-    const json = await resp.json()
-    const items = json.data?.items || []
-    if (!items.length) {
-      ElMessage.info('没有可分析的牌谱')
-      analyzing.value = false
-      return
-    }
-    const stats = analyzeRecords(items, userId)
-    analyzedResult.value = { filterKey: filterKey.value, stats }
-    ElMessage.success(`已本地分析 ${items.length} 局牌谱`)
-  } catch (e) {
-    ElMessage.error('本地分析失败')
-  } finally {
-    analyzing.value = false
-  }
+const authHeaders = () => {
+  const token = getPlayerToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 // ===== 下载 =====
@@ -1075,22 +1021,50 @@ const triggerBlob = (blob, filename) => {
   URL.revokeObjectURL(url)
 }
 
-const downloadOne = (gameId) => {
-  const a = document.createElement('a')
-  a.href = `/api/player/record/${gameId}`
-  a.download = `${gameId}.json`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
+const downloadOne = async (gameId) => {
+  if (!ensureDownloadLogin()) return
+  try {
+    const resp = await fetch(`/api/player/record/${encodeURIComponent(gameId)}`, {
+      headers: authHeaders(),
+    })
+    if (resp.status === 401) {
+      ElMessage.warning('请先登录后再下载牌谱')
+      router.push({ path: '/login', query: { redirect: route.fullPath } })
+      return
+    }
+    if (resp.status === 429) {
+      try {
+        const j = await resp.json()
+        ElMessage.error(j.message || '今日下载局数已达上限')
+      } catch (_) {
+        ElMessage.error('今日下载局数已达上限')
+      }
+      return
+    }
+    if (!resp.ok) {
+      ElMessage.error('下载失败')
+      return
+    }
+    const blob = await resp.blob()
+    triggerBlob(blob, `${gameId}.json`)
+  } catch (_) {
+    ElMessage.error('下载失败')
+  }
 }
 
 const handleDownloadResponse = async (resp) => {
-  if (resp.status === 429) {
-    ElMessage.error('今日下载次数已达上限，请明天再试')
+  if (resp.status === 401) {
+    ElMessage.warning('请先登录后再下载牌谱')
+    router.push({ path: '/login', query: { redirect: route.fullPath } })
     return false
   }
-  if (resp.status === 400) {
-    try { const j = await resp.json(); ElMessage.error(j.message || '下载失败') } catch (_) { ElMessage.error('下载失败') }
+  if (resp.status === 429 || resp.status === 400) {
+    try {
+      const j = await resp.json()
+      ElMessage.error(j.message || (resp.status === 429 ? '今日下载局数已达上限' : '下载失败'))
+    } catch (_) {
+      ElMessage.error(resp.status === 429 ? '今日下载局数已达上限' : '下载失败')
+    }
     return false
   }
   if (resp.status === 404) {
@@ -1110,11 +1084,12 @@ const handleDownloadResponse = async (resp) => {
 
 const downloadSelected = async () => {
   if (selectedIds.value.length === 0) return
+  if (!ensureDownloadLogin()) return
   downloading.value = true
   try {
     const resp = await fetch('/api/player/records/download', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ user_id: playerInfo.value.user_id, game_ids: selectedIds.value })
     })
     await handleDownloadResponse(resp)
@@ -1126,11 +1101,12 @@ const downloadSelected = async () => {
 }
 
 const downloadFiltered = async () => {
+  if (!ensureDownloadLogin()) return
   downloading.value = true
   try {
     const resp = await fetch('/api/player/records/download', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ user_id: playerInfo.value.user_id, ...filterPayload() })
     })
     await handleDownloadResponse(resp)
@@ -1172,7 +1148,6 @@ const searchPlayer = async (rawKey, isManual = true) => {
   gameRecords.value = []
   recentRecords.value = []
   recordsTotal.value = 0
-  analyzedResult.value = null
   try {
     const infoResp = await axios.get(`/api/player/info/${encodeURIComponent(raw)}`)
     if (searchToken !== searchSeq) return
@@ -1238,7 +1213,6 @@ const resetForm = () => {
   length.value = null
   selectedEventId.value = null
   dateRange.value = null
-  analyzedResult.value = null
   rankStatsCache.value = {}
   scopeCountsFromApi.value = null
   selectedIds.value = []
@@ -1463,7 +1437,18 @@ onMounted(async () => {
   font-size: 13px;
   padding: 10px 0;
 }
-.analyze-quota { margin: 0; line-height: 1.5; }
+.analyze-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 2px 0 10px;
+}
+.analyze-bar-tip {
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
 
 /* 汇总指标：紧凑网格 */
 .stats-table {
@@ -1555,6 +1540,7 @@ onMounted(async () => {
   font-size: 12px;
 }
 .fan-name { color: #475569; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fan-pts { color: #94a3b8; font-weight: 400; }
 .fan-value { font-weight: 700; color: #409eff; font-family: 'Consolas', 'Menlo', monospace; }
 
 /* 记录区 */

@@ -35,7 +35,7 @@ public class WindowsManager : MonoBehaviour {
     /*
     windowsmanager管理所有的一级窗口 所有mainCanvas的一级窗口都应在windowsmanager中管理
     如果一级窗口例如createRoomPanel有多个创建不同规则的子窗口 从属createRoomPanel窗口本身管理
-    同理 roomListPanel 进入密码房时可调用passwordInputPanel窗口 从属roomListPanel管理
+    密码房输入框由 PasswordJoinPanel 自行管理（挂在 OverlayCanvas）
     */
 
     public static WindowsManager Instance { get; private set; } // 单例
@@ -43,6 +43,8 @@ public class WindowsManager : MonoBehaviour {
     private string currentWindow; // 当前所在窗口状态
     /// <summary>最近一次所在的大厅顶栏标签；进入 game/recordscene 时不改写，退出时直接切回此处。</summary>
     private string lastLobbyTab = "menu";
+    /// <summary>进入房间页之前的大厅页（赛事/匹配等）。退出房间时切回此处，而不是一律回主菜单。</summary>
+    private string roomReturnWindow = "room";
     private Coroutine _switchRoutine;
 
     private static bool IsLobbyTab(string window) {
@@ -112,6 +114,7 @@ public class WindowsManager : MonoBehaviour {
         EnsurePanelVisible(loginPanel);
         currentWindow = "login";
         lastLobbyTab = "menu";
+        roomReturnWindow = "room";
         HeaderPanel.Instance?.UpdateButtonState("login");
         Debug.Log("[WindowsManager] 已重置到登录界面");
     }
@@ -181,11 +184,28 @@ public class WindowsManager : MonoBehaviour {
     /// <summary>进入 game/recordscene 前最后一次选中的顶栏标签，默认 menu。</summary>
     public string GetLastLobbyTab() => lastLobbyTab;
 
-    /// <summary>离开房间后：若退出目标仍是房间页，改为主菜单，避免对局结束误回房间。</summary>
-    public void OnLeftRoom() {
-        if (lastLobbyTab == "room") {
-            lastLobbyTab = "menu";
+    /// <summary>
+    /// 因加入/创建而切到房间页之前调用：记下当前大厅页，退出房间时返回。
+    /// 已在房间页则保持原值（默认房间页），避免后续 refresh 把赛事等来源冲掉。
+    /// </summary>
+    public void CaptureRoomReturnWindow() {
+        if (!string.IsNullOrEmpty(currentWindow) && currentWindow != "room" && IsLobbyTab(currentWindow)) {
+            roomReturnWindow = currentWindow;
         }
+    }
+
+    /// <summary>离开房间后回到进入房间前的大厅页；对局中则先关游戏窗。</summary>
+    public void ReturnAfterLeavingRoom() {
+        string target = roomReturnWindow;
+        if (string.IsNullOrEmpty(target) || !IsLobbyTab(target)) {
+            target = "menu";
+        }
+        roomReturnWindow = "room";
+        if (currentWindow == "game" || currentWindow == "recordscene") {
+            ExitGameTo(target);
+            return;
+        }
+        SwitchWindow(target);
     }
 
     private void StartSwitchWindow(string targetWindow, bool ensureHeader) {
@@ -211,9 +231,12 @@ public class WindowsManager : MonoBehaviour {
         }
         currentWindow = targetWindow; // 更新当前窗口状态
         HeaderPanel.Instance?.UpdateButtonState(targetWindow); // 即时刷新导航栏按钮
-        if (targetWindow == "room"
-            && UserDataManager.Instance.RoomId == UserDataManager.ROOM_ID_NONE) {
-            RoomWindowsManager.Instance.SwitchRoomWindow("createRoom");
+        if (targetWindow == "room") {
+            if (UserDataManager.Instance.RoomId == UserDataManager.ROOM_ID_NONE) {
+                RoomWindowsManager.Instance.SwitchRoomWindow("createRoom");
+            } else {
+                RoomWindowsManager.Instance.SwitchRoomWindow("roomInfo");
+            }
         }
 
         var fadeOut = new List<(GameObject go, CanvasGroup cg)>(); // 待渐隐面板

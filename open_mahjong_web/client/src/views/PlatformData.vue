@@ -220,9 +220,12 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
 import * as echarts from 'echarts'
+import { usePlayerAuthStore } from '@/stores/playerAuth'
+import { getPlayerToken } from '@/api/playerClient'
 import { GUOBIAO_FAN_DICT, GUOBIAO_FAN_VALUES } from '@/constants/guobiaoFanDict'
 import {
   buildPlatformStatsRows,
@@ -232,6 +235,10 @@ import {
   sumSceneTotals,
   sumTierFans,
 } from '@/utils/statsDisplay'
+
+const route = useRoute()
+const router = useRouter()
+const auth = usePlayerAuthStore()
 
 const TIER_OPTIONS = [
   { value: 'beginner', label: '初级场' },
@@ -408,13 +415,47 @@ const formatScore = (s) => (s === undefined || s === null ? '-' : (s > 0 ? '+' :
 const playersSummary = (rec) =>
   (rec.players || []).map((p) => p.username || '?').join(' / ')
 
-const downloadOne = (gameId) => {
-  const a = document.createElement('a')
-  a.href = `/api/player/record/${encodeURIComponent(gameId)}`
-  a.download = `${gameId}.json`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
+const downloadOne = async (gameId) => {
+  if (!auth.isLoggedIn) {
+    ElMessage.warning('请先登录后再下载牌谱')
+    router.push({ path: '/login', query: { redirect: route.fullPath } })
+    return
+  }
+  const token = getPlayerToken()
+  try {
+    const resp = await fetch(`/api/player/record/${encodeURIComponent(gameId)}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (resp.status === 401) {
+      ElMessage.warning('请先登录后再下载牌谱')
+      router.push({ path: '/login', query: { redirect: route.fullPath } })
+      return
+    }
+    if (resp.status === 429) {
+      try {
+        const j = await resp.json()
+        ElMessage.error(j.message || '今日下载局数已达上限')
+      } catch (_) {
+        ElMessage.error('今日下载局数已达上限')
+      }
+      return
+    }
+    if (!resp.ok) {
+      ElMessage.error('下载失败')
+      return
+    }
+    const blob = await resp.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${gameId}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  } catch (_) {
+    ElMessage.error('下载失败')
+  }
 }
 
 const renderSceneChart = () => {

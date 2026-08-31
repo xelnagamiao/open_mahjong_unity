@@ -250,7 +250,6 @@ public class RoomPanel : MonoBehaviour {
     }
 
     private void BackButtonClicked() {
-        WindowsManager.Instance.SwitchWindow("menu");
         RoomNetworkManager.Instance.LeaveRoom(UserDataManager.Instance.RoomId);
     }
 

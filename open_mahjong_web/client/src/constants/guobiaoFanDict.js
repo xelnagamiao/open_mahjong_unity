@@ -1,9 +1,9 @@
 export const GUOBIAO_FAN_DICT = {
   dasixi: '大四喜', dasanyuan: '大三元', lvyise: '绿一色', jiulianbaodeng: '九莲宝灯',
-  sigang: '四杠', sangang: '三杠', lianqidui: '连七对', shisanyao: '十三幺',
+  sigang: '四杠', lianqidui: '连七对', shisanyao: '十三幺',
   qingyaojiu: '清幺九', xiaosixi: '小四喜', xiaosanyuan: '小三元', ziyise: '字一色',
   sianke: '四暗刻', yiseshuanglonghui: '一色双龙会', yisesitongshun: '一色四同顺',
-  yisesijiegao: '一色四节高', yisesibugao: '一色四步高', hunyaojiu: '混幺九',
+  yisesijiegao: '一色四节高', yisesibugao: '一色四步高', sangang: '三杠', hunyaojiu: '混幺九',
   qiduizi: '七对', qixingbukao: '七星不靠', quanshuangke: '全双刻', qingyise: '清一色',
   yisesantongshun: '一色三同顺', yisesanjiegao: '一色三节高', quanda: '全大',
   quanzhong: '全中', quanxiao: '全小', qinglong: '清龙', sanseshuanglonghui: '三色双龙会',
@@ -111,10 +111,38 @@ export const GUOBIAO_FAN_VALUES = {
   mingangang: 5,
 };
 
+/** 国标番种表顺序（按番数档，与 GUOBIAO_FAN_VALUES 插入序一致；明暗杠仍在表末） */
+export const GUOBIAO_FAN_DISPLAY_KEYS = Object.keys(GUOBIAO_FAN_VALUES)
+
+export function listGuobiaoFanEntries() {
+  return GUOBIAO_FAN_DISPLAY_KEYS.map((key) => {
+    const name = GUOBIAO_FAN_DICT[key]
+    const value = GUOBIAO_FAN_VALUES[key] || 0
+    return {
+      key,
+      name,
+      value,
+      label: `${name}（${value} 番）`,
+    }
+  }).filter((item) => item.name)
+}
+
 const GUOBIAO_FAN_VALUE_BY_NAME = Object.fromEntries(
   Object.entries(GUOBIAO_FAN_DICT).map(([key, name]) => [name, GUOBIAO_FAN_VALUES[key] ?? 0]),
 )
 GUOBIAO_FAN_VALUE_BY_NAME['七对子'] = GUOBIAO_FAN_VALUES.qiduizi
+GUOBIAO_FAN_VALUE_BY_NAME['断幺九'] = GUOBIAO_FAN_VALUES.duanyao
+
+export const GUOBIAO_FAN_KEY_BY_NAME = Object.fromEntries(
+  Object.entries(GUOBIAO_FAN_DICT).map(([key, name]) => [name, key]),
+)
+GUOBIAO_FAN_KEY_BY_NAME['七对子'] = 'qiduizi'
+GUOBIAO_FAN_KEY_BY_NAME['断幺九'] = 'duanyao'
+
+/** 与服务端 store_guobiao.STACKABLE_FANS 一致：带 *n 时按次数累加 */
+export const GUOBIAO_STACKABLE_FANS = new Set([
+  '花牌', '四归一', '双同刻', '一般高', '喜相逢', '幺九刻', '连六',
+])
 
 /** 解析计算器返回的番种名（如「喜相逢*1」）为与虹雀一致的 { name, count, value }。 */
 export function parseGuobiaoFanLabel(raw) {

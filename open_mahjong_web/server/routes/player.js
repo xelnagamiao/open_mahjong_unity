@@ -2,19 +2,28 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { createWindowLimiter, getClientIp } = require('../middleware/rateLimit');
+const { requirePlayer } = require('../middleware/requirePlayer');
 const {
   resolveUserId,
   fetchPlayerRankStats,
   buildRecordFilters,
+  parseRecordQuery,
   listPublicEvents,
   fetchPublicEventDetail,
-  LIST_PAGE_MAX,
 } = require('../services/playerPublicApi');
 const {
   handlePlayerInfo,
   handlePlayerRecords,
   handlePlayerRankStats,
 } = require('../services/playerQueryHandlers');
+const {
+  FETCH_MAX_GAMES,
+  DOWNLOAD_MAX_GAMES,
+  QuotaExceededError,
+  getDownloadQuota,
+  consumeDownloadQuota,
+  quotaErrorPayload,
+} = require('../utils/recordDownloadQuota');
 
 // 重查询限流：仅 info / records；成功响应才计数，404 等失败不占配额
 const playerQueryLimiter = createWindowLimiter({
@@ -22,33 +31,6 @@ const playerQueryLimiter = createWindowLimiter({
   max: 30,
   keyFn: (req) => `${getClientIp(req)}:player-query`,
   countSuccessfulOnly: true,
-});
-
-// 下载专用限流：每 IP 每日最多 10 次（单局 + 批量合并计数），防止无限拉取牌谱
-const downloadLimiter = createWindowLimiter({
-  windowMs: 86_400_000,
-  max: 10,
-  keyFn: (req) => `${getClientIp(req)}:download`,
-});
-
-// 列表分页硬上限：防止一次拉取过多数据
-const DOWNLOAD_MAX_GAMES = 50;
-// 每日分析：生产环境每 IP 每日 3 次批量拉取牌谱 JSON（≤500 局）；开发/调试不限
-const ANALYZE_DAILY_MAX = 3;
-// 按「自然日 4 点」对齐：4 点后 key 翻页，与每日聚合刷新一致
-const ANALYZE_MAX_GAMES = 500;
-function _analyzeBucketKey(req) {
-  const now = new Date();
-  // 4 点前归到前一天的分析周期
-  const d = new Date(now);
-  if (d.getHours() < 4) d.setDate(d.getDate() - 1);
-  const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  return `${getClientIp(req)}:analyze:${ymd}`;
-}
-const analyzeLimiter = createWindowLimiter({
-  windowMs: 86_400_000,
-  max: ANALYZE_DAILY_MAX,
-  keyFn: _analyzeBucketKey,
 });
 
 router.get('/info/:key', playerQueryLimiter, handlePlayerInfo);
@@ -79,8 +61,137 @@ router.get('/events/:eventId', async (req, res) => {
   }
 });
 
-// 单局牌谱下载：直接返回原始 record JSON
-router.get('/record/:gameId', downloadLimiter, async (req, res) => {
+router.get('/download-quota', requirePlayer, async (req, res) => {
+  try {
+    const data = await getDownloadQuota(req.player.userId);
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('download-quota:', error);
+    res.status(500).json({ success: false, message: '服务器内部错误' });
+  }
+});
+
+router.get('/record-ids/:key', playerQueryLimiter, async (req, res) => {
+  try {
+    const userId = await resolveUserId(req.params.key);
+    if (userId == null) {
+      return res.status(404).json({ success: false, message: '用户不存在' });
+    }
+    const query = parseRecordQuery(req.query);
+    const params = [];
+    const conditions = buildRecordFilters(userId, query, params);
+    const sql = `
+      SELECT sub.game_id, gpr.rank, sub.created_at
+      FROM (
+        SELECT DISTINCT gpr.game_id, gr.created_at
+        FROM game_player_records gpr
+        JOIN game_records gr ON gr.game_id = gpr.game_id
+        WHERE ${conditions.join(' AND ')}
+      ) sub
+      JOIN game_player_records gpr ON gpr.game_id = sub.game_id AND gpr.user_id = $1
+      ORDER BY sub.created_at DESC
+    `;
+    const result = await pool.query(sql, params);
+    const items = result.rows.map((r) => ({
+      game_id: r.game_id,
+      rank: r.rank != null ? Number(r.rank) : null,
+      created_at: r.created_at,
+    }));
+    res.json({ success: true, data: { items, total: items.length } });
+  } catch (error) {
+    console.error('record-ids:', error);
+    res.status(500).json({ success: false, message: '服务器内部错误' });
+  }
+});
+
+router.post('/records/fetch-json', requirePlayer, async (req, res) => {
+  try {
+    const targetUserId = parseInt(req.body?.target_user_id ?? req.body?.user_id, 10);
+    if (Number.isNaN(targetUserId)) {
+      return res.status(400).json({ success: false, message: '无效的用户ID' });
+    }
+    const requestedIds = Array.isArray(req.body.game_ids)
+      ? [...new Set(req.body.game_ids.map(String).filter(Boolean))]
+      : [];
+    if (requestedIds.length === 0) {
+      return res.status(400).json({ success: false, message: '缺少 game_ids' });
+    }
+    if (requestedIds.length > FETCH_MAX_GAMES) {
+      return res.status(400).json({
+        success: false,
+        message: `单次最多拉取 ${FETCH_MAX_GAMES} 局`,
+      });
+    }
+
+    const owned = await pool.query(
+      `SELECT DISTINCT game_id FROM game_player_records
+       WHERE user_id = $1 AND game_id = ANY($2::varchar[])`,
+      [targetUserId, requestedIds]
+    );
+    const ownedSet = new Set(owned.rows.map((r) => r.game_id));
+    const ownedIds = requestedIds.filter((id) => ownedSet.has(id));
+    if (ownedIds.length === 0) {
+      return res.status(404).json({ success: false, message: '没有匹配的牌谱' });
+    }
+
+    let quota;
+    try {
+      quota = await consumeDownloadQuota(req.player.userId, ownedIds.length, { allowPartial: true });
+    } catch (err) {
+      if (err instanceof QuotaExceededError) {
+        return res.status(429).json(quotaErrorPayload(err));
+      }
+      throw err;
+    }
+    const takeIds = ownedIds.slice(0, quota.consumed);
+    if (takeIds.length === 0) {
+      return res.status(429).json({
+        success: false,
+        message: `今日牌谱下载已达上限（${quota.max} 局，凌晨 4 点刷新）`,
+        data: quota,
+      });
+    }
+
+    const recordsResult = await pool.query(
+      `SELECT gr.game_id, gr.record, gpr.rank, gr.created_at
+       FROM game_records gr
+       JOIN game_player_records gpr ON gpr.game_id = gr.game_id AND gpr.user_id = $2
+       WHERE gr.game_id = ANY($1::varchar[])`,
+      [takeIds, targetUserId]
+    );
+    const byGame = new Map(recordsResult.rows.map((r) => [r.game_id, r]));
+    const items = takeIds.map((gameId) => {
+      const row = byGame.get(gameId);
+      if (!row) return null;
+      return {
+        game_id: row.game_id,
+        record: row.record,
+        rank: row.rank != null ? Number(row.rank) : null,
+        created_at: row.created_at,
+      };
+    }).filter(Boolean);
+
+    res.json({
+      success: true,
+      data: {
+        items,
+        total: items.length,
+        cap: FETCH_MAX_GAMES,
+        used: quota.used,
+        max: quota.max,
+        remaining: quota.remaining,
+        unlimited: quota.unlimited,
+        account_games: quota.account_games,
+      },
+    });
+  } catch (error) {
+    console.error('fetch-json:', error);
+    res.status(500).json({ success: false, message: '服务器内部错误' });
+  }
+});
+
+// 单局牌谱下载：直接返回原始 record JSON（计入登录账号每日局数配额）
+router.get('/record/:gameId', requirePlayer, async (req, res) => {
   try {
     const gameId = String(req.params.gameId || '').trim();
     if (!gameId) {
@@ -92,6 +203,14 @@ router.get('/record/:gameId', downloadLimiter, async (req, res) => {
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: '牌谱不存在' });
+    }
+    try {
+      await consumeDownloadQuota(req.player.userId, 1, { allowPartial: false });
+    } catch (err) {
+      if (err instanceof QuotaExceededError) {
+        return res.status(429).json(quotaErrorPayload(err));
+      }
+      throw err;
     }
     const raw = result.rows[0].record;
     const body = typeof raw === 'string' ? raw : JSON.stringify(raw);
@@ -105,22 +224,13 @@ router.get('/record/:gameId', downloadLimiter, async (req, res) => {
 });
 
 // 批量牌谱下载：按筛选/指定 game_ids 流式打包 ZIP，每局一个原始 record JSON
-router.post('/records/download', downloadLimiter, async (req, res) => {
+router.post('/records/download', requirePlayer, async (req, res) => {
   try {
     const userId = parseInt(req.body?.user_id);
     if (isNaN(userId)) {
       return res.status(400).json({ success: false, message: '无效的用户ID' });
     }
-    const query = {
-      rule: req.body.rule || null,
-      sub_rule: req.body.sub_rule || null,
-      room_type: req.body.room_type || null,
-      match_tier: req.body.match_tier || null,
-      tier: req.body.tier || null,
-      game_type: req.body.game_type || null,
-      date_from: req.body.date_from || null,
-      date_to: req.body.date_to || null,
-    };
+    const query = parseRecordQuery(req.body);
     const requestedIds = Array.isArray(req.body.game_ids)
       ? req.body.game_ids.map(String).filter(Boolean)
       : [];
@@ -165,6 +275,23 @@ router.post('/records/download', downloadLimiter, async (req, res) => {
 
     if (gameIds.length === 0) {
       return res.status(404).json({ success: false, message: '没有匹配的牌谱' });
+    }
+
+    try {
+      await consumeDownloadQuota(req.player.userId, gameIds.length, { allowPartial: false });
+    } catch (err) {
+      if (err instanceof QuotaExceededError) {
+        const payload = quotaErrorPayload(err);
+        const remaining = payload.data?.remaining ?? 0;
+        if (remaining > 0) {
+          return res.status(400).json({
+            ...payload,
+            message: `今日剩余可下载 ${remaining} 局，当前 ${gameIds.length} 局，请减少选择`,
+          });
+        }
+        return res.status(429).json(payload);
+      }
+      throw err;
     }
 
     const recordsResult = await pool.query(
@@ -324,7 +451,6 @@ router.get('/hot', async (req, res) => {
   }
 });
 
-// ===== 每日分析：批量拉取牌谱 JSON（≤500 局），客户端本地分析 =====
 // 顺位统计：与对局记录列表同源（game_player_records.rank）
 router.get('/rank-stats/:key', playerQueryLimiter, handlePlayerRankStats);
 
@@ -365,51 +491,6 @@ router.get('/scope-counts/:key', playerQueryLimiter, async (req, res) => {
     res.json({ success: true, data });
   } catch (error) {
     console.error('scope-counts:', error);
-    res.status(500).json({ success: false, message: '服务器内部错误' });
-  }
-});
-
-router.post('/records/batch-json', analyzeLimiter, async (req, res) => {
-  try {
-    const userId = parseInt(req.body?.user_id);
-    if (isNaN(userId)) {
-      return res.status(400).json({ success: false, message: '无效的用户ID' });
-    }
-    const query = {
-      rule: req.body.rule || null,
-      sub_rule: req.body.sub_rule || null,
-      room_type: req.body.room_type || null,
-      match_tier: req.body.match_tier || null,
-      tier: req.body.tier || null,
-      game_type: req.body.game_type || null,
-      date_from: req.body.date_from || null,
-      date_to: req.body.date_to || null,
-    };
-    const params = [];
-    const conditions = buildRecordFilters(userId, query, params);
-    const sql = `
-      SELECT sub.game_id, gr.record, gpr.rank
-      FROM (
-        SELECT DISTINCT gpr.game_id, gr.created_at
-        FROM game_player_records gpr
-        JOIN game_records gr ON gr.game_id = gpr.game_id
-        WHERE ${conditions.join(' AND ')}
-      ) sub
-      JOIN game_records gr ON gr.game_id = sub.game_id
-      JOIN game_player_records gpr ON gpr.game_id = sub.game_id AND gpr.user_id = $1
-      ORDER BY sub.created_at DESC
-      LIMIT $${params.length + 1}
-    `;
-    params.push(ANALYZE_MAX_GAMES);
-    const recordsResult = await pool.query(sql, params);
-    const items = recordsResult.rows.map(r => ({
-      game_id: r.game_id,
-      record: r.record,
-      rank: r.rank != null ? Number(r.rank) : null,
-    }));
-    res.json({ success: true, data: { items, total: items.length, cap: ANALYZE_MAX_GAMES } });
-  } catch (error) {
-    console.error('batch-json:', error);
     res.status(500).json({ success: false, message: '服务器内部错误' });
   }
 });
