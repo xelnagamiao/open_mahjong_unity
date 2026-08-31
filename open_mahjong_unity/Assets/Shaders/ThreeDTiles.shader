@@ -168,6 +168,7 @@ Shader "Custom/ThreeDTiles"
                 // 默认 _FrontBgBlend=0 时整面保持原 _FrontTex 行为；前景 alpha=0 区域
                 // （fluffy/hkmahjong 已透明化的米色背景）使用 _TableFaceFallbackColor 兜底，
                 // 启用 3D 牌面背景时该色被底图取代。
+                // 底图 / 纯色 / fallback 都乘 _FrontColor，悬停蓝、摸切灰、铳牌红才会盖住整面。
                 half4 front = SAMPLE_TEXTURE2D(_FrontTex, sampler_FrontTex, frontUV) * frontColor;
                 half frontAlpha = saturate(front.a);
                 if (saturate(_FrontBgBlend) > 0.0h)
@@ -200,7 +201,8 @@ Shader "Custom/ThreeDTiles"
                     }
                     half4 bgSample = SAMPLE_TEXTURE2D(_FrontBgTex, sampler_FrontBgTex, frontBgUV);
                     half bgAlpha = bgSample.a * saturate(_FrontBgBlend);
-                    half3 bgRgb = lerp(front.rgb, bgSample.rgb, bgAlpha);
+                    half3 bgTinted = bgSample.rgb * _FrontBgColor.rgb * frontColor.rgb;
+                    half3 bgRgb = lerp(front.rgb, bgTinted, bgAlpha);
                     half3 composedRgb = lerp(bgRgb, front.rgb, frontAlpha);
                     half composedA = max(frontAlpha, bgAlpha);
                     front = half4(composedRgb, composedA);
@@ -208,13 +210,13 @@ Shader "Custom/ThreeDTiles"
                 else if (saturate(_TableFaceBlend) > 0.0h)
                 {
                     // 纯色铺底，花纹（front.a>0）保留。与背景互斥。
-                    half3 solidRgb = lerp(_TableFaceColor.rgb, front.rgb, frontAlpha);
+                    half3 solidRgb = lerp(_TableFaceColor.rgb * frontColor.rgb, front.rgb, frontAlpha);
                     front = half4(solidRgb, max(frontAlpha, 0.5h));
                 }
                 else if (saturate(_TableFaceFallbackEnabled) > 0.5h)
                 {
                     // 未启用背景/纯色：透明化后的米色区用 fallback 兜底，花纹仍走前景 RGB。
-                    half3 fallbackRgb = lerp(_TableFaceFallbackColor.rgb, front.rgb, frontAlpha);
+                    half3 fallbackRgb = lerp(_TableFaceFallbackColor.rgb * frontColor.rgb, front.rgb, frontAlpha);
                     front = half4(fallbackRgb, max(frontAlpha, 0.5h));
                 }
                 float2 backUV = input.uvBack;

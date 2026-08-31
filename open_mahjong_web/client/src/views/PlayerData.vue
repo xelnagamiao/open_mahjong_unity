@@ -326,14 +326,21 @@
             <span class="quota-tip">{{ downloadQuotaTip }}</span>
             <el-button
               size="small"
-              :disabled="selectedIds.length === 0"
+              :disabled="selectedIds.length === 0 || downloading || caching"
+              :loading="downloading"
               @click="downloadSelected"
             >{{ tr('下载选中({count})', { count: selectedIds.length }) }}</el-button>
             <el-button
               size="small"
+              :disabled="selectedIds.length === 0 || downloading || caching"
+              :loading="caching"
+              @click="downloadSelectedToCache"
+            >{{ tr('下载到数据站缓存') }}</el-button>
+            <el-button
+              size="small"
               type="primary"
               :loading="downloading"
-              :disabled="recordsTotal === 0"
+              :disabled="recordsTotal === 0 || downloading || caching"
               @click="downloadFiltered"
             >{{ tr('下载筛选结果(ZIP)') }}</el-button>
           </div>
@@ -354,14 +361,17 @@ import { ElMessage } from 'element-plus'
 import axios from 'axios'
 import { buildPlayerStatsRows, rankRatePieLabel, rankedGames } from '../utils/statsDisplay'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
-import { getPlayerToken } from '@/api/playerClient'
+import playerApi, { getPlayerToken } from '@/api/playerClient'
 import { tr } from '@/i18n'
 import { GUOBIAO_FAN_VALUES, listGuobiaoFanEntries } from '@/constants/guobiaoFanDict'
+import { getLocalRecordIdSet, putLocalRecords } from '../utils/recordLocalStore'
+import { confirmRecordDownload } from '../utils/recordDownloadConfirm'
 
 const route = useRoute()
 const router = useRouter()
 const auth = usePlayerAuthStore()
 const IS_DEV_CLIENT = import.meta.env.DEV
+const quota = ref({ used: 0, max: 200, remaining: 200, unlimited: false })
 
 const pageQuotaTip = computed(() =>
   IS_DEV_CLIENT
@@ -373,9 +383,11 @@ const analyzeQuotaTip = computed(() =>
     ? '开发模式下载不限局数。前往牌谱分析页下载并在本地统计。'
     : '前往牌谱分析页下载牌谱并在本地统计。每人每天可下载 200 局，凌晨 4 点刷新。'
 )
-const downloadQuotaTip = computed(() =>
-  IS_DEV_CLIENT ? '开发模式不限下载局数' : '需登录，每人每天 200 局'
-)
+const downloadQuotaTip = computed(() => {
+  if (!auth.isLoggedIn) return '需登录后下载'
+  if (quota.value.unlimited) return '开发模式不限下载局数'
+  return `今日已用 ${quota.value.used} / ${quota.value.max} 局`
+})
 
 const RULE_DEFS = [
   { key: 'guobiao', label: '国标', statsField: 'guobiao_stats', fanField: 'guobiao' },
@@ -450,6 +462,7 @@ const searched = ref(false)
 const loading = ref(false)
 let searchSeq = 0
 const downloading = ref(false)
+const caching = ref(false)
 
 const playerRank = computed(() => playerInfo.value?.rank || null)
 const formatPt = (v) => {
@@ -1009,6 +1022,32 @@ const authHeaders = () => {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
+const applyQuota = (data) => {
+  if (!data) return
+  quota.value = {
+    used: Number(data.used) || 0,
+    max: Number(data.max) || 200,
+    remaining: data.unlimited
+      ? Math.max(0, Number(data.max) || 200)
+      : Math.max(0, Number(data.remaining) || 0),
+    unlimited: !!data.unlimited,
+  }
+}
+
+const loadQuota = async () => {
+  if (!auth.isLoggedIn) return
+  try {
+    const resp = await playerApi.get('/download-quota')
+    if (resp.data.success) applyQuota(resp.data.data)
+  } catch (_) { /* ignore */ }
+}
+
+const prepareDownload = async (requested, actionLabel) => {
+  if (!ensureDownloadLogin()) return 0
+  await loadQuota()
+  return confirmRecordDownload(quota.value, requested, { actionLabel })
+}
+
 // ===== 下载 =====
 const triggerBlob = (blob, filename) => {
   const url = URL.createObjectURL(blob)
@@ -1022,7 +1061,8 @@ const triggerBlob = (blob, filename) => {
 }
 
 const downloadOne = async (gameId) => {
-  if (!ensureDownloadLogin()) return
+  const take = await prepareDownload(1, '下载')
+  if (!take) return
   try {
     const resp = await fetch(`/api/player/record/${encodeURIComponent(gameId)}`, {
       headers: authHeaders(),
@@ -1035,6 +1075,7 @@ const downloadOne = async (gameId) => {
     if (resp.status === 429) {
       try {
         const j = await resp.json()
+        applyQuota(j.data)
         ElMessage.error(j.message || '今日下载局数已达上限')
       } catch (_) {
         ElMessage.error('今日下载局数已达上限')
@@ -1047,6 +1088,7 @@ const downloadOne = async (gameId) => {
     }
     const blob = await resp.blob()
     triggerBlob(blob, `${gameId}.json`)
+    await loadQuota()
   } catch (_) {
     ElMessage.error('下载失败')
   }
@@ -1061,6 +1103,7 @@ const handleDownloadResponse = async (resp) => {
   if (resp.status === 429 || resp.status === 400) {
     try {
       const j = await resp.json()
+      applyQuota(j.data)
       ElMessage.error(j.message || (resp.status === 429 ? '今日下载局数已达上限' : '下载失败'))
     } catch (_) {
       ElMessage.error(resp.status === 429 ? '今日下载局数已达上限' : '下载失败')
@@ -1084,15 +1127,25 @@ const handleDownloadResponse = async (resp) => {
 
 const downloadSelected = async () => {
   if (selectedIds.value.length === 0) return
-  if (!ensureDownloadLogin()) return
+  const take = await prepareDownload(selectedIds.value.length, '下载 ZIP')
+  if (!take) return
+  const ids = selectedIds.value.slice(0, take)
   downloading.value = true
   try {
     const resp = await fetch('/api/player/records/download', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ user_id: playerInfo.value.user_id, game_ids: selectedIds.value })
+      body: JSON.stringify({
+        user_id: playerInfo.value.user_id,
+        game_ids: ids,
+        max_games: take,
+      })
     })
-    await handleDownloadResponse(resp)
+    const ok = await handleDownloadResponse(resp)
+    if (ok) {
+      await loadQuota()
+      ElMessage.success(`已下载 ${ids.length} 局 ZIP`)
+    }
   } catch (e) {
     ElMessage.error('下载失败')
   } finally {
@@ -1101,19 +1154,82 @@ const downloadSelected = async () => {
 }
 
 const downloadFiltered = async () => {
-  if (!ensureDownloadLogin()) return
+  const take = await prepareDownload(recordsTotal.value, '下载 ZIP')
+  if (!take) return
   downloading.value = true
   try {
     const resp = await fetch('/api/player/records/download', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ user_id: playerInfo.value.user_id, ...filterPayload() })
+      body: JSON.stringify({
+        user_id: playerInfo.value.user_id,
+        ...filterPayload(),
+        max_games: take,
+      })
     })
-    await handleDownloadResponse(resp)
+    const ok = await handleDownloadResponse(resp)
+    if (ok) {
+      await loadQuota()
+      ElMessage.success(`已下载 ${take} 局 ZIP`)
+    }
   } catch (e) {
     ElMessage.error('下载失败')
   } finally {
     downloading.value = false
+  }
+}
+
+const downloadSelectedToCache = async () => {
+  const ids = [...new Set(selectedIds.value.map(String).filter(Boolean))]
+  if (!ids.length) return
+  if (!ensureDownloadLogin()) return
+  if (!playerInfo.value?.user_id) return
+  let missing = ids
+  try {
+    const have = await getLocalRecordIdSet(ids)
+    missing = ids.filter((id) => !have.has(id))
+  } catch (_) { /* 读缓存失败时按全部未下载处理 */ }
+  if (!missing.length) {
+    ElMessage.info('选中的牌谱都已在数据站缓存')
+    return
+  }
+  const take = await prepareDownload(missing.length, '下载到数据站缓存')
+  if (!take) return
+  const toFetch = missing.slice(0, take)
+  caching.value = true
+  let saved = 0
+  try {
+    for (let i = 0; i < toFetch.length; i += 100) {
+      const chunk = toFetch.slice(i, i + 100)
+      const resp = await playerApi.post('/records/fetch-json', {
+        target_user_id: playerInfo.value.user_id,
+        game_ids: chunk,
+      }, { timeout: 120000 })
+      if (!resp.data.success) {
+        ElMessage.error(resp.data.message || '拉取牌谱失败')
+        break
+      }
+      applyQuota(resp.data.data)
+      const items = resp.data.data?.items || []
+      await putLocalRecords(items)
+      saved += items.length
+      if (items.length < chunk.length && !quota.value.unlimited) break
+    }
+    if (saved) ElMessage.success(`已下载 ${saved} 局到数据站缓存`)
+  } catch (e) {
+    const status = e?.response?.status
+    const data = e?.response?.data
+    if (status === 401) {
+      ElMessage.warning('请先登录后再下载牌谱')
+      router.push({ path: '/login', query: { redirect: route.fullPath } })
+    } else if (status === 429) {
+      applyQuota(data?.data)
+      ElMessage.error(data?.message || '今日下载局数已达上限')
+    } else {
+      ElMessage.error(data?.message || '下载到数据站缓存失败')
+    }
+  } finally {
+    caching.value = false
   }
 }
 
@@ -1239,6 +1355,8 @@ const loadQuickLists = () => {
 
 onMounted(async () => {
   loadQuickLists()
+  if (!auth.loaded) await auth.fetchMe()
+  if (auth.isLoggedIn) await loadQuota()
   const queryPlayer = Array.isArray(route.query.player) ? route.query.player[0] : route.query.player
   const legacyQueryPlayer = Array.isArray(route.query.q) ? route.query.q[0] : route.query.q
   const requestedPlayer = queryPlayer || legacyQueryPlayer
@@ -1247,7 +1365,6 @@ onMounted(async () => {
     return
   }
 
-  if (!auth.loaded) await auth.fetchMe()
   if (auth.isLoggedIn && auth.userId != null) {
     await searchPlayer(String(auth.userId), false)
   }
@@ -1601,7 +1718,7 @@ onMounted(async () => {
   gap: 8px;
   margin-top: 10px;
 }
-.download-actions { display: flex; align-items: center; gap: 8px; }
+.download-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .quota-tip { font-size: 11px; color: #94a3b8; }
 
 .no-data { margin-top: 24px; }

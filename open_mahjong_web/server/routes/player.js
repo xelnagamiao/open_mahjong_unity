@@ -18,7 +18,6 @@ const {
 } = require('../services/playerQueryHandlers');
 const {
   FETCH_MAX_GAMES,
-  DOWNLOAD_MAX_GAMES,
   QuotaExceededError,
   getDownloadQuota,
   consumeDownloadQuota,
@@ -243,15 +242,9 @@ router.post('/records/download', requirePlayer, async (req, res) => {
          WHERE user_id = $1 AND game_id = ANY($2::varchar[])`,
         [userId, requestedIds]
       );
-      gameIds = idResult.rows.map(r => r.game_id);
-      if (gameIds.length > DOWNLOAD_MAX_GAMES) {
-        return res.status(400).json({
-          success: false,
-          message: `单次最多下载 ${DOWNLOAD_MAX_GAMES} 局，当前选中 ${gameIds.length} 局，请减少选择`,
-        });
-      }
+      const ownedSet = new Set(idResult.rows.map(r => r.game_id));
+      gameIds = requestedIds.filter(id => ownedSet.has(id));
     } else {
-      // 筛选模式：取全部命中 game_id（仅 ID，开销低），超出上限提示缩小范围
       const params = [];
       const conditions = buildRecordFilters(userId, query, params);
       const sql = `
@@ -265,33 +258,33 @@ router.post('/records/download', requirePlayer, async (req, res) => {
       `;
       const idResult = await pool.query(sql, params);
       gameIds = idResult.rows.map(r => r.game_id);
-      if (gameIds.length > DOWNLOAD_MAX_GAMES) {
-        return res.status(400).json({
-          success: false,
-          message: `单次最多下载 ${DOWNLOAD_MAX_GAMES} 局，当前筛选命中 ${gameIds.length} 局，请缩小时间范围或场次`,
-        });
-      }
     }
 
     if (gameIds.length === 0) {
       return res.status(404).json({ success: false, message: '没有匹配的牌谱' });
     }
 
+    const requestedCap = parseInt(req.body?.max_games, 10);
+    if (Number.isFinite(requestedCap) && requestedCap > 0) {
+      gameIds = gameIds.slice(0, requestedCap);
+    }
+
+    let quota;
     try {
-      await consumeDownloadQuota(req.player.userId, gameIds.length, { allowPartial: false });
+      quota = await consumeDownloadQuota(req.player.userId, gameIds.length, { allowPartial: true });
     } catch (err) {
       if (err instanceof QuotaExceededError) {
-        const payload = quotaErrorPayload(err);
-        const remaining = payload.data?.remaining ?? 0;
-        if (remaining > 0) {
-          return res.status(400).json({
-            ...payload,
-            message: `今日剩余可下载 ${remaining} 局，当前 ${gameIds.length} 局，请减少选择`,
-          });
-        }
-        return res.status(429).json(payload);
+        return res.status(429).json(quotaErrorPayload(err));
       }
       throw err;
+    }
+    gameIds = gameIds.slice(0, quota.consumed);
+    if (gameIds.length === 0) {
+      return res.status(429).json({
+        success: false,
+        message: `今日牌谱下载已达上限（${quota.max} 局，凌晨 4 点刷新）`,
+        data: quota,
+      });
     }
 
     const recordsResult = await pool.query(

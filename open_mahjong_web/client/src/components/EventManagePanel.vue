@@ -350,6 +350,7 @@
         <el-tab-pane label="准入配置" name="entry">
           <el-alert
             title="可配置自动通过、建房权限、等待队列与加入口令。"
+            description="创建房间权限为「所有」时，未报名玩家可以创建并加入该场馆房间。「进入玩家队列」只控制详情页的「加入等待」，不会自动允许加入房间。"
             type="info"
             :closable="false"
             show-icon

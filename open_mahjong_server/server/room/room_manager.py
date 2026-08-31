@@ -143,6 +143,10 @@ class RoomManager:
         registration = self.game_server.db_manager.get_event_registration(event_id, user_id)
         if registration and registration.get("status") == "approved":
             return None
+        cfg = self.game_server.db_manager.parse_entry_config(event.get("entry_config"))
+        # 创建房间权限为「所有」时，未报名玩家也可以进入该场馆的房间。
+        if (cfg.get("create_room_permission") or "admin") == "all":
+            return None
         return "请先在赛事/基地页报名并通过后再加入房间"
 
     def _apply_event_fields(self, room_data: dict, event_id: Optional[str]) -> None:

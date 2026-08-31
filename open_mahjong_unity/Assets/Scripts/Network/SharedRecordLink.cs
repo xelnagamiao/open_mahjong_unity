@@ -10,12 +10,15 @@ using UnityEngine.Networking;
 /// Canonical link: https://salasasa.cn/game-unity?recordId={gameId}
 /// </summary>
 public sealed class SharedRecordLink : MonoBehaviour {
-    private const int MaxGameIdLength = 16;
     private const float SceneReadyTimeoutSeconds = 15f;
     private static readonly Regex GameIdPattern =
         new Regex("^[0-9A-Za-z]{1,16}$", RegexOptions.CultureInvariant);
+    private static readonly Regex ShareGameIdInText =
+        new Regex(@"(?:(?:^|/)2d/record/|[?&]recordId=|salasasa://record/)([0-9A-Za-z]{1,16})(?=[/?#&]|$)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private static SharedRecordLink _instance;
+    private static int? _pendingRound;
+    private static int? _pendingNode;
     private bool _isLoading;
     private string _queuedGameId;
 
@@ -82,7 +85,8 @@ public sealed class SharedRecordLink : MonoBehaviour {
         if (string.IsNullOrWhiteSpace(value)) return false;
         string text = value.Trim();
         return text.IndexOf("://", StringComparison.Ordinal) >= 0
-            || text.IndexOf("/game-unity?recordId=", StringComparison.OrdinalIgnoreCase) >= 0;
+            || text.IndexOf("recordId=", StringComparison.OrdinalIgnoreCase) >= 0
+            || text.IndexOf("2d/record/", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     public static bool TryExtractGameId(string value, out string gameId) {
@@ -95,45 +99,52 @@ public sealed class SharedRecordLink : MonoBehaviour {
             return true;
         }
 
-        if (!Uri.TryCreate(text, UriKind.Absolute, out Uri uri)) return false;
-
-        string candidate = null;
-        if (uri.Scheme.Equals("salasasa", StringComparison.OrdinalIgnoreCase)) {
-            if (uri.Host.Equals("record", StringComparison.OrdinalIgnoreCase)) {
-                candidate = uri.AbsolutePath.Trim('/');
-            }
-        } else if (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) {
-            if (uri.AbsolutePath.TrimEnd('/').Equals("/game-unity", StringComparison.OrdinalIgnoreCase)) {
-                candidate = GetQueryParameter(uri, "recordId");
-            }
-        }
-
-        if (string.IsNullOrEmpty(candidate)
-            || candidate.Length > MaxGameIdLength
-            || !GameIdPattern.IsMatch(candidate)) return false;
-
-        gameId = candidate;
+        Match match = ShareGameIdInText.Match(text);
+        if (!match.Success) return false;
+        gameId = match.Groups[1].Value;
         return true;
     }
 
-    private static string GetQueryParameter(Uri uri, string expectedName) {
-        string query = uri.Query;
-        if (string.IsNullOrEmpty(query)) return null;
+    public static void CapturePosition(string value) {
+        ParsePositionQuery(value ?? "", out _pendingRound, out _pendingNode);
+    }
 
-        foreach (string pair in query.TrimStart('?').Split('&')) {
+    public static void ClearPendingJump() {
+        _pendingRound = null;
+        _pendingNode = null;
+    }
+
+    public static void ApplyPendingJumpIfAny() {
+        if (!_pendingRound.HasValue && !_pendingNode.HasValue) return;
+        int round = _pendingRound ?? 1;
+        int node = _pendingNode ?? 0;
+        ClearPendingJump();
+        GameRecordManager.Instance?.JumpToSharePosition(round, node);
+    }
+
+    private static void ParsePositionQuery(string text, out int? round, out int? node) {
+        round = null;
+        node = null;
+        int queryAt = text.IndexOf('?');
+        if (queryAt < 0) return;
+        string query = text.Substring(queryAt + 1);
+        int hashAt = query.IndexOf('#');
+        if (hashAt >= 0) query = query.Substring(0, hashAt);
+        foreach (string pair in query.Split('&')) {
             int separator = pair.IndexOf('=');
-            string encodedName = separator >= 0 ? pair.Substring(0, separator) : pair;
-            if (!Uri.UnescapeDataString(encodedName).Equals(expectedName, StringComparison.OrdinalIgnoreCase)) {
-                continue;
-            }
-            string encodedValue = separator >= 0 ? pair.Substring(separator + 1) : "";
-            return Uri.UnescapeDataString(encodedValue.Replace("+", " "));
+            string name = separator >= 0 ? pair.Substring(0, separator) : pair;
+            string raw = separator >= 0 ? pair.Substring(separator + 1) : "";
+            name = Uri.UnescapeDataString(name);
+            raw = Uri.UnescapeDataString(raw.Replace("+", " "));
+            if (!int.TryParse(raw, out int parsed)) continue;
+            if (name.Equals("round", StringComparison.OrdinalIgnoreCase) && parsed >= 1) round = parsed;
+            else if (name.Equals("node", StringComparison.OrdinalIgnoreCase) && parsed >= 0) node = parsed;
         }
-        return null;
     }
 
     public static bool Open(string value) {
         if (!TryExtractGameId(value, out string gameId)) return false;
+        CapturePosition(value);
         if (_instance == null) Bootstrap();
         _instance.Enqueue(gameId);
         return true;
@@ -167,6 +178,7 @@ public sealed class SharedRecordLink : MonoBehaviour {
             yield return request.SendWebRequest();
 
             if (request.result != UnityWebRequest.Result.Success) {
+                ClearPendingJump();
                 ShowTip("无法打开牌谱", false, ReadServerError(request));
                 yield break;
             }
@@ -181,6 +193,7 @@ public sealed class SharedRecordLink : MonoBehaviour {
                 }
                 detail = envelope["data"].ToObject<RecordDetail>();
             } catch (Exception e) {
+                ClearPendingJump();
                 Debug.LogError($"解析分享牌谱响应失败: {e}");
                 ShowTip("无法打开牌谱", false, $"牌谱数据解析失败：{e.Message}");
                 yield break;
@@ -192,6 +205,7 @@ public sealed class SharedRecordLink : MonoBehaviour {
             }
 
             if (WindowsManager.Instance == null) {
+                ClearPendingJump();
                 Debug.LogError("打开分享牌谱失败：窗口管理器未就绪");
                 yield break;
             }
@@ -207,6 +221,7 @@ public sealed class SharedRecordLink : MonoBehaviour {
             }
 
             if (GameRecordManager.Instance == null) {
+                ClearPendingJump();
                 Debug.LogError("打开分享牌谱失败：3D 牌谱场景未能初始化");
                 AppSession.ReturnToLogin();
                 yield break;

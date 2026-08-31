@@ -7,8 +7,8 @@ const config = require('../config/config');
 
 const DAILY_MAX = 200;
 const SPONSOR_DAILY_MAX = 1000;
+/** fetch-json 单次请求批次，避免 payload 过大；日限额仍是 200/1000。 */
 const FETCH_MAX_GAMES = 100;
-const DOWNLOAD_MAX_GAMES = 100;
 
 function isQuotaEnabled() {
   return config.isProduction && !config.isDebug;
@@ -209,7 +209,6 @@ module.exports = {
   DAILY_MAX,
   SPONSOR_DAILY_MAX,
   FETCH_MAX_GAMES,
-  DOWNLOAD_MAX_GAMES,
   isQuotaEnabled,
   currentDayKey,
   QuotaExceededError,

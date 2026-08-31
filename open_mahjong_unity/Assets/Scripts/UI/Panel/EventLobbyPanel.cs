@@ -55,11 +55,16 @@ public class EventLobbyPanel : MonoBehaviour {
         if (EventNetworkManager.Instance != null) {
             EventNetworkManager.Instance.OnPublicEventsUpdated += RefreshList;
         }
-        ShowLobby(true);
+        if (ShouldRestoreDetail()) {
+            RestoreDetailChrome();
+            detailPanel.RefreshVisiblePage();
+        } else {
+            ShowLobby(true);
+        }
     }
 
     private void OnDisable() {
-        StopFade();
+        StopFadeRoutine();
         if (detailPanel != null) detailPanel.HideVenueCreate();
         if (EventNetworkManager.Instance != null) {
             EventNetworkManager.Instance.OnPublicEventsUpdated -= RefreshList;
@@ -79,8 +84,11 @@ public class EventLobbyPanel : MonoBehaviour {
     }
 
     private void SwitchKind(string kind) {
-        _kind = kind;
+        string next = kind == "base" ? "base" : "event";
+        _kind = next;
         ApplyTabVisual();
+        AbortToList();
+        RefreshList();
         RequestList();
     }
 
@@ -108,16 +116,52 @@ public class EventLobbyPanel : MonoBehaviour {
         ShowLobby(false);
     }
 
+    /// <summary>从对局/牌谱回到赛事页：详情仍开着则保持子页，否则刷新列表。</summary>
+    public void OnReturnedFromGame() {
+        if (!isActiveAndEnabled) return;
+        if (ShouldRestoreDetail()) {
+            RestoreDetailChrome();
+            detailPanel.RefreshVisiblePage();
+            return;
+        }
+        RefreshList();
+        RequestList();
+    }
+
+    private bool ShouldRestoreDetail() {
+        return detailPanel != null
+            && detailPanel.gameObject.activeSelf
+            && detailPanel.HasOpenVenue;
+    }
+
+    private void RestoreDetailChrome() {
+        StopFadeRoutine();
+        SetListChrome(false);
+        GameObject detailGo = detailPanel.gameObject;
+        if (!detailGo.activeSelf) detailGo.SetActive(true);
+        WindowFadeTransition.Normalize(detailGo);
+        GameObject[] chrome = ListChromeRoots();
+        for (int i = 0; i < chrome.Length; i++) {
+            WindowFadeTransition.Normalize(chrome[i]);
+        }
+    }
+
     private void ShowLobby(bool instant) {
         if (detailPanel != null) detailPanel.HideVenueCreate();
         if (instant) {
-            StopFade();
-            if (detailPanel != null) detailPanel.gameObject.SetActive(false);
-            SetListChrome(true);
+            AbortToList();
+            RefreshList();
             RequestList();
             return;
         }
-        StopFade();
+        StopFadeRoutine();
+        GameObject detailGo = detailPanel != null ? detailPanel.gameObject : null;
+        if (detailGo == null || !detailGo.activeSelf) {
+            AbortToList();
+            RefreshList();
+            RequestList();
+            return;
+        }
         _fadeRoutine = StartCoroutine(ShowLobbyRoutine());
     }
 
@@ -147,7 +191,7 @@ public class EventLobbyPanel : MonoBehaviour {
 
     public void OpenDetail(string eventId) {
         if (string.IsNullOrEmpty(eventId) || detailPanel == null) return;
-        StopFade();
+        StopFadeRoutine();
         _fadeRoutine = StartCoroutine(OpenDetailRoutine(eventId));
     }
 
@@ -181,14 +225,18 @@ public class EventLobbyPanel : MonoBehaviour {
         }
     }
 
-    private void StopFade() {
+    private void AbortToList() {
+        StopFadeRoutine();
+        if (detailPanel != null) detailPanel.HideVenueCreate();
+        GameObject detailGo = detailPanel != null ? detailPanel.gameObject : null;
+        WindowFadeTransition.Snap(detailGo, ListChromeRoots());
+    }
+
+    private void StopFadeRoutine() {
         if (_fadeRoutine != null) {
             StopCoroutine(_fadeRoutine);
             _fadeRoutine = null;
         }
-        WindowFadeTransition.Normalize(listRoot);
-        WindowFadeTransition.Normalize(SideNav);
-        if (detailPanel != null) WindowFadeTransition.Normalize(detailPanel.gameObject);
     }
 
     private void RequestList() {
@@ -197,7 +245,9 @@ public class EventLobbyPanel : MonoBehaviour {
 
     private void RefreshList() {
         foreach (var go in _spawned) {
-            if (go != null) Destroy(go);
+            if (go == null) continue;
+            go.SetActive(false);
+            Destroy(go);
         }
         _spawned.Clear();
         if (listContent == null || itemTemplate == null) return;

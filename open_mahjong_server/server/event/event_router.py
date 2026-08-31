@@ -23,18 +23,19 @@ async def _send(websocket, response: Response):
         logger.warning(f"event _send 失败: {exc}")
 
 
-def _public_entry_summary(entry_config: dict) -> dict:
-    cfg = entry_config or {}
+def _public_entry_summary(entry_config) -> dict:
+    cfg = game_server_parse_config({"entry_config": entry_config})
+    perm = cfg.get("create_room_permission") or "admin"
     return {
-        "forbid_tourist": bool(cfg.get("forbid_tourist", False)),
+        "forbid_tourist": bool(cfg.get("forbid_tourist")),
         "min_rank": cfg.get("min_rank") or "",
         "max_rank": cfg.get("max_rank") or "",
         "has_join_code": bool(str(cfg.get("join_code") or "").strip()),
-        "member_can_create_room": bool(cfg.get("member_can_create_room", False)),
-        "auto_approve": bool(cfg.get("auto_approve", False)),
-        "unregistered_can_create_room": bool(cfg.get("unregistered_can_create_room", False)),
-        "unregistered_can_ready": bool(cfg.get("unregistered_can_ready", False)),
-        "create_room_permission": cfg.get("create_room_permission") or "admin",
+        "member_can_create_room": perm in ("all", "registered"),
+        "auto_approve": bool(cfg.get("auto_approve")),
+        "unregistered_can_create_room": perm == "all",
+        "unregistered_can_ready": bool(cfg.get("unregistered_can_ready")),
+        "create_room_permission": perm,
     }
 
 
@@ -84,7 +85,7 @@ async def handle_event_message(game_server, Connect_id: str, message: dict, webs
                 kind = None
             events = db.list_public_active_venues(kind)
             for item in events:
-                item["entry_summary"] = _public_entry_summary(game_server_parse_config(item))
+                item["entry_summary"] = _public_entry_summary(item.get("entry_config"))
                 item.pop("entry_config", None)
             await _send(
                 websocket,
@@ -141,7 +142,6 @@ async def _handle_get_detail(game_server, user_id, player, message, websocket):
     registration = game_server.db_manager.get_event_registration(event_id, user_id)
     ready = game_server.db_manager.is_user_event_ready(event_id, user_id)
     announcements = game_server.db_manager.list_event_announcements(event_id)
-    cfg = game_server_parse_config(event)
     schedule = game_server.db_manager.get_event_schedule(event_id)
     detail = {
         "event_id": event.get("event_id"),
@@ -158,7 +158,7 @@ async def _handle_get_detail(game_server, user_id, player, message, websocket):
         "registration": registration,
         "is_ready": ready,
         "ready_count": game_server.db_manager.count_event_ready_players(event_id),
-        "entry_summary": _public_entry_summary(cfg),
+        "entry_summary": _public_entry_summary(event.get("entry_config")),
         "announcements": announcements,
     }
     await _send(
@@ -201,10 +201,21 @@ async def _handle_register(game_server, user_id, player, message, websocket):
 
 async def _handle_cancel_register(game_server, user_id, message, websocket):
     event_id = str(message.get("event_id") or "").strip()
+    registration = game_server.db_manager.get_event_registration(event_id, user_id)
+    if registration and registration.get("status") == "approved":
+        await _send(
+            websocket,
+            Response(type="event/cancel_register", success=False, message="报名已通过，无法取消"),
+        )
+        return
     ok = game_server.db_manager.cancel_event_registration(event_id, user_id)
     await _send(
         websocket,
-        Response(type="event/cancel_register", success=ok, message="已取消报名" if ok else "取消失败"),
+        Response(
+            type="event/cancel_register",
+            success=ok,
+            message="已取消报名" if ok else "没有可取消的报名申请",
+        ),
     )
 
 
@@ -224,7 +235,8 @@ async def _handle_ready(game_server, user_id, player, message, websocket, ready:
         role = game_server.db_manager.get_event_admin_role(event_id, user_id)
         approved = bool(registration and registration.get("status") == "approved")
         cfg = game_server_parse_config(event)
-        if not role and not approved and not cfg.get("unregistered_can_ready"):
+        allow_unregistered = bool(cfg.get("unregistered_can_ready"))
+        if not role and not approved and not allow_unregistered:
             await _send(websocket, Response(type=type_name, success=False, message="请先通过报名"))
             return
     ok = game_server.db_manager.set_event_ready(event_id, user_id, ready)

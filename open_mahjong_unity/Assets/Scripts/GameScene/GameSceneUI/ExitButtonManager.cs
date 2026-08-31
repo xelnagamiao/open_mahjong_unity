@@ -82,7 +82,7 @@ public class ExitButtonManager : MonoBehaviour {
 
     private void OnClickQuitRealtimeSpectator() {
         FriendNetworkManager.Instance.ExitRealtime();
-        PostGameNavigator.ExitToFriend();
+        PostGameNavigator.ExitToLobby(forceTeardown: true);
     }
 
     private void OnClickVoteStart(string voteType) {

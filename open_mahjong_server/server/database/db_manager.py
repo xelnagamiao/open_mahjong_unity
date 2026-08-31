@@ -2764,15 +2764,42 @@ class DatabaseManager:
                 self._put_connection(conn)
 
     @staticmethod
+    def _json_bool(value, default: bool = False) -> bool:
+        if isinstance(value, bool):
+            return value
+        if value is None:
+            return default
+        if isinstance(value, (int, float)):
+            return value != 0
+        text = str(value).strip().lower()
+        if text in ("1", "true", "t", "yes", "y", "on"):
+            return True
+        if text in ("0", "false", "f", "no", "n", "off", ""):
+            return False
+        return default
+
+    @staticmethod
     def parse_entry_config(raw) -> Dict[str, Any]:
         parsed: Dict[str, Any] = {}
         if isinstance(raw, dict):
             parsed = dict(raw)
+        elif isinstance(raw, (bytes, bytearray, memoryview)):
+            try:
+                loaded = json.loads(bytes(raw).decode("utf-8"))
+                if isinstance(loaded, dict):
+                    parsed = loaded
+            except (TypeError, ValueError, UnicodeDecodeError):
+                parsed = {}
         elif isinstance(raw, str) and raw.strip():
             try:
                 loaded = json.loads(raw)
                 if isinstance(loaded, dict):
                     parsed = loaded
+            except (TypeError, ValueError):
+                parsed = {}
+        elif raw is not None and hasattr(raw, "items"):
+            try:
+                parsed = dict(raw)
             except (TypeError, ValueError):
                 parsed = {}
         out: Dict[str, Any] = {
@@ -2794,7 +2821,7 @@ class DatabaseManager:
             "unregistered_can_create_room",
             "unregistered_can_ready",
         ):
-            out[key] = bool(out.get(key, False))
+            out[key] = DatabaseManager._json_bool(out.get(key), False)
         perm = DatabaseManager.resolve_create_room_permission(out)
         out["create_room_permission"] = perm
         out["unregistered_can_create_room"] = perm == "all"
@@ -2961,16 +2988,18 @@ class DatabaseManager:
                 UPDATE event_registrations
                    SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
                  WHERE event_id = %s AND user_id = %s
-                   AND status IN ('pending', 'approved')
+                   AND status = 'pending'
                 """,
                 (event_id, user_id),
             )
-            cursor.execute(
-                "DELETE FROM event_ready_pool WHERE event_id = %s AND user_id = %s",
-                (event_id, user_id),
-            )
+            updated = cursor.rowcount
+            if updated:
+                cursor.execute(
+                    "DELETE FROM event_ready_pool WHERE event_id = %s AND user_id = %s",
+                    (event_id, user_id),
+                )
             conn.commit()
-            return cursor.rowcount >= 0
+            return updated > 0
         except Error as e:
             logger.error(f'cancel_event_registration 失败: {e}')
             if conn:

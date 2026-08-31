@@ -188,7 +188,7 @@
           </div>
           <div class="tool-card" :class="{ active: resultTab === 'advanced' }">
             <div class="tool-name">高级分析</div>
-            <p class="tool-desc">平均首次听牌巡、和牌张/听牌张次数与频率、主番（4 番及以上）、凑番（全部 1–2 番且不含门断平）、门断平、和牌时明副露次数（暗杠不计）、点炮均番均巡。目前仅国标。</p>
+            <p class="tool-desc">包含标准分析全部指标，以及平均首次听牌巡、听牌率、流局率、被摸率、点炮听牌率、和牌张/听牌张、主番（4 番及以上）、凑番和、门断平、和牌时明副露、点炮均番均巡。目前仅国标。</p>
             <div class="tool-actions">
               <el-button
                 type="primary"
@@ -202,7 +202,7 @@
           </div>
           <div class="tool-card" :class="{ active: resultTab === 'fan' }">
             <div class="tool-name">按番查谱</div>
-            <p class="tool-desc">选出一个番种（含凑番、门断平），列出和出该番的牌谱、小局、对局时间、巡目与 node，复制 2D 回放链接分享。目前仅国标。</p>
+            <p class="tool-desc">选出一个番种（含凑番和、门断平），列出和出该番的牌谱、小局、对局时间、巡目与 node，复制 2D 回放链接分享。目前仅国标。</p>
             <div class="tool-actions fan-actions">
               <el-select
                 v-model="selectedFanKey"
@@ -302,13 +302,56 @@
 
         <template v-else-if="resultTab === 'advanced' && advancedStats">
           <div class="section-title">高级分析</div>
-          <p class="result-note">主番统计的是单番种 ≥ 4 番；全部由 1–2 番番种构成、且不是门断平的和牌记为凑番。门断平（门前清+断幺+平和）单独统计。明副露次数不含暗杠，加杠并入原碰。</p>
+          <p class="result-note">听牌率按小局计，一局内听过一次即计入。流局率是自己遇到流局的小局比例。被摸率是他人自摸、自己付钱的小局比例。点炮听牌率是点炮时自己剩余手牌仍听牌的比例。主番是单番种 ≥ 4 番；全部由 1–2 番构成且不是门断平的和牌记为凑番和。明副露次数不含暗杠，加杠并入原碰。</p>
           <div class="stats-table">
-            <div class="stats-row" v-for="item in advancedMetricRows" :key="item.label">
+            <div class="stats-row" v-for="item in advancedBasicRows" :key="'b-'+item.label">
               <span class="stats-label">{{ item.label }}</span>
               <span class="stats-value">{{ item.value }}</span>
             </div>
           </div>
+          <div class="stats-table">
+            <div class="stats-row" v-for="item in advancedExtraRows" :key="'e-'+item.label">
+              <span class="stats-label">{{ item.label }}</span>
+              <span class="stats-value">{{ item.value }}</span>
+            </div>
+          </div>
+          <div class="charts-panel">
+            <div class="chart-box chart-pie">
+              <div class="chart-title">顺位分布</div>
+              <div class="pie-wrap">
+                <svg viewBox="0 0 100 100" class="pie-svg">
+                  <circle cx="50" cy="50" r="40" fill="none" stroke="#eef0f3" stroke-width="18" />
+                  <circle
+                    v-for="seg in advancedPieSegments"
+                    :key="seg.key"
+                    cx="50" cy="50" r="40" fill="none"
+                    :stroke="seg.color" stroke-width="18"
+                    :stroke-dasharray="seg.dash"
+                    :stroke-dashoffset="seg.offset"
+                    transform="rotate(-90 50 50)"
+                  />
+                  <text x="50" y="54" class="pie-center" text-anchor="middle">{{ advancedPieTotal }}</text>
+                </svg>
+                <div class="pie-legend">
+                  <div v-for="seg in advancedPieSegments" :key="seg.key" class="legend-item">
+                    <span class="legend-dot" :style="{ background: seg.color }"></span>
+                    <span class="legend-label">{{ seg.label }}（{{ seg.value }}）</span>
+                    <span class="legend-pct">{{ seg.pct }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <el-collapse v-if="isGuobiao && standardFanEntries.length" class="fan-collapse">
+            <el-collapse-item :title="`番种统计（${standardFanEntries.length}）`" name="fan">
+              <div class="fan-grid">
+                <div v-for="item in standardFanEntries" :key="'adv-'+item.key" class="fan-item">
+                  <span class="fan-name">{{ item.name }}<span class="fan-pts">（{{ item.value }} 番）</span></span>
+                  <span class="fan-value">{{ getAdvancedFanValue(item.key) }}</span>
+                </div>
+              </div>
+            </el-collapse-item>
+          </el-collapse>
           <div class="adv-grid">
             <div class="chart-box">
               <div class="chart-title">点炮（放铳）</div>
@@ -382,7 +425,7 @@
 
         <template v-else-if="resultTab === 'fan' && fanQueried">
           <div class="section-title">按番查谱 · {{ fanQueryLabel }}</div>
-          <p class="result-note">共 {{ fanHits.length }} 次和牌。分享链接格式为 /2d/record/牌谱ID?round=第几局&amp;node=节点（局从 1 计，node 从 0 计）。</p>
+          <p class="result-note">共 {{ fanHits.length }} 次和牌。2D：/2d/record/牌谱ID?round=第几局&amp;node=节点。3D：/game-unity?recordId=牌谱ID&amp;round=第几局&amp;node=节点（局从 1 计，node 从 0 计）。</p>
           <div v-if="!fanHits.length" class="bar-empty">当前筛选的已下载牌谱里没有这个番。</div>
           <div v-else class="fan-table-wrap">
             <table class="fan-table">
@@ -410,8 +453,10 @@
                   <td class="yaku-cell">{{ row.yakuText }}</td>
                   <td><TileMiniGlyph v-if="row.winTile" :tile-id="row.winTile" /></td>
                   <td class="fan-ops">
-                    <a :href="sharePathForWin(row)" target="_blank" rel="noopener">打开</a>
-                    <button type="button" class="linkish" @click="copyWinLink(row)">复制链接</button>
+                    <a :href="sharePathForWin(row)" target="_blank" rel="noopener">打开2D</a>
+                    <button type="button" class="linkish" @click="copyWinLink(row, '2d')">复制2D</button>
+                    <a :href="sharePathForWin3d(row)" target="_blank" rel="noopener">打开3D</a>
+                    <button type="button" class="linkish" @click="copyWinLink(row, '3d')">复制3D</button>
                   </td>
                 </tr>
               </tbody>
@@ -429,19 +474,20 @@
             />
           </div>
         </template>
+      </section>
 
-        <div v-if="resultTab === 'standard' || resultTab === 'advanced'" class="records-section">
-          <div class="records-head">
-            <span class="section-title">对局记录</span>
-            <span class="records-total">共 {{ recordsTotal }} 局</span>
-          </div>
-          <el-table
-            :data="gameRecords"
-            size="small"
-            class="records-table"
-            v-loading="recordsLoading"
-            empty-text="暂无对局记录"
-          >
+      <section class="ra-panel records-panel">
+        <div class="records-head">
+          <span class="section-title">对局记录</span>
+          <span class="records-total">共 {{ recordsTotal }} 局</span>
+        </div>
+        <el-table
+          :data="gameRecords"
+          size="small"
+          class="records-table"
+          v-loading="recordsLoading"
+          empty-text="暂无对局记录"
+        >
             <el-table-column label="牌谱 ID" min-width="140">
               <template #default="{ row }">
                 <span class="cell-game-id" :title="row.game_id">{{ row.game_id }}</span>
@@ -512,20 +558,19 @@
                 <el-button link type="primary" size="small" @click="downloadRecordJson(row.game_id)">JSON</el-button>
               </template>
             </el-table-column>
-          </el-table>
-          <div class="records-foot">
-            <el-pagination
-              v-model:current-page="recordsPage.current"
-              v-model:page-size="recordsPage.size"
-              :total="recordsTotal"
-              :page-sizes="[20, 50]"
-              layout="prev, pager, next, sizes, total"
-              small
-              background
-              @current-change="loadResultRecords"
-              @size-change="onRecordsSizeChange"
-            />
-          </div>
+        </el-table>
+        <div class="records-foot">
+          <el-pagination
+            v-model:current-page="recordsPage.current"
+            v-model:page-size="recordsPage.size"
+            :total="recordsTotal"
+            :page-sizes="[20, 50]"
+            layout="prev, pager, next, sizes, total"
+            small
+            background
+            @current-change="loadResultRecords"
+            @size-change="onRecordsSizeChange"
+          />
         </div>
       </section>
     </template>
@@ -549,14 +594,15 @@ import {
   MENDUANPING_KEY,
   FAN_SEARCH_OPTIONS,
   filterWinsByFan,
-  sharePathForWin,
   sortWinsByTimeDesc,
 } from '../utils/recordAdvancedAnalyzer'
+import { sharePathForWin, sharePathForWin3d } from '../utils/recordShareLink'
 import { buildPlayerStatsRows, rankRatePieLabel, rankedGames, ratio, avg } from '../utils/statsDisplay'
 import { listGuobiaoFanEntries } from '../constants/guobiaoFanDict'
 import { barsFromCount, barsFromItems } from '../utils/recordBarUnits'
 import { getLocalRecordIdSet, getLocalRecords, putLocalRecords, listCachedPlayers } from '../utils/recordLocalStore'
 import { zipStoreFiles } from '../utils/zipStore'
+import { confirmRecordDownload } from '../utils/recordDownloadConfirm'
 import RecordBarStrip from '../components/RecordBarStrip.vue'
 import TileMiniGlyph from '../components/TileMiniGlyph.vue'
 
@@ -632,7 +678,6 @@ const fanPageSize = 30
 const gameRecords = ref([])
 const recordsTotal = ref(0)
 const recordsLoading = ref(false)
-const recordsLoadedKey = ref('')
 const recordsPage = reactive({ current: 1, size: 20 })
 let idsSeq = 0
 let recordsSeq = 0
@@ -708,8 +753,7 @@ const statsDisplay = computed(() =>
 
 const RANK_COLORS = { 1: '#6fd86f', 2: '#5dadff', 3: '#aab4c2', 4: '#ff7a7a' }
 const PIE_LABELS = { 1: '一位', 2: '二位', 3: '三位', 4: '四位' }
-const pieSegments = computed(() => {
-  const s = analyzedStats.value
+const pieFromStats = (s) => {
   if (!s) return []
   const counts = [
     { key: 1, value: s.first_place_count || 0 },
@@ -735,13 +779,17 @@ const pieSegments = computed(() => {
     acc += len
     return seg
   })
-})
+}
+const pieSegments = computed(() => pieFromStats(analyzedStats.value))
 const pieTotal = computed(() => rankedGames(analyzedStats.value))
+const advancedPieSegments = computed(() => pieFromStats(advancedStats.value))
+const advancedPieTotal = computed(() => rankedGames(advancedStats.value))
 const isGuobiao = computed(() => currentRule.value === 'guobiao')
 const standardFanEntries = computed(() => (
   isGuobiao.value ? listGuobiaoFanEntries() : []
 ))
 const getStandardFanValue = (fanKey) => analyzedStats.value?.fan_stats?.[fanKey] || 0
+const getAdvancedFanValue = (fanKey) => advancedStats.value?.fan_stats?.[fanKey] || 0
 const hasAnyResult = computed(() =>
   !!analyzedStats.value || !!advancedStats.value || fanQueried.value
 )
@@ -760,20 +808,21 @@ const pagedFanHits = computed(() => {
   const start = (fanPage.value - 1) * fanPageSize
   return fanHits.value.slice(start, start + fanPageSize)
 })
-const advancedMetricRows = computed(() => {
+const advancedBasicRows = computed(() =>
+  advancedStats.value ? buildPlayerStatsRows(advancedStats.value) : []
+)
+const advancedExtraRows = computed(() => {
   const s = advancedStats.value
   if (!s) return []
   return [
-    { label: '总对局', value: String(s.total_games || 0) },
-    { label: '总回合', value: String(s.total_rounds || 0) },
-    { label: '和牌次数', value: String(s.win_count || 0) },
     { label: '听牌率', value: ratio(s.tenpai_round_count, s.total_rounds) },
     { label: '平均首次听牌巡', value: avg(s.total_first_tenpai_turn, s.tenpai_round_count) },
-    { label: '荒庄率', value: ratio(s.liuju_count, s.total_rounds) },
+    { label: '流局率', value: ratio(s.liuju_count, s.total_rounds) },
+    { label: '被摸率', value: ratio(s.tsumo_against_count, s.total_rounds) },
+    { label: '点炮听牌率', value: ratio(s.deal_in_tenpai_count, s.deal_in_count) },
     { label: '门清和了率', value: ratio(s.closed_win_count, s.win_count) },
-    { label: '凑番占和牌', value: ratio(s.coufan_count, s.win_count) },
+    { label: '凑番和占和牌', value: ratio(s.coufan_count, s.win_count) },
     { label: '门断平占和牌', value: ratio(s.menduanping_count, s.win_count) },
-    { label: '平均和番', value: avg(s.total_win_fan, s.win_count) },
     { label: '平均和了点数', value: avg(s.total_win_score, s.win_count) },
   ]
 })
@@ -783,6 +832,7 @@ const dealInRows = computed(() => {
   return [
     { label: '点炮次数', value: String(s.deal_in_count || 0) },
     { label: '点炮率', value: ratio(s.deal_in_count, s.total_rounds) },
+    { label: '点炮听牌率', value: ratio(s.deal_in_tenpai_count, s.deal_in_count) },
     { label: '平均点炮番', value: avg(s.total_deal_in_fan, s.deal_in_count) },
     { label: '平均点炮失分', value: avg(s.total_deal_in_score, s.deal_in_count) },
     { label: '平均点炮巡目', value: avg(s.total_deal_in_turn, s.deal_in_count) },
@@ -1027,15 +1077,23 @@ const handleDownloadError = (err, fallback) => {
   ElMessage.error(data?.message || fallback || '下载失败')
 }
 
-const downloadGameIds = async (gameIds) => {
+const downloadGameIds = async (gameIds, { skipConfirm = false } = {}) => {
   const ids = [...new Set((gameIds || []).map(String).filter(Boolean))]
   if (!ids.length) return 0
-  const remaining = quota.value.unlimited ? ids.length : Math.min(ids.length, quota.value.remaining)
-  if (!quota.value.unlimited && remaining <= 0) {
-    ElMessage.error('今日下载局数已达上限（凌晨 4 点刷新）')
-    return 0
+  await loadQuota()
+  let toFetch = ids
+  if (skipConfirm) {
+    const remaining = quota.value.unlimited ? ids.length : Math.min(ids.length, quota.value.remaining)
+    if (!quota.value.unlimited && remaining <= 0) {
+      ElMessage.error('今日下载局数已达上限（凌晨 4 点刷新）')
+      return 0
+    }
+    toFetch = ids.slice(0, remaining)
+  } else {
+    const take = await confirmRecordDownload(quota.value, ids.length, { actionLabel: '下载到本机' })
+    if (!take) return 0
+    toFetch = ids.slice(0, take)
   }
-  const toFetch = ids.slice(0, remaining)
   let saved = 0
   downloading.value = true
   try {
@@ -1197,7 +1255,6 @@ const loadResultRecords = async () => {
       gameRecords.value = []
       recordsTotal.value = 0
     }
-    recordsLoadedKey.value = filterKey.value
   } catch (_) {
     if (seq !== recordsSeq) return
     gameRecords.value = []
@@ -1263,10 +1320,6 @@ const clearAnalysisResults = () => {
   resultTab.value = ''
   analyzedFilterKey.value = ''
   advancedFilterKey.value = ''
-  gameRecords.value = []
-  recordsTotal.value = 0
-  recordsLoadedKey.value = ''
-  recordsPage.current = 1
 }
 
 const runStandardAnalysis = async () => {
@@ -1379,13 +1432,14 @@ const shortId = (id) => {
   return s.length > 12 ? `${s.slice(0, 8)}…` : s
 }
 
-const copyWinLink = async (win) => {
-  const path = sharePathForWin(win)
+const copyWinLink = async (win, kind = '2d') => {
+  const path = kind === '3d' ? sharePathForWin3d(win) : sharePathForWin(win)
   if (!path) return
   const url = `${window.location.origin}${path}`
+  const node = win.shareNode ?? win.node
   try {
     await navigator.clipboard.writeText(url)
-    ElMessage.success(`已复制：第${win.round}局 巡${win.xunmu} node ${win.node}`)
+    ElMessage.success(`已复制${kind === '3d' ? '3D' : '2D'}：第${win.round}局 巡${win.xunmu} node ${node}`)
   } catch (_) {
     ElMessage.error('复制失败')
   }
@@ -1423,14 +1477,9 @@ const onFilterChange = () => {
   clearAnalysisResults()
   loadScopeCounts()
   loadRecordIds()
-}
-
-watch(resultTab, (tab) => {
-  if (tab !== 'standard' && tab !== 'advanced') return
-  if (recordsLoadedKey.value === filterKey.value) return
   recordsPage.current = 1
   loadResultRecords()
-})
+}
 
 watch(filterKey, () => {
   if (analyzedFilterKey.value && analyzedFilterKey.value !== filterKey.value) {
@@ -1451,9 +1500,10 @@ watch(targetUserId, async (uid, prev) => {
   if (uid == null || uid === prev) return
   if (!authReady.value || !auth.isLoggedIn) return
   clearAnalysisResults()
+  recordsPage.current = 1
   await loadPlayerInfo()
   if (scene.value === 'events') loadEventOptions()
-  await Promise.all([loadScopeCounts(), loadRecordIds()])
+  await Promise.all([loadScopeCounts(), loadRecordIds(), loadResultRecords()])
 })
 
 const maybeAutoDownload = async () => {
@@ -1466,7 +1516,7 @@ const maybeAutoDownload = async () => {
   const missing = recordItems.value
     .map((row) => String(row.game_id))
     .filter((id) => !localIds.value.has(id))
-  if (missing.length) await downloadGameIds(missing)
+  if (missing.length) await downloadGameIds(missing, { skipConfirm: true })
   if (localCount.value > 0) await runStandardAnalysis()
 }
 
@@ -1477,7 +1527,7 @@ onMounted(async () => {
   applyQueryFilters()
   if (scene.value === 'events') loadEventOptions()
   await Promise.all([loadQuota(), loadPlayerInfo(), refreshCachedPlayers()])
-  await Promise.all([loadScopeCounts(), loadRecordIds()])
+  await Promise.all([loadScopeCounts(), loadRecordIds(), loadResultRecords()])
   await maybeAutoDownload()
   await refreshCachedPlayers()
 })
@@ -1761,7 +1811,7 @@ onMounted(async () => {
 .fan-table .mono { white-space: nowrap; }
 .mono { font-family: Consolas, Menlo, monospace; }
 .yaku-cell { max-width: 280px; line-height: 1.45; }
-.fan-ops { display: flex; gap: 8px; white-space: nowrap; }
+.fan-ops { display: flex; gap: 8px; white-space: nowrap; flex-wrap: wrap; }
 .fan-ops a, .linkish {
   color: #409eff;
   background: none;
@@ -1827,8 +1877,7 @@ onMounted(async () => {
 .fan-name { color: #475569; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fan-pts { color: #94a3b8; font-weight: 400; }
 .fan-value { font-weight: 700; color: #409eff; font-family: 'Consolas', 'Menlo', monospace; }
-.records-section { margin-top: 16px; border-top: 1px solid #eef0f3; padding-top: 12px; }
-.records-head {
+.records-panel .records-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;

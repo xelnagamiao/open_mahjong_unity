@@ -606,6 +606,34 @@ public partial class GameRecordManager : MonoBehaviour {
         }
     }
 
+    /// <summary>
+    /// 分享链接 round 从 1 计、node 从 0 计；切局后走一次 GotoAction。
+    /// </summary>
+    public void JumpToSharePosition(int round, int node) {
+        if (gameRecord?.gameRound?.rounds == null || gameRecord.gameRound.rounds.Count == 0) return;
+
+        int targetRound = currentRoundIndex;
+        if (round >= 1) {
+            if (gameRecord.gameRound.rounds.ContainsKey(round)) {
+                targetRound = round;
+            } else {
+                var ordered = gameRecord.gameRound.GetRoundsList();
+                int ordinal = round - 1;
+                if (ordinal >= 0 && ordinal < ordered.Count) {
+                    targetRound = ordered[ordinal].roundIndex;
+                }
+            }
+        }
+        if (targetRound != currentRoundIndex) {
+            GotoSelectRound(targetRound, fromUserAction: false);
+        }
+        if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData)
+            || roundData.actionTicks == null) {
+            return;
+        }
+        GotoAction(Mathf.Clamp(node, 0, roundData.actionTicks.Count));
+    }
+
     // 选择选中局
     public void GotoSelectRound(int roundIndex, bool fromUserAction = true) {
         if (fromUserAction && BlocksRecordNavigation) return;

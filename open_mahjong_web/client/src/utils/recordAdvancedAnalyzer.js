@@ -1,5 +1,5 @@
 /**
- * 国标牌谱高级分析：首次听牌巡、和/听张频次、主番与凑番、和牌副露次数、点炮。
+ * 国标牌谱高级分析：含标准分析全部指标，以及听牌/流局/被摸/点炮听牌、和张听张、主番与凑番和、副露、点炮。
  * 听牌判定复用客户端 gbTingpai；明副露不含暗杠，加杠并入原碰不另计一次。
  */
 
@@ -11,6 +11,7 @@ import {
   parseGuobiaoFanLabel,
 } from '../constants/guobiaoFanDict.js'
 import {
+  analyzeRecords,
   asTileId,
   findOriginalIndex,
   isCuohe,
@@ -21,9 +22,9 @@ import {
 } from './recordAnalyzer.js'
 
 export const COUFAN_KEY = '__coufan__'
-export const COUFAN_LABEL = '凑番'
+const COUFAN_LABEL = '凑番和'
 export const MENDUANPING_KEY = '__menduanping__'
-export const MENDUANPING_LABEL = '门断平'
+const MENDUANPING_LABEL = '门断平'
 
 const MEN_NAMES = new Set(['门前清'])
 const DUAN_NAMES = new Set(['断幺', '断幺九'])
@@ -35,7 +36,7 @@ const CLAIM_CODES = new Set(['cl', 'cm', 'cr', 'p', 'g'])
 const FLOWER_MIN = 51
 const FLOWER_MAX = 58
 
-export const TILE_SUIT_ROWS = [
+const TILE_SUIT_ROWS = [
   [11, 12, 13, 14, 15, 16, 17, 18, 19],
   [21, 22, 23, 24, 25, 26, 27, 28, 29],
   [31, 32, 33, 34, 35, 36, 37, 38, 39],
@@ -43,7 +44,7 @@ export const TILE_SUIT_ROWS = [
 ]
 
 export const FAN_SEARCH_OPTIONS = [
-  { key: COUFAN_KEY, label: '凑番（全部为 1–2 番，不含门断平）', value: 0 },
+  { key: COUFAN_KEY, label: '凑番和（全部为 1–2 番，不含门断平）', value: 0 },
   { key: MENDUANPING_KEY, label: '门断平（门前清+断幺+平和）', value: 0 },
   ...listGuobiaoFanEntries().map((item) => ({
     key: item.key,
@@ -122,8 +123,8 @@ function recordGameId(item, record) {
 
 /**
  * 主番 = 单番种番数 ≥ 4。
- * 凑番 = 全部番种都是 1 或 2 番，且不是门断平（门前清+断幺+平和）。
- * 门断平单独统计，不计入凑番。
+ * 凑番和 = 全部番种都是 1 或 2 番，且不是门断平（门前清+断幺+平和）。
+ * 门断平单独统计，不计入凑番和。
  */
 export function classifyWinYaku(yaku) {
   const parsed = (Array.isArray(yaku) ? yaku : [])
@@ -141,7 +142,7 @@ export function classifyWinYaku(yaku) {
   return { parsed, mainFans, isCoufan, isMenduanping }
 }
 
-export function winMatchesFan(win, fanKey) {
+function winMatchesFan(win, fanKey) {
   if (!win || !fanKey) return false
   if (fanKey === COUFAN_KEY) return !!win.isCoufan
   if (fanKey === MENDUANPING_KEY) return !!win.isMenduanping
@@ -150,9 +151,25 @@ export function winMatchesFan(win, fanKey) {
   return (win.parsed || []).some((item) => item.name === name)
 }
 
-export function sharePathForWin(win) {
-  if (!win?.game_id) return ''
-  return `/2d/record/${encodeURIComponent(win.game_id)}?round=${win.round}&node=${win.node}`
+const SHARE_SILENT_ACTIONS = new Set(['reset', 'ask_hand', 'ask_other', 'ca'])
+
+function isShareSilentTick(tick) {
+  const action = String(tick?.[0] ?? '')
+  if (!action || SHARE_SILENT_ACTIONS.has(action)) return true
+  if (!String(action).startsWith('hu_')) return false
+  const hu = parseHuTick(tick)
+  return !!(hu && isCuohe(hu.yaku))
+}
+
+/** 分享链接落到和牌前最后一个可见动作（出牌/摸牌/加杠），跳过鸣牌询问等静默 tick。 */
+export function shareNodeBeforeWin(ticks, huNode) {
+  const list = Array.isArray(ticks) ? ticks : []
+  const hu = Math.max(0, Number(huNode) || 0)
+  const end = Math.min(hu, list.length)
+  for (let index = end - 1; index >= 0; index -= 1) {
+    if (!isShareSilentTick(list[index])) return index
+  }
+  return Math.max(0, hu - 1)
 }
 
 function bump(map, key, n = 1) {
@@ -174,6 +191,8 @@ function emptyAcc() {
     total_win_fan: 0,
     closed_win_count: 0,
     deal_in_count: 0,
+    deal_in_tenpai_count: 0,
+    tsumo_against_count: 0,
     total_deal_in_fan: 0,
     total_deal_in_score: 0,
     total_deal_in_turn: 0,
@@ -228,23 +247,30 @@ function walkRound(rd, mySeat, { tingpaiCheck = null } = {}) {
   let firstTenpaiWaits = []
   let liuju = false
   let dealtThisRound = false
+  let tsumoAgainst = false
   const wins = []
   const dealIns = []
 
-  const checkTenpai = () => {
-    if (!tingpaiCheck || firstTenpaiXunmu != null) return
-    if (state.drawn != null) return
+  const readWaits = () => {
+    if (!tingpaiCheck) return []
+    if (state.drawn != null) return []
     const hand = closedHandIds(state.hand)
-    if (hand.length % 3 !== 1) return
-    let waits = []
+    if (hand.length % 3 !== 1) return []
     try {
-      waits = tingpaiCheck(hand, [...state.combos]) || []
+      return (tingpaiCheck(hand, [...state.combos]) || [])
+        .map(normTile)
+        .filter((id) => asTileId(id))
     } catch (_) {
-      waits = []
+      return []
     }
+  }
+
+  const checkTenpai = () => {
+    if (firstTenpaiXunmu != null) return
+    const waits = readWaits()
     if (waits.length) {
       firstTenpaiXunmu = xunmu
-      firstTenpaiWaits = waits.map(normTile).filter((id) => asTileId(id))
+      firstTenpaiWaits = waits
     }
   }
 
@@ -388,6 +414,7 @@ function walkRound(rd, mySeat, { tingpaiCheck = null } = {}) {
         score: myDelta,
         xunmu,
         node,
+        shareNode: shareNodeBeforeWin(ticks, node),
         visibleFulu: Math.min(4, Math.max(0, state.visibleFulu)),
         winTile,
         waitTiles: firstTenpaiWaits,
@@ -397,6 +424,7 @@ function walkRound(rd, mySeat, { tingpaiCheck = null } = {}) {
       const neg = sc.filter((x) => x < 0)
       if (neg.length && myDelta === Math.min(...neg)) {
         dealtThisRound = true
+        const discardedByMe = lastCutSeat === mySeat
         dealIns.push({
           fanScore: hu.fanScore,
           score: Math.abs(myDelta),
@@ -404,9 +432,12 @@ function walkRound(rd, mySeat, { tingpaiCheck = null } = {}) {
           node,
           yaku: hu.yaku || [],
           winTile: asTileId(hu.hepaiTile) || asTileId(lastCutTile),
-          discarderWasMe: lastCutSeat === mySeat,
+          discarderWasMe: discardedByMe,
+          tenpai: discardedByMe && readWaits().length > 0,
         })
       }
+    } else if (hu.huClass === 'hu_self' && myDelta < 0) {
+      tsumoAgainst = true
     }
   }
 
@@ -415,6 +446,7 @@ function walkRound(rd, mySeat, { tingpaiCheck = null } = {}) {
     firstTenpaiWaits,
     liuju: liuju && wins.length === 0,
     visibleFulu: state.visibleFulu,
+    tsumoAgainst,
     wins,
     dealIns,
   }
@@ -477,6 +509,7 @@ function analyzeOne(record, userId, acc, { tingpaiCheck = null, gameId = '', cre
       for (const tile of walked.firstTenpaiWaits) bump(acc.wait_tile_counts, tile)
     }
     if (walked.liuju) acc.liuju_count += 1
+    if (walked.tsumoAgainst) acc.tsumo_against_count += 1
 
     const currentRound = Number(rd?.current_round || rd?.round_index || round + 1)
     for (const win of walked.wins) {
@@ -510,6 +543,7 @@ function analyzeOne(record, userId, acc, { tingpaiCheck = null, gameId = '', cre
     for (const deal of walked.dealIns) {
       acc.deal_ins.push({ ...deal, game_id: gid, round: round + 1, node: deal.node })
       acc.deal_in_count += 1
+      if (deal.tenpai) acc.deal_in_tenpai_count += 1
       acc.total_deal_in_fan += deal.fanScore || 0
       acc.total_deal_in_score += deal.score || 0
       acc.total_deal_in_turn += deal.xunmu || 0
@@ -528,8 +562,8 @@ function yieldToUi() {
  */
 export async function analyzeRecordsAdvanced(items, userId, options = {}) {
   const wantTingpai = options.tingpai !== false
-  let tingpaiCheck = null
-  if (wantTingpai) {
+  let tingpaiCheck = options.tingpaiCheck || null
+  if (!tingpaiCheck && wantTingpai) {
     const mod = await import('../game2d/calc/guobiao/gbTingpai')
     tingpaiCheck = mod.tingpaiCheck
   }
@@ -551,7 +585,8 @@ export async function analyzeRecordsAdvanced(items, userId, options = {}) {
       await yieldToUi()
     }
   }
-  return acc
+  const basic = analyzeRecords(list, userId)
+  return { ...basic, ...acc }
 }
 
 export function filterWinsByFan(wins, fanKey) {

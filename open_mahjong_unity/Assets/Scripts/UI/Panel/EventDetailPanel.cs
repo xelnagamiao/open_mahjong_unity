@@ -139,8 +139,16 @@ public class EventDetailPanel : MonoBehaviour {
     public void Open(string eventId, string kind) {
         _eventId = eventId;
         _kind = string.IsNullOrEmpty(kind) ? "event" : kind;
+        _detail = null;
         HideVenueCreate();
         ShowPage(Page.Home, true);
+    }
+
+    public bool HasOpenVenue => !string.IsNullOrEmpty(_eventId);
+
+    public void RefreshVisiblePage() {
+        if (string.IsNullOrEmpty(_eventId) || !gameObject.activeSelf) return;
+        FetchPageData(_page);
     }
 
     public void ShowRoomsAfterCreate() {
@@ -153,7 +161,10 @@ public class EventDetailPanel : MonoBehaviour {
             StopCoroutine(_venueFade);
             _venueFade = null;
         }
-        venueCreatePanel.CloseVenueMode();
+        if (venueCreatePanel != null) {
+            WindowFadeTransition.Snap(venueCreatePanel.gameObject, (GameObject)null);
+            venueCreatePanel.CloseVenueMode();
+        }
     }
 
     public void CloseVenueCreateFaded() {
@@ -240,9 +251,13 @@ public class EventDetailPanel : MonoBehaviour {
             announceText.text = lines.Count > 0 ? string.Join("\n\n", lines) : "暂无公告";
         }
         registerLabel.text = isBase ? "申请加入基地" : "报名比赛";
+        registerButton.interactable = true;
         var reg = _detail != null ? _detail.registration : null;
-        if (reg != null && (reg.status == "pending" || reg.status == "approved")) {
+        if (reg != null && reg.status == "pending") {
             registerLabel.text = "取消报名";
+        } else if (reg != null && reg.status == "approved") {
+            registerLabel.text = "已报名";
+            registerButton.interactable = false;
         }
         if (_detail != null && _detail.is_ready) {
             readyLabel.text = isBase ? "基地等待中" : "比赛等待中";
@@ -351,8 +366,10 @@ public class EventDetailPanel : MonoBehaviour {
         if (_pageFade != null) {
             StopCoroutine(_pageFade);
             _pageFade = null;
-            WindowFadeTransition.Normalize(PageGo(previous));
-            WindowFadeTransition.Normalize(PageGo(page));
+            _page = page;
+            ApplyPageActive(page);
+            FetchPageData(page);
+            return;
         }
         _page = page;
         _pageFade = StartCoroutine(FadeToPageRoutine(previous, page));
@@ -418,7 +435,11 @@ public class EventDetailPanel : MonoBehaviour {
             return;
         }
         var reg = _detail != null ? _detail.registration : null;
-        if (reg != null && (reg.status == "pending" || reg.status == "approved")) {
+        if (reg != null && reg.status == "approved") {
+            NotificationManager.Instance.ShowTip("event", false, "已报名，无法取消");
+            return;
+        }
+        if (reg != null && reg.status == "pending") {
             EventNetworkManager.Instance.CancelRegister(_eventId);
             return;
         }
@@ -438,14 +459,6 @@ public class EventDetailPanel : MonoBehaviour {
     private void OnReadyClicked() {
         if (!IsLoggedIn()) {
             NotificationManager.Instance.ShowTip("event", false, "请先登录后再加入等待");
-            return;
-        }
-        bool approved = _detail != null && _detail.registration != null && _detail.registration.status == "approved";
-        bool admin = _detail != null && _detail.is_admin;
-        bool allowUnregistered = _detail != null && _detail.entry_summary != null
-            && _detail.entry_summary.unregistered_can_ready;
-        if (!approved && !admin && !allowUnregistered) {
-            NotificationManager.Instance.ShowTip("event", false, "报名通过后才能加入等待");
             return;
         }
         if (_detail != null && _detail.is_ready) EventNetworkManager.Instance.Unready(_eventId);
@@ -540,6 +553,7 @@ public class EventDetailPanel : MonoBehaviour {
             StopCoroutine(_venueFade);
             _venueFade = null;
         }
+        WindowFadeTransition.Snap(venueCreatePanel.gameObject, (GameObject)null);
         _venueFade = StartCoroutine(OpenVenueCreateRoutine());
     }
 

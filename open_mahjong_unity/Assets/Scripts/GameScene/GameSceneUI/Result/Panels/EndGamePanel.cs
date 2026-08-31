@@ -114,7 +114,7 @@ public class EndGamePanel : MonoBehaviour {
         if (isRankedMatch) {
             RankChangePanel.Instance.ShowRankChange(rankBefore, scoreBefore, rankAfter, scoreAfter, ptChange);
         } else {
-            PostGameNavigator.NavigateAfterGameEnd();
+            PostGameNavigator.ExitToLobby(forceTeardown: true);
         }
     }
 

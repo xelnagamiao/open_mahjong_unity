@@ -3,7 +3,8 @@ using System.Collections;
 using UnityEngine;
 using NativeWebSocket;
 
-// 在 WebSocket 静默断开后，应用回到前台时自动重连登录并恢复对局
+// 在 WebSocket 静默断开后，应用回到前台时自动重连登录并恢复对局。
+// 观战（实时/延时/待加入）不算座位对局：确认断线后只清本地互斥状态，不恢复观战。
 public static class AutoReconnect {
     private enum State {
         Idle,
@@ -16,6 +17,7 @@ public static class AutoReconnect {
         public bool IsTourist;
         public bool WasLoggedIn;
         public bool WasInGame;
+        public bool WasSpectating;
         public string Username;
         public string Password;
     }
@@ -33,6 +35,8 @@ public static class AutoReconnect {
     private static WaitState _waitState;
     private static bool _backgroundDisconnectDetected;
     private static int _retryCycle;
+    /// <summary>本次重连已在确认断线后丢掉本地观战会话；成功后提示「观战已中断」而非「已恢复连接」。</summary>
+    private static bool _abandonedSpectatorSession;
 
     public static bool IsActive => _state == State.Reconnecting;
     public static bool ExpectGameRestore { get; private set; }
@@ -55,7 +59,8 @@ public static class AutoReconnect {
             _state = State.Background;
             Debug.Log(
                 "[AutoReconnect] 进入后台，已保存会话快照"
-                + $" (userId={_snapshot.UserId}, wasInGame={_snapshot.WasInGame})");
+                + $" (userId={_snapshot.UserId}, wasInGame={_snapshot.WasInGame}"
+                + $", wasSpectating={_snapshot.WasSpectating})");
         }
     }
 
@@ -139,19 +144,23 @@ public static class AutoReconnect {
         _backgroundDisconnectDetected = false;
         _retryCycle = 0;
         ExpectGameRestore = false;
+        _abandonedSpectatorSession = false;
     }
 
     private static void CaptureSnapshot() {
         var udm = UserDataManager.Instance;
         string currentWindow = WindowsManager.Instance.GetCurrentWindow();
-
-        bool isInGame = !string.IsNullOrEmpty(udm.GamestateId) || currentWindow == "game";
+        bool wasSpectating = GameSessionGuard.IsSpectatorSession;
+        // 观战占用 game 窗且实时观战会写入 GamestateId，不能当成座位对局去等 reconnect_ask。
+        bool isInGame = !wasSpectating
+            && (!string.IsNullOrEmpty(udm.GamestateId) || currentWindow == "game");
 
         _snapshot = new SessionSnapshot {
             UserId = udm.UserId,
             IsTourist = udm.IsTourist,
             WasLoggedIn = udm.UserId != 0,
             WasInGame = isInGame,
+            WasSpectating = wasSpectating,
             Username = udm.SavedLoginUsername ?? "",
             Password = udm.SavedLoginPassword ?? "",
         };
@@ -181,7 +190,9 @@ public static class AutoReconnect {
     private static IEnumerator AutoReconnectRoutine()
     {
         _waitState = new WaitState();
-        Debug.Log($"[AutoReconnect] 开始重连 (expectGame={ExpectGameRestore})");
+        Debug.Log(
+            $"[AutoReconnect] 开始重连 (expectGame={ExpectGameRestore}"
+            + $", wasSpectating={_snapshot.WasSpectating})");
 
         var nm = NetworkManager.Instance;
 
@@ -220,9 +231,13 @@ public static class AutoReconnect {
         // 服务端 disconnect 会静默移出匹配等待队列且不发 leave_queue_done；
         // 必须在此对齐本地排队/匹配成功面板，否则切回匹配页会误显示仍在匹配。
         MatchNetworkManager.Instance?.ClearLocalMatchState();
-        if (ExpectGameRestore)
+        if (_snapshot.WasSpectating) {
+            // 服务端断线已摘掉观战推流；只清本地互斥标志，不对死连接发 remove/exit。
+            AbandonLocalSpectatorSession();
+        }
+        if (ExpectGameRestore || _snapshot.WasSpectating)
         {
-            // 离开可能已失效的对局界面，避免停留在空桌；重回对局须等到收到 game_start。
+            // 离开可能已失效的对局/观战界面。座位玩家重回对局须等到收到 game_start；观战不恢复。
             GameSceneTeardown.ResetToIdle();
             WindowsManager.Instance.SwitchWindow("menu");
         }
@@ -375,14 +390,34 @@ public static class AutoReconnect {
     }
 
     private static void OnSucceeded(bool skipAllTips = false) {
+        bool abandonedSpectator = _abandonedSpectatorSession;
         _state = State.Idle;
         ExpectGameRestore = false;
         _waitState = null;
         _backgroundDisconnectDetected = false;
         _retryCycle = 0;
-        if (!skipAllTips) {
-            NotificationManager.Instance.ShowTip("重连", true, "已自动恢复连接");
+        _abandonedSpectatorSession = false;
+        if (skipAllTips) return;
+        if (abandonedSpectator) {
+            NotificationManager.Instance.ShowTip("观战", false, "观战已中断，请重新进入");
+            return;
         }
+        NotificationManager.Instance.ShowTip("重连", true, "已自动恢复连接");
+    }
+
+    /// <summary>
+    /// 只清本地观战互斥状态，不向服务端发退出（断线后连接已失效，服务端已在 disconnect 时移除）。
+    /// </summary>
+    private static void AbandonLocalSpectatorSession() {
+        NormalGameStateManager.Instance?.StopAsRealtimeSpectator();
+        if (GameRecordManager.Instance != null) {
+            GameRecordManager.Instance.ResetForSessionEnd();
+        } else {
+            GameRecordManager.ClearDelayedSpectatorSession();
+        }
+        HeaderPanel.Instance?.SetBackToGameVisible(false);
+        _abandonedSpectatorSession = true;
+        Debug.Log("[AutoReconnect] 已清理本地观战会话");
     }
 
     // 重连失败：延迟重试（最多 2 个周期），耗尽后回退到正常断线弹窗
@@ -406,6 +441,7 @@ public static class AutoReconnect {
         _waitState = null;
         _backgroundDisconnectDetected = false;
         _retryCycle = 0;
+        _abandonedSpectatorSession = false;
         NetworkManager.Instance.ForceShowDisconnectDialog();
     }
 

@@ -1,10 +1,10 @@
 /// <summary>
 /// 离开 gamePanel 后的页面跳转（真正退出，非对局挂后台）。
-/// 统一回到进入对局/牌谱前的大厅顶栏标签，由 WindowsManager 在 SwitchWindow 时自动维护。
+/// 统一回到进入对局/牌谱前冻结的 MainCanvas 页面，与场景内「主菜单」同一锚点。
 /// </summary>
 public static class PostGameNavigator {
     /// <summary>
-    /// 真正离开 gamePanel，切回上次大厅标签并做场景清理。
+    /// 真正离开 gamePanel，切回进入前所在大厅页并做场景清理。
     /// </summary>
     /// <param name="forceTeardown">对局结束、退出牌谱等须强制清理；延时观战被踢等可保留进行中的对局场景。</param>
     public static void ExitToLobby(bool forceTeardown = false) {
@@ -36,18 +36,23 @@ public static class PostGameNavigator {
             UserDataManager.Instance.SetRoomId("");
         }
 
-        string tab = WindowsManager.Instance.GetLastLobbyTab();
-        WindowsManager.Instance.ExitGameToLastLobbyTab();
-        RefreshLobbyTabIfNeeded(tab);
+        string tab = WindowsManager.Instance.GetGameReturnWindow();
+        bool alreadyOnReturn = WindowsManager.Instance.GetCurrentWindow() == tab;
+        WindowsManager.Instance.ExitGameToReturnWindow();
+        RefreshLobbyTabIfNeeded(tab, alreadyOnReturn);
     }
 
-    private static void RefreshLobbyTabIfNeeded(string tab) {
+    private static void RefreshLobbyTabIfNeeded(string tab, bool alreadyOnTab) {
         switch (tab) {
             case "record":
                 RecordPanel.Instance.OpenAndReload();
                 break;
             case "friend":
                 FriendNetworkManager.Instance.ListAllFriendPanels();
+                break;
+            case "event":
+                // 赛事面板刚被重新打开时 OnEnable 已经恢复详情并刷新。
+                if (alreadyOnTab) EventLobbyPanel.Instance?.OnReturnedFromGame();
                 break;
         }
     }
@@ -62,12 +67,4 @@ public static class PostGameNavigator {
         }
         return LobbyStateGuard.IsInMatchQueue;
     }
-
-    public static void NavigateAfterGameEnd() => ExitToLobby(forceTeardown: true);
-
-    public static void ExitToRecord() => ExitToLobby(forceTeardown: true);
-
-    public static void ExitToSpectator() => ExitToLobby();
-
-    public static void ExitToFriend() => ExitToLobby(forceTeardown: true);
 }
