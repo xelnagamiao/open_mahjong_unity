@@ -220,8 +220,8 @@ public class RoomNetworkManager : MonoBehaviour {
         ClearPendingRoomEntry();
         ClearStaleLobbyState();
         WindowsManager.Instance.ReturnAfterLeavingRoom();
-        RoomWindowsManager.Instance.SwitchRoomWindow("createRoom");
-        // 立即刷新列表，避免依赖 5 秒轮询导致基于过期人数误点加入
+        // 不要在这里切 createRoom：房间根还在淡出时会把「退出」画成创建房表单。
+        // 下次主动点顶栏「房间」时，SwitchWindow 会按 RoomId 空自动打开创建房。
         GetRoomList(showTipOnSuccess: false);
         if (!silent) {
             NotificationManager.Instance.ShowTip("leave_room", true, "离开房间成功");

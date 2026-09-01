@@ -18,8 +18,8 @@ public class CardFaceConfigPanel : MonoBehaviour {
         + "  hand/{id}.png     或 手牌牌面/{id}.png   手牌牌面，建议 272×389，透明花纹，直接叠加\n"
         + "  table/{id}.png    或 3D牌面/{id}.png    3D 牌面，按原图比例缩小后居中贴进 220×366\n"
         + "• 万 11–19，饼 21–29，条 31–39\n"
-        + "• 字 41–47（东南西北中发白）\n"
-        + "• 花 51–58，赤宝 105 万 / 205 饼 / 305 条，纯白白板 2（可选）\n"
+        + "• 字 41–47（东南西北中白发：45 中、46 回型白板、47 发）\n"
+        + "• 花 51–58，赤宝 105 万 / 205 饼 / 305 条，纯白白板 2（无图案，可选）\n"
         + "• 根目录 PNG 不会当手牌\n"
         + "• 手牌牌面原样叠在「牌面背景」上，不会裁切；自定义请自行摆好位置\n"
         + "• 仅 PNG；单边 ≤1024；单张 ≤500KB；解压后 ≤20MB\n"
@@ -274,8 +274,8 @@ public class CardFaceConfigPanel : MonoBehaviour {
             CardFacePreviewSlot slot = slots[i];
             bool dim = dimMissingCustom && !TileFaceResolver.HasCustomFace(slot.tileId);
             Sprite sprite = table
-                ? TileFaceResolver.LoadTableSprite(slot.tileId)
-                : TileFaceResolver.LoadSprite(slot.tileId);
+                ? TileFaceResolver.PreviewTable(slot.tileId)
+                : TileFaceResolver.PreviewHand(slot.tileId);
             // 3D 牌面预览：启用 3D 牌面背景时，tableBackground 作为底图，3D 牌面 sprite 作为前景花纹。
             // 2D 手牌牌面预览：handBackground 作为底图，sprite 作为前景。
             Sprite baseSprite = useTableBg ? tableBackground : (useBg ? handBackground : null);
