@@ -1,5 +1,13 @@
-from typing import Dict, Any, List
+import json
+import logging
+import secrets
+import string
+from typing import Dict, Any, List, Optional
 from datetime import date, datetime
+
+logger = logging.getLogger(__name__)
+
+_GAME_ID_ALPHABET = string.ascii_letters + string.digits
 
 
 def capture_player_entry_order(gs) -> None:
@@ -474,3 +482,93 @@ def player_action_record_hu_riichi(
 # 牌谱记录回合结束标记 ["end"]
 def player_action_record_round_end(self):
     append_action_tick(self, ["end"])
+
+
+def jsonable_game_record(game_record: dict) -> dict:
+    """把牌谱里的 datetime 等转成 JSON 可序列化结构。"""
+    return json.loads(json.dumps(game_record, ensure_ascii=False, default=str))
+
+
+def generate_local_only_game_id() -> str:
+    """机器人局等未入库对局：L + 9 位，避免和云端 10 位 game_id 混用。"""
+    return "L" + "".join(secrets.choice(_GAME_ID_ALPHABET) for _ in range(9))
+
+
+def format_record_created_at(value) -> str:
+    if value is None:
+        return ""
+    if hasattr(value, "strftime"):
+        return value.strftime("%Y-%m-%d %H:%M:%S")
+    text = str(value)
+    if len(text) >= 19 and text[4] == "-" and text[10] == " ":
+        return text[:19]
+    return text
+
+
+def build_player_record_infos(player_list) -> list:
+    from ...response import Player_record_info
+
+    players = []
+    for player in player_list:
+        rank = 0
+        record_counter = getattr(player, "record_counter", None)
+        if record_counter is not None:
+            rank = int(getattr(record_counter, "rank_result", 0) or 0)
+        score = getattr(player, "score", 0) or 0
+        try:
+            score = int(score)
+        except (TypeError, ValueError):
+            score = 0
+        players.append(Player_record_info(
+            user_id=int(getattr(player, "user_id", 0) or 0),
+            username=getattr(player, "username", "") or "",
+            score=score,
+            rank=rank,
+            original_player_index=getattr(player, "original_player_index", None),
+            title_used=getattr(player, "title_used", None),
+            character_used=getattr(player, "character_used", None),
+            profile_used=getattr(player, "profile_used", None),
+            voice_used=getattr(player, "voice_used", None),
+        ))
+    players.sort(key=lambda item: (
+        item.rank,
+        item.original_player_index if item.original_player_index is not None else 99,
+    ))
+    return players
+
+
+def build_local_record_detail(gs, game_id: Optional[str] = None, match_type: Optional[str] = None):
+    """构建终局下发给客户端落盘的完整牌谱。"""
+    from ...response import Record_detail
+
+    record = getattr(gs, "game_record", None)
+    if not record:
+        return None
+    if not game_id:
+        game_id = generate_local_only_game_id()
+    title = record.get("game_title") or {}
+    created_at = format_record_created_at(title.get("end_time") or title.get("start_time"))
+    if not match_type:
+        match_type = f"{getattr(gs, 'max_round', 1)}/4"
+    return Record_detail(
+        game_id=game_id,
+        rule=title.get("rule") or getattr(gs, "room_rule", "") or "",
+        sub_rule=title.get("sub_rule") or getattr(gs, "sub_rule", None),
+        record=jsonable_game_record(record),
+        created_at=created_at,
+        players=build_player_record_infos(gs.player_list),
+        match_type=match_type,
+    )
+
+
+def remember_local_record_detail(gs, game_id: Optional[str] = None, match_type: Optional[str] = None) -> None:
+    """入库之后调用：把完整牌谱挂到 gs，供随后的 game_end 一并下发。"""
+    try:
+        gs._local_record_detail = build_local_record_detail(gs, game_id, match_type)
+    except Exception:
+        logger.exception("构建终局本地牌谱失败")
+        gs._local_record_detail = None
+
+
+def local_record_detail_for_end(gs):
+    return getattr(gs, "_local_record_detail", None)

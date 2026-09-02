@@ -400,6 +400,20 @@ function calculateShanten(
   return shanten;
 }
 
+function resolvePailiOptions(options?: PailiOptions): Required<PailiOptions> {
+  const resolved: Required<PailiOptions> = {
+    mcrSevenPairs: options?.mcrSevenPairs !== false,
+    riichiSevenPairs: options?.riichiSevenPairs === true,
+    thirteenOrphans: options?.thirteenOrphans !== false,
+    unrelatedTiles: options?.unrelatedTiles !== false,
+    combinationDragon: options?.combinationDragon !== false,
+  };
+  if (resolved.mcrSevenPairs && resolved.riichiSevenPairs) {
+    throw new Error("国标七对与日麻七对不能同时开启");
+  }
+  return resolved;
+}
+
 function validateAndCountVisible(
   hand: number[],
   combinations: string[],
@@ -440,20 +454,37 @@ function buildAccept(
   return accept;
 }
 
+/**
+ * 只算向听，不算进张。
+ * 13 张为当前向听，14 张为最佳切牌后向听。默认与牌理页相同（国标七对/十三幺/不靠/组合龙）。
+ */
+export function calculatePailiShanten(
+  handTiles: number[],
+  combinations: string[] = [],
+  options?: PailiOptions,
+): number {
+  const { concealed } = validateAndCountVisible(handTiles, combinations);
+  const resolved = resolvePailiOptions(options);
+  const openMelds = combinations.length;
+  if (handTiles.length + openMelds * 3 === 13) {
+    return calculateShanten(concealed, openMelds, resolved);
+  }
+  let best = Number.POSITIVE_INFINITY;
+  for (let index = 0; index < concealed.length; index++) {
+    if (concealed[index] === 0) continue;
+    concealed[index]--;
+    const shanten = calculateShanten(concealed, openMelds, resolved);
+    concealed[index]++;
+    if (shanten < best) best = shanten;
+  }
+  return Number.isFinite(best) ? best : 0;
+}
+
 export function calculatePaili(request: PailiRequest): PailiResult {
   const hand = [...request.handTiles];
   const combinations = [...request.combinations];
   const { concealed, visible } = validateAndCountVisible(hand, combinations);
-  const options: Required<PailiOptions> = {
-    mcrSevenPairs: request.options?.mcrSevenPairs !== false,
-    riichiSevenPairs: request.options?.riichiSevenPairs === true,
-    thirteenOrphans: request.options?.thirteenOrphans !== false,
-    unrelatedTiles: request.options?.unrelatedTiles !== false,
-    combinationDragon: request.options?.combinationDragon !== false,
-  };
-  if (options.mcrSevenPairs && options.riichiSevenPairs) {
-    throw new Error("国标七对与日麻七对不能同时开启");
-  }
+  const options = resolvePailiOptions(request.options);
   const shantenCache = new Map<string, number>();
   const getShanten = (counts: number[]) => {
     const key = counts.join("");

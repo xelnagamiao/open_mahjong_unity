@@ -834,7 +834,16 @@ public partial class Game3DManager : MonoBehaviour {
         PosPanel3D panel = GetPosPanel(playerPosition);
         ClearPlayerRecordHandObjects(panel);
         bool isShowCardsMode = RecordSetting.Instance.IsShowCardsMode;
-        if (isShowCardsMode){
+        bool hasHiddenTiles = false;
+        if (handTiles != null) {
+            for (int h = 0; h < handTiles.Count; h++) {
+                if (handTiles[h] < 10) {
+                    hasHiddenTiles = true;
+                    break;
+                }
+            }
+        }
+        if (isShowCardsMode && !hasHiddenTiles){
             LayRecordShowHandTiles(playerPosition, panel.ShowCardsPosition, handTiles, pinDraw);
             return;
         }

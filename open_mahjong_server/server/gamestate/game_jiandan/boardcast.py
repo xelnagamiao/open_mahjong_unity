@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
+from ..public.game_record_manager import local_record_detail_for_end
 
 
 def _is_full_concealed_kong_mask(mask: Optional[list[int]]) -> bool:
@@ -452,15 +453,19 @@ def game_end_payload(game_state: Any, viewer_index: Optional[int]) -> dict:
             "username": player.username,
             "original_player_index": player.original_player_index,
         }
+    game_end_info = {
+        "master_seed": str(getattr(game_state, "master_seed", "")),
+        "commitment": str(getattr(game_state, "commitment", "")),
+        "salt": str(getattr(game_state, "salt", "")),
+        "player_final_data": player_final_data,
+    }
+    record_detail = local_record_detail_for_end(game_state)
+    if record_detail is not None:
+        game_end_info["record_detail"] = record_detail.dict(exclude_none=True)
     return {
         "type": "gamestate/jiandan/game_end",
         "success": True,
         "player_index": viewer_index,
         "message": "game end",
-        "game_end_info": {
-            "master_seed": str(getattr(game_state, "master_seed", "")),
-            "commitment": str(getattr(game_state, "commitment", "")),
-            "salt": str(getattr(game_state, "salt", "")),
-            "player_final_data": player_final_data,
-        },
+        "game_end_info": game_end_info,
     }

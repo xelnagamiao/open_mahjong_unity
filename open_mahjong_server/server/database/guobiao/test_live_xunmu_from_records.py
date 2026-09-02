@@ -247,7 +247,9 @@ def test_real_new_format_round_matches_server_go_to():
 
 
 def test_real_round_without_reset_undercounts():
-    """生产库尚未写入 reset 时，分析器会把补花后指针留在北家，少计 1 巡。"""
+    """对照：故意剥掉 reset 后，分析器会把补花后指针留在北家，少计 1 巡。
+    生产库已在 2026-08-31 用 guobiao_record_reset_xunmu_v2 回填，现存国标小局都有 reset。
+    """
     rd = _real_new_format_round_bwtc57fs2k()
     stripped = {
         **rd,

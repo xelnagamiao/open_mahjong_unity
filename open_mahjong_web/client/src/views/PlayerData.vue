@@ -213,9 +213,9 @@
       <el-collapse v-if="currentRuleDef?.fanField && fanEntries.length" class="fan-collapse">
         <el-collapse-item :title="`番种统计（${fanEntries.length}）`" name="fan">
           <div class="fan-grid">
-            <div v-for="[fanKey, fanName] in fanEntries" :key="fanKey" class="fan-item">
-                  <span class="fan-name">{{ fanName }}<span v-if="fanPts(fanKey)" class="fan-pts">（{{ fanPts(fanKey) }} 番）</span></span>
-                  <span class="fan-value">{{ getFanValue(fanKey) }}</span>
+            <div v-for="item in fanEntries" :key="item.key" class="fan-item">
+                  <span class="fan-name">{{ item.name }}<span v-if="item.pts" class="fan-pts">（{{ item.pts }} 番）</span></span>
+                  <span class="fan-value">{{ item.display }}</span>
                 </div>
           </div>
         </el-collapse-item>
@@ -359,7 +359,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
-import { buildPlayerStatsRows, rankRatePieLabel, rankedGames } from '../utils/statsDisplay'
+import { buildPlayerStatsRows, rankRatePieLabel, rankedGames, ratio } from '../utils/statsDisplay'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import playerApi, { getPlayerToken } from '@/api/playerClient'
 import { tr } from '@/i18n'
@@ -745,20 +745,29 @@ const currentFanDict = computed(() => {
 })
 
 const fanEntries = computed(() => {
+  const wins = Number(activeStats.value?.win_count) || 0
+  const counts = activeStats.value?.fan_stats || {}
+  const toRow = (key, name, pts = 0) => {
+    const count = Number(counts[key]) || 0
+    return {
+      key,
+      name,
+      pts,
+      count,
+      display: `${count} · ${ratio(count, wins)}`,
+    }
+  }
   if (currentRule.value === 'guobiao') {
-    return listGuobiaoFanEntries().map((item) => [item.key, item.name])
+    return listGuobiaoFanEntries()
+      .map((item) => toRow(item.key, item.name, item.value || GUOBIAO_FAN_VALUES[item.key] || 0))
+      .sort((a, b) => b.count - a.count || a.pts - b.pts || a.name.localeCompare(b.name, 'zh-CN'))
   }
   const d = currentFanDict.value
   if (!d || typeof d !== 'object') return []
   return Object.entries(d)
+    .map(([key, name]) => toRow(key, name, 0))
+    .sort((a, b) => b.count - a.count || String(a.name).localeCompare(String(b.name), 'zh-CN'))
 })
-
-const fanPts = (fanKey) => {
-  if (currentRule.value !== 'guobiao') return 0
-  return GUOBIAO_FAN_VALUES[fanKey] || 0
-}
-
-const getFanValue = (fanKey) => activeStats.value?.fan_stats?.[fanKey] || 0
 
 const switchRule = (rule) => {
   currentRule.value = rule

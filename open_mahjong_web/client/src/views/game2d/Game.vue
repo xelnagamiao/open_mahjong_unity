@@ -417,6 +417,7 @@ import { MahjongScene } from '@/game2d/game/scene/MahjongScene'
 import { GAME_SOUND_ASSETS, getPreloadedSoundUrl } from '@/game2d/game/resources'
 import { SalasasaGameAdapter } from '@/game2d/salasasa/gameAdapter'
 import { salasasaClient } from '@/game2d/salasasa/client'
+import { saveLocalGameRecord } from '@/utils/localGameRecordStore'
 import {
   loadStoredSceneAppearance,
   loadStoredVolume,
@@ -1056,6 +1057,9 @@ function handleResponse(response) {
     leavingActiveGame = true
     void router.push('/2d')
     return
+  }
+  if (response.type === 'gamestate/guobiao/game_end') {
+    void saveLocalGameRecord(response.game_end_info?.record_detail)
   }
   if (response.type.startsWith('gamestate/guobiao/')) {
     if (!sceneReady.value || !adapter || !scene) {

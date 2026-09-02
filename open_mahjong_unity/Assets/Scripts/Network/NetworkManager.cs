@@ -445,6 +445,7 @@ public class NetworkManager : MonoBehaviour {
     // 2.Start方法用于连接到服务器
     private void Start() {
         if (Instance == this && !isConnecting) {
+            LocalRecordStore.EnsureReady(null);
             StartCoroutine(InitialConnectRoutine());
         }
     }

@@ -27,6 +27,7 @@ from ..public.claim_protection import (
     take_post_meld_gap_delay,
     REAL_MELD_ACTIONS,
 )
+from ..public.game_record_manager import local_record_detail_for_end
 from ..public.ask_timing import begin_ask_round, note_ask_delivered, reconnect_remaining_time
 
 logger = logging.getLogger(__name__)
@@ -734,7 +735,8 @@ async def broadcast_game_end(self):
                         master_seed=self.master_seed,  # 游戏结束时发送完整随机种子供验证
                         commitment=self.commitment,
                         salt=self.salt,
-                        player_final_data=player_final_data
+                        player_final_data=player_final_data,
+                        record_detail=local_record_detail_for_end(self),
                     )
                 )
 

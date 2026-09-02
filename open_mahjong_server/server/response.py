@@ -260,6 +260,8 @@ class Game_end_info(BaseModel):
     commitment: int  # 承诺值
     salt: str  # 盐字符串
     player_final_data: Dict[str, Player_final_data]  # 玩家最终数据，键为顺位 "1"～"4"
+    # 终局附带完整牌谱。旧客户端 GameEndInfo 无此字段，Newtonsoft 默认忽略未知 JSON 成员。
+    record_detail: Optional["Record_detail"] = None
 
     # 在 Pydantic Model 中将 hex 字段序列化为十六进制字符串
     @field_serializer('master_seed', when_used='unless-none')
@@ -315,6 +317,9 @@ class Record_detail(BaseModel):
     record: Dict  # 完整的牌谱记录（JSONB）
     created_at: str  # 创建时间
     players: List[Player_record_info]  # 该游戏的4个玩家信息（按排名排序）
+    match_type: Optional[str] = None  # 局数类型；旧客户端反序列化时忽略多余字段
+
+Game_end_info.model_rebuild()
 
 class Player_stats_info(BaseModel):
     """玩家统计数据信息（单个规则和模式的统计）"""

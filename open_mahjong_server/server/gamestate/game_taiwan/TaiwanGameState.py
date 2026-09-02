@@ -53,6 +53,7 @@ from ..public.game_record_manager import (
     player_action_record_hu,
     player_action_record_jiagang,
     player_action_record_round_end,
+    remember_local_record_detail,
 )
 from ..public.hand_action_notify import apply_player_cut
 from ..public.hand_slot_utils import (
@@ -3281,13 +3282,20 @@ class TaiwanGameState:
 
         end_game_record(self)
         assign_competition_final_ranks(self.player_list)
+
+        match_type = f"{self.max_round}/4"
+        game_id = None
+        try:
+            store = getattr(self.db_manager, "store_taiwan_game_record", None)
+            if store:
+                game_id = store(self.game_record, self.player_list, self.room_type, match_type)
+        except Exception as e:
+            logger.warning(f"台湾对局落库跳过/失败: {e}")
+        remember_local_record_detail(self, game_id, match_type)
+
         await broadcast_game_end(self)
         if hasattr(self, "spectator_manager"):
             await self.spectator_manager.send_final_record_and_close()
-
-        store = getattr(self.db_manager, "store_taiwan_game_record", None)
-        if store:
-            store(self.game_record, self.player_list, self.room_type, f"{self.max_round}/4")
 
         await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
         if self.room_type != "match":

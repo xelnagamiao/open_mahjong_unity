@@ -64,7 +64,7 @@
           ref="roomPanelRef"
           :online="session.status === 'online'"
           :my-user-id="session.player?.user_id"
-          :joined-queue="joinedQueue"
+          :joined-queue="roomOccupyQueue"
           expanded
           @occupy-changed="inCustomRoom = $event"
         />
@@ -127,8 +127,8 @@
                     type="primary"
                     size="small"
                     :class="{ 'match-button--unqualified': !canEnterTier(tier.key) }"
-                    :disabled="Boolean(joinedQueue) || inCustomRoom || session.status !== 'online'"
-                    @click="joinQueue(queue.queueKey)"
+                    :disabled="matchBusy || inCustomRoom || session.status !== 'online'"
+                    @click="joinQueue(queue.queueKey, tier.key)"
                   >匹配</el-button>
                 </div>
               </div>
@@ -369,6 +369,8 @@ const loginBusy = ref(false)
 const queueStatus = ref({})
 const joinedQueue = computed(() => session.joinedQueue)
 const matchFound = computed(() => session.matchFound)
+const matchBusy = computed(() => Boolean(joinedQueue.value || matchFound.value || session.joinPending))
+const roomOccupyQueue = computed(() => joinedQueue.value || (matchBusy.value ? 'matching' : null))
 const inCustomRoom = ref(false)
 const leaders = ref([])
 const leadersBusy = ref(true)
@@ -518,13 +520,18 @@ function ensureConnected() {
   return false
 }
 
-function joinQueue(queueKey) {
+function joinQueue(queueKey, tierKey) {
   if (!ensureConnected()) return
   if (inCustomRoom.value) {
     ElMessage.warning('请先离开自定义房间再匹配')
     return
   }
-  session.noteJoinAttempt(queueKey)
+  if (session.joinPending || session.joinedQueue || session.matchFound) return
+  if (!canEnterTier(tierKey)) {
+    ElMessage.warning('段位不足，无法进入该场次')
+    return
+  }
+  session.beginJoin()
   if (!salasasaClient.send({ type: 'match/join_queue', queue_type: queueKey })) {
     session.clearMatch()
     ElMessage.error('游戏连接尚未就绪')
