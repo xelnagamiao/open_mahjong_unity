@@ -811,7 +811,7 @@ public partial class CreatePanel : MonoBehaviour {
             }
             return;
         }
-        WindowsManager.Instance.SwitchWindow("menu");
+        WindowsManager.Instance.DismissCreateRoomPanel();
     }
 
     private void OnAddRuleClick() {

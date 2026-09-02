@@ -2,9 +2,10 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 随机桌面：清空 3D 牌桌后，为四家随机生成副露 + 手牌 + 牌河。
+/// 随机桌面：清空 3D 牌桌后，为四家随机生成副露 + 手牌 + 牌河 + 花牌。
 /// 副露与手牌互相匹配：每家「副露张数 + 手牌张数 = 13」（暗杠/明杠按 4 张计），
-/// 全部从同一副 136 张牌堆抽取，保证每种牌最多 4 张、与对象池一致。
+/// 数牌从同一副 136 张牌堆抽取，保证每种最多 4 张、与对象池一致。
+/// 花牌 51–58（春夏秋冬梅兰竹菊）各 1 枚，随机分到四家补花区，不进吃碰杠。
 /// 自家手牌也会以明牌立姿显示在 3D 桌面上（不排除自家）。
 /// 只操作 3D 表现层（对象池），不修改 NormalGameStateManager 对局数据。
 /// </summary>
@@ -16,6 +17,16 @@ public partial class Game3DManager : MonoBehaviour
         21, 22, 23, 24, 25, 26, 27, 28, 29,
         31, 32, 33, 34, 35, 36, 37, 38, 39,
         41, 42, 43, 44, 45, 46, 47
+    };
+
+    private static readonly int[] RandomTableFlowerTiles =
+    {
+        51, 52, 53, 54, 55, 56, 57, 58
+    };
+
+    private static readonly string[] RandomTablePositions =
+    {
+        "self", "left", "top", "right"
     };
 
     /// <summary>随机生成整桌：每家副露 + 手牌合计 13 张，另有随机牌河。</summary>
@@ -41,7 +52,8 @@ public partial class Game3DManager : MonoBehaviour
         foreach (int tileId in RandomTableStandardTiles) counts[tileId] = 4;
 
         System.Random rng = new System.Random();
-        foreach (string position in new[] { "self", "left", "top", "right" })
+        Dictionary<string, List<int>> flowersByPosition = AssignRandomFlowers(rng);
+        foreach (string position in RandomTablePositions)
         {
             PosPanel3D panel = GetPosPanel(position);
             if (panel == null) continue;
@@ -63,13 +75,14 @@ public partial class Game3DManager : MonoBehaviour
             if (closedCount < 1) closedCount = 1;
             List<int> closedHand = DrawRandomTiles(counts, rng, closedCount);
 
-            // 3) 渲染：手牌（自家明牌立姿，他家暗牌）+ 副露 + 牌河
+            // 3) 渲染：手牌（自家明牌立姿，他家暗牌）+ 副露 + 牌河 + 花牌
             LayRandomHand(position, panel, closedHand);
             LayRandomMelds(position, panel, meldMasks);
             LayRandomRiver(position, panel, counts, rng);
+            LayRandomFlowers(position, panel, flowersByPosition[position]);
         }
 
-        Debug.Log("GenerateRandomTable: 随机桌面已生成（副露+手牌=13 张/家）");
+        Debug.Log("GenerateRandomTable: 随机桌面已生成（副露+手牌=13 张/家，花牌各 1 枚）");
     }
 
     /// <summary>
@@ -215,6 +228,32 @@ public partial class Game3DManager : MonoBehaviour
 
             if (lastPlacedSlot > 0f) acrossGroupLastSlot = lastPlacedSlot;
         }
+    }
+
+    /// <summary>把分到该家的花牌摆进补花区（每种最多 1 枚，已在分配时保证）。</summary>
+    private void LayRandomFlowers(string playerPosition, PosPanel3D panel, List<int> flowerTiles)
+    {
+        if (panel.buhuaPosition == null || flowerTiles == null || flowerTiles.Count == 0) return;
+        for (int i = 0; i < flowerTiles.Count; i++)
+        {
+            Set3DTile(flowerTiles[i], panel.buhuaPosition, "BuhuaWithoutAnimation", playerPosition);
+        }
+    }
+
+    /// <summary>8 张花牌随机分给四家补花区，每种恰好 1 枚。</summary>
+    private static Dictionary<string, List<int>> AssignRandomFlowers(System.Random rng)
+    {
+        var byPosition = new Dictionary<string, List<int>>();
+        for (int i = 0; i < RandomTablePositions.Length; i++)
+        {
+            byPosition[RandomTablePositions[i]] = new List<int>();
+        }
+        for (int i = 0; i < RandomTableFlowerTiles.Length; i++)
+        {
+            string position = RandomTablePositions[rng.Next(RandomTablePositions.Length)];
+            byPosition[position].Add(RandomTableFlowerTiles[i]);
+        }
+        return byPosition;
     }
 
     /// <summary>随机牌河：6~14 张，复用对局弃牌布局（每行 6 张、可多行）。</summary>

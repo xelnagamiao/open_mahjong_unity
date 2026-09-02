@@ -16,6 +16,7 @@ public class RecordPanel : MonoBehaviour {
     [SerializeField] private Button SearchRecordButton;
     [SerializeField] private Button OverviewButton;
     [SerializeField] private Button FavoriteFilterButton;
+    [SerializeField] private Button LocalRecordsButton;
 
     [Header("无牌谱提示面板")]
     [SerializeField] private GameObject NoRecordPanel;
@@ -33,7 +34,8 @@ public class RecordPanel : MonoBehaviour {
     private bool _isLoadingMore;
     private bool _hasMore = true;
     private int _loadedCount;
-    private bool _favoritesOnly;
+    private enum ListMode { Overview, Favorite, Local }
+    private ListMode _listMode = ListMode.Overview;
 
     private void Awake() {
         if (Instance == null) {
@@ -47,6 +49,7 @@ public class RecordPanel : MonoBehaviour {
         CancelSearchButton.onClick.AddListener(CloseRecordIdInput);
         OverviewButton.onClick.AddListener(ShowOverviewList);
         FavoriteFilterButton.onClick.AddListener(ShowFavoritesList);
+        LocalRecordsButton.onClick.AddListener(ShowLocalList);
 
         recordIdInputPopup.gameObject.SetActive(false);
         NoRecordPanel.SetActive(false);
@@ -63,26 +66,34 @@ public class RecordPanel : MonoBehaviour {
     /// 打开牌谱面板时调用：重置为全部列表并重新拉取。
     /// </summary>
     public void OpenAndReload() {
-        _favoritesOnly = false;
+        _listMode = ListMode.Overview;
         ReloadList();
     }
 
     private void ShowOverviewList() {
-        SetListMode(favoritesOnly: false);
+        SetListMode(ListMode.Overview);
     }
 
     private void ShowFavoritesList() {
-        SetListMode(favoritesOnly: true);
+        SetListMode(ListMode.Favorite);
     }
 
-    private void SetListMode(bool favoritesOnly) {
-        _favoritesOnly = favoritesOnly;
+    private void ShowLocalList() {
+        SetListMode(ListMode.Local);
+    }
+
+    private void SetListMode(ListMode mode) {
+        _listMode = mode;
         ReloadList();
     }
 
     private void ReloadList() {
+        if (_listMode == ListMode.Local) {
+            LoadLocalList();
+            return;
+        }
         _isLoadingMore = true;
-        DataNetworkManager.Instance.GetRecordList(0, _favoritesOnly);
+        DataNetworkManager.Instance.GetRecordList(0, _listMode == ListMode.Favorite);
     }
 
     private void OpenRecordIdInput() {
@@ -113,7 +124,13 @@ public class RecordPanel : MonoBehaviour {
         }
         SharedRecordLink.CapturePosition(raw);
         recordIdInputPopup.Hide();
-        DataNetworkManager.Instance.GetRecordById(gameId);
+        LocalRecordStore.LoadAsync(gameId, local => {
+            if (local != null && local.record != null) {
+                OpenRecord(local);
+                return;
+            }
+            DataNetworkManager.Instance.GetRecordById(gameId);
+        });
     }
 
     private void OnRecordScrollChanged(Vector2 _) {
@@ -123,9 +140,10 @@ public class RecordPanel : MonoBehaviour {
     }
 
     private void RequestLoadMore() {
+        if (_listMode == ListMode.Local) return;
         if (_isLoadingMore || !_hasMore) return;
         _isLoadingMore = true;
-        DataNetworkManager.Instance.GetRecordList(_loadedCount, _favoritesOnly);
+        DataNetworkManager.Instance.GetRecordList(_loadedCount, _listMode == ListMode.Favorite);
     }
 
     private void ResetPaginationState() {
@@ -143,7 +161,25 @@ public class RecordPanel : MonoBehaviour {
         _recordItems.Clear();
     }
 
-    private void AppendRecordItem(RecordInfo record) {
+    private void LoadLocalList() {
+        LocalRecordStore.EnsureReady(() => {
+            if (_listMode != ListMode.Local) return;
+            _isLoadingMore = false;
+            ResetPaginationState();
+            ClearRecordItems();
+            _hasMore = false;
+            List<RecordInfo> local = LocalRecordStore.ListAll();
+            if (local != null) {
+                foreach (RecordInfo record in local) {
+                    AppendRecordItem(record, localPlayback: true);
+                }
+            }
+            _loadedCount = _loadedGameIds.Count;
+            NoRecordPanel.SetActive(_loadedCount == 0);
+        });
+    }
+
+    private void AppendRecordItem(RecordInfo record, bool localPlayback = false) {
         if (record == null || string.IsNullOrEmpty(record.game_id)) return;
         if (_loadedGameIds.Contains(record.game_id)) return;
 
@@ -159,7 +195,8 @@ public class RecordPanel : MonoBehaviour {
             matchType,
             recordedTime,
             record.players,
-            record.is_favorite
+            record.is_favorite,
+            localPlayback
         );
         _recordItems[record.game_id] = item;
     }
@@ -167,7 +204,7 @@ public class RecordPanel : MonoBehaviour {
     public void OnRecordFavoriteUpdated(bool success, string gameId, bool isFavorite, string message) {
         if (string.IsNullOrEmpty(gameId)) return;
 
-        if (success && _favoritesOnly && !isFavorite) {
+        if (success && _listMode == ListMode.Favorite && !isFavorite) {
             RemoveRecordItem(gameId);
         } else if (_recordItems.TryGetValue(gameId, out RecordPrefab item)) {
             item.ApplyFavoriteResult(success, isFavorite);
@@ -197,6 +234,7 @@ public class RecordPanel : MonoBehaviour {
 
     public void GetRecordListResponse(bool success, string message, RecordInfo[] recordList, int offset = 0) {
         _isLoadingMore = false;
+        if (_listMode == ListMode.Local) return;
 
         if (!success) {
             Debug.LogError($"获取记录列表失败: {message}");
@@ -216,7 +254,7 @@ public class RecordPanel : MonoBehaviour {
         }
 
         if (offset == 0 && recordList.Length == 0) {
-            Debug.Log(_favoritesOnly ? "没有收藏的牌谱" : "没有游戏记录");
+            Debug.Log(_listMode == ListMode.Favorite ? "没有收藏的牌谱" : "没有游戏记录");
             NoRecordPanel.SetActive(true);
             _hasMore = false;
             return;
@@ -239,7 +277,7 @@ public class RecordPanel : MonoBehaviour {
         }
 
         Debug.Log(
-            $"牌谱列表 favoritesOnly={_favoritesOnly} offset={offset} 追加 {appended} 条，" +
+            $"牌谱列表 mode={_listMode} offset={offset} 追加 {appended} 条，" +
             $"当前共 {_loadedCount} 条，hasMore={_hasMore}"
         );
     }
@@ -272,6 +310,11 @@ public class RecordPanel : MonoBehaviour {
         }
 
         try {
+            if (detail.perspective) {
+                RecordSetting.Instance.SetShowCardsMode(false);
+            } else {
+                RecordSetting.Instance.SetShowCardsMode(true);
+            }
             GameRecordManager.Instance.LoadRecord(recordJson, detail.players);
             SharedRecordLink.ApplyPendingJumpIfAny();
         } catch (System.Exception e) {

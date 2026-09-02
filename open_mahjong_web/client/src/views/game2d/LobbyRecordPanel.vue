@@ -14,13 +14,14 @@
     <div class="record-browser__tabs" role="tablist" aria-label="牌谱分类">
       <button :class="{ active: activeTab === 'mine' }" role="tab" @click="switchTab('mine')">我的牌谱</button>
       <button :class="{ active: activeTab === 'favorite' }" role="tab" @click="switchTab('favorite')">收藏</button>
+      <button :class="{ active: activeTab === 'local' }" role="tab" @click="switchTab('local')">本地牌谱</button>
       <button :class="{ active: activeTab === 'ladder' }" role="tab" @click="switchTab('ladder')">最近天梯</button>
     </div>
 
     <div v-if="requiresLogin" class="record-browser__login">
       <div>
         <strong>登录后查看自己的牌谱与收藏</strong>
-        <span>网站账户与游戏账户互通；公开分享链接和最近天梯仍可直接查看。</span>
+        <span>网站账户与游戏账户互通；公开分享链接、最近天梯和本地牌谱仍可直接查看。</span>
       </div>
       <el-button type="primary" @click="goLogin">网站登录</el-button>
     </div>
@@ -40,7 +41,7 @@
             </div>
           </div>
           <div class="record-row__side">
-            <el-button v-if="activeTab !== 'ladder'" text class="record-favorite" :aria-label="record.is_favorite ? '取消收藏' : '收藏牌谱'" :loading="favoriteBusy === record.game_id" @click="toggleFavorite(record)">
+            <el-button v-if="activeTab !== 'ladder' && activeTab !== 'local'" text class="record-favorite" :aria-label="record.is_favorite ? '取消收藏' : '收藏牌谱'" :loading="favoriteBusy === record.game_id" @click="toggleFavorite(record)">
               {{ record.is_favorite ? '★ 已收藏' : '☆ 收藏' }}
             </el-button>
             <el-button text @click="openGame(record.game_id)">回放</el-button>
@@ -62,6 +63,7 @@ import { ElMessage } from 'element-plus'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { game2dPlayerApi, publicApiGet } from '@/game2d/salasasa/api'
 import { parseRecordShareInput } from '@/utils/recordShareLink'
+import { getLocalGameRecord, isLocalOnlyGameId, listLocalGameRecords } from '@/utils/localGameRecordStore'
 
 const router = useRouter()
 const auth = usePlayerAuthStore()
@@ -74,11 +76,20 @@ const loadingMore = ref(false)
 const favoriteBusy = ref('')
 const PAGE_SIZE = 12
 
-const requiresLogin = computed(() => activeTab.value !== 'ladder' && !auth.isLoggedIn)
-const emptyText = computed(() => activeTab.value === 'favorite' ? '还没有收藏的国标牌谱' : activeTab.value === 'ladder' ? '暂无最近天梯牌谱' : '还没有可阅览的国标牌谱')
+const requiresLogin = computed(() => !['ladder', 'local'].includes(activeTab.value) && !auth.isLoggedIn)
+const emptyText = computed(() => {
+  if (activeTab.value === 'favorite') return '还没有收藏的国标牌谱'
+  if (activeTab.value === 'ladder') return '暂无最近天梯牌谱'
+  if (activeTab.value === 'local') return '还没有本地牌谱。含机器人的对局会保存在这里。'
+  return '还没有可阅览的国标牌谱'
+})
 
 function recordLabel(record) {
   if (activeTab.value === 'ladder') return `${ladderTierLabel(record.match_tier)} · 天梯对局`
+  if (activeTab.value === 'local') {
+    if (isLocalOnlyGameId(record.game_id)) return '本地对局'
+    return record.room_type === 'match' ? '匹配对局' : '自定义房间'
+  }
   return record.room_type === 'match' ? '匹配对局' : '自定义房间'
 }
 
@@ -87,8 +98,12 @@ function ladderTierLabel(tier) {
 }
 
 function formatTime(value) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
+  if (!value) return '—'
+  let date = new Date(value)
+  if (Number.isNaN(date.getTime()) && typeof value === 'string') {
+    date = new Date(value.replace(' ', 'T'))
+  }
+  if (Number.isNaN(date.getTime())) return String(value)
   return new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(date)
 }
 
@@ -122,7 +137,13 @@ function openRecord() {
   const query = {}
   if (parsed.round != null) query.round = String(parsed.round)
   if (parsed.node != null) query.node = String(parsed.node)
-  openGame(parsed.gameId, query)
+  void (async () => {
+    if (isLocalOnlyGameId(parsed.gameId) && !await getLocalGameRecord(parsed.gameId)) {
+      ElMessage.warning('本机没有这份牌谱')
+      return
+    }
+    openGame(parsed.gameId, query)
+  })()
 }
 
 function goLogin() {
@@ -139,6 +160,12 @@ async function loadRecords({ append = false } = {}) {
   if (append) loadingMore.value = true
   else loading.value = true
   try {
+    if (activeTab.value === 'local') {
+      const items = (await listLocalGameRecords()).filter((item) => !item.rule || item.rule === 'guobiao')
+      records.value = items
+      total.value = items.length
+      return
+    }
     let data
     if (activeTab.value === 'ladder') {
       data = await publicApiGet(`/platform/recent-records?limit=${PAGE_SIZE}&offset=${offset}`)
@@ -181,6 +208,7 @@ function switchTab(tab) {
 }
 
 function loadMore() {
+  if (activeTab.value === 'local') return
   void loadRecords({ append: true })
 }
 

@@ -71,7 +71,7 @@ const onClick = (bar) => {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  align-content: flex-start;
+  align-content: flex-end;
   gap: 3px;
   min-height: 100px;
 }
@@ -89,6 +89,7 @@ const onClick = (bar) => {
   margin: 0;
   display: block;
   flex-shrink: 0;
+  align-self: flex-end;
   position: relative;
   overflow: hidden;
   background: #eef0f3;

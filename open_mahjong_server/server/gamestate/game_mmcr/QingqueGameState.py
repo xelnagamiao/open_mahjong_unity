@@ -27,7 +27,7 @@ from ..public.round_end_timing import (
 )
 from ..public.spectator_rules import too_many_ai_for_spectator
 from ..public.vote_manager import vote_checkpoint
-from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record,build_score_changes_by_seat,build_score_changes_dict,capture_player_entry_order
+from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record,build_score_changes_by_seat,build_score_changes_dict,capture_player_entry_order,remember_local_record_detail
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
 from ..public.random_seed_manager import setup_random_seed_system
@@ -708,21 +708,26 @@ class QingqueGameState:
         # 终局排名：同分按开局原始风位（东0→南1→西2→北3）拆分
         assign_strict_final_ranks(self.player_list)
 
+        # 存储游戏牌谱（先于 game_end，以便附带完整牌谱）
+        match_type = f"{self.max_round}/4"
+        game_id = None
+        try:
+            game_id = self.db_manager.store_qingque_game_record(
+                self.game_record,
+                self.player_list,
+                self.room_type,
+                match_type
+            )
+        except Exception as e:
+            logger.error(f"存储青雀牌谱失败: {e}", exc_info=True)
+        remember_local_record_detail(self, game_id, match_type)
+
         # 发送游戏结算信息
         await self.broadcast_game_end() # 广播游戏结束信息
         
         # 对局结束后：一次性下发完整牌谱给观战者，并结束观战增量服务
         if hasattr(self, 'spectator_manager'):
             await self.spectator_manager.send_final_record_and_close()
-
-        # 存储游戏牌谱
-        match_type = f"{self.max_round}/4"
-        game_id = self.db_manager.store_qingque_game_record(
-            self.game_record,
-            self.player_list,
-            self.room_type,
-            match_type
-        )
         
         # 检查是否包含AI玩家（user_id <= 10），如果没有AI玩家则保存统计数据
         has_ai_player = any(player.user_id <= 10 for player in self.player_list)

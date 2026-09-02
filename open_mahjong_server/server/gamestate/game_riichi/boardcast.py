@@ -21,6 +21,7 @@ from ...response import (
     Ready_status_info,
 )
 from ..public.hand_draw_source import ensure_hand_draw_source_round, get_hand_draw_source, update_hand_draw_source
+from ..public.game_record_manager import local_record_detail_for_end
 from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.offline import offline_auto_action
 from ..public.ai.riichi_smart_bot_ai import riichi_smart_bot_action as smart_bot_action
@@ -428,6 +429,7 @@ async def broadcast_game_end(self):
                     commitment=self.commitment,
                     salt=self.salt,
                     player_final_data=player_final_data,
+                    record_detail=local_record_detail_for_end(self),
                 ),
             )
             await conn.websocket.send_json(response.dict(exclude_none=True))

@@ -16,6 +16,7 @@ export const useGame2dSessionStore = defineStore('game2dSession', {
     restoring: true,
     joinedQueue: null,
     matchFound: false,
+    joinPending: false,
   }),
   actions: {
     syncFromClient() {
@@ -44,34 +45,34 @@ export const useGame2dSessionStore = defineStore('game2dSession', {
     clearMatch() {
       this.joinedQueue = null
       this.matchFound = false
+      this.joinPending = false
     },
-    noteJoinAttempt(queueKey) {
-      this.joinedQueue = queueKey
-      this.matchFound = false
+    beginJoin() {
+      this.joinPending = true
     },
-    applyServerMatchState(message) {
-      // match_committed 覆盖整场对局；已进桌后大厅轮询不得再显示「匹配成功」。
-      if (salasasaClient.lastGameStart) return
-      if (message.match_committed) {
-        this.matchFound = true
-        if (message.my_queue) this.joinedQueue = message.my_queue
-        return
-      }
-      if (message.my_queue) {
-        this.joinedQueue = message.my_queue
-        this.matchFound = false
-      }
+    applyServerQueue(message) {
+      // match_committed 是整局锁，不是进桌倒计时；匹配成功横幅只听 match/match_found。
+      // my_queue 为空不清理，避免 join_queue_done 与大厅轮询竞态。
+      if (this.matchFound) return
+      if (message.my_queue) this.joinedQueue = message.my_queue
     },
     handleMatchMessage(message) {
       if (message.type === 'match/queue_status') {
-        this.applyServerMatchState(message)
+        this.applyServerQueue(message)
         return
       }
       if (message.type === 'match/join_queue_done') {
-        if (message.my_queue) this.joinedQueue = message.my_queue
-        else if (message.success === false) this.joinedQueue = null
-        if (message.success) ElMessage.success(message.message || '已加入匹配')
-        else if (message.message) ElMessage.warning(message.message)
+        this.joinPending = false
+        if (message.success) {
+          if (message.my_queue) this.joinedQueue = message.my_queue
+          ElMessage.success(message.message || '已加入匹配')
+        } else if (message.my_queue) {
+          this.joinedQueue = message.my_queue
+          if (message.message) ElMessage.warning(message.message)
+        } else {
+          if (!this.matchFound) this.joinedQueue = null
+          if (message.message) ElMessage.warning(message.message)
+        }
         return
       }
       if (message.type === 'match/leave_queue_done' && message.success) {
@@ -80,8 +81,13 @@ export const useGame2dSessionStore = defineStore('game2dSession', {
         return
       }
       if (message.type === 'match/match_found') {
+        this.joinPending = false
         this.matchFound = true
         ElMessage.success(message.message || '匹配成功，即将开局')
+        return
+      }
+      if (this.joinPending && (message.type === 'tips' || message.type === 'error_message') && message.success === false) {
+        this.joinPending = false
         return
       }
       if (message.type === 'gamestate/guobiao/game_start') {

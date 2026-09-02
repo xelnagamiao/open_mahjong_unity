@@ -370,6 +370,12 @@ public class GameStateNetworkManager : MonoBehaviour {
     private void HandleGameEnd(Response response) {
         Debug.Log($"收到游戏结束消息: {response.game_end_info}");
         GameEndInfo gameendresponse = response.game_end_info;
+        if (gameendresponse == null) return;
+        bool isSpectator = NormalGameStateManager.Instance != null &&
+                           NormalGameStateManager.Instance.IsRealtimeSpectator;
+        if (!isSpectator) {
+            LocalRecordStore.SavePushedDetail(gameendresponse.record_detail);
+        }
         NormalGameStateManager.Instance.GameEnd(
             gameendresponse.master_seed,
             gameendresponse.commitment,
@@ -639,6 +645,7 @@ public class GameStateNetworkManager : MonoBehaviour {
     private void HandleShowShuhewei(Response response) {
         Debug.Log($"收到数和尾结算消息: {response.show_shuhewei_info}");
         ShowShuheWeiInfo info = response.show_shuhewei_info;
+        if (info == null) return;
         NormalGameStateManager.Instance.ShowShuhewei(
             info.player_fu,
             info.player_to_score,

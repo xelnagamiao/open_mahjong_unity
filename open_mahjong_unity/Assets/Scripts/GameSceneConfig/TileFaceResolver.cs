@@ -17,6 +17,8 @@ public static class TileFaceResolver {
     private static Sprite handBackgroundSprite;
     private static Texture2D handBackgroundTexture;
     private static Texture2D defaultHandBackgroundTexture;
+    private static Sprite tableBackgroundSprite;
+    private static Texture2D tableBackgroundTexture;
     private static Sprite customHandBackSprite;
     private static Texture2D customHandBackTexture;
     private static bool diskLoaded;
@@ -89,7 +91,7 @@ public static class TileFaceResolver {
         NotifyChanged();
     }
 
-    public static Sprite LoadSprite(int tileId) {
+    public static Sprite LoadSprite(int tileId, bool applyWhiteDragonFaceSetting = true) {
         EnsureLoaded();
         if (HongqueTileVisual.IsHongqueId(tileId)) {
             return HongqueTileVisual.LoadSprite(tileId);
@@ -101,7 +103,7 @@ public static class TileFaceResolver {
             }
         }
 
-        int faceId = ResolveFaceId(tileId);
+        int faceId = ResolveFaceId(tileId, applyWhiteDragonFaceSetting);
         string packId = CurrentPackId();
         if (TilePackIds.IsBuiltinLayeredPack(packId)) {
             Sprite builtin = Resources.Load<Sprite>(TilePackIds.BuiltinHandResource(packId, faceId));
@@ -132,7 +134,7 @@ public static class TileFaceResolver {
         if (!UsesCustomStandardFaces) {
             return null;
         }
-        int faceId = ResolveFaceId(tileId);
+        int faceId = ResolveFaceId(tileId, applyWhiteDragonFaceSetting: true);
         string packId = CurrentPackId();
         if (TilePackIds.IsBuiltinLayeredPack(packId)) {
             Texture2D builtin = Resources.Load<Texture2D>(TilePackIds.BuiltinTableResource(packId, faceId));
@@ -146,12 +148,12 @@ public static class TileFaceResolver {
         return null;
     }
 
-    public static Sprite LoadTableSprite(int tileId) {
+    public static Sprite LoadTableSprite(int tileId, bool applyWhiteDragonFaceSetting = true) {
         EnsureLoaded();
         if (HongqueTileVisual.IsHongqueId(tileId)) {
             return HongqueTileVisual.LoadSprite(tileId);
         }
-        int faceId = ResolveFaceId(tileId);
+        int faceId = ResolveFaceId(tileId, applyWhiteDragonFaceSetting);
         string packId = CurrentPackId();
         if (packId == TilePackIds.PackOfficial) {
             Sprite official = Resources.Load<Sprite>(TilePackIds.BuiltinTableResource(TilePackIds.PackOfficial, faceId));
@@ -178,7 +180,7 @@ public static class TileFaceResolver {
             CustomTableSprites[faceId] = created;
             return created;
         }
-        return LoadSprite(tileId);
+        return LoadSprite(tileId, applyWhiteDragonFaceSetting);
     }
 
     public static bool ShouldLayerHandFace(int tileId) {
@@ -188,7 +190,7 @@ public static class TileFaceResolver {
         if (CurrentPackId() == TilePackIds.PackOfficial) {
             return false;
         }
-        return HasPackHandFace(ResolveFaceId(tileId));
+        return HasPackHandFace(ResolveFaceId(tileId, applyWhiteDragonFaceSetting: true));
     }
 
     public static Sprite LoadHandBackground() {
@@ -205,6 +207,29 @@ public static class TileFaceResolver {
         return handBackgroundSprite;
     }
 
+    /// <summary>
+    /// 3D 牌面预览底图：已上传的 table-bg，否则用与手牌相同的默认牌体。
+    /// </summary>
+    public static Sprite LoadTableBackground() {
+        Texture2D texture = PeekTableBackgroundTexture();
+        if (texture == null) {
+            return null;
+        }
+        if (tableBackgroundTexture != texture) {
+            ReplaceTableBackgroundSprite(texture);
+        }
+        return tableBackgroundSprite;
+    }
+
+    public static Texture2D PeekTableBackgroundTexture() {
+        Texture2D custom = CardBackManager.LoadSavedTableBackground();
+        if (custom != null) {
+            return custom;
+        }
+        EnsureDefaultHandBackground();
+        return defaultHandBackgroundTexture;
+    }
+
     public static Texture2D PeekHandBackgroundTexture() {
         Texture2D custom = CardBackManager.LoadSavedHandBackground();
         if (custom != null) {
@@ -215,11 +240,15 @@ public static class TileFaceResolver {
     }
 
     public static Sprite PreviewHand(int tileId) {
-        return LoadSprite(tileId);
+        return LoadSprite(tileId, applyWhiteDragonFaceSetting: false);
+    }
+
+    public static Sprite PreviewTable(int tileId) {
+        return LoadTableSprite(tileId, applyWhiteDragonFaceSetting: false);
     }
 
     public static bool HasCustomFace(int tileId) {
-        return HasPackHandFace(ResolveFaceId(tileId)) || HasPackTableFace(ResolveFaceId(tileId));
+        return HasPackHandFace(tileId) || HasPackTableFace(tileId);
     }
 
     public static int CountPackFaces() {
@@ -260,6 +289,13 @@ public static class TileFaceResolver {
     public static void NotifyHandBackgroundChanged() {
         if (handBackgroundTexture != null && handBackgroundTexture != defaultHandBackgroundTexture) {
             ReplaceHandBackgroundSprite(null);
+        }
+        NotifyChanged();
+    }
+
+    public static void NotifyTableBackgroundChanged() {
+        if (tableBackgroundTexture != null && tableBackgroundTexture != defaultHandBackgroundTexture) {
+            ReplaceTableBackgroundSprite(null);
         }
         NotifyChanged();
     }
@@ -335,8 +371,10 @@ public static class TileFaceResolver {
 #endif
     }
 
-    private static int ResolveFaceId(int tileId) {
-        if (ConfigManager.Instance != null && ConfigManager.Instance.UseBlankWhiteDragonFace(tileId)) {
+    private static int ResolveFaceId(int tileId, bool applyWhiteDragonFaceSetting) {
+        if (applyWhiteDragonFaceSetting
+            && ConfigManager.Instance != null
+            && ConfigManager.Instance.UseBlankWhiteDragonFace(tileId)) {
             return ConfigManager.BlankFaceImageId;
         }
         return tileId;
@@ -389,6 +427,22 @@ public static class TileFaceResolver {
             return;
         }
         handBackgroundSprite = Sprite.Create(
+            texture,
+            new Rect(0f, 0f, texture.width, texture.height),
+            new Vector2(0.5f, 0.5f),
+            100f);
+    }
+
+    private static void ReplaceTableBackgroundSprite(Texture2D texture) {
+        if (tableBackgroundSprite != null) {
+            UnityEngine.Object.Destroy(tableBackgroundSprite);
+            tableBackgroundSprite = null;
+        }
+        tableBackgroundTexture = texture;
+        if (texture == null) {
+            return;
+        }
+        tableBackgroundSprite = Sprite.Create(
             texture,
             new Rect(0f, 0f, texture.width, texture.height),
             new Vector2(0.5f, 0.5f),

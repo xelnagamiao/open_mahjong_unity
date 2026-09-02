@@ -25,7 +25,7 @@ from .init_tiles import init_classical_tiles
 from ..public.next_game_round import next_game_round_classical_switchseat
 from ..public.spectator_rules import too_many_ai_for_spectator
 from ..public.vote_manager import vote_checkpoint
-from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_angang, player_action_record_jiagang, player_action_record_chipenggang, player_action_record_hu, player_action_record_liuju, player_action_record_jiuzhongjiupai, player_action_record_shuhewei, player_action_record_round_end, end_game_record, build_score_changes_by_seat, build_score_changes_dict, capture_player_entry_order
+from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_angang, player_action_record_jiagang, player_action_record_chipenggang, player_action_record_hu, player_action_record_liuju, player_action_record_jiuzhongjiupai, player_action_record_shuhewei, player_action_record_round_end, end_game_record, build_score_changes_by_seat, build_score_changes_dict, capture_player_entry_order, remember_local_record_detail
 from ..public.round_end_timing import (
     liuju_ready_wait_seconds,
     shuhewei_ready_wait_seconds,
@@ -623,18 +623,23 @@ class ClassicalGameState:
 
         assign_strict_final_ranks(self.player_list)
 
+        match_type = f"{self.max_round}/4"
+        game_id = None
+        try:
+            game_id = self.db_manager.store_classical_game_record(
+                self.game_record,
+                self.player_list,
+                self.room_type,
+                match_type
+            )
+        except Exception as e:
+            logger.error(f"存储古典牌谱失败: {e}", exc_info=True)
+        remember_local_record_detail(self, game_id, match_type)
+
         await self.broadcast_game_end()
 
         if hasattr(self, 'spectator_manager'):
             await self.spectator_manager.send_final_record_and_close()
-
-        match_type = f"{self.max_round}/4"
-        game_id = self.db_manager.store_classical_game_record(
-            self.game_record,
-            self.player_list,
-            self.room_type,
-            match_type
-        )
 
         has_ai_player = any(player.user_id <= 10 for player in self.player_list)
         if self.room_type == "events":

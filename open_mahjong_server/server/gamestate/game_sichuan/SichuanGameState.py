@@ -36,6 +36,7 @@ from ..public.game_record_manager import (
     player_action_record_round_end, end_game_record, capture_player_entry_order,
     player_action_record_hu, player_action_record_liuju,
     player_action_record_sichuan_liuju_step, player_action_record_gang_refund,
+    remember_local_record_detail,
 )
 from ..public.round_end_timing import (
     hu_result_ready_wait_seconds,
@@ -429,17 +430,20 @@ class SichuanGameState:
 
         end_game_record(self)
         assign_strict_final_ranks(self.player_list)
-        await self.broadcast_game_end()
-        if hasattr(self, 'spectator_manager'):
-            await self.spectator_manager.send_final_record_and_close()
 
-        # 持久化（四川暂未接入专用统计表，自定义房不强制落库）
+        match_type = f"{self.max_round}/4"
+        game_id = None
         try:
             store = getattr(self.db_manager, "store_sichuan_game_record", None)
             if store:
-                store(self.game_record, self.player_list, self.room_type, f"{self.max_round}/4")
+                game_id = store(self.game_record, self.player_list, self.room_type, match_type)
         except Exception as e:
             logger.warning(f"四川对局落库跳过/失败: {e}")
+        remember_local_record_detail(self, game_id, match_type)
+
+        await self.broadcast_game_end()
+        if hasattr(self, 'spectator_manager'):
+            await self.spectator_manager.send_final_record_and_close()
 
         await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
         if self.room_type == "match":

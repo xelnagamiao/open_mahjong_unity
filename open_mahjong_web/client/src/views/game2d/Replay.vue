@@ -392,6 +392,7 @@ import { GAME_SOUND_ASSETS, getPreloadedSoundUrl } from '@/game2d/game/resources
 import { playerProfileUrl, publicApiGet, publicRecordUrl } from '@/game2d/salasasa/api'
 import { RecordReplay, isRecordSilentTick, type PublicGameRecord, type RecordRound, type RecordTick } from '@/game2d/replay/recordReplay'
 import { isLocalReplayRecord, loadLocalReplayRecord } from '@/game2d/replay/localReplayRecord'
+import { getLocalGameRecord, isLocalOnlyGameId } from '@/utils/localGameRecordStore'
 import {
   loadStoredSceneAppearance,
   loadStoredVolume,
@@ -439,7 +440,10 @@ const actionLabel = ref('局初')
 const playing = ref(false)
 const sceneReady = ref(false)
 const copiedKind = ref<'2d' | '2d-node' | '3d' | '3d-node' | null>(null)
-const localRecord = computed(() => isLocalReplayRecord(route.params.gameId))
+const localRecord = computed(() => {
+  const gameId = String(route.params.gameId || '')
+  return isLocalReplayRecord(gameId) || isLocalOnlyGameId(gameId)
+})
 const currentScores = ref<number[]>([])
 const showOtherHands = ref(true)
 const playWinAnimation = ref(false)
@@ -1516,9 +1520,16 @@ async function loadRecord() {
   resetTerminalPresentation()
   try {
     const gameId = String(route.params.gameId || '')
-    const value = loadLocalReplayRecord(gameId)
-      || await publicApiGet<PublicGameRecord>(publicRecordUrl(gameId))
-    if (isLocalReplayRecord(gameId)) currentRanks.value = {}
+    let value: PublicGameRecord | null = null
+    if (isLocalReplayRecord(gameId)) {
+      value = loadLocalReplayRecord(gameId)
+    } else {
+      const cached = await getLocalGameRecord(gameId)
+      value = cached?.record
+        ? cached as PublicGameRecord
+        : await publicApiGet<PublicGameRecord>(publicRecordUrl(gameId))
+    }
+    if (isLocalReplayRecord(gameId) || isLocalOnlyGameId(gameId)) currentRanks.value = {}
     else await loadCurrentRanks(value)
     replay.value = new RecordReplay(value)
     detail.value = value

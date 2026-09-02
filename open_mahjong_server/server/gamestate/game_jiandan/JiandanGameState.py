@@ -794,11 +794,17 @@ class JiandanGameState:
         self.emit_ready_status_payloads()
         await self.flush_outbound_payloads()
 
+        from ..public.logic_common import assign_strict_final_ranks
+        from ..public.game_record_manager import remember_local_record_detail
+
+        assign_strict_final_ranks(self.player_list)
+        game_id = self.persist_game_record()
+        remember_local_record_detail(self, game_id, f"{self.max_round}/4")
+
         self.emit_game_end_payloads()
         await self.flush_outbound_payloads()
 
         await self.spectator_manager.send_final_record_and_close()
-        self.persist_game_record()
 
         if self.game_server is None:
             return

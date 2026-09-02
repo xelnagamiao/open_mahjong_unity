@@ -45,8 +45,11 @@ public class WindowsManager : MonoBehaviour {
     private string lastLobbyTab = "menu";
     /// <summary>进入 game/recordscene 前 MainCanvas 正在显示的页。主菜单挂起与退出牌谱/对局都回到这里，挂起后点顶栏不改写。</summary>
     private string gameReturnWindow = "menu";
-    /// <summary>进入房间页之前的大厅页（赛事/匹配等）。退出房间时切回此处，而不是一律回主菜单。</summary>
-    private string roomReturnWindow = "room";
+    /// <summary>
+    /// 退出房间要回的页。顶栏「房间」进房保持 menu；活动房在进房瞬间记下当时的大厅页（通常是赛事）。
+    /// 不要在「点房间标签」时改写，否则牌谱/匹配点进房间页会把退出锚点冲掉。
+    /// </summary>
+    private string roomReturnWindow = "menu";
     private Coroutine _switchRoutine;
 
     private static bool IsLobbyTab(string window) {
@@ -117,7 +120,7 @@ public class WindowsManager : MonoBehaviour {
         currentWindow = "login";
         lastLobbyTab = "menu";
         gameReturnWindow = "menu";
-        roomReturnWindow = "room";
+        roomReturnWindow = "menu";
         HeaderPanel.Instance?.UpdateButtonState("login");
         Debug.Log("[WindowsManager] 已重置到登录界面");
     }
@@ -185,7 +188,7 @@ public class WindowsManager : MonoBehaviour {
     }
 
     /// <summary>
-    /// 对局/牌谱挂后台：回到进入前所在大厅页，不关 gamePanel，顶栏可显示「正在对局中」。
+    /// 对局/牌谱挂后台：回到进入前所在大厅页。顶栏要开（「正在对局中」），gamePanel 保持运行。
     /// </summary>
     public void HangGameToReturnWindow() {
         StartSwitchWindow(ResolveGameReturnWindow(), ensureHeader: false);
@@ -195,18 +198,20 @@ public class WindowsManager : MonoBehaviour {
     public string GetGameReturnWindow() => ResolveGameReturnWindow();
 
     private string ResolveGameReturnWindow() {
-        if (!string.IsNullOrEmpty(gameReturnWindow) && IsLobbyTab(gameReturnWindow)) {
-            return gameReturnWindow;
+        string target = gameReturnWindow;
+        if (string.IsNullOrEmpty(target) || !IsLobbyTab(target)) {
+            target = lastLobbyTab;
         }
-        if (!string.IsNullOrEmpty(lastLobbyTab) && IsLobbyTab(lastLobbyTab)) {
-            return lastLobbyTab;
+        target = PreferMenuIfEmptyCreateRoom(target);
+        if (!string.IsNullOrEmpty(target) && IsLobbyTab(target)) {
+            return target;
         }
         return "menu";
     }
 
     /// <summary>
-    /// 因加入/创建而切到房间页之前调用：记下当前大厅页，退出房间时返回。
-    /// 已在房间页则保持原值（默认房间页），避免后续 refresh 把赛事等来源冲掉。
+    /// 真正进入房间前调用（join/create 成功、尚未 SwitchWindow("room")）。
+    /// 当时若还在赛事等大厅页，退出房间回到该页；若已经在房间页（顶栏「房间」），保持主菜单。
     /// </summary>
     public void CaptureRoomReturnWindow() {
         if (!string.IsNullOrEmpty(currentWindow) && currentWindow != "room" && IsLobbyTab(currentWindow)) {
@@ -214,13 +219,16 @@ public class WindowsManager : MonoBehaviour {
         }
     }
 
-    /// <summary>离开房间后回到进入房间前的大厅页；正在看对局/牌谱时才关游戏窗。</summary>
+    /// <summary>
+    /// 退出房间：活动房回到进房前所在页；顶栏「房间」建的房回到主菜单。
+    /// 打完一把仍在房里时不要走这里，那条路径应保持房间信息面板。
+    /// </summary>
     public void ReturnAfterLeavingRoom() {
-        string target = roomReturnWindow;
-        if (string.IsNullOrEmpty(target) || !IsLobbyTab(target)) {
-            target = "menu";
+        string target = ResolveRoomReturnWindow();
+        roomReturnWindow = "menu";
+        if (gameReturnWindow == "room") {
+            gameReturnWindow = target;
         }
-        roomReturnWindow = "room";
         if (currentWindow == "game" || currentWindow == "recordscene") {
             ExitGameTo(target);
             return;
@@ -229,6 +237,34 @@ public class WindowsManager : MonoBehaviour {
             return;
         }
         SwitchWindow(target);
+    }
+
+    /// <summary>创建房表单关闭：顶栏房间页的空表单，回主菜单。</summary>
+    public void DismissCreateRoomPanel() {
+        roomReturnWindow = "menu";
+        if (currentWindow == "menu") {
+            return;
+        }
+        SwitchWindow("menu");
+    }
+
+    private static bool IsValidRoomReturn(string window) {
+        return !string.IsNullOrEmpty(window) && window != "room" && IsLobbyTab(window);
+    }
+
+    private string ResolveRoomReturnWindow() {
+        return IsValidRoomReturn(roomReturnWindow) ? roomReturnWindow : "menu";
+    }
+
+    /// <summary>
+    /// 没有 RoomId 时房间页会显示创建表单。返回导航不能落在这张空表上，改为主菜单。
+    /// 顶栏主动点「房间」仍走 SwitchWindow("room")，不受此限制。
+    /// </summary>
+    private static string PreferMenuIfEmptyCreateRoom(string target) {
+        if (target == "room" && UserDataManager.Instance.RoomId == UserDataManager.ROOM_ID_NONE) {
+            return "menu";
+        }
+        return target;
     }
 
     private void StartSwitchWindow(string targetWindow, bool ensureHeader) {
@@ -254,7 +290,7 @@ public class WindowsManager : MonoBehaviour {
         var willActive = new HashSet<GameObject>(wasActive); // 目标集合
         ApplySwitchSequenceToSet(willActive, targetWindow, ensureHeader); // 计算切换后的目标激活集合
 
-        ApplyHeaderPanelInstant(wasActive, willActive); // 顶部栏即时切换
+        ApplyHeaderPanelInstant(willActive); // 顶部栏即时切换
         if (IsLobbyTab(targetWindow)) {
             lastLobbyTab = targetWindow;
         }
@@ -315,14 +351,13 @@ public class WindowsManager : MonoBehaviour {
         }
     }
 
-    private void ApplyHeaderPanelInstant(HashSet<GameObject> was, HashSet<GameObject> will) {
+    private void ApplyHeaderPanelInstant(HashSet<GameObject> will) {
         if (headerPanel == null) return;
         bool show = will.Contains(headerPanel);
-        if (was.Contains(headerPanel) == show) return;
         headerPanel.SetActive(show);
         CanvasGroup cg = headerPanel.GetComponent<CanvasGroup>();
         if (cg != null) {
-            cg.alpha = 1f;
+            if (show) cg.alpha = 1f;
             cg.interactable = show;
             cg.blocksRaycasts = show;
         }
@@ -354,7 +389,8 @@ public class WindowsManager : MonoBehaviour {
     }
 
     /// <summary>
-    /// 与原先 SwitchWindow 里 SetActive 顺序等：在「当前激活集合」上做同样的关/开，得到切换后应激活的集合。
+    /// 计算切换后应激活的集合。大厅页一律打开 header；ensureHeader 只表示真正关掉 gamePanel。
+    /// 挂起对局切回大厅时 ensureHeader 为 false：顶栏要在，「正在对局中」才能点回来。
     /// </summary>
     private void ApplySwitchSequenceToSet(HashSet<GameObject> s, string targetWindow, bool ensureHeader = false) {
         void Off(GameObject go) {
@@ -363,6 +399,7 @@ public class WindowsManager : MonoBehaviour {
         void On(GameObject go) {
             if (go != null) s.Add(go);
         }
+        Off(loginPanel);
         Off(menuPanel);
         Off(recordPanel);
         Off(playerPanel);
@@ -375,31 +412,29 @@ public class WindowsManager : MonoBehaviour {
         Off(matchPanel);
         Off(eventPanel);
         Off(friendPanel);
-        if (ensureHeader) {
-            Off(gamePanel);
-            if (targetWindow != "login" && targetWindow != "game" && targetWindow != "recordscene") {
-                On(headerPanel);
-            }
+
+        bool inTable = targetWindow == "game" || targetWindow == "recordscene";
+        if (targetWindow == "login" || inTable) {
+            Off(headerPanel);
+        } else if (IsLobbyTab(targetWindow)) {
+            On(headerPanel);
         }
+        if (ensureHeader || targetWindow == "login") {
+            Off(gamePanel);
+        }
+
         switch (targetWindow) {
             case "login":
-                Off(gamePanel);
                 On(loginPanel);
                 break;
             case "menu":
-                Off(loginPanel);
-                On(headerPanel);
                 On(menuPanel);
                 break;
             case "room":
-                On(headerPanel);
                 On(roomRoot);
                 break;
             case "game":
             case "recordscene":
-                Off(loginPanel);
-                Off(menuPanel);
-                Off(headerPanel);
                 On(gamePanel);
                 break;
             case "record":

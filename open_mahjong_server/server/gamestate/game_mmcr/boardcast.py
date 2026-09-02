@@ -13,6 +13,7 @@ from ..game_guobiao.combination_mask_view import (
 from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
 from ..public.hand_slot_utils import bot_ask_hand_game_status
 from ..public.hand_draw_source import ensure_hand_draw_source_round, get_hand_draw_source, update_hand_draw_source
+from ..public.game_record_manager import local_record_detail_for_end
 from ..public.claim_protection import (
     claim_protection_enabled,
     is_protected_viewer,
@@ -680,7 +681,8 @@ async def broadcast_game_end(self):
                         master_seed=self.master_seed,  # 游戏结束时发送完整随机种子供验证
                         commitment=self.commitment,
                         salt=self.salt,
-                        player_final_data=player_final_data
+                        player_final_data=player_final_data,
+                        record_detail=local_record_detail_for_end(self),
                     )
                 )
 

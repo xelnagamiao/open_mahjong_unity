@@ -71,6 +71,11 @@ public class RecordSetting : MonoBehaviour {
         RefreshUI();
     }
 
+    public void SetShowCardsMode(bool show) {
+        isShowCardsMode = show;
+        RefreshUI();
+    }
+
     private void ToggleShowCardsMode() {
         isShowCardsMode = !isShowCardsMode;
         RefreshUI();

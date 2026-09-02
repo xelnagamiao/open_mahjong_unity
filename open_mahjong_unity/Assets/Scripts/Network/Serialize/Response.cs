@@ -130,6 +130,7 @@ public class GameEndInfo { // 显示游戏结束结果
     public string commitment; // 承诺值
     public string salt; // 盐字符串
     public Dictionary<string, Dictionary<string, object>> player_final_data; // endgame数据，键为玩家标识（国标为座位索引，可能并列名次），value 含 username、rank、score、pt 等；展示请以 value["rank"] 排序
+    public RecordDetail record_detail; // 终局附带完整牌谱；旧客户端无此字段，会忽略
 }
 
 public class ShowResultInfo { // 显示结算结果
@@ -398,6 +399,8 @@ public class RecordDetail { // 完整的游戏牌谱记录（按ID查询时返�
     public Dictionary<string, object> record; // 完整的牌谱记录
     public string created_at;           // 创建时间
     public PlayerRecordInfo[] players;  // 该游戏的4个玩家信息（按排名排序）
+    public string match_type;           // 局数类型（本地牌谱用）
+    public bool perspective;            // 客户端视角记录：他家未公开牌为 0
 }
 
 public class PlayerStatsInfo { // 玩家统计数据信息（单个规则和模式的统计）

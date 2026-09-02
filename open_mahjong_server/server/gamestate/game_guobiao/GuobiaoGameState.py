@@ -39,7 +39,7 @@ from .guobiao_debug import (
 )
 from .lanshi_scoring import calculate_lanshi_score_changes
 from .buhua_broadcast import HAND_SETTLE_GAP_SEC, perform_buhua_and_broadcast
-from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record,build_score_changes_by_seat,build_score_changes_dict,capture_player_entry_order,player_action_record_reset
+from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record,build_score_changes_by_seat,build_score_changes_dict,capture_player_entry_order,player_action_record_reset,remember_local_record_detail
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
 from ..public.random_seed_manager import setup_random_seed_system
@@ -960,25 +960,30 @@ class GuobiaoGameState:
                     self.db_manager.update_rank_data(player.user_id, new_rank, new_score)
                     logger.info(f"排位 PT: {player.username} rank {player.record_counter.rank_result} (名次区间 {start + 1}-{end + 1}), pt={pt}, {old_rank}({old_score}) -> {new_rank}({new_score})")
 
+        # 先入库再广播 game_end，以便把完整牌谱附在已有消息上（旧客户端忽略多余字段）
+        if is_match and match_queue_type:
+            from ...match.rank_calculator import queue_type_to_match_type
+            match_type = queue_type_to_match_type(match_queue_type)
+        else:
+            match_type = f"{self.max_round}/4"
+        game_id = None
+        try:
+            game_id = self.db_manager.store_guobiao_game_record(
+                self.game_record,
+                self.player_list,
+                self.room_type,
+                match_type
+            )
+        except Exception as e:
+            logger.error(f"存储国标牌谱失败: {e}", exc_info=True)
+        remember_local_record_detail(self, game_id, match_type)
+
         # 发送游戏结算信息
         await self.broadcast_game_end() # 广播游戏结束信息
         
         # 对局结束后：一次性下发完整牌谱给观战者，并结束观战增量服务
         if hasattr(self, 'spectator_manager'):
             await self.spectator_manager.send_final_record_and_close()
-        
-        # 存储游戏牌谱
-        if is_match and match_queue_type:
-            from ...match.rank_calculator import queue_type_to_match_type
-            match_type = queue_type_to_match_type(match_queue_type)
-        else:
-            match_type = f"{self.max_round}/4"
-        game_id = self.db_manager.store_guobiao_game_record(
-            self.game_record,
-            self.player_list,
-            self.room_type,
-            match_type
-        )
         
         # 判断是否应该保存对局数据和番种统计
         # 小林规或修改了起和番限制的对局不保存统计数据，仅保存牌谱

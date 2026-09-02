@@ -41,6 +41,7 @@ public class RecordPrefab : MonoBehaviour {
     private PlayerRecordInfo[] playersInfo;
     private bool isFavorite;
     private bool favoriteRequestPending;
+    private bool localPlayback;
 
     public string GameId => gameId;
 
@@ -50,12 +51,14 @@ public class RecordPrefab : MonoBehaviour {
         string matchType,
         string recordedTime,
         PlayerRecordInfo[] players,
-        bool isFavorite = false
+        bool isFavorite = false,
+        bool localPlayback = false
     ) {
         this.gameId = gameId;
         this.playersInfo = players;
         this.isFavorite = isFavorite;
         this.favoriteRequestPending = false;
+        this.localPlayback = localPlayback;
 
         RecordIdText.text = gameId;
         string ruleName = RuleNameDictionary.GetWholeName(subRule);
@@ -92,6 +95,7 @@ public class RecordPrefab : MonoBehaviour {
         }
 
         RefreshFavoriteVisual();
+        ApplyLocalPlaybackChrome();
     }
 
     public void ApplyFavoriteResult(bool success, bool newFavorite) {
@@ -115,6 +119,16 @@ public class RecordPrefab : MonoBehaviour {
     }
 
     private void LoadRecord() {
+        if (localPlayback) {
+            LocalRecordStore.LoadAsync(gameId, local => {
+                if (local != null && local.record != null) {
+                    RecordPanel.OpenRecord(local);
+                    return;
+                }
+                NotificationManager.Instance.ShowTip("牌谱", false, "本机没有这份牌谱");
+            });
+            return;
+        }
         DataNetworkManager.Instance.GetRecordById(gameId);
     }
 
@@ -124,19 +138,21 @@ public class RecordPrefab : MonoBehaviour {
     }
 
     private void Copy2DRecordLink() {
+        if (localPlayback) return;
         string shareUrl = $"{ConfigManager.webUrl}/2d/record/{gameId}";
         ClipboardUtility.Copy(shareUrl);
         NotificationManager.Instance.ShowTip("牌谱", true, "已复制 2D 牌谱链接");
     }
 
     private void Copy3DRecordLink() {
+        if (localPlayback) return;
         string shareUrl = SharedRecordLink.BuildShareUrl(gameId);
         ClipboardUtility.Copy(shareUrl);
         NotificationManager.Instance.ShowTip("牌谱", true, "已复制 3D 牌谱链接");
     }
 
     private void ToggleFavorite() {
-        if (favoriteRequestPending || string.IsNullOrEmpty(gameId)) return;
+        if (localPlayback || favoriteRequestPending || string.IsNullOrEmpty(gameId)) return;
         favoriteRequestPending = true;
         DataNetworkManager.Instance.UpdateRecordFavorite(gameId, !isFavorite);
     }
@@ -150,5 +166,12 @@ public class RecordPrefab : MonoBehaviour {
         colors.pressedColor = new Color(color.r * 0.85f, color.g * 0.85f, color.b * 0.85f, color.a);
         FavoriteButton.colors = colors;
         FavoriteButton.targetGraphic.color = color;
+    }
+
+    private void ApplyLocalPlaybackChrome() {
+        bool cloud = !localPlayback;
+        if (Copy2DLinkButton != null) Copy2DLinkButton.gameObject.SetActive(cloud);
+        if (Copy3DLinkButton != null) Copy3DLinkButton.gameObject.SetActive(cloud);
+        FavoriteButton.gameObject.SetActive(cloud);
     }
 }

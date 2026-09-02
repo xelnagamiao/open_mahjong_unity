@@ -173,8 +173,8 @@
         <div class="section-title">分析工具</div>
         <div class="tool-row">
           <div class="tool-card" :class="{ active: resultTab === 'standard' }">
-            <div class="tool-name">标准分析</div>
-            <p class="tool-desc">对当前筛选中已下载的牌谱计算顺位、和牌率、副露等常规统计。未下载的局不会计入。</p>
+            <div class="tool-name">标准分析<span class="tool-rule">（国标）</span></div>
+            <p class="tool-desc">对当前筛选中已下载的牌谱进行玩家数据的常规统计。</p>
             <div class="tool-actions">
               <el-button
                 type="primary"
@@ -187,8 +187,8 @@
             </div>
           </div>
           <div class="tool-card" :class="{ active: resultTab === 'advanced' }">
-            <div class="tool-name">高级分析</div>
-            <p class="tool-desc">包含标准分析全部指标，以及平均首次听牌巡、听牌率、流局率、被摸率、点炮听牌率、和牌张/听牌张、主番（4 番及以上）、凑番和、门断平、和牌时明副露、点炮均番均巡。目前仅国标。</p>
+            <div class="tool-name">高级分析<span class="tool-rule">（国标）</span></div>
+            <p class="tool-desc">包含常规统计的高级统计，包括平均首次听牌巡、听牌率、点炮听牌率、分巡场得、番数统计等数据</p>
             <div class="tool-actions">
               <el-button
                 type="primary"
@@ -201,8 +201,8 @@
             </div>
           </div>
           <div class="tool-card" :class="{ active: resultTab === 'fan' }">
-            <div class="tool-name">按番查谱</div>
-            <p class="tool-desc">选出一个番种（含凑番和、门断平），列出和出该番的牌谱、小局、对局时间、巡目与 node，复制 2D 回放链接分享。目前仅国标。</p>
+            <div class="tool-name">按番查谱<span class="tool-rule">（国标）</span></div>
+            <p class="tool-desc">选出一个番种（如凑番和、小三元），搜索出和出该番的所有牌谱，并且提供牌谱链接。</p>
             <div class="tool-actions fan-actions">
               <el-select
                 v-model="selectedFanKey"
@@ -293,7 +293,7 @@
               <div class="fan-grid">
                 <div v-for="item in standardFanEntries" :key="item.key" class="fan-item">
                   <span class="fan-name">{{ item.name }}<span class="fan-pts">（{{ item.value }} 番）</span></span>
-                  <span class="fan-value">{{ getStandardFanValue(item.key) }}</span>
+                  <span class="fan-value">{{ item.display }}</span>
                 </div>
               </div>
             </el-collapse-item>
@@ -302,7 +302,13 @@
 
         <template v-else-if="resultTab === 'advanced' && advancedStats">
           <div class="section-title">高级分析</div>
-          <p class="result-note">听牌率按小局计，一局内听过一次即计入。流局率是自己遇到流局的小局比例。被摸率是他人自摸、自己付钱的小局比例。点炮听牌率是点炮时自己剩余手牌仍听牌的比例。主番是单番种 ≥ 4 番；全部由 1–2 番构成且不是门断平的和牌记为凑番和。明副露次数不含暗杠，加杠并入原碰。</p>
+          <div class="fun-tags">
+            <div v-for="tag in funTags" :key="tag.name" class="fun-tag" :class="tag.tone">
+              <span class="fun-tag-name">{{ tag.name }}</span>
+              <strong>{{ tag.value }}</strong>
+              <span class="fun-tag-note">{{ tag.note }}</span>
+            </div>
+          </div>
           <div class="stats-table">
             <div class="stats-row" v-for="item in advancedBasicRows" :key="'b-'+item.label">
               <span class="stats-label">{{ item.label }}</span>
@@ -313,6 +319,15 @@
             <div class="stats-row" v-for="item in advancedExtraRows" :key="'e-'+item.label">
               <span class="stats-label">{{ item.label }}</span>
               <span class="stats-value">{{ item.value }}</span>
+            </div>
+          </div>
+          <div class="chart-box xun-end-box">
+            <div class="chart-title">分巡平均场得</div>
+            <div class="stats-table nested">
+              <div class="stats-row" v-for="item in xunEndScoreRows" :key="item.label">
+                <span class="stats-label">{{ item.label }}</span>
+                <span class="stats-value">{{ item.value }}</span>
+              </div>
             </div>
           </div>
           <div class="charts-panel">
@@ -342,12 +357,12 @@
               </div>
             </div>
           </div>
-          <el-collapse v-if="isGuobiao && standardFanEntries.length" class="fan-collapse">
-            <el-collapse-item :title="`番种统计（${standardFanEntries.length}）`" name="fan">
+          <el-collapse v-if="isGuobiao && advancedFanEntries.length" class="fan-collapse">
+            <el-collapse-item :title="`番种统计（${advancedFanEntries.length}）`" name="fan">
               <div class="fan-grid">
-                <div v-for="item in standardFanEntries" :key="'adv-'+item.key" class="fan-item">
+                <div v-for="item in advancedFanEntries" :key="'adv-'+item.key" class="fan-item">
                   <span class="fan-name">{{ item.name }}<span class="fan-pts">（{{ item.value }} 番）</span></span>
-                  <span class="fan-value">{{ getAdvancedFanValue(item.key) }}</span>
+                  <span class="fan-value">{{ item.display }}</span>
                 </div>
               </div>
             </el-collapse-item>
@@ -363,7 +378,7 @@
               </div>
             </div>
             <div class="chart-box">
-              <div class="chart-title">和牌时明副露次数</div>
+              <div class="chart-title">和牌时副露次数（不含暗杠）</div>
               <div class="bar-list">
                 <div
                   v-for="row in fuluWinRows"
@@ -595,6 +610,7 @@ import {
   FAN_SEARCH_OPTIONS,
   filterWinsByFan,
   sortWinsByTimeDesc,
+  XUN_END_SCORE_BUCKETS,
 } from '../utils/recordAdvancedAnalyzer'
 import { sharePathForWin, sharePathForWin3d } from '../utils/recordShareLink'
 import { buildPlayerStatsRows, rankRatePieLabel, rankedGames, ratio, avg } from '../utils/statsDisplay'
@@ -785,11 +801,23 @@ const pieTotal = computed(() => rankedGames(analyzedStats.value))
 const advancedPieSegments = computed(() => pieFromStats(advancedStats.value))
 const advancedPieTotal = computed(() => rankedGames(advancedStats.value))
 const isGuobiao = computed(() => currentRule.value === 'guobiao')
-const standardFanEntries = computed(() => (
-  isGuobiao.value ? listGuobiaoFanEntries() : []
-))
-const getStandardFanValue = (fanKey) => analyzedStats.value?.fan_stats?.[fanKey] || 0
-const getAdvancedFanValue = (fanKey) => advancedStats.value?.fan_stats?.[fanKey] || 0
+const buildFanStatEntries = (stats) => {
+  if (!isGuobiao.value) return []
+  const wins = Number(stats?.win_count) || 0
+  const counts = stats?.fan_stats || {}
+  return listGuobiaoFanEntries()
+    .map((item) => {
+      const count = Number(counts[item.key]) || 0
+      return {
+        ...item,
+        count,
+        display: `${count} · ${ratio(count, wins)}`,
+      }
+    })
+    .sort((a, b) => b.count - a.count || a.value - b.value || a.name.localeCompare(b.name, 'zh-CN'))
+}
+const standardFanEntries = computed(() => buildFanStatEntries(analyzedStats.value))
+const advancedFanEntries = computed(() => buildFanStatEntries(advancedStats.value))
 const hasAnyResult = computed(() =>
   !!analyzedStats.value || !!advancedStats.value || fanQueried.value
 )
@@ -825,6 +853,38 @@ const advancedExtraRows = computed(() => {
     { label: '门断平占和牌', value: ratio(s.menduanping_count, s.win_count) },
     { label: '平均和了点数', value: avg(s.total_win_score, s.win_count) },
   ]
+})
+const funTags = computed(() => {
+  const s = advancedStats.value
+  if (!s) return []
+  const dealDraw = s.deal_draw_tile_count || 0
+  const flowers = s.flower_tile_count || 0
+  const dogN = s.opening_shanten_count || 0
+  return [
+    {
+      name: '幸运值',
+      tone: 'luck',
+      value: ratio(flowers, dealDraw),
+      note: `配牌+摸牌含花概率 ${flowers}/${dealDraw}`,
+    },
+    {
+      name: '狗力值',
+      tone: 'dog',
+      value: `${avg(s.opening_shanten_total, dogN)} 向听`,
+      note: `补花轮结束时平均向听数 · ${dogN} 局`,
+    },
+  ]
+})
+const xunEndScoreRows = computed(() => {
+  const s = advancedStats.value
+  if (!s) return []
+  return XUN_END_SCORE_BUCKETS.map((item) => {
+    const n = s.xun_end_count?.[item.key] || 0
+    return {
+      label: item.label,
+      value: `${avg(s.xun_end_score?.[item.key], n)}（${n} 局）`,
+    }
+  })
 })
 const dealInRows = computed(() => {
   const s = advancedStats.value
@@ -1732,7 +1792,17 @@ onMounted(async () => {
   border-color: #409eff;
   box-shadow: 0 0 0 1px #409eff inset;
 }
-.tool-name { font-size: 14px; font-weight: 700; color: #1e293b; margin-bottom: 6px; }
+.tool-name {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 6px;
+}
+.tool-rule { font-size: 12px; font-weight: 600; color: #94a3b8; }
 .tool-desc { font-size: 12px; color: #64748b; line-height: 1.6; margin: 0 0 10px; }
 .tool-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .tool-hint { font-size: 12px; color: #94a3b8; }
@@ -1848,6 +1918,27 @@ onMounted(async () => {
   border: 1px solid #eef0f3;
   padding: 8px 10px;
 }
+.xun-end-box { margin-bottom: 12px; }
+.fun-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+.fun-tag {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 168px;
+  padding: 8px 12px;
+  border: 1px solid #eef0f3;
+  background: #fafbfc;
+}
+.fun-tag.luck { border-color: #f5dab1; background: #fdf6ec; }
+.fun-tag.dog { border-color: #d3dce6; background: #f4f4f5; }
+.fun-tag-name { font-size: 12px; font-weight: 700; color: #475569; }
+.fun-tag strong { font-size: 20px; line-height: 1.2; color: #1e293b; font-family: Consolas, Menlo, monospace; }
+.fun-tag-note { font-size: 11px; color: #94a3b8; }
 .chart-pie { width: 280px; max-width: 100%; }
 .chart-title { font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px; }
 .pie-wrap { display: flex; align-items: center; gap: 10px; min-height: 74px; }

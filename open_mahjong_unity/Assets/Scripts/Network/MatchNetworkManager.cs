@@ -50,22 +50,15 @@ public class MatchNetworkManager : MonoBehaviour {
             }
             return;
         }
-        if (IsMatchUiLocked()) {
-            ShowMatchFoundedUi();
-            return;
-        }
+        if (IsMatchUiLocked()) return;
         CoroutineManager.Ensure();
         CoroutineManager.Instance.RunNextFrame(ShowQueueingPanelIfStillNeeded, CoroutineKeys.MatchQueueingPanelDelay);
     }
 
     private void RestoreQueueingFromServer(string queueType) {
-        if (IsBoundToLiveGame()) return;
+        if (IsBoundToLiveGame() || IsMatchUiLocked()) return;
         lastJoinedQueueType = queueType;
         MatchStateManager.Instance.EnsureQueueing(MatchQueueDisplayText.GetQueueTitle(queueType));
-        if (IsMatchUiLocked()) {
-            ShowMatchFoundedUi();
-            return;
-        }
         MatchQueueingPanel.Instance?.RestoreIfQueueing();
     }
 
@@ -76,7 +69,6 @@ public class MatchNetworkManager : MonoBehaviour {
 
     /// <summary>
     /// 已经进桌，或本地仍绑定 gamestate（对局挂后台、重连拆桌后等待 game_start）。
-    /// 服务端 match_committed 覆盖整场对局，不能据此再弹出进桌倒计时。
     /// </summary>
     private static bool IsBoundToLiveGame() {
         if (GameSessionGuard.HasExclusiveSession) return true;
@@ -91,11 +83,7 @@ public class MatchNetworkManager : MonoBehaviour {
     }
 
     private void ShowQueueingPanelIfStillNeeded() {
-        if (IsBoundToLiveGame()) return;
-        if (IsMatchUiLocked()) {
-            ShowMatchFoundedUi();
-            return;
-        }
+        if (IsBoundToLiveGame() || IsMatchUiLocked()) return;
         MatchQueueingPanel.Instance?.Show(MatchQueueDisplayText.GetQueueTitle(lastJoinedQueueType));
     }
 
@@ -134,26 +122,14 @@ public class MatchNetworkManager : MonoBehaviour {
     }
 
     /// <summary>
-    /// 用服务端 my_queue / match_committed 恢复本地状态。
+    /// 用服务端 my_queue 恢复「正在排队」。
+    /// match_committed 是整局锁，不是进桌倒计时；匹配成功面板只由 match/match_found 打开。
     /// my_queue 为空时不清理本地（避免 join 与 poll 竞态）。
-    /// match_committed 只在尚未进桌时恢复倒计时（重连卡在开局前 5 秒）；
-    /// 对局进行中该标志仍为真，不得再弹匹配成功面板。
     /// </summary>
     private void ApplyServerMatchState(Response response) {
-        if (IsBoundToLiveGame()) return;
-        if (response.match_committed) {
-            if (!string.IsNullOrEmpty(response.my_queue)) {
-                lastJoinedQueueType = response.my_queue;
-            }
-            isMatchFoundLocked = true;
-            if (!MatchStateManager.Instance.IsMatchFound) {
-                ShowMatchFoundedUi();
-            }
-            return;
-        }
+        if (IsBoundToLiveGame() || IsMatchUiLocked()) return;
         if (string.IsNullOrEmpty(response.my_queue)) return;
         lastJoinedQueueType = response.my_queue;
-        if (IsMatchUiLocked()) return;
         MatchStateManager.Instance.EnsureQueueing(MatchQueueDisplayText.GetQueueTitle(response.my_queue));
         if (MatchPanel.Instance != null
             && MatchPanel.Instance.isActiveAndEnabled

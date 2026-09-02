@@ -60,6 +60,7 @@ from ..public.game_record_manager import (
     player_action_record_new_dora,
     player_action_record_hu_riichi,
     end_game_record,
+    remember_local_record_detail,
 )
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
@@ -627,15 +628,11 @@ class RiichiGameState:
 
         end_game_record(self)
         assign_strict_final_ranks(self.player_list)
-        await self.broadcast_game_end()
 
-        if hasattr(self, "spectator_manager"):
-            await self.spectator_manager.send_final_record_and_close()
-
-        # 数据库保存（简化：复用存储接口扩展后再接入）
+        match_type = f"{self.max_round}/4"
+        game_id = None
         if hasattr(self.db_manager, "store_riichi_game_record"):
             try:
-                match_type = f"{self.max_round}/4"
                 game_id = self.db_manager.store_riichi_game_record(self.game_record, self.player_list, self.room_type, match_type)
                 has_ai = any(p.user_id <= 10 for p in self.player_list)
                 if self.room_type == "events":
@@ -648,6 +645,12 @@ class RiichiGameState:
                         self.db_manager.store_riichi_fan_stats(game_id, self.player_list, self.room_type, self.max_round)
             except Exception as e:
                 logger.error(f"riichi 存储牌谱异常: {e}")
+        remember_local_record_detail(self, game_id, match_type)
+
+        await self.broadcast_game_end()
+
+        if hasattr(self, "spectator_manager"):
+            await self.spectator_manager.send_final_record_and_close()
 
         await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
         if self.room_type == "match":

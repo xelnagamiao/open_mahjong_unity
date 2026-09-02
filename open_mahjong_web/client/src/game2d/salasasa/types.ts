@@ -164,6 +164,7 @@ export interface SalasasaGameEndInfo {
     rank_before?: string
     rank_after?: string
   }>
+  record_detail?: Record<string, unknown>
 }
 
 export type StoredCredentials =

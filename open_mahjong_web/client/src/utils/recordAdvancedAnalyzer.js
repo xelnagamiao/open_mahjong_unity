@@ -1,6 +1,6 @@
 /**
- * 国标牌谱高级分析：含标准分析全部指标，以及听牌/流局/被摸/点炮听牌、和张听张、主番与凑番和、副露、点炮。
- * 听牌判定复用客户端 gbTingpai；明副露不含暗杠，加杠并入原碰不另计一次。
+ * 国标牌谱高级分析：含标准分析全部指标，以及听牌/流局/被摸/点炮听牌、和张听张、主番与凑番和、副露、点炮、分巡场得、幸运值与狗力值。
+ * 听牌判定复用客户端 gbTingpai；向听复用国标牌理计算器默认选项；明副露不含暗杠，加杠并入原碰不另计一次。
  */
 
 import {
@@ -35,6 +35,11 @@ const RON_ACTIONS = new Set(['hu_first', 'hu_second', 'hu_third'])
 const CLAIM_CODES = new Set(['cl', 'cm', 'cr', 'p', 'g'])
 const FLOWER_MIN = 51
 const FLOWER_MAX = 58
+
+function isFlowerTile(tile) {
+  const id = normTile(tile)
+  return id >= FLOWER_MIN && id <= FLOWER_MAX
+}
 
 const TILE_SUIT_ROWS = [
   [11, 12, 13, 14, 15, 16, 17, 18, 19],
@@ -151,6 +156,38 @@ function winMatchesFan(win, fanKey) {
   return (win.parsed || []).some((item) => item.name === name)
 }
 
+/** 小局结束巡分段：≤5、6–10、11–15、≥16。 */
+export const XUN_END_SCORE_BUCKETS = [
+  { key: 'le5', label: '5巡内结束场次平均场得' },
+  { key: 'le10', label: '5–10巡结束场次平均场得' },
+  { key: 'le15', label: '10–15巡结束场次平均场得' },
+  { key: 'gt15', label: '15巡后结束场次平均场得' },
+]
+
+export function xunEndBucket(xunmu) {
+  const x = Number(xunmu)
+  if (!Number.isFinite(x) || x <= 5) return 'le5'
+  if (x <= 10) return 'le10'
+  if (x <= 15) return 'le15'
+  return 'gt15'
+}
+
+function emptyXunEndMap() {
+  return { le5: 0, le10: 0, le15: 0, gt15: 0 }
+}
+
+function drawScoreChanges(tick) {
+  if (!Array.isArray(tick) || tick.length < 2) return null
+  const code = tick[0]
+  const candidates = code === 'ryuukyoku' ? [tick[2]] : tick.slice(1)
+  for (const raw of candidates) {
+    if (!Array.isArray(raw) || raw.length < 4) continue
+    const nums = raw.slice(0, 4).map((value) => Number(value))
+    if (nums.every((value) => Number.isFinite(value))) return nums
+  }
+  return null
+}
+
 const SHARE_SILENT_ACTIONS = new Set(['reset', 'ask_hand', 'ask_other', 'ca'])
 
 function isShareSilentTick(tick) {
@@ -204,6 +241,12 @@ function emptyAcc() {
     main_fan_counts: {},
     wins: [],
     deal_ins: [],
+    xun_end_score: emptyXunEndMap(),
+    xun_end_count: emptyXunEndMap(),
+    deal_draw_tile_count: 0,
+    flower_tile_count: 0,
+    opening_shanten_total: 0,
+    opening_shanten_count: 0,
   }
 }
 
@@ -211,7 +254,7 @@ function emptyAcc() {
  * 重建一局目标座位的手牌，并收集听牌/和牌/点炮事件。
  * @param {boolean} tingpai 为 false 时跳过听牌判定（按番查谱用）
  */
-function walkRound(rd, mySeat, { tingpaiCheck = null } = {}) {
+function walkRound(rd, mySeat, { tingpaiCheck = null, shantenOf = null } = {}) {
   const ticks = Array.isArray(rd?.action_ticks) ? rd.action_ticks : []
   const dealer = ((typeof rd.start_player_index === 'number' ? rd.start_player_index
     : (typeof rd.dealer_index === 'number' ? rd.dealer_index : 0)) % 4 + 4) % 4
@@ -248,8 +291,26 @@ function walkRound(rd, mySeat, { tingpaiCheck = null } = {}) {
   let liuju = false
   let dealtThisRound = false
   let tsumoAgainst = false
+  let endXunmu = null
+  let roundScore = 0
+  let dealDrawTiles = initial.length
+  let flowerTiles = initial.filter(isFlowerTile).length
+  let openingShanten = null
   const wins = []
   const dealIns = []
+
+  const snapshotOpeningShanten = () => {
+    if (openingShanten != null || !shantenOf) return
+    const tiles = closedHandIds([
+      ...state.hand,
+      ...(state.drawn != null ? [state.drawn] : []),
+    ])
+    if (tiles.length !== 13 && tiles.length !== 14) return
+    try {
+      const value = Number(shantenOf(tiles, []))
+      if (Number.isFinite(value)) openingShanten = value
+    } catch (_) { /* 手牌不合法时跳过该局狗力值 */ }
+  }
 
   const readWaits = () => {
     if (!tingpaiCheck) return []
@@ -291,14 +352,21 @@ function walkRound(rd, mySeat, { tingpaiCheck = null } = {}) {
     const code = tick[0]
     if (code === 'end') break
     if (code === 'ask_hand' || code === 'ask_other' || code === 'ca') continue
-    if (code === 'liuju' || code === 'ryuukyoku') {
-      liuju = true
-      continue
-    }
     if (code === 'reset') {
       const seat = tickInt(tick, 1, currentSeat)
       if (seat != null) goTo(seat)
       seenReset = true
+      // 狗力值只在补花轮结束的 reset 取样。线上国标小局已全部回填 reset，不再兼容无 reset 的旧谱。
+      snapshotOpeningShanten()
+      continue
+    }
+    if (code === 'liuju' || code === 'ryuukyoku') {
+      liuju = true
+      if (endXunmu == null) endXunmu = xunmu
+      const drawScores = drawScoreChanges(tick)
+      if (drawScores && mySeat >= 0 && mySeat < drawScores.length) {
+        roundScore += drawScores[mySeat]
+      }
       continue
     }
 
@@ -327,7 +395,10 @@ function walkRound(rd, mySeat, { tingpaiCheck = null } = {}) {
     }
 
     if (['d', 'gd', 'bd'].includes(code) && actor === mySeat) {
-      applyDraw(tickInt(tick, 1, 0), code)
+      const tile = tickInt(tick, 1, 0)
+      dealDrawTiles += 1
+      if (isFlowerTile(tile)) flowerTiles += 1
+      applyDraw(tile, code)
     } else if (code === 'c') {
       const tile = tickInt(tick, 1, 0)
       lastCutTile = tile
@@ -387,6 +458,10 @@ function walkRound(rd, mySeat, { tingpaiCheck = null } = {}) {
     }
 
     const hu = parseHuTick(tick)
+    if (hu?.scoreChanges && mySeat >= 0 && mySeat < hu.scoreChanges.length) {
+      roundScore += hu.scoreChanges[mySeat]
+      if (!isCuohe(hu.yaku) && endXunmu == null) endXunmu = xunmu
+    }
     if (!hu || isCuohe(hu.yaku)) continue
     const sc = hu.scoreChanges
     if (!sc || mySeat < 0 || mySeat >= sc.length) continue
@@ -447,6 +522,11 @@ function walkRound(rd, mySeat, { tingpaiCheck = null } = {}) {
     liuju: liuju && wins.length === 0,
     visibleFulu: state.visibleFulu,
     tsumoAgainst,
+    endXunmu: endXunmu ?? xunmu,
+    roundScore,
+    dealDrawTiles,
+    flowerTiles,
+    openingShanten,
     wins,
     dealIns,
   }
@@ -484,7 +564,7 @@ function attachWinMeta(win, { gameId, round, currentRound, roundIndexKey, create
   }
 }
 
-function analyzeOne(record, userId, acc, { tingpaiCheck = null, gameId = '', createdAt = null } = {}) {
+function analyzeOne(record, userId, acc, { tingpaiCheck = null, shantenOf = null, gameId = '', createdAt = null } = {}) {
   const originalIndex = findOriginalIndex(record, userId)
   if (originalIndex < 0) return
   const entries = listSortedRoundEntries(record)
@@ -499,7 +579,7 @@ function analyzeOne(record, userId, acc, { tingpaiCheck = null, gameId = '', cre
     const mySeat = seatForOriginal(seats, originalIndex)
     let walked
     try {
-      walked = walkRound(rd || {}, mySeat, { tingpaiCheck })
+      walked = walkRound(rd || {}, mySeat, { tingpaiCheck, shantenOf })
     } catch (_) {
       continue
     }
@@ -510,6 +590,15 @@ function analyzeOne(record, userId, acc, { tingpaiCheck = null, gameId = '', cre
     }
     if (walked.liuju) acc.liuju_count += 1
     if (walked.tsumoAgainst) acc.tsumo_against_count += 1
+    const bucket = xunEndBucket(walked.endXunmu)
+    acc.xun_end_score[bucket] += walked.roundScore || 0
+    acc.xun_end_count[bucket] += 1
+    acc.deal_draw_tile_count += walked.dealDrawTiles || 0
+    acc.flower_tile_count += walked.flowerTiles || 0
+    if (walked.openingShanten != null) {
+      acc.opening_shanten_total += walked.openingShanten
+      acc.opening_shanten_count += 1
+    }
 
     const currentRound = Number(rd?.current_round || rd?.round_index || round + 1)
     for (const win of walked.wins) {
@@ -567,6 +656,15 @@ export async function analyzeRecordsAdvanced(items, userId, options = {}) {
     const mod = await import('../game2d/calc/guobiao/gbTingpai')
     tingpaiCheck = mod.tingpaiCheck
   }
+  let shantenOf = typeof options.shantenOf === 'function' ? options.shantenOf : null
+  if (!shantenOf && options.tingpai !== false) {
+    try {
+      const mod = await import('./pailiCalculator')
+      shantenOf = (handTiles, combinations = []) => mod.calculatePailiShanten(handTiles, combinations)
+    } catch (_) {
+      shantenOf = null
+    }
+  }
   const acc = emptyAcc()
   const list = items || []
   for (let i = 0; i < list.length; i += 1) {
@@ -574,6 +672,7 @@ export async function analyzeRecordsAdvanced(items, userId, options = {}) {
     const record = item?.record ?? item
     analyzeOne(record, userId, acc, {
       tingpaiCheck,
+      shantenOf,
       gameId: recordGameId(item, record),
       createdAt: item?.created_at
         || record?.created_at
