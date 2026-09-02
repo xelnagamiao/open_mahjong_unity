@@ -425,6 +425,7 @@ public static class CardBackManager
 #endif
         // 上传背景后自动开启「使用 3D 牌面背景」，避免出现图已上传但 UI 还是关闭态。
         SetTableFaceBackgroundEnabled(true);
+        TileFaceResolver.NotifyTableBackgroundChanged();
     }
 
     /// <summary>把上传 3D 牌面背景的宽高比写入共享材质，shader 据此按 220:366 比例压缩 UV。</summary>
@@ -458,6 +459,7 @@ public static class CardBackManager
         // 清空背景后顺手关闭「使用 3D 牌面背景」，与手牌牌面背景行为一致。
         SetTableFaceBackgroundEnabled(false);
         ForEachVisualMaterial(mat => mat.SetFloat("_FrontBgTexAspect", 0f));
+        TileFaceResolver.NotifyTableBackgroundChanged();
     }
 
     /// <summary>

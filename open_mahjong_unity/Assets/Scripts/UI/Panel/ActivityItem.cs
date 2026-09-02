@@ -8,7 +8,6 @@ using TMPro;
 public class ActivityItem : MonoBehaviour {
     [SerializeField] private RawImage coverImage;
     [SerializeField] private TMP_Text titleText;
-    [SerializeField] private TMP_Text descText;
     [SerializeField] private TMP_Text placeholderText;
     [SerializeField] private Button button;
     [SerializeField] private GameObject badgeRoot;
@@ -28,7 +27,6 @@ public class ActivityItem : MonoBehaviour {
     public string ActivityId => _activityId;
 
     private void Awake() {
-        HideDesc();
         CacheChrome();
         ApplyBadgeColor();
         RefreshBadge();
@@ -59,7 +57,6 @@ public class ActivityItem : MonoBehaviour {
                 ? entry.title
                 : "未命名活动";
         }
-        HideDesc();
         RefreshBadge();
         if (_button == null) return;
         _button.onClick.RemoveAllListeners();
@@ -99,12 +96,6 @@ public class ActivityItem : MonoBehaviour {
 
     private void ApplyBadgeColor() {
         if (badgeImage != null) badgeImage.color = badgeColor;
-    }
-
-    private void HideDesc() {
-        if (descText == null) return;
-        descText.text = "";
-        descText.gameObject.SetActive(false);
     }
 
     private void CacheChrome() {

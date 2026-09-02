@@ -11,7 +11,6 @@ public class ActivityDetailPanel : MonoBehaviour {
     [SerializeField] private TMP_Text titleText;
     [SerializeField] private TMP_Text statusText;
     [SerializeField] private TMP_Text bodyText;
-    [SerializeField] private Button closeButton;
     [SerializeField] private Transform bodyContent;
     [SerializeField] private GameObject imageTemplate;
     [SerializeField] private ScrollRect bodyScroll;
@@ -22,7 +21,6 @@ public class ActivityDetailPanel : MonoBehaviour {
 
     private void Awake() {
         gameObject.SetActive(true);
-        if (closeButton != null) closeButton.gameObject.SetActive(false);
         if (bodyText != null) bodyText.gameObject.SetActive(false);
         if (imageTemplate != null) imageTemplate.SetActive(false);
         VerticalLayoutGroup vlg = bodyContent != null

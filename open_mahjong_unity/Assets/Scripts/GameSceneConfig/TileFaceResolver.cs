@@ -17,6 +17,8 @@ public static class TileFaceResolver {
     private static Sprite handBackgroundSprite;
     private static Texture2D handBackgroundTexture;
     private static Texture2D defaultHandBackgroundTexture;
+    private static Sprite tableBackgroundSprite;
+    private static Texture2D tableBackgroundTexture;
     private static Sprite customHandBackSprite;
     private static Texture2D customHandBackTexture;
     private static bool diskLoaded;
@@ -205,6 +207,29 @@ public static class TileFaceResolver {
         return handBackgroundSprite;
     }
 
+    /// <summary>
+    /// 3D 牌面预览底图：已上传的 table-bg，否则用与手牌相同的默认牌体。
+    /// </summary>
+    public static Sprite LoadTableBackground() {
+        Texture2D texture = PeekTableBackgroundTexture();
+        if (texture == null) {
+            return null;
+        }
+        if (tableBackgroundTexture != texture) {
+            ReplaceTableBackgroundSprite(texture);
+        }
+        return tableBackgroundSprite;
+    }
+
+    public static Texture2D PeekTableBackgroundTexture() {
+        Texture2D custom = CardBackManager.LoadSavedTableBackground();
+        if (custom != null) {
+            return custom;
+        }
+        EnsureDefaultHandBackground();
+        return defaultHandBackgroundTexture;
+    }
+
     public static Texture2D PeekHandBackgroundTexture() {
         Texture2D custom = CardBackManager.LoadSavedHandBackground();
         if (custom != null) {
@@ -264,6 +289,13 @@ public static class TileFaceResolver {
     public static void NotifyHandBackgroundChanged() {
         if (handBackgroundTexture != null && handBackgroundTexture != defaultHandBackgroundTexture) {
             ReplaceHandBackgroundSprite(null);
+        }
+        NotifyChanged();
+    }
+
+    public static void NotifyTableBackgroundChanged() {
+        if (tableBackgroundTexture != null && tableBackgroundTexture != defaultHandBackgroundTexture) {
+            ReplaceTableBackgroundSprite(null);
         }
         NotifyChanged();
     }
@@ -395,6 +427,22 @@ public static class TileFaceResolver {
             return;
         }
         handBackgroundSprite = Sprite.Create(
+            texture,
+            new Rect(0f, 0f, texture.width, texture.height),
+            new Vector2(0.5f, 0.5f),
+            100f);
+    }
+
+    private static void ReplaceTableBackgroundSprite(Texture2D texture) {
+        if (tableBackgroundSprite != null) {
+            UnityEngine.Object.Destroy(tableBackgroundSprite);
+            tableBackgroundSprite = null;
+        }
+        tableBackgroundTexture = texture;
+        if (texture == null) {
+            return;
+        }
+        tableBackgroundSprite = Sprite.Create(
             texture,
             new Rect(0f, 0f, texture.width, texture.height),
             new Vector2(0.5f, 0.5f),

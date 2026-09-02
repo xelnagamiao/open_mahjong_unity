@@ -106,14 +106,24 @@ public class CardFaceConfigPanel : MonoBehaviour {
         restoreButton.gameObject.SetActive(!showingHongque);
         packFluffyButton.gameObject.SetActive(!showingHongque);
         packHkButton.gameObject.SetActive(!showingHongque);
-        useBackgroundButton.gameObject.SetActive(!showingHongque && !showingTablePreview);
-        noBackgroundButton.gameObject.SetActive(!showingHongque && !showingTablePreview);
-        useTableBackgroundButton.gameObject.SetActive(!showingHongque && showingTablePreview);
-        noTableBackgroundButton.gameObject.SetActive(!showingHongque && showingTablePreview);
-        showHandButton.gameObject.SetActive(!showingHongque);
-        showTableButton.gameObject.SetActive(!showingHongque);
-        standardViewActions.SetActive(!showingHongque);
+        RefreshViewActionVisibility();
         HighlightPackButtons();
+    }
+
+    /// <summary>
+    /// 手牌预览只显示「使用/不使用牌面背景」；3D 预览只显示「使用/不使用 3D 牌面背景」。
+    /// </summary>
+    private void RefreshViewActionVisibility() {
+        bool standard = !showingHongque;
+        standardViewActions.SetActive(standard);
+        showHandButton.gameObject.SetActive(standard);
+        showTableButton.gameObject.SetActive(standard);
+        bool showHandBg = standard && !showingTablePreview;
+        bool showTableBg = standard && showingTablePreview;
+        useBackgroundButton.gameObject.SetActive(showHandBg);
+        noBackgroundButton.gameObject.SetActive(showHandBg);
+        useTableBackgroundButton.gameObject.SetActive(showTableBg);
+        noTableBackgroundButton.gameObject.SetActive(showTableBg);
     }
 
     public void RefreshHighlights() {
@@ -208,11 +218,13 @@ public class CardFaceConfigPanel : MonoBehaviour {
 
     private void OnTogglePreview(bool table) {
         showingTablePreview = table;
+        RefreshViewActionVisibility();
         HighlightPackButtons();
         RefreshPreview();
     }
 
     private void RefreshPreview() {
+        RefreshViewActionVisibility();
         standardPreviewRoot.SetActive(!showingHongque);
         hongquePreviewRoot.SetActive(showingHongque);
         HighlightPackButtons();
@@ -262,14 +274,8 @@ public class CardFaceConfigPanel : MonoBehaviour {
         Sprite handBackground = useBg ? TileFaceResolver.LoadHandBackground() : null;
         bool useTableBg = table
             && ConfigManager.Instance != null
-            && ConfigManager.Instance.UseTableFaceBackground
-            && CardBackManager.CurrentTableBackground != null;
-        Texture2D tableTex = useTableBg ? CardBackManager.CurrentTableBackground : null;
-        Sprite tableBackground = tableTex != null
-            ? Sprite.Create(tableTex,
-                new Rect(0f, 0f, tableTex.width, tableTex.height),
-                new Vector2(0.5f, 0.5f), 100f)
-            : null;
+            && ConfigManager.Instance.UseTableFaceBackground;
+        Sprite tableBackground = useTableBg ? TileFaceResolver.LoadTableBackground() : null;
         for (int i = 0; i < slots.Length; i++) {
             CardFacePreviewSlot slot = slots[i];
             bool dim = dimMissingCustom && !TileFaceResolver.HasCustomFace(slot.tileId);
