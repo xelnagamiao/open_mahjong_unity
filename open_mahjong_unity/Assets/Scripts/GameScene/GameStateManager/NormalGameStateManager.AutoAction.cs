@@ -96,11 +96,11 @@ public partial class NormalGameStateManager {
     }
 
     /// <summary>
-    /// 自动过牌的动作名：虹雀必须发 hongque_pass（走 gamestate/hongque/action），
-    /// 发标准 "pass" 会走 GB 协议导致服务端收不到回应，亮牌窗口挂起卡死。
+    /// 自动过牌的动作名：由当前驱动器决定（回合制为 "pass"；虹雀等状态同步驱动器有自己的过牌动作名，
+    /// 发标准 "pass" 会走 GB 协议导致服务端收不到回应，亮牌窗口挂起卡死）。
     /// </summary>
     private static string ResolveAutoPassAction() {
-        return HongqueTableAdapter.IsActive ? "hongque_pass" : "pass";
+        return RuleRegistry.ActiveDriver?.PassActionName ?? "pass";
     }
 
     /// <summary>

@@ -52,7 +52,6 @@ async def init_hongque_tiles(game_state) -> None:
     game_state.message = f"第 {game_state.current_round} 局开始"
     game_state._advance_tick()
     await game_state.broadcast_state(sync_mode="round_start")
-    game_state._schedule_turn_timeout()
     game_state._schedule_bot_if_needed()
 
 

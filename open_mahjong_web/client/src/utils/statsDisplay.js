@@ -53,6 +53,7 @@ function buildStatsRowsBase(s, fuluRateFn) {
     { label: '错和率', value: ratio(s.cuohe_count, s.total_rounds) },
     { label: '副露率', value: fuluRateFn(s.fulu_round_count, s.total_rounds) },
     { label: '平均和番', value: avg(s.total_fan_score, s.win_count) },
+    // 国标平均和巡按庄家巡，与对局进程 player_index_go_to 一致
     { label: '平均和巡', value: avg(s.total_win_turn, s.win_count) },
     { label: '平均铳番', value: avg(s.total_fangchong_score, s.deal_in_count) },
   ];
@@ -145,6 +146,38 @@ function formatLocalDate(d) {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+/** 含今天在内的近 N 个日历日，格式 YYYY-MM-DD */
+export function makePastDateRange(days) {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - (Math.max(1, Number(days) || 1) - 1));
+  return [formatLocalDate(start), formatLocalDate(end)];
+}
+
+export const STATS_DATE_SHORTCUTS = [
+  { text: '近7天', value: () => makePastDateRange(7) },
+  { text: '近30天', value: () => makePastDateRange(30) },
+  { text: '近90天', value: () => makePastDateRange(90) },
+];
+
+/**
+ * 将 YYYY-MM-DD 闭区间转为 API 查询参数。
+ * date_to 为次日 00:00（开区间），与 rank-stats / event player-stats 口径一致。
+ */
+export function dateRangeToQueryParams(dateRange) {
+  if (!Array.isArray(dateRange) || dateRange.length < 2 || !dateRange[0] || !dateRange[1]) {
+    return {};
+  }
+  const from = String(dateRange[0]).slice(0, 10);
+  const to = parseLocalDate(dateRange[1]);
+  if (!parseLocalDate(from) || !to) return {};
+  to.setDate(to.getDate() + 1);
+  return {
+    date_from: `${from}T00:00:00`,
+    date_to: `${formatLocalDate(to)}T00:00:00`,
+  };
 }
 
 /** 闭区间内每一天，避免 0 局日期从曲线横轴消失 */

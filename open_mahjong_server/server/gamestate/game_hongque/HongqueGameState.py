@@ -41,19 +41,20 @@ from ..public.round_end_timing import (
 )
 from .hongque_debug import (
     HONGQUE_DEBUG_SCENARIO,
-    get_debug_forced_discard,
 )
 from .action_priority import HONGQUE_ACTION_PRIORITY
 from .state_machine import HongqueStateMachine, HongqueStatus
 from .wait_action import (
     advance_after_unclaimed_discard,
+    apply_discard,
     broadcast_claim_application as wait_broadcast_claim_application,
-    claim_timeout as wait_claim_timeout,
     deal_card as hongque_deal_card,
     handle_claim_action as wait_handle_claim_action,
     handle_hand_action,
     open_claim_window as wait_open_claim_window,
     resolve_claims as wait_resolve_claims,
+    validate_submitted_action,
+    wait_action as hongque_wait_action,
 )
 
 logger = logging.getLogger(__name__)
@@ -152,8 +153,12 @@ class HongqueGameState:
         # 战术鸣牌：记录本张弃牌区间内已广播「亮牌申请」的 (玩家 -> candidate id)。
         # 申请帧只发声/显示动画，不改变牌面；最终执行帧据此标记 silent，避免重复发声。
         self._claim_apply_broadcast: dict[int, str] = {}
-        self._claim_timeout_task: Optional[asyncio.Task] = None
-        self._turn_timeout_task: Optional[asyncio.Task] = None
+        self.action_events: dict[int, asyncio.Event] = {index: asyncio.Event() for index in range(4)}
+        self.action_queues: dict[int, asyncio.Queue] = {index: asyncio.Queue() for index in range(4)}
+        self.action_dict: dict[int, list] = {index: [] for index in range(4)}
+        self.waiting_players_list: list[int] = []
+        self._in_wait_action = False
+        self._driving_local = False
         self.players: list[HongquePlayer] = []
         settings = room_data.get("player_settings", {})
         for index, user_id in enumerate(room_data["player_list"]):
@@ -173,51 +178,27 @@ class HongqueGameState:
     async def run_game_loop(self) -> None:
         try:
             await self._start_round()
-            # 与国标/青雀相同：主循环按 game_status 推进历时状态。
-            # 手牌与鸣牌等待仍由 submit_action / 超时任务写入结果。
             while self.state_machine.status is not HongqueStatus.END:
-                vote_manager = getattr(self, "vote_manager", None)
-                if vote_manager is not None and vote_manager.phase == "pause_pending":
-                    async with self._lock:
-                        if vote_manager.phase == "pause_pending":
-                            paused_at = time.monotonic()
-                            await vote_checkpoint(self)
-                            self._shift_clocks_after_vote_pause(
-                                time.monotonic() - paused_at
-                            )
-                match self.state_machine.status:
-                    case HongqueStatus.DEAL_CARD:
-                        async with self._lock:
-                            if self.state_machine.status == HongqueStatus.DEAL_CARD:
-                                await hongque_deal_card(self)
-                    case HongqueStatus.RESOLVING_DISCARD:
-                        async with self._lock:
-                            if self.state_machine.status == HongqueStatus.RESOLVING_DISCARD:
-                                await self._open_claim_window()
-                    case HongqueStatus.END:
-                        break
-                    case _:
-                        await asyncio.sleep(0.05)
+                await vote_checkpoint(self)
+                status = self.state_machine.status
+                if status is HongqueStatus.DEAL_CARD:
+                    await hongque_deal_card(self)
+                elif status is HongqueStatus.RESOLVING_DISCARD:
+                    await self._open_claim_window()
+                elif status in (
+                    HongqueStatus.WAITING_HAND_ACTION,
+                    HongqueStatus.ONLYCUT_AFTER_ACTION,
+                    HongqueStatus.WAITING_ACTION_AFTER_CUT,
+                ):
+                    await hongque_wait_action(self)
+                elif status is HongqueStatus.WAITING_READY:
+                    await asyncio.sleep(0.05)
+                elif status is HongqueStatus.END:
+                    break
+                else:
+                    await asyncio.sleep(0.05)
         except asyncio.CancelledError:
             raise
-
-    def _shift_clocks_after_vote_pause(self, paused_seconds: float) -> None:
-        """暂停不消耗虹雀的步时、储备时间或战术鸣牌窗口。"""
-        if paused_seconds <= 0:
-            return
-        if self.turn_deadline is not None:
-            self.turn_deadline += paused_seconds
-        if self.turn_started_at is not None:
-            self.turn_started_at += paused_seconds
-        if self.claim_started_at is not None:
-            self.claim_started_at += paused_seconds
-        if self.claim_window is not None and self.claim_window.deadline is not None:
-            self.claim_window.deadline += paused_seconds
-        self.claim_deadlines = {
-            index: deadline + paused_seconds
-            for index, deadline in self.claim_deadlines.items()
-        }
-
 
     def _record_event(self, event_type: str, **payload: Any) -> dict:
         self.event_sequence += 1
@@ -276,100 +257,101 @@ class HongqueGameState:
         if overtime:
             player.remaining_time = max(0, player.remaining_time - overtime)
 
-    def _schedule_turn_timeout(self) -> None:
-        if (self._turn_timeout_task and self._turn_timeout_task is not asyncio.current_task()
-                and not self._turn_timeout_task.done()):
-            self._turn_timeout_task.cancel()
-        if self.phase != "turn" or self.turn_deadline is None:
-            return
-        self._turn_timeout_task = asyncio.create_task(
-            self._turn_timeout(self.action_tick, self.current_player_index, self.turn_deadline)
-        )
-
-    async def _turn_timeout(self, tick: int, player_index: int, deadline: float) -> None:
-        try:
-            while True:
-                await asyncio.sleep(max(0.0, deadline - time.monotonic()))
-                async with self._lock:
-                    if (self.phase != "turn" or self.action_tick != tick
-                            or self.current_player_index != player_index):
-                        return
-                    # 投票暂停会顺延权威 deadline；旧睡眠结束后按新值继续等待。
-                    if self.turn_deadline is not None \
-                            and time.monotonic() < self.turn_deadline:
-                        deadline = self.turn_deadline
-                        continue
-                    self.events = []
-                    player = self.players[player_index]
-                    player.remaining_time = 0
-                    if player.hand:
-                        if self.Debug:
-                            forced = get_debug_forced_discard(self, player_index)
-                            if forced and forced in player.hand:
-                                code = forced
-                            else:
-                                code = (
-                                    player.drawn_tile
-                                    if player.drawn_tile in player.hand
-                                    else player.hand[-1]
-                                )
-                        else:
-                            code = (
-                                player.drawn_tile
-                                if player.drawn_tile in player.hand
-                                else player.hand[-1]
-                            )
-                    else:
-                        # 亮牌后空手不得直接和，超时改为自动补牌。
-                        if (self.game_status == "onlycut_after_action"
-                                and player.supplements < 2 and self.wall):
-                            await handle_hand_action(
-                                self, player, "supplement", None, None
-                            )
-                            return
-                        if self.game_status == "onlycut_after_action":
-                            return
-                        result = best_win_result(
-                            player.hand,
-                            player.melds,
-                            self_draw=True,
-                            before_first_discard=not any(item.discards for item in self.players),
-                            wall_empty=not self.wall,
-                            allow_kong_win=True,
-                        )
-                        if result is not None:
-                            result["winning_hand"] = list(player.hand)
-                            await self._finish_round([(player, result)], "self_draw")
-                        return
-                    await self._discard_and_open_claim(player, code)
-                    return
-        except asyncio.CancelledError:
-            return
+    def _game_loop_is_running(self) -> bool:
+        return self.game_task is not None and not self.game_task.done()
 
     async def submit_action(self, user_id: int, action: str, tile: Optional[str] = None,
                             candidate_id: Optional[str] = None, action_tick: Optional[int] = None) -> None:
+        player = next((item for item in self.players if item.user_id == user_id), None)
+        if player is None:
+            raise ValueError("玩家不在本局中")
+        if action_tick is not None and int(action_tick) != self.action_tick:
+            claim_tick_is_valid = (
+                self.phase == "claim"
+                and self.claim_window is not None
+                and player.index in self.claim_window.pending
+                and self.claim_window.accepts_tick(player.index, int(action_tick))
+            )
+            if not claim_tick_is_valid:
+                raise ValueError("操作已过期，请按最新局面重试")
+        if self.phase == "round_end" and action == "ready":
+            await self._handle_ready_action(player)
+            return
+        validate_submitted_action(self, player, action, tile, candidate_id)
         async with self._lock:
-            self.events = []
-            player = next((item for item in self.players if item.user_id == user_id), None)
-            if player is None:
-                raise ValueError("玩家不在本局中")
-            if action_tick is not None and int(action_tick) != self.action_tick:
-                claim_tick_is_valid = (
-                    self.phase == "claim"
-                    and self.claim_window is not None
-                    and player.index in self.claim_window.pending
-                    and self.claim_window.accepts_tick(player.index, int(action_tick))
+            await self.action_queues[player.index].put({
+                "action_type": action,
+                "tile": tile,
+                "candidate_id": candidate_id,
+                "_action_tick": self.action_tick if action_tick is None else int(action_tick),
+            })
+            self.action_events[player.index].set()
+            if self._in_wait_action or self._game_loop_is_running():
+                return
+            if self._driving_local:
+                return
+            self._driving_local = True
+        try:
+            while True:
+                await self._drive_local()
+                async with self._lock:
+                    leftover = any(
+                        not queue.empty() for queue in self.action_queues.values()
+                    )
+                    if not leftover:
+                        break
+        finally:
+            self._driving_local = False
+
+    async def _drive_local(self) -> None:
+        """测试/无主循环时推进队列：立刻应用已入队动作，并消化历时状态。"""
+        while True:
+            status = self.state_machine.status
+            if status is HongqueStatus.RESOLVING_DISCARD:
+                await self._open_claim_window()
+                continue
+            if status is HongqueStatus.DEAL_CARD:
+                await hongque_deal_card(self)
+                continue
+            if status in (
+                HongqueStatus.WAITING_HAND_ACTION,
+                HongqueStatus.ONLYCUT_AFTER_ACTION,
+            ):
+                player_index = self.current_player_index
+                if self.action_queues[player_index].empty():
+                    return
+                action_data = dict(await self.action_queues[player_index].get())
+                self.action_events[player_index].clear()
+                await handle_hand_action(
+                    self,
+                    self.players[player_index],
+                    action_data.get("action_type"),
+                    action_data.get("tile"),
+                    action_data.get("candidate_id"),
                 )
-                if not claim_tick_is_valid:
-                    raise ValueError("操作已过期，请按最新局面重试")
-            if self.phase == "round_end" and action == "ready":
-                await self._handle_ready_action(player)
-            elif self.phase == "turn":
-                await self._handle_turn_action(player, action, tile, candidate_id)
-            elif self.phase == "claim":
-                await self._handle_claim_action(player, action, candidate_id)
-            else:
-                raise ValueError("当前阶段不能操作")
+                continue
+            if status is HongqueStatus.WAITING_ACTION_AFTER_CUT:
+                window = self.claim_window
+                if window is None:
+                    return
+                flushed = False
+                for player_index in list(window.pending):
+                    if self.action_queues[player_index].empty():
+                        continue
+                    action_data = dict(await self.action_queues[player_index].get())
+                    self.action_events[player_index].clear()
+                    flushed = True
+                    await self._handle_claim_action(
+                        self.players[player_index],
+                        action_data.get("action_type"),
+                        action_data.get("candidate_id"),
+                    )
+                    if self.claim_window is None:
+                        break
+                if flushed:
+                    continue
+                return
+            return
 
     async def _handle_turn_action(self, player: HongquePlayer, action: str,
                                   tile: Optional[str], candidate_id: Optional[str]) -> None:
@@ -397,30 +379,7 @@ class HongqueGameState:
 
     async def _discard_and_open_claim(self, player: HongquePlayer, code: str) -> None:
         """Apply the one authoritative discard transition for humans and bots."""
-        if self._turn_timeout_task and self._turn_timeout_task is not asyncio.current_task():
-            self._turn_timeout_task.cancel()
-        player.hand.remove(code)
-        player.discards.append(code)
-        cut_class = code == player.drawn_tile
-        player.drawn_tile = None
-        player.last_draw_was_supplement = False
-        self.last_discard = {"player": player.index, "tile": code}
-        self._record_event(
-            "discard",
-            player=player.index,
-            tile=code,
-            cut_class=cut_class,
-        )
-        # Match the normal mahjong wire order: the authoritative discard is
-        # visible immediately.  Candidate/win enumeration for the other three
-        # seats must not sit in front of the discard animation.
-        self._transition(HongqueStatus.RESOLVING_DISCARD)
-        self.turn_deadline = None
-        self.turn_started_at = None
-        self.message = f"{player.username} 出牌"
-        self._advance_tick()
-        await self.broadcast_state()
-        await self._open_claim_window()
+        await apply_discard(self, player, code)
 
     async def _open_claim_window(self) -> None:
         await wait_open_claim_window(self)
@@ -433,7 +392,7 @@ class HongqueGameState:
         await wait_broadcast_claim_application(self, player_index, candidate)
 
     async def _claim_timeout(self, tick: int) -> None:
-        await wait_claim_timeout(self, tick)
+        await hongque_wait_action(self)
 
     async def _resolve_claims(self) -> None:
         await wait_resolve_claims(self)
@@ -449,10 +408,7 @@ class HongqueGameState:
     ) -> None:
         self._transition(HongqueStatus.WAITING_READY)
         self._cancel_bot_claim_tasks()
-        if self._turn_timeout_task and self._turn_timeout_task is not asyncio.current_task():
-            self._turn_timeout_task.cancel()
-        if self._claim_timeout_task and self._claim_timeout_task is not asyncio.current_task():
-            self._claim_timeout_task.cancel()
+        self.events = []
         self.turn_deadline = None
         self.turn_started_at = None
         self.claim_started_at = None
@@ -744,8 +700,6 @@ class HongqueGameState:
         for task in (
             self._bot_task,
             self._round_task,
-            self._claim_timeout_task,
-            self._turn_timeout_task,
         ):
             if task and task is not current and not task.done():
                 task.cancel()
@@ -769,6 +723,7 @@ HongqueGameState._visible_event = staticmethod(hongque_visible_event)
 HongqueGameState.build_state = build_hongque_state
 HongqueGameState.send_state_to = hongque_send_state_to
 HongqueGameState.broadcast_state = hongque_broadcast_state
+HongqueGameState.wait_action = hongque_wait_action
 HongqueGameState._schedule_bot_if_needed = hongque_schedule_bot_if_needed
 HongqueGameState._bot_turn = hongque_bot_turn
 HongqueGameState._visible_codes_for = hongque_visible_codes_for

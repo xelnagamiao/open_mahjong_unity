@@ -313,10 +313,9 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         // 如果切牌在允许操作列表中
         if (NormalGameStateManager.Instance.allowActionList.Contains("cut")){
             GameCanvas.Instance.MarkPendingLocalCut(this);
-            if (HongqueTableAdapter.IsActive && HongqueTileVisual.IsHongqueId(tileId)) {
-                HongqueTableAdapter.Instance.SendDiscard(tileId);
-                return;
-            }
+            // 非回合制驱动器（如虹雀）自行发送出牌
+            IGameDriver driver = RuleRegistry.ActiveDriver;
+            if (driver != null && driver.TryCutTile(tileId)) return;
             int cutIndex = transform.GetSiblingIndex();// 获取切牌是父物体的第几个子物体
             GameStateNetworkManager.Instance.SendChineseGameTile(currentGetTile,tileId,cutIndex); // 发送切牌请求
         } else {

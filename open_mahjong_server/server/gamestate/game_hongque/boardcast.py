@@ -2,6 +2,8 @@
 
 文件名沿用现有国标/川麻服务端约定。这里仅负责按观察者裁剪状态和发送消息，
 不参与动作仲裁或修改牌面。
+
+开局/重连发送完整桌面；对局中只发增量事件与当前可选项，牌面由客户端按事件推进。
 """
 from __future__ import annotations
 
@@ -9,12 +11,41 @@ import asyncio
 
 from .wait_action import actions_for_viewer
 
+_TABLE_SNAPSHOT_MODES = {"round_start", "reconnect"}
+
 
 def visible_event(source: dict, viewer_index: int) -> dict:
     event = dict(source)
     if event.get("type") in {"draw", "supplement"} and event.get("player") != viewer_index:
         event["tile"] = None
     return event
+
+
+def _table_snapshot(game_state, viewer) -> dict:
+    return {
+        "room_id": int(game_state.room_id),
+        "max_round": game_state.max_round,
+        "round_time": game_state.round_time,
+        "step_time": game_state.step_time,
+        "hand": list(viewer.hand),
+        "players": [{
+            "index": player.index,
+            "user_id": player.user_id,
+            "username": player.username,
+            "hand_count": len(player.hand),
+            "discards": list(player.discards),
+            "melds": list(player.melds),
+            "score": player.score,
+            "supplements": player.supplements,
+            "online": player.online,
+            "title_used": player.title_used,
+            "profile_used": player.profile_used,
+            "character_used": player.character_used,
+            "voice_used": player.voice_used,
+            "score_history": list(player.score_history),
+            "round_number_history": list(player.round_number_history),
+        } for player in game_state.players],
+    }
 
 
 def build_state(game_state, viewer_index: int, *, sync_mode: str = "events",
@@ -55,33 +86,8 @@ def build_state(game_state, viewer_index: int, *, sync_mode: str = "events",
     if claim_window is not None:
         state["claim_stage"] = claim_window.stage
         state["claim_pending_players"] = sorted(claim_window.pending)
-
-    # 虹雀更新包保持完整权威快照；客户端仍用 sync_mode/events 决定是否重建桌面。
-    # 这与其它规则的广播结构一致，也让断线边缘状态无需依赖上一包缓存。
-    state.update({
-        "room_id": int(game_state.room_id),
-        "max_round": game_state.max_round,
-        "round_time": game_state.round_time,
-        "step_time": game_state.step_time,
-        "hand": list(viewer.hand),
-        "players": [{
-            "index": player.index,
-            "user_id": player.user_id,
-            "username": player.username,
-            "hand_count": len(player.hand),
-            "discards": list(player.discards),
-            "melds": list(player.melds),
-            "score": player.score,
-            "supplements": player.supplements,
-            "online": player.online,
-            "title_used": player.title_used,
-            "profile_used": player.profile_used,
-            "character_used": player.character_used,
-            "voice_used": player.voice_used,
-            "score_history": list(player.score_history),
-            "round_number_history": list(player.round_number_history),
-        } for player in game_state.players],
-    })
+    if sync_mode in _TABLE_SNAPSHOT_MODES:
+        state.update(_table_snapshot(game_state, viewer))
     return state
 
 

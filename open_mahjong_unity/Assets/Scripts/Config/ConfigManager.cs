@@ -61,6 +61,7 @@ public class ConfigManager : MonoBehaviour {
     private const string KEY_MOQIE_SHORTCUT = "MoqieShortcutMode";
     private const string KEY_ASK_OTHER_PASS_SHORTCUT = "AskOtherPassShortcutMode";
     private const string KEY_ASK_OTHER_PASS_SHORTCUT_ORDER_V2 = "AskOtherPassShortcutOrderV2";
+    private const string KEY_TARGET_FRAME_RATE = "TargetFrameRate";
     private const string KEY_VSYNC_ENABLED = "VsyncEnabled";
     private const string KEY_STREAMER_MODE = "StreamerMode";
     private const string KEY_HAND_CUT_CONFIRM = "HandCutConfirmMode";
@@ -206,10 +207,8 @@ public class ConfigManager : MonoBehaviour {
     public AppLanguage LanguageMode => _languageMode;
 
     public static readonly string[] LanguageOptionLabels = { "简体中文", "繁体中文", "English" };
-
-    // 帧率全平台统一 60：网页由浏览器 vsync 决定，桌面/安卓由 vSyncCount + targetFrameRate 共同约束。
-    private const int LockedFrameRate = 60;
-    public static bool IsTargetFrameRateLocked => true;
+    public static readonly int[] TargetFrameRateOptions = { 60, 90, 120, 180, 220, 300 };
+    private const int DefaultTargetFrameRate = 60;
 
 #if UNITY_ANDROID && !UNITY_EDITOR
     private const int DefaultHandCutConfirmMode = 1;
@@ -268,7 +267,7 @@ public class ConfigManager : MonoBehaviour {
         UseHandFaceBackground = LoadUseHandFaceBackground(StandardTilePackId);
         TileIdOrder.SetSortRule(HandSortSuitOrderMode, HandSortHonorOrderMode, HandSortDragonOrderMode, HandSortRiichiDragonOrderMode);
         VsyncEnabled = PlayerPrefs.GetInt(KEY_VSYNC_ENABLED, 1) == 1;
-        TargetFrameRate = LockedFrameRate;
+        TargetFrameRate = NormalizeTargetFrameRate(PlayerPrefs.GetInt(KEY_TARGET_FRAME_RATE, DefaultTargetFrameRate));
 
         ApplyVsync();
         ApplyTargetFrameRate();
@@ -775,11 +774,18 @@ public class ConfigManager : MonoBehaviour {
         }
     }
 
-    private void ApplyTargetFrameRate() {
-        Application.targetFrameRate = LockedFrameRate;
+    public void SetTargetFrameRate(int frameRate) {
+        TargetFrameRate = NormalizeTargetFrameRate(frameRate);
+        PlayerPrefs.SetInt(KEY_TARGET_FRAME_RATE, TargetFrameRate);
+        PlayerPrefs.Save();
+        ApplyTargetFrameRate();
     }
 
-    /// <summary>垂直同步开关（默认开启；WebGL 由浏览器接管，此设置仅在桌面/安卓生效）。</summary>
+    private void ApplyTargetFrameRate() {
+        Application.targetFrameRate = TargetFrameRate;
+    }
+
+    /// <summary>垂直同步开关（默认开启）。</summary>
     public void SetVsyncEnabled(bool enabled) {
         VsyncEnabled = enabled;
         PlayerPrefs.SetInt(KEY_VSYNC_ENABLED, enabled ? 1 : 0);
@@ -789,6 +795,13 @@ public class ConfigManager : MonoBehaviour {
 
     private void ApplyVsync() {
         QualitySettings.vSyncCount = VsyncEnabled ? 1 : 0;
+    }
+
+    private static int NormalizeTargetFrameRate(int frameRate) {
+        foreach (int option in TargetFrameRateOptions) {
+            if (frameRate == option) return frameRate;
+        }
+        return DefaultTargetFrameRate;
     }
 
     // Windows / WebGL / iOS / Editor：URP MSAA 4x；Android：MSAA 关 + 相机 FXAA 兜底。

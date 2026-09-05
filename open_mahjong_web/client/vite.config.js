@@ -100,6 +100,11 @@ export default defineConfig({
         changeOrigin: true,
         ws: true,
         rewrite: (path) => path.replace(/^\/2d\/ws/, '/game')
+      },
+      '/verifier-api': {
+        target: 'http://127.0.0.1:8099',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/verifier-api/, ''),
       }
     }
   },

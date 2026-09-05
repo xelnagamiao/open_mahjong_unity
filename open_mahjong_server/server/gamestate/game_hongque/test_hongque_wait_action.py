@@ -37,10 +37,8 @@ async def _pass_all_pending(state: HongqueGameState) -> None:
         window = state.claim_window
         pending = set(window.pending) if window is not None else set()
         if not pending:
-            if state._claim_timeout_task:
-                await state._claim_timeout_task
-            elif state.phase == "claim":
-                await state._resolve_claims()
+            if state.phase == "claim":
+                await state.wait_action()
             break
         player_index = next(iter(pending))
         await state.submit_action(

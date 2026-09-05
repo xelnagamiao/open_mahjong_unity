@@ -7,11 +7,7 @@
 
 ### 对局编排
 
-- `HongqueGameState.py`：房间生命周期、回合结算和组件入口。
-- `state_machine.py`：权威对局状态及合法迁移。
-- `player.py`：玩家领域模型。
-- `init_tiles.py`：牌山、发牌、摸牌和调试牌例初始化。
-- `boardcast.py`：按观察者裁剪并广播权威快照。
+- `wait_action.py`：国标式阻塞等待；超时在等待结束后按默认动作处理。
 
 ### 行动处理
 
@@ -47,7 +43,7 @@ waiting
 ```
 
 网络字段 `phase` 仅用于兼容旧客户端；`game_status` 是权威状态，
-`state_version` 用于识别状态快照的新旧。
+`state_version` 用于识别开局/重连全量包的新旧。
 
 ## 鸣牌优先级
 

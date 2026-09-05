@@ -426,7 +426,10 @@
         <el-tab-pane label="统计" name="stats">
           <div class="emp-stats-totals">
             <div class="emp-stats-totals-head">
-              <h4 class="emp-stats-heading">本{{ venueNoun }}总计</h4>
+              <h4 class="emp-stats-heading">
+                本{{ venueNoun }}总计
+                <span v-if="statsDateRangeLabel" class="emp-stats-range-hint">{{ statsDateRangeLabel }}</span>
+              </h4>
               <el-button text type="primary" size="small" :loading="loadingStats" @click="refreshStatsTab">
                 刷新
               </el-button>
@@ -444,6 +447,20 @@
           </div>
 
           <div class="emp-stats-search">
+            <el-date-picker
+              v-model="statsDateRange"
+              type="daterange"
+              size="small"
+              unlink-panels
+              clearable
+              range-separator="—"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              value-format="YYYY-MM-DD"
+              :shortcuts="STATS_DATE_SHORTCUTS"
+              class="emp-stats-daterange"
+              @change="onStatsScopeChange"
+            />
             <el-select
               v-model="statsFilter.rule"
               clearable
@@ -662,7 +679,7 @@ import {
   registrationStatusLabel,
   registrationStatusTagType,
 } from '@/utils/eventMeta'
-import { buildPlayerStatsRows } from '@/utils/statsDisplay'
+import { buildPlayerStatsRows, dateRangeToQueryParams, STATS_DATE_SHORTCUTS } from '@/utils/statsDisplay'
 
 const RULE_LABELS = {
   guobiao: '国标',
@@ -771,6 +788,7 @@ const statsFilter = reactive({
   game_type: '',
   q: '',
 })
+const statsDateRange = ref(null)
 const focusPlayer = ref(null)
 
 const profileForm = reactive({ name: '', description: '', reason: '' })
@@ -810,6 +828,11 @@ const totalsStatsDisplay = computed(() => rankOnlyStatsRows(statsTotals.value))
 const focusPlayerStatsDisplay = computed(() =>
   focusPlayer.value ? rankOnlyStatsRows(focusPlayer.value) : []
 )
+const statsDateRangeLabel = computed(() => {
+  const r = statsDateRange.value
+  if (!r || r.length < 2 || !r[0] || !r[1]) return ''
+  return `${r[0]} — ${r[1]}`
+})
 
 function canDeleteAnnouncement(row) {
   if (isOwner.value) return true
@@ -920,13 +943,18 @@ async function loadGames() {
   }
 }
 
+function assignStatsScopeParams(target) {
+  if (statsFilter.rule) target.rule = statsFilter.rule
+  if (statsFilter.game_type) target.game_type = statsFilter.game_type
+  Object.assign(target, dateRangeToQueryParams(statsDateRange.value))
+  return target
+}
+
 function buildRecordsParams() {
-  const params = {
+  const params = assignStatsScopeParams({
     page: recordsPage.current,
     limit: recordsPage.size,
-  }
-  if (statsFilter.rule) params.rule = statsFilter.rule
-  if (statsFilter.game_type) params.game_type = statsFilter.game_type
+  })
   if (focusPlayer.value?.user_id) params.user_id = focusPlayer.value.user_id
   return params
 }
@@ -1044,9 +1072,7 @@ async function downloadFiltered() {
   downloadingRecords.value = true
   try {
     const token = getEventAdminToken()
-    const body = {}
-    if (statsFilter.rule) body.rule = statsFilter.rule
-    if (statsFilter.game_type) body.game_type = statsFilter.game_type
+    const body = assignStatsScopeParams({})
     if (focusPlayer.value?.user_id) body.user_id = focusPlayer.value.user_id
     const resp = await fetch(`/api/event-admin/events/${props.eventId}/records/download`, {
       method: 'POST',
@@ -1068,9 +1094,7 @@ async function downloadFiltered() {
 async function loadEventTotals() {
   loadingStats.value = true
   try {
-    const params = {}
-    if (statsFilter.rule) params.rule = statsFilter.rule
-    if (statsFilter.game_type) params.game_type = statsFilter.game_type
+    const params = assignStatsScopeParams({})
     const res = await eventAdminApi.get(`/events/${props.eventId}/player-stats`, { params })
     const data = res.data.data || {}
     statsTotals.value = data.totals || {
@@ -1097,9 +1121,7 @@ async function searchPlayer() {
   }
   searchingPlayer.value = true
   try {
-    const params = { q }
-    if (statsFilter.rule) params.rule = statsFilter.rule
-    if (statsFilter.game_type) params.game_type = statsFilter.game_type
+    const params = assignStatsScopeParams({ q })
     const res = await eventAdminApi.get(`/events/${props.eventId}/player-stats`, { params })
     const players = res.data.data?.players || []
     if (!players.length) {
@@ -1146,9 +1168,7 @@ async function reloadFocusPlayerStats() {
   if (!focusPlayer.value) return
   searchingPlayer.value = true
   try {
-    const params = { q: String(focusPlayer.value.user_id) }
-    if (statsFilter.rule) params.rule = statsFilter.rule
-    if (statsFilter.game_type) params.game_type = statsFilter.game_type
+    const params = assignStatsScopeParams({ q: String(focusPlayer.value.user_id) })
     const res = await eventAdminApi.get(`/events/${props.eventId}/player-stats`, { params })
     const players = res.data.data?.players || []
     const hit = players.find((p) => Number(p.user_id) === Number(focusPlayer.value.user_id))
@@ -1170,6 +1190,7 @@ function resetStatsFilter() {
   statsFilter.rule = ''
   statsFilter.game_type = ''
   statsFilter.q = ''
+  statsDateRange.value = null
   focusPlayer.value = null
   recordsPage.current = 1
   loadEventTotals()
@@ -1916,6 +1937,17 @@ watch(
   gap: 8px;
   align-items: center;
   margin-bottom: 14px;
+}
+.emp-stats-daterange {
+  width: 240px;
+}
+.emp-stats-daterange :deep(.el-range-input) {
+  font-size: 12px;
+}
+.emp-stats-range-hint {
+  margin-left: 8px;
+  font-weight: 400;
+  color: #909399;
 }
 .emp-records-section {
   margin-top: 4px;

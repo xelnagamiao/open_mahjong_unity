@@ -10,6 +10,10 @@ public static class ScoreHistorySettlementHelper {
         if (!string.IsNullOrEmpty(subRuleFallback)) return subRuleFallback;
         if (string.IsNullOrEmpty(rule)) return "guobiao/standard";
         string r = rule.ToLowerInvariant();
+        // 已注册清单的规则直接取清单声明的缺省子规则；下面的 switch 只为尚未迁入清单的规则保留
+        if (RuleRegistry.TryResolve(r, out RuleManifest manifest) && !string.IsNullOrEmpty(manifest.DefaultSubRule)) {
+            return manifest.DefaultSubRule;
+        }
         return r switch {
             "guobiao" => "guobiao/standard",
             "qingque" => "qingque/standard",
@@ -19,7 +23,6 @@ public static class ScoreHistorySettlementHelper {
             "changsha" => "changsha/classic_double_bird",
             "jiandan" => "jiandan/standard",
             "taiwan" => "taiwan/standard",
-            "hongque" => "hongque/v1.6",
             _ => r
         };
     }

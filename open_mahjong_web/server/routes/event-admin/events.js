@@ -11,6 +11,7 @@ const { listUserEvents } = require('../../utils/eventAdminHelpers');
 const {
   fetchEventPlayerStats,
   GAME_TYPE_MATCH_TYPES,
+  isTimestampParam,
 } = require('../../services/eventPlayerStats');
 
 const MAX_EVENT_ADMINS = 10;
@@ -707,6 +708,14 @@ function buildEventRecordConditions(eventId, query) {
       conditions.push(`gpr.user_id = $${params.length}`);
     }
   }
+  if (isTimestampParam(query.date_from)) {
+    params.push(String(query.date_from).trim());
+    conditions.push(`gr.created_at >= $${params.length}`);
+  }
+  if (isTimestampParam(query.date_to)) {
+    params.push(String(query.date_to).trim());
+    conditions.push(`gr.created_at < $${params.length}`);
+  }
   return { params, conditions, whereSql: conditions.join(' AND ') };
 }
 
@@ -743,6 +752,7 @@ router.get('/:eventId/records', requireEventMembership, async (req, res) => {
     const countRes = await pool.query(
       `SELECT COUNT(DISTINCT gpr.game_id)::int AS cnt
        FROM game_player_records gpr
+       JOIN game_records gr ON gr.game_id = gpr.game_id
        WHERE ${whereSql}`,
       countParams
     );
@@ -852,6 +862,8 @@ router.post('/:eventId/records/download', requireEventMembership, async (req, re
         rule: req.body?.rule || null,
         game_type: req.body?.game_type || null,
         user_id: req.body?.user_id || null,
+        date_from: req.body?.date_from || null,
+        date_to: req.body?.date_to || null,
       });
       const idResult = await pool.query(
         `SELECT game_id FROM (

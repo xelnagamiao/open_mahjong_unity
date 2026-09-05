@@ -178,8 +178,6 @@ async def _exercise_smart_claim_schedule() -> None:
     assert 1 in state._bot_claim_tasks
 
     state._cancel_bot_claim_tasks()
-    if state._claim_timeout_task is not None:
-        state._claim_timeout_task.cancel()
     await asyncio.sleep(0)
 
 
@@ -204,6 +202,4 @@ async def _exercise_ordinary_claim_route() -> None:
     assert state.claim_responses[1] == {"action": "pass"}
     assert 1 not in state._bot_claim_tasks
 
-    if state._claim_timeout_task is not None:
-        state._claim_timeout_task.cancel()
     await asyncio.sleep(0)

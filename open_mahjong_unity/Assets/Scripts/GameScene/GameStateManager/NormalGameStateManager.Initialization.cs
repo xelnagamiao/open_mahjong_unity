@@ -224,6 +224,8 @@ public partial class NormalGameStateManager {
         roomType = gameInfo.room_type;
         roomRule = gameInfo.room_rule;
         subRule = gameInfo.sub_rule;
+        // 规则清单/驱动器与 roomRule 同步：核心其余部分通过 RuleRegistry.Current / ActiveDriver 取规则差异
+        RuleRegistry.SetCurrent(roomRule, subRule);
         detailedConfig = gameInfo.detailed_config != null
             ? new Dictionary<string, object>(gameInfo.detailed_config)
             : new Dictionary<string, object>();

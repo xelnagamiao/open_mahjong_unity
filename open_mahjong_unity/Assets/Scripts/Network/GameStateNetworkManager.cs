@@ -26,108 +26,24 @@ public class GameStateNetworkManager : MonoBehaviour {
         return NetworkManager.Instance.GetWebSocket();
     }
 
-    public async void SendHongqueAction(string gamestateId, int actionTick, string action,
-                                        string tile = null, string candidateId = null) {
-        try {
-            var request = new {
-                type = "gamestate/hongque/action",
-                gamestate_id = gamestateId,
-                action_tick = actionTick,
-                action,
-                tile,
-                candidate_id = candidateId,
-            };
-            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
-        } catch (Exception e) {
-            Debug.LogError($"发送虹雀原型操作失败: {e.Message}");
-        }
-    }
-
     /// <summary>
-    /// 处理游戏状态相关的服务器响应消息
+    /// 处理游戏状态相关的服务器响应消息。
+    ///
+    /// 消息形如 <c>gamestate/{rule}/{suffix}</c>：先按 rule 找到已注册的驱动器让其优先处理
+    /// （例如虹雀的 game_start/reconnect/update），未消费的再按公共后缀分发到回合制默认流程。
+    /// 这里不允许出现任何具体规则名；规则专有后缀（定缺、立直宣告、数和尾……）会在后续阶段迁入各自的 Feature。
     /// </summary>
     public void HandleGameStateMessage(Response response) {
+        if (RuleRegistry.TryParseGameStateType(response.type, out string rule, out string suffix)) {
+            if (RuleRegistry.TryResolve(rule, out RuleManifest manifest)) {
+                IGameDriver driver = RuleRegistry.GetDriver(manifest);
+                if (driver != null && driver.TryHandleMessage(suffix, response)) return;
+            }
+            HandleTurnBasedMessage(suffix, response);
+            return;
+        }
+
         switch (response.type) {
-            case "gamestate/hongque/game_start":
-            case "gamestate/hongque/reconnect":
-            case "gamestate/hongque/update":
-                HongqueTableAdapter.EnsureInstance().ApplyState(response.gamestate_id, response.hongque_state);
-                if (response.hongque_state != null && response.hongque_state.sync_mode == "reconnect") {
-                    AutoReconnect.OnGameRestored();
-                }
-                break;
-            case "gamestate/guobiao/game_start":
-            case "gamestate/taiwan/game_start":
-            case "gamestate/qingque/game_start":
-            case "gamestate/classical/game_start":
-            case "gamestate/riichi/game_start":
-            case "gamestate/sichuan/game_start":
-            case "gamestate/changsha/game_start":
-            case "gamestate/jiandan/game_start":
-                HandleGameStart(response);
-                break;
-            case "gamestate/guobiao/broadcast_hand_action":
-            case "gamestate/taiwan/broadcast_hand_action":
-            case "gamestate/qingque/broadcast_hand_action":
-            case "gamestate/classical/broadcast_hand_action":
-            case "gamestate/riichi/broadcast_hand_action":
-            case "gamestate/sichuan/broadcast_hand_action":
-            case "gamestate/changsha/broadcast_hand_action":
-            case "gamestate/jiandan/broadcast_hand_action":
-                HandleBroadcastHandAction(response);
-                break;
-            case "gamestate/guobiao/ask_other_action":
-            case "gamestate/taiwan/ask_other_action":
-            case "gamestate/qingque/ask_other_action":
-            case "gamestate/classical/ask_other_action":
-            case "gamestate/riichi/ask_other_action":
-            case "gamestate/sichuan/ask_other_action":
-            case "gamestate/changsha/ask_other_action":
-            case "gamestate/jiandan/ask_other_action":
-                HandleAskOtherAction(response);
-                break;
-            case "gamestate/guobiao/do_action":
-            case "gamestate/taiwan/do_action":
-            case "gamestate/qingque/do_action":
-            case "gamestate/classical/do_action":
-            case "gamestate/riichi/do_action":
-            case "gamestate/sichuan/do_action":
-            case "gamestate/changsha/do_action":
-            case "gamestate/jiandan/do_action":
-                HandleDoAction(response);
-                break;
-            case "gamestate/guobiao/show_result":
-            case "gamestate/taiwan/show_result":
-            case "gamestate/qingque/show_result":
-            case "gamestate/classical/show_result":
-            case "gamestate/riichi/show_result":
-            case "gamestate/sichuan/show_result":
-            case "gamestate/changsha/show_result":
-            case "gamestate/jiandan/show_result":
-                HandleShowResult(response);
-                break;
-            case "gamestate/guobiao/game_end":
-            case "gamestate/taiwan/game_end":
-            case "gamestate/qingque/game_end":
-            case "gamestate/classical/game_end":
-            case "gamestate/riichi/game_end":
-            case "gamestate/sichuan/game_end":
-            case "gamestate/changsha/game_end":
-            case "gamestate/jiandan/game_end":
-                HandleGameEnd(response);
-                break;
-            case "gamestate/sichuan/ask_dingque":
-                HandleDingqueAsk(response);
-                break;
-            case "gamestate/sichuan/dingque_done":
-                HandleDingqueDone(response);
-                break;
-            case "gamestate/riichi/declare_riichi":
-                HandleRiichiDeclare(response);
-                break;
-            case "gamestate/riichi/update_dora":
-                HandleRiichiUpdateDora(response);
-                break;
             case "switch_seat":
                 HandleSwitchSeat(response);
                 break;
@@ -137,20 +53,6 @@ public class GameStateNetworkManager : MonoBehaviour {
             case "gamestate/get_spectator_list":
                 HandleGetSpectatorListResponse(response);
                 break;
-            case "gamestate/guobiao/ready_status":
-            case "gamestate/taiwan/ready_status":
-            case "gamestate/qingque/ready_status":
-            case "gamestate/classical/ready_status":
-            case "gamestate/riichi/ready_status":
-            case "gamestate/sichuan/ready_status":
-            case "gamestate/changsha/ready_status":
-            case "gamestate/jiandan/ready_status":
-            case "gamestate/hongque/ready_status":
-                HandleReadyStatus(response);
-                break;
-            case "gamestate/classical/show_shuhewei":
-                HandleShowShuhewei(response);
-                break;
             case "gamestate/broadcast_sticker":
                 HandleBroadcastSticker(response);
                 break;
@@ -159,6 +61,52 @@ public class GameStateNetworkManager : MonoBehaviour {
                 break;
             case "gamestate/vote_end":
                 HandleVoteEnd(response);
+                break;
+            default:
+                Debug.LogWarning($"未知的游戏状态消息类型: {response.type}");
+                break;
+        }
+    }
+
+    /// <summary>回合制默认流程的公共后缀分发（与具体 room_rule 无关）。</summary>
+    private void HandleTurnBasedMessage(string suffix, Response response) {
+        switch (suffix) {
+            case "game_start":
+                HandleGameStart(response);
+                break;
+            case "broadcast_hand_action":
+                HandleBroadcastHandAction(response);
+                break;
+            case "ask_other_action":
+                HandleAskOtherAction(response);
+                break;
+            case "do_action":
+                HandleDoAction(response);
+                break;
+            case "show_result":
+                HandleShowResult(response);
+                break;
+            case "game_end":
+                HandleGameEnd(response);
+                break;
+            case "ready_status":
+                HandleReadyStatus(response);
+                break;
+            // ---- 以下为规则专有后缀，待迁入对应 Feature ----
+            case "ask_dingque":
+                HandleDingqueAsk(response);
+                break;
+            case "dingque_done":
+                HandleDingqueDone(response);
+                break;
+            case "declare_riichi":
+                HandleRiichiDeclare(response);
+                break;
+            case "update_dora":
+                HandleRiichiUpdateDora(response);
+                break;
+            case "show_shuhewei":
+                HandleShowShuhewei(response);
                 break;
             default:
                 Debug.LogWarning($"未知的游戏状态消息类型: {response.type}");

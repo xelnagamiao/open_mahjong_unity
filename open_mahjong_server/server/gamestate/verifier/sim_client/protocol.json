@@ -1,0 +1,42 @@
+{
+  "sim_client_version": 1,
+  "rule": "guobiao",
+  "hand_actions": [
+    "cut",
+    "buhua",
+    "hu_self",
+    "hu_flower",
+    "initial_hu",
+    "sea_bottom",
+    "buzhang",
+    "angang",
+    "jiagang",
+    "jiuzhongjiupai",
+    "riichi_cut",
+    "pass"
+  ],
+  "other_actions": [
+    "chi_left",
+    "chi_mid",
+    "chi_right",
+    "peng",
+    "gang",
+    "hu",
+    "hu_first",
+    "hu_second",
+    "hu_third",
+    "pass"
+  ],
+  "extra_actions": [
+    "ready",
+    "force_pass"
+  ],
+  "unity_contract_files": [
+    "open_mahjong_unity/Assets/Scripts/Network/Serialize/Response.cs",
+    "open_mahjong_unity/Assets/Scripts/Network/GameStateNetworkManager.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/GameStateManager/NormalGameStateManager.Actions.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/CanvasManager/GameCanvas_ActionButton.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/GameStateManager/GameRecordManager/GameRecordJsonDecoder.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/GameStateManager/GameRecordManager/GameRecordData.cs"
+  ]
+}

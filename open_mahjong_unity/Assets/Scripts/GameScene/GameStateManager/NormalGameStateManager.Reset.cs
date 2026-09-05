@@ -31,6 +31,7 @@ public partial class NormalGameStateManager {
         pendingAskFromJiagang = false;
         roomRule = null;
         subRule = null;
+        RuleRegistry.ClearCurrent();
         detailedConfig.Clear();
         ResetSelfReadyQualification();
         ClearStickerMutes();

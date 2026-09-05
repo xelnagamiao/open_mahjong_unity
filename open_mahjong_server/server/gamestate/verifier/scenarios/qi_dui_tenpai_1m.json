@@ -1,0 +1,9 @@
+{
+  "id": "qi_dui_tenpai_1m",
+  "title": "东亲七对听1万",
+  "debug_scenario": "qi_dui_tenpai_1m",
+  "seed": 1,
+  "game_round": 1,
+  "tactical_call": false,
+  "hepai_limit": 1
+}

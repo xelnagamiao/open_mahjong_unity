@@ -381,7 +381,8 @@ public class GameSceneMouseInputController : MonoBehaviour {
         NormalGameStateManager gsm = NormalGameStateManager.Instance;
         if (gsm == null) return false;
         if (gsm.allowActionList.Contains("pass")) return true;
-        return HongqueTableAdapter.IsActive && gsm.allowActionList.Contains("hongque_pass");
+        string driverPass = RuleRegistry.ActiveDriver?.PassActionName;
+        return driverPass != null && driverPass != "pass" && gsm.allowActionList.Contains(driverPass);
     }
 
     private bool IsPointerOverSelfHandCard() {

@@ -1,0 +1,9 @@
+{
+  "id": "tactical_claim",
+  "title": "战术鸣牌（C可荣8万）",
+  "debug_scenario": "tactical_claim",
+  "seed": 1,
+  "game_round": 1,
+  "tactical_call": true,
+  "hepai_limit": 1
+}

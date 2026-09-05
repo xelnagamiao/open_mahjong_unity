@@ -88,9 +88,10 @@ def next_current_index(self):
 def player_index_go_to(self, player_index: int):
     """ 通过action_history历史行动列表，保存此前所有的操作player_index，示例：[0,1,1,2,2,3,0,1,1]，其中0指东家，1、2、3指南西北家
         指针每次重新指向的时候判断
-        1.开局1巡，亲家出牌列表为空不加巡目
+        1.开局1巡，亲家出牌列表为空不加巡目（含弃牌被鸣走后河空）
         2.如果指针指向的是action_history[-1]，则Skip
         3.如果历史行动列表往前追溯时指向玩家小于上一个玩家，则巡目+1
+        国标按庄家巡（player_index 0）计算。
         以下是示例情况
         A.南家补花 0 1 1 跳过
         B.亲家补花 0 0 跳过

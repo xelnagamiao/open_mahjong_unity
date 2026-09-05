@@ -30,3 +30,17 @@ class HongquePlayer:
     def is_bot(self) -> bool:
         return self.user_id <= 10
 
+    # 共享对局接口（表情包、投票）使用 player_index / original_player_index / tag_list。
+    # 虹雀座位不换座，index 即开局风位；掉线用 online 而不是 tag_list。
+    @property
+    def player_index(self) -> int:
+        return self.index
+
+    @property
+    def original_player_index(self) -> int:
+        return self.index
+
+    @property
+    def tag_list(self) -> list[str]:
+        return [] if self.online else ["offline"]
+

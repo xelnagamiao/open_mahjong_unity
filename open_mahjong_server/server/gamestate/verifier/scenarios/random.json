@@ -1,0 +1,9 @@
+{
+  "id": "random",
+  "title": "随机种子对局",
+  "debug_scenario": null,
+  "seed": 72001,
+  "game_round": 1,
+  "tactical_call": false,
+  "hepai_limit": 8
+}

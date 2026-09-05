@@ -19,6 +19,9 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
     }
 
     public void ShowTipsBlock(List<int> selfHandTiles, List<string> combinationTiles){
+        // 听牌提示由驱动器自行计算的规则（如虹雀）：不能走通用 TingpaiCheck，
+        // 这里若清空缓存会把刚算好的提示抹掉。
+        if (RuleRegistry.Current != null && RuleRegistry.Current.TipsProvidedByDriver) return;
         HashSet<int> waitingTiles = new HashSet<int>();
         try {
             if (NormalGameStateManager.Instance.roomRule == "guobiao"){
@@ -56,11 +59,6 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
                     combinationTiles,
                     NormalGameStateManager.Instance.detailedConfig
                 );
-            }
-            else if (NormalGameStateManager.Instance.roomRule == "hongque"){
-                // 虹雀听牌由 HongqueTableAdapter / TileCard 本地按服务端口径计算，
-                // 不能走通用 TingpaiCheck：这里若清空缓存会把刚算好的提示抹掉。
-                return;
             }
             else{
                 Debug.LogWarning($"未知的规则类型: {NormalGameStateManager.Instance.roomRule}");

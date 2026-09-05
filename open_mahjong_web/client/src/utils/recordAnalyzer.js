@@ -9,6 +9,12 @@ import {
   GUOBIAO_STACKABLE_FANS,
   parseGuobiaoFanLabel,
 } from '../constants/guobiaoFanDict.js'
+import {
+  createGuobiaoXunmuClock,
+  guobiaoXunmuGoTo,
+  guobiaoXunmuOnCut,
+  guobiaoXunmuOnClaim,
+} from './guobiaoXunmu.js'
 
 const HU_ACTIONS = new Set(['hu_self', 'hu_first', 'hu_second', 'hu_third']);
 const RON_ACTIONS = new Set(['hu_first', 'hu_second', 'hu_third']);
@@ -51,66 +57,59 @@ export function resolveRoundSeats(rd) {
 }
 
 /**
- * 从一局 action_ticks 按 player_index_go_to 语义推理每位 seat 的和巡总和。
- * 指针跨过东家且庄家已切过牌才 +1；reset/bh/bd/鸣牌显式 go_to，d 视为下一家。
+ * 从一局 action_ticks 按服务端 player_index_go_to 重建每位 seat 的和巡总和。
+ * 国标按庄家巡：回绕时看庄家牌河当前是否非空（弃牌被鸣走后河空不加巡）。
  */
 function reconstructRoundWinTurns(rd) {
   const ticks = rd?.action_ticks;
   if (!Array.isArray(ticks)) return {};
   const dealer = ((typeof rd.start_player_index === 'number' ? rd.start_player_index
     : (typeof rd.dealer_index === 'number' ? rd.dealer_index : 0)) % 4 + 4) % 4;
-  let currentSeat = dealer;
-  const history = [];
-  let xunmu = 1;
-  let dealerDiscarded = false;
+  const clock = createGuobiaoXunmuClock(dealer);
   const bySeat = {};
-
-  const goTo = (seat) => {
-    const next = ((seat % 4) + 4) % 4;
-    if (history.length && next !== history[history.length - 1] && next < history[history.length - 1] && dealerDiscarded) {
-      xunmu += 1;
-    }
-    history.push(next);
-    currentSeat = next;
-  };
 
   for (const tick of ticks) {
     if (!Array.isArray(tick) || tick.length === 0) continue;
     const code = tick[0];
     if (code === 'end') break;
     if (code === 'reset') {
-      const seat = tickInt(tick, 1, currentSeat);
-      if (seat != null) goTo(seat);
+      const seat = tickInt(tick, 1, clock.currentSeat);
+      if (seat != null) guobiaoXunmuGoTo(clock, seat);
       continue;
     }
     if (code === 'bh' || code === 'bd') {
-      const seat = tickInt(tick, 2, currentSeat);
-      if (seat != null) goTo(seat);
+      const seat = tickInt(tick, 2, clock.currentSeat);
+      if (seat != null) guobiaoXunmuGoTo(clock, seat);
       continue;
     }
     if (code === 'd' || code === 'mo') {
       const explicit = tickInt(tick, 2);
-      if (explicit != null && explicit >= 0 && explicit <= 3) goTo(explicit);
-      else goTo(currentSeat === 3 ? 0 : currentSeat + 1);
+      if (explicit != null && explicit >= 0 && explicit <= 3) {
+        guobiaoXunmuGoTo(clock, explicit);
+      } else {
+        guobiaoXunmuGoTo(clock, clock.currentSeat === 3 ? 0 : clock.currentSeat + 1);
+      }
       continue;
     }
     if (code === 'gd') {
       const explicit = tickInt(tick, 2);
-      if (explicit != null && explicit >= 0 && explicit <= 3) goTo(explicit);
+      if (explicit != null && explicit >= 0 && explicit <= 3) {
+        guobiaoXunmuGoTo(clock, explicit);
+      }
       continue;
     }
     if (code === 'c') {
-      if (currentSeat === dealer) dealerDiscarded = true;
+      guobiaoXunmuOnCut(clock);
       continue;
     }
     if (CLAIM_CODES.has(code)) {
       const seat = tickInt(tick, 2);
-      if (seat != null) goTo(seat);
+      if (seat != null) guobiaoXunmuOnClaim(clock, seat);
       continue;
     }
     const hu = parseHuTick(tick);
     if (hu && !isCuohe(hu.yaku)) {
-      bySeat[hu.winnerSeat] = (bySeat[hu.winnerSeat] || 0) + xunmu;
+      bySeat[hu.winnerSeat] = (bySeat[hu.winnerSeat] || 0) + clock.xunmu;
     }
   }
   return bySeat;

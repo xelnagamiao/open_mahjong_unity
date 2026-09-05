@@ -2,11 +2,13 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Newtonsoft.Json;
 using UnityEngine;
 
 /// <summary>
 /// 将虹雀权威事件流适配到现有麻将桌。开局/重连恢复桌面，实时消息只更新动作。
 /// 全部继续走原有 GameCanvas、Game3DManager 和 NormalGameStateManager。
+/// 协议接线（消息路由、按钮拦截、结算确认）见 HongqueDriver；本类只负责把权威状态投影到牌桌。
 /// </summary>
 public sealed class HongqueTableAdapter : MonoBehaviour {
     /// <summary>荣和动作编码前缀；自动操作等通用代码复用此常量，避免重复魔法串。</summary>
@@ -196,9 +198,20 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
         return ClaimActionPrefix + candidate.id;
     }
 
-    private void Send(string action, string tile = null, string candidateId = null) {
-        GameStateNetworkManager.Instance.SendHongqueAction(
-            gamestateId, state.action_tick, action, tile, candidateId);
+    private async void Send(string action, string tile = null, string candidateId = null) {
+        try {
+            var request = new {
+                type = "gamestate/hongque/action",
+                gamestate_id = gamestateId,
+                action_tick = state.action_tick,
+                action,
+                tile,
+                candidate_id = candidateId,
+            };
+            await NetworkManager.Instance.GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"发送虹雀操作失败: {e.Message}");
+        }
     }
 
     private void ApplyAvailableActions() {

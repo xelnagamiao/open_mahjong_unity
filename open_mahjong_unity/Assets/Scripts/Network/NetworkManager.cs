@@ -619,6 +619,12 @@ public class NetworkManager : MonoBehaviour {
                 return;
             }
 
+            // 对局消息统一交由 GameStateNetworkManager 按 gamestate/{rule}/{suffix} 路由
+            if (response.type != null && response.type.StartsWith("gamestate/")) {
+                GameStateNetworkManager.Instance.HandleGameStateMessage(response);
+                return;
+            }
+
             switch (response.type){
                 case "login":
                     HandleLoginResponse(response);
@@ -678,78 +684,9 @@ public class NetworkManager : MonoBehaviour {
                 case "spectator/remove_spectator":
                     HandleSpectatorRemoveResult(response);
                     break;
-                // 游戏状态相关消息交由 GameStateNetworkManager 处理
-                case "gamestate/get_spectator_list":
-                case "gamestate/guobiao/game_start":
-                case "gamestate/qingque/game_start":
-                case "gamestate/classical/game_start":
-                case "gamestate/riichi/game_start":
-                case "gamestate/taiwan/game_start":
-                case "gamestate/guobiao/broadcast_hand_action":
-                case "gamestate/qingque/broadcast_hand_action":
-                case "gamestate/classical/broadcast_hand_action":
-                case "gamestate/riichi/broadcast_hand_action":
-                case "gamestate/taiwan/broadcast_hand_action":
-                case "gamestate/guobiao/ask_other_action":
-                case "gamestate/qingque/ask_other_action":
-                case "gamestate/classical/ask_other_action":
-                case "gamestate/riichi/ask_other_action":
-                case "gamestate/taiwan/ask_other_action":
-                case "gamestate/guobiao/do_action":
-                case "gamestate/qingque/do_action":
-                case "gamestate/classical/do_action":
-                case "gamestate/riichi/do_action":
-                case "gamestate/taiwan/do_action":
-                case "gamestate/guobiao/show_result":
-                case "gamestate/qingque/show_result":
-                case "gamestate/classical/show_result":
-                case "gamestate/riichi/show_result":
-                case "gamestate/taiwan/show_result":
-                case "gamestate/guobiao/game_end":
-                case "gamestate/qingque/game_end":
-                case "gamestate/classical/game_end":
-                case "gamestate/riichi/game_end":
-                case "gamestate/taiwan/game_end":
-                case "gamestate/guobiao/ready_status":
-                case "gamestate/qingque/ready_status":
-                case "gamestate/classical/ready_status":
-                case "gamestate/riichi/ready_status":
-                case "gamestate/taiwan/ready_status":
-                case "gamestate/classical/show_shuhewei":
-                case "gamestate/riichi/declare_riichi":
-                case "gamestate/riichi/update_dora":
-                case "gamestate/sichuan/game_start":
-                case "gamestate/sichuan/broadcast_hand_action":
-                case "gamestate/sichuan/ask_other_action":
-                case "gamestate/sichuan/do_action":
-                case "gamestate/sichuan/show_result":
-                case "gamestate/sichuan/game_end":
-                case "gamestate/sichuan/ready_status":
-                case "gamestate/sichuan/ask_dingque":
-                case "gamestate/sichuan/dingque_done":
-                case "gamestate/changsha/game_start":
-                case "gamestate/changsha/broadcast_hand_action":
-                case "gamestate/changsha/ask_other_action":
-                case "gamestate/changsha/do_action":
-                case "gamestate/changsha/show_result":
-                case "gamestate/changsha/game_end":
-                case "gamestate/changsha/ready_status":
-                case "gamestate/jiandan/game_start":
-                case "gamestate/jiandan/broadcast_hand_action":
-                case "gamestate/jiandan/ask_other_action":
-                case "gamestate/jiandan/do_action":
-                case "gamestate/jiandan/show_result":
-                case "gamestate/jiandan/game_end":
-                case "gamestate/jiandan/ready_status":
-                case "gamestate/hongque/game_start":
-                case "gamestate/hongque/reconnect":
-                case "gamestate/hongque/update":
-                case "gamestate/hongque/ready_status":
+                // 游戏状态相关消息交由 GameStateNetworkManager 处理（gamestate/ 前缀已在 switch 前统一转发）
                 case "switch_seat":
                 case "refresh_player_tag_list":
-                case "gamestate/broadcast_sticker":
-                case "gamestate/vote_update":
-                case "gamestate/vote_end":
                     GameStateNetworkManager.Instance.HandleGameStateMessage(response);
                     break;
                 // 匹配系统消息交由 MatchNetworkManager 处理

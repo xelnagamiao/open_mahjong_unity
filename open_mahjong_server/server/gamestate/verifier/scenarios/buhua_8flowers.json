@@ -1,0 +1,9 @@
+{
+  "id": "buhua_8flowers",
+  "title": "开局补花（seat1 一张花）",
+  "debug_scenario": "buhua_8flowers",
+  "seed": 1,
+  "game_round": 1,
+  "tactical_call": false,
+  "hepai_limit": 1
+}

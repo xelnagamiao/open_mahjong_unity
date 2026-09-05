@@ -927,10 +927,9 @@ public class EndResultPanel : MonoBehaviour {
     }
 
     private void HandleGameStateConfirm() {
-        if (HongqueTableAdapter.IsActive && HongqueTableAdapter.Instance.IsRoundEnd) {
-            HongqueTableAdapter.Instance.ConfirmRoundResult();
-            return;
-        }
+        // 非回合制驱动器（如虹雀）以自己的协议发送 ready
+        IGameDriver driver = RuleRegistry.ActiveDriver;
+        if (driver != null && driver.TryConfirmRoundResult()) return;
         if (matchEndMode) {
             ClearEndResultPanel();
             NormalGameStateManager.Instance.FlushPendingGameEnd();

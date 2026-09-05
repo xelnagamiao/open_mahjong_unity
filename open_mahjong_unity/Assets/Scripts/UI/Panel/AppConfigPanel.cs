@@ -57,15 +57,14 @@ public class AppConfigPanel : MonoBehaviour {
         openingAutoBuhuaDropdown.onValueChanged.AddListener(OnOpeningAutoBuhuaDropdownChanged);
         forcePassDropdown.onValueChanged.AddListener(OnForcePassDropdownChanged);
         meldSpacingDropdown.onValueChanged.AddListener(OnMeldSpacingDropdownChanged);
+        targetFrameRateDropdown.onValueChanged.AddListener(OnTargetFrameRateDropdownChanged);
         vsyncDropdown.onValueChanged.AddListener(OnVsyncDropdownChanged);
         gongHuSoundDropdown.onValueChanged.AddListener(OnGongHuSoundDropdownChanged);
         matchSuccessSoundDropdown.onValueChanged.AddListener(OnMatchSuccessSoundDropdownChanged);
         tileOutlinePresetDropdown.onValueChanged.AddListener(OnTileOutlinePresetDropdownChanged);
-        ApplyTargetFrameRateDropdownVisibility();
     }
 
     private void OnEnable() {
-        ApplyTargetFrameRateDropdownVisibility();
         masterVolumeSlider.SyncFromConfig();
         musicVolumeSlider.SyncFromConfig();
         soundEffectVolumeSlider.SyncFromConfig();
@@ -102,6 +101,12 @@ public class AppConfigPanel : MonoBehaviour {
         forcePassDropdown.AddOptions(new List<string> { "关", "开" });
         meldSpacingDropdown.ClearOptions();
         meldSpacingDropdown.AddOptions(new List<string> { "关", "开" });
+        targetFrameRateDropdown.ClearOptions();
+        List<string> frameRateOptions = new List<string>();
+        foreach (int frameRate in ConfigManager.TargetFrameRateOptions) {
+            frameRateOptions.Add(frameRate.ToString());
+        }
+        targetFrameRateDropdown.AddOptions(frameRateOptions);
         vsyncDropdown.ClearOptions();
         vsyncDropdown.AddOptions(new List<string> { "关", "开" });
         gongHuSoundDropdown.ClearOptions();
@@ -141,6 +146,9 @@ public class AppConfigPanel : MonoBehaviour {
         forcePassDropdown.RefreshShownValue();
         meldSpacingDropdown.SetValueWithoutNotify(ConfigManager.Instance.MeldSpacingEnabled ? 1 : 0);
         meldSpacingDropdown.RefreshShownValue();
+        int frameRateIndex = System.Array.IndexOf(ConfigManager.TargetFrameRateOptions, ConfigManager.Instance.TargetFrameRate);
+        targetFrameRateDropdown.SetValueWithoutNotify(frameRateIndex >= 0 ? frameRateIndex : 0);
+        targetFrameRateDropdown.RefreshShownValue();
         vsyncDropdown.SetValueWithoutNotify(ConfigManager.Instance.VsyncEnabled ? 1 : 0);
         vsyncDropdown.RefreshShownValue();
         gongHuSoundDropdown.SetValueWithoutNotify(ConfigManager.Instance.GongHuSoundEnabled ? 1 : 0);
@@ -149,12 +157,6 @@ public class AppConfigPanel : MonoBehaviour {
         matchSuccessSoundDropdown.RefreshShownValue();
         tileOutlinePresetDropdown.SetValueWithoutNotify(ConfigManager.Instance.TileOutlinePreset - 1);
         tileOutlinePresetDropdown.RefreshShownValue();
-    }
-
-    private void ApplyTargetFrameRateDropdownVisibility() {
-        bool showFrameRateSetting = !ConfigManager.IsTargetFrameRateLocked;
-        targetFrameRateDropdown.gameObject.SetActive(showFrameRateSetting);
-        targetFrameRateDropdown.interactable = showFrameRateSetting;
     }
 
     private void OnWhiteDragonFaceDropdownChanged(int value) {
@@ -167,6 +169,10 @@ public class AppConfigPanel : MonoBehaviour {
 
     private void OnAskOtherPassShortcutDropdownChanged(int value) {
         ConfigManager.Instance.SetAskOtherPassShortcutMode(value);
+    }
+
+    private void OnTargetFrameRateDropdownChanged(int value) {
+        ConfigManager.Instance.SetTargetFrameRate(ConfigManager.TargetFrameRateOptions[value]);
     }
 
     private void OnVsyncDropdownChanged(int value) {

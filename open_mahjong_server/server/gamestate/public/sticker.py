@@ -1,8 +1,32 @@
 import logging
+from typing import Any, Optional, Tuple
 
 from ...response import Response, Sticker_info
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_sticker_sender(player: Any) -> Tuple[Optional[int], Optional[int]]:
+    """解析表情包发送者座位。兼容共享规则的 player_index 与虹雀的 index。"""
+    seat = getattr(player, "player_index", None)
+    if seat is None:
+        seat = getattr(player, "index", None)
+    original = getattr(player, "original_player_index", None)
+    if original is None:
+        original = seat
+    return seat, original
+
+
+def _is_offline(player: Any) -> bool:
+    tags = getattr(player, "tag_list", None) or []
+    return "offline" in tags or getattr(player, "online", True) is False
+
+
+def _is_bot(player: Any) -> bool:
+    if getattr(player, "is_bot", False):
+        return True
+    user_id = getattr(player, "user_id", None)
+    return isinstance(user_id, int) and user_id <= 10
 
 
 async def broadcast_sticker(
@@ -28,9 +52,7 @@ async def broadcast_sticker(
 
     for player in game_state.player_list:
         try:
-            if "offline" in player.tag_list:
-                continue
-            if player.user_id < 10:
+            if _is_bot(player) or _is_offline(player):
                 continue
             conn = game_server.user_id_to_connection.get(player.user_id)
             if conn is None:

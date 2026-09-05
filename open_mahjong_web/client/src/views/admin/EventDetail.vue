@@ -186,6 +186,7 @@
       <el-card class="block">
         <template #header>
           比赛场统计
+          <span v-if="statsDateRangeLabel" class="stats-range-hint">{{ statsDateRangeLabel }}</span>
           <el-button
             link
             type="primary"
@@ -199,9 +200,23 @@
           :closable="false"
           show-icon
           style="margin-bottom: 12px"
-          title="口径与数据站「比赛场」一致：按牌谱顺位汇总总对局与一位～四位次数。"
+          title="口径与数据站「比赛场」一致：按牌谱顺位汇总总对局与一位～四位次数。可按对局日期筛选（含起止当日）。"
         />
         <div class="stats-filters">
+          <el-date-picker
+            v-model="statsDateRange"
+            type="daterange"
+            size="small"
+            unlink-panels
+            clearable
+            range-separator="—"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            value-format="YYYY-MM-DD"
+            :shortcuts="STATS_DATE_SHORTCUTS"
+            class="stats-daterange"
+            @change="loadPlayerStats"
+          />
           <el-select
             v-model="statsFilter.rule"
             clearable
@@ -317,7 +332,7 @@ import {
   createDefaultGuobiaoRoomConfig,
 } from '@/utils/guobiaoRoomConfig'
 import { eventStatusLabel, eventStatusTagType, parseVenueKind, venueAdminListPath } from '@/utils/eventMeta'
-import { avgRank, buildPlayerStatsRows, rankRate } from '@/utils/statsDisplay'
+import { avgRank, buildPlayerStatsRows, dateRangeToQueryParams, rankRate, STATS_DATE_SHORTCUTS } from '@/utils/statsDisplay'
 
 const RULE_LABELS = {
   guobiao: '国标',
@@ -388,6 +403,7 @@ const statsTotals = ref({
 const statsPlayers = ref([])
 const statsRuleOptions = ref([])
 const statsFilter = reactive({ rule: '', game_type: '', q: '' })
+const statsDateRange = ref(null)
 const selectedPlayerId = ref(null)
 
 const isBase = computed(() => {
@@ -401,6 +417,11 @@ const owner = computed(() => (detail.value?.admins || []).find((a) => a.role ===
 const adminList = computed(() => (detail.value?.admins || []).filter((a) => a.role === 'admin'))
 const pendingProfile = ref(null)
 const totalsStatsDisplay = computed(() => rankOnlyStatsRows(statsTotals.value))
+const statsDateRangeLabel = computed(() => {
+  const r = statsDateRange.value
+  if (!r || r.length < 2 || !r[0] || !r[1]) return ''
+  return `${r[0]} — ${r[1]}`
+})
 const selectedPlayerStats = computed(() => {
   if (selectedPlayerId.value == null) return null
   return statsPlayers.value.find((p) => p.user_id === selectedPlayerId.value) || null
@@ -442,6 +463,7 @@ async function loadPlayerStats() {
     if (statsFilter.rule) params.rule = statsFilter.rule
     if (statsFilter.game_type) params.game_type = statsFilter.game_type
     if (statsFilter.q.trim()) params.q = statsFilter.q.trim()
+    Object.assign(params, dateRangeToQueryParams(statsDateRange.value))
     const res = await adminApi.get(`/events/${route.params.eventId}/player-stats`, { params })
     const data = res.data.data || {}
     statsTotals.value = data.totals || {
@@ -472,6 +494,7 @@ function resetStatsFilter() {
   statsFilter.rule = ''
   statsFilter.game_type = ''
   statsFilter.q = ''
+  statsDateRange.value = null
   selectedPlayerId.value = null
   loadPlayerStats()
 }
@@ -768,6 +791,18 @@ onMounted(load)
   gap: 8px;
   align-items: center;
   margin-bottom: 12px;
+}
+.stats-daterange {
+  width: 240px;
+}
+.stats-daterange :deep(.el-range-input) {
+  font-size: 12px;
+}
+.stats-range-hint {
+  margin-left: 8px;
+  font-weight: 400;
+  font-size: 13px;
+  color: #909399;
 }
 .stats-totals {
   display: grid;

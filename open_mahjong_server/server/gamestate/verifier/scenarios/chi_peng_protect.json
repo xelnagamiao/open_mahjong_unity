@@ -1,0 +1,9 @@
+{
+  "id": "chi_peng_protect",
+  "title": "吃碰保护（首打8万）",
+  "debug_scenario": "chi_peng_protect",
+  "seed": 1,
+  "game_round": 1,
+  "tactical_call": false,
+  "hepai_limit": 1
+}

@@ -362,7 +362,9 @@ public partial class GameCanvas : MonoBehaviour {
     // 选择行动
     public void ChooseAction(string actionType, int targetTile, int chiComboIndex = -1){
         if (NormalGameStateManager.Instance.IsRealtimeSpectator) return;
-        if (HongqueTableAdapter.IsActive && HongqueTableAdapter.Instance.TryChooseAction(actionType)) return;
+        // 非回合制驱动器（如虹雀）自行发送动作，核心不再走通用 SendAction
+        IGameDriver driver = RuleRegistry.ActiveDriver;
+        if (driver != null && driver.TryChooseAction(actionType)) return;
         NormalGameStateManager.Instance.CancelWaitAutoAction($"ChooseAction({actionType})");
         NormalGameStateManager.Instance.SwitchCurrentPlayer("self","ClearAction",0);
         // 发送行动：立直麻将涉赤 5 时通过 chiComboIndex 指明所选吃牌候选（默认 0 表示优先非赤 5）
@@ -371,13 +373,8 @@ public partial class GameCanvas : MonoBehaviour {
     }
 
     public void TrySendPassFromShortcut() {
-        if (HongqueTableAdapter.IsActive) {
-            if (NormalGameStateManager.Instance.allowActionList.Contains("hongque_pass")) {
-                ChooseAction("hongque_pass", 0);
-            }
-            return;
-        }
-        if (!NormalGameStateManager.Instance.allowActionList.Contains("pass")) return;
-        ChooseAction("pass", 0);
+        string passAction = RuleRegistry.ActiveDriver?.PassActionName ?? "pass";
+        if (!NormalGameStateManager.Instance.allowActionList.Contains(passAction)) return;
+        ChooseAction(passAction, 0);
     }
 }
