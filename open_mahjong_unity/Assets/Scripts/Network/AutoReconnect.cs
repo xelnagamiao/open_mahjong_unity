@@ -137,7 +137,7 @@ public static class AutoReconnect {
     /// </summary>
     public static void CancelForSessionReset() {
         CoroutineManager.Ensure();
-        CoroutineManager.Instance.StopNamed(CoroutineKeys.NetworkAutoReconnect);
+        CoroutineManager.Instance?.StopNamed(CoroutineKeys.NetworkAutoReconnect);
         _state = State.Idle;
         _snapshot = default;
         _waitState = null;
@@ -180,7 +180,7 @@ public static class AutoReconnect {
         // 只有在 Phase 0 探活确认旧连接确实已断开后，才进入恢复流程并调整 UI，
         // 避免「截图等临时失焦但连接仍存活」时误把玩家踢出对局或退出登录。
         CoroutineManager.Ensure();
-        CoroutineManager.Instance.RunNamed(
+        CoroutineManager.Instance?.RunNamed(
             CoroutineKeys.NetworkAutoReconnect,
             AutoReconnectRoutine(),
             restartIfRunning: true
@@ -429,7 +429,7 @@ public static class AutoReconnect {
             _waitState = null;
             _backgroundDisconnectDetected = false;
             CoroutineManager.Ensure();
-            CoroutineManager.Instance.RunNamed(
+            CoroutineManager.Instance?.RunNamed(
                 CoroutineKeys.NetworkAutoReconnect,
                 DeferredRetryRoutine(_retryCycle),
                 restartIfRunning: true

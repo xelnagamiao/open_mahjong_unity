@@ -10,21 +10,11 @@ public static class ScoreHistorySettlementHelper {
         if (!string.IsNullOrEmpty(subRuleFallback)) return subRuleFallback;
         if (string.IsNullOrEmpty(rule)) return "guobiao/standard";
         string r = rule.ToLowerInvariant();
-        // 已注册清单的规则直接取清单声明的缺省子规则；下面的 switch 只为尚未迁入清单的规则保留
+        // 缺省子规则由族清单声明（RuleManifest.DefaultSubRule）；未注册的规则原样返回
         if (RuleRegistry.TryResolve(r, out RuleManifest manifest) && !string.IsNullOrEmpty(manifest.DefaultSubRule)) {
             return manifest.DefaultSubRule;
         }
-        return r switch {
-            "guobiao" => "guobiao/standard",
-            "qingque" => "qingque/standard",
-            "classical" => "classical/standard",
-            "riichi" => "riichi/standard",
-            "sichuan" => "sichuan/standard",
-            "changsha" => "changsha/classic_double_bird",
-            "jiandan" => "jiandan/standard",
-            "taiwan" => "taiwan/standard",
-            _ => r
-        };
+        return r;
     }
 
     public static string GetMainFanColumnLabel(string subRule, RoundSettlementSnapshot snapshot, int rowIndex = -1) {
@@ -32,7 +22,7 @@ public static class ScoreHistorySettlementHelper {
         if (!string.IsNullOrEmpty(snapshot.sichuanRoundLabel)) {
             return SichuanRoundLabel.ToDisplayText(snapshot.sichuanRoundLabel);
         }
-        if (subRule != null && subRule.StartsWith("sichuan")) return "—";
+        if (ManifestOf(subRule)?.ScoreboardMainFanFromRoundLabel == true) return "—";
         if (snapshot.isLiuju) return "流局";
         if (snapshot.huFan == null || snapshot.huFan.Length == 0) return "—";
         string mainFan = PickMainFanName(subRule, snapshot.huFan);
@@ -174,7 +164,8 @@ public static class ScoreHistorySettlementHelper {
         int scoreHistoryCount,
         IReadOnlyList<RoundSettlementSnapshot> roundSettlements) {
         if (roundSettlements == null || roundSettlements.Count == 0) {
-            var live = NormalGameStateManager.Instance.roundSettlementHistory;
+            var mgr = NormalGameStateManager.Instance;
+            var live = mgr != null ? mgr.roundSettlementHistory : null;
             if (live == null || live.Count == 0) return null;
             roundSettlements = live;
         }
@@ -203,16 +194,14 @@ public static class ScoreHistorySettlementHelper {
     public static string BuildAllFansText(string subRule, RoundSettlementSnapshot snapshot) {
         if (snapshot == null) return "";
         var sb = new StringBuilder();
-        bool isClassical = subRule == "classical/standard";
-        bool isRiichi = subRule != null && subRule.StartsWith("riichi");
 
-        if (isClassical && snapshot.fuFanList != null) {
+        if (ManifestOf(subRule)?.FuValueText != null && snapshot.fuFanList != null) {
             for (int i = 0; i < snapshot.fuFanList.Length; i++) {
                 string fuName = snapshot.fuFanList[i];
                 if (sb.Length > 0) sb.Append(' ');
-                sb.Append(FanTextDictionary.GetFuNameDisplayText(fuName));
+                sb.Append(FanTextDictionary.GetFuNameDisplayText(subRule, fuName));
                 sb.Append(' ');
-                sb.Append(FanTextDictionary.GetFuDisplayText(fuName));
+                sb.Append(FanTextDictionary.GetFuDisplayText(subRule, fuName));
             }
         }
 
@@ -220,11 +209,7 @@ public static class ScoreHistorySettlementHelper {
             for (int i = 0; i < snapshot.huFan.Length; i++) {
                 string fanKey = snapshot.huFan[i];
                 if (sb.Length > 0) sb.Append(' ');
-                if (isRiichi) {
-                    sb.Append(FanTextDictionary.GetRiichiYakuDisplayName(fanKey));
-                } else {
-                    sb.Append(GetFanNameForScoreHistory(subRule, fanKey));
-                }
+                sb.Append(GetFanNameForScoreHistory(subRule, fanKey));
                 sb.Append(' ');
                 sb.Append(FanTextDictionary.GetFanDisplayText(subRule, fanKey));
             }
@@ -237,33 +222,17 @@ public static class ScoreHistorySettlementHelper {
         if (snapshot == null || !string.IsNullOrEmpty(snapshot.sichuanRoundLabel)) return "";
         if (snapshot.isLiuju) return "";
 
-        bool isClassical = subRule == "classical/standard";
-        bool isRiichi = subRule != null && subRule.StartsWith("riichi");
-        bool isSichuan = subRule != null && subRule.StartsWith("sichuan");
-        bool isChangsha = subRule != null && subRule.StartsWith("changsha");
-        bool isJiandan = subRule != null && subRule.StartsWith("jiandan");
-        bool isTaiwan = subRule != null && subRule.StartsWith("taiwan");
-        bool isHongque = subRule != null && subRule.StartsWith("hongque");
-
-        string fanPart;
-        if (isRiichi && snapshot.han.HasValue) {
-            fanPart = $"{snapshot.han.Value}番";
-        } else if (isClassical) {
-            int fanTotal = CalculateClassicalFanTotal(subRule, snapshot.huFan);
-            fanPart = fanTotal >= 0 ? $"{fanTotal}番" : "满贯";
-        } else if (isSichuan) {
-            fanPart = $"{CalculateSichuanFanTotal(subRule, snapshot.huFan)}番";
-        } else if (isChangsha) {
-            fanPart = $"{snapshot.huScore}分";
-        } else if (isJiandan) {
-            fanPart = $"{CalculateJiandanFanTotal(subRule, snapshot.huFan)}番";
-        } else if (isTaiwan) {
-            fanPart = $"{snapshot.huScore}台";
-        } else if (isHongque) {
-            fanPart = $"{snapshot.huScore}分";
-        } else {
-            fanPart = $"{snapshot.huScore}番";
-        }
+        var query = new SettlementTotalQuery {
+            Rule = subRule,
+            HuScore = snapshot.huScore,
+            HuFan = snapshot.huFan,
+            BaseFu = snapshot.baseFu,
+            Han = snapshot.han,
+            Fu = snapshot.fu,
+            WinnerPointDelta = snapshot.winnerScoreDelta,
+        };
+        var hook = ManifestOf(subRule)?.ScoreboardFanText;
+        string fanPart = (hook != null ? hook(query) : null) ?? $"{snapshot.huScore}番";
 
         int delta = snapshot.winnerScoreDelta;
         string scorePart = delta > 0 ? $"+{delta}分" : delta < 0 ? $"{delta}分" : "0分";
@@ -297,7 +266,7 @@ public static class ScoreHistorySettlementHelper {
         }
 
         bool isLiuju = huClass == "liuju" || huClass == "ryuukyoku"
-            || NormalGameStateManager.IsRiichiSpecialLiujuHuClass(huClass)
+            || SpecialLiujuCaptions.IsRiichiAbort(huClass)
             || huClass == "jiuzhongjiupai";
         bool hasWin = !isLiuju && huFan != null && huFan.Length > 0;
 
@@ -429,40 +398,5 @@ public static class ScoreHistorySettlementHelper {
         return FanTextDictionary.GetFanNameDisplayText(subRule, baseFanName);
     }
 
-    public static int CalculateSichuanFanTotal(string subRule, string[] huFan) {
-        if (huFan == null) return 0;
-        int total = 0;
-        foreach (string fan in huFan) {
-            string display = FanTextDictionary.GetFanDisplayText(subRule, fan);
-            if (display.EndsWith("番") && int.TryParse(display.Replace("番", ""), out int val)) {
-                total += val;
-            }
-        }
-        return total;
-    }
-
-    private static int CalculateJiandanFanTotal(string subRule, string[] huFan) {
-        if (huFan == null) return 0;
-        int total = 0;
-        foreach (string fan in huFan) {
-            string display = FanTextDictionary.GetFanDisplayText(subRule, fan);
-            if (display.EndsWith("番") && int.TryParse(display.Replace("番", ""), out int val)) {
-                total += val;
-            }
-        }
-        return total;
-    }
-
-    private static int CalculateClassicalFanTotal(string subRule, string[] huFan) {
-        if (huFan == null) return 0;
-        int total = 0;
-        foreach (string fan in huFan) {
-            string display = FanTextDictionary.GetFanDisplayText(subRule, fan);
-            if (display == "满贯") return -1;
-            if (display.EndsWith("翻") && int.TryParse(display.Replace("翻", ""), out int val)) {
-                total += val;
-            }
-        }
-        return total;
-    }
+    private static RuleManifest ManifestOf(string rule) => RuleRegistry.Resolve(rule, rule);
 }

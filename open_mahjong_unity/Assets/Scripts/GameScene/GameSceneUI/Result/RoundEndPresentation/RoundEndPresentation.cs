@@ -40,9 +40,11 @@ public partial class RoundEndPresentation : MonoBehaviour {
 
     /// <summary>显示自身操作区；清空局终 3D 明牌，对局手牌仍由 2D 操作区展示。</summary>
     public void ShowSelfGameplayControlAndResyncHand3D() {
-        selfGameplayControlRoot.SetActive(true);
-        Game3DManager.Instance.ResetHandRevealAnimators();
-        Game3DManager.Instance.ClearSelf3DHandTiles();
+        if (selfGameplayControlRoot != null) {
+            selfGameplayControlRoot.SetActive(true);
+        }
+        Game3DManager.Instance?.ResetHandRevealAnimators();
+        Game3DManager.Instance?.ClearSelf3DHandTiles();
     }
 
     /// <summary>停止当前局终流程。</summary>

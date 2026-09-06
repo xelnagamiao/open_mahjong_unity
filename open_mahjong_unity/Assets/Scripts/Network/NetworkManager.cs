@@ -552,6 +552,11 @@ public class NetworkManager : MonoBehaviour {
                 response.login_info.user_id,
                 response.login_info.is_tourist
             );
+            if (!AutoReconnect.IsActive) {
+                RoomNetworkManager.Instance?.CancelPendingRoomEntry();
+                RoomListPanel.Instance?.ResetSessionCaches();
+                CreatePanel.ResetAllSessionCaches();
+            }
             HeaderPanel.Instance?.RefreshMatchButtonVisibility();
             HeaderPanel.Instance?.RefreshEventButtonVisibility();
             // 保存用户信息
@@ -568,7 +573,10 @@ public class NetworkManager : MonoBehaviour {
                     response.rank_data.guobiao_rank,
                     response.rank_data.guobiao_score,
                     response.rank_data.is_sponsor,
-                    response.rank_data.is_mcrpl_qualified
+                    response.rank_data.is_mcrpl_qualified,
+                    response.rank_data.is_beginner_qualified,
+                    response.rank_data.is_intermediate_qualified,
+                    response.rank_data.is_advanced_qualified
                 );
             }
             UserContainer.Instance.ShowUserSettings(response.user_settings);

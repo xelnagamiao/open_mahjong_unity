@@ -136,10 +136,20 @@
 
 ### 5.2 国标和牌
 
-`[hu_class, hepai_player_index, hu_score, hu_fan[], score_changes[]]`
+`[hu_class, hepai_player_index, hu_score, hu_fan[], score_changes[], hepai_tile?]`
 
 - `hu_class`：`hu_self` / `hu_first` / `hu_second` / `hu_third` 等
 - `score_changes`：`[seat0Δ, seat1Δ, seat2Δ, seat3Δ]`，按 **当局 player_index** 顺序
+- `hepai_tile`：可选，和牌张
+
+### 5.2.1 长沙麻将扎鸟
+
+沿用通用 hu tick；有鸟时在 `hepai_tile` 之后追加抽出的鸟牌 ID：
+
+`[hu_class, hepai_idx, hu_score, hu_fan[], score_changes[], hepai_tile, bird_tiles[]]`
+
+- `bird_tiles`：从剩余牌山头部抽出的鸟牌，顺序与结算一致。`bird_count=0` 或旧牌谱无此段。
+- `hu_fan` 仍含 `鸟牌:四筒,一条` / `中鸟:` / `扎鸟倍数:xN` 文字行（客户端结算面板用日麻宝牌槽展示 `bird_tiles`，里宝槽展示中鸟）。
 
 ### 5.3 古典（数和尾）
 

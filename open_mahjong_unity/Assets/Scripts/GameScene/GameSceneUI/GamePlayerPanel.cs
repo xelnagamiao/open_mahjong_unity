@@ -105,7 +105,7 @@ public partial class GamePlayerPanel : MonoBehaviour {
             playerNameText.text = playerInfo.username;
         }
         // 设置头衔
-        playerTitleText.text = ConfigManager.GetTitleText(playerInfo.title_used);
+        playerTitleText.text = GameSettings.Current.GetTitleText(playerInfo.title_used);
 
         if (playerProfilePicture != null) {
             // 加载头像

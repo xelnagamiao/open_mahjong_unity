@@ -1,4 +1,4 @@
-import { parseHuTick, analyzeRecords } from './recordAnalyzer.js'
+import { parseHuTick, analyzeRecords, resolveRecordRank } from './recordAnalyzer.js'
 import { GUOBIAO_FAN_KEYS, listGuobiaoFanEntries } from '../constants/guobiaoFanDict.js'
 import {
   analyzeRecordsAdvanced,
@@ -417,6 +417,44 @@ const claimedDealer = {
 const claimedStats = await analyzeRecordsAdvanced([{ game_id: 'gid-xun', record: claimedDealer }], 1, { tingpai: false })
 assert(claimedStats.wins[0].xunmu === 1, `claimed dealer first discard stays 巡1, got ${claimedStats.wins[0].xunmu}`)
 assert(claimedStats.total_win_turn === 1, `total_win_turn ${claimedStats.total_win_turn}`)
+
+const tieRecord = {
+  game_title: { p0_uid: 1, p1_uid: 2, p2_uid: 3, p3_uid: 4, rule: 'guobiao' },
+  game_round: {
+    round_index_1: {
+      seats: [0, 1, 2, 3],
+      action_ticks: [
+        ['hu_self', 0, 8, ['平胡'], [8, -8, 0, 0]],
+        ['end'],
+      ],
+    },
+  },
+}
+assert(resolveRecordRank(tieRecord, 1) === 1, 'east 8 pts is 1st')
+assert(resolveRecordRank(tieRecord, 3) === 2, 'west 0 pts ties for 2nd')
+assert(resolveRecordRank(tieRecord, 4) === 2, 'north 0 pts ties for 2nd')
+assert(resolveRecordRank(tieRecord, 2) === 4, 'south -8 pts is 4th')
+const westTie = analyzeRecords([{ record: tieRecord, rank: 1 }], 3)
+assert(westTie.second_place_count === 1, 'analysis ignores cached rank and keeps tied 2nd')
+assert(westTie.third_place_count === 0, 'no 3rd when 2nd is tied')
+assert(westTie.first_place_count === 0, 'cached first place is not used')
+
+const firstTie = {
+  game_title: tieRecord.game_title,
+  game_round: {
+    round_index_1: {
+      seats: [0, 1, 2, 3],
+      action_ticks: [
+        ['hu_self', 0, 8, ['平胡'], [8, 8, -16, 0]],
+        ['end'],
+      ],
+    },
+  },
+}
+assert(resolveRecordRank(firstTie, 1) === 1, 'east ties for 1st')
+assert(resolveRecordRank(firstTie, 2) === 1, 'south ties for 1st')
+assert(resolveRecordRank(firstTie, 4) === 3, 'north 0 pts is 3rd after two 1sts')
+assert(analyzeRecords([{ record: firstTie }], 4).third_place_count === 1, '1,1,3,4 skip 2nd')
 
 const blob = zipStoreFiles([{ name: 'a.json', data: '{"ok":1}' }])
 const buf = new Uint8Array(await blob.arrayBuffer())

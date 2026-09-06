@@ -21,8 +21,11 @@ from .host import (
     install_lab_runtime,
     real_sleep,
     restore_lab_runtime,
+    set_lab_turbo,
 )
 from .protocol import filter_client_actions
+from .unity_sim import UnitySim
+from .verdict import build_verdict
 
 logger = logging.getLogger(__name__)
 
@@ -44,12 +47,16 @@ class VerifierSession:
         self.actions: List[Dict[str, Any]] = []
         self.bookmarks: Dict[str, int] = {}
         self.messages: List[Dict[str, Any]] = []
+        self.trace: List[Dict[str, Any]] = []
         self.tool_calls: List[Dict[str, Any]] = []
         self.game: Optional[GuobiaoGameState] = None
         self.task: Optional[asyncio.Task] = None
         self.server = None
         self.started_at = 0.0
         self._runtime_installed = False
+        self.turbo = True
+        self.viewer_user_id = LAB_USER_IDS[0]
+        self.sim = UnitySim(viewer_user_id=self.viewer_user_id)
 
     @property
     def paused(self) -> bool:
@@ -86,10 +93,13 @@ class VerifierSession:
         game_round: int = 1,
         hepai_limit: int = 8,
         replay_actions: Optional[List[Dict[str, Any]]] = None,
+        turbo: bool = True,
     ) -> None:
         await self.stop()
-        install_lab_runtime()
+        self.turbo = bool(turbo)
+        install_lab_runtime(turbo=self.turbo)
         self._runtime_installed = True
+        set_lab_turbo(self.turbo)
         self.seed = int(seed)
         self.debug_scenario = debug_scenario or None
         self.tactical_call = bool(tactical_call)
@@ -97,10 +107,13 @@ class VerifierSession:
         self.hepai_limit = int(hepai_limit)
         self.actions = []
         self.messages = []
+        self.trace = []
         self.started_at = time.time()
+        self.viewer_user_id = LAB_USER_IDS[0]
+        self.sim = UnitySim(viewer_user_id=self.viewer_user_id)
 
         db = build_db_manager()
-        self.server = build_game_server(db, messages=self.messages)
+        self.server = build_game_server(db, messages=self.messages, on_send=self._on_ws)
         room_id = int(uuid.uuid4().int % 1_000_000_000)
         room = build_room_data(
             seed=self.seed,
@@ -122,6 +135,9 @@ class VerifierSession:
             game.debug_scenario = self.debug_scenario
             game.hepai_limit = self.hepai_limit
         self.game = game
+        self.sim.tingpai_fn = (
+            lambda hand, combos, svc=game.calculation_service: svc.GB_tingpai_check(hand, combos)
+        )
         self.server.gamestate_manager.gamestate_id_to_game_state[gamestate_id] = game
         self.server.gamestate_manager.room_id_to_GuobiaoGameState[room_id] = game
         self.task = asyncio.create_task(game.game_loop_chinese(), name=f"verifier-{self.id}")
@@ -132,7 +148,25 @@ class VerifierSession:
                 self.actions.append(dict(action))
             else:
                 await self.submit(action, record=True)
-        await self.wait_paused(timeout=20)
+        if not self.ended():
+            await self.wait_paused(timeout=20)
+
+    def _on_ws(self, entry: Dict[str, Any]) -> None:
+        if entry.get("user_id") != self.viewer_user_id:
+            return
+        try:
+            components = self.sim.apply(entry.get("message") or {})
+        except Exception:
+            logger.exception("UnitySim.apply failed type=%s", entry.get("type"))
+            return
+        self.trace.append(
+            {
+                "index": len(self.trace),
+                "type": entry.get("type"),
+                "user_id": entry.get("user_id"),
+                "components": components,
+            }
+        )
 
     async def _wait_until_advanced(self, before: tuple, timeout: float = 8.0) -> None:
         game = self.game
@@ -393,6 +427,33 @@ class VerifierSession:
             await self.wait_paused(timeout=12)
         return self.snapshot()
 
+    async def submit_batch(self, actions: List[Dict[str, Any]], *, record: bool = True) -> Dict[str, Any]:
+        game = self.game
+        if game is None:
+            raise VerifierError("没有进行中的对局")
+        payloads = [self._validate(action) for action in actions]
+        before = (
+            getattr(game, "server_action_tick", None),
+            tuple(getattr(game, "waiting_players_list", []) or []),
+            getattr(game, "game_status", None),
+        )
+        for payload in payloads:
+            await get_ai_action(
+                game,
+                payload["player_index"],
+                payload["action_type"],
+                bool(payload.get("cutClass")),
+                int(payload["tile_id"] or 0),
+                int(payload["cutIndex"] or 0),
+                int(payload["target_tile"] or 0),
+            )
+            if record:
+                self.actions.append(payload)
+        await self._wait_until_advanced(before)
+        if not self.ended():
+            await self.wait_paused(timeout=12)
+        return self.snapshot()
+
     async def ready_all(self) -> Dict[str, Any]:
         for _ in range(8):
             legal = self.legal_actions()
@@ -446,6 +507,7 @@ class VerifierSession:
             game_round=self.game_round,
             hepai_limit=self.hepai_limit,
             replay_actions=prefix,
+            turbo=self.turbo,
         )
         self.bookmarks = bookmarks
         return self.snapshot()
@@ -517,7 +579,8 @@ class VerifierSession:
 
     def snapshot(self) -> Dict[str, Any]:
         dump = dump_gamestate(self.game) if self.game is not None else {}
-        return {
+        trace_meta = [{"index": frame["index"], "type": frame.get("type")} for frame in self.trace]
+        payload = {
             "id": self.id,
             "seed": self.seed,
             "debug_scenario": self.debug_scenario,
@@ -537,4 +600,91 @@ class VerifierSession:
             "record": self.record_detail(),
             "tool_calls": list(self.tool_calls[-20:]),
             "user_ids": list(LAB_USER_IDS),
+            "viewer_user_id": self.viewer_user_id,
+            "turbo": self.turbo,
+            "unity": self.sim.snapshot(),
+            "trace_len": len(self.trace),
+            "trace_meta": trace_meta,
         }
+        kind = getattr(self, "catalog_kind", None) or ("debug" if self.debug_scenario else "script")
+        payload.update(
+            build_verdict(
+                kind=kind,
+                trace_meta=trace_meta,
+                frames=self.trace,
+                loop_error=self.loop_error(),
+                pytest=getattr(self, "pytest_result", None),
+            )
+        )
+        return payload
+
+    def frame(self, index: int) -> Dict[str, Any]:
+        if not self.trace:
+            raise VerifierError("还没有轨迹")
+        if index < 0:
+            index = len(self.trace) + index
+        if index < 0 or index >= len(self.trace):
+            raise VerifierError(f"帧越界 index={index} len={len(self.trace)}")
+        return self.trace[index]
+
+
+class TracePlayback:
+    """战鸣桥接等无 GameState 的轨迹回放。"""
+
+    def __init__(self, frames: List[Dict[str, Any]], extra: Optional[Dict[str, Any]] = None):
+        self.id = uuid.uuid4().hex[:12]
+        self.trace = list(frames or [])
+        self.extra = extra or {}
+        self.game = None
+        self.sim = None
+        self.actions: List[Dict[str, Any]] = []
+        self.turbo = True
+        self.viewer_user_id = LAB_USER_IDS[0]
+
+    def snapshot(self) -> Dict[str, Any]:
+        last = self.trace[-1] if self.trace else {}
+        trace_meta = [
+            {"index": frame.get("index", i), "type": frame.get("type")}
+            for i, frame in enumerate(self.trace)
+        ]
+        payload = {
+            "id": self.id,
+            "ended": True,
+            "paused": False,
+            "loop_error": None,
+            "kind": self.extra.get("kind"),
+            "unity": last.get("components") or {},
+            "trace_len": len(self.trace),
+            "trace_meta": trace_meta,
+            "pytest": self.extra.get("pytest"),
+            "assertion": self.extra.get("assertion"),
+            "item": self.extra.get("item"),
+            "legal": {"seats": {}, "branches": []},
+            "dump": {},
+            "messages": [],
+            "message_count": 0,
+            "actions": [],
+            "action_count": 0,
+        }
+        payload.update(
+            build_verdict(
+                kind=self.extra.get("kind"),
+                trace_meta=trace_meta,
+                frames=self.trace,
+                loop_error=None,
+                pytest=self.extra.get("pytest"),
+            )
+        )
+        return payload
+
+    def frame(self, index: int) -> Dict[str, Any]:
+        if not self.trace:
+            raise VerifierError("还没有轨迹")
+        if index < 0:
+            index = len(self.trace) + index
+        if index < 0 or index >= len(self.trace):
+            raise VerifierError(f"帧越界 index={index} len={len(self.trace)}")
+        return self.trace[index]
+
+    async def stop(self) -> None:
+        return

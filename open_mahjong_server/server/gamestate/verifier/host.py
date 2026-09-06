@@ -17,24 +17,27 @@ _PATCH_DEPTH = 0
 _REAL_SLEEP = None
 _REAL_READY_WAIT = None
 _REAL_READY_PRE = None
+_TURBO = False
 
 
 class CaptureSocket:
-    """代替 websocket：把 send_json 记进共享日志。"""
+    """代替 websocket：把 send_json 记进共享日志，并可选回调给 UnitySim。"""
 
-    def __init__(self, user_id: int, messages: List[Dict[str, Any]]):
+    def __init__(self, user_id: int, messages: List[Dict[str, Any]], on_send=None):
         self.user_id = user_id
         self._messages = messages
+        self._on_send = on_send
 
     async def send_json(self, payload: Any) -> None:
         message = payload if isinstance(payload, dict) else {"raw": payload}
-        self._messages.append(
-            {
-                "user_id": self.user_id,
-                "type": message.get("type"),
-                "message": message,
-            }
-        )
+        entry = {
+            "user_id": self.user_id,
+            "type": message.get("type"),
+            "message": message,
+        }
+        self._messages.append(entry)
+        if self._on_send is not None:
+            self._on_send(entry)
 
 
 def build_room_data(
@@ -95,6 +98,7 @@ def build_game_server(
     db_manager: MagicMock,
     *,
     messages: List[Dict[str, Any]],
+    on_send=None,
 ) -> SimpleNamespace:
     gsm = SimpleNamespace(
         room_id_to_GuobiaoGameState={},
@@ -128,7 +132,7 @@ def build_game_server(
     players = {}
     connections = {}
     for uid in LAB_USER_IDS:
-        sock = CaptureSocket(uid, messages)
+        sock = CaptureSocket(uid, messages, on_send=on_send)
         conn = SimpleNamespace(
             user_id=uid,
             websocket=sock,
@@ -161,9 +165,11 @@ def _lab_sleep_factory(real_sleep):
             seconds = float(delay or 0)
         except (TypeError, ValueError):
             seconds = 0.0
-        # wait_action 用 sleep(1) 与 action_events 竞态；必须保留，注入才能立刻唤醒。
-        # 换位 4s、局终演出、补花间隙等直接让步。
-        if seconds >= 1.5:
+        # turbo：含 wait_action 的 1s 轮询全部压成 0，可视化跟不上是预期。
+        # 非 turbo：wait_action 的 sleep(1) 必须保留，注入才能立刻唤醒。
+        if _TURBO:
+            await real_sleep(0)
+        elif seconds >= 1.5:
             await real_sleep(0)
         elif seconds >= 0.99:
             await real_sleep(seconds)
@@ -174,9 +180,15 @@ def _lab_sleep_factory(real_sleep):
     return lab_sleep
 
 
-def install_lab_runtime() -> None:
+def set_lab_turbo(enabled: bool) -> None:
+    global _TURBO
+    _TURBO = bool(enabled)
+
+
+def install_lab_runtime(*, turbo: bool = True) -> None:
     """进程级补丁：压缩演出 sleep，并把局终 ready 时限拉到一天。"""
     global _PATCH_DEPTH, _REAL_SLEEP, _REAL_READY_WAIT, _REAL_READY_PRE
+    set_lab_turbo(turbo)
     _PATCH_DEPTH += 1
     if _PATCH_DEPTH > 1:
         return
@@ -215,3 +227,4 @@ def restore_lab_runtime() -> None:
     _REAL_SLEEP = None
     _REAL_READY_WAIT = None
     _REAL_READY_PRE = None
+    set_lab_turbo(False)

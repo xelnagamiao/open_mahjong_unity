@@ -13,6 +13,7 @@ public class RoomListPanel : MonoBehaviour {
     [SerializeField] private Button createButton;      // 创建房间按钮
     [SerializeField] private Button refreshButton;     // 刷新按钮
     [SerializeField] private Button JoinRoomButton;        // 加入房间按钮
+    private int _joinInputBoundUserId = int.MinValue;
 
     private void Start() {
         createButton.onClick.AddListener(OpenCreatePanel);
@@ -31,6 +32,20 @@ public class RoomListPanel : MonoBehaviour {
 
     private void OnEnable() {
         NetworkPollingManager.Instance.StartRoomListPolling();
+        RefreshJoinInputForCurrentUser();
+    }
+
+    /// <summary>登出/重登后清掉加入房间号输入，避免带到下一个账号。</summary>
+    public void ResetSessionCaches() {
+        _joinInputBoundUserId = int.MinValue;
+        if (RoomIdInput != null) RoomIdInput.text = "";
+    }
+
+    private void RefreshJoinInputForCurrentUser() {
+        int userId = UserDataManager.Instance != null ? UserDataManager.Instance.UserId : 0;
+        if (userId == _joinInputBoundUserId) return;
+        _joinInputBoundUserId = userId;
+        if (RoomIdInput != null) RoomIdInput.text = "";
     }
 
     private void OnDisable() {

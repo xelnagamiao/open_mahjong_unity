@@ -48,8 +48,8 @@ public partial class RoundEndPresentation {
         bool recycleDiscard, bool isQianggang, bool endgameScoreOnly, bool finalPanel,
         Dictionary<int, int[]> simultaneousHuHands, bool skipHandReveal) {
         bool selfWon = NormalGameStateManager.Instance.indexToPosition[hepai_player_index] == "self";
-        bool isSichuan = NormalGameStateManager.Instance.IsSichuanRule();
-        bool isMidGameSichuanHu = deferScoreSettlement && isSichuan && !endgameScoreOnly;
+        // 分数延后到终局统一结算的局中和（川麻血战）：只演出亮牌，不出分数面板
+        bool isMidGameSichuanHu = deferScoreSettlement && !endgameScoreOnly;
         // 终局 settle_hu：仅分数面板，不重复 3D 和牌动画（reveal_hu 已亮牌）
         bool isEndgameScoreOnly = endgameScoreOnly;
         bool hasSimultaneousReveal = simultaneousHuHands != null && simultaneousHuHands.Count > 1;
@@ -113,7 +113,7 @@ public partial class RoundEndPresentation {
             yield return PlayPresentationFade(playPresentationEffects);
             yield return EndResultPanel.Instance.PlayPreparedShowResultCoroutine(
                 hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras,
-                RoundEndTiming.SichuanMidPanelConfirmSeconds, false, false);
+                RoundEndTiming.SichuanMidPanelConfirmSeconds, allowConfirmClick: false);
             activeRoundEndCoroutine = null;
         }
     }

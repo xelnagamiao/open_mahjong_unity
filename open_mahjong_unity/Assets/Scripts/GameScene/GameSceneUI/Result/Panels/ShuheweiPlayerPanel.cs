@@ -6,6 +6,8 @@ using UnityEngine.UI;
 public enum ShuheweiPanelPosition { Self, Left, Top, Right }
 
 public class ShuheweiPlayerPanel : MonoBehaviour {
+    /// <summary>数和位是古典专属面板，番/副文本固定按古典子规则解析。</summary>
+    private const string ClassicalRule = "classical/standard";
     [SerializeField] private ShuheweiPanelPosition position;
     [SerializeField] private TextMeshProUGUI userNameText;
     [SerializeField] private TextMeshProUGUI totalScoreText;
@@ -84,8 +86,8 @@ public class ShuheweiPlayerPanel : MonoBehaviour {
     public void AppendFuType(string fuType, GameObject fanCountPrefab) {
         GameObject fuInstance = Instantiate(fanCountPrefab, FanContainer);
         FanCount fuCount = fuInstance.GetComponent<FanCount>();
-        string fuDisplay = FanTextDictionary.GetFuDisplayText(fuType);
-        string fuNameDisplay = FanTextDictionary.GetFuNameDisplayText(fuType);
+        string fuDisplay = FanTextDictionary.GetFuDisplayText(ClassicalRule, fuType);
+        string fuNameDisplay = FanTextDictionary.GetFuNameDisplayText(ClassicalRule, fuType);
         fuCount.SetFanCount(fuNameDisplay, fuDisplay);
         fuCount.ApplyFuColor();
     }
@@ -102,7 +104,7 @@ public class ShuheweiPlayerPanel : MonoBehaviour {
     }
 
     public static int ParseFuValue(string fuType) {
-        string fuDisplay = FanTextDictionary.GetFuDisplayText(fuType);
+        string fuDisplay = FanTextDictionary.GetFuDisplayText(ClassicalRule, fuType);
         if (fuDisplay.EndsWith("副") && int.TryParse(fuDisplay.Replace("副", ""), out int val)) {
             return val;
         }
@@ -142,6 +144,19 @@ public class ShuheweiPlayerPanel : MonoBehaviour {
             point *= 2;
         }
         return Mathf.Min(300, point);
+    }
+
+    public void ApplyFuAndFanInstant(string[] fuTypes, string[] fanList, GameObject fanCountPrefab) {
+        if (fuTypes != null) {
+            for (int i = 0; i < fuTypes.Length; i++) {
+                AppendFuType(fuTypes[i], fanCountPrefab);
+            }
+        }
+        if (fanList != null) {
+            for (int i = 0; i < fanList.Length; i++) {
+                AppendFan(fanList[i], fanCountPrefab);
+            }
+        }
     }
 
     public IEnumerator PlayFuAndFanReveal(

@@ -255,7 +255,7 @@
 
         <template v-if="resultTab === 'standard' && analyzedStats">
           <div class="section-title">分析结果</div>
-          <p v-if="isGuobiao" class="result-note">国标巡目按庄家巡计算，与对局进程一致。</p>
+          <p v-if="isGuobiao" class="result-note">国标巡目按庄家巡计算，与对局进程一致。顺位按牌谱得分独立计算，允许同分同排位。</p>
           <div class="stats-table">
             <div class="stats-row" v-for="item in statsDisplay" :key="item.label">
               <span class="stats-label">{{ item.label }}</span>
@@ -303,7 +303,7 @@
 
         <template v-else-if="resultTab === 'advanced' && advancedStats">
           <div class="section-title">高级分析</div>
-          <p class="result-note">国标巡目按庄家巡计算，与对局进程一致。</p>
+          <p class="result-note">国标巡目按庄家巡计算，与对局进程一致。顺位按牌谱得分独立计算，允许同分同排位。</p>
           <div class="fun-tags">
             <div v-for="tag in funTags" :key="tag.name" class="fun-tag" :class="tag.tone">
               <span class="fun-tag-name">{{ tag.name }}</span>

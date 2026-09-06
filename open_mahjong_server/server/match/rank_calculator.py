@@ -94,16 +94,27 @@ def can_play_tier(
     rank_name: str,
     tier: str,
     is_mcrpl_qualified: bool = False,
-    is_sponsor: bool = False,
+    is_beginner_qualified: bool = False,
+    is_intermediate_qualified: bool = False,
+    is_advanced_qualified: bool = False,
 ) -> bool:
-    """判断段位是否有资格进入指定场次"""
+    """判断段位是否有资格进入指定场次。
+
+    初级/中级/高级的特许标志只突破最低段位，不突破最高段位上限。
+    MCRPL 仅凭 is_mcrpl_qualified 进入，与赞助状态无关。
+    """
     if tier == "mcrpl":
         return is_mcrpl_qualified
     rank_idx = get_rank_index(rank_name)
     max_rank_idx = TIER_MAX_RANK_INDEX.get(tier)
     if max_rank_idx is not None and rank_idx >= max_rank_idx:
         return False
-    if tier == "intermediate" and is_sponsor:
+    tier_pass = {
+        "beginner": is_beginner_qualified,
+        "intermediate": is_intermediate_qualified,
+        "advanced": is_advanced_qualified,
+    }.get(tier, False)
+    if tier_pass:
         return True
     return rank_idx >= TIER_MIN_RANK_INDEX.get(tier, 0)
 

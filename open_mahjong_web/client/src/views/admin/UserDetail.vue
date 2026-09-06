@@ -16,6 +16,20 @@
 
           <el-descriptions-item label="当前用户名">{{ detail.user.username }}</el-descriptions-item>
 
+          <el-descriptions-item label="绑定邮箱" :span="2">
+            <template v-if="detail.user.email">
+              <span>{{ detail.user.email }}</span>
+              <el-tag
+                :type="detail.user.email_verified_at ? 'success' : 'warning'"
+                size="small"
+                class="email-tag"
+              >
+                {{ detail.user.email_verified_at ? '已验证' : '未验证' }}
+              </el-tag>
+            </template>
+            <span v-else class="rank-empty">未绑定</span>
+          </el-descriptions-item>
+
           <el-descriptions-item label="类型">{{ detail.user.is_tourist ? '游客' : '注册' }}</el-descriptions-item>
 
           <el-descriptions-item label="牌谱数">{{ detail.game_record_count }}</el-descriptions-item>
@@ -74,10 +88,28 @@
 
           </el-descriptions-item>
 
-          <el-descriptions-item label="MCRPL 资格">
-
-            <el-switch v-model="edit.is_mcrpl_qualified" />
-
+          <el-descriptions-item label="特许入场" :span="2">
+            <div class="ladder-pass-list">
+              <label class="ladder-pass-item">
+                <el-switch v-model="edit.is_beginner_qualified" />
+                <span>初级场</span>
+              </label>
+              <label class="ladder-pass-item">
+                <el-switch v-model="edit.is_intermediate_qualified" />
+                <span>中级场</span>
+              </label>
+              <label class="ladder-pass-item">
+                <el-switch v-model="edit.is_advanced_qualified" />
+                <span>高级场</span>
+              </label>
+              <label class="ladder-pass-item">
+                <el-switch v-model="edit.is_mcrpl_qualified" />
+                <span>MCRPL</span>
+              </label>
+            </div>
+            <p class="rename-hint ladder-pass-hint">
+              初级/中级/高级特许可突破该场次最低段位，与赞助状态无关；中级场七段及以上上限仍生效。MCRPL 仅凭此项资格进入。
+            </p>
           </el-descriptions-item>
 
           <el-descriptions-item label="封禁状态" :span="2">
@@ -178,7 +210,7 @@
 
         <div class="actions">
 
-          <el-input v-model="edit.reason" placeholder="变更原因（必填）" style="max-width: 320px; margin-right: 8px" />
+          <el-input v-model="edit.reason" placeholder="变更原因（必填）" autocomplete="off" name="admin-change-reason" style="max-width: 320px; margin-right: 8px" />
 
           <el-button type="primary" @click="saveUser" :loading="saving">保存账号设置</el-button>
 
@@ -190,76 +222,66 @@
 
 
 
-      <el-card class="block">
-
-        <template #header>改名与密码</template>
-
-        <template v-if="!detail.user.is_tourist">
-
-          <p class="rename-hint">改名规则与游戏内一致：最多 16 个字符，中文计 2、英文/数字计 1，总权重 2～20。当前仅更新账号表；历史牌谱按对局时用户名快照展示。</p>
-
+      <el-card v-if="!detail.user.is_tourist" class="block">
+        <template #header>改名</template>
+        <p class="rename-hint">改名规则与游戏内一致：最多 16 个字符，中文计 2、英文/数字计 1，总权重 2～20。当前仅更新账号表；历史牌谱按对局时用户名快照展示。</p>
+        <form class="credential-form" autocomplete="off" @submit.prevent="renameUser">
+          <input class="autofill-decoy" type="text" name="username" autocomplete="username" tabindex="-1" aria-hidden="true" />
+          <input class="autofill-decoy" type="password" name="password" autocomplete="current-password" tabindex="-1" aria-hidden="true" />
           <div class="credential-row">
-
-            <span class="credential-label">改名</span>
-
             <el-input
-
               v-model="renameForm.new_username"
-
+              name="admin-rename-username"
+              autocomplete="off"
               clearable
-
               placeholder="新用户名"
-
               style="max-width: 220px"
-
               maxlength="16"
-
               show-word-limit
-
+              data-lpignore="true"
+              data-1p-ignore="true"
+              data-form-type="other"
             />
-
             <el-input
-
               v-model="renameForm.reason"
-
+              name="admin-rename-reason"
+              autocomplete="off"
               clearable
-
               placeholder="变更原因（必填）"
-
               style="max-width: 220px"
-
+              data-lpignore="true"
+              data-1p-ignore="true"
+              data-form-type="other"
             />
-
             <el-checkbox v-model="renameForm.sync_history">同步该 UID 的全部历史牌谱名</el-checkbox>
-
-            <el-button type="primary" @click="renameUser" :loading="renaming">保存新用户名</el-button>
-
+            <el-button type="primary" native-type="submit" :loading="renaming">保存新用户名</el-button>
           </div>
+        </form>
+      </el-card>
 
-        </template>
-
-        <div class="credential-row">
-
-          <span class="credential-label">密码</span>
-
-          <el-input
-
-            v-model="newPassword"
-
-            type="password"
-
-            show-password
-
-            placeholder="新密码（至少6位）"
-
-            style="max-width: 220px"
-
-          />
-
-          <el-button type="warning" @click="resetPassword">重置密码</el-button>
-
-        </div>
-
+      <el-card class="block">
+        <template #header>重置密码</template>
+        <form class="credential-form" autocomplete="off" @submit.prevent="resetPassword">
+          <input class="autofill-decoy" type="text" name="username" autocomplete="username" tabindex="-1" aria-hidden="true" />
+          <input class="autofill-decoy" type="password" name="password" autocomplete="current-password" tabindex="-1" aria-hidden="true" />
+          <div class="credential-row">
+            <el-input
+              v-model="newPassword"
+              type="password"
+              name="admin-new-password"
+              autocomplete="new-password"
+              :readonly="passwordReadonly"
+              @focus="passwordReadonly = false"
+              show-password
+              placeholder="新密码（至少6位）"
+              style="max-width: 220px"
+              data-lpignore="true"
+              data-1p-ignore="true"
+              data-form-type="other"
+            />
+            <el-button type="warning" native-type="submit">重置密码</el-button>
+          </div>
+        </form>
       </el-card>
 
 
@@ -270,17 +292,15 @@
 
         <p class="rename-hint">只修改当前 UID 下，原历史用户名完全匹配的牌谱快照；不会影响其他 UID 的同名玩家，也不会改变当前账户用户名。</p>
 
-        <div class="credential-row">
-
-          <el-input v-model="historyRename.oldUsername" placeholder="原历史用户名" style="max-width: 180px" />
-
-          <el-input v-model="historyRename.newUsername" placeholder="新历史用户名" style="max-width: 180px" />
-
-          <el-input v-model="historyRename.reason" placeholder="变更原因（必填）" style="max-width: 220px" />
-
-          <el-button type="warning" plain :loading="renamingHistory" @click="renameHistoryUsername">迁移历史用户名</el-button>
-
-        </div>
+        <form class="credential-form" autocomplete="off" @submit.prevent="renameHistoryUsername">
+          <input class="autofill-decoy" type="text" name="username" autocomplete="username" tabindex="-1" aria-hidden="true" />
+          <div class="credential-row">
+            <el-input v-model="historyRename.oldUsername" name="admin-history-old-username" autocomplete="off" placeholder="原历史用户名" style="max-width: 180px" data-lpignore="true" data-1p-ignore="true" />
+            <el-input v-model="historyRename.newUsername" name="admin-history-new-username" autocomplete="off" placeholder="新历史用户名" style="max-width: 180px" data-lpignore="true" data-1p-ignore="true" />
+            <el-input v-model="historyRename.reason" name="admin-history-reason" autocomplete="off" placeholder="变更原因（必填）" style="max-width: 220px" data-lpignore="true" data-1p-ignore="true" />
+            <el-button type="warning" plain native-type="submit" :loading="renamingHistory">迁移历史用户名</el-button>
+          </div>
+        </form>
 
       </el-card>
 
@@ -438,10 +458,17 @@ const resettingRank = ref(false)
 const detail = ref(null)
 
 const newPassword = ref('')
+const passwordReadonly = ref(true)
 
 const edit = reactive({
 
   sponsor_expires_at: null,
+
+  is_beginner_qualified: false,
+
+  is_intermediate_qualified: false,
+
+  is_advanced_qualified: false,
 
   is_mcrpl_qualified: false,
 
@@ -547,7 +574,10 @@ function syncEditFromDetail() {
 
     : null
 
-  edit.is_mcrpl_qualified = detail.value.user.is_mcrpl_qualified
+  edit.is_beginner_qualified = !!detail.value.user.is_beginner_qualified
+  edit.is_intermediate_qualified = !!detail.value.user.is_intermediate_qualified
+  edit.is_advanced_qualified = !!detail.value.user.is_advanced_qualified
+  edit.is_mcrpl_qualified = !!detail.value.user.is_mcrpl_qualified
 
   edit.ban_type = detail.value.user.ban_type || null
 
@@ -660,6 +690,12 @@ async function saveUser() {
     await adminApi.patch(`/users/${route.params.userId}`, {
 
       sponsor_expires_at: edit.sponsor_expires_at,
+
+      is_beginner_qualified: edit.is_beginner_qualified,
+
+      is_intermediate_qualified: edit.is_intermediate_qualified,
+
+      is_advanced_qualified: edit.is_advanced_qualified,
 
       is_mcrpl_qualified: edit.is_mcrpl_qualified,
 
@@ -1069,6 +1105,45 @@ onMounted(load)
 
 }
 
+.email-tag {
+  margin-left: 8px;
+}
+
+.ladder-pass-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 24px;
+}
+
+.ladder-pass-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: #606266;
+  font-size: 13px;
+}
+
+.ladder-pass-hint {
+  margin-top: 8px;
+  margin-bottom: 0;
+}
+
+.credential-form {
+  position: relative;
+}
+
+.autofill-decoy {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .credential-row {
 
   display: flex;
@@ -1086,18 +1161,6 @@ onMounted(load)
 .credential-row:last-child {
 
   margin-bottom: 0;
-
-}
-
-.credential-label {
-
-  width: 40px;
-
-  flex-shrink: 0;
-
-  color: #606266;
-
-  font-size: 13px;
 
 }
 

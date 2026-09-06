@@ -51,7 +51,7 @@ public class EndLiujuPanel : MonoBehaviour {
             autoHideCoroutine = null;
         }
         if (liujuText != null) liujuText.text = displayText;
-        GuobiaoAngangCheck.Apply(guobiaoAngangCheckText, NormalGameStateManager.Instance.lastGuobiaoEndExtras, null);
+        EndResultPanel.ApplyRuleFootnote(guobiaoAngangCheckText, GameSession.Current.SubRule, null);
         ClearTenpaiMarkers();
         ApplyTenpaiMarkers(tenpaiTilesByPlayerIndex);
         gameObject.SetActive(true);
@@ -71,7 +71,7 @@ public class EndLiujuPanel : MonoBehaviour {
             autoHideCoroutine = null;
         }
         ClearTenpaiMarkers();
-        GuobiaoAngangCheck.Clear(guobiaoAngangCheckText);
+        EndResultPanel.HideRuleFootnote(guobiaoAngangCheckText);
         gameObject.SetActive(false);
     }
 

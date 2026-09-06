@@ -230,8 +230,6 @@ function analyzeOneRecord(record, userId, acc) {
   acc.total_games += 1;
   acc.total_rounds += roundKeys.length;
 
-  let finalScore = 0;
-
   for (const key of roundKeys) {
     const rd = gameRound[key] || {};
     const seats = resolveRoundSeats(rd);
@@ -256,11 +254,8 @@ function analyzeOneRecord(record, userId, acc) {
 
       if (isCuohe(hu.yaku)) {
         if (myDelta < 0) acc.cuohe_count += 1;
-        finalScore += myDelta;
         continue;
       }
-
-      finalScore += myDelta;
 
       if (myDelta > 0) {
         if (hu.huClass === 'hu_self') acc.self_draw_count += 1;
@@ -282,24 +277,35 @@ function analyzeOneRecord(record, userId, acc) {
     // 和巡推理：本局该 seat 的和巡总和
     acc.total_win_turn += (reconstructRoundWinTurns(rd)[mySeat] || 0);
   }
-
-  acc._finalScores.push({ idx: originalIndex, score: finalScore });
 }
 
-function resolveMyRank(record, userId, serverRank) {
-  const r = Number(serverRank);
-  if (r >= 1 && r <= 4) return r;
+function assignCompetitionRanks(ranked) {
+  const ranks = [0, 0, 0, 0];
+  for (let i = 0; i < ranked.length; i += 1) {
+    if (i > 0 && ranked[i].score === ranked[i - 1].score) {
+      ranks[ranked[i].idx] = ranks[ranked[i - 1].idx];
+    } else {
+      ranks[ranked[i].idx] = i + 1;
+    }
+  }
+  return ranks;
+}
+
+/**
+ * 从牌谱净得分重建本场名次。分析页独立计算，允许同分同排位（1,2,2,4）。
+ */
+export function resolveRecordRank(record, userId) {
   const originalIndex = findOriginalIndex(record, userId);
   if (originalIndex < 0) return 0;
-  const localFinal = [];
-  for (let i = 0; i < 4; i++) localFinal.push({ idx: i, score: computeFinalScore(record, i) });
-  localFinal.sort((a, b) => b.score - a.score || a.idx - b.idx);
-  return localFinal.findIndex((e) => e.idx === originalIndex) + 1;
+  const ranked = [0, 1, 2, 3]
+    .map((idx) => ({ idx, score: computeFinalScore(record, idx) }))
+    .sort((a, b) => b.score - a.score || a.idx - b.idx);
+  return assignCompetitionRanks(ranked)[originalIndex];
 }
 
 /**
  * 计算一组牌谱对目标玩家的统计行（与 buildStatsRows 输入结构一致）。
- * @param {Array<object|object>} items 牌谱 JSON，或 { record, rank }（rank 来自服务端）
+ * 顺位由牌谱得分独立重建，允许同分同排位。
  */
 export function analyzeRecords(items, userId) {
   const acc = {
@@ -319,7 +325,6 @@ export function analyzeRecords(items, userId) {
     third_place_count: 0,
     fourth_place_count: 0,
     fan_stats: {},
-    _finalScores: [],
   };
 
   for (const item of items) {
@@ -329,7 +334,7 @@ export function analyzeRecords(items, userId) {
     if (acc.total_games === beforeGames) continue;
 
     const originalIndex = findOriginalIndex(record, userId);
-    const myRank = resolveMyRank(record, userId, item?.rank);
+    const myRank = resolveRecordRank(record, userId);
     if (myRank === 1) acc.first_place_count += 1;
     else if (myRank === 2) acc.second_place_count += 1;
     else if (myRank === 3) acc.third_place_count += 1;
@@ -339,7 +344,6 @@ export function analyzeRecords(items, userId) {
   }
 
   acc.win_count = acc.self_draw_count + acc.deal_in_win_count;
-  delete acc._finalScores;
   delete acc.deal_in_win_count;
   return acc;
 }

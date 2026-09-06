@@ -22,6 +22,7 @@ from .boardcast import (
     build_state as build_hongque_state,
     send_state_to as hongque_send_state_to,
     visible_event as hongque_visible_event,
+    broadcast_game_end as hongque_broadcast_game_end,
 )
 from .get_action import (
     bot_claim as hongque_bot_claim,
@@ -39,6 +40,9 @@ from ..public.round_end_timing import (
     liuju_ready_wait_seconds,
     sichuan_settle_hu_panel_wait_seconds,
 )
+from ..public.random_seed_manager import setup_random_seed_system
+from ..public.game_record_manager import capture_player_entry_order
+from .record import persist_and_remember, record_round_result
 from .hongque_debug import (
     HONGQUE_DEBUG_SCENARIO,
 )
@@ -62,12 +66,7 @@ BOT_ACTION_DELAY = 0.5
 
 
 class HongqueGameState:
-    """Authoritative, memory-only Hongque 2 game state.
-
-    The wire format uses HQv3.1 resource keys (``AX1`` ... ``GY9``).  All
-    actions are checked server-side.  This rule intentionally has no
-    database, statistics, replay, spectator, or match integration.
-    """
+    """虹雀对局状态。终局无机器人时入库牌谱；无论是否有机器人都下发本地牌谱。"""
 
     @property
     def phase(self) -> str:
@@ -89,6 +88,7 @@ class HongqueGameState:
     def __init__(self, game_server: Any, room_data: dict, calculation_service: Any = None,
                  db_manager: Any = None, gamestate_id: str = "hongque-test") -> None:
         self.game_server = game_server
+        self.db_manager = db_manager
         self.room_id = room_data["room_id"]
         self.gamestate_id = gamestate_id
         self.room_rule = "hongque"
@@ -97,6 +97,20 @@ class HongqueGameState:
         self.allow_spectator_config = False
         self.spectator_enabled = False
         self.realtime_spectators: list = []
+        self.spectator_manager = None
+        self.game_record: dict = {}
+        self.player_action_tick = 0
+        self.tiles_list: list[int] = []
+        self.open_cuohe = False
+        self.tactical_call = True
+        user_seed = room_data.get("random_seed")
+        try:
+            user_seed = int(user_seed) if user_seed not in (None, "") else None
+        except (TypeError, ValueError):
+            user_seed = None
+        self.master_seed, self.salt, self.commitment, self.isPlayerSetRandomSeed = (
+            setup_random_seed_system(user_seed)
+        )
         # RoomManager has already normalized Hongque game_round to the actual
         # number of hands so room lists and in-game state share one value.
         self.max_round = max(1, int(room_data.get("game_round", 4)))
@@ -159,6 +173,7 @@ class HongqueGameState:
         self.waiting_players_list: list[int] = []
         self._in_wait_action = False
         self._driving_local = False
+        self._starting_round = False
         self.players: list[HongquePlayer] = []
         settings = room_data.get("player_settings", {})
         for index, user_id in enumerate(room_data["player_list"]):
@@ -174,31 +189,60 @@ class HongqueGameState:
                 remaining_time=self.round_time,
             ))
         self.player_list = self.players
+        capture_player_entry_order(self)
+
+    @property
+    def round_index(self) -> int:
+        return self.current_round
 
     async def run_game_loop(self) -> None:
         try:
-            await self._start_round()
-            while self.state_machine.status is not HongqueStatus.END:
-                await vote_checkpoint(self)
-                status = self.state_machine.status
-                if status is HongqueStatus.DEAL_CARD:
+            await self.game_loop_hongque()
+        except asyncio.CancelledError:
+            logger.info(
+                "虹雀游戏循环被取消，room_id=%s gamestate_id=%s",
+                self.room_id, self.gamestate_id,
+            )
+            raise
+        except Exception:
+            logger.exception(
+                "虹雀游戏循环未捕获异常，room_id=%s gamestate_id=%s",
+                self.room_id, self.gamestate_id,
+            )
+            try:
+                await self.cleanup_game_state()
+            except Exception:
+                logger.exception(
+                    "清理虹雀对局失败，room_id=%s gamestate_id=%s",
+                    self.room_id, self.gamestate_id,
+                )
+
+    async def game_loop_hongque(self) -> None:
+        """国标式主循环：历时状态推进，询问状态阻塞 wait_action，超时在等待结束后处理。"""
+        await self._start_round()
+        while self.state_machine.status is not HongqueStatus.END:
+            await vote_checkpoint(self)
+            if self._starting_round:
+                await asyncio.sleep(0.05)
+                continue
+            status = self.state_machine.status
+            match status:
+                case HongqueStatus.DEAL_CARD:
                     await hongque_deal_card(self)
-                elif status is HongqueStatus.RESOLVING_DISCARD:
+                case HongqueStatus.RESOLVING_DISCARD:
                     await self._open_claim_window()
-                elif status in (
-                    HongqueStatus.WAITING_HAND_ACTION,
-                    HongqueStatus.ONLYCUT_AFTER_ACTION,
-                    HongqueStatus.WAITING_ACTION_AFTER_CUT,
+                case (
+                    HongqueStatus.WAITING_HAND_ACTION
+                    | HongqueStatus.ONLYCUT_AFTER_ACTION
+                    | HongqueStatus.WAITING_ACTION_AFTER_CUT
                 ):
                     await hongque_wait_action(self)
-                elif status is HongqueStatus.WAITING_READY:
+                case HongqueStatus.WAITING_READY:
                     await asyncio.sleep(0.05)
-                elif status is HongqueStatus.END:
+                case HongqueStatus.END:
                     break
-                else:
+                case _:
                     await asyncio.sleep(0.05)
-        except asyncio.CancelledError:
-            raise
 
     def _record_event(self, event_type: str, **payload: Any) -> dict:
         self.event_sequence += 1
@@ -278,17 +322,17 @@ class HongqueGameState:
             await self._handle_ready_action(player)
             return
         validate_submitted_action(self, player, action, tile, candidate_id)
+        await self.action_queues[player.index].put({
+            "action_type": action,
+            "tile": tile,
+            "candidate_id": candidate_id,
+            "_action_tick": self.action_tick if action_tick is None else int(action_tick),
+        })
+        self.action_events[player.index].set()
+        if self._in_wait_action or self._game_loop_is_running():
+            return
         async with self._lock:
-            await self.action_queues[player.index].put({
-                "action_type": action,
-                "tile": tile,
-                "candidate_id": candidate_id,
-                "_action_tick": self.action_tick if action_tick is None else int(action_tick),
-            })
-            self.action_events[player.index].set()
-            if self._in_wait_action or self._game_loop_is_running():
-                return
-            if self._driving_local:
+            if self._in_wait_action or self._game_loop_is_running() or self._driving_local:
                 return
             self._driving_local = True
         try:
@@ -299,9 +343,23 @@ class HongqueGameState:
                         not queue.empty() for queue in self.action_queues.values()
                     )
                     if not leftover:
-                        break
-        finally:
+                        self._driving_local = False
+                        return
+        except Exception:
             self._driving_local = False
+            raise
+
+    def _clear_action_queue(self, player_index: int) -> None:
+        queue = self.action_queues[player_index]
+        while not queue.empty():
+            queue.get_nowait()
+        self.action_events[player_index].clear()
+
+    def _drop_unwaited_actions(self, keep: set[int]) -> None:
+        """丢掉当前询问对象以外的入队，避免本地推进空转。"""
+        for index in range(4):
+            if index not in keep:
+                self._clear_action_queue(index)
 
     async def _drive_local(self) -> None:
         """测试/无主循环时推进队列：立刻应用已入队动作，并消化历时状态。"""
@@ -318,6 +376,7 @@ class HongqueGameState:
                 HongqueStatus.ONLYCUT_AFTER_ACTION,
             ):
                 player_index = self.current_player_index
+                self._drop_unwaited_actions({player_index})
                 if self.action_queues[player_index].empty():
                     return
                 action_data = dict(await self.action_queues[player_index].get())
@@ -333,7 +392,9 @@ class HongqueGameState:
             if status is HongqueStatus.WAITING_ACTION_AFTER_CUT:
                 window = self.claim_window
                 if window is None:
+                    self._drop_unwaited_actions(set())
                     return
+                self._drop_unwaited_actions(set(window.pending))
                 flushed = False
                 for player_index in list(window.pending):
                     if self.action_queues[player_index].empty():
@@ -351,6 +412,7 @@ class HongqueGameState:
                 if flushed:
                     continue
                 return
+            self._drop_unwaited_actions(set())
             return
 
     async def _handle_turn_action(self, player: HongquePlayer, action: str,
@@ -390,9 +452,6 @@ class HongqueGameState:
 
     async def _broadcast_claim_apply(self, player_index: int, candidate: dict) -> None:
         await wait_broadcast_claim_application(self, player_index, candidate)
-
-    async def _claim_timeout(self, tick: int) -> None:
-        await hongque_wait_action(self)
 
     async def _resolve_claims(self) -> None:
         await wait_resolve_claims(self)
@@ -457,6 +516,7 @@ class HongqueGameState:
                 "scores": {str(player.index): player.score for player in self.players},
             }
             self._record_event("draw_game", players=[])
+        record_round_result(self, winners, reason)
         # 与通用计分板一致：多家和的每位赢家各占一行，局号可重复；流局占一行 0。
         history_rows = [
             {str(winner.index): int(result["points"])}
@@ -610,6 +670,8 @@ class HongqueGameState:
             return
 
     async def _complete_game_lifecycle(self) -> None:
+        persist_and_remember(self)
+        await hongque_broadcast_game_end(self)
         await asyncio.sleep(4)
         if self.game_server is None:
             return

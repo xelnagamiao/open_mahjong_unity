@@ -47,18 +47,10 @@ public class RulebookPanelController : MonoBehaviour {
         openButtonText.text = $"打开{ruleName}规则书";
     }
 
+    /// <summary>web 端 /rulebook/:rule 页签键：族在 Manifest 里声明 RulebookKey，缺省用 RuleId（web 端未知键会回落到国标）。</summary>
     private static string ResolveRulebookKey(string roomRule, string subRule) {
-        if (!string.IsNullOrEmpty(subRule) && subRule.StartsWith("guobiao")) return "guobiao";
-        switch (roomRule) {
-            case "guobiao": return "guobiao";
-            case "qingque": return "qingque";
-            case "classical": return "classical";
-            case "riichi": return "riichi";
-            case "sichuan": return "sichuan";
-            case "changsha": return "changsha";
-            case "taiwan": return "taiwan";
-            default: return "guobiao";
-        }
+        RuleManifest manifest = RuleRegistry.Resolve(roomRule, subRule);
+        return manifest?.RulebookKey ?? manifest?.RuleId ?? "guobiao";
     }
 
     private static string RuleDisplayName(string roomRule, string subRule) {
@@ -66,20 +58,12 @@ public class RulebookPanelController : MonoBehaviour {
             string wholeName = RuleNameDictionary.GetWholeName(subRule);
             if (!string.IsNullOrEmpty(wholeName) && wholeName != subRule) return wholeName;
         }
-        switch (roomRule) {
-            case "guobiao": return "国标麻将";
-            case "qingque": return "青雀";
-            case "classical": return "古典麻将";
-            case "riichi": return "立直麻将";
-            case "sichuan": return "四川麻将";
-            case "changsha": return "长沙麻将";
-            case "taiwan": return "台湾麻将";
-            default: return "麻将";
-        }
+        string displayName = RuleRegistry.Resolve(roomRule, subRule)?.DisplayName;
+        return string.IsNullOrEmpty(displayName) ? "麻将" : displayName;
     }
 
     private void OnOpenRulebookClicked() {
-        string url = $"{ConfigManager.webUrl}/rulebook/{_currentRule}";
+        string url = $"{GameHost.Current.WebUrl}/rulebook/{_currentRule}";
         Application.OpenURL(url);
     }
 }

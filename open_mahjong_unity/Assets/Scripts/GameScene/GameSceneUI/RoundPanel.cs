@@ -69,7 +69,7 @@ public class RoundPanel : MonoBehaviour, IPointerClickHandler {
         commitmentSaltDetailPanel.SetContent(_cachedCommitment, _cachedSalt, _cachedMasterSeed);
         commitmentSaltDetailPanel.ShowWithFadeIn();
         CoroutineManager.Ensure();
-        CoroutineManager.Instance.RunNamed(
+        CoroutineManager.Instance?.RunNamed(
             CoroutineKeys.CommitmentSaltHide,
             HideCommitmentSaltAfterDelay(),
             restartIfRunning: true
@@ -77,7 +77,7 @@ public class RoundPanel : MonoBehaviour, IPointerClickHandler {
     }
 
     private void CancelCommitmentSaltDetail() {
-        CoroutineManager.Instance.StopNamed(CoroutineKeys.CommitmentSaltHide);
+        CoroutineManager.Instance?.StopNamed(CoroutineKeys.CommitmentSaltHide);
         commitmentSaltDetailPanel?.HideImmediate();
     }
 
@@ -105,12 +105,10 @@ public class RoundPanel : MonoBehaviour, IPointerClickHandler {
     }
 
     private static bool IsRiichiLayout(GameInfo gameInfo, string roomRule) {
-        if (!string.IsNullOrEmpty(roomRule) && (roomRule == "riichi" || roomRule.StartsWith("riichi/"))) return true;
-        if (gameInfo != null) {
-            if (!string.IsNullOrEmpty(gameInfo.sub_rule) && gameInfo.sub_rule.StartsWith("riichi")) return true;
-            if (gameInfo.room_rule == "riichi") return true;
-        }
-        return false;
+        // roomRule 参数可能是 "riichi/xxx" 这种子规则串，也按前缀解析
+        RuleManifest manifest = RuleRegistry.Resolve(roomRule, roomRule)
+            ?? (gameInfo != null ? RuleRegistry.Resolve(gameInfo.room_rule, gameInfo.sub_rule) : null);
+        return manifest != null && manifest.RiichiRoundLayout;
     }
 }
 

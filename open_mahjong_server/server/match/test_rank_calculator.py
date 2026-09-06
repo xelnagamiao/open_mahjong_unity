@@ -1,4 +1,4 @@
-from server.match.rank_calculator import calculate_pt
+from server.match.rank_calculator import calculate_pt, can_play_tier
 
 
 def test_first_and_second_use_format_multiplier():
@@ -19,3 +19,19 @@ def test_third_and_fourth_also_use_format_multiplier():
     assert calculate_pt("beginner", "banzhuang", 4, "2级") == round(-15 * 0.7 * 0.7, 2)
     assert calculate_pt("beginner", "dongfeng", 4, "2级") == round(-15 * 0.7 * 0.49, 2)
     assert calculate_pt("advanced", "dongfeng", 4, "四段") == round(-95 * 0.7 * 0.49, 2)
+
+
+def test_can_play_tier_rank_and_pass():
+    assert can_play_tier("10级", "beginner")
+    assert can_play_tier("九段", "beginner")
+    assert not can_play_tier("10级", "intermediate")
+    assert can_play_tier("2级", "intermediate")
+    assert can_play_tier("10级", "intermediate", is_intermediate_qualified=True)
+    assert not can_play_tier("10级", "intermediate", is_beginner_qualified=True)
+    assert not can_play_tier("七段", "intermediate")
+    assert not can_play_tier("七段", "intermediate", is_intermediate_qualified=True)
+    assert not can_play_tier("2级", "advanced")
+    assert can_play_tier("四段", "advanced")
+    assert can_play_tier("2级", "advanced", is_advanced_qualified=True)
+    assert not can_play_tier("九段", "mcrpl")
+    assert can_play_tier("10级", "mcrpl", is_mcrpl_qualified=True)

@@ -16,7 +16,7 @@ public partial class Game3DManager : MonoBehaviour
     /// <summary>副露组间距：竖排副露规则固定保留（优先于设置），其它规则按设置开关。</summary>
     private float MeldSpacingGap() {
         bool enabled = IsVerticalMelds()
-            || (ConfigManager.Instance != null && ConfigManager.Instance.MeldSpacingEnabled);
+            || (GameSettings.Current.MeldSpacingEnabled);
         return enabled ? cardWidth * CombinationGroupGapFactor : 0f;
     }
 

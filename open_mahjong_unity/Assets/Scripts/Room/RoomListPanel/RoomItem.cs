@@ -101,7 +101,7 @@ public class RoomItem : MonoBehaviour {
         // 可选字段：起和番（国标有效）
         if (hepaiLimitText != null) {
             try {
-                if (roomRule == "guobiao" || roomType == "guobiao") {
+                if (RuleRegistry.Resolve(roomRule, roomType)?.ShowsHepaiLimitInRoomList == true) {
                     int hepai = roomData.hepai_limit;
                     hepaiLimitText.text = "起和番:" + (hepai > 0 ? hepai.ToString() : "8");
                     hepaiLimitText.gameObject.SetActive(true);

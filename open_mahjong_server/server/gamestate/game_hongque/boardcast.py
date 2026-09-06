@@ -121,3 +121,44 @@ async def broadcast_state(game_state, **kwargs) -> None:
         send_state_to(game_state, player.index, **kwargs)
         for player in game_state.players
     ))
+
+
+async def broadcast_game_end(game_state) -> None:
+    """终局下发 game_end，附带 record_detail 供客户端落盘本地牌谱。"""
+    from ...response import Game_end_info, Player_final_data
+    from ..public.game_record_manager import local_record_detail_for_end
+
+    player_final_data = {}
+    for player in game_state.players:
+        rank = int(getattr(getattr(player, "record_counter", None), "rank_result", 0) or 0)
+        player_final_data[str(player.index)] = Player_final_data(
+            username=player.username,
+            rank=rank,
+            score=int(player.score),
+            pt=0,
+            original_player_index=player.original_player_index,
+        )
+    info = Game_end_info(
+        master_seed=getattr(game_state, "master_seed", 0) or 0,
+        commitment=getattr(game_state, "commitment", 0) or 0,
+        salt=getattr(game_state, "salt", "") or "",
+        player_final_data=player_final_data,
+        record_detail=local_record_detail_for_end(game_state),
+    )
+    payload = {
+        "type": "gamestate/hongque/game_end",
+        "success": True,
+        "message": "游戏结束",
+        "game_end_info": info.dict(exclude_none=True),
+    }
+    if game_state.game_server is None:
+        return
+    connections = getattr(game_state.game_server, "user_id_to_connection", {}) or {}
+    for player in game_state.players:
+        if player.is_bot or not player.online:
+            continue
+        connection = connections.get(player.user_id)
+        websocket = getattr(connection, "websocket", None) if connection is not None else None
+        if websocket is None:
+            continue
+        await websocket.send_json(payload)

@@ -234,6 +234,12 @@ public class RoomNetworkManager : MonoBehaviour {
         RoomPanel.Instance?.ClearRoomState();
     }
 
+    /// <summary>登出/重登：清掉待进入房间与大厅房间号缓存，不切窗口、不发退房请求。</summary>
+    public void ResetForSessionEnd() {
+        ClearPendingRoomEntry();
+        ClearStaleLobbyState();
+    }
+
     // ========== 房间相关的发送方法 ==========
 
     private static bool BlockRoomEntryRequest() {

@@ -56,14 +56,14 @@ public static partial class HepaiRevealDirector {
         string ruleKey,
         string discardPlayerPosition) {
         bool isCuohe = ContainsCuohe(huFan);
-        bool isGuobiao = IsGuobiaoRuleKey(ruleKey);
+        bool travelsFromRiver = ManifestOf(ruleKey)?.RonWinTileTravelsFromRiver == true;
         bool isSelfDraw = huClass == "hu_self";
 
         HepaiWinTilePresentMode mode;
         if (isSelfDraw) {
             mode = HepaiWinTilePresentMode.TsumoTravel;
         }
-        else if (isGuobiao && !isCuohe) {
+        else if (travelsFromRiver && !isCuohe) {
             mode = HepaiWinTilePresentMode.GuobiaoRonTravelFromRiver;
         }
         else {
@@ -93,19 +93,17 @@ public static partial class HepaiRevealDirector {
         return gsm.subRule ?? "";
     }
 
-    internal static bool IsGuobiaoRuleKey(string ruleKey) {
-        if (string.IsNullOrEmpty(ruleKey)) return false;
+    /// <summary>ruleKey 可能是 room_rule（"guobiao"）也可能是 sub_rule（"guobiao/standard"），两种都按清单解析。</summary>
+    internal static RuleManifest ManifestOf(string ruleKey) {
+        if (string.IsNullOrEmpty(ruleKey)) return null;
         ruleKey = ruleKey.ToLowerInvariant();
-        return ruleKey == "guobiao" || ruleKey.StartsWith("guobiao");
+        return RuleRegistry.Resolve(ruleKey, ruleKey);
     }
 
-    internal static bool IsTaiwanRuleKey(string ruleKey) {
-        if (string.IsNullOrEmpty(ruleKey)) return false;
-        ruleKey = ruleKey.ToLowerInvariant();
-        return ruleKey == "taiwan" || ruleKey.StartsWith("taiwan");
+    /// <summary>和牌张是否从河里飘回手（RuleManifest.RonWinTileTravelsFromRiver）。</summary>
+    internal static bool RonWinTileTravelsFromRiver(string ruleKey) {
+        return ManifestOf(ruleKey)?.RonWinTileTravelsFromRiver == true;
     }
-
-    private static bool IsGuobiaoRule() => IsGuobiaoRuleKey(ResolveLiveRuleKey());
 
     private static bool ContainsCuohe(string[] huFan) {
         if (huFan == null) return false;
@@ -141,7 +139,7 @@ public static partial class HepaiRevealDirector {
             WinTileMode = mode,
             RecycleDiscardAfterPresent = recycleDiscard,
             IsQianggang = isQianggang,
-            DiscardPlayerPosition = NormalGameStateManager.Instance.ResolveRonDiscarderPosition(ronDiscarderIndex),
+            DiscardPlayerPosition = TableMirror.Current.ResolveRonDiscarderSeat(ronDiscarderIndex),
         };
     }
 
@@ -172,8 +170,7 @@ public static partial class HepaiRevealDirector {
         string huClass,
         IList<string> fanNames,
         IDictionary<string, object> detailedConfig) {
-        return IsTaiwanRuleKey(ruleKey)
-            ? TaiwanExternal.ResolveHuPresentationAction(huClass, fanNames, detailedConfig)
-            : huClass;
+        var hook = ManifestOf(ruleKey)?.HuPresentationAction;
+        return hook != null ? hook(huClass, fanNames, detailedConfig) : huClass;
     }
 }

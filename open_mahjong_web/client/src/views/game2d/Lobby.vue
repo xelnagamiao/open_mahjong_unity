@@ -323,7 +323,7 @@ const MATCH_HELP_TIERS = [
     settings: '有提示、无错和、战术鸣牌',
   },
   {
-    key: 'intermediate', title: '中级场', admission: '2级及以上，七段及以上不可进入；赞助者可突破最低段位', base: 65, time: '20+8',
+    key: 'intermediate', title: '中级场', admission: '2级及以上，七段及以上不可进入', base: 65, time: '20+8',
     settings: '无提示、错和、战术鸣牌',
   },
   {
@@ -437,13 +437,16 @@ function formatRankPt(row) {
 }
 
 function canEnterTier(tierKey) {
-  if (tierKey === 'beginner') return true
-  const rankIndex = getRankEntry(session.rank?.guobiao_rank)?.index ?? 0
-  if (tierKey === 'intermediate') {
-    return rankIndex < 16 && (rankIndex >= 8 || Boolean(session.rank?.is_sponsor))
-  }
-  if (tierKey === 'advanced') return rankIndex >= 13
   if (tierKey === 'mcrpl') return Boolean(session.rank?.is_mcrpl_qualified)
+  const rankIndex = getRankEntry(session.rank?.guobiao_rank)?.index ?? 0
+  if (tierKey === 'intermediate' && rankIndex >= 16) return false
+  if (tierKey === 'beginner') return true
+  if (tierKey === 'intermediate') {
+    return rankIndex >= 8 || Boolean(session.rank?.is_intermediate_qualified)
+  }
+  if (tierKey === 'advanced') {
+    return rankIndex >= 13 || Boolean(session.rank?.is_advanced_qualified)
+  }
   return false
 }
 

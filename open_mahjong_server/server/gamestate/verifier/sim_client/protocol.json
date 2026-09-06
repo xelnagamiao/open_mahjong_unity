@@ -36,7 +36,10 @@
     "open_mahjong_unity/Assets/Scripts/Network/GameStateNetworkManager.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/GameStateManager/NormalGameStateManager.Actions.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/CanvasManager/GameCanvas_ActionButton.cs",
-    "open_mahjong_unity/Assets/Scripts/GameScene/GameStateManager/GameRecordManager/GameRecordJsonDecoder.cs",
-    "open_mahjong_unity/Assets/Scripts/GameScene/GameStateManager/GameRecordManager/GameRecordData.cs"
+    "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordJsonDecoder.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordData.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordMeldCodec.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Record/RecordHuHandBuilder.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordManager.GotoAction.cs"
   ]
 }

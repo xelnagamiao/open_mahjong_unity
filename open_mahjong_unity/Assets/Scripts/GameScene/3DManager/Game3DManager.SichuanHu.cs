@@ -131,7 +131,7 @@ public partial class Game3DManager {
         if (winnerPanel == null || winnerPanel.buhuaPosition == null) yield break;
         GameObject riverTile = DetachRonSourceObject(request.DiscardPlayerPosition, tileId);
         if (riverTile != null) {
-            NormalGameStateManager.Instance.SyncRonDiscardRemoved(request.DiscardPlayerPosition, tileId);
+            TableMirror.Current.SyncRonDiscardRemoved(request.DiscardPlayerPosition, tileId);
             yield return CoAnimateTileToBuhua(riverTile, winnerPanel, winnerPos, tileId, faceDown: false, dimmed: false, null);
         } else {
             Debug.LogError($"[SichuanHu] 荣和取河/加杠牌失败，不 spawn 兜底 tileId={tileId} winner={winnerPos} discarder={request.DiscardPlayerPosition}");
@@ -171,7 +171,7 @@ public partial class Game3DManager {
             if (obj != null) {
                 ClearLastJiagangIfMatches(request.DiscardPlayerPosition, obj);
                 obj.transform.SetParent(null, worldPositionStays: true);
-                NormalGameStateManager.Instance.SyncRonDiscardRemoved(request.DiscardPlayerPosition, tileId);
+                TableMirror.Current.SyncRonDiscardRemoved(request.DiscardPlayerPosition, tileId);
                 MahjongObjectPool.Instance.Return(-1, obj);
             }
             return;
@@ -273,7 +273,7 @@ public partial class Game3DManager {
     private void RecycleRiverDiscard(string discarderPos, int tileId) {
         GameObject obj = DetachRonSourceObject(discarderPos, tileId);
         if (obj == null) return;
-        NormalGameStateManager.Instance.SyncRonDiscardRemoved(discarderPos, tileId);
+        TableMirror.Current.SyncRonDiscardRemoved(discarderPos, tileId);
         MahjongObjectPool.Instance.Return(-1, obj);
     }
     private GameObject SpawnSichuanBuhuaWinTileObject(

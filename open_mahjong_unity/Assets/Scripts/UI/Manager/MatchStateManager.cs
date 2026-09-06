@@ -118,11 +118,11 @@ public class MatchStateManager : MonoBehaviour {
     }
 
     private void RestartTimer() {
-        CoroutineManager.Instance.RunNamed(CoroutineKeys.MatchQueueTimer, TimerRoutine(), restartIfRunning: true);
+        CoroutineManager.Instance?.RunNamed(CoroutineKeys.MatchQueueTimer, TimerRoutine(), restartIfRunning: true);
     }
 
     private void StopTimer() {
-        CoroutineManager.Instance.StopNamed(CoroutineKeys.MatchQueueTimer);
+        CoroutineManager.Instance?.StopNamed(CoroutineKeys.MatchQueueTimer);
     }
 
     private IEnumerator TimerRoutine() {

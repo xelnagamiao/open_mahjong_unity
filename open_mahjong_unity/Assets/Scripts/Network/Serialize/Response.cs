@@ -160,6 +160,7 @@ public class ShowResultInfo { // 显示结算结果
     public int[] initial_hu_dice;
     public int[] initial_hu_bird_seats;
     public Dictionary<string, int>[] initial_hu_payer_details;
+    public int[] bird_tiles;
     // 荒牌流局：各家听牌张 {player_index: [tile_id, ...]}，未听家不出现；以及是否发生不听罚符
     public Dictionary<int, int[]> tenpai_tiles;
     public Dictionary<int, int[]> tenpai_hands; // 荒牌流局：听牌家的实际手牌，用于倒牌展示
@@ -458,6 +459,9 @@ public class RankData { // 段位数据（登录时同步）
     public string guobiao_rank;
     public float guobiao_score;
     public bool is_sponsor;
+    public bool is_beginner_qualified;
+    public bool is_intermediate_qualified;
+    public bool is_advanced_qualified;
     public bool is_mcrpl_qualified;
 }
 

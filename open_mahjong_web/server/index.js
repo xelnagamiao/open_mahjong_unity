@@ -50,6 +50,7 @@ const { createWindowLimiter, getClientIp } = require('./middleware/rateLimit');
 const { ensureAuditTable } = require('./utils/audit');
 const { ensureEventsTables } = require('./utils/eventsTables');
 const { ensureUserEmailTables } = require('./utils/userEmailTables');
+const { ensureUserLadderPassColumns } = require('./utils/userLadderPass');
 const { ensureLibraryTables } = require('./utils/libraryTables');
 const { ensureGuessFanTables } = require('./utils/guessFanTables');
 const { ensureRecordDownloadQuotaTable } = require('./utils/recordDownloadQuota');
@@ -169,6 +170,12 @@ async function startServer() {
     console.log('用户邮箱表已就绪');
   } catch (err) {
     console.error('用户邮箱表初始化失败:', err);
+  }
+  try {
+    await ensureUserLadderPassColumns();
+    console.log('用户特许入场字段已就绪');
+  } catch (err) {
+    console.error('用户特许入场字段初始化失败:', err);
   }
   try {
     await ensureLibraryTables();

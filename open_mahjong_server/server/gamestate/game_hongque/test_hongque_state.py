@@ -93,6 +93,10 @@ def test_discard_and_following_draw_are_ordered_visible_events() -> None:
     asyncio.run(_exercise_discard_draw_event_batch())
 
 
+def test_tactical_grace_timeout_executes_current_claim() -> None:
+    asyncio.run(_exercise_tactical_grace_timeout())
+
+
 def test_chi_claim_winner_discards_then_next_seat_draws() -> None:
     asyncio.run(_exercise_chi_claim_winner_discards_then_next_seat())
 
@@ -284,7 +288,9 @@ async def _exercise_round() -> None:
     assert state.phase == "turn"
     assert state.current_player_index == 1
     assert len(state.players[1].hand) == 12
-    assert not hasattr(state, "game_record")
+    assert "game_title" in state.game_record
+    ticks = state.game_record["game_round"]["round_index_1"]["action_ticks"]
+    assert any(tick[0] == "c" for tick in ticks)
     update = state.build_state(1)
     for key in ("players", "hand", "room_id", "max_round", "round_time", "step_time"):
         assert key not in update
@@ -507,13 +513,18 @@ async def _exercise_discard_draw_event_batch() -> None:
     state.current_player_index = 0
     state.phase = "turn"
 
+    seq_before = state.event_sequence
     await state.submit_action(current.user_id, "discard", tile="AX1", action_tick=state.action_tick)
 
-    assert [event["type"] for event in state.events] == ["discard", "draw"]
-    assert state.events[0]["cut_class"] is True
-    assert state.events[0]["id"] < state.events[1]["id"]
-    assert state.build_state(0)["events"][1]["tile"] is None
-    assert state.build_state(1)["events"][1]["tile"] == "GX9"
+    # 切牌已单独广播；无人鸣牌后的摸牌是新事件批次，避免客户端重播出牌。
+    assert state.last_discard == {"player": 0, "tile": "AX1"}
+    assert current.discards == ["AX1"]
+    assert [event["type"] for event in state.events] == ["draw"]
+    draw = state.events[0]
+    assert draw["player"] == 1
+    assert draw["id"] > seq_before
+    assert state.build_state(0)["events"][0]["tile"] is None
+    assert state.build_state(1)["events"][0]["tile"] == "GX9"
 
 
 async def _exercise_tactical_claim_apply_execute() -> None:
@@ -1263,7 +1274,7 @@ async def _exercise_group_wait_ron() -> None:
         candidate_id=ron["id"],
         action_tick=state.action_tick,
     )
-    # 战术鸣牌：申请后由后台任务开打断窗口，等待其完成后执行（荣和无更高竞争者在窗口内直接结算）。
+    # 战术鸣牌：申请后进入打断窗口；无更高竞争者时 wait_action 立即结算。
     for player_index in list(state.claim_options):
         if player_index != 1 and player_index not in state.claim_responses:
             await state.submit_action(

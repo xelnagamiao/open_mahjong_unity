@@ -228,6 +228,8 @@ class Show_result_info(BaseModel):
     initial_hu_dice: Optional[List[int]] = None
     initial_hu_bird_seats: Optional[List[int]] = None
     initial_hu_payer_details: Optional[List[Dict]] = None
+    # 长沙麻将：和牌后从牌山头部抽出的鸟牌 ID（顺序与结算一致）
+    bird_tiles: Optional[List[int]] = None
     # 本条结算后下一步："round_continue" | "round_end_by_ready" | "match_end"
     next_status: Optional[str] = None
 
@@ -379,6 +381,9 @@ class RankData(BaseModel):
     guobiao_rank: str = "10级"
     guobiao_score: float = 0
     is_sponsor: bool = False
+    is_beginner_qualified: bool = False
+    is_intermediate_qualified: bool = False
+    is_advanced_qualified: bool = False
     is_mcrpl_qualified: bool = False
 
 class ServerStatsInfo(BaseModel):

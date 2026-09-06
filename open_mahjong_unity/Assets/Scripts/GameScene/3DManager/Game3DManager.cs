@@ -386,7 +386,7 @@ public partial class Game3DManager : MonoBehaviour {
 
     /// <summary>应用玩家描边预设。</summary>
     private void ApplyTileOutlineSettings() {
-        ConfigManager.Instance?.ApplyTileOutlinePreset();
+        GameSettings.Current.ApplyTileOutlinePreset();
     }
 
     /// <summary>

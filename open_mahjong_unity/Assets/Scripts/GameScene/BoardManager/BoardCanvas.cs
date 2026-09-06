@@ -52,7 +52,7 @@ public partial class BoardCanvas : MonoBehaviour {
 
     public void InitializeBoardInfo(GameInfo gameInfo,Dictionary<int, string> indexToPosition){
         // 换位/新局会关掉黄条但不清缓存；同座首行动会因 shownCurrentPlayer 早退导致指示不亮
-        CoroutineManager.Instance.StopNamed(CoroutineKeys.BoardCurrentFlash);
+        CoroutineManager.Instance?.StopNamed(CoroutineKeys.BoardCurrentFlash);
         shownCurrentPlayer = null;
 
         // 初始化玩家信息
@@ -96,7 +96,7 @@ public partial class BoardCanvas : MonoBehaviour {
         int currentRound,
         int remainTiles
     ) {
-        CoroutineManager.Instance.StopNamed(CoroutineKeys.BoardCurrentFlash);
+        CoroutineManager.Instance?.StopNamed(CoroutineKeys.BoardCurrentFlash);
         shownCurrentPlayer = null;
 
         foreach (var recordPlayer in recordPlayerList) {
@@ -143,7 +143,7 @@ public partial class BoardCanvas : MonoBehaviour {
     public void ShowScoreDifference() {
         RestoreBaselineScores();
         CoroutineManager.Ensure();
-        CoroutineManager.Instance.RunNamed(
+        CoroutineManager.Instance?.RunNamed(
             CoroutineKeys.BoardScoreDifference,
             ShowScoreDifferenceCoroutine(),
             restartIfRunning: true
@@ -238,7 +238,7 @@ public partial class BoardCanvas : MonoBehaviour {
     public void UpdatePlayerScores(Dictionary<int, int> player_to_score, Dictionary<int, string> indexToPosition) {
         // 如果正在显示分差，先恢复到基准分数
         if (isShowingScoreDifference) {
-            CoroutineManager.Instance.StopNamed(CoroutineKeys.BoardScoreDifference);
+            CoroutineManager.Instance?.StopNamed(CoroutineKeys.BoardScoreDifference);
             RestoreBaselineScores();
             isShowingScoreDifference = false;
         }

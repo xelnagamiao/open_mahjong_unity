@@ -1,0 +1,40 @@
+{
+  "game_title": {
+    "rule": "hongque",
+    "room_type": "custom",
+    "sub_rule": "hongque/v1.6",
+    "commitment_hex": "00",
+    "salt": "11",
+    "max_round": 1,
+    "open_cuohe": false,
+    "tips": false,
+    "is_player_set_random_seed": false,
+    "p0_uid": 101, "p0_name": "A",
+    "p1_uid": 102, "p1_name": "B",
+    "p2_uid": 103, "p2_name": "C",
+    "p3_uid": 104, "p3_name": "D"
+  },
+  "game_round": {
+    "round_index_1": {
+      "round_index": 1,
+      "current_round": 1,
+      "seats": [0, 1, 2, 3],
+      "dealer_index": 0,
+      "start_player_index": 0,
+      "p0_tiles": [1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1011, 1012, 1021],
+      "p1_tiles": [1021, 1021, 1021, 1022, 1023, 1024, 1025, 1026, 1027, 1028, 1029],
+      "p2_tiles": [1041, 1042, 1043, 1044, 1045, 1046, 1047, 1048, 1049, 1051, 1052],
+      "p3_tiles": [1061, 1062, 1063, 1064, 1065, 1066, 1067, 1068, 1069, 1071, 1072],
+      "tiles_list": [1081, 1082, 1083],
+      "action_ticks": [
+        ["c", 1021, "F"],
+        ["p", 1021, 1, 1021, 1021],
+        ["jg", 1021, "F"], // 虹雀加杠挂在最后一组副露
+        ["bd", 1082, 1], // 补牌：服务端 supplement 写成 bd，从 tiles_list 岭上方向取
+        ["c", 1082, "T"],
+        ["hu_first", 2, 8, ["清顺"], [0, 0, 8, 0], 1082],
+        ["end"]
+      ]
+    }
+  }
+}

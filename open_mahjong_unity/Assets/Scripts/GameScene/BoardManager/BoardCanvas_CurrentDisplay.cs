@@ -7,8 +7,8 @@ public partial class BoardCanvas {
     string shownCurrentPlayer;
 
     public void ResetForExit() {
-        CoroutineManager.Instance.StopNamed(CoroutineKeys.BoardCurrentFlash);
-        CoroutineManager.Instance.StopNamed(CoroutineKeys.BoardScoreDifference);
+        CoroutineManager.Instance?.StopNamed(CoroutineKeys.BoardCurrentFlash);
+        CoroutineManager.Instance?.StopNamed(CoroutineKeys.BoardScoreDifference);
         isShowingScoreDifference = false;
         RestoreBaselineScores();
         shownCurrentPlayer = null;
@@ -24,7 +24,7 @@ public partial class BoardCanvas {
         if (currentPlayerIndex == shownCurrentPlayer) return;
         shownCurrentPlayer = currentPlayerIndex;
 
-        CoroutineManager.Instance.StopNamed(CoroutineKeys.BoardCurrentFlash);
+        CoroutineManager.Instance?.StopNamed(CoroutineKeys.BoardCurrentFlash);
         player_self_current_image.gameObject.SetActive(false);
         player_left_current_image.gameObject.SetActive(false);
         player_top_current_image.gameObject.SetActive(false);
@@ -50,7 +50,7 @@ public partial class BoardCanvas {
         targetImage.color = color;
 
         CoroutineManager.Ensure();
-        CoroutineManager.Instance.RunNamed(
+        CoroutineManager.Instance?.RunNamed(
             CoroutineKeys.BoardCurrentFlash,
             FlashImage(targetImage),
             restartIfRunning: true

@@ -5,177 +5,28 @@ using System.Collections.Generic;
 using TMPro;
 
 /// <summary>
-/// 统一创建房间面板。通过规则下拉状态字符串（guobiao / riichi / qingque / classical / sichuan / changsha / jiandan / taiwan）
-/// 驱动配置项的显隐与默认值。
+/// 统一创建房间面板。规则目录与建房默认值来自 RuleRegistry（各族 Manifest.LobbySubRules / CreateRoomDefaults）。
+/// 存在即可见、同时提供切换规则时应用的默认值；不存在即隐藏。
 ///
-/// 设计要点：头部 <see cref="RuleConfigs"/> 为每条规则"全量"登记需要的配置项及默认值。
-/// - 若某规则的字典里含有某个键 → 该配置项对此规则可见，并在切换到此规则时重置到默认值。
-/// - 若某规则的字典里不含某个键 → 该配置项对此规则隐藏，发送房间配置时使用 <c>CreateRoom</c> 内的硬编码缺省值。
-/// - 国标的错和/起和番仍受子规则二次收窄：小林规隐藏错和；蓝十隐藏起和番自定义；标准/K神/小林均可配置起和番（K神默认8、小林默认1）。
+/// 国标的错和/起和番仍受子规则二次收窄：小林规隐藏错和；蓝十隐藏起和番自定义；标准/K神/小林均可配置起和番（K神默认8、小林默认1）。
 /// </summary>
 public partial class CreatePanel : MonoBehaviour {
-    // ===== 配置键：所有可能出现的配置项（含公共与差异） =====
-    private const string CfgGameRound      = "game_round";       // 局数 1-4
-    private const string CfgRoundTimer     = "round_timer";      // 局时下拉索引
-    private const string CfgStepTimer      = "step_timer";       // 步时下拉索引
-    private const string CfgTips           = "tips";             // 提示
-    private const string CfgPassword       = "password";         // 密码开关
-    private const string CfgRandomSeed     = "random_seed";      // 随机种子开关
-    private const string CfgTouristLimit   = "tourist_limit";    // 游客限制
-    private const string CfgAllowSpectator = "allow_spectator";  // 允许旁观
-    private const string CfgSubRule        = "sub_rule";         // 子规则下拉索引（国标）
-    private const string CfgCuohe          = "cuohe";            // 错和
-    private const string CfgCuoheType      = "cuohe_type";       // 错和形式：0=错和者-30/其余+10，1=错和者-40/其余+0
-    private const string CfgHepaiLimit     = "hepai_limit";      // 自定义起和番数（整数；Toggle 与 Input 成组显隐）
-    private const string CfgRedDora        = "red_dora";         // 赤宝牌
-    private const string CfgAllowKuikae    = "allow_kuikae";    // 禁止食替 Toggle：开=禁切（allow_kuikae 关）
-    private const string CfgOpenXiru       = "open_xiru";       // 西入
-    private const string CfgOpenTobi       = "open_tobi";       // 击飞
-    private const string CfgHepaiWay       = "hepai_way";        // 和牌方式下拉索引
-    private const string CfgTacticalCall   = "tactical_call";    // 战术鸣牌（国标 / 青雀 / 四川）
-    private const string CfgBloodBattle    = "blood_battle";     // 血战到底（四川）
-    private const string CfgCsOpenKongCount = "cs_open_kong_count";
-    private const string CfgCsInitialSiXi = "cs_initial_si_xi";
-    private const string CfgCsInitialBanBanHu = "cs_initial_ban_ban_hu";
-    private const string CfgCsInitialQueYiSe = "cs_initial_que_yi_se";
-    private const string CfgCsInitialLiuLiuShun = "cs_initial_liu_liu_shun";
-    private const string CfgCsInitialSanTong = "cs_initial_san_tong";
-    private const string CfgCsBirdCount = "cs_bird_count";
-    private const string CfgCsDealerBird = "cs_dealer_bird";
-    private const string CfgCsBaseScoreNoDealer = "cs_base_score_no_dealer";
-    private const string CfgCsSmallHuScore = "cs_small_hu_score";
-    private const string CfgCsBigHuScore = "cs_big_hu_score";
-
     private static readonly int[] ChangshaBirdCountOptions = { 0, 1, 2, 4 };
 
-    /// <summary>
-    /// 每条规则需要显示的全部配置项与默认值。
-    /// 存在即可见、同时提供切换规则时应用的默认值；不存在即隐藏。
-    /// </summary>
-    private static readonly Dictionary<string, Dictionary<string, object>> RuleConfigs = new Dictionary<string, Dictionary<string, object>> {
-        { "guobiao", new Dictionary<string, object> {
-            { CfgGameRound,      4 }, // 默认半庄
-            { CfgRoundTimer,     3 }, // 0 5 10 [20] 40 60
-            { CfgStepTimer,      1 }, // 3 [5] 10 20 40
-            { CfgTips,           true }, // 提示
-            { CfgPassword,       false }, // 密码
-            { CfgRandomSeed,     false }, // 随机种子
-            { CfgTouristLimit,   false }, // 游客限制
-            { CfgAllowSpectator, true }, // 允许旁观
-            { CfgSubRule,        0 }, // 子规则下拉索引（国标）
-            { CfgCuohe,          false }, // 错和
-            { CfgCuoheType,      0 }, // 错和形式
-            { CfgHepaiLimit,     8 }, // 起和番数
-            { CfgTacticalCall,   true }, // 战术鸣牌
-        } },
-        { "riichi", new Dictionary<string, object> {
-            { CfgGameRound,      2 },
-            { CfgRoundTimer,     3 },
-            { CfgStepTimer,      1 },
-            { CfgTips,           true },
-            { CfgPassword,       false },
-            { CfgRandomSeed,     false },
-            { CfgTouristLimit,   false },
-            { CfgAllowSpectator, true },
-            { CfgSubRule,        0 }, // 子规则下拉索引（0=标准 1=浪涌）
-            { CfgCuohe,          false },
-            { CfgHepaiLimit,     1 },
-            { CfgRedDora,        true }, // 赤宝牌：开
-            { CfgAllowKuikae,    false }, // 禁止食替：开（allow_kuikae 关，标准日麻禁切）
-            { CfgOpenXiru,       true }, // 西入：开
-            { CfgOpenTobi,       true }, // 击飞：开
-            { CfgHepaiWay,       0 }, // 0=多家和了 1=三家和了流局 2=头跳
-        } },
-        { "qingque", new Dictionary<string, object> {
-            { CfgGameRound,      4 },
-            { CfgRoundTimer,     3 },
-            { CfgStepTimer,      1 },
-            { CfgTips,           true },
-            { CfgPassword,       false },
-            { CfgRandomSeed,     false },
-            { CfgTouristLimit,   false },
-            { CfgAllowSpectator, true },
-            { CfgTacticalCall,   false }, // 战术鸣牌
-        } },
-        { "jiandan", new Dictionary<string, object> {
-            { CfgGameRound,      4 },
-            { CfgRoundTimer,     3 },
-            { CfgStepTimer,      1 },
-            { CfgTips,           true },
-            { CfgPassword,       false },
-            { CfgRandomSeed,     false },
-            { CfgTouristLimit,   false },
-            { CfgAllowSpectator, true },
-        } },
-        { "hongque", new Dictionary<string, object> {
-            { CfgGameRound,      1 },
-            { CfgRoundTimer,     3 },
-            { CfgStepTimer,      1 },
-            { CfgTips,           true },
-            { CfgPassword,       false },
-            { CfgRandomSeed,     false },
-            { CfgTouristLimit,   false },
-            { CfgHepaiWay,       0 }, // 0=允许多家和 1=头跳
-        } },
-        { "classical", new Dictionary<string, object> {
-            { CfgGameRound,      4 },
-            { CfgRoundTimer,     3 },
-            { CfgStepTimer,      1 },
-            { CfgTips,           true },
-            { CfgPassword,       false },
-            { CfgRandomSeed,     false },
-            { CfgTouristLimit,   false },
-            { CfgAllowSpectator, true },
-        } },
-        { "sichuan", new Dictionary<string, object> {
-            { CfgGameRound,      4 },
-            { CfgRoundTimer,     3 },
-            { CfgStepTimer,      1 },
-            { CfgTips,           true },
-            { CfgPassword,       false },
-            { CfgRandomSeed,     false },
-            { CfgTouristLimit,   false },
-            { CfgAllowSpectator, true },
-            { CfgTacticalCall,   false }, // 战术鸣牌
-            { CfgBloodBattle,    true },  // 血战到底：默认开
-        } },
-        { "changsha", new Dictionary<string, object> {
-            { CfgGameRound,      4 },
-            { CfgRoundTimer,     3 },
-            { CfgStepTimer,      1 },
-            { CfgTips,           true },
-            { CfgPassword,       false },
-            { CfgRandomSeed,     false },
-            { CfgTouristLimit,   false },
-            { CfgAllowSpectator, true },
-            { CfgTacticalCall,   false },
-            { CfgCsOpenKongCount, 2 },
-            { CfgCsInitialSiXi, true },
-            { CfgCsInitialBanBanHu, true },
-            { CfgCsInitialQueYiSe, true },
-            { CfgCsInitialLiuLiuShun, true },
-            { CfgCsInitialSanTong, true },
-            { CfgCsBirdCount, 2 },
-            { CfgCsDealerBird, true },
-            { CfgCsBaseScoreNoDealer, false },
-            { CfgCsSmallHuScore, 2 },
-            { CfgCsBigHuScore, 8 },
-        } },
-        { "taiwan", new Dictionary<string, object> {
-            { CfgGameRound,      4 },
-            { CfgRoundTimer,     3 },
-            { CfgStepTimer,      1 },
-            { CfgTips,           true },
-            { CfgPassword,       false },
-            { CfgRandomSeed,     false },
-            { CfgTouristLimit,   false },
-            { CfgAllowSpectator, true },
-            { CfgCuohe,          false },
-            { CfgCuoheType,      0 },
-        } },
-    };
+    /// <summary>当前规则建房默认值，来自 RuleManifest.CreateRoomDefaults。</summary>
+    private Dictionary<string, object> DefaultsOf(string rule) {
+        Dictionary<string, object> defaults = RuleRegistry.Resolve(rule)?.CreateRoomDefaults;
+        return defaults ?? _emptyDefaults;
+    }
 
-    /// <summary>规则状态：guobiao / riichi / qingque / classical / sichuan / changsha / jiandan / taiwan。</summary>
+    private static readonly Dictionary<string, object> _emptyDefaults = new Dictionary<string, object>();
+
+    private bool TryGetDefaults(string rule, out Dictionary<string, object> config) {
+        config = RuleRegistry.Resolve(rule)?.CreateRoomDefaults;
+        return config != null;
+    }
+
+    /// <summary>规则状态：与 RuleManifest.RuleId 一致。</summary>
     private string _ruleState = "guobiao";
     private string _venueEventId;
 
@@ -247,6 +98,8 @@ public partial class CreatePanel : MonoBehaviour {
 
     private bool _gameRoundLabelsCached;
     private string[] _defaultGameRoundLabels;
+    private int _roomNameBoundUserId = int.MinValue;
+    private static readonly List<CreatePanel> LivePanels = new List<CreatePanel>();
 
     private void EnsureRuleDropdownOptions() {
         if (chooseRule == null) return;
@@ -266,6 +119,14 @@ public partial class CreatePanel : MonoBehaviour {
         foreach (CreateRoomRuleTextConfig config in configs) options.Add(config.DisplayName);
         chooseRule.AddOptions(options);
         chooseRule.RefreshShownValue();
+    }
+
+    private void Awake() {
+        if (!LivePanels.Contains(this)) LivePanels.Add(this);
+    }
+
+    private void OnDestroy() {
+        LivePanels.Remove(this);
     }
 
     private void Start() {
@@ -297,7 +158,7 @@ public partial class CreatePanel : MonoBehaviour {
         InputHepaiLimitToggle.onValueChanged.AddListener(ToggleInputHepaiLimit);
         SubRuleDropdown.onValueChanged.AddListener(OnSubRuleChanged);
 
-        roomNameInput.text = GetDefaultRoomName();
+        ApplyDefaultRoomNameForCurrentUser();
 
         EnsureRiichiOptionToggles();
         EnsureCuoheTypePanel();
@@ -309,14 +170,46 @@ public partial class CreatePanel : MonoBehaviour {
         RefreshSubRuleDescription();
     }
 
+    private void OnEnable() {
+        ApplyDefaultRoomNameForCurrentUser();
+    }
+
     private void OnDisable() {
         CancelDetailedConfigChanges();
+    }
+
+    /// <summary>登出/换账号后清掉默认房间名草稿，下次打开按当前用户重填。</summary>
+    public static void ResetAllSessionCaches() {
+        for (int i = LivePanels.Count - 1; i >= 0; i--) {
+            CreatePanel panel = LivePanels[i];
+            if (panel == null) {
+                LivePanels.RemoveAt(i);
+                continue;
+            }
+            panel.ResetSessionCaches();
+        }
+    }
+
+    public void ResetSessionCaches() {
+        _roomNameBoundUserId = int.MinValue;
+        if (roomNameInput != null) roomNameInput.text = "";
+    }
+
+    /// <summary>账号变了或输入为空时，用「用户名的游戏」填默认房间名；同一账号下保留用户改过的草稿。</summary>
+    private void ApplyDefaultRoomNameForCurrentUser() {
+        if (roomNameInput == null) return;
+        int userId = UserDataManager.Instance != null ? UserDataManager.Instance.UserId : 0;
+        bool userChanged = userId != _roomNameBoundUserId;
+        _roomNameBoundUserId = userId;
+        if (userChanged || string.IsNullOrWhiteSpace(roomNameInput.text)) {
+            roomNameInput.text = GetDefaultRoomName();
+        }
     }
 
     private void OnRuleDropdownChanged(int selectedIndex) {
         _ruleState = CreateRoomRuleTextConfigCatalog.GetRule(selectedIndex).Rule;
         RebuildHepaiWayOptions();
-        bool hasSubRule = RuleConfigs[_ruleState].ContainsKey(CfgSubRule);
+        bool hasSubRule = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.SubRule);
         if (hasSubRule) {
             PopulateSubRuleDropdown(_ruleState);
         }
@@ -332,8 +225,9 @@ public partial class CreatePanel : MonoBehaviour {
     private void RebuildHepaiWayOptions() {
         if (HepaiWayDropdown == null) return;
         HepaiWayDropdown.ClearOptions();
-        if (_ruleState == "hongque") {
-            HepaiWayDropdown.AddOptions(new List<string> { "允许多家和牌", "头跳" });
+        string[] options = RuleRegistry.Resolve(_ruleState)?.HepaiWayOptions;
+        if (options != null && options.Length > 0) {
+            HepaiWayDropdown.AddOptions(new List<string>(options));
         } else {
             HepaiWayDropdown.AddOptions(new List<string> { "允许多家和牌", "三家和了流局", "头跳" });
         }
@@ -341,7 +235,7 @@ public partial class CreatePanel : MonoBehaviour {
 
     /// <summary>遍历当前规则的配置默认值并下发到对应控件。</summary>
     private void ApplyRuleDefaults(string rule) {
-        Dictionary<string, object> defaults = RuleConfigs[rule];
+        Dictionary<string, object> defaults = DefaultsOf(rule);
         foreach (KeyValuePair<string, object> kv in defaults) {
             SetConfigValue(kv.Key, kv.Value);
         }
@@ -349,49 +243,49 @@ public partial class CreatePanel : MonoBehaviour {
 
     private void SetConfigValue(string key, object value) {
         switch (key) {
-            case CfgGameRound:      SelectGameTime((int)value); break;
-            case CfgRoundTimer:     roundTimer.value = (int)value; break;
-            case CfgStepTimer:      stepTimer.value = (int)value; break;
-            case CfgTips:           tipsToggle.isOn = (bool)value; break;
-            case CfgPassword:       passwordToggle.isOn = (bool)value; break;
-            case CfgRandomSeed:     SetRandomSeedToggle.isOn = (bool)value; break;
-            case CfgTouristLimit:   TouristLimitToggle.isOn = (bool)value; break;
-            case CfgAllowSpectator: AllowSpectatorToggle.isOn = (bool)value; break;
-            case CfgSubRule:        SubRuleDropdown.value = (int)value; break;
-            case CfgCuohe:          CuoHeheToggle.isOn = (bool)value; break;
-            case CfgCuoheType:
+            case CreateRoomKeys.GameRound:      SelectGameTime((int)value); break;
+            case CreateRoomKeys.RoundTimer:     roundTimer.value = (int)value; break;
+            case CreateRoomKeys.StepTimer:      stepTimer.value = (int)value; break;
+            case CreateRoomKeys.Tips:           tipsToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.Password:       passwordToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.RandomSeed:     SetRandomSeedToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.TouristLimit:   TouristLimitToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.AllowSpectator: AllowSpectatorToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.SubRule:        SubRuleDropdown.value = (int)value; break;
+            case CreateRoomKeys.Cuohe:          CuoHeheToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.CuoheType:
                 if (CuoheTypeDropdown != null) CuoheTypeDropdown.value = (int)value;
                 break;
-            case CfgHepaiLimit:
+            case CreateRoomKeys.HepaiLimit:
                 // 切换规则时同步收起"自定义起和番"面板，避免前一条规则的开启状态带入当前规则
                 InputHepaiLimitToggle.isOn = false;
                 HepaiLimitInput.text = ((int)value).ToString();
                 break;
-            case CfgRedDora:        RedDoraToggle.isOn = (bool)value; break;
-            case CfgAllowKuikae:    if (KuikaeToggle != null) KuikaeToggle.isOn = !(bool)value; break;
-            case CfgOpenXiru:       if (XiruToggle != null) XiruToggle.isOn = (bool)value; break;
-            case CfgOpenTobi:       if (TobiToggle != null) TobiToggle.isOn = (bool)value; break;
-            case CfgHepaiWay:
+            case CreateRoomKeys.RedDora:        RedDoraToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.AllowKuikae:    if (KuikaeToggle != null) KuikaeToggle.isOn = !(bool)value; break;
+            case CreateRoomKeys.OpenXiru:       if (XiruToggle != null) XiruToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.OpenTobi:       if (TobiToggle != null) TobiToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.HepaiWay:
                 HepaiWayDropdown.value = (int)value;
                 HepaiWayDropdown.RefreshShownValue();
                 break;
-            case CfgTacticalCall:   TacticalCallToggle.isOn = (bool)value; break;
-            case CfgBloodBattle:    if (BloodBattleToggle != null) BloodBattleToggle.isOn = (bool)value; break;
-            case CfgCsOpenKongCount: SetChangshaOpenKongCount((int)value); break;
-            case CfgCsInitialSiXi:   if (ChangshaInitialSiXiToggle != null) ChangshaInitialSiXiToggle.isOn = (bool)value; break;
-            case CfgCsInitialBanBanHu: if (ChangshaInitialBanBanHuToggle != null) ChangshaInitialBanBanHuToggle.isOn = (bool)value; break;
-            case CfgCsInitialQueYiSe: if (ChangshaInitialQueYiSeToggle != null) ChangshaInitialQueYiSeToggle.isOn = (bool)value; break;
-            case CfgCsInitialLiuLiuShun: if (ChangshaInitialLiuLiuShunToggle != null) ChangshaInitialLiuLiuShunToggle.isOn = (bool)value; break;
-            case CfgCsInitialSanTong: if (ChangshaInitialSanTongToggle != null) ChangshaInitialSanTongToggle.isOn = (bool)value; break;
-            case CfgCsBirdCount:    SetChangshaBirdCount((int)value); break;
-            case CfgCsDealerBird:   if (ChangshaDealerBirdToggle != null) ChangshaDealerBirdToggle.isOn = (bool)value; break;
-            case CfgCsBaseScoreNoDealer:
+            case CreateRoomKeys.TacticalCall:   TacticalCallToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.BloodBattle:    if (BloodBattleToggle != null) BloodBattleToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.CsOpenKongCount: SetChangshaOpenKongCount((int)value); break;
+            case CreateRoomKeys.CsInitialSiXi:   if (ChangshaInitialSiXiToggle != null) ChangshaInitialSiXiToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.CsInitialBanBanHu: if (ChangshaInitialBanBanHuToggle != null) ChangshaInitialBanBanHuToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.CsInitialQueYiSe: if (ChangshaInitialQueYiSeToggle != null) ChangshaInitialQueYiSeToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.CsInitialLiuLiuShun: if (ChangshaInitialLiuLiuShunToggle != null) ChangshaInitialLiuLiuShunToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.CsInitialSanTong: if (ChangshaInitialSanTongToggle != null) ChangshaInitialSanTongToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.CsBirdCount:    SetChangshaBirdCount((int)value); break;
+            case CreateRoomKeys.CsDealerBird:   if (ChangshaDealerBirdToggle != null) ChangshaDealerBirdToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.CsBaseScoreNoDealer:
                 if (ChangshaBaseScoreNoDealerToggle != null) ChangshaBaseScoreNoDealerToggle.isOn = (bool)value;
                 break;
-            case CfgCsSmallHuScore:
+            case CreateRoomKeys.CsSmallHuScore:
                 if (ChangshaSmallHuScoreInput != null) ChangshaSmallHuScoreInput.text = ((int)value).ToString();
                 break;
-            case CfgCsBigHuScore:
+            case CreateRoomKeys.CsBigHuScore:
                 if (ChangshaBigHuScoreInput != null) ChangshaBigHuScoreInput.text = ((int)value).ToString();
                 break;
         }
@@ -405,33 +299,33 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     /// <summary>
-    /// 根据 <see cref="RuleConfigs"/> 驱动配置项控件的显隐。
+    /// 根据 CreateRoomDefaults 驱动配置项控件的显隐。
     /// 国标子规则对错和 / 起和番自定义做进一步收窄；浪涌子规则固定可食替，不暴露食替开关。
     /// </summary>
     private void RefreshVisibility() {
-        Dictionary<string, object> visible = RuleConfigs[_ruleState];
+        Dictionary<string, object> visible = DefaultsOf(_ruleState);
 
         bool isXiaolin = _ruleState == "guobiao" && SubRuleDropdown.value == 1;
         bool isLanshi  = _ruleState == "guobiao" && SubRuleDropdown.value == 3;
         bool isLangyong = _ruleState == "riichi" && SubRuleDropdown.value == 1;
 
         // 蓝十改固定启用“错和扣 40 分”，不暴露可变开关。
-        bool showCuohe = visible.ContainsKey(CfgCuohe) && !isXiaolin && !isLanshi;
+        bool showCuohe = visible.ContainsKey(CreateRoomKeys.Cuohe) && !isXiaolin && !isLanshi;
         CuoHeheToggle.gameObject.SetActive(showCuohe);
 
         // 蓝十仍隐藏起和番自定义；标准/小林/K神均可改
-        bool showHepaiLimit = visible.ContainsKey(CfgHepaiLimit) && !isLanshi;
+        bool showHepaiLimit = visible.ContainsKey(CreateRoomKeys.HepaiLimit) && !isLanshi;
         InputHepaiLimitToggle.gameObject.SetActive(showHepaiLimit);
         InputHepaiLimitPlane.SetActive(showHepaiLimit && InputHepaiLimitToggle.isOn);
 
-        RedDoraToggle.gameObject.SetActive(visible.ContainsKey(CfgRedDora));
-        if (KuikaeToggle != null) KuikaeToggle.gameObject.SetActive(visible.ContainsKey(CfgAllowKuikae) && !isLangyong);
-        if (XiruToggle != null) XiruToggle.gameObject.SetActive(visible.ContainsKey(CfgOpenXiru));
-        if (TobiToggle != null) TobiToggle.gameObject.SetActive(visible.ContainsKey(CfgOpenTobi));
-        HepaiWayPanel.SetActive(visible.ContainsKey(CfgHepaiWay));
-        TacticalCallToggle.gameObject.SetActive(visible.ContainsKey(CfgTacticalCall));
-        if (BloodBattleToggle != null) BloodBattleToggle.gameObject.SetActive(visible.ContainsKey(CfgBloodBattle));
-        SetChangshaOptionsVisible(_ruleState == "changsha");
+        RedDoraToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.RedDora));
+        if (KuikaeToggle != null) KuikaeToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.AllowKuikae) && !isLangyong);
+        if (XiruToggle != null) XiruToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.OpenXiru));
+        if (TobiToggle != null) TobiToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.OpenTobi));
+        HepaiWayPanel.SetActive(visible.ContainsKey(CreateRoomKeys.HepaiWay));
+        TacticalCallToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.TacticalCall));
+        if (BloodBattleToggle != null) BloodBattleToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.BloodBattle));
+        SetChangshaOptionsVisible(DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.CsBirdCount));
         ApplyGameRoundDisplayForRule();
         RefreshCuoheTypePanelVisibility();
         RefreshDetailedConfigEntry();
@@ -791,9 +685,7 @@ public partial class CreatePanel : MonoBehaviour {
 
     public void OpenForVenue(string eventId) {
         _venueEventId = string.IsNullOrEmpty(eventId) ? null : eventId;
-        if (roomNameInput != null && string.IsNullOrWhiteSpace(roomNameInput.text)) {
-            roomNameInput.text = GetDefaultRoomName();
-        }
+        ApplyDefaultRoomNameForCurrentUser();
     }
 
     public void CloseVenueMode() {
@@ -874,7 +766,7 @@ public partial class CreatePanel : MonoBehaviour {
             _ => "multi_ron",
         };
 
-        int hepaiLimit = (int)RuleConfigs["riichi"][CfgHepaiLimit];
+        int hepaiLimit = (int)DefaultsOf("riichi")[CreateRoomKeys.HepaiLimit];
         if (InputHepaiLimitToggle.isOn && int.TryParse(HepaiLimitInput.text.Trim(), out int parsed)) {
             hepaiLimit = Mathf.Clamp(parsed, 1, 64);
         }
@@ -895,8 +787,8 @@ public partial class CreatePanel : MonoBehaviour {
             HepaiLimit = hepaiLimit,
             RedDora = RedDoraToggle.isOn,
             AllowKuikae = KuikaeToggle != null && !KuikaeToggle.isOn,
-            OpenXiru = XiruToggle != null ? XiruToggle.isOn : (bool)RuleConfigs["riichi"][CfgOpenXiru],
-            OpenTobi = TobiToggle != null ? TobiToggle.isOn : (bool)RuleConfigs["riichi"][CfgOpenTobi],
+            OpenXiru = XiruToggle != null ? XiruToggle.isOn : (bool)DefaultsOf("riichi")[CreateRoomKeys.OpenXiru],
+            OpenTobi = TobiToggle != null ? TobiToggle.isOn : (bool)DefaultsOf("riichi")[CreateRoomKeys.OpenTobi],
             HepaiWay = hepaiWay,
             EventId = _venueEventId,
         };
@@ -1040,7 +932,7 @@ public partial class CreatePanel : MonoBehaviour {
     private void CreateSichuanRoom() {
         bool bloodBattle = BloodBattleToggle != null
             ? BloodBattleToggle.isOn
-            : (bool)RuleConfigs["sichuan"][CfgBloodBattle];
+            : (bool)DefaultsOf("sichuan")[CreateRoomKeys.BloodBattle];
 
         var config = new Sichuan_Create_RoomConfig {
             RoomName = roomNameInput.text.Trim(),
@@ -1213,8 +1105,8 @@ public partial class CreatePanel : MonoBehaviour {
                 HepaiLimitInput.text = GetGuobiaoSubRuleDefaultHepaiLimit(GetSelectedSubRule()).ToString();
             else {
                 object fallbackValue;
-                int fallback = RuleConfigs.TryGetValue(_ruleState, out var config)
-                    && config.TryGetValue(CfgHepaiLimit, out fallbackValue)
+                int fallback = TryGetDefaults(_ruleState, out var config)
+                    && config.TryGetValue(CreateRoomKeys.HepaiLimit, out fallbackValue)
                     ? Convert.ToInt32(fallbackValue)
                     : 8;
                 HepaiLimitInput.text = fallback.ToString();
@@ -1231,8 +1123,8 @@ public partial class CreatePanel : MonoBehaviour {
         if (CuoheTypePanel == null) return;
         bool isXiaolin = _ruleState == "guobiao" && SubRuleDropdown.value == 1;
         bool isLanshi = _ruleState == "guobiao" && SubRuleDropdown.value == 3;
-        bool showPanel = RuleConfigs.TryGetValue(_ruleState, out var config)
-            && config.ContainsKey(CfgCuoheType)
+        bool showPanel = TryGetDefaults(_ruleState, out var config)
+            && config.ContainsKey(CreateRoomKeys.CuoheType)
             && !isXiaolin
             && !isLanshi
             && CuoHeheToggle.isOn;

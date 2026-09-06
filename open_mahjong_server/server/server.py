@@ -727,6 +727,9 @@ async def _finalize_player_login(
             guobiao_rank=rank_data_raw.get('guobiao_rank', '10级'),
             guobiao_score=rank_data_raw.get('guobiao_score', 0.0),
             is_sponsor=sponsor_mcrpl.get('is_sponsor', False) if sponsor_mcrpl else False,
+            is_beginner_qualified=sponsor_mcrpl.get('is_beginner_qualified', False) if sponsor_mcrpl else False,
+            is_intermediate_qualified=sponsor_mcrpl.get('is_intermediate_qualified', False) if sponsor_mcrpl else False,
+            is_advanced_qualified=sponsor_mcrpl.get('is_advanced_qualified', False) if sponsor_mcrpl else False,
             is_mcrpl_qualified=sponsor_mcrpl.get('is_mcrpl_qualified', False) if sponsor_mcrpl else False,
         )
 

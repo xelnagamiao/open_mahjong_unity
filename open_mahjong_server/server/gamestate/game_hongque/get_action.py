@@ -1,7 +1,7 @@
 """虹雀机器人行动适配层。
 
-与其他麻将规则的 get_action 模块一致：快照在房间锁内取得，CPU 决策在锁外执行，
-最终动作回到锁内并再次校验 action_tick。真人永远不会进入本模块。
+与国标 get_action 相同：快照在房间锁内取得，CPU 决策在锁外执行，
+最终只把动作入队，由 wait_action 在等待结束后执行。真人永远不会进入本模块。
 """
 from __future__ import annotations
 

@@ -251,10 +251,10 @@ const routes = [
     meta: { title: 'Salasasa 2D 玩家资料' }
   },
   {
-    path: '/2d/verifier',
-    name: 'Game2DVerifier',
-    component: () => import('@/views/game2d/Verifier.vue'),
-    meta: { title: '国标对局验证器（本地）', noindex: true }
+    path: '/lab',
+    name: 'UnitySimLab',
+    component: () => import('@/views/lab/UnitySimLab.vue'),
+    meta: { title: '国标 Unity 组件测试台（本地）', noindex: true }
   },
   {
     path: '/player-data',

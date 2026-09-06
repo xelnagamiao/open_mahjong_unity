@@ -570,9 +570,12 @@ class DatabaseManager:
                 );
             """)
 
-            # users 表迁移：is_mcrpl_qualified、sponsor_expires_at（赞助到期时间，NULL 表示非赞助或已过期）
+            # users 表迁移：场次特许入场、sponsor_expires_at（赞助到期时间，NULL 表示非赞助或已过期）
             for col_name, col_def in [
                 ("is_mcrpl_qualified", "BOOLEAN NOT NULL DEFAULT FALSE"),
+                ("is_beginner_qualified", "BOOLEAN NOT NULL DEFAULT FALSE"),
+                ("is_intermediate_qualified", "BOOLEAN NOT NULL DEFAULT FALSE"),
+                ("is_advanced_qualified", "BOOLEAN NOT NULL DEFAULT FALSE"),
             ]:
                 cursor.execute(f"SAVEPOINT sp_add_{col_name};")
                 try:
@@ -3362,11 +3365,13 @@ DatabaseManager.store_jiandan_fan_stats = store_jiandan_fan_stats
 
 from .riichi.store_riichi import store_riichi_game_record, store_riichi_game_stats, store_riichi_fan_stats
 from .riichi.get_riichi_stats import get_riichi_stats
+from .hongque.store_hongque import store_hongque_game_record
 
 DatabaseManager.store_riichi_game_record = store_riichi_game_record
 DatabaseManager.store_riichi_game_stats = store_riichi_game_stats
 DatabaseManager.store_riichi_fan_stats = store_riichi_fan_stats
 DatabaseManager.get_riichi_stats = get_riichi_stats
+DatabaseManager.store_hongque_game_record = store_hongque_game_record
 
 # 挂载段位数据 CRUD 方法到 DatabaseManager 类
 from .guobiao.rank_data import get_rank_data, update_rank_data, get_user_sponsor_mcrpl

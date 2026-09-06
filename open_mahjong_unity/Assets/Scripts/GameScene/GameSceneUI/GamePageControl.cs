@@ -76,7 +76,7 @@ public class GamePageControl : MonoBehaviour {
     }
 
     private void OnBackToMenuClicked() {
-        WindowsManager.Instance.HangGameToReturnWindow();
-        HeaderPanel.Instance.SetBackToGameVisible(true);
+        GameHost.Current.HangGameToReturnWindow();
+        GameHost.Current.SetBackToGameVisible(true);
     }
 }

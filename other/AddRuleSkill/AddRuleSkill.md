@@ -182,14 +182,14 @@
 ## 七、牌谱回放（GameRecord）
 
 ### 7.1 `GameRecordManager.cs`
-- **路径**: `Assets/Scripts/GameScene/GameStateManager/GameRecordManager/GameRecordManager.cs`
+- **路径**: `Assets/Scripts/GameScene/Record/GameRecordManager.cs`
 - **操作**:
   1. 在 `GetGameTitleText` 中添加规则名映射（fallback 逻辑）。
   2. 在 `RefreshRecordScoreTable` 中确保 `rule` 字符串能匹配到 `ScoreHistoryPanel` 的字典。
   3. 在 `ShowRecordResult` 中，如有新字段需解析结算数据。
 
 ### 7.2 `RecordRoundItem.cs`
-- **路径**: `Assets/Scripts/GameScene/GameStateManager/Prefab/RecordRoundItem.cs`
+- **路径**: `Assets/Scripts/GameScene/Record/Prefab/RecordRoundItem.cs`
 - **操作**: 如果新规则在局跳转时需要显示额外信息（如立直的本场数），添加分支。
 
 ---

@@ -1,12 +1,11 @@
 public partial class NormalGameStateManager {
     /// <summary>
     /// 退出对局/牌谱/观战后清理本局运行时状态，不销毁 Manager 单例本身。
+    /// 族私有状态由 RuleRegistry.ClearCurrent → IGameState.OnSessionReset 清理。
     /// </summary>
     public void ResetForExit() {
-        ClearChangshaSeaBottomVisual();
-        CancelWaitAutoAction("ResetForExit");
+        TurnClock.Current.ResetForExit(); // 含 AutoActionPolicy.Cancel 与切牌约束
         IsGameActive = false;
-        IsSelfActionRequired = false;
         awaitingMatchEnd = false;
         hasPendingGameEnd = false;
         pendingGameEndMasterSeed = null;
@@ -14,33 +13,16 @@ public partial class NormalGameStateManager {
         pendingGameEndSalt = null;
         pendingGameEndPlayerFinalData = null;
         selfHandTiles.Clear();
-        allowActionList.Clear();
         lastCutCardID = 0;
-        currentAskCutTileId = 0;
         lastDiscardPlayerPosition = null;
         currentMeldDiscarderPos = null;
         currentMeldClaimedTileId = 0;
-        CurrentPlayer = null;
-        lastAskHandPlayerIndex = -1;
         lastDealTileId = 0;
-        selfRiichiCandidateCuts.Clear();
-        selfForbiddenCutTiles.Clear();
-        selfForcedCutTiles.Clear();
         chiCandidates.Clear();
-        IsQiangGangAsk = false;
-        pendingAskFromJiagang = false;
         roomRule = null;
         subRule = null;
         RuleRegistry.ClearCurrent();
         detailedConfig.Clear();
-        ResetSelfReadyQualification();
         ClearStickerMutes();
-        changshaBaseScoreNoDealer = false;
-        changshaSmallHuScore = 2;
-        changshaBigHuScore = 8;
-
-        if (RiichiCutSelectionController.Instance.IsActive) {
-            RiichiCutSelectionController.Instance.ExitRiichiCutMode();
-        }
     }
 }

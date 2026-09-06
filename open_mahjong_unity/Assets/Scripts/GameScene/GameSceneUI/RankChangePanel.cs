@@ -94,7 +94,7 @@ public class RankChangePanel : MonoBehaviour {
         }
 
         // 更新 UserDataManager
-        UserDataManager.Instance.UpdateGuobiaoRank(newRank, newScore);
+        PlayerSession.Current.UpdateGuobiaoRank(newRank, newScore);
 
         confirmButton.interactable = true;
     }

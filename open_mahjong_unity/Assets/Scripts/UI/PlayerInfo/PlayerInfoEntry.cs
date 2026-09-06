@@ -29,94 +29,24 @@ public class PlayerInfoEntry : MonoBehaviour{
         // 显示分支规则
         if (playerStatsCase == "mode"){
 
-            // 国标 mode 带 _rank 后缀表示天梯，否则自定义
-            bool isRank = (playerStatsInfo.rule == "guobiao"
-                           && playerStatsInfo.mode != null
-                           && playerStatsInfo.mode.EndsWith("_rank"));
-            string categorySuffix = (playerStatsInfo.rule == "guobiao")
+            RuleManifest manifest = RuleRegistry.Resolve(playerStatsInfo.rule, playerStatsInfo.rule);
+            string ruleName = manifest?.LobbyName ?? manifest?.DisplayName ?? "其他";
+            bool isRank = manifest != null && manifest.HasRankedStats
+                && playerStatsInfo.mode != null
+                && playerStatsInfo.mode.EndsWith("_rank");
+            string categorySuffix = (manifest != null && manifest.HasRankedStats)
                 ? (isRank ? "（天梯）" : "（自定义）")
                 : "";
 
-            if (playerStatsInfo.rule == "guobiao"){
-                ShowText = "国标麻将";
-
-                if (playerStatsInfo.mode == "__rank_total__") {
-                    ShowText += "总计（天梯）";
-                }
-                else if (playerStatsInfo.mode == "4/4" || playerStatsInfo.mode == "4/4_rank"){
-                    ShowText += "全庄战";
-                }
-                else if (playerStatsInfo.mode == "3/4" || playerStatsInfo.mode == "3/4_rank"){
-                    ShowText += "西风战";
-                }
-                else if (playerStatsInfo.mode == "2/4" || playerStatsInfo.mode == "2/4_rank"){
-                    ShowText += "南风战";
-                }
-                else if (playerStatsInfo.mode == "1/4" || playerStatsInfo.mode == "1/4_rank"){
-                    ShowText += "东风战";
-                }
-            }
-            else if (playerStatsInfo.rule == "riichi"){
-                ShowText = "立直麻将";
-
-                if (playerStatsInfo.mode == "2/4"){
-                    ShowText += "南风战";
-                }
-                else if (playerStatsInfo.mode == "1/4"){
-                    ShowText += "东风战";
-                }
-            }
-            else if (playerStatsInfo.rule == "qingque"){
-                ShowText = "青雀麻将";
-
-                if (playerStatsInfo.mode == "4/4"){
-                    ShowText += "全庄战";
-                }
-                else if (playerStatsInfo.mode == "3/4"){
-                    ShowText += "西风战";
-                }
-                else if (playerStatsInfo.mode == "2/4"){
-                    ShowText += "南风战";
-                }
-                else if (playerStatsInfo.mode == "1/4"){
-                    ShowText += "东风战";
-                }
-            }
-            else if (playerStatsInfo.rule == "jiandan"){
-                ShowText = "南雀";
-
-                if (playerStatsInfo.mode == "4/4"){
-                    ShowText += "全庄战";
-                }
-                else if (playerStatsInfo.mode == "3/4"){
-                    ShowText += "西风战";
-                }
-                else if (playerStatsInfo.mode == "2/4"){
-                    ShowText += "南风战";
-                }
-                else if (playerStatsInfo.mode == "1/4"){
-                    ShowText += "东风战";
-                }
-            }
-            else{
-                ShowText += "其他";
-
-                if (playerStatsInfo.mode == "4/4"){
-                    ShowText += " 全庄战";
-                }
-                else if (playerStatsInfo.mode == "3/4"){
-                    ShowText += " 东西战";
-                }
-                else if (playerStatsInfo.mode == "2/4"){
-                    ShowText += " 东南战";
-                }
-                else if (playerStatsInfo.mode == "1/4"){
-                    ShowText += " 东风战";
-                }
+            if (playerStatsInfo.mode == "__rank_total__") {
+                ShowText = ruleName + "总计（天梯）";
+            } else {
+                string match = RoundTextDictionary.GetMatchTypeDisplay(playerStatsInfo.rule, playerStatsInfo.mode);
+                ShowText = string.IsNullOrEmpty(match) ? ruleName : ruleName + match;
             }
 
-            // 国标追加场次分类后缀（（天梯）/（自定义））
-            if (playerStatsInfo.rule == "guobiao" && !string.IsNullOrEmpty(categorySuffix)){
+            if (manifest != null && manifest.HasRankedStats && !string.IsNullOrEmpty(categorySuffix)
+                && playerStatsInfo.mode != "__rank_total__") {
                 ShowText += categorySuffix;
             }
         }
@@ -125,21 +55,10 @@ public class PlayerInfoEntry : MonoBehaviour{
             // mode 为空时按规则回退默认标签（国标番数总计/日麻番数总计/...）
             if (!string.IsNullOrEmpty(playerStatsInfo.mode)){
                 ShowText = playerStatsInfo.mode;
-            }
-            else if (playerStatsInfo.rule == "guobiao"){
-                ShowText = "国标番数总计";
-            }
-            else if (playerStatsInfo.rule == "riichi"){
-                ShowText = "日麻番数总计";
-            }
-            else if (playerStatsInfo.rule == "qingque"){
-                ShowText = "青雀番数总计";
-            }
-            else if (playerStatsInfo.rule == "jiandan"){
-                ShowText = "南雀番数总计";
-            }
-            else{
-                ShowText = "其他麻将达成番种总计:";
+            } else {
+                RuleManifest fanManifest = RuleRegistry.Resolve(playerStatsInfo.rule, playerStatsInfo.rule);
+                string fanRuleName = fanManifest?.LobbyName ?? fanManifest?.DisplayName ?? "其他麻将";
+                ShowText = $"{fanRuleName}番数总计";
             }
         }
 

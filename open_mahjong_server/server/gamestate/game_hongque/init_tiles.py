@@ -8,13 +8,26 @@ from .hongque_debug import (
 )
 from .tile import full_deck
 from .state_machine import HongqueStatus
+from .record import snapshot_round_header
 
 
 async def init_hongque_tiles(game_state) -> None:
+    game_state._starting_round = True
+    try:
+        await _init_hongque_tiles(game_state)
+    finally:
+        game_state._starting_round = False
+
+
+async def _init_hongque_tiles(game_state) -> None:
     game_state._cancel_bot_claim_tasks()
     game_state._ready_phase_active = False
     game_state._ready_players.clear()
     game_state._ready_event.clear()
+    for index in range(4):
+        while not game_state.action_queues[index].empty():
+            game_state.action_queues[index].get_nowait()
+        game_state.action_events[index].clear()
     if game_state.Debug:
         apply_debug_player_seating(game_state)
         game_state.dealer_index = get_debug_dealer_index(game_state)
@@ -49,6 +62,7 @@ async def init_hongque_tiles(game_state) -> None:
     draw_for_current_player(game_state)
     if game_state.Debug:
         apply_hongque_debug_hands(game_state)
+    snapshot_round_header(game_state)
     game_state.message = f"第 {game_state.current_round} 局开始"
     game_state._advance_tick()
     await game_state.broadcast_state(sync_mode="round_start")

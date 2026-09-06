@@ -40,6 +40,9 @@ public static class AppSession {
         }
         GameSceneTeardown.ResetToIdle();
         MatchNetworkManager.Instance?.ClearLocalMatchState();
+        RoomNetworkManager.Instance?.ResetForSessionEnd();
+        RoomListPanel.Instance?.ResetSessionCaches();
+        CreatePanel.ResetAllSessionCaches();
     }
 
     /// <summary>

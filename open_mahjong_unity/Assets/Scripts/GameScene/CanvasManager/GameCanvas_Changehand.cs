@@ -46,11 +46,11 @@ public partial class GameCanvas{
         if (changeType == "ReSetHandCards") {
             return !isArranged;
         }
-        // 国标轮到自己时允许继续抓着原手牌：正常摸牌只新增独立摸牌张，
+        // 摸牌只新增独立摸牌张的规则（RuleManifest.PreserveDragOnDraw）允许继续抓着原手牌：
         // 不应把玩家正在进行的拖拽当成需要强制提交的冲突变更。
         if (changeType == "GetCard"
-                && NormalGameStateManager.Instance != null
-                && NormalGameStateManager.Instance.roomRule == "guobiao"
+                && RuleRegistry.Current != null
+                && RuleRegistry.Current.PreserveDragOnDraw
                 && handCardDragController != null
                 && handCardDragController.CanPreserveActivePressForIncomingDraw()) {
             return false;

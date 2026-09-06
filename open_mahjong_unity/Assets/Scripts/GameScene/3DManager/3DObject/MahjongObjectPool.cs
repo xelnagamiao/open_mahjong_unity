@@ -387,7 +387,7 @@ public class MahjongObjectPool : MonoBehaviour {
         if (spriteCache.TryGetValue(tileId, out Sprite cachedSprite)) {
             tile3D.SetCardSprite(tileId, cachedSprite, CARD_FACE_VERTICAL_STRETCH);
         }
-        if (ConfigManager.Instance != null && ConfigManager.Instance.UseBlankWhiteDragonFace(tileId)
+        if (GameSettings.Current.UseBlankWhiteDragonFace(tileId)
             && spriteCache.TryGetValue(BlankPoolTileId, out Sprite blankSprite)) {
             tile3D.SetCardSprite(tileId, blankSprite, CARD_FACE_VERTICAL_STRETCH);
         }
@@ -428,7 +428,7 @@ public class MahjongObjectPool : MonoBehaviour {
     /// </summary>
     private static void ApplyTableFaceFallback(Material material) {
         if (material == null) return;
-        material.SetColor("_TableFaceFallbackColor", ConfigManager.DefaultTableFaceFallbackColor);
+        material.SetColor("_TableFaceFallbackColor", GameSettings.Current.DefaultTableFaceFallbackColor);
         material.SetFloat("_TableFaceFallbackEnabled", 1f);
     }
 

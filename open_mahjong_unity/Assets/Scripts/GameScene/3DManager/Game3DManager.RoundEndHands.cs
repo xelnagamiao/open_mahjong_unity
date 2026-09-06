@@ -114,7 +114,7 @@ public partial class Game3DManager {
         if (request == null || !request.IsRecordShowCardsExpanded) return false;
         if (request.WinnerPosition == "self") return false;
         if (request.IsCuoheRon) return false;
-        return HepaiRevealDirector.IsGuobiaoRuleKey(request.RecordRule);
+        return HepaiRevealDirector.RonWinTileTravelsFromRiver(request.RecordRule);
     }
     /// <summary>
     /// 国标荣和错和：倒牌仅为展示，恢复继续对局时的 3D 手牌区（不改动河牌）。

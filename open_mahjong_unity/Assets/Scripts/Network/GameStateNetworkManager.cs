@@ -5,7 +5,10 @@ using NativeWebSocket;
 using Newtonsoft.Json;
 
 /// <summary>
-/// 游戏状态网络管理器 - 处理所有游戏状态相关的网络通信
+/// 游戏状态网络管理器：<c>gamestate/*</c> 消息的前缀路由 + 回合制通用出站请求。
+///
+/// 入站：<c>gamestate/{rule}/{suffix}</c> 全部交给当前族 GameState（RuleRegistry.ActiveGameState）；
+/// 本类不认识任何规则名，也不认识任何后缀语义。两段式公共消息（观战列表/表情/投票）在此直接处理。
 /// </summary>
 public class GameStateNetworkManager : MonoBehaviour {
 
@@ -28,18 +31,17 @@ public class GameStateNetworkManager : MonoBehaviour {
 
     /// <summary>
     /// 处理游戏状态相关的服务器响应消息。
-    ///
-    /// 消息形如 <c>gamestate/{rule}/{suffix}</c>：先按 rule 找到已注册的驱动器让其优先处理
-    /// （例如虹雀的 game_start/reconnect/update），未消费的再按公共后缀分发到回合制默认流程。
-    /// 这里不允许出现任何具体规则名；规则专有后缀（定缺、立直宣告、数和尾……）会在后续阶段迁入各自的 Feature。
     /// </summary>
     public void HandleGameStateMessage(Response response) {
         if (RuleRegistry.TryParseGameStateType(response.type, out string rule, out string suffix)) {
-            if (RuleRegistry.TryResolve(rule, out RuleManifest manifest)) {
-                IGameDriver driver = RuleRegistry.GetDriver(manifest);
-                if (driver != null && driver.TryHandleMessage(suffix, response)) return;
+            IGameState state = ResolveGameStateForMessage(rule, suffix);
+            if (state == null) {
+                Debug.LogWarning($"没有可承载的族 GameState: {response.type}");
+                return;
             }
-            HandleTurnBasedMessage(suffix, response);
+            if (!state.HandleMessage(suffix, response)) {
+                Debug.LogWarning($"族 {state.StateId} 未处理的游戏状态消息: {response.type}");
+            }
             return;
         }
 
@@ -68,268 +70,21 @@ public class GameStateNetworkManager : MonoBehaviour {
         }
     }
 
-    /// <summary>回合制默认流程的公共后缀分发（与具体 room_rule 无关）。</summary>
-    private void HandleTurnBasedMessage(string suffix, Response response) {
-        switch (suffix) {
-            case "game_start":
-                HandleGameStart(response);
-                break;
-            case "broadcast_hand_action":
-                HandleBroadcastHandAction(response);
-                break;
-            case "ask_other_action":
-                HandleAskOtherAction(response);
-                break;
-            case "do_action":
-                HandleDoAction(response);
-                break;
-            case "show_result":
-                HandleShowResult(response);
-                break;
-            case "game_end":
-                HandleGameEnd(response);
-                break;
-            case "ready_status":
-                HandleReadyStatus(response);
-                break;
-            // ---- 以下为规则专有后缀，待迁入对应 Feature ----
-            case "ask_dingque":
-                HandleDingqueAsk(response);
-                break;
-            case "dingque_done":
-                HandleDingqueDone(response);
-                break;
-            case "declare_riichi":
-                HandleRiichiDeclare(response);
-                break;
-            case "update_dora":
-                HandleRiichiUpdateDora(response);
-                break;
-            case "show_shuhewei":
-                HandleShowShuhewei(response);
-                break;
-            default:
-                Debug.LogWarning($"未知的游戏状态消息类型: {response.type}");
-                break;
+    /// <summary>
+    /// 决定这条消息由哪个族实例处理：
+    /// - game_start（新对局/重连/下一局）或尚无族实例：按消息里的 rule 段建/换族；
+    /// - 消息属于另一个已注册族：换族；
+    /// - 其余（含 GB/jiandan 等出站通道回包）沿用当前族，不因通道名切换实例。
+    /// </summary>
+    private static IGameState ResolveGameStateForMessage(string rule, string suffix) {
+        IGameState active = RuleRegistry.ActiveGameState;
+        if (active == null || suffix == "game_start") {
+            return RuleRegistry.SetCurrent(rule);
         }
-    }
-
-    /// <summary>
-    /// 处理游戏开始响应
-    /// </summary>
-    private void HandleGameStart(Response response) {
-        Debug.Log($"游戏开始: {response.message}");
-        AutoReconnect.OnGameRestored();
-        NormalGameStateManager.Instance.InitializeGame(response.success, response.message, response.game_info);
-    }
-
-    /// <summary>
-    /// 处理手牌轮操作广播
-    /// </summary>
-    private void HandleBroadcastHandAction(Response response) {
-        Debug.Log($"收到手牌轮操作信息: {response.ask_hand_action_info}");
-        AskHandActionGBInfo handresponse = response.ask_hand_action_info;
-        NormalGameStateManager.Instance.LastAskActionTick = handresponse.action_tick;
-        NormalGameStateManager.Instance.AskHandAction(
-            handresponse.remaining_time,
-            handresponse.player_index,
-            handresponse.remain_tiles,
-            handresponse.action_list,
-            handresponse.riichi_candidate_cuts,
-            handresponse.forbidden_cut_tiles,
-            handresponse.forced_cut_tiles,
-            handresponse.ready_qualification,
-            handresponse.deal_tile_type
-        );
-    }
-
-    /// <summary>
-    /// 四川麻将：处理定缺询问。仅本人收到该消息时弹出定缺面板（10 秒倒计时，超时自动选手牌最少花色）。
-    /// 必须同步 LastAskActionTick，否则 SendAction("dingque") 会因旧 tick 被服务端丢弃，表现为定缺卡死。
-    /// </summary>
-    private void HandleDingqueAsk(Response response) {
-        Debug.Log($"收到定缺询问: {response.ask_hand_action_info}");
-        if (response.ask_hand_action_info != null) {
-            NormalGameStateManager.Instance.LastAskActionTick = response.ask_hand_action_info.action_tick;
+        if (RuleRegistry.TryResolve(rule, out RuleManifest manifest) && manifest != RuleRegistry.Current) {
+            return RuleRegistry.SetCurrent(rule);
         }
-        if (NormalGameStateManager.Instance.IsRealtimeSpectator) return;
-        if (GameRecordManager.Instance.IsSpectating) return;
-        GameCanvas.Instance.ClearActionButton();
-        GameCanvas.Instance.ShowDingqueSelection(10);
-    }
-
-    /// <summary>
-    /// 四川麻将：处理定缺完成广播，按 player_to_dingque 同步各家头像旁的定缺标记。
-    /// </summary>
-    private void HandleDingqueDone(Response response) {
-        Debug.Log($"收到定缺完成: {response.show_result_info?.player_to_dingque}");
-        if (response.show_result_info == null) return;
-        GameCanvas.Instance.HideDingqueSelection();
-        GameCanvas.Instance.UpdatePlayerDingque(response.show_result_info.player_to_dingque);
-        NormalGameStateManager.Instance.SetSelfDingqueFromMap(response.show_result_info.player_to_dingque);
-        // 定缺完成后若已有手牌且轮到操作，立刻刷新定缺置灰（不等 askHandAction）
-        GameCanvas.Instance.RefreshHandTileSelectability();
-    }
-
-    /// <summary>
-    /// 处理询问弃牌后操作
-    /// </summary>
-    private void HandleAskOtherAction(Response response) {
-        Debug.Log($"收到询问弃牌后操作消息: {response.ask_other_action_info}");
-        AskOtherActionGBInfo askresponse = response.ask_other_action_info;
-        NormalGameStateManager.Instance.LastAskActionTick = askresponse.action_tick;
-        NormalGameStateManager.Instance.AskMingPaiAction(
-            askresponse.remaining_time,
-            askresponse.action_list,
-            askresponse.cut_tile,
-            askresponse.chi_candidates,
-            askresponse.is_tactical_recheck == true
-        );
-    }
-
-    /// <summary>
-    /// 处理执行操作
-    /// </summary>
-    private void HandleDoAction(Response response) {
-        Debug.Log($"收到执行操作消息: {response.do_action_info}");
-        DoActionInfo doresponse = response.do_action_info;
-        if (doresponse == null) return;
-        // 服务器侧已消除乱序源头：受保护观众的实际鸣牌不再用追赶协程延迟发送，
-        // 而是按序 await（cut flush 先发 -> meld -> 下一巡 cut），故此处直接派发即可保证逻辑顺序。
-        // 鸣牌认走的打牌者+牌张由服务器必填下发 cut_from_player / cut_tile。
-        NormalGameStateManager.Instance.DoAction(
-            doresponse.action_list,
-            doresponse.action_player,
-            doresponse.cut_tile,
-            doresponse.cut_tiles,
-            doresponse.cut_tile_index,
-            doresponse.cut_class,
-            doresponse.deal_tile,
-            doresponse.deal_tiles,
-            doresponse.buhua_tile,
-            doresponse.combination_mask,
-            doresponse.combination_target,
-            doresponse.is_riichi_horizontal,
-            doresponse.is_claim == true,
-            doresponse.silent == true,
-            doresponse.is_mo_gang,
-            doresponse.gang_score_changes,
-            doresponse.is_mo_buhua,
-            doresponse.action_tick,
-            doresponse.cut_from_player,
-            doresponse.sea_bottom_discard,
-            doresponse.buhua_recipient,
-            doresponse.ready_qualification,
-            doresponse.is_timeout_action == true
-        );
-    }
-
-    /// <summary>
-    /// 处理显示结算结果
-    /// </summary>
-    private void HandleShowResult(Response response) {
-        Debug.Log($"收到显示结算结果消息: {response.show_result_info}");
-        ShowResultInfo showresponse = response.show_result_info;
-        if (showresponse == null) return;
-        RiichiEndResultExtras riichiExtras = BuildRiichiExtrasIfAny(showresponse);
-        GuobiaoEndResultExtras guobiaoExtras = BuildGuobiaoExtrasIfAny(showresponse);
-        // 四川流局：由服务端逐条 show_result 驱动（reveal / status），不再批量写入 extras
-        NormalGameStateManager.Instance.ShowResult(
-            showresponse.hepai_player_index,
-            showresponse.player_to_score,
-            showresponse.hu_score,
-            showresponse.hu_fan,
-            showresponse.hu_class,
-            showresponse.hepai_player_hand,
-            showresponse.hepai_player_huapai,
-            showresponse.hepai_player_combination_mask,
-            showresponse.base_fu,
-            showresponse.fu_fan_list,
-            riichiExtras,
-            showresponse.score_changes,
-            showresponse.silent == true,
-            guobiaoExtras,
-            showresponse.liuju_step,
-            showresponse.liuju_status,
-            showresponse.liuju_hands,
-            showresponse.liuju_status_final,
-            showresponse.hepai_tile,
-            showresponse.multi_ron,
-            showresponse.suppress_hand_reveal,
-            showresponse.liuju_hu_hands,
-            showresponse.defer_score_settlement,
-            showresponse.cha_payer_index,
-            showresponse.ron_discarder_index,
-            showresponse.recycle_discard,
-            showresponse.gang_refund_changes,
-            showresponse.is_qianggang,
-            showresponse.liuju_refund,
-            showresponse.next_status,
-            showresponse.simultaneous_hu_hands,
-            showresponse.skip_hand_reveal
-        );
-        // 四川·血战到底：本盘未结束（仍有玩家继续行牌）→ 挂起结算层，待下次询问时关闭并续打
-        if (NormalGameStateManager.Instance.IsSichuanRule()) {
-            if (showresponse.round_continues == true) {
-                NormalGameStateManager.Instance.MarkPendingSichuanContinue();
-            } else {
-                NormalGameStateManager.Instance.ClearPendingSichuanContinue();
-            }
-        }
-    }
-
-    private static GuobiaoEndResultExtras BuildGuobiaoExtrasIfAny(ShowResultInfo info) {
-        if (info.revealed_angang_masks == null || info.revealed_angang_masks.Count == 0) return null;
-        return new GuobiaoEndResultExtras { RevealedAngangMasks = info.revealed_angang_masks };
-    }
-
-    /// <summary>
-    /// 从 show_result_info 中提取立直麻将扩展信息（han/fu/dora/里宝牌/本场/场供/赤宝牌数）。
-    /// 非日麻或未携带相关字段时返回 null。
-    /// </summary>
-    private static RiichiEndResultExtras BuildRiichiExtrasIfAny(ShowResultInfo info) {
-        bool hasHuExtras = info.han != null || info.fu != null || info.ura_dora_indicators != null || info.honba != null;
-        bool hasRyuuExtras = (info.tenpai_tiles != null && info.tenpai_tiles.Count > 0) || info.exhaustive_penalty != null;
-        if (!hasHuExtras && !hasRyuuExtras) {
-            return null;
-        }
-        return new RiichiEndResultExtras {
-            Han = info.han ?? 0,
-            Fu = info.fu ?? 0,
-            AkaCount = info.aka_count ?? 0,
-            DoraCount = info.dora_count ?? 0,
-            UraDoraCount = info.ura_dora_count ?? 0,
-            DoraIndicators = info.dora_indicators != null ? new System.Collections.Generic.List<int>(info.dora_indicators) : new System.Collections.Generic.List<int>(),
-            UraDoraIndicators = info.ura_dora_indicators != null ? new System.Collections.Generic.List<int>(info.ura_dora_indicators) : new System.Collections.Generic.List<int>(),
-            Honba = info.honba ?? 0,
-            RiichiSticksCollected = info.riichi_sticks_collected ?? 0,
-            ScoreChanges = info.score_changes,
-            TenpaiTiles = info.tenpai_tiles,
-            TenpaiHands = info.tenpai_hands,
-            NotenPenaltyAfterDraw = info.exhaustive_penalty ?? false,
-            LangyongScoredPoints = info.langyong_scored_points ?? 0,
-            LangyongMultiplier = info.langyong_multiplier ?? 0,
-        };
-    }
-
-    /// <summary>
-    /// 处理游戏结束
-    /// </summary>
-    private void HandleGameEnd(Response response) {
-        Debug.Log($"收到游戏结束消息: {response.game_end_info}");
-        GameEndInfo gameendresponse = response.game_end_info;
-        if (gameendresponse == null) return;
-        bool isSpectator = NormalGameStateManager.Instance != null &&
-                           NormalGameStateManager.Instance.IsRealtimeSpectator;
-        if (!isSpectator) {
-            LocalRecordStore.SavePushedDetail(gameendresponse.record_detail);
-        }
-        NormalGameStateManager.Instance.GameEnd(
-            gameendresponse.master_seed,
-            gameendresponse.commitment,
-            gameendresponse.salt,
-            gameendresponse.player_final_data
-        );
+        return active;
     }
 
     /// <summary>
@@ -366,27 +121,16 @@ public class GameStateNetworkManager : MonoBehaviour {
     public async void SendChineseGameTile(bool cutClass, int tileId, int cutIndex) {
         if (NormalGameStateManager.Instance.IsRealtimeSpectator) return;
         try {
-            object request = IsJiandanActive()
-                ? new {
-                    type = "gamestate/jiandan/cut_tile",
-                    cutClass = cutClass,
-                    TileId = tileId,
-                    cutIndex = cutIndex,
-                    gamestate_id = UserDataManager.Instance.GamestateId,
-                    action_tick = NormalGameStateManager.Instance != null
-                        ? NormalGameStateManager.Instance.LastAskActionTick
-                        : (int?)null
-                }
-                : new SendChineseGameTileRequest {
-                    type = "gamestate/GB/cut_tile",
-                    cutClass = cutClass,
-                    TileId = tileId,
-                    cutIndex = cutIndex,
-                    gamestate_id = UserDataManager.Instance.GamestateId,
-                    action_tick = NormalGameStateManager.Instance != null
-                        ? NormalGameStateManager.Instance.LastAskActionTick
-                        : (int?)null
-                };
+            var request = new SendChineseGameTileRequest {
+                type = $"gamestate/{OutboundChannel}/cut_tile",
+                cutClass = cutClass,
+                TileId = tileId,
+                cutIndex = cutIndex,
+                gamestate_id = UserDataManager.Instance.GamestateId,
+                action_tick = NormalGameStateManager.Instance != null
+                    ? NormalGameStateManager.Instance.LastAskActionTick
+                    : (int?)null
+            };
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             Debug.LogError($"发送切牌消息失败: {e.Message}");
@@ -400,7 +144,7 @@ public class GameStateNetworkManager : MonoBehaviour {
         if (NormalGameStateManager.Instance.IsRealtimeSpectator) return;
         try {
             var request = new SendActionRequest {
-                type = IsJiandanActive() ? "gamestate/jiandan/send_action" : "gamestate/GB/send_action",
+                type = $"gamestate/{OutboundChannel}/send_action",
                 gamestate_id = UserDataManager.Instance.GamestateId,
                 action = action,
                 targetTile = targetTile,
@@ -413,13 +157,8 @@ public class GameStateNetworkManager : MonoBehaviour {
         }
     }
 
-    /// <summary>Only selects the Jiandan websocket route; game flow stays in the existing manager.</summary>
-    private static bool IsJiandanActive() {
-        NormalGameStateManager manager = NormalGameStateManager.Instance;
-        if (manager == null) return false;
-        return manager.roomRule == "jiandan"
-            || (!string.IsNullOrEmpty(manager.subRule) && manager.subRule.StartsWith("jiandan"));
-    }
+    /// <summary>回合制出站通道段：由当前规则清单声明（默认 "GB"）。</summary>
+    private static string OutboundChannel => RuleRegistry.Current?.OutboundChannel ?? "GB";
 
     public async void SetRyuukyokuTenpai(bool tenpai) {
         if (NormalGameStateManager.Instance.IsRealtimeSpectator) return;
@@ -588,44 +327,6 @@ public class GameStateNetworkManager : MonoBehaviour {
     }
 
     /// <summary>
-    /// 处理数和尾结算
-    /// </summary>
-    private void HandleShowShuhewei(Response response) {
-        Debug.Log($"收到数和尾结算消息: {response.show_shuhewei_info}");
-        ShowShuheWeiInfo info = response.show_shuhewei_info;
-        if (info == null) return;
-        NormalGameStateManager.Instance.ShowShuhewei(
-            info.player_fu,
-            info.player_to_score,
-            info.score_changes,
-            info.player_fan,
-            info.player_fu_types,
-            info.hu_class,
-            info.hepai_player_index,
-            info.hepai_player_hand,
-            info.hepai_player_combination_mask,
-            info.next_status
-        );
-    }
-
-    /// <summary>
-    /// 处理立直宣告广播：仅 tag_list/score 同步由其他广播负责，这里主要用于客户端动效播放。
-    /// </summary>
-    private void HandleRiichiDeclare(Response response) {
-        Debug.Log($"收到立直宣告: {response.message}");
-        var info = response.refresh_player_tag_list_info;
-        NormalGameStateManager.Instance.OnRiichiDeclared(info?.player_to_tag_list, info?.riichi_declared_player_index);
-    }
-
-    /// <summary>
-    /// 处理宝牌/杠宝牌翻开广播。
-    /// </summary>
-    private void HandleRiichiUpdateDora(Response response) {
-        Debug.Log($"收到宝牌更新: {response.message}");
-        NormalGameStateManager.Instance.OnDoraUpdated(response.dora_indicators, response.kan_dora_indicators);
-    }
-
-    /// <summary>
     /// 立直切牌请求
     /// </summary>
     public async void SendRiichiCut(bool cutClass, int tileId, int cutIndex) {
@@ -644,22 +345,6 @@ public class GameStateNetworkManager : MonoBehaviour {
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             Debug.LogError($"发送立直切牌消息失败: {e.Message}");
-        }
-    }
-
-    /// <summary>
-    /// 处理准备状态更新
-    /// </summary>
-    private void HandleReadyStatus(Response response) {
-        Debug.Log($"收到准备状态更新: {response.message}");
-        if (response.ready_status_info != null) {
-            // EndResultPanel 只在当前对局结算生命周期内接收；川麻步骤间即使面板暂时隐藏也会保留本轮状态。
-            if (EndResultPanel.Instance != null) {
-                EndResultPanel.Instance.UpdateReadyStatus(response.ready_status_info.player_to_ready);
-            }
-            if (EndShuheWeiPanel.Instance != null && EndShuheWeiPanel.Instance.gameObject.activeSelf) {
-                EndShuheWeiPanel.Instance.UpdateReadyStatus(response.ready_status_info.player_to_ready);
-            }
         }
     }
 }

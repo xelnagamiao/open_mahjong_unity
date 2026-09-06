@@ -63,7 +63,7 @@ public static class GameSessionGuard {
     }
 
     private static void ShowBlockedTip(string actionDescription) {
-        NotificationManager.Instance.ShowTip("提示", false,
+        GameHost.Current.ShowTip("提示", false,
             $"当前{DescribeCurrentSession()}，无法{actionDescription}");
     }
 

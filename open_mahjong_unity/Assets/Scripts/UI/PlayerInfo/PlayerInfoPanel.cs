@@ -862,13 +862,17 @@ public class PlayerInfoPanel : MonoBehaviour {
         if (parent == null) return;
 
         // 根据规则选择对应的番种翻译字典
-        Dictionary<string, string> currentFanDict = RankConfig.GuobiaoFanTranslation;
-        if (stats?.rule == "qingque") {
-            currentFanDict = RankConfig.QingqueFanTranslation;
-        } else if (stats?.rule == "riichi") {
-            currentFanDict = RankConfig.RiichiFanTranslation;
-        } else if (stats?.rule == "jiandan") {
-            currentFanDict = FanTextDictionary.FanNameToDisplayJiandan;
+        Dictionary<string, string> currentFanDict = null;
+        var statsNames = RuleRegistry.Resolve(stats?.rule, stats?.rule)?.StatsFanNames;
+        if (statsNames != null) {
+            currentFanDict = statsNames as Dictionary<string, string>;
+            if (currentFanDict == null) {
+                currentFanDict = new Dictionary<string, string>();
+                foreach (var kv in statsNames) currentFanDict[kv.Key] = kv.Value;
+            }
+        }
+        if (currentFanDict == null) {
+            currentFanDict = RankConfig.GuobiaoFanTranslation;
         }
 
         // 显示所有番种，包括值为0的

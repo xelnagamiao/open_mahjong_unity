@@ -31,20 +31,11 @@ public class RiichiRoundPanel : MonoBehaviour {
         if (ruleText != null) ruleText.text = RuleNameDictionary.GetWholeName(roomType);
 
         if (GameRoundText != null) {
-            if (gameInfo.max_round == 1) GameRoundText.text = "东风战";
-            else if (gameInfo.max_round == 2) GameRoundText.text = "东南战";
-            else if (gameInfo.max_round == 3) GameRoundText.text = "西风战";
-            else if (gameInfo.max_round == 4) GameRoundText.text = "全庄战";
-            else GameRoundText.text = "未知轮数";
+            GameRoundText.text = RoundTextDictionary.GetMaxRoundText(roomType, gameInfo.max_round);
         }
 
         if (roomNowRoundText != null) {
-            var map = RoundTextDictionary.CurrentRoundTextRiichi;
-            if (map != null && map.TryGetValue(gameInfo.current_round, out string roundText)) {
-                roomNowRoundText.text = roundText;
-            } else {
-                roomNowRoundText.text = "未知轮数";
-            }
+            roomNowRoundText.text = RoundTextDictionary.GetRoundName(roomType, gameInfo.current_round);
         }
 
         int honba = gameInfo.honba ?? 0;

@@ -69,10 +69,11 @@ public class EndShuheWeiPanel : MonoBehaviour {
         Dictionary<int, string[]> player_fu_types,
         Dictionary<int, string> indexToPosition,
         Dictionary<string, PlayerInfoClass> player_to_info,
-        bool isRecord = false
+        bool isRecord = false,
+        bool animate = true
     ) {
         PrepareShuhewei(player_fu, player_to_score, score_changes, player_fan, player_fu_types, indexToPosition, player_to_info, isRecord);
-        PlayPreparedShuhewei(player_fu, player_to_score, score_changes, player_fan, player_fu_types, isRecord);
+        PlayPreparedShuhewei(player_fu, player_to_score, score_changes, player_fan, player_fu_types, isRecord, animate);
     }
 
     public void PrepareShuhewei(
@@ -130,9 +131,10 @@ public class EndShuheWeiPanel : MonoBehaviour {
         Dictionary<int, int> score_changes,
         Dictionary<int, string[]> player_fan,
         Dictionary<int, string[]> player_fu_types,
-        bool isRecord = false
+        bool isRecord = false,
+        bool animate = true
     ) {
-        showRoutine = StartCoroutine(PlayReveal(player_fu, player_to_score, score_changes, player_fan, player_fu_types, isRecord));
+        showRoutine = StartCoroutine(PlayReveal(player_fu, player_to_score, score_changes, player_fan, player_fu_types, isRecord, animate));
     }
 
     private IEnumerator PlayReveal(
@@ -141,9 +143,17 @@ public class EndShuheWeiPanel : MonoBehaviour {
         Dictionary<int, int> score_changes,
         Dictionary<int, string[]> player_fan,
         Dictionary<int, string[]> player_fu_types,
-        bool isRecord
+        bool isRecord,
+        bool animate
     ) {
         string[] order = { "self", "left", "top", "right" };
+        if (!animate) {
+            for (int i = 0; i < order.Length; i++) {
+                FillOnePlayer(order[i], player_to_score, score_changes, player_fan, player_fu_types, animate: false);
+            }
+            EnableEndButton(isRecord);
+            yield break;
+        }
         for (int i = 0; i < order.Length; i++) {
             string pos = order[i];
             if (!posToIndex.ContainsKey(pos)) {
@@ -171,24 +181,49 @@ public class EndShuheWeiPanel : MonoBehaviour {
             yield return new WaitForSeconds(RevealInterval);
         }
 
+        EnableEndButton(isRecord);
+    }
+
+    private void FillOnePlayer(
+        string pos,
+        Dictionary<int, int> player_to_score,
+        Dictionary<int, int> score_changes,
+        Dictionary<int, string[]> player_fan,
+        Dictionary<int, string[]> player_fu_types,
+        bool animate
+    ) {
+        if (!posToIndex.ContainsKey(pos)) return;
+        int playerIndex = posToIndex[pos];
+        string[] fanList = player_fan != null && player_fan.ContainsKey(playerIndex) ? player_fan[playerIndex] : Array.Empty<string>();
+        string[] fuTypeList = player_fu_types != null && player_fu_types.ContainsKey(playerIndex) ? player_fu_types[playerIndex] : Array.Empty<string>();
+        int displayFu = ShuheweiPlayerPanel.SumFuValues(fuTypeList);
+        int displayFan = ShuheweiPlayerPanel.SumFanValues(fanList);
+        int displayFuPoint = ShuheweiPlayerPanel.CalculateRoundFuPoint(displayFu, displayFan);
+        ShuheweiPlayerPanel panel = GetPanelByKey(pos);
+        if (!animate) {
+            panel.ApplyFuAndFanInstant(fuTypeList, fanList, FanCountPrefab);
+        }
+        panel.SetRoundStats(displayFu, displayFan, displayFuPoint);
+        int totalScore = player_to_score.ContainsKey(playerIndex) ? player_to_score[playerIndex] : 0;
+        int change = score_changes.ContainsKey(playerIndex) ? score_changes[playerIndex] : 0;
+        panel.SetTotalScore(totalScore, change);
+    }
+
+    private void EnableEndButton(bool isRecord) {
+        if (EndButton != null) {
+            EndButton.interactable = true;
+        }
         if (isRecord) {
-            if (EndButton != null) {
-                EndButton.interactable = true;
-            }
             if (EndButtonText != null) {
                 EndButtonText.text = "确认";
             }
-            yield break;
-        }
-
-        if (EndButton != null) {
-            EndButton.interactable = true;
+            return;
         }
         if (matchEndMode) {
             if (EndButtonText != null) {
                 EndButtonText.text = "确定";
             }
-            yield break;
+            return;
         }
         countdownRoutine = StartCoroutine(CountDownAndHide(Mathf.RoundToInt(RoundEndTiming.HuConfirmCountdownSeconds)));
     }

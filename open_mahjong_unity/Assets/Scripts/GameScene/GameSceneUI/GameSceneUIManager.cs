@@ -30,13 +30,13 @@ public class GameSceneUIManager : MonoBehaviour
     /// <summary>关闭计分板 UI（不清对局结算缓存，用于新开对局/观战初始化）。</summary>
     public void ClearScoreRecordUi() {
         ScoreHistoryPanel.Instance?.Close();
-        GameCanvas.Instance.SetScoreRecordOpen(false);
+        GameCanvas.Instance?.SetScoreRecordOpen(false);
     }
 
     /// <summary>关闭计分板并清空对局结算缓存，用于退出对局/牌谱/观战及切换牌谱。</summary>
     public void ClearScoreRecordState() {
         ClearScoreRecordUi();
-        NormalGameStateManager.Instance.ClearScoreRecordSettlementCache();
+        NormalGameStateManager.Instance?.ClearScoreRecordSettlementCache();
     }
 
     /// <summary>
@@ -129,11 +129,13 @@ public class GameSceneUIManager : MonoBehaviour
 
         var mgr = NormalGameStateManager.Instance;
         var player_to_info = mgr?.player_to_info;
-        bool recordActive = GameRecordManager.Instance.gameObject.activeSelf
-            && GameRecordManager.Instance.gameRecord != null;
+        var recordMgr = GameRecordManager.Instance;
+        bool recordActive = recordMgr != null
+            && recordMgr.gameObject.activeSelf
+            && recordMgr.gameRecord != null;
 
         if (recordActive) {
-            GameRecordManager.Instance.RefreshRecordScoreTable();
+            recordMgr.RefreshRecordScoreTable();
             return;
         }
 
@@ -199,21 +201,32 @@ public class GameSceneUIManager : MonoBehaviour
     }
 
     public void InitGameRecord() {
-        EndResultPanel.Instance.ClearEndResultPanel(); // 清空和牌结算面板
-        EndGamePanel.Instance.ClearEndGamePanel();       // 清空游戏结束面板
-        SwitchSeatPanel.Instance.ClearSwitchSeatPanel(); // 清空换位面板
-        EndLiujuPanel.Instance.ClearEndLiujuPanel();     // 清空流局面板
-        PenaltyPanel.Instance.ClearPenaltyPanel(); // 清空罚符面板
-        EndShuheWeiPanel.Instance.ClearEndShuheWeiPanel(); // 清空数和尾面板
-        StartGamePanel.Instance.ClearStartGamePanel();   // 清空开始游戏面板
-        GameRecordManager.Instance.HideGameRecord();     // 隐藏游戏牌谱面板
+        EndResultPanel.Instance?.ClearEndResultPanel();
+        EndGamePanel.Instance?.ClearEndGamePanel();
+        SwitchSeatPanel.Instance?.ClearSwitchSeatPanel();
+        EndLiujuPanel.Instance?.ClearEndLiujuPanel();
+        PenaltyPanel.Instance?.ClearPenaltyPanel();
+        EndShuheWeiPanel.Instance?.ClearEndShuheWeiPanel();
+        StartGamePanel.Instance?.ClearStartGamePanel();
+        GameRecordManager.Instance?.HideGameRecord();
         ClearScoreRecordState();
-        TipsBlock.Instance.HideTipsBlock(); // 隐藏提示面板
-        TipsContainer.Instance.HideTips(); // 隐藏提示容器
-        AutoAction.Instance.gameObject.SetActive(false); // 隐藏自动行为组件
-        RecordSetting.Instance.gameObject.SetActive(true);
-        RecordSetting.Instance.Initialize();
-        GameRecordManager.Instance.gameObject.SetActive(true); // 显示牌谱组件
-        RoundEndPresentation.Instance.ShowSelfGameplayControlAndResyncHand3D();
+        TipsBlock.Instance?.HideTipsBlock();
+        TipsContainer.Instance?.HideTips();
+        if (AutoAction.Instance != null) {
+            AutoAction.Instance.gameObject.SetActive(false);
+        }
+        RecordSetting settings = RecordSetting.Instance;
+        if (settings == null) {
+            settings = FindFirstObjectByType<RecordSetting>(FindObjectsInactive.Include);
+        }
+        if (settings != null) {
+            settings.gameObject.SetActive(true);
+            settings.Initialize();
+        }
+        if (GameRecordManager.Instance != null) {
+            GameRecordManager.Instance.gameObject.SetActive(true);
+        }
+        GameCanvas.Instance?.HideDingqueSelection();
+        RoundEndPresentation.Instance?.ShowSelfGameplayControlAndResyncHand3D();
     }
 }

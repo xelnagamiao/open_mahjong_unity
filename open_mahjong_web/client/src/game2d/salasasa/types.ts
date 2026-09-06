@@ -11,6 +11,9 @@ export interface SalasasaRankData {
   guobiao_rank: string
   guobiao_score: number
   is_sponsor?: boolean
+  is_beginner_qualified?: boolean
+  is_intermediate_qualified?: boolean
+  is_advanced_qualified?: boolean
   is_mcrpl_qualified?: boolean
 }
 

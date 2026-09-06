@@ -23,6 +23,14 @@ from .rules import kong_candidates
 from .scoring import best_win_result
 from .state_machine import HongqueStatus
 from .tile import HongqueTile
+from .record import (
+    record_claim_apply,
+    record_claim_execute,
+    record_cut,
+    record_deal,
+    record_kong,
+    record_unclaimed_discard,
+)
 
 
 @dataclass
@@ -246,8 +254,14 @@ async def _wait_hand_action(game_state) -> None:
         for task in pending:
             task.cancel()
         if action_task in done:
-            action_data = dict(await game_state.action_queues[player.index].get())
+            try:
+                action_data = dict(game_state.action_queues[player.index].get_nowait())
+            except asyncio.QueueEmpty:
+                game_state.action_events[player.index].clear()
+                continue
             game_state.action_events[player.index].clear()
+            if not game_state.action_queues[player.index].empty():
+                game_state.action_events[player.index].set()
             game_state.action_dict[player.index] = []
             game_state.waiting_players_list = []
             break
@@ -355,11 +369,17 @@ async def _wait_claim_action(game_state) -> None:
             if task is timer_task:
                 continue
             player_index = task_to_player[task]
-            submissions.append((
-                player_index,
-                dict(await game_state.action_queues[player_index].get()),
-            ))
+            try:
+                action_data = dict(
+                    game_state.action_queues[player_index].get_nowait()
+                )
+            except asyncio.QueueEmpty:
+                game_state.action_events[player_index].clear()
+                continue
+            submissions.append((player_index, action_data))
             game_state.action_events[player_index].clear()
+            if not game_state.action_queues[player_index].empty():
+                game_state.action_events[player_index].set()
 
         if submissions:
             for player_index, action_data in submissions:
@@ -450,6 +470,7 @@ async def apply_discard(game_state, player, code: str) -> None:
         tile=code,
         cut_class=cut_class,
     )
+    record_cut(game_state, player, code, is_moqie=cut_class)
     game_state._transition(HongqueStatus.RESOLVING_DISCARD)
     game_state.turn_deadline = None
     game_state.turn_started_at = None
@@ -490,6 +511,7 @@ async def handle_hand_action(game_state, player, action: str,
         player.drawn_tile = drawn
         player.last_draw_was_supplement = True
         game_state._record_event("supplement", player=player.index, tile=drawn)
+        record_deal(game_state, drawn, "bd", player.index)
         game_state.message = f"{player.username} 补牌"
         if after_claim:
             game_state._transition(HongqueStatus.WAITING_HAND_ACTION)
@@ -503,6 +525,7 @@ async def handle_hand_action(game_state, player, action: str,
         game_state._consume_time_bank(player, game_state.turn_started_at)
         game_state.events = []
         game_state._apply_kong(player, candidate)
+        record_kong(game_state, player, candidate)
         game_state.message = f"{player.username} 杠牌"
     elif action == "win":
         if after_claim:
@@ -539,6 +562,9 @@ async def deal_card(game_state) -> None:
     game_state._start_turn_clock()
     game_state.events = []
     game_state._draw_for_current_player()
+    drawn = game_state.players[game_state.current_player_index].drawn_tile
+    if drawn:
+        record_deal(game_state, drawn, "d")
     game_state._transition(HongqueStatus.WAITING_HAND_ACTION)
     game_state.message = f"轮到 {game_state.players[game_state.current_player_index].username}"
     game_state._advance_tick()
@@ -601,6 +627,7 @@ async def broadcast_claim_application(game_state, player_index: int, candidate: 
     if game_state._claim_apply_broadcast.get(player_index) == candidate_id:
         return
     game_state._claim_apply_broadcast[player_index] = candidate_id
+    record_claim_apply(game_state, player_index, candidate)
     game_state.events = []
     game_state._record_event(
         "claim_apply",
@@ -675,12 +702,14 @@ async def resolve_claims(game_state) -> None:
         base_kind=candidate.get("base_kind", candidate["kind"]),
         silent=True,
     )
+    record_claim_execute(game_state, winner, candidate)
     game_state.message = f"{winner.username} 亮牌（{candidate['kind']}）"
     clear_claim_window(game_state)
     await enter_onlycut_after_action(game_state)
 
 
 async def advance_after_unclaimed_discard(game_state) -> None:
+    record_unclaimed_discard(game_state)
     clear_claim_window(game_state)
     if not game_state.wall:
         await game_state._finish_round([], "draw")

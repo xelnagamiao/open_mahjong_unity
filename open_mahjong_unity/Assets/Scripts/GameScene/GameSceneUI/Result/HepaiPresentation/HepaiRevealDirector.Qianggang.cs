@@ -13,11 +13,9 @@ public static partial class HepaiRevealDirector {
         }
     }
 
-    /// <summary>
-    /// 当前仅台湾麻将适配了所需的完整抢杠信息；未来规则若提供相同协议，可在此注册能力。
-    /// </summary>
+    /// <summary>能力来自规则清单（RuleManifest.SupportsRobbedAddedKongSource），目前只有台湾声明。</summary>
     private static RulePresentationCapabilities ResolveRulePresentationCapabilities(string ruleKey) {
-        return IsTaiwanRuleKey(ruleKey)
+        return ManifestOf(ruleKey)?.SupportsRobbedAddedKongSource == true
             ? new RulePresentationCapabilities(supportsRobbedAddedKongSource: true)
             : default;
     }
@@ -35,7 +33,7 @@ public static partial class HepaiRevealDirector {
         if (request == null || !isQianggang || !capabilities.SupportsRobbedAddedKongSource) return;
 
         request.IsQianggang = true;
-        request.DiscardPlayerPosition = NormalGameStateManager.Instance.ResolveRonDiscarderPosition(ronDiscarderIndex);
+        request.DiscardPlayerPosition = TableMirror.Current.ResolveRonDiscarderSeat(ronDiscarderIndex);
         if (hepaiTile > 0) request.HepaiTile = hepaiTile;
     }
 

@@ -21,10 +21,12 @@ public partial class RoundEndPresentation {
         int[] hepaiPlayerHand,
         int[][] hepaiPlayerCombinationMask,
         Dictionary<int, int> scoreChanges,
-        bool isFinalPanel) {
+        bool isFinalPanel,
+        RecordSettlementView recordView = null,
+        bool waitForRecordConfirm = false) {
         EnqueueSichuanEndgameStep(CoSichuanSettleHuStep(
             hepaiPlayerIndex, player_to_score, huScore, huFan, huClass,
-            hepaiPlayerHand, hepaiPlayerCombinationMask, scoreChanges, isFinalPanel));
+            hepaiPlayerHand, hepaiPlayerCombinationMask, scoreChanges, isFinalPanel, recordView, waitForRecordConfirm));
     }
 
     public void EnqueueSichuanChajiao(
@@ -35,16 +37,18 @@ public partial class RoundEndPresentation {
         Dictionary<int, int> player_to_score,
         Dictionary<int, int> scoreChanges,
         bool isFinalPanel,
-        bool hasRefund = false) {
+        bool hasRefund = false,
+        RecordSettlementView recordView = null) {
         EnqueueSichuanEndgameStep(CoSichuanChajiaoStep(
-            focusPlayerIndex, statusKey, hand, combinationMask, player_to_score, scoreChanges, isFinalPanel, hasRefund));
+            focusPlayerIndex, statusKey, hand, combinationMask, player_to_score, scoreChanges, isFinalPanel, hasRefund, recordView));
     }
 
     public void EnqueueSichuanChaRefund(
         Dictionary<int, int> player_to_score,
         Dictionary<int, int> scoreChanges,
-        bool isFinalPanel) {
-        EnqueueSichuanEndgameStep(CoSichuanChaRefundStep(player_to_score, scoreChanges, isFinalPanel));
+        bool isFinalPanel,
+        RecordSettlementView recordView = null) {
+        EnqueueSichuanEndgameStep(CoSichuanChaRefundStep(player_to_score, scoreChanges, isFinalPanel, recordView));
     }
 
     private IEnumerator CoSichuanRevealHuStep(Dictionary<int, int[]> huHands) {
@@ -63,13 +67,22 @@ public partial class RoundEndPresentation {
         int[] hepaiPlayerHand,
         int[][] hepaiPlayerCombinationMask,
         Dictionary<int, int> scoreChanges,
-        bool isFinalPanel) {
+        bool isFinalPanel,
+        RecordSettlementView recordView,
+        bool waitForRecordConfirm) {
         BeginSichuanEndgamePanel();
-        EndResultPanel.Instance.PrepareSichuanSettleHuSingle(
-            hepaiPlayerIndex, player_to_score, huScore, huFan, huClass,
-            hepaiPlayerHand, hepaiPlayerCombinationMask, scoreChanges);
+        if (recordView != null) {
+            EndResultPanel.Instance.PrepareSichuanSettleHuRecord(
+                hepaiPlayerIndex, huScore, huFan,
+                hepaiPlayerHand, hepaiPlayerCombinationMask, recordView);
+        } else {
+            EndResultPanel.Instance.PrepareSichuanSettleHuSingle(
+                hepaiPlayerIndex, player_to_score, huScore, huFan, huClass,
+                hepaiPlayerHand, hepaiPlayerCombinationMask, scoreChanges);
+        }
         yield return CoFadeInSichuanEndgamePanel();
-        yield return EndResultPanel.Instance.CoPlaySichuanSettleHuRoutine(huScore, huFan, isFinalPanel);
+        yield return EndResultPanel.Instance.CoPlaySichuanSettleHuRoutine(
+            huScore, huFan, isFinalPanel, waitForRecordConfirm);
     }
 
     private IEnumerator CoSichuanChajiaoStep(
@@ -80,10 +93,16 @@ public partial class RoundEndPresentation {
         Dictionary<int, int> player_to_score,
         Dictionary<int, int> scoreChanges,
         bool isFinalPanel,
-        bool hasRefund) {
+        bool hasRefund,
+        RecordSettlementView recordView) {
         BeginSichuanEndgamePanel();
-        EndResultPanel.Instance.PrepareSichuanChajiaoSingle(
-            focusPlayerIndex, statusKey, hand, combinationMask, player_to_score, scoreChanges, isFinalPanel, hasRefund);
+        if (recordView != null) {
+            EndResultPanel.Instance.PrepareSichuanChajiaoRecord(
+                focusPlayerIndex, hand, combinationMask, isFinalPanel, hasRefund, recordView);
+        } else {
+            EndResultPanel.Instance.PrepareSichuanChajiaoSingle(
+                focusPlayerIndex, statusKey, hand, combinationMask, player_to_score, scoreChanges, isFinalPanel, hasRefund);
+        }
         yield return CoFadeInSichuanEndgamePanel();
         yield return EndResultPanel.Instance.CoPlaySichuanChajiaoRoutine(statusKey, isFinalPanel, hasRefund);
     }
@@ -91,9 +110,14 @@ public partial class RoundEndPresentation {
     private IEnumerator CoSichuanChaRefundStep(
         Dictionary<int, int> player_to_score,
         Dictionary<int, int> scoreChanges,
-        bool isFinalPanel) {
+        bool isFinalPanel,
+        RecordSettlementView recordView) {
         BeginSichuanEndgamePanel();
-        EndResultPanel.Instance.PrepareSichuanChaRefundSingle(player_to_score, scoreChanges);
+        if (recordView != null) {
+            EndResultPanel.Instance.PrepareSichuanChaRefundRecord(recordView);
+        } else {
+            EndResultPanel.Instance.PrepareSichuanChaRefundSingle(player_to_score, scoreChanges);
+        }
         yield return CoFadeInSichuanEndgamePanel();
         yield return EndResultPanel.Instance.CoPlaySichuanChaRefundRoutine(isFinalPanel);
     }

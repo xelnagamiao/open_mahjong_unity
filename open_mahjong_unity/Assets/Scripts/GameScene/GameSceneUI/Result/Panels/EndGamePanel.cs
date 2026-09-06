@@ -79,7 +79,7 @@ public class EndGamePanel : MonoBehaviour {
 
         // 检测是否为排位赛（当前玩家有 rank_before 字段）
         isRankedMatch = false;
-        string myUsername = UserDataManager.Instance.Username;
+        string myUsername = PlayerSession.Current.Username;
         foreach (var d in player_final_data.Values) {
             if (d["username"].ToString() != myUsername) {
                 continue;
@@ -106,7 +106,7 @@ public class EndGamePanel : MonoBehaviour {
 
     private void OnCopyMasterSeedClick() {
         ClipboardUtility.Copy(normalizedMasterSeed);
-        NotificationManager.Instance.ShowTip("主种子", true, "已复制随机主种子");
+        GameHost.Current.ShowTip("主种子", true, "已复制随机主种子");
     }
 
     private void OnGoHomeButtonClick() {

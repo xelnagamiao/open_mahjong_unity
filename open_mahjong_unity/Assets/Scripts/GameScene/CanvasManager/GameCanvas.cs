@@ -30,11 +30,11 @@ public partial class GameCanvas : MonoBehaviour {
     [SerializeField] private Transform ExtraActionButton; // 场景常驻槽；当前仅供虹雀“补牌”使用
     [SerializeField] public Transform ActionBlockContenter;  // 询问操作内容提示(显示吃,碰,杠,胡,补花,抢杠等按钮的多种结果)
 
-    [Header("日麻：自家振听标记（仅操作区显示；服务器仅向本人同步 furiten）")]
-    [SerializeField] private GameObject selfFuritenIndicator;
-
-    [Header("日麻·浪涌：浪潮模式标记（全局唯一，类似振听）")]
-    [SerializeField] private GameObject langyongWaveIndicator;
+    [Header("本家状态标记槽（族按槽名点亮，见 SetSelfStatusIndicator）")]
+    [SerializeField] private GameObject selfFuritenIndicator;     // 槽 furiten：振听（日麻）
+    [SerializeField] private GameObject langyongWaveIndicator;    // 槽 langyong_wave：浪潮模式（浪涌）
+    [SerializeField] private GameObject selfShunheIndicator;      // 槽 shunhe：顺和跳过番（四川）
+    [SerializeField] private TMP_Text selfShunheText;
 
     [Header("预制体")]
     [SerializeField] private ActionButton ActionButtonPrefab;  // 询问操作按钮预制体[吃,碰,杠,胡,补花,抢杠]
@@ -113,7 +113,12 @@ public partial class GameCanvas : MonoBehaviour {
     }
 
     // 计分板被外部关闭时调整
-    public void SetScoreRecordOpen(bool open) { _isScoreRecordOpen = open; openScoreRecordButtonText.text = _isScoreRecordOpen ? "关闭计分板" : "打开计分板"; }
+    public void SetScoreRecordOpen(bool open) {
+        _isScoreRecordOpen = open;
+        if (openScoreRecordButtonText != null) {
+            openScoreRecordButtonText.text = _isScoreRecordOpen ? "关闭计分板" : "打开计分板";
+        }
+    }
 
     /// <summary>
     /// 停止手牌处理协程并清空队列。在重连/下一局等清空手牌前调用，避免对已销毁的 RectTransform 继续执行动画。
@@ -175,10 +180,13 @@ public partial class GameCanvas : MonoBehaviour {
         HideStickerPanel();
         ClearAllStickers();
         HideAllPlayerActionMenus();
-        HideDingqueSelection();
         SetScoreRecordOpen(false);
-        if (langyongWaveIndicator != null) langyongWaveIndicator.SetActive(false);
-        RefreshRiichiStatusIndicators();
+        HideDingqueSelection();
+        playerSelfPanel?.SetDingque(0);
+        playerLeftPanel?.SetDingque(0);
+        playerTopPanel?.SetDingque(0);
+        playerRightPanel?.SetDingque(0);
+        ClearSelfStatusIndicators();
         gameObject.SetActive(false);
     }
 
@@ -245,7 +253,8 @@ public partial class GameCanvas : MonoBehaviour {
             Debug.LogWarning("RoundPanel reference is not set in GameCanvas!");
         }
 
-        RefreshRiichiStatusIndicators();
+        // 族的 OnGameStart 随后再按重连状态点亮自己的标记
+        ClearSelfStatusIndicators();
     }
 
     // 从牌谱记录初始化游戏UI
@@ -321,7 +330,7 @@ public partial class GameCanvas : MonoBehaviour {
                 Debug.LogWarning($"未找到位置 {position} 对应的玩家面板");
             }
         }
-        RefreshRiichiStatusIndicators();
+        ClearSelfStatusIndicators();
     }
 
     // 从牌谱记录更新左上房间信息
@@ -446,67 +455,57 @@ public partial class GameCanvas : MonoBehaviour {
                 }
             }
         }
-        if (useLiveContext) RefreshRiichiStatusIndicators();
+        if (useLiveContext) RefreshSelfStatusIndicators();
     }
 
-    public void RefreshRiichiStatusIndicators() {
-        RefreshSelfFuritenIndicator();
-        RefreshSelfShunheIndicator();
-        RefreshLangyongWaveIndicator();
+    // ---------------------------------------------------------------------
+    // 本家状态标记槽：场景里预置若干小标记（振听 / 顺和 / 浪潮……），核心只管清空与按槽名点亮，
+    // 由族在 OnGameStart / OnPlayerTagsRefreshed 里决定亮哪个、写什么字。
+    // ---------------------------------------------------------------------
+
+    /// <summary>状态标记槽名。</summary>
+    public const string StatusSlotFuriten = "furiten";
+    public const string StatusSlotShunhe = "shunhe";
+    public const string StatusSlotLangyongWave = "langyong_wave";
+
+    private struct StatusSlot {
+        public GameObject Root;
+        public TMP_Text Text;
     }
 
-    // 根据自家 tag_list 是否含 furiten 显示/隐藏操作区振听标记
-    public void RefreshSelfFuritenIndicator() {
-        if (selfFuritenIndicator == null) return;
-        var gm = NormalGameStateManager.Instance;
-        if (gm == null) {
-            selfFuritenIndicator.SetActive(false);
-            return;
-        }
-        bool isRiichi = gm.roomRule == "riichi" || (!string.IsNullOrEmpty(gm.subRule) && gm.subRule.StartsWith("riichi"));
-        if (!isRiichi) {
-            selfFuritenIndicator.SetActive(false);
-            return;
-        }
-        string[] tags = gm.player_to_info != null && gm.player_to_info.ContainsKey("self")
-            ? gm.player_to_info["self"].tag_list
-            : null;
-        bool show = false;
-        if (tags != null) {
-            for (int i = 0; i < tags.Length; i++) {
-                if (tags[i] == "furiten") {
-                    show = true;
-                    break;
-                }
+    private Dictionary<string, StatusSlot> statusSlots;
+
+    private Dictionary<string, StatusSlot> StatusSlots {
+        get {
+            if (statusSlots == null) {
+                statusSlots = new Dictionary<string, StatusSlot> {
+                    { StatusSlotFuriten, new StatusSlot { Root = selfFuritenIndicator } },
+                    { StatusSlotShunhe, new StatusSlot { Root = selfShunheIndicator, Text = selfShunheText } },
+                    { StatusSlotLangyongWave, new StatusSlot { Root = langyongWaveIndicator } },
+                };
             }
+            return statusSlots;
         }
-        selfFuritenIndicator.SetActive(show);
     }
 
-    /// <summary>浪涌麻将：浪潮模式全局标记（任意玩家 tag 含 langyong_wave 即显示）。</summary>
-    public void RefreshLangyongWaveIndicator() {
-        if (langyongWaveIndicator == null) return;
-        bool waveActive = IsLangyongSubRule() && HasLangyongWaveTag();
-        langyongWaveIndicator.SetActive(waveActive);
-    }
-
-    private static bool IsLangyongSubRule() {
-        var gm = NormalGameStateManager.Instance;
-        if (gm == null) return false;
-        return gm.subRule == "riichi/langyong";
-    }
-
-    private static bool HasLangyongWaveTag() {
-        var gm = NormalGameStateManager.Instance;
-        if (gm?.player_to_info == null) return false;
-        foreach (var kvp in gm.player_to_info) {
-            string[] tags = kvp.Value?.tag_list;
-            if (tags == null) continue;
-            for (int i = 0; i < tags.Length; i++) {
-                if (tags[i] == "langyong_wave") return true;
-            }
+    /// <summary>收起全部状态标记。标签刷新 / 开局 / 退出时调用，之后由族按需再点亮。</summary>
+    public void ClearSelfStatusIndicators() {
+        foreach (StatusSlot slot in StatusSlots.Values) {
+            if (slot.Root != null) slot.Root.SetActive(false);
         }
-        return false;
+    }
+
+    /// <summary>点亮 / 收起一个状态标记；text 非空时写入槽内文字。未配置的槽静默忽略。</summary>
+    public void SetSelfStatusIndicator(string slotName, bool visible, string text = null) {
+        if (!StatusSlots.TryGetValue(slotName, out StatusSlot slot) || slot.Root == null) return;
+        slot.Root.SetActive(visible);
+        if (visible && text != null && slot.Text != null) slot.Text.text = text;
+    }
+
+    /// <summary>清空后让当前族重新点亮自己的标记（对局路径；牌谱路径只清空）。</summary>
+    public void RefreshSelfStatusIndicators() {
+        ClearSelfStatusIndicators();
+        RuleRegistry.ActiveGameState?.RefreshSelfStatusIndicators();
     }
 
     public void ClearActionButton() {
@@ -517,7 +516,7 @@ public partial class GameCanvas : MonoBehaviour {
         foreach (Transform child in ActionButtonContainer){
             if (child != ExtraActionButton) Destroy(child.gameObject);
         }
-        SetExtraActionButtonVisible(false);
+        SetPersistentActionButton(null);
         // 吃碰杠询问结束（执行/跳过/超时/轮到下家）：隐藏可操作牌底部的光圈。
         Game3DManager.Instance?.HideClaimGlow();
     }
@@ -557,14 +556,9 @@ public partial class GameCanvas : MonoBehaviour {
         bool hasForcedCut = forced != null
             && forced.Count > 0
             && NormalGameStateManager.Instance.allowActionList.Contains("cut");
-        bool mustCutDingque = NormalGameStateManager.Instance.MustCutDingqueFirst();
-        bool selfReadyLocked = false;
-        var selfTags = NormalGameStateManager.Instance.player_to_info["self"].tag_list;
-        if (selfTags != null) {
-            for (int i = 0; i < selfTags.Length; i++) {
-                if (NormalGameStateManager.IsReadyLockTag(selfTags[i])) { selfReadyLocked = true; break; }
-            }
-        }
+        // 锁手（日麻立直 / 台麻报听）与规则切牌限制（四川定缺先打）由族回答
+        IGameState state = RuleRegistry.ActiveGameState;
+        bool selfReadyLocked = state?.IsSelfLocked == true;
         for (int i = 0; i < handCardsContainer.childCount; i++) {
             TileCard tc = handCardsContainer.GetChild(i).GetComponent<TileCard>();
             if (tc == null) continue;
@@ -575,10 +569,8 @@ public partial class GameCanvas : MonoBehaviour {
                 selectable = candidates.ContainsKey(tc.tileId);
             } else if (selfReadyLocked) {
                 selectable = tc.currentGetTile;
-            } else if (mustCutDingque) {
-                selectable = NormalGameStateManager.Instance.IsDingqueSuitTile(tc.tileId);
             } else {
-                selectable = !forbidden.Contains(tc.tileId);
+                selectable = !forbidden.Contains(tc.tileId) && (state == null || state.CanCutTile(tc.tileId));
             }
             tc.SetSelectable(selectable);
         }
@@ -609,8 +601,8 @@ public partial class GameCanvas : MonoBehaviour {
     }
 
     /// <summary>
-    /// 摸切快捷 / 自动出牌：优先打出摸牌张，否则打出 handSortIndex 最大的手牌。
-    /// 四川定缺：手牌仍含定缺花色时强制打出定缺牌（与服务端 _enforce_dingque_first 一致）。
+    /// 摸切快捷 / 自动出牌：优先打出摸牌张，否则打出 handSortIndex 最大的手牌；
+    /// 只在族允许打出（IGameState.CanCutTile，如四川定缺先打）的牌里选。
     /// </summary>
     public bool TriggerMoqieHandCardClick() {
         HandCardSelectionController.Instance.DisarmAll();
@@ -619,18 +611,20 @@ public partial class GameCanvas : MonoBehaviour {
             return false;
         }
 
-        var gsm = NormalGameStateManager.Instance;
-        bool mustCutDingque = gsm != null && gsm.MustCutDingqueFirst();
+        IGameState state = RuleRegistry.ActiveGameState;
+        bool restricted = false;
 
         TileCard drawTileCard = null;
         TileCard rightmostTileCard = null;
-        TileCard rightmostDingqueTileCard = null;
         int maxHandSortIndex = -1;
-        int maxDingqueHandSortIndex = -1;
 
         for (int i = 0; i < handCardsContainer.childCount; i++) {
             TileCard tileCard = handCardsContainer.GetChild(i).GetComponent<TileCard>();
             if (tileCard == null) continue;
+            if (state != null && !state.CanCutTile(tileCard.tileId)) {
+                restricted = true;
+                continue;
+            }
             if (tileCard.currentGetTile) {
                 drawTileCard = tileCard;
             }
@@ -638,26 +632,16 @@ public partial class GameCanvas : MonoBehaviour {
                 maxHandSortIndex = tileCard.handSortIndex;
                 rightmostTileCard = tileCard;
             }
-            if (mustCutDingque && gsm.IsDingqueSuitTile(tileCard.tileId)
-                && tileCard.handSortIndex > maxDingqueHandSortIndex) {
-                maxDingqueHandSortIndex = tileCard.handSortIndex;
-                rightmostDingqueTileCard = tileCard;
-            }
         }
 
-        TileCard targetTileCard;
-        if (mustCutDingque) {
-            targetTileCard = rightmostDingqueTileCard;
-        } else {
-            targetTileCard = drawTileCard ?? rightmostTileCard;
-        }
+        TileCard targetTileCard = drawTileCard ?? rightmostTileCard;
         if (targetTileCard == null || !targetTileCard.IsSelectableForCut()) {
             Debug.LogWarning("自动出牌失败：手牌容器中没有可出的牌");
             return false;
         }
 
         targetTileCard.TriggerClick();
-        Debug.Log($"自动出牌：触发牌ID {targetTileCard.tileId}，摸切={targetTileCard.currentGetTile}，排序位置={targetTileCard.handSortIndex}，定缺优先={mustCutDingque}");
+        Debug.Log($"自动出牌：触发牌ID {targetTileCard.tileId}，摸切={targetTileCard.currentGetTile}，排序位置={targetTileCard.handSortIndex}，规则限切={restricted}");
         return true;
     }
 
