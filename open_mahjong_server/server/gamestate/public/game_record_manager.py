@@ -96,6 +96,9 @@ def build_game_title_data(gs) -> Dict[str, Any]:
             # open_tobi: 是否击飞
             title["open_tobi"] = gs.open_tobi
         title.update(resolve_riichi_starting_score_fields(gs))
+    if getattr(gs, "room_rule", None) == "changsha":
+        title["bird_count"] = getattr(gs, "bird_count", 2)
+        title["dealer_bird"] = getattr(gs, "dealer_bird", True)
     # match_queue_type: 排位队列（如 beginner_quanzhuang），仅 match 房间写入，供天梯对局列表展示场次
     match_queue_type = getattr(gs, "match_queue_type", None)
     if match_queue_type:

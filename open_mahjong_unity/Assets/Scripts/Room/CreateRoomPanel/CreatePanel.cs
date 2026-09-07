@@ -65,6 +65,12 @@ public partial class CreatePanel : MonoBehaviour {
     [SerializeField] private Toggle ChangshaInitialSanTongToggle;
     [SerializeField] private Toggle ChangshaDealerBirdToggle;
     [SerializeField] private Toggle ChangshaBaseScoreNoDealerToggle;
+    [SerializeField] private Toggle WallWanToggle;
+    [SerializeField] private Toggle WallTongToggle;
+    [SerializeField] private Toggle WallSuoToggle;
+    [SerializeField] private Toggle WallWindsToggle;
+    [SerializeField] private Toggle WallDragonsToggle;
+    [SerializeField] private Toggle WallFlowersToggle;
 
     [Header("面板")]
     [SerializeField] private GameObject SetRandomSeedPanel;
@@ -164,6 +170,7 @@ public partial class CreatePanel : MonoBehaviour {
         EnsureCuoheTypePanel();
         InitCuoheTypeDropdown();
         EnsureChangshaOptionControls();
+        EnsureWallOptionControls();
         InitSubRuleDropdown();
         ApplyRuleDefaults(_ruleState);
         RefreshVisibility();
@@ -288,6 +295,12 @@ public partial class CreatePanel : MonoBehaviour {
             case CreateRoomKeys.CsBigHuScore:
                 if (ChangshaBigHuScoreInput != null) ChangshaBigHuScoreInput.text = ((int)value).ToString();
                 break;
+            case CreateRoomKeys.WallWan: if (WallWanToggle != null) WallWanToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.WallTong: if (WallTongToggle != null) WallTongToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.WallSuo: if (WallSuoToggle != null) WallSuoToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.WallWinds: if (WallWindsToggle != null) WallWindsToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.WallDragons: if (WallDragonsToggle != null) WallDragonsToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.WallFlowers: if (WallFlowersToggle != null) WallFlowersToggle.isOn = (bool)value; break;
         }
     }
 
@@ -326,6 +339,8 @@ public partial class CreatePanel : MonoBehaviour {
         TacticalCallToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.TacticalCall));
         if (BloodBattleToggle != null) BloodBattleToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.BloodBattle));
         SetChangshaOptionsVisible(DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.CsBirdCount));
+        SetWallOptionsVisible(visible.ContainsKey(CreateRoomKeys.WallWan));
+        SetCommonCreateControlsVisible(visible);
         ApplyGameRoundDisplayForRule();
         RefreshCuoheTypePanelVisibility();
         RefreshDetailedConfigEntry();
@@ -504,6 +519,44 @@ public partial class CreatePanel : MonoBehaviour {
         SetChangshaOptionsVisible(false);
     }
 
+    private void EnsureWallOptionControls() {
+        Toggle template = TacticalCallToggle != null ? TacticalCallToggle : RedDoraToggle;
+        WallWanToggle = EnsureClonedToggle(template, WallWanToggle, "WallWan", "万", true);
+        Toggle last = WallWanToggle != null ? WallWanToggle : template;
+        WallTongToggle = EnsureClonedToggle(last, WallTongToggle, "WallTong", "筒", true);
+        last = WallTongToggle != null ? WallTongToggle : last;
+        WallSuoToggle = EnsureClonedToggle(last, WallSuoToggle, "WallSuo", "索", true);
+        last = WallSuoToggle != null ? WallSuoToggle : last;
+        WallWindsToggle = EnsureClonedToggle(last, WallWindsToggle, "WallWinds", "四风", true);
+        last = WallWindsToggle != null ? WallWindsToggle : last;
+        WallDragonsToggle = EnsureClonedToggle(last, WallDragonsToggle, "WallDragons", "三元", true);
+        last = WallDragonsToggle != null ? WallDragonsToggle : last;
+        WallFlowersToggle = EnsureClonedToggle(last, WallFlowersToggle, "WallFlowers", "花牌", true);
+        SetWallOptionsVisible(false);
+    }
+
+    private void SetWallOptionsVisible(bool visible) {
+        SetToggleVisible(WallWanToggle, visible);
+        SetToggleVisible(WallTongToggle, visible);
+        SetToggleVisible(WallSuoToggle, visible);
+        SetToggleVisible(WallWindsToggle, visible);
+        SetToggleVisible(WallDragonsToggle, visible);
+        SetToggleVisible(WallFlowersToggle, visible);
+    }
+
+    private void SetCommonCreateControlsVisible(Dictionary<string, object> visible) {
+        bool showRound = visible.ContainsKey(CreateRoomKeys.GameRound);
+        if (gameTime1Button != null) gameTime1Button.gameObject.SetActive(showRound);
+        if (gameTime2Button != null) gameTime2Button.gameObject.SetActive(showRound);
+        if (gameTime3Button != null) gameTime3Button.gameObject.SetActive(showRound && _ruleState != "changsha");
+        if (gameTime4Button != null) gameTime4Button.gameObject.SetActive(showRound);
+        if (roundTimer != null) roundTimer.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.RoundTimer));
+        if (stepTimer != null) stepTimer.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.StepTimer));
+        if (tipsToggle != null) tipsToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.Tips));
+        if (AllowSpectatorToggle != null) AllowSpectatorToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.AllowSpectator));
+        if (TouristLimitToggle != null) TouristLimitToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.TouristLimit));
+    }
+
     private void EnsureChangshaScoreControls() {
         // 长沙计分模式及自定义分值独占一行，避免与开杠、扎鸟配置挤在同一行。
         Transform parent = InputHepaiLimitPlane != null
@@ -655,7 +708,9 @@ public partial class CreatePanel : MonoBehaviour {
 
     private void ApplyGameRoundDisplayForRule() {
         CacheDefaultGameRoundLabels();
+        bool showRound = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.GameRound);
         bool isChangsha = _ruleState == "changsha";
+        if (!showRound) return;
         if (isChangsha && gameTime3Button != null && gameTime3Button.isOn) {
             SelectGameTime(4);
         }
@@ -753,6 +808,11 @@ public partial class CreatePanel : MonoBehaviour {
 
         if (_ruleState == "hongque") {
             CreateHongqueRoom();
+            return;
+        }
+
+        if (_ruleState == "free") {
+            CreateFreeRoom();
             return;
         }
     }
@@ -1047,6 +1107,27 @@ public partial class CreatePanel : MonoBehaviour {
             return;
         }
         RoomNetworkManager.Instance.Create_Changsha_Room(config);
+    }
+
+    private void CreateFreeRoom() {
+        var config = new Free_Create_RoomConfig {
+            RoomName = roomNameInput.text.Trim(),
+            Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
+            RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
+            TouristLimit = false,
+            WallWan = WallWanToggle == null || WallWanToggle.isOn,
+            WallTong = WallTongToggle == null || WallTongToggle.isOn,
+            WallSuo = WallSuoToggle == null || WallSuoToggle.isOn,
+            WallWinds = WallWindsToggle == null || WallWindsToggle.isOn,
+            WallDragons = WallDragonsToggle == null || WallDragonsToggle.isOn,
+            WallFlowers = WallFlowersToggle == null || WallFlowersToggle.isOn,
+        };
+        if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
+            Debug.LogWarning(error);
+            NotificationManager.Instance.ShowTip("create_room", false, $"创建房间失败: {error}");
+            return;
+        }
+        RoomNetworkManager.Instance.Create_Free_Room(config);
     }
 
     private static int ReadChangshaScore(TMP_InputField input, int fallback) {

@@ -416,12 +416,11 @@ class ChangshaGameState:
                 )
 
     def _draw_changsha_birds(self, count: int = 2) -> List[int]:
-        birds = []
-        for _ in range(count):
-            if not self.tiles_list:
-                break
-            birds.append(self.tiles_list.pop(0))
-        return birds
+        """翻开牌山头部若干张作为扎鸟指示牌，不摸进手、不从牌山取走。"""
+        if count <= 0:
+            return []
+        wall = getattr(self, "tiles_list", None) or []
+        return list(wall[:count])
 
     @staticmethod
     def _is_sea_bottom_win(fan_list: List[str]) -> bool:

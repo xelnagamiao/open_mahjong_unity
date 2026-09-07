@@ -228,7 +228,7 @@ class Show_result_info(BaseModel):
     initial_hu_dice: Optional[List[int]] = None
     initial_hu_bird_seats: Optional[List[int]] = None
     initial_hu_payer_details: Optional[List[Dict]] = None
-    # 长沙麻将：和牌后从牌山头部抽出的鸟牌 ID（顺序与结算一致）
+    # 长沙麻将：翻开牌山头部的扎鸟指示牌 ID（不摸进手）
     bird_tiles: Optional[List[int]] = None
     # 本条结算后下一步："round_continue" | "round_end_by_ready" | "match_end"
     next_status: Optional[str] = None

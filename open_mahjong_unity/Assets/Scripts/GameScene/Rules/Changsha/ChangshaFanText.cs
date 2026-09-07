@@ -76,36 +76,10 @@ internal static class ChangshaFanText {
         return true;
     }
 
-    public static List<int> ParseBirdTilesFromFans(string[] huFan, string prefix) {
-        var result = new List<int>();
-        if (huFan == null || string.IsNullOrEmpty(prefix)) return result;
-        for (int i = 0; i < huFan.Length; i++) {
-            string fan = huFan[i];
-            if (string.IsNullOrEmpty(fan) || !fan.StartsWith(prefix)) continue;
-            string payload = fan.Substring(prefix.Length).Trim();
-            if (string.IsNullOrEmpty(payload) || payload == "无") return result;
-            string[] parts = payload.Split(',');
-            for (int p = 0; p < parts.Length; p++) {
-                if (TryParseChangshaTileId(parts[p], out int tileId)) {
-                    result.Add(tileId);
-                }
-            }
-            return result;
-        }
-        return result;
-    }
-
-    /// <summary>
-    /// 长沙扎鸟牌面：复用日麻结算宝牌槽。表宝牌=抽出的鸟，里宝牌=中鸟（未中则全牌背）。
-    /// </summary>
-    public static RiichiEndResultExtras BuildBirdExtras(IReadOnlyList<int> recordedBirds, string[] huFan) {
+    /// <summary>长沙扎鸟指示牌：只读协议 / 牌谱 tick 里的 ID，不再从「鸟牌:」番种反解。</summary>
+    public static int[] ResolveBirdTiles(IReadOnlyList<int> recordedBirds) {
         List<int> birds = CopyValidBirds(recordedBirds);
-        if (birds.Count == 0) birds = ParseBirdTilesFromFans(huFan, "鸟牌:");
-        if (birds.Count == 0) return null;
-        return new RiichiEndResultExtras {
-            DoraIndicators = birds,
-            UraDoraIndicators = ParseBirdTilesFromFans(huFan, "中鸟:"),
-        };
+        return birds.Count == 0 ? null : birds.ToArray();
     }
 
     private static List<int> CopyValidBirds(IReadOnlyList<int> tiles) {

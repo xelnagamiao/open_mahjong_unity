@@ -1136,7 +1136,7 @@ class ChangshaRulesTest(unittest.TestCase):
         birds = ChangshaGameState._draw_changsha_birds(state, 2)
 
         self.assertEqual(birds, [11, 22])
-        self.assertEqual(state.tiles_list, [33])
+        self.assertEqual(state.tiles_list, [11, 22, 33])
 
     def test_sea_bottom_win_uses_winning_tile_as_bird_when_wall_empty(self):
         players = [

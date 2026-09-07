@@ -184,6 +184,7 @@ public class TurnBasedGameState : GameStateBase {
             WinnerHand = info.hepai_player_hand,
             WinnerFlowers = info.hepai_player_huapai,
             WinnerMelds = info.hepai_player_combination_mask,
+            BirdTiles = info.bird_tiles,
             WinTile = info.hepai_tile ?? 0,
             MultiRon = info.multi_ron == true,
             SimultaneousHuHands = info.simultaneous_hu_hands,

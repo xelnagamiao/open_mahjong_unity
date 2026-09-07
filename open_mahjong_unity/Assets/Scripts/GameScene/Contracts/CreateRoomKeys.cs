@@ -33,4 +33,10 @@ public static class CreateRoomKeys {
     public const string CsBaseScoreNoDealer = "cs_base_score_no_dealer";
     public const string CsSmallHuScore = "cs_small_hu_score";
     public const string CsBigHuScore = "cs_big_hu_score";
+    public const string WallWan = "wall_wan";
+    public const string WallTong = "wall_tong";
+    public const string WallSuo = "wall_suo";
+    public const string WallWinds = "wall_winds";
+    public const string WallDragons = "wall_dragons";
+    public const string WallFlowers = "wall_flowers";
 }

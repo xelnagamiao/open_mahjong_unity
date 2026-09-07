@@ -961,11 +961,12 @@ public partial class GameRecordManager : MonoBehaviour {
                     tick, recordRule, huPlayer.tileList, action, lastWinnableTileId);
                 int[] hepaiPlayerHuapai = huPlayer.huapaiList.ToArray();
                 int[][] hepaiPlayerCombinationMask = huPlayer.combinationMasks.ToArray();
-                RiichiEndResultExtras extras = ChangshaFanText.IsChangshaRule(recordRule)
-                    || ChangshaFanText.IsChangshaRule(recordSubRule)
-                    ? ChangshaFanText.BuildBirdExtras(
-                        tick.Count > 6 ? ParseTickScoreChanges(tick, 6) : null, huFan)
+                bool isChangshaHu = ChangshaFanText.IsChangshaRule(recordRule)
+                    || ChangshaFanText.IsChangshaRule(recordSubRule);
+                int[] changshaBirdTiles = isChangshaHu
+                    ? ChangshaFanText.ResolveBirdTiles(ParseTickIntArray(tick, 6))
                     : null;
+                RiichiEndResultExtras extras = null;
 
                 var deltas = new Dictionary<int, int>();
                 int[] tickScoreChanges = ParseTickScoreChanges(tick, 4);
@@ -997,7 +998,7 @@ public partial class GameRecordManager : MonoBehaviour {
                         action, hepaiPlayerIndex, resolvedHepaiTile, multiRonFlag, ronDiscarderIndex,
                         recycleDiscard, isQianggangHu);
                 } else {
-                    ShowRecordResult(action, huScore, huFan, hepaiPlayerIndex, hepaiPlayerHand, hepaiPlayerHuapai, hepaiPlayerCombinationMask, playerToScoreBefore, playerToScoreAfter, baseFu, fuFanList, extras);
+                    ShowRecordResult(action, huScore, huFan, hepaiPlayerIndex, hepaiPlayerHand, hepaiPlayerHuapai, hepaiPlayerCombinationMask, playerToScoreBefore, playerToScoreAfter, baseFu, fuFanList, extras, changshaBirdTiles);
                 }
                 TryRefreshRecordScoreTable();
             }
@@ -1479,6 +1480,20 @@ public partial class GameRecordManager : MonoBehaviour {
         }
     }
 
+    private int[] ParseTickIntArray(List<string> tick, int index) {
+        if (index >= tick.Count || string.IsNullOrEmpty(tick[index])) return null;
+        try {
+            JArray arr = JArray.Parse(tick[index]);
+            var result = new List<int>(arr.Count);
+            for (int i = 0; i < arr.Count; i++) {
+                if (int.TryParse(arr[i]?.ToString(), out int value)) result.Add(value);
+            }
+            return result.Count == 0 ? null : result.ToArray();
+        } catch {
+            return ParseTickScoreChanges(tick, index);
+        }
+    }
+
     private string[][] ParseTickFanLists(List<string> tick, int index) {
         if (index >= tick.Count || string.IsNullOrEmpty(tick[index])) return null;
         try {
@@ -1555,7 +1570,8 @@ public partial class GameRecordManager : MonoBehaviour {
     private void ShowRecordResult(string huClass, int huScore, string[] huFan, int hepaiPlayerIndex,
         int[] hepaiPlayerHand, int[] hepaiPlayerHuapai, int[][] hepaiPlayerCombinationMask,
         Dictionary<int, int> playerToScoreBefore, Dictionary<int, int> playerToScoreAfter,
-        int? baseFu = null, string[] fuFanList = null, RiichiEndResultExtras riichiExtras = null) {
+        int? baseFu = null, string[] fuFanList = null, RiichiEndResultExtras riichiExtras = null,
+        int[] changshaBirdTiles = null) {
         if (huClass == "jiuzhongjiupai" || SpecialLiujuCaptions.IsRiichiAbort(huClass)) {
             if (playerToScoreAfter != null && playerToScoreAfter.Count > 0) {
                 BoardCanvas.Instance.UpdatePlayerScores(playerToScoreAfter, indexToPosition);
@@ -1567,14 +1583,15 @@ public partial class GameRecordManager : MonoBehaviour {
 
         _recordHuPresentationCoroutine = StartCoroutine(CoShowRecordResultWithPresentation(
             huClass, huScore, huFan, hepaiPlayerIndex, hepaiPlayerHand, hepaiPlayerHuapai,
-            hepaiPlayerCombinationMask, playerToScoreBefore, playerToScoreAfter, baseFu, fuFanList, riichiExtras));
+            hepaiPlayerCombinationMask, playerToScoreBefore, playerToScoreAfter, baseFu, fuFanList, riichiExtras,
+            changshaBirdTiles));
     }
 
     private IEnumerator CoShowRecordResultWithPresentation(
         string huClass, int huScore, string[] huFan, int hepaiPlayerIndex,
         int[] hepaiPlayerHand, int[] hepaiPlayerHuapai, int[][] hepaiPlayerCombinationMask,
         Dictionary<int, int> playerToScoreBefore, Dictionary<int, int> playerToScoreAfter,
-        int? baseFu, string[] fuFanList, RiichiEndResultExtras riichiExtras) {
+        int? baseFu, string[] fuFanList, RiichiEndResultExtras riichiExtras, int[] changshaBirdTiles) {
         BeginRecordHuPresentation();
         try {
         Dictionary<string, string> positionToUsername = new Dictionary<string, string>();
@@ -1602,7 +1619,8 @@ public partial class GameRecordManager : MonoBehaviour {
 
         GameSceneUIManager.Instance?.ShowRecordResult(hepaiPlayerIndex, huScore, huFan, huClass, roomType,
             indexToPosition, positionToUsername, hepaiPlayerHand, hepaiPlayerHuapai, hepaiPlayerCombinationMask,
-            playerToScoreBefore, playerToScoreAfter, IsSpectating && IsLiveSpectatorMode, baseFu, fuFanList, riichiExtras);
+            playerToScoreBefore, playerToScoreAfter, IsSpectating && IsLiveSpectatorMode, baseFu, fuFanList, riichiExtras,
+            changshaBirdTiles);
         } finally {
             EndRecordHuPresentation();
         }
@@ -1710,8 +1728,9 @@ public partial class GameRecordManager : MonoBehaviour {
             ScoreChanges = deltas,
         };
 
+        EndResultPanel.Instance?.SetChangshaBirdTiles(null);
         ShowRecordResult(huClass, huScore, yaku, hepaiPlayerIndex, hepaiPlayerHand, hepaiPlayerHuapai,
-            hepaiPlayerCombinationMask, playerToScoreBefore, playerToScoreAfter, null, null, extras);
+            hepaiPlayerCombinationMask, playerToScoreBefore, playerToScoreAfter, null, null, extras, null);
         if (riichiSticksCollected > 0) {
             Game3DManager.Instance.ClearAllRiichiTenbous();
         }

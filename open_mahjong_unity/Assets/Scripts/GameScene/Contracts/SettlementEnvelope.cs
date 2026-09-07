@@ -35,6 +35,8 @@ public sealed class SettlementEnvelope {
     public int[] WinnerHand;
     public int[] WinnerFlowers;
     public int[][] WinnerMelds;
+    /// <summary>长沙扎鸟指示牌（翻开牌山头，不进手牌）。其它规则为 null。</summary>
+    public int[] BirdTiles;
     public int WinTile;
     public bool MultiRon;
     /// <summary>多家同时和：{player_index: hand}，逐家亮牌。</summary>

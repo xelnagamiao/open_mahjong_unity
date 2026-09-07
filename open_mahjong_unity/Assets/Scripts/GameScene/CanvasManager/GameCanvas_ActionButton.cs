@@ -214,6 +214,8 @@ public partial class GameCanvas : MonoBehaviour {
 
             // 常驻槽位词已由 SetPersistentActionButton 处理，不再生成一次性按钮。
             if (action_list[i] == persistentWord) continue;
+            // cut 只开放手牌点击，不做成行动按钮。
+            if (action_list[i] == "cut") continue;
 
             // 规则模块登记并自带文案的词：一词一按钮，展开/直发由 ActionButton 按词表决定。
             string moduleLabel = ActionWords.LabelOf(action_list[i]);
@@ -279,7 +281,7 @@ public partial class GameCanvas : MonoBehaviour {
                 Debug.Log($"和牌");
                 ActionButton ActionButtonObj = CreateActionButton(colorPreset);
                 TMP_Text buttonText = ActionButtonObj.TextObject;
-                buttonText.text = "和";
+                buttonText.text = ButtonCaption(action_list[i]);
                 Debug.Log($"和牌按钮: {ActionButtonObj}");
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }

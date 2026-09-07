@@ -760,4 +760,36 @@ public class RoomNetworkManager : MonoBehaviour {
             NotificationManager.Instance.ShowTip("kick_player", false, "移除玩家失败");
         }
     }
+
+    /// <summary>创建自由模式房间：独立请求，不把墙勾选带进国标建房。</summary>
+    public async void Create_Free_Room(Free_Create_RoomConfig config) {
+        if (!TryBeginCreateRequest()) return;
+        try {
+            if (!TryResolveRandomSeed(config.RandomSeed, out string randomSeed, out string seedError)) {
+                CancelPendingRoomEntry();
+                NotificationManager.Instance.ShowTip("create_room", false, seedError);
+                return;
+            }
+            var request = new CreateFreeRoomRequest {
+                type = "room/create_Free_room",
+                rule = "free",
+                sub_rule = "free/standard",
+                roomname = config.RoomName,
+                password = config.Password,
+                random_seed = randomSeed,
+                tourist_limit = config.TouristLimit,
+                wall_wan = config.WallWan,
+                wall_tong = config.WallTong,
+                wall_suo = config.WallSuo,
+                wall_winds = config.WallWinds,
+                wall_dragons = config.WallDragons,
+                wall_flowers = config.WallFlowers,
+            };
+            Debug.Log($"发送创建自由模式房间消息: {config.RoomName}");
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            CancelPendingRoomEntry();
+            Debug.LogError($"创建房间失败: {e.Message}");
+        }
+    }
 }

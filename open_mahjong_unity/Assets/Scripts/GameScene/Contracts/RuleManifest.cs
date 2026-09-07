@@ -154,6 +154,9 @@ public sealed class RuleManifest {
     /// <summary>建房时有馆规细则按钮（台湾）。</summary>
     public bool LobbyHasDetailedConfig;
 
+    /// <summary>房间等待厅是否显示加机器人。默认允许；自由模式等关闭。</summary>
+    public bool AllowsRoomBots = true;
+
     /// <summary>个人信息页番种统计用的 key→中文名表。null 表示该规则不展示番种达成。</summary>
     public IReadOnlyDictionary<string, string> StatsFanNames;
 

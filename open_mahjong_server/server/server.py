@@ -338,6 +338,9 @@ class GameServer:
     async def create_Hongque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "hongque/v1.6", tourist_limit: bool = False, allow_spectator: bool = False, hepai_way: str = "multi_ron") -> Response:
         return await self.room_manager.create_Hongque_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, hepai_way)
 
+    async def create_Free_room(self, Connect_id: str, room_name: str, password: str, random_seed: int = 0, sub_rule: str = "free/standard", tourist_limit: bool = False, wall_wan: bool = True, wall_tong: bool = True, wall_suo: bool = True, wall_winds: bool = True, wall_dragons: bool = True, wall_flowers: bool = True) -> Response:
+        return await self.room_manager.create_Free_room(Connect_id, room_name, password, random_seed, sub_rule, tourist_limit, wall_wan, wall_tong, wall_suo, wall_winds, wall_dragons, wall_flowers)
+
     # 创建古典麻将房间
     async def create_Classical_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "classical/standard", tourist_limit: bool = False, allow_spectator: bool = True, event_id=None) -> Response:
         return await self.room_manager.create_Classical_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, event_id)

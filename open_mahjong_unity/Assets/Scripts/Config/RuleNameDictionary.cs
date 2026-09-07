@@ -21,6 +21,8 @@ public static class RuleNameDictionary {
         { "taiwan/standard", "台湾麻将" },
         { "riichi/standard", "立直麻将(标准)" },
         { "riichi/langyong", "浪涌麻将(日麻)" },
+        { "free", "自由模式" },
+        { "free/standard", "自由模式" },
     };
 
     /// <summary>sub_rule -> 短显示名（预留，可按需补全）</summary>
@@ -39,6 +41,8 @@ public static class RuleNameDictionary {
         { "taiwan/standard", "台湾" },
         { "riichi/standard", "立直" },
         { "riichi/langyong", "浪涌" },
+        { "free", "自由" },
+        { "free/standard", "自由" },
     };
 
     public static string GetWholeName(string subRule) {

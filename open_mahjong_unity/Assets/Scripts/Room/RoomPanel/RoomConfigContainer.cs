@@ -49,6 +49,10 @@ public class RoomConfigContainer : MonoBehaviour {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
             "tips", "open_cuohe", "has_password", "tourist_limit", "allow_spectator",
         } },
+        { "free", new List<string> {
+            "room_type", "random_seed", "has_password",
+            "wall_wan", "wall_tong", "wall_suo", "wall_winds", "wall_dragons", "wall_flowers",
+        } },
     };
 
     private static readonly List<string> DefaultDisplayFields = new List<string> {
@@ -290,6 +294,30 @@ public class RoomConfigContainer : MonoBehaviour {
                 if (string.IsNullOrEmpty(roomInfo.hepai_way)) return false;
                 displayName = "和牌方式";
                 displayValue = FormatHepaiWay(roomInfo.hepai_way);
+                return true;
+            case "wall_wan":
+                displayName = "万";
+                displayValue = roomInfo.wall_wan ? "开" : "关";
+                return true;
+            case "wall_tong":
+                displayName = "筒";
+                displayValue = roomInfo.wall_tong ? "开" : "关";
+                return true;
+            case "wall_suo":
+                displayName = "索";
+                displayValue = roomInfo.wall_suo ? "开" : "关";
+                return true;
+            case "wall_winds":
+                displayName = "四风";
+                displayValue = roomInfo.wall_winds ? "开" : "关";
+                return true;
+            case "wall_dragons":
+                displayName = "三元";
+                displayValue = roomInfo.wall_dragons ? "开" : "关";
+                return true;
+            case "wall_flowers":
+                displayName = "花牌";
+                displayValue = roomInfo.wall_flowers ? "开" : "关";
                 return true;
             default:
                 Debug.LogWarning($"未知字段名: {fieldName}");

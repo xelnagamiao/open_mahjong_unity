@@ -46,6 +46,12 @@ public class RoomInfo {
     public bool base_score_no_dealer;
     public int small_hu_score;
     public int big_hu_score;
+    public bool wall_wan;
+    public bool wall_tong;
+    public bool wall_suo;
+    public bool wall_winds;
+    public bool wall_dragons;
+    public bool wall_flowers;
     public Dictionary<string, object> detailed_config; // 当前规则的详细配置
     public string event_id; // 赛事房间关联的赛事 ID
 }
@@ -674,6 +680,18 @@ public class HongqueStateInfo {
     public HongquePlayerInfo[] players;
 }
 
+public class FreeTableInfo {
+    public Dictionary<string, string> votes;
+    public int? transfer_tile;
+    public int score_revision;
+    public Dictionary<string, int> scores;
+    public Dictionary<string, bool> revealed;
+    public int? revealed_player_index;
+    public int[] revealed_hand;
+    public int? last_river_player;
+    public int? last_river_tile;
+}
+
 public class Response { // 所有后端的返回数据都由Response类接收
     // 消息头
     public string type; // 消息类型
@@ -729,6 +747,7 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public StickerInfo sticker_info; // 对局表情包广播
     public VoteInfo vote_info; // 房间对局投票暂停/结束状态同步
     public HongqueStateInfo hongque_state; // 虹雀开局/重连数据或实时增量
+    public FreeTableInfo free_table_info; // 自由模式桌面附加状态
     public EventListEntry[] event_list; // 当前用户可建房的 active 赛事列表
     public EventDetailInfo event_detail;
     public EventReadyPlayer[] ready_players;

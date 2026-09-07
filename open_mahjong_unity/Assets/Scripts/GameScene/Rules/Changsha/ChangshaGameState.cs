@@ -54,7 +54,8 @@ public class ChangshaGameState : TurnBasedGameState {
 
     protected override SettlementEnvelope BuildEnvelope(ShowResultInfo info) {
         SettlementEnvelope env = base.BuildEnvelope(info);
-        env.Extras = ChangshaFanText.BuildBirdExtras(info.bird_tiles, info.hu_fan);
+        env.BirdTiles = ChangshaFanText.ResolveBirdTiles(info.bird_tiles);
+        env.Extras = null;
         return env;
     }
 

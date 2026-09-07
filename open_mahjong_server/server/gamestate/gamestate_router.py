@@ -41,6 +41,14 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
         await handle_jiandan_send_action(game_server, Connect_id, message)
     elif message_type == "gamestate/hongque/action":
         await handle_hongque_action(game_server, Connect_id, message, websocket)
+    elif message_type == "gamestate/free/cut_tile":
+        await handle_free_cut_tile(game_server, Connect_id, message, websocket)
+    elif message_type == "gamestate/free/send_action":
+        await handle_free_send_action(game_server, Connect_id, message, websocket)
+    elif message_type == "gamestate/free/set_scores":
+        await handle_free_set_scores(game_server, Connect_id, message, websocket)
+    elif message_type == "gamestate/free/set_vote":
+        await handle_free_set_vote(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/riichi/set_ryuukyoku_tenpai":
         await handle_set_ryuukyoku_tenpai(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/GB/add_spectator":
@@ -82,6 +90,62 @@ async def handle_hongque_action(game_server, Connect_id: str, message: dict, web
         )
     except (ValueError, TypeError) as exc:
         await websocket.send_json({"type": "tips", "success": False, "message": str(exc)})
+
+
+def _get_free_state(game_server, message: dict):
+    gamestate_id = message.get("gamestate_id")
+    if not gamestate_id:
+        return None
+    game_state = game_server.gamestate_manager.get_game_state_by_gamestate_id(gamestate_id)
+    if game_state is None or getattr(game_state, "room_rule", None) != "free":
+        return None
+    return game_state
+
+
+async def _free_user_id(game_server, Connect_id: str):
+    player = game_server.players.get(Connect_id)
+    if player is None or not player.user_id:
+        return None
+    return player.user_id
+
+
+async def handle_free_cut_tile(game_server, Connect_id: str, message: dict, websocket):
+    game_state = _get_free_state(game_server, message)
+    user_id = await _free_user_id(game_server, Connect_id)
+    if game_state is None or user_id is None:
+        return
+    await game_state.handle_command(user_id, {
+        "action": "cut",
+        "TileId": message.get("TileId") or message.get("tile") or 0,
+    })
+
+
+async def handle_free_send_action(game_server, Connect_id: str, message: dict, websocket):
+    game_state = _get_free_state(game_server, message)
+    user_id = await _free_user_id(game_server, Connect_id)
+    if game_state is None or user_id is None:
+        return
+    await game_state.handle_command(user_id, message)
+
+
+async def handle_free_set_scores(game_server, Connect_id: str, message: dict, websocket):
+    game_state = _get_free_state(game_server, message)
+    user_id = await _free_user_id(game_server, Connect_id)
+    if game_state is None or user_id is None:
+        return
+    payload = dict(message)
+    payload["action"] = "set_scores"
+    await game_state.handle_command(user_id, payload)
+
+
+async def handle_free_set_vote(game_server, Connect_id: str, message: dict, websocket):
+    game_state = _get_free_state(game_server, message)
+    user_id = await _free_user_id(game_server, Connect_id)
+    if game_state is None or user_id is None:
+        return
+    payload = dict(message)
+    payload["action"] = "set_vote"
+    await game_state.handle_command(user_id, payload)
 
 async def handle_cut_tile(game_server, Connect_id: str, message: dict, websocket):
     """处理切牌请求"""

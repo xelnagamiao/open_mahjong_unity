@@ -1,5 +1,5 @@
 from typing import Dict, Any, Optional
-from .room_validators import GBRoomValidator, MMCValidator, RiichiRoomValidator, SichuanRoomValidator, ChangshaRoomValidator, JiandanRoomValidator, TaiwanRoomValidator
+from .room_validators import GBRoomValidator, MMCValidator, RiichiRoomValidator, SichuanRoomValidator, ChangshaRoomValidator, JiandanRoomValidator, TaiwanRoomValidator, FreeRoomValidator
 from ..response import Response
 from ..gamestate.game_guobiao.GuobiaoGameState import GuobiaoGameState
 from ..gamestate.public.ai.guobiao_heuristic_gate import guobiao_heuristic_bot_reject_reason
@@ -28,6 +28,7 @@ class RoomManager:
             "changsha": ChangshaRoomValidator,
             "jiandan": JiandanRoomValidator,
             "hongque": JiandanRoomValidator,
+            "free": FreeRoomValidator,
             "mmc": MMCValidator,
             "riichi": RiichiRoomValidator,
             "sichuan": SichuanRoomValidator,
@@ -767,6 +768,81 @@ class RoomManager:
             return Response(type="tips", success=False, message=f"房间配置无效: {exc}")
         except Exception as exc:
             logger.error("创建虹雀原型房间失败: %s", exc, exc_info=True)
+            return Response(type="error_message", success=False, message=f"创建房间失败: {exc}")
+
+    async def create_Free_room(
+        self, player_id: str, room_name: str, password: str,
+        random_seed: int = 0, sub_rule: str = "free/standard",
+        tourist_limit: bool = False,
+        wall_wan: bool = True, wall_tong: bool = True, wall_suo: bool = True,
+        wall_winds: bool = True, wall_dragons: bool = True, wall_flowers: bool = True,
+    ) -> Response:
+        """创建自由模式房间：无观战、无计时、不入库牌谱。"""
+        try:
+            if player_id not in self.game_server.players:
+                return Response(type="tips", success=False, message="请先登录")
+            player = self.game_server.players[player_id]
+            if not player.user_id:
+                return Response(type="tips", success=False, message="请先登录")
+            blocked = self._reject_room_entry_conflicts(player.user_id, "创建房间")
+            if blocked:
+                return blocked
+            settings = self.game_server.db_manager.get_user_settings(player.user_id)
+            if not settings:
+                return Response(type="tips", success=False, message="获取用户设置失败")
+            validated = self.room_validators["free"](
+                room_name=room_name,
+                random_seed=random_seed,
+                wall_wan=wall_wan,
+                wall_tong=wall_tong,
+                wall_suo=wall_suo,
+                wall_winds=wall_winds,
+                wall_dragons=wall_dragons,
+                wall_flowers=wall_flowers,
+            )
+            room_id = self._generate_room_id()
+            room_data = {
+                "room_id": room_id,
+                "room_type": "custom",
+                "room_rule": "free",
+                "sub_rule": sub_rule or "free/standard",
+                "hepai_limit": 0,
+                "open_cuohe": False,
+                "tourist_limit": tourist_limit,
+                "allow_spectator": False,
+                "max_player": 4,
+                "player_list": [player.user_id],
+                "player_settings": {player.user_id: {
+                    "user_id": player.user_id,
+                    "username": settings.get("username", player.username),
+                    "title_id": settings.get("title_id", 1),
+                    "profile_image_id": settings.get("profile_image_id", 1),
+                    "character_id": settings.get("character_id", 1),
+                    "voice_id": settings.get("voice_id", 1),
+                }},
+                "has_password": bool(password),
+                "tips": False,
+                "show_moqie_hint": False,
+                "host_user_id": player.user_id,
+                "host_name": player.username,
+                "is_game_running": False,
+                "game_round": 1,
+                "round_timer": 0,
+                "step_timer": 0,
+            }
+            room_data.update(validated.dict())
+            room_data["is_player_set_random_seed"] = validated.random_seed != 0
+            self.rooms[room_id] = room_data
+            if password:
+                self.room_passwords[room_id] = password
+            player.current_room_id = room_id
+            await self._broadcast_room_info(room_id)
+            return Response(type="room/create_room_done", success=True,
+                            message="自由模式房间创建成功", room_info=room_data)
+        except ValueError as exc:
+            return Response(type="tips", success=False, message=f"房间配置无效: {exc}")
+        except Exception as exc:
+            logger.error("创建自由模式房间失败: %s", exc, exc_info=True)
             return Response(type="error_message", success=False, message=f"创建房间失败: {exc}")
 
     async def create_Classical_room(self, player_id: str, room_name: str, gameround: int,

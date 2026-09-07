@@ -739,7 +739,7 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     // 根据玩家位置获取对应的位置面板
-    private PosPanel3D GetPosPanel(string playerPosition){
+    public PosPanel3D GetPosPanel(string playerPosition){
         switch (playerPosition){
             case "self":
                 return selfPosPanel;

@@ -72,6 +72,13 @@
 
 立直牌谱须写入 `starting_score` 或 `starting_scores`；客户端不再按 `sub_rule` 推断。
 
+### 3.3 长沙麻将 `game_title` 额外字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `bird_count` | int | 扎鸟张数，`0/1/2/4`，缺省 `2` |
+| `dealer_bird` | bool | 定庄扎鸟（以座位 0 为原点）；缺省 `true` |
+
 ### 3.1 WebSocket 对局字段（`GameInfo` / 每局 `game_start`）
 
 与牌谱表头不同，实时对局在**每局开始**广播以下字段（不含主种子）：
@@ -144,12 +151,12 @@
 
 ### 5.2.1 长沙麻将扎鸟
 
-沿用通用 hu tick；有鸟时在 `hepai_tile` 之后追加抽出的鸟牌 ID：
+沿用通用 hu tick；有鸟时在 `hepai_tile` 之后追加扎鸟指示牌 ID：
 
 `[hu_class, hepai_idx, hu_score, hu_fan[], score_changes[], hepai_tile, bird_tiles[]]`
 
-- `bird_tiles`：从剩余牌山头部抽出的鸟牌，顺序与结算一致。`bird_count=0` 或旧牌谱无此段。
-- `hu_fan` 仍含 `鸟牌:四筒,一条` / `中鸟:` / `扎鸟倍数:xN` 文字行（客户端结算面板用日麻宝牌槽展示 `bird_tiles`，里宝槽展示中鸟）。
+- `bird_tiles`：翻开剩余牌山头部的扎鸟指示牌 ID，顺序与结算一致。不摸进手、不写 `d` tick。`bird_count=0` 时不写此段。
+- `hu_fan` 仍含 `鸟牌:四筒,一条` / `中鸟:` / `扎鸟倍数:xN` 文字行；客户端扎鸟面板只读 `bird_tiles`，不再从「鸟牌:」反解。
 
 ### 5.3 古典（数和尾）
 

@@ -152,6 +152,7 @@ public sealed class SettlementPresenter {
 
     /// <summary>标准和牌序列：倒牌 → 渐显 → 番数面板 → 确认/准备。</summary>
     public void PresentHu(SettlementEnvelope env) {
+        EndResultPanel.Instance?.SetChangshaBirdTiles(env.BirdTiles);
         bool recycleDiscard = env.RecycleDiscard ?? (env.DeferScoreSettlement && env.IsHu && env.HuClass != "hu_self" && !env.MultiRon);
         RoundEndPresentation.Instance.PresentHuResultSequence(
             env.WinnerIndex, env.ScoresAfter, env.HuScore, env.FanLabels, env.HuClass,

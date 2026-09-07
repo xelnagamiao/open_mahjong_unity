@@ -57,6 +57,10 @@ public class EndResultPanel : MonoBehaviour {
     [Tooltip("里宝牌指示槽位（手动拖入 StaticCard）。未翻开位置显示牌背 0。")]
     [SerializeField] private StaticCard[] RiichiUraDoraSlots;
 
+    [Header("长沙扎鸟（独立面板，按抽出张数实例化指示牌）")]
+    [SerializeField] private GameObject ChangshaBirdPanel;
+    [SerializeField] private Transform ChangshaBirdContainer;
+
     [Header("国标局终亮杠（默认隐藏）")]
     [SerializeField] private TextMeshProUGUI guobiaoAngangCheckText;
 
@@ -96,6 +100,8 @@ public class EndResultPanel : MonoBehaviour {
     private const string StateRecord = "recordstate";
     private string currentState = StateNone;
     private Coroutine showResultCoroutine;
+    private int[] changshaBirdTiles;
+    private static readonly Vector2 ChangshaBirdCardSize = new Vector2(78.631f, 106.955f);
     private CanvasGroup panelContentCanvasGroup;
     private bool isPanelContentVisible = true;
     private bool endButtonConfirmed = false;
@@ -239,6 +245,7 @@ public class EndResultPanel : MonoBehaviour {
             EndResultTileLayout.HuWithWinTile);
         string roomRule = ResolveSettlementRoomRule();
         ShowRiichiExtrasPanel(roomRule, null);
+        ShowChangshaBirdPanel(null);
         ApplyRuleFootnote(guobiaoAngangCheckText, roomRule, huFan);
         TryPlayGongHuSound(roomRule, huFan, huScore);
         SetCheckedFocusSeatOnMap(hepaiPlayerIndex, recordView?.IndexToPosition);
@@ -265,6 +272,7 @@ public class EndResultPanel : MonoBehaviour {
             EndResultTileLayout.ClosedHandWithMelds);
         string roomRule = ResolveSettlementRoomRule();
         ShowRiichiExtrasPanel(roomRule, null);
+        ShowChangshaBirdPanel(null);
         HideRuleFootnote(guobiaoAngangCheckText);
         SetCheckedFocusSeatOnMap(focusPlayerIndex, recordView?.IndexToPosition);
         EndButton.gameObject.SetActive(isFinalPanel);
@@ -279,6 +287,7 @@ public class EndResultPanel : MonoBehaviour {
             -1, recordView, null, null, EndResultTileLayout.ClosedHandWithMelds);
         string roomRule = ResolveSettlementRoomRule();
         ShowRiichiExtrasPanel(roomRule, null);
+        ShowChangshaBirdPanel(null);
         HideRuleFootnote(guobiaoAngangCheckText);
         EndButton.gameObject.SetActive(false);
         EndButton.interactable = false;
@@ -351,6 +360,7 @@ public class EndResultPanel : MonoBehaviour {
         foreach (Transform child in FanCountContainer) Destroy(child.gameObject);
 
         ShowRiichiExtrasPanel(NormalGameStateManager.Instance.subRule, null);
+        ShowChangshaBirdPanel(null);
         HideRuleFootnote(guobiaoAngangCheckText);
         ApplyScoreChangesToPanel(player_to_score, scoreChanges);
 
@@ -370,14 +380,16 @@ public class EndResultPanel : MonoBehaviour {
         Dictionary<int, string> indexToPosition, Dictionary<string, string> positionToUsername,
         int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
         Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after, bool isSpectator = false,
-        int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
+        int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null,
+        int[] changshaBirdTiles = null) {
         if (showResultCoroutine != null) {
             StopCoroutine(showResultCoroutine);
             showResultCoroutine = null;
         }
         DisplayRecordResult(hepai_player_index, hu_score, hu_fan, hu_class, roomType,
             indexToPosition, positionToUsername, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask,
-            player_to_score_before, player_to_score_after, isSpectator, base_fu, fu_fan_list, riichiExtras);
+            player_to_score_before, player_to_score_after, isSpectator, base_fu, fu_fan_list, riichiExtras,
+            changshaBirdTiles);
     }
 
     public IEnumerator ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
@@ -405,9 +417,9 @@ public class EndResultPanel : MonoBehaviour {
             Destroy(child.gameObject);
         }
 
-        // 立直：翻开宝牌/里宝牌。长沙：同一套槽位展示抽出的鸟 / 中鸟。
         string roomRuleForFan = GameSession.Current.SubRule;
         ShowRiichiExtrasPanel(roomRuleForFan, riichiExtras);
+        ShowChangshaBirdPanel(changshaBirdTiles);
         ApplyRuleFootnote(guobiaoAngangCheckText, roomRuleForFan, hu_fan);
         TryPlayGongHuSound(roomRuleForFan, hu_fan, hu_score);
 
@@ -576,7 +588,8 @@ public class EndResultPanel : MonoBehaviour {
         Dictionary<int, string> indexToPosition, Dictionary<string, string> positionToUsername,
         int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
         Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after, bool isSpectator = false,
-        int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
+        int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null,
+        int[] changshaBirdTiles = null) {
         // InitGameRound 会 HidePresentationVisual，牌谱直出面板须先恢复父 CanvasGroup
         if (RoundEndPresentation.Instance != null) {
             RoundEndPresentation.Instance.gameObject.SetActive(true);
@@ -622,6 +635,8 @@ public class EndResultPanel : MonoBehaviour {
             && RecordSetting.Instance.IsShowHepaiAnimation;
 
         ShowRiichiExtrasPanel(roomType, riichiExtras);
+        SetChangshaBirdTiles(changshaBirdTiles);
+        ShowChangshaBirdPanel(this.changshaBirdTiles);
         HideRuleFootnote(guobiaoAngangCheckText);
         TryPlayGongHuSound(roomType, hu_fan, hu_score);
 
@@ -909,6 +924,7 @@ public class EndResultPanel : MonoBehaviour {
         foreach (Transform child in FanCountContainer) Destroy(child.gameObject);
 
         ShowRiichiExtrasPanel(NormalGameStateManager.Instance.subRule, null);
+        ShowChangshaBirdPanel(null);
         HideRuleFootnote(guobiaoAngangCheckText);
         // 该玩家手牌整体显示（流局无和牌张，不做末张拆分）
         if (hand != null && hand.Length > 0) {
@@ -1243,13 +1259,8 @@ public class EndResultPanel : MonoBehaviour {
         return hook != null ? hook(query) ?? query.DefaultDisplay() : query.DefaultDisplay();
     }
 
-    /// <summary>
-    /// 立直麻将结算扩展：赤宝牌数量文本、宝牌/里宝牌指示牌槽位。
-    /// 长沙扎鸟复用同一套槽位：表=抽出的鸟牌，里=中鸟。
-    /// 本场棒 / 场供立直棒在 RoundPanel 中已有显示，此处不再重复。
-    /// </summary>
+    /// <summary>立直麻将结算扩展：宝牌/里宝牌指示牌槽位。长沙扎鸟走独立面板，不占用这里。</summary>
     private void ShowRiichiExtrasPanel(string rule, RiichiEndResultExtras extras) {
-        // 日麻装填宝牌/里宝；长沙装填抽出的鸟 / 中鸟。面板随扩展有无开关。
         if (RiichiPanel != null) {
             RiichiPanel.SetActive(extras != null);
         }
@@ -1261,6 +1272,34 @@ public class EndResultPanel : MonoBehaviour {
 
         FillDoraSlots(RiichiDoraSlots, extras.DoraIndicators);
         FillDoraSlots(RiichiUraDoraSlots, extras.UraDoraIndicators);
+    }
+
+    /// <summary>对局/牌谱和牌前写入扎鸟指示牌；空则隐藏扎鸟面板。</summary>
+    public void SetChangshaBirdTiles(int[] tiles) {
+        changshaBirdTiles = tiles != null && tiles.Length > 0 ? tiles : null;
+    }
+
+    private void ShowChangshaBirdPanel(int[] birdTiles) {
+        bool show = birdTiles != null && birdTiles.Length > 0;
+        ClearChangshaBirdCards();
+        if (ChangshaBirdPanel != null) {
+            ChangshaBirdPanel.SetActive(show);
+        }
+        if (!show || ChangshaBirdContainer == null || StaticCardPrefab == null) return;
+        for (int i = 0; i < birdTiles.Length; i++) {
+            GameObject card = Instantiate(StaticCardPrefab, ChangshaBirdContainer);
+            RectTransform rt = card.GetComponent<RectTransform>();
+            if (rt != null) rt.sizeDelta = ChangshaBirdCardSize;
+            StaticCard staticCard = card.GetComponent<StaticCard>();
+            if (staticCard != null) staticCard.SetTileOnlyImage(birdTiles[i]);
+        }
+    }
+
+    private void ClearChangshaBirdCards() {
+        if (ChangshaBirdContainer == null) return;
+        for (int i = ChangshaBirdContainer.childCount - 1; i >= 0; i--) {
+            Destroy(ChangshaBirdContainer.GetChild(i).gameObject);
+        }
     }
 
     /// <summary>
@@ -1309,6 +1348,8 @@ public class EndResultPanel : MonoBehaviour {
         }
         FillDoraSlots(RiichiDoraSlots, null);
         FillDoraSlots(RiichiUraDoraSlots, null);
+        changshaBirdTiles = null;
+        ShowChangshaBirdPanel(null);
         HideRuleFootnote(guobiaoAngangCheckText);
 
         // 清空结算
