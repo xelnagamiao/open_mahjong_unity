@@ -29,7 +29,7 @@ const TILE_ROOT = `${ASSET_ROOT}game2d-assets/textures/riichi-mahjong-tiles`
 const FLOWER_IDS = STANDARD_FACE_IDS.filter(isFlowerFaceId)
 const TABLE_FACE_IDS = STANDARD_FACE_IDS.filter((id) => !isFlowerFaceId(id))
 
-export const TILE_TEXTURE_PATHS: { alias: string; src: string }[] = [
+export const TILE_TEXTURE_PATHS: { alias: string; src: string; data?: { autoGenerateMipmaps: boolean } }[] = [
   { alias: 'regular-Back', src: `${TILE_ROOT}/Regular/Back.svg` },
   { alias: 'black-Back', src: `${TILE_ROOT}/Black/Back.svg` },
   ...STANDARD_FACE_IDS.map((id) => ({
@@ -43,6 +43,8 @@ export const TILE_TEXTURE_PATHS: { alias: string; src: string }[] = [
   ...FLOWER_IDS.map((id) => ({
     alias: `unity-${id}`,
     src: `${TILE_ROOT}/Unity/${id}.svg`,
+    // Preserve fine strokes when the high-resolution artwork is reduced to table size.
+    data: { autoGenerateMipmaps: true },
   })),
 ]
 

@@ -352,6 +352,15 @@ async def handle_set_ryuukyoku_tenpai(game_server, Connect_id: str, message: dic
         logger.error(f"处理荒牌听牌申报失败: {e}", exc_info=True)
 
 async def handle_add_spectator(game_server, Connect_id: str, message: dict, websocket):
+    # Serialize the complete initial replay with event seating, including async sends.
+    lock = getattr(getattr(game_server, "room_manager", None), "event_seating_lock", None)
+    if lock is None:
+        return await _handle_add_spectator_locked(game_server, Connect_id, message, websocket)
+    async with lock:
+        return await _handle_add_spectator_locked(game_server, Connect_id, message, websocket)
+
+
+async def _handle_add_spectator_locked(game_server, Connect_id: str, message: dict, websocket):
     """处理添加观战玩家请求"""
     try:
         gamestate_id = message.get("gamestate_id")

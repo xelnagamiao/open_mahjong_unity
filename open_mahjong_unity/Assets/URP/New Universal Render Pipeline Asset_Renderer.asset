@@ -65,7 +65,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7c4e2a91b8d64f0e9f3a1c5d6e7b8a90, type: 3}
-  m_Name: Tile ObjectID Outline
+  m_Name: Tile Geometry Outline
   m_EditorClassIdentifier: Assembly-CSharp::TileObjectIdOutlineFeature
   m_Active: 1
   settings:
@@ -74,8 +74,5 @@ MonoBehaviour:
     tileLayerMask:
       serializedVersion: 2
       m_Bits: 1024
-    outlineColor: {r: 0, g: 0, b: 0, a: 1}
-    outlineWidth: 2
-    outlineExpand: 2
-    debugVisualizeId: 0
-    overrideEdgeMaterial: {fileID: 0}
+    outlineColor: {r: 0.14117648, g: 0.15294118, b: 0.16470589, a: 1}
+    outlineWidth: 2.4

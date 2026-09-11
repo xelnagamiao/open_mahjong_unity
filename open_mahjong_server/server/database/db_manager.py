@@ -1187,6 +1187,7 @@ class DatabaseManager:
                 CREATE INDEX IF NOT EXISTS idx_event_ready_pool_event
                 ON event_ready_pool(event_id, ready_at);
             """)
+            cursor.execute("ALTER TABLE events ADD COLUMN IF NOT EXISTS room_settings JSONB NOT NULL DEFAULT '{}'::jsonb;")
 
             conn.commit() # 提交
             logger.info('数据表初始化成功')
@@ -2676,7 +2677,7 @@ class DatabaseManager:
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute(
                 """
-                SELECT event_id, name, description, status, kind, entry_config,
+                SELECT event_id, name, description, status, kind, entry_config, room_settings,
                        created_by, closed_at, created_at, updated_at
                 FROM events WHERE event_id = %s
                 """,
@@ -3181,7 +3182,7 @@ class DatabaseManager:
                 FROM event_ready_pool p
                 LEFT JOIN users u ON u.user_id = p.user_id
                 WHERE p.event_id = %s
-                ORDER BY p.ready_at ASC
+                ORDER BY p.ready_at ASC, p.user_id ASC
                 """,
                 (event_id,),
             )
@@ -3195,6 +3196,93 @@ class DatabaseManager:
             if conn:
                 cursor.close()
                 self._put_connection(conn)
+
+    def list_auto_match_event_ids(self) -> List[str]:
+        """Only scan enabled, active venues with enough persisted waiting entries."""
+        conn = self._get_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT e.event_id
+                    FROM events e JOIN event_ready_pool p ON p.event_id = e.event_id
+                    WHERE e.status = 'active'
+                      AND e.room_settings->'auto_match'->>'enabled' = 'true'
+                    GROUP BY e.event_id HAVING COUNT(*) >= 4
+                    ORDER BY MIN(p.ready_at), e.event_id
+                """)
+                result = [row[0] for row in cursor.fetchall()]
+            conn.commit()
+            return result
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            self._put_connection(conn)
+
+    def claim_event_ready_players(self, event_id: str, user_ids: List[int], automatic: bool = False) -> List[Dict[str, Any]]:
+        """Consume all four entries or none. Return their timestamps for rollback."""
+        if len(set(user_ids)) != 4:
+            return []
+        conn = self._get_connection()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                # Coordinate with management-side close/settings updates before claiming.
+                cursor.execute("SELECT status, room_settings FROM events WHERE event_id = %s FOR UPDATE", (event_id,))
+                event = cursor.fetchone()
+                if not event or event["status"] != "active":
+                    conn.rollback()
+                    return []
+                if automatic:
+                    from ..event.auto_match import event_auto_match_config
+                    if event_auto_match_config(dict(event)).get("enabled") is not True:
+                        conn.rollback()
+                        return []
+                cursor.execute("""
+                    DELETE FROM event_ready_pool WHERE event_id = %s AND user_id = ANY(%s)
+                    RETURNING event_id, user_id, ready_at
+                """, (event_id, user_ids))
+                rows = [dict(row) for row in cursor.fetchall()]
+                if len(rows) != 4:
+                    conn.rollback()
+                    return []
+            conn.commit()
+            return rows
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            self._put_connection(conn)
+
+    def restore_event_ready_players(self, rows: List[Dict[str, Any]]) -> None:
+        if not rows:
+            return
+        conn = self._get_connection()
+        try:
+            with conn.cursor() as cursor:
+                for row in rows:
+                    cursor.execute("""
+                        INSERT INTO event_ready_pool (event_id, user_id, ready_at)
+                        VALUES (%s, %s, %s) ON CONFLICT (event_id, user_id) DO NOTHING
+                    """, (row["event_id"], row["user_id"], row["ready_at"]))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            self._put_connection(conn)
+
+    def clear_user_event_ready(self, user_id: int) -> None:
+        """Disconnects and successful seating cancel stale waits in all venues."""
+        conn = self._get_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM event_ready_pool WHERE user_id = %s", (user_id,))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            self._put_connection(conn)
 
     def clear_event_ready_players(self, event_id: str, user_ids: List[int]) -> None:
         if not event_id or not user_ids:

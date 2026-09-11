@@ -15,11 +15,19 @@ CBUFFER_START(UnityPerMaterial)
     half _FrontBgBlend;
     half4 _FrontBgColor;
     half _FrontBgTexAspect;
+    float _TableFaceAspect;
+    float _TableFaceImageScale;
+    half _FrontTexContain;
     half _TableBgCoverFace;
     half4 _TableFaceColor;
     half _TableFaceBlend;
     half4 _TableFaceFallbackColor;
     half _TableFaceFallbackEnabled;
+    half4 _TileShadeTint;
+    half _TileLightThreshold;
+    half _TileLightTransition;
+    half _TileShadowStrength;
+    half _TileWhiteCompression;
 CBUFFER_END
 
 #endif

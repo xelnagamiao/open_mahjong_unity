@@ -2,10 +2,14 @@ using UnityEngine;
 
 /// <summary>
 /// 3D麻将牌组件
-/// 负责管理3D卡牌的纹理和材质属性，以及方案 B ObjectID 描边编号。
+/// 负责管理3D卡牌的纹理和逐实例材质属性。
 /// </summary>
 public class Tile3D : MonoBehaviour
 {
+    /// <summary>池对象每次取出/归还都改变版本，旧动画不能再驱动同一个 Transform 的新用途。</summary>
+    public uint PoolLeaseVersion { get; private set; }
+    internal void InvalidatePoolLease() { unchecked { PoolLeaseVersion++; } }
+
     private static readonly int FrontTilingOffsetId = Shader.PropertyToID("_FrontTilingOffset");
     private static readonly int BackRotationId = Shader.PropertyToID("_BackRotation");
     private static readonly int FrontColorId = Shader.PropertyToID("_FrontColor");
@@ -28,7 +32,6 @@ public class Tile3D : MonoBehaviour
     private int currentTileId = -1;
     private int currentPoolTileId = -1;
     private MaterialPropertyBlock propBlock;
-    private int outlineId;
     private Vector4 frontTilingOffset = new Vector4(1f, 1f, 0f, 0f);
     private float backRotation;
     private Color baseFrontColor = Color.white;
@@ -143,12 +146,7 @@ public class Tile3D : MonoBehaviour
 
     private void OnEnable() {
         InitializeComponents();
-        AcquireOutlineId();
         ApplyPropertyBlock();
-    }
-
-    private void OnDisable() {
-        ReleaseOutlineId();
     }
 
     /// <summary>
@@ -163,7 +161,7 @@ public class Tile3D : MonoBehaviour
         }
 
         const int tileLayer = 10;
-        // Layer 10：ObjectID 描边过滤 + peek 物理
+        // Layer 10：几何描边过滤 + peek 物理
         SetLayerRecursively(gameObject, tileLayer);
 
         // 对象池牌在 Instantiate 后立刻 SetActive(false)；默认 GetComponentInChildren
@@ -216,18 +214,6 @@ public class Tile3D : MonoBehaviour
         }
     }
 
-    private void AcquireOutlineId() {
-        if (outlineId > 0) return;
-        outlineId = TileOutlineIdAllocator.Acquire();
-    }
-
-    private void ReleaseOutlineId() {
-        if (outlineId <= 0) return;
-        TileOutlineIdAllocator.Release(outlineId);
-        outlineId = 0;
-        ApplyPropertyBlock();
-    }
-
     private void ApplyPropertyBlock() {
         if (cardRenderer == null || tileMaterialIndex < 0) return;
         if (propBlock == null) {
@@ -242,18 +228,19 @@ public class Tile3D : MonoBehaviour
         propBlock.SetColor(SideColorId, instanceSideColor);
         propBlock.SetColor(BackEdgeColorId, instanceBackEdgeColor);
         propBlock.SetColor(FrontEdgeColorId, instanceFrontEdgeColor);
+        // x 保留灰化参数，其他通道预留；几何描边不需要逐牌编号。
         propBlock.SetVector(
             TileInstanceParamsId,
-            new Vector4(instanceGrayScale, outlineId, 0f, 0f));
+            new Vector4(instanceGrayScale, 0f, 0f, 0f));
         cardRenderer.SetPropertyBlock(propBlock, tileMaterialIndex);
     }
 
     /// <summary>
     /// 设置牌面纹理（使用缓存的Sprite）
     /// 额外做 90° 逆时针旋转补偿（向左旋转 90°）
-    /// verticalStretch: 牌面上下拉伸倍数，1.0=不拉伸，1.1=拉伸 1.1 倍（通过 UV 实现，不改变 3D 几何）
+    /// 内置图集已经使用 1:1.33 画布，直接采样完整 Sprite，不叠加制版补偿。
     /// </summary>
-    public void SetCardSprite(int tileId, Sprite sprite, float verticalStretch = 1f) {
+    public void SetCardSprite(int tileId, Sprite sprite) {
         InitializeComponents();
         if (sharedTileMaterial == null || cardRenderer == null || sprite == null) return;
 
@@ -272,29 +259,27 @@ public class Tile3D : MonoBehaviour
             return;
         }
 
+        sharedTileMaterial.SetFloat("_FrontTexContain", 0f);
+        frontTilingOffset = ComputeSpriteTiling(sprite);
+        ApplyPropertyBlock();
+    }
+
+    /// <summary>完整官方画布的图集偏移与旋转补偿，由正式牌和模型预览共用。</summary>
+    public static Vector4 ComputeSpriteTiling(Sprite sprite) {
         Rect uvRect = sprite.textureRect;
+        Texture2D atlasTexture = sprite.texture;
 
         float tilingX = uvRect.width / atlasTexture.width;
         float tilingY = uvRect.height / atlasTexture.height;
         float offsetX = uvRect.x / atlasTexture.width;
         float offsetY = uvRect.y / atlasTexture.height;
 
-        if (verticalStretch > 1f) {
-            float origTilingY = tilingY;
-            tilingY /= verticalStretch;
-            offsetY += origTilingY * (1f - 1f / verticalStretch) * 0.5f;
-        }
-
         float newTilingX = tilingY;
         float newTilingY = tilingX;
         float newOffsetX = 1f - (offsetY + tilingY);
         float newOffsetY = offsetX;
 
-        frontTilingOffset = new Vector4(newTilingX, newTilingY, newOffsetX, newOffsetY);
-        if (isActiveAndEnabled && outlineId <= 0) {
-            AcquireOutlineId();
-        }
-        ApplyPropertyBlock();
+        return new Vector4(newTilingX, newTilingY, newOffsetX, newOffsetY);
     }
 
     /// <summary>
@@ -302,22 +287,31 @@ public class Tile3D : MonoBehaviour
     /// 虹雀牌在牌库中各一张，这条低频路径不会影响普通麻将的 GPU Instancing。
     /// </summary>
     public void SetStandaloneCardTexture(int tileId, Texture2D texture, Material faceMaterial, bool contain = false) {
+        SetStandaloneCardMapping(tileId, texture, faceMaterial, ComputeStandaloneTiling(texture, contain), contain);
+    }
+
+    private void SetStandaloneCardMapping(int tileId, Texture2D texture, Material faceMaterial, Vector4 tiling, bool contain) {
         InitializeComponents();
         if (cardRenderer == null || tileMaterialIndex < 0 || texture == null || faceMaterial == null) return;
         Material[] materials = cardRenderer.sharedMaterials;
         materials[tileMaterialIndex] = faceMaterial;
         cardRenderer.sharedMaterials = materials;
         sharedTileMaterial = faceMaterial;
+        // 标准麻将的独立图片统一等比留白；虹雀沿用原独立映射。
+        faceMaterial.SetFloat("_FrontTexContain", contain ? 1f : 0f);
         currentTileId = tileId;
         currentPoolTileId = tileId;
-        frontTilingOffset = contain
-            ? ComputeCoverTiling(texture)
-            : new Vector4(1f / 1.1f, 1f, (1f - 1f / 1.1f) * 0.5f, 0f);
-        if (isActiveAndEnabled && outlineId <= 0) AcquireOutlineId();
+        frontTilingOffset = tiling;
         ApplyPropertyBlock();
     }
 
-    /// <summary>自定义标准牌面：已是 220:366 则铺满（缩小和留白在贴图里）；否则按原图比例居中，不拉伸。</summary>
+    public static Vector4 ComputeStandaloneTiling(Texture2D texture, bool contain) {
+        return contain
+            ? TileTextureLayout.FrontContainTiling(texture)
+            : new Vector4(1f / 1.1f, 1f, (1f - 1f / 1.1f) * 0.5f, 0f);
+    }
+
+    /// <summary>独立标准牌面保留原图比例完整居中；Shader 用牌底填补越界 UV。</summary>
     public void SetStandaloneCardTextureContain(int tileId, Texture2D texture, Material faceMaterial) {
         SetStandaloneCardTexture(tileId, texture, faceMaterial, true);
     }
@@ -327,6 +321,7 @@ public class Tile3D : MonoBehaviour
         if (originalAtlasMaterial == null || cardRenderer == null || tileMaterialIndex < 0) {
             return;
         }
+        originalAtlasMaterial.SetFloat("_FrontTexContain", 0f);
         if (sharedTileMaterial == originalAtlasMaterial) {
             return;
         }
@@ -334,27 +329,6 @@ public class Tile3D : MonoBehaviour
         materials[tileMaterialIndex] = originalAtlasMaterial;
         cardRenderer.sharedMaterials = materials;
         sharedTileMaterial = originalAtlasMaterial;
-    }
-
-    /// <summary>
-    /// 按 220:366 覆盖裁切：源图更宽则切左右，更高则切上下。
-    /// 已是该比例时 UV 铺满。
-    /// </summary>
-    private static Vector4 ComputeCoverTiling(Texture2D texture) {
-        const float faceAspect = 220f / 366f;
-        if (texture == null || texture.height <= 0) {
-            return new Vector4(1f, 1f, 0f, 0f);
-        }
-        float texAspect = (float)texture.width / texture.height;
-        if (Mathf.Abs(texAspect - faceAspect) <= 0.01f) {
-            return new Vector4(1f, 1f, 0f, 0f);
-        }
-        if (texAspect > faceAspect) {
-            float tilingX = faceAspect / texAspect;
-            return new Vector4(tilingX, 1f, (1f - tilingX) * 0.5f, 0f);
-        }
-        float tilingY = texAspect / faceAspect;
-        return new Vector4(1f, tilingY, 0f, (1f - tilingY) * 0.5f);
     }
 
     /// <summary>应用逐牌颜色/灰度，只更新实例数据，不创建或修改材质实例。</summary>

@@ -75,11 +75,29 @@ public sealed class TableMirror {
     // ---- 变更 ----
 
     /// <summary>按自家座位号建立 player_index → 座位映射（自家为 self，逆时针 right/top/left）。</summary>
-    public void BuildSeatMap(int selfIndex) {
-        IndexToPosition[selfIndex] = "self";
-        IndexToPosition[(selfIndex + 1) % 4] = "right";
-        IndexToPosition[(selfIndex + 2) % 4] = "top";
-        IndexToPosition[(selfIndex + 3) % 4] = "left";
+    public void BuildSeatMap(int selfIndex, IReadOnlyList<int> playerIndexes = null) {
+        IndexToPosition.Clear();
+        string[] relativeSeats = { "self", "right", "top", "left" };
+        if (playerIndexes == null || playerIndexes.Count == 0) {
+            for (int i = 0; i < 4; i++) {
+                IndexToPosition[(selfIndex + i) % 4] = relativeSeats[i];
+            }
+            return;
+        }
+        for (int i = 0; i < playerIndexes.Count; i++) {
+            int index = playerIndexes[i];
+            int relative = (index - selfIndex) % 4;
+            if (relative < 0) relative += 4;
+            IndexToPosition[index] = relativeSeats[relative];
+        }
+    }
+
+    /// <summary>没有玩家的座位清掉镜像，3D/面板才不会画出上一局残留。</summary>
+    public void ClearUnoccupiedSeatData() {
+        var occupied = new HashSet<string>(IndexToPosition.Values);
+        foreach (string seat in Seats) {
+            if (!occupied.Contains(seat)) Info(seat)?.ClearSeatData();
+        }
     }
 
     /// <summary>开局：清空四家河/花/副露与本家手牌相关的列表（不动用户名/分数/头像）。</summary>

@@ -48,7 +48,7 @@ public partial class Game3DManager {
         // 检查每个手牌的当前位置和目标位置是否一致
         for (int i = 0; i < cardCount; i++) {
             Vector3 currentPos = cards[i].position;
-            Vector3 targetPos = startPosition + direction * cardWidth * i;
+            Vector3 targetPos = PlaceTileOnTable(startPosition + direction * handStep * i, cards[i].rotation);
 
             if (Vector3.Distance(currentPos, targetPos) > 0.01f) {
                 return true; // 需要排列

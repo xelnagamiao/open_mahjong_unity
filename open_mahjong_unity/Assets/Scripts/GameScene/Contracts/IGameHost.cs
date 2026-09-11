@@ -41,7 +41,7 @@ public interface IGameSettings {
     bool IsEnglish { get; }
     bool UseBlankWhiteDragonFace(int tileId);
     Color DefaultTableFaceFallbackColor { get; }
-    void ApplyTileOutlinePreset();
+    void ApplyTileOutlineStyle();
     string GetTitleText(int titleId);
     int MoqieShortcutMode { get; }
     int AskOtherPassShortcutMode { get; }
@@ -61,7 +61,7 @@ public static class GameSettings {
         public bool IsEnglish => false;
         public bool UseBlankWhiteDragonFace(int tileId) => false;
         public Color DefaultTableFaceFallbackColor => Color.white;
-        public void ApplyTileOutlinePreset() { }
+        public void ApplyTileOutlineStyle() { }
         public string GetTitleText(int titleId) => "";
         public int MoqieShortcutMode => 0;
         public int AskOtherPassShortcutMode => 0;

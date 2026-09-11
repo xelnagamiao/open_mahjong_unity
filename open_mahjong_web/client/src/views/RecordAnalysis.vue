@@ -106,6 +106,8 @@
             </el-select>
           </div>
           <el-date-picker
+            popper-class="compact-date-range-popper"
+            :popper-options="{ modifiers: [{ name: 'preventOverflow', options: { altAxis: true, padding: 12 } }] }"
             v-model="dateRange"
             type="daterange"
             size="small"
@@ -186,17 +188,23 @@
               <span class="tool-hint">将分析 {{ localCount }} / {{ recordItems.length }} 局</span>
             </div>
           </div>
-          <div class="tool-card" :class="{ active: resultTab === 'advanced' }">
+          <div class="tool-card" :class="{ active: resultTab === 'advanced' || resultTab === 'stable' }">
             <div class="tool-name">高级分析<span class="tool-rule">（国标）</span></div>
-            <p class="tool-desc">包含常规统计的高级统计，包括平均首次听牌巡、听牌率、点炮听牌率、分巡场得、番数统计等数据</p>
+            <p class="tool-desc">包含常规统计、听牌巡目、点炮听牌率、分巡场得、番数统计及按场次区分的安定段位预测。</p>
             <div class="tool-actions">
               <el-button
                 type="primary"
                 size="small"
                 :loading="analyzingKind === 'advanced'"
-                :disabled="localCount === 0 || !!analyzingKind || !isGuobiao"
+                :disabled="localCount === 0 || idsLoading || !!analyzingKind || !isGuobiao"
                 @click="runAdvancedAnalysis"
               >分析当前筛选</el-button>
+              <el-button
+                size="small"
+                :loading="analyzingKind === 'stable'"
+                :disabled="localCount === 0 || idsLoading || !!analyzingKind || !isGuobiao"
+                @click="runStableAnalysis"
+              >安定段位</el-button>
               <span class="tool-hint">{{ advancedHint }}</span>
             </div>
           </div>
@@ -245,6 +253,12 @@
             :class="{ selected: resultTab === 'advanced' }"
             @click="resultTab = 'advanced'"
           >高级分析</button>
+          <button
+            v-if="stableRankData"
+            class="chip"
+            :class="{ selected: resultTab === 'stable' }"
+            @click="resultTab = 'stable'"
+          >安定段位</button>
           <button
             v-if="fanQueried"
             class="chip"
@@ -301,9 +315,23 @@
           </el-collapse>
         </template>
 
+        <template v-else-if="resultTab === 'stable' && stableRankData">
+          <StableRankAnalysis
+            :sample-info="stableRankData"
+            :current-rank="playerInfo?.rank?.guobiao_rank || ''"
+            :selected-count="stableRankSelectedCount"
+          />
+        </template>
+
         <template v-else-if="resultTab === 'advanced' && advancedStats">
           <div class="section-title">高级分析</div>
           <p class="result-note">国标巡目按庄家巡计算，与对局进程一致。顺位按牌谱得分独立计算，允许同分同排位。</p>
+          <StableRankAnalysis
+            v-if="stableRankData"
+            :sample-info="stableRankData"
+            :current-rank="playerInfo?.rank?.guobiao_rank || ''"
+            :selected-count="stableRankSelectedCount"
+          />
           <div class="fun-tags">
             <div v-for="tag in funTags" :key="tag.name" class="fun-tag" :class="tag.tone">
               <span class="fun-tag-name">{{ tag.name }}</span>
@@ -582,6 +610,7 @@
             v-model:page-size="recordsPage.size"
             :total="recordsTotal"
             :page-sizes="[20, 50]"
+            :pager-count="5"
             layout="prev, pager, next, sizes, total"
             small
             background
@@ -623,6 +652,8 @@ import { zipStoreFiles } from '../utils/zipStore'
 import { confirmRecordDownload } from '../utils/recordDownloadConfirm'
 import RecordBarStrip from '../components/RecordBarStrip.vue'
 import TileMiniGlyph from '../components/TileMiniGlyph.vue'
+import StableRankAnalysis from '../components/StableRankAnalysis.vue'
+import { collectStableRankSamples } from '../utils/stableRankRecords.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -674,6 +705,7 @@ const eventOptions = ref([])
 const dateRange = ref(null)
 const scopeCountsFromApi = ref(null)
 const recordItems = ref([])
+const recordItemsFilterKey = ref('')
 const localIds = ref(new Set())
 const idsLoading = ref(false)
 const downloading = ref(false)
@@ -683,6 +715,9 @@ const analyzingProgress = ref('')
 const analyzedStats = ref(null)
 const analyzedFilterKey = ref('')
 const advancedStats = ref(null)
+const stableRankData = ref(null)
+const stableRankFilterKey = ref('')
+const stableRankSelectedCount = ref(0)
 const advancedFilterKey = ref('')
 const advancedHasTenpai = ref(false)
 const winEvents = ref([])
@@ -699,6 +734,7 @@ const recordsLoading = ref(false)
 const recordsPage = reactive({ current: 1, size: 20 })
 let idsSeq = 0
 let recordsSeq = 0
+let playerInfoSeq = 0
 let autoDownloadStarted = false
 
 const queryStr = (key) => {
@@ -821,7 +857,7 @@ const buildFanStatEntries = (stats) => {
 const standardFanEntries = computed(() => buildFanStatEntries(analyzedStats.value))
 const advancedFanEntries = computed(() => buildFanStatEntries(advancedStats.value))
 const hasAnyResult = computed(() =>
-  !!analyzedStats.value || !!advancedStats.value || fanQueried.value
+  !!analyzedStats.value || !!advancedStats.value || !!stableRankData.value || fanQueried.value
 )
 const advancedHint = computed(() => {
   if (!isGuobiao.value) return '目前仅国标规则'
@@ -1014,20 +1050,23 @@ const loadEventOptions = async () => {
   }
 }
 
-const loadPlayerInfo = async () => {
+const loadPlayerInfo = async ({ selectInitialRule = true } = {}) => {
   const uid = targetUserId.value
   if (uid == null) return
+  const seq = ++playerInfoSeq
   try {
     const resp = await axios.get(`/api/player/info/${uid}`)
+    if (seq !== playerInfoSeq || uid !== targetUserId.value) return
     if (resp.data.success) {
       const hadInfo = !!playerInfo.value
       playerInfo.value = resp.data.data
       const name = playerInfo.value?.user_settings?.username
       searchKey.value = name || String(uid)
       const def = RULE_DEFS.find((d) => (playerInfo.value[d.statsField] || []).some((r) => (r.total_games || 0) > 0))
-      if (def && !queryStr('rule') && !hadInfo) currentRule.value = def.key
+      if (selectInitialRule && def && !queryStr('rule') && !hadInfo) currentRule.value = def.key
     }
   } catch (_) {
+    if (seq !== playerInfoSeq || uid !== targetUserId.value) return
     playerInfo.value = null
   }
 }
@@ -1096,11 +1135,13 @@ const loadScopeCounts = async () => {
 }
 
 const refreshLocalIds = async () => {
+  const key = recordItemsFilterKey.value
   const ids = recordItems.value.map((row) => String(row.game_id))
   try {
-    localIds.value = await getLocalRecordIdSet(ids)
+    const found = await getLocalRecordIdSet(ids)
+    if (key === recordItemsFilterKey.value && key === filterKey.value) localIds.value = found
   } catch (_) {
-    localIds.value = new Set()
+    if (key === recordItemsFilterKey.value) localIds.value = new Set()
   }
 }
 
@@ -1108,11 +1149,16 @@ const loadRecordIds = async () => {
   const uid = targetUserId.value
   if (uid == null) return
   const seq = ++idsSeq
+  const requestedKey = filterKey.value
   idsLoading.value = true
+  recordItems.value = []
+  recordItemsFilterKey.value = ''
+  localIds.value = new Set()
   try {
     const resp = await axios.get(`/api/player/record-ids/${uid}`, { params: filterPayload() })
-    if (seq !== idsSeq) return
+    if (seq !== idsSeq || requestedKey !== filterKey.value) return
     recordItems.value = resp.data.success ? (resp.data.data?.items || []) : []
+    recordItemsFilterKey.value = requestedKey
     await refreshLocalIds()
   } catch (_) {
     if (seq !== idsSeq) return
@@ -1350,7 +1396,10 @@ const downloadRecordJson = async (gameId) => {
 }
 
 const loadCachedRecords = async () => {
+  if (idsLoading.value || recordItemsFilterKey.value !== filterKey.value) return null
   const uid = targetUserId.value
+  const loadedFilterKey = filterKey.value
+  const selectedCount = recordItems.value.length
   const cachedIds = recordItems.value
     .map((row) => String(row.game_id))
     .filter((id) => localIds.value.has(id))
@@ -1358,21 +1407,30 @@ const loadCachedRecords = async () => {
     ElMessage.info('请先下载牌谱再分析')
     return null
   }
-  const createdAtById = new Map(
-    recordItems.value.map((row) => [String(row.game_id), row.created_at])
+  const metadataById = new Map(
+    recordItems.value.map((row) => [String(row.game_id), row])
   )
   const items = await getLocalRecords(cachedIds)
   for (const item of items) {
-    if (!item.created_at && createdAtById.has(String(item.game_id))) {
-      item.created_at = createdAtById.get(String(item.game_id))
-    }
+    const metadata = metadataById.get(String(item.game_id))
+    if (!metadata) continue
+    item.created_at ||= metadata.created_at
+    // IndexedDB 的 rank 可能属于此前下载此谱的另一个玩家，结算名次必须取本次目标查询。
+    item.settlement_rank = metadata.rank
+    item.settlement_tie_count = metadata.settlement_tie_count
+    item.settlement_user_id = metadata.settlement_user_id
+    for (const key of ['room_type', 'match_tier', 'match_type', 'rule']) item[key] = metadata[key]
   }
-  return { uid, items }
+  if (loadedFilterKey !== filterKey.value) return null
+  return { uid, items, filterKey: loadedFilterKey, selectedCount }
 }
 
 const clearAnalysisResults = () => {
   analyzedStats.value = null
   advancedStats.value = null
+  stableRankData.value = null
+  stableRankFilterKey.value = ''
+  stableRankSelectedCount.value = 0
   advancedHasTenpai.value = false
   winEvents.value = []
   winEventsKey.value = ''
@@ -1385,10 +1443,11 @@ const clearAnalysisResults = () => {
 }
 
 const runStandardAnalysis = async () => {
-  const loaded = await loadCachedRecords()
-  if (!loaded) return
+  if (analyzingKind.value) return
   analyzingKind.value = 'standard'
   try {
+    const loaded = await loadCachedRecords()
+    if (!loaded) return
     const stats = analyzeRecords(loaded.items, loaded.uid)
     analyzedStats.value = stats
     analyzedFilterKey.value = filterKey.value
@@ -1401,22 +1460,46 @@ const runStandardAnalysis = async () => {
   }
 }
 
+const publishStableRank = (loaded) => {
+  stableRankData.value = collectStableRankSamples(loaded.items, loaded.uid)
+  stableRankFilterKey.value = loaded.filterKey
+  stableRankSelectedCount.value = loaded.selectedCount
+}
+
+const runStableAnalysis = async () => {
+  if (!isGuobiao.value || analyzingKind.value) return
+  analyzingKind.value = 'stable'
+  try {
+    const loaded = await loadCachedRecords()
+    if (!loaded) return
+    publishStableRank(loaded)
+    resultTab.value = 'stable'
+  } catch (e) {
+    ElMessage.error('安定段位分析失败')
+  } finally {
+    analyzingKind.value = ''
+  }
+}
+
 const runAdvancedAnalysis = async () => {
+  if (analyzingKind.value) return
   if (!isGuobiao.value) {
     ElMessage.info('高级分析目前仅支持国标')
     return
   }
-  const loaded = await loadCachedRecords()
-  if (!loaded) return
   analyzingKind.value = 'advanced'
-  analyzingProgress.value = `0 / ${loaded.items.length} 局`
   try {
+    const loaded = await loadCachedRecords()
+    if (!loaded) return
+    analyzingProgress.value = `0 / ${loaded.items.length} 局`
     const stats = await analyzeRecordsAdvanced(loaded.items, loaded.uid, {
       tingpai: true,
       onProgress: (done, total) => {
         analyzingProgress.value = `${done} / ${total} 局`
       },
     })
+    if (loaded.filterKey !== filterKey.value) return
+    publishStableRank(loaded)
     advancedStats.value = stats
     advancedHasTenpai.value = true
     advancedFilterKey.value = filterKey.value
@@ -1544,6 +1627,10 @@ const onFilterChange = () => {
 }
 
 watch(filterKey, () => {
+  if (stableRankFilterKey.value && stableRankFilterKey.value !== filterKey.value) {
+    stableRankData.value = null
+    stableRankFilterKey.value = ''
+  }
   if (analyzedFilterKey.value && analyzedFilterKey.value !== filterKey.value) {
     analyzedStats.value = null
   }
@@ -1562,8 +1649,9 @@ watch(targetUserId, async (uid, prev) => {
   if (uid == null || uid === prev) return
   if (!authReady.value || !auth.isLoggedIn) return
   clearAnalysisResults()
+  playerInfo.value = null
   recordsPage.current = 1
-  await loadPlayerInfo()
+  await loadPlayerInfo({ selectInitialRule: false })
   if (scene.value === 'events') loadEventOptions()
   await Promise.all([loadScopeCounts(), loadRecordIds(), loadResultRecords()])
 })
@@ -1717,7 +1805,8 @@ onMounted(async () => {
 .filter-row.with-date { justify-content: space-between; }
 .tier-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .event-select { width: 200px; }
-.filter-date { width: 240px !important; }
+.scene-filter-row :deep(.filter-date) { width: 260px !important; flex: 0 0 260px; min-width: 0; max-width: 100%; }
+.scene-filter-row :deep(.filter-date .el-range-input) { min-width: 0; }
 .chip {
   appearance: none;
   border: 1px solid #dcdfe6;
@@ -2026,9 +2115,10 @@ onMounted(async () => {
   gap: 8px;
   margin-top: 10px;
 }
+.records-foot :deep(.el-pagination) { flex-wrap: wrap; row-gap: 8px; max-width: 100%; }
 @media (max-width: 720px) {
   .filter-row.with-date { flex-direction: column; align-items: flex-start; }
-  .filter-date { width: 100% !important; }
+  .scene-filter-row :deep(.filter-date) { width: 100% !important; flex-basis: auto; }
   .stats-table { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .chart-pie { width: auto; flex: 1 1 100%; }
   .tool-card { max-width: none; }
@@ -2036,6 +2126,9 @@ onMounted(async () => {
   .stats-table.nested { grid-template-columns: 1fr; }
   .bar-row { grid-template-columns: 5.5em 1fr 6.5em; }
   .account-meta { flex-direction: column; }
-  .player-search-input { width: 100%; }
+  .player-search-input { width: auto; flex: 1; min-width: 100px; }
+  .player-search-bar > .el-button + .el-button { margin-left: 0; }
+  .records-foot { justify-content: flex-start; }
+  .records-foot :deep(.el-pagination) { justify-content: flex-start; }
 }
 </style>

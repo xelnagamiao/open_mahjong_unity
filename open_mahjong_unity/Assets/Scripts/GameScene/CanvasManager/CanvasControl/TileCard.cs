@@ -10,14 +10,14 @@ using System.Linq;
 /// 层级结构：
 /// TileCard (空物体)
 /// ├── fill（原槽位，仅点击出牌，不触发拖拽）
-/// ├── FaceBackground（手牌背景，官方套隐藏）
+/// ├── FaceBackground（标准手牌的牌体底图）
 /// ├── Image (花纹)
 /// └── Button（拖拽与点牌面）
 /// </summary>
 public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler {
     [Header("UI Components")]
     [SerializeField] private Image tileImage;    // 牌面图片组件
-    [SerializeField] private Image faceBackground; // 手牌背景（官方套隐藏）
+    [SerializeField] private Image faceBackground; // 标准手牌的牌体底图
     [SerializeField] private Button tileButton;  // 按钮组件
 
     // 将私有字段改为公共属性
@@ -288,8 +288,13 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         currentGetTile = isCurrentGetTile;
         isDrawSlotPinned = isCurrentGetTile;   // 新摸入牌默认固定在摸牌区，手动理牌时再清除
 
-        if (!TileFaceFit.ApplyHandLayers(transform as RectTransform, tileImage, faceBackground, id)) {
-            Debug.LogError($"找不到牌面图片: {id}");
+        RefreshVisual();
+    }
+
+    /// <summary>换牌面/背景时只刷新显示，保留理牌固定位置与对局提示状态。</summary>
+    public void RefreshVisual() {
+        if (!TileFaceFit.ApplyHandLayers(transform as RectTransform, tileImage, ref faceBackground, tileId)) {
+            Debug.LogError($"找不到牌面图片: {tileId}");
         }
         ApplyDisplayColor();
     }

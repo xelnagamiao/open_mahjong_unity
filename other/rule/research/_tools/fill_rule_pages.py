@@ -306,15 +306,34 @@ REGIONAL = [
 ]
 
 
+QINGQUE_DOC_SOURCES = {
+    "lib-qingque-one": {
+        "source_url": "https://mmcr.online/brief.pdf",
+        "version": "14",
+        "accessed": "2026-09-09",
+    },
+    "lib-qingque-paili": {
+        "source_url": "https://mmcr.online/scoring-samples.pdf",
+        "version": "3.1 (青雀 14)",
+        "accessed": "2026-09-09",
+    },
+    "lib-qingque-book": {
+        "source_url": "https://mmcr.online/rule.pdf",
+        "version": "14.1",
+        "accessed": "2026-09-09",
+    },
+}
+
+
 LOCAL_BOOKS = [
     ("lib-classical", "古典麻将规则书", "/rulebooks/classical-rulebook.pdf", ["classical"], "平台现行古典麻将版本。"),
     ("lib-drawing", "绘图麻雀牌谱", "/rulebooks/drawing-mahjong.pdf", ["classical"], "沈一帆 1914 年牌谱。"),
     ("lib-shinbara", "想定宁波规则（榛原 1952）", "/rulebooks/shinbara-ningbo.html", ["classical"], "榛原茂树据五种民初麻将书想定的宁波打法。他自己写过：这不是最古现场规则。"),
     ("lib-guobiao", "国标麻将（新编 MCR）", "/rulebooks/guobiao-mcr.pdf", ["guobiao"], "平台使用的新编 MCR。"),
     ("lib-riichi", "GGHK 立直麻将规则书", "/rulebooks/riichi-rulebook.pdf", ["riichi"], "香港麻雀协会立直规则书。"),
-    ("lib-qingque-one", "青雀一页纸", "/rulebooks/qingque-onepage.pdf", ["qingque"], "一页纸番种速记。"),
-    ("lib-qingque-paili", "青雀牌例", "/rulebooks/qingque-paili.pdf", ["qingque"], "番种详解与牌例。"),
-    ("lib-qingque-book", "青雀规则文档", "/rulebooks/qingque-rulebook.pdf", ["qingque"], "行牌逻辑与概念解释。"),
+    ("lib-qingque-one", "青雀一页纸", "/rulebooks/qingque-onepage.pdf", ["qingque"], "青雀第十四版一页纸，来自 mmcr.online。"),
+    ("lib-qingque-paili", "青雀牌例", "/rulebooks/qingque-paili.pdf", ["qingque"], "青雀牌例第三版第一次修订，适用于第十四版，来自 mmcr.online。"),
+    ("lib-qingque-book", "青雀规则文档", "/rulebooks/qingque-rulebook.pdf", ["qingque"], "青雀第十四版第一次修订，来自 mmcr.online。"),
     ("lib-hongque", "虹雀² v1.6 规则书", "/rulebooks/hongque-v1.6.pdf", ["hongque"], "虹雀² v1.6 完整规则说明。"),
     ("lib-sichuan", "四川麻将（SBR）竞赛规则", "/rulebooks/sichuan-sbr.pdf", ["sichuan", "mil-sichuan"], "四川麻将（SBR）竞赛规则（试行 2025 版）。"),
     ("lib-changsha", "长沙麻将（双鸟）规则书", "/rulebooks/changsha-classic-double-bird-rulebook.pdf", ["changsha"], "本平台长沙麻将规则说明。"),
@@ -558,6 +577,7 @@ def main():
                 local_status="ok",
                 source_level="primary" if "rulebooks/" in url else "secondary",
                 reliability="high",
+                **QINGQUE_DOC_SOURCES.get(sid, {}),
             )
         )
     dump(

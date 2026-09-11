@@ -119,7 +119,7 @@ public class PlayerInfoPanel : MonoBehaviour {
 
         // 段位信息
         string rank = playerInfo.guobiao_rank ?? "10级";
-        float score = playerInfo.guobiao_score;
+        float score = RankLevelConfig.NormalizeScore(rank, playerInfo.guobiao_score);
         int idx = RankConfig.GetRankIndex(rank);
         var (_, _, promoteScore) = RankConfig.RankTable[idx];
         if (rankText != null) rankText.text = rank;

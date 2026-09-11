@@ -24,6 +24,29 @@ public class PlayerInfoClass
     public string[] tag_list;
     /// <summary>立直规则：与 discard_tiles 同序的横置标记，用于他家鸣牌后续横、重连/牌谱重建复原立直横置弃牌。</summary>
     public List<bool> discard_riichi_flags = new List<bool>();
+
+    /// <summary>清空空座位残留，避免上一局的手牌数/河牌画到无人座位。</summary>
+    public void ClearSeatData() {
+        username = null;
+        userId = 0;
+        score = 0;
+        hand_tiles_count = 0;
+        hand_tiles = null;
+        discard_tiles = new List<int>();
+        discard_origin_tiles = new List<int>();
+        combination_tiles = new List<string>();
+        combination_masks = new List<int[]>();
+        huapai_list = new List<int>();
+        title_used = 1;
+        profile_used = 1;
+        character_used = 1;
+        voice_used = 1;
+        score_history = new List<string>();
+        round_number_history = new List<int>();
+        original_player_index = 0;
+        tag_list = null;
+        discard_riichi_flags = new List<bool>();
+    }
 }
 
 /// <summary>

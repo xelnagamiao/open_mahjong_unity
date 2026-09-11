@@ -153,9 +153,12 @@ public class RoomPanel : MonoBehaviour {
             }
         }
 
-        // 开始按钮：仅房主可见；满 4 人且其余玩家全部准备时可点击（与服务器 start_game 校验一致）
+        // 开始按钮：仅房主可见；人数达到规则最少人数且其余玩家全部准备时可点击。
         startButton.gameObject.SetActive(isHost);
-        startButton.interactable = isHost && roomInfo.player_list.Length == 4 && AllOthersReady(roomInfo);
+        int seated = roomInfo.player_list != null ? roomInfo.player_list.Length : 0;
+        int minPlayers = RuleRegistry.Resolve(roomInfo.room_rule)?.MinPlayersToStart ?? 4;
+        if (minPlayers < 1) minPlayers = 1;
+        startButton.interactable = isHost && seated >= minPlayers && AllOthersReady(roomInfo);
 
         // 准备按钮：仅非房主显示
         if (readyButton != null) {

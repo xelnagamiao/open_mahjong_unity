@@ -204,6 +204,8 @@
         />
         <div class="stats-filters">
           <el-date-picker
+            popper-class="compact-date-range-popper"
+            :popper-options="{ modifiers: [{ name: 'preventOverflow', options: { altAxis: true, padding: 12 } }] }"
             v-model="statsDateRange"
             type="daterange"
             size="small"
@@ -217,46 +219,49 @@
             class="stats-daterange"
             @change="loadPlayerStats"
           />
-          <el-select
-            v-model="statsFilter.rule"
-            clearable
-            placeholder="全部规则"
-            size="small"
-            style="width: 140px"
-            @change="loadPlayerStats"
-          >
-            <el-option
-              v-for="r in statsRuleOptions"
-              :key="r"
-              :label="ruleLabel(r)"
-              :value="r"
+          <div class="stats-scope">
+            <el-select
+              v-model="statsFilter.rule"
+              clearable
+              placeholder="全部规则"
+              size="small"
+              @change="loadPlayerStats"
+            >
+              <el-option
+                v-for="r in statsRuleOptions"
+                :key="r"
+                :label="ruleLabel(r)"
+                :value="r"
+              />
+            </el-select>
+            <el-select
+              v-model="statsFilter.game_type"
+              clearable
+              placeholder="全部局制"
+              size="small"
+              @change="loadPlayerStats"
+            >
+              <el-option
+                v-for="opt in GAME_TYPE_OPTIONS"
+                :key="opt.value"
+                :label="opt.label"
+                :value="opt.value"
+              />
+            </el-select>
+          </div>
+          <div class="stats-player-search">
+            <el-input
+              v-model="statsFilter.q"
+              clearable
+              size="small"
+              placeholder="玩家 ID / 用户名"
+              @keyup.enter="loadPlayerStats"
             />
-          </el-select>
-          <el-select
-            v-model="statsFilter.game_type"
-            clearable
-            placeholder="全部局制"
-            size="small"
-            style="width: 140px"
-            @change="loadPlayerStats"
-          >
-            <el-option
-              v-for="opt in GAME_TYPE_OPTIONS"
-              :key="opt.value"
-              :label="opt.label"
-              :value="opt.value"
-            />
-          </el-select>
-          <el-input
-            v-model="statsFilter.q"
-            clearable
-            size="small"
-            placeholder="玩家 ID / 用户名"
-            style="width: 180px"
-            @keyup.enter="loadPlayerStats"
-          />
-          <el-button type="primary" size="small" :loading="loadingStats" @click="loadPlayerStats">查询</el-button>
-          <el-button size="small" @click="resetStatsFilter">重置</el-button>
+            <div class="stats-search-actions">
+              <el-button type="primary" size="small" :loading="loadingStats" @click="loadPlayerStats">查询</el-button>
+              <el-button size="small" @click="resetStatsFilter">重置</el-button>
+            </div>
+          </div>
         </div>
         <div v-loading="loadingStats">
           <div class="stats-totals">
@@ -792,11 +797,43 @@ onMounted(load)
   align-items: center;
   margin-bottom: 12px;
 }
-.stats-daterange {
-  width: 240px;
+.stats-filters :deep(.stats-daterange.el-date-editor) {
+  flex: 0 1 260px;
+  width: 260px;
+  min-width: 0;
+  max-width: 100%;
 }
-.stats-daterange :deep(.el-range-input) {
+.stats-filters :deep(.stats-daterange .el-range-input) {
   font-size: 12px;
+}
+.stats-scope,
+.stats-player-search,
+.stats-search-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+.stats-scope {
+  flex: 0 1 288px;
+}
+.stats-scope :deep(.el-select) {
+  flex: 1 1 110px;
+  width: 140px;
+  min-width: 0;
+}
+.stats-player-search {
+  flex: 0 1 auto;
+}
+.stats-player-search > .el-input {
+  flex: 1 1 160px;
+  width: 180px;
+  min-width: 0;
+}
+.stats-search-actions :deep(.el-button + .el-button) {
+  margin-left: 0;
 }
 .stats-range-hint {
   margin-left: 8px;
@@ -838,5 +875,13 @@ onMounted(load)
   margin: 0 0 8px;
   font-size: 13px;
   color: #606266;
+}
+@media (max-width: 640px) {
+  .stats-filters :deep(.stats-daterange.el-date-editor),
+  .stats-scope,
+  .stats-player-search {
+    flex-basis: 100%;
+    width: 100%;
+  }
 }
 </style>

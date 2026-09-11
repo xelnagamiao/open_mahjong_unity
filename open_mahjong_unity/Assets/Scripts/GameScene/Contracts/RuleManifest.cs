@@ -157,6 +157,18 @@ public sealed class RuleManifest {
     /// <summary>房间等待厅是否显示加机器人。默认允许；自由模式等关闭。</summary>
     public bool AllowsRoomBots = true;
 
+    /// <summary>
+    /// 开局最少人数。默认 4（必须满座）。自由模式允许 1 人开桌。
+    /// 服务端房间字段 min_players_to_start 与此对齐，核心不写规则名。
+    /// </summary>
+    public int MinPlayersToStart = 4;
+
+    /// <summary>
+    /// 动作按钮放到场景里单独的布局容器（常驻按钮多，需用布局组排两行）。
+    /// false 仍用默认 ActionButtonContainer。
+    /// </summary>
+    public bool UsesDedicatedActionButtonContainer;
+
     /// <summary>个人信息页番种统计用的 key→中文名表。null 表示该规则不展示番种达成。</summary>
     public IReadOnlyDictionary<string, string> StatsFanNames;
 

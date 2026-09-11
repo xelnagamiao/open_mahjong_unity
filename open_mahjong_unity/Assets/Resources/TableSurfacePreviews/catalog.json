@@ -1,0 +1,168 @@
+{
+    "cloth": [
+        {
+            "name": "Tablecloth_Focus_01_Sakura",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_01_Sakura",
+            "displayName": "Tablecloth_Focus_01_Sakura"
+        },
+        {
+            "name": "Tablecloth_Focus_02_PeacockTeal",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_02_PeacockTeal",
+            "displayName": "Tablecloth_Focus_02_PeacockTeal"
+        },
+        {
+            "name": "Tablecloth_Focus_03_Cobalt",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_03_Cobalt",
+            "displayName": "Tablecloth_Focus_03_Cobalt"
+        },
+        {
+            "name": "Tablecloth_Focus_04_Wisteria",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_04_Wisteria",
+            "displayName": "Tablecloth_Focus_04_Wisteria"
+        },
+        {
+            "name": "Tablecloth_Focus_05_Bamboo",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_05_Bamboo",
+            "displayName": "Tablecloth_Focus_05_Bamboo"
+        },
+        {
+            "name": "Tablecloth_Focus_06_AutumnMaple",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_06_AutumnMaple",
+            "displayName": "Tablecloth_Focus_06_AutumnMaple"
+        },
+        {
+            "name": "Tablecloth_Focus_07_MoonSea",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_07_MoonSea",
+            "displayName": "Tablecloth_Focus_07_MoonSea"
+        },
+        {
+            "name": "Tablecloth_Focus_08_CityGlass",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_08_CityGlass",
+            "displayName": "Tablecloth_Focus_08_CityGlass"
+        },
+        {
+            "name": "Tablecloth_Focus_09_Celadon",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_09_Celadon",
+            "displayName": "Tablecloth_Focus_09_Celadon"
+        },
+        {
+            "name": "Tablecloth_Focus_10_Ginkgo",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_10_Ginkgo",
+            "displayName": "Tablecloth_Focus_10_Ginkgo"
+        },
+        {
+            "name": "Tablecloth_blue",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_blue",
+            "displayName": "Tablecloth_blue"
+        },
+        {
+            "name": "Tablecloth_green",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_green",
+            "displayName": "Tablecloth_green"
+        },
+        {
+            "name": "Tablecloth_green2",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_green2",
+            "displayName": "Tablecloth_green2"
+        }
+    ],
+    "edge": [
+        {
+            "name": "Edge_Focus_01_Sakura",
+            "preview": "TableSurfacePreviews/Edge/Edge_Focus_01_Sakura",
+            "displayName": "Edge_Focus_01_Sakura"
+        },
+        {
+            "name": "Edge_Focus_02_PeacockTeal",
+            "preview": "TableSurfacePreviews/Edge/Edge_Focus_02_PeacockTeal",
+            "displayName": "Edge_Focus_02_PeacockTeal"
+        },
+        {
+            "name": "Edge_Focus_03_Cobalt",
+            "preview": "TableSurfacePreviews/Edge/Edge_Focus_03_Cobalt",
+            "displayName": "Edge_Focus_03_Cobalt"
+        },
+        {
+            "name": "Edge_Focus_04_Wisteria",
+            "preview": "TableSurfacePreviews/Edge/Edge_Focus_04_Wisteria",
+            "displayName": "Edge_Focus_04_Wisteria"
+        },
+        {
+            "name": "Edge_Focus_05_Bamboo",
+            "preview": "TableSurfacePreviews/Edge/Edge_Focus_05_Bamboo",
+            "displayName": "Edge_Focus_05_Bamboo"
+        },
+        {
+            "name": "Edge_Focus_06_AutumnMaple",
+            "preview": "TableSurfacePreviews/Edge/Edge_Focus_06_AutumnMaple",
+            "displayName": "Edge_Focus_06_AutumnMaple"
+        },
+        {
+            "name": "Edge_Focus_07_MoonSea",
+            "preview": "TableSurfacePreviews/Edge/Edge_Focus_07_MoonSea",
+            "displayName": "Edge_Focus_07_MoonSea"
+        },
+        {
+            "name": "Edge_Focus_08_CityGlass",
+            "preview": "TableSurfacePreviews/Edge/Edge_Focus_08_CityGlass",
+            "displayName": "Edge_Focus_08_CityGlass"
+        },
+        {
+            "name": "Edge_Focus_09_Celadon",
+            "preview": "TableSurfacePreviews/Edge/Edge_Focus_09_Celadon",
+            "displayName": "Edge_Focus_09_Celadon"
+        },
+        {
+            "name": "Edge_Focus_10_Ginkgo",
+            "preview": "TableSurfacePreviews/Edge/Edge_Focus_10_Ginkgo",
+            "displayName": "Edge_Focus_10_Ginkgo"
+        },
+        {
+            "name": "Edge_bule",
+            "preview": "TableSurfacePreviews/Edge/Edge_bule",
+            "displayName": "Edge_bule"
+        },
+        {
+            "name": "Edge_orange_wood",
+            "preview": "TableSurfacePreviews/Edge/Edge_orange_wood",
+            "displayName": "Edge_orange_wood"
+        }
+    ],
+    "seams": [
+        {
+            "name": "Seam_00",
+            "preview": "TableSurfacePreviews/TableSeams/Seam_00",
+            "displayName": "Seam_00"
+        },
+        {
+            "name": "Seam_01",
+            "preview": "TableSurfacePreviews/TableSeams/Seam_01",
+            "displayName": "Seam_01"
+        },
+        {
+            "name": "Seam_02",
+            "preview": "TableSurfacePreviews/TableSeams/Seam_02",
+            "displayName": "Seam_02"
+        },
+        {
+            "name": "Seam_03",
+            "preview": "TableSurfacePreviews/TableSeams/Seam_03",
+            "displayName": "Seam_03"
+        },
+        {
+            "name": "Seam_04",
+            "preview": "TableSurfacePreviews/TableSeams/Seam_04",
+            "displayName": "Seam_04"
+        },
+        {
+            "name": "Seam_05",
+            "preview": "TableSurfacePreviews/TableSeams/Seam_05",
+            "displayName": "Seam_05"
+        },
+        {
+            "name": "Seam_06",
+            "preview": "TableSurfacePreviews/TableSeams/Seam_06",
+            "displayName": "Seam_06"
+        }
+    ]
+}

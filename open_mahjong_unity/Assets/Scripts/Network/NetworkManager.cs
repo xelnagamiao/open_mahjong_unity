@@ -152,6 +152,7 @@ public class NetworkManager : MonoBehaviour {
             if (suppressConnectionFailureUi) return;
             ExecuteOnMainThread(() => {
                 if (ws != websocket) return;
+                GameSceneUIManager.ResetRealtimeSpectatorUi();
                 if (AutoReconnect.TryHandleOnClose()) return;
                 if (IsOnLoginPage()) {
                     LoginPanel.Instance?.ShowConnectionError("连接已关闭");
@@ -187,6 +188,7 @@ public class NetworkManager : MonoBehaviour {
     /// 已连上后再断开走 MarkDisconnected；登录页首次连接失败则弹断线重连面板（AutoReconnect 活跃时不介入）。
     /// </summary>
     private void HandleConnectionLostUi() {
+        GameSceneUIManager.ResetRealtimeSpectatorUi();
         if (AutoReconnect.IsActive) return;
         if (_disconnectDialogState == DisconnectDialogState.Connected) {
             MarkDisconnected();
@@ -249,6 +251,7 @@ public class NetworkManager : MonoBehaviour {
         websocket?.DispatchMessageQueue();
 #endif
         if (websocket == null || websocket.State != WebSocketState.Open) {
+            GameSceneUIManager.ResetRealtimeSpectatorUi();
             if (AutoReconnect.TryHandleForegroundDisconnect()) return;
             MarkDisconnected();
         }

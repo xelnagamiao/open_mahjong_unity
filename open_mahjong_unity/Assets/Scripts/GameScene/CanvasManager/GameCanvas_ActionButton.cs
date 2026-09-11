@@ -65,7 +65,7 @@ public partial class GameCanvas : MonoBehaviour {
     private int createdRegularButtonCount;
 
     private ActionButton CreateActionButton(ActionButtonColorPreset preset) {
-        ActionButton actionButton = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+        ActionButton actionButton = Instantiate(ActionButtonPrefab, ActionButtonHost);
         Button button = actionButton.GetComponent<Button>();
         if (button != null && preset != null) {
             button.colors = preset.ToColorBlock();
@@ -171,17 +171,31 @@ public partial class GameCanvas : MonoBehaviour {
 
     /// <summary>按当前开关与预设，刷新 ActionButtonContainer 内已有按钮配色。</summary>
     public void RefreshActionButtonColors() {
-        if (ActionButtonContainer == null) return;
-        for (int i = 0; i < ActionButtonContainer.childCount; i++) {
-            ActionButton actionButton = ActionButtonContainer.GetChild(i).GetComponent<ActionButton>();
-            if (actionButton == null || actionButton.actionTypeList == null || actionButton.actionTypeList.Count == 0) {
+        RefreshActionButtonColorsIn(ActionButtonContainer);
+        RefreshActionButtonColorsIn(DedicatedActionButtonContainer);
+        RefreshActionButtonColorsIn(ExtraActionButton);
+    }
+
+    private void RefreshActionButtonColorsIn(Transform root) {
+        if (root == null) return;
+        ActionButton actionButton = root.GetComponent<ActionButton>();
+        if (actionButton != null && actionButton.actionTypeList != null && actionButton.actionTypeList.Count > 0) {
+            ApplyActionButtonColor(actionButton);
+        }
+        for (int i = 0; i < root.childCount; i++) {
+            ActionButton child = root.GetChild(i).GetComponent<ActionButton>();
+            if (child == null || child.actionTypeList == null || child.actionTypeList.Count == 0) {
                 continue;
             }
-            ActionButtonColorPreset preset = GetActionButtonColorPreset(actionButton.actionTypeList[0]);
-            Button button = actionButton.GetComponent<Button>();
-            if (button != null && preset != null) {
-                button.colors = preset.ToColorBlock();
-            }
+            ApplyActionButtonColor(child);
+        }
+    }
+
+    private void ApplyActionButtonColor(ActionButton actionButton) {
+        ActionButtonColorPreset preset = GetActionButtonColorPreset(actionButton.actionTypeList[0]);
+        Button button = actionButton.GetComponent<Button>();
+        if (button != null && preset != null) {
+            button.colors = preset.ToColorBlock();
         }
     }
 
@@ -200,9 +214,8 @@ public partial class GameCanvas : MonoBehaviour {
         ActionButton jiagangButton = null;
 
         // 清空按钮
-        foreach (Transform child in ActionButtonContainer){
-            if (child != ExtraActionButton) Destroy(child.gameObject);
-        }
+        ClearSpawnedActionButtons(ActionButtonContainer);
+        ClearSpawnedActionButtons(DedicatedActionButtonContainer);
         SetPersistentActionButton(persistentWord);
 
         createdRegularButtonCount = 0;

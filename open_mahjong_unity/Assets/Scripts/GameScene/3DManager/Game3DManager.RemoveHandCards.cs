@@ -229,7 +229,7 @@ public partial class Game3DManager : MonoBehaviour {
         // 计算目标位置（按排序后的顺序）
         Dictionary<Transform, Vector3> targetPositions = new Dictionary<Transform, Vector3>();
         for (int i = 0; i < cardCount; i++) {
-            Vector3 targetPos = startPosition + direction * cardWidth * i;
+            Vector3 targetPos = PlaceTileOnTable(startPosition + direction * handStep * i, cards[i].rotation);
             targetPositions[cards[i]] = targetPos;
             cards[i].name = $"ReSeTCard_{i}";
         }

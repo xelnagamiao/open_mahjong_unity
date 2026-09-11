@@ -220,30 +220,38 @@ async def _handle_cancel_register(game_server, user_id, message, websocket):
 
 
 async def _handle_ready(game_server, user_id, player, message, websocket, ready: bool):
+    async with game_server.room_manager.event_seating_lock:
+        response = _event_ready_response(game_server, user_id, player, message, ready)
+    await _send(websocket, response)
+    if ready and response.success:
+        game_server.event_auto_matcher.wake()
+
+
+def _event_ready_response(game_server, user_id, player, message, ready: bool):
     event_id = str(message.get("event_id") or "").strip()
     event = game_server.db_manager.get_event(event_id)
     type_name = "event/ready" if ready else "event/unready"
     if not event or event.get("status") != "active":
-        await _send(websocket, Response(type=type_name, success=False, message="场馆未开启"))
-        return
+        return Response(type=type_name, success=False, message="场馆未开启")
+    if not ready and game_server.gamestate_manager.is_user_in_active_game(user_id):
+        return Response(type=type_name, success=False, message="对局已经开始，无法取消本次匹配")
     if ready:
         blocked = game_server.room_manager._reject_room_entry_conflicts(user_id, "加入等待")
         if blocked:
-            await _send(websocket, Response(type=type_name, success=False, message=blocked.message))
-            return
+            return Response(type=type_name, success=False, message=blocked.message)
+        if getattr(player, "current_room_id", None) or any(
+            user_id in room.get("player_list", []) for room in game_server.room_manager.rooms.values()
+        ):
+            return Response(type=type_name, success=False, message="请先退出当前房间再加入等待")
         registration = game_server.db_manager.get_event_registration(event_id, user_id)
         role = game_server.db_manager.get_event_admin_role(event_id, user_id)
         approved = bool(registration and registration.get("status") == "approved")
         cfg = game_server_parse_config(event)
         allow_unregistered = bool(cfg.get("unregistered_can_ready"))
         if not role and not approved and not allow_unregistered:
-            await _send(websocket, Response(type=type_name, success=False, message="请先通过报名"))
-            return
+            return Response(type=type_name, success=False, message="请先通过报名")
     ok = game_server.db_manager.set_event_ready(event_id, user_id, ready)
-    await _send(
-        websocket,
-        Response(type=type_name, success=ok, message="已加入等待" if ready else "已取消等待"),
-    )
+    return Response(type=type_name, success=ok, message=("已加入等待" if ready else "已取消等待") if ok else "准备状态更新失败，请重试")
 
 
 async def _require_admin(game_server, event_id: str, user_id: int):

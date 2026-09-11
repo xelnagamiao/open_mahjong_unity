@@ -1,0 +1,561 @@
+{
+  "version": 1,
+  "description": "Manually reviewed Snow/Xuefun optical layout. Original source artwork remains untouched.",
+  "units": "pivot and offset in original 272x389 source pixels; positive x right, positive y down",
+  "scale_reference": "hand: original artwork; table: fixed .95 x 1.18 safe baseline before this manual layout",
+  "policy": "Uniform scaling only. Explicit per-tile placement, no centroid auto-alignment. Manzu share one pivot to preserve the lower glyph baseline.",
+  "tiles": {
+    "11": {
+      "hand_scale": 1.075,
+      "table_scale": 1.0,
+      "pivot": [
+        136.5,
+        216
+      ],
+      "offset": [
+        1,
+        0
+      ]
+    },
+    "12": {
+      "hand_scale": 1.075,
+      "table_scale": 1.0,
+      "pivot": [
+        136.5,
+        216
+      ],
+      "offset": [
+        1,
+        0
+      ]
+    },
+    "13": {
+      "hand_scale": 1.075,
+      "table_scale": 1.0,
+      "pivot": [
+        136.5,
+        216
+      ],
+      "offset": [
+        1,
+        0
+      ]
+    },
+    "14": {
+      "hand_scale": 1.075,
+      "table_scale": 1.0,
+      "pivot": [
+        136.5,
+        216
+      ],
+      "offset": [
+        1,
+        0
+      ]
+    },
+    "15": {
+      "hand_scale": 1.075,
+      "table_scale": 1.0,
+      "pivot": [
+        136.5,
+        216
+      ],
+      "offset": [
+        1,
+        0
+      ]
+    },
+    "16": {
+      "hand_scale": 1.075,
+      "table_scale": 1.0,
+      "pivot": [
+        136.5,
+        216
+      ],
+      "offset": [
+        1,
+        0
+      ]
+    },
+    "17": {
+      "hand_scale": 1.075,
+      "table_scale": 1.0,
+      "pivot": [
+        136.5,
+        216
+      ],
+      "offset": [
+        1,
+        0
+      ]
+    },
+    "18": {
+      "hand_scale": 1.075,
+      "table_scale": 1.0,
+      "pivot": [
+        136.5,
+        216
+      ],
+      "offset": [
+        1,
+        0
+      ]
+    },
+    "19": {
+      "hand_scale": 1.075,
+      "table_scale": 1.0,
+      "pivot": [
+        136.5,
+        216
+      ],
+      "offset": [
+        1,
+        0
+      ]
+    },
+    "21": {
+      "hand_scale": 1.06,
+      "table_scale": 1.01,
+      "pivot": [
+        136.0,
+        208.0
+      ],
+      "offset": [
+        0.5,
+        -1
+      ]
+    },
+    "22": {
+      "hand_scale": 1.07,
+      "table_scale": 1.025,
+      "pivot": [
+        136.0,
+        207.5
+      ],
+      "offset": [
+        0.5,
+        -0.5
+      ]
+    },
+    "23": {
+      "hand_scale": 1.04,
+      "table_scale": 1.0,
+      "pivot": [
+        136.5,
+        207.5
+      ],
+      "offset": [
+        0,
+        -0.5
+      ]
+    },
+    "24": {
+      "hand_scale": 1.07,
+      "table_scale": 1.025,
+      "pivot": [
+        136.5,
+        205.0
+      ],
+      "offset": [
+        0,
+        2
+      ]
+    },
+    "25": {
+      "hand_scale": 1.07,
+      "table_scale": 1.025,
+      "pivot": [
+        136.5,
+        205.0
+      ],
+      "offset": [
+        0,
+        2
+      ]
+    },
+    "26": {
+      "hand_scale": 1.07,
+      "table_scale": 1.025,
+      "pivot": [
+        135.5,
+        208.5
+      ],
+      "offset": [
+        1,
+        -1.5
+      ]
+    },
+    "27": {
+      "hand_scale": 1.06,
+      "table_scale": 1.01,
+      "pivot": [
+        137.0,
+        204.5
+      ],
+      "offset": [
+        -0.5,
+        2.5
+      ]
+    },
+    "28": {
+      "hand_scale": 1.05,
+      "table_scale": 1.01,
+      "pivot": [
+        138.0,
+        215.0
+      ],
+      "offset": [
+        -1.5,
+        -8
+      ]
+    },
+    "29": {
+      "hand_scale": 1.06,
+      "table_scale": 1.0,
+      "pivot": [
+        138.5,
+        204.0
+      ],
+      "offset": [
+        -2,
+        3
+      ]
+    },
+    "31": {
+      "hand_scale": 1.04,
+      "table_scale": 1.01,
+      "pivot": [
+        134.5,
+        210.5
+      ],
+      "offset": [
+        2,
+        -3.5
+      ]
+    },
+    "32": {
+      "hand_scale": 1.08,
+      "table_scale": 1.08,
+      "pivot": [
+        137.0,
+        219.5
+      ],
+      "offset": [
+        -0.5,
+        -12.5
+      ]
+    },
+    "33": {
+      "hand_scale": 1.05,
+      "table_scale": 1.01,
+      "pivot": [
+        135.5,
+        212.5
+      ],
+      "offset": [
+        1,
+        -5.5
+      ]
+    },
+    "34": {
+      "hand_scale": 1.05,
+      "table_scale": 1.015,
+      "pivot": [
+        136.0,
+        211.5
+      ],
+      "offset": [
+        0.5,
+        -4.5
+      ]
+    },
+    "35": {
+      "hand_scale": 1.05,
+      "table_scale": 1.015,
+      "pivot": [
+        136.0,
+        211.5
+      ],
+      "offset": [
+        0.5,
+        -4.5
+      ]
+    },
+    "36": {
+      "hand_scale": 1.04,
+      "table_scale": 1.015,
+      "pivot": [
+        136.0,
+        212.5
+      ],
+      "offset": [
+        0.5,
+        -5.5
+      ]
+    },
+    "37": {
+      "hand_scale": 1.03,
+      "table_scale": 1.005,
+      "pivot": [
+        134.0,
+        205.0
+      ],
+      "offset": [
+        2.5,
+        2
+      ]
+    },
+    "38": {
+      "hand_scale": 1.04,
+      "table_scale": 1.0,
+      "pivot": [
+        137.5,
+        209.0
+      ],
+      "offset": [
+        -1,
+        -2
+      ]
+    },
+    "39": {
+      "hand_scale": 1.015,
+      "table_scale": 1.0,
+      "pivot": [
+        135.0,
+        207.0
+      ],
+      "offset": [
+        1.5,
+        0
+      ]
+    },
+    "41": {
+      "hand_scale": 1.1,
+      "table_scale": 1.1,
+      "pivot": [
+        150.0,
+        204.5
+      ],
+      "offset": [
+        -13.5,
+        2.5
+      ]
+    },
+    "42": {
+      "hand_scale": 1.12,
+      "table_scale": 1.08,
+      "pivot": [
+        141.0,
+        204.5
+      ],
+      "offset": [
+        -6,
+        -3
+      ]
+    },
+    "43": {
+      "hand_scale": 1.16,
+      "table_scale": 1.12,
+      "pivot": [
+        142.0,
+        209.5
+      ],
+      "offset": [
+        -5.5,
+        -4
+      ]
+    },
+    "44": {
+      "hand_scale": 1.18,
+      "table_scale": 1.1,
+      "pivot": [
+        144.0,
+        209.0
+      ],
+      "offset": [
+        -6,
+        -7
+      ]
+    },
+    "45": {
+      "hand_scale": 1.08,
+      "table_scale": 1.06,
+      "pivot": [
+        143.0,
+        210.5
+      ],
+      "offset": [
+        -6.5,
+        -3.5
+      ]
+    },
+    "46": {
+      "hand_scale": 1.0,
+      "table_scale": 1.0,
+      "pivot": [
+        137.5,
+        210.0
+      ],
+      "offset": [
+        -1,
+        -3
+      ]
+    },
+    "47": {
+      "hand_scale": 1.1,
+      "table_scale": 1.055,
+      "pivot": [
+        142.5,
+        208.5
+      ],
+      "offset": [
+        -4,
+        -2
+      ]
+    },
+    "51": {
+      "hand_scale": 1.03,
+      "table_scale": 1.0,
+      "pivot": [
+        134.0,
+        214.5
+      ],
+      "offset": [
+        2.5,
+        -6
+      ]
+    },
+    "52": {
+      "hand_scale": 1.03,
+      "table_scale": 1.0,
+      "pivot": [
+        136.5,
+        213.0
+      ],
+      "offset": [
+        0,
+        -5
+      ]
+    },
+    "53": {
+      "hand_scale": 1.03,
+      "table_scale": 1.0,
+      "pivot": [
+        135.0,
+        215.0
+      ],
+      "offset": [
+        1.5,
+        -6
+      ]
+    },
+    "54": {
+      "hand_scale": 1.03,
+      "table_scale": 1.0,
+      "pivot": [
+        137.0,
+        215.0
+      ],
+      "offset": [
+        -0.5,
+        -6
+      ]
+    },
+    "55": {
+      "hand_scale": 1.03,
+      "table_scale": 1.0,
+      "pivot": [
+        131.5,
+        215.0
+      ],
+      "offset": [
+        5,
+        -6
+      ]
+    },
+    "56": {
+      "hand_scale": 1.03,
+      "table_scale": 1.0,
+      "pivot": [
+        136.0,
+        211.5
+      ],
+      "offset": [
+        0.5,
+        -4
+      ]
+    },
+    "57": {
+      "hand_scale": 1.03,
+      "table_scale": 1.0,
+      "pivot": [
+        135.0,
+        216.5
+      ],
+      "offset": [
+        1.5,
+        -8
+      ]
+    },
+    "58": {
+      "hand_scale": 1.03,
+      "table_scale": 1.0,
+      "pivot": [
+        134.5,
+        213.0
+      ],
+      "offset": [
+        2,
+        -5
+      ]
+    },
+    "105": {
+      "hand_scale": 1.075,
+      "table_scale": 1.0,
+      "pivot": [
+        136.5,
+        216
+      ],
+      "offset": [
+        1,
+        0
+      ]
+    },
+    "205": {
+      "hand_scale": 1.07,
+      "table_scale": 1.0,
+      "pivot": [
+        137.0,
+        201.0
+      ],
+      "offset": [
+        0,
+        2
+      ]
+    },
+    "305": {
+      "hand_scale": 1.05,
+      "table_scale": 1.015,
+      "pivot": [
+        136.0,
+        211.5
+      ],
+      "offset": [
+        0.5,
+        -4.5
+      ]
+    },
+    "2": {
+      "hand_scale": 1.0,
+      "table_scale": 1.0,
+      "pivot": [
+        136.5,
+        207
+      ],
+      "offset": [
+        0,
+        0
+      ]
+    }
+  }
+}

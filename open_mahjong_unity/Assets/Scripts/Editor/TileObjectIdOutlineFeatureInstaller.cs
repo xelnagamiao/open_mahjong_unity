@@ -4,12 +4,12 @@ using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
 /// <summary>
-/// 仅菜单手动安装 ObjectID 描边 Feature。勿在 Play/编译时自动 SaveAssets。
+/// 仅菜单手动安装几何描边 Feature。勿在 Play/编译时自动 SaveAssets。
 /// </summary>
 public static class TileObjectIdOutlineFeatureInstaller
 {
     private const string RendererAssetGuid = "b1916fce9f4fdc8489b03defdb2894a0";
-    private const string MenuPath = "Tools/Mahjong/Install Tile ObjectID Outline Feature";
+    private const string MenuPath = "Tools/Mahjong/Install Tile Geometry Outline Feature";
     private const string LogPrefix = "[TileOutline]";
 
     [MenuItem(MenuPath)]
@@ -51,10 +51,9 @@ public static class TileObjectIdOutlineFeatureInstaller
         if (rendererData.TryGetRendererFeature(out TileObjectIdOutlineFeature existing)) {
             existing.SetActive(true);
             existing.settings.enabled = true;
-            existing.settings.outlineWidth = 2f;
-            existing.settings.outlineExpand = 2f;
-            existing.settings.debugVisualizeId = false;
-            existing.name = "Tile ObjectID Outline";
+            existing.SetOutlineWidth(TileObjectIdOutlineFeature.DefaultOutlineWidth);
+            existing.SetOutlineColor(TileObjectIdOutlineFeature.DefaultOutlineColor);
+            existing.name = "Tile Geometry Outline";
             EditorUtility.SetDirty(existing);
             EditorUtility.SetDirty(rendererData);
             AssetDatabase.SaveAssetIfDirty(rendererData);
@@ -68,22 +67,20 @@ public static class TileObjectIdOutlineFeatureInstaller
         Object[] subAssets = AssetDatabase.LoadAllAssetsAtPath(path);
         foreach (Object sub in subAssets) {
             if (sub == null || sub == rendererData) continue;
-            if (sub is TileObjectIdOutlineFeature || sub.name.Contains("Tile ObjectID")) {
+            if (sub is TileObjectIdOutlineFeature || sub.name.Contains("Tile ObjectID") || sub.name.Contains("Tile Geometry Outline")) {
                 AssetDatabase.RemoveObjectFromAsset(sub);
                 Object.DestroyImmediate(sub, true);
             }
         }
 
         var featureNew = ScriptableObject.CreateInstance<TileObjectIdOutlineFeature>();
-        featureNew.name = "Tile ObjectID Outline";
+        featureNew.name = "Tile Geometry Outline";
         featureNew.SetActive(true);
         featureNew.settings.enabled = true;
         featureNew.settings.renderPassEvent = RenderPassEvent.AfterRenderingOpaques;
         featureNew.settings.tileLayerMask = 1 << 10;
-        featureNew.settings.outlineColor = Color.black;
-        featureNew.settings.outlineWidth = 2f;
-        featureNew.settings.outlineExpand = 2f;
-        featureNew.settings.debugVisualizeId = false;
+        featureNew.SetOutlineColor(TileObjectIdOutlineFeature.DefaultOutlineColor);
+        featureNew.SetOutlineWidth(TileObjectIdOutlineFeature.DefaultOutlineWidth);
 
         AssetDatabase.AddObjectToAsset(featureNew, rendererData);
         AssetDatabase.TryGetGUIDAndLocalFileIdentifier(featureNew, out _, out long localId);

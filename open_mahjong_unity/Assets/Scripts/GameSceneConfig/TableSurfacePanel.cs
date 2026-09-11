@@ -1,0 +1,321 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using UnityEngine;
+using UnityEngine.Networking;
+using UnityEngine.UI;
+
+/// <summary>
+/// The gallery owns only small previews. Full table textures are loaded by Desktop
+/// when selected; never enumerate the full-resolution Resources folders here.
+/// </summary>
+public abstract class TableSurfacePanel : MonoBehaviour
+{
+    [Serializable] private class PreviewEntry { public string name; public string preview; public string displayName; }
+    [Serializable] private class Catalog { public PreviewEntry[] cloth; public PreviewEntry[] edge; }
+    private sealed class Source
+    {
+        public string Path;
+        public string Preview;
+        public object Revision;
+        public bool Custom;
+        public byte[] Bytes;
+        public string Key => (Custom ? "custom:" : "builtin:") + Path;
+    }
+    private sealed class Row
+    {
+        public GameObject Item;
+        public Sprite Sprite;
+        public Texture2D OwnedTexture;
+        public object Revision;
+    }
+
+    private static Catalog catalog;
+    private readonly Dictionary<string, Row> rows = new Dictionary<string, Row>(StringComparer.Ordinal);
+    private Coroutine loading;
+    private UnityWebRequest customRequest;
+    private bool requested;
+
+    protected abstract bool IsCloth { get; }
+    protected abstract GameObject ItemPrefab { get; }
+    protected abstract Transform Content { get; }
+    protected abstract Button DeleteButton { get; }
+    public bool IsLoading => loading != null;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetCatalog() => catalog = null;
+
+    protected void LoadGallery()
+    {
+        requested = true;
+        StopLoading();
+        if (DeleteButton != null)
+        {
+            DeleteButton.gameObject.SetActive(false);
+            DeleteButton.onClick.RemoveAllListeners();
+        }
+        if (isActiveAndEnabled) loading = StartCoroutine(LoadGuarded());
+    }
+
+    protected virtual void OnEnable()
+    {
+        if (requested) LoadGallery();
+    }
+
+    protected virtual void OnDisable() => StopLoading();
+    protected virtual void OnDestroy() => ClearGallery();
+
+    private void StopLoading()
+    {
+        if (loading != null) StopCoroutine(loading);
+        loading = null;
+        if (customRequest != null)
+        {
+            customRequest.Abort();
+            customRequest.Dispose();
+            customRequest = null;
+        }
+    }
+
+    private IEnumerator LoadGuarded()
+    {
+        var routine = Reconcile();
+        try
+        {
+            while (true)
+            {
+                bool more;
+                try { more = routine.MoveNext(); }
+                catch (Exception error)
+                {
+                    Debug.LogException(error, this);
+                    break;
+                }
+                if (!more) break;
+                yield return routine.Current;
+            }
+        }
+        finally
+        {
+            (routine as IDisposable)?.Dispose();
+            if (customRequest != null)
+            {
+                customRequest.Abort();
+                customRequest.Dispose();
+                customRequest = null;
+            }
+            loading = null;
+        }
+    }
+
+    private IEnumerator Reconcile()
+    {
+        // Give the newly selected tab a frame to appear before any IO or layout work.
+        yield return null;
+        if (catalog == null)
+        {
+            var manifest = Resources.Load<TextAsset>("TableSurfacePreviews/catalog");
+            if (manifest != null)
+            {
+                catalog = JsonUtility.FromJson<Catalog>(manifest.text);
+                Resources.UnloadAsset(manifest);
+            }
+            else Debug.LogError("桌面预览目录缺失，请重建 Table Surface Previews。");
+        }
+
+        var sources = new List<Source>();
+        var builtins = IsCloth ? catalog?.cloth : catalog?.edge;
+        if (builtins != null)
+            foreach (var entry in builtins)
+                sources.Add(new Source { Path = entry.name, Preview = entry.preview, Revision = entry.preview });
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        if (!UnityAssetIdb.IsReady)
+            UnityAssetIdb.EnsureReady(() =>
+            {
+                // Built-in previews are usable while IndexedDB is still opening.
+                if (this != null && requested && isActiveAndEnabled) LoadGallery();
+            });
+        foreach (string key in UnityAssetIdb.KeysWithPrefix(IsCloth ? UnityAssetIdb.PrefixTablecloth : UnityAssetIdb.PrefixTableEdge))
+        {
+            byte[] bytes = UnityAssetIdb.GetCached(key);
+            sources.Add(new Source { Path = key, Revision = bytes, Bytes = bytes, Custom = true });
+        }
+#else
+        AddFileSources(sources);
+#endif
+
+        var keep = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var source in sources) keep.Add(source.Key);
+        foreach (string key in new List<string>(rows.Keys))
+            if (!keep.Contains(key)) RemoveRow(key);
+
+        int sibling = 0;
+        foreach (var source in sources)
+        {
+            if (rows.TryGetValue(source.Key, out var row) && !Equals(row.Revision, source.Revision))
+            {
+                RemoveRow(source.Key);
+                row = null;
+            }
+            if (row == null)
+            {
+                Texture2D texture = null;
+                if (!source.Custom)
+                {
+                    var request = Resources.LoadAsync<Texture2D>(source.Preview);
+                    yield return request;
+                    texture = request.asset as Texture2D;
+                }
+                else
+                {
+                    Texture2D original = null;
+#if UNITY_WEBGL && !UNITY_EDITOR
+                    original = UnityAssetIdb.ToTexture(source.Bytes);
+#else
+                    customRequest = UnityWebRequestTexture.GetTexture(new Uri(source.Path).AbsoluteUri, true);
+                    yield return customRequest.SendWebRequest();
+                    if (customRequest.result == UnityWebRequest.Result.Success)
+                        original = DownloadHandlerTexture.GetContent(customRequest);
+                    else Debug.LogWarning("无法读取桌面预览: " + source.Path + ": " + customRequest.error);
+                    customRequest.Dispose();
+                    customRequest = null;
+#endif
+                    if (original != null)
+                    {
+                        try { texture = CreateSmallPreview(original); }
+                        catch (Exception error) { Debug.LogWarning("无法生成桌面预览: " + source.Path + ": " + error.Message); }
+                        finally { Destroy(original); }
+                    }
+                }
+                if (texture == null) continue;
+                row = CreateRow(source, texture);
+                rows.Add(source.Key, row);
+                row.Item.transform.SetSiblingIndex(sibling++);
+                RefreshSelection(row);
+                // Bound UI creation and custom image decoding to one new item per frame.
+                yield return null;
+            }
+            else
+            {
+                row.Item.transform.SetSiblingIndex(sibling++);
+                RefreshSelection(row);
+            }
+        }
+    }
+
+    private void AddFileSources(List<Source> sources)
+    {
+        string directory = Path.Combine(Application.persistentDataPath, IsCloth ? "Tablecloths" : "TableEdges");
+        if (!Directory.Exists(directory)) return;
+        try
+        {
+            string[] files = Directory.GetFiles(directory);
+            Array.Sort(files, StringComparer.Ordinal);
+            foreach (string file in files)
+            {
+                string extension = Path.GetExtension(file).ToLowerInvariant();
+                if (extension != ".png" && extension != ".jpg" && extension != ".jpeg" && extension != ".bmp" && extension != ".tga") continue;
+                var info = new FileInfo(file);
+                sources.Add(new Source { Path = file, Custom = true, Revision = info.Length + ":" + info.LastWriteTimeUtc.Ticks });
+            }
+        }
+        catch (Exception error) { Debug.LogWarning("无法列出自定义桌面: " + error.Message); }
+    }
+
+    private Row CreateRow(Source source, Texture2D texture)
+    {
+        var row = new Row
+        {
+            Item = Instantiate(ItemPrefab, Content),
+            Sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(.5f, .5f), 100f, 0, SpriteMeshType.FullRect),
+            OwnedTexture = source.Custom ? texture : null,
+            Revision = source.Revision
+        };
+        Image image;
+        if (IsCloth)
+        {
+            var item = row.Item.GetComponent<TableCloth>();
+            item.filePath = source.Path;
+            item.isCustom = source.Custom;
+            image = item.tableClothImage;
+        }
+        else
+        {
+            var item = row.Item.GetComponent<TableEdge>();
+            item.filePath = source.Path;
+            item.isCustom = source.Custom;
+            image = item.tableEdgeImage;
+        }
+        image.sprite = row.Sprite;
+        image.color = Color.white;
+        return row;
+    }
+
+    private void RefreshSelection(Row row)
+    {
+        if (IsCloth) row.Item.GetComponent<TableCloth>().RefreshSelection();
+        else row.Item.GetComponent<TableEdge>().RefreshSelection();
+    }
+
+    private static Texture2D CreateSmallPreview(Texture2D original)
+    {
+        float scale = Mathf.Min(1f, 256f / Mathf.Max(original.width, original.height));
+        int width = Mathf.Max(1, Mathf.RoundToInt(original.width * scale));
+        int height = Mathf.Max(1, Mathf.RoundToInt(original.height * scale));
+        var target = RenderTexture.GetTemporary(width, height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+        var previous = RenderTexture.active;
+        bool previousSrgb = GL.sRGBWrite;
+        Texture2D preview = null;
+        try
+        {
+            GL.sRGBWrite = QualitySettings.activeColorSpace == ColorSpace.Linear;
+            Graphics.Blit(original, target);
+            RenderTexture.active = target;
+            preview = new Texture2D(width, height, TextureFormat.RGBA32, false, false);
+            preview.name = "TableSurfaceCustomPreview";
+            preview.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+            preview.Apply(false, true);
+            preview.filterMode = FilterMode.Bilinear;
+            preview.wrapMode = TextureWrapMode.Clamp;
+            return preview;
+        }
+        catch
+        {
+            if (preview != null) Destroy(preview);
+            throw;
+        }
+        finally
+        {
+            GL.sRGBWrite = previousSrgb;
+            RenderTexture.active = previous;
+            RenderTexture.ReleaseTemporary(target);
+        }
+    }
+
+    protected void ClearSelection()
+    {
+        foreach (var row in rows.Values)
+        {
+            if (IsCloth) row.Item.GetComponent<TableCloth>().tableClothChoseImage.gameObject.SetActive(false);
+            else row.Item.GetComponent<TableEdge>().tableEdgeChoseImage.gameObject.SetActive(false);
+        }
+    }
+
+    protected void ClearGallery()
+    {
+        requested = false;
+        StopLoading();
+        foreach (string key in new List<string>(rows.Keys)) RemoveRow(key);
+    }
+
+    private void RemoveRow(string key)
+    {
+        Row row = rows[key];
+        rows.Remove(key);
+        if (row.Item != null) { row.Item.SetActive(false); Destroy(row.Item); }
+        if (row.Sprite != null) Destroy(row.Sprite);
+        if (row.OwnedTexture != null) Destroy(row.OwnedTexture);
+    }
+}

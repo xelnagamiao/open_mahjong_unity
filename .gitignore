@@ -97,7 +97,13 @@ open_mahjong_web/client/dist/*
 
 # 误提交的本机路径、一次性脚本、agent 临时目录
 %APPDATA%/
-tools/
+tools/*
+# 可复现的内置 3D 牌面素材生成器；其他本地工具仍忽略
+!tools/tilepack/
+tools/tilepack/*
+!tools/tilepack/rebuild_table_faces.py
+!tools/tilepack/README.md
+!tools/tilepack/snow_artwork_layout.json
 .worktrees/
 .codex_tmp*/
 .agents/
@@ -105,6 +111,9 @@ tools/
 # Local verification/build artifacts
 /tmp/
 /.pytest_cache/
+/other/tiles/face-build.json
+/open_mahjong_web/client/vite-dev.log
+/other/Tablecloth/SeamLibrary/migration/*.log
 open_mahjong_unity/Assets/Resources/PerformanceTestRunInfo.json*
 open_mahjong_unity/Assets/Resources/PerformanceTestRunSettings.json*
 

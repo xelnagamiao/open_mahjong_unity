@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
-public class ConfigManager : MonoBehaviour {
+public partial class ConfigManager : MonoBehaviour {
     public static ConfigManager Instance { get; private set; }
 
     public static bool Debug = true;
@@ -76,11 +76,13 @@ public class ConfigManager : MonoBehaviour {
     private const string KEY_OPENING_AUTO_BUHUA_ENABLED = "OpeningAutoBuhuaEnabled";
     private const string KEY_FORCE_PASS_ENABLED = "ForcePassEnabled";
     private const string KEY_MELD_SPACING_ENABLED = "MeldSpacingEnabled";
-    private const string KEY_TILE_OUTLINE_PRESET = "TileOutlinePreset";
+    // Legacy choices are retired; every installation now uses the comic style.
+    private const string KEY_LEGACY_TILE_OUTLINE_PRESET = "TileOutlinePreset";
     private const string KEY_CARD_BACK_COLOR = "CardBackColor";
     private const string KEY_CARD_BACK_IMAGE_PATH = "CardBackImagePath";
     private const string KEY_CARD_BACK_IMAGE_IS_CUSTOM = "CardBackImageIsCustom";
     private const string KEY_SIDE_COLOR = "SideColor";
+    private const string KEY_SIDE_LIGHTING_VERSION = "SideColorLightingVersion";
     private const string KEY_BACK_EDGE_COLOR = "BackEdgeColor";
     private const string KEY_BACK_EDGE_SYNC = "BackEdgeSync";
     private const string KEY_BACK_EDGE_MODE = "BackEdgeMode";
@@ -106,8 +108,8 @@ public class ConfigManager : MonoBehaviour {
 
     /// <summary>3D card back default color (same as 3DTile.mat _BackColor).</summary>
     public static readonly Color DefaultCardBackColor = new Color(0.218f, 0.372f, 0.66f, 1f);
-    /// <summary>正面侧边默认颜色（与 3DTile.mat _SideColor 一致，浅灰）。</summary>
-    public static readonly Color DefaultSideColor = new Color(0.7132075f, 0.7132075f, 0.7132075f, 1f);
+    /// <summary>侧边为白色塑料底色；体积明暗由主光与实时阴影产生。</summary>
+    public static readonly Color DefaultSideColor = Color.white;
     /// <summary>背面侧边默认颜色：默认与牌背颜色同步（跟随 DefaultCardBackColor）。</summary>
     public static readonly Color DefaultBackEdgeColor = DefaultCardBackColor;
     /// <summary>3D 牌面纯色默认：与牌面兜底色相同（245, 246, 247）。</summary>
@@ -120,7 +122,7 @@ public class ConfigManager : MonoBehaviour {
     public static bool IsEnglish => _languageMode == AppLanguage.English;
     public static AppLanguage CurrentLanguage => _languageMode;
 
-    /// <summary>图集中空白/纯白牌面资源编号（与 2D CardFaceImage_xuefun 一致）。</summary>
+    /// <summary>图集中空白/纯白牌面资源编号（与 official/hand、official/table 一致）。</summary>
     public const int BlankFaceImageId = 2;
     /// <summary>2D 手牌暗面（里宝未翻开等），对应图集 id 0。</summary>
     public const int HandBackImageId = 0;
@@ -158,8 +160,6 @@ public class ConfigManager : MonoBehaviour {
     public bool ForcePassEnabled { get; private set; }
     /// <summary>副露间距：0 关（默认） 1 开</summary>
     public bool MeldSpacingEnabled { get; private set; }
-    /// <summary>3D 牌描边预设：1=标准纯黑(2/2)，2=粗深黑(3/3)，默认 1</summary>
-    public int TileOutlinePreset { get; private set; }
     /// <summary>3D card back color (default deep blue).</summary>
     public Color CardBackColor { get; private set; } = DefaultCardBackColor;
     /// <summary>3D 牌正面侧边颜色（浅灰）。</summary>
@@ -177,7 +177,7 @@ public class ConfigManager : MonoBehaviour {
     /// <summary>是否使用非官方标准牌面（分层预装或自定义 zip）。</summary>
     public bool CustomStandardTilePackEnabled => TilePackIds.IsLayeredPack(StandardTilePackId);
     /// <summary>2D 手牌是否在花纹下叠手牌牌面背景。官方整图默认关；透明花纹套装默认开。</summary>
-    public bool UseHandFaceBackground { get; private set; }
+    public bool UseHandFaceBackground { get; private set; } = true;
     /// <summary>3D 牌正面是否在花纹下叠 3D 牌面背景。独立开关，默认关（保持现有贴图行为）。</summary>
     public bool UseTableFaceBackground { get; private set; }
     /// <summary>3D 牌正面侧边颜色（默认跟随 _FrontColor=白）。</summary>
@@ -190,12 +190,6 @@ public class ConfigManager : MonoBehaviour {
     public Color TableFaceColor { get; private set; } = DefaultTableFaceColor;
     /// <summary>是否使用 3D 牌面纯色（开启后「使用 3D 牌面背景」自动关闭）。</summary>
     public bool TableFaceUseSolidColor { get; private set; }
-
-    public static readonly string[] TileOutlinePresetLabels = {
-        "预设1",
-        "预设2",
-    };
-    /// <summary>描边预设：细(低性能消耗) / 粗(高性能消耗) </summary>
 
     /// <summary>与 RiichiTileUtil / 牌面资源一致：白板 id 为 46（47 为发）。</summary>
     public const int WhiteDragonTileId = 46;
@@ -247,7 +241,10 @@ public class ConfigManager : MonoBehaviour {
         OpeningAutoBuhuaEnabled = PlayerPrefs.GetInt(KEY_OPENING_AUTO_BUHUA_ENABLED, 1) == 1;
         ForcePassEnabled = PlayerPrefs.GetInt(KEY_FORCE_PASS_ENABLED, 0) == 1;
         MeldSpacingEnabled = PlayerPrefs.GetInt(KEY_MELD_SPACING_ENABLED, 0) == 1;
-        TileOutlinePreset = Mathf.Clamp(PlayerPrefs.GetInt(KEY_TILE_OUTLINE_PRESET, 1), 1, 2);
+        if (PlayerPrefs.HasKey(KEY_LEGACY_TILE_OUTLINE_PRESET)) {
+            PlayerPrefs.DeleteKey(KEY_LEGACY_TILE_OUTLINE_PRESET);
+            PlayerPrefs.Save();
+        }
         CardBackColor = LoadCardBackColor();
         SideColor = LoadSideColor();
         BackEdgeColor = LoadBackEdgeColor();
@@ -277,7 +274,7 @@ public class ConfigManager : MonoBehaviour {
 
     private void Start() {
         ApplyCameraAntialiasingByPlatform();
-        ApplyTileOutlinePreset();
+        ApplyTileOutlineStyle();
         UnityAssetIdb.EnsureReady(() => {
             TileFaceResolver.EnsureLoaded();
             if (Desktop.Instance != null) {
@@ -311,8 +308,9 @@ public class ConfigManager : MonoBehaviour {
     }
 
     public void SetUseHandFaceBackground(bool enabled) {
-        UseHandFaceBackground = enabled;
-        PlayerPrefs.SetInt(KEY_USE_HAND_FACE_BACKGROUND, enabled ? 1 : 0);
+        // 兼容旧调用；透明标准牌始终有牌体，旧关闭值不再控制叠底。
+        UseHandFaceBackground = true;
+        PlayerPrefs.DeleteKey(KEY_USE_HAND_FACE_BACKGROUND);
         PlayerPrefs.Save();
     }
 
@@ -393,10 +391,12 @@ public class ConfigManager : MonoBehaviour {
     }
 
     private static bool LoadUseHandFaceBackground(string packId) {
-        if (!PlayerPrefs.HasKey(KEY_USE_HAND_FACE_BACKGROUND)) {
-            return TilePackIds.DefaultUseHandFaceBackground(packId);
+        // 迁移旧 false/true：只清理手牌旧开关，独立 3D 背景与纯色设置不变。
+        if (PlayerPrefs.HasKey(KEY_USE_HAND_FACE_BACKGROUND)) {
+            PlayerPrefs.DeleteKey(KEY_USE_HAND_FACE_BACKGROUND);
+            PlayerPrefs.Save();
         }
-        return PlayerPrefs.GetInt(KEY_USE_HAND_FACE_BACKGROUND, 0) == 1;
+        return true;
     }
 
     private static string LoadStandardTilePackId() {
@@ -443,8 +443,11 @@ public class ConfigManager : MonoBehaviour {
 
     // 保存桌布选择
     public void SetSelectedTableCloth(string path, bool isCustom) {
-        PlayerPrefs.SetString("SelectedTableClothPath", path);
+        // Preserve an inferred legacy seam before replacing the old combined key.
+        int seam = GetSelectedTableSeam();
+        PlayerPrefs.SetString("SelectedTableClothPath", NormalizeTableCloth(path, isCustom));
         PlayerPrefs.SetInt("SelectedTableClothIsCustom", isCustom ? 1 : 0);
+        PlayerPrefs.SetInt("SelectedTableSeam", seam);
         PlayerPrefs.Save();
     }
 
@@ -459,7 +462,32 @@ public class ConfigManager : MonoBehaviour {
     public (string path, bool isCustom) GetSelectedTableCloth() {
         string path = PlayerPrefs.GetString("SelectedTableClothPath", "");
         bool isCustom = PlayerPrefs.GetInt("SelectedTableClothIsCustom", 0) == 1;
-        return (path, isCustom);
+        return (NormalizeTableCloth(path, isCustom), isCustom);
+    }
+
+    private static string NormalizeTableCloth(string path, bool isCustom) {
+        if (!isCustom && TableSurfaceNames.TryGetMetalSeam(path, out _, out int background)) {
+            return background == 0 ? "Tablecloth_blue" : background == 1 ? "Tablecloth_green" : "Tablecloth_green2";
+        }
+        return path ?? "";
+    }
+
+    // -1 = no seams; 0..6 correspond to the seven independent seam profiles.
+    public int GetSelectedTableSeam() {
+        if (PlayerPrefs.HasKey("SelectedTableSeam"))
+            return Mathf.Clamp(PlayerPrefs.GetInt("SelectedTableSeam", -1), -1, 6);
+        if (PlayerPrefs.GetInt("SelectedTableClothIsCustom", 0) == 0 &&
+            TableSurfaceNames.TryGetMetalSeam(PlayerPrefs.GetString("SelectedTableClothPath", ""), out int style, out _))
+            return style;
+        return -1;
+    }
+
+    public void SetSelectedTableSeam(int style) {
+        var selected = GetSelectedTableCloth();
+        PlayerPrefs.SetString("SelectedTableClothPath", selected.path);
+        PlayerPrefs.SetInt("SelectedTableClothIsCustom", selected.isCustom ? 1 : 0);
+        PlayerPrefs.SetInt("SelectedTableSeam", Mathf.Clamp(style, -1, 6));
+        PlayerPrefs.Save();
     }
 
     // 获取桌边选择
@@ -487,6 +515,7 @@ public class ConfigManager : MonoBehaviour {
     public void SetSideColor(Color color) {
         SideColor = color;
         PlayerPrefs.SetString(KEY_SIDE_COLOR, ColorUtility.ToHtmlStringRGBA(color));
+        PlayerPrefs.SetInt(KEY_SIDE_LIGHTING_VERSION, 1);
         PlayerPrefs.Save();
     }
 
@@ -562,6 +591,15 @@ public class ConfigManager : MonoBehaviour {
         if (!string.IsNullOrEmpty(hex)) {
             string normalized = hex.StartsWith("#") ? hex : "#" + hex;
             if (ColorUtility.TryParseHtmlString(normalized, out Color color)) {
+                // Migrate only the former default grey, which simulated lighting.
+                // Other saved custom colors remain intentional plastic colors.
+                if (PlayerPrefs.GetInt(KEY_SIDE_LIGHTING_VERSION, 0) < 1
+                    && ColorUtility.ToHtmlStringRGBA(color) == "B6B6B6FF") {
+                    PlayerPrefs.SetString(KEY_SIDE_COLOR, ColorUtility.ToHtmlStringRGBA(DefaultSideColor));
+                    PlayerPrefs.SetInt(KEY_SIDE_LIGHTING_VERSION, 1);
+                    PlayerPrefs.Save();
+                    return DefaultSideColor;
+                }
                 return color;
             }
         }
@@ -735,34 +773,13 @@ public class ConfigManager : MonoBehaviour {
         PlayerPrefs.Save();
     }
 
-    /// <summary>下拉索引 0/1 → 预设 1/2；默认预设 2。</summary>
-    public void SetTileOutlinePresetFromDropdown(int dropdownIndex) {
-        SetTileOutlinePreset(dropdownIndex + 1);
-    }
-
-    public void SetTileOutlinePreset(int preset) {
-        TileOutlinePreset = Mathf.Clamp(preset, 1, 2);
-        PlayerPrefs.SetInt(KEY_TILE_OUTLINE_PRESET, TileOutlinePreset);
-        PlayerPrefs.Save();
-        ApplyTileOutlinePreset();
-    }
-
-    /// <summary>
-    /// 预设1：宽2/外扩2/纯黑；预设2：宽3/外扩3/深黑。
-    /// </summary>
-    public void ApplyTileOutlinePreset() {
+    /// <summary>统一应用漫画描边；补线比例继续由 Renderer Feature 的 Inspector 控制。</summary>
+    public void ApplyTileOutlineStyle() {
         if (!TileOutline.TryGetFeature(out _)) {
             return;
         }
-        if (TileOutlinePreset == 1) {
-            TileOutline.SetWidth(2f);
-            TileOutline.SetExpand(2f);
-            TileOutline.SetColor(Color.black); // 纯黑
-        } else {
-            TileOutline.SetWidth(3f);
-            TileOutline.SetExpand(3f);
-            TileOutline.SetColor(new Color(0.12f, 0.12f, 0.12f, 1f)); // 深黑
-        }
+        TileOutline.SetWidth(TileObjectIdOutlineFeature.DefaultOutlineWidth);
+        TileOutline.SetColor(TileObjectIdOutlineFeature.DefaultOutlineColor);
         TileOutline.Enabled = true;
     }
 

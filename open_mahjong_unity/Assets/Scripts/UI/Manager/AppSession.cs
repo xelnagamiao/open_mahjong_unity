@@ -32,6 +32,7 @@ public static class AppSession {
     }
 
     private static void ResetLocalSessionState() {
+        GameSceneUIManager.ResetRealtimeSpectatorUi();
         NormalGameStateManager.Instance?.StopAsRealtimeSpectator();
         if (GameRecordManager.Instance != null) {
             GameRecordManager.Instance.ResetForSessionEnd();

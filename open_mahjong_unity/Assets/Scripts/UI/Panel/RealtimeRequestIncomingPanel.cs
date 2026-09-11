@@ -31,7 +31,30 @@ public class RealtimeRequestIncomingPanel : MonoBehaviour {
         gameObject.SetActive(false);
     }
 
+    private void OnDestroy() {
+        if (allowButton != null) allowButton.onClick.RemoveListener(OnAllow);
+        if (denyButton != null) denyButton.onClick.RemoveListener(OnDeny);
+        if (closeButton != null) closeButton.onClick.RemoveListener(OnClose);
+        if (Instance == this) Instance = null;
+    }
+
+    /// <summary>离开对局或结束会话时立即清空申请，避免 Overlay 上的弹窗留到大厅或登录页。</summary>
+    public void ResetForExit() {
+        _currentRequestId = null;
+        if (transition != null) transition.HideImmediate();
+        else gameObject.SetActive(false);
+    }
+
     public void HandleIncoming(Response response) {
+        var gsm = NormalGameStateManager.Instance;
+        if (response == null || !response.success
+            || string.IsNullOrEmpty(response.realtime_request_id)
+            || string.IsNullOrEmpty(response.realtime_gamestate_id)
+            || gsm == null || !gsm.IsGameActive || gsm.IsRealtimeSpectator
+            || !string.Equals(response.realtime_gamestate_id, gsm.gamestateId, System.StringComparison.Ordinal)) {
+            return;
+        }
+
         _currentRequestId = response.realtime_request_id;
         string fromName = string.IsNullOrEmpty(response.realtime_from_username)
             ? (response.realtime_from_user_id?.ToString() ?? "对方")

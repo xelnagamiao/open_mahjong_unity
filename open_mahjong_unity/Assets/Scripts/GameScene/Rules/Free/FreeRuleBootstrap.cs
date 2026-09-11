@@ -14,6 +14,8 @@ internal static class FreeRuleBootstrap {
             OutboundChannel = "free",
             HasFlowerReplacement = false,
             AllowsRoomBots = false,
+            MinPlayersToStart = 1,
+            UsesDedicatedActionButtonContainer = true,
             ActionCaption = word => word == "hu" ? "和牌" : null,
         });
         FreeActionWords.RegisterAll();

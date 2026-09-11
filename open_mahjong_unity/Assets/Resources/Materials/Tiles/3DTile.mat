@@ -126,14 +126,15 @@ Material:
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
     - _DstBlendAlpha: 0
-    - _EnvironmentReflections: 1
+    - _EnvironmentReflections: 0
     - _FrontBgBlend: 0
     - _FrontBgTexAspect: 0
     - _FrontRotation: 270
+    - _FrontTexContain: 0
     - _FrontTexExtendEdge: 0
     - _GlossMapScale: 1
-    - _Glossiness: 0.5
-    - _GlossyReflections: 1
+    - _Glossiness: 0
+    - _GlossyReflections: 0
     - _GrayScale: 0
     - _Metallic: 0
     - _Mode: 0
@@ -142,21 +143,27 @@ Material:
     - _QueueOffset: 0
     - _ReceiveShadows: 1
     - _ShadowStrength: 1
-    - _Smoothness: 0.5
+    - _Smoothness: 0
     - _SmoothnessTextureChannel: 0
-    - _SpecularHighlights: 1
+    - _SpecularHighlights: 0
     - _SrcBlend: 1
     - _SrcBlendAlpha: 1
     - _Surface: 0
-    - _TableBgCoverFace: 1
+    - _TableBgCoverFace: 0
+    - _TableFaceAspect: 0.7518797
     - _TableFaceBlend: 0
     - _TableFaceFallbackEnabled: 1
+    - _TableFaceImageScale: 0.86
+    - _TileLightThreshold: 0.4
+    - _TileLightTransition: 0.15
+    - _TileShadowStrength: 0.16
+    - _TileWhiteCompression: 0.1
     - _UVSec: 0
     - _WorkflowMode: 1
     - _ZWrite: 1
     m_Colors:
-    - _BackColor: {r: 0.21960784, g: 0.37254903, b: 0.65882355, a: 1}
-    - _BackEdgeColor: {r: 0.21960784, g: 0.37254903, b: 0.65882355, a: 1}
+    - _BackColor: {r: 0.9490196, g: 0.54901963, b: 0.101960786, a: 1}
+    - _BackEdgeColor: {r: 0.9490196, g: 0.54901963, b: 0.101960786, a: 1}
     - _BackTilingOffset: {r: 1, g: 1, b: 0, a: 0}
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
@@ -164,13 +171,14 @@ Material:
     - _FrontBgColor: {r: 1, g: 1, b: 1, a: 1}
     - _FrontBgTilingOffset: {r: 1, g: 1, b: 0, a: 0}
     - _FrontColor: {r: 1, g: 1, b: 1, a: 1}
-    - _FrontEdgeColor: {r: 0.961, g: 0.965, b: 0.969, a: 1}
+    - _FrontEdgeColor: {r: 1, g: 1, b: 1, a: 1}
     - _FrontTilingOffset: {r: 1, g: 1, b: 0, a: 0}
-    - _SideColor: {r: 0.72156864, g: 0.101960786, b: 0.14117648, a: 1}
+    - _SideColor: {r: 1, g: 1, b: 1, a: 1}
     - _SideTilingOffset: {r: 1, g: 1, b: 0, a: 0}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
-    - _TableFaceColor: {r: 0.9607843, g: 0.9647059, b: 0.96862745, a: 1}
+    - _TableFaceColor: {r: 1, g: 0.9647059, b: 0.96862745, a: 1}
     - _TableFaceFallbackColor: {r: 0.961, g: 0.965, b: 0.969, a: 1}
     - _TileInstanceParams: {r: 0, g: 0, b: 0, a: 0}
+    - _TileShadeTint: {r: 0.68235296, g: 0.68235296, b: 0.68235296, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

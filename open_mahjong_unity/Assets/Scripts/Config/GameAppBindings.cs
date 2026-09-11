@@ -49,7 +49,7 @@ internal static class GameAppBindings {
         public bool IsEnglish => ConfigManager.IsEnglish;
         public bool UseBlankWhiteDragonFace(int tileId) => Cfg != null && Cfg.UseBlankWhiteDragonFace(tileId);
         public Color DefaultTableFaceFallbackColor => ConfigManager.DefaultTableFaceFallbackColor;
-        public void ApplyTileOutlinePreset() => Cfg?.ApplyTileOutlinePreset();
+        public void ApplyTileOutlineStyle() => Cfg?.ApplyTileOutlineStyle();
         public string GetTitleText(int titleId) => ConfigManager.GetTitleText(titleId);
         public int MoqieShortcutMode => Cfg != null ? Cfg.MoqieShortcutMode : 0;
         public int AskOtherPassShortcutMode => Cfg != null ? Cfg.AskOtherPassShortcutMode : 0;

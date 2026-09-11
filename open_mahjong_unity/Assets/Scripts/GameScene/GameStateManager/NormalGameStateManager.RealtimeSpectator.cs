@@ -7,6 +7,7 @@ public partial class NormalGameStateManager {
     public void StartAsRealtimeSpectator(string gamestateId, int hostUserId = 0) {
         if (LobbyStateGuard.BlockIfInMatchQueueForSpectator()) return;
         if (GameSessionGuard.BlockIfExclusiveSession("进入实时观战")) return;
+        GameSceneUIManager.ResetRealtimeSpectatorUi();
         IsRealtimeSpectator = true;
         RealtimeSpectatorHostUserId = hostUserId;
         PlayerSession.Current.SetGamestateId(gamestateId);

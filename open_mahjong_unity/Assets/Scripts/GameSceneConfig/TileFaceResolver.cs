@@ -24,6 +24,8 @@ public static class TileFaceResolver {
     private static bool diskLoaded;
     private static bool webGlLoadStarted;
     private static bool ownsRuntimeTextures;
+    private static int loadVersion;
+    private static Sprite flatTableBackground;
 
     public static bool HasCustomStandardPack =>
         ConfigManager.Instance != null
@@ -33,8 +35,8 @@ public static class TileFaceResolver {
 
     public static IReadOnlyDictionary<int, Sprite> CustomHandPreview => CustomHandSprites;
 
-    public static bool UsesLayeredHandFaces =>
-        ConfigManager.Instance != null && ConfigManager.Instance.UseHandFaceBackground;
+    // 标准手牌统一自动叠底，不依赖旧 UseHandFaceBackground 存档。
+    public static bool UsesLayeredHandFaces => true;
 
     public static bool UsesCustomStandardFaces =>
         ConfigManager.Instance != null && TilePackIds.IsLayeredPack(ConfigManager.Instance.StandardTilePackId);
@@ -47,20 +49,21 @@ public static class TileFaceResolver {
         if (packId == TilePackIds.PackOfficial || TilePackIds.IsBuiltinLayeredPack(packId)) {
             return;
         }
-        if (packId == TilePackIds.PackCustom) {
+        if (TilePackIds.IsCustomPack(packId)) {
             LoadCustomPack();
         }
     }
 
     public static void SelectPack(string packId) {
         packId = TilePackIds.NormalizePackId(packId);
+        loadVersion++;
         if (ConfigManager.Instance != null) {
             ConfigManager.Instance.SetStandardTilePackId(packId);
         }
         diskLoaded = false;
         webGlLoadStarted = false;
         DestroyCustomTextures();
-        if (packId == TilePackIds.PackCustom) {
+        if (TilePackIds.IsCustomPack(packId)) {
             EnsureLoaded();
         }
         NotifyChanged();
@@ -84,6 +87,15 @@ public static class TileFaceResolver {
         SelectPack(TilePackIds.PackOfficial);
     }
 
+    public static void ApplyLibraryPack(string id, TilePackImporter.Result imported) {
+        if (!TilePackIds.IsCustomPack(id) || imported == null || !imported.Success) return;
+        loadVersion++;
+        ConfigManager.Instance?.SetStandardTilePackId(id);
+        diskLoaded = webGlLoadStarted = true;
+        ReplaceCustomTextures(imported.HandPngs, imported.TablePngs);
+        NotifyChanged();
+    }
+
     public static void SetUseHandFaceBackground(bool enabled) {
         if (ConfigManager.Instance != null) {
             ConfigManager.Instance.SetUseHandFaceBackground(enabled);
@@ -97,21 +109,20 @@ public static class TileFaceResolver {
             return HongqueTileVisual.LoadSprite(tileId);
         }
         if (tileId == ConfigManager.HandBackImageId) {
-            Sprite customBack = LoadCustomHandBackSprite();
-            if (customBack != null) {
-                return customBack;
-            }
+            return LoadCustomHandBackSprite() ?? Resources.Load<Sprite>(TilePackIds.DefaultHandBackResource);
         }
+        // 旧编号 1 是横向牌体底图，不属于标准牌面包。
+        if (tileId == 1) return Resources.Load<Sprite>(TilePackIds.HandHorizontalBgResource);
 
         int faceId = ResolveFaceId(tileId, applyWhiteDragonFaceSetting);
         string packId = CurrentPackId();
-        if (TilePackIds.IsBuiltinLayeredPack(packId)) {
+        if (TilePackIds.IsBuiltinPack(packId)) {
             Sprite builtin = Resources.Load<Sprite>(TilePackIds.BuiltinHandResource(packId, faceId));
             if (builtin != null) {
                 return builtin;
             }
         }
-        else if (packId == TilePackIds.PackCustom
+        else if (TilePackIds.IsCustomPack(packId)
             && CustomHandSprites.TryGetValue(faceId, out Sprite custom) && custom != null) {
             return custom;
         }
@@ -119,7 +130,7 @@ public static class TileFaceResolver {
         if (OfficialSpriteCache.TryGetValue(faceId, out Sprite cached) && cached != null) {
             return cached;
         }
-        Sprite official = Resources.Load<Sprite>($"image/CardFaceImage_xuefun/{faceId}");
+        Sprite official = Resources.Load<Sprite>(TilePackIds.BuiltinHandResource(TilePackIds.PackOfficial, faceId));
         if (official != null) {
             OfficialSpriteCache[faceId] = official;
         }
@@ -142,10 +153,19 @@ public static class TileFaceResolver {
                 return builtin;
             }
         }
-        if (CustomTableTextures.TryGetValue(faceId, out Texture2D table) && table != null) {
+        if (TilePackIds.IsCustomPack(packId)
+            && CustomTableTextures.TryGetValue(faceId, out Texture2D table) && table != null) {
             return table;
         }
         return null;
+    }
+
+    /// <summary>按实际有图的来源判断；用于区分用户上传和官方缺图回退。</summary>
+    public static bool IsUploadedTableFace(int tileId, bool applyWhiteDragonFaceSetting = true) {
+        EnsureLoaded();
+        if (HongqueTileVisual.IsHongqueId(tileId) || !TilePackIds.IsCustomPack(CurrentPackId())) return false;
+        int faceId = ResolveFaceId(tileId, applyWhiteDragonFaceSetting);
+        return CustomTableTextures.TryGetValue(faceId, out Texture2D texture) && texture != null;
     }
 
     public static Sprite LoadTableSprite(int tileId, bool applyWhiteDragonFaceSetting = true) {
@@ -156,11 +176,7 @@ public static class TileFaceResolver {
         int faceId = ResolveFaceId(tileId, applyWhiteDragonFaceSetting);
         string packId = CurrentPackId();
         if (packId == TilePackIds.PackOfficial) {
-            Sprite official = Resources.Load<Sprite>(TilePackIds.BuiltinTableResource(TilePackIds.PackOfficial, faceId));
-            if (official != null) {
-                return official;
-            }
-            return Resources.Load<Sprite>($"image/CardFaceMaterial_xuefun/{faceId}");
+            return Resources.Load<Sprite>(TilePackIds.BuiltinTableResource(TilePackIds.PackOfficial, faceId));
         }
         if (TilePackIds.IsBuiltinLayeredPack(packId)) {
             Sprite builtin = Resources.Load<Sprite>(TilePackIds.BuiltinTableResource(packId, faceId));
@@ -168,35 +184,31 @@ public static class TileFaceResolver {
                 return builtin;
             }
         }
-        if (CustomTableSprites.TryGetValue(faceId, out Sprite cached) && cached != null) {
+        if (TilePackIds.IsCustomPack(packId)
+            && CustomTableSprites.TryGetValue(faceId, out Sprite cached) && cached != null) {
             return cached;
         }
-        if (CustomTableTextures.TryGetValue(faceId, out Texture2D texture) && texture != null) {
+        if (TilePackIds.IsCustomPack(packId)
+            && CustomTableTextures.TryGetValue(faceId, out Texture2D texture) && texture != null) {
             Sprite created = Sprite.Create(
                 texture,
                 new Rect(0f, 0f, texture.width, texture.height),
                 new Vector2(0.5f, 0.5f),
-                100f);
+                100f, 0, SpriteMeshType.FullRect);
             CustomTableSprites[faceId] = created;
             return created;
         }
-        return LoadSprite(tileId, applyWhiteDragonFaceSetting);
+        // 缺失的桌面牌面仍回退桌面资源，不能把完整手牌牌体贴进 3D 预览。
+        return Resources.Load<Sprite>(TilePackIds.BuiltinTableResource(TilePackIds.PackOfficial, faceId));
     }
 
     public static bool ShouldLayerHandFace(int tileId) {
-        if (tileId == ConfigManager.HandBackImageId || !UsesLayeredHandFaces || HongqueTileVisual.IsHongqueId(tileId)) {
-            return false;
-        }
-        if (CurrentPackId() == TilePackIds.PackOfficial) {
-            return false;
-        }
-        return HasPackHandFace(ResolveFaceId(tileId, applyWhiteDragonFaceSetting: true));
+        // 缺失上传牌面也会回退到透明官方图，因此不能按“是否有上传图”跳过底图。
+        return tileId != ConfigManager.HandBackImageId && tileId != 1
+            && !HongqueTileVisual.IsHongqueId(tileId) && TilePackIds.IsStandardFaceId(tileId);
     }
 
     public static Sprite LoadHandBackground() {
-        if (!UsesLayeredHandFaces) {
-            return null;
-        }
         Texture2D texture = PeekHandBackgroundTexture();
         if (texture == null) {
             return null;
@@ -208,7 +220,7 @@ public static class TileFaceResolver {
     }
 
     /// <summary>
-    /// 3D 牌面预览底图：已上传的 table-bg，否则用与手牌相同的默认牌体。
+    /// 3D 牌面预览底图只读取 table-bg；未上传时由 3D 正面纯色/默认色铺底。
     /// </summary>
     public static Sprite LoadTableBackground() {
         Texture2D texture = PeekTableBackgroundTexture();
@@ -222,13 +234,25 @@ public static class TileFaceResolver {
     }
 
     public static Texture2D PeekTableBackgroundTexture() {
-        Texture2D custom = CardBackManager.LoadSavedTableBackground();
-        if (custom != null) {
-            return custom;
-        }
-        EnsureDefaultHandBackground();
-        return defaultHandBackgroundTexture;
+        return CardBackManager.LoadSavedTableBackground();
     }
+
+    public static Sprite FlatTableBackground {
+        get {
+            if (flatTableBackground != null) return flatTableBackground;
+            const int width = TileTextureLayout.TableRecommendedWidth / 4;
+            const int height = TileTextureLayout.TableRecommendedHeight / 4;
+            var texture = new Texture2D(width, height, TextureFormat.RGBA32, false) { name = "FlatTablePreviewBase" };
+            var pixels = new Color32[width * height];
+            for (int i = 0; i < pixels.Length; i++) pixels[i] = new Color32(255,255,255,255);
+            texture.SetPixels32(pixels); texture.Apply(false, true);
+            flatTableBackground = Sprite.Create(texture, new Rect(0,0,width,height), new Vector2(.5f,.5f));
+            return flatTableBackground;
+        }
+    }
+
+    public static Color TablePreviewBaseColor => ConfigManager.Instance != null && ConfigManager.Instance.TableFaceUseSolidColor
+        ? ConfigManager.Instance.TableFaceColor : ConfigManager.DefaultTableFaceFallbackColor;
 
     public static Texture2D PeekHandBackgroundTexture() {
         Texture2D custom = CardBackManager.LoadSavedHandBackground();
@@ -253,7 +277,7 @@ public static class TileFaceResolver {
 
     public static int CountPackFaces() {
         string packId = CurrentPackId();
-        if (packId == TilePackIds.PackCustom) {
+        if (TilePackIds.IsCustomPack(packId)) {
             return CustomHandSprites.Count;
         }
         if (!TilePackIds.IsBuiltinLayeredPack(packId) && packId != TilePackIds.PackOfficial) {
@@ -272,13 +296,13 @@ public static class TileFaceResolver {
         TileCard[] cards = UnityEngine.Object.FindObjectsByType<TileCard>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
         for (int i = 0; i < cards.Length; i++) {
             if (cards[i] != null && cards[i].tileId >= 0) {
-                cards[i].SetTile(cards[i].tileId, cards[i].currentGetTile);
+                cards[i].RefreshVisual();
             }
         }
         StaticCard[] staticCards = UnityEngine.Object.FindObjectsByType<StaticCard>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
         for (int i = 0; i < staticCards.Length; i++) {
             if (staticCards[i] != null && staticCards[i].TileId >= 0) {
-                staticCards[i].SetTileOnlyImage(staticCards[i].TileId);
+                staticCards[i].RefreshVisual();
             }
         }
         if (MahjongObjectPool.Instance != null) {
@@ -294,7 +318,7 @@ public static class TileFaceResolver {
     }
 
     public static void NotifyTableBackgroundChanged() {
-        if (tableBackgroundTexture != null && tableBackgroundTexture != defaultHandBackgroundTexture) {
+        if (tableBackgroundSprite != null) {
             ReplaceTableBackgroundSprite(null);
         }
         NotifyChanged();
@@ -302,7 +326,7 @@ public static class TileFaceResolver {
 
     public static void NotifyHandBackChanged() {
         if (customHandBackSprite != null) {
-            UnityEngine.Object.Destroy(customHandBackSprite);
+            DestroyTransient(customHandBackSprite);
             customHandBackSprite = null;
         }
         customHandBackTexture = null;
@@ -310,11 +334,11 @@ public static class TileFaceResolver {
     }
 
     public static Texture2D PeekDefaultHandBackTexture() {
-        Sprite sprite = Resources.Load<Sprite>($"image/CardFaceImage_xuefun/{ConfigManager.HandBackImageId}");
+        Sprite sprite = Resources.Load<Sprite>(TilePackIds.DefaultHandBackResource);
         if (sprite != null && sprite.texture != null) {
             return sprite.texture;
         }
-        return Resources.Load<Texture2D>($"image/CardFaceImage_xuefun/{ConfigManager.HandBackImageId}");
+        return Resources.Load<Texture2D>(TilePackIds.DefaultHandBackResource);
     }
 
     private static void NotifyChanged() {
@@ -330,11 +354,7 @@ public static class TileFaceResolver {
 
     private static bool HasPackHandFace(int faceId) {
         string packId = CurrentPackId();
-        if (packId == TilePackIds.PackOfficial) {
-            return Resources.Load<Sprite>(TilePackIds.BuiltinHandResource(packId, faceId)) != null
-                || Resources.Load<Sprite>($"image/CardFaceImage_xuefun/{faceId}") != null;
-        }
-        if (TilePackIds.IsBuiltinLayeredPack(packId)) {
+        if (TilePackIds.IsBuiltinPack(packId)) {
             return Resources.Load<Sprite>(TilePackIds.BuiltinHandResource(packId, faceId)) != null;
         }
         return CustomHandSprites.ContainsKey(faceId);
@@ -349,26 +369,18 @@ public static class TileFaceResolver {
     }
 
     private static void LoadCustomPack() {
-#if UNITY_WEBGL && !UNITY_EDITOR
-        if (webGlLoadStarted) {
-            return;
-        }
-        webGlLoadStarted = true;
-        TilePackStorage.LoadZipFromIndexedDb(zip => ApplyImported(TilePackImporter.Import(zip), persist: false, enableFlag: false), err => {
-            if (err != "empty") {
-                Debug.LogWarning("加载 IndexedDB 牌面包失败: " + err);
-            }
+        if (diskLoaded || webGlLoadStarted) return;
+        diskLoaded = webGlLoadStarted = true;
+        int version = loadVersion;
+        string id = CurrentPackId();
+        TilePackLibrary.Load(id, imported => {
+            // 异步读取返回时，用户可能已切到另一套牌面。
+            if (version != loadVersion || id != CurrentPackId()) return;
+            ReplaceCustomTextures(imported.HandPngs, imported.TablePngs);
+            NotifyChanged();
+        }, error => {
+            if (version == loadVersion && id == CurrentPackId()) Debug.LogWarning(error);
         });
-#else
-        if (diskLoaded) {
-            return;
-        }
-        diskLoaded = true;
-        var hand = new Dictionary<int, byte[]>();
-        var table = new Dictionary<int, byte[]>();
-        TilePackStorage.LoadPngsFromDisk(hand, table);
-        ReplaceCustomTextures(hand, table);
-#endif
     }
 
     private static int ResolveFaceId(int tileId, bool applyWhiteDragonFaceSetting) {
@@ -394,7 +406,7 @@ public static class TileFaceResolver {
                     texture,
                     new Rect(0f, 0f, texture.width, texture.height),
                     new Vector2(0.5f, 0.5f),
-                    100f);
+                    100f, 0, SpriteMeshType.FullRect);
             }
         }
         if (tablePngs != null) {
@@ -412,14 +424,11 @@ public static class TileFaceResolver {
             return;
         }
         defaultHandBackgroundTexture = Resources.Load<Texture2D>(TilePackIds.DefaultHandBgResource);
-        if (defaultHandBackgroundTexture == null) {
-            defaultHandBackgroundTexture = Resources.Load<Texture2D>("image/CardFaceImage_xuefun/2");
-        }
     }
 
     private static void ReplaceHandBackgroundSprite(Texture2D texture) {
         if (handBackgroundSprite != null) {
-            UnityEngine.Object.Destroy(handBackgroundSprite);
+            DestroyTransient(handBackgroundSprite);
             handBackgroundSprite = null;
         }
         handBackgroundTexture = texture;
@@ -430,12 +439,12 @@ public static class TileFaceResolver {
             texture,
             new Rect(0f, 0f, texture.width, texture.height),
             new Vector2(0.5f, 0.5f),
-            100f);
+            100f, 0, SpriteMeshType.FullRect);
     }
 
     private static void ReplaceTableBackgroundSprite(Texture2D texture) {
         if (tableBackgroundSprite != null) {
-            UnityEngine.Object.Destroy(tableBackgroundSprite);
+            DestroyTransient(tableBackgroundSprite);
             tableBackgroundSprite = null;
         }
         tableBackgroundTexture = texture;
@@ -446,7 +455,7 @@ public static class TileFaceResolver {
             texture,
             new Rect(0f, 0f, texture.width, texture.height),
             new Vector2(0.5f, 0.5f),
-            100f);
+            100f, 0, SpriteMeshType.FullRect);
     }
 
     private static Sprite LoadCustomHandBackSprite() {
@@ -456,7 +465,7 @@ public static class TileFaceResolver {
         }
         if (customHandBackTexture != texture) {
             if (customHandBackSprite != null) {
-                UnityEngine.Object.Destroy(customHandBackSprite);
+                DestroyTransient(customHandBackSprite);
                 customHandBackSprite = null;
             }
             customHandBackTexture = texture;
@@ -464,7 +473,7 @@ public static class TileFaceResolver {
                 texture,
                 new Rect(0f, 0f, texture.width, texture.height),
                 new Vector2(0.5f, 0.5f),
-                100f);
+                100f, 0, SpriteMeshType.FullRect);
         }
         return customHandBackSprite;
     }
@@ -478,7 +487,7 @@ public static class TileFaceResolver {
         texture.filterMode = FilterMode.Bilinear;
         texture.wrapMode = TextureWrapMode.Clamp;
         if (!ImageConversion.LoadImage(texture, png, markNonReadable)) {
-            UnityEngine.Object.Destroy(texture);
+            DestroyTransient(texture);
             return null;
         }
         return texture;
@@ -494,22 +503,22 @@ public static class TileFaceResolver {
         }
         foreach (var pair in CustomHandSprites) {
             if (pair.Value != null) {
-                UnityEngine.Object.Destroy(pair.Value);
+                DestroyTransient(pair.Value);
             }
         }
         foreach (var pair in CustomHandTextures) {
             if (pair.Value != null) {
-                UnityEngine.Object.Destroy(pair.Value);
+                DestroyTransient(pair.Value);
             }
         }
         foreach (var pair in CustomTableSprites) {
             if (pair.Value != null) {
-                UnityEngine.Object.Destroy(pair.Value);
+                DestroyTransient(pair.Value);
             }
         }
         foreach (var pair in CustomTableTextures) {
             if (pair.Value != null) {
-                UnityEngine.Object.Destroy(pair.Value);
+                DestroyTransient(pair.Value);
             }
         }
         CustomHandSprites.Clear();
@@ -518,4 +527,9 @@ public static class TileFaceResolver {
         CustomTableTextures.Clear();
         ownsRuntimeTextures = false;
     }
+    private static void DestroyTransient(UnityEngine.Object value) {
+        if (Application.isPlaying) UnityEngine.Object.Destroy(value);
+        else UnityEngine.Object.DestroyImmediate(value);
+    }
+
 }

@@ -39,10 +39,18 @@ public class GameSceneUIManager : MonoBehaviour
         NormalGameStateManager.Instance?.ClearScoreRecordSettlementCache();
     }
 
+    /// <summary>实时观战 UI 位于常驻节点和 Overlay，必须在会话结束时显式清理。</summary>
+    public static void ResetRealtimeSpectatorUi() {
+        global::RealtimeSpectatorIndicator.Instance?.ResetForExit();
+        RealtimeRequestIncomingPanel.Instance?.ResetForExit();
+        RealtimeRequestWaitPanel.Instance?.ResetForExit();
+    }
+
     /// <summary>
     /// 清空所有临时面板
     /// </summary>
     public void ClearTemporaryPanels(){
+        ResetRealtimeSpectatorUi();
         EndResultPanel.Instance.ClearEndResultPanel(); // 清空和牌结算面板
         EndGamePanel.Instance.ClearEndGamePanel();       // 清空游戏结束面板
         SwitchSeatPanel.Instance.ClearSwitchSeatPanel(); // 清空换位面板
@@ -185,6 +193,7 @@ public class GameSceneUIManager : MonoBehaviour
 
     /// <summary>实时观战进入对局：清空临时面板，仅显示自动排列手牌。</summary>
     public void InitRealtimeSpectatorStart() {
+        ResetRealtimeSpectatorUi();
         EndResultPanel.Instance.ClearEndResultPanel();
         EndGamePanel.Instance.ClearEndGamePanel();
         SwitchSeatPanel.Instance.ClearSwitchSeatPanel();
@@ -203,6 +212,7 @@ public class GameSceneUIManager : MonoBehaviour
     }
 
     public void InitGameRecord() {
+        ResetRealtimeSpectatorUi();
         EndResultPanel.Instance?.ClearEndResultPanel();
         EndGamePanel.Instance?.ClearEndGamePanel();
         SwitchSeatPanel.Instance?.ClearSwitchSeatPanel();

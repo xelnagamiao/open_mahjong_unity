@@ -81,6 +81,13 @@ class MatchManager:
         # 加入匹配前解除延时观战订阅，避免对局结束后仍向该连接推送牌谱
         await self.game_server.gamestate_manager.remove_spectator_from_all_games(user_id)
 
+        # Event seating may reserve the player while the spectator cleanup yields.
+        blocked = self.game_server.room_manager._reject_room_entry_conflicts(user_id, "加入匹配")
+        if blocked:
+            return blocked
+        if getattr(player, "current_room_id", None) or self._is_user_in_custom_room(user_id):
+            return Response(type="tips", success=False, message="请先退出当前房间再进行排位匹配")
+
         # 资格校验
         parsed = parse_queue_type(queue_type)
         if not parsed:
@@ -156,8 +163,14 @@ class MatchManager:
         return user_id in self.user_to_queue
 
     def blocks_spectator(self, user_id: int) -> bool:
-        """匹配排队中或已匹配成功（对局尚未结束）时不允许进入观战。"""
-        return user_id in self.user_to_queue or user_id in self.committed_users
+        """An event seating reservation and any active game also block spectating."""
+        room_manager = getattr(self.game_server, "room_manager", None)
+        game_manager = getattr(self.game_server, "gamestate_manager", None)
+        return (
+            user_id in self.user_to_queue or user_id in self.committed_users
+            or user_id in getattr(room_manager, "event_seating_users", ())
+            or bool(game_manager and game_manager.is_user_in_active_game(user_id))
+        )
 
     def _is_user_in_custom_room(self, user_id: int) -> bool:
         """兜底：current_room_id 未同步时，仍按房间成员表判断是否已在自定义房。"""

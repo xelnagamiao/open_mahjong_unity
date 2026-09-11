@@ -73,8 +73,6 @@ public class MahjongObjectPool : MonoBehaviour {
         }
     }
 
-    private const float CARD_FACE_VERTICAL_STRETCH = 1.1f;
-
     public void InitializePool() {
         int blankId = BlankPoolTileId;
         Queue<GameObject> blankTilePool = new Queue<GameObject>();
@@ -267,6 +265,7 @@ public class MahjongObjectPool : MonoBehaviour {
         }
 
         GameObject tile = poolDictionary[type].Dequeue();
+        GetTile3D(tile)?.InvalidatePoolLease();
         // 首次取牌时确保保存的牌背颜色/图片已应用（含对象池同步），
         // 否则重启后池内牌仍带着初始化时的默认牌背颜色。
         CardBackManager.EnsureSavedConfigApplied();
@@ -302,6 +301,7 @@ public class MahjongObjectPool : MonoBehaviour {
     /// 将牌归还到池中
     /// </summary>
     public void Return(int type, GameObject tile) {
+        GetTile3D(tile)?.InvalidatePoolLease();
         // 归还前重置材质颜色并取消悬停管理器注册
         if (Card3DHoverManager.Instance != null) {
             Card3DHoverManager.Instance.ResetAndUnregisterCard(tile);
@@ -342,7 +342,7 @@ public class MahjongObjectPool : MonoBehaviour {
     }
 
     /// <summary>
-    /// 应用牌面纹理，初始化时一次性完成（含牌面上下拉伸）
+    /// 应用牌面纹理：标准牌完整等比居中，虹雀保持原独立映射。
     /// </summary>
     private void ApplyCardTexture(GameObject cardObj, int tileId) {
         Tile3D tile3D = cardObj.GetComponent<Tile3D>();
@@ -385,11 +385,11 @@ public class MahjongObjectPool : MonoBehaviour {
 
         tile3D.RestoreAtlasMaterial();
         if (spriteCache.TryGetValue(tileId, out Sprite cachedSprite)) {
-            tile3D.SetCardSprite(tileId, cachedSprite, CARD_FACE_VERTICAL_STRETCH);
+            tile3D.SetCardSprite(tileId, cachedSprite);
         }
         if (GameSettings.Current.UseBlankWhiteDragonFace(tileId)
             && spriteCache.TryGetValue(BlankPoolTileId, out Sprite blankSprite)) {
-            tile3D.SetCardSprite(tileId, blankSprite, CARD_FACE_VERTICAL_STRETCH);
+            tile3D.SetCardSprite(tileId, blankSprite);
         }
     }
 

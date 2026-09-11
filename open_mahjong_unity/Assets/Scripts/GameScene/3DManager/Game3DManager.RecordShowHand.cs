@@ -47,16 +47,17 @@ public partial class Game3DManager {
         Vector3 direction,
         int mainCount,
         bool hasDraw,
+        Quaternion rotation,
         out List<Vector3> mainPositions,
         out Vector3? drawPosition) {
         mainPositions = new List<Vector3>(mainCount);
         Vector3 dir = direction.normalized;
         for (int i = 0; i < mainCount; i++) {
-            mainPositions.Add(startPos + dir * cardWidth * i);
+            mainPositions.Add(PlaceTileOnTable(startPos + dir * handStep * i, rotation));
         }
         if (hasDraw) {
-            float drawOffset = cardWidth * mainCount + cardWidth * RecordDrawSlotGapFactor;
-            drawPosition = startPos + dir * drawOffset;
+            float drawOffset = HandDrawSlotOffset(mainCount, 1f + RecordDrawSlotGapFactor);
+            drawPosition = PlaceTileOnTable(startPos + dir * drawOffset, rotation);
         } else {
             drawPosition = null;
         }
@@ -91,9 +92,9 @@ public partial class Game3DManager {
         }
         mainTiles.Sort(TileIdOrder.Compare);
 
-        Vector3 startPos = showCardsPosition.position;
+        Vector3 startPos = PlaceTileOnTable(showCardsPosition.position, rotation);
         int mainCount = mainTiles.Count;
-        ComputeRecordShowTargetPositions(startPos, direction, mainCount, hasDraw,
+        ComputeRecordShowTargetPositions(startPos, direction, mainCount, hasDraw, rotation,
             out List<Vector3> mainPositions, out Vector3? drawPosition);
 
         for (int i = 0; i < mainCount; i++) {
@@ -130,8 +131,8 @@ public partial class Game3DManager {
         Transform showCards = panel.ShowCardsPosition;
         if (!TryGetRecordShowHandLayout(playerPosition, out Vector3 direction, out Quaternion rotation)) yield break;
 
-        Vector3? drawPosition = ComputeRecordShowDrawSlotPosition(showCards, direction);
-        Vector3 spawnPosition = drawPosition ?? showCards.position;
+        Vector3? drawPosition = ComputeRecordShowDrawSlotPosition(showCards, direction, rotation);
+        Vector3 spawnPosition = drawPosition ?? PlaceTileOnTable(showCards.position, rotation);
 
         GameObject cardObj = MahjongObjectPool.Instance.Spawn(tileId, spawnPosition, rotation);
         if (cardObj == null) yield break;
@@ -148,7 +149,7 @@ public partial class Game3DManager {
         yield return null;
     }
 
-    private Vector3? ComputeRecordShowDrawSlotPosition(Transform showCards, Vector3 direction) {
+    private Vector3? ComputeRecordShowDrawSlotPosition(Transform showCards, Vector3 direction, Quaternion rotation) {
         if (showCards == null) return null;
         int mainCount = 0;
         for (int i = 0; i < showCards.childCount; i++) {
@@ -158,8 +159,8 @@ public partial class Game3DManager {
             }
         }
         Vector3 startPos = showCards.position;
-        float drawOffset = cardWidth * mainCount + cardWidth * RecordDrawSlotGapFactor;
-        return startPos + direction.normalized * drawOffset;
+        float drawOffset = HandDrawSlotOffset(mainCount, 1f + RecordDrawSlotGapFactor);
+        return PlaceTileOnTable(startPos + direction.normalized * drawOffset, rotation);
     }
 
     /// <summary>
@@ -167,7 +168,7 @@ public partial class Game3DManager {
     /// </summary>
     private IEnumerator RearrangeRecordShowMergeAllWithAnimation(Transform showCardsPosition, string playerPosition) {
         if (showCardsPosition == null || showCardsPosition.childCount == 0) yield break;
-        if (!TryGetRecordShowHandLayout(playerPosition, out Vector3 direction, out _)) yield break;
+        if (!TryGetRecordShowHandLayout(playerPosition, out Vector3 direction, out Quaternion rotation)) yield break;
 
         ClearRecordPlayerDrawSlotState(playerPosition);
 
@@ -188,11 +189,11 @@ public partial class Game3DManager {
             return TileIdOrder.Compare(idA, idB);
         });
 
-        Vector3 startPos = showCardsPosition.position;
+        Vector3 startPos = PlaceTileOnTable(showCardsPosition.position, rotation);
         List<Vector3> targetPositions = new List<Vector3>(allCards.Count);
         Vector3 dir = direction.normalized;
         for (int i = 0; i < allCards.Count; i++) {
-            targetPositions.Add(startPos + dir * cardWidth * i);
+            targetPositions.Add(PlaceTileOnTable(startPos + dir * handStep * i, rotation));
         }
 
         yield return StartCoroutine(Animate3DCardsToPositions(allCards, targetPositions, showCardsPosition));
@@ -332,11 +333,11 @@ public partial class Game3DManager {
             winObj = TryTakeLastDiscardObjectForRon(winTileId, request.DiscardPlayerPosition);
         }
 
-        Vector3? endPos = ComputeRecordShowDrawSlotPosition(showCards, direction);
+        Vector3? endPos = ComputeRecordShowDrawSlotPosition(showCards, direction, rotation);
         if (!endPos.HasValue) yield break;
 
         if (winObj == null) {
-            Vector3 spawnPos = isSelfDraw ? showCards.position : endPos.Value;
+            Vector3 spawnPos = isSelfDraw ? PlaceTileOnTable(showCards.position, rotation) : endPos.Value;
             winObj = MahjongObjectPool.Instance.Spawn(winTileId, spawnPos, rotation);
         }
         if (winObj == null) yield break;

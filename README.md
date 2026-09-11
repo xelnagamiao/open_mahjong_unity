@@ -130,6 +130,10 @@ open_mahjong_unity/
 └── README.md
 ```
 
+### 工作区与 `other` 规则
+
+任务过程文件、临时脚本、备份、日志、缓存和中间产物放在被 Git 忽略的 `.om_workspace/`；`other/` 只保留已经整理完成、需要上传 Git 并提供给其他使用者的最终成果。完整约定见 [WORKSPACE_RULES.md](WORKSPACE_RULES.md)。
+
 ## 3.技术栈
 
 ### 游戏客户端 (open_mahjong_unity)

@@ -13,7 +13,10 @@ public static class TilePackIds {
     public const string PackCustom = "custom";
 
     public const string ResourcesPackRoot = "image/CardFacePacks";
-    public const string DefaultHandBgResource = "image/CardFacePacks/hand-bg-default";
+    public const string OfficialAtlasResource = ResourcesPackRoot + "/official/TableAtlas";
+    public const string DefaultHandBgResource = "image/TileSurfaces/backgrounds/hand-default";
+    public const string HandHorizontalBgResource = "image/TileSurfaces/backgrounds/hand-horizontal";
+    public const string DefaultHandBackResource = "image/TileSurfaces/backs/hand-default";
 
     public const string HandDirEn = "hand";
     public const string HandDirZh = "手牌牌面";
@@ -23,16 +26,27 @@ public static class TilePackIds {
     public static readonly int[] StandardFaceIds = BuildStandardFaceIds();
     public static readonly int[] HongqueFaceIds = BuildHongqueFaceIds();
 
+    public static bool IsBuiltinPack(string packId) {
+        return packId == PackOfficial || IsBuiltinLayeredPack(packId);
+    }
+
+    // 此分类保留给使用独立牌面材质的预装包；官方 3D 继续走共享图集。
     public static bool IsBuiltinLayeredPack(string packId) {
         return packId == PackFluffy || packId == PackHkMahjong;
     }
 
     public static bool IsLayeredPack(string packId) {
-        return IsBuiltinLayeredPack(packId) || packId == PackCustom;
+        return IsBuiltinLayeredPack(packId) || IsCustomPack(packId);
+    }
+
+    public static bool IsCustomPack(string packId) {
+        return packId == PackCustom || (packId != null && packId.StartsWith("custom-", System.StringComparison.Ordinal)
+            && packId.Length == 39 && System.Guid.TryParseExact(packId.Substring(7), "N", out _));
     }
 
     public static bool DefaultUseHandFaceBackground(string packId) {
-        return packId == PackFluffy || packId == PackHkMahjong || packId == PackCustom;
+        // 标准手牌统一叠底；不透明完整图片自然覆盖底图。
+        return true;
     }
 
     public static bool IsHandFolder(string fullPath) {
@@ -66,7 +80,7 @@ public static class TilePackIds {
     }
 
     public static string NormalizePackId(string packId) {
-        if (packId == PackFluffy || packId == PackHkMahjong || packId == PackCustom) {
+        if (IsLayeredPack(packId)) {
             return packId;
         }
         return PackOfficial;

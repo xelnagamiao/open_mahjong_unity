@@ -17,6 +17,14 @@ public class TableCloth : MonoBehaviour
         tableClothChoseImage.gameObject.SetActive(false);
     }
 
+    public void RefreshSelection()
+    {
+        var selected = ConfigManager.Instance != null ? ConfigManager.Instance.GetSelectedTableCloth() : ("", false);
+        bool active = selected.Item1 == filePath && selected.Item2 == isCustom;
+        tableClothChoseImage.gameObject.SetActive(active);
+        if (active) ShowDeleteButtonForCustomItem();
+    }
+
     public void OnTableClothButtonClick() { // 保存桌布选择
         ConfigManager.Instance.SetSelectedTableCloth(filePath, isCustom); // 保存选中路径到配置管理器
         TableClothPanel panel = GetComponentInParent<TableClothPanel>(true);

@@ -80,7 +80,17 @@ router.get('/record-ids/:key', playerQueryLimiter, async (req, res) => {
     const params = [];
     const conditions = buildRecordFilters(userId, query, params);
     const sql = `
-      SELECT sub.game_id, gpr.rank, sub.created_at
+      SELECT sub.game_id, gpr.rank, sub.created_at,
+             gpr.room_type, gpr.match_tier, gpr.match_type, gpr.rule,
+             (
+               SELECT CASE
+                 WHEN COUNT(*) = 4 AND COUNT(peer.rank) = 4 AND COUNT(peer.score) = 4
+                 THEN COUNT(*) FILTER (WHERE peer.rank = gpr.rank)
+                 ELSE NULL
+               END
+               FROM game_player_records peer
+               WHERE peer.game_id = sub.game_id
+             ) AS settlement_tie_count
       FROM (
         SELECT DISTINCT gpr.game_id, gr.created_at
         FROM game_player_records gpr
@@ -95,6 +105,12 @@ router.get('/record-ids/:key', playerQueryLimiter, async (req, res) => {
       game_id: r.game_id,
       rank: r.rank != null ? Number(r.rank) : null,
       created_at: r.created_at,
+      room_type: r.room_type || null,
+      match_tier: r.match_tier || null,
+      match_type: r.match_type || null,
+      rule: r.rule || null,
+      settlement_user_id: userId,
+      settlement_tie_count: r.settlement_tie_count != null ? Number(r.settlement_tie_count) : null,
     }));
     res.json({ success: true, data: { items, total: items.length } });
   } catch (error) {

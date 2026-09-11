@@ -60,7 +60,8 @@ public class CardBackConfigPanel : MonoBehaviour
 
     private void Start()
     {
-        CardBackManager.ApplySavedConfig();
+        // 打开设置只展示当前状态；已初始化的对局不应再重放存档、清掉逐牌提示色。
+        CardBackManager.EnsureSavedConfigApplied();
     }
 
     public void ReloadSaved()

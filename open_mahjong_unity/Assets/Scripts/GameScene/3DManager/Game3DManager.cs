@@ -334,8 +334,10 @@ public partial class Game3DManager : MonoBehaviour {
         _discardMoveCoroutinesByPlayer.Clear();
     }
 
-    private float cardWidth; // 卡片宽度 组合牌 3D手牌使用
+    private float cardWidth; // 副露槽宽；摸牌与主列的分离距离也沿用此宽度
     private float cardHeight; // 卡片高度
+    private float handStep; // 手牌横向槽宽，保留实体之间的小间隙
+    private float handRowStep; // 展开手牌换行槽高
     private float cardScale; // 卡片缩放
     private float widthSpacing; // 弃牌/补花间距
     private float heightSpacing; // 弃牌/补花纵向间距
@@ -356,20 +358,10 @@ public partial class Game3DManager : MonoBehaviour {
             gameObject.AddComponent<ConcealedTile3DPeekController>();
         }
         ApplyTileOutlineSettings();
-        // 初始化配置（Mode B 描边不依赖物理缝；手牌/副露间隙→30%，牌河间隙→80%）
+        // 按模型尺寸初始化手牌、副露和牌河间距。
+        InitializeTilePlacement();
         this.cardScale = tile3DPrefab.transform.localScale.z;
-        Renderer tileRenderer = tile3DPrefab.GetComponent<Renderer>();
-        float tileW = tileRenderer.bounds.size.x;
-        float tileH = tileRenderer.bounds.size.y;
-        const float handStepRatio = 1.10f;
-        const float handHeightRatio = 1.06f;
-        const float riverExtraRatio = 1.06f;
-        this.cardWidth = tileW * (1f + (handStepRatio - 1f) * 0.3f);
-        this.cardHeight = tileH * (1f + (handHeightRatio - 1f) * 0.3f);
-        float riverWidthOrig = tileW * handStepRatio * riverExtraRatio;
-        float riverHeightOrig = tileH * handHeightRatio * riverExtraRatio;
-        this.widthSpacing = tileW + (riverWidthOrig - tileW) * 0.8f;
-        this.heightSpacing = tileH + (riverHeightOrig - tileH) * 0.8f;
+        InitializeTileSpacing();
         // 初始化放置组合牌指针
         selfSetCombinationsPoint = selfPosPanel.combinationsPosition.position;
         leftSetCombinationsPoint = leftPosPanel.combinationsPosition.position;
@@ -384,9 +376,26 @@ public partial class Game3DManager : MonoBehaviour {
         ResetHandRevealAnimators();
     }
 
-    /// <summary>应用玩家描边预设。</summary>
+    private void InitializeTileSpacing() {
+        Renderer tileRenderer = tile3DPrefab.GetComponent<Renderer>();
+        float tileW = tileRenderer.bounds.size.x;
+        float tileH = tileRenderer.bounds.size.y;
+        const float handStepRatio = 1.10f;
+        const float handHeightRatio = 1.06f;
+        const float riverExtraRatio = 1.06f;
+        this.cardWidth = tileW * (1f + (handStepRatio - 1f) * 0.3f);
+        this.cardHeight = tileH * (1f + (handHeightRatio - 1f) * 0.3f);
+        this.handStep = tileW + 0.08f;
+        this.handRowStep = tileH + 0.08f;
+        float riverWidthOrig = tileW * handStepRatio * riverExtraRatio;
+        float riverHeightOrig = tileH * handHeightRatio * riverExtraRatio;
+        this.widthSpacing = Mathf.Max(tileW + 0.08f, tileW + (riverWidthOrig - tileW) * 0.8f - 0.4f);
+        this.heightSpacing = Mathf.Max(tileH + 0.08f, tileH + (riverHeightOrig - tileH) * 0.8f - 0.45f);
+    }
+
+    /// <summary>应用统一的漫画描边。</summary>
     private void ApplyTileOutlineSettings() {
-        GameSettings.Current.ApplyTileOutlinePreset();
+        GameSettings.Current.ApplyTileOutlineStyle();
     }
 
     /// <summary>
@@ -417,7 +426,7 @@ public partial class Game3DManager : MonoBehaviour {
         GameObject tenbou = Instantiate(riichiTenbouPrefab, startTransform.position, endRot);
         tenbou.name = $"RiichiTenbou_{playerPosition}";
         tenbou.transform.SetParent(panel.tenbouPos.parent, worldPositionStays: true);
-        StartCoroutine(MoveTenbouCoroutine(tenbou, startTransform.position, endTransform.position, endRot, 0.6f));
+        StartCoroutine(MoveTenbouCoroutine(tenbou, startTransform.position, endTransform, endRot, 0.6f));
     }
 
     /// <summary>
@@ -462,17 +471,20 @@ public partial class Game3DManager : MonoBehaviour {
         }
     }
 
-    private IEnumerator MoveTenbouCoroutine(GameObject obj, Vector3 from, Vector3 to, Quaternion endRot, float duration) {
+    private IEnumerator MoveTenbouCoroutine(GameObject obj, Vector3 from, Transform target, Quaternion endRot, float duration) {
         float t = 0f;
         Quaternion startRot = obj.transform.rotation;
         while (t < duration) {
+            if (obj == null || target == null) yield break;
             t += Time.deltaTime;
             float u = Mathf.Clamp01(t / duration);
-            obj.transform.position = Vector3.Lerp(from, to, u);
+            // A center-style change can move the point-stick channel during flight.
+            obj.transform.position = Vector3.Lerp(from, target.position, u);
             obj.transform.rotation = Quaternion.Slerp(startRot, endRot, u);
             yield return null;
         }
-        obj.transform.position = to;
+        if (obj == null || target == null) yield break;
+        obj.transform.position = target.position;
         obj.transform.rotation = endRot;
     }
 
@@ -596,6 +608,7 @@ public partial class Game3DManager : MonoBehaviour {
     // 同步初始化各家手牌：清空当前 cardsPosition，按 player_to_info 与 selfHandTiles 立即生成
     private void InitHandCardsImmediate() {
         StopAllHandAnimationQueues();
+        ResetHandRevealAnimators();
         ClearAllRiichiTenbous();
         List<GameObject> objectsToReturn = new List<GameObject>();
         CollectChildren(leftPosPanel.cardsPosition, objectsToReturn);
@@ -630,6 +643,10 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     private void ClearRecordHandCardsImmediate() {
+        // 切换明牌会复用同一批池对象；回收前结束旧倒牌，不能把旧局部坐标写进新布局。
+        ForceHandRevealIdle(leftPosPanel);
+        ForceHandRevealIdle(topPosPanel);
+        ForceHandRevealIdle(rightPosPanel);
         List<GameObject> objectsToReturn = new List<GameObject>();
         CollectChildren(leftPosPanel.cardsPosition, objectsToReturn);
         CollectChildren(topPosPanel.cardsPosition, objectsToReturn);
@@ -858,6 +875,7 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     private void ClearPlayerRecordHandObjects(PosPanel3D panel){
+        ForceHandRevealIdle(panel);
         List<GameObject> objectsToReturn = new List<GameObject>();
         CollectChildren(panel.cardsPosition, objectsToReturn);
         CollectChildren(panel.ShowCardsPosition, objectsToReturn);
@@ -940,6 +958,7 @@ public partial class Game3DManager : MonoBehaviour {
         ClearAllLastDiscardAndJiagang();
         StopAllHandAnimationQueues();
         StopAllCoroutines();
+        ResetHandRevealAnimators();
     }
 
     /// <summary>

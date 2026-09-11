@@ -16,6 +16,7 @@ from .database.data_router import handle_data_message
 from .match.match_router import handle_match_message
 from .friend.friend_router import handle_friend_message
 from .event.event_router import handle_event_message
+from .event.auto_match import EventAutoMatcher
 from .friend.friend_manager import FriendManager
 from .gamestate.gamestate_manager import GameStateManager
 from .database.db_manager import DatabaseManager
@@ -178,7 +179,9 @@ async def lifespan(app: FastAPI):
     sampler_task = asyncio.create_task(_online_sampler_loop())
     stats_task = asyncio.create_task(_daily_stats_loop())
     restore_task = asyncio.create_task(_daily_stats_startup_restore())
+    game_server.event_auto_matcher.start()
     yield
+    await game_server.event_auto_matcher.stop()
     reset_task.cancel()
     sampler_task.cancel()
     stats_task.cancel()
@@ -235,6 +238,7 @@ class GameServer:
         self.match_manager = MatchManager(self)
         # 好友 / 实时观战 管理器
         self.friend_manager = FriendManager(self)
+        self.event_auto_matcher = EventAutoMatcher(self)
 
     # 玩家连接：使用websocket为key 存储[sebsocket,uuid] : PlayerConnection[1,1,0,0]
     async def connect(self, websocket: WebSocket, Connect_id: str):
@@ -246,6 +250,12 @@ class GameServer:
     async def disconnect(self, Connect_id: str):
         if Connect_id in self.players:
             player = self.players[Connect_id]
+            player.event_disconnecting = True
+            if player.user_id and self.user_id_to_connection.get(player.user_id) is player:
+                try:
+                    self.db_manager.clear_user_event_ready(player.user_id)
+                except Exception:
+                    logging.exception("清理断线玩家的赛事准备记录失败")
             # 帮助玩家自动离开房间（异步执行）
             if player.current_room_id:
                 await self.room_manager.leave_room(Connect_id, player.current_room_id)

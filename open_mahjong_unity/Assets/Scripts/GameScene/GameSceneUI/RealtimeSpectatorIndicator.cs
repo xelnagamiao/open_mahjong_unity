@@ -24,6 +24,7 @@ public class RealtimeSpectatorIndicator : MonoBehaviour {
 
     private readonly List<GameObject> _spawnedRows = new List<GameObject>();
     private readonly List<RealtimeSpectatorEntry> _currentSpectators = new List<RealtimeSpectatorEntry>();
+    private string _activeGamestateId;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -31,7 +32,6 @@ public class RealtimeSpectatorIndicator : MonoBehaviour {
             return;
         }
         Instance = this;
-        RegisterEvents();
         if (spectatorListPanel != null) spectatorListPanel.SetActive(false);
         if (iconButton != null) iconButton.onClick.AddListener(TogglePanel);
         if (closeButton != null) closeButton.onClick.AddListener(HidePanel);
@@ -39,34 +39,52 @@ public class RealtimeSpectatorIndicator : MonoBehaviour {
     }
 
     private void OnDestroy() {
-        UnregisterEvents();
-        if (Instance == this) Instance = null;
-    }
-
-    private void RegisterEvents() {
-        FriendNetworkManager.Instance.OnRealtimeSpectatorsChanged -= HandleSpectatorsChanged;
-        FriendNetworkManager.Instance.OnListRealtimeSpectatorsResp -= HandleSpectatorsChanged;
-        FriendNetworkManager.Instance.OnRealtimeSpectatorsChanged += HandleSpectatorsChanged;
-        FriendNetworkManager.Instance.OnListRealtimeSpectatorsResp += HandleSpectatorsChanged;
-    }
-
-    private void UnregisterEvents() {
-        FriendNetworkManager.Instance.OnRealtimeSpectatorsChanged -= HandleSpectatorsChanged;
-        FriendNetworkManager.Instance.OnListRealtimeSpectatorsResp -= HandleSpectatorsChanged;
+        if (iconButton != null) iconButton.onClick.RemoveListener(TogglePanel);
+        if (closeButton != null) closeButton.onClick.RemoveListener(HidePanel);
+        if (Instance == this) {
+            ResetForExit();
+            Instance = null;
+        }
     }
 
     /// <summary>由 GameSceneUIManager 在进入对局时调用：清空 + 主动询问一次当前观战者列表。</summary>
     public void ResetForNewGame() {
+        ResetForExit();
+        var game = NormalGameStateManager.Instance;
+        if (game == null || game.IsRealtimeSpectator || string.IsNullOrEmpty(game.gamestateId)) return;
+        // InitGameStart precedes IsGameActive=true. Bind explicitly here instead
+        // of dropping the first list response while initialization is underway.
+        _activeGamestateId = game.gamestateId;
+        FriendNetworkManager.Instance?.ListRealtimeSpectators();
+    }
+
+    /// <summary>终局、退局或切换到观战/牌谱时清理，并停止接受本次对局的迟到列表。</summary>
+    public void ResetForExit() {
+        _activeGamestateId = null;
         _currentSpectators.Clear();
         ClearRows();
         HidePanel();
         ApplyVisibility();
-        FriendNetworkManager.Instance.ListRealtimeSpectators();
+    }
+
+    private bool IsCurrentHostGame() {
+        var game = NormalGameStateManager.Instance;
+        return !string.IsNullOrEmpty(_activeGamestateId)
+            && game != null && !game.IsRealtimeSpectator
+            && string.Equals(_activeGamestateId, game.gamestateId, System.StringComparison.Ordinal);
     }
 
     public void HandleSpectatorsChanged(Response response) {
+        // FriendNetworkManager dispatches directly, including while this panel
+        // is hidden. Do not also subscribe to its events and rebuild twice.
+        if (!IsCurrentHostGame()) {
+            ResetForExit();
+            return;
+        }
+        if (response == null || !response.success
+            || !string.Equals(response.realtime_gamestate_id, _activeGamestateId, System.StringComparison.Ordinal)) return;
         _currentSpectators.Clear();
-        if (response?.realtime_spectators != null) {
+        if (response.realtime_spectators != null) {
             foreach (var entry in response.realtime_spectators) {
                 if (entry != null) _currentSpectators.Add(entry);
             }
@@ -78,8 +96,7 @@ public class RealtimeSpectatorIndicator : MonoBehaviour {
 
     private void ApplyVisibility() {
         bool hasSpectators = _currentSpectators.Count > 0;
-        bool isSelfRealtimeSpectator = NormalGameStateManager.Instance.IsRealtimeSpectator;
-        bool show = hasSpectators && !isSelfRealtimeSpectator;
+        bool show = hasSpectators && IsCurrentHostGame();
         if (iconButton != null) iconButton.gameObject.SetActive(show);
         if (icon != null) icon.gameObject.SetActive(show);
         if (countText != null) {
@@ -103,14 +120,17 @@ public class RealtimeSpectatorIndicator : MonoBehaviour {
 
     private void ClearRows() {
         foreach (var go in _spawnedRows) {
-            if (go != null) Destroy(go);
+            if (go != null) {
+                go.SetActive(false);
+                Destroy(go);
+            }
         }
         _spawnedRows.Clear();
     }
 
     private void TogglePanel() {
         if (spectatorListPanel == null) return;
-        if (_currentSpectators.Count == 0) return;
+        if (!IsCurrentHostGame() || _currentSpectators.Count == 0) return;
         bool willShow = !spectatorListPanel.activeSelf;
         if (willShow) RefreshList();
         spectatorListPanel.SetActive(willShow);

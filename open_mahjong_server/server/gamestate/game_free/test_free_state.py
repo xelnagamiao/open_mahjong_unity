@@ -30,19 +30,16 @@ class _FakeWs:
         self.messages.append(payload)
 
 
-def _make_state(**flags) -> tuple[FreeGameState, dict[int, _FakeWs]]:
-    sockets = {uid: _FakeWs() for uid in (101, 102, 103, 104)}
+def _make_state(player_ids=(101, 102, 103, 104), **flags) -> tuple[FreeGameState, dict[int, _FakeWs]]:
+    sockets = {uid: _FakeWs() for uid in player_ids}
     connections = {
         uid: SimpleNamespace(websocket=sockets[uid]) for uid in sockets
     }
     room = {
         "room_id": "free-1",
-        "player_list": [101, 102, 103, 104],
+        "player_list": list(player_ids),
         "player_settings": {
-            101: {"username": "a"},
-            102: {"username": "b"},
-            103: {"username": "c"},
-            104: {"username": "d"},
+            uid: {"username": chr(ord("a") + i)} for i, uid in enumerate(player_ids)
         },
         "random_seed": 12345,
         "sub_rule": "free/standard",
@@ -222,6 +219,26 @@ def test_hu_and_tsumo_only_shout_reveal_is_push() -> None:
         assert p0.revealed is True
         await state.handle_command(101, {"action": "stand"})
         assert p0.revealed is False
+
+    asyncio.run(scenario())
+
+
+def test_variable_player_count_does_not_pad_and_votes_among_seated() -> None:
+    async def scenario():
+        state, _ = _make_state(player_ids=(101, 102))
+        assert len(state.player_list) == 2
+        assert all(p.user_id > 0 for p in state.player_list)
+        await state.handle_command(101, {"action": "set_vote", "vote": VOTE_END_ROUND})
+        assert state.current_round == 1
+        await state.handle_command(102, {"action": "set_vote", "vote": VOTE_END_ROUND})
+        assert state.current_round == 2
+        await state.handle_command(101, {
+            "action": "set_scores",
+            "score_revision": state.score_revision,
+            "scores": {"0": 7, "1": 8},
+        })
+        assert state.player_list[0].score == 7
+        assert state.player_list[1].score == 8
 
     asyncio.run(scenario())
 

@@ -17,6 +17,7 @@ public partial class BoardCanvas {
         player_left_current_image.gameObject.SetActive(false);
         player_top_current_image.gameObject.SetActive(false);
         player_right_current_image.gameObject.SetActive(false);
+        ApplyOccupiedSeatClusters(null);
     }
 
     public void ShowCurrentPlayer(string currentPlayerIndex, int remainTiles){

@@ -75,6 +75,7 @@ public class CardEdgePanel : MonoBehaviour
 
     private void OnEnable()
     {
+        LoadSavedIntoUI();
         toggleColorsNeedRefresh = true;
         UpdateModeToggleColors(instant: true);
     }
@@ -102,7 +103,10 @@ public class CardEdgePanel : MonoBehaviour
 
     private void BindUi()
     {
-        SceneConfigUi.BindClick(sideHexApplyButton, ApplySideHex);
+        // The merged scene aliases the legacy side controls to the front controls.
+        // Binding both callbacks lets the first refresh overwrite the typed HEX.
+        if (sideHexApplyButton != frontEdgeHexApplyButton)
+            SceneConfigUi.BindClick(sideHexApplyButton, ApplySideHex);
         SceneConfigUi.BindClick(backEdgeHexApplyButton, ApplyBackEdgeHex);
         SceneConfigUi.BindClick(frontEdgeHexApplyButton, ApplyFrontEdgeHex);
         SceneConfigUi.BindClick(restoreFrontEdgeButton, RestoreFrontEdgeDefault);
@@ -119,7 +123,7 @@ public class CardEdgePanel : MonoBehaviour
         SceneConfigUi.BindToggleOn(frontEdgeModeIndependent, () => SetFrontEdgeMode(FrontEdgeMode.Independent));
         SceneConfigUi.BindToggleOn(frontEdgeModeFollowTableBg, () => SetFrontEdgeMode(FrontEdgeMode.FollowTableBg));
         SceneConfigUi.BindToggleOn(frontEdgeModeFollowBackEdge, () => SetFrontEdgeMode(FrontEdgeMode.FollowBackEdge));
-        SceneConfigUi.BindSwatches(sideSwatches, SetSideColor);
+        SceneConfigUi.BindSwatches(sideSwatches, SetFrontEdgeColor);
         SceneConfigUi.BindSwatches(backEdgeSwatches, SetBackEdgeColor);
         LoadSavedIntoUI();
     }
@@ -127,6 +131,7 @@ public class CardEdgePanel : MonoBehaviour
     /// <summary>把正面边缘颜色还原为初始默认值。</summary>
     public void RestoreFrontEdgeDefault()
     {
+        ResetSideTint();
         currentFrontEdgeColor = Color.white;
         currentFrontEdgeMode = FrontEdgeMode.Independent;
 
@@ -182,8 +187,10 @@ public class CardEdgePanel : MonoBehaviour
         syncing = true;
         Color backPreview = CardBackManager.ResolveBackEdgeColor(currentBackEdgeMode, currentBackEdgeColor);
         Color frontPreview = CardBackManager.ResolveFrontEdgeColor(currentFrontEdgeMode, currentFrontEdgeColor);
-        sideHexInput.text = ColorUtility.ToHtmlStringRGB(currentSideColor);
-        sidePreview.color = currentSideColor;
+        if (sideHexInput != frontEdgeHexInput)
+            sideHexInput.text = ColorUtility.ToHtmlStringRGB(currentSideColor);
+        if (sidePreview != frontSidePreview)
+            sidePreview.color = currentSideColor;
         backEdgeHexInput.text = ColorUtility.ToHtmlStringRGB(backPreview);
         backSidePreview.color = backPreview;
         frontEdgeHexInput.text = ColorUtility.ToHtmlStringRGB(frontPreview);
@@ -242,6 +249,7 @@ public class CardEdgePanel : MonoBehaviour
 
     private void SetFrontEdgeColor(Color color)
     {
+        ResetMergedSideTint();
         color.a = 1f;
         currentFrontEdgeColor = color;
         if (ConfigManager.Instance != null)
@@ -287,6 +295,7 @@ public class CardEdgePanel : MonoBehaviour
     public void SetFrontEdgeMode(FrontEdgeMode mode)
     {
         if (syncing) return;
+        ResetMergedSideTint();
         currentFrontEdgeMode = mode;
 
         if (ConfigManager.Instance != null)
@@ -306,6 +315,18 @@ public class CardEdgePanel : MonoBehaviour
     private void ApplyFrontEdgeHex()
     {
         ApplyHex(frontEdgeHexInput, SetFrontEdgeColor, "正面边缘颜色已应用");
+    }
+
+    private void ResetMergedSideTint()
+    {
+        if (sideHexApplyButton == frontEdgeHexApplyButton) ResetSideTint();
+    }
+
+    private void ResetSideTint()
+    {
+        currentSideColor = ConfigManager.DefaultSideColor;
+        ConfigManager.Instance?.SetSideColor(currentSideColor);
+        CardBackManager.ApplySideColor(currentSideColor);
     }
 
     private void ApplyBackEdgeHex()

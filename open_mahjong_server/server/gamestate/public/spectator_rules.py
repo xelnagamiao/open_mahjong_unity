@@ -32,6 +32,11 @@ async def deliver_realtime_spectator_message(game_state, broadcast_player_index:
     if not isinstance(base_payload, dict):
         base_payload = dict(base_payload)
     for sp in list(spectators):
+        if sp not in getattr(game_state, "realtime_spectators", []):
+            continue
+        match_manager = getattr(game_state.game_server, "match_manager", None)
+        if match_manager and match_manager.blocks_spectator(sp.user_id):
+            continue
         if not realtime_spectator_watches_broadcast_seat(sp, game_state, broadcast_player_index):
             continue
         conn = game_state.game_server.user_id_to_connection.get(sp.user_id)

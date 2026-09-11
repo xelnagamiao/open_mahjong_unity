@@ -28,6 +28,7 @@ public partial class GameCanvas : MonoBehaviour {
     [SerializeField] private TMP_Text remianTimeText;        // 剩余时间文本(显示剩余时间[20+5])
     [SerializeField] public Transform ActionButtonContainer;  // 询问操作容器(显示吃,碰,杠,胡,补花,抢杠等按钮)
     [SerializeField] private Transform ExtraActionButton; // 场景常驻槽；当前仅供虹雀“补牌”使用
+    [SerializeField] private Transform DedicatedActionButtonContainer; // 独立布局容器；清单 UsesDedicatedActionButtonContainer 时使用
     [SerializeField] public Transform ActionBlockContenter;  // 询问操作内容提示(显示吃,碰,杠,胡,补花,抢杠等按钮的多种结果)
 
     [Header("本家状态标记槽（族按槽名点亮，见 SetSelfStatusIndicator）")]
@@ -173,6 +174,7 @@ public partial class GameCanvas : MonoBehaviour {
         playerLeftPanel?.Clear();
         playerTopPanel?.Clear();
         playerRightPanel?.Clear();
+        RestoreSeatPanels();
         StopTimeRunning();
         ClearActionButton();
         // 退出前在 SetActive(false) 之前销毁残留的操作文本，避免「补花」等字卡死下次进入
@@ -203,6 +205,7 @@ public partial class GameCanvas : MonoBehaviour {
         HideAllPlayerActionMenus();
         SetStickerUiForRecordMode(false);
         HideDingqueSelection();
+        ApplyOccupiedSeatPanels(indexToPosition);
         // 新一局开始先清空各家定缺标记，待服务端定缺同步后再显示
         playerSelfPanel?.SetDingque(0);
         playerLeftPanel?.SetDingque(0);
@@ -330,6 +333,7 @@ public partial class GameCanvas : MonoBehaviour {
                 Debug.LogWarning($"未找到位置 {position} 对应的玩家面板");
             }
         }
+        ApplyOccupiedSeatPanels(indexToPosition);
         ClearSelfStatusIndicators();
     }
 
@@ -513,9 +517,8 @@ public partial class GameCanvas : MonoBehaviour {
         foreach (Transform child in ActionBlockContenter){
             Destroy(child.gameObject);
         }
-        foreach (Transform child in ActionButtonContainer){
-            if (child != ExtraActionButton) Destroy(child.gameObject);
-        }
+        ClearSpawnedActionButtons(ActionButtonContainer);
+        ClearSpawnedActionButtons(DedicatedActionButtonContainer);
         SetPersistentActionButton(null);
         // 吃碰杠询问结束（执行/跳过/超时/轮到下家）：隐藏可操作牌底部的光圈。
         Game3DManager.Instance?.HideClaimGlow();
@@ -523,10 +526,66 @@ public partial class GameCanvas : MonoBehaviour {
 
     /// <summary>
     /// 立直选牌模式下隐藏/恢复所有操作按钮容器。
+    /// 清单声明独立容器时只亮那个；默认容器仍给虹雀常驻槽使用。
     /// </summary>
     public void SetActionButtonContainerVisible(bool visible) {
-        if (ActionButtonContainer == null) return;
-        ActionButtonContainer.gameObject.SetActive(visible);
+        Transform host = ActionButtonHost;
+        if (ActionButtonContainer != null && ActionButtonContainer != host) {
+            ActionButtonContainer.gameObject.SetActive(false);
+        }
+        if (DedicatedActionButtonContainer != null && DedicatedActionButtonContainer != host) {
+            DedicatedActionButtonContainer.gameObject.SetActive(false);
+        }
+        if (host != null) host.gameObject.SetActive(visible);
+    }
+
+    internal Transform ActionButtonHost {
+        get {
+            if (RuleRegistry.Current != null
+                && RuleRegistry.Current.UsesDedicatedActionButtonContainer
+                && DedicatedActionButtonContainer != null) {
+                return DedicatedActionButtonContainer;
+            }
+            return ActionButtonContainer;
+        }
+    }
+
+    private void ClearSpawnedActionButtons(Transform container) {
+        if (container == null) return;
+        foreach (Transform child in container) {
+            if (child != ExtraActionButton) Destroy(child.gameObject);
+        }
+    }
+
+    /// <summary>没有玩家的座位隐藏面板；有人的座位显示。不写规则名。</summary>
+    public void ApplyOccupiedSeatPanels(Dictionary<int, string> indexToPosition) {
+        var occupied = OccupiedSeats(indexToPosition);
+        SetSeatPanelActive(playerSelfPanel, occupied.Contains("self"));
+        SetSeatPanelActive(playerLeftPanel, occupied.Contains("left"));
+        SetSeatPanelActive(playerTopPanel, occupied.Contains("top"));
+        SetSeatPanelActive(playerRightPanel, occupied.Contains("right"));
+    }
+
+    private void RestoreSeatPanels() {
+        SetSeatPanelActive(playerSelfPanel, true);
+        SetSeatPanelActive(playerLeftPanel, true);
+        SetSeatPanelActive(playerTopPanel, true);
+        SetSeatPanelActive(playerRightPanel, true);
+    }
+
+    private static void SetSeatPanelActive(GamePlayerPanel panel, bool active) {
+        if (panel == null) return;
+        panel.gameObject.SetActive(active);
+        if (!active) panel.Clear();
+    }
+
+    internal static HashSet<string> OccupiedSeats(Dictionary<int, string> indexToPosition) {
+        var occupied = new HashSet<string>();
+        if (indexToPosition == null) return occupied;
+        foreach (string seat in indexToPosition.Values) {
+            if (!string.IsNullOrEmpty(seat)) occupied.Add(seat);
+        }
+        return occupied;
     }
 
     /// <summary>四川：UI 手牌中是否仍含定缺花色（与 selfHandTiles 双源校验，避免列表不同步导致无法置灰）。</summary>

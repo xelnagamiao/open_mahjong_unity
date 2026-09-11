@@ -11,6 +11,7 @@ public partial class NormalGameStateManager {
         // 重连时若本地快照行数与服务端 score_history 不一致，仍清空以免与分值行错位。
         bool isNewMatch = string.IsNullOrEmpty(gamestateId) || gamestateId != gameInfo.gamestate_id;
         if (isNewMatch) {
+            GameSceneUIManager.ResetRealtimeSpectatorUi();
             ClearRoundSettlementHistory();
             ClearStickerMutes();
         }
@@ -242,30 +243,19 @@ public partial class NormalGameStateManager {
         else{
             Debug.Log("未设置随机种子");
         }
-        // 根据自身索引确定其他玩家位置
-        if (selfIndex == 0) {
-            indexToPosition[0] = "self";
-            indexToPosition[1] = "right";
-            indexToPosition[2] = "top";
-            indexToPosition[3] = "left";
-        } else if (selfIndex == 1) {
-            indexToPosition[1] = "self";
-            indexToPosition[2] = "right";
-            indexToPosition[3] = "top";
-            indexToPosition[0] = "left";
-        } else if (selfIndex == 2) {
-            indexToPosition[2] = "self";
-            indexToPosition[3] = "right";
-            indexToPosition[0] = "top";
-            indexToPosition[1] = "left";
-        } else if (selfIndex == 3) {
-            indexToPosition[3] = "self";
-            indexToPosition[0] = "right";
-            indexToPosition[1] = "top";
-            indexToPosition[2] = "left";
+        // 根据自身索引确定其他玩家位置：只映射实际在桌的 player_index，空座位不占座。
+        var playerIndexes = new List<int>();
+        if (gameInfo.players_info != null) {
+            foreach (var player in gameInfo.players_info) {
+                playerIndexes.Add(player.player_index);
+            }
         }
+        TableMirror.Current.BuildSeatMap(selfIndex, playerIndexes);
+        TableMirror.Current.ClearUnoccupiedSeatData();
+        if (gameInfo.players_info == null) return;
         foreach (var player in gameInfo.players_info){
-            if (indexToPosition[player.player_index] == "self") { // 通过player_index确定玩家位置
+            if (!indexToPosition.TryGetValue(player.player_index, out string position)) continue;
+            if (position == "self") { // 通过player_index确定玩家位置
                 player_to_info["self"].username = player.username; // 存储用户名
                 player_to_info["self"].userId = player.user_id; // 存储uid
                 player_to_info["self"].score = player.score; // 存储分数
@@ -286,7 +276,7 @@ public partial class NormalGameStateManager {
                 ScoreHistorySettlementHelper.AlignRoundNumberHistory(player_to_info["self"].score_history, player_to_info["self"].round_number_history);
                 player_to_info["self"].original_player_index = player.original_player_index; // 存储原始玩家索引
                 player_to_info["self"].tag_list = player.tag_list; // 存储标签列表
-            } else if (indexToPosition[player.player_index] == "right") {
+            } else if (position == "right") {
                 player_to_info["right"].username = player.username; // 存储用户名
                 player_to_info["right"].score = player.score; // 存储分数
                 player_to_info["right"].userId = player.user_id; // 存储uid
@@ -306,7 +296,7 @@ public partial class NormalGameStateManager {
                 ScoreHistorySettlementHelper.AlignRoundNumberHistory(player_to_info["right"].score_history, player_to_info["right"].round_number_history);
                 player_to_info["right"].original_player_index = player.original_player_index; // 存储原始玩家索引
                 player_to_info["right"].tag_list = player.tag_list; // 存储标签列表
-            } else if (indexToPosition[player.player_index] == "top") {
+            } else if (position == "top") {
                 player_to_info["top"].username = player.username; // 存储用户名
                 player_to_info["top"].score = player.score; // 存储分数
                 player_to_info["top"].userId = player.user_id; // 存储uid
@@ -326,7 +316,7 @@ public partial class NormalGameStateManager {
                 ScoreHistorySettlementHelper.AlignRoundNumberHistory(player_to_info["top"].score_history, player_to_info["top"].round_number_history);
                 player_to_info["top"].original_player_index = player.original_player_index; // 存储原始玩家索引
                 player_to_info["top"].tag_list = player.tag_list; // 存储标签列表
-            } else if (indexToPosition[player.player_index] == "left") {
+            } else if (position == "left") {
                 player_to_info["left"].username = player.username; // 存储用户名
                 player_to_info["left"].score = player.score; // 存储分数
                 player_to_info["left"].userId = player.user_id; // 存储uid

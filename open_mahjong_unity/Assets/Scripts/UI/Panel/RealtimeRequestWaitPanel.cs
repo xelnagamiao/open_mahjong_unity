@@ -47,12 +47,35 @@ public class RealtimeRequestWaitPanel : MonoBehaviour {
     }
 
     private void OnDisable() {
-        FriendNetworkManager.Instance.OnRealtimeRequestResult -= HandleRequestResult;
-        FriendNetworkManager.Instance.OnRealtimeRequestTimeout -= HandleTimeout;
-        FriendNetworkManager.Instance.OnRealtimeRequestDeclined -= HandleDeclined;
-        FriendNetworkManager.Instance.OnRealtimeStarted -= HandleStarted;
+        UnsubscribeEvents();
         StopCountdown();
         StopCloseRoutine();
+    }
+
+    private void OnDestroy() {
+        UnsubscribeEvents();
+        if (cancelButton != null) cancelButton.onClick.RemoveListener(OnCancelClicked);
+        if (Instance == this) Instance = null;
+    }
+
+    private void UnsubscribeEvents() {
+        var network = FriendNetworkManager.Instance;
+        if (network == null) return;
+        network.OnRealtimeRequestResult -= HandleRequestResult;
+        network.OnRealtimeRequestTimeout -= HandleTimeout;
+        network.OnRealtimeRequestDeclined -= HandleDeclined;
+        network.OnRealtimeStarted -= HandleStarted;
+    }
+
+    /// <summary>结束当前申请的本地显示，不向已退出的会话发送取消请求。</summary>
+    public void ResetForExit() {
+        StopCountdown();
+        StopCloseRoutine();
+        _pendingRequestId = null;
+        _targetUserId = 0;
+        _targetUsername = null;
+        if (transition != null) transition.HideImmediate();
+        else gameObject.SetActive(false);
     }
 
     public void ShowWaiting(int targetUserId, string targetUsername) {
@@ -98,19 +121,17 @@ public class RealtimeRequestWaitPanel : MonoBehaviour {
 
     private void HandleStarted(Response response) {
         if (!gameObject.activeSelf) return;
-        StopCountdown();
-        _pendingRequestId = null;
-        transition.Hide();
+        string gamestateId = response?.realtime_gamestate_id;
+        int hostUserId = response?.realtime_to_user_id ?? 0;
+        ResetForExit();
 
         if (LobbyStateGuard.BlockIfInMatchQueueForSpectator()) return;
         if (GameSessionGuard.BlockIfExclusiveSession("进入实时观战")) return;
 
-        string gamestateId = response.realtime_gamestate_id;
         if (string.IsNullOrEmpty(gamestateId)) {
             Debug.LogWarning("realtime_started 缺少 gamestate_id");
             return;
         }
-        int hostUserId = response.realtime_to_user_id ?? 0;
         WindowsManager.Instance.SwitchWindow("game");
         NormalGameStateManager.Instance.StartAsRealtimeSpectator(gamestateId, hostUserId);
     }

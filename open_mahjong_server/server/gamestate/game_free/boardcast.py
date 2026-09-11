@@ -17,6 +17,10 @@ def _connection_for(game_state, user_id: int):
     return getattr(game_state.game_server, "user_id_to_connection", {}).get(user_id) if game_state.game_server else None
 
 
+def _seats(game_state):
+    return range(len(game_state.player_list))
+
+
 def last_alive_discard(game_state) -> Optional[tuple[int, int]]:
     for player_index, tile_id in reversed(game_state.discard_log):
         player = game_state.player_list[player_index]
@@ -58,11 +62,11 @@ def free_table_payload(game_state, *, revealed_player_index: Optional[int] = Non
         revealed_hand = list(game_state.player_list[revealed_player_index].hand_tiles)
     last = last_alive_discard(game_state)
     return {
-        "votes": {str(idx): game_state.player_list[idx].vote for idx in range(4)},
+        "votes": {str(idx): game_state.player_list[idx].vote for idx in _seats(game_state)},
         "transfer_tile": game_state.transfer_tile,
         "score_revision": game_state.score_revision,
-        "scores": {str(idx): game_state.player_list[idx].score for idx in range(4)},
-        "revealed": {str(idx): game_state.player_list[idx].revealed for idx in range(4)},
+        "scores": {str(idx): game_state.player_list[idx].score for idx in _seats(game_state)},
+        "revealed": {str(idx): game_state.player_list[idx].revealed for idx in _seats(game_state)},
         "revealed_player_index": revealed_player_index,
         "revealed_hand": revealed_hand,
         "last_river_player": None if last is None else last[0],
@@ -108,7 +112,7 @@ def game_info_payload(game_state, viewer_index: int) -> dict:
         "claim_protection": False,
         "isPlayerSetRandomSeed": game_state.isPlayerSetRandomSeed,
         "player_entry_order": [player.user_id for player in game_state.player_list],
-        "players_info": [player_info_payload(game_state, idx, viewer_index) for idx in range(4)],
+        "players_info": [player_info_payload(game_state, idx, viewer_index) for idx in _seats(game_state)],
         "self_hand_tiles": list(game_state.player_list[viewer_index].hand_tiles),
         "dealer_index": 0,
         "view_player_index": viewer_index,
@@ -163,7 +167,7 @@ def do_action_envelope(game_state, action_list: list[str], action_player: int, *
 
 def deal_payloads(game_state, action_player: int, tile_id: int) -> dict[int, dict]:
     payloads = {}
-    for viewer in range(4):
+    for viewer in _seats(game_state):
         visible = tile_id
         if action_player != viewer and not game_state.player_list[action_player].revealed:
             visible = sanitize_deal_tile_for_viewer(tile_id, action_player, viewer)

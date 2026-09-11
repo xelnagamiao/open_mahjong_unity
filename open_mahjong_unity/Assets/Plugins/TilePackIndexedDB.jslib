@@ -155,25 +155,46 @@ var TilePackIndexedDB = {
                 TilePackIdbState.zipBytes = stored;
                 var safeName = (file.name || '').replace(/\|/g, '/');
                 var okMsg = 'ok|' + stored.byteLength + '|' + safeName;
-                TilePackIdbOpen(function (db) {
-                    if (!db) {
-                        TilePackIdbSend(go, method, okMsg);
-                        return;
-                    }
-                    var tx = db.transaction(TilePackIdbState.storeName, 'readwrite');
-                    tx.objectStore(TilePackIdbState.storeName).put(stored, TilePackIdbState.zipKey);
-                    tx.oncomplete = function () {
-                        TilePackIdbSend(go, method, okMsg);
-                    };
-                    tx.onerror = function () {
-                        TilePackIdbSend(go, method, 'error|IndexedDB 写入失败');
-                    };
-                });
+                // Validate in Unity first; a cancelled or invalid import never overwrites a saved pack.
+                TilePackIdbSend(go, method, okMsg);
             };
             reader.onerror = function () {
                 TilePackIdbSend(go, method, 'error|读取文件失败');
             };
             reader.readAsArrayBuffer(file);
+        });
+    },
+
+    TilePackIdbSaveLibraryZip: function (keyPtr, dataPtr, length, goPtr) {
+        var key = UTF8ToString(keyPtr), go = UTF8ToString(goPtr);
+        var stored = TilePackIdbHeap().slice(dataPtr, dataPtr + length).buffer;
+        TilePackIdbOpen(function (db) {
+            if (!db) { TilePackIdbSend(go, 'OnResult', 'error|IndexedDB 不可用，牌组未保存'); return; }
+            try {
+                var tx = db.transaction(TilePackIdbState.storeName, 'readwrite');
+                tx.objectStore(TilePackIdbState.storeName).put(stored, key);
+                tx.oncomplete = function () { TilePackIdbSend(go, 'OnResult', 'ok'); };
+                tx.onabort = function () { TilePackIdbSend(go, 'OnResult', 'error|牌组保存失败'); };
+            } catch (e) { TilePackIdbSend(go, 'OnResult', 'error|' + e.message); }
+        });
+    },
+
+    TilePackIdbLoadLibraryZip: function (keyPtr, goPtr) {
+        var key = UTF8ToString(keyPtr), go = UTF8ToString(goPtr);
+        TilePackIdbOpen(function (db) {
+            if (!db) { TilePackIdbSend(go, 'OnResult', 'error|IndexedDB 不可用'); return; }
+            try {
+                var tx = db.transaction(TilePackIdbState.storeName, 'readonly');
+                var request = tx.objectStore(TilePackIdbState.storeName).get(key);
+                request.onsuccess = function () {
+                    TilePackIdbToBuffer(request.result, function (buffer) {
+                        if (!buffer) { TilePackIdbSend(go, 'OnResult', 'empty'); return; }
+                        TilePackIdbState.zipBytes = buffer;
+                        TilePackIdbSend(go, 'OnResult', 'ok|' + buffer.byteLength);
+                    });
+                };
+                request.onerror = function () { TilePackIdbSend(go, 'OnResult', 'error|读取牌组失败'); };
+            } catch (e) { TilePackIdbSend(go, 'OnResult', 'error|' + e.message); }
         });
     },
 
@@ -416,7 +437,7 @@ var TilePackIndexedDB = {
                     var pending = [];
                     for (var i = 0; i < keys.length; i++) {
                         var key = String(keys[i]);
-                        if (key === TilePackIdbState.zipKey) {
+                        if (key === TilePackIdbState.zipKey || key.indexOf('tilepack/') === 0) {
                             continue;
                         }
                         pending.push({ key: key, value: vals[i] });
@@ -445,7 +466,7 @@ var TilePackIndexedDB = {
                 var cursor = event.target.result;
                 if (cursor) {
                     var key = String(cursor.key);
-                    if (key !== TilePackIdbState.zipKey) {
+                    if (key !== TilePackIdbState.zipKey && key.indexOf('tilepack/') !== 0) {
                         pending.push({ key: key, value: cursor.value });
                     }
                     cursor.continue();

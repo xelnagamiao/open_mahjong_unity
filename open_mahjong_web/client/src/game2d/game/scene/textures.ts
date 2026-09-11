@@ -16,6 +16,10 @@ export function isBlackTileFaceTheme(): boolean {
   return tileFaceTheme === 'black'
 }
 
+export function isUnityFlowerFace(tid: number): boolean {
+  return flowerFaceTheme === 'unity' && isFlowerFaceId(Number(tileIdToAlias(tid)))
+}
+
 /** Ensure all tile textures are loaded. Safe to call multiple times. */
 export function ensureTexturesLoaded(): Promise<void> {
   if (loaded) return Promise.resolve()

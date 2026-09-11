@@ -100,6 +100,8 @@
         <h3 class="section-title">{{ dailyTitle }}</h3>
         <div class="filter-row">
           <el-date-picker
+            popper-class="compact-date-range-popper"
+            :popper-options="{ modifiers: [{ name: 'preventOverflow', options: { altAxis: true, padding: 12 } }] }"
             v-model="dateRange"
             type="daterange"
             range-separator="至"
@@ -207,6 +209,7 @@
           v-model:page-size="recordsPage.size"
           :total="recentTotal"
           :page-sizes="[20, 50]"
+          :pager-count="5"
           layout="prev, pager, next, sizes, total"
           small
           background
@@ -709,7 +712,8 @@ onBeforeUnmount(() => {
   gap: 8px;
   align-items: center;
 }
-.filter-daterange { width: 240px; }
+.filter-row :deep(.filter-daterange) { width: 260px !important; flex: 0 0 260px; min-width: 0; max-width: 100%; }
+.filter-row :deep(.filter-daterange .el-range-input) { min-width: 0; }
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -799,5 +803,16 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: flex-end;
   margin-top: 10px;
+}
+.records-foot :deep(.el-pagination) { flex-wrap: wrap; row-gap: 8px; max-width: 100%; }
+@media (max-width: 720px) {
+  .section-card { padding: 12px; }
+  .tier-group { display: flex; flex-wrap: wrap; row-gap: 6px; max-width: 100%; }
+  .tier-group :deep(.el-radio-button__inner) { padding-left: 10px; padding-right: 10px; }
+  .filter-row { width: 100%; }
+  .filter-row :deep(.filter-daterange) { width: 100% !important; flex-basis: 100%; }
+  .filter-row > .el-button + .el-button { margin-left: 0; }
+  .records-foot { justify-content: flex-start; }
+  .records-foot :deep(.el-pagination) { justify-content: flex-start; }
 }
 </style>

@@ -1,5 +1,5 @@
 <template>
-  <div v-loading="!auth.loaded" class="account-page">
+  <div v-loading="!auth.loaded" class="account-page" :class="{ 'account-page--manage': isManageSection }">
     <el-empty v-if="auth.loaded && !auth.isLoggedIn" description="您尚未登录">
       <el-button type="primary" @click="$router.push('/login?redirect=/account')">去登录</el-button>
     </el-empty>
@@ -199,7 +199,7 @@
 
         <el-divider content-position="left">申请记录</el-divider>
         <div class="fit-table-wrap">
-          <el-table :data="visibleApplications" size="small" empty-text="暂无申请记录" class="fit-table">
+          <el-table :data="visibleApplications" size="small" empty-text="暂无申请记录" class="fit-table" scrollbar-always-on>
             <el-table-column prop="name" label="名称" min-width="140" />
             <el-table-column label="拟定时间" min-width="150">
               <template #default="{ row }">{{ formatPlannedRange(row) }}</template>
@@ -218,7 +218,7 @@
             <el-table-column label="提交时间" width="160">
               <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="190" fixed="right">
+            <el-table-column label="操作" width="190">
               <template #default="{ row }">
                 <el-button link type="primary" @click="previewApplication(row)">预览</el-button>
                 <el-button
@@ -703,6 +703,12 @@ async function submitApplication() {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
+  margin-left: max(0px, calc((100% - 1100px) / 3));
+  margin-right: auto;
+}
+.account-page--manage {
+  max-width: none;
+  margin-left: 0;
 }
 .block {
   margin-bottom: 16px;

@@ -4,6 +4,7 @@ public partial class NormalGameStateManager {
     /// 族私有状态由 RuleRegistry.ClearCurrent → IGameState.OnSessionReset 清理。
     /// </summary>
     public void ResetForExit() {
+        GameSceneUIManager.ResetRealtimeSpectatorUi();
         TurnClock.Current.ResetForExit(); // 含 AutoActionPolicy.Cancel 与切牌约束
         IsGameActive = false;
         awaitingMatchEnd = false;

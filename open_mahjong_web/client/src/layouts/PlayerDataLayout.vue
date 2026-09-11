@@ -97,6 +97,7 @@
   color: #54585f;
   text-decoration: none;
   padding: 4px 8px;
+  white-space: nowrap;
 }
 .pd-back:hover {
   color: #1f2329;
@@ -108,12 +109,27 @@
   min-width: 0;
 }
 @media (max-width: 720px) {
-  .pd-topbar-inner { height: auto; min-height: 48px; padding-top: 8px; padding-bottom: 8px; }
+  .pd-topbar-inner {
+    height: auto;
+    min-height: 48px;
+    padding: 8px 12px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+  .pd-brand { display: contents; }
+  .pd-brand-title { grid-column: 1; grid-row: 1; }
+  .pd-brand-sub { display: none; }
+  .pd-topnav { grid-column: 2; grid-row: 1; }
   .pd-section-nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
     margin-left: 0;
     padding-left: 0;
     border-left: none;
     width: 100%;
   }
+  .pd-nav-link { white-space: nowrap; }
+  .pd-main { padding-left: 12px; padding-right: 12px; }
 }
 </style>

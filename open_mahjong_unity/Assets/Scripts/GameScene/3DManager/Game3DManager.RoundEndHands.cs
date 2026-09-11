@@ -241,7 +241,7 @@ public partial class Game3DManager {
     private Vector3 GetTsumoSpawnWorldPosition(string playerPosition, Transform cardsPosition) {
         GetRecordHandLayoutDirections(playerPosition, out Vector3 widthDir, out _);
         int childCount = cardsPosition.childCount;
-        return cardsPosition.position + (childCount + 1) * cardWidth * widthDir;
+        return PlaceTileOnTable(cardsPosition.position + HandDrawSlotOffset(childCount) * widthDir, RecordHandTileRotation(playerPosition));
     }
     private Vector3 GetRecordHandSlotWorldPosition(string playerPosition, Transform cardsPosition, int slotIndex) {
         GetRecordHandLayoutDirections(playerPosition, out Vector3 widthDir, out Vector3 heightDir);
@@ -251,8 +251,8 @@ public partial class Game3DManager {
         float colOffset = ComputeRowCenterOffset(cardsPosition, row, col, cardsPerRow, false, useHandSpacing: true);
         Vector3 pos = cardsPosition.position;
         pos += widthDir.normalized * colOffset;
-        pos += heightDir.normalized * cardHeight * row;
-        return pos;
+        pos += heightDir.normalized * handRowStep * row;
+        return PlaceTileOnTable(pos, RecordHandTileRotation(playerPosition));
     }
     private void GetRecordHandLayoutDirections(string playerPosition, out Vector3 widthDir, out Vector3 heightDir) {
         if (playerPosition == "self") {
@@ -272,20 +272,33 @@ public partial class Game3DManager {
             heightDir = RightDirection;
         }
     }
-    private static IEnumerator CoLerpTransform(Transform t, Vector3 fromPos, Quaternion fromRot, Vector3 toPos, Quaternion toRot, float duration) {
+    private IEnumerator CoLerpTransform(Transform t, Vector3 fromPos, Quaternion fromRot, Vector3 toPos, Quaternion toRot, float duration) {
         if (t == null) yield break;
+        Transform expectedParent = t.parent;
+        Tile3D tileState = t.GetComponent<Tile3D>();
+        uint lease = tileState != null ? tileState.PoolLeaseVersion : 0;
+        if (!CanDriveTileTravel(t, expectedParent, tileState, lease)) yield break;
         if (duration <= 0f) {
-            t.SetPositionAndRotation(toPos, toRot);
+            t.SetPositionAndRotation(KeepMovingTileAboveTable(t, toPos, toRot), toRot);
             yield break;
         }
         float elapsed = 0f;
         while (elapsed < duration) {
+            if (!CanDriveTileTravel(t, expectedParent, tileState, lease)) yield break;
             elapsed += Time.deltaTime;
             float u = Mathf.Clamp01(elapsed / duration);
-            t.SetPositionAndRotation(Vector3.Lerp(fromPos, toPos, u), Quaternion.Slerp(fromRot, toRot, u));
+            Quaternion rotation = Quaternion.Slerp(fromRot, toRot, u);
+            Vector3 position = KeepMovingTileAboveTable(t, Vector3.Lerp(fromPos, toPos, u), rotation);
+            t.SetPositionAndRotation(position, rotation);
             yield return null;
         }
-        t.SetPositionAndRotation(toPos, toRot);
+        if (!CanDriveTileTravel(t, expectedParent, tileState, lease)) yield break;
+        t.SetPositionAndRotation(KeepMovingTileAboveTable(t, toPos, toRot), toRot);
+    }
+
+    private static bool CanDriveTileTravel(Transform tile, Transform expectedParent, Tile3D state, uint lease) {
+        return IsCardDrivable(tile, expectedParent) && tile.parent == expectedParent
+            && (state == null || state.PoolLeaseVersion == lease);
     }
     private void ClearHandCardsPosition(Transform cardsPosition) {
         if (cardsPosition == null) return;
@@ -298,11 +311,13 @@ public partial class Game3DManager {
     private void PlayHandRevealAnimation(PosPanel3D panel) {
         if (panel.handRevealAnimator == null || string.IsNullOrEmpty(panel.handRevealExpandTrigger)) return;
         Animator anim = panel.handRevealAnimator;
+        BeginHandSurfacePlacement(panel);
         anim.ResetTrigger(panel.handRevealExpandTrigger);
         anim.SetTrigger(panel.handRevealExpandTrigger);
     }
     private void ForceHandRevealIdle(PosPanel3D panel) {
         if (panel == null || panel.handRevealAnimator == null) return;
+        ResetHandSurfacePlacement(panel);
         Animator anim = panel.handRevealAnimator;
         anim.enabled = true;
         if (!string.IsNullOrEmpty(panel.handRevealExpandTrigger)) {

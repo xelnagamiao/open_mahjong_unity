@@ -176,6 +176,7 @@
       append-to-body
     >
       <div class="match-help-content">
+        <p>九段满 7000 PT 升十段。十段固定 100 / 100 PT，不再升降段，所有场次、局制和名次的 PT 变化均为 0；下方场得规则适用于十段之前。</p>
         <el-tabs v-model="activeHelpTier" class="match-help-tabs">
           <el-tab-pane
             v-for="tier in MATCH_HELP_TIERS"
@@ -271,7 +272,7 @@ import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { getPlayerToken } from '@/api/playerClient'
 import { leaderboardUrl, publicApiGet, queueStatusUrl } from '@/game2d/salasasa/api'
 import { salasasaClient } from '@/game2d/salasasa/client'
-import { getRankEntry } from '@/constants/rankTable'
+import { getRankEntry, getPromotionProgress } from '@/constants/rankTable'
 import { tr } from '@/i18n'
 import CustomRoomPanel from './CustomRoomPanel.vue'
 import LobbyRecordPanel from './LobbyRecordPanel.vue'
@@ -359,6 +360,7 @@ const RANK_LOSS_ROWS = [
   { rank: '七段', loss: 135 },
   { rank: '八段', loss: 165 },
   { rank: '九段', loss: 180 },
+  { rank: '十段（固定 PT）', loss: 0 },
 ]
 
 const router = useRouter()
@@ -431,8 +433,9 @@ function formatPt(value) {
 }
 
 function formatRankPt(row) {
-  const current = formatPt(row?.guobiao_score)
-  const target = getRankEntry(row?.guobiao_rank)?.promoteScore
+  const progress = getPromotionProgress(row?.guobiao_rank, row?.guobiao_score)
+  const current = formatPt(progress?.current ?? row?.guobiao_score)
+  const target = progress?.target
   return target == null ? current : `${current}/${formatPt(target)}`
 }
 

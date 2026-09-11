@@ -92,6 +92,7 @@ public partial class NormalGameStateManager {
 
     // 游戏结束
     public void GameEnd(string master_seed, string commitment, string salt, Dictionary<string, Dictionary<string, object>> player_final_data){
+        GameSceneUIManager.ResetRealtimeSpectatorUi();
         // 重置自身命令
         TurnClock.Current.Clear("GameEnd");
         IsGameActive = false;

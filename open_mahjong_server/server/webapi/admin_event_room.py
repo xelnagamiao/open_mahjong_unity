@@ -27,7 +27,24 @@ class AdminEventSeatBody(BaseModel):
     created_by: Optional[int] = None
 
 
+class AdminEventAutoMatchRefreshBody(BaseModel):
+    event_id: str = Field(..., min_length=1)
+
+
 def register_admin_event_room_routes(app: FastAPI, game_server) -> None:
+    @app.get("/admin/event/auto-match")
+    async def admin_event_auto_match_status(event_id: str = Query(..., min_length=1)):
+        if not game_server.db_manager.get_event(event_id):
+            raise HTTPException(status_code=404, detail="场馆不存在")
+        return {"success": True, "runtime": game_server.event_auto_matcher.status(event_id)}
+
+    @app.post("/admin/event/auto-match/refresh")
+    async def admin_event_auto_match_refresh(body: AdminEventAutoMatchRefreshBody):
+        if not game_server.db_manager.get_event(body.event_id):
+            raise HTTPException(status_code=404, detail="场馆不存在")
+        game_server.event_auto_matcher.wake()
+        return {"success": True, "runtime": game_server.event_auto_matcher.status(body.event_id)}
+
     @app.post("/admin/event/rooms/create")
     async def admin_event_room_create(body: AdminEventRoomCreateBody):
         try:

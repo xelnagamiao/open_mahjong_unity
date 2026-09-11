@@ -35,6 +35,9 @@
   cursor: default;
 }
 
+/* Avoid inline-canvas baseline gaps feeding back into Pixi's auto-height resize. */
+.replay-board > .game-stage > canvas { display: block; }
+
 .replay-sidebar {
   display: flex;
   flex-direction: column;
@@ -419,7 +422,7 @@
   background: rgba(255, 0, 0, 0.39);
 }
 .replay-wall__row > span.is-predicted:not(.is-danger)::after {
-  background: rgba(0, 125, 255, 0.39);
+  background: rgba(0, 125, 255, 0.31);
 }
 .replay-wall__hand-tiles img,
 .replay-wall__row img { width: 86%; height: 86%; object-fit: contain; }

@@ -43,7 +43,7 @@ class GameStateManager:
         # 用户ID到游戏状态的映射（用于快速查找玩家所在的活跃游戏）
         self.user_id_to_game_state: Dict[int, Any] = {}
     
-    async def start_game(self, Connect_id: str, room_id: str) -> Optional[Response]:
+    async def start_game(self, Connect_id: str, room_id: str, *, event_auto_start: bool = False) -> Optional[Response]:
         """
         开始游戏
         
@@ -59,14 +59,22 @@ class GameStateManager:
             return Response(type="error_message", success=False, message="房间不存在")
             
         room_data = self.game_server.room_manager.rooms[room_id]
+        if room_data.get("event_seating_pending") and not event_auto_start:
+            return Response(type="error_message", success=False, message="自动匹配正在安排入座，请稍候")
         
         # 检查是否是房主
         player = self.game_server.players[Connect_id]
         if player.user_id != room_data["player_list"][0]:
             return Response(type="error_message", success=False, message="只有房主能开始游戏")
             
-        # 检查人数是否满足
-        if len(room_data["player_list"]) != 4:
+        # 检查人数是否满足：默认满 4 人；房间可声明 min_players_to_start（自由模式为 1）
+        try:
+            min_players = int(room_data.get("min_players_to_start", 4) or 4)
+        except (TypeError, ValueError):
+            min_players = 4
+        if min_players < 1:
+            min_players = 1
+        if len(room_data["player_list"]) < min_players:
             return Response(type="error_message", success=False, message="人数不足")
 
         # 检查除房主外的所有玩家是否都已准备（机器人默认已准备）

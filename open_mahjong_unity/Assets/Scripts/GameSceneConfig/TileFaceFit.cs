@@ -8,10 +8,14 @@ using UnityEngine.UI;
 public static class TileFaceFit {
     public const float DefaultSlotWidth = 97.3438f;
 
-    public static bool ApplyHandLayers(RectTransform root, Image faceImage, Image backgroundImage, int tileId) {
+    public static bool ApplyHandLayers(RectTransform root, Image faceImage, ref Image backgroundImage, int tileId) {
         Sprite face = TileFaceResolver.LoadSprite(tileId);
         bool layered = TileFaceResolver.ShouldLayerHandFace(tileId);
         Sprite background = layered ? TileFaceResolver.LoadHandBackground() : null;
+        if (layered && background != null && backgroundImage == null && faceImage != null) {
+            // 兼容主场景中旧的 StaticCard 实例：它们还没有绑定牌体底图。
+            backgroundImage = CreateHandBackground(faceImage);
+        }
         bool showBackground = layered && background != null && backgroundImage != null;
         if (backgroundImage != null) {
             backgroundImage.enabled = showBackground;
@@ -19,15 +23,36 @@ public static class TileFaceFit {
             if (showBackground) {
                 backgroundImage.sprite = background;
                 backgroundImage.preserveAspect = true;
+                backgroundImage.useSpriteMesh = false;
             }
         }
         if (faceImage != null && face != null) {
             faceImage.sprite = face;
             faceImage.preserveAspect = true;
+            faceImage.useSpriteMesh = false;
         }
         Sprite fit = showBackground ? background : face;
         ApplyFixedWidth(root, faceImage, fit);
         return face != null;
+    }
+
+    private static Image CreateHandBackground(Image faceImage) {
+        RectTransform face = faceImage.rectTransform;
+        var go = new GameObject("FaceBackground", typeof(RectTransform), typeof(Image));
+        go.layer = faceImage.gameObject.layer;
+        var rect = (RectTransform)go.transform;
+        rect.SetParent(face.parent, false);
+        rect.anchorMin = face.anchorMin;
+        rect.anchorMax = face.anchorMax;
+        rect.pivot = face.pivot;
+        rect.anchoredPosition3D = face.anchoredPosition3D;
+        rect.sizeDelta = face.sizeDelta;
+        rect.localRotation = face.localRotation;
+        rect.localScale = face.localScale;
+        rect.SetSiblingIndex(face.GetSiblingIndex());
+        var image = go.GetComponent<Image>();
+        image.raycastTarget = false;
+        return image;
     }
 
     public static void ApplyFixedWidth(RectTransform root, Image image, Sprite sprite) {

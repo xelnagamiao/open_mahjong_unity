@@ -127,6 +127,7 @@ public partial class Game3DManager : MonoBehaviour
                 // 叠在碰横牌桌心侧：两横牌短边相对，中心距 = cardWidth
                 TempPositionpoint += JiagangDirection * cardWidth;
 
+                TempPositionpoint = PlaceTileOnTable(TempPositionpoint, TempRotation);
                 GameObject cardObj = MahjongObjectPool.Instance.Spawn(jiagangTileId, TempPositionpoint, TempRotation);
                 if (cardObj == null)
                 {
@@ -197,6 +198,7 @@ public partial class Game3DManager : MonoBehaviour
                 pengToJiagangPosDict[pengDictKey] = TempPositionpoint;
             }
 
+            TempPositionpoint = PlaceTileOnTable(TempPositionpoint, TempRotation);
             int tileId = SetTileList[i];
             GameObject cardObj;
             if (tileId == 0) {
@@ -336,6 +338,7 @@ public partial class Game3DManager : MonoBehaviour
                 lastPlacedSlot = slotWidth;
 
                 int tileId = tileList[i];
+                tilePosition = PlaceTileOnTable(tilePosition, tileRotation);
                 GameObject cardObj = MahjongObjectPool.Instance.Spawn(tileId, tilePosition, tileRotation);
                 if (cardObj == null) {
                     Debug.LogError($"无法从对象池获取牌: {tileId}");

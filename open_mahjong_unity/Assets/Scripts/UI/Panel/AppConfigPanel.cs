@@ -34,6 +34,7 @@ public class AppConfigPanel : MonoBehaviour {
     [Header("提示音效")]
     [SerializeField] private TMP_Dropdown gongHuSoundDropdown;
     [SerializeField] private TMP_Dropdown matchSuccessSoundDropdown;
+    // Keep the serialized reference; this control is now a read-only comic style label.
     [SerializeField] private TMP_Dropdown tileOutlinePresetDropdown;
 
     private void Awake() {
@@ -61,7 +62,6 @@ public class AppConfigPanel : MonoBehaviour {
         vsyncDropdown.onValueChanged.AddListener(OnVsyncDropdownChanged);
         gongHuSoundDropdown.onValueChanged.AddListener(OnGongHuSoundDropdownChanged);
         matchSuccessSoundDropdown.onValueChanged.AddListener(OnMatchSuccessSoundDropdownChanged);
-        tileOutlinePresetDropdown.onValueChanged.AddListener(OnTileOutlinePresetDropdownChanged);
     }
 
     private void OnEnable() {
@@ -114,7 +114,10 @@ public class AppConfigPanel : MonoBehaviour {
         matchSuccessSoundDropdown.ClearOptions();
         matchSuccessSoundDropdown.AddOptions(new List<string> { "关", "开" });
         tileOutlinePresetDropdown.ClearOptions();
-        tileOutlinePresetDropdown.AddOptions(new List<string>(ConfigManager.TileOutlinePresetLabels));
+        tileOutlinePresetDropdown.AddOptions(new List<string> { "漫画" });
+        tileOutlinePresetDropdown.SetValueWithoutNotify(0);
+        tileOutlinePresetDropdown.interactable = false;
+        tileOutlinePresetDropdown.RefreshShownValue();
     }
 
     private void SyncGameplayDropdownsFromConfig() {
@@ -155,8 +158,6 @@ public class AppConfigPanel : MonoBehaviour {
         gongHuSoundDropdown.RefreshShownValue();
         matchSuccessSoundDropdown.SetValueWithoutNotify(ConfigManager.Instance.MatchSuccessSoundEnabled ? 1 : 0);
         matchSuccessSoundDropdown.RefreshShownValue();
-        tileOutlinePresetDropdown.SetValueWithoutNotify(ConfigManager.Instance.TileOutlinePreset - 1);
-        tileOutlinePresetDropdown.RefreshShownValue();
     }
 
     private void OnWhiteDragonFaceDropdownChanged(int value) {
@@ -225,10 +226,6 @@ public class AppConfigPanel : MonoBehaviour {
 
     private void OnMatchSuccessSoundDropdownChanged(int value) {
         ConfigManager.Instance.SetMatchSuccessSoundEnabled(value == 1);
-    }
-
-    private void OnTileOutlinePresetDropdownChanged(int value) {
-        ConfigManager.Instance.SetTileOutlinePresetFromDropdown(value);
     }
 
     private void OnLanguageDropdownChanged(int value) {

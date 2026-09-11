@@ -46,13 +46,19 @@ public static class CardBackManager
         for (int i = 0; i < tiles.Length; i++)
         {
             Tile3D tile = tiles[i];
-            if (tile != null) apply(tile);
+            if (tile != null) {
+                apply(tile);
+                Card3DHoverManager.Instance?.RefreshCardVisual(tile.gameObject);
+            }
         }
         if (MahjongObjectPool.Instance == null) return;
         MahjongObjectPool.Instance.ForEachPooledTile(pooled =>
         {
             Tile3D pooledTile = MahjongObjectPool.GetTile3D(pooled);
-            if (pooledTile != null) apply(pooledTile);
+            if (pooledTile != null) {
+                apply(pooledTile);
+                Card3DHoverManager.Instance?.RefreshCardVisual(pooledTile.gameObject);
+            }
         });
     }
 
@@ -91,6 +97,8 @@ public static class CardBackManager
         mat.SetTexture("_FrontBgTex", CurrentTableBackground);
         mat.SetFloat("_FrontBgBlend", useBg ? 1f : 0f);
         mat.SetFloat("_FrontBgTexAspect", aspect);
+        mat.SetFloat("_TableFaceAspect", TileTextureLayout.TableAspect);
+        mat.SetFloat("_TableFaceImageScale", mat.name.StartsWith("Hongque_") ? 1f : TileTextureLayout.TableImageScale);
         mat.SetFloat("_TableBgCoverFace", coverFace ? 1f : 0f);
         mat.SetFloat("_FrontTexExtendEdge", 0f);
         mat.SetColor("_TableFaceColor",
@@ -113,6 +121,7 @@ public static class CardBackManager
             && CurrentTableBackground != null
             && !useSolid;
         tile.ApplyFrontBgVisual(showBg ? CurrentTableBackground : null);
+        Card3DHoverManager.Instance?.RefreshCardVisual(tile.gameObject);
     }
 
     private static void ApplyInstanceVisualsToAllTiles()
@@ -428,13 +437,17 @@ public static class CardBackManager
         TileFaceResolver.NotifyTableBackgroundChanged();
     }
 
-    /// <summary>把上传 3D 牌面背景的宽高比写入共享材质，shader 据此按 220:366 比例压缩 UV。</summary>
+    /// <summary>原图与当前 UV 画布的比例同步到共享材质，普通模式完整等比居中。</summary>
     private static void ApplyTableBackgroundAspect(Texture2D tex)
     {
         float aspect = (tex != null && tex.height > 0)
             ? (float)tex.width / tex.height
             : 0f;
-        ForEachVisualMaterial(mat => mat.SetFloat("_FrontBgTexAspect", aspect));
+        ForEachVisualMaterial(mat => {
+            mat.SetFloat("_FrontBgTexAspect", aspect);
+            mat.SetFloat("_TableFaceAspect", TileTextureLayout.TableAspect);
+            mat.SetFloat("_TableFaceImageScale", mat.name.StartsWith("Hongque_") ? 1f : TileTextureLayout.TableImageScale);
+        });
     }
 
     public static void ClearPersistedTableBackground()

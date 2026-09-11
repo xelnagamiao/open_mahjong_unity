@@ -11,12 +11,14 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
     public static CardFaceBackgroundPanel Instance { get; private set; }
 
     public const string FormatHelp =
-        "手牌牌面背景：2D 牌体（含顶部牌沿），建议 272×389。\n"
+        "手牌牌面背景：2D 牌体（含顶部牌沿），" + TileTextureLayout.HandRecommendation + "。\n"
+        + "3D 牌面背景：" + TileTextureLayout.TableRecommendation + "，其他尺寸也可上传。\n"
+        + "普通模式完整等比居中；选择「铺满/延伸」时才拉伸覆盖牌面与牌边。\n"
         + "手牌牌背：2D 暗面图样（里宝牌未翻开等），不是 3D 牌背。\n"
         + "也可上传 zip：hand-back.png + hand-bg.png。\n"
-        + "3D 牌背颜色请到「牌背」页设置。\n"
+        + "3D 牌背颜色请到「3D 卡牌设计」的「牌背」标签设置。\n"
         + "3D 牌面纯色与「使用 3D 牌面背景」互斥，开启后花纹仍保留、底色换成所选颜色。\n"
-        + "透明花纹牌面请在「牌面」页打开「使用牌面背景」，整图牌面请关闭。";
+        + "透明牌面自动叠加手牌背景；背景与牌背独立上传和恢复，不随牌组切换。";
 
     private const string ImageAccept = "image/png,image/jpeg,image/jpg,image/webp,application/zip,.zip";
 
@@ -44,6 +46,8 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
     [SerializeField] private Button noTableFaceSolidButton;
     [SerializeField] private Button restoreTableFaceColorButton;
     [SerializeField] private TMP_Text helpText;
+    [SerializeField] private Button useTableBackgroundButton;
+    [SerializeField] private Button noTableBackgroundButton;
 
     private enum PickMode { HandBg, CardBack, TableBg, Pair }
 
@@ -51,9 +55,11 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
     private Sprite handBgSprite;
     private Sprite cardBackSprite;
     private Sprite tableBgSprite;
+    private Image tableBgArtwork;
     private bool syncingTableFaceColor;
 
     private void Awake() {
+        if (helpText != null) helpText.text = FormatHelp;
         Instance = this;
         uploadHandBgButton.onClick.AddListener(() => OpenPicker(PickMode.HandBg));
         uploadCardBackButton.onClick.AddListener(() => OpenPicker(PickMode.CardBack));
@@ -67,6 +73,10 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         useTableFaceSolidButton.onClick.AddListener(() => SetTableFaceSolid(true));
         noTableFaceSolidButton.onClick.AddListener(() => SetTableFaceSolid(false));
         restoreTableFaceColorButton.onClick.AddListener(RestoreTableFaceColor);
+        if (useTableBackgroundButton != null)
+            useTableBackgroundButton.onClick.AddListener(() => SetTableBackground(true));
+        if (noTableBackgroundButton != null)
+            noTableBackgroundButton.onClick.AddListener(() => SetTableBackground(false));
         tableFaceSliderR.onValueChanged.AddListener(v => SetTableFaceRgb(v / 255f, CurrentTableFaceColor.g, CurrentTableFaceColor.b));
         tableFaceSliderG.onValueChanged.AddListener(v => SetTableFaceRgb(CurrentTableFaceColor.r, v / 255f, CurrentTableFaceColor.b));
         tableFaceSliderB.onValueChanged.AddListener(v => SetTableFaceRgb(CurrentTableFaceColor.r, CurrentTableFaceColor.g, v / 255f));
@@ -228,8 +238,41 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
     private void RefreshPreviews() {
         AssignPreview(handBgPreview, ref handBgSprite, ResolveHandBgTexture());
         AssignPreview(cardBackPreview, ref cardBackSprite, ResolveHandBackTexture());
-        AssignPreview(tableBgPreview, ref tableBgSprite, ResolveTableBgTexture());
+        EnsureTableBackgroundPreview();
+        AssignPreview(tableBgArtwork, ref tableBgSprite, ResolveTableBgTexture());
         RefreshSolidColorUi();
+    }
+
+    private void EnsureTableBackgroundPreview() {
+        if (tableBgArtwork != null) return;
+        RectTransform frame = tableBgPreview.rectTransform;
+        Vector2 available = frame.rect.size;
+        Vector2 fitted = TileTextureLayout.FitTableCanvas(available);
+        // 保留原预览区域中心；只在区域内按当前牌面画布比例建立底色框。
+        frame.anchoredPosition += Vector2.Scale(fitted - available, frame.pivot - Vector2.one * .5f);
+        frame.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, fitted.x);
+        frame.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, fitted.y);
+        tableBgPreview.sprite = null;
+        tableBgPreview.preserveAspect = false;
+        GameObject artwork = new GameObject("TableBackgroundArtwork", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        artwork.layer = tableBgPreview.gameObject.layer;
+        artwork.transform.SetParent(frame, false);
+        tableBgArtwork = artwork.GetComponent<Image>();
+        tableBgArtwork.raycastTarget = false;
+        RectTransform content = tableBgArtwork.rectTransform;
+        content.anchorMin = Vector2.zero;
+        content.anchorMax = Vector2.one;
+        content.offsetMin = content.offsetMax = Vector2.zero;
+    }
+
+    private void RefreshTableBackgroundPreviewLayout() {
+        EnsureTableBackgroundPreview();
+        tableBgPreview.color = TileFaceResolver.TablePreviewBaseColor;
+        tableBgArtwork.enabled = tableBgArtwork.sprite != null;
+        CardEdgePanel.FrontEdgeMode mode = ConfigManager.Instance != null
+            ? ConfigManager.Instance.FrontEdgeMode : CardBackManager.FrontEdgeMode;
+        // 此缩略图展示已保存的背景：普通模式等比留边，明确拉伸模式铺满。
+        tableBgArtwork.preserveAspect = mode != CardEdgePanel.FrontEdgeMode.FollowTableBg;
     }
 
     private static Texture2D ResolveHandBgTexture() {
@@ -254,6 +297,7 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         : ConfigManager.DefaultTableFaceColor;
 
     public void RefreshSolidColorUi() {
+        RefreshTableBackgroundPreviewLayout();
         Color color = CurrentTableFaceColor;
         bool useSolid = ConfigManager.Instance != null && ConfigManager.Instance.TableFaceUseSolidColor;
         tableFaceColorPreview.sprite = null;
@@ -261,6 +305,9 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         tableFaceHexInput.text = ColorUtility.ToHtmlStringRGB(color);
         SetSolidButton(useTableFaceSolidButton, useSolid);
         SetSolidButton(noTableFaceSolidButton, !useSolid);
+        bool useBackground = ConfigManager.Instance != null && ConfigManager.Instance.UseTableFaceBackground;
+        if (useTableBackgroundButton != null) SetSolidButton(useTableBackgroundButton, useBackground);
+        if (noTableBackgroundButton != null) SetSolidButton(noTableBackgroundButton, !useBackground);
         syncingTableFaceColor = true;
         tableFaceSliderR.value = color.r * 255f;
         tableFaceSliderG.value = color.g * 255f;
@@ -295,6 +342,12 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         if (CardFaceConfigPanel.Instance != null) {
             CardFaceConfigPanel.Instance.RefreshHighlights();
         }
+    }
+
+    private void SetTableBackground(bool enabled) {
+        CardBackManager.SetTableFaceBackgroundEnabled(enabled);
+        RefreshSolidColorUi();
+        if (CardFaceConfigPanel.Instance != null) CardFaceConfigPanel.Instance.RefreshHighlights();
     }
 
     private void RestoreTableFaceColor() {

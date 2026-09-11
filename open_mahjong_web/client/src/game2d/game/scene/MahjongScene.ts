@@ -41,7 +41,6 @@ export type { WaitInfoData, AssistSettings }
 const DUANG_CUTOFF = 32
 const AUTO_WIN_DELAY_MS = 1600
 const AUTO_DISCARD_DELAY_MS = 500
-const PASS_DEBOUNCE_MS = 200
 
 type ViewerSyncContext = {
   category: string
@@ -149,9 +148,7 @@ export class MahjongScene {
   private currentViewerActions: Array<Record<string, any>> = []
   private currentPendingStatus = 'none'
   private inputEnabled = false
-  private pendingPassAckStageCounter: number | null = null
   private openingReplacementTile: Tile | null = null
-  private lastPassAttemptAtMs = 0
   private roundEnded = false
   private scoreDifferenceVisible = false
   private scoreDifferenceTimeout: ReturnType<typeof setTimeout> | null = null
@@ -423,7 +420,6 @@ export class MahjongScene {
   destroy(): void {
     this.destroyed = true
     this.mountGeneration += 1
-    this.pendingPassAckStageCounter = null
     if (this.resizeFrame !== null) {
       window.cancelAnimationFrame(this.resizeFrame)
       this.resizeFrame = null
@@ -548,7 +544,6 @@ export class MahjongScene {
   suspendForVote(): void {
     this.currentPendingStatus = 'none'
     this.currentViewerActions = []
-    this.pendingPassAckStageCounter = null
     this.clearPendingChoicesTimeout()
     this.clearAutoActionTimeout()
     this.clearMeldChoices()
@@ -726,29 +721,37 @@ export class MahjongScene {
   }
 
   private sendGameInput(payload: Record<string, unknown>): void {
-    if (this.currentStageCounter <= 0) return
+    if (this.currentStageCounter <= 0 || !this.canAct() || !this.hasAction(String(payload.kind))) return
+    // Salasasa consumes this ask on submission and does not send pass_ack.
+    // Clear before sending so a bubbling pointer event cannot submit a second
+    // action (for example chow followed by the double-click pass shortcut).
+    this.clearViewerDecision()
     this.sendToServer('game.input', {
       ...payload,
       stage_counter: this.currentStageCounter,
     })
   }
 
-  private requestPassAction(applyDebounce: boolean = true): void {
-    const now = Date.now()
-    if (this.currentStageCounter <= 0) return
-    if (applyDebounce && now - this.lastPassAttemptAtMs < PASS_DEBOUNCE_MS) return
-    this.lastPassAttemptAtMs = now
-    this.pendingPassAckStageCounter = this.currentStageCounter
+  private requestPassAction(): void {
+    // A tactical recheck is a new ask and may be answered immediately.
     this.sendGameInput({ kind: 'pass' })
+  }
+
+  private clearViewerDecision(): void {
+    this.currentPendingStatus = 'none'
+    this.currentViewerActions = []
+    this.clearPendingChoicesTimeout()
+    this.clearAutoActionTimeout()
+    this.clearMeldChoices()
+    this.countdown.stop()
+    this.hands[0].unwaitDiscard()
   }
 
   private syncDecisionTimer(viewer: Record<string, any>): void {
     const dt = typeof viewer.decision_timer_ms === 'number' ? viewer.decision_timer_ms : null
     if (this.canAct() && dt !== null && dt > 0) {
       this.countdown.onExpire = () => {
-        this.inputEnabled = false
-        this.clearMeldChoices()
-        this.hands[0].unwaitDiscard()
+        this.clearViewerDecision()
       }
       this.countdown.setTimeMillis(dt, this.currentStageCounter)
       this.countdown.visible = true
@@ -845,7 +848,7 @@ export class MahjongScene {
       this.clearMeldChoices()
       this.hands[0].unwaitDiscard()
       this.waitDisplay.visible = false
-      this.requestPassAction(false)
+      this.requestPassAction()
       return true
     }
     this.clearAutoActionTimeout()
@@ -1109,21 +1112,6 @@ export class MahjongScene {
 
     this.syncDecisionTimer(viewer)
     this.applyViewerInteractions(reactionTile, context)
-  }
-
-  handlePassAck(payload: { stage_counter?: number | null }): void {
-    if (!this.mounted) return
-    const stageCounter = typeof payload.stage_counter === 'number' ? payload.stage_counter : null
-    if (stageCounter === null || stageCounter !== this.currentStageCounter) return
-    if (this.pendingPassAckStageCounter !== stageCounter) return
-
-    this.pendingPassAckStageCounter = null
-    this.currentPendingStatus = 'slept'
-    this.currentViewerActions = []
-    this.inputEnabled = false
-    this.countdown.stop()
-    this.clearMeldChoices()
-    this.hands[0].unwaitDiscard()
   }
 
   showRatingUpdate(message: string): void {
@@ -1542,7 +1530,6 @@ export class MahjongScene {
 
     const { viewer, seats, state } = snapshot
     const revealAllHands = Boolean(snapshot.reveal_all_hands)
-    this.pendingPassAckStageCounter = null
     this.openingReplacementTile = null
     this.selfDir = viewer.seat_index
     this.currentStageCounter = state.stage_counter
@@ -1772,9 +1759,6 @@ export class MahjongScene {
     }
 
     if (typeof state.stage_counter === 'number' && state.stage_counter > 0) {
-      if (this.pendingPassAckStageCounter !== null && this.pendingPassAckStageCounter !== state.stage_counter) {
-        this.pendingPassAckStageCounter = null
-      }
       this.currentStageCounter = state.stage_counter
     }
     // if (typeof event.ui64_value === 'number') {
@@ -1807,7 +1791,6 @@ export class MahjongScene {
         case 'start': {
           // New round: clear all tiles and reposition based on the new seat wind
           this.roundEnded = false
-          this.pendingPassAckStageCounter = null
           this.openingReplacementTile = null
           this.currentPendingStatus = 'none'
           this.currentViewerActions = []
@@ -2261,7 +2244,6 @@ export class MahjongScene {
     }
 
     this.deferredPending = null
-  this.pendingPassAckStageCounter = null
     this.currentViewerActions = []
     this.currentPendingStatus = 'none'
     this.inputEnabled = false
@@ -2461,14 +2443,14 @@ export class MahjongScene {
       this.center, 'discard', { available_actions: availableActions },
       reactionTile, this.hands[0],
       (action) => {
-        this.countdown.stop()
-        this.hands[0].unwaitDiscard()
         if (action.kind === 'pass') {
           this.requestPassAction()
-          return false
+        } else {
+          this.sendViewerAction(action)
         }
-        this.sendViewerAction(action)
-        return true
+        // sendGameInput owns cleanup. Do not clear the old panel twice: a
+        // synchronous response may already have opened the next ask's panel.
+        return false
       },
       () => { this.meldChoicesPanel = null },
     )

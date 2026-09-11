@@ -79,15 +79,11 @@ class FreeGameState:
                 character_used=profile.get("character_id", 1),
                 voice_used=profile.get("voice_id", 1),
             ))
-        while len(self.player_list) < 4:
-            index = len(self.player_list)
-            self.player_list.append(FreePlayer(
-                user_id=-(index + 1),
-                username=f"空位{index + 1}",
-                player_index=index,
-                original_player_index=index,
-            ))
         self._reset_table(reshuffle=True)
+
+    @property
+    def seat_count(self) -> int:
+        return len(self.player_list)
 
     def _player_by_user(self, user_id: int) -> Optional[FreePlayer]:
         for player in self.player_list:
@@ -181,7 +177,7 @@ class FreeGameState:
                 cut_tile=tile_id,
                 cut_class=cut_class,
             )
-            for viewer in range(4)
+            for viewer in range(self.seat_count)
         })
 
     async def _to_flower(self, player: FreePlayer, message: dict) -> None:
@@ -199,7 +195,7 @@ class FreeGameState:
                 is_mo_buhua=False,
                 silent=True,
             )
-            for viewer in range(4)
+            for viewer in range(self.seat_count)
         })
 
     async def _shout(self, player: FreePlayer, word: str) -> None:
@@ -211,7 +207,7 @@ class FreeGameState:
                 player.player_index,
                 is_claim=True,
             )
-            for viewer in range(4)
+            for viewer in range(self.seat_count)
         })
 
     async def _reveal(self, player: FreePlayer, _message: dict) -> None:
@@ -293,7 +289,7 @@ class FreeGameState:
                 cut_from_player=cut_from,
                 silent=True,
             )
-            for viewer in range(4)
+            for viewer in range(self.seat_count)
         })
 
     async def _recall_river(self, player: FreePlayer, message: dict) -> None:
@@ -316,7 +312,7 @@ class FreeGameState:
                 cut_tile_index=index,
                 deal_tile=tile_id if viewer == player.player_index or player.revealed else None,
             )
-            for viewer in range(4)
+            for viewer in range(self.seat_count)
         })
 
     async def _recall_flower(self, player: FreePlayer, message: dict) -> None:
@@ -338,7 +334,7 @@ class FreeGameState:
                 cut_tile_index=index,
                 deal_tile=tile_id if viewer == player.player_index or player.revealed else None,
             )
-            for viewer in range(4)
+            for viewer in range(self.seat_count)
         })
 
     async def _recall_meld(self, player: FreePlayer, message: dict) -> None:
@@ -360,7 +356,7 @@ class FreeGameState:
                 cut_tile_index=index,
                 deal_tiles=tiles if viewer == player.player_index or player.revealed else None,
             )
-            for viewer in range(4)
+            for viewer in range(self.seat_count)
         })
 
     async def _transfer_put(self, player: FreePlayer, message: dict) -> None:
@@ -378,7 +374,7 @@ class FreeGameState:
                 player.player_index,
                 cut_tile=tile_id,
             )
-            for viewer in range(4)
+            for viewer in range(self.seat_count)
         })
 
     async def _transfer_take(self, player: FreePlayer, _message: dict) -> None:
@@ -395,7 +391,7 @@ class FreeGameState:
                 player.player_index,
                 deal_tile=tile_id,
             )
-            for viewer in range(4)
+            for viewer in range(self.seat_count)
         })
 
     async def _set_scores(self, player: FreePlayer, message: dict) -> None:
@@ -407,10 +403,11 @@ class FreeGameState:
         parsed: dict[int, int] = {}
         for key, value in scores.items():
             parsed[int(key)] = int(value)
-        if len(parsed) != 4:
+        n = len(self.player_list)
+        if len(parsed) != n:
             return
         for index, score in parsed.items():
-            if 0 <= index < 4:
+            if 0 <= index < n:
                 self.player_list[index].score = score
         self.score_revision += 1
         await boardcast.broadcast_free_table(self, "scores")

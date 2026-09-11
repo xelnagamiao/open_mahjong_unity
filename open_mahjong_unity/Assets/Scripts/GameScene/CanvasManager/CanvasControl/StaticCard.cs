@@ -18,11 +18,21 @@ public class StaticCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         tileId = tile;
         hasDangerTint = false;
         hasZimoTint = false;
-        if (!TileFaceFit.ApplyHandLayers(transform as RectTransform, tileImage, faceBackground, tile)) {
+        if (!TileFaceFit.ApplyHandLayers(transform as RectTransform, tileImage, ref faceBackground, tile)) {
             Debug.LogError($"找不到牌面图片: {tile}");
             return;
         }
         ApplyWallVisual(1f, false, false);
+    }
+
+    /// <summary>设置页刷新不重置牌谱/牌墙当前透明度和铳牌、自摸提示。</summary>
+    public void RefreshVisual() {
+        float alpha = tileImage != null ? tileImage.color.a : 1f;
+        if (!TileFaceFit.ApplyHandLayers(transform as RectTransform, tileImage, ref faceBackground, tileId)) {
+            Debug.LogError($"找不到牌面图片: {tileId}");
+            return;
+        }
+        ApplyWallVisual(alpha, hasDangerTint, hasZimoTint);
     }
 
     public void SetTileImageColor(Color color) {

@@ -2,12 +2,16 @@
   <el-dialog
     :model-value="modelValue"
     :title="title"
-    width="720px"
+    width="min(720px, calc(100vw - 24px))"
     class="venue-room-dialog"
     destroy-on-close
+    :close-on-click-modal="!loading"
+    :close-on-press-escape="!loading"
+    :show-close="!loading"
     @close="$emit('update:modelValue', false)"
   >
     <el-form label-position="top" class="room-form" @submit.prevent="$emit('confirm')">
+      <slot name="before-settings" />
       <div class="room-top">
         <el-form-item label="规则">
           <el-select v-model="form.room_rule" style="width: 100%">
@@ -26,7 +30,7 @@
           <el-input v-model="form.reason" clearable placeholder="审计必填" />
         </el-form-item>
       </div>
-      <GuobiaoEmptyRoomConfig v-if="form.room_rule === 'guobiao'" :model-value="form" />
+      <GuobiaoEmptyRoomConfig v-if="form.room_rule === 'guobiao'" :model-value="form" :show-password="showPassword" />
       <el-alert
         v-else
         title="当前仅国标房间提供完整对局配置；其他规则仍按服务端默认参数创建。"
@@ -36,7 +40,7 @@
       />
     </el-form>
     <template #footer>
-      <el-button @click="$emit('update:modelValue', false)">取消</el-button>
+      <el-button :disabled="loading" @click="$emit('update:modelValue', false)">取消</el-button>
       <el-button type="primary" :loading="loading" @click="$emit('confirm')">{{ confirmText }}</el-button>
     </template>
   </el-dialog>
@@ -52,6 +56,7 @@ defineProps({
   confirmText: { type: String, default: '创建' },
   loading: { type: Boolean, default: false },
   showReason: { type: Boolean, default: false },
+  showPassword: { type: Boolean, default: true },
   roomRuleOptions: { type: Array, required: true },
 })
 

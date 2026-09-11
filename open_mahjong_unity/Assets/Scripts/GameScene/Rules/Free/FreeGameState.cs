@@ -41,8 +41,10 @@ public sealed class FreeGameState : GameStateBase {
 
     public override void OnGameStart(GameInfo gameInfo) {
         tableReady = true;
+        ClearScoreDraft();
         CaptureRevealedHandsFromGameInfo(gameInfo);
         EnsureHud();
+        hud?.ResetLocalSelection();
         RestorePersistentAsk();
         hud?.Refresh();
     }
@@ -52,9 +54,12 @@ public sealed class FreeGameState : GameStateBase {
         Votes.Clear();
         Revealed.Clear();
         revealedHands.Clear();
-        scoreDraft.Clear();
-        hasScoreDraft = false;
+        ClearScoreDraft();
+        ScoreRevision = 0;
+        DiscardDest = FreeDiscardDest.River;
         TransferTile = null;
+        LastRiverPlayer = null;
+        LastRiverTile = null;
         if (hud != null) {
             UnityEngine.Object.Destroy(hud.gameObject);
             hud = null;
@@ -218,6 +223,11 @@ public sealed class FreeGameState : GameStateBase {
 
     public bool HasScoreDraft => hasScoreDraft;
 
+    private void ClearScoreDraft() {
+        scoreDraft.Clear();
+        hasScoreDraft = false;
+    }
+
     public void CommitScoreDraft() {
         var current = new Dictionary<int, int>();
         foreach (KeyValuePair<int, string> seat in Mirror.IndexToPosition) {
@@ -258,6 +268,8 @@ public sealed class FreeGameState : GameStateBase {
 
     private void ApplyTable(FreeTableInfo table) {
         if (table == null) return;
+        // The revision also advances when a confirmed edit keeps the same values.
+        if (ScoreRevision != table.score_revision) ClearScoreDraft();
         ScoreRevision = table.score_revision;
         TransferTile = table.transfer_tile;
         LastRiverPlayer = table.last_river_player;
@@ -278,8 +290,7 @@ public sealed class FreeGameState : GameStateBase {
                 if (info != null) info.score = pair.Value;
             }
             if (remoteChanged) {
-                hasScoreDraft = false;
-                scoreDraft.Clear();
+                ClearScoreDraft();
             }
             ApplyScores(table);
         }
@@ -369,10 +380,14 @@ public sealed class FreeGameState : GameStateBase {
 
     private void EnsureHud() {
         if (hud != null || GameCanvas.Instance == null) return;
-        var go = new GameObject("FreeModeHud", typeof(RectTransform));
-        go.transform.SetParent(GameCanvas.Instance.transform, false);
-        go.transform.SetAsLastSibling();
-        hud = go.AddComponent<FreeModeHud>();
+        FreeModeHud prefab = Resources.Load<FreeModeHud>("UI/FreeModeHud");
+        if (prefab == null) {
+            Debug.LogError("自由模式面板预制体缺失：Resources/UI/FreeModeHud");
+            return;
+        }
+        hud = UnityEngine.Object.Instantiate(prefab, GameCanvas.Instance.transform, false);
+        hud.name = "FreeModeHud";
+        hud.transform.SetAsLastSibling();
         hud.Bind(this);
     }
 

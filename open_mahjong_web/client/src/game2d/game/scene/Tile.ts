@@ -3,7 +3,7 @@ import {
   TILE_WIDTH, TILE_HEIGHT, TILE_RADIUS, LINE_WIDTH,
   FRONT_COLOR, BACK_COLOR, BORDER_COLOR, ANIMATION_TIME,
 } from './constants'
-import { getTexture, isBlackTileFaceTheme } from './textures'
+import { getTexture, isBlackTileFaceTheme, isUnityFlowerFace } from './textures'
 
 export const TILE_HOVER_TINT = 0xe0e0e0
 export const TILE_SELECTED_TINT = 0xb8d9ff
@@ -147,7 +147,7 @@ export class Tile extends Container {
   private redrawBackground(): void {
     this.bg.clear()
     this.bg.roundRect(-TILE_WIDTH / 2, -TILE_HEIGHT / 2, TILE_WIDTH, TILE_HEIGHT, TILE_RADIUS)
-    this.bg.fill({ color: isBlackTileFaceTheme() ? BLACK_FRONT_COLOR : FRONT_COLOR })
+    this.bg.fill({ color: isBlackTileFaceTheme() && !isUnityFlowerFace(this.tid) ? BLACK_FRONT_COLOR : FRONT_COLOR })
     this.bg.stroke({ color: BORDER_COLOR, width: LINE_WIDTH })
   }
 
@@ -286,8 +286,10 @@ export class Tile extends Container {
 
   private fitSpriteToTileFace(): void {
     if (!this.sprite) return
-    this.sprite.width = TILE_WIDTH * (5 / 6)
-    this.sprite.height = TILE_HEIGHT * (5 / 6)
+    // Flower vectors already contain their optical margin; don't shrink them like a full tile image.
+    const faceScale = isUnityFlowerFace(this.tid) ? 0.94 : 5 / 6
+    this.sprite.width = TILE_WIDTH * faceScale
+    this.sprite.height = TILE_HEIGHT * faceScale
   }
 
   refreshTexture(): void {

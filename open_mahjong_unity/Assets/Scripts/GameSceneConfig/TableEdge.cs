@@ -17,6 +17,14 @@ public class TableEdge : MonoBehaviour
         tableEdgeChoseImage.gameObject.SetActive(false);
     }
 
+    public void RefreshSelection()
+    {
+        var selected = ConfigManager.Instance != null ? ConfigManager.Instance.GetSelectedTableEdge() : ("", false);
+        bool active = selected.Item1 == filePath && selected.Item2 == isCustom;
+        tableEdgeChoseImage.gameObject.SetActive(active);
+        if (active) ShowDeleteButtonForCustomItem();
+    }
+
     public void OnTableEdgeButtonClick() { // 保存桌边选择
         ConfigManager.Instance.SetSelectedTableEdge(filePath, isCustom); // 保存选中路径到配置管理器
         TableEdgePanel panel = GetComponentInParent<TableEdgePanel>(true);

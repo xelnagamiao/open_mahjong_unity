@@ -58,24 +58,26 @@ public partial class BoardCanvas : MonoBehaviour {
         // 初始化玩家信息
         // 设置玩家位置、分数、索引(东南西北)、回合标记
         foreach (var player in gameInfo.players_info){
-            if (indexToPosition[player.player_index] == "self"){ // 通过player_index确定玩家位置
+            if (!indexToPosition.TryGetValue(player.player_index, out string position)) continue;
+            if (position == "self"){ // 通过player_index确定玩家位置
                 player_self_score.text = player.score.ToString(); // 设置玩家分数
                 player_self_index.text = PositionToChineseCharacter[player.player_index]; // 设置玩家索引
                 player_self_current_image.gameObject.SetActive(false); // 设置玩家回合标记
-            } else if (indexToPosition[player.player_index] == "left"){
+            } else if (position == "left"){
                 player_left_score.text = player.score.ToString();
                 player_left_index.text = PositionToChineseCharacter[player.player_index];
                 player_left_current_image.gameObject.SetActive(false);
-            } else if (indexToPosition[player.player_index] == "top"){
+            } else if (position == "top"){
                 player_top_score.text = player.score.ToString();
                 player_top_index.text = PositionToChineseCharacter[player.player_index];
                 player_top_current_image.gameObject.SetActive(false);
-            } else if (indexToPosition[player.player_index] == "right"){
+            } else if (position == "right"){
                 player_right_score.text = player.score.ToString();
                 player_right_index.text = PositionToChineseCharacter[player.player_index];
                 player_right_current_image.gameObject.SetActive(false);
             }
         }
+        ApplyOccupiedSeatClusters(indexToPosition);
 
         // 设置剩余牌数
         remiansTilesText.text = $"余:{gameInfo.tile_count}";
@@ -137,6 +139,7 @@ public partial class BoardCanvas : MonoBehaviour {
         baselineScores[player_left_score] = player_left_score.text;
         baselineScores[player_top_score] = player_top_score.text;
         baselineScores[player_right_score] = player_right_score.text;
+        ApplyOccupiedSeatClusters(indexToPosition);
     }
 
     // 显示玩家分数分差
@@ -276,5 +279,26 @@ public partial class BoardCanvas : MonoBehaviour {
                 }
             }
         }
+    }
+
+    /// <summary>没有玩家的座位隐藏中心盘分数簇；indexToPosition 为 null 时全部显示（退出对局）。</summary>
+    public void ApplyOccupiedSeatClusters(Dictionary<int, string> indexToPosition) {
+        if (indexToPosition == null) {
+            SetSeatClusterActive(player_self_score, true);
+            SetSeatClusterActive(player_left_score, true);
+            SetSeatClusterActive(player_top_score, true);
+            SetSeatClusterActive(player_right_score, true);
+            return;
+        }
+        var occupied = GameCanvas.OccupiedSeats(indexToPosition);
+        SetSeatClusterActive(player_self_score, occupied.Contains("self"));
+        SetSeatClusterActive(player_left_score, occupied.Contains("left"));
+        SetSeatClusterActive(player_top_score, occupied.Contains("top"));
+        SetSeatClusterActive(player_right_score, occupied.Contains("right"));
+    }
+
+    private static void SetSeatClusterActive(TMP_Text score, bool active) {
+        if (score == null || score.transform.parent == null) return;
+        score.transform.parent.gameObject.SetActive(active);
     }
 }

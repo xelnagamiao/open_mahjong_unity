@@ -1,4 +1,5 @@
 using System.IO;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -15,16 +16,17 @@ public class CardFaceConfigPanel : MonoBehaviour {
         "上传格式（仅标准麻将）\n"
         + "• 一个 .zip，可选带 manifest.json（format=om-tilepack，family=standard）\n"
         + "• 必须同时包含两个文件夹（缺一不可）：\n"
-        + "  hand/{id}.png     或 手牌牌面/{id}.png   手牌牌面，建议 272×389，透明花纹，直接叠加\n"
-        + "  table/{id}.png    或 3D牌面/{id}.png    3D 牌面，按原图比例缩小后居中贴进 220×366\n"
+        + "  hand/{id}.png     或 手牌牌面/{id}.png   2D 手牌，" + TileTextureLayout.HandRecommendation + "\n"
+        + "  table/{id}.png    或 3D牌面/{id}.png    3D 牌面，" + TileTextureLayout.TableRecommendation + "\n"
         + "• 万 11–19，饼 21–29，条 31–39\n"
         + "• 字 41–47（东南西北中白发：45 中、46 回型白板、47 发）\n"
         + "• 花 51–58，赤宝 105 万 / 205 饼 / 305 条，纯白白板 2（无图案，可选）\n"
         + "• 根目录 PNG 不会当手牌\n"
-        + "• 手牌牌面原样叠在「牌面背景」上，不会裁切；自定义请自行摆好位置\n"
+        + "• 比例和像素仅作推荐，支持任意合法尺寸；完整等比居中，不裁切、不拉伸\n"
+        + "• 保留原图透明留白，显示底色或所选背景；3D 预览与对局使用相同排版\n"
         + "• 仅 PNG；单边 ≤1024；单张 ≤500KB；解压后 ≤20MB\n"
         + "• 缺图回退官方牌面；虹雀锁定官方 HQv3.1\n"
-        + "• 透明花纹请打开「使用牌面背景」；已自带牌体的整图请选「不使用牌面背景」";
+        + "• 手牌背景与牌背在独立标签管理；3D 背景在「3D 卡牌设计」中设置";
 
     [SerializeField] private Button tabStandardButton;
     [SerializeField] private Button tabHongqueButton;
@@ -34,13 +36,10 @@ public class CardFaceConfigPanel : MonoBehaviour {
     [SerializeField] private Button packHkButton;
     [SerializeField] private Button customPackButton;
     [SerializeField] private TMP_Text customPackNameText;
-    [SerializeField] private Button useBackgroundButton;
-    [SerializeField] private Button noBackgroundButton;
-    [SerializeField] private Button useTableBackgroundButton;
-    [SerializeField] private Button noTableBackgroundButton;
+    [SerializeField] private TMP_Dropdown customPackDropdown;
+    private List<TilePackLibrary.Entry> customEntries = new List<TilePackLibrary.Entry>();
     [SerializeField] private Button showHandButton;
     [SerializeField] private Button showTableButton;
-    [SerializeField] private TMP_Text statusText;
     [SerializeField] private TMP_Text helpText;
     [FormerlySerializedAs("standardActions")]
     [SerializeField] private GameObject standardPacks;
@@ -50,10 +49,12 @@ public class CardFaceConfigPanel : MonoBehaviour {
 
     private bool showingHongque;
     private bool showingTablePreview;
+    public bool ShowingTablePreview => showingTablePreview;
     private CardFacePreviewSlot[] standardSlots;
     private CardFacePreviewSlot[] hongqueSlots;
 
     private void Awake() {
+        if (helpText != null) helpText.text = FormatHelp;
         Instance = this;
         tabStandardButton.onClick.AddListener(() => SetTab(false));
         tabHongqueButton.onClick.AddListener(() => SetTab(true));
@@ -62,10 +63,7 @@ public class CardFaceConfigPanel : MonoBehaviour {
         SceneConfigUi.BindClick(packFluffyButton, () => OnSelectPack(TilePackIds.PackFluffy));
         SceneConfigUi.BindClick(packHkButton, () => OnSelectPack(TilePackIds.PackHkMahjong));
         SceneConfigUi.BindClick(customPackButton, () => OnSelectPack(TilePackIds.PackCustom));
-        SceneConfigUi.BindClick(useBackgroundButton, () => OnToggleBackground(true));
-        SceneConfigUi.BindClick(noBackgroundButton, () => OnToggleBackground(false));
-        SceneConfigUi.BindClick(useTableBackgroundButton, () => OnToggleTableBackground(true));
-        SceneConfigUi.BindClick(noTableBackgroundButton, () => OnToggleTableBackground(false));
+        if (customPackDropdown != null) customPackDropdown.onValueChanged.AddListener(OnCustomPackSelected);
         SceneConfigUi.BindClick(showHandButton, () => OnTogglePreview(false));
         SceneConfigUi.BindClick(showTableButton, () => OnTogglePreview(true));
         standardSlots = standardPreviewRoot.GetComponentsInChildren<CardFacePreviewSlot>(true);
@@ -111,19 +109,13 @@ public class CardFaceConfigPanel : MonoBehaviour {
     }
 
     /// <summary>
-    /// 手牌预览只显示「使用/不使用牌面背景」；3D 预览只显示「使用/不使用 3D 牌面背景」。
+    /// 牌组页只切换预览对象；背景设置由独立页面管理。
     /// </summary>
     private void RefreshViewActionVisibility() {
         bool standard = !showingHongque;
         standardViewActions.SetActive(standard);
         showHandButton.gameObject.SetActive(standard);
         showTableButton.gameObject.SetActive(standard);
-        bool showHandBg = standard && !showingTablePreview;
-        bool showTableBg = standard && showingTablePreview;
-        useBackgroundButton.gameObject.SetActive(showHandBg);
-        noBackgroundButton.gameObject.SetActive(showHandBg);
-        useTableBackgroundButton.gameObject.SetActive(showTableBg);
-        noTableBackgroundButton.gameObject.SetActive(showTableBg);
     }
 
     public void RefreshHighlights() {
@@ -136,10 +128,8 @@ public class CardFaceConfigPanel : MonoBehaviour {
 
     private void OnUploadClicked() {
         if (showingHongque) return;
-        SetStatus("正在选择 zip…");
         TilePackStorage.PickZip(OnZipPicked, err => {
             if (!string.IsNullOrEmpty(err) && err != "empty") {
-                SetStatus(err);
                 SceneConfigUi.ShowTip(err);
             }
         });
@@ -149,14 +139,11 @@ public class CardFaceConfigPanel : MonoBehaviour {
         TilePackImporter.Result imported = TilePackImporter.Import(zipBytes);
         if (imported == null || !imported.Success) {
             string error = imported != null ? imported.Error : "导入失败";
-            SetStatus(error);
             SceneConfigUi.ShowTip(error);
             return;
         }
-        if (ConfigManager.Instance != null) {
-            ConfigManager.Instance.SetCustomTilePackFileName(fileName ?? "");
-        }
-        TileFaceResolver.ApplyImported(imported, persist: true, enableFlag: true);
+        TilePackLibrary.SaveNew(zipBytes, fileName, imported, entry => {
+        TileFaceResolver.ApplyLibraryPack(entry.id, imported);
         string status = $"已应用自定义牌面（{imported.HandPngs.Count} 张手牌";
         if (imported.TablePngs.Count > 0) {
             status += $"，{imported.TablePngs.Count} 张桌面";
@@ -165,9 +152,10 @@ public class CardFaceConfigPanel : MonoBehaviour {
         if (imported.Warnings.Count > 0) {
             status += "。" + imported.Warnings[0];
         }
-        SetStatus(status);
+        SceneConfigUi.ShowTip(status);
         RefreshCustomPackChip();
         RefreshPreview();
+        }, error => SceneConfigUi.ShowTip(error));
     }
 
     private void OnRestoreClicked() {
@@ -187,33 +175,13 @@ public class CardFaceConfigPanel : MonoBehaviour {
         SetTabColor(restoreButton, packId == TilePackIds.PackOfficial);
         SetTabColor(packFluffyButton, packId == TilePackIds.PackFluffy);
         SetTabColor(packHkButton, packId == TilePackIds.PackHkMahjong);
-        SetTabColor(customPackButton, packId == TilePackIds.PackCustom);
+        SetTabColor(customPackButton, TilePackIds.IsCustomPack(packId));
+        if (customPackDropdown != null && customPackDropdown.targetGraphic != null)
+            customPackDropdown.targetGraphic.color = TilePackIds.IsCustomPack(packId)
+                ? SceneConfigUi.TabOn : SceneConfigUi.TabOff;
         RefreshCustomPackChip();
-        bool useBg = ConfigManager.Instance != null && ConfigManager.Instance.UseHandFaceBackground;
-        SetTabColor(useBackgroundButton, useBg);
-        SetTabColor(noBackgroundButton, !useBg);
-        bool useTableBg = ConfigManager.Instance != null && ConfigManager.Instance.UseTableFaceBackground;
-        SetTabColor(useTableBackgroundButton, useTableBg);
-        SetTabColor(noTableBackgroundButton, !useTableBg);
         SetTabColor(showHandButton, !showingTablePreview);
         SetTabColor(showTableButton, showingTablePreview);
-    }
-
-    private void OnToggleBackground(bool enabled) {
-        TileFaceResolver.SetUseHandFaceBackground(enabled);
-        HighlightPackButtons();
-        RefreshPreview();
-    }
-
-    private void OnToggleTableBackground(bool enabled) {
-        // 只切「使用/不使用」开关，不动已上传的 3D 牌面背景纹理：
-        // 关闭后 CurrentTableBackground 仍保留，下次打开会立刻生效。
-        CardBackManager.SetTableFaceBackgroundEnabled(enabled);
-        HighlightPackButtons();
-        if (CardFaceBackgroundPanel.Instance != null) {
-            CardFaceBackgroundPanel.Instance.RefreshSolidColorUi();
-        }
-        RefreshPreview();
     }
 
     private void OnTogglePreview(bool table) {
@@ -229,52 +197,21 @@ public class CardFaceConfigPanel : MonoBehaviour {
         hongquePreviewRoot.SetActive(showingHongque);
         HighlightPackButtons();
         if (showingHongque) {
-            SetStatus("虹雀使用官方 HQv3.1 牌面，不可上传自定义。");
             ApplySlots(hongqueSlots, false);
             return;
         }
         string packId = ConfigManager.Instance != null
             ? ConfigManager.Instance.StandardTilePackId
             : TilePackIds.PackOfficial;
-        int customCount = TilePackIds.IsLayeredPack(packId) ? TileFaceResolver.CountPackFaces() : 0;
-        bool useBg = ConfigManager.Instance != null && ConfigManager.Instance.UseHandFaceBackground;
-        bool useTableBg = ConfigManager.Instance != null && ConfigManager.Instance.UseTableFaceBackground;
-        if (packId == TilePackIds.PackFluffy) {
-            SetStatus($"当前：FluffyStuff（{customCount} 张）"
-                + (showingTablePreview
-                    ? (useTableBg ? "，使用 3D 牌面背景" : "，不使用 3D 牌面背景")
-                    : (useBg ? "，使用牌面背景" : "，不使用牌面背景")));
-        }
-        else if (packId == TilePackIds.PackHkMahjong) {
-            SetStatus($"当前：香港麻将（{customCount} 张）"
-                + (showingTablePreview
-                    ? (useTableBg ? "，使用 3D 牌面背景" : "，不使用 3D 牌面背景")
-                    : (useBg ? "，使用牌面背景" : "，不使用牌面背景")));
-        }
-        else if (packId == TilePackIds.PackCustom) {
-            SetStatus($"当前：{CustomPackDisplayName()}（{customCount} 张）"
-                + (showingTablePreview
-                    ? (useTableBg ? "，使用 3D 牌面背景" : "，不使用 3D 牌面背景")
-                    : (useBg ? "，使用牌面背景" : "，不使用牌面背景")));
-        }
-        else {
-            SetStatus("当前：官方标准牌面（雪风）"
-                + (showingTablePreview
-                    ? (useTableBg ? "，使用 3D 牌面背景" : "，不使用 3D 牌面背景")
-                    : (useBg ? "，使用牌面背景" : "，不使用牌面背景")));
-        }
         ApplySlots(standardSlots, TilePackIds.IsLayeredPack(packId));
     }
 
     private void ApplySlots(CardFacePreviewSlot[] slots, bool dimMissingCustom) {
         bool table = showingTablePreview && !showingHongque;
-        bool useBg = !table
-            && ConfigManager.Instance != null
-            && ConfigManager.Instance.UseHandFaceBackground;
-        Sprite handBackground = useBg ? TileFaceResolver.LoadHandBackground() : null;
         bool useTableBg = table
             && ConfigManager.Instance != null
-            && ConfigManager.Instance.UseTableFaceBackground;
+            && ConfigManager.Instance.UseTableFaceBackground
+            && !ConfigManager.Instance.TableFaceUseSolidColor;
         Sprite tableBackground = useTableBg ? TileFaceResolver.LoadTableBackground() : null;
         for (int i = 0; i < slots.Length; i++) {
             CardFacePreviewSlot slot = slots[i];
@@ -282,15 +219,37 @@ public class CardFaceConfigPanel : MonoBehaviour {
             Sprite sprite = table
                 ? TileFaceResolver.PreviewTable(slot.tileId)
                 : TileFaceResolver.PreviewHand(slot.tileId);
-            // 3D 牌面预览：启用 3D 牌面背景时，tableBackground 作为底图，3D 牌面 sprite 作为前景花纹。
-            // 2D 手牌牌面预览：handBackground 作为底图，sprite 作为前景。
-            Sprite baseSprite = useTableBg ? tableBackground : (useBg ? handBackground : null);
-            bool layer = baseSprite != null && sprite != null;
-            slot.Apply(sprite, layer ? baseSprite : null, dim);
+            // 使用对局相同的叠图规则；背景由独立页面管理。
+            if (table) slot.ApplyTable(sprite, tableBackground, TileFaceResolver.TablePreviewBaseColor, dim);
+            else {
+                Sprite background = !showingHongque && TileFaceResolver.ShouldLayerHandFace(slot.tileId)
+                    ? TileFaceResolver.LoadHandBackground() : null;
+                slot.Apply(sprite, background, dim);
+            }
         }
     }
 
     private void RefreshCustomPackChip() {
+        if (customPackDropdown != null) {
+            customPackButton.gameObject.SetActive(false);
+            customPackDropdown.gameObject.SetActive(!showingHongque);
+            customEntries = TilePackLibrary.GetEntries();
+            var options = new List<TMP_Dropdown.OptionData> { new TMP_Dropdown.OptionData(customEntries.Count == 0 ? "自定义牌面" : "选择自定义牌面") };
+            var counts = new Dictionary<string, int>();
+            int selected = 0;
+            string current = ConfigManager.Instance != null ? ConfigManager.Instance.StandardTilePackId : "";
+            for (int i = 0; i < customEntries.Count; i++) {
+                var entry = customEntries[i];
+                counts.TryGetValue(entry.DisplayName, out int count); counts[entry.DisplayName] = ++count;
+                options.Add(new TMP_Dropdown.OptionData(entry.DisplayName + (count > 1 ? " (" + count + ")" : "")));
+                if (entry.id == current) selected = i + 1;
+            }
+            customPackDropdown.options = options;
+            customPackDropdown.SetValueWithoutNotify(selected);
+            customPackDropdown.RefreshShownValue();
+            customPackDropdown.interactable = customEntries.Count > 0;
+            return;
+        }
         string fileName = ConfigManager.Instance != null
             ? ConfigManager.Instance.CustomTilePackFileName
             : "";
@@ -308,11 +267,9 @@ public class CardFaceConfigPanel : MonoBehaviour {
         rt.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
     }
 
-    private static string CustomPackDisplayName() {
-        string fileName = ConfigManager.Instance != null
-            ? ConfigManager.Instance.CustomTilePackFileName
-            : "";
-        return CustomPackDisplayName(fileName);
+    private void OnCustomPackSelected(int index) {
+        if (index > 0 && index <= customEntries.Count) OnSelectPack(customEntries[index - 1].id);
+        else RefreshCustomPackChip();
     }
 
     private static string CustomPackDisplayName(string fileName) {
@@ -322,7 +279,4 @@ public class CardFaceConfigPanel : MonoBehaviour {
         return Path.GetFileNameWithoutExtension(fileName);
     }
 
-    private void SetStatus(string message) {
-        statusText.text = message ?? "";
-    }
 }

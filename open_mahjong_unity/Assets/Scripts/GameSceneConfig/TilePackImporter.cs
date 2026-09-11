@@ -10,8 +10,6 @@ public static class TilePackImporter {
     public const int MaxImageEdge = 1024;
     public const int MaxPngBytes = 500 * 1024;
     public const int MaxUncompressedBytes = 20 * 1024 * 1024;
-    public const int TableWidth = 220;
-    public const int TableHeight = 366;
     public const string ExpectedFormat = "om-tilepack";
     public const string ExpectedFamily = "standard";
 
@@ -41,6 +39,8 @@ public static class TilePackImporter {
             return result;
         }
 
+        // 一次导入只复用一个解码探针，避免 WebGL 同帧保留整包临时 GPU 纹理。
+        Texture2D decodeProbe = null;
         try {
             using (var zipStream = new MemoryStream(zipBytes, false))
             using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Read, true)) {
@@ -66,7 +66,7 @@ public static class TilePackImporter {
                 }
 
                 foreach (ZipArchiveEntry entry in archive.Entries) {
-                    ImportEntry(entry, result);
+                    ImportEntry(entry, result, ref decodeProbe);
                     if (!string.IsNullOrEmpty(result.Error)) {
                         return result;
                     }
@@ -80,6 +80,12 @@ public static class TilePackImporter {
         catch (Exception e) {
             result.Error = "解压失败: " + e.Message;
             return result;
+        }
+        finally {
+            if (decodeProbe != null) {
+                if (Application.isPlaying) UnityEngine.Object.Destroy(decodeProbe);
+                else UnityEngine.Object.DestroyImmediate(decodeProbe);
+            }
         }
 
         if (result.HandPngs.Count == 0 || result.TablePngs.Count == 0) {
@@ -99,7 +105,7 @@ public static class TilePackImporter {
         return result;
     }
 
-    private static void ImportEntry(ZipArchiveEntry entry, Result result) {
+    private static void ImportEntry(ZipArchiveEntry entry, Result result, ref Texture2D decodeProbe) {
         if (entry == null || string.IsNullOrEmpty(entry.Name) || entry.FullName.EndsWith("/")) {
             return;
         }
@@ -152,33 +158,24 @@ public static class TilePackImporter {
             result.Warnings.Add("牌面 PNG 必须放在 hand/ 或 table/（也可用 手牌牌面/、3D牌面/）: " + full);
             return;
         }
-        if (isTable) {
-            png = TileTableFaceBake.ProcessPng(png);
+        if (!CanDecodePng(png, width, height, ref decodeProbe)) {
+            result.Warnings.Add("PNG 数据损坏，已跳过: " + fileName);
+            return;
         }
-        if (isHand && (width != 272 || height != 389) && !HasHandSizeWarning(result)) {
-            result.Warnings.Add("手牌将原样叠加在牌面背景上，不必裁切；建议 272×389");
-        }
+        // 保留原文件，避免重复导入时重采样、拉伸、裁切或把透明区域烘成底色。
         Dictionary<int, byte[]> target = isTable ? result.TablePngs : result.HandPngs;
         target[tileId] = png;
     }
 
-    private static bool HasHandSizeWarning(Result result) {
-        for (int i = 0; i < result.Warnings.Count; i++) {
-            if (result.Warnings[i].StartsWith("手牌将原样", StringComparison.Ordinal)
-                || result.Warnings[i].StartsWith("手牌建议", StringComparison.Ordinal)) {
-                return true;
-            }
+    private static bool CanDecodePng(byte[] png, int width, int height, ref Texture2D decodeProbe) {
+        if (decodeProbe == null) decodeProbe = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        try {
+            return ImageConversion.LoadImage(decodeProbe, png, false)
+                && decodeProbe.width == width && decodeProbe.height == height;
         }
-        return false;
-    }
-
-    public static bool IsTableAspect(int width, int height) {
-        if (width <= 0 || height <= 0) {
+        catch {
             return false;
         }
-        int expectedHeight = (int)System.Math.Round(width * (double)TableHeight / TableWidth);
-        int expectedWidth = (int)System.Math.Round(height * (double)TableWidth / TableHeight);
-        return System.Math.Abs(height - expectedHeight) <= 1 || System.Math.Abs(width - expectedWidth) <= 1;
     }
 
     private static ZipArchiveEntry FindManifest(ZipArchive archive) {
@@ -232,7 +229,9 @@ public static class TilePackImporter {
     private static bool TryReadPngSize(byte[] bytes, out int width, out int height) {
         width = 0;
         height = 0;
-        if (bytes == null || bytes.Length < 24) {
+        if (bytes == null || bytes.Length < 33
+            || bytes[8] != 0 || bytes[9] != 0 || bytes[10] != 0 || bytes[11] != 13
+            || bytes[12] != 'I' || bytes[13] != 'H' || bytes[14] != 'D' || bytes[15] != 'R') {
             return false;
         }
         width = (bytes[16] << 24) | (bytes[17] << 16) | (bytes[18] << 8) | bytes[19];

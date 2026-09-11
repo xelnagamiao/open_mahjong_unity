@@ -325,6 +325,7 @@ public partial class Game3DManager {
         pos = target.position
             + widthDir.normalized * colOffset
             + heightDir.normalized * heightSpacing * row;
+        pos = PlaceTileOnTable(pos, rotation);
     }
     private Quaternion ComputeSichuanBuhuaSlotRotation(Transform target, string playerPosition) {
         if (playerPosition == "self") {
