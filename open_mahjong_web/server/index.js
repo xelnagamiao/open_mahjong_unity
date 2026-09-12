@@ -54,6 +54,7 @@ const { ensureUserLadderPassColumns } = require('./utils/userLadderPass');
 const { ensureLibraryTables } = require('./utils/libraryTables');
 const { ensureGuessFanTables } = require('./utils/guessFanTables');
 const { ensureRecordDownloadQuotaTable } = require('./utils/recordDownloadQuota');
+const { ensureTileContentTables } = require('./utils/tileContentTables');
 const libraryRoutes = require('./routes/library');
 const { registerGuessFanHandlers } = require('./guessfan/rooms');
 const { ensureSeedFiles, assetsDir } = require('./services/activityStore');
@@ -70,8 +71,10 @@ const playerAuthRoutes = require('./routes/player/auth');
 const playerEventApplicationsRoutes = require('./routes/player/eventApplications');
 const playerMyEventsRoutes = require('./routes/player/myEvents');
 const player2dRecordsRoutes = require('./routes/player/records2d');
+const playerTileContentRoutes = require('./routes/player/tileContent');
 app.use('/api/player/auth', playerAuthRoutes);
 app.use('/api/player/event-applications', playerEventApplicationsRoutes);
+app.use('/api/player/tile-content', playerTileContentRoutes);
 app.use('/api/player', playerMyEventsRoutes);
 app.use('/api/player', player2dRecordsRoutes);
 // 玩家查询限流按路由粒度挂载（见 routes/player.js），热点/排行榜等轻量接口不受重查询限流
@@ -194,6 +197,12 @@ async function startServer() {
     console.log('牌谱下载配额表已就绪');
   } catch (err) {
     console.error('牌谱下载配额表初始化失败:', err);
+  }
+  try {
+    await ensureTileContentTables();
+    console.log('牌面上传表已就绪');
+  } catch (err) {
+    console.error('牌面上传表初始化失败:', err);
   }
   try {
     const dir = ensureSeedFiles();

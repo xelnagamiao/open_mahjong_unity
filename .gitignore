@@ -70,6 +70,8 @@ open_mahjong_web/data/activities/**
 !open_mahjong_web/data/activities/.gitkeep
 open_mahjong_web/data/activity-assets/**
 !open_mahjong_web/data/activity-assets/.gitkeep
+open_mahjong_web/data/user-content/**
+!open_mahjong_web/data/user-content/.gitkeep
 
 # Ignore built Vue static files under dist, keep placeholder md files
 open_mahjong_web/client/dist/*

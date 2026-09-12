@@ -11,14 +11,16 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
     public static CardFaceBackgroundPanel Instance { get; private set; }
 
     public const string FormatHelp =
-        "手牌牌面背景：2D 牌体（含顶部牌沿），" + TileTextureLayout.HandRecommendation + "。\n"
-        + "3D 牌面背景：" + TileTextureLayout.TableRecommendation + "，其他尺寸也可上传。\n"
-        + "普通模式完整等比居中；选择「铺满/延伸」时才拉伸覆盖牌面与牌边。\n"
-        + "手牌牌背：2D 暗面图样（里宝牌未翻开等），不是 3D 牌背。\n"
-        + "也可上传 zip：hand-back.png + hand-bg.png。\n"
-        + "3D 牌背颜色请到「3D 卡牌设计」的「牌背」标签设置。\n"
-        + "3D 牌面纯色与「使用 3D 牌面背景」互斥，开启后花纹仍保留、底色换成所选颜色。\n"
-        + "透明牌面自动叠加手牌背景；背景与牌背独立上传和恢复，不随牌组切换。";
+        "手牌牌面背景：显示在 2D 手牌牌面下方，建议宽高比 272:389（272×389 像素）。\n"
+        + "手牌牌背：显示 2D 暗面图样（例如里宝牌未翻开），不是 3D 牌背。\n"
+        + "单独上传：点击对应标签下的上传按钮，分别选择 hand-bg.png 或 hand-back.png。\n"
+        + "也可一次上传 zip，文件夹示例：\n"
+        + "  MyHandImages.zip/\n"
+        + "  ├─ hand-bg.png    手牌牌面背景\n"
+        + "  └─ hand-back.png  手牌牌背\n"
+        + "透明花纹牌面请在「牌面」页打开「使用牌面背景」，整张牌面请关闭。\n"
+        + "背景与牌背可以分别上传、分别恢复；3D 牌面背景只用于 3D 卡牌正面，不是手牌背景。\n"
+        + "3D 牌面可选择纯色或背景图，二者二选一；请到「3D 卡牌设计」中的「3D牌面背景」标签设置，3D 牌背请到「牌背」标签设置。";
 
     private const string ImageAccept = "image/png,image/jpeg,image/jpg,image/webp,application/zip,.zip";
 

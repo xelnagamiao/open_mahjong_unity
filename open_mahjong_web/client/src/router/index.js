@@ -29,6 +29,7 @@ import RuleResearch from '@/views/RuleResearch.vue'
 import SeedVerify from '@/views/SeedVerify.vue'
 import MobileDownload from '@/views/MobileDownload.vue'
 import UsageGuide from '@/views/UsageGuide.vue'
+import Tiles from '@/views/Tiles.vue'
 import GuessFanApp from '@/views/guess-fan/GuessFanApp.vue'
 import RecordConvert from '@/views/RecordConvert.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
@@ -48,6 +49,7 @@ import AdminEvents from '@/views/admin/Events.vue'
 import AdminEventDetail from '@/views/admin/EventDetail.vue'
 import AdminEventApplications from '@/views/admin/EventApplications.vue'
 import AdminActivities from '@/views/admin/Activities.vue'
+import AdminTileContent from '@/views/admin/TileContent.vue'
 import EventAdminLayout from '@/layouts/EventAdminLayout.vue'
 import EventAdminLogin from '@/views/event-admin/Login.vue'
 import EventAdminEvents from '@/views/event-admin/Events.vue'
@@ -145,6 +147,12 @@ const routes = [
         name: 'UsageGuide',
         component: UsageGuide,
         meta: { title: '使用说明 - salasasa.cn' }
+      },
+      {
+        path: 'tiles',
+        name: 'Tiles',
+        component: Tiles,
+        meta: { title: '牌面 - salasasa.cn' }
       },
       {
         path: 'guess-fan/:playMode(solo|play)?',
@@ -343,6 +351,7 @@ const routes = [
         component: AdminEventApplications,
         meta: { title: '基地申请', venueKind: 'base' }
       },
+      { path: 'tile-content', name: 'AdminTileContent', component: AdminTileContent, meta: { title: '牌面审核' } },
       { path: 'rank', name: 'AdminRank', component: AdminRank, meta: { title: '段位管理' } },
       { path: 'games', name: 'AdminGames', component: AdminGames, meta: { title: '对局记录管理' } },
       { path: 'game-control', name: 'AdminGameControl', component: AdminGameControl, meta: { title: '对局管理' } },

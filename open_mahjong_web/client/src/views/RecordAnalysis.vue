@@ -188,7 +188,7 @@
               <span class="tool-hint">将分析 {{ localCount }} / {{ recordItems.length }} 局</span>
             </div>
           </div>
-          <div class="tool-card" :class="{ active: resultTab === 'advanced' || resultTab === 'stable' }">
+          <div class="tool-card" :class="{ active: resultTab === 'advanced' }">
             <div class="tool-name">高级分析<span class="tool-rule">（国标）</span></div>
             <p class="tool-desc">包含常规统计、听牌巡目、点炮听牌率、分巡场得、番数统计及按场次区分的安定段位预测。</p>
             <div class="tool-actions">
@@ -319,19 +319,12 @@
           <StableRankAnalysis
             :sample-info="stableRankData"
             :current-rank="playerInfo?.rank?.guobiao_rank || ''"
-            :selected-count="stableRankSelectedCount"
           />
         </template>
 
         <template v-else-if="resultTab === 'advanced' && advancedStats">
           <div class="section-title">高级分析</div>
           <p class="result-note">国标巡目按庄家巡计算，与对局进程一致。顺位按牌谱得分独立计算，允许同分同排位。</p>
-          <StableRankAnalysis
-            v-if="stableRankData"
-            :sample-info="stableRankData"
-            :current-rank="playerInfo?.rank?.guobiao_rank || ''"
-            :selected-count="stableRankSelectedCount"
-          />
           <div class="fun-tags">
             <div v-for="tag in funTags" :key="tag.name" class="fun-tag" :class="tag.tone">
               <span class="fun-tag-name">{{ tag.name }}</span>
@@ -717,7 +710,6 @@ const analyzedFilterKey = ref('')
 const advancedStats = ref(null)
 const stableRankData = ref(null)
 const stableRankFilterKey = ref('')
-const stableRankSelectedCount = ref(0)
 const advancedFilterKey = ref('')
 const advancedHasTenpai = ref(false)
 const winEvents = ref([])
@@ -1399,7 +1391,6 @@ const loadCachedRecords = async () => {
   if (idsLoading.value || recordItemsFilterKey.value !== filterKey.value) return null
   const uid = targetUserId.value
   const loadedFilterKey = filterKey.value
-  const selectedCount = recordItems.value.length
   const cachedIds = recordItems.value
     .map((row) => String(row.game_id))
     .filter((id) => localIds.value.has(id))
@@ -1416,13 +1407,15 @@ const loadCachedRecords = async () => {
     if (!metadata) continue
     item.created_at ||= metadata.created_at
     // IndexedDB 的 rank 可能属于此前下载此谱的另一个玩家，结算名次必须取本次目标查询。
-    item.settlement_rank = metadata.rank
-    item.settlement_tie_count = metadata.settlement_tie_count
-    item.settlement_user_id = metadata.settlement_user_id
-    for (const key of ['room_type', 'match_tier', 'match_type', 'rule']) item[key] = metadata[key]
+    if (metadata.rank != null) item.settlement_rank = metadata.rank
+    if (metadata.settlement_tie_count != null) item.settlement_tie_count = metadata.settlement_tie_count
+    item.settlement_user_id = metadata.settlement_user_id != null ? metadata.settlement_user_id : uid
+    for (const key of ['room_type', 'match_tier', 'match_type', 'rule']) {
+      if (metadata[key] != null && metadata[key] !== '') item[key] = metadata[key]
+    }
   }
   if (loadedFilterKey !== filterKey.value) return null
-  return { uid, items, filterKey: loadedFilterKey, selectedCount }
+  return { uid, items, filterKey: loadedFilterKey }
 }
 
 const clearAnalysisResults = () => {
@@ -1430,7 +1423,6 @@ const clearAnalysisResults = () => {
   advancedStats.value = null
   stableRankData.value = null
   stableRankFilterKey.value = ''
-  stableRankSelectedCount.value = 0
   advancedHasTenpai.value = false
   winEvents.value = []
   winEventsKey.value = ''
@@ -1463,7 +1455,6 @@ const runStandardAnalysis = async () => {
 const publishStableRank = (loaded) => {
   stableRankData.value = collectStableRankSamples(loaded.items, loaded.uid)
   stableRankFilterKey.value = loaded.filterKey
-  stableRankSelectedCount.value = loaded.selectedCount
 }
 
 const runStableAnalysis = async () => {
@@ -1499,7 +1490,6 @@ const runAdvancedAnalysis = async () => {
       },
     })
     if (loaded.filterKey !== filterKey.value) return
-    publishStableRank(loaded)
     advancedStats.value = stats
     advancedHasTenpai.value = true
     advancedFilterKey.value = filterKey.value

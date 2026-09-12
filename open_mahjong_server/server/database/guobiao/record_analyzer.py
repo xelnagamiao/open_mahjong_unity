@@ -81,6 +81,39 @@ def _xunmu_live_state(dealer: int = 0):
     )
 
 
+def normalize_riichi_round_for_xunmu(rd: Dict[str, Any]) -> Dict[str, Any]:
+    """日麻牌谱把亲家第 14 张也记成无座位 `d`，国标则从 reset 后的切牌开始。
+
+    去掉开局第一张无座位摸牌并补上 reset，才能走与对局进程相同的庄家巡
+    （回绕且庄家河非空才 +1）。不要在亲家切牌时 +1，否则荣和亲家首打会变成 2 巡。
+    """
+    ticks = rd.get("action_ticks")
+    if not isinstance(ticks, list):
+        return rd
+    dealer = round_start_player(rd)
+    out: list = []
+    skipped_opening_d = False
+    seen_cut_or_hu = False
+    for tick in ticks:
+        if not isinstance(tick, list) or not tick:
+            continue
+        code = tick[0]
+        if (
+            not skipped_opening_d
+            and not seen_cut_or_hu
+            and code in ("d", "mo")
+            and _tick_int(tick, 2) is None
+        ):
+            skipped_opening_d = True
+            continue
+        if code in ("c", "hu_riichi") or code in HU_ACTIONS:
+            seen_cut_or_hu = True
+        out.append(tick)
+    if out and out[0] and out[0][0] == "reset":
+        return {**rd, "action_ticks": out}
+    return {**rd, "action_ticks": [["reset", dealer], *out]}
+
+
 def reconstruct_round_win_turns(rd: Dict[str, Any]) -> Dict[int, int]:
     """用对局进程 player_index_go_to / player_index_next 重建每位 seat 的和巡总和。
 
@@ -164,6 +197,7 @@ def analyze_record_for_player(record: Dict[str, Any], original_player_index: int
         return None
     zimo = dianhe = fangchong = cuohe = fulu_rounds = 0
     win_score = fangchong_score = win_turn = 0
+    is_riichi = (record.get("game_title") or {}).get("rule") == "riichi"
     for rd in game_round.values():
         if not isinstance(rd, dict):
             continue
@@ -211,7 +245,8 @@ def analyze_record_for_player(record: Dict[str, Any], original_player_index: int
                     fangchong_score += int(hu_score)
         if had_fulu:
             fulu_rounds += 1
-        win_turn += reconstruct_round_win_turns(rd).get(my_seat, 0)
+        xunmu_rd = normalize_riichi_round_for_xunmu(rd) if is_riichi else rd
+        win_turn += reconstruct_round_win_turns(xunmu_rd).get(my_seat, 0)
     return {
         "zimo": zimo, "dianhe": dianhe, "fangchong": fangchong,
         "fangchong_score": fangchong_score, "cuohe": cuohe,

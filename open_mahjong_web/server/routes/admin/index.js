@@ -17,6 +17,7 @@ const eventsRoutes = require('./events');
 const eventApplicationsRoutes = require('./eventApplications');
 const eventProfileChangesRoutes = require('./eventProfileChanges');
 const activitiesRoutes = require('./activities');
+const tileContentRoutes = require('./tileContent');
 
 const router = express.Router();
 
@@ -47,5 +48,6 @@ router.use('/events', eventsRoutes);
 router.use('/event-applications', eventApplicationsRoutes);
 router.use('/event-profile-changes', eventProfileChangesRoutes);
 router.use('/activities', activitiesRoutes);
+router.use('/tile-content', tileContentRoutes);
 
 module.exports = router;

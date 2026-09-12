@@ -14,19 +14,18 @@ public class CardFaceConfigPanel : MonoBehaviour {
 
     public const string FormatHelp =
         "上传格式（仅标准麻将）\n"
-        + "• 一个 .zip，可选带 manifest.json（format=om-tilepack，family=standard）\n"
-        + "• 必须同时包含两个文件夹（缺一不可）：\n"
-        + "  hand/{id}.png     或 手牌牌面/{id}.png   2D 手牌，" + TileTextureLayout.HandRecommendation + "\n"
-        + "  table/{id}.png    或 3D牌面/{id}.png    3D 牌面，" + TileTextureLayout.TableRecommendation + "\n"
-        + "• 万 11–19，饼 21–29，条 31–39\n"
-        + "• 字 41–47（东南西北中白发：45 中、46 回型白板、47 发）\n"
-        + "• 花 51–58，赤宝 105 万 / 205 饼 / 305 条，纯白白板 2（无图案，可选）\n"
-        + "• 根目录 PNG 不会当手牌\n"
-        + "• 比例和像素仅作推荐，支持任意合法尺寸；完整等比居中，不裁切、不拉伸\n"
-        + "• 保留原图透明留白，显示底色或所选背景；3D 预览与对局使用相同排版\n"
-        + "• 仅 PNG；单边 ≤1024；单张 ≤500KB；解压后 ≤20MB\n"
-        + "• 缺图回退官方牌面；虹雀锁定官方 HQv3.1\n"
-        + "• 手牌背景与牌背在独立标签管理；3D 背景在「3D 卡牌设计」中设置";
+        + "ZIP 内同时放入 hand/ 和 table/ 文件夹，也接受“手牌牌面/”与“3D牌面/”。\n"
+        + "可选加入 manifest.json（format=om-tilepack，family=standard）。\n\n"
+        + "hand/{id}.png：2D 手牌牌面，建议宽高比 272:389、272×389 像素。\n"
+        + "table/{id}.png：3D 牌面，建议宽高比 1:1.33、400×532 像素（或 600×798）。\n"
+        + "以上均为建议，不要求匹配指定尺寸或比例。保留原图尺寸、透明通道与完整内容；显示时等比居中，空余部分由背景或底色补齐。\n\n"
+        + "牌号：万11–19、筒21–29、索31–39、字41–47、花51–58；赤宝105/205/305，纯白白板2。\n"
+        + "使用 PNG。资源上限：单边≤1024、单张≤500KB、解压后≤20MB。可缺少部分牌面，缺图回退官方。\n"
+        + "虹雀牌组固定使用官方 HQv3.1。\n"
+        + "根目录 PNG 不会当作牌面；3D 预览与对局使用相同排版。\n\n"
+        + "示例：MyTiles.zip/hand/11.png 与 MyTiles.zip/table/11.png。\n"
+        + "透明花纹可叠加牌面背景；选择“背景铺满”时保留铺满显示。\n"
+        + "手牌背景与牌背在对应标签管理；3D 牌面背景请到「3D 卡牌设计」中的「3D牌面背景」标签设置。";
 
     [SerializeField] private Button tabStandardButton;
     [SerializeField] private Button tabHongqueButton;

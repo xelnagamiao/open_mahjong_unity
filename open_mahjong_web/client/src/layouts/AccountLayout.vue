@@ -51,6 +51,7 @@ const asideWidth = computed(() => (isMobile.value ? '132px' : '196px'))
 
 const menuItems = [
   { index: 'sec-account', label: '账户' },
+  { index: 'sec-uploads', label: '上传内容' },
   { index: 'sec-apply-event', label: '办赛申请' },
   { index: 'sec-apply-base', label: '基地申请' },
   { index: 'sec-manage-event', label: '赛事管理' },

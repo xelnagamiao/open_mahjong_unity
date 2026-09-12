@@ -79,6 +79,8 @@
         </el-form>
       </el-card>
 
+      <TileContentPanel v-show="activeSection === 'sec-uploads'" />
+
       <el-card v-show="isApplySection" class="block section">
         <template #header>{{ applyCardTitle }}</template>
         <div class="event-application-rules">
@@ -305,6 +307,7 @@ import playerApi from '@/api/playerClient'
 import EventManagePanel from '@/components/EventManagePanel.vue'
 import EventPreviewCard from '@/components/EventPreviewCard.vue'
 import ApplicationRemarkThread from '@/components/ApplicationRemarkThread.vue'
+import TileContentPanel from '@/views/account/TileContentPanel.vue'
 import { eventRoleLabel, eventStatusLabel, eventStatusTagType, parseVenueKind, venueApplyHash, venueManageHash } from '@/utils/eventMeta'
 
 const auth = usePlayerAuthStore()
@@ -312,7 +315,7 @@ const eventAuth = useEventAdminAuthStore()
 const router = useRouter()
 const route = useRoute()
 
-const SECTION_IDS = ['sec-account', 'sec-apply-event', 'sec-apply-base', 'sec-manage-event', 'sec-manage-base']
+const SECTION_IDS = ['sec-account', 'sec-uploads', 'sec-apply-event', 'sec-apply-base', 'sec-manage-event', 'sec-manage-base']
 const LEGACY_HASH = {
   'sec-apply': 'sec-apply-event',
   'sec-manage': 'sec-manage-event',

@@ -101,45 +101,62 @@ function sampleTieCount(sample) {
   return valid ? tieCount : null
 }
 
+function rankBlockedInTiers(tiers, rankIndex) {
+  return tiers.some((tierName) => {
+    const tier = TIER_MAP.get(tierName)
+    if (!tier) return false
+    if (tier.maxRankIndex != null && rankIndex >= tier.maxRankIndex) return true
+    if (rankIndex < tier.minRankIndex) return true
+    return false
+  })
+}
+
 function admissionForRank(tiers, rankIndex) {
   const notes = []
+  const admissionBlocked = rankBlockedInTiers(tiers, rankIndex)
   for (const tierName of tiers) {
     const tier = TIER_MAP.get(tierName)
     if (tier.maxRankIndex != null && rankIndex >= tier.maxRankIndex) {
-      notes.push(`${tier.label}七段及以上不可进入；此处仅为沿用该场成绩的理论推算`)
+      notes.push(`${tier.label}不可进入`)
     }
     if (rankIndex < tier.minRankIndex) {
-      notes.push(`${tier.label}通常需${RANK_NAMES[tier.minRankIndex]}或特许资格`)
+      notes.push(`${tier.label}需${RANK_NAMES[tier.minRankIndex]}`)
     }
     if (tier.qualificationRequired) {
-      notes.push('MCRPL 需要参赛资格，不能仅凭段位判断准入')
+      notes.push('MCRPL 需资格')
     }
   }
-  return { admissionLimited: notes.length > 0, admissionNotes: notes }
+  return { admissionLimited: notes.length > 0, admissionBlocked, admissionNotes: notes }
 }
 
 function estimateZero(expectations, sampleCount, noLossSamples) {
   const base = { dan: null, lowerRank: null, upperRank: null, rankIndex: null }
-  if (!sampleCount) return { ...base, status: 'empty', label: '暂无有效样本' }
+  if (!sampleCount) return { ...base, status: 'empty', label: '—' }
   if (noLossSamples) {
-    return { ...base, status: 'no_losses', label: '未观测到三、四位，无法估计安定零点' }
+    return { ...base, status: 'no_losses', label: '无法估计' }
   }
-  const top = expectations[TOP_INDEX]
+  const playable = expectations.filter((row) => Number.isFinite(row.expectedPt) && row.rankIndex <= TOP_INDEX)
+  if (!playable.length) return { ...base, status: 'empty', label: '—' }
+  const top = playable[playable.length - 1]
   if (top.expectedPt > 0) {
-    return { status: 'top', label: '九段（计分区间上限仍为正收益）', dan: 9, rankIndex: TOP_INDEX,
-      lowerRank: top.rankName, upperRank: null }
+    const dan = top.rankIndex < FIRST_DAN_INDEX ? null : top.rankIndex - FIRST_DAN_INDEX + 1
+    return { status: 'top', label: top.rankIndex === TOP_INDEX ? '安定九段' : `安定${top.rankName}`,
+      dan, rankIndex: top.rankIndex, lowerRank: top.rankName, upperRank: null }
   }
-  const firstNegativeIndex = expectations.findIndex((row) => row.expectedPt < 0)
-  const lowerIndex = firstNegativeIndex < 0 ? TOP_INDEX : firstNegativeIndex - 1
-  const lower = expectations[lowerIndex]
-  const upper = expectations[Math.min(lowerIndex + 1, TOP_INDEX)]
+  if (playable[0].expectedPt < 0) {
+    return { ...base, status: 'below_dan', label: `低于${playable[0].rankName}`,
+      rankIndex: playable[0].rankIndex, upperRank: playable[0].rankName }
+  }
+  const firstNegative = playable.findIndex((row) => row.expectedPt < 0)
+  const lower = playable[firstNegative - 1]
+  const upper = playable[firstNegative]
   const fraction = lower.expectedPt === 0 ? 0
     : lower.expectedPt / (lower.expectedPt - upper.expectedPt)
-  const rankIndex = lowerIndex + fraction
+  const rankIndex = lower.rankIndex + fraction * (upper.rankIndex - lower.rankIndex)
   const belowDan = rankIndex < FIRST_DAN_INDEX
   const dan = belowDan ? null : rankIndex - FIRST_DAN_INDEX + 1
   const label = belowDan
-    ? `低于初段（${lower.rankName}${fraction ? `～${upper.rankName}` : ''}）`
+    ? '低于初段'
     : fraction ? `安定 ${dan.toFixed(2)} 段` : `安定${lower.rankName}`
   return { status: belowDan ? 'below_dan' : 'balanced', label, dan, rankIndex,
     lowerRank: lower.rankName, upperRank: fraction ? upper.rankName : lower.rankName }
@@ -152,6 +169,12 @@ function analyzeSamples(samples, { key, tier = null, gameType = null, label }, c
   for (const sample of samples) rankCounts[sample.rank - 1] += 1
   const noLossSamples = sampleCount > 0 && samples.every((sample) => sample.rank + sample.tieCount - 1 < 3)
   const expectations = RANK_NAMES.map((rankName, rankIndex) => {
+    const admission = admissionForRank(tiers, rankIndex)
+    const base = { rankName, rankIndex, dan: rankIndex >= FIRST_DAN_INDEX ? rankIndex - FIRST_DAN_INDEX + 1 : null,
+      lossPt: RANK_LOSS_PT[rankName], ...admission }
+    if (admission.admissionBlocked) {
+      return { ...base, expectedPt: null, confidenceLow: null, confidenceHigh: null }
+    }
     let sum = 0
     let sumSquares = 0
     for (const sample of samples) {
@@ -162,18 +185,13 @@ function analyzeSamples(samples, { key, tier = null, gameType = null, label }, c
       sumSquares += cents * cents
     }
     const expectedPt = sampleCount ? sum / sampleCount / 100 : null
-    // Approximate 95% confidence interval for the mean of independent games.
-    // It is not a prediction interval for future rank and does not model changing
-    // opponents, strength, correlated sessions, or PT resets on promotion/demotion.
     const variance = sampleCount > 1
       ? Math.max(0, (sumSquares - sum * sum / sampleCount) / (sampleCount - 1)) / 10000
       : null
     const margin = variance == null ? null : 1.96 * Math.sqrt(variance / sampleCount)
-    return { rankName, rankIndex, dan: rankIndex >= FIRST_DAN_INDEX ? rankIndex - FIRST_DAN_INDEX + 1 : null,
-      lossPt: RANK_LOSS_PT[rankName], expectedPt,
+    return { ...base, expectedPt,
       confidenceLow: margin == null ? null : expectedPt - margin,
-      confidenceHigh: margin == null ? null : expectedPt + margin,
-      ...admissionForRank(tiers, rankIndex) }
+      confidenceHigh: margin == null ? null : expectedPt + margin }
   })
   const estimate = estimateZero(expectations, sampleCount, noLossSamples)
   const currentExpectation = sampleCount ? expectations.find((row) => row.rankName === currentRank) ?? null : null
@@ -191,17 +209,35 @@ function analyzeSamples(samples, { key, tier = null, gameType = null, label }, c
     admissionLimited: admissionNotes.length > 0, admissionNotes }
 }
 
+const DEFAULT_TIER_ORDER = ['advanced', 'intermediate', 'beginner', 'mcrpl']
+
+function roomBlockedAtRank(tierValue, currentRank) {
+  const tier = TIER_MAP.get(tierValue)
+  const rankIndex = RANK_NAMES.indexOf(currentRank)
+  return rankIndex >= 0 && tier?.maxRankIndex != null && rankIndex >= tier.maxRankIndex
+}
+
+export function scoringRows(tier, rankName) {
+  const rankIndex = RANK_NAMES.includes(rankName) ? RANK_NAMES.indexOf(rankName) : RANK_NAMES.indexOf('初段')
+  return STABLE_RANK_FORMATS.map((format) => ({
+    key: `${tier}:${format.value}`,
+    label: format.label,
+    places: (PT_CENTS.get(`${tier}:${format.value}`)?.[rankIndex] || []).map((cents) => cents / 100),
+  })).filter((row) => row.places.length === 4)
+}
+
+export function defaultStableRankKey(groups, currentRank = null) {
+  if (!groups?.length) return ''
+  for (const tier of DEFAULT_TIER_ORDER) {
+    const group = groups.find((item) => item.tier === tier)
+    if (group && !roomBlockedAtRank(tier, currentRank)) return group.key
+  }
+  return groups[0].key
+}
+
 /**
- * Samples must be one completed ranked game each, with its actual settled place:
- * { tier: 'advanced', gameType: 'quanzhuang', rank: 1 }. Ties carry rankWeights,
- * e.g. rank: 2, rankWeights: [0, 0.5, 0.5, 0] occupies places 2 and 3. Each game
- * remains one observation; displayed rates use its actual competition rank.
- * Validate replay completion and resolve tied scores upstream. Unknown/custom rooms and invalid places are
- * excluded here; never silently reinterpret them as beginner ranked games.
- *
- * Groups keep room and format separate. Overall retains each game's own rewards
- * and format multiplier, assuming the same mix is played in future. Every row is
- * a theoretical rescore at that rank; admission notes limit practical use.
+ * Headline groups are per room. Formats inside a room keep their own PT weights.
+ * Different rooms are never pooled into one 安定段位.
  */
 export function calculateStableRank(samples, { currentRank = null } = {}) {
   const input = Array.isArray(samples) ? samples : []
@@ -210,16 +246,26 @@ export function calculateStableRank(samples, { currentRank = null } = {}) {
     && sample.rank >= 1 && sample.rank <= 4 && sampleTieCount(sample) != null)
     .map((sample) => ({ ...sample, tieCount: sampleTieCount(sample) }))
   const resolvedCurrentRank = RANK_NAMES.includes(currentRank) ? currentRank : null
-  const groups = []
+  const formatGroups = []
   for (const tier of STABLE_RANK_TIERS) {
     for (const format of STABLE_RANK_FORMATS) {
       const grouped = valid.filter((sample) => sample.tier === tier.value && sample.gameType === format.value)
       if (!grouped.length) continue
-      groups.push(analyzeSamples(grouped, { key: `${tier.value}:${format.value}`,
+      formatGroups.push(analyzeSamples(grouped, { key: `${tier.value}:${format.value}`,
         tier: tier.value, gameType: format.value, label: `${tier.label} · ${format.label}` }, resolvedCurrentRank))
     }
   }
+  const groups = []
+  for (const tier of STABLE_RANK_TIERS) {
+    const grouped = valid.filter((sample) => sample.tier === tier.value)
+    if (!grouped.length) continue
+    groups.push(analyzeSamples(grouped, {
+      key: tier.value, tier: tier.value, label: tier.label,
+    }, resolvedCurrentRank))
+  }
+  const defaultKey = defaultStableRankKey(groups, resolvedCurrentRank)
+  const overall = groups.find((group) => group.key === defaultKey)
+    || analyzeSamples([], { key: 'overall', label: '' }, resolvedCurrentRank)
   return { sampleCount: valid.length, excludedCount: input.length - valid.length,
-    currentRank: resolvedCurrentRank, groups,
-    overall: analyzeSamples(valid, { key: 'overall', label: '按当前场次比例综合' }, resolvedCurrentRank) }
+    currentRank: resolvedCurrentRank, defaultKey, groups, formatGroups, overall }
 }

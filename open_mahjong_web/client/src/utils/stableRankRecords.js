@@ -21,6 +21,11 @@ function asText(value) {
   return typeof value === 'string' ? value.trim() : ''
 }
 
+function parsePlacementCount(value) {
+  return typeof value === 'number' || (typeof value === 'string' && /^[1-4]$/.test(value))
+    ? Number(value) : null
+}
+
 function parseRecord(item) {
   const raw = item?.record ?? item
   if (typeof raw !== 'string') return raw
@@ -72,9 +77,9 @@ function resolveScene(title, item) {
  * `settlement_rank` MUST come from this target's current /record-ids response.
  * `settlement_tie_count` is the number of players sharing that competition rank
  * (e.g. a two-way tie at rank 2 occupies places 2 and 3, averaging their PT).
- * Do not use IndexedDB's `rank`: records are keyed by game_id and that cached
- * rank may belong to another player. Without target-bound settlement data we
- * exclude the game, since incomplete round scores cannot prove a final rank.
+ * The list API computes that count from stored player ranks; do not infer it
+ * from replay scores. Do not use IndexedDB's `rank`: records are keyed by
+ * game_id and that cached rank may belong to another player.
  * Per-game DB metadata may fill missing historical game_title fields only.
  */
 export function collectStableRankSamples(items, userId) {
@@ -111,17 +116,13 @@ export function collectStableRankSamples(items, userId) {
       exclude(scene.reason)
       continue
     }
-    const rawRank = item?.settlement_rank
-    const rank = typeof rawRank === 'number' || (typeof rawRank === 'string' && /^[1-4]$/.test(rawRank))
-      ? Number(rawRank) : null
+    const rank = parsePlacementCount(item?.settlement_rank)
     if (!Number.isInteger(rank) || rank < 1 || rank > 4
       || (item?.settlement_user_id != null && Number(item.settlement_user_id) !== target)) {
       exclude('missing_settlement')
       continue
     }
-    const rawTies = item?.settlement_tie_count
-    const tieCount = typeof rawTies === 'number' || (typeof rawTies === 'string' && /^[1-4]$/.test(rawTies))
-      ? Number(rawTies) : null
+    const tieCount = parsePlacementCount(item?.settlement_tie_count)
     if (!Number.isInteger(tieCount) || tieCount < 1 || rank + tieCount - 1 > 4) {
       exclude('missing_tie_settlement')
       continue

@@ -129,6 +129,12 @@ export const SEO_PAGES = [
     keywords: '麻将平台使用,麻将怎么玩,Salasasa指南,对局机制',
   },
   {
+    path: '/tiles',
+    title: '牌面 - Salasasa',
+    description: '下载已审核通过的玩家牌面与牌面背景压缩包。',
+    keywords: '麻将牌面,牌面下载,麻将皮肤',
+  },
+  {
     path: '/2d',
     title: 'Salasasa 2D 国标麻将：网页在线对战 - Salasasa',
     description: '免下载网页直接开局：2D 国标麻将在线对战、牌谱阅览与玩家数据查询，支持繁中、英文、日文。',
@@ -212,6 +218,7 @@ export const PRERENDER_PATHS = [
   '/events',
   '/mobile-download',
   '/guide',
+  '/tiles',
   '/2d',
   '/player-data',
   '/player-data/platform',

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { calculateStableRank, STABLE_RANK_TIERS, STABLE_RANK_FORMATS } from '../src/utils/stableRank.js'
+import { calculateStableRank, scoringRows, STABLE_RANK_TIERS, STABLE_RANK_FORMATS } from '../src/utils/stableRank.js'
 
 function samples(counts, tier = 'advanced', gameType = 'quanzhuang') {
   return counts.flatMap((count, index) => Array.from({ length: count }, () => ({ tier, gameType, rank: index + 1 })))
@@ -54,18 +54,47 @@ test('interpolates the adjacent PT zero and reports an exact zero without extrap
   assert.equal(row(exact, '五段').expectedPt, 0)
 })
 
-test('mixed rooms and lengths preserve the observed PT weights, not pooled place rates', () => {
+test('does not pool rooms for the headline; mixes formats only inside a room', () => {
   const source = [
     ...samples([4, 0, 0, 0], 'beginner', 'dongfeng'),
     ...samples([0, 0, 0, 2], 'advanced', 'quanzhuang'),
     ...samples([1, 0, 0, 0], 'advanced', 'banzhuang'),
   ]
   const result = calculateStableRank(source, { currentRank: '七段' })
-  assert.equal(result.groups.length, 3)
-  near(result.overall.currentExpectation.expectedPt, (4 * 11.76 - 2 * 94.5 + 58.8) / 7)
-  const weighted = result.groups.reduce((sum, group) => sum + group.currentExpectation.expectedPt * group.sampleCount, 0) / 7
-  near(result.overall.currentExpectation.expectedPt, weighted)
-  assert.ok(result.overall.currentExpectation.expectedPt < 0)
+  assert.equal(result.defaultKey, 'advanced')
+  assert.deepEqual(result.groups.map((group) => group.key), ['beginner', 'advanced'])
+  assert.equal(result.formatGroups.length, 3)
+  const advanced = result.groups.find((group) => group.key === 'advanced')
+  assert.equal(advanced.sampleCount, 3)
+  near(advanced.currentExpectation.expectedPt, (2 * -94.5 + 58.8) / 3)
+  const beginner = result.groups.find((group) => group.key === 'beginner')
+  assert.equal(beginner.sampleCount, 4)
+  near(beginner.currentExpectation.expectedPt, 11.76)
+})
+
+test('high-dan glance stays on advanced and ignores beginner fourths', () => {
+  const source = [
+    ...samples([25, 25, 25, 25], 'advanced'),
+    ...samples([0, 0, 0, 80], 'beginner'),
+    ...samples([20, 20, 20, 20], 'intermediate'),
+  ]
+  const result = calculateStableRank(source, { currentRank: '八段' })
+  assert.equal(result.defaultKey, 'advanced')
+  assert.equal(result.overall.estimate.label, '安定五段')
+  assert.equal(result.overall.sampleCount, 100)
+  const mixed = calculateStableRank(source).overall
+  assert.equal(mixed.tier, 'advanced')
+})
+
+test('skips rooms the current rank cannot enter when picking the default room', () => {
+  const source = [
+    ...samples([10, 10, 10, 10], 'beginner'),
+    ...samples([10, 10, 10, 10], 'intermediate'),
+  ]
+  const atEighth = calculateStableRank(source, { currentRank: '八段' })
+  assert.equal(atEighth.defaultKey, 'beginner')
+  const atFifth = calculateStableRank(source, { currentRank: '五段' })
+  assert.equal(atFifth.defaultKey, 'intermediate')
 })
 
 test('higher current ranks rescore old lower-room results at each candidate rank', () => {
@@ -73,17 +102,18 @@ test('higher current ranks rescore old lower-room results at each candidate rank
   const lowerCurrent = calculateStableRank(source, { currentRank: '四段' }).overall
   const higherCurrent = calculateStableRank(source.map((entry) => ({ ...entry, historicalPt: 999 })), { currentRank: '八段' }).overall
   assert.deepEqual(lowerCurrent.estimate, higherCurrent.estimate)
-  near(higherCurrent.currentExpectation.expectedPt, -9.6)
-  assert.equal(higherCurrent.currentExpectation.admissionLimited, true)
-  assert.ok(higherCurrent.admissionNotes.some((note) => note.includes('七段及以上不可进入')))
+  assert.equal(higherCurrent.currentExpectation.expectedPt, null)
+  assert.equal(higherCurrent.currentExpectation.admissionBlocked, true)
+  assert.ok(higherCurrent.admissionNotes.some((note) => note.includes('不可进入')))
 })
 
 test('intermediate theoretical high estimates explicitly carry the admission ceiling', () => {
   const result = calculateStableRank(samples([60, 20, 10, 10], 'intermediate')).overall
   assert.equal(result.estimate.status, 'top')
-  assert.equal(result.admissionLimited, true)
-  assert.equal(row(result, '六段').admissionLimited, false)
-  assert.equal(row(result, '七段').admissionLimited, true)
+  assert.equal(result.estimate.label, '安定六段')
+  assert.equal(row(result, '六段').admissionBlocked, false)
+  assert.equal(row(result, '七段').admissionBlocked, true)
+  assert.equal(row(result, '七段').expectedPt, null)
 })
 
 test('empty, invalid, all winning, all losing, and small samples remain distinguishable', () => {
@@ -100,7 +130,8 @@ test('empty, invalid, all winning, all losing, and small samples remain distingu
   assert.equal(noLoss.smallSample, true)
   const losses = calculateStableRank(samples([0, 0, 5, 5])).overall
   assert.equal(losses.estimate.status, 'below_dan')
-  assert.equal(losses.estimate.lowerRank, '3级')
+  assert.equal(losses.estimate.label, '低于四段')
+  assert.equal(losses.estimate.upperRank, '四段')
   const single = calculateStableRank(samples([0, 0, 0, 1])).overall
   assert.equal(row(single, '五段').confidenceLow, null)
 })
@@ -117,10 +148,10 @@ test('normal confidence interval estimates uncertainty in per-game PT mean', () 
 test('settlement rounding matches authoritative Python round before averaging', () => {
   const cases = [
     ['beginner', 'dongfeng', 3, '2级', -2.21],
-    ['advanced', 'dongfeng', 3, '三段', -9.55],
-    ['advanced', 'dongfeng', 4, '1级', -12.00],
-    ['advanced', 'dongfeng', 3, '二段', -8.08],
-    ['intermediate', 'dongfeng', 1, '七段', 25.48],
+    ['beginner', 'dongfeng', 3, '三段', -9.55],
+    ['beginner', 'dongfeng', 4, '1级', -12.00],
+    ['beginner', 'dongfeng', 3, '二段', -8.08],
+    ['intermediate', 'dongfeng', 1, '六段', 25.48],
     ['mcrpl', 'banzhuang', 1, '九段', 75.6],
   ]
   for (const [tier, gameType, rank, rankName, pt] of cases) {
@@ -134,8 +165,11 @@ test('every supported room and format stays separate and MCRPL shows qualificati
     samples([1, 1, 1, 1], tier.value, format.value)))
   const result = calculateStableRank(source)
   assert.equal(result.sampleCount, 48)
-  assert.equal(result.groups.length, 12)
-  for (const group of result.groups) assert.equal(group.sampleCount, 4)
+  assert.equal(result.groups.length, 4)
+  assert.equal(result.formatGroups.length, 12)
+  assert.equal(result.defaultKey, 'advanced')
+  for (const group of result.groups) assert.equal(group.sampleCount, 12)
+  for (const group of result.formatGroups) assert.equal(group.sampleCount, 4)
   assert.ok(result.groups.filter((group) => group.tier === 'mcrpl').every((group) => group.admissionLimited))
 })
 
@@ -164,4 +198,30 @@ test('tied places average already rounded PT and remain one observation with the
   ])
   assert.equal(malformed.sampleCount, 0)
   assert.equal(malformed.excludedCount, 2)
+})
+
+test('beginner first place is 24 PT, never the 30-point room base', () => {
+  const rows = scoringRows('beginner', '初段')
+  const full = rows.find((row) => row.label === '全庄')
+  near(full.places[0], 24)
+  near(full.places[1], 6)
+  near(full.places[2], -13.5)
+  near(full.places[3], -31.5)
+  const east = rows.find((row) => row.label === '东风')
+  near(east.places[0], 11.76)
+  const allFirst = calculateStableRank(samples([10, 0, 0, 0], 'beginner'), { currentRank: '初段' })
+  near(allFirst.overall.currentExpectation.expectedPt, 24)
+})
+
+test('advanced-only results do not score ranks that cannot enter that room', () => {
+  const result = calculateStableRank(samples([50, 20, 15, 15]), { currentRank: '七段' }).overall
+  assert.equal(result.tier, 'advanced')
+  assert.equal(row(result, '初段').expectedPt, null)
+  assert.equal(row(result, '三段').expectedPt, null)
+  assert.equal(row(result, '初段').admissionBlocked, true)
+  assert.ok(Number.isFinite(row(result, '四段').expectedPt))
+  assert.ok(row(result, '四段').expectedPt < 84)
+  for (const entry of result.expectations) {
+    if (entry.expectedPt != null) assert.ok(entry.expectedPt <= 84 + 1e-9, entry.rankName)
+  }
 })

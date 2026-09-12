@@ -78,7 +78,7 @@ export default defineConfig({
   server: {
     port: 5173,
     watch: {
-      ignored: ['**/data/activity-assets/**', '**/data/activities/**']
+      ignored: ['**/data/activity-assets/**', '**/data/activities/**', '**/data/user-content/**']
     },
     proxy: {
       '/activity-assets': {
