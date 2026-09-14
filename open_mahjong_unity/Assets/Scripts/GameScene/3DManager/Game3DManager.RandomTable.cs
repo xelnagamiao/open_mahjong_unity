@@ -101,7 +101,7 @@ public partial class Game3DManager : MonoBehaviour
             Quaternion rotation = SelfHandStandingRotation();
             for (int i = 0; i < closedHand.Count; i++)
             {
-                Vector3 spawn = cardsPosition.position + cardsPosition.childCount * handStep * direction;
+                Vector3 spawn = HandRowOrigin(cardsPosition, direction) + cardsPosition.childCount * handStep * direction;
                 spawn = PlaceTileOnTable(spawn, rotation);
                 GameObject cardObj = MahjongObjectPool.Instance.Spawn(closedHand[i], spawn, rotation);
                 if (cardObj == null) continue;
@@ -119,7 +119,7 @@ public partial class Game3DManager : MonoBehaviour
 
         for (int i = 0; i < closedHand.Count; i++)
         {
-            Vector3 spawn = cardsPosition.position + cardsPosition.childCount * handStep * backDirection.normalized;
+            Vector3 spawn = HandRowOrigin(cardsPosition, backDirection) + cardsPosition.childCount * handStep * backDirection.normalized;
             spawn = PlaceTileOnTable(spawn, backRotation);
             GameObject cardObj = MahjongObjectPool.Instance.SpawnBlankTile(spawn, backRotation);
             if (cardObj == null) continue;

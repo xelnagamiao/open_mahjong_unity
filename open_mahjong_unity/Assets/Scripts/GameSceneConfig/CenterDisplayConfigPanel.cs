@@ -28,6 +28,7 @@ public sealed class CenterDisplayConfigPanel : MonoBehaviour
 
     private void Awake()
     {
+        PrepareMinimalLayout();
         EnsureCatalogOptions();
         EnsureScrollableOptions();
         clickHandlers = new UnityAction[options.Length];
@@ -41,42 +42,79 @@ public sealed class CenterDisplayConfigPanel : MonoBehaviour
         }
     }
 
-    // Existing scenes keep their authored cards. New catalog entries reuse a
-    // complete image card without copying another style's generated preview.
+    private void PrepareMinimalLayout()
+    {
+        foreach (string name in new[] { "Description", "StatusText", "HelpText" })
+        {
+            var annotation = transform.Find(name);
+            if (annotation == null) continue;
+            if (annotation.TryGetComponent<TMP_Text>(out var text)) text.text = "";
+            annotation.gameObject.SetActive(false);
+        }
+        if (statusText != null) { statusText.text = ""; statusText.gameObject.SetActive(false); }
+        // Use the space formerly reserved for explanation text, keeping card dimensions intact.
+        var grid = transform.Find("StyleGrid") as RectTransform;
+        if (grid == null) return;
+        grid.anchorMin = grid.anchorMax = grid.pivot = new Vector2(0, 1);
+        grid.anchoredPosition = new Vector2(30, -88);
+        grid.sizeDelta = new Vector2(((RectTransform)transform).rect.width - 60,
+            Mathf.Max(1, ((RectTransform)transform).rect.height - 112));
+    }
+
+    // Reconcile only this panel's registered cards. Retired cards remain in the
+    // hierarchy for recovery, but inactive cards no longer occupy grid cells.
     private void EnsureCatalogOptions()
     {
-        StyleOption template = Array.Find(options, o => CompleteOption(o) && o.id == CenterDisplayStyles.Classic)
-            ?? Array.Find(options, o => CompleteOption(o) && o.id != CenterDisplayStyles.SimpleNavy);
+        StyleOption[] existing = options ?? Array.Empty<StyleOption>();
+        var catalogIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (CenterDisplayStyles.Entry entry in CenterDisplayStyles.All) catalogIds.Add(entry.Id);
+        StyleOption template = Array.Find(existing, o => CompleteOption(o) && o.id == CenterDisplayStyles.Classic)
+            ?? Array.Find(existing, o => CompleteOption(o) && catalogIds.Contains(o.id))
+            ?? Array.Find(existing, CompleteOption);
+        var ordered = new List<StyleOption>();
+        var retainedButtons = new HashSet<Button>();
         foreach (CenterDisplayStyles.Entry entry in CenterDisplayStyles.All)
         {
-            if (Array.Exists(options, o => o != null && o.id == entry.Id)) continue;
-            if (template == null) break;
-            Transform source = template.button.transform;
-            Button button = Instantiate(template.button, source.parent, false);
-            button.name = "Style_" + entry.Id;
-            button.onClick = new Button.ButtonClickedEvent();
-            var option = new StyleOption {
-                id = entry.Id, button = button,
-                preview = CloneChild(template.preview.transform, source, button.transform).GetComponent<RawImage>(),
-                nameText = CloneChild(template.nameText.transform, source, button.transform).GetComponent<TMP_Text>(),
-                selectedBadge = CloneChild(template.selectedBadge.transform, source, button.transform).gameObject,
-                fallback = CloneChild(template.fallback.transform, source, button.transform).gameObject
-            };
+            StyleOption option = Array.Find(existing,
+                o => CompleteOption(o) && o.id == entry.Id && !retainedButtons.Contains(o.button));
+            if (option == null)
+            {
+                if (template == null) continue;
+                Transform source = template.button.transform;
+                Button button = Instantiate(template.button, source.parent, false);
+                button.name = "Style_" + entry.Id;
+                button.onClick = new Button.ButtonClickedEvent();
+                option = new StyleOption {
+                    id = entry.Id, button = button,
+                    preview = CloneChild(template.preview.transform, source, button.transform).GetComponent<RawImage>(),
+                    nameText = CloneChild(template.nameText.transform, source, button.transform).GetComponent<TMP_Text>(),
+                    selectedBadge = CloneChild(template.selectedBadge.transform, source, button.transform).gameObject,
+                    fallback = CloneChild(template.fallback.transform, source, button.transform).gameObject
+                };
+                if (option.fallback.TryGetComponent<TMP_Text>(out var fallbackLabel))
+                    fallbackLabel.text = "预览暂未载入";
+            }
             option.nameText.text = entry.Name;
-            if (option.fallback.TryGetComponent<TMP_Text>(out var fallbackLabel))
-                fallbackLabel.text = "预览暂未载入";
-            Array.Resize(ref options, options.Length + 1);
-            options[options.Length - 1] = option;
+            ordered.Add(option);
+            retainedButtons.Add(option.button);
         }
-        StyleOption navy = Array.Find(options, o => o != null && o.id == CenterDisplayStyles.SimpleNavy);
-        if (navy != null) BuildSimpleNavyPreview(navy);
+        // This also hides duplicate or incomplete registered cards that were
+        // replaced above. Never scan or hide unrelated UI children by name.
+        foreach (StyleOption option in existing)
+            if (option != null && option.button && !retainedButtons.Contains(option.button))
+                option.button.gameObject.SetActive(false);
+        for (int i = 0; i < ordered.Count; i++)
+        {
+            ordered[i].button.gameObject.SetActive(true);
+            ordered[i].button.transform.SetSiblingIndex(i);
+        }
+        options = ordered.ToArray();
     }
 
     private static bool CompleteOption(StyleOption option) => option != null && option.button && option.preview
         && option.nameText && option.selectedBadge && option.fallback;
 
-    // Keep the page, header, footer and card dimensions exactly as authored.
-    // Only overflowing rows become scrollable inside the existing grid area.
+    // Keep card dimensions; only overflowing rows become scrollable inside the gallery area.
     private void EnsureScrollableOptions()
     {
         StyleOption first = Array.Find(options, CompleteOption);
@@ -172,30 +210,6 @@ public sealed class CenterDisplayConfigPanel : MonoBehaviour
         return clone;
     }
 
-    private static void BuildSimpleNavyPreview(StyleOption option)
-    {
-        if (!option.fallback || !option.nameText || option.fallback.transform.Find("SimpleNavyPreview")) return;
-        // This miniature exists only on the settings card. The actual skin
-        // never creates text or replaces game-owned score/round/wind values.
-        var fallbackGraphic = option.fallback.GetComponent<Graphic>();
-        if (fallbackGraphic) fallbackGraphic.enabled = false;
-        RectTransform root = PreviewRect(option.fallback.transform, "SimpleNavyPreview", Vector2.zero, new Vector2(77, 77));
-        root.localScale = Vector3.one * 2.65f;
-        PreviewFace(root, "Rim", new Vector2(77, 77), new Color(.13f, .20f, .25f));
-        PreviewFace(root, "Panel", new Vector2(71, 71), new Color(.045f, .09f, .12f));
-        PreviewFace(root, "Readout", new Vector2(34, 27), new Color(.025f, .06f, .078f));
-        PreviewText(root, option.nameText.font, "東1局", new Vector2(0, 5), new Vector2(31, 11), 7.4f, new Color(.5f, .92f, .83f));
-        PreviewText(root, option.nameText.font, "余:48", new Vector2(0, -7), new Vector2(31, 11), 5.2f, new Color(.56f, .68f, .72f));
-        string[] winds = { "東", "南", "西", "北" };
-        for (int seat = 0; seat < 4; seat++)
-        {
-            RectTransform cluster = PreviewRect(root, "Seat" + seat, Vector2.zero, new Vector2(77, 77));
-            cluster.localRotation = Quaternion.Euler(0, 0, seat * 90);
-            PreviewText(cluster, option.nameText.font, "26800", new Vector2(0, -27), new Vector2(39, 11), 6.5f, new Color(.94f, .77f, .43f));
-            PreviewText(cluster, option.nameText.font, winds[seat], new Vector2(-29, -28), new Vector2(9, 11), 6.5f, new Color(.89f, .94f, .94f));
-        }
-    }
-
     private static RectTransform PreviewRect(Transform parent, string name, Vector2 position, Vector2 size)
     {
         var go = new GameObject(name, typeof(RectTransform));
@@ -205,20 +219,6 @@ public sealed class CenterDisplayConfigPanel : MonoBehaviour
         rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f, .5f);
         rect.anchoredPosition = position; rect.sizeDelta = size;
         return rect;
-    }
-
-    private static void PreviewFace(Transform parent, string name, Vector2 size, Color color)
-    {
-        var graphic = PreviewRect(parent, name, Vector2.zero, size).gameObject.AddComponent<CenterSkinGraphic>();
-        graphic.SetShape(CenterSkinGraphic.CutRect(size.x, size.y, .12f), color, Color.clear, 0);
-    }
-
-    private static void PreviewText(Transform parent, TMP_FontAsset font, string value, Vector2 position, Vector2 size, float fontSize, Color color)
-    {
-        var text = PreviewRect(parent, "Preview " + value, position, size).gameObject.AddComponent<TextMeshProUGUI>();
-        text.font = font; text.text = value; text.fontSize = fontSize; text.color = color;
-        text.fontStyle = FontStyles.Bold; text.alignment = TextAlignmentOptions.Center;
-        text.textWrappingMode = TextWrappingModes.NoWrap; text.raycastTarget = false;
     }
 
     private void OnEnable()
@@ -299,8 +299,6 @@ public sealed class CenterDisplayConfigPanel : MonoBehaviour
             }
             if (option.selectedBadge != null) option.selectedBadge.SetActive(selected);
         }
-        if (statusText != null)
-            statusText.text = "当前：" + CenterDisplayStyles.Get(selectedId).Name + "  ·  选择后自动保存";
     }
 
     private void SubscribeToConfig()

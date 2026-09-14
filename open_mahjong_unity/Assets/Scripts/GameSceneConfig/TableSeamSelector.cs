@@ -1,105 +1,213 @@
 using System.Collections;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.UI;
 
-/// <summary>Independent seam choices, using the existing cloth prefab's selection frame.</summary>
+/// <summary>Independent table effects, using the settings UI's existing dropdown template.</summary>
 public sealed class TableSeamSelector : MonoBehaviour
 {
-    private const float ReservedHeight = 148f;
-    private readonly Image[] selectionFrames = new Image[8];
-    private readonly Image[] previews = new Image[8];
-    private readonly Button[] buttons = new Button[8];
-    private readonly Sprite[] ownedSprites = new Sprite[8];
+    private static readonly Color TextColor = new Color32(40, 58, 78, 255);
+    private static readonly Color OptionTextColor = new Color32(238, 243, 250, 255);
+    private static readonly Color DropdownColor = new Color32(38, 44, 56, 255);
+    private static readonly Color AccentColor = new Color32(241, 183, 121, 255);
+    private readonly TMP_Dropdown[] dropdowns = new TMP_Dropdown[4];
+    private readonly RectTransform[] rows = new RectTransform[4];
+    private readonly RectTransform[] labels = new RectTransform[4];
     private RectTransform gallery;
     private RectTransform container;
-    private GridLayoutGroup grid;
+    private RectTransform surfaceTitle;
     private Vector2 originalMin;
     private Vector2 originalMax;
-    private Coroutine loading;
+    private Coroutine waitingForConfig;
     private bool layoutApplied;
-    private TMP_FontAsset font;
+    private float lastWidth = -1;
 
-    public bool IsLoading => loading != null;
+    public bool IsLoading => waitingForConfig != null;
+
+    // Called after the surface footer changes its gallery reservation, while the panel is hidden.
+    public void RefreshGalleryBounds()
+    {
+        if (gallery == null || container == null) return;
+        originalMin = gallery.offsetMin;
+        originalMax = gallery.offsetMax;
+        container.anchorMin = new Vector2(gallery.anchorMin.x, gallery.anchorMax.y);
+        container.anchorMax = new Vector2(gallery.anchorMax.x, gallery.anchorMax.y);
+        ResizeLayout();
+    }
 
     public void Initialize(TableClothPanel panel)
     {
+        if (panel == null) return;
         if (container == null)
         {
             var scroll = panel.contentParent != null ? panel.contentParent.GetComponentInParent<ScrollRect>(true) : null;
-            if (scroll == null || panel.tableclothPrefab == null) return;
+            var template = FindTemplate(panel.GetComponentInParent<Canvas>());
+            if (scroll == null || template == null) return;
             gallery = scroll.GetComponent<RectTransform>();
             originalMin = gallery.offsetMin;
             originalMax = gallery.offsetMax;
-            var canvas = panel.GetComponentInParent<Canvas>();
-            var existingText = canvas != null ? canvas.GetComponentInChildren<TMP_Text>(true) : null;
-            font = existingText != null ? existingText.font : TMP_Settings.defaultFontAsset;
-            Build(panel.tableclothPrefab);
+            Build(template);
         }
         if (isActiveAndEnabled) Resume();
     }
 
-    private void Build(GameObject prefab)
+    private static TMP_Dropdown FindTemplate(Canvas canvas)
+    {
+        if (canvas == null) return null;
+        TMP_Dropdown fallback = null;
+        foreach (var candidate in canvas.GetComponentsInChildren<TMP_Dropdown>(true))
+        {
+            if (candidate.template == null || candidate.captionText == null || candidate.itemText == null ||
+                candidate.template.GetComponentInChildren<ScrollRect>(true) == null ||
+                candidate.template.GetComponentInChildren<Toggle>(true) == null) continue;
+            if (candidate.name == "CustomPackDropdown") return candidate;
+            if (fallback == null) fallback = candidate;
+        }
+        return fallback;
+    }
+
+    private void Build(TMP_Dropdown template)
     {
         container = CreateRect("TableSeamSelector", gallery.parent);
+        container.gameObject.SetActive(false);
         container.anchorMin = new Vector2(gallery.anchorMin.x, gallery.anchorMax.y);
         container.anchorMax = new Vector2(gallery.anchorMax.x, gallery.anchorMax.y);
-        container.offsetMin = new Vector2(originalMin.x, originalMax.y - ReservedHeight);
+        container.offsetMin = new Vector2(originalMin.x, originalMax.y - 80);
         container.offsetMax = originalMax;
+        // Keep labels legible regardless of the selected cloth or translucent parent panel.
+        var panelBackground = container.gameObject.AddComponent<Image>();
+        panelBackground.color = SceneConfigUi.SurfaceHeaderBackground;
+        panelBackground.raycastTarget = false;
+        surfaceTitle = SceneConfigUi.CreateSurfaceHeaderTitle(container, "桌布", template.captionText.font).rectTransform;
 
-        var heading = CreateLabel("缝线", container);
-        heading.rectTransform.anchorMin = new Vector2(0, 1);
-        heading.rectTransform.anchorMax = Vector2.one;
-        heading.rectTransform.offsetMin = new Vector2(8, -24);
-        heading.rectTransform.offsetMax = new Vector2(-8, 0);
-        heading.fontSize = 17;
+        var seamNames = new List<string>(TableSurfaceNames.SeamOptionCount);
+        for (int index = 0; index < TableSurfaceNames.SeamOptionCount; index++)
+            seamNames.Add(TableSurfaceNames.SeamDisplayName(TableSurfaceNames.SeamStyleAtOption(index)));
+        CreateDropdown(0, "缝线", "TableSeamDropdown", seamNames, template,
+            index => SelectStyle(TableSurfaceNames.SeamStyleAtOption(index)));
+        CreateDropdown(1, "边框阴影", "TableShadowDropdown", new List<string>(TableLightingPresets.ShadowNames), template,
+            index => SelectShadow(TableLightingPresets.ShadowStyleAtOption(index)));
+        CreateDropdown(2, "光照", "TableLightDropdown", new List<string>(TableLightingPresets.LightNames), template,
+            index => SelectLight(TableLightingPresets.LightStyleAtOption(index)));
+        CreateDropdown(3, "边框描边", "TableContactOutlineDropdown", new List<string> { "关闭", "开启" }, template, SelectContactOutline);
+        dropdowns[3].SetValueWithoutNotify(1);
+        ResizeLayout();
+    }
 
-        var gridRect = CreateRect("Choices", container);
-        gridRect.anchorMin = Vector2.zero;
-        gridRect.anchorMax = Vector2.one;
-        gridRect.offsetMin = new Vector2(8, 8);
-        gridRect.offsetMax = new Vector2(-8, -28);
-        grid = gridRect.gameObject.AddComponent<GridLayoutGroup>();
-        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-        grid.constraintCount = 4;
-        grid.spacing = new Vector2(10, 8);
-        for (int i = 0; i < 8; i++)
+    private void CreateDropdown(int index, string title, string objectName, List<string> options,
+        TMP_Dropdown template, UnityAction<int> onSelected)
+    {
+        rows[index] = CreateRect(objectName + "Row", container);
+        var label = CreateRect("Label", rows[index]).gameObject.AddComponent<TextMeshProUGUI>();
+        labels[index] = label.rectTransform;
+        label.font = template.captionText.font;
+        label.color = TextColor;
+        label.fontSize = 17;
+        label.text = title;
+        label.alignment = TextAlignmentOptions.MidlineLeft;
+        label.textWrappingMode = TextWrappingModes.NoWrap;
+        label.raycastTarget = false;
+
+        var dropdown = Instantiate(template, rows[index], false);
+        dropdown.name = objectName;
+        dropdown.transform.localScale = Vector3.one;
+        dropdowns[index] = dropdown;
+        // Clone visuals and scrolling, not the original setting's listeners or selection.
+        dropdown.onValueChanged = new TMP_Dropdown.DropdownEvent();
+        dropdown.MultiSelect = false;
+        dropdown.ClearOptions();
+        dropdown.AddOptions(options);
+        dropdown.SetValueWithoutNotify(0);
+        dropdown.onValueChanged.AddListener(onSelected);
+        dropdown.navigation = new Navigation { mode = Navigation.Mode.Automatic };
+        dropdown.template.gameObject.SetActive(false);
+        dropdown.template.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 200);
+        // The source can be expanded when this panel is opened. Never copy its live popup.
+        foreach (Transform child in dropdown.transform)
+            if (child.name == "Dropdown List")
+            {
+                child.gameObject.SetActive(false);
+                Release(child.gameObject);
+            }
+        ConfigureText(dropdown.captionText);
+        ConfigureText(dropdown.itemText);
+        ConfigureDropdownAppearance(dropdown);
+        var scroll = dropdown.template.GetComponentInChildren<ScrollRect>(true);
+        scroll.horizontal = false;
+        scroll.vertical = true;
+        if (scroll.viewport != null)
         {
-            int style = i - 1;
-            var item = Instantiate(prefab, gridRect);
-            item.name = style < 0 ? "TableSeam_None" : "TableSeam_" + style.ToString("00");
-            var cloth = item.GetComponent<TableCloth>();
-            selectionFrames[i] = cloth.tableClothChoseImage;
-            var body = cloth.tableClothImage;
-            buttons[i] = cloth.tableClothButton;
-            // The clone must never retain the cloth-selection listener from Awake.
-            buttons[i].onClick = new Button.ButtonClickedEvent();
-            buttons[i].onClick.AddListener(() => SelectStyle(style));
-            cloth.enabled = false;
-            Release(cloth);
-            body.sprite = null;
-            body.color = new Color(.34f, .36f, .38f, 1f);
-
-            var previewRect = CreateRect("Preview", body.transform);
-            previewRect.anchorMin = new Vector2(0, .5f);
-            previewRect.anchorMax = new Vector2(0, .5f);
-            previewRect.anchoredPosition = new Vector2(20, 0);
-            previewRect.sizeDelta = new Vector2(30, 30);
-            previews[i] = previewRect.gameObject.AddComponent<Image>();
-            previews[i].raycastTarget = false;
-            previews[i].preserveAspect = true;
-            previews[i].enabled = false;
-            var label = CreateLabel(TableSurfaceNames.SeamDisplayName(style), body.transform);
-            label.rectTransform.anchorMin = Vector2.zero;
-            label.rectTransform.anchorMax = Vector2.one;
-            label.rectTransform.offsetMin = new Vector2(style < 0 ? 12 : 42, 1);
-            label.rectTransform.offsetMax = new Vector2(-8, -1);
-            label.enableAutoSizing = true;
-            label.fontSizeMin = 12;
-            label.fontSizeMax = 16;
-            label.fontSize = 16;
+            var viewport = scroll.viewport;
+            viewport.offsetMin = new Vector2(viewport.offsetMin.x, 0);
+            viewport.offsetMax = new Vector2(viewport.offsetMax.x, 0);
         }
-        ResizeGrid();
+        dropdown.gameObject.SetActive(true);
+    }
+
+    private static void ConfigureText(TMP_Text text)
+    {
+        text.color = OptionTextColor;
+        text.enableVertexGradient = false;
+        text.enableAutoSizing = true;
+        text.fontSizeMin = 13;
+        text.fontSizeMax = 18;
+        text.fontSize = 18;
+        text.textWrappingMode = TextWrappingModes.NoWrap;
+    }
+
+    internal static void ConfigureDropdownAppearance(TMP_Dropdown dropdown)
+    {
+        // Apply only to this cloned selector, never to the shared card-settings template.
+        var colors = ColorBlock.defaultColorBlock;
+        colors.normalColor = DropdownColor;
+        colors.highlightedColor = new Color32(57, 70, 89, 255);
+        colors.selectedColor = colors.highlightedColor;
+        colors.pressedColor = new Color32(24, 31, 43, 255);
+        colors.disabledColor = new Color32(65, 71, 83, 255);
+        colors.colorMultiplier = 1f;
+        colors.fadeDuration = .1f;
+        ApplyColors(dropdown, colors);
+
+        var popupBackground = dropdown.template.GetComponent<Image>();
+        if (popupBackground != null)
+        {
+            popupBackground.sprite = null;
+            popupBackground.type = Image.Type.Simple;
+            popupBackground.color = DropdownColor;
+        }
+        var arrow = dropdown.transform.Find("Arrow")?.GetComponent<Graphic>();
+        if (arrow != null) arrow.color = AccentColor;
+
+        foreach (var toggle in dropdown.template.GetComponentsInChildren<Toggle>(true))
+        {
+            ApplyColors(toggle, colors);
+            if (toggle.graphic != null) toggle.graphic.color = AccentColor;
+        }
+        foreach (var scrollbar in dropdown.template.GetComponentsInChildren<Scrollbar>(true))
+        {
+            var track = scrollbar.GetComponent<Image>();
+            if (track != null) track.color = new Color32(29, 35, 46, 255);
+            var scrollColors = colors;
+            scrollColors.normalColor = new Color32(117, 148, 173, 255);
+            scrollColors.highlightedColor = new Color32(86, 124, 155, 255);
+            scrollColors.selectedColor = scrollColors.highlightedColor;
+            scrollColors.pressedColor = AccentColor;
+            ApplyColors(scrollbar, scrollColors);
+        }
+    }
+
+    private static void ApplyColors(Selectable selectable, ColorBlock colors)
+    {
+        if (selectable.targetGraphic != null) selectable.targetGraphic.color = Color.white;
+        if (selectable.targetGraphic is Image background)
+        {
+            background.sprite = null;
+            background.type = Image.Type.Simple;
+        }
+        selectable.transition = Selectable.Transition.ColorTint;
+        selectable.colors = colors;
     }
 
     private RectTransform CreateRect(string objectName, Transform parent)
@@ -110,70 +218,79 @@ public sealed class TableSeamSelector : MonoBehaviour
         return child.GetComponent<RectTransform>();
     }
 
-    private TextMeshProUGUI CreateLabel(string text, Transform parent)
-    {
-        var label = CreateRect("Label", parent).gameObject.AddComponent<TextMeshProUGUI>();
-        label.font = font;
-        label.text = text;
-        label.alignment = TextAlignmentOptions.MidlineLeft;
-        label.textWrappingMode = TextWrappingModes.NoWrap;
-        label.richText = false;
-        label.raycastTarget = false;
-        label.color = Color.white;
-        return label;
-    }
-
     public void SelectStyle(int style)
     {
-        if (style < -1 || style > 6 || ConfigManager.Instance == null) return;
-        ConfigManager.Instance.SetSelectedTableSeam(style);
+        var config = ConfigManager.Instance;
+        if (style < -1 || style >= TableSurfaceNames.SeamStyleCount || config == null) return;
+        if (config.GetSelectedTableSeam() == style) { RefreshSelection(); return; }
+        config.SetSelectedTableSeam(style);
+        ApplySelection();
+    }
+
+    public void SelectShadow(int preset)
+    {
+        var config = ConfigManager.Instance;
+        if (config == null) return;
+        preset = TableLightingPresets.ClampShadow(preset);
+        if (config.GetSelectedTableShadow() == preset) { RefreshSelection(); return; }
+        config.SetSelectedTableShadow(preset);
+        ApplySelection();
+    }
+
+    public void SelectLight(int preset)
+    {
+        var config = ConfigManager.Instance;
+        if (config == null) return;
+        preset = TableLightingPresets.ClampLight(preset);
+        if (config.GetSelectedTableLight() == preset) { RefreshSelection(); return; }
+        config.SetSelectedTableLight(preset);
+        ApplySelection();
+    }
+
+    public void SelectContactOutline(int index)
+    {
+        var config = ConfigManager.Instance;
+        if (config == null || index < 0 || index > 1) return;
+        bool enabled = index == 1;
+        if (config.GetTableContactOutlineEnabled() == enabled) { RefreshSelection(); return; }
+        config.SetTableContactOutlineEnabled(enabled);
+        RefreshSelection();
+        if (Desktop.Instance != null) Desktop.Instance.RefreshEdge();
+    }
+
+    private void ApplySelection()
+    {
         RefreshSelection();
         if (Desktop.Instance != null) Desktop.Instance.RefreshTablecloth();
     }
 
     public void RefreshSelection()
     {
-        bool ready = ConfigManager.Instance != null;
-        int selected = ready ? ConfigManager.Instance.GetSelectedTableSeam() : -2;
-        for (int i = 0; i < selectionFrames.Length; i++)
-        {
-            if (selectionFrames[i] != null) selectionFrames[i].gameObject.SetActive(i - 1 == selected);
-            if (buttons[i] != null) buttons[i].interactable = ready;
-        }
+        var config = ConfigManager.Instance;
+        foreach (var dropdown in dropdowns) if (dropdown != null) dropdown.interactable = config != null;
+        if (config == null) return;
+        if (dropdowns[0] != null) dropdowns[0].SetValueWithoutNotify(TableSurfaceNames.SeamOptionForStyle(config.GetSelectedTableSeam()));
+        if (dropdowns[1] != null) dropdowns[1].SetValueWithoutNotify(TableLightingPresets.ShadowOptionForStyle(config.GetSelectedTableShadow()));
+        if (dropdowns[2] != null) dropdowns[2].SetValueWithoutNotify(TableLightingPresets.LightOptionForStyle(config.GetSelectedTableLight()));
+        if (dropdowns[3] != null) dropdowns[3].SetValueWithoutNotify(config.GetTableContactOutlineEnabled() ? 1 : 0);
     }
 
     private void Resume()
     {
         container.gameObject.SetActive(true);
-        if (!layoutApplied)
-        {
-            gallery.offsetMax = originalMax - new Vector2(0, ReservedHeight);
-            layoutApplied = true;
-        }
-        ResizeGrid();
+        layoutApplied = true;
+        ResizeLayout();
         RefreshSelection();
-        if (Application.isPlaying && loading == null) loading = StartCoroutine(LoadPreviews());
+        if (Application.isPlaying && ConfigManager.Instance == null && waitingForConfig == null)
+            waitingForConfig = StartCoroutine(WaitForConfig());
     }
 
-    private IEnumerator LoadPreviews()
+    private IEnumerator WaitForConfig()
     {
         yield return null;
         while (ConfigManager.Instance == null) yield return null;
         RefreshSelection();
-        for (int i = 1; i < previews.Length; i++)
-        {
-            if (ownedSprites[i] != null) continue;
-            var request = Resources.LoadAsync<Texture2D>("TableSurfacePreviews/TableSeams/Seam_" + (i - 1).ToString("00"));
-            yield return request;
-            var texture = request.asset as Texture2D;
-            if (texture == null) continue;
-            ownedSprites[i] = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height),
-                new Vector2(.5f, .5f), 100f, 0, SpriteMeshType.FullRect);
-            previews[i].sprite = ownedSprites[i];
-            previews[i].enabled = true;
-            yield return null;
-        }
-        loading = null;
+        waitingForConfig = null;
     }
 
     private void OnEnable()
@@ -181,18 +298,62 @@ public sealed class TableSeamSelector : MonoBehaviour
         if (container != null) Resume();
     }
 
-    private void OnRectTransformDimensionsChange() => ResizeGrid();
+    private void OnRectTransformDimensionsChange() => ResizeLayout();
 
-    private void ResizeGrid()
+    private void ResizeLayout()
     {
-        if (grid == null || container == null) return;
-        grid.cellSize = new Vector2(Mathf.Max(1, (container.rect.width - 46) / 4), 52);
+        if (container == null || gallery == null || dropdowns[dropdowns.Length - 1] == null) return;
+        float width = container.rect.width;
+        if (lastWidth >= 0 && !Mathf.Approximately(lastWidth, width)) CloseDropdowns();
+        lastWidth = width;
+        bool titleAbove = width < 600;
+        float controlsLeft = titleAbove ? 0 : 120;
+        float controlsTop = titleAbove ? 44 : 0;
+        float controlsWidth = width - controlsLeft;
+        int columns = controlsWidth >= 1050 ? 4 : controlsWidth >= 600 ? 2 : 1;
+        bool stacked = columns > 1 || controlsWidth < 320;
+        float rowHeight = stacked ? 64 : 40;
+        int rowCount = Mathf.CeilToInt((float)rows.Length / columns);
+        float height = controlsTop + 16 + rowCount * rowHeight + (rowCount - 1) * 8;
+        container.offsetMin = new Vector2(originalMin.x, originalMax.y - height);
+        if (layoutApplied) gallery.offsetMax = originalMax - new Vector2(0, height);
+        Place(surfaceTitle, 20, 8, titleAbove ? Mathf.Max(1, width - 40) : 88, titleAbove ? 32 : height - 16);
+        for (int i = 0; i < rows.Length; i++)
+        {
+            float cellWidth = Mathf.Max(1, (controlsWidth - 16 - (columns - 1) * 12) / columns);
+            Place(rows[i], controlsLeft + 8 + i % columns * (cellWidth + 12), controlsTop + 8 + i / columns * (rowHeight + 8),
+                cellWidth, rowHeight);
+            Place(labels[i], 0, 0, stacked ? cellWidth : 96, stacked ? 22 : 40);
+            Place((RectTransform)dropdowns[i].transform, stacked ? 0 : 104, stacked ? 24 : 0,
+                Mathf.Max(1, cellWidth - (stacked ? 0 : 104)), 40);
+        }
+    }
+
+    private static void Place(RectTransform rect, float x, float y, float width, float height)
+    {
+        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0, 1);
+        rect.anchoredPosition = new Vector2(x, -y);
+        rect.sizeDelta = new Vector2(width, height);
+    }
+
+    private void CloseDropdowns()
+    {
+        if (!Application.isPlaying) return;
+        foreach (var dropdown in dropdowns)
+            if (dropdown != null && dropdown.IsExpanded)
+            {
+                dropdown.Hide();
+                // TMP_Dropdown.OnDisable also removes its blocker and pending popup.
+                dropdown.gameObject.SetActive(false);
+                dropdown.gameObject.SetActive(true);
+            }
     }
 
     private void OnDisable()
     {
-        if (loading != null) StopCoroutine(loading);
-        loading = null;
+        if (waitingForConfig != null) StopCoroutine(waitingForConfig);
+        waitingForConfig = null;
+        CloseDropdowns();
         if (layoutApplied && gallery != null)
         {
             gallery.offsetMin = originalMin;
@@ -205,7 +366,6 @@ public sealed class TableSeamSelector : MonoBehaviour
     private void OnDestroy()
     {
         OnDisable();
-        foreach (var sprite in ownedSprites) if (sprite != null) Release(sprite);
         if (container != null) Release(container.gameObject);
     }
 

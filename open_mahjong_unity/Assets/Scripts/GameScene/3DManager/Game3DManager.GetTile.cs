@@ -31,11 +31,11 @@ public partial class Game3DManager : MonoBehaviour {
         // 初始化牌生成位置 = 玩家手牌起始点 + (3D卡牌数量)*宽度间距*方向
         Vector3 spawnPosition = Vector3.zero;
         if (actionType == "init") {
-            spawnPosition = cardsPosition.position + (cardsPosition.childCount) * handStep * direction;
+            spawnPosition = HandRowOrigin(cardsPosition, direction) + cardsPosition.childCount * handStep * direction;
         }
-        // 摸牌生成位置 = 玩家手牌起始点 + (3D卡牌数量+1)*宽度间距*方向
+        // 摸牌放在该行末张之后，沿用两个原槽宽的分离距离。
         else if (actionType == "get") {
-            spawnPosition = cardsPosition.position + HandDrawSlotOffset(cardsPosition.childCount) * direction;
+            spawnPosition = HandRowOrigin(cardsPosition, direction) + HandDrawSlotOffset(cardsPosition.childCount) * direction;
         }
 
         // 等待一帧，避免与其他操作在同一帧执行
@@ -79,11 +79,11 @@ public partial class Game3DManager : MonoBehaviour {
         // 初始化牌生成位置 = 玩家手牌起始点 + (3D卡牌数量)*宽度间距*方向
         Vector3 spawnPosition = Vector3.zero;
         if (actionType == "init") {
-            spawnPosition = cardsPosition.position + (cardsPosition.childCount) * handStep * direction;
+            spawnPosition = HandRowOrigin(cardsPosition, direction) + cardsPosition.childCount * handStep * direction;
         }
-        // 摸牌生成位置 = 玩家手牌起始点 + (3D卡牌数量+1)*宽度间距*方向
+        // 摸牌放在该行末张之后，沿用两个原槽宽的分离距离。
         else if (actionType == "get") {
-            spawnPosition = cardsPosition.position + HandDrawSlotOffset(cardsPosition.childCount) * direction;
+            spawnPosition = HandRowOrigin(cardsPosition, direction) + HandDrawSlotOffset(cardsPosition.childCount) * direction;
         }
 
         spawnPosition = PlaceTileOnTable(spawnPosition, rotation);

@@ -26,6 +26,7 @@ public class RoomInfo {
     public bool is_game_running; // 游戏是否正在运行
     public bool is_player_set_random_seed; // 复式：是否玩家指定主种子
     public bool open_cuohe; // 是否开启错和
+    public int cuohe_type; // 国标/台湾错和形式，由房间列表返回
     public bool show_moqie_hint; // 手摸切灰显（河牌摸切灰、手切正常）
     public bool tactical_call; // 战术鸣牌（国标/青雀）
     public bool claim_protection; // 鸣牌保护（国标/青雀）
@@ -692,6 +693,40 @@ public class FreeTableInfo {
     public int? last_river_tile;
 }
 
+public class RecentPlacement {
+    public string game_id;
+    public string ended_at;
+    public int rank;
+    public string match_type;
+}
+
+public class GuobiaoBigWin {
+    public string game_id;
+    public string ended_at;
+    public int total_fan;
+    public string fan_name;
+    public string[] fans;
+    public string win_type;
+    public int winning_tile;
+    public int[] concealed_tiles;
+    public int[][] melds;
+    public int[] flower_tiles;
+    public int[][] combination_mask;
+    public int round_index;
+    public int action_index;
+}
+
+public class PlayerRecentCategory {
+    public RecentPlacement[] placements;
+    public GuobiaoBigWin big_win;
+}
+
+public class PlayerRecentRecordsResponse {
+    public int user_id;
+    public string request_id;
+    public Dictionary<string, Dictionary<string, PlayerRecentCategory>> rules;
+}
+
 public class Response { // 所有后端的返回数据都由Response类接收
     // 消息头
     public string type; // 消息类型
@@ -719,6 +754,7 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public bool is_favorite; // 更新收藏后回传
     public PlayerInfoResponse player_info; // 返回玩家信息
     public RuleStatsResponse rule_stats; // 返回单个规则的统计数据
+    public PlayerRecentRecordsResponse player_recent_records;
     public LoginInfo login_info; // 返回登录信息
     public UserSettings user_settings; // 返回用户设置信息
     public UserConfig user_config; // 返回用户游戏配置信息

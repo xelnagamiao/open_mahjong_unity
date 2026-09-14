@@ -3,6 +3,7 @@ using System.IO;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Serialization;
 
 /// <summary>
 /// 场景设置「牌面背景」页：手牌牌面背景与 2D 手牌牌背（里宝暗面）分开上传。
@@ -20,13 +21,14 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         + "  └─ hand-back.png  手牌牌背\n"
         + "透明花纹牌面请在「牌面」页打开「使用牌面背景」，整张牌面请关闭。\n"
         + "背景与牌背可以分别上传、分别恢复；3D 牌面背景只用于 3D 卡牌正面，不是手牌背景。\n"
-        + "3D 牌面可选择纯色或背景图，二者二选一；请到「3D 卡牌设计」中的「3D牌面背景」标签设置，3D 牌背请到「牌背」标签设置。";
+        + "请到「3D 卡牌设计」中的「3D牌面背景」标签设置背景和纯色，3D 牌背请到「牌背」标签设置。";
 
     private const string ImageAccept = "image/png,image/jpeg,image/jpg,image/webp,application/zip,.zip";
 
     [SerializeField] private Image handBgPreview;
     [SerializeField] private Image cardBackPreview;
     [SerializeField] private Image tableBgPreview;
+    [SerializeField] private GameObject tilePreviewPrefab;
     [SerializeField] private Button uploadHandBgButton;
     [SerializeField] private Button uploadCardBackButton;
     [SerializeField] private Button uploadPairZipButton;
@@ -39,9 +41,11 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
     [SerializeField] private Slider tableFaceSliderR;
     [SerializeField] private Slider tableFaceSliderG;
     [SerializeField] private Slider tableFaceSliderB;
+    [FormerlySerializedAs("tableFaceSliderGray"), SerializeField] private Slider tableFaceSliderBrightness;
     [SerializeField] private TMP_Text tableFaceValueR;
     [SerializeField] private TMP_Text tableFaceValueG;
     [SerializeField] private TMP_Text tableFaceValueB;
+    [FormerlySerializedAs("tableFaceValueGray"), SerializeField] private TMP_Text tableFaceValueBrightness;
     [SerializeField] private TMP_InputField tableFaceHexInput;
     [SerializeField] private Button tableFaceHexApplyButton;
     [SerializeField] private Button useTableFaceSolidButton;
@@ -82,6 +86,8 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         tableFaceSliderR.onValueChanged.AddListener(v => SetTableFaceRgb(v / 255f, CurrentTableFaceColor.g, CurrentTableFaceColor.b));
         tableFaceSliderG.onValueChanged.AddListener(v => SetTableFaceRgb(CurrentTableFaceColor.r, v / 255f, CurrentTableFaceColor.b));
         tableFaceSliderB.onValueChanged.AddListener(v => SetTableFaceRgb(CurrentTableFaceColor.r, CurrentTableFaceColor.g, v / 255f));
+        if (tableFaceSliderBrightness != null)
+            tableFaceSliderBrightness.onValueChanged.AddListener(SetTableFaceBrightness);
     }
 
     private void OnEnable() {
@@ -248,12 +254,7 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
     private void EnsureTableBackgroundPreview() {
         if (tableBgArtwork != null) return;
         RectTransform frame = tableBgPreview.rectTransform;
-        Vector2 available = frame.rect.size;
-        Vector2 fitted = TileTextureLayout.FitTableCanvas(available);
-        // 保留原预览区域中心；只在区域内按当前牌面画布比例建立底色框。
-        frame.anchoredPosition += Vector2.Scale(fitted - available, frame.pivot - Vector2.one * .5f);
-        frame.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, fitted.x);
-        frame.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, fitted.y);
+        TileTextureLayout.FitRenderedCardPreview(frame, tilePreviewPrefab);
         tableBgPreview.sprite = null;
         tableBgPreview.preserveAspect = false;
         GameObject artwork = new GameObject("TableBackgroundArtwork", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -299,31 +300,39 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
         : ConfigManager.DefaultTableFaceColor;
 
     public void RefreshSolidColorUi() {
+        // 旧存档或删除背景后可能同时关闭两种模式，此时回到纯色设置。
+        if (ConfigManager.Instance != null && !ConfigManager.Instance.UseTableFaceBackground
+            && !ConfigManager.Instance.TableFaceUseSolidColor)
+            CardBackManager.SetTableFaceSolidColorEnabled(true);
         RefreshTableBackgroundPreviewLayout();
         Color color = CurrentTableFaceColor;
         bool useSolid = ConfigManager.Instance != null && ConfigManager.Instance.TableFaceUseSolidColor;
         tableFaceColorPreview.sprite = null;
-        tableFaceColorPreview.color = color;
+        tableFaceColorPreview.color = ConfigManager.ApplyColorBrightness(color, ConfigManager.Instance?.TableFaceBrightness ?? 0f);
         tableFaceHexInput.text = ColorUtility.ToHtmlStringRGB(color);
         SetSolidButton(useTableFaceSolidButton, useSolid);
         SetSolidButton(noTableFaceSolidButton, !useSolid);
         bool useBackground = ConfigManager.Instance != null && ConfigManager.Instance.UseTableFaceBackground;
         if (useTableBackgroundButton != null) SetSolidButton(useTableBackgroundButton, useBackground);
-        if (noTableBackgroundButton != null) SetSolidButton(noTableBackgroundButton, !useBackground);
+        if (noTableBackgroundButton != null) SetSolidButton(noTableBackgroundButton, useSolid);
         syncingTableFaceColor = true;
-        tableFaceSliderR.value = color.r * 255f;
-        tableFaceSliderG.value = color.g * 255f;
-        tableFaceSliderB.value = color.b * 255f;
-        tableFaceValueR.text = Mathf.RoundToInt(color.r * 255f).ToString();
-        tableFaceValueG.text = Mathf.RoundToInt(color.g * 255f).ToString();
-        tableFaceValueB.text = Mathf.RoundToInt(color.b * 255f).ToString();
+        SceneConfigColorUi.SyncChannel(tableFaceSliderR, tableFaceValueR, color.r);
+        SceneConfigColorUi.SyncChannel(tableFaceSliderG, tableFaceValueG, color.g);
+        SceneConfigColorUi.SyncChannel(tableFaceSliderB, tableFaceValueB, color.b);
+        SceneConfigColorUi.SyncBrightness(tableFaceSliderBrightness, tableFaceValueBrightness, ConfigManager.Instance?.TableFaceBrightness ?? 0f);
         syncingTableFaceColor = false;
     }
 
     private void SetTableFaceRgb(float r, float g, float b) {
-        if (syncingTableFaceColor) return;
+        if (syncingTableFaceColor || SceneConfigColorUi.IsLayoutRefresh) return;
         Color color = new Color(r, g, b, 1f);
         CardBackManager.SetTableFaceColor(color);
+        RefreshSolidColorUi();
+    }
+
+    private void SetTableFaceBrightness(float value) {
+        if (syncingTableFaceColor || SceneConfigColorUi.IsLayoutRefresh) return;
+        CardBackManager.SetTableFaceBrightness(value / 100f);
         RefreshSolidColorUi();
     }
 
@@ -339,7 +348,9 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
     }
 
     private void SetTableFaceSolid(bool enabled) {
-        CardBackManager.SetTableFaceSolidColorEnabled(enabled);
+        // 两组按钮共享同一个选择：图片背景或纯色。
+        if (enabled) CardBackManager.SetTableFaceSolidColorEnabled(true);
+        else CardBackManager.SetTableFaceBackgroundEnabled(true);
         RefreshSolidColorUi();
         if (CardFaceConfigPanel.Instance != null) {
             CardFaceConfigPanel.Instance.RefreshHighlights();
@@ -347,14 +358,13 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
     }
 
     private void SetTableBackground(bool enabled) {
-        CardBackManager.SetTableFaceBackgroundEnabled(enabled);
-        RefreshSolidColorUi();
-        if (CardFaceConfigPanel.Instance != null) CardFaceConfigPanel.Instance.RefreshHighlights();
+        SetTableFaceSolid(!enabled);
     }
 
     private void RestoreTableFaceColor() {
+        CardBackManager.SetTableFaceBrightness(0f);
         CardBackManager.SetTableFaceColor(ConfigManager.DefaultTableFaceColor);
-        CardBackManager.SetTableFaceSolidColorEnabled(false);
+        CardBackManager.SetTableFaceBackgroundEnabled(true);
         RefreshSolidColorUi();
         if (CardFaceConfigPanel.Instance != null) {
             CardFaceConfigPanel.Instance.RefreshHighlights();

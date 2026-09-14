@@ -60,7 +60,7 @@ public class FriendPanel : MonoBehaviour {
     private readonly Dictionary<int, FriendItem> _friendItemsByUid = new Dictionary<int, FriendItem>();
     private readonly Dictionary<int, FriendRequestItem> _requestItemsByUid = new Dictionary<int, FriendRequestItem>();
     private int _followingMax = 10;
-    private int _friendMax = 20;
+    private int _friendMax = 50;
     private Coroutine _pollingCoroutine;
 
     private void Awake() {

@@ -9,7 +9,7 @@ public sealed class CardDesignDetails : MonoBehaviour
     [SerializeField] Button openFaceHelp, closeFaceHelp, openImageHelp, closeImageHelp;
     [SerializeField] Button showTableFaces;
     [SerializeField] CardFacePreviewSlot[] handSlots;
-    [SerializeField] Button[] editFaceButtons;
+    [SerializeField] Button editFaceButton;
     float nextRefresh;
 
     void Awake()
@@ -18,13 +18,10 @@ public sealed class CardDesignDetails : MonoBehaviour
         closeFaceHelp.onClick.AddListener(() => faceHelp.SetActive(false));
         openImageHelp.onClick.AddListener(() => imageHelp.SetActive(true));
         closeImageHelp.onClick.AddListener(() => imageHelp.SetActive(false));
-        for (int i = 0; i < editFaceButtons.Length; i++) {
-            int index = i;
-            editFaceButtons[i].onClick.AddListener(() => {
-                if (index == 0) { tabs.ShowFace(0); showTableFaces.onClick.Invoke(); }
-                else tabs.ShowTableBackground();
-            });
-        }
+        editFaceButton.onClick.AddListener(() => {
+            tabs.ShowFace(0);
+            showTableFaces.onClick.Invoke();
+        });
         tabs.PageChanged += CloseHelp;
     }
 

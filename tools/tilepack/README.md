@@ -8,7 +8,7 @@ python tools/tilepack/rebuild_table_faces.py --export-root other/tiles
 ```
 
 The generator writes official hand/table faces, Fluffy's shared flower faces,
-and the other built-in table faces under Unity `Resources/image/CardFacePacks`.
+and the other built-in table faces under Unity `Resources/image/Cards/Faces`.
 It preserves source artwork, existing Unity GUIDs, unchanged Fluffy/HK hand
 artwork, and all PNG importer fields except `spriteMeshType: 0` (FullRect).
 Transparent hand sprites also require FullRect; otherwise Unity can trim the
@@ -63,8 +63,8 @@ premultiplied-alpha bicubic resample; Fluffy SVGs
 are rasterized once at the final size. Runtime mapping must not add another
 legacy crop or independent X/Y stretch.
 
-Foregrounds live in `CardFacePacks/{official,fluffy,hkmahjong}/{hand,table}`.
-The official atlas is `CardFacePacks/official/TableAtlas.spriteatlasv2` and
+Foregrounds live in `Cards/Faces/{official,fluffy,hkmahjong}/{hand,table}`.
+The official atlas is `Cards/Faces/official/TableAtlas.spriteatlasv2` and
 uses that same table directory, with rotation/tight packing disabled and a
 4096 atlas limit. Its 47 full-size sprites must fit on one page. Atlas-only
 `table/0.png` and blank `2.png` contain no foreground ink; they do not encode
@@ -72,9 +72,9 @@ a card back or force a face color.
 
 Tile-body resources are separate:
 
-- `TileSurfaces/backgrounds/hand-default.png`: vertical default body.
-- `TileSurfaces/backgrounds/hand-horizontal.png`: horizontal body, formerly `1.png`.
-- `TileSurfaces/backs/hand-default.png`: navy back, formerly `0.png`.
+- `Cards/Surfaces/backgrounds/hand-default.png`: vertical default body.
+- `Cards/Surfaces/backgrounds/hand-horizontal.png`: horizontal body, formerly `1.png`.
+- `Cards/Surfaces/backs/hand-default.png`: navy back, formerly `0.png`.
 
 `--output-root <directory>` creates candidate PNGs without overwriting the
 main project. `--report <json>` writes per-image source/output hashes,
@@ -85,8 +85,8 @@ placement, alpha validation, and metadata changes. The default report is
 usable PNGs to `other/tiles/packs/{pack}/{hand,table}` and its independent
 bodies/backs to `other/tiles/surfaces`. Official and Fluffy exports have 46
 standard faces per layer; atlas-only `0.png` is excluded from upload packages.
-HK preserves its 42 originals per layer and uses the existing official fallback
-for `2`, `105`, `205`, and `305`. An export requires the complete resource tree
+HK preserves its 42 originals per layer and adds a separate blank white dragon
+`2` (43 faces total). Only `105`, `205`, and `305` use the official fallback. An export requires the complete resource tree
 because unchanged Fluffy/HK hand artwork is copied from there.
 
 IDs match the game: `21 = 1p`, `31 = 1s`, `45 = red dragon`, `46 = white

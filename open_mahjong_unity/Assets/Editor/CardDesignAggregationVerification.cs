@@ -11,6 +11,7 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 /// <summary>显式检查磁盘主场景的隔离副本；不保存场景、不进入游戏或修改用户配置。</summary>
 public static class CardDesignAggregationVerification
@@ -24,29 +25,7 @@ public static class CardDesignAggregationVerification
     static RenderTexture sceneTarget;
     static int frames, stage;
     static readonly StringBuilder report = new StringBuilder();
-    static string Out => Path.GetFullPath(Path.Combine(Application.dataPath, "../../other/SceneSettings/MainAggregation/preview-edge-fix/output"));
-
-    // A one-shot local test request allows capture without taking over the user's mouse.
-    [InitializeOnLoadMethod]
-    static void ConsumeCaptureRequest()
-    {
-        string request = Path.GetFullPath(Path.Combine(Application.dataPath, "../Temp/CardAggregationCapture.request"));
-        if (!File.Exists(request)) return;
-        File.WriteAllText(request+".status", "Queued after reload; playing="+Application.isPlaying+" updating="+EditorApplication.isUpdating);
-        EditorApplication.update -= StartRequestedCapture;
-        EditorApplication.update += StartRequestedCapture;
-        EditorApplication.QueuePlayerLoopUpdate();
-    }
-
-    static void StartRequestedCapture()
-    {
-        if (EditorApplication.isCompiling || EditorApplication.isUpdating || Application.isPlaying) return;
-        EditorApplication.update -= StartRequestedCapture;
-        string request = Path.GetFullPath(Path.Combine(Application.dataPath, "../Temp/CardAggregationCapture.request"));
-        if (!File.Exists(request)) return;
-        Run();
-        File.Delete(request);
-    }
+    static string Out => Path.GetFullPath(Path.Combine(Application.dataPath, "../../.om_workspace/card-color-controls/output"));
 
     [MenuItem("Tools/Mahjong/Scene Settings/Verify Card Aggregation")]
     public static void Run()
@@ -125,7 +104,9 @@ public static class CardDesignAggregationVerification
                 Check(ConfigManager.DefaultTableFaceColor == ConfigManager.DefaultTableFaceFallbackColor && ConfigManager.DefaultTableFaceColor.r > .95f, "original gray-white face defaults retained without beige");
                 Capture("01_main_face_design",1920,1080); Capture("01_main_face_design_1280",1280,720);
                 Navigation("CardFaceButton");
-                Check(face.gameObject.activeInHierarchy, "repeated sidebar clicks keep the original open-panel behavior");
+                Check(!FaceRoot.gameObject.activeInHierarchy, "repeated sidebar clicks close the selected panel");
+                Navigation("CardFaceButton");
+                Check(face.gameObject.activeInHierarchy, "the next sidebar click reopens the selected panel");
                 Tab(FaceRoot,1);
             } else if (stage == 1) {
                 Check(FaceRoot.Find("HandImagesPage").gameObject.activeInHierarchy && !CardRoot.Find("TableFacePage").gameObject.activeInHierarchy, "hand image tab shows only original hand background/back controls");
@@ -136,11 +117,13 @@ public static class CardDesignAggregationVerification
                 var image=(Image)typeof(CardFaceBackgroundPanel).GetField("tableBgPreview",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(background);
                 Check(image.transform.IsChildOf(CardRoot.Find("TableFacePage")), "original 3D face background image preview remains bound");
                 Check(background.gameObject.activeInHierarchy && !FaceRoot.gameObject.activeSelf, "shared background controller stays active for original upload and drag callbacks");
-                Check(!CardRoot.Find("Actual3DPreview").gameObject.activeSelf, "background page shows its original model preview without the back/edge duplicate");
+                Check(CardRoot.Find("Actual3DPreview").gameObject.activeInHierarchy
+                    && CardRoot.Find("TableFacePage/Actual3DPreview") == null,
+                    "background page uses the single shared model preview with no nested duplicate");
                 Capture("03_main_3d_face",1920,1080);
                 ReleasePreviewSprites(); owner.RefreshPage();
                 Check(CardRoot.Find("TableFacePage").gameObject.activeInHierarchy, "refresh preserves the selected inner tab");
-                Navigation("CardBackButton");
+                owner.ShowCardBackPanel();
             } else if (stage == 3) {
                 Check(CardRoot.gameObject.activeSelf && !FaceRoot.gameObject.activeSelf && Find<CardBackConfigPanel>().gameObject.activeInHierarchy, "3D card sidebar opens original back controls and hides face group");
                 Capture("04_main_3d_back",1920,1080);
@@ -158,7 +141,7 @@ public static class CardDesignAggregationVerification
                     "reviewed two complete hand image columns restored");
                 Check(handPage.Find("HandCompositePreview").GetComponentsInChildren<CardFacePreviewSlot>(true).Length == 5,
                     "hand image composition preview restored with original slots");
-                Check(All<CardDesignModelPreview>().Length == 2, "reviewed model preview regions restored");
+                Check(All<CardDesignModelPreview>().Length == 1, "exactly one model preview serves all three card tabs");
                 Capture("05_main_edges",1920,1080); Capture("05_main_edges_1280",1280,720);
                 Navigation("HideButton");
                 Check(!FaceRoot.gameObject.activeSelf && !CardRoot.gameObject.activeSelf, "hide panel closes both complete groups");
@@ -168,14 +151,97 @@ public static class CardDesignAggregationVerification
                 Navigation("CardBackButton"); Tab(CardRoot,0); Tab(CardRoot,0);
                 Check(Find<CardBackConfigPanel>().gameObject.activeInHierarchy, "repeated tab clicks do not toggle the selected page off");
                 Check(All<MonoBehaviour>().All(c => c == null || !c.GetType().Name.StartsWith("LabSurface") && c.GetType().Name != "SettingsLabController"), "no prototype controller or replacement skin imported into main scene");
+                foreach (int tab in new[] { 0, 1, 2 }) {
+                    ReleasePreviewSprites(); tabs.ShowCard(tab);
+                    CardRoot.Find("Actual3DPreview/EditFace").GetComponent<Button>().onClick.Invoke();
+                    Check(FaceRoot.gameObject.activeInHierarchy && Find<CardFaceConfigPanel>().ShowingTablePreview
+                        && !CardRoot.gameObject.activeInHierarchy,
+                        "shared edit-face button opens the 3D face gallery from card tab " + tab);
+                    var preview = Find<CardDesignModelPreview>();
+                    // This isolated edit-mode scene invokes Awake manually; Unity does not
+                    // dispatch normal MonoBehaviour play-mode lifecycle hooks here.
+                    Invoke(preview, "OnDisable");
+                    var rigField = typeof(CardDesignModelPreview).GetField("rig", BindingFlags.Instance | BindingFlags.NonPublic);
+                    Check(rigField.GetValue(preview) == null, "the shared preview's disable hook releases its rig");
+                }
+                VerifySidebarNavigation();
+                tabs.ShowCard(1); Capture("05_main_edges",1280,720);
                 report.Append(CardModelAndEdgeChecks.Run(edge, Find<CardBackConfigPanel>(), background, tabs, Capture, Out));
-                Navigation("CardFaceButton");
+                owner.ShowCardFacePanel();
                 report.Append(CardFaceRevisionChecks.Run(Find<CardFaceConfigPanel>(), Capture));
                 File.WriteAllText(Path.Combine(Out,"checks.txt"),report.ToString());
                 Cleanup(); Debug.Log("CARD_AGGREGATION_VERIFIED " + Out); return;
             }
             stage++;
         } catch (Exception e) { Fail(e); }
+    }
+
+    static void VerifySidebarNavigation()
+    {
+        string HideLabel() => owner.transform.Find("NavigateBar/HideButton").GetComponentInChildren<TMP_Text>().text;
+        string[] buttons = { "TableClothButton", "TableEdgeButton", "CenterDisplayButton", "CharacterButton", "CardFaceButton", "CardBackButton" };
+        string[] roots = { "TableClothPanel", "TableEdgePanel", "CenterDisplayPanel", "CharacterPanel", "FaceDesignPanel", "Card3DDesignPanel" };
+        foreach (var pair in buttons.Zip(roots, (button, root) => (button, root))) {
+            ReleasePreviewSprites();
+            Invoke(owner, "HideAllPanel");
+            Navigation(pair.button);
+            var panel = (RectTransform)owner.transform.Find(pair.root);
+            Check(panel.gameObject.activeInHierarchy && HideLabel() == "隐藏面板", pair.root + " opens with hide action");
+            Check(roots.Count(n => owner.transform.Find(n).gameObject.activeSelf) == 1, pair.root + " is the only visible content window");
+            Navigation(pair.button);
+            Check(!panel.gameObject.activeSelf && HideLabel() == "显示面板", pair.root + " repeat click closes and updates label");
+            owner.RefreshPage();
+            Check(!panel.gameObject.activeSelf, pair.root + " background refresh does not reopen hidden window");
+            Navigation("HideButton");
+            Check(panel.gameObject.activeSelf && HideLabel() == "隐藏面板", pair.root + " show action restores window");
+            var drag = panel.GetComponent<SceneSettingsPanelDrag>();
+            Check(drag != null && drag.enabled, pair.root + " uses shared window drag behavior");
+            var saved = panel.anchoredPosition;
+            var parent = (RectTransform)panel.parent;
+            panel.localPosition = new Vector3(parent.rect.center.x, parent.rect.center.y, panel.localPosition.z);
+            Canvas.ForceUpdateCanvases();
+            var start = RectTransformUtility.WorldToScreenPoint(camera, panel.position);
+            var pointer = new PointerEventData(null) { position = start, button = PointerEventData.InputButton.Left,
+                pointerPressRaycast = new RaycastResult { gameObject = panel.gameObject, module = canvas.GetComponent<GraphicRaycaster>() } };
+            var before = panel.anchoredPosition;
+            drag.OnBeginDrag(pointer); pointer.position += new Vector2(18, -12); drag.OnDrag(pointer); drag.OnEndDrag(pointer);
+            Check(panel.anchoredPosition != before, pair.root + " moves when dragged from background");
+            var moved = panel.anchoredPosition;
+            Navigation("HideButton"); Navigation("HideButton");
+            Check(panel.anchoredPosition == moved, pair.root + " restores dragged position");
+            foreach (var control in panel.GetComponentsInChildren<Selectable>().Cast<Component>().Concat(panel.GetComponentsInChildren<ScrollRect>())) {
+                pointer.position = start;
+                pointer.pointerPressRaycast = new RaycastResult { gameObject = control.gameObject, module = canvas.GetComponent<GraphicRaycaster>() };
+                drag.OnBeginDrag(pointer); pointer.position += new Vector2(20, 20); drag.OnDrag(pointer); drag.OnEndDrag(pointer);
+                Check(panel.anchoredPosition == moved, pair.root + "/" + control.name + " does not drag its window");
+            }
+            panel.anchoredPosition = saved;
+        }
+        foreach (int tab in new[] { 0, 1, 2 }) {
+            ReleasePreviewSprites(); tabs.ShowCard(tab);
+            Navigation("HideButton"); Navigation("HideButton");
+            Check(CardRoot.gameObject.activeSelf && tabs.SelectedCardTab == tab,
+                "hide/show restores card subtab " + tab);
+            Navigation("CardBackButton"); Navigation("CardBackButton");
+            Check(CardRoot.gameObject.activeSelf && tabs.SelectedCardTab == tab,
+                "sidebar close/open restores card subtab " + tab);
+        }
+        foreach (int tab in new[] { 0, 1 }) {
+            ReleasePreviewSprites(); tabs.ShowFace(tab);
+            Navigation("HideButton"); Navigation("HideButton");
+            Check(FaceRoot.gameObject.activeSelf && tabs.SelectedFaceTab == tab,
+                "hide/show restores face subtab " + tab);
+        }
+        tabs.ShowCard(2);
+        CardRoot.Find("Actual3DPreview/EditFace").GetComponent<Button>().onClick.Invoke();
+        Navigation("HideButton"); Navigation("HideButton");
+        Check(FaceRoot.gameObject.activeSelf && Find<CardFaceConfigPanel>().ShowingTablePreview,
+            "internal edit-face navigation updates restore target and keeps 3D gallery selected");
+        var face = Find<CardFaceConfigPanel>();
+        face.transform.Find("TabHongque").GetComponent<Button>().onClick.Invoke();
+        Navigation("HideButton"); Navigation("HideButton");
+        Check(face.transform.Find("HongquePreviewScroll").gameObject.activeSelf,
+            "hide/show also restores the Hongque family subtab");
     }
 
     static void Capture(string name,int width,int height)

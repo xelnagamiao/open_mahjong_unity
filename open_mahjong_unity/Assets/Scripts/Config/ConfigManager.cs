@@ -188,6 +188,15 @@ public partial class ConfigManager : MonoBehaviour {
     public CardEdgePanel.FrontEdgeMode FrontEdgeMode { get; private set; } = CardEdgePanel.FrontEdgeMode.Independent;
     /// <summary>3D 牌面纯色：与「3D 牌面背景」互斥。开启时牌面渲染该纯色，关闭时按 _FrontTex/_FrontBgTex 行为渲染。</summary>
     public Color TableFaceColor { get; private set; } = DefaultTableFaceColor;
+    // RGB 为基础色；明暗单独保存，0 保持原色，-1 为黑色，1 为白色。
+    public float CardBackBrightness { get; private set; }
+    public float TableFaceBrightness { get; private set; }
+    public float FrontEdgeBrightness { get; private set; }
+    public float BackEdgeBrightness { get; private set; }
+    public Color EffectiveCardBackColor => ApplyColorBrightness(CardBackColor, CardBackBrightness);
+    public Color EffectiveTableFaceColor => ApplyColorBrightness(TableFaceColor, TableFaceBrightness);
+    public Color EffectiveFrontEdgeColor => ApplyColorBrightness(FrontEdgeColor, FrontEdgeBrightness);
+    public Color EffectiveBackEdgeColor => ApplyColorBrightness(BackEdgeColor, BackEdgeBrightness);
     /// <summary>是否使用 3D 牌面纯色（开启后「使用 3D 牌面背景」自动关闭）。</summary>
     public bool TableFaceUseSolidColor { get; private set; }
 
@@ -257,6 +266,7 @@ public partial class ConfigManager : MonoBehaviour {
             PlayerPrefs.GetInt(KEY_FRONT_EDGE_MODE, FrontEdgeSyncEnabled ? 1 : 0), 0, 2);
         MigrateLegacyFrontTexFollowFlags();
         TableFaceColor = LoadTableFaceColor();
+        LoadCardColorBrightness();
         TableFaceUseSolidColor = PlayerPrefs.GetInt(KEY_TABLE_FACE_USE_SOLID, 0) == 1;
         UseTableFaceBackground = LoadUseTableFaceBackground();
         StandardTilePackId = LoadStandardTilePackId();
@@ -270,6 +280,7 @@ public partial class ConfigManager : MonoBehaviour {
         ApplyTargetFrameRate();
         Application.runInBackground = true;
         ApplyAntialiasingByPlatform();
+        Card3DPresetLibrary.Ensure(this);
     }
 
     private void Start() {
@@ -323,6 +334,7 @@ public partial class ConfigManager : MonoBehaviour {
             PlayerPrefs.SetInt(KEY_TABLE_FACE_USE_SOLID, 0);
         }
         PlayerPrefs.Save();
+        NotifyCard3DAppearanceChanged();
     }
 
     private static bool LoadUseTableFaceBackground() {
@@ -351,6 +363,7 @@ public partial class ConfigManager : MonoBehaviour {
         TableFaceColor = color;
         PlayerPrefs.SetString(KEY_TABLE_FACE_COLOR, ColorUtility.ToHtmlStringRGBA(color));
         PlayerPrefs.Save();
+        NotifyCard3DAppearanceChanged();
     }
 
     public void SetTableFaceUseSolidColor(bool enabled) {
@@ -362,12 +375,14 @@ public partial class ConfigManager : MonoBehaviour {
             PlayerPrefs.SetInt(KEY_USE_TABLE_FACE_BACKGROUND, 0);
         }
         PlayerPrefs.Save();
+        NotifyCard3DAppearanceChanged();
     }
 
     public void SetFrontEdgeColor(Color color) {
         FrontEdgeColor = color;
         PlayerPrefs.SetString(KEY_FRONT_EDGE_COLOR, ColorUtility.ToHtmlStringRGBA(color));
         PlayerPrefs.Save();
+        NotifyCard3DAppearanceChanged();
     }
 
     public void SetFrontEdgeMode(CardEdgePanel.FrontEdgeMode mode) {
@@ -376,12 +391,14 @@ public partial class ConfigManager : MonoBehaviour {
         PlayerPrefs.SetInt(KEY_FRONT_EDGE_MODE, (int)mode);
         PlayerPrefs.SetInt(KEY_FRONT_EDGE_SYNC, FrontEdgeSyncEnabled ? 1 : 0);
         PlayerPrefs.Save();
+        NotifyCard3DAppearanceChanged();
     }
 
     public void SetSelectedTableBackground(string path, bool isCustom) {
         PlayerPrefs.SetString(KEY_TABLE_BG_PATH, path ?? "");
         PlayerPrefs.SetInt(KEY_TABLE_BG_IS_CUSTOM, isCustom ? 1 : 0);
         PlayerPrefs.Save();
+        NotifyCard3DAppearanceChanged();
     }
 
     public (string path, bool isCustom) GetSelectedTableBackground() {
@@ -472,21 +489,21 @@ public partial class ConfigManager : MonoBehaviour {
         return path ?? "";
     }
 
-    // -1 = no seams; 0..6 correspond to the seven independent seam profiles.
+    // -1 = no seams; retired profiles and new configurations use the default.
     public int GetSelectedTableSeam() {
         if (PlayerPrefs.HasKey("SelectedTableSeam"))
-            return Mathf.Clamp(PlayerPrefs.GetInt("SelectedTableSeam", -1), -1, 6);
+            return TableSurfaceNames.NormalizeSeamStyle(PlayerPrefs.GetInt("SelectedTableSeam", TableSurfaceNames.DefaultSeam));
         if (PlayerPrefs.GetInt("SelectedTableClothIsCustom", 0) == 0 &&
             TableSurfaceNames.TryGetMetalSeam(PlayerPrefs.GetString("SelectedTableClothPath", ""), out int style, out _))
-            return style;
-        return -1;
+            return TableSurfaceNames.NormalizeSeamStyle(style);
+        return TableSurfaceNames.DefaultSeam;
     }
 
     public void SetSelectedTableSeam(int style) {
         var selected = GetSelectedTableCloth();
         PlayerPrefs.SetString("SelectedTableClothPath", selected.path);
         PlayerPrefs.SetInt("SelectedTableClothIsCustom", selected.isCustom ? 1 : 0);
-        PlayerPrefs.SetInt("SelectedTableSeam", Mathf.Clamp(style, -1, 6));
+        PlayerPrefs.SetInt("SelectedTableSeam", TableSurfaceNames.NormalizeSeamStyle(style));
         PlayerPrefs.Save();
     }
 
@@ -494,7 +511,12 @@ public partial class ConfigManager : MonoBehaviour {
     public (string path, bool isCustom) GetSelectedTableEdge() {
         string path = PlayerPrefs.GetString("SelectedTableEdgePath", "");
         bool isCustom = PlayerPrefs.GetInt("SelectedTableEdgeIsCustom", 0) == 1;
-        return (path, isCustom);
+        string normalized = TableFrameRenderer.NormalizeSelection(path, isCustom);
+        if (normalized != path) {
+            PlayerPrefs.SetString("SelectedTableEdgePath", normalized);
+            PlayerPrefs.Save();
+        }
+        return (normalized, isCustom);
     }
 
     /// <summary>Set and persist the 3D card back color.</summary>
@@ -502,6 +524,66 @@ public partial class ConfigManager : MonoBehaviour {
         CardBackColor = color;
         PlayerPrefs.SetString(KEY_CARD_BACK_COLOR, ColorUtility.ToHtmlStringRGBA(color));
         PlayerPrefs.Save();
+        NotifyCard3DAppearanceChanged();
+    }
+
+    public int GetSelectedTableShadow() => TableLightingPresets.ClampShadow(PlayerPrefs.GetInt("SelectedTableShadow", TableLightingPresets.DefaultShadow));
+
+    public void SetSelectedTableShadow(int style) {
+        PlayerPrefs.SetInt("SelectedTableShadow", TableLightingPresets.ClampShadow(style));
+        PlayerPrefs.Save();
+    }
+
+    public int GetSelectedTableLight() => TableLightingPresets.ClampLight(PlayerPrefs.GetInt("SelectedTableLight", TableLightingPresets.DefaultLight));
+
+    public void SetSelectedTableLight(int style) {
+        PlayerPrefs.SetInt("SelectedTableLight", TableLightingPresets.ClampLight(style));
+        PlayerPrefs.Save();
+    }
+
+    private const string TableContactOutlineKey = "TableContactOutlineEnabled";
+
+    public bool GetTableContactOutlineEnabled() => PlayerPrefs.GetInt(TableContactOutlineKey, 1) != 0;
+
+    public void SetTableContactOutlineEnabled(bool enabled) {
+        PlayerPrefs.SetInt(TableContactOutlineKey, enabled ? 1 : 0);
+        PlayerPrefs.Save();
+    }
+
+    public static Color ApplyColorBrightness(Color baseColor, float brightness) {
+        brightness = Mathf.Clamp(brightness, -1f, 1f);
+        Color result = brightness < 0f
+            ? Color.Lerp(baseColor, Color.black, -brightness)
+            : Color.Lerp(baseColor, Color.white, brightness);
+        result.a = baseColor.a;
+        return result;
+    }
+
+    private void LoadCardColorBrightness() {
+        CardBackBrightness = Mathf.Clamp(PlayerPrefs.GetFloat("CardBackBrightness", 0f), -1f, 1f);
+        TableFaceBrightness = Mathf.Clamp(PlayerPrefs.GetFloat("TableFaceBrightness", 0f), -1f, 1f);
+        FrontEdgeBrightness = Mathf.Clamp(PlayerPrefs.GetFloat("FrontEdgeBrightness", 0f), -1f, 1f);
+        BackEdgeBrightness = Mathf.Clamp(PlayerPrefs.GetFloat("BackEdgeBrightness", 0f), -1f, 1f);
+    }
+
+    private static float SaveCardColorBrightness(string key, float value) {
+        value = Mathf.Clamp(value, -1f, 1f);
+        PlayerPrefs.SetFloat(key, value);
+        PlayerPrefs.Save();
+        return value;
+    }
+
+    public void SetCardBackBrightness(float value) {
+        CardBackBrightness = SaveCardColorBrightness("CardBackBrightness", value); NotifyCard3DAppearanceChanged();
+    }
+    public void SetTableFaceBrightness(float value) {
+        TableFaceBrightness = SaveCardColorBrightness("TableFaceBrightness", value); NotifyCard3DAppearanceChanged();
+    }
+    public void SetFrontEdgeBrightness(float value) {
+        FrontEdgeBrightness = SaveCardColorBrightness("FrontEdgeBrightness", value); NotifyCard3DAppearanceChanged();
+    }
+    public void SetBackEdgeBrightness(float value) {
+        BackEdgeBrightness = SaveCardColorBrightness("BackEdgeBrightness", value); NotifyCard3DAppearanceChanged();
     }
 
     /// <summary>Save card back image selection (path, or IndexedDB key on WebGL).</summary>
@@ -509,6 +591,7 @@ public partial class ConfigManager : MonoBehaviour {
         PlayerPrefs.SetString(KEY_CARD_BACK_IMAGE_PATH, path ?? "");
         PlayerPrefs.SetInt(KEY_CARD_BACK_IMAGE_IS_CUSTOM, isCustom ? 1 : 0);
         PlayerPrefs.Save();
+        NotifyCard3DAppearanceChanged();
     }
 
     /// <summary>Set and persist the 3D front-side edge color.</summary>
@@ -517,6 +600,7 @@ public partial class ConfigManager : MonoBehaviour {
         PlayerPrefs.SetString(KEY_SIDE_COLOR, ColorUtility.ToHtmlStringRGBA(color));
         PlayerPrefs.SetInt(KEY_SIDE_LIGHTING_VERSION, 1);
         PlayerPrefs.Save();
+        NotifyCard3DAppearanceChanged();
     }
 
     /// <summary>Set and persist the 3D back-side edge color.</summary>
@@ -524,6 +608,7 @@ public partial class ConfigManager : MonoBehaviour {
         BackEdgeColor = color;
         PlayerPrefs.SetString(KEY_BACK_EDGE_COLOR, ColorUtility.ToHtmlStringRGBA(color));
         PlayerPrefs.Save();
+        NotifyCard3DAppearanceChanged();
     }
 
     /// <summary>Set and persist whether the back-side edge color syncs with the card back color.</summary>
@@ -533,6 +618,7 @@ public partial class ConfigManager : MonoBehaviour {
         PlayerPrefs.SetInt(KEY_BACK_EDGE_SYNC, enabled ? 1 : 0);
         PlayerPrefs.SetInt(KEY_BACK_EDGE_MODE, (int)BackEdgeMode);
         PlayerPrefs.Save();
+        NotifyCard3DAppearanceChanged();
     }
 
     /// <summary>Set and persist the back edge color mode (independent / follow back / follow front).</summary>
@@ -542,6 +628,7 @@ public partial class ConfigManager : MonoBehaviour {
         PlayerPrefs.SetInt(KEY_BACK_EDGE_MODE, (int)mode);
         PlayerPrefs.SetInt(KEY_BACK_EDGE_SYNC, BackEdgeSyncEnabled ? 1 : 0);
         PlayerPrefs.Save();
+        NotifyCard3DAppearanceChanged();
     }
 
     /// <summary>Get card back image selection.</summary>

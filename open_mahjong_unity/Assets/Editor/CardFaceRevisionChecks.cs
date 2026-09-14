@@ -105,7 +105,7 @@ public static class CardFaceRevisionChecks {
                 using (var stream = new MemoryStream()) {
                     using (var zip = new ZipArchive(stream,ZipArchiveMode.Create,true))
                         foreach (string type in new[]{"hand","table"}) {
-                            var data = File.ReadAllBytes("Assets/Resources/image/CardFacePacks/" + pack + "/" + type + "/11.png");
+                            var data = File.ReadAllBytes("Assets/Resources/" + TilePackIds.ResourcesPackRoot + "/" + pack + "/" + type + "/11.png");
                             using (var writer = zip.CreateEntry(type+"/11.png").Open()) writer.Write(data,0,data.Length);
                         }
                     bytes=stream.ToArray();

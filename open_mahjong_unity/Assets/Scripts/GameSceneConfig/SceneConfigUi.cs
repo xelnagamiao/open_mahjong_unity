@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
@@ -26,6 +27,28 @@ public static class SceneConfigUi
     public static readonly Color TabOn = new Color(0.28f, 0.48f, 0.92f, 1f);
     public static readonly Color TabOff = new Color(0.17f, 0.21f, 0.30f, 1f);
     public const float ToggleColorFade = 0.1f;
+    public const float SurfaceHeaderHeight = 80f;
+    public static readonly Color SurfaceHeaderBackground = new Color32(237, 242, 248, 255);
+
+    public static TMP_Text CreateSurfaceHeaderTitle(Transform parent, string caption, TMP_FontAsset font)
+    {
+        var go = new GameObject("SurfaceTitle", typeof(RectTransform), typeof(TextMeshProUGUI));
+        go.layer = parent.gameObject.layer;
+        go.transform.SetParent(parent, false);
+        var text = go.GetComponent<TextMeshProUGUI>();
+        text.font = font;
+        text.text = caption;
+        text.color = new Color32(40, 58, 78, 255);
+        text.fontSize = 28;
+        text.alignment = TextAlignmentOptions.MidlineLeft;
+        text.textWrappingMode = TextWrappingModes.NoWrap;
+        text.raycastTarget = false;
+        var rect = text.rectTransform;
+        rect.anchorMin = new Vector2(0, 0); rect.anchorMax = new Vector2(0, 1);
+        rect.pivot = new Vector2(0, .5f);
+        rect.offsetMin = new Vector2(20, 8); rect.offsetMax = new Vector2(108, -8);
+        return text;
+    }
 
     public static void BindClick(Button button, UnityAction action)
     {

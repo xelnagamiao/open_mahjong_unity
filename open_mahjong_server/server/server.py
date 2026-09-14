@@ -28,6 +28,7 @@ from .gamestate.public.critical_log import setup_critical_logging
 from .game_calculation.game_calculation_service import GameCalculationService
 from .match.match_manager import MatchManager
 import secrets,hashlib
+import re
 import subprocess,os,signal,sys
 import time
 
@@ -162,6 +163,9 @@ async def _daily_stats_startup_restore() -> None:
 async def lifespan(app: FastAPI):
     # 启动时执行
     db_manager.init_database()
+    # 首次启动补齐所有玩家；分页保存进度，完成后启动只检查迁移标记。
+    from .database.player_recent_records import backfill_player_recent_records
+    await asyncio.to_thread(backfill_player_recent_records, db_manager)
     # 只生成秘钥文件，不启动聊天服务器
     # 聊天服务器应由 supervisor/systemd 等进程管理工具独立管理
     await chat_server.generate_secret_key()
@@ -472,8 +476,11 @@ async def message_input(websocket: WebSocket, Connect_id: str):
             # 心跳消息频繁发送，跳过日志以避免刷屏
             if message.get("type") != "ping":
                 log_message = message
-                if message.get("type") == "login" and message.get("token"):
-                    log_message = {**message, "token": "[REDACTED]"}
+                if message.get("type") in ("login", "register"):
+                    log_message = {
+                        key: "[REDACTED]" if key in ("token", "password", "confirm_password", "email") else value
+                        for key, value in message.items()
+                    }
                 logging.info(f"收到消息: {log_message}")
 
             if message["type"] == "send_release_version":
@@ -494,12 +501,19 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                     await websocket.close()
                     break
 
-            if message["type"] == "login":
-                is_tourist = message.get("is_tourist", False)
+            if message["type"] in ("login", "register"):
+                is_registration = message["type"] == "register"
+                is_tourist = not is_registration and message.get("is_tourist", False)
                 client_ip = get_client_ip_from_websocket(websocket)
                 web_token = (message.get("token") or "").strip()
                 
-                if is_tourist:
+                if is_registration:
+                    response = await player_register(
+                        message.get("username", ""), message.get("password", ""),
+                        message.get("confirm_password", ""), message.get("email", ""),
+                        client_ip=client_ip,
+                    )
+                elif is_tourist:
                     # 游客登录：创建新账户，不需要密码验证
                     logging.info(f"游客登录请求 - Connect_id: {Connect_id}, IP: {client_ip}")
                     response = await player_login("", "", is_tourist=True, client_ip=client_ip)
@@ -823,6 +837,39 @@ async def player_login_by_token(token: str, client_ip: str = "unknown") -> Respo
     )
 
 
+async def player_register(username, password, confirm_password, email, client_ip="unknown") -> Response:
+    """显式注册：邮箱仅记录为未验证，不发送邮件。"""
+    def failure(message):
+        return Response(type="tips", success=False, message=message)
+
+    ip_ban = db_manager.get_active_ip_ban(client_ip)
+    if ip_ban:
+        return failure(db_manager.build_ip_ban_message(ip_ban))
+    if not all(isinstance(value, str) for value in (username, password, confirm_password, email)):
+        return failure("注册信息格式不正确")
+    username = normalize_username(username)
+    error = validate_username(username) or validate_password(password)
+    if error:
+        return failure(error)
+    if password != confirm_password:
+        return failure("两次输入的密码不一致")
+    email = email.strip().lower()
+    if len(email) > 255 or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
+        return failure("请填写正确的邮箱地址")
+    if db_manager.get_user_by_username(username) is not None:
+        return failure("用户名已存在")
+    if not ip_registration_limiter.can_register(client_ip):
+        return failure("该 IP 今日注册次数已达上限（3 次），请明日再试")
+    user_id = db_manager.create_user(username, password, is_tourist=False, email=email)
+    if not user_id:
+        return failure("注册失败，用户名可能已被使用，请稍后重试")
+    ip_registration_limiter.record_registration(client_ip)
+    return await _finalize_player_login(
+        user_id, username, is_tourist=False, client_ip=client_ip,
+        success_message="注册并登录成功",
+    )
+
+
 async def player_login(
     username: str,
     password: str,
@@ -830,8 +877,8 @@ async def player_login(
     client_ip: str = "unknown",
 ) -> Response:
     """
-    玩家登录/注册功能
-    如果用户不存在则自动注册，存在则验证密码
+    玩家登录功能
+    正式账户必须已注册；游客登录仍创建临时账户
     游客登录时使用随机用户名和空密码
     Args:
         username: 用户名（游客登录时会被忽略，会自动生成）
@@ -915,13 +962,13 @@ async def player_login(
                 message="密码错误"
             )
     else:
-        # 用户不存在，创建新用户
-        if not is_tourist and not ip_registration_limiter.can_register(client_ip):
+        if not is_tourist:
             return Response(
                 type="tips",
                 success=False,
-                message="该 IP 今日注册次数已达上限（3 次），请明日再试",
+                message="账户不存在，请先注册",
             )
+        # 游客登录保留创建临时账户的行为。
         user_id = db_manager.create_user(username, password, is_tourist=is_tourist)
         if not user_id:
             return Response(
@@ -930,9 +977,6 @@ async def player_login(
                 message="注册失败",
                 username=username
             )
-        if not is_tourist:
-            ip_registration_limiter.record_registration(client_ip)
-
     return await _finalize_player_login(
         user_id,
         username,
@@ -941,6 +985,6 @@ async def player_login(
         success_message=(
             "游客登录成功"
             if is_tourist
-            else ("登录成功" if player is not None else "注册并登录成功")
+            else "登录成功"
         ),
     )

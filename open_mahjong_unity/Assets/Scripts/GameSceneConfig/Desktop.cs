@@ -25,9 +25,10 @@ public class Desktop : MonoBehaviour
     private readonly Surface cloth = new Surface();
     private readonly Surface edge = new Surface();
     private Material[] originalMaterials;
+    [SerializeField] private TableFrameRenderer tableFrame;
     private bool disposed;
     private readonly TableSeamComposer seamComposer = new TableSeamComposer();
-    private readonly Texture2D[] seamCache = new Texture2D[7];
+    private readonly Texture2D[] seamCache = new Texture2D[TableSurfaceNames.SeamStyleCount];
     private Texture2D selectedSeamTexture;
     private int selectedSeam = int.MinValue;
     private int seamVersion;
@@ -51,7 +52,20 @@ public class Desktop : MonoBehaviour
         RefreshSeam();
         Refresh(cloth, true);
     }
-    public void RefreshEdge() => Refresh(edge, false);
+    public void RefreshEdge()
+    {
+        Refresh(edge, false);
+        RefreshFrame();
+    }
+
+    private void RefreshFrame()
+    {
+        if (disposed || edge.Material == null || !Application.isPlaying) return;
+        if (tableFrame == null) tableFrame = GetComponent<TableFrameRenderer>();
+        if (tableFrame == null) return;
+        tableFrame.ApplySelection(this, edge.SourceTexture ?? edge.Material.mainTexture as Texture2D,
+            edge.Path, edge.Custom, edge.Pending);
+    }
 
     private bool EnsureMaterials()
     {
@@ -118,7 +132,8 @@ public class Desktop : MonoBehaviour
         surface.Pending = true;
         // Keep the previous table visible until the requested full-size asset is ready.
         if (surface.Material.mainTexture == null) surface.Material.mainTexture = fallback;
-        var request = Resources.LoadAsync<Texture2D>((isCloth ? "image/Board/TableCloth/" : "image/Board/Edge/") + path);
+        string sourceName = isCloth ? path : TableFrameStyles.SourceName(path);
+        var request = Resources.LoadAsync<Texture2D>((isCloth ? "image/Board/TableCloth/" : "image/Board/Edge/") + sourceName);
         request.completed += _ => CompleteBuiltinLoad(surface, version, request.asset as Texture2D, fallback);
     }
 
@@ -165,8 +180,8 @@ public class Desktop : MonoBehaviour
 
     private void RefreshSeam()
     {
-        int requested = ConfigManager.Instance == null ? -1 : ConfigManager.Instance.GetSelectedTableSeam();
-        if (requested < -1 || requested > 6) requested = -1;
+        int requested = ConfigManager.Instance == null ? TableSurfaceNames.DefaultSeam : ConfigManager.Instance.GetSelectedTableSeam();
+        requested = TableSurfaceNames.NormalizeSeamStyle(requested);
         if (requested == selectedSeam && (requested == -1 || selectedSeamTexture != null || seamPending)) return;
         selectedSeam = requested;
         selectedSeamTexture = null;
@@ -203,14 +218,17 @@ public class Desktop : MonoBehaviour
         if (disposed || cloth.Material == null) return;
         try
         {
-            cloth.Material.mainTexture = seamComposer.Compose(cloth.SourceTexture, selectedSeamTexture);
+            var config = ConfigManager.Instance;
+            cloth.Material.mainTexture = seamComposer.Compose(cloth.SourceTexture, selectedSeamTexture,
+                config != null ? config.GetSelectedTableShadow() : TableLightingPresets.DefaultShadow,
+                config != null ? config.GetSelectedTableLight() : TableLightingPresets.DefaultLight);
             compositeWarning = false;
         }
         catch (Exception error)
         {
             cloth.Material.mainTexture = cloth.SourceTexture;
             seamComposer.Clear();
-            if (!compositeWarning) Debug.LogWarning("桌布接缝合成失败，保留原桌布: " + error.Message);
+            if (!compositeWarning) Debug.LogWarning("桌布缝线和光影合成失败，保留原桌布: " + error.Message);
             compositeWarning = true;
         }
     }
@@ -223,6 +241,7 @@ public class Desktop : MonoBehaviour
         if (surface.OwnedTexture != null && surface.OwnedTexture != texture) DestroyOwned(surface.OwnedTexture);
         surface.OwnedTexture = owned ? texture : null;
         surface.Applied = success;
+        if (ReferenceEquals(surface, edge)) RefreshFrame();
     }
 
     private void OnDestroy()

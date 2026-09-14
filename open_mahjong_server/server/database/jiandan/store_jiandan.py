@@ -153,6 +153,8 @@ def store_jiandan_game_record(
                     exc,
                 )
 
+        from ..player_recent_records import update_player_recent_records
+        update_player_recent_records(cursor, game_id, game_record)
         conn.commit()
 
         try:

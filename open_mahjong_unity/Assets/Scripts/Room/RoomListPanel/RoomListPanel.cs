@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.Collections.Generic;
 
 public class RoomListPanel : MonoBehaviour {
     public static RoomListPanel Instance { get; private set; }
@@ -14,6 +15,7 @@ public class RoomListPanel : MonoBehaviour {
     [SerializeField] private Button refreshButton;     // 刷新按钮
     [SerializeField] private Button JoinRoomButton;        // 加入房间按钮
     private int _joinInputBoundUserId = int.MinValue;
+    private readonly Dictionary<string, RoomItem> roomItems = new Dictionary<string, RoomItem>();
 
     private void Start() {
         createButton.onClick.AddListener(OpenCreatePanel);
@@ -24,6 +26,7 @@ public class RoomListPanel : MonoBehaviour {
     private void Awake() {
         if (Instance == null) {
             Instance = this;
+            ConfigureRoomListLayout();
         } else if (Instance != this) {
             Debug.LogWarning($"发现重复的RoomListPanel实例，销毁新实例: {gameObject.name}");
             Destroy(gameObject);
@@ -39,6 +42,7 @@ public class RoomListPanel : MonoBehaviour {
     public void ResetSessionCaches() {
         _joinInputBoundUserId = int.MinValue;
         if (RoomIdInput != null) RoomIdInput.text = "";
+        ClearRoomListContent();
     }
 
     private void RefreshJoinInputForCurrentUser() {
@@ -80,15 +84,29 @@ public class RoomListPanel : MonoBehaviour {
     }
 
     public void RefreshRoomList() {
-        ClearRoomListContent();
         RoomNetworkManager.Instance.GetRoomList(showTipOnSuccess: true);
+    }
+
+    // 通过运行时布局适配新的卡片高度，不写入场景文件。
+    private void ConfigureRoomListLayout() {
+        if (roomListContent == null) return;
+        var layout = roomListContent.GetComponent<VerticalLayoutGroup>();
+        if (layout == null) return;
+        layout.spacing = 4;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+        layout.padding = new RectOffset(4, 4, 4, 4);
     }
 
     private void ClearRoomListContent() {
         if (roomListContent == null) return;
         for (int i = roomListContent.childCount - 1; i >= 0; i--) {
+            roomListContent.GetChild(i).gameObject.SetActive(false);
             Destroy(roomListContent.GetChild(i).gameObject);
         }
+        roomItems.Clear();
     }
 
     public void GetRoomListResponse(bool success, string message, RoomInfo[] room_List){
@@ -97,14 +115,32 @@ public class RoomListPanel : MonoBehaviour {
             return;
         }
 
-        ClearRoomListContent();
-
+        if (roomListContent == null || roomItemPrefab == null) return;
+        // 首次响应移除编辑器示例。后续按 ID 更新，保留悬浮详情和滚动位置。
+        if (roomItems.Count == 0) ClearRoomListContent();
+        var retained = new HashSet<string>();
         if (room_List != null) {
             foreach (var roomData in room_List) {
-                GameObject roomItem = Instantiate(roomItemPrefab, roomListContent);
-                roomItem.SetActive(true);
-                roomItem.GetComponent<RoomItem>().SetRoomInfo(roomData);
+                if (roomData == null || string.IsNullOrEmpty(roomData.room_id) || !retained.Add(roomData.room_id)) continue;
+                if (!roomItems.TryGetValue(roomData.room_id, out RoomItem item) || item == null) {
+                    var instance = Instantiate(roomItemPrefab, roomListContent);
+                    instance.SetActive(true);
+                    item = instance.GetComponent<RoomItem>();
+                    roomItems[roomData.room_id] = item;
+                }
+                item.SetRoomInfo(roomData);
+                item.transform.SetSiblingIndex(retained.Count - 1);
             }
         }
+        var removed = new List<string>();
+        foreach (var pair in roomItems) {
+            if (retained.Contains(pair.Key)) continue;
+            if (pair.Value != null) {
+                pair.Value.gameObject.SetActive(false);
+                Destroy(pair.Value.gameObject);
+            }
+            removed.Add(pair.Key);
+        }
+        foreach (string id in removed) roomItems.Remove(id);
     }
 }

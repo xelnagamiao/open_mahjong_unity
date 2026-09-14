@@ -4,7 +4,7 @@ using UnityEngine;
 
 /// <summary>
 /// 虹雀牌的网络代码、整数牌 ID 与牌面资源之间的映射。
-/// 两套资源：HQv3.1-hand（手牌显示）与 HQv3.1-table（3D 卡牌渲染）。
+/// 资源统一在 Cards/Faces/hongque 下，分为 hand 与 table 两套。
 /// </summary>
 public static class HongqueTileVisual {
     public const int BaseId = 1000;
@@ -43,13 +43,13 @@ public static class HongqueTileVisual {
     /// <summary>手牌牌面资源路径（HQv3.1-hand）。</summary>
     public static string HandResourcePath(int tileId) {
         string code = ToCode(tileId);
-        return code == null ? null : $"image/HQv3.1-hand/{code}";
+        return code == null ? null : TilePackIds.HongqueHandRoot + "/" + code;
     }
 
     /// <summary>3D 卡牌牌面资源路径（HQv3.1-table）。</summary>
     public static string TableResourcePath(int tileId) {
         string code = ToCode(tileId);
-        return code == null ? null : $"image/HQv3.1-table/{code}";
+        return code == null ? null : TilePackIds.HongqueTableRoot + "/" + code;
     }
 
     /// <summary>手牌牌面资源路径（默认手牌套）。</summary>
@@ -83,7 +83,7 @@ public static class HongqueTileVisual {
     /// </summary>
     public static void PreloadAllTextures() {
         if (texturesPreloaded) return;
-        Texture2D[] textures = Resources.LoadAll<Texture2D>("image/HQv3.1-hand");
+        Texture2D[] textures = Resources.LoadAll<Texture2D>(TilePackIds.HongqueHandRoot);
         foreach (Texture2D texture in textures) {
             if (texture == null) continue;
             int tileId = FromCode(texture.name);

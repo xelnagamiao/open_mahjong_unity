@@ -7,6 +7,10 @@ using UnityEngine.UI;
 public sealed class CenterTurnMesh : BaseMeshEffect
 {
     float cut = .55f;
+    bool taper;
+    float highlight;
+    public bool Taper { get => taper; set { taper = value; if (graphic) graphic.SetVerticesDirty(); } }
+    public float Highlight { get => highlight; set { highlight = value; if (graphic) graphic.SetVerticesDirty(); } }
     public float Cut
     {
         get => cut;
@@ -19,7 +23,10 @@ public sealed class CenterTurnMesh : BaseMeshEffect
         UIVertex source = UIVertex.simpleVert;
         mesh.PopulateUIVertex(ref source, 0);
         Rect rect = graphic.rectTransform.rect;
-        Vector2[] points = CenterSkinGraphic.CutRect(rect.width, rect.height, cut);
+        Vector2[] points = taper ? new[] {
+            new Vector2(-rect.width / 2 + 1.4f, -rect.height / 2), new Vector2(rect.width / 2 - 1.4f, -rect.height / 2),
+            new Vector2(rect.width / 2, rect.height / 2), new Vector2(-rect.width / 2, rect.height / 2)
+        } : CenterSkinGraphic.CutRect(rect.width, rect.height, cut);
         Vector2 center = rect.center;
         mesh.Clear();
 
@@ -31,6 +38,8 @@ public sealed class CenterTurnMesh : BaseMeshEffect
         mesh.AddVert(vertex);
         foreach (Vector2 point in points)
         {
+            Color lit = Color.Lerp(source.color, Color.white, point.y > 0 ? highlight : 0);
+            lit.a = source.color.a; vertex.color = lit;
             vertex.position = center + point;
             mesh.AddVert(vertex);
         }

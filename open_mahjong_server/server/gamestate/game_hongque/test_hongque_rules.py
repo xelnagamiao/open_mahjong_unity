@@ -18,9 +18,14 @@ def test_hq_resource_code_round_trip_and_deck() -> None:
     assert len(full_deck()) == 126
     assert len(set(full_deck())) == 126
     workspace = Path(__file__).resolve().parents[4]
-    image_root = workspace / "open_mahjong_unity" / "Assets" / "Resources" / "image"
-    for resource_dir in (image_root / "HQv3.1-hand", image_root / "HQv3.1-table"):
-        assert all((resource_dir / f"{code}.png").is_file() for code in full_deck())
+    # TilePackIds.HongqueHandRoot / HongqueTableRoot
+    pack_root = (
+        workspace / "open_mahjong_unity" / "Assets" / "Resources"
+        / "image" / "Cards" / "Faces" / "hongque"
+    )
+    for resource_dir in (pack_root / "hand", pack_root / "table"):
+        missing = [code for code in full_deck() if not (resource_dir / f"{code}.png").is_file()]
+        assert missing == [], f"{resource_dir} 缺少牌面: {missing[:8]}"
 
 
 def test_triplet_and_sequence_follow_cyclic_colour_levels() -> None:

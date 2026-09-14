@@ -21,6 +21,13 @@ public static class UnityAssetIdb {
     private static readonly List<Action> ReadyWaiters = new List<Action>();
     private static bool ready;
     private static bool loading;
+#if UNITY_WEBGL && !UNITY_EDITOR
+    private sealed class PendingPut {
+        public string key; public byte[] data; public Action done; public Action<string> error;
+    }
+    private static readonly Queue<PendingPut> pendingPuts = new Queue<PendingPut>();
+    private static bool putting;
+#endif
 
     public static bool IsReady => ready;
 
@@ -54,6 +61,9 @@ public static class UnityAssetIdb {
         }
         return Cache.TryGetValue(key, out byte[] data) ? data : null;
     }
+
+    // Immutable preset snapshots must be renderable while their queued IndexedDB write completes.
+    internal static void StagePendingWrite(string key, byte[] data) => Cache[key] = data;
 
     public static List<string> KeysWithPrefix(string prefix) {
         var keys = new List<string>();
@@ -97,11 +107,26 @@ public static class UnityAssetIdb {
         Cache[key] = data;
 #if UNITY_WEBGL && !UNITY_EDITOR
         UnityAssetIdbBridge.Ensure();
-        UnityAssetIdbBridge.Instance.BeginPut(key, data, onDone, onError);
+        // The bridge has one callback slot: serialize writes across uploads and presets.
+        pendingPuts.Enqueue(new PendingPut { key = key, data = data, done = onDone, error = onError });
+        PumpPuts();
 #else
         onDone?.Invoke();
 #endif
     }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+    private static void PumpPuts() {
+        if (putting || pendingPuts.Count == 0) return;
+        putting = true; var next = pendingPuts.Dequeue();
+        void Complete(string error) {
+            try { if (error == null) next.done?.Invoke(); else next.error?.Invoke(error); }
+            finally { putting = false; PumpPuts(); }
+        }
+        UnityAssetIdbBridge.Ensure();
+        UnityAssetIdbBridge.Instance.BeginPut(next.key, next.data, () => Complete(null), Complete);
+    }
+#endif
 
     public static void Delete(string key, Action onDone) {
         if (!string.IsNullOrEmpty(key)) {

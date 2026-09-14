@@ -329,6 +329,8 @@ public partial class GameRecordManager {
                 continue;
             }
 
+            int playbackRound = currentRoundIndex;
+            int playbackNode = currentNode;
             string nextAction = PeekNextTickAction();
             bool holdPreviousHuResult = ShouldHoldPreviousHuResult(nextAction);
             // end tick 会清除上一条结算（和牌/流局）面板。这里需按结算面板的完整演出时长保持，
@@ -346,7 +348,14 @@ public partial class GameRecordManager {
                     waited += 0.1f;
                 }
             }
+            // 手补花需先飞花再收拢，实际时长超过 bd 的 0.3 秒间隔。
+            // 若提前摸入下一张，上一笔收拢会清掉新摸牌的标记，随后摸补就会漏删花牌。
+            while (IsSpectating && !PauseAutoPlay && Game3DManager.Instance.HasPendingRecordHandAnimations) {
+                yield return null;
+            }
             if (!IsSpectating) yield break;
+            // 等待期间可能滚轮回退、切局或切换为阅览模式，不得再执行旧位置的待播行动。
+            if (PauseAutoPlay || currentRoundIndex != playbackRound || currentNode != playbackNode) continue;
             SpectatorNextAction();
         }
     }

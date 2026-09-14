@@ -12,11 +12,14 @@ public static class TilePackIds {
     public const string PackHkMahjong = "hkmahjong";
     public const string PackCustom = "custom";
 
-    public const string ResourcesPackRoot = "image/CardFacePacks";
+    public const string ResourcesCardRoot = "image/Cards";
+    public const string ResourcesPackRoot = ResourcesCardRoot + "/Faces";
+    public const string HongqueHandRoot = ResourcesPackRoot + "/hongque/hand";
+    public const string HongqueTableRoot = ResourcesPackRoot + "/hongque/table";
     public const string OfficialAtlasResource = ResourcesPackRoot + "/official/TableAtlas";
-    public const string DefaultHandBgResource = "image/TileSurfaces/backgrounds/hand-default";
-    public const string HandHorizontalBgResource = "image/TileSurfaces/backgrounds/hand-horizontal";
-    public const string DefaultHandBackResource = "image/TileSurfaces/backs/hand-default";
+    public const string DefaultHandBgResource = ResourcesCardRoot + "/Surfaces/backgrounds/hand-default";
+    public const string HandHorizontalBgResource = ResourcesCardRoot + "/Surfaces/backgrounds/hand-horizontal";
+    public const string DefaultHandBackResource = ResourcesCardRoot + "/Surfaces/backs/hand-default";
 
     public const string HandDirEn = "hand";
     public const string HandDirZh = "手牌牌面";

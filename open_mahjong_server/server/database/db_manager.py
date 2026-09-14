@@ -595,6 +595,10 @@ class DatabaseManager:
                 else:
                     raise
 
+            # Unity 注册可以记录邮箱；未验证邮箱不获得邮箱登录/找回凭据资格。
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) NULL;")
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMP NULL;")
+
             # users 表迁移：账号封禁字段
             for col_name, col_def in [
                 ("ban_expires_at", "TIMESTAMP NULL"),
@@ -1189,6 +1193,8 @@ class DatabaseManager:
             """)
             cursor.execute("ALTER TABLE events ADD COLUMN IF NOT EXISTS room_settings JSONB NOT NULL DEFAULT '{}'::jsonb;")
 
+            from .player_recent_records import ensure_schema
+            ensure_schema(cursor)
             conn.commit() # 提交
             logger.info('数据表初始化成功')
             print('数据表初始化成功')
@@ -1389,7 +1395,7 @@ class DatabaseManager:
                 cursor.close()
                 self._put_connection(conn)
     
-    def create_user(self, username: str, password: str, is_tourist: bool = False) -> Optional[int]:
+    def create_user(self, username: str, password: str, is_tourist: bool = False, email: Optional[str] = None) -> Optional[int]:
         """
         创建新用户（密码会自动哈希存储）
 
@@ -1420,8 +1426,8 @@ class DatabaseManager:
             else:
                 # 注册用户：使用自动递增序列
                 cursor.execute(
-                    "INSERT INTO users (username, password, is_tourist) VALUES (%s, %s, %s) RETURNING user_id",
-                    (username, password_hash, is_tourist)
+                    "INSERT INTO users (username, password, is_tourist, email, email_verified_at) VALUES (%s, %s, %s, %s, NULL) RETURNING user_id",
+                    (username, password_hash, is_tourist, email)
                 )
                 user_id = cursor.fetchone()[0]
 
@@ -2289,7 +2295,7 @@ class DatabaseManager:
     # ---------------- 好友 / 关注 ----------------
 
     FOLLOW_MAX = 10
-    FRIEND_MAX = 20
+    FRIEND_MAX = 50
 
     def count_friends(self, user_id: int) -> int:
         """返回 user_id 当前关注的人数，失败返回 -1。"""

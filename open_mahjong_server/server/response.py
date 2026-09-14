@@ -451,6 +451,40 @@ class Sticker_info(BaseModel):
     original_player_index: int  # 开局固定风位，结算换座期间客户端按此定位面板
     sticker: str  # 格式 pack/id，如 turtle/3
 
+class Recent_placement(BaseModel):
+    game_id: str
+    ended_at: str
+    rank: int
+    match_type: Optional[str] = None
+
+
+class Guobiao_big_win(BaseModel):
+    game_id: str
+    ended_at: str
+    total_fan: int
+    fan_name: str
+    fans: List[str]
+    win_type: str
+    winning_tile: int
+    concealed_tiles: List[int]
+    melds: List[List[int]]
+    flower_tiles: List[int]
+    combination_mask: List[List[int]]
+    round_index: int
+    action_index: int
+
+
+class Player_recent_category(BaseModel):
+    placements: List[Recent_placement]
+    big_win: Optional[Guobiao_big_win] = None
+
+
+class Player_recent_records_response(BaseModel):
+    user_id: int
+    request_id: str
+    rules: Dict[str, Dict[str, Player_recent_category]]
+
+
 class Response(BaseModel):
     type: str
     success: bool
@@ -477,6 +511,7 @@ class Response(BaseModel):
     game_id: Optional[str] = None  # 更新收藏/备注时回传牌谱ID
     player_info: Optional[Player_info_response] = None # 用于返回玩家信息
     rule_stats: Optional[Rule_stats_response] = None # 用于返回单个规则的统计数据
+    player_recent_records: Optional[Player_recent_records_response] = None
     login_info: Optional[LoginInfo] = None # 用于返回登录信息
     user_settings: Optional[UserSettings] = None # 用于返回用户设置信息
     user_config: Optional[UserConfig] = None # 用于返回用户游戏配置信息

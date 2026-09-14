@@ -80,6 +80,10 @@ public class CardFaceConfigPanel : MonoBehaviour {
 
     public void ShowPanel() {
         showingHongque = false;
+        RestorePanel();
+    }
+
+    public void RestorePanel() {
         gameObject.SetActive(true);
         RefreshTabs();
         RefreshPreview();

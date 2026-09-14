@@ -241,7 +241,7 @@ public partial class Game3DManager {
     private Vector3 GetTsumoSpawnWorldPosition(string playerPosition, Transform cardsPosition) {
         GetRecordHandLayoutDirections(playerPosition, out Vector3 widthDir, out _);
         int childCount = cardsPosition.childCount;
-        return PlaceTileOnTable(cardsPosition.position + HandDrawSlotOffset(childCount) * widthDir, RecordHandTileRotation(playerPosition));
+        return PlaceTileOnTable(HandRowOrigin(cardsPosition, widthDir) + HandDrawSlotOffset(childCount) * widthDir, RecordHandTileRotation(playerPosition));
     }
     private Vector3 GetRecordHandSlotWorldPosition(string playerPosition, Transform cardsPosition, int slotIndex) {
         GetRecordHandLayoutDirections(playerPosition, out Vector3 widthDir, out Vector3 heightDir);
@@ -249,7 +249,7 @@ public partial class Game3DManager {
         int row = slotIndex / cardsPerRow;
         int col = slotIndex % cardsPerRow;
         float colOffset = ComputeRowCenterOffset(cardsPosition, row, col, cardsPerRow, false, useHandSpacing: true);
-        Vector3 pos = cardsPosition.position;
+        Vector3 pos = HandRowOrigin(cardsPosition, widthDir);
         pos += widthDir.normalized * colOffset;
         pos += heightDir.normalized * handRowStep * row;
         return PlaceTileOnTable(pos, RecordHandTileRotation(playerPosition));

@@ -112,6 +112,7 @@ tools/tilepack/*
 
 # Local verification/build artifacts
 /tmp/
+/output/
 /.pytest_cache/
 /other/tiles/face-build.json
 /open_mahjong_web/client/vite-dev.log

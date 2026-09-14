@@ -77,6 +77,8 @@ def store_hongque_game_record(db_manager, game_record: dict, player_list: list, 
                     "跳过虹雀对局记录: user_id=%s error=%s",
                     getattr(player, "user_id", None), error,
                 )
+        from ..player_recent_records import update_player_recent_records
+        update_player_recent_records(cursor, game_id, game_record)
         conn.commit()
         logger.info("虹雀牌谱已保存 game_id=%s players=%s", game_id, saved_count)
         try:

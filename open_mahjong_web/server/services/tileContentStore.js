@@ -2,20 +2,12 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { validateZip } = require('../utils/tilePackValidate');
+const { userContentDir } = require('../utils/runtimeData');
 
 const PREVIEW_NAME_RE = /^[A-Za-z0-9._-]+$/;
 
-function resolveContentDir() {
-  if (process.env.USER_CONTENT_DIR) {
-    return path.resolve(process.env.USER_CONTENT_DIR);
-  }
-  return path.join(__dirname, '../../data/user-content');
-}
-
 function contentDir() {
-  const dir = resolveContentDir();
-  fs.mkdirSync(dir, { recursive: true });
-  return dir;
+  return userContentDir();
 }
 
 function newStorageKey() {

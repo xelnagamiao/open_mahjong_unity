@@ -217,7 +217,7 @@ public partial class Game3DManager : MonoBehaviour {
 
         // 按实际位置排序手牌（沿方向向量的投影距离）
         // 这样可以确保手牌按照实际位置顺序排列，而不是删除后的索引顺序
-        Vector3 startPosition = cardPosition.position;
+        Vector3 startPosition = HandRowOrigin(cardPosition, direction);
         cards.Sort((a, b) => {
             Vector3 posA = a.position - startPosition;
             Vector3 posB = b.position - startPosition;

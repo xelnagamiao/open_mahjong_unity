@@ -402,6 +402,11 @@ public partial class GameRecordManager : MonoBehaviour {
         ClearRecordRoundEndPanels();
         Game3DManager.Instance?.StopAllRunningAnimations();
         Game3DManager.Instance?.Clear3DTile();
+        // Use the hand's ordinal, so replay seeks/rewinds do not advance live rotation state.
+        if (gameRecord?.gameRound?.rounds != null && gameRecord.gameRound.rounds.ContainsKey(roundIndex)) {
+            int ordinal = gameRecord.gameRound.rounds.Keys.Count(key => key < roundIndex);
+            Card3DPresetLibrary.Ensure(ConfigManager.Instance)?.BeginReplayRound(gameRecord, ordinal);
+        }
         GameCanvas.Instance?.ClearHandCardQueue();
 
         // 重置局内行动节点

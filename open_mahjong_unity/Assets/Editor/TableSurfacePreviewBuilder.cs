@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -130,6 +131,11 @@ public static class TableSurfacePreviewBuilder
                         stem = stem, output = PreviewRoot + "/" + category + "/" + stem + ".png" });
                 }
             }
+            // A tone variant shares its full-size source; only its small preview is separate.
+            Source orange = sources.FirstOrDefault(source => source.category == "Edge" && source.stem == TableFrameStyles.Default);
+            if (orange != null)
+                sources.Add(new Source { path = orange.path, category = "Edge", stem = TableFrameStyles.Deep,
+                    output = PreviewRoot + "/Edge/" + TableFrameStyles.Deep + ".png" });
             if (sources.GroupBy(source => source.output, StringComparer.OrdinalIgnoreCase).Any(group => group.Count() > 1))
                 throw new InvalidOperationException("Table preview source names must be unique within each category.");
 
@@ -140,11 +146,15 @@ public static class TableSurfacePreviewBuilder
             foreach (Source source in sources)
             {
                 string fingerprint = FingerprintPrefix + HashFile(source.path);
+                Vector4 tone = source.category == "Edge" ? TableFrameStyles.BaseTone(source.stem) : Vector4.one;
+                if (source.category == "Edge" && source.stem == TableFrameStyles.Deep)
+                    fingerprint += ":tone-v1:" + string.Join(",", new[] { tone.x, tone.y, tone.z, tone.w }
+                        .Select(value => value.ToString("R", CultureInfo.InvariantCulture)));
                 var importer = AssetImporter.GetAtPath(source.output) as TextureImporter;
                 // A source importer/meta-only change does not alter the image bytes.
                 // The committed offline derivatives carry this same fingerprint.
                 if (File.Exists(source.output) && importer != null && importer.userData == fingerprint) continue;
-                byte[] png = ResizeOnGpu(source.path);
+                byte[] png = ResizeOnGpu(source.path, tone);
                 if (!File.Exists(source.output) || !File.ReadAllBytes(source.output).SequenceEqual(png))
                     File.WriteAllBytes(source.output, png);
                 AssetDatabase.ImportAsset(source.output, ImportAssetOptions.ForceUpdate);
@@ -173,11 +183,13 @@ public static class TableSurfacePreviewBuilder
             }
 
             Func<string, Entry[]> entries = category => sources.Where(source => source.category == category)
-                .OrderBy(source => category == "TableCloth" ? TableSurfaceNames.ClothSortOrder(source.stem) : int.MaxValue)
+                .OrderBy(source => category == "TableCloth" ? TableSurfaceNames.ClothSortOrder(source.stem) :
+                    category == "Edge" ? TableFrameStyles.SortOrder(source.stem) : int.MaxValue)
                 .ThenBy(source => source.stem, StringComparer.Ordinal)
                 .Select(source => new Entry { name = source.stem,
                     preview = "TableSurfacePreviews/" + category + "/" + source.stem,
-                    displayName = category == "TableCloth" ? TableSurfaceNames.ClothDisplayName(source.stem) : source.stem }).ToArray();
+                    displayName = category == "TableCloth" ? TableSurfaceNames.ClothDisplayName(source.stem) :
+                        category == "Edge" ? TableFrameStyles.DisplayName(source.stem) : source.stem }).ToArray();
             string json = JsonUtility.ToJson(new Catalog { cloth = entries("TableCloth"), edge = entries("Edge"), seams = entries("TableSeams") }, true) + "\n";
             string catalogPath = PreviewRoot + "/catalog.json";
             if (!File.Exists(catalogPath) || File.ReadAllText(catalogPath) != json)
@@ -258,7 +270,7 @@ public static class TableSurfacePreviewBuilder
         }
     }
 
-    static byte[] ResizeOnGpu(string sourcePath)
+    static byte[] ResizeOnGpu(string sourcePath, Vector4 tone)
     {
         if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
             throw new InvalidOperationException("Updating table previews requires an Editor graphics device; omit -nographics.");
@@ -280,6 +292,7 @@ public static class TableSurfacePreviewBuilder
             source.filterMode = FilterMode.Bilinear;
             source.wrapMode = TextureWrapMode.Clamp;
             material = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
+            material.SetVector("_PreviewTone", tone);
             Func<int, int, RenderTexture> allocate = (width, height) =>
             {
                 var rt = RenderTexture.GetTemporary(width, height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);

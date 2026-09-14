@@ -102,7 +102,7 @@ public static class CardBackManager
         mat.SetFloat("_TableBgCoverFace", coverFace ? 1f : 0f);
         mat.SetFloat("_FrontTexExtendEdge", 0f);
         mat.SetColor("_TableFaceColor",
-            ConfigManager.Instance != null ? ConfigManager.Instance.TableFaceColor : Color.white);
+            ConfigManager.Instance != null ? ConfigManager.Instance.EffectiveTableFaceColor : Color.white);
         mat.SetFloat("_TableFaceBlend", useSolid ? 1f : 0f);
     }
 
@@ -153,6 +153,33 @@ public static class CardBackManager
         ApplyInstanceVisualsToAllTiles();
     }
 
+    /// <summary>After a preference reset, drop stale preview textures without deleting uploaded assets.</summary>
+    public static void RefreshAfterDefaults(bool includeHand)
+    {
+        ReplaceTableBackground(null);
+        ApplyTableBackgroundAspect(null);
+        if (includeHand)
+        {
+            ReplaceHandBackground(null);
+            ReplaceHandBack(null);
+            TileFaceResolver.NotifyHandBackgroundChanged();
+            TileFaceResolver.NotifyHandBackChanged();
+        }
+        ApplySavedConfig();
+        TileFaceResolver.NotifyTableBackgroundChanged();
+    }
+
+    public static void RefreshAfterPreset()
+    {
+        var previousBack = CurrentTexture;
+        ReplaceTableBackground(null);
+        _tableBgLoaded = false; // Reload another preset's background, not just clear it.
+        ApplySavedConfig();
+        if (previousBack != null && previousBack != CurrentTexture && !Card3DPresetTextureCache.Owns(previousBack))
+            UnityEngine.Object.Destroy(previousBack);
+        TileFaceResolver.NotifyTableBackgroundChanged();
+    }
+
     /// <summary>把正面侧边颜色应用到共享材质与所有 Tile3D 实例。</summary>
     public static void ApplySideColor(Color color)
     {
@@ -198,9 +225,9 @@ public static class CardBackManager
             case CardEdgePanel.BackEdgeMode.FollowBack:
                 return CurrentColor;
             case CardEdgePanel.BackEdgeMode.FollowFront:
-                return ConfigManager.Instance != null ? ConfigManager.Instance.FrontEdgeColor : independentColor;
+                return ConfigManager.Instance != null ? ConfigManager.Instance.EffectiveFrontEdgeColor : independentColor;
             default:
-                return independentColor;
+                return ConfigManager.ApplyColorBrightness(independentColor, ConfigManager.Instance?.BackEdgeBrightness ?? 0f);
         }
     }
 
@@ -219,6 +246,7 @@ public static class CardBackManager
     /// <summary>把牌背颜色与图片应用到共享材质 + 所有 Tile3D。</summary>
     public static void Apply(Color color, Texture2D texture)
     {
+        color = ConfigManager.ApplyColorBrightness(color, ConfigManager.Instance?.CardBackBrightness ?? 0f);
         CurrentColor = color;
         CurrentTexture = texture;
 
@@ -246,6 +274,7 @@ public static class CardBackManager
         if (ConfigManager.Instance == null) return null;
         (string path, bool isCustom) = ConfigManager.Instance.GetSelectedCardBackImage();
         if (string.IsNullOrEmpty(path) || !isCustom) return null;
+        if (Card3DPresetTextureCache.TryGet(path, out var cached)) return cached;
 
 #if UNITY_WEBGL && !UNITY_EDITOR
         return UnityAssetIdb.LoadTexture(path);
@@ -385,6 +414,9 @@ public static class CardBackManager
         if (ConfigManager.Instance == null) return null;
         (string path, bool isCustom) = ConfigManager.Instance.GetSelectedTableBackground();
         if (string.IsNullOrEmpty(path) || !isCustom) return null;
+        if (Card3DPresetTextureCache.TryGet(path, out var cached)) {
+            CurrentTableBackground = cached; ApplyTableBackgroundAspect(cached); return cached;
+        }
 #if UNITY_WEBGL && !UNITY_EDITOR
         CurrentTableBackground = UnityAssetIdb.LoadTexture(path);
 #else
@@ -506,7 +538,16 @@ public static class CardBackManager
         {
             ConfigManager.Instance.SetTableFaceColor(color);
         }
-        ForEachVisualMaterial(mat => mat.SetColor("_TableFaceColor", color));
+        Color effective = ConfigManager.Instance != null ? ConfigManager.Instance.EffectiveTableFaceColor : color;
+        ForEachVisualMaterial(mat => mat.SetColor("_TableFaceColor", effective));
+        RefreshFollowedFrontEdge();
+    }
+
+    public static void SetTableFaceBrightness(float value)
+    {
+        if (ConfigManager.Instance == null) return;
+        ConfigManager.Instance.SetTableFaceBrightness(value);
+        ForEachVisualMaterial(mat => mat.SetColor("_TableFaceColor", ConfigManager.Instance.EffectiveTableFaceColor));
         RefreshFollowedFrontEdge();
     }
 
@@ -524,7 +565,7 @@ public static class CardBackManager
         {
             case CardEdgePanel.FrontEdgeMode.FollowTableBg:
                 if (ConfigManager.Instance != null && ConfigManager.Instance.TableFaceUseSolidColor)
-                    return ConfigManager.Instance.TableFaceColor;
+                    return ConfigManager.Instance.EffectiveTableFaceColor;
                 if (ConfigManager.Instance != null
                     && ConfigManager.Instance.UseTableFaceBackground
                     && CurrentTableBackground != null)
@@ -532,10 +573,10 @@ public static class CardBackManager
                 return ConfigManager.DefaultTableFaceFallbackColor;
             case CardEdgePanel.FrontEdgeMode.FollowBackEdge:
                 return ConfigManager.Instance != null
-                    ? ConfigManager.Instance.BackEdgeColor
+                    ? ConfigManager.Instance.EffectiveBackEdgeColor
                     : independentColor;
             default:
-                return independentColor;
+                return ConfigManager.ApplyColorBrightness(independentColor, ConfigManager.Instance?.FrontEdgeBrightness ?? 0f);
         }
     }
 
@@ -839,7 +880,7 @@ public static class CardBackManager
 
     private static void ReplaceTableBackground(Texture2D texture)
     {
-        if (CurrentTableBackground != null && CurrentTableBackground != texture)
+        if (CurrentTableBackground != null && CurrentTableBackground != texture && !Card3DPresetTextureCache.Owns(CurrentTableBackground))
         {
             UnityEngine.Object.Destroy(CurrentTableBackground);
         }

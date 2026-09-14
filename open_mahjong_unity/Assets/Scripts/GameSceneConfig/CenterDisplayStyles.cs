@@ -2,12 +2,17 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>The approved flat center designs; archived experimental shells are not game options.</summary>
+/// <summary>Selectable original designs and explicitly restored trials. Retired IDs fall back to the project default.</summary>
 public static class CenterDisplayStyles
 {
     public const string Classic = "classic";
-    public const string SimpleNavy = "simple_navy";
     public const string OriginalFlat = "original_flat";
+    public const string StudioIndigo = "studio_indigo";
+    public const string StudioPaper = "studio_paper";
+    public const string StudioBamboo = "studio_bamboo";
+    public const string TrialCobalt = "trial_cobalt";
+    public const string TrialJade = "trial_jade";
+    public const string TrialIvory = "trial_ivory";
 
     public sealed class Entry
     {
@@ -20,12 +25,17 @@ public static class CenterDisplayStyles
     public static IReadOnlyList<Entry> All { get; } = Array.AsReadOnly(new[]
     {
         new Entry(Classic, "项目默认", 0),
-        new Entry("refined", "原版微调", 1),
-        new Entry("ink", "青墨轻色", 2),
-        new Entry("ivory", "月白轻色", 3),
-        new Entry("violet", "靛紫轻色", 4),
-        new Entry(SimpleNavy, "简洁深蓝", 5),
-        new Entry(OriginalFlat, "原版·简化", 6)
+        new Entry(StudioIndigo, "折光·靛蓝", 1),
+        new Entry(StudioPaper, "花笺·绛红", 2),
+        new Entry(StudioBamboo, "竹影·青", 3),
+        new Entry(TrialCobalt, "试作·钴蓝", 4),
+        new Entry(TrialJade, "试作·碧青", 5),
+        new Entry(TrialIvory, "试作·象牙", 6),
+        new Entry("refined", "原版微调", 7),
+        new Entry("ink", "青墨轻色", 8),
+        new Entry("ivory", "月白轻色", 9),
+        new Entry("violet", "靛紫轻色", 10),
+        new Entry(OriginalFlat, "原版·简化", 11)
     });
 
     public static Entry Get(string id)

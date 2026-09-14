@@ -36,7 +36,7 @@ public partial class Game3DManager {
         }
 
         // 按实际位置排序手牌（沿方向向量的投影距离）
-        Vector3 startPosition = cardPosition.position;
+        Vector3 startPosition = HandRowOrigin(cardPosition, direction);
         cards.Sort((a, b) => {
             Vector3 posA = a.position - startPosition;
             Vector3 posB = b.position - startPosition;

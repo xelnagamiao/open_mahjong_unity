@@ -8,7 +8,7 @@ using UnityEngine.UI;
 /// Applies a selected center appearance to the existing game UI. Never owns game
 /// text, scores, occupancy, riichi state, or the current-player coroutine.
 /// </summary>
-public sealed class CenterBoardSkin : MonoBehaviour
+public sealed partial class CenterBoardSkin : MonoBehaviour
 {
     public string StyleId { get; private set; } = "classic";
     static readonly Color Orange = new Color(.93207544f, .61297697f, .3851406f, 1);
@@ -19,6 +19,22 @@ public sealed class CenterBoardSkin : MonoBehaviour
         new[] { "#AFB8C4", "#6D7B8E", "#CBD1D9", "#DCE0E5", "#BCC5D0", "#94A2B3", "#2D4050", "#708B99", "#A6B2C1", "#A2AEBD", "#B96370" },
         new[] { "#534D64", "#302A40", "#484255", "#766B83", "#353143", "#61566F", "#2A2C3E", "#706780", "#514A62", "#4C465F", "#BD576B" }
     };
+    // Restored from the V2 source snapshot, independently selectable from the new designs.
+    static readonly string[][] TrialPalettes = {
+        new[] { "#417BEB", "#0B1428", "#152238", "#28456B", "#152238", "#28456B", "#0D192C", "#28456B", "#152238", "#215AC4", "#DD4856" },
+        new[] { "#20BBA7", "#062F36", "#08424B", "#16616B", "#08424B", "#16616B", "#07343D", "#16616B", "#08424B", "#087C79", "#E44857" },
+        new[] { "#223F72", "#132B50", "#F6EFDD", "#FFFAED", "#F6EFDD", "#D2BFA3", "#F6EFDD", "#F6EFDD", "#F6EFDD", "#245DB1", "#D9424D" }
+    };
+    static readonly string[] TrialScoreColors = { "#FFE6A2", "#FFF0B5", "#153660" };
+    static readonly string[] TrialRoundColors = { "#6FE5FF", "#61F2D8", "#17498E" };
+    static readonly string[] TrialRemainingColors = { "#D8F6FF", "#E9FFF4", "#B93243" };
+    // Score, round, remaining, wind ink, wind fill, east fill, east ink.
+    static readonly string[][] StudioColors = {
+        new[] { "#E8EEFF", "#A8BAFF", "#D0DAFF", "#DDE6FF", "#26345A", "#B54F67", "#FFF3F3" },
+        new[] { "#552D36", "#703242", "#4B3438", "#6C3E49", "#EBDCCF", "#D7A9AE", "#622333" },
+        new[] { "#ECDEC0", "#3E5750", "#264F4D", "#DBE9D8", "#2B5858", "#AB5753", "#FFF3DE" }
+    };
+    static TMP_FontAsset centerFont;
 
     BoardCanvas board;
     RectTransform control, middle, art;
@@ -29,7 +45,8 @@ public sealed class CenterBoardSkin : MonoBehaviour
     ImageState[] turnStates, backgroundStates;
     RectState middleState;
     readonly CenterSkinGraphic[] face = new CenterSkinGraphic[5], rails = new CenterSkinGraphic[4], badges = new CenterSkinGraphic[4];
-    readonly CenterSkinGraphic[] cornerFacets = new CenterSkinGraphic[4];
+    readonly CenterSkinGraphic[][] details = new CenterSkinGraphic[4][];
+    CenterSkinGraphic readoutRule;
     readonly RectTransform[] seatArt = new RectTransform[4];
     readonly string[] previousWind = new string[4];
     readonly List<AnchorState> pointAnchors = new List<AnchorState>();
@@ -37,8 +54,12 @@ public sealed class CenterBoardSkin : MonoBehaviour
     ConfigManager subscribedConfig;
     bool initialized, watchConfiguration;
     int paletteIndex = -1;
-    bool IsSimpleNavy => StyleId == CenterDisplayStyles.SimpleNavy;
     bool IsOriginalFlat => StyleId == CenterDisplayStyles.OriginalFlat;
+    bool IsTrial => StyleId == CenterDisplayStyles.TrialCobalt || StyleId == CenterDisplayStyles.TrialJade || StyleId == CenterDisplayStyles.TrialIvory;
+    bool IsStudio => StyleId == CenterDisplayStyles.StudioIndigo || StyleId == CenterDisplayStyles.StudioPaper || StyleId == CenterDisplayStyles.StudioBamboo;
+    string[] CurrentPalette => IsTrial ? TrialPalettes[paletteIndex] : Palettes[paletteIndex];
+    float? PointAnchorY => paletteIndex < 0 || IsOriginalFlat ? (float?)null
+        : IsStudio ? -35.2f : IsTrial ? -31.6f : -31.3f;
 
     public void Initialize(BoardCanvas owner, TMP_Text round, TMP_Text remaining, TMP_Text[] scoreLabels, TMP_Text[] windLabels, Image[] turnImages)
     {
@@ -108,9 +129,11 @@ public sealed class CenterBoardSkin : MonoBehaviour
         id = CenterDisplayStyles.Normalize(id);
         int index = CenterDisplayStyles.IndexOf(id);
         StyleId = id;
-        // The original face shares the first palette's live text colours, while
-        // retaining its own geometry and border colours below.
-        paletteIndex = IsOriginalFlat ? 0 : index - 1;
+        // Palette selection is independent of the catalog order.
+        paletteIndex = id == CenterDisplayStyles.Classic ? -1
+            : id == "ink" || id == CenterDisplayStyles.TrialJade || id == CenterDisplayStyles.StudioPaper ? 1
+            : id == "ivory" || id == CenterDisplayStyles.TrialIvory || id == CenterDisplayStyles.StudioBamboo ? 2
+            : id == "violet" ? 3 : 0;
         if (index == 0)
         {
             if (art) art.gameObject.SetActive(false);
@@ -133,22 +156,29 @@ public sealed class CenterBoardSkin : MonoBehaviour
             if (hit) { hit.enabled = true; hit.color = Color.clear; }
             for (int i = 1; i < backgroundStates.Length; i++)
                 if (backgroundStates[i].image) backgroundStates[i].image.enabled = false;
-            bool navy = IsSimpleNavy;
             bool original = IsOriginalFlat;
-            ConfigureRect(middle, Vector2.zero, original ? new Vector2(29.8f, 29.4f) : navy ? new Vector2(34, 27) : new Vector2(36, 36));
-            ConfigureText(roundText, new Vector2(0, original ? 4 : navy ? 5 : 6.8f), original ? new Vector2(26, 9) : new Vector2(31, 10.6f), original ? 6.1f : 7.4f,
-                navy ? new Color(.5f, .92f, .83f) : C("#74DECE"));
-            ConfigureText(remainingText, new Vector2(0, original ? -4.1f : navy ? -7 : -6.5f), new Vector2(original ? 26 : 31, 10.6f), original ? 6.2f : navy ? 5.2f : 7.4f,
-                navy ? new Color(.56f, .68f, .72f) : C("#74DECE"));
+            bool trial = IsTrial;
+            bool studio = IsStudio;
+            ConfigureRect(middle, Vector2.zero, original ? new Vector2(29.8f, 29.4f) : studio ? new Vector2(31, 31) : trial ? new Vector2(36, 34) : new Vector2(36, 36));
+            ConfigureText(roundText, new Vector2(0, original ? 4 : studio ? 5.2f : trial ? 5.7f : 6.8f), original ? new Vector2(26, 11) : new Vector2(studio ? 29 : 33, 14), original ? 7.4f : studio ? 8.7f : trial ? 9.6f : 8.4f,
+                C(studio ? StudioColors[paletteIndex][1] : trial ? TrialRoundColors[paletteIndex] : "#74DECE"));
+            // Four-character rule names retain their actual text and fit the same readout.
+            roundText.enableAutoSizing = true; roundText.fontSizeMin = original ? 6.4f : studio ? 7.1f : 7.8f;
+            roundText.fontSizeMax = roundText.fontSize;
+            ConfigureText(remainingText, new Vector2(0, original ? -4.1f : studio ? -5.8f : trial ? -6.1f : -6.5f), new Vector2(original ? 26 : studio ? 29 : 33, 14), original ? 7.4f : studio ? 9.7f : trial ? 10.2f : 8.6f,
+                C(studio ? StudioColors[paletteIndex][2] : trial ? TrialRemainingColors[paletteIndex] : "#A3EEE2"));
+            if (studio) { remainingText.enableAutoSizing = true; remainingText.fontSizeMin = 8; remainingText.fontSizeMax = 9.7f; }
             for (int i = 0; i < 4; i++)
             {
-                ConfigureText(scores[i], new Vector2(0, original ? -20.1f : navy ? -27 : -23.8f), original ? new Vector2(35, 10) : new Vector2(39, 10.1f), navy ? 6.5f : 7,
-                    navy ? new Color(.94f, .77f, .43f) : C(ScoreColors[paletteIndex]));
+                float scoreSize = original ? 7.8f : studio ? 8.6f : trial ? 9.4f : 8;
+                ConfigureText(scores[i], new Vector2(0, original ? -20.1f : studio ? -23.6f : -23.8f), original ? new Vector2(35, 11.5f) : new Vector2(40, 13), scoreSize,
+                    C(studio ? StudioColors[paletteIndex][0] : trial ? TrialScoreColors[paletteIndex] : ScoreColors[paletteIndex]));
                 scores[i].margin = new Vector4(.7f, 0, .7f, 0);
-                scores[i].enableAutoSizing = true; scores[i].fontSizeMin = 5.7f; scores[i].fontSizeMax = navy ? 6.5f : 7;
-                ConfigureText(winds[i], navy ? new Vector2(-29, -28) : new Vector2(-31, -31), new Vector2(8.8f, 10.2f), navy ? 6.5f : 7, Color.white);
-                ConfigureRect(turns[i].rectTransform, new Vector2(0, original ? -34.1f : navy ? -34 : -36.4f), original ? new Vector2(44.8f, 1.4f) : navy ? new Vector2(34, 1) : new Vector2(46, 1.45f));
-                Color orange = Orange; orange.a = turns[i].color.a; turns[i].color = orange;
+                scores[i].enableAutoSizing = true; scores[i].fontSizeMin = 6.2f; scores[i].fontSizeMax = scoreSize;
+                ConfigureText(winds[i], new Vector2(studio ? -29.5f : -29.4f, studio ? -29.5f : -29.4f), new Vector2(14, 16), studio ? 10.5f : 11, Color.white);
+                ConfigureRect(turns[i].rectTransform, new Vector2(0, studio ? -30.6f : trial ? -36.3f : original ? -34.1f : -36),
+                    new Vector2(studio ? 30 : original ? 40 : 42, studio ? 2.4f : trial ? 2.8f : 3.2f));
+                Color orange = studio ? C("#EFAD59") : trial ? C("#FF8D32") : Orange; orange.a = turns[i].color.a; turns[i].color = orange;
                 turns[i].overrideSprite = null; turns[i].sprite = null;
                 turns[i].type = Image.Type.Simple; turns[i].useSpriteMesh = false; turns[i].preserveAspect = false;
                 if (!turnMeshes[i])
@@ -156,14 +186,16 @@ public sealed class CenterBoardSkin : MonoBehaviour
                     turnMeshes[i] = turns[i].GetComponent<CenterTurnMesh>();
                     if (!turnMeshes[i]) turnMeshes[i] = turns[i].gameObject.AddComponent<CenterTurnMesh>();
                 }
-                turnMeshes[i].Cut = original ? .7f : .55f;
+                turnMeshes[i].Cut = studio ? .5f : trial ? .3f : .8f;
+                turnMeshes[i].Taper = false;
+                turnMeshes[i].Highlight = 0;
                 turnMeshes[i].enabled = true;
             }
             PaintArtwork();
             UpdateWindColors(true);
         }
         TryInitializePointAnchors();
-        foreach (var anchor in pointAnchors) anchor.Apply(index != 0 && !IsOriginalFlat);
+        foreach (var anchor in pointAnchors) anchor.Apply(PointAnchorY);
     }
 
     void EnsureArtwork()
@@ -173,13 +205,15 @@ public sealed class CenterBoardSkin : MonoBehaviour
         art.SetAsFirstSibling();
         string[] names = { "OuterContour", "FlatFace", "IntegratedOctagonalFace", "FaceKeyline", "CentralReadout" };
         for (int i = 0; i < face.Length; i++) face[i] = NewGraphic(art, names[i]);
+        readoutRule = NewGraphic(art, "ReadoutDivider");
         for (int i = 0; i < 4; i++)
         {
             // Occupied-seat logic hides Score.parent. Keep each decoration there.
             seatArt[i] = NewRect(scores[i].transform.parent, "CenterSkinSeat", Vector2.zero, new Vector2(77, 77));
             seatArt[i].SetAsFirstSibling();
             rails[i] = NewGraphic(seatArt[i], "EdgeRail");
-            cornerFacets[i] = NewGraphic(seatArt[i], "CornerFacet");
+            details[i] = new CenterSkinGraphic[8];
+            for (int j = 0; j < details[i].Length; j++) details[i][j] = NewGraphic(seatArt[i], "ReferenceDetail_" + j);
             badges[i] = NewGraphic(seatArt[i], "WindBadge");
         }
     }
@@ -187,23 +221,25 @@ public sealed class CenterBoardSkin : MonoBehaviour
     void PaintArtwork()
     {
         foreach (var graphic in face) graphic.gameObject.SetActive(true);
-        foreach (var graphic in rails) graphic.gameObject.SetActive(!IsSimpleNavy);
-        foreach (var graphic in badges) graphic.gameObject.SetActive(!IsSimpleNavy);
-        foreach (var graphic in cornerFacets) graphic.gameObject.SetActive(IsOriginalFlat);
-        if (IsSimpleNavy)
+        foreach (var graphic in rails) graphic.gameObject.SetActive(true);
+        foreach (var graphic in badges) graphic.gameObject.SetActive(true);
+        foreach (var seat in details) foreach (var graphic in seat) graphic.gameObject.SetActive(false);
+        readoutRule.gameObject.SetActive(false);
+        if (IsStudio)
         {
-            // TileTableLab.BuildCenter proportions and colours, rendered in the
-            // original world-space Canvas so all live game labels remain bound.
-            FlatRectangle(face[0], new Vector2(77, 77), new Color(.13f, .20f, .25f));
-            FlatRectangle(face[1], new Vector2(71, 71), new Color(.045f, .09f, .12f));
-            face[2].gameObject.SetActive(false);
-            face[3].gameObject.SetActive(false);
-            FlatRectangle(face[4], new Vector2(34, 27), new Color(.025f, .06f, .078f));
+            if (StyleId == CenterDisplayStyles.StudioIndigo) PaintStudioIndigo();
+            else if (StyleId == CenterDisplayStyles.StudioPaper) PaintStudioPaper();
+            else PaintStudioBamboo();
             return;
         }
         if (IsOriginalFlat)
         {
             PaintOriginalArtwork();
+            return;
+        }
+        if (IsTrial)
+        {
+            PaintTrialArtwork();
             return;
         }
         var p = Palettes[paletteIndex];
@@ -214,8 +250,23 @@ public sealed class CenterBoardSkin : MonoBehaviour
         Shape(face[4], Vector2.zero, new Vector2(36, 36), 1.5f, p[6], p[7], .27f);
         for (int i = 0; i < 4; i++)
         {
-            Shape(rails[i], new Vector2(0, -36.4f), new Vector2(47.2f, 2.3f), .8f, p[8], p[1], .22f);
-            Shape(badges[i], new Vector2(-31, -31), new Vector2(10.5f, 10.5f), .8f, p[9], p[1], .35f);
+            Shape(rails[i], new Vector2(0, -36), new Vector2(44, 3.8f), 1, p[8], p[1], .22f);
+            Shape(badges[i], new Vector2(-29.4f, -29.4f), new Vector2(14, 14), 1, p[9], p[1], .3f);
+        }
+    }
+
+    void PaintTrialArtwork()
+    {
+        var p = CurrentPalette;
+        Shape(face[0], Vector2.zero, new Vector2(77, 77), 1.8f, p[0], p[1], .3f);
+        Shape(face[1], Vector2.zero, new Vector2(75.2f, 75.2f), 1.3f, p[2], p[3], .15f);
+        face[2].gameObject.SetActive(false);
+        face[3].gameObject.SetActive(false);
+        Shape(face[4], Vector2.zero, new Vector2(36, 34), .5f, p[6], p[7], paletteIndex == 2 ? 0 : .18f);
+        for (int i = 0; i < 4; i++)
+        {
+            rails[i].gameObject.SetActive(false);
+            Shape(badges[i], new Vector2(-29.4f, -29.4f), new Vector2(14, 14), .4f, p[9], p[9], 0);
         }
     }
 
@@ -228,34 +279,22 @@ public sealed class CenterBoardSkin : MonoBehaviour
         Shape(face[4], Vector2.zero, new Vector2(29.8f, 29.4f), 2, "#222B3B", "#536777", .35f);
         for (int i = 0; i < 4; i++)
         {
-            Shape(rails[i], new Vector2(0, -34.1f), new Vector2(47, 3.5f), 1.15f, "#535D73", "#2A3244", .45f);
-            ConfigureRect(cornerFacets[i].rectTransform, Vector2.zero, new Vector2(77, 77));
-            cornerFacets[i].SetShape(new[] {
-                new Vector2(19.3f, -29.6f), new Vector2(22.2f, -32.5f),
-                new Vector2(25.35f, -30.65f), new Vector2(23.1f, -29)
-            }, C("#626B80"), C("#333B4E"), .35f);
-            Shape(badges[i], new Vector2(-31, -31), new Vector2(10.5f, 10.5f), .8f, "#35415A", "#1E2738", .65f);
+            Shape(rails[i], new Vector2(0, -34.1f), new Vector2(42, 3.8f), 1, "#535D73", "#2A3244", .3f);
+            Shape(badges[i], new Vector2(-29.4f, -29.4f), new Vector2(14, 14), .8f, "#35415A", "#1E2738", .4f);
         }
     }
 
     void UpdateWindColors(bool force)
     {
-        if (IsSimpleNavy)
-        {
-            // No dealer badge or baked seat labels: the original wind text is
-            // updated by BoardCanvas as the round and occupied seats change.
-            foreach (var wind in winds) wind.color = new Color(.89f, .94f, .94f);
-            return;
-        }
-        var p = Palettes[paletteIndex];
+        var p = IsStudio ? null : CurrentPalette;
         for (int i = 0; i < 4; i++)
         {
             string value = winds[i].text;
             if (!force && previousWind[i] == value) continue;
             previousWind[i] = value;
             bool east = value == "东" || value == "東";
-            badges[i].color = C(east ? p[10] : p[9]);
-            winds[i].color = paletteIndex == 2 && !east ? C("#35465C") : C("#F1F2ED");
+            badges[i].color = C(IsStudio ? StudioColors[paletteIndex][east ? 5 : 4] : east ? p[10] : p[9]);
+            winds[i].color = C(IsStudio ? StudioColors[paletteIndex][east ? 6 : 3] : !IsTrial && paletteIndex == 2 && !east ? "#35465C" : "#FFFCF1");
         }
     }
 
@@ -268,7 +307,7 @@ public sealed class CenterBoardSkin : MonoBehaviour
             if (!target || pointAnchors.Exists(s => s.target == target)) continue;
             var state = new AnchorState(target);
             pointAnchors.Add(state);
-            state.Apply(paletteIndex >= 0 && !IsOriginalFlat);
+            state.Apply(PointAnchorY);
         }
     }
 
@@ -302,11 +341,29 @@ public sealed class CenterBoardSkin : MonoBehaviour
         ConfigureRect(graphic.rectTransform, Vector2.zero, size);
         graphic.SetShape(CenterSkinGraphic.CutRect(size.x, size.y, .12f), fill, Color.clear, 0);
     }
+    CenterSkinGraphic Detail(int seat, int index, Vector2 position, Vector2 size, float cut, string fill, string edge, float width)
+    {
+        var graphic = details[seat][index]; graphic.gameObject.SetActive(true);
+        Shape(graphic, position, size, cut, fill, edge, width); return graphic;
+    }
+    CenterSkinGraphic DetailPolygon(int seat, int index, Vector2[] points, string fill, string edge, float width)
+    {
+        var graphic = details[seat][index]; graphic.gameObject.SetActive(true);
+        Polygon(graphic, points, fill, edge, width); return graphic;
+    }
+    static void Polygon(CenterSkinGraphic graphic, Vector2[] points, string fill, string edge, float width)
+    {
+        ConfigureRect(graphic.rectTransform, Vector2.zero, new Vector2(77, 77));
+        graphic.SetShape(points, C(fill), C(edge), width);
+    }
     static void ConfigureText(TMP_Text text, Vector2 position, Vector2 size, float fontSize, Color color)
     {
         ConfigureRect(text.rectTransform, position, size);
+        if (!centerFont) centerFont = Resources.Load<TMP_FontAsset>("font/CenterDisplay/CenterReadoutStatic");
+        if (centerFont) { text.font = centerFont; text.fontSharedMaterial = centerFont.material; }
         text.color = color; text.enableAutoSizing = false; text.fontSize = fontSize;
-        text.fontStyle = FontStyles.Bold; text.alignment = TextAlignmentOptions.Center;
+        text.characterSpacing = 0;
+        text.fontStyle = FontStyles.Normal; text.alignment = TextAlignmentOptions.Center;
         text.textWrappingMode = TextWrappingModes.NoWrap; text.overflowMode = TextOverflowModes.Overflow;
         text.margin = Vector4.zero;
     }
@@ -334,6 +391,9 @@ public sealed class CenterBoardSkin : MonoBehaviour
         readonly TMP_Text text;
         readonly RectState rect;
         readonly Color color;
+        readonly TMP_FontAsset font;
+        readonly Material fontMaterial;
+        readonly float characterSpacing;
         readonly float fontSize, min, max;
         readonly bool auto;
         readonly FontStyles style;
@@ -344,6 +404,7 @@ public sealed class CenterBoardSkin : MonoBehaviour
         public TextState(TMP_Text value)
         {
             text = value; rect = new RectState(text.rectTransform); color = text.color;
+            font = text.font; fontMaterial = text.fontSharedMaterial; characterSpacing = text.characterSpacing;
             fontSize = text.fontSize; min = text.fontSizeMin; max = text.fontSizeMax; auto = text.enableAutoSizing;
             style = text.fontStyle; alignment = text.alignment; wrapping = text.textWrappingMode;
             overflow = text.overflowMode; margin = text.margin;
@@ -351,6 +412,7 @@ public sealed class CenterBoardSkin : MonoBehaviour
         public void Restore()
         {
             if (!text) return;
+            text.font = font; text.fontSharedMaterial = fontMaterial; text.characterSpacing = characterSpacing;
             rect.Restore(); text.color = color; text.enableAutoSizing = auto; text.fontSize = fontSize;
             text.fontSizeMin = min; text.fontSizeMax = max; text.fontStyle = style;
             text.alignment = alignment; text.textWrappingMode = wrapping; text.overflowMode = overflow; text.margin = margin;
@@ -389,7 +451,7 @@ public sealed class CenterBoardSkin : MonoBehaviour
             target = value; rect = target as RectTransform;
             position = rect ? rect.anchoredPosition3D : target.localPosition;
         }
-        public void Apply(bool custom)
+        public void Apply(float? seatY)
         {
             if (!target) return;
             Vector3 before = target.position;
@@ -398,7 +460,7 @@ public sealed class CenterBoardSkin : MonoBehaviour
                 foreach (Transform child in target.parent)
                     if ((child.name.StartsWith("RiichiTenbou_", StringComparison.Ordinal) || child.name.StartsWith("FieldRiichiTenbou_", StringComparison.Ordinal))
                         && Vector3.Distance(child.position, before) < .05f) settled.Add(child);
-            Vector3 next = position; if (custom) next.y = -32;
+            Vector3 next = position; if (seatY.HasValue) next.y = seatY.Value;
             if (rect) rect.anchoredPosition3D = next; else target.localPosition = next;
             Vector3 delta = target.position - before;
             foreach (var stick in settled) if (stick) stick.position += delta;

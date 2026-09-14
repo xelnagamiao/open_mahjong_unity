@@ -119,6 +119,10 @@ def init_game_record(self):
     self.game_record["game_title"] = build_game_title_data(self)
     self.game_record["game_title"]["start_time"] = datetime.now()
     self.game_record["game_round"] = {}
+    if self.game_record["game_title"].get("rule") == "guobiao":
+        from .guobiao_win_snapshot import SNAPSHOT_VERSION
+        self.game_record["player_best_wins_version"] = SNAPSHOT_VERSION
+        self.game_record["player_best_wins"] = {}
 
 def apply_game_title_end_fields(gs, title: Dict[str, Any]) -> None:
     """整局结束时写入 game_title 终局字段（落库牌谱与观战完整牌谱共用）。
@@ -406,6 +410,14 @@ def player_action_record_hu(self, hu_class: str, hu_score, hu_fan: list,
     if bird_tiles:
         tick.append(list(bird_tiles))
     append_action_tick(self, tick)
+    if self.game_record.get("game_title", {}).get("rule") == "guobiao":
+        from .guobiao_win_snapshot import capture_guobiao_win
+        try:
+            capture_guobiao_win(self, hu_class, hu_score, hu_fan, hepai_player_index, hepai_tile)
+        except (ValueError, TypeError, KeyError, IndexError, AttributeError):
+            # 保留牌谱原始动作，落库时走追溯并登记异常，不阻断对局结算。
+            self.game_record.pop("player_best_wins_version", None)
+            logger.exception("国标最高番结算快照采集失败，改用牌谱追溯")
 
 # 四川血战·杠分即时退税（杠上炮/抢杠）["gr", "gs", d0, d1, d2, d3]
 def player_action_record_gang_refund(self, gang_score_changes):

@@ -4,7 +4,14 @@ using UnityEngine;
 public partial class Game3DManager : MonoBehaviour {
     private Transform discardLayoutCenter;
 
-    // 主列变紧时保留摸牌相对末张的分离距离；空主列沿用原来的首个摸牌槽。
+    // 固定完整手牌的参考中心，不随当前张数改变首槽，避免逐张发牌和鸣牌后归位时整排跳动。
+    private Vector3 HandRowOrigin(Transform handPosition, Vector3 rowDirection) {
+        float referenceHalfSpan = Mathf.Max(0, GetRevealedHandCardsPerRow() - 2) * 0.5f;
+        return handPosition.position - rowDirection.normalized
+            * (referenceHalfSpan * (HandColumnGap - HandAnchorColumnGap));
+    }
+
+    // 保留摸牌相对末张的分离距离；空主列沿用原来的首个摸牌槽距离。
     private float HandDrawSlotOffset(int mainCount, float separationInOriginalSteps = 2f) {
         return mainCount > 0
             ? (mainCount - 1) * handStep + separationInOriginalSteps * cardWidth
@@ -238,6 +245,7 @@ public partial class Game3DManager : MonoBehaviour {
 
         bool useHorizontalLayout = isRiichi && isDiscardLike;
         if (isDiscardLike) currentPosition = DiscardRowOrigin(SetPosition, widthdirection);
+        else if (isRecordSet) currentPosition = HandRowOrigin(SetPosition, widthdirection);
         // 和牌倒牌与手牌同间距；河/补花仍用 widthSpacing
         bool useHandSpacing = isRecordSet;
         float colOffset = ComputeRowCenterOffset(

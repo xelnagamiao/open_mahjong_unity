@@ -670,6 +670,7 @@ public class NetworkManager : MonoBehaviour {
                 case "data/get_record_by_id":
                 case "data/update_record_favorite":
                 case "data/get_guobiao_stats":
+                case "data/get_player_recent_records":
                 case "data/get_riichi_stats":
                 case "data/get_qingque_stats":
                 case "data/get_classical_stats":
@@ -913,6 +914,23 @@ public class NetworkManager : MonoBehaviour {
         } catch (Exception e) {
             Debug.LogError($"登录发送错误: {e.Message}");
             NotificationManager.Instance.ShowTip("登录", false, "尚未连接至OMU服务器");
+            LoginPanel.Instance.ResetLoginButton();
+        }
+    }
+
+    public async void Register(string email, string username, string password, string confirmPassword) {
+        try {
+            if (!IsWebSocketOpen) {
+                NotificationManager.Instance.ShowTip("注册", false, "尚未连接至OMU服务器");
+                LoginPanel.Instance.ResetLoginButton();
+                return;
+            }
+            await websocket.SendText(JsonConvert.SerializeObject(new {
+                type = "register", email, username, password, confirm_password = confirmPassword
+            }));
+        } catch (Exception e) {
+            Debug.LogError($"注册发送错误: {e.Message}");
+            NotificationManager.Instance.ShowTip("注册", false, "注册请求发送失败，请重试");
             LoginPanel.Instance.ResetLoginButton();
         }
     }

@@ -19,6 +19,9 @@ public sealed class CardDesignTabs : MonoBehaviour
     private int faceTab;
     private int cardTab;
     public event System.Action PageChanged;
+    public event System.Action<bool> PanelShown;
+    public int SelectedFaceTab => faceTab;
+    public int SelectedCardTab => cardTab;
 
     private void Awake()
     {
@@ -34,6 +37,13 @@ public sealed class CardDesignTabs : MonoBehaviour
 
     public void ShowFace(int tab)
     {
+        ShowFace(tab, false);
+    }
+
+    public void RestoreFace() => ShowFace(faceTab, true);
+
+    private void ShowFace(int tab, bool preserveSelection)
+    {
         // Keep existing direct callers of the former third face tab working.
         if (tab == 2) { ShowTableBackground(); return; }
         PageChanged?.Invoke();
@@ -44,9 +54,13 @@ public sealed class CardDesignTabs : MonoBehaviour
         handImagesPage.SetActive(faceTab == 1);
         tableFacePage.SetActive(false);
         faceDesignRoot.SetActive(true);
-        if (faceTab == 0) facePanel.ShowPanel();
+        if (faceTab == 0) {
+            if (preserveSelection) facePanel.RestorePanel();
+            else facePanel.ShowPanel();
+        }
         else { backgroundPanel.ShowPanel(); backgroundPanel.RefreshSolidColorUi(); }
         Select(faceTabs, faceTab);
+        PanelShown?.Invoke(true);
     }
 
     public void ShowCard(int tab)
@@ -60,11 +74,13 @@ public sealed class CardDesignTabs : MonoBehaviour
         edgePanel.gameObject.SetActive(false);
         cardDesignRoot.SetActive(true);
         tableFacePage.SetActive(cardTab == 2);
-        cardModelPreview.SetActive(cardTab != 2);
+        // All card tabs share this preview; keep its render resources alive while switching.
+        cardModelPreview.SetActive(true);
         if (cardTab == 0) backPanel.ShowPanel();
         else if (cardTab == 1) edgePanel.gameObject.SetActive(true);
         else { backgroundPanel.ShowPanel(); backgroundPanel.RefreshSolidColorUi(); }
         Select(cardTabs, cardTab);
+        PanelShown?.Invoke(false);
     }
 
     public void ShowTableBackground() => ShowCard(2);
@@ -81,7 +97,7 @@ public sealed class CardDesignTabs : MonoBehaviour
 
     public void RefreshPanel()
     {
-        if (faceDesignRoot.activeSelf) ShowFace(faceTab);
+        if (faceDesignRoot.activeSelf) RestoreFace();
         else if (cardDesignRoot.activeSelf) ShowCard(cardTab);
     }
 

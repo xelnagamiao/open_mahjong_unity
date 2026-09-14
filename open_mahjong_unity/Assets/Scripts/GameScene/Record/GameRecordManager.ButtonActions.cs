@@ -104,7 +104,8 @@ public partial class GameRecordManager {
                 yield break;
             }
 
-            if (_recordHuPresentationActive || _pendingRecordDelayedAdvanceCount > 0) {
+            if (_recordHuPresentationActive || _pendingRecordDelayedAdvanceCount > 0
+                || Game3DManager.Instance.HasPendingRecordHandAnimations) {
                 yield return pollWait;
                 continue;
             }

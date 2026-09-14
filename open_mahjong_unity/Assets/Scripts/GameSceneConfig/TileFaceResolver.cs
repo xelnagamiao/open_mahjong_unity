@@ -252,7 +252,7 @@ public static class TileFaceResolver {
     }
 
     public static Color TablePreviewBaseColor => ConfigManager.Instance != null && ConfigManager.Instance.TableFaceUseSolidColor
-        ? ConfigManager.Instance.TableFaceColor : ConfigManager.DefaultTableFaceFallbackColor;
+        ? ConfigManager.Instance.EffectiveTableFaceColor : ConfigManager.DefaultTableFaceFallbackColor;
 
     public static Texture2D PeekHandBackgroundTexture() {
         Texture2D custom = CardBackManager.LoadSavedHandBackground();

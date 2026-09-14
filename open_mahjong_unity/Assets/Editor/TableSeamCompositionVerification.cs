@@ -14,7 +14,6 @@ using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
 /// <summary>Explicit Edit-mode GPU verification. No imports, Play, saves, or configuration writes.</summary>
-[InitializeOnLoad]
 public static class TableSeamCompositionVerification
 {
     [Serializable] private class Catalog { public Entry[] cloth; }
@@ -27,23 +26,10 @@ public static class TableSeamCompositionVerification
         public List<Check> checks = new List<Check>();
     }
     private static string Project => Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
-    private static string Request => Path.Combine(Project, "Temp/TableSeamCompositionVerification.request");
     private static string Output => Path.GetFullPath(Path.Combine(Project, "../other/Tablecloth/SeamLibrary/validation/composition"));
     private const string MainScene = "Assets/Scenes/MainScene.unity";
-    private static double nextPoll;
     private static bool running;
     private static Report report;
-    static TableSeamCompositionVerification() => EditorApplication.update += Poll;
-
-    private static void Poll()
-    {
-        if (running || EditorApplication.timeSinceStartup < nextPoll) return;
-        nextPoll = EditorApplication.timeSinceStartup + 1;
-        if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling || EditorApplication.isUpdating) return;
-        if (!File.Exists(Request) || File.ReadAllText(Request).Trim() != "VERIFY") return;
-        File.Delete(Request);
-        Run();
-    }
 
     [MenuItem("Tools/Mahjong/Verify Independent Table Seam Composition")]
     public static void Run()
@@ -140,7 +126,7 @@ public static class TableSeamCompositionVerification
 
     private static Texture2D[] VerifyOverlays()
     {
-        var result = new Texture2D[7];
+        var result = new Texture2D[TableSurfaceNames.SeamStyleCount];
         for (int i = 0; i < result.Length; i++)
         {
             string stem = "Seam_" + i.ToString("00");
@@ -148,9 +134,9 @@ public static class TableSeamCompositionVerification
             var header = PngHeader(Path.Combine(Project, path));
             var texture = Resources.Load<Texture2D>("image/Board/TableSeams/" + stem);
             var importer = AssetImporter.GetAtPath(path) as TextureImporter;
-            Require(header[0] == 1720 && header[1] == 1720 && header[2] == 8 && header[3] == 6 &&
-                texture != null && texture.width == 1720 && texture.height == 1720 && AssetDatabase.GetAssetPath(texture) == path,
-                stem + ": native 1720 RGBA8 PNG and Resources texture");
+            Require(header[0] == 2048 && header[1] == 2048 && header[2] == 8 && header[3] == 6 &&
+                texture != null && texture.width == 2048 && texture.height == 2048 && AssetDatabase.GetAssetPath(texture) == path,
+                stem + ": native 2048 RGBA8 PNG and Resources texture");
             Require(importer != null && importer.sRGBTexture && !importer.mipmapEnabled && texture.mipmapCount == 1 &&
                 importer.filterMode == FilterMode.Bilinear && texture.filterMode == FilterMode.Bilinear && importer.textureCompression == TextureImporterCompression.Uncompressed,
                 stem + ": uncompressed sRGB Bilinear overlay without mipmaps");
@@ -297,7 +283,7 @@ public static class TableSeamCompositionVerification
         {
             target.Create();
             using (var composer = new TableSeamComposer())
-                for (int style = -1; style < 7; style++)
+                for (int style = -1; style < seams.Length; style++)
                 {
                     ownedMaterial.mainTexture = composer.Compose(cloth, style < 0 ? null : seams[style]);
                     RenderPipeline.SubmitRenderRequest(camera, new UniversalRenderPipeline.SingleCameraRequest { destination = target });

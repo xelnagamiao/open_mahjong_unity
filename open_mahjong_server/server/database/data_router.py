@@ -1,5 +1,6 @@
 # 数据路由处理器
 import logging
+import asyncio
 from ..response import Response, Rule_stats_response, Player_stats_info, Record_info, Record_detail, Player_record_info, Player_info_response, UserSettings, LeaderboardEntry
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,8 @@ async def handle_data_message(game_server, Connect_id: str, message: dict, webso
         await handle_update_record_note(game_server, Connect_id, message, websocket)
     elif message_type == "data/get_guobiao_stats":
         await handle_get_guobiao_stats(game_server, Connect_id, message, websocket)
+    elif message_type == "data/get_player_recent_records":
+        await handle_get_player_recent_records(game_server, Connect_id, message, websocket)
     elif message_type == "data/get_riichi_stats":
         await handle_get_riichi_stats(game_server, Connect_id, message, websocket)
     elif message_type == "data/get_qingque_stats":
@@ -41,6 +44,36 @@ async def handle_data_message(game_server, Connect_id: str, message: dict, webso
         await handle_get_rank_record_list(game_server, Connect_id, message, websocket)
     else:
         logger.warning(f"未知的数据消息路径: {message_type}")
+
+async def handle_get_player_recent_records(game_server, Connect_id: str, message: dict, websocket):
+    from ..response import Player_recent_records_response
+    from .player_recent_records import get_player_recent_records
+    request_id = str(message.get("request_id") or "")[:128]
+    target_user_id = 0
+    success = False
+    rules = {}
+    try:
+        target_user_id = int(message.get("userid"))
+        if target_user_id <= 10:
+            raise ValueError("无效的用户ID")
+    except (ValueError, TypeError):
+        result_message = "无效的用户ID"
+    else:
+        try:
+            rules = await asyncio.to_thread(get_player_recent_records, game_server.db_manager, target_user_id)
+            success = True
+            result_message = "获取玩家近期记录成功"
+        except Exception:
+            logger.exception("获取玩家近期记录失败 user_id=%s", target_user_id)
+            result_message = "获取玩家近期记录失败"
+    response = Response(
+        type="data/get_player_recent_records", success=success, message=result_message,
+        player_recent_records=Player_recent_records_response(
+            user_id=target_user_id, request_id=request_id, rules=rules,
+        ),
+    )
+    await websocket.send_json(response.dict(exclude_none=True))
+
 
 async def handle_get_record_list(game_server, Connect_id: str, message: dict, websocket):
     """处理获取游戏记录列表请求（仅返回元数据，不含完整牌谱）"""

@@ -338,6 +338,9 @@ public partial class Game3DManager : MonoBehaviour {
     private float cardHeight; // 卡片高度
     private float handStep; // 手牌横向槽宽，保留实体之间的小间隙
     private float handRowStep; // 展开手牌换行槽高
+    // 四家 3D 手牌共用横向间隙；场景首槽按旧间隙定位，由 HandRowOrigin 保持满手中心。
+    private const float HandColumnGap = 0.40f;
+    private const float HandAnchorColumnGap = 0.08f;
     private float cardScale; // 卡片缩放
     private float widthSpacing; // 弃牌/补花间距
     private float heightSpacing; // 弃牌/补花纵向间距
@@ -385,7 +388,7 @@ public partial class Game3DManager : MonoBehaviour {
         const float riverExtraRatio = 1.06f;
         this.cardWidth = tileW * (1f + (handStepRatio - 1f) * 0.3f);
         this.cardHeight = tileH * (1f + (handHeightRatio - 1f) * 0.3f);
-        this.handStep = tileW + 0.08f;
+        this.handStep = tileW + HandColumnGap;
         this.handRowStep = tileH + 0.08f;
         float riverWidthOrig = tileW * handStepRatio * riverExtraRatio;
         float riverHeightOrig = tileH * handHeightRatio * riverExtraRatio;

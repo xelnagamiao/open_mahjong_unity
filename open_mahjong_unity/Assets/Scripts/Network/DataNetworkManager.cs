@@ -46,6 +46,9 @@ public class DataNetworkManager : MonoBehaviour {
             case "data/get_guobiao_stats":
                 HandleGetGuobiaoStatsResponse(response);
                 break;
+            case "data/get_player_recent_records":
+                PlayerInfoPanel.Instance?.OnRecentRecordsReceived(response.success, response.message, response.player_recent_records);
+                break;
             case "data/get_riichi_stats":
                 HandleGetRiichiStatsResponse(response);
                 break;
@@ -109,7 +112,8 @@ public class DataNetworkManager : MonoBehaviour {
 
         // 如果响应中包含玩家信息，先显示玩家信息
         if (response.player_info != null) {
-            PlayerInfoPanel.Instance.ShowPlayerInfo(response.player_info);
+            PlayerInfoPanel.Instance.ShowPlayerInfo(response.player_info, "guobiao", response.success ? response.rule_stats : null);
+            return;
         }
 
         // 处理统计数据
@@ -124,7 +128,8 @@ public class DataNetworkManager : MonoBehaviour {
 
         // 如果响应中包含玩家信息，先显示玩家信息
         if (response.player_info != null) {
-            PlayerInfoPanel.Instance.ShowPlayerInfo(response.player_info);
+            PlayerInfoPanel.Instance.ShowPlayerInfo(response.player_info, "riichi", response.success ? response.rule_stats : null);
+            return;
         }
 
         // 处理统计数据
@@ -138,7 +143,8 @@ public class DataNetworkManager : MonoBehaviour {
         if (PlayerInfoPanel.Instance == null) return;
 
         if (response.player_info != null) {
-            PlayerInfoPanel.Instance.ShowPlayerInfo(response.player_info);
+            PlayerInfoPanel.Instance.ShowPlayerInfo(response.player_info, "qingque", response.success ? response.rule_stats : null);
+            return;
         }
 
         PlayerInfoPanel.Instance.OnQingqueStatsReceived(response.success, response.message, response.rule_stats);
@@ -151,7 +157,8 @@ public class DataNetworkManager : MonoBehaviour {
         if (PlayerInfoPanel.Instance == null) return;
 
         if (response.player_info != null) {
-            PlayerInfoPanel.Instance.ShowPlayerInfo(response.player_info);
+            PlayerInfoPanel.Instance.ShowPlayerInfo(response.player_info, "classical", response.success ? response.rule_stats : null);
+            return;
         }
 
         PlayerInfoPanel.Instance.OnClassicalStatsReceived(response.success, response.message, response.rule_stats);
@@ -164,7 +171,8 @@ public class DataNetworkManager : MonoBehaviour {
         if (PlayerInfoPanel.Instance == null) return;
 
         if (response.player_info != null) {
-            PlayerInfoPanel.Instance.ShowPlayerInfo(response.player_info);
+            PlayerInfoPanel.Instance.ShowPlayerInfo(response.player_info, "jiandan", response.success ? response.rule_stats : null);
+            return;
         }
 
         PlayerInfoPanel.Instance.OnJiandanStatsReceived(response.success, response.message, response.rule_stats);
@@ -189,6 +197,17 @@ public class DataNetworkManager : MonoBehaviour {
     }
 
     // ========== 数据相关的发送方法 ==========
+
+    public async void GetPlayerRecentRecords(int userId, string requestId) {
+        try {
+            var request = new { type = "data/get_player_recent_records", userid = userId.ToString(), request_id = requestId };
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"获取玩家近期记录失败: {e.Message}");
+            PlayerInfoPanel.Instance?.OnRecentRecordsReceived(false, e.Message,
+                new PlayerRecentRecordsResponse { user_id = userId, request_id = requestId });
+        }
+    }
 
     public async void GetRecordList(int offset = 0, bool favoritesOnly = false) {
         try {

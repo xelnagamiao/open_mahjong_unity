@@ -1,15 +1,30 @@
 using System;
 
-/// <summary>Display metadata only; resource names remain the persisted selection keys.</summary>
+/// <summary>Surface options and legacy selection migration; resource names remain stable.</summary>
 public static class TableSurfaceNames
 {
+    public const int DefaultSeam = 3;
+    public static int SeamStyleCount => Styles.Length;
+    public static int SeamOptionCount => SeamDisplayOrder.Length;
+
     private const string MetalPrefix = "Tablecloth_MetalSeam_";
     private static readonly string[] Styles =
     {
-        "当前细线（对照）", "柔和加粗暗槽", "深黑机械切口", "青灰单侧倒角",
-        "升牌口暖灰金属", "宽口冷钢倒角", "宽深槽·双阶倒角"
+        "纯色细线", "纯色标准线", "纯色粗线", "标准缝线", "粗缝线"
     };
+    // Display order is independent of the persisted IDs and Seam_00–04 resource keys.
+    private static readonly int[] SeamDisplayOrder = { 3, 4, -1, 0, 1, 2 };
     private static readonly string[] Backgrounds = { "蓝色纤维", "素绿", "绿色纤维" };
+
+    // Keep explicit none and surviving IDs; retired profiles fall back to the default.
+    public static int NormalizeSeamStyle(int style) =>
+        style >= -1 && style < SeamStyleCount ? style : DefaultSeam;
+
+    public static int SeamStyleAtOption(int index) =>
+        index >= 0 && index < SeamOptionCount ? SeamDisplayOrder[index] : DefaultSeam;
+
+    public static int SeamOptionForStyle(int style) =>
+        Array.IndexOf(SeamDisplayOrder, NormalizeSeamStyle(style));
 
     public static bool TryGetMetalSeam(string resourceName, out int style, out int background)
     {
@@ -42,14 +57,14 @@ public static class TableSurfaceNames
     public static string ClothDisplayName(string resourceName)
     {
         return TryGetMetalSeam(resourceName, out int style, out int background)
-            ? style.ToString("00") + " " + Styles[style] + " · " + Backgrounds[background]
+            ? SeamDisplayName(NormalizeSeamStyle(style)) + " · " + Backgrounds[background]
             : resourceName;
     }
 
     public static string SeamDisplayName(int style)
     {
         if (style == -1) return "无缝线";
-        return style >= 0 && style < Styles.Length ? style.ToString("00") + " " + Styles[style] : "";
+        return style >= 0 && style < Styles.Length ? Styles[style] : "";
     }
 
     public static int ClothSortOrder(string resourceName)

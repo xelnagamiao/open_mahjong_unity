@@ -358,22 +358,22 @@ def rebuild(output: Path = DEFAULT_OUTPUT, report_path: Path | None = None) -> d
                         "maximum_pre_transform_artwork_recomposition_error": maximum_difference,
                         "legacy_frame_maximum_difference": max(v[1] for v in difference.getextrema()),
                         "frame_policy": "independent shared hand-default replaces varying legacy frame antialiasing"}
-        save(hand, f"CardFacePacks/official/hand/{tile_id}.png", path, hand_details)
+        save(hand, f"Cards/Faces/official/hand/{tile_id}.png", path, hand_details)
         image, details = layout_snow_artwork(artwork, layout, "table", blank_hand)
         artwork_bbox = image.getchannel("A").getbbox()
         assert_artwork_margin(artwork_bbox, path)
         details["artwork_bbox_output"] = artwork_bbox
         details.update({**alpha_details, "pack": "official", "tile_id": tile_id, "crop_xyxy": list(SNOW_CROP)})
-        save(image, f"CardFacePacks/official/table/{tile_id}.png", path, details)
+        save(image, f"Cards/Faces/official/table/{tile_id}.png", path, details)
         if 51 <= tile_id <= 58:
-            save(hand, f"CardFacePacks/fluffy/hand/{tile_id}.png", path,
+            save(hand, f"Cards/Faces/fluffy/hand/{tile_id}.png", path,
                  {**hand_details, "pack": "fluffy", "shared_artwork": f"official/hand/{tile_id}.png"})
-            save(image, f"CardFacePacks/fluffy/table/{tile_id}.png", path,
+            save(image, f"Cards/Faces/fluffy/table/{tile_id}.png", path,
                  {**details, "pack": "fluffy", "shared_artwork": f"official/table/{tile_id}.png"})
 
     # Atlas-only 0 has no foreground artwork. Its surface is controlled by the
     # material/background layer; the navy hand back is an independent resource.
-    save(Image.new("RGBA", CANVAS), "CardFacePacks/official/table/0.png", SNOW_SOURCES / "2.png",
+    save(Image.new("RGBA", CANVAS), "Cards/Faces/official/table/0.png", SNOW_SOURCES / "2.png",
          {"pack": "official-atlas-only", "tile_id": 0, "operation": "fully transparent empty foreground"})
 
     for pack in ("fluffy", "hkmahjong"):
@@ -405,20 +405,28 @@ def rebuild(output: Path = DEFAULT_OUTPUT, report_path: Path | None = None) -> d
             details["artwork_bbox_output"] = artwork_bbox
             out_id = tile_id
             details.update({"pack": pack, "tile_id": out_id, "source_code": code})
-            save(image, f"CardFacePacks/{pack}/table/{out_id}.png", source, details)
+            save(image, f"Cards/Faces/{pack}/table/{out_id}.png", source, details)
             written.add(out_id)
             if pack == "fluffy" and code == "5z":
-                save(image, "CardFacePacks/fluffy/table/2.png", source,
+                save(image, "Cards/Faces/fluffy/table/2.png", source,
                      {**details, "tile_id": 2, "source_code": "5z (same authored blank face)"})
                 written.add(2)
-        expected = 46 if pack == "fluffy" else 42
+        if pack == "hkmahjong":
+            # Blank white dragon is a separate empty foreground; retain the authored
+            # framed 46. The shared hand/table body supplies its white surface.
+            for kind, size in (("hand", HAND_CANVAS), ("table", CANVAS)):
+                save(Image.new("RGBA", size), f"Cards/Faces/hkmahjong/{kind}/2.png",
+                     SNOW_SOURCES / "2.png", {"pack": pack, "tile_id": 2,
+                     "operation": "fully transparent blank white dragon foreground"})
+            written.add(2)
+        expected = 46 if pack == "fluffy" else 43
         if len(written) != expected:
             raise ValueError(f"Unexpected {pack} face count: {len(written)}")
 
     # Existing Fluffy/HK hand art is preserved, but transparent hand canvases
     # also need FullRect. Otherwise Sprite.textureRect silently trims padding.
     for pack in ("official", "fluffy", "hkmahjong"):
-        for target in (output / "CardFacePacks" / pack / "hand").glob("*.png"):
+        for target in (output / "Cards/Faces" / pack / "hand").glob("*.png"):
             if Image.open(target).convert("RGBA").getchannel("A").getextrema()[0] < 255 and ensure_full_rect(target):
                 relative = str(target.relative_to(ROOT)) if target.is_relative_to(ROOT) else str(target)
                 report["metadata_changed"].append(relative + ".meta")
@@ -441,9 +449,9 @@ def export_pack_assets(resource_root: Path, export_root: Path) -> dict:
         raise ValueError("Upload export contains atlas-only official/table/0.png; move it out before exporting")
     for pack in ("official", "fluffy", "hkmahjong"):
         for kind in ("hand", "table"):
-            folder = resource_root / "CardFacePacks" / pack / kind
+            folder = resource_root / "Cards/Faces" / pack / kind
             sources = [p for p in folder.glob("*.png") if p.stem.isdigit() and int(p.stem) in STANDARD_IDS]
-            expected = 42 if pack == "hkmahjong" else 46
+            expected = 43 if pack == "hkmahjong" else 46
             if len(sources) != expected:
                 raise ValueError(f"Export requires a complete resource tree: {folder}: expected {expected}, found {len(sources)}")
             counts[f"{pack}/{kind}"] = len(sources)
@@ -455,14 +463,14 @@ def export_pack_assets(resource_root: Path, export_root: Path) -> dict:
                     shutil.copyfile(source, target)
                 rows.append({"path": relative.as_posix(), "sha256": digest(target.read_bytes())})
     for relative in ("backgrounds/hand-default.png", "backgrounds/hand-horizontal.png", "backs/hand-default.png"):
-        source = resource_root / "TileSurfaces" / relative
+        source = resource_root / "Cards/Surfaces" / relative
         target = export_root / "surfaces" / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         if not target.exists() or source.read_bytes() != target.read_bytes():
             shutil.copyfile(source, target)
         rows.append({"path": target.relative_to(export_root).as_posix(), "sha256": digest(target.read_bytes())})
     return {"counts": counts, "files": rows, "atlas_only_0_excluded": True,
-            "hk_missing_faces_use_runtime_official_fallback": [2, 105, 205, 305]}
+            "hk_missing_faces_use_runtime_official_fallback": [105, 205, 305]}
 
 
 def main():
