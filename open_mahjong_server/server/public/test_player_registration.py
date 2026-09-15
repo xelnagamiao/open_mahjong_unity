@@ -24,6 +24,7 @@ class PlayerRegistrationTests(unittest.IsolatedAsyncioTestCase):
         self.db = Mock()
         self.db.get_active_ip_ban.return_value = None
         self.db.get_user_by_username.return_value = None
+        self.db.get_users_by_login_email.return_value = []
         self.db.create_user.return_value = 42
         self.limiter = Mock()
         self.limiter.can_register.return_value = True
@@ -104,6 +105,66 @@ class PlayerRegistrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(self.db.create_user.call_args.kwargs["is_tourist"])
         self.limiter.record_registration.assert_not_called()
 
+    def email_account(self):
+        self.db.get_users_by_login_email.return_value = [
+            {"user_id": 42, "username": "实际用户名", "password": "hash", "email_verified_at": None}]
+        self.db.verify_password.return_value = True
+        self.db.is_login_ban_active.return_value = False
+
+    async def test_email_login_normalizes_and_uses_canonical_username(self):
+        self.email_account()
+        result = await self.ns["player_login"](" Player@Example.COM ", "Secret123!", login_type="account")
+        self.assertTrue(result.success)
+        self.db.get_users_by_login_email.assert_called_once_with("player@example.com")
+        self.finalize.assert_awaited_once_with(42, "实际用户名", is_tourist=False,
+                                              client_ip="unknown", success_message="登录成功")
+        self.db.verify_password.assert_called_once_with("Secret123!", "hash")
+        self.db.create_user.assert_not_called()
+
+    async def test_email_wrong_password_and_ban_cannot_start_session(self):
+        self.email_account()
+        self.db.verify_password.return_value = False
+        self.assertFalse((await self.ns["player_login"]("a@example.com", "Secret123!", login_type="account")).success)
+        self.db.verify_password.return_value = True
+        self.db.is_login_ban_active.return_value = True
+        self.assertFalse((await self.ns["player_login"]("a@example.com", "Secret123!", login_type="account")).success)
+        self.finalize.assert_not_awaited()
+
+    async def test_duplicate_email_is_never_resolved_by_first_row_or_password(self):
+        self.email_account()
+        self.db.get_users_by_login_email.return_value *= 2
+        result = await self.ns["player_login"]("a@example.com", "Secret123!", login_type="account")
+        self.assertFalse(result.success)
+        self.assertIn("用户名", result.message)
+        self.db.verify_password.assert_not_called()
+        self.finalize.assert_not_awaited()
+
+    async def test_email_shaped_username_has_priority_without_password_fallback(self):
+        self.db.get_user_by_username.return_value = {"user_id": 9, "password": "hash"}
+        self.db.verify_password.return_value = False
+        self.assertFalse((await self.ns["player_login"]("a@example.com", "Secret123!", login_type="account")).success)
+        self.db.get_users_by_login_email.assert_not_called()
+
+    async def test_legacy_clients_do_not_change_login_resolution(self):
+        self.assertFalse((await self.ns["player_login"]("a@example.com", "Secret123!")).success)
+        self.db.get_users_by_login_email.assert_not_called()
+
+    async def test_missing_email_never_creates_account(self):
+        self.assertFalse((await self.ns["player_login"]("a@example.com", "Secret123!", login_type="account")).success)
+        self.db.create_user.assert_not_called()
+
+    async def test_invalid_login_types_and_identifiers_rejected(self):
+        for identifier, mode in [(None, "account"), ({}, "account"), ("a@example.com", "invalid"),
+                                 ("a@example.com", {}), ("a" * 250 + "@b.com", "account")]:
+            with self.subTest(identifier=identifier, mode=mode):
+                self.assertFalse((await self.ns["player_login"](identifier, "Secret123!", login_type=mode)).success)
+        self.db.get_users_by_login_email.assert_not_called()
+
+    async def test_email_login_respects_ip_bans_before_lookup(self):
+        self.db.get_active_ip_ban.return_value = {"reason": "ban"}
+        self.assertFalse((await self.ns["player_login"]("a@example.com", "Secret123!", login_type="account")).success)
+        self.db.get_users_by_login_email.assert_not_called()
+
 
 class RegistrationPersistenceTests(unittest.TestCase):
     def setUp(self):
@@ -135,6 +196,37 @@ class RegistrationPersistenceTests(unittest.TestCase):
         self.assertIsNone(result)
         self.conn.commit.assert_not_called()
         self.conn.rollback.assert_called_once()
+
+
+class EmailLookupPersistenceTests(unittest.TestCase):
+    def setUp(self):
+        path = Path(__file__).parents[1] / "database" / "db_manager.py"
+        owner = next(n for n in ast.parse(path.read_text(encoding="utf-8")).body
+                     if isinstance(n, ast.ClassDef) and n.name == "DatabaseManager")
+        method = next(n for n in owner.body if isinstance(n, ast.FunctionDef) and n.name == "get_users_by_login_email")
+        self.ns = dict(Error=RuntimeError, RealDictCursor=object(), logger=Mock())
+        exec(compile(ast.Module(body=[method], type_ignores=[]), str(path), "exec"), self.ns)
+        self.db = Mock()
+        self.conn = self.db._get_connection.return_value
+        self.cursor = self.conn.cursor.return_value
+
+    def test_parameterized_case_insensitive_non_tourist_lookup_keeps_duplicates(self):
+        self.cursor.fetchall.return_value = [{"user_id": 1}, {"user_id": 2}]
+        self.assertEqual(len(self.ns["get_users_by_login_email"](self.db, " A@Example.com ")), 2)
+        sql, args = self.cursor.execute.call_args.args
+        self.assertIn("LOWER(email) = %s", sql)
+        self.assertIn("is_tourist = FALSE", sql)
+        self.assertIn("LIMIT 2", sql)
+        self.assertEqual(args, ("a@example.com",))
+        self.cursor.close.assert_called_once()
+        self.db._put_connection.assert_called_once_with(self.conn)
+
+    def test_lookup_failure_fails_closed_and_returns_connection(self):
+        self.cursor.execute.side_effect = RuntimeError("query failed")
+        self.assertEqual(self.ns["get_users_by_login_email"](self.db, "a@example.com"), [])
+        self.conn.rollback.assert_called_once()
+        self.cursor.close.assert_called_once()
+        self.db._put_connection.assert_called_once_with(self.conn)
 
 
 if __name__ == "__main__":

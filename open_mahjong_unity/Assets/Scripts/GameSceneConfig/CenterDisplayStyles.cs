@@ -24,18 +24,18 @@ public static class CenterDisplayStyles
 
     public static IReadOnlyList<Entry> All { get; } = Array.AsReadOnly(new[]
     {
-        new Entry(Classic, "项目默认", 0),
-        new Entry(StudioIndigo, "折光·靛蓝", 1),
-        new Entry(StudioPaper, "花笺·绛红", 2),
-        new Entry(StudioBamboo, "竹影·青", 3),
-        new Entry(TrialCobalt, "试作·钴蓝", 4),
-        new Entry(TrialJade, "试作·碧青", 5),
-        new Entry(TrialIvory, "试作·象牙", 6),
-        new Entry("refined", "原版微调", 7),
-        new Entry("ink", "青墨轻色", 8),
-        new Entry("ivory", "月白轻色", 9),
-        new Entry("violet", "靛紫轻色", 10),
-        new Entry(OriginalFlat, "原版·简化", 11)
+        new Entry(Classic, "标准", 0),
+        new Entry(StudioIndigo, "蓝色折角", 1),
+        new Entry(StudioPaper, "米白细线", 2),
+        new Entry(StudioBamboo, "绿色细线", 3),
+        new Entry(TrialCobalt, "纯色深蓝", 4),
+        new Entry(TrialJade, "纯色青绿", 5),
+        new Entry(TrialIvory, "纯色米白", 6),
+        new Entry("refined", "蓝灰双框", 7),
+        new Entry("ink", "青灰双框", 8),
+        new Entry("ivory", "浅灰双框", 9),
+        new Entry("violet", "紫灰双框", 10),
+        new Entry(OriginalFlat, "蓝灰窄框", 11)
     });
 
     public static Entry Get(string id)

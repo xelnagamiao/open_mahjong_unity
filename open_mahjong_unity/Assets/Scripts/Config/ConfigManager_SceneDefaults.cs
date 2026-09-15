@@ -5,8 +5,9 @@ public partial class ConfigManager
     // Reset only scene appearance preferences. Never clear the asset library or app/account settings.
     public void RestoreDefaultTablecloth()
     {
+        ResetTableClothColors();
         DeleteScenePreferences("SelectedTableClothPath", "SelectedTableClothIsCustom",
-            "SelectedTableSeam", "SelectedTableShadow", "SelectedTableLight", TableContactOutlineKey);
+            "SelectedTableSeam", "SelectedTableShadow", "SelectedTableLight");
         // Match Desktop's original blue cloth and make the gallery selection explicit.
         PlayerPrefs.SetString("SelectedTableClothPath", "Tablecloth_blue");
         PlayerPrefs.Save();
@@ -14,6 +15,7 @@ public partial class ConfigManager
 
     public void RestoreDefaultTableFrame()
     {
+        ResetTableFrameParameters();
         DeleteScenePreferences("SelectedTableEdgePath", "SelectedTableEdgeIsCustom", TableContactOutlineKey);
         PlayerPrefs.SetString("SelectedTableEdgePath", TableFrameStyles.Default);
         PlayerPrefs.Save();
@@ -28,6 +30,7 @@ public partial class ConfigManager
 
     public void RestoreDefault3DCards()
     {
+        Card3DPresetLibrary.Instance?.BeginEditing();
         Card3DPresetLibrary.Instance?.Flush();
         DeleteScenePreferences(KEY_CARD_BACK_COLOR, KEY_CARD_BACK_IMAGE_PATH, KEY_CARD_BACK_IMAGE_IS_CUSTOM,
             KEY_SIDE_COLOR, KEY_SIDE_LIGHTING_VERSION, KEY_BACK_EDGE_COLOR, KEY_BACK_EDGE_SYNC, KEY_BACK_EDGE_MODE,

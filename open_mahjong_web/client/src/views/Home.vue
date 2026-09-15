@@ -107,6 +107,7 @@
             <div class="panel-actions">
               <router-link class="panel-btn" to="/register?redirect=/account">注册</router-link>
               <router-link class="panel-btn ghost" to="/login?redirect=/account">登录</router-link>
+              <router-link class="panel-btn ghost" to="/forgot-password">找回密码</router-link>
             </div>
           </template>
         </div>

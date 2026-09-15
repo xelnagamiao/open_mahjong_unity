@@ -4,6 +4,7 @@ using UnityEngine;
 public partial class ConfigManager
 {
     public event Action Card3DAppearanceChanged;
+    private Card3DAppearance runtimeCardAppearance;
     private void NotifyCard3DAppearanceChanged() => Card3DAppearanceChanged?.Invoke();
 
     public Card3DAppearance CaptureCard3DAppearance()
@@ -21,9 +22,10 @@ public partial class ConfigManager
     }
 
     // Commit the complete appearance once, so observers never save half-applied presets.
-    public void ApplyCard3DAppearance(Card3DAppearance value)
+    public void ApplyCard3DAppearance(Card3DAppearance value, bool persist = true)
     {
         if (value == null) return;
+        runtimeCardAppearance = persist ? null : value.Copy();
         CardBackColor = value.back; SideColor = value.side; BackEdgeColor = value.backEdge;
         FrontEdgeColor = value.frontEdge; TableFaceColor = value.face;
         CardBackBrightness = Mathf.Clamp(value.backBrightness, -1, 1);
@@ -35,6 +37,7 @@ public partial class ConfigManager
         BackEdgeSyncEnabled = BackEdgeMode == CardEdgePanel.BackEdgeMode.FollowBack;
         FrontEdgeSyncEnabled = FrontEdgeMode == CardEdgePanel.FrontEdgeMode.FollowTableBg;
         TableFaceUseSolidColor = value.useSolid; UseTableFaceBackground = value.useBackground && !value.useSolid;
+        if (!persist) return; // Runtime visuals must never overwrite the editor's saved appearance.
         PlayerPrefs.SetString(KEY_CARD_BACK_COLOR, ColorUtility.ToHtmlStringRGBA(CardBackColor));
         PlayerPrefs.SetString(KEY_SIDE_COLOR, ColorUtility.ToHtmlStringRGBA(SideColor));
         PlayerPrefs.SetInt(KEY_SIDE_LIGHTING_VERSION, 1);

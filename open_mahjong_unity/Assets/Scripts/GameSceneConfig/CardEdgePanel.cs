@@ -455,13 +455,7 @@ public class CardEdgePanel : MonoBehaviour
 
     private static void ApplyHex(TMP_InputField input, System.Action<Color> apply, string okTip)
     {
-        if (!SceneConfigUi.TryParseHex(input.text, out Color color))
-        {
-            SceneConfigUi.ShowTip("HEX 格式不正确");
-            return;
-        }
-        apply(color);
-        SceneConfigUi.ShowTip(okTip);
+        SceneConfigUi.ApplyHex(input, apply, okTip);
     }
 
     /// <summary>牌背/牌面变化后刷新预览色（不改独立色存储）。</summary>
@@ -491,15 +485,7 @@ public class CardEdgePanel : MonoBehaviour
     {
         if (source == null) return;
 
-        RenderTexture rt = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.ARGB32);
-        Graphics.Blit(source, rt);
-        RenderTexture prev = RenderTexture.active;
-        RenderTexture.active = rt;
-        Texture2D copy = new Texture2D(source.width, source.height, TextureFormat.RGBA32, false);
-        copy.ReadPixels(new Rect(0f, 0f, source.width, source.height), 0, 0);
-        copy.Apply();
-        RenderTexture.active = prev;
-        RenderTexture.ReleaseTemporary(rt);
+        Texture2D copy = SceneConfigTextureCapture.Copy(source, source.width, source.height);
 
         Material shared = Resources.Load<Material>(CardBackManager.MaterialResourcePath);
         if (shared != null)

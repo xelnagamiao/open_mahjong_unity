@@ -208,6 +208,13 @@ public abstract class TableSurfacePanel : MonoBehaviour
         AddFileSources(sources);
 #endif
 
+        if (IsCloth)
+        {
+            var solids = sources.FindAll(s => !s.Custom && TableClothStyles.IsSolid(s.Path));
+            sources.RemoveAll(s => !s.Custom && TableClothStyles.IsSolid(s.Path));
+            sources.AddRange(solids);
+        }
+
         var keep = new HashSet<string>(StringComparer.Ordinal);
         foreach (var source in sources) keep.Add(source.Key);
         foreach (string key in new List<string>(rows.Keys))
@@ -224,7 +231,9 @@ public abstract class TableSurfacePanel : MonoBehaviour
             if (row == null)
             {
                 Texture2D texture = null;
-                if (!source.Custom)
+                if (IsCloth && !source.Custom && TableClothStyles.IsSolid(source.Path))
+                    texture = Texture2D.whiteTexture;
+                else if (!source.Custom)
                 {
                     var request = Resources.LoadAsync<Texture2D>(source.Preview);
                     yield return request;
@@ -326,34 +335,11 @@ public abstract class TableSurfacePanel : MonoBehaviour
         float scale = Mathf.Min(1f, 256f / Mathf.Max(original.width, original.height));
         int width = Mathf.Max(1, Mathf.RoundToInt(original.width * scale));
         int height = Mathf.Max(1, Mathf.RoundToInt(original.height * scale));
-        var target = RenderTexture.GetTemporary(width, height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
-        var previous = RenderTexture.active;
-        bool previousSrgb = GL.sRGBWrite;
-        Texture2D preview = null;
-        try
-        {
-            GL.sRGBWrite = QualitySettings.activeColorSpace == ColorSpace.Linear;
-            Graphics.Blit(original, target);
-            RenderTexture.active = target;
-            preview = new Texture2D(width, height, TextureFormat.RGBA32, false, false);
-            preview.name = "TableSurfaceCustomPreview";
-            preview.ReadPixels(new Rect(0, 0, width, height), 0, 0);
-            preview.Apply(false, true);
-            preview.filterMode = FilterMode.Bilinear;
-            preview.wrapMode = TextureWrapMode.Clamp;
-            return preview;
-        }
-        catch
-        {
-            if (preview != null) Destroy(preview);
-            throw;
-        }
-        finally
-        {
-            GL.sRGBWrite = previousSrgb;
-            RenderTexture.active = previous;
-            RenderTexture.ReleaseTemporary(target);
-        }
+        var preview = SceneConfigTextureCapture.Copy(original, width, height, readable: false);
+        preview.name = "TableSurfaceCustomPreview";
+        preview.filterMode = FilterMode.Bilinear;
+        preview.wrapMode = TextureWrapMode.Clamp;
+        return preview;
     }
 
     protected void ClearSelection()

@@ -525,8 +525,9 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                     # 普通用户登录：需要用户名和密码
                     username = message.get("username", "")
                     password = message.get("password", "")
-                    logging.info(f"登录请求 - 用户名: {username}, IP: {client_ip}")
-                    response = await player_login(username, password, is_tourist=False, client_ip=client_ip)
+                    logging.info(f"账户密码登录请求 - Connect_id: {Connect_id}, IP: {client_ip}")
+                    response = await player_login(username, password, is_tourist=False, client_ip=client_ip,
+                                                  login_type=message.get("login_type", "username"))
                 
                 if response.success and response.login_info:
                     user_id = response.login_info.user_id
@@ -875,6 +876,7 @@ async def player_login(
     password: str,
     is_tourist: bool = False,
     client_ip: str = "unknown",
+    login_type: str = "username",
 ) -> Response:
     """
     玩家登录功能
@@ -924,8 +926,12 @@ async def player_login(
     
     # 验证用户名和密码（游客不需要验证，因为已经生成）
     if not is_tourist:
+        if not isinstance(username, str) or not isinstance(password, str) or login_type not in ("username", "account"):
+            return Response(type="tips", success=False, message="登录信息格式不正确")
         username = normalize_username(username)
-        username_error = validate_username(username)
+        is_email = (login_type == "account" and len(username) <= 255
+                    and re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", username) is not None)
+        username_error = None if is_email else validate_username(username)
         if username_error:
             return Response(
                 type="tips",
@@ -943,6 +949,14 @@ async def player_login(
     
     # 检查用户是否存在
     player: Optional[Dict[str, Any]] = db_manager.get_user_by_username(username)
+    # 旧客户端仍按用户名登录；合并输入框先精确匹配用户名，绝不因密码错误切到另一账户。
+    if player is None and not is_tourist and is_email:
+        matches = db_manager.get_users_by_login_email(username.lower())
+        if len(matches) > 1:
+            return Response(type="tips", success=False, message="此邮箱关联了多个账户，请使用用户名登录")
+        if matches:
+            player = matches[0]
+            username = player["username"]
     
     if player is not None:
         # 用户存在，验证密码

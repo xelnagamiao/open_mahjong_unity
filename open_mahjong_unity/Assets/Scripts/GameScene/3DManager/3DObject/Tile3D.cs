@@ -46,6 +46,7 @@ public class Tile3D : MonoBehaviour
     private Color instanceFrontEdgeColor = Color.white;
     private float baseGrayScale;
     private float instanceGrayScale;
+    private float instanceTableImageScale;
     private bool materialDefaultsCached;
 
     /// <summary>立直横置标记：用于河中后续牌偏移计算与重连/牌谱重建。
@@ -228,10 +229,10 @@ public class Tile3D : MonoBehaviour
         propBlock.SetColor(SideColorId, instanceSideColor);
         propBlock.SetColor(BackEdgeColorId, instanceBackEdgeColor);
         propBlock.SetColor(FrontEdgeColorId, instanceFrontEdgeColor);
-        // x 保留灰化参数，其他通道预留；几何描边不需要逐牌编号。
+        // x 为灰化，y 为图片区域尺度（0 沿用材质默认值）；zw 预留。
         propBlock.SetVector(
             TileInstanceParamsId,
-            new Vector4(instanceGrayScale, 0f, 0f, 0f));
+            new Vector4(instanceGrayScale, instanceTableImageScale, 0f, 0f));
         cardRenderer.SetPropertyBlock(propBlock, tileMaterialIndex);
     }
 
@@ -260,6 +261,7 @@ public class Tile3D : MonoBehaviour
         }
 
         sharedTileMaterial.SetFloat("_FrontTexContain", 0f);
+        instanceTableImageScale = TileTextureLayout.SnowTableImageScale;
         frontTilingOffset = ComputeSpriteTiling(sprite);
         ApplyPropertyBlock();
     }
@@ -286,11 +288,13 @@ public class Tile3D : MonoBehaviour
     /// 虹雀资源并非现有麻将 SpriteAtlas 的一部分，因此为每个唯一牌面复用一份独立材质。
     /// 虹雀牌在牌库中各一张，这条低频路径不会影响普通麻将的 GPU Instancing。
     /// </summary>
-    public void SetStandaloneCardTexture(int tileId, Texture2D texture, Material faceMaterial, bool contain = false) {
-        SetStandaloneCardMapping(tileId, texture, faceMaterial, ComputeStandaloneTiling(texture, contain), contain);
+    public void SetStandaloneCardTexture(int tileId, Texture2D texture, Material faceMaterial, bool contain = false,
+        float imageScale = TileTextureLayout.TableImageScale) {
+        SetStandaloneCardMapping(tileId, texture, faceMaterial, ComputeStandaloneTiling(texture, contain), contain, imageScale);
     }
 
-    private void SetStandaloneCardMapping(int tileId, Texture2D texture, Material faceMaterial, Vector4 tiling, bool contain) {
+    private void SetStandaloneCardMapping(int tileId, Texture2D texture, Material faceMaterial, Vector4 tiling, bool contain,
+        float imageScale) {
         InitializeComponents();
         if (cardRenderer == null || tileMaterialIndex < 0 || texture == null || faceMaterial == null) return;
         Material[] materials = cardRenderer.sharedMaterials;
@@ -299,6 +303,7 @@ public class Tile3D : MonoBehaviour
         sharedTileMaterial = faceMaterial;
         // 标准麻将的独立图片统一等比留白；虹雀沿用原独立映射。
         faceMaterial.SetFloat("_FrontTexContain", contain ? 1f : 0f);
+        instanceTableImageScale = contain ? imageScale : 0f;
         currentTileId = tileId;
         currentPoolTileId = tileId;
         frontTilingOffset = tiling;
@@ -312,8 +317,9 @@ public class Tile3D : MonoBehaviour
     }
 
     /// <summary>独立标准牌面保留原图比例完整居中；Shader 用牌底填补越界 UV。</summary>
-    public void SetStandaloneCardTextureContain(int tileId, Texture2D texture, Material faceMaterial) {
-        SetStandaloneCardTexture(tileId, texture, faceMaterial, true);
+    public void SetStandaloneCardTextureContain(int tileId, Texture2D texture, Material faceMaterial,
+        float imageScale = TileTextureLayout.TableImageScale) {
+        SetStandaloneCardTexture(tileId, texture, faceMaterial, true, imageScale);
     }
 
     public void RestoreAtlasMaterial() {

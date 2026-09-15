@@ -8,8 +8,8 @@ using UnityEngine.UI;
 /// <summary>Header presets + an ordered, multi-select rotation page over the existing design tabs.</summary>
 public sealed class Card3DPresetPanel : MonoBehaviour
 {
-    public const string AlternatingHint = "第一局使用当前场景卡牌，第二局开始按所选预设轮转";
-    public const string RandomHint = "第一局使用当前场景卡牌，第二局开始随机轮转，选择的卡牌套数越多内存开销则会越大";
+    public const string AlternatingHint = "点击确定保存轮转快照，第一局使用第一副，第二局起交替轮转；编辑其他预设不影响已确认配置";
+    public const string RandomHint = "点击确定保存轮转快照，第一局使用第一副，随后随机轮转；选择的卡牌套数越多内存开销则会越大";
     private SceneConfigPanel owner;
     private Card3DPresetLibrary library;
     private TMP_FontAsset font;
@@ -67,7 +67,7 @@ public sealed class Card3DPresetPanel : MonoBehaviour
         BindLibrary();
         if (!Mathf.Approximately(lastWidth, ((RectTransform)transform).rect.width)) LayoutHeader();
     }
-    private void OnEnable() { BindLibrary(); }
+    private void OnEnable() { BindLibrary(); library?.BeginEditing(); }
     private void OnDisable()
     {
         library?.Flush(); presets?.Hide(); rotation?.Hide();
@@ -83,6 +83,7 @@ public sealed class Card3DPresetPanel : MonoBehaviour
         if (presets == null || library != null || !Application.isPlaying) return;
         library = Card3DPresetLibrary.Ensure(ConfigManager.Instance);
         if (library == null) return;
+        library.BeginEditing();
         library.Changed += Refresh; library.AppearanceApplied += RefreshAppearance;
         Refresh(); ShowRotation(library.Ready && library.Data.rotation != Card3DRotationMode.None);
     }
@@ -114,7 +115,9 @@ public sealed class Card3DPresetPanel : MonoBehaviour
         }
         presets.SetValueWithoutNotify(Mathf.Max(0, ids.IndexOf(data.selectedId)));
         rotation.SetValueWithoutNotify((int)data.rotation);
-        hint.text = data.rotation == Card3DRotationMode.Random ? RandomHint : AlternatingHint;
+        string activeMode = data.confirmedRotation == Card3DRotationMode.None ? "无轮转" : data.confirmedRotation == Card3DRotationMode.Alternating ? "两副轮转" : "随机轮转";
+        hint.text = (data.rotation == Card3DRotationMode.Random ? RandomHint : AlternatingHint)
+            + "\n" + (data.DraftMatchesConfirmed() ? "已确认：" : "有未确认修改，当前生效：") + activeMode;
         bool full = data.rotation == Card3DRotationMode.Alternating && data.rotationIds.Count >= 2;
         foreach (string id in ids) {
             int order = data.rotationIds.IndexOf(id);
@@ -153,9 +156,9 @@ public sealed class Card3DPresetPanel : MonoBehaviour
         confirmRotation = Button("ConfirmRotation",rotationPage,"确定",ConfirmRotation);
         confirmRotation.interactable = false;
         var br = (RectTransform)confirmRotation.transform; br.anchorMin = br.anchorMax = br.pivot = Vector2.one; br.anchoredPosition = new Vector2(-24,-20); br.sizeDelta = new Vector2(124,38);
-        hint = Text("Hint",rotationPage,AlternatingHint,19); Stretch(hint.rectTransform,24,76,24,0); hint.rectTransform.anchorMin = new Vector2(0,1); hint.rectTransform.offsetMin = new Vector2(24,-148);
+        hint = Text("Hint",rotationPage,AlternatingHint,19); Stretch(hint.rectTransform,24,76,24,0); hint.rectTransform.anchorMin = new Vector2(0,1); hint.rectTransform.offsetMin = new Vector2(24,-176);
         hint.alignment = TextAlignmentOptions.TopLeft; hint.textWrappingMode = TextWrappingModes.Normal;
-        var scrollRoot = Rect("PresetsScroll",rotationPage); Stretch(scrollRoot,24,160,24,24);
+        var scrollRoot = Rect("PresetsScroll",rotationPage); Stretch(scrollRoot,24,188,24,24);
         var scroll = scrollRoot.gameObject.AddComponent<ScrollRect>();
         var viewport = Rect("Viewport",scrollRoot,Color.clear); Stretch(viewport,0,0,18,0); viewport.gameObject.AddComponent<RectMask2D>();
         listContent = Rect("Content",viewport); listContent.anchorMin = new Vector2(0,1); listContent.anchorMax = Vector2.one; listContent.pivot = new Vector2(.5f,1); listContent.anchoredPosition = Vector2.zero; listContent.sizeDelta = Vector2.zero;
@@ -197,7 +200,7 @@ public sealed class Card3DPresetPanel : MonoBehaviour
     private void ConfirmRotation()
     {
         if (library == null || !library.Ready || !confirmRotation.interactable) return;
-        library.Flush();
+        if (!library.ConfirmRotation()) return;
         ShowRotation(false);
         SceneConfigUi.ShowTip("卡牌轮转设置已确认");
     }

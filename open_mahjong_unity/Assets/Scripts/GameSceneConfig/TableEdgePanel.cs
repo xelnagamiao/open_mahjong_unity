@@ -12,7 +12,7 @@ public class TableEdgePanel : TableSurfacePanel
     protected override Transform Content => contentParent;
     protected override Button DeleteButton => deleteButton;
 
-    public void LoadTableEdges() => LoadGallery();
+    public void LoadTableEdges() { LoadGallery(); GetComponent<TableFrameHeader>()?.RefreshSelection(); }
     public void ClearTableEdges() => ClearGallery();
-    public void ClearAllTableEdgeSelection() => ClearSelection();
+    public void ClearAllTableEdgeSelection() { ClearSelection(); GetComponent<TableFrameHeader>()?.RefreshSelection(); }
 }

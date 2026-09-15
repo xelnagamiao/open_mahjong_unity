@@ -171,6 +171,7 @@ export const SEO_PAGES = [
  * prefix: true 表示按路径前缀匹配（如 /admin 及其全部子页面）。
  */
 export const NOINDEX_PAGES = [
+  { path: '/forgot-password', title: '找回密码 - Salasasa', description: '使用邮箱验证码重置 Salasasa 账户密码。' },
   { path: '/login', title: '玩家登录 - Salasasa', description: '登录 Salasasa 麻将平台，进入对战、数据站与赛事管理。' },
   { path: '/register', title: '注册 Salasasa 账号 - Salasasa', description: '注册 Salasasa 平台账号，与游戏内账户互通。' },
   { path: '/account', title: '账号面板 - Salasasa' },
@@ -225,6 +226,7 @@ export const PRERENDER_PATHS = [
   '/player-data/analysis',
   '/game-unity',
   // 以下为 noindex 壳页，避免搜索引擎通过 SPA fallback 收录到错误的首页 TDK
+  '/forgot-password',
   '/login',
   '/register',
   '/account',

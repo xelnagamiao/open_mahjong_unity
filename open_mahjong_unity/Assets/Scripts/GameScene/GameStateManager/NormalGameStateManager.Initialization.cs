@@ -30,9 +30,6 @@ public partial class NormalGameStateManager {
 
         Game3DManager.Instance.Clear3DTile(); // 清空3D手牌
 
-        // Select the deck once per actual hand, before new 3D tiles are spawned.
-        Card3DPresetLibrary.Ensure(ConfigManager.Instance)?.BeginRound(gameInfo);
-
         InitializeSetInfo(gameInfo, isNewMatch); // 初始化对局数据
         GameCanvas.Instance.InitializeUIInfo(gameInfo,indexToPosition); // 初始化面板信息
         BoardCanvas.Instance.InitializeBoardInfo(gameInfo,indexToPosition); // 初始化桌面信息

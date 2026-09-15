@@ -95,6 +95,7 @@ public sealed class CenterDisplayConfigPanel : MonoBehaviour
                     fallbackLabel.text = "预览暂未载入";
             }
             option.nameText.text = entry.Name;
+            option.nameText.gameObject.SetActive(false);
             ordered.Add(option);
             retainedButtons.Add(option.button);
         }
@@ -280,7 +281,11 @@ public sealed class CenterDisplayConfigPanel : MonoBehaviour
         {
             if (option == null) continue;
             var entry = CenterDisplayStyles.Get(option.id);
-            if (option.nameText != null) option.nameText.text = entry.Name;
+            if (option.nameText != null)
+            {
+                option.nameText.text = entry.Name;
+                option.nameText.gameObject.SetActive(false);
+            }
             Texture2D texture = CenterDisplayStyles.GetPreview(entry.Id);
             if (option.preview != null)
             {

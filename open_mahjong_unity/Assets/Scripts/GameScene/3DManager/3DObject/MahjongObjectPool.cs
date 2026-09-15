@@ -379,7 +379,8 @@ public class MahjongObjectPool : MonoBehaviour {
             customMaterial.SetTexture("_FrontTex", customTexture);
             ApplyTableFaceFallback(customMaterial);
             CardBackManager.SyncSharedVisualsToMaterial(customMaterial);
-            tile3D.SetStandaloneCardTextureContain(tileId, customTexture, customMaterial);
+            tile3D.SetStandaloneCardTextureContain(tileId, customTexture, customMaterial,
+                TileFaceResolver.TableImageScaleFor(tileId));
             return;
         }
 

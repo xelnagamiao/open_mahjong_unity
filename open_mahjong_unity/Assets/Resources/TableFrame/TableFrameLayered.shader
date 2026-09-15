@@ -4,11 +4,10 @@ Shader "TableFrame/Layered Thick Frame"
     {
         [MainTexture] _BaseMap("Clean base atlas (UV0)", 2D) = "white" {}
         _BaseTone("Base tone / display sRGB multiplier", Vector) = (1,1,1,1)
-        _TrimMap("Optional lines / Normal RGBA", 2D) = "black" {}
+        [Toggle] _UseSolidColor("Use parameter color", Float) = 0
+        _SolidColor("Solid display sRGB color", Vector) = (1,1,1,1)
         _ShadowMap("Frame shadow / Multiply RGBA", 2D) = "white" {}
         _HighlightMap("Frame highlight / Screen RGBA", 2D) = "black" {}
-        [HideInInspector] _HasTrim("Has lines texture", Float) = 0
-        _LineIntensity("Lines opacity", Range(0,1)) = 0
         _ShadowLayerIntensity("PSD shadow opacity multiplier", Range(0,1)) = 1
         _HighlightIntensity("PSD highlight opacity multiplier", Range(0,1)) = 1
         _ShadowStrength("Optional received shadow", Range(0,1)) = 0
@@ -27,14 +26,13 @@ Shader "TableFrame/Layered Thick Frame"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
         #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
         TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
-        TEXTURE2D(_TrimMap); SAMPLER(sampler_TrimMap);
         TEXTURE2D(_ShadowMap); SAMPLER(sampler_ShadowMap);
         TEXTURE2D(_HighlightMap); SAMPLER(sampler_HighlightMap);
         CBUFFER_START(UnityPerMaterial)
             float4 _BaseMap_ST;
             float4 _BaseTone;
-            half _HasTrim;
-            half _LineIntensity;
+            float4 _SolidColor;
+            half _UseSolidColor;
             half _ShadowLayerIntensity;
             half _HighlightIntensity;
             half _ShadowStrength;
@@ -119,16 +117,12 @@ Shader "TableFrame/Layered Thick Frame"
                     color = .215h * (.28h + .72h * ndotl) * lerp(.7h, 1.h, light.shadowAttenuation);
                 else
                 {
-                    // PSD order: clean base -> optional Normal lines -> Multiply
+                    // PSD order: clean base -> Multiply
                     // shadow -> Screen highlight, all in display sRGB. Layer
                     // alpha already includes its original Photoshop opacity.
-                    float3 composed = ToDisplaySrgb(SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv).rgb);
+                    float3 composed = _UseSolidColor > .5h ? _SolidColor.rgb
+                        : ToDisplaySrgb(SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv).rgb);
                     composed *= _BaseTone.rgb;
-                    if (_HasTrim > .5h && _LineIntensity > 0)
-                    {
-                        float4 trim = SAMPLE_TEXTURE2D(_TrimMap, sampler_TrimMap, input.uv);
-                        composed = lerp(composed, ToDisplaySrgb(trim.rgb), saturate(trim.a * _LineIntensity));
-                    }
                     float4 shadow = SAMPLE_TEXTURE2D(_ShadowMap, sampler_ShadowMap, input.uv);
                     composed *= lerp(float3(1, 1, 1), ToDisplaySrgb(shadow.rgb), saturate(shadow.a * _ShadowLayerIntensity));
                     float4 highlight = SAMPLE_TEXTURE2D(_HighlightMap, sampler_HighlightMap, input.uv);

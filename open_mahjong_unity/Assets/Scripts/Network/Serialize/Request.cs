@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 
 public class LoginRequest { // 登录请求
+    public string login_type = "username";
     public string type;
     public string username;
     public string password;

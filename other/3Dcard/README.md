@@ -1,5 +1,7 @@
 # 当前麻将模型源
 
+[牌底接触阴影与手动调节](ContactShadows.md)：主场景采用独立的局部软阴影，不需要改动模型。
+
 唯一现用可编辑模型是 [3DCardNew2026.8.5.blend](D:/open_mahjong_unity/other/3Dcard/3DCardNew2026.8.5.blend)，规范导出是 [3DCardNew2026.8.5.fbx](D:/open_mahjong_unity/other/3Dcard/3DCardNew2026.8.5.fbx)。文件名保留以兼容引用。主工程直接使用同内容的 [FBX](D:/open_mahjong_unity/open_mahjong_unity/Assets/Resources/3D/3DCardNew2026.8.5.fbx)，没有运行时程序网格替换。
 
 当前为我方原创分面倒角模型：**360 三角形，Unity 导入 378 顶点，四套 UV**。宽∶高∶厚为 **1∶1.33∶0.65**，Unity 局部尺寸为 `0.02 × 0.0266 × 0.013`，预制体缩放 600 后为 `12 × 15.96 × 7.8`。模型没有顶面人工灰阶，也没有移植竞品几何或纹理。

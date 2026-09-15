@@ -100,7 +100,7 @@ Shader "Custom/ThreeDTiles"
                 UNITY_DEFINE_INSTANCED_PROP(float4, _SideColor)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _BackEdgeColor)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _FrontEdgeColor)
-                // x = gray scale; yzw reserved
+                // x = gray scale; y = image area scale override (0 = material); zw reserved
                 UNITY_DEFINE_INSTANCED_PROP(float4, _TileInstanceParams)
             UNITY_INSTANCING_BUFFER_END(TilePerInstance)
 
@@ -175,9 +175,10 @@ Shader "Custom/ThreeDTiles"
                 float4 instanceParams =
                     UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _TileInstanceParams);
 
-                // 模型倒角不属于平面图片区域。把完整画布放在平面内部，图集和
-                // 独立上传图共用此坐标，避免上传图边缘被倒角裁掉或采到相邻图集格。
-                float2 imageUV = (input.uvFront - 0.5) / max(_TableFaceImageScale, 0.1) + 0.5;
+                // 图集和独立图片都采样完整画布；雪枫图案已按倒角范围留白，
+                // 普通上传图使用较小的区域。下方掩码避免采到相邻图集格。
+                float imageScale = instanceParams.y > 0.0 ? instanceParams.y : _TableFaceImageScale;
+                float2 imageUV = (input.uvFront - 0.5) / max(imageScale, 0.1) + 0.5;
                 half imageInside = step(0.0, imageUV.x) * step(imageUV.x, 1.0)
                     * step(0.0, imageUV.y) * step(imageUV.y, 1.0);
                 float2 frontUV =

@@ -6,6 +6,8 @@ Shader "Hidden/Mahjong/TableSeamComposite"
         _SeamTex ("Seam", 2D) = "black" {}
         _SourceLightTex ("Original PSD Light", 2D) = "black" {}
         _HasSeam ("Has Seam", Float) = 0
+        _UseSolidColor ("Use Solid Color", Float) = 0
+        _SolidColor ("Solid Color sRGB", Vector) = (1,1,1,1)
         _UseSourceLight ("Use Original Light", Float) = 0
         _ShadowParameters ("Edge Shadow", Vector) = (0,0,0,0)
         _FixedShadowParameters ("Fixed Planar Shadow", Vector) = (0,0,0,0)
@@ -27,6 +29,8 @@ Shader "Hidden/Mahjong/TableSeamComposite"
             sampler2D _SeamTex;
             sampler2D _SourceLightTex;
             float _HasSeam, _UseSourceLight;
+            float _UseSolidColor;
+            float4 _SolidColor;
             float4 _ShadowParameters, _FixedShadowParameters, _LightParameters, _LightCenter, _ClothUvRect;
 
             struct Attributes
@@ -66,6 +70,13 @@ Shader "Hidden/Mahjong/TableSeamComposite"
             float4 Composite(Varyings input) : SV_Target
             {
                 float4 cloth = tex2D(_MainTex, input.uv);
+                if (_UseSolidColor > 0.5)
+                {
+                    cloth = _SolidColor;
+                    #ifndef UNITY_COLORSPACE_GAMMA
+                    cloth.rgb = ToLinear(cloth.rgb);
+                    #endif
+                }
                 float4 seam = _HasSeam > 0.5 ? tex2D(_SeamTex, input.uv) : float4(0,0,0,0);
                 // The no-effect path preserves original source sampling and color exactly.
                 if (seam.a <= 0.0 && _ShadowParameters.y <= 0.0 && _FixedShadowParameters.z <= 0.0 && _LightParameters.w <= 0.0) return cloth;

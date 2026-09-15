@@ -13,7 +13,10 @@ public class Desktop : MonoBehaviour
     {
         public Material Material;
         public Texture2D OwnedTexture;
+        // Never use Material.mainTexture as the cloth source: it may be our GPU composite.
         public Texture2D SourceTexture;
+        public string SourcePath;
+        public bool SourceCustom;
         public string Path;
         public bool Custom;
         public object Revision;
@@ -42,6 +45,18 @@ public class Desktop : MonoBehaviour
 
     private void Start()
     {
+        RefreshAppearance();
+    }
+
+    private void OnEnable()
+    {
+        // Start handles first initialization; subsequent shows re-read saved settings.
+        if (originalMaterials != null) RefreshAppearance();
+    }
+
+    /// <summary>Single entry point for table settings, reset and session refresh.</summary>
+    public void RefreshAppearance()
+    {
         RefreshTablecloth();
         RefreshEdge();
     }
@@ -63,7 +78,7 @@ public class Desktop : MonoBehaviour
         if (disposed || edge.Material == null || !Application.isPlaying) return;
         if (tableFrame == null) tableFrame = GetComponent<TableFrameRenderer>();
         if (tableFrame == null) return;
-        tableFrame.ApplySelection(this, edge.SourceTexture ?? edge.Material.mainTexture as Texture2D,
+        tableFrame.ApplySelection(this, edge.Applied || edge.Pending ? edge.SourceTexture : null,
             edge.Path, edge.Custom, edge.Pending);
     }
 
@@ -94,11 +109,14 @@ public class Desktop : MonoBehaviour
             (isCloth ? ConfigManager.Instance.GetSelectedTableCloth() : ConfigManager.Instance.GetSelectedTableEdge());
         string path = selected.Item1 ?? "";
         bool custom = selected.Item2;
+        if (!isCloth && !custom)
+            path = string.IsNullOrEmpty(path) ? TableFrameStyles.Default : TableFrameRenderer.NormalizeSelection(path, false);
         Texture2D fallback = isCloth ? defaultTableclothTexture : defaultTableEdgeTexture;
         object revision = custom ? CustomRevision(path) : null;
         if (surface.Path == path && surface.Custom == custom && Equals(surface.Revision, revision) &&
             (surface.Pending || (surface.Applied && surface.Material.mainTexture != null)))
         {
+            // Source caching must not suppress independent seam/shadow/light changes.
             if (isCloth) ApplyClothOutput();
             return;
         }
@@ -109,6 +127,12 @@ public class Desktop : MonoBehaviour
         surface.Revision = revision;
         surface.Pending = false;
         surface.Applied = false;
+        if (!custom && (isCloth ? TableClothStyles.IsSolid(path) : TableFrameStyles.IsSolid(path)))
+        {
+            // Pure colors have no per-preset source image or 2D atlas to load.
+            Apply(surface, Texture2D.whiteTexture, false, true);
+            return;
+        }
         if (string.IsNullOrEmpty(path))
         {
             Apply(surface, fallback, false, true);
@@ -133,7 +157,7 @@ public class Desktop : MonoBehaviour
         // Keep the previous table visible until the requested full-size asset is ready.
         if (surface.Material.mainTexture == null) surface.Material.mainTexture = fallback;
         string sourceName = isCloth ? path : TableFrameStyles.SourceName(path);
-        var request = Resources.LoadAsync<Texture2D>((isCloth ? "image/Board/TableCloth/" : "image/Board/Edge/") + sourceName);
+        var request = Resources.LoadAsync<Texture2D>((isCloth ? "image/Board/TableCloth/" : TableFrameRenderer.BaseResourceDirectory) + sourceName);
         request.completed += _ => CompleteBuiltinLoad(surface, version, request.asset as Texture2D, fallback);
     }
 
@@ -219,9 +243,12 @@ public class Desktop : MonoBehaviour
         try
         {
             var config = ConfigManager.Instance;
+            // Do not tint the previous image while a newly selected image is still loading.
+            Color? solidColor = !cloth.SourceCustom && TableClothStyles.IsSolid(cloth.SourcePath)
+                ? (config != null ? config.GetTableClothDisplayColor(cloth.SourcePath) : TableClothStyles.DefaultColor(cloth.SourcePath)) : (Color?)null;
             cloth.Material.mainTexture = seamComposer.Compose(cloth.SourceTexture, selectedSeamTexture,
                 config != null ? config.GetSelectedTableShadow() : TableLightingPresets.DefaultShadow,
-                config != null ? config.GetSelectedTableLight() : TableLightingPresets.DefaultLight);
+                config != null ? config.GetSelectedTableLight() : TableLightingPresets.DefaultLight, solidColor);
             compositeWarning = false;
         }
         catch (Exception error)
@@ -236,8 +263,10 @@ public class Desktop : MonoBehaviour
     private void Apply(Surface surface, Texture2D texture, bool owned, bool success)
     {
         surface.SourceTexture = texture;
+        surface.SourcePath = success ? surface.Path : null;
+        surface.SourceCustom = surface.Custom;
         if (ReferenceEquals(surface, cloth)) ApplyClothOutput();
-        else surface.Material.mainTexture = texture;
+        else surface.Material.mainTexture = surface.Custom ? texture : defaultTableEdgeTexture ?? texture;
         if (surface.OwnedTexture != null && surface.OwnedTexture != texture) DestroyOwned(surface.OwnedTexture);
         surface.OwnedTexture = owned ? texture : null;
         surface.Applied = success;

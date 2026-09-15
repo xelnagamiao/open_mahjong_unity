@@ -8,9 +8,12 @@ public class CardFacePreviewSlot : MonoBehaviour {
     [SerializeField] private Image overlay;
     private Image tableBackgroundLayer;
     private bool showingTable;
+    private float tableImageScale = TileTextureLayout.TableImageScale;
 
-    public void ApplyTable(Sprite sprite, Sprite background, Color baseColor, bool dimMissingCustom) {
+    public void ApplyTable(Sprite sprite, Sprite background, Color baseColor, bool dimMissingCustom,
+        float imageScale = TileTextureLayout.TableImageScale) {
         showingTable = true;
+        tableImageScale = imageScale;
         image.sprite = TileFaceResolver.FlatTableBackground;
         image.preserveAspect = true;
         baseColor.a = dimMissingCustom ? .45f : 1f;
@@ -83,7 +86,7 @@ public class CardFacePreviewSlot : MonoBehaviour {
 
     private void FitTableLayers() {
         Vector2 size = TileTextureLayout.FitTableCanvas(image.rectTransform.rect.size);
-        FitLayer(overlay.rectTransform, size * TileTextureLayout.TableImageScale);
+        FitLayer(overlay.rectTransform, size * tableImageScale);
         if (tableBackgroundLayer != null) FitLayer(tableBackgroundLayer.rectTransform, size);
     }
 

@@ -1,56 +1,6 @@
 {
     "cloth": [
         {
-            "name": "Tablecloth_Focus_01_Sakura",
-            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_01_Sakura",
-            "displayName": "Tablecloth_Focus_01_Sakura"
-        },
-        {
-            "name": "Tablecloth_Focus_02_PeacockTeal",
-            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_02_PeacockTeal",
-            "displayName": "Tablecloth_Focus_02_PeacockTeal"
-        },
-        {
-            "name": "Tablecloth_Focus_03_Cobalt",
-            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_03_Cobalt",
-            "displayName": "Tablecloth_Focus_03_Cobalt"
-        },
-        {
-            "name": "Tablecloth_Focus_04_Wisteria",
-            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_04_Wisteria",
-            "displayName": "Tablecloth_Focus_04_Wisteria"
-        },
-        {
-            "name": "Tablecloth_Focus_05_Bamboo",
-            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_05_Bamboo",
-            "displayName": "Tablecloth_Focus_05_Bamboo"
-        },
-        {
-            "name": "Tablecloth_Focus_06_AutumnMaple",
-            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_06_AutumnMaple",
-            "displayName": "Tablecloth_Focus_06_AutumnMaple"
-        },
-        {
-            "name": "Tablecloth_Focus_07_MoonSea",
-            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_07_MoonSea",
-            "displayName": "Tablecloth_Focus_07_MoonSea"
-        },
-        {
-            "name": "Tablecloth_Focus_08_CityGlass",
-            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_08_CityGlass",
-            "displayName": "Tablecloth_Focus_08_CityGlass"
-        },
-        {
-            "name": "Tablecloth_Focus_09_Celadon",
-            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_09_Celadon",
-            "displayName": "Tablecloth_Focus_09_Celadon"
-        },
-        {
-            "name": "Tablecloth_Focus_10_Ginkgo",
-            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_10_Ginkgo",
-            "displayName": "Tablecloth_Focus_10_Ginkgo"
-        },
-        {
             "name": "Tablecloth_blue",
             "preview": "TableSurfacePreviews/TableCloth/Tablecloth_blue",
             "displayName": "Tablecloth_blue"
@@ -64,6 +14,56 @@
             "name": "Tablecloth_green2",
             "preview": "TableSurfacePreviews/TableCloth/Tablecloth_green2",
             "displayName": "Tablecloth_green2"
+        },
+        {
+            "name": "Tablecloth_Focus_01_Sakura",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_01_Sakura",
+            "displayName": "Tablecloth_Focus_01_Sakura"
+        },
+        {
+            "name": "Tablecloth_Focus_06_AutumnMaple",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_06_AutumnMaple",
+            "displayName": "Tablecloth_Focus_06_AutumnMaple"
+        },
+        {
+            "name": "Tablecloth_Focus_09_Celadon",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_09_Celadon",
+            "displayName": "Tablecloth_Focus_09_Celadon"
+        },
+        {
+            "name": "Tablecloth_Focus_10_Ginkgo",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_10_Ginkgo",
+            "displayName": "Tablecloth_Focus_10_Ginkgo"
+        },
+        {
+            "name": "Tablecloth_Focus_02_PeacockTeal",
+            "preview": "",
+            "displayName": "纯色孔雀青"
+        },
+        {
+            "name": "Tablecloth_Focus_03_Cobalt",
+            "preview": "",
+            "displayName": "纯色钴蓝"
+        },
+        {
+            "name": "Tablecloth_Focus_04_Wisteria",
+            "preview": "",
+            "displayName": "纯色藤蓝"
+        },
+        {
+            "name": "Tablecloth_Focus_05_Bamboo",
+            "preview": "",
+            "displayName": "纯色竹绿"
+        },
+        {
+            "name": "Tablecloth_Focus_07_MoonSea",
+            "preview": "",
+            "displayName": "纯色月海蓝"
+        },
+        {
+            "name": "Tablecloth_Focus_08_CityGlass",
+            "preview": "",
+            "displayName": "纯色都市青"
         }
     ],
     "edge": [

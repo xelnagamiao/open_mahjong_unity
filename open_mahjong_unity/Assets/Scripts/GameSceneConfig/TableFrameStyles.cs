@@ -32,6 +32,27 @@ public static class TableFrameStyles
 
     public static string SourceName(string name) => name == Deep ? Default : name ?? "";
 
+    public static bool IsSolid(string name) => name != null && SolidColors.ContainsKey(name);
+
+    // Original clean-atlas colors, now stored as parameters rather than ten 2K textures.
+    private static readonly Dictionary<string, Color32> SolidColors = new Dictionary<string, Color32>(StringComparer.Ordinal) {
+        {"Edge_Focus_01_Sakura",new Color32(19,40,64,255)},
+        {"Edge_Focus_02_PeacockTeal",new Color32(23,61,66,255)},
+        {"Edge_Focus_03_Cobalt",new Color32(25,45,78,255)},
+        {"Edge_Focus_04_Wisteria",new Color32(52,48,76,255)},
+        {"Edge_Focus_05_Bamboo",new Color32(24,58,49,255)},
+        {"Edge_Focus_06_AutumnMaple",new Color32(84,40,45,255)},
+        {"Edge_Focus_07_MoonSea",new Color32(22,53,76,255)},
+        {"Edge_Focus_08_CityGlass",new Color32(18,62,78,255)},
+        {"Edge_Focus_09_Celadon",new Color32(34,81,88,255)},
+        {"Edge_Focus_10_Ginkgo",new Color32(26,37,37,255)}
+    };
+
+    public static Color SolidColor(string name)
+    {
+        return name != null && SolidColors.TryGetValue(name, out var color) ? (Color)color : Color.white;
+    }
+
     // Display-encoded RGB multipliers; alpha and the original wood grain are unchanged.
     public static Vector4 BaseTone(string name) => name == Deep ? new Vector4(.60f, .64f, .70f, 1f) : Vector4.one;
 

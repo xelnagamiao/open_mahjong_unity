@@ -15,6 +15,7 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
     private ConfigManager config;
     private Func<Card3DAppearance> captureAppearance;
     private Action<Card3DAppearance> applyAppearance;
+    private Action<Card3DAppearance> applyRuntimeAppearance;
     private Card3DPresetStorage storage;
     private readonly System.Random random = new System.Random();
     private bool applying, edited, saving, dirty;
@@ -23,9 +24,8 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
     private GameInfo pendingRound;
     private object pendingReplay;
     private int pendingReplayOrdinal;
-    private object replayBaselineRecord;
-    private string replayBaselineSignature;
-    private Card3DAppearance replayBaseline;
+    private Card3DAppearance editorBeforeRuntime;
+    public string CurrentRuntimePresetId { get; private set; }
 
     public static Card3DPresetLibrary Ensure(ConfigManager owner)
     {
@@ -43,6 +43,11 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
             config.ApplyCard3DAppearance(appearance);
             CardBackManager.RefreshAfterPreset();
         };
+        applyRuntimeAppearance = appearance => {
+            Card3DPresetTextureCache.Warm(new[] { appearance });
+            config.ApplyCard3DAppearance(appearance, false);
+            CardBackManager.RefreshAfterPreset();
+        };
         storage = new Card3DPresetStorage(Path.Combine(Application.persistentDataPath, "Card3DPresets"));
         UnityAssetIdb.EnsureReady(() => {
             if (this == null) return;
@@ -50,7 +55,7 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
                 string json = storage.Read();
                 if (!string.IsNullOrWhiteSpace(json)) {
                     Data = JsonUtility.FromJson<Card3DPresetData>(json);
-                    if (Data == null || Data.version != 1) throw new InvalidDataException("卡牌预设存档版本无法读取");
+                    if (Data == null || Data.version < 1 || Data.version > 2) throw new InvalidDataException("卡牌预设存档版本无法读取");
                 }
                 Data.Normalize(); Ready = true;
                 config.Card3DAppearanceChanged += OnAppearanceEdited;
@@ -84,7 +89,7 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
     public void Flush() { if (!Ready) return; CaptureEdits(); if (dirty && !saving) Save(); }
     private Card3DAppearance SnapshotCurrent()
     {
-        var a = captureAppearance();
+        var a = (editorBeforeRuntime ?? captureAppearance()).Copy();
         a.backImage = storage.SnapshotImage(a.backImage, a.backImageCustom);
         a.backgroundImage = storage.SnapshotImage(a.backgroundImage, a.backgroundImageCustom);
         return a;
@@ -104,6 +109,7 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
     public bool Add(string name)
     {
         if (!Ready || string.IsNullOrWhiteSpace(name)) return false;
+        BeginEditing();
         name = name.Trim();
         if (Data.All().Any(p => p.name == name)) { ReportError("预设名称已存在，请换一个名称"); return false; }
         try {
@@ -115,7 +121,7 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
     public void Select(string id)
     {
         if (!Ready || Data.Find(id) == null) return;
-        CaptureEdits(); Apply(id); MarkDirty(); Flush();
+        BeginEditing(); CaptureEdits(); Apply(id); MarkDirty(); Flush();
     }
     private void Apply(string id, Card3DAppearance appearance = null)
     {
@@ -130,18 +136,58 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
     public void SetRotation(Card3DRotationMode mode)
     {
         if (!Ready || Data.rotation == mode) return;
-        CaptureEdits(); Data.rotation = mode; Data.Normalize(); Data.ResetRotationCursor();
+        BeginEditing(); CaptureEdits(); Data.rotation = mode; Data.Normalize();
+        // No-rotation is an explicit immediate off action; other modes remain drafts until Confirm.
+        if (mode == Card3DRotationMode.None) {
+            Data.confirmedRotation = mode; Data.confirmedPresets.Clear(); Data.confirmedRevision++; Data.ResetRotationCursor();
+        }
         MarkDirty(); WarmTextures(); Changed?.Invoke(); Flush();
     }
     public bool SetIncluded(string id, bool included)
     {
         if (!Ready) return false;
-        CaptureEdits();
+        BeginEditing(); CaptureEdits();
         if (!Data.SetIncluded(id, included, out bool first)) return false;
-        Data.ResetRotationCursor();
         // Only an empty -> one transition immediately synchronizes the scene.
         if (first) Apply(id);
         MarkDirty(); WarmTextures(); Changed?.Invoke(); Flush(); return true;
+    }
+    public bool ConfirmRotation()
+    {
+        if (!Ready || !Data.CanConfirm) return false;
+        BeginEditing(); CaptureEdits();
+        try {
+            var snapshots = new List<Card3DPreset>();
+            foreach (string id in Data.rotationIds) {
+                var source = Data.Find(id); if (source == null) return false;
+                var a = source.appearance.Copy();
+                a.backImage = storage.SnapshotImage(a.backImage, a.backImageCustom);
+                a.backgroundImage = storage.SnapshotImage(a.backgroundImage, a.backgroundImageCustom);
+                snapshots.Add(new Card3DPreset { id=source.id, name=source.name, appearance=a });
+            }
+            Data.confirmedPresets = snapshots; Data.confirmedRotation = Data.rotation;
+            Data.confirmedRevision++; Data.ResetRotationCursor();
+            if (snapshots.Count > 0 && Data.rotation != Card3DRotationMode.None) Apply(snapshots[0].id, snapshots[0].appearance);
+            MarkDirty(); WarmTextures(); Changed?.Invoke(); Flush(); return true;
+        } catch (Exception e) { ReportError("无法确认轮转，原配置已保留：" + e.Message); return false; }
+    }
+    public void BeginEditing()
+    {
+        if (editorBeforeRuntime == null) return;
+        var appearance = editorBeforeRuntime; editorBeforeRuntime = null; CurrentRuntimePresetId = null;
+        applying = true;
+        try { applyAppearance(appearance); WarmTextures(); AppearanceApplied?.Invoke(); }
+        finally { applying = false; }
+    }
+    private void ApplyRuntime(string id)
+    {
+        var preset = Data.FindConfirmed(id); if (preset == null) return;
+        editorBeforeRuntime ??= captureAppearance().Copy();
+        applying = true;
+        try {
+            applyRuntimeAppearance(preset.appearance.Copy()); CurrentRuntimePresetId = id;
+            WarmTextures();
+        } finally { applying = false; }
     }
     public void RestoreSelectionDefaults()
     {
@@ -149,6 +195,7 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
         // Preserve saved user presets; the caller is resetting the working scene, not the library.
         edited = false; Data.selectedId = Card3DPresetData.BlueId;
         Data.rotation = Card3DRotationMode.None; Data.rotationIds.Clear(); Data.ResetRotationCursor();
+        Data.confirmedRotation = Card3DRotationMode.None; Data.confirmedPresets.Clear(); Data.confirmedRevision++;
         MarkDirty(); WarmTextures(); Changed?.Invoke(); Flush();
     }
     public void BeginRound(GameInfo info)
@@ -163,8 +210,7 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
         string round = info.current_round + ":" + info.honba.GetValueOrDefault() + ":" + history + ":" + (info.commitment ?? "");
         string previousMatch = Data.lastMatch, previousRound = Data.lastRound;
         string id = Data.StartRound(match, round, random);
-        if (id != null) Apply(id);
-        // First hand intentionally returns no preset, but its cursor must survive reconnects.
+        if (id != null) ApplyRuntime(id);
         if (previousMatch != Data.lastMatch || previousRound != Data.lastRound) { MarkDirty(); Flush(); }
     }
     public void BeginReplayRound(object record, int ordinal)
@@ -173,21 +219,19 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
         pendingRound = null;
         if (!Ready) { pendingReplay = record; pendingReplayOrdinal = ordinal; return; }
         CaptureEdits();
-        string signature = Data.rotation + ":" + string.Join("|", Data.rotationIds);
-        if (!ReferenceEquals(replayBaselineRecord, record) || replayBaselineSignature != signature) {
-            replayBaselineRecord = record; replayBaselineSignature = signature;
-            replayBaseline = captureAppearance().Copy();
-        }
         string id = Data.ReplayRound(record, ordinal, random);
         if (id == null) return;
-        Apply(id, ordinal == 0 ? replayBaseline : null); MarkDirty(); Flush();
+        ApplyRuntime(id);
     }
     private List<Card3DAppearance> RetainedAppearances()
     {
         var list = new List<Card3DAppearance> { captureAppearance() };
+        if (editorBeforeRuntime != null) list.Add(editorBeforeRuntime);
         var selected = Data.Find(Data.selectedId); if (selected != null) list.Add(selected.appearance);
         if (Data.rotation != Card3DRotationMode.None)
             foreach (string id in Data.rotationIds) { var p = Data.Find(id); if (p != null) list.Add(p.appearance); }
+        if (Data.confirmedRotation != Card3DRotationMode.None)
+            foreach (var preset in Data.confirmedPresets) list.Add(preset.appearance);
         return list;
     }
     private void WarmTextures()

@@ -33,5 +33,9 @@ public class TableClothPanel : TableSurfacePanel
         LoadGallery();
     }
     public void ClearTablecloths() => ClearGallery();
-    public void ClearAllTableClothSelection() => ClearSelection();
+    public void ClearAllTableClothSelection()
+    {
+        ClearSelection();
+        seamSelector?.RefreshSelection();
+    }
 }

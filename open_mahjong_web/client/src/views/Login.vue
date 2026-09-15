@@ -5,7 +5,7 @@
       <p class="hint">使用已注册的游戏账号登录（与对战平台同一账户）</p>
       <form @submit.prevent="onSubmit">
         <label>
-          <span>用户名</span>
+          <span>用户名 / 邮箱</span>
           <input v-model="form.username" autocomplete="username" />
         </label>
         <label>
@@ -15,6 +15,7 @@
         <button type="submit" :disabled="loading">{{ loading ? '登录中…' : '登录' }}</button>
       </form>
       <p v-if="error" class="err">{{ error }}</p>
+      <p class="switch-page"><router-link to="/forgot-password">忘记密码？</router-link></p>
       <p class="switch-page">
         还没有账号？
         <router-link :to="registerTarget">立即注册</router-link>

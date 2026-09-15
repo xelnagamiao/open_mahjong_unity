@@ -30,12 +30,16 @@ public sealed class Card3DPreset
 public sealed class Card3DPresetData
 {
     public const string BlueId = "default-blue", OrangeId = "default-orange";
-    public int version = 1;
+    public int version = 2;
     public List<Card3DPreset> custom = new List<Card3DPreset>();
     public string selectedId = BlueId;
     public Card3DRotationMode rotation;
     // This list is ordered by selection time, never catalog order.
     public List<string> rotationIds = new List<string>();
+    // Draft above; only explicit confirmation replaces these immutable appearance snapshots.
+    public Card3DRotationMode confirmedRotation;
+    public List<Card3DPreset> confirmedPresets = new List<Card3DPreset>();
+    public int confirmedRevision;
     public string lastMatch = "", lastRound = "", lastRotationId = "";
     public int rotationStep;
 
@@ -61,7 +65,30 @@ public sealed class Card3DPresetData
         rotation = (Card3DRotationMode)Mathf.Clamp((int)rotation, 0, 2);
         seen.Clear(); rotationIds.RemoveAll(id => Find(id) == null || !seen.Add(id));
         if (rotation == Card3DRotationMode.Alternating && rotationIds.Count > 2) rotationIds.RemoveRange(2, rotationIds.Count - 2);
+        confirmedPresets ??= new List<Card3DPreset>();
+        if (version < 2) {
+            version = 2; confirmedRotation = Card3DRotationMode.None;
+            confirmedPresets.Clear(); ResetRotationCursor(); // Legacy auto-saved selections remain a draft.
+        }
+        seen.Clear();
+        confirmedPresets.RemoveAll(p => p == null || string.IsNullOrEmpty(p.id) || p.appearance == null || !seen.Add(p.id));
+        if ((confirmedRotation == Card3DRotationMode.Alternating && confirmedPresets.Count != 2)
+            || (confirmedRotation == Card3DRotationMode.Random && confirmedPresets.Count == 0)
+            || (int)confirmedRotation < 0 || (int)confirmedRotation > 2) confirmedRotation = Card3DRotationMode.None;
     }
+    public bool CanConfirm => rotation == Card3DRotationMode.None || (rotation == Card3DRotationMode.Alternating ? rotationIds.Count == 2 : rotationIds.Count > 0);
+    public bool DraftMatchesConfirmed()
+    {
+        if (rotation != confirmedRotation) return false;
+        if (rotation == Card3DRotationMode.None) return true;
+        if (rotationIds.Count != confirmedPresets.Count) return false;
+        for (int i=0;i<rotationIds.Count;i++) {
+            var source = Find(rotationIds[i]); var saved = confirmedPresets[i];
+            if (source == null || source.id != saved.id || JsonUtility.ToJson(source.appearance) != JsonUtility.ToJson(saved.appearance)) return false;
+        }
+        return true;
+    }
+    public Card3DPreset FindConfirmed(string id) => confirmedPresets.Find(p => p.id == id);
     public bool SetIncluded(string id, bool included, out bool first)
     {
         first = false;
@@ -81,44 +108,43 @@ public sealed class Card3DPresetData
     // Replay navigation is indexed, not an advancing live-game cursor. Rewind/seek must be stable.
     public string ReplayRound(object record, int ordinal, System.Random random)
     {
-        if (record == null || ordinal < 0 || rotation == Card3DRotationMode.None || rotationIds.Count == 0) return null;
-        string signature = rotation + ":" + string.Join("|", rotationIds);
+        if (record == null || ordinal < 0 || confirmedRotation == Card3DRotationMode.None || confirmedPresets.Count == 0) return null;
+        var activeIds = confirmedPresets.ConvertAll(p => p.id);
+        string signature = confirmedRevision + ":" + confirmedRotation + ":" + string.Join("|", activeIds);
         if (!ReferenceEquals(replayRecord, record) || replaySignature != signature || replayDecks == null) {
             replayRecord = record; replaySignature = signature;
-            replayDecks = new List<string> { selectedId };
+            replayDecks = new List<string> { activeIds[0] };
         }
         if (ordinal == 0) return replayDecks[0];
-        if (rotation == Card3DRotationMode.Alternating) {
-            int start = rotationIds.IndexOf(replayDecks[0]);
-            return rotationIds[(start + ordinal) % rotationIds.Count];
+        if (confirmedRotation == Card3DRotationMode.Alternating) {
+            return activeIds[ordinal % activeIds.Count];
         }
         while (replayDecks.Count <= ordinal) {
             string previous = replayDecks[replayDecks.Count - 1];
-            var candidates = rotationIds.FindAll(id => id != previous);
-            replayDecks.Add(candidates.Count == 0 ? rotationIds[0] : candidates[random.Next(candidates.Count)]);
+            var candidates = activeIds.FindAll(id => id != previous);
+            replayDecks.Add(candidates.Count == 0 ? activeIds[0] : candidates[random.Next(candidates.Count)]);
         }
         return replayDecks[ordinal];
     }
     public string StartRound(string match, string round, System.Random random)
     {
-        if (rotation == Card3DRotationMode.None || rotationIds.Count == 0) return null;
-        if (lastMatch == match && lastRound == round) return null; // Reconnect / duplicate game_start.
+        if (confirmedRotation == Card3DRotationMode.None || confirmedPresets.Count == 0) return null;
+        var activeIds = confirmedPresets.ConvertAll(p => p.id);
+        if (lastMatch == match && lastRound == round) return lastRotationId; // Reapply on reconnect, never advance.
         bool first = lastMatch != match || string.IsNullOrEmpty(lastRound);
         if (first) {
-            // The scene's current appearance is already the first hand. Record its position
-            // without reapplying a preset (which would also discard unsaved built-in edits).
             rotationStep = 0;
-            lastMatch = match; lastRound = round; lastRotationId = selectedId;
-            return null;
+            lastMatch = match; lastRound = round; lastRotationId = activeIds[0];
+            return lastRotationId;
         }
         rotationStep++;
         string nextId;
-        if (rotationIds.Count == 1) nextId = rotationIds[0];
-        else if (rotation == Card3DRotationMode.Alternating)
-            nextId = rotationIds[(rotationIds.IndexOf(lastRotationId) + 1) % rotationIds.Count];
+        if (activeIds.Count == 1) nextId = activeIds[0];
+        else if (confirmedRotation == Card3DRotationMode.Alternating)
+            nextId = activeIds[(activeIds.IndexOf(lastRotationId) + 1) % activeIds.Count];
         else {
-            var candidates = rotationIds.FindAll(id => id != lastRotationId);
-            nextId = candidates.Count == 0 ? rotationIds[0] : candidates[random.Next(candidates.Count)];
+            var candidates = activeIds.FindAll(id => id != lastRotationId);
+            nextId = candidates.Count == 0 ? activeIds[0] : candidates[random.Next(candidates.Count)];
         }
         lastMatch = match; lastRound = round; lastRotationId = nextId;
         return nextId;

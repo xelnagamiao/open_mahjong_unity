@@ -23,6 +23,8 @@ public sealed class TableSeamSelector : MonoBehaviour
     private Coroutine waitingForConfig;
     private bool layoutApplied;
     private float lastWidth = -1;
+    private TableClothColorControl colorControl;
+    private RectTransform colorHost;
 
     public bool IsLoading => waitingForConfig != null;
 
@@ -48,12 +50,12 @@ public sealed class TableSeamSelector : MonoBehaviour
             gallery = scroll.GetComponent<RectTransform>();
             originalMin = gallery.offsetMin;
             originalMax = gallery.offsetMax;
-            Build(template);
+            Build(template, panel);
         }
         if (isActiveAndEnabled) Resume();
     }
 
-    private static TMP_Dropdown FindTemplate(Canvas canvas)
+    internal static TMP_Dropdown FindTemplate(Canvas canvas)
     {
         if (canvas == null) return null;
         TMP_Dropdown fallback = null;
@@ -68,7 +70,7 @@ public sealed class TableSeamSelector : MonoBehaviour
         return fallback;
     }
 
-    private void Build(TMP_Dropdown template)
+    private void Build(TMP_Dropdown template, TableClothPanel panel)
     {
         container = CreateRect("TableSeamSelector", gallery.parent);
         container.gameObject.SetActive(false);
@@ -85,14 +87,21 @@ public sealed class TableSeamSelector : MonoBehaviour
         var seamNames = new List<string>(TableSurfaceNames.SeamOptionCount);
         for (int index = 0; index < TableSurfaceNames.SeamOptionCount; index++)
             seamNames.Add(TableSurfaceNames.SeamDisplayName(TableSurfaceNames.SeamStyleAtOption(index)));
-        CreateDropdown(0, "缝线", "TableSeamDropdown", seamNames, template,
+        rows[0] = CreateRect("ClothColorRow", container);
+        var colorLabel = CreateRect("Label", rows[0]).gameObject.AddComponent<TextMeshProUGUI>();
+        colorLabel.font = template.captionText.font; colorLabel.text = "底色";
+        colorLabel.color = TextColor; colorLabel.fontSize = 17; colorLabel.raycastTarget = false;
+        colorLabel.alignment = TextAlignmentOptions.MidlineLeft;
+        labels[0] = colorLabel.rectTransform;
+        colorHost = CreateRect("ColorControl", rows[0]);
+        colorControl = container.gameObject.AddComponent<TableClothColorControl>();
+        colorControl.Initialize(colorHost, container, panel, template.captionText.font);
+        CreateDropdown(1, "缝线", "TableSeamDropdown", seamNames, template,
             index => SelectStyle(TableSurfaceNames.SeamStyleAtOption(index)));
-        CreateDropdown(1, "边框阴影", "TableShadowDropdown", new List<string>(TableLightingPresets.ShadowNames), template,
+        CreateDropdown(2, "边框阴影", "TableShadowDropdown", new List<string>(TableLightingPresets.ShadowNames), template,
             index => SelectShadow(TableLightingPresets.ShadowStyleAtOption(index)));
-        CreateDropdown(2, "光照", "TableLightDropdown", new List<string>(TableLightingPresets.LightNames), template,
+        CreateDropdown(3, "光照", "TableLightDropdown", new List<string>(TableLightingPresets.LightNames), template,
             index => SelectLight(TableLightingPresets.LightStyleAtOption(index)));
-        CreateDropdown(3, "边框描边", "TableContactOutlineDropdown", new List<string> { "关闭", "开启" }, template, SelectContactOutline);
-        dropdowns[3].SetValueWithoutNotify(1);
         ResizeLayout();
     }
 
@@ -247,32 +256,21 @@ public sealed class TableSeamSelector : MonoBehaviour
         ApplySelection();
     }
 
-    public void SelectContactOutline(int index)
-    {
-        var config = ConfigManager.Instance;
-        if (config == null || index < 0 || index > 1) return;
-        bool enabled = index == 1;
-        if (config.GetTableContactOutlineEnabled() == enabled) { RefreshSelection(); return; }
-        config.SetTableContactOutlineEnabled(enabled);
-        RefreshSelection();
-        if (Desktop.Instance != null) Desktop.Instance.RefreshEdge();
-    }
-
     private void ApplySelection()
     {
         RefreshSelection();
-        if (Desktop.Instance != null) Desktop.Instance.RefreshTablecloth();
+        Desktop.Instance?.RefreshAppearance();
     }
 
     public void RefreshSelection()
     {
         var config = ConfigManager.Instance;
         foreach (var dropdown in dropdowns) if (dropdown != null) dropdown.interactable = config != null;
+        colorControl?.RefreshSelection();
         if (config == null) return;
-        if (dropdowns[0] != null) dropdowns[0].SetValueWithoutNotify(TableSurfaceNames.SeamOptionForStyle(config.GetSelectedTableSeam()));
-        if (dropdowns[1] != null) dropdowns[1].SetValueWithoutNotify(TableLightingPresets.ShadowOptionForStyle(config.GetSelectedTableShadow()));
-        if (dropdowns[2] != null) dropdowns[2].SetValueWithoutNotify(TableLightingPresets.LightOptionForStyle(config.GetSelectedTableLight()));
-        if (dropdowns[3] != null) dropdowns[3].SetValueWithoutNotify(config.GetTableContactOutlineEnabled() ? 1 : 0);
+        if (dropdowns[1] != null) dropdowns[1].SetValueWithoutNotify(TableSurfaceNames.SeamOptionForStyle(config.GetSelectedTableSeam()));
+        if (dropdowns[2] != null) dropdowns[2].SetValueWithoutNotify(TableLightingPresets.ShadowOptionForStyle(config.GetSelectedTableShadow()));
+        if (dropdowns[3] != null) dropdowns[3].SetValueWithoutNotify(TableLightingPresets.LightOptionForStyle(config.GetSelectedTableLight()));
     }
 
     private void Resume()
@@ -324,9 +322,10 @@ public sealed class TableSeamSelector : MonoBehaviour
             Place(rows[i], controlsLeft + 8 + i % columns * (cellWidth + 12), controlsTop + 8 + i / columns * (rowHeight + 8),
                 cellWidth, rowHeight);
             Place(labels[i], 0, 0, stacked ? cellWidth : 96, stacked ? 22 : 40);
-            Place((RectTransform)dropdowns[i].transform, stacked ? 0 : 104, stacked ? 24 : 0,
+            Place(i == 0 ? colorHost : (RectTransform)dropdowns[i].transform, stacked ? 0 : 104, stacked ? 24 : 0,
                 Mathf.Max(1, cellWidth - (stacked ? 0 : 104)), 40);
         }
+        colorControl?.Layout();
     }
 
     private static void Place(RectTransform rect, float x, float y, float width, float height)

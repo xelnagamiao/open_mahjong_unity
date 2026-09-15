@@ -11,6 +11,7 @@ import AccountLayout from '@/layouts/AccountLayout.vue'
 import Home from '@/views/Home.vue'
 import Login from '@/views/Login.vue'
 import Register from '@/views/Register.vue'
+import ForgotPassword from '@/views/ForgotPassword.vue'
 import Account from '@/views/Account.vue'
 import EventsList from '@/views/EventsList.vue'
 import EventDetail from '@/views/EventDetail.vue'
@@ -78,6 +79,12 @@ const routes = [
         name: 'Register',
         component: Register,
         meta: { title: '玩家注册 - salasasa.cn' }
+      },
+      {
+        path: 'forgot-password',
+        name: 'ForgotPassword',
+        component: ForgotPassword,
+        meta: { title: '找回密码 - salasasa.cn', noindex: true }
       },
       {
         path: 'events',

@@ -40,8 +40,7 @@ public class TableEdge : MonoBehaviour
 
     // 根据ConfigManager的设置刷新桌布和边框
     private void RefreshDesktop() {
-        Desktop.Instance.RefreshTablecloth();
-        Desktop.Instance.RefreshEdge();
+        Desktop.Instance?.RefreshAppearance();
     }
 
     // 显示或隐藏删除按钮（仅对自定义项目）

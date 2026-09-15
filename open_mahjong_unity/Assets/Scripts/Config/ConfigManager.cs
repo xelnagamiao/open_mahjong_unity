@@ -9,7 +9,7 @@ using UnityEngine.Rendering.Universal;
 public partial class ConfigManager : MonoBehaviour {
     public static ConfigManager Instance { get; private set; }
 
-    public static bool Debug = true;
+    public static bool Debug = false;
 
     /// <summary>Steam 构建开关：为 true 时，场景中挂载 SteamBuildHider 的物体列表会被隐藏。</summary>
     public static bool BuildForSteam = true;
@@ -30,16 +30,16 @@ public partial class ConfigManager : MonoBehaviour {
             gameUrl = "ws://localhost:8081/game"; // 游戏服务器地址(连接到OMU服务器)
             chatUrl = "ws://localhost:8083/chat"; // 聊天服务器地址(连接到OMUChat服务器)
             webApiUrl = "http://localhost:3000"; // 活动专栏 / 平台 HTTP（通知、牌谱公开接口）
-            releaseVersion = 22; // 发行版号(验证客户端-服务器版本是否一致)
+            releaseVersion = 23; // 发行版号(验证客户端-服务器版本是否一致)
         } else {
             // 生产环境接口地址
             gameUrl = "wss://salasasa.cn/game";
             chatUrl = "wss://salasasa.cn/chat";
             webApiUrl = "https://salasasa.cn";
-            releaseVersion = 22;
+            releaseVersion = 23;
         }
         // 官方服务器链接网址 用于访问转到 （不影响游戏进程）
-        clientVersion = "0.4.75.28"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
+        clientVersion = "0.4.76.6"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
         webUrl = "https://salasasa.cn"; // 访问转到
         mobileDownloadUrl = "https://salasasa.cn/mobile-download"; // Android APK 版本更新下载页
         documentUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#"; // 访问转到
@@ -289,8 +289,7 @@ public partial class ConfigManager : MonoBehaviour {
         UnityAssetIdb.EnsureReady(() => {
             TileFaceResolver.EnsureLoaded();
             if (Desktop.Instance != null) {
-                Desktop.Instance.RefreshTablecloth();
-                Desktop.Instance.RefreshEdge();
+                Desktop.Instance.RefreshAppearance();
             }
             CardBackManager.ApplySavedConfig();
             if (CardBackConfigPanel.Instance != null) {
@@ -402,6 +401,7 @@ public partial class ConfigManager : MonoBehaviour {
     }
 
     public (string path, bool isCustom) GetSelectedTableBackground() {
+        if (runtimeCardAppearance != null) return (runtimeCardAppearance.backgroundImage, runtimeCardAppearance.backgroundImageCustom);
         string path = PlayerPrefs.GetString(KEY_TABLE_BG_PATH, "");
         bool isCustom = PlayerPrefs.GetInt(KEY_TABLE_BG_IS_CUSTOM, 0) == 1;
         return (path, isCustom);
@@ -633,6 +633,7 @@ public partial class ConfigManager : MonoBehaviour {
 
     /// <summary>Get card back image selection.</summary>
     public (string path, bool isCustom) GetSelectedCardBackImage() {
+        if (runtimeCardAppearance != null) return (runtimeCardAppearance.backImage, runtimeCardAppearance.backImageCustom);
         string path = PlayerPrefs.GetString(KEY_CARD_BACK_IMAGE_PATH, "");
         bool isCustom = PlayerPrefs.GetInt(KEY_CARD_BACK_IMAGE_IS_CUSTOM, 0) == 1;
         return (path, isCustom);

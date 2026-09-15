@@ -12,6 +12,7 @@ public static class TileFaceResolver {
     private static readonly Dictionary<int, Sprite> CustomHandSprites = new Dictionary<int, Sprite>();
     private static readonly Dictionary<int, Texture2D> CustomHandTextures = new Dictionary<int, Texture2D>();
     private static readonly Dictionary<int, Texture2D> CustomTableTextures = new Dictionary<int, Texture2D>();
+    private static readonly Dictionary<int, float> CustomTableImageScales = new Dictionary<int, float>();
     private static readonly Dictionary<int, Sprite> CustomTableSprites = new Dictionary<int, Sprite>();
     private static readonly Dictionary<int, Sprite> OfficialSpriteCache = new Dictionary<int, Sprite>();
     private static Sprite handBackgroundSprite;
@@ -158,6 +159,25 @@ public static class TileFaceResolver {
             return table;
         }
         return null;
+    }
+
+    /// <summary>按实际图案来源返回排版尺度；缺图回退与直接使用官方保持一致。</summary>
+    public static float TableImageScaleFor(int tileId, bool applyWhiteDragonFaceSetting = true) {
+        EnsureLoaded();
+        if (HongqueTileVisual.IsHongqueId(tileId)) return 1f;
+        int faceId = ResolveFaceId(tileId, applyWhiteDragonFaceSetting);
+        string packId = CurrentPackId();
+        if (TilePackIds.IsCustomPack(packId)
+            && CustomTableTextures.TryGetValue(faceId, out Texture2D uploaded) && uploaded != null) {
+            return CustomTableImageScales.TryGetValue(faceId, out float scale)
+                ? scale : TileTextureLayout.TableImageScale;
+        }
+        if (TilePackIds.IsBuiltinLayeredPack(packId)
+            && Resources.Load<Texture2D>(TilePackIds.BuiltinTableResource(packId, faceId)) != null) {
+            return packId == TilePackIds.PackFluffy && faceId >= 51 && faceId <= 58
+                ? TileTextureLayout.SnowTableImageScale : TileTextureLayout.TableImageScale;
+        }
+        return TileTextureLayout.SnowTableImageScale;
     }
 
     /// <summary>按实际有图的来源判断；用于区分用户上传和官方缺图回退。</summary>
@@ -414,6 +434,7 @@ public static class TileFaceResolver {
                 Texture2D texture = BytesToTexture(pair.Value, "CustomTable_" + pair.Key, true);
                 if (texture != null) {
                     CustomTableTextures[pair.Key] = texture;
+                    CustomTableImageScales[pair.Key] = TileTextureLayout.ReadTableImageScale(pair.Value);
                 }
             }
         }
@@ -494,6 +515,7 @@ public static class TileFaceResolver {
     }
 
     private static void DestroyCustomTextures() {
+        CustomTableImageScales.Clear();
         if (!ownsRuntimeTextures) {
             CustomHandSprites.Clear();
             CustomHandTextures.Clear();

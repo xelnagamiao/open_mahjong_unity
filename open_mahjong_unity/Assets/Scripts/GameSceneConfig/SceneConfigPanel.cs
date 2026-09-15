@@ -27,6 +27,7 @@ public partial class SceneConfigPanel : MonoBehaviour
     private string nowPage = "";
     private bool panelVisible;
     private bool navigationBound;
+    private void OnEnable() { Card3DPresetLibrary.Instance?.BeginEditing(); }
 
     private void Awake() {
         BindNavigation();

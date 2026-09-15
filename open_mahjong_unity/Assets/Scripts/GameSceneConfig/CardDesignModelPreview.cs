@@ -103,7 +103,7 @@ public sealed class CardDesignModelPreview : MonoBehaviour
         material.SetColor("_TableFaceFallbackColor",GameSettings.Current.DefaultTableFaceFallbackColor);
         material.SetFloat("_TableFaceFallbackEnabled",1f);
         // Preserve the mesh/material's authored rotation, also used in gameplay.
-        material.SetVector("_TileInstanceParams",Vector4.zero);
+        material.SetVector("_TileInstanceParams",new Vector4(0f,TileFaceResolver.TableImageScaleFor(11),0f,0f));
         RenderPipeline.SubmitRenderRequest(previewCamera,new UniversalRenderPipeline.SingleCameraRequest { destination=texture });
     }
 

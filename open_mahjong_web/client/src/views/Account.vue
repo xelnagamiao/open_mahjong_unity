@@ -15,6 +15,10 @@
               <el-tag type="success" size="small">已绑定</el-tag>
               <span class="email-text">{{ auth.email }}</span>
             </template>
+            <template v-else-if="auth.email">
+              <el-tag type="info" size="small">注册邮箱，未验证</el-tag>
+              <span class="email-text">{{ auth.email }}</span>
+            </template>
             <el-tag v-else type="info" size="small">未绑定</el-tag>
           </el-descriptions-item>
         </el-descriptions>
@@ -75,6 +79,7 @@
           </el-form-item>
           <el-form-item>
             <el-button type="primary" :loading="pwdLoading" @click="onChangePassword">更新密码</el-button>
+            <el-button @click="$router.push('/forgot-password')">忘记密码</el-button>
           </el-form-item>
         </el-form>
       </el-card>

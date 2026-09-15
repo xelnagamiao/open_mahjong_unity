@@ -75,6 +75,8 @@ public partial class SceneConfigPanel
                 header.offsetMin = new Vector2(0, -SceneConfigUi.SurfaceHeaderHeight);
                 header.offsetMax = Vector2.zero;
                 rect.offsetMax = new Vector2(0, -SceneConfigUi.SurfaceHeaderHeight);
+                var frameHeader = panel.GetComponent<TableFrameHeader>() ?? panel.gameObject.AddComponent<TableFrameHeader>();
+                frameHeader.Initialize(header, rect, header.GetComponentInChildren<TMP_Text>().font);
             }
         }
         PlaceFooterButton(upload, true, 24);
@@ -184,8 +186,7 @@ public partial class SceneConfigPanel
     {
         if (ConfigManager.Instance == null) return;
         ConfigManager.Instance.RestoreDefaultTablecloth();
-        Desktop.Instance?.RefreshTablecloth();
-        Desktop.Instance?.RefreshEdge();
+        Desktop.Instance?.RefreshAppearance();
         tableClothPanel.GetComponent<TableSeamSelector>()?.RefreshSelection();
         RefreshPage();
     }
@@ -194,7 +195,8 @@ public partial class SceneConfigPanel
     {
         if (ConfigManager.Instance == null) return;
         ConfigManager.Instance.RestoreDefaultTableFrame();
-        Desktop.Instance?.RefreshEdge();
+        Desktop.Instance?.RefreshAppearance();
+        tableEdgePanel.GetComponent<TableFrameHeader>()?.RefreshSelection();
         tableClothPanel.GetComponent<TableSeamSelector>()?.RefreshSelection();
         RefreshPage();
     }
@@ -238,10 +240,10 @@ public partial class SceneConfigPanel
         ConfigManager.Instance.RestoreAllSceneDefaults();
         TileFaceResolver.SelectPack(TilePackIds.PackOfficial);
         RefreshDefaultCards(true);
-        Desktop.Instance?.RefreshTablecloth();
-        Desktop.Instance?.RefreshEdge();
+        Desktop.Instance?.RefreshAppearance();
         tableClothPanel.GetComponent<TableSeamSelector>()?.RefreshSelection();
         if (centerDisplayPanel != null) centerDisplayPanel.ReloadSaved();
+        tableEdgePanel.GetComponent<TableFrameHeader>()?.RefreshSelection();
         RefreshPage();
         SceneConfigUi.ShowTip("场景设置已恢复默认");
     }

@@ -337,14 +337,11 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
     }
 
     private void ApplyTableFaceHex() {
-        if (!SceneConfigUi.TryParseHex(tableFaceHexInput.text, out Color color)) {
-            SceneConfigUi.ShowTip("颜色格式应为 RRGGBB");
-            return;
-        }
-        color.a = 1f;
-        CardBackManager.SetTableFaceColor(color);
-        RefreshSolidColorUi();
-        SceneConfigUi.ShowTip("已应用 3D 牌面纯色");
+        SceneConfigUi.ApplyHex(tableFaceHexInput, color => {
+            color.a = 1f;
+            CardBackManager.SetTableFaceColor(color);
+            RefreshSolidColorUi();
+        }, "已应用 3D 牌面纯色", "颜色格式应为 RRGGBB");
     }
 
     private void SetTableFaceSolid(bool enabled) {
@@ -395,17 +392,7 @@ public class CardFaceBackgroundPanel : MonoBehaviour {
     /// <summary>编辑器拖拽入口：把拖入的图片应用到 3D 牌面背景。</summary>
     public void ApplyEditorDroppedTableBackground(Texture2D source) {
         if (source == null) return;
-        RenderTexture rt = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.ARGB32);
-        Graphics.Blit(source, rt);
-        RenderTexture prev = RenderTexture.active;
-        RenderTexture.active = rt;
-        Texture2D copy = new Texture2D(source.width, source.height, TextureFormat.RGBA32, false);
-        copy.ReadPixels(new Rect(0f, 0f, source.width, source.height), 0, 0);
-        copy.Apply();
-        RenderTexture.active = prev;
-        RenderTexture.ReleaseTemporary(rt);
-        byte[] png = copy.EncodeToPNG();
-        UnityEngine.Object.DestroyImmediate(copy);
+        byte[] png = SceneConfigTextureCapture.EncodePng(source);
         CardBackManager.PersistTableBackground(png);
         RefreshPreviews();
         SceneConfigUi.ShowTip("3D 牌面背景已应用");

@@ -161,7 +161,8 @@ public static class AutoReconnect {
             WasLoggedIn = udm.UserId != 0,
             WasInGame = isInGame,
             WasSpectating = wasSpectating,
-            Username = udm.SavedLoginUsername ?? "",
+            // 邮箱只用于首次定位账户；重连固定使用服务端返回的真实用户名。
+            Username = udm.Username ?? udm.SavedLoginUsername ?? "",
             Password = udm.SavedLoginPassword ?? "",
         };
     }

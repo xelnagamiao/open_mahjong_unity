@@ -80,6 +80,18 @@ public static class SceneConfigUi
         return hex.Length == 8 && ColorUtility.TryParseHtmlString("#" + hex, out color);
     }
 
+    public static void ApplyHex(TMP_InputField input, Action<Color> apply, string successTip,
+        string invalidTip = "HEX 格式不正确")
+    {
+        if (!TryParseHex(input.text, out Color color))
+        {
+            ShowTip(invalidTip);
+            return;
+        }
+        apply(color);
+        ShowTip(successTip);
+    }
+
     public static void ShowTip(string message)
     {
         if (NotificationManager.Instance != null)
@@ -121,9 +133,7 @@ public static class SceneConfigUi
         bool instant = false,
         float fade = ToggleColorFade)
     {
-        toggle.transition = Selectable.Transition.None;
-        toggle.toggleTransition = Toggle.ToggleTransition.None;
-        toggle.graphic = null;
+        ConfigureToggle(toggle);
         Image bg = (Image)toggle.targetGraphic;
         bg.color = Color.white;
         Color target = selected ? selectedColor : defaultColor;

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Rebuild layered built-in faces from preserved original artwork.
 
-Requires Pillow and resvg-py. Official faces use a reviewed per-tile optical
-layout, retaining 272x389 hand and 400x532 table canvases.
+Requires Pillow and resvg-py. Numbered official faces use shared suit layouts,
+retaining 272x389 hand and 400x532 table canvases.
 Official and Fluffy flowers share identical PNGs. Backgrounds and backs are
 independent resources. Original artwork and existing Unity GUIDs are preserved.
 """
@@ -20,7 +20,7 @@ import shutil
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
-from PIL import Image, ImageChops, ImageFilter
+from PIL import Image, ImageChops, ImageFilter, PngImagePlugin
 import resvg_py
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -33,13 +33,29 @@ HAND_CANVAS = (272, 389)
 # This rectangle is wholly inside the blank source's white face and encloses
 # every standard source's visible artwork: union (26,49)-(250,365).
 SNOW_CROP = (18, 45, 255, 369)
-SNOW_FIT = .95
 OTHER_FIT = .84
 ARTWORK_ENLARGEMENT = 1.18
 ARTWORK_MARGIN = 4
 SVG_NS = "http://www.w3.org/2000/svg"
 BG = (245, 246, 247, 255)
 SNOW_LAYOUT = Path(__file__).with_name("snow_artwork_layout.json")
+SNOW_TABLE_IMAGE_SCALE = .93
+TABLE_IMAGE_SCALE_PNG_KEY = "om-table-image-scale-v1"
+# Convex front boundary of Resources/Materials/Tiles/3DTile.fbx after
+# FrontRotation=270: image X is UV0.V, image Y is UV0.U. Update this measured
+# outline if the model's front UV changes; width/height must not be swapped.
+SNOW_FRONT_OUTLINE = (
+    (.0600880012, .0536607131), (.0612295792, .0495613553),
+    (.0644805208, .0460860841), (.0693458989, .0437639840),
+    (.0750849992, .0429485701), (.9249150157, .0429485701),
+    (.9306541085, .0437639840), (.9355194569, .0460860841),
+    (.9387704134, .0495613553), (.9399120212, .0536607131),
+    (.9399120212, .9463393092), (.9387704134, .9504386187),
+    (.9355194569, .9539139271), (.9306541085, .9562360048),
+    (.9249150157, .9570514560), (.0750849992, .9570514560),
+    (.0693458989, .9562360048), (.0644805208, .9539139271),
+    (.0612295792, .9504386187), (.0600880012, .9463393092))
+SNOW_FRONT_MARGIN = 2.0  # pixels in the final 400x532 image, beyond alpha>0
 
 CODE_TO_ID = {f"{n}{s}": base + n for s, base in (("m", 10), ("p", 20), ("s", 30)) for n in range(1, 10)}
 CODE_TO_ID.update({"1z": 41, "2z": 42, "3z": 43, "4z": 44,
@@ -94,6 +110,35 @@ def assert_artwork_margin(bbox, source: Path):
                  or bbox[2] > CANVAS[0] - ARTWORK_MARGIN
                  or bbox[3] > CANVAS[1] - ARTWORK_MARGIN):
         raise ValueError(f"Artwork exceeds the {ARTWORK_MARGIN}px safe inset: {source}: {bbox}")
+
+
+def assert_snow_front_margin(image: Image.Image) -> float | None:
+    """Check all visible pixel corners against the actual rounded flat face.
+
+    Row extrema suffice because this front polygon is convex. This includes
+    even faint antialias fringes and reserves bilinear sampling clearance.
+    """
+    alpha = image.getchannel("A")
+    points = []
+    for y in range(image.height):
+        row = alpha.crop((0, y, image.width, y + 1)).getbbox()
+        if row:
+            points.extend((.5 + (x / image.width - .5) * SNOW_TABLE_IMAGE_SCALE,
+                           .5 + (yy / image.height - .5) * SNOW_TABLE_IMAGE_SCALE)
+                          for x in (row[0], row[2]) for yy in (y, y + 1))
+    if not points:
+        return None
+    clearance = math.inf
+    for i, start in enumerate(SNOW_FRONT_OUTLINE):
+        end = SNOW_FRONT_OUTLINE[(i + 1) % len(SNOW_FRONT_OUTLINE)]
+        dx, dy = end[0] - start[0], end[1] - start[1]
+        normal = math.hypot(dx * SNOW_TABLE_IMAGE_SCALE / image.height,
+                            dy * SNOW_TABLE_IMAGE_SCALE / image.width)
+        clearance = min(clearance, min((dx * (p[1] - start[1]) - dy * (p[0] - start[0])) / normal
+                                       for p in points))
+    if clearance < SNOW_FRONT_MARGIN:
+        raise ValueError(f"Snow artwork too close to rounded front: {clearance:.3f}px; requires {SNOW_FRONT_MARGIN}px")
+    return clearance
 
 
 def fit_raster(source: Image.Image, fraction: float) -> tuple[Image.Image, dict]:
@@ -158,7 +203,29 @@ def validate_snow_crop() -> dict:
             "tiles": rows}
 
 
-def extract_snow_artwork(source: Image.Image) -> tuple[Image.Image, dict]:
+def snow_ink_palette(sources) -> list[tuple[list[int], int, int]]:
+    """Build one ink palette for a family before extracting any member.
+
+    Repeated source pixels must not get different alpha just because another
+    tile's numeral changes its individual color frequencies. Passing a single
+    source retains the previous standalone extraction behavior.
+    """
+    background = BG[:3]
+    counts = Counter()
+    for source in sources:
+        pixels = source.convert("RGBA").crop(SNOW_CROP).getdata()
+        counts.update(p[:3] for p in pixels
+                      if max(abs(p[k] - background[k]) for k in range(3)) >= 100
+                      or p[:3] == (255, 255, 255))
+    anchors = []
+    for color, frequency in counts.most_common(24):
+        direction = [color[k] - background[k] for k in range(3)]
+        anchors.append((direction, sum(v * v for v in direction), frequency))
+    return anchors
+
+
+def extract_snow_artwork(source: Image.Image,
+                         palette: list[tuple[list[int], int, int]] | None = None) -> tuple[Image.Image, dict]:
     """Separate the known blank face from ink, retaining authored white detail.
 
     Only the exact blank RGB becomes transparent, including genuine inner
@@ -166,7 +233,8 @@ def extract_snow_artwork(source: Image.Image) -> tuple[Image.Image, dict]:
     source-pixel boundary band, dominant ink colors estimate alpha; inverse
     compositing removes the original matte from antialias colors. Every pixel
     is then checked by compositing over the original blank color. This is not
-    a threshold that removes arbitrary white pixels.
+    a threshold that removes arbitrary white pixels. A shared family palette
+    makes equal source RGB and equal boundary classification yield equal RGBA.
     """
     artwork = source.convert("RGBA").crop(SNOW_CROP)
     pixels = list(artwork.getdata())
@@ -174,13 +242,7 @@ def extract_snow_artwork(source: Image.Image) -> tuple[Image.Image, dict]:
     mask = Image.new("L", artwork.size)
     mask.putdata([255 if p[:3] != background else 0 for p in pixels])
     interior = list(mask.filter(ImageFilter.MinFilter(5)).getdata())
-    counts = Counter(p[:3] for p in pixels
-                     if max(abs(p[k] - background[k]) for k in range(3)) >= 100
-                     or p[:3] == (255, 255, 255))
-    anchors = []
-    for color, frequency in counts.most_common(24):
-        direction = [color[k] - background[k] for k in range(3)]
-        anchors.append((direction, sum(v * v for v in direction), frequency))
+    anchors = snow_ink_palette((source,)) if palette is None else palette
     output = []
     max_error = white_count = changed_interior = 0
     for index, pixel in enumerate(pixels):
@@ -230,11 +292,15 @@ def extract_snow_artwork(source: Image.Image) -> tuple[Image.Image, dict]:
                   "semi_transparent_pixels": sum(0 < p[3] < 255 for p in output)}
 
 
-def write_png(image: Image.Image, path: Path) -> str:
+def write_png(image: Image.Image, path: Path, table_image_scale: float | None = None) -> str:
     if image.size not in (CANVAS, HAND_CANVAS) or image.mode != "RGBA":
         raise ValueError(f"Unexpected output format: {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
-    data = io.BytesIO(); image.save(data, format="PNG", optimize=True)
+    metadata = None
+    if table_image_scale is not None:
+        metadata = PngImagePlugin.PngInfo()
+        metadata.add_text(TABLE_IMAGE_SCALE_PNG_KEY, format(table_image_scale, ".2f"))
+    data = io.BytesIO(); image.save(data, format="PNG", optimize=True, pnginfo=metadata)
     encoded = data.getvalue()
     if not path.exists() or path.read_bytes() != encoded:
         temporary = path.with_name(path.name + ".rebuild-temp")
@@ -243,34 +309,68 @@ def write_png(image: Image.Image, path: Path) -> str:
     return digest(encoded)
 
 
+def resolve_snow_layouts(profile: dict) -> tuple[dict, dict]:
+    """Resolve authored family transforms; only documented translations vary.
+
+    Numbered tiles share one final source-to-output affine per suit. They are
+    never independently fitted or centered by their visible bounds. Independent
+    honor/flower artwork retains its accepted explicit transforms.
+    """
+    if profile.get("version") != 3:
+        raise ValueError("Snow layout requires version 3 family transforms")
+    resolved, families = {}, {}
+    exceptions = profile.get("exceptions", {})
+    for name, family in profile["families"].items():
+        for tile_id in family["tile_ids"]:
+            if tile_id in resolved:
+                raise ValueError(f"Snow tile belongs to multiple families: {tile_id}")
+            exception = exceptions.get(str(tile_id), {})
+            if set(exception) - {"reason", "source_translation"}:
+                raise ValueError(f"Family exceptions may translate, not rescale: {tile_id}")
+            if exception and not exception.get("reason"):
+                raise ValueError(f"Snow exception requires an optical reason: {tile_id}")
+            shift = exception.get("source_translation", [0, 0])
+            entry = {"family": name, "exception": exception}
+            for kind in ("hand", "table"):
+                matrix = family[kind]
+                entry[kind] = {"scale": matrix["scale"], "offset": [
+                    matrix["offset"][i] + matrix["scale"] * (shift[i] if kind == "table" else 0) for i in range(2)]}
+            resolved[tile_id], families[tile_id] = entry, name
+    if set(exceptions) - {str(tile_id) for tile_id in families}:
+        raise ValueError("Snow translation exception must name a family tile")
+    for key, entry in profile["independent_artwork"].items():
+        tile_id = int(key)
+        if tile_id in resolved:
+            raise ValueError(f"Independent Snow artwork duplicates a family tile: {tile_id}")
+        resolved[tile_id] = entry
+    if set(resolved) != set(STANDARD_IDS):
+        raise ValueError("Snow layout must cover every standard tile exactly once")
+    for tile_id, entry in resolved.items():
+        if entry["hand"] != {"scale": 1, "offset": [0, 0]}:
+            raise ValueError(f"Snow 2D hand must preserve original size and position: {tile_id}")
+    return resolved, families
+
+
 def layout_snow_artwork(source: Image.Image, layout: dict, kind: str,
                         blank_hand: Image.Image) -> tuple[Image.Image, dict]:
-    """Compose the manual placement with the baseline into ONE source resample.
-
-    Offsets and pivots are authored in the preserved 272x389 source pixels.
-    Hand/table magnifications are independent; neither is an X/Y stretch.
-    Bounds are assertions, never automatic recentering or silent cropping.
-    """
-    factor = float(layout[f"{kind}_scale"])
-    px, py = layout["pivot"]
-    dx, dy = layout["offset"]
-    if not math.isfinite(factor) or factor <= 0 or not all(abs(v) < 1000 for v in (px, py, dx, dy)):
-        raise ValueError(f"Invalid manual Snow layout: {layout}")
-    scale, x, y = factor, px * (1 - factor) + dx, py * (1 - factor) + dy
-    details = {"manual_layout": layout, "operation": "manual uniform placement; one source-to-output premultiplied bicubic affine"}
-    canvas = HAND_CANVAS
+    """Apply the final authored affine once; bounds only validate the result."""
+    matrix = layout[kind]
+    scale = float(matrix["scale"])
+    x, y = matrix["offset"]
+    if not math.isfinite(scale) or scale <= 0 or not all(math.isfinite(v) and abs(v) < 1000 for v in (x, y)):
+        raise ValueError(f"Invalid Snow transform: {layout}")
+    details = {"layout": layout, "operation": "authored family/source affine; one premultiplied bicubic resample"}
+    canvas = HAND_CANVAS if kind == "hand" else CANVAS
     if kind == "table":
-        crop = source.crop(SNOW_CROP)
-        fraction, safety = safe_artwork_fit(crop.size, crop.getchannel("A").getbbox(), SNOW_FIT)
-        baseline, bx, by = fit_geometry(*crop.size, fraction)
-        scale *= baseline
-        x = bx + baseline * (x - SNOW_CROP[0])
-        y = by + baseline * (y - SNOW_CROP[1])
-        details.update({"baseline_fit": safety, "baseline_uniform_scale": baseline,
-                        "baseline_fit_fraction": fraction})
-        canvas = CANVAS
+        details.update({"table_image_scale": SNOW_TABLE_IMAGE_SCALE,
+                        "table_image_scale_png_key": TABLE_IMAGE_SCALE_PNG_KEY})
     bounds = source.getchannel("A").getbbox()
-    if bounds is None:
+    if kind == "hand":
+        if source.size != HAND_CANVAS or scale != 1 or (x, y) != (0, 0):
+            raise ValueError("Snow 2D hand must copy the extracted original without resampling")
+        result = source.copy()
+        details["operation"] = "original artwork coordinates; alpha extraction only, no resampling"
+    elif bounds is None:
         result = Image.new("RGBA", canvas)
     else:
         # Check BEFORE rasterization: a clipped component (or completely lost
@@ -293,6 +393,7 @@ def layout_snow_artwork(source: Image.Image, layout: dict, kind: str,
         details["artwork_pixels_on_frame"] = outside
     else:
         assert_artwork_margin(result.getchannel("A").getbbox(), Path(f"snow/{layout}"))
+        details["front_outline_clearance_pixels"] = assert_snow_front_margin(result)
     details.update({"uniform_scale": scale, "canvas_offset": [x, y],
                     "artwork_bbox_output": result.getchannel("A").getbbox()})
     return result, details
@@ -319,8 +420,12 @@ def ensure_full_rect(path: Path) -> bool:
 
 def rebuild(output: Path = DEFAULT_OUTPUT, report_path: Path | None = None) -> dict:
     manual_layout = json.loads(SNOW_LAYOUT.read_text(encoding="utf-8"))
-    if set(manual_layout["tiles"]) != {str(tile_id) for tile_id in STANDARD_IDS}:
-        raise ValueError("Snow manual layout must explicitly cover every standard tile")
+    if manual_layout.get("table_image_scale") != SNOW_TABLE_IMAGE_SCALE:
+        raise ValueError("Snow manual layout and PNG display scale must agree")
+    layouts, tile_families = resolve_snow_layouts(manual_layout)
+    originals = {tile_id: Image.open(SNOW_SOURCES / f"{tile_id}.png").convert("RGBA") for tile_id in STANDARD_IDS}
+    palettes = {name: snow_ink_palette(originals[tile_id] for tile_id in family["tile_ids"])
+                for name, family in manual_layout["families"].items()}
     report = {"canvas": list(CANVAS), "hand_canvas": list(HAND_CANVAS),
               "snow_manual_layout": source_record(SNOW_LAYOUT),
               "snow_crop_validation": validate_snow_crop(), "images": [],
@@ -334,17 +439,18 @@ def rebuild(output: Path = DEFAULT_OUTPUT, report_path: Path | None = None) -> d
         record = source_record(source)
         record.update(details)
         record.update({"output": str(target.relative_to(ROOT)) if target.is_relative_to(ROOT) else str(target),
-                       "output_sha256": write_png(image, target), "size": list(image.size),
+                       "output_sha256": write_png(image, target, details.get("table_image_scale")), "size": list(image.size),
                        "alpha_bbox": image.getchannel("A").getbbox()})
         if ensure_full_rect(target):
             report["metadata_changed"].append(record["output"] + ".meta")
         report["images"].append(record)
 
     blank_hand = Image.open(SNOW_SOURCES / "2.png").convert("RGBA")
+    manzu_repeats = []
     for tile_id in STANDARD_IDS:
         path = SNOW_SOURCES / f"{tile_id}.png"
-        original = Image.open(path).convert("RGBA")
-        artwork, alpha_details = extract_snow_artwork(original)
+        original = originals[tile_id]
+        artwork, alpha_details = extract_snow_artwork(original, palettes.get(tile_families.get(tile_id)))
         recomposed = Image.alpha_composite(blank_hand, artwork)
         # Source files differ in RGB beneath fully transparent corners. Compare
         # premultiplied pixels so invisible RGB is not mistaken for changed art.
@@ -352,7 +458,7 @@ def rebuild(output: Path = DEFAULT_OUTPUT, report_path: Path | None = None) -> d
         maximum_difference = max(maximum for minimum, maximum in difference.crop(SNOW_CROP).getextrema())
         if maximum_difference > 1:
             raise ValueError(f"Hand artwork plus background does not reproduce original face pixels: {path}")
-        layout = manual_layout["tiles"][str(tile_id)]
+        layout = layouts[tile_id]
         hand, placement = layout_snow_artwork(artwork, layout, "hand", blank_hand)
         hand_details = {**alpha_details, **placement, "pack": "official", "tile_id": tile_id,
                         "maximum_pre_transform_artwork_recomposition_error": maximum_difference,
@@ -365,16 +471,35 @@ def rebuild(output: Path = DEFAULT_OUTPUT, report_path: Path | None = None) -> d
         details["artwork_bbox_output"] = artwork_bbox
         details.update({**alpha_details, "pack": "official", "tile_id": tile_id, "crop_xyxy": list(SNOW_CROP)})
         save(image, f"Cards/Faces/official/table/{tile_id}.png", path, details)
+        if 11 <= tile_id <= 19 or tile_id == 105:
+            # The preserved sources contain the exact same complete lower glyph.
+            # Verify actual pixels, including alpha, rather than just parameters.
+            repeat = {"tile_id": tile_id,
+                      "source": digest(original.crop((18, 190, 255, 369)).tobytes()),
+                      "extracted": digest(artwork.crop((18, 190, 255, 369)).tobytes())}
+            for kind, rendered in (("hand", hand), ("table", image)):
+                matrix = layout[kind]
+                # Keep filter support inside the identical source region.
+                lower_start = math.ceil(192 * matrix["scale"] + matrix["offset"][1])
+                repeat[kind] = digest(rendered.crop((0, lower_start, rendered.width, rendered.height)).tobytes())
+                repeat[kind + "_bottom"] = rendered.getchannel("A").getbbox()[3]
+            manzu_repeats.append(repeat)
         if 51 <= tile_id <= 58:
             save(hand, f"Cards/Faces/fluffy/hand/{tile_id}.png", path,
                  {**hand_details, "pack": "fluffy", "shared_artwork": f"official/hand/{tile_id}.png"})
             save(image, f"Cards/Faces/fluffy/table/{tile_id}.png", path,
                  {**details, "pack": "fluffy", "shared_artwork": f"official/table/{tile_id}.png"})
 
+    for key in ("source", "extracted", "hand", "table", "hand_bottom", "table_bottom"):
+        if len(manzu_repeats) != 10 or len({item[key] for item in manzu_repeats}) != 1:
+            raise ValueError(f"Repeated Snow manzu glyphs must match exactly: {key}")
+    report["repeated_manzu_glyph"] = {"all_ten_match": True, "tiles": manzu_repeats}
+
     # Atlas-only 0 has no foreground artwork. Its surface is controlled by the
     # material/background layer; the navy hand back is an independent resource.
     save(Image.new("RGBA", CANVAS), "Cards/Faces/official/table/0.png", SNOW_SOURCES / "2.png",
-         {"pack": "official-atlas-only", "tile_id": 0, "operation": "fully transparent empty foreground"})
+         {"pack": "official-atlas-only", "tile_id": 0, "operation": "fully transparent empty foreground",
+          "table_image_scale": SNOW_TABLE_IMAGE_SCALE, "table_image_scale_png_key": TABLE_IMAGE_SCALE_PNG_KEY})
 
     for pack in ("fluffy", "hkmahjong"):
         written = set(range(51, 59)) if pack == "fluffy" else set()
@@ -476,7 +601,7 @@ def export_pack_assets(resource_root: Path, export_root: Path) -> dict:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT, help="directory corresponding to Resources/image")
-    parser.add_argument("--report", type=Path, default=TILES / "face-build.json")
+    parser.add_argument("--report", type=Path, default=ROOT / ".om_workspace/tilepack-build/face-build.json")
     parser.add_argument("--export-root", type=Path, help="also mirror complete packs/ and surfaces/ under this folder")
     args = parser.parse_args()
     report = rebuild(args.output_root.resolve(), args.report.resolve())

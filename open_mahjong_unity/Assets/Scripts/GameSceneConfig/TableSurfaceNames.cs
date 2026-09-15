@@ -56,6 +56,7 @@ public static class TableSurfaceNames
 
     public static string ClothDisplayName(string resourceName)
     {
+        if (TableClothStyles.IsSolid(resourceName)) return TableClothStyles.DisplayName(resourceName);
         return TryGetMetalSeam(resourceName, out int style, out int background)
             ? SeamDisplayName(NormalizeSeamStyle(style)) + " · " + Backgrounds[background]
             : resourceName;
@@ -69,7 +70,15 @@ public static class TableSurfaceNames
 
     public static int ClothSortOrder(string resourceName)
     {
+        if (TableClothStyles.IsSolid(resourceName)) return int.MaxValue;
+        // Keep the three original cloths first, with MainScene's default blue first.
+        switch (resourceName)
+        {
+            case "Tablecloth_blue": return -3;
+            case "Tablecloth_green": return -2;
+            case "Tablecloth_green2": return -1;
+        }
         return TryGetMetalSeam(resourceName, out int style, out int background)
-            ? style * 3 + background : int.MaxValue;
+            ? style * 3 + background : 100;
     }
 }

@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-/// <summary>Cut ends for the original turn Image, preserving its live vertex colour and flash alpha.</summary>
+/// <summary>Cut ends for the original turn Image, preserving its live colour and uniform opacity.</summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Image))]
 public sealed class CenterTurnMesh : BaseMeshEffect
@@ -22,6 +22,8 @@ public sealed class CenterTurnMesh : BaseMeshEffect
         if (!IsActive() || mesh.currentVertCount == 0) return;
         UIVertex source = UIVertex.simpleVert;
         mesh.PopulateUIVertex(ref source, 0);
+        // UIVertex stores Color32: convert once before using its alpha as a float.
+        Color sourceColor = source.color;
         Rect rect = graphic.rectTransform.rect;
         Vector2[] points = taper ? new[] {
             new Vector2(-rect.width / 2 + 1.4f, -rect.height / 2), new Vector2(rect.width / 2 - 1.4f, -rect.height / 2),
@@ -38,8 +40,8 @@ public sealed class CenterTurnMesh : BaseMeshEffect
         mesh.AddVert(vertex);
         foreach (Vector2 point in points)
         {
-            Color lit = Color.Lerp(source.color, Color.white, point.y > 0 ? highlight : 0);
-            lit.a = source.color.a; vertex.color = lit;
+            Color lit = Color.Lerp(sourceColor, Color.white, point.y > 0 ? highlight : 0);
+            lit.a = sourceColor.a; vertex.color = lit;
             vertex.position = center + point;
             mesh.AddVert(vertex);
         }

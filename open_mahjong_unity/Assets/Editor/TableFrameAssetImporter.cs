@@ -39,6 +39,11 @@ public sealed class TableFrameAssetImporter : AssetPostprocessor
 
     private void OnPreprocessTexture()
     {
+        if (TableSurfaceCompressionPolicy.IsTarget(assetPath))
+        {
+            TableSurfaceCompressionPolicy.Configure((TextureImporter)assetImporter);
+            return;
+        }
         if (!assetPath.EndsWith(".png", StringComparison.Ordinal)) return;
         bool baseLayer = assetPath.StartsWith(Root + "Textures/", StringComparison.Ordinal);
         bool overlay = assetPath.StartsWith(Root + "Lighting/", StringComparison.Ordinal)

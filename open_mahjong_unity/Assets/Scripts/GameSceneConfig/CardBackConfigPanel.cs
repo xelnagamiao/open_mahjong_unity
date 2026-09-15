@@ -183,13 +183,7 @@ public class CardBackConfigPanel : MonoBehaviour
 
     private void ApplyHex()
     {
-        if (!SceneConfigUi.TryParseHex(hexInput.text, out Color color))
-        {
-            SceneConfigUi.ShowTip("HEX 格式不正确");
-            return;
-        }
-        SetColor(color);
-        SceneConfigUi.ShowTip("颜色已应用");
+        SceneConfigUi.ApplyHex(hexInput, SetColor, "颜色已应用");
     }
 
     private void RestoreDefault()
@@ -318,18 +312,7 @@ public class CardBackConfigPanel : MonoBehaviour
     {
         if (source == null) return;
 
-        RenderTexture rt = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.ARGB32);
-        Graphics.Blit(source, rt);
-        RenderTexture prev = RenderTexture.active;
-        RenderTexture.active = rt;
-        Texture2D copy = new Texture2D(source.width, source.height, TextureFormat.RGBA32, false);
-        copy.ReadPixels(new Rect(0f, 0f, source.width, source.height), 0, 0);
-        copy.Apply();
-        RenderTexture.active = prev;
-        RenderTexture.ReleaseTemporary(rt);
-
-        byte[] bytes = copy.EncodeToPNG();
-        Destroy(copy);
+        byte[] bytes = SceneConfigTextureCapture.EncodePng(source);
         ApplyCardBackPng(bytes);
         SceneConfigUi.ShowTip("牌背图片已应用");
     }

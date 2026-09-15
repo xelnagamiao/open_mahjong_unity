@@ -223,7 +223,8 @@ public class CardFaceConfigPanel : MonoBehaviour {
                 ? TileFaceResolver.PreviewTable(slot.tileId)
                 : TileFaceResolver.PreviewHand(slot.tileId);
             // 使用对局相同的叠图规则；背景由独立页面管理。
-            if (table) slot.ApplyTable(sprite, tableBackground, TileFaceResolver.TablePreviewBaseColor, dim);
+            if (table) slot.ApplyTable(sprite, tableBackground, TileFaceResolver.TablePreviewBaseColor, dim,
+                TileFaceResolver.TableImageScaleFor(slot.tileId, applyWhiteDragonFaceSetting: false));
             else {
                 Sprite background = !showingHongque && TileFaceResolver.ShouldLayerHandFace(slot.tileId)
                     ? TileFaceResolver.LoadHandBackground() : null;

@@ -73,6 +73,8 @@ public static class TableSurfacePreviewBuilder
     internal static bool IsSourcePath(string path)
     {
         path = path.Replace('\\', '/').TrimEnd('/');
+        if (path.StartsWith("Assets/Resources/TableFrame/", StringComparison.Ordinal) ||
+            path.StartsWith("Assets/TableFrame/SceneAssets/", StringComparison.Ordinal)) return true;
         if (path == SourceRoot) return true;
         return Categories.Any(category => path == SourceRoot + "/" + category ||
             path.StartsWith(SourceRoot + "/" + category + "/", StringComparison.Ordinal));
@@ -120,6 +122,7 @@ public static class TableSurfacePreviewBuilder
             var sources = new List<Source>();
             foreach (string category in Categories)
             {
+                if (category == "Edge") continue;
                 string directory = SourceRoot + "/" + category;
                 if (!Directory.Exists(directory)) continue;
                 // Built-in table surfaces are PNG; JPEG additions are supported too.
@@ -127,16 +130,18 @@ public static class TableSurfacePreviewBuilder
                     .Where(IsSupportedImage).OrderBy(path => Path.GetFileNameWithoutExtension(path), StringComparer.Ordinal))
                 {
                     string stem = Path.GetFileNameWithoutExtension(file);
+                    if (category == "TableCloth" && TableClothStyles.IsSolid(stem)) continue;
                     sources.Add(new Source { path = file.Replace('\\', '/'), category = category,
                         stem = stem, output = PreviewRoot + "/" + category + "/" + stem + ".png" });
                 }
             }
-            // A tone variant shares its full-size source; only its small preview is separate.
-            Source orange = sources.FirstOrDefault(source => source.category == "Edge" && source.stem == TableFrameStyles.Default);
-            if (orange != null)
-                sources.Add(new Source { path = orange.path, category = "Edge", stem = TableFrameStyles.Deep,
-                    output = PreviewRoot + "/Edge/" + TableFrameStyles.Deep + ".png" });
-            if (sources.GroupBy(source => source.output, StringComparer.OrdinalIgnoreCase).Any(group => group.Count() > 1))
+            foreach (string name in TableClothStyles.SolidNames)
+                sources.Add(new Source { category = "TableCloth", stem = name });
+            foreach (string name in TableFrameStyles.OrderedNames)
+                sources.Add(new Source { category = "Edge", stem = name, path = TableFrameStyles.IsSolid(name) ? null :
+                    "Assets/Resources/" + TableFrameRenderer.BaseResourceDirectory + TableFrameStyles.SourceName(name) + ".png",
+                    output = PreviewRoot + "/Edge/" + name + ".png" });
+            if (sources.Where(source => source.output != null).GroupBy(source => source.output, StringComparer.OrdinalIgnoreCase).Any(group => group.Count() > 1))
                 throw new InvalidOperationException("Table preview source names must be unique within each category.");
 
             EnsureFolder(PreviewRoot);
@@ -145,7 +150,9 @@ public static class TableSurfacePreviewBuilder
             int encoded = 0;
             foreach (Source source in sources)
             {
-                string fingerprint = FingerprintPrefix + HashFile(source.path);
+                if (source.path == null && source.category != "Edge") continue;
+                string fingerprint = source.category == "Edge" ? FingerprintPrefix + TableFramePreviewRenderer.Fingerprint(source.stem, source.path)
+                    : FingerprintPrefix + HashFile(source.path);
                 Vector4 tone = source.category == "Edge" ? TableFrameStyles.BaseTone(source.stem) : Vector4.one;
                 if (source.category == "Edge" && source.stem == TableFrameStyles.Deep)
                     fingerprint += ":tone-v1:" + string.Join(",", new[] { tone.x, tone.y, tone.z, tone.w }
@@ -154,7 +161,8 @@ public static class TableSurfacePreviewBuilder
                 // A source importer/meta-only change does not alter the image bytes.
                 // The committed offline derivatives carry this same fingerprint.
                 if (File.Exists(source.output) && importer != null && importer.userData == fingerprint) continue;
-                byte[] png = ResizeOnGpu(source.path, tone);
+                byte[] png = source.category == "Edge" ? TableFramePreviewRenderer.Render(source.stem, source.path, PreviewSize)
+                    : ResizeOnGpu(source.path, tone);
                 if (!File.Exists(source.output) || !File.ReadAllBytes(source.output).SequenceEqual(png))
                     File.WriteAllBytes(source.output, png);
                 AssetDatabase.ImportAsset(source.output, ImportAssetOptions.ForceUpdate);
@@ -187,7 +195,7 @@ public static class TableSurfacePreviewBuilder
                     category == "Edge" ? TableFrameStyles.SortOrder(source.stem) : int.MaxValue)
                 .ThenBy(source => source.stem, StringComparer.Ordinal)
                 .Select(source => new Entry { name = source.stem,
-                    preview = "TableSurfacePreviews/" + category + "/" + source.stem,
+                    preview = source.output == null ? "" : "TableSurfacePreviews/" + category + "/" + source.stem,
                     displayName = category == "TableCloth" ? TableSurfaceNames.ClothDisplayName(source.stem) :
                         category == "Edge" ? TableFrameStyles.DisplayName(source.stem) : source.stem }).ToArray();
             string json = JsonUtility.ToJson(new Catalog { cloth = entries("TableCloth"), edge = entries("Edge"), seams = entries("TableSeams") }, true) + "\n";

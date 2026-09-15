@@ -1284,6 +1284,32 @@ class DatabaseManager:
                 cursor.close()
                 self._put_connection(conn)
     
+    def get_users_by_login_email(self, email: str):
+        """最多读取两项以检测历史重复邮箱，不把未验证邮箱视为所有权凭据。
+
+        邮箱仅定位账户，登录仍须验证该账户的密码及封禁状态。
+        """
+        conn = None
+        cursor = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                "SELECT * FROM users WHERE LOWER(email) = %s AND is_tourist = FALSE LIMIT 2",
+                (email.strip().lower(),),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+        except Error:
+            logger.exception("查询登录邮箱失败")
+            if conn:
+                conn.rollback()
+            return []
+        finally:
+            if cursor is not None:
+                cursor.close()
+            if conn:
+                self._put_connection(conn)
+
     def get_user_by_user_id(self, user_id: int) -> Optional[Dict[str, Any]]:
         """
         根据用户ID获取用户信息

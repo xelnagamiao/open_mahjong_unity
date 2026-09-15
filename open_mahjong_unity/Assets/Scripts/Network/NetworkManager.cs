@@ -895,7 +895,7 @@ public class NetworkManager : MonoBehaviour {
 
     // 4.以下是所有定义的消息发送类型 客户端所有消息发送都通过以下列表
     // 4.1 登录方法 login 从LoginPanel发送
-    public async void Login(string username, string password, bool is_tourist = false){
+    public async void Login(string username, string password, bool is_tourist = false, string loginType = "username"){
         try {
             if (websocket.State != WebSocketState.Open) {
                 NotificationManager.Instance.ShowTip("登录", false, "尚未连接至OMU服务器");
@@ -905,11 +905,12 @@ public class NetworkManager : MonoBehaviour {
             // 如果网络连接成功，则发送登录消息
             var request = new LoginRequest {
                 type = "login",
+                login_type = loginType,
                 username = is_tourist ? null : username,  // 游客登录时username为null
                 password = is_tourist ? null : password,  // 游客登录时password为null
                 is_tourist = is_tourist
             };
-            Debug.Log($"发送登录消息: username={(is_tourist ? "null" : username)}, password={(is_tourist ? "null" : "***")}, is_tourist={is_tourist}");
+            Debug.Log($"发送登录请求: login_type={loginType}, is_tourist={is_tourist}");
             await websocket.SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             Debug.LogError($"登录发送错误: {e.Message}");
