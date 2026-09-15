@@ -61,17 +61,25 @@ public partial class GameCanvas : MonoBehaviour {
     [Header("操作按钮颜色预设")]
     [SerializeField] private ActionButtonColorPresets actionButtonColorPresets = new ActionButtonColorPresets();
 
+    /// <summary>本次 SetActionButton 新建的一次性询问按钮数；常驻槽位按钮不计。</summary>
+    private int createdRegularButtonCount;
+
     private ActionButton CreateActionButton(ActionButtonColorPreset preset) {
-        ActionButton actionButton = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+        ActionButton actionButton = Instantiate(ActionButtonPrefab, ActionButtonHost);
         Button button = actionButton.GetComponent<Button>();
         if (button != null && preset != null) {
             button.colors = preset.ToColorBlock();
         }
         ConfigureActionButtonText(actionButton.TextObject);
+        createdRegularButtonCount++;
         return actionButton;
     }
 
-    private void SetExtraActionButtonVisible(bool visible) {
+    /// <summary>
+    /// 常驻槽位按钮（ExtraActionButton）：显示词表里归为 Persistent 的词；传 null 隐藏。
+    /// 槽位不随询问生成/销毁，所以文案与配色都从词表取，核心不认识具体的词。
+    /// </summary>
+    private void SetPersistentActionButton(string persistentWord) {
         if (ExtraActionButton == null) return;
         ActionButton actionButton = ExtraActionButton.GetComponent<ActionButton>();
         if (actionButton == null) {
@@ -79,12 +87,13 @@ public partial class GameCanvas : MonoBehaviour {
             return;
         }
         actionButton.actionTypeList.Clear();
+        bool visible = !string.IsNullOrEmpty(persistentWord);
         if (visible) {
-            actionButton.actionTypeList.Add("hongque_supplement");
-            actionButton.TextObject.text = HongqueTableAdapter.GetActionLabel("hongque_supplement");
+            actionButton.actionTypeList.Add(persistentWord);
+            actionButton.TextObject.text = ActionWords.LabelOf(persistentWord) ?? persistentWord;
             ConfigureActionButtonText(actionButton.TextObject);
             Button button = actionButton.GetComponent<Button>();
-            ActionButtonColorPreset preset = GetActionButtonColorPreset("hongque_supplement");
+            ActionButtonColorPreset preset = GetActionButtonColorPreset(persistentWord);
             if (button != null && preset != null) button.colors = preset.ToColorBlock();
         }
         ExtraActionButton.gameObject.SetActive(visible);
@@ -101,7 +110,7 @@ public partial class GameCanvas : MonoBehaviour {
     }
 
     private ActionButtonColorPreset GetActionButtonColorPreset(string action) {
-        if (!ConfigManager.Instance.ActionButtonColorEnabled) {
+        if (!GameSettings.Current.ActionButtonColorEnabled) {
             return actionButtonColorPresets.fallback;
         }
         switch (action) {
@@ -138,27 +147,55 @@ public partial class GameCanvas : MonoBehaviour {
             case "force_pass":
                 return actionButtonColorPresets.pass;
             default:
-                return actionButtonColorPresets.fallback;
+                return GetActionButtonColorPresetByKind(ActionWords.KindOf(action));
         }
     }
 
-    private static bool IsChangshaActionContext() {
-        return NormalGameStateManager.Instance.roomRule == "changsha";
+    /// <summary>规则模块登记的词按词表类别配色，未归类的词用默认色。</summary>
+    private ActionButtonColorPreset GetActionButtonColorPresetByKind(ActionWordKind kind) {
+        switch (kind) {
+            case ActionWordKind.Chi: return actionButtonColorPresets.chi;
+            case ActionWordKind.Peng: return actionButtonColorPresets.peng;
+            case ActionWordKind.MingGang: return actionButtonColorPresets.gang;
+            case ActionWordKind.Ron: return actionButtonColorPresets.hu;
+            case ActionWordKind.Tsumo: return actionButtonColorPresets.huSelf;
+            case ActionWordKind.Pass: return actionButtonColorPresets.pass;
+            default: return actionButtonColorPresets.fallback;
+        }
+    }
+
+    /// <summary>标准词的按钮文案：清单覆盖（长沙"开杠"……）→ 词表 → 通用文案。</summary>
+    private static string ButtonCaption(string word) {
+        return StandardActionCaptions.Resolve(RuleRegistry.Current, word);
     }
 
     /// <summary>按当前开关与预设，刷新 ActionButtonContainer 内已有按钮配色。</summary>
     public void RefreshActionButtonColors() {
-        if (ActionButtonContainer == null) return;
-        for (int i = 0; i < ActionButtonContainer.childCount; i++) {
-            ActionButton actionButton = ActionButtonContainer.GetChild(i).GetComponent<ActionButton>();
-            if (actionButton == null || actionButton.actionTypeList == null || actionButton.actionTypeList.Count == 0) {
+        RefreshActionButtonColorsIn(ActionButtonContainer);
+        RefreshActionButtonColorsIn(DedicatedActionButtonContainer);
+        RefreshActionButtonColorsIn(ExtraActionButton);
+    }
+
+    private void RefreshActionButtonColorsIn(Transform root) {
+        if (root == null) return;
+        ActionButton actionButton = root.GetComponent<ActionButton>();
+        if (actionButton != null && actionButton.actionTypeList != null && actionButton.actionTypeList.Count > 0) {
+            ApplyActionButtonColor(actionButton);
+        }
+        for (int i = 0; i < root.childCount; i++) {
+            ActionButton child = root.GetChild(i).GetComponent<ActionButton>();
+            if (child == null || child.actionTypeList == null || child.actionTypeList.Count == 0) {
                 continue;
             }
-            ActionButtonColorPreset preset = GetActionButtonColorPreset(actionButton.actionTypeList[0]);
-            Button button = actionButton.GetComponent<Button>();
-            if (button != null && preset != null) {
-                button.colors = preset.ToColorBlock();
-            }
+            ApplyActionButtonColor(child);
+        }
+    }
+
+    private void ApplyActionButtonColor(ActionButton actionButton) {
+        ActionButtonColorPreset preset = GetActionButtonColorPreset(actionButton.actionTypeList[0]);
+        Button button = actionButton.GetComponent<Button>();
+        if (button != null && preset != null) {
+            button.colors = preset.ToColorBlock();
         }
     }
 
@@ -166,8 +203,7 @@ public partial class GameCanvas : MonoBehaviour {
     public void SetActionButton(List<string> action_list){
         action_list = action_list ?? new List<string>();
         bool isSeaBottomAsk = action_list.Contains("sea_bottom");
-        bool showExtraAction = HongqueTableAdapter.IsActive
-            && action_list.Contains("hongque_supplement");
+        string persistentWord = ActionWords.First(action_list, ActionWordKind.Persistent);
         // 用于跟踪吃牌按钮
         ActionButton chiButton = null;
         // 用于跟踪暗杠按钮
@@ -178,26 +214,28 @@ public partial class GameCanvas : MonoBehaviour {
         ActionButton jiagangButton = null;
 
         // 清空按钮
-        foreach (Transform child in ActionButtonContainer){
-            if (child != ExtraActionButton) Destroy(child.gameObject);
-        }
-        SetExtraActionButtonVisible(showExtraAction);
+        ClearSpawnedActionButtons(ActionButtonContainer);
+        ClearSpawnedActionButtons(DedicatedActionButtonContainer);
+        SetPersistentActionButton(persistentWord);
 
-        int createdRegularButtonCount = 0;
+        createdRegularButtonCount = 0;
 
         for (int i = 0; i < action_list.Count; i++){
 
             Debug.Log($"询问操作: {action_list[i]}");
             ActionButtonColorPreset colorPreset = GetActionButtonColorPreset(action_list[i]);
 
-            // “补牌”使用场景中预留的可持续按钮，不再生成一次性操作按钮。
-            if (action_list[i] == "hongque_supplement") continue;
+            // 常驻槽位词已由 SetPersistentActionButton 处理，不再生成一次性按钮。
+            if (action_list[i] == persistentWord) continue;
+            // cut 只开放手牌点击，不做成行动按钮。
+            if (action_list[i] == "cut") continue;
 
-            if (action_list[i].StartsWith("hongque_")) {
+            // 规则模块登记并自带文案的词：一词一按钮，展开/直发由 ActionButton 按词表决定。
+            string moduleLabel = ActionWords.LabelOf(action_list[i]);
+            if (moduleLabel != null) {
                 ActionButton actionButton = CreateActionButton(colorPreset);
-                actionButton.TextObject.text = HongqueTableAdapter.GetActionLabel(action_list[i]);
+                actionButton.TextObject.text = moduleLabel;
                 actionButton.actionTypeList.Add(action_list[i]);
-                createdRegularButtonCount++;
                 continue;
             }
 
@@ -215,13 +253,13 @@ public partial class GameCanvas : MonoBehaviour {
                 Debug.Log($"杠牌");
                 ActionButton ActionButtonObj = CreateActionButton(colorPreset);
                 TMP_Text buttonText = ActionButtonObj.TextObject;
-                buttonText.text = IsChangshaActionContext() ? "开杠" : "杠";
+                buttonText.text = ButtonCaption("gang");
                 Debug.Log($"杠牌按钮: {ActionButtonObj}");
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
             // 胡牌
             else if (action_list[i] == "hu_self"){
-                string huSelfText = GetHuSelfActionText();
+                string huSelfText = ButtonCaption("hu_self");
                 Debug.Log(huSelfText);
                 ActionButton ActionButtonObj = CreateActionButton(colorPreset);
                 TMP_Text buttonText = ActionButtonObj.TextObject;
@@ -256,7 +294,7 @@ public partial class GameCanvas : MonoBehaviour {
                 Debug.Log($"和牌");
                 ActionButton ActionButtonObj = CreateActionButton(colorPreset);
                 TMP_Text buttonText = ActionButtonObj.TextObject;
-                buttonText.text = "和";
+                buttonText.text = ButtonCaption(action_list[i]);
                 Debug.Log($"和牌按钮: {ActionButtonObj}");
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
@@ -275,7 +313,7 @@ public partial class GameCanvas : MonoBehaviour {
                 if (angangButton == null) {
                     angangButton = CreateActionButton(colorPreset);
                     TMP_Text buttonText = angangButton.TextObject;
-                    buttonText.text = IsChangshaActionContext() ? "开杠" : "暗杠";
+                    buttonText.text = ButtonCaption("angang");
                     Debug.Log($"暗杠按钮: {angangButton}");
                 }
                 angangButton.actionTypeList.Add(action_list[i]);
@@ -297,7 +335,7 @@ public partial class GameCanvas : MonoBehaviour {
                 if (jiagangButton == null) {
                     jiagangButton = CreateActionButton(colorPreset);
                     TMP_Text buttonText = jiagangButton.TextObject;
-                    buttonText.text = IsChangshaActionContext() ? "开杠" : "加杠";
+                    buttonText.text = ButtonCaption("jiagang");
                     Debug.Log($"加杠按钮: {jiagangButton}");
                 }
                 jiagangButton.actionTypeList.Add(action_list[i]);
@@ -323,7 +361,7 @@ public partial class GameCanvas : MonoBehaviour {
             }
             // 听牌声明（仅在服务器允许时下发；点击后进入声明切牌选择模式）
             else if (action_list[i] == "riichi_cut"){
-                string readyText = ReadyDeclarationTextDictionary.GetReadyDeclarationText(NormalGameStateManager.Instance.roomRule);
+                string readyText = ButtonCaption("riichi_cut");
                 Debug.Log(readyText);
                 ActionButton ActionButtonObj = CreateActionButton(colorPreset);
                 TMP_Text buttonText = ActionButtonObj.TextObject;
@@ -346,12 +384,9 @@ public partial class GameCanvas : MonoBehaviour {
             }
         }
 
-        // 播放操作按钮出现音效
-        // 单独出现持续型 ExtraActionButton 时保持安静；同时有其他询问按钮才播放提示音。
-        bool shouldPlayAppearSound = HongqueTableAdapter.IsActive
-            ? createdRegularButtonCount > 0
-            : ActionButtonContainer.childCount > 0;
-        if (shouldPlayAppearSound) {
+        // 播放操作按钮出现音效：只数本次新建的询问按钮。
+        // 单独出现常驻槽位按钮时保持安静；被 Destroy 的旧按钮本帧仍在 childCount 里，不能拿它判断。
+        if (createdRegularButtonCount > 0) {
             SoundManager.Instance.PlayActionButtonAppearSound();
         }
 
@@ -362,8 +397,10 @@ public partial class GameCanvas : MonoBehaviour {
     // 选择行动
     public void ChooseAction(string actionType, int targetTile, int chiComboIndex = -1){
         if (NormalGameStateManager.Instance.IsRealtimeSpectator) return;
-        if (HongqueTableAdapter.IsActive && HongqueTableAdapter.Instance.TryChooseAction(actionType)) return;
-        NormalGameStateManager.Instance.CancelWaitAutoAction($"ChooseAction({actionType})");
+        // 有自己出站通道的族（如虹雀）自行发送动作，核心不再走通用 SendAction
+        IGameState state = RuleRegistry.ActiveGameState;
+        if (state != null && state.TryChooseAction(actionType)) return;
+        AutoActionPolicy.Current.Cancel($"ChooseAction({actionType})");
         NormalGameStateManager.Instance.SwitchCurrentPlayer("self","ClearAction",0);
         // 发送行动：立直麻将涉赤 5 时通过 chiComboIndex 指明所选吃牌候选（默认 0 表示优先非赤 5）
         int idx = chiComboIndex >= 0 ? chiComboIndex : 0;
@@ -371,13 +408,8 @@ public partial class GameCanvas : MonoBehaviour {
     }
 
     public void TrySendPassFromShortcut() {
-        if (HongqueTableAdapter.IsActive) {
-            if (NormalGameStateManager.Instance.allowActionList.Contains("hongque_pass")) {
-                ChooseAction("hongque_pass", 0);
-            }
-            return;
-        }
-        if (!NormalGameStateManager.Instance.allowActionList.Contains("pass")) return;
-        ChooseAction("pass", 0);
+        string passAction = ActionWords.First(NormalGameStateManager.Instance.allowActionList, ActionWordKind.Pass);
+        if (passAction == null) return;
+        ChooseAction(passAction, 0);
     }
 }

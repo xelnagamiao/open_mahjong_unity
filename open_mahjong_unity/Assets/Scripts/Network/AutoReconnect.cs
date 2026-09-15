@@ -137,7 +137,7 @@ public static class AutoReconnect {
     /// </summary>
     public static void CancelForSessionReset() {
         CoroutineManager.Ensure();
-        CoroutineManager.Instance.StopNamed(CoroutineKeys.NetworkAutoReconnect);
+        CoroutineManager.Instance?.StopNamed(CoroutineKeys.NetworkAutoReconnect);
         _state = State.Idle;
         _snapshot = default;
         _waitState = null;
@@ -161,7 +161,8 @@ public static class AutoReconnect {
             WasLoggedIn = udm.UserId != 0,
             WasInGame = isInGame,
             WasSpectating = wasSpectating,
-            Username = udm.SavedLoginUsername ?? "",
+            // 邮箱只用于首次定位账户；重连固定使用服务端返回的真实用户名。
+            Username = udm.Username ?? udm.SavedLoginUsername ?? "",
             Password = udm.SavedLoginPassword ?? "",
         };
     }
@@ -180,7 +181,7 @@ public static class AutoReconnect {
         // 只有在 Phase 0 探活确认旧连接确实已断开后，才进入恢复流程并调整 UI，
         // 避免「截图等临时失焦但连接仍存活」时误把玩家踢出对局或退出登录。
         CoroutineManager.Ensure();
-        CoroutineManager.Instance.RunNamed(
+        CoroutineManager.Instance?.RunNamed(
             CoroutineKeys.NetworkAutoReconnect,
             AutoReconnectRoutine(),
             restartIfRunning: true
@@ -227,6 +228,7 @@ public static class AutoReconnect {
         }
 
         // 走到这里说明已确认断线，正式进入恢复流程。此时才提示并离开可能失效的对局界面。
+        GameSceneUIManager.ResetRealtimeSpectatorUi();
         NotificationManager.Instance.ShowTip("重连", true, "正在恢复连接…");
         // 服务端 disconnect 会静默移出匹配等待队列且不发 leave_queue_done；
         // 必须在此对齐本地排队/匹配成功面板，否则切回匹配页会误显示仍在匹配。
@@ -429,7 +431,7 @@ public static class AutoReconnect {
             _waitState = null;
             _backgroundDisconnectDetected = false;
             CoroutineManager.Ensure();
-            CoroutineManager.Instance.RunNamed(
+            CoroutineManager.Instance?.RunNamed(
                 CoroutineKeys.NetworkAutoReconnect,
                 DeferredRetryRoutine(_retryCycle),
                 restartIfRunning: true

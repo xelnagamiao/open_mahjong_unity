@@ -7,16 +7,16 @@ public partial class Game3DManager : MonoBehaviour
     /// <summary>副露组与组之间额外空隙（相对牌宽）；开启“副露间距”设置时生效。</summary>
     private const float CombinationGroupGapFactor = 0.2f;
 
-    /// <summary>虹雀副露统一竖排：认走张（flag=1）也按竖牌摆放，杠张顺排左右。</summary>
-    private static bool IsHongqueVerticalMelds() {
-        NormalGameStateManager gsm = NormalGameStateManager.Instance;
-        return gsm != null && gsm.roomRule == "hongque";
+    /// <summary>副露统一竖排（由规则清单声明，如虹雀）：认走张（flag=1）也按竖牌摆放，杠张顺排左右。</summary>
+    private static bool IsVerticalMelds() {
+        RuleManifest rule = RuleRegistry.Current;
+        return rule != null && rule.VerticalMelds;
     }
 
-    /// <summary>副露组间距：虹雀固定保留（优先于设置），其它规则按设置开关。</summary>
+    /// <summary>副露组间距：竖排副露规则固定保留（优先于设置），其它规则按设置开关。</summary>
     private float MeldSpacingGap() {
-        bool enabled = IsHongqueVerticalMelds()
-            || (ConfigManager.Instance != null && ConfigManager.Instance.MeldSpacingEnabled);
+        bool enabled = IsVerticalMelds()
+            || (GameSettings.Current.MeldSpacingEnabled);
         return enabled ? cardWidth * CombinationGroupGapFactor : 0f;
     }
 
@@ -127,6 +127,7 @@ public partial class Game3DManager : MonoBehaviour
                 // 叠在碰横牌桌心侧：两横牌短边相对，中心距 = cardWidth
                 TempPositionpoint += JiagangDirection * cardWidth;
 
+                TempPositionpoint = PlaceTileOnTable(TempPositionpoint, TempRotation);
                 GameObject cardObj = MahjongObjectPool.Instance.Spawn(jiagangTileId, TempPositionpoint, TempRotation);
                 if (cardObj == null)
                 {
@@ -164,7 +165,7 @@ public partial class Game3DManager : MonoBehaviour
             }
 
             // 虹雀竖排：认走张不旋转、不用长槽；其它规则保持原横置约定。
-            bool claimedHorizontal = sign == 1 && !IsHongqueVerticalMelds();
+            bool claimedHorizontal = sign == 1 && !IsVerticalMelds();
             Quaternion TempRotation = rotation;
             float slotWidth = claimedHorizontal ? cardHeight : cardWidth;
             if (claimedHorizontal) {
@@ -192,11 +193,12 @@ public partial class Game3DManager : MonoBehaviour
             hasPrevInGroup = true;
             lastPlacedSlot = slotWidth;
 
-            if (sign == 1 && actionType == "peng" && !IsHongqueVerticalMelds()) {
+            if (sign == 1 && actionType == "peng" && !IsVerticalMelds()) {
                 int pengDictKey = GameRecordMeldCodec.NormalizeMeldsLookupTileId(SetTileList[i]);
                 pengToJiagangPosDict[pengDictKey] = TempPositionpoint;
             }
 
+            TempPositionpoint = PlaceTileOnTable(TempPositionpoint, TempRotation);
             int tileId = SetTileList[i];
             GameObject cardObj;
             if (tileId == 0) {
@@ -312,7 +314,7 @@ public partial class Game3DManager : MonoBehaviour
                 if (sign == 4) continue;
 
                 // 虹雀竖排：认走张（flag=1）也不旋转、不用长槽。
-                bool claimedHorizontal = sign == 1 && !IsHongqueVerticalMelds();
+                bool claimedHorizontal = sign == 1 && !IsVerticalMelds();
                 Quaternion tileRotation = rotation;
                 float slotWidth = claimedHorizontal ? cardHeight : cardWidth;
                 if (claimedHorizontal) {
@@ -336,6 +338,7 @@ public partial class Game3DManager : MonoBehaviour
                 lastPlacedSlot = slotWidth;
 
                 int tileId = tileList[i];
+                tilePosition = PlaceTileOnTable(tilePosition, tileRotation);
                 GameObject cardObj = MahjongObjectPool.Instance.Spawn(tileId, tilePosition, tileRotation);
                 if (cardObj == null) {
                     Debug.LogError($"无法从对象池获取牌: {tileId}");

@@ -1,0 +1,20 @@
+#
+# The target tileset.
+#
+/smooth.png
+
+#
+# Intermediate files.
+#
+/tmp/
+
+#
+# Ignore artifacts from editors, patching, etc.
+#
+*~
+*,bak
+\#*\#
+.\#*
+*.orig
+*.rej
+

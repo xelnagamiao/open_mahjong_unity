@@ -235,6 +235,12 @@ public class Card3DHoverManager : MonoBehaviour
         ApplyCardVisual(data, hovered);
     }
 
+    /// <summary>牌背/牌边配置或材质重绑定后，以新基础色保留该牌的悬停、摸切与铳牌提示。</summary>
+    public void RefreshCardVisual(GameObject cardObj) {
+        if (cardObj == null || !cardMaterialData.TryGetValue(cardObj, out CardMaterialData data)) return;
+        ApplyCardBaseColors(cardObj, data);
+    }
+
     private void ApplyCardVisual(CardMaterialData data, bool hovered) {
         Tile3D tile3D = data.tile3D;
         if (tile3D == null) return;

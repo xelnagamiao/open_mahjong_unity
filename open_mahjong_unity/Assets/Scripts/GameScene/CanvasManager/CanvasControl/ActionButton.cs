@@ -86,8 +86,10 @@ public class ActionButton : MonoBehaviour {
 
     // 按钮点击事件
     void OnClick(){
-        if (actionTypeList.Count == 1 && actionTypeList[0].StartsWith("hongque_group:")) {
-            ShowHongqueCandidates(actionTypeList[0].Substring("hongque_group:".Length));
+        // 规则模块登记为"点击后展开"的词（虹雀 hongque_group:*）：子按钮内容由词表给出，这里只负责摆
+        if (actionTypeList.Count == 1
+            && ActionWords.TryExpand(actionTypeList[0], out IReadOnlyList<ActionCandidate> moduleCandidates)) {
+            ToggleModuleCandidates(actionTypeList[0], moduleCandidates);
             return;
         }
         // 立直按钮：进入立直选牌模式（隐藏其他按钮、按候选切牌变暗手牌、点击切牌发送 riichi_cut）
@@ -194,23 +196,21 @@ public class ActionButton : MonoBehaviour {
         }
     }
 
-    private void ShowHongqueCandidates(string kind) {
-        if (!HongqueTableAdapter.IsActive) return;
-        string containerState = "hongque_" + kind;
-        bool close = GameCanvas.Instance.ActionBlockContainerState == containerState;
+    /// <summary>展开/收起规则模块给出的候选子按钮；再次点击同一组词时收起。</summary>
+    private void ToggleModuleCandidates(string groupWord, IReadOnlyList<ActionCandidate> candidates) {
+        bool close = GameCanvas.Instance.ActionBlockContainerState == groupWord;
         foreach (Transform child in ActionBlockContenter) Destroy(child.gameObject);
         if (close) {
             GameCanvas.Instance.ActionBlockContainerState = "None";
             return;
         }
-        GameCanvas.Instance.ActionBlockContainerState = containerState;
-        foreach (HongqueCandidateInfo candidate in HongqueTableAdapter.Instance.GetCandidates(kind)) {
+        GameCanvas.Instance.ActionBlockContainerState = groupWord;
+        foreach (ActionCandidate candidate in candidates) {
+            if (string.IsNullOrEmpty(candidate.ActionType)) continue;
             GameObject blockObject = Instantiate(ActionBlockPrefab, ActionBlockContenter);
             ActionBlock block = blockObject.GetComponent<ActionBlock>();
-            block.actionType = HongqueTableAdapter.Instance.EncodeCandidateAction(candidate);
-            foreach (string tileCode in candidate.tiles ?? System.Array.Empty<string>()) {
-                int tileId = HongqueTileVisual.FromCode(tileCode);
-                if (tileId == 0) continue;
+            block.actionType = candidate.ActionType;
+            foreach (int tileId in candidate.TileIds) {
                 GameObject cardObject = Instantiate(StaticCardPrefab, blockObject.transform);
                 cardObject.GetComponent<StaticCard>().SetTileOnlyImage(tileId);
             }
@@ -222,13 +222,13 @@ public class ActionButton : MonoBehaviour {
     private static List<(int targetTile, List<int> displayTiles)> CollectAngangOptions(List<int> handTiles) {
         var options = new List<(int, List<int>)>();
         var processedNorms = new HashSet<int>();
-        var gsm = NormalGameStateManager.Instance;
-        int dingqueSuit = gsm != null && gsm.IsSichuanRule() ? gsm.selfDingqueSuit : 0;
+        // 不可和的花色（四川定缺）不能暗杠
+        int excludedSuit = RuleRegistry.ActiveGameState?.ExcludedSuit ?? 0;
         foreach (int tileID in handTiles) {
             int norm = RiichiTileUtil.Normalize(tileID);
             if (processedNorms.Contains(norm)) continue;
             processedNorms.Add(norm);
-            if (dingqueSuit >= 1 && dingqueSuit <= 3 && norm / 10 == dingqueSuit) continue;
+            if (excludedSuit >= 1 && excludedSuit <= 3 && norm / 10 == excludedSuit) continue;
             if (GameRecordMeldCodec.CountNormalizedTiles(handTiles, norm) != 4) continue;
             var actualTiles = handTiles.Where(t => RiichiTileUtil.Normalize(t) == norm).ToList();
             options.Add((norm, actualTiles));

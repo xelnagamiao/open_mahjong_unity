@@ -186,6 +186,7 @@
       <el-card class="block">
         <template #header>
           比赛场统计
+          <span v-if="statsDateRangeLabel" class="stats-range-hint">{{ statsDateRangeLabel }}</span>
           <el-button
             link
             type="primary"
@@ -199,49 +200,68 @@
           :closable="false"
           show-icon
           style="margin-bottom: 12px"
-          title="口径与数据站「比赛场」一致：按牌谱顺位汇总总对局与一位～四位次数。"
+          title="口径与数据站「比赛场」一致：按牌谱顺位汇总总对局与一位～四位次数。可按对局日期筛选（含起止当日）。"
         />
         <div class="stats-filters">
-          <el-select
-            v-model="statsFilter.rule"
-            clearable
-            placeholder="全部规则"
+          <el-date-picker
+            popper-class="compact-date-range-popper"
+            :popper-options="{ modifiers: [{ name: 'preventOverflow', options: { altAxis: true, padding: 12 } }] }"
+            v-model="statsDateRange"
+            type="daterange"
             size="small"
-            style="width: 140px"
+            unlink-panels
+            clearable
+            range-separator="—"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            value-format="YYYY-MM-DD"
+            :shortcuts="STATS_DATE_SHORTCUTS"
+            class="stats-daterange"
             @change="loadPlayerStats"
-          >
-            <el-option
-              v-for="r in statsRuleOptions"
-              :key="r"
-              :label="ruleLabel(r)"
-              :value="r"
-            />
-          </el-select>
-          <el-select
-            v-model="statsFilter.game_type"
-            clearable
-            placeholder="全部局制"
-            size="small"
-            style="width: 140px"
-            @change="loadPlayerStats"
-          >
-            <el-option
-              v-for="opt in GAME_TYPE_OPTIONS"
-              :key="opt.value"
-              :label="opt.label"
-              :value="opt.value"
-            />
-          </el-select>
-          <el-input
-            v-model="statsFilter.q"
-            clearable
-            size="small"
-            placeholder="玩家 ID / 用户名"
-            style="width: 180px"
-            @keyup.enter="loadPlayerStats"
           />
-          <el-button type="primary" size="small" :loading="loadingStats" @click="loadPlayerStats">查询</el-button>
-          <el-button size="small" @click="resetStatsFilter">重置</el-button>
+          <div class="stats-scope">
+            <el-select
+              v-model="statsFilter.rule"
+              clearable
+              placeholder="全部规则"
+              size="small"
+              @change="loadPlayerStats"
+            >
+              <el-option
+                v-for="r in statsRuleOptions"
+                :key="r"
+                :label="ruleLabel(r)"
+                :value="r"
+              />
+            </el-select>
+            <el-select
+              v-model="statsFilter.game_type"
+              clearable
+              placeholder="全部局制"
+              size="small"
+              @change="loadPlayerStats"
+            >
+              <el-option
+                v-for="opt in GAME_TYPE_OPTIONS"
+                :key="opt.value"
+                :label="opt.label"
+                :value="opt.value"
+              />
+            </el-select>
+          </div>
+          <div class="stats-player-search">
+            <el-input
+              v-model="statsFilter.q"
+              clearable
+              size="small"
+              placeholder="玩家 ID / 用户名"
+              @keyup.enter="loadPlayerStats"
+            />
+            <div class="stats-search-actions">
+              <el-button type="primary" size="small" :loading="loadingStats" @click="loadPlayerStats">查询</el-button>
+              <el-button size="small" @click="resetStatsFilter">重置</el-button>
+            </div>
+          </div>
         </div>
         <div v-loading="loadingStats">
           <div class="stats-totals">
@@ -317,7 +337,7 @@ import {
   createDefaultGuobiaoRoomConfig,
 } from '@/utils/guobiaoRoomConfig'
 import { eventStatusLabel, eventStatusTagType, parseVenueKind, venueAdminListPath } from '@/utils/eventMeta'
-import { avgRank, buildPlayerStatsRows, rankRate } from '@/utils/statsDisplay'
+import { avgRank, buildPlayerStatsRows, dateRangeToQueryParams, rankRate, STATS_DATE_SHORTCUTS } from '@/utils/statsDisplay'
 
 const RULE_LABELS = {
   guobiao: '国标',
@@ -388,6 +408,7 @@ const statsTotals = ref({
 const statsPlayers = ref([])
 const statsRuleOptions = ref([])
 const statsFilter = reactive({ rule: '', game_type: '', q: '' })
+const statsDateRange = ref(null)
 const selectedPlayerId = ref(null)
 
 const isBase = computed(() => {
@@ -401,6 +422,11 @@ const owner = computed(() => (detail.value?.admins || []).find((a) => a.role ===
 const adminList = computed(() => (detail.value?.admins || []).filter((a) => a.role === 'admin'))
 const pendingProfile = ref(null)
 const totalsStatsDisplay = computed(() => rankOnlyStatsRows(statsTotals.value))
+const statsDateRangeLabel = computed(() => {
+  const r = statsDateRange.value
+  if (!r || r.length < 2 || !r[0] || !r[1]) return ''
+  return `${r[0]} — ${r[1]}`
+})
 const selectedPlayerStats = computed(() => {
   if (selectedPlayerId.value == null) return null
   return statsPlayers.value.find((p) => p.user_id === selectedPlayerId.value) || null
@@ -442,6 +468,7 @@ async function loadPlayerStats() {
     if (statsFilter.rule) params.rule = statsFilter.rule
     if (statsFilter.game_type) params.game_type = statsFilter.game_type
     if (statsFilter.q.trim()) params.q = statsFilter.q.trim()
+    Object.assign(params, dateRangeToQueryParams(statsDateRange.value))
     const res = await adminApi.get(`/events/${route.params.eventId}/player-stats`, { params })
     const data = res.data.data || {}
     statsTotals.value = data.totals || {
@@ -472,6 +499,7 @@ function resetStatsFilter() {
   statsFilter.rule = ''
   statsFilter.game_type = ''
   statsFilter.q = ''
+  statsDateRange.value = null
   selectedPlayerId.value = null
   loadPlayerStats()
 }
@@ -769,6 +797,50 @@ onMounted(load)
   align-items: center;
   margin-bottom: 12px;
 }
+.stats-filters :deep(.stats-daterange.el-date-editor) {
+  flex: 0 1 260px;
+  width: 260px;
+  min-width: 0;
+  max-width: 100%;
+}
+.stats-filters :deep(.stats-daterange .el-range-input) {
+  font-size: 12px;
+}
+.stats-scope,
+.stats-player-search,
+.stats-search-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+.stats-scope {
+  flex: 0 1 288px;
+}
+.stats-scope :deep(.el-select) {
+  flex: 1 1 110px;
+  width: 140px;
+  min-width: 0;
+}
+.stats-player-search {
+  flex: 0 1 auto;
+}
+.stats-player-search > .el-input {
+  flex: 1 1 160px;
+  width: 180px;
+  min-width: 0;
+}
+.stats-search-actions :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+.stats-range-hint {
+  margin-left: 8px;
+  font-weight: 400;
+  font-size: 13px;
+  color: #909399;
+}
 .stats-totals {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
@@ -803,5 +875,13 @@ onMounted(load)
   margin: 0 0 8px;
   font-size: 13px;
   color: #606266;
+}
+@media (max-width: 640px) {
+  .stats-filters :deep(.stats-daterange.el-date-editor),
+  .stats-scope,
+  .stats-player-search {
+    flex-basis: 100%;
+    width: 100%;
+  }
 }
 </style>

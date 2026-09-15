@@ -20,6 +20,12 @@ import {
   resolveRoundSeats,
   seatForOriginal,
 } from './recordAnalyzer.js'
+import {
+  createGuobiaoXunmuClock,
+  guobiaoXunmuGoTo,
+  guobiaoXunmuOnCut,
+  guobiaoXunmuOnClaim,
+} from './guobiaoXunmu.js'
 
 export const COUFAN_KEY = '__coufan__'
 const COUFAN_LABEL = '凑番和'
@@ -252,27 +258,17 @@ function emptyAcc() {
 
 /**
  * 重建一局目标座位的手牌，并收集听牌/和牌/点炮事件。
+ * 巡目与对局进程相同：国标按庄家巡（回绕看庄家牌河是否非空）。
  * @param {boolean} tingpai 为 false 时跳过听牌判定（按番查谱用）
  */
 function walkRound(rd, mySeat, { tingpaiCheck = null, shantenOf = null } = {}) {
   const ticks = Array.isArray(rd?.action_ticks) ? rd.action_ticks : []
   const dealer = ((typeof rd.start_player_index === 'number' ? rd.start_player_index
     : (typeof rd.dealer_index === 'number' ? rd.dealer_index : 0)) % 4 + 4) % 4
-  let currentSeat = dealer
-  const history = []
-  let xunmu = 1
-  let dealerDiscarded = false
+  const clock = createGuobiaoXunmuClock(dealer)
   let seenReset = false
 
-  const goTo = (seat) => {
-    const next = ((Number(seat) % 4) + 4) % 4
-    if (history.length && next !== history[history.length - 1]
-      && next < history[history.length - 1] && dealerDiscarded) {
-      xunmu += 1
-    }
-    history.push(next)
-    currentSeat = next
-  }
+  const goTo = (seat) => guobiaoXunmuGoTo(clock, seat)
 
   const initial = Array.isArray(rd[`p${mySeat}_tiles`]) ? [...rd[`p${mySeat}_tiles`]] : []
   const startHasDrawn = initial.length % 3 === 2
@@ -330,7 +326,7 @@ function walkRound(rd, mySeat, { tingpaiCheck = null, shantenOf = null } = {}) {
     if (firstTenpaiXunmu != null) return
     const waits = readWaits()
     if (waits.length) {
-      firstTenpaiXunmu = xunmu
+      firstTenpaiXunmu = clock.xunmu
       firstTenpaiWaits = waits
     }
   }
@@ -353,7 +349,7 @@ function walkRound(rd, mySeat, { tingpaiCheck = null, shantenOf = null } = {}) {
     if (code === 'end') break
     if (code === 'ask_hand' || code === 'ask_other' || code === 'ca') continue
     if (code === 'reset') {
-      const seat = tickInt(tick, 1, currentSeat)
+      const seat = tickInt(tick, 1, clock.currentSeat)
       if (seat != null) goTo(seat)
       seenReset = true
       // 狗力值只在补花轮结束的 reset 取样。线上国标小局已全部回填 reset，不再兼容无 reset 的旧谱。
@@ -362,7 +358,7 @@ function walkRound(rd, mySeat, { tingpaiCheck = null, shantenOf = null } = {}) {
     }
     if (code === 'liuju' || code === 'ryuukyoku') {
       liuju = true
-      if (endXunmu == null) endXunmu = xunmu
+      if (endXunmu == null) endXunmu = clock.xunmu
       const drawScores = drawScoreChanges(tick)
       if (drawScores && mySeat >= 0 && mySeat < drawScores.length) {
         roundScore += drawScores[mySeat]
@@ -371,23 +367,23 @@ function walkRound(rd, mySeat, { tingpaiCheck = null, shantenOf = null } = {}) {
     }
 
     if (code === 'bh' || code === 'bd') {
-      const seat = tickInt(tick, 2, currentSeat)
+      const seat = tickInt(tick, 2, clock.currentSeat)
       if (seat != null) goTo(seat)
     } else if (code === 'd' || code === 'mo') {
       const explicit = tickInt(tick, 2)
       if (explicit != null && explicit >= 0 && explicit <= 3) goTo(explicit)
-      else goTo(currentSeat === 3 ? 0 : currentSeat + 1)
+      else goTo(clock.currentSeat === 3 ? 0 : clock.currentSeat + 1)
     } else if (code === 'gd') {
       const explicit = tickInt(tick, 2)
       if (explicit != null && explicit >= 0 && explicit <= 3) goTo(explicit)
     } else if (CLAIM_CODES.has(code)) {
       const seat = tickInt(tick, 2)
-      if (seat != null) goTo(seat)
+      if (seat != null) guobiaoXunmuOnClaim(clock, seat)
     }
 
-    let actor = currentSeat
+    let actor = clock.currentSeat
     if (['bh', 'bd', 'cl', 'cm', 'cr', 'p', 'g'].includes(code)) {
-      actor = tickInt(tick, 2, currentSeat)
+      actor = tickInt(tick, 2, clock.currentSeat)
     }
     if (HU_ACTIONS.has(code) || code === 'hu_riichi') {
       const hu = parseHuTick(tick)
@@ -403,7 +399,7 @@ function walkRound(rd, mySeat, { tingpaiCheck = null, shantenOf = null } = {}) {
       const tile = tickInt(tick, 1, 0)
       lastCutTile = tile
       lastCutSeat = actor
-      if (actor === dealer) dealerDiscarded = true
+      guobiaoXunmuOnCut(clock)
       if (actor === mySeat) {
         const fromDraw = tick[2] === true || tick[2] === 'T' || tick[2] === 1
         const drawnMatches = state.drawn != null && normTile(state.drawn) === normTile(tile)
@@ -460,7 +456,7 @@ function walkRound(rd, mySeat, { tingpaiCheck = null, shantenOf = null } = {}) {
     const hu = parseHuTick(tick)
     if (hu?.scoreChanges && mySeat >= 0 && mySeat < hu.scoreChanges.length) {
       roundScore += hu.scoreChanges[mySeat]
-      if (!isCuohe(hu.yaku) && endXunmu == null) endXunmu = xunmu
+      if (!isCuohe(hu.yaku) && endXunmu == null) endXunmu = clock.xunmu
     }
     if (!hu || isCuohe(hu.yaku)) continue
     const sc = hu.scoreChanges
@@ -474,7 +470,7 @@ function walkRound(rd, mySeat, { tingpaiCheck = null, shantenOf = null } = {}) {
 
     if (myDelta > 0) {
       if (firstTenpaiXunmu == null) {
-        firstTenpaiXunmu = xunmu
+        firstTenpaiXunmu = clock.xunmu
         firstTenpaiWaits = winTile ? [winTile] : []
       }
       wins.push({
@@ -487,7 +483,7 @@ function walkRound(rd, mySeat, { tingpaiCheck = null, shantenOf = null } = {}) {
         isCoufan: classified.isCoufan,
         isMenduanping: classified.isMenduanping,
         score: myDelta,
-        xunmu,
+        xunmu: clock.xunmu,
         node,
         shareNode: shareNodeBeforeWin(ticks, node),
         visibleFulu: Math.min(4, Math.max(0, state.visibleFulu)),
@@ -503,7 +499,7 @@ function walkRound(rd, mySeat, { tingpaiCheck = null, shantenOf = null } = {}) {
         dealIns.push({
           fanScore: hu.fanScore,
           score: Math.abs(myDelta),
-          xunmu,
+          xunmu: clock.xunmu,
           node,
           yaku: hu.yaku || [],
           winTile: asTileId(hu.hepaiTile) || asTileId(lastCutTile),
@@ -522,7 +518,7 @@ function walkRound(rd, mySeat, { tingpaiCheck = null, shantenOf = null } = {}) {
     liuju: liuju && wins.length === 0,
     visibleFulu: state.visibleFulu,
     tsumoAgainst,
-    endXunmu: endXunmu ?? xunmu,
+    endXunmu: endXunmu ?? clock.xunmu,
     roundScore,
     dealDrawTiles,
     flowerTiles,

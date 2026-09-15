@@ -17,6 +17,15 @@ public class TableEdge : MonoBehaviour
         tableEdgeChoseImage.gameObject.SetActive(false);
     }
 
+    public void RefreshSelection()
+    {
+        var selected = ConfigManager.Instance != null ? ConfigManager.Instance.GetSelectedTableEdge() : ("", false);
+        string selectedPath = !selected.Item2 && string.IsNullOrEmpty(selected.Item1) ? TableFrameStyles.Default : selected.Item1;
+        bool active = selectedPath == filePath && selected.Item2 == isCustom;
+        tableEdgeChoseImage.gameObject.SetActive(active);
+        if (active) ShowDeleteButtonForCustomItem();
+    }
+
     public void OnTableEdgeButtonClick() { // 保存桌边选择
         ConfigManager.Instance.SetSelectedTableEdge(filePath, isCustom); // 保存选中路径到配置管理器
         TableEdgePanel panel = GetComponentInParent<TableEdgePanel>(true);
@@ -31,8 +40,7 @@ public class TableEdge : MonoBehaviour
 
     // 根据ConfigManager的设置刷新桌布和边框
     private void RefreshDesktop() {
-        Desktop.Instance.RefreshTablecloth();
-        Desktop.Instance.RefreshEdge();
+        Desktop.Instance?.RefreshAppearance();
     }
 
     // 显示或隐藏删除按钮（仅对自定义项目）

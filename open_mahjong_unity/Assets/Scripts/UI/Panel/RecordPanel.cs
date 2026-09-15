@@ -303,24 +303,25 @@ public class RecordPanel : MonoBehaviour {
             return;
         }
 
+        if (WindowsManager.Instance == null) {
+            NotificationManager.Instance?.ShowTip("牌谱", false, "场景管理器未就绪");
+            return;
+        }
+
         WindowsManager.Instance.SwitchWindow("recordscene");
         if (GameRecordManager.Instance == null) {
-            NotificationManager.Instance.ShowTip("牌谱", false, "牌谱场景未就绪");
+            NotificationManager.Instance?.ShowTip("牌谱", false, "牌谱场景未就绪");
             return;
         }
 
         try {
-            if (detail.perspective) {
-                RecordSetting.Instance.SetShowCardsMode(false);
-            } else {
-                RecordSetting.Instance.SetShowCardsMode(true);
-            }
+            RecordSetting.Instance?.SetShowCardsMode(!detail.perspective);
             GameRecordManager.Instance.LoadRecord(recordJson, detail.players);
             SharedRecordLink.ApplyPendingJumpIfAny();
         } catch (System.Exception e) {
             SharedRecordLink.ClearPendingJump();
-            Debug.LogError($"加载牌谱失败: {e.Message}");
-            NotificationManager.Instance.ShowTip("牌谱", false, $"解析牌谱失败: {e.Message}");
+            Debug.LogError($"加载牌谱失败: {e}");
+            NotificationManager.Instance?.ShowTip("牌谱", false, $"解析牌谱失败: {e.Message}");
         }
     }
 }

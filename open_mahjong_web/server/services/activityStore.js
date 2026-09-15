@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const config = require('../config/config');
+const { activityAssetsDir, activityCatalogDir, migrateLegacyRuntimeData } = require('../utils/runtimeData');
 
 const PUBLIC_PREFIX = '/activity-assets';
 const ID_RE = /^act_[a-f0-9]{12}$/;
@@ -21,47 +21,12 @@ const FONT_MIN = 14;
 const FONT_MAX = 48;
 const DEFAULT_FONT = 22;
 
-function loadDeployConfig() {
-  try {
-    return JSON.parse(
-      fs.readFileSync(path.join(__dirname, '../../deploy.config.json'), 'utf8')
-    );
-  } catch {
-    return {};
-  }
-}
-
-function resolveAssetsDir() {
-  if (process.env.ACTIVITY_ASSETS_DIR) {
-    return path.resolve(process.env.ACTIVITY_ASSETS_DIR);
-  }
-  if (config.isProduction) {
-    const deploy = loadDeployConfig();
-    const staticRoot = deploy.staticRoot || '/www/wwwroot/salasasa.cn/dist';
-    return path.join(staticRoot, 'activity-assets');
-  }
-  // 开发环境不要写进 Vite public/：改文件会触发整页刷新，
-  // 浏览器会把已成功的创建/保存请求当成失败。
-  return path.join(__dirname, '../../data/activity-assets');
-}
-
-function resolveCatalogDir() {
-  if (process.env.ACTIVITY_CATALOG_DIR) {
-    return path.resolve(process.env.ACTIVITY_CATALOG_DIR);
-  }
-  return path.join(__dirname, '../../data/activities');
-}
-
 function assetsDir() {
-  const dir = resolveAssetsDir();
-  fs.mkdirSync(dir, { recursive: true });
-  return dir;
+  return activityAssetsDir();
 }
 
 function catalogDir() {
-  const dir = resolveCatalogDir();
-  fs.mkdirSync(dir, { recursive: true });
-  return dir;
+  return activityCatalogDir();
 }
 
 function catalogPath() {
@@ -628,21 +593,10 @@ function removeBodyImage(id, filename) {
   return decorate(item);
 }
 
-function migrateLegacyPublicAssets(dest) {
-  const legacy = path.join(__dirname, '../../client/public/activity-assets');
-  if (!fs.existsSync(legacy) || path.resolve(legacy) === path.resolve(dest)) return;
-  for (const name of fs.readdirSync(legacy)) {
-    const from = path.join(legacy, name);
-    const to = path.join(dest, name);
-    if (fs.existsSync(to)) continue;
-    fs.cpSync(from, to, { recursive: true });
-  }
-}
-
 function ensureSeedFiles() {
+  migrateLegacyRuntimeData();
   const dir = assetsDir();
   catalogDir();
-  migrateLegacyPublicAssets(dir);
   if (!fs.existsSync(catalogPath())) {
     const legacy = readJson(legacyCatalogPath(), { items: [] });
     writeJsonAtomic(catalogPath(), legacy);

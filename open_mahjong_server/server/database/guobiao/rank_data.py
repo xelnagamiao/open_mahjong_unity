@@ -64,10 +64,17 @@ def update_rank_data(db_manager, user_id: int, guobiao_rank: str, guobiao_score:
 
 def get_user_sponsor_mcrpl(db_manager, user_id: int) -> dict:
     """
-    从 users 表获取赞助到期时间与 is_mcrpl_qualified 字段。
-    is_sponsor 由 sponsor_expires_at > 当前时间 动态计算。
+    从 users 表获取赞助到期时间与场次特许入场字段。
+    is_sponsor 由 sponsor_expires_at > 当前时间 动态计算，不再用于场次准入。
     Returns:
-        {'is_sponsor': bool, 'sponsor_expires_at': datetime|None, 'is_mcrpl_qualified': bool} 或 None
+        {
+            'is_sponsor': bool,
+            'sponsor_expires_at': datetime|None,
+            'is_beginner_qualified': bool,
+            'is_intermediate_qualified': bool,
+            'is_advanced_qualified': bool,
+            'is_mcrpl_qualified': bool,
+        } 或 None
     """
     conn = None
     try:
@@ -78,7 +85,10 @@ def get_user_sponsor_mcrpl(db_manager, user_id: int) -> dict:
             SELECT
                 (sponsor_expires_at IS NOT NULL AND sponsor_expires_at > CURRENT_TIMESTAMP) AS is_sponsor,
                 sponsor_expires_at,
-                is_mcrpl_qualified
+                COALESCE(is_beginner_qualified, FALSE),
+                COALESCE(is_intermediate_qualified, FALSE),
+                COALESCE(is_advanced_qualified, FALSE),
+                COALESCE(is_mcrpl_qualified, FALSE)
             FROM users WHERE user_id = %s
             """,
             (user_id,)
@@ -88,11 +98,14 @@ def get_user_sponsor_mcrpl(db_manager, user_id: int) -> dict:
             return {
                 "is_sponsor": bool(row[0]),
                 "sponsor_expires_at": row[1],
-                "is_mcrpl_qualified": row[2],
+                "is_beginner_qualified": bool(row[2]),
+                "is_intermediate_qualified": bool(row[3]),
+                "is_advanced_qualified": bool(row[4]),
+                "is_mcrpl_qualified": bool(row[5]),
             }
         return None
     except Error as e:
-        logger.error(f"获取赞助者/MCRPL字段失败: {e}")
+        logger.error(f"获取赞助者/场次特许字段失败: {e}")
         if conn:
             conn.rollback()
         return None

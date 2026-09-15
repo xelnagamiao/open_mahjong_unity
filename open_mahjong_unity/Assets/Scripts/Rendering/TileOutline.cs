@@ -4,7 +4,7 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 /// <summary>
-/// 3D 牌 ObjectID 描边运行时接口（颜色 / 线宽 / 外扩 / 开关）。
+/// 3D 牌几何描边运行时接口（颜色 / 线宽 / 开关）。
 /// 不改 URP 资产、不 SetDirty，只改内存中的 Feature.settings。
 /// </summary>
 public static class TileOutline
@@ -38,18 +38,13 @@ public static class TileOutline
     }
 
     public static Color Color {
-        get => TryGetFeature(out var f) ? f.settings.outlineColor : UnityEngine.Color.black;
+        get => TryGetFeature(out var f) ? f.settings.outlineColor : TileObjectIdOutlineFeature.DefaultOutlineColor;
         set => SetColor(value);
     }
 
     public static float Width {
-        get => TryGetFeature(out var f) ? f.settings.outlineWidth : 2f;
+        get => TryGetFeature(out var f) ? f.settings.outlineWidth : TileObjectIdOutlineFeature.DefaultOutlineWidth;
         set => SetWidth(value);
-    }
-
-    public static float Expand {
-        get => TryGetFeature(out var f) ? f.settings.outlineExpand : 2f;
-        set => SetExpand(value);
     }
 
     public static bool Enabled {
@@ -75,14 +70,6 @@ public static class TileOutline
             return;
         }
         f.SetOutlineWidth(widthPx);
-    }
-
-    public static void SetExpand(float expandPx) {
-        if (!TryGetFeature(out var f)) {
-            Debug.LogWarning("TileOutline: Feature 未找到，无法设置外扩。");
-            return;
-        }
-        f.SetOutlineExpand(expandPx);
     }
 
     public static void InvalidateCache() {

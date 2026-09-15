@@ -8,12 +8,26 @@ const { signToken } = require('../../utils/jwt');
 const { requirePlayer } = require('../../middleware/requirePlayer');
 const { createWindowLimiter, getClientIp } = require('../../middleware/rateLimit');
 const { listUserEvents } = require('../../utils/eventAdminHelpers');
-const { sendEmailBindCode } = require('../../utils/mailer');
+const { sendEmailBindCode, sendPasswordResetCode } = require('../../utils/mailer');
+const { createPasswordResetHandlers } = require('../../utils/passwordReset');
+const { findLoginAccount } = require('../../utils/loginAccount');
 const { normalizeUsername, validateUsername } = require('../../utils/username');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CODE_TTL_MS = 10 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 60 * 1000;
+const passwordReset = createPasswordResetHandlers({
+  pool, hashPassword, sendCode: sendPasswordResetCode,
+  secret: config.playerAuth.jwtSecret, mailEnabled: () => config.smtp.enabled,
+});
+router.post('/password-reset/send-code', createWindowLimiter({
+  windowMs: 60 * 60 * 1000, max: 10,
+  keyFn: req => `${getClientIp(req)}:password-reset-send`,
+}), passwordReset.send);
+router.post('/password-reset', createWindowLimiter({
+  windowMs: 15 * 60 * 1000, max: 30,
+  keyFn: req => `${getClientIp(req)}:password-reset`,
+}), passwordReset.reset);
 const registrationLimiter = createWindowLimiter({
   windowMs: 24 * 60 * 60 * 1000,
   max: 3,
@@ -165,19 +179,17 @@ router.post('/register', registrationLimiter, async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body || {};
-    if (!username || !password) {
-      return res.status(400).json({ success: false, message: '请输入用户名和密码' });
+    if (typeof username !== 'string' || typeof password !== 'string' || !username.trim() || !password) {
+      return res.status(400).json({ success: false, message: '请输入用户名或邮箱和密码' });
     }
 
-    const result = await pool.query(
-      `SELECT user_id, username, password, is_tourist FROM users WHERE username = $1`,
-      [normalizeUsername(username)]
-    );
-    if (result.rows.length === 0) {
-      return res.status(401).json({ success: false, message: '用户名或密码错误' });
+    const result = await findLoginAccount(pool, username);
+    if (result.error) return res.status(409).json({ success: false, message: result.error });
+    if (!result.user) {
+      return res.status(401).json({ success: false, message: '账户或密码错误' });
     }
 
-    const user = result.rows[0];
+    const user = result.user;
     if (user.is_tourist) {
       return res.status(403).json({ success: false, message: '游客账号不能登录网站' });
     }

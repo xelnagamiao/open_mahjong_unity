@@ -2,13 +2,52 @@ using System.Collections;
 using UnityEngine;
 
 public partial class Game3DManager : MonoBehaviour {
+    private Transform discardLayoutCenter;
+
+    // 固定完整手牌的参考中心，不随当前张数改变首槽，避免逐张发牌和鸣牌后归位时整排跳动。
+    private Vector3 HandRowOrigin(Transform handPosition, Vector3 rowDirection) {
+        float referenceHalfSpan = Mathf.Max(0, GetRevealedHandCardsPerRow() - 2) * 0.5f;
+        return handPosition.position - rowDirection.normalized
+            * (referenceHalfSpan * (HandColumnGap - HandAnchorColumnGap));
+    }
+
+    // 保留摸牌相对末张的分离距离；空主列沿用原来的首个摸牌槽距离。
+    private float HandDrawSlotOffset(int mainCount, float separationInOriginalSteps = 2f) {
+        return mainCount > 0
+            ? (mainCount - 1) * handStep + separationInOriginalSteps * cardWidth
+            : (separationInOriginalSteps - 1f) * cardWidth;
+    }
+
+    // 以标准六张牌的行中点对齐中心盘。只计算世界坐标，不移动锚点，避免重建牌河时累计偏移。
+    // 立直横牌继续按半槽宽展开，不在每次插入时重新居中已经放好的牌。
+    private Vector3 DiscardRowOrigin(Transform anchor, Vector3 rowDirection) {
+        if (discardLayoutCenter == null && BoardCanvas.Instance != null) {
+            discardLayoutCenter = BoardCanvas.Instance.transform.Find("ControlPanel -1");
+        }
+        Vector3 center;
+        if (discardLayoutCenter != null) {
+            center = discardLayoutCenter.position;
+        }
+        else if (selfPosPanel != null && leftPosPanel != null && topPosPanel != null && rightPosPanel != null
+            && selfPosPanel.discardsPosition != null && leftPosPanel.discardsPosition != null
+            && topPosPanel.discardsPosition != null && rightPosPanel.discardsPosition != null) {
+            center = (selfPosPanel.discardsPosition.position + leftPosPanel.discardsPosition.position
+                + topPosPanel.discardsPosition.position + rightPosPanel.discardsPosition.position) * 0.25f;
+        }
+        else {
+            return anchor.position;
+        }
+        Vector3 direction = rowDirection.normalized;
+        return anchor.position + direction * (Vector3.Dot(center - anchor.position, direction) - 2.5f * widthSpacing);
+    }
+
     /// <summary>
     /// 单张牌沿 widthdirection 占用的槽宽。
-    /// useHandSpacing：手牌/和牌倒牌用 cardWidth；河/补花用 widthSpacing。
+    /// useHandSpacing：手牌/和牌倒牌用 handStep；河/补花用 widthSpacing。
     /// </summary>
     private float LayoutSlotWidth(bool isHorizontal, bool useHandSpacing) {
         if (useHandSpacing) {
-            return isHorizontal ? cardHeight : cardWidth;
+            return isHorizontal ? handRowStep : handStep;
         }
         return isHorizontal ? heightSpacing : widthSpacing;
     }
@@ -97,10 +136,12 @@ public partial class Game3DManager : MonoBehaviour {
         int col = index % cardsPerRow;
 
         bool useHorizontalLayout = isRiichi && SetType == "Discard";
+        if (SetType == "Discard") currentPosition = DiscardRowOrigin(SetPosition, widthdirection);
         float colOffset = ComputeRowCenterOffset(SetPosition, row, col, cardsPerRow, useHorizontalLayout);
         currentPosition += widthdirection.normalized * colOffset;
         currentPosition += heightdirection.normalized * heightSpacing * row;
 
+        currentPosition = PlaceTileOnTable(currentPosition, rotation);
         Debug.Log($"创建卡片 {SetPosition.childCount}, 牌ID: {tileId}");
         GameObject cardObj = MahjongObjectPool.Instance.Spawn(tileId, currentPosition, rotation);
         if (cardObj == null) {
@@ -203,14 +244,17 @@ public partial class Game3DManager : MonoBehaviour {
         int col = index % cardsPerRow;
 
         bool useHorizontalLayout = isRiichi && isDiscardLike;
+        if (isDiscardLike) currentPosition = DiscardRowOrigin(SetPosition, widthdirection);
+        else if (isRecordSet) currentPosition = HandRowOrigin(SetPosition, widthdirection);
         // 和牌倒牌与手牌同间距；河/补花仍用 widthSpacing
         bool useHandSpacing = isRecordSet;
         float colOffset = ComputeRowCenterOffset(
             SetPosition, row, col, cardsPerRow, useHorizontalLayout, useHandSpacing);
-        float rowStep = useHandSpacing ? cardHeight : heightSpacing;
+        float rowStep = useHandSpacing ? handRowStep : heightSpacing;
         currentPosition += widthdirection.normalized * colOffset;
         currentPosition += heightdirection.normalized * rowStep * row;
 
+        currentPosition = PlaceTileOnTable(currentPosition, rotation);
         Debug.Log($"创建卡片 {SetPosition.childCount}, 牌ID: {tileId}");
         GameObject cardObj = MahjongObjectPool.Instance.Spawn(tileId, currentPosition, rotation);
         if (cardObj == null) {

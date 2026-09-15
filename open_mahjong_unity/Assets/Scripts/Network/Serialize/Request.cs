@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 
 public class LoginRequest { // 登录请求
+    public string login_type = "username";
     public string type;
     public string username;
     public string password;
@@ -291,4 +292,20 @@ public class VoteResponseRequest { // 投票同意/拒绝
 public class VoteResumeRequest { // 解除暂停
     public string type;
     public string gamestate_id;
+}
+
+public class CreateFreeRoomRequest {
+    public string type;
+    public string rule;
+    public string sub_rule;
+    public string roomname;
+    public string password;
+    public string random_seed;
+    public bool tourist_limit;
+    public bool wall_wan;
+    public bool wall_tong;
+    public bool wall_suo;
+    public bool wall_winds;
+    public bool wall_dragons;
+    public bool wall_flowers;
 }

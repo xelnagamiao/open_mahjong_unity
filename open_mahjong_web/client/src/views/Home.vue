@@ -107,6 +107,7 @@
             <div class="panel-actions">
               <router-link class="panel-btn" to="/register?redirect=/account">注册</router-link>
               <router-link class="panel-btn ghost" to="/login?redirect=/account">登录</router-link>
+              <router-link class="panel-btn ghost" to="/forgot-password">找回密码</router-link>
             </div>
           </template>
         </div>
@@ -394,6 +395,7 @@ const toolLinks = [
   },
   { to: '/tools/record-convert', title: '牌谱格式转换', description: '在Salasasa、Botzone、雀渣 与 MJAI 牌谱格式之间转换。', color: '#409eff' },
   { to: '/library', title: '麻雀图书馆', description: '查阅各类麻将规则的说明书、牌例或文档。', color: '#f97316' },
+  { to: '/tiles', title: '牌面', description: '下载已审核的牌面与牌面背景。', color: '#0891b2' },
 ]
 
 const loadStats = async () => {

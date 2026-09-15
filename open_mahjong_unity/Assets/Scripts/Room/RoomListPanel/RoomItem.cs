@@ -1,136 +1,117 @@
+using System;
+using System.Text;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.Events;
-using TMPro; // Added TMPro namespace
 
-// RoomItem 的作用是通过SetRoomInfo方法设置房间信息，并保存自己的房间号
-// 监听JoinClick的事件，如果发生事件返回RoomPanel包含自己房间id的joinRoom调用
-
+/// <summary>房间卡片：名称、精简配置、四个席位；完整信息由问号展示。</summary>
 public class RoomItem : MonoBehaviour {
-
-    [SerializeField] private TMP_Text roomName; // 房间名
-    [SerializeField] private TMP_Text hostName; // 房主名
-    [SerializeField] private TMP_Text playerCount; // 玩家人数
-    [SerializeField] private TMP_Text roomID; // 房间号
-    [SerializeField] private TMP_Text gameRound; // 游戏圈数
-    [SerializeField] private Button joinButton; // 加入按钮
-    [SerializeField] private TMP_Text hasPassword; // 是否有密码
-    [SerializeField] private TMP_Text playRule; // 规则（用 sub_rule 经 RuleNameDictionary 显示）
-    [SerializeField] private TMP_Text gameStatus; // 游戏状态（是否正在运行）
-    [SerializeField] private TMP_Text fushiText; // 复式
-    [SerializeField] private TMP_Text tipsText; // 提示
-    [SerializeField] private TMP_Text cuoheText; // 错和
-    [SerializeField] private TMP_Text allowSpectatorText; // 是否允许观战
-    [SerializeField] private TMP_Text touristLimitText;   // 限制游客
-    [SerializeField] private TMP_Text hepaiLimitText;     // 起和番
-
-    [Header("房间样式：上半 / 下半 Image，普通房与比赛场各两色")]
+    [SerializeField] private TMP_Text roomName;
+    [SerializeField] private TMP_Text playRule;
+    [SerializeField] private TMP_Text gameStatus;
+    [SerializeField] private TMP_Text configSummary;
+    [SerializeField] private Button joinButton;
+    [SerializeField] private Button detailsButton;
+    [SerializeField] private TMP_Text[] playerNames = new TMP_Text[4];
+    [SerializeField] private TMP_Text[] playerStates = new TMP_Text[4];
     [SerializeField] private Image upperPartImage;
     [SerializeField] private Image lowerPartImage;
-    [SerializeField] private Color normalUpperColor = Color.white;
-    [SerializeField] private Color normalLowerColor = new Color(0.92f, 0.92f, 0.92f, 1f);
-    [SerializeField] private Color eventUpperColor = new Color(1f, 0.82f, 0.35f, 1f);
-    [SerializeField] private Color eventLowerColor = new Color(1f, 0.72f, 0.2f, 1f);
+    [SerializeField] private Color normalUpperColor = new Color(.32f, .32f, .32f);
+    [SerializeField] private Color normalLowerColor = new Color(.18f, .18f, .18f);
+    [SerializeField] private Color eventUpperColor = new Color(.36f, .36f, .36f);
+    [SerializeField] private Color eventLowerColor = new Color(.22f, .22f, .22f);
 
-    private void Start() {
-        // 监听房间元素的点击按钮事件
-        joinButton.onClick.AddListener(JoinClick);
+    private RoomInfo data;
+    private static readonly Color ReadyColor = new Color(.92f, .92f, .92f);
+    private static readonly Color MutedColor = new Color(.78f, .78f, .78f);
+
+    private void Awake() {
+        if (joinButton != null) joinButton.onClick.AddListener(JoinClick);
     }
-    // 在创建RoomItem时，初始化房间号和是否有密码的布尔值 在点击按钮时，返回上一级至RoomListPanel
-    private string roomId; // 房间号
-    private bool needPassword; // 是否有密码
-
-    /// <summary>
-    /// 由 RoomListPanel 传入 RoomInfo，在 Item 内独立解包并显示。不存在的可选字段对应 UI 设为 SetActive(false)。
-    /// </summary>
+    private void OnEnable() { StreamerModeHelper.OnChanged += RefreshDisplay; }
+    private void OnDisable() { StreamerModeHelper.OnChanged -= RefreshDisplay; }
     public void SetRoomInfo(RoomInfo roomData) {
-        if (roomData == null) return;
-
-        // 独立解包：按字段逐个取值并设置，避免整包传递导致缺失字段时出错
-        string rid = roomData.room_id ?? "";
-        string rname = roomData.room_name ?? "";
-        string host = roomData.host_name ?? "";
-        int pCount = roomData.player_list != null ? roomData.player_list.Length : 0;
-        int gameRound = roomData.game_round;
-        bool hasPw = roomData.has_password;
-        string roomType = roomData.room_type ?? "";
-        string roomRule = roomData.room_rule ?? "";
-        string subRule = roomData.sub_rule ?? "";
-        bool isRunning = roomData.is_game_running;
-        bool tipsOn = roomData.tips;
-        bool openCuohe = roomData.open_cuohe;
-        bool isEventRoom = roomType == "events" || !string.IsNullOrEmpty(roomData.event_id);
-
-        this.roomId = rid;
-        this.needPassword = hasPw;
-
-        roomID.text = $"房间号:{rid}";
-        roomName.text = StreamerModeHelper.FormatRoomLabel("房间名:", rname);
-        hostName.text = StreamerModeHelper.FormatRoomLabel("房主:", host);
-        playerCount.text = $"玩家数{pCount}/4";
-
-        gameStatus.text = isRunning ? "游戏中" : "等待中";
-        hasPassword.text = hasPw ? "密码:有" : "密码:无";
-        joinButton.interactable = pCount < 4 && !isRunning;
-
-        // 规则：用 sub_rule 经 RuleNameDictionary 显示
-        playRule.text = RuleNameDictionary.GetWholeName(subRule);
-
-        ApplyRoomStyle(isEventRoom);
-
-        // 可选字段：允许观战
-        if (allowSpectatorText != null) {
-            try {
-                allowSpectatorText.text = roomData.allow_spectator ? "观战:是" : "观战:否";
-                allowSpectatorText.gameObject.SetActive(true);
-            } catch {
-                allowSpectatorText.gameObject.SetActive(false);
-            }
-        }
-
-        // 可选字段：限制游客
-        if (touristLimitText != null) {
-            try {
-                touristLimitText.text = roomData.tourist_limit ? "限制游客:是" : "限制游客:否";
-                touristLimitText.gameObject.SetActive(true);
-            } catch {
-                touristLimitText.gameObject.SetActive(false);
-            }
-        }
-
-        // 可选字段：起和番（国标有效）
-        if (hepaiLimitText != null) {
-            try {
-                if (roomRule == "guobiao" || roomType == "guobiao") {
-                    int hepai = roomData.hepai_limit;
-                    hepaiLimitText.text = "起和番:" + (hepai > 0 ? hepai.ToString() : "8");
-                    hepaiLimitText.gameObject.SetActive(true);
-                } else {
-                    hepaiLimitText.gameObject.SetActive(false);
-                }
-            } catch {
-                hepaiLimitText.gameObject.SetActive(false);
-            }
-        }
-
-        // 对局轮数：从 RoundTextDictionary 获取（东风战/东南战/东西战/全庄战）
-        if (this.gameRound != null) this.gameRound.text = RoundTextDictionary.GetMaxRoundText(roomData.room_rule, gameRound);
-        if (fushiText != null) {
-            fushiText.text = roomData.is_player_set_random_seed ? "复式:开" : "复式:关";
-        }
-        if (tipsText != null) tipsText.text = tipsOn ? "提示:开" : "提示:关";
-        if (cuoheText != null) cuoheText.text = openCuohe ? "错和:开" : "错和:关";
+        data = roomData;
+        RefreshDisplay();
     }
 
-    private void ApplyRoomStyle(bool isEventRoom) {
-        Color upper = isEventRoom ? eventUpperColor : normalUpperColor;
-        Color lower = isEventRoom ? eventLowerColor : normalLowerColor;
-        if (upperPartImage != null) upperPartImage.color = upper;
-        if (lowerPartImage != null) lowerPartImage.color = lower;
+    private void RefreshDisplay() {
+        if (data == null) return;
+        bool masked = ConfigManager.Instance != null && StreamerModeHelper.IsEnabled;
+        string title = masked ? StreamerModeHelper.MaskedRoomText : Fallback(data.room_name, "未命名房间");
+        string host = masked ? StreamerModeHelper.MaskedRoomText : Fallback(data.host_name, "暂无房主");
+        int count = data.player_list?.Length ?? 0;
+        int capacity = data.max_player > 0 ? Mathf.Min(data.max_player, 4) : 4;
+        bool isEvent = data.room_type == "events" || !string.IsNullOrEmpty(data.event_id);
+        string rule = RuleNameDictionary.GetWholeName(Fallback(data.sub_rule, data.room_rule ?? ""));
+        Set(roomName, title);
+        Set(playRule, rule);
+        string status = data.is_game_running ? "对局中" : count >= capacity ? "满员" : "等待";
+        Set(gameStatus, $"{status} · {count}/{capacity} · {(data.has_password ? "有密码" : "公开")}");
+        if (gameStatus != null) gameStatus.color = data.is_game_running ? new Color(1f, .77f, .44f) : ReadyColor;
+        Set(configSummary, BuildSummary(data));
+        if (upperPartImage != null) upperPartImage.color = isEvent ? eventUpperColor : normalUpperColor;
+        if (lowerPartImage != null) lowerPartImage.color = isEvent ? eventLowerColor : normalLowerColor;
+        if (joinButton != null) {
+            joinButton.interactable = count < capacity && !data.is_game_running;
+            Set(joinButton.GetComponentInChildren<TMP_Text>(), data.is_game_running ? "对局中" : count >= capacity ? "已满员" : "加入房间");
+        }
+
+        var details = new StringBuilder();
+        details.AppendLine(title).AppendLine("房主  " + host).AppendLine("房间  " + data.room_id);
+        details.AppendLine().AppendLine("房间玩家");
+        for (int seat = 0; seat < 4; seat++) {
+            bool occupied = seat < count;
+            int id = occupied ? data.player_list[seat] : 0;
+            string name = occupied ? PlayerName(data, id) : "等待加入";
+            if (occupied && masked) name = StreamerModeHelper.FormatRoomPlayerName(name, id);
+            string state = !occupied ? "空位" : id == data.host_user_id ? "房主" :
+                data.is_game_running ? "对局中" : id < 10 || Array.IndexOf(data.ready_list ?? Array.Empty<int>(), id) >= 0 ? "已准备" : "未准备";
+            if (seat < playerNames.Length) Set(playerNames[seat], name);
+            if (seat < playerStates.Length) {
+                Set(playerStates[seat], state);
+                if (playerStates[seat] != null) playerStates[seat].color = state == "房主"
+                    ? new Color(1f, .77f, .44f) : state == "已准备" ? ReadyColor : MutedColor;
+            }
+            details.AppendLine($"{seat + 1}  {name}  ·  {state}");
+        }
+        details.AppendLine().AppendLine("完整房间配置");
+        foreach (var field in RoomConfigContainer.BuildDisplayFields(data)) {
+            details.AppendLine(field.Key + "  ·  " + field.Value);
+        }
+        if (detailsButton != null) {
+            var tooltip = detailsButton.GetComponent<RoomInfoTooltip>() ?? detailsButton.gameObject.AddComponent<RoomInfoTooltip>();
+            tooltip.SetContent("房间详情", details.ToString().TrimEnd(), roomName != null ? roomName.font : null);
+        }
     }
 
+    public static string BuildSummary(RoomInfo room) {
+        string switches = $"  ·  错和{(room.open_cuohe ? "开" : "关")}  ·  提示{(room.tips ? "开" : "关")}";
+        if (room.room_rule == "free") return "自由配牌  ·  " + (room.is_player_set_random_seed ? "复式开启" : "随机牌山") + switches;
+        string summary = RoundTextDictionary.GetMaxRoundText(room.room_rule, room.game_round)
+            + $"  ·  {room.round_timer}/{room.step_timer}秒";
+        if (room.room_rule == "guobiao" || RuleRegistry.Resolve(room.room_rule, room.sub_rule)?.ShowsHepaiLimitInRoomList == true)
+            summary += $"  ·  {room.hepai_limit}番起和";
+        else if (room.room_rule == "riichi" && room.red_dora.HasValue)
+            summary += room.red_dora.Value ? "  ·  赤宝牌开" : "  ·  赤宝牌关";
+        else if (room.room_rule == "sichuan")
+            summary += (room.blood_battle ?? true) ? "  ·  血战到底" : "  ·  一家和止";
+        return summary + switches;
+    }
+    private static string PlayerName(RoomInfo room, int id) {
+        if (room.player_settings != null && room.player_settings.TryGetValue(id.ToString(), out UserSettings settings)
+            && !string.IsNullOrWhiteSpace(settings?.username)) return settings.username;
+        if (id == room.host_user_id && !string.IsNullOrWhiteSpace(room.host_name)) return room.host_name;
+        return id < 10 ? "机器人 " + id : "玩家 " + id;
+    }
+    private static string Fallback(string value, string fallback) => string.IsNullOrWhiteSpace(value) ? fallback : value;
+    private static void Set(TMP_Text label, string value) {
+        if (label == null) return;
+        label.richText = false;
+        label.text = value ?? "";
+    }
     private void JoinClick() {
-        if (string.IsNullOrEmpty(roomId)) return;
-        PasswordJoinPanel.TryJoin(roomId, needPassword);
+        if (data == null || string.IsNullOrEmpty(data.room_id)) return;
+        PasswordJoinPanel.TryJoin(data.room_id, data.has_password);
     }
 }

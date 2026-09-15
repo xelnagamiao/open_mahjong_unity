@@ -20,12 +20,15 @@ public static class CoroutineKeys {
 /// 常驻协程管理器（DontDestroyOnLoad）。
 /// 负责匹配计时、匹配成功倒计时、UI 临时展示、网络重连等不应挂在会被关闭的面板上的协程。
 /// 动画/手牌等与具体 MonoBehaviour 生命周期强绑定的协程仍可在本地 StartCoroutine。
+/// 退出 Play / 关应用时禁止 Ensure 再 new，避免 OnDestroy 路径刷出残留物体。
 /// </summary>
 public class CoroutineManager : MonoBehaviour {
     private static CoroutineManager _instance;
+    private static bool _quitting;
 
     public static CoroutineManager Instance {
         get {
+            if (_quitting || !Application.isPlaying) return _instance;
             Ensure();
             return _instance;
         }
@@ -33,8 +36,15 @@ public class CoroutineManager : MonoBehaviour {
 
     private readonly Dictionary<string, Coroutine> _named = new Dictionary<string, Coroutine>();
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics() {
+        _instance = null;
+        _quitting = false;
+    }
+
     public static void Ensure() {
         if (_instance != null) return;
+        if (_quitting || !Application.isPlaying) return;
         var go = new GameObject(nameof(CoroutineManager));
         _instance = go.AddComponent<CoroutineManager>();
         DontDestroyOnLoad(go);
@@ -49,6 +59,11 @@ public class CoroutineManager : MonoBehaviour {
         DontDestroyOnLoad(gameObject);
     }
 
+    private void OnApplicationQuit() {
+        _quitting = true;
+        StopAllNamed();
+    }
+
     private void OnDestroy() {
         if (_instance == this) {
             _instance = null;
@@ -57,6 +72,7 @@ public class CoroutineManager : MonoBehaviour {
 
     /// <summary>运行匿名协程（无命名，调用方自行持有 Coroutine 或不关心停止）。</summary>
     public Coroutine Run(IEnumerator routine) {
+        if (this == null || routine == null) return null;
         return StartCoroutine(routine);
     }
 
@@ -64,7 +80,7 @@ public class CoroutineManager : MonoBehaviour {
     /// 以 key 运行协程；<paramref name="restartIfRunning"/> 为 true 时会先停止同名任务（用于重置倒计时）。
     /// </summary>
     public void RunNamed(string key, IEnumerator routine, bool restartIfRunning = true) {
-        if (routine == null) return;
+        if (this == null || routine == null) return;
         if (string.IsNullOrEmpty(key)) {
             Run(routine);
             return;
@@ -76,7 +92,7 @@ public class CoroutineManager : MonoBehaviour {
     }
 
     public void StopNamed(string key) {
-        if (string.IsNullOrEmpty(key) || !_named.TryGetValue(key, out Coroutine running) || running == null) {
+        if (this == null || string.IsNullOrEmpty(key) || !_named.TryGetValue(key, out Coroutine running) || running == null) {
             return;
         }
         StopCoroutine(running);
@@ -84,10 +100,11 @@ public class CoroutineManager : MonoBehaviour {
     }
 
     public bool IsNamedRunning(string key) {
-        return !string.IsNullOrEmpty(key) && _named.ContainsKey(key);
+        return this != null && !string.IsNullOrEmpty(key) && _named.ContainsKey(key);
     }
 
     public void StopAllNamed() {
+        if (this == null) return;
         foreach (KeyValuePair<string, Coroutine> pair in _named) {
             if (pair.Value != null) {
                 StopCoroutine(pair.Value);
@@ -98,7 +115,7 @@ public class CoroutineManager : MonoBehaviour {
 
     /// <summary>下一帧执行回调；可选 key，便于取消或防重复。</summary>
     public void RunNextFrame(Action callback, string key = null, bool restartIfRunning = true) {
-        if (callback == null) return;
+        if (this == null || callback == null) return;
         string runKey = string.IsNullOrEmpty(key) ? $"anonymous.next_frame.{Guid.NewGuid():N}" : key;
         RunNamed(runKey, NextFrameRoutine(callback), restartIfRunning);
     }

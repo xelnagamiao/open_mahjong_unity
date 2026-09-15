@@ -1,0 +1,41 @@
+{
+  "game_title": {
+    "rule": "taiwan",
+    "room_type": "custom",
+    "sub_rule": "taiwan/16",
+    "commitment_hex": "00",
+    "salt": "11",
+    "max_round": 1,
+    "open_cuohe": false,
+    "tips": false,
+    "is_player_set_random_seed": false,
+    "p0_uid": 101, "p0_name": "A",
+    "p1_uid": 102, "p1_name": "B",
+    "p2_uid": 103, "p2_name": "C",
+    "p3_uid": 104, "p3_name": "D"
+  },
+  "game_round": {
+    "round_index_1": {
+      "round_index": 1,
+      "current_round": 1,
+      "seats": [0, 1, 2, 3],
+      "dealer_index": 0,
+      "start_player_index": 0,
+      "p0_tiles": [11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 51],
+      "p1_tiles": [11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24],
+      "p2_tiles": [11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24],
+      "p3_tiles": [11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24],
+      "tiles_list": [32, 33, 34, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "action_ticks": [
+        ["bh", 51, 0, "F"], // 手补花
+        ["bd", 31, 0], // 台湾补牌从牌山尾取
+        ["state", "ready", 0, "earthly", "F"],
+        ["c", 31, "T"],
+        ["d", 32],
+        ["c", 32, "T"],
+        ["hu_self", 1, 5, ["平胡"], [-5, 15, -5, -5], 32],
+        ["end"]
+      ]
+    }
+  }
+}

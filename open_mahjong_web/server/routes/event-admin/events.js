@@ -8,9 +8,12 @@ const {
   requireEventOwner,
 } = require('../../middleware/requireEventAdmin');
 const { listUserEvents } = require('../../utils/eventAdminHelpers');
+const { createRoomSettingsService } = require('../../services/eventRoomSettings');
+const { createSeatHandler } = require('./roomSettings');
 const {
   fetchEventPlayerStats,
   GAME_TYPE_MATCH_TYPES,
+  isTimestampParam,
 } = require('../../services/eventPlayerStats');
 
 const MAX_EVENT_ADMINS = 10;
@@ -707,6 +710,14 @@ function buildEventRecordConditions(eventId, query) {
       conditions.push(`gpr.user_id = $${params.length}`);
     }
   }
+  if (isTimestampParam(query.date_from)) {
+    params.push(String(query.date_from).trim());
+    conditions.push(`gr.created_at >= $${params.length}`);
+  }
+  if (isTimestampParam(query.date_to)) {
+    params.push(String(query.date_to).trim());
+    conditions.push(`gr.created_at < $${params.length}`);
+  }
   return { params, conditions, whereSql: conditions.join(' AND ') };
 }
 
@@ -743,6 +754,7 @@ router.get('/:eventId/records', requireEventMembership, async (req, res) => {
     const countRes = await pool.query(
       `SELECT COUNT(DISTINCT gpr.game_id)::int AS cnt
        FROM game_player_records gpr
+       JOIN game_records gr ON gr.game_id = gpr.game_id
        WHERE ${whereSql}`,
       countParams
     );
@@ -852,6 +864,8 @@ router.post('/:eventId/records/download', requireEventMembership, async (req, re
         rule: req.body?.rule || null,
         game_type: req.body?.game_type || null,
         user_id: req.body?.user_id || null,
+        date_from: req.body?.date_from || null,
+        date_to: req.body?.date_to || null,
       });
       const idResult = await pool.query(
         `SELECT game_id FROM (
@@ -1039,48 +1053,9 @@ router.get('/:eventId/ready', requireEventMembership, async (req, res) => {
   }
 });
 
-router.post('/:eventId/seat', requireEventMembership, async (req, res) => {
-  try {
-    if (req.event.status !== 'active') {
-      return res.status(400).json({
-        success: false,
-        message: req.event.status === 'registered'
-          ? '\u8d5b\u4e8b\u5c1a\u672a\u5f00\u542f\uff0c\u65e0\u6cd5\u7ec4\u684c'
-          : '\u8d5b\u4e8b\u5df2\u5173\u95ed\uff0c\u65e0\u6cd5\u7ec4\u684c',
-      });
-    }
-    const { user_ids, room_rule, room_config, reason } = req.body || {};
-    const ids = Array.isArray(user_ids) ? user_ids.map((x) => parseInt(x, 10)) : [];
-    if (ids.length !== 4 || ids.some((id) => Number.isNaN(id) || id <= 0)) {
-      return res.status(400).json({ success: false, message: '\u8bf7\u6070\u597d\u9009\u62e9 4 \u540d\u51c6\u5907\u4e2d\u7684\u73a9\u5bb6' });
-    }
-    const { status, data } = await proxyToGameServer('/admin/event/rooms/seat', {
-      event_id: req.event.event_id,
-      user_ids: ids,
-      room_rule: String(room_rule || 'guobiao').trim() || 'guobiao',
-      room_config: room_config || {},
-      created_by: req.eventAdmin.userId,
-    });
-    if (status >= 400) {
-      return res.status(status).json({
-        success: false,
-        message: data?.detail || data?.message || '\u7ec4\u684c\u5931\u8d25',
-      });
-    }
-    await writeAudit({
-      adminUserId: req.eventAdmin.userId,
-      action: 'event_admin.seat',
-      targetType: 'event',
-      targetId: req.event.event_id,
-      payload: { user_ids: ids, room_rule, room_info: data?.room_info || null },
-      reason: String(reason || '').trim(),
-    });
-    res.json({ success: true, data });
-  } catch (err) {
-    console.error('event-admin seat:', err);
-    res.status(500).json({ success: false, message: '\u670d\u52a1\u5668\u5185\u90e8\u9519\u8bef' });
-  }
-});
+router.post('/:eventId/seat', requireEventMembership, createSeatHandler({
+  service: createRoomSettingsService({ pool }), proxyToGameServer, writeAudit,
+}));
 
 router.get('/:eventId/entry-config', requireEventMembership, async (req, res) => {
   try {

@@ -12,6 +12,7 @@ public static class GameSceneTeardown {
             Game3DManager.Instance.StopAllRunningAnimations();
             Game3DManager.Instance.Clear3DTile();
         }
+        Card3DPresetLibrary.Instance?.BeginEditing();
 
         if (GameSceneUIManager.Instance != null) {
             GameSceneUIManager.Instance.ClearTemporaryPanels();

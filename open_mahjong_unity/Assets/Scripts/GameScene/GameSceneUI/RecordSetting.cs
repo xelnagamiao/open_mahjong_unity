@@ -116,7 +116,9 @@ public class RecordSetting : MonoBehaviour {
     }
 
     private void RefreshUI() {
-        showCardsModeText.color = isShowCardsMode ? trueColor : falseColor;
+        if (showCardsModeText != null) {
+            showCardsModeText.color = isShowCardsMode ? trueColor : falseColor;
+        }
         if (showMoqieModeText != null) {
             showMoqieModeText.color = isShowMoqieMode ? trueColor : falseColor;
         }

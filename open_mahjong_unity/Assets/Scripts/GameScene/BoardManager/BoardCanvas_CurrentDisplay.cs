@@ -7,8 +7,8 @@ public partial class BoardCanvas {
     string shownCurrentPlayer;
 
     public void ResetForExit() {
-        CoroutineManager.Instance.StopNamed(CoroutineKeys.BoardCurrentFlash);
-        CoroutineManager.Instance.StopNamed(CoroutineKeys.BoardScoreDifference);
+        CoroutineManager.Instance?.StopNamed(CoroutineKeys.BoardCurrentFlash);
+        CoroutineManager.Instance?.StopNamed(CoroutineKeys.BoardScoreDifference);
         isShowingScoreDifference = false;
         RestoreBaselineScores();
         shownCurrentPlayer = null;
@@ -17,6 +17,7 @@ public partial class BoardCanvas {
         player_left_current_image.gameObject.SetActive(false);
         player_top_current_image.gameObject.SetActive(false);
         player_right_current_image.gameObject.SetActive(false);
+        ApplyOccupiedSeatClusters(null);
     }
 
     public void ShowCurrentPlayer(string currentPlayerIndex, int remainTiles){
@@ -24,7 +25,7 @@ public partial class BoardCanvas {
         if (currentPlayerIndex == shownCurrentPlayer) return;
         shownCurrentPlayer = currentPlayerIndex;
 
-        CoroutineManager.Instance.StopNamed(CoroutineKeys.BoardCurrentFlash);
+        CoroutineManager.Instance?.StopNamed(CoroutineKeys.BoardCurrentFlash);
         player_self_current_image.gameObject.SetActive(false);
         player_left_current_image.gameObject.SetActive(false);
         player_top_current_image.gameObject.SetActive(false);
@@ -45,29 +46,31 @@ public partial class BoardCanvas {
             targetImage = player_right_current_image;
         }
 
+        if (targetImage == null) return;
+
         Color color = targetImage.color;
         color.a = 1f;
         targetImage.color = color;
 
         CoroutineManager.Ensure();
-        CoroutineManager.Instance.RunNamed(
+        CoroutineManager.Instance?.RunNamed(
             CoroutineKeys.BoardCurrentFlash,
             FlashImage(targetImage),
             restartIfRunning: true
         );
     }
 
+    private static float CurrentPlayerAlpha(float elapsedTime) {
+        // A two-second breath with a visible minimum and smooth turning points.
+        return Mathf.Lerp(.35f, 1f, .5f + .5f * Mathf.Cos(elapsedTime * Mathf.PI));
+    }
+
     private IEnumerator FlashImage(Image image) {
-        float cycleDuration = 2.0f;
         float elapsedTime = 0f;
 
-        while (true) {
-            float progress = (elapsedTime % cycleDuration) / cycleDuration;
-            float pingPongValue = Mathf.PingPong(progress * 2f, 1f);
-            float alpha = 1f - pingPongValue;
-
+        while (image && image.gameObject.activeSelf) {
             Color color = image.color;
-            color.a = alpha;
+            color.a = CurrentPlayerAlpha(elapsedTime);
             image.color = color;
 
             elapsedTime += Time.deltaTime;

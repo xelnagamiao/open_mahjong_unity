@@ -3,6 +3,7 @@ using System.IO;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Serialization;
 
 /// <summary>牌背颜色与 3D 牌背图片。引用由场景拖好，运行时只改数值和贴图。</summary>
 public class CardBackConfigPanel : MonoBehaviour
@@ -12,12 +13,15 @@ public class CardBackConfigPanel : MonoBehaviour
     private const string ImageAccept = "image/png,image/jpeg,image/jpg,image/webp,application/zip,.zip";
 
     [SerializeField] private Image previewImage;
+    [SerializeField] private GameObject tilePreviewPrefab;
     [SerializeField] private Slider sliderR;
     [SerializeField] private Slider sliderG;
     [SerializeField] private Slider sliderB;
+    [FormerlySerializedAs("sliderGray"), SerializeField] private Slider sliderBrightness;
     [SerializeField] private TMP_Text valueR;
     [SerializeField] private TMP_Text valueG;
     [SerializeField] private TMP_Text valueB;
+    [FormerlySerializedAs("valueGray"), SerializeField] private TMP_Text valueBrightness;
     [SerializeField] private TMP_InputField hexInput;
     [SerializeField] private Button hexApplyButton;
     [SerializeField] private Button restoreButton;
@@ -27,8 +31,10 @@ public class CardBackConfigPanel : MonoBehaviour
     [SerializeField] private Button[] colorSwatches;
 
     private Color currentColor = ConfigManager.DefaultCardBackColor;
+    private float currentBrightness;
     private Texture2D currentTexture;
     private Sprite previewSprite;
+    private Image previewArtwork;
     private bool syncing;
 
     private void Awake()
@@ -60,7 +66,8 @@ public class CardBackConfigPanel : MonoBehaviour
 
     private void Start()
     {
-        CardBackManager.ApplySavedConfig();
+        // 打开设置只展示当前状态；已初始化的对局不应再重放存档、清掉逐牌提示色。
+        CardBackManager.EnsureSavedConfigApplied();
     }
 
     public void ReloadSaved()
@@ -78,6 +85,8 @@ public class CardBackConfigPanel : MonoBehaviour
         sliderR.onValueChanged.AddListener(v => SetColor(new Color(v / 255f, currentColor.g, currentColor.b, 1f)));
         sliderG.onValueChanged.AddListener(v => SetColor(new Color(currentColor.r, v / 255f, currentColor.b, 1f)));
         sliderB.onValueChanged.AddListener(v => SetColor(new Color(currentColor.r, currentColor.g, v / 255f, 1f)));
+        if (sliderBrightness != null)
+            sliderBrightness.onValueChanged.AddListener(SetBrightness);
         SceneConfigUi.BindSwatches(colorSwatches, SetColor);
         LoadSavedIntoUI();
     }
@@ -97,6 +106,7 @@ public class CardBackConfigPanel : MonoBehaviour
         if (ConfigManager.Instance != null)
         {
             currentColor = ConfigManager.Instance.CardBackColor;
+            currentBrightness = ConfigManager.Instance.CardBackBrightness;
             currentTexture = CardBackManager.LoadSavedTexture();
         }
         SyncUIFromColor();
@@ -106,40 +116,50 @@ public class CardBackConfigPanel : MonoBehaviour
     private void SyncUIFromColor()
     {
         syncing = true;
-        sliderR.value = currentColor.r * 255f;
-        sliderG.value = currentColor.g * 255f;
-        sliderB.value = currentColor.b * 255f;
-
-        valueR.text = Mathf.RoundToInt(currentColor.r * 255f).ToString();
-        valueG.text = Mathf.RoundToInt(currentColor.g * 255f).ToString();
-        valueB.text = Mathf.RoundToInt(currentColor.b * 255f).ToString();
+        SceneConfigColorUi.SyncChannel(sliderR, valueR, currentColor.r);
+        SceneConfigColorUi.SyncChannel(sliderG, valueG, currentColor.g);
+        SceneConfigColorUi.SyncChannel(sliderB, valueB, currentColor.b);
+        SceneConfigColorUi.SyncBrightness(sliderBrightness, valueBrightness, currentBrightness);
         hexInput.text = ColorUtility.ToHtmlStringRGB(currentColor);
         syncing = false;
     }
 
     private void UpdatePreview()
     {
+        if (previewArtwork == null)
+        {
+            TileTextureLayout.FitRenderedCardPreview(previewImage.rectTransform, tilePreviewPrefab);
+            var artwork = new GameObject("CardBackArtwork", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            artwork.layer = previewImage.gameObject.layer;
+            artwork.transform.SetParent(previewImage.transform, false);
+            previewArtwork = artwork.GetComponent<Image>();
+            previewArtwork.raycastTarget = false;
+            // Match the back shader: stretch the artwork, composite alpha over the base color.
+            previewArtwork.preserveAspect = false;
+            previewArtwork.rectTransform.anchorMin = Vector2.zero;
+            previewArtwork.rectTransform.anchorMax = Vector2.one;
+            previewArtwork.rectTransform.offsetMin = previewArtwork.rectTransform.offsetMax = Vector2.zero;
+        }
         if (previewSprite != null) Destroy(previewSprite);
         previewSprite = null;
+        previewImage.sprite = null;
+        previewImage.preserveAspect = false;
+        previewImage.color = ConfigManager.ApplyColorBrightness(currentColor, currentBrightness);
         if (currentTexture != null)
         {
             previewSprite = Sprite.Create(
                 currentTexture,
                 new Rect(0f, 0f, currentTexture.width, currentTexture.height),
                 new Vector2(0.5f, 0.5f));
-            previewImage.sprite = previewSprite;
-            previewImage.color = Color.white;
         }
-        else
-        {
-            previewImage.sprite = null;
-            previewImage.color = currentColor;
-        }
+        previewArtwork.sprite = previewSprite;
+        previewArtwork.color = Color.white;
+        previewArtwork.enabled = previewSprite != null;
     }
 
     private void SetColor(Color color)
     {
-        if (syncing) return;
+        if (syncing || SceneConfigColorUi.IsLayoutRefresh) return;
         color.a = 1f;
         currentColor = color;
         SyncUIFromColor();
@@ -151,22 +171,28 @@ public class CardBackConfigPanel : MonoBehaviour
         CardBackManager.Apply(currentColor, currentTexture);
     }
 
+    private void SetBrightness(float value)
+    {
+        if (syncing || SceneConfigColorUi.IsLayoutRefresh) return;
+        currentBrightness = Mathf.Clamp(value / 100f, -1f, 1f);
+        ConfigManager.Instance?.SetCardBackBrightness(currentBrightness);
+        SyncUIFromColor();
+        UpdatePreview();
+        CardBackManager.Apply(currentColor, currentTexture);
+    }
+
     private void ApplyHex()
     {
-        if (!SceneConfigUi.TryParseHex(hexInput.text, out Color color))
-        {
-            SceneConfigUi.ShowTip("HEX 格式不正确");
-            return;
-        }
-        SetColor(color);
-        SceneConfigUi.ShowTip("颜色已应用");
+        SceneConfigUi.ApplyHex(hexInput, SetColor, "颜色已应用");
     }
 
     private void RestoreDefault()
     {
         currentColor = ConfigManager.DefaultCardBackColor;
+        currentBrightness = 0f;
         if (ConfigManager.Instance != null)
         {
+            ConfigManager.Instance.SetCardBackBrightness(0f);
             ConfigManager.Instance.SetCardBackColor(currentColor);
         }
         ClearPersistedImage();
@@ -286,18 +312,7 @@ public class CardBackConfigPanel : MonoBehaviour
     {
         if (source == null) return;
 
-        RenderTexture rt = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.ARGB32);
-        Graphics.Blit(source, rt);
-        RenderTexture prev = RenderTexture.active;
-        RenderTexture.active = rt;
-        Texture2D copy = new Texture2D(source.width, source.height, TextureFormat.RGBA32, false);
-        copy.ReadPixels(new Rect(0f, 0f, source.width, source.height), 0, 0);
-        copy.Apply();
-        RenderTexture.active = prev;
-        RenderTexture.ReleaseTemporary(rt);
-
-        byte[] bytes = copy.EncodeToPNG();
-        Destroy(copy);
+        byte[] bytes = SceneConfigTextureCapture.EncodePng(source);
         ApplyCardBackPng(bytes);
         SceneConfigUi.ShowTip("牌背图片已应用");
     }

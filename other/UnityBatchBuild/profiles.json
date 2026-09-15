@@ -1,0 +1,5 @@
+{
+  "Android": "Assets/Settings/Build Profiles/Android\u2122.asset",
+  "WebGL": "Assets/Settings/Build Profiles/Web.asset",
+  "Windows": "Assets/Settings/Build Profiles/Windows.asset"
+}

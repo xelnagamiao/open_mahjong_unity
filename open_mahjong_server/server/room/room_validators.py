@@ -336,5 +336,31 @@ class TaiwanRoomValidator(BaseModel):
         return asdict(TaiwanRules.from_dict(v))
 
 
+class FreeRoomValidator(BaseModel):
+    """自由模式只校验房间名、主种子和牌墙勾选。"""
+
+    room_name: str
+    random_seed: Union[int, str] = 0
+    wall_wan: bool = True
+    wall_tong: bool = True
+    wall_suo: bool = True
+    wall_winds: bool = True
+    wall_dragons: bool = True
+    wall_flowers: bool = True
+
+    @validator('room_name')
+    def validate_room_name(cls, v):
+        if not v.strip():
+            raise ValueError('房间名不能为空')
+        return v.strip()
+
+    @validator('random_seed')
+    def validate_random_seed(cls, v):
+        try:
+            return parse_user_master_seed(v)
+        except ValueError as e:
+            raise ValueError(str(e)) from e
+
+
 class MMCValidator(BaseModel):
     pass

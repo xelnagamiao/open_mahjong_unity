@@ -24,80 +24,101 @@ public class PlayerInfoClass
     public string[] tag_list;
     /// <summary>立直规则：与 discard_tiles 同序的横置标记，用于他家鸣牌后续横、重连/牌谱重建复原立直横置弃牌。</summary>
     public List<bool> discard_riichi_flags = new List<bool>();
+
+    /// <summary>清空空座位残留，避免上一局的手牌数/河牌画到无人座位。</summary>
+    public void ClearSeatData() {
+        username = null;
+        userId = 0;
+        score = 0;
+        hand_tiles_count = 0;
+        hand_tiles = null;
+        discard_tiles = new List<int>();
+        discard_origin_tiles = new List<int>();
+        combination_tiles = new List<string>();
+        combination_masks = new List<int[]>();
+        huapai_list = new List<int>();
+        title_used = 1;
+        profile_used = 1;
+        character_used = 1;
+        voice_used = 1;
+        score_history = new List<string>();
+        round_number_history = new List<int>();
+        original_player_index = 0;
+        tag_list = null;
+        discard_riichi_flags = new List<bool>();
+    }
 }
 
+/// <summary>
+/// 场景里的对局宿主 MonoBehaviour：承载协程、按 GameInfo 装载会话/镜像、开局与终局的通用表现。
+/// 数据在 <see cref="GameSession"/>（会话）与 <see cref="TableMirror"/>（桌面镜像），询问态在 <see cref="TurnClock"/>；
+/// 本类保留同名转发属性以吸收既有引用。流程决策在各族 GameState（IGameState / TurnBasedGameState），
+/// 本类不含任何具体规则名；UI 的族差异走 RuleManifest 钩子。
+/// </summary>
 public partial class NormalGameStateManager : MonoBehaviour{
     public static NormalGameStateManager Instance { get; private set; }
 
-    // 玩家位置信息 int[0,1,2,3] → string[self,left,top,right]
-    public Dictionary<int, string> indexToPosition = new Dictionary<int, string>();
+    private static GameSession Session => GameSession.Current;
+    private static TableMirror Mirror => TableMirror.Current;
 
-    // 房间信息
-    public int roomId; // 房间ID
-    public string gamestateId; // 游戏状态ID（用于发送游戏操作请求）
-    public string roomType; // 房间类型（custom/match等）
-    public string roomRule; // 房间规则（guobiao/qingque等）
-    public string subRule;  // 子规则（guobiao/standard、guobiao/xiaolin、qingque/standard）
-    public int hepaiLimit = 8; // 起和番限制
-    public Dictionary<string, object> detailedConfig = new Dictionary<string, object>(); // 当前规则的详细配置
-    public bool changshaBaseScoreNoDealer;
-    public int changshaSmallHuScore = 2;
-    public int changshaBigHuScore = 8;
-    public int selfIndex; // 自身位置 0东 1南 2西 3北
-    public int roomStepTime; // 步时
-    public int roomRoundTime; // 局时
-    public int selfRemainingTime; // 剩余时间
-    public int remainTiles; // 剩余牌数
-    public int currentRound; // 当前轮数
-    public int maxRound; // 最大风圈数（1=东风 2=半庄 3=东西 4=全庄）
-    public bool tips; // 提示
-    public bool showMoqieHint; // 手摸切灰显（对局河牌摸切灰、手切正常）
-    public bool isOpenCuoHe; // 是否开启错和
-    /// <summary>错和结算已展示，等待 ready 结束后再恢复手牌与操作区。</summary>
-    public bool pendingCuoheContinueAfterReady;
-    public int pendingCuoheWinnerIndex = -1;
-    /// <summary>国标局终亮杠快照，供和牌/流局结算面板读取。</summary>
-    public GuobiaoEndResultExtras lastGuobiaoEndExtras;
-    public bool isSetRandomSeed; // 是否设置随机种子
+    // ---- 转发：桌面镜像 ----
+    /// <summary>玩家位置信息 int[0,1,2,3] → string[self,left,top,right]</summary>
+    public Dictionary<int, string> indexToPosition { get => Mirror.IndexToPosition; set => Mirror.IndexToPosition = value; }
+    public Dictionary<string,PlayerInfoClass> player_to_info { get => Mirror.PlayerToInfo; set => Mirror.PlayerToInfo = value; }
+    public List<int> selfHandTiles { get => Mirror.SelfHandTiles; set => Mirror.SelfHandTiles = value; }
+    public int remainTiles { get => Mirror.RemainTiles; set => Mirror.RemainTiles = value; }
+    public int currentRound { get => Mirror.CurrentRound; set => Mirror.CurrentRound = value; }
+    public int maxRound { get => Mirror.MaxRound; set => Mirror.MaxRound = value; }
+    public int lastCutCardID { get => Mirror.LastCutCardID; set => Mirror.LastCutCardID = value; }
+    public string lastDiscardPlayerPosition { get => Mirror.LastDiscardPlayerPosition; set => Mirror.LastDiscardPlayerPosition = value; }
+    public string currentMeldDiscarderPos { get => Mirror.CurrentMeldDiscarderPos; set => Mirror.CurrentMeldDiscarderPos = value; }
+    public int currentMeldClaimedTileId { get => Mirror.CurrentMeldClaimedTileId; set => Mirror.CurrentMeldClaimedTileId = value; }
+    public int lastDealTileId { get => Mirror.LastDealTileId; set => Mirror.LastDealTileId = value; }
+    public Dictionary<string, int[][]> chiCandidates { get => Mirror.ChiCandidates; set => Mirror.ChiCandidates = value; }
+    public List<RoundSettlementSnapshot> roundSettlementHistory { get => Mirror.RoundSettlementHistory; set => Mirror.RoundSettlementHistory = value; }
 
-    public List<string> allowActionList = new List<string>(); // 允许操作列表
-    public int lastCutCardID; // 上一张切牌的ID
-    /// <summary>最近一次询问（手牌/鸣牌）的 action_tick，发送操作时回传给服务端用于丢弃过期提交（防战术鸣牌前的延迟取消/碰被错误消费）。</summary>
-    public int LastAskActionTick;
-    /// <summary>当前鸣牌询问对应的切牌 id（仅来自 ask_other_action.cut_tile）。</summary>
-    public int currentAskCutTileId;
-    /// <summary>当前鸣牌询问是否来自他人加杠（抢杠和）。</summary>
-    public bool IsQiangGangAsk { get; private set; }
-    private bool pendingAskFromJiagang;
-    /// <summary>上一张切牌玩家座位（荣和倒牌从河牌抓取时使用）。</summary>
-    public string lastDiscardPlayerPosition;
-    /// <summary>本次鸣牌（吃/碰/明杠）真正认走的打牌者座位，由 action_tick 回查得到，供 3D 回收河牌使用。乱序下比 lastDiscardPlayerPosition 可靠。</summary>
-    public string currentMeldDiscarderPos;
-    /// <summary>本次鸣牌真正认走的被鸣牌张 id，由 action_tick 回查得到。</summary>
-    public int currentMeldClaimedTileId;
-    public string CurrentPlayer; // 当前玩家字符串
-    /// <summary>上次 ask_hand_action 的 player_index；-1 表示本局尚未 ask，首次 ask 不收拢手牌。</summary>
-    private int lastAskHandPlayerIndex = -1;
-    public List<int> selfHandTiles = new List<int>(); // 手牌列表
-
-    /// <summary>当前是否在等待自己做出手牌/鸣牌操作（供回到主菜单时的红色提醒按钮判断）。</summary>
-    public bool IsSelfActionRequired { get; private set; }
+    // ---- 转发：会话 ----
+    public int roomId { get => Session.RoomId; set => Session.RoomId = value; }
+    public string gamestateId { get => Session.GamestateId; set => Session.GamestateId = value; }
+    public string roomType { get => Session.RoomType; set => Session.RoomType = value; }
+    public string roomRule { get => Session.RoomRule; set => Session.RoomRule = value; }
+    public string subRule { get => Session.SubRule; set => Session.SubRule = value; }
+    public int hepaiLimit { get => Session.HepaiLimit; set => Session.HepaiLimit = value; }
+    public Dictionary<string, object> detailedConfig { get => Session.DetailedConfig; set => Session.DetailedConfig = value; }
+    public int selfIndex { get => Session.SelfIndex; set => Session.SelfIndex = value; }
+    public int roomStepTime { get => Session.RoomStepTime; set => Session.RoomStepTime = value; }
+    public int roomRoundTime { get => Session.RoomRoundTime; set => Session.RoomRoundTime = value; }
+    public bool tips { get => Session.Tips; set => Session.Tips = value; }
+    public bool showMoqieHint { get => Session.ShowMoqieHint; set => Session.ShowMoqieHint = value; }
+    public bool isSetRandomSeed { get => Session.IsSetRandomSeed; set => Session.IsSetRandomSeed = value; }
     /// <summary>对局是否处于进行中（InitializeGame 后置 true，结算/结束时置 false）。</summary>
-    public bool IsGameActive { get; private set; }
+    public bool IsGameActive { get => Session.IsGameActive; private set => Session.IsGameActive = value; }
     /// <summary>当前是否处于"实时观战"只读模式：接收完整 gamestate 广播，但所有发送动作的接口均早退。</summary>
-    public bool IsRealtimeSpectator { get; private set; }
+    public bool IsRealtimeSpectator { get => Session.IsRealtimeSpectator; private set => Session.IsRealtimeSpectator = value; }
     /// <summary>实时观战时被观战玩家的 user_id，用于每局解析 selfIndex（player_index 会轮转）。</summary>
-    public int RealtimeSpectatorHostUserId { get; private set; }
+    public int RealtimeSpectatorHostUserId { get => Session.RealtimeSpectatorHostUserId; private set => Session.RealtimeSpectatorHostUserId = value; }
 
-    // 玩家信息
-    public Dictionary<string,PlayerInfoClass> player_to_info = new Dictionary<string,PlayerInfoClass>(); // 玩家信息
+    // ---- 转发：询问态 / 倒计时（TurnClock）----
+    private static TurnClock Clock => TurnClock.Current;
+    public int selfRemainingTime { get => Clock.SelfRemainingTime; set => Clock.SelfRemainingTime = value; }
+    public List<string> allowActionList { get => Clock.AllowActionList; set => Clock.AllowActionList = value; }
+    public int LastAskActionTick { get => Clock.LastAskActionTick; set => Clock.LastAskActionTick = value; }
+    public int currentAskCutTileId { get => Clock.CurrentAskCutTileId; set => Clock.CurrentAskCutTileId = value; }
+    public bool IsQiangGangAsk { get => Clock.IsQiangGangAsk; private set => Clock.IsQiangGangAsk = value; }
+    private bool pendingAskFromJiagang { get => Clock.PendingAskFromJiagang; set => Clock.PendingAskFromJiagang = value; }
+    public string CurrentPlayer { get => Clock.CurrentPlayer; set => Clock.CurrentPlayer = value; }
+    private int lastAskHandPlayerIndex { get => Clock.LastAskHandPlayerIndex; set => Clock.LastAskHandPlayerIndex = value; }
+    public bool IsSelfActionRequired { get => Clock.IsSelfActionRequired; private set => Clock.IsSelfActionRequired = value; }
 
-    /// <summary>每局结算快照，供计分板主番列与悬停详情（实时对局累积）。</summary>
-    public List<RoundSettlementSnapshot> roundSettlementHistory = new List<RoundSettlementSnapshot>();
+    /// <summary>服务端随询问下发的切牌约束（TurnClock 持有；此处转发给尚未改读 TurnClock 的 UI）。</summary>
+    public Dictionary<int, int[]> selfRiichiCandidateCuts => Clock.RiichiCandidateCuts;
+    public HashSet<int> selfForbiddenCutTiles => Clock.ForbiddenCutTiles;
+    public HashSet<int> selfForcedCutTiles => Clock.ForcedCutTiles;
+
+    public bool isOpenCuoHe; // 是否开启错和（房间选项，日志用）
 
     public void ClearRoundSettlementHistory() {
         roundSettlementHistory.Clear();
-        ResetSichuanEndgameScoreAccum();
     }
 
     /// <summary>
@@ -105,7 +126,6 @@ public partial class NormalGameStateManager : MonoBehaviour{
     /// </summary>
     public void ClearScoreRecordSettlementCache() {
         roundSettlementHistory.Clear();
-        ResetSichuanEndgameScoreAccum();
         if (player_to_info == null) return;
         foreach (PlayerInfoClass player in player_to_info.Values) {
             if (player == null) continue;
@@ -115,28 +135,6 @@ public partial class NormalGameStateManager : MonoBehaviour{
             else player.round_number_history = new List<int>();
         }
     }
-
-    // 上次摸牌类型
-    /// <summary>自家最近一次摸入的牌 id（deal_tile/deal_gang_tile/deal_buhua_tile）；切牌后清零。</summary>
-    public int lastDealTileId;
-
-    // 立直麻将专属字段
-    public int honba; // 本场棒数
-    public int riichiSticks; // 场供立直棒数
-    public List<int> doraIndicators = new List<int>(); // 初始宝牌指示牌
-    public List<int> kanDoraIndicators = new List<int>(); // 杠宝牌指示牌
-    public string hepaiWay; // 和牌方式 head_bump / multi_ron / three_ron_abort
-    public bool redDora; // 是否启用赤宝牌
-    public int dealerIndex; // 当前亲家索引
-
-    /// <summary>立直麻将：当前自家可立直切牌候选 {tile_id: [waiting_tile_id, ...]}。</summary>
-    public Dictionary<int, int[]> selfRiichiCandidateCuts = new Dictionary<int, int[]>();
-    /// <summary>立直麻将：当前自家本巡食替禁切牌列表（吃来源 + 两面搭子的筋）。</summary>
-    public HashSet<int> selfForbiddenCutTiles = new HashSet<int>();
-    /// <summary>强制出牌列表：长沙海底/开杠补张只能打这些摸入牌。</summary>
-    public HashSet<int> selfForcedCutTiles = new HashSet<int>();
-    /// <summary>当前一轮询问切牌后操作下发的吃牌候选（立直麻将赤宝牌场景）。</summary>
-    public Dictionary<string, int[][]> chiCandidates = new Dictionary<string, int[][]>();
 
     // 调试用 于编辑器显示玩家信息列表
     [SerializeField]
@@ -148,14 +146,11 @@ public partial class NormalGameStateManager : MonoBehaviour{
             return;
         }
         Instance = this;
-        player_to_info["self"] = new PlayerInfoClass();
-        player_to_info["left"] = new PlayerInfoClass();
-        player_to_info["top"] = new PlayerInfoClass();
-        player_to_info["right"] = new PlayerInfoClass();
+        Session.Host = this;
         // 调试用 显示玩家信息列表
-        playerInfoList.Add(player_to_info["self"]);
-        playerInfoList.Add(player_to_info["left"]);
-        playerInfoList.Add(player_to_info["top"]);
-        playerInfoList.Add(player_to_info["right"]);
+        playerInfoList.Clear();
+        foreach (string seat in TableMirror.Seats) {
+            playerInfoList.Add(player_to_info[seat]);
+        }
     }
 }

@@ -226,6 +226,8 @@ class FriendManager:
         old_request_id = self.outgoing_by_from.get(from_user_id)
         if old_request_id and old_request_id in self.pending_requests:
             await self._cancel_pending(old_request_id, notify_target=True)
+        if self.game_server.match_manager.blocks_spectator(from_user_id):
+            return Response(type="friend/realtime_request_result", success=False, message="正在组桌或对局中，无法进入观战")
 
         # 已经在该对局做实时观战者了？
         if any(
@@ -354,6 +356,15 @@ class FriendManager:
         )
 
     async def respond_request(self, responder_user_id: int, request_id: str, accept: bool) -> Response:
+        # Complete an old initial snapshot before event seating clears the subscription.
+        room_manager = getattr(self.game_server, "room_manager", None)
+        lock = getattr(room_manager, "event_seating_lock", None)
+        if lock is None:
+            return await self._respond_request_locked(responder_user_id, request_id, accept)
+        async with lock:
+            return await self._respond_request_locked(responder_user_id, request_id, accept)
+
+    async def _respond_request_locked(self, responder_user_id: int, request_id: str, accept: bool) -> Response:
         """B 端响应。"""
         req = self.pending_requests.get(request_id)
         if req is None:
@@ -471,6 +482,14 @@ class FriendManager:
 
     # ----------------- 退出 / 踢出 / 清理 -----------------
 
+    async def leave_spectating_for_event(self, user_id: int):
+        """Clear subscriptions and requests before the event/seated transition."""
+        request_id = self.outgoing_by_from.get(user_id)
+        if request_id:
+            await self._cancel_pending(request_id, notify_target=True)
+        # Do not send an exit response to the viewer: event/seated performs that UI transition.
+        await self.exit_realtime(user_id)
+
     async def exit_realtime(self, user_id: int) -> Response:
         """A 主动退出当前所有实时观战。"""
         removed_any = False
@@ -587,12 +606,27 @@ class FriendManager:
             )
 
     async def on_game_end(self, game_state):
-        """游戏结束时：通知挂着的实时观战者下机。"""
+        """游戏结束时同时清理观战者、被观战者列表和待响应请求。"""
+        gamestate_id = getattr(game_state, "gamestate_id", None)
         spectators: List[RealtimeSpectator] = getattr(game_state, "realtime_spectators", [])
-        if not spectators:
-            return
         snapshot = list(spectators)
         spectators.clear()
+
+        # 在发送消息（让出事件循环）前摘除全部请求，避免结束期间仍能接受旧申请。
+        pending = [
+            req for req in self.pending_requests.values()
+            if req.gamestate_id == gamestate_id
+        ]
+        for req in pending:
+            self.pending_requests.pop(req.request_id, None)
+            if self.outgoing_by_from.get(req.from_user_id) == req.request_id:
+                self.outgoing_by_from.pop(req.from_user_id, None)
+            if req.timer_task and not req.timer_task.done():
+                req.timer_task.cancel()
+
+        # 即使已无观战者也同步空列表；不能只通知 A，而让 B 保留上一次的面板。
+        # 先同步座位玩家，再通知观战者，观战者发送失败不会阻断 B 端清理。
+        await self.broadcast_realtime_spectators_changed(game_state)
         for sp in snapshot:
             await self._send_to_user(
                 sp.user_id,
@@ -600,6 +634,28 @@ class FriendManager:
                     type="friend/realtime_ended",
                     success=True,
                     message="实时观战的对局已结束",
+                    realtime_gamestate_id=gamestate_id,
+                ),
+            )
+        for req in pending:
+            await self._send_to_user(
+                req.to_user_id,
+                Response(
+                    type="friend/realtime_request_revoked",
+                    success=False,
+                    message="对局已结束，实时观战请求已失效",
+                    realtime_request_id=req.request_id,
+                    realtime_gamestate_id=gamestate_id,
+                ),
+            )
+            await self._send_to_user(
+                req.from_user_id,
+                Response(
+                    type="friend/realtime_request_declined",
+                    success=False,
+                    message="对局已结束，无法开始实时观战",
+                    realtime_request_id=req.request_id,
+                    realtime_gamestate_id=gamestate_id,
                 ),
             )
 

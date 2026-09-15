@@ -1,0 +1,188 @@
+{
+    "cloth": [
+        {
+            "name": "Tablecloth_blue",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_blue",
+            "displayName": "Tablecloth_blue"
+        },
+        {
+            "name": "Tablecloth_green",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_green",
+            "displayName": "Tablecloth_green"
+        },
+        {
+            "name": "Tablecloth_green2",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_green2",
+            "displayName": "Tablecloth_green2"
+        },
+        {
+            "name": "Tablecloth_Focus_01_Sakura",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_01_Sakura",
+            "displayName": "Tablecloth_Focus_01_Sakura"
+        },
+        {
+            "name": "Tablecloth_Focus_06_AutumnMaple",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_06_AutumnMaple",
+            "displayName": "Tablecloth_Focus_06_AutumnMaple"
+        },
+        {
+            "name": "Tablecloth_Focus_09_Celadon",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_09_Celadon",
+            "displayName": "Tablecloth_Focus_09_Celadon"
+        },
+        {
+            "name": "Tablecloth_Focus_10_Ginkgo",
+            "preview": "TableSurfacePreviews/TableCloth/Tablecloth_Focus_10_Ginkgo",
+            "displayName": "Tablecloth_Focus_10_Ginkgo"
+        },
+        {
+            "name": "Tablecloth_Focus_02_PeacockTeal",
+            "preview": "",
+            "displayName": "纯色孔雀青"
+        },
+        {
+            "name": "Tablecloth_Focus_03_Cobalt",
+            "preview": "",
+            "displayName": "纯色钴蓝"
+        },
+        {
+            "name": "Tablecloth_Focus_04_Wisteria",
+            "preview": "",
+            "displayName": "纯色藤蓝"
+        },
+        {
+            "name": "Tablecloth_Focus_05_Bamboo",
+            "preview": "",
+            "displayName": "纯色竹绿"
+        },
+        {
+            "name": "Tablecloth_Focus_07_MoonSea",
+            "preview": "",
+            "displayName": "纯色月海蓝"
+        },
+        {
+            "name": "Tablecloth_Focus_08_CityGlass",
+            "preview": "",
+            "displayName": "纯色都市青"
+        }
+    ],
+    "edge": [
+        {
+            "name": "Edge_orange_wood",
+            "preview": "TableSurfacePreviews/Edge/Edge_orange_wood",
+            "displayName": "原版橙木"
+        },
+        {
+            "name": "Edge_orange_wood_deep",
+            "preview": "TableSurfacePreviews/Edge/Edge_orange_wood_deep",
+            "displayName": "深色橙木"
+        },
+        {
+            "name": "Edge_Relief_02_WhiteOakSilver",
+            "preview": "TableSurfacePreviews/Edge/Edge_Relief_02_WhiteOakSilver",
+            "displayName": "白橡木与银边"
+        },
+        {
+            "name": "Edge_Relief_03_CherryGunmetal",
+            "preview": "TableSurfacePreviews/Edge/Edge_Relief_03_CherryGunmetal",
+            "displayName": "樱木与枪灰边"
+        },
+        {
+            "name": "Edge_Relief_04_EbonyTitanium",
+            "preview": "TableSurfacePreviews/Edge/Edge_Relief_04_EbonyTitanium",
+            "displayName": "黑钛金属"
+        },
+        {
+            "name": "Edge_Relief_05_JadeAnodized",
+            "preview": "TableSurfacePreviews/Edge/Edge_Relief_05_JadeAnodized",
+            "displayName": "青玉金属"
+        },
+        {
+            "name": "Edge_Relief_06_IvoryEnamelWalnut",
+            "preview": "TableSurfacePreviews/Edge/Edge_Relief_06_IvoryEnamelWalnut",
+            "displayName": "象牙漆木扶手"
+        },
+        {
+            "name": "Edge_Focus_01_Sakura",
+            "preview": "TableSurfacePreviews/Edge/Edge_Focus_01_Sakura",
+            "displayName": "藏蓝"
+        },
+        {
+            "name": "Edge_Focus_02_PeacockTeal",
+            "preview": "TableSurfacePreviews/Edge/Edge_Focus_02_PeacockTeal",
+            "displayName": "孔雀青"
+        },
+        {
+            "name": "Edge_Focus_03_Cobalt",
+            "preview": "TableSurfacePreviews/Edge/Edge_Focus_03_Cobalt",
+            "displayName": "钴蓝"
+        },
+        {
+            "name": "Edge_Focus_04_Wisteria",
+            "preview": "TableSurfacePreviews/Edge/Edge_Focus_04_Wisteria",
+            "displayName": "深紫"
+        },
+        {
+            "name": "Edge_Focus_05_Bamboo",
+            "preview": "TableSurfacePreviews/Edge/Edge_Focus_05_Bamboo",
+            "displayName": "墨绿"
+        },
+        {
+            "name": "Edge_Focus_06_AutumnMaple",
+            "preview": "TableSurfacePreviews/Edge/Edge_Focus_06_AutumnMaple",
+            "displayName": "暗红"
+        },
+        {
+            "name": "Edge_Focus_07_MoonSea",
+            "preview": "TableSurfacePreviews/Edge/Edge_Focus_07_MoonSea",
+            "displayName": "海蓝"
+        },
+        {
+            "name": "Edge_Focus_08_CityGlass",
+            "preview": "TableSurfacePreviews/Edge/Edge_Focus_08_CityGlass",
+            "displayName": "湖蓝"
+        },
+        {
+            "name": "Edge_Focus_09_Celadon",
+            "preview": "TableSurfacePreviews/Edge/Edge_Focus_09_Celadon",
+            "displayName": "青瓷"
+        },
+        {
+            "name": "Edge_Focus_10_Ginkgo",
+            "preview": "TableSurfacePreviews/Edge/Edge_Focus_10_Ginkgo",
+            "displayName": "墨青"
+        },
+        {
+            "name": "Edge_bule",
+            "preview": "TableSurfacePreviews/Edge/Edge_bule",
+            "displayName": "原版蓝色"
+        }
+    ],
+    "seams": [
+        {
+            "name": "Seam_00",
+            "preview": "TableSurfacePreviews/TableSeams/Seam_00",
+            "displayName": "Seam_00"
+        },
+        {
+            "name": "Seam_01",
+            "preview": "TableSurfacePreviews/TableSeams/Seam_01",
+            "displayName": "Seam_01"
+        },
+        {
+            "name": "Seam_02",
+            "preview": "TableSurfacePreviews/TableSeams/Seam_02",
+            "displayName": "Seam_02"
+        },
+        {
+            "name": "Seam_03",
+            "preview": "TableSurfacePreviews/TableSeams/Seam_03",
+            "displayName": "Seam_03"
+        },
+        {
+            "name": "Seam_04",
+            "preview": "TableSurfacePreviews/TableSeams/Seam_04",
+            "displayName": "Seam_04"
+        }
+    ]
+}

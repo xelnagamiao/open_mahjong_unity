@@ -570,9 +570,12 @@ class DatabaseManager:
                 );
             """)
 
-            # users 表迁移：is_mcrpl_qualified、sponsor_expires_at（赞助到期时间，NULL 表示非赞助或已过期）
+            # users 表迁移：场次特许入场、sponsor_expires_at（赞助到期时间，NULL 表示非赞助或已过期）
             for col_name, col_def in [
                 ("is_mcrpl_qualified", "BOOLEAN NOT NULL DEFAULT FALSE"),
+                ("is_beginner_qualified", "BOOLEAN NOT NULL DEFAULT FALSE"),
+                ("is_intermediate_qualified", "BOOLEAN NOT NULL DEFAULT FALSE"),
+                ("is_advanced_qualified", "BOOLEAN NOT NULL DEFAULT FALSE"),
             ]:
                 cursor.execute(f"SAVEPOINT sp_add_{col_name};")
                 try:
@@ -591,6 +594,10 @@ class DatabaseManager:
                     cursor.execute("ROLLBACK TO SAVEPOINT sp_add_sponsor_expires_at;")
                 else:
                     raise
+
+            # Unity 注册可以记录邮箱；未验证邮箱不获得邮箱登录/找回凭据资格。
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) NULL;")
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMP NULL;")
 
             # users 表迁移：账号封禁字段
             for col_name, col_def in [
@@ -1184,7 +1191,10 @@ class DatabaseManager:
                 CREATE INDEX IF NOT EXISTS idx_event_ready_pool_event
                 ON event_ready_pool(event_id, ready_at);
             """)
+            cursor.execute("ALTER TABLE events ADD COLUMN IF NOT EXISTS room_settings JSONB NOT NULL DEFAULT '{}'::jsonb;")
 
+            from .player_recent_records import ensure_schema
+            ensure_schema(cursor)
             conn.commit() # 提交
             logger.info('数据表初始化成功')
             print('数据表初始化成功')
@@ -1274,6 +1284,32 @@ class DatabaseManager:
                 cursor.close()
                 self._put_connection(conn)
     
+    def get_users_by_login_email(self, email: str):
+        """最多读取两项以检测历史重复邮箱，不把未验证邮箱视为所有权凭据。
+
+        邮箱仅定位账户，登录仍须验证该账户的密码及封禁状态。
+        """
+        conn = None
+        cursor = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                "SELECT * FROM users WHERE LOWER(email) = %s AND is_tourist = FALSE LIMIT 2",
+                (email.strip().lower(),),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+        except Error:
+            logger.exception("查询登录邮箱失败")
+            if conn:
+                conn.rollback()
+            return []
+        finally:
+            if cursor is not None:
+                cursor.close()
+            if conn:
+                self._put_connection(conn)
+
     def get_user_by_user_id(self, user_id: int) -> Optional[Dict[str, Any]]:
         """
         根据用户ID获取用户信息
@@ -1385,7 +1421,7 @@ class DatabaseManager:
                 cursor.close()
                 self._put_connection(conn)
     
-    def create_user(self, username: str, password: str, is_tourist: bool = False) -> Optional[int]:
+    def create_user(self, username: str, password: str, is_tourist: bool = False, email: Optional[str] = None) -> Optional[int]:
         """
         创建新用户（密码会自动哈希存储）
 
@@ -1416,8 +1452,8 @@ class DatabaseManager:
             else:
                 # 注册用户：使用自动递增序列
                 cursor.execute(
-                    "INSERT INTO users (username, password, is_tourist) VALUES (%s, %s, %s) RETURNING user_id",
-                    (username, password_hash, is_tourist)
+                    "INSERT INTO users (username, password, is_tourist, email, email_verified_at) VALUES (%s, %s, %s, %s, NULL) RETURNING user_id",
+                    (username, password_hash, is_tourist, email)
                 )
                 user_id = cursor.fetchone()[0]
 
@@ -2285,7 +2321,7 @@ class DatabaseManager:
     # ---------------- 好友 / 关注 ----------------
 
     FOLLOW_MAX = 10
-    FRIEND_MAX = 20
+    FRIEND_MAX = 50
 
     def count_friends(self, user_id: int) -> int:
         """返回 user_id 当前关注的人数，失败返回 -1。"""
@@ -2673,7 +2709,7 @@ class DatabaseManager:
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute(
                 """
-                SELECT event_id, name, description, status, kind, entry_config,
+                SELECT event_id, name, description, status, kind, entry_config, room_settings,
                        created_by, closed_at, created_at, updated_at
                 FROM events WHERE event_id = %s
                 """,
@@ -3178,7 +3214,7 @@ class DatabaseManager:
                 FROM event_ready_pool p
                 LEFT JOIN users u ON u.user_id = p.user_id
                 WHERE p.event_id = %s
-                ORDER BY p.ready_at ASC
+                ORDER BY p.ready_at ASC, p.user_id ASC
                 """,
                 (event_id,),
             )
@@ -3192,6 +3228,93 @@ class DatabaseManager:
             if conn:
                 cursor.close()
                 self._put_connection(conn)
+
+    def list_auto_match_event_ids(self) -> List[str]:
+        """Only scan enabled, active venues with enough persisted waiting entries."""
+        conn = self._get_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT e.event_id
+                    FROM events e JOIN event_ready_pool p ON p.event_id = e.event_id
+                    WHERE e.status = 'active'
+                      AND e.room_settings->'auto_match'->>'enabled' = 'true'
+                    GROUP BY e.event_id HAVING COUNT(*) >= 4
+                    ORDER BY MIN(p.ready_at), e.event_id
+                """)
+                result = [row[0] for row in cursor.fetchall()]
+            conn.commit()
+            return result
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            self._put_connection(conn)
+
+    def claim_event_ready_players(self, event_id: str, user_ids: List[int], automatic: bool = False) -> List[Dict[str, Any]]:
+        """Consume all four entries or none. Return their timestamps for rollback."""
+        if len(set(user_ids)) != 4:
+            return []
+        conn = self._get_connection()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                # Coordinate with management-side close/settings updates before claiming.
+                cursor.execute("SELECT status, room_settings FROM events WHERE event_id = %s FOR UPDATE", (event_id,))
+                event = cursor.fetchone()
+                if not event or event["status"] != "active":
+                    conn.rollback()
+                    return []
+                if automatic:
+                    from ..event.auto_match import event_auto_match_config
+                    if event_auto_match_config(dict(event)).get("enabled") is not True:
+                        conn.rollback()
+                        return []
+                cursor.execute("""
+                    DELETE FROM event_ready_pool WHERE event_id = %s AND user_id = ANY(%s)
+                    RETURNING event_id, user_id, ready_at
+                """, (event_id, user_ids))
+                rows = [dict(row) for row in cursor.fetchall()]
+                if len(rows) != 4:
+                    conn.rollback()
+                    return []
+            conn.commit()
+            return rows
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            self._put_connection(conn)
+
+    def restore_event_ready_players(self, rows: List[Dict[str, Any]]) -> None:
+        if not rows:
+            return
+        conn = self._get_connection()
+        try:
+            with conn.cursor() as cursor:
+                for row in rows:
+                    cursor.execute("""
+                        INSERT INTO event_ready_pool (event_id, user_id, ready_at)
+                        VALUES (%s, %s, %s) ON CONFLICT (event_id, user_id) DO NOTHING
+                    """, (row["event_id"], row["user_id"], row["ready_at"]))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            self._put_connection(conn)
+
+    def clear_user_event_ready(self, user_id: int) -> None:
+        """Disconnects and successful seating cancel stale waits in all venues."""
+        conn = self._get_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM event_ready_pool WHERE user_id = %s", (user_id,))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            self._put_connection(conn)
 
     def clear_event_ready_players(self, event_id: str, user_ids: List[int]) -> None:
         if not event_id or not user_ids:
@@ -3362,11 +3485,13 @@ DatabaseManager.store_jiandan_fan_stats = store_jiandan_fan_stats
 
 from .riichi.store_riichi import store_riichi_game_record, store_riichi_game_stats, store_riichi_fan_stats
 from .riichi.get_riichi_stats import get_riichi_stats
+from .hongque.store_hongque import store_hongque_game_record
 
 DatabaseManager.store_riichi_game_record = store_riichi_game_record
 DatabaseManager.store_riichi_game_stats = store_riichi_game_stats
 DatabaseManager.store_riichi_fan_stats = store_riichi_fan_stats
 DatabaseManager.get_riichi_stats = get_riichi_stats
+DatabaseManager.store_hongque_game_record = store_hongque_game_record
 
 # 挂载段位数据 CRUD 方法到 DatabaseManager 类
 from .guobiao.rank_data import get_rank_data, update_rank_data, get_user_sponsor_mcrpl

@@ -99,7 +99,19 @@ namespace Qingque13
                 // a synthetic fan set with the appropriate fans.
                 if (allFans.Count == 0 && ThirteenOrphansCriterion.IsThirteenOrphans(hand))
                 {
-                    var fans = new HashSet<QingqueFan> { QingqueFan.Trivial, QingqueFan.ThirteenOrphans };
+                    // Cache keys contain all matching fans, including those covered
+                    // by thirteen orphans. Strip covered fans only for display below.
+                    var fans = new HashSet<QingqueFan>
+                    {
+                        QingqueFan.Trivial,
+                        QingqueFan.ThirteenOrphans,
+                        QingqueFan.ConcealedHand,
+                        QingqueFan.AllTerminalsAndHonours,
+                        QingqueFan.MixedOutsideHand
+                    };
+                    // A pair of the seat wind or a dragon also qualifies as FanTile1P.
+                    if (new FanTile1PCriterion().Check(new QingqueDecomposition(hand)))
+                        fans.Add(QingqueFan.FanTile1P);
                     AddOccasionalFans(fans, winType);
                     allFans.Add(fans);
                 }

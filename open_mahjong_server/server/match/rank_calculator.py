@@ -27,9 +27,12 @@ RANK_TABLE = [
     ("七段", 1400, 2800, True),
     ("八段", 1600, 3200, True),
     ("九段", 3200, 7000, True),
+    ("十段", 100, 100, False),  # 终点段位：固定显示 100/100，不再升降段
 ]
 
 RANK_NAME_TO_INDEX = {r[0]: i for i, r in enumerate(RANK_TABLE)}
+MAX_RANK_NAME = RANK_TABLE[-1][0]
+MAX_RANK_PT = RANK_TABLE[-1][1]
 
 # 场次基础均得分（全庄）
 TIER_BASE_SCORE = {
@@ -70,6 +73,7 @@ RANK_AVG_LOSS_PT = {
     "七段": 135,
     "八段": 165,
     "九段": 180,
+    "十段": 0,
 }
 
 # 场次准入段位等级（索引值，越大段位越高）
@@ -94,16 +98,27 @@ def can_play_tier(
     rank_name: str,
     tier: str,
     is_mcrpl_qualified: bool = False,
-    is_sponsor: bool = False,
+    is_beginner_qualified: bool = False,
+    is_intermediate_qualified: bool = False,
+    is_advanced_qualified: bool = False,
 ) -> bool:
-    """判断段位是否有资格进入指定场次"""
+    """判断段位是否有资格进入指定场次。
+
+    初级/中级/高级的特许标志只突破最低段位，不突破最高段位上限。
+    MCRPL 仅凭 is_mcrpl_qualified 进入，与赞助状态无关。
+    """
     if tier == "mcrpl":
         return is_mcrpl_qualified
     rank_idx = get_rank_index(rank_name)
     max_rank_idx = TIER_MAX_RANK_INDEX.get(tier)
     if max_rank_idx is not None and rank_idx >= max_rank_idx:
         return False
-    if tier == "intermediate" and is_sponsor:
+    tier_pass = {
+        "beginner": is_beginner_qualified,
+        "intermediate": is_intermediate_qualified,
+        "advanced": is_advanced_qualified,
+    }.get(tier, False)
+    if tier_pass:
         return True
     return rank_idx >= TIER_MIN_RANK_INDEX.get(tier, 0)
 
@@ -119,6 +134,9 @@ def calculate_pt(tier: str, game_type: str, rank_position: int, rank_name: str) 
     Returns:
         PT 值（浮点数，由调用方决定是否取整）
     """
+    if rank_name == MAX_RANK_NAME:
+        return 0.0
+
     multiplier = GAME_TYPE_MULTIPLIER.get(game_type, 1.0)
     if rank_position in (1, 2):
         base = TIER_BASE_SCORE.get(tier, 30)
@@ -140,9 +158,13 @@ def apply_pt(rank_name: str, score: float, pt: float) -> Tuple[str, float]:
     - 降段：分数 < 0 时降一段；若目标段有起始分则落到起始分，否则按上一段升段分往回扣
     - 单次结算最多降一段
     - 不可降段时分数封底为 0
+    - 九段达到 7000 PT 升十段；十段固定 100 PT，忽略溢出与后续加扣分，不再升降段
     """
     rank_idx = get_rank_index(rank_name)
-    new_score = score + pt
+    if rank_name == MAX_RANK_NAME:
+        return MAX_RANK_NAME, float(MAX_RANK_PT)
+
+    new_score = round(score + pt, 2)
 
     while rank_idx < len(RANK_TABLE) - 1:
         _, _, promote_score, _ = RANK_TABLE[rank_idx]
@@ -152,6 +174,9 @@ def apply_pt(rank_name: str, score: float, pt: float) -> Tuple[str, float]:
         rank_idx += 1
         next_start = RANK_TABLE[rank_idx][1]
         new_score = next_start + overflow
+
+    if rank_idx == len(RANK_TABLE) - 1:
+        return MAX_RANK_NAME, float(MAX_RANK_PT)
 
     _, _, _, can_demote = RANK_TABLE[rank_idx]
     if new_score < 0 and can_demote and rank_idx > 0:

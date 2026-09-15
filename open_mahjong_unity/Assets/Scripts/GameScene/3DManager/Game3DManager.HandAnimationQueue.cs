@@ -36,6 +36,24 @@ public partial class Game3DManager {
 
     private readonly Dictionary<string, Coroutine> _handAnimProcessors = new Dictionary<string, Coroutine>();
 
+    private int _recordHandAnimationCount;
+    private int _recordHandAnimationGeneration;
+
+    /// <summary>牌谱明牌的删牌、飞牌和收拢尚未结束；自动播放须等它们完成再修改下一笔手牌状态。</summary>
+    public bool HasPendingRecordHandAnimations => _recordHandAnimationCount > 0;
+
+    private IEnumerator TrackRecordHandAnimation(IEnumerator animation) {
+        int generation = _recordHandAnimationGeneration;
+        _recordHandAnimationCount++;
+        try {
+            yield return animation;
+        } finally {
+            if (generation == _recordHandAnimationGeneration) {
+                _recordHandAnimationCount--;
+            }
+        }
+    }
+
     /// <summary>暗杠/加杠广播后，下一笔该玩家的 GetCard（岭上摸牌）须入队。</summary>
     private readonly Dictionary<string, bool> _ankanPendingDrawByPlayer = new Dictionary<string, bool> {
         { "self", false },
@@ -63,6 +81,9 @@ public partial class Game3DManager {
     }
 
     private void StopAllHandAnimationQueues() {
+        // 跳转/切局会中断嵌套动画；旧协程的 finally 不得扣减新一轮播放的计数。
+        _recordHandAnimationGeneration++;
+        _recordHandAnimationCount = 0;
         foreach (var kv in _handAnimProcessors) {
             if (kv.Value != null) {
                 StopCoroutine(kv.Value);
@@ -224,7 +245,7 @@ public partial class Game3DManager {
 
     /// <summary>
     /// 虹雀杠只把一张手牌并入既有副露：串行删除该张并收拢手牌；
-    /// 副露本身由 HongqueTableAdapter 按权威增量重建，这里不播放通用加杠且不安排杠后摸牌。
+    /// 副露本身由 HongqueGameState 按权威增量重建，这里不播放通用加杠且不安排杠后摸牌。
     /// </summary>
     public void RemoveHongqueKongHandTile(string playerPosition, int tileId) {
         if (!IsHandAnimPlayer(playerPosition) || tileId <= 0) return;
@@ -318,6 +339,10 @@ public partial class Game3DManager {
     }
 
     private IEnumerator RecordDiscardShowCardsCoroutine(string playerPosition, int tileId, bool fromDrawSlot, bool isRiichi) {
+        return TrackRecordHandAnimation(RecordDiscardShowCardsCore(playerPosition, tileId, fromDrawSlot, isRiichi));
+    }
+
+    private IEnumerator RecordDiscardShowCardsCore(string playerPosition, int tileId, bool fromDrawSlot, bool isRiichi) {
         PosPanel3D panel = GetPosPanel(playerPosition);
         yield return RemoveRecordShowHandCardCoroutine(panel.ShowCardsPosition, tileId, fromDrawSlot, playerPosition);
         if (fromDrawSlot) {
@@ -329,6 +354,10 @@ public partial class Game3DManager {
     }
 
     private IEnumerator RecordBuhuaShowCardsCoroutine(string playerPosition, int tileId, bool fromDrawSlot) {
+        return TrackRecordHandAnimation(RecordBuhuaShowCardsCore(playerPosition, tileId, fromDrawSlot));
+    }
+
+    private IEnumerator RecordBuhuaShowCardsCore(string playerPosition, int tileId, bool fromDrawSlot) {
         PosPanel3D panel = GetPosPanel(playerPosition);
         yield return RemoveRecordShowHandCardCoroutine(panel.ShowCardsPosition, tileId, fromDrawSlot, playerPosition);
         if (fromDrawSlot) {
@@ -348,6 +377,18 @@ public partial class Game3DManager {
         int drawSlotTileId = 0,
         string discarderPos = null,
         int claimedTile = 0) {
+        return TrackRecordHandAnimation(RecordMeldShowCardsCore(
+            playerPosition, actionType, combinationMask, removeDrawSlotFirst, drawSlotTileId, discarderPos, claimedTile));
+    }
+
+    private IEnumerator RecordMeldShowCardsCore(
+        string playerPosition,
+        string actionType,
+        int[] combinationMask,
+        bool removeDrawSlotFirst,
+        int drawSlotTileId,
+        string discarderPos,
+        int claimedTile) {
         PosPanel3D panel = GetPosPanel(playerPosition);
         // 透传 discarder+tile：回放路径不写 currentMeldDiscarderPos/lastDiscardPlayerPosition，
         // 必须显式传入才能正确认走「该家最新弃牌」并停掉其飞牌协程，避免被鸣牌仍落到河里。

@@ -1,6 +1,7 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Serialization;
 
 /// <summary>正面/背面边缘颜色。引用由场景写入，运行时只改颜色和模式。</summary>
 public class CardEdgePanel : MonoBehaviour
@@ -48,6 +49,20 @@ public class CardEdgePanel : MonoBehaviour
     [SerializeField] private Button restoreBackEdgeButton;
     [SerializeField] private Button[] sideSwatches;
     [SerializeField] private Button[] backEdgeSwatches;
+    [Header("边缘调色器")]
+    [SerializeField] private Button frontEdgeColorButton;
+    [SerializeField] private Button backEdgeColorButton;
+    [SerializeField] private Button edgeColorPickerCloseButton;
+    [SerializeField] private GameObject edgeColorPicker;
+    [SerializeField] private TMP_Text edgeColorPickerTitle;
+    [SerializeField] private Slider edgeColorSliderR;
+    [SerializeField] private Slider edgeColorSliderG;
+    [SerializeField] private Slider edgeColorSliderB;
+    [FormerlySerializedAs("edgeColorSliderGray"), SerializeField] private Slider edgeColorSliderBrightness;
+    [SerializeField] private TMP_Text edgeColorValueR;
+    [SerializeField] private TMP_Text edgeColorValueG;
+    [SerializeField] private TMP_Text edgeColorValueB;
+    [FormerlySerializedAs("edgeColorValueGray"), SerializeField] private TMP_Text edgeColorValueBrightness;
     [Header("模式 Toggle 颜色（含 Alpha，可在 Inspector 改）")]
     [SerializeField] private Color toggleDefaultColor = new Color(0.28f, 0.48f, 0.92f, 1f);
     [SerializeField] private Color toggleSelectedColor = new Color(1f, 0.5f, 0f, 1f);
@@ -59,8 +74,19 @@ public class CardEdgePanel : MonoBehaviour
     private BackEdgeMode currentBackEdgeMode = BackEdgeMode.FollowBack;
     private FrontEdgeMode currentFrontEdgeMode = FrontEdgeMode.Independent;
     private bool syncing;
+    private bool syncingEdgeColorPicker;
     private bool toggleColorReady;
     private bool toggleColorsNeedRefresh;
+    private EdgeColorTarget edgeColorTarget = EdgeColorTarget.Front;
+
+    private enum EdgeColorTarget
+    {
+        Front,
+        Back,
+    }
+
+    private Color EffectiveFrontColor => ConfigManager.ApplyColorBrightness(currentFrontEdgeColor, ConfigManager.Instance?.FrontEdgeBrightness ?? 0f);
+    private Color EffectiveBackColor => ConfigManager.ApplyColorBrightness(currentBackEdgeColor, ConfigManager.Instance?.BackEdgeBrightness ?? 0f);
 
     private void Awake()
     {
@@ -75,6 +101,8 @@ public class CardEdgePanel : MonoBehaviour
 
     private void OnEnable()
     {
+        LoadSavedIntoUI();
+        CloseEdgeColorPicker();
         toggleColorsNeedRefresh = true;
         UpdateModeToggleColors(instant: true);
     }
@@ -102,7 +130,10 @@ public class CardEdgePanel : MonoBehaviour
 
     private void BindUi()
     {
-        SceneConfigUi.BindClick(sideHexApplyButton, ApplySideHex);
+        // The merged scene aliases the legacy side controls to the front controls.
+        // Binding both callbacks lets the first refresh overwrite the typed HEX.
+        if (sideHexApplyButton != frontEdgeHexApplyButton)
+            SceneConfigUi.BindClick(sideHexApplyButton, ApplySideHex);
         SceneConfigUi.BindClick(backEdgeHexApplyButton, ApplyBackEdgeHex);
         SceneConfigUi.BindClick(frontEdgeHexApplyButton, ApplyFrontEdgeHex);
         SceneConfigUi.BindClick(restoreFrontEdgeButton, RestoreFrontEdgeDefault);
@@ -119,14 +150,31 @@ public class CardEdgePanel : MonoBehaviour
         SceneConfigUi.BindToggleOn(frontEdgeModeIndependent, () => SetFrontEdgeMode(FrontEdgeMode.Independent));
         SceneConfigUi.BindToggleOn(frontEdgeModeFollowTableBg, () => SetFrontEdgeMode(FrontEdgeMode.FollowTableBg));
         SceneConfigUi.BindToggleOn(frontEdgeModeFollowBackEdge, () => SetFrontEdgeMode(FrontEdgeMode.FollowBackEdge));
-        SceneConfigUi.BindSwatches(sideSwatches, SetSideColor);
+        SceneConfigUi.BindSwatches(sideSwatches, SetFrontEdgeColor);
         SceneConfigUi.BindSwatches(backEdgeSwatches, SetBackEdgeColor);
+        if (frontEdgeColorButton != null)
+            SceneConfigUi.BindClick(frontEdgeColorButton, () => ToggleEdgeColorPicker(EdgeColorTarget.Front));
+        if (backEdgeColorButton != null)
+            SceneConfigUi.BindClick(backEdgeColorButton, () => ToggleEdgeColorPicker(EdgeColorTarget.Back));
+        if (edgeColorPickerCloseButton != null)
+            SceneConfigUi.BindClick(edgeColorPickerCloseButton, CloseEdgeColorPicker);
+        if (edgeColorSliderR != null)
+            edgeColorSliderR.onValueChanged.AddListener(v => SetEdgePickerRgb(v / 255f, GetEdgePickerColor().g, GetEdgePickerColor().b));
+        if (edgeColorSliderG != null)
+            edgeColorSliderG.onValueChanged.AddListener(v => SetEdgePickerRgb(GetEdgePickerColor().r, v / 255f, GetEdgePickerColor().b));
+        if (edgeColorSliderB != null)
+            edgeColorSliderB.onValueChanged.AddListener(v => SetEdgePickerRgb(GetEdgePickerColor().r, GetEdgePickerColor().g, v / 255f));
+        if (edgeColorSliderBrightness != null)
+            edgeColorSliderBrightness.onValueChanged.AddListener(SetEdgePickerBrightness);
         LoadSavedIntoUI();
+        CloseEdgeColorPicker();
     }
 
     /// <summary>把正面边缘颜色还原为初始默认值。</summary>
     public void RestoreFrontEdgeDefault()
     {
+        ResetSideTint();
+        ConfigManager.Instance?.SetFrontEdgeBrightness(0f);
         currentFrontEdgeColor = Color.white;
         currentFrontEdgeMode = FrontEdgeMode.Independent;
 
@@ -147,6 +195,7 @@ public class CardEdgePanel : MonoBehaviour
     /// <summary>把背面边缘还原为初始默认：颜色跟随牌背，模式恢复为跟随牌背。</summary>
     public void RestoreBackEdgeDefault()
     {
+        ConfigManager.Instance?.SetBackEdgeBrightness(0f);
         currentBackEdgeColor = ConfigManager.DefaultBackEdgeColor;
         currentBackEdgeMode = BackEdgeMode.FollowBack;
 
@@ -162,6 +211,12 @@ public class CardEdgePanel : MonoBehaviour
         {
             CardBackManager.ApplyFrontEdgeColor(currentBackEdgeColor);
         }
+    }
+
+    public void ReloadSaved()
+    {
+        LoadSavedIntoUI();
+        CloseEdgeColorPicker();
     }
 
     private void LoadSavedIntoUI()
@@ -182,11 +237,13 @@ public class CardEdgePanel : MonoBehaviour
         syncing = true;
         Color backPreview = CardBackManager.ResolveBackEdgeColor(currentBackEdgeMode, currentBackEdgeColor);
         Color frontPreview = CardBackManager.ResolveFrontEdgeColor(currentFrontEdgeMode, currentFrontEdgeColor);
-        sideHexInput.text = ColorUtility.ToHtmlStringRGB(currentSideColor);
-        sidePreview.color = currentSideColor;
-        backEdgeHexInput.text = ColorUtility.ToHtmlStringRGB(backPreview);
+        if (sideHexInput != frontEdgeHexInput)
+            sideHexInput.text = ColorUtility.ToHtmlStringRGB(currentSideColor);
+        if (sidePreview != frontSidePreview)
+            sidePreview.color = currentSideColor;
+        backEdgeHexInput.text = ColorUtility.ToHtmlStringRGB(currentBackEdgeColor);
         backSidePreview.color = backPreview;
-        frontEdgeHexInput.text = ColorUtility.ToHtmlStringRGB(frontPreview);
+        frontEdgeHexInput.text = ColorUtility.ToHtmlStringRGB(currentFrontEdgeColor);
         frontSidePreview.color = frontPreview;
 
         backEdgeModeIndependent.isOn = currentBackEdgeMode == BackEdgeMode.Independent;
@@ -196,6 +253,7 @@ public class CardEdgePanel : MonoBehaviour
         frontEdgeModeFollowTableBg.isOn = currentFrontEdgeMode == FrontEdgeMode.FollowTableBg;
         frontEdgeModeFollowBackEdge.isOn = currentFrontEdgeMode == FrontEdgeMode.FollowBackEdge;
         syncing = false;
+        RefreshEdgeColorPicker();
         UpdateModeToggleColors(!toggleColorReady);
     }
 
@@ -232,16 +290,17 @@ public class CardEdgePanel : MonoBehaviour
         else
         {
             SyncUIFromColor();
-            CardBackManager.ApplyBackEdgeColor(currentBackEdgeColor);
+            CardBackManager.ApplyBackEdgeColor(EffectiveBackColor);
             if (currentFrontEdgeMode == FrontEdgeMode.FollowBackEdge)
             {
-                CardBackManager.ApplyFrontEdgeColor(currentBackEdgeColor);
+                CardBackManager.ApplyFrontEdgeColor(EffectiveBackColor);
             }
         }
     }
 
     private void SetFrontEdgeColor(Color color)
     {
+        ResetMergedSideTint();
         color.a = 1f;
         currentFrontEdgeColor = color;
         if (ConfigManager.Instance != null)
@@ -255,10 +314,10 @@ public class CardEdgePanel : MonoBehaviour
         else
         {
             SyncUIFromColor();
-            CardBackManager.ApplyFrontEdgeColor(currentFrontEdgeColor);
+            CardBackManager.ApplyFrontEdgeColor(EffectiveFrontColor);
             if (currentBackEdgeMode == BackEdgeMode.FollowFront)
             {
-                CardBackManager.ApplyBackEdgeColor(currentFrontEdgeColor);
+                CardBackManager.ApplyBackEdgeColor(EffectiveFrontColor);
             }
         }
     }
@@ -279,7 +338,7 @@ public class CardEdgePanel : MonoBehaviour
         if (currentFrontEdgeMode == FrontEdgeMode.FollowBackEdge)
         {
             CardBackManager.ApplyFrontEdgeColor(
-                ConfigManager.Instance != null ? ConfigManager.Instance.BackEdgeColor : currentBackEdgeColor);
+                EffectiveBackColor);
         }
     }
 
@@ -287,6 +346,7 @@ public class CardEdgePanel : MonoBehaviour
     public void SetFrontEdgeMode(FrontEdgeMode mode)
     {
         if (syncing) return;
+        ResetMergedSideTint();
         currentFrontEdgeMode = mode;
 
         if (ConfigManager.Instance != null)
@@ -299,7 +359,7 @@ public class CardEdgePanel : MonoBehaviour
         if (currentBackEdgeMode == BackEdgeMode.FollowFront)
         {
             CardBackManager.ApplyBackEdgeColor(
-                ConfigManager.Instance != null ? ConfigManager.Instance.FrontEdgeColor : currentFrontEdgeColor);
+                EffectiveFrontColor);
         }
     }
 
@@ -308,20 +368,94 @@ public class CardEdgePanel : MonoBehaviour
         ApplyHex(frontEdgeHexInput, SetFrontEdgeColor, "正面边缘颜色已应用");
     }
 
+    private void ResetMergedSideTint()
+    {
+        if (sideHexApplyButton == frontEdgeHexApplyButton) ResetSideTint();
+    }
+
+    private void ResetSideTint()
+    {
+        currentSideColor = ConfigManager.DefaultSideColor;
+        ConfigManager.Instance?.SetSideColor(currentSideColor);
+        CardBackManager.ApplySideColor(currentSideColor);
+    }
+
     private void ApplyBackEdgeHex()
     {
         ApplyHex(backEdgeHexInput, SetBackEdgeColor, "背面边缘颜色已应用");
     }
 
-    private static void ApplyHex(TMP_InputField input, System.Action<Color> apply, string okTip)
+    private void ToggleEdgeColorPicker(EdgeColorTarget target)
     {
-        if (!SceneConfigUi.TryParseHex(input.text, out Color color))
+        if (edgeColorPicker == null) return;
+        if (edgeColorPicker.activeSelf && edgeColorTarget == target)
         {
-            SceneConfigUi.ShowTip("HEX 格式不正确");
+            CloseEdgeColorPicker();
             return;
         }
-        apply(color);
-        SceneConfigUi.ShowTip(okTip);
+        edgeColorTarget = target;
+        edgeColorPicker.SetActive(true);
+        RefreshEdgeColorPicker();
+    }
+
+    private void CloseEdgeColorPicker()
+    {
+        if (edgeColorPicker != null) edgeColorPicker.SetActive(false);
+        if (frontEdgeColorButton != null) SceneConfigUi.SetButtonSelected(frontEdgeColorButton, false);
+        if (backEdgeColorButton != null) SceneConfigUi.SetButtonSelected(backEdgeColorButton, false);
+    }
+
+    private Color GetEdgePickerColor()
+    {
+        return edgeColorTarget == EdgeColorTarget.Front
+            ? currentFrontEdgeColor : currentBackEdgeColor;
+    }
+
+    private void RefreshEdgeColorPicker()
+    {
+        if (edgeColorPicker == null || !edgeColorPicker.activeSelf) return;
+        Color color = GetEdgePickerColor();
+        if (edgeColorPickerTitle != null)
+            edgeColorPickerTitle.text = edgeColorTarget == EdgeColorTarget.Front ? "正面边缘调色" : "背面边缘调色";
+        syncingEdgeColorPicker = true;
+        SceneConfigColorUi.SyncChannel(edgeColorSliderR, edgeColorValueR, color.r);
+        SceneConfigColorUi.SyncChannel(edgeColorSliderG, edgeColorValueG, color.g);
+        SceneConfigColorUi.SyncChannel(edgeColorSliderB, edgeColorValueB, color.b);
+        SceneConfigColorUi.SyncBrightness(edgeColorSliderBrightness, edgeColorValueBrightness,
+            edgeColorTarget == EdgeColorTarget.Front
+                ? ConfigManager.Instance?.FrontEdgeBrightness ?? 0f
+                : ConfigManager.Instance?.BackEdgeBrightness ?? 0f);
+        syncingEdgeColorPicker = false;
+        if (frontEdgeColorButton != null) SceneConfigUi.SetButtonSelected(frontEdgeColorButton, edgeColorTarget == EdgeColorTarget.Front);
+        if (backEdgeColorButton != null) SceneConfigUi.SetButtonSelected(backEdgeColorButton, edgeColorTarget == EdgeColorTarget.Back);
+    }
+
+    private void SetEdgePickerRgb(float r, float g, float b)
+    {
+        if (syncingEdgeColorPicker || SceneConfigColorUi.IsLayoutRefresh) return;
+        Color color = new Color(r, g, b, 1f);
+        if (edgeColorTarget == EdgeColorTarget.Front) SetFrontEdgeColor(color);
+        else SetBackEdgeColor(color);
+    }
+
+    private void SetEdgePickerBrightness(float value)
+    {
+        if (syncingEdgeColorPicker || SceneConfigColorUi.IsLayoutRefresh) return;
+        if (edgeColorTarget == EdgeColorTarget.Front)
+        {
+            ConfigManager.Instance?.SetFrontEdgeBrightness(value / 100f);
+            SetFrontEdgeColor(currentFrontEdgeColor);
+        }
+        else
+        {
+            ConfigManager.Instance?.SetBackEdgeBrightness(value / 100f);
+            SetBackEdgeColor(currentBackEdgeColor);
+        }
+    }
+
+    private static void ApplyHex(TMP_InputField input, System.Action<Color> apply, string okTip)
+    {
+        SceneConfigUi.ApplyHex(input, apply, okTip);
     }
 
     /// <summary>牌背/牌面变化后刷新预览色（不改独立色存储）。</summary>
@@ -351,15 +485,7 @@ public class CardEdgePanel : MonoBehaviour
     {
         if (source == null) return;
 
-        RenderTexture rt = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.ARGB32);
-        Graphics.Blit(source, rt);
-        RenderTexture prev = RenderTexture.active;
-        RenderTexture.active = rt;
-        Texture2D copy = new Texture2D(source.width, source.height, TextureFormat.RGBA32, false);
-        copy.ReadPixels(new Rect(0f, 0f, source.width, source.height), 0, 0);
-        copy.Apply();
-        RenderTexture.active = prev;
-        RenderTexture.ReleaseTemporary(rt);
+        Texture2D copy = SceneConfigTextureCapture.Copy(source, source.width, source.height);
 
         Material shared = Resources.Load<Material>(CardBackManager.MaterialResourcePath);
         if (shared != null)

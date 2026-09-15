@@ -57,6 +57,10 @@ public class EndResultPanel : MonoBehaviour {
     [Tooltip("里宝牌指示槽位（手动拖入 StaticCard）。未翻开位置显示牌背 0。")]
     [SerializeField] private StaticCard[] RiichiUraDoraSlots;
 
+    [Header("长沙扎鸟（独立面板，按抽出张数实例化指示牌）")]
+    [SerializeField] private GameObject ChangshaBirdPanel;
+    [SerializeField] private Transform ChangshaBirdContainer;
+
     [Header("国标局终亮杠（默认隐藏）")]
     [SerializeField] private TextMeshProUGUI guobiaoAngangCheckText;
 
@@ -96,6 +100,8 @@ public class EndResultPanel : MonoBehaviour {
     private const string StateRecord = "recordstate";
     private string currentState = StateNone;
     private Coroutine showResultCoroutine;
+    private int[] changshaBirdTiles;
+    private static readonly Vector2 ChangshaBirdCardSize = new Vector2(78.631f, 106.955f);
     private CanvasGroup panelContentCanvasGroup;
     private bool isPanelContentVisible = true;
     private bool endButtonConfirmed = false;
@@ -178,7 +184,7 @@ public class EndResultPanel : MonoBehaviour {
         }
         InitializeShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, riichiExtras);
         showResultCoroutine = StartCoroutine(PlayShowResultRoutine(hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras,
-            RoundEndTiming.HuConfirmCountdownSeconds, resumeSichuanContinueAfterClose: false));
+            RoundEndTiming.HuConfirmCountdownSeconds));
     }
 
     public void PrepareShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, RiichiEndResultExtras riichiExtras = null, Dictionary<int, int> scoreChanges = null, bool suppressHandReveal = false, EndResultTileLayout tileLayout = EndResultTileLayout.HuWithWinTile) {
@@ -191,19 +197,17 @@ public class EndResultPanel : MonoBehaviour {
 
     public void PlayPreparedShowResult(int hu_score, string[] hu_fan, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
         PlayPreparedShowResult(hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras,
-            RoundEndTiming.HuConfirmCountdownSeconds, resumeSichuanContinueAfterClose: false);
+            RoundEndTiming.HuConfirmCountdownSeconds);
     }
 
     public void PlayPreparedShowResult(int hu_score, string[] hu_fan, int? base_fu, string[] fu_fan_list,
-        RiichiEndResultExtras riichiExtras, float confirmCountdownSeconds, bool resumeSichuanContinueAfterClose,
-        bool allowConfirmClick = true) {
+        RiichiEndResultExtras riichiExtras, float confirmCountdownSeconds, bool allowConfirmClick = true) {
         if (showResultCoroutine != null) {
             StopCoroutine(showResultCoroutine);
             showResultCoroutine = null;
         }
         showResultCoroutine = StartCoroutine(PlayShowResultRoutine(
-            hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras, confirmCountdownSeconds,
-            resumeSichuanContinueAfterClose, allowConfirmClick));
+            hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras, confirmCountdownSeconds, allowConfirmClick));
     }
 
     /// <summary>四川终局 settle_hu：准备面板（手牌+副露+和牌张，与国标容器一致）。</summary>
@@ -224,7 +228,80 @@ public class EndResultPanel : MonoBehaviour {
         SetCheckedFocusSeat(hepaiPlayerIndex);
     }
 
-    public IEnumerator CoPlaySichuanSettleHuRoutine(int huScore, string[] huFan, bool isFinalPanel) {
+    /// <summary>牌谱终局 settle_hu：名字/手牌/加减分走国标牌谱同一套填充，不读对局镜像。</summary>
+    public void PrepareSichuanSettleHuRecord(
+        int hepaiPlayerIndex,
+        int huScore,
+        string[] huFan,
+        int[] hepaiPlayerHand,
+        int[][] hepaiPlayerCombinationMask,
+        RecordSettlementView recordView) {
+        BeginRecordSichuanPanelShell();
+        PopulateRecordNamesHandsAndScores(
+            hepaiPlayerIndex,
+            recordView,
+            hepaiPlayerHand,
+            hepaiPlayerCombinationMask,
+            EndResultTileLayout.HuWithWinTile);
+        string roomRule = ResolveSettlementRoomRule();
+        ShowRiichiExtrasPanel(roomRule, null);
+        ShowChangshaBirdPanel(null);
+        ApplyRuleFootnote(guobiaoAngangCheckText, roomRule, huFan);
+        TryPlayGongHuSound(roomRule, huFan, huScore);
+        SetCheckedFocusSeatOnMap(hepaiPlayerIndex, recordView?.IndexToPosition);
+        EndButton.gameObject.SetActive(true);
+        EndButton.interactable = false;
+        EndButtonText.text = "确认";
+    }
+
+    /// <summary>牌谱查叫：与对局同一套状态动画，座位数据来自牌谱。</summary>
+    public void PrepareSichuanChajiaoRecord(
+        int focusPlayerIndex,
+        int[] hand,
+        int[][] combinationMask,
+        bool isFinalPanel,
+        bool hasRefund,
+        RecordSettlementView recordView) {
+        chajiaoHasRefund = hasRefund;
+        BeginRecordSichuanPanelShell();
+        PopulateRecordNamesHandsAndScores(
+            focusPlayerIndex,
+            recordView,
+            hand,
+            combinationMask,
+            EndResultTileLayout.ClosedHandWithMelds);
+        string roomRule = ResolveSettlementRoomRule();
+        ShowRiichiExtrasPanel(roomRule, null);
+        ShowChangshaBirdPanel(null);
+        HideRuleFootnote(guobiaoAngangCheckText);
+        SetCheckedFocusSeatOnMap(focusPlayerIndex, recordView?.IndexToPosition);
+        EndButton.gameObject.SetActive(isFinalPanel);
+        EndButton.interactable = false;
+        EndButtonText.text = "确定";
+    }
+
+    /// <summary>牌谱退税面板：只填名字和加减分。</summary>
+    public void PrepareSichuanChaRefundRecord(RecordSettlementView recordView) {
+        BeginRecordSichuanPanelShell();
+        PopulateRecordNamesHandsAndScores(
+            -1, recordView, null, null, EndResultTileLayout.ClosedHandWithMelds);
+        string roomRule = ResolveSettlementRoomRule();
+        ShowRiichiExtrasPanel(roomRule, null);
+        ShowChangshaBirdPanel(null);
+        HideRuleFootnote(guobiaoAngangCheckText);
+        EndButton.gameObject.SetActive(false);
+        EndButton.interactable = false;
+        EndButtonText.text = "确定";
+        GameObject statusFanInstance = Instantiate(FanCountPrefab, FanCountContainer);
+        FanCount statusFanCount = statusFanInstance.GetComponent<FanCount>();
+        if (statusFanCount != null) {
+            statusFanCount.SetFanCount("刮风下雨", "退税");
+            statusFanCount.ApplyFanColor();
+        }
+    }
+
+    public IEnumerator CoPlaySichuanSettleHuRoutine(
+        int huScore, string[] huFan, bool isFinalPanel, bool waitForRecordConfirm = false) {
         if (showResultCoroutine != null) {
             StopCoroutine(showResultCoroutine);
             showResultCoroutine = null;
@@ -232,9 +309,9 @@ public class EndResultPanel : MonoBehaviour {
         showResultCoroutine = StartCoroutine(PlayShowResultRoutine(
             huScore, huFan, null, null, null,
             RoundEndTiming.HuConfirmCountdownSeconds,
-            resumeSichuanContinueAfterClose: false,
-            allowConfirmClick: isFinalPanel,
-            skipConfirmCountdown: !isFinalPanel));
+            allowConfirmClick: waitForRecordConfirm || isFinalPanel,
+            skipConfirmCountdown: !waitForRecordConfirm && !isFinalPanel,
+            waitForClickNoCountdown: waitForRecordConfirm));
         yield return showResultCoroutine;
         showResultCoroutine = null;
     }
@@ -283,7 +360,8 @@ public class EndResultPanel : MonoBehaviour {
         foreach (Transform child in FanCountContainer) Destroy(child.gameObject);
 
         ShowRiichiExtrasPanel(NormalGameStateManager.Instance.subRule, null);
-        GuobiaoAngangCheck.Clear(guobiaoAngangCheckText);
+        ShowChangshaBirdPanel(null);
+        HideRuleFootnote(guobiaoAngangCheckText);
         ApplyScoreChangesToPanel(player_to_score, scoreChanges);
 
         GameObject statusFanInstance = Instantiate(FanCountPrefab, FanCountContainer);
@@ -302,20 +380,22 @@ public class EndResultPanel : MonoBehaviour {
         Dictionary<int, string> indexToPosition, Dictionary<string, string> positionToUsername,
         int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
         Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after, bool isSpectator = false,
-        int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
+        int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null,
+        int[] changshaBirdTiles = null) {
         if (showResultCoroutine != null) {
             StopCoroutine(showResultCoroutine);
             showResultCoroutine = null;
         }
         DisplayRecordResult(hepai_player_index, hu_score, hu_fan, hu_class, roomType,
             indexToPosition, positionToUsername, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask,
-            player_to_score_before, player_to_score_after, isSpectator, base_fu, fu_fan_list, riichiExtras);
+            player_to_score_before, player_to_score_after, isSpectator, base_fu, fu_fan_list, riichiExtras,
+            changshaBirdTiles);
     }
 
     public IEnumerator ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
         InitializeShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, riichiExtras);
         yield return PlayShowResultRoutine(hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras,
-            RoundEndTiming.HuConfirmCountdownSeconds, resumeSichuanContinueAfterClose: false);
+            RoundEndTiming.HuConfirmCountdownSeconds);
     }
 
     public void InitializeShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, RiichiEndResultExtras riichiExtras = null, Dictionary<int, int> scoreChanges = null, bool suppressHandReveal = false, EndResultTileLayout tileLayout = EndResultTileLayout.HuWithWinTile) {
@@ -337,10 +417,10 @@ public class EndResultPanel : MonoBehaviour {
             Destroy(child.gameObject);
         }
 
-        // 立直规则：和牌画面出现的瞬间立刻翻开宝牌/里宝牌（含里宝来自立直家），其余槽位仍渲染牌背 0
-        string roomRuleForFan = NormalGameStateManager.Instance.subRule;
+        string roomRuleForFan = GameSession.Current.SubRule;
         ShowRiichiExtrasPanel(roomRuleForFan, riichiExtras);
-        GuobiaoAngangCheck.Apply(guobiaoAngangCheckText, NormalGameStateManager.Instance.lastGuobiaoEndExtras, hu_fan);
+        ShowChangshaBirdPanel(changshaBirdTiles);
+        ApplyRuleFootnote(guobiaoAngangCheckText, roomRuleForFan, hu_fan);
         TryPlayGongHuSound(roomRuleForFan, hu_fan, hu_score);
 
         // 面板重建：清除被检查高亮；四川连续结算步骤保留本轮已收到的准备状态。
@@ -408,32 +488,30 @@ public class EndResultPanel : MonoBehaviour {
     public IEnumerator PlayPreparedShowResultCoroutine(
         int hu_score, string[] hu_fan, int? base_fu = null, string[] fu_fan_list = null,
         RiichiEndResultExtras riichiExtras = null, float confirmCountdownSeconds = -1f,
-        bool resumeSichuanContinueAfterClose = false, bool allowConfirmClick = true,
-        bool skipConfirmCountdown = false) {
+        bool allowConfirmClick = true, bool skipConfirmCountdown = false,
+        bool waitForClickNoCountdown = false) {
         yield return PlayShowResultRoutine(
             hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras,
-            confirmCountdownSeconds, resumeSichuanContinueAfterClose,
-            allowConfirmClick, skipConfirmCountdown);
+            confirmCountdownSeconds, allowConfirmClick, skipConfirmCountdown, waitForClickNoCountdown);
     }
 
     private IEnumerator PlayShowResultRoutine(int hu_score, string[] hu_fan, int? base_fu = null, string[] fu_fan_list = null,
-        RiichiEndResultExtras riichiExtras = null, float confirmCountdownSeconds = -1f, bool resumeSichuanContinueAfterClose = false,
-        bool allowConfirmClick = true, bool skipConfirmCountdown = false) {
+        RiichiEndResultExtras riichiExtras = null, float confirmCountdownSeconds = -1f,
+        bool allowConfirmClick = true, bool skipConfirmCountdown = false,
+        bool waitForClickNoCountdown = false) {
         if (confirmCountdownSeconds < 0f) {
             confirmCountdownSeconds = RoundEndTiming.HuConfirmCountdownSeconds;
         }
         // 显示番数
-        string roomRuleForFan = NormalGameStateManager.Instance.subRule;
-        bool isClassical = roomRuleForFan == "classical/standard";
-        bool isRiichi = roomRuleForFan != null && roomRuleForFan.StartsWith("riichi");
+        string roomRuleForFan = ResolveSettlementRoomRule();
 
-        if (isClassical && fu_fan_list != null) {
-            // 古典麻将：先显示副番列表
+        if (HasFuList(roomRuleForFan) && fu_fan_list != null) {
+            // 副番制（古典）：先显示副番列表
             for (int i = 0; i < fu_fan_list.Length; i++) {
                 yield return new WaitForSeconds(RoundEndTiming.HuFanRevealIntervalSeconds);
                 string fuName = fu_fan_list[i];
-                string fuDisplay = FanTextDictionary.GetFuDisplayText(fuName);
-                string fuNameDisplay = FanTextDictionary.GetFuNameDisplayText(fuName);
+                string fuDisplay = FanTextDictionary.GetFuDisplayText(roomRuleForFan, fuName);
+                string fuNameDisplay = FanTextDictionary.GetFuNameDisplayText(roomRuleForFan, fuName);
                 GameObject fuInstance = Instantiate(FanCountPrefab, FanCountContainer);
                 FanCount fuCount = fuInstance.GetComponent<FanCount>();
                 if (fuCount != null) {
@@ -447,9 +525,7 @@ public class EndResultPanel : MonoBehaviour {
             yield return new WaitForSeconds(RoundEndTiming.HuFanRevealIntervalSeconds);
             string fanKey = hu_fan[i];
             string fanDisplay = FanTextDictionary.GetFanDisplayText(roomRuleForFan, fanKey);
-            string fanLabel = isRiichi
-                ? FanTextDictionary.GetRiichiYakuDisplayName(fanKey)
-                : FanTextDictionary.GetFanNameDisplayText(roomRuleForFan, fanKey);
+            string fanLabel = FanTextDictionary.GetFanNameDisplayText(roomRuleForFan, fanKey);
             GameObject fanCountInstance = Instantiate(FanCountPrefab, FanCountContainer);
             FanCount fanCount = fanCountInstance.GetComponent<FanCount>();
             if (fanCount != null) {
@@ -469,15 +545,17 @@ public class EndResultPanel : MonoBehaviour {
             yield break;
         }
 
+        if (waitForClickNoCountdown) {
+            CompleteRecordFanReveal(isSpectator: false);
+            yield break;
+        }
+
         if (skipConfirmCountdown) {
             yield return CoPlayEndButtonCountdown(RoundEndTiming.SichuanMidPanelConfirmSeconds, allowConfirmClick: false);
             yield break;
         }
 
         yield return CoPlayEndButtonCountdown(confirmCountdownSeconds, allowConfirmClick);
-        if (resumeSichuanContinueAfterClose && currentState == StateGame) {
-            NormalGameStateManager.Instance.TryResumeAfterSichuanContinue();
-        }
     }
 
     /// <summary>确定按钮倒计时：始终显示数字；仅 allowConfirmClick 时可点击。</summary>
@@ -510,7 +588,8 @@ public class EndResultPanel : MonoBehaviour {
         Dictionary<int, string> indexToPosition, Dictionary<string, string> positionToUsername,
         int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
         Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after, bool isSpectator = false,
-        int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
+        int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null,
+        int[] changshaBirdTiles = null) {
         // InitGameRound 会 HidePresentationVisual，牌谱直出面板须先恢复父 CanvasGroup
         if (RoundEndPresentation.Instance != null) {
             RoundEndPresentation.Instance.gameObject.SetActive(true);
@@ -539,48 +618,26 @@ public class EndResultPanel : MonoBehaviour {
             Destroy(child.gameObject);
         }
 
-        // 用户名
-        SelfUserName.text = positionToUsername != null && positionToUsername.ContainsKey("self") ? positionToUsername["self"] : "";
-        LeftUserName.text = positionToUsername != null && positionToUsername.ContainsKey("left") ? positionToUsername["left"] : "";
-        TopUserName.text = positionToUsername != null && positionToUsername.ContainsKey("top") ? positionToUsername["top"] : "";
-        RightUserName.text = positionToUsername != null && positionToUsername.ContainsKey("right") ? positionToUsername["right"] : "";
+        // 用户名 / 手牌 / 加减分（与四川终局牌谱共用）
+        PopulateRecordNamesHandsAndScores(
+            hepai_player_index,
+            new RecordSettlementView {
+                IndexToPosition = indexToPosition,
+                PositionToUsername = positionToUsername,
+                ScoresBefore = player_to_score_before,
+                ScoresAfter = player_to_score_after,
+            },
+            hepai_player_hand,
+            hepai_player_combination_mask,
+            EndResultTileLayout.HuWithWinTile);
 
-        // 显示和牌玩家手牌（与实时对局 PopulateEndTilesContainer 一致）
-        if (hepai_player_hand != null && hepai_player_hand.Length > 0) {
-            PopulateEndTilesContainer(hepai_player_hand, hepai_player_combination_mask, EndResultTileLayout.HuWithWinTile);
-        }
-
-        // 显示各玩家分数变化
-        if (player_to_score_after != null && player_to_score_after.Count > 0) {
-            foreach (var player in player_to_score_after) {
-                if (!indexToPosition.ContainsKey(player.Key)) continue;
-                string position = indexToPosition[player.Key];
-                int scoreBefore = player_to_score_before != null && player_to_score_before.ContainsKey(player.Key) ? player_to_score_before[player.Key] : 0;
-                int scoreAfter = player.Value;
-                if (player.Key == hepai_player_index) {
-                    currentWinnerPointDelta = scoreAfter - scoreBefore;
-                }
-                string scoreText = FormatScoreWithDiff(scoreBefore, scoreAfter);
-
-                if (position == "self") SelfScore.text = scoreText;
-                else if (position == "left") LeftScore.text = scoreText;
-                else if (position == "top") TopScore.text = scoreText;
-                else if (position == "right") RightScore.text = scoreText;
-            }
-        } else {
-            SelfScore.text = "";
-            LeftScore.text = "";
-            TopScore.text = "";
-            RightScore.text = "";
-        }
-
-        bool isClassical = roomType == "classical/standard";
-        bool isRiichi = roomType != null && roomType.StartsWith("riichi");
         bool animateFanReveal = RecordSetting.Instance != null
             && RecordSetting.Instance.IsShowHepaiAnimation;
 
         ShowRiichiExtrasPanel(roomType, riichiExtras);
-        GuobiaoAngangCheck.Apply(guobiaoAngangCheckText, null, hu_fan);
+        SetChangshaBirdTiles(changshaBirdTiles);
+        ShowChangshaBirdPanel(this.changshaBirdTiles);
+        HideRuleFootnote(guobiaoAngangCheckText);
         TryPlayGongHuSound(roomType, hu_fan, hu_score);
 
         if (animateFanReveal) {
@@ -588,10 +645,9 @@ public class EndResultPanel : MonoBehaviour {
             EndButton.interactable = false;
             EndButtonText.text = "确认";
             showResultCoroutine = StartCoroutine(PlayRecordFanRevealRoutine(
-                roomType, hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras,
-                isClassical, isRiichi, isSpectator));
+                roomType, hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras, isSpectator));
         } else {
-            PopulateRecordFanEntries(roomType, hu_fan, fu_fan_list, isClassical, isRiichi);
+            PopulateRecordFanEntries(roomType, hu_fan, fu_fan_list);
             ShowTotalPanel(roomType, hu_score, hu_fan, base_fu, riichiExtras);
             CompleteRecordFanReveal(isSpectator);
         }
@@ -599,18 +655,18 @@ public class EndResultPanel : MonoBehaviour {
 
     private IEnumerator PlayRecordFanRevealRoutine(
         string roomType, int huScore, string[] huFan, int? baseFu, string[] fuFanList,
-        RiichiEndResultExtras riichiExtras, bool isClassical, bool isRiichi, bool isSpectator) {
-        if (isClassical && fuFanList != null) {
+        RiichiEndResultExtras riichiExtras, bool isSpectator) {
+        if (HasFuList(roomType) && fuFanList != null) {
             for (int i = 0; i < fuFanList.Length; i++) {
                 yield return new WaitForSeconds(RoundEndTiming.HuFanRevealIntervalSeconds);
-                AddRecordFuEntry(fuFanList[i]);
+                AddRecordFuEntry(roomType, fuFanList[i]);
             }
         }
 
         if (huFan != null) {
             for (int i = 0; i < huFan.Length; i++) {
                 yield return new WaitForSeconds(RoundEndTiming.HuFanRevealIntervalSeconds);
-                AddRecordFanEntry(roomType, huFan[i], isRiichi);
+                AddRecordFanEntry(roomType, huFan[i]);
             }
         }
 
@@ -621,36 +677,54 @@ public class EndResultPanel : MonoBehaviour {
     }
 
     private void PopulateRecordFanEntries(
-        string roomType, string[] huFan, string[] fuFanList, bool isClassical, bool isRiichi) {
-        if (isClassical && fuFanList != null) {
+        string roomType, string[] huFan, string[] fuFanList) {
+        if (HasFuList(roomType) && fuFanList != null) {
             for (int i = 0; i < fuFanList.Length; i++) {
-                AddRecordFuEntry(fuFanList[i]);
+                AddRecordFuEntry(roomType, fuFanList[i]);
             }
         }
         if (huFan != null) {
             for (int i = 0; i < huFan.Length; i++) {
-                AddRecordFanEntry(roomType, huFan[i], isRiichi);
+                AddRecordFanEntry(roomType, huFan[i]);
             }
         }
     }
 
-    private void AddRecordFuEntry(string fuName) {
+    /// <summary>该规则是否有副番列表（清单声明了 FuValueText，目前只有古典）。</summary>
+    private static bool HasFuList(string rule) {
+        return RuleRegistry.Resolve(rule, rule)?.FuValueText != null;
+    }
+
+    /// <summary>结算/流局面板底部族附注：由清单 SettlementFootnote 给出文字，空则隐藏。</summary>
+    internal static void ApplyRuleFootnote(TMPro.TextMeshProUGUI label, string rule, string[] huFan) {
+        if (label == null) return;
+        var hook = RuleRegistry.Resolve(rule, rule)?.SettlementFootnote;
+        string text = hook?.Invoke(new SettlementTotalQuery { Rule = rule, HuFan = huFan });
+        label.text = text ?? string.Empty;
+        label.gameObject.SetActive(!string.IsNullOrEmpty(text));
+    }
+
+    internal static void HideRuleFootnote(TMPro.TextMeshProUGUI label) {
+        if (label == null) return;
+        label.text = string.Empty;
+        label.gameObject.SetActive(false);
+    }
+
+    private void AddRecordFuEntry(string roomType, string fuName) {
         GameObject fuInstance = Instantiate(FanCountPrefab, FanCountContainer);
         FanCount fuCount = fuInstance.GetComponent<FanCount>();
         if (fuCount == null) return;
         fuCount.SetFanCount(
-            FanTextDictionary.GetFuNameDisplayText(fuName),
-            FanTextDictionary.GetFuDisplayText(fuName));
+            FanTextDictionary.GetFuNameDisplayText(roomType, fuName),
+            FanTextDictionary.GetFuDisplayText(roomType, fuName));
         fuCount.ApplyFuColor();
     }
 
-    private void AddRecordFanEntry(string roomType, string fanKey, bool isRiichi) {
+    private void AddRecordFanEntry(string roomType, string fanKey) {
         GameObject fanCountInstance = Instantiate(FanCountPrefab, FanCountContainer);
         FanCount fanCount = fanCountInstance.GetComponent<FanCount>();
         if (fanCount == null) return;
-        string fanLabel = isRiichi
-            ? FanTextDictionary.GetRiichiYakuDisplayName(fanKey)
-            : FanTextDictionary.GetFanNameDisplayText(roomType, fanKey);
+        string fanLabel = FanTextDictionary.GetFanNameDisplayText(roomType, fanKey);
         fanCount.SetFanCount(fanLabel, FanTextDictionary.GetFanDisplayText(roomType, fanKey));
         fanCount.ApplyFanColor();
     }
@@ -850,7 +924,8 @@ public class EndResultPanel : MonoBehaviour {
         foreach (Transform child in FanCountContainer) Destroy(child.gameObject);
 
         ShowRiichiExtrasPanel(NormalGameStateManager.Instance.subRule, null);
-        GuobiaoAngangCheck.Clear(guobiaoAngangCheckText);
+        ShowChangshaBirdPanel(null);
+        HideRuleFootnote(guobiaoAngangCheckText);
         // 该玩家手牌整体显示（流局无和牌张，不做末张拆分）
         if (hand != null && hand.Length > 0) {
             int[] sorted = (int[])hand.Clone();
@@ -927,10 +1002,9 @@ public class EndResultPanel : MonoBehaviour {
     }
 
     private void HandleGameStateConfirm() {
-        if (HongqueTableAdapter.IsActive && HongqueTableAdapter.Instance.IsRoundEnd) {
-            HongqueTableAdapter.Instance.ConfirmRoundResult();
-            return;
-        }
+        // 有自己出站通道的族（如虹雀）以自己的协议发送 ready
+        IGameState state = RuleRegistry.ActiveGameState;
+        if (state != null && state.TryConfirmRoundResult()) return;
         if (matchEndMode) {
             ClearEndResultPanel();
             NormalGameStateManager.Instance.FlushPendingGameEnd();
@@ -991,6 +1065,82 @@ public class EndResultPanel : MonoBehaviour {
         ApplySeatVisuals();
     }
 
+    private void SetCheckedFocusSeatOnMap(int playerIndex, Dictionary<int, string> indexToPosition) {
+        checkedFocusSeat = playerIndex;
+        ResetSeatVisualsToNormal();
+        if (indexToPosition != null && indexToPosition.TryGetValue(playerIndex, out string pos)) {
+            ApplySeatVisual(pos, SeatVisual.Checked);
+        }
+    }
+
+    private void BeginRecordSichuanPanelShell() {
+        matchEndMode = false;
+        currentState = StateRecord;
+        currentWinnerPointDelta = null;
+        gameResultLifecycleActive = false;
+        cachedReadyStatus.Clear();
+        checkedFocusSeat = -1;
+        ResetSeatVisualsToNormal();
+        gameObject.SetActive(true);
+        ResetPanelContentVisibility();
+        endButtonConfirmed = false;
+        FanCountTotalPanel.SetActive(false);
+        foreach (Transform child in EndTilescontainer.transform) Destroy(child.gameObject);
+        foreach (Transform child in FanCountContainer) Destroy(child.gameObject);
+    }
+
+    /// <summary>对局读会话子规则；牌谱会话可能为空，回退到当前规则清单。</summary>
+    private static string ResolveSettlementRoomRule() {
+        if (!string.IsNullOrEmpty(GameSession.Current.SubRule)) return GameSession.Current.SubRule;
+        if (!string.IsNullOrEmpty(GameSession.Current.RoomRule)) return GameSession.Current.RoomRule;
+        RuleManifest manifest = RuleRegistry.Current;
+        if (manifest == null) return null;
+        return !string.IsNullOrEmpty(manifest.DefaultSubRule) ? manifest.DefaultSubRule : manifest.RuleId;
+    }
+
+    /// <summary>牌谱结算面板：名字、手牌、加减分。不读对局 TableMirror。</summary>
+    private void PopulateRecordNamesHandsAndScores(
+        int focusPlayerIndex,
+        RecordSettlementView recordView,
+        int[] hand,
+        int[][] combinationMask,
+        EndResultTileLayout tileLayout) {
+        Dictionary<string, string> names = recordView?.PositionToUsername;
+        SelfUserName.text = names != null && names.TryGetValue("self", out string selfName) ? selfName : "";
+        LeftUserName.text = names != null && names.TryGetValue("left", out string leftName) ? leftName : "";
+        TopUserName.text = names != null && names.TryGetValue("top", out string topName) ? topName : "";
+        RightUserName.text = names != null && names.TryGetValue("right", out string rightName) ? rightName : "";
+
+        if (hand != null && hand.Length > 0) {
+            PopulateEndTilesContainer(hand, combinationMask, tileLayout);
+        }
+
+        Dictionary<int, int> scoresAfter = recordView?.ScoresAfter;
+        Dictionary<int, int> scoresBefore = recordView?.ScoresBefore;
+        Dictionary<int, string> seatMap = recordView?.IndexToPosition;
+        if (scoresAfter != null && scoresAfter.Count > 0 && seatMap != null) {
+            foreach (var player in scoresAfter) {
+                if (!seatMap.TryGetValue(player.Key, out string position)) continue;
+                int scoreBefore = scoresBefore != null && scoresBefore.TryGetValue(player.Key, out int before) ? before : 0;
+                int scoreAfter = player.Value;
+                if (player.Key == focusPlayerIndex) {
+                    currentWinnerPointDelta = scoreAfter - scoreBefore;
+                }
+                string scoreText = FormatScoreWithDiff(scoreBefore, scoreAfter);
+                if (position == "self") SelfScore.text = scoreText;
+                else if (position == "left") LeftScore.text = scoreText;
+                else if (position == "top") TopScore.text = scoreText;
+                else if (position == "right") RightScore.text = scoreText;
+            }
+            BoardCanvas.Instance.UpdatePlayerScores(scoresAfter, seatMap);
+        } else {
+            SelfScore.text = "";
+            LeftScore.text = "";
+            TopScore.text = "";
+            RightScore.text = "";
+        }
+    }
+
     /// <summary>按 缓存准备状态 + 被检查座位 重绘所有座位面板配色。</summary>
     private void ApplySeatVisuals() {
         foreach (var kvp in NormalGameStateManager.Instance.indexToPosition) {
@@ -1045,76 +1195,76 @@ public class EndResultPanel : MonoBehaviour {
     /// 立直麻将显示番（han）+符（fu）+点数。
     /// </summary>
     private void ShowTotalPanel(string rule, int huScore, string[] huFan, int? baseFu, RiichiEndResultExtras riichiExtras = null) {
+        ShowTotalPanel(BuildTotalDisplay(rule, huScore, huFan, baseFu, riichiExtras, currentWinnerPointDelta));
+    }
+
+    /// <summary>总计栏只负责摆字：读 <see cref="SettlementTotalDisplay"/>，null 字段即隐藏该栏。</summary>
+    private void ShowTotalPanel(SettlementTotalDisplay display) {
         FanCountTotalPanel.SetActive(true);
-        bool isClassical = rule == "classical/standard";
-        bool isRiichi = rule != null && rule.StartsWith("riichi");
-        bool isSichuan = rule != null && rule.StartsWith("sichuan");
-        bool isChangsha = rule != null && rule.StartsWith("changsha");
-        bool isTaiwan = rule != null && rule.StartsWith("taiwan");
-        bool isHongque = rule != null && rule.StartsWith("hongque");
-        TotalFan.gameObject.SetActive(!isTaiwan);
+        SetTotalColumn(TotalFan, display.FanText);
+        SetTotalColumn(TotalFu, display.FuText);
+        TotalScore.text = display.ScoreText ?? string.Empty;
+        SetTotalColumn(TotalLimitDisplay, display.LimitText);
+        RebuildFanCountTotalLayout();
+    }
 
-        if (isRiichi && riichiExtras != null) {
-            TotalFu.gameObject.SetActive(true);
-            TotalFu.text = $"{riichiExtras.Fu}符";
-            TotalFan.text = $"{riichiExtras.Han}番";
-            if (riichiExtras.LangyongMultiplier > 1) {
-                TotalScore.text = $"{huScore}点*{riichiExtras.LangyongMultiplier}";
-            } else {
-                TotalScore.text = $"{huScore}点";
-            }
-            TotalLimitDisplay.gameObject.SetActive(false);
-            return;
-        }
-
-        bool showFu = (isClassical || isHongque) && baseFu.HasValue;
-        TotalFu.gameObject.SetActive(showFu);
-        if (showFu) TotalFu.text = isHongque ? $"{baseFu.Value}底" : $"{baseFu.Value}副";
-
-        if (isClassical) {
-            int fanTotal = CalculateClassicalFanTotal(huFan);
-            TotalFan.text = fanTotal >= 0 ? $"{fanTotal}番" : "满贯";
-        } else if (isSichuan) {
-            TotalFan.text = $"{ScoreHistorySettlementHelper.CalculateSichuanFanTotal(rule, huFan)}番";
-        } else if (isChangsha) {
-            TotalFan.text = $"{huScore}分";
-        } else if (isHongque) {
-            int fanTotal = 0;
-            foreach (string fan in huFan ?? System.Array.Empty<string>()) {
-                int separator = fan?.LastIndexOf('|') ?? -1;
-                if (separator > 0 && int.TryParse(fan.Substring(separator + 1), out int value)) fanTotal += value;
-            }
-            TotalFan.text = $"{fanTotal}番";
-        } else {
-            TotalFan.text = $"{huScore}番";
-        }
-
-        if (isChangsha) {
-            TotalScore.text = $"{huScore}分";
-        } else if (isTaiwan) {
-            string pointText = currentWinnerPointDelta.HasValue
-                ? currentWinnerPointDelta.Value.ToString()
-                : "—";
-            TotalScore.text = $"{huScore}台  {pointText}点";
-        } else {
-            TotalScore.text = $"{huScore}点";
-        }
-
-        bool showLimit = isClassical && huScore >= 300;
-        TotalLimitDisplay.gameObject.SetActive(showLimit);
-        if (showLimit) TotalLimitDisplay.text = "满贯";
+    private static void SetTotalColumn(TMP_Text label, string text) {
+        if (label == null) return;
+        bool show = text != null;
+        label.gameObject.SetActive(show);
+        if (show) label.text = text;
     }
 
     /// <summary>
-    /// 立直麻将结算扩展：赤宝牌数量文本、宝牌/里宝牌指示牌槽位。
-    /// 本场棒 / 场供立直棒在 RoundPanel 中已有显示，此处不再重复。
+    /// 排法跟国标同一条：父节点 HorizontalLayoutGroup 用场景左上对齐，不控宽高。
+    /// 国标只开番+点；符/满贯是额外列，只去掉横向 ContentSizeFitter，避免和布局组抢宽度。
     /// </summary>
-    private void ShowRiichiExtrasPanel(string rule, RiichiEndResultExtras extras) {
-        bool isRiichi = rule != null && rule.StartsWith("riichi");
-        if (RiichiPanel != null) {
-            RiichiPanel.SetActive(isRiichi);
+    private void RebuildFanCountTotalLayout() {
+        if (FanCountTotalPanel == null) return;
+        var layout = FanCountTotalPanel.GetComponent<HorizontalLayoutGroup>();
+        if (layout != null) {
+            layout.childAlignment = TextAnchor.UpperLeft;
+            layout.childControlWidth = false;
+            layout.childControlHeight = false;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
         }
-        if (!isRiichi || extras == null) {
+        RelaxExtraColumnHorizontalFitter(TotalFu);
+        RelaxExtraColumnHorizontalFitter(TotalLimitDisplay);
+        if (FanCountTotalPanel.transform is RectTransform root) {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(root);
+        }
+    }
+
+    private static void RelaxExtraColumnHorizontalFitter(TMP_Text column) {
+        if (column == null) return;
+        var fitter = column.GetComponent<ContentSizeFitter>();
+        if (fitter == null) return;
+        fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+    }
+
+    /// <summary>总计文案：族清单的 SettlementTotal 钩子给出；未声明的族用通用"番 + 点"。</summary>
+    private static SettlementTotalDisplay BuildTotalDisplay(
+        string rule, int huScore, string[] huFan, int? baseFu, RiichiEndResultExtras riichiExtras, int? winnerPointDelta) {
+        var query = new SettlementTotalQuery {
+            Rule = rule,
+            HuScore = huScore,
+            HuFan = huFan,
+            BaseFu = baseFu,
+            Extras = riichiExtras,
+            WinnerPointDelta = winnerPointDelta,
+        };
+        var hook = RuleRegistry.Resolve(rule, rule)?.SettlementTotal;
+        return hook != null ? hook(query) ?? query.DefaultDisplay() : query.DefaultDisplay();
+    }
+
+    /// <summary>立直麻将结算扩展：宝牌/里宝牌指示牌槽位。长沙扎鸟走独立面板，不占用这里。</summary>
+    private void ShowRiichiExtrasPanel(string rule, RiichiEndResultExtras extras) {
+        if (RiichiPanel != null) {
+            RiichiPanel.SetActive(extras != null);
+        }
+        if (extras == null) {
             FillDoraSlots(RiichiDoraSlots, null);
             FillDoraSlots(RiichiUraDoraSlots, null);
             return;
@@ -1122,6 +1272,34 @@ public class EndResultPanel : MonoBehaviour {
 
         FillDoraSlots(RiichiDoraSlots, extras.DoraIndicators);
         FillDoraSlots(RiichiUraDoraSlots, extras.UraDoraIndicators);
+    }
+
+    /// <summary>对局/牌谱和牌前写入扎鸟指示牌；空则隐藏扎鸟面板。</summary>
+    public void SetChangshaBirdTiles(int[] tiles) {
+        changshaBirdTiles = tiles != null && tiles.Length > 0 ? tiles : null;
+    }
+
+    private void ShowChangshaBirdPanel(int[] birdTiles) {
+        bool show = birdTiles != null && birdTiles.Length > 0;
+        ClearChangshaBirdCards();
+        if (ChangshaBirdPanel != null) {
+            ChangshaBirdPanel.SetActive(show);
+        }
+        if (!show || ChangshaBirdContainer == null || StaticCardPrefab == null) return;
+        for (int i = 0; i < birdTiles.Length; i++) {
+            GameObject card = Instantiate(StaticCardPrefab, ChangshaBirdContainer);
+            RectTransform rt = card.GetComponent<RectTransform>();
+            if (rt != null) rt.sizeDelta = ChangshaBirdCardSize;
+            StaticCard staticCard = card.GetComponent<StaticCard>();
+            if (staticCard != null) staticCard.SetTileOnlyImage(birdTiles[i]);
+        }
+    }
+
+    private void ClearChangshaBirdCards() {
+        if (ChangshaBirdContainer == null) return;
+        for (int i = ChangshaBirdContainer.childCount - 1; i >= 0; i--) {
+            Destroy(ChangshaBirdContainer.GetChild(i).gameObject);
+        }
     }
 
     /// <summary>
@@ -1138,26 +1316,11 @@ public class EndResultPanel : MonoBehaviour {
         }
     }
 
-    /// <summary>
-    /// 计算古典麻将翻数总和。若包含"满贯"级别役种则返回 -1 表示满贯。
-    /// </summary>
     private static void TryPlayGongHuSound(string rule, string[] huFan, int huScore) {
         if (!FanTextDictionary.ShouldPlayGongHuSound(rule, huFan, huScore)) {
             return;
         }
         SoundManager.Instance.PlayPhysicsSound("Gong_hu");
-    }
-
-    private static int CalculateClassicalFanTotal(string[] huFan) {
-        int total = 0;
-        foreach (string fan in huFan) {
-            string display = FanTextDictionary.GetFanDisplayText("classical/standard", fan);
-            if (display == "满贯") return -1;
-            if (display.EndsWith("翻") && int.TryParse(display.Replace("翻", ""), out int val)) {
-                total += val;
-            }
-        }
-        return total;
     }
 
     public void ClearEndResultPanel(){
@@ -1185,7 +1348,9 @@ public class EndResultPanel : MonoBehaviour {
         }
         FillDoraSlots(RiichiDoraSlots, null);
         FillDoraSlots(RiichiUraDoraSlots, null);
-        GuobiaoAngangCheck.Clear(guobiaoAngangCheckText);
+        changshaBirdTiles = null;
+        ShowChangshaBirdPanel(null);
+        HideRuleFootnote(guobiaoAngangCheckText);
 
         // 清空结算
         foreach (Transform child in EndTilescontainer.transform){

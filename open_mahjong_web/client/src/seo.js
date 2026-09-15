@@ -129,6 +129,12 @@ export const SEO_PAGES = [
     keywords: '麻将平台使用,麻将怎么玩,Salasasa指南,对局机制',
   },
   {
+    path: '/tiles',
+    title: '牌面 - Salasasa',
+    description: '下载已审核通过的玩家牌面与牌面背景压缩包。',
+    keywords: '麻将牌面,牌面下载,麻将皮肤',
+  },
+  {
     path: '/2d',
     title: 'Salasasa 2D 国标麻将：网页在线对战 - Salasasa',
     description: '免下载网页直接开局：2D 国标麻将在线对战、牌谱阅览与玩家数据查询，支持繁中、英文、日文。',
@@ -165,6 +171,7 @@ export const SEO_PAGES = [
  * prefix: true 表示按路径前缀匹配（如 /admin 及其全部子页面）。
  */
 export const NOINDEX_PAGES = [
+  { path: '/forgot-password', title: '找回密码 - Salasasa', description: '使用邮箱验证码重置 Salasasa 账户密码。' },
   { path: '/login', title: '玩家登录 - Salasasa', description: '登录 Salasasa 麻将平台，进入对战、数据站与赛事管理。' },
   { path: '/register', title: '注册 Salasasa 账号 - Salasasa', description: '注册 Salasasa 平台账号，与游戏内账户互通。' },
   { path: '/account', title: '账号面板 - Salasasa' },
@@ -212,12 +219,14 @@ export const PRERENDER_PATHS = [
   '/events',
   '/mobile-download',
   '/guide',
+  '/tiles',
   '/2d',
   '/player-data',
   '/player-data/platform',
   '/player-data/analysis',
   '/game-unity',
   // 以下为 noindex 壳页，避免搜索引擎通过 SPA fallback 收录到错误的首页 TDK
+  '/forgot-password',
   '/login',
   '/register',
   '/account',

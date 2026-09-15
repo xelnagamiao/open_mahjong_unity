@@ -26,7 +26,7 @@ public class HoverEventTrigger : MonoBehaviour, IPointerEnterHandler, IPointerEx
     }
 
     private bool IsHoverLiftDisabled() {
-        return ConfigManager.Instance.IsHandCutConfirmEnabled;
+        return GameSettings.Current.IsHandCutConfirmEnabled;
     }
 
     public void OnPointerEnter(PointerEventData eventData) {

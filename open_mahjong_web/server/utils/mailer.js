@@ -56,4 +56,15 @@ async function sendEmailBindCode({ to, code, username }) {
   await sendMail({ to, subject, text, html });
 }
 
-module.exports = { sendMail, sendEmailBindCode };
+async function sendPasswordResetCode({ to, code }) {
+  await sendMail({
+    to,
+    subject: '【salasasa】重置密码验证码',
+    text: `您正在重置 salasasa.cn 账户密码，验证码为：${code}。验证码 10 分钟内有效，请勿向他人提供。如非本人操作，请忽略本邮件。`,
+    html: `<p>您正在重置 <strong>salasasa.cn</strong> 账户密码，验证码为：</p>
+      <p style="font-size:24px;font-weight:700;letter-spacing:4px;">${code}</p>
+      <p>验证码 10 分钟内有效，请勿向他人提供。如非本人操作，请忽略本邮件。</p>`,
+  });
+}
+
+module.exports = { sendMail, sendEmailBindCode, sendPasswordResetCode };

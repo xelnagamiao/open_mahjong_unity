@@ -30,19 +30,27 @@ public class GameSceneUIManager : MonoBehaviour
     /// <summary>关闭计分板 UI（不清对局结算缓存，用于新开对局/观战初始化）。</summary>
     public void ClearScoreRecordUi() {
         ScoreHistoryPanel.Instance?.Close();
-        GameCanvas.Instance.SetScoreRecordOpen(false);
+        GameCanvas.Instance?.SetScoreRecordOpen(false);
     }
 
     /// <summary>关闭计分板并清空对局结算缓存，用于退出对局/牌谱/观战及切换牌谱。</summary>
     public void ClearScoreRecordState() {
         ClearScoreRecordUi();
-        NormalGameStateManager.Instance.ClearScoreRecordSettlementCache();
+        NormalGameStateManager.Instance?.ClearScoreRecordSettlementCache();
+    }
+
+    /// <summary>实时观战 UI 位于常驻节点和 Overlay，必须在会话结束时显式清理。</summary>
+    public static void ResetRealtimeSpectatorUi() {
+        global::RealtimeSpectatorIndicator.Instance?.ResetForExit();
+        RealtimeRequestIncomingPanel.Instance?.ResetForExit();
+        RealtimeRequestWaitPanel.Instance?.ResetForExit();
     }
 
     /// <summary>
     /// 清空所有临时面板
     /// </summary>
     public void ClearTemporaryPanels(){
+        ResetRealtimeSpectatorUi();
         EndResultPanel.Instance.ClearEndResultPanel(); // 清空和牌结算面板
         EndGamePanel.Instance.ClearEndGamePanel();       // 清空游戏结束面板
         SwitchSeatPanel.Instance.ClearSwitchSeatPanel(); // 清空换位面板
@@ -74,10 +82,12 @@ public class GameSceneUIManager : MonoBehaviour
         Dictionary<int, string> indexToPosition, Dictionary<string, string> positionToUsername,
         int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
         Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after, bool isSpectator = false,
-        int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
+        int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null,
+        int[] changshaBirdTiles = null) {
         EndResultPanel.Instance.StartRecordResult(hepai_player_index, hu_score, hu_fan, hu_class, roomType,
             indexToPosition, positionToUsername, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask,
-            player_to_score_before, player_to_score_after, isSpectator, base_fu, fu_fan_list, riichiExtras);
+            player_to_score_before, player_to_score_after, isSpectator, base_fu, fu_fan_list, riichiExtras,
+            changshaBirdTiles);
     }
 
     /// <summary>
@@ -129,11 +139,13 @@ public class GameSceneUIManager : MonoBehaviour
 
         var mgr = NormalGameStateManager.Instance;
         var player_to_info = mgr?.player_to_info;
-        bool recordActive = GameRecordManager.Instance.gameObject.activeSelf
-            && GameRecordManager.Instance.gameRecord != null;
+        var recordMgr = GameRecordManager.Instance;
+        bool recordActive = recordMgr != null
+            && recordMgr.gameObject.activeSelf
+            && recordMgr.gameRecord != null;
 
         if (recordActive) {
-            GameRecordManager.Instance.RefreshRecordScoreTable();
+            recordMgr.RefreshRecordScoreTable();
             return;
         }
 
@@ -181,6 +193,7 @@ public class GameSceneUIManager : MonoBehaviour
 
     /// <summary>实时观战进入对局：清空临时面板，仅显示自动排列手牌。</summary>
     public void InitRealtimeSpectatorStart() {
+        ResetRealtimeSpectatorUi();
         EndResultPanel.Instance.ClearEndResultPanel();
         EndGamePanel.Instance.ClearEndGamePanel();
         SwitchSeatPanel.Instance.ClearSwitchSeatPanel();
@@ -199,21 +212,33 @@ public class GameSceneUIManager : MonoBehaviour
     }
 
     public void InitGameRecord() {
-        EndResultPanel.Instance.ClearEndResultPanel(); // 清空和牌结算面板
-        EndGamePanel.Instance.ClearEndGamePanel();       // 清空游戏结束面板
-        SwitchSeatPanel.Instance.ClearSwitchSeatPanel(); // 清空换位面板
-        EndLiujuPanel.Instance.ClearEndLiujuPanel();     // 清空流局面板
-        PenaltyPanel.Instance.ClearPenaltyPanel(); // 清空罚符面板
-        EndShuheWeiPanel.Instance.ClearEndShuheWeiPanel(); // 清空数和尾面板
-        StartGamePanel.Instance.ClearStartGamePanel();   // 清空开始游戏面板
-        GameRecordManager.Instance.HideGameRecord();     // 隐藏游戏牌谱面板
+        ResetRealtimeSpectatorUi();
+        EndResultPanel.Instance?.ClearEndResultPanel();
+        EndGamePanel.Instance?.ClearEndGamePanel();
+        SwitchSeatPanel.Instance?.ClearSwitchSeatPanel();
+        EndLiujuPanel.Instance?.ClearEndLiujuPanel();
+        PenaltyPanel.Instance?.ClearPenaltyPanel();
+        EndShuheWeiPanel.Instance?.ClearEndShuheWeiPanel();
+        StartGamePanel.Instance?.ClearStartGamePanel();
+        GameRecordManager.Instance?.HideGameRecord();
         ClearScoreRecordState();
-        TipsBlock.Instance.HideTipsBlock(); // 隐藏提示面板
-        TipsContainer.Instance.HideTips(); // 隐藏提示容器
-        AutoAction.Instance.gameObject.SetActive(false); // 隐藏自动行为组件
-        RecordSetting.Instance.gameObject.SetActive(true);
-        RecordSetting.Instance.Initialize();
-        GameRecordManager.Instance.gameObject.SetActive(true); // 显示牌谱组件
-        RoundEndPresentation.Instance.ShowSelfGameplayControlAndResyncHand3D();
+        TipsBlock.Instance?.HideTipsBlock();
+        TipsContainer.Instance?.HideTips();
+        if (AutoAction.Instance != null) {
+            AutoAction.Instance.gameObject.SetActive(false);
+        }
+        RecordSetting settings = RecordSetting.Instance;
+        if (settings == null) {
+            settings = FindFirstObjectByType<RecordSetting>(FindObjectsInactive.Include);
+        }
+        if (settings != null) {
+            settings.gameObject.SetActive(true);
+            settings.Initialize();
+        }
+        if (GameRecordManager.Instance != null) {
+            GameRecordManager.Instance.gameObject.SetActive(true);
+        }
+        GameCanvas.Instance?.HideDingqueSelection();
+        RoundEndPresentation.Instance?.ShowSelfGameplayControlAndResyncHand3D();
     }
 }

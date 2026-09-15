@@ -15,6 +15,7 @@
  */
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const isProduction = NODE_ENV === 'production';
+const runtimeData = require('../utils/runtimeData');
 
 // ==================== 数据库配置 ====================
 const dbConfig = {
@@ -201,6 +202,7 @@ console.log(`数据库: ${dbConfig.user}@${dbConfig.host}:${dbConfig.port}/${dbC
 if (isProduction) {
   console.log(`前端地址: ${productionFrontendUrl}`);
 }
+console.log(`运行时数据根: ${runtimeData.resolveDataRoot()}`);
 console.log(`管理后台管理员数量: ${adminConfig.userIds.size}`);
 
 // ==================== 导出配置 ====================
@@ -235,6 +237,14 @@ module.exports = {
   // QQ 机器人等第三方 Bot API
   botApi: botApiConfig,
   
+  // 运行时上传数据（牌面 zip、活动专栏），与 git / nginx dist 分离
+  data: {
+    root: runtimeData.resolveDataRoot(),
+    userContent: runtimeData.userContentDir(),
+    activityAssets: runtimeData.activityAssetsDir(),
+    activityCatalog: runtimeData.activityCatalogDir(),
+  },
+
   // 便捷访问
   isProduction: isProduction,
   isDebug: appConfig.isDebug,

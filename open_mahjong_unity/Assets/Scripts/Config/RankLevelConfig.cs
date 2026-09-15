@@ -11,6 +11,7 @@ public static class RankLevelConfig {
         ("初段", 200, 400), ("二段", 400, 800), ("三段", 600, 1200),
         ("四段", 800, 1600), ("五段", 1000, 2000), ("六段", 1200, 2400),
         ("七段", 1400, 2800), ("八段", 1600, 3200), ("九段", 3200, 7000),
+        ("十段", 100, 100), // 终局段位：固定 PT，不再升降段
     };
 
     // 与 rank_calculator.py RANK_TABLE 第4列一致
@@ -18,6 +19,7 @@ public static class RankLevelConfig {
         false, false, false, false, false, false, false,
         true, true, true,
         true, true, true, true, true, true, true, true, true,
+        false,
     };
 
     public static readonly Dictionary<string, int> RankLevelMap = new Dictionary<string, int> {
@@ -27,6 +29,7 @@ public static class RankLevelConfig {
         {"初段", 10}, {"二段", 11}, {"三段", 12},
         {"四段", 13}, {"五段", 14}, {"六段", 15},
         {"七段", 16}, {"八段", 17}, {"九段", 18},
+        {"十段", 19},
     };
 
     // 场次基础均得分（全庄）
@@ -58,6 +61,7 @@ public static class RankLevelConfig {
         {"七段", 135f},
         {"八段", 165f},
         {"九段", 180f},
+        {"十段", 0f},
     };
 
     public static int GetRankIndex(string rankName) {
@@ -71,18 +75,32 @@ public static class RankLevelConfig {
         return RankLevelMap.TryGetValue(rankName, out int level) ? level : 0;
     }
 
+    public static bool IsFixedRank(string rankName) {
+        return rankName == RankTable[RankTable.Length - 1].name;
+    }
+
+    public static float NormalizeScore(string rankName, float score) {
+        return IsFixedRank(rankName) ? RankTable[RankTable.Length - 1].startScore : score;
+    }
+
     /// <summary>
     /// 将 PT 应用到当前分数，处理升降段（与 server/match/rank_calculator.py apply_pt 一致）
     /// </summary>
     public static (string rank, float score) ApplyPt(string rankName, float score, float pt) {
         int rankIdx = GetRankIndex(rankName);
-        float newScore = score + pt;
+        if (IsFixedRank(rankName)) {
+            return (rankName, NormalizeScore(rankName, score));
+        }
+        float newScore = (float)System.Math.Round(score + pt, 2);
 
         while (rankIdx < RankTable.Length - 1) {
             var (_, _, promoteScore) = RankTable[rankIdx];
             if (newScore < promoteScore) break;
             float overflow = newScore - promoteScore;
             rankIdx++;
+            if (rankIdx == RankTable.Length - 1) {
+                return (RankTable[rankIdx].name, RankTable[rankIdx].startScore);
+            }
             newScore = RankTable[rankIdx].startScore + overflow;
         }
 

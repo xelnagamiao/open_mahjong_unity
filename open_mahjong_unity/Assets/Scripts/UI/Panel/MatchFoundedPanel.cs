@@ -88,7 +88,7 @@ public class MatchFoundedPanel : MonoBehaviour {
 
     private void StartFoundedCountdown() {
         CoroutineManager.Ensure();
-        CoroutineManager.Instance.RunNamed(
+        CoroutineManager.Instance?.RunNamed(
             CoroutineKeys.MatchFoundedCountdown,
             CountdownRoutine(),
             restartIfRunning: true
@@ -96,7 +96,7 @@ public class MatchFoundedPanel : MonoBehaviour {
     }
 
     private void StopFoundedCountdown() {
-        CoroutineManager.Instance.StopNamed(CoroutineKeys.MatchFoundedCountdown);
+        CoroutineManager.Instance?.StopNamed(CoroutineKeys.MatchFoundedCountdown);
     }
 
     private IEnumerator CountdownRoutine() {

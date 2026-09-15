@@ -10,7 +10,7 @@
       "startScore": 600,
       "promoteScore": 1200,
       "canDemote": true,
-      "minScore": 600,
+      "minScore": 0,
       "maxScore": 1199.99,
       "isTopRank": false
     },

@@ -79,18 +79,14 @@ public class SoundManager : MonoBehaviour {
     }
 
     private static string ResolveActionVoiceKey(string actionType) {
-        GameRecordManager.ResolveActionRuleContext(null, null, out string roomRule, out string subRule);
-
+        string ruleVoice = GameRecordManager.ResolveActionRuleManifest()?.ActionVoice?.Invoke(actionType);
+        if (ruleVoice != null) {
+            return ruleVoice;
+        }
         if (actionType == "hu_self" || actionType == "hu_flower") {
-            if (GameRecordManager.IsGuobiaoRule(roomRule, subRule)) {
-                return "hu";
-            }
             return "zimo";
         }
         if (actionType == "hu" || actionType == "hu_first" || actionType == "hu_second" || actionType == "hu_third") {
-            if (roomRule == "riichi" || (!string.IsNullOrEmpty(subRule) && subRule.StartsWith("riichi/"))) {
-                return "rong";
-            }
             return "hu";
         }
         if (actionType == "buhua") {

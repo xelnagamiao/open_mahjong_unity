@@ -152,6 +152,7 @@ public class NetworkManager : MonoBehaviour {
             if (suppressConnectionFailureUi) return;
             ExecuteOnMainThread(() => {
                 if (ws != websocket) return;
+                GameSceneUIManager.ResetRealtimeSpectatorUi();
                 if (AutoReconnect.TryHandleOnClose()) return;
                 if (IsOnLoginPage()) {
                     LoginPanel.Instance?.ShowConnectionError("连接已关闭");
@@ -187,6 +188,7 @@ public class NetworkManager : MonoBehaviour {
     /// 已连上后再断开走 MarkDisconnected；登录页首次连接失败则弹断线重连面板（AutoReconnect 活跃时不介入）。
     /// </summary>
     private void HandleConnectionLostUi() {
+        GameSceneUIManager.ResetRealtimeSpectatorUi();
         if (AutoReconnect.IsActive) return;
         if (_disconnectDialogState == DisconnectDialogState.Connected) {
             MarkDisconnected();
@@ -249,6 +251,7 @@ public class NetworkManager : MonoBehaviour {
         websocket?.DispatchMessageQueue();
 #endif
         if (websocket == null || websocket.State != WebSocketState.Open) {
+            GameSceneUIManager.ResetRealtimeSpectatorUi();
             if (AutoReconnect.TryHandleForegroundDisconnect()) return;
             MarkDisconnected();
         }
@@ -552,6 +555,11 @@ public class NetworkManager : MonoBehaviour {
                 response.login_info.user_id,
                 response.login_info.is_tourist
             );
+            if (!AutoReconnect.IsActive) {
+                RoomNetworkManager.Instance?.CancelPendingRoomEntry();
+                RoomListPanel.Instance?.ResetSessionCaches();
+                CreatePanel.ResetAllSessionCaches();
+            }
             HeaderPanel.Instance?.RefreshMatchButtonVisibility();
             HeaderPanel.Instance?.RefreshEventButtonVisibility();
             // 保存用户信息
@@ -568,7 +576,10 @@ public class NetworkManager : MonoBehaviour {
                     response.rank_data.guobiao_rank,
                     response.rank_data.guobiao_score,
                     response.rank_data.is_sponsor,
-                    response.rank_data.is_mcrpl_qualified
+                    response.rank_data.is_mcrpl_qualified,
+                    response.rank_data.is_beginner_qualified,
+                    response.rank_data.is_intermediate_qualified,
+                    response.rank_data.is_advanced_qualified
                 );
             }
             UserContainer.Instance.ShowUserSettings(response.user_settings);
@@ -619,6 +630,12 @@ public class NetworkManager : MonoBehaviour {
                 return;
             }
 
+            // 对局消息统一交由 GameStateNetworkManager 按 gamestate/{rule}/{suffix} 路由
+            if (response.type != null && response.type.StartsWith("gamestate/")) {
+                GameStateNetworkManager.Instance.HandleGameStateMessage(response);
+                return;
+            }
+
             switch (response.type){
                 case "login":
                     HandleLoginResponse(response);
@@ -653,6 +670,7 @@ public class NetworkManager : MonoBehaviour {
                 case "data/get_record_by_id":
                 case "data/update_record_favorite":
                 case "data/get_guobiao_stats":
+                case "data/get_player_recent_records":
                 case "data/get_riichi_stats":
                 case "data/get_qingque_stats":
                 case "data/get_classical_stats":
@@ -678,78 +696,9 @@ public class NetworkManager : MonoBehaviour {
                 case "spectator/remove_spectator":
                     HandleSpectatorRemoveResult(response);
                     break;
-                // 游戏状态相关消息交由 GameStateNetworkManager 处理
-                case "gamestate/get_spectator_list":
-                case "gamestate/guobiao/game_start":
-                case "gamestate/qingque/game_start":
-                case "gamestate/classical/game_start":
-                case "gamestate/riichi/game_start":
-                case "gamestate/taiwan/game_start":
-                case "gamestate/guobiao/broadcast_hand_action":
-                case "gamestate/qingque/broadcast_hand_action":
-                case "gamestate/classical/broadcast_hand_action":
-                case "gamestate/riichi/broadcast_hand_action":
-                case "gamestate/taiwan/broadcast_hand_action":
-                case "gamestate/guobiao/ask_other_action":
-                case "gamestate/qingque/ask_other_action":
-                case "gamestate/classical/ask_other_action":
-                case "gamestate/riichi/ask_other_action":
-                case "gamestate/taiwan/ask_other_action":
-                case "gamestate/guobiao/do_action":
-                case "gamestate/qingque/do_action":
-                case "gamestate/classical/do_action":
-                case "gamestate/riichi/do_action":
-                case "gamestate/taiwan/do_action":
-                case "gamestate/guobiao/show_result":
-                case "gamestate/qingque/show_result":
-                case "gamestate/classical/show_result":
-                case "gamestate/riichi/show_result":
-                case "gamestate/taiwan/show_result":
-                case "gamestate/guobiao/game_end":
-                case "gamestate/qingque/game_end":
-                case "gamestate/classical/game_end":
-                case "gamestate/riichi/game_end":
-                case "gamestate/taiwan/game_end":
-                case "gamestate/guobiao/ready_status":
-                case "gamestate/qingque/ready_status":
-                case "gamestate/classical/ready_status":
-                case "gamestate/riichi/ready_status":
-                case "gamestate/taiwan/ready_status":
-                case "gamestate/classical/show_shuhewei":
-                case "gamestate/riichi/declare_riichi":
-                case "gamestate/riichi/update_dora":
-                case "gamestate/sichuan/game_start":
-                case "gamestate/sichuan/broadcast_hand_action":
-                case "gamestate/sichuan/ask_other_action":
-                case "gamestate/sichuan/do_action":
-                case "gamestate/sichuan/show_result":
-                case "gamestate/sichuan/game_end":
-                case "gamestate/sichuan/ready_status":
-                case "gamestate/sichuan/ask_dingque":
-                case "gamestate/sichuan/dingque_done":
-                case "gamestate/changsha/game_start":
-                case "gamestate/changsha/broadcast_hand_action":
-                case "gamestate/changsha/ask_other_action":
-                case "gamestate/changsha/do_action":
-                case "gamestate/changsha/show_result":
-                case "gamestate/changsha/game_end":
-                case "gamestate/changsha/ready_status":
-                case "gamestate/jiandan/game_start":
-                case "gamestate/jiandan/broadcast_hand_action":
-                case "gamestate/jiandan/ask_other_action":
-                case "gamestate/jiandan/do_action":
-                case "gamestate/jiandan/show_result":
-                case "gamestate/jiandan/game_end":
-                case "gamestate/jiandan/ready_status":
-                case "gamestate/hongque/game_start":
-                case "gamestate/hongque/reconnect":
-                case "gamestate/hongque/update":
-                case "gamestate/hongque/ready_status":
+                // 游戏状态相关消息交由 GameStateNetworkManager 处理（gamestate/ 前缀已在 switch 前统一转发）
                 case "switch_seat":
                 case "refresh_player_tag_list":
-                case "gamestate/broadcast_sticker":
-                case "gamestate/vote_update":
-                case "gamestate/vote_end":
                     GameStateNetworkManager.Instance.HandleGameStateMessage(response);
                     break;
                 // 匹配系统消息交由 MatchNetworkManager 处理
@@ -946,7 +895,7 @@ public class NetworkManager : MonoBehaviour {
 
     // 4.以下是所有定义的消息发送类型 客户端所有消息发送都通过以下列表
     // 4.1 登录方法 login 从LoginPanel发送
-    public async void Login(string username, string password, bool is_tourist = false){
+    public async void Login(string username, string password, bool is_tourist = false, string loginType = "username"){
         try {
             if (websocket.State != WebSocketState.Open) {
                 NotificationManager.Instance.ShowTip("登录", false, "尚未连接至OMU服务器");
@@ -956,15 +905,33 @@ public class NetworkManager : MonoBehaviour {
             // 如果网络连接成功，则发送登录消息
             var request = new LoginRequest {
                 type = "login",
+                login_type = loginType,
                 username = is_tourist ? null : username,  // 游客登录时username为null
                 password = is_tourist ? null : password,  // 游客登录时password为null
                 is_tourist = is_tourist
             };
-            Debug.Log($"发送登录消息: username={(is_tourist ? "null" : username)}, password={(is_tourist ? "null" : "***")}, is_tourist={is_tourist}");
+            Debug.Log($"发送登录请求: login_type={loginType}, is_tourist={is_tourist}");
             await websocket.SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             Debug.LogError($"登录发送错误: {e.Message}");
             NotificationManager.Instance.ShowTip("登录", false, "尚未连接至OMU服务器");
+            LoginPanel.Instance.ResetLoginButton();
+        }
+    }
+
+    public async void Register(string email, string username, string password, string confirmPassword) {
+        try {
+            if (!IsWebSocketOpen) {
+                NotificationManager.Instance.ShowTip("注册", false, "尚未连接至OMU服务器");
+                LoginPanel.Instance.ResetLoginButton();
+                return;
+            }
+            await websocket.SendText(JsonConvert.SerializeObject(new {
+                type = "register", email, username, password, confirm_password = confirmPassword
+            }));
+        } catch (Exception e) {
+            Debug.LogError($"注册发送错误: {e.Message}");
+            NotificationManager.Instance.ShowTip("注册", false, "注册请求发送失败，请重试");
             LoginPanel.Instance.ResetLoginButton();
         }
     }

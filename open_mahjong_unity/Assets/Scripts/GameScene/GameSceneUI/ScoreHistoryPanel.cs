@@ -26,18 +26,6 @@ public class ScoreHistoryPanel : MonoBehaviour
     [SerializeField] private Color scoreLossColor = Color.red;
     [SerializeField] private Color tsumoLossColor = Color.blue;
 
-    private static readonly Dictionary<string, Dictionary<int, string>> RuleToRoundMap = new Dictionary<string, Dictionary<int, string>> {
-        { "guobiao", RoundTextDictionary.CurrentRoundTextGB },
-        { "qingque", RoundTextDictionary.CurrentRoundTextQingque },
-        { "riichi", RoundTextDictionary.CurrentRoundTextRiichi },
-        { "classical", RoundTextDictionary.CurrentRoundTextClassical },
-        { "sichuan", RoundTextDictionary.CurrentRoundTextSichuan },
-        { "changsha", RoundTextDictionary.CurrentRoundTextChangsha },
-        { "jiandan", RoundTextDictionary.CurrentRoundTextJiandan },
-        { "taiwan", RoundTextDictionary.CurrentRoundTextTaiwan },
-        { "hongque", RoundTextDictionary.CurrentRoundTextHongque },
-    };
-
     private void Awake()
     {
         if (Instance == null)
@@ -54,6 +42,8 @@ public class ScoreHistoryPanel : MonoBehaviour
 
     private void OnEnable()
     {
+        if (GameSceneUIManager.Instance == null) return;
+
         bool recordActive = GameRecordManager.Instance != null
             && GameRecordManager.Instance.gameObject.activeSelf
             && GameRecordManager.Instance.gameRecord != null;
@@ -63,7 +53,7 @@ public class ScoreHistoryPanel : MonoBehaviour
         }
 
         var mgr = NormalGameStateManager.Instance;
-        if (!mgr.IsGameActive && mgr.roundSettlementHistory.Count == 0) return;
+        if (mgr == null || (!mgr.IsGameActive && mgr.roundSettlementHistory.Count == 0)) return;
         GameSceneUIManager.Instance.UpdateScoreRecord();
     }
 
@@ -188,23 +178,18 @@ public class ScoreHistoryPanel : MonoBehaviour
         UpdateScoreRecord(rule, player_to_info, null);
     }
 
-    public void UpdateScoreRecord(string rule, IReadOnlyDictionary<string, PlayerInfoClass> player_to_info, IReadOnlyList<RoundSettlementSnapshot> roundSettlements, int totalRounds = 0, bool maskPlayerNames = false)
+    public void UpdateScoreRecord(string rule, IReadOnlyDictionary<string, PlayerInfoClass> player_to_info, IReadOnlyList<RoundSettlementSnapshot> roundSettlements, int totalRounds = 0, bool maskPlayerNames = false, string subRuleFallback = null)
     {
         if (player_to_info == null || player_to_info.Count < 4) return;
 
+        var mgr = NormalGameStateManager.Instance;
         if (roundSettlements == null || roundSettlements.Count == 0) {
-            roundSettlements = NormalGameStateManager.Instance.roundSettlementHistory;
+            roundSettlements = mgr != null ? mgr.roundSettlementHistory : null;
         }
 
-        // 总局数（用于预测未来局名占位）：优先用调用方传入，其次回退到实时对局的 maxRound（风圈数）*4
-        if (totalRounds <= 0) {
-            var mgr = NormalGameStateManager.Instance;
-            if (mgr.maxRound > 0) {
-                // 通用规则的 maxRound 是风圈数；虹雀服务端下发的已经是实际局数（4/8/16）。
-                totalRounds = mgr.roomRule == "hongque"
-                    ? mgr.maxRound
-                    : mgr.maxRound * 4;
-            }
+        // 总局数（用于预测未来局名占位）：优先用调用方传入，其次由实时对局的 maxRound 按族换算（风圈数×4 或本身即局数）
+        if (totalRounds <= 0 && mgr != null) {
+            totalRounds = RoundTextDictionary.ToTotalHands(mgr.roomRule, mgr.maxRound);
         }
 
         var sorted = new List<PlayerInfoClass>(player_to_info.Values);
@@ -232,7 +217,8 @@ public class ScoreHistoryPanel : MonoBehaviour
             sorted[3].original_player_index, ResolveDisplayName(sorted[3]), sorted[3].score, sorted[3].score_history ?? new List<string>(),
             roundNumberHistory,
             roundSettlements,
-            totalRounds);
+            totalRounds,
+            subRuleFallback);
     }
 
     public void InitializeScoreRecord(
@@ -243,7 +229,8 @@ public class ScoreHistoryPanel : MonoBehaviour
         int originIndex3, string username3, int absoluteScore3, List<string> scoreHistory3,
         List<int> roundNumberHistory = null,
         IReadOnlyList<RoundSettlementSnapshot> roundSettlements = null,
-        int totalRounds = 0)
+        int totalRounds = 0,
+        string subRuleFallback = null)
     {
         EnsureMainFanColumnSetup();
         if (RoundIndexContainer != null)
@@ -252,23 +239,20 @@ public class ScoreHistoryPanel : MonoBehaviour
         }
         ClearContainer(MainFanContainer);
 
+        var mgr = NormalGameStateManager.Instance;
         if (roundSettlements == null || roundSettlements.Count == 0) {
-            roundSettlements = NormalGameStateManager.Instance.roundSettlementHistory;
+            roundSettlements = mgr != null ? mgr.roundSettlementHistory : null;
         }
 
-        string baseRule = rule ?? "";
-        foreach (var kv in RuleToRoundMap) {
-            if (baseRule.StartsWith(kv.Key)) { baseRule = kv.Key; break; }
-        }
-
-        if (!RuleToRoundMap.TryGetValue(baseRule, out Dictionary<int, string> roundMap)) {
+        if (RuleRegistry.Resolve(rule, rule) == null) {
             Debug.LogError($"未知的规则类型: {rule}");
             return;
         }
 
-        string subRule = ScoreHistorySettlementHelper.ResolveSubRule(
-            rule,
-            NormalGameStateManager.Instance.subRule);
+        if (string.IsNullOrEmpty(subRuleFallback) && mgr != null) {
+            subRuleFallback = mgr.subRule;
+        }
+        string subRule = ScoreHistorySettlementHelper.ResolveSubRule(rule, subRuleFallback);
 
         List<int> roundNumbers = roundNumberHistory ?? new List<int>();
 
@@ -286,7 +270,7 @@ public class ScoreHistoryPanel : MonoBehaviour
             GameObject textObj = Instantiate(Tmp_Text_Prefab, RoundIndexContainer.transform);
             TMP_Text text = textObj.GetComponent<TMP_Text>();
             if (text != null) {
-                text.text = roundMap.TryGetValue(roundNumber, out string label) ? label : $"第{roundNumber}局";
+                text.text = RoundTextDictionary.GetRoundName(rule, roundNumber);
             }
 
             CreateMainFanCell(i, scoreHistoryCount, roundCount, subRule, roundSettlements);
@@ -304,8 +288,7 @@ public class ScoreHistoryPanel : MonoBehaviour
             GameObject textObj = Instantiate(Tmp_Text_Prefab, RoundIndexContainer.transform);
             TMP_Text text = textObj.GetComponent<TMP_Text>();
             if (text != null) {
-                string label = roundMap.TryGetValue(rn, out string mapped) ? mapped : $"第{rn}局";
-                text.text = $"<color=#7A7A7A>{label}</color>";
+                text.text = $"<color=#7A7A7A>{RoundTextDictionary.GetRoundName(rule, rn)}</color>";
                 text.raycastTarget = false;
             }
             AddEmptyCell(MainFanContainer);
@@ -448,7 +431,8 @@ public class ScoreHistoryPanel : MonoBehaviour
         }
 
         if (roundSettlements == null || roundSettlements.Count == 0) {
-            roundSettlements = NormalGameStateManager.Instance.roundSettlementHistory;
+            var mgr = NormalGameStateManager.Instance;
+            roundSettlements = mgr != null ? mgr.roundSettlementHistory : null;
         }
 
         RoundSettlementSnapshot snapshot = ScoreHistorySettlementHelper.ResolveSettlementForRow(
@@ -491,16 +475,12 @@ public class ScoreHistoryPanel : MonoBehaviour
         }
         if (scoreValue < 0) {
             Color lossColor = scoreLossColor;
-            if (!IsSichuanSubRule(subRule) && IsTsumoLossRound(snapshot)) {
+            if (RuleRegistry.Resolve(subRule, subRule)?.ScoreboardHighlightsTsumoLoss != false && IsTsumoLossRound(snapshot)) {
                 lossColor = tsumoLossColor;
             }
             return $"<color={ColorToTmpHex(lossColor)}>{displayScoreChange}</color>";
         }
         return displayScoreChange;
-    }
-
-    private static bool IsSichuanSubRule(string subRule) {
-        return subRule != null && subRule.StartsWith("sichuan");
     }
 
     private static bool IsTsumoLossRound(RoundSettlementSnapshot snapshot) {

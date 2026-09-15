@@ -2,7 +2,10 @@
 从国标牌谱 JSON 推理玩家本场指标（和牌/放铳/错和/副露/和巡等）。
 供 backfill_history_stats 与 backfill_game_player_metrics 共用。
 """
+from types import SimpleNamespace
 from typing import Any, Dict, Optional
+
+from server.gamestate.public.logic_common import player_index_go_to, player_index_next
 
 from .round_score_utils import _parse_score_changes, resolve_round_seats
 from .store_guobiao import FAN_NAME_TO_FIELD, STACKABLE_FANS
@@ -68,25 +71,59 @@ def round_start_player(rd: Dict[str, Any]) -> int:
     return start % 4
 
 
+def _xunmu_live_state(dealer: int = 0):
+    """与对局进程相同的巡目状态：player_index_go_to 读 player_list[0].discard_tiles。"""
+    return SimpleNamespace(
+        current_player_index=dealer % 4,
+        xunmu=1,
+        action_history=[],
+        player_list=[SimpleNamespace(discard_tiles=[]) for _ in range(4)],
+    )
+
+
+def normalize_riichi_round_for_xunmu(rd: Dict[str, Any]) -> Dict[str, Any]:
+    """日麻牌谱把亲家第 14 张也记成无座位 `d`，国标则从 reset 后的切牌开始。
+
+    去掉开局第一张无座位摸牌并补上 reset，才能走与对局进程相同的庄家巡
+    （回绕且庄家河非空才 +1）。不要在亲家切牌时 +1，否则荣和亲家首打会变成 2 巡。
+    """
+    ticks = rd.get("action_ticks")
+    if not isinstance(ticks, list):
+        return rd
+    dealer = round_start_player(rd)
+    out: list = []
+    skipped_opening_d = False
+    seen_cut_or_hu = False
+    for tick in ticks:
+        if not isinstance(tick, list) or not tick:
+            continue
+        code = tick[0]
+        if (
+            not skipped_opening_d
+            and not seen_cut_or_hu
+            and code in ("d", "mo")
+            and _tick_int(tick, 2) is None
+        ):
+            skipped_opening_d = True
+            continue
+        if code in ("c", "hu_riichi") or code in HU_ACTIONS:
+            seen_cut_or_hu = True
+        out.append(tick)
+    if out and out[0] and out[0][0] == "reset":
+        return {**rd, "action_ticks": out}
+    return {**rd, "action_ticks": [["reset", dealer], *out]}
+
+
 def reconstruct_round_win_turns(rd: Dict[str, Any]) -> Dict[int, int]:
-    """从一局 action_ticks 按 player_index_go_to 语义推理每位 seat 的和巡总和。"""
+    """用对局进程 player_index_go_to / player_index_next 重建每位 seat 的和巡总和。
+
+    切牌写入当局牌河，鸣牌 pop 被鸣走的河牌；国标回绕且庄家河非空才 +1。
+    """
     ticks = rd.get("action_ticks") or []
     if not isinstance(ticks, list):
         return {}
-    dealer = round_start_player(rd)
-    current_seat = dealer
-    history: list = []
-    xunmu = 1
-    dealer_discarded = False
+    state = _xunmu_live_state(round_start_player(rd))
     win_turn_by_seat: Dict[int, int] = {}
-
-    def go_to(seat: int) -> None:
-        nonlocal current_seat, xunmu
-        seat = seat % 4
-        if history and seat != history[-1] and seat < history[-1] and dealer_discarded:
-            xunmu += 1
-        history.append(seat)
-        current_seat = seat
 
     for tick in ticks:
         if not isinstance(tick, list) or not tick:
@@ -95,35 +132,38 @@ def reconstruct_round_win_turns(rd: Dict[str, Any]) -> Dict[int, int]:
         if code == "end":
             break
         if code == "reset":
-            seat = _tick_int(tick, 1, current_seat)
+            seat = _tick_int(tick, 1, state.current_player_index)
             if seat is not None:
-                go_to(seat)
+                player_index_go_to(state, seat % 4)
             continue
         if code in ("bh", "bd"):
-            seat = _tick_int(tick, 2, current_seat)
+            seat = _tick_int(tick, 2, state.current_player_index)
             if seat is not None:
-                go_to(seat)
+                player_index_go_to(state, seat % 4)
             continue
         if code in ("d", "mo"):
             explicit = _tick_int(tick, 2)
             if explicit is not None and 0 <= explicit <= 3:
-                go_to(explicit)
+                player_index_go_to(state, explicit)
             else:
-                go_to(0 if current_seat == 3 else current_seat + 1)
+                player_index_next(state)
             continue
         if code == "gd":
             explicit = _tick_int(tick, 2)
             if explicit is not None and 0 <= explicit <= 3:
-                go_to(explicit)
+                player_index_go_to(state, explicit)
             continue
         if code == "c":
-            if current_seat == dealer:
-                dealer_discarded = True
+            tile = tick[1] if len(tick) > 1 else 0
+            state.player_list[state.current_player_index].discard_tiles.append(tile)
             continue
         if code in CLAIM_CODES:
+            river = state.player_list[state.current_player_index].discard_tiles
+            if river:
+                river.pop(-1)
             seat = _tick_int(tick, 2)
             if seat is not None:
-                go_to(seat)
+                player_index_go_to(state, seat % 4)
             continue
         hu = _parse_hu_tick(tick)
         if hu:
@@ -131,7 +171,7 @@ def reconstruct_round_win_turns(rd: Dict[str, Any]) -> Dict[int, int]:
             is_cuohe = isinstance(yaku, list) and any("错和" in str(f) for f in yaku)
             if not is_cuohe:
                 win_seat = hu["winner_seat"]
-                win_turn_by_seat[win_seat] = win_turn_by_seat.get(win_seat, 0) + xunmu
+                win_turn_by_seat[win_seat] = win_turn_by_seat.get(win_seat, 0) + state.xunmu
     return win_turn_by_seat
 
 
@@ -157,6 +197,7 @@ def analyze_record_for_player(record: Dict[str, Any], original_player_index: int
         return None
     zimo = dianhe = fangchong = cuohe = fulu_rounds = 0
     win_score = fangchong_score = win_turn = 0
+    is_riichi = (record.get("game_title") or {}).get("rule") == "riichi"
     for rd in game_round.values():
         if not isinstance(rd, dict):
             continue
@@ -204,7 +245,8 @@ def analyze_record_for_player(record: Dict[str, Any], original_player_index: int
                     fangchong_score += int(hu_score)
         if had_fulu:
             fulu_rounds += 1
-        win_turn += reconstruct_round_win_turns(rd).get(my_seat, 0)
+        xunmu_rd = normalize_riichi_round_for_xunmu(rd) if is_riichi else rd
+        win_turn += reconstruct_round_win_turns(xunmu_rd).get(my_seat, 0)
     return {
         "zimo": zimo, "dianhe": dianhe, "fangchong": fangchong,
         "fangchong_score": fangchong_score, "cuohe": cuohe,

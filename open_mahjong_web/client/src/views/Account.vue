@@ -1,5 +1,5 @@
 <template>
-  <div v-loading="!auth.loaded" class="account-page">
+  <div v-loading="!auth.loaded" class="account-page" :class="{ 'account-page--manage': isManageSection }">
     <el-empty v-if="auth.loaded && !auth.isLoggedIn" description="您尚未登录">
       <el-button type="primary" @click="$router.push('/login?redirect=/account')">去登录</el-button>
     </el-empty>
@@ -13,6 +13,10 @@
           <el-descriptions-item label="邮箱" :span="2">
             <template v-if="auth.emailVerified">
               <el-tag type="success" size="small">已绑定</el-tag>
+              <span class="email-text">{{ auth.email }}</span>
+            </template>
+            <template v-else-if="auth.email">
+              <el-tag type="info" size="small">注册邮箱，未验证</el-tag>
               <span class="email-text">{{ auth.email }}</span>
             </template>
             <el-tag v-else type="info" size="small">未绑定</el-tag>
@@ -75,9 +79,12 @@
           </el-form-item>
           <el-form-item>
             <el-button type="primary" :loading="pwdLoading" @click="onChangePassword">更新密码</el-button>
+            <el-button @click="$router.push('/forgot-password')">忘记密码</el-button>
           </el-form-item>
         </el-form>
       </el-card>
+
+      <TileContentPanel v-show="activeSection === 'sec-uploads'" />
 
       <el-card v-show="isApplySection" class="block section">
         <template #header>{{ applyCardTitle }}</template>
@@ -199,7 +206,7 @@
 
         <el-divider content-position="left">申请记录</el-divider>
         <div class="fit-table-wrap">
-          <el-table :data="visibleApplications" size="small" empty-text="暂无申请记录" class="fit-table">
+          <el-table :data="visibleApplications" size="small" empty-text="暂无申请记录" class="fit-table" scrollbar-always-on>
             <el-table-column prop="name" label="名称" min-width="140" />
             <el-table-column label="拟定时间" min-width="150">
               <template #default="{ row }">{{ formatPlannedRange(row) }}</template>
@@ -218,7 +225,7 @@
             <el-table-column label="提交时间" width="160">
               <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="190" fixed="right">
+            <el-table-column label="操作" width="190">
               <template #default="{ row }">
                 <el-button link type="primary" @click="previewApplication(row)">预览</el-button>
                 <el-button
@@ -305,6 +312,7 @@ import playerApi from '@/api/playerClient'
 import EventManagePanel from '@/components/EventManagePanel.vue'
 import EventPreviewCard from '@/components/EventPreviewCard.vue'
 import ApplicationRemarkThread from '@/components/ApplicationRemarkThread.vue'
+import TileContentPanel from '@/views/account/TileContentPanel.vue'
 import { eventRoleLabel, eventStatusLabel, eventStatusTagType, parseVenueKind, venueApplyHash, venueManageHash } from '@/utils/eventMeta'
 
 const auth = usePlayerAuthStore()
@@ -312,7 +320,7 @@ const eventAuth = useEventAdminAuthStore()
 const router = useRouter()
 const route = useRoute()
 
-const SECTION_IDS = ['sec-account', 'sec-apply-event', 'sec-apply-base', 'sec-manage-event', 'sec-manage-base']
+const SECTION_IDS = ['sec-account', 'sec-uploads', 'sec-apply-event', 'sec-apply-base', 'sec-manage-event', 'sec-manage-base']
 const LEGACY_HASH = {
   'sec-apply': 'sec-apply-event',
   'sec-manage': 'sec-manage-event',
@@ -703,6 +711,12 @@ async function submitApplication() {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
+  margin-left: max(0px, calc((100% - 1100px) / 3));
+  margin-right: auto;
+}
+.account-page--manage {
+  max-width: none;
+  margin-left: 0;
 }
 .block {
   margin-bottom: 16px;

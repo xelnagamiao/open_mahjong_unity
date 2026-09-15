@@ -32,6 +32,7 @@ public static class AppSession {
     }
 
     private static void ResetLocalSessionState() {
+        GameSceneUIManager.ResetRealtimeSpectatorUi();
         NormalGameStateManager.Instance?.StopAsRealtimeSpectator();
         if (GameRecordManager.Instance != null) {
             GameRecordManager.Instance.ResetForSessionEnd();
@@ -40,6 +41,9 @@ public static class AppSession {
         }
         GameSceneTeardown.ResetToIdle();
         MatchNetworkManager.Instance?.ClearLocalMatchState();
+        RoomNetworkManager.Instance?.ResetForSessionEnd();
+        RoomListPanel.Instance?.ResetSessionCaches();
+        CreatePanel.ResetAllSessionCaches();
     }
 
     /// <summary>

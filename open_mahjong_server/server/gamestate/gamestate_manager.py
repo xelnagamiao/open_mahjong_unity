@@ -13,6 +13,7 @@ from .game_sichuan.SichuanGameState import SichuanGameState
 from .game_jiandan.JiandanGameState import JiandanGameState
 from .game_taiwan.TaiwanGameState import TaiwanGameState
 from .game_hongque.HongqueGameState import HongqueGameState
+from .game_free.FreeGameState import FreeGameState
 logger = logging.getLogger(__name__)
 
 class GameStateManager:
@@ -36,12 +37,13 @@ class GameStateManager:
         self.room_id_to_JiandanGameState: Dict[str, JiandanGameState] = {}
         self.room_id_to_TaiwanGameState: Dict[str, TaiwanGameState] = {}
         self.room_id_to_HongqueGameState: Dict[str, HongqueGameState] = {}
+        self.room_id_to_FreeGameState: Dict[str, FreeGameState] = {}
         # gamestate_id 到游戏状态的映射（主要管理方式）
         self.gamestate_id_to_game_state: Dict[str, Any] = {}
         # 用户ID到游戏状态的映射（用于快速查找玩家所在的活跃游戏）
         self.user_id_to_game_state: Dict[int, Any] = {}
     
-    async def start_game(self, Connect_id: str, room_id: str) -> Optional[Response]:
+    async def start_game(self, Connect_id: str, room_id: str, *, event_auto_start: bool = False) -> Optional[Response]:
         """
         开始游戏
         
@@ -57,14 +59,22 @@ class GameStateManager:
             return Response(type="error_message", success=False, message="房间不存在")
             
         room_data = self.game_server.room_manager.rooms[room_id]
+        if room_data.get("event_seating_pending") and not event_auto_start:
+            return Response(type="error_message", success=False, message="自动匹配正在安排入座，请稍候")
         
         # 检查是否是房主
         player = self.game_server.players[Connect_id]
         if player.user_id != room_data["player_list"][0]:
             return Response(type="error_message", success=False, message="只有房主能开始游戏")
             
-        # 检查人数是否满足
-        if len(room_data["player_list"]) != 4:
+        # 检查人数是否满足：默认满 4 人；房间可声明 min_players_to_start（自由模式为 1）
+        try:
+            min_players = int(room_data.get("min_players_to_start", 4) or 4)
+        except (TypeError, ValueError):
+            min_players = 4
+        if min_players < 1:
+            min_players = 1
+        if len(room_data["player_list"]) < min_players:
             return Response(type="error_message", success=False, message="人数不足")
 
         # 检查除房主外的所有玩家是否都已准备（机器人默认已准备）
@@ -317,6 +327,27 @@ class GameStateManager:
                 room_data["is_game_running"] = False
                 self.room_id_to_HongqueGameState.pop(room_id, None)
                 return Response(type="error_message", success=False, message=f"启动虹雀对局失败: {e}")
+        elif room_rule == "free":
+            try:
+                gamestate_id = str(uuid.uuid4())
+                game_state = FreeGameState(
+                    self.game_server,
+                    room_data,
+                    self.game_server.calculation_service,
+                    self.game_server.db_manager,
+                    gamestate_id,
+                )
+                self.room_id_to_FreeGameState[room_id] = game_state
+                self.gamestate_id_to_game_state[gamestate_id] = game_state
+                for player_id in room_data["player_list"]:
+                    self.user_id_to_game_state[player_id] = game_state
+                game_state.game_task = asyncio.create_task(game_state.run_game_loop())
+                logger.info("房间 %s 的自由模式对局已启动，gamestate_id=%s", room_id, gamestate_id)
+            except Exception as e:
+                logger.error("创建自由模式对局失败，room_id=%s: %s", room_id, e, exc_info=True)
+                room_data["is_game_running"] = False
+                self.room_id_to_FreeGameState.pop(room_id, None)
+                return Response(type="error_message", success=False, message=f"启动自由模式失败: {e}")
         elif room_rule == "taiwan":
             try:
                 gamestate_id = str(uuid.uuid4())
@@ -471,6 +502,8 @@ class GameStateManager:
             return self.room_id_to_TaiwanGameState.get(room_id)
         elif room_id in self.room_id_to_HongqueGameState:
             return self.room_id_to_HongqueGameState.get(room_id)
+        elif room_id in self.room_id_to_FreeGameState:
+            return self.room_id_to_FreeGameState.get(room_id)
         return None
     
     def get_game_state_by_gamestate_id(self, gamestate_id: str) -> Optional[Any]:
@@ -626,6 +659,8 @@ class GameStateManager:
             del self.room_id_to_TaiwanGameState[game_state.room_id]
         elif game_state.room_id in self.room_id_to_HongqueGameState:
             del self.room_id_to_HongqueGameState[game_state.room_id]
+        elif game_state.room_id in self.room_id_to_FreeGameState:
+            del self.room_id_to_FreeGameState[game_state.room_id]
         
         # 3. 清理 gamestate_id 到游戏状态的映射
         if gamestate_id and gamestate_id in self.gamestate_id_to_game_state:

@@ -16,6 +16,7 @@ from .database.data_router import handle_data_message
 from .match.match_router import handle_match_message
 from .friend.friend_router import handle_friend_message
 from .event.event_router import handle_event_message
+from .event.auto_match import EventAutoMatcher
 from .friend.friend_manager import FriendManager
 from .gamestate.gamestate_manager import GameStateManager
 from .database.db_manager import DatabaseManager
@@ -27,6 +28,7 @@ from .gamestate.public.critical_log import setup_critical_logging
 from .game_calculation.game_calculation_service import GameCalculationService
 from .match.match_manager import MatchManager
 import secrets,hashlib
+import re
 import subprocess,os,signal,sys
 import time
 
@@ -161,6 +163,9 @@ async def _daily_stats_startup_restore() -> None:
 async def lifespan(app: FastAPI):
     # 启动时执行
     db_manager.init_database()
+    # 首次启动补齐所有玩家；分页保存进度，完成后启动只检查迁移标记。
+    from .database.player_recent_records import backfill_player_recent_records
+    await asyncio.to_thread(backfill_player_recent_records, db_manager)
     # 只生成秘钥文件，不启动聊天服务器
     # 聊天服务器应由 supervisor/systemd 等进程管理工具独立管理
     await chat_server.generate_secret_key()
@@ -178,7 +183,9 @@ async def lifespan(app: FastAPI):
     sampler_task = asyncio.create_task(_online_sampler_loop())
     stats_task = asyncio.create_task(_daily_stats_loop())
     restore_task = asyncio.create_task(_daily_stats_startup_restore())
+    game_server.event_auto_matcher.start()
     yield
+    await game_server.event_auto_matcher.stop()
     reset_task.cancel()
     sampler_task.cancel()
     stats_task.cancel()
@@ -235,6 +242,7 @@ class GameServer:
         self.match_manager = MatchManager(self)
         # 好友 / 实时观战 管理器
         self.friend_manager = FriendManager(self)
+        self.event_auto_matcher = EventAutoMatcher(self)
 
     # 玩家连接：使用websocket为key 存储[sebsocket,uuid] : PlayerConnection[1,1,0,0]
     async def connect(self, websocket: WebSocket, Connect_id: str):
@@ -246,6 +254,12 @@ class GameServer:
     async def disconnect(self, Connect_id: str):
         if Connect_id in self.players:
             player = self.players[Connect_id]
+            player.event_disconnecting = True
+            if player.user_id and self.user_id_to_connection.get(player.user_id) is player:
+                try:
+                    self.db_manager.clear_user_event_ready(player.user_id)
+                except Exception:
+                    logging.exception("清理断线玩家的赛事准备记录失败")
             # 帮助玩家自动离开房间（异步执行）
             if player.current_room_id:
                 await self.room_manager.leave_room(Connect_id, player.current_room_id)
@@ -337,6 +351,9 @@ class GameServer:
 
     async def create_Hongque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "hongque/v1.6", tourist_limit: bool = False, allow_spectator: bool = False, hepai_way: str = "multi_ron") -> Response:
         return await self.room_manager.create_Hongque_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, hepai_way)
+
+    async def create_Free_room(self, Connect_id: str, room_name: str, password: str, random_seed: int = 0, sub_rule: str = "free/standard", tourist_limit: bool = False, wall_wan: bool = True, wall_tong: bool = True, wall_suo: bool = True, wall_winds: bool = True, wall_dragons: bool = True, wall_flowers: bool = True) -> Response:
+        return await self.room_manager.create_Free_room(Connect_id, room_name, password, random_seed, sub_rule, tourist_limit, wall_wan, wall_tong, wall_suo, wall_winds, wall_dragons, wall_flowers)
 
     # 创建古典麻将房间
     async def create_Classical_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "classical/standard", tourist_limit: bool = False, allow_spectator: bool = True, event_id=None) -> Response:
@@ -459,8 +476,11 @@ async def message_input(websocket: WebSocket, Connect_id: str):
             # 心跳消息频繁发送，跳过日志以避免刷屏
             if message.get("type") != "ping":
                 log_message = message
-                if message.get("type") == "login" and message.get("token"):
-                    log_message = {**message, "token": "[REDACTED]"}
+                if message.get("type") in ("login", "register"):
+                    log_message = {
+                        key: "[REDACTED]" if key in ("token", "password", "confirm_password", "email") else value
+                        for key, value in message.items()
+                    }
                 logging.info(f"收到消息: {log_message}")
 
             if message["type"] == "send_release_version":
@@ -481,12 +501,19 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                     await websocket.close()
                     break
 
-            if message["type"] == "login":
-                is_tourist = message.get("is_tourist", False)
+            if message["type"] in ("login", "register"):
+                is_registration = message["type"] == "register"
+                is_tourist = not is_registration and message.get("is_tourist", False)
                 client_ip = get_client_ip_from_websocket(websocket)
                 web_token = (message.get("token") or "").strip()
                 
-                if is_tourist:
+                if is_registration:
+                    response = await player_register(
+                        message.get("username", ""), message.get("password", ""),
+                        message.get("confirm_password", ""), message.get("email", ""),
+                        client_ip=client_ip,
+                    )
+                elif is_tourist:
                     # 游客登录：创建新账户，不需要密码验证
                     logging.info(f"游客登录请求 - Connect_id: {Connect_id}, IP: {client_ip}")
                     response = await player_login("", "", is_tourist=True, client_ip=client_ip)
@@ -498,8 +525,9 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                     # 普通用户登录：需要用户名和密码
                     username = message.get("username", "")
                     password = message.get("password", "")
-                    logging.info(f"登录请求 - 用户名: {username}, IP: {client_ip}")
-                    response = await player_login(username, password, is_tourist=False, client_ip=client_ip)
+                    logging.info(f"账户密码登录请求 - Connect_id: {Connect_id}, IP: {client_ip}")
+                    response = await player_login(username, password, is_tourist=False, client_ip=client_ip,
+                                                  login_type=message.get("login_type", "username"))
                 
                 if response.success and response.login_info:
                     user_id = response.login_info.user_id
@@ -727,6 +755,9 @@ async def _finalize_player_login(
             guobiao_rank=rank_data_raw.get('guobiao_rank', '10级'),
             guobiao_score=rank_data_raw.get('guobiao_score', 0.0),
             is_sponsor=sponsor_mcrpl.get('is_sponsor', False) if sponsor_mcrpl else False,
+            is_beginner_qualified=sponsor_mcrpl.get('is_beginner_qualified', False) if sponsor_mcrpl else False,
+            is_intermediate_qualified=sponsor_mcrpl.get('is_intermediate_qualified', False) if sponsor_mcrpl else False,
+            is_advanced_qualified=sponsor_mcrpl.get('is_advanced_qualified', False) if sponsor_mcrpl else False,
             is_mcrpl_qualified=sponsor_mcrpl.get('is_mcrpl_qualified', False) if sponsor_mcrpl else False,
         )
 
@@ -807,15 +838,49 @@ async def player_login_by_token(token: str, client_ip: str = "unknown") -> Respo
     )
 
 
+async def player_register(username, password, confirm_password, email, client_ip="unknown") -> Response:
+    """显式注册：邮箱仅记录为未验证，不发送邮件。"""
+    def failure(message):
+        return Response(type="tips", success=False, message=message)
+
+    ip_ban = db_manager.get_active_ip_ban(client_ip)
+    if ip_ban:
+        return failure(db_manager.build_ip_ban_message(ip_ban))
+    if not all(isinstance(value, str) for value in (username, password, confirm_password, email)):
+        return failure("注册信息格式不正确")
+    username = normalize_username(username)
+    error = validate_username(username) or validate_password(password)
+    if error:
+        return failure(error)
+    if password != confirm_password:
+        return failure("两次输入的密码不一致")
+    email = email.strip().lower()
+    if len(email) > 255 or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
+        return failure("请填写正确的邮箱地址")
+    if db_manager.get_user_by_username(username) is not None:
+        return failure("用户名已存在")
+    if not ip_registration_limiter.can_register(client_ip):
+        return failure("该 IP 今日注册次数已达上限（3 次），请明日再试")
+    user_id = db_manager.create_user(username, password, is_tourist=False, email=email)
+    if not user_id:
+        return failure("注册失败，用户名可能已被使用，请稍后重试")
+    ip_registration_limiter.record_registration(client_ip)
+    return await _finalize_player_login(
+        user_id, username, is_tourist=False, client_ip=client_ip,
+        success_message="注册并登录成功",
+    )
+
+
 async def player_login(
     username: str,
     password: str,
     is_tourist: bool = False,
     client_ip: str = "unknown",
+    login_type: str = "username",
 ) -> Response:
     """
-    玩家登录/注册功能
-    如果用户不存在则自动注册，存在则验证密码
+    玩家登录功能
+    正式账户必须已注册；游客登录仍创建临时账户
     游客登录时使用随机用户名和空密码
     Args:
         username: 用户名（游客登录时会被忽略，会自动生成）
@@ -861,8 +926,12 @@ async def player_login(
     
     # 验证用户名和密码（游客不需要验证，因为已经生成）
     if not is_tourist:
+        if not isinstance(username, str) or not isinstance(password, str) or login_type not in ("username", "account"):
+            return Response(type="tips", success=False, message="登录信息格式不正确")
         username = normalize_username(username)
-        username_error = validate_username(username)
+        is_email = (login_type == "account" and len(username) <= 255
+                    and re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", username) is not None)
+        username_error = None if is_email else validate_username(username)
         if username_error:
             return Response(
                 type="tips",
@@ -880,6 +949,14 @@ async def player_login(
     
     # 检查用户是否存在
     player: Optional[Dict[str, Any]] = db_manager.get_user_by_username(username)
+    # 旧客户端仍按用户名登录；合并输入框先精确匹配用户名，绝不因密码错误切到另一账户。
+    if player is None and not is_tourist and is_email:
+        matches = db_manager.get_users_by_login_email(username.lower())
+        if len(matches) > 1:
+            return Response(type="tips", success=False, message="此邮箱关联了多个账户，请使用用户名登录")
+        if matches:
+            player = matches[0]
+            username = player["username"]
     
     if player is not None:
         # 用户存在，验证密码
@@ -899,13 +976,13 @@ async def player_login(
                 message="密码错误"
             )
     else:
-        # 用户不存在，创建新用户
-        if not is_tourist and not ip_registration_limiter.can_register(client_ip):
+        if not is_tourist:
             return Response(
                 type="tips",
                 success=False,
-                message="该 IP 今日注册次数已达上限（3 次），请明日再试",
+                message="账户不存在，请先注册",
             )
+        # 游客登录保留创建临时账户的行为。
         user_id = db_manager.create_user(username, password, is_tourist=is_tourist)
         if not user_id:
             return Response(
@@ -914,9 +991,6 @@ async def player_login(
                 message="注册失败",
                 username=username
             )
-        if not is_tourist:
-            ip_registration_limiter.record_registration(client_ip)
-
     return await _finalize_player_login(
         user_id,
         username,
@@ -925,6 +999,6 @@ async def player_login(
         success_message=(
             "游客登录成功"
             if is_tourist
-            else ("登录成功" if player is not None else "注册并登录成功")
+            else "登录成功"
         ),
     )

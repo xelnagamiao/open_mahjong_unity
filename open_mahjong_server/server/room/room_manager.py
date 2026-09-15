@@ -1,5 +1,5 @@
 from typing import Dict, Any, Optional
-from .room_validators import GBRoomValidator, MMCValidator, RiichiRoomValidator, SichuanRoomValidator, ChangshaRoomValidator, JiandanRoomValidator, TaiwanRoomValidator
+from .room_validators import GBRoomValidator, MMCValidator, RiichiRoomValidator, SichuanRoomValidator, ChangshaRoomValidator, JiandanRoomValidator, TaiwanRoomValidator, FreeRoomValidator
 from ..response import Response
 from ..gamestate.game_guobiao.GuobiaoGameState import GuobiaoGameState
 from ..gamestate.public.ai.guobiao_heuristic_gate import guobiao_heuristic_bot_reject_reason
@@ -18,6 +18,9 @@ class RoomManager:
         # 存储房间信息和房间密码
         self.rooms: Dict[str, dict] = {}
         self.room_passwords: Dict[str, str] = {}
+        # All event seating shares one lock, including players waiting in two venues.
+        self.event_seating_lock = asyncio.Lock()
+        self.event_seating_users: set = set()
         # 已分配给排位匹配对局的房间号集合。匹配对局不依赖房间系统（不进入 self.rooms、
         # 不出现在房间列表、不可被加入），但仍占用一个唯一房间号用于对局内映射与聊天频道，
         # 需在此登记以避免与自定义房间号发生冲突。
@@ -28,6 +31,7 @@ class RoomManager:
             "changsha": ChangshaRoomValidator,
             "jiandan": JiandanRoomValidator,
             "hongque": JiandanRoomValidator,
+            "free": FreeRoomValidator,
             "mmc": MMCValidator,
             "riichi": RiichiRoomValidator,
             "sichuan": SichuanRoomValidator,
@@ -59,6 +63,8 @@ class RoomManager:
         return None
 
     def _reject_room_entry_conflicts(self, user_id: int, action: str = "进入或创建房间") -> Optional[Response]:
+        if user_id in getattr(self, "event_seating_users", ()):
+            return Response(type="tips", success=False, message="正在为您组桌，请稍候")
         blocked = self._reject_if_in_active_game(user_id, action)
         if blocked:
             return blocked
@@ -769,6 +775,83 @@ class RoomManager:
             logger.error("创建虹雀原型房间失败: %s", exc, exc_info=True)
             return Response(type="error_message", success=False, message=f"创建房间失败: {exc}")
 
+    async def create_Free_room(
+        self, player_id: str, room_name: str, password: str,
+        random_seed: int = 0, sub_rule: str = "free/standard",
+        tourist_limit: bool = False,
+        wall_wan: bool = True, wall_tong: bool = True, wall_suo: bool = True,
+        wall_winds: bool = True, wall_dragons: bool = True, wall_flowers: bool = True,
+    ) -> Response:
+        """创建自由模式房间：无观战、无计时、不入库牌谱。"""
+        try:
+            if player_id not in self.game_server.players:
+                return Response(type="tips", success=False, message="请先登录")
+            player = self.game_server.players[player_id]
+            if not player.user_id:
+                return Response(type="tips", success=False, message="请先登录")
+            blocked = self._reject_room_entry_conflicts(player.user_id, "创建房间")
+            if blocked:
+                return blocked
+            settings = self.game_server.db_manager.get_user_settings(player.user_id)
+            if not settings:
+                return Response(type="tips", success=False, message="获取用户设置失败")
+            validated = self.room_validators["free"](
+                room_name=room_name,
+                random_seed=random_seed,
+                wall_wan=wall_wan,
+                wall_tong=wall_tong,
+                wall_suo=wall_suo,
+                wall_winds=wall_winds,
+                wall_dragons=wall_dragons,
+                wall_flowers=wall_flowers,
+            )
+            room_id = self._generate_room_id()
+            room_data = {
+                "room_id": room_id,
+                "room_type": "custom",
+                "room_rule": "free",
+                "sub_rule": sub_rule or "free/standard",
+                "hepai_limit": 0,
+                "open_cuohe": False,
+                "tourist_limit": tourist_limit,
+                "allow_spectator": False,
+                "min_players_to_start": 1,
+                "max_player": 4,
+                "player_list": [player.user_id],
+                "player_settings": {player.user_id: {
+                    "user_id": player.user_id,
+                    "username": settings.get("username", player.username),
+                    "title_id": settings.get("title_id", 1),
+                    "profile_image_id": settings.get("profile_image_id", 1),
+                    "character_id": settings.get("character_id", 1),
+                    "voice_id": settings.get("voice_id", 1),
+                }},
+                "has_password": bool(password),
+                "tips": False,
+                "show_moqie_hint": False,
+                "host_user_id": player.user_id,
+                "host_name": player.username,
+                "is_game_running": False,
+                "game_round": 1,
+                "round_timer": 0,
+                "step_timer": 0,
+            }
+            room_data.update(validated.dict())
+            room_data["min_players_to_start"] = 1
+            room_data["is_player_set_random_seed"] = validated.random_seed != 0
+            self.rooms[room_id] = room_data
+            if password:
+                self.room_passwords[room_id] = password
+            player.current_room_id = room_id
+            await self._broadcast_room_info(room_id)
+            return Response(type="room/create_room_done", success=True,
+                            message="自由模式房间创建成功", room_info=room_data)
+        except ValueError as exc:
+            return Response(type="tips", success=False, message=f"房间配置无效: {exc}")
+        except Exception as exc:
+            logger.error("创建自由模式房间失败: %s", exc, exc_info=True)
+            return Response(type="error_message", success=False, message=f"创建房间失败: {exc}")
+
     async def create_Classical_room(self, player_id: str, room_name: str, gameround: int,
                                     password: str, roundTimerValue: int, stepTimerValue: int,
                                     tips: bool, random_seed: int = 0, sub_rule: str = "classical/standard", tourist_limit: bool = False, allow_spectator: bool = True, event_id: Optional[str] = None) -> Response:
@@ -1335,6 +1418,8 @@ class RoomManager:
                 )
 
             # 更新房间信息
+            if room_data.get("event_seating_pending"):
+                room_data.setdefault("event_seating_withdrawn", []).append(player.user_id)
             room_data["player_list"].remove(player.user_id)
             # 同步移除其准备状态
             if player.user_id in room_data.get("ready_list", []):
@@ -1835,7 +1920,8 @@ class RoomManager:
 
 
     async def create_empty_event_room(self, event_id: str, room_rule: str, room_config: dict,
-                                      password: str = "", created_by: Optional[int] = None) -> Response:
+                                      password: str = "", created_by: Optional[int] = None,
+                                      broadcast: bool = True) -> Response:
         """管理端创建比赛场空房间（无房主，第一个加入的真人成为房主）。"""
         event_id = self._normalize_event_id(event_id)
         event_blocked = self._validate_event_for_room(event_id, None)
@@ -1974,7 +2060,8 @@ class RoomManager:
         self.rooms[room_id] = room_data
         if has_password:
             self.room_passwords[room_id] = password
-        await self._broadcast_room_info(room_id)
+        if broadcast:
+            await self._broadcast_room_info(room_id)
         return Response(
             type="room/create_room_done",
             success=True,
@@ -2002,6 +2089,8 @@ class RoomManager:
             return Response(type="tips", success=False, message="房间不属于该赛事")
         if room_data.get("is_game_running"):
             return Response(type="tips", success=False, message="对局进行中，请先结束对局再删除房间")
+        if room_data.get("event_seating_pending"):
+            return Response(type="tips", success=False, message="自动匹配正在组桌，请稍候")
         await self.destroy_room(room_id)
         return Response(type="tips", success=True, message="房间已删除")
 
@@ -2036,10 +2125,77 @@ class RoomManager:
         room_rule: str = "guobiao",
         room_config: Optional[dict] = None,
     ) -> Response:
+        async with self.event_seating_lock:
+            return await self._seat_event_table_locked(
+                admin_user_id, event_id, user_ids, room_rule, room_config or {}, automatic=False,
+            )
+
+    def _event_player_connection(self, user_id: int):
+        conn = self.game_server.user_id_to_connection.get(user_id)
+        if not conn or getattr(conn, "event_disconnecting", False):
+            return None
+        if self.game_server.players.get(getattr(conn, "Connect_id", None)) is not conn:
+            return None
+        state = getattr(getattr(conn, "websocket", None), "client_state", None)
+        if getattr(state, "name", "") == "DISCONNECTED":
+            return None
+        return conn
+
+    def event_auto_player_eligible(self, event: dict, user_id: int) -> bool:
+        if not event or event.get("status") != "active":
+            return False
+        conn = self._event_player_connection(user_id)
+        if not conn or getattr(conn, "current_room_id", None):
+            return False
+        if self._reject_room_entry_conflicts(user_id, "自动组桌"):
+            return False
+        if any(user_id in room.get("player_list", []) for room in self.rooms.values()):
+            return False
+        return self._event_auto_player_allowed(event, user_id, conn)
+
+    def _event_auto_player_allowed(self, event, user_id, conn) -> bool:
+        db = self.game_server.db_manager
+        cfg = db.parse_entry_config(event.get("entry_config"))
+        from ..event.auto_match import event_auto_match_config
+        room_config = event_auto_match_config(event).get("room_config") or {}
+        if not isinstance(room_config, dict):
+            return False
+        if (cfg.get("forbid_tourist") or room_config.get("tourist_limit")) and getattr(conn, "is_tourist", False):
+            return False
+        if cfg.get("unregistered_can_ready") or db.get_event_admin_role(event["event_id"], user_id):
+            return True
+        registration = db.get_event_registration(event["event_id"], user_id)
+        return bool(registration and registration.get("status") == "approved")
+
+    async def match_event_ready_players(self, event_id: str) -> Optional[Response]:
+        from ..event.auto_match import event_auto_match_config
+        async with self.event_seating_lock:
+            event = self.game_server.db_manager.get_event(event_id)
+            cfg = event_auto_match_config(event)
+            if not event or event.get("status") != "active" or cfg.get("enabled") is not True:
+                return None
+            ids = []
+            for row in self.game_server.db_manager.list_event_ready_players(event_id):
+                uid = int(row["user_id"])
+                if uid not in ids and self.event_auto_player_eligible(event, uid):
+                    ids.append(uid)
+                if len(ids) == 4:
+                    break
+            if len(ids) < 4:
+                return None
+            if not isinstance(cfg.get("room_config"), dict) or not cfg.get("room_rule"):
+                return Response(type="event/seat_table", success=False, message="请先保存自动匹配的对局设置")
+            return await self._seat_event_table_locked(
+                cfg.get("updated_by"), event_id, ids, cfg["room_rule"], cfg["room_config"], automatic=True,
+            )
+
+    async def _seat_event_table_locked(
+        self, admin_user_id, event_id, user_ids, room_rule, room_config, *, automatic,
+    ) -> Response:
         event_id = self._normalize_event_id(event_id)
         if not event_id:
             return Response(type="event/seat_table", success=False, message="场馆无效")
-        if not self.game_server.db_manager.get_event_admin_role(event_id, admin_user_id):
+        if not automatic and not self.game_server.db_manager.get_event_admin_role(event_id, admin_user_id):
             return Response(type="event/seat_table", success=False, message="没有管理权限")
         ids = []
         for uid in user_ids or []:
@@ -2064,53 +2220,151 @@ class RoomManager:
             if blocked:
                 return Response(type="event/seat_table", success=False, message=f"玩家 {uid} 无法组桌：{blocked.message}")
             conn = self.game_server.user_id_to_connection.get(uid)
-            if conn and getattr(conn, "current_room_id", None):
+            if (conn and getattr(conn, "current_room_id", None)) or any(uid in room.get("player_list", []) for room in self.rooms.values()):
                 return Response(type="event/seat_table", success=False, message=f"玩家 {uid} 已在其他房间")
 
-        created = await self.create_empty_event_room(
-            event_id=event_id,
-            room_rule=room_rule or "guobiao",
-            room_config=room_config or {},
-            created_by=admin_user_id,
-        )
-        if not created.success or not created.room_info:
-            return Response(type="event/seat_table", success=False, message=created.message or "创建房间失败")
+        claimed = []
+        room_id = None
+        committed = False
+        self.event_seating_users.update(ids)
+        try:
+            # No networking between creation and reservation of the four seats.
+            created = await self.create_empty_event_room(
+                event_id=event_id, room_rule=room_rule or "guobiao", room_config=room_config or {},
+                created_by=admin_user_id, broadcast=False,
+            )
+            if not created.success or not created.room_info:
+                return Response(type="event/seat_table", success=False, message=created.message or "创建房间失败")
+            room_id = created.room_info["room_id"]
+            room_data = self.rooms[room_id]
+            claimed = self.game_server.db_manager.claim_event_ready_players(event_id, ids, automatic=automatic)
+            if len(claimed) != 4:
+                raise ValueError("准备状态或场馆设置已变化，请重新组桌")
+            for uid in ids:
+                room_data["player_list"].append(uid)
+                conn = self.game_server.user_id_to_connection.get(uid)
+                self._fill_player_settings(room_data, uid, conn.username if conn else "")
+                if conn:
+                    conn.current_room_id = room_id
+            self._sync_room_host(room_data)
+            if automatic:
+                room_data["event_seating_pending"] = True
+                room_data["ready_list"] = ids.copy()
+                for uid in ids:
+                    await self.game_server.gamestate_manager.remove_spectator_from_all_games(uid)
+                    await self.game_server.friend_manager.leave_spectating_for_event(uid)
+                # Spectator cleanup can yield; do not force a departed or newly busy player in.
+                match_manager = self.game_server.match_manager
+                if room_data["player_list"] != ids or any(
+                    not self._event_player_connection(uid)
+                    or self._event_player_connection(uid).current_room_id != room_id
+                    or self.game_server.gamestate_manager.is_user_in_active_game(uid)
+                    or match_manager.is_user_in_queue(uid)
+                    or match_manager.is_user_committed(uid)
+                    for uid in ids
+                ):
+                    raise ValueError("有玩家的状态已变化，等待其他玩家后重新匹配")
+            seated = Response(
+                type="event/seated", success=True,
+                message="自动匹配成功，即将开始对局" if automatic else "管理员已为您组桌", room_info=room_data,
+            )
+            # The Unity client must receive event/seated before game_start.
+            for uid in ids:
+                conn = self._event_player_connection(uid)
+                if not conn:
+                    if automatic:
+                        raise ValueError("有玩家已离线，等待其他玩家后重新匹配")
+                    continue
+                try:
+                    await asyncio.wait_for(conn.websocket.send_json(seated.model_dump(mode="json", exclude_none=True)), timeout=3)
+                except Exception as exc:
+                    if automatic:
+                        raise ValueError("组桌通知未送达，已保留其他玩家的等待状态") from exc
+                    logger.warning("组桌通知玩家 %s 失败: %s", uid, exc)
 
-        room_id = created.room_info["room_id"]
-        room_data = self.rooms[room_id]
-        for uid in ids:
-            room_data["player_list"].append(uid)
-            conn = self.game_server.user_id_to_connection.get(uid)
-            username = conn.username if conn else ""
-            self._fill_player_settings(room_data, uid, username)
-            if conn:
-                conn.current_room_id = room_id
-
-        self._sync_room_host(room_data)
-        self.game_server.db_manager.clear_event_ready_players(event_id, ids)
-        await self._broadcast_room_info(room_id)
-
-        seated = Response(
-            type="event/seated",
-            success=True,
-            message="管理员已为您组桌",
-            room_info=room_data,
-        )
-        for uid in ids:
-            conn = self.game_server.user_id_to_connection.get(uid)
-            if not conn:
-                continue
+            event = self.game_server.db_manager.get_event(event_id)
+            if not event or event.get("status") != "active":
+                raise ValueError("场馆已关闭，已停止组桌")
+            if automatic:
+                from ..event.auto_match import event_auto_match_config
+                cfg = event_auto_match_config(event)
+                if cfg.get("enabled") is not True or cfg.get("room_rule") != room_rule or cfg.get("room_config") != room_config:
+                    raise ValueError("自动匹配设置已变化，已停止本次组桌")
+                if room_data["player_list"] != ids or any(
+                    not self._event_player_connection(uid)
+                    or self._event_player_connection(uid).current_room_id != room_id
+                    or not self._event_auto_player_allowed(event, uid, self._event_player_connection(uid))
+                    for uid in ids
+                ):
+                    raise ValueError("有玩家已离开，等待其他玩家后重新匹配")
+                # start_game installs all active-game indexes before its first yield.
+                host = self._event_player_connection(ids[0])
+                response = await self.game_server.gamestate_manager.start_game(host.Connect_id, room_id, event_auto_start=True)
+                if response is not None and not response.success:
+                    raise ValueError(response.message or "自动开局失败")
+                if not room_data.get("is_game_running"):
+                    raise ValueError("自动开局失败")
+            committed = True
+            for uid in ids:
+                try:
+                    self.game_server.db_manager.clear_user_event_ready(uid)
+                except Exception:
+                    logger.exception("组桌成功后清理玩家 %s 的其他等待记录失败", uid)
+            if not automatic:
+                await self._broadcast_room_info(room_id)
+            return Response(type="event/seat_table", success=True, message="自动匹配成功，对局已开始" if automatic else "组桌成功", room_info=room_data)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning("场馆 %s 组桌失败: %s", event_id, exc, exc_info=not isinstance(exc, ValueError))
+            return Response(type="event/seat_table", success=False, message=str(exc) if isinstance(exc, ValueError) else "组桌失败，准备状态已保留")
+        finally:
+            if committed and room_id and room_id in self.rooms:
+                self.rooms[room_id].pop("event_seating_pending", None)
             try:
-                await conn.websocket.send_json(seated.dict(exclude_none=True))
-            except Exception as exc:
-                logger.warning(f"组桌通知玩家 {uid} 失败: {exc}")
+                if not committed:
+                    await self._rollback_event_seating(room_id, claimed, automatic=automatic)
+            finally:
+                self.event_seating_users.difference_update(ids)
 
-        return Response(
-            type="event/seat_table",
-            success=True,
-            message="组桌成功",
-            room_info=room_data,
-        )
+    async def _rollback_event_seating(self, room_id, claimed, *, automatic):
+        """Remove an unstarted table and restore the original queue positions."""
+        withdrawn = set()
+        notify = []
+        room = self.rooms.get(room_id)
+        if room:
+            game_manager = self.game_server.gamestate_manager
+            try:
+                state = game_manager.get_game_state_by_room_id(room_id)
+                if state is not None:
+                    await game_manager.cleanup_game_state_complete(gamestate_id=state.gamestate_id)
+            except Exception:
+                logger.exception("清理未开局的场馆房间 %s 失败，将继续恢复等待状态", room_id)
+            # Some rules can fail construction after installing user indexes.
+            for uid, state in list(game_manager.user_id_to_game_state.items()):
+                if getattr(state, "room_id", None) == room_id:
+                    game_manager.user_id_to_game_state.pop(uid, None)
+            room = self.rooms.pop(room_id, room)
+            withdrawn = set(room.get("event_seating_withdrawn", []))
+            self.room_passwords.pop(room_id, None)
+        for uid in set((room or {}).get("player_list", [])) | {row["user_id"] for row in claimed}:
+            conn = self.game_server.user_id_to_connection.get(uid)
+            if conn and getattr(conn, "current_room_id", None) == room_id:
+                conn.current_room_id = None
+                notify.append(conn)
+        # A disconnect or voluntary room exit must not silently re-enqueue that player.
+        rows = [row for row in claimed if row["user_id"] not in withdrawn and (not automatic or self._event_player_connection(row["user_id"]))]
+        if rows:
+            try:
+                self.game_server.db_manager.restore_event_ready_players(rows)
+            except Exception:
+                logger.exception("组桌失败后恢复准备池失败: %s", [row["user_id"] for row in rows])
+        response = Response(type="room/leave_room_done", success=True, message="组桌未完成，已返回等待")
+        for conn in notify:
+            try:
+                await asyncio.wait_for(conn.websocket.send_json(response.model_dump(mode="json", exclude_none=True)), timeout=3)
+            except Exception:
+                pass
 
     async def destroy_room(self, room_id: str):
         """销毁房间并广播离开房间消息给所有玩家"""

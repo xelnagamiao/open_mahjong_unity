@@ -7,9 +7,10 @@ public partial class NormalGameStateManager {
     public void StartAsRealtimeSpectator(string gamestateId, int hostUserId = 0) {
         if (LobbyStateGuard.BlockIfInMatchQueueForSpectator()) return;
         if (GameSessionGuard.BlockIfExclusiveSession("进入实时观战")) return;
+        GameSceneUIManager.ResetRealtimeSpectatorUi();
         IsRealtimeSpectator = true;
         RealtimeSpectatorHostUserId = hostUserId;
-        UserDataManager.Instance.SetGamestateId(gamestateId);
+        PlayerSession.Current.SetGamestateId(gamestateId);
 
         ExitButtonManager.Instance.ShowForRealtimeSpectator();
 
@@ -22,7 +23,7 @@ public partial class NormalGameStateManager {
     public void StopAsRealtimeSpectator() {
         IsRealtimeSpectator = false;
         RealtimeSpectatorHostUserId = 0;
-        UserDataManager.Instance.SetGamestateId("");
+        PlayerSession.Current.SetGamestateId("");
 
         ExitButtonManager.Instance.HideAll();
 
@@ -45,13 +46,13 @@ public partial class NormalGameStateManager {
 
     private void HandleRealtimeKicked(Response response) {
         if (!IsRealtimeSpectator) return;
-        NotificationManager.Instance.ShowTip("实时观战", false, response?.message ?? "您已被踢出实时观战");
+        GameHost.Current.ShowTip("实时观战", false, response?.message ?? "您已被踢出实时观战");
         PostGameNavigator.ExitToLobby(forceTeardown: true);
     }
 
     private void HandleRealtimeEnded(Response response) {
         if (!IsRealtimeSpectator) return;
-        NotificationManager.Instance.ShowTip("实时观战", true, response?.message ?? "被观战的对局已结束");
+        GameHost.Current.ShowTip("实时观战", true, response?.message ?? "被观战的对局已结束");
         PostGameNavigator.ExitToLobby(forceTeardown: true);
     }
 }

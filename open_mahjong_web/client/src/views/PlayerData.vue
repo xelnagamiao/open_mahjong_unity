@@ -58,7 +58,7 @@
           <span class="u-rank">{{ playerRank.guobiao_rank }}</span>
           <span class="u-pt">
             <template v-if="playerRank.progress?.isMaxRank">
-              {{ formatPt(playerRank.guobiao_score) }} PT
+              {{ formatPt(playerRank.progress.current) }} / {{ formatPt(playerRank.progress.target) }} PT（固定）
             </template>
             <template v-else>
               {{ formatPt(playerRank.guobiao_score) }} / {{ formatPt(playerRank.progress?.target) }} PT
@@ -113,6 +113,8 @@
           </el-select>
         </div>
         <el-date-picker
+          popper-class="compact-date-range-popper"
+          :popper-options="{ modifiers: [{ name: 'preventOverflow', options: { altAxis: true, padding: 12 } }] }"
           v-model="dateRange"
           type="daterange"
           size="small"
@@ -316,6 +318,7 @@
             v-model:page-size="page.size"
             :total="recordsTotal"
             :page-sizes="[20, 50]"
+            :pager-count="5"
             layout="prev, pager, next, sizes, total"
             small
             background
@@ -1537,7 +1540,8 @@ onMounted(async () => {
 .scene-filter-row { margin-bottom: 4px; }
 .tier-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .event-select { width: 200px; }
-.filter-date { width: 240px !important; }
+.scene-filter-row :deep(.filter-date) { width: 260px !important; flex: 0 0 260px; min-width: 0; max-width: 100%; }
+.scene-filter-row :deep(.filter-date .el-range-input) { min-width: 0; }
 
 /* 统计区 */
 .stats-area { margin: 4px 0 10px; position: relative; }
@@ -1728,14 +1732,19 @@ onMounted(async () => {
   margin-top: 10px;
 }
 .download-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.records-foot :deep(.el-pagination) { flex-wrap: wrap; row-gap: 8px; max-width: 100%; }
 .quota-tip { font-size: 11px; color: #94a3b8; }
 
 .no-data { margin-top: 24px; }
 
 @media (max-width: 640px) {
+  .search-input { width: auto; flex: 1; min-width: 100px; }
+  .search-bar > .el-button + .el-button { margin-left: 0; }
   .stats-table { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stats-table.dense { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .filter-date { width: 100% !important; }
+  .scene-filter-row :deep(.filter-date) { width: 100% !important; flex-basis: auto; }
   .filter-row.with-date { flex-direction: column; align-items: flex-start; }
+  .records-foot { align-items: flex-start; }
+  .records-foot :deep(.el-pagination) { justify-content: flex-start; }
 }
 </style>

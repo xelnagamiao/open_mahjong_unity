@@ -65,6 +65,30 @@ public class NotificationManager : MonoBehaviour {
         return messageInstance;
     }
 
+    /// <summary>Reusable modal confirmation. Uploaded resources and settings are untouched until confirmed.</summary>
+    public MessagePrefab ShowConfirmation(string header, string content, System.Action onConfirm,
+        string confirmText = "确定", string cancelText = "取消")
+    {
+        if (messagePrefab == null) return null;
+        Transform parent = messagePosition != null ? messagePosition.transform : transform;
+        Canvas canvas = parent.GetComponentInParent<Canvas>();
+        if (canvas != null) parent = canvas.transform;
+        var modal = new GameObject("ConfirmationModal", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+        modal.layer = parent.gameObject.layer;
+        var rect = (RectTransform)modal.transform;
+        rect.SetParent(parent, false);
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = rect.offsetMax = Vector2.zero;
+        var blocker = modal.GetComponent<UnityEngine.UI.Image>();
+        blocker.color = new Color(.04f, .06f, .09f, .55f);
+        blocker.raycastTarget = true;
+        MessagePrefab message = Instantiate(messagePrefab, modal.transform);
+        message.SetModalOwner(modal);
+        message.ShowConfirmation(header, content, onConfirm, confirmText, cancelText);
+        return message;
+    }
+
     /// <summary>
     /// 打开玩家信息面板
     /// </summary>

@@ -569,11 +569,11 @@ public partial class CreatePanel {
 
     private void RefreshDetailedConfigEntry() {
         if (SubRuleDropdown == null) return;
-        bool hasSubRule = RuleConfigs.TryGetValue(
+        bool hasSubRule = TryGetDefaults(
             _ruleState,
             out Dictionary<string, object> ruleConfig)
-            && ruleConfig.ContainsKey(CfgSubRule);
-        bool showTaiwanDetailedConfig = _ruleState == "taiwan"
+            && ruleConfig.ContainsKey(CreateRoomKeys.SubRule);
+        bool showTaiwanDetailedConfig = RuleRegistry.Resolve(_ruleState)?.LobbyHasDetailedConfig == true
             && DetailedConfigRegistry.TryGet(_ruleState, out _);
 
         if (SubRuleText != null) {

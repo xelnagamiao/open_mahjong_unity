@@ -69,8 +69,11 @@ public static class ScoreHistoryRecordSettlementExtractor {
         int lastWinnableTileId = -1;
         RecordScoreRow lastRow = null;
         int currentPlayerIndex = round.startPlayerIndex;
-        bool isSichuan = subRule != null && subRule.StartsWith("sichuan");
+        string rule = ReadTitleString(gameTitle, "rule", "");
+        RuleManifest roundManifest = RuleRegistry.Resolve(rule, subRule);
+        bool isSichuan = roundManifest?.KongReplacementFromFront == true;
         bool isSichuanBlood = isSichuan && ReadTitleString(gameTitle, "blood_battle", "true") != "false";
+        bool isHongque = roundManifest?.JiagangExtendsLastMeld == true;
         int sichuanHuCount = 0;
         bool sichuanHadChajiao = false;
         int[] sichuanAccumBySeat = null;
@@ -135,7 +138,7 @@ public static class ScoreHistoryRecordSettlementExtractor {
                         actor.tileList, tile, 1, preferDrawSlotFirst: isMoGang);
                     int actualJia = removedTiles.Count > 0 ? removedTiles[0] : tile;
                     lastWinnableTileId = actualJia;
-                    BuildJiagangMask(actor, tile, actualJia);
+                    BuildJiagangMask(actor, tile, actualJia, isHongque);
                     currentPlayerIndex = actingPlayerIndex;
                     break;
                 }
@@ -163,7 +166,7 @@ public static class ScoreHistoryRecordSettlementExtractor {
                 case "hu_third": {
                     if (isSichuanBlood && IsDeferredSichuanHuTick(tick)) break;
                     // 古典牌谱顺序为 shuhewei → hu；数和尾已占一行，勿重复追加。
-                    if (subRule != null && subRule.StartsWith("classical") && lastRow != null) break;
+                    if (roundManifest?.HuTickFollowsShuhewei == true && lastRow != null) break;
                     if (isSichuan) {
                         int[] scoreChanges = ParseScoreChanges(tick, 4);
                         lastRow = new RecordScoreRow {
@@ -256,7 +259,7 @@ public static class ScoreHistoryRecordSettlementExtractor {
                         break;
                     }
                     // 古典流局：shuhewei 已记一行，后续 liuju tick 勿重复。
-                    if (subRule != null && subRule.StartsWith("classical") && lastRow != null) break;
+                    if (roundManifest?.HuTickFollowsShuhewei == true && lastRow != null) break;
                     lastRow = new RecordScoreRow {
                         snapshot = new RoundSettlementSnapshot { subRule = subRule, isLiuju = true, hasWin = false, huClass = action },
                         scoreChangesByOriginal = new int[4],
@@ -324,7 +327,7 @@ public static class ScoreHistoryRecordSettlementExtractor {
         int huScore = ParseInt(tick, 2);
         int? baseFu = null;
         string[] fuFanList = null;
-        if (subRule != null && subRule.StartsWith("classical")) {
+        if (RuleRegistry.Resolve(subRule, subRule)?.HuTickFollowsShuhewei == true) {
             baseFu = tick.Count > 5 ? ParseInt(tick, 5) : (int?)null;
             fuFanList = tick.Count > 6 ? ParseFanList(tick, 6) : null;
         }
@@ -562,7 +565,15 @@ public static class ScoreHistoryRecordSettlementExtractor {
         RemoveOneTile(tileList, tileId);
     }
 
-    private static int[] BuildJiagangMask(SimPlayer player, int jiagangTile, int actualJiaTile) {
+    private static int[] BuildJiagangMask(SimPlayer player, int jiagangTile, int actualJiaTile, bool isHongque = false) {
+        if (isHongque && player.combinationMasks != null && player.combinationMasks.Count > 0) {
+            int lastMaskIdx = player.combinationMasks.Count - 1;
+            var hongqueMask = new List<int>(player.combinationMasks[lastMaskIdx]);
+            hongqueMask.Add(3);
+            hongqueMask.Add(actualJiaTile);
+            player.combinationMasks[lastMaskIdx] = hongqueMask.ToArray();
+            return player.combinationMasks[lastMaskIdx];
+        }
         string kCombo = GameRecordMeldCodec.BuildCombinationKey('k', jiagangTile);
         int idx = GameRecordMeldCodec.FindCombinationIndex(player.combinationTiles, kCombo);
         if (idx >= 0) {

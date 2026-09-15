@@ -1,910 +1,290 @@
 using System.Collections.Generic;
-using UnityEngine;
 using TMPro;
+using UnityEngine;
 using UnityEngine.UI;
 
-public class PlayerInfoPanel : MonoBehaviour {
+public sealed class PlayerInfoPanel : MonoBehaviour {
     [SerializeField] private PanelPopupTransition panelPopup;
-
-    // 用户信息
+    [Header("玩家信息")]
     [SerializeField] private TMP_Text usernameText;
     [SerializeField] private TMP_Text useridText;
     [SerializeField] private TMP_Text titleText;
     [SerializeField] private Image profileImage;
     [SerializeField] private Button copyUseridButton;
     [SerializeField] private Button closeButton;
-
-    [Header("好友操作")]
     [SerializeField] private Button friendActionButton;
     [SerializeField] private TMP_Text friendActionButtonText;
-
-    [Header("段位信息")]
+    [SerializeField] private Button changeTitleButton;
+    [Header("国标段位")]
     [SerializeField] private TMP_Text rankText;
     [SerializeField] private Slider rankProgressBar;
     [SerializeField] private TMP_Text rankScoreText;
+    [SerializeField] private Button rankSwitchButton; // 预留段位切换，暂不绑定点击事件。
+    [Header("规则与场次")]
+    [SerializeField] private Button[] ruleButtons;
+    [SerializeField] private TMP_Dropdown otherRulesDropdown;
+    [SerializeField] private PlayerInfoStatistics statistics;
+    [SerializeField] private GameObject modeToggleContainer;
+    [SerializeField] private Button customModeButton;
+    [SerializeField] private Button rankModeButton;
+    [SerializeField] private Image rankedTabIndicator;
+    [SerializeField] private Image customTabIndicator;
+    [Header("最近记录")]
+    [SerializeField] private RectTransform recentSection;
+    [SerializeField] private RectTransform trendSection;
+    [SerializeField] private RectTransform rulesSection;
+    [SerializeField] private TMP_Text winLabel;
+    [SerializeField] private PlayerInfoHandView handView;
+    [SerializeField] private PlayerInfoTrendChart trendChart;
 
-    // 切换规则按钮
-    [SerializeField] private Button ShowGBRuleButtom;
-    [SerializeField] private Button ShowJPRuleButtom;
-    [SerializeField] private Button ShowOtherRuleButtom;
-
-    [Header("国标场次切换（仅国标显示）")]
-    [SerializeField] private GameObject modeToggleContainer;   // 容纳 天梯/自定义 两个按钮的容器
-    [SerializeField] private Button customModeButton;          // 自定义对局
-    [SerializeField] private Button rankModeButton;            // 天梯对局
-
-    [SerializeField] private Transform RecordEntryContainer;
-    [SerializeField] private GameObject PlayerInfoEntryPrefab;
-    [SerializeField] private GameObject PlayerInfoDataTextPrefab;
-    [SerializeField] private GameObject PlayerInfoDataLayoutGroupPrefab;
-
+    private static readonly string[] PrimaryRules = { "guobiao", "riichi", "qingque" };
+    private readonly List<RuleManifest> otherRules = new List<RuleManifest>();
     public static PlayerInfoPanel Instance { get; private set; }
-
-    private string CurrentShowRule = "guobiao";
-    private string currentGuobiaoCategory = "rank"; // 国标场次分类：custom=自定义 / rank=天梯（默认天梯）
-    private int currentUserId; // 当前显示的用户ID
-    private PlayerStatsInfo[] guobiaoStats;
-    private PlayerStatsInfo[] riichiStats;
-    private PlayerStatsInfo[] qingqueStats;
-    private PlayerStatsInfo[] classicalStats;
-    private PlayerStatsInfo[] jiandanStats;
-    
-
-    // 保存汇总番种统计数据（由服务器返回）
-    private Dictionary<string, int> guobiaoTotalFanStats;
-    private Dictionary<string, int> guobiaoRankedFanStats;
-    private Dictionary<string, int> riichiTotalFanStats;
-    private Dictionary<string, int> qingqueTotalFanStats;
-    private Dictionary<string, int> classicalTotalFanStats;
-    private Dictionary<string, int> jiandanTotalFanStats;
-
-    private bool _shownOnce;
-    private string _currentUsername;
+    public string CurrentRule { get; private set; } = "guobiao";
+    public bool ShowingRanked { get; private set; } = true;
+    private string customRule = "guobiao";
+    private int currentUserId;
+    private string currentUsername;
+    private bool shownOnce;
+    private bool initialized;
+    private string recentRequestId;
+    private PlayerRecentRecordsResponse recentRecords;
+    private TMP_Text emptyWinText;
 
     private void Awake() {
         Instance = this;
-        if (panelPopup == null) {
-            panelPopup = GetComponent<PanelPopupTransition>();
+        InitializeControls();
+    }
+
+    private void InitializeControls() {
+        if (initialized) return;
+        initialized = true;
+        // 番名和总番数共用标题右侧的一行，长列表适当缩字号，不挤占牌面及统计区域。
+        var captionRect = winLabel.rectTransform;
+        captionRect.anchorMin = new Vector2(0, 1);
+        captionRect.anchorMax = new Vector2(1, 1);
+        captionRect.pivot = new Vector2(.5f, 1);
+        captionRect.anchoredPosition = new Vector2(76, 0);
+        captionRect.sizeDelta = new Vector2(-152, 32);
+        winLabel.textWrappingMode = TextWrappingModes.NoWrap;
+        winLabel.fontSizeMax = winLabel.fontSize;
+        winLabel.fontSizeMin = 14;
+        winLabel.enableAutoSizing = true;
+        if (panelPopup == null) panelPopup = GetComponent<PanelPopupTransition>();
+        copyUseridButton.onClick.AddListener(CopyUserId);
+        closeButton.onClick.AddListener(Close);
+        friendActionButton.onClick.AddListener(OnFriendActionButtonClick);
+        rankModeButton.onClick.AddListener(() => SelectCategory(true));
+        customModeButton.onClick.AddListener(() => SelectCategory(false));
+        for (int i = 0; i < ruleButtons.Length; i++) {
+            int index = i;
+            ruleButtons[i].onClick.AddListener(() => SelectRule(index));
         }
-        copyUseridButton.onClick.AddListener(OnCopyUseridButtonClick);
-        if (closeButton != null) {
-            closeButton.onClick.AddListener(OnCloseButtonClick);
+        otherRulesDropdown.onValueChanged.AddListener(SelectOtherRule);
+        PopulateOtherRules();
+    }
+
+    private void PopulateOtherRules() {
+        otherRules.Clear();
+        var options = new List<TMP_Dropdown.OptionData>();
+        foreach (var manifest in RuleRegistry.Ordered) {
+            if (System.Array.IndexOf(PrimaryRules, manifest.RuleId) >= 0) continue;
+            otherRules.Add(manifest);
+            options.Add(new TMP_Dropdown.OptionData(manifest.LobbyName ?? manifest.DisplayName));
         }
-        if (friendActionButton != null) {
-            friendActionButton.onClick.AddListener(OnFriendActionButtonClick);
-        }
-        ShowGBRuleButtom.onClick.AddListener(() => OnSwitchRuleButtonClick("guobiao"));
-        ShowJPRuleButtom.onClick.AddListener(() => OnSwitchRuleButtonClick("riichi"));
-        ShowOtherRuleButtom.onClick.AddListener(() => OnSwitchRuleButtonClick("Other"));
-        if (customModeButton != null) {
-            customModeButton.onClick.AddListener(() => OnSwitchGuobiaoCategoryButtonClick("custom"));
-        }
-        if (rankModeButton != null) {
-            rankModeButton.onClick.AddListener(() => OnSwitchGuobiaoCategoryButtonClick("rank"));
-        }
-        // 脚本挂载时即设定默认选中态（天梯），避免 prefab 初始按钮态与默认分类不一致
-        UpdateModeToggleSelection();
+        otherRulesDropdown.ClearOptions();
+        otherRulesDropdown.AddOptions(options);
+        otherRulesDropdown.SetValueWithoutNotify(-1);
     }
 
     private void Start() {
-        if (!_shownOnce) {
-            gameObject.SetActive(false);
-        }
+        if (!shownOnce) gameObject.SetActive(false);
     }
+
+    private void OnDisable() => FriendRelationCache.OnChanged -= RefreshFriendActionButton;
 
     private void OnDestroy() {
-        UnsubscribeFriendCache();
-        if (Instance == this) {
-            Instance = null;
-        }
+        FriendRelationCache.OnChanged -= RefreshFriendActionButton;
+        if (Instance == this) Instance = null;
     }
 
-    // 显示玩家信息（仅显示用户信息，默认加载国标数据）
-    public void ShowPlayerInfo(PlayerInfoResponse playerInfo){
-        if (playerInfo == null){
-            Debug.LogError("PlayerInfoResponse 为 null");
-            return;
-        }
-
-        UnsubscribeFriendCache();
-        currentUserId = playerInfo.user_id;
-        _currentUsername = playerInfo.user_settings.username ?? "未知用户";
-
-        // 显示用户名和用户ID
-        usernameText.text = _currentUsername;
-        useridText.text = playerInfo.user_id.ToString();
-        titleText.text = ConfigManager.GetTitleText(playerInfo.user_settings.title_id);
-
-        profileImage.sprite = Resources.Load<Sprite>($"image/Profiles/{playerInfo.user_settings.profile_image_id}");
-
-        // 段位信息
-        string rank = playerInfo.guobiao_rank ?? "10级";
-        float score = playerInfo.guobiao_score;
-        int idx = RankConfig.GetRankIndex(rank);
-        var (_, _, promoteScore) = RankConfig.RankTable[idx];
-        if (rankText != null) rankText.text = rank;
-        if (rankProgressBar != null) {
-            // 进度按 0 → 升段分（与文案 score/promoteScore、Web 一致）
-            rankProgressBar.value = promoteScore > 0 ? Mathf.Clamp01(score / promoteScore) : 0;
-        }
-        if (rankScoreText != null) rankScoreText.text = $"{score:F2}/{promoteScore}";
-
-        // 清空之前的数据
-        guobiaoStats = null;
-        riichiStats = null;
-        qingqueStats = null;
-        classicalStats = null;
-        jiandanStats = null;
-        guobiaoTotalFanStats = null;
-        riichiTotalFanStats = null;
-        qingqueTotalFanStats = null;
-        classicalTotalFanStats = null;
-        jiandanTotalFanStats = null;
-        guobiaoRankedFanStats = null;
-
-        // 默认加载国标数据
-        CurrentShowRule = "guobiao";
-        currentGuobiaoCategory = "rank";
-        UpdateModeToggleVisibility();
-        ClearRecordEntryContainer();
-        DataNetworkManager.Instance.GetGuobiaoStats(currentUserId.ToString());
+    public void ShowPlayerInfo(PlayerInfoResponse playerInfo, string loadedRule = null, RuleStatsResponse loadedStats = null) {
+        if (playerInfo == null) return;
+        InitializeControls(); // 兼容未激活面板先收到玩家信息的情况。
+        Instance = this;
+        ApplyPlayerInfo(playerInfo);
+        recentRecords = null;
+        recentRequestId = System.Guid.NewGuid().ToString("N");
+        CurrentRule = customRule = "guobiao";
+        ShowingRanked = true;
+        statistics.ResetUser(currentUserId, loadedRule, loadedStats);
+        RefreshRecords();
+        DataNetworkManager.Instance?.GetPlayerRecentRecords(currentUserId, recentRequestId);
+        FriendRelationCache.OnChanged -= RefreshFriendActionButton;
         FriendRelationCache.OnChanged += RefreshFriendActionButton;
         RefreshFriendActionButton();
-        FriendNetworkManager.Instance.ListFriends();
-        _shownOnce = true;
-        if (panelPopup != null) {
-            panelPopup.Show();
-        } else {
-            gameObject.SetActive(true);
+        FriendNetworkManager.Instance?.ListFriends();
+        shownOnce = true;
+        if (panelPopup != null) panelPopup.Show();
+        else gameObject.SetActive(true);
+    }
+
+    private void ApplyPlayerInfo(PlayerInfoResponse playerInfo) {
+        currentUserId = playerInfo.user_id;
+        var settings = playerInfo.user_settings;
+        currentUsername = string.IsNullOrEmpty(settings?.username) ? "未知用户" : settings.username;
+        usernameText.text = currentUsername;
+        useridText.text = currentUserId.ToString();
+        titleText.text = ConfigManager.GetTitleText(settings?.title_id ?? 0);
+        profileImage.sprite = Resources.Load<Sprite>($"image/Profiles/{settings?.profile_image_id ?? 1}")
+            ?? Resources.Load<Sprite>("image/Profiles/1");
+        string rank = string.IsNullOrEmpty(playerInfo.guobiao_rank) ? "10级" : playerInfo.guobiao_rank;
+        float score = RankLevelConfig.NormalizeScore(rank, playerInfo.guobiao_score);
+        var (_, _, promoteScore) = RankConfig.RankTable[RankConfig.GetRankIndex(rank)];
+        // 目前服务器只提供国标段位，切换规则时保留明确的规则名称。
+        rankText.text = "国标 · " + rank;
+        rankProgressBar.value = promoteScore > 0 ? Mathf.Clamp01(score / promoteScore) : 0;
+        rankScoreText.text = $"{score:F2}/{promoteScore}";
+    }
+
+    public void SelectRule(int index) {
+        if (index < 0 || index >= PrimaryRules.Length) return;
+        SelectRule(PrimaryRules[index]);
+    }
+
+    public void SelectRule(string rule) {
+        if (ShowingRanked && rule != "guobiao") return;
+        if (RuleRegistry.Resolve(rule, rule) == null) return;
+        CurrentRule = rule;
+        if (!ShowingRanked) customRule = rule;
+        RefreshRecords();
+    }
+
+    private void SelectOtherRule(int index) {
+        if (index >= 0 && index < otherRules.Count) SelectRule(otherRules[index].RuleId);
+    }
+
+    public void SelectCategory(bool ranked) {
+        if (ShowingRanked == ranked) return;
+        otherRulesDropdown.Hide();
+        ShowingRanked = ranked;
+        CurrentRule = ranked ? "guobiao" : customRule;
+        RefreshRecords();
+    }
+
+    private void RefreshRecords() {
+        modeToggleContainer.SetActive(true);
+        SetCategorySelected(rankModeButton, rankedTabIndicator, ShowingRanked);
+        SetCategorySelected(customModeButton, customTabIndicator, !ShowingRanked);
+        for (int i = 0; i < ruleButtons.Length; i++) {
+            ruleButtons[i].gameObject.SetActive(!ShowingRanked || i == 0);
+            SetTabSelected(ruleButtons[i], ruleButtons[i].GetComponentInChildren<TMP_Text>(true), PrimaryRules[i] == CurrentRule);
         }
+        otherRulesDropdown.gameObject.SetActive(!ShowingRanked);
+        int otherIndex = otherRules.FindIndex(r => r.RuleId == CurrentRule);
+        otherRulesDropdown.SetValueWithoutNotify(otherIndex);
+        SetTabSelected(otherRulesDropdown, otherRulesDropdown.captionText, otherIndex >= 0);
+        statistics.Show(CurrentRule, ShowingRanked, currentUserId);
+        rulesSection.anchoredPosition = new Vector2(24, -212);
+        recentSection.anchoredPosition = new Vector2(24, -276);
+        RefreshRecentRecords();
+    }
+
+    private void RefreshRecentRecords() {
+        PlayerRecentCategory category = null;
+        if (recentRecords?.rules != null && recentRecords.rules.TryGetValue(CurrentRule, out var rule))
+            rule.TryGetValue(ShowingRanked ? "match" : "custom", out category);
+        var win = CurrentRule == "guobiao" ? category?.big_win : null;
+        winLabel.text = PlayerInfoStatsFormatter.WinCaption(win);
+        handView.SetHand(win?.concealed_tiles, win?.melds);
+        if (win == null && emptyWinText == null) {
+            // 沿用番数文字的字体和颜色，空状态放在牌面区域内。
+            emptyWinText = Instantiate(winLabel, handView.transform, false);
+            emptyWinText.name = "NoRecentWin";
+            emptyWinText.text = "无最近大和";
+            emptyWinText.enableAutoSizing = false;
+            emptyWinText.fontSize = winLabel.fontSizeMax;
+            emptyWinText.alignment = TextAlignmentOptions.MidlineLeft;
+            emptyWinText.raycastTarget = false;
+            var rect = emptyWinText.rectTransform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+        }
+        if (emptyWinText != null) emptyWinText.gameObject.SetActive(win == null);
+        var placements = new List<int>();
+        if (category?.placements != null) {
+            foreach (var entry in category.placements)
+                if (entry != null && entry.rank >= 1 && entry.rank <= 4) placements.Add(entry.rank);
+        }
+        trendChart.SetPlacements(placements.ToArray());
+    }
+
+    public void OnRecentRecordsReceived(bool success, string message, PlayerRecentRecordsResponse response) {
+        // 同一玩家重新打开也使用新请求标识，迟到回复不能覆盖这次面板。
+        if (response == null || response.user_id != currentUserId || response.request_id != recentRequestId) return;
+        recentRecords = success ? response : null;
+        RefreshRecentRecords();
+        if (!success && gameObject.activeInHierarchy)
+            NotificationManager.Instance?.ShowTip("获取数据", false, message ?? "获取玩家近期记录失败");
+    }
+
+    private static readonly Color TabIdleFill = new Color(.215f, .235f, .285f);
+    private static readonly Color TabIdleText = new Color(.94f, .95f, .98f);
+    private static readonly Color TabSelectedText = new Color(.12f, .14f, .18f);
+
+    private void SetCategorySelected(Button button, Image indicator, bool selected) {
+        var colors = button.colors;
+        colors.normalColor = colors.selectedColor = Color.clear;
+        colors.highlightedColor = new Color(1, 1, 1, .035f);
+        colors.pressedColor = new Color(1, 1, 1, .02f);
+        button.colors = colors;
+        button.interactable = true;
+        button.GetComponentInChildren<TMP_Text>(true).color = selected
+            ? copyUseridButton.colors.normalColor : new Color(.79f, .83f, .9f);
+        indicator.gameObject.SetActive(selected);
+    }
+
+    private void SetTabSelected(Selectable control, TMP_Text label, bool selected) {
+        var colors = control.colors;
+        colors.normalColor = colors.selectedColor = selected ? copyUseridButton.colors.normalColor : TabIdleFill;
+        colors.highlightedColor = Color.Lerp(colors.normalColor, Color.white, .08f);
+        colors.pressedColor = Color.Lerp(colors.normalColor, Color.black, .1f);
+        control.colors = colors;
+        control.interactable = true;
+        label.color = selected ? TabSelectedText : TabIdleText;
+    }
+
+    private void CopyUserId() {
+        GUIUtility.systemCopyBuffer = currentUserId.ToString();
+        NotificationManager.Instance?.ShowTip("复制", true, "已复制用户ID");
+    }
+
+    private void Close() {
+        if (panelPopup != null) panelPopup.Hide();
+        else gameObject.SetActive(false);
     }
 
     private void RefreshFriendActionButton() {
-        if (friendActionButton == null) return;
-        if (currentUserId == UserDataManager.Instance.UserId) {
-            friendActionButton.gameObject.SetActive(false);
-            return;
-        }
-        friendActionButton.gameObject.SetActive(true);
-        bool isFriend = FriendRelationCache.IsFriend(currentUserId);
-        if (friendActionButtonText != null) {
-            friendActionButtonText.text = isFriend ? "移除好友" : "添加好友";
-        }
+        bool self = UserDataManager.Instance != null && currentUserId == UserDataManager.Instance.UserId;
+        friendActionButton.gameObject.SetActive(!self);
+        changeTitleButton.gameObject.SetActive(self);
+        friendActionButton.interactable = !self;
+        friendActionButtonText.text = FriendRelationCache.IsFriend(currentUserId) ? "移除好友" : "添加好友";
     }
 
     private void OnFriendActionButtonClick() {
-        if (currentUserId == UserDataManager.Instance.UserId) return;
+        if (UserDataManager.Instance != null && currentUserId == UserDataManager.Instance.UserId) return;
         if (FriendRelationCache.IsFriend(currentUserId)) {
-            FriendPanel.Instance?.ShowDeleteFriendConfirm(currentUserId, _currentUsername);
-            return;
-        }
-        FriendNetworkManager.Instance.RequestFriend(currentUserId);
-    }
-
-    private void UnsubscribeFriendCache() {
-        FriendRelationCache.OnChanged -= RefreshFriendActionButton;
-    }
-
-    // 接收国标统计数据
-    public void OnGuobiaoStatsReceived(bool success, string message, RuleStatsResponse ruleStats){
-        if (!success || ruleStats == null){
-            NotificationManager.Instance.ShowTip("获取数据", false, message ?? "获取国标统计数据失败");
-            return;
-        }
-
-        // 保存国标数据
-        guobiaoStats = ruleStats.history_stats ?? new PlayerStatsInfo[0];
-        guobiaoTotalFanStats = ruleStats.total_fan_stats;
-        guobiaoRankedFanStats = ruleStats.ranked_fan_stats;
-
-        // 如果当前显示的是国标，则刷新显示
-        if (CurrentShowRule == "guobiao"){
-            RefreshCurrentRuleDisplay();
-        }
-    }
-
-    // 接收立直统计数据
-    public void OnRiichiStatsReceived(bool success, string message, RuleStatsResponse ruleStats){
-        if (!success || ruleStats == null){
-            NotificationManager.Instance.ShowTip("获取数据", false, message ?? "获取立直统计数据失败");
-            return;
-        }
-
-        // 保存立直数据
-        riichiStats = ruleStats.history_stats ?? new PlayerStatsInfo[0];
-        riichiTotalFanStats = ruleStats.total_fan_stats;
-
-        // 如果当前显示的是立直，则刷新显示
-        if (CurrentShowRule == "riichi"){
-            RefreshCurrentRuleDisplay();
-        }
-    }
-
-    // 接收青雀统计数据
-    public void OnQingqueStatsReceived(bool success, string message, RuleStatsResponse ruleStats){
-        if (!success || ruleStats == null){
-            NotificationManager.Instance.ShowTip("获取数据", false, message ?? "获取青雀统计数据失败");
-            return;
-        }
-
-        qingqueStats = ruleStats.history_stats ?? new PlayerStatsInfo[0];
-        qingqueTotalFanStats = ruleStats.total_fan_stats;
-
-        if (CurrentShowRule == "Other"){
-            RefreshCurrentRuleDisplay();
-        }
-    }
-
-    // 接收古典麻将统计数据
-    public void OnClassicalStatsReceived(bool success, string message, RuleStatsResponse ruleStats) {
-        if (!success || ruleStats == null) {
-            NotificationManager.Instance.ShowTip("获取数据", false, message ?? "获取古典麻将统计数据失败");
-            return;
-        }
-
-        classicalStats = ruleStats.history_stats ?? new PlayerStatsInfo[0];
-        classicalTotalFanStats = ruleStats.total_fan_stats;
-
-        if (CurrentShowRule == "Other") {
-            RefreshCurrentRuleDisplay();
-        }
-    }
-
-    // 接收简单麻将统计数据
-    public void OnJiandanStatsReceived(bool success, string message, RuleStatsResponse ruleStats) {
-        if (!success || ruleStats == null) {
-            NotificationManager.Instance.ShowTip("获取数据", false, message ?? "获取南雀统计数据失败");
-            return;
-        }
-
-        jiandanStats = ruleStats.history_stats ?? new PlayerStatsInfo[0];
-        jiandanTotalFanStats = ruleStats.total_fan_stats;
-
-        if (CurrentShowRule == "Other") {
-            RefreshCurrentRuleDisplay();
-        }
-    }
-
-    // 切换国标场次分类（自定义 / 天梯）
-    private void OnSwitchGuobiaoCategoryButtonClick(string category){
-        if (CurrentShowRule != "guobiao") return;
-        if (category == currentGuobiaoCategory) return;
-        currentGuobiaoCategory = category;
-        UpdateModeToggleSelection();
-        RefreshCurrentRuleDisplay();
-    }
-
-    // 仅国标显示 天梯/自定义 切换容器
-    private void UpdateModeToggleVisibility(){
-        bool show = (CurrentShowRule == "guobiao") && (modeToggleContainer != null);
-        if (modeToggleContainer != null){
-            modeToggleContainer.SetActive(show);
-        }
-        UpdateModeToggleSelection();
-    }
-
-    // 更新两个按钮的选中态（选中者置灰）
-    private void UpdateModeToggleSelection(){
-        if (customModeButton != null) customModeButton.interactable = (currentGuobiaoCategory != "custom");
-        if (rankModeButton != null) rankModeButton.interactable = (currentGuobiaoCategory != "rank");
-    }
-
-    // 切换规则
-    private void OnSwitchRuleButtonClick(string rule){
-        CurrentShowRule = rule;
-        UpdateModeToggleVisibility();
-
-        // 如果数据不存在（null 或未初始化），则请求数据
-        if (rule == "guobiao" && guobiaoStats == null){
-            DataNetworkManager.Instance.GetGuobiaoStats(currentUserId.ToString());
-            return;
-        }
-        else if (rule == "riichi" && riichiStats == null){
-            DataNetworkManager.Instance.GetRiichiStats(currentUserId.ToString());
-            return;
-        }
-        else if (rule == "Other" && (qingqueStats == null || classicalStats == null || jiandanStats == null)){
-            if (qingqueStats == null) DataNetworkManager.Instance?.GetQingqueStats(currentUserId.ToString());
-            if (classicalStats == null) DataNetworkManager.Instance?.GetClassicalStats(currentUserId.ToString());
-            if (jiandanStats == null) DataNetworkManager.Instance?.GetJiandanStats(currentUserId.ToString());
-            return;
-        }
-
-        // 刷新显示（即使数据为空数组也会显示所有模式）
-        RefreshCurrentRuleDisplay();
-    }
-
-    // 刷新当前规则的显示
-    private void RefreshCurrentRuleDisplay(){
-        // 清空容器
-        ClearRecordEntryContainer();
-
-        Dictionary<string, int> totalFanStats = null;
-
-        if (CurrentShowRule == "guobiao"){
-            // 国标麻将：4 种局制，按场次分类（自定义=4/4 等，天梯=4/4_rank 等）
-            bool isRank = (currentGuobiaoCategory == "rank");
-            string suffix = isRank ? "_rank" : "";
-            string[] guobiaoModes = {
-                "4/4" + suffix,
-                "3/4" + suffix,
-                "2/4" + suffix,
-                "1/4" + suffix
-            };
-            List<PlayerStatsInfo> guobiaoModeStats = new List<PlayerStatsInfo>();
-
-            // 创建字典以便快速查找统计数据
-            Dictionary<string, PlayerStatsInfo> statsDict = new Dictionary<string, PlayerStatsInfo>();
-            if (guobiaoStats != null){
-                foreach (var stat in guobiaoStats){
-                    if (stat?.mode != null){
-                        statsDict[stat.mode] = stat;
-        }
-                }
-            }
-
-            // 按固定顺序显示所有模式
-            for (int i = 0; i < guobiaoModes.Length; i++){
-                string mode = guobiaoModes[i];
-                statsDict.TryGetValue(mode, out PlayerStatsInfo stat);
-
-                // 如果没有数据，创建空数据
-                if (stat == null){
-                    stat = new PlayerStatsInfo{
-                        rule = "guobiao",
-                        mode = mode,
-                        total_games = 0,
-                        total_rounds = 0,
-                        win_count = 0,
-                        self_draw_count = 0,
-                        deal_in_count = 0,
-                        total_fan_score = 0,
-                        total_win_turn = 0,
-                        total_fangchong_score = 0,
-                        first_place_count = 0,
-                        second_place_count = 0,
-                        third_place_count = 0,
-                        fourth_place_count = 0,
-                        fulu_round_count = 0,
-                        cuohe_count = 0,
-                        total_round_score = 0
-                    };
-                }
-                guobiaoModeStats.Add(stat);
-
-            GameObject playerInfoEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
-            PlayerInfoEntry playerInfoEntry = playerInfoEntryObject.GetComponent<PlayerInfoEntry>();
-            playerInfoEntry.SetPlayerInfoEntry("mode", this, stat);
-        }
-
-            // 天梯场次在四个场次之后追加合计行，所有原始计数字段按场次相加。
-            if (isRank) {
-                PlayerStatsInfo rankedTotal = AggregatePlayerStats("guobiao", "__rank_total__", guobiaoModeStats);
-                GameObject totalEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
-                PlayerInfoEntry totalEntry = totalEntryObject.GetComponent<PlayerInfoEntry>();
-                totalEntry.SetPlayerInfoEntry("mode", this, rankedTotal);
-            }
-
-            totalFanStats = guobiaoTotalFanStats;
-        }
-        else if (CurrentShowRule == "riichi"){
-            // 立直麻将：显示2个固定模式
-            string[] riichiModes = {"2/4", "1/4"};
-
-            // 创建字典以便快速查找统计数据
-            Dictionary<string, PlayerStatsInfo> statsDict = new Dictionary<string, PlayerStatsInfo>();
-            if (riichiStats != null){
-                foreach (var stat in riichiStats){
-                    if (stat?.mode != null){
-                        statsDict[stat.mode] = stat;
-        }
-                }
-    }
-
-            // 按固定顺序显示所有模式
-            for (int i = 0; i < riichiModes.Length; i++){
-                string mode = riichiModes[i];
-                statsDict.TryGetValue(mode, out PlayerStatsInfo stat);
-
-                // 如果没有数据，创建空数据
-                if (stat == null){
-                    stat = new PlayerStatsInfo{
-                        rule = "riichi",
-                        mode = mode,
-            total_games = 0,
-            total_rounds = 0,
-            win_count = 0,
-            self_draw_count = 0,
-            deal_in_count = 0,
-            total_fan_score = 0,
-            total_win_turn = 0,
-            total_fangchong_score = 0,
-            first_place_count = 0,
-            second_place_count = 0,
-            third_place_count = 0,
-                        fourth_place_count = 0,
-                        fulu_round_count = 0
-                    };
-                }
-
-                GameObject playerInfoEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
-                PlayerInfoEntry playerInfoEntry = playerInfoEntryObject.GetComponent<PlayerInfoEntry>();
-                playerInfoEntry.SetPlayerInfoEntry("mode", this, stat);
-            }
-
-            totalFanStats = riichiTotalFanStats;
-        }
-        else if (CurrentShowRule == "Other"){
-            // 青雀麻将：显示4个固定模式
-            string[] qingqueModes = {"4/4", "3/4", "2/4", "1/4"};
-
-            Dictionary<string, PlayerStatsInfo> statsDict = new Dictionary<string, PlayerStatsInfo>();
-            if (qingqueStats != null){
-                foreach (var stat in qingqueStats){
-                    if (stat?.mode != null){
-                        statsDict[stat.mode] = stat;
-                    }
-                }
-            }
-
-            for (int i = 0; i < qingqueModes.Length; i++){
-                string mode = qingqueModes[i];
-                statsDict.TryGetValue(mode, out PlayerStatsInfo stat);
-
-                if (stat == null){
-                    stat = new PlayerStatsInfo{
-                        rule = "qingque",
-                        mode = mode,
-                        total_games = 0,
-                        total_rounds = 0,
-                        win_count = 0,
-                        self_draw_count = 0,
-                        deal_in_count = 0,
-                        total_fan_score = 0,
-                        total_win_turn = 0,
-                        total_fangchong_score = 0,
-                        first_place_count = 0,
-                        second_place_count = 0,
-                        third_place_count = 0,
-                        fourth_place_count = 0,
-                        fulu_round_count = 0
-                    };
-                }
-
-                GameObject playerInfoEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
-                PlayerInfoEntry playerInfoEntry = playerInfoEntryObject.GetComponent<PlayerInfoEntry>();
-                playerInfoEntry.SetPlayerInfoEntry("mode", this, stat);
-            }
-
-            totalFanStats = qingqueTotalFanStats;
-
-            // 古典麻将数据（同在 Other 标签下）
-            string[] classicalModes = {"4/4", "3/4", "2/4", "1/4"};
-
-            Dictionary<string, PlayerStatsInfo> classicalStatsDict = new Dictionary<string, PlayerStatsInfo>();
-            if (classicalStats != null) {
-                foreach (var stat in classicalStats) {
-                    if (stat?.mode != null) {
-                        classicalStatsDict[stat.mode] = stat;
-                    }
-                }
-            }
-
-            for (int i = 0; i < classicalModes.Length; i++) {
-                string mode = classicalModes[i];
-                classicalStatsDict.TryGetValue(mode, out PlayerStatsInfo stat);
-
-                if (stat == null) {
-                    stat = new PlayerStatsInfo {
-                        rule = "classical",
-                        mode = mode,
-                        total_games = 0,
-                        total_rounds = 0,
-                        win_count = 0,
-                        self_draw_count = 0,
-                        deal_in_count = 0,
-                        total_fan_score = 0,
-                        total_win_turn = 0,
-                        total_fangchong_score = 0,
-                        first_place_count = 0,
-                        second_place_count = 0,
-                        third_place_count = 0,
-                        fourth_place_count = 0,
-                        fulu_round_count = 0
-                    };
-                }
-
-                GameObject classicalEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
-                PlayerInfoEntry classicalEntry = classicalEntryObject.GetComponent<PlayerInfoEntry>();
-                classicalEntry.SetPlayerInfoEntry("mode", this, stat);
-            }
-
-            // 简单麻将数据（同在 Other 标签下）
-            string[] jiandanModes = {"4/4", "3/4", "2/4", "1/4"};
-            Dictionary<string, PlayerStatsInfo> jiandanStatsDict = new Dictionary<string, PlayerStatsInfo>();
-            if (jiandanStats != null) {
-                foreach (var stat in jiandanStats) {
-                    if (stat?.mode != null) {
-                        jiandanStatsDict[stat.mode] = stat;
-                    }
-                }
-            }
-
-            for (int i = 0; i < jiandanModes.Length; i++) {
-                string mode = jiandanModes[i];
-                jiandanStatsDict.TryGetValue(mode, out PlayerStatsInfo stat);
-                if (stat == null) {
-                    stat = new PlayerStatsInfo {
-                        rule = "jiandan",
-                        mode = mode,
-                        total_games = 0,
-                        total_rounds = 0,
-                        win_count = 0,
-                        self_draw_count = 0,
-                        deal_in_count = 0,
-                        total_fan_score = 0,
-                        total_win_turn = 0,
-                        total_fangchong_score = 0,
-                        first_place_count = 0,
-                        second_place_count = 0,
-                        third_place_count = 0,
-                        fourth_place_count = 0,
-                        fulu_round_count = 0
-                    };
-                }
-
-                GameObject jiandanEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
-                PlayerInfoEntry jiandanEntry = jiandanEntryObject.GetComponent<PlayerInfoEntry>();
-                jiandanEntry.SetPlayerInfoEntry("mode", this, stat);
-            }
-        }
-
-        // 在尾部显示番数总计
-        // Other 标签实际对应青雀规则
-        string fanStatsRule = CurrentShowRule == "Other" ? "qingque" : CurrentShowRule;
-        if (CurrentShowRule == "guobiao") {
-            // 国标：番数总计跟随当前场次分类，标签带（天梯）/（自定义）
-            Dictionary<string, int> guobiaoFan = (currentGuobiaoCategory == "rank")
-                ? guobiaoRankedFanStats
-                : guobiaoTotalFanStats;
-            string fanLabel = (currentGuobiaoCategory == "rank")
-                ? "国标番数总计（天梯）"
-                : "国标番数总计（自定义）";
-            if (guobiaoFan != null) {
-                AppendFanStatsEntry(fanStatsRule, fanLabel, guobiaoFan);
-            }
-        }
-        else if (CurrentShowRule == "Other") {
-            if (totalFanStats != null) {
-                AppendFanStatsEntry("qingque", null, totalFanStats);
-            }
-            if (jiandanTotalFanStats != null) {
-                AppendFanStatsEntry("jiandan", null, jiandanTotalFanStats);
-            }
-        }
-        else if (totalFanStats != null) {
-            AppendFanStatsEntry(fanStatsRule, null, totalFanStats);
-        }
-    }
-
-    // 追加一行番种统计条目（label 为 null 时使用规则默认标签，如"国标番数总计"）
-    private void AppendFanStatsEntry(string rule, string label, Dictionary<string, int> fanStats) {
-        PlayerStatsInfo fanStatsInfo = new PlayerStatsInfo{
-            rule = rule,
-            mode = label,
-            fan_stats = fanStats
-        };
-        GameObject fanStatsEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
-        PlayerInfoEntry fanStatsEntry = fanStatsEntryObject.GetComponent<PlayerInfoEntry>();
-        fanStatsEntry.SetPlayerInfoEntry("fanStats", this, fanStatsInfo);
-    }
-
-    private static PlayerStatsInfo AggregatePlayerStats(string rule, string mode, List<PlayerStatsInfo> stats) {
-        PlayerStatsInfo total = new PlayerStatsInfo { rule = rule, mode = mode };
-        if (stats == null) return total;
-
-        total.total_games = SumStat(stats, s => s.total_games);
-        total.total_rounds = SumStat(stats, s => s.total_rounds);
-        total.win_count = SumStat(stats, s => s.win_count);
-        total.self_draw_count = SumStat(stats, s => s.self_draw_count);
-        total.deal_in_count = SumStat(stats, s => s.deal_in_count);
-        total.total_fan_score = SumStat(stats, s => s.total_fan_score);
-        total.total_win_turn = SumStat(stats, s => s.total_win_turn);
-        total.total_fangchong_score = SumStat(stats, s => s.total_fangchong_score);
-        total.first_place_count = SumStat(stats, s => s.first_place_count);
-        total.second_place_count = SumStat(stats, s => s.second_place_count);
-        total.third_place_count = SumStat(stats, s => s.third_place_count);
-        total.fourth_place_count = SumStat(stats, s => s.fourth_place_count);
-        total.fulu_round_count = SumStat(stats, s => s.fulu_round_count);
-        total.cuohe_count = SumStat(stats, s => s.cuohe_count);
-        total.total_round_score = SumStat(stats, s => s.total_round_score);
-
-        total.fan_stats = new Dictionary<string, int>();
-        foreach (PlayerStatsInfo stat in stats) {
-            if (stat?.fan_stats == null) continue;
-            foreach (KeyValuePair<string, int> fan in stat.fan_stats) {
-                total.fan_stats[fan.Key] = total.fan_stats.TryGetValue(fan.Key, out int current)
-                    ? current + fan.Value
-                    : fan.Value;
-            }
-        }
-        return total;
-    }
-
-    private static int SumStat(List<PlayerStatsInfo> stats, System.Func<PlayerStatsInfo, int?> selector) {
-        int total = 0;
-        foreach (PlayerStatsInfo stat in stats) {
-            if (stat != null) total += selector(stat) ?? 0;
-        }
-        return total;
-    }
-
-    // 清空容器
-    private void ClearRecordEntryContainer(){
-        foreach (Transform child in RecordEntryContainer){
-            Destroy(child.gameObject);
-                    }
-                }
-
-    // 复制 Userid
-    private void OnCopyUseridButtonClick(){
-        ClipboardUtility.Copy(useridText.text);
-        NotificationManager.Instance.ShowTip("用户", true, $"已复制用户ID: {useridText.text}");
-    }
-
-    private void OnCloseButtonClick() {
-        UnsubscribeFriendCache();
-        if (panelPopup != null) {
-            panelPopup.Hide();
+            FriendPanel.Instance?.ShowDeleteFriendConfirm(currentUserId, currentUsername);
         } else {
-            gameObject.SetActive(false);
+            FriendNetworkManager.Instance?.RequestFriend(currentUserId);
         }
     }
 
-    // 显示数据
-    public void ShowStatsData(string statsCase, PlayerStatsInfo playerStatsInfo, Transform entryTransform){
-        if (playerStatsInfo == null || entryTransform == null){
-            return;
-        }
-
-        // 检查是否已经存在数据布局组（避免重复创建）
-        int entryIndex = entryTransform.GetSiblingIndex();
-        if (entryIndex + 1 < RecordEntryContainer.childCount){
-            Transform nextChild = RecordEntryContainer.GetChild(entryIndex + 1);
-            // 如果下一个子物体已经是数据布局组，则删除而不是创建
-            if (nextChild != null && nextChild.name.Contains("DataLayoutGroup")){
-                Destroy(nextChild.gameObject);
-                return;
-            }
-        }
-
-        // 在条目下方创建数据布局组
-        GameObject layoutGroupObject = Instantiate(PlayerInfoDataLayoutGroupPrefab, RecordEntryContainer);
-        layoutGroupObject.transform.SetSiblingIndex(entryIndex + 1);
-
-        // 获取布局组的 Transform（作为父物体）
-        Transform layoutGroupTransform = layoutGroupObject.transform;
-
-        // 根据数据类型显示不同的内容
-        if (statsCase == "mode"){
-            // 显示对局统计
-            ShowGameStats(layoutGroupTransform, playerStatsInfo);
-        }
-        else if (statsCase == "fanStats"){
-            // 显示番数统计
-            ShowFanStats(layoutGroupTransform, playerStatsInfo);
-        }
-    }
-
-    // 显示对局统计数据
-    private void ShowGameStats(Transform parent, PlayerStatsInfo stats){
-        if (stats == null || parent == null) return;
-
-        int? totalGames = stats.total_games ?? 0;
-        int? totalRounds = stats.total_rounds ?? 0;
-        int? winCount = stats.win_count ?? 0;
-        int? dealInCount = stats.deal_in_count ?? 0;
-
-        // 对局统计字段列表（包含计算后的率）
-        List<KeyValuePair<string, string>> gameStatsList = new List<KeyValuePair<string, string>>();
-
-        // 总对局数
-        gameStatsList.Add(new KeyValuePair<string, string>("总对局数", stats.total_games?.ToString() ?? "0"));
-
-        // 累计回合数
-        gameStatsList.Add(new KeyValuePair<string, string>("累计回合数", stats.total_rounds?.ToString() ?? "0"));
-
-        // 平均顺位（1~4 位加权平均）
-        if (totalGames > 0) {
-            int rankWeighted = (stats.first_place_count ?? 0) * 1
-                + (stats.second_place_count ?? 0) * 2
-                + (stats.third_place_count ?? 0) * 3
-                + (stats.fourth_place_count ?? 0) * 4;
-            float avgRank = (float)rankWeighted / totalGames.Value;
-            gameStatsList.Add(new KeyValuePair<string, string>("平均顺位", $"{avgRank:F2}"));
-        }
-        else {
-            gameStatsList.Add(new KeyValuePair<string, string>("平均顺位", "0.00"));
-        }
-
-        // 副露率（副露局数 / 累计回合数）
-        int? fuluRounds = stats.fulu_round_count ?? 0;
-        if (totalRounds > 0) {
-            float fuluRate = (float)fuluRounds.Value / totalRounds.Value * 100f;
-            gameStatsList.Add(new KeyValuePair<string, string>("副露率", $"{fuluRate:F2}%"));
-        }
-        else {
-            gameStatsList.Add(new KeyValuePair<string, string>("副露率", "0.00%"));
-        }
-
-        // 和牌率（和牌次数 / 总小局数）
-        if (stats.win_count.HasValue && totalRounds > 0){
-            float winRate = (float)stats.win_count.Value / totalRounds.Value * 100f;
-            gameStatsList.Add(new KeyValuePair<string, string>("和牌率", $"{winRate:F2}%"));
-        }
-        else{
-            gameStatsList.Add(new KeyValuePair<string, string>("和牌率", "0.00%"));
-        }
-
-        // 错和率（错和次数 / 小局数），仅国标
-        if (stats.rule == "guobiao") {
-            int? cuoheCount = stats.cuohe_count ?? 0;
-            if (totalRounds > 0) {
-                float cuoheRate = (float)cuoheCount.Value / totalRounds.Value * 100f;
-                gameStatsList.Add(new KeyValuePair<string, string>("错和率", $"{cuoheRate:F2}%"));
-            }
-            else {
-                gameStatsList.Add(new KeyValuePair<string, string>("错和率", "0.00%"));
-            }
-        }
-
-        // 自摸率（自摸次数 / 和牌次数）
-        if (stats.self_draw_count.HasValue && winCount > 0){
-            float selfDrawRate = (float)stats.self_draw_count.Value / winCount.Value * 100f;
-            gameStatsList.Add(new KeyValuePair<string, string>("自摸率", $"{selfDrawRate:F2}%"));
-        }
-        else{
-            gameStatsList.Add(new KeyValuePair<string, string>("自摸率", "0.00%"));
-        }
-
-        // 放铳率（放铳次数 / 总小局数）
-        if (stats.deal_in_count.HasValue && totalRounds > 0){
-            float dealInRate = (float)stats.deal_in_count.Value / totalRounds.Value * 100f;
-            gameStatsList.Add(new KeyValuePair<string, string>("放铳率", $"{dealInRate:F2}%"));
-        }
-        else{
-            gameStatsList.Add(new KeyValuePair<string, string>("放铳率", "0.00%"));
-        }
-
-        // 平均和番（累计番数 / 和牌次数）
-        if (stats.total_fan_score.HasValue && winCount > 0){
-            float avgFanScore = (float)stats.total_fan_score.Value / winCount.Value;
-            gameStatsList.Add(new KeyValuePair<string, string>("平均和番", $"{avgFanScore:F2}"));
-        }
-        else{
-            gameStatsList.Add(new KeyValuePair<string, string>("平均和番", "0.00"));
-        }
-
-        // 平均和巡（累计和巡 / 和牌次数）
-        if (stats.total_win_turn.HasValue && winCount > 0){
-            float avgWinTurn = (float)stats.total_win_turn.Value / winCount.Value;
-            gameStatsList.Add(new KeyValuePair<string, string>("平均和巡", $"{avgWinTurn:F2}"));
-        }
-        else{
-            gameStatsList.Add(new KeyValuePair<string, string>("平均和巡", "0.00"));
-        }
-
-        // 平均铳番（累计放铳分 / 放铳次数）
-        if (stats.total_fangchong_score.HasValue && dealInCount > 0){
-            float avgFangchongScore = (float)stats.total_fangchong_score.Value / dealInCount.Value;
-            gameStatsList.Add(new KeyValuePair<string, string>("平均铳番", $"{avgFangchongScore:F2}"));
-        }
-        else{
-            gameStatsList.Add(new KeyValuePair<string, string>("平均铳番", "0.00"));
-        }
-
-        // 局均点（累计小局净得分 / 对局数），仅国标，可为负；与 Web 端口径一致
-        if (stats.rule == "guobiao") {
-            int? totalRoundScore = stats.total_round_score ?? 0;
-            if (totalGames > 0) {
-                float avgRoundScore = (float)totalRoundScore.Value / totalGames.Value;
-                gameStatsList.Add(new KeyValuePair<string, string>("局均点", $"{avgRoundScore:F2}"));
-            }
-            else {
-                gameStatsList.Add(new KeyValuePair<string, string>("局均点", "0.00"));
-            }
-        }
-
-        // 一位率（一位次数 / 总对局数）
-        if (stats.first_place_count.HasValue && totalGames > 0){
-            float firstPlaceRate = (float)stats.first_place_count.Value / totalGames.Value * 100f;
-            gameStatsList.Add(new KeyValuePair<string, string>("一位率", $"{firstPlaceRate:F2}%"));
-        }
-        else{
-            gameStatsList.Add(new KeyValuePair<string, string>("一位率", "0.00%"));
-        }
-
-        // 二位率（二位次数 / 总对局数）
-        if (stats.second_place_count.HasValue && totalGames > 0){
-            float secondPlaceRate = (float)stats.second_place_count.Value / totalGames.Value * 100f;
-            gameStatsList.Add(new KeyValuePair<string, string>("二位率", $"{secondPlaceRate:F2}%"));
-        }
-        else{
-            gameStatsList.Add(new KeyValuePair<string, string>("二位率", "0.00%"));
-        }
-
-        // 三位率（三位次数 / 总对局数）
-        if (stats.third_place_count.HasValue && totalGames > 0){
-            float thirdPlaceRate = (float)stats.third_place_count.Value / totalGames.Value * 100f;
-            gameStatsList.Add(new KeyValuePair<string, string>("三位率", $"{thirdPlaceRate:F2}%"));
-        }
-        else{
-            gameStatsList.Add(new KeyValuePair<string, string>("三位率", "0.00%"));
-        }
-
-        // 四位率（四位次数 / 总对局数）
-        if (stats.fourth_place_count.HasValue && totalGames > 0){
-            float fourthPlaceRate = (float)stats.fourth_place_count.Value / totalGames.Value * 100f;
-            gameStatsList.Add(new KeyValuePair<string, string>("四位率", $"{fourthPlaceRate:F2}%"));
-        }
-        else{
-            gameStatsList.Add(new KeyValuePair<string, string>("四位率", "0.00%"));
-        }
-
-        // 为每个统计项创建文本预制体
-        foreach (var statPair in gameStatsList){
-            CreateDataText(parent, statPair.Key, statPair.Value);
-        }
-    }
-
-    // 显示番数统计数据
-    private void ShowFanStats(Transform parent, PlayerStatsInfo stats){
-        if (parent == null) return;
-
-        // 根据规则选择对应的番种翻译字典
-        Dictionary<string, string> currentFanDict = RankConfig.GuobiaoFanTranslation;
-        if (stats?.rule == "qingque") {
-            currentFanDict = RankConfig.QingqueFanTranslation;
-        } else if (stats?.rule == "riichi") {
-            currentFanDict = RankConfig.RiichiFanTranslation;
-        } else if (stats?.rule == "jiandan") {
-            currentFanDict = FanTextDictionary.FanNameToDisplayJiandan;
-        }
-
-        // 显示所有番种，包括值为0的
-        foreach (var fanPair in currentFanDict){
-            string fanName = fanPair.Value; // 中文名称
-            int fanValue = 0;
-
-            // 如果统计数据中有该番种，获取其值
-            if (stats?.fan_stats != null && stats.fan_stats.ContainsKey(fanPair.Key)){
-                fanValue = stats.fan_stats[fanPair.Key];
-            }
-
-            CreateDataText(parent, fanName, fanValue.ToString());
-        }
-    }
-
-    // 创建数据文本预制体
-    private void CreateDataText(Transform parent, string label, string value)
-    {
-        if (PlayerInfoDataTextPrefab == null)
-        {
-            Debug.LogError("PlayerInfoDataTextPrefab 未设置");
-            return;
-        }
-
-        GameObject textObject = Instantiate(PlayerInfoDataTextPrefab, parent);
-        TMP_Text textComponent = textObject.GetComponent<TMP_Text>();
-
-        if (textComponent != null)
-        {
-            textComponent.text = $"{label}: {value}";
-        }
-        else
-        {
-            Debug.LogWarning($"PlayerInfoDataTextPrefab 上未找到 TMP_Text 组件");
-        }
-    }
-
+    public void OnGuobiaoStatsReceived(bool success, string message, RuleStatsResponse stats) => statistics.Receive("guobiao", success, message, stats);
+    public void OnRiichiStatsReceived(bool success, string message, RuleStatsResponse stats) => statistics.Receive("riichi", success, message, stats);
+    public void OnQingqueStatsReceived(bool success, string message, RuleStatsResponse stats) => statistics.Receive("qingque", success, message, stats);
+    public void OnClassicalStatsReceived(bool success, string message, RuleStatsResponse stats) => statistics.Receive("classical", success, message, stats);
+    public void OnJiandanStatsReceived(bool success, string message, RuleStatsResponse stats) => statistics.Receive("jiandan", success, message, stats);
 }

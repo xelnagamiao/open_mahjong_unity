@@ -33,13 +33,13 @@ public class RiichiCutSelectionController : MonoBehaviour {
         IsActive = true;
         GameCanvas.Instance.SetActionButtonContainerVisible(false);
         if (riichiCutPanelRoot != null) riichiCutPanelRoot.SetActive(true);
-        string roomRule = NormalGameStateManager.Instance?.roomRule;
-        if (ReadyDeclarationTextDictionary.HasCustomReadyDeclarationText(roomRule)
-            && backButton != null) {
+        // 族改了报听用语（台麻"报听"）时同步改返回按钮；缺省"取消立直"由场景文案决定。
+        string cancelText = RuleRegistry.Current?.ActionCaption?.Invoke("riichi_cut_cancel");
+        if (cancelText != null && backButton != null) {
             TMP_Text label = backButton.GetComponentInChildren<TMP_Text>(true);
             if (label != null) {
                 backButtonOriginalText = label.text;
-                label.text = ReadyDeclarationTextDictionary.GetCancelReadyDeclarationText(roomRule);
+                label.text = cancelText;
             }
         }
         GameCanvas.Instance.RefreshHandTileSelectability();

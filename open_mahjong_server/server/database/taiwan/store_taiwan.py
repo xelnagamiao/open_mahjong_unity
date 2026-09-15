@@ -95,6 +95,8 @@ def store_taiwan_game_record(
                 ),
             )
 
+        from ..player_recent_records import update_player_recent_records
+        update_player_recent_records(cursor, game_id, game_record)
         conn.commit()
         logger.info("台湾麻将游戏记录已保存，game_id: %s", game_id)
         try:

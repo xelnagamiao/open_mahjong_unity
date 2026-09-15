@@ -17,11 +17,23 @@ public class TableCloth : MonoBehaviour
         tableClothChoseImage.gameObject.SetActive(false);
     }
 
+    public void RefreshSelection()
+    {
+        if (!isCustom && TableClothStyles.IsSolid(filePath))
+            tableClothImage.color = ConfigManager.Instance != null
+                ? ConfigManager.Instance.GetTableClothDisplayColor(filePath) : TableClothStyles.DefaultColor(filePath);
+        var selected = ConfigManager.Instance != null ? ConfigManager.Instance.GetSelectedTableCloth() : ("", false);
+        bool active = selected.Item1 == filePath && selected.Item2 == isCustom;
+        tableClothChoseImage.gameObject.SetActive(active);
+        if (active) ShowDeleteButtonForCustomItem();
+    }
+
     public void OnTableClothButtonClick() { // 保存桌布选择
         ConfigManager.Instance.SetSelectedTableCloth(filePath, isCustom); // 保存选中路径到配置管理器
         TableClothPanel panel = GetComponentInParent<TableClothPanel>(true);
         if (panel != null) panel.ClearAllTableClothSelection();
         tableClothChoseImage.gameObject.SetActive(true); // 显示选中图片
+        RefreshSelection();
 
         // 根据配置刷新桌布和边框
         RefreshDesktop();
@@ -31,8 +43,7 @@ public class TableCloth : MonoBehaviour
 
     // 根据ConfigManager的设置刷新桌布和边框
     private void RefreshDesktop() {
-        Desktop.Instance.RefreshTablecloth();
-        Desktop.Instance.RefreshEdge();
+        Desktop.Instance?.RefreshAppearance();
     }
 
     // 显示或隐藏删除按钮（仅对自定义项目）

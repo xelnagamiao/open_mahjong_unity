@@ -44,7 +44,7 @@ public class CommitmentSaltDetailPanel : MonoBehaviour {
             ? $"承诺值：{_commitment} 盐值：{_salt}"
             : $"承诺值：{_commitment} 盐值：{_salt} 主种子：{_masterSeed}";
         ClipboardUtility.Copy(copyText);
-        NotificationManager.Instance.ShowTip("承诺值", true,
+        GameHost.Current.ShowTip("承诺值", true,
             string.IsNullOrEmpty(_masterSeed) ? "已复制承诺值与盐值" : "已复制承诺值、盐值与主种子");
         // 重置浮层隐藏计时，避免点完按钮立刻消失
         RoundPanel.Instance?.RequestShowCommitmentSaltDetail();

@@ -1,177 +1,80 @@
+using System;
+using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 
-public class PlayerInfoEntry : MonoBehaviour{
-
+/// <summary>可整行展开的局制条目，明细使用两列名称/数值布局并复用已有单元格。</summary>
+public sealed class PlayerInfoEntry : MonoBehaviour {
+    public const float HeaderHeight = 64;
+    private const float DetailRowHeight = 44;
     [SerializeField] private TMP_Text modeText;
-    [SerializeField] private TMP_Text expandText; // 展开/收起文本
-    [SerializeField] Button expandButton;
-    private string playerStatsCase;
-    private PlayerStatsInfo playerStatsInfo;
-    private PlayerInfoPanel playerInfoPanel;
-    private bool isExpanded = false; // 是否已展开
+    [SerializeField] private TMP_Text expandText;
+    [SerializeField] private Button expandButton;
+    [SerializeField] private Image expandArrow;
+    [SerializeField] private Image expandedAccent;
+    [SerializeField] private RectTransform detailsRoot;
+    [SerializeField] private PlayerInfoStatField fieldPrefab;
+    [SerializeField] private List<PlayerInfoStatField> cells = new List<PlayerInfoStatField>();
+    private LayoutElement layout;
+    private GridLayoutGroup grid;
+    private bool initialized;
+    private int detailCount;
+    public bool IsExpanded { get; private set; }
+    public float PreferredHeight => layout != null ? layout.preferredHeight : HeaderHeight;
+    public event Action<PlayerInfoEntry> ExpansionChanged;
 
-    private void Start(){
-        expandButton.onClick.AddListener(OnExpandButtonClick);
-        // 初始化展开/收起文本
-        if (expandText != null){
-            expandText.text = "展开";
+    public void Bind(string caption, IList<KeyValuePair<string, string>> fields, bool keepExpanded = false) {
+        Initialize();
+        modeText.text = caption;
+        detailCount = fields.Count;
+        for (int i = 0; i < fields.Count; i++) {
+            if (i == cells.Count) {
+                var cell = Instantiate(fieldPrefab, detailsRoot);
+                foreach (var child in cell.GetComponentsInChildren<Transform>(true)) child.gameObject.layer = gameObject.layer;
+                cells.Add(cell);
+            }
+            cells[i].gameObject.SetActive(true);
+            cells[i].Bind(fields[i].Key, fields[i].Value);
         }
+        for (int i = fields.Count; i < cells.Count; i++) cells[i].gameObject.SetActive(false);
+        SetExpanded(keepExpanded && IsExpanded);
     }
 
-    public void SetPlayerInfoEntry(string playerStatsCase,PlayerInfoPanel playerInfoPanel,PlayerStatsInfo playerStatsInfo){
-        this.playerStatsCase = playerStatsCase; // 保存数据类型
-        this.playerStatsInfo = playerStatsInfo; // 保存数据
-        this.playerInfoPanel = playerInfoPanel; // 保存父物体索引
-        string ShowText = "";
-
-        // 显示分支规则
-        if (playerStatsCase == "mode"){
-
-            // 国标 mode 带 _rank 后缀表示天梯，否则自定义
-            bool isRank = (playerStatsInfo.rule == "guobiao"
-                           && playerStatsInfo.mode != null
-                           && playerStatsInfo.mode.EndsWith("_rank"));
-            string categorySuffix = (playerStatsInfo.rule == "guobiao")
-                ? (isRank ? "（天梯）" : "（自定义）")
-                : "";
-
-            if (playerStatsInfo.rule == "guobiao"){
-                ShowText = "国标麻将";
-
-                if (playerStatsInfo.mode == "__rank_total__") {
-                    ShowText += "总计（天梯）";
-                }
-                else if (playerStatsInfo.mode == "4/4" || playerStatsInfo.mode == "4/4_rank"){
-                    ShowText += "全庄战";
-                }
-                else if (playerStatsInfo.mode == "3/4" || playerStatsInfo.mode == "3/4_rank"){
-                    ShowText += "西风战";
-                }
-                else if (playerStatsInfo.mode == "2/4" || playerStatsInfo.mode == "2/4_rank"){
-                    ShowText += "南风战";
-                }
-                else if (playerStatsInfo.mode == "1/4" || playerStatsInfo.mode == "1/4_rank"){
-                    ShowText += "东风战";
-                }
-            }
-            else if (playerStatsInfo.rule == "riichi"){
-                ShowText = "立直麻将";
-
-                if (playerStatsInfo.mode == "2/4"){
-                    ShowText += "南风战";
-                }
-                else if (playerStatsInfo.mode == "1/4"){
-                    ShowText += "东风战";
-                }
-            }
-            else if (playerStatsInfo.rule == "qingque"){
-                ShowText = "青雀麻将";
-
-                if (playerStatsInfo.mode == "4/4"){
-                    ShowText += "全庄战";
-                }
-                else if (playerStatsInfo.mode == "3/4"){
-                    ShowText += "西风战";
-                }
-                else if (playerStatsInfo.mode == "2/4"){
-                    ShowText += "南风战";
-                }
-                else if (playerStatsInfo.mode == "1/4"){
-                    ShowText += "东风战";
-                }
-            }
-            else if (playerStatsInfo.rule == "jiandan"){
-                ShowText = "南雀";
-
-                if (playerStatsInfo.mode == "4/4"){
-                    ShowText += "全庄战";
-                }
-                else if (playerStatsInfo.mode == "3/4"){
-                    ShowText += "西风战";
-                }
-                else if (playerStatsInfo.mode == "2/4"){
-                    ShowText += "南风战";
-                }
-                else if (playerStatsInfo.mode == "1/4"){
-                    ShowText += "东风战";
-                }
-            }
-            else{
-                ShowText += "其他";
-
-                if (playerStatsInfo.mode == "4/4"){
-                    ShowText += " 全庄战";
-                }
-                else if (playerStatsInfo.mode == "3/4"){
-                    ShowText += " 东西战";
-                }
-                else if (playerStatsInfo.mode == "2/4"){
-                    ShowText += " 东南战";
-                }
-                else if (playerStatsInfo.mode == "1/4"){
-                    ShowText += " 东风战";
-                }
-            }
-
-            // 国标追加场次分类后缀（（天梯）/（自定义））
-            if (playerStatsInfo.rule == "guobiao" && !string.IsNullOrEmpty(categorySuffix)){
-                ShowText += categorySuffix;
-            }
-        }
-        // 显示达成番数总计
-        else if (playerStatsCase == "fanStats"){
-            // mode 为空时按规则回退默认标签（国标番数总计/日麻番数总计/...）
-            if (!string.IsNullOrEmpty(playerStatsInfo.mode)){
-                ShowText = playerStatsInfo.mode;
-            }
-            else if (playerStatsInfo.rule == "guobiao"){
-                ShowText = "国标番数总计";
-            }
-            else if (playerStatsInfo.rule == "riichi"){
-                ShowText = "日麻番数总计";
-            }
-            else if (playerStatsInfo.rule == "qingque"){
-                ShowText = "青雀番数总计";
-            }
-            else if (playerStatsInfo.rule == "jiandan"){
-                ShowText = "南雀番数总计";
-            }
-            else{
-                ShowText = "其他麻将达成番种总计:";
-            }
-        }
-
-        if (modeText != null){
-        modeText.text = ShowText;
-        }
+    private void Initialize() {
+        if (initialized) return;
+        initialized = true;
+        layout = GetComponent<LayoutElement>();
+        grid = detailsRoot.GetComponent<GridLayoutGroup>();
+        // 同时修正场景中已有的条目与动态生成的预制体条目。
+        expandedAccent.rectTransform.anchoredPosition = new Vector2(4, -8);
+        expandedAccent.rectTransform.sizeDelta = new Vector2(3, HeaderHeight - 16);
+        detailsRoot.sizeDelta = new Vector2(-64, detailsRoot.sizeDelta.y);
+        expandButton.onClick.AddListener(() => SetExpanded(!IsExpanded));
     }
 
-    private void OnExpandButtonClick(){
-        if (playerInfoPanel == null || playerStatsInfo == null){
-            return;
-        }
+    public void SetExpanded(bool expanded) {
+        Initialize();
+        bool changed = IsExpanded != expanded;
+        IsExpanded = expanded;
+        detailsRoot.gameObject.SetActive(expanded);
+        expandedAccent.gameObject.SetActive(expanded);
+        expandText.text = expanded ? "收起" : "展开";
+        expandArrow.rectTransform.localRotation = Quaternion.Euler(0, 0, expanded ? 180 : 0);
+        UpdateLayout();
+        if (changed) ExpansionChanged?.Invoke(this);
+    }
 
-        // 检查下一个子物体是否存在数据布局组
-        int entryIndex = transform.GetSiblingIndex();
-        Transform parent = transform.parent;
-        bool hasDataLayout = false;
+    private void OnRectTransformDimensionsChange() {
+        if (initialized) UpdateLayout();
+    }
 
-        if (parent != null && entryIndex + 1 < parent.childCount){
-            Transform nextChild = parent.GetChild(entryIndex + 1);
-            if (nextChild != null && nextChild.name.Contains("DataLayoutGroup")){
-                hasDataLayout = true;
-            }
-        }
-
-        // 调用 ShowStatsData（如果已展开会删除，否则会创建）
-        playerInfoPanel.ShowStatsData(playerStatsCase, playerStatsInfo, transform);
-
-        // 更新展开/收起状态（如果之前有数据布局组，现在应该收起；否则应该展开）
-        isExpanded = !hasDataLayout;
-        if (expandText != null){
-            expandText.text = isExpanded ? "收起" : "展开";
-        }
+    private void UpdateLayout() {
+        float width = detailsRoot.rect.width - grid.padding.horizontal - grid.spacing.x;
+        grid.cellSize = new Vector2(Mathf.Max(1, width / 2), DetailRowHeight);
+        float height = Mathf.Ceil(detailCount / 2f) * DetailRowHeight;
+        detailsRoot.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+        layout.minHeight = layout.preferredHeight = IsExpanded ? HeaderHeight + 24 + height : HeaderHeight;
+        LayoutRebuilder.MarkLayoutForRebuild((RectTransform)transform);
     }
 }

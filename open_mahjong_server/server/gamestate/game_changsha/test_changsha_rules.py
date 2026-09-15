@@ -1046,6 +1046,41 @@ class ChangshaRulesTest(unittest.TestCase):
         self.assertEqual(players[1].score, 2)
         self.assertEqual(players[2].score, -2)
 
+    def test_hu_record_tick_appends_bird_tiles_after_hepai_tile(self):
+        from server.gamestate.public.game_record_manager import player_action_record_hu
+
+        ticks = []
+        gs = SimpleNamespace(
+            player_action_tick=0,
+            round_index=1,
+            game_record={"game_round": {"round_index_1": {"action_ticks": ticks}}},
+            player_list=[SimpleNamespace(hand_tiles=[25]) for _ in range(4)],
+            spectator_manager=None,
+        )
+        player_action_record_hu(
+            gs,
+            hu_class="hu_self",
+            hu_score=12,
+            hu_fan=["小胡", "鸟牌:四筒,一条", "中鸟:四筒", "扎鸟倍数:x2"],
+            hepai_player_index=0,
+            score_changes=[12, -4, -4, -4],
+            bird_tiles=[24, 31],
+        )
+        self.assertEqual(ticks[-1][5], 25)
+        self.assertEqual(ticks[-1][6], [24, 31])
+
+        ticks.clear()
+        player_action_record_hu(
+            gs,
+            hu_class="hu_self",
+            hu_score=2,
+            hu_fan=["小胡"],
+            hepai_player_index=0,
+            score_changes=[2, 0, 0, -2],
+            bird_tiles=None,
+        )
+        self.assertEqual(len(ticks[-1]), 6)
+
     def test_bird_origin_uses_seat_zero_when_dealer_bird_is_enabled(self):
         state = SimpleNamespace(dealer_bird=True)
         self.assertEqual(ChangshaGameState._changsha_bird_origin(state, 2), 0)
@@ -1101,7 +1136,7 @@ class ChangshaRulesTest(unittest.TestCase):
         birds = ChangshaGameState._draw_changsha_birds(state, 2)
 
         self.assertEqual(birds, [11, 22])
-        self.assertEqual(state.tiles_list, [33])
+        self.assertEqual(state.tiles_list, [11, 22, 33])
 
     def test_sea_bottom_win_uses_winning_tile_as_bird_when_wall_empty(self):
         players = [

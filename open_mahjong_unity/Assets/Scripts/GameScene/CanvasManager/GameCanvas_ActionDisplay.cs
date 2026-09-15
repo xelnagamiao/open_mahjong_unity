@@ -39,8 +39,18 @@ public partial class GameCanvas{
     }
     /// <summary>四川刮风下雨：各座位 ActionDisplayPos 飘字 +/- 分（默认杠字后 0.3s）。</summary>
     public void ShowGangScoreFloats(Dictionary<int, int> changesBySeat, float delaySeconds = GangScoreFloatDelaySeconds) {
+        ShowGangScoreFloats(changesBySeat, delaySeconds, null);
+    }
+    /// <summary>牌谱回放传入座位图；对局可省略，回退 TableMirror / GameStateManager。</summary>
+    public void ShowGangScoreFloats(Dictionary<int, int> changesBySeat, Dictionary<int, string> indexToPosition) {
+        ShowGangScoreFloats(changesBySeat, GangScoreFloatDelaySeconds, indexToPosition);
+    }
+    public void ShowGangScoreFloats(
+        Dictionary<int, int> changesBySeat,
+        float delaySeconds,
+        Dictionary<int, string> indexToPosition) {
         if (changesBySeat == null || !HasNonZeroGangScoreChanges(changesBySeat)) return;
-        StartCoroutine(CoGangScoreFloats(changesBySeat, delaySeconds));
+        StartCoroutine(CoGangScoreFloats(changesBySeat, delaySeconds, indexToPosition));
     }
     public static bool HasNonZeroGangScoreChanges(Dictionary<int, int> changes) {
         if (changes == null) return false;
@@ -49,17 +59,31 @@ public partial class GameCanvas{
         }
         return false;
     }
-    private IEnumerator CoGangScoreFloats(Dictionary<int, int> changesBySeat, float delaySeconds) {
+    private static Dictionary<int, string> ResolveGangScoreSeatMap(Dictionary<int, string> explicitMap) {
+        if (explicitMap != null && explicitMap.Count > 0) return explicitMap;
+        Dictionary<int, string> mirror = TableMirror.Current?.IndexToPosition;
+        if (mirror != null && mirror.Count > 0) return mirror;
+        var gsm = NormalGameStateManager.Instance;
+        if (gsm != null && gsm.indexToPosition != null && gsm.indexToPosition.Count > 0) {
+            return gsm.indexToPosition;
+        }
+        return explicitMap;
+    }
+    private IEnumerator CoGangScoreFloats(
+        Dictionary<int, int> changesBySeat,
+        float delaySeconds,
+        Dictionary<int, string> indexToPosition) {
         if (delaySeconds > 0f) {
             yield return new WaitForSeconds(delaySeconds);
         }
-        var gsm = NormalGameStateManager.Instance;
-        if (gsm == null) yield break;
+        Dictionary<int, string> seatMap = ResolveGangScoreSeatMap(indexToPosition);
+        if (seatMap == null || seatMap.Count == 0) yield break;
         var floatObjects = new List<GameObject>();
-        foreach (var kvp in gsm.indexToPosition) {
+        foreach (var kvp in changesBySeat) {
             int seatIdx = kvp.Key;
-            string pos = kvp.Value;
-            if (!changesBySeat.TryGetValue(seatIdx, out int delta) || delta == 0) continue;
+            int delta = kvp.Value;
+            if (delta == 0) continue;
+            if (!seatMap.TryGetValue(seatIdx, out string pos)) continue;
             Transform displayPos = GetActionDisplayPos(pos);
             if (displayPos == null) continue;
             GameObject floatObj = Instantiate(ActionDisplayText, displayPos);
@@ -133,52 +157,12 @@ public partial class GameCanvas{
         ClearActionDisplayAt(RightActionDisplayPos);
         ClearActionDisplayAt(TopActionDisplayPos);
     }
-    private string GetHuSelfActionText(string roomRule = null, string subRule = null) {
-        GameRecordManager.ResolveActionRuleContext(roomRule, subRule, out string rule, out string resolvedSubRule);
-        if (GameRecordManager.IsGuobiaoRule(rule, resolvedSubRule)) {
-            return "和";
-        }
-        return "自摸";
-    }
-
-    private string GetActionDisplayText(string actionType, string roomRule) {
-        if (actionType == "hongque_rainbow") {
-            return "虹";
-        } else if (actionType == "hongque_supplement") {
-            return "补牌";
-        } else if (actionType == "chi_left" || actionType == "chi_mid" || actionType == "chi_right"){
-            return "吃";
-        } else if (actionType == "peng"){
-            return "碰";
-        } else if (actionType == "angang"){
-            if (roomRule == "changsha") return "开杠";
-            return "暗杠";
-        } else if (actionType == "buzhang"){
-            return "补张";
-        } else if (actionType == "jiagang"){
-            if (roomRule == "changsha") return "开杠";
-            return "加杠";
-        } else if (actionType == "gang"){
-            if (roomRule == "changsha") return "开杠";
-            return "杠";
-        } else if (actionType == "initial_hu") {
-            return "起手胡";
-        } else if (actionType == "hu_flower") {
-            return "花胡";
-        } else if (actionType == "hu" || actionType == "hu_self" || actionType == "hu_first" || actionType == "hu_second" || actionType == "hu_third"){
-            GameRecordManager.ResolveActionRuleContext(roomRule, null, out string rule, out string subRule);
-            if (actionType == "hu_self"){
-                return GetHuSelfActionText(rule, subRule);
-            }
-            if (rule == "riichi" || (!string.IsNullOrEmpty(subRule) && subRule.StartsWith("riichi/"))) return "荣";
-            return "和";
-        } else if (actionType == "buhua"){
-            if (roomRule == "changsha") return string.Empty;
-            return "补花";
-        } else if (actionType == "riichi"){
-            return "立直";
-        }
-        return string.Empty;
+    /// <summary>
+    /// 动作飘字文案：先问规则清单（RuleManifest.ActionCaption：长沙"开杠"、日麻"荣"、国标自摸"和"……），
+    /// 再问词表（族登记的词），最后用通用文案。
+    /// </summary>
+    private static string GetActionDisplayText(string actionType, string roomRule) {
+        return StandardActionCaptions.Resolve(GameRecordManager.ResolveActionRuleManifest(roomRule), actionType);
     }
     // 渐变消失协程
     private IEnumerator FadeOutActionDisplay(GameObject actionTextObj,Transform displayPos) {

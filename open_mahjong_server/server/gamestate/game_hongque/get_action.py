@@ -1,7 +1,7 @@
 """虹雀机器人行动适配层。
 
-与其他麻将规则的 get_action 模块一致：快照在房间锁内取得，CPU 决策在锁外执行，
-最终动作回到锁内并再次校验 action_tick。真人永远不会进入本模块。
+与国标 get_action 相同：快照在房间锁内取得，CPU 决策在锁外执行，
+最终只把动作入队，由 wait_action 在等待结束后执行。真人永远不会进入本模块。
 """
 from __future__ import annotations
 
@@ -98,37 +98,38 @@ async def bot_turn(game_state, tick: int) -> None:
     delay = BOT_ACTION_DELAY - (time.perf_counter() - started_at)
     if delay > 0:
         await asyncio.sleep(delay)
-    async with game_state._lock:
-        if game_state.phase != "turn" or game_state.action_tick != tick \
-                or game_state.current_player_index != player_index:
-            return
-        game_state.events = []
-        player = game_state.players[player_index]
-        action = plan.get("action")
-        if game_state.game_status == "onlycut_after_action" and action == "win":
-            if player.supplements < 2 and game_state.wall:
-                action = "supplement"
-            else:
-                action = "discard"
-        if action in {"win", "supplement"}:
-            await game_state._handle_turn_action(player, action, None, None)
-            return
-        if action == "kong":
-            await game_state._handle_turn_action(
-                player, "kong", None, plan.get("candidate_id")
-            )
-            return
-        code = plan.get("tile")
-        if game_state.Debug:
-            forced = get_debug_forced_discard(game_state, player.index)
-            if forced in player.hand:
-                code = forced
-        if code not in player.hand:
-            code = player.drawn_tile if player.drawn_tile in player.hand else (
-                game_state._rng.choice(player.hand) if player.hand else None
-            )
-        if code is not None:
-            await game_state._discard_and_open_claim(player, code)
+    if game_state.phase != "turn" or game_state.action_tick != tick \
+            or game_state.current_player_index != player_index:
+        return
+    player = game_state.players[player_index]
+    action = plan.get("action")
+    if game_state.game_status == "onlycut_after_action" and action == "win":
+        if player.supplements < 2 and game_state.wall:
+            action = "supplement"
+        else:
+            action = "discard"
+    if action in {"win", "supplement"}:
+        await game_state.submit_action(player.user_id, action, action_tick=tick)
+        return
+    if action == "kong":
+        await game_state.submit_action(
+            player.user_id, "kong", candidate_id=plan.get("candidate_id"),
+            action_tick=tick,
+        )
+        return
+    code = plan.get("tile")
+    if game_state.Debug:
+        forced = get_debug_forced_discard(game_state, player.index)
+        if forced in player.hand:
+            code = forced
+    if code not in player.hand:
+        code = player.drawn_tile if player.drawn_tile in player.hand else (
+            game_state._rng.choice(player.hand) if player.hand else None
+        )
+    if code is not None:
+        await game_state.submit_action(
+            player.user_id, "discard", tile=code, action_tick=tick,
+        )
 
 
 def visible_codes_for(game_state, player_index: int) -> tuple[str, ...]:
@@ -181,25 +182,26 @@ async def bot_claim(game_state, player_index: int, tick: int) -> None:
         delay = BOT_ACTION_DELAY - (time.perf_counter() - started_at)
         if delay > 0:
             await asyncio.sleep(delay)
-        async with game_state._lock:
-            if game_state.phase != "claim" or game_state.action_tick != tick:
-                return
-            actions, _ = actions_for_viewer(game_state, player_index)
-            if "pass" not in actions:
-                return
-            action = "claim" if plan.get("action") == "claim" else "pass"
-            await game_state._handle_claim_action(
-                player, action, plan.get("candidate_id")
-            )
+        if game_state.phase != "claim" or game_state.action_tick != tick:
+            return
+        actions, _ = actions_for_viewer(game_state, player_index)
+        if "pass" not in actions:
+            return
+        action = "claim" if plan.get("action") == "claim" else "pass"
+        await game_state.submit_action(
+            player.user_id, action, candidate_id=plan.get("candidate_id"),
+            action_tick=tick,
+        )
     except asyncio.CancelledError:
         return
     except Exception:
         logger.exception("虹雀机器人亮牌决策失败: player=%s", player_index)
-        async with game_state._lock:
-            if game_state.phase == "claim" and game_state.action_tick == tick:
-                actions, _ = actions_for_viewer(game_state, player_index)
-                if "pass" in actions:
-                    await game_state._handle_claim_action(player, "pass", None)
+        if game_state.phase == "claim" and game_state.action_tick == tick:
+            actions, _ = actions_for_viewer(game_state, player_index)
+            if "pass" in actions:
+                await game_state.submit_action(
+                    player.user_id, "pass", action_tick=tick,
+                )
     finally:
         task = asyncio.current_task()
         if game_state._bot_claim_tasks.get(player_index) is task:

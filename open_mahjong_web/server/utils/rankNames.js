@@ -19,6 +19,7 @@ const RANK_TABLE = [
   { name: '七段', startScore: 1400, promoteScore: 2800, canDemote: true },
   { name: '八段', startScore: 1600, promoteScore: 3200, canDemote: true },
   { name: '九段', startScore: 3200, promoteScore: 7000, canDemote: true },
+  { name: '十段', startScore: 100, promoteScore: 100, canDemote: false },
 ];
 
 const RANK_NAMES = RANK_TABLE.map((r) => r.name);
@@ -28,7 +29,7 @@ const RANK_NAME_TO_INDEX = Object.fromEntries(RANK_NAMES.map((name, i) => [name,
 const LEADERBOARD_MIN_USER_ID = 10000000;
 const LEADERBOARD_LIMIT_DEFAULT = 100;
 
-const TOP_RANK_NAME = '九段';
+const TOP_RANK_NAME = '十段';
 
 function getRankEntry(rankName) {
   const idx = RANK_NAME_TO_INDEX[rankName];
@@ -40,9 +41,10 @@ function getScoreBounds(rankName) {
   const entry = getRankEntry(rankName);
   if (!entry) return null;
   const isTop = rankName === TOP_RANK_NAME;
-  const minScore = entry.startScore > 0 ? entry.startScore : 0;
+  // 起始分是升降段后的落点；普通段位仅在 PT < 0 时掉段。
+  const minScore = isTop ? entry.startScore : 0;
   const maxScore = isTop
-    ? null
+    ? entry.startScore
     : Math.round((entry.promoteScore - 0.01) * 100) / 100;
   return {
     startScore: entry.startScore,
@@ -60,8 +62,8 @@ function getPromotionProgress(rankName, score) {
   const numScore = Number(score) || 0;
   if (rankName === TOP_RANK_NAME) {
     return {
-      current: numScore,
-      target: null,
+      current: entry.startScore,
+      target: entry.promoteScore,
       percent: 100,
       remaining: 0,
       isMaxRank: true,
@@ -84,10 +86,13 @@ function validateRankScore(rankName, score) {
     return { valid: false, message: '无效的段位名称' };
   }
   const numScore = Number(score);
-  if (Number.isNaN(numScore)) {
+  if (!Number.isFinite(numScore)) {
     return { valid: false, message: '无效的分数' };
   }
   const rounded = Math.round(numScore * 100) / 100;
+  if (bounds.isTopRank && rounded !== bounds.minScore) {
+    return { valid: false, message: `${rankName} 的 PT 固定为 ${bounds.minScore}，不再升降段`, bounds };
+  }
   if (rounded < bounds.minScore) {
     return {
       valid: false,

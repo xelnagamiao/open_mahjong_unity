@@ -91,6 +91,22 @@ async function rewriteGameRecordSnapshots(client, userId, options) {
 }
 
 const BAN_TYPES = new Set(['login', 'chat', 'match', 'full']);
+const LADDER_PASS_FIELDS = [
+  'is_beginner_qualified',
+  'is_intermediate_qualified',
+  'is_advanced_qualified',
+  'is_mcrpl_qualified',
+];
+const USER_LIST_COLUMNS = `u.user_id, u.username, u.is_tourist, u.sponsor_expires_at,
+                ${LADDER_PASS_FIELDS.map((field) => `u.${field}`).join(', ')},
+                u.ban_expires_at, u.ban_type, u.ban_reason,
+                u.created_at`;
+const USER_DETAIL_COLUMNS = `user_id, username, is_tourist, email, email_verified_at, sponsor_expires_at,
+              ${LADDER_PASS_FIELDS.join(', ')},
+              ban_expires_at, ban_type, ban_reason, created_at`;
+const USER_PATCH_SELECT_COLUMNS = `user_id, username, sponsor_expires_at,
+              ${LADDER_PASS_FIELDS.join(', ')},
+              ban_expires_at, ban_type, ban_reason`;
 
 function parseBanExpiresAt(value) {
   if (value === null || value === undefined || value === '') {
@@ -172,9 +188,7 @@ router.get('/search', async (req, res) => {
     let result;
     if (!Number.isNaN(userId)) {
       result = await pool.query(
-        `SELECT u.user_id, u.username, u.is_tourist, u.sponsor_expires_at, u.is_mcrpl_qualified,
-                u.ban_expires_at, u.ban_type, u.ban_reason,
-                u.created_at,
+        `SELECT ${USER_LIST_COLUMNS},
                 EXISTS(SELECT 1 FROM game_player_records g WHERE g.user_id = u.user_id) AS has_game_records
          FROM users u
          WHERE u.user_id = $1
@@ -184,9 +198,7 @@ router.get('/search', async (req, res) => {
       );
     } else {
       result = await pool.query(
-        `SELECT u.user_id, u.username, u.is_tourist, u.sponsor_expires_at, u.is_mcrpl_qualified,
-                u.ban_expires_at, u.ban_type, u.ban_reason,
-                u.created_at,
+        `SELECT ${USER_LIST_COLUMNS},
                 EXISTS(SELECT 1 FROM game_player_records g WHERE g.user_id = u.user_id) AS has_game_records
          FROM users u
          WHERE u.username ILIKE $1
@@ -214,8 +226,7 @@ router.get('/:userId', async (req, res) => {
     }
 
     const userResult = await pool.query(
-      `SELECT user_id, username, is_tourist, sponsor_expires_at, is_mcrpl_qualified,
-              ban_expires_at, ban_type, ban_reason, created_at
+      `SELECT ${USER_DETAIL_COLUMNS}
        FROM users WHERE user_id = $1`,
       [userId]
     );
@@ -284,14 +295,30 @@ router.get('/:userId', async (req, res) => {
 router.patch('/:userId', async (req, res) => {
   try {
     const userId = parseInt(req.params.userId, 10);
-    const { username, sponsor_expires_at, is_mcrpl_qualified, ban_expires_at, ban_type, ban_reason, reason } = req.body || {};
+    const {
+      username,
+      sponsor_expires_at,
+      is_beginner_qualified,
+      is_intermediate_qualified,
+      is_advanced_qualified,
+      is_mcrpl_qualified,
+      ban_expires_at,
+      ban_type,
+      ban_reason,
+      reason,
+    } = req.body || {};
+    const ladderPassPayload = {
+      is_beginner_qualified,
+      is_intermediate_qualified,
+      is_advanced_qualified,
+      is_mcrpl_qualified,
+    };
     if (!reason || !String(reason).trim()) {
       return res.status(400).json({ success: false, message: '请填写变更原因' });
     }
 
     const before = await pool.query(
-      `SELECT user_id, username, sponsor_expires_at, is_mcrpl_qualified,
-              ban_expires_at, ban_type, ban_reason
+      `SELECT ${USER_PATCH_SELECT_COLUMNS}
        FROM users WHERE user_id = $1`,
       [userId]
     );
@@ -324,9 +351,11 @@ router.patch('/:userId', async (req, res) => {
         params.push(parsed.toISOString());
       }
     }
-    if (is_mcrpl_qualified !== undefined) {
-      updates.push(`is_mcrpl_qualified = $${idx++}`);
-      params.push(!!is_mcrpl_qualified);
+    for (const field of LADDER_PASS_FIELDS) {
+      if (ladderPassPayload[field] !== undefined) {
+        updates.push(`${field} = $${idx++}`);
+        params.push(!!ladderPassPayload[field]);
+      }
     }
 
     const banPatch = normalizeBanPayload({ ban_expires_at, ban_type, ban_reason });
@@ -363,8 +392,7 @@ router.patch('/:userId', async (req, res) => {
     );
 
     const after = await pool.query(
-      `SELECT user_id, username, sponsor_expires_at, is_mcrpl_qualified,
-              ban_expires_at, ban_type, ban_reason
+      `SELECT ${USER_PATCH_SELECT_COLUMNS}
        FROM users WHERE user_id = $1`,
       [userId]
     );

@@ -26,6 +26,7 @@ public class RoomInfo {
     public bool is_game_running; // 游戏是否正在运行
     public bool is_player_set_random_seed; // 复式：是否玩家指定主种子
     public bool open_cuohe; // 是否开启错和
+    public int cuohe_type; // 国标/台湾错和形式，由房间列表返回
     public bool show_moqie_hint; // 手摸切灰显（河牌摸切灰、手切正常）
     public bool tactical_call; // 战术鸣牌（国标/青雀）
     public bool claim_protection; // 鸣牌保护（国标/青雀）
@@ -46,6 +47,12 @@ public class RoomInfo {
     public bool base_score_no_dealer;
     public int small_hu_score;
     public int big_hu_score;
+    public bool wall_wan;
+    public bool wall_tong;
+    public bool wall_suo;
+    public bool wall_winds;
+    public bool wall_dragons;
+    public bool wall_flowers;
     public Dictionary<string, object> detailed_config; // 当前规则的详细配置
     public string event_id; // 赛事房间关联的赛事 ID
 }
@@ -160,6 +167,7 @@ public class ShowResultInfo { // 显示结算结果
     public int[] initial_hu_dice;
     public int[] initial_hu_bird_seats;
     public Dictionary<string, int>[] initial_hu_payer_details;
+    public int[] bird_tiles;
     // 荒牌流局：各家听牌张 {player_index: [tile_id, ...]}，未听家不出现；以及是否发生不听罚符
     public Dictionary<int, int[]> tenpai_tiles;
     public Dictionary<int, int[]> tenpai_hands; // 荒牌流局：听牌家的实际手牌，用于倒牌展示
@@ -458,6 +466,9 @@ public class RankData { // 段位数据（登录时同步）
     public string guobiao_rank;
     public float guobiao_score;
     public bool is_sponsor;
+    public bool is_beginner_qualified;
+    public bool is_intermediate_qualified;
+    public bool is_advanced_qualified;
     public bool is_mcrpl_qualified;
 }
 
@@ -670,6 +681,52 @@ public class HongqueStateInfo {
     public HongquePlayerInfo[] players;
 }
 
+public class FreeTableInfo {
+    public Dictionary<string, string> votes;
+    public int? transfer_tile;
+    public int score_revision;
+    public Dictionary<string, int> scores;
+    public Dictionary<string, bool> revealed;
+    public int? revealed_player_index;
+    public int[] revealed_hand;
+    public int? last_river_player;
+    public int? last_river_tile;
+}
+
+public class RecentPlacement {
+    public string game_id;
+    public string ended_at;
+    public int rank;
+    public string match_type;
+}
+
+public class GuobiaoBigWin {
+    public string game_id;
+    public string ended_at;
+    public int total_fan;
+    public string fan_name;
+    public string[] fans;
+    public string win_type;
+    public int winning_tile;
+    public int[] concealed_tiles;
+    public int[][] melds;
+    public int[] flower_tiles;
+    public int[][] combination_mask;
+    public int round_index;
+    public int action_index;
+}
+
+public class PlayerRecentCategory {
+    public RecentPlacement[] placements;
+    public GuobiaoBigWin big_win;
+}
+
+public class PlayerRecentRecordsResponse {
+    public int user_id;
+    public string request_id;
+    public Dictionary<string, Dictionary<string, PlayerRecentCategory>> rules;
+}
+
 public class Response { // 所有后端的返回数据都由Response类接收
     // 消息头
     public string type; // 消息类型
@@ -697,6 +754,7 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public bool is_favorite; // 更新收藏后回传
     public PlayerInfoResponse player_info; // 返回玩家信息
     public RuleStatsResponse rule_stats; // 返回单个规则的统计数据
+    public PlayerRecentRecordsResponse player_recent_records;
     public LoginInfo login_info; // 返回登录信息
     public UserSettings user_settings; // 返回用户设置信息
     public UserConfig user_config; // 返回用户游戏配置信息
@@ -725,6 +783,7 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public StickerInfo sticker_info; // 对局表情包广播
     public VoteInfo vote_info; // 房间对局投票暂停/结束状态同步
     public HongqueStateInfo hongque_state; // 虹雀开局/重连数据或实时增量
+    public FreeTableInfo free_table_info; // 自由模式桌面附加状态
     public EventListEntry[] event_list; // 当前用户可建房的 active 赛事列表
     public EventDetailInfo event_detail;
     public EventReadyPlayer[] ready_players;

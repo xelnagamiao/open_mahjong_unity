@@ -1,0 +1,94 @@
+{
+  "git_head": "581b4de3dcd70053f6d4bc7da755198f353d877a",
+  "sim_client_version": 1,
+  "files": {
+    "open_mahjong_unity/Assets/Scripts/Network/Serialize/Response.cs": {
+      "sha256": "a44ff349da8fbf3e9109c1986927207631b76fff93eb03ca80188d5ed8c20cae",
+      "size": 35916
+    },
+    "open_mahjong_unity/Assets/Scripts/Network/GameStateNetworkManager.cs": {
+      "sha256": "a5cc59d2966d3008d2583874b17591945a3ba36846199a4e40e85c24bf0da4c5",
+      "size": 14222
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/GameStateManager/NormalGameStateManager.Actions.cs": {
+      "sha256": "9beb9c29a779e6d289b36fb6af4bdebd28d643ef5cc89849e7029ddd293f86e1",
+      "size": 5204
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/CanvasManager/GameCanvas_ActionButton.cs": {
+      "sha256": "adf434975886e1855ab45649ea54fc50a7727d401090a2318b70587fe8c69600",
+      "size": 20043
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordJsonDecoder.cs": {
+      "sha256": "a6c8db3d3f99aa033f1b38f324dcd8aaf32a0e0921b475e714b9f942616a0aa6",
+      "size": 13485
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordData.cs": {
+      "sha256": "8e5817a75714e785b41953299189fe69fd532ea45378a4f8e949c507400b6464",
+      "size": 2983
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordMeldCodec.cs": {
+      "sha256": "7eb9a96616db1a246266af67416cebed698bf9e19b7e9117626926972eb51ea6",
+      "size": 11524
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/Record/RecordHuHandBuilder.cs": {
+      "sha256": "1c87563b36cdd1b126553008af7dab77522610a575d65bad0ba6607892483822",
+      "size": 4423
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordManager.GotoAction.cs": {
+      "sha256": "a1d47fd9abe583f1dbf0021fd88e506e0e4ed5bfe862b1dce66f9a9debfc1af7",
+      "size": 16884
+    }
+  },
+  "unity_hand_actions": [
+    "cut",
+    "buhua",
+    "hu_self",
+    "hu_flower",
+    "initial_hu",
+    "sea_bottom",
+    "buzhang",
+    "angang",
+    "jiagang",
+    "jiuzhongjiupai",
+    "riichi_cut",
+    "pass"
+  ],
+  "unity_other_actions": [
+    "chi_left",
+    "chi_mid",
+    "chi_right",
+    "peng",
+    "gang",
+    "hu",
+    "hu_first",
+    "hu_second",
+    "hu_third",
+    "pass"
+  ],
+  "protocol_hand_actions": [
+    "cut",
+    "buhua",
+    "hu_self",
+    "hu_flower",
+    "initial_hu",
+    "sea_bottom",
+    "buzhang",
+    "angang",
+    "jiagang",
+    "jiuzhongjiupai",
+    "riichi_cut",
+    "pass"
+  ],
+  "protocol_other_actions": [
+    "chi_left",
+    "chi_mid",
+    "chi_right",
+    "peng",
+    "gang",
+    "hu",
+    "hu_first",
+    "hu_second",
+    "hu_third",
+    "pass"
+  ]
+}

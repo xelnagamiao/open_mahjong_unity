@@ -17,7 +17,7 @@ public class RoomConfigContainer : MonoBehaviour {
     private static readonly Dictionary<string, List<string>> RuleDisplayFields = new Dictionary<string, List<string>> {
         { "guobiao", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
-            "tips", "open_cuohe", "tactical_call", "has_password", "tourist_limit", "hepai_limit", "allow_spectator",
+            "tips", "open_cuohe", "cuohe_type", "tactical_call", "has_password", "tourist_limit", "hepai_limit", "allow_spectator",
         } },
         { "riichi", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
@@ -30,7 +30,11 @@ public class RoomConfigContainer : MonoBehaviour {
         } },
         { "classical", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
-            "tips", "has_password", "tourist_limit", "allow_spectator",
+            "tips", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
+        } },
+        { "hongque", new List<string> {
+            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
+            "tips", "tactical_call", "hepai_way", "has_password", "tourist_limit", "allow_spectator",
         } },
         { "sichuan", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
@@ -47,7 +51,11 @@ public class RoomConfigContainer : MonoBehaviour {
         } },
         { "taiwan", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
-            "tips", "open_cuohe", "has_password", "tourist_limit", "allow_spectator",
+            "tips", "open_cuohe", "cuohe_type", "has_password", "tourist_limit", "allow_spectator",
+        } },
+        { "free", new List<string> {
+            "room_type", "random_seed", "has_password", "tourist_limit",
+            "wall_wan", "wall_tong", "wall_suo", "wall_winds", "wall_dragons", "wall_flowers",
         } },
     };
 
@@ -69,72 +77,55 @@ public class RoomConfigContainer : MonoBehaviour {
 
     public void SetRoomConfig(RoomInfo roomInfo) {
         Transform container = contentContainer != null ? contentContainer : transform;
-
         ClearRoomConfig(container);
-
-        List<string> fields = RuleDisplayFields.TryGetValue(roomInfo.room_rule, out var ruleFields)
-            ? ruleFields
-            : DefaultDisplayFields;
-
-        bool hasDetailedConfig = DetailedConfigRegistry.TryGet(roomInfo.room_rule, out _);
-        bool detailedConfigAdded = false;
-        foreach (string fieldName in fields) {
-            if (!TryBuildField(roomInfo, fieldName, out string displayName, out string displayValue)) {
-                continue;
-            }
-            ConfigItem configItem = Instantiate(configItemPrefab, container);
-            configItem.SetConfig(displayName, displayValue);
-            if (hasDetailedConfig && fieldName == "tips") {
-                AddDetailedConfig(roomInfo, container);
-                detailedConfigAdded = true;
-            }
-        }
-        if (hasDetailedConfig && !detailedConfigAdded) {
-            AddDetailedConfig(roomInfo, container);
+        foreach (var field in BuildDisplayFields(roomInfo)) {
+            ConfigItem item = Instantiate(configItemPrefab, container);
+            item.SetConfig(field.Key, field.Value);
         }
     }
 
-    private void AddDetailedConfig(RoomInfo roomInfo, Transform container) {
-        if (!DetailedConfigRegistry.TryGet(roomInfo.room_rule, out DetailedConfigDefinition definition)) {
-            return;
+    /// <summary>房内配置与列表问号共用同一份格式化结果，避免漏项或文案不一致。</summary>
+    public static List<KeyValuePair<string, string>> BuildDisplayFields(RoomInfo roomInfo) {
+        var result = new List<KeyValuePair<string, string>>();
+        if (roomInfo == null) return result;
+        var fields = RuleDisplayFields.TryGetValue(roomInfo.room_rule ?? "", out var ruleFields)
+            ? ruleFields : DefaultDisplayFields;
+        bool detailedAdded = false;
+        foreach (string field in fields) {
+            if (TryBuildField(roomInfo, field, out string name, out string value))
+                result.Add(new KeyValuePair<string, string>(name, value));
+            if (field == "tips") {
+                if (roomInfo.room_rule != "free")
+                    result.Add(new KeyValuePair<string, string>("手摸切提示", roomInfo.show_moqie_hint ? "开" : "关"));
+                if (roomInfo.room_rule == "guobiao" || roomInfo.room_rule == "qingque"
+                    || roomInfo.room_rule == "classical" || roomInfo.room_rule == "hongque"
+                    || roomInfo.room_rule == "sichuan" || roomInfo.room_rule == "changsha")
+                    result.Add(new KeyValuePair<string, string>("鸣牌保护", roomInfo.claim_protection ? "开" : "关"));
+                AddDetailedConfig(roomInfo, result);
+                detailedAdded = true;
+            }
         }
+        if (!detailedAdded) AddDetailedConfig(roomInfo, result);
+        return result;
+    }
+
+    private static void AddDetailedConfig(RoomInfo roomInfo, List<KeyValuePair<string, string>> result) {
+        if (!DetailedConfigRegistry.TryGet(roomInfo.room_rule, out DetailedConfigDefinition definition)) return;
         IDictionary<string, object> values = roomInfo.detailed_config;
-        if (values == null || values.Count == 0) {
-            ConfigItem fallback = Instantiate(configItemPrefab, container);
-            fallback.SetConfig(
-                definition.Presentation.EmptyDisplayLabel,
-                definition.Presentation.EmptyDisplayValue);
-            return;
-        }
         foreach (DetailedConfigOption option in definition.Options) {
-            if (!values.TryGetValue(option.Key, out object raw)) continue;
-            ConfigItem item = Instantiate(configItemPrefab, container);
-            item.SetConfig(option.Label, option.FormatValue(raw));
+            object raw = option.DefaultValue;
+            if (values != null && values.TryGetValue(option.Key, out object stored)) raw = stored;
+            result.Add(new KeyValuePair<string, string>(option.Label, option.FormatValue(raw)));
         }
-        if (definition.FanTable != null) {
-            var overrides = new Dictionary<string, int>();
-            if (values.TryGetValue(definition.FanTable.Key, out object raw)) {
-                ReadFanTaiOverrides(raw, overrides);
-            }
-            var customFans = new List<KeyValuePair<DetailedConfigFanValue, int>>();
-            foreach (DetailedConfigFanValue fan in definition.FanTable.Fans) {
-                if (overrides.TryGetValue(fan.Id, out int tai)) {
-                    customFans.Add(
-                        new KeyValuePair<DetailedConfigFanValue, int>(fan, tai));
-                }
-            }
-            ConfigItem summary = Instantiate(configItemPrefab, container);
-            summary.SetConfig(
-                definition.FanTable.Label,
-                customFans.Count == 0
-                    ? "无自定义（使用基础台表）"
-                    : $"{customFans.Count}项差异");
-            foreach (KeyValuePair<DetailedConfigFanValue, int> entry in customFans) {
-                ConfigItem fanItem = Instantiate(configItemPrefab, container);
-                fanItem.SetConfig(
-                    $"台值·{entry.Key.Label}",
-                    $"{entry.Value}台");
-            }
+        if (definition.FanTable == null) return;
+        var overrides = new Dictionary<string, int>();
+        if (values != null && values.TryGetValue(definition.FanTable.Key, out object fanValues))
+            ReadFanTaiOverrides(fanValues, overrides);
+        result.Add(new KeyValuePair<string, string>(definition.FanTable.Label,
+            overrides.Count == 0 ? "无自定义（使用基础台表）" : $"{overrides.Count}项差异"));
+        foreach (DetailedConfigFanValue fan in definition.FanTable.Fans) {
+            if (overrides.TryGetValue(fan.Id, out int value))
+                result.Add(new KeyValuePair<string, string>($"台值·{fan.Label}", $"{value}{fan.Unit}"));
         }
     }
 
@@ -187,7 +178,7 @@ public class RoomConfigContainer : MonoBehaviour {
         }
     }
 
-    private bool TryBuildField(RoomInfo roomInfo, string fieldName, out string displayName, out string displayValue) {
+    private static bool TryBuildField(RoomInfo roomInfo, string fieldName, out string displayName, out string displayValue) {
         displayName = null;
         displayValue = null;
         switch (fieldName) {
@@ -222,6 +213,12 @@ public class RoomConfigContainer : MonoBehaviour {
             case "tactical_call":
                 displayName = "战术鸣牌";
                 displayValue = roomInfo.tactical_call ? "开" : "关";
+                return true;
+            case "cuohe_type":
+                displayName = "错和形式";
+                displayValue = roomInfo.cuohe_type == 1
+                    ? "错和者扣40，其余不加分" : "错和者扣30，其余各加10";
+                if (!roomInfo.open_cuohe) displayValue += "（错和关闭）";
                 return true;
             case "blood_battle":
                 displayName = "血战到底";
@@ -291,17 +288,41 @@ public class RoomConfigContainer : MonoBehaviour {
                 displayName = "和牌方式";
                 displayValue = FormatHepaiWay(roomInfo.hepai_way);
                 return true;
+            case "wall_wan":
+                displayName = "万";
+                displayValue = roomInfo.wall_wan ? "开" : "关";
+                return true;
+            case "wall_tong":
+                displayName = "筒";
+                displayValue = roomInfo.wall_tong ? "开" : "关";
+                return true;
+            case "wall_suo":
+                displayName = "索";
+                displayValue = roomInfo.wall_suo ? "开" : "关";
+                return true;
+            case "wall_winds":
+                displayName = "四风";
+                displayValue = roomInfo.wall_winds ? "开" : "关";
+                return true;
+            case "wall_dragons":
+                displayName = "三元";
+                displayValue = roomInfo.wall_dragons ? "开" : "关";
+                return true;
+            case "wall_flowers":
+                displayName = "花牌";
+                displayValue = roomInfo.wall_flowers ? "开" : "关";
+                return true;
             default:
                 Debug.LogWarning($"未知字段名: {fieldName}");
                 return false;
         }
     }
 
-    private string FormatRoundTimer(int roundTimer) {
-        return roundTimer.ToString();
+    private static string FormatRoundTimer(int roundTimer) {
+        return roundTimer + "秒";
     }
 
-    private string FormatChangshaInitialHu(RoomInfo roomInfo) {
+    private static string FormatChangshaInitialHu(RoomInfo roomInfo) {
         List<string> enabled = new List<string>();
         if (roomInfo.initial_hu_si_xi) enabled.Add("四喜");
         if (roomInfo.initial_hu_ban_ban_hu) enabled.Add("板板胡");
@@ -311,27 +332,27 @@ public class RoomConfigContainer : MonoBehaviour {
         return enabled.Count > 0 ? string.Join("/", enabled) : "关闭";
     }
 
-    private string FormatStepTimer(int stepTimer) {
-        return stepTimer.ToString();
+    private static string FormatStepTimer(int stepTimer) {
+        return stepTimer + "秒";
     }
 
-    private string FormatRandomSeed(RoomInfo roomInfo) {
+    private static string FormatRandomSeed(RoomInfo roomInfo) {
         return roomInfo.is_player_set_random_seed ? "开" : "关";
     }
 
-    private string FormatTips(bool tips) {
+    private static string FormatTips(bool tips) {
         return tips ? "开" : "关";
     }
 
-    private string FormatOpenCuohe(bool openCuohe) {
+    private static string FormatOpenCuohe(bool openCuohe) {
         return openCuohe ? "开" : "关";
     }
 
-    private string FormatHasPassword(bool hasPassword) {
+    private static string FormatHasPassword(bool hasPassword) {
         return hasPassword ? "有" : "无";
     }
 
-    private string FormatHepaiWay(string way) {
+    private static string FormatHepaiWay(string way) {
         return way switch {
             "head_bump" => "头跳",
             "multi_ron" => "允许多家和",

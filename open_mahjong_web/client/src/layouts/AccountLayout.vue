@@ -51,6 +51,7 @@ const asideWidth = computed(() => (isMobile.value ? '132px' : '196px'))
 
 const menuItems = [
   { index: 'sec-account', label: '账户' },
+  { index: 'sec-uploads', label: '上传内容' },
   { index: 'sec-apply-event', label: '办赛申请' },
   { index: 'sec-apply-base', label: '基地申请' },
   { index: 'sec-manage-event', label: '赛事管理' },
@@ -193,5 +194,35 @@ onMounted(async () => {
   .account-user {
     max-width: 120px;
   }
+}
+@media (max-width: 640px) {
+  .account-layout { flex-direction: column; }
+  .account-aside {
+    width: 100% !important;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    overflow: visible;
+    border-right: 0;
+    border-bottom: 1px solid #e4e7ed;
+  }
+  .account-brand { padding: 10px 12px; border-bottom: 0; }
+  .aside-body { display: contents; }
+  .account-aside :deep(.account-menu.el-menu) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: flex;
+    flex-wrap: wrap;
+    padding: 4px 6px;
+    border-top: 1px solid #e4e7ed;
+  }
+  .account-aside :deep(.el-menu-item) {
+    height: 36px;
+    line-height: 36px;
+    padding: 0 10px !important;
+  }
+  .aside-footer { grid-column: 2; grid-row: 1; padding: 6px 12px; border-top: 0; }
+  .home-btn { width: auto; height: 28px; }
+  .account-body { min-height: 0; }
+  .account-header { height: 42px; padding: 0 12px; }
 }
 </style>

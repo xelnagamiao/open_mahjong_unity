@@ -1,138 +1,306 @@
-using UnityEngine;
+using System;
 using System.IO;
+using UnityEngine;
 
-public class Desktop : MonoBehaviour {
+public class Desktop : MonoBehaviour
+{
     public static Desktop Instance { get; private set; }
+    [SerializeField] private MeshRenderer meshRenderer;
+    [SerializeField] private Texture2D defaultTableclothTexture;
+    [SerializeField] private Texture2D defaultTableEdgeTexture;
 
-    [SerializeField] private MeshRenderer meshRenderer; // 目标MeshRenderer组件
-    [SerializeField] private Texture2D defaultTableclothTexture; // 默认桌布纹理
-    [SerializeField] private Texture2D defaultTableEdgeTexture; // 默认桌边纹理
+    private sealed class Surface
+    {
+        public Material Material;
+        public Texture2D OwnedTexture;
+        // Never use Material.mainTexture as the cloth source: it may be our GPU composite.
+        public Texture2D SourceTexture;
+        public string SourcePath;
+        public bool SourceCustom;
+        public string Path;
+        public bool Custom;
+        public object Revision;
+        public bool Pending;
+        public bool Applied;
+        public int Version;
+    }
 
-    private Material tableclothMaterial; // 桌布材质（元素0）
-    private Material edgeMaterial; // 边框材质（元素1）
+    private readonly Surface cloth = new Surface();
+    private readonly Surface edge = new Surface();
+    private Material[] originalMaterials;
+    [SerializeField] private TableFrameRenderer tableFrame;
+    private bool disposed;
+    private readonly TableSeamComposer seamComposer = new TableSeamComposer();
+    private readonly Texture2D[] seamCache = new Texture2D[TableSurfaceNames.SeamStyleCount];
+    private Texture2D selectedSeamTexture;
+    private int selectedSeam = int.MinValue;
+    private int seamVersion;
+    private bool seamPending, compositeWarning;
 
-    private void Awake() {
-        if (Instance != null && Instance != this) {
-            Destroy(gameObject);
-            return;
-        }
+    private void Awake()
+    {
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
     }
 
-    private void Start(){
-        RefreshTablecloth(); // 刷新桌布
-        RefreshEdge(); // 刷新边框
-        Debug.Log("桌布和边框渲染成功");
+    private void Start()
+    {
+        RefreshAppearance();
     }
 
-    // 刷新桌布功能
-    public void RefreshTablecloth(){
-        // 获取MeshRenderer组件的材质
-        meshRenderer = GetComponent<MeshRenderer>();
-        Material[] materials = meshRenderer.materials;
+    private void OnEnable()
+    {
+        // Start handles first initialization; subsequent shows re-read saved settings.
+        if (originalMaterials != null) RefreshAppearance();
+    }
 
-        if (materials.Length > 0) {
-            tableclothMaterial = materials[0];
+    /// <summary>Single entry point for table settings, reset and session refresh.</summary>
+    public void RefreshAppearance()
+    {
+        RefreshTablecloth();
+        RefreshEdge();
+    }
+
+    public void RefreshTablecloth()
+    {
+        if (disposed || !EnsureMaterials()) return;
+        RefreshSeam();
+        Refresh(cloth, true);
+    }
+    public void RefreshEdge()
+    {
+        Refresh(edge, false);
+        RefreshFrame();
+    }
+
+    private void RefreshFrame()
+    {
+        if (disposed || edge.Material == null || !Application.isPlaying) return;
+        if (tableFrame == null) tableFrame = GetComponent<TableFrameRenderer>();
+        if (tableFrame == null) return;
+        tableFrame.ApplySelection(this, edge.Applied || edge.Pending ? edge.SourceTexture : null,
+            edge.Path, edge.Custom, edge.Pending);
+    }
+
+    private bool EnsureMaterials()
+    {
+        if (originalMaterials != null) return true;
+        if (meshRenderer == null) meshRenderer = GetComponent<MeshRenderer>();
+        if (meshRenderer == null) return false;
+        originalMaterials = meshRenderer.sharedMaterials;
+        var materials = (Material[])originalMaterials.Clone();
+        // Explicit clones give this component clear ownership; never destroy a
+        // pre-existing instance created by another renderer/controller.
+        if (materials.Length > 0 && materials[0] != null)
+        {
+            materials[0] = cloth.Material = new Material(materials[0]);
+            cloth.SourceTexture = materials[0].mainTexture as Texture2D ?? defaultTableclothTexture;
         }
+        if (materials.Length > 1 && materials[1] != null)
+            materials[1] = edge.Material = new Material(materials[1]);
+        meshRenderer.sharedMaterials = materials;
+        return true;
+    }
 
-        // 从ConfigManager获取桌布设置
-        Texture2D tableclothTexture = null;
-        string clothPath = "";
-        bool clothIsCustom = false;
-        if (ConfigManager.Instance != null) {
-            (clothPath, clothIsCustom) = ConfigManager.Instance.GetSelectedTableCloth();
-        }
-
-        if (!string.IsNullOrEmpty(clothPath)) {
-            if (clothIsCustom) {
-                tableclothTexture = LoadCustomTexture(clothPath);
-            } else {
-                // 加载内置桌布（从Resources文件夹加载）
-                string resourcePath = "image/Board/TableCloth/" + clothPath;
-                tableclothTexture = Resources.Load<Texture2D>(resourcePath);
-            }
-        }
-
-        // 如果没有找到纹理，使用默认纹理
-        if (tableclothTexture == null && defaultTableclothTexture != null) {
-            tableclothTexture = defaultTableclothTexture;
-        }
-
-        if (tableclothTexture == null) {
-            Debug.LogError("没有找到桌布纹理");
+    private void Refresh(Surface surface, bool isCloth)
+    {
+        if (disposed || !EnsureMaterials() || surface.Material == null) return;
+        var selected = ConfigManager.Instance == null ? ("", false) :
+            (isCloth ? ConfigManager.Instance.GetSelectedTableCloth() : ConfigManager.Instance.GetSelectedTableEdge());
+        string path = selected.Item1 ?? "";
+        bool custom = selected.Item2;
+        if (!isCloth && !custom)
+            path = string.IsNullOrEmpty(path) ? TableFrameStyles.Default : TableFrameRenderer.NormalizeSelection(path, false);
+        Texture2D fallback = isCloth ? defaultTableclothTexture : defaultTableEdgeTexture;
+        object revision = custom ? CustomRevision(path) : null;
+        if (surface.Path == path && surface.Custom == custom && Equals(surface.Revision, revision) &&
+            (surface.Pending || (surface.Applied && surface.Material.mainTexture != null)))
+        {
+            // Source caching must not suppress independent seam/shadow/light changes.
+            if (isCloth) ApplyClothOutput();
             return;
         }
 
-        if (tableclothMaterial != null) {
-            tableclothMaterial.mainTexture = tableclothTexture; // 设置主纹理
+        int version = ++surface.Version;
+        surface.Path = path;
+        surface.Custom = custom;
+        surface.Revision = revision;
+        surface.Pending = false;
+        surface.Applied = false;
+        if (!custom && (isCloth ? TableClothStyles.IsSolid(path) : TableFrameStyles.IsSolid(path)))
+        {
+            // Pure colors have no per-preset source image or 2D atlas to load.
+            Apply(surface, Texture2D.whiteTexture, false, true);
+            return;
         }
-    }
-
-    // 刷新边框功能
-    public void RefreshEdge(){
-        // 获取MeshRenderer组件的材质
-        meshRenderer = GetComponent<MeshRenderer>();
-        Material[] materials = meshRenderer.materials;
-
-        if (materials.Length > 1) {
-            edgeMaterial = materials[1];
+        if (string.IsNullOrEmpty(path))
+        {
+            Apply(surface, fallback, false, true);
+            return;
         }
-
-        // 从ConfigManager获取桌边设置
-        Texture2D edgeTexture = null;
-        string edgePath = "";
-        bool edgeIsCustom = false;
-        if (ConfigManager.Instance != null) {
-            (edgePath, edgeIsCustom) = ConfigManager.Instance.GetSelectedTableEdge();
-        }
-
-        if (!string.IsNullOrEmpty(edgePath)) {
-            if (edgeIsCustom) {
-                edgeTexture = LoadCustomTexture(edgePath);
-            } else {
-                // 加载内置桌边（从Resources文件夹加载）
-                string resourcePath = "image/Board/Edge/" + edgePath;
-                edgeTexture = Resources.Load<Texture2D>(resourcePath);
-            }
-        }
-
-        // 如果没有找到纹理，使用默认纹理
-        if (edgeTexture == null && defaultTableEdgeTexture != null) {
-            edgeTexture = defaultTableEdgeTexture;
-        }
-
-        if (edgeMaterial != null && edgeTexture != null) {
-            edgeMaterial.mainTexture = edgeTexture; // 设置主纹理
-        }
-    }
-
-    private static Texture2D LoadCustomTexture(string path) {
+        if (custom)
+        {
 #if UNITY_WEBGL && !UNITY_EDITOR
-        return UnityAssetIdb.LoadTexture(path);
-#else
-        if (File.Exists(path)) {
-            return LoadTextureFromFile(path);
+            if (!UnityAssetIdb.IsReady)
+            {
+                if (surface.Material.mainTexture == null) Apply(surface, fallback, false, false);
+                UnityAssetIdb.EnsureReady(() => { if (this != null && !disposed) Refresh(surface, isCloth); });
+                return;
+            }
+#endif
+            Texture2D texture = LoadCustomTexture(path);
+            Apply(surface, texture != null ? texture : fallback, texture != null, texture != null);
+            return;
         }
-        return null;
+
+        surface.Pending = true;
+        // Keep the previous table visible until the requested full-size asset is ready.
+        if (surface.Material.mainTexture == null) surface.Material.mainTexture = fallback;
+        string sourceName = isCloth ? path : TableFrameStyles.SourceName(path);
+        var request = Resources.LoadAsync<Texture2D>((isCloth ? "image/Board/TableCloth/" : TableFrameRenderer.BaseResourceDirectory) + sourceName);
+        request.completed += _ => CompleteBuiltinLoad(surface, version, request.asset as Texture2D, fallback);
+    }
+
+    private void CompleteBuiltinLoad(Surface surface, int version, Texture2D texture, Texture2D fallback)
+    {
+        if (this == null || disposed || surface.Version != version) return;
+        surface.Pending = false;
+        Apply(surface, texture != null ? texture : fallback, false, texture != null);
+    }
+
+    private static object CustomRevision(string path)
+    {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        return UnityAssetIdb.GetCached(path);
+#else
+        try
+        {
+            var info = new FileInfo(path);
+            return info.Exists ? info.Length + ":" + info.LastWriteTimeUtc.Ticks : null;
+        }
+        catch { return null; }
 #endif
     }
 
-    // 从文件路径加载纹理
-    private static Texture2D LoadTextureFromFile(string filePath){
-        try{
-            byte[] fileData = File.ReadAllBytes(filePath);
-            Texture2D texture = new Texture2D(2, 2);
+    private static Texture2D LoadCustomTexture(string path)
+    {
+        Texture2D texture = null;
+        try
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            byte[] bytes = UnityAssetIdb.GetCached(path);
+#else
+            byte[] bytes = File.Exists(path) ? File.ReadAllBytes(path) : null;
+#endif
+            if (bytes == null) return null;
+            // Table sampling keeps mipmaps; only gallery thumbnails omit them.
+            texture = new Texture2D(2, 2, TextureFormat.RGBA32, true);
+            if (ImageConversion.LoadImage(texture, bytes, true)) return texture;
+        }
+        catch (Exception error) { Debug.LogWarning("加载自定义桌面失败: " + error.Message); }
+        if (texture != null) DestroyOwned(texture);
+        return null;
+    }
 
-            if (ImageConversion.LoadImage(texture, fileData)) {
-                return texture;
-            }
+    private void RefreshSeam()
+    {
+        int requested = ConfigManager.Instance == null ? TableSurfaceNames.DefaultSeam : ConfigManager.Instance.GetSelectedTableSeam();
+        requested = TableSurfaceNames.NormalizeSeamStyle(requested);
+        if (requested == selectedSeam && (requested == -1 || selectedSeamTexture != null || seamPending)) return;
+        selectedSeam = requested;
+        selectedSeamTexture = null;
+        seamPending = false;
+        int version = ++seamVersion;
+        if (requested == -1)
+        {
+            ApplyClothOutput();
+            return;
+        }
+        if (seamCache[requested] != null)
+        {
+            selectedSeamTexture = seamCache[requested];
+            ApplyClothOutput();
+            return;
+        }
+        seamPending = true;
+        var request = Resources.LoadAsync<Texture2D>("image/Board/TableSeams/Seam_" + requested.ToString("00"));
+        request.completed += _ => CompleteSeamLoad(requested, version, request.asset as Texture2D);
+    }
 
-            Destroy(texture);
-            return null;
-        } catch (System.Exception e) {
-            Debug.LogError($"加载纹理文件时出错: {filePath}, 错误: {e.Message}");
-            return null;
+    private void CompleteSeamLoad(int requested, int version, Texture2D texture)
+    {
+        if (this == null || disposed) return;
+        if (texture != null) seamCache[requested] = texture;
+        if (seamVersion != version) return;
+        seamPending = false;
+        selectedSeamTexture = texture;
+        ApplyClothOutput();
+    }
+
+    private void ApplyClothOutput()
+    {
+        if (disposed || cloth.Material == null) return;
+        try
+        {
+            var config = ConfigManager.Instance;
+            // Do not tint the previous image while a newly selected image is still loading.
+            Color? solidColor = !cloth.SourceCustom && TableClothStyles.IsSolid(cloth.SourcePath)
+                ? (config != null ? config.GetTableClothDisplayColor(cloth.SourcePath) : TableClothStyles.DefaultColor(cloth.SourcePath)) : (Color?)null;
+            cloth.Material.mainTexture = seamComposer.Compose(cloth.SourceTexture, selectedSeamTexture,
+                config != null ? config.GetSelectedTableShadow() : TableLightingPresets.DefaultShadow,
+                config != null ? config.GetSelectedTableLight() : TableLightingPresets.DefaultLight, solidColor);
+            compositeWarning = false;
+        }
+        catch (Exception error)
+        {
+            cloth.Material.mainTexture = cloth.SourceTexture;
+            seamComposer.Clear();
+            if (!compositeWarning) Debug.LogWarning("桌布缝线和光影合成失败，保留原桌布: " + error.Message);
+            compositeWarning = true;
         }
     }
 
+    private void Apply(Surface surface, Texture2D texture, bool owned, bool success)
+    {
+        surface.SourceTexture = texture;
+        surface.SourcePath = success ? surface.Path : null;
+        surface.SourceCustom = surface.Custom;
+        if (ReferenceEquals(surface, cloth)) ApplyClothOutput();
+        else surface.Material.mainTexture = surface.Custom ? texture : defaultTableEdgeTexture ?? texture;
+        if (surface.OwnedTexture != null && surface.OwnedTexture != texture) DestroyOwned(surface.OwnedTexture);
+        surface.OwnedTexture = owned ? texture : null;
+        surface.Applied = success;
+        if (ReferenceEquals(surface, edge)) RefreshFrame();
+    }
+
+    private void OnDestroy()
+    {
+        disposed = true;
+        ++cloth.Version;
+        ++edge.Version;
+        ++seamVersion;
+        if (meshRenderer != null && originalMaterials != null)
+        {
+            var current = meshRenderer.sharedMaterials;
+            if (current.Length > 0 && originalMaterials.Length > 0 && cloth.Material != null && current[0] == cloth.Material)
+                current[0] = originalMaterials[0];
+            if (current.Length > 1 && originalMaterials.Length > 1 && edge.Material != null && current[1] == edge.Material)
+                current[1] = originalMaterials[1];
+            meshRenderer.sharedMaterials = current;
+        }
+        seamComposer.Dispose();
+        if (cloth.OwnedTexture != null) DestroyOwned(cloth.OwnedTexture);
+        if (edge.OwnedTexture != null) DestroyOwned(edge.OwnedTexture);
+        if (cloth.Material != null) DestroyOwned(cloth.Material);
+        if (edge.Material != null) DestroyOwned(edge.Material);
+        // Resources assets can also be referenced by defaults or other renderers.
+        // Only destroy owned runtime objects; never invalidate those shared textures.
+        if (Instance == this) Instance = null;
+    }
+
+    private static void DestroyOwned(UnityEngine.Object value)
+    {
+        if (Application.isPlaying) Destroy(value);
+        else DestroyImmediate(value);
+    }
 }

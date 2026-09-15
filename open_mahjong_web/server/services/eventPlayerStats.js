@@ -24,6 +24,10 @@ function pushParam(params, value) {
   return `$${params.length}`;
 }
 
+function isTimestampParam(value) {
+  return /^\d{4}-\d{2}-\d{2}(?:[T\s]\d{2}:\d{2}(?::\d{2})?)?/.test(String(value || '').trim());
+}
+
 /** 构建赛事维度筛选（固定 room_type=events + event_id） */
 function buildEventStatFilters(eventId, query, params) {
   const conditions = [
@@ -43,11 +47,11 @@ function buildEventStatFilters(eventId, query, params) {
       conditions.push(`gpr.match_type = ANY(${pushParam(params, mts)}::varchar[])`);
     }
   }
-  if (query.date_from) {
-    conditions.push(`gr.created_at >= ${pushParam(params, query.date_from)}`);
+  if (isTimestampParam(query.date_from)) {
+    conditions.push(`gr.created_at >= ${pushParam(params, String(query.date_from).trim())}`);
   }
-  if (query.date_to) {
-    conditions.push(`gr.created_at < ${pushParam(params, query.date_to)}`);
+  if (isTimestampParam(query.date_to)) {
+    conditions.push(`gr.created_at < ${pushParam(params, String(query.date_to).trim())}`);
   }
   return conditions;
 }
@@ -160,4 +164,5 @@ module.exports = {
   GAME_TYPE_MATCH_TYPES,
   fetchEventPlayerStats,
   EMPTY_RANK,
+  isTimestampParam,
 };

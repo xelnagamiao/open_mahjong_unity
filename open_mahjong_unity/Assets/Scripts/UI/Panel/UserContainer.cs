@@ -54,7 +54,7 @@ public class UserContainer : MonoBehaviour {
     /// </summary>
     public void RefreshRankDisplay() {
         string rank = UserDataManager.Instance.GuobiaoRank;
-        float score = UserDataManager.Instance.GuobiaoScore;
+        float score = RankLevelConfig.NormalizeScore(rank, UserDataManager.Instance.GuobiaoScore);
         int idx = RankConfig.GetRankIndex(rank);
         var (_, _, promoteScore) = RankConfig.RankTable[idx];
 

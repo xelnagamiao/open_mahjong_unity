@@ -51,6 +51,20 @@ def test_opening_wrap_without_dealer_discard_does_not_increment():
     assert state.action_history == [0, 1, 2, 3, 0]
 
 
+def test_claimed_dealer_discard_wrap_stays_xunmu_1():
+    """庄家弃牌被鸣走后河空，回绕不加巡。"""
+    state = _state()
+    player_index_go_to(state, 0)
+    _discard(state, 0)
+    state.player_list[0].discard_tiles.pop()
+    player_index_go_to(state, 2)
+    player_index_next(state)
+    player_index_next(state)
+    assert state.current_player_index == 0
+    assert state.xunmu == 1
+    assert not state.player_list[0].discard_tiles
+
+
 def test_south_peng_north_increments():
     state = _state()
     player_index_go_to(state, 0)

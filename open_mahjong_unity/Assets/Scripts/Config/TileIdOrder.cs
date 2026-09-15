@@ -134,17 +134,12 @@ public static class TileIdOrder {
     private static bool IsRiichiContext() {
         // 牌谱/观战回放：以 gameTitle 为准，避免误读上一局残留的 roomRule。
         if (TryGetRecordRule(out string recordRule, out string recordSubRule)) {
-            return IsRiichiRule(recordRule, recordSubRule);
+            return RuleRegistry.Resolve(recordRule, recordSubRule)?.UsesRiichiDragonOrder == true;
         }
-        NormalGameStateManager gsm = NormalGameStateManager.Instance;
-        if (gsm != null && gsm.IsGameActive) {
-            return IsRiichiRule(gsm.roomRule, gsm.subRule);
+        if (GameSession.Current.IsGameActive) {
+            return RuleRegistry.Current?.UsesRiichiDragonOrder == true;
         }
         return false;
-    }
-
-    private static bool IsRiichiRule(string roomRule, string subRule) {
-        return roomRule == "riichi" || (!string.IsNullOrEmpty(subRule) && subRule.StartsWith("riichi"));
     }
 
     private static bool TryGetRecordRule(out string rule, out string subRule) {

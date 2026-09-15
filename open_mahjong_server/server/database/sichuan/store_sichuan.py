@@ -82,6 +82,8 @@ def store_sichuan_game_record(db_manager, game_record: dict, player_list: list, 
                 logger.warning(f'跳过玩家对局记录存储: user_id={player.user_id}, username={player.username}, error={e}')
         logger.info(f'已为 {saved_count} 名玩家保存对局记录到 game_player_records 表')
 
+        from ..player_recent_records import update_player_recent_records
+        update_player_recent_records(cursor, game_id, game_record)
         conn.commit()
         logger.info(f'四川游戏记录已保存，game_id: {game_id}')
         try:

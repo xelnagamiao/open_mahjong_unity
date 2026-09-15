@@ -1,8 +1,9 @@
 """虹雀等待动作：手牌、亮牌后 onlycut、弃牌响应与历时摸牌。
 
-与国标/青雀相同的组件边界：GameState 只负责编排，本模块按 ``game_status``
-处理等待与转移。战术窗口仅保存响应元数据；手牌、河牌和副露只在最终仲裁
-完成后修改。
+与国标相同：``wait_action`` 阻塞等待玩家入队或超时，循环结束后再处理
+操作 / pass / 超时默认动作。``submit_action`` 只负责入队。
+
+战术窗口仅保存响应元数据；手牌、河牌和副露只在最终仲裁完成后修改。
 
 虹雀优先级：和 > 虹 > 碰 > 下家吃 > 对家吃 > 上家吃。
 同一张弃牌允许日麻式多家荣和；其他同级动作先申请者胜。
@@ -14,14 +15,22 @@ import time
 from dataclasses import dataclass, field
 from typing import Optional
 
-from .action_check import check_action_after_cut
-from .hongque_debug import resolve_debug_scenario
+from .action_check import check_action_after_cut, check_action_hand_action
+from .hongque_debug import get_debug_forced_discard, resolve_debug_scenario
 from .init_tiles import pop_supplement_tile
 from .ron_resolution import resolve_collected_rons
 from .rules import kong_candidates
 from .scoring import best_win_result
 from .state_machine import HongqueStatus
 from .tile import HongqueTile
+from .record import (
+    record_claim_apply,
+    record_claim_execute,
+    record_cut,
+    record_deal,
+    record_kong,
+    record_unclaimed_discard,
+)
 
 
 @dataclass
@@ -108,6 +117,304 @@ def actions_for_viewer(game_state, player_index: int) -> tuple[list[str], list[d
     return [], []
 
 
+def refresh_hand_action_dict(game_state) -> None:
+    game_state.action_dict = {index: [] for index in range(4)}
+    player = game_state.players[game_state.current_player_index]
+    actions, _ = check_action_hand_action(game_state, player)
+    game_state.action_dict[player.index] = actions
+
+
+def refresh_claim_action_dict(game_state) -> None:
+    game_state.action_dict = {index: [] for index in range(4)}
+    window: Optional[ClaimWindow] = getattr(game_state, "claim_window", None)
+    if window is None:
+        return
+    for player_index in window.pending:
+        actions, _ = actions_for_viewer(game_state, player_index)
+        game_state.action_dict[player_index] = actions
+
+
+def validate_submitted_action(game_state, player, action: str,
+                              tile: Optional[str], candidate_id: Optional[str]) -> None:
+    """入队前校验，避免非法动作进入 wait_action 后打断主循环。"""
+    status = game_state.state_machine.status
+    if action == "ready":
+        if game_state.phase != "round_end":
+            raise ValueError("当前没有需要确认的和牌结算")
+        return
+    if status in (
+        HongqueStatus.WAITING_HAND_ACTION,
+        HongqueStatus.ONLYCUT_AFTER_ACTION,
+    ):
+        if player.index != game_state.current_player_index:
+            raise ValueError("还没有轮到你")
+        after_claim = status == HongqueStatus.ONLYCUT_AFTER_ACTION
+        if action == "discard":
+            code = HongqueTile.parse(tile or "").code
+            if code not in player.hand:
+                raise ValueError("手牌中没有这张牌")
+            return
+        if action == "supplement":
+            if player.supplements >= 2 or not game_state.wall:
+                raise ValueError("本局补牌次数已用尽或牌库已空")
+            return
+        if action == "kong":
+            if not after_claim and len(player.hand) == 1:
+                raise ValueError("手牌只剩一张时请使用和")
+            if not any(item["id"] == candidate_id for item in kong_candidates(player.hand, player.melds)):
+                raise ValueError("杠牌候选无效")
+            return
+        if action == "win":
+            if after_claim:
+                raise ValueError("亮牌后须先补牌才能和牌")
+            result = best_win_result(
+                player.hand,
+                player.melds,
+                self_draw=True,
+                before_first_discard=not any(item.discards for item in game_state.players),
+                wall_empty=not game_state.wall,
+                allow_kong_win=True,
+            )
+            if result is None:
+                raise ValueError("当前手牌不能和牌")
+            return
+        raise ValueError("未知的回合操作")
+    if status == HongqueStatus.WAITING_ACTION_AFTER_CUT:
+        window: Optional[ClaimWindow] = getattr(game_state, "claim_window", None)
+        if window is None or player.index not in window.pending:
+            raise ValueError("你没有待回应的亮牌操作")
+        if action == "pass":
+            return
+        if action != "claim":
+            raise ValueError("未知的亮牌操作")
+        _, candidates = actions_for_viewer(game_state, player.index)
+        if not any(item.get("id") == candidate_id for item in candidates):
+            raise ValueError("亮牌候选无效或优先级不足")
+        return
+    raise ValueError("当前阶段不能操作")
+
+
+async def wait_action(game_state) -> None:
+    """阻塞等待当前询问结束：有操作则执行，否则走超时默认动作。"""
+    game_state._in_wait_action = True
+    try:
+        status = game_state.state_machine.status
+        if status in (
+            HongqueStatus.WAITING_HAND_ACTION,
+            HongqueStatus.ONLYCUT_AFTER_ACTION,
+        ):
+            await _wait_hand_action(game_state)
+        elif status == HongqueStatus.WAITING_ACTION_AFTER_CUT:
+            await _wait_claim_action(game_state)
+    finally:
+        game_state._in_wait_action = False
+
+
+def _retain_current_tick_actions(game_state, player_indexes) -> None:
+    expected_tick = game_state.action_tick
+    for player_index in player_indexes:
+        retained = []
+        while not game_state.action_queues[player_index].empty():
+            queued = game_state.action_queues[player_index].get_nowait()
+            queued_tick = queued.get("_action_tick")
+            if queued_tick is None or queued_tick == expected_tick:
+                retained.append(queued)
+        for queued in retained:
+            game_state.action_queues[player_index].put_nowait(queued)
+        game_state.action_events[player_index].clear()
+        if retained:
+            game_state.action_events[player_index].set()
+
+
+async def _wait_hand_action(game_state) -> None:
+    refresh_hand_action_dict(game_state)
+    player = game_state.players[game_state.current_player_index]
+    if not game_state.action_dict.get(player.index):
+        return
+    if game_state.turn_started_at is None:
+        game_state._start_turn_clock()
+    _retain_current_tick_actions(game_state, [player.index])
+    game_state.waiting_players_list = [player.index]
+    game_state._schedule_bot_if_needed()
+
+    action_data = None
+    deadline = game_state.turn_deadline
+    if deadline is None:
+        deadline = game_state.turn_started_at + game_state.step_time + player.remaining_time
+    while game_state.waiting_players_list:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        action_task = asyncio.create_task(game_state.action_events[player.index].wait())
+        timer_task = asyncio.create_task(asyncio.sleep(remaining))
+        done, pending = await asyncio.wait(
+            {action_task, timer_task},
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        for task in pending:
+            task.cancel()
+        if action_task in done:
+            try:
+                action_data = dict(game_state.action_queues[player.index].get_nowait())
+            except asyncio.QueueEmpty:
+                game_state.action_events[player.index].clear()
+                continue
+            game_state.action_events[player.index].clear()
+            if not game_state.action_queues[player.index].empty():
+                game_state.action_events[player.index].set()
+            game_state.action_dict[player.index] = []
+            game_state.waiting_players_list = []
+            break
+
+    if game_state.waiting_players_list:
+        player.remaining_time = 0
+        game_state.waiting_players_list = []
+
+    if action_data:
+        await handle_hand_action(
+            game_state,
+            player,
+            action_data.get("action_type"),
+            action_data.get("tile"),
+            action_data.get("candidate_id"),
+        )
+        return
+    await _timeout_hand_action(game_state, player)
+
+
+async def _timeout_hand_action(game_state, player) -> None:
+    """手牌询问超时：与国标一样在 wait_action 尾部走默认切 / 补 / 和。"""
+    game_state.events = []
+    if player.hand:
+        if game_state.Debug:
+            forced = get_debug_forced_discard(game_state, player.index)
+            if forced and forced in player.hand:
+                code = forced
+            else:
+                code = (
+                    player.drawn_tile
+                    if player.drawn_tile in player.hand
+                    else player.hand[-1]
+                )
+        else:
+            code = (
+                player.drawn_tile
+                if player.drawn_tile in player.hand
+                else player.hand[-1]
+            )
+        await apply_discard(game_state, player, code)
+        return
+    if (game_state.game_status == "onlycut_after_action"
+            and player.supplements < 2 and game_state.wall):
+        await handle_hand_action(game_state, player, "supplement", None, None)
+        return
+    if game_state.game_status == "onlycut_after_action":
+        return
+    result = best_win_result(
+        player.hand,
+        player.melds,
+        self_draw=True,
+        before_first_discard=not any(item.discards for item in game_state.players),
+        wall_empty=not game_state.wall,
+        allow_kong_win=True,
+    )
+    if result is not None:
+        result["winning_hand"] = list(player.hand)
+        await game_state._finish_round([(player, result)], "self_draw")
+
+
+async def _wait_claim_action(game_state) -> None:
+    while (
+        game_state.phase == "claim"
+        and getattr(game_state, "claim_window", None) is not None
+    ):
+        window: ClaimWindow = game_state.claim_window
+        refresh_claim_action_dict(game_state)
+        waiting = [
+            player_index for player_index in window.pending
+            if game_state.action_dict.get(player_index)
+        ]
+        if not waiting:
+            await resolve_claims(game_state)
+            return
+        _retain_current_tick_actions(game_state, waiting)
+        game_state.waiting_players_list = list(waiting)
+        now = time.monotonic()
+        if window.stage == "tactical":
+            deadline = window.deadline or now
+        else:
+            deadline = min(
+                game_state.claim_deadlines.get(player_index, now)
+                for player_index in waiting
+            )
+        remaining = max(0.0, deadline - now)
+        task_to_player = {}
+        task_list = []
+        for player_index in waiting:
+            action_task = asyncio.create_task(
+                game_state.action_events[player_index].wait()
+            )
+            task_list.append(action_task)
+            task_to_player[action_task] = player_index
+        timer_task = asyncio.create_task(asyncio.sleep(remaining))
+        task_list.append(timer_task)
+        done, pending = await asyncio.wait(
+            task_list, return_when=asyncio.FIRST_COMPLETED
+        )
+        for task in pending:
+            task.cancel()
+
+        submissions = []
+        for task in done:
+            if task is timer_task:
+                continue
+            player_index = task_to_player[task]
+            try:
+                action_data = dict(
+                    game_state.action_queues[player_index].get_nowait()
+                )
+            except asyncio.QueueEmpty:
+                game_state.action_events[player_index].clear()
+                continue
+            submissions.append((player_index, action_data))
+            game_state.action_events[player_index].clear()
+            if not game_state.action_queues[player_index].empty():
+                game_state.action_events[player_index].set()
+
+        if submissions:
+            for player_index, action_data in submissions:
+                if game_state.claim_window is None or game_state.phase != "claim":
+                    return
+                if player_index not in game_state.claim_window.pending:
+                    continue
+                await handle_claim_action(
+                    game_state,
+                    game_state.players[player_index],
+                    action_data.get("action_type"),
+                    action_data.get("candidate_id"),
+                )
+            continue
+
+        # 等待结束且无人提交：超时。战术窗口执行当前申请；初始询问把未回应视为 pass。
+        window = game_state.claim_window
+        if window is None or game_state.phase != "claim":
+            return
+        if window.stage == "tactical":
+            await resolve_claims(game_state)
+            return
+        expired = [
+            player_index for player_index in list(window.pending)
+            if time.monotonic() >= game_state.claim_deadlines.get(player_index, 0)
+        ]
+        for player_index in expired:
+            game_state.players[player_index].remaining_time = 0
+            await handle_claim_action(
+                game_state, game_state.players[player_index], "pass", None
+            )
+            if game_state.claim_window is None:
+                return
+
+
 async def open_claim_window(game_state) -> None:
     options = check_action_after_cut(game_state)
     game_state.claim_options = options
@@ -120,8 +427,6 @@ async def open_claim_window(game_state) -> None:
 
     # 弃牌已经单独送达；有询问时开启新的事件批次，避免客户端重播出牌动画。
     game_state.events = []
-    # Snapshot recovery may resume from a saved turn plus last_discard. Route
-    # that compatibility entry through the normal resolving state as well.
     if game_state.state_machine.status in (
         HongqueStatus.WAITING_HAND_ACTION,
         HongqueStatus.ONLYCUT_AFTER_ACTION,
@@ -132,11 +437,10 @@ async def open_claim_window(game_state) -> None:
     game_state.message = "等待亮牌或捉和"
     game_state._advance_tick()
     game_state.claim_window.note_asked(game_state.claim_window.pending, game_state.action_tick)
+    refresh_claim_action_dict(game_state)
     await game_state.broadcast_state()
     game_state.events = []
-    _schedule_claim_timeout(game_state)
 
-    # 普通机器人仍使用自己的 AI；调试模式绝不把真人加入自动任务。
     for player_index in tuple(options):
         player = game_state.players[player_index]
         debug_force_ron = (
@@ -151,17 +455,28 @@ async def open_claim_window(game_state) -> None:
             await handle_claim_action(game_state, player, "pass", None)
 
 
-async def wait_action(game_state) -> None:
-    """与国标/青雀同名的等待入口：按 ``game_status`` 分发历时或转移行为。"""
-    match game_state.state_machine.status:
-        case HongqueStatus.RESOLVING_DISCARD | HongqueStatus.WAITING_ACTION_AFTER_CUT:
-            await open_claim_window(game_state)
-        case HongqueStatus.DEAL_CARD:
-            await deal_card(game_state)
-        case HongqueStatus.ONLYCUT_AFTER_ACTION | HongqueStatus.WAITING_HAND_ACTION:
-            return
-        case _:
-            return
+async def apply_discard(game_state, player, code: str) -> None:
+    """权威出牌：广播切牌后进入 resolving_discard，由主循环开鸣牌窗。"""
+    game_state.events = []
+    player.hand.remove(code)
+    player.discards.append(code)
+    cut_class = code == player.drawn_tile
+    player.drawn_tile = None
+    player.last_draw_was_supplement = False
+    game_state.last_discard = {"player": player.index, "tile": code}
+    game_state._record_event(
+        "discard",
+        player=player.index,
+        tile=code,
+        cut_class=cut_class,
+    )
+    record_cut(game_state, player, code, is_moqie=cut_class)
+    game_state._transition(HongqueStatus.RESOLVING_DISCARD)
+    game_state.turn_deadline = None
+    game_state.turn_started_at = None
+    game_state.message = f"{player.username} 出牌"
+    game_state._advance_tick()
+    await game_state.broadcast_state()
 
 
 async def handle_hand_action(game_state, player, action: str,
@@ -183,31 +498,34 @@ async def handle_hand_action(game_state, player, action: str,
         if code not in player.hand:
             raise ValueError("手牌中没有这张牌")
         game_state._consume_time_bank(player, game_state.turn_started_at)
-        await game_state._discard_and_open_claim(player, code)
+        await apply_discard(game_state, player, code)
         return
     if action == "supplement":
         if player.supplements >= 2 or not game_state.wall:
             raise ValueError("本局补牌次数已用尽或牌库已空")
         game_state._consume_time_bank(player, game_state.turn_started_at)
+        game_state.events = []
         player.supplements += 1
         drawn = pop_supplement_tile(game_state)
         player.hand.append(drawn)
         player.drawn_tile = drawn
         player.last_draw_was_supplement = True
         game_state._record_event("supplement", player=player.index, tile=drawn)
+        record_deal(game_state, drawn, "bd", player.index)
         game_state.message = f"{player.username} 补牌"
         if after_claim:
             game_state._transition(HongqueStatus.WAITING_HAND_ACTION)
     elif action == "kong":
         if not after_claim and len(player.hand) == 1:
-            # 摸牌后手上只剩最后一张时杠后必然空手成和，普通杠不单独成立。
             raise ValueError("手牌只剩一张时请使用和")
         candidates = kong_candidates(player.hand, player.melds)
         candidate = next((item for item in candidates if item["id"] == candidate_id), None)
         if candidate is None:
             raise ValueError("杠牌候选无效")
         game_state._consume_time_bank(player, game_state.turn_started_at)
+        game_state.events = []
         game_state._apply_kong(player, candidate)
+        record_kong(game_state, player, candidate)
         game_state.message = f"{player.username} 杠牌"
     elif action == "win":
         if after_claim:
@@ -231,7 +549,6 @@ async def handle_hand_action(game_state, player, action: str,
     game_state._start_turn_clock()
     game_state._advance_tick()
     await game_state.broadcast_state()
-    game_state._schedule_turn_timeout()
     game_state._schedule_bot_if_needed()
 
 
@@ -243,12 +560,15 @@ async def deal_card(game_state) -> None:
         await game_state._finish_round([], "draw")
         return
     game_state._start_turn_clock()
+    game_state.events = []
     game_state._draw_for_current_player()
+    drawn = game_state.players[game_state.current_player_index].drawn_tile
+    if drawn:
+        record_deal(game_state, drawn, "d")
     game_state._transition(HongqueStatus.WAITING_HAND_ACTION)
     game_state.message = f"轮到 {game_state.players[game_state.current_player_index].username}"
     game_state._advance_tick()
     await game_state.broadcast_state()
-    game_state._schedule_turn_timeout()
     game_state._schedule_bot_if_needed()
 
 
@@ -259,7 +579,6 @@ async def enter_onlycut_after_action(game_state) -> None:
     game_state._start_turn_clock()
     game_state._advance_tick()
     await game_state.broadcast_state()
-    game_state._schedule_turn_timeout()
     game_state._schedule_bot_if_needed()
 
 
@@ -281,6 +600,7 @@ async def handle_claim_action(game_state, player, action: str,
         if not window.pending:
             await resolve_claims(game_state)
         else:
+            refresh_claim_action_dict(game_state)
             await game_state.broadcast_state()
         return
 
@@ -307,6 +627,7 @@ async def broadcast_claim_application(game_state, player_index: int, candidate: 
     if game_state._claim_apply_broadcast.get(player_index) == candidate_id:
         return
     game_state._claim_apply_broadcast[player_index] = candidate_id
+    record_claim_apply(game_state, player_index, candidate)
     game_state.events = []
     game_state._record_event(
         "claim_apply",
@@ -325,8 +646,6 @@ async def _open_tactical_recheck(game_state) -> None:
     window: ClaimWindow = game_state.claim_window
     window.stage = "tactical"
     window.pending = _eligible_recheck_players(window)
-    # 回应只属于上一轮询问；保留提交历史用于最终仲裁，但被重新询问的
-    # 玩家必须能够重新选择开窗快照中仍高于当前申请的动作。
     for player_index in window.pending:
         game_state.claim_responses.pop(player_index, None)
     game_state.claim_started_at = time.monotonic()
@@ -335,68 +654,20 @@ async def _open_tactical_recheck(game_state) -> None:
     game_state.message = "战术鸣牌：等待更高优先级操作"
     game_state._advance_tick()
     window.note_asked(window.pending, game_state.action_tick)
+    refresh_claim_action_dict(game_state)
     await game_state.broadcast_state()
 
     if not window.pending:
         await resolve_claims(game_state)
         return
-    _schedule_claim_timeout(game_state)
     for player_index in tuple(window.pending):
         if game_state.players[player_index].user_id in (2, 3):
             game_state._schedule_bot_claim(player_index, game_state.action_tick)
 
 
-def _schedule_claim_timeout(game_state) -> None:
-    current = asyncio.current_task()
-    task = getattr(game_state, "_claim_timeout_task", None)
-    if task is not None and task is not current and not task.done():
-        task.cancel()
-    game_state._claim_timeout_task = asyncio.create_task(
-        claim_timeout(game_state, game_state.action_tick)
-    )
-
-
-async def claim_timeout(game_state, tick: int) -> None:
-    try:
-        while True:
-            async with game_state._lock:
-                window: Optional[ClaimWindow] = getattr(game_state, "claim_window", None)
-                if game_state.phase != "claim" or game_state.action_tick != tick or window is None:
-                    return
-                now = time.monotonic()
-                if window.stage == "tactical":
-                    deadline = window.deadline or now
-                    if now >= deadline:
-                        await resolve_claims(game_state)
-                        return
-                    sleep_seconds = deadline - now
-                else:
-                    expired = {
-                        player_index for player_index in window.pending
-                        if now >= game_state.claim_deadlines.get(player_index, now)
-                    }
-                    for player_index in expired:
-                        game_state.players[player_index].remaining_time = 0
-                        game_state.claim_responses[player_index] = {"action": "pass"}
-                    window.pending.difference_update(expired)
-                    if not window.pending:
-                        await resolve_claims(game_state)
-                        return
-                    sleep_seconds = min(
-                        game_state.claim_deadlines[player_index]
-                        for player_index in window.pending
-                    ) - now
-            await asyncio.sleep(max(0.0, sleep_seconds))
-    except asyncio.CancelledError:
-        return
-
-
 async def resolve_claims(game_state) -> None:
     window: Optional[ClaimWindow] = getattr(game_state, "claim_window", None)
     game_state._cancel_bot_claim_tasks()
-    task = getattr(game_state, "_claim_timeout_task", None)
-    if task is not None and task is not asyncio.current_task():
-        task.cancel()
 
     if window is None or window.active is None:
         await advance_after_unclaimed_discard(game_state)
@@ -431,19 +702,20 @@ async def resolve_claims(game_state) -> None:
         base_kind=candidate.get("base_kind", candidate["kind"]),
         silent=True,
     )
+    record_claim_execute(game_state, winner, candidate)
     game_state.message = f"{winner.username} 亮牌（{candidate['kind']}）"
     clear_claim_window(game_state)
     await enter_onlycut_after_action(game_state)
 
 
 async def advance_after_unclaimed_discard(game_state) -> None:
+    record_unclaimed_discard(game_state)
     clear_claim_window(game_state)
     if not game_state.wall:
         await game_state._finish_round([], "draw")
         return
     game_state.current_player_index = (game_state.last_discard["player"] + 1) % 4
     game_state._transition(HongqueStatus.DEAL_CARD)
-    await deal_card(game_state)
 
 
 def clear_claim_window(game_state) -> None:

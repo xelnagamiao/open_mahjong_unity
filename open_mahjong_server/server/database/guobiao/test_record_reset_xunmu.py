@@ -120,3 +120,22 @@ def test_hu_seat_as_string_still_counts_win_turn():
         ],
     }
     assert reconstruct_round_win_turns(rd)[1] == 1
+
+
+def test_claimed_dealer_discard_stays_xunmu_1():
+    rd = {
+        "start_player_index": 0,
+        "action_ticks": [
+            ["reset", 0],
+            ["c", 11, "F"],
+            ["p", 11, 2],
+            ["c", 12, "F"],
+            ["d", 13],
+            ["c", 13, "T"],
+            ["d", 14],
+            ["c", 14, "T"],
+            ["d", 14],
+            ["hu_self", 0, 8, ["平胡"], [8, 0, 0, 0]],
+        ],
+    }
+    assert reconstruct_round_win_turns(rd)[0] == 1

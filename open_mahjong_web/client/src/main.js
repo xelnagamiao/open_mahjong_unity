@@ -9,6 +9,7 @@ import App from './App.vue'
 import router from './router'
 import './style.css'
 import './styles/admin-form.css'
+import './styles/compact-date-range.css'
 
 const app = createApp(App)
 
@@ -23,4 +24,4 @@ app.use(ElementPlus, {
   locale: zhCn,
 })
 
-app.mount('#app') 
+app.mount('#app')

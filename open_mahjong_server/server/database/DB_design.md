@@ -35,7 +35,12 @@ PostgreSQL
 | password | VARCHAR(255) | NOT NULL | 密码哈希值（格式：salt:hash，使用 PBKDF2+SHA256，100000 次迭代）。游客账户密码为空字符串 |
 | is_tourist | BOOLEAN | DEFAULT FALSE | 是否为游客账户（游客账户可被删除） |
 | sponsor_expires_at | TIMESTAMP | NULL | 赞助者到期时间；NULL 或已过期表示非有效赞助者 |
+| is_beginner_qualified | BOOLEAN | NOT NULL DEFAULT FALSE | 特许进入初级场（突破最低段位；当前初级场无最低段位） |
+| is_intermediate_qualified | BOOLEAN | NOT NULL DEFAULT FALSE | 特许进入中级场（突破最低段位，不突破七段及以上上限） |
+| is_advanced_qualified | BOOLEAN | NOT NULL DEFAULT FALSE | 特许进入高级场（突破最低段位） |
 | is_mcrpl_qualified | BOOLEAN | NOT NULL DEFAULT FALSE | 是否拥有 MCRPL 资格 |
+| email | VARCHAR(255) | NULL | 绑定邮箱 |
+| email_verified_at | TIMESTAMP | NULL | 邮箱验证时间；非空表示已验证 |
 | ban_expires_at | TIMESTAMP | NULL | 封禁到期时间；NULL 且 ban_type 非空表示永久封禁 |
 | ban_type | VARCHAR(32) | NULL | 封禁类型：`login` 禁止登录、`chat` 禁止发言、`match` 禁止排位、`full` 全面封禁；NULL 表示未封禁 |
 | ban_reason | TEXT | NULL | 封禁原因，登录被拒时展示给玩家 |

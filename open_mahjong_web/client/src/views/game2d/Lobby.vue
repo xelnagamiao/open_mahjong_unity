@@ -176,6 +176,7 @@
       append-to-body
     >
       <div class="match-help-content">
+        <p>九段满 7000 PT 升十段。十段固定 100 / 100 PT，不再升降段，所有场次、局制和名次的 PT 变化均为 0；下方场得规则适用于十段之前。</p>
         <el-tabs v-model="activeHelpTier" class="match-help-tabs">
           <el-tab-pane
             v-for="tier in MATCH_HELP_TIERS"
@@ -271,7 +272,7 @@ import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { getPlayerToken } from '@/api/playerClient'
 import { leaderboardUrl, publicApiGet, queueStatusUrl } from '@/game2d/salasasa/api'
 import { salasasaClient } from '@/game2d/salasasa/client'
-import { getRankEntry } from '@/constants/rankTable'
+import { getRankEntry, getPromotionProgress } from '@/constants/rankTable'
 import { tr } from '@/i18n'
 import CustomRoomPanel from './CustomRoomPanel.vue'
 import LobbyRecordPanel from './LobbyRecordPanel.vue'
@@ -323,7 +324,7 @@ const MATCH_HELP_TIERS = [
     settings: '有提示、无错和、战术鸣牌',
   },
   {
-    key: 'intermediate', title: '中级场', admission: '2级及以上，七段及以上不可进入；赞助者可突破最低段位', base: 65, time: '20+8',
+    key: 'intermediate', title: '中级场', admission: '2级及以上，七段及以上不可进入', base: 65, time: '20+8',
     settings: '无提示、错和、战术鸣牌',
   },
   {
@@ -359,6 +360,7 @@ const RANK_LOSS_ROWS = [
   { rank: '七段', loss: 135 },
   { rank: '八段', loss: 165 },
   { rank: '九段', loss: 180 },
+  { rank: '十段（固定 PT）', loss: 0 },
 ]
 
 const router = useRouter()
@@ -431,19 +433,23 @@ function formatPt(value) {
 }
 
 function formatRankPt(row) {
-  const current = formatPt(row?.guobiao_score)
-  const target = getRankEntry(row?.guobiao_rank)?.promoteScore
+  const progress = getPromotionProgress(row?.guobiao_rank, row?.guobiao_score)
+  const current = formatPt(progress?.current ?? row?.guobiao_score)
+  const target = progress?.target
   return target == null ? current : `${current}/${formatPt(target)}`
 }
 
 function canEnterTier(tierKey) {
-  if (tierKey === 'beginner') return true
-  const rankIndex = getRankEntry(session.rank?.guobiao_rank)?.index ?? 0
-  if (tierKey === 'intermediate') {
-    return rankIndex < 16 && (rankIndex >= 8 || Boolean(session.rank?.is_sponsor))
-  }
-  if (tierKey === 'advanced') return rankIndex >= 13
   if (tierKey === 'mcrpl') return Boolean(session.rank?.is_mcrpl_qualified)
+  const rankIndex = getRankEntry(session.rank?.guobiao_rank)?.index ?? 0
+  if (tierKey === 'intermediate' && rankIndex >= 16) return false
+  if (tierKey === 'beginner') return true
+  if (tierKey === 'intermediate') {
+    return rankIndex >= 8 || Boolean(session.rank?.is_intermediate_qualified)
+  }
+  if (tierKey === 'advanced') {
+    return rankIndex >= 13 || Boolean(session.rank?.is_advanced_qualified)
+  }
   return false
 }
 

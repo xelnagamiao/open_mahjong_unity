@@ -19,56 +19,15 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
     }
 
     public void ShowTipsBlock(List<int> selfHandTiles, List<string> combinationTiles){
-        HashSet<int> waitingTiles = new HashSet<int>();
-        try {
-            if (NormalGameStateManager.Instance.roomRule == "guobiao"){
-                waitingTiles = GBtingpai.TingpaiCheck(
-                    selfHandTiles,
-                    combinationTiles,
-                    false
-                );
-            }
-            else if (NormalGameStateManager.Instance.roomRule == "qingque"){
-                waitingTiles = Qingque13External.TingpaiCheck(selfHandTiles, combinationTiles, false);
-            }
-            else if (NormalGameStateManager.Instance.roomRule == "classical"){
-                waitingTiles = ClassicalExternal.TingpaiCheck(selfHandTiles, combinationTiles, false);
-            }
-            else if (NormalGameStateManager.Instance.roomRule == "riichi"){
-                waitingTiles = RiichiExternal.TingpaiCheck(selfHandTiles, combinationTiles, false);
-            }
-            else if (NormalGameStateManager.Instance.roomRule == "sichuan"){
-                waitingTiles = SichuanExternal.TingpaiCheck(selfHandTiles, combinationTiles);
-                int dingque = NormalGameStateManager.Instance.selfDingqueSuit;
-                if (dingque == 1 || dingque == 2 || dingque == 3) {
-                    waitingTiles.RemoveWhere(w => (w / 10) == dingque);
-                }
-            }
-            else if (NormalGameStateManager.Instance.roomRule == "changsha"){
-                waitingTiles = ChangshaExternal.TingpaiCheck(selfHandTiles, combinationTiles);
-            }
-            else if (NormalGameStateManager.Instance.roomRule == "jiandan"){
-                waitingTiles = JiandanExternal.TingpaiCheck(selfHandTiles, combinationTiles);
-            }
-            else if (NormalGameStateManager.Instance.roomRule == "taiwan"){
-                waitingTiles = TaiwanExternal.TingpaiCheck(
-                    selfHandTiles,
-                    combinationTiles,
-                    NormalGameStateManager.Instance.detailedConfig
-                );
-            }
-            else if (NormalGameStateManager.Instance.roomRule == "hongque"){
-                // 虹雀听牌由 HongqueTableAdapter / TileCard 本地按服务端口径计算，
-                // 不能走通用 TingpaiCheck：这里若清空缓存会把刚算好的提示抹掉。
-                return;
-            }
-            else{
-                Debug.LogWarning($"未知的规则类型: {NormalGameStateManager.Instance.roomRule}");
-                waitingTiles = new HashSet<int>();
-            }
-        } catch (System.Exception e) {
-            Debug.LogError($"计算听牌列表时出错: {e.Message}");
-        }
+        // 听牌提示由族自行计算的规则（如虹雀）：不能走通用 TingpaiCheck，
+        // 这里若清空缓存会把刚算好的提示抹掉。
+        if (RuleRegistry.Current != null && RuleRegistry.Current.TipsProvidedByGameState) return;
+        HashSet<int> waitingTiles = RuleTips.ComputeWaiting(RuleRegistry.Current, new TingpaiQuery {
+            Hand = selfHandTiles,
+            Melds = combinationTiles,
+            DetailedConfig = GameSession.Current.DetailedConfig,
+            ExcludedSuit = RuleRegistry.ActiveGameState?.ExcludedSuit ?? 0,
+        });
         // 如果听牌列表不为空，则显示提示
         TipsContainer.Instance.UpdateRyuukyokuTenpaiChoice(waitingTiles);
         if (waitingTiles.Count > 0){

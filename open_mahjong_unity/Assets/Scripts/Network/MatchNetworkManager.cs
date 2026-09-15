@@ -52,7 +52,7 @@ public class MatchNetworkManager : MonoBehaviour {
         }
         if (IsMatchUiLocked()) return;
         CoroutineManager.Ensure();
-        CoroutineManager.Instance.RunNextFrame(ShowQueueingPanelIfStillNeeded, CoroutineKeys.MatchQueueingPanelDelay);
+        CoroutineManager.Instance?.RunNextFrame(ShowQueueingPanelIfStillNeeded, CoroutineKeys.MatchQueueingPanelDelay);
     }
 
     private void RestoreQueueingFromServer(string queueType) {
@@ -100,7 +100,7 @@ public class MatchNetworkManager : MonoBehaviour {
         isMatchFoundLocked = false;
         lastJoinedQueueType = null;
         CoroutineManager.Ensure();
-        CoroutineManager.Instance.StopNamed(CoroutineKeys.MatchQueueingPanelDelay);
+        CoroutineManager.Instance?.StopNamed(CoroutineKeys.MatchQueueingPanelDelay);
         MatchStateManager.Instance.StopQueueing();
         MatchQueueingPanel.Instance?.HideImmediately();
         MatchFoundedPanel.Instance?.StopCountdownAndHide();

@@ -85,6 +85,8 @@ def store_riichi_game_record(db_manager, game_record: dict, player_list: list, r
             except Error as e:
                 logger.warning(f"跳过立直玩家对局记录: user_id={player.user_id}, error={e}")
 
+        from ..player_recent_records import update_player_recent_records
+        update_player_recent_records(cursor, game_id, game_record)
         conn.commit()
         logger.info(f"立直牌谱已保存 game_id={game_id}，玩家记录 {saved_count} 条")
         try:

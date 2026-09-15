@@ -192,6 +192,10 @@ async function ensureEventsTables() {
       ADD COLUMN IF NOT EXISTS entry_config JSONB NOT NULL DEFAULT '{}'::jsonb
   `);
   await pool.query(`
+    ALTER TABLE events
+      ADD COLUMN IF NOT EXISTS room_settings JSONB NOT NULL DEFAULT '{}'::jsonb
+  `);
+  await pool.query(`
     UPDATE events SET entry_config = COALESCE(entry_config, '{}'::jsonb)
       || CASE WHEN COALESCE(entry_config, '{}'::jsonb) ? 'auto_approve'
            THEN '{}'::jsonb ELSE '{"auto_approve": false}'::jsonb END

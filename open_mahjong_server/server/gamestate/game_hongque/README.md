@@ -1,25 +1,27 @@
 # 虹雀服务端
 
-虹雀采用纯内存、事件驱动的服务端状态机，不创建牌谱或统计记录。
-客户端牌码与 Unity 的 HQv3.1 资源名一致（`AX1` 至 `GY9`）。
+虹雀编排方式对齐国标：`submit_action` 只入队，主循环按 `game_status` 推进，
+超时在 `wait_action` 等待结束之后处理。客户端牌码与 Unity 的 HQv3.1 资源名一致（`AX1` 至 `GY9`）。
+终局无机器人时写入 `game_records`；无论是否有机器人都会在 `game_end` 附带 `record_detail` 供本地落盘。
+虹雀仍不支持观战。
 
 ## 目录职责
 
 ### 对局编排
 
-- `HongqueGameState.py`：房间生命周期、回合结算和组件入口。
+- `HongqueGameState.py`：房间生命周期、主循环、回合结算。
 - `state_machine.py`：权威对局状态及合法迁移。
 - `player.py`：玩家领域模型。
 - `init_tiles.py`：牌山、发牌、摸牌和调试牌例初始化。
-- `boardcast.py`：按观察者裁剪并广播权威快照。
+- `boardcast.py`：按观察者裁剪；开局/重连发完整桌面，对局只发增量事件。
+- `wait_action.py`：阻塞等待手牌/鸣牌；超时在循环结束后走默认切、pass 或执行当前申请。
 
 ### 行动处理
 
 - `action_check.py`：无副作用的合法行动检查。
 - `action_priority.py`：和、虹、碰、吃的唯一优先级表。
-- `wait_action.py`：弃牌响应、战术鸣牌、超时及最终仲裁。
 - `ron_resolution.py`：多家荣和收集与结算。
-- `get_action.py`：机器人异步决策和 action tick 校验。
+- `get_action.py`：机器人决策后入队。
 
 ### 规则与计算
 
@@ -47,7 +49,7 @@ waiting
 ```
 
 网络字段 `phase` 仅用于兼容旧客户端；`game_status` 是权威状态，
-`state_version` 用于识别状态快照的新旧。
+`state_version` 用于识别开局/重连全量包的新旧。
 
 ## 鸣牌优先级
 

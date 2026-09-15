@@ -416,12 +416,11 @@ class ChangshaGameState:
                 )
 
     def _draw_changsha_birds(self, count: int = 2) -> List[int]:
-        birds = []
-        for _ in range(count):
-            if not self.tiles_list:
-                break
-            birds.append(self.tiles_list.pop(0))
-        return birds
+        """翻开牌山头部若干张作为扎鸟指示牌，不摸进手、不从牌山取走。"""
+        if count <= 0:
+            return []
+        wall = getattr(self, "tiles_list", None) or []
+        return list(wall[:count])
 
     @staticmethod
     def _is_sea_bottom_win(fan_list: List[str]) -> bool:
@@ -1147,6 +1146,7 @@ class ChangshaGameState:
             hu_score = None
             hu_fan = None
             hepai_player_index = None
+            bird_tiles = None
 
             # 记录结算前的分数（用于计算本局分数变化）
             scores_before = {player.original_player_index: player.score for player in self.player_list}
@@ -1160,6 +1160,7 @@ class ChangshaGameState:
                     score_info = self._score_changsha_win(hepai_player_index, hu_fan, True)
                     actual_hu_score = score_info["actual_hu_score"]
                     hu_fan = score_info["fan_display"]
+                    bird_tiles = list(score_info.get("birds") or []) or None
 
                     # 记录玩家数据
                     self.player_list[hepai_player_index].record_counter.zimo_times += 1 # 增加自摸次数
@@ -1196,6 +1197,7 @@ class ChangshaGameState:
                     )
                     actual_hu_score = score_info["actual_hu_score"]
                     hu_fan = score_info["fan_display"]
+                    bird_tiles = list(score_info.get("birds") or []) or None
 
                     # 记录玩家数据
                     self.player_list[hepai_player_index].record_counter.dianhe_times += 1 # 增加点和次数
@@ -1231,6 +1233,7 @@ class ChangshaGameState:
                                        hepai_player_huapai = he_huapai, # 和牌玩家花牌列表
                                        hepai_player_combination_mask = he_combination_mask, # 和牌玩家组合掩码
                                        score_changes = score_changes_dict,
+                                       bird_tiles = bird_tiles,
                                        next_status = (
                                            "match_end"
                                            if self.current_round >= self.max_round * 4
@@ -1281,7 +1284,7 @@ class ChangshaGameState:
             if self.hu_class in ["hu_self","hu_first","hu_second","hu_third"]:
                 player_action_record_hu(self, hu_class=self.hu_class, hu_score=hu_score,
                                         hu_fan=hu_fan, hepai_player_index=hepai_player_index,
-                                        score_changes=score_changes)
+                                        score_changes=score_changes, bird_tiles=bird_tiles)
             else:
                 player_action_record_liuju(self)
             player_action_record_round_end(self)

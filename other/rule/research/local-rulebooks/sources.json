@@ -95,8 +95,8 @@
       "title": "青雀一页纸",
       "type": "rulebook",
       "lang": "zh",
-      "accessed": "2026-08-14",
-      "excerpt": "一页纸番种速记。",
+      "accessed": "2026-09-09",
+      "excerpt": "青雀第十四版一页纸，来自 mmcr.online。",
       "rules": [
         "qingque"
       ],
@@ -104,7 +104,9 @@
       "reliability": "high",
       "local_path": "rulebooks/qingque-onepage.pdf",
       "local_kind": "file",
-      "local_status": "ok"
+      "local_status": "ok",
+      "source_url": "https://mmcr.online/brief.pdf",
+      "version": "14"
     },
     {
       "id": "lib-qingque-paili",
@@ -112,8 +114,8 @@
       "title": "青雀牌例",
       "type": "rulebook",
       "lang": "zh",
-      "accessed": "2026-08-14",
-      "excerpt": "番种详解与牌例。",
+      "accessed": "2026-09-09",
+      "excerpt": "青雀牌例第三版第一次修订，适用于第十四版，来自 mmcr.online。",
       "rules": [
         "qingque"
       ],
@@ -121,7 +123,9 @@
       "reliability": "high",
       "local_path": "rulebooks/qingque-paili.pdf",
       "local_kind": "file",
-      "local_status": "ok"
+      "local_status": "ok",
+      "source_url": "https://mmcr.online/scoring-samples.pdf",
+      "version": "3.1 (青雀 14)"
     },
     {
       "id": "lib-qingque-book",
@@ -129,8 +133,8 @@
       "title": "青雀规则文档",
       "type": "rulebook",
       "lang": "zh",
-      "accessed": "2026-08-14",
-      "excerpt": "行牌逻辑与概念解释。",
+      "accessed": "2026-09-09",
+      "excerpt": "青雀第十四版第一次修订，来自 mmcr.online。",
       "rules": [
         "qingque"
       ],
@@ -138,7 +142,9 @@
       "reliability": "high",
       "local_path": "rulebooks/qingque-rulebook.pdf",
       "local_kind": "file",
-      "local_status": "ok"
+      "local_status": "ok",
+      "source_url": "https://mmcr.online/rule.pdf",
+      "version": "14.1"
     },
     {
       "id": "lib-hongque",

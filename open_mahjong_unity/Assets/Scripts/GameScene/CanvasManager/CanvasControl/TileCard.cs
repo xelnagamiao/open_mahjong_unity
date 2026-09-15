@@ -10,14 +10,14 @@ using System.Linq;
 /// 层级结构：
 /// TileCard (空物体)
 /// ├── fill（原槽位，仅点击出牌，不触发拖拽）
-/// ├── FaceBackground（手牌背景，官方套隐藏）
+/// ├── FaceBackground（标准手牌的牌体底图）
 /// ├── Image (花纹)
 /// └── Button（拖拽与点牌面）
 /// </summary>
 public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler {
     [Header("UI Components")]
     [SerializeField] private Image tileImage;    // 牌面图片组件
-    [SerializeField] private Image faceBackground; // 手牌背景（官方套隐藏）
+    [SerializeField] private Image faceBackground; // 标准手牌的牌体底图
     [SerializeField] private Button tileButton;  // 按钮组件
 
     // 将私有字段改为公共属性
@@ -219,7 +219,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     }
 
     private static bool ShouldUseHandCutConfirm() {
-        if (!ConfigManager.Instance.IsHandCutConfirmEnabled) {
+        if (!GameSettings.Current.IsHandCutConfirmEnabled) {
             return false;
         }
         if (RiichiCutSelectionController.Instance.IsActive) {
@@ -288,8 +288,13 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         currentGetTile = isCurrentGetTile;
         isDrawSlotPinned = isCurrentGetTile;   // 新摸入牌默认固定在摸牌区，手动理牌时再清除
 
-        if (!TileFaceFit.ApplyHandLayers(transform as RectTransform, tileImage, faceBackground, id)) {
-            Debug.LogError($"找不到牌面图片: {id}");
+        RefreshVisual();
+    }
+
+    /// <summary>换牌面/背景时只刷新显示，保留理牌固定位置与对局提示状态。</summary>
+    public void RefreshVisual() {
+        if (!TileFaceFit.ApplyHandLayers(transform as RectTransform, tileImage, ref faceBackground, tileId)) {
+            Debug.LogError($"找不到牌面图片: {tileId}");
         }
         ApplyDisplayColor();
     }
@@ -313,10 +318,9 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         // 如果切牌在允许操作列表中
         if (NormalGameStateManager.Instance.allowActionList.Contains("cut")){
             GameCanvas.Instance.MarkPendingLocalCut(this);
-            if (HongqueTableAdapter.IsActive && HongqueTileVisual.IsHongqueId(tileId)) {
-                HongqueTableAdapter.Instance.SendDiscard(tileId);
-                return;
-            }
+            // 有自己出站通道的族（如虹雀）自行发送出牌
+            IGameState state = RuleRegistry.ActiveGameState;
+            if (state != null && state.TryCutTile(tileId)) return;
             int cutIndex = transform.GetSiblingIndex();// 获取切牌是父物体的第几个子物体
             GameStateNetworkManager.Instance.SendChineseGameTile(currentGetTile,tileId,cutIndex); // 发送切牌请求
         } else {
@@ -443,23 +447,9 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
             return;
         }
 
-        if (NormalGameStateManager.Instance.roomRule == "hongque") {
-            List<int> handAfterDiscard = new List<int>(NormalGameStateManager.Instance.selfHandTiles);
-            bool removed = handAfterDiscard.Remove(tileId);
-            HongqueScoreHintInfo[] localHints = removed
-                ? HongqueTenpai.BuildScoreHints(
-                    handAfterDiscard,
-                    NormalGameStateManager.Instance.player_to_info["self"].combination_masks,
-                    tileId)
-                : Array.Empty<HongqueScoreHintInfo>();
-            if (!isHovering && !ignoreHoverGate) return;
-            if (localHints.Length > 0) {
-                TipsContainer.Instance.SetHongqueCutPreviewHints(localHints, tileId);
-                TipsContainer.Instance.hasTips = true;
-                TipsContainer.Instance.ShowTips();
-            } else {
-                TipsContainer.Instance.EndCutPreviewTips();
-            }
+        // 族自绘切牌预览（如虹雀）：由族计算并绘制，核心不走通用 TingpaiCheck 链
+        IGameState tipsState = RuleRegistry.ActiveGameState;
+        if (tipsState != null && tipsState.TryShowCutPreviewTips(tileId, isHovering || ignoreHoverGate)) {
             return;
         }
 
@@ -468,78 +458,12 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         tempHandTiles.Remove(tileId);
 
         // 执行听牌检测
-        HashSet<int> waitingTiles = new HashSet<int>();
-        try
-        {
-            if (NormalGameStateManager.Instance.roomRule == "guobiao"){
-                waitingTiles = GBtingpai.TingpaiCheck(
-                    tempHandTiles,
-                    NormalGameStateManager.Instance.player_to_info["self"].combination_tiles,
-                    false
-                );
-            }
-            else if (NormalGameStateManager.Instance.roomRule == "qingque"){
-                waitingTiles = Qingque13External.TingpaiCheck(
-                    tempHandTiles,
-                    NormalGameStateManager.Instance.player_to_info["self"].combination_tiles ?? new List<string>(),
-                    false
-                );
-            }
-            else if (NormalGameStateManager.Instance.roomRule == "classical"){
-                waitingTiles = ClassicalExternal.TingpaiCheck(
-                    tempHandTiles,
-                    NormalGameStateManager.Instance.player_to_info["self"].combination_tiles ?? new List<string>(),
-                    false
-                );
-            }
-            else if (NormalGameStateManager.Instance.roomRule == "riichi"){
-                waitingTiles = RiichiExternal.TingpaiCheck(
-                    tempHandTiles,
-                    NormalGameStateManager.Instance.player_to_info["self"].combination_tiles ?? new List<string>(),
-                    false
-                );
-            }
-            else if (NormalGameStateManager.Instance.roomRule == "sichuan"){
-                waitingTiles = SichuanExternal.TingpaiCheck(
-                    tempHandTiles,
-                    NormalGameStateManager.Instance.player_to_info["self"].combination_tiles ?? new List<string>()
-                );
-                // 四川：和牌张不得为定缺花色
-                int dingque = NormalGameStateManager.Instance.selfDingqueSuit;
-                if (dingque == 1 || dingque == 2 || dingque == 3){
-                    waitingTiles.RemoveWhere(w => (w / 10) == dingque);
-                }
-            }
-            else if (NormalGameStateManager.Instance.roomRule == "jiandan"){
-                waitingTiles = JiandanExternal.TingpaiCheck(
-                    tempHandTiles,
-                    NormalGameStateManager.Instance.player_to_info["self"].combination_tiles ?? new List<string>()
-                );
-            }
-            else if (NormalGameStateManager.Instance.roomRule == "changsha"){
-                waitingTiles = ChangshaExternal.TingpaiCheck(
-                    tempHandTiles,
-                    NormalGameStateManager.Instance.player_to_info["self"].combination_tiles ?? new List<string>()
-                );
-            }
-            else if (NormalGameStateManager.Instance.roomRule == "taiwan"){
-                waitingTiles = TaiwanExternal.TingpaiCheck(
-                    tempHandTiles,
-                    NormalGameStateManager.Instance.player_to_info["self"].combination_tiles ?? new List<string>(),
-                    NormalGameStateManager.Instance.detailedConfig
-                );
-            }
-            else
-            {
-                Debug.LogWarning($"未知的规则类型: {NormalGameStateManager.Instance.roomRule}");
-                waitingTiles = new HashSet<int>();
-            }
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"检测切牌提示时出错: {e.Message}");
-            waitingTiles = new HashSet<int>();
-        }
+        HashSet<int> waitingTiles = RuleTips.ComputeWaiting(RuleRegistry.Current, new TingpaiQuery {
+            Hand = tempHandTiles,
+            Melds = NormalGameStateManager.Instance.player_to_info["self"].combination_tiles ?? new List<string>(),
+            DetailedConfig = GameSession.Current.DetailedConfig,
+            ExcludedSuit = tipsState?.ExcludedSuit ?? 0,
+        });
 
         // 检查是否还在悬停状态（避免异步返回时已经离开）；立起提示不受悬停限制
         if (!isHovering && !ignoreHoverGate)

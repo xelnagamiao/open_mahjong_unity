@@ -22,7 +22,7 @@
               <div class="rank-info-row">
                 <span class="label">升段进度</span>
                 <span v-if="formProgress.isMaxRank" class="value">
-                  {{ form.guobiao_score }} PT（最高段位，无升段上限）
+                  {{ formProgress.current }} / {{ formProgress.target }} PT（最高段位，PT 固定，不再升降段）
                 </span>
                 <span v-else class="value">
                   {{ form.guobiao_score }} / {{ formProgress.target }} PT
@@ -41,7 +41,7 @@
               </div>
               <div class="rank-meta">
                 <span>起始分 {{ selectedBounds.startScore }}</span>
-                <span>升段分 {{ selectedBounds.promoteScore }}</span>
+                <span>{{ selectedBounds.isTopRank ? '固定分' : '升段分' }} {{ selectedBounds.promoteScore }}</span>
                 <span>{{ selectedBounds.canDemote ? '可掉段' : '不可掉段' }}</span>
               </div>
               <p v-if="scoreOutOfRange" class="range-warn">当前 PT 超出该段位有效范围，保存将被拒绝</p>
@@ -54,6 +54,7 @@
                 :max="ptInputMax"
                 :step="0.1"
                 :precision="2"
+                :disabled="selectedBounds?.isTopRank"
                 style="width: 100%"
               />
             </el-form-item>
@@ -95,7 +96,7 @@
             <el-table-column prop="promote_score" label="升段分" width="72" />
             <el-table-column label="可设 PT 上限" width="110">
               <template #default="{ row }">
-                {{ row.bounds.isTopRank ? '无上限' : row.bounds.maxScore }}
+                {{ row.bounds.isTopRank ? `${row.bounds.maxScore}（固定）` : row.bounds.maxScore }}
               </template>
             </el-table-column>
             <el-table-column label="掉段" width="64">
@@ -148,16 +149,14 @@ const formProgress = computed(() =>
   }
 )
 const ptInputMin = computed(() => selectedBounds.value?.minScore ?? 0)
-const ptInputMax = computed(() =>
-  selectedBounds.value?.isTopRank ? undefined : selectedBounds.value?.maxScore
-)
+const ptInputMax = computed(() => selectedBounds.value?.maxScore)
 const scoreOutOfRange = computed(() => !validateRankScore(form.guobiao_rank, form.guobiao_score).valid)
 
 const validPtRangeText = computed(() => {
   const b = selectedBounds.value
   if (!b) return ''
-  const max = b.isTopRank ? '无上限' : b.maxScore
-  return `${b.minScore} ~ ${max} PT`
+  if (b.isTopRank) return `${b.minScore} PT（固定）`
+  return `${b.minScore} ~ ${b.maxScore} PT`
 })
 
 const rankTableRows = computed(() =>
@@ -187,6 +186,7 @@ async function loadRank() {
     const data = res.data.data
     form.guobiao_rank = data.guobiao_rank
     form.guobiao_score = data.guobiao_score
+    if (selectedBounds.value?.isTopRank) onRankChange()
     loadedRank.value = data
   } catch (e) {
     loadedRank.value = null

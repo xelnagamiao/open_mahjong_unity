@@ -28,6 +28,9 @@ public class RankChangePanel : MonoBehaviour {
     /// 显示段位变动动画
     /// </summary>
     public void ShowRankChange(string oldRank, float oldScore, string newRank, float newScore, float pt) {
+        oldScore = RankLevelConfig.NormalizeScore(oldRank, oldScore);
+        newScore = RankLevelConfig.NormalizeScore(newRank, newScore);
+        if (RankLevelConfig.IsFixedRank(oldRank)) pt = 0;
         gameObject.SetActive(true);
         confirmButton.interactable = false;
 
@@ -94,7 +97,7 @@ public class RankChangePanel : MonoBehaviour {
         }
 
         // 更新 UserDataManager
-        UserDataManager.Instance.UpdateGuobiaoRank(newRank, newScore);
+        PlayerSession.Current.UpdateGuobiaoRank(newRank, newScore);
 
         confirmButton.interactable = true;
     }

@@ -1,0 +1,77 @@
+# 牌面资源
+
+`packs/` 是可用牌面，`sources/` 保存原画，`surfaces/` 单独管理牌体背景与牌背。
+
+虹雀 `table` 的 Unity 导入现使用 POT + BC7/ASTC 高质量压缩；`hand` 为保持原显示比例暂不改 POT。范围、验证和体积口径见 [纹理压缩说明](../Tablecloth/TextureCompression.md)，原始 PNG 不变。
+
+| 目录 | 用途 |
+| --- | --- |
+| `packs/official/hand`、`table` | 雪枫透明牌面，各 46 张；手牌 272 × 389，桌面 400 × 532，万、筒、索各自统一组内排版 |
+| `packs/fluffy/hand`、`table` | Fluffy 牌面，各 46 张；花牌 51–58 与雪枫对应层的 PNG 完全相同 |
+| `packs/hkmahjong/hand`、`table` | HK 原有牌面加独立空白，各 43 张；赤五沿用游戏的雪枫回退 |
+| `sources/official/hand-framed` | 雪枫原始有框 PNG，保留原分辨率和全部像素，用于重新生成透明图案 |
+| `sources/fluffy` | Fluffy 原始 SVG、PNG 和原说明；生成桌面牌面优先使用 SVG |
+| `sources/hkmahjong` | HK 原始 PNG |
+| `surfaces/backgrounds/hand-default.png` | 竖向默认牌体底图 |
+| `surfaces/backgrounds/hand-horizontal.png` | 横向牌体底图；原文件 `1.png`，不是牌背 |
+| `surfaces/backs/hand-default.png` | 深蓝牌背；原文件 `0.png` |
+
+上传牌面包时，将某个 `packs/<包名>/` 内的 `hand` 和 `table` 一起压入 ZIP。
+不要把 `sources` 或 `surfaces` 混入牌面 ZIP；背景和牌背在各自设置页管理。
+官方 `table` 导出不含 Unity 图集专用的透明占位 `0.png`，避免被识别为未知牌号。
+
+透明图案没有固定底色。雪枫原底色 `(245,246,247)` 与筒饼内部真正的白色
+笔画、白色填充不同；透明提取保留白色图案，只去除牌体和实际内孔的底色。
+半透明边缘经过原底色去混色处理，换深色背景不会带出白边。透明提取在缩放前
+与原图逐像素核对；旧文件彼此略有不同的牌体外轮廓统一使用默认底。
+
+雪枫 2D 手牌保留原始 272 × 389 画布中的图案尺寸和位置，只去除固定底色，
+不放大、不重新采样，也不套用 3D 的二索上移或字牌居中。花牌同样恢复原稿
+尺寸，Fluffy 手牌花牌与雪枫对应 PNG 保持一致。
+
+雪枫 3D 万、筒、索各自采用统一的原图坐标变换，赤五随所属组。组内共享倍率和
+位置，保留原画的数字高低、萬字基线、索子与筒子的行列关系，不再按每张图案
+的外接框分别缩放或居中。二索仍上移，只有位置例外，倍率与索子组相同。
+原画中三排索较小、八索相连等固有差异予以保留，不强制所有图案一样宽高。
+
+数牌每组还共享透明提取调色板：同样的原始颜色与边界条件得到相同透明像素，
+避免上方数字改变下方同一个萬字的边缘。桌面字牌和花牌保留此前已接受的
+大小、位置与透明提取；2D 手牌统一使用原稿尺寸和位置。
+雪枫桌面显示区域继续使用 `.93`。手牌检查图案未侵入牌体边框；桌面保留至少
+4 像素画布边距，并按真实圆角平面检查最淡的边缘仍有至少 2 像素采样余量。
+这些检查只验证结果，不会暗中缩小或移动其中某一张牌。
+
+参数保存在 [`snow_artwork_layout.json`](../../tools/tilepack/snow_artwork_layout.json)：
+版本 3 的 `families` 中，`table` 保存各组的最终 `scale` 和 `offset`。
+所有 `hand` 固定为 `scale: 1, offset: [0, 0]`；生成器会拒绝改变 2D 原稿排版
+的配置，避免桌面放大再次联动手牌。
+计算方式是“输出坐标 = 原始坐标 × scale + offset”：原始坐标来自 272 × 389
+原图，`offset` 使用输出像素，负 Y 向上，背后没有额外的逐图适配倍率。
+`exceptions` 仅允许带原因的 `source_translation`；目前只有二索在组变换前
+向上平移 12.5 个原图像素，仅影响 `table`。`independent_artwork` 保存字牌、
+花牌与空白的桌面变换，其 `hand` 同样固定为原稿坐标。要改 3D 数牌大小，
+请调整整组 `table`，并检查该组全部成员。
+
+每次都从保留的原画生成：手牌直接提取不采样，桌面只采样一次，重复运行
+不会累计放大或损失画质。
+原画不因重新生成而被覆盖。所有源文件整理前已按 SHA-256 校验备份，当前
+`sources` 是后续制作应使用的原画位置。
+
+雪枫桌面 PNG 和 Fluffy 的 51–58 花牌桌面 PNG 写有
+`om-table-image-scale-v1=0.93` 的 PNG 文本元数据。游戏据此统一内置牌面、重新
+上传和预览的显示比例；这不是拉伸图像的参数。编辑并导出这些文件时应保留该
+元数据，不要只复制解码后的像素。没有该元数据的普通上传图片使用 `.86` 的
+标准显示区域。手牌及其他牌包不带此项。
+
+重新生成并同步这些可用包：
+
+```powershell
+python tools/tilepack/rebuild_table_faces.py --export-root other/tiles
+```
+
+运行位置请使用仓库根目录。依赖和转换细节见
+[`tools/tilepack/README.md`](../../tools/tilepack/README.md)。
+逐图来源、输出 SHA-256、放大比例和透明提取验证可在运行生成器时通过
+`--report <本地报告路径>` 生成；报告属于本机产物，不放入共享素材目录。
+默认报告写入 `.om_workspace/tilepack-build/face-build.json`。
+未启用的其他历史牌面来源已移入 `.om_workspace/cleanup-quarantine-20260912/small/tiles_unused`，不参与此生成流程；仓库内只保留当前可用包、原画源文件和牌体表面资源。

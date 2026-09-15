@@ -1,6 +1,7 @@
 {
   "staticRoot": "/www/wwwroot/salasasa.cn/dist",
   "webRoot": "/home/admin/open_mahjong_unity/open_mahjong_web",
+  "dataRoot": "/var/open-mahjong/data",
   "manualGamePackages": [
     "unity-game",
     "ios-game",
@@ -10,9 +11,10 @@
     "activity-assets"
   ],
   "notes": [
+    "运行时数据（牌面 zip、活动专栏 JSON/图片）在 OM_DATA_DIR，生产默认 /var/open-mahjong/data；不要放进 git 或 nginx dist。",
+    "迁机：Postgres dump + 整棵拷贝 OM_DATA_DIR。子目录 user-content、activities、activity-assets。",
     "manualGamePackages 由人工放入 client/dist 与线上 dist，不走仓库/自动构建覆盖。",
-    "preserveStaticDirs 为运营上传的静态内容（活动专栏图文），Vite 不得覆盖或删除。",
-    "Vite build 不得从 public/ 拷贝这些目录到 dist。",
-    "生产同步静态文件时必须跳过这些目录，也不得删除远端已有内容。"
+    "preserveStaticDirs 仅保留 dist 里旧的 activity-assets 备份，新文件不再写入 dist。Vite 与 rsync 仍不得删除该目录。",
+    "Vite build 不得从 public/ 拷贝这些目录到 dist。"
   ]
 }

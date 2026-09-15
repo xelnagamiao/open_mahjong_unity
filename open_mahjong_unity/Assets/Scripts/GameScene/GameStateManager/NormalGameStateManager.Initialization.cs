@@ -5,22 +5,20 @@ using UnityEngine;
 public partial class NormalGameStateManager {
     // 初始化游戏
     public void InitializeGame(bool success, string message, GameInfo gameInfo){
-        ClearPendingCuoheContinue();
-        ClearPendingSichuanContinue();
         lastAskHandPlayerIndex = -1;
-        ResetSelfReadyQualification();
         // 新对局（gamestate_id 变化）才清空本地结算快照；同一场对局的下一局 game_start 不应清空，
         // 否则会抹掉已累积的主番快照（国标每局都会广播 game_start），导致计分板主番列整列变 —。
         // 重连时若本地快照行数与服务端 score_history 不一致，仍清空以免与分值行错位。
         bool isNewMatch = string.IsNullOrEmpty(gamestateId) || gamestateId != gameInfo.gamestate_id;
         if (isNewMatch) {
+            GameSceneUIManager.ResetRealtimeSpectatorUi();
             ClearRoundSettlementHistory();
             ClearStickerMutes();
         }
         if (!IsRealtimeSpectator) {
-            UserDataManager.Instance.SetRoomId(gameInfo.room_id.ToString());
+            PlayerSession.Current.SetRoomId(gameInfo.room_id.ToString());
         }
-        UserDataManager.Instance.SetGamestateId(gameInfo.gamestate_id);
+        PlayerSession.Current.SetGamestateId(gameInfo.gamestate_id);
 
         gamestateId = gameInfo.gamestate_id;
         // 0.切换窗口
@@ -28,14 +26,13 @@ public partial class NormalGameStateManager {
         MatchNetworkManager.Instance.ResetMatchLock();
         MatchQueueingPanel.Instance?.HideImmediately();
         MatchFoundedPanel.Instance?.StopCountdownAndHide();
-        WindowsManager.Instance.SwitchWindow("game"); // 切换到游戏场景
+        GameHost.Current.SwitchWindow("game"); // 切换到游戏场景
 
         Game3DManager.Instance.Clear3DTile(); // 清空3D手牌
 
         InitializeSetInfo(gameInfo, isNewMatch); // 初始化对局数据
         GameCanvas.Instance.InitializeUIInfo(gameInfo,indexToPosition); // 初始化面板信息
         BoardCanvas.Instance.InitializeBoardInfo(gameInfo,indexToPosition); // 初始化桌面信息
-        RestoreSichuanDingque(gameInfo); // 四川：重连/进局中时恢复各家定缺标记
 
         // 获取自己的手牌信息（从 PlayerInfo 中获取）
         PlayerInfo selfPlayerInfo = GetSelfPlayerInfo(gameInfo);
@@ -60,9 +57,6 @@ public partial class NormalGameStateManager {
         // 根据对局信息生成他家已有的3D卡牌（弃牌、副露、花牌）
         GenerateOtherPlayers3DTiles(gameInfo);
 
-        // 重连/初始化时：tag_list 中含 riichi/daburu_riichi 的玩家直接放置立直棒（无飞行动画）
-        RestoreRiichiTenbous(gameInfo);
-
         // 重连时 server 仅向当前行动者补发 ask；其余玩家需从 game_info 恢复黄条
         if (gameInfo != null && indexToPosition.TryGetValue(gameInfo.current_player_index, out string currentPos)) {
             BoardCanvas.Instance.ShowCurrentPlayer(currentPos, remainTiles);
@@ -71,24 +65,12 @@ public partial class NormalGameStateManager {
 
         IsGameActive = true;
         IsSelfActionRequired = false;
-        TipsContainer.Instance.ResetRyuukyokuTenpaiChoiceForRound();
-        TipsContainer.Instance.HideRyuukyokuTenpaiChoice();
         if (IsRealtimeSpectator && tips && player_to_info.TryGetValue("self", out PlayerInfoClass selfInfo)) {
             TipsBlock.Instance.ShowTipsBlock(selfHandTiles, selfInfo.combination_tiles ?? new List<string>());
         }
-    }
 
-    private void RestoreRiichiTenbous(GameInfo gameInfo){
-        if (gameInfo == null || gameInfo.players_info == null) return;
-        foreach (var player in gameInfo.players_info){
-            if (player.tag_list == null || !indexToPosition.ContainsKey(player.player_index)) continue;
-            for (int i = 0; i < player.tag_list.Length; i++){
-                if (player.tag_list[i] == "riichi" || player.tag_list[i] == "daburu_riichi"){
-                    Game3DManager.Instance.PlaceRiichiTenbouAt(indexToPosition[player.player_index]);
-                    break;
-                }
-            }
-        }
+        // 族开局：从 GameInfo 读自己的字段、恢复自己的桌面表现（立直棒、定缺标记、分数配置……）
+        RuleRegistry.ActiveGameState?.OnGameStart(gameInfo);
     }
 
     // 生成其他玩家的3D卡牌（弃牌、副露、花牌）
@@ -160,9 +142,9 @@ public partial class NormalGameStateManager {
 
     // 设置游戏信息
     private void InitializeSetInfo(GameInfo gameInfo, bool isNewMatch){
-        // 清空操作列表
+        // 清空操作列表与切牌约束
         allowActionList = new List<string>();
-        selfForcedCutTiles.Clear();
+        TurnClock.Current.SetCutConstraints(null, null, null);
         // 清空弃牌列表
         player_to_info["self"].discard_tiles = new List<int>();
         player_to_info["left"].discard_tiles = new List<int>();
@@ -214,7 +196,7 @@ public partial class NormalGameStateManager {
             }
         } else {
             foreach (var player in gameInfo.players_info) {
-                if (player.user_id == UserDataManager.Instance.UserId) {
+                if (player.user_id == PlayerSession.Current.UserId) {
                     selfIndex = player.player_index;
                     break;
                 }
@@ -224,6 +206,8 @@ public partial class NormalGameStateManager {
         roomType = gameInfo.room_type;
         roomRule = gameInfo.room_rule;
         subRule = gameInfo.sub_rule;
+        // 规则清单/族 GameState 与 roomRule 同步：核心其余部分通过 RuleRegistry.Current / ActiveGameState 取规则差异
+        RuleRegistry.SetCurrent(roomRule, subRule);
         detailedConfig = gameInfo.detailed_config != null
             ? new Dictionary<string, object>(gameInfo.detailed_config)
             : new Dictionary<string, object>();
@@ -247,18 +231,6 @@ public partial class NormalGameStateManager {
         showMoqieHint = gameInfo.show_moqie_hint; // 手摸切灰显
         isOpenCuoHe = gameInfo.open_cuohe; // 存储是否开启错和
         isSetRandomSeed = gameInfo.isPlayerSetRandomSeed; // 存储是否设置随机种子
-
-        // 立直麻将字段同步：服务端未下发时使用默认值
-        honba = gameInfo.honba ?? 0;
-        riichiSticks = gameInfo.riichi_sticks ?? 0;
-        doraIndicators = gameInfo.dora_indicators != null ? new List<int>(gameInfo.dora_indicators) : new List<int>();
-        kanDoraIndicators = gameInfo.kan_dora_indicators != null ? new List<int>(gameInfo.kan_dora_indicators) : new List<int>();
-        hepaiWay = gameInfo.hepai_way ?? "multi_ron";
-        redDora = gameInfo.red_dora ?? false;
-        dealerIndex = gameInfo.dealer_index ?? 0;
-        changshaBaseScoreNoDealer = gameInfo.base_score_no_dealer ?? false;
-        changshaSmallHuScore = Mathf.Max(gameInfo.small_hu_score ?? 2, 1);
-        changshaBigHuScore = Mathf.Max(gameInfo.big_hu_score ?? 8, 1);
         if (isOpenCuoHe){
             Debug.Log("开启错和");
         }
@@ -271,30 +243,19 @@ public partial class NormalGameStateManager {
         else{
             Debug.Log("未设置随机种子");
         }
-        // 根据自身索引确定其他玩家位置
-        if (selfIndex == 0) {
-            indexToPosition[0] = "self";
-            indexToPosition[1] = "right";
-            indexToPosition[2] = "top";
-            indexToPosition[3] = "left";
-        } else if (selfIndex == 1) {
-            indexToPosition[1] = "self";
-            indexToPosition[2] = "right";
-            indexToPosition[3] = "top";
-            indexToPosition[0] = "left";
-        } else if (selfIndex == 2) {
-            indexToPosition[2] = "self";
-            indexToPosition[3] = "right";
-            indexToPosition[0] = "top";
-            indexToPosition[1] = "left";
-        } else if (selfIndex == 3) {
-            indexToPosition[3] = "self";
-            indexToPosition[0] = "right";
-            indexToPosition[1] = "top";
-            indexToPosition[2] = "left";
+        // 根据自身索引确定其他玩家位置：只映射实际在桌的 player_index，空座位不占座。
+        var playerIndexes = new List<int>();
+        if (gameInfo.players_info != null) {
+            foreach (var player in gameInfo.players_info) {
+                playerIndexes.Add(player.player_index);
+            }
         }
+        TableMirror.Current.BuildSeatMap(selfIndex, playerIndexes);
+        TableMirror.Current.ClearUnoccupiedSeatData();
+        if (gameInfo.players_info == null) return;
         foreach (var player in gameInfo.players_info){
-            if (indexToPosition[player.player_index] == "self") { // 通过player_index确定玩家位置
+            if (!indexToPosition.TryGetValue(player.player_index, out string position)) continue;
+            if (position == "self") { // 通过player_index确定玩家位置
                 player_to_info["self"].username = player.username; // 存储用户名
                 player_to_info["self"].userId = player.user_id; // 存储uid
                 player_to_info["self"].score = player.score; // 存储分数
@@ -315,7 +276,7 @@ public partial class NormalGameStateManager {
                 ScoreHistorySettlementHelper.AlignRoundNumberHistory(player_to_info["self"].score_history, player_to_info["self"].round_number_history);
                 player_to_info["self"].original_player_index = player.original_player_index; // 存储原始玩家索引
                 player_to_info["self"].tag_list = player.tag_list; // 存储标签列表
-            } else if (indexToPosition[player.player_index] == "right") {
+            } else if (position == "right") {
                 player_to_info["right"].username = player.username; // 存储用户名
                 player_to_info["right"].score = player.score; // 存储分数
                 player_to_info["right"].userId = player.user_id; // 存储uid
@@ -335,7 +296,7 @@ public partial class NormalGameStateManager {
                 ScoreHistorySettlementHelper.AlignRoundNumberHistory(player_to_info["right"].score_history, player_to_info["right"].round_number_history);
                 player_to_info["right"].original_player_index = player.original_player_index; // 存储原始玩家索引
                 player_to_info["right"].tag_list = player.tag_list; // 存储标签列表
-            } else if (indexToPosition[player.player_index] == "top") {
+            } else if (position == "top") {
                 player_to_info["top"].username = player.username; // 存储用户名
                 player_to_info["top"].score = player.score; // 存储分数
                 player_to_info["top"].userId = player.user_id; // 存储uid
@@ -355,7 +316,7 @@ public partial class NormalGameStateManager {
                 ScoreHistorySettlementHelper.AlignRoundNumberHistory(player_to_info["top"].score_history, player_to_info["top"].round_number_history);
                 player_to_info["top"].original_player_index = player.original_player_index; // 存储原始玩家索引
                 player_to_info["top"].tag_list = player.tag_list; // 存储标签列表
-            } else if (indexToPosition[player.player_index] == "left") {
+            } else if (position == "left") {
                 player_to_info["left"].username = player.username; // 存储用户名
                 player_to_info["left"].score = player.score; // 存储分数
                 player_to_info["left"].userId = player.user_id; // 存储uid
@@ -404,7 +365,7 @@ public partial class NormalGameStateManager {
             return null;
         }
 
-        int selfUserId = UserDataManager.Instance.UserId;
+        int selfUserId = PlayerSession.Current.UserId;
         foreach (var player in gameInfo.players_info){
             if (player.user_id == selfUserId){
                 return player;

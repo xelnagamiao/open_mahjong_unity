@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
@@ -26,6 +27,28 @@ public static class SceneConfigUi
     public static readonly Color TabOn = new Color(0.28f, 0.48f, 0.92f, 1f);
     public static readonly Color TabOff = new Color(0.17f, 0.21f, 0.30f, 1f);
     public const float ToggleColorFade = 0.1f;
+    public const float SurfaceHeaderHeight = 80f;
+    public static readonly Color SurfaceHeaderBackground = new Color32(237, 242, 248, 255);
+
+    public static TMP_Text CreateSurfaceHeaderTitle(Transform parent, string caption, TMP_FontAsset font)
+    {
+        var go = new GameObject("SurfaceTitle", typeof(RectTransform), typeof(TextMeshProUGUI));
+        go.layer = parent.gameObject.layer;
+        go.transform.SetParent(parent, false);
+        var text = go.GetComponent<TextMeshProUGUI>();
+        text.font = font;
+        text.text = caption;
+        text.color = new Color32(40, 58, 78, 255);
+        text.fontSize = 28;
+        text.alignment = TextAlignmentOptions.MidlineLeft;
+        text.textWrappingMode = TextWrappingModes.NoWrap;
+        text.raycastTarget = false;
+        var rect = text.rectTransform;
+        rect.anchorMin = new Vector2(0, 0); rect.anchorMax = new Vector2(0, 1);
+        rect.pivot = new Vector2(0, .5f);
+        rect.offsetMin = new Vector2(20, 8); rect.offsetMax = new Vector2(108, -8);
+        return text;
+    }
 
     public static void BindClick(Button button, UnityAction action)
     {
@@ -55,6 +78,18 @@ public static class SceneConfigUi
         if (hex.StartsWith("#")) hex = hex.Substring(1);
         if (hex.Length == 6) hex += "FF";
         return hex.Length == 8 && ColorUtility.TryParseHtmlString("#" + hex, out color);
+    }
+
+    public static void ApplyHex(TMP_InputField input, Action<Color> apply, string successTip,
+        string invalidTip = "HEX 格式不正确")
+    {
+        if (!TryParseHex(input.text, out Color color))
+        {
+            ShowTip(invalidTip);
+            return;
+        }
+        apply(color);
+        ShowTip(successTip);
     }
 
     public static void ShowTip(string message)
@@ -98,9 +133,7 @@ public static class SceneConfigUi
         bool instant = false,
         float fade = ToggleColorFade)
     {
-        toggle.transition = Selectable.Transition.None;
-        toggle.toggleTransition = Toggle.ToggleTransition.None;
-        toggle.graphic = null;
+        ConfigureToggle(toggle);
         Image bg = (Image)toggle.targetGraphic;
         bg.color = Color.white;
         Color target = selected ? selectedColor : defaultColor;

@@ -1,0 +1,46 @@
+/* These filters share a teleported Element Plus range picker. */
+@media (max-width: 720px) {
+  .compact-date-range-popper {
+    width: min(calc(100vw - 24px), 360px);
+  }
+
+  .compact-date-range-popper .el-date-range-picker {
+    width: 100%;
+    max-height: min(70vh, 560px);
+    max-height: min(70dvh, 560px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .compact-date-range-popper .el-picker-panel__body {
+    min-width: 0;
+    margin-left: 0;
+  }
+
+  .compact-date-range-popper .el-date-range-picker__content {
+    float: none;
+    width: 100%;
+  }
+
+  .compact-date-range-popper .el-date-range-picker__content.is-left {
+    border-right: 0;
+    border-bottom: 1px solid var(--el-datepicker-inner-border-color);
+  }
+
+  .compact-date-range-popper .el-picker-panel__sidebar {
+    position: static;
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    padding: 6px 8px;
+    border-right: 0;
+    border-bottom: 1px solid var(--el-datepicker-inner-border-color);
+  }
+
+  .compact-date-range-popper .el-picker-panel__shortcut {
+    width: auto;
+    padding: 0 8px;
+    white-space: nowrap;
+  }
+}

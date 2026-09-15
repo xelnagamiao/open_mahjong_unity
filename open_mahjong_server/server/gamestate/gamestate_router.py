@@ -4,7 +4,7 @@ import re
 import time
 from .public.ai.get_action import get_action
 from .game_jiandan.get_action import get_action as jiandan_get_action
-from .public.sticker import broadcast_sticker
+from .public.sticker import broadcast_sticker, resolve_sticker_sender
 from ..response import Response, SpectatorInfo
 
 logger = logging.getLogger(__name__)
@@ -41,6 +41,14 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
         await handle_jiandan_send_action(game_server, Connect_id, message)
     elif message_type == "gamestate/hongque/action":
         await handle_hongque_action(game_server, Connect_id, message, websocket)
+    elif message_type == "gamestate/free/cut_tile":
+        await handle_free_cut_tile(game_server, Connect_id, message, websocket)
+    elif message_type == "gamestate/free/send_action":
+        await handle_free_send_action(game_server, Connect_id, message, websocket)
+    elif message_type == "gamestate/free/set_scores":
+        await handle_free_set_scores(game_server, Connect_id, message, websocket)
+    elif message_type == "gamestate/free/set_vote":
+        await handle_free_set_vote(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/riichi/set_ryuukyoku_tenpai":
         await handle_set_ryuukyoku_tenpai(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/GB/add_spectator":
@@ -82,6 +90,62 @@ async def handle_hongque_action(game_server, Connect_id: str, message: dict, web
         )
     except (ValueError, TypeError) as exc:
         await websocket.send_json({"type": "tips", "success": False, "message": str(exc)})
+
+
+def _get_free_state(game_server, message: dict):
+    gamestate_id = message.get("gamestate_id")
+    if not gamestate_id:
+        return None
+    game_state = game_server.gamestate_manager.get_game_state_by_gamestate_id(gamestate_id)
+    if game_state is None or getattr(game_state, "room_rule", None) != "free":
+        return None
+    return game_state
+
+
+async def _free_user_id(game_server, Connect_id: str):
+    player = game_server.players.get(Connect_id)
+    if player is None or not player.user_id:
+        return None
+    return player.user_id
+
+
+async def handle_free_cut_tile(game_server, Connect_id: str, message: dict, websocket):
+    game_state = _get_free_state(game_server, message)
+    user_id = await _free_user_id(game_server, Connect_id)
+    if game_state is None or user_id is None:
+        return
+    await game_state.handle_command(user_id, {
+        "action": "cut",
+        "TileId": message.get("TileId") or message.get("tile") or 0,
+    })
+
+
+async def handle_free_send_action(game_server, Connect_id: str, message: dict, websocket):
+    game_state = _get_free_state(game_server, message)
+    user_id = await _free_user_id(game_server, Connect_id)
+    if game_state is None or user_id is None:
+        return
+    await game_state.handle_command(user_id, message)
+
+
+async def handle_free_set_scores(game_server, Connect_id: str, message: dict, websocket):
+    game_state = _get_free_state(game_server, message)
+    user_id = await _free_user_id(game_server, Connect_id)
+    if game_state is None or user_id is None:
+        return
+    payload = dict(message)
+    payload["action"] = "set_scores"
+    await game_state.handle_command(user_id, payload)
+
+
+async def handle_free_set_vote(game_server, Connect_id: str, message: dict, websocket):
+    game_state = _get_free_state(game_server, message)
+    user_id = await _free_user_id(game_server, Connect_id)
+    if game_state is None or user_id is None:
+        return
+    payload = dict(message)
+    payload["action"] = "set_vote"
+    await game_state.handle_command(user_id, payload)
 
 async def handle_cut_tile(game_server, Connect_id: str, message: dict, websocket):
     """处理切牌请求"""
@@ -241,10 +305,9 @@ async def handle_send_sticker(game_server, Connect_id: str, message: dict, webso
 
         sender_index = None
         sender_original_index = None
-        for player in game_state.player_list:
+        for player in getattr(game_state, "player_list", None) or []:
             if player.user_id == user_id:
-                sender_index = player.player_index
-                sender_original_index = player.original_player_index
+                sender_index, sender_original_index = resolve_sticker_sender(player)
                 break
         if sender_index is None:
             logger.warning(f"用户 {user_id} 不是对局玩家，拒绝发送表情包")
@@ -289,6 +352,15 @@ async def handle_set_ryuukyoku_tenpai(game_server, Connect_id: str, message: dic
         logger.error(f"处理荒牌听牌申报失败: {e}", exc_info=True)
 
 async def handle_add_spectator(game_server, Connect_id: str, message: dict, websocket):
+    # Serialize the complete initial replay with event seating, including async sends.
+    lock = getattr(getattr(game_server, "room_manager", None), "event_seating_lock", None)
+    if lock is None:
+        return await _handle_add_spectator_locked(game_server, Connect_id, message, websocket)
+    async with lock:
+        return await _handle_add_spectator_locked(game_server, Connect_id, message, websocket)
+
+
+async def _handle_add_spectator_locked(game_server, Connect_id: str, message: dict, websocket):
     """处理添加观战玩家请求"""
     try:
         gamestate_id = message.get("gamestate_id")

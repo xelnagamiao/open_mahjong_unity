@@ -14,6 +14,17 @@
           @wheel.capture.prevent="onBoardWheel"
         />
 
+        <ReplayIndependentWall
+          v-if="replay && sceneReady && !loading && !errorMessage"
+          :key="String(route.params.gameId)"
+          :tiles="wallTilesWithHints"
+          :remaining="remainingWall.length"
+          :hints-enabled="chongHintEnabled"
+          :tile-asset="mmcrTileAsset"
+          :round-index="roundIndex"
+          :stage-element="stageElement"
+        />
+
         <div v-if="replay && sceneReady" class="replay-board-tools">
           <button type="button" :class="{ 'is-active': showOtherHands }" @click="toggleOtherHands">
             {{ showOtherHands ? '隐藏他家手牌' : '显示他家手牌' }}
@@ -424,6 +435,7 @@ import {
 import { mmcrFaceId, tileFaceAssetUrl } from '@/game2d/lib/tileFaceAsset'
 import type { ActiveSessionSnapshot, MeldSnapshot } from '@/game2d/game/scene/types'
 import GameScoreboardPanel from './GameScoreboardPanel.vue'
+import ReplayIndependentWall from './ReplayIndependentWall.vue'
 import SceneAppearancePanel from './SceneAppearancePanel.vue'
 
 const route = useRoute()
@@ -782,10 +794,8 @@ const predictedWallIndices = computed(() => {
   const viewerSeat = Number(snapshot.viewer.seat_index)
   const offset = (viewerSeat - anchor + 4) % 4
 
-  for (let n = 0; n < 6; n += 1) {
-    const index = front + offset + n * 4 - 1
+  for (let index = front + offset - 1; index < tiles.length; index += 4) {
     if (index < front) continue
-    if (index >= tiles.length) break
     if (!tiles[index].consumed) predicted.add(index)
   }
   return predicted

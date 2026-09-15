@@ -91,14 +91,14 @@ public class AutoAction : MonoBehaviour{
     // 初始化自动行为配置（由 GameSceneUIManager 调用）
     public void Initialize() {
         gameObject.SetActive(true); // 显示自动行为组件
-        NormalGameStateManager.Instance?.ResetTimeoutAutoMoqieTracking();
+        AutoActionPolicy.Current.ResetTimeoutAutoMoqieTracking();
 
         // 重置除了自动排列手牌和自动补花以外的选项为false
         isAutoHepai = false;
         isAutoPass = false;
         isAutoCut = false;
         isAutoCutLocked = false;
-        isAutoBuhua = ConfigManager.Instance == null || ConfigManager.Instance.OpeningAutoBuhuaEnabled;
+        isAutoBuhua = GameSettings.Current.OpeningAutoBuhuaEnabled;
         // 自动理牌保留 current 值；自动补花按设置在每局开局时重置
 
         // 鸣牌/牌张面板初始隐藏
@@ -124,7 +124,7 @@ public class AutoAction : MonoBehaviour{
     /// <summary>实时观战：仅保留自动排列手牌，其余自动操作与鸣牌展开隐藏且不起效。</summary>
     public void InitializeForSpectator() {
         gameObject.SetActive(true);
-        NormalGameStateManager.Instance?.ResetTimeoutAutoMoqieTracking();
+        AutoActionPolicy.Current.ResetTimeoutAutoMoqieTracking();
 
         isAutoHepai = false;
         isAutoPass = false;
@@ -162,13 +162,10 @@ public class AutoAction : MonoBehaviour{
         SetTextActive(autoBuhuaText, ShouldShowBuhuaAutoActionButton());
     }
 
-    /// <summary>无补花流程的规则（长沙/四川等）隐藏自动补花按钮。</summary>
+    /// <summary>无补花流程的规则（RuleManifest.HasFlowerReplacement=false）隐藏自动补花按钮。</summary>
     private static bool ShouldShowBuhuaAutoActionButton() {
-        NormalGameStateManager gsm = NormalGameStateManager.Instance;
-        if (gsm == null || string.IsNullOrEmpty(gsm.roomRule)) {
-            return true;
-        }
-        return gsm.roomRule != "changsha" && gsm.roomRule != "sichuan";
+        RuleManifest manifest = RuleRegistry.Current;
+        return manifest == null || manifest.HasFlowerReplacement;
     }
 
     private void SetOtherActionPanelVisible(bool visible) {
@@ -260,7 +257,7 @@ public class AutoAction : MonoBehaviour{
         bool wasEnabled = isAutoCut;
         ToggleAutoOption(ref isAutoCut, autoCutCardText);
         if (wasEnabled && !isAutoCut) {
-            NormalGameStateManager.Instance?.ResetTimeoutAutoMoqieTracking();
+            AutoActionPolicy.Current.ResetTimeoutAutoMoqieTracking();
         }
     }
 
@@ -327,7 +324,7 @@ public class AutoAction : MonoBehaviour{
     public bool ShouldAutoPassForCurrentDraw() {
         NormalGameStateManager gsm = NormalGameStateManager.Instance;
         if (gsm == null || tilePassSettingPanel == null) return false;
-        int drawnTileId = gsm.GetCurrentDrawTileId();
+        int drawnTileId = AutoActionPolicy.Current.GetCurrentDrawTileId();
         return tilePassSettingPanel.ShouldAutoPassForDrawnTile(drawnTileId);
     }
 

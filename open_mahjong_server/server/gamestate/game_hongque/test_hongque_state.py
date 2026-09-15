@@ -93,6 +93,10 @@ def test_discard_and_following_draw_are_ordered_visible_events() -> None:
     asyncio.run(_exercise_discard_draw_event_batch())
 
 
+def test_tactical_grace_timeout_executes_current_claim() -> None:
+    asyncio.run(_exercise_tactical_grace_timeout())
+
+
 def test_chi_claim_winner_discards_then_next_seat_draws() -> None:
     asyncio.run(_exercise_chi_claim_winner_discards_then_next_seat())
 
@@ -199,6 +203,34 @@ def test_server_snapshot_leaves_tenpai_hint_scoring_to_client() -> None:
     assert snapshot["waiting_hints"] == []
 
 
+def test_event_updates_omit_table_snapshot() -> None:
+    room = {
+        "room_id": "123456",
+        "game_round": 8,
+        "round_timer": 20,
+        "step_timer": 5,
+        "player_list": [101, 102, 103, 104],
+        "player_settings": {user_id: {"username": f"P{user_id}"} for user_id in (101, 102, 103, 104)},
+    }
+    state = HongqueGameState(None, room, gamestate_id="incremental-omit-snapshot")
+    state.players[1].hand = ["AX1", "AX2"]
+    state.phase = "turn"
+
+    update = state.build_state(1)
+    assert update["sync_mode"] == "events"
+    assert update["you"] == 1
+    for key in ("players", "hand", "room_id", "max_round", "round_time", "step_time"):
+        assert key not in update
+
+    restore = state.build_state(1, sync_mode="reconnect")
+    assert restore["hand"] == ["AX1", "AX2"]
+    assert restore["room_id"] == 123456
+    assert restore["max_round"] == 8
+    assert restore["round_time"] == 20
+    assert restore["step_time"] == 5
+    assert [player["user_id"] for player in restore["players"]] == [101, 102, 103, 104]
+
+
 def test_round_result_records_score_and_round_history_for_reconnect() -> None:
     asyncio.run(_exercise_score_history_for_reconnect())
 
@@ -256,8 +288,13 @@ async def _exercise_round() -> None:
     assert state.phase == "turn"
     assert state.current_player_index == 1
     assert len(state.players[1].hand) == 12
-    assert not hasattr(state, "game_record")
-    snapshot = state.build_state(1)
+    assert "game_title" in state.game_record
+    ticks = state.game_record["game_round"]["round_index_1"]["action_ticks"]
+    assert any(tick[0] == "c" for tick in ticks)
+    update = state.build_state(1)
+    for key in ("players", "hand", "room_id", "max_round", "round_time", "step_time"):
+        assert key not in update
+    snapshot = state.build_state(1, sync_mode="reconnect")
     assert snapshot["hand"] == state.players[1].hand
     assert snapshot["room_id"] == 123456
     assert [player["user_id"] for player in snapshot["players"]] == user_ids
@@ -476,13 +513,18 @@ async def _exercise_discard_draw_event_batch() -> None:
     state.current_player_index = 0
     state.phase = "turn"
 
+    seq_before = state.event_sequence
     await state.submit_action(current.user_id, "discard", tile="AX1", action_tick=state.action_tick)
 
-    assert [event["type"] for event in state.events] == ["discard", "draw"]
-    assert state.events[0]["cut_class"] is True
-    assert state.events[0]["id"] < state.events[1]["id"]
-    assert state.build_state(0)["events"][1]["tile"] is None
-    assert state.build_state(1)["events"][1]["tile"] == "GX9"
+    # 切牌已单独广播；无人鸣牌后的摸牌是新事件批次，避免客户端重播出牌。
+    assert state.last_discard == {"player": 0, "tile": "AX1"}
+    assert current.discards == ["AX1"]
+    assert [event["type"] for event in state.events] == ["draw"]
+    draw = state.events[0]
+    assert draw["player"] == 1
+    assert draw["id"] > seq_before
+    assert state.build_state(0)["events"][0]["tile"] is None
+    assert state.build_state(1)["events"][0]["tile"] == "GX9"
 
 
 async def _exercise_tactical_claim_apply_execute() -> None:
@@ -691,8 +733,7 @@ async def _exercise_tactical_grace_timeout() -> None:
     await state._handle_claim_action(state.players[3], "claim", "call-1")
     assert state.claim_window.stage == "tactical"
     assert 1 in state.claim_window.pending
-    assert state._claim_timeout_task is not None
-    await state._claim_timeout_task
+    await state.wait_action()
 
     assert state.phase == "turn"
     assert state.players[3].melds[0]["kind"] == "triplet"
@@ -822,8 +863,7 @@ async def _exercise_reported_chi_sequence() -> None:
     await state.submit_action(p[1].user_id, "claim", candidate_id=chi["id"], action_tick=state.action_tick)
     # 我(0, chi_first)仍在打断窗口等待集合中——不被直接抢走。
     assert 0 in state.claim_window.pending
-    assert state._claim_timeout_task is not None
-    await state._claim_timeout_task
+    await state.wait_action()
     assert state.current_player_index == 1
     assert p[1].melds and p[1].hand == ["CY9"]
     assert p[2].melds == []
@@ -871,8 +911,8 @@ async def _exercise_two_smart_bots_competing_for_chi() -> None:
             await asyncio.gather(
                 *list(state._bot_claim_tasks.values()), return_exceptions=True
             )
-        if state.phase == "claim" and state._claim_timeout_task is not None:
-            await asyncio.gather(state._claim_timeout_task, return_exceptions=True)
+        if state.phase == "claim":
+            await state.wait_action()
 
     assert state.current_player_index == 1
     assert state.players[1].melds and state.players[1].melds[0]["tiles"] == ["AX1", "AX2", "AX3"]
@@ -930,8 +970,8 @@ async def _exercise_debug_double_ron() -> None:
         state.submit_action(p[0].user_id, "claim", candidate_id=ron0["id"], action_tick=state.action_tick),
         state.submit_action(p[1].user_id, "claim", candidate_id=ron1["id"], action_tick=state.action_tick),
     )
-    if state._claim_timeout_task:
-        await state._claim_timeout_task
+    if state.phase == "claim":
+        await state.wait_action()
 
     assert state.phase == "round_end"
     assert sorted(state.round_result["winner_indices"]) == [0, 1]
@@ -1165,8 +1205,11 @@ async def _exercise_supplement_turn_clock() -> None:
     assert player.remaining_time == 17  # 8 seconds used - 5 seconds step time
     assert snapshot["remaining_time"] == 17
     assert snapshot["step_remaining"] == 5
-    assert snapshot["round_time"] == 20
-    assert snapshot["step_time"] == 5
+    assert "round_time" not in snapshot
+    assert "step_time" not in snapshot
+    restore = state.build_state(0, sync_mode="reconnect")
+    assert restore["round_time"] == 20
+    assert restore["step_time"] == 5
 
 
 async def _exercise_group_wait_self_win() -> None:
@@ -1231,7 +1274,7 @@ async def _exercise_group_wait_ron() -> None:
         candidate_id=ron["id"],
         action_tick=state.action_tick,
     )
-    # 战术鸣牌：申请后由后台任务开打断窗口，等待其完成后执行（荣和无更高竞争者在窗口内直接结算）。
+    # 战术鸣牌：申请后进入打断窗口；无更高竞争者时 wait_action 立即结算。
     for player_index in list(state.claim_options):
         if player_index != 1 and player_index not in state.claim_responses:
             await state.submit_action(

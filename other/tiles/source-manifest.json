@@ -1,0 +1,1110 @@
+{
+  "fileCount": 184,
+  "sourceArtworkBytesUnchanged": true,
+  "files": [
+    {
+      "path": "sources/official/hand-framed/0.png",
+      "bytes": 19862,
+      "sha256": "3bf4591bdcc17bf00fd527aa9d261b8133ccfbf7badc2eb97ea81424ab7bbae5",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/1.png",
+      "bytes": 6163,
+      "sha256": "825ef4f2b7af7d69f23961c803cad7636b41a1db45fed4ccdc20a9d07ee4d726",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/105.png",
+      "bytes": 25569,
+      "sha256": "d5e3172986a9fd99b49c8c3cffbd3da6b6fd2447fefe87f7a8360ae9b0676f88",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/11.png",
+      "bytes": 25174,
+      "sha256": "7c1a264d5c14aee839be67069619113720faaf84ccc716d9bacb2a989e8842e7",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/12.png",
+      "bytes": 26521,
+      "sha256": "a40f750f0b4ffffdd9608c5edd8545358433f6c77d516532ece3cd8d8651a66c",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/13.png",
+      "bytes": 27963,
+      "sha256": "a7fcc3e6e5011bc5c8af19c915f622d07a658b05a445bb077673aebbc07bd979",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/14.png",
+      "bytes": 31458,
+      "sha256": "5895968d73df6d8cbe7b201f566ee7ff28618582eb99bb0651fe5b1e7c8f1eb8",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/15.png",
+      "bytes": 27614,
+      "sha256": "9f9d97215efa9ad04a26bab32dc79c8d987854715845beacf4b46f7d9c237e43",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/16.png",
+      "bytes": 30033,
+      "sha256": "1872c04cc7f75d9e9e686297f49fdc20c191c60efae4b108eec0b1d9cfbe539c",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/17.png",
+      "bytes": 29393,
+      "sha256": "efaebde1fd129f3cae4ebee0741379acb8faaf50f39e39b29cf96673cd7e2498",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/18.png",
+      "bytes": 28678,
+      "sha256": "735b4379505d09e720298cb000bac2e3251a1dfa1fb2ee64352b729acac9ed4b",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/19.png",
+      "bytes": 30121,
+      "sha256": "2d847095e423ee1de0d2af289b2bbcc3e31805571ca8a0e76790f7b51caa7f6f",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/2.png",
+      "bytes": 19843,
+      "sha256": "61df12004d24da4a1833bb3665a758c7cacf43b5810229cdaecd4f24fb90e5a9",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/205.png",
+      "bytes": 30800,
+      "sha256": "f8a459ce7ce07272d1d251b3020f7471ce8a407ec14294fbc4609cb75ed79532",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/21.png",
+      "bytes": 42452,
+      "sha256": "91ec97cc2317675e2fe9b611398feb644a599e54142b2cdce71b56182308e1b1",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/22.png",
+      "bytes": 18918,
+      "sha256": "f3f39bef07f1c1fb8282e2d3fcc604d9062fa4d2e70e1d70676524d854e70432",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/23.png",
+      "bytes": 25210,
+      "sha256": "ef1c37f823c54700496f58efc2b3302692b5c55502e8f43377730b696f4ab9ec",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/24.png",
+      "bytes": 33658,
+      "sha256": "dc3e2a392015c9011c84c58454855f333f25b6d3d6f6990d751b41ebcfb2a254",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/25.png",
+      "bytes": 35057,
+      "sha256": "4f9f5d53712c777724d29f54b737ed253f334053f7b4367e18d4538d1b2c2070",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/26.png",
+      "bytes": 21402,
+      "sha256": "dc10d0afbcb008fa30379212d2f08775564eb917ecefc9b055924211f3e1227d",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/27.png",
+      "bytes": 23713,
+      "sha256": "abcd29a23d2a1df1e11c8e907d6fcbfb26367d6e0c1ec7f58eb1fcafea6f5c1d",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/28.png",
+      "bytes": 31702,
+      "sha256": "e5f614d6e66e66af3d3ebf041b1122b00bed36eed6d86108f46de6688a468980",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/29.png",
+      "bytes": 24438,
+      "sha256": "8bd7b20b53bf2f6ad453f168d8593b4b7f406789bb24e8387eb26d02a315c8cd",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/305.png",
+      "bytes": 16487,
+      "sha256": "adcd620f6d0721338e2145de052db9d86590b512c3e7a2a4a1094c68608940a0",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/31.png",
+      "bytes": 34935,
+      "sha256": "85541f4c81b0edda85f3b8fccbfc6523918b4032e3b85c40d94f75784d8ce5b5",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/32.png",
+      "bytes": 11632,
+      "sha256": "3ee71fcdc158b68860cebfd8d150d956c0075329b61925cb1532748a83d59eee",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/33.png",
+      "bytes": 12073,
+      "sha256": "8c6fc86163f657617858f4d13b70df407e16ebbcdc729c674266f7789ca62d1e",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/34.png",
+      "bytes": 12566,
+      "sha256": "1e24d973a83b43e369b378150982f5c502c76987910dcd8545faa1d32d61a360",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/35.png",
+      "bytes": 15014,
+      "sha256": "2be0afeddec3a4af86373f2c8870747cf9e2819c594de6cb029b27ae21583ed6",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/36.png",
+      "bytes": 13791,
+      "sha256": "dc351aff5c77794aa7d260b0fc041586322f8ecbfb50c6aaa47bcffcf0ae9931",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/37.png",
+      "bytes": 14416,
+      "sha256": "e6c80d317feb8b409c9be5aee139ba4987b771fc83619a264f9a40a64196e170",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/38.png",
+      "bytes": 24232,
+      "sha256": "5f92bcc65623765576f4bb7596a4a4ce01e70023379e4a9048b67c43ab036777",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/39.png",
+      "bytes": 20751,
+      "sha256": "80780a16c146f8879a1883372de39f2cce2ed4f7cd6f0fd84e4acf9fbd978c77",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/41.png",
+      "bytes": 23671,
+      "sha256": "07607fb69c40e7767f7f3e04ee9154dcf86a74876becb3746db062d275861379",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/42.png",
+      "bytes": 23606,
+      "sha256": "0d0df72e9c358a126ffd671d259be7a554e6396da3aa06df1c849d4adceb6cfa",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/43.png",
+      "bytes": 21536,
+      "sha256": "c0c73e48fe4234182d8df2e33cc56317247227759417504bc5e881d9d1ce2821",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/44.png",
+      "bytes": 19819,
+      "sha256": "97d9ac7200ce884ededd13708f39119f93bed2fdbf9f1e07e62bf7b6b7a3ab77",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/45.png",
+      "bytes": 20140,
+      "sha256": "800d105a87272f55b1b119a655b4660aa777f006cd02c882aeb50c13db65a390",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/46.png",
+      "bytes": 14180,
+      "sha256": "149df4979bd0d9995fca13a984d51b9445f978cabb47991ede6457aa4f40aec8",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/47.png",
+      "bytes": 39703,
+      "sha256": "b72cf7abef6a72b0c30f18e7d66ad0dd3740d650b647904655413ecf3061ef05",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/51.png",
+      "bytes": 58577,
+      "sha256": "88e34efe847ff9033d4bd5f7ab3e3382ebfacda90c9db33eb06799f1aebb9e26",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/52.png",
+      "bytes": 61077,
+      "sha256": "37b2732db5be855058de18633ed8e9d179c9c83afac8aa966373c5101f48cd6e",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/53.png",
+      "bytes": 58651,
+      "sha256": "faacf97e9076df8e1604334f52f995c5ebf1391e25ac23ed7f55bf19d845ef09",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/54.png",
+      "bytes": 61817,
+      "sha256": "b9c6634df8b4a2be2d9229cd66b9c09e0e29d99a108c1d116be4e160c6f57569",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/55.png",
+      "bytes": 48421,
+      "sha256": "d536a43b8bde6ccff6d4e9e0b2ff251d9838862400073a45b32a53b4a2ec50f3",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/56.png",
+      "bytes": 58827,
+      "sha256": "021b37f171e78872f5653b1f7a619d7e3c129615bcd6c68d5fefbdb3e67a5fb7",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/57.png",
+      "bytes": 43176,
+      "sha256": "a1339644e222a180a33b07d9375ad81d666012504da7864fd2e6828b8b438e60",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/official/hand-framed/58.png",
+      "bytes": 63883,
+      "sha256": "a2c463532b3a8aa895df6ae01fa1cfe3c709217a90042c3a6341d4e1ee05bd30",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/0m.png",
+      "bytes": 14440,
+      "sha256": "d2e54c31bed14963ab47952e64b4472f4f96e97daff420cbe3c2a6335ec956f9",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/0m.svg",
+      "bytes": 17291,
+      "sha256": "8fbe07ba977dbaf7644b13514d89084a41fab9ad828a9b9d7be73066fb84a5be",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/0p.png",
+      "bytes": 25045,
+      "sha256": "738e31cf802fc7bda2f449521e14ccb1831204393c712d6cbebf4ef51abed62d",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/0p.svg",
+      "bytes": 21179,
+      "sha256": "39808d4a76fd303b55bf77bdffca8b57049dc4dbea67ca374a1399397544da21",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/0s.png",
+      "bytes": 18454,
+      "sha256": "c7562f2e858d19b2c221947b03916de6ab51d75da3e618404335189a97a1e3c1",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/0s.svg",
+      "bytes": 29124,
+      "sha256": "b39b163d23b4bbf14ecad232bee7fd09947913a136989b004e44203dfd39b023",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/1f.png",
+      "bytes": 21271,
+      "sha256": "a4e33e3ba827b96012458b96eb54c5c1d4b7ee933630b8698b92d84332c466bb",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/1f.svg",
+      "bytes": 20875,
+      "sha256": "28a76771fb1afe1f2f6d8f9e4970a148f867c9f19154409318fefacf13fd06d2",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/1m.png",
+      "bytes": 10308,
+      "sha256": "273622102c88976926daf24af135729b5207e62573bfff7ef70ddceb29de921e",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/1m.svg",
+      "bytes": 13877,
+      "sha256": "9b8c52bef39c94b3fac5b1f2a4b6193cd7d8736f79d2c2ae764dd7342f7190b3",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/1p.png",
+      "bytes": 30265,
+      "sha256": "39ad4da3a3296190bb72250d09d0ed1ed4da45680f77666ae03b7c8a117af9d7",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/1p.svg",
+      "bytes": 20624,
+      "sha256": "477c6311f8c3e8456a8ca510a6b6ee4d146ecc4ef2d51cb801575e5b55122175",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/1s.png",
+      "bytes": 29557,
+      "sha256": "ddf2aa487501159e891a435e63d12b9f6d354dd8228d419346f309b5d9f8947e",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/1s.svg",
+      "bytes": 60121,
+      "sha256": "2c50459c118560dbbe90f38006d636c1cf83c7e31128fed32e4df30f3c543d6c",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/1z.png",
+      "bytes": 11022,
+      "sha256": "8c12a430bffe7f9b0fd3066e5cb7c68414f57a27b334d46c299fa59ac4b26d23",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/1z.svg",
+      "bytes": 11281,
+      "sha256": "955eba50b3de787ffad2eaa09a1f7ecaae487bc0afef253fd29e4a93e7dd76df",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/2f.png",
+      "bytes": 21100,
+      "sha256": "4c3e13c544a8110e5e790d1331880703be094dc2a3af6e1ff6fe6583aab8de3c",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/2f.svg",
+      "bytes": 18910,
+      "sha256": "a15967001f366a60c7b12367ae7a035c264c1197a101e2db1676a95de198d1d5",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/2m.png",
+      "bytes": 10924,
+      "sha256": "441fdec89fb4e43d6c5bf862efdc91d9c19885fde449cd4678c00ed910b5f52e",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/2m.svg",
+      "bytes": 14414,
+      "sha256": "db430b747ebe8e3ad8bc152c6381a0a71c40f94da27be702a2a2aa8e8924cd10",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/2p.png",
+      "bytes": 19935,
+      "sha256": "52bb54e79b2b3860f2577d7014f5a34f6d849cf739f69902f08825176521593d",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/2p.svg",
+      "bytes": 14939,
+      "sha256": "518a4f1831a7743a12898a81c14b91edad909f264dcd410ff7a074975ee0188a",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/2s.png",
+      "bytes": 8255,
+      "sha256": "378fd74dbd2a37880b3f5f6d064aed836dcccd04017718669410bb44b8b7b6f3",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/2s.svg",
+      "bytes": 16093,
+      "sha256": "fdc5a6860051ae60f815c4acfaa3ade2b2a067a3b7518b6096f8e9356a650e04",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/2z.png",
+      "bytes": 12004,
+      "sha256": "8cf76bf1adac3f53dc164e120daf6f6727474ea78043491e7f11563b8ff09850",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/2z.svg",
+      "bytes": 12658,
+      "sha256": "28a3fe9e6226016c09539150bd40c22af6e006ed1ae23ef8f7e8dccd7d891f9b",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/3f.png",
+      "bytes": 21973,
+      "sha256": "d6aa9d9830a07fba0145d9842857e7046bbc4eef27fa36e92ef4464a0c8e4b84",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/3f.svg",
+      "bytes": 24859,
+      "sha256": "5336af1fb8de9b542ee0a2e49b80503d64e206e268a06165e30b0cd281d703e3",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/3m.png",
+      "bytes": 11565,
+      "sha256": "4cc517fc2bb1dea6fae01a32249c945258332d153079c0dd3bff2d2e5b35811f",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/3m.svg",
+      "bytes": 15014,
+      "sha256": "6c8b4af104169189305f2c0eb465a0ac98a7d7c70dc7d40a70f840d780bbd92e",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/3p.png",
+      "bytes": 16242,
+      "sha256": "c4279a595a76be23f003bc0101d1c1f94854fd7d44cefeef34a0872783e0e6b6",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/3p.svg",
+      "bytes": 15486,
+      "sha256": "0d57651db6c2d96a99d65a44bdd21e5f550336580310edec029428494326759f",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/3s.png",
+      "bytes": 11081,
+      "sha256": "59204414d714e709f1f7f97db0f0f44edcc48a6af2dab4e7eb6515311ab346a0",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/3s.svg",
+      "bytes": 20338,
+      "sha256": "d0f26555368992a285f0ae3f3588d6229518a25fa212466627134f54cc6a3bac",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/3z.png",
+      "bytes": 10173,
+      "sha256": "d882c928418fa7686ac41d217edc2207726acf9416ec7ac63eeb003b8d1a5c42",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/3z.svg",
+      "bytes": 10805,
+      "sha256": "10d4b6e7e8cbe8410f376c28b8892ecab5b03c1f8d89db93acf0da2302523577",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/4f.png",
+      "bytes": 21390,
+      "sha256": "e179dc242c0a5ff89a24b5d6a2af9f645a901a00a18379b0ca49637835c30c9d",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/4f.svg",
+      "bytes": 23176,
+      "sha256": "2984e52350f1994ae1fa316c8e3a29f743a164406a336df7010f786e83e3683a",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/4m.png",
+      "bytes": 12694,
+      "sha256": "6eb7aaf8f2718a5ba2c01ccd46d09f037aff4246d09593ca0d81ca6f0e0b3478",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/4m.svg",
+      "bytes": 15436,
+      "sha256": "a65cde442a6b15e5f33a8dbe753f5d8a30ec1d07f917edc784186e0bdf3abb2e",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/4p.png",
+      "bytes": 19853,
+      "sha256": "a2c6d17d6974457f4a2feaa003d217f5a2ab9ff19120628237a65386347007cc",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/4p.svg",
+      "bytes": 18108,
+      "sha256": "c9231df1f9a83b90ca3e7c333ca56a11bc323a9e765702714a273a58797aaef0",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/4s.png",
+      "bytes": 13470,
+      "sha256": "e885fa84bb8e12b16a0941587196e2b64d8562d9ee1a94a0d55ed4a50f54765d",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/4s.svg",
+      "bytes": 25945,
+      "sha256": "c0861613ee9a6eda77f29a7e685068dd0619bc7aefcc6fcd8d7356782043a518",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/4z.png",
+      "bytes": 9458,
+      "sha256": "6ba9e10834c4997cb039f198dac280bdf4821eb75dca7af54b2ea349f0f91675",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/4z.svg",
+      "bytes": 10212,
+      "sha256": "a8efd3f32aa46c70a04233d499097ab75ec221635bdf68e8ee2817cb0c45d824",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/5f.png",
+      "bytes": 18295,
+      "sha256": "2b85b3776a2efdb3d87d7738b687971b29f7e93185b8c126f3093c3c91bee680",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/5f.svg",
+      "bytes": 15654,
+      "sha256": "1dd164b2b88520ed6dacc031aa8eb5dc4e3980005e3f726036c292f5053ebba8",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/5m.png",
+      "bytes": 13065,
+      "sha256": "35982b2ebb9ae4e4718ecb5d94f656e2fc35ecc2d996a109f010a2bb5b8265d4",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/5m.svg",
+      "bytes": 16943,
+      "sha256": "88687841beb6eda143d2a973aaa9e2af9a8896472a9b0260d5c4d198a160bba5",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/5p.png",
+      "bytes": 24552,
+      "sha256": "36610ec92ef618eb8deb7f37917265b2b4627c53aab40ef18d9fc9adffe0140b",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/5p.svg",
+      "bytes": 20828,
+      "sha256": "5574c14b911befee26b821147d54f6d92cafd66f272e1da5c12a63a0143bc213",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/5s.png",
+      "bytes": 17168,
+      "sha256": "bc8e1b8bc670b456183d9238d13dffc3e312cec3c4b0cc2bf5c8305776f7a738",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/5s.svg",
+      "bytes": 28759,
+      "sha256": "cbd9b02c63976954d44b373966c886c457a5903262a2fb9ea958450d86746144",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/5z.png",
+      "bytes": 1330,
+      "sha256": "658f1cfb80baac8af535974e3ce7411e9d85085343e55ebb9078cdb17a57f8e5",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/5z.svg",
+      "bytes": 7122,
+      "sha256": "d6023d8cf3b810b74b2f7c14a4254dd7a65c57b9389e63f90aed8f6cd3607032",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/6f.png",
+      "bytes": 22013,
+      "sha256": "3fac4f8eac3c14bb224b4ca8e9a81eba7f8ef8bdfe35460ed83b74b15b254839",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/6f.svg",
+      "bytes": 15763,
+      "sha256": "7287dfbae19cab5a262c9a5e3964dfdc800b4ab1ad9e6e533abdf069e6b81c9a",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/6m.png",
+      "bytes": 12281,
+      "sha256": "48d2e7733292815b786569bddc4c3717f00e228f3d71b03e2ea6b2f53aa19246",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/6m.svg",
+      "bytes": 15694,
+      "sha256": "279df4110edaee428a00df4115df4de7f99829cc9e4f4b259e61036cae8fe0d3",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/6p.png",
+      "bytes": 24146,
+      "sha256": "2b8ebed8bba96084560d496470c8d0ec33c5c952204b049db83b9e307f18988b",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/6p.svg",
+      "bytes": 22365,
+      "sha256": "38605c2f30a762fada49d4d4ba1b2beb8a707469478ec173b800be06b95562ad",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/6s.png",
+      "bytes": 17899,
+      "sha256": "3508e227f1f5d0b4dc794ef16ed5032af491e511d09738db8b2207077661b0ad",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/6s.svg",
+      "bytes": 33117,
+      "sha256": "cf6489ecb0ff073efd94d76b4281e91711e74e3b5eb14c641f8c5e71c2d335b5",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/6z.png",
+      "bytes": 12627,
+      "sha256": "ae4e8288a2beebaa1bf4b70c5f91df2e7c86d0998f4d7c14598d4d55d1b0f0f3",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/6z.svg",
+      "bytes": 16047,
+      "sha256": "9197066680636f5d6b43e49b687103e7b347334f5ea838220edb41ec803e3ad9",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/7f.png",
+      "bytes": 23207,
+      "sha256": "53c9f1033b8436ccfcd16d2df32bf42410af4975529fea02ddf258821eddc0e7",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/7f.svg",
+      "bytes": 23009,
+      "sha256": "845f6733a9b82274baa14632ea1d4e59174d901b068a5aaff15c3797922c9c16",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/7m.png",
+      "bytes": 11717,
+      "sha256": "814615145e8783df47c03eac1b7443bf699df87b8cccd311d7823a7e355ae1bb",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/7m.svg",
+      "bytes": 14365,
+      "sha256": "a5a1a19ef1156d4bc33d5ae0551806f683cf959b90b244f9fa90ae1bf6402485",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/7p.png",
+      "bytes": 27894,
+      "sha256": "9dbd4afe7b52d0d4c2007f5a91add6000df26615385edaca707dbe33f3c06b5d",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/7p.svg",
+      "bytes": 27573,
+      "sha256": "97efa9eec79944518511a4f461f1468490a95ca13b3d952eff1ca02bb05b4589",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/7s.png",
+      "bytes": 16090,
+      "sha256": "654ddeeaa1a57c9ccaf83ff0c508ef64a98f45a5e9763a608a97b68e1a29fe44",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/7s.svg",
+      "bytes": 30548,
+      "sha256": "9afdfc3cef41b3012895d90c1fc34c7c33111171d2a3ea248fbb8ec441009426",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/7z.png",
+      "bytes": 7234,
+      "sha256": "1b18bed8e8b4f62310e8e556bf9a029f9817ffde63c4413faa0fe574f8ff3285",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/7z.svg",
+      "bytes": 9497,
+      "sha256": "7aecefcb257e5278cf3d4d0d9d03b16c3c6e3ba4080d54f60d424c3f35ffd5bb",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/8f.png",
+      "bytes": 15724,
+      "sha256": "ae765f90b7e97ae4c1a950caaa2937cc14f86d70c9e129527a023c641c0fc63a",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/8f.svg",
+      "bytes": 12846,
+      "sha256": "9be39553cbea1f14ba6b862b2bb12c3474e11263072702f8b4a3d4e84ff1c523",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/8m.png",
+      "bytes": 11458,
+      "sha256": "da48ea4e51574071d615f4c5550e85cd4311887fcbd4a880a337aa1385b9ddb6",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/8m.svg",
+      "bytes": 14459,
+      "sha256": "28babd56acfb1f710c78a50e962edc48af5f739035fbf1f5f5ce62da9c196ec5",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/8p.png",
+      "bytes": 32178,
+      "sha256": "aeebe1e6d344bc33c551c2782a5f466b386e2e147f59317c76add0dd55cfc669",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/8p.svg",
+      "bytes": 27566,
+      "sha256": "523b82c7c4a7cd8999780a7b3b5a7b6670eaf86eb1a8e9ad1317b43c6d8f81d8",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/8s.png",
+      "bytes": 18549,
+      "sha256": "7bde39c314a0dd2bd3011c29ff461e33c5fea27677e13a76afd497f86f99b653",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/8s.svg",
+      "bytes": 34696,
+      "sha256": "dccec0736c9855c6ccc628238b49afb343f68797302f4129861cb3fc451f8d61",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/9m.png",
+      "bytes": 12512,
+      "sha256": "bcc210dfabf7965192a462d6d1e7e8543f6015c6b445432ba4208fd2cfd139e0",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/9m.svg",
+      "bytes": 15159,
+      "sha256": "0b31a26657af8ecfd330332068c22c69516e43ac31a8f3bdfeff19a994088c23",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/9p.png",
+      "bytes": 32735,
+      "sha256": "c5c7e026f377c7ec5d390db7b9d2ae3edefe6e8c7bd84e1f36c6e638d2556cac",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/9p.svg",
+      "bytes": 31026,
+      "sha256": "ffd648051b26c2afd770120c9405d7eec550fdb7f7b42406feadb0969f277087",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/9s.png",
+      "bytes": 21203,
+      "sha256": "a4675fc095578a17c7de0510e60fd2eb732de2ba8053b92c75c3c93e3308a262",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/9s.svg",
+      "bytes": 37279,
+      "sha256": "5a3369477214b72ddc727130abd0a97126cbaf703eb5ad3226a5b1083dc6635b",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/back.svg",
+      "bytes": 10174,
+      "sha256": "20b7a88696747c5d6fbc4fab9f24d4a5a44311282a0faba20ddd05dae4ce46ff",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/Blank.svg",
+      "bytes": 8499,
+      "sha256": "b8a1a2a102dfac266c49b32beba8835efe30f6528712a1b29b5974f7cfaae433",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/Front.svg",
+      "bytes": 11906,
+      "sha256": "eb74c1e7de77ffed744c345decafe42671e8aadfbac1dd39304195d8070db24b",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/fluffy/Readme.md",
+      "bytes": 162,
+      "sha256": "3e58353713f9d90cd552128180683471e70b3a02dabc856ae7e719b21b4948e0",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/1f.png",
+      "bytes": 17327,
+      "sha256": "72db3068cfc0df46b44951147bb235eba46ad83870b97b34859b2f7929838cee",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/1m.png",
+      "bytes": 10317,
+      "sha256": "c47f8f9bd8d8e96465b5d6434f001d969ad6bc16467c291e22cdf3897bf402f8",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/1p.png",
+      "bytes": 20425,
+      "sha256": "24a04501fd62279fb99c66e6bcb0cf8d2bb76e2e7c3952b537ac68544377c6d4",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/1s.png",
+      "bytes": 20672,
+      "sha256": "72843a13064f69ca05722cc830976b63d9e175118cdc33002e367eecb8b826a3",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/1z.png",
+      "bytes": 9141,
+      "sha256": "4d7a8cfbc4bde4d28b5ff2bc9cf06a2cb619648e3975a8f010285cb67198ca9a",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/2f.png",
+      "bytes": 15611,
+      "sha256": "5f798faccbba5f411caad02cc2721dee82b7ff101afa6da3d777e69c115aedb5",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/2m.png",
+      "bytes": 11277,
+      "sha256": "1b3037b361fb98c76569f09e9727328d939c7dff6033f35aac885c5f782c0f53",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/2p.png",
+      "bytes": 16162,
+      "sha256": "c2458090e8673ea686a755276e790e2a261ea801cf59f73a30b47d98ad2f0b81",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/2s.png",
+      "bytes": 5216,
+      "sha256": "d6f78f013a4bb1cb9b218ea360b4e3fc2b4d775760c4729caa305e709c52dccc",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/2z.png",
+      "bytes": 9025,
+      "sha256": "14d33a9ee4f80728b2a9c80da8223e8544f04df9d864cfff26e3631d971f3824",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/3f.png",
+      "bytes": 19445,
+      "sha256": "fca40bccae601054d78186ef564c28ce22b00817a8cedb38e6712ed31b7b1bf3",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/3m.png",
+      "bytes": 12303,
+      "sha256": "3518a9429186e380e94978d787a0b03211aba034d18915f75fb934265f7b317f",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/3p.png",
+      "bytes": 13629,
+      "sha256": "c3c2ff5b20159f2a81bcd482e3900885e4308683726786f38306a239611983cc",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/3s.png",
+      "bytes": 7282,
+      "sha256": "2ce8a16eb75023e1657445b5e25c3cb3b8c7e0e41e7fe7cb7ac86117a21162b6",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/3z.png",
+      "bytes": 9286,
+      "sha256": "be146f3331014db22bfc4121327c1d4a83d0ea9cc84baaa63de47f291c40fc51",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/4f.png",
+      "bytes": 19720,
+      "sha256": "30384bfe15952c9a9c4992fcdc19fbb2de6c85311a2a99d727a8f4969e2fb61b",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/4m.png",
+      "bytes": 13101,
+      "sha256": "61703fc7f4dac00acfca67b5274ef715a80fd945a9fffc3b8883a93019f21737",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/4p.png",
+      "bytes": 13668,
+      "sha256": "287895ee3eded289555aad55ea72b1c690546b9aad4fb676799a9b3552f28964",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/4s.png",
+      "bytes": 9245,
+      "sha256": "92e2b04ebe35ad4f55067cd1a28480fdc7891f6faf1d06cd13a1c852a1944fe5",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/4z.png",
+      "bytes": 6940,
+      "sha256": "15fd7cad0323613867751543aad0c0455459b14ea72160fba56232939b5ab571",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/5f.png",
+      "bytes": 16043,
+      "sha256": "8a847b39f699a87faab226eee3f2927e0b15492cc361bcca6a2692b45f3fa24e",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/5m.png",
+      "bytes": 14548,
+      "sha256": "51540a7321aed202ef8cb698cbe18a422cf2499a081d2f7f644b803e5688af20",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/5p.png",
+      "bytes": 17204,
+      "sha256": "89a03dd8f7156a1a09d7b7c773fbe7b5fe9212bc9dad20b9f99d386796445727",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/5s.png",
+      "bytes": 11500,
+      "sha256": "ec27cdad0019bc2e62bee8a885d676312d1228c896ba3af8c39cabfe9003b553",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/5z.png",
+      "bytes": 3914,
+      "sha256": "1fb1219c7e5102b7ecc57434365ca0882a5770cba2cdba72f8127526e8a14a5e",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/6f.png",
+      "bytes": 15176,
+      "sha256": "12b71c11d59dfdead2ccfdcefc6d3588c9c7597a4c3dbe7dfdc787d115c5508e",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/6m.png",
+      "bytes": 13475,
+      "sha256": "f5194863555682d4e1bce2078daf4695b5a34869ec8afea7c44e61e7316765ad",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/6p.png",
+      "bytes": 20455,
+      "sha256": "742d0928c3b238878a686553440bd8e4a698409c310dfdb97303a8f2196f49ae",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/6s.png",
+      "bytes": 13034,
+      "sha256": "ed282c284c6125690261c7956a811deb9f98268517052b6a29c5e0e587f30d20",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/6z.png",
+      "bytes": 11954,
+      "sha256": "40ea05caeb528b6f935ce9c596ac3f8faaef51c6df16a64921cf1b3bed16ac01",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/7f.png",
+      "bytes": 17687,
+      "sha256": "55755fbb3e7c20c1dae442f6c6422e80e0e5ea81956d4ebfaf3d94a68153b200",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/7m.png",
+      "bytes": 12639,
+      "sha256": "8f6fe386c4ebbf826d35f3b9acd20de015e4df1fdfe5abd8ada934bb858ad36c",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/7p.png",
+      "bytes": 23839,
+      "sha256": "01bfafe5fecc8b9f28e170d898dfd4e2c5927ef7a577ca1904e6e1693a44c614",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/7s.png",
+      "bytes": 12397,
+      "sha256": "d39eadfeaba7f30c2b841c865acb04c800ed912ef3a7bcc75a6bd6a938d2e24f",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/7z.png",
+      "bytes": 5716,
+      "sha256": "fa6df938da5e41252294c71104f8260072a6c599203d6276434bd5eafafe6ea4",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/8f.png",
+      "bytes": 19036,
+      "sha256": "8e3d162f9c2363e81c4be797f2ace953c59729585af4f7e3a9aad6e3195e0ccc",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/8m.png",
+      "bytes": 12287,
+      "sha256": "0f214fb672141dbc33932459c795b1dddefb740739a5b711337ef226e96fbcb1",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/8p.png",
+      "bytes": 26322,
+      "sha256": "46a4340a8590aa33d346b7e59177e5d2e62c6a35c5666361a18e917378a3b60b",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/8s.png",
+      "bytes": 16614,
+      "sha256": "93cbda452d32ad10b3f5f288bfc859e6eef5ae2f3df1de6c390192a217fb7739",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/9m.png",
+      "bytes": 13249,
+      "sha256": "0819e5d052af2a891cb9dea7a0761677310dbfc6c74c664fd24b48f625c329cd",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/9p.png",
+      "bytes": 29557,
+      "sha256": "9eeae5e436118e79c2a5d134a810c0035e49dc92dc4ace6e45a460f1fdcdf97c",
+      "backupVerified": true
+    },
+    {
+      "path": "sources/hkmahjong/9s.png",
+      "bytes": 15617,
+      "sha256": "65dea1fc3207a9e6d8aff6619475495573f5f15f6e2b49a201a8e43cddbbfe4c",
+      "backupVerified": true
+    }
+  ]
+}

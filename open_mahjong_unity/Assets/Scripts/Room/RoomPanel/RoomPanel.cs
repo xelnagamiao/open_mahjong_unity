@@ -153,9 +153,12 @@ public class RoomPanel : MonoBehaviour {
             }
         }
 
-        // 开始按钮：仅房主可见；满 4 人且其余玩家全部准备时可点击（与服务器 start_game 校验一致）
+        // 开始按钮：仅房主可见；人数达到规则最少人数且其余玩家全部准备时可点击。
         startButton.gameObject.SetActive(isHost);
-        startButton.interactable = isHost && roomInfo.player_list.Length == 4 && AllOthersReady(roomInfo);
+        int seated = roomInfo.player_list != null ? roomInfo.player_list.Length : 0;
+        int minPlayers = RuleRegistry.Resolve(roomInfo.room_rule)?.MinPlayersToStart ?? 4;
+        if (minPlayers < 1) minPlayers = 1;
+        startButton.interactable = isHost && seated >= minPlayers && AllOthersReady(roomInfo);
 
         // 准备按钮：仅非房主显示
         if (readyButton != null) {
@@ -166,13 +169,21 @@ public class RoomPanel : MonoBehaviour {
             readyButtonText.text = selfReady ? "取消准备" : "准备";
         }
 
-        // 只有房主可以添加机器人
-        addBotButton.interactable = isHost;
-        addSmartBotButton.interactable = isHost;
-        UpdateGuobiaoHeuristicBotButton(roomInfo, isHost);
+        // 只有房主可以添加机器人；规则清单关闭时整组隐藏。
+        bool allowBots = RuleRegistry.Resolve(roomInfo.room_rule)?.AllowsRoomBots ?? true;
+        if (addBotButton != null) addBotButton.gameObject.SetActive(allowBots);
+        if (addSmartBotButton != null) addSmartBotButton.gameObject.SetActive(allowBots);
+        addBotButton.interactable = allowBots && isHost;
+        addSmartBotButton.interactable = allowBots && isHost;
+        if (allowBots) {
+            UpdateGuobiaoHeuristicBotButton(roomInfo, isHost);
+            UpdateBotHintTexts(roomInfo.player_list);
+        } else {
+            if (addGuobiaoHeuristicBotButton != null) addGuobiaoHeuristicBotButton.gameObject.SetActive(false);
+            HideBotHintTexts();
+        }
 
         this.roomConfigContainer.SetRoomConfig(roomInfo);
-        UpdateBotHintTexts(roomInfo.player_list);
     }
 
     /// <summary>

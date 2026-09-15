@@ -106,21 +106,21 @@ const rules = [
     docs: [
       {
         title: '青雀一页纸',
-        desc: '一页纸番种速记。',
+        desc: '青雀第十四版一页纸，来自 mmcr.online。',
         url: '/rulebooks/qingque-onepage.pdf',
-        filename: '青雀一页纸 12.5.pdf'
+        filename: '青雀一页纸 14.pdf'
       },
       {
         title: '青雀牌例',
-        desc: '记录规则中所有番种对应的详解及牌例。',
+        desc: '青雀牌例第三版第一次修订，适用于第十四版，来自 mmcr.online。',
         url: '/rulebooks/qingque-paili.pdf',
-        filename: '青雀牌例 2.8.pdf'
+        filename: '青雀牌例 3.1.pdf'
       },
       {
         title: '青雀规则文档',
-        desc: '包含青雀规则的行牌逻辑和概念解释。',
+        desc: '青雀第十四版第一次修订，来自 mmcr.online。',
         url: '/rulebooks/qingque-rulebook.pdf',
-        filename: '青雀 12.5-a1.pdf'
+        filename: '青雀 14.1.pdf'
       }
     ]
   },

@@ -20,6 +20,9 @@ public class UserDataManager : MonoBehaviour {
     public string GuobiaoRank { get; private set; } = "10级";
     public float GuobiaoScore { get; private set; } = 0;
     public bool IsSponsor { get; private set; } = false;
+    public bool IsBeginnerQualified { get; private set; } = false;
+    public bool IsIntermediateQualified { get; private set; } = false;
+    public bool IsAdvancedQualified { get; private set; } = false;
     public bool IsMcrplQualified { get; private set; } = false;
     public bool IsTourist { get; private set; } = false;
 
@@ -44,10 +47,15 @@ public class UserDataManager : MonoBehaviour {
 
     // 设置用户信息
     public void SetUserInfo(string username, string userkey, int user_id, bool isTourist = false) {
+        bool accountChanged = UserId != user_id;
         Username = username;
         Userkey = userkey;
         UserId = user_id;
         IsTourist = isTourist;
+        if (accountChanged) {
+            SetGamestateId("");
+            SetRoomId(ROOM_ID_NONE);
+        }
         ChatManager.Instance.LoginChatServer(username, userkey);
     }
 
@@ -64,17 +72,23 @@ public class UserDataManager : MonoBehaviour {
         Debug.Log("SetRoomId: " + room_id);
         Debug.Log("Current RoomId: " + this.RoomId);
         if (string.IsNullOrEmpty(room_id)) room_id = ROOM_ID_NONE;
-        // 如果房间ID发生变化
-        if (this.RoomId != room_id){
-            if (this.RoomId != ROOM_ID_NONE) {
-                ChatManager.Instance.LeaveRoom(int.Parse(this.RoomId));
+        if (this.RoomId == room_id) return;
+
+        string previous = this.RoomId;
+        this.RoomId = room_id;
+        try {
+            ChatManager chat = ChatManager.Instance;
+            if (chat != null) {
+                if (previous != ROOM_ID_NONE && int.TryParse(previous, out int oldId)) {
+                    chat.LeaveRoom(oldId);
+                } else if (room_id != ROOM_ID_NONE && int.TryParse(room_id, out int newId)) {
+                    chat.JoinRoom(newId);
+                }
             }
-            else if (room_id != ROOM_ID_NONE) {
-                ChatManager.Instance.JoinRoom(int.Parse(room_id));
-            }
-            this.RoomId = room_id;
-            OnRoomIdChanged?.Invoke();
+        } catch (Exception e) {
+            Debug.LogWarning($"SetRoomId 同步聊天房间失败: {e.Message}");
         }
+        OnRoomIdChanged?.Invoke();
     }
 
     // 设置当前游戏状态ID
@@ -83,11 +97,22 @@ public class UserDataManager : MonoBehaviour {
     }
 
     // 设置段位数据
-    public void SetRankData(string guobiaoRank, float guobiaoScore, bool isSponsor, bool isMcrplQualified) {
+    public void SetRankData(
+        string guobiaoRank,
+        float guobiaoScore,
+        bool isSponsor,
+        bool isMcrplQualified,
+        bool isBeginnerQualified = false,
+        bool isIntermediateQualified = false,
+        bool isAdvancedQualified = false
+    ) {
         GuobiaoRank = guobiaoRank;
         GuobiaoScore = guobiaoScore;
         IsSponsor = isSponsor;
         IsMcrplQualified = isMcrplQualified;
+        IsBeginnerQualified = isBeginnerQualified;
+        IsIntermediateQualified = isIntermediateQualified;
+        IsAdvancedQualified = isAdvancedQualified;
     }
 
     // 更新段位（排位赛结束后由 RankChangePanel 调用）
