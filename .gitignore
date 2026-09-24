@@ -64,19 +64,20 @@ Thumbs.db
 *.blend[0-9]*
 *~
 
-# 本机凭据：仓库只提供占位示例，不提交运行时生成的密钥。
+# 环境私有配置与运行时密钥；Web .env 是共享的本地测试占位配置。
 .env
 .env.*
+!/open_mahjong_web/.env
 !/open_mahjong_web/.env.example
 !/open_mahjong_server/.env.example
 !/open_mahjong_chatServer/.env.example
 *.pem
 *.key
 secret_key.txt
+# Windows 聊天 exe 是本地测试配套文件，需要提交以支持 Python 自动启动。
+# 其他平台的本机构建结果继续忽略。
 /open_mahjong_chatServer/open_mahjong_chatServer
-/open_mahjong_chatServer/open_mahjong_chatServer.exe
 /open_mahjong_server/server/chat_server/open_mahjong_chatServer
-/open_mahjong_server/server/chat_server/open_mahjong_chatServer.exe
 
 # Web 构建输出及本机放置的游戏包；public 下仅保留放置说明。
 /open_mahjong_web/client/dist/
