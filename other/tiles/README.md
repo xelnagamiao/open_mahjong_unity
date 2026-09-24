@@ -41,7 +41,7 @@
 4 像素画布边距，并按真实圆角平面检查最淡的边缘仍有至少 2 像素采样余量。
 这些检查只验证结果，不会暗中缩小或移动其中某一张牌。
 
-参数保存在 [`snow_artwork_layout.json`](../../tools/tilepack/snow_artwork_layout.json)：
+参数保存在 [`snow_artwork_layout.json`](snow_artwork_layout.json)：
 版本 3 的 `families` 中，`table` 保存各组的最终 `scale` 和 `offset`。
 所有 `hand` 固定为 `scale: 1, offset: [0, 0]`；生成器会拒绝改变 2D 原稿排版
 的配置，避免桌面放大再次联动手牌。
@@ -63,15 +63,6 @@
 元数据，不要只复制解码后的像素。没有该元数据的普通上传图片使用 `.86` 的
 标准显示区域。手牌及其他牌包不带此项。
 
-重新生成并同步这些可用包：
-
-```powershell
-python tools/tilepack/rebuild_table_faces.py --export-root other/tiles
-```
-
-运行位置请使用仓库根目录。依赖和转换细节见
-[`tools/tilepack/README.md`](../../tools/tilepack/README.md)。
-逐图来源、输出 SHA-256、放大比例和透明提取验证可在运行生成器时通过
-`--report <本地报告路径>` 生成；报告属于本机产物，不放入共享素材目录。
-默认报告写入 `.om_workspace/tilepack-build/face-build.json`。
-未启用的其他历史牌面来源已移入 `.om_workspace/cleanup-quarantine-20260912/small/tiles_unused`，不参与此生成流程；仓库内只保留当前可用包、原画源文件和牌体表面资源。
+制作时以 `sources/` 中的原画和本目录的布局参数为依据，导出的最终 PNG 放入
+`packs/` 或 `surfaces/`，同时保留来源许可与必要元数据。加工脚本和逐图测试报告属于
+本机工作过程，不随素材仓库发布。
