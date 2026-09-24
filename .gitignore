@@ -1,122 +1,117 @@
-# 忽略 VSCode / Cursor 本地配置
+# 仓库根目录白名单：四个主项目、共享素材、Git 规则、README 与许可证。
+# 新增根目录默认不提交；本机工作约定与工具保留在本机。
+/*
+!/.gitignore
+!/.gitattributes
+!/README.md
+!/LICENSE
+!/open_mahjong_chatServer/
+!/open_mahjong_server/
+!/open_mahjong_unity/
+!/open_mahjong_web/
+!/other/
+
+# Unity 仅提交源码、资源、项目设置、依赖锁与维护文档。
+/open_mahjong_unity/*
+!/open_mahjong_unity/Assets/
+!/open_mahjong_unity/Packages/
+!/open_mahjong_unity/ProjectSettings/
+!/open_mahjong_unity/Docs/
+!/open_mahjong_unity/README.md
+/open_mahjong_unity/Assets/Resources/PerformanceTestRunInfo.json*
+/open_mahjong_unity/Assets/Resources/PerformanceTestRunSettings.json*
+
+# Python 项目的源码入口；虚拟环境和本机部署文件不进入仓库。
+/open_mahjong_server/*
+!/open_mahjong_server/requirements.txt
+!/open_mahjong_server/main.py
+!/open_mahjong_server/start_server.bat
+!/open_mahjong_server/README.md
+!/open_mahjong_server/server/
+!/open_mahjong_server/tests/
+!/open_mahjong_server/docs/
+/open_mahjong_server/server/error_log/
+/open_mahjong_server/server/local_config.py
+/open_mahjong_server/logs/
+
+# 依赖、缓存、编辑器配置与临时输出（不忽略实际源码或 Unity 插件）。
+node_modules/
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.vite/
 .vscode/
 .cursor/
-
-# 忽略 Unity 项目目录下的所有内容
-open_mahjong_unity/**
-# 但保留以下必要内容
-!open_mahjong_unity/Assets/
-!open_mahjong_unity/Assets/**
-!open_mahjong_unity/ProjectSettings/
-!open_mahjong_unity/ProjectSettings/**
-!open_mahjong_unity/Packages/
-!open_mahjong_unity/Packages/**
-# 保留 lock 文件
-!open_mahjong_unity/Packages/manifest.json
-!open_mahjong_unity/Packages/packages-lock.json
-# 忽略 Unity 自动生成的 IDE 和临时文件
-# open_mahjong_unity/*.csproj
-# open_mahjong_unity/*.sln
-open_mahjong_unity/*.userprefs
-open_mahjong_unity/*.pidb
-open_mahjong_unity/*.booproj
-open_mahjong_unity/*.svd
-open_mahjong_unity/*.pdb
-open_mahjong_unity/*.opendb
-
-# 服务器项目：只忽略不需要的文件和目录
-open_mahjong_server/* 
-# 保留依赖和配置文件
-!open_mahjong_server/requirements.txt
-!open_mahjong_server/main.py
-!open_mahjong_server/start_server.bat
-
-# 保留 server 目录
-!open_mahjong_server/server/
-!open_mahjong_server/tests/
-!open_mahjong_server/tests/**
-!open_mahjong_server/docs/
-!open_mahjong_server/docs/**
-open_mahjong_server/server/error_log/*
-open_mahjong_server/server/local_config.py
-
-# Python 字节码与缓存（递归忽略 server 下所有子目录）
-open_mahjong_server/server/**/__pycache__/
-open_mahjong_server/server/**/*.py[cod]
-open_mahjong_server/server/**/*$py.class
-open_mahjong_server/server/**/.pytest_cache/
-open_mahjong_server/server/**/.mypy_cache/
-open_mahjong_server/server/**/.ruff_cache/
-open_mahjong_server/server/**/*.pyo
-open_mahjong_server/tests/**/__pycache__/
-open_mahjong_server/tests/**/*.py[cod]
-
-# 服务端运行日志（勿提交）
-open_mahjong_server/logs/
-
-# 聊天服务器项目：不忽略任何文件和目录
-!open_mahjong_server/server/chat_server/
-
-# Web项目：只忽略不需要的文件和目录
-open_mahjong_web/node_modules/*
-open_mahjong_web/client/node_modules/*
-open_mahjong_web/.env
-open_mahjong_web/.env.local
-open_mahjong_web/.env.*.local
-
-# 活动专栏静态文件与目录（开发写 data/，勿提交上传图）
-open_mahjong_web/client/public/activity-assets/
-open_mahjong_web/data/activities/**
-!open_mahjong_web/data/activities/.gitkeep
-open_mahjong_web/data/activity-assets/**
-!open_mahjong_web/data/activity-assets/.gitkeep
-open_mahjong_web/data/user-content/**
-!open_mahjong_web/data/user-content/.gitkeep
-
-# Ignore built Vue static files under dist, keep placeholder md files
-open_mahjong_web/client/dist/*
-!open_mahjong_web/client/dist/android-game/
-!open_mahjong_web/client/dist/android-game/*
-!open_mahjong_web/client/dist/ios-game/
-!open_mahjong_web/client/dist/ios-game/*
-!open_mahjong_web/client/dist/unity-game/
-!open_mahjong_web/client/dist/unity-game/*
-
-# 不忽略.gitignore
-!.gitignore
-
-
-
-
-# Private keys (do not commit)
-*.pem
-
-# 本地隔离工作区：密钥 / 部署打包 / 临时文件（勿提交）
+.idea/
 .om_workspace/
-
-# 已废弃的部署暂存目录（误提交过，勿再使用）
 .deploy_staging/
+AGENTS.md
+WORKSPACE_RULES.md
+tmp/
+Temp/
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.bak
+*.orig
+*.lnk
+*.blend[0-9]*
+*~
 
-# 误提交的本机路径、一次性脚本、agent 临时目录
-%APPDATA%/
-tools/*
-# 可复现的内置 3D 牌面素材生成器；其他本地工具仍忽略
-!tools/tilepack/
-tools/tilepack/*
-!tools/tilepack/rebuild_table_faces.py
-!tools/tilepack/README.md
-!tools/tilepack/snow_artwork_layout.json
-.worktrees/
-.codex_tmp*/
-.agents/
+# 本机凭据：仓库只提供占位示例，不提交运行时生成的密钥。
+.env
+.env.*
+!/open_mahjong_web/.env.example
+!/open_mahjong_server/.env.example
+!/open_mahjong_chatServer/.env.example
+*.pem
+*.key
+secret_key.txt
+/open_mahjong_chatServer/open_mahjong_chatServer
+/open_mahjong_chatServer/open_mahjong_chatServer.exe
+/open_mahjong_server/server/chat_server/open_mahjong_chatServer
+/open_mahjong_server/server/chat_server/open_mahjong_chatServer.exe
 
-# Local verification/build artifacts
-/tmp/
-/output/
-/.pytest_cache/
+# Web 构建输出及本机放置的游戏包；public 下仅保留放置说明。
+/open_mahjong_web/client/dist/
+/open_mahjong_web/client/coverage/
+/open_mahjong_web/client/public/unity-game/*
+!/open_mahjong_web/client/public/unity-game/*.md
+/open_mahjong_web/client/public/android-game/*
+!/open_mahjong_web/client/public/android-game/*.md
+/open_mahjong_web/client/public/ios-game/*
+!/open_mahjong_web/client/public/ios-game/*.md
+/open_mahjong_web/client/public/activity-assets/
+
+# 用户上传与运行数据；保留必要的空目录占位。
+/open_mahjong_web/data/activities/**
+!/open_mahjong_web/data/activities/.gitkeep
+/open_mahjong_web/data/activity-assets/**
+!/open_mahjong_web/data/activity-assets/.gitkeep
+/open_mahjong_web/data/user-content/**
+!/open_mahjong_web/data/user-content/.gitkeep
+/open_mahjong_web/data/fun-data/**
+!/open_mahjong_web/data/fun-data/.gitkeep
+/open_mahjong_web/data/record-convert-shares/
+
+# other 只提交共享素材、配表、规则资料及其来源/许可证/说明。
+# 生成器、一次性工具、构建和验收过程文件放 .om_workspace/。
+/other/UnityBatchBuild/
+/other/**/[Tt]ools/
+/other/**/_tools/
+/other/**/[Bb]uild/
+/other/**/[Bb]uilds/
+/other/**/validation/
+/other/**/*.py
+/other/**/*.ps1
+/other/**/*.bat
+/other/**/*.cmd
+/other/**/*.sh
+/other/**/*.exe
 /other/tiles/face-build.json
-/open_mahjong_web/client/vite-dev.log
-/other/Tablecloth/SeamLibrary/migration/*.log
-open_mahjong_unity/Assets/Resources/PerformanceTestRunInfo.json*
-open_mahjong_unity/Assets/Resources/PerformanceTestRunSettings.json*
-

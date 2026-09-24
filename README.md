@@ -130,9 +130,19 @@ open_mahjong_unity/
 └── README.md
 ```
 
-### 工作区与 `other` 规则
+### 仓库提交范围
 
-任务过程文件、临时脚本、备份、日志、缓存和中间产物放在被 Git 忽略的 `.om_workspace/`；`other/` 只保留已经整理完成、需要上传 Git 并提供给其他使用者的最终成果。完整约定见 [WORKSPACE_RULES.md](WORKSPACE_RULES.md)。
+根目录仅提交四个主项目 `open_mahjong_unity/`、`open_mahjong_web/`、
+`open_mahjong_server/`、`open_mahjong_chatServer/`，以及 `other/`、
+`.gitignore`、`.gitattributes`、`README.md` 和 `LICENSE`。
+
+`other/` 保存面向开源使用者的美术源文件、可用素材、段位配表、规则资料，以及
+必要的来源、许可证和制作说明。本机工具、临时脚本、构建包、备份、日志、缓存、
+工作区约定和任务报告放在 Git 忽略的 `.om_workspace/`，不放入共享素材目录。
+
+运行配置使用本机 `.env`，仓库提供 `.env.example`；聊天密钥由服务端生成，
+不要提交密钥或预编译程序。Unity 必须成对提交资源与 `.meta`，保留依赖锁文件。
+提交前检查 `git diff --cached --name-status`；不要强制添加被忽略的过程文件。
 
 ## 3.技术栈
 
