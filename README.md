@@ -140,8 +140,10 @@ open_mahjong_unity/
 必要的来源、许可证和制作说明。本机工具、临时脚本、构建包、备份、日志、缓存、
 工作区约定和任务报告放在 Git 忽略的 `.om_workspace/`，不放入共享素材目录。
 
-运行配置使用本机 `.env`，仓库提供 `.env.example`；聊天密钥由服务端生成，
-不要提交密钥或预编译程序。Unity 必须成对提交资源与 `.meta`，保留依赖锁文件。
+Web `.env` 与 Python `test_config.py` 提供可提交的本地测试默认配置，
+环境私有配置和真实凭据由各运行环境单独管理。Windows 聊天 `.exe` 是测试配套文件，
+保留在聊天项目及 Python 的 `server/chat_server/` 中，支持测试服务自动启动聊天。
+聊天密钥由服务端启动时生成，无需提交。Unity 必须成对提交资源与 `.meta`，保留依赖锁文件。
 提交前检查 `git diff --cached --name-status`；不要强制添加被忽略的过程文件。
 
 ## 3.技术栈
