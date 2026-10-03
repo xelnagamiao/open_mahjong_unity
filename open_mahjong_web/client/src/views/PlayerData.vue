@@ -159,8 +159,23 @@
             </div>
           </div>
         </template>
-        <div v-if="needsLocalAnalysis" class="no-prestored" :class="{ compact: showStatsTable }">
-          <span>该场次无预存统计</span>
+        <div v-if="statsStatus" class="no-prestored" :class="{ compact: showStatsTable }">
+          <span>{{ statsStatus.text }}</span>
+          <template v-if="statsStatus.action">
+            <el-button
+              v-if="statsStatus.action === 'login'"
+              size="small"
+              type="primary"
+              @click="goLoginForStats"
+            >去登录</el-button>
+            <el-button
+              v-else-if="statsStatus.action === 'load'"
+              size="small"
+              type="primary"
+              :loading="exactStatus.loading"
+              @click="runExactStats({ userInitiated: true })"
+            >下载并统计</el-button>
+          </template>
         </div>
       </div>
 
@@ -358,17 +373,18 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
 import { buildPlayerStatsRows, rankRatePieLabel, rankedGames, ratio } from '../utils/statsDisplay'
+import { analyzeRecords } from '../utils/recordAnalyzer'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import playerApi, { getPlayerToken } from '@/api/playerClient'
 import { tr } from '@/i18n'
 import { GUOBIAO_FAN_VALUES, listGuobiaoFanEntries } from '@/constants/guobiaoFanDict'
-import { getLocalRecordIdSet, putLocalRecords } from '../utils/recordLocalStore'
-import { confirmRecordDownload } from '../utils/recordDownloadConfirm'
+import { getLocalRecordIdSet, getLocalRecords, putLocalRecords } from '../utils/recordLocalStore'
+import { confirmRecordDownload, takeCountForQuota } from '../utils/recordDownloadConfirm'
 
 const route = useRoute()
 const router = useRouter()
@@ -658,20 +674,198 @@ const mergeRankFields = (base, rankRow) => {
   return merged
 }
 
+// ===== 按筛选精确统计 =====
+// 预存统计（history_stats）只有 规则×局制×天梯/自定义 的全时段口径，没有日期/等级场/比赛场维度。
+// 一旦加了日期（或处于无预存的场次），直接与全时段预存混算会得到矛盾值（如局均点=全时段总分÷按日局数）。
+// 因此这些筛选改为：登录后下载该筛选范围内的全部牌谱，用 recordAnalyzer 在本地逐局精确统计，
+// 使 局均点/总回合/自摸率 等整张表都与所选范围同口径。
+const prestoredCoversFilter = computed(() => {
+  if (!prestoredAvailable.value) return false
+  if (dateRange.value && dateRange.value.length === 2) return false
+  return true
+})
+
+const exactResult = ref(null) // { key, stats }
+const exactStatus = reactive({ phase: 'idle', text: '', loading: false }) // idle|need-login|empty|quota|cancel|downloading
+let exactSeq = 0
+
+const exactReady = computed(() =>
+  !!(exactResult.value && exactResult.value.key === filterKey.value)
+)
+
 const activeStats = computed(() => {
   const rankRow = rankStatsForFilter.value
-  if (prestoredAvailable.value) {
+  if (prestoredCoversFilter.value) {
     return mergeRankFields(mergedPrestored.value, rankRow)
   }
-  if (rankRow) return mergeRankFields(null, rankRow)
+  if (exactReady.value) return exactResult.value.stats
   return null
 })
 
-/** 无预存场次 → 引导前往牌谱分析页 */
-const needsLocalAnalysis = computed(() => !prestoredAvailable.value)
-const showStatsTable = computed(() => !!activeStats.value)
+const showStatsTable = computed(() => {
+  if (!activeStats.value) return false
+  return prestoredCoversFilter.value || exactReady.value
+})
 
 const statsDisplay = computed(() => activeStats.value ? buildPlayerStatsRows(activeStats.value) : [])
+
+/** 无预存且尚未拿到精确统计时，统计区的提示与动作 */
+const statsStatus = computed(() => {
+  if (prestoredCoversFilter.value || exactReady.value) return null
+  const st = exactStatus
+  if (st.phase === 'need-login') {
+    return {
+      text: '该筛选（按日期 / 等级场 / 比赛场）没有现成的汇总数据：登录后可自动下载范围内的牌谱并精确统计（总回合、自摸率、局均点等与所选范围同口径，消耗每日下载配额）。',
+      action: 'login',
+    }
+  }
+  if (st.phase === 'empty') return { text: st.text || '该筛选下暂无对局记录。', action: null }
+  if (st.phase === 'quota') {
+    return { text: st.text || '今日下载配额不足，暂时无法精确统计该范围（凌晨 4 点刷新配额）。', action: null }
+  }
+  if (st.phase === 'downloading') return { text: st.text || '正在下载并统计…', action: null }
+  if (st.phase === 'cancel') return { text: st.text || '已取消下载：未取得该范围牌谱，无法统计。', action: 'load' }
+  if (st.phase === 'idle') {
+    if (!auth.isLoggedIn) {
+      return {
+        text: '该筛选（按日期 / 等级场 / 比赛场）没有现成的汇总数据；登录后可下载范围内的牌谱并精确统计。',
+        action: 'login',
+      }
+    }
+    return {
+      text: '下载该范围内的牌谱后即可精确统计（与所选范围同口径）。',
+      action: 'load',
+    }
+  }
+  return null
+})
+
+const goLoginForStats = () => {
+  router.push({ path: '/login', query: { redirect: route.fullPath } })
+}
+
+async function runExactStats({ userInitiated = false } = {}) {
+  const uid = playerInfo.value?.user_id
+  const key = filterKey.value
+  if (!uid || prestoredCoversFilter.value) {
+    exactSeq += 1
+    exactResult.value = null
+    exactStatus.phase = 'idle'
+    exactStatus.text = ''
+    exactStatus.loading = false
+    return
+  }
+  if (exactReady.value || exactStatus.loading) return
+  const seq = ++exactSeq
+  exactStatus.loading = true
+  exactStatus.phase = 'downloading'
+  exactStatus.text = '正在获取对局列表…'
+  try {
+    const resp = await axios.get(`/api/player/record-ids/${uid}`, { params: filterPayload() })
+    if (seq !== exactSeq || uid !== playerInfo.value?.user_id || key !== filterKey.value) return
+    const meta = resp.data?.data?.items || []
+    const ids = meta.map((r) => String(r.game_id))
+    if (ids.length === 0) {
+      exactStatus.phase = 'empty'
+      exactStatus.text = '该筛选下暂无对局记录。'
+      return
+    }
+    if (!auth.isLoggedIn) {
+      exactStatus.phase = 'need-login'
+      return
+    }
+    const have = await getLocalRecordIdSet(ids)
+    if (seq !== exactSeq || uid !== playerInfo.value?.user_id || key !== filterKey.value) return
+    const missing = ids.filter((id) => !have.has(id))
+    if (missing.length > 0) {
+      await loadQuota()
+      const { take, partial } = takeCountForQuota(quota.value, missing.length)
+      if (partial || take < missing.length) {
+        const remaining = quota.value.unlimited ? missing.length : Math.max(0, Number(quota.value.remaining) || 0)
+        exactStatus.phase = 'quota'
+        exactStatus.text = `精确统计该范围需要下载 ${missing.length} 局牌谱，今日剩余配额 ${remaining} 局（凌晨 4 点刷新）。`
+        return
+      }
+      const confirmed = await confirmRecordDownload(quota.value, missing.length, { actionLabel: '下载并统计' })
+      if (!confirmed) {
+        exactStatus.phase = 'cancel'
+        exactStatus.text = '已取消下载：未取得该范围牌谱，无法统计。'
+        return
+      }
+      const createdBy = new Map(meta.map((r) => [String(r.game_id), r.created_at]))
+      let fetched = 0
+      for (let i = 0; i < missing.length; i += 100) {
+        const chunk = missing.slice(i, i + 100)
+        exactStatus.text = `正在下载牌谱并统计（${Math.min(fetched + chunk.length, missing.length)} / ${missing.length} 局）…`
+        try {
+          const r = await playerApi.post('/records/fetch-json', {
+            target_user_id: uid,
+            game_ids: chunk,
+          }, { timeout: 120000 })
+          if (seq !== exactSeq || uid !== playerInfo.value?.user_id || key !== filterKey.value) return
+          if (!r.data.success) {
+            ElMessage.error(r.data.message || '拉取牌谱失败')
+            break
+          }
+          applyQuota(r.data.data)
+          const items = (r.data.data?.items || []).map((item) => ({
+            ...item,
+            created_at: item.created_at || createdBy.get(String(item.game_id)) || null,
+          }))
+          await putLocalRecords(items)
+          fetched += items.length
+          if (items.length < chunk.length && !quota.value.unlimited) break
+        } catch (e) {
+          if (seq !== exactSeq) return
+          const status = e?.response?.status
+          if (status === 401) {
+            exactStatus.phase = 'need-login'
+            return
+          }
+          if (status === 429) {
+            applyQuota(e?.response?.data?.data)
+            exactStatus.phase = 'quota'
+            exactStatus.text = e?.response?.data?.message || '今日下载配额不足。'
+            return
+          }
+          ElMessage.error('拉取牌谱失败')
+          break
+        }
+      }
+      if (seq !== exactSeq || uid !== playerInfo.value?.user_id || key !== filterKey.value) return
+      if (fetched < missing.length) {
+        exactStatus.phase = 'idle'
+        exactStatus.text = ''
+        exactStatus.loading = false
+        ElMessage.error(`未能取回该范围内全部牌谱（${fetched} / ${missing.length} 局），请重试「下载并统计」。`)
+        return
+      }
+    }
+    const all = await getLocalRecords(ids)
+    if (seq !== exactSeq || uid !== playerInfo.value?.user_id || key !== filterKey.value) return
+    if (all.length < ids.length) {
+      exactStatus.phase = 'idle'
+      exactStatus.text = ''
+      ElMessage.error(`本地仅有 ${all.length} / ${ids.length} 局牌谱，无法给出完整统计，请重试「下载并统计」。`)
+      return
+    }
+    const stats = analyzeRecords(all, uid)
+    exactResult.value = { key, stats }
+    exactStatus.phase = 'idle'
+    exactStatus.text = ''
+    if (userInitiated) ElMessage.success(`已按当前筛选统计 ${stats.total_games || 0} 局`)
+  } catch (e) {
+    if (seq !== exactSeq) return
+    if (e?.response?.status === 401) {
+      exactStatus.phase = 'need-login'
+    } else {
+      exactStatus.phase = 'idle'
+      exactStatus.text = ''
+    }
+  } finally {
+    if (seq === exactSeq) exactStatus.loading = false
+  }
+}
 
 // ===== 图表数据 =====
 // 当前筛选下最近 20 局顺位，按时间正序
@@ -970,6 +1164,7 @@ const onFilterChange = () => {
     loadRecentRanks()
     loadRankStats()
     loadScopeCounts()
+    runExactStats()
   }
 }
 
@@ -1273,6 +1468,11 @@ const searchPlayer = async (rawKey, isManual = true) => {
   scopeCountsFromApi.value = null
   rankStatsSeq += 1
   scopeCountsSeq += 1
+  exactSeq += 1
+  exactResult.value = null
+  exactStatus.phase = 'idle'
+  exactStatus.text = ''
+  exactStatus.loading = false
   gameRecords.value = []
   recentRecords.value = []
   recordsTotal.value = 0
@@ -1381,6 +1581,16 @@ onMounted(async () => {
     await searchPlayer(String(auth.userId), false)
   }
 })
+
+// 登录成功后，若当前正处在“无预存汇总”的筛选（按日期/等级场/比赛场），自动尝试精确统计
+watch(
+  () => auth.isLoggedIn,
+  (loggedIn) => {
+    if (loggedIn && playerInfo.value && !prestoredCoversFilter.value && !exactReady.value) {
+      runExactStats()
+    }
+  }
+)
 </script>
 
 <style scoped>
