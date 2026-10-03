@@ -6,13 +6,11 @@ using UnityEngine;
 /// 匹配排队状态与计时的持久化管理器。
 /// 计时协程由 <see cref="CoroutineManager"/> 统一驱动，不挂在会被关闭的面板上。
 /// <para>用法：把本脚本拖到一个常驻 GameObject 上即可；若场景中不存在，也会在首次访问 <see cref="Instance"/> 时自动创建。</para>
-/// 面板仅作为视图：<see cref="MatchQueueingPanel"/> 随匹配页显隐；
+/// 面板仅作为视图：<see cref="MatchLobbyView"/> 随匹配页显隐；
 /// <see cref="MatchFoundedPanel"/> 在 OverlayCanvas 上独立显示。计时状态由此处维护。
-/// 排队已用时间和匹配成功倒计时都按 UTC 墙钟计算，不受 timeScale / 掉帧影响。
+/// 排队已用时间按 UTC 墙钟计算，不受 timeScale / 掉帧影响。
 /// </summary>
 public class MatchStateManager : MonoBehaviour {
-    public const float MatchFoundDurationSeconds = 5f;
-
     public static MatchStateManager Instance {
         get {
             if (_instance == null) {
@@ -28,7 +26,7 @@ public class MatchStateManager : MonoBehaviour {
 
     /// <summary>是否正在排队（已加入队列且尚未取消 / 匹配成功 / 进入对局）。</summary>
     public bool IsQueueing { get; private set; }
-    /// <summary>是否已匹配成功（进入倒计时进场阶段）。</summary>
+    /// <summary>是否已匹配成功（正在进入对局）。</summary>
     public bool IsMatchFound { get; private set; }
     /// <summary>当前排队的展示标题（已本地化），供面板恢复显示。</summary>
     public string QueueTitle { get; private set; }
@@ -42,22 +40,10 @@ public class MatchStateManager : MonoBehaviour {
         }
     }
 
-    /// <summary>匹配成功后距离进桌还剩多少秒（墙钟，下限 0）。</summary>
-    public float MatchFoundRemaining {
-        get {
-            if (!IsMatchFound) return 0f;
-            return Mathf.Max(
-                0f,
-                MatchFoundDurationSeconds - (float)(DateTime.UtcNow - matchFoundUtc).TotalSeconds
-            );
-        }
-    }
-
     /// <summary>每秒触发一次，参数为最新的已排队秒数，供面板刷新文本。</summary>
     public event Action<float> OnElapsedTick;
 
     private DateTime queueStartedUtc;
-    private DateTime matchFoundUtc;
     private float frozenElapsed;
     private bool elapsedFrozen = true;
 
@@ -94,7 +80,7 @@ public class MatchStateManager : MonoBehaviour {
         StartQueueing(queueTitle);
     }
 
-    /// <summary>匹配成功：停止排队计时但保留状态；仅首次记录墙钟起点。</summary>
+    /// <summary>匹配成功：停止排队计时并保留进场状态。</summary>
     public void MarkMatchFound(string queueTitle = null) {
         if (!string.IsNullOrEmpty(queueTitle)) {
             QueueTitle = queueTitle;
@@ -102,7 +88,6 @@ public class MatchStateManager : MonoBehaviour {
         if (!IsMatchFound) {
             frozenElapsed = ElapsedTime;
             elapsedFrozen = true;
-            matchFoundUtc = DateTime.UtcNow;
         }
         IsMatchFound = true;
         StopTimer();

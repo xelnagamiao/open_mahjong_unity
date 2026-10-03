@@ -16,6 +16,8 @@ public class ConcealedTile3DPeekController : MonoBehaviour {
     private int tilePhysicsLayerMask;
     private Vector3 lastMousePosition;
     private bool hasLastMousePosition;
+    private float nextStationaryProbeTime;
+    private const float StationaryProbeInterval = 0.1f;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -37,12 +39,15 @@ public class ConcealedTile3DPeekController : MonoBehaviour {
         if (raycastCamera == null) return;
 
         Vector3 mousePosition = Input.mousePosition;
-        // 鼠标未动且当前无 peek：跳过 SyncTransforms + 射线（稳态 CPU 冗余）
-        if (hasLastMousePosition && mousePosition == lastMousePosition && currentPeekTile == null) {
+        // 静止鼠标也需要察觉新摆入或重建的暗杠、移动后的牌及相机。
+        // 未命中时限频检测；移动鼠标或正在翻面时仍逐帧响应。
+        if (hasLastMousePosition && mousePosition == lastMousePosition && currentPeekTile == null
+            && Time.unscaledTime < nextStationaryProbeTime) {
             return;
         }
         lastMousePosition = mousePosition;
         hasLastMousePosition = true;
+        nextStationaryProbeTime = Time.unscaledTime + StationaryProbeInterval;
 
         Physics.SyncTransforms();
         Ray ray = raycastCamera.ScreenPointToRay(mousePosition);
@@ -106,5 +111,7 @@ public class ConcealedTile3DPeekController : MonoBehaviour {
 
     private void OnDisable() {
         ClearPeek();
+        hasLastMousePosition = false;
+        nextStationaryProbeTime = 0f;
     }
 }

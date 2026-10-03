@@ -144,6 +144,10 @@ class SalasasaClient {
         try { message = JSON.parse(event.data) as SalasasaResponse }
         catch { return }
         const loginKickedOut = message.type === 'message' && message.message === 'login_kickout'
+        if (message.type === 'gamestate/closed' || message.type === 'gamestate/vote_end') {
+          const activeId = this.lastGameStartValue?.game_info?.gamestate_id
+          if (activeId && message.gamestate_id && message.gamestate_id !== activeId) return
+        }
 
         if (message.type === 'login') {
           window.clearTimeout(timeout)
@@ -194,6 +198,13 @@ class SalasasaClient {
           && message.type !== 'gamestate/guobiao/game_end'
         ) {
           this.guobiaoBuffer.push(message)
+        }
+        if (message.type === 'gamestate/closed') {
+          this.reconnectOfferValue = false
+          this.lastGameStartValue = null
+          this.lastVoteUpdateValue = null
+          this.guobiaoBuffer = []
+          this.guobiaoBufferActive = false
         }
         if (message.type === 'gamestate/guobiao/game_end') {
           this.reconnectOfferValue = false

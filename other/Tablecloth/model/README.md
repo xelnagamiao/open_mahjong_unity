@@ -36,8 +36,6 @@ UV0 `FrameSurfaceUV` 的 20 个条带岛与 V7 完全一致，可继续使用 `.
 
 模型、默认材质和边框组件直接序列化在主项目 `Assets/Scenes/MainScene.unity`，边框为 `DeskTopNew` 下的 `Table Frame (3D)`。编辑模式和 Play 使用同一份已保存网格；运行时只处理材质实例和纹理切换。
 
-主项目 `Assets/TableFrame/SceneAssets/` 保存 `DeskTopNew_ClothOnly_V8.asset` 与 `Frame_OrangeWood_V8.mat`，由场景直接引用。纯桌布网格保留原顶点、UV、法线和材质槽，仅移除旧平面边框的三角索引；自定义平面边框仍可切回原 FBX 网格。
+主项目 `Assets/Resources/3D/` 保存 `TableFrame_Upright_V8.fbx` 与 `DeskTopNew_ClothOnly_V8.asset`；`Assets/Resources/Materials/Board/` 保存 `Frame_OrangeWood_V8.mat`，由场景直接引用。纯桌布网格保留原顶点、UV、法线和材质槽，仅移除旧平面边框的三角索引；自定义平面边框仍可切回原 FBX 网格。
 
 原桌面为导入缩放较大的 FBX，边框子对象的局部变换补偿父级导入变换，实际世界比例为 1。不要只改其局部缩放来推断模型尺寸。
-
-原 Desktop 文件保持原字节。V7 模型、旧运行元数据及修改前主场景，可在本机 `.om_workspace/20260913-scene-frame-v8/backup/production-before-v8/` 与 `archive/` 恢复。过程脚本和验证资料保存在同工作区。

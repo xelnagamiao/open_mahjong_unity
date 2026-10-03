@@ -3,9 +3,13 @@ const router = express.Router();
 const pool = require('../config/database');
 const { createWindowLimiter, getClientIp } = require('../middleware/rateLimit');
 const { requirePlayer } = require('../middleware/requirePlayer');
+const { accessibleGameIds, recordIsLocked, visibleRecordSql, LOCKED_MESSAGE } = require('../services/duplicateRecordAccess');
+
+// Lock state is mutable; no browser/proxy may reuse an earlier unlocked replay response.
+router.use((_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 const {
   resolveUserId,
-  fetchPlayerRankStats,
+  fetchPlayerScopeCounts,
   buildRecordFilters,
   parseRecordQuery,
   listPublicEvents,
@@ -144,7 +148,7 @@ router.post('/records/fetch-json', requirePlayer, async (req, res) => {
       [targetUserId, requestedIds]
     );
     const ownedSet = new Set(owned.rows.map((r) => r.game_id));
-    const ownedIds = requestedIds.filter((id) => ownedSet.has(id));
+    const ownedIds = await accessibleGameIds(pool, requestedIds.filter((id) => ownedSet.has(id)));
     if (ownedIds.length === 0) {
       return res.status(404).json({ success: false, message: '没有匹配的牌谱' });
     }
@@ -171,7 +175,7 @@ router.post('/records/fetch-json', requirePlayer, async (req, res) => {
       `SELECT gr.game_id, gr.record, gpr.rank, gr.created_at
        FROM game_records gr
        JOIN game_player_records gpr ON gpr.game_id = gr.game_id AND gpr.user_id = $2
-       WHERE gr.game_id = ANY($1::varchar[])`,
+       WHERE gr.game_id = ANY($1::varchar[]) AND ${visibleRecordSql()}`,
       [takeIds, targetUserId]
     );
     const byGame = new Map(recordsResult.rows.map((r) => [r.game_id, r]));
@@ -212,8 +216,9 @@ router.get('/record/:gameId', requirePlayer, async (req, res) => {
     if (!gameId) {
       return res.status(400).json({ success: false, message: '无效的 game_id' });
     }
+    if (await recordIsLocked(pool, gameId)) return res.status(403).json({ success: false, message: LOCKED_MESSAGE });
     const result = await pool.query(
-      `SELECT record FROM game_records WHERE game_id = $1`,
+      `SELECT record FROM game_records gr WHERE game_id = $1 AND ${visibleRecordSql()}`,
       [gameId]
     );
     if (result.rows.length === 0) {
@@ -276,6 +281,7 @@ router.post('/records/download', requirePlayer, async (req, res) => {
       gameIds = idResult.rows.map(r => r.game_id);
     }
 
+    gameIds = await accessibleGameIds(pool, gameIds);
     if (gameIds.length === 0) {
       return res.status(404).json({ success: false, message: '没有匹配的牌谱' });
     }
@@ -304,7 +310,7 @@ router.post('/records/download', requirePlayer, async (req, res) => {
     }
 
     const recordsResult = await pool.query(
-      `SELECT game_id, record FROM game_records WHERE game_id = ANY($1::varchar[])`,
+      `SELECT game_id, record FROM game_records gr WHERE game_id = ANY($1::varchar[]) AND ${visibleRecordSql()}`,
       [gameIds]
     );
     const byGame = new Map(recordsResult.rows.map(r => [r.game_id, r.record]));
@@ -477,26 +483,7 @@ router.get('/scope-counts/:key', playerQueryLimiter, async (req, res) => {
       date_from: req.query.date_from || null,
       date_to: req.query.date_to || null,
     };
-    const sceneKeys = ['rank', 'custom', 'beginner', 'intermediate', 'advanced', 'mcrpl', 'events'];
-    const tierByScene = {
-      rank: 'rank',
-      custom: 'custom',
-      beginner: 'beginner',
-      intermediate: 'intermediate',
-      advanced: 'advanced',
-      mcrpl: 'mcrpl',
-      events: 'events',
-    };
-    const results = await Promise.all(
-      sceneKeys.map((key) => {
-        const tier = tierByScene[key];
-        return fetchPlayerRankStats(userId, { ...base, tier });
-      })
-    );
-    const data = {};
-    sceneKeys.forEach((key, i) => {
-      data[key] = results[i].total_games;
-    });
+    const data = await fetchPlayerScopeCounts(userId, base);
     res.json({ success: true, data });
   } catch (error) {
     console.error('scope-counts:', error);

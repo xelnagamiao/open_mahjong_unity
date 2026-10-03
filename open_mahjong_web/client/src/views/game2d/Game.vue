@@ -368,6 +368,9 @@
                     <div class="player-name">{{ player.username || `#${player.user_id}` }}</div>
                     <div class="player-rating">{{ player.guobiao_rank }} · {{ player.guobiao_score.toFixed(2) }} PT</div>
                     <div class="player-rating">对局分 {{ player.score }}</div>
+                    <div v-if="player.duplicate_remaining_tile_count !== undefined" class="player-rating">
+                      {{ tr('牌山剩余 {count} 张', { count: player.duplicate_remaining_tile_count }) }}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -433,6 +436,7 @@ import {
 } from '@/game2d/lib/assistSettings'
 import { DEFAULT_SCENE_APPEARANCE, MAX_TILE_COVER_COLORS, normalizeSceneAppearanceSettings } from '@/game2d/lib/sceneAppearance'
 import { formatFanField, resolveFanLabel } from '@/constants/guessFanCatalog'
+import { lanshiFanPoints } from '@/game2d/calc/guobiao/lanshiV4'
 import { formatFanCount, translateFanName } from '@/i18n/fanNames'
 import { locale, tr } from '@/i18n'
 import {
@@ -667,6 +671,8 @@ const resultPlayers = computed(() => sidebarPlayers.value
     const relative = (seat - selfSeat.value + 4) % 4
     return {
       ...player,
+      duplicate_remaining_tile_count: adapter?.snapshot?.seats
+        .find((seat) => seat.seat_index === player.player_index)?.duplicate_remaining_tile_count,
       score,
       change,
       ready: Boolean(readyStatus.value[String(seat)]),
@@ -723,6 +729,10 @@ function scrollSettlementHand(event) {
 }
 
 const resultFans = computed(() => (roundResult.value?.hu_fan ?? []).map((name) => {
+  if (adapter?.gameInfo?.sub_rule === 'guobiao/lanshi') {
+    const points = lanshiFanPoints(name)
+    return { name: translateFanName(name), value: points == null ? '' : `${points}分` }
+  }
   const { definition, totalValue } = resolveFanLabel(name, ['guobiao'])
   return {
     name: translateFanName(name),
@@ -789,8 +799,8 @@ function pickScoreboardMainFan(fans) {
   const fan = [...fans]
     .filter((fan) => !String(fan).startsWith('花牌'))
     .sort((left, right) => {
-      const leftValue = resolveFanLabel(left, ['guobiao']).totalValue ?? 0
-      const rightValue = resolveFanLabel(right, ['guobiao']).totalValue ?? 0
+      const leftValue = adapter?.gameInfo?.sub_rule === 'guobiao/lanshi' ? lanshiFanPoints(left) ?? 0 : resolveFanLabel(left, ['guobiao']).totalValue ?? 0
+      const rightValue = adapter?.gameInfo?.sub_rule === 'guobiao/lanshi' ? lanshiFanPoints(right) ?? 0 : resolveFanLabel(right, ['guobiao']).totalValue ?? 0
       return rightValue - leftValue
     })[0]
   return fan ? translateFanName(fan) : '—'
@@ -967,6 +977,13 @@ function applyMessage(response, targetAdapter = adapter, targetScene = scene) {
       resumeAfterCuoheIfPending(targetScene)
       update.events.forEach((event) => targetScene.handleEvent(event))
     }
+    if (update.event || update.events) {
+      sidebarPlayers.value = sidebarPlayers.value.map((player) => ({
+        ...player,
+        duplicate_remaining_tile_count: targetAdapter.snapshot?.seats
+          .find((seat) => seat.seat_index === player.player_index)?.duplicate_remaining_tile_count,
+      }))
+    }
     if (update.result) {
       // Unity initializes AutoAction for every hand. Reset immediately at hand
       // end too, rather than carrying temporary choices through settlement.
@@ -1051,7 +1068,8 @@ function handleResponse(response) {
     applyVoteInfo(response.vote_info ?? null)
     return
   }
-  if (response.type === 'gamestate/vote_end') {
+  if (response.type === 'gamestate/closed' || response.type === 'gamestate/vote_end') {
+    if (response.gamestate_id && response.gamestate_id !== adapter?.gamestateId) return
     clearVoteState()
     // 服务端投票结束属于已完成的对局退出，不再弹出主动离桌确认。
     leavingActiveGame = true

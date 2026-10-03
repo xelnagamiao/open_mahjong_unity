@@ -9,10 +9,12 @@ public sealed class TileContactShadowFeature : ScriptableRendererFeature {
     [System.Serializable]
     public sealed class Settings {
         public bool enabled = true;
-        [Range(0f, 1f), Tooltip("贴桌时的阴影浓度。所有池中卡牌实时共用。")]
-        public float opacity = 0.36f;
-        [Range(0.01f, 0.2f), Tooltip("软边宽度 / 牌宽。")]
-        public float featherRatio = 0.085f;
+        [Range(0f, 1f), Tooltip("立牌贴桌时的基础浓度；平躺时再乘 Flat Opacity Ratio。所有池中卡牌实时共用。")]
+        public float opacity = 0.90f;
+        [Range(0f, 1f), Tooltip("平躺时相对 Opacity 的浓度。正面朝上、盖牌、横牌共用，随实际翻转姿态平滑过渡。")]
+        public float flatOpacityRatio = 0.60f;
+        [Range(0.01f, 0.5f), Tooltip("从牌底轮廓向外渐淡的距离 / 牌宽。渐变中段保留暗度，最外缘平滑归零；浓度由 Opacity 单独控制。")]
+        public float featherRatio = 0.26f;
         [Range(0.1f, 2f), Tooltip("抬高多少个牌宽后完全消失。")]
         public float fadeHeightRatio = 0.65f;
         [Range(0f, 0.3f), Tooltip("抬牌时向外扩散的最大距离 / 牌宽。")]
@@ -54,7 +56,7 @@ public sealed class TileContactShadowFeature : ScriptableRendererFeature {
         private readonly Vector4[] _opacities = new Vector4[Capacity];
         private readonly Plane[] _planes = new Plane[6];
         private readonly MaterialPropertyBlock _properties = new MaterialPropertyBlock();
-        private readonly Dictionary<int, SurfaceFrame> _surfaces = new Dictionary<int, SurfaceFrame>();
+        private readonly Dictionary<UnityEngine.SceneManagement.Scene, SurfaceFrame> _surfaces = new Dictionary<UnityEngine.SceneManagement.Scene, SurfaceFrame>(TileContactShadow.SceneEqualityComparer);
         private readonly Mesh _quad;
         private readonly Material _material;
         public Settings settings;
@@ -69,7 +71,7 @@ public sealed class TileContactShadowFeature : ScriptableRendererFeature {
         private sealed class PassData {
             public ContactPass pass;
             public Camera camera;
-            public float opacity, feather, fadeHeight, liftSpread;
+            public float opacity, flatOpacityRatio, feather, fadeHeight, liftSpread;
         }
 
         public ContactPass(Shader shader) {
@@ -77,7 +79,12 @@ public sealed class TileContactShadowFeature : ScriptableRendererFeature {
             requiresIntermediateTexture = false;
             ConfigureInput(ScriptableRenderPassInput.None);
             if (shader == null) return;
-            _material = CoreUtils.CreateEngineMaterial(shader);
+            // Keep the instanced shader variant in Player builds through the
+            // serialized template; runtime-only materials can be stripped.
+            Material template = Resources.Load<Material>("Materials/Tiles/TileContactShadow");
+            _material = template != null && template.shader == shader
+                ? new Material(template) { hideFlags = HideFlags.HideAndDontSave }
+                : CoreUtils.CreateEngineMaterial(shader);
             _material.enableInstancing = true;
             _quad = new Mesh { name = "Tile Contact Shadow Quad", hideFlags = HideFlags.HideAndDontSave };
             _quad.vertices = new[] { new Vector3(-1, 0, -1), new Vector3(-1, 0, 1), new Vector3(1, 0, 1), new Vector3(1, 0, -1) };
@@ -98,7 +105,8 @@ public sealed class TileContactShadowFeature : ScriptableRendererFeature {
                 data.pass = this;
                 data.camera = frameData.Get<UniversalCameraData>().camera;
                 data.opacity = Mathf.Clamp01(settings.opacity);
-                data.feather = Mathf.Clamp(settings.featherRatio, 0.01f, 0.2f);
+                data.flatOpacityRatio = Mathf.Clamp01(settings.flatOpacityRatio);
+                data.feather = Mathf.Clamp(settings.featherRatio, 0.01f, 0.5f);
                 data.fadeHeight = Mathf.Clamp(settings.fadeHeightRatio, 0.1f, 2f);
                 data.liftSpread = Mathf.Clamp(settings.liftSpreadRatio, 0f, 0.3f);
                 builder.SetRenderAttachment(resources.activeColorTexture, 0, AccessFlags.ReadWrite);
@@ -125,15 +133,19 @@ public sealed class TileContactShadowFeature : ScriptableRendererFeature {
                     if (scene != data.camera.scene) continue;
                 }
 #endif
-                if (!_surfaces.TryGetValue(scene.handle, out SurfaceFrame surface)) {
+                if (!_surfaces.TryGetValue(scene, out SurfaceFrame surface)) {
                     surface.valid = TileContactShadow.TryGetSurface(scene, out surface.point, out surface.normal, out surface.clearance);
-                    _surfaces.Add(scene.handle, surface);
+                    _surfaces.Add(scene, surface);
                 }
                 if (!surface.valid || !TileContactShadowGeometry.TryProject(tile.Body.sharedMesh.bounds,
                     tile.Body.transform.localToWorldMatrix, surface.point, surface.normal, out var projection)) continue;
                 float height = Mathf.Max(0f, projection.Height - Mathf.Max(0f, surface.clearance));
                 float lift = Mathf.Clamp01(height / (projection.Width * data.fadeHeight));
-                if (lift >= 1f || projection.Height < -projection.Width * 0.1f) continue;
+                // A tilted tile touches on an edge, not across its full footprint.
+                // Fade the blob during flips instead of exposing a dark rectangle;
+                // all standing/flat poses and all seats use this geometric rule.
+                float contact = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.72f, 0.98f, projection.FaceAlignment));
+                if (lift >= 1f || contact <= 0f || projection.Height < -projection.Width * 0.1f) continue;
                 float feather = projection.Width * data.feather * (1f + lift);
                 Vector2 halfSize = projection.HalfSize + Vector2.one * (projection.Width * data.liftSpread * lift);
                 Vector2 extent = halfSize + Vector2.one * feather;
@@ -143,7 +155,10 @@ public sealed class TileContactShadowFeature : ScriptableRendererFeature {
                 _matrices[count] = Matrix4x4.TRS(center, Quaternion.LookRotation(projection.Bitangent, projection.Normal), new Vector3(extent.x, 1f, extent.y));
                 float radius = Mathf.Min(projection.Width * 0.075f, Mathf.Min(halfSize.x, halfSize.y));
                 _shapes[count] = new Vector4(halfSize.x, halfSize.y, radius, feather);
-                _opacities[count] = new Vector4(data.opacity * (1f - Mathf.SmoothStep(0f, 1f, lift)), 0f, 0f, 0f);
+                // Flat tiles need a lighter base than standing tiles. Use the face
+                // normal so discards, reveals and face-down tiles share one rule.
+                float poseOpacity = Mathf.Lerp(1f, data.flatOpacityRatio, Mathf.SmoothStep(0f, 1f, projection.FlatAlignment));
+                _opacities[count] = new Vector4(data.opacity * poseOpacity * contact * (1f - Mathf.SmoothStep(0f, 1f, lift)), 0f, 0f, 0f);
                 count++;
                 tileCount++;
                 if (count == Capacity) { Submit(context, count); count = 0; }

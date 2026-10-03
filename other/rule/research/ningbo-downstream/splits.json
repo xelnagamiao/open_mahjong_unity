@@ -1,0 +1,1633 @@
+{
+  "schema_version": 1,
+  "updated": "2026-09-23",
+  "scope": "本轮已核实见证、明示变体与仍需辨析的跨版本差异；不是所有麻将的完整祖先树。",
+  "origin_dates_inferred": false,
+  "splits": [
+    {
+      "id": "ningbo-material-anchor",
+      "title": "宁波牌具：盒内与入局张数",
+      "witness_date": "1901",
+      "date_kind": "catalogue-publication",
+      "before": null,
+      "after": "宁波第 26 号牌具",
+      "dimensions": [
+        "tile-inventory"
+      ],
+      "source_ids": [
+        "schreiber-1901"
+      ],
+      "evidence_status": "direct-witness",
+      "limitation": "没有前后改法证据；这里只是起点锚，不是发明事件。"
+    },
+    {
+      "id": "mauger-thirteen",
+      "title": "明确十三张与未和者结算的早期见证",
+      "witness_date": "1915",
+      "date_kind": "meeting-and-volume-year",
+      "before": null,
+      "after": "Mauger Ma-Tchio-Pai",
+      "dimensions": [
+        "hand-size",
+        "fu",
+        "nonwinner-settlement"
+      ],
+      "source_ids": [
+        "mauger-1915"
+      ],
+      "evidence_status": "direct-witness",
+      "limitation": "地域未具名；不能连成宁波实线后裔，也不能当十五改十三的直接证据。"
+    },
+    {
+      "id": "babcock-new-payment",
+      "title": "庄家加倍改为出铳责任",
+      "witness_date": "1923",
+      "date_kind": "edition",
+      "before": "Babcock 所述 Old Method",
+      "after": "Babcock 所述 New Method",
+      "dimensions": [
+        "payment"
+      ],
+      "source_ids": [
+        "babcock-1923"
+      ],
+      "evidence_status": "explicit-comparison",
+      "limitation": "仍有副数与未和者结算；并未证明新法创于美国或 1923。"
+    },
+    {
+      "id": "drawing-special",
+      "title": "老碰法与特别碰法",
+      "witness_date": "1924-03",
+      "date_kind": "edition",
+      "before": "《绘图》正文老法",
+      "after": "特别碰法",
+      "dimensions": [
+        "payment",
+        "wall-opening"
+      ],
+      "source_ids": [
+        "drawing-1924"
+      ],
+      "evidence_status": "explicit-comparison",
+      "limitation": "书称苏昆太近来流行；年代只取亲见版本，不升格为发明时地。"
+    },
+    {
+      "id": "drawing-newnew",
+      "title": "特别碰法与新新碰法",
+      "witness_date": "1924-03",
+      "date_kind": "edition",
+      "before": "特别碰法",
+      "after": "新新碰法",
+      "dimensions": [
+        "seat-wind-scoring"
+      ],
+      "source_ids": [
+        "drawing-1924"
+      ],
+      "evidence_status": "explicit-comparison",
+      "limitation": "和家作为当局门风参照，不等于轮庄制度被废；不是香港新章。"
+    },
+    {
+      "id": "babcock-drawing-parallel",
+      "title": "特别支付法的两份同时代见证",
+      "witness_date": "1923/1924",
+      "date_kind": "comparison-of-editions",
+      "before": "Babcock New Method",
+      "after": "《绘图》特别碰法",
+      "dimensions": [
+        "payment"
+      ],
+      "source_ids": [
+        "babcock-1923",
+        "drawing-1924"
+      ],
+      "evidence_status": "structural-parallel",
+      "limitation": "同构支持该机制已流行，不证明文本互抄或传播方向。"
+    },
+    {
+      "id": "drawing-flower-option",
+      "title": "正文无花与补遗有花",
+      "witness_date": "1924-03",
+      "date_kind": "edition",
+      "before": "《绘图》正文",
+      "after": "《绘图》有花补遗",
+      "dimensions": [
+        "tile-inventory",
+        "flower-scoring"
+      ],
+      "source_ids": [
+        "drawing-1924"
+      ],
+      "evidence_status": "explicit-option",
+      "limitation": "不是全部现代花麻的一条实证祖先边。"
+    },
+    {
+      "id": "foster-one-double",
+      "title": "一番门槛已经存在",
+      "witness_date": "1924-02",
+      "date_kind": "edition",
+      "before": "不要求至少一倍的版本",
+      "after": "Foster 所批评的一倍起和桌约",
+      "dimensions": [
+        "win-threshold"
+      ],
+      "source_ids": [
+        "foster-1924"
+      ],
+      "evidence_status": "reported-variant",
+      "limitation": "不证明日本一番缚或各地三番制由此直接传来。"
+    },
+    {
+      "id": "foster-continue-proposal",
+      "title": "无倍和牌后续局的作者提案",
+      "witness_date": "1924-02",
+      "date_kind": "edition",
+      "before": "一人和牌即止",
+      "after": "Foster 的有条件续局建议",
+      "dimensions": [
+        "hand-termination"
+      ],
+      "source_ids": [
+        "foster-1924"
+      ],
+      "evidence_status": "author-proposal",
+      "limitation": "不是见到实际采用，更不是四川血战祖先。"
+    },
+    {
+      "id": "foster-cleared-suit",
+      "title": "和牌限制为一种数牌",
+      "witness_date": "1924-02",
+      "date_kind": "edition",
+      "before": "Foster 普通打法",
+      "after": "Cleared Suit Game",
+      "dimensions": [
+        "win-threshold",
+        "suit-choice"
+      ],
+      "source_ids": [
+        "foster-1924"
+      ],
+      "evidence_status": "reported-variant",
+      "limitation": "只用一门与缺一门的条件不同；未建立川麻联系。"
+    },
+    {
+      "id": "foster-two-player",
+      "title": "二人麻将",
+      "witness_date": "1924-02",
+      "date_kind": "edition",
+      "before": "Foster 四人法",
+      "after": "二人变体",
+      "dimensions": [
+        "players",
+        "settlement"
+      ],
+      "source_ids": [
+        "foster-1924"
+      ],
+      "evidence_status": "explicit-variant",
+      "limitation": "只定位本书的两手分差结算法。"
+    },
+    {
+      "id": "foster-three-player",
+      "title": "三人麻将去北与四号花",
+      "witness_date": "1924-02",
+      "date_kind": "edition",
+      "before": "Foster 四人法",
+      "after": "三人变体",
+      "dimensions": [
+        "players",
+        "tile-inventory",
+        "flower-scoring"
+      ],
+      "source_ids": [
+        "foster-1924"
+      ],
+      "evidence_status": "explicit-variant",
+      "limitation": "未证明与现代日本三麻、韩国三麻连续。"
+    },
+    {
+      "id": "foster-rotation",
+      "title": "五六人轮休参与",
+      "witness_date": "1924-02",
+      "date_kind": "edition",
+      "before": "四人桌",
+      "after": "五／六人轮换四个席位",
+      "dimensions": [
+        "participation",
+        "session-scoring"
+      ],
+      "source_ids": [
+        "foster-1924"
+      ],
+      "evidence_status": "explicit-variant",
+      "limitation": "不能登记为五／六人同时持牌的规则。"
+    },
+    {
+      "id": "kokushi-definition",
+      "title": "国士无双同名不同牌形",
+      "witness_date": "1924/1930",
+      "date_kind": "comparison-of-editions",
+      "before": "1924 中文本十三不搭",
+      "after": "1930 日本标准十三幺",
+      "dimensions": [
+        "special-hand-definition"
+      ],
+      "source_ids": [
+        "drawing-1924",
+        "japan-standard-1930"
+      ],
+      "evidence_status": "documented-difference",
+      "limitation": "证明定义不同；尚未发现同一传播链的更名／替换过程。"
+    },
+    {
+      "id": "japan-1930-standard",
+      "title": "1930 标准首巡立直与门前奖励",
+      "witness_date": "1930",
+      "date_kind": "edition",
+      "before": null,
+      "after": "昭和五年度标准",
+      "dimensions": [
+        "riichi",
+        "menzen",
+        "fu",
+        "nonwinner-settlement"
+      ],
+      "source_ids": [
+        "japan-standard-1930"
+      ],
+      "evidence_status": "direct-witness",
+      "limitation": "早于途中立直；不能把 1952 连载细则倒填到此版。"
+    },
+    {
+      "id": "japan-1930-revision",
+      "title": "1930 原书自述对旧制的修订",
+      "witness_date": "1930",
+      "date_kind": "edition",
+      "before": "书内所述前年度／旧制",
+      "after": "1930 标准",
+      "dimensions": [
+        "four-kongs",
+        "renho",
+        "chiho"
+      ],
+      "source_ids": [
+        "japan-standard-1930"
+      ],
+      "evidence_status": "explicit-retrospective-comparison",
+      "limitation": "1929 原件未亲见，旧制细节依 1930 注释而非独立双版本核对。"
+    },
+    {
+      "id": "arushiaru-survival",
+      "title": "アルシーアル仍有现行协会版本",
+      "witness_date": "2026-09-22",
+      "date_kind": "access-date",
+      "before": "1930 的未和者副数结算见证",
+      "after": "现行只向和家支付的番副法",
+      "dimensions": [
+        "nonwinner-settlement",
+        "payment",
+        "scoring"
+      ],
+      "source_ids": [
+        "japan-standard-1930",
+        "jml-arushiaru-current"
+      ],
+      "evidence_status": "documented-endpoint-difference",
+      "limitation": "两端条款不同，不证明每项改变的年份；现行网页与 2024 第三版书待对校。"
+    },
+    {
+      "id": "taiwan-software",
+      "title": "十六张软件早于明星三缺一",
+      "witness_date": "1994-01-28",
+      "date_kind": "publisher-reported-original-release",
+      "before": null,
+      "after": "大宇《正宗台湾十六张麻将》",
+      "dimensions": [
+        "software-codification"
+      ],
+      "source_ids": [
+        "softstar-taiwan-1994"
+      ],
+      "evidence_status": "primary-retrospective-witness",
+      "limitation": "原游戏所有规则未读取；只能定软件存在年，不能定台湾麻将起源。"
+    },
+    {
+      "id": "hkma-hk-standard",
+      "title": "香港协会的比赛版条件",
+      "witness_date": "2026-09-22",
+      "date_kind": "access-date",
+      "before": "香港地方规则伞称",
+      "after": "HKMA 香港麻雀总例",
+      "dimensions": [
+        "win-threshold",
+        "payment",
+        "dealer-continuation"
+      ],
+      "source_ids": [
+        "hkma-hk-current"
+      ],
+      "evidence_status": "named-codification",
+      "limitation": "初复赛与决赛连庄不同；适用协会比赛，不代表每一民间桌。"
+    },
+    {
+      "id": "hkma-sixteen-standard",
+      "title": "港式十六张具名修订版",
+      "witness_date": "2025-07-28",
+      "date_kind": "revision-date",
+      "before": "港式台牌伞称",
+      "after": "HKMA 十六张新章总例",
+      "dimensions": [
+        "hand-size",
+        "declaration",
+        "additive-scoring",
+        "deferred-settlement"
+      ],
+      "source_ids": [
+        "hkma-sixteen-2025"
+      ],
+      "evidence_status": "named-codification",
+      "limitation": "相似的叮／即食、单式结算不足以单独确定日麻／国标借入的具体时点。"
+    },
+    {
+      "id": "tmt-sichuan-standard",
+      "title": "血战编为腾讯比赛规则",
+      "witness_date": "2016-11-14",
+      "date_kind": "tournament-publication",
+      "before": "血战到底地方玩法",
+      "after": "2016 TMT 川麻规程",
+      "dimensions": [
+        "predeclared-suit",
+        "kong-replacement",
+        "draw-penalty",
+        "tournament"
+      ],
+      "source_ids": [
+        "tmt-sichuan-2016"
+      ],
+      "evidence_status": "explicit-standardization",
+      "limitation": "不补入未列出的换三张；不称定缺在 2016 才发明。"
+    },
+    {
+      "id": "mil-sbr-earlier",
+      "title": "SBR 赛事早于 2025 年版",
+      "witness_date": "2016-11-04/2016-11-06",
+      "date_kind": "event",
+      "before": null,
+      "after": "MIL SBR Grand-Prix",
+      "dimensions": [
+        "tournament"
+      ],
+      "source_ids": [
+        "mil-sbr-2016"
+      ],
+      "evidence_status": "direct-event-witness",
+      "limitation": "赛事亲历记述不是全部竞赛条款；2025 版可另列版本，但不是 SBR 出生年。"
+    },
+    {
+      "id": "american-three-modes",
+      "title": "同一法典中的三种和牌门槛",
+      "witness_date": "1924",
+      "date_kind": "documented-version",
+      "before": "Mixed-Hand",
+      "after": "One-Double／Cleared-Hand",
+      "dimensions": [
+        "winning-condition"
+      ],
+      "source_ids": [
+        "hartman-1924"
+      ],
+      "evidence_status": "explicit-comparison",
+      "limitation": "版本条文可比，不自动证明谁先发明或跨地传播。"
+    },
+    {
+      "id": "american-dead-wall",
+      "title": "十四张死墙与摸尽牌墙",
+      "witness_date": "1924",
+      "date_kind": "documented-version",
+      "before": "Mixed-Hand",
+      "after": "One-Double／Cleared-Hand",
+      "dimensions": [
+        "dead-wall"
+      ],
+      "source_ids": [
+        "hartman-1924"
+      ],
+      "evidence_status": "explicit-comparison",
+      "limitation": "版本条文可比，不自动证明谁先发明或跨地传播。"
+    },
+    {
+      "id": "american-nonwinner-doubles",
+      "title": "未和家整手番的准入差异",
+      "witness_date": "1924",
+      "date_kind": "documented-version",
+      "before": "Mixed-Hand",
+      "after": "One-Double／Cleared-Hand",
+      "dimensions": [
+        "nonwinner-settlement",
+        "whole-hand-bonus"
+      ],
+      "source_ids": [
+        "hartman-1924"
+      ],
+      "evidence_status": "explicit-comparison",
+      "limitation": "版本条文可比，不自动证明谁先发明或跨地传播。"
+    },
+    {
+      "id": "american-fixed-bonus",
+      "title": "海底等项目翻倍与固定加分并存",
+      "witness_date": "1924",
+      "date_kind": "documented-version",
+      "before": "Mixed-Hand／One-Double",
+      "after": "Cleared-Hand",
+      "dimensions": [
+        "scoring"
+      ],
+      "source_ids": [
+        "hartman-1924"
+      ],
+      "evidence_status": "explicit-comparison",
+      "limitation": "版本条文可比，不自动证明谁先发明或跨地传播。"
+    },
+    {
+      "id": "american-claim-priority",
+      "title": "同年碰和优先序不同",
+      "witness_date": "1924",
+      "date_kind": "documented-version",
+      "before": "Foster 二月版：对／刻／顺成和次序",
+      "after": "American Code：放铳者之后座次优先",
+      "dimensions": [
+        "multiple-ron"
+      ],
+      "source_ids": [
+        "foster-1924",
+        "hartman-1924"
+      ],
+      "evidence_status": "cross-version-difference",
+      "limitation": "版本条文可比，不自动证明谁先发明或跨地传播。"
+    },
+    {
+      "id": "american-two-player-payment",
+      "title": "二人分差支付与只付和家",
+      "witness_date": "1924",
+      "date_kind": "documented-version",
+      "before": "Foster 二人法",
+      "after": "American Code 二人法",
+      "dimensions": [
+        "players",
+        "payment",
+        "chi",
+        "dealer-rotation"
+      ],
+      "source_ids": [
+        "foster-1924",
+        "hartman-1924"
+      ],
+      "evidence_status": "cross-version-difference",
+      "limitation": "版本条文可比，不自动证明谁先发明或跨地传播。"
+    },
+    {
+      "id": "american-three-player-inventory",
+      "title": "删入局北牌与仅省抽座签",
+      "witness_date": "1924",
+      "date_kind": "documented-version",
+      "before": "Foster 三人法",
+      "after": "American Code 三人法",
+      "dimensions": [
+        "players",
+        "tile-inventory",
+        "seat-selection"
+      ],
+      "source_ids": [
+        "foster-1924",
+        "hartman-1924"
+      ],
+      "evidence_status": "cross-version-difference",
+      "limitation": "版本条文可比，不自动证明谁先发明或跨地传播。"
+    },
+    {
+      "id": "american-seven-pairs",
+      "title": "有花色限制的七对特种和牌",
+      "witness_date": "1924",
+      "date_kind": "documented-version",
+      "before": null,
+      "after": "Heavenly Twins／Seven Twins",
+      "dimensions": [
+        "hand-pattern"
+      ],
+      "source_ids": [
+        "hartman-1924"
+      ],
+      "evidence_status": "direct-witness",
+      "limitation": "全字或同一数牌门七个不同对子满贯；一门加字七对半贯。不能视为任意七对已通行。"
+    },
+    {
+      "id": "american-delayed-call",
+      "title": "首巡申告与锁手奖励",
+      "witness_date": "1924",
+      "date_kind": "documented-version",
+      "before": null,
+      "after": "Delayed Call",
+      "dimensions": [
+        "declaration",
+        "hand-lock"
+      ],
+      "source_ids": [
+        "hartman-1924",
+        "babcock-1923",
+        "japan-standard-1930"
+      ],
+      "evidence_status": "cross-version-comparison",
+      "limitation": "1923 Lucky Thirteen、1924 Delayed Call、1930 首巡立直可比较；没有直接传播链。"
+    },
+    {
+      "id": "siamese-wp-adaptation",
+      "title": "WP 规则书与 Siamese 双手法的署名改编",
+      "witness_date": "2022-12-31",
+      "date_kind": "documented-version",
+      "before": "Wright-Patterson＋Siamese",
+      "after": "Siamese WP 2022",
+      "dimensions": [
+        "players",
+        "multi-hand",
+        "termination",
+        "settlement"
+      ],
+      "source_ids": [
+        "siamese-wp-2022"
+      ],
+      "evidence_status": "authored-adaptation",
+      "limitation": "只认定作者明示的改编；2015 原 Siamese 条文未亲验。"
+    },
+    {
+      "id": "nmjl-1961-card-witness",
+      "title": "花与专用 joker 分工的原卡见证",
+      "witness_date": "1961–62",
+      "date_kind": "annual-rule-card",
+      "before": null,
+      "after": "NMJL 1961–62",
+      "dimensions": [
+        "tile-inventory",
+        "wildcards",
+        "payment",
+        "special-hand-exceptions"
+      ],
+      "source_ids": [
+        "nmjl-card-1961-62"
+      ],
+      "evidence_status": "direct-witness",
+      "limitation": "十四花加两 joker 和东家双倍可核；初次改规仍须对照前一年度原卡。"
+    },
+    {
+      "id": "ninghai-surviving-fu-observation",
+      "title": "宁海旧式结算的田野见证",
+      "witness_date": "2017",
+      "date_kind": "field-observation-published-2019",
+      "before": null,
+      "after": "宁海观察桌",
+      "dimensions": [
+        "fu",
+        "nonwinner-settlement",
+        "payment"
+      ],
+      "source_ids": [
+        "aono-ninghai-2019"
+      ],
+      "evidence_status": "direct-field-observation",
+      "limitation": "观察时存在不等于已定形成时间；与宁波财神法及日本的历史连接仍待证。"
+    },
+    {
+      "id": "japan-1932-nonwinner-witness",
+      "title": "1932 日本警务教材仍记未和者结算",
+      "witness_date": "1932",
+      "date_kind": "publication-witness",
+      "before": null,
+      "after": "警视厅教材所述版本",
+      "dimensions": [
+        "payment",
+        "nonwinner-settlement"
+      ],
+      "source_ids": [
+        "police-manual-1932"
+      ],
+      "evidence_status": "primary-scan",
+      "limitation": "警务教材中的规则说明，不是法定统一竞赛标准；不能证明 1932 年所有日本牌局如此，也不能据本章未写某机制断言当时不存在。"
+    },
+    {
+      "id": "taiwan-1931-thirteen-sixteen-witness",
+      "title": "1931 台湾小说区分十三张与十六张",
+      "witness_date": "1931-07-25",
+      "date_kind": "literary-witness",
+      "before": null,
+      "after": "小说人物惯打十六张",
+      "dimensions": [
+        "hand-size"
+      ],
+      "source_ids": [
+        "xinmin-she-1931"
+      ],
+      "evidence_status": "primary-newspaper-scan",
+      "limitation": "人物对话不提供完整规则，不证明起源、改制年或人口普及率。"
+    },
+    {
+      "id": "harbin-discard-draw-old-new",
+      "title": "哈尔滨老新版的摸打次序、开门及支付差别",
+      "witness_date": "2020-07-31",
+      "date_kind": "field-description-publication",
+      "before": "harbin-old-aono-2020",
+      "after": "harbin-new-aono-2020",
+      "dimensions": [
+        "turn-order",
+        "win-eligibility",
+        "scoring",
+        "payment"
+      ],
+      "source_ids": [
+        "aono-harbin-2020"
+      ],
+      "evidence_status": "direct-field-comparison",
+      "limitation": "1949 以前、1980–90 年代等形成叙事仍为口述；不覆盖所有地方平台。"
+    },
+    {
+      "id": "sichuan-tsumo-add-or-double",
+      "title": "自摸加底与加番",
+      "witness_date": "2017-06-30",
+      "date_kind": "field-description-publication",
+      "before": "自摸基本分加一底",
+      "after": "自摸加一番，另有提高封顶",
+      "dimensions": [
+        "scoring"
+      ],
+      "source_ids": [
+        "aono-sichuan-2017"
+      ],
+      "evidence_status": "documented-rule-comparison",
+      "location": "169、179–180 页",
+      "limitation": "地方改法只确认同文所记差异，不补写发生日期、统一规范或跨地传播。"
+    },
+    {
+      "id": "sichuan-delayed-added-kong",
+      "title": "延后加杠收分与直杠金额",
+      "witness_date": "2017-06-30",
+      "date_kind": "field-description-publication",
+      "before": "即时摸得第四张加杠才收分；直杠收二底",
+      "after": "延后加杠也收分；另述直杠改四底",
+      "dimensions": [
+        "kong-payment"
+      ],
+      "source_ids": [
+        "aono-sichuan-2017"
+      ],
+      "evidence_status": "documented-rule-comparison",
+      "location": "168–169、180 页",
+      "limitation": "地方改法只确认同文所记差异，不补写发生日期、统一规范或跨地传播。"
+    },
+    {
+      "id": "sichuan-kong-refund-or-transfer",
+      "title": "杠后放铳：退还与转雨",
+      "witness_date": "2017-06-30",
+      "date_kind": "field-description-publication",
+      "before": "退还本次杠收入给原支付者",
+      "after": "转给和牌者",
+      "dimensions": [
+        "kong-payment",
+        "payment"
+      ],
+      "source_ids": [
+        "aono-sichuan-2017"
+      ],
+      "evidence_status": "documented-rule-comparison",
+      "location": "169、181 页",
+      "limitation": "地方改法只确认同文所记差异，不补写发生日期、统一规范或跨地传播。"
+    },
+    {
+      "id": "sichuan-bloodflow-version-disagreement",
+      "title": "血流中的缺门约束版本差别",
+      "witness_date": "2017-06-30",
+      "date_kind": "field-description-publication",
+      "before": "91y 2015 文本不预报定缺",
+      "after": "2017 论文描述须强制切去所缺门的血流",
+      "dimensions": [
+        "dingque",
+        "after-first-win"
+      ],
+      "source_ids": [
+        "aono-sichuan-2017",
+        "91y-bloodflow-2015"
+      ],
+      "evidence_status": "documented-rule-comparison",
+      "location": "181 页",
+      "limitation": "地方改法只确认同文所记差异，不补写发生日期、统一规范或跨地传播。"
+    },
+    {
+      "id": "guanchang-ch31-scoring-witness",
+      "title": "晚清小说牌例的计副翻倍及庄家付款",
+      "witness_date": "1904（研究书目归年）",
+      "date_kind": "literary-witness-bibliographic-date",
+      "before": null,
+      "after": "guanchang-ch31-1904",
+      "dimensions": [
+        "base-points",
+        "doubles",
+        "payment"
+      ],
+      "source_ids": [
+        "guanchang-ch31-transcription",
+        "li-bibliography-1981"
+      ],
+      "evidence_status": "transcribed-literary-witness",
+      "limitation": "仅有牌例与对话；未和者互结不能由争吵推牌的省略作否定判断，原印本文字待校。"
+    },
+    {
+      "id": "tchou-old-new-payment-1924",
+      "title": "朱家坚新旧法：支付倍数参照对象改变",
+      "witness_date": "1924",
+      "date_kind": "rule-text-publication",
+      "before": "tchou-old-1924",
+      "after": "tchou-new-1924",
+      "dimensions": [
+        "dealer-payment",
+        "discard-payment",
+        "self-draw-payment"
+      ],
+      "source_ids": [
+        "tchou-1924-transcription"
+      ],
+      "evidence_status": "explicit-comparison-in-transcribed-primary-text",
+      "limitation": "新法明确有未和者差额；旧法是否亦有不能据简述空缺定案，原版影印待对校。"
+    },
+    {
+      "id": "qingbai-conditional-liability-1917",
+      "title": "清稗类钞的大牌危险放铳包付",
+      "witness_date": "1917（馆藏著录）",
+      "date_kind": "compilation-publication-catalogue-date",
+      "before": null,
+      "after": "qingbai-maque-1917",
+      "dimensions": [
+        "conditional-liability",
+        "payment"
+      ],
+      "source_ids": [
+        "qingbai-1917-scan"
+      ],
+      "evidence_status": "scanned-primary-text-witness",
+      "limitation": "本条未提供完整普通支付法及具体大牌门槛；不能据此把普遍全铳的形成推到 1917，也不是百搭宝的见证。"
+    },
+    {
+      "id": "ningbo-bamboo-material-1901",
+      "title": "宁波竹牌与中发套的物质组成差别",
+      "witness_date": "1889／1901（原刊）",
+      "date_kind": "material-description-publication",
+      "before": null,
+      "after": "ningbo-bamboo-himly-1901",
+      "dimensions": [
+        "tile-composition",
+        "kings",
+        "hua"
+      ],
+      "source_ids": [
+        "himly-1889",
+        "himly-1901",
+        "schreiber-1901"
+      ],
+      "evidence_status": "primary-material-comparison",
+      "limitation": "同作者两次记述按同类见证合并；不能据九王三化证明百搭、配牌数或后裔。"
+    },
+    {
+      "id": "wei-strict-liberal-1925",
+      "title": "同书严格／宽松计分解释的并存",
+      "witness_date": "1925",
+      "date_kind": "rule-text-publication",
+      "before": "wei-strict-1925",
+      "after": "wei-liberal-1925",
+      "dimensions": [
+        "scoring-decomposition",
+        "event-bonus",
+        "pinfu-tsumo",
+        "score-cap"
+      ],
+      "source_ids": [
+        "wei-1925"
+      ],
+      "evidence_status": "primary-explicit-parallel-comparison",
+      "limitation": "书中没有说严格先变成宽松；300／500 是惯用封顶，不是强制全国标准。"
+    },
+    {
+      "id": "wei-liability-1925",
+      "title": "普通共付与条件性包付同时存在",
+      "witness_date": "1925",
+      "date_kind": "rule-text-publication",
+      "before": null,
+      "after": "wei-liberal-1925",
+      "dimensions": [
+        "discard-liability",
+        "dangerous-discard",
+        "non-winner-settlement"
+      ],
+      "source_ids": [
+        "wei-1925",
+        "qingbai-1917-scan"
+      ],
+      "evidence_status": "primary-rule-clause-comparison",
+      "limitation": "清一色、清幺九、风与三元有各自触发条件；书中豁免和后续自摸包付不能省略。与清稗条款只作比较，传播未证。"
+    },
+    {
+      "id": "wei-completed-hand-doubles-1925",
+      "title": "整手番是否可用于未和牌须逐项核对",
+      "witness_date": "1924–1925",
+      "date_kind": "rule-text-comparison",
+      "before": null,
+      "after": "wei-liberal-1925",
+      "dimensions": [
+        "non-winner-hand-doubles"
+      ],
+      "source_ids": [
+        "wei-1925",
+        "hartman-1924"
+      ],
+      "evidence_status": "primary-cross-text-comparison",
+      "limitation": "Wei 18 页将清一色、混一色等奖励限于和牌；与 American Code 不同模式的未和家整手番作对照，不因此证明某书改自另一书。"
+    },
+    {
+      "id": "wei-modes-account-1925",
+      "title": "清手、一番与混合玩法的同期回述",
+      "witness_date": "1925",
+      "date_kind": "contemporary-author-account",
+      "before": null,
+      "after": "wei-liberal-1925",
+      "dimensions": [
+        "minimum-win-condition",
+        "variant-origin-account"
+      ],
+      "source_ids": [
+        "wei-1925",
+        "hartman-1924",
+        "foster-1924"
+      ],
+      "evidence_status": "primary-account-with-undated-origin-claim",
+      "limitation": "Wei 叙述在华外侨由清手改一番，但未给人名、地点与日期；只能补充同期作者解释，不覆盖法典中更完整的清手例外。"
+    },
+    {
+      "id": "jml-heisei-adoption-2016",
+      "title": "平成版新报知向日本麻雀连盟立直的具名改编",
+      "witness_date": "2016-10（公认事件）；现行说明",
+      "date_kind": "organizational-adoption-account",
+      "before": "hochi-heisei-1997",
+      "after": "jml-riichi-current",
+      "dimensions": [
+        "named-adaptation",
+        "multiple-reference-sources"
+      ],
+      "source_ids": [
+        "jml-riichi-adoption-2016",
+        "hochi-heisei-1997-catalogue"
+      ],
+      "evidence_status": "primary-explicit-adaptation",
+      "limitation": "参考ねんりんピック但版次未给；不把 1997 版等同 1952／1953 报知。"
+    },
+    {
+      "id": "jml-current-kong-chombo-comparison",
+      "title": "立直后暗杠、错和及局末供托的版本差别",
+      "witness_date": "1997 版后出转录／2026 现行访问",
+      "date_kind": "qualified-cross-version-comparison",
+      "before": "hochi-heisei-1997",
+      "after": "jml-riichi-current",
+      "dimensions": [
+        "post-riichi-kong",
+        "chombo-payment",
+        "round-restart",
+        "unclaimed-riichi-sticks"
+      ],
+      "source_ids": [
+        "hochi-heisei-transcription-2025",
+        "jml-riichi-adoption-2016",
+        "jml-riichi-current"
+      ],
+      "evidence_status": "explicit-adaptation-with-transcription-comparison",
+      "limitation": "转录第 51、68、43 条与现行规程 18、24、8、10 条对照；原书待校，改变的具体发生年未证。"
+    },
+    {
+      "id": "hayashi-stake-scale-1924",
+      "title": "么半／么二／二四是庄闲比例不变的尺度差别",
+      "witness_date": "1924-07-18",
+      "date_kind": "rule-text-publication",
+      "before": null,
+      "after": "hayashi-northern-1924",
+      "dimensions": [
+        "stake-scale",
+        "payer-reference"
+      ],
+      "source_ids": [
+        "hayashi-1924"
+      ],
+      "evidence_status": "primary-explicit-within-text-comparison",
+      "limitation": "原书50–52页恒为庄闲2:1，不作为三种不同放铳责任或三个独立流派。"
+    },
+    {
+      "id": "hayashi-initial-riichi-1924",
+      "title": "1924起手立直与1930首巡立直的条款比较",
+      "witness_date": "1924–1930",
+      "date_kind": "rule-text-comparison",
+      "before": "hayashi-northern-1924",
+      "after": "japan-standard-1930",
+      "dimensions": [
+        "ready-declaration",
+        "first-turn",
+        "post-declaration-lock"
+      ],
+      "source_ids": [
+        "hayashi-1924",
+        "japan-standard-1930"
+      ],
+      "evidence_status": "primary-cross-text-comparison",
+      "limitation": "1924第64页起手13张已听后宣言不改组；未明写1930禁暗杠等全部细节。两书相似不能证明直接改编。"
+    },
+    {
+      "id": "hayashi-optional-closed-hand-1924",
+      "title": "不吃不碰一翻作为可选约定",
+      "witness_date": "1924-07-18",
+      "date_kind": "rule-text-publication",
+      "before": null,
+      "after": "hayashi-northern-1924",
+      "dimensions": [
+        "closed-hand-bonus",
+        "optional-rule"
+      ],
+      "source_ids": [
+        "hayashi-1924"
+      ],
+      "evidence_status": "primary-explicit-optional-rule",
+      "limitation": "67页说通常不称役，可事前或打牌时约定1翻，末张荣和亦可；不能等同1930门前荣和加符／自摸加番。"
+    },
+    {
+      "id": "hayashi-optional-round-wind-1924",
+      "title": "基础门风之外另约场风",
+      "witness_date": "1924-07-18",
+      "date_kind": "rule-text-publication",
+      "before": null,
+      "after": "hayashi-northern-1924",
+      "dimensions": [
+        "round-wind",
+        "optional-rule"
+      ],
+      "source_ids": [
+        "hayashi-1924"
+      ],
+      "evidence_status": "primary-explicit-optional-rule",
+      "limitation": "76页連風按四圈轮换，须竞赛前约定；场风兼门风两翻。只读基础役牌表会漏掉此桌约。"
+    },
+    {
+      "id": "hayashi-draw-1924",
+      "title": "王牌前末张不弃与按有无杠决定移庄",
+      "witness_date": "1924-07-18",
+      "date_kind": "rule-text-publication",
+      "before": null,
+      "after": "hayashi-northern-1924",
+      "dimensions": [
+        "last-live-tile",
+        "draw-dealer-rotation",
+        "abortive-draw"
+      ],
+      "source_ids": [
+        "hayashi-1924"
+      ],
+      "evidence_status": "primary-rule-clause",
+      "limitation": "43–45页明载有杠移庄、无杠续庄；第四杠可放弃以继续、九种幺九、首巡四同风及三家和另列。王牌补回操作仍缺清晰核验，不替换成现代整套。"
+    },
+    {
+      "id": "zhang-tileset-options-1889",
+      "title": "日记中的常例牌与可选加花并存",
+      "witness_date": "1889-01-30（日记条目；稿本著录1901）",
+      "date_kind": "dated-diary-entry-in-later-manuscript",
+      "before": null,
+      "after": "zhang-diary-1889",
+      "dimensions": [
+        "tile-composition",
+        "optional-flowers",
+        "parallel-tile-names"
+      ],
+      "source_ids": [
+        "zhang-wushuqi-original"
+      ],
+      "evidence_status": "primary-explicit-options-in-dated-diary",
+      "limitation": "只证牌具选项；不证花牌补张、百搭功能或十三／十六张。中发／龙凤是并列牌名，未证一方取代另一方的方向。"
+    },
+    {
+      "id": "hunan-diffusion-witness-1912",
+      "title": "湖南报告中的输入渠道与流行地点",
+      "witness_date": "1912-05原本题署（2010校点本已读）",
+      "date_kind": "early-report-in-modern-critical-edition",
+      "before": null,
+      "after": "hunan-diffusion-1912",
+      "dimensions": [
+        "reported-diffusion",
+        "regional-presence"
+      ],
+      "source_ids": [
+        "hunan-report-1912-ed2010"
+      ],
+      "evidence_status": "primary-report-via-modern-critical-edition",
+      "limitation": "传播渠道与地区流行不等于规则分裂。报告无配牌和计分细则，不画苏扬规则至现代长沙／常德的父子边。"
+    },
+    {
+      "id": "hissho-ordinary-bao-1924",
+      "title": "普通共付与特定危险包付分开",
+      "witness_date": "1924-11-25（原书发行）",
+      "date_kind": "rule-text-publication",
+      "before": null,
+      "after": "hissho-four-player-1924",
+      "dimensions": [
+        "payment-liability",
+        "conditional-bao"
+      ],
+      "source_ids": [
+        "hissho-1924"
+      ],
+      "evidence_status": "primary-rule-clause",
+      "limitation": "6页普通和牌收三家；24–26页清一色及大三元／四喜责任、最后五墩前后的危险新牌另规定独付。清一色责任有手中只余同门的豁免；不泛化为普通全铳。"
+    },
+    {
+      "id": "hissho-flowers-option-1924",
+      "title": "无花基础法与八花选项",
+      "witness_date": "1924-11-25（原书发行）",
+      "date_kind": "rule-text-publication",
+      "before": "hissho-four-player-1924",
+      "after": "hissho-flowers-1924",
+      "dimensions": [
+        "flowers",
+        "replacement-draw",
+        "optional-rule"
+      ],
+      "source_ids": [
+        "hissho-1924"
+      ],
+      "evidence_status": "primary-explicit-optional-rule",
+      "limitation": "30–32页称花牌八张，每张4点且座花1翻，补牌从尾；多套花名不是全部同时入局。"
+    },
+    {
+      "id": "hissho-five-player-1924",
+      "title": "增加一名轮休且收分的参与者",
+      "witness_date": "1924-11-25（原书发行）",
+      "date_kind": "rule-text-publication",
+      "before": "hissho-four-player-1924",
+      "after": "hissho-five-player-1924",
+      "dimensions": [
+        "player-count",
+        "rotating-bye",
+        "nonplaying-participant-payment"
+      ],
+      "source_ids": [
+        "hissho-1924"
+      ],
+      "evidence_status": "primary-explicit-variant",
+      "limitation": "32–34页四人在局，一人轮休收约定分；和牌番数使该额度翻倍，庄家加倍不计入；不是五人同时持牌。"
+    },
+    {
+      "id": "hissho-initial-ready-options-1924",
+      "title": "起手听牌优遇有首巡与后续巡数选项",
+      "witness_date": "1924-11-25（原书发行）",
+      "date_kind": "rule-text-publication",
+      "before": null,
+      "after": "hissho-four-player-1924",
+      "dimensions": [
+        "initial-ready-bonus",
+        "optional-rule",
+        "winning-turn"
+      ],
+      "source_ids": [
+        "hissho-1924"
+      ],
+      "evidence_status": "primary-explicit-optional-rule",
+      "limitation": "22–23页另列起手立即听牌的优遇：首巡和与100/200点加奖，并说有些地方后续巡数仍如此处理。没有把起手条件取消，也未写立直宣言、锁手或供托。"
+    },
+    {
+      "id": "hissho-pinfu-round-wind-1924",
+      "title": "自摸平和与场风在同一文本内成立",
+      "witness_date": "1924-11-25（原书发行）",
+      "date_kind": "rule-text-publication",
+      "before": null,
+      "after": "hissho-four-player-1924",
+      "dimensions": [
+        "pinfu-tsumo",
+        "round-wind",
+        "seat-wind"
+      ],
+      "source_ids": [
+        "hissho-1924"
+      ],
+      "evidence_status": "primary-rule-clause",
+      "limitation": "12–14、20、28页明确自摸平和22点再翻为44；场风／门风重合可两翻。不能把另一本1924书的荣和平和或可选场风直接移植到本书。"
+    },
+    {
+      "id": "maajh-flowers-wild-1939",
+      "title": "八花全部兼任百搭",
+      "witness_date": "1939-10",
+      "date_kind": "documented-version",
+      "before": null,
+      "after": "maajh-1939",
+      "dimensions": [
+        "tile-inventory",
+        "wild-tile-function"
+      ],
+      "source_ids": [
+        "cecil-maajh-1939"
+      ],
+      "evidence_status": "primary-rule-clause",
+      "limitation": "原书5–6页明确144张与八花作joker；不是独立加入八张joker，也不是百搭在麻将史上的首次出现。"
+    },
+    {
+      "id": "maajh-pattern-calls-1939",
+      "title": "合法牌形限制与申告听牌待遇",
+      "witness_date": "1939-10",
+      "date_kind": "documented-version",
+      "before": null,
+      "after": "maajh-1939",
+      "dimensions": [
+        "winning-pattern",
+        "meld-eligibility",
+        "initial-ready-declaration"
+      ],
+      "source_ids": [
+        "cecil-maajh-1939"
+      ],
+      "evidence_status": "primary-rule-clause",
+      "limitation": "7页：须合书列14张牌形；对子或顺子仅能为和牌取得，暗手不预先碰杠。Set Hand须于东家首次舍牌前申告且不可改。与日式立直相似不证明传播关系。"
+    },
+    {
+      "id": "nmjl-courtesy-pass-1939-1941",
+      "title": "礼貌换牌由可选到禁止的两个版本",
+      "witness_date": "1941年度／版权1940",
+      "date_kind": "documented-version",
+      "before": "maajh-1939",
+      "after": "nmjl-card-1941",
+      "dimensions": [
+        "predeal-exchange",
+        "courtesy-pass"
+      ],
+      "source_ids": [
+        "cecil-maajh-1939",
+        "nmjl-card-1941"
+      ],
+      "evidence_status": "primary-cross-version-comparison",
+      "limitation": "1939修订本6页允许第二轮后的礼貌换牌；1941年度卡（版权1940）背面禁止。只定位两个版本之间的差别，未找到首次取消的明示日期。"
+    },
+    {
+      "id": "nmjl-dead-hand-1941",
+      "title": "错和死手仍继续摸打",
+      "witness_date": "1941年度／版权1940",
+      "date_kind": "documented-version",
+      "before": null,
+      "after": "nmjl-card-1941",
+      "dimensions": [
+        "false-win-penalty",
+        "dead-hand-continuation"
+      ],
+      "source_ids": [
+        "nmjl-card-1941"
+      ],
+      "evidence_status": "primary-rule-clause",
+      "limitation": "第14条：错和亮牌而他家手牌完整，错和者死手但继续摸打；若其他人也推倒／亮牌则另行处罚，不能无条件概括为所有错和都继续。"
+    },
+    {
+      "id": "haishang-hand-and-counting-1894",
+      "title": "十四张牌例与三倍算和的早期见证",
+      "witness_date": "1894",
+      "date_kind": "primary-edition-witness",
+      "before": null,
+      "after": "haishang-ch26-1894",
+      "dimensions": [
+        "hand-size-witness",
+        "doubling-scoring",
+        "hand-decomposition"
+      ],
+      "source_ids": [
+        "haishang-1894-ch26"
+      ],
+      "evidence_status": "primary-literary-witness",
+      "limitation": "摸后十四张和80／176算例有原图；一般四组一对、每种四张及完整单位副数没有在这两页逐条规定。枚举模型与原文须分层。"
+    },
+    {
+      "id": "haishang-shared-win-payment-1894",
+      "title": "荣和后三家付款的早期见证",
+      "witness_date": "1894",
+      "date_kind": "primary-edition-witness",
+      "before": null,
+      "after": "haishang-ch26-1894",
+      "dimensions": [
+        "discard-win-payment",
+        "dealer-status"
+      ],
+      "source_ids": [
+        "haishang-1894-ch26"
+      ],
+      "evidence_status": "primary-literary-witness",
+      "limitation": "陈小云起庄及他家弃幺筒后和牌、三家付款均见原文；没有三家各付多少、庄闲倍率或非和家互结，不能据叙事省略宣称取消互结。"
+    },
+    {
+      "id": "mcr-1998-compiled-standard",
+      "title": "1997–1998编纂与试验的同期自述",
+      "before": null,
+      "after": "mcr-1998",
+      "dimensions": [
+        "codification-history",
+        "multiple-reference-sources"
+      ],
+      "source_ids": [
+        "mcr-1998-primary"
+      ],
+      "evidence_status": "primary-institutional-account",
+      "limitation": "所参考各地意见不等于逐条番种来源已证。",
+      "witness_date": "1998-07题署／09初版",
+      "date_kind": "documented-version"
+    },
+    {
+      "id": "mcr-1998-additive-payment",
+      "title": "番种加法与全体底分／放铳牌值并用",
+      "before": null,
+      "after": "mcr-1998",
+      "dimensions": [
+        "additive-scoring",
+        "discard-payment",
+        "self-draw-payment"
+      ],
+      "source_ids": [
+        "mcr-1998-primary"
+      ],
+      "evidence_status": "primary-rule-clause",
+      "limitation": "取消古典番副乘算与付款责任是不同维度；本书未明示由哪一种地方规则改来。",
+      "witness_date": "1998-07题署／09初版",
+      "date_kind": "documented-version"
+    },
+    {
+      "id": "mcr-1998-to-2006",
+      "title": "WMO明示从1998规则等材料修订",
+      "before": "mcr-1998",
+      "after": "mcr-wmo-2006",
+      "dimensions": [
+        "named-adaptation"
+      ],
+      "source_ids": [
+        "mcr-1998-primary",
+        "mcr-wmo-2006"
+      ],
+      "evidence_status": "primary-explicit-adaptation",
+      "limitation": "已证据本关系，不宣称已完成两个版本的全量差分。",
+      "witness_date": "2006（原书后记）",
+      "date_kind": "documented-version"
+    },
+    {
+      "id": "ema-mcr-2006-2010-procedure",
+      "title": "欧洲赛事对伸手与忘收和牌张的规定不同",
+      "before": "mcr-wmo-2006",
+      "after": "ema-mcr-2010",
+      "dimensions": [
+        "claim-deadline",
+        "winning-tile-procedure",
+        "false-win-penalty"
+      ],
+      "source_ids": [
+        "mcr-wmo-2006",
+        "ema-mers-2010"
+      ],
+      "evidence_status": "primary-explicit-adaptation-and-comparison",
+      "limitation": "比较2006英文原页与2010 v1.1；2007与2008中间文本未通读，不以2010作首次改动年。",
+      "witness_date": "2010-08 v1.1",
+      "date_kind": "documented-version"
+    },
+    {
+      "id": "mil-mcr-duplicate-format",
+      "title": "以国标为底层的复式牌墙与跨桌排名",
+      "before": "guobiao",
+      "after": "mil-duplicate-mcr-current",
+      "dimensions": [
+        "tournament-format",
+        "tile-inventory",
+        "wall-draw-source",
+        "kong-replacement",
+        "cross-table-scoring"
+      ],
+      "source_ids": [
+        "mil-duplicate-current"
+      ],
+      "evidence_status": "primary-explicit-format-adaptation",
+      "limitation": "不能把赛制当新地区祖先；采用的具体MCR年份版和初次制定年未知。",
+      "witness_date": "未署制定年（2026访问）",
+      "date_kind": "undated-current-webpage"
+    },
+    {
+      "id": "bloodflow-91y",
+      "title": "血战与平台血流的差异",
+      "witness_date": "2015-03-18",
+      "date_kind": "platform-publication",
+      "before": "91y 所述血战",
+      "after": "91y-bloodflow-2015",
+      "dimensions": [
+        "predeclared-suit",
+        "post-win-play",
+        "kong-scoring",
+        "draw-penalty"
+      ],
+      "source_ids": [
+        "91y-bloodflow-2015"
+      ],
+      "evidence_status": "explicit-comparison",
+      "limitation": "只适用该平台文本；其中血战终局人数措辞另有问题，不能当全川统一规则。"
+    },
+    {
+      "id": "mil-mcr2025-named-basis",
+      "title": "MIL2025补充细则明确采用1998底本",
+      "before": "mcr-1998",
+      "after": "mil-mcr-supplement-2025",
+      "dimensions": [
+        "named-adaptation",
+        "multiple-reference-sources"
+      ],
+      "source_ids": [
+        "mcr-1998-primary",
+        "mil-mcr-supplement-2025"
+      ],
+      "evidence_status": "primary-explicit-adaptation",
+      "limitation": "前言提及其他解释不等于已核每个来源的条款；不画2006至2025单线。",
+      "witness_date": "2025（所读版本）",
+      "date_kind": "documented-version"
+    },
+    {
+      "id": "mil-mcr2010-2025-penalties",
+      "title": "错和罚分与停和后叫牌范围不同",
+      "before": "ema-mcr-2010",
+      "after": "mil-mcr-supplement-2025",
+      "dimensions": [
+        "false-win-penalty",
+        "dead-hand-continuation",
+        "claim-deadline"
+      ],
+      "source_ids": [
+        "ema-mers-2010",
+        "mil-mcr-supplement-2025"
+      ],
+      "evidence_status": "primary-cross-version-comparison",
+      "limitation": "比较指定年份的规则文本，不证明变化首次出现于2025或组织间直接传授。",
+      "witness_date": "2025（所读版本）",
+      "date_kind": "documented-version"
+    },
+    {
+      "id": "mil-mcr2025-scoring-clarifications",
+      "title": "必然门清、明暗杠与形式听口的明确解释",
+      "before": null,
+      "after": "mil-mcr-supplement-2025",
+      "dimensions": [
+        "scoring-decomposition",
+        "kong-scoring",
+        "hand-decomposition"
+      ],
+      "source_ids": [
+        "mil-mcr-supplement-2025"
+      ],
+      "evidence_status": "primary-rule-clause",
+      "limitation": "只证明本版明确这样规定；前言所概括的其他协会差别待各自原件。",
+      "witness_date": "2025（所读版本）",
+      "date_kind": "documented-version"
+    },
+    {
+      "id": "mil-sbr2025-core-clauses",
+      "title": "SBR2025定缺、及时雨、自摸加底及退税",
+      "before": null,
+      "after": "mil-sbr-2025",
+      "dimensions": [
+        "dingque",
+        "kong-payment",
+        "score-cap",
+        "self-draw-payment"
+      ],
+      "source_ids": [
+        "mil-sbr-2025-primary"
+      ],
+      "evidence_status": "primary-rule-clause",
+      "limitation": "与2016若干机制相同，不证明两年之间未修改，也不据2025创建旧年规则。",
+      "witness_date": "2025（所读版本）",
+      "date_kind": "documented-version"
+    },
+    {
+      "id": "mil-sbr2v2-named-adaptation",
+      "title": "SBR主本向2V2的明示改编",
+      "before": "mil-sbr-2025",
+      "after": "mil-sbr-2v2-2025",
+      "dimensions": [
+        "named-adaptation",
+        "tournament-format"
+      ],
+      "source_ids": [
+        "mil-sbr-2025-primary"
+      ],
+      "evidence_status": "primary-explicit-adaptation",
+      "limitation": "双打前言有底本声明；首次采用年份仍只定位所读2025文本。",
+      "witness_date": "2025（所读版本）",
+      "date_kind": "documented-version"
+    },
+    {
+      "id": "mil-sbr2v2-no-predingque",
+      "title": "双打取消开局定缺，保留和牌缺门",
+      "before": "mil-sbr-2025",
+      "after": "mil-sbr-2v2-2025",
+      "dimensions": [
+        "predeclared-suit",
+        "dingque",
+        "draw-penalty"
+      ],
+      "source_ids": [
+        "mil-sbr-2025-primary"
+      ],
+      "evidence_status": "primary-explicit-within-text-comparison",
+      "limitation": "花猪检查条前后范围表述不完全一致；不自行改成无条件统一通则。",
+      "witness_date": "2025（所读版本）",
+      "date_kind": "documented-version"
+    },
+    {
+      "id": "mil-sbr2v2-pass-win",
+      "title": "双打取消主本顺和限制",
+      "before": "mil-sbr-2025",
+      "after": "mil-sbr-2v2-2025",
+      "dimensions": [
+        "win-eligibility",
+        "meld-eligibility"
+      ],
+      "source_ids": [
+        "mil-sbr-2025-primary"
+      ],
+      "evidence_status": "primary-explicit-within-text-comparison",
+      "limitation": "主本9页定义有未摸牌／碰后仍听及不增番条件，不能泛称等同日本振听。",
+      "witness_date": "2025（所读版本）",
+      "date_kind": "documented-version"
+    },
+    {
+      "id": "mil-sbr2v2-team-end",
+      "title": "同队两人先和后提前结束且不查叫花猪",
+      "before": "mil-sbr-2025",
+      "after": "mil-sbr-2v2-2025",
+      "dimensions": [
+        "hand-termination",
+        "draw-penalty",
+        "participation"
+      ],
+      "source_ids": [
+        "mil-sbr-2025-primary"
+      ],
+      "evidence_status": "primary-explicit-within-text-comparison",
+      "limitation": "条件是同队两人先和；不是任何两人和牌都结束。",
+      "witness_date": "2025（所读版本）",
+      "date_kind": "documented-version"
+    },
+    {
+      "id": "mil-sbr2v2-duplicate-wall",
+      "title": "双打复式的独立牌墙、队友墙及待机",
+      "before": "mil-sbr-2v2-2025",
+      "after": "mil-sbr-2v2-duplicate-2025",
+      "dimensions": [
+        "tournament-format",
+        "wall-draw-source",
+        "cross-table-scoring",
+        "meld-eligibility"
+      ],
+      "source_ids": [
+        "mil-sbr-2025-primary"
+      ],
+      "evidence_status": "primary-explicit-format-adaptation",
+      "limitation": "牌墙和待机条仅用于复式，不能倒填普通双打；IMP表也不套用MCR复式。",
+      "witness_date": "2025（所读版本）",
+      "date_kind": "documented-version"
+    },
+    {
+      "id": "mil2025-formal-physical-waits",
+      "title": "计番听口与流局听牌资格的张数判据不同",
+      "before": "mil-mcr-supplement-2025",
+      "after": "mil-sbr-2025",
+      "dimensions": [
+        "hand-decomposition",
+        "win-eligibility"
+      ],
+      "source_ids": [
+        "mil-mcr-supplement-2025",
+        "mil-sbr-2025-primary"
+      ],
+      "evidence_status": "primary-cross-text-comparison",
+      "limitation": "MCR计边坎单时含形式第五张听口；SBR流局听牌排除自己已占四张。二者判断目的不同，不表示MCR允许摸到第五张成和，也不推历史传承。",
+      "witness_date": "2025（所读版本）",
+      "date_kind": "documented-version"
+    },
+    {
+      "id": "macau-1988-core",
+      "title": "澳门1988临时本的完整核心条款",
+      "witness_date": "1988-08-22",
+      "date_kind": "legal-version",
+      "before": "此前地方玩法未据本令复原",
+      "after": "136张、庄14闲13、四组一对及十三幺、截和、庄家双付与条件包输",
+      "dimensions": [
+        "tile-inventory",
+        "hand-size",
+        "special-hand-definition",
+        "multiple-ron",
+        "dealer-payment",
+        "conditional-bao"
+      ],
+      "source_ids": [
+        "macau-1988"
+      ],
+      "evidence_status": "primary-rule-clause",
+      "limitation": "法律条款可核，不代表各项机制首创于1988，也没有证明此前香港向澳门的传播方向。"
+    },
+    {
+      "id": "macau-1988-1989-formalization",
+      "title": "澳门临时本转正式本，核心规则相续",
+      "witness_date": "1989-03-20",
+      "date_kind": "legal-version",
+      "before": "133/88/M临时规则",
+      "after": "52/89/M明文替代，保留所核核心玩法与佣金表",
+      "dimensions": [
+        "codification-history",
+        "hand-size",
+        "scoring",
+        "payment"
+      ],
+      "source_ids": [
+        "macau-1988",
+        "macau-1989"
+      ],
+      "evidence_status": "explicit-version-replacement",
+      "limitation": "不能仅凭换令制造一个玩法分裂；1989红／黄的措辞差异不被解释为换牌。"
+    },
+    {
+      "id": "macau-1989-fee-only",
+      "title": "澳门1989年9月修订只新增低限红佣金档",
+      "witness_date": "1989-09-04",
+      "date_kind": "legal-version",
+      "before": "50／100起的十档表",
+      "after": "新增25／50、佣金10；其余十档金额相同",
+      "dimensions": [
+        "stake-scale",
+        "codification-history"
+      ],
+      "source_ids": [
+        "macau-1989",
+        "macau-161-1989"
+      ],
+      "evidence_status": "primary-institutional-account",
+      "limitation": "第161号令只改第7条，不构成牌形、摸打或计番玩法分支；同PDF上半的赛马规定不属于麻将。"
+    },
+    {
+      "id": "macau-1991-last-tile-fan",
+      "title": "澳门传统番表新增明确的海底撈月条",
+      "witness_date": "1991-08-05",
+      "date_kind": "legal-version",
+      "before": "1988第5条／1989第5条未列此番",
+      "after": "1991第6条(a)及中文甲明列末张和一番",
+      "dimensions": [
+        "scoring",
+        "last-live-tile"
+      ],
+      "source_ids": [
+        "macau-1988",
+        "macau-1989",
+        "macau-1991"
+      ],
+      "evidence_status": "primary-cross-version-comparison",
+      "limitation": "只确定已核法规番表的增列；不等于海底撈月在1991才出现。中文明确自摸末张，葡文较简略，不扩张成河底也加番。"
+    },
+    {
+      "id": "macau-1991-bilingual-kong",
+      "title": "1991同版中葡杠条与坎坎糊措辞不齐",
+      "witness_date": "1991-08-05",
+      "date_kind": "legal-version",
+      "before": "葡文简易杠段未写碰后加杠或维持五张；坎坎糊限无任何杠",
+      "after": "中文简易杠段包含碰后加杠及维持五张；坎坎糊仅说不碰牌落地",
+      "dimensions": [
+        "meld-calling",
+        "hand-size",
+        "special-hand-definition"
+      ],
+      "source_ids": [
+        "macau-1991"
+      ],
+      "evidence_status": "primary-rule-clause-comparison",
+      "limitation": "这是同一公报语言文本差异，不是两个已证实实际流行的规则分支。两文另有弃牌只许和与直杠条的张力，待勘误或操作资料。"
+    },
+    {
+      "id": "macau-1989-1991",
+      "title": "澳门一类规则修订为两类",
+      "witness_date": "1991-08-05",
+      "date_kind": "legal-version",
+      "before": "1989 传统麻雀条例",
+      "after": "1991 传统与简易麻雀条例",
+      "dimensions": [
+        "hand-size",
+        "players",
+        "tile-inventory",
+        "meld-calling"
+      ],
+      "source_ids": [
+        "macau-1989",
+        "macau-1991"
+      ],
+      "evidence_status": "explicit-version-replacement",
+      "limitation": "批准简易不等于当年发明；内部张力已核至3436／3440页双语原公报，中文比葡文多出碰后加杠及维持五张。"
+    }
+  ]
+}

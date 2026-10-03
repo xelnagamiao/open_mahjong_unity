@@ -14,6 +14,7 @@ const MIME_EXT = {
 };
 
 const TITLE_MAX = 80;
+const DESCRIPTION_MAX = 200;
 const BODY_MAX = 20000;
 const MAX_BODY_IMAGES = 30;
 const BLOCKS_MAX = 40;
@@ -122,6 +123,7 @@ function decorate(item) {
     .map((row) => ({ url: row.url, href: row.href || '', size: row.size }));
   return {
     ...item,
+    description: String(item.description || '').trim(),
     status,
     published: isClientVisible(status),
     ended: status === 'ended',
@@ -140,6 +142,7 @@ function toPublicIndexItem(item) {
   return {
     id: item.id,
     title: item.title,
+    description: String(item.description || '').trim(),
     cover_url: item.cover_url || '',
     updated_at: item.updated_at,
     sort: Number(item.sort) || 0,
@@ -209,6 +212,14 @@ function normalizeTitle(raw) {
     throw Object.assign(new Error(`活动名称不能超过 ${TITLE_MAX} 字`), { status: 400 });
   }
   return title;
+}
+
+function normalizeDescription(raw) {
+  const description = String(raw || '').trim();
+  if (description.length > DESCRIPTION_MAX) {
+    throw Object.assign(new Error(`活动简介不能超过 ${DESCRIPTION_MAX} 字`), { status: 400 });
+  }
+  return description;
 }
 
 function normalizeBody(raw) {
@@ -375,6 +386,7 @@ function writeMeta(item) {
   writeJsonAtomic(path.join(dir, 'meta.json'), {
     id: item.id,
     title: item.title,
+    description: String(item.description || '').trim(),
     body: blocks.filter((row) => row.type === 'text').map((row) => row.text).join('\n\n'),
     cover_url: item.cover_url || '',
     blocks,
@@ -398,12 +410,13 @@ function nextSortValue(catalog) {
   return Math.min(9999, max + 1);
 }
 
-function createActivity({ title, body = '', sort } = {}) {
+function createActivity({ title, description = '', body = '', sort } = {}) {
   const catalog = loadCatalog();
   const parsed = Number(sort);
   const item = {
     id: newId(),
     title: normalizeTitle(title),
+    description: normalizeDescription(description),
     body: normalizeBody(body),
     cover_url: '',
     blocks: body ? [{ type: 'text', text: normalizeBody(body), fontSize: DEFAULT_FONT }] : [],
@@ -429,6 +442,7 @@ function updateActivity(id, patch) {
     throw Object.assign(new Error('活动不存在'), { status: 404 });
   }
   if (patch.title !== undefined) item.title = normalizeTitle(patch.title);
+  if (patch.description !== undefined) item.description = normalizeDescription(patch.description);
   if (patch.sort !== undefined) item.sort = Number(patch.sort) || 0;
   if (patch.blocks !== undefined) {
     item.blocks = patch.blocks;

@@ -164,10 +164,12 @@
                 <template #content>
                   <div class="elo-tip-content">
                     <b>Elo 积分规则</b><br />
-                    初始 1000 分，仅系统匹配计分，自建房不计。<br />
+                    初始 R 为 1500，仅系统匹配计分，自建房不计。<br />
                     K 值为 32：胜者加分与败者扣分数值相同。<br />
                     战胜高分玩家加分更多，战胜低分玩家加分更少；反之亦然。<br />
-                    计算式：变化值 = 32 ×（实际结果 − 预期胜率），结果四舍五入。
+                    预期胜率 = 1 / (1 + 10^((对手 R − 自己 R) / 2000))。<br />
+                    变化值 = 32 ×（实际结果 − 预期胜率），结果四舍五入为整数；胜为 1，负为 0。<br />
+                    旧积分已换算为 1500 +（旧积分 − 1000）× 5，胜负和场数保留。
                   </div>
                 </template>
                 <button type="button" class="elo-help" aria-label="查看 Elo 积分规则">?</button>
@@ -1097,7 +1099,8 @@ function playCountdownSound() {
 
 function playStartSound() {
   lastStartSoundAt = Date.now()
-  playAudio(startAudio, 0.1)
+  // Unity 的 gamestart 音效带有“碰/锵”的起手感；压低到约 16%，避免盖过倒计时和牌局音效。
+  playAudio(startAudio, 0.16)
 }
 
 function scheduleStartSound(deadline, key) {

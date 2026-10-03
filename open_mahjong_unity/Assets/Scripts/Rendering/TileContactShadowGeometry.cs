@@ -12,9 +12,13 @@ public static class TileContactShadowGeometry {
         public readonly float Height;
         // 模型 X 轴完整边长，用于按牌宽设置扩散和淡出，不随翻牌姿态改变。
         public readonly float Width;
+        // 最贴近桌面方向的包围盒面。立/倒牌为 1，翻牌中间姿态更低。
+        public readonly float FaceAlignment;
+        // 牌面（模型 XY 平面）与桌面的贴合程度。正面或背面平躺均为 1。
+        public readonly float FlatAlignment;
 
         public Projection(Vector3 center, Vector3 normal, Vector3 tangent, Vector3 bitangent,
-            Vector2 halfSize, float height, float width) {
+            Vector2 halfSize, float height, float width, float faceAlignment, float flatAlignment) {
             Center = center;
             Normal = normal;
             Tangent = tangent;
@@ -22,6 +26,8 @@ public static class TileContactShadowGeometry {
             HalfSize = halfSize;
             Height = height;
             Width = width;
+            FaceAlignment = faceAlignment;
+            FlatAlignment = flatAlignment;
         }
     }
 
@@ -75,7 +81,16 @@ public static class TileContactShadowGeometry {
             || halfSize.x <= 0.000001f || halfSize.y <= 0.000001f) return false;
         Vector2 midpoint = (min + max) * 0.5f;
         Vector3 center = origin + tangent * midpoint.x + bitangent * midpoint.y;
-        result = new Projection(center, normal, tangent, bitangent, halfSize, height, width);
+        // Cross transformed axes rather than using rotation: parent shear and
+        // non-uniform scale must produce the same contact as the rendered box.
+        Vector3 yAxis = bodyToWorld.MultiplyVector(Vector3.up);
+        Vector3 zAxis = bodyToWorld.MultiplyVector(Vector3.forward);
+        float flatAlignment = Mathf.Abs(Vector3.Dot(Vector3.Cross(xAxis, yAxis).normalized, normal));
+        float faceAlignment = Mathf.Max(
+            flatAlignment,
+            Mathf.Max(Mathf.Abs(Vector3.Dot(Vector3.Cross(yAxis, zAxis).normalized, normal)),
+                Mathf.Abs(Vector3.Dot(Vector3.Cross(zAxis, xAxis).normalized, normal))));
+        result = new Projection(center, normal, tangent, bitangent, halfSize, height, width, faceAlignment, flatAlignment);
         return true;
     }
 

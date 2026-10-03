@@ -15,7 +15,6 @@ public static class HongqueTileVisual {
         "AX", "AY", "BX", "BY", "CX", "CY", "DX",
         "DY", "EX", "EY", "FX", "FY", "GX", "GY"
     };
-    private static readonly Dictionary<int, Texture2D> TextureCache = new Dictionary<int, Texture2D>();
     private static readonly Dictionary<int, Texture2D> TableTextureCache = new Dictionary<int, Texture2D>();
     private static readonly Dictionary<int, Sprite> SpriteCache = new Dictionary<int, Sprite>();
     private static bool texturesPreloaded;
@@ -57,16 +56,6 @@ public static class HongqueTileVisual {
         return HandResourcePath(tileId);
     }
 
-    /// <summary>加载手牌牌面贴图（HQv3.1-hand）。</summary>
-    public static Texture2D LoadTexture(int tileId) {
-        if (!IsHongqueId(tileId)) return null;
-        if (TextureCache.TryGetValue(tileId, out Texture2D cached)) return cached;
-        string path = HandResourcePath(tileId);
-        Texture2D texture = path == null ? null : Resources.Load<Texture2D>(path);
-        if (texture != null) TextureCache[tileId] = texture;
-        return texture;
-    }
-
     /// <summary>加载 3D 卡牌牌面贴图（HQv3.1-table），供 3D 渲染使用。</summary>
     public static Texture2D LoadTableTexture(int tileId) {
         if (!IsHongqueId(tileId)) return null;
@@ -83,27 +72,28 @@ public static class HongqueTileVisual {
     /// </summary>
     public static void PreloadAllTextures() {
         if (texturesPreloaded) return;
-        Texture2D[] textures = Resources.LoadAll<Texture2D>(TilePackIds.HongqueHandRoot);
-        foreach (Texture2D texture in textures) {
-            if (texture == null) continue;
-            int tileId = FromCode(texture.name);
-            if (tileId != 0) TextureCache[tileId] = texture;
+        // Load the original Sprites so Unity can bind their atlas rects and mipmaps.
+        // Creating a new Sprite from the packed Texture2D would show the entire atlas.
+        Sprite[] sprites = Resources.LoadAll<Sprite>(TilePackIds.HongqueHandRoot);
+        foreach (Sprite sprite in sprites) {
+            if (sprite == null) continue;
+            int tileId = FromCode(sprite.name);
+            if (tileId != 0) CacheHandSprite(tileId, sprite);
         }
         texturesPreloaded = true;
     }
 
     public static Sprite LoadSprite(int tileId) {
         if (!IsHongqueId(tileId)) return null;
-        if (SpriteCache.TryGetValue(tileId, out Sprite cached)) return cached;
-        Texture2D texture = LoadTexture(tileId);
-        if (texture == null) return null;
-        Sprite sprite = Sprite.Create(
-            texture,
-            new Rect(0f, 0f, texture.width, texture.height),
-            new Vector2(0.5f, 0.5f),
-            100f);
-        sprite.name = ToCode(tileId);
-        SpriteCache[tileId] = sprite;
+        if (SpriteCache.TryGetValue(tileId, out Sprite cached) && cached != null) return cached;
+        Sprite sprite = Resources.Load<Sprite>(HandResourcePath(tileId));
+        if (sprite != null) CacheHandSprite(tileId, sprite);
         return sprite;
+    }
+
+    private static void CacheHandSprite(int tileId, Sprite sprite) {
+        // SpriteAtlas has no authored mip bias; retain the original hand import setting.
+        sprite.texture.mipMapBias = -0.5f;
+        SpriteCache[tileId] = sprite;
     }
 }

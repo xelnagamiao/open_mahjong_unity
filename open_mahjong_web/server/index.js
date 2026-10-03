@@ -1,6 +1,5 @@
 const express = require('express'); // 引入express Node.js Web 应用框架
 const cors = require('cors'); // 引入cors 解决跨域问题 允许前端（如 Vue）在不同端口或域名下访问本服务器 API
-const path = require('path'); // 引入path 处理文件路径
 const http = require('http'); // 引入http 创建服务器
 const socketIo = require('socket.io'); // 引入socket.io 实现WebSocket通信
 require('dotenv').config(); // 引入dotenv 加载环境变量
@@ -24,6 +23,8 @@ const io = socketIo(server, { // 创建socket.io实例 将http服务器作为参
 // 中间件配置
 // CORS 配置（从统一配置模块读取）
 app.use(cors(config.cors)); // 使用cors配置允许跨域
+// 分享源牌谱有独立的请求大小限制，须先于默认 JSON 解析器挂载。
+app.use('/api/record-convert-shares', require('./routes/recordConvertShares'));
 app.use(express.json()); // 使用express.json解析JSON请求体
 app.use(express.urlencoded({ extended: true })); // 使用express.urlencoded解析URL编码的请求体
 
@@ -37,7 +38,7 @@ app.use((req, res, next) => {
 });
 
 // 数据库连接
-const db = require('./config/database');
+require('./config/database');
 
 // 路由
 const mahjongRoutes = require('./routes/mahjong'); // mahjongRoutes: 处理麻将游戏相关的 API（如创建房间、开始游戏等）
@@ -51,13 +52,18 @@ const { ensureAuditTable } = require('./utils/audit');
 const { ensureEventsTables } = require('./utils/eventsTables');
 const { ensureUserEmailTables } = require('./utils/userEmailTables');
 const { ensureUserLadderPassColumns } = require('./utils/userLadderPass');
+const { ensureUserRenameCountColumn } = require('./utils/userRenameCount');
 const { ensureLibraryTables } = require('./utils/libraryTables');
 const { ensureGuessFanTables } = require('./utils/guessFanTables');
 const { ensureRecordDownloadQuotaTable } = require('./utils/recordDownloadQuota');
 const { ensureTileContentTables } = require('./utils/tileContentTables');
+const { ensureDuplicateTables } = require('./utils/duplicateTables');
+const { ensureTitleTables } = require('./utils/titleTables');
 const libraryRoutes = require('./routes/library');
 const { registerGuessFanHandlers } = require('./guessfan/rooms');
 const { ensureSeedFiles, assetsDir } = require('./services/activityStore');
+const { ensureSeed: ensureClassicRecordSeed } = require('./services/classicRecordsStore');
+const { refreshWeeklyScoreboard, startWeeklyScoreboardScheduler } = require('./services/weeklyScoreboard');
 
 // 牌理 / 听牌 / 国标算分等转发 Python：每 IP 每分钟约 40 次
 const mahjongCalcLimiter = createWindowLimiter({
@@ -89,6 +95,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/event-admin', eventAdminRoutes);
 app.use('/api/bot', botapiRoutes);
 app.use('/api/library', libraryRoutes);
+app.use('/api/duplicate-walls', require('./routes/duplicateWalls'));
 app.use('/activity-assets', (req, res, next) => {
   if (String(req.path || '').includes('_catalog')) {
     return res.status(404).end();
@@ -156,6 +163,9 @@ app.use((err, req, res, next) => {
 });
 
 async function startServer() {
+  // Fail startup if the privacy tables are unavailable: never run replay endpoints without their lock boundary.
+  await ensureDuplicateTables();
+  await ensureTitleTables();
   try {
     await ensureAuditTable();
     console.log('管理审计表已就绪');
@@ -181,17 +191,20 @@ async function startServer() {
     console.error('用户特许入场字段初始化失败:', err);
   }
   try {
+    await ensureUserRenameCountColumn();
+    console.log('用户改名次数字段已就绪');
+  } catch (err) {
+    console.error('用户改名次数字段初始化失败:', err);
+  }
+  try {
     await ensureLibraryTables();
     console.log('麻雀图书馆表已就绪');
   } catch (err) {
     console.error('麻雀图书馆表初始化失败:', err);
   }
-  try {
-    await ensureGuessFanTables();
-    console.log('猜番对抗排行表已就绪');
-  } catch (err) {
-    console.error('猜番对抗排行表初始化失败:', err);
-  }
+  // Never serve the new Elo formula against unconverted legacy ratings.
+  await ensureGuessFanTables();
+  console.log('猜番对抗排行表及 Elo 版本已就绪');
   try {
     await ensureRecordDownloadQuotaTable();
     console.log('牌谱下载配额表已就绪');
@@ -210,6 +223,20 @@ async function startServer() {
   } catch (err) {
     console.error('活动静态目录初始化失败:', err);
   }
+  try {
+    ensureClassicRecordSeed();
+    console.log('趣味数据经典牌谱目录已就绪');
+  } catch (err) {
+    console.error('趣味数据经典牌谱初始化失败:', err);
+  }
+  refreshWeeklyScoreboard()
+    .then((data) => {
+      console.log(`趣味数据周榜已就绪: ${data.date_from} ~ ${data.date_to}`);
+    })
+    .catch((err) => {
+      console.error('趣味数据周榜初始化失败:', err);
+    });
+  startWeeklyScoreboardScheduler();
   server.listen(config.app.port, () => {
     console.log(`服务器运行在端口 ${config.app.port}`);
     config.printDebugConfig();

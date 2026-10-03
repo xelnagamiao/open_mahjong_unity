@@ -3,7 +3,7 @@ import logging
 import secrets
 import string
 from typing import Dict, Any, List, Optional
-from datetime import date, datetime
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -17,10 +17,12 @@ def capture_player_entry_order(gs) -> None:
 
 def build_player_entry_order_fields(gs) -> Dict[str, Any]:
     """GameInfo / 牌谱共用的 shuffle 前玩家入场顺序字段。"""
+    from .duplicate_wall import duplicate_fields
+    fields = duplicate_fields(gs)
     order = getattr(gs, "player_entry_order", None)
     if order and len(order) == 4:
-        return {"player_entry_order": list(order)}
-    return {}
+        fields["player_entry_order"] = list(order)
+    return fields
 
 """
 # 牌谱格式示例
@@ -72,16 +74,25 @@ def build_game_title_data(gs) -> Dict[str, Any]:
         "open_cuohe": gs.open_cuohe,
         # tips: 是否开启提示
         "tips": gs.tips,
+        "count_tips": getattr(gs, "count_tips", False),
+        "pointer_tips": getattr(gs, "pointer_tips", True),
         # show_moqie_hint: 是否显示手摸切灰显
         "show_moqie_hint": getattr(gs, "show_moqie_hint", False),
-        # is_player_set_random_seed: 是否玩家指定随机种子（复式）
+        # is_player_set_random_seed: 是否玩家指定随机种子（场景复现）
         "is_player_set_random_seed": gs.isPlayerSetRandomSeed,
     }
     # hepai_limit: 起和番限制（国标/青雀/古典/立直，有该属性时写入）
     if hasattr(gs, "hepai_limit"):
         title["hepai_limit"] = gs.hepai_limit
+    if getattr(gs, "sub_rule", None) == "guobiao/blood_battle":
+        title.update(blood_battle=True, blood_battle_version=1)
+    if getattr(gs, "room_rule", None) == "sichuan":
+        title["blood_battle"] = bool(getattr(gs, "blood_battle", True))
+        # 老川麻牌谱的 hepai_limit=1 只是占位值，没有参与和牌判定。
+        title["sichuan_hepai_limit_version"] = 1
     # 以下字段仅立直麻将 room_rule == "riichi"
     if getattr(gs, "room_rule", None) == "riichi":
+        title["detailed_config"] = dict(getattr(gs, "detailed_config", {}))
         # red_dora: 是否启用赤宝牌
         title["red_dora"] = getattr(gs, "red_dora", False)
         # allow_kuikae: 是否允许食替（仅标准日麻；浪涌由子规则内置）
@@ -111,6 +122,18 @@ def build_game_title_data(gs) -> Dict[str, Any]:
     for i, player in enumerate(gs.player_list):
         title[f"p{i}_uid"] = player.user_id
         title[f"p{i}_name"] = player.username
+    from .duplicate_wall import duplicate_fields
+    title.update(duplicate_fields(gs))
+    if getattr(gs, "room_rule", None) == "guobiao":
+        title["use_flowers"] = getattr(gs, "use_flowers", getattr(gs, "sub_rule", None) != "guobiao/lanshi")
+        title["tian_di_ren_he"] = getattr(gs, "tian_di_ren_he", False)
+        if getattr(gs, "sub_rule", None) == "guobiao/lanshi":
+            from ...game_calculation.lanshi_v4 import RULE_VERSION
+            title["rule_version"] = RULE_VERSION
+    if getattr(gs, "duplicate_key", None):
+        title["duplicate_rules_version"] = 2
+    if getattr(gs, "_duplicate_game_id", None):
+        title["duplicate_game_id"] = gs._duplicate_game_id
     return title
 
 
@@ -132,8 +155,15 @@ def apply_game_title_end_fields(gs, title: Dict[str, Any]) -> None:
     """
     title["end_time"] = datetime.now()
     master_seed = getattr(gs, "master_seed", None)
-    if master_seed is not None:
+    if master_seed is not None and not getattr(gs, "duplicate_key", None):
         title["master_seed_hex"] = format(master_seed, "064x")
+    if getattr(gs, "duplicate_key", None):
+        # End-only fields: persisted behind the key lock, never live payloads.
+        title["duplicate_key"] = gs.duplicate_key
+        title["duplicate_tiles"] = list(gs._duplicate_tiles)
+        title["duplicate_round_tiles"] = [list(tiles) for tiles in getattr(gs, "_duplicate_round_tiles", (gs._duplicate_tiles,))]
+        if getattr(gs, "_duplicate_seed", None) is not None and gs.duplicate_wall_type != "manual":
+            title["duplicate_seed"] = str(gs._duplicate_seed)
 
 
 def end_game_record(self):
@@ -161,6 +191,11 @@ def build_round_header_data(gs) -> Dict[str, Any]:
             "honba": gs.honba,
             "riichi_sticks": gs.riichi_sticks,
         }
+    if getattr(gs, "duplicate_key", None):
+        round_data["duplicate_walls"] = [list(part) for part in gs.tiles_list.parts]
+    extra = getattr(gs, "build_record_round_fields", None)
+    if callable(extra):
+        round_data.update(extra())
     return round_data
 
 
@@ -195,7 +230,8 @@ def append_action_tick(gs, tick: list) -> None:
     gs.game_record["game_round"][f"round_index_{gs.round_index}"]["action_ticks"].append(tick)
     spectator = getattr(gs, "spectator_manager", None)
     if spectator is not None and getattr(spectator, "enabled", False):
-        spectator.record_tick(tick)
+        spectator_filter = getattr(gs, "spectator_record_tick", None)
+        spectator.record_tick(spectator_filter(tick) if spectator_filter else tick)
 
 
 def resolve_hepai_tile_for_record(gs, hu_class: str, hepai_player_index: int):
@@ -232,6 +268,9 @@ def player_action_record_cut(self, cut_tile: int, is_moqie: bool = False, is_rii
     entry = ["c", cut_tile, "T" if is_moqie else "F"]
     if is_riichi_horizontal:
         entry.append("H")
+    decorate = getattr(self, "decorate_record_cut_tick", None)
+    if callable(decorate):
+        decorate(entry)
     append_action_tick(self, entry)
 
 def _append_gang_score_changes(entry: list, gang_score_changes=None) -> list:
@@ -257,8 +296,10 @@ def player_action_record_angang(self, angang_tile: int, is_mo_gang: bool = False
     append_action_tick(self, entry)
 
 # 牌谱记录加杠；is_mo_gang True=摸杠 False=手杠
-def player_action_record_jiagang(self, jiagang_tile: int, is_mo_gang: bool = False, gang_score_changes=None):
+def player_action_record_jiagang(self, jiagang_tile: int, is_mo_gang: bool = False, gang_score_changes=None, actual_tile=None):
     entry = ["jg", jiagang_tile, "T" if is_mo_gang else "F"]
+    if actual_tile is not None:
+        entry.append(actual_tile)
     entry = _append_gang_score_changes(entry, gang_score_changes)
     append_action_tick(self, entry)
 
@@ -453,7 +494,7 @@ def player_action_record_shuhewei(
     fu_type_list = [player_fu_types.get(i, []) for i in range(4)]
     append_action_tick(self, ["shuhewei", fu_list, changes_list, fan_list, fu_type_list, hu_class, hepai_player_index])
 
-# 立直麻将 - 牌谱记录宣告立直 ["riichi", player_index, is_daburu]
+# 立直成立并支付点棒；宣告本身由 c tick 的 H 表示，宣告牌被荣和不记录成立。
 def player_action_record_riichi(self, player_index: int, is_daburu: bool = False):
     append_action_tick(self, ["riichi", player_index, 1 if is_daburu else 0])
 
@@ -480,6 +521,7 @@ def player_action_record_hu_riichi(
     aka_count: int,
     honba: int,
     riichi_sticks_collected: int,
+    scored_points: int | None = None,
 ):
     append_action_tick(self, [
         "hu_riichi",
@@ -494,6 +536,7 @@ def player_action_record_hu_riichi(
         aka_count,
         honba,
         riichi_sticks_collected,
+        scored_points,
     ])
 
 # 牌谱记录回合结束标记 ["end"]
@@ -507,7 +550,7 @@ def jsonable_game_record(game_record: dict) -> dict:
 
 
 def generate_local_only_game_id() -> str:
-    """机器人局等未入库对局：L + 9 位，避免和云端 10 位 game_id 混用。"""
+    """机器人局等未入库对局的本地标识：L + 9 位；是否入库由 cloud_saved 区分。"""
     return "L" + "".join(secrets.choice(_GAME_ID_ALPHABET) for _ in range(9))
 
 
@@ -545,6 +588,7 @@ def build_player_record_infos(player_list) -> list:
             title_used=getattr(player, "title_used", None),
             character_used=getattr(player, "character_used", None),
             profile_used=getattr(player, "profile_used", None),
+            avatar_frame_used=getattr(player, "avatar_frame_used", 0),
             voice_used=getattr(player, "voice_used", None),
         ))
     players.sort(key=lambda item: (
@@ -555,12 +599,13 @@ def build_player_record_infos(player_list) -> list:
 
 
 def build_local_record_detail(gs, game_id: Optional[str] = None, match_type: Optional[str] = None):
-    """构建终局下发给客户端落盘的完整牌谱。"""
+    """构建终局本地副本；game_id 只接收保存云端成功后返回的 ID。"""
     from ...response import Record_detail
 
     record = getattr(gs, "game_record", None)
     if not record:
         return None
+    cloud_saved = bool(game_id)
     if not game_id:
         game_id = generate_local_only_game_id()
     title = record.get("game_title") or {}
@@ -569,6 +614,7 @@ def build_local_record_detail(gs, game_id: Optional[str] = None, match_type: Opt
         match_type = f"{getattr(gs, 'max_round', 1)}/4"
     return Record_detail(
         game_id=game_id,
+        cloud_saved=cloud_saved,
         rule=title.get("rule") or getattr(gs, "room_rule", "") or "",
         sub_rule=title.get("sub_rule") or getattr(gs, "sub_rule", None),
         record=jsonable_game_record(record),
@@ -580,6 +626,9 @@ def build_local_record_detail(gs, game_id: Optional[str] = None, match_type: Opt
 
 def remember_local_record_detail(gs, game_id: Optional[str] = None, match_type: Optional[str] = None) -> None:
     """入库之后调用：把完整牌谱挂到 gs，供随后的 game_end 一并下发。"""
+    if getattr(gs, "duplicate_key", None):
+        gs._local_record_detail = None
+        return
     try:
         gs._local_record_detail = build_local_record_detail(gs, game_id, match_type)
     except Exception:
@@ -588,4 +637,6 @@ def remember_local_record_detail(gs, game_id: Optional[str] = None, match_type: 
 
 
 def local_record_detail_for_end(gs):
+    if getattr(gs, "duplicate_key", None):
+        return None
     return getattr(gs, "_local_record_detail", None)

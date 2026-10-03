@@ -11,6 +11,8 @@ import {
   type HepaiResult,
 } from './index'
 
+import { hepaiCheckLanshi, tingpaiCheckLanshi } from './lanshiV4'
+
 const FLOWERS = new Set([51, 52, 53, 54, 55, 56, 57, 58])
 
 export interface WaitDetail {
@@ -50,6 +52,8 @@ function scoreHepai(
   let result: HepaiResult
   if (subRule === 'guobiao/xiaolin') {
     result = hepaiCheckXiaolin(hand, combinations, way, tile, false)
+  } else if (subRule === 'guobiao/lanshi') {
+    result = hepaiCheckLanshi(hand, combinations, way, tile)
   } else if (subRule === 'guobiao/kshen') {
     result = hepaiCheckKshen(hand, combinations, way, tile, false)
   } else {
@@ -144,7 +148,7 @@ function detailsForHand(
 ): WaitDetail[] {
   let waiting: number[]
   try {
-    waiting = tingpaiCheck(hand, ctx.combinations, false)
+    waiting = ctx.subRule === 'guobiao/lanshi' ? tingpaiCheckLanshi(hand, ctx.combinations) : tingpaiCheck(hand, ctx.combinations, false)
   } catch {
     return []
   }
@@ -195,9 +199,6 @@ export function buildLocalWaitData(
   try {
     if (!ctx.tips) return null
     if (ctx.hand.some((tile) => FLOWERS.has(tile))) return null
-    // 蓝十番型并非标准国标的纯换值表；Web 端在独立评价器落地前不显示错误提示。
-    // 权威和牌判定与结算始终由服务端 guobiao/lanshi 计算器负责。
-    if (ctx.subRule === 'guobiao/lanshi') return null
 
     if (!options.includeDiscards) {
       const details = detailsForHand(ctx, ctx.hand)

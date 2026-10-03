@@ -15,6 +15,7 @@ public partial class GameRecordManager {
     internal int GetRevealedKanDoraCount() => System.Math.Max(0, recordRiichiDoraIndicators.Count - 1);
     internal int GetRinshanCount() => consumedBackIndices.Count;
     internal bool IsRiichiDeadWallBlockingZimoAt(int originalIndex, string roomRule) {
+        if (IsDuplicateReplay) return false;
         return RecordChongHintCalculator.IsRiichiDeadWallBlockingZimo(
             roomRule,
             originalIndex,
@@ -42,7 +43,7 @@ public partial class GameRecordManager {
 
     public void RefreshRecordChongHint() {
         ClearAllChongOverlays();
-        TryGetActiveRecordRuleContext(out string roomRule, out _);
+        TryGetActiveRecordRuleContext(out string roomRule, out string subRule);
 
         currentZimoDrawOriginalIndices.Clear();
         if (ShouldApplyRecordChongHint() && IsTileListViewVisible()) {
@@ -57,13 +58,13 @@ public partial class GameRecordManager {
         currentDangerTileIds.Clear();
         Dictionary<string, RecordPlayer> hintPlayers = GetRecordPlayersForChongHint();
         Dictionary<string, object> detailedConfig = GetDetailedConfigSnapshot();
-        foreach (int tileId in RecordChongHintCalculator.ComputeDangerTiles(hintPlayers, roomRule, detailedConfig)) {
+        foreach (int tileId in RecordChongHintCalculator.ComputeDangerTiles(hintPlayers, roomRule, detailedConfig, subRule)) {
             currentDangerTileIds.Add(tileId);
         }
 
         var hiddenHands = GetChongHintHiddenHandPositions();
-        Game3DManager.Instance.ApplyRecordChongHintToShowHands(hintPlayers, roomRule, hiddenHands, detailedConfig);
-        ApplyChongToSelf2DHand(hintPlayers, roomRule, hiddenHands, detailedConfig);
+        Game3DManager.Instance.ApplyRecordChongHintToShowHands(hintPlayers, roomRule, hiddenHands, detailedConfig, subRule);
+        ApplyChongToSelf2DHand(hintPlayers, roomRule, hiddenHands, detailedConfig, subRule);
         UpdateTileListOpacity();
     }
 
@@ -88,12 +89,12 @@ public partial class GameRecordManager {
         Dictionary<string, RecordPlayer> players,
         string roomRule,
         HashSet<string> hiddenHands,
-        IDictionary<string, object> detailedConfig = null
+        IDictionary<string, object> detailedConfig = null, string subRule = null
     ) {
         if (hiddenHands.Contains("self")) return;
         if (GameCanvas.Instance.HandCardsContainer == null) return;
 
-        HashSet<int> dangerTileIds = RecordChongHintCalculator.ComputeRonDangerForHandOwner(players, "self", roomRule, detailedConfig);
+        HashSet<int> dangerTileIds = RecordChongHintCalculator.ComputeRonDangerForHandOwner(players, "self", roomRule, detailedConfig, subRule);
 
         Transform container = GameCanvas.Instance.HandCardsContainer;
         for (int i = 0; i < container.childCount; i++) {
@@ -138,7 +139,7 @@ public partial class GameRecordManager {
     }
 
     public void MarkRecordPlayerHu(int hepaiPlayerIndex) {
-        if (!IsSichuanBloodBattleRecord()) return;
+        if (!IsBloodBattleRecord()) return;
         if (!indexToPosition.TryGetValue(hepaiPlayerIndex, out string position)) return;
         if (recordPlayer_to_info.TryGetValue(position, out RecordPlayer player)) {
             player.isHu = true;
@@ -147,8 +148,9 @@ public partial class GameRecordManager {
 
     public void OnRecordPlayerCut(RecordPlayer player) {
         if (player == null) return;
-        TryGetActiveRecordRuleContext(out string roomRule, out _);
-        if (RuleRegistry.Resolve(roomRule, roomRule)?.InfersDingqueFromDiscards == true) {
+        TryGetActiveRecordRuleContext(out string roomRule, out string subRule);
+        // 血流弃三张没有固定定缺；换三张使用牌谱中的真实定缺，不能从弃牌猜测。
+        if (!SichuanLobby.IsXueliu(subRule) && RuleRegistry.Resolve(roomRule, subRule)?.InfersDingqueFromDiscards == true) {
             RecordChongHintCalculator.TryInferRecordDingqueSuit(player);
         }
     }

@@ -575,7 +575,7 @@
             <el-table-column label="操作" width="168" fixed="right">
               <template #default="{ row }">
                 <el-button
-                  v-if="row.rule === 'guobiao'"
+                  v-if="['guobiao', 'hongzhong'].includes(row.rule)"
                   link
                   type="warning"
                   size="small"
@@ -660,6 +660,7 @@ const RULE_DEFS = [
   { key: 'classical', label: '古典', statsField: 'classical_stats' },
   { key: 'sichuan', label: '川麻', statsField: 'sichuan_stats' },
   { key: 'changsha', label: '长沙', statsField: 'changsha_stats' },
+  { key: 'hongzhong', label: '红中', statsField: 'hongzhong_stats', recordsOnly: true },
 ]
 const SCENE_OPTIONS = [
   { value: 'rank', label: '全部天梯' },
@@ -966,7 +967,7 @@ const availableRules = computed(() =>
   RULE_DEFS.map((def) => ({
     key: def.key,
     label: def.label,
-    count: (playerInfo.value?.[def.statsField] || []).reduce((s, x) => s + (x.total_games || 0), 0),
+    count: def.recordsOnly ? (playerInfo.value?.record_counts?.[def.key] || 0) : (playerInfo.value?.[def.statsField] || []).reduce((s, x) => s + (x.total_games || 0), 0),
   }))
 )
 
@@ -1596,6 +1597,7 @@ const applyQueryFilters = () => {
 
 const switchRule = (rule) => {
   currentRule.value = rule
+  if (rule === 'hongzhong' && !['custom', 'events'].includes(scene.value)) scene.value = 'custom'
   onFilterChange()
 }
 const selectScene = (s) => {

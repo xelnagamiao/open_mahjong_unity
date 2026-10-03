@@ -177,6 +177,9 @@ class UnitySim:
             "ready": {},
         }
         self.vote = {"active": False, "payload": None}
+        self.opening = {"three_tiles": False, "exchange": False, "dingque": False, "seconds": 0}
+        self.last_xueliu_win_tick = 0
+        self.snapshot_action_tick = 0
 
     def snapshot(self) -> Dict[str, Any]:
         return {
@@ -191,6 +194,7 @@ class UnitySim:
             "TipsSim": deepcopy(self.tips),
             "EndResultSim": deepcopy(self.end_result),
             "VoteSim": deepcopy(self.vote),
+            "OpeningSelectionSim": deepcopy(self.opening),
         }
 
     def apply(self, message: Dict[str, Any]) -> Dict[str, Any]:
@@ -273,15 +277,30 @@ class UnitySim:
         info = message.get("game_info") or {}
         players = info.get("players_info") or []
         self_index = 0
-        viewer = int(info.get("self_user_id") or self.viewer_user_id)
-        for player in players:
-            if int(player.get("user_id") or 0) == viewer:
-                self_index = int(player.get("player_index") or 0)
-                break
-        if info.get("self_player_index") is not None:
-            self_index = int(info.get("self_player_index"))
+        if info.get("view_player_index") is not None:
+            self_index = int(info["view_player_index"])
+        elif info.get("self_player_index") is not None:
+            self_index = int(info["self_player_index"])
+        else:
+            viewer = int(info.get("self_user_id") or self.viewer_user_id)
+            matched = False
+            for player in players:
+                if int(player.get("user_id") or 0) == viewer:
+                    self_index = int(player.get("player_index") or 0)
+                    matched = True
+                    break
+            if not matched:
+                for player in players:
+                    if player.get("hand_tiles"):
+                        self_index = int(player.get("player_index") or 0)
+                        break
         self._set_index_map(self_index)
         self.gsm["roomRule"] = info.get("room_rule") or "guobiao"
+        self.gsm["subRule"] = info.get("sub_rule") or ""
+        self.gsm["stepTime"] = _as_int(info.get("step_time"), 0)
+        self.snapshot_action_tick = _as_int(info.get("action_tick"), 0)
+        self.last_xueliu_win_tick = 0
+        self.opening = {"three_tiles": False, "exchange": False, "dingque": False, "seconds": 0}
         self.gsm["gamestateId"] = info.get("gamestate_id")
         self.gsm["remainTiles"] = _as_int(info.get("tile_count"), 0)
         self.gsm["IsSelfActionRequired"] = False
@@ -309,6 +328,11 @@ class UnitySim:
                     "combination_masks": list(_as_list(player.get("combination_mask"))),
                     "huapai_list": list(_as_list(player.get("huapai_list"))),
                     "tag_list": list(_as_list(player.get("tag_list"))),
+                    "dingque_suit": _as_int(player.get("dingque_suit"), 0),
+                    "is_hu": bool(player.get("is_hu", False)),
+                    "has_won": bool(player.get("has_won", False)),
+                    "win_count": _as_int(player.get("win_count"), 0),
+                    "post_hu_lock": bool(player.get("post_hu_lock", False)),
                 }
             )
             if pos == "self":
@@ -328,11 +352,22 @@ class UnitySim:
         remaining = _as_int(info.get("remaining_time"), 0)
         actions = [str(item) for item in _as_list(info.get("action_list"))]
         self.gsm["CurrentPlayer"] = pos
+        opening_actions = {"xueliu_throw_three", "xueliu_exchange_three"}
+        if self.gsm["roomRule"] == "sichuan" and opening_actions.intersection(actions):
+            self.gsm["allowActionList"] = []
+            self.gsm["IsSelfActionRequired"] = pos == "self"
+            self._clear_buttons()
+            self.opening.update(three_tiles=pos == "self", exchange="xueliu_exchange_three" in actions,
+                                dingque=False, seconds=remaining)
+            self._begin_timer(info)
+            self.network["last_ask"] = {"kind": "three_tiles", "actions": actions, "player_index": player_index}
+            self._sync_views()
+            return
         if pos == "self":
             self.gsm["allowActionList"] = [item for item in actions if item in HAND_ALLOW]
             self.gsm["IsSelfActionRequired"] = True
             self._set_buttons(self.gsm["allowActionList"], kind="hand")
-            self.timer = {"remaining_time": remaining, "running": True}
+            self._begin_timer(info)
             self._hide_tips()
         else:
             self.gsm["allowActionList"] = []
@@ -354,7 +389,7 @@ class UnitySim:
         if allow:
             self.gsm["IsSelfActionRequired"] = True
             self._set_buttons(allow, kind="other")
-            self.timer = {"remaining_time": remaining, "running": True}
+            self._begin_timer(info)
             self.game3d["claim_glow"] = {"tile": cut_tile, "on": True}
         else:
             self.gsm["IsSelfActionRequired"] = False
@@ -394,11 +429,11 @@ class UnitySim:
             return
         cut_tile = info.get("cut_tile")
         cut_tiles = _as_list(info.get("cut_tiles"))
-        if not cut_tiles and cut_tile:
+        if not cut_tiles and cut_tile is not None:
             cut_tiles = [cut_tile]
         deal_tile = info.get("deal_tile")
         deal_tiles = _as_list(info.get("deal_tiles"))
-        if not deal_tiles and deal_tile:
+        if not deal_tiles and deal_tile is not None:
             deal_tiles = [deal_tile]
         buhua_tile = info.get("buhua_tile")
         combination_target = info.get("combination_target") or ""
@@ -497,8 +532,15 @@ class UnitySim:
 
     def _handle_show_result(self, message: Dict[str, Any]) -> None:
         info = message.get("show_result_info") or {}
+        xueliu_mid = self._is_xueliu() and info.get("round_continues") is True and not info.get("liuju_step")
+        if xueliu_mid:
+            tick = _as_int(info.get("action_tick"), 0)
+            if tick > 0 and tick <= max(self.snapshot_action_tick, self.last_xueliu_win_tick): return
+            self.last_xueliu_win_tick = tick
+        hidden_mid = bool(info.get("defer_score_settlement")) or info.get("blood_battle_step") == "mid_win"
+        reveal = (info.get("liuju_step") or info.get("blood_battle_step")) == "reveal_hu"
         self.end_result = {
-            "show_result": True,
+            "show_result": not (xueliu_mid or hidden_mid or reveal),
             "hepai_player_index": info.get("hepai_player_index"),
             "player_to_score": dict(info.get("player_to_score") or {}),
             "hu_fan": info.get("hu_fan"),
@@ -510,8 +552,68 @@ class UnitySim:
         for seat, score in scores.items():
             pos = self.pos_of(_as_int(seat, 0))
             self._seat_info(pos)["score"] = _as_int(score, 0)
+        if xueliu_mid or hidden_mid:
+            pos = self.pos_of(_as_int(info.get("hepai_player_index"), 0))
+            player = self._seat_info(pos)
+            tile = _as_int(info.get("hepai_tile"), 0)
+            zimo = info.get("hu_class") == "hu_self"
+            if zimo:
+                player["hand_tiles_count"] = max(0, player["hand_tiles_count"] - 1)
+                if pos == "self" and self.gsm["selfHandTiles"]: self.gsm["selfHandTiles"].pop()
+            if xueliu_mid:
+                player.update(has_won=True, win_count=player.get("win_count", 0) + 1, post_hu_lock=True, is_hu=False)
+                player["huapai_list"].append(tile)
+            else:
+                player["is_hu"] = True
+                self.game3d[pos]["win_marker"] = tile
+                self.gsm["IsSelfActionRequired"] = False
+                self.gsm["allowActionList"] = []
+                self._clear_buttons()
+            if not zimo and not info.get("is_qianggang") and info.get("recycle_discard", not info.get("multi_ron")):
+                source = info.get("ron_discarder_index")
+                if source is not None: self._remove_claimed_discard(self.pos_of(int(source)), tile)
+            self._sync_views()
+            return
         self.gsm["IsSelfActionRequired"] = False
         self._clear_buttons()
+        self._sync_views()
+
+    def _is_xueliu(self):
+        return self.gsm.get("subRule") in {"sichuan/xueliu", "sichuan/xueliu_exchange"}
+
+    def _begin_timer(self, info):
+        remaining = _as_int(info.get("remaining_time"), 0)
+        step = _as_int(info.get("step_remaining"), self.gsm.get("stepTime", 0))
+        if step < 0: step = self.gsm.get("stepTime", 0)
+        self.timer = {"remaining_time": remaining, "step_remaining": max(0, step),
+                      "total_seconds": remaining + max(0, step), "running": True}
+
+    def _handle_dingque(self, message, done=False):
+        self._clear_buttons()
+        if done:
+            self.opening["dingque"] = False
+            for seat, suit in (message.get("show_result_info", {}).get("player_to_dingque") or {}).items():
+                self._seat_info(self.pos_of(int(seat)))["dingque_suit"] = int(suit)
+        else:
+            info = message.get("ask_hand_action_info") or {}
+            self.gsm["LastAskActionTick"] = _as_int(info.get("action_tick"), self.gsm["LastAskActionTick"])
+            remaining = max(1, _as_int(info.get("remaining_time"), 10))
+            self.opening.update(dingque=True, three_tiles=False, seconds=remaining)
+            self._begin_timer({"remaining_time": remaining, "step_remaining": 0})
+        self._sync_views()
+
+    def _handle_xueliu_continue(self, message):
+        if not self._is_xueliu(): return
+        for player in (message.get("game_info") or {}).get("players_info") or []:
+            pos = self.pos_of(int(player["player_index"]))
+            dest = self._seat_info(pos)
+            for key in ("hand_tiles_count", "has_won", "win_count", "post_hu_lock"):
+                if key in player: dest[key] = player[key]
+            for key in ("huapai_list", "combination_tiles", "discard_tiles"):
+                dest[key] = list(player.get(key) or [])
+            dest["combination_masks"] = deepcopy(player.get("combination_mask") or [])
+            if pos == "self" and player.get("hand_tiles") is not None:
+                self.gsm["selfHandTiles"] = list(player["hand_tiles"])
         self._sync_views()
 
     def _handle_ready(self, message: Dict[str, Any]) -> None:
@@ -559,6 +661,10 @@ def apply_message(sim: UnitySim, message: Dict[str, Any]) -> Dict[str, Any]:
         sim._handle_show_result(payload)
     elif suffix == "ready_status":
         sim._handle_ready(payload)
+    elif suffix == "xueliu_continue":
+        sim._handle_xueliu_continue(payload)
+    elif suffix in {"ask_dingque", "dingque_done"}:
+        sim._handle_dingque(payload, done=suffix == "dingque_done")
     elif suffix == "game_end":
         sim._handle_game_end(payload)
     elif msg_type in ("gamestate/vote_update", "gamestate/vote_end") or suffix in ("vote_update", "vote_end"):

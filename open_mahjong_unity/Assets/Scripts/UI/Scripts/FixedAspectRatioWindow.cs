@@ -223,7 +223,9 @@ public class FixedAspectRatio : MonoBehaviour {
     private void ApplyCameraViewport() {
         bool shouldLetterbox = ShouldLetterbox();
         float aspect = Screen.width / (float)Screen.height;
+#if UNITY_ANDROID || UNITY_IOS
         if (aspect < 1f) aspect = 1f / aspect;
+#endif
         Rect targetRect = shouldLetterbox ? GetTargetViewport(aspect) : new Rect(0f, 0f, 1f, 1f);
 
         currentCameraRect = targetRect;
@@ -372,7 +374,10 @@ public class FixedAspectRatio : MonoBehaviour {
 
     private bool ShouldLetterbox() {
 #if USE_WINAPI
-        return IsZoomed(hwnd);
+        // Snapping, fullscreen changes and restored window sizes can bypass
+        // WM_SIZING. Keep both the board and overlay UI inside the same viewport.
+        return IsZoomed(hwnd)
+            || Mathf.Abs(Screen.width - Screen.height * targetAspectRatio) > 2f;
 #elif UNITY_ANDROID || UNITY_IOS
         return true;
 #else

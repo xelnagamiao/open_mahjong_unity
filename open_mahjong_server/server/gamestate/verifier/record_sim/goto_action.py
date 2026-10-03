@@ -142,12 +142,26 @@ class RecordSim:
         return self.flags.rule_id == "sichuan"
 
     def is_sichuan_blood(self) -> bool:
-        if not self.is_sichuan():
+        if not self.is_sichuan() or self.is_xueliu():
             return False
-        return title_str(self.game_title, "blood_battle", "true") != "false"
+        return title_str(self.game_title, "blood_battle", "true").lower() != "false"
+
+    def is_xueliu(self) -> bool:
+        return title_str(self.game_title, "sub_rule") in {"sichuan/xueliu", "sichuan/xueliu_exchange"}
+
+    def _next_player(self, source):
+        for offset in range(1, 5):
+            seat = (source + offset) % 4
+            if not (self.is_sichuan_blood() or self.is_concealed_blood()) or not self.players[seat].is_hu:
+                return seat
+        return source
 
     def is_taiwan(self) -> bool:
         return self.flags.rule_id == "taiwan"
+
+    def is_concealed_blood(self) -> bool:
+        sub = title_str(self.game_title, "sub_rule")
+        return sub in {"zhongyong/nanque", "guobiao/blood_battle"}
 
     def rule_key(self) -> str:
         return self.flags.rule_id or title_str(self.game_title, "rule").lower()
@@ -156,6 +170,7 @@ class RecordSim:
         rounds = (self.record.get("game_round") or {})
         round_data = rounds[round_key]
         self.round_data = round_data
+        self.is_last_round = round_key == max(rounds, key=lambda key: int(key.rsplit('_', 1)[-1]))
         self.current_player_index = int(round_data.get("start_player_index") or 0)
         self.last_discard_player_index = -1
         self.last_discard_tile_id = -1
@@ -164,17 +179,24 @@ class RecordSim:
         self.current_tiles_list = list(round_data.get("tiles_list") or [])
         self.backward_tiles_type = "double"
         self.record_dead_wall_count = 16 if self.is_taiwan() else 0
+        if title_str(self.game_title, "sub_rule") == "zhongyong/standard":
+            self.record_dead_wall_count = 14
         self.record_dead_wall_mode = "fixed_tail_16" if self.is_taiwan() else ""
         self.record_taiwan_ron_blocked = set()
         riichi = round_data.get("riichi") or {}
         self.record_riichi_sticks = int(riichi.get("riichi_sticks") or 0)
         self.players = {}
+        seats = round_data.get("seats") or list(range(4))
+        if sorted(seats) != [0, 1, 2, 3]:
+            seats = list(range(4))
         for seat in range(4):
             tiles = list(round_data.get(f"p{seat}_tiles") or [])
             self.players[seat] = RecordPlayer(
-                original_player_index=seat,
+                original_player_index=seats.index(seat),
                 player_index=seat,
                 tile_list=tiles,
+                dingque_suit=int((round_data.get("dingque_suits") or {}).get(str(seat),
+                    (round_data.get("dingque_suits") or {}).get(seat, 0))),
             )
 
     def snapshot(self) -> dict:
@@ -222,7 +244,7 @@ class RecordSim:
         return self.snapshot()
 
     def _consume_wall(self, action: str) -> None:
-        if self.is_taiwan():
+        if self.flags.replacement_from_tail_end:
             if not self.current_tiles_list:
                 return
             if action == "d":
@@ -312,6 +334,7 @@ class RecordSim:
             return
         if self.is_taiwan():
             self._apply_taiwan_wall_action(action)
+        if self.is_taiwan() or self.is_xueliu() or self.flags.rule_id in {"zhongyong", "jiandan"}:
             self._restore_taiwan_robbed_jiagang(tick)
         acting = resolve_acting_player(tick, action, self.current_player_index)
         player = self.players[acting]
@@ -356,7 +379,7 @@ class RecordSim:
             self.last_discard_tile_id = cut_tile
             self.last_winnable_tile_id = cut_tile
             self.last_jiagang_player_index = -1
-            next_player = (acting + 1) % 4
+            next_player = self._next_player(acting)
             self._maybe_infer_dingque(player)
         elif action == "bh":
             buhua_tile = codec.parse_tick_int(tick, 1)
@@ -379,6 +402,15 @@ class RecordSim:
             if is_mo:
                 player.show_hand_draw_slot_active = False
             self._apply_gang_score(tick)
+            next_player = acting
+        elif action == "rk":
+            tile = codec.parse_tick_int(tick, 2)
+            from_draw = codec.parse_tick_int(tick, 3) != 0
+            codec.remove_n_by_normalized(player.tile_list, tile, 1, prefer_draw_slot_first=from_draw)
+            self.last_winnable_tile_id = tile
+            self.last_jiagang_player_index = acting
+            if from_draw:
+                player.show_hand_draw_slot_active = False
             next_player = acting
         elif action == "jg":
             jiagang_tile = codec.parse_tick_int(tick, 1)
@@ -411,6 +443,20 @@ class RecordSim:
             next_player = acting
         elif action in ("hu_self", "hu_first", "hu_second", "hu_third"):
             hepai = codec.parse_tick_int(tick, 1)
+            if self.is_xueliu():
+                winner = self.players[hepai]
+                tile = try_parse_hepai_tile(tick, self.rule_key())
+                if action == "hu_self" and len(winner.tile_list) % 3 == 2:
+                    winner.tile_list.pop()
+                winner.show_hand_draw_slot_active = False
+                winner.huapai_list.append(tile)
+                winner.is_hu = False
+                robbed = self.last_jiagang_player_index >= 0 and (len(tick) > 7 and self.last_jiagang_player_index == codec.parse_tick_int(tick, 7))
+                if action != "hu_self" and not robbed and (parse_tick_bool(tick, 8) or not parse_tick_bool(tick, 6)):
+                    self._remove_claimed_discard(tile)
+                self._apply_score_array(parse_score_changes(tick, 4))
+                self.current_player_index = self._next_player(hepai)
+                return
             self.players[hepai].is_hu = True
             if action != "hu_self" and not hu_fan_contains_cuohe(tick) and not is_flower_win(tick, self.rule_key()):
                 win_tile = try_parse_hepai_tile(tick, self.rule_key())
@@ -423,12 +469,28 @@ class RecordSim:
                 if win_tile >= 10 and needs_ron_tile(hu_player.tile_list, self.rule_key()):
                     hu_player.tile_list.append(win_tile)
             self._apply_score_array(parse_score_changes(tick, 4))
+            if self.is_sichuan(): next_player = self._next_player(hepai)
+            if self.is_concealed_blood():
+                winner = self.players[hepai]
+                if winner.tile_list:
+                    winner.tile_list.pop()
+                winner.show_hand_draw_slot_active = False
+                robbed = "chankan" in parse_hu_fan_list(tick, 3)
+                if action != "hu_self" and not robbed and parse_tick_bool(tick, 8):
+                    self._remove_claimed_discard(try_parse_hepai_tile(tick, self.rule_key()))
         elif action == "hu_riichi":
             hepai = codec.parse_tick_int(tick, 1)
-            self.players[hepai].is_hu = True
+            winner = self.players[hepai]
+            cuohe = "错和" in parse_hu_fan_list(tick, 5)
+            winner.is_hu = not cuohe
+            if not cuohe and tick[2] in ("hu_first", "hu_second", "hu_third"):
+                if self.last_winnable_tile_id >= 10 and needs_ron_tile(winner.tile_list, "riichi"):
+                    winner.tile_list.append(self.last_winnable_tile_id)
             self._apply_score_array(parse_score_changes(tick, 6) if len(tick) > 6 else None)
             collected = codec.parse_tick_int(tick, 11) if len(tick) > 11 else 0
-            if collected > 0:
+            if cuohe:
+                self.record_riichi_sticks = int((self.round_data.get("riichi") or {}).get("riichi_sticks") or 0)
+            elif collected > 0:
                 self.record_riichi_sticks = 0
         elif action == "ryuukyoku":
             self._apply_score_array(parse_score_changes(tick, 2))
@@ -440,6 +502,7 @@ class RecordSim:
         elif action == "riichi":
             riichi_player = codec.parse_tick_int(tick, 1)
             self.players[riichi_player].is_riichi = True
+            self.players[riichi_player].score -= 1000
             self.record_riichi_sticks += 1
         elif action == "dora":
             pass
@@ -447,10 +510,13 @@ class RecordSim:
             if len(tick) >= 6 and tick[1] == "gs":
                 arr = [codec.parse_tick_int(tick, 2 + i) for i in range(4)]
                 self._apply_score_array(arr)
-        elif action == "liuju":
-            if len(tick) >= 2 and self.is_sichuan_blood():
+        elif action in {"liuju", "blood"}:
+            if len(tick) >= 2 and (self.is_sichuan_blood() or self.is_xueliu() or self.is_concealed_blood()):
                 step = tick[1]
-                if step == "settle_hu":
+                if step == "reveal_hu":
+                    for seat, tiles in json.loads(tick[2]).items():
+                        self.players[int(seat)].tile_list = list(tiles)
+                elif step == "settle_hu":
                     self._apply_score_array(parse_score_changes(tick, 6))
                 elif step == "chajiao":
                     self._apply_score_array(parse_score_changes(tick, 5))
@@ -461,13 +527,19 @@ class RecordSim:
                     if scores:
                         for i, value in enumerate(scores[:4]):
                             self.players[i].score = int(value)
-        elif action in ("jiuzhongjiupai", "end"):
+        elif action == "end":
+            scores = self.game_title.get("riichi_final_scores")
+            if self.is_last_round and isinstance(scores, list) and len(scores) == 4:
+                for player in self.players.values():
+                    player.score = int(scores[player.original_player_index])
+                self.record_riichi_sticks = int(self.game_title.get("riichi_final_sticks", self.record_riichi_sticks))
+        elif action == "jiuzhongjiupai":
             pass
 
         self.current_player_index = next_player
 
     def _apply_gang_score(self, tick: Sequence[str]) -> None:
-        if not self.is_sichuan_blood():
+        if not (self.is_sichuan_blood() or self.is_xueliu()):
             return
         text = list(tick)
         try:
@@ -522,7 +594,7 @@ class RecordSim:
         if self.last_jiagang_player_index < 0 or self.last_winnable_tile_id < 10:
             return
         fans = parse_hu_fan_list(tick, 3)
-        if "错和" in fans or "抢杠" not in fans:
+        if "错和" in fans or not {"抢杠", "抢杠和", "chankan"}.intersection(fans):
             return
         source = self.players[self.last_jiagang_player_index]
         key = f"g{codec.normalize_tile(self.last_winnable_tile_id)}"

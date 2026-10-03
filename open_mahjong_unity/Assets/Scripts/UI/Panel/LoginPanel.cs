@@ -3,6 +3,8 @@ using UnityEngine.UI;
 using UnityEngine.Serialization;
 using TMPro;
 using System.Collections;
+using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
 
 public class LoginPanel : MonoBehaviour {
@@ -37,10 +39,18 @@ public class LoginPanel : MonoBehaviour {
     [SerializeField] private TMP_InputField registerPassword;
     [SerializeField] private TMP_InputField registerConfirmPassword;
     [SerializeField] private Button registerButton;
+    [SerializeField] private UnityEngine.UI.Toggle accountRegulationsToggle;
+    [SerializeField] private UnityEngine.UI.Button accountRegulationsButton;
+    [SerializeField] private TextAsset accountRegulations;
+    private bool authButtonsEnabled;
+    private MessagePrefab regulationsMessage;
 
     public static LoginPanel Instance { get; private set; }
     private string userNameTips = "输入用户名或邮箱登录";
     private string passwordTips = "密码应当在6-32个字符之间，只能包含英文、数字、特殊字符";
+    private const string RegisterEmailTips = "邮箱应当为有效的邮箱地址";
+    private const string RegisterUsernameTips = "用户名应当在2-20个字符之间，只能包含中文、数字及英文，中文计两个字符。";
+    private const string RegisterConfirmPasswordTips = "确认密码应当与上方密码一致";
 
     private Coroutine serverConnectCoroutine;
 
@@ -60,12 +70,23 @@ public class LoginPanel : MonoBehaviour {
         touristButton.onClick.AddListener(TouristLoginClick);
         if (forgotPasswordButton != null) forgotPasswordButton.onClick.AddListener(OpenPasswordRecovery);
         if (registerButton != null) registerButton.onClick.AddListener(RegisterClick);
+        InitializeAccountRegulations();
         InitializeTabs();
         ShowTestPanelButton.onClick.AddListener(ShowTestPanel);
         // 设置输入框选中事件
         inputUser.onSelect.AddListener((text) => ShowTip(userNameTips));
         inputPassword.onSelect.AddListener((text) => ShowTip(passwordTips));
+        BindRegisterField(registerEmail, RegisterEmailTips, 255);
+        BindRegisterField(registerUsername, RegisterUsernameTips, 20);
+        BindRegisterField(registerPassword, passwordTips, 32);
+        BindRegisterField(registerConfirmPassword, RegisterConfirmPasswordTips, 32);
 
+    }
+
+    private void BindRegisterField(TMP_InputField field, string comment, int characterLimit) {
+        if (field == null) return;
+        field.characterLimit = characterLimit;
+        field.onSelect.AddListener(_ => ShowTip(comment));
     }
 
     private void Start() {
@@ -137,9 +158,16 @@ public class LoginPanel : MonoBehaviour {
         registerForm.SetActive(showRegistration);
         if (loginTabUnderline != null) loginTabUnderline.SetActive(!showRegistration);
         if (registerTabUnderline != null) registerTabUnderline.SetActive(showRegistration);
+        if (showRegistration) ShowTip(RegisterUsernameTips);
+        else ShowTip(userNameTips);
     }
 
     private void RegisterClick() {
+        if (accountRegulations == null || accountRegulationsToggle == null || !accountRegulationsToggle.isOn) {
+            ShowRegistrationError("请先阅读并同意《萨拉飒飒平台账户规约》");
+            return;
+        }
+        if (!authButtonsEnabled) return;
         string email = registerEmail.text.Trim().ToLowerInvariant();
         string username = registerUsername.text.Trim();
         string password = registerPassword.text;
@@ -150,6 +178,10 @@ public class LoginPanel : MonoBehaviour {
         }
         if (string.IsNullOrWhiteSpace(username)) {
             ShowRegistrationError("请填写用户名");
+            return;
+        }
+        if (!IsValidRegisterUsername(username)) {
+            ShowRegistrationError(RegisterUsernameTips);
             return;
         }
         if (string.IsNullOrEmpty(password)) {
@@ -173,16 +205,88 @@ public class LoginPanel : MonoBehaviour {
         NetworkManager.Instance.Register(email, username, password, confirmation);
     }
 
+    private static bool IsValidRegisterUsername(string username) {
+        string name = username.Normalize(NormalizationForm.FormC).Trim();
+        if (string.IsNullOrEmpty(name)) return false;
+        int length = 0;
+        foreach (char c in name) {
+            UnicodeCategory category = CharUnicodeInfo.GetUnicodeCategory(c);
+            if (category == UnicodeCategory.NonSpacingMark || category == UnicodeCategory.SpacingCombiningMark || category == UnicodeCategory.EnclosingMark) {
+                continue;
+            }
+            if (IsEnglishOrDigit(c)) {
+                length += 1;
+                continue;
+            }
+            if (IsChineseChar(c)) {
+                length += 2;
+                continue;
+            }
+            return false;
+        }
+        return length >= 2 && length <= 20;
+    }
+
+    private static bool IsEnglishOrDigit(char c) {
+        return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9');
+    }
+
+    private static bool IsChineseChar(char c) {
+        int code = c;
+        return (code >= 0x4E00 && code <= 0x9FFF)
+            || (code >= 0x3400 && code <= 0x4DBF)
+            || (code >= 0xF900 && code <= 0xFAFF);
+    }
+
     private void ShowRegistrationError(string message) {
         ShowTip(message);
         NotificationManager.Instance?.ShowTip("注册", false, message);
     }
 
     private void SetAuthButtons(bool enabled) {
+        authButtonsEnabled = enabled;
         loginButton.interactable = enabled;
         touristButton.interactable = enabled;
-        if (registerButton != null) registerButton.interactable = enabled;
+        UpdateRegistrationAvailability();
         // 页面导航不依赖服务器连接；提交按钮仍跟随连接/请求状态禁用。
+    }
+
+    private void InitializeAccountRegulations() {
+        if (accountRegulationsToggle != null) {
+            accountRegulationsToggle.SetIsOnWithoutNotify(false);
+            accountRegulationsToggle.onValueChanged.AddListener(OnAccountRegulationsChanged);
+        }
+        if (accountRegulationsButton != null) accountRegulationsButton.onClick.AddListener(OpenAccountRegulations);
+        UpdateRegistrationAvailability();
+    }
+
+    private void OnAccountRegulationsChanged(bool accepted) => UpdateRegistrationAvailability();
+
+    private void UpdateRegistrationAvailability() {
+        if (registerButton != null) {
+            registerButton.interactable = authButtonsEnabled && accountRegulations != null
+                && accountRegulationsToggle != null && accountRegulationsToggle.isOn;
+        }
+    }
+
+    private void OpenAccountRegulations() {
+        if (regulationsMessage != null) return;
+        if (accountRegulations == null) {
+            ShowRegistrationError("账户规约暂时无法加载，请稍后重试");
+            return;
+        }
+        regulationsMessage = NotificationManager.Instance?.ShowModal("萨拉飒飒平台账户规约", accountRegulations.text, new MessageAction("关闭"));
+        regulationsMessage?.SetBodyAlignment(TextAlignmentOptions.TopLeft);
+    }
+
+    private void OnDisable() {
+        if (regulationsMessage != null) regulationsMessage.CloseMessage();
+    }
+
+    private void OnDestroy() {
+        if (accountRegulationsToggle != null) accountRegulationsToggle.onValueChanged.RemoveListener(OnAccountRegulationsChanged);
+        if (accountRegulationsButton != null) accountRegulationsButton.onClick.RemoveListener(OpenAccountRegulations);
+        if (Instance == this) Instance = null;
     }
 
     // 服务器连接协程

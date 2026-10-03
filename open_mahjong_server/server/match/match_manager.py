@@ -1,34 +1,36 @@
 """
 匹配队列管理器
-管理 12 个排位匹配队列（4 场次 x 3 局制）
+管理四种规则的 20 个段位 / Elo 匹配队列（配置见 rating_rules.py）。
 """
 import asyncio
 import uuid
 import logging
+from collections import defaultdict
 from typing import Dict, List, Optional
 from .rank_calculator import (
-    TIER_BASE_SCORE, GAME_TYPE_MULTIPLIER,
     can_play_tier, queue_type_to_room_config,
     queue_type_to_display_name, parse_queue_type,
 )
 from ..response import Response
+from .rating_rules import QUEUES, default_rating
 
 logger = logging.getLogger(__name__)
 
-ALL_QUEUE_TYPES = [
-    f"{tier}_{game_type}"
-    for tier in ["beginner", "intermediate", "advanced", "mcrpl"]
-    for game_type in ["dongfeng", "banzhuang", "quanzhuang"]
-]
+ALL_QUEUE_TYPES = list(QUEUES)
 
 
 class MatchManager:
+    MAX_QUEUES = 4
+
     def __init__(self, game_server):
         self.game_server = game_server
         # 匹配等待队列 {queue_type: [user_id, ...]}
         self.queues: Dict[str, List[int]] = {qt: [] for qt in ALL_QUEUE_TYPES}
-        # user_id -> queue_type（防止重复排队）
-        self.user_to_queue: Dict[int, str] = {}
+        self.user_to_queues: Dict[int, List[str]] = {}
+        self.user_revisions: Dict[int, int] = {}
+        self.user_locks = defaultdict(asyncio.Lock)
+        self.disconnect_epochs: Dict[int, int] = {}
+        self.winning_queues: Dict[int, str] = {}
         # 各队列正在游戏中的人数
         self.playing_counts: Dict[str, int] = {qt: 0 for qt in ALL_QUEUE_TYPES}
         # 匹配承诺锁：凡是已匹配成功（match_found）的玩家立即进入此集合，直到其所在的
@@ -40,119 +42,127 @@ class MatchManager:
 
     # ==================== 队列操作 ====================
 
-    async def join_queue(self, connect_id: str, queue_type: str) -> Response:
-        """玩家加入匹配队列"""
-        if queue_type not in self.queues:
-            return Response(type="tips", success=False, message="无效的匹配类型")
+    def snapshot(self, user_id: Optional[int]) -> dict:
+        queues = list(self.user_to_queues.get(user_id, []))
+        return dict(my_queue=queues[0] if queues else None, my_queues=queues,
+                    match_revision=self.user_revisions.get(user_id, 0),
+                    match_committed=user_id in self.committed_users,
+                    match_queue_type=self.winning_queues.get(user_id))
 
-        player = self.game_server.players.get(connect_id)
-        if not player or not player.user_id:
-            return Response(type="tips", success=False, message="请先登录")
+    def _changed(self, user_id: int):
+        self.user_revisions[user_id] = self.user_revisions.get(user_id, 0) + 1
 
+    def _reply(self, operation, user_id, success, message):
+        return Response(type=f"match/{operation}_queue_done", success=success,
+                        message=message, **self.snapshot(user_id))
+
+    def _join_block_reason(self, player, user_id):
         if getattr(player, "is_tourist", False):
-            return Response(type="tips", success=False, message="游客无法进行排位匹配，请先注册账号")
-
-        user_id = player.user_id
-
-        # 已在房间中（自定义房等）不允许排位匹配，需先退出房间
-        if getattr(player, "current_room_id", None):
-            return Response(type="tips", success=False, message="请先退出当前房间再进行排位匹配")
-        if self._is_user_in_custom_room(user_id):
-            return Response(type="tips", success=False, message="请先退出当前房间再进行排位匹配")
-
-        # 已在队列中：带上 my_queue，方便客户端恢复「正在匹配」而不是只弹错误
-        if user_id in self.user_to_queue:
-            return Response(
-                type="match/join_queue_done",
-                success=False,
-                message="您已在匹配队列中",
-                my_queue=self.user_to_queue[user_id],
-            )
-
-        # 已匹配成功但对局尚未结束（覆盖 match_found 到开局之间的空窗，以及掉线/放弃重连
-        # 导致 is_user_in_active_game 失效但对局仍在进行的情况）
+            return "游客无法进行排位匹配，请先注册账号"
+        if getattr(player, "current_room_id", None) or self._is_user_in_custom_room(user_id):
+            return "请先退出当前房间再进行排位匹配"
+        if user_id in getattr(self.game_server.room_manager, "event_seating_users", ()):
+            return "赛事正在安排入座，无法加入匹配"
         if user_id in self.committed_users:
-            return Response(type="tips", success=False, message="您已匹配到对局，请完成当前对局后再匹配")
-
-        # 正在游戏中
+            return "您已匹配到对局，请完成当前对局后再匹配"
         if self.game_server.gamestate_manager.is_user_in_active_game(user_id):
-            return Response(type="tips", success=False, message="您正在游戏中，无法匹配")
+            return "您正在游戏中，无法匹配"
+        return None
 
-        # 加入匹配前解除延时观战订阅，避免对局结束后仍向该连接推送牌谱
+    async def join_queue(self, connect_id: str, queue_type: str) -> Response:
+        player = self.game_server.players.get(connect_id)
+        user_id = getattr(player, "user_id", None)
+        if not user_id:
+            return self._reply("join", user_id, False, "请先登录")
+        epoch = self.disconnect_epochs.get(user_id, 0)
+        async with self.user_locks[user_id]:
+            try:
+                return await self._join_queue(connect_id, player, user_id, queue_type, epoch)
+            except Exception:
+                logger.exception("加入匹配失败: %s", user_id)
+                return self._reply("join", user_id, False, "加入匹配失败，请稍后重试")
+
+    async def _join_queue(self, connect_id, player, user_id, queue_type, epoch):
+        if (self.game_server.players.get(connect_id) is not player
+                or self.disconnect_epochs.get(user_id, 0) != epoch):
+            return self._reply("join", user_id, False, "连接已断开，请重新匹配")
+        if not isinstance(queue_type, str) or queue_type not in self.queues:
+            return self._reply("join", user_id, False, "无效的匹配类型")
+        blocked = self._join_block_reason(player, user_id)
+        if blocked:
+            return self._reply("join", user_id, False, blocked)
+        existing = self.user_to_queues.get(user_id, [])
+        if queue_type in existing:
+            return self._reply("join", user_id, True, "已在此场次匹配中")
+        if len(existing) >= self.MAX_QUEUES:
+            return self._reply("join", user_id, False, "最多同时匹配 4 个场次")
+
         await self.game_server.gamestate_manager.remove_spectator_from_all_games(user_id)
 
-        # Event seating may reserve the player while the spectator cleanup yields.
-        blocked = self.game_server.room_manager._reject_room_entry_conflicts(user_id, "加入匹配")
+        # Recheck exclusivity and disconnects after spectator cleanup yields.
+        if (self.game_server.players.get(connect_id) is not player
+                or self.disconnect_epochs.get(user_id, 0) != epoch):
+            return self._reply("join", user_id, False, "连接已断开，请重新匹配")
+        blocked = self._join_block_reason(player, user_id)
         if blocked:
-            return blocked
-        if getattr(player, "current_room_id", None) or self._is_user_in_custom_room(user_id):
-            return Response(type="tips", success=False, message="请先退出当前房间再进行排位匹配")
-
-        # 资格校验
-        parsed = parse_queue_type(queue_type)
-        if not parsed:
-            return Response(type="tips", success=False, message="无效的匹配类型")
-        tier, _ = parsed
-
+            return self._reply("join", user_id, False, blocked)
+        spec = QUEUES[queue_type]
+        tier = spec.tier
         rank_data = self.game_server.db_manager.get_rank_data(user_id)
+        if rank_data is None:
+            return self._reply("join", user_id, False, "无法读取评分，请稍后重试")
+        rating = (rank_data or {}).get('ratings', {}).get(spec.rule, default_rating(spec.rule))
         privileges = self.game_server.db_manager.get_user_sponsor_mcrpl(user_id) or {}
-        rank_name = rank_data["guobiao_rank"] if rank_data else "10级"
-
-        if not can_play_tier(
-            rank_name,
-            tier,
+        rank_name = (rank_data or {}).get("guobiao_rank", "10级") if spec.rule == 'guobiao' else rating['rank_name']
+        if spec.graded and not can_play_tier(
+            rank_name, tier,
             is_mcrpl_qualified=privileges.get("is_mcrpl_qualified", False),
             is_beginner_qualified=privileges.get("is_beginner_qualified", False),
             is_intermediate_qualified=privileges.get("is_intermediate_qualified", False),
             is_advanced_qualified=privileges.get("is_advanced_qualified", False),
         ):
-            return Response(type="tips", success=False, message="段位不足，无法进入该场次")
-
-        # 加入队列
+            return self._reply("join", user_id, False, "段位不足，无法进入该场次")
         self.queues[queue_type].append(user_id)
-        self.user_to_queue[user_id] = queue_type
-        logger.info(f"玩家 {user_id} 加入匹配队列 {queue_type}，当前等待: {len(self.queues[queue_type])}")
-
-        # 尝试凑满开始
+        self.user_to_queues.setdefault(user_id, []).append(queue_type)
+        self._changed(user_id)
+        logger.info("玩家 %s 加入匹配队列 %s", user_id, queue_type)
         await self._try_start_match(queue_type)
+        return self._reply("join", user_id, True, f"已加入 {queue_type_to_display_name(queue_type)} 匹配队列")
 
-        return Response(
-            type="match/join_queue_done",
-            success=True,
-            message=f"已加入 {queue_type_to_display_name(queue_type)} 匹配队列",
-            my_queue=queue_type,
-        )
+    def _remove_queues(self, user_id, queue_type=None):
+        existing = self.user_to_queues.get(user_id, [])
+        removed = [q for q in existing if queue_type is None or q == queue_type]
+        for q in removed:
+            if user_id in self.queues[q]:
+                self.queues[q].remove(user_id)
+        remaining = [q for q in existing if q not in removed]
+        if remaining:
+            self.user_to_queues[user_id] = remaining
+        else:
+            self.user_to_queues.pop(user_id, None)
+        if removed:
+            self._changed(user_id)
 
-    async def leave_queue(self, connect_id: str) -> Response:
-        """玩家离开匹配队列"""
+    async def leave_queue(self, connect_id: str, queue_type: Optional[str] = None) -> Response:
         player = self.game_server.players.get(connect_id)
-        if not player or not player.user_id:
-            return Response(type="tips", success=False, message="请先登录")
-
-        user_id = player.user_id
-        if user_id not in self.user_to_queue:
-            return Response(type="tips", success=False, message="您不在匹配队列中")
-
-        queue_type = self.user_to_queue[user_id]
-        if user_id in self.queues.get(queue_type, []):
-            self.queues[queue_type].remove(user_id)
-        del self.user_to_queue[user_id]
-        logger.info(f"玩家 {user_id} 离开匹配队列 {queue_type}")
-
-        return Response(type="match/leave_queue_done", success=True, message="已取消匹配")
+        user_id = getattr(player, "user_id", None)
+        if not user_id:
+            return self._reply("leave", user_id, False, "请先登录")
+        epoch = self.disconnect_epochs.get(user_id, 0)
+        async with self.user_locks[user_id]:
+            if (self.game_server.players.get(connect_id) is not player
+                    or self.disconnect_epochs.get(user_id, 0) != epoch):
+                return self._reply("leave", user_id, False, "连接已断开")
+            if queue_type is not None and (not isinstance(queue_type, str) or queue_type not in self.queues):
+                return self._reply("leave", user_id, False, "无效的匹配类型")
+            if user_id in self.committed_users:
+                return self._reply("leave", user_id, False, "已匹配到对局，无法取消")
+            self._remove_queues(user_id, queue_type)
+            return self._reply("leave", user_id, True, "已取消匹配")
 
     def player_disconnect(self, user_id: int):
-        """玩家断线时从“等待队列”移除。
-
-        注意：仅移除尚在排队等待的玩家。已匹配成功（committed_users）的玩家不在此解锁，
-        其匹配承诺会保留到所在对局彻底结束（由 release_match 释放），以避免断线后被再次匹配。
-        """
-        if user_id in self.user_to_queue:
-            queue_type = self.user_to_queue[user_id]
-            if user_id in self.queues.get(queue_type, []):
-                self.queues[queue_type].remove(user_id)
-            del self.user_to_queue[user_id]
-            logger.info(f"断线玩家 {user_id} 已从匹配队列 {queue_type} 移除")
+        self.disconnect_epochs[user_id] = self.disconnect_epochs.get(user_id, 0) + 1
+        self._remove_queues(user_id)
 
     def is_user_committed(self, user_id: int) -> bool:
         """玩家是否已匹配成功且对局尚未结束。"""
@@ -160,14 +170,14 @@ class MatchManager:
 
     def is_user_in_queue(self, user_id: int) -> bool:
         """玩家是否仍在匹配等待队列中。"""
-        return user_id in self.user_to_queue
+        return user_id in self.user_to_queues
 
     def blocks_spectator(self, user_id: int) -> bool:
         """An event seating reservation and any active game also block spectating."""
         room_manager = getattr(self.game_server, "room_manager", None)
         game_manager = getattr(self.game_server, "gamestate_manager", None)
         return (
-            user_id in self.user_to_queue or user_id in self.committed_users
+            user_id in self.user_to_queues or user_id in self.committed_users
             or user_id in getattr(room_manager, "event_seating_users", ())
             or bool(game_manager and game_manager.is_user_in_active_game(user_id))
         )
@@ -193,7 +203,8 @@ class MatchManager:
         """当前玩家所在等待队列，以及是否已匹配成功且对局未结束。"""
         if not user_id:
             return None, False
-        return self.user_to_queue.get(user_id), user_id in self.committed_users
+        queues = self.user_to_queues.get(user_id, [])
+        return (queues[0] if queues else None), user_id in self.committed_users
 
     # ==================== 匹配与开局 ====================
 
@@ -203,26 +214,27 @@ class MatchManager:
         if len(queue) < 4:
             return
 
-        # 取出前 4 名玩家
         matched_users = queue[:4]
-        self.queues[queue_type] = queue[4:]
+        # Commit all four and remove every competing queue before the first await.
         for uid in matched_users:
-            if uid in self.user_to_queue:
-                del self.user_to_queue[uid]
-            # 立即上锁：从匹配成功这一刻起，玩家被绑定到本局，关闭“开局前 5 秒空窗”被再次匹配的可能
+            self._remove_queues(uid)
             self.committed_users.add(uid)
-            await self.game_server.gamestate_manager.remove_spectator_from_all_games(uid)
+            self.winning_queues[uid] = queue_type
+            self._changed(uid)
+        for uid in matched_users:
+            try:
+                await self.game_server.gamestate_manager.remove_spectator_from_all_games(uid)
+            except Exception:
+                logger.exception("匹配后清理观战失败: %s", uid)
 
         logger.info(f"匹配成功: {queue_type}, 玩家: {matched_users}")
 
-        # 通知客户端匹配成功（5 秒倒计时）
+        # 通知客户端匹配成功，随后立即创建对局。
         display_name = queue_type_to_display_name(queue_type)
-        match_found_response = Response(
-            type="match/match_found",
-            success=True,
-            message=display_name,
-        )
         for uid in matched_users:
+            match_found_response = Response(
+                type="match/match_found", success=True, message=display_name,
+                **self.snapshot(uid))
             conn = self.game_server.user_id_to_connection.get(uid)
             if conn:
                 try:
@@ -230,17 +242,24 @@ class MatchManager:
                 except Exception as e:
                     logger.error(f"通知玩家 {uid} 匹配成功失败: {e}")
 
-        # 5 秒后创建房间并开始游戏
-        asyncio.create_task(self._delayed_start_game(queue_type, matched_users))
+        asyncio.create_task(self._start_game(queue_type, matched_users))
 
-    async def _delayed_start_game(self, queue_type: str, user_ids: List[int]):
-        """延迟 5 秒后直接创建对局并启动（不依赖房间系统）。
+    async def _start_game(self, queue_type: str, user_ids: List[int]):
+        """直接创建对局并启动（不依赖房间系统）。
 
         匹配对局不再写入 room_manager.rooms，因此不会出现在房间列表、也无法被加入；
         仅向 RoomManager 申请一个唯一房间号用于对局内部映射键与客户端聊天频道。
         """
         try:
-            await asyncio.sleep(5)
+            # A disconnect while notifying players has no GameState to notify yet.
+            # Apply the same all-offline cleanup policy before creating the game.
+            if not any(uid in self.game_server.user_id_to_connection for uid in user_ids):
+                for uid in user_ids:
+                    self.committed_users.discard(uid)
+                    self.winning_queues.pop(uid, None)
+                    self._changed(uid)
+                logger.info("匹配开局前全员掉线，已取消开局: %s", user_ids)
+                return
 
             room_config = queue_type_to_room_config(queue_type)
             # 申请一个不与自定义房间冲突、且不进入房间列表的匹配专用房间号
@@ -263,9 +282,10 @@ class MatchManager:
 
             # 对局所需的配置数据头（仅用于构造 GameState，不注册到 room_manager.rooms）
             room_data = {
+                **room_config,
                 "room_id": room_id,
                 "room_type": "match",
-                "room_rule": "guobiao",
+                "room_rule": QUEUES[queue_type].rule,
                 "sub_rule": room_config["sub_rule"],
                 "hepai_limit": room_config["hepai_limit"],
                 "tourist_limit": True,
@@ -275,6 +295,8 @@ class MatchManager:
                 "player_settings": player_settings,
                 "has_password": False,
                 "tips": room_config["tips"],
+                "count_tips": room_config["count_tips"],
+                "pointer_tips": room_config["pointer_tips"],
                 "host_user_id": user_ids[0],
                 "host_name": player_settings[user_ids[0]]["username"],
                 "is_game_running": True,
@@ -288,26 +310,32 @@ class MatchManager:
                 "tactical_call": room_config.get("tactical_call", False),
                 "claim_protection": room_config.get("claim_protection", True),
                 "match_queue_type": queue_type,
-                "match_tier": parse_queue_type(queue_type)[0],
+                "match_tier": QUEUES[queue_type].tier,
             }
 
             # 通过 gamestate_manager 创建 GuobiaoGameState（匹配对局不设置 current_room_id，
             # 玩家“是否忙碌”由对局映射 + committed 锁共同保证）
             from ..gamestate.game_guobiao.GuobiaoGameState import GuobiaoGameState
+            from ..gamestate.game_riichi.RiichiGameState import RiichiGameState
+            from ..gamestate.game_mmcr.QingqueGameState import QingqueGameState
+            from ..gamestate.game_sichuan.SichuanGameState import SichuanGameState
+            state_class = dict(guobiao=GuobiaoGameState, riichi=RiichiGameState,
+                               qingque=QingqueGameState, sichuan=SichuanGameState)[room_data['room_rule']]
             gamestate_id = str(uuid.uuid4())
-            game_state = GuobiaoGameState(
+            game_state = state_class(
                 self.game_server,
                 room_data,
                 self.game_server.calculation_service,
                 self.game_server.db_manager,
                 gamestate_id,
             )
+            game_state.match_queue_type = queue_type
+            for player in game_state.player_list:
+                if player.user_id not in self.game_server.user_id_to_connection:
+                    player.tag_list.append("offline")
 
             gsm = self.game_server.gamestate_manager
-            gsm.room_id_to_GuobiaoGameState[room_id] = game_state
-            gsm.gamestate_id_to_game_state[gamestate_id] = game_state
-            for uid in user_ids:
-                gsm.user_id_to_game_state[uid] = game_state
+            gsm.register_game(game_state, room_data)
 
             # 登记匹配会话，并累加游戏中人数。释放统一在对局清理时通过 release_match 完成。
             self.gamestate_to_match[gamestate_id] = {
@@ -317,21 +345,25 @@ class MatchManager:
             }
             self.playing_counts[queue_type] = self.playing_counts.get(queue_type, 0) + len(user_ids)
 
-            game_state.game_task = asyncio.create_task(game_state.run_game_loop())
+            game_state.game_task = asyncio.create_task(gsm.run_game(game_state, game_state.run_game_loop))
             logger.info(f"排位匹配对局已创建，room_id={room_id}, queue_type={queue_type}, gamestate_id={gamestate_id}")
         except Exception as e:
             logger.error(f"创建排位匹配对局失败，queue_type={queue_type}, 玩家={user_ids}, 错误: {e}", exc_info=True)
+            if "game_state" in locals() and self.game_server.gamestate_manager.gamestate_id_to_game_state.get(game_state.gamestate_id) is game_state:
+                await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=game_state.gamestate_id, reason="start_failed")
             # 开局失败：释放承诺锁与已分配的房间号，避免玩家被永久锁定
             for uid in user_ids:
                 self.committed_users.discard(uid)
+                self.winning_queues.pop(uid, None)
+                self._changed(uid)
             try:
                 if "room_id" in locals():
                     self.game_server.room_manager.release_match_room_id(room_id)
             except Exception:
                 pass
             # 通知玩家匹配失败，让其可重新匹配
-            fail_response = Response(type="tips", success=False, message="匹配开局失败，请重新匹配")
             for uid in user_ids:
+                fail_response = Response(type="match/failed", success=False, message="匹配开局失败，请重新匹配", **self.snapshot(uid))
                 conn = self.game_server.user_id_to_connection.get(uid)
                 if conn:
                     try:
@@ -356,6 +388,8 @@ class MatchManager:
         room_id = entry.get("room_id")
         for uid in user_ids:
             self.committed_users.discard(uid)
+            self.winning_queues.pop(uid, None)
+            self._changed(uid)
         if queue_type in self.playing_counts:
             self.playing_counts[queue_type] = max(0, self.playing_counts[queue_type] - len(user_ids))
         if room_id is not None:

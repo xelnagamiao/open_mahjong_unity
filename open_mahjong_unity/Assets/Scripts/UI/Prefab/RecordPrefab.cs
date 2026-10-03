@@ -122,7 +122,7 @@ public class RecordPrefab : MonoBehaviour {
         if (localPlayback) {
             LocalRecordStore.LoadAsync(gameId, local => {
                 if (local != null && local.record != null) {
-                    RecordPanel.OpenRecord(local);
+                    RecordPanel.OpenRecord(local, localPlayback: true);
                     return;
                 }
                 NotificationManager.Instance.ShowTip("牌谱", false, "本机没有这份牌谱");

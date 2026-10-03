@@ -61,8 +61,8 @@ def store_riichi_game_record(db_manager, game_record: dict, player_list: list, r
                 cursor.execute("""
                     INSERT INTO game_player_records (
                         game_id, user_id, username, score, rank, original_player_index, rule, sub_rule, match_type, room_type, match_tier, event_id,
-                        title_used, character_used, profile_used, voice_used
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        title_used, character_used, profile_used, voice_used, avatar_frame_used
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     game_id,
                     player.user_id,
@@ -80,6 +80,7 @@ def store_riichi_game_record(db_manager, game_record: dict, player_list: list, r
                     getattr(player, "character_used", None),
                     getattr(player, "profile_used", None),
                     getattr(player, "voice_used", None),
+                    getattr(player, "avatar_frame_used", 0),
                 ))
                 saved_count += 1
             except Error as e:
@@ -120,7 +121,7 @@ def store_riichi_game_stats(db_manager, game_id: str, player_list: list, room_ty
         cursor = conn.cursor()
 
         rule = "riichi"
-        mode = f"{max_round}/4"
+        mode = f"{max_round}/4" + ("_rank" if room_type == "match" else "")
 
         stats_columns = [
             "total_games", "total_rounds", "win_count", "self_draw_count",
@@ -301,7 +302,7 @@ def store_riichi_fan_stats(db_manager, game_id: str, player_list: list, room_typ
         cursor = conn.cursor()
 
         rule = "riichi"
-        mode = f"{max_round}/4"
+        mode = f"{max_round}/4" + ("_rank" if room_type == "match" else "")
 
         for player in player_list:
             user_id = player.user_id

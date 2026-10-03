@@ -17,6 +17,7 @@ public static class LadderRecordDisplayText {
             record.match_type
         );
         string tierName = MatchQueueDisplayText.GetTierTitle(record.match_queue_type);
+        if(record.match_queue_type=="sichuan_elo_xuezhan"){ruleName="川麻血战";roundName="四局";}
 
         var sb = new StringBuilder();
         sb.Append(ruleName);

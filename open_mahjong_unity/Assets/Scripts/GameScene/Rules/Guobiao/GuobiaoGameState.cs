@@ -2,7 +2,7 @@
 /// 国标麻将（含错和局中续打、局终亮暗杠）。对应服务端 game_guobiao/GuobiaoGameState。
 /// 与标准骨架的差别：结算 extras 带 revealed_angang_masks；错和后本盘续打。
 /// </summary>
-public class GuobiaoGameState : TurnBasedGameState {
+public partial class GuobiaoGameState : TurnBasedGameState {
     public const string RuleId = "guobiao";
 
     public static GuobiaoGameState Active => RuleRegistry.ActiveGameState as GuobiaoGameState;
@@ -14,10 +14,12 @@ public class GuobiaoGameState : TurnBasedGameState {
 
     protected override void OnRoundStarted(GameInfo gameInfo) {
         cuohe.Clear();
+        RestoreBloodBattle(gameInfo);
     }
 
     protected override void OnBeforeAsk() {
         cuohe.TryResume();
+        ResumeBloodBattle();
     }
 
     protected override SettlementEnvelope BuildEnvelope(ShowResultInfo info) {
@@ -36,5 +38,7 @@ public class GuobiaoGameState : TurnBasedGameState {
     public override void OnSessionReset() {
         cuohe.Clear();
         LastEndExtras = null;
+        bloodPendingContinue = false;
+        bloodHistoryWritten = false;
     }
 }

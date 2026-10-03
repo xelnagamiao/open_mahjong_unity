@@ -6,7 +6,7 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class TableFrameRenderer : MonoBehaviour
 {
-    public const string BaseResourceDirectory = "TableFrame/Textures/";
+    public const string BaseResourceDirectory = "image/Board/Edge/";
     public const string RemovedDuplicate = "Edge_Relief_01_WalnutBrass";
     public const string RetainedDuplicate = "Edge_Relief_03_CherryGunmetal";
 
@@ -31,6 +31,7 @@ public sealed class TableFrameRenderer : MonoBehaviour
     private Texture2D requestedSource;
     private bool requestedCustom, requestedPending, hasRequest, disposed;
     private int loadVersion;
+    private Color? selectedSolidColor;
 
     public Mesh FrameMesh => frameFilter != null ? frameFilter.sharedMesh : null;
     public Mesh OriginalMesh => originalFlatMesh;
@@ -65,9 +66,9 @@ public sealed class TableFrameRenderer : MonoBehaviour
         var config = ConfigManager.Instance;
         runtimeMaterial.SetFloat("_ShadowLayerIntensity", config != null ? config.GetTableFrameShadowIntensity() : 1);
         runtimeMaterial.SetFloat("_HighlightIntensity", config != null ? config.GetTableFrameHighlightIntensity() : 1);
-        bool solid = TableFrameStyles.IsSolid(CurrentSelectionPath);
+        bool solid = selectedSolidColor.HasValue || TableFrameStyles.IsSolid(CurrentSelectionPath);
         runtimeMaterial.SetFloat("_UseSolidColor", solid ? 1 : 0);
-        Color color = config != null ? config.GetTableFrameDisplayColor(CurrentSelectionPath) : TableFrameStyles.SolidColor(CurrentSelectionPath);
+        Color color = selectedSolidColor ?? TableFrameStyles.SolidColor(CurrentSelectionPath);
         runtimeMaterial.SetVector("_SolidColor", new Vector4(color.r, color.g, color.b, 1));
     }
 
@@ -76,18 +77,20 @@ public sealed class TableFrameRenderer : MonoBehaviour
     /// selections retain the visible frame; custom/unknown selections use the
     /// persistent flat fallback. Also supports explicit isolated preview calls.
     /// </summary>
-    public void ApplySelection(Desktop desktop, Texture2D sourceTexture, string path, bool isCustom, bool isPending = false)
+    public void ApplySelection(Desktop desktop, Texture2D sourceTexture, string path, bool isCustom, bool isPending = false, Color? solidColor = null)
     {
         if (disposed || desktop == null) return;
         if (sourceDesktop != null && sourceDesktop != desktop)
             throw new InvalidOperationException("Each Desktop needs its own scene frame references.");
         sourceDesktop = desktop;
+        bool solidModeChanged=selectedSolidColor.HasValue != solidColor.HasValue;
+        selectedSolidColor=solidColor;
         // This independent setting must update even when the selected frame
         // and its textures are unchanged or still loading.
         RefreshContactOutline();
         path = NormalizeSelection(path, isCustom);
         if (string.IsNullOrEmpty(path) && !isCustom && sourceTexture != null) path = sourceTexture.name;
-        if (hasRequest && requestedSource == sourceTexture && RequestedSelectionPath == path
+        if (!solidModeChanged && hasRequest && requestedSource == sourceTexture && RequestedSelectionPath == path
             && requestedCustom == isCustom && requestedPending == isPending) return;
         ++loadVersion;
         hasRequest = true;
@@ -96,9 +99,9 @@ public sealed class TableFrameRenderer : MonoBehaviour
         requestedCustom = isCustom;
         requestedPending = isPending;
         IsLoading = isPending;
-        if (!isActiveAndEnabled || isPending) return;
+        if (!isActiveAndEnabled || (isPending && !solidColor.HasValue)) return;
         string textureName = TableFrameStyles.SourceName(path);
-        if (!isCustom && TableFrameStyles.IsSolid(path))
+        if (solidColor.HasValue || (!isCustom && TableFrameStyles.IsSolid(path)))
         {
             FinishLoad(new Appearance { Version = loadVersion, Path = path, Source = Texture2D.whiteTexture,
                 Base = Texture2D.whiteTexture });
@@ -127,7 +130,7 @@ public sealed class TableFrameRenderer : MonoBehaviour
             if (runtimeMaterial == null)
                 runtimeMaterial = new Material(frameMaterialAsset) { name = "Table frame selection (runtime)", hideFlags = HideFlags.DontSave };
             runtimeMaterial.mainTexture = pending.Base;
-            runtimeMaterial.SetVector("_BaseTone", TableFrameStyles.BaseTone(pending.Path));
+            runtimeMaterial.SetVector("_BaseTone", selectedSolidColor.HasValue ? Vector4.one : TableFrameStyles.BaseTone(pending.Path));
             frameRenderer.sharedMaterial = runtimeMaterial;
             sourceFilter.sharedMesh = clothOnlyMesh;
             frameRenderer.enabled = true;
@@ -163,7 +166,7 @@ public sealed class TableFrameRenderer : MonoBehaviour
     {
         if (!hasRequest || sourceDesktop == null) return;
         hasRequest = false;
-        ApplySelection(sourceDesktop, requestedSource, RequestedSelectionPath, requestedCustom, requestedPending);
+        ApplySelection(sourceDesktop, requestedSource, RequestedSelectionPath, requestedCustom, requestedPending, selectedSolidColor);
     }
 
     private void OnDisable()

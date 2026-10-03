@@ -47,11 +47,15 @@ def check_only_cut(game_state, player) -> tuple[list[str], list[dict]]:
         return [], []
     actions = ["discard"] if player.hand else []
     candidates: list[dict] = []
-    kong = kong_candidates(player.hand, player.melds)
+    can_supplement = player.supplements < 2 and bool(game_state.wall)
+    # 亮牌后不能直接和；没有补牌机会时必须留牌可切，避免进入无动作的空转态。
+    kong = kong_candidates(player.hand, player.melds) if (
+        len(player.hand) > 1 or can_supplement
+    ) else []
     if kong:
         actions.append("kong")
         candidates.extend(kong)
-    if player.supplements < 2 and game_state.wall:
+    if can_supplement:
         actions.append("supplement")
     return actions, candidates
 
@@ -72,6 +76,9 @@ def check_action_after_cut(game_state) -> dict[int, list[dict]]:
             claimant_index=player.index,
             discarder_index=discarder,
         )
+        if player.supplements >= 2 or not game_state.wall:
+            options = [option for option in options
+                       if len(option["hand_tiles"]) < len(player.hand)]
         if is_winning_hand(player.hand + [discarded], player.melds):
             action_type = claim_action_type("win", player.index, discarder)
             options.insert(0, {

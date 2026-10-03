@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 
 /// <summary>
@@ -82,8 +83,10 @@ public static class LocalRecordStore {
 
     static void Save(RecordDetail detail, string matchType, bool perspective) {
         if (detail == null || detail.record == null) return;
+        if (IsDuplicateRecord(detail)) return;
         if (string.IsNullOrEmpty(detail.game_id)) {
             detail.game_id = NewLocalId();
+            detail.cloud_saved = false;
         }
         detail.perspective = perspective;
         if (string.IsNullOrEmpty(detail.match_type)) {
@@ -100,14 +103,25 @@ public static class LocalRecordStore {
 
         Directory.CreateDirectory(DirectoryPath);
         string json = JsonConvert.SerializeObject(detail, JsonSettings);
-        File.WriteAllText(RecordPath(detail.game_id), json, Utf8);
-
-        List<RecordInfo> index = LoadFileIndex();
-        ApplyIndexUpdate(index, detail, matchType, out List<string> dropped);
-        foreach (string oldId in dropped) {
-            TryDeleteFile(RecordPath(oldId));
+        // Independent desktop clients share persistentDataPath. Lock the entire
+        // read/modify/write transaction so concurrent games cannot lose index rows.
+        using (AcquireFileWriteLock()) {
+            WriteFileAtomically(RecordPath(detail.game_id), json);
+            List<RecordInfo> index = LoadFileIndex();
+            ApplyIndexUpdate(index, detail, matchType, out List<string> dropped);
+            WriteFileIndex(index);
+            foreach (string oldId in dropped) {
+                TryDeleteFile(RecordPath(oldId));
+            }
         }
-        WriteFileIndex(index);
+    }
+
+    private static bool IsDuplicateRecord(RecordDetail detail) {
+        if (detail.is_duplicate || !string.IsNullOrEmpty(detail.duplicate_key)) return true;
+        if (!detail.record.TryGetValue("game_title", out object rawTitle) || rawTitle == null) return false;
+        JObject title = rawTitle as JObject ?? JObject.FromObject(rawTitle);
+        return title.Value<bool?>("is_duplicate") == true
+            || !string.IsNullOrEmpty(title.Value<string>("duplicate_key"));
     }
 
     public static List<RecordInfo> ListAll() {
@@ -125,7 +139,7 @@ public static class LocalRecordStore {
         string path = RecordPath(gameId);
         if (!File.Exists(path)) return null;
         try {
-            string json = File.ReadAllText(path, Encoding.UTF8);
+            string json = ReadSharedFile(path);
             return JsonConvert.DeserializeObject<RecordDetail>(json);
         } catch (Exception e) {
             Debug.LogError($"读取本地牌谱失败 {gameId}: {e.Message}");
@@ -213,7 +227,7 @@ public static class LocalRecordStore {
     static List<RecordInfo> LoadFileIndex() {
         if (!File.Exists(IndexPath)) return new List<RecordInfo>();
         try {
-            string json = File.ReadAllText(IndexPath, Encoding.UTF8);
+            string json = ReadSharedFile(IndexPath);
             List<RecordInfo> list = JsonConvert.DeserializeObject<List<RecordInfo>>(json);
             return list ?? new List<RecordInfo>();
         } catch (Exception e) {
@@ -223,7 +237,37 @@ public static class LocalRecordStore {
     }
 
     static void WriteFileIndex(List<RecordInfo> index) {
-        File.WriteAllText(IndexPath, JsonConvert.SerializeObject(index ?? new List<RecordInfo>(), JsonSettings), Utf8);
+        WriteFileAtomically(IndexPath, JsonConvert.SerializeObject(index ?? new List<RecordInfo>(), JsonSettings));
+    }
+
+    static FileStream AcquireFileWriteLock() {
+        string lockPath = Path.Combine(DirectoryPath, ".write.lock");
+        for (int attempt = 0; ; attempt++) {
+            try {
+                return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            } catch (IOException) when (attempt < 200) {
+                System.Threading.Thread.Sleep(10);
+            }
+        }
+    }
+
+    static string ReadSharedFile(string path) {
+        // Readers keep a complete old or new file while another client replaces it.
+        using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+        using (var reader = new StreamReader(stream, Encoding.UTF8)) {
+            return reader.ReadToEnd();
+        }
+    }
+
+    static void WriteFileAtomically(string path, string json) {
+        string temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try {
+            File.WriteAllText(temporary, json, Utf8);
+            if (File.Exists(path)) File.Replace(temporary, path, null);
+            else File.Move(temporary, path);
+        } finally {
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
     }
 
     static void TryDeleteFile(string path) {

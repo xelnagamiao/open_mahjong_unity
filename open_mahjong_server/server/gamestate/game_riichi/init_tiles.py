@@ -30,8 +30,7 @@ def init_riichi_tiles(self):
 
 def _shuffle_and_deal(self) -> None:
     self.round_random_seed = derive_round_seed(self.master_seed, self.round_index)
-    random.seed(self.round_random_seed)
-    random.shuffle(self.tiles_list)
+    random.Random(self.round_random_seed).shuffle(self.tiles_list)
 
     # 每人 13 张
     for player in self.player_list:

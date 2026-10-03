@@ -21,6 +21,7 @@ public static class PlayerInfoStatsFormatter {
     }
 
     public static string[] Modes(string rule, bool ranked) {
+        if(ranked&&RankedRules.Supports(rule))return rule=="sichuan"?new[]{"1/4_rank"}:rule=="riichi"?new[]{"2/4_rank","1/4_rank"}:new[]{"4/4_rank","2/4_rank","1/4_rank"};
         var manifest = RuleRegistry.Resolve(rule, rule);
         if (manifest?.CreateRoomDefaults != null && !manifest.CreateRoomDefaults.ContainsKey(CreateRoomKeys.GameRound))
             return Array.Empty<string>();
@@ -29,17 +30,18 @@ public static class PlayerInfoStatsFormatter {
         var modes = new List<string>();
         foreach (int round in rounds) {
             if (RoundTextDictionary.GetMaxRoundText(rule, round).StartsWith("未知")) continue;
-            modes.Add(round + "/4" + (rule == "guobiao" && ranked ? "_rank" : ""));
+            modes.Add(round + "/4" + (ranked ? "_rank" : ""));
         }
         return modes.ToArray();
     }
 
     public static string ModeCaption(string rule, string mode, bool ranked) {
+        if(ranked&&rule=="sichuan")return "川麻血战 · 四局（Elo 匹配）";
         string match = rule == "riichi" && mode == "2/4" ? "半庄（东南战）"
             : RoundTextDictionary.GetMatchTypeDisplay(rule, mode);
         return RuleName(rule) + match + CategorySuffix(rule, ranked);
     }
-    public static string CategorySuffix(string rule, bool ranked) => rule == "guobiao" ? (ranked ? "（天梯）" : "（自定义）") : "";
+    public static string CategorySuffix(string rule, bool ranked) => RankedRules.Supports(rule) ? (ranked ? "（匹配）" : "（自定义）") : "";
     public static string FanCaption(string rule, bool ranked) => RuleName(rule).Replace("麻将", "") + "番数总计" + CategorySuffix(rule, ranked);
 
     public static PlayerStatsInfo Find(RuleStatsResponse response, string rule, string mode) {

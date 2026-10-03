@@ -87,11 +87,15 @@ public class RoomItem : MonoBehaviour {
 
     public static string BuildSummary(RoomInfo room) {
         string switches = $"  ·  错和{(room.open_cuohe ? "开" : "关")}  ·  提示{(room.tips ? "开" : "关")}";
-        if (room.room_rule == "free") return "自由配牌  ·  " + (room.is_player_set_random_seed ? "复式开启" : "随机牌山") + switches;
+        if (room.is_duplicate)
+            switches += "  ·  " + DuplicateWallDisplay.TypeName(room.duplicate_wall_type);
+        if (room.room_rule == "free") return "自由配牌  ·  " + (room.is_player_set_random_seed ? "场景复现开启" : "随机牌山") + switches;
         string summary = RoundTextDictionary.GetMaxRoundText(room.room_rule, room.game_round)
             + $"  ·  {room.round_timer}/{room.step_timer}秒";
         if (room.room_rule == "guobiao" || RuleRegistry.Resolve(room.room_rule, room.sub_rule)?.ShowsHepaiLimitInRoomList == true)
             summary += $"  ·  {room.hepai_limit}番起和";
+        else if (room.room_rule == "shanghai" && room.sub_rule != "shanghai/qinghunpeng")
+            summary += room.hepai_limit == 1 ? "  ·  一番和开" : "  ·  一番和关";
         else if (room.room_rule == "riichi" && room.red_dora.HasValue)
             summary += room.red_dora.Value ? "  ·  赤宝牌开" : "  ·  赤宝牌关";
         else if (room.room_rule == "sichuan")

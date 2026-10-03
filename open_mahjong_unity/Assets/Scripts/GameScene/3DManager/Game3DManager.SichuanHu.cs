@@ -6,6 +6,21 @@ using UnityEngine;
 /// </summary>
 public partial class Game3DManager {
     private const int SichuanBuhuaCardsPerRow = 4;
+    private static bool IsGuobiaoOrNanqueBloodTable {
+        get {
+            GameRecordManager.ResolveActionRuleContext(null, null, out _, out string subRule);
+            return subRule == GuobiaoGameState.BloodBattleSubRule
+                || subRule == NanqueGameState.BloodBattleSubRule;
+        }
+    }
+
+    public void RestoreBloodBattleWinMarker(string position, int tile, bool zimo, bool multi) {
+        PosPanel3D panel = GetPosPanel(position);
+        if (panel?.buhuaPosition == null) return;
+        ClearSichuanHuBuhuaMarkers(position);
+        GameObject marker = SpawnSichuanBuhuaWinTileObject(panel, position, tile, zimo, multi);
+        if (marker != null) marker.name = "SichuanHu_Restored";
+    }
     public IEnumerator PlaySichuanMidGameHu(HepaiPresentationRequest request) {
         if (request == null || string.IsNullOrEmpty(request.WinnerPosition)) yield break;
         switch (request.WinTileMode) {
@@ -25,13 +40,31 @@ public partial class Game3DManager {
     /// <summary>流局查牌：四家手牌同时展开（和牌者末张为和牌张，先清补花区和牌标记避免重复）。</summary>
     public void RevealSichuanLiujuAllHands(Dictionary<int, int[]> handsByPlayerIndex) {
         if (handsByPlayerIndex == null) return;
+        GameRecordManager record = GameRecordManager.Instance;
+        var seatMap = record != null && record.gameObject.activeInHierarchy
+            ? record.indexToPosition
+            : NormalGameStateManager.Instance.indexToPosition;
         var panels = new List<PosPanel3D>();
+        // 先归还全部旧明牌，再逐家重建，避免尚未清理的另一家手牌占住同牌的四张实体。
         foreach (var kvp in handsByPlayerIndex) {
-            if (!NormalGameStateManager.Instance.indexToPosition.TryGetValue(kvp.Key, out string pos)) continue;
+            if (kvp.Value == null || kvp.Value.Length == 0) continue;
+            if (!seatMap.TryGetValue(kvp.Key, out string pos)) continue;
+            PosPanel3D panel = GetPosPanel(pos);
+            if (panel == null) continue;
+            ForceHandRevealIdle(panel);
+            ClearHandCardsPosition(panel.cardsPosition);
+            // Replay hands occupy a separate face-up row. Return those tiles too
+            // before rebuilding all four hands for the final reveal.
+            ClearHandCardsPosition(panel.ShowCardsPosition);
+            ClearSichuanHuBuhuaMarkers(pos);
+        }
+        foreach (var kvp in handsByPlayerIndex) {
+            if (!seatMap.TryGetValue(kvp.Key, out string pos)) continue;
             int[] tiles = kvp.Value;
             if (tiles == null || tiles.Length == 0) continue;
-            ClearSichuanHuBuhuaMarkers(pos);
-            if (tiles.Length >= 14) {
+            // A completed hand keeps 2 mod 3 concealed tiles, including hands
+            // with melds. Its winning tile may be shared by multiple winners.
+            if (tiles.Length % 3 == 2) {
                 LayRoundEndFaceHandAtPosition(pos, tiles);
             } else {
                 LayRoundEndClosedFaceHandAtPosition(pos, tiles);
@@ -97,7 +130,8 @@ public partial class Game3DManager {
         if (gsm != null && gsm.player_to_info.TryGetValue(playerPosition, out PlayerInfoClass info)) {
             info.hand_tiles_count = Mathf.Max(0, info.hand_tiles_count - 1);
         }
-        GameObject handTile = TryTakeLastHandTileObject(panel.cardsPosition);
+        Transform handPosition = IsRecordShowCardsModeActive() ? panel.ShowCardsPosition : panel.cardsPosition;
+        GameObject handTile = TryTakeLastHandTileObject(handPosition);
         if (handTile == null) {
             Debug.LogWarning($"[SichuanHu] 他家自摸取末张手牌失败 winner={playerPosition}，fallback spawn");
             handTile = SpawnSichuanBuhuaWinTileObject(panel, playerPosition, 0, true, false);
@@ -129,9 +163,10 @@ public partial class Game3DManager {
         int tileId = request.HepaiTile;
         PosPanel3D winnerPanel = GetPosPanel(winnerPos);
         if (winnerPanel == null || winnerPanel.buhuaPosition == null) yield break;
-        GameObject riverTile = DetachRonSourceObject(request.DiscardPlayerPosition, tileId);
+        GameObject riverTile = DetachRonSourceObject(request.DiscardPlayerPosition, tileId, IsGuobiaoOrNanqueBloodTable && request.IsQianggang);
         if (riverTile != null) {
-            TableMirror.Current.SyncRonDiscardRemoved(request.DiscardPlayerPosition, tileId);
+            if (IsGuobiaoOrNanqueBloodTable && request.IsQianggang) SyncGuobiaoBloodRobbedKong(request.DiscardPlayerPosition, tileId);
+            else TableMirror.Current.SyncRonDiscardRemoved(request.DiscardPlayerPosition, tileId);
             yield return CoAnimateTileToBuhua(riverTile, winnerPanel, winnerPos, tileId, faceDown: false, dimmed: false, null);
         } else {
             Debug.LogError($"[SichuanHu] 荣和取河/加杠牌失败，不 spawn 兜底 tileId={tileId} winner={winnerPos} discarder={request.DiscardPlayerPosition}");
@@ -147,7 +182,9 @@ public partial class Game3DManager {
             startRot = Quaternion.identity;
         }
         int spawnId = tileId >= 10 ? tileId : 0;
-        GameObject clone = MahjongObjectPool.Instance.Spawn(spawnId, startPos, startRot);
+        // Several winners share one physical tile. Their display markers must
+        // not consume additional copies from the four-tile physical pool.
+        GameObject clone = MahjongObjectPool.Instance.SpawnPresentationTile(spawnId, startPos, startRot);
         if (clone == null) yield break;
         yield return CoAnimateTileToBuhua(clone, winnerPanel, winnerPos, tileId, faceDown: false, dimmed: true, startPos);
         if (request.RecycleDiscardAfterPresent) {
@@ -171,12 +208,28 @@ public partial class Game3DManager {
             if (obj != null) {
                 ClearLastJiagangIfMatches(request.DiscardPlayerPosition, obj);
                 obj.transform.SetParent(null, worldPositionStays: true);
-                TableMirror.Current.SyncRonDiscardRemoved(request.DiscardPlayerPosition, tileId);
+                if (IsGuobiaoOrNanqueBloodTable) SyncGuobiaoBloodRobbedKong(request.DiscardPlayerPosition, tileId);
+                else TableMirror.Current.SyncRonDiscardRemoved(request.DiscardPlayerPosition, tileId);
                 MahjongObjectPool.Instance.Return(-1, obj);
             }
             return;
         }
         RecycleRiverDiscard(request?.DiscardPlayerPosition, tileId);
+    }
+    private static void SyncGuobiaoBloodRobbedKong(string source, int tile) {
+        PlayerInfoClass player = TableMirror.Current.Info(source);
+        if (player?.combination_tiles == null || player.combination_masks == null) return;
+        for (int i = 0; i < player.combination_tiles.Count; i++) {
+            if (player.combination_tiles[i] != $"g{tile}") continue;
+            var mask = new List<int>(player.combination_masks[i]);
+            for (int j = 0; j < mask.Count; j += 2) {
+                if (mask[j] != 3) continue;
+                mask.RemoveRange(j, 2);
+                player.combination_masks[i] = mask.ToArray();
+                player.combination_tiles[i] = $"k{tile}";
+                break;
+            }
+        }
     }
     private void PrepareTileForBuhuaMove(GameObject cardObj, Transform buhuaParent, string playerPosition) {
         if (cardObj == null) return;
@@ -190,7 +243,9 @@ public partial class Game3DManager {
         GameObject cardObj, PosPanel3D panel, string playerPosition,
         int tileId, bool faceDown, bool dimmed, Vector3? explicitStartPos) {
         if (cardObj == null || panel?.buhuaPosition == null) yield break;
-        ComputeSichuanBuhuaSlot(panel.buhuaPosition, playerPosition, out Vector3 endPos, out _);
+        // 自摸牌在起飞前已挂到补花区，不能把它自身再算作一个已占用牌位。
+        int slot = panel.buhuaPosition.childCount - (cardObj.transform.parent == panel.buhuaPosition ? 1 : 0);
+        ComputeSichuanBuhuaSlot(panel.buhuaPosition, playerPosition, out Vector3 endPos, out _, slot);
         Quaternion finalRot = faceDown
             ? GetMeldVerticalWorldRotation(playerPosition)
             : ComputeSichuanBuhuaSlotRotation(panel.buhuaPosition, playerPosition);
@@ -251,8 +306,8 @@ public partial class Game3DManager {
         }
         return null;
     }
-    private GameObject DetachRonSourceObject(string discarderPos, int expectedTileId) {
-        GameObject obj = ResolveLastDiscardObject(discarderPos, expectedTileId);
+    private GameObject DetachRonSourceObject(string discarderPos, int expectedTileId, bool preferAddedKong = false) {
+        GameObject obj = preferAddedKong ? null : ResolveLastDiscardObject(discarderPos, expectedTileId);
         bool fromRegisteredRiver = obj != null;
         if (obj == null) {
             obj = TryResolveJiagangSourceObject(discarderPos, expectedTileId);
@@ -289,7 +344,11 @@ public partial class Game3DManager {
             }
         } else {
             int spawnId = tileId >= 10 ? tileId : 0;
-            cardObj = MahjongObjectPool.Instance.Spawn(spawnId, pos, rotation);
+            // Dimmed multi-ron markers are copies of one shared winning tile,
+            // also when a replay jump or reconnect restores them directly.
+            cardObj = dimmed
+                ? MahjongObjectPool.Instance.SpawnPresentationTile(spawnId, pos, rotation)
+                : MahjongObjectPool.Instance.Spawn(spawnId, pos, rotation);
         }
         if (cardObj == null) return null;
         cardObj.transform.SetParent(panel.buhuaPosition, worldPositionStays: true);
@@ -301,7 +360,7 @@ public partial class Game3DManager {
         }
         return cardObj;
     }
-    private void ComputeSichuanBuhuaSlot(Transform target, string playerPosition, out Vector3 pos, out Quaternion rotation) {
+    private void ComputeSichuanBuhuaSlot(Transform target, string playerPosition, out Vector3 pos, out Quaternion rotation, int? slot = null) {
         rotation = ComputeSichuanBuhuaSlotRotation(target, playerPosition);
         Vector3 widthDir = Vector3.zero;
         Vector3 heightDir = Vector3.zero;
@@ -318,7 +377,7 @@ public partial class Game3DManager {
             widthDir = FrontDirection;
             heightDir = RightDirection;
         }
-        int index = target.childCount;
+        int index = slot ?? target.childCount;
         int row = index / SichuanBuhuaCardsPerRow;
         int col = index % SichuanBuhuaCardsPerRow;
         float colOffset = ComputeRowCenterOffset(target, row, col, SichuanBuhuaCardsPerRow, false);

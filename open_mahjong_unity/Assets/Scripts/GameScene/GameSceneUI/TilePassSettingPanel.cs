@@ -202,6 +202,10 @@ public class TilePassSettingPanel : MonoBehaviour {
             }
 
             int tileId = tileIds[i];
+            StaticCard card = cell.GetComponentInChildren<StaticCard>(true);
+            if (card != null) {
+                card.SetTableFaceImage(tileId);
+            }
             toggle.onValueChanged.RemoveAllListeners();
             tileToggles[tileId] = toggle;
             toggle.onValueChanged.AddListener(isOn => OnTileToggleChanged(tileId, isOn));

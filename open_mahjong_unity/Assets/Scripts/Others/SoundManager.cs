@@ -48,10 +48,17 @@ public class SoundManager : MonoBehaviour {
     }
 
     // 播放操作音效的方法
-    public void PlayActionSound(string playerPosition, string actionType) {
+    public void PlayActionSound(string playerPosition, string actionType, int? voiceIdOverride = null) {
+        // Draw/discard and other unvoiced actions have no voice mapping; they are not missing clips.
+        // Resolve the rule hook first so custom rules can still provide a voice for any action.
+        string voiceKey = ResolveActionVoiceKey(actionType);
+        if (voiceKey == null) return;
+
         // 根据玩家位置获取对应玩家的音色ID
         int voiceId = 1; // 默认音色ID
-        if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.player_to_info.ContainsKey(playerPosition)) {
+        if (voiceIdOverride.HasValue) {
+            voiceId = voiceIdOverride.Value;
+        } else if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.player_to_info.ContainsKey(playerPosition)) {
             voiceId = NormalGameStateManager.Instance.player_to_info[playerPosition].voice_used;
         } else {
             // 如果无法从NormalGameStateManager获取，则使用用户设置的音色ID作为后备
@@ -61,11 +68,6 @@ public class SoundManager : MonoBehaviour {
         string voicePath = voiceIdToPath.ContainsKey(voiceId) ? voiceIdToPath[voiceId] : voiceIdToPath[1];
         string audioTarget;
 
-        string voiceKey = ResolveActionVoiceKey(actionType);
-        if (voiceKey == null) {
-            Debug.LogWarning($"未找到音效文件: {actionType}");
-            return;
-        }
         audioTarget = $"Sound/{voicePath}/{voiceKey}";
         AudioClip soundToPlay = LoadVoiceClipWithFallback(voicePath, voiceKey, out string loadedTarget);
 

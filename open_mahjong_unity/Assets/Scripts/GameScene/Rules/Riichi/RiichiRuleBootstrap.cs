@@ -11,6 +11,7 @@ internal static class RiichiRuleBootstrap {
             LobbyOrder = 1,
             LobbyName = "立直麻将",
             LobbySubRules = RiichiLobby.SubRules,
+            LobbyHasDetailedConfig = true,
             CreateRoomDefaults = RiichiLobby.Defaults(),
             RecordTracksRiichiField = true,
             PeekAnkan = true,

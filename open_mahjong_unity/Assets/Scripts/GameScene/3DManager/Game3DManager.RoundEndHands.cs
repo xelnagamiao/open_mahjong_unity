@@ -91,6 +91,16 @@ public partial class Game3DManager {
     public IEnumerator PlayRecordHepaiReveal(HepaiPresentationRequest request) {
         if (request == null) yield break;
         if (request.HepaiPlayerHand == null || request.HepaiPlayerHand.Length == 0) yield break;
+        if (request.RestoreRecordHandFromSnapshot) {
+            // The rule's replay reducer has removed the uncommitted added tile
+            // from its owner and appended it to the winner. Rebuild both sides;
+            // hasRonWinningTile pins the winner's last tile in expanded mode.
+            var recorder = GameRecordManager.Instance;
+            if (recorder != null && recorder.recordPlayer_to_info.TryGetValue("self", out var self)) {
+                GameCanvas.Instance.ChangeHandCards("InitHandCardsFromRecord", 0, self.tileList.ToArray(), null);
+                InitHandCardsFromRecordImmediate();
+            }
+        }
         ResetHandRevealAnimators();
         bool isSelfWinner = request.WinnerPosition == "self";
         // 自家和牌：无论是否展开明牌，均与对局相同的全套倒牌演出
@@ -114,6 +124,9 @@ public partial class Game3DManager {
         if (request == null || !request.IsRecordShowCardsExpanded) return false;
         if (request.WinnerPosition == "self") return false;
         if (request.IsCuoheRon) return false;
+        // A rule can use an instant reveal when no river/committed kong source exists.
+        // Keep the existing TsumoTravel draw-slot path for ordinary expanded replay.
+        if (request.WinTileMode == HepaiWinTilePresentMode.RonInstantThenPause) return false;
         return HepaiRevealDirector.RonWinTileTravelsFromRiver(request.RecordRule);
     }
     /// <summary>
@@ -340,7 +353,7 @@ public partial class Game3DManager {
         for (int i = 0; i < closed.Length; i++) {
             Set3DTile(closed[i], target, "Record", playerPosition);
         }
-        Set3DTile(last, target, "Record", playerPosition);
+        Set3DTile(last, target, "Record", playerPosition, usePresentationCopy: true);
     }
     private void LayRoundEndClosedFaceHandAtPosition(string playerPosition, IList<int> handTiles) {
         PosPanel3D panel = GetPosPanel(playerPosition);

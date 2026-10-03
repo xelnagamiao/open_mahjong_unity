@@ -7,7 +7,7 @@ using Newtonsoft.Json;
 /// <summary>
 /// 房间网络管理器 - 处理所有房间相关的网络通信
 /// </summary>
-public class RoomNetworkManager : MonoBehaviour {
+public partial class RoomNetworkManager : MonoBehaviour {
 
     public static RoomNetworkManager Instance { get; private set; }
 
@@ -16,6 +16,8 @@ public class RoomNetworkManager : MonoBehaviour {
     /// 为空表示未请求进入，大厅中收到的滞后 refresh_room_info 应忽略，避免错误跳进房间页。
     /// </summary>
     private string _pendingEnterRoomId;
+    private string _roomInstanceId;
+    private string _leavingRoomId;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -122,11 +124,18 @@ public class RoomNetworkManager : MonoBehaviour {
             || (!string.IsNullOrEmpty(_pendingEnterRoomId) && _pendingEnterRoomId == roomId);
         bool reconnectLobbySync = AutoReconnect.IsActive && !AutoReconnect.ExpectGameRestore;
 
-        if (!onRoomPage && !pendingOk && !reconnectLobbySync) {
+        if (roomId == _leavingRoomId) return;
+        bool currentRoom = UserDataManager.Instance.RoomId == roomId;
+        if (!pendingOk && !reconnectLobbySync && !currentRoom) return;
+        if (currentRoom && !pendingOk && !string.IsNullOrEmpty(_roomInstanceId)
+            && !string.IsNullOrEmpty(response.room_info.instance_id)
+            && _roomInstanceId != response.room_info.instance_id) return;
+        if (!onRoomPage && !pendingOk && !reconnectLobbySync && !currentRoom) {
             Debug.Log("忽略 refresh_room_info：未处于房间页且无匹配的待进入请求");
             return;
         }
 
+        _roomInstanceId = response.room_info.instance_id;
         UserDataManager.Instance.SetRoomId(roomId);
         if (ShouldNavigateToRoomOnRefresh(roomId)) {
             WindowsManager.Instance.CaptureRoomReturnWindow();
@@ -209,6 +218,16 @@ public class RoomNetworkManager : MonoBehaviour {
     private void HandleLeaveRoomResponse(Response response) {
         Debug.Log($"离开房间响应: {response.success}, {response.message}");
         if (response.success) {
+            string current = UserDataManager.Instance.RoomId;
+            if (!string.IsNullOrEmpty(response.room_id) && response.room_id != current
+                && response.room_id != _leavingRoomId) return;
+            if (response.room_id == current && !string.IsNullOrEmpty(_roomInstanceId)
+                && !string.IsNullOrEmpty(response.room_instance_id)
+                && _roomInstanceId != response.room_instance_id) return;
+            // An old leave acknowledgment must not clear a newly joined lobby.
+            if (current != UserDataManager.ROOM_ID_NONE && !string.IsNullOrEmpty(response.room_id)
+                && current != response.room_id) return;
+            _leavingRoomId = null;
             ApplyLeftRoomState();
         }
     }
@@ -219,7 +238,9 @@ public class RoomNetworkManager : MonoBehaviour {
     public void ApplyLeftRoomState(bool silent = false) {
         ClearPendingRoomEntry();
         ClearStaleLobbyState();
-        WindowsManager.Instance.ReturnAfterLeavingRoom();
+        if (WindowsManager.Instance.GetCurrentWindow() == "room") {
+            WindowsManager.Instance.ReturnAfterLeavingRoom();
+        }
         // 不要在这里切 createRoom：房间根还在淡出时会把「退出」画成创建房表单。
         // 下次主动点顶栏「房间」时，SwitchWindow 会按 RoomId 空自动打开创建房。
         GetRoomList(showTipOnSuccess: false);
@@ -230,12 +251,14 @@ public class RoomNetworkManager : MonoBehaviour {
 
     /// <summary>仅清理房间 ID 与 RoomPanel，不切换窗口（对局恢复期间用）。</summary>
     public void ClearStaleLobbyState() {
+        _roomInstanceId = null;
         UserDataManager.Instance.SetRoomId("");
         RoomPanel.Instance?.ClearRoomState();
     }
 
     /// <summary>登出/重登：清掉待进入房间与大厅房间号缓存，不切窗口、不发退房请求。</summary>
     public void ResetForSessionEnd() {
+        _leavingRoomId = null;
         ClearPendingRoomEntry();
         ClearStaleLobbyState();
     }
@@ -248,11 +271,12 @@ public class RoomNetworkManager : MonoBehaviour {
 
     private bool TryBeginCreateRequest() {
         if (BlockRoomEntryRequest()) return false;
+        _leavingRoomId = null;
         _pendingEnterRoomId = "*";
         return true;
     }
 
-    /// <summary>解析复式主种子；未开启复式时返回空字符串。</summary>
+    /// <summary>解析场景复现主种子；未开启场景复现时返回空字符串。</summary>
     private static bool TryResolveRandomSeed(string raw, out string seedHex, out string error) {
         seedHex = "";
         error = null;
@@ -277,14 +301,20 @@ public class RoomNetworkManager : MonoBehaviour {
             var request = new CreateGBRoomRequest {
                 type = "room/create_GB_room",
                 rule = config.Rule,
+                claim_protection = config.ClaimProtection,
                 sub_rule = config.SubRule ?? "guobiao/standard",
                 roomname = config.RoomName,
                 gameround = config.GameRound,
                 roundTimerValue = config.RoundTimer,
                 stepTimerValue = config.StepTimer,
                 tips = config.Tips,
+                count_tips = config.CountTips,
+                pointer_tips = config.PointerTips,
                 password = config.Password,
                 random_seed = randomSeed,
+                duplicate_key = config.DuplicateKey,
+                use_flowers = config.SubRule != "guobiao/lanshi" && config.UseFlowers,
+                tian_di_ren_he = (config.SubRule == "guobiao/standard" || config.SubRule == GuobiaoGameState.BloodBattleSubRule) && config.TianDiRenHe,
                 open_cuohe = config.CuoHe,
                 cuohe_type = config.CuoheType,
                 hepai_limit = config.HepaiLimit,
@@ -316,12 +346,15 @@ public class RoomNetworkManager : MonoBehaviour {
             var request = new CreateGBRoomRequest {
                 type = "room/create_Qingque_room",
                 rule = config.Rule,
+                claim_protection = config.ClaimProtection,
                 sub_rule = config.SubRule ?? "qingque/standard",
                 roomname = config.RoomName,
                 gameround = config.GameRound,
                 roundTimerValue = config.RoundTimer,
                 stepTimerValue = config.StepTimer,
                 tips = config.Tips,
+                count_tips = config.CountTips,
+                pointer_tips = config.PointerTips,
                 password = config.Password,
                 random_seed = randomSeed,
                 open_cuohe = false,
@@ -336,6 +369,27 @@ public class RoomNetworkManager : MonoBehaviour {
         } catch (Exception e) {
             CancelPendingRoomEntry();
             Debug.LogError($"创建房间失败: {e.Message}");
+        }
+    }
+
+    /// <summary>创建指定子规则的香港麻将房间。</summary>
+    public async void Create_HongKong_Room(HongKong_Create_RoomConfig config) {
+        if (!TryBeginCreateRequest()) return;
+        try {
+            if (!TryResolveRandomSeed(config.RandomSeed, out string seed, out string error)) {
+                CancelPendingRoomEntry(); NotificationManager.Instance.ShowTip("create_room",false,error); return;
+            }
+            var request = new {
+                type="room/create_HongKong_room",rule="hongkong",sub_rule=config.SubRule??HongKongGameState.Qingzhang,
+                roomname=config.RoomName,gameround=config.GameRound,password=config.Password,random_seed=seed,
+                roundTimerValue=config.RoundTimer,stepTimerValue=config.StepTimer,tips=config.Tips,
+                count_tips=config.CountTips,pointer_tips=config.PointerTips,tourist_limit=config.TouristLimit,
+                allow_spectator=config.AllowSpectator,event_id=string.IsNullOrEmpty(config.EventId)?null:config.EventId,
+                detailed_config=config.NormalizedConfig(),
+            };
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            CancelPendingRoomEntry(); Debug.LogError($"创建香港麻将房间失败: {e.Message}");
         }
     }
 
@@ -358,6 +412,8 @@ public class RoomNetworkManager : MonoBehaviour {
                 roundTimerValue = config.RoundTimer,
                 stepTimerValue = config.StepTimer,
                 tips = config.Tips,
+                count_tips = config.CountTips,
+                pointer_tips = config.PointerTips,
                 password = config.Password,
                 random_seed = randomSeed,
                 tourist_limit = config.TouristLimit,
@@ -375,7 +431,7 @@ public class RoomNetworkManager : MonoBehaviour {
         }
     }
 
-    /// <summary>Create a fixed first-win Jiandan room using the existing room DTO shape.</summary>
+    /// <summary>Create a Zhongyong family room using the shared no-flower room DTO.</summary>
     public async void Create_Jiandan_Room(Jiandan_Create_RoomConfig config) {
         if (!TryBeginCreateRequest()) return;
         try {
@@ -386,14 +442,16 @@ public class RoomNetworkManager : MonoBehaviour {
             }
 
             var request = new CreateGBRoomRequest {
-                type = "room/create_Jiandan_room",
-                rule = "jiandan",
-                sub_rule = config.SubRule ?? "jiandan/standard",
+                type = "room/create_Zhongyong_room",
+                rule = "zhongyong",
+                sub_rule = config.SubRule ?? "zhongyong/standard",
                 roomname = config.RoomName,
                 gameround = config.GameRound,
                 roundTimerValue = config.RoundTimer,
                 stepTimerValue = config.StepTimer,
                 tips = config.Tips,
+                count_tips = config.CountTips,
+                pointer_tips = config.PointerTips,
                 password = config.Password,
                 random_seed = randomSeed,
                 open_cuohe = false,
@@ -429,6 +487,8 @@ public class RoomNetworkManager : MonoBehaviour {
                 roundTimerValue = config.RoundTimer,
                 stepTimerValue = config.StepTimer,
                 tips = config.Tips,
+                count_tips = config.CountTips,
+                pointer_tips = config.PointerTips,
                 password = config.Password,
                 random_seed = randomSeed,
                 open_cuohe = false,
@@ -467,6 +527,8 @@ public class RoomNetworkManager : MonoBehaviour {
                 roundTimerValue = config.RoundTimer,
                 stepTimerValue = config.StepTimer,
                 tips = config.Tips,
+                count_tips = config.CountTips,
+                pointer_tips = config.PointerTips,
                 password = config.Password,
                 random_seed = randomSeed,
                 open_cuohe = false,
@@ -476,6 +538,114 @@ public class RoomNetworkManager : MonoBehaviour {
                 event_id = string.IsNullOrEmpty(config.EventId) ? null : config.EventId
             };
             Debug.Log($"发送创建古典麻将房间消息: {config.RoomName}, {config.GameRound}, {config.SubRule}, {config.RoundTimer}, {config.StepTimer}");
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            CancelPendingRoomEntry();
+            Debug.LogError($"创建房间失败: {e.Message}");
+        }
+    }
+
+    public async void Create_Tuidao_Room(Qingque_Create_RoomConfig config) {
+        if (!TryBeginCreateRequest()) return;
+        try {
+            if (!TryResolveRandomSeed(config.RandomSeed, out string randomSeed, out string seedError)) {
+                CancelPendingRoomEntry();
+                NotificationManager.Instance.ShowTip("create_room", false, seedError);
+                return;
+            }
+
+            var request = new CreateGBRoomRequest {
+                type = "room/create_Guangdong_room",
+                rule = "guangdong",
+                sub_rule = TuidaoRuleBootstrap.SubRule,
+                roomname = config.RoomName,
+                gameround = config.GameRound,
+                roundTimerValue = config.RoundTimer,
+                stepTimerValue = config.StepTimer,
+                tips = config.Tips,
+                count_tips = config.CountTips,
+                pointer_tips = config.PointerTips,
+                password = config.Password,
+                random_seed = randomSeed,
+                open_cuohe = false,
+                hepai_limit = 0,
+                tourist_limit = config.TouristLimit,
+                allow_spectator = config.AllowSpectator,
+                event_id = string.IsNullOrEmpty(config.EventId) ? null : config.EventId
+            };
+            Debug.Log($"发送创建推倒和房间消息: {config.RoomName}, {config.GameRound}, {config.SubRule}, {config.RoundTimer}, {config.StepTimer}");
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            CancelPendingRoomEntry();
+            Debug.LogError($"创建房间失败: {e.Message}");
+        }
+    }
+
+    public async void Create_Shanghai_Room(Qingque_Create_RoomConfig config, bool oneFanMinimum = false) {
+        if (!TryBeginCreateRequest()) return;
+        try {
+            if (!TryResolveRandomSeed(config.RandomSeed, out string randomSeed, out string seedError)) {
+                CancelPendingRoomEntry();
+                NotificationManager.Instance.ShowTip("create_room", false, seedError);
+                return;
+            }
+
+            var request = new CreateGBRoomRequest {
+                type = "room/create_Shanghai_room",
+                rule = config.Rule,
+                sub_rule = config.SubRule ?? "shanghai/qiaoma",
+                roomname = config.RoomName,
+                gameround = config.GameRound,
+                roundTimerValue = config.RoundTimer,
+                stepTimerValue = config.StepTimer,
+                tips = config.Tips,
+                count_tips = config.CountTips,
+                pointer_tips = config.PointerTips,
+                password = config.Password,
+                random_seed = randomSeed,
+                open_cuohe = false,
+                hepai_limit = (config.SubRule ?? "shanghai/qiaoma") == "shanghai/qiaoma" && oneFanMinimum ? 1 : 0,
+                tourist_limit = config.TouristLimit,
+                allow_spectator = config.AllowSpectator,
+                event_id = string.IsNullOrEmpty(config.EventId) ? null : config.EventId
+            };
+            Debug.Log($"发送创建上海敲麻麻将房间消息: {config.RoomName}, {config.GameRound}, {config.SubRule}, {config.RoundTimer}, {config.StepTimer}");
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            CancelPendingRoomEntry();
+            Debug.LogError($"创建房间失败: {e.Message}");
+        }
+    }
+
+    public async void Create_Shanxi_Room(Qingque_Create_RoomConfig config) {
+        if (!TryBeginCreateRequest()) return;
+        try {
+            if (!TryResolveRandomSeed(config.RandomSeed, out string randomSeed, out string seedError)) {
+                CancelPendingRoomEntry();
+                NotificationManager.Instance.ShowTip("create_room", false, seedError);
+                return;
+            }
+
+            var request = new CreateGBRoomRequest {
+                type = "room/create_Shanxi_room",
+                rule = config.Rule,
+                sub_rule = config.SubRule ?? "shanxi/mil2023",
+                roomname = config.RoomName,
+                gameround = config.GameRound,
+                roundTimerValue = config.RoundTimer,
+                stepTimerValue = config.StepTimer,
+                tips = config.Tips,
+                count_tips = config.CountTips,
+                pointer_tips = config.PointerTips,
+                password = config.Password,
+                random_seed = randomSeed,
+                open_cuohe = false,
+                hepai_limit = 0,
+                tourist_limit = config.TouristLimit,
+                allow_spectator = config.AllowSpectator,
+                event_id = string.IsNullOrEmpty(config.EventId) ? null : config.EventId
+            };
+            Debug.Log($"发送创建山西麻将房间消息: {config.RoomName}, {config.GameRound}, {config.SubRule}, {config.RoundTimer}, {config.StepTimer}");
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             CancelPendingRoomEntry();
@@ -498,18 +668,22 @@ public class RoomNetworkManager : MonoBehaviour {
             var request = new CreateSichuanRoomRequest {
                 type = "room/create_Sichuan_room",
                 rule = config.Rule,
+                claim_protection = config.ClaimProtection,
                 sub_rule = config.SubRule ?? "sichuan/standard",
                 roomname = config.RoomName,
                 gameround = config.GameRound,
                 roundTimerValue = config.RoundTimer,
                 stepTimerValue = config.StepTimer,
                 tips = config.Tips,
+                count_tips = config.CountTips,
+                pointer_tips = config.PointerTips,
                 password = config.Password,
                 random_seed = randomSeed,
                 tourist_limit = config.TouristLimit,
                 allow_spectator = config.AllowSpectator,
                 tactical_call = config.TacticalCall,
                 blood_battle = config.BloodBattle,
+                hepai_limit = config.HepaiLimit,
                 event_id = string.IsNullOrEmpty(config.EventId) ? null : config.EventId
             };
             Debug.Log($"发送创建四川麻将房间消息: {config.RoomName}, {config.GameRound}, {config.SubRule}, blood_battle={config.BloodBattle}, tactical_call={config.TacticalCall}");
@@ -535,12 +709,15 @@ public class RoomNetworkManager : MonoBehaviour {
             var request = new CreateChangshaRoomRequest {
                 type = "room/create_Changsha_room",
                 rule = config.Rule,
+                claim_protection = config.ClaimProtection,
                 sub_rule = config.SubRule ?? "changsha/classic_double_bird",
                 roomname = config.RoomName,
                 gameround = config.GameRound,
                 roundTimerValue = config.RoundTimer,
                 stepTimerValue = config.StepTimer,
                 tips = config.Tips,
+                count_tips = config.CountTips,
+                pointer_tips = config.PointerTips,
                 password = config.Password,
                 random_seed = randomSeed,
                 tourist_limit = config.TouristLimit,
@@ -580,19 +757,24 @@ public class RoomNetworkManager : MonoBehaviour {
             }
 
             var request = new CreateRiichiRoomRequest {
+                detailed_config = config.DetailedConfig,
                 type = "room/create_Riichi_room",
                 rule = config.Rule,
+                claim_protection = config.ClaimProtection,
                 sub_rule = config.SubRule ?? "riichi/standard",
                 roomname = config.RoomName,
                 gameround = config.GameRound,
                 roundTimerValue = config.RoundTimer,
                 stepTimerValue = config.StepTimer,
                 tips = config.Tips,
+                count_tips = config.CountTips,
+                pointer_tips = config.PointerTips,
                 password = config.Password,
                 random_seed = randomSeed,
                 open_cuohe = config.CuoHe,
                 hepai_limit = config.HepaiLimit,
                 red_dora = config.RedDora,
+                starting_score = config.StartingScore,
                 allow_kuikae = config.AllowKuikae,
                 open_xiru = config.OpenXiru,
                 open_tobi = config.OpenTobi,
@@ -630,6 +812,7 @@ public class RoomNetworkManager : MonoBehaviour {
     public async void SyncMyRoom() {
         try {
             // 重连同步：接受随后任意权威 refresh_room_info
+            _leavingRoomId = null;
             _pendingEnterRoomId = "*";
             var request = new SyncMyRoomRequest { type = "room/sync_my_room" };
             Debug.Log("发送房间同步请求");
@@ -650,6 +833,7 @@ public class RoomNetworkManager : MonoBehaviour {
             NotificationManager.Instance.ShowTip("join_room", false, "请先退出当前房间");
             return;
         }
+        _leavingRoomId = null;
         _pendingEnterRoomId = roomId;
         var request = new JoinRoomRequest {
             type = "room/join_room",
@@ -670,6 +854,7 @@ public class RoomNetworkManager : MonoBehaviour {
     /// 离开房间
     /// </summary>
     public async void LeaveRoom(string roomId) {
+        _leavingRoomId = roomId;
         ClearPendingRoomEntry();
         // 先清本地房间 ID，避免离开完成前的滞后 refresh 或误点加入把用户带回房间页
         if (!string.IsNullOrEmpty(roomId) && roomId != UserDataManager.ROOM_ID_NONE) {
@@ -696,32 +881,54 @@ public class RoomNetworkManager : MonoBehaviour {
     /// <summary>
     /// 添加机器人到房间
     /// </summary>
-    public async void AddBotToRoom(string roomId) {
+    public async void AddBotToRoom(string roomId, int? seatIndex = null) {
         var request = new AddBotToRoomRequest {
             type = "room/add_bot",
-            room_id = roomId
+            room_id = roomId,
+            seat_index = seatIndex
         };
         await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+    }
+
+    public async void SetClaimProtection(string roomId, bool enabled) {
+        try {
+            var request = new { type = "room/set_claim_protection", room_id = roomId, claim_protection = enabled };
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception) {
+            NotificationManager.Instance.ShowTip("set_claim_protection", false, "调整失败，请检查连接后重试");
+        }
+    }
+
+    public async void SetBotSpeed(string roomId, string speed) {
+        try {
+            var request = new { type = "room/set_bot_speed", room_id = roomId, bot_speed = speed };
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (System.Exception exception) {
+            Debug.LogError($"调整机器人速度失败: {exception.Message}");
+            NotificationManager.Instance.ShowTip("set_bot_speed", false, "调整失败，请检查连接后重试");
+        }
     }
 
     /// <summary>
     /// 添加牌效机器人到房间
     /// </summary>
-    public async void AddSmartBotToRoom(string roomId) {
+    public async void AddSmartBotToRoom(string roomId, int? seatIndex = null) {
         var request = new AddBotToRoomRequest {
             type = "room/add_smart_bot",
-            room_id = roomId
+            room_id = roomId,
+            seat_index = seatIndex
         };
         await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
     }
 
     /// <summary>
-    /// 添加高性能罗伯特（user_id=3）到国标标准或虹雀房间
+    /// 添加高性能罗伯特（user_id=3）到国标标准、国标血战到底或虹雀房间
     /// </summary>
-    public async void AddGuobiaoHeuristicBotToRoom(string roomId) {
+    public async void AddGuobiaoHeuristicBotToRoom(string roomId, int? seatIndex = null) {
         var request = new AddBotToRoomRequest {
             type = "room/add_guobiao_heuristic_bot",
-            room_id = roomId
+            room_id = roomId,
+            seat_index = seatIndex
         };
         await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
     }
@@ -746,12 +953,13 @@ public class RoomNetworkManager : MonoBehaviour {
     /// <summary>
     /// 从房间移除玩家（仅房主可用）
     /// </summary>
-    public async void KickPlayerFromRoom(string roomId, int targetUserId) {
+    public async void KickPlayerFromRoom(string roomId, int targetUserId, int? seatIndex = null) {
         try {
             var request = new KickPlayerFromRoomRequest {
                 type = "room/kick_player",
                 room_id = roomId,
-                target_user_id = targetUserId
+                target_user_id = targetUserId,
+                seat_index = seatIndex
             };
             Debug.Log($"发送移除玩家消息: roomId={roomId}, targetUserId={targetUserId}");
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
@@ -778,6 +986,7 @@ public class RoomNetworkManager : MonoBehaviour {
                 password = config.Password,
                 random_seed = randomSeed,
                 tourist_limit = config.TouristLimit,
+                pointer_tips = config.PointerTips,
                 wall_wan = config.WallWan,
                 wall_tong = config.WallTong,
                 wall_suo = config.WallSuo,

@@ -72,6 +72,7 @@ public class ActionButton : MonoBehaviour {
                     result.Add((action, i, pairs[i]));
                 }
             } else {
+                if (WenzhouGameState.Active != null) continue;
                 int[] fallback;
                 switch (action){
                     case "chi_left": fallback = new int[] { lastCutTile - 2, lastCutTile - 1 }; break;
@@ -86,6 +87,11 @@ public class ActionButton : MonoBehaviour {
 
     // 按钮点击事件
     void OnClick(){
+        // 自由模式的吃碰杠等只是喊话，不展开规则对局的候选牌。
+        if (FreeGameState.Active != null && actionTypeList.Count == 1) {
+            GameCanvas.Instance.ChooseAction(actionTypeList[0], 0);
+            return;
+        }
         // 规则模块登记为"点击后展开"的词（虹雀 hongque_group:*）：子按钮内容由词表给出，这里只负责摆
         if (actionTypeList.Count == 1
             && ActionWords.TryExpand(actionTypeList[0], out IReadOnlyList<ActionCandidate> moduleCandidates)) {
@@ -205,14 +211,18 @@ public class ActionButton : MonoBehaviour {
             return;
         }
         GameCanvas.Instance.ActionBlockContainerState = groupWord;
+        if (candidates.Any(c => !string.IsNullOrEmpty(c.Caption))) {
+            ActionCandidatePager.Build(ActionBlockContenter, candidates, ActionBlockPrefab, StaticCardPrefab, textObject);
+            return;
+        }
         foreach (ActionCandidate candidate in candidates) {
             if (string.IsNullOrEmpty(candidate.ActionType)) continue;
             GameObject blockObject = Instantiate(ActionBlockPrefab, ActionBlockContenter);
             ActionBlock block = blockObject.GetComponent<ActionBlock>();
             block.actionType = candidate.ActionType;
+            block.targetTile = candidate.TargetTile;
             foreach (int tileId in candidate.TileIds) {
-                GameObject cardObject = Instantiate(StaticCardPrefab, blockObject.transform);
-                cardObject.GetComponent<StaticCard>().SetTileOnlyImage(tileId);
+                block.AddTile(StaticCardPrefab, tileId);
             }
         }
         Canvas.ForceUpdateCanvases();
@@ -230,6 +240,7 @@ public class ActionButton : MonoBehaviour {
             processedNorms.Add(norm);
             if (excludedSuit >= 1 && excludedSuit <= 3 && norm / 10 == excludedSuit) continue;
             if (GameRecordMeldCodec.CountNormalizedTiles(handTiles, norm) != 4) continue;
+            if (!TurnClock.Current.IsKongCandidate("angang", norm)) continue;
             var actualTiles = handTiles.Where(t => RiichiTileUtil.Normalize(t) == norm).ToList();
             options.Add((norm, actualTiles));
         }
@@ -238,12 +249,14 @@ public class ActionButton : MonoBehaviour {
 
     private static List<(int targetTile, List<int> displayTiles)> CollectJiagangOptions(
         List<int> handTiles, List<string> combinations) {
+        if (WenzhouGameState.Active != null) return WenzhouGameState.CollectJiagangOptions(handTiles, combinations);
         var options = new List<(int, List<int>)>();
         var processedNorms = new HashSet<int>();
         foreach (int tileID in handTiles) {
             int norm = RiichiTileUtil.Normalize(tileID);
             if (processedNorms.Contains(norm)) continue;
             if (!combinations.Contains($"k{norm}")) continue;
+            if (!TurnClock.Current.IsKongCandidate("jiagang", norm)) continue;
             processedNorms.Add(norm);
             options.Add((tileID, new List<int> { tileID, tileID, tileID, tileID }));
         }
@@ -252,6 +265,7 @@ public class ActionButton : MonoBehaviour {
 
     private static List<(int targetTile, List<int> displayTiles)> CollectBuzhangOptions(
         List<int> handTiles, List<string> combinations) {
+        if (WenzhouGameState.Active != null) return WenzhouGameState.CollectJiagangOptions(handTiles, combinations);
         var options = new List<(int, List<int>)>();
         var processedNorms = new HashSet<int>();
         foreach (var option in CollectJiagangOptions(handTiles, combinations)) {
@@ -279,8 +293,7 @@ public class ActionButton : MonoBehaviour {
         }
 
         foreach (int tile in TipsCardsList){
-            GameObject cardObj = Instantiate(StaticCardPrefab, containerBlockObj.transform);
-            cardObj.GetComponent<StaticCard>().SetTileOnlyImage(tile);
+            blockClick.AddTile(StaticCardPrefab, tile);
         }
 
         Canvas.ForceUpdateCanvases();
@@ -298,8 +311,7 @@ public class ActionButton : MonoBehaviour {
         System.Array.Copy(pair, sorted, pair.Length);
         System.Array.Sort(sorted, TileIdOrder.Comparer);
         foreach (int tile in sorted){
-            GameObject cardObj = Instantiate(StaticCardPrefab, containerBlockObj.transform);
-            cardObj.GetComponent<StaticCard>().SetTileOnlyImage(tile);
+            blockClick.AddTile(StaticCardPrefab, tile);
         }
 
         Canvas.ForceUpdateCanvases();

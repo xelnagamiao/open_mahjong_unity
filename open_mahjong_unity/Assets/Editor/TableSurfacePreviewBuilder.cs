@@ -16,7 +16,7 @@ using UnityEngine.Rendering;
 [InitializeOnLoad]
 public static class TableSurfacePreviewBuilder
 {
-    public const string PreviewRoot = "Assets/Resources/TableSurfacePreviews";
+    public const string PreviewRoot = "Assets/Resources/image/Board/Previews";
     public const int PreviewSize = 256;
     internal const string FingerprintPrefix = "TableSurfacePreview:v1:256:";
     const string SourceRoot = "Assets/Resources/image/Board";
@@ -73,8 +73,8 @@ public static class TableSurfacePreviewBuilder
     internal static bool IsSourcePath(string path)
     {
         path = path.Replace('\\', '/').TrimEnd('/');
-        if (path.StartsWith("Assets/Resources/TableFrame/", StringComparison.Ordinal) ||
-            path.StartsWith("Assets/TableFrame/SceneAssets/", StringComparison.Ordinal)) return true;
+        if (path == "Assets/Resources/3D/TableFrame_Upright_V8.fbx" ||
+            path.StartsWith("Assets/Resources/Materials/Board/", StringComparison.Ordinal)) return true;
         if (path == SourceRoot) return true;
         return Categories.Any(category => path == SourceRoot + "/" + category ||
             path.StartsWith(SourceRoot + "/" + category + "/", StringComparison.Ordinal));
@@ -195,7 +195,7 @@ public static class TableSurfacePreviewBuilder
                     category == "Edge" ? TableFrameStyles.SortOrder(source.stem) : int.MaxValue)
                 .ThenBy(source => source.stem, StringComparer.Ordinal)
                 .Select(source => new Entry { name = source.stem,
-                    preview = source.output == null ? "" : "TableSurfacePreviews/" + category + "/" + source.stem,
+                    preview = source.output == null ? "" : "image/Board/Previews/" + category + "/" + source.stem,
                     displayName = category == "TableCloth" ? TableSurfaceNames.ClothDisplayName(source.stem) :
                         category == "Edge" ? TableFrameStyles.DisplayName(source.stem) : source.stem }).ToArray();
             string json = JsonUtility.ToJson(new Catalog { cloth = entries("TableCloth"), edge = entries("Edge"), seams = entries("TableSeams") }, true) + "\n";

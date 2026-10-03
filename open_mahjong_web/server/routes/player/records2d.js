@@ -1,3 +1,4 @@
+const { withRecordMetadataQuery } = require('../../services/recordMetadataQuery');
 const express = require('express');
 const router = express.Router();
 const pool = require('../../config/database');
@@ -16,8 +17,8 @@ function validGameId(value) {
   return /^[0-9A-Za-z]{1,16}$/.test(String(value || '').trim());
 }
 
-// The 2D record browser deliberately only exposes Guobiao games: every row can
-// be opened by the public /2d/record/:gameId viewer without a rules mismatch.
+// 2D lists Guobiao summaries. The public replay endpoint separately enforces
+// duplicate unlock state before supplying the complete record.
 router.get('/my-records', requirePlayer, async (req, res) => {
   const limit = Math.max(1, readPage(req.query.limit, 12, MAX_LIMIT));
   const offset = readPage(req.query.offset, 0, 10_000);
@@ -27,43 +28,46 @@ router.get('/my-records', requirePlayer, async (req, res) => {
   const where = clauses.join(' AND ');
 
   try {
-    const countResult = await pool.query(
-      `SELECT COUNT(*)::int AS total
-       FROM game_player_records gpr
-       INNER JOIN game_records gr ON gr.game_id = gpr.game_id
-       WHERE ${where}`,
-      [req.player.userId],
-    );
-    const metaResult = await pool.query(
-      `SELECT gpr.game_id, gr.created_at, gpr.rule, gpr.sub_rule, gpr.match_type,
-              gpr.room_type, gpr.is_favorite, COALESCE(gpr.note, '') AS note
-       FROM game_player_records gpr
-       INNER JOIN game_records gr ON gr.game_id = gpr.game_id
-       WHERE ${where}
-       ORDER BY gr.created_at DESC, gpr.game_id DESC
-       LIMIT $2 OFFSET $3`,
-      [req.player.userId, limit, offset],
-    );
-    const gameIds = metaResult.rows.map((row) => row.game_id);
-    if (gameIds.length === 0) {
-      return res.json({ success: true, data: { items: [], total: countResult.rows[0]?.total || 0 } });
-    }
-    const playersResult = await pool.query(
-      `SELECT game_id, user_id, username, score, rank, original_player_index,
-              title_used, character_used, profile_used, voice_used
-       FROM game_player_records
-       WHERE game_id = ANY($1::varchar[])
-       ORDER BY game_id, rank NULLS LAST, original_player_index NULLS LAST, score DESC`,
-      [gameIds],
-    );
-    const playersByGame = new Map();
-    for (const row of playersResult.rows) {
-      const list = playersByGame.get(row.game_id) || [];
-      list.push(row);
-      playersByGame.set(row.game_id, list);
-    }
-    const items = metaResult.rows.map((row) => ({ ...row, players: playersByGame.get(row.game_id) || [] }));
-    return res.json({ success: true, data: { items, total: countResult.rows[0]?.total || 0 } });
+    const data = await withRecordMetadataQuery(pool, async (db) => {
+      const countResult = await db.query(
+        `SELECT COUNT(*)::int AS total
+         FROM game_player_records gpr
+         INNER JOIN game_records gr ON gr.game_id = gpr.game_id
+         WHERE ${where}`,
+        [req.player.userId],
+      );
+      const metaResult = await db.query(
+        `SELECT gpr.game_id, gr.created_at, gpr.rule, gpr.sub_rule, gpr.match_type,
+                gpr.room_type, gpr.is_favorite, COALESCE(gpr.note, '') AS note
+         FROM game_player_records gpr
+         INNER JOIN game_records gr ON gr.game_id = gpr.game_id
+         WHERE ${where}
+         ORDER BY gr.created_at DESC, gpr.game_id DESC
+         LIMIT $2 OFFSET $3`,
+        [req.player.userId, limit, offset],
+      );
+      const gameIds = metaResult.rows.map((row) => row.game_id);
+      if (gameIds.length === 0) {
+        return { items: [], total: countResult.rows[0]?.total || 0 };
+      }
+      const playersResult = await db.query(
+        `SELECT game_id, user_id, username, score, rank, pt_change, original_player_index,
+                title_used, character_used, profile_used, voice_used
+         FROM game_player_records
+         WHERE game_id = ANY($1::varchar[])
+         ORDER BY game_id, rank NULLS LAST, original_player_index NULLS LAST, score DESC`,
+        [gameIds],
+      );
+      const playersByGame = new Map();
+      for (const row of playersResult.rows) {
+        const list = playersByGame.get(row.game_id) || [];
+        list.push({ ...row, pt_change: row.pt_change == null ? null : Number(row.pt_change) });
+        playersByGame.set(row.game_id, list);
+      }
+      const items = metaResult.rows.map((row) => ({ ...row, players: playersByGame.get(row.game_id) || [] }));
+      return { items, total: countResult.rows[0]?.total || 0 };
+    });
+    return res.json({ success: true, data });
   } catch (error) {
     console.error('2d my-records list:', error);
     return res.status(500).json({ success: false, message: '牌谱列表加载失败' });

@@ -52,7 +52,7 @@
           余 {{ remaining }}/{{ tiles.length }}
         </button>
         <span v-if="hintsEnabled" class="replay-wall__legend">
-          <i class="is-danger" title="铳张" aria-label="铳张">铳</i><i class="is-predicted" title="摸牌预测" aria-label="摸牌预测">预</i>
+          <i v-if="showsRonDanger !== false" class="is-danger" title="铳张" aria-label="铳张">铳</i><i class="is-predicted" title="摸牌预测" aria-label="摸牌预测">预</i>
         </span>
       </header>
       <div
@@ -96,6 +96,7 @@ const props = defineProps<{
   tiles: (ReplayWallTile & { isDanger: boolean, isPredicted: boolean })[]
   remaining: number
   hintsEnabled: boolean
+  showsRonDanger?: boolean
   tileAsset: (tile: number) => string
   roundIndex: number
   stageElement: HTMLElement | null

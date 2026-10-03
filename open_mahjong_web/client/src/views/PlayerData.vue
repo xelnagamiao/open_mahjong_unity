@@ -160,7 +160,7 @@
           </div>
         </template>
         <div v-if="needsLocalAnalysis" class="no-prestored" :class="{ compact: showStatsTable }">
-          <span>该场次无预存统计</span>
+          <span>当前筛选的回合、和牌及番种等详细数据需下载牌谱后分析</span>
         </div>
       </div>
 
@@ -183,7 +183,7 @@
               class="dot"
             />
           </svg>
-          <div v-else class="chart-empty">暂无最近对局</div>
+          <div v-else class="chart-empty">{{ recordsLoading ? '最近顺位加载中…' : '暂无最近对局' }}</div>
         </div>
         <div class="chart-box chart-pie">
           <div class="chart-title">顺位分布</div>
@@ -271,6 +271,13 @@
               </span>
             </template>
           </el-table-column>
+          <el-table-column label="PT 变更" width="96">
+            <template #default="{ row }">
+              <span class="cell-score" :class="scoreClass(myPlayer(row)?.pt_change)">
+                {{ formatPtChange(myPlayer(row)?.pt_change) }}
+              </span>
+            </template>
+          </el-table-column>
           <el-table-column label="同桌" min-width="180">
             <template #default="{ row }">
               <el-tooltip effect="dark" placement="top">
@@ -279,6 +286,7 @@
                     <span class="rank-badge" :class="`rank-${p.rank}`">{{ p.rank }}</span>
                     {{ p.username }}
                     <span :class="p.score > 0 ? 'pos' : (p.score < 0 ? 'neg' : '')">{{ p.score > 0 ? '+' : '' }}{{ p.score }}</span>
+                    <span :class="scoreClass(p.pt_change)"> · PT {{ formatPtChange(p.pt_change) }}</span>
                   </div>
                 </template>
                 <span class="cell-players">{{ playersSummary(row) }}</span>
@@ -288,7 +296,7 @@
           <el-table-column label="操作" width="168" fixed="right">
             <template #default="{ row }">
               <el-button
-                v-if="row.rule === 'guobiao'"
+                v-if="['guobiao', 'hongzhong'].includes(row.rule)"
                 link
                 type="warning"
                 size="small"
@@ -358,11 +366,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
+import { formatPtChange } from '@/utils/ptChange'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
-import { buildPlayerStatsRows, rankRatePieLabel, rankedGames, ratio } from '../utils/statsDisplay'
+import { buildPlayerStatsRows, canUsePrestoredPlayerStats, dateRangeToQueryParams, mergePlayerRankStats, rankRatePieLabel, rankedGames, ratio } from '../utils/statsDisplay'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import playerApi, { getPlayerToken } from '@/api/playerClient'
 import { tr } from '@/i18n'
@@ -399,6 +408,7 @@ const RULE_DEFS = [
   { key: 'classical', label: '古典', statsField: 'classical_stats', fanField: 'classical' },
   { key: 'sichuan', label: '川麻', statsField: 'sichuan_stats', fanField: null },
   { key: 'changsha', label: '长沙', statsField: 'changsha_stats', fanField: null },
+  { key: 'hongzhong', label: '红中', statsField: 'hongzhong_stats', recordsOnly: true, fanField: null },
 ]
 
 const SCENE_OPTIONS = [
@@ -507,7 +517,7 @@ const availableRules = computed(() =>
   RULE_DEFS.map(def => ({
     key: def.key,
     label: def.label,
-    count: sumGames(playerInfo.value?.[def.statsField] || [])
+    count: def.recordsOnly ? (playerInfo.value?.record_counts?.[def.key] || 0) : sumGames(playerInfo.value?.[def.statsField] || [])
   }))
 )
 
@@ -523,9 +533,10 @@ const sumGames = (stats) => (stats || []).reduce((s, x) => s + (x.total_games ||
 // 顺位统计（game_player_records 聚合，按 filterKey 缓存，切换筛选即时命中）
 const rankStatsCache = ref({})
 const scopeCountsFromApi = ref(null)
-let rankStatsSeq = 0
 let scopeCountsSeq = 0
-let recentRanksSeq = 0
+const recordsLoading = ref(false)
+let recordsController = null
+const rankStatsPending = new Map()
 
 const resolveScopeTier = (opts = {}) => {
   if (opts.scope != null || opts.tier !== undefined) {
@@ -557,12 +568,7 @@ const buildFilterPayload = (opts = {}) => {
   const eventIdVal = opts.event_id !== undefined ? opts.event_id : selectedEventId.value
   const payload = { rule: opts.rule ?? currentRule.value }
   if (lengthVal) payload.game_type = LENGTH_TO_GAME_TYPE[lengthVal]
-  if (dateVal && dateVal.length === 2) {
-    payload.date_from = dateVal[0] + 'T00:00:00'
-    const end = new Date(dateVal[1])
-    end.setDate(end.getDate() + 1)
-    payload.date_to = end.toISOString().slice(0, 19)
-  }
+  Object.assign(payload, dateRangeToQueryParams(dateVal))
   if (tierVal) payload.tier = tierVal
   else if (scopeVal === 'custom') payload.tier = 'custom'
   else if (scopeVal === 'rank') payload.tier = 'rank'
@@ -609,11 +615,12 @@ const filteredPrestoredStats = computed(() => {
   return rows
 })
 
-// 是否可用预存数据：全部天梯 / 自定义（无具体等级场、比赛场）
-const prestoredAvailable = computed(() => {
-  const s = scene.value
-  return s === 'rank' || s === 'custom'
-})
+// 预存明细仅覆盖全历史的全部天梯 / 自定义，不能用于指定日期。
+const prestoredAvailable = computed(() => canUsePrestoredPlayerStats({
+  scene: scene.value,
+  dateRange: dateRange.value,
+  recordsOnly: currentRuleDef.value?.recordsOnly,
+}))
 
 const filterKey = computed(() => buildFilterKey())
 
@@ -646,32 +653,20 @@ const mergedPrestored = computed(() => {
   return total
 })
 
-/** 顺位字段：优先本地分析，否则 game_player_records API（不用 history_stats 的 mode 后缀） */
-const mergeRankFields = (base, rankRow) => {
-  if (!rankRow) return base
-  const merged = base ? { ...base } : { ...EMPTY_TOTAL, fan_stats: {} }
-  merged.total_games = rankRow.total_games
-  merged.first_place_count = rankRow.first_place_count
-  merged.second_place_count = rankRow.second_place_count
-  merged.third_place_count = rankRow.third_place_count
-  merged.fourth_place_count = rankRow.fourth_place_count
-  return merged
-}
-
 const activeStats = computed(() => {
   const rankRow = rankStatsForFilter.value
-  if (prestoredAvailable.value) {
-    return mergeRankFields(mergedPrestored.value, rankRow)
-  }
-  if (rankRow) return mergeRankFields(null, rankRow)
-  return null
+  return mergePlayerRankStats(prestoredAvailable.value ? mergedPrestored.value : null, rankRow)
 })
 
 /** 无预存场次 → 引导前往牌谱分析页 */
 const needsLocalAnalysis = computed(() => !prestoredAvailable.value)
 const showStatsTable = computed(() => !!activeStats.value)
 
-const statsDisplay = computed(() => activeStats.value ? buildPlayerStatsRows(activeStats.value) : [])
+const statsDisplay = computed(() => {
+  if (!activeStats.value) return []
+  const rows = buildPlayerStatsRows(activeStats.value, { detailed: prestoredAvailable.value })
+  return currentRuleDef.value?.recordsOnly ? rows.filter(row => ['总对局', '平均顺位', '一位率', '二位率', '三位率', '四位率'].includes(row.label)) : rows
+})
 
 // ===== 图表数据 =====
 // 当前筛选下最近 20 局顺位，按时间正序
@@ -748,6 +743,7 @@ const currentFanDict = computed(() => {
 })
 
 const fanEntries = computed(() => {
+  if (!prestoredAvailable.value) return []
   const wins = Number(activeStats.value?.win_count) || 0
   const counts = activeStats.value?.fan_stats || {}
   const toRow = (key, name, pts = 0) => {
@@ -774,6 +770,7 @@ const fanEntries = computed(() => {
 
 const switchRule = (rule) => {
   currentRule.value = rule
+  if (rule === 'hongzhong' && !['custom', 'events'].includes(scene.value)) scene.value = 'custom'
   rankStatsCache.value = {}
   scopeCountsFromApi.value = null
   onFilterChange()
@@ -816,55 +813,38 @@ const onEventFilterChange = () => {
 const loadRecords = async () => {
   const userId = playerInfo.value?.user_id
   if (!userId) return
+  recordsController?.abort()
+  const controller = new AbortController()
+  recordsController = controller
+  recordsLoading.value = true
   const seq = searchSeq
+  const firstPage = page.current === 1
+  if (firstPage) recentRecords.value = []
   const params = {
     limit: page.size,
     offset: (page.current - 1) * page.size,
     ...filterPayload()
   }
   try {
-    const resp = await axios.get(`/api/player/records/${userId}`, { params })
-    if (seq !== searchSeq || playerInfo.value?.user_id !== userId) return
+    const resp = await axios.get(`/api/player/records/${userId}`, { params, signal: controller.signal })
+    if (controller.signal.aborted || seq !== searchSeq || playerInfo.value?.user_id !== userId) return
     if (resp.data.success) {
       const d = resp.data.data
       gameRecords.value = d.items || []
       recordsTotal.value = d.total || 0
+      if (firstPage) recentRecords.value = gameRecords.value.slice(0, 20)
     } else {
       ElMessage.warning(resp.data.message || '获取对局记录失败')
       gameRecords.value = []
       recordsTotal.value = 0
     }
   } catch (e) {
+    if (controller.signal.aborted || seq !== searchSeq || playerInfo.value?.user_id !== userId) return
     handleAxiosError(e, '获取对局记录失败')
     gameRecords.value = []
     recordsTotal.value = 0
-  }
-}
-
-// 拉取当前筛选下玩家最近 20 局，用于折线图
-const loadRecentRanks = async () => {
-  const userId = playerInfo.value?.user_id
-  if (!userId) return
-  const searchToken = searchSeq
-  const seq = ++recentRanksSeq
-  const params = {
-    limit: 20,
-    offset: 0,
-    ...filterPayload(),
-  }
-  try {
-    const resp = await axios.get(`/api/player/records/${userId}`, { params })
-    if (searchToken !== searchSeq || seq !== recentRanksSeq || playerInfo.value?.user_id !== userId) return
-    if (resp.data.success) {
-      recentRecords.value = resp.data.data?.items || []
-    } else {
-      recentRecords.value = []
-    }
-  } catch (e) {
-    // 折线图失败不阻塞主流程，仅在控制台留痕
-    if (searchToken === searchSeq && seq === recentRanksSeq && playerInfo.value?.user_id === userId) {
-      recentRecords.value = []
-    }
+  } finally {
+    if (recordsController === controller) recordsLoading.value = false
   }
 }
 
@@ -885,23 +865,10 @@ const handleAxiosError = (e, fallback) => {
   }
 }
 
-const hasPrestoredStats = (info) => {
-  if (!info) return false
-  return RULE_DEFS.some((d) => {
-    const rows = info[d.statsField] || []
-    return rows.some((r) => (r.total_games || 0) > 0)
-  })
-}
-
 const scopeCountsPayload = () => {
   const payload = { rule: currentRule.value }
   if (length.value) payload.game_type = LENGTH_TO_GAME_TYPE[length.value]
-  if (dateRange.value && dateRange.value.length === 2) {
-    payload.date_from = dateRange.value[0] + 'T00:00:00'
-    const end = new Date(dateRange.value[1])
-    end.setDate(end.getDate() + 1)
-    payload.date_to = end.toISOString().slice(0, 19)
-  }
+  Object.assign(payload, dateRangeToQueryParams(dateRange.value))
   return payload
 }
 
@@ -910,15 +877,25 @@ const fetchRankStatsIntoCache = async (opts = {}) => {
   if (!userId) return
   const key = buildFilterKey({ ...opts, userId })
   if (rankStatsCache.value[key]) return
+  if (rankStatsPending.has(key)) return rankStatsPending.get(key)
+  const searchToken = searchSeq
+  const pending = (async () => {
+    try {
+      const resp = await axios.get(`/api/player/rank-stats/${userId}`, {
+        params: buildFilterPayload(opts),
+      })
+      if (searchToken !== searchSeq || playerInfo.value?.user_id !== userId) return
+      if (resp.data.success) {
+        rankStatsCache.value = { ...rankStatsCache.value, [key]: resp.data.data }
+      }
+    } catch (_) { /* 静默 */ }
+  })()
+  rankStatsPending.set(key, pending)
   try {
-    const resp = await axios.get(`/api/player/rank-stats/${userId}`, {
-      params: buildFilterPayload(opts),
-    })
-    if (playerInfo.value?.user_id !== userId) return
-    if (resp.data.success) {
-      rankStatsCache.value = { ...rankStatsCache.value, [key]: resp.data.data }
-    }
-  } catch (_) { /* 静默 */ }
+    await pending
+  } finally {
+    if (rankStatsPending.get(key) === pending) rankStatsPending.delete(key)
+  }
 }
 
 const prefetchRankStats = () => {
@@ -929,22 +906,7 @@ const prefetchRankStats = () => {
   ])
 }
 
-const loadRankStats = async () => {
-  const userId = playerInfo.value?.user_id
-  if (!userId) return
-  const key = filterKey.value
-  if (rankStatsCache.value[key]) return
-  const seq = ++rankStatsSeq
-  try {
-    const resp = await axios.get(`/api/player/rank-stats/${userId}`, {
-      params: filterPayload(),
-    })
-    if (seq !== rankStatsSeq || playerInfo.value?.user_id !== userId) return
-    if (resp.data.success) {
-      rankStatsCache.value = { ...rankStatsCache.value, [key]: resp.data.data }
-    }
-  } catch (_) { /* 静默 */ }
-}
+const loadRankStats = () => fetchRankStatsIntoCache()
 
 const loadScopeCounts = async () => {
   const userId = playerInfo.value?.user_id
@@ -967,7 +929,6 @@ const onFilterChange = () => {
   selectedIds.value = []
   if (playerInfo.value) {
     loadRecords()
-    loadRecentRanks()
     loadRankStats()
     loadScopeCounts()
   }
@@ -1268,10 +1229,11 @@ const searchPlayer = async (rawKey, isManual = true) => {
   loading.value = true
   searched.value = true
   const searchToken = ++searchSeq
+  recordsController?.abort()
+  rankStatsPending.clear()
   playerInfo.value = null
   rankStatsCache.value = {}
   scopeCountsFromApi.value = null
-  rankStatsSeq += 1
   scopeCountsSeq += 1
   gameRecords.value = []
   recentRecords.value = []
@@ -1281,24 +1243,18 @@ const searchPlayer = async (rawKey, isManual = true) => {
     if (searchToken !== searchSeq) return
     if (infoResp.data.success) {
       playerInfo.value = infoResp.data.data
-      const defaultRule = RULE_DEFS.find(d => (playerInfo.value[d.statsField] || []).length > 0)
+      const defaultRule = RULE_DEFS.find(d => d.recordsOnly ? (playerInfo.value.record_counts?.[d.key] || 0) > 0 : (playerInfo.value[d.statsField] || []).length > 0)
       currentRule.value = defaultRule ? defaultRule.key : 'guobiao'
-      scene.value = 'rank'
+      scene.value = defaultRule?.recordsOnly ? 'custom' : 'rank'
       length.value = null
       selectedEventId.value = null
       dateRange.value = null
       page.current = 1
       page.size = 20
       selectedIds.value = []
-      await loadRecords()
+      // The first records page also paints the recent-rank chart immediately.
+      await Promise.all([loadRecords(), loadScopeCounts(), prefetchRankStats()])
       if (searchToken !== searchSeq) return
-      await Promise.all([loadScopeCounts(), prefetchRankStats(), loadRankStats()])
-      if (searchToken !== searchSeq) return
-      if (hasPrestoredStats(playerInfo.value)) {
-        loadRecentRanks()
-      } else {
-        recentRecords.value = []
-      }
       // 仅手动输入并点查询才计入热点；点击热点/排行榜 chip 不计
       if (isManual) logSearch(raw, playerInfo.value)
     } else {
@@ -1330,6 +1286,10 @@ const hotDisplayLabel = (h) => h.username || h.key
 const hotSearchKey = (h) => (h.user_id != null ? String(h.user_id) : (h.username || h.key))
 
 const resetForm = () => {
+  searchSeq += 1
+  recordsController?.abort()
+  rankStatsPending.clear()
+  loading.value = false
   searchForm.key = ''
   playerInfo.value = null
   gameRecords.value = []
@@ -1364,6 +1324,12 @@ const loadQuickLists = () => {
   })
   return quickListsPromise
 }
+
+onBeforeUnmount(() => {
+  searchSeq += 1
+  recordsController?.abort()
+  rankStatsPending.clear()
+})
 
 onMounted(async () => {
   loadQuickLists()

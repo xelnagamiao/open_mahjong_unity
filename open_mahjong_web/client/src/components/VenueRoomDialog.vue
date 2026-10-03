@@ -31,9 +31,21 @@
         </el-form-item>
       </div>
       <GuobiaoEmptyRoomConfig v-if="form.room_rule === 'guobiao'" :model-value="form" :show-password="showPassword" />
+      <ShanxiRoomConfig v-else-if="form.room_rule === 'shanxi'" :form="form" :show-password="showPassword" />
+      <HongKongRoomConfig v-else-if="form.room_rule === 'hongkong'" :form="form" />
+      <TuidaoRoomConfig v-else-if="form.room_rule === 'guangdong'" :form="form" :show-password="showPassword" />
+      <GuizhouRoomConfig v-else-if="form.room_rule === 'guizhou'" :form="form" :show-password="showPassword" />
+      <HongzhongRoomConfig v-else-if="form.room_rule === 'hongzhong'" :form="form" :show-password="showPassword" />
+      <ChangchunRoomConfig v-else-if="form.room_rule === 'changchun'" :form="form" :show-password="showPassword" />
+      <YixingRoomConfig v-else-if="form.room_rule === 'yixing'" :form="form" :show-password="showPassword" />
+      <WenzhouRoomConfig v-else-if="form.room_rule === 'wenzhou'" :form="form" :show-password="showPassword" />
+      <HangzhouRoomConfig v-else-if="form.room_rule === 'hangzhou'" :form="form" :show-password="showPassword" />
+      <el-form-item v-else-if="form.room_rule === 'riichi'" label="起始点数">
+        <el-input-number v-model="form.starting_score" :min="1000" :max="1000000" :step="100" step-strictly :precision="0" />
+      </el-form-item>
       <el-alert
         v-else
-        title="当前仅国标房间提供完整对局配置；其他规则仍按服务端默认参数创建。"
+        title="此规则按默认参数创建。"
         type="info"
         :closable="false"
         show-icon
@@ -47,9 +59,20 @@
 </template>
 
 <script setup>
+import { watch } from 'vue'
 import GuobiaoEmptyRoomConfig from '@/components/GuobiaoEmptyRoomConfig.vue'
+import ShanxiRoomConfig from '@/components/ShanxiRoomConfig.vue'
+import HongKongRoomConfig from '@/components/HongKongRoomConfig.vue'
+import TuidaoRoomConfig from '@/components/TuidaoRoomConfig.vue'
+import GuizhouRoomConfig from '@/components/GuizhouRoomConfig.vue'
+import YixingRoomConfig from '@/components/YixingRoomConfig.vue'
+import WenzhouRoomConfig from '@/components/WenzhouRoomConfig.vue'
+import HangzhouRoomConfig from '@/components/HangzhouRoomConfig.vue'
+import HongzhongRoomConfig from '@/components/HongzhongRoomConfig.vue'
+import ChangchunRoomConfig from '@/components/ChangchunRoomConfig.vue'
+import { clearUnsupportedDuplicateRoom } from '@/utils/eventRoomSettings'
 
-defineProps({
+const props = defineProps({
   modelValue: { type: Boolean, default: false },
   form: { type: Object, required: true },
   title: { type: String, default: '创建房间' },
@@ -59,6 +82,8 @@ defineProps({
   showPassword: { type: Boolean, default: true },
   roomRuleOptions: { type: Array, required: true },
 })
+
+watch(() => props.form.room_rule, () => clearUnsupportedDuplicateRoom(props.form), { immediate: true, flush: 'sync' })
 
 defineEmits(['update:modelValue', 'confirm'])
 </script>

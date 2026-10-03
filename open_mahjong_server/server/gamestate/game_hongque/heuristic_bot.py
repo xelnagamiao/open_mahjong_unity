@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Iterable, Optional, Sequence
 
+from .action_priority import HONGQUE_ACTION_PRIORITY
 from .group_index import (
     FULL_DECK_MASK,
     GROUP_MASKS,
@@ -466,7 +467,8 @@ def choose_turn_plan(
     opponents: Sequence[OpponentView] = (),
 ) -> dict:
     """Choose win, supplement, kong extension, or a defensive discard."""
-    before_first_discard = not any(False for _ in ())  # caller has no history; treat as false
+    # These scores describe waits after discarding, so they can never be 天和.
+    before_first_discard = False
     wall_empty = wall_count == 0
 
     if is_winning_hand(hand, open_melds) or any(
@@ -527,7 +529,8 @@ def _claim_advances(before: V2Value, after: V2Value, priority: int) -> bool:
         return after.ukeire > before.ukeire
     if after.points != before.points:
         return after.points > before.points
-    if priority >= 3:  # rainbow: structurally neutral but carries fan
+    if priority >= HONGQUE_ACTION_PRIORITY["hong_third"]:
+        # Rainbow calls may be structurally neutral because they carry fan.
         return after.style >= before.style
     return after.style > before.style
 

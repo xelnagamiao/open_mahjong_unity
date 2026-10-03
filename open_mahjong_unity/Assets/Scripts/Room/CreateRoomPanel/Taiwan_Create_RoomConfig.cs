@@ -4,6 +4,7 @@ using System.Linq;
 using Taiwan;
 
 public class Taiwan_Create_RoomConfig {
+    public bool PointerTips { get; set; } = true;
     public string RoomName { get; set; }
     public int GameRound { get; set; }
     public string Password { get; set; }
@@ -12,6 +13,7 @@ public class Taiwan_Create_RoomConfig {
     public int RoundTimer { get; set; }
     public int StepTimer { get; set; }
     public bool Tips { get; set; }
+    public bool CountTips { get; set; }
     public string RandomSeed { get; set; }
     public bool TouristLimit { get; set; }
     public bool AllowSpectator { get; set; }

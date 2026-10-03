@@ -36,19 +36,25 @@ public interface IGameSettings {
     int HandSortSuitOrderMode { get; }
     bool ForcePassEnabled { get; }
     bool OpeningAutoBuhuaEnabled { get; }
-    bool MeldSpacingEnabled { get; }
     bool ActionButtonColorEnabled { get; }
     bool IsEnglish { get; }
     bool UseBlankWhiteDragonFace(int tileId);
     Color DefaultTableFaceFallbackColor { get; }
     void ApplyTileOutlineStyle();
     string GetTitleText(int titleId);
+    Sprite GetProfileSprite(int profileId);
+    Color GetAvatarFrameColor(int itemId);
     int MoqieShortcutMode { get; }
     int AskOtherPassShortcutMode { get; }
 }
 
 public static class GameSettings {
     public static IGameSettings Current { get; set; } = NullGameSettings.Instance;
+    // userId == 0 signals a catalog refresh. Live equipment updates never alter replay snapshots.
+    public static event System.Action<int, int> TitleChanged;
+    public static void NotifyTitleChanged(int userId, int titleId) => TitleChanged?.Invoke(userId, titleId);
+    public static event System.Action<InventoryAppearance> AppearanceChanged;
+    public static void NotifyAppearanceChanged(InventoryAppearance appearance) => AppearanceChanged?.Invoke(appearance);
 
     private sealed class NullGameSettings : IGameSettings {
         public static readonly NullGameSettings Instance = new NullGameSettings();
@@ -56,13 +62,14 @@ public static class GameSettings {
         public int HandSortSuitOrderMode => 0;
         public bool ForcePassEnabled => false;
         public bool OpeningAutoBuhuaEnabled => true;
-        public bool MeldSpacingEnabled => false;
         public bool ActionButtonColorEnabled => false;
         public bool IsEnglish => false;
         public bool UseBlankWhiteDragonFace(int tileId) => false;
         public Color DefaultTableFaceFallbackColor => Color.white;
         public void ApplyTileOutlineStyle() { }
         public string GetTitleText(int titleId) => "";
+        public Sprite GetProfileSprite(int profileId) => Resources.Load<Sprite>("image/Profiles/1");
+        public Color GetAvatarFrameColor(int itemId) => Color.clear;
         public int MoqieShortcutMode => 0;
         public int AskOtherPassShortcutMode => 0;
     }
@@ -77,7 +84,9 @@ public interface ISessionInfo {
     string RoomIdNone { get; }
     void SetRoomId(string roomId);
     void SetGamestateId(string id);
+    void SetGameSession(string id, string gameRoomId);
     void UpdateGuobiaoRank(string rank, float score);
+    void UpdateRating(string rule, string rank, float score, float elo, int games);
 }
 
 public static class PlayerSession {
@@ -92,6 +101,8 @@ public static class PlayerSession {
         public string RoomIdNone => "NOROOM";
         public void SetRoomId(string roomId) { }
         public void SetGamestateId(string id) { }
+        public void SetGameSession(string id, string gameRoomId) { }
         public void UpdateGuobiaoRank(string rank, float score) { }
+        public void UpdateRating(string rule, string rank, float score, float elo, int games) { }
     }
 }

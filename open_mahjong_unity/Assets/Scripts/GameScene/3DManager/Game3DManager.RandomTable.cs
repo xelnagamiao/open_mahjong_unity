@@ -164,7 +164,6 @@ public partial class Game3DManager : MonoBehaviour
 
         Vector3 cursor = panel.combinationsPosition.position;
         float acrossGroupLastSlot = 0f;
-        float groupGap = MeldSpacingGap();
 
         for (int meldIndex = 0; meldIndex < meldMasks.Count; meldIndex++)
         {
@@ -198,7 +197,7 @@ public partial class Game3DManager : MonoBehaviour
                 if (!hasPrevInGroup)
                 {
                     advance = acrossGroupLastSlot > 0f
-                        ? 0.5f * (acrossGroupLastSlot + slotWidth) + groupGap
+                        ? 0.5f * (acrossGroupLastSlot + slotWidth)
                         : slotWidth;
                 }
                 else

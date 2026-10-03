@@ -10,9 +10,27 @@ public class RankChangePanel : MonoBehaviour {
     [SerializeField] private Slider progressBar;
     [SerializeField] private TMP_Text scoreText;
     [SerializeField] private TMP_Text ptChangeText;
+    [SerializeField] private TMP_Text resultTitle;
     [SerializeField] private Button confirmButton;
 
     private Coroutine animCoroutine;
+    private bool ratingAlreadyApplied;
+
+    public void ShowRatedChange(string rule,string system,string oldRank,float oldScore,string newRank,float newScore,float pt,float oldR,float newR) {
+        ratingAlreadyApplied=true;
+        if(system=="grade") {
+            ShowRankChange(oldRank,oldScore,newRank,newScore,pt);
+            ptChangeText.text=$"{RankedRules.Name(rule)}  {pt:+0.##;-0.##;0} PT\nR {oldR:0.##} 至 {newR:0.##}";
+        } else {
+            if(animCoroutine!=null)StopCoroutine(animCoroutine);
+            gameObject.SetActive(true);progressBar.gameObject.SetActive(false);
+            if(resultTitle!=null)resultTitle.text="Elo 结算";
+            rankNameText.text=RankedRules.Name(rule)+" · Elo";
+            scoreText.text=$"R {oldR:0.##} 至 {newR:0.##}";
+            ptChangeText.text=$"{newR-oldR:+0.##;-0.##;0} R";
+            confirmButton.interactable=true;
+        }
+    }
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -28,6 +46,8 @@ public class RankChangePanel : MonoBehaviour {
     /// 显示段位变动动画
     /// </summary>
     public void ShowRankChange(string oldRank, float oldScore, string newRank, float newScore, float pt) {
+        if(resultTitle!=null)resultTitle.text="段位结算";
+        progressBar.gameObject.SetActive(true);
         oldScore = RankLevelConfig.NormalizeScore(oldRank, oldScore);
         newScore = RankLevelConfig.NormalizeScore(newRank, newScore);
         if (RankLevelConfig.IsFixedRank(oldRank)) pt = 0;
@@ -97,7 +117,7 @@ public class RankChangePanel : MonoBehaviour {
         }
 
         // 更新 UserDataManager
-        PlayerSession.Current.UpdateGuobiaoRank(newRank, newScore);
+        if(!ratingAlreadyApplied)PlayerSession.Current.UpdateGuobiaoRank(newRank, newScore);
 
         confirmButton.interactable = true;
     }
@@ -125,6 +145,7 @@ public class RankChangePanel : MonoBehaviour {
     }
 
     private void OnConfirm() {
+        ratingAlreadyApplied=false;
         gameObject.SetActive(false);
         PostGameNavigator.ExitToLobby(forceTeardown: true);
     }

@@ -10,6 +10,10 @@ const router = express.Router();
 const ALLOWED_RULE_KEYS = new Set([
   // LIBRARY_RULES
   'guobiao',
+  'yixing',
+  'wenzhou',
+  'hangzhou',
+  'hongzhong',
   'riichi',
   'qingque',
   'mil-collection',

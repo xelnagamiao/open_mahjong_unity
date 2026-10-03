@@ -1,5 +1,6 @@
 # 等待玩家操作处理
 import asyncio
+from ..public.lifecycle import start_owned_task
 import time
 import logging
 from .action_check import check_action_after_cut, check_action_jiagang, refresh_waiting_tiles
@@ -61,11 +62,11 @@ async def wait_action(self):
         
         for waiting_player_index in self.waiting_players_list:
             # 为可以行动的玩家添加行动任务
-            action_task = asyncio.create_task(self.action_events[waiting_player_index].wait())
+            action_task = start_owned_task(self, self.action_events[waiting_player_index].wait())
             task_list.append(action_task)
             task_to_player[action_task] = waiting_player_index  # 建立映射 行动任务 → 玩家索引
         # 添加计时器任务
-        timer_task = asyncio.create_task(asyncio.sleep(1)) # 等待1s
+        timer_task = start_owned_task(self, asyncio.sleep(1)) # 等待1s
         task_list.append(timer_task)
 
         # 等待计时器完成1s等待或者任意玩家进行操作

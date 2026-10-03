@@ -48,6 +48,7 @@ public sealed class ActionPlayback {
         coreHandlers["gang"] = ApplyClaimMeld;
         coreHandlers["angang"] = ApplyAngang;
         coreHandlers["jiagang"] = ApplyJiagang;
+        coreHandlers["rob_kan"] = ApplyRobKan;
         coreHandlers["buzhang"] = ApplyBuzhang;
     }
 
@@ -58,6 +59,7 @@ public sealed class ActionPlayback {
     /// 荣和即使无更高优先级竞争者也会由服务端下发 is_claim。
     /// </summary>
     public void AnnounceClaim(TableAction action) {
+        if (action.HasWord("jiagang") || action.HasWord("angang")) Clock.PendingAskFromJiagang = true;
         foreach (string word in action.Words) {
             SoundManager.Instance.PlayActionSound(action.Seat, word);
             SoundManager.Instance.PlayPhysicsSound(word);
@@ -84,6 +86,7 @@ public sealed class ActionPlayback {
             }
             ApplyWord(action, word, intercept);
         }
+        if (action.RemainingTiles.HasValue) Mirror.RemainTiles = action.RemainingTiles.Value;
         Mirror.Self.hand_tiles_count = Mirror.SelfHandTiles.Count;
         // 吃碰明杠：行动权已转移，立刻跳中心盘（同座 ask 会因 shownCurrentPlayer 直接 return）
         if (action.Words.Any(IsTransferMeldWord)) {
@@ -161,10 +164,10 @@ public sealed class ActionPlayback {
         bool horizontal = action.IsRiichiHorizontal;
         bool playPhysics = !action.Silent;
         int claimedOrLastCutTile = action.CutTile ?? cutTiles[cutTiles.Length - 1];
-        Mirror.LastCutCardID = claimedOrLastCutTile;
+        Mirror.LastCutCardID = action.ConcealedDiscard ? 0 : claimedOrLastCutTile;
         Mirror.LastDiscardPlayerPosition = seat;
         foreach (int discardedTile in cutTiles) {
-            Mirror.AddDiscard(seat, discardedTile, horizontal);
+            Mirror.AddDiscard(seat, action.ConcealedDiscard ? 0 : discardedTile, horizontal);
         }
         if (seat == "self") {
             Mirror.LastDealTileId = 0;
@@ -172,12 +175,12 @@ public sealed class ActionPlayback {
                 foreach (int discardedTile in cutTiles) {
                     Mirror.SelfHandTiles.Remove(discardedTile);
                 }
-                Game3DManager.Instance.Change3DDiscardTiles(cutTiles, seat, action.CutClass, horizontal, playCutPhysicsSound: playPhysics);
+                Game3DManager.Instance.Change3DDiscardTiles(cutTiles, seat, action.CutClass, horizontal, playCutPhysicsSound: playPhysics, concealedDiscard: action.ConcealedDiscard);
                 GameCanvas.Instance.ChangeHandCards("RemoveGetCards", 0, cutTiles, null);
             } else {
                 int tileToCut = claimedOrLastCutTile;
                 Mirror.SelfHandTiles.Remove(tileToCut);
-                Game3DManager.Instance.Change3DTile("Discard", tileToCut, 0, seat, action.CutClass, null, horizontal, playCutPhysicsSound: playPhysics);
+                Game3DManager.Instance.Change3DTile("Discard", tileToCut, 0, seat, action.CutClass, null, horizontal, playCutPhysicsSound: playPhysics, concealedDiscard: action.ConcealedDiscard);
                 if (action.CutClass) {
                     GameCanvas.Instance.ChangeHandCards("RemoveGetCard", tileToCut, null, null);
                 } else {
@@ -186,7 +189,7 @@ public sealed class ActionPlayback {
             }
         } else {
             Mirror.Info(seat).hand_tiles_count -= cutTiles.Length;
-            Game3DManager.Instance.Change3DDiscardTiles(cutTiles, seat, action.CutClass, horizontal, playCutPhysicsSound: playPhysics);
+            Game3DManager.Instance.Change3DDiscardTiles(cutTiles, seat, action.CutClass, horizontal, playCutPhysicsSound: playPhysics, concealedDiscard: action.ConcealedDiscard);
         }
     }
 
@@ -258,6 +261,16 @@ public sealed class ActionPlayback {
     }
 
     /// <summary>加杠：碰升杠；下一次鸣牌询问即抢杠询问。</summary>
+    private void ApplyRobKan(TableAction action, string word) {
+        int tile = action.CutTile ?? 0;
+        if (tile <= 0) return;
+        if (action.Seat == "self") {
+            GameRecordMeldCodec.RemoveOneJiagangTile(Mirror.SelfHandTiles, tile, Riichi.RiichiTileUtil.Normalize(tile), action.IsMoGang);
+            GameCanvas.Instance.ChangeHandCards(action.IsMoGang ? "RemoveGetCard" : "RemoveJiagangCard", tile, null, null);
+        } else Mirror.Info(action.Seat).hand_tiles_count -= 1;
+        Game3DManager.Instance.RemoveRobbedKanTile(action.Seat, tile, action.IsMoGang);
+    }
+
     private void ApplyJiagang(TableAction action, string word) {
         Clock.PendingAskFromJiagang = true;
         string seat = action.Seat;

@@ -1,6 +1,8 @@
 ## 数据库类型
 PostgreSQL
 
+账号、设置、段位及头衔系统的最新完整字段见 [用户数据表设计](../../docs/user-schema.md)（2026-09-22，已与实际数据库核对）。
+
 ## 数据库连接配置
 - 主机: localhost
 - 端口: 5432
@@ -41,6 +43,7 @@ PostgreSQL
 | is_mcrpl_qualified | BOOLEAN | NOT NULL DEFAULT FALSE | 是否拥有 MCRPL 资格 |
 | email | VARCHAR(255) | NULL | 绑定邮箱 |
 | email_verified_at | TIMESTAMP | NULL | 邮箱验证时间；非空表示已验证 |
+| rename_count | INTEGER | NOT NULL DEFAULT 0 | 剩余自助改名次数。新注册为 0；列首次加入时已有非游客账号回填为 1 |
 | ban_expires_at | TIMESTAMP | NULL | 封禁到期时间；NULL 且 ban_type 非空表示永久封禁 |
 | ban_type | VARCHAR(32) | NULL | 封禁类型：`login` 禁止登录、`chat` 禁止发言、`match` 禁止排位、`full` 全面封禁；NULL 表示未封禁 |
 | ban_reason | TEXT | NULL | 封禁原因，登录被拒时展示给玩家 |
@@ -52,12 +55,16 @@ PostgreSQL
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
 | user_id | BIGINT | PRIMARY KEY, REFERENCES users(user_id) ON DELETE CASCADE | 用户ID，外键关联 users |
-| title_id | INT | DEFAULT 1 | 称号ID（默认值为1） |
+| title_id | INT | DEFAULT 1 | 当前佩戴头衔；1=不佩戴，其他 ID 必须为 user_titles 已授权且 titles 启用的头衔 |
 | profile_image_id | INT | DEFAULT 1 | 使用的头像ID（默认值为1） |
 | character_id | INT | DEFAULT 1 | 选择的角色ID（默认值为1） |
 | voice_id | INT | DEFAULT 1 | 选择的音色ID（默认值为1） |
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
 | updated_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 最近更新时间 |
+
+### titles / user_titles 头衔目录与授权表
+
+`titles` 保存头衔 ID、名称、说明、启用状态、排序和创建/更新时间；`user_titles` 用 `(user_id, title_id)` 主键记录用户已获授的全部头衔、授予管理员、时间和原因。完整字段与约束见 [用户数据表设计](../../docs/user-schema.md)。后台支持授予/撤销，玩家最多佩戴一个，也可以不佩戴；撤销或停用会在同一事务取消佩戴。目录与授权操作记录到管理审计。
 
 ### user_config 游戏配置表
 存储用户的游戏配置信息（音量等），每个用户对应一条记录。
@@ -106,6 +113,7 @@ PostgreSQL
 | user_id | BIGINT | NOT NULL | 用户ID（无外键约束，删除用户时保留记录以维护牌谱完整性） |
 | username | VARCHAR(255) | NOT NULL | 玩家用户名（对局时的用户名） |
 | score | INT | NOT NULL | 玩家最终分数（可能为负数） |
+| pt_change | NUMERIC(12, 2) | NULL | 本场排位结算的段位 PT 加扣（含并列均摊，保留两位小数）；非排位及未保存 PT 的历史对局为 NULL，真实零变更为 0 |
 | rank | INT | NOT NULL CHECK (rank >= 1 AND rank <= 4) | 最终排名（1=一位，2=二位，3=三位，4=四位） |
 | rule | VARCHAR(10) | NOT NULL | 规则类型（guobiao=国标，riichi=立直，qingque=青雀） |
 | sub_rule | VARCHAR(32) | NULL | 子规则（如 guobiao/standard、guobiao/xiaolin、qingque/standard），用于记录列表与牌谱展示 |
@@ -123,6 +131,12 @@ PostgreSQL
 > - 对局中包含机器人（user_id <= 10）时，不保存牌谱和对局记录
 > - 对局中四位玩家都是玩家或游客时，保存牌谱和对局记录
 > - 删除用户时，如果该用户有牌谱记录，则阻止删除，保留用户记录以维护牌谱完整性
+
+Web 上下分周榜按最近七个完整统计日累计 `pt_change`（北京时间 04:00 切日、每天刷新），不累计 `score`，也不使用升降段前后的 PT 余额差。历史 NULL 不以当前段位重算；榜单会提示统计区间内缺失 PT 的对局。更新时先启动 Python 服务完成字段迁移，再启动 Web 服务。
+
+历史数据可通过 `guobiao/backfill_pt_changes.py` 从已核验的段位快照顺序重放：计入并列名次与后台调段审计，核对当前段位和 PT 后，仅补写缺失的 `pt_change`，不修改 `rank_data` 或场次得分。工具默认只读，`--apply` 才分批写入；规则指纹变化或玩家余额不一致时拒绝推测相应数据。回填前需添加上述可空字段；可独立执行字段迁移，无需重启游戏服。
+
+运行中的旧版游戏服尚未保存 PT 时，可给 Web 配置 `WEEKLY_PT_BASELINE`（已验证的快照 JSON）和 `WEEKLY_PT_PYTHON`（游戏服 Python 解释器路径）。Web 在周榜刷新前启动独立补算进程，读取同项目的 `server/local_config.py`，并将变更清单写入快照目录的 `runs/`。游戏服进程不受重启或热加载影响；未配置这两个变量时只使用已保存的 PT。
 
 ### rank_data 通用段位数据表
 存储各规则的段位/分数数据，每个用户一条记录。

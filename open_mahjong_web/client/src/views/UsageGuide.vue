@@ -80,8 +80,10 @@
                     <a href="#events" @click.prevent="scrollTo('events')">申办赛事</a>
                     与管理，并可查询
                     <router-link to="/player-data">玩家历史</router-link>
+                    、
+                    <router-link to="/player-data/platform">平台统计</router-link>
                     与
-                    <router-link to="/player-data/platform">平台统计</router-link>。
+                    <router-link to="/player-data/fun">其他数据</router-link>。
                   </p>
                 </li>
                 <li>
@@ -101,7 +103,7 @@
                 <li>
                   <p>
                     推荐先
-                    <router-link to="/login?redirect=/account">注册 / 登录</router-link>
+                    <router-link to="/login?redirect=/guide">注册 / 登录</router-link>
                     账户，再进入平台对局。账户面板可绑定邮箱、修改密码、申请或管理赛事。
                   </p>
                 </li>

@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, TYPE_CHECKING, Any
 
 from ..response import Response, RealtimeSpectatorEntry, GameInfo, Ask_hand_action_info, Ask_other_action_info
+from ..gamestate.public.ask_timing import reconnect_clock
 
 if TYPE_CHECKING:
     from ..server import GameServer  # noqa: F401
@@ -214,6 +215,8 @@ class FriendManager:
                 success=False,
                 message="对方当前不在游戏中",
             )
+        if getattr(game_state, "duplicate_key", None):
+            return Response(type="friend/realtime_request_result", success=False, message="复式对局不开放实时观战")
         player_index = self._find_player_index(game_state, target_user_id)
         if player_index is None:
             return Response(
@@ -441,6 +444,9 @@ class FriendManager:
                 realtime_request_id=request_id,
             )
 
+        if getattr(game_state, "duplicate_key", None):
+            return Response(type="friend/realtime_request_respond_result", success=False,
+                            message="复式对局不开放实时观战", realtime_request_id=request_id)
         spectators_list: List[RealtimeSpectator] = getattr(
             game_state, "realtime_spectators", []
         )
@@ -757,8 +763,7 @@ class FriendManager:
         player = next((p for p in game_state.player_list if p.player_index == host_player_index), None)
         if player is None:
             return
-        t0 = getattr(game_state, "_ask_broadcast_time", None)
-        remaining = player.remaining_time if t0 is None else max(0, player.remaining_time - int(max(0, time.time() - t0)))
+        remaining, step_sent = reconnect_clock(game_state, player)
         room_rule = getattr(game_state, "room_rule", "guobiao")
         if game_state.game_status == "waiting_hand_action" and host_player_index == game_state.current_player_index:
             await conn.websocket.send_json(Response(
@@ -767,6 +772,7 @@ class FriendManager:
                 message="实时观战补发手牌操作询问",
                 ask_hand_action_info=Ask_hand_action_info(
                     remaining_time=remaining,
+                    step_remaining=step_sent,
                     player_index=game_state.current_player_index,
                     remain_tiles=max(0, len(game_state.tiles_list) - getattr(game_state, "dead_wall_count", 0)),
                     action_list=game_state.action_dict.get(host_player_index, []),
@@ -783,6 +789,7 @@ class FriendManager:
                 message="实时观战补发鸣牌操作询问",
                 ask_other_action_info=Ask_other_action_info(
                     remaining_time=remaining,
+                    step_remaining=step_sent,
                     action_list=game_state.action_dict[host_player_index],
                     cut_tile=cut_tile,
                     action_tick=game_state.server_action_tick,

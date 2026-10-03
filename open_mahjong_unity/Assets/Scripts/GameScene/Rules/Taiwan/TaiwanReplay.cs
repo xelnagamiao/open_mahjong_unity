@@ -15,10 +15,22 @@ public partial class GameRecordManager {
     }
 
     private void ResetRecordRuleState() {
+        ResetHongKongRecordState();
+        ResetGuangdongRecordState();
+        ResetChangchunRecordState();
+        ResetGuizhouRecordState();
+        ResetYixingRecordState();
+        ResetHangzhouRecordState();
+        ResetHongzhongRecordState();
+        ResetWenzhouRecordState();
+        recordShanxiTailSingle = false;
         sichuanRecordRevealHands = null;
         recordTaiwanRonBlockedPlayers.Clear();
         if (!IsTaiwanRecord()) {
-            recordDeadWallCount = 0;
+            recordDeadWallCount = ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", "") == "zhongyong/standard" || IsShanxiRecord() ? 14 : 0;
+            if (RecordRuleManifest?.RuleId == "guangdong" && !IsGuangdongMilRecord()) recordDeadWallCount = 13;
+            if (IsWenzhouRecord()) recordDeadWallCount = 4;
+            if (IsHangzhouRecord()) recordDeadWallCount = 20;
             recordDeadWallMode = "";
             return;
         }
@@ -38,11 +50,24 @@ public partial class GameRecordManager {
         }
     }
 
+    private RuleManifest RecordRuleManifest => RuleRegistry.Resolve(
+        ReadGameTitleString(gameRecord?.gameTitle, "rule", ""),
+        ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", ""));
+
     private bool ApplyRecordRuleActionBeforeMutation(IReadOnlyList<string> tick) {
-        if (!IsTaiwanRecord() || tick == null || tick.Count == 0) return false;
+        if (tick == null || tick.Count == 0) return false;
+        RestoreShanxiRonDiscard(tick);
+        if (ApplyChangchunRecordAction(tick) || ApplyGuangdongRecordAction(tick) || ApplyHongKongRecordAction(tick) || ApplyTuidaoRecordAction(tick)) return true;
+        if (ApplyGuizhouRecordAction(tick)) return true;
+        if (ApplyYixingRecordAction(tick)) return true;
+        if (ApplyHangzhouRecordAction(tick)) return true;
+        if (ApplyHongzhongRecordAction(tick)) return true;
+        if (ApplyWenzhouRecordAction(tick)) return true;
+        if (RecordRuleManifest?.SupportsRobbedAddedKongSource == true) RestoreTaiwanRobbedJiagangForRecord(tick);
+        if (RecordRuleManifest?.PublicReadyStateReplay != true) return false;
 
         string action = tick[0];
-        ApplyTaiwanRecordWallAction(action);
+        if (IsTaiwanRecord()) ApplyTaiwanRecordWallAction(action);
         RestoreTaiwanRobbedJiagangForRecord(tick);
         if (action != "state") return false;
 
@@ -62,7 +87,7 @@ public partial class GameRecordManager {
         if (lastJiagangPlayerIndex < 0 || lastWinnableTileId < 10) return;
 
         string[] huFan = ParseHuFanList(new List<string>(tick), 3);
-        if (HuFanContainsCuohe(huFan) || !huFan.Contains("抢杠")) return;
+        if (HuFanContainsCuohe(huFan) || !ContainsSichuanQianggangFan(huFan)) return;
         if (!indexToPosition.TryGetValue(lastJiagangPlayerIndex, out string sourcePosition)
             || !recordPlayer_to_info.TryGetValue(sourcePosition, out RecordPlayer sourcePlayer)) {
             return;
@@ -97,22 +122,27 @@ public partial class GameRecordManager {
     }
 
     private bool TryConsumeRecordRuleWallTile(string action) {
-        if (!IsTaiwanRecord()) return false;
+        if (ConsumeChangchunRecordWall(action)) return true;
+        if (IsShanxiRecord()) { ConsumeShanxiRecordWallTile(action); return true; }
+        if (RecordRuleManifest?.ReplacementFromTailEnd != true) return false;
         ConsumeTaiwanRecordWallTile(action);
         return true;
     }
 
     private void RefreshRecordRulePlayerTags() {
-        if (!IsTaiwanRecord()) return;
+        if (RecordRuleManifest?.PublicReadyStateReplay != true) return;
         RefreshTaiwanRecordPlayerTags();
     }
 
     private int GetRecordRemainTiles() {
+        if (IsChangchunRecord()) return ChangchunRecordRemaining();
+        if (IsDuplicateReplay) return currentTilesList.Count;
         return Math.Max(0, currentTilesList.Count - recordDeadWallCount);
     }
 
     internal bool IsOriginalWallIndexNormalDrawable(int originalIndex) {
-        if (!IsTaiwanRecord()) return true;
+        if (IsDuplicateReplay) return currentOriginalIndices.Contains(originalIndex);
+        if (recordDeadWallCount == 0) return true;
         int currentPosition = currentOriginalIndices != null
             ? currentOriginalIndices.IndexOf(originalIndex)
             : -1;
@@ -196,6 +226,12 @@ public partial class GameRecordManager {
                 if (!player.tagList.Contains("declared_ready")) player.tagList.Add("declared_ready");
             } else {
                 player.tagList.Remove("declared_ready");
+            }
+        } else if (tick[1] == "chengbao") {
+            player.tagList.RemoveAll(tag => tag.StartsWith("chengbao_"));
+            foreach (string seat in tick[3].Split(',')) {
+                if (int.TryParse(seat, out int partner) && partner >= 0 && partner < 4)
+                    player.tagList.Add("chengbao_" + partner);
             }
         } else if (tick[1] == "water") {
             bool blocked = string.Equals(

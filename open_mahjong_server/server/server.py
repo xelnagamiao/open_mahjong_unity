@@ -1,7 +1,6 @@
-from fastapi import FastAPI, WebSocket, HTTPException
+from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Dict, Optional, List, Any
-import json
+from typing import Dict, Optional, Any
 import asyncio
 import logging
 from logging.handlers import RotatingFileHandler
@@ -13,6 +12,8 @@ from .room.room_manager import RoomManager
 from .room.room_router import handle_room_message
 from .gamestate.gamestate_router import handle_gamestate_message
 from .database.data_router import handle_data_message
+from .database.title_router import handle_title_message
+from .database.inventory_router import handle_inventory_message, register_inventory_routes
 from .match.match_router import handle_match_message
 from .friend.friend_router import handle_friend_message
 from .event.event_router import handle_event_message
@@ -27,10 +28,9 @@ from .chat_server.chat_server import ChatServer
 from .gamestate.public.critical_log import setup_critical_logging
 from .game_calculation.game_calculation_service import GameCalculationService
 from .match.match_manager import MatchManager
-import secrets,hashlib
+import secrets
 import re
-import subprocess,os,signal,sys
-import time
+import os
 
 # 有 local_config（生产/本机私有配置）则用之；否则回退 test_config。
 # 切勿把 Debug=True 的开发默认值直接覆盖到生产，否则会读错 JWT 密钥。
@@ -254,6 +254,11 @@ class GameServer:
     async def disconnect(self, Connect_id: str):
         if Connect_id in self.players:
             player = self.players[Connect_id]
+            if getattr(player, "event_disconnecting", False):
+                return
+            if player.user_id and self.user_id_to_connection.get(player.user_id) is not player:
+                self.players.pop(Connect_id, None)
+                return
             player.event_disconnecting = True
             if player.user_id and self.user_id_to_connection.get(player.user_id) is player:
                 try:
@@ -264,6 +269,11 @@ class GameServer:
             if player.current_room_id:
                 await self.room_manager.leave_room(Connect_id, player.current_room_id)
                 logging.info(f"玩家 {Connect_id} 已离开房间 {player.current_room_id}")
+
+            # A replacement connection can log in while leave_room broadcasts.
+            if player.user_id and self.user_id_to_connection.get(player.user_id) is not player:
+                self.players.pop(Connect_id, None)
+                return
             
             # 如果是游客账户，尝试删除（只有在用户名包含"游客"且 is_tourist 为 True 时才删除）
             if player.user_id and player.is_tourist:
@@ -285,14 +295,14 @@ class GameServer:
 
             # 如果玩家在游戏中，则断开游戏连接
             if player.user_id:
-                await self.gamestate_manager.player_disconnect(player.user_id)
+                await self.gamestate_manager.player_disconnect(player.user_id, connection=player)
             
             # 删除用户ID到玩家连接的映射
-            if player.user_id:
+            if player.user_id and self.user_id_to_connection.get(player.user_id) is player:
                 self.user_id_to_connection.pop(player.user_id, None)
                 
             # 删除玩家连接并更新玩家信息
-            del self.players[Connect_id]
+            self.players.pop(Connect_id, None)
             logging.info(f"玩家 {Connect_id} 已断开连接")
 
     async def kick_user_by_id(self, user_id: int, reason: str) -> bool:
@@ -309,7 +319,7 @@ class GameServer:
                 message="login_kickout",
                 message_info=MessageInfo(
                     title="账号已被踢下线",
-                    content=reason or "管理员已将您的账号踢下线",
+                    content=reason or "服务器管理员已将您的账号踢下线",
                 ),
             )
             await player.websocket.send_json(kick_message.dict(exclude_none=True))
@@ -334,41 +344,44 @@ class GameServer:
             logging.info(f"已存储{'游客' if is_tourist else '玩家'} user_id={user_id}, username={username} 的会话数据")
 
     # 创建国标房间
-    async def create_GB_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, cuohe_type: int = 0, event_id=None) -> Response:
-        return await self.room_manager.create_GB_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, open_cuohe, sub_rule, hepai_limit, tourist_limit, allow_spectator, tactical_call, claim_protection, cuohe_type, event_id)
+    async def create_GB_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, cuohe_type: int = 0, event_id=None, count_tips: bool = False, use_flowers: bool = True, pointer_tips: bool = True, tian_di_ren_he: bool = False) -> Response:
+        return await self.room_manager.create_GB_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, open_cuohe, sub_rule, hepai_limit, tourist_limit, allow_spectator, tactical_call, claim_protection, cuohe_type, event_id, count_tips=count_tips, use_flowers=use_flowers, pointer_tips=pointer_tips, tian_di_ren_he=tian_di_ren_he)
 
     # 创建青雀房间
-    async def create_Qingque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "qingque/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, event_id=None) -> Response:
-        return await self.room_manager.create_Qingque_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, False, sub_rule, tourist_limit, allow_spectator, tactical_call, claim_protection, event_id)
+    async def create_Qingque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "qingque/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, event_id=None, count_tips: bool = False, pointer_tips: bool = True) -> Response:
+        return await self.room_manager.create_Qingque_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, False, sub_rule, tourist_limit, allow_spectator, tactical_call, claim_protection, event_id, count_tips=count_tips, pointer_tips=pointer_tips)
 
     # 创建长沙麻将房间
-    async def create_Changsha_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "changsha/classic_double_bird", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, open_kong_replacement_count: int = 2, initial_hu_si_xi: bool = True, initial_hu_ban_ban_hu: bool = True, initial_hu_que_yi_se: bool = True, initial_hu_liu_liu_shun: bool = True, initial_hu_san_tong: bool = True, bird_count: int = 2, dealer_bird: bool = True, base_score_no_dealer: bool = False, small_hu_score: int = 2, big_hu_score: int = 8, event_id=None) -> Response:
-        return await self.room_manager.create_Changsha_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, tactical_call, claim_protection, open_kong_replacement_count, initial_hu_si_xi, initial_hu_ban_ban_hu, initial_hu_que_yi_se, initial_hu_liu_liu_shun, initial_hu_san_tong, bird_count, dealer_bird, base_score_no_dealer, small_hu_score, big_hu_score, event_id)
+    async def create_Changsha_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "changsha/classic_double_bird", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, open_kong_replacement_count: int = 2, initial_hu_si_xi: bool = True, initial_hu_ban_ban_hu: bool = True, initial_hu_que_yi_se: bool = True, initial_hu_liu_liu_shun: bool = True, initial_hu_san_tong: bool = True, bird_count: int = 2, dealer_bird: bool = True, base_score_no_dealer: bool = False, small_hu_score: int = 2, big_hu_score: int = 8, event_id=None, count_tips: bool = False, pointer_tips: bool = True) -> Response:
+        return await self.room_manager.create_Changsha_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, tactical_call, claim_protection, open_kong_replacement_count, initial_hu_si_xi, initial_hu_ban_ban_hu, initial_hu_que_yi_se, initial_hu_liu_liu_shun, initial_hu_san_tong, bird_count, dealer_bird, base_score_no_dealer, small_hu_score, big_hu_score, event_id, count_tips=count_tips, pointer_tips=pointer_tips)
 
     # Jiandan is a fixed first-win rule; room creation intentionally exposes no hand-flow option.
-    async def create_Jiandan_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "jiandan/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, event_id=None) -> Response:
-        return await self.room_manager.create_Jiandan_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, tactical_call, claim_protection, event_id)
+    async def create_Jiandan_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "jiandan/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, event_id=None, count_tips: bool = False, pointer_tips: bool = True) -> Response:
+        return await self.room_manager.create_Jiandan_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, tactical_call, claim_protection, event_id, count_tips=count_tips, pointer_tips=pointer_tips)
 
-    async def create_Hongque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "hongque/v1.6", tourist_limit: bool = False, allow_spectator: bool = False, hepai_way: str = "multi_ron") -> Response:
-        return await self.room_manager.create_Hongque_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, hepai_way)
+    async def create_Hongque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "hongque/v1.6", tourist_limit: bool = False, allow_spectator: bool = False, hepai_way: str = "multi_ron", count_tips: bool = False, pointer_tips: bool = True) -> Response:
+        return await self.room_manager.create_Hongque_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, hepai_way, count_tips=count_tips, pointer_tips=pointer_tips)
 
-    async def create_Free_room(self, Connect_id: str, room_name: str, password: str, random_seed: int = 0, sub_rule: str = "free/standard", tourist_limit: bool = False, wall_wan: bool = True, wall_tong: bool = True, wall_suo: bool = True, wall_winds: bool = True, wall_dragons: bool = True, wall_flowers: bool = True) -> Response:
-        return await self.room_manager.create_Free_room(Connect_id, room_name, password, random_seed, sub_rule, tourist_limit, wall_wan, wall_tong, wall_suo, wall_winds, wall_dragons, wall_flowers)
+    async def create_Free_room(self, Connect_id: str, room_name: str, password: str, random_seed: int = 0, sub_rule: str = "free/standard", tourist_limit: bool = False, wall_wan: bool = True, wall_tong: bool = True, wall_suo: bool = True, wall_winds: bool = True, wall_dragons: bool = True, wall_flowers: bool = True, pointer_tips: bool = True) -> Response:
+        return await self.room_manager.create_Free_room(Connect_id, room_name, password, random_seed, sub_rule, tourist_limit, wall_wan, wall_tong, wall_suo, wall_winds, wall_dragons, wall_flowers, pointer_tips=pointer_tips)
 
     # 创建古典麻将房间
-    async def create_Classical_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "classical/standard", tourist_limit: bool = False, allow_spectator: bool = True, event_id=None) -> Response:
-        return await self.room_manager.create_Classical_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, event_id)
+    async def create_Classical_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "classical/standard", tourist_limit: bool = False, allow_spectator: bool = True, event_id=None, count_tips: bool = False, pointer_tips: bool = True) -> Response:
+        return await self.room_manager.create_Classical_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, event_id, count_tips=count_tips, pointer_tips=pointer_tips)
 
-    async def create_Riichi_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "riichi/standard", open_cuohe: bool = False, hepai_limit: int = 1, red_dora: bool = True, allow_kuikae: bool = False, open_xiru: bool = True, open_tobi: bool = True, hepai_way: str = "head_bump", tourist_limit: bool = False, allow_spectator: bool = True, event_id=None) -> Response:
-        return await self.room_manager.create_Riichi_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, open_cuohe, hepai_limit, red_dora, allow_kuikae, open_xiru, open_tobi, hepai_way, tourist_limit, allow_spectator, event_id)
+    async def create_Riichi_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "riichi/standard", open_cuohe: bool = False, hepai_limit: int = 1, red_dora: bool = True, allow_kuikae: bool = False, open_xiru: bool = True, open_tobi: bool = True, hepai_way: str = "head_bump", tourist_limit: bool = False, allow_spectator: bool = True, event_id=None, count_tips: bool = False, starting_score: Optional[int] = None, pointer_tips: bool = True, detailed_config: Optional[dict] = None, claim_protection: bool = False) -> Response:
+        return await self.room_manager.create_Riichi_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, open_cuohe, hepai_limit, red_dora, allow_kuikae, open_xiru, open_tobi, hepai_way, tourist_limit, allow_spectator, event_id, count_tips=count_tips, starting_score=starting_score, pointer_tips=pointer_tips, detailed_config=detailed_config, claim_protection=claim_protection)
 
     # 创建四川麻将（血战到底）房间
-    async def create_Sichuan_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "sichuan/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, blood_battle: bool = True, claim_protection: bool = True, event_id=None) -> Response:
-        return await self.room_manager.create_Sichuan_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, tactical_call, blood_battle, claim_protection, event_id)
+    async def create_Shanghai_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "shanghai/qiaoma", tourist_limit: bool = False, allow_spectator: bool = True, event_id=None, count_tips: bool = False, pointer_tips: bool = True, hepai_limit: int = 0) -> Response:
+        return await self.room_manager.create_Shanghai_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, event_id, count_tips=count_tips, pointer_tips=pointer_tips, hepai_limit=hepai_limit)
+
+    async def create_Sichuan_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "sichuan/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, blood_battle: bool = True, claim_protection: bool = True, event_id=None, count_tips: bool = False, pointer_tips: bool = True, hepai_limit: int = 0) -> Response:
+        return await self.room_manager.create_Sichuan_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, tactical_call, blood_battle, claim_protection, event_id, count_tips=count_tips, pointer_tips=pointer_tips, hepai_limit=hepai_limit)
 
     # 创建台湾麻将房间
-    async def create_Taiwan_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "taiwan/standard", tourist_limit: bool = False, allow_spectator: bool = True, open_cuohe: bool = False, cuohe_type: int = 0, detailed_config: dict = None, event_id=None) -> Response:
-        return await self.room_manager.create_Taiwan_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, open_cuohe, cuohe_type, detailed_config, event_id)
+    async def create_Taiwan_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "taiwan/standard", tourist_limit: bool = False, allow_spectator: bool = True, open_cuohe: bool = False, cuohe_type: int = 0, detailed_config: dict = None, event_id=None, count_tips: bool = False, pointer_tips: bool = True) -> Response:
+        return await self.room_manager.create_Taiwan_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, open_cuohe, cuohe_type, detailed_config, event_id, count_tips=count_tips, pointer_tips=pointer_tips)
 
     # 获取房间列表
     def get_room_list(self, show_tip: bool = False, event_id=None) -> Response:
@@ -388,23 +401,23 @@ class GameServer:
         await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
 
     # 添加机器人到房间
-    async def add_bot_to_room(self, Connect_id: str, room_id: str):
-        response = await self.room_manager.add_bot_to_room(Connect_id, room_id)
+    async def add_bot_to_room(self, Connect_id: str, room_id: str, seat_index=None):
+        response = await self.room_manager.add_bot_to_room(Connect_id, room_id, seat_index)
         await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
 
     # 添加牌效机器人到房间
-    async def add_smart_bot_to_room(self, Connect_id: str, room_id: str):
-        response = await self.room_manager.add_smart_bot_to_room(Connect_id, room_id)
+    async def add_smart_bot_to_room(self, Connect_id: str, room_id: str, seat_index=None):
+        response = await self.room_manager.add_smart_bot_to_room(Connect_id, room_id, seat_index)
         await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
 
     # 添加国标启发式机器人（高性能罗伯特）到房间
-    async def add_guobiao_heuristic_bot_to_room(self, Connect_id: str, room_id: str):
-        response = await self.room_manager.add_guobiao_heuristic_bot_to_room(Connect_id, room_id)
+    async def add_guobiao_heuristic_bot_to_room(self, Connect_id: str, room_id: str, seat_index=None):
+        response = await self.room_manager.add_guobiao_heuristic_bot_to_room(Connect_id, room_id, seat_index)
         await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
 
     # 房主移除玩家
-    async def kick_player_from_room(self, Connect_id: str, room_id: str, target_user_id: int):
-        response = await self.room_manager.kick_player_from_room(Connect_id, room_id, target_user_id)
+    async def kick_player_from_room(self, Connect_id: str, room_id: str, target_user_id: int, seat_index=None):
+        response = await self.room_manager.kick_player_from_room(Connect_id, room_id, target_user_id, seat_index)
         await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
 
     # 设置玩家准备状态
@@ -461,6 +474,7 @@ from .webapi.admin_event_room import register_admin_event_room_routes
 register_calc_routes(app, game_server)
 register_admin_message_routes(app, game_server)
 register_admin_user_routes(app, game_server)
+register_inventory_routes(app, game_server)
 register_admin_game_routes(app, game_server)
 register_admin_event_room_routes(app, game_server)
 
@@ -548,7 +562,7 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                                 message="login_kickout",
                                 message_info=MessageInfo(
                                     title="账户于其他地方登陆",
-                                    content=f"您的账户已于{current_time}在其他地方登录。如果不是您的行为，可能账户已被他人冒用，请及时修改密码以确保账户安全。"
+                                    content=f"您的账户已于{current_time}在其他地方登录。如果不是您本人行为，可能账户已被他人冒用，请及时修改密码以确保账户安全。"
                                 )
                             )
                             await old_player.websocket.send_json(kickout_message.dict(exclude_none=True))
@@ -567,10 +581,17 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                     await websocket.send_json(response.dict(exclude_none=True))
                     
                     # 检测玩家是否需要重连并发送 message 类型的通知
+                    await handle_title_message(game_server, Connect_id, {"type": "title/get"}, websocket)
+                    await handle_inventory_message(game_server, Connect_id, {"type": "inventory/get"}, websocket)
                     await game_server.check_player_reconnect(Connect_id, user_id)
                     continue
                 
                 await websocket.send_json(response.dict(exclude_none=True))
+
+            elif message.get("type", "").startswith("inventory/"):
+                await handle_inventory_message(game_server, Connect_id, message, websocket)
+            elif message.get("type", "").startswith("title/"):
+                await handle_title_message(game_server, Connect_id, message, websocket)
 
             # 检查是否是房间相关消息（type 字段以 "room/" 开头）
             elif message.get("type", "").startswith("room/"):
@@ -643,7 +664,11 @@ async def message_input(websocket: WebSocket, Connect_id: str):
 
                     if message.get("reconnect"):
                         # 玩家确认重连：由 game_state.player_reconnect 向该玩家推送 game_start_GB（含当前对局状态）
-                        await game_server.gamestate_manager.player_reconnect(user_id)
+                        restored = await game_server.gamestate_manager.player_reconnect(user_id)
+                        if not restored:
+                            await player.websocket.send_json({"type": "gamestate/closed", "success": False,
+                                "gamestate_id": game_state.gamestate_id, "reason": "unavailable", "message": "当前对局无法重连"})
+                            continue
                         response = Response(
                             type="tips",
                             success=True,
@@ -652,9 +677,7 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                         await player.websocket.send_json(response.dict(exclude_none=True))
                         logging.info(f"玩家 {user_id} 重连成功")
                     else:
-                        # 玩家明确放弃比赛：同步退出对局和房间。只删一张
-                        # user_id 索引会留下机器人房间及 current_room_id，下一次
-                        # 登录仍可能被旧生命周期重新挂回去。
+                        # 放弃后取消重连资格、退出大厅房间，对局结束前仍保留占位。
                         await game_server.gamestate_manager.abandon_player_game(Connect_id, user_id)
                         response = Response(
                             type="tips",
@@ -662,7 +685,7 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                             message="已放弃重连"
                         )
                         await player.websocket.send_json(response.dict(exclude_none=True))
-                        logging.info(f"玩家 {user_id} 放弃重连，已清理索引")
+                        logging.info(f"玩家 {user_id} 放弃重连，对局占位保留至结束")
     
     except Exception as e:
         # WebSocket 连接断开或其他异常
@@ -752,6 +775,7 @@ async def _finalize_player_login(
     rank_data = None
     if rank_data_raw:
         rank_data = RankData(
+            ratings=rank_data_raw.get('ratings', {}),
             guobiao_rank=rank_data_raw.get('guobiao_rank', '10级'),
             guobiao_score=rank_data_raw.get('guobiao_score', 0.0),
             is_sponsor=sponsor_mcrpl.get('is_sponsor', False) if sponsor_mcrpl else False,
@@ -871,6 +895,10 @@ async def player_register(username, password, confirm_password, email, client_ip
     )
 
 
+# Keep password hashing off the game loop and limit its CPU concurrency.
+_login_password_checks = asyncio.Semaphore(1)
+
+
 async def player_login(
     username: str,
     password: str,
@@ -924,28 +952,17 @@ async def player_login(
         username = tourist_username
         password = ""
     
-    # 验证用户名和密码（游客不需要验证，因为已经生成）
+    # 登录仅检查类型和非空；注册时的字符、长度规则不能拦截已有账户。
     if not is_tourist:
         if not isinstance(username, str) or not isinstance(password, str) or login_type not in ("username", "account"):
             return Response(type="tips", success=False, message="登录信息格式不正确")
         username = normalize_username(username)
+        if not username:
+            return Response(type="tips", success=False, message="请输入用户名或邮箱")
+        if not password:
+            return Response(type="tips", success=False, message="请输入密码")
         is_email = (login_type == "account" and len(username) <= 255
                     and re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", username) is not None)
-        username_error = None if is_email else validate_username(username)
-        if username_error:
-            return Response(
-                type="tips",
-                success=False,
-                message=username_error
-            )
-        
-        password_error = validate_password(password)
-        if password_error:
-            return Response(
-                type="tips",
-                success=False,
-                message=password_error
-            )
     
     # 检查用户是否存在
     player: Optional[Dict[str, Any]] = db_manager.get_user_by_username(username)
@@ -961,7 +978,24 @@ async def player_login(
     if player is not None:
         # 用户存在，验证密码
         stored_password_hash = player.get('password')
-        if stored_password_hash and db_manager.verify_password(password, stored_password_hash):
+        password_matches = False
+        if stored_password_hash:
+            await _login_password_checks.acquire()
+            try:
+                password_check = asyncio.get_running_loop().run_in_executor(
+                    None, db_manager.verify_password, password, stored_password_hash
+                )
+            except BaseException:
+                _login_password_checks.release()
+                raise
+            # A disconnected/cancelled login must not free the CPU slot early.
+            def password_check_finished(future):
+                _login_password_checks.release()
+                if not future.cancelled():
+                    future.exception()  # Consume errors if the login was cancelled.
+            password_check.add_done_callback(password_check_finished)
+            password_matches = await asyncio.shield(password_check)
+        if password_matches:
             if db_manager.is_login_ban_active(player):
                 return Response(
                     type="tips",

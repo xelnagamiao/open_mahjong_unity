@@ -16,6 +16,7 @@ export class WaitEntry extends Container {
     baseF: number,
     selfDrawnF: number,
     remainingCount: number,
+    unit = '番',
   ) {
     super()
     this.x = x
@@ -24,7 +25,7 @@ export class WaitEntry extends Container {
 
     const selfDrawnOnly = selfDrawnF > 0 && baseF <= 0
     const notEnough = selfDrawnF <= 0 && baseF <= 0
-    const fanLabel = baseF > 0 ? `${Math.round(baseF)}番` : selfDrawnOnly ? '仅自摸' : '未起和'
+    const fanLabel = baseF > 0 ? `${Math.round(baseF)}${unit}` : selfDrawnOnly ? '仅自摸' : '未起和'
     const fanText = new Text({
       text: fanLabel,
       style: {

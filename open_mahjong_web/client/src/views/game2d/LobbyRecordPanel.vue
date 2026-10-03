@@ -37,6 +37,7 @@
             <div class="record-row__players">
               <span v-for="player in record.players" :key="`${record.game_id}-${player.user_id}`" :class="{ 'record-row__self': isCurrentPlayer(player) }">
                 <em>{{ player.rank ?? '—' }} 位</em><span class="record-player-name">{{ playerName(player) }}</span> <b>{{ formatScore(player.score) }}</b>
+                <small>PT {{ formatPtChange(player.pt_change) }}</small>
               </span>
             </div>
           </div>
@@ -57,11 +58,12 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { game2dPlayerApi, publicApiGet } from '@/game2d/salasasa/api'
+import { formatPtChange } from '@/utils/ptChange'
 import { parseRecordShareInput } from '@/utils/recordShareLink'
 import { getLocalGameRecord, isLocalOnlyGameId, listLocalGameRecords } from '@/utils/localGameRecordStore'
 
@@ -73,6 +75,7 @@ const records = ref([])
 const total = ref(0)
 const loading = ref(false)
 const loadingMore = ref(false)
+let recordsController = null
 const favoriteBusy = ref('')
 const PAGE_SIZE = 12
 
@@ -151,6 +154,12 @@ function goLogin() {
 }
 
 async function loadRecords({ append = false } = {}) {
+  if (append && (loading.value || loadingMore.value)) return
+  recordsController?.abort()
+  const controller = new AbortController()
+  recordsController = controller
+  loading.value = false
+  loadingMore.value = false
   if (requiresLogin.value) {
     records.value = []
     total.value = 0
@@ -162,23 +171,28 @@ async function loadRecords({ append = false } = {}) {
   try {
     if (activeTab.value === 'local') {
       const items = (await listLocalGameRecords()).filter((item) => !item.rule || item.rule === 'guobiao')
+      if (controller.signal.aborted) return
       records.value = items
       total.value = items.length
       return
     }
     let data
     if (activeTab.value === 'ladder') {
-      data = await publicApiGet(`/platform/recent-records?limit=${PAGE_SIZE}&offset=${offset}`)
+      data = await publicApiGet(`/platform/recent-records?limit=${PAGE_SIZE}&offset=${offset}`, controller.signal)
     } else {
-      data = await game2dPlayerApi(`/my-records?limit=${PAGE_SIZE}&offset=${offset}&favorites_only=${activeTab.value === 'favorite' ? 1 : 0}`)
+      data = await game2dPlayerApi(`/my-records?limit=${PAGE_SIZE}&offset=${offset}&favorites_only=${activeTab.value === 'favorite' ? 1 : 0}`, { signal: controller.signal })
     }
+    if (controller.signal.aborted) return
     records.value = append ? [...records.value, ...(data.items || [])] : (data.items || [])
     total.value = Number(data.total || 0)
   } catch (error) {
+    if (controller.signal.aborted) return
     ElMessage.error(error instanceof Error ? error.message : '牌谱列表加载失败')
   } finally {
-    loading.value = false
-    loadingMore.value = false
+    if (recordsController === controller) {
+      loading.value = false
+      loadingMore.value = false
+    }
   }
 }
 
@@ -213,6 +227,7 @@ function loadMore() {
 }
 
 watch([activeTab, () => auth.isLoggedIn], () => void loadRecords(), { immediate: true })
+onBeforeUnmount(() => recordsController?.abort())
 </script>
 
 <style scoped>

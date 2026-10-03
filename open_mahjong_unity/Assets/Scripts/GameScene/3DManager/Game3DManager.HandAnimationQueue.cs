@@ -4,7 +4,9 @@ using UnityEngine;
 
 /// <summary>
 /// 暗杠/加杠手牌删收拢与杠后岭上摸牌走各家串行队列，保证「删牌 → 收拢 → 摸牌」顺序正确。
-/// 出牌 / 普通摸牌 / 吃碰明杠等仍走 Change3DTileCoroutine，避免多家快速出牌时队列互相拖慢。
+/// 所有出牌（含普通出牌、牌谱与多张切）从第一张起入队，完整落河、收拢后再出下一张。
+/// 自由模式的结构变更按座位串行；空闲时摸牌立即入手，短收拢动画追随最新布局。
+/// 队列空闲时的普通摸牌 / 吃碰明杠等仍走 Change3DTileCoroutine，各家的队列互不阻塞。
 /// </summary>
 public partial class Game3DManager {
     private enum HandAnimOpKind {
@@ -12,6 +14,9 @@ public partial class Game3DManager {
         Rearrange,
         DrawCard,
         DiscardTile,
+        BuhuaTile,
+        FreeMeld,
+        FreeClaimRiver,
     }
 
     private sealed class HandAnimOp {
@@ -23,6 +28,11 @@ public partial class Game3DManager {
         public int[] CombinationMask;
         public bool IsRiichi;
         public bool PlayCutPhysicsSound;
+        public bool MergeBeforeDraw;
+        public int MeldIndex;
+        public int[] HandTiles;
+        public HandAnimOp RiverClaim;
+        public bool Completed;
     }
 
     private static readonly string[] HandAnimPlayerPositions = { "self", "left", "top", "right" };
@@ -35,6 +45,7 @@ public partial class Game3DManager {
     };
 
     private readonly Dictionary<string, Coroutine> _handAnimProcessors = new Dictionary<string, Coroutine>();
+    private int _handAnimationGeneration;
 
     private int _recordHandAnimationCount;
     private int _recordHandAnimationGeneration;
@@ -81,6 +92,8 @@ public partial class Game3DManager {
     }
 
     private void StopAllHandAnimationQueues() {
+        foreach (string position in HandAnimPlayerPositions) StopFreeDrawReflow(position, finish: false);
+        _handAnimationGeneration++;
         // 跳转/切局会中断嵌套动画；旧协程的 finally 不得扣减新一轮播放的计数。
         _recordHandAnimationGeneration++;
         _recordHandAnimationCount = 0;
@@ -123,12 +136,13 @@ public partial class Game3DManager {
     }
 
     private IEnumerator RunHandAnimQueue(string playerPosition) {
+        int generation = _handAnimationGeneration;
         Queue<HandAnimOp> queue = _handAnimQueues[playerPosition];
-        while (queue.Count > 0) {
+        while (generation == _handAnimationGeneration && queue.Count > 0) {
             HandAnimOp op = queue.Dequeue();
             yield return ExecuteHandAnimOp(op);
         }
-        _handAnimProcessors[playerPosition] = null;
+        if (generation == _handAnimationGeneration) _handAnimProcessors[playerPosition] = null;
     }
 
     private IEnumerator ExecuteHandAnimOp(HandAnimOp op) {
@@ -136,6 +150,8 @@ public partial class Game3DManager {
         if (panel == null) {
             yield break;
         }
+        if (op.Kind != HandAnimOpKind.DrawCard || !op.MergeBeforeDraw)
+            StopFreeDrawReflow(op.PlayerPosition, finish: true);
 
         switch (op.Kind) {
             case HandAnimOpKind.RemoveCards:
@@ -148,11 +164,108 @@ public partial class Game3DManager {
                 if (op.PlayerPosition == "self") {
                     yield break;
                 }
+                if (op.MergeBeforeDraw) {
+                    PlayFreeDrawReflow(op.PlayerPosition);
+                    break;
+                }
                 yield return Get3DTileCoroutine(op.PlayerPosition, "get");
                 break;
             case HandAnimOpKind.DiscardTile:
                 yield return DiscardTileFromQueue(panel, op);
                 break;
+            case HandAnimOpKind.BuhuaTile:
+                yield return Change3DTileCoroutine("Buhua", op.TileId, 0, op.PlayerPosition, op.CutClass, null);
+                break;
+            case HandAnimOpKind.FreeMeld:
+                yield return FreeMeldFromQueue(panel, op);
+                break;
+            case HandAnimOpKind.FreeClaimRiver:
+                yield return ReturnLastCutTileForMeldCoroutine(FreeActionWords.Meld, op.PlayerPosition, op.TileId);
+                op.Completed = true;
+                break;
+        }
+    }
+
+    /// <summary>仅为服务器已确认的新副露播放动画；固定本次组号，连续广播不会串到末组。</summary>
+    public void PlayFreeMeld(string playerPosition, int[] mask, int meldIndex, int[] handTiles,
+        string discarderPosition, int claimedTile) {
+        if (mask == null || handTiles == null || meldIndex < 0) return;
+        if (!IsHandAnimPlayer(playerPosition)) return;
+        var op = new HandAnimOp {
+            Kind = HandAnimOpKind.FreeMeld,
+            CombinationMask = (int[])mask.Clone(),
+            MeldIndex = meldIndex,
+            HandTiles = (int[])handTiles.Clone(),
+        };
+        // 认牌也排进出牌者队列：在其上一张落河后、下一张出牌前回收，避免自由操作覆盖末张登记。
+        if (IsHandAnimPlayer(discarderPosition) && claimedTile > 0) {
+            op.RiverClaim = new HandAnimOp { Kind = HandAnimOpKind.FreeClaimRiver, TileId = claimedTile };
+            EnqueueHandAnimOp(discarderPosition, op.RiverClaim);
+        }
+        EnqueueHandAnimOp(playerPosition, op);
+    }
+
+    private IEnumerator FreeMeldFromQueue(PosPanel3D panel, HandAnimOp op) {
+        int generation = _handAnimationGeneration;
+        while (op.RiverClaim != null && !op.RiverClaim.Completed) {
+            yield return null;
+            if (generation != _handAnimationGeneration) yield break;
+        }
+
+        // 自家、推倒明牌按实际牌值移除；暗手只扣数量。朝向 1 也可以是自家选中的横牌。
+        bool revealed = false;
+        if (FreeGameState.Active != null) {
+            foreach (var player in TableMirror.Current.IndexToPosition) {
+                if (player.Value == op.PlayerPosition) {
+                    FreeGameState.Active.Revealed.TryGetValue(player.Key, out revealed);
+                    break;
+                }
+            }
+        }
+        if (op.PlayerPosition == "self" || revealed) {
+            // 自家正常立牌只显示 2D 手牌，推倒后才有 cardsPosition 下的明牌。
+            if (panel.cardsPosition.childCount > 0)
+                foreach (int tile in op.HandTiles) RemoveOneSelfHandCardByTileId(panel.cardsPosition, tile, op.PlayerPosition);
+        } else if (op.HandTiles.Length > 0) {
+            yield return RemoveHandCardsCoroutine(panel.cardsPosition, op.HandTiles.Length, false, 0, null, true, op.PlayerPosition);
+            if (generation != _handAnimationGeneration) yield break;
+        }
+
+        yield return ActionAnimationCoroutine(op.PlayerPosition, FreeActionWords.Meld, op.CombinationMask, true, op.MeldIndex);
+        if (generation != _handAnimationGeneration) yield break;
+        yield return Rearrange3DCardsWithAnimation(panel.cardsPosition);
+    }
+
+    /// <summary>自由模式的他家摸牌、切牌和补花共用队列，避免旧摸牌尚未收拢就增删下一张。</summary>
+    private bool TryEnqueueFreeHandChange(string actionType, int tileId, string playerPosition,
+        bool cutClass, bool isRiichi, bool playCutPhysicsSound) {
+        if (FreeGameState.Active == null || playerPosition == "self" || !IsHandAnimPlayer(playerPosition)
+                || IsRecordShowCardsModeActive()) return false;
+
+        switch (actionType) {
+            case "GetCard":
+                if (!HasPendingHandAnimWork(playerPosition)) {
+                    PlayFreeDrawReflow(playerPosition);
+                    return true;
+                }
+                EnqueueHandAnimOp(playerPosition, new HandAnimOp {
+                    Kind = HandAnimOpKind.DrawCard,
+                    TileId = tileId,
+                    MergeBeforeDraw = true,
+                });
+                return true;
+            case "Discard":
+                EnqueueDiscardHandWork(playerPosition, tileId, cutClass, isRiichi, playCutPhysicsSound);
+                return true;
+            case "Buhua":
+                EnqueueHandAnimOp(playerPosition, new HandAnimOp {
+                    Kind = HandAnimOpKind.BuhuaTile,
+                    TileId = tileId,
+                    CutClass = cutClass,
+                });
+                return true;
+            default:
+                return false;
         }
     }
 
@@ -275,6 +388,7 @@ public partial class Game3DManager {
         string actionType,
         string discarderPosOverride = null,
         int claimedTileOverride = 0) {
+        int generation = _handAnimationGeneration;
         if (actionType == "jiagang" || actionType == "angang") {
             yield break;
         }
@@ -304,6 +418,7 @@ public partial class Game3DManager {
                 idleFrames = 0;
             }
             yield return null;
+            if (generation != _handAnimationGeneration) yield break;
             elapsed += Time.unscaledDeltaTime;
             obj = ResolveLastDiscardObject(discarderPos, claimedTile);
         }

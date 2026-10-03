@@ -4,10 +4,10 @@
     "total": 128,
     "items": [
       {
-        "game_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "game_id": "a1B2c3D4e5",
         "created_at": "2026-07-01T12:34:56.789Z",
         "rule": "guobiao",
-        "sub_rule": "guobiao",
+        "sub_rule": "guobiao/standard",
         "match_type": "4/4_rank",
         "room_type": "match",
         "match_tier": "intermediate",
@@ -16,14 +16,27 @@
           {
             "user_id": 10000001,
             "username": "示例玩家",
-            "score": 35000,
+            "score": 120,
             "rank": 1,
+            "pt_change": 11.76,
             "title_used": null,
             "character_used": null,
             "profile_used": null,
-            "voice_used": null
+            "voice_used": null,
+            "rating_rule": "guobiao",
+            "rating_system": "grade",
+            "rating_pt": 11.76,
+            "rank_before": "三段",
+            "rank_after": "三段",
+            "score_before": 850.5,
+            "score_after": 862.26,
+            "elo_before": 1500,
+            "elo_after": 1516,
+            "elo_delta": 16,
+            "rating_games": 43
           }
-        ]
+        ],
+        "event_name": null
       }
     ],
     "filters": [

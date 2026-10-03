@@ -31,6 +31,7 @@ public class Tile3D : MonoBehaviour
     private int tileMaterialIndex = -1;
     private int currentTileId = -1;
     private int currentPoolTileId = -1;
+    private int currentVisibleFaceTileId = -1;
     private MaterialPropertyBlock propBlock;
     private Vector4 frontTilingOffset = new Vector4(1f, 1f, 0f, 0f);
     private float backRotation;
@@ -112,6 +113,7 @@ public class Tile3D : MonoBehaviour
         isPeekFaceUp = peek;
         Transform mesh = GetFaceMeshTransform();
         mesh.localRotation = peek ? faceUpLocalRotation : faceDownLocalRotation;
+        RuleTileBadge3D.Apply(cardRenderer, currentVisibleFaceTileId, !IsConcealedFaceDown || isPeekFaceUp);
     }
 
     public void ResetConcealedState() {
@@ -234,6 +236,7 @@ public class Tile3D : MonoBehaviour
             TileInstanceParamsId,
             new Vector4(instanceGrayScale, instanceTableImageScale, 0f, 0f));
         cardRenderer.SetPropertyBlock(propBlock, tileMaterialIndex);
+        RuleTileBadge3D.Apply(cardRenderer, currentVisibleFaceTileId, !IsConcealedFaceDown || isPeekFaceUp);
     }
 
     /// <summary>
@@ -247,6 +250,7 @@ public class Tile3D : MonoBehaviour
 
         currentTileId = tileId;
         currentPoolTileId = tileId;
+        currentVisibleFaceTileId = tileId;
         Texture2D atlasTexture = sprite.texture;
         Texture currentAtlas = sharedTileMaterial.GetTexture(FrontTexId);
         if (currentAtlas == null) {
@@ -306,6 +310,7 @@ public class Tile3D : MonoBehaviour
         instanceTableImageScale = contain ? imageScale : 0f;
         currentTileId = tileId;
         currentPoolTileId = tileId;
+        currentVisibleFaceTileId = tileId;
         frontTilingOffset = tiling;
         ApplyPropertyBlock();
     }

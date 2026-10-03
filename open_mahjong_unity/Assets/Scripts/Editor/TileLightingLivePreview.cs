@@ -14,11 +14,12 @@ public static class TileLightingLivePreview
     private const string SyncMenu = MenuRoot + "Sync Now %&l";
     private const string EnabledKey = "Mahjong.TileLightingLivePreview.Enabled";
     private static readonly int ShadeId = Shader.PropertyToID("_TileShadeTint");
+    private static readonly int DirectionId = Shader.PropertyToID("_TileLightDirection");
     private static readonly int[] FloatIds = {
         Shader.PropertyToID("_TileLightThreshold"),
         Shader.PropertyToID("_TileLightTransition"),
-        Shader.PropertyToID("_TileShadowStrength"),
-        Shader.PropertyToID("_TileWhiteCompression")
+        Shader.PropertyToID("_TileWhiteCompression"),
+        Shader.PropertyToID("_TileLightDirectionBlend")
     };
 
     private static Material source;
@@ -31,18 +32,21 @@ public static class TileLightingLivePreview
     private struct Tone
     {
         public Color shade;
+        public Vector4 direction;
         public Vector4 values;
 
         public static Tone Read(Material material) {
-            var tone = new Tone { shade = material.GetColor(ShadeId) };
+            var tone = new Tone { shade = material.GetColor(ShadeId), direction = material.GetVector(DirectionId) };
             for (int i = 0; i < FloatIds.Length; i++) tone.values[i] = material.GetFloat(FloatIds[i]);
             return tone;
         }
 
-        public bool Matches(Tone other) => shade.Equals(other.shade) && values.Equals(other.values);
+        public bool Matches(Tone other) => shade.Equals(other.shade)
+            && direction.Equals(other.direction) && values.Equals(other.values);
 
         public void Apply(Material material) {
             material.SetColor(ShadeId, shade);
+            material.SetVector(DirectionId, direction);
             for (int i = 0; i < FloatIds.Length; i++) material.SetFloat(FloatIds[i], values[i]);
         }
     }
@@ -99,7 +103,7 @@ public static class TileLightingLivePreview
     private static bool Ready() {
         if (!ValidateSyncNow()) return false;
         if (!source) source = AssetDatabase.LoadAssetAtPath<Material>(MaterialPath);
-        if (!source || !source.HasProperty(ShadeId)) return false;
+        if (!source || !source.HasProperty(ShadeId) || !source.HasProperty(DirectionId)) return false;
         foreach (int id in FloatIds) if (!source.HasProperty(id)) return false;
         return true;
     }

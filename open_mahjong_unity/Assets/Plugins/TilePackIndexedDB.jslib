@@ -179,6 +179,30 @@ var TilePackIndexedDB = {
         });
     },
 
+    TilePackIdbDeleteLibraryZip: function (keyPtr, goPtr) {
+        var key = UTF8ToString(keyPtr), go = UTF8ToString(goPtr);
+        if (key !== 'standardZip' && !/^tilepack\/custom-[0-9a-f]{32}$/.test(key)) {
+            TilePackIdbSend(go, 'OnResult', 'error|无效牌面'); return;
+        }
+        var settled = false;
+        var finish = function (message) {
+            if (settled) return;
+            settled = true;
+            TilePackIdbSend(go, 'OnResult', message);
+        };
+        TilePackIdbOpen(function (db) {
+            if (settled) return;
+            if (!db) { finish('error|IndexedDB 不可用，牌面未删除'); return; }
+            try {
+                var tx = db.transaction(TilePackIdbState.storeName, 'readwrite');
+                tx.objectStore(TilePackIdbState.storeName).delete(key);
+                // Publish success only when the transaction committed, not on request success.
+                tx.oncomplete = function () { finish('ok'); };
+                tx.onabort = function () { finish('error|牌面删除失败'); };
+            } catch (e) { finish('error|' + e.message); }
+        });
+    },
+
     TilePackIdbLoadLibraryZip: function (keyPtr, goPtr) {
         var key = UTF8ToString(keyPtr), go = UTF8ToString(goPtr);
         TilePackIdbOpen(function (db) {
@@ -282,6 +306,10 @@ var TilePackIndexedDB = {
                     key = keyOrPrefix + 'item_' + Date.now() + ext;
                 }
                 TilePackIdbState.assetBytes = stored;
+                if (keyOrPrefix === '@read-only') {
+                    TilePackIdbSend(go, method, 'ok|' + stored.byteLength + '|' + file.name);
+                    return;
+                }
                 var okMsg = 'ok|' + stored.byteLength + '|' + key;
                 TilePackIdbOpen(function (db) {
                     if (!db) {
@@ -314,19 +342,22 @@ var TilePackIndexedDB = {
         copy.set(heap.subarray(dataPtr, dataPtr + length));
         var stored = copy.buffer;
         TilePackIdbState.assetBytes = stored;
+        var settled = false;
+        var finish = function (message) {
+            if (settled) return;
+            settled = true; TilePackIdbSend(go, method, message);
+        };
         TilePackIdbOpen(function (db) {
             if (!db) {
-                TilePackIdbSend(go, method, 'ok|' + length + '|' + key);
+                finish('error|IndexedDB 不可用，图片未保存');
                 return;
             }
-            var tx = db.transaction(TilePackIdbState.storeName, 'readwrite');
-            tx.objectStore(TilePackIdbState.storeName).put(stored, key);
-            tx.oncomplete = function () {
-                TilePackIdbSend(go, method, 'ok|' + length + '|' + key);
-            };
-            tx.onerror = function () {
-                TilePackIdbSend(go, method, 'error|IndexedDB 写入失败');
-            };
+            try {
+                var tx = db.transaction(TilePackIdbState.storeName, 'readwrite');
+                tx.objectStore(TilePackIdbState.storeName).put(stored, key);
+                tx.oncomplete = function () { finish('ok|' + length + '|' + key); };
+                tx.onabort = function () { finish('error|IndexedDB 写入失败'); };
+            } catch (e) { finish('error|' + e.message); }
         });
     },
 
@@ -375,19 +406,22 @@ var TilePackIndexedDB = {
         var key = UTF8ToString(keyPtr);
         var go = UTF8ToString(goPtr);
         var method = UTF8ToString(methodPtr);
+        var settled = false;
+        var finish = function (message) {
+            if (settled) return;
+            settled = true; TilePackIdbSend(go, method, message);
+        };
         TilePackIdbOpen(function (db) {
             if (!db) {
-                TilePackIdbSend(go, method, 'ok');
+                finish('error|IndexedDB 不可用，图片未删除');
                 return;
             }
-            var tx = db.transaction(TilePackIdbState.storeName, 'readwrite');
-            tx.objectStore(TilePackIdbState.storeName).delete(key);
-            tx.oncomplete = function () {
-                TilePackIdbSend(go, method, 'ok');
-            };
-            tx.onerror = function () {
-                TilePackIdbSend(go, method, 'error|IndexedDB 删除失败');
-            };
+            try {
+                var tx = db.transaction(TilePackIdbState.storeName, 'readwrite');
+                tx.objectStore(TilePackIdbState.storeName).delete(key);
+                tx.oncomplete = function () { finish('ok'); };
+                tx.onabort = function () { finish('error|IndexedDB 删除失败'); };
+            } catch (e) { finish('error|' + e.message); }
         });
     },
 
@@ -544,6 +578,10 @@ var TilePackIndexedDB = {
             reader.onload = function () {
                 var stored = TilePackIdbCloneBuffer(reader.result);
                 TilePackIdbState.assetBytes = stored;
+                if (key === '@read-only') {
+                    TilePackIdbSend(go, method, 'ok|' + stored.byteLength + '|' + file.name);
+                    return;
+                }
                 TilePackIdbOpen(function (db) {
                     if (!db) {
                         SendMessage(go, method, 'ok|' + stored.byteLength + '|' + key);

@@ -1,5 +1,7 @@
 from typing import Dict
 import logging
+from . import blood_battle
+from .duplicate_rules import duplicate_rules_for
 from ..public.logic_common import get_index_relative_position, next_current_num
 from ..public.hand_slot_utils import normalize_tile
 
@@ -10,11 +12,16 @@ logger = logging.getLogger(__name__)
 # 切牌后检查 存储 吃chi_left chi_mid chi_right 碰peng 杠gang 胡hu 操作
 def check_action_after_cut(self,cut_tile):
     temp_action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
+    duplicate_rules = duplicate_rules_for(self)
+
+    if blood_battle.enabled(self):
+        self.result_dict = {}
 
     # 如果牌堆内仍有牌则可以吃碰杠
-    if self.tiles_list != []:
+    if (not duplicate_rules.is_last_discard(self.current_player_index) if duplicate_rules else self.tiles_list != []):
         # 如果切牌是万 饼 条 且下家有C+1和C-1 则可以吃
-        next_player_index = next_current_num(self.current_player_index)
+        next_player_index = (blood_battle.next_active_index(self, self.current_player_index)
+                             if blood_battle.enabled(self) else next_current_num(self.current_player_index))
         if cut_tile <= 40:
             # left 左侧吃牌 [a-2,a-1,a]
             if cut_tile-2 in self.player_list[next_player_index].hand_tiles:
@@ -37,7 +44,7 @@ def check_action_after_cut(self,cut_tile):
         # 检测杠牌：手牌中有3张相同的牌
         for item in self.player_list:
             if item.hand_tiles.count(cut_tile) == 3:
-                if self.tiles_list != []:
+                if duplicate_rules.can_draw(item.player_index) if duplicate_rules else self.tiles_list != []:
                         temp_action_dict[item.player_index].append("gang")
 
     # 切牌后刷新他家听牌再判荣和（避免开局未刷新 waiting_tiles 导致漏判）
@@ -60,13 +67,15 @@ def check_action_after_cut(self,cut_tile):
 
     # 陪打玩家不能完成鸣牌操作
     for item in self.player_list:
-        if "peida" in item.tag_list:
+        if "peida" in item.tag_list or (blood_battle.enabled(self) and getattr(item, "is_hu", False)):
             temp_action_dict[item.player_index] = []
 
     return temp_action_dict
 
 # 加杠检查操作 存储 抢杠
 def check_action_jiagang(self,jiagang_tile):
+    if blood_battle.enabled(self):
+        self.result_dict = {}
     # 如果该牌是任意家的等待牌，则可以抢杠和
     temp_action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
     # 如果该牌是任意家的等待牌 且不是自己
@@ -83,7 +92,7 @@ def check_action_jiagang(self,jiagang_tile):
 
     # 陪打玩家不能抢杠操作
     for item in self.player_list:
-        if "peida" in item.tag_list:
+        if "peida" in item.tag_list or (blood_battle.enabled(self) and getattr(item, "is_hu", False)):
             temp_action_dict[item.player_index] = []
     
     return temp_action_dict
@@ -91,6 +100,9 @@ def check_action_jiagang(self,jiagang_tile):
 # 开局检查补花操作 存储 补花buhua
 def check_action_buhua(self,player_index):
     temp_action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
+    duplicate_rules = duplicate_rules_for(self)
+    if duplicate_rules and not duplicate_rules.can_draw(player_index):
+        return temp_action_dict
     if any(carditem >= 50 for carditem in self.player_list[player_index].hand_tiles):
         temp_action_dict[player_index].append("buhua")
         temp_action_dict[player_index].append("pass")
@@ -100,9 +112,12 @@ def check_action_buhua(self,player_index):
 def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_action=False):
     temp_action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
     player_item = self.player_list[player_index]
+    duplicate_rules = duplicate_rules_for(self)
+    if blood_battle.enabled(self) and getattr(player_item, "is_hu", False):
+        return temp_action_dict
 
     # 如果牌堆内仍有牌则可以补花暗杠加杠
-    if self.tiles_list != []:
+    if duplicate_rules.can_draw(player_index) if duplicate_rules else self.tiles_list != []:
         # 如果手牌中有花牌 则可以补花
         if any(carditem >= 50 for carditem in player_item.hand_tiles):
             if self.tiles_list != []:
@@ -146,6 +161,9 @@ def check_only_cut(self,player_index):
 
 # 检查等待牌操作 用来在玩家手牌发生改变时检测监听的卡牌
 def refresh_waiting_tiles(self,player_index,is_first_action=False):
+    if blood_battle.enabled(self) and getattr(self.player_list[player_index], "is_hu", False):
+        self.player_list[player_index].waiting_tiles = set()
+        return
     # 获取GuobiaoPlayer
     player_item = self.player_list[player_index]
     # 获取手牌
@@ -155,7 +173,10 @@ def refresh_waiting_tiles(self,player_index,is_first_action=False):
     # 获取组合牌
     current_player_combination_tiles = player_item.combination_tiles
     # 调用听牌检查（使用计算服务类）
-    current_player_waiting_tiles = self.calculation_service.GB_tingpai_check(
+    waiting_check = (self.calculation_service.GB_lanshi_tingpai_check
+                     if getattr(self, "sub_rule", "") == "guobiao/lanshi"
+                     else self.calculation_service.GB_tingpai_check)
+    current_player_waiting_tiles = waiting_check(
         current_player_hand_tiles,
         current_player_combination_tiles
     )
@@ -164,12 +185,36 @@ def refresh_waiting_tiles(self,player_index,is_first_action=False):
         self.player_list[player_index].waiting_tiles = current_player_waiting_tiles
         logger.info(f"玩家{player_index}的等待牌更新为{current_player_waiting_tiles}")
 
+def opening_win_fan(self, player_index, hepai_type, is_get_gang_tile=False):
+    """可选天地人和；补花不打断，任何吃碰杠（包括暗杠）均打断。"""
+    if (not getattr(self, "tian_di_ren_he", False)
+            or getattr(self, "sub_rule", "guobiao/standard") not in ("guobiao/standard", "guobiao/blood_battle")
+            or is_get_gang_tile
+            or any(player.combination_tiles for player in self.player_list)):
+        return None
+    discard_counts = [len(player.discard_tiles) for player in self.player_list]
+    dealer = self.dealer_index
+    if hepai_type == "handgot" and self.current_player_index == player_index:
+        if player_index == dealer and sum(discard_counts) == 0:
+            return "天和"
+        if player_index != dealer and discard_counts[player_index] == 0:
+            return "人和"
+    if (hepai_type == "dianhe" and player_index != dealer
+            and self.current_player_index == dealer
+            and discard_counts[dealer] == 1 and sum(discard_counts) == 1):
+        return "地和"
+    return None
+
+
 # 检查和牌操作
 def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_first_action=False,is_get_gang_tile=False):
+    if blood_battle.enabled(self) and getattr(self.player_list[player_index], "is_hu", False):
+        return
     # 和牌操作
     tiles_list = self.player_list[player_index].hand_tiles + [hepai_tile]
     combination_tiles = self.player_list[player_index].combination_tiles
     way_to_hepai = ["花牌"] * len(self.player_list[player_index].huapai_list)
+    duplicate_rules = duplicate_rules_for(self)
 
     # 抢杠和
     if hepai_type == "qianggang":
@@ -179,7 +224,7 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
     # 荣和
     elif hepai_type == "dianhe":
         way_to_hepai.append("点和")
-        if len(self.tiles_list) == 0:
+        if duplicate_rules.is_last_discard(self.current_player_index) if duplicate_rules else len(self.tiles_list) == 0:
             way_to_hepai.append("last_cut")  # 牌墙空荣和 → 海底捞月
 
     # 自摸 / 杠上开花（杠上开花需同时传自摸，计番侧据此判不求人）
@@ -188,7 +233,7 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
         way_to_hepai.append("自摸")
         if is_get_gang_tile:
             way_to_hepai.append("杠上开花")
-        if len(self.tiles_list) == 0:
+        if duplicate_rules.is_last_draw(player_index) if duplicate_rules else len(self.tiles_list) == 0:
             way_to_hepai.append("last_deal")  # 牌墙空自摸 → 妙手回春
 
     # 获取场风
@@ -213,13 +258,17 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
     if len(self.player_list[player_index].waiting_tiles) == 1:
         way_to_hepai.append("和单张")
 
+    opening_fan = opening_win_fan(self, player_index, hepai_type, is_get_gang_tile)
+    if opening_fan:
+        way_to_hepai.append(opening_fan)
+
     # 蓝十改天和/地和。以“尚无任何鸣牌或杠”和各家首次出牌状态判定。
     if getattr(self, "sub_rule", "") == "guobiao/lanshi":
         no_calls_or_kongs = all(not player.combination_tiles for player in self.player_list)
         discard_counts = [len(player.discard_tiles) for player in self.player_list]
         if hepai_type == "handgot" and no_calls_or_kongs and discard_counts[player_index] == 0:
             if player_index == self.dealer_index and sum(discard_counts) == 0:
-                way_to_hepai.append("天和")
+                way_to_hepai.extend(("天和", "庄家起手"))
             elif player_index != self.dealer_index:
                 way_to_hepai.append("天和")
         elif (hepai_type == "dianhe" and no_calls_or_kongs and player_index != self.dealer_index
@@ -228,7 +277,8 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
             way_to_hepai.append("地和")
 
     # 和绝张检查 弃牌+1 有顺子+1 有刻+2
-    show_tiles_count = 0
+    show_tiles_count = (getattr(self, "blood_public_win_tiles", []).count(hepai_tile)
+                        if blood_battle.enabled(self) else 0)
     now_combinations = []
     for i in self.player_list:
         show_tiles_count += i.discard_tiles.count(hepai_tile)
@@ -266,7 +316,13 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
         result = self.calculation_service.GB_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
 
     if result[0] == 0 and not result[1]:
-        return
+        # 蓝十没有国标的无番和：合法结构也可能为0分。仅允许已由本规则
+        # 原生听牌确认的和张进入错和分支；不能把任意未成和手牌放行。
+        zero_point_lanshi = (getattr(self, "sub_rule", "") == "guobiao/lanshi"
+                             and self.open_cuohe
+                             and hepai_tile in self.player_list[player_index].waiting_tiles)
+        if not zero_point_lanshi:
+            return
 
     # 判断是否满足起和番限制，减去花牌的数量
     hepai_limit = getattr(self, 'hepai_limit', 8)

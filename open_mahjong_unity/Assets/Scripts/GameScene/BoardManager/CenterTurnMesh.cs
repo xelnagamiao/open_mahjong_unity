@@ -9,6 +9,8 @@ public sealed class CenterTurnMesh : BaseMeshEffect
     float cut = .55f;
     bool taper;
     float highlight;
+    bool roundedTrapezoid;
+    public bool RoundedTrapezoid { get => roundedTrapezoid; set { roundedTrapezoid = value; if (graphic) graphic.SetVerticesDirty(); } }
     public bool Taper { get => taper; set { taper = value; if (graphic) graphic.SetVerticesDirty(); } }
     public float Highlight { get => highlight; set { highlight = value; if (graphic) graphic.SetVerticesDirty(); } }
     public float Cut
@@ -25,7 +27,7 @@ public sealed class CenterTurnMesh : BaseMeshEffect
         // UIVertex stores Color32: convert once before using its alpha as a float.
         Color sourceColor = source.color;
         Rect rect = graphic.rectTransform.rect;
-        Vector2[] points = taper ? new[] {
+        Vector2[] points = roundedTrapezoid ? RoundedLamp(rect.width, rect.height) : taper ? new[] {
             new Vector2(-rect.width / 2 + 1.4f, -rect.height / 2), new Vector2(rect.width / 2 - 1.4f, -rect.height / 2),
             new Vector2(rect.width / 2, rect.height / 2), new Vector2(-rect.width / 2, rect.height / 2)
         } : CenterSkinGraphic.CutRect(rect.width, rect.height, cut);
@@ -47,5 +49,26 @@ public sealed class CenterTurnMesh : BaseMeshEffect
         }
         for (int i = 0; i < points.Length; i++)
             mesh.AddTriangle(0, i + 1, (i + 1) % points.Length + 1);
+    }
+
+    static Vector2[] RoundedLamp(float width, float height)
+    {
+        var corners = new[] {
+            new Vector2(-width / 2, -height / 2), new Vector2(width / 2, -height / 2),
+            new Vector2(width / 2 - 1, height / 2), new Vector2(-width / 2 + 1, height / 2)
+        };
+        var points = new Vector2[24];
+        for (int i = 0; i < 4; i++)
+        {
+            Vector2 corner = corners[i];
+            Vector2 start = corner + (corners[(i + 3) % 4] - corner).normalized * .95f;
+            Vector2 end = corner + (corners[(i + 1) % 4] - corner).normalized * .95f;
+            for (int j = 0; j < 6; j++)
+            {
+                float t = j / 5f;
+                points[i * 6 + j] = (1 - t) * (1 - t) * start + 2 * (1 - t) * t * corner + t * t * end;
+            }
+        }
+        return points;
     }
 }

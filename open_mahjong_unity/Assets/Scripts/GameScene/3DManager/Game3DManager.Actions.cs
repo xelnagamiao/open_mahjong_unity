@@ -4,20 +4,11 @@ using UnityEngine;
 
 public partial class Game3DManager : MonoBehaviour
 {
-    /// <summary>副露组与组之间额外空隙（相对牌宽）；开启“副露间距”设置时生效。</summary>
-    private const float CombinationGroupGapFactor = 0.2f;
 
     /// <summary>副露统一竖排（由规则清单声明，如虹雀）：认走张（flag=1）也按竖牌摆放，杠张顺排左右。</summary>
     private static bool IsVerticalMelds() {
         RuleManifest rule = RuleRegistry.Current;
         return rule != null && rule.VerticalMelds;
-    }
-
-    /// <summary>副露组间距：竖排副露规则固定保留（优先于设置），其它规则按设置开关。</summary>
-    private float MeldSpacingGap() {
-        bool enabled = IsVerticalMelds()
-            || (GameSettings.Current.MeldSpacingEnabled);
-        return enabled ? cardWidth * CombinationGroupGapFactor : 0f;
     }
 
     private void ResetCombinationLastSlotWidths() {
@@ -47,8 +38,22 @@ public partial class Game3DManager : MonoBehaviour
         return sign == 1 ? tileHeight : tileWidth;
     }
 
+    private static void EnsureFreeMeldGroups(PosPanel3D panel, int count) {
+        int existing = panel.combination3DObjects?.Length ?? 0;
+        if (existing >= count) return;
+        Transform parent = existing > 0 && panel.combination3DObjects[0] != null
+            ? panel.combination3DObjects[0].parent : panel.combinationsPosition;
+        System.Array.Resize(ref panel.combination3DObjects, count);
+        for (int i = existing; i < count; i++) {
+            var group = new GameObject("FreeMeld_" + i);
+            group.layer = panel.gameObject.layer;
+            group.transform.SetParent(parent, false);
+            panel.combination3DObjects[i] = group.transform;
+        }
+    }
+
     // 鸣牌3D显示
-    public IEnumerator ActionAnimationCoroutine(string playerIndex, string actionType, int[] combination_mask, bool doAnimation = false)
+    public IEnumerator ActionAnimationCoroutine(string playerIndex, string actionType, int[] combination_mask, bool doAnimation = false, int meldIndex = -1)
     {
         Quaternion rotation = Quaternion.identity;
         Vector3 SetDirection = Vector3.zero;
@@ -57,6 +62,12 @@ public partial class Game3DManager : MonoBehaviour
         Transform SetParent = null;
         PosPanel3D panel = GetPosPanel(playerIndex);
         if (panel == null) yield break;
+        int groupIndex = meldIndex >= 0 ? meldIndex : Mathf.Max(0, GetPlayerCombinationCount(playerIndex) - 1);
+        // 自由模式允许任意 2–4 张成组，组数可能超过场景为标准规则预留的四组。
+        if (actionType == FreeActionWords.Meld) EnsureFreeMeldGroups(panel, groupIndex + 1);
+        if (panel.combination3DObjects == null || groupIndex >= panel.combination3DObjects.Length) yield break;
+        SetParent = panel.combination3DObjects[groupIndex];
+        if (SetParent == null || combination_mask == null) yield break;
 
         if (playerIndex == "self")
         {
@@ -64,7 +75,6 @@ public partial class Game3DManager : MonoBehaviour
             SetDirection = LeftDirection;
             JiagangDirection = FrontDirection;
             SetPositionpoint = selfSetCombinationsPoint;
-            SetParent = panel.combination3DObjects[Mathf.Max(0, GetPlayerCombinationCount("self") - 1)];
         }
         else if (playerIndex == "left")
         {
@@ -72,7 +82,6 @@ public partial class Game3DManager : MonoBehaviour
             SetDirection = FrontDirection;
             JiagangDirection = RightDirection;
             SetPositionpoint = leftSetCombinationsPoint;
-            SetParent = panel.combination3DObjects[Mathf.Max(0, GetPlayerCombinationCount("left") - 1)];
         }
         else if (playerIndex == "top")
         {
@@ -80,7 +89,6 @@ public partial class Game3DManager : MonoBehaviour
             SetDirection = RightDirection;
             JiagangDirection = BackDirection;
             SetPositionpoint = topSetCombinationsPoint;
-            SetParent = panel.combination3DObjects[Mathf.Max(0, GetPlayerCombinationCount("top") - 1)];
         }
         else if (playerIndex == "right")
         {
@@ -88,7 +96,6 @@ public partial class Game3DManager : MonoBehaviour
             SetDirection = BackDirection;
             JiagangDirection = LeftDirection;
             SetPositionpoint = rightSetCombinationsPoint;
-            SetParent = panel.combination3DObjects[Mathf.Max(0, GetPlayerCombinationCount("right") - 1)];
         }
 
         List<int> SetTileList = new List<int>();
@@ -155,7 +162,6 @@ public partial class Game3DManager : MonoBehaviour
         float prevSlotWidth = 0f;
         bool hasPrevInGroup = false;
         float lastPlacedSlot = 0f;
-        float groupGap = MeldSpacingGap();
 
         for (int i = 0; i < SetTileList.Count; i++)
         {
@@ -176,7 +182,7 @@ public partial class Game3DManager : MonoBehaviour
             if (!hasPrevInGroup) {
                 // 本组第一张：接上组末槽（吃后再吃不再叠），首组仍从原点迈整槽
                 advance = acrossGroupLastSlot > 0f
-                    ? 0.5f * (acrossGroupLastSlot + slotWidth) + groupGap
+                    ? 0.5f * (acrossGroupLastSlot + slotWidth)
                     : slotWidth;
             } else {
                 advance = 0.5f * (prevSlotWidth + slotWidth);
@@ -227,7 +233,19 @@ public partial class Game3DManager : MonoBehaviour
 
         if (doAnimation)
         {
-            StartCoroutine(MoveCardAnimation(SetParent.gameObject, SetDirection, cardWidth, playerIndex));
+            if (actionType == FreeActionWords.Meld) {
+                var cards = new List<Transform>();
+                var targets = new List<Vector3>();
+                foreach (Transform card in SetParent) {
+                    cards.Add(card);
+                    targets.Add(card.position);
+                    card.position += SetDirection * (cardWidth * 3f);
+                }
+                // 生成当帧即放在动画起点；只移动牌，取消/收回时父节点不会留下位移。
+                yield return Animate3DCardsToPositions(cards, targets, SetParent);
+            } else {
+                StartCoroutine(MoveCardAnimation(SetParent.gameObject, SetDirection, cardWidth, playerIndex));
+            }
         }
     }
 
@@ -250,6 +268,7 @@ public partial class Game3DManager : MonoBehaviour
             return;
         }
         List<int[]> masks = playerInfo.combination_masks ?? new List<int[]>();
+        if (FreeGameState.Active != null) EnsureFreeMeldGroups(panel, masks.Count);
 
         // 归还该家全部副露牌，重置组合光标。
         foreach (Transform comboParent in panel.combination3DObjects) {
@@ -304,7 +323,6 @@ public partial class Game3DManager : MonoBehaviour
             float prevSlotWidth = 0f;
             bool hasPrevInGroup = false;
             float lastPlacedSlot = 0f;
-            float groupGap = MeldSpacingGap();
 
             for (int i = 0; i < tileList.Count; i++) {
                 int sign = signList[i];
@@ -323,7 +341,7 @@ public partial class Game3DManager : MonoBehaviour
                 float advance;
                 if (!hasPrevInGroup) {
                     advance = acrossGroupLastSlot > 0f
-                        ? 0.5f * (acrossGroupLastSlot + slotWidth) + groupGap
+                        ? 0.5f * (acrossGroupLastSlot + slotWidth)
                         : slotWidth;
                 } else {
                     advance = 0.5f * (prevSlotWidth + slotWidth);

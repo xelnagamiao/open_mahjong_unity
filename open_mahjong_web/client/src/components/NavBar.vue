@@ -47,16 +47,31 @@
       <div class="nav-spacer" />
       <div class="nav-controls">
         <language-select />
-        <router-link
+        <el-dropdown
           v-if="isLoggedIn"
-          to="/account"
-          class="nav-link auth"
-          :class="{ on: route.path === '/account' }"
-          @click="closeMenu"
-        >{{ displayName }}</router-link>
+          trigger="click"
+          class="auth-dropdown"
+          @command="onAuthCommand"
+        >
+          <button
+            type="button"
+            class="nav-link auth auth-trigger"
+            :class="{ on: route.path === '/account' }"
+            aria-label="账户菜单"
+          >
+            {{ displayName }}
+            <el-icon class="auth-caret"><arrow-down /></el-icon>
+          </button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="account">进入账户面板</el-dropdown-item>
+              <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
         <router-link
           v-else
-          to="/login?redirect=/"
+          :to="loginTarget"
           class="nav-link auth"
           :class="{ on: route.path === '/login' }"
           @click="closeMenu"
@@ -82,6 +97,14 @@ const auth = usePlayerAuthStore()
 const { username, userId, loaded } = storeToRefs(auth)
 const isLoggedIn = computed(() => auth.isLoggedIn)
 const displayName = computed(() => username.value || (userId.value != null ? `用户${userId.value}` : '账户'))
+const loginTarget = computed(() => {
+  const currentPath = route.fullPath || '/'
+  const isAuthPage = ['/login', '/register', '/forgot-password'].includes(route.path)
+  return {
+    path: '/login',
+    query: { redirect: isAuthPage ? '/' : currentPath },
+  }
+})
 const { isMobile } = useMobile()
 const menuOpen = ref(false)
 
@@ -94,7 +117,7 @@ const items = [
   { to: '/2d', label: '2D版', match: (p) => p === '/2d' || p.startsWith('/2d/') },
   { href: STEAM_STORE_URL, label: 'Steam商店' },
   { to: '/player-data', label: '历史记录', match: (p) => p === '/player-data' || p === '/player-data/' || p.startsWith('/player-data/analysis') },
-  { to: '/player-data/platform', label: '数据统计', match: (p) => p.includes('/platform') },
+  { to: '/player-data/platform', label: '数据统计', match: (p) => p.includes('/platform') || p.includes('/fun') },
   { to: '/paili', label: '牌理' },
   { to: '/rulebook', label: '规则书', match: (p) => p.startsWith('/rulebook') },
   { to: '/seed-verify', label: '种子验证' },
@@ -115,6 +138,16 @@ const isCalcActive = computed(() => calculators.some((calc) => route.path === ca
 function onCalcCommand(to) {
   if (route.path !== to) router.push(to)
   closeMenu()
+}
+
+function onAuthCommand(command) {
+  closeMenu()
+  if (command === 'account') {
+    if (route.path !== '/account') router.push('/account')
+    return
+  }
+  auth.logout()
+  if (route.path === '/account') router.replace('/')
 }
 
 const isActive = (item) => {
@@ -210,6 +243,34 @@ onMounted(() => {
 .nav-link.auth {
   font-weight: 600;
   color: #9cf;
+}
+
+.auth-dropdown {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+}
+
+.auth-trigger {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.auth-caret {
+  font-size: 12px;
+  transition: transform 0.15s ease;
+}
+
+.auth-dropdown:hover .auth-caret,
+.auth-dropdown:focus-within .auth-caret {
+  transform: rotate(180deg);
 }
 
 .calc-nav {

@@ -8,7 +8,7 @@ public class WindowsManager : MonoBehaviour {
 
     [Header("顶层窗口")]
     [SerializeField] private GameObject headerPanel; //
-    [SerializeField] private GameObject chatPanel; // 聊天窗口 保持窗口常开
+    [SerializeField] private GameObject chatPanel; // 仅主菜单显示；隐藏时继续接收聊天消息
     [SerializeField] private GameObject streamerModePanel; // 主播模式面板
     [SerializeField] private GameObject gamePanel; // 游戏窗口
 
@@ -78,11 +78,22 @@ public class WindowsManager : MonoBehaviour {
     }
 
     public void ApplyStreamerModePanels() {
-        bool showStreamerPanel = StreamerModeHelper.IsEnabled;
+        bool showStreamerPanel = ConfigManager.Instance != null && StreamerModeHelper.IsEnabled;
         GameObject chat = ResolveChatPanel();
         GameObject streamer = ResolveStreamerModePanel();
         if (chat != null) {
-            chat.SetActive(!showStreamerPanel);
+            // 不停用消息接收组件，避免对局期间的新消息触发停用对象上的滚动协程。
+            chat.SetActive(true);
+            bool visible = currentWindow == "menu" && !showStreamerPanel && !CreatePanel.IsAnyCreationPanelOpen;
+            var visibility = EnsureCanvasGroup(chat);
+            visibility.alpha = visible ? 1 : 0;
+            visibility.interactable = visibility.blocksRaycasts = visible;
+            var events = UnityEngine.EventSystems.EventSystem.current;
+            var selected = events ? events.currentSelectedGameObject : null;
+            if (!visible && selected && selected.transform.IsChildOf(chat.transform)) {
+                selected.GetComponent<TMPro.TMP_InputField>()?.DeactivateInputField();
+                events.SetSelectedGameObject(null);
+            }
         }
         if (streamer != null) {
             streamer.SetActive(showStreamerPanel);
@@ -118,6 +129,7 @@ public class WindowsManager : MonoBehaviour {
         ApplyColdBootHiddenState();
         EnsurePanelVisible(loginPanel);
         currentWindow = "login";
+        ApplyStreamerModePanels();
         lastLobbyTab = "menu";
         gameReturnWindow = "menu";
         roomReturnWindow = "menu";
@@ -295,6 +307,7 @@ public class WindowsManager : MonoBehaviour {
             lastLobbyTab = targetWindow;
         }
         currentWindow = targetWindow; // 更新当前窗口状态
+        ApplyStreamerModePanels();
         HeaderPanel.Instance?.UpdateButtonState(targetWindow); // 即时刷新导航栏按钮
         if (targetWindow == "room") {
             if (UserDataManager.Instance.RoomId == UserDataManager.ROOM_ID_NONE) {

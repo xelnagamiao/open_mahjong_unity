@@ -8,10 +8,12 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 
 from .wait_action import actions_for_viewer
 
 _TABLE_SNAPSHOT_MODES = {"round_start", "reconnect"}
+logger = logging.getLogger(__name__)
 
 
 def visible_event(source: dict, viewer_index: int) -> dict:
@@ -40,6 +42,7 @@ def _table_snapshot(game_state, viewer) -> dict:
             "online": player.online,
             "title_used": player.title_used,
             "profile_used": player.profile_used,
+            "avatar_frame_used": getattr(player, "avatar_frame_used", 0),
             "character_used": player.character_used,
             "voice_used": player.voice_used,
             "score_history": list(player.score_history),
@@ -70,6 +73,8 @@ def build_state(game_state, viewer_index: int, *, sync_mode: str = "events",
         "remaining_time": remaining_time,
         "step_remaining": step_remaining,
         "tips": game_state.tips,
+        "count_tips": getattr(game_state, "count_tips", False),
+        "pointer_tips": getattr(game_state, "pointer_tips", True),
         "message": game_state.message,
         "round_result": game_state.round_result,
         "events": [
@@ -98,7 +103,8 @@ async def send_state_to(game_state, player_index: int, **kwargs) -> None:
     connection = getattr(game_state.game_server, "user_id_to_connection", {}).get(
         player.user_id
     )
-    if connection is None or getattr(connection, "websocket", None) is None:
+    if (connection is None or getattr(connection, "websocket", None) is None
+            or getattr(connection, "event_disconnecting", False)):
         return
     sync_mode = kwargs.get("sync_mode", "events")
     if sync_mode not in {"events", "round_start", "reconnect"}:
@@ -107,13 +113,19 @@ async def send_state_to(game_state, player_index: int, **kwargs) -> None:
         "round_start": "gamestate/hongque/game_start",
         "reconnect": "gamestate/hongque/reconnect",
     }.get(sync_mode, "gamestate/hongque/update")
-    await connection.websocket.send_json({
+    payload = {
         "type": message_type,
         "success": True,
         "message": game_state.message,
         "gamestate_id": game_state.gamestate_id,
         "hongque_state": build_state(game_state, player_index, **kwargs),
-    })
+    }
+    try:
+        await connection.websocket.send_json(payload)
+    except Exception:
+        # A recipient can close after presence was checked. Other recipients and
+        # the disconnect lifecycle must still finish when that send fails.
+        logger.debug("虹雀状态发送失败 user_id=%s", player.user_id, exc_info=True)
 
 
 async def broadcast_state(game_state, **kwargs) -> None:

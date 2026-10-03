@@ -74,7 +74,17 @@ internal static class RiichiFanText {
     public static string FanName(string subRule, string fanName) => YakuName(fanName);
 
     public static string FanValue(string subRule, string fanName) {
-        if (FanToDisplayRiichi.TryGetValue(fanName, out string display)) return display;
+        if (FanToDisplayRiichi.TryGetValue(fanName, out string display)) {
+            if (display == "双倍役满") {
+                var record = GameRecordManager.Instance;
+                var options = record != null && record.gameObject.activeSelf
+                    ? record.GetDetailedConfigSnapshot() : GameSession.Current?.DetailedConfig;
+                bool enabled = options != null && options.TryGetValue("double_yakuman", out object raw)
+                    && bool.TryParse(raw?.ToString(), out bool flag) && flag;
+                if (!enabled) return "役满";
+            }
+            return display;
+        }
         if (FanToDisplayRiichiInactive.TryGetValue(fanName, out display)) return display;
         return "0番";
     }

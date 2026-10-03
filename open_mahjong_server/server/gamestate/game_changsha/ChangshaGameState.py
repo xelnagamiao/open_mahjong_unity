@@ -3,7 +3,7 @@ import asyncio
 from typing import Any, Dict, List, Optional
 import time
 import logging
-from .action_check import check_action_after_cut,check_action_after_gang_forced_cut,check_action_after_batch_gang_forced_cut,check_action_jiagang,check_action_hand_action,check_hepai,check_only_cut,refresh_waiting_tiles,filter_open_kong_replacement_actions
+from .action_check import check_action_after_cut, check_action_after_gang_forced_cut, check_action_after_batch_gang_forced_cut, check_action_hand_action, check_hepai, check_only_cut, refresh_waiting_tiles, filter_open_kong_replacement_actions
 from .wait_action import wait_action
 from .boardcast import (
     broadcast_game_start,
@@ -18,7 +18,7 @@ from .boardcast import (
     reconnected_send_pending_ask,
     send_realtime_spectator_snapshot,
 )
-from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num, assign_strict_final_ranks
+from ..public.logic_common import next_current_index, next_current_num, assign_strict_final_ranks
 from ..public.hand_slot_utils import clear_draw_slot, normalize_tile
 from ..public.claim_protection import begin_claim_protection_interval
 from .init_tiles import init_changsha_tiles
@@ -29,7 +29,7 @@ from ..public.round_end_timing import (
 )
 from ..public.spectator_rules import too_many_ai_for_spectator
 from ..public.vote_manager import vote_checkpoint
-from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record,build_score_changes_by_seat,build_score_changes_dict,capture_player_entry_order,remember_local_record_detail
+from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_cut, player_action_record_hu, player_action_record_liuju, player_action_record_round_end, end_game_record, build_score_changes_by_seat, build_score_changes_dict, capture_player_entry_order, remember_local_record_detail
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...game_calculation.changsha.changsha_hepai_check import (
     INITIAL_HU_NAMES,
@@ -144,6 +144,8 @@ class ChangshaGameState:
         # 初始化房间配置
         self.room_id = room_data["room_id"] # 房间ID
         self.tips = room_data["tips"] # 是否提示
+        self.count_tips = bool(room_data.get("count_tips", False))
+        self.pointer_tips = bool(room_data.get("pointer_tips", True))
         self.max_round = room_data["game_round"] # 最大局数
         self.step_time = room_data["step_timer"] # 步时
         self.round_time = room_data["round_timer"] # 局时
@@ -158,7 +160,8 @@ class ChangshaGameState:
         self.open_cuohe = room_data.get("open_cuohe", False) # 是否开启错和（默认为False）
         self.show_moqie_hint = room_data.get("show_moqie_hint", False) # 是否显示手摸切灰显（默认为False）
         self.tactical_call = room_data.get("tactical_call", False) # 战术鸣牌
-        self.claim_protection = room_data.get("claim_protection", True) # 鸣牌保护
+        from ..public.claim_protection import room_claim_protection_enabled
+        self.claim_protection = room_claim_protection_enabled(room_data)
         self.tactical_pre_grace_delay = room_data.get("tactical_pre_grace_delay", 0.5)
         self.tactical_grace_seconds = room_data.get("tactical_grace_seconds", 5.0)
         self.claim_protect_delay = room_data.get("claim_protect_delay", 1.3)
@@ -214,7 +217,6 @@ class ChangshaGameState:
         self.initial_hu_types = {}
         self.sea_bottom_candidates = []
         self.player_passed_hu_base = {}
-        self.temp_fan = [] ###### 临时番数 不启用 暂时通过不同的和牌检测和给和牌检测传递is_first or if tiles_list == [] 来计算额外加减的役
 
         # 用于玩家操作的事件和队列
         self.action_events:Dict[int,asyncio.Event] = {0:asyncio.Event(),1:asyncio.Event(),2:asyncio.Event(),3:asyncio.Event()}  # 玩家索引 -> Event
@@ -266,19 +268,15 @@ class ChangshaGameState:
         if newly_offline:
             from ..public.offline import schedule_offline_auto_on_disconnect
             schedule_offline_auto_on_disconnect(self, user_id)
-
-        # 检查所有非AI玩家（user_id >= 10）是否都offline
-        non_ai_players = [p for p in self.player_list if p.user_id >= 10]
-        if non_ai_players:  # 如果有非AI玩家
-            all_offline = all("offline" in p.tag_list for p in non_ai_players)
-            if all_offline:
-                logger.info(f"所有非AI玩家都已掉线，开始清理gamestate，room_id: {self.room_id}, gamestate_id: {self.gamestate_id}")
-                await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
+        from ..public.lifecycle import close_if_all_humans_offline
+        await close_if_all_humans_offline(self)
 
     async def player_reconnect(self, user_id: int):
         """玩家重连：移除 offline 标签并广播，然后向该玩家发送游戏状态"""
         for p in self.player_list:
             if p.user_id == user_id:
+                from ..public.outbound_pipe import drain_viewer
+                await drain_viewer(self, p.player_index)
                 if "offline" in p.tag_list:
                     p.tag_list.remove("offline")
                     await broadcast_refresh_player_tag_list(self)
@@ -293,6 +291,8 @@ class ChangshaGameState:
                         'room_id': self.room_id,
                         'gamestate_id': self.gamestate_id,
                         'tips': self.tips,
+                        "count_tips": self.count_tips,
+            "pointer_tips": self.pointer_tips,
                         'current_player_index': self.current_player_index,
                         "action_tick": self.server_action_tick,
                         'max_round': self.max_round,
@@ -345,6 +345,7 @@ class ChangshaGameState:
                             'score': player.score,
                             "title_used": player.title_used,
                             'profile_used': player.profile_used,
+                            "avatar_frame_used": getattr(player, "avatar_frame_used", 0),
                             'character_used': player.character_used,
                             'voice_used': player.voice_used,
                             'score_history': player.score_history,
@@ -397,7 +398,7 @@ class ChangshaGameState:
         try:
             await self.game_loop_changsha()
         except asyncio.CancelledError:
-            # 任务被外部正常取消（例如房间销毁），不视为错误
+            # 任务被外部正常取消（例如对局统一回收），不视为错误
             logger.info(f"游戏循环被取消，room_id: {self.room_id}, gamestate_id: {self.gamestate_id}")
             raise
         except Exception as e:
@@ -1379,10 +1380,6 @@ class ChangshaGameState:
         # 结束游戏生命周期：使用统一的清理方法
         await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
 
-        if self.room_type == "match":
-            await self.game_server.room_manager.destroy_room(self.room_id)
-        else:
-            await self.game_server.room_manager.finish_custom_game_room(self.room_id)
         logger.info(f"游戏实例已清理，room_id: {self.room_id},goodbye!")
 
 

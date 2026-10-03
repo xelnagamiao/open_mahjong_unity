@@ -1,9 +1,24 @@
-from pydantic import BaseModel, field_serializer
+from pydantic import BaseModel, Field, field_serializer, field_validator
 from typing import Dict, Optional, List
 
 
 
 # 0.4 定义发送数据格式BaseModel系列 能够创建符合json定义的格式
+
+def public_room_data(value):
+    if isinstance(value, list):
+        return [public_room_data(child) for child in value]
+    if isinstance(value, dict):
+        result = {key: public_room_data(child) for key, child in value.items() if key != 'duplicate_key'}
+        if value.get('room_rule'):
+            from .gamestate.public.claim_protection import supports_claim_protection, room_claim_protection_enabled
+            if supports_claim_protection(value['room_rule']):
+                result['claim_protection'] = room_claim_protection_enabled(value)
+        if value.get('duplicate_key'):
+            result['is_duplicate'] = True
+        return result
+    return value
+
 
 class PlayerInfo(BaseModel):
     user_id: int  # 用户ID
@@ -11,6 +26,7 @@ class PlayerInfo(BaseModel):
     hand_tiles_count: int
     hand_tiles: Optional[List[int]] = None  # 手牌（可选，观战玩家可以看到所有手牌，普通玩家只能看到自己的）
     discard_tiles: List[int]
+    known_concealed_discards: Optional[List[int]] = None  # 仅所属座位可知的暗扣牌
     discard_origin_tiles: Optional[List[int]] = None  # 理论弃牌
     combination_tiles: List[str]
     combination_mask: Optional[List[List[int]]] = None  # 组合牌掩码（二维数组，每个副露的掩码是一个子列表）
@@ -25,6 +41,7 @@ class PlayerInfo(BaseModel):
     title_used: Optional[int] = None  # 使用的称号ID
     character_used: Optional[int] = None  # 使用的角色ID
     profile_used: Optional[int] = None  # 使用的头像ID
+    avatar_frame_used: Optional[int] = 0
     voice_used: Optional[int] = None  # 使用的音色ID
     score_history: Optional[List[str]] = None  # 分数历史变化列表，每局记录 +？、-？ 或 0
     round_number_history: Optional[List[int]] = None  # 实际每手对应局数（支持连庄重复）
@@ -33,12 +50,34 @@ class PlayerInfo(BaseModel):
     discard_riichi_flags: Optional[List[bool]] = None  # 立直规则：与 discard_tiles 同序的横置标记，重连/牌谱重建时还原横置弃牌
     # 四川麻将（血战到底）专用
     dingque_suit: Optional[int] = None  # 定缺花色：1=万 2=饼 3=条，0/None=未定缺
+    hu_order: Optional[int] = None
+    blood_hu_tile: Optional[int] = None
+    blood_hu_zimo: Optional[bool] = None
+    blood_hu_multi: Optional[bool] = None
     is_hu: Optional[bool] = None  # 血战：本盘是否已和牌退场
+    has_won: Optional[bool] = None  # 血流：曾经和牌但仍留桌
+    win_count: Optional[int] = None
+    post_hu_lock: Optional[bool] = None  # 血流：和后仅允许摸切
+    xueliu_throw_tiles: Optional[List[int]] = None  # 血流：开局甩掉的三张
 
 class GameInfo(BaseModel):
+    hongzhong_info: Optional[dict] = None  # MIL 红中：仅本人或获准视角的实体摸牌槽快照
+    hongzhong_hints: Optional[dict] = None  # 按物理手牌与副露匹配的权威听牌快照
+    hangzhou_info: Optional[dict] = None  # MIL 2025 state; hints scoped to recipient
+    guangdong_state: Optional[Dict[str, object]] = None  # MIL 广东：公共出鬼/杠账快照
+    guangdong_tips: Optional[Dict[str, object]] = None  # 仅本人或授权视角的权威听牌提示
+    changchun: Optional[Dict[str, object]] = None  # 长春宝牌严格按接收者资格生成
+    use_flowers: Optional[bool] = None  # 国标花牌开关；蓝十改固定关闭
+    tian_di_ren_he: bool = False  # 标准国标/血战：天地人和各加计 8 番
+    is_duplicate: bool = False
+    duplicate_round_count: Optional[int] = None
+    duplicate_wall_type: Optional[str] = None
+    duplicate_remaining_tiles: Optional[List[int]] = None  # 复式各原始座位 0..3 的个人牌山余张
     room_id: int
     gamestate_id: str  # 游戏状态ID（用于客户端发送游戏操作请求）
     tips: bool
+    count_tips: bool = False
+    pointer_tips: bool = True
     current_player_index: int
     action_tick: int
     max_round: int
@@ -56,7 +95,7 @@ class GameInfo(BaseModel):
     open_cuohe: Optional[bool] = False  # 是否开启错和（默认为False）
     show_moqie_hint: Optional[bool] = False  # 是否显示手摸切灰显（河牌摸切灰、手切正常，默认关）
     tactical_call: Optional[bool] = False  # 是否开启战术鸣牌（国标/青雀有效）
-    claim_protection: Optional[bool] = True  # 鸣牌保护：无鸣牌权玩家延迟看到切牌/鸣牌过程（国标有效）
+    claim_protection: Optional[bool] = True  # 实际鸣牌保护状态；含机器人的对局关闭
     isPlayerSetRandomSeed: Optional[bool] = False  # 是否玩家设置了随机种子（默认为False）
     player_entry_order: Optional[List[int]] = None  # shuffle 前对局入场顺序 user_id[4]
     players_info: List[PlayerInfo]
@@ -72,6 +111,7 @@ class GameInfo(BaseModel):
     small_hu_score: Optional[int] = None
     big_hu_score: Optional[int] = None
     self_hand_tiles: Optional[List[int]] = None
+    self_has_draw_slot: Optional[bool] = None
     detailed_config: Optional[Dict[str, object]] = None  # 当前规则的详细配置
     # 立直麻将专用字段
     honba: Optional[int] = None  # 本场棒数
@@ -83,7 +123,9 @@ class GameInfo(BaseModel):
     dealer_index: Optional[int] = None  # 当前亲家索引（原始座位）
     view_player_index: Optional[int] = None  # 实时观战/特殊视角：客户端以此座位作为 self 视角
     # 四川麻将（血战到底）专用
+    blood_battle_result: Optional[Dict[str, object]] = None
     blood_battle: Optional[bool] = None  # 是否开启血战到底（关=一家和牌即结束本盘）
+    xueliu_rule_profile: Optional[Dict[str, object]] = None
 
     # 在 Pydantic Model 中将 hex 字段序列化为十六进制字符串
     @field_serializer('master_seed', when_used='unless-none')
@@ -94,7 +136,14 @@ class GameInfo(BaseModel):
         return str(v)
 
 class Ask_hand_action_info(BaseModel):
+    hongzhong_hints: Optional[dict] = None  # 按物理手牌与副露匹配的权威听牌快照
+    hangzhou_info: Optional[dict] = None  # MIL 2025 state; hints scoped to recipient
+    guangdong_tips: Optional[Dict[str, object]] = None
+    changchun: Optional[Dict[str, object]] = None
+    kong_candidates: Optional[Dict[str, List[int]]] = None  # 本次权威杠牌目标；省略时沿用客户端通用候选
     remaining_time: int
+    # 重连补发时的剩余步时；缺省则客户端叠房间完整步时
+    step_remaining: Optional[int] = None
     player_index: int
     remain_tiles: int
     action_list: List[str]
@@ -113,6 +162,8 @@ class Ask_hand_action_info(BaseModel):
 
 class Ask_other_action_info(BaseModel):
     remaining_time: int
+    # 重连补发时的剩余步时；缺省则客户端叠房间完整步时
+    step_remaining: Optional[int] = None
     action_list: List[str]
     cut_tile: int
     action_tick: int
@@ -124,6 +175,13 @@ class Ask_other_action_info(BaseModel):
     is_tactical_recheck: Optional[bool] = None
 
 class Do_action_info(BaseModel):
+    hongzhong_hints: Optional[dict] = None  # 按物理手牌与副露匹配的权威听牌快照
+    hangzhou_burn_count: Optional[int] = None
+    hangzhou_info: Optional[dict] = None  # MIL 2025 state; hints scoped to recipient
+    guangdong_state: Optional[Dict[str, object]] = None
+    guangdong_tips: Optional[Dict[str, object]] = None
+    changchun: Optional[Dict[str, object]] = None
+    duplicate_remaining_tiles: Optional[List[int]] = None  # 动作生成时的余张快照，按原始座位 0..3
     # 存储操作列表 包含 切牌 吃 碰 杠 胡 补花 [chi_left,chi_mid,chi_right,peng,gang,angang,hu,buhua,cut,deal_tile] 
     # 暗杠会表现为 [angang,deal_tile] 补花会表现为 [buhua,deal_buhua_tile]（is_mo_buhua 标注摸补/手补）
     action_list: List[str] 
@@ -132,6 +190,8 @@ class Do_action_info(BaseModel):
     cut_tiles: Optional[List[int]] = None
     cut_class: Optional[bool] = None # 在切牌时广播切牌手模切类型
     cut_tile_index: Optional[int] = None # 在切牌时广播切牌位置
+    concealed_discard: Optional[bool] = None # 报听弃牌暗扣；他家仅接收0号背面
+    tile_count: Optional[int] = None # 权威可摸牌墙余数；七墩保留会随补牌变化
     is_timeout_action: Optional[bool] = None # 服务端等待超时后代为执行的切牌
     deal_tile: Optional[int] = None # 在摸牌时广播摸牌
     deal_tiles: Optional[List[int]] = None
@@ -163,6 +223,18 @@ class Do_action_info(BaseModel):
     ready_qualification: Optional[str] = None
 
 class Show_result_info(BaseModel):
+    hangzhou_win_source: Optional[str] = None
+    hangzhou_fan_details: Optional[dict] = None
+    hangzhou_round_changes: Optional[Dict[int, int]] = None
+    hangzhou_info: Optional[dict] = None  # MIL 2025 state; hints scoped to recipient
+    guangdong_result: Optional[Dict[str, object]] = None  # MIL 广东：替代见证、系数、奖马和杠账
+    changchun: Optional[Dict[str, object]] = None
+    hongzhong_info: Optional[dict] = None  # MIL 红中：扎鸟、计分替代及杠账快照
+    revealed_hands: Optional[Dict[int, List[int]]] = None  # 规则要求的终局公开手牌；局中不发送
+    blood_battle_step: Optional[str] = None
+    blood_event_id: Optional[int] = None
+    blood_end_reason: Optional[str] = None
+    blood_round_changes: Optional[Dict[int, int]] = None
     hepai_player_index: Optional[int] = None  # 和牌玩家索引
     player_to_score: Optional[Dict[int, int]] = None  # 所有玩家分数
     hu_score: Optional[int] = None  # 和牌分数
@@ -190,6 +262,7 @@ class Show_result_info(BaseModel):
     # 荒牌流局：听牌家的实际手牌，用于客户端倒牌展示。
     tenpai_hands: Optional[Dict[int, List[int]]] = None
     exhaustive_penalty: Optional[bool] = None
+    nagashi_mangan_winners: Optional[List[int]] = None
     # 战术鸣牌（国标/青雀）：silent 标志和牌字体动画与音效已由战术鸣牌申请阶段播放，本次结算跳过 ShowActionDisplay/PlayActionSound
     silent: Optional[bool] = None
     # 国标局终亮杠：{player_index: [[2,tile,2,tile,2,tile,2,tile], ...]}，错和不传
@@ -246,6 +319,14 @@ class Show_shuhewei_info(BaseModel):
     next_status: Optional[str] = None  # "round_continue" | "round_end_by_ready" | "match_end"
 
 class Player_final_data(BaseModel):
+    user_id: Optional[int] = None
+    rating_rule: Optional[str] = None
+    rating_system: Optional[str] = None
+    rating_pt: Optional[float] = None
+    elo_before: Optional[float] = None
+    elo_after: Optional[float] = None
+    elo_delta: Optional[float] = None
+    rating_games: Optional[int] = None
     rank: int  # 排名（1-4）
     score: int  # 玩家分数
     pt: float  # 段位 PT 变动
@@ -257,8 +338,12 @@ class Player_final_data(BaseModel):
     score_after: Optional[float] = None  # 对局后段位分数
 
 class Game_end_info(BaseModel):
+    is_duplicate: bool = False
+    duplicate_round_count: Optional[int] = None
+    duplicate_wall_type: Optional[str] = None
+    duplicate_remaining_tiles: Optional[List[int]] = None  # 终局个人牌山余张，包含耗尽座位的 0
     """游戏结束信息"""
-    master_seed: int  # 主种子
+    master_seed: Optional[int] = None  # 复式不公开主种子
     commitment: int  # 承诺值
     salt: str  # 盐字符串
     player_final_data: Dict[str, Player_final_data]  # 玩家最终数据，键为顺位 "1"～"4"
@@ -284,6 +369,7 @@ class Refresh_player_tag_list_info(BaseModel):
     riichi_declared_player_index: Optional[int] = None
 
 class Ready_status_info(BaseModel):
+    hangzhou_info: Optional[dict] = None  # MIL 2025 state; hints scoped to recipient
     """准备状态信息"""
     player_to_ready: Dict[int, bool]  # 玩家索引到准备状态的映射 {player_index: ready}
 
@@ -297,6 +383,7 @@ class Player_record_info(BaseModel):
     title_used: Optional[int] = None  # 使用的称号ID
     character_used: Optional[int] = None  # 使用的角色ID
     profile_used: Optional[int] = None  # 使用的头像ID
+    avatar_frame_used: Optional[int] = 0
     voice_used: Optional[int] = None  # 使用的音色ID
 
 class Record_info(BaseModel):
@@ -314,6 +401,7 @@ class Record_info(BaseModel):
 class Record_detail(BaseModel):
     """完整的游戏牌谱记录（按ID查询时返回）"""
     game_id: str  # 对局ID（base62字符串）
+    cloud_saved: bool = False  # 已确认保存云端；本地记录和缺少此字段的旧记录默认不可分享
     rule: str  # 规则类型（GB/JP）
     sub_rule: Optional[str] = None  # 子规则（如 guobiao/standard、guobiao/xiaolin、qingque/standard）
     record: Dict  # 完整的牌谱记录（JSONB）
@@ -351,6 +439,7 @@ class UserSettings(BaseModel):
     username: str  # 用户名
     title_id: Optional[int] = 1  # 称号ID（默认值为1）
     profile_image_id: Optional[int] = 1  # 使用的头像ID（默认值为1）
+    avatar_frame_id: int = 0
     character_id: Optional[int] = 1  # 选择的角色ID（默认值为1）
     voice_id: Optional[int] = 1  # 选择的音色ID（默认值为1）
 
@@ -361,7 +450,16 @@ class Rule_stats_response(BaseModel):
     total_fan_stats: Optional[Dict[str, int]] = None  # 汇总番种统计数据（普通对局，所有模式总和）
     ranked_fan_stats: Optional[Dict[str, int]] = None  # 天梯对局(_rank)番种统计（仅国标）
 
+class RuleRating(BaseModel):
+    rule: str
+    system: str
+    rank_name: str = ""
+    rank_score: float = 0
+    elo: float = 1500
+    games: int = 0
+
 class Player_info_response(BaseModel):
+    ratings: Dict[str, RuleRating] = Field(default_factory=dict)
     """玩家信息响应（包含所有统计数据）"""
     user_id: int  # 用户ID
     username: Optional[str] = None  # 用户名
@@ -377,6 +475,7 @@ class UserConfig(BaseModel):
     volume: int  # 音量设置（0-100）
 
 class RankData(BaseModel):
+    ratings: Dict[str, RuleRating] = Field(default_factory=dict)
     """段位数据（登录时同步）"""
     guobiao_rank: str = "10级"
     guobiao_score: float = 0
@@ -425,6 +524,12 @@ class RealtimeSpectatorEntry(BaseModel):
     username: str
 
 class LeaderboardEntry(BaseModel):
+    rule: str = "guobiao"
+    system: str = "grade"
+    rank_name: str = "10级"
+    rank_score: float = 0
+    elo: float = 1500
+    games: int = 0
     """国标段位排行榜条目"""
     rank_position: int
     user_id: int
@@ -486,9 +591,19 @@ class Player_recent_records_response(BaseModel):
 
 
 class Response(BaseModel):
+    rating_rule: Optional[str] = None
+    data_request_id: Optional[str] = None
+    @field_validator('room_info', 'room_list', 'event_detail', 'event_list', mode='before')
+    @classmethod
+    def hide_duplicate_room_keys(cls, value):
+        return public_room_data(value)
+
     type: str
     success: bool
     message: str
+    gamestate_id: Optional[str] = None
+    room_id: Optional[str] = None
+    room_instance_id: Optional[str] = None
     show_tip: Optional[bool] = None  # room/get_room_list 时回显：True=客户端显示刷新成功tips
     # 消息体
     message_info: Optional[MessageInfo] = None # 用于返回消息信息
@@ -542,4 +657,9 @@ class Response(BaseModel):
     registration_list: Optional[List[Dict]] = None
     # 匹配：当前连接玩家所在队列 / 是否已匹配成功（对局尚未结束）
     my_queue: Optional[str] = None
+    my_queues: Optional[List[str]] = None
+    match_queue_type: Optional[str] = None
+    match_revision: Optional[int] = None
+    match_request_id: Optional[str] = None
+    match_player_count: Optional[int] = None
     match_committed: Optional[bool] = None

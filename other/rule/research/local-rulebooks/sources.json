@@ -28,7 +28,7 @@
       "type": "rulebook",
       "lang": "zh",
       "accessed": "2026-08-14",
-      "excerpt": "沈一帆 1914 年牌谱。",
+      "excerpt": "项目现存扫描版权页为上海游艺社民国十三年三月初版（1924）；与 1914 沈一帆本的关系尚未对校。正文和补遗各变体见 ningbo-downstream。",
       "rules": [
         "classical"
       ],
@@ -36,7 +36,8 @@
       "reliability": "high",
       "local_path": "rulebooks/drawing-mahjong.pdf",
       "local_kind": "file",
-      "local_status": "ok"
+      "local_status": "ok",
+      "edition_verified": "1924-03"
     },
     {
       "id": "lib-shinbara",

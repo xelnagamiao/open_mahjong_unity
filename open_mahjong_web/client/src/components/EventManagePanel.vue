@@ -515,7 +515,7 @@
                 v-model="statsFilter.q"
                 clearable
                 size="small"
-                placeholder="搜索玩家 ID / 用户名"
+                placeholder="搜索玩家 ID / 用户名 / 邮箱"
                 @keyup.enter="searchPlayer"
                 @clear="clearPlayerSearch"
               />
@@ -725,7 +725,13 @@ const RULE_LABELS = {
   sichuan: '四川',
   changsha: '长沙',
   taiwan: '台湾',
+  hongkong: '香港麻将',
+  guangdong: '广东麻将',
+  guizhou: '贵州麻将',
+  yixing: '宜兴麻将',
+  shanxi: '山西麻将',
   jiandan: '南雀',
+  zhongyong: '中庸麻将',
 }
 
 const GAME_TYPE_OPTIONS = [
@@ -808,6 +814,11 @@ const roomRuleOptions = [
   { value: 'sichuan', label: '四川' },
   { value: 'changsha', label: '长沙' },
   { value: 'taiwan', label: '台湾' },
+  { value: 'hongkong', label: '香港麻将' },
+  { value: 'guangdong', label: '广东麻将' },
+  { value: 'guizhou', label: '贵州麻将' },
+  { value: 'yixing', label: '宜兴麻将' },
+  { value: 'shanxi', label: '山西麻将' },
 ]
 const roomForm = reactive(createEventRoomForm())
 
@@ -1781,7 +1792,7 @@ async function createRoom() {
     ElMessage.success('房间已创建')
     await loadRooms()
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '创建失败')
+    ElMessage.error(e.response?.data?.message || e.message || '创建失败')
   } finally {
     creatingRoom.value = false
   }

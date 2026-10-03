@@ -204,7 +204,7 @@ class RealtimeSpectatorSnapshotTest(unittest.TestCase):
             ClassicalGameState: "server.gamestate.game_classical.boardcast",
             QingqueGameState: "server.gamestate.game_mmcr.boardcast",
             SichuanGameState: "server.gamestate.game_sichuan.boardcast",
-            JiandanGameState: "server.gamestate.game_jiandan.JiandanGameState",
+            JiandanGameState: "server.gamestate.game_zhongyong.ZhongyongGameState",
         }
         for cls, module in expected.items():
             self.assertEqual(

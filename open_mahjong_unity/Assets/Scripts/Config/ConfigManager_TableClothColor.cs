@@ -6,11 +6,10 @@ public partial class ConfigManager
     const string ClothBrightnessPrefix = "TableClothBrightness_";
     public Color GetTableClothColor(string style)
     {
-        if (ColorUtility.TryParseHtmlString(PlayerPrefs.GetString(ClothColorPrefix+style,""),out var color))
-            return new Color(color.r,color.g,color.b,1);
+        // Official presets are immutable; user colors live in TableSurfaceColorLibrary.
         return TableClothStyles.DefaultColor(style);
     }
-    public float GetTableClothBrightness(string style) => Mathf.Clamp(PlayerPrefs.GetFloat(ClothBrightnessPrefix+style,0),-1,1);
+    public float GetTableClothBrightness(string style) => 0;
     public Color GetTableClothDisplayColor(string style)
     {
         return ApplyColorBrightness(GetTableClothColor(style), GetTableClothBrightness(style));

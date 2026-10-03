@@ -14,6 +14,7 @@ public sealed class PlayerInfoStatistics : MonoBehaviour {
     private int userId;
     private string currentRule;
     private bool ranked;
+    private string CacheKey => currentRule+(ranked&&currentRule!="guobiao"?"_rank":"");
     private bool refreshing;
     private LayoutElement contentMinimum;
     private float naturalContentHeight;
@@ -32,7 +33,7 @@ public sealed class PlayerInfoStatistics : MonoBehaviour {
         if (id != userId) ResetUser(id);
         bool changed = currentRule != rule || ranked != isRanked;
         currentRule = rule;
-        ranked = isRanked && rule == "guobiao";
+        ranked = isRanked && RankedRules.Supports(rule);
         RefreshRows(!changed);
         if (changed) {
             scroll.StopMovement();
@@ -44,7 +45,7 @@ public sealed class PlayerInfoStatistics : MonoBehaviour {
     private void RefreshRows(bool keepExpanded) {
         Vector2 offset = keepExpanded ? content.anchoredPosition : Vector2.zero;
         refreshing = true;
-        cache.TryGetValue(currentRule, out var response);
+        cache.TryGetValue(CacheKey, out var response);
         string[] modes = PlayerInfoStatsFormatter.Modes(currentRule, ranked);
         int index = 0;
         void Add(string caption, IList<KeyValuePair<string, string>> fields) {
@@ -69,9 +70,9 @@ public sealed class PlayerInfoStatistics : MonoBehaviour {
         if (ranked) {
             var total = PlayerInfoStatsFormatter.Aggregate(response, currentRule, modes);
             if (total == null && response?.history_stats != null) total = new PlayerStatsInfo { rule = currentRule };
-            Add("国标麻将总计（天梯）", PlayerInfoStatsFormatter.GameDetails(total, currentRule));
+            Add(RankedRules.Name(currentRule)+"总计（匹配）", PlayerInfoStatsFormatter.GameDetails(total, currentRule));
         }
-        Add(PlayerInfoStatsFormatter.FanCaption(currentRule, ranked),
+        if(currentRule!="sichuan")Add(PlayerInfoStatsFormatter.FanCaption(currentRule, ranked),
             PlayerInfoStatsFormatter.FanDetails(currentRule, ranked ? response?.ranked_fan_stats : response?.total_fan_stats));
         for (int i = index; i < entries.Count; i++) entries[i].gameObject.SetActive(false);
         refreshing = false;
@@ -109,10 +110,13 @@ public sealed class PlayerInfoStatistics : MonoBehaviour {
     }
 
     private void RequestCurrent() {
-        if (!Application.isPlaying || userId <= 0 || cache.ContainsKey(currentRule) || failedRules.Contains(currentRule)
-            || inFlightUsers.ContainsKey(currentRule) || DataNetworkManager.Instance == null) return;
+        if (!Application.isPlaying || userId <= 0 || cache.ContainsKey(CacheKey) || failedRules.Contains(CacheKey)
+            || inFlightUsers.ContainsKey(CacheKey) || DataNetworkManager.Instance == null) return;
         var network = DataNetworkManager.Instance;
         string id = userId.ToString();
+        if(ranked && currentRule!="guobiao") {
+            inFlightUsers[CacheKey]=userId;network.GetRankedStats(id,currentRule,userId+":"+CacheKey);return;
+        }
         switch (currentRule) {
             case "guobiao": inFlightUsers[currentRule] = userId; network.GetGuobiaoStats(id); break;
             case "riichi": inFlightUsers[currentRule] = userId; network.GetRiichiStats(id); break;
@@ -131,7 +135,7 @@ public sealed class PlayerInfoStatistics : MonoBehaviour {
                 failedRules.Add(rule);
                 if (gameObject.activeInHierarchy) NotificationManager.Instance?.ShowTip("获取数据", false, message ?? "获取统计数据失败");
             }
-            if (rule == currentRule) RefreshRows(true);
+            if (rule == CacheKey) RefreshRows(true);
         }
         RequestCurrent();
     }

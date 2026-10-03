@@ -21,6 +21,7 @@ public class ActionTickDisplay {
 public class RiichiRoundExtras {
     public int honba;
     public int riichiSticks;
+    public int doraMarker;
 }
 
 /// <summary>
@@ -33,7 +34,15 @@ public class Round {
     public List<int> seats;
     public int dealerIndex;
     public int startPlayerIndex;
+    public Dictionary<int, int> dingqueSuits;
     public RiichiRoundExtras riichi;
+    public HongKongInfo hongkong;
+    public GuizhouInfo guizhou;
+    public YixingInfo yixing;
+    public HangzhouInfo hangzhou;
+    public WenzhouInfo wenzhou;
+    public Dictionary<int, Dictionary<string, WenzhouWait[]>> wenzhouWaits;
+    public Dictionary<string, object> detailedConfig;
     public int p0UserId;
     public int p1UserId;
     public int p2UserId;
@@ -43,6 +52,7 @@ public class Round {
     public List<int> p2Tiles;
     public List<int> p3Tiles;
     public List<int> tilesList;
+    public List<List<int>> duplicateWalls;
     public List<List<string>> actionTicks;
 
     /// <summary>

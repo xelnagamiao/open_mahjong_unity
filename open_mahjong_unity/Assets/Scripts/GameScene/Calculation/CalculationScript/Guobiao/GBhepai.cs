@@ -202,12 +202,14 @@ public class Chinese_Hepai_Check {
             { "dandiaojiang", new List<string>() },
             { "zimo", new List<string>() },
             { "huapai", new List<string>() },
-            { "mingangang", new List<string>() }
+            { "mingangang", new List<string>() },
+            { "tianhe", new List<string>() }, { "dihe", new List<string>() }, { "renhe", new List<string>() }
         };
 
         // 存储番种的番数（国标标准）
         private static readonly Dictionary<string, int> count_model_dict = new Dictionary<string, int>
         {
+            { "tianhe", 8 }, { "dihe", 8 }, { "renhe", 8 },
             { "dasixi", 88 }, { "dasanyuan", 88 }, { "lvyise", 88 }, { "jiulianbaodeng", 88 }, { "sigang", 88 },
             { "lianqidui", 88 }, { "shisanyao", 88 },
             { "qingyaojiu", 64 }, { "xiaosixi", 64 }, { "xiaosanyuan", 64 }, { "ziyise", 64 }, { "sianke", 64 }, { "yiseshuanglonghui", 64 },
@@ -226,6 +228,7 @@ public class Chinese_Hepai_Check {
 
         internal static readonly Dictionary<string, string> EngToChineseDict = new Dictionary<string, string>
         {
+            { "tianhe", "天和" }, { "dihe", "地和" }, { "renhe", "人和" },
             { "dasixi", "大四喜" }, { "dasanyuan", "大三元" }, { "lvyise", "绿一色" }, { "jiulianbaodeng", "九莲宝灯" }, { "sigang", "四杠" },
             { "sangang", "三杠" }, { "lianqidui", "连七对" }, { "shisanyao", "十三幺" },
             { "qingyaojiu", "清幺九" }, { "xiaosixi", "小四喜" }, { "xiaosanyuan", "小三元" }, { "ziyise", "字一色" },
@@ -314,7 +317,7 @@ public class Chinese_Hepai_Check {
             int complete_step = tiles_combination.Count * 3;
             var player_tiles = new PlayerTiles(hand_list, tiles_combination, complete_step);
 
-            Debug.Log($"传参手牌：{string.Join(",", player_tiles.hand_tiles)} 传参组合：{string.Join(",", player_tiles.combination_list)} 传参和牌方式：{string.Join(",", way_to_hepai)} 传参和牌张：{get_tile}");
+            if (debug) Debug.Log($"传参手牌：{string.Join(",", player_tiles.hand_tiles)} 传参组合：{string.Join(",", player_tiles.combination_list)} 传参和牌方式：{string.Join(",", way_to_hepai)} 传参和牌张：{get_tile}");
 
             var player_tiles_list = new List<PlayerTiles>();
             if (player_tiles.hand_tiles.Count == 14) {
@@ -342,17 +345,17 @@ public class Chinese_Hepai_Check {
             if (check_done_list.Count > 0) {
                 foreach (var i in check_done_list)
                 {
-                    Debug.Log($"计算番种：{i},{get_tile},{way_to_hepai}");
+                    if (debug) Debug.Log($"计算番种：{i},{get_tile},{way_to_hepai}");
                     allow_list.Add(FanCount(i, get_tile, way_to_hepai));
                 }
             }
 
             var fancount_time_end = Time.realtimeSinceStartup;
-            DebugPrint($"番种计算耗时：{fancount_time_end - fancount_time_start}秒");
+            if (debug) DebugPrint($"番种计算耗时：{fancount_time_end - fancount_time_start}秒");
 
             // 对比返回元组的第一个元素，只返回第一个元素最大的元组
             allow_list = allow_list.OrderByDescending(x => x.Item1).ToList();
-            DebugPrint($"允许的番种：{string.Join(",", allow_list.Select(x => x.Item1))}");
+            if (debug) DebugPrint($"允许的番种：{string.Join(",", allow_list.Select(x => x.Item1))}");
 
             // 如果没有任何和牌组合，抛出详细的异常信息（不包装，直接从这一行抛出）
             if (allow_list.Count == 0) {
@@ -532,7 +535,7 @@ public class Chinese_Hepai_Check {
 
         // 一般型和牌检查
         private void Normal_check(PlayerTiles player_tiles, List<PlayerTiles> check_done_list) {
-            DebugPrint("player_tiles:", string.Join(",", player_tiles.hand_tiles), player_tiles.complete_step, string.Join(",", player_tiles.combination_list));
+            if (debug) DebugPrint("player_tiles:", string.Join(",", player_tiles.hand_tiles), player_tiles.complete_step, string.Join(",", player_tiles.combination_list));
             // 如果牌型已经和牌,说明有国士无双、七对子、全不靠、七星不靠、不进行一般型检测
             if (player_tiles.complete_step == 14) {
                 check_done_list.Add(player_tiles);
@@ -547,24 +550,24 @@ public class Chinese_Hepai_Check {
             // 获取所有的雀头可能以及没有雀头的情况
             var all_list = Normal_check_traverse_quetou(player_tiles);
             var end_list = new List<PlayerTiles>();
-            DebugPrint("所有雀头可能", string.Join(";", all_list.Select(x => string.Join(",", x.hand_tiles))));
+            if (debug) DebugPrint("所有雀头可能", string.Join(";", all_list.Select(x => string.Join(",", x.hand_tiles))));
             int count_count = 0;
             while (all_list.Count > 0) {
                 count_count++;
                 var temp_list = all_list[all_list.Count - 1];
                 all_list.RemoveAt(all_list.Count - 1);
-                DebugPrint($"Normal_check: 处理分支, 手牌={string.Join(",", temp_list.hand_tiles)}, 组合={string.Join(",", temp_list.combination_list)}, complete_step={temp_list.complete_step}, all_list.Count={all_list.Count}");
+                if (debug) DebugPrint($"Normal_check: 处理分支, 手牌={string.Join(",", temp_list.hand_tiles)}, 组合={string.Join(",", temp_list.combination_list)}, complete_step={temp_list.complete_step}, all_list.Count={all_list.Count}");
                 // 使用temp_list而不是player_tiles
                 Normal_check_traverse_kezi(temp_list, all_list);
                 Normal_check_traverse_dazi(temp_list, all_list);
-                DebugPrint($"Normal_check: 处理分支后, temp_list.complete_step={temp_list.complete_step}, all_list.Count={all_list.Count}");
+                if (debug) DebugPrint($"Normal_check: 处理分支后, temp_list.complete_step={temp_list.complete_step}, all_list.Count={all_list.Count}");
                 if (temp_list.complete_step == 14) {
                     end_list.Add(temp_list);
-                    DebugPrint($"Normal_check: 找到和牌组合! 组合={string.Join(",", temp_list.combination_list)}");
+                    if (debug) DebugPrint($"Normal_check: 找到和牌组合! 组合={string.Join(",", temp_list.combination_list)}");
                 }
             }
 
-            DebugPrint("计算次数：", count_count);
+            if (debug) DebugPrint("计算次数：", count_count);
             List<string> combination_class = null;
             var temp_list2 = new List<PlayerTiles>();
             foreach (var i in end_list) {
@@ -576,9 +579,9 @@ public class Chinese_Hepai_Check {
             }
             end_list = temp_list2;
 
-            DebugPrint("和牌类型的数量:", end_list.Count);
+            if (debug) DebugPrint("和牌类型的数量:", end_list.Count);
             foreach (var i in end_list) {
-                DebugPrint("手牌", string.Join(",", i.hand_tiles), "胡牌步数", i.complete_step, "胡牌组合", string.Join(",", i.combination_list));
+                if (debug) DebugPrint("手牌", string.Join(",", i.hand_tiles), "胡牌步数", i.complete_step, "胡牌组合", string.Join(",", i.combination_list));
             }
 
             check_done_list.AddRange(end_list);
@@ -599,7 +602,7 @@ public class Chinese_Hepai_Check {
                 }
                 tile_id_pointer = tile_id;  // 无论是否进入if分支，都要更新tile_id_pointer
             }
-            DebugPrint($"Normal_check_block: block_count={block_count}, 返回={block_count <= 6}");
+            if (debug) DebugPrint($"Normal_check_block: block_count={block_count}, 返回={block_count <= 6}");
             return block_count <= 6;
         }
 
@@ -651,7 +654,7 @@ public class Chinese_Hepai_Check {
                         temp_list.combination_list.Add($"S{tile_id + 1}");
                         all_list.Add(temp_list);
                         same_tile_id = tile_id;
-                        DebugPrint($"Normal_check_traverse_dazi: 找到顺子 S{tile_id + 1}, 剩余手牌={string.Join(",", temp_list.hand_tiles)}, complete_step={temp_list.complete_step}");
+                        if (debug) DebugPrint($"Normal_check_traverse_dazi: 找到顺子 S{tile_id + 1}, 剩余手牌={string.Join(",", temp_list.hand_tiles)}, complete_step={temp_list.complete_step}");
                     }
                 }
             }
@@ -659,7 +662,7 @@ public class Chinese_Hepai_Check {
 
         // 手牌番种检查
         private void FanCountHandCheck(PlayerTiles player_tiles, List<int> hand_tiles_list, int get_tile) {
-            DebugPrint("手牌", string.Join(",", hand_tiles_list));
+            if (debug) DebugPrint("手牌", string.Join(",", hand_tiles_list));
             if (hand_tiles_list.Count == 0) {
                 return;
             }
@@ -686,14 +689,14 @@ public class Chinese_Hepai_Check {
                     hand_tiles_list.All(i => bing_set.Contains(i)) ||
                     hand_tiles_list.All(i => tiao_set.Contains(i))) {
                     var temp_tiles_list = new List<int>(hand_tiles_list);
-                    DebugPrint("temp_tiles_list", string.Join(",", temp_tiles_list));
+                    if (debug) DebugPrint("temp_tiles_list", string.Join(",", temp_tiles_list));
                     temp_tiles_list.Remove(get_tile);
                     var save_list = new List<int>();
                     foreach (var i in temp_tiles_list) {
                         int rank = i % 10;
                         save_list.Add(rank);
                     }
-                    DebugPrint(string.Join(",", save_list));
+                    if (debug) DebugPrint(string.Join(",", save_list));
                     if (player_tiles.initial_combination_count == 0 && save_list.SequenceEqual(jiulianbaodeng_list)) {
                         player_tiles.fan_list.Add("jiulianbaodeng"); // 九莲宝灯
                     } else {
@@ -925,8 +928,8 @@ public class Chinese_Hepai_Check {
 
             save_dazi_sign.Sort();
             save_kezi_sign.Sort();
-            DebugPrint("搭子标记：", string.Join(",", save_dazi_sign));
-            DebugPrint("刻子标记：", string.Join(",", save_kezi_sign));
+            if (debug) DebugPrint("搭子标记：", string.Join(",", save_dazi_sign));
+            if (debug) DebugPrint("刻子标记：", string.Join(",", save_kezi_sign));
 
             // 顺子关系判断
             if (save_dazi_sign.Count >= 2)
@@ -1375,6 +1378,13 @@ public class Chinese_Hepai_Check {
                         }
                         break;
 
+                    case "天和":
+                    case "地和":
+                    case "人和":
+                        string openingKey = i == "天和" ? "tianhe" : i == "地和" ? "dihe" : "renhe";
+                        if (_countModelDict.ContainsKey(openingKey) && !player_tiles.fan_list.Contains(openingKey))
+                            player_tiles.fan_list.Add(openingKey);
+                        break;
                     case "last_deal":
                     case "妙手回春":
                         player_tiles.fan_list.Add("miaoshouhuichun"); // 妙手回春（牌墙空自摸）
@@ -1396,7 +1406,7 @@ public class Chinese_Hepai_Check {
                         player_tiles.fan_list.Add("haidilaoyue"); // 海底捞月（牌墙空荣和）
                         break;
                     case "点和":
-                        DebugPrint(string.Join(",", player_tiles.combination_list));
+                        if (debug) DebugPrint(string.Join(",", player_tiles.combination_list));
                         int small_count = combination_str.Count(c => c == 's' || c == 'k' || c == 'g');
                         if (!string.IsNullOrEmpty(combination_str) &&
                             combination_str.All(c => !new[] { 'S', 'K', 'G', 'z' }.Contains(c)) &&
@@ -1502,16 +1512,16 @@ public class Chinese_Hepai_Check {
                 }
             }
 
-            DebugPrint("全部被添加的番种", string.Join(",", player_tiles.fan_list));
+            if (debug) DebugPrint("全部被添加的番种", string.Join(",", player_tiles.fan_list));
             // 按番大小排列
             player_tiles.fan_list = player_tiles.fan_list.OrderByDescending(x => _countModelDict.ContainsKey(x) ? _countModelDict[x] : 0).ToList();
 
-            DebugPrint("需要被阻挡的番种", string.Join(",", need_to_remove));
+            if (debug) DebugPrint("需要被阻挡的番种", string.Join(",", need_to_remove));
             foreach (var i in need_to_remove)
             {
                 player_tiles.fan_list.Remove(i);
             }
-            DebugPrint("需要移除的幺九刻数量", max_yaojiuke_count);
+            if (debug) DebugPrint("需要移除的幺九刻数量", max_yaojiuke_count);
             for (int i = 0; i < max_yaojiuke_count; i++)
             {
                 player_tiles.fan_list.Remove("yaojiuke");
@@ -1529,7 +1539,7 @@ public class Chinese_Hepai_Check {
                     origin_fan_list.Add(i);
             }
 
-            DebugPrint("重复番种", string.Join(",", repeatable_fan_list));
+            if (debug) DebugPrint("重复番种", string.Join(",", repeatable_fan_list));
 
             if (repeatable_fan_list.Count > 0)
             {
@@ -1590,7 +1600,7 @@ public class Chinese_Hepai_Check {
             }
 
             player_tiles.fan_list = origin_fan_list;
-            DebugPrint("最终番种", string.Join(",", player_tiles.fan_list));
+            if (debug) DebugPrint("最终番种", string.Join(",", player_tiles.fan_list));
 
             // 结算得分和展示文本
             var fuji_set = new HashSet<string> { "siguiyi", "shuangtongke", "yibangao", "xixiangfeng", "lianliu", "yaojiuke", "huapai" };
@@ -1603,7 +1613,7 @@ public class Chinese_Hepai_Check {
                 if (!fuji_set.Contains(i))
                 {
                     fan_count += _countModelDict.ContainsKey(i) ? _countModelDict[i] : 0;
-                    DebugPrint($"添加番数{i},{_countModelDict.GetValueOrDefault(i, 0)}");
+                    if (debug) DebugPrint($"添加番数{i},{_countModelDict.GetValueOrDefault(i, 0)}");
                     if (EngToChineseDict.ContainsKey(i))
                         temp_fan_count_list.Add(EngToChineseDict[i]);
                 }
@@ -1615,15 +1625,15 @@ public class Chinese_Hepai_Check {
                 {
                     int count = player_tiles.fan_list.Count(x => x == i);
                     fan_count += count * _countModelDict.GetValueOrDefault(i, 0);
-                    DebugPrint($"添加番数{i},{count * _countModelDict.GetValueOrDefault(i, 0)}");
+                    if (debug) DebugPrint($"添加番数{i},{count * _countModelDict.GetValueOrDefault(i, 0)}");
                     if (EngToChineseDict.ContainsKey(i))
                         temp_fan_count_list.Add($"{EngToChineseDict[i]}*{count}");
                 }
             }
 
             player_tiles.fan_count_list = temp_fan_count_list;
-            DebugPrint("和牌文本", string.Join(",", player_tiles.fan_count_list));
-            DebugPrint("和牌得分", fan_count);
+            if (debug) DebugPrint("和牌文本", string.Join(",", player_tiles.fan_count_list));
+            if (debug) DebugPrint("和牌得分", fan_count);
             return new Tuple<int, List<string>>(fan_count, player_tiles.fan_count_list);
         }
 
@@ -1681,8 +1691,8 @@ public class Chinese_Hepai_Check {
             foreach (var i in player_tiles.combination_list)
                 combination_str += i;
 
-            DebugPrint("组合映射：", combination_str);
-            DebugPrint("手牌映射：", string.Join(",", hand_tiles_list));
+            if (debug) DebugPrint("组合映射：", combination_str);
+            if (debug) DebugPrint("手牌映射：", string.Join(",", hand_tiles_list));
 
             // 通过生成手牌映射查表计算
             FanCountHandCheck(player_tiles, hand_tiles_list, get_tile);
@@ -1699,7 +1709,7 @@ public class Chinese_Hepai_Check {
             // 通过和牌关系计算
             FanCountHepaiRelationshipCheck(player_tiles, combination_str, get_tile, way_to_hepai);
 
-            DebugPrint("现在存在的组合", string.Join(",", player_tiles.combination_list));
+            if (debug) DebugPrint("现在存在的组合", string.Join(",", player_tiles.combination_list));
             // 通过番种列表清理阻挡番种 输出文本和得分
             var result = FanCountOutput(player_tiles, combination_str, zimo_or_not, way_to_hepai);
             return result;

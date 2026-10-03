@@ -10,13 +10,14 @@ public static class RecordChongHintCalculator {
   public static HashSet<int> ComputeDangerTiles(
     Dictionary<string, GameRecordManager.RecordPlayer> players,
     string roomRule,
-    IDictionary<string, object> detailedConfig = null) {
+    IDictionary<string, object> detailedConfig = null, string subRule = null) {
     var danger = new HashSet<int>();
+    if (RuleRegistry.Resolve(roomRule, subRule)?.ShowsRonDangerHints == false) return danger;
     if (players == null || string.IsNullOrEmpty(roomRule)) return danger;
 
     foreach (var kv in players) {
       if (kv.Value == null || kv.Value.isHu) continue;
-      foreach (int tileId in ComputeWaitingTilesForPlayer(kv.Value, roomRule, detailedConfig)) {
+      foreach (int tileId in ComputeWaitingTilesForPlayer(kv.Value, roomRule, detailedConfig, subRule)) {
         danger.Add(tileId);
       }
     }
@@ -30,8 +31,9 @@ public static class RecordChongHintCalculator {
     Dictionary<string, GameRecordManager.RecordPlayer> players,
     string handOwnerPosition,
     string roomRule,
-    IDictionary<string, object> detailedConfig = null) {
+    IDictionary<string, object> detailedConfig = null, string subRule = null) {
     var danger = new HashSet<int>();
+    if (RuleRegistry.Resolve(roomRule, subRule)?.ShowsRonDangerHints == false) return danger;
     if (players == null || string.IsNullOrEmpty(roomRule) || string.IsNullOrEmpty(handOwnerPosition)) {
       return danger;
     }
@@ -39,7 +41,7 @@ public static class RecordChongHintCalculator {
     foreach (var kv in players) {
       if (kv.Key == handOwnerPosition) continue;
       if (kv.Value == null || kv.Value.isHu) continue;
-      foreach (int tileId in ComputeWaitingTilesForPlayer(kv.Value, roomRule, detailedConfig)) {
+      foreach (int tileId in ComputeWaitingTilesForPlayer(kv.Value, roomRule, detailedConfig, subRule)) {
         danger.Add(tileId);
       }
     }
@@ -49,19 +51,21 @@ public static class RecordChongHintCalculator {
   public static HashSet<int> ComputeWaitingTilesForPlayer(
     GameRecordManager.RecordPlayer player,
     string roomRule,
-    IDictionary<string, object> detailedConfig = null) {
+    IDictionary<string, object> detailedConfig = null, string subRule = null) {
     if (player == null) return new HashSet<int>();
 
     List<int> handForCheck = NormalizeHandForTingpai(player.tileList);
     if (handForCheck == null) return new HashSet<int>();
 
     List<string> combinations = player.combinationTiles ?? new List<string>();
-    HashSet<int> waitingTiles = RuleTips.ComputeWaiting(roomRule, null, new TingpaiQuery {
+    HashSet<int> waitingTiles = RuleTips.ComputeWaiting(roomRule, subRule, new TingpaiQuery {
       Hand = handForCheck,
+      PlayerIndex = player.playerIndex,
       Melds = combinations,
       DetailedConfig = detailedConfig as Dictionary<string, object>
         ?? (detailedConfig != null ? new Dictionary<string, object>(detailedConfig) : null),
       ExcludedSuit = player.dingqueSuit,
+      RecordPlayerIndex = player.playerIndex,
     });
 
     var normalized = new HashSet<int>();
@@ -102,6 +106,7 @@ public static class RecordChongHintCalculator {
     ICollection<int> outIndices) {
     outIndices?.Clear();
     if (mgr == null || outIndices == null) return;
+    if (mgr.TryGetDuplicateDrawIndices(outIndices, MoqieZimoDrawPredictionCount)) return;
 
     int wallCount = mgr.OriginalWallTileCountForChongHint;
     if (wallCount <= 0) return;

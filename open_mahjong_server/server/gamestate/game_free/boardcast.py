@@ -49,6 +49,7 @@ def player_info_payload(game_state, player_index: int, viewer_index: int) -> dic
         "title_used": player.title_used,
         "character_used": player.character_used,
         "profile_used": player.profile_used,
+        "avatar_frame_used": getattr(player, "avatar_frame_used", 0),
         "voice_used": player.voice_used,
         "score_history": list(player.score_history),
         "round_number_history": list(player.round_number_history),
@@ -56,15 +57,23 @@ def player_info_payload(game_state, player_index: int, viewer_index: int) -> dic
     }
 
 
-def free_table_payload(game_state, *, revealed_player_index: Optional[int] = None) -> dict:
+def free_table_payload(
+    game_state,
+    *,
+    revealed_player_index: Optional[int] = None,
+    actor_player_index: Optional[int] = None,
+) -> dict:
     revealed_hand = None
-    if revealed_player_index is not None:
+    if revealed_player_index is not None and game_state.player_list[revealed_player_index].revealed:
         revealed_hand = list(game_state.player_list[revealed_player_index].hand_tiles)
     last = last_alive_discard(game_state)
     return {
         "votes": {str(idx): game_state.player_list[idx].vote for idx in _seats(game_state)},
-        "transfer_tile": game_state.transfer_tile,
+        # None 表示空区，0 表示有一张未知牌；所有快照/其他操作广播共用此遮蔽。
+        "transfer_tile": 0 if game_state.transfer_face_down and game_state.transfer_tile is not None else game_state.transfer_tile,
+        "transfer_face_down": game_state.transfer_face_down,
         "score_revision": game_state.score_revision,
+        "actor_player_index": actor_player_index,
         "scores": {str(idx): game_state.player_list[idx].score for idx in _seats(game_state)},
         "revealed": {str(idx): game_state.player_list[idx].revealed for idx in _seats(game_state)},
         "revealed_player_index": revealed_player_index,
@@ -92,6 +101,7 @@ def game_info_payload(game_state, viewer_index: int) -> dict:
         "room_id": _safe_room_id(game_state.room_id),
         "gamestate_id": game_state.gamestate_id,
         "tips": False,
+        "pointer_tips": getattr(game_state, "pointer_tips", True),
         "current_player_index": viewer_index,
         "action_tick": game_state.action_tick,
         "max_round": 1,
@@ -148,7 +158,8 @@ async def broadcast_do_action(game_state, viewer_payloads: dict[int, dict]) -> N
         await send_json(game_state, player.user_id, payload)
 
 
-def do_action_envelope(game_state, action_list: list[str], action_player: int, **fields) -> dict:
+def do_action_envelope(game_state, action_list: list[str], action_player: int,
+                       *, revealed_player_index: Optional[int] = None, **fields) -> dict:
     info = {
         "action_list": action_list,
         "action_player": action_player,
@@ -161,7 +172,7 @@ def do_action_envelope(game_state, action_list: list[str], action_player: int, *
         "message": action_list[0] if action_list else "do_action",
         "gamestate_id": game_state.gamestate_id,
         "do_action_info": info,
-        "free_table_info": free_table_payload(game_state),
+        "free_table_info": free_table_payload(game_state, revealed_player_index=revealed_player_index),
     }
 
 
@@ -180,8 +191,18 @@ def deal_payloads(game_state, action_player: int, tile_id: int) -> dict[int, dic
     return payloads
 
 
-async def broadcast_free_table(game_state, suffix: str, *, revealed_player_index: Optional[int] = None) -> None:
-    table = free_table_payload(game_state, revealed_player_index=revealed_player_index)
+async def broadcast_free_table(
+    game_state,
+    suffix: str,
+    *,
+    revealed_player_index: Optional[int] = None,
+    actor_player_index: Optional[int] = None,
+) -> None:
+    table = free_table_payload(
+        game_state,
+        revealed_player_index=revealed_player_index,
+        actor_player_index=actor_player_index,
+    )
     for player in game_state.player_list:
         await send_json(game_state, player.user_id, {
             "type": f"gamestate/free/{suffix}",

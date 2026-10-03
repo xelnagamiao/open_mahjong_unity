@@ -18,7 +18,7 @@ public partial class GameRecordManager {
     }
 
     private void MarkPendingRecordCuoheContinue(string huPosition, string[] huFan) {
-        if (!HuFanContainsCuohe(huFan) || !UsesMidGameCuoheRecord()) return;
+        if (!IsXueliuRecord() && (!HuFanContainsCuohe(huFan) || !UsesMidGameCuoheRecord())) return;
         _pendingRecordCuoheWinnerPosition = huPosition;
     }
 

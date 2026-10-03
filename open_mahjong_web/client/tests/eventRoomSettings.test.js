@@ -40,7 +40,7 @@ test('switching to another rule only submits the fields it supports', () => {
   form.room_rule = 'riichi'
   form.room_name = '  立直桌  '
   const settings = buildEventRoomSettings(form)
-  assert.deepEqual(settings.room_config, { room_name: '立直桌' })
+  assert.deepEqual(settings.room_config, { room_name: '立直桌', starting_score: 25000 })
   assert.equal(settings.room_rule, 'riichi')
 })
 
@@ -66,4 +66,20 @@ test('non-Guobiao confirmation uses readable rule names and omits Guobiao-only s
   assert.equal(rows.find(row => row.label === '规则').value, '台湾')
   assert.equal(rows.find(row => row.label === '子规则').value, '台湾标准')
   assert.equal(rows.some(row => ['起和番', '错和', '战术鸣牌', '鸣牌保护'].includes(row.label)), false)
+})
+
+
+test('riichi starting points survive editing, preset round trip and confirmation', () => {
+  const form = createEventRoomForm({ room_rule: 'riichi', room_config: { starting_score: 30000 } })
+  const saved = buildEventRoomSettings(form)
+  assert.equal(createEventRoomForm(saved).starting_score, 30000)
+  assert.match(eventRoomSettingsSummary(saved), /30000/)
+  assert.equal(eventRoomSettingsRows(saved).find(row => row.label === '起始点数').value, '30000 点')
+  for (const value of [undefined, null, 0, 999, 1000001, 25001, 25000.5, '30000']) {
+    assert.throws(() => buildEventRoomSettings({ ...form, starting_score: value }), /起始点数/)
+  }
+  form.room_rule = 'guobiao'
+  assert.equal('starting_score' in buildEventRoomSettings(form).room_config, false)
+  form.room_rule = 'taiwan'
+  assert.equal('starting_score' in buildEventRoomSettings(form).room_config, false)
 })

@@ -1,7 +1,13 @@
 const pool = require('../config/database')
+const { INITIAL_RATING, K, MIGRATION_ID, expectedScore } = require('./guessFanElo')
 
 async function ensureGuessFanTables() {
-  await pool.query(`
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    // Serialize startup/migration across Node workers before reading the version marker.
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('guess_fan_ratings_schema'))")
+    await client.query(`
     CREATE TABLE IF NOT EXISTS guess_fan_ratings (
       user_id       BIGINT NOT NULL,
       rule_set      VARCHAR(16) NOT NULL DEFAULT 'mixed',
@@ -16,20 +22,42 @@ async function ensureGuessFanTables() {
     );
   `)
   // 旧表迁移：补充 rule_set 列并把主键改为 (user_id, rule_set)
-  const column = await pool.query(
+  const column = await client.query(
     `SELECT 1 FROM information_schema.columns
-     WHERE table_name = 'guess_fan_ratings' AND column_name = 'rule_set'`
+     WHERE table_schema = current_schema() AND table_name = 'guess_fan_ratings' AND column_name = 'rule_set'`
   )
   if (column.rowCount === 0) {
-    await pool.query(`ALTER TABLE guess_fan_ratings ADD COLUMN rule_set VARCHAR(16) NOT NULL DEFAULT 'mixed'`)
-    await pool.query(`DROP INDEX IF EXISTS idx_guess_fan_ratings_rating`)
-    await pool.query(`ALTER TABLE guess_fan_ratings DROP CONSTRAINT IF EXISTS guess_fan_ratings_pkey`)
-    await pool.query(`ALTER TABLE guess_fan_ratings ADD PRIMARY KEY (user_id, rule_set)`)
+    await client.query(`ALTER TABLE guess_fan_ratings ADD COLUMN rule_set VARCHAR(16) NOT NULL DEFAULT 'mixed'`)
+    await client.query(`DROP INDEX IF EXISTS idx_guess_fan_ratings_rating`)
+    await client.query(`ALTER TABLE guess_fan_ratings DROP CONSTRAINT IF EXISTS guess_fan_ratings_pkey`)
+    await client.query(`ALTER TABLE guess_fan_ratings ADD PRIMARY KEY (user_id, rule_set)`)
   }
-  await pool.query(`
+  await client.query(`
     CREATE INDEX IF NOT EXISTS idx_guess_fan_ratings_rating
       ON guess_fan_ratings (rule_set, rating DESC, wins DESC, matches ASC);
   `)
+    await client.query(`CREATE TABLE IF NOT EXISTS guess_fan_rating_migrations (
+      version TEXT PRIMARY KEY,
+      migrated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      previous_rows JSONB NOT NULL
+    )`)
+    const applied = await client.query('SELECT 1 FROM guess_fan_rating_migrations WHERE version = $1', [MIGRATION_ID])
+    if (!applied.rowCount) {
+      // Keep the exact original rows for recovery. A failure rolls back both rows and marker.
+      await client.query('LOCK TABLE guess_fan_ratings IN ACCESS EXCLUSIVE MODE')
+      await client.query(`INSERT INTO guess_fan_rating_migrations (version, previous_rows)
+        SELECT $1, COALESCE(jsonb_agg(to_jsonb(r) ORDER BY rule_set, user_id), '[]'::jsonb)
+        FROM guess_fan_ratings r`, [MIGRATION_ID])
+      await client.query('UPDATE guess_fan_ratings SET rating = 1500 + (rating - 1000) * 5')
+    }
+    await client.query(`ALTER TABLE guess_fan_ratings ALTER COLUMN rating SET DEFAULT ${INITIAL_RATING}`)
+    await client.query('COMMIT')
+  } catch (err) {
+    await client.query('ROLLBACK')
+    throw err
+  } finally {
+    client.release()
+  }
 }
 
 /**
@@ -54,7 +82,7 @@ async function fetchLeaderboardTop(limit = 20, ruleSet = 'mixed') {
       username: row.username,
       wins,
       matches,
-      rating: Number(row.rating) || 1000,
+      rating: row.rating == null ? INITIAL_RATING : Number(row.rating),
       streak: Number(row.streak) || 0,
       bestStreak: Number(row.best_streak) || 0,
       losses: matches - wins,
@@ -101,16 +129,16 @@ async function applyMatchRating({ winnerUserId, players, ruleSet = 'mixed' }) {
         username: String(p.username || '').trim() || existing?.username || String(uid),
         wins: existing ? Number(existing.wins) : 0,
         matches: existing ? Number(existing.matches) : 0,
-        rating: existing ? Number(existing.rating) : 1000,
+        rating: existing ? Number(existing.rating) : INITIAL_RATING,
         streak: existing ? Number(existing.streak) : 0,
         bestStreak: existing ? Number(existing.best_streak) : 0,
       }
     })
 
     const [a, b] = rows
-    const expectedA = 1 / (1 + 10 ** ((b.rating - a.rating) / 400))
+    const expectedA = expectedScore(a.rating, b.rating)
     const scoreA = a.userId === winnerId ? 1 : 0
-    const delta = Math.round(32 * (scoreA - expectedA))
+    const delta = Math.round(K * (scoreA - expectedA))
 
     for (const row of rows) {
       const won = row.userId === winnerId

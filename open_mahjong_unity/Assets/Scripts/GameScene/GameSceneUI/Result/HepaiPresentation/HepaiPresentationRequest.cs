@@ -18,6 +18,9 @@ public sealed class HepaiPresentationRequest {
 
     /// <summary>牌谱/观战回放：展开明牌模式（仅 left/top/right）。</summary>
     public bool IsRecordShowCardsExpanded;
+    /// <summary>A pending-kong win already moved physical hand data in replay;
+    /// restore those hands before revealing the winner, without touching melds/rivers.</summary>
+    public bool RestoreRecordHandFromSnapshot;
     /// <summary>牌谱规则键（如 guobiao / riichi），用于与对局一致的倒牌策略。</summary>
     public string RecordRule;
     /// <summary>牌谱荣和错和（与 WinTileMode 配合）。</summary>

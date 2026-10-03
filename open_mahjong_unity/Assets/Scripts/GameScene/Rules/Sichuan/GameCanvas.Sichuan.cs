@@ -21,6 +21,11 @@ public partial class GameCanvas {
 
     private Coroutine _dingqueCountdownCoroutine;
     private bool _dingqueSelected;
+    private Coroutine _xueliuCountdownCoroutine;
+    private bool _xueliuSelecting;
+    private bool _xueliuExchange;
+    private string XueliuOpeningLabel => _xueliuExchange ? "换三张" : "弃三张";
+    private readonly List<TileCard> _xueliuSelectedCards = new List<TileCard>(3);
 
     /// <summary>实时观战 / 牌谱阅览 / 延时观战时不弹出定缺选择面板（只读，不可操作）。</summary>
     private static bool IsDingqueSelectionSuppressed() {
@@ -36,7 +41,9 @@ public partial class GameCanvas {
     /// 玩家点击三个按钮之一即提交；超时自动选择手牌中数量最少的花色（并列取序号最小者）。
     /// 由状态机收到服务端定缺询问（gamestate/sichuan/ask_dingque）时调用。
     /// </summary>
-    public void ShowDingqueSelection(int seconds = 5) {
+    public void ShowDingqueSelection(int seconds = 10) {
+        HideXueliuThrowThreeSelection();
+        _dingqueSelected = false;
         if (IsDingqueSelectionSuppressed()) {
             HideDingqueSelection();
             return;
@@ -48,7 +55,7 @@ public partial class GameCanvas {
         }
         _dingqueSelected = false;
         dingqueSelectionPanel.SetActive(true);
-        if (dingqueTipText != null) dingqueTipText.text = "请选择定缺花色";
+        SetDingqueTip("请选择定缺花色");
         ApplyDingqueButtonOrder();
         if (_dingqueCountdownCoroutine != null) StopCoroutine(_dingqueCountdownCoroutine);
         _dingqueCountdownCoroutine = StartCoroutine(DingqueCountdown(Mathf.Max(1, seconds)));
@@ -75,7 +82,23 @@ public partial class GameCanvas {
     private static void SetDingqueButtonLabel(Button btn, string label) {
         if (btn == null) return;
         TMP_Text text = btn.GetComponentInChildren<TMP_Text>(true);
-        if (text != null) text.text = label;
+        if (text == null) return;
+        text.text = label;
+        text.enableAutoSizing = true;
+        text.fontSizeMin = 18f;
+        text.fontSizeMax = 60f;
+        text.textWrappingMode = TextWrappingModes.NoWrap;
+        text.overflowMode = TextOverflowModes.Ellipsis;
+    }
+
+    private void SetDingqueTip(string message) {
+        if (dingqueTipText == null) return;
+        dingqueTipText.text = message;
+        dingqueTipText.enableAutoSizing = true;
+        dingqueTipText.fontSizeMin = 22f;
+        dingqueTipText.fontSizeMax = 50f;
+        dingqueTipText.textWrappingMode = TextWrappingModes.NoWrap;
+        dingqueTipText.overflowMode = TextOverflowModes.Ellipsis;
     }
 
     private void BindDingqueButton(Button btn, int suit) {
@@ -123,6 +146,122 @@ public partial class GameCanvas {
         if (dingqueSelectionPanel != null) dingqueSelectionPanel.SetActive(false);
     }
 
+    /// <summary>血流开局弃三张：复用定缺面板的按钮作为提交入口，牌面本身负责选择。</summary>
+    public void ShowXueliuThrowThreeSelection(int seconds = 10, bool exchange = false) {
+        if (IsDingqueSelectionSuppressed()) return;
+        _xueliuSelecting = true;
+        _xueliuExchange = exchange;
+        _xueliuSelectedCards.Clear();
+        if (dingqueSelectionPanel != null) dingqueSelectionPanel.SetActive(true);
+        SetDingqueTip($"{XueliuOpeningLabel}：选择同花牌（已选 0/3）");
+        if (dingqueWanButton != null) {
+            dingqueWanButton.gameObject.SetActive(true);
+            SetDingqueButtonLabel(dingqueWanButton, _xueliuExchange ? "提交换牌" : "提交弃牌");
+            dingqueWanButton.onClick.RemoveAllListeners();
+            dingqueWanButton.onClick.AddListener(SubmitXueliuThrowThree);
+        }
+        if (dingqueBingButton != null) dingqueBingButton.gameObject.SetActive(false);
+        if (dingqueTiaoButton != null) dingqueTiaoButton.gameObject.SetActive(false);
+        if (dingqueCountdownText != null) dingqueCountdownText.text = Mathf.Max(1, seconds).ToString();
+        SetXueliuCardSelectability(true);
+        if (_xueliuCountdownCoroutine != null) StopCoroutine(_xueliuCountdownCoroutine);
+        _xueliuCountdownCoroutine = StartCoroutine(XueliuThrowCountdown(Mathf.Max(1, seconds)));
+    }
+
+    public bool TryHandleXueliuTileClick(TileCard card) {
+        if (!_xueliuSelecting || card == null) return false;
+        int suit = card.tileId / 10;
+        if (suit < 1 || suit > 3) return true;
+        if (_xueliuSelectedCards.Contains(card)) {
+            _xueliuSelectedCards.Remove(card);
+            card.SetXueliuSelected(false);
+        } else {
+            if (_xueliuSelectedCards.Count > 0 && _xueliuSelectedCards[0].tileId / 10 != suit) {
+                SetDingqueTip("三张必须是同一花色");
+                return true;
+            }
+            if (_xueliuSelectedCards.Count >= 3) return true;
+            _xueliuSelectedCards.Add(card);
+            card.SetXueliuSelected(true);
+        }
+        SetDingqueTip($"{XueliuOpeningLabel}：选择同花牌（已选 {_xueliuSelectedCards.Count}/3）");
+        return true;
+    }
+
+    private IEnumerator XueliuThrowCountdown(int seconds) {
+        int remain = seconds;
+        while (_xueliuSelecting && remain > 0) {
+            if (dingqueCountdownText != null) dingqueCountdownText.text = remain.ToString();
+            yield return new WaitForSeconds(1f);
+            remain--;
+        }
+        if (_xueliuSelecting) {
+            SelectDefaultXueliuCards();
+            SubmitXueliuThrowThree();
+        }
+    }
+
+    private void SelectDefaultXueliuCards() {
+        foreach (TileCard card in _xueliuSelectedCards) if (card != null) card.SetXueliuSelected(false);
+        _xueliuSelectedCards.Clear();
+        var hand = NormalGameStateManager.Instance != null
+            ? NormalGameStateManager.Instance.selfHandTiles : null;
+        if (hand == null) return;
+        for (int suit = 1; suit <= 3 && _xueliuSelectedCards.Count < 3; suit++) {
+            List<TileCard> candidates = new List<TileCard>();
+            for (int i = 0; i < handCardsContainer.childCount; i++) {
+                TileCard card = handCardsContainer.GetChild(i).GetComponent<TileCard>();
+                if (card != null && card.tileId / 10 == suit) candidates.Add(card);
+            }
+            if (candidates.Count < 3) continue;
+            for (int i = 0; i < 3; i++) {
+                _xueliuSelectedCards.Add(candidates[i]);
+                candidates[i].SetXueliuSelected(true);
+            }
+        }
+    }
+
+    private void SubmitXueliuThrowThree() {
+        if (!_xueliuSelecting || _xueliuSelectedCards.Count != 3) {
+            SetDingqueTip("请选择同一花色的三张牌");
+            return;
+        }
+        List<int> tiles = new List<int>(3);
+        foreach (TileCard card in _xueliuSelectedCards) tiles.Add(card.tileId);
+        if (tiles[0] / 10 != tiles[1] / 10 || tiles[0] / 10 != tiles[2] / 10) return;
+        _xueliuSelecting = false;
+        if (_xueliuCountdownCoroutine != null) {
+            StopCoroutine(_xueliuCountdownCoroutine);
+            _xueliuCountdownCoroutine = null;
+        }
+        foreach (TileCard card in _xueliuSelectedCards) card.SetXueliuSelected(false);
+        _xueliuSelectedCards.Clear();
+        if (dingqueSelectionPanel != null) dingqueSelectionPanel.SetActive(false);
+        GameStateNetworkManager.Instance.SendAction(_xueliuExchange ? "xueliu_exchange_three" : "xueliu_throw_three", 0, 0, tiles);
+    }
+
+    public void HideXueliuThrowThreeSelection() {
+        _xueliuSelecting = false;
+        if (_xueliuCountdownCoroutine != null) {
+            StopCoroutine(_xueliuCountdownCoroutine);
+            _xueliuCountdownCoroutine = null;
+        }
+        foreach (TileCard card in _xueliuSelectedCards) if (card != null) card.SetXueliuSelected(false);
+        _xueliuSelectedCards.Clear();
+        if (dingqueWanButton != null) dingqueWanButton.gameObject.SetActive(true);
+        if (dingqueBingButton != null) dingqueBingButton.gameObject.SetActive(true);
+        if (dingqueTiaoButton != null) dingqueTiaoButton.gameObject.SetActive(true);
+        if (dingqueSelectionPanel != null) dingqueSelectionPanel.SetActive(false);
+    }
+
+    private void SetXueliuCardSelectability(bool selectable) {
+        if (handCardsContainer == null) return;
+        for (int i = 0; i < handCardsContainer.childCount; i++) {
+            TileCard card = handCardsContainer.GetChild(i).GetComponent<TileCard>();
+            if (card != null) card.SetSelectable(selectable);
+        }
+    }
+
     /// <summary>
     /// 统计自家手牌各花色数量，返回数量最少的花色（1=万 2=筒 3=条）。
     /// 并列时取序号最小者（真·随便选，不随机）。
@@ -146,15 +285,15 @@ public partial class GameCanvas {
     /// <summary>
     /// 同步各玩家的定缺花色（类似 UpdatePlayerTagList）。key=player_index，value=花色(1/2/3，0=未定缺)。
     /// </summary>
-    public void UpdatePlayerDingque(Dictionary<int, int> player_to_dingque) {
+    public void UpdatePlayerDingque(Dictionary<int, int> player_to_dingque, Dictionary<int, string> positions = null) {
         if (player_to_dingque == null) return;
-        var gm = NormalGameStateManager.Instance;
-        if (gm == null) return;
+        positions = positions ?? NormalGameStateManager.Instance?.indexToPosition;
+        if (positions == null) return;
         foreach (var kvp in player_to_dingque) {
             int player_index = kvp.Key;
             int suit = kvp.Value;
-            if (!gm.indexToPosition.ContainsKey(player_index)) continue;
-            GamePlayerPanel targetPanel = GetPanelByPosition(gm.indexToPosition[player_index]);
+            if (!positions.TryGetValue(player_index, out string position)) continue;
+            GamePlayerPanel targetPanel = GetPanelByPosition(position);
             if (targetPanel != null) targetPanel.SetDingque(suit);
         }
     }

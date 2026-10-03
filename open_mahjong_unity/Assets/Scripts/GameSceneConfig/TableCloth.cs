@@ -68,6 +68,10 @@ public class TableCloth : MonoBehaviour
         if (string.IsNullOrEmpty(deletePath)) {
             return;
         }
+        if (TableSurfaceColorLibrary.IsId(deletePath)) {
+            GetComponentInParent<TableClothPanel>(true)?.DeleteColor(deletePath);
+            return;
+        }
         try {
 #if UNITY_WEBGL && !UNITY_EDITOR
             UnityAssetIdb.Delete(deletePath, FinishDelete);

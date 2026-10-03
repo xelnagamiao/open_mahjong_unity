@@ -38,10 +38,28 @@
     </div>
 
     <div class="footer-bottom">
+      <p class="footer-regulations">
+        <button type="button" class="footer-link" @click="regulationsVisible = true">账户规约</button>
+      </p>
       <p>© 2026 立直麻雀研习社 苏ICP备2026002546号</p>
     </div>
+    <el-dialog v-model="regulationsVisible" title="Salasasa-萨拉飒飒麻将平台账户规约"
+      width="min(760px, 94vw)" append-to-body :close-on-click-modal="false">
+      <div class="regulations-body" tabindex="0" aria-label="账户规约全文">{{ regulationsBody }}</div>
+      <template #footer>
+        <el-button @click="regulationsVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </footer>
 </template>
+
+<script setup>
+import { ref } from 'vue'
+import regulations from '@/content/accountRegulations.txt?raw'
+
+const regulationsVisible = ref(false)
+const regulationsBody = regulations.slice(regulations.indexOf('\n') + 1).trim()
+</script>
 
 <style scoped>
 .app-footer {
@@ -108,6 +126,21 @@ a.footer-link {
   margin: 0;
   color: #bdc3c7;
   font-size: 13px;
+}
+
+.footer-bottom .footer-regulations {
+  margin-bottom: 10px;
+}
+
+.regulations-body {
+  max-height: 58vh;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.85;
+  color: #303133;
+  padding: 0 12px 0 2px;
 }
 
 @media (max-width: 768px) {

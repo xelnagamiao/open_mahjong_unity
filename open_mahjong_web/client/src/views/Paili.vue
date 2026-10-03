@@ -3,7 +3,7 @@
   <div class="paili">
     <div class="page-header">
       <PailiSwitcher />
-      <p class="subtitle">13 张直接显示听牌与进张，14 张显示切牌分析（副露按等价张数计算）。输入为空时将随机生成示例。</p>
+      <p class="subtitle">13 张显示听牌与进张，14 张显示和牌拆解或切牌分析（副露按等价张数计算）。输入为空时将随机生成示例。</p>
     </div>
 
     <MahjongNotationHelp />
@@ -34,7 +34,7 @@
         <span class="row-label">特殊牌型</span>
         <div class="special-options">
           <el-switch
-            v-model="includeMcrSevenPairs"
+            v-model="options.mcrSevenPairs"
             size="small"
             active-text="国标七对"
             title="允许出现相同对子"
@@ -42,7 +42,7 @@
             @change="onMcrSevenPairsChange"
           />
           <el-switch
-            v-model="includeRiichiSevenPairs"
+            v-model="options.riichiSevenPairs"
             size="small"
             active-text="日麻七对"
             title="不许出现相同对子"
@@ -50,45 +50,51 @@
             @change="onRiichiSevenPairsChange"
           />
           <el-switch
-            v-model="includeThirteenOrphans"
+            v-model="options.thirteenOrphans"
             size="small"
             active-text="十三幺"
             :disabled="loading"
-            @change="onSpecialHandChange"
           />
           <el-switch
-            v-model="includeUnrelatedTiles"
+            v-model="options.unrelatedTiles"
             size="small"
             active-text="全不靠"
             :disabled="loading"
-            @change="onSpecialHandChange"
           />
           <el-switch
-            v-model="includeCombinationDragon"
+            v-model="options.combinationDragon"
             size="small"
             active-text="组合龙"
             :disabled="loading"
-            @change="onSpecialHandChange"
           />
         </div>
       </div>
 
       <div class="row block">
         <div class="row-line">
-          <span class="row-label">手牌 {{ form.hand.length }}/{{ expectedCountLabel }}</span>
+          <span class="row-label">手牌 {{ draft.hand.length }}/{{ expectedCountLabel }}</span>
           <el-tag size="small" :type="handCountTagType" effect="plain">{{ handCountText }}</el-tag>
         </div>
         <div
           class="hand-bar"
           :class="{ active: activeFuluIdx < 0 }"
+          role="group"
+          aria-label="手牌"
+          tabindex="0"
           @click="activateHand"
+          @keydown.enter.self.prevent="activateHand"
+          @keydown.space.self.prevent="activateHand"
         >
           <TileChip
-            v-for="(id, idx) in form.hand"
+            v-for="(id, idx) in draft.hand"
             :key="'h-' + idx"
             :tile-id="id"
             size="sm"
             @click="onHandChipClick(idx)"
+          />
+          <TileInputPlaceholder
+            v-if="activeFuluIdx < 0 && draft.hand.length < expectedTotalCount"
+            label="手牌输入位置"
           />
         </div>
       </div>
@@ -109,65 +115,14 @@
         />
       </div>
 
-      <div class="result-embed">
+      <div class="result-embed" aria-live="polite" :aria-busy="loading">
         <div v-if="loading" class="empty">
           <el-icon class="is-loading" :size="18"><Loading /></el-icon>
           <span>正在计算...</span>
         </div>
-        <div v-else-if="!result" class="empty">
-          <span class="input-target-bar">{{ inputTargetLabel }}</span>
-        </div>
-        <template v-else-if="result && result.mode === 'shanten'">
-          <div class="meta-line nowrap">
-            <span>当前向听 <strong>{{ formatShanten(result.shanten) }}</strong></span>
-          </div>
-          <div class="banner success nowrap">
-            <strong>{{ result.is_tingpai ? '听牌' : `向听 ${formatShanten(result.shanten)}` }}</strong>
-            <span class="banner-sub">进张 {{ result.total_accept }} 张 · {{ result.accept.length }} 种</span>
-          </div>
-          <div class="paili-block">
-            <h4>进张</h4>
-            <div class="accept-list nowrap-scroll">
-              <span v-for="a in result.accept" :key="'a-' + a.tile" class="accept-inline">
-                <TileMiniGlyph :tile-id="a.tile" /><span class="accept-count">{{ a.remaining }}</span>
-              </span>
-              <span v-if="result.accept.length === 0" class="hint">已和牌或无进张</span>
-            </div>
-          </div>
-        </template>
-        <template v-else-if="result && result.mode === 'discard'">
-          <div class="meta-line nowrap">
-            <span>最佳向听 <strong>{{ formatShanten(result.best_shanten) }}</strong></span>
-          </div>
-          <div class="discard-table">
-            <div class="discard-row discard-head nowrap">
-              <span class="col-tile">切</span>
-              <span class="col-shanten">向听</span>
-              <span class="col-total">进张</span>
-              <span class="col-accept-h">摸</span>
-            </div>
-            <div
-              v-for="d in result.discards"
-              :key="'d-' + d.discard"
-              class="discard-row nowrap"
-              :class="{ 'is-best': d.shanten === result.best_shanten }"
-            >
-              <span class="col-tile"><TileMiniGlyph :tile-id="d.discard" /></span>
-              <span class="col-shanten">{{ formatShanten(d.shanten) }}</span>
-              <span class="col-total">
-                <strong>{{ d.total_accept }}</strong><span class="hint">/{{ d.accept.length }}</span>
-              </span>
-              <span class="col-accept">
-                <span v-if="d.accept.length === 0" class="hint">无</span>
-                <span v-else class="accept-inline-row nowrap-scroll">
-                  <span v-for="a in d.accept" :key="'da-' + d.discard + '-' + a.tile" class="accept-inline">
-                    <TileMiniGlyph :tile-id="a.tile" /><span class="accept-count-mini">{{ a.remaining }}</span>
-                  </span>
-                </span>
-              </span>
-            </div>
-          </div>
-        </template>
+        <div v-else-if="!result" class="empty"><span class="input-target-bar">{{ inputTargetLabel }}</span></div>
+        <GuobiaoScoreResult v-else-if="best" :best="best" :conditions="conditionText" />
+        <PailiResult v-else-if="pailiResult" :result="pailiResult" @discard="applyDiscard" @draw="applyDraw" />
       </div>
 
       <div class="row block">
@@ -178,301 +133,69 @@
         <el-button type="primary" size="default" :loading="loading" @click="analyze">
           计算牌理
         </el-button>
+        <el-button size="default" @click="transfer('/calc/chinese')">国标计算器</el-button>
       </div>
     </section>
+    <GuobiaoDecompositions v-if="showDecompositions && result?.decompositions?.length" :decompositions="result.decompositions" />
   </div>
 </template>
 <script setup>
-import { ref, reactive, computed, onBeforeUnmount } from 'vue'
-import { ElMessage } from 'element-plus'
+import PailiSwitcher from '@/components/PailiSwitcher.vue'
+import { computed, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Loading } from '@element-plus/icons-vue'
 import TileChip from '@/components/TileChip.vue'
+import TileInputPlaceholder from '@/components/TileInputPlaceholder.vue'
 import TilePalette from '@/components/TilePalette.vue'
-import TileMiniGlyph from '@/components/TileMiniGlyph.vue'
 import FuluSlots from '@/components/FuluSlots.vue'
 import TileFaceStyleSwitch from '@/components/TileFaceStyleSwitch.vue'
 import MahjongNotationHelp from '@/components/MahjongNotationHelp.vue'
-import PailiSwitcher from '@/components/PailiSwitcher.vue'
-import {
-  TILE_NAME,
-  parseNotationText,
-  tilesToNotationText,
-  randomHandTiles,
-  meldDisplayTiles,
-} from '@/composables/useMahjongTiles'
-import { useFuluSlots } from '@/composables/useFuluSlots'
-import { calculatePaili } from '@/utils/pailiCalculator'
+import PailiResult from '@/components/PailiResult.vue'
+import GuobiaoScoreResult from '@/components/GuobiaoScoreResult.vue'
+import GuobiaoDecompositions from '@/components/GuobiaoDecompositions.vue'
+import { useGuobiaoCalculator } from '@/composables/useGuobiaoCalculator'
 
-const form = reactive({
-  hand: [],
-})
-
-const textInput = ref('')
-const loading = ref(false)
-const result = ref(null)
-const includeMcrSevenPairs = ref(true)
-const includeRiichiSevenPairs = ref(false)
-const includeThirteenOrphans = ref(true)
-const includeUnrelatedTiles = ref(true)
-const includeCombinationDragon = ref(true)
-const workerRequests = new Map()
-let pailiWorker = null
-let workerRequestId = 0
-
-const terminatePailiWorker = (error) => {
-  pailiWorker?.terminate()
-  pailiWorker = null
-  for (const request of workerRequests.values()) {
-    clearTimeout(request.timer)
-    request.reject(error)
-  }
-  workerRequests.clear()
-}
-
-const getPailiWorker = () => {
-  if (pailiWorker || typeof Worker === 'undefined') return pailiWorker
-  try {
-    pailiWorker = new Worker(
-      new URL('../utils/pailiWorker.ts', import.meta.url),
-      { type: 'module' },
-    )
-    pailiWorker.onmessage = ({ data }) => {
-      const request = workerRequests.get(data.id)
-      if (!request) return
-      workerRequests.delete(data.id)
-      clearTimeout(request.timer)
-      if (data.error) request.reject(new Error(data.error))
-      else request.resolve(data.result)
-    }
-    pailiWorker.onerror = () => {
-      terminatePailiWorker(new Error('Web Worker 运行失败'))
-    }
-  } catch (error) {
-    pailiWorker = null
-    console.warn('无法创建牌理 Web Worker，将在主线程计算', error)
-  }
-  return pailiWorker
-}
-
-const calculateInWorker = (payload) => {
-  const worker = getPailiWorker()
-  if (!worker) return Promise.resolve(calculatePaili(payload))
-
-  return new Promise((resolve, reject) => {
-    const id = ++workerRequestId
-    const timer = setTimeout(() => {
-      terminatePailiWorker(new Error('Web Worker 计算超时'))
-    }, 15_000)
-    workerRequests.set(id, { resolve, reject, timer })
-    worker.postMessage({ id, payload })
-  })
-}
-
-onBeforeUnmount(() => terminatePailiWorker(new Error('页面已关闭')))
-
-const countMeldTiles = (meld, tileId) => {
-  if (!meld) return 0
-  if (meld.kind === 's' || meld.kind === 'S') {
-    if (meld.tileId === tileId || meld.tileId - 1 === tileId || meld.tileId + 1 === tileId) return 1
-    return 0
-  }
-  if (meld.kind === 'g' || meld.kind === 'G') return meld.tileId === tileId ? 4 : 0
-  if (meld.kind === 'k' || meld.kind === 'K') return meld.tileId === tileId ? 3 : 0
-  return 0
-}
-
-const wouldExceedTileLimit = (meld, excludeSlotIdx = -1) => {
-  const tiles = meldDisplayTiles(meld.kind, meld.tileId)
-  const unique = [...new Set(tiles)]
-  for (const tid of unique) {
-    let count = form.hand.filter((t) => t === tid).length
-    for (let i = 0; i < fulu.slots.length; i++) {
-      if (i === excludeSlotIdx) continue
-      count += countMeldTiles(fulu.slots[i].locked, tid)
-    }
-    count += tiles.filter((t) => t === tid).length
-    if (count > 4) return tid
-  }
-  return null
-}
-
-const trimHandIfNeeded = () => {
-  const max = expectedCount.value
-  if (form.hand.length > max) {
-    form.hand.splice(max)
-    textInput.value = tilesToNotationText(form.hand)
-  }
-}
-
-const fulu = useFuluSlots({
-  checkOverflow: wouldExceedTileLimit,
-  onLocked: trimHandIfNeeded,
-})
-
+const route = useRoute()
+const router = useRouter()
+const session = useGuobiaoCalculator()
+const { draft, textInput, options, result, loading, best, pailiResult, showDecompositions, conditionText,
+  expectedHandCount, expectedTotalCount, resetAll, loadDemo, applyDraw, applyDiscard } = session
+const fulu = session.fulu
 const fuluSlots = fulu.slots
 const activeFuluIdx = fulu.activeIdx
-const lockedFuluList = fulu.lockedList
 const lockedFuluCount = fulu.lockedCount
-const activateFulu = (idx) => fulu.activate(idx)
+const activateFulu = fulu.activate
 const activateHand = fulu.activateHand
 const clearFuluSlot = fulu.clearSlot
 const onFuluSlotInput = fulu.onSlotInput
-const lockFuluSlot = (idx, opt) => fulu.lockSlot(idx, opt)
+const lockFuluSlot = fulu.lockSlot
 const removeFuluDraft = fulu.removeDraftTile
 const removeFuluLocked = fulu.removeLockedTile
-
-// 13 张直接分析听牌/进张，14 张分析切牌；每组副露等价占 3 张。
-const expectedCount = computed(() => 14 - lockedFuluCount.value * 3)
-const expectedTingCount = computed(() => 13 - lockedFuluCount.value * 3)
-const expectedCountLabel = computed(
-  () => `${expectedTingCount.value} 或 ${expectedCount.value}`
-)
-const handCountText = computed(() => `${form.hand.length}/${expectedCountLabel.value}`)
-const handCountTagType = computed(() => {
-  if (
-    form.hand.length === expectedTingCount.value
-    || form.hand.length === expectedCount.value
-  ) return 'success'
-  if (form.hand.length > expectedCount.value) return 'danger'
-  return 'warning'
-})
-
-const inputTargetLabel = computed(() => {
-  if (activeFuluIdx.value >= 0) return `输入副露 #${activeFuluIdx.value + 1}`
-  return '输入手牌'
-})
-
-const formatShanten = (s) => {
-  if (s === undefined || s === null) return '?'
-  if (s === -1) return '和牌'
-  if (s === 0) return '听牌'
-  return `${s} 向听`
+const inputTargetLabel = computed(() => activeFuluIdx.value >= 0 ? `输入副露 #${activeFuluIdx.value + 1}` : '输入手牌')
+async function transfer(path) {
+  if (session.prepareTransfer()) await router.push(path)
 }
-
-const countTileEverywhere = (id) => {
-  let count = form.hand.filter(t => t === id).length
-  for (const meld of lockedFuluList.value) {
-    count += countMeldTiles(meld, id)
-  }
-  return count
-}
-
-const onPalettePick = (id) => {
-  if (fulu.appendTileToActive(id)) return
-  addHandTile(id)
-}
-
-const addHandTile = (id) => {
-  if (form.hand.length >= expectedCount.value) {
-    ElMessage.warning(`手牌已达上限 ${expectedCount.value} 张`)
-    return
-  }
-  if (countTileEverywhere(id) >= 4) {
-    ElMessage.warning(`牌 ${TILE_NAME[id]} 已达 4 张上限`)
-    return
-  }
-  form.hand.push(id)
-  textInput.value = tilesToNotationText(form.hand)
-}
-
-const removeHandTile = (idx) => {
-  form.hand.splice(idx, 1)
-  textInput.value = tilesToNotationText(form.hand)
-}
-
-const onHandChipClick = (idx) => {
-  activateHand()
-  removeHandTile(idx)
-}
-
-const loadDemo = () => {
-  textInput.value = '35m146678p24s344z5m'
-  analyze()
-}
-
-const resetAll = () => {
-  form.hand = []
-  textInput.value = ''
-  result.value = null
-  fulu.resetAll()
-}
-
-const onSpecialHandChange = () => {
-  result.value = null
-}
-
-const onMcrSevenPairsChange = (enabled) => {
-  if (enabled) includeRiichiSevenPairs.value = false
-  onSpecialHandChange()
-}
-
-const onRiichiSevenPairsChange = (enabled) => {
-  if (enabled) includeMcrSevenPairs.value = false
-  onSpecialHandChange()
-}
-
-const ensureReadyForAnalyze = () => {
-  const exp13 = expectedTingCount.value
-  const exp14 = expectedCount.value
-  if (textInput.value?.trim()) {
-    try {
-      const parsed = parseNotationText(textInput.value)
-      if (parsed.length > exp14) {
-        ElMessage.error(`手牌最多为 ${exp14} 张，当前简写解析为 ${parsed.length} 张`)
-        return false
-      }
-      form.hand = parsed
-      textInput.value = tilesToNotationText(form.hand)
-    } catch (e) {
-      ElMessage.error(`简写解析失败：${e.message}`)
-      return false
+watch(() => route.query.example, async id => {
+  if (route.path !== '/paili') return
+  if (typeof id === 'string') {
+    if (await session.loadExample(id)) {
+      const query = { ...route.query }; delete query.example
+      await router.replace({ path: route.path, query })
     }
   }
-  if (form.hand.length === 0 && !textInput.value?.trim()) {
-    form.hand = randomHandTiles(exp14)
-    textInput.value = tilesToNotationText(form.hand)
-    return true
-  }
-  if (form.hand.length !== exp13 && form.hand.length !== exp14) {
-    ElMessage.error(
-      `手牌须为 ${exp13} 张（听牌分析）或 ${exp14} 张（切牌分析），当前 ${form.hand.length} 张`
-    )
-    return false
-  }
-  return true
-}
+  else if (!result.value && !loading.value && [13, 14].includes(draft.value.hand.length + 3 * draft.value.melds.length)) await session.calculate({ decompose: true })
+  if (best.value) showDecompositions.value = true
+}, { immediate: true })
 
-const analyze = async () => {
-  if (!ensureReadyForAnalyze()) return
-  loading.value = true
-  result.value = null
-  try {
-    const payload = {
-      handTiles: [...form.hand],
-      combinations: lockedFuluList.value.map((m) => m.code),
-      options: {
-        mcrSevenPairs: includeMcrSevenPairs.value,
-        riichiSevenPairs: includeRiichiSevenPairs.value,
-        thirteenOrphans: includeThirteenOrphans.value,
-        unrelatedTiles: includeUnrelatedTiles.value,
-        combinationDragon: includeCombinationDragon.value,
-      },
-    }
-    try {
-      result.value = await calculateInWorker(payload)
-    } catch (workerError) {
-      console.warn('牌理 Web Worker 不可用，将在主线程重试', workerError)
-      result.value = calculatePaili(payload)
-    }
-  } catch (err) {
-    console.error(err)
-    ElMessage.error(`计算失败：${err.message}`)
-  } finally {
-    loading.value = false
-  }
-}
+const expectedCountLabel = computed(() => `${expectedHandCount.value} 或 ${expectedTotalCount.value}`)
+const handCountText = computed(() => `${draft.value.hand.length}/${expectedCountLabel.value}`)
+const handCountTagType = computed(() => [expectedHandCount.value, expectedTotalCount.value].includes(draft.value.hand.length) ? 'success' : draft.value.hand.length > expectedTotalCount.value ? 'danger' : 'warning')
+const onPalettePick = id => session.pickTile(id)
+const onHandChipClick = index => session.removeTile(index)
+const analyze = () => session.calculate({ random: true, decompose: true })
+const onMcrSevenPairsChange = enabled => session.setSevenPairs('mcrSevenPairs', enabled)
+const onRiichiSevenPairsChange = enabled => session.setSevenPairs('riichiSevenPairs', enabled)
 </script>
-
 <style scoped>
 .paili {
   max-width: 880px;

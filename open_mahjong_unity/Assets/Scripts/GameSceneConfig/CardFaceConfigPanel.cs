@@ -16,7 +16,7 @@ public class CardFaceConfigPanel : MonoBehaviour {
         "上传格式（仅标准麻将）\n"
         + "ZIP 内同时放入 hand/ 和 table/ 文件夹，也接受“手牌牌面/”与“3D牌面/”。\n"
         + "可选加入 manifest.json（format=om-tilepack，family=standard）。\n\n"
-        + "hand/{id}.png：2D 手牌牌面，建议宽高比 272:389、272×389 像素。\n"
+        + "hand/{id}.png：2D 手牌牌面。经典底图 272×389，新版修长底图 272×424；花纹等比显示，不会随底图拉伸。\n"
         + "table/{id}.png：3D 牌面，建议宽高比 1:1.33、400×532 像素（或 600×798）。\n"
         + "以上均为建议，不要求匹配指定尺寸或比例。保留原图尺寸、透明通道与完整内容；显示时等比居中，空余部分由背景或底色补齐。\n\n"
         + "牌号：万11–19、筒21–29、索31–39、字41–47、花51–58；赤宝105/205/305，纯白白板2。\n"
@@ -24,6 +24,7 @@ public class CardFaceConfigPanel : MonoBehaviour {
         + "虹雀牌组固定使用官方 HQv3.1。\n"
         + "根目录 PNG 不会当作牌面；3D 预览与对局使用相同排版。\n\n"
         + "示例：MyTiles.zip/hand/11.png 与 MyTiles.zip/table/11.png。\n"
+        + "上传后输入名称并确认保存；可保留多套，在自定义牌面下拉列表中切换、重命名或删除。返回不保存。\n"
         + "透明花纹可叠加牌面背景；选择“背景铺满”时保留铺满显示。\n"
         + "手牌背景与牌背在对应标签管理；3D 牌面背景请到「3D 卡牌设计」中的「3D牌面背景」标签设置。";
 
@@ -37,6 +38,11 @@ public class CardFaceConfigPanel : MonoBehaviour {
     [SerializeField] private TMP_Text customPackNameText;
     [SerializeField] private TMP_Dropdown customPackDropdown;
     private List<TilePackLibrary.Entry> customEntries = new List<TilePackLibrary.Entry>();
+    private int deleteCustomOption = -1;
+    private int renameCustomOption = -1;
+    private HandSurfaceNameDialog packNameDialog;
+    private bool deletingCustomPack;
+    private MessagePrefab deleteConfirmation;
     [SerializeField] private Button showHandButton;
     [SerializeField] private Button showTableButton;
     [SerializeField] private TMP_Text helpText;
@@ -76,6 +82,8 @@ public class CardFaceConfigPanel : MonoBehaviour {
 
     private void OnDisable() {
         TileFaceResolver.OnPackChanged -= RefreshPreview;
+        if (deleteConfirmation != null) deleteConfirmation.CloseMessage();
+        if (packNameDialog != null) packNameDialog.CloseWithOwner();
     }
 
     public void ShowPanel() {
@@ -130,7 +138,7 @@ public class CardFaceConfigPanel : MonoBehaviour {
     }
 
     private void OnUploadClicked() {
-        if (showingHongque) return;
+        if (showingHongque || packNameDialog != null) return;
         TilePackStorage.PickZip(OnZipPicked, err => {
             if (!string.IsNullOrEmpty(err) && err != "empty") {
                 SceneConfigUi.ShowTip(err);
@@ -139,13 +147,20 @@ public class CardFaceConfigPanel : MonoBehaviour {
     }
 
     private void OnZipPicked(byte[] zipBytes, string fileName) {
+        if (this == null || !isActiveAndEnabled || packNameDialog != null) return;
         TilePackImporter.Result imported = TilePackImporter.Import(zipBytes);
         if (imported == null || !imported.Success) {
             string error = imported != null ? imported.Error : "导入失败";
             SceneConfigUi.ShowTip(error);
             return;
         }
+        Texture2D preview = null;
+        foreach (var image in imported.HandPngs.Values) { preview = UnityAssetIdb.ToTexture(image); break; }
+        packNameDialog = HandSurfaceNameDialog.Open(transform, uploadButton.GetComponentInChildren<TMP_Text>(true)?.font,
+            "上传自定义牌面", HandSurfaceLibrary.SuggestedName(fileName, false), preview, (name, close, error) =>
         TilePackLibrary.SaveNew(zipBytes, fileName, imported, entry => {
+        close();
+        if (this == null || !isActiveAndEnabled) return;
         TileFaceResolver.ApplyLibraryPack(entry.id, imported);
         string status = $"已应用自定义牌面（{imported.HandPngs.Count} 张手牌";
         if (imported.TablePngs.Count > 0) {
@@ -158,7 +173,7 @@ public class CardFaceConfigPanel : MonoBehaviour {
         SceneConfigUi.ShowTip(status);
         RefreshCustomPackChip();
         RefreshPreview();
-        }, error => SceneConfigUi.ShowTip(error));
+        }, error, name));
     }
 
     private void OnRestoreClicked() {
@@ -238,7 +253,7 @@ public class CardFaceConfigPanel : MonoBehaviour {
             customPackButton.gameObject.SetActive(false);
             customPackDropdown.gameObject.SetActive(!showingHongque);
             customEntries = TilePackLibrary.GetEntries();
-            var options = new List<TMP_Dropdown.OptionData> { new TMP_Dropdown.OptionData(customEntries.Count == 0 ? "自定义牌面" : "选择自定义牌面") };
+            var options = new List<TMP_Dropdown.OptionData> { new TMP_Dropdown.OptionData(customEntries.Count == 0 ? "无自定义牌面" : "选择自定义牌面") };
             var counts = new Dictionary<string, int>();
             int selected = 0;
             string current = ConfigManager.Instance != null ? ConfigManager.Instance.StandardTilePackId : "";
@@ -248,10 +263,21 @@ public class CardFaceConfigPanel : MonoBehaviour {
                 options.Add(new TMP_Dropdown.OptionData(entry.DisplayName + (count > 1 ? " (" + count + ")" : "")));
                 if (entry.id == current) selected = i + 1;
             }
+            deleteCustomOption = -1;
+            renameCustomOption = -1;
+            if (selected > 0) {
+                renameCustomOption = options.Count;
+                options.Add(new TMP_Dropdown.OptionData("重命名当前自定义牌面…"));
+                deleteCustomOption = options.Count;
+                options.Add(new TMP_Dropdown.OptionData("删除当前自定义牌面…"));
+            }
+            customPackDropdown.captionText.richText = false;
+            customPackDropdown.itemText.richText = false;
             customPackDropdown.options = options;
             customPackDropdown.SetValueWithoutNotify(selected);
             customPackDropdown.RefreshShownValue();
-            customPackDropdown.interactable = customEntries.Count > 0;
+            // Keep the empty state discoverable: the placeholder opens but never selects a pack.
+            customPackDropdown.interactable = !deletingCustomPack;
             return;
         }
         string fileName = ConfigManager.Instance != null
@@ -272,8 +298,47 @@ public class CardFaceConfigPanel : MonoBehaviour {
     }
 
     private void OnCustomPackSelected(int index) {
-        if (index > 0 && index <= customEntries.Count) OnSelectPack(customEntries[index - 1].id);
+        if (deletingCustomPack) { RefreshCustomPackChip(); return; }
+        if (index == deleteCustomOption && index >= 0) { RefreshCustomPackChip(); ConfirmDeleteCustomPack(); }
+        else if (index == renameCustomOption && index >= 0) { RefreshCustomPackChip(); RenameCustomPack(); }
+        else if (index > 0 && index <= customEntries.Count) OnSelectPack(customEntries[index - 1].id);
         else RefreshCustomPackChip();
+    }
+
+    private void ConfirmDeleteCustomPack() {
+        if (showingHongque || deletingCustomPack || deleteConfirmation != null || NotificationManager.Instance == null) return;
+        string id = ConfigManager.Instance != null ? ConfigManager.Instance.StandardTilePackId : "";
+        var entry = customEntries.Find(e => e.id == id);
+        if (entry == null) return;
+        deleteConfirmation = NotificationManager.Instance.ShowConfirmation("删除自定义牌面",
+            "确定删除“" + entry.DisplayName + "”吗？\n删除后当前牌面将恢复为官方牌面。",
+            () => {
+                if (this == null || !isActiveAndEnabled || deletingCustomPack) return;
+                deletingCustomPack = true;
+                RefreshCustomPackChip();
+                TilePackLibrary.Delete(id, () => {
+                    if (this == null) return;
+                    deletingCustomPack = false;
+                    RefreshPreview();
+                    SceneConfigUi.ShowTip("已删除自定义牌面");
+                }, error => {
+                    if (this == null) return;
+                    deletingCustomPack = false;
+                    RefreshCustomPackChip();
+                    SceneConfigUi.ShowTip(error);
+                });
+            }, "删除", "返回");
+    }
+
+    private void RenameCustomPack() {
+        if (showingHongque || deletingCustomPack || packNameDialog != null || ConfigManager.Instance == null) return;
+        var entry = customEntries.Find(e => e.id == ConfigManager.Instance.StandardTilePackId);
+        if (entry == null) return;
+        packNameDialog = HandSurfaceNameDialog.Open(transform, uploadButton.GetComponentInChildren<TMP_Text>(true)?.font,
+            "重命名自定义牌面", entry.DisplayName, null, (name, close, error) => {
+                if (!TilePackLibrary.Rename(entry.id, name, out var reason)) { error(reason); return; }
+                close(); RefreshCustomPackChip();
+            });
     }
 
     private static string CustomPackDisplayName(string fileName) {

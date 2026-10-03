@@ -41,6 +41,7 @@
           </template>
         </el-table-column>
         <el-table-column label="对局数" prop="game_count" width="110" />
+        <el-table-column label="新增注册" prop="new_registered_users" width="110" />
         <el-table-column label="日活" width="100">
           <template #default="{ row }">
             <el-tooltip content="注册用户当日成功登录的去重人数（不含游客）" placement="top">
@@ -309,6 +310,7 @@ const buildChartOptions = (rows) => {
   const sorted = [...rows].sort((a, b) => (a.stat_date > b.stat_date ? 1 : -1))
   const dates = sorted.map(r => r.stat_date)
   const games = sorted.map(r => Number(r.game_count) || 0)
+  const registrations = sorted.map(r => Number(r.new_registered_users) || 0)
   const dau = sorted.map(r => Number(r.dau) || 0)
   const users = sorted.map(r => Number(r.active_users) || 0)
   const online = sorted.map(r => Number(r.max_online) || 0)
@@ -327,7 +329,7 @@ const buildChartOptions = (rows) => {
         return lines.join('<br/>')
       }
     },
-    legend: { data: ['对局数', '日活', '活跃用户', '最大在线'], bottom: 4, itemGap: 20, padding: [0, 0, 8, 0] },
+    legend: { type: 'scroll', data: ['对局数', '新增注册', '日活', '活跃用户', '最大在线'], bottom: 4, itemGap: 16, padding: [0, 0, 8, 0] },
     grid: { left: 48, right: 24, top: 28, bottom: chartBottom, containLabel: true },
     xAxis: {
       type: 'category',
@@ -338,6 +340,7 @@ const buildChartOptions = (rows) => {
     yAxis: { type: 'value', minInterval: 1 },
     series: [
       { name: '对局数', type: 'line', smooth: true, data: games, itemStyle: { color: '#409eff' } },
+      { name: '新增注册', type: 'line', smooth: true, data: registrations, itemStyle: { color: '#9b59b6' } },
       { name: '日活', type: 'line', smooth: true, data: dau, itemStyle: { color: '#909399' } },
       { name: '活跃用户', type: 'line', smooth: true, data: users, itemStyle: { color: '#67c23a' } },
       { name: '最大在线', type: 'line', smooth: true, data: online, itemStyle: { color: '#e6a23c' } },
@@ -346,7 +349,7 @@ const buildChartOptions = (rows) => {
 
   const barOpt = {
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-    legend: { data: ['对局数', '日活', '活跃用户'], bottom: 4, itemGap: 20, padding: [0, 0, 8, 0] },
+    legend: { type: 'scroll', data: ['对局数', '新增注册', '日活', '活跃用户'], bottom: 4, itemGap: 16, padding: [0, 0, 8, 0] },
     grid: { left: 48, right: 24, top: 28, bottom: chartBottom, containLabel: true },
     xAxis: {
       type: 'category',
@@ -357,6 +360,7 @@ const buildChartOptions = (rows) => {
     yAxis: { type: 'value', minInterval: 1 },
     series: [
       { name: '对局数', type: 'bar', data: games, itemStyle: { color: '#409eff' } },
+      { name: '新增注册', type: 'bar', data: registrations, itemStyle: { color: '#9b59b6' } },
       { name: '日活', type: 'bar', data: dau, itemStyle: { color: '#909399' } },
       { name: '活跃用户', type: 'bar', data: users, itemStyle: { color: '#67c23a' } },
     ],
@@ -620,10 +624,9 @@ onBeforeUnmount(() => {
 .fan-percent { margin-left: 5px; font-size: 12px; font-weight: 500; color: #909399; }
 .fan-item--zero .fan-percent { color: #c0c4cc; }
 @media (max-width: 960px) {
-  .charts-wrap { grid-template-columns: 1fr 1fr; }
+  .charts-wrap { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
-  .charts-wrap { grid-template-columns: 1fr 1fr; }
   .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .fan-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

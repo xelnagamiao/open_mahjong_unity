@@ -3,6 +3,10 @@
 using System.Collections.Generic;
 
 public class RoomInfo {
+    public bool? use_flowers; // 旧消息缺省含花，蓝十始终无花
+    public bool is_duplicate;
+    public int duplicate_round_count;
+    public string duplicate_wall_type;
     public string room_id;
     public string room_type;
     public string room_rule;
@@ -17,6 +21,8 @@ public class RoomInfo {
     public Dictionary<string, UserSettings> player_settings;
     public bool has_password;
     public bool tips;
+    public bool count_tips;
+    public bool pointer_tips = true;
     public string host_name;
     public int host_user_id; // 空赛事房可为 0（无房主）；服务端勿再发 null
     public string room_name;
@@ -24,13 +30,14 @@ public class RoomInfo {
     public int round_timer;
     public int step_timer;
     public bool is_game_running; // 游戏是否正在运行
-    public bool is_player_set_random_seed; // 复式：是否玩家指定主种子
+    public bool is_player_set_random_seed; // 场景复现：是否玩家指定主种子
     public bool open_cuohe; // 是否开启错和
     public int cuohe_type; // 国标/台湾错和形式，由房间列表返回
     public bool show_moqie_hint; // 手摸切灰显（河牌摸切灰、手切正常）
     public bool tactical_call; // 战术鸣牌（国标/青雀）
     public bool claim_protection; // 鸣牌保护（国标/青雀）
     public bool? red_dora;  // 立直麻将专属：是否启用赤宝牌
+    public int? starting_score; // 立直麻将起始点数
     public bool? allow_kuikae; // 立直麻将专属：是否允许食替
     public bool? open_xiru; // 立直麻将专属：是否西入
     public bool? open_tobi; // 立直麻将专属：是否击飞
@@ -133,6 +140,10 @@ public class EventDetailInfo {
 }
 
 public class GameEndInfo { // 显示游戏结束结果
+    public bool is_duplicate;
+    public int duplicate_round_count;
+    public string duplicate_wall_type;
+    public int[] duplicate_remaining_tiles; // 复式个人牌山余牌，按原始座位 0..3 排列
     public string master_seed; // 主种子（256 位，JSON 为十进制或 hex 字符串）
     public string commitment; // 承诺值
     public string salt; // 盐字符串
@@ -140,7 +151,11 @@ public class GameEndInfo { // 显示游戏结束结果
     public RecordDetail record_detail; // 终局附带完整牌谱；旧客户端无此字段，会忽略
 }
 
-public class ShowResultInfo { // 显示结算结果
+public class ShowResultInfo {
+    public string blood_battle_step;
+    public int? blood_event_id;
+    public string blood_end_reason;
+    public Dictionary<int, int> blood_round_changes; // 显示结算结果
     public int hepai_player_index; // 和牌玩家索引
     public Dictionary<int, int> player_to_score; // 所有玩家分数
     public int hu_score; // 和牌分数
@@ -172,6 +187,7 @@ public class ShowResultInfo { // 显示结算结果
     public Dictionary<int, int[]> tenpai_tiles;
     public Dictionary<int, int[]> tenpai_hands; // 荒牌流局：听牌家的实际手牌，用于倒牌展示
     public bool? exhaustive_penalty;
+    public int[] nagashi_mangan_winners;
     // 战术鸣牌：和牌字体动画/音效已在申请阶段播放，结算时跳过
     public bool? silent;
     // 国标局终亮杠：{player_index: [[2,tile,...], ...]}
@@ -227,7 +243,8 @@ public class ShowShuheWeiInfo { // 数和尾结算信息
 
 public class AskHandActionGBInfo { // 询问手牌操作
     public string[] action_list; // 操作列表
-    public int remaining_time; // 剩余时间
+    public int remaining_time; // 剩余局时
+    public int? step_remaining; // 重连补发的剩余步时；缺省则叠房间完整步时
     public int player_index; // 玩家索引
     public int remain_tiles; // 剩余牌数 只有摸牌以后牌堆牌数会减少
     public int[] forced_cut_tiles;
@@ -243,7 +260,8 @@ public class AskHandActionGBInfo { // 询问手牌操作
 
 public class AskOtherActionGBInfo { // 询问切牌后操作
     public string[] action_list; // 操作列表
-    public int remaining_time; // 剩余时间
+    public int remaining_time; // 剩余局时
+    public int? step_remaining; // 重连补发的剩余步时；缺省则叠房间完整步时
     public int cut_tile; // 切牌
     public int action_tick;
     // 立直麻将赤宝牌吃牌候选：键为方向 "chi_left"/"chi_mid"/"chi_right"，值为每条候选的两张真实牌 ID（含 105/205/305）
@@ -254,6 +272,7 @@ public class AskOtherActionGBInfo { // 询问切牌后操作
 
 public class DoActionInfo { // 执行操作
     public string[] action_list;
+    public int[] duplicate_remaining_tiles; // 非复式省略；0 表示该家牌山已摸完
     public int action_player;
     public int action_tick;
     public int? cut_from_player;      // 鸣牌（吃/碰/明杠）必填：被认走的打牌者座位索引；切牌等其它动作可空
@@ -264,6 +283,7 @@ public class DoActionInfo { // 执行操作
     public bool? cut_class;         // 可空类型
     public bool? is_timeout_action; // 服务端等待超时后代为执行的切牌
     public int? deal_tile;          // 可空类型
+    public bool transfer_face_down; // 自由模式暗面转移；未知牌值为 0，旧服务端默认为明面。
     public int[] deal_tiles;
     public int? buhua_tile;         // 可空类型
     public string combination_target; // 可空类型
@@ -304,6 +324,7 @@ public class PlayerInfo { // 房间信息中单个玩家信息
     public int title_used;              // 使用的称号ID
     public int character_used;          // 使用的角色ID
     public int profile_used;            // 使用的头像ID
+    public int avatar_frame_used;
     public int voice_used;              // 使用的音色ID
     public string[] score_history;      // 分数历史变化列表，每局记录 +？、-？ 或 0
     public int[] round_number_history;  // 实际每手对应局数（支持连庄重复）
@@ -311,13 +332,28 @@ public class PlayerInfo { // 房间信息中单个玩家信息
     public string[] initial_hu_types;   // 长沙麻将起手胡类型
     public bool[] discard_riichi_flags; // 立直规则：与 discard_tiles 同序的横置标记，重连/牌谱重建时还原横置弃牌
     public int dingque_suit;            // 四川麻将：定缺花色（1万/2饼/3条，0=未定缺），重连/初始同步
+    public int? hu_order;
+    public int? blood_hu_tile;
+    public bool? blood_hu_zimo;
+    public bool? blood_hu_multi;
     public bool? is_hu;                 // 四川麻将·血战到底：该玩家本盘是否已和牌退场
+    public bool? has_won;               // 血流：曾经和牌但仍留桌
+    public int? win_count;
+    public bool? post_hu_lock;          // 血流：和后仅允许摸切
+    public int[] xueliu_throw_tiles;    // 血流：开局甩掉的三张
 }
 
 public class GameInfo { // 游戏开始时传递房间信息
+    public bool? use_flowers;
+    public bool is_duplicate;
+    public int duplicate_round_count;
+    public string duplicate_wall_type;
+    public int[] duplicate_remaining_tiles; // 开局/重连的个人牌山余牌，按原始座位 0..3 排列
     public int room_id;                 // 房间ID
     public string gamestate_id;         // 游戏状态ID（用于发送游戏操作请求）
     public bool tips;                   // 是否提示
+    public bool count_tips;
+    public bool pointer_tips = true;
     public int current_player_index;    // 当前玩家索引
     public int action_tick;             // 操作帧
     public int max_round;               // 最大局数
@@ -349,7 +385,9 @@ public class GameInfo { // 游戏开始时传递房间信息
     public bool? red_dora;              // 是否启用赤宝牌
     public int? dealer_index;           // 当前亲家索引
     public int? view_player_index;      // 实时观战视角座位（客户端作为 self 渲染）
+    public ShowResultInfo blood_battle_result;
     public bool? blood_battle;          // 四川麻将：是否开启血战到底
+    public Dictionary<string, object> xueliu_rule_profile;
     public int? open_kong_replacement_count;
     public bool? initial_hu_si_xi;
     public bool? initial_hu_ban_ban_hu;
@@ -386,6 +424,7 @@ public class PlayerRecordInfo { // 玩家对局记录信息
     public int? title_used;             // 使用的称号ID（可为空）
     public int? character_used;        // 使用的角色ID（可为空）
     public int? profile_used;           // 使用的头像ID（可为空）
+    public int? avatar_frame_used;
     public int? voice_used;            // 使用的音色ID（可为空）
 }
 
@@ -401,7 +440,10 @@ public class RecordInfo { // 游戏记录元数据（按游戏分组，包含4�
 }
 
 public class RecordDetail { // 完整的游戏牌谱记录（按ID查询时返回）
+    public bool is_duplicate;
+    public string duplicate_key;
     public string game_id;              // 对局ID（base62字符串）
+    public bool cloud_saved;            // 服务端确认已保存云端；旧牌谱缺少字段时默认 false
     public string rule;                 // 规则类型（GB/JP）
     public string sub_rule;             // 子规则（如 guobiao/standard、guobiao/xiaolin、qingque/standard）
     public Dictionary<string, object> record; // 完整的牌谱记录
@@ -409,6 +451,17 @@ public class RecordDetail { // 完整的游戏牌谱记录（按ID查询时返�
     public PlayerRecordInfo[] players;  // 该游戏的4个玩家信息（按排名排序）
     public string match_type;           // 局数类型（本地牌谱用）
     public bool perspective;            // 客户端视角记录：他家未公开牌为 0
+}
+
+public static class DuplicateWallDisplay {
+    public static string TypeName(string wallType) {
+        switch (wallType) {
+            case "manual": return "手动牌山";
+            case "seed": return "复现牌山";
+            case "key": return "密钥牌山";
+            default: return "复式牌墙";
+        }
+    }
 }
 
 public class PlayerStatsInfo { // 玩家统计数据信息（单个规则和模式的统计）
@@ -432,11 +485,37 @@ public class PlayerStatsInfo { // 玩家统计数据信息（单个规则和模�
     public Dictionary<string, int> fan_stats; // 番种统计数据（字段名 -> 次数）
 }
 
+public class TitleDefinition {
+    public int title_id;
+    public string name;
+    public string description;
+    public bool is_enabled;
+    public int sort_order;
+}
+
+public class TitleGrant {
+    public int title_id;
+    public string granted_at;
+}
+
+public class TitleState {
+    public int user_id;
+    public int equipped_title_id = 1;
+    public TitleDefinition[] catalog;
+    public TitleGrant[] owned;
+}
+
+public class TitleChange {
+    public int user_id;
+    public int title_id;
+}
+
 public class UserSettings { // 用户设置信息（称号、头像、角色、音色）
     public int user_id;                // 用户ID
     public string username;            // 用户名
     public int title_id;              // 称号ID
     public int profile_image_id;      // 使用的头像ID
+    public int avatar_frame_id;
     public int character_id;          // 选择的角色ID
     public int voice_id;              // 选择的音色ID
 }
@@ -646,6 +725,7 @@ public class HongquePlayerInfo {
     public bool online;
     public int title_used;
     public int profile_used;
+    public int avatar_frame_used;
     public int character_used;
     public int voice_used;
     public string[] score_history;
@@ -669,6 +749,7 @@ public class HongqueStateInfo {
     public int round_time;
     public int step_time;
     public bool tips;
+    public bool count_tips;
     public string message;
     public HongqueRoundResultInfo round_result;
     public HongqueEventInfo[] events;
@@ -684,7 +765,10 @@ public class HongqueStateInfo {
 public class FreeTableInfo {
     public Dictionary<string, string> votes;
     public int? transfer_tile;
+    public bool transfer_face_down;
     public int score_revision;
+    // Null for state synchronization and older servers; set only for accepted table actions.
+    public int? actor_player_index;
     public Dictionary<string, int> scores;
     public Dictionary<string, bool> revealed;
     public int? revealed_player_index;
@@ -757,12 +841,25 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public PlayerRecentRecordsResponse player_recent_records;
     public LoginInfo login_info; // 返回登录信息
     public UserSettings user_settings; // 返回用户设置信息
+    public string request_id;
+    public TitleState title_state;
+    public InventoryState inventory_state;
+    public InventoryItem[] inventory_catalog;
+    public InventoryAppearance[] inventory_appearances;
+    public bool inventory_retryable;
+    public TitleDefinition[] title_catalog;
+    public TitleChange[] title_changes;
     public UserConfig user_config; // 返回用户游戏配置信息
     public RankData rank_data; // 返回段位数据
     public ServerStatsInfo server_stats; // 返回服务器统计信息
     public SpectatorInfo[] spectator_list; // 返回观战列表
     public Dictionary<string, QueueStatusEntry> queue_status; // 匹配队列状态
     public string my_queue; // 当前玩家所在等待队列（get_queue_status / join_queue_done）
+    public string[] my_queues;
+    public string match_queue_type;
+    public long? match_revision;
+    public string match_request_id;
+    public int? match_player_count;
     public bool match_committed; // 已匹配成功且对局尚未结束
     public long client_ts; // pong 消息回传：客户端发送 ping 的时间戳（毫秒）
     // 好友 / 关注 / 实时观战

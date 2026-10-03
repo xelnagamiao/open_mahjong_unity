@@ -13,6 +13,9 @@ public sealed class SettlementEnvelope {
     public int WinnerIndex = -1;
     /// <summary>hu_self / hu_first / hu_second / hu_third / liuju / ryuukyoku / jiuzhongjiupai / initial_hu / 日麻特殊流局……</summary>
     public string HuClass;
+    public string BloodBattleStep;
+    public string BloodEndReason;
+    public Dictionary<int, int> BloodRoundChanges;
     /// <summary>是否属于和牌类（hu_self / hu_first / hu_second / hu_third）。</summary>
     public bool IsHu => HuClass == "hu_self" || HuClass == "hu_first" || HuClass == "hu_second" || HuClass == "hu_third";
     public bool IsLiuju => HuClass == "liuju";
@@ -47,6 +50,8 @@ public sealed class SettlementEnvelope {
     public bool Silent;
     public bool SuppressHandReveal;
     public bool SkipHandReveal;
+    /// <summary>Optional family presentation after the winning tile is moved, before the result panel.</summary>
+    public System.Action AfterHandReveal;
     /// <summary>荣和张是否回收进河（服务端未给时由呈现层按 defer/multi_ron 推断）。</summary>
     public bool? RecycleDiscard;
     public int? RonDiscarderIndex;

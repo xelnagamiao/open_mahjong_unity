@@ -1,4 +1,12 @@
 const { randomUUID, createHash } = require('node:crypto');
+const { normalizeGuizhouRoomConfig } = require('./guizhouRoomSettings');
+const { normalizeYixingRoomConfig } = require('./yixingRoomSettings');
+const { normalizeWenzhouRoomConfig } = require('./wenzhouRoomSettings');
+const { normalizeHangzhouRoomConfig } = require('./hangzhouRoomSettings');
+const { normalizeHongzhongRoomConfig } = require('./hongzhongRoomSettings');
+const { normalizeGuangdongDetails, GUANGDONG_SUB_RULES } = require('./guangdongRoomSettings');
+
+const { normalizeChangchunRoomConfig } = require('./changchunRoomSettings');
 
 const MAX_PRESETS = 50;
 // A v1 custom automatic setting may need one extra row during migration.
@@ -11,17 +19,26 @@ const DEFAULT_SUB_RULES = Object.freeze({
   sichuan: 'sichuan/standard',
   changsha: 'changsha/classic_double_bird',
   taiwan: 'taiwan/standard',
+  hongkong: 'hongkong/qingzhang',
+  guangdong: 'guangdong/tuidao_mil2024',
+  guizhou: 'guizhou/standard',
+  yixing: 'yixing/standard',
+  wenzhou: 'wenzhou/mil2024',
+  hangzhou: 'hangzhou/mil2025',
+  hongzhong: 'hongzhong/mil2024',
+  changchun: 'changchun/mil2024',
+  shanxi: 'shanxi/mil2023',
 });
 const GUOBIAO_SUB_RULES = new Set([
   'guobiao/standard', 'guobiao/xiaolin', 'guobiao/kshen', 'guobiao/lanshi',
 ]);
 const COMMON_CONFIG_KEYS = [
   'room_name', 'sub_rule', 'game_round', 'round_timer', 'step_timer',
-  'tips', 'tourist_limit', 'allow_spectator',
+  'tips', 'tourist_limit', 'allow_spectator', 'duplicate_key',
 ];
 const GUOBIAO_CONFIG_KEYS = [
   ...COMMON_CONFIG_KEYS, 'hepai_limit', 'open_cuohe', 'cuohe_type',
-  'tactical_call', 'claim_protection',
+  'tactical_call', 'claim_protection', 'use_flowers',
 ];
 const has = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -38,6 +55,12 @@ class SettingsError extends Error {
 }
 
 function defaultConfig(rule = 'guobiao') {
+  if (rule === 'guizhou') return normalizeGuizhouRoomConfig({}, SettingsError);
+  if (rule === 'yixing') return normalizeYixingRoomConfig({}, SettingsError);
+  if (rule === 'wenzhou') return normalizeWenzhouRoomConfig({}, SettingsError);
+  if (rule === 'hangzhou') return normalizeHangzhouRoomConfig({}, SettingsError);
+  if (rule === 'hongzhong') return normalizeHongzhongRoomConfig({}, SettingsError);
+  if (rule === 'changchun') return normalizeChangchunRoomConfig({}, SettingsError);
   const common = {
     room_name: '',
     sub_rule: DEFAULT_SUB_RULES[rule],
@@ -48,6 +71,10 @@ function defaultConfig(rule = 'guobiao') {
     tourist_limit: false,
     allow_spectator: true,
   };
+  if (rule === 'hongkong') return { ...common, detailed_config: { flowers: false, new13_full_shoot: true } };
+  if (rule === 'guangdong') return { ...common, detailed_config: { edition: 'mil-tuidao-2024-om1', fan_cap: 32, wildcards: false } };
+  if (rule === 'shanxi') return { ...common, detailed_config: { rule_version: 'mil-shanxi-2023-om1' } };
+  if (rule === 'riichi') return { ...common, starting_score: 25000 };
   if (rule !== 'guobiao') return common;
   return {
     ...common,
@@ -56,6 +83,7 @@ function defaultConfig(rule = 'guobiao') {
     cuohe_type: 0,
     tactical_call: true,
     claim_protection: true,
+    use_flowers: true,
   };
 }
 
@@ -75,8 +103,16 @@ function integerField(config, key, min, max, label) {
 
 /** Persist only settings understood by the current room editor and game server. */
 function normalizeRoomConfig(rule, raw) {
+  if (rule === 'guizhou') return normalizeGuizhouRoomConfig(raw, SettingsError);
+  if (rule === 'yixing') return normalizeYixingRoomConfig(raw, SettingsError);
+  if (rule === 'wenzhou') return normalizeWenzhouRoomConfig(raw, SettingsError);
+  if (rule === 'hangzhou') return normalizeHangzhouRoomConfig(raw, SettingsError);
+  if (rule === 'hongzhong') return normalizeHongzhongRoomConfig(raw, SettingsError);
+  if (rule === 'changchun') return normalizeChangchunRoomConfig(raw, SettingsError);
   if (!isObject(raw)) throw new SettingsError(400, '对局设置必须是对象');
-  const allowed = rule === 'guobiao' ? GUOBIAO_CONFIG_KEYS : COMMON_CONFIG_KEYS;
+  const allowed = rule === 'guobiao' ? GUOBIAO_CONFIG_KEYS
+    : rule === 'riichi' ? [...COMMON_CONFIG_KEYS, 'starting_score']
+      : ['hongkong', 'guangdong', 'shanxi'].includes(rule) ? [...COMMON_CONFIG_KEYS, 'detailed_config'] : COMMON_CONFIG_KEYS;
   for (const key of Object.keys(raw)) {
     if (!allowed.includes(key)) throw new SettingsError(400, `不支持的对局设置字段：${key}`);
   }
@@ -85,10 +121,52 @@ function normalizeRoomConfig(rule, raw) {
     throw new SettingsError(400, '房间名必须是最多 128 字的文本');
   }
   config.room_name = config.room_name.trim();
+  if (has(config, 'duplicate_key')) {
+    if (typeof config.duplicate_key !== 'string' || (config.duplicate_key.trim() && !/^dup_[a-f0-9]{32}$/.test(config.duplicate_key.trim()))) {
+      throw new SettingsError(400, '复式密钥格式不正确');
+    }
+    config.duplicate_key = config.duplicate_key.trim();
+    if (rule !== 'guobiao' && config.duplicate_key) {
+      throw new SettingsError(400, '新复式仅支持国标麻将');
+    }
+  }
   const validSubRule = rule === 'guobiao'
     ? GUOBIAO_SUB_RULES.has(config.sub_rule)
-    : config.sub_rule === DEFAULT_SUB_RULES[rule];
+    : rule === 'hongkong' ? ['hongkong/qingzhang', 'hongkong/new13', 'hongkong/new16', 'hongkong/new13_gametower', 'hongkong/new13_lianhuise', 'hongkong/qingzhang_lianhuise'].includes(config.sub_rule)
+      : rule === 'guangdong' ? GUANGDONG_SUB_RULES.includes(config.sub_rule) : config.sub_rule === DEFAULT_SUB_RULES[rule];
   if (!validSubRule) throw new SettingsError(400, '不支持的对局子规则');
+  if (rule === 'shanxi') {
+    const detail = has(raw, 'detailed_config') ? raw.detailed_config : {};
+    if (!isObject(detail) || Object.keys(detail).some(key => key !== 'rule_version')
+      || (has(detail, 'rule_version') && detail.rule_version !== 'mil-shanxi-2023-om1')) {
+      throw new SettingsError(400, '山西麻将只支持 MIL 2023 标准规');
+    }
+    config.detailed_config = { rule_version: 'mil-shanxi-2023-om1' };
+  }
+  if (rule === 'hongkong') {
+    const detail = has(raw, 'detailed_config') ? raw.detailed_config : {};
+    const defaults = { new13_version: 'gametower', new13_full_shoot: true, self_draw_only: false, win_claim: 'default', dealer_mode: 'default', liability_twelve: true, liability_dragons: true, liability_kong: true, liability_limit: true };
+    if (!isObject(detail) || Object.keys(detail).some(key => !['flowers', ...Object.keys(defaults)].includes(key))) {
+      throw new SettingsError(400, '不支持的香港麻将设置');
+    }
+    const values = { ...defaults, ...detail };
+    for (const key of ['flowers', 'new13_full_shoot', 'self_draw_only', 'liability_twelve', 'liability_dragons', 'liability_kong', 'liability_limit']) {
+      if (has(values, key) && typeof values[key] !== 'boolean') throw new SettingsError(400, '香港麻将开关必须是布尔值');
+    }
+    for (const [key, choices] of Object.entries({ new13_version: ['gametower', 'lianhuise'], win_claim: ['default', 'head_bump', 'multiple'], dealer_mode: ['default', 'rotate', 'win_or_draw'] })) {
+      if (!choices.includes(values[key])) throw new SettingsError(400, `无效的香港麻将设置：${key}`);
+    }
+    if (config.sub_rule === 'hongkong/new13_lianhuise') values.new13_version = 'lianhuise';
+    if (config.sub_rule === 'hongkong/new13_gametower') values.new13_version = 'gametower';
+    const lianhuise = config.sub_rule === 'hongkong/new13_lianhuise' || (config.sub_rule === 'hongkong/new13' && values.new13_version === 'lianhuise');
+    if (['hongkong/new13', 'hongkong/new13_gametower'].includes(config.sub_rule) && !lianhuise && detail.flowers === true) throw new SettingsError(400, 'Wiki版本不使用花牌');
+    values.flowers = ['hongkong/new16', 'hongkong/qingzhang_lianhuise'].includes(config.sub_rule) || (has(detail, 'flowers') ? detail.flowers : lianhuise);
+    config.detailed_config = values;
+  }
+  if (rule === 'guangdong') {
+    const detail = has(raw, 'detailed_config') ? raw.detailed_config : {};
+    config.detailed_config = normalizeGuangdongDetails(config.sub_rule, detail, SettingsError);
+  }
   integerField(config, 'game_round', 1, 4, '圈数');
   if (rule === 'changsha' && ![1, 2, 4].includes(config.game_round)) {
     throw new SettingsError(400, '长沙麻将圈数必须为 1、2 或 4');
@@ -96,14 +174,19 @@ function normalizeRoomConfig(rule, raw) {
   integerField(config, 'round_timer', 0, 1000, '局时');
   integerField(config, 'step_timer', 0, 100, '步时');
   const booleanKeys = ['tips', 'tourist_limit', 'allow_spectator'];
+  if (rule === 'riichi') {
+    integerField(config, 'starting_score', 1000, 1000000, '起始点数');
+    if (config.starting_score % 100 !== 0) throw new SettingsError(400, '起始点数必须为 100 的倍数');
+  }
   if (rule === 'guobiao') {
     integerField(config, 'hepai_limit', 1, 64, '起和番');
     integerField(config, 'cuohe_type', 0, 1, '错和形式');
-    booleanKeys.push('open_cuohe', 'tactical_call', 'claim_protection');
+    booleanKeys.push('open_cuohe', 'tactical_call', 'claim_protection', 'use_flowers');
   }
   for (const key of booleanKeys) {
     if (typeof config[key] !== 'boolean') throw new SettingsError(400, `${key}必须是布尔值`);
   }
+  if (rule === 'guobiao' && config.sub_rule === 'guobiao/lanshi') config.use_flowers = false;
   if (config.tips && config.open_cuohe) throw new SettingsError(400, '提示与错和不能同时开启');
   if (rule === 'guobiao' && !config.open_cuohe) config.cuohe_type = 0;
   return config;
@@ -176,6 +259,19 @@ function preserveLegacyAuto(settings, snapshot) {
   return presetId;
 }
 
+function hasRetiredDuplicate(snapshot) {
+  return isObject(snapshot) && snapshot.room_rule !== 'guobiao' && Boolean(snapshot.room_config?.duplicate_key);
+}
+
+function readStoredSnapshot(snapshot) {
+  if (!isObject(snapshot) || snapshot.room_rule === 'guobiao' || !isObject(snapshot.room_config)) return snapshot;
+  const room_config = { ...snapshot.room_config };
+  delete room_config.duplicate_key;
+  // This field was exposed only for the retired non-Guobiao duplicate setup.
+  if (snapshot.room_rule === 'riichi') delete room_config.red_dora;
+  return { ...snapshot, room_config };
+}
+
 /** Return a fresh canonical document; incomplete legacy rows retain safe defaults. */
 function readRoomSettings(raw) {
   let source = raw;
@@ -198,7 +294,7 @@ function readRoomSettings(raw) {
     try {
       const name = normalizeName(item.name);
       if (names.has(name.toLowerCase())) continue;
-      const snapshot = normalizeSnapshot({ room_rule: item.room_rule, room_config: item.room_config });
+      const snapshot = normalizeSnapshot(readStoredSnapshot({ room_rule: item.room_rule, room_config: item.room_config }));
       settings.presets.push({
         preset_id: item.preset_id,
         name,
@@ -211,17 +307,20 @@ function readRoomSettings(raw) {
       names.add(name.toLowerCase());
     } catch (_) { /* Discard unusable stored presets without exposing arbitrary fields. */ }
   }
-  try { settings.manual = normalizeSnapshot({ ...(source.manual || {}), preset_id: null }); } catch (_) { /* Keep defaults. */ }
+  try { settings.manual = normalizeSnapshot({ ...readStoredSnapshot(source.manual || {}), preset_id: null }); } catch (_) { /* Keep defaults. */ }
   try {
     const auto = source.auto_match || {};
     let presetId = auto.preset_id || null;
     if (source.version !== 2) {
       // v1 allowed a detached auto snapshot. Make it a visible shared preset without changing its rules.
-      presetId = isObject(source.auto_match) ? preserveLegacyAuto(settings, normalizeSnapshot(auto)) : null;
+      presetId = isObject(source.auto_match) ? preserveLegacyAuto(settings, normalizeSnapshot(readStoredSnapshot(auto))) : null;
     }
     const snapshot = selectedSnapshot(settings, presetId);
+    // An obsolete non-Guobiao duplicate default must not silently become a normal automatic table.
+    const retiredDuplicateDefault = hasRetiredDuplicate(auto) || (!presetId && hasRetiredDuplicate(source.manual))
+      || (Array.isArray(source.presets) && source.presets.some((item) => item?.preset_id === presetId && hasRetiredDuplicate(item)));
     settings.auto_match = {
-      enabled: auto.enabled === true,
+      enabled: auto.enabled === true && !retiredDuplicateDefault,
       ...configFields(snapshot),
       preset_id: snapshot.preset_id,
       updated_by: Number.isSafeInteger(auto.updated_by) && auto.updated_by > 0 ? auto.updated_by : null,

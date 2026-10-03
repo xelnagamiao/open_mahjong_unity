@@ -12,6 +12,7 @@ const { sendEmailBindCode, sendPasswordResetCode } = require('../../utils/mailer
 const { createPasswordResetHandlers } = require('../../utils/passwordReset');
 const { findLoginAccount } = require('../../utils/loginAccount');
 const { normalizeUsername, validateUsername } = require('../../utils/username');
+const { rewriteGameRecordSnapshots } = require('../../utils/gameRecordUsername');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CODE_TTL_MS = 10 * 60 * 1000;
@@ -58,31 +59,73 @@ function validateNewPassword(raw) {
   return { value: password };
 }
 
-async function buildAuthPayload(userId, username) {
+function signPlayerToken(userId, username) {
+  return signToken(
+    {
+      user_id: userId,
+      username,
+      aud: config.playerAuth.audience,
+    },
+    config.playerAuth.jwtSecret,
+    config.playerAuth.jwtExpiresSec
+  );
+}
+
+async function syncOnlineUsername(userId, username) {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), config.calcServer.timeoutMs);
+    try {
+      const resp = await fetch(`${config.calcServer.baseUrl.replace(/\/$/, '')}/admin/user/sync-username`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, username }),
+        signal: controller.signal,
+      });
+      const text = await resp.text();
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = {};
+      }
+      return resp.status < 400 && !!data?.online;
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch {
+    return false;
+  }
+}
+
+async function buildAuthPayload(userId) {
+  const userRes = await pool.query(
+    `SELECT username, email, email_verified_at, COALESCE(rename_count, 0) AS rename_count
+       FROM users WHERE user_id = $1`,
+    [userId]
+  );
+  if (userRes.rows.length === 0) return null;
+  const user = userRes.rows[0];
   const events = await listUserEvents(userId);
   let eventAdminToken = null;
   if (events.length > 0) {
     eventAdminToken = signToken(
       {
         user_id: userId,
-        username,
+        username: user.username,
         aud: config.eventAdmin.audience,
       },
       config.eventAdmin.jwtSecret,
       config.eventAdmin.jwtExpiresSec
     );
   }
-  const emailRes = await pool.query(
-    `SELECT email, email_verified_at FROM users WHERE user_id = $1`,
-    [userId]
-  );
-  const emailRow = emailRes.rows[0] || {};
   return {
     user_id: userId,
-    username,
-    email: emailRow.email || null,
-    email_verified: !!emailRow.email_verified_at,
-    email_verified_at: emailRow.email_verified_at || null,
+    username: user.username,
+    rename_count: Number(user.rename_count) || 0,
+    email: user.email || null,
+    email_verified: !!user.email_verified_at,
+    email_verified_at: user.email_verified_at || null,
     expires_in: config.playerAuth.jwtExpiresSec,
     is_event_admin: events.length > 0,
     event_admin_token: eventAdminToken,
@@ -116,8 +159,8 @@ router.post('/register', registrationLimiter, async (req, res) => {
     }
 
     const created = await client.query(
-      `INSERT INTO users (username, password, is_tourist)
-       VALUES ($1, $2, FALSE)
+      `INSERT INTO users (username, password, is_tourist, rename_count)
+       VALUES ($1, $2, FALSE, 0)
        RETURNING user_id, username`,
       [username, hashPassword(password)]
     );
@@ -140,21 +183,15 @@ router.post('/register', registrationLimiter, async (req, res) => {
     );
     await client.query('COMMIT');
 
-    const token = signToken(
-      {
-        user_id: user.user_id,
-        username: user.username,
-        aud: config.playerAuth.audience,
-      },
-      config.playerAuth.jwtSecret,
-      config.playerAuth.jwtExpiresSec
-    );
-    const payload = await buildAuthPayload(user.user_id, user.username);
+    const payload = await buildAuthPayload(user.user_id);
+    if (!payload) {
+      return res.status(500).json({ success: false, message: '注册失败，请稍后重试' });
+    }
     return res.status(201).json({
       success: true,
       message: '注册成功',
       data: {
-        token,
+        token: signPlayerToken(user.user_id, user.username),
         ...payload,
       },
     });
@@ -198,21 +235,14 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: '用户名或密码错误' });
     }
 
-    const token = signToken(
-      {
-        user_id: user.user_id,
-        username: user.username,
-        aud: config.playerAuth.audience,
-      },
-      config.playerAuth.jwtSecret,
-      config.playerAuth.jwtExpiresSec
-    );
-
-    const payload = await buildAuthPayload(user.user_id, user.username);
+    const payload = await buildAuthPayload(user.user_id);
+    if (!payload) {
+      return res.status(404).json({ success: false, message: '用户不存在' });
+    }
     return res.json({
       success: true,
       data: {
-        token,
+        token: signPlayerToken(user.user_id, user.username),
         ...payload,
       },
     });
@@ -224,12 +254,121 @@ router.post('/login', async (req, res) => {
 
 router.get('/me', requirePlayer, async (req, res) => {
   try {
-    const payload = await buildAuthPayload(req.player.userId, req.player.username);
+    const payload = await buildAuthPayload(req.player.userId);
+    if (!payload) {
+      return res.status(404).json({ success: false, message: '用户不存在' });
+    }
+    // 改名响应可能丢失；查询实际账号状态时同步更正令牌中的旧用户名。
+    if (req.player.username !== payload.username) {
+      payload.token = signPlayerToken(req.player.userId, payload.username);
+    }
     res.json({ success: true, data: payload });
   } catch (err) {
     console.error('player me error:', err);
     res.status(500).json({ success: false, message: '服务器内部错误' });
   }
+});
+
+router.post('/rename', requirePlayer, createWindowLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  keyFn: (req) => `${req.player.userId}:player-rename`,
+  countSuccessfulOnly: true,
+}), async (req, res) => {
+  const userId = req.player.userId;
+  const usernameError = validateUsername(req.body?.new_username);
+  if (usernameError) {
+    return res.status(400).json({ success: false, message: usernameError });
+  }
+  const newName = normalizeUsername(req.body?.new_username);
+
+  const client = await pool.connect();
+  let syncedRecordCount = 0;
+  let payload;
+  try {
+    await client.query('BEGIN');
+    const before = await client.query(
+      `SELECT user_id, username, is_tourist, COALESCE(rename_count, 0) AS rename_count
+         FROM users WHERE user_id = $1 FOR UPDATE`,
+      [userId]
+    );
+    if (before.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, message: '用户不存在' });
+    }
+    const user = before.rows[0];
+    if (user.is_tourist) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ success: false, message: '游客账号不支持改名' });
+    }
+    if (Number(user.rename_count) <= 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, message: '改名次数不足' });
+    }
+    if (user.username === newName) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, message: '新用户名与当前相同' });
+    }
+
+    const dup = await client.query(
+      `SELECT user_id FROM users WHERE username = $1 AND user_id <> $2`,
+      [newName, userId]
+    );
+    if (dup.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ success: false, message: '用户名已存在' });
+    }
+
+    await client.query(
+      `UPDATE users SET username = $1, rename_count = rename_count - 1 WHERE user_id = $2`,
+      [newName, userId]
+    );
+    const records = await client.query(
+      `UPDATE game_player_records SET username = $1 WHERE user_id = $2`,
+      [newName, userId]
+    );
+    syncedRecordCount = records.rowCount;
+    await rewriteGameRecordSnapshots(client, userId, { newUsername: newName });
+    await client.query('COMMIT');
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* transaction may already be closed */
+    }
+    if (err.code === '23505') {
+      return res.status(409).json({ success: false, message: '用户名已存在' });
+    }
+    console.error('player rename error:', err);
+    return res.status(500).json({ success: false, message: '改名失败，请稍后重试' });
+  } finally {
+    client.release();
+  }
+
+  const syncedOnline = await syncOnlineUsername(userId, newName);
+  try {
+    payload = await buildAuthPayload(userId);
+  } catch (err) {
+    console.error('player rename payload error:', err);
+    return res.status(500).json({ success: false, message: '改名已生效，请重新登录' });
+  }
+  if (!payload) {
+    return res.status(500).json({ success: false, message: '改名已生效，请重新登录' });
+  }
+
+  return res.json({
+    success: true,
+    data: {
+      token: signPlayerToken(userId, newName),
+      ...payload,
+      synced_online: syncedOnline,
+      synced_history: true,
+      synced_game_player_records: syncedRecordCount,
+    },
+    message: syncedOnline
+      ? '改名成功，已同步在线会话与历史牌谱（聊天服需重新登录）'
+      : '改名成功，已同步历史牌谱',
+  });
 });
 
 router.get('/my-events', requirePlayer, async (req, res) => {

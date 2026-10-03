@@ -1,5 +1,5 @@
 /// <summary>
-/// 复式（玩家指定）主种子输入校验：必须为 256 位，以 64 位十六进制字符串提交。
+/// 场景复现（玩家指定）主种子输入校验：必须为 256 位，以 64 位十六进制字符串提交。
 /// </summary>
 public static class MasterSeedInputValidator {
     public const int HexLength = 64;
@@ -17,13 +17,13 @@ public static class MasterSeedInputValidator {
         }
         text = text.ToLowerInvariant();
         if (text.Length != HexLength) {
-            error = $"主种子必须为{HexLength}位十六进制字符串";
+            error = $"随机种子必须为{HexLength}位十六进制字符串";
             return false;
         }
         foreach (char c in text) {
             bool hex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
             if (!hex) {
-                error = "主种子必须为十六进制字符（0-9、a-f）";
+                error = "随机种子必须为十六进制字符（0-9、a-f）";
                 return false;
             }
         }

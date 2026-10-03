@@ -17,12 +17,12 @@ public class RoomConfigContainer : MonoBehaviour {
     private static readonly Dictionary<string, List<string>> RuleDisplayFields = new Dictionary<string, List<string>> {
         { "guobiao", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
-            "tips", "open_cuohe", "cuohe_type", "tactical_call", "has_password", "tourist_limit", "hepai_limit", "allow_spectator",
+            "tips", "use_flowers", "tian_di_ren_he", "open_cuohe", "cuohe_type", "tactical_call", "has_password", "tourist_limit", "hepai_limit", "allow_spectator",
         } },
         { "riichi", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
             "tips", "open_cuohe", "has_password", "tourist_limit", "hepai_limit",
-            "red_dora", "allow_kuikae", "open_xiru", "open_tobi", "hepai_way", "allow_spectator",
+            "starting_score", "red_dora", "allow_kuikae", "open_xiru", "open_tobi", "hepai_way", "allow_spectator",
         } },
         { "qingque", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
@@ -38,7 +38,7 @@ public class RoomConfigContainer : MonoBehaviour {
         } },
         { "sichuan", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
-            "tips", "blood_battle", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
+            "tips", "blood_battle", "hepai_limit", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
         } },
         { "changsha", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
@@ -48,6 +48,10 @@ public class RoomConfigContainer : MonoBehaviour {
         { "jiandan", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
             "tips", "has_password", "tourist_limit", "allow_spectator",
+        } },
+        { "shanghai", new List<string> {
+            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
+            "tips", "hepai_limit", "has_password", "tourist_limit", "allow_spectator",
         } },
         { "taiwan", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
@@ -88,6 +92,9 @@ public class RoomConfigContainer : MonoBehaviour {
     public static List<KeyValuePair<string, string>> BuildDisplayFields(RoomInfo roomInfo) {
         var result = new List<KeyValuePair<string, string>>();
         if (roomInfo == null) return result;
+        if (roomInfo.is_duplicate) {
+            result.Add(new KeyValuePair<string, string>("复式", DuplicateWallDisplay.TypeName(roomInfo.duplicate_wall_type)));
+        }
         var fields = RuleDisplayFields.TryGetValue(roomInfo.room_rule ?? "", out var ruleFields)
             ? ruleFields : DefaultDisplayFields;
         bool detailedAdded = false;
@@ -95,26 +102,43 @@ public class RoomConfigContainer : MonoBehaviour {
             if (TryBuildField(roomInfo, field, out string name, out string value))
                 result.Add(new KeyValuePair<string, string>(name, value));
             if (field == "tips") {
+                result.Add(new KeyValuePair<string, string>("枚数提示", FormatTips(roomInfo.count_tips)));
+                result.Add(new KeyValuePair<string, string>("指针提示", FormatTips(roomInfo.pointer_tips)));
                 if (roomInfo.room_rule != "free")
                     result.Add(new KeyValuePair<string, string>("手摸切提示", roomInfo.show_moqie_hint ? "开" : "关"));
-                if (roomInfo.room_rule == "guobiao" || roomInfo.room_rule == "qingque"
-                    || roomInfo.room_rule == "classical" || roomInfo.room_rule == "hongque"
-                    || roomInfo.room_rule == "sichuan" || roomInfo.room_rule == "changsha")
+                if (RoomPanel.SupportsClaimProtection(roomInfo.room_rule))
                     result.Add(new KeyValuePair<string, string>("鸣牌保护", roomInfo.claim_protection ? "开" : "关"));
                 AddDetailedConfig(roomInfo, result);
                 detailedAdded = true;
             }
         }
         if (!detailedAdded) AddDetailedConfig(roomInfo, result);
+        if (roomInfo.room_rule == "free")
+            result.Add(new KeyValuePair<string, string>("指针提示", FormatTips(roomInfo.pointer_tips)));
         return result;
     }
 
     private static void AddDetailedConfig(RoomInfo roomInfo, List<KeyValuePair<string, string>> result) {
+        if (roomInfo.sub_rule == GuangdongMilRules.SubRule) {
+            bool minimum = roomInfo.detailed_config == null || !roomInfo.detailed_config.TryGetValue("require_minimum_score", out object raw) || raw?.ToString().ToLowerInvariant() != "false";
+            result.Add(new KeyValuePair<string,string>("规则底本", "MIL 2023 花鬼"));
+            result.Add(new KeyValuePair<string,string>("起和条件", minimum ? "至少2番且4分" : "至少2番"));
+            result.Add(new KeyValuePair<string,string>("鬼牌", "梅兰竹菊留手"));
+            result.Add(new KeyValuePair<string,string>("补花", "无"));
+            result.Add(new KeyValuePair<string,string>("奖马", "自摸翻前4马"));
+            result.Add(new KeyValuePair<string,string>("余马不足", "不补马"));
+            return;
+        }
         if (!DetailedConfigRegistry.TryGet(roomInfo.room_rule, out DetailedConfigDefinition definition)) return;
         IDictionary<string, object> values = roomInfo.detailed_config;
+        if (roomInfo.room_rule == "hongkong") definition = HongKong_Create_RoomConfig.Definition(roomInfo.sub_rule,values);
         foreach (DetailedConfigOption option in definition.Options) {
+            if (roomInfo.room_rule == "hongkong" && !HongKong_Create_RoomConfig.OptionVisible(option.Key,roomInfo.sub_rule,values)) continue;
             object raw = option.DefaultValue;
             if (values != null && values.TryGetValue(option.Key, out object stored)) raw = stored;
+            if (roomInfo.room_rule == "hongkong" && raw?.ToString() == "default") {
+                raw=option.DefaultValue;
+            }
             result.Add(new KeyValuePair<string, string>(option.Label, option.FormatValue(raw)));
         }
         if (definition.FanTable == null) return;
@@ -184,11 +208,12 @@ public class RoomConfigContainer : MonoBehaviour {
         switch (fieldName) {
             case "room_type":
                 displayName = "规则";
-                displayValue = RuleNameDictionary.GetWholeName(roomInfo.sub_rule);
+                displayValue = roomInfo.sub_rule == GuangdongMilRules.SubRule ? "广东花鬼" : RuleNameDictionary.GetWholeName(roomInfo.sub_rule);
                 return true;
             case "game_round":
                 displayName = "圈数";
-                displayValue = RoundTextDictionary.GetMaxRoundText(roomInfo.room_rule, roomInfo.game_round);
+                displayValue = roomInfo.is_duplicate
+                    ? $"复式 {Mathf.Max(1, roomInfo.duplicate_round_count)} 局" : RoundTextDictionary.GetMaxRoundText(roomInfo.room_rule, roomInfo.game_round);
                 return true;
             case "round_timer":
                 displayName = "局时";
@@ -199,11 +224,11 @@ public class RoomConfigContainer : MonoBehaviour {
                 displayValue = FormatStepTimer(roomInfo.step_timer);
                 return true;
             case "random_seed":
-                displayName = "复式";
+                displayName = "场景复现";
                 displayValue = FormatRandomSeed(roomInfo);
                 return true;
             case "tips":
-                displayName = "提示";
+                displayName = "番数提示";
                 displayValue = FormatTips(roomInfo.tips);
                 return true;
             case "open_cuohe":
@@ -216,10 +241,17 @@ public class RoomConfigContainer : MonoBehaviour {
                 return true;
             case "cuohe_type":
                 displayName = "错和形式";
-                displayValue = roomInfo.cuohe_type == 1
-                    ? "错和者扣40，其余不加分" : "错和者扣30，其余各加10";
-                if (!roomInfo.open_cuohe) displayValue += "（错和关闭）";
+                displayValue = roomInfo.cuohe_type == 1 ? "-40/0" : "-30/+10";
                 return true;
+            case "use_flowers":
+                displayName = "花牌";
+                displayValue = roomInfo.sub_rule != "guobiao/lanshi" && (roomInfo.use_flowers ?? true) ? "有花" : "无花";
+                if (roomInfo.is_duplicate) displayValue += "\n跟随复式设置";
+                return true;
+            case "tian_di_ren_he":
+                displayName = "天地人和";
+                displayValue = roomInfo.tian_di_ren_he ? "开（各8番）" : "关";
+                return roomInfo.sub_rule == "guobiao/standard" || roomInfo.sub_rule == GuobiaoGameState.BloodBattleSubRule;
             case "blood_battle":
                 displayName = "血战到底";
                 displayValue = (roomInfo.blood_battle ?? true) ? "开" : "关";
@@ -255,12 +287,23 @@ public class RoomConfigContainer : MonoBehaviour {
                 displayValue = roomInfo.tourist_limit ? "否" : "是";
                 return true;
             case "hepai_limit":
+                if (roomInfo.room_rule == "shanghai") {
+                    if (roomInfo.sub_rule == "shanghai/qinghunpeng") return false;
+                    displayName = "一番和";
+                    displayValue = roomInfo.hepai_limit == 1 ? "开" : "关";
+                    return true;
+                }
                 displayName = "起和番数";
                 displayValue = roomInfo.hepai_limit.ToString();
                 return true;
             case "allow_spectator":
                 displayName = "允许观战";
                 displayValue = roomInfo.allow_spectator ? "是" : "否";
+                return true;
+            case "starting_score":
+                if (roomInfo.room_rule != "riichi" || !roomInfo.starting_score.HasValue) return false;
+                displayName = "起始点数";
+                displayValue = roomInfo.starting_score.Value.ToString();
                 return true;
             case "red_dora":
                 if (!roomInfo.red_dora.HasValue) return false;

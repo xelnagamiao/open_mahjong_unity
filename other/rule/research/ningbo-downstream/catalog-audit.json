@@ -1,0 +1,2589 @@
+{
+  "updated": "2026-09-23",
+  "scope": "139 条原目录的覆盖与关系风险登记；逐条区分本轮实质考据及只登记项目。",
+  "input": "2026-09-22 工作前展示层快照",
+  "counts": {
+    "inventory-only": 89,
+    "material-witness-only": 1,
+    "reconstruction-not-ancestor": 1,
+    "edition-corrected": 1,
+    "split-dimensions-separated": 1,
+    "named-edition-verified": 3,
+    "missing-subvariant": 1,
+    "mixed-versions-separated": 1,
+    "original-newspaper-needed": 1,
+    "origin-unresolved": 4,
+    "edition-boundary": 1,
+    "founding-not-current-rules": 1,
+    "original-card-needed": 2,
+    "formation-date-unverified": 12,
+    "unsubstantiated-intermediate": 3,
+    "mechanism-not-ancestor": 1,
+    "platform-difference-verified": 1,
+    "parent-is-comparison": 13,
+    "platform-not-rule": 1,
+    "earlier-event-found": 1
+  },
+  "rules": [
+    {
+      "slug": "yezi",
+      "name_zh": "叶子戏",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-song",
+          "years": "宋–明"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "madiao",
+      "name_zh": "马吊",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "yezi",
+      "parent_review": {
+        "category": "prehistory-outside-round",
+        "reason": "本轮从宁波见证开始；保留旧前史论证的身份，未把此边重新认定为已亲验。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-qing",
+          "years": "明–清中叶"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "mohe",
+      "name_zh": "默和",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "madiao",
+      "parent_review": {
+        "category": "prehistory-outside-round",
+        "reason": "本轮从宁波见证开始；保留旧前史论证的身份，未把此边重新认定为已亲验。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-qing",
+          "years": "明–清中叶"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "penghe",
+      "name_zh": "碰和",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "mohe",
+      "parent_review": {
+        "category": "prehistory-outside-round",
+        "reason": "本轮从宁波见证开始；保留旧前史论证的身份，未把此边重新认定为已亲验。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-qing",
+          "years": "明–清中叶"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "tianjiu",
+      "name_zh": "天九／牌九",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-song",
+          "years": "宋–明"
+        },
+        {
+          "id": "e-qing",
+          "years": "明–清中叶"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "proto-mahjong",
+      "name_zh": "祖型麻将（中发）",
+      "review_status": "material-witness-only",
+      "assessment": "牌具数与手牌数分开；1901 明确盒内 140／入局 136；Wilkinson 十五张仅转录。",
+      "source_ids": [
+        "schreiber-1901",
+        "culin-1895",
+        "wilkinson-1890-transcript"
+      ],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-proto",
+          "years": "约 1870–1910"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "classical",
+      "name_zh": "古典麻将",
+      "review_status": "reconstruction-not-ancestor",
+      "assessment": "项目古典汇编是后出复原版本，不放作 Babcock 或日麻的历史祖先。",
+      "source_ids": [
+        "drawing-1924",
+        "babcock-1923"
+      ],
+      "original_parent": "proto-mahjong",
+      "parent_review": {
+        "category": "reconstruction",
+        "reason": "classical 是项目汇编复原版；史料依据关系不能作为当年发生的规则传承。",
+        "source_ids": [
+          "schreiber-1901",
+          "drawing-1924"
+        ]
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-classical",
+          "years": "约 1910–1930"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "drawing-mahjong",
+      "name_zh": "绘图麻雀牌谱",
+      "review_status": "edition-corrected",
+      "assessment": "现存版权页 1924；1914 本待对校；应允许历史版本独立查阅。",
+      "source_ids": [
+        "drawing-1924"
+      ],
+      "original_parent": "classical",
+      "parent_review": {
+        "category": "classification-or-hypothesis",
+        "reason": "只有 catalog.parent，未有对应的原谱系证据边；不能静默作已证实祖先。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "qingzhang",
+      "name_zh": "清章（旧章）",
+      "review_status": "split-dimensions-separated",
+      "assessment": "废副、出铳、仅和家计分分开定年，不合为一次已证实事件。",
+      "source_ids": [
+        "babcock-1923",
+        "drawing-1924"
+      ],
+      "original_parent": "classical",
+      "parent_review": {
+        "category": "historical-hypothesis",
+        "reason": "庄家支付、废副、仅和家计分不能合为一次已定年的改规；缺对应粤港原规则。",
+        "source_ids": [
+          "babcock-1923",
+          "drawing-1924"
+        ]
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-split1",
+          "years": "约 1920–1950"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "hongkong",
+      "name_zh": "香港麻将",
+      "review_status": "named-edition-verified",
+      "assessment": "HKMA 版起和及连庄按比赛阶段区分，不能代表所有民间桌规。",
+      "source_ids": [
+        "hkma-hk-current"
+      ],
+      "original_parent": "qingzhang",
+      "parent_review": {
+        "category": "classification",
+        "reason": "清章／香港规则的身份与范围关系；协会版本不能代表香港所有时期的桌规。",
+        "source_ids": [
+          "hkma-hk-current"
+        ]
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-postwar",
+          "years": "约 1950–1980"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "guangdong",
+      "name_zh": "广东麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "qingzhang",
+      "parent_review": {
+        "category": "historical-hypothesis",
+        "reason": "广东伞称与新章同名混用；叠番差异未给出地方规则的传播时点。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "jipinghu",
+      "name_zh": "鸡平胡",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "qingzhang",
+      "parent_review": {
+        "category": "historical-hypothesis",
+        "reason": "现行番表可比较；老章简化为鸡平胡的时间、地区和直接文本待证。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "tuidao",
+      "name_zh": "推倒和",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "qingzhang",
+      "parent_review": {
+        "category": "historical-hypothesis",
+        "reason": "推倒和名下至少有不同吃牌、点和、听牌机制，不能由名字统一祖先。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "macau",
+      "name_zh": "澳门法定麻雀",
+      "review_status": "missing-subvariant",
+      "assessment": "传统 136／13 与简易 112／4 手分开；增加一组一对五张成和节点。",
+      "source_ids": [
+        "macau-1989",
+        "macau-1991"
+      ],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": "1991",
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "hongkong-16",
+      "name_zh": "港式十六张",
+      "review_status": "named-edition-verified",
+      "assessment": "2025-07-28 HKMA 修订版可核；混合机制来源逐项待证。",
+      "source_ids": [
+        "hkma-sixteen-2025"
+      ],
+      "original_parent": "taiwan",
+      "parent_review": {
+        "category": "historical-hypothesis",
+        "reason": "港称台湾牌与五组一对可核；台湾到协会新章的具体机制借入仍待版本史。",
+        "source_ids": [
+          "hkma-sixteen-2025"
+        ]
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "japanese-classical",
+      "name_zh": "日本古典麻雀",
+      "review_status": "mixed-versions-separated",
+      "assessment": "1909 传入、1930 标准、1962 摘要及现行アルシーアル分开。",
+      "source_ids": [
+        "japan-standard-1930",
+        "kwan-japanese-classical",
+        "jml-arushiaru-current"
+      ],
+      "original_parent": "classical",
+      "parent_review": {
+        "category": "historical-hypothesis",
+        "reason": "1909 输入事件不能承担 1930／1962 规则细节；项目复原版也不是历史祖先。",
+        "source_ids": [
+          "japan-standard-1930",
+          "kwan-japanese-classical"
+        ]
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-split1",
+          "years": "约 1920–1950"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "riichi-hochi",
+      "name_zh": "报知立直",
+      "review_status": "original-newspaper-needed",
+      "assessment": "1952 报知原报未亲见；后出书不得整体回填。",
+      "source_ids": [
+        "japan-standard-1930"
+      ],
+      "original_parent": "japanese-classical",
+      "parent_review": {
+        "category": "historical-hypothesis",
+        "reason": "1930 首巡立直可证；途中立直的桥梁与 1952 原报尚缺，不把后出摘要当直接修订。",
+        "source_ids": [
+          "japan-standard-1930"
+        ]
+      },
+      "original_appeared": "1952",
+      "original_era_slots": [
+        {
+          "id": "e-postwar",
+          "years": "约 1950–1980"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "riichi",
+      "name_zh": "立直麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "riichi-hochi",
+      "parent_review": {
+        "category": "version-link-needs-collation",
+        "reason": "今日平台版本与 1952 报知差异未逐版对校；平台上线日期不是现代立直起源年。",
+        "source_ids": []
+      },
+      "original_appeared": "2006",
+      "original_era_slots": [
+        {
+          "id": "e-net",
+          "years": "约 2000–2015"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "japanese-3p",
+      "name_zh": "日本三人麻将",
+      "review_status": "origin-unresolved",
+      "assessment": "报知以后才分出的说法缺原证；与 Foster 1924 去北法分开。",
+      "source_ids": [
+        "foster-1924"
+      ],
+      "original_parent": "riichi-hochi",
+      "parent_review": {
+        "category": "historical-hypothesis",
+        "reason": "没有证据把日本三麻起点固定在报知之后；1924 三人改法另有直接见证而机制不同。",
+        "source_ids": [
+          "foster-1924"
+        ]
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "korean-3p",
+      "name_zh": "韩国三人麻将",
+      "review_status": "origin-unresolved",
+      "assessment": "传统韩三麻与当代 KML 立直赛事不等同；传播时点待证。",
+      "source_ids": [],
+      "original_parent": "riichi-hochi",
+      "parent_review": {
+        "category": "historical-hypothesis",
+        "reason": "韩国传统三人法的传入时间及与途中立直的关系待证；不能用现代 KML 赛事替代。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "babcock",
+      "name_zh": "Babcock 红皮书",
+      "review_status": "edition-boundary",
+      "assessment": "1920 首版与亲见 1923 第二版分开，New Method 不能自动倒填首版。",
+      "source_ids": [
+        "babcock-1923"
+      ],
+      "original_parent": "classical",
+      "parent_review": {
+        "category": "reconstruction",
+        "reason": "Babcock 是历史原典，不能成为项目后出 classical 汇编版的后代。",
+        "source_ids": [
+          "babcock-1923",
+          "drawing-1924"
+        ]
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-split1",
+          "years": "约 1920–1950"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "nmjl",
+      "name_zh": "美式麻将联盟（1937）",
+      "review_status": "founding-not-current-rules",
+      "assessment": "1937 成立可靠；152 张、八 joker 和独立卡首年不得自动倒填。",
+      "source_ids": [
+        "nmjl-league-history"
+      ],
+      "original_parent": "babcock",
+      "parent_review": {
+        "category": "historical-hypothesis",
+        "reason": "1937 成立可以核实，但中间美国规则变化及合法牌形体系需要同期文本桥梁。",
+        "source_ids": [
+          "nmjl-league-history"
+        ]
+      },
+      "original_appeared": "1937",
+      "original_era_slots": [
+        {
+          "id": "e-split1",
+          "years": "约 1920–1950"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "nmjl-joker",
+      "name_zh": "美式麻将（1961 专用 joker）",
+      "review_status": "original-card-needed",
+      "assessment": "1961 专用 joker 原卡未亲见，保留待核年份而非确定节点。",
+      "source_ids": [],
+      "original_parent": "nmjl",
+      "parent_review": {
+        "category": "historical-hypothesis",
+        "reason": "1961 专用 joker 年代仍需当年卡片或章程；今日数量不能倒填早期。",
+        "source_ids": [
+          "nmjl-league-history"
+        ]
+      },
+      "original_appeared": "1961",
+      "original_era_slots": [
+        {
+          "id": "e-postwar",
+          "years": "约 1950–1980"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "nmjl-card",
+      "name_zh": "美式麻将年卡",
+      "review_status": "original-card-needed",
+      "assessment": "1971 八花八 joker 原卡待验；独立年卡与专用 joker 并非同一事件。",
+      "source_ids": [
+        "nmjl-league-history"
+      ],
+      "original_parent": "nmjl-joker",
+      "parent_review": {
+        "category": "historical-hypothesis",
+        "reason": "年卡传统不必从专用 joker 才起；1971 数量定型和更早卡片须分别亲验。",
+        "source_ids": [
+          "nmjl-league-history"
+        ]
+      },
+      "original_appeared": "1971",
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        },
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "wright-patterson",
+      "name_zh": "Wright-Patterson 麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "babcock",
+      "parent_review": {
+        "category": "historical-hypothesis",
+        "reason": "美式身份及无 joker 不足以认定直接从 Babcock 某版分出。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-postwar",
+          "years": "约 1950–1980"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "fuzhou",
+      "name_zh": "福州麻将",
+      "review_status": "origin-unresolved",
+      "assessment": "现代开金与十六张不能直接回投 Glover 牌具；福州→台湾保留待证。",
+      "source_ids": [
+        "culin-1895",
+        "chen-taiwan-2014"
+      ],
+      "original_parent": "classical",
+      "parent_review": {
+        "category": "historical-hypothesis",
+        "reason": "五组一对相较四组一对多一组，这是结构比较，尚非已证实的福州历史改法。",
+        "source_ids": [
+          "drawing-1924",
+          "chen-taiwan-2014"
+        ]
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-split1",
+          "years": "约 1920–1950"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "taiwan",
+      "name_zh": "台湾麻将",
+      "review_status": "origin-unresolved",
+      "assessment": "去掉未经原典支持的 1950s–70s 定型断言；1994 电脑化见证早于明星三缺一。",
+      "source_ids": [
+        "chen-taiwan-2014",
+        "softstar-taiwan-1994"
+      ],
+      "original_parent": "fuzhou",
+      "parent_review": {
+        "category": "disputed-origin",
+        "reason": "十六张同构不能确定传入方向；旧争论保留，禁止在 parent 字段隐式当真。",
+        "source_ids": [
+          "chen-taiwan-2014"
+        ]
+      },
+      "original_appeared": "约 1950s–70s",
+      "original_era_slots": [
+        {
+          "id": "e-postwar",
+          "years": "约 1950–1980"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "taiwan-south",
+      "name_zh": "台湾南部麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "taiwan",
+      "parent_review": {
+        "category": "classification",
+        "reason": "南北差是地域桌规分类，原图所称战后一直并行的起始年代尚未核实。",
+        "source_ids": []
+      },
+      "original_appeared": "约 1950s–70s",
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "taiwan-mingxing",
+      "name_zh": "明星三缺一台制",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "taiwan",
+      "parent_review": {
+        "category": "named-standardization",
+        "reason": "具名软件台制版本；1994 已有其他台湾十六张电脑游戏，不是 2001 才首次电脑化。",
+        "source_ids": [
+          "softstar-taiwan-1994"
+        ]
+      },
+      "original_appeared": "2001",
+      "original_era_slots": [
+        {
+          "id": "e-net",
+          "years": "约 2000–2015"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "shanghai",
+      "name_zh": "上海麻将",
+      "review_status": "formation-date-unverified",
+      "assessment": "地方机制资料可以保留；旧年表的战后／1980s／1990s 定型断言缺同期史料，不继续用作出现年。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": "约 1980s",
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "ningbo-local",
+      "name_zh": "宁波地方麻将",
+      "review_status": "formation-date-unverified",
+      "assessment": "地方机制资料可以保留；旧年表的战后／1980s／1990s 定型断言缺同期史料，不继续用作出现年。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": "约 1980s",
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "hangzhou",
+      "name_zh": "杭州麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "huama",
+      "name_zh": "苏沪花麻",
+      "review_status": "formation-date-unverified",
+      "assessment": "地方机制资料可以保留；旧年表的战后／1980s／1990s 定型断言缺同期史料，不继续用作出现年。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": "约 1980s",
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "suzhou",
+      "name_zh": "苏州麻将",
+      "review_status": "formation-date-unverified",
+      "assessment": "地方机制资料可以保留；旧年表的战后／1980s／1990s 定型断言缺同期史料，不继续用作出现年。",
+      "source_ids": [],
+      "original_parent": "huama",
+      "parent_review": {
+        "category": "classification",
+        "reason": "花数计分可归组；泛称花麻不自动构成单一历史祖先。",
+        "source_ids": []
+      },
+      "original_appeared": "约 1980s",
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "nanjing",
+      "name_zh": "南京麻将",
+      "review_status": "formation-date-unverified",
+      "assessment": "地方机制资料可以保留；旧年表的战后／1980s／1990s 定型断言缺同期史料，不继续用作出现年。",
+      "source_ids": [],
+      "original_parent": "huama",
+      "parent_review": {
+        "category": "classification",
+        "reason": "按花计分与硬花内容有差异，缺乏确定的直接传承记录。",
+        "source_ids": []
+      },
+      "original_appeared": "约 1980s",
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "wenzhou",
+      "name_zh": "温州麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "shanghai-qiaoma-pre80",
+      "name_zh": "上海敲麻前身",
+      "review_status": "unsubstantiated-intermediate",
+      "assessment": "没有足够原典支持这一过渡名称、具体年代及机制组合；保留待证问题并退出确定年表。",
+      "source_ids": [],
+      "original_parent": "classical",
+      "parent_review": {
+        "category": "unsubstantiated-intermediate",
+        "reason": "过渡节点的具体年代、规则组合和相互承继没有同期原件支撑；保留为待证问题，退出确定年代线。",
+        "source_ids": []
+      },
+      "original_appeared": "约 1930s–1960s",
+      "original_era_slots": [
+        {
+          "id": "e-postwar",
+          "years": "约 1950–1980"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "sunan-huama-pre80",
+      "name_zh": "苏南花牌桌（过渡）",
+      "review_status": "unsubstantiated-intermediate",
+      "assessment": "没有足够原典支持这一过渡名称、具体年代及机制组合；保留待证问题并退出确定年表。",
+      "source_ids": [],
+      "original_parent": "classical",
+      "parent_review": {
+        "category": "unsubstantiated-intermediate",
+        "reason": "过渡节点的具体年代、规则组合和相互承继没有同期原件支撑；保留为待证问题，退出确定年代线。",
+        "source_ids": []
+      },
+      "original_appeared": "约 1950s–1960s",
+      "original_era_slots": [
+        {
+          "id": "e-postwar",
+          "years": "约 1950–1980"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "zhebei-zbgyu",
+      "name_zh": "浙北古法桌",
+      "review_status": "unsubstantiated-intermediate",
+      "assessment": "没有足够原典支持这一过渡名称、具体年代及机制组合；保留待证问题并退出确定年表。",
+      "source_ids": [],
+      "original_parent": "classical",
+      "parent_review": {
+        "category": "unsubstantiated-intermediate",
+        "reason": "过渡节点的具体年代、规则组合和相互承继没有同期原件支撑；保留为待证问题，退出确定年代线。",
+        "source_ids": []
+      },
+      "original_appeared": "约 1950s–1970s",
+      "original_era_slots": [
+        {
+          "id": "e-postwar",
+          "years": "约 1950–1980"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "quzi",
+      "name_zh": "去字牌",
+      "review_status": "mechanism-not-ancestor",
+      "assessment": "去字为结构机制，不能充当独立历史祖先。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": "约 1950s",
+      "original_era_slots": [
+        {
+          "id": "e-postwar",
+          "years": "约 1950–1980"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "sichuan-nochi",
+      "name_zh": "川渝去字禁吃",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "quzi",
+      "parent_review": {
+        "category": "structural-comparison",
+        "reason": "去字是机制，不是已证明单独存在并生出川渝的历史规则。",
+        "source_ids": []
+      },
+      "original_appeared": "约 1980s",
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "duankagen",
+      "name_zh": "断卡根",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "sichuan-nochi",
+      "parent_review": {
+        "category": "historical-hypothesis",
+        "reason": "72 张／10 张手牌的差异可描述；从哪一版川渝删牌改来尚缺原件。",
+        "source_ids": []
+      },
+      "original_appeared": "约 2012",
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "sichuan",
+      "name_zh": "四川麻将（血战到底）",
+      "review_status": "named-edition-verified",
+      "assessment": "2016 TMT 证明定缺血战赛事版存在，不把换三张补入。",
+      "source_ids": [
+        "tmt-sichuan-2016"
+      ],
+      "original_parent": "sichuan-nochi",
+      "parent_review": {
+        "category": "historical-hypothesis",
+        "reason": "去字禁吃、缺门、定缺及血战分别核年；现代赛事无法证明原图约 2000 的精确转折。",
+        "source_ids": [
+          "tmt-sichuan-2016"
+        ]
+      },
+      "original_appeared": "约 2000",
+      "original_era_slots": [
+        {
+          "id": "e-net",
+          "years": "约 2000–2015"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "sichuan-huansanzhang",
+      "name_zh": "四川麻将（换三张）",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "sichuan",
+      "parent_review": {
+        "category": "mechanism-option",
+        "reason": "换三张是可选的开局机制；具体平台引入年份未证，不当成所有血战的必经阶段。",
+        "source_ids": [
+          "tmt-sichuan-2016"
+        ]
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-net",
+          "years": "约 2000–2015"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "xueliu",
+      "name_zh": "血流成河",
+      "review_status": "platform-difference-verified",
+      "assessment": "2015 91y 血流不预报缺；不能全称为定缺血战上加重复和。",
+      "source_ids": [
+        "91y-bloodflow-2015"
+      ],
+      "original_parent": "sichuan",
+      "parent_review": {
+        "category": "documented-variant-comparison",
+        "reason": "平台明确比较血战／血流，但差异还包括预报缺门及杠分；不能仅写和后继续一项。",
+        "source_ids": [
+          "91y-bloodflow-2015"
+        ]
+      },
+      "original_appeared": "约 2005",
+      "original_era_slots": [
+        {
+          "id": "e-net",
+          "years": "约 2000–2015"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "yichang-xueliu",
+      "name_zh": "宜昌血流",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "xueliu",
+      "parent_review": {
+        "category": "platform-variant-needs-source",
+        "reason": "广告使用血流名称但具体流程可能与血战混用；地域来源与跨地传播未证。",
+        "source_ids": []
+      },
+      "original_appeared": "约 2010s",
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "chongqing",
+      "name_zh": "重庆麻将",
+      "review_status": "parent-is-comparison",
+      "assessment": "原 parent 主要依赖地域或共同机制；仅保留比较关系，直接历史传承待证。",
+      "source_ids": [],
+      "original_parent": "sichuan",
+      "parent_review": {
+        "category": "structural-comparison",
+        "reason": "口述材料另有成都向重庆学习的方向，旧单向扩散不能直接采信。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "guizhou",
+      "name_zh": "贵州麻将",
+      "review_status": "parent-is-comparison",
+      "assessment": "原 parent 主要依赖地域或共同机制；仅保留比较关系，直接历史传承待证。",
+      "source_ids": [],
+      "original_parent": "sichuan",
+      "parent_review": {
+        "category": "structural-comparison",
+        "reason": "108 与禁吃不足以证明捉鸡来自血战；定缺和血战均非该地方包的同义词。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "changsha",
+      "name_zh": "长沙麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "quzi",
+      "parent_review": {
+        "category": "structural-comparison",
+        "reason": "同为 108 张不能证明长沙与川渝来自同一具名去字规则。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "changde",
+      "name_zh": "常德麻将",
+      "review_status": "formation-date-unverified",
+      "assessment": "地方机制资料可以保留；旧年表的战后／1980s／1990s 定型断言缺同期史料，不继续用作出现年。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": "约 1980s",
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "hongzhong",
+      "name_zh": "红中麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "changde",
+      "parent_review": {
+        "category": "historical-hypothesis",
+        "reason": "百科式的常德加红中说需要更早本地或平台原文；112 张红中不只一种规则。",
+        "source_ids": []
+      },
+      "original_appeared": "常德起，约 2010s 扩散全国",
+      "original_era_slots": [
+        {
+          "id": "e-net",
+          "years": "约 2000–2015"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "sichuan-hongzhong",
+      "name_zh": "四川红中",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "sichuan",
+      "parent_review": {
+        "category": "platform-variant-needs-source",
+        "reason": "川麻加癞子的机制描述可以单独登记；仍需具名平台版本，不当地区统一主流。",
+        "source_ids": []
+      },
+      "original_appeared": "约 2010s",
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "beijing",
+      "name_zh": "北京麻将",
+      "review_status": "formation-date-unverified",
+      "assessment": "地方机制资料可以保留；旧年表的战后／1980s／1990s 定型断言缺同期史料，不继续用作出现年。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": "约 1990s",
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "tianjin",
+      "name_zh": "天津麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-postwar",
+          "years": "约 1950–1980"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "wuhan",
+      "name_zh": "武汉麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-net",
+          "years": "约 2000–2015"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "kawuxing",
+      "name_zh": "卡五星",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": "2005／2007",
+      "original_era_slots": [
+        {
+          "id": "e-net",
+          "years": "约 2000–2015"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "nanchang",
+      "name_zh": "南昌麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-net",
+          "years": "约 2000–2015"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "dongbei",
+      "name_zh": "东北麻将",
+      "review_status": "formation-date-unverified",
+      "assessment": "地方机制资料可以保留；旧年表的战后／1980s／1990s 定型断言缺同期史料，不继续用作出现年。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": "约 1950s",
+      "original_era_slots": [
+        {
+          "id": "e-postwar",
+          "years": "约 1950–1980"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "dongbei-yaobao",
+      "name_zh": "辽宁摇宝",
+      "review_status": "formation-date-unverified",
+      "assessment": "地方机制资料可以保留；旧年表的战后／1980s／1990s 定型断言缺同期史料，不继续用作出现年。",
+      "source_ids": [],
+      "original_parent": "dongbei",
+      "parent_review": {
+        "category": "classification",
+        "reason": "东北是地区伞称，宝牌是跨地区机制；不建立伞称祖先。",
+        "source_ids": []
+      },
+      "original_appeared": "约 1980s–90s",
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "dongbei-xiadan",
+      "name_zh": "吉林下蛋",
+      "review_status": "formation-date-unverified",
+      "assessment": "地方机制资料可以保留；旧年表的战后／1980s／1990s 定型断言缺同期史料，不继续用作出现年。",
+      "source_ids": [],
+      "original_parent": "dongbei",
+      "parent_review": {
+        "category": "classification",
+        "reason": "东北是地区伞称，下蛋是跨地区机制；不建立伞称祖先。",
+        "source_ids": []
+      },
+      "original_appeared": "约 1980s–90s",
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "dongbei-jiahu",
+      "name_zh": "黑龙江夹胡",
+      "review_status": "formation-date-unverified",
+      "assessment": "地方机制资料可以保留；旧年表的战后／1980s／1990s 定型断言缺同期史料，不继续用作出现年。",
+      "source_ids": [],
+      "original_parent": "dongbei",
+      "parent_review": {
+        "category": "classification",
+        "reason": "东北是地区伞称，听口是跨地区机制；不建立伞称祖先。",
+        "source_ids": []
+      },
+      "original_appeared": "约 1980s–90s",
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "haerbin",
+      "name_zh": "哈尔滨麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "dongbei",
+      "parent_review": {
+        "category": "classification",
+        "reason": "地区伞称与城市规则包，不能直接读成历史演化。",
+        "source_ids": []
+      },
+      "original_appeared": "约 1990s",
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "dalian-qionghu",
+      "name_zh": "大连穷胡",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "dongbei",
+      "parent_review": {
+        "category": "classification",
+        "reason": "地区伞称与城市规则包，不能直接读成历史演化。",
+        "source_ids": []
+      },
+      "original_appeared": "约 1990s",
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "shanxi",
+      "name_zh": "山西麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "taiyuan-lisi",
+      "name_zh": "太原立四",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "shanxi",
+      "parent_review": {
+        "category": "classification",
+        "reason": "山西伞称下的太原地区版本；分类关系不能作历史发生次序。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "changchun",
+      "name_zh": "长春麻将",
+      "review_status": "formation-date-unverified",
+      "assessment": "地方机制资料可以保留；旧年表的战后／1980s／1990s 定型断言缺同期史料，不继续用作出现年。",
+      "source_ids": [],
+      "original_parent": "dongbei-xiadan",
+      "parent_review": {
+        "category": "structural-comparison",
+        "reason": "长春版本包含下蛋不证明由一个独立的吉林下蛋规则历史分化而来。",
+        "source_ids": []
+      },
+      "original_appeared": "约 2000s",
+      "original_era_slots": [
+        {
+          "id": "e-net",
+          "years": "约 2000–2015"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "xian",
+      "name_zh": "西安麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "kunming",
+      "name_zh": "昆明麻将",
+      "review_status": "parent-is-comparison",
+      "assessment": "原 parent 主要依赖地域或共同机制；仅保留比较关系，直接历史传承待证。",
+      "source_ids": [],
+      "original_parent": "sichuan",
+      "parent_review": {
+        "category": "structural-comparison",
+        "reason": "同属西南及删字禁吃不能证明川麻传播方向。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "singapore",
+      "name_zh": "新加坡麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "qingzhang",
+      "parent_review": {
+        "category": "historical-hypothesis",
+        "reason": "港式番种相近可比较；动物牌何时加入与输入渠道尚缺原典。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "malaysia",
+      "name_zh": "马来西亚麻将",
+      "review_status": "parent-is-comparison",
+      "assessment": "原 parent 主要依赖地域或共同机制；仅保留比较关系，直接历史传承待证。",
+      "source_ids": [],
+      "original_parent": "singapore",
+      "parent_review": {
+        "category": "structural-comparison",
+        "reason": "侨路或地理近邻不证明新加坡是马来西亚四人／三人的直接祖先。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "vietnam",
+      "name_zh": "越南麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "guobiao",
+      "name_zh": "国标麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": "1998",
+      "original_era_slots": [
+        {
+          "id": "e-local",
+          "years": "约 1980–2000"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "salasasa",
+      "name_zh": "salasasa",
+      "review_status": "platform-not-rule",
+      "assessment": "对局入口是软件节点，不是新规则。",
+      "source_ids": [],
+      "original_parent": "guobiao",
+      "parent_review": {
+        "category": "platform-link",
+        "reason": "salasasa 是对局入口，不是历史规则分裂；从规则传承边移出。",
+        "source_ids": []
+      },
+      "original_appeared": "2026年6月",
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "ema",
+      "name_zh": "欧洲麻将协会赛制",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "guobiao",
+      "parent_review": {
+        "category": "named-standardization",
+        "reason": "EMA 采用 MCR 的组织／竞赛关系；不能将 EMA 总组织等同只使用国标。",
+        "source_ids": []
+      },
+      "original_appeared": "约 2005",
+      "original_era_slots": [
+        {
+          "id": "e-net",
+          "years": "约 2000–2015"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "mil-sichuan",
+      "name_zh": "MIL 四川 SBR",
+      "review_status": "earlier-event-found",
+      "assessment": "2016 已有 MIL SBR Grand-Prix；2025 是馆藏版本年。",
+      "source_ids": [
+        "mil-sbr-2016"
+      ],
+      "original_parent": "sichuan",
+      "parent_review": {
+        "category": "named-standardization",
+        "reason": "2016 已有 MIL SBR 赛事，2025 为后出所藏版本；赛事规程与地方血战分层。",
+        "source_ids": [
+          "mil-sbr-2016"
+        ]
+      },
+      "original_appeared": "2025",
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "mil-guangdong",
+      "name_zh": "MIL 广东推广",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "guangdong",
+      "parent_review": {
+        "category": "named-standardization",
+        "reason": "MIL 广东推广是具名编纂版；广东节点若特指叠番新章，不应画成从它直接改来。",
+        "source_ids": []
+      },
+      "original_appeared": "2023",
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "mil-tuidao",
+      "name_zh": "MIL 推倒和推广",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "tuidao",
+      "parent_review": {
+        "category": "named-standardization",
+        "reason": "MIL 与深莞同名但可吃、报听等不同；表示具名规则分层，不确证直接沿革。",
+        "source_ids": []
+      },
+      "original_appeared": "2024",
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "mil-hangzhou",
+      "name_zh": "MIL 杭州推广",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "hangzhou",
+      "parent_review": {
+        "category": "named-standardization",
+        "reason": "地区伞称与 MIL 具名版本的对应；不把赛事文本等同所有地方桌规，也不将出版年当地方玩法出生年。",
+        "source_ids": []
+      },
+      "original_appeared": "2025",
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "mil-wenzhou",
+      "name_zh": "MIL 温州试点",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "wenzhou",
+      "parent_review": {
+        "category": "named-standardization",
+        "reason": "地区伞称与 MIL 具名版本的对应；不把赛事文本等同所有地方桌规，也不将出版年当地方玩法出生年。",
+        "source_ids": []
+      },
+      "original_appeared": "2024",
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "mil-red-center",
+      "name_zh": "MIL 红中推广",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "hongzhong",
+      "parent_review": {
+        "category": "named-standardization",
+        "reason": "地区伞称与 MIL 具名版本的对应；不把赛事文本等同所有地方桌规，也不将出版年当地方玩法出生年。",
+        "source_ids": []
+      },
+      "original_appeared": "2024",
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "mil-changchun",
+      "name_zh": "MIL 长春推广",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "changchun",
+      "parent_review": {
+        "category": "named-standardization",
+        "reason": "地区伞称与 MIL 具名版本的对应；不把赛事文本等同所有地方桌规，也不将出版年当地方玩法出生年。",
+        "source_ids": []
+      },
+      "original_appeared": "2024",
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "mil-shanxi",
+      "name_zh": "MIL 山西推广",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "shanxi",
+      "parent_review": {
+        "category": "named-standardization",
+        "reason": "地区伞称与 MIL 具名版本的对应；不把赛事文本等同所有地方桌规，也不将出版年当地方玩法出生年。",
+        "source_ids": []
+      },
+      "original_appeared": "2023",
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "mil-guizhou",
+      "name_zh": "MIL 贵州推广",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "guizhou",
+      "parent_review": {
+        "category": "named-standardization",
+        "reason": "地区伞称与 MIL 具名版本的对应；不把赛事文本等同所有地方桌规，也不将出版年当地方玩法出生年。",
+        "source_ids": []
+      },
+      "original_appeared": "2023",
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "mil-riichi",
+      "name_zh": "MIL 立直 RCR",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "riichi",
+      "parent_review": {
+        "category": "named-standardization",
+        "reason": "具名立直竞赛版与立直规则家族的关系；不表示 MIL 从天凤／雀魂代码版本改来。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "qingque",
+      "name_zh": "青雀",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": "2024",
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "hongque",
+      "name_zh": "虹雀²",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": "2025",
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "guobiao-kobayashi",
+      "name_zh": "国标小林改",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "guobiao",
+      "parent_review": {
+        "category": "authored-adaptation",
+        "reason": "项目具名改编规则关系，保留作者版本身份；精确发布日期另需作者版本记录。",
+        "source_ids": []
+      },
+      "original_appeared": "约 2015",
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "guobiao-lanshi",
+      "name_zh": "国标蓝十改",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "guobiao",
+      "parent_review": {
+        "category": "authored-adaptation",
+        "reason": "项目具名改编规则关系，保留作者版本身份；精确发布日期另需作者版本记录。",
+        "source_ids": []
+      },
+      "original_appeared": "约 2022",
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "guobiao-kshen",
+      "name_zh": "K神麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "guobiao",
+      "parent_review": {
+        "category": "authored-adaptation",
+        "reason": "项目具名改编规则关系，保留作者版本身份；精确发布日期另需作者版本记录。",
+        "source_ids": []
+      },
+      "original_appeared": "约 2010",
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "zungjung",
+      "name_zh": "中庸麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": "2004",
+      "original_era_slots": [
+        {
+          "id": "e-net",
+          "years": "约 2000–2015"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "shiyangjin",
+      "name_zh": "十样锦麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": "2026",
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "liaoyuan",
+      "name_zh": "吉林辽源麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "dongbei",
+      "parent_review": {
+        "category": "classification-or-hypothesis",
+        "reason": "只有 catalog.parent，未有对应的原谱系证据边；不能静默作已证实祖先。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "yanbian",
+      "name_zh": "延边麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "dongbei",
+      "parent_review": {
+        "category": "classification-or-hypothesis",
+        "reason": "只有 catalog.parent，未有对应的原谱系证据边；不能静默作已证实祖先。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "tongliao",
+      "name_zh": "通辽麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "dongbei",
+      "parent_review": {
+        "category": "classification-or-hypothesis",
+        "reason": "只有 catalog.parent，未有对应的原谱系证据边；不能静默作已证实祖先。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "chifeng",
+      "name_zh": "赤峰麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "dongbei",
+      "parent_review": {
+        "category": "classification-or-hypothesis",
+        "reason": "只有 catalog.parent，未有对应的原谱系证据边；不能静默作已证实祖先。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "hulunbeier",
+      "name_zh": "呼伦贝尔麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "dongbei",
+      "parent_review": {
+        "category": "classification-or-hypothesis",
+        "reason": "只有 catalog.parent，未有对应的原谱系证据边；不能静默作已证实祖先。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "jinzhou",
+      "name_zh": "锦州麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "dongbei-yaobao",
+      "parent_review": {
+        "category": "classification-or-hypothesis",
+        "reason": "只有 catalog.parent，未有对应的原谱系证据边；不能静默作已证实祖先。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "mudanjiang",
+      "name_zh": "牡丹江麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "dongbei-jiahu",
+      "parent_review": {
+        "category": "classification-or-hypothesis",
+        "reason": "只有 catalog.parent，未有对应的原谱系证据边；不能静默作已证实祖先。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "jiamusi",
+      "name_zh": "佳木斯麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "dongbei-jiahu",
+      "parent_review": {
+        "category": "classification-or-hypothesis",
+        "reason": "只有 catalog.parent，未有对应的原谱系证据边；不能静默作已证实祖先。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "qiqihaer",
+      "name_zh": "齐齐哈尔麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "dongbei-jiahu",
+      "parent_review": {
+        "category": "classification-or-hypothesis",
+        "reason": "只有 catalog.parent，未有对应的原谱系证据边；不能静默作已证实祖先。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "tangshan",
+      "name_zh": "唐山麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "shijiazhuang",
+      "name_zh": "石家庄麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "baoding",
+      "name_zh": "保定麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "zhangjiakou",
+      "name_zh": "张家口麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "lanzhou",
+      "name_zh": "兰州麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "ningxia-huashui",
+      "name_zh": "宁夏划水麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "qinghai",
+      "name_zh": "青海麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "huhehaote",
+      "name_zh": "呼和浩特麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "baotou",
+      "name_zh": "包头麻将",
+      "review_status": "parent-is-comparison",
+      "assessment": "原 parent 主要依赖地域或共同机制；仅保留比较关系，直接历史传承待证。",
+      "source_ids": [],
+      "original_parent": "huhehaote",
+      "parent_review": {
+        "category": "classification-or-hypothesis",
+        "reason": "只有 catalog.parent，未有对应的原谱系证据边；不能静默作已证实祖先。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "hefei",
+      "name_zh": "合肥麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "anqing",
+      "name_zh": "安庆麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "jiujiang",
+      "name_zh": "九江麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "fuzhou-jiangxi",
+      "name_zh": "抚州麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "ganzhou",
+      "name_zh": "赣州麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "jingdezhen",
+      "name_zh": "景德镇麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "wuxi",
+      "name_zh": "无锡麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "yangzhou",
+      "name_zh": "扬州麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "xuzhou",
+      "name_zh": "徐州麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "changzhou",
+      "name_zh": "常州麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "chaoshan",
+      "name_zh": "潮汕麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "tuidao",
+      "parent_review": {
+        "category": "classification-or-hypothesis",
+        "reason": "只有 catalog.parent，未有对应的原谱系证据边；不能静默作已证实祖先。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "zhanjiang",
+      "name_zh": "湛江麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "tuidao",
+      "parent_review": {
+        "category": "classification-or-hypothesis",
+        "reason": "只有 catalog.parent，未有对应的原谱系证据边；不能静默作已证实祖先。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "xiamen",
+      "name_zh": "厦门麻将",
+      "review_status": "parent-is-comparison",
+      "assessment": "原 parent 主要依赖地域或共同机制；仅保留比较关系，直接历史传承待证。",
+      "source_ids": [],
+      "original_parent": "fuzhou",
+      "parent_review": {
+        "category": "classification-or-hypothesis",
+        "reason": "只有 catalog.parent，未有对应的原谱系证据边；不能静默作已证实祖先。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "quanzhou",
+      "name_zh": "泉州麻将",
+      "review_status": "parent-is-comparison",
+      "assessment": "原 parent 主要依赖地域或共同机制；仅保留比较关系，直接历史传承待证。",
+      "source_ids": [],
+      "original_parent": "xiamen",
+      "parent_review": {
+        "category": "classification-or-hypothesis",
+        "reason": "只有 catalog.parent，未有对应的原谱系证据边；不能静默作已证实祖先。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "longyan",
+      "name_zh": "龙岩麻将",
+      "review_status": "parent-is-comparison",
+      "assessment": "原 parent 主要依赖地域或共同机制；仅保留比较关系，直接历史传承待证。",
+      "source_ids": [],
+      "original_parent": "xiamen",
+      "parent_review": {
+        "category": "classification-or-hypothesis",
+        "reason": "只有 catalog.parent，未有对应的原谱系证据边；不能静默作已证实祖先。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "nanning",
+      "name_zh": "南宁麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "liuzhou-guilin",
+      "name_zh": "柳州／桂林麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "hainan",
+      "name_zh": "海南麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "zhengzhou",
+      "name_zh": "郑州麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "luoyang",
+      "name_zh": "洛阳麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "kaifeng",
+      "name_zh": "开封麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "shaoyang",
+      "name_zh": "邵阳麻将",
+      "review_status": "parent-is-comparison",
+      "assessment": "原 parent 主要依赖地域或共同机制；仅保留比较关系，直接历史传承待证。",
+      "source_ids": [],
+      "original_parent": "changde",
+      "parent_review": {
+        "category": "classification-or-hypothesis",
+        "reason": "只有 catalog.parent，未有对应的原谱系证据边；不能静默作已证实祖先。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "hengyang-258",
+      "name_zh": "衡阳麻将",
+      "review_status": "parent-is-comparison",
+      "assessment": "原 parent 主要依赖地域或共同机制；仅保留比较关系，直接历史传承待证。",
+      "source_ids": [],
+      "original_parent": "changsha",
+      "parent_review": {
+        "category": "classification-or-hypothesis",
+        "reason": "只有 catalog.parent，未有对应的原谱系证据边；不能静默作已证实祖先。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "zunyi-laizi",
+      "name_zh": "遵义幺筒赖子麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "xishuangbanna-ka2tiao",
+      "name_zh": "西双版纳卡二条",
+      "review_status": "parent-is-comparison",
+      "assessment": "原 parent 主要依赖地域或共同机制；仅保留比较关系，直接历史传承待证。",
+      "source_ids": [],
+      "original_parent": "kunming",
+      "parent_review": {
+        "category": "classification-or-hypothesis",
+        "reason": "只有 catalog.parent，未有对应的原谱系证据边；不能静默作已证实祖先。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "jinan",
+      "name_zh": "济南麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "zibo",
+      "name_zh": "淄博麻将",
+      "review_status": "parent-is-comparison",
+      "assessment": "原 parent 主要依赖地域或共同机制；仅保留比较关系，直接历史传承待证。",
+      "source_ids": [],
+      "original_parent": "jinan",
+      "parent_review": {
+        "category": "classification-or-hypothesis",
+        "reason": "只有 catalog.parent，未有对应的原谱系证据边；不能静默作已证实祖先。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "jining",
+      "name_zh": "济宁麻将",
+      "review_status": "parent-is-comparison",
+      "assessment": "原 parent 主要依赖地域或共同机制；仅保留比较关系，直接历史传承待证。",
+      "source_ids": [],
+      "original_parent": "jinan",
+      "parent_review": {
+        "category": "classification-or-hypothesis",
+        "reason": "只有 catalog.parent，未有对应的原谱系证据边；不能静默作已证实祖先。",
+        "source_ids": []
+      },
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "xinjiang",
+      "name_zh": "新疆麻将",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": null,
+      "parent_review": null,
+      "original_appeared": null,
+      "original_era_slots": [],
+      "full_history_reverified": false
+    },
+    {
+      "slug": "jiandan",
+      "name_zh": "南雀",
+      "review_status": "inventory-only",
+      "assessment": "已登记原有条目和关系风险；本轮没有重验该项完整玩法、起源或最早年份。",
+      "source_ids": [],
+      "original_parent": "zungjung",
+      "parent_review": {
+        "category": "authored-adaptation",
+        "reason": "项目原有具名改编关系；仍按作者当前文本与版本维护，不用目标模式替代现行模式。",
+        "source_ids": []
+      },
+      "original_appeared": "2025",
+      "original_era_slots": [
+        {
+          "id": "e-now",
+          "years": "约 2015–"
+        }
+      ],
+      "full_history_reverified": false
+    }
+  ]
+}

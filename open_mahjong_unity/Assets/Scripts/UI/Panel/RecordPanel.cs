@@ -67,7 +67,7 @@ public class RecordPanel : MonoBehaviour {
     /// </summary>
     public void OpenAndReload() {
         _listMode = ListMode.Overview;
-        ReloadList();
+        ReloadCurrentList();
     }
 
     private void ShowOverviewList() {
@@ -84,10 +84,13 @@ public class RecordPanel : MonoBehaviour {
 
     private void SetListMode(ListMode mode) {
         _listMode = mode;
-        ReloadList();
+        ReloadCurrentList();
     }
 
-    private void ReloadList() {
+    /// <summary>
+    /// 按当前标签刷新列表，供退出牌谱返回时保留原来的选择。
+    /// </summary>
+    public void ReloadCurrentList() {
         if (_listMode == ListMode.Local) {
             LoadLocalList();
             return;
@@ -126,7 +129,7 @@ public class RecordPanel : MonoBehaviour {
         recordIdInputPopup.Hide();
         LocalRecordStore.LoadAsync(gameId, local => {
             if (local != null && local.record != null) {
-                OpenRecord(local);
+                OpenRecord(local, localPlayback: true);
                 return;
             }
             DataNetworkManager.Instance.GetRecordById(gameId);
@@ -289,7 +292,7 @@ public class RecordPanel : MonoBehaviour {
     /// <summary>
     /// 打开牌谱回放（天梯列表、牌谱面板等入口共用）。
     /// </summary>
-    public static void OpenRecord(RecordDetail detail) {
+    public static void OpenRecord(RecordDetail detail, bool localPlayback = false) {
         if (detail == null || detail.record == null) {
             NotificationManager.Instance.ShowTip("牌谱", false, "牌谱数据为空");
             return;
@@ -316,7 +319,8 @@ public class RecordPanel : MonoBehaviour {
 
         try {
             RecordSetting.Instance?.SetShowCardsMode(!detail.perspective);
-            GameRecordManager.Instance.LoadRecord(recordJson, detail.players);
+            // 是否可分享取决于云端保存标记，与从云端还是本地副本打开无关。
+            GameRecordManager.Instance.LoadRecord(recordJson, detail.players, detail.cloud_saved ? detail.game_id : null);
             SharedRecordLink.ApplyPendingJumpIfAny();
         } catch (System.Exception e) {
             SharedRecordLink.ClearPendingJump();

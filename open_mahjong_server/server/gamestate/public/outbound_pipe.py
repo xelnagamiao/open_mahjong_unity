@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
+from dataclasses import dataclass
 from typing import Awaitable, Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)
@@ -20,20 +22,35 @@ logger = logging.getLogger(__name__)
 SendFn = Callable[[], Awaitable[None]]
 
 
+@dataclass
+class DeliveryMark:
+    """A dependency on a message's actual delivery, not its enqueue time."""
+    scheduled_at: float = 0.0
+    sent_at: Optional[float] = None
+
+
 def init_outbound_pipes(game_state) -> None:
     if not hasattr(game_state, "_outbound_tails"):
         game_state._outbound_tails: Dict[int, asyncio.Task] = {}
+    if not hasattr(game_state, "_outbound_marks"):
+        game_state._outbound_marks = {}
     game_state._outbound_closed = False
 
 
 def close_outbound_pipes(game_state) -> None:
     """对局结束时取消未完成的出站任务。"""
     game_state._outbound_closed = True
+    timer = getattr(game_state, "_cp_timer_task", None)
+    if timer is not None and not timer.done():
+        timer.cancel()
+    game_state._cp_timer_task = None
+    game_state._cp_discard_delivery = None
     tails = getattr(game_state, "_outbound_tails", None) or {}
     for task in list(tails.values()):
         if task is not None and not task.done():
             task.cancel()
     game_state._outbound_tails = {}
+    game_state._outbound_marks = {}
 
 
 def schedule_viewer_send(
@@ -42,12 +59,27 @@ def schedule_viewer_send(
     send_fn: SendFn,
     *,
     delay_before: float = 0.0,
+    after: Optional[DeliveryMark] = None,
+    min_gap: float = 0.0,
+    mark: Optional[DeliveryMark] = None,
 ) -> asyncio.Task:
     """将发送追加到该观众管道末尾，立即返回 Task（不阻塞调用方）。"""
     if not hasattr(game_state, "_outbound_tails"):
         init_outbound_pipes(game_state)
 
+    if not hasattr(game_state, "_outbound_marks"):
+        game_state._outbound_marks = {}
+
     prev: Optional[asyncio.Task] = game_state._outbound_tails.get(viewer_index)
+    previous_mark = game_state._outbound_marks.get(viewer_index)
+    mark = mark or DeliveryMark()
+    mark.scheduled_at = max(
+        time.monotonic(),
+        previous_mark.scheduled_at if previous_mark is not None else 0.0,
+    ) + delay_before
+    if after is not None:
+        mark.scheduled_at = max(mark.scheduled_at, after.scheduled_at + min_gap)
+    game_state._outbound_marks[viewer_index] = mark
 
     async def _run():
         try:
@@ -60,11 +92,16 @@ def schedule_viewer_send(
                     pass
             if getattr(game_state, "_outbound_closed", False):
                 return
-            if delay_before > 0:
-                await asyncio.sleep(delay_before)
+            remaining = delay_before
+            if after is not None:
+                anchor = after.sent_at if after.sent_at is not None else after.scheduled_at
+                remaining = max(remaining, anchor + min_gap - time.monotonic())
+            if remaining > 0:
+                await asyncio.sleep(remaining)
             if getattr(game_state, "_outbound_closed", False):
                 return
             await send_fn()
+            mark.sent_at = time.monotonic()
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -81,10 +118,14 @@ async def send_to_viewer(
     send_fn: SendFn,
     *,
     delay_before: float = 0.0,
+    after: Optional[DeliveryMark] = None,
+    min_gap: float = 0.0,
+    mark: Optional[DeliveryMark] = None,
 ) -> None:
     """入队并等待本条发送完成（仍排在更早的队列项之后）。"""
     task = schedule_viewer_send(
-        game_state, viewer_index, send_fn, delay_before=delay_before
+        game_state, viewer_index, send_fn, delay_before=delay_before,
+        after=after, min_gap=min_gap, mark=mark,
     )
     try:
         await task
@@ -93,3 +134,14 @@ async def send_to_viewer(
     except Exception:
         # 已在 _run 内打日志；避免拖垮广播循环
         pass
+
+
+async def drain_viewer(game_state, viewer_index: int) -> None:
+    """Catch up before taking a live snapshot; never clear pending messages."""
+    while True:
+        tail = (getattr(game_state, "_outbound_tails", None) or {}).get(viewer_index)
+        if tail is None:
+            return
+        await asyncio.shield(tail)
+        if tail is game_state._outbound_tails.get(viewer_index):
+            return

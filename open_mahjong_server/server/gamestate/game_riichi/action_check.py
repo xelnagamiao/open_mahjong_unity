@@ -6,6 +6,7 @@ from typing import Dict, List
 import logging
 
 from ..public.logic_common import get_index_relative_position, next_current_num
+from .rule_logic import option, ankan_allowed, is_first_draw
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +121,7 @@ def _maybe_add_chi_action(
 
 def check_action_after_cut(self, cut_tile: int):
     temp_action_dict: Dict[int, list] = {0: [], 1: [], 2: [], 3: []}
+    self._ron_shape_waiters = []
     normal_cut = _normalize(cut_tile)
 
     # 四杠已达上限后，任何玩家不得再开杠（含大明杠）。
@@ -164,6 +166,7 @@ def check_action_after_cut(self, cut_tile: int):
             continue
         refresh_waiting_tiles(self, item.player_index)
         if normal_cut in item.waiting_tiles:
+            self._ron_shape_waiters.append(item.player_index)
             check_hepai(self, temp_action_dict, cut_tile, item.player_index, "ron")
 
     for i in temp_action_dict:
@@ -179,6 +182,7 @@ def check_action_after_cut(self, cut_tile: int):
 def check_action_jiagang(self, jiagang_tile: int):
     """抢杠和检查"""
     temp_action_dict: Dict[int, list] = {0: [], 1: [], 2: [], 3: []}
+    self._ron_shape_waiters = []
     normal_tile = _normalize(jiagang_tile)
     for item in self.player_list:
         if item.player_index == self.current_player_index:
@@ -187,11 +191,30 @@ def check_action_jiagang(self, jiagang_tile: int):
             continue
         refresh_waiting_tiles(self, item.player_index)
         if normal_tile in item.waiting_tiles:
+            self._ron_shape_waiters.append(item.player_index)
             check_hepai(self, temp_action_dict, jiagang_tile, item.player_index, "chankan")
     for i in temp_action_dict:
         if temp_action_dict[i]:
             temp_action_dict[i].append("pass")
     return temp_action_dict
+
+
+def check_action_ankan(self, tile):
+    actions = {i: [] for i in range(4)}
+    self._ron_shape_waiters = []
+    if not option(self, 'kokushi_ankan_ron'):
+        return actions
+    for player in self.player_list:
+        if player.player_index == self.current_player_index or player.combination_tiles:
+            continue
+        if len(player.hand_tiles) != 13 or any(_normalize(t) not in YAOCHUU for t in player.hand_tiles):
+            continue
+        refresh_waiting_tiles(self, player.player_index)
+        if _normalize(tile) in player.waiting_tiles:
+            self._ron_shape_waiters.append(player.player_index)
+            check_hepai(self, actions, tile, player.player_index, 'ankan_ron')
+            if actions[player.player_index]: actions[player.player_index].append('pass')
+    return actions
 
 
 def check_action_hand_action(self, player_index: int, is_get_gang_tile: bool = False, is_first_action: bool = False):
@@ -213,15 +236,7 @@ def check_action_hand_action(self, player_index: int, is_get_gang_tile: bool = F
             if sum(1 for t in player_item.hand_tiles if _normalize(t) == normal) != 4:
                 continue
             if is_riichi:
-                # 立直家暗杠：必须满足摸到的就是杠的牌（不能改变手牌结构）且杠后听牌集合不变
-                last_norm = _normalize(player_item.hand_tiles[-1])
-                if last_norm != normal:
-                    processed.add(normal)
-                    continue
-                test_hand = [_normalize(t) for t in player_item.hand_tiles if _normalize(t) != normal]
-                test_combos = list(player_item.combination_tiles) + [f"G{normal}"]
-                new_waits = self.calculation_service.Riichi_tingpai_check(test_hand, test_combos)
-                if new_waits == player_item.waiting_tiles:
+                if ankan_allowed(self, player_item, normal):
                     temp_action_dict[player_index].append("angang")
                 processed.add(normal)
             else:
@@ -244,7 +259,7 @@ def check_action_hand_action(self, player_index: int, is_get_gang_tile: bool = F
         _is_menqianqing(player_item.combination_tiles)
         and not is_riichi
         and self._can_declare_riichi_by_score(player_item.score)
-        and (len(self.tiles_list) - self.dead_wall_count) >= 4
+        and (len(self.tiles_list) - self.dead_wall_count) >= option(self, 'riichi_min_live_tiles')
     )
     if can_declare_riichi:
         refresh_waiting_tiles_after_cut(self, player_index)
@@ -265,7 +280,7 @@ def refresh_waiting_tiles(self, player_index: int, is_first_action: bool = False
     player_item = self.player_list[player_index]
     current_hand = [_normalize(t) for t in player_item.hand_tiles]
     # 听牌算法输入应为 13 张（或 3n+1）；若误在摸牌后 14 张时调用则去掉刚摸入的一张
-    if len(current_hand) == 14:
+    if len(current_hand) % 3 == 2:
         current_hand = current_hand[:-1]
     waiting = self.calculation_service.Riichi_tingpai_check(current_hand, player_item.combination_tiles)
     if waiting != player_item.waiting_tiles:
@@ -379,7 +394,7 @@ def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepa
         tiles_list.append(hepai_tile)
 
     # 荣和方振听判定（永久 / 同巡 / 立直）：任一成立都不能荣和/抢杠和（只能自摸），按规则正确拦截
-    if hepai_type in ("ron", "chankan"):
+    if hepai_type in ("ron", "chankan", "ankan_ron"):
         permanent_furiten = _is_furiten(player)
         if permanent_furiten or player.temp_furiten or getattr(player, "riichi_furiten", False):
             logger.info(
@@ -393,7 +408,8 @@ def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepa
     is_haitei = hepai_type == "tsumo" and len(self.tiles_list) <= self.dead_wall_count and not is_get_gang_tile
     is_houtei = hepai_type == "ron" and len(self.tiles_list) <= self.dead_wall_count
 
-    ura_dora = self.ura_dora_indicators + getattr(self, "ura_kan_dora_indicators", []) if "riichi" in player.tag_list else []
+    is_first_action = is_first_draw(self, player)
+    ura_dora = self.ura_dora_indicators if "riichi" in player.tag_list else []
 
     ctx = {
         "is_tsumo": hepai_type == "tsumo",
@@ -408,13 +424,16 @@ def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepa
         "is_chiihou": is_first_action and hepai_type == "tsumo" and player.player_index != 0 and not player.combination_tiles,
         "player_wind": player.player_index,
         "round_wind": (self.current_round - 1) // 4 % 4,
-        "has_open_tanyao": True,
-        "dora_indicators": self.dora_indicators + self.kan_dora_indicators,
+        "has_open_tanyao": option(self, 'open_tanyao'),
+        "red_dora": self.red_dora,
+        "dora_indicators": self.dora_indicators + (self.kan_dora_indicators if option(self, 'kan_dora') else []),
         "ura_dora_indicators": ura_dora,
+        "ura_kan_dora_indicators": getattr(self, "ura_kan_dora_indicators", []) if "riichi" in player.tag_list else [],
         "aka_count": None,
         "kyoutaku_number": self.riichi_sticks,
         "tsumi_number": self.honba,
     }
+    ctx.update(getattr(self, 'detailed_config', {}))
 
     result = self.calculation_service.Riichi_hepai_check(
         tiles_list, player.combination_tiles, [], hepai_tile, ctx,

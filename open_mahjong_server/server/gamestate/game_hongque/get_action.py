@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import asyncio
+from ..public.ai.pacing import wait_bot_delay, DEFAULT_BOT_DELAY
 import logging
 import time
 
@@ -22,7 +23,7 @@ from .wait_action import actions_for_viewer
 from ..public.ai.bot_executor import run_room_bot_cpu
 
 logger = logging.getLogger(__name__)
-BOT_ACTION_DELAY = 0.5
+BOT_ACTION_DELAY = DEFAULT_BOT_DELAY
 
 
 def schedule_bot_if_needed(game_state) -> None:
@@ -38,7 +39,7 @@ def schedule_bot_if_needed(game_state) -> None:
 
 
 async def bot_turn(game_state, tick: int) -> None:
-    started_at = time.perf_counter()
+    started_at = time.monotonic()
     async with game_state._lock:
         if game_state.phase != "turn" or game_state.action_tick != tick:
             return
@@ -95,9 +96,7 @@ async def bot_turn(game_state, tick: int) -> None:
                 "tile": game_state._rng.choice(hand) if hand else None,
             }
 
-    delay = BOT_ACTION_DELAY - (time.perf_counter() - started_at)
-    if delay > 0:
-        await asyncio.sleep(delay)
+    await wait_bot_delay(game_state, started_at, BOT_ACTION_DELAY)
     if game_state.phase != "turn" or game_state.action_tick != tick \
             or game_state.current_player_index != player_index:
         return
@@ -109,12 +108,14 @@ async def bot_turn(game_state, tick: int) -> None:
         else:
             action = "discard"
     if action in {"win", "supplement"}:
-        await game_state.submit_action(player.user_id, action, action_tick=tick)
+        await game_state.submit_action(
+            player.user_id, action, action_tick=tick, player_index=player_index,
+        )
         return
     if action == "kong":
         await game_state.submit_action(
             player.user_id, "kong", candidate_id=plan.get("candidate_id"),
-            action_tick=tick,
+            action_tick=tick, player_index=player_index,
         )
         return
     code = plan.get("tile")
@@ -129,6 +130,7 @@ async def bot_turn(game_state, tick: int) -> None:
     if code is not None:
         await game_state.submit_action(
             player.user_id, "discard", tile=code, action_tick=tick,
+            player_index=player_index,
         )
 
 
@@ -162,7 +164,7 @@ def cancel_bot_claim_tasks(game_state) -> None:
 
 
 async def bot_claim(game_state, player_index: int, tick: int) -> None:
-    started_at = time.perf_counter()
+    started_at = time.monotonic()
     try:
         async with game_state._lock:
             if game_state.phase != "claim" or game_state.action_tick != tick:
@@ -179,9 +181,7 @@ async def bot_claim(game_state, player_index: int, tick: int) -> None:
         plan = await run_room_bot_cpu(
             game_state, claim_fn, hand, melds, candidates, visible
         )
-        delay = BOT_ACTION_DELAY - (time.perf_counter() - started_at)
-        if delay > 0:
-            await asyncio.sleep(delay)
+        await wait_bot_delay(game_state, started_at, BOT_ACTION_DELAY)
         if game_state.phase != "claim" or game_state.action_tick != tick:
             return
         actions, _ = actions_for_viewer(game_state, player_index)
@@ -190,7 +190,7 @@ async def bot_claim(game_state, player_index: int, tick: int) -> None:
         action = "claim" if plan.get("action") == "claim" else "pass"
         await game_state.submit_action(
             player.user_id, action, candidate_id=plan.get("candidate_id"),
-            action_tick=tick,
+            action_tick=tick, player_index=player_index,
         )
     except asyncio.CancelledError:
         return
@@ -201,9 +201,9 @@ async def bot_claim(game_state, player_index: int, tick: int) -> None:
             if "pass" in actions:
                 await game_state.submit_action(
                     player.user_id, "pass", action_tick=tick,
+                    player_index=player_index,
                 )
     finally:
         task = asyncio.current_task()
         if game_state._bot_claim_tasks.get(player_index) is task:
             game_state._bot_claim_tasks.pop(player_index, None)
-

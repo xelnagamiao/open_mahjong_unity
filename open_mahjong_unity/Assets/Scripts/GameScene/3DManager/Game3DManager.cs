@@ -549,13 +549,9 @@ public partial class Game3DManager : MonoBehaviour {
         }
     }
 
-    // 3D手牌处理入口：暗杠/加杠与杠后岭上摸牌走各家串行队列；其余走 Change3DTileCoroutine。
+    // 所有出牌（含单张与多张切）共用各家串行队列，不能让第一张绕过队列。
     public void Change3DDiscardTiles(int[] tileIds, string PlayerPosition, bool cut_class, bool isRiichi = false, bool playCutPhysicsSound = false) {
         if (tileIds == null || tileIds.Length == 0) {
-            return;
-        }
-        if (tileIds.Length == 1 && !HasPendingHandAnimWork(PlayerPosition)) {
-            Change3DTile("Discard", tileIds[0], 0, PlayerPosition, cut_class, null, isRiichi, playCutPhysicsSound: playCutPhysicsSound);
             return;
         }
         for (int i = 0; i < tileIds.Length; i++) {
@@ -595,12 +591,19 @@ public partial class Game3DManager : MonoBehaviour {
             return;
         }
 
+        // 自由模式允许同一家连续摸切，先把旧摸牌收拢，再串行执行后续增删。
+        if (TryEnqueueFreeHandChange(actionType, tileId, PlayerPosition, cut_class, isRiichi, playCutPhysicsSound)) {
+            return;
+        }
+
         // 加杠把 isMoGang 传入 cut_class 位；暗杠走命名参数 isMoGang
         bool queueMoGang = actionType == "jiagang" ? cut_class : isMoGang;
         if (TryEnqueueAnkanHandChange(actionType, tileId, removeCount, PlayerPosition, combination_mask, queueMoGang)) {
             return;
         }
-        if (actionType == "Discard" && HasPendingHandAnimWork(PlayerPosition)) {
+        // 从第一张起就入队，完整等待删牌、飞牌与收拢；否则直接启动的出牌不在
+        // HasPendingHandAnimWork 的跟踪范围内，下一张会中断同家尚未落地的飞牌。
+        if (actionType == "Discard" || actionType == "RecordDiscard") {
             EnqueueDiscardHandWork(PlayerPosition, tileId, cut_class, isRiichi, playCutPhysicsSound);
             return;
         }
@@ -849,8 +852,9 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     private void RenderRecordPlayerHand(string playerPosition){
-        List<int> handTiles = GameRecordManager.Instance.recordPlayer_to_info[playerPosition].tileList;
-        bool pinDraw = GameRecordManager.Instance.recordPlayer_to_info[playerPosition].showHandDrawSlotActive;
+        var player = GameRecordManager.Instance.recordPlayer_to_info[playerPosition];
+        List<int> handTiles = player.tileList;
+        bool pinDraw = player.showHandDrawSlotActive || player.hasRonWinningTile;
         PosPanel3D panel = GetPosPanel(playerPosition);
         ClearPlayerRecordHandObjects(panel);
         bool isShowCardsMode = RecordSetting.Instance.IsShowCardsMode;
@@ -864,7 +868,7 @@ public partial class Game3DManager : MonoBehaviour {
             }
         }
         if (isShowCardsMode && !hasHiddenTiles){
-            LayRecordShowHandTiles(playerPosition, panel.ShowCardsPosition, handTiles, pinDraw);
+            LayRecordShowHandTiles(playerPosition, panel.ShowCardsPosition, handTiles, pinDraw, player.hasRonWinningTile);
             return;
         }
         for (int i = 0; i < handTiles.Count; i++){
@@ -873,7 +877,9 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     private bool IsRecordShowCardsModeActive(){
-        return RecordSetting.Instance.IsShowCardsMode &&
+        return RecordSetting.Instance != null &&
+               RecordSetting.Instance.IsShowCardsMode &&
+               GameRecordManager.Instance != null &&
                GameRecordManager.Instance.gameObject.activeSelf;
     }
 

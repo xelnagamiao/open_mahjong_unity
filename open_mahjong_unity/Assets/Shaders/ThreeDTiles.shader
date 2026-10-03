@@ -36,7 +36,7 @@ Shader "Custom/ThreeDTiles"
         _BackEdgeColor ("Back Edge Color (背面侧边)", Color) = (0.218, 0.372, 0.66, 1)
 
         _SideTex ("Side Texture (侧面)", 2D) = "white" {}
-        _SideColor ("Side Tint", Color) = (1,1,1,1)
+        _SideColor ("Side Tint", Color) = (0.9019608,0.9019608,0.8941176,1)
         _SideTilingOffset ("Side Tiling & Offset", Vector) = (1,1,0,0)
         _FrontEdgeColor ("Front Edge Color (正面边缘)", Color) = (1,1,1,1)
         _FrontTexExtendEdge ("Front Tex Extend Edge", Range(0, 1)) = 0
@@ -50,8 +50,11 @@ Shader "Custom/ThreeDTiles"
         _TileShadeTint ("Tile Shadow Tone", Color) = (0.81132,0.81132,0.81132,1)
         _TileLightThreshold ("Tile Light Threshold", Range(-1,1)) = 0.08
         _TileLightTransition ("Tile Tone Transition", Range(0.001,0.2)) = 0.1
-        _TileShadowStrength ("Tile Receive Shadow", Range(0,1)) = 0.16
-        _TileWhiteCompression ("White Softening (paper white)", Range(0,0.4)) = 0.28
+        // Direction toward the light in tabletop coordinates: +Y up, +Z away from self.
+        _TileLightDirection ("Tile Light Direction (table space)", Vector) = (0,0.89377,0.44853,0)
+        _TileLightDirectionBlend ("Tile Light Direction Blend", Range(0,1)) = 1
+        [HideInInspector] _TileLightUseTableFrame ("Use Table Light Frame", Float) = 1
+        _TileWhiteCompression ("White Softening (paper white)", Range(0,0.4)) = 0.1
     }
 
     SubShader
@@ -78,8 +81,6 @@ Shader "Custom/ThreeDTiles"
             #pragma target 3.0
             #pragma vertex Vert
             #pragma fragment Frag
-            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
-            #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
             #pragma multi_compile_instancing
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -121,7 +122,6 @@ Shader "Custom/ThreeDTiles"
                 float2 uvFront : TEXCOORD0;
                 float2 uvBack : TEXCOORD1;
                 float2 uvSide : TEXCOORD2;
-                float3 positionWS : TEXCOORD3;
                 float3 normalOS : TEXCOORD4;
                 half4 color : COLOR;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
@@ -144,7 +144,6 @@ Shader "Custom/ThreeDTiles"
                 UNITY_TRANSFER_INSTANCE_ID(input, output);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
                 output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
-                output.positionWS = TransformObjectToWorld(input.positionOS.xyz);
                 output.normalOS = input.normalOS;
                 output.uvFront = input.uv0;
                 output.uvBack = input.uv1;
@@ -279,10 +278,12 @@ Shader "Custom/ThreeDTiles"
                 // Flat caps and distinct bevel bands are authored in the mesh.
                 // Use those normals with the same matte tones on every surface.
                 float3 normalWS = TransformObjectToWorldNormal(normalize(input.normalOS));
-                Light key = GetMainLight(TransformWorldToShadowCoord(input.positionWS),
-                    input.positionWS, half4(1,1,1,1));
+                // Grounding comes from TileContactShadow; real-time shadow maps
+                // must not change the authored matte tones or add a second shadow.
+                Light key = GetMainLight();
                 half3 keyColor = saturate(key.color * key.distanceAttenuation);
-                half ndl = dot(normalWS, key.direction);
+                float3 lightDirection = ResolveTileLightDirection(key.direction);
+                half ndl = dot(normalWS, lightDirection);
                 // A lit bevel must not create a white rim around a shaded cap.
                 // Keep authored bevel shadows, but cap its diffuse brightness at
                 // the adjoining face's light response. Body/top planes use their
@@ -290,15 +291,13 @@ Shader "Custom/ThreeDTiles"
                 if (max(input.color.r, input.color.g) > 0.0001h)
                 {
                     float3 capNormalOS = float3(0, 0, input.color.g > input.color.r ? 1 : -1);
-                    half capNdl = dot(TransformObjectToWorldNormal(capNormalOS), key.direction);
+                    half capNdl = dot(TransformObjectToWorldNormal(capNormalOS), lightDirection);
                     ndl = min(ndl, capNdl);
                 }
                 half band = saturate((ndl - _TileLightThreshold) / max(_TileLightTransition, 0.001h));
                 half3 shadowTone = saturate(_TileShadeTint.rgb);
                 col.rgb *= lerp(shadowTone, half3(1,1,1), band);
                 col.rgb *= 0.20h + 0.80h * keyColor;
-                col.rgb *= lerp(half3(1,1,1), shadowTone,
-                    (1.0h - key.shadowAttenuation) * saturate(_TileShadowStrength));
 
                 // Compress only the neutral light above the paper-white knee.
                 // For neutral x > .55, y = .55 + (x - .55) * (1 - k/.45).
@@ -392,79 +391,6 @@ Shader "Custom/ThreeDTiles"
             half4 HullFrag(HullVaryings input) : SV_Target
             {
                 return _TileHullOutlineColor;
-            }
-            ENDHLSL
-        }
-
-        Pass
-        {
-            Name "ShadowCaster"
-            Tags { "LightMode" = "ShadowCaster" }
-
-            ZWrite On
-            ZTest LEqual
-            ColorMask 0
-            Cull Back
-
-            HLSLPROGRAM
-            #pragma target 3.0
-            #pragma vertex ShadowPassVertex
-            #pragma fragment ShadowPassFragment
-            #pragma multi_compile_instancing
-            #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
-
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
-            #include "ThreeDTilesInput.hlsl"
-
-            float3 _LightDirection;
-            float3 _LightPosition;
-
-            struct Attributes
-            {
-                float4 positionOS : POSITION;
-                float3 normalOS : NORMAL;
-                UNITY_VERTEX_INPUT_INSTANCE_ID
-            };
-
-            struct Varyings
-            {
-                float4 positionCS : SV_POSITION;
-                UNITY_VERTEX_INPUT_INSTANCE_ID
-                UNITY_VERTEX_OUTPUT_STEREO
-            };
-
-            float4 GetShadowPositionHClip(Attributes input)
-            {
-                float3 positionWS = TransformObjectToWorld(input.positionOS.xyz);
-                float3 normalWS = TransformObjectToWorldNormal(input.normalOS);
-            #if _CASTING_PUNCTUAL_LIGHT_SHADOW
-                float3 lightDirectionWS = normalize(_LightPosition - positionWS);
-            #else
-                float3 lightDirectionWS = _LightDirection;
-            #endif
-                float4 positionCS = TransformWorldToHClip(ApplyShadowBias(positionWS, normalWS, lightDirectionWS));
-            #if UNITY_REVERSED_Z
-                positionCS.z = min(positionCS.z, UNITY_NEAR_CLIP_VALUE);
-            #else
-                positionCS.z = max(positionCS.z, UNITY_NEAR_CLIP_VALUE);
-            #endif
-                return positionCS;
-            }
-
-            Varyings ShadowPassVertex(Attributes input)
-            {
-                Varyings output = (Varyings)0;
-                UNITY_SETUP_INSTANCE_ID(input);
-                UNITY_TRANSFER_INSTANCE_ID(input, output);
-                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
-                output.positionCS = GetShadowPositionHClip(input);
-                return output;
-            }
-
-            half4 ShadowPassFragment(Varyings input) : SV_Target
-            {
-                return 0;
             }
             ENDHLSL
         }

@@ -14,8 +14,9 @@ function buildUrl(path: string): string {
   return new URL(`${API_PREFIX}${normalized}`, window.location.origin).toString()
 }
 
-export async function publicApiGet<T>(path: string): Promise<T> {
+export async function publicApiGet<T>(path: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(buildUrl(path), {
+    signal,
     headers: { Accept: 'application/json' },
     credentials: 'same-origin',
   })

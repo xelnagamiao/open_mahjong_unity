@@ -8,6 +8,7 @@ using Newtonsoft.Json.Linq;
 public partial class GameRecordManager {
     /// <summary>当前推演节点对应的场供立直棒数（开局值 + 宣告立直 - 和牌收走）。</summary>
     private int recordRiichiSticks;
+    private int recordInitialRiichiSticks;
 
     /// <summary>是否已在本局推演中经过「和牌收走场供」节点（用于 3D 立直棒与场供计数一致）。</summary>
     private bool recordRiichiTenbousClearedAfterHu;
@@ -16,10 +17,10 @@ public partial class GameRecordManager {
         return RecordManifest()?.RecordTracksRiichiField == true;
     }
 
-    /// <summary>立直牌谱起手分（按 original 0~3）。非立直规则返回全 0。</summary>
+    /// <summary>立直及香港牌谱起手分（按 original 0~3），从牌谱读取，不按当前规则回推。</summary>
     private int[] GetRecordStartingScoresByOriginal() {
         var scores = new int[4];
-        if (!IsRiichiRuleRecord() || gameRecord?.gameTitle == null) return scores;
+        if ((!IsRiichiRuleRecord() && !IsHongKongRecord()) || gameRecord?.gameTitle == null) return scores;
         var gt = gameRecord.gameTitle;
         if (gt.TryGetValue("starting_scores", out object arrObj)) {
             if (arrObj is JArray arr && arr.Count >= 4) {
@@ -36,7 +37,7 @@ public partial class GameRecordManager {
         return scores;
     }
 
-    /// <summary>立直牌谱统一起手分；须写入 starting_score，缺失返回 0。</summary>
+    /// <summary>牌谱统一起手分；须写入 starting_score，缺失返回 0。</summary>
     private static int ReadRecordStartingScoreUniform(Dictionary<string, object> gt) {
         int explicitScore = ReadGameTitleInt(gt, "starting_score", -1);
         return explicitScore >= 0 ? explicitScore : 0;
@@ -60,10 +61,13 @@ public partial class GameRecordManager {
     /// </summary>
     private void ResetRecordRiichiFieldState(Round roundData) {
         recordRiichiDoraIndicators.Clear();
-        if (roundData?.tilesList != null && roundData.tilesList.Count >= 6) {
+        if (roundData?.riichi?.doraMarker >= 10) {
+            recordRiichiDoraIndicators.Add(roundData.riichi.doraMarker);
+        } else if (roundData?.tilesList != null && roundData.tilesList.Count >= 6) {
             recordRiichiDoraIndicators.Add(roundData.tilesList[roundData.tilesList.Count - 6]);
         }
         recordRiichiSticks = roundData?.riichi?.riichiSticks ?? 0;
+        recordInitialRiichiSticks = recordRiichiSticks;
         recordRiichiTenbousClearedAfterHu = false;
     }
 
@@ -71,8 +75,33 @@ public partial class GameRecordManager {
         recordRiichiDoraIndicators.Add(doraTile);
     }
 
-    private void ApplyRecordRiichiDeclare() {
+    private void ApplyRecordRiichiFinalScores() {
+        if (!IsRiichiRuleRecord() || gameRecord?.gameTitle == null) return;
+        foreach (int round in gameRecord.gameRound.rounds.Keys) if (round > currentRoundIndex) return;
+        if (!gameRecord.gameTitle.TryGetValue("riichi_final_scores", out object raw)) return;
+        JArray scores = raw as JArray;
+        if (scores == null || scores.Count != 4) return;
+        var deltas = new Dictionary<int, int>();
+        foreach (var player in recordPlayerList) {
+            deltas[player.playerIndex] = (int)scores[player.originalPlayerIndex] - player.score;
+        }
+        ApplyScoreDeltas(deltas, out _, out _);
+        recordRiichiSticks = ReadGameTitleInt(gameRecord.gameTitle, "riichi_final_sticks", recordRiichiSticks);
+        recordRiichiTenbousClearedAfterHu = true;
+    }
+
+    private void ApplyRecordRiichiDeclare(int playerIndex) {
         recordRiichiSticks++;
+        ApplyScoreDeltas(new Dictionary<int, int> { [playerIndex] = -1000 }, out _, out _);
+    }
+
+    private void ApplyRecordRiichiSettlement(List<string> tick) {
+        if (HuFanContainsCuohe(ParseHuFanList(tick, 5))) {
+            recordRiichiSticks = recordInitialRiichiSticks;
+            recordRiichiTenbousClearedAfterHu = true;
+        } else {
+            ApplyRecordRiichiSticksCollected(tick.Count > 11 ? ParseTickInt(tick, 11) : 0);
+        }
     }
 
     private void ApplyRecordRiichiSticksCollected(int collected) {

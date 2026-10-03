@@ -1,4 +1,4 @@
-﻿# 长沙麻将牌堆初始化
+# 长沙麻将牌堆初始化
 import random
 from ..public.random_seed_manager import derive_round_seed
 

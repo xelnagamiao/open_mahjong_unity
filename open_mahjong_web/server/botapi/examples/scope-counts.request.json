@@ -1,0 +1,7 @@
+{
+  "method": "GET",
+  "url": "https://salasasa.cn/api/bot/player/scope-counts/10000001?rule=qingque",
+  "headers": {
+    "Authorization": "Bearer <你的 Bot API 令牌>"
+  }
+}

@@ -1,5 +1,7 @@
 using System;
 using System.Collections;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
@@ -10,6 +12,8 @@ using UnityEngine.Networking;
 /// Canonical link: https://salasasa.cn/game-unity?recordId={gameId}
 /// </summary>
 public sealed class SharedRecordLink : MonoBehaviour {
+    public const string LocalConvertedGameId = "localconverted";
+
     private const float SceneReadyTimeoutSeconds = 15f;
     private static readonly Regex GameIdPattern =
         new Regex("^[0-9A-Za-z]{1,16}$", RegexOptions.CultureInvariant);
@@ -21,6 +25,17 @@ public sealed class SharedRecordLink : MonoBehaviour {
     private static int? _pendingNode;
     private bool _isLoading;
     private string _queuedGameId;
+    private bool _localConvertedReady;
+    private byte[] _localConvertedBytes;
+    private string _localConvertedError;
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+    [DllImport("__Internal")]
+    static extern void LocalConvertedRecordLoad(string gameObjectName, string methodName);
+
+    [DllImport("__Internal")]
+    static extern int LocalConvertedRecordCopy(IntPtr dst, int maxLen);
+#endif
 
     /// <summary>
     /// True only while a replay opened through a public 3D share URL is active.
@@ -30,6 +45,11 @@ public sealed class SharedRecordLink : MonoBehaviour {
 
     public static string BuildShareUrl(string gameId) {
         return $"{ConfigManager.webUrl}/game-unity?recordId={Uri.EscapeDataString(gameId)}";
+    }
+
+    /// <summary>round 为从 1 开始的小局索引，node 为当前已执行的动作数。</summary>
+    public static string BuildShareUrl(string gameId, int round, int node) {
+        return $"{BuildShareUrl(gameId)}&round={Math.Max(1, round)}&node={Math.Max(0, node)}";
     }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -167,6 +187,11 @@ public sealed class SharedRecordLink : MonoBehaviour {
 
     private IEnumerator FetchAndOpen(string gameId) {
         IsPublicSharePlayback = false;
+        if (IsLocalConvertedGameId(gameId)) {
+            yield return OpenLocalConvertedRecord();
+            yield break;
+        }
+
         string apiRoot = string.IsNullOrEmpty(ConfigManager.webApiUrl)
             ? ""
             : ConfigManager.webApiUrl.TrimEnd('/');
@@ -199,36 +224,153 @@ public sealed class SharedRecordLink : MonoBehaviour {
                 yield break;
             }
 
-            float deadline = Time.realtimeSinceStartup + SceneReadyTimeoutSeconds;
-            while (WindowsManager.Instance == null && Time.realtimeSinceStartup < deadline) {
-                yield return null;
-            }
-
-            if (WindowsManager.Instance == null) {
-                ClearPendingJump();
-                Debug.LogError("打开分享牌谱失败：窗口管理器未就绪");
-                yield break;
-            }
-
-            IsPublicSharePlayback = true;
-            // GameRecordManager lives under the inactive game panel. Activate the
-            // record scene first; waiting for it before switching creates a deadlock.
-            WindowsManager.Instance.SwitchWindow("recordscene");
-
-            deadline = Time.realtimeSinceStartup + SceneReadyTimeoutSeconds;
-            while (GameRecordManager.Instance == null && Time.realtimeSinceStartup < deadline) {
-                yield return null;
-            }
-
-            if (GameRecordManager.Instance == null) {
-                ClearPendingJump();
-                Debug.LogError("打开分享牌谱失败：3D 牌谱场景未能初始化");
-                AppSession.ReturnToLogin();
-                yield break;
-            }
-
-            RecordPanel.OpenRecord(detail);
+            yield return PlayPublicRecord(detail);
         }
+    }
+
+    public static bool IsLocalConvertedGameId(string gameId) {
+        return string.Equals(gameId, LocalConvertedGameId, StringComparison.Ordinal);
+    }
+
+    private IEnumerator OpenLocalConvertedRecord() {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        _localConvertedReady = false;
+        _localConvertedBytes = null;
+        _localConvertedError = null;
+        try {
+            LocalConvertedRecordLoad(gameObject.name, nameof(OnLocalConvertedReady));
+        } catch (Exception e) {
+            ClearPendingJump();
+            ShowTip("无法打开牌谱", false, e.Message);
+            yield break;
+        }
+
+        float deadline = Time.realtimeSinceStartup + SceneReadyTimeoutSeconds;
+        while (!_localConvertedReady && Time.realtimeSinceStartup < deadline) {
+            yield return null;
+        }
+
+        if (!_localConvertedReady) {
+            ClearPendingJump();
+            ShowTip("无法打开牌谱", false, "读取本地转换牌谱超时");
+            yield break;
+        }
+
+        if (!string.IsNullOrEmpty(_localConvertedError)
+            || _localConvertedBytes == null
+            || _localConvertedBytes.Length == 0) {
+            ClearPendingJump();
+            ShowTip(
+                "无法打开牌谱",
+                false,
+                string.IsNullOrEmpty(_localConvertedError)
+                    ? "本地牌谱已失效，请返回转换工具重新转换"
+                    : _localConvertedError
+            );
+            yield break;
+        }
+
+        RecordDetail detail;
+        try {
+            string json = Encoding.UTF8.GetString(_localConvertedBytes);
+            detail = JObject.Parse(json).ToObject<RecordDetail>();
+            if (detail == null || detail.record == null) {
+                throw new InvalidOperationException("本地牌谱数据无效");
+            }
+        } catch (Exception e) {
+            ClearPendingJump();
+            Debug.LogError($"解析本地转换牌谱失败: {e}");
+            ShowTip("无法打开牌谱", false, $"牌谱数据解析失败：{e.Message}");
+            yield break;
+        }
+
+        yield return PlayPublicRecord(detail, localPlayback: true);
+#else
+        ClearPendingJump();
+        ShowTip("无法打开牌谱", false, "请在网页 3D 中打开转换牌谱");
+        yield break;
+#endif
+    }
+
+    public void OnLocalConvertedReady(string message) {
+        try {
+            if (message == "empty") {
+                _localConvertedBytes = null;
+                _localConvertedError = null;
+                return;
+            }
+            if (string.IsNullOrEmpty(message) || message.StartsWith("error|", StringComparison.Ordinal)) {
+                _localConvertedBytes = null;
+                _localConvertedError = message != null && message.Length > 6
+                    ? message.Substring(6)
+                    : "无法读取本地转换牌谱";
+                return;
+            }
+            if (!message.StartsWith("ok|", StringComparison.Ordinal)
+                || !int.TryParse(message.Substring(3), out int length)
+                || length < 0) {
+                _localConvertedBytes = null;
+                _localConvertedError = "本地转换牌谱回调无效";
+                return;
+            }
+            _localConvertedError = null;
+            _localConvertedBytes = length == 0 ? Array.Empty<byte>() : CopyLocalConvertedBytes(length);
+        } finally {
+            _localConvertedReady = true;
+        }
+    }
+
+    private IEnumerator PlayPublicRecord(RecordDetail detail, bool localPlayback = false) {
+        float deadline = Time.realtimeSinceStartup + SceneReadyTimeoutSeconds;
+        while (WindowsManager.Instance == null && Time.realtimeSinceStartup < deadline) {
+            yield return null;
+        }
+
+        if (WindowsManager.Instance == null) {
+            ClearPendingJump();
+            Debug.LogError("打开分享牌谱失败：窗口管理器未就绪");
+            yield break;
+        }
+
+        IsPublicSharePlayback = true;
+        // GameRecordManager lives under the inactive game panel. Activate the
+        // record scene first; waiting for it before switching creates a deadlock.
+        WindowsManager.Instance.SwitchWindow("recordscene");
+
+        deadline = Time.realtimeSinceStartup + SceneReadyTimeoutSeconds;
+        while (GameRecordManager.Instance == null && Time.realtimeSinceStartup < deadline) {
+            yield return null;
+        }
+
+        if (GameRecordManager.Instance == null) {
+            ClearPendingJump();
+            Debug.LogError("打开分享牌谱失败：3D 牌谱场景未能初始化");
+            AppSession.ReturnToLogin();
+            yield break;
+        }
+
+        RecordPanel.OpenRecord(detail, localPlayback);
+    }
+
+    static byte[] CopyLocalConvertedBytes(int length) {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        byte[] bytes = new byte[length];
+        GCHandle handle = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+        try {
+            int copied = LocalConvertedRecordCopy(handle.AddrOfPinnedObject(), length);
+            if (copied != length) {
+                if (copied <= 0) return null;
+                var trimmed = new byte[copied];
+                Buffer.BlockCopy(bytes, 0, trimmed, 0, copied);
+                return trimmed;
+            }
+            return bytes;
+        } finally {
+            handle.Free();
+        }
+#else
+        return null;
+#endif
     }
 
     /// <summary>

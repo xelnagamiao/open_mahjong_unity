@@ -38,7 +38,7 @@ test('empty and invalid stored rows return fresh independent defaults matching t
   assert.deepEqual(first.manual.room_config, {
     room_name: '', sub_rule: 'guobiao/standard', game_round: 4, round_timer: 20,
     step_timer: 5, tips: false, tourist_limit: false, allow_spectator: true,
-    hepai_limit: 8, open_cuohe: false, cuohe_type: 0, tactical_call: true, claim_protection: true,
+    hepai_limit: 8, open_cuohe: false, cuohe_type: 0, tactical_call: true, claim_protection: true, use_flowers: true,
   });
   assert.deepEqual(first.auto_match, { enabled: false, ...first.manual, updated_by: null });
   assert.deepEqual(readRoomSettings('not-json'), first);
@@ -323,4 +323,80 @@ test('a full v1 preset list preserves all 50 rows plus its automatic custom conf
   const renamed = change(migrated, 'preset-update', { name: '旧比赛重命名' }, { presetId: 'old-1' }).settings;
   assert.equal(renamed.presets.length, 51);
   assert.equal(renamed.auto_match.room_config.step_timer, 17);
+});
+
+
+test('riichi starting points persist in presets and automatic snapshots only for riichi', () => {
+  const initial = readRoomSettings({});
+  const { settings } = change(initial, 'manual', { room_rule: 'riichi', room_config: { starting_score: 30000 } });
+  assert.equal(settings.manual.room_config.starting_score, 30000);
+  assert.equal(settings.auto_match.room_config.starting_score, 30000);
+  assert.equal(readRoomSettings(settings).manual.room_config.starting_score, 30000);
+  const preset = createPreset(initial, 'riichi-30k', { room_rule: 'riichi', room_config: { starting_score: 30000 } });
+  assert.equal(preset.settings.presets[0].room_config.starting_score, 30000);
+  assert.equal(change(initial, 'manual', { room_rule: 'riichi', room_config: {} }).settings.manual.room_config.starting_score, 25000);
+  for (const starting_score of [null, false, '30000', 0, 999, 1000001, 25001, 30000.5]) {
+    assert.throws(() => change(initial, 'manual', { room_rule: 'riichi', room_config: { starting_score } }), /起始点数/);
+  }
+  for (const room_rule of ['guobiao', 'taiwan']) {
+    assert.throws(() => change(initial, 'manual', { room_rule, room_config: { starting_score: 30000 } }), /不支持/);
+  }
+});
+
+test('Guobiao defaults to flowers, preserves explicit no-flowers presets, and Lanshi forces no flowers', () => {
+  const base = readRoomSettings({});
+  assert.equal(base.manual.room_config.use_flowers, true);
+  const { settings } = createPreset(base, 'no-flowers', { room_config: { use_flowers: false } });
+  assert.equal(settings.presets[0].room_config.use_flowers, false);
+  assert.equal(resolveRoomSelection(settings, { revision: settings.revision, preset_id: 'no-flowers' }).room_config.use_flowers, false);
+  assert.equal(change(base, 'manual', { room_config: { sub_rule: 'guobiao/lanshi', use_flowers: true } }).settings.manual.room_config.use_flowers, false);
+  for (const use_flowers of ['false', null, 0, 1]) {
+    assert.throws(() => change(base, 'manual', { room_config: { use_flowers } }), errorStatus(400, /布尔/));
+  }
+  assert.throws(() => change(base, 'manual', { room_rule: 'riichi', room_config: { use_flowers: false } }), errorStatus(400, /不支持/));
+});
+
+test('duplicate keys persist through event defaults and presets while malformed keys are rejected', () => {
+  const initial = readRoomSettings({});
+  const key = `dup_${'a'.repeat(32)}`;
+  const { settings } = change(initial, 'manual', { room_config: { duplicate_key: ` ${key} ` } });
+  assert.equal(settings.manual.room_config.duplicate_key, key);
+  assert.equal(settings.auto_match.room_config.duplicate_key, key);
+  assert.equal(readRoomSettings(settings).manual.room_config.duplicate_key, key);
+  const preset = createPreset(initial, 'duplicate-1', { room_config: { duplicate_key: key } });
+  assert.equal(preset.settings.presets[0].room_config.duplicate_key, key);
+  for (const duplicate_key of [null, false, 42, 'bad-key', `dup_${'A'.repeat(32)}`, `${key}/secret`]) {
+    assert.throws(() => change(initial, 'manual', { room_config: { duplicate_key } }), /复式密钥/);
+  }
+  assert.equal(change(initial, 'manual', { room_config: { duplicate_key: '' } }).settings.manual.room_config.duplicate_key, '');
+  for (const room_rule of ['qingque', 'classical', 'riichi', 'sichuan', 'changsha', 'taiwan']) {
+    assert.throws(() => change(initial, 'manual', { room_rule, room_config: { duplicate_key: key } }), /仅支持国标/);
+    assert.throws(() => createPreset(initial, `duplicate-${room_rule}`, { room_rule, room_config: { duplicate_key: key } }), /仅支持国标/);
+    assert.equal(change(initial, 'manual', { room_rule, room_config: {} }).settings.manual.room_rule, room_rule);
+  }
+});
+
+test('retired non-Guobiao duplicate defaults cannot turn into automatic ordinary games', () => {
+  const stored = {
+    version: 2, revision: 7,
+    manual: { room_rule: 'riichi', room_config: { duplicate_key: `dup_${'b'.repeat(32)}`, red_dora: false, starting_score: 30000, step_timer: 12 } },
+    auto_match: { enabled: true, preset_id: null }, presets: [{
+      preset_id: 'old-riichi', name: '旧日麻预设', room_rule: 'riichi',
+      room_config: { duplicate_key: `dup_${'b'.repeat(32)}`, red_dora: false, starting_score: 40000, round_timer: 42 },
+    }],
+  };
+  const clean = readRoomSettings(stored);
+  assert.equal(clean.auto_match.enabled, false);
+  assert.equal(clean.manual.room_rule, 'riichi');
+  assert.equal(clean.manual.room_config.starting_score, 30000);
+  assert.equal(clean.manual.room_config.step_timer, 12);
+  assert.equal('duplicate_key' in clean.manual.room_config || 'red_dora' in clean.manual.room_config, false);
+  assert.equal(clean.presets[0].preset_id, 'old-riichi');
+  assert.equal(clean.presets[0].room_rule, 'riichi');
+  assert.equal(clean.presets[0].room_config.starting_score, 40000);
+  assert.equal(clean.presets[0].room_config.round_timer, 42);
+  assert.equal('duplicate_key' in clean.presets[0].room_config || 'red_dora' in clean.presets[0].room_config, false);
+  assert.equal(readRoomSettings({ ...stored, auto_match: { enabled: true, preset_id: 'old-riichi' } }).auto_match.enabled, false);
+  assert.equal(stored.manual.room_config.duplicate_key, `dup_${'b'.repeat(32)}`);
+  assert.equal(stored.presets[0].room_config.red_dora, false);
 });

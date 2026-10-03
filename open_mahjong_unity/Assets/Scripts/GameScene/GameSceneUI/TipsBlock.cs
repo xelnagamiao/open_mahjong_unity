@@ -29,7 +29,6 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
             ExcludedSuit = RuleRegistry.ActiveGameState?.ExcludedSuit ?? 0,
         });
         // 如果听牌列表不为空，则显示提示
-        TipsContainer.Instance.UpdateRyuukyokuTenpaiChoice(waitingTiles);
         if (waitingTiles.Count > 0){
             var waitingList = waitingTiles.ToList();
             gameObject.SetActive(true);

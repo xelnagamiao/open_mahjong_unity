@@ -2,3 +2,14 @@
 
 *.bat text eol=crlf
 *.cmd text eol=crlf
+
+# Unity YAML writes trailing spaces for empty values and folded strings.
+# Preserve the serializer's output; source code keeps Git's whitespace checks.
+open_mahjong_unity/Assets/**/*.unity whitespace=-blank-at-eol
+open_mahjong_unity/Assets/**/*.prefab whitespace=-blank-at-eol
+open_mahjong_unity/Assets/**/*.meta whitespace=-blank-at-eol
+
+# Exclude archived Mahjong Library HTML documents from GitHub language stats.
+other/rule/research/**/*.html linguist-documentation=true
+open_mahjong_web/client/public/rule-research/**/*.html linguist-documentation=true
+open_mahjong_web/client/public/rulebooks/**/*.html linguist-documentation=true

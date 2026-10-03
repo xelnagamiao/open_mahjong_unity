@@ -1,7 +1,7 @@
 """局终和牌结算演出时长（与客户端 RoundEndTiming 保持一致）。
 
 四川血战终局步间 sleep 须与 SichuanGameState._settle_liuju 顶部 ABCD 顺序注释对齐：
-reveal_hu → settle_hu(非末步 3s；末步仅番种/渐显) → chajiao(非末步 3s；末步 0)
+reveal_hu → settle_hu(非末步 2s；末步仅番种/渐显) → chajiao(非末步 2s；末步 0)
 → waiting_ready(8s，统一承接末步确认；三家和跳过查叫时同样如此)。
 退税已并入查叫面板，不再有独立 cha_refund 步。
 """
@@ -14,7 +14,7 @@ HEPAI_TRAVEL_SEC = 0.2 # 和牌张就位/河牌抓取（无位移动画时也预
 HU_FAN_REVEAL_INTERVAL_SEC = 0.5 # 番种展示间隔时间
 HU_BEFORE_TOTAL_PANEL_SEC = 0.5 # 和牌前总番数展示时间
 HU_CONFIRM_COUNTDOWN_SEC = 8 # 和牌确认倒计时时间
-SICHUAN_MID_PANEL_CONFIRM_SEC = 3.0 # 四川终局非末步面板确认等待
+SICHUAN_MID_PANEL_CONFIRM_SEC = 2.0 # 四川终局非末步面板确认等待
 SICHUAN_CHAJIAO_STATUS_HOLD_SEC = 0.5 # 四川查叫：有叫/没叫/花猪状态展示
 SICHUAN_LIUJU_PANEL_HOLD_SEC = 2.0 # 四川查叫非末步面板停留（不含渐显，已废弃，保留兼容）
 LIUJU_CAPTION_HOLD_SEC = 2 # 流局提示停留时间
@@ -53,7 +53,7 @@ def liuju_ready_wait_seconds(include_hand_reveal: bool = False, has_draw_noten_p
 
 
 def sichuan_settle_hu_panel_wait_seconds(fan_count: int, *, is_final: bool = False) -> float:
-    """四川终局 settle_hu：渐显 + 番种×0.5s + 0.5s 总分；非末步再 +3s。
+    """四川终局 settle_hu：渐显 + 番种×0.5s + 0.5s 总分；非末步再 +2s。
 
     末步确认（8s）由 ready 阶段统一等待，避免三家和跳过查叫时先睡 8s、再进 ready 又睡 8s。
     客户端末步仍播 8s 倒计时，与 ready 阶段重叠对齐。
@@ -70,7 +70,7 @@ SICHUAN_CHAJIAO_REFUND_EXTRA_SEC = 0.5  # 查叫面板含刮风下雨退税时�
 
 
 def sichuan_chajiao_panel_wait_seconds(*, is_final: bool = False, has_refund: bool = False) -> float:
-    """四川查叫非末步：0.5s 状态 + 3s 确认 + 0.35s 渐显间隔；含退税再 +0.5s；末步由 ready 阶段统一等待。"""
+    """四川查叫非末步：0.5s 状态 + 2s 确认 + 0.35s 渐显间隔；含退税再 +0.5s；末步由 ready 阶段统一等待。"""
     if is_final:
         return 0.0
     total = (

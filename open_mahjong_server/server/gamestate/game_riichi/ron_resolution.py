@@ -12,6 +12,19 @@ RON_ORDER = {"hu_first": 0, "hu_second": 1, "hu_third": 2}
 THREE_RON_ABORT_HOLD_SEC = 1.0
 
 
+def valid_ron_result(game_state, action):
+    result = getattr(game_state, 'result_dict', {}).get(action)
+    return result is None or (not result.get('no_yaku') and
+                              int(result.get('han', 0)) >= int(getattr(game_state, 'hepai_limit', 1)))
+
+
+def action_priority(game_state, action):
+    priority = game_state.action_priority[action]
+    if action in RON_HU_ACTIONS:
+        priority += 100 if valid_ron_result(game_state, action) else 10
+    return priority
+
+
 def collect_ron_mode(hepai_way: str) -> bool:
     return hepai_way in ("multi_ron", "three_ron_abort")
 
@@ -27,7 +40,7 @@ def should_interrupt_wait_for_action(game_state, action_type: str, waiting_playe
     do_interrupt = True
     for player_index in waiting_players_list:
         for action in action_dict.get(player_index, []):
-            if game_state.action_priority[action_type] < game_state.action_priority[action]:
+            if action_priority(game_state, action_type) < action_priority(game_state, action):
                 do_interrupt = False
     return do_interrupt
 
@@ -71,6 +84,16 @@ async def resolve_collected_rons(game_state, tile_id: int, ron_eligible_indexes:
         return False
 
     ordered = _ordered_ron_claims(pending)
+    valid = [(pi, action) for pi, action in ordered if valid_ron_result(game_state, action)]
+    if valid:
+        ordered = valid
+    elif len(ordered) > 1:
+        game_state._pending_cuohe_queue = ordered
+        from .wait_action import _broadcast_hu_and_end
+        await _broadcast_hu_and_end(game_state, ordered[0][0], ordered[0][1], tile_id)
+        for pi, _ in ordered[1:]:
+            game_state.player_list[pi].hand_tiles.append(tile_id)
+        return True
     from .wait_action import _apply_passed_ron_furiten
 
     passed = [pi for pi in ron_eligible_indexes if pi not in pending]
@@ -95,7 +118,9 @@ async def resolve_collected_rons(game_state, tile_id: int, ron_eligible_indexes:
 
     # 多家荣和：一起喊荣 → 依次结算
     await _broadcast_ron_claims_together(game_state, ordered)
-    _remove_discard_tile(game_state)
+    from .kan_actions import rob_pending_kan
+    if not await rob_pending_kan(game_state):
+        _remove_discard_tile(game_state)
     for player_index, _action_type in ordered:
         game_state.player_list[player_index].hand_tiles.append(tile_id)
 

@@ -10,6 +10,7 @@ internal static class QingqueRuleBootstrap {
             LobbyOrder = 2,
             LobbySubRules = QingqueLobby.SubRules,
             CreateRoomDefaults = QingqueLobby.Defaults(),
+            DefaultHepaiLimit = 1,
             StatsFanNames = RankConfig.QingqueFanTranslation,
             GameStateFactory = () => new QingqueGameState(),
             Tingpai = QingqueTips.Tingpai,

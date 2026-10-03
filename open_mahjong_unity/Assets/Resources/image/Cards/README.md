@@ -8,6 +8,10 @@
 - `Surfaces/backgrounds`：手牌竖向、横向底图。
 - `Surfaces/backs`：手牌牌背。
 
+`hand-default` / `hand-horizontal` 为原版，保持不变。`hand-indigo`、`hand-amber`、`hand-jade` 为 272×424 的原创柔和倒角版，正反面同尺寸；可编辑 SVG 在工作区 `output/hand-tile-skins-v4`。设计依据和测量误差见该目录的对比报告。
+
+上传的 2D 手牌背景与牌背由 `HandSurfaceLibrary` 管理：本地 `HandSurfaces/v1/*.hsi` 或 IndexedDB `hand-surface/v1/{id}`。一个记录包含自定义名称和图片；恢复原版只切换选项，不删除图库。旧单张上传在首次读取时迁移，旧文件保留。
+
 标准包 `2.png` 是纯白白板使用的空白前景，叠在牌体底色上；`46.png` 保留该包原有的白板花纹。香港麻将保留原来的框式白板，同时提供 hand/table 两份空白 `2.png`。纯白模式不会强制覆盖用户自定义的牌面底色。
 
 上传的 3D 牌背、背景和自定义牌面属于用户存档，不写入 Resources。

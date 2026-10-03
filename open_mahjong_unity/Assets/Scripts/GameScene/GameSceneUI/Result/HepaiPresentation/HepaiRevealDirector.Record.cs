@@ -29,6 +29,8 @@ public static partial class HepaiRevealDirector {
         if (request == null) {
             yield break;
         }
+        // Replay may add its authoritative rob-kong flag after BuildRecordRequest.
+        ManifestOf(request.RecordRule)?.AdjustHepaiPresentation?.Invoke(request, request.IsQianggang);
         yield return Game3DManager.Instance.PlayRecordHepaiReveal(request);
     }
 }

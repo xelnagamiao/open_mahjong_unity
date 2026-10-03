@@ -28,6 +28,11 @@ internal static class HongqueRuleBootstrap {
             ScoreboardFanText = HongqueFanText.ScoreboardFanText,
             SettlementTotal = HongqueFanText.SettlementTotal,
             PlaysGongHuSound = HongqueFanText.PlaysGongHu,
+            // 虹雀自摸也叫"和"，报声同国标
+            ActionCaption = word => word == "hu_self" ? "和" : null,
+            ActionVoice = word => word == "hu_self" ? "hu"
+                // bd 是牌谱中的补牌摸牌节点；虹雀没有此前的补花节点来报声。
+                : word == HongqueActionWords.Supplement || word == "bd" ? "bupai" : null,
         });
         HongqueActionWords.RegisterAll();
     }

@@ -90,8 +90,10 @@ const riichiFanDict = {
 
 const INFO_FAN_DICT = {
   guobiao: guobiaoFanDict,
+  riichi: riichiFanDict,
   qingque: qingqueFanDict,
   classical: classicalFanDict,
+  nanque: require('./nanqueFanDict'),
 };
 
 const GUOBIAO_FAN_KEYS = Object.keys(guobiaoFanDict);

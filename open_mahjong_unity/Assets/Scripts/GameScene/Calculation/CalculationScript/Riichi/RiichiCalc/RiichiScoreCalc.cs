@@ -8,16 +8,16 @@ namespace Riichi {
     /// 返回和牌者从三家收到的总分（不含本场/供托）。
     /// </summary>
     public static class RiichiScoreCalc {
-        public static int CalculateTotalScore(int han, int fu, bool isDealer, bool isTsumo, int yakumanMultiplier) {
+        public static int CalculateTotalScore(int han, int fu, bool isDealer, bool isTsumo, int yakumanMultiplier, bool kiriage = false, string kazoe = "yakuman") {
             int basePoints = yakumanMultiplier > 0
                 ? 8000 * yakumanMultiplier
-                : GetBasePoints(han, fu);
+                : GetBasePoints(han, fu, kiriage, kazoe);
 
             if (isDealer) {
                 if (isTsumo) return CeilTo100(basePoints * 2) * 3;
                 return CeilTo100(basePoints * 6);
             }
-            if (isTsumo) return CeilTo100(basePoints * 2) * 2 + CeilTo100(basePoints);
+            if (isTsumo) return CeilTo100(basePoints * 2) + CeilTo100(basePoints) * 2;
             return CeilTo100(basePoints * 4);
         }
 
@@ -33,13 +33,14 @@ namespace Riichi {
             int winnerScoreDelta,
             int honba,
             int riichiSticksCollected,
-            string[] yaku = null) {
+            string[] yaku = null, bool kiriage = false, string kazoe = "yakuman") {
             if (ContainsCuohe(yaku)) {
                 return StripFieldBonuses(winnerScoreDelta, isTsumo, honba, riichiSticksCollected);
             }
             if (han > 0 && fu > 0) {
-                int yakumanMult = han >= 13 ? han / 13 : 0;
-                return CalculateTotalScore(han, fu, isDealer, isTsumo, yakumanMult);
+                bool trueYakuman = yaku != null && Array.Exists(yaku, IsYakumanName);
+                int yakumanMult = trueYakuman ? Math.Max(1, han / 13) : 0;
+                return CalculateTotalScore(han, fu, isDealer, isTsumo, yakumanMult, kiriage, kazoe);
             }
             return StripFieldBonuses(winnerScoreDelta, isTsumo, honba, riichiSticksCollected);
         }
@@ -58,12 +59,14 @@ namespace Riichi {
             return Math.Max(0, points);
         }
 
-        public static int GetBasePoints(int han, int fu) {
-            if (han >= 13) return 8000;        // 数役满
+        public static int GetBasePoints(int han, int fu, bool kiriage = false, string kazoe = "yakuman") {
+            if (han <= 0) return 0;
+            if (han >= 13) return kazoe == "sanbaiman" ? 6000 : kazoe == "unlimited" ? 8000 * (han / 13) : 8000;
             if (han >= 11) return 6000;        // 三倍满
             if (han >= 8) return 4000;         // 倍满
             if (han >= 6) return 3000;         // 跳满
             int basePoints = fu * (int)Math.Pow(2, han + 2);
+            if (kiriage && basePoints == 1920) return 2000;
             if (han >= 5 || basePoints > 2000) return 2000; // 满贯
             return basePoints;
         }
@@ -80,5 +83,9 @@ namespace Riichi {
             }
             return false;
         }
+        private static bool IsYakumanName(string name) => name == "天和" || name == "地和" || name == "大三元"
+            || name.StartsWith("四暗刻") || name.StartsWith("国士无双") || name == "字一色" || name == "绿一色"
+            || name == "清老头" || name == "小四喜" || name == "大四喜" || name == "四杠子"
+            || name == "九莲宝灯" || name == "纯正九莲宝灯";
     }
 }

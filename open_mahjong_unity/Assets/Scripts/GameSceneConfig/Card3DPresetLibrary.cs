@@ -25,6 +25,14 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
     private object pendingReplay;
     private int pendingReplayOrdinal;
     private Card3DAppearance editorBeforeRuntime;
+    private sealed class RotationEdit
+    {
+        public Card3DRotationMode Mode;
+        public List<string> Ids;
+        public string SelectedId;
+        public Card3DAppearance Appearance;
+    }
+    private RotationEdit rotationEdit;
     public string CurrentRuntimePresetId { get; private set; }
 
     public static Card3DPresetLibrary Ensure(ConfigManager owner)
@@ -80,7 +88,7 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
         if (dirty && !saving) Save();
     }
     private void OnApplicationPause(bool paused) { if (paused) Flush(); }
-    private void OnApplicationQuit() => Flush();
+    private void OnApplicationQuit() { CancelRotationEdit(); Flush(); }
     private void OnDestroy()
     {
         Flush(); if (config != null) config.Card3DAppearanceChanged -= OnAppearanceEdited;
@@ -109,6 +117,7 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
     public bool Add(string name)
     {
         if (!Ready || string.IsNullOrWhiteSpace(name)) return false;
+        CancelRotationEdit();
         BeginEditing();
         name = name.Trim();
         if (Data.All().Any(p => p.name == name)) { ReportError("预设名称已存在，请换一个名称"); return false; }
@@ -121,7 +130,44 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
     public void Select(string id)
     {
         if (!Ready || Data.Find(id) == null) return;
+        CancelRotationEdit();
         BeginEditing(); CaptureEdits(); Apply(id); MarkDirty(); Flush();
+    }
+    public bool Remove(string id)
+    {
+        if (!Ready || Card3DPresetData.IsBuiltin(id) || !Data.custom.Exists(p => p.id == id)) return false;
+        CancelRotationEdit(); BeginEditing(); CaptureEdits();
+        Data.custom.RemoveAll(p => p.id == id);
+        Data.rotationIds.RemoveAll(value => value == id);
+        if (Data.confirmedPresets.RemoveAll(p => p.id == id) > 0) {
+            if (Data.confirmedRotation == Card3DRotationMode.Alternating || Data.confirmedPresets.Count == 0) {
+                Data.confirmedRotation = Card3DRotationMode.None;
+                Data.confirmedPresets.Clear();
+            }
+            Data.confirmedRevision++; Data.ResetRotationCursor();
+        }
+        if ((Data.rotation == Card3DRotationMode.Alternating && Data.rotationIds.Count != 2)
+            || (Data.rotation == Card3DRotationMode.Random && Data.rotationIds.Count == 0))
+            Data.rotation = Card3DRotationMode.None;
+        if (Data.selectedId == id) Apply(Card3DPresetData.BlueId);
+        // Snapshot image files may be shared by other presets; never delete their upload sources.
+        MarkDirty(); WarmTextures(); Changed?.Invoke(); Flush(); return true;
+    }
+    public void BeginRotationEdit()
+    {
+        if (!Ready || rotationEdit != null) return;
+        BeginEditing(); CaptureEdits(); Flush();
+        rotationEdit = new RotationEdit { Mode = Data.rotation, Ids = new List<string>(Data.rotationIds),
+            SelectedId = Data.selectedId, Appearance = captureAppearance().Copy() };
+    }
+    public void CancelRotationEdit()
+    {
+        if (rotationEdit == null) return;
+        var previous = rotationEdit; rotationEdit = null;
+        Data.rotation = previous.Mode; Data.rotationIds = previous.Ids;
+        edited = false;
+        Apply(previous.SelectedId, previous.Appearance);
+        MarkDirty(); Flush();
     }
     private void Apply(string id, Card3DAppearance appearance = null)
     {
@@ -136,21 +182,23 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
     public void SetRotation(Card3DRotationMode mode)
     {
         if (!Ready || Data.rotation == mode) return;
+        if (mode == Card3DRotationMode.None) CancelRotationEdit(); else BeginRotationEdit();
         BeginEditing(); CaptureEdits(); Data.rotation = mode; Data.Normalize();
         // No-rotation is an explicit immediate off action; other modes remain drafts until Confirm.
         if (mode == Card3DRotationMode.None) {
             Data.confirmedRotation = mode; Data.confirmedPresets.Clear(); Data.confirmedRevision++; Data.ResetRotationCursor();
         }
-        MarkDirty(); WarmTextures(); Changed?.Invoke(); Flush();
+        WarmTextures(); Changed?.Invoke();
+        if (mode == Card3DRotationMode.None) { MarkDirty(); Flush(); }
     }
     public bool SetIncluded(string id, bool included)
     {
-        if (!Ready) return false;
-        BeginEditing(); CaptureEdits();
+        if (!Ready || Data.rotation == Card3DRotationMode.None) return false;
+        BeginRotationEdit();
         if (!Data.SetIncluded(id, included, out bool first)) return false;
         // Only an empty -> one transition immediately synchronizes the scene.
         if (first) Apply(id);
-        MarkDirty(); WarmTextures(); Changed?.Invoke(); Flush(); return true;
+        WarmTextures(); Changed?.Invoke(); return true;
     }
     public bool ConfirmRotation()
     {
@@ -168,6 +216,7 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
             Data.confirmedPresets = snapshots; Data.confirmedRotation = Data.rotation;
             Data.confirmedRevision++; Data.ResetRotationCursor();
             if (snapshots.Count > 0 && Data.rotation != Card3DRotationMode.None) Apply(snapshots[0].id, snapshots[0].appearance);
+            rotationEdit = null;
             MarkDirty(); WarmTextures(); Changed?.Invoke(); Flush(); return true;
         } catch (Exception e) { ReportError("无法确认轮转，原配置已保留：" + e.Message); return false; }
     }
@@ -193,6 +242,7 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
     {
         if (!Ready) return;
         // Preserve saved user presets; the caller is resetting the working scene, not the library.
+        rotationEdit = null;
         edited = false; Data.selectedId = Card3DPresetData.BlueId;
         Data.rotation = Card3DRotationMode.None; Data.rotationIds.Clear(); Data.ResetRotationCursor();
         Data.confirmedRotation = Card3DRotationMode.None; Data.confirmedPresets.Clear(); Data.confirmedRevision++;
@@ -203,6 +253,7 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
         if (info == null) return;
         pendingReplay = null;
         if (!Ready) { pendingRound = info; return; }
+        CancelRotationEdit();
         CaptureEdits();
         // Per-hand history length and honba distinguish repeated round numbers (including renchan).
         int history = info.players_info == null || info.players_info.Length == 0 ? 0 : info.players_info.Max(p => p?.score_history?.Length ?? 0);
@@ -218,6 +269,7 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
         if (record == null || ordinal < 0) return;
         pendingRound = null;
         if (!Ready) { pendingReplay = record; pendingReplayOrdinal = ordinal; return; }
+        CancelRotationEdit();
         CaptureEdits();
         string id = Data.ReplayRound(record, ordinal, random);
         if (id == null) return;
@@ -227,6 +279,7 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
     {
         var list = new List<Card3DAppearance> { captureAppearance() };
         if (editorBeforeRuntime != null) list.Add(editorBeforeRuntime);
+        if (rotationEdit != null) list.Add(rotationEdit.Appearance);
         var selected = Data.Find(Data.selectedId); if (selected != null) list.Add(selected.appearance);
         if (Data.rotation != Card3DRotationMode.None)
             foreach (string id in Data.rotationIds) { var p = Data.Find(id); if (p != null) list.Add(p.appearance); }
@@ -243,7 +296,14 @@ public sealed class Card3DPresetLibrary : MonoBehaviour
     private void Save()
     {
         saving = true; int writingRevision = revision;
-        storage.Write(JsonUtility.ToJson(Data), () => {
+        // Other saves (pause, automatic edits) must not persist an unconfirmed dialog.
+        var persisted = Data;
+        if (rotationEdit != null) {
+            persisted = JsonUtility.FromJson<Card3DPresetData>(JsonUtility.ToJson(Data));
+            persisted.rotation = rotationEdit.Mode; persisted.rotationIds = rotationEdit.Ids;
+            persisted.selectedId = rotationEdit.SelectedId;
+        }
+        storage.Write(JsonUtility.ToJson(persisted), () => {
             saving = false; dirty = revision != writingRevision;
             if (dirty && this != null) Save();
         }, error => {

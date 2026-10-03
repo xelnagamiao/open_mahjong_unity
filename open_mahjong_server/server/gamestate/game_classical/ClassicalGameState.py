@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 import time
 import logging
 import math
-from .action_check import check_action_after_cut, check_action_jiagang, check_action_buhua, check_action_hand_action, refresh_waiting_tiles, check_kokushi, check_jiuzhongjiupai
+from .action_check import check_action_hand_action, refresh_waiting_tiles, check_kokushi, check_jiuzhongjiupai
 from .wait_action import wait_action
 from .boardcast import (
     broadcast_game_start,
@@ -20,12 +20,12 @@ from .boardcast import (
     reconnected_send_pending_ask,
     send_realtime_spectator_snapshot,
 )
-from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, assign_strict_final_ranks
+from ..public.logic_common import next_current_index, next_current_num, assign_strict_final_ranks
 from .init_tiles import init_classical_tiles
 from ..public.next_game_round import next_game_round_classical_switchseat
 from ..public.spectator_rules import too_many_ai_for_spectator
 from ..public.vote_manager import vote_checkpoint
-from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_angang, player_action_record_jiagang, player_action_record_chipenggang, player_action_record_hu, player_action_record_liuju, player_action_record_jiuzhongjiupai, player_action_record_shuhewei, player_action_record_round_end, end_game_record, build_score_changes_by_seat, build_score_changes_dict, capture_player_entry_order, remember_local_record_detail
+from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_hu, player_action_record_liuju, player_action_record_jiuzhongjiupai, player_action_record_shuhewei, player_action_record_round_end, end_game_record, build_score_changes_by_seat, build_score_changes_dict, capture_player_entry_order, remember_local_record_detail
 from ..public.round_end_timing import (
     liuju_ready_wait_seconds,
     shuhewei_ready_wait_seconds,
@@ -122,6 +122,8 @@ class ClassicalGameState:
 
         self.room_id = room_data["room_id"]
         self.tips = room_data["tips"]
+        self.count_tips = bool(room_data.get("count_tips", False))
+        self.pointer_tips = bool(room_data.get("pointer_tips", True))
         self.max_round = room_data["game_round"]
         self.step_time = room_data["step_timer"]
         self.round_time = room_data["round_timer"]
@@ -155,7 +157,6 @@ class ClassicalGameState:
         self.result_dict = {}
         self.hu_class = None
         self.jiagang_tile = None
-        self.temp_fan = []
 
         self.action_events: Dict[int, asyncio.Event] = {0: asyncio.Event(), 1: asyncio.Event(), 2: asyncio.Event(), 3: asyncio.Event()}
         self.action_queues: Dict[int, asyncio.Queue] = {0: asyncio.Queue(), 1: asyncio.Queue(), 2: asyncio.Queue(), 3: asyncio.Queue()}
@@ -199,13 +200,8 @@ class ClassicalGameState:
         if newly_offline:
             from ..public.offline import schedule_offline_auto_on_disconnect
             schedule_offline_auto_on_disconnect(self, user_id)
-
-        non_ai_players = [p for p in self.player_list if p.user_id >= 10]
-        if non_ai_players:
-            all_offline = all("offline" in p.tag_list for p in non_ai_players)
-            if all_offline:
-                logger.info(f"所有非AI玩家都已掉线，开始清理gamestate，room_id: {self.room_id}, gamestate_id: {self.gamestate_id}")
-                await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
+        from ..public.lifecycle import close_if_all_humans_offline
+        await close_if_all_humans_offline(self)
 
     async def player_reconnect(self, user_id: int):
         for p in self.player_list:
@@ -222,6 +218,8 @@ class ClassicalGameState:
                         'room_id': self.room_id,
                         'gamestate_id': self.gamestate_id,
                         'tips': self.tips,
+                        "count_tips": self.count_tips,
+            "pointer_tips": self.pointer_tips,
                         'current_player_index': self.current_player_index,
                         "action_tick": self.server_action_tick,
                         'max_round': self.max_round,
@@ -260,6 +258,7 @@ class ClassicalGameState:
                             'score': player.score,
                             "title_used": player.title_used,
                             'profile_used': player.profile_used,
+                            "avatar_frame_used": getattr(player, "avatar_frame_used", 0),
                             'character_used': player.character_used,
                             'voice_used': player.voice_used,
                             'score_history': player.score_history,
@@ -346,11 +345,12 @@ class ClassicalGameState:
             init_classical_tiles(self)
             self.backward_tiles_list_type = "double"
 
+            # d/c 不带座位，牌谱不写 reset。局头快照前指向庄家。
+            self.current_player_index = 0
             await self.broadcast_game_start()
             init_game_round(self)
 
             self.game_status = "waiting_hand_action"
-            self.current_player_index = 0
             self.dihe_possible = True
 
             # ===== 开局预检测轮：按玩家0-3顺序检查国士无双和九老峰回 =====
@@ -664,10 +664,6 @@ class ClassicalGameState:
 
         await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
 
-        if self.room_type == "match":
-            await self.game_server.room_manager.destroy_room(self.room_id)
-        else:
-            await self.game_server.room_manager.finish_custom_game_room(self.room_id)
         logger.info(f"游戏实例已清理，room_id: {self.room_id},goodbye!")
 
     # ========== 数和尾结算 ==========

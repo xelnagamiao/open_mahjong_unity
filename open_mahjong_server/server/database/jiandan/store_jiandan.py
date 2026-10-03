@@ -106,8 +106,8 @@ def store_jiandan_game_record(
             return None
 
         title = game_record.get("game_title") or {}
-        rule = title.get("rule", "jiandan")
-        sub_rule = title.get("sub_rule", "jiandan/standard")
+        rule = title.get("rule", "zhongyong")
+        sub_rule = title.get("sub_rule", "zhongyong/nanque")
         match_tier = title.get("match_tier")
         event_id = title.get("event_id")
         from ..scene_stats import normalize_scene_fields
@@ -121,11 +121,10 @@ def store_jiandan_game_record(
                         game_id, user_id, username, score, rank,
                         original_player_index, rule, sub_rule, match_type,
                         room_type, match_tier, event_id, title_used,
-                        character_used, profile_used, voice_used
+                        character_used, profile_used, voice_used, avatar_frame_used
                     ) VALUES (
                         %s, %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s, %s, %s
-                    )
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         game_id,
@@ -144,6 +143,7 @@ def store_jiandan_game_record(
                         getattr(player, "character_used", None),
                         getattr(player, "profile_used", None),
                         getattr(player, "voice_used", None),
+                        getattr(player, "avatar_frame_used", 0),
                     ),
                 )
             except Error as exc:

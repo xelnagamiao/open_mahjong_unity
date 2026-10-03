@@ -6,6 +6,7 @@ internal static class GuobiaoRuleBootstrap {
         RuleRegistry.Register(new RuleManifest {
             RuleId = GuobiaoGameState.RuleId,
             DefaultSubRule = "guobiao/standard",
+            RulebookPath = (subRule, config) => subRule == "guobiao/lanshi" ? "/rulebook/guobiao-lanshi" : "/rulebook/guobiao",
             DisplayName = "国标麻将",
             LobbyOrder = 0,
             LobbySubRules = GuobiaoLobby.SubRules,
@@ -25,6 +26,7 @@ internal static class GuobiaoRuleBootstrap {
             ActionCaption = word => word == "hu_self" ? "和" : null,
             ActionVoice = word => word == "hu_self" || word == "hu_flower" ? "hu" : null,
             RonWinTileTravelsFromRiver = true,
+            SupportsRobbedAddedKongSource = true,
             MidGameCuoheContinues = true,
             PreserveDragOnDraw = true,
         });

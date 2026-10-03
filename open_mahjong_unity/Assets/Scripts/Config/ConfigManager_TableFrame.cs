@@ -9,11 +9,10 @@ public partial class ConfigManager
 
     public Color GetTableFrameColor(string style)
     {
-        if (ColorUtility.TryParseHtmlString(PlayerPrefs.GetString(FrameColorPrefix + style, ""), out var color))
-            return new Color(color.r, color.g, color.b, 1);
+        // Official presets are immutable; user colors live in TableSurfaceColorLibrary.
         return TableFrameStyles.SolidColor(style);
     }
-    public float GetTableFrameBrightness(string style) => Mathf.Clamp(PlayerPrefs.GetFloat(FrameBrightnessPrefix + style, 0), -1, 1);
+    public float GetTableFrameBrightness(string style) => 0;
     public float GetTableFrameShadowIntensity() => Mathf.Clamp01(PlayerPrefs.GetFloat(FrameShadowKey, 1));
     public float GetTableFrameHighlightIntensity() => Mathf.Clamp01(PlayerPrefs.GetFloat(FrameHighlightKey, 1));
     public Color GetTableFrameDisplayColor(string style)

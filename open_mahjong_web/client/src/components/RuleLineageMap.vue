@@ -490,9 +490,10 @@ const eraBands = computed(() => {
   })
   const livingCore = allTracks.filter((t) => !t.merges_into && !t.span_from && !t.outlier)
   const livingOutliers = allTracks.filter((t) => !t.merges_into && !t.span_from && t.outlier)
-  const livingFirst = livingCore.map((t) => firstAt[t.id]).filter((i) => i != null)
+  const livingFirst = [...livingCore, ...livingOutliers].map((t) => firstAt[t.id]).filter((i) => i != null)
   const splitAt = livingFirst.length ? Math.min(...livingFirst) : eras.length
-  const modernTracks = [...livingCore, ...livingOutliers].map((t) => ({ ...t, span: 1 }))
+  const continuingSources = allTracks.filter((t) => t.span_from && t.keep_in_modern)
+  const modernTracks = [...continuingSources, ...livingCore, ...livingOutliers].map((t) => ({ ...t, span: 1 }))
   // 把「现在仍在打、但没分出后代」的规则，按各自出现的 track 归档。
   const continuity = leafActiveIds.value.map((id) => ({ id, track: trackOf(id) }))
   const bands = []
@@ -606,18 +607,19 @@ function nodesAt(era, trackId) {
 }
 
 function nodesBySubtrack(era, trackId) {
-  // 大分支（带 subtracks）按子分支再分组；返回 [{ id, subtrack }]。
+  // 未指定子分组的条目单独列出，避免默认归入第一个分支。
   const track = (props.phy?.tracks || []).find((t) => t.id === trackId)
   if (!track?.subtracks?.length) return null
   const nodes = nodesAt(era, trackId)
+  const subtracks = [...track.subtracks, { id: `${track.id}-unclassified`, label: '未细分' }]
   const bySub = {}
   for (const n of nodes) {
     const r = catalogMap.value[n]
-    const sub = r?.subtrack || track.subtracks[0].id
+    const sub = track.subtracks.some((s) => s.id === r?.subtrack) ? r.subtrack : `${track.id}-unclassified`
     if (!bySub[sub]) bySub[sub] = []
     bySub[sub].push(n)
   }
-  return { track, bySub }
+  return { track: { ...track, subtracks: subtracks.filter((s) => bySub[s.id]?.length) }, bySub }
 }
 
 function continuityAt(band, trackId) {
@@ -630,18 +632,15 @@ function continuityBySubtrack(band, trackId) {
   const track = (props.phy?.tracks || []).find((t) => t.id === trackId)
   if (!track?.subtracks?.length) return null
   const ids = continuityAt(band, trackId)
+  const subtracks = [...track.subtracks, { id: `${track.id}-unclassified`, label: '未细分' }]
   const bySub = {}
   for (const id of ids) {
     const r = catalogMap.value[id]
-    const sub = r?.subtrack || track.subtracks[0].id
+    const sub = track.subtracks.some((s) => s.id === r?.subtrack) ? r.subtrack : `${track.id}-unclassified`
     if (!bySub[sub]) bySub[sub] = []
     bySub[sub].push(id)
   }
-  return { track, bySub }
-}
-
-function subLabel(track, subId) {
-  return track.subtracks.find((s) => s.id === subId)?.label || subId
+  return { track: { ...track, subtracks: subtracks.filter((s) => bySub[s.id]?.length) }, bySub }
 }
 
 const visibleFamilies = computed(() => {
@@ -673,13 +672,14 @@ function collectAbove(root, fromId, toEl) {
 const leafActiveIds = computed(() => {
   const eras = props.phy?.eras || []
   if (!eras.length) return []
-  const nowEra = eras[eras.length - 1]
+  const nowEra = eras.find((era) => era.id === 'e-now') || eras[eras.length - 1]
   const nowIds = new Set()
   for (const g of nowEra.groups || []) for (const n of g.nodes || []) nowIds.add(n)
-  const sourcesOfEdge = new Set((props.phy.edges || []).map((e) => e.from))
+  const sourcesOfEdge = new Set((props.phy.edges || []).filter((e) => e.lineage_display !== false).map((e) => e.from))
   const seen = new Set()
   const out = []
   for (const era of eras) {
+    if (era.id === 'e-undated') continue
     for (const g of era.groups || []) {
       for (const id of g.nodes || []) {
         if (seen.has(id)) continue
@@ -722,6 +722,7 @@ function layout() {
   box.value = { w: Math.max(root.scrollWidth, 1), h: Math.max(root.scrollHeight, 1) }
   const out = []
   for (const e of props.phy.edges || []) {
+    if (e.lineage_display === false) continue
     const bEl = collect(root, e.to, 'first')
     if (!bEl) continue
     const aEl = collectAbove(root, e.from, bEl)

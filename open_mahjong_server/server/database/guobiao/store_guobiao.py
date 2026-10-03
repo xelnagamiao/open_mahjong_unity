@@ -6,7 +6,6 @@ import logging
 import string
 import secrets
 from psycopg2 import Error
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +122,7 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
     conn = None
     try:
         # 对局包含机器人时，不保存牌谱/对局记录
-        if any(getattr(p, "user_id", 0) <= 10 for p in player_list):
+        if not (game_record.get("game_title") or {}).get("duplicate_key") and any(getattr(p, "user_id", 0) <= 10 for p in player_list):
             logger.info("对局包含机器人，跳过牌谱与对局记录保存")
             return None
 
@@ -135,7 +134,7 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
         max_retries = 5
         game_id = None
         for _ in range(max_retries):
-            candidate_id = generate_game_id()
+            candidate_id = (game_record.get("game_title") or {}).get("duplicate_game_id") or generate_game_id()
             try:
                 cursor.execute(
                     "INSERT INTO game_records (game_id, record) VALUES (%s, %s)",
@@ -167,13 +166,16 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
             character_used = getattr(player, 'character_used', None)
             profile_used = getattr(player, 'profile_used', None)
             voice_used = getattr(player, 'voice_used', None)
+            avatar_frame_used = getattr(player, "avatar_frame_used", 0)
             actual_user_id = player.user_id
+            # 使用结算广播的 PT（含并列名次均摊），升降段后的余额差并非本场 PT。
+            pt_change = getattr(player, "pt", None) if room_type == "match" else None
 
             try:
                 cursor.execute("""
                     INSERT INTO game_player_records (
-                        game_id, user_id, username, score, rank, original_player_index, rule, sub_rule, match_type, room_type, match_tier, event_id, title_used, character_used, profile_used, voice_used
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        game_id, user_id, username, score, rank, original_player_index, rule, sub_rule, match_type, room_type, match_tier, event_id, title_used, character_used, profile_used, voice_used, avatar_frame_used, pt_change
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     game_id,
                     actual_user_id,
@@ -190,7 +192,9 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
                     title_used,
                     character_used,
                     profile_used,
-                    voice_used
+                    voice_used,
+                    avatar_frame_used,
+                    pt_change
                 ))
                 saved_count += 1
             except Error as e:
@@ -198,12 +202,17 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
         logger.info(f'已为 {saved_count} 名玩家保存对局记录到 game_player_records 表')
         
         from ..player_recent_records import update_player_recent_records
-        update_player_recent_records(cursor, game_id, game_record)
+        if not (game_record.get("game_title") or {}).get("duplicate_key"):
+            update_player_recent_records(cursor, game_id, game_record)
+        from ..duplicate_walls import link_duplicate_record
+        link_duplicate_record(cursor, game_id, game_record)
         conn.commit()
         logger.info(f'游戏记录已保存，game_id: {game_id}')
         # 写入每玩家每局原始指标，供每日 4 点聚合 scene_daily_stats
         try:
             from ..scene_stats import record_game_metrics
+            if sub_rule == "guobiao/blood_battle":
+                return game_id  # 血战不写入按国标规则聚合的标准场景统计。
             record_game_metrics(db_manager, game_id, game_record, player_list, {
                 "rule": rule, "sub_rule": sub_rule, "room_type": room_type,
                 "match_tier": match_tier, "event_id": event_id, "match_type": match_type,

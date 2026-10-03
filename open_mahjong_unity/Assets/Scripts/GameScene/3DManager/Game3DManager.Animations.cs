@@ -6,8 +6,9 @@ public partial class Game3DManager : MonoBehaviour {
     /// <summary>
     /// 卡牌从删除位置移动到目标位置的动画
     /// </summary>
-    private IEnumerator MoveCardFromRemovePosition(GameObject cardObj, Vector3 targetPosition, Vector3 startPosition) {
+    private IEnumerator MoveCardFromRemovePosition(GameObject cardObj, Vector3 targetPosition, Vector3 startPosition, System.Action onCompleted = null) {
         if (startPosition == Vector3.zero) {
+            onCompleted?.Invoke();
             yield break;
         }
 
@@ -24,6 +25,7 @@ public partial class Game3DManager : MonoBehaviour {
             yield return null;
         }
         cardObj.transform.position = targetPosition;
+        onCompleted?.Invoke();
     }
 
     /// <summary>
@@ -57,6 +59,7 @@ public partial class Game3DManager : MonoBehaviour {
     /// 避免补花/出牌的收拢动画在与吃碰动画重叠时，把对象池里同一张牌从副露/删除处拖回手牌造成残留多牌。
     /// </summary>
     private IEnumerator Animate3DCardsToPositions(List<Transform> cards, List<Vector3> targetPositions, Transform expectedParent = null) {
+        int generation = _handAnimationGeneration;
         float animationDuration = 0.3f;
         float elapsedTime = 0f;
 
@@ -66,6 +69,8 @@ public partial class Game3DManager : MonoBehaviour {
         }
 
         while (elapsedTime < animationDuration) {
+            // 重建手牌可能立刻复用同一批池对象，不能只凭存活和父节点判断旧动画仍有效。
+            if (generation != _handAnimationGeneration) yield break;
             elapsedTime += Time.deltaTime;
             float progress = elapsedTime / animationDuration;
             float smoothProgress = 1f - Mathf.Pow(1f - progress, 3f);
@@ -79,6 +84,7 @@ public partial class Game3DManager : MonoBehaviour {
             yield return null;
         }
 
+        if (generation != _handAnimationGeneration) yield break;
         for (int i = 0; i < cards.Count; i++) {
             if (IsCardDrivable(cards[i], expectedParent)) {
                 cards[i].position = targetPositions[i];

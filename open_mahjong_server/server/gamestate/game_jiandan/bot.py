@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from ..public.ai.pacing import paced_bot, submit_bot_action, DEFAULT_BOT_DELAY
 import logging
 from typing import Any, Optional
 
@@ -18,11 +19,12 @@ from .get_action import get_ai_action
 
 logger = logging.getLogger(__name__)
 
-BOT_DELAY = 0.5
+BOT_DELAY = DEFAULT_BOT_DELAY
 PASS_WAIT_STATUSES = {"waiting_action_after_cut", "waiting_action_qianggang"}
 RON_HU_ACTIONS = ("hu",)
 
 
+@paced_bot(lambda: BOT_DELAY)
 async def jiandan_bot_action(
     game_state: Any,
     player_index: int,
@@ -59,7 +61,6 @@ async def auto_jiandan_bot_action(
         return
 
     if game_status == "waiting_hand_action":
-        await asyncio.sleep(BOT_DELAY)
         if "cut" in action_list and player.hand_tiles:
             tile, cut_position, cut_class = _pick_auto_cut_tile(player)
             await _submit_if_current(
@@ -79,7 +80,6 @@ async def auto_jiandan_bot_action(
     if game_status == "onlycut_after_action":
         claim_protection = bool(getattr(game_state, "claim_protection", False))
         from ..public.claim_protection import get_meld_post_gap
-        await asyncio.sleep(BOT_DELAY + (get_meld_post_gap(game_state) if claim_protection else 0.0))
         if "cut" in action_list and player.hand_tiles:
             tile, cut_position, cut_class = _pick_auto_cut_tile(player)
             await _submit_if_current(
@@ -106,12 +106,6 @@ async def smart_jiandan_bot_action(
     if game_status in {"waiting_hand_action", "onlycut_after_action"}:
         claim_protection = bool(getattr(game_state, "claim_protection", False))
         from ..public.claim_protection import get_meld_post_gap
-        delay = BOT_DELAY + (
-            get_meld_post_gap(game_state)
-            if game_status == "onlycut_after_action" and claim_protection
-            else 0.0
-        )
-        await asyncio.sleep(delay)
         await _handle_smart_hand_action(game_state, player_index, action_list, player, action_tick)
         return
 
@@ -209,7 +203,6 @@ async def _handle_smart_after_cut(
 
     for hu_action in RON_HU_ACTIONS:
         if hu_action in action_list and should_accept_hu(game_state, player_index, hu_action):
-            await asyncio.sleep(BOT_DELAY)
             await _submit_if_current(game_state, player_index, action_tick, action_list, hu_action)
             return
 
@@ -253,8 +246,6 @@ async def _handle_smart_after_cut(
             if score > best_action_score:
                 best_action = "gang"
 
-    if best_action != "pass":
-        await asyncio.sleep(BOT_DELAY)
     await _submit_if_current(game_state, player_index, action_tick, action_list, best_action)
 
 
@@ -270,7 +261,6 @@ async def _handle_smart_qianggang(
         return
     for hu_action in RON_HU_ACTIONS:
         if hu_action in action_list and should_accept_hu(game_state, player_index, hu_action):
-            await asyncio.sleep(BOT_DELAY)
             await _submit_if_current(game_state, player_index, action_tick, action_list, hu_action)
             return
     await _submit_if_current(game_state, player_index, action_tick, action_list, "pass")
@@ -297,7 +287,7 @@ async def _submit_if_current(
     if action_type not in getattr(game_state, "action_dict", {}).get(player_index, []):
         return False
     try:
-        await get_ai_action(
+        await submit_bot_action(get_ai_action,
             game_state,
             player_index,
             action_type,

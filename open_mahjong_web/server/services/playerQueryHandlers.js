@@ -7,6 +7,7 @@ const {
   fetchPlayerRecords,
   fetchPlayerRankStats,
   fetchPlayerRank,
+  fetchPlayerScopeCounts,
   parseRecordQuery,
   parsePagination,
 } = require('./playerPublicApi');
@@ -88,9 +89,23 @@ async function handlePlayerRank(req, res) {
   }
 }
 
+async function handlePlayerScopeCounts(req, res) {
+  try {
+    const userId = await resolveUserId(req.params.key);
+    if (userId == null) return res.status(404).json({ success: false, message: '用户不存在' });
+    const { rule, sub_rule, game_type, date_from, date_to } = parseRecordQuery(req.query);
+    const data = await fetchPlayerScopeCounts(userId, { rule, sub_rule, game_type, date_from, date_to });
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('player scope-counts:', error);
+    res.status(500).json({ success: false, message: '服务器内部错误' });
+  }
+}
+
 module.exports = {
   handlePlayerInfo,
   handlePlayerRecords,
   handlePlayerRankStats,
   handlePlayerRank,
+  handlePlayerScopeCounts,
 };

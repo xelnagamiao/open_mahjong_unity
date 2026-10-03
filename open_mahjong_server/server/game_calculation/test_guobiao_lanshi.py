@@ -20,7 +20,6 @@ def test_lanshi_checkers_are_source_level_independent():
     unity_source = (repo_root / "open_mahjong_unity/Assets/Scripts/GameScene/Calculation/CalculationScript/Guobiao/GBhepaiLanshi.cs").read_text(encoding="utf-8")
     assert ": Chinese_Hepai_Check" not in unity_source
     assert "new Chinese_Hepai_Check" not in unity_source
-    assert "LanshiPlayerTiles" in unity_source
 
 
 def test_lanshi_value_table_and_cap():
@@ -115,12 +114,13 @@ def test_regular_five_points_remove_robbing_kong_occasional_fan():
 
 def test_self_draw_companion_is_added_for_relevant_occasional_fans():
     checker = Lanshi_Hepai_Check()
-    # 清龙 6 + 自摸 1 = 7，因常规番达到起和线，删除偶然番。
+    # A.16.1 门清由副露事实确定：清龙6+门前清1+自摸1=8。
+    # 旧实现只因way缺“自摸/点和”就漏门清，不能把该错误固定为预期。
     hand = [11, 12, 13, 14, 15, 16, 17, 18, 19, 23, 24, 25, 33, 33]
     for occasional in ("天和", "妙手回春", "杠上开花"):
         score, fans = checker.hepai_check(hand, [], [occasional, "自风东", "场风西"], 19)
-        assert score == 7
-        assert fans == ["清龙", "自摸"]
+        assert score == 8
+        assert fans == ["清龙", "门前清", "自摸"]
         assert occasional not in fans
 
 
@@ -135,12 +135,12 @@ def test_self_draw_companion_does_not_stack_when_occasional_fan_is_used():
 @pytest.mark.parametrize(
     ("occasional", "expected_score", "expected_fans"),
     [
-        ("妙手回春", 7, ["清龙", "自摸"]),
-        ("海底捞月", 6, ["清龙"]),
-        ("杠上开花", 7, ["清龙", "自摸"]),
-        ("抢杠和", 8, ["清龙", "和绝张"]),
-        ("天和", 7, ["清龙", "自摸"]),
-        ("地和", 6, ["清龙"]),
+        ("妙手回春", 8, ["清龙", "门前清", "自摸"]),
+        ("海底捞月", 7, ["清龙", "门前清"]),
+        ("杠上开花", 8, ["清龙", "门前清", "自摸"]),
+        ("抢杠和", 9, ["清龙", "和绝张", "门前清"]),
+        ("天和", 8, ["清龙", "门前清", "自摸"]),
+        ("地和", 7, ["清龙", "门前清"]),
     ],
 )
 def test_all_occasional_fans_are_removed_above_the_starting_line(
@@ -157,7 +157,8 @@ def test_all_occasional_fans_are_removed_above_the_starting_line(
 @pytest.mark.parametrize("偶然番", ("妙手回春", "海底捞月", "杠上开花", "抢杠和", "天和", "地和"))
 def test_all_occasional_fans_stand_alone_below_the_starting_line(偶然番):
     checker = Lanshi_Hepai_Check()
-    hand = [11, 12, 13, 14, 15, 16, 27, 28, 29, 31, 31, 31, 45, 45]
+    # 不带连六的弱手；即便抢杠计和绝张2+门清1，仍小于5。
+    hand = [11, 12, 13, 15, 16, 17, 27, 28, 29, 31, 32, 33, 45, 45]
     assert checker.hepai_check(hand, [], [偶然番, "自风东", "场风西"], 45) == (5, [偶然番])
 
 

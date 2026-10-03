@@ -33,7 +33,7 @@ _STATE_FILES = {
     "taiwan": "game_taiwan/TaiwanGameState.py",
     "sichuan": "game_sichuan/SichuanGameState.py",
     "hongque": "game_hongque/record.py",
-    "jiandan": "game_jiandan/JiandanGameState.py",
+    "zhongyong": "game_zhongyong/ZhongyongGameState.py",
 }
 
 
@@ -141,7 +141,8 @@ def test_example_jsonc_replays_without_throwing():
         "taiwan",
         "sichuan",
         "hongque",
-        "jiandan",
+        "zhongyong",
+        "nanque",
     }
     assert expected <= names, f"示例牌谱缺规则: {sorted(expected - names)}"
     for path in paths:
@@ -305,9 +306,9 @@ def test_consistent_minigames_for_all_rules():
                 ["end"],
             ],
         ),
-        "jiandan": _round(
-            "jiandan",
-            "jiandan/standard",
+        "nanque": _round(
+            "zhongyong",
+            "zhongyong/nanque",
             p0=standard_13 + [25],
             p1=list(standard_13),
             p2=list(standard_13),

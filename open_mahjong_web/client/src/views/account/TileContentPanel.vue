@@ -28,6 +28,13 @@
       <section class="upload-block">
         <h3>牌面背景</h3>
         <pre class="format-help">{{ BACKGROUND_HELP }}</pre>
+        <div class="rights-notice">
+          <strong>分享美术资源规约</strong>
+          <ol>
+            <li>上传内容须由你拥有版权，或取得明确允许非商业使用和公开分享的许可证。</li>
+            <li>没有版权或许可证的资源只能私下使用，不能上传到平台分享站。</li>
+          </ol>
+        </div>
         <el-form label-width="72px" @submit.prevent="submitBackground">
           <el-form-item label="名称">
             <el-input v-model="backgroundName" maxlength="64" show-word-limit />
@@ -43,7 +50,10 @@
             </div>
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" :loading="backgroundLoading" @click="submitBackground">上传</el-button>
+            <el-checkbox v-model="backgroundRightsConfirmed" class="rights-confirm">我确认已取得上传和分享此资源的权利</el-checkbox>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="backgroundLoading" :disabled="!backgroundRightsConfirmed" @click="submitBackground">上传</el-button>
           </el-form-item>
         </el-form>
       </section>
@@ -90,7 +100,7 @@
 
 <script setup>
 import { onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import playerApi from '@/api/playerClient'
 
 const FACE_HELP = `上传格式
@@ -139,6 +149,7 @@ const faceName = ref('')
 const backgroundName = ref('')
 const faceDescription = ref('')
 const backgroundDescription = ref('')
+const backgroundRightsConfirmed = ref(false)
 const faceLoading = ref(false)
 const backgroundLoading = ref(false)
 const loading = ref(false)
@@ -222,6 +233,10 @@ async function submitFace() {
 }
 
 async function submitBackground() {
+  if (!backgroundRightsConfirmed.value) {
+    ElMessage.warning('请先确认资源版权或许可证情况')
+    return
+  }
   if (!backgroundFile.value) {
     ElMessage.warning('请选择 zip 文件')
     return
@@ -239,6 +254,7 @@ async function submitBackground() {
     backgroundFile.value = null
     backgroundName.value = ''
     backgroundDescription.value = ''
+    backgroundRightsConfirmed.value = false
     if (backgroundInput.value) backgroundInput.value.value = ''
     await loadMine()
   } catch (e) {
@@ -261,6 +277,17 @@ async function onResubmitFile(ev) {
   const row = resubmitRow.value
   resubmitRow.value = null
   if (!file || !row) return
+  if (row.kind === 'tile_background') {
+    try {
+      await ElMessageBox.confirm(
+        '请确认此牌面背景由你拥有版权，或使用允许非商业使用的许可证。没有版权或许可证的资源只能私下使用，不能上传到平台分享站。',
+        '分享美术资源规约',
+        { type: 'warning', confirmButtonText: '确认并重新提交', cancelButtonText: '取消' },
+      )
+    } catch {
+      return
+    }
+  }
   try {
     const res = await postZip({
       kind: row.kind,
@@ -303,13 +330,17 @@ onMounted(loadMine)
 }
 .upload-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
+}
+.upload-block {
+  min-width: 0;
 }
 .upload-block h3 {
   margin: 0 0 10px;
   font-size: 15px;
   font-weight: 600;
+  white-space: nowrap;
 }
 .format-help {
   margin: 0 0 16px;
@@ -319,9 +350,33 @@ onMounted(loadMine)
   color: #606266;
   font-size: 12px;
   line-height: 1.65;
-  white-space: pre-wrap;
-  word-break: break-word;
+  white-space: pre-line;
+  word-break: keep-all;
+  overflow-wrap: break-word;
   font-family: inherit;
+}
+.rights-notice {
+  margin-bottom: 18px;
+  padding: 12px 16px;
+  border: 1px solid #e6a23c;
+  border-radius: 4px;
+  background: #fdf6ec;
+  color: #7a4b00;
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.rights-notice ol {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+.rights-confirm {
+  height: auto;
+  max-width: 100%;
+}
+.rights-confirm :deep(.el-checkbox__label) {
+  white-space: normal;
+  line-height: 1.7;
 }
 .file-row {
   display: flex;

@@ -28,7 +28,6 @@ public class AppConfigPanel : MonoBehaviour {
     [SerializeField] private TMP_Dropdown actionButtonColorDropdown;
     [SerializeField] private TMP_Dropdown openingAutoBuhuaDropdown;
     [SerializeField] private TMP_Dropdown forcePassDropdown;
-    [SerializeField] private TMP_Dropdown meldSpacingDropdown;
     [SerializeField] private TMP_Dropdown vsyncDropdown;
 
     [Header("提示音效")]
@@ -57,7 +56,6 @@ public class AppConfigPanel : MonoBehaviour {
         actionButtonColorDropdown.onValueChanged.AddListener(OnActionButtonColorDropdownChanged);
         openingAutoBuhuaDropdown.onValueChanged.AddListener(OnOpeningAutoBuhuaDropdownChanged);
         forcePassDropdown.onValueChanged.AddListener(OnForcePassDropdownChanged);
-        meldSpacingDropdown.onValueChanged.AddListener(OnMeldSpacingDropdownChanged);
         targetFrameRateDropdown.onValueChanged.AddListener(OnTargetFrameRateDropdownChanged);
         vsyncDropdown.onValueChanged.AddListener(OnVsyncDropdownChanged);
         gongHuSoundDropdown.onValueChanged.AddListener(OnGongHuSoundDropdownChanged);
@@ -99,8 +97,6 @@ public class AppConfigPanel : MonoBehaviour {
         openingAutoBuhuaDropdown.AddOptions(new List<string> { "关", "开" });
         forcePassDropdown.ClearOptions();
         forcePassDropdown.AddOptions(new List<string> { "关", "开" });
-        meldSpacingDropdown.ClearOptions();
-        meldSpacingDropdown.AddOptions(new List<string> { "关", "开" });
         targetFrameRateDropdown.ClearOptions();
         List<string> frameRateOptions = new List<string>();
         foreach (int frameRate in ConfigManager.TargetFrameRateOptions) {
@@ -147,8 +143,6 @@ public class AppConfigPanel : MonoBehaviour {
         openingAutoBuhuaDropdown.RefreshShownValue();
         forcePassDropdown.SetValueWithoutNotify(ConfigManager.Instance.ForcePassEnabled ? 1 : 0);
         forcePassDropdown.RefreshShownValue();
-        meldSpacingDropdown.SetValueWithoutNotify(ConfigManager.Instance.MeldSpacingEnabled ? 1 : 0);
-        meldSpacingDropdown.RefreshShownValue();
         int frameRateIndex = System.Array.IndexOf(ConfigManager.TargetFrameRateOptions, ConfigManager.Instance.TargetFrameRate);
         targetFrameRateDropdown.SetValueWithoutNotify(frameRateIndex >= 0 ? frameRateIndex : 0);
         targetFrameRateDropdown.RefreshShownValue();
@@ -214,10 +208,6 @@ public class AppConfigPanel : MonoBehaviour {
 
     private void OnForcePassDropdownChanged(int value) {
         ConfigManager.Instance.SetForcePassEnabled(value == 1);
-    }
-
-    private void OnMeldSpacingDropdownChanged(int value) {
-        ConfigManager.Instance.SetMeldSpacingEnabled(value == 1);
     }
 
     private void OnGongHuSoundDropdownChanged(int value) {

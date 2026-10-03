@@ -1,4 +1,5 @@
 public class Free_Create_RoomConfig {
+    public bool PointerTips { get; set; } = true;
     public string RoomName { get; set; }
     public string Password { get; set; }
     public string RandomSeed { get; set; }

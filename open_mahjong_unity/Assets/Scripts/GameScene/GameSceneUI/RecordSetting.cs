@@ -9,6 +9,7 @@ public class RecordSetting : MonoBehaviour {
     [SerializeField] private TMP_Text showCardsModeText; // 平躺明牌展示
     [SerializeField] private TMP_Text showMoqieModeText; // 手摸切灰显
     [SerializeField] private TMP_Text showChongHintText; // 铳牌提示
+    [SerializeField] private TMP_Text showWaitingTilesText; // 四家玩家的听牌与余张
 
     [SerializeField] private TMP_Text showHepaiAnimationText;
 
@@ -26,6 +27,9 @@ public class RecordSetting : MonoBehaviour {
 
     private bool isShowChongHint = true;
     public bool IsShowChongHint { get => isShowChongHint; }
+
+    private bool isShowWaitingTiles = false;
+    public bool IsShowWaitingTiles => isShowWaitingTiles;
 
     private bool isShowHepaiAnimation = false;
     public bool IsShowHepaiAnimation { get => isShowHepaiAnimation; }
@@ -64,6 +68,7 @@ public class RecordSetting : MonoBehaviour {
         if (showChongHintText != null) {
             AddClickListener(showChongHintText, ToggleShowChongHint);
         }
+        AddClickListener(showWaitingTilesText, ToggleShowWaitingTiles);
         AddClickListener(showHepaiAnimationText, ToggleShowHepaiAnimation);
         if (showAnonymousPlayersText != null) {
             AddClickListener(showAnonymousPlayersText, ToggleAnonymousPlayers);
@@ -105,6 +110,12 @@ public class RecordSetting : MonoBehaviour {
         RefreshUI();
     }
 
+    private void ToggleShowWaitingTiles() {
+        isShowWaitingTiles = !isShowWaitingTiles;
+        RefreshUI();
+        GameRecordManager.Instance?.RefreshRecordPlayerWaits();
+    }
+
     private void ToggleAnonymousPlayers() {
         isAnonymousPlayers = !isAnonymousPlayers;
         RefreshUI();
@@ -124,6 +135,9 @@ public class RecordSetting : MonoBehaviour {
         }
         if (showChongHintText != null) {
             showChongHintText.color = isShowChongHint ? trueColor : falseColor;
+        }
+        if (showWaitingTilesText != null) {
+            showWaitingTilesText.color = isShowWaitingTiles ? trueColor : falseColor;
         }
         if (showHepaiAnimationText != null) {
             showHepaiAnimationText.color = isShowHepaiAnimation ? trueColor : falseColor;

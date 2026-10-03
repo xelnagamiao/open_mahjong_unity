@@ -26,8 +26,8 @@ async function writeAudit({
   targetId = null,
   payload = null,
   reason = null,
-}) {
-  await pool.query(
+}, db = pool) {
+  await db.query(
     `INSERT INTO admin_audit_log
       (admin_user_id, action, target_type, target_id, payload, reason)
      VALUES ($1, $2, $3, $4, $5::jsonb, $6)`,

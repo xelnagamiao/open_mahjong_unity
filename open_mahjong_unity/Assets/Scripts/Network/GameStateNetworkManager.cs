@@ -33,7 +33,22 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// 处理游戏状态相关的服务器响应消息。
     /// </summary>
     public void HandleGameStateMessage(Response response) {
+        if (response.type == "gamestate/closed") {
+            if (!string.IsNullOrEmpty(response.gamestate_id)
+                && response.gamestate_id == UserDataManager.Instance.GamestateId) {
+                PostGameNavigator.ExitToLobby(forceTeardown: true);
+                NotificationManager.Instance.ShowTip("对局", false,
+                    string.IsNullOrEmpty(response.message) ? "对局已结束" : response.message);
+            }
+            return;
+        }
         if (RuleRegistry.TryParseGameStateType(response.type, out string rule, out string suffix)) {
+            // Login can reconnect the transport before the player accepts table
+            // restoration. A game_start snapshot must establish the table first;
+            // broadcasts received on the login screen belong to the old session.
+            if (suffix != "game_start" && string.IsNullOrEmpty(GameSession.Current.RoomRule)) {
+                return;
+            }
             IGameState state = ResolveGameStateForMessage(rule, suffix);
             if (state == null) {
                 Debug.LogWarning($"没有可承载的族 GameState: {response.type}");
@@ -140,7 +155,7 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// <summary>
     /// 发送吃碰杠回应
     /// </summary>
-    public async void SendAction(string action, int targetTile, int chiComboIndex = 0) {
+    public async void SendAction(string action, int targetTile, int chiComboIndex = 0, System.Collections.Generic.List<int> selectedTiles = null) {
         if (NormalGameStateManager.Instance.IsRealtimeSpectator) return;
         try {
             var request = new SendActionRequest {
@@ -150,6 +165,7 @@ public class GameStateNetworkManager : MonoBehaviour {
                 targetTile = targetTile,
                 chiComboIndex = chiComboIndex,
                 action_tick = NormalGameStateManager.Instance.LastAskActionTick,
+                selectedTiles = selectedTiles != null ? selectedTiles.ToArray() : null,
             };
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
@@ -208,6 +224,8 @@ public class GameStateNetworkManager : MonoBehaviour {
     }
 
     private void HandleVoteEnd(Response response) {
+        if (!string.IsNullOrEmpty(response.gamestate_id)
+            && response.gamestate_id != UserDataManager.Instance.GamestateId) return;
         VotePanel.Instance?.Hide();
         ClearGameActionTimer();
         // 投票结束对局通过：直接回主菜单（强制清理对局场景）

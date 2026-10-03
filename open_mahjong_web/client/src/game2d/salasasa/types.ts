@@ -72,6 +72,10 @@ export interface SalasasaGameInfo {
   deal_tile_type?: string
   max_round: number
   tile_count: number
+  /** Four public wall counts, indexed by original_player_index; duplicate games only. */
+  duplicate_remaining_tiles?: number[]
+  is_duplicate?: boolean
+  duplicate_round_count?: number
   current_round: number
   step_time: number
   round_time: number
@@ -105,6 +109,7 @@ export interface SalasasaAskOtherInfo {
 }
 
 export interface SalasasaDoActionInfo {
+  duplicate_remaining_tiles?: number[]
   action_list: string[]
   action_player: number
   action_tick: number
@@ -159,6 +164,7 @@ export interface SalasasaVoteInfo {
 }
 
 export interface SalasasaGameEndInfo {
+  duplicate_remaining_tiles?: number[]
   player_final_data: Record<string, {
     username?: string
     rank?: number

@@ -2,16 +2,20 @@ import asyncio
 import random
 from functools import lru_cache
 
+import pytest
+
 from server.gamestate.game_hongque.HongqueGameState import HongqueGameState
 from server.gamestate.game_hongque.efficiency_bot import (
+    EfficiencyValue,
+    _claim_advances,
     _structural_value,
     choose_claim_plan,
     choose_discard,
     choose_turn_plan,
 )
+from server.gamestate.game_hongque.action_priority import HONGQUE_ACTION_PRIORITY
 from server.gamestate.game_hongque.group_index import (
     GROUP_MASKS,
-    TILE_INDEX,
     mask_from_codes,
     waiting_mask,
     waiting_masks_after_discards,
@@ -65,6 +69,17 @@ def test_efficiency_claim_always_accepts_authoritative_win() -> None:
         ["AX1", "AX2", "AX3"],
     )
     assert plan == {"action": "claim", "candidate_id": "ron"}
+
+
+@pytest.mark.parametrize("action_type", [
+    name for name in HONGQUE_ACTION_PRIORITY
+    if name.startswith(("chi_", "peng_", "hong_"))
+])
+def test_neutral_efficiency_call_bonus_is_only_for_rainbow(action_type) -> None:
+    value = EfficiencyValue(2, 0, 20)
+    assert _claim_advances(
+        value, value, HONGQUE_ACTION_PRIORITY[action_type]
+    ) == action_type.startswith("hong_")
 
 
 def test_efficiency_claim_accepts_advancing_triplet() -> None:

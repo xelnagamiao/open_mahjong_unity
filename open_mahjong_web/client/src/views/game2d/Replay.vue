@@ -20,6 +20,7 @@
           :tiles="wallTilesWithHints"
           :remaining="remainingWall.length"
           :hints-enabled="chongHintEnabled"
+          :shows-ron-danger="!isHangzhouReplay"
           :tile-asset="mmcrTileAsset"
           :round-index="roundIndex"
           :stage-element="stageElement"
@@ -35,10 +36,10 @@
           <button
             type="button"
             :class="{ 'is-active': chongHintEnabled }"
-            title="标红他家待牌；查看牌山时标出摸牌预测"
+            :title="isHangzhouReplay ? '查看牌山时标出摸牌预测（仅自摸）' : '标红他家待牌；查看牌山时标出摸牌预测'"
             @click="toggleChongHint"
           >
-            铳张提示
+            {{ isHangzhouReplay ? '摸牌预测' : '铳张提示' }}
           </button>
           <button type="button" :class="{ 'is-active': showMoqieMode }" @click="toggleMoqieHint">
             显示手摸切
@@ -60,11 +61,18 @@
             <strong>牌山阅览</strong>
             <span>剩余 {{ remainingWall.length }} 张</span>
             <span v-if="chongHintEnabled" class="replay-wall__legend">
-              <i class="is-danger">铳张</i><i class="is-predicted">摸牌预测</i>
+              <i v-if="!isHangzhouReplay" class="is-danger">铳张</i><i class="is-predicted">摸牌预测</i>
             </span>
             <button type="button" @click="wallVisible = false">×</button>
           </header>
           <div class="replay-wall__content">
+            <details v-if="duplicateInitialPartitions.length" class="duplicate-initial-wall">
+              <summary>本局完整初始牌墙（{{ duplicateInitialPartitions.reduce((total, tiles) => total + tiles.length, 0) }} 张）</summary>
+              <section v-for="(tiles, original) in duplicateInitialPartitions" :key="original" class="replay-wall__section">
+                <h3>{{ original + 1 }} 号 · {{ winds[original] }}位 · 前 {{ original === 0 ? 14 : 13 }} 张为起始手牌</h3>
+                <div class="replay-wall__hand-tiles"><span v-for="(tile, index) in tiles" :key="index"><img :src="mmcrTileAsset(tile)" :alt="`第 ${index + 1} 张`" /></span></div>
+              </section>
+            </details>
             <section
               v-for="(hand, seat) in initialHands"
               :key="`initial-hand-${seat}`"
@@ -77,12 +85,12 @@
                 </span>
               </div>
             </section>
-            <section class="replay-wall__section replay-wall__section--wall">
-              <h3>牌山</h3>
+            <section v-for="group in wallGroups" :key="group.label" class="replay-wall__section replay-wall__section--wall">
+              <h3>{{ group.label }}</h3>
               <div class="replay-wall__rows">
-                <div v-for="row in Math.ceil(wallTilesWithHints.length / 4)" :key="`wall-row-${row}`" class="replay-wall__row">
+                <div v-for="row in Math.ceil(group.tiles.length / 4)" :key="`wall-row-${row}`" class="replay-wall__row">
                   <span
-                    v-for="(item, offset) in wallTilesWithHints.slice((row - 1) * 4, row * 4)"
+                    v-for="(item, offset) in group.tiles.slice((row - 1) * 4, row * 4)"
                     :key="`${row}-${offset}-${item.tile}`"
                     :class="{
                       'is-consumed': item.consumed,
@@ -105,6 +113,7 @@
           :players="scoreboardPlayers"
           :settlements="scoreboardSettlements"
           :round-label-format="appearance.roundLabelFormat"
+          :round-labeler="isHangzhouReplay ? hangzhouRoundLabel : null"
           @select-row="jumpToScoreboardRound"
           @close="scoreboardOpen = false"
         />
@@ -209,7 +218,7 @@
             <div class="end-result-total" :class="{ 'is-visible': showResultTotal }">
               <div class="end-result-total__line">
                 <span class="end-result-total__method">{{ winMethodLabel }}</span>
-                <strong>{{ roundResult.fan }}</strong><span>番</span>
+                <strong>{{ roundResult.fan }}</strong><span>{{ detail?.rule === 'guizhou' ? '基本分' : ['yixing', 'hangzhou'].includes(detail?.rule || '') ? '分' : detail?.rule === 'wenzhou' ? '倍' : '番' }}</span>
               </div>
             </div>
             <div class="end-result-diamond">
@@ -234,6 +243,17 @@
           </section>
         </div>
 
+        <HongzhongReplayDetail v-if="detail?.rule === 'hongzhong'" :info="hongzhongInfo" :ledger="hongzhongKongEvents" />
+        <ChangchunReplayDetail v-if="changchunInfo" :info="changchunInfo" />
+        <section v-if="wenzhouInfo" class="wenzhou-replay-info" aria-label="温州翻财与结算">
+          <strong>财神 {{ wenzhouTileName(wenzhouInfo.caishen) }} · 连庄{{ wenzhouInfo.dealer_streak || 0 }}次</strong>
+          <p>{{ wenzhouInfo.caishen === 46 ? '白板为财神' : `白板固定代${wenzhouTileName(wenzhouInfo.white_natural)}` }}；牌面保留实体身份。</p>
+          <p v-for="row in wenzhouLedgerRows(wenzhouInfo)" :key="row.seat">{{ ['东起','南起','西起','北起'][row.original] }}：财神{{ row.count }}张，财分{{ row.caishen }}，本局{{ row.total }}分</p>
+          <p v-for="(entry, index) in wenzhouLedgerEntries(wenzhouInfo)" :key="`ledger-${index}`">{{ entry }}</p>
+        </section>
+        <GuizhouReplayLedger v-if="guizhouInfo?.ledger" :info="guizhouInfo" :players="detail?.players || []" />
+        <HangzhouReplayState :info="hangzhouInfo" />
+        <GuangdongReplayLedger v-if="guangdongInfo" :info="guangdongInfo" :players="detail?.players || []" :seats="currentRound?.seats || [0, 1, 2, 3]" />
         <div v-if="loading || errorMessage" class="replay-state">
           <div class="replay-state__card">
             <strong>{{ errorMessage ? '无法打开牌谱' : '正在读取牌谱' }}</strong>
@@ -397,10 +417,12 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { ElMessage } from 'element-plus'
 import { MahjongScene } from '@/game2d/game/scene/MahjongScene'
 import { GAME_SOUND_ASSETS, getPreloadedSoundUrl } from '@/game2d/game/resources'
 import { playerProfileUrl, publicApiGet, publicRecordUrl } from '@/game2d/salasasa/api'
+import { isExternalRecord, externalPlayerName } from '@/utils/recordConvert/externalPlayers.js'
 import { RecordReplay, isRecordSilentTick, type PublicGameRecord, type RecordRound, type RecordTick } from '@/game2d/replay/recordReplay'
 import { isLocalReplayRecord, loadLocalReplayRecord } from '@/game2d/replay/localReplayRecord'
 import { getLocalGameRecord, isLocalOnlyGameId } from '@/utils/localGameRecordStore'
@@ -425,6 +447,7 @@ import { tingpaiCheck } from '@/game2d/calc/guobiao'
 import { buildLocalWaitData } from '@/game2d/calc/guobiao/waitTips'
 import { mmcrTileToSalasasa, salasasaTileToMmcr } from '@/game2d/salasasa/gameAdapter'
 import { formatFanField, resolveFanLabel } from '@/constants/guessFanCatalog'
+import { lanshiFanPoints } from '@/game2d/calc/guobiao/lanshiV4'
 import { formatFanCount, translateFanName } from '@/i18n/fanNames'
 import { locale, roundLabelKey, tr } from '@/i18n'
 import { replaySharePath } from '@/utils/recordShareLink'
@@ -437,9 +460,22 @@ import type { ActiveSessionSnapshot, MeldSnapshot } from '@/game2d/game/scene/ty
 import GameScoreboardPanel from './GameScoreboardPanel.vue'
 import ReplayIndependentWall from './ReplayIndependentWall.vue'
 import SceneAppearancePanel from './SceneAppearancePanel.vue'
+import GuizhouReplayLedger from '@/components/GuizhouReplayLedger.vue'
+import { guizhouInfoAt, parseGuizhouFan } from '@/utils/guizhouReplay.js'
+import { parseYixingFan } from '@/utils/yixingReplay.js'
+import { parseWenzhouFan, wenzhouInfoAt, wenzhouTileName, wenzhouLedgerRows, wenzhouLedgerEntries, wenzhouWaitData, wenzhouWaitsAt } from '@/utils/wenzhouReplay.js'
+import { parseHangzhouFan, hangzhouInfoAt, hangzhouKnownTiles, hangzhouWaitDataAt, hangzhouNormalDrawableWallIndices } from '@/utils/hangzhouReplay.js'
+import HangzhouReplayState from '@/components/HangzhouReplayState.vue'
+import HongzhongReplayDetail from '@/components/HongzhongReplayDetail.vue'
+import ChangchunReplayDetail from '@/components/ChangchunReplayDetail.vue'
+import { changchunInfoAt, CHANGCHUN_FANS } from '@/utils/changchunReplay.js'
+import { hongzhongInfoAt, hongzhongKongEventsAt, parseHongzhongFan } from '@/utils/hongzhongReplay.js'
+import { guangdongInfoAt, isGuangdongMilRecord, parseGuangdongFan } from '@/utils/guangdongReplay.js'
+import GuangdongReplayLedger from '@/components/GuangdongReplayLedger.vue'
 
 const route = useRoute()
 const router = useRouter()
+const playerAuth = usePlayerAuthStore()
 const stageElement = ref<HTMLElement | null>(null)
 const loading = ref(true)
 const errorMessage = ref('')
@@ -460,6 +496,8 @@ const currentScores = ref<number[]>([])
 const showOtherHands = ref(true)
 const playWinAnimation = ref(false)
 const chongHintEnabled = ref(true)
+const isHangzhouReplay = computed(() => detail.value?.rule === 'hangzhou')
+const hangzhouRoundLabel = (number: number) => tr(`第${number}局`)
 const showMoqieMode = ref(true)
 const gameInfoScrollElement = ref<HTMLElement | null>(null)
 const wallVisible = ref(false)
@@ -542,6 +580,15 @@ function ruleDisplayName(rule: unknown): string {
     sichuan: '四川麻将',
     changsha: '长沙麻将',
     taiwan: '台湾麻将',
+    hongkong: '香港麻将',
+    guangdong: '广东麻将',
+    guizhou: '贵州麻将',
+    yixing: '宜兴麻将',
+    wenzhou: '温州麻将',
+    hangzhou: '杭州麻将',
+    hongzhong: '红中麻将',
+    changchun: '长春麻将',
+    shanxi: '山西麻将',
   }
   const key = String(rule ?? '').toLowerCase()
   return names[key] || String(rule || '—')
@@ -550,12 +597,19 @@ function ruleDisplayName(rule: unknown): string {
 function subRuleDisplayName(subRule: unknown): string {
   const names: Record<string, string> = {
     'guobiao/standard': '国标标准',
+    'hongzhong/mil2024': 'MIL 红中2024',
+    'changchun/mil2024': 'MIL 长春2024',
+    'hangzhou/mil2025': 'MIL 杭州2025',
   }
   const key = String(subRule ?? '')
   return names[key] || key || '—'
 }
 
 function roundModeLabel(maxRound: unknown, queueType: unknown): string {
+  if (isHangzhouReplay.value) {
+    const count = Number(maxRound)
+    return Number.isFinite(count) && count > 0 ? `${Math.trunc(count) * 4}局` : '—'
+  }
   const queue = String(queueType ?? '').toLowerCase()
   if (queue.endsWith('_dongfeng')) return '东风'
   if (queue.endsWith('_banzhuang')) return '半庄'
@@ -612,8 +666,14 @@ const gameInfoRows = computed<GameInfoRow[]>(() => {
   if (hasGameTitleField(title, 'tactical_call')) push('战术鸣牌', enabledLabel(title.tactical_call))
   if (hasGameTitleField(title, 'claim_protection')) push('鸣牌保护', enabledLabel(title.claim_protection))
   if (hasGameTitleField(title, 'is_player_set_random_seed')) {
-    push('复式', enabledLabel(title.is_player_set_random_seed))
+    push('场景复现', enabledLabel(title.is_player_set_random_seed))
   }
+  if (hasGameTitleField(title, 'duplicate_wall_type')) push('复式', ({ manual: '手动牌山', seed: '复现牌山', key: '密钥牌山' } as Record<string, string>)[String(title.duplicate_wall_type)] || title.duplicate_wall_type)
+  if (hasGameTitleField(title, 'duplicate_key')) push('复式密钥', title.duplicate_key, true)
+  if (hasGameTitleField(title, 'duplicate_round_count')) push('复式局数', `${title.duplicate_round_count} 局`)
+  if (hasGameTitleField(title, 'duplicate_seed')) push('复式种子', title.duplicate_seed, true)
+  if (hasGameTitleField(title, 'use_flowers')) push('花牌', enabledLabel(title.use_flowers))
+  if (title.tian_di_ren_he) push('天地人和', '开启（各8番）')
   if (hasGameTitleField(title, 'start_time')) push('开始时间', compactRecordTime(title.start_time))
 
   const entryOrder = Array.isArray(title.player_entry_order) ? title.player_entry_order : []
@@ -626,7 +686,9 @@ const gameInfoRows = computed<GameInfoRow[]>(() => {
   }
   for (let index = 0; index < 4; index += 1) {
     const name = title[`p${index}_name`]
-    const userId = title[`p${index}_uid`]
+    const userId = isExternalRecord(title)
+      ? title[`p${index}_external_id`] ?? title[`p${index}_tziakcha_id`]
+      : title[`p${index}_uid`]
     if (name != null || userId != null) {
       push(`玩家 ${index}`, `${name || '—'}${userId != null ? ` · ID ${userId}` : ''}`)
     }
@@ -648,6 +710,14 @@ function isCuoheTick(tick: RecordTick | undefined): boolean {
   return Array.isArray(tick[3]) && tick[3].includes('错和')
 }
 
+const hongzhongKongEvents = computed(() => detail.value?.rule === 'hongzhong' ? hongzhongKongEventsAt(currentRound.value, node.value) : [])
+const hongzhongInfo = computed(() => detail.value?.rule === 'hongzhong' ? hongzhongInfoAt(currentRound.value, node.value) : null)
+const changchunInfo = computed(() => detail.value?.rule === 'changchun' ? changchunInfoAt(currentRound.value, node.value, currentRound.value?.seats?.[viewerOriginal.value] ?? viewerOriginal.value) : null)
+const hangzhouInfo = computed(() => detail.value?.rule === 'hangzhou' ? hangzhouInfoAt(currentRound.value, node.value) : null)
+const wenzhouInfo = computed(() => detail.value?.rule === 'wenzhou' ? wenzhouInfoAt(currentRound.value, node.value) : null)
+const guizhouInfo = computed(() => detail.value?.rule === 'guizhou' ? guizhouInfoAt(currentRound.value, node.value) : null)
+const guangdongInfo = computed(() => isGuangdongMilRecord(detail.value) ? guangdongInfoAt(currentRound.value, node.value) : null)
+
 const roundResult = computed(() => {
   const round = currentRound.value
   if (!round || node.value <= 0) return null
@@ -659,7 +729,8 @@ const roundResult = computed(() => {
   })
   if (!tick) return null
   const action = String(tick[0] ?? '')
-  const scoreValues = action === 'ryuukyoku' || action === 'liuju' ? tick[2] : tick[4]
+  const scoreValues = wenzhouInfo.value?.round_changes ? wenzhouInfo.value.round_changes : action === 'liuju' && guizhouInfo.value?.ledger ? guizhouInfo.value.ledger.score_changes
+    : action === 'ryuukyoku' || action === 'liuju' ? tick[2] : tick[4]
   const changes = Array.isArray(scoreValues)
     ? scoreValues.slice(0, 4).map((value, seat) => ({
       seat,
@@ -672,7 +743,7 @@ const roundResult = computed(() => {
   return {
     kind: 'win' as const,
     player: replay.value?.playerForSeat(round, winnerSeat)?.username || `玩家 ${winnerSeat + 1}`,
-    fan: Number(tick[2]) || 0,
+    fan: guangdongInfo.value ? Number(guangdongInfo.value.result?.fan ?? (Array.isArray(tick[3]) ? tick[3].reduce((sum, label) => { const parts = String(label).split('|'); return sum + (parts[0] === 'GD' && /^\d+$/.test(parts[2] || '') ? Number(parts[2]) : 0) }, 0) : 0)) : Number(tick[2]) || 0,
     fans: Array.isArray(tick[3]) ? tick[3].map(String) : [],
     changes,
     tick,
@@ -712,8 +783,25 @@ const resultMeldTiles = computed(() => (resultWinner.value?.melds ?? []).flatMap
 const resultFlowerTiles = computed(() => resultWinner.value?.flower_tiles ?? [])
 const resultFans = computed(() => roundResult.value?.kind === 'win'
   ? roundResult.value.fans.map((name) => {
+    const guizhouFan = detail.value?.rule === 'guizhou' ? parseGuizhouFan(name) : null
+    if (guizhouFan) return guizhouFan
+    const yixingFan = detail.value?.rule === 'yixing' ? parseYixingFan(name) : null
+    if (yixingFan) return yixingFan
+    const wenzhouFan = detail.value?.rule === 'wenzhou' ? parseWenzhouFan(name) : null
+    if (wenzhouFan) return wenzhouFan
+    const hangzhouFan = detail.value?.rule === 'hangzhou' ? parseHangzhouFan(name) : null
+    if (hangzhouFan) return hangzhouFan
+    if (detail.value?.rule === 'hongzhong') return parseHongzhongFan(name) || { name, value: `${hongzhongInfo.value?.detail?.fan_values?.[name] ?? 0}番` }
+    if (detail.value?.rule === 'changchun') return { name, value: `${CHANGCHUN_FANS[name] ?? 0}番` }
+    const guangdongFan = guangdongInfo.value ? parseGuangdongFan(name) : null
+    if (guangdongFan) return guangdongFan
+    if ((detail.value?.sub_rule || detail.value?.record?.game_title?.sub_rule) === 'guobiao/lanshi') {
+      const points = lanshiFanPoints(name)
+      return { name: translateFanName(name), value: points == null ? '' : `${points}分` }
+    }
     const { definition, totalValue } = resolveFanLabel(name, ['guobiao'])
-    const value = definition
+    const openingFan = detail.value?.record?.game_title?.tian_di_ren_he && ['天和', '地和', '人和'].includes(name)
+    const value = openingFan ? '8番' : definition
       ? `${totalValue ?? formatFanField(definition.fan)}番`
       : ''
     return {
@@ -730,9 +818,10 @@ function fanNameFontSize(value: string): number {
   if (units <= 7) return 20
   return Math.max(12, Math.round((20 * 7 / units) * 10) / 10)
 }
-const winMethodLabel = computed(() => roundResult.value?.kind === 'win' && roundResult.value.action === 'hu_self'
-  ? tr('自摸')
-  : tr('点和'))
+const winMethodLabel = computed(() => {
+  if (detail.value?.rule === 'hangzhou' && hangzhouInfo.value?.ledger?.source === 'ten_winds') return tr('十风和')
+  return roundResult.value?.kind === 'win' && roundResult.value.action === 'hu_self' ? tr('自摸') : tr('点和')
+})
 const fanGridMinHeight = computed(() => `${Math.max(1, Math.ceil((resultFans.value.length || 1) / 2)) * 36}px`)
 const resultPlayers = computed(() => {
   const round = currentRound.value
@@ -759,7 +848,7 @@ const wallTiles = computed(() => replay.value?.wallViewAt(roundIndex.value, node
 const replayDangerBySeat = computed(() => {
   const snapshot = resultPosition.value?.snapshot
   const dangerBySeat = new Map<number, Set<number>>()
-  if (!snapshot || !chongHintEnabled.value) return dangerBySeat
+  if (!snapshot || !chongHintEnabled.value || detail.value?.rule === 'hangzhou') return dangerBySeat
 
   const waitsBySeat = new Map<number, Set<number>>()
   for (const seat of snapshot.seats) {
@@ -784,6 +873,12 @@ const predictedWallIndices = computed(() => {
   const tiles = wallTiles.value
   const predicted = new Set<number>()
   if (!snapshot || !chongHintEnabled.value || tiles.length === 0) return predicted
+  if (tiles.some(item => item.originalPlayer !== undefined)) {
+    tiles.forEach((item, index) => {
+      if (!item.consumed && item.originalPlayer === viewerOriginal.value) predicted.add(index)
+    })
+    return predicted
+  }
 
   let front = 0
   while (front < tiles.length && tiles[front].consumed) front += 1
@@ -794,9 +889,11 @@ const predictedWallIndices = computed(() => {
   const viewerSeat = Number(snapshot.viewer.seat_index)
   const offset = (viewerSeat - anchor + 4) % 4
 
+  const hangzhouDrawable = detail.value?.rule === 'hangzhou' || detail.value?.record.game_title?.rule === 'hangzhou'
+    ? hangzhouNormalDrawableWallIndices(tiles) : null
   for (let index = front + offset - 1; index < tiles.length; index += 4) {
     if (index < front) continue
-    if (!tiles[index].consumed) predicted.add(index)
+    if (!tiles[index].consumed && (!hangzhouDrawable || hangzhouDrawable.has(index))) predicted.add(index)
   }
   return predicted
 })
@@ -812,6 +909,19 @@ const wallTilesWithHints = computed(() => {
   }))
 })
 const initialHands = computed(() => replay.value?.initialHandsAt(roundIndex.value) ?? [])
+const duplicateInitialPartitions = computed(() => {
+  const title = detail.value?.record.game_title
+  const tiles = title?.duplicate_round_tiles?.[Number(currentRound.value?.current_round || 1) - 1] || title?.duplicate_tiles
+  if (!Array.isArray(tiles) || ![136, 144].includes(tiles.length)) return []
+  const perSeat = tiles.length / 4
+  return [0, 1, 2, 3].map(seat => tiles.slice(seat * perSeat, (seat + 1) * perSeat).map(salasasaTileToMmcr))
+})
+const wallGroups = computed(() => {
+  if (Array.isArray(currentRound.value?.duplicate_walls)) {
+    return [0, 1, 2, 3].map(original => ({ label: `${original + 1} 号玩家固定牌山`, tiles: wallTilesWithHints.value.filter(item => item.originalPlayer === original) }))
+  }
+  return [{ label: '牌山', tiles: wallTilesWithHints.value }]
+})
 const currentXunmuNodes = computed(() => replay.value?.xunmuNodes(roundIndex.value, viewerOriginal.value) ?? [0])
 const currentXunmu = computed(() => {
   let index = 0
@@ -853,7 +963,7 @@ const scoreboardSettlements = computed(() => replay.value?.rounds.map((round) =>
   if (action === 'liuju' || action === 'ryuukyoku') return '流局'
   const fans = Array.isArray(terminal[3]) ? terminal[3].map(String) : []
   const mainFan = fans.find((fan) => !fan.startsWith('花牌')) || fans[0]
-  return mainFan || `${Number(terminal[2]) || 0}番`
+  return (detail.value?.rule === 'guizhou' ? parseGuizhouFan(mainFan)?.name : detail.value?.rule === 'yixing' ? parseYixingFan(mainFan)?.name : detail.value?.rule === 'wenzhou' ? parseWenzhouFan(mainFan)?.name : detail.value?.rule === 'hangzhou' ? parseHangzhouFan(mainFan)?.name : isGuangdongMilRecord(detail.value) ? parseGuangdongFan(mainFan)?.name : mainFan) || `${Number(terminal[2]) || 0}${['guizhou', 'yixing', 'hangzhou'].includes(detail.value?.rule || '') ? '分' : '番'}`
 }) ?? [])
 
 function stopPlaying() {
@@ -1053,6 +1163,13 @@ function advanceAnimatedStep() {
     node.value = ticks.length
     return
   }
+  // Guizhou has silent physical mutations (opening-kong reveals and the
+  // unique source tile of multi-ron). Apply those before the next animation.
+  if (ticks.slice(node.value, playNode).some((entry) => ['guizhou', 'wenzhou'].includes(String(entry[0])))) {
+    const before = replay.value.build(roundIndex.value, playNode, viewerOriginal.value, showOtherHands.value)
+    decorateSnapshotRanks(before.snapshot)
+    scene.flushFromSnapshot(before.snapshot)
+  }
   const tick = ticks[playNode]
   const action = String(tick?.[0] ?? '')
   const rawUpdate = replay.value.eventForStep(
@@ -1077,7 +1194,14 @@ function advanceAnimatedStep() {
     // Replay stepping uses the same board mutation path as the live game. In
     // particular, chow/pung/kong now move tiles out of the river and hand instead
     // of replacing the whole table with the post-action snapshot.
-    scene.handleEvent(update)
+    if (detail.value?.rule === 'wenzhou' && ['cl', 'cm', 'cr', 'p', 'g', 'ag', 'jg'].includes(action)) {
+      let physicalNode = nextNode
+      while (physicalNode < ticks.length && isRecordSilentTick(ticks[physicalNode])) physicalNode++
+      const physical = replay.value.build(roundIndex.value, physicalNode, viewerOriginal.value, showOtherHands.value)
+      scene.flushFromSnapshot(physical.snapshot)
+      nextPosition.snapshot = physical.snapshot
+      node.value = physicalNode
+    } else scene.handleEvent(update)
     refreshReplayHints(nextPosition.snapshot)
     actionLabel.value = nextPosition.actionLabel
     const seatMap = replay.value.rounds[roundIndex.value].seats || [0, 1, 2, 3]
@@ -1185,6 +1309,7 @@ function showRoundTooltipFromFocus(index: number, event: FocusEvent) {
 
 function roundSelectLabel(round: RecordRound, index: number) {
   const number = Number(round.current_round ?? index + 1)
+  if (isHangzhouReplay.value) return hangzhouRoundLabel(number)
   return tr(roundLabelKey(number, appearance.value.roundLabelFormat, locale.value))
 }
 
@@ -1253,7 +1378,9 @@ function waitDataForSnapshot(snapshot: ActiveSessionSnapshot) {
   if (!viewer?.hand_tiles) return null
   const hand = viewer.hand_tiles.map(mmcrTileToSalasasa)
   if (viewer.drawn_tile != null) hand.push(mmcrTileToSalasasa(viewer.drawn_tile))
+  if (detail.value?.rule === 'hangzhou') return hangzhouWaitDataAt(currentRound.value, node.value, viewer.seat_index, hand, viewer.melds.map(meldKey), hangzhouKnownTiles(snapshot, mmcrTileToSalasasa))
   const title = detail.value?.record.game_title ?? {}
+  if (detail.value?.rule === 'wenzhou') return wenzhouWaitData(currentRound.value, node.value, viewer.seat_index, hand, snapshot, mmcrTileToSalasasa)
   return buildLocalWaitData({
     tips: true,
     hand,
@@ -1271,6 +1398,7 @@ function waitDataForSnapshot(snapshot: ActiveSessionSnapshot) {
 function waitingTilesForSnapshotSeat(seat: ActiveSessionSnapshot['seats'][number]): Set<number> {
   const hand = (seat.hand_tiles ?? []).map(mmcrTileToSalasasa)
   if (hand.length === 0) return new Set<number>()
+  if (detail.value?.rule === 'wenzhou') return new Set<number>(wenzhouWaitsAt(currentRound.value, node.value, seat.seat_index, hand).map((wait: { tile: number }) => salasasaTileToMmcr(wait.tile)))
   try {
     const waits = tingpaiCheck(hand, seat.melds.map(meldKey), false)
     return new Set(waits.map(salasasaTileToMmcr))
@@ -1324,6 +1452,10 @@ function decorateEventRanks(update: Record<string, any> | null) {
 }
 
 async function loadCurrentRanks(record: PublicGameRecord) {
+  if (isExternalRecord(record.record.game_title)) {
+    currentRanks.value = {}
+    return
+  }
   const entries = await Promise.all(record.players.map(async (player) => {
     try {
       const profile = await publicApiGet<{ rank?: { guobiao_rank?: string | null } }>(
@@ -1494,6 +1626,7 @@ async function mountScene() {
   if (!stageElement.value || scene) return
   const currentScene = new MahjongScene(() => {})
   currentScene.setPresentationMode('replay')
+  currentScene.setRoundLabelFormatter(isHangzhouReplay.value ? hangzhouRoundLabel : null)
   currentScene.setReplayRecordVersion(6)
   currentScene.setReplayMoqieHintEnabled(showMoqieMode.value)
   currentScene.setReplayWaitTips(null)
@@ -1541,11 +1674,19 @@ async function loadRecord() {
     }
     if (isLocalReplayRecord(gameId) || isLocalOnlyGameId(gameId)) currentRanks.value = {}
     else await loadCurrentRanks(value)
+    if (isExternalRecord(value.record.game_title)) {
+      value.players = value.players.map((player) => ({
+        ...player,
+        username: externalPlayerName(value.record.game_title, player.original_player_index, player.username),
+      }))
+    }
+    // 公开牌谱路由不要求登录，直接打开/刷新时也需先恢复已有登录身份。
+    if (!playerAuth.loaded) await playerAuth.fetchMe()
     replay.value = new RecordReplay(value)
     detail.value = value
     roundIndex.value = 0
     node.value = 0
-    viewerOriginal.value = 0
+    viewerOriginal.value = replay.value.defaultViewerOriginal(playerAuth.isLoggedIn ? playerAuth.userId : null)
     showOtherHands.value = true
     playWinAnimation.value = false
     chongHintEnabled.value = true

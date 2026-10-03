@@ -1,5 +1,6 @@
 """Exercise auth functions without importing server.py's live servers/database startup."""
 import ast
+import asyncio
 import logging
 from pathlib import Path
 import re
@@ -31,6 +32,7 @@ class PlayerRegistrationTests(unittest.IsolatedAsyncioTestCase):
         self.finalize = AsyncMock(return_value=SimpleNamespace(success=True))
         self.ns = dict(
             Response=SimpleNamespace, Optional=Optional, Dict=Dict, Any=Any,
+            asyncio=asyncio, _login_password_checks=asyncio.Semaphore(1),
             re=re, secrets=secrets, logging=logging, db_manager=self.db,
             ip_registration_limiter=self.limiter, _finalize_player_login=self.finalize,
             normalize_username=normalize_username, validate_username=validate_username,
@@ -51,10 +53,25 @@ class PlayerRegistrationTests(unittest.IsolatedAsyncioTestCase):
         self.limiter.record_registration.assert_called_once_with("127.0.0.1")
         self.finalize.assert_awaited_once()
 
+    async def test_unicode_registration_stores_normalized_name_and_logs_in(self):
+        for username in ["あ", "カナ", "ｶﾅ", "山田たろう", " は\u3099 ", "玖柒、97", "user_1"]:
+            with self.subTest(username=username):
+                self.db.reset_mock()
+                self.finalize.reset_mock()
+                result = await self.register(username=username)
+                self.assertTrue(result.success)
+                self.db.create_user.assert_called_once_with(
+                    normalize_username(username), "Secret123!", is_tourist=False, email="player@example.com")
+                self.finalize.assert_awaited_once()
+
     async def test_invalid_registration_never_creates_account(self):
         for values in [dict(email=""), dict(email="wrong"), dict(email="a b@c.com"),
                        dict(email="a@b.com\nextra"), dict(email="a" * 250 + "@b.com"),
-                       dict(username=""), dict(password="short"), dict(password="has space"),
+                       dict(username=""), dict(username="a\x00b"), dict(username="a\u200db"),
+                       dict(username="a" * 17),
+                       dict(username="a"), dict(username="中" * 11),
+                       dict(password="short"), dict(password="has space"),
+                       dict(password="旧密码123"), dict(password="a" * 33),
                        dict(confirm_password="different"), dict(email=None), dict(username={})]:
             with self.subTest(values=values):
                 self.assertFalse((await self.register(**values)).success)
@@ -93,6 +110,67 @@ class PlayerRegistrationTests(unittest.IsolatedAsyncioTestCase):
         self.db.is_login_ban_active.return_value = False
         self.assertTrue((await self.ns["player_login"]("oldplayer", "Secret123!")).success)
         self.db.create_user.assert_not_called()
+
+    async def test_existing_legacy_usernames_log_in_in_both_modes(self):
+        self.db.get_user_by_username.return_value = {"user_id": 42, "password": "hash"}
+        self.db.verify_password.return_value = True
+        self.db.is_login_ban_active.return_value = False
+        for username in ["玖柒、97", "玖柒", "97", "user_1", "a", "中" * 11,
+                         "old player", "a@example.com", "あ", "カナ", "ｶﾅ", "山田たろう"]:
+            for mode in ("username", "account"):
+                with self.subTest(username=username, mode=mode):
+                    self.db.reset_mock()
+                    self.finalize.reset_mock()
+                    result = await self.ns["player_login"](username, "Secret123!", login_type=mode)
+                    self.assertTrue(result.success)
+                    self.db.get_user_by_username.assert_called_once_with(username)
+                    self.db.verify_password.assert_called_once_with("Secret123!", "hash")
+                    self.db.get_users_by_login_email.assert_not_called()
+                    self.db.create_user.assert_not_called()
+                    self.finalize.assert_awaited_once_with(
+                        42, username, is_tourist=False, client_ip="unknown", success_message="登录成功")
+
+    async def test_existing_legacy_passwords_are_verified_without_reformatting(self):
+        self.db.get_user_by_username.return_value = {"user_id": 42, "password": "hash"}
+        self.db.verify_password.return_value = True
+        self.db.is_login_ban_active.return_value = False
+        for password in ["123", "has space", "旧密码123", "a" * 33, " password "]:
+            for mode in ("username", "account"):
+                with self.subTest(password=password, mode=mode):
+                    self.db.reset_mock()
+                    result = await self.ns["player_login"]("oldplayer", password, login_type=mode)
+                    self.assertTrue(result.success)
+                    self.db.verify_password.assert_called_once_with(password, "hash")
+                    self.db.create_user.assert_not_called()
+
+    async def test_empty_or_malformed_login_credentials_are_rejected_before_lookup(self):
+        for username, password in [("", "Secret123!"), (" \t ", "Secret123!"),
+                                   (None, "Secret123!"), ({}, "Secret123!"),
+                                   ("玖柒、97", ""), ("玖柒、97", None), ("玖柒、97", {})]:
+            with self.subTest(username=username, password=password):
+                result = await self.ns["player_login"](username, password, login_type="account")
+                self.assertFalse(result.success)
+        self.db.get_user_by_username.assert_not_called()
+        self.db.get_users_by_login_email.assert_not_called()
+        self.db.verify_password.assert_not_called()
+        self.db.create_user.assert_not_called()
+        self.finalize.assert_not_awaited()
+
+    async def test_legacy_username_still_requires_correct_password_and_unbanned_account(self):
+        self.db.get_user_by_username.return_value = {"user_id": 42, "password": "hash"}
+        self.db.verify_password.return_value = False
+        result = await self.ns["player_login"]("玖柒、97", "123", login_type="account")
+        self.assertFalse(result.success)
+        self.assertEqual(result.message, "密码错误")
+        self.db.verify_password.assert_called_once_with("123", "hash")
+        self.db.verify_password.return_value = True
+        self.db.is_login_ban_active.return_value = True
+        self.db.build_login_ban_message.return_value = "账户已被封禁"
+        result = await self.ns["player_login"]("玖柒、97", "123", login_type="account")
+        self.assertFalse(result.success)
+        self.assertEqual(result.message, "账户已被封禁")
+        self.db.create_user.assert_not_called()
+        self.finalize.assert_not_awaited()
 
     async def test_wrong_password_rejected(self):
         self.db.get_user_by_username.return_value = {"user_id": 42, "password": "hash"}
@@ -185,7 +263,8 @@ class RegistrationPersistenceTests(unittest.TestCase):
         self.assertEqual(result, 42)
         sql, args = self.cursor.execute.call_args_list[0].args
         self.assertIn("email, email_verified_at", sql)
-        self.assertIn("%s, NULL)", sql)
+        self.assertIn("email, email_verified_at, rename_count", sql)
+        self.assertIn("%s, NULL, 0)", sql)
         self.assertEqual(args, ("player", "hashed-password", False, "player@example.com"))
         self.assertEqual(self.cursor.execute.call_count, 4)
         self.conn.commit.assert_called_once()

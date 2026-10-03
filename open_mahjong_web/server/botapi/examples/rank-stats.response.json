@@ -2,6 +2,7 @@
   "success": true,
   "data": {
     "total_games": 42,
+    "total_round_score": 1680,
     "first_place_count": 10,
     "second_place_count": 12,
     "third_place_count": 11,

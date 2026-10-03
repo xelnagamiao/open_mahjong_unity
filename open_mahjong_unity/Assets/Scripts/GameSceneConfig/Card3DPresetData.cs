@@ -8,7 +8,7 @@ public enum Card3DRotationMode { None, Alternating, Random }
 [Serializable]
 public sealed class Card3DAppearance
 {
-    public Color back = ConfigManager.DefaultCardBackColor, side = Color.white;
+    public Color back = ConfigManager.DefaultCardBackColor, side = ConfigManager.DefaultSideColor;
     public Color backEdge = ConfigManager.DefaultBackEdgeColor, frontEdge = Color.white;
     public Color face = ConfigManager.DefaultTableFaceColor;
     public float backBrightness, faceBrightness, frontEdgeBrightness, backEdgeBrightness;

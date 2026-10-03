@@ -1,3 +1,4 @@
+const { withRecordMetadataQuery } = require('./recordMetadataQuery');
 const pool = require('../config/database');
 const { GUOBIAO_FAN_KEYS } = require('../constants/guobiaoFanDict');
 
@@ -492,97 +493,115 @@ async function queryHomeHierarchyStats() {
  * @param {{ matchTier?: string|null, eventId?: string|null, limit?: number, offset?: number }} opts
  */
 async function queryRecentLadderRecords({ matchTier = null, eventId = null, limit = 20, offset = 0 } = {}) {
-  const lim = Math.min(50, Math.max(1, parseInt(limit, 10) || 20));
-  const off = Math.max(0, parseInt(offset, 10) || 0);
-  const params = [];
-  const conditions = [];
+  return withRecordMetadataQuery(pool, async (db) => {
+    const lim = Math.min(50, Math.max(1, parseInt(limit, 10) || 20));
+    const off = Math.max(0, parseInt(offset, 10) || 0);
+    const params = [];
+    // A list exposes game summaries; full replay endpoints enforce unlock state.
+    const conditions = [];
 
-  if (isEventScope(eventId)) {
-    conditions.push(`gpr.room_type = 'events'`);
-    if (!isAllEvents(eventId)) {
-      params.push(String(eventId).trim());
-      conditions.push(`gpr.event_id = $${params.length}`);
-    }
-  } else {
-    conditions.push(`gpr.room_type = 'match'`);
-    if (matchTier && LADDER_TIERS.includes(matchTier)) {
-      params.push(matchTier);
-      conditions.push(`gpr.match_tier = $${params.length}`);
+    if (isEventScope(eventId)) {
+      conditions.push(`gpr.room_type = 'events'`);
+      if (!isAllEvents(eventId)) {
+        params.push(String(eventId).trim());
+        conditions.push(`gpr.event_id = $${params.length}`);
+      }
     } else {
-      params.push(LADDER_TIERS);
-      conditions.push(`gpr.match_tier = ANY($${params.length}::varchar[])`);
+      conditions.push(`gpr.room_type = 'match'`);
+      if (matchTier && LADDER_TIERS.includes(matchTier)) {
+        params.push(matchTier);
+        conditions.push(`gpr.match_tier = $${params.length}`);
+      } else {
+        params.push(LADDER_TIERS);
+        conditions.push(`gpr.match_tier = ANY($${params.length}::varchar[])`);
+      }
     }
-  }
 
-  const whereSql = conditions.join(' AND ');
-  const limitIdx = params.length + 1;
-  const offsetIdx = params.length + 2;
-  params.push(lim, off);
+    const whereSql = conditions.join(' AND ');
+    const limitIdx = params.length + 1;
+    const offsetIdx = params.length + 2;
+    params.push(lim, off);
 
-  const listRes = await pool.query(
-    `SELECT x.*, ev.name AS event_name
-     FROM (
-       SELECT gr.game_id, gr.created_at,
-              MAX(gpr.rule) AS rule,
-              MAX(gpr.sub_rule) AS sub_rule,
-              MAX(gpr.match_type) AS match_type,
-              MAX(gpr.room_type) AS room_type,
-              MAX(gpr.match_tier) AS match_tier,
-              MAX(gpr.event_id) AS event_id
-       FROM game_records gr
-       JOIN game_player_records gpr ON gpr.game_id = gr.game_id
-       WHERE ${whereSql}
-       GROUP BY gr.game_id, gr.created_at
-       ORDER BY gr.created_at DESC
-       LIMIT $${limitIdx} OFFSET $${offsetIdx}
-     ) x
-     LEFT JOIN events ev ON ev.event_id = x.event_id`,
-    params
-  );
-
-  const countParams = params.slice(0, -2);
-  const countRes = await pool.query(
-    `SELECT COUNT(DISTINCT gpr.game_id)::int AS cnt
-     FROM game_player_records gpr
-     WHERE ${whereSql}`,
-    countParams
-  );
-
-  const gameIds = listRes.rows.map((r) => r.game_id);
-  const playersByGame = new Map();
-  if (gameIds.length > 0) {
-    const playersRes = await pool.query(
-      `SELECT game_id, user_id, username, score, rank
-       FROM game_player_records
-       WHERE game_id = ANY($1::varchar[])
-       ORDER BY rank`,
-      [gameIds]
+    const listRes = await db.query(
+      `WITH page AS MATERIALIZED (
+         SELECT gr.game_id, gr.created_at
+         FROM game_records gr
+         WHERE EXISTS (
+           SELECT 1 FROM game_player_records gpr
+           WHERE gpr.game_id = gr.game_id AND ${whereSql}
+         )
+         ORDER BY gr.created_at DESC, gr.game_id DESC
+         LIMIT $${limitIdx} OFFSET $${offsetIdx}
+       )
+       SELECT x.*, ev.name AS event_name
+       FROM (
+         SELECT page.game_id, page.created_at,
+                MAX(gpr.rule) AS rule,
+                MAX(gpr.sub_rule) AS sub_rule,
+                MAX(gpr.match_type) AS match_type,
+                MAX(gpr.room_type) AS room_type,
+                MAX(gpr.match_tier) AS match_tier,
+                MAX(gpr.event_id) AS event_id
+         FROM page
+         JOIN game_player_records gpr ON gpr.game_id = page.game_id
+         WHERE ${whereSql}
+         GROUP BY page.game_id, page.created_at
+       ) x
+       LEFT JOIN events ev ON ev.event_id = x.event_id
+       ORDER BY x.created_at DESC, x.game_id DESC`,
+      params
     );
-    for (const row of playersRes.rows) {
-      if (!playersByGame.has(row.game_id)) playersByGame.set(row.game_id, []);
-      playersByGame.get(row.game_id).push(row);
+
+    const countParams = params.slice(0, -2);
+    const countRes = await db.query(
+      `SELECT COUNT(*)::int AS cnt
+       FROM game_records gr
+       WHERE EXISTS (
+         SELECT 1 FROM game_player_records gpr
+         WHERE gpr.game_id = gr.game_id AND ${whereSql}
+       )`,
+      countParams
+    );
+
+    const gameIds = listRes.rows.map((r) => r.game_id);
+    const playersByGame = new Map();
+    if (gameIds.length > 0) {
+      const playersRes = await db.query(
+        `SELECT game_id, user_id, username, score, rank, pt_change
+         FROM game_player_records
+         WHERE game_id = ANY($1::varchar[])
+         ORDER BY rank`,
+        [gameIds]
+      );
+      for (const row of playersRes.rows) {
+        if (!playersByGame.has(row.game_id)) playersByGame.set(row.game_id, []);
+        playersByGame.get(row.game_id).push({
+          ...row,
+          pt_change: row.pt_change == null ? null : Number(row.pt_change),
+        });
+      }
     }
-  }
 
-  const items = listRes.rows.map((row) => ({
-    game_id: row.game_id,
-    created_at: row.created_at,
-    rule: row.rule,
-    sub_rule: row.sub_rule,
-    match_type: row.match_type,
-    room_type: row.room_type || (isEventScope(eventId) ? 'events' : 'match'),
-    match_tier: row.match_tier,
-    event_id: row.event_id,
-    event_name: row.event_name,
-    players: playersByGame.get(row.game_id) || [],
-  }));
+    const items = listRes.rows.map((row) => ({
+      game_id: row.game_id,
+      created_at: row.created_at,
+      rule: row.rule,
+      sub_rule: row.sub_rule,
+      match_type: row.match_type,
+      room_type: row.room_type || (isEventScope(eventId) ? 'events' : 'match'),
+      match_tier: row.match_tier,
+      event_id: row.event_id,
+      event_name: row.event_name,
+      players: playersByGame.get(row.game_id) || [],
+    }));
 
-  return {
-    items,
-    total: countRes.rows[0]?.cnt || 0,
-    limit: lim,
-    offset: off,
-  };
+    return {
+      items,
+      total: countRes.rows[0]?.cnt || 0,
+      limit: lim,
+      offset: off,
+    };
+  });
 }
 
 async function listPlatformEvents() {

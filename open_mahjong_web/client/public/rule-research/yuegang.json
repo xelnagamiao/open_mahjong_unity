@@ -154,32 +154,13 @@
       "reliability": "low"
     },
     {
-      "id": "jj-gd-tuidao",
-      "url": "https://www.jj.cn/news/320/20111025103000019369.shtml",
-      "title": "JJ · 广东麻将推倒胡游戏规则",
-      "type": "discussion",
-      "lang": "zh",
-      "publisher": "竞技世界",
-      "published": "2011-10-25",
-      "accessed": "2026-08-14",
-      "excerpt": "推倒胡是深圳、东莞等地区流行打法：不许吃，只许自摸，可抢杠，讲究杠牌、买马。136 张无花。发牌后从牌墙末尾定一张马牌，按点数从庄家逆时针数到谁，庄家跟该家再结算一次。连庄可再买马，最多 4 匹。C 级平台桌规。",
-      "rules": [
-        "tuidao"
-      ],
-      "source_level": "community",
-      "reliability": "low",
-      "local_kind": "snapshot",
-      "local_path": "yuegang/snapshots/jj-gd-tuidao.html",
-      "local_status": "ok"
-    },
-    {
       "id": "360-gd-tuidao",
       "url": "https://u.360.cn/gl/article/267650/",
       "title": "360 游戏 · 广东麻将推倒胡规则和技巧详解",
       "type": "discussion",
       "lang": "zh",
       "accessed": "2026-08-14",
-      "excerpt": "星辰广东麻将桌规：只能自摸，不能吃，136 张。普通自摸叫平胡 1 番。有鬼、无鬼、杠开、满鬼、抢杠、买马（有鬼 4 马、无鬼 6 马）。与 JJ「发牌定一匹马」细节不同，与 MIL 推倒和也不同。C 级。",
+      "excerpt": "星辰广东麻将桌规：只能自摸，不能吃，136 张。普通自摸叫平胡 1 番。有鬼、无鬼、杠开、满鬼、抢杠、买马（有鬼 4 马、无鬼 6 马）。与 MIL 推倒和不同。C 级。",
       "rules": [
         "tuidao"
       ],

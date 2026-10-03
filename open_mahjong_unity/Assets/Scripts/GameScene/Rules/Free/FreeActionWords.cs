@@ -14,7 +14,7 @@ public static class FreeActionWords {
     public const string TransferTake = "free_transfer_take";
 
     public static readonly string[] PersistentButtons = {
-        "cut", Draw, "chi_left", "peng", "gang", "buhua", "hu", "hu_self", Push, Stand,
+        "cut", Draw, Stand, Push, "chi_left", "peng", "gang", "buhua", "hu", "hu_self",
     };
 
     public static void RegisterAll() {
@@ -22,7 +22,7 @@ public static class FreeActionWords {
         ActionWords.Register(new ActionWordSpec { Word = Push, Kind = ActionWordKind.Other, Label = _ => "推牌" });
         ActionWords.Register(new ActionWordSpec { Word = Stand, Kind = ActionWordKind.Other, Label = _ => "立牌" });
         ActionWords.Register(new ActionWordSpec { Word = ToFlower, Kind = ActionWordKind.Other, Apply = ApplyToFlower });
-        ActionWords.Register(new ActionWordSpec { Word = Meld, Kind = ActionWordKind.Other, Apply = ApplyMirrorOnly });
+        ActionWords.Register(new ActionWordSpec { Word = Meld, Kind = ActionWordKind.Other, Apply = ApplyMeld });
         ActionWords.Register(new ActionWordSpec { Word = RecallRiver, Kind = ActionWordKind.Other, Apply = ApplyRecallRiver });
         ActionWords.Register(new ActionWordSpec { Word = RecallFlower, Kind = ActionWordKind.Other, Apply = ApplyRecallFlower });
         ActionWords.Register(new ActionWordSpec { Word = RecallMeld, Kind = ActionWordKind.Other, Apply = ApplyRecallMeld });
@@ -31,7 +31,7 @@ public static class FreeActionWords {
     }
 
     public static bool NeedsTableRelayout(string word) {
-        return word == Meld || word == RecallRiver || word == RecallFlower || word == RecallMeld
+        return word == RecallRiver || word == RecallFlower || word == RecallMeld
             || word == TransferPut || word == TransferTake;
     }
 
@@ -51,7 +51,7 @@ public static class FreeActionWords {
         Game3DManager.Instance.Change3DTile("Buhua", tileId, 0, seat, false, null);
     }
 
-    private static void ApplyMirrorOnly(TableAction action) {
+    private static void ApplyMeld(TableAction action) {
         string seat = action.Seat;
         PlayerInfoClass player = Mirror.Info(seat);
         if (action.CutFromPlayer.HasValue && action.CutTile.HasValue && action.CutTile.Value > 0) {
@@ -60,26 +60,18 @@ public static class FreeActionWords {
         }
         TableMirror.AppendMeld(player, action.CombinationTarget, action.CombinationMask);
         List<int> tiles = TilesFromMask(action.CombinationMask);
-        int skip = action.CutTile ?? 0;
+        // 横置是自由编辑的朝向，不能据此判断来源；只扣除一张实际认走的河牌。
+        if (action.CutFromPlayer.HasValue && action.CutTile.HasValue) tiles.Remove(action.CutTile.Value);
         if (seat == "self") {
-            foreach (int tileId in tiles) {
-                if (tileId == skip) {
-                    skip = -1;
-                    continue;
-                }
-                Mirror.SelfHandTiles.Remove(tileId);
-            }
+            foreach (int tileId in tiles) Mirror.SelfHandTiles.Remove(tileId);
+            GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard", 0, tiles.ToArray(), null);
         } else {
-            int removed = 0;
-            foreach (int tileId in tiles) {
-                if (tileId == skip) {
-                    skip = -1;
-                    continue;
-                }
-                removed++;
-            }
-            player.hand_tiles_count -= removed;
+            player.hand_tiles_count -= tiles.Count;
         }
+        FreeGameState.Active?.RemoveRevealedMeldTiles(action.PlayerIndex, tiles);
+        Game3DManager.Instance.PlayFreeMeld(seat, action.CombinationMask, player.combination_masks.Count - 1,
+            tiles.ToArray(), action.CutFromPlayer.HasValue ? Mirror.SeatOf(action.CutFromPlayer.Value) : null,
+            action.CutTile ?? 0);
     }
 
     private static void ApplyRecallRiver(TableAction action) {
@@ -117,9 +109,13 @@ public static class FreeActionWords {
 
     private static void ApplyTransferPut(TableAction action) {
         int tileId = action.CutTile ?? 0;
-        if (tileId <= 0) return;
-        if (action.Seat == "self") Mirror.SelfHandTiles.Remove(tileId);
-        else Mirror.Info(action.Seat).hand_tiles_count--;
+        if (action.Seat == "self") {
+            if (tileId > 0) Mirror.SelfHandTiles.Remove(tileId);
+        } else {
+            // 暗面转移不会发送牌值，但已确认的出牌仍须扣减他家的手牌数量。
+            PlayerInfoClass player = Mirror.Info(action.Seat);
+            if (player != null) player.hand_tiles_count = System.Math.Max(0, player.hand_tiles_count - 1);
+        }
     }
 
     private static void ApplyTransferTake(TableAction action) {

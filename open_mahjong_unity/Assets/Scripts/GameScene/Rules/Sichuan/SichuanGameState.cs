@@ -23,16 +23,21 @@ public class SichuanGameState : TurnBasedGameState {
     public bool PendingContinueAfterResult { get; private set; }
 
     private readonly SichuanEndgameLedger ledger = new SichuanEndgameLedger();
+    private int lastXueliuWinTick;
+    private int snapshotActionTick;
 
     // =====================================================================
     // 开局
     // =====================================================================
 
     protected override void OnRoundStarted(GameInfo gameInfo) {
+        snapshotActionTick = gameInfo?.action_tick ?? 0;
         SelfDingqueSuit = 0;
         PendingContinueAfterResult = false;
         ledger.Reset();
+        lastXueliuWinTick = 0;
         GameCanvas.Instance.HideDingqueSelection();
+        GameCanvas.Instance.HideXueliuThrowThreeSelection();
         // 重连/进入局中时，从 players_info.dingque_suit 恢复各家定缺标记
         if (gameInfo?.players_info == null) return;
         var map = new Dictionary<int, int>();
@@ -53,6 +58,12 @@ public class SichuanGameState : TurnBasedGameState {
 
     protected override bool HandleExtraMessage(string suffix, Response response) {
         switch (suffix) {
+            case "xueliu_continue":
+                ApplyXueliuContinue(response.game_info);
+                if (SichuanLobby.IsXueliu(Session.SubRule) && GameCanvas.Instance != null) {
+                    GameCanvas.Instance.ChangeHandCards("SyncHandCards", 0, Mirror.SelfHandTiles.ToArray(), null);
+                }
+                return true;
             case "ask_dingque":
                 OnAskDingque(response);
                 return true;
@@ -62,6 +73,22 @@ public class SichuanGameState : TurnBasedGameState {
             default:
                 return false;
         }
+    }
+
+    protected override void OnAskHandAction(Response response) {
+        AskHandActionGBInfo info = response.ask_hand_action_info;
+        if (info != null && info.action_list != null &&
+            (System.Array.IndexOf(info.action_list, "xueliu_throw_three") >= 0 || System.Array.IndexOf(info.action_list, "xueliu_exchange_three") >= 0)) {
+            Clock.LastAskActionTick = info.action_tick;
+            Manager.AskHandAction(info.remaining_time, info.player_index,
+                System.Array.Empty<string>(), info.deal_tile_type, info.step_remaining ?? -1);
+            if (!Session.IsRealtimeSpectator && !GameRecordManager.Instance.IsSpectating &&
+                info.player_index == Session.SelfIndex) {
+                GameCanvas.Instance.ShowXueliuThrowThreeSelection(info.remaining_time, System.Array.IndexOf(info.action_list, "xueliu_exchange_three") >= 0);
+            }
+            return;
+        }
+        base.OnAskHandAction(response);
     }
 
     /// <summary>
@@ -75,8 +102,12 @@ public class SichuanGameState : TurnBasedGameState {
         }
         if (Session.IsRealtimeSpectator) return;
         if (GameRecordManager.Instance.IsSpectating) return;
+        AskHandActionGBInfo info = response.ask_hand_action_info;
+        int remaining = Mathf.Max(1, info?.remaining_time ?? 10);
+        Manager.AskHandAction(remaining, info?.player_index ?? Session.SelfIndex,
+            System.Array.Empty<string>(), null, 0);
         GameCanvas.Instance.ClearActionButton();
-        GameCanvas.Instance.ShowDingqueSelection(10);
+        GameCanvas.Instance.ShowDingqueSelection(remaining);
     }
 
     /// <summary>定缺完成广播，按 player_to_dingque 同步各家头像旁的定缺标记。</summary>
@@ -131,6 +162,52 @@ public class SichuanGameState : TurnBasedGameState {
         return !MustCutDingqueFirst() || IsDingqueSuitTile(tileId);
     }
 
+    public override bool IsSelfLocked {
+        get {
+            PlayerInfoClass self = Mirror.Info("self");
+            return self != null && self.post_hu_lock == true;
+        }
+    }
+
+    protected override void OnDoAction(Response response) {
+        DoActionInfo info = response.do_action_info;
+        // 重连快照已包含这些落桌结果；旧队列可能在快照之后才补发同一动作。
+        // 战术申请不改变牌桌且复用询问帧号，仍需发声；帧号 0 兼容旧协议。
+        if (info != null && info.is_claim != true && snapshotActionTick > 0
+            && info.action_tick > 0 && info.action_tick <= snapshotActionTick) return;
+        base.OnDoAction(response);
+    }
+
+    private void ApplyXueliuContinue(GameInfo info) {
+        if (info?.players_info == null || !SichuanLobby.IsXueliu(Session.SubRule)) return;
+        foreach (PlayerInfo player in info.players_info) {
+            string seat = Mirror.SeatOf(player.player_index);
+            PlayerInfoClass current = Mirror.Info(seat);
+            if (current == null) continue;
+            int flowerCount = current.huapai_list?.Count ?? 0;
+            current.huapai_list = new List<int>(player.huapai_list ?? System.Array.Empty<int>());
+            for (int i = flowerCount; i < current.huapai_list.Count; i++) {
+                Game3DManager.Instance.Change3DTile("SetBuhuacardWithoutAnimation", current.huapai_list[i], 0, seat, false, null);
+            }
+            current.hand_tiles_count = player.hand_tiles_count;
+            current.combination_tiles = new List<string>(player.combination_tiles ?? System.Array.Empty<string>());
+            current.combination_masks = new List<int[]>();
+            if (player.combination_mask != null) {
+                foreach (int[] mask in player.combination_mask) current.combination_masks.Add((int[])mask.Clone());
+            }
+            current.discard_tiles = new List<int>(player.discard_tiles ?? System.Array.Empty<int>());
+            current.discard_riichi_flags = new List<bool>(new bool[current.discard_tiles.Count]);
+            current.has_won = player.has_won;
+            current.win_count = player.win_count;
+            current.post_hu_lock = player.post_hu_lock;
+            if (seat == "self" && player.hand_tiles != null) {
+                Mirror.SelfHandTiles.Clear();
+                Mirror.SelfHandTiles.AddRange(player.hand_tiles);
+                Mirror.LastDealTileId = 0;
+            }
+        }
+    }
+
     // =====================================================================
     // 血战续打
     // =====================================================================
@@ -182,7 +259,54 @@ public class SichuanGameState : TurnBasedGameState {
     // 结算
     // =====================================================================
 
+    protected override void OnShowResult(Response response) {
+        ShowResultInfo info = response.show_result_info;
+        if (SichuanLobby.IsXueliu(Session.SubRule) && info != null && info.round_continues == true) {
+            int tick = info.action_tick;
+            if (tick > 0 && tick <= System.Math.Max(snapshotActionTick, lastXueliuWinTick)) return;
+            lastXueliuWinTick = tick;
+        }
+        base.OnShowResult(response);
+    }
+
+    private void PresentXueliuWin(SettlementEnvelope env) {
+        AppendScoreboard(env);
+        Presenter.ApplyScores(env.ScoresAfter);
+        if (GameCanvas.HasNonZeroGangScoreChanges(env.ScoreChanges)) {
+            GameCanvas.Instance.ShowGangScoreFloats(env.ScoreChanges, 0f);
+        }
+        string seat = Mirror.SeatOf(env.WinnerIndex);
+        PlayerInfoClass player = Mirror.Info(seat);
+        if (player == null) return;
+        player.has_won = true;
+        player.win_count = (player.win_count ?? 0) + 1;
+        player.post_hu_lock = true;
+        player.huapai_list ??= new List<int>();
+        player.huapai_list.Add(env.WinTile);
+        bool zimo = env.HuClass == "hu_self";
+        if (zimo) {
+            player.hand_tiles_count = Mathf.Max(0, player.hand_tiles_count - 1);
+            if (seat == "self") {
+                if (Mirror.SelfHandTiles.Count > 0) Mirror.SelfHandTiles.RemoveAt(Mirror.SelfHandTiles.Count - 1);
+                Mirror.LastDealTileId = 0;
+                GameCanvas.Instance.ChangeHandCards("RemoveHuWinTile", env.WinTile, null, null);
+            }
+        }
+        if (!env.Silent) {
+            GameCanvas.Instance.ShowActionDisplay(seat, env.HuClass, Session.RoomRule);
+            SoundManager.Instance.PlayActionSound(seat, env.HuClass);
+        }
+        string source = env.RonDiscarderIndex.HasValue ? Mirror.SeatOf(env.RonDiscarderIndex.Value) : null;
+        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.PlayXueliuWinTile(
+            seat, env.WinTile, zimo, env.MultiRon, source, env.RecycleDiscard ?? !env.MultiRon,
+            env.IsQianggang || FanLabelsContain(env.FanLabels, "抢杠")));
+    }
+
     protected override void PresentSettlement(SettlementEnvelope env) {
+        if (SichuanLobby.IsXueliu(Session.SubRule) && env.IsHu && env.NextStatus == "round_continue" && string.IsNullOrEmpty(env.LiujuStep)) {
+            PresentXueliuWin(env);
+            return;
+        }
         Manager.BeginSettlement();
         Presenter.BeginLifecycle(env);
         if (env.HuClass == "initial_hu") {
@@ -299,13 +423,16 @@ public class SichuanGameState : TurnBasedGameState {
 
     /// <summary>血战到底：本盘未结束（仍有玩家继续行牌）→ 挂起结算层，待下次询问时关闭并续打。</summary>
     protected override void OnSettlementPresented(SettlementEnvelope env, ShowResultInfo info) {
-        PendingContinueAfterResult = info.round_continues == true;
+        PendingContinueAfterResult = !SichuanLobby.IsXueliu(Session.SubRule) && info.round_continues == true;
     }
 
     public override void OnSessionReset() {
+        snapshotActionTick = 0;
+        lastXueliuWinTick = 0;
         SelfDingqueSuit = 0;
         PendingContinueAfterResult = false;
         ledger.Reset();
         if (GameCanvas.Instance != null) GameCanvas.Instance.HideDingqueSelection();
+        if (GameCanvas.Instance != null) GameCanvas.Instance.HideXueliuThrowThreeSelection();
     }
 }

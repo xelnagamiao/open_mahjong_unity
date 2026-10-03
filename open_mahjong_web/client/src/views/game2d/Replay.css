@@ -507,3 +507,6 @@
   .replay-viewpoints { grid-template-columns: 1fr 1fr; }
   .replay-wall__content { grid-template-columns: 1fr; }
 }
+.duplicate-initial-wall { grid-column: 1 / -1; width: 100%; }
+.duplicate-initial-wall summary { cursor: pointer; padding: 8px 0; font-weight: 600; }
+.duplicate-initial-wall .replay-wall__hand-tiles { flex-wrap: wrap; }

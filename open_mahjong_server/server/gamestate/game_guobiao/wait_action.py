@@ -1,6 +1,8 @@
 # 等待玩家操作处理
 import asyncio
+from ..public.lifecycle import start_owned_task
 import logging
+from . import blood_battle
 from .action_check import check_action_after_cut, check_action_jiagang, refresh_waiting_tiles
 from .boardcast import broadcast_do_action, broadcast_ready_status, broadcast_ask_other_action
 from ..public.logic_common import get_index_relative_position
@@ -55,9 +57,28 @@ def select_tactical_initial_submission(game_state, submissions):
     )
 
 
+def requeue_tactical_batch_remainder(game_state, submissions, initial_submission):
+    """把同批里未展示的动作放回队列；force_pass 当场记入放弃，不再入队。"""
+    for submission in submissions:
+        if submission is initial_submission:
+            continue
+        queued_player, queued_data = submission
+        if queued_data.get("action_type") == "force_pass":
+            tactical_mark_player_force_passed(game_state, queued_player)
+            game_state.action_dict[queued_player] = []
+            if queued_player in game_state.waiting_players_list:
+                game_state.waiting_players_list.remove(queued_player)
+            continue
+        game_state.action_queues[queued_player].put_nowait(queued_data)
+        game_state.action_events[queued_player].set()
+
+
 # 等待玩家行动
 async def wait_action(self):
     self.waiting_players_list = [] # [2,3]
+    collect_blood = blood_battle.enabled(self) and self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
+    if collect_blood:
+        self.blood_pending_claims = {}
 
     # 玩家可能在询问广播尚未遍历完四家时就已回复。这里若无条件清空，
     # 会把本轮的有效回复一并删除，牌局只能等到超时。仅丢弃明确属于旧 tick 的操作。
@@ -118,11 +139,11 @@ async def wait_action(self):
         
         for waiting_player_index in self.waiting_players_list:
             # 为可以行动的玩家添加行动任务
-            action_task = asyncio.create_task(self.action_events[waiting_player_index].wait())
+            action_task = start_owned_task(self, self.action_events[waiting_player_index].wait())
             task_list.append(action_task)
             task_to_player[action_task] = waiting_player_index  # 建立映射 行动任务 → 玩家索引
         # 添加计时器任务
-        timer_task = asyncio.create_task(asyncio.sleep(1)) # 等待1s
+        timer_task = start_owned_task(self, asyncio.sleep(1)) # 等待1s
         task_list.append(timer_task)
 
         # 等待计时器完成1s等待或者任意玩家进行操作
@@ -152,12 +173,8 @@ async def wait_action(self):
             initial_submission = select_tactical_initial_submission(self, completed_submissions)
             # 同批的其余动作仍属于有效预提交；放回各自队列，交给战术窗口处理。
             # 这样会先广播吃，再由碰/杠/和抢断，而不是由 asyncio 的集合遍历顺序决定结果。
-            for submission in completed_submissions:
-                if submission is initial_submission:
-                    continue
-                queued_player, queued_data = submission
-                self.action_queues[queued_player].put_nowait(queued_data)
-                self.action_events[queued_player].set()
+            # force_pass 必须当场记入放弃集合：吃会立刻结束主询问，再入队会被窗口抽掉且不再询问。
+            requeue_tactical_batch_remainder(self, completed_submissions, initial_submission)
             completed_submissions = [initial_submission]
 
         for temp_player_index, temp_action_data in completed_submissions:
@@ -168,6 +185,8 @@ async def wait_action(self):
             if timeout_grace > 0 and used_int_time >= timeout_grace:
                 self.player_list[temp_player_index].remaining_time -= (used_int_time - timeout_grace)
 
+            if collect_blood and temp_action_type in blood_battle.RON_ACTIONS:
+                self.blood_pending_claims[temp_player_index] = temp_action_type
             self.action_dict[temp_player_index] = []
             if temp_action_type == "force_pass":
                 tactical_mark_player_force_passed(self, temp_player_index)
@@ -194,6 +213,11 @@ async def wait_action(self):
                 logger.debug(f"覆盖action_data: player_index={player_index}, action_data={action_data}")
 
             tactical_immediate_break = tactical_batch and not is_decline_action(temp_action_type)
+            if collect_blood and any(
+                any(a in blood_battle.RON_ACTIONS for a in self.action_dict[i])
+                for i in self.waiting_players_list
+            ):
+                do_interrupt = False
             if do_interrupt or tactical_immediate_break:
                 self.waiting_players_list = []
 
@@ -504,6 +528,12 @@ async def wait_action(self):
                 # 如果发生吃碰杠而不是和牌 则发生转移行为
                 if action_type == "chi_left" or action_type == "chi_mid" or action_type == "chi_right" or action_type == "peng" or action_type == "gang":
                     discarder_index = self.current_player_index  # 转移前即为被认走的打牌者，供客户端精确移除其牌河弃牌
+                    if blood_battle.enabled(self) and action_type.startswith("chi_"):
+                        others = combination_mask[2:]
+                        relative = get_index_relative_position(player_index, discarder_index)
+                        combination_mask = (others[:2] + [1, tile_id] + others[2:] if relative == "top"
+                                            else others + [1, tile_id] if relative == "right"
+                                            else combination_mask)
                     self.player_list[self.current_player_index].discard_tiles.pop(-1) # 删除弃牌堆的最后一张
                     self.player_list[self.current_player_index].discard_origin_tiles.append(tile_id) # 添加弃牌理论弃牌
                     self.player_list[player_index].combination_mask.append(combination_mask) # 添加组合掩码

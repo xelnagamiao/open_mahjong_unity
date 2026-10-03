@@ -1,9 +1,8 @@
-using System.Collections;
 using UnityEngine;
 using TMPro;
 
 /// <summary>
-/// 匹配已成功（found）后的进入游戏倒计时面板，与 <see cref="MatchQueueingPanel"/> 区分。
+/// 匹配已成功（found）后的进入游戏状态面板，与 <see cref="MatchLobbyView"/> 区分。
 /// 应挂在 OverlayCanvas 上，不随 <see cref="MatchPanel"/> 窗口切换而隐藏。
 /// </summary>
 public class MatchFoundedPanel : MonoBehaviour {
@@ -31,12 +30,10 @@ public class MatchFoundedPanel : MonoBehaviour {
         if (firstFound) {
             SoundManager.Instance.PlayGameStartSound();
         }
-        MatchQueueingPanel.Instance?.HideImmediately();
         Present(matchTypeName);
     }
 
     public void StopCountdownAndHide() {
-        StopFoundedCountdown();
         ResetCanvasGroupBeforeHide();
         gameObject.SetActive(false);
     }
@@ -53,7 +50,7 @@ public class MatchFoundedPanel : MonoBehaviour {
         } else {
             EnsureCanvasGroupOpaque();
         }
-        StartFoundedCountdown();
+        if (foundedCountdownText != null) foundedCountdownText.text = "正在进入对局…";
     }
 
     private CanvasGroup GetCanvasGroup() {
@@ -86,32 +83,4 @@ public class MatchFoundedPanel : MonoBehaviour {
         cg.blocksRaycasts = true;
     }
 
-    private void StartFoundedCountdown() {
-        CoroutineManager.Ensure();
-        CoroutineManager.Instance?.RunNamed(
-            CoroutineKeys.MatchFoundedCountdown,
-            CountdownRoutine(),
-            restartIfRunning: true
-        );
-    }
-
-    private void StopFoundedCountdown() {
-        CoroutineManager.Instance?.StopNamed(CoroutineKeys.MatchFoundedCountdown);
-    }
-
-    private IEnumerator CountdownRoutine() {
-        while (true) {
-            float remaining = MatchStateManager.Instance.MatchFoundRemaining;
-            int display = Mathf.CeilToInt(remaining);
-            if (display < 1) {
-                ResetCanvasGroupBeforeHide();
-                gameObject.SetActive(false);
-                yield break;
-            }
-            if (foundedCountdownText != null) {
-                foundedCountdownText.text = $"{display} 秒后进入游戏...";
-            }
-            yield return new WaitForSecondsRealtime(0.1f);
-        }
-    }
 }

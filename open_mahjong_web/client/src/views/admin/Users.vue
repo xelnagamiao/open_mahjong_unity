@@ -3,8 +3,13 @@
     <h2 class="page-title">用户管理</h2>
     <el-card>
       <el-form inline class="admin-inline-form" @submit.prevent="search">
-        <el-form-item label="用户 ID / 用户名">
-          <el-input v-model="query" clearable style="width: 220px" />
+        <el-form-item label="用户 ID / 用户名 / 邮箱">
+          <el-input
+            v-model="query"
+            clearable
+            placeholder="支持精确 ID，或模糊匹配用户名、邮箱"
+            style="width: 280px"
+          />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="search" :loading="loading">搜索</el-button>
@@ -12,7 +17,22 @@
       </el-form>
       <el-table :data="items" v-loading="loading" style="margin-top: 16px">
         <el-table-column prop="user_id" label="ID" width="120" />
-        <el-table-column prop="username" label="用户名" />
+        <el-table-column prop="username" label="用户名" min-width="120" />
+        <el-table-column label="邮箱" min-width="180">
+          <template #default="{ row }">
+            <template v-if="row.email">
+              <span>{{ row.email }}</span>
+              <el-tag
+                :type="row.email_verified_at ? 'success' : 'warning'"
+                size="small"
+                class="email-tag"
+              >
+                {{ row.email_verified_at ? '已验证' : '未验证' }}
+              </el-tag>
+            </template>
+            <span v-else>—</span>
+          </template>
+        </el-table-column>
         <el-table-column label="类型" width="90">
           <template #default="{ row }">
             <el-tag :type="row.is_tourist ? 'info' : 'success'" size="small">
@@ -117,5 +137,8 @@ async function search() {
   margin-left: 8px;
   font-size: 12px;
   color: #606266;
+}
+.email-tag {
+  margin-left: 8px;
 }
 </style>

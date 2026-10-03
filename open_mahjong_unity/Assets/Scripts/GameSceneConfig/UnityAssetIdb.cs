@@ -16,6 +16,8 @@ public static class UnityAssetIdb {
     public const string PrefixTablecloth = "tablecloth/";
     public const string PrefixTableEdge = "tableedge/";
     public const int MaxImageBytes = 8 * 1024 * 1024;
+    // File selection and drag/drop may be drafts: do not persist until named and confirmed.
+    private const string ReadOnlyPickKey = "@read-only";
 
     private static readonly Dictionary<string, byte[]> Cache = new Dictionary<string, byte[]>();
     private static readonly List<Action> ReadyWaiters = new List<Action>();
@@ -27,6 +29,8 @@ public static class UnityAssetIdb {
     }
     private static readonly Queue<PendingPut> pendingPuts = new Queue<PendingPut>();
     private static bool putting;
+    private static readonly Queue<PendingPut> pendingDeletes = new Queue<PendingPut>();
+    private static bool deleting;
 #endif
 
     public static bool IsReady => ready;
@@ -128,15 +132,45 @@ public static class UnityAssetIdb {
     }
 #endif
 
-    public static void Delete(string key, Action onDone) {
-        if (!string.IsNullOrEmpty(key)) {
-            Cache.Remove(key);
+    public static void Delete(string key, Action onDone, Action<string> onError = null) {
+        if (string.IsNullOrEmpty(key)) { onError?.Invoke("无效的资源键"); return; }
+#if UNITY_WEBGL && !UNITY_EDITOR
+        pendingDeletes.Enqueue(new PendingPut { key = key, done = onDone, error = onError });
+        PumpDeletes();
+#else
+        Cache.Remove(key);
+        onDone?.Invoke();
+#endif
+    }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+    private static void PumpDeletes() {
+        if (deleting || pendingDeletes.Count == 0) return;
+        deleting = true; var next = pendingDeletes.Dequeue();
+        void Complete(string error) {
+            try {
+                if (error == null) { Cache.Remove(next.key); next.done?.Invoke(); }
+                else next.error?.Invoke(error);
+            } finally { deleting = false; PumpDeletes(); }
         }
+        UnityAssetIdbBridge.Ensure();
+        UnityAssetIdbBridge.Instance.BeginDelete(next.key, () => Complete(null), Complete);
+    }
+#endif
+
+    public static void PickBytes(string accept, Action<string, byte[]> onDone, Action<string> onError) {
 #if UNITY_WEBGL && !UNITY_EDITOR
         UnityAssetIdbBridge.Ensure();
-        UnityAssetIdbBridge.Instance.BeginDelete(key, onDone);
+        UnityAssetIdbBridge.Instance.BeginPick(ReadOnlyPickKey, accept, onDone, onError);
 #else
-        onDone?.Invoke();
+        onError?.Invoke("当前平台请使用本地文件选择");
+#endif
+    }
+
+    public static void BindReadOnlyDrop(Action<string, byte[]> onDone, Action<string> onError) {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        UnityAssetIdbBridge.Ensure();
+        UnityAssetIdbBridge.Instance.BindDrop(ReadOnlyPickKey, onDone, onError);
 #endif
     }
 
@@ -253,6 +287,7 @@ public sealed class UnityAssetIdbBridge : MonoBehaviour {
     private Action putDone;
     private Action<string> putError;
     private Action deleteDone;
+    private Action<string> deleteError;
 
 #if UNITY_WEBGL && !UNITY_EDITOR
     [DllImport("__Internal")]
@@ -320,14 +355,15 @@ public sealed class UnityAssetIdbBridge : MonoBehaviour {
 #endif
     }
 
-    public void BeginDelete(string key, Action onDone) {
+    public void BeginDelete(string key, Action onDone, Action<string> onError = null) {
         deleteDone = onDone;
+        deleteError = onError;
 #if UNITY_WEBGL && !UNITY_EDITOR
         try {
             UnityAssetIdbDelete(key, gameObject.name, "OnDeleteReady");
         }
-        catch {
-            onDone?.Invoke();
+        catch (Exception e) {
+            onError?.Invoke(e.Message);
         }
 #else
         onDone?.Invoke();
@@ -391,7 +427,10 @@ public sealed class UnityAssetIdbBridge : MonoBehaviour {
     }
 
     public void OnDeleteReady(string message) {
-        deleteDone?.Invoke();
+        var done = deleteDone; var error = deleteError;
+        deleteDone = null; deleteError = null;
+        if (message == "ok") done?.Invoke();
+        else error?.Invoke(message != null && message.StartsWith("error|", StringComparison.Ordinal) ? message.Substring(6) : "IndexedDB 删除失败");
     }
 
     public void OnPickReady(string message) {

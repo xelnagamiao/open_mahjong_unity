@@ -20,6 +20,8 @@ try:
     from .riichi.riichi_tingpai_check import Riichi_Tingpai_Check
     from .sichuan.sichuan_hepai_check import Sichuan_Hepai_Check, sichuan_base_from_fan
     from .sichuan.sichuan_tingpai_check import Sichuan_Tingpai_Check
+    from .sichuan.xueliu_hepai_check import Xueliu_Hepai_Check, Xueliu_Tingpai_Check
+    from .sichuan.xueliu_rules import xueliu_base_from_fan
     from .jiandan import HandContext as JiandanHandContext, score_hand as jiandan_score_hand, tingpai_check as jiandan_tingpai_check
     from .changsha.changsha_hepai_check import Changsha_Hepai_Check, changsha_base_from_fans
     from .changsha.changsha_tingpai_check import Changsha_Tingpai_Check
@@ -38,6 +40,8 @@ except ImportError:
     from riichi.riichi_tingpai_check import Riichi_Tingpai_Check  # type: ignore
     from sichuan.sichuan_hepai_check import Sichuan_Hepai_Check, sichuan_base_from_fan  # type: ignore
     from sichuan.sichuan_tingpai_check import Sichuan_Tingpai_Check  # type: ignore
+    from sichuan.xueliu_hepai_check import Xueliu_Hepai_Check, Xueliu_Tingpai_Check  # type: ignore
+    from sichuan.xueliu_rules import xueliu_base_from_fan  # type: ignore
     from jiandan import HandContext as JiandanHandContext, score_hand as jiandan_score_hand, tingpai_check as jiandan_tingpai_check  # type: ignore
     from changsha.changsha_hepai_check import Changsha_Hepai_Check, changsha_base_from_fans  # type: ignore
     from changsha.changsha_tingpai_check import Changsha_Tingpai_Check  # type: ignore
@@ -84,6 +88,8 @@ class GameCalculationService:
         self._riichi_tingpai_check = Riichi_Tingpai_Check()
         self._sichuan_hepai_check = Sichuan_Hepai_Check()
         self._sichuan_tingpai_check = Sichuan_Tingpai_Check()
+        self._xueliu_hepai_check = Xueliu_Hepai_Check()
+        self._xueliu_tingpai_check = Xueliu_Tingpai_Check()
         self._changsha_hepai_check = Changsha_Hepai_Check()
         self._changsha_tingpai_check = Changsha_Tingpai_Check()
         self._taiwan_hepai_check = Taiwan_Hepai_Check()
@@ -208,6 +214,11 @@ class GameCalculationService:
             )
             return min(score, 100), fan_list
     
+    def GB_lanshi_tingpai_check(self, hand_tile_list: List[int], combination_list: List) -> Set[int]:
+        """蓝十第4版仅接受本规则牌形，避免国标组合龙等进入操作候选。"""
+        with self._lock:
+            return self._lanshi_hepai_check.tingpai_check(hand_tile_list, combination_list)
+
     def GB_tingpai_check(self, hand_tile_list: List[int], combination_list: List) -> Set[int]:
         """
         检查听牌
@@ -363,6 +374,29 @@ class GameCalculationService:
         """四川麻将听牌检查（一般型 + 七对）。不做定缺过滤。"""
         with self._lock:
             return self._sichuan_tingpai_check.tingpai_check(hand_tile_list, combination_list)
+
+    def Sichuan_xueliu_hepai_check(
+        self, hand_list: List[int], tiles_combination: List[str], way_to_hepai: List[str],
+        get_tile: int, dingque_suit: int = 0, meld_count: int = 3,
+    ) -> Tuple[int, List[str]]:
+        """血流和牌检查：按开局方式选择三副或四副面子加一对将。"""
+        with self._lock:
+            return self._xueliu_hepai_check.hepai_check(
+                hand_list, tiles_combination, way_to_hepai, get_tile, dingque_suit, meld_count,
+            )
+
+    def Sichuan_xueliu_tingpai_check(
+        self, hand_tile_list: List[int], combination_list: List[str], meld_count: int = 3,
+    ) -> Set[int]:
+        """血流听牌检查：按开局方式检查十张或十三张逻辑手牌。"""
+        with self._lock:
+            return self._xueliu_tingpai_check.tingpai_check(
+                hand_tile_list, combination_list, meld_count,
+            )
+
+    def Sichuan_xueliu_base_from_fan(self, fan: int) -> int:
+        """血流示例：当前番值直接作为结算金额。"""
+        return xueliu_base_from_fan(fan)
 
     def Sichuan_base_from_fan(self, fan: int, fan_list: List[str] = None) -> int:
         """四川计分：基本分 = 2 ** min(番, 3)；仅平和(0番)时基本分为 1。"""

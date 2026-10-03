@@ -62,6 +62,7 @@ public partial class ConfigManager
         RestoreDefault3DCards();
         DeleteScenePreferences(KEY_STANDARD_TILE_PACK_ID, KEY_CUSTOM_STANDARD_TILE_PACK,
             KEY_HAND_BG_PATH, KEY_HAND_BG_IS_CUSTOM, KEY_HAND_BACK_PATH, KEY_HAND_BACK_IS_CUSTOM,
+            KEY_HAND_BACK_AUTO_FOLLOW,
             KEY_USE_HAND_FACE_BACKGROUND);
         StandardTilePackId = TilePackIds.PackOfficial;
         UseHandFaceBackground = true;

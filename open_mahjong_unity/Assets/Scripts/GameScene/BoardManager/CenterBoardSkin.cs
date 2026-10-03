@@ -58,7 +58,7 @@ public sealed partial class CenterBoardSkin : MonoBehaviour
     bool IsTrial => StyleId == CenterDisplayStyles.TrialCobalt || StyleId == CenterDisplayStyles.TrialJade || StyleId == CenterDisplayStyles.TrialIvory;
     bool IsStudio => StyleId == CenterDisplayStyles.StudioIndigo || StyleId == CenterDisplayStyles.StudioPaper || StyleId == CenterDisplayStyles.StudioBamboo;
     string[] CurrentPalette => IsTrial ? TrialPalettes[paletteIndex] : Palettes[paletteIndex];
-    float? PointAnchorY => paletteIndex < 0 || IsOriginalFlat ? (float?)null
+    float? PointAnchorY => paletteIndex < 0 || IsOriginalFlat || IsGraphiteImage || IsApprovedFlat ? (float?)null
         : IsStudio ? -35.2f : IsTrial ? -31.6f : -31.3f;
 
     public void Initialize(BoardCanvas owner, TMP_Text round, TMP_Text remaining, TMP_Text[] scoreLabels, TMP_Text[] windLabels, Image[] turnImages)
@@ -120,7 +120,8 @@ public sealed partial class CenterBoardSkin : MonoBehaviour
         if (!initialized) return;
         if (watchConfiguration) TryConnectConfiguration();
         if (pointAnchors.Count < 4) TryInitializePointAnchors();
-        if (paletteIndex >= 0) UpdateWindColors(false);
+        if (paletteIndex >= 0 && !IsGraphiteImage && !IsApprovedFlat) UpdateWindColors(false);
+        if (StyleId == CenterDisplayStyles.GraphiteImage2) UpdateGraphiteEast();
     }
 
     public void Apply(string id)
@@ -129,6 +130,9 @@ public sealed partial class CenterBoardSkin : MonoBehaviour
         id = CenterDisplayStyles.Normalize(id);
         int index = CenterDisplayStyles.IndexOf(id);
         StyleId = id;
+        RestoreGraphiteText();
+        foreach (var artwork in approvedFlatArtwork.Values) artwork.SetActive(false);
+        if (graphiteBackground) graphiteBackground.gameObject.SetActive(false);
         // Palette selection is independent of the catalog order.
         paletteIndex = id == CenterDisplayStyles.Classic ? -1
             : id == "ink" || id == CenterDisplayStyles.TrialJade || id == CenterDisplayStyles.StudioPaper ? 1
@@ -144,6 +148,14 @@ public sealed partial class CenterBoardSkin : MonoBehaviour
             // Preserve the live flash alpha; only restore the saved appearance.
             foreach (var state in turnStates) state.Restore(true);
             foreach (var effect in turnMeshes) if (effect) effect.enabled = false;
+        }
+        else if (IsApprovedFlat)
+        {
+            ApplyApprovedFlat();
+        }
+        else if (IsGraphiteImage)
+        {
+            ApplyGraphiteImage();
         }
         else
         {
@@ -188,6 +200,7 @@ public sealed partial class CenterBoardSkin : MonoBehaviour
                 }
                 turnMeshes[i].Cut = studio ? .5f : trial ? .3f : .8f;
                 turnMeshes[i].Taper = false;
+                turnMeshes[i].RoundedTrapezoid = false;
                 turnMeshes[i].Highlight = 0;
                 turnMeshes[i].enabled = true;
             }
@@ -314,6 +327,7 @@ public sealed partial class CenterBoardSkin : MonoBehaviour
     void OnDestroy()
     {
         DetachConfiguration();
+        if (graphiteEastMaterial) Destroy(graphiteEastMaterial);
     }
 
     static Color C(string value) { ColorUtility.TryParseHtmlString(value, out var result); return result; }

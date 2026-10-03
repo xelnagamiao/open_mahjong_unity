@@ -125,6 +125,7 @@ public class Card3DHoverManager : MonoBehaviour
     /// 当鼠标悬停在某个tileId的卡牌上时调用
     /// </summary>
     public void OnCardHover(int tileId) {
+        if (!GameSession.Current.PointerTips) { OnCardExit(); return; }
         int key = TileIdOrder.Normalize(tileId);
         if (currentHoveredTileId == key) return;
         if (currentHoveredTileId != -1) {
@@ -242,6 +243,7 @@ public class Card3DHoverManager : MonoBehaviour
     }
 
     private void ApplyCardVisual(CardMaterialData data, bool hovered) {
+        hovered &= GameSession.Current.PointerTips;
         Tile3D tile3D = data.tile3D;
         if (tile3D == null) return;
         Color origFront = tile3D.BaseFrontColor;

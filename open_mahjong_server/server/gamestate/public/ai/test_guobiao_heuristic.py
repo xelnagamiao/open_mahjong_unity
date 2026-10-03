@@ -10,6 +10,8 @@ from __future__ import annotations
 import os
 import sys
 import unittest
+from dataclasses import replace
+from unittest.mock import patch
 
 # 保证可从任意 cwd 导入 server.*
 _SERVER_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
@@ -38,6 +40,7 @@ from server.gamestate.public.ai.guobiao_heuristic_logic import (  # noqa: E402
     is_value_honour,
     make_default_scorer,
     qualifying_wait_weight,
+    qualifying_tenpai_ukeire_one_draw,
     score_discard,
     should_open_qidui_protect,
     tenpai_wait_tiles,
@@ -263,6 +266,40 @@ class TestJuezhangHypothetical(unittest.TestCase):
         )
 
 
+class TestDecisionFastRejections(unittest.TestCase):
+    LOGIC = "server.gamestate.public.ai.guobiao_heuristic_logic."
+
+    def test_no_claim_candidates_skips_hand_evaluation(self):
+        ctx = _ctx([11, 12, 13, 19, 24, 25, 34, 35, 37, 38, 46, 46, 46])
+        with patch(self.LOGIC + "guobiao_shanten", side_effect=AssertionError("unexpected evaluation")):
+            self.assertEqual(choose_claim(ctx, ["pass", "force_pass"], 21), "pass")
+
+    def test_two_shanten_skips_impossible_one_draw_search(self):
+        hand = [11, 12, 13, 19, 24, 25, 34, 35, 37, 38, 46, 46, 46]
+        ctx = _ctx(hand)
+        counts = counts_from_tiles(hand)
+        self.assertEqual(guobiao_shanten(counts, 0), 2)
+        with patch(self.LOGIC + "add_tile", side_effect=AssertionError("unexpected draw search")):
+            self.assertEqual(qualifying_tenpai_ukeire_one_draw(ctx, counts, [], 0), 0)
+
+    def test_nonadvancing_claim_skips_discard_scoring(self):
+        hand = [19, 24, 25, 26, 34, 35, 37, 38, 43, 43]
+        ctx = _ctx(hand, combos=["s12"], visible={43: 1})
+        with patch(self.LOGIC + "score_discard", side_effect=AssertionError("unexpected discard scoring")):
+            self.assertEqual(choose_claim(ctx, ["peng", "pass"], 43), "pass")
+
+    def test_rejected_dead_one_shanten_skips_reshape(self):
+        hand = [11, 11, 16, 16, 17, 22, 31, 31, 32, 33, 34, 38, 39]
+        ctx = _ctx(hand, visible={15: 1})
+        with patch(self.LOGIC + "thick_one_shanten_ukeire_after_one_draw", side_effect=AssertionError("unexpected reshape")):
+            self.assertEqual(choose_claim(ctx, ["chi_right", "pass"], 15), "pass")
+
+    def test_no_kan_candidates_skips_discard_baseline(self):
+        ctx = _ctx([11, 12, 13, 19, 24, 25, 34, 35, 37, 38, 46, 46, 46, 47])
+        with patch(self.LOGIC + "choose_best_discard", side_effect=AssertionError("unexpected kan baseline")):
+            self.assertIsNone(choose_closed_kan(ctx, allow_angang=True, allow_jiagang=True))
+
+
 class TestClaimAdvances(unittest.TestCase):
     def test_pon_qingyise_advances(self):
         hand = [11, 11, 11, 12, 13, 14, 15, 16, 18, 18, 19, 19, 25]
@@ -317,6 +354,41 @@ class TestClaimAdvances(unittest.TestCase):
         plan = evaluate_claim(ctx, "chi_left", 24, before)
         self.assertIsNone(plan)
         self.assertEqual(choose_claim(ctx, ["chi_left", "pass"], 24), "pass")
+
+    def test_reject_pon_then_discard_existing_value_triplet(self):
+        # 实际算番；同时覆盖二向听放行与一向听合法进张放行。
+        shapes = [
+            [11, 12, 13, 19, 24, 25, 34, 35, 37, 38],
+            [11, 12, 13, 24, 25, 26, 34, 35, 37, 38],
+        ]
+        for shape in shapes:
+            for tile in (41, 42, 45, 46, 47):
+                with self.subTest(shape=shape, tile=tile):
+                    ctx = _ctx(shape + [tile] * 3, visible={tile: 1})
+                    before = guobiao_shanten(counts_from_tiles(ctx.hand), 0)
+                    post = replace(
+                        ctx, hand=shape + [tile],
+                        combination_tiles=[f"k{tile}"], fan_memo={},
+                    )
+                    self.assertEqual(choose_best_discard(post), tile)
+                    self.assertIsNone(evaluate_claim(ctx, "peng", tile, before))
+                    self.assertEqual(choose_claim(ctx, ["peng", "pass"], tile), "pass")
+
+    def test_reject_redundant_pon_still_allows_open_kan(self):
+        hand = [11, 12, 13, 19, 24, 25, 34, 35, 37, 38, 46, 46, 46]
+        ctx = _ctx(hand, visible={46: 1})
+        self.assertEqual(choose_claim(ctx, ["peng", "gang", "pass"], 46), "gang")
+
+    def test_allow_sequence_swap_improving_legal_tenpai(self):
+        # 123筒换234筒：虽然吃4打1，但够番听牌机会确实提高，仍应允许。
+        hand = [11, 12, 13, 21, 22, 23, 28, 35, 36, 37, 38, 45, 45]
+        ctx = _ctx(hand, visible={24: 1})
+        self.assertEqual(choose_claim(ctx, ["chi_left", "pass"], 24), "chi_left")
+        after = hand.copy()
+        after.remove(22)
+        after.remove(23)
+        post = replace(ctx, hand=after, combination_tiles=["s23"], fan_memo={})
+        self.assertEqual(choose_best_discard(post), 21)
 
     def test_qidui_protect_passes_pon(self):
         hand = [11, 11, 22, 22, 23, 23, 34, 34, 41, 41, 45, 45, 15]
@@ -397,7 +469,7 @@ class TestSansesanbugaoGebu(unittest.TestCase):
 
 
 class TestGuobiaoHeuristicGate(unittest.TestCase):
-    """变种 sub_rule / 非国标 拒绝加座。"""
+    """支持标准、血战到底和虹雀，其余规则拒绝加座。"""
 
     def test_standard_allowed(self):
         self.assertIsNone(
@@ -408,6 +480,11 @@ class TestGuobiaoHeuristicGate(unittest.TestCase):
 
     def test_missing_sub_rule_defaults_standard(self):
         self.assertIsNone(guobiao_heuristic_bot_reject_reason({"room_rule": "guobiao"}))
+
+    def test_blood_battle_allowed(self):
+        self.assertIsNone(guobiao_heuristic_bot_reject_reason(
+            {"room_rule": "guobiao", "sub_rule": "guobiao/blood_battle"}
+        ))
 
     def test_hongque_allowed(self):
         self.assertIsNone(

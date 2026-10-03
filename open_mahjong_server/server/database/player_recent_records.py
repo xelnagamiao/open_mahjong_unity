@@ -9,7 +9,7 @@ from ..gamestate.public.guobiao_win_snapshot import restore_guobiao_best_wins
 
 
 logger = logging.getLogger(__name__)
-RULES = ("guobiao", "riichi", "qingque", "classical", "jiandan", "sichuan", "changsha", "taiwan", "hongque")
+RULES = ("guobiao", "riichi", "qingque", "classical", "jiandan", "sichuan", "changsha", "taiwan", "hongque", "guizhou", "yixing", "wenzhou", "hangzhou", "guangdong", "hongzhong")
 CATEGORIES = ("match", "custom")
 MIGRATION = "player_recent_records_v1"
 MIGRATION_LOCK = 723419681025
@@ -81,6 +81,10 @@ def update_player_recent_records(cursor, game_id, record=None, *, migration=Fals
     players = cursor.fetchall()
     # 历史牌谱可能早于机器人保存限制：整场排除，与新保存入口一致。
     title = record.get("game_title") or {}
+    if title.get("duplicate_key") or title.get("sub_rule") == "guobiao/blood_battle":
+        # A public best-win snapshot would bypass the duplicate record lock.
+        cursor.execute("DELETE FROM player_recent_record_errors WHERE game_id = %s", (game_id,))
+        return
     title_users = [int(title[f"p{i}_uid"]) for i in range(4) if title.get(f"p{i}_uid") is not None]
     if any(user_id <= 10 for user_id in title_users) or any(row[0] <= 10 for row in players):
         cursor.execute("DELETE FROM player_recent_record_errors WHERE game_id = %s", (game_id,))

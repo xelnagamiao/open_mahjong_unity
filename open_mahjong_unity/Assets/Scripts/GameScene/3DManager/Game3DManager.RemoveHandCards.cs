@@ -70,8 +70,11 @@ public partial class Game3DManager : MonoBehaviour {
             }
             // 如果手切则随机删除一张主牌区的牌
             else {
-                // 计算子物体数量，获取随机索引，随机删除选中的子物体
                 int childCount = cardPosition.childCount;
+                if (childCount <= 0) {
+                    Debug.LogWarning($"手切：无法删除手牌，容器为空");
+                    yield break;
+                }
                 int randomIndex = UnityEngine.Random.Range(0, childCount);
                 Transform randomChild = cardPosition.GetChild(randomIndex);
                 Debug.Log($"随机删除了索引为 {randomIndex} 的牌");

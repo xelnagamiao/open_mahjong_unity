@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 # 主 title：room_type = match / custom / events
 # 次级 sign：match_tier；天梯为 beginner/intermediate/advanced/mcrpl，比赛场填 event_id
-LADDER_TIERS = ("beginner", "intermediate", "advanced", "mcrpl")
+LADDER_TIERS = ("beginner", "intermediate", "advanced", "mcrpl", "elo")
 
 # match_type → 局制 game_type
 _GAME_TYPE_MAP = {

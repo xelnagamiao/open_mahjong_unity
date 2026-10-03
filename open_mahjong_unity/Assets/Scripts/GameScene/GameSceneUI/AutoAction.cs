@@ -10,7 +10,7 @@ using TMPro;
 ///   - 反选任一不吃/不碰/不明杠 → 自动过牌变暗。
 /// 鸣牌过滤只剔除对应鸣牌项；「不点和」额外剔除荣和（与未过滤鸣牌并存时保留）。全部可操作项被筛除时才自动 pass。
 /// </summary>
-public class AutoAction : MonoBehaviour{
+public partial class AutoAction : MonoBehaviour{
     public static AutoAction Instance { get; private set; }
     [Header("自动操作文本")]
     [SerializeField] private TMP_Text arrangeHandCardsText; // 自动排列手牌文本
@@ -37,12 +37,13 @@ public class AutoAction : MonoBehaviour{
     private bool isAutoPass = false; // 自动过牌：与「不吃+不碰+不明杠」全选联动；筛光鸣牌后无剩余可操作项才自动 pass
     private bool isMingPaiPanelExpanded = false; // 鸣牌面板是否展开
     private bool isAutoCutLocked = false; // 立直后自动摸切锁定
+    private MessagePrefab timeoutReturnDialog;
 
     // 公共属性，供外部访问
     public bool IsAutoArrangeHandCards { get => isAutoArrangeHandCards; }
     public bool IsAutoBuhua { get => isAutoBuhua; }
     public bool IsAutoHepai { get => isAutoHepai; }
-    public bool IsAutoCut { get => isAutoCut; }
+    public bool IsAutoCut { get => isAutoCut || isAutoCutLocked; }
     public bool IsAutoPass { get => isAutoPass; }
     public bool IsAutoCutLocked { get => isAutoCutLocked; }
 
@@ -86,11 +87,13 @@ public class AutoAction : MonoBehaviour{
             Destroy(gameObject);
             return;
         }
+        InitializeSidebar();
     }
 
     // 初始化自动行为配置（由 GameSceneUIManager 调用）
     public void Initialize() {
         gameObject.SetActive(true); // 显示自动行为组件
+        DismissTimeoutReturnDialog();
         AutoActionPolicy.Current.ResetTimeoutAutoMoqieTracking();
 
         // 重置除了自动排列手牌和自动补花以外的选项为false
@@ -114,6 +117,7 @@ public class AutoAction : MonoBehaviour{
         SetSpectatorOnlyLayout(false);
         ApplyCompactButtonLabels();
         ApplyBuhuaButtonVisibility();
+        ResetSidebar();
 
         // 更新显示
         UpdateAllTextColors();
@@ -124,6 +128,7 @@ public class AutoAction : MonoBehaviour{
     /// <summary>实时观战：仅保留自动排列手牌，其余自动操作与鸣牌展开隐藏且不起效。</summary>
     public void InitializeForSpectator() {
         gameObject.SetActive(true);
+        DismissTimeoutReturnDialog();
         AutoActionPolicy.Current.ResetTimeoutAutoMoqieTracking();
 
         isAutoHepai = false;
@@ -138,6 +143,7 @@ public class AutoAction : MonoBehaviour{
 
         SetSpectatorOnlyLayout(true);
         ApplyCompactButtonLabels();
+        ResetSidebar();
 
         UpdateAllTextColors();
         AddClickListeners();
@@ -257,23 +263,61 @@ public class AutoAction : MonoBehaviour{
         bool wasEnabled = isAutoCut;
         ToggleAutoOption(ref isAutoCut, autoCutCardText);
         if (wasEnabled && !isAutoCut) {
+            AutoActionPolicy.Current.Cancel("关闭自动出牌");
             AutoActionPolicy.Current.ResetTimeoutAutoMoqieTracking();
+            DismissTimeoutReturnDialog();
         }
     }
 
     /// <summary>连续三次服务端超时切牌后开启；保持可点击，玩家可随时手动关闭。</summary>
     public void EnableAutoCutFromTimeout(){
         if (isAutoCutLocked) return;
+        bool alreadyOn = isAutoCut;
         isAutoCut = true;
         UpdateTextColor(autoCutCardText, true);
+        if (!alreadyOn) {
+            ShowTimeoutReturnDialog();
+        }
+    }
+
+    /// <summary>玩家点「我已回归」：关掉超时摸切并恢复手动出牌。</summary>
+    public void RestoreManualPlayFromTimeout() {
+        timeoutReturnDialog = null;
+        if (isAutoCutLocked) return;
+        AutoActionPolicy.Current.Cancel("玩家回归");
+        AutoActionPolicy.Current.ResetTimeoutAutoMoqieTracking();
+        isAutoCut = false;
+        UpdateTextColor(autoCutCardText, false);
+    }
+
+    private void ShowTimeoutReturnDialog() {
+        if (timeoutReturnDialog != null || NotificationManager.Instance == null) {
+            return;
+        }
+        timeoutReturnDialog = NotificationManager.Instance.ShowModal(
+            "您已离开屏幕",
+            "由于三次出牌超时，目前已开启自动摸切，点击下方按钮继续对局",
+            new MessageAction("我已回归", RestoreManualPlayFromTimeout)
+        );
+    }
+
+    public void DismissTimeoutReturnIfAny() {
+        DismissTimeoutReturnDialog();
+    }
+
+    private void DismissTimeoutReturnDialog() {
+        if (timeoutReturnDialog == null) {
+            return;
+        }
+        MessagePrefab dialog = timeoutReturnDialog;
+        timeoutReturnDialog = null;
+        dialog.CloseMessage();
     }
 
     public void SetAutoCutLocked(bool locked){
+        // Rule locks are temporary constraints, not changes to the user's preference.
         isAutoCutLocked = locked;
-        if (locked) {
-            isAutoCut = true;
-        }
-        UpdateTextColor(autoCutCardText, isAutoCut);
+        UpdateTextColor(autoCutCardText, IsAutoCut);
     }
 
     // 切换自动过牌：级联同步「不吃/不碰/不明杠」三选项
@@ -307,6 +351,13 @@ public class AutoAction : MonoBehaviour{
         isMingPaiPanelExpanded = !isMingPaiPanelExpanded;
         if (mingPaiPanel != null) mingPaiPanel.SetActive(isMingPaiPanelExpanded);
         if (tilePassSettingPanel != null) tilePassSettingPanel.SetPanelVisible(isMingPaiPanelExpanded);
+        if (isMingPaiPanelExpanded) FitSidebarPopup();
+    }
+
+    private void CloseMingPaiPanel() {
+        isMingPaiPanelExpanded = false;
+        if (mingPaiPanel != null) mingPaiPanel.SetActive(false);
+        if (tilePassSettingPanel != null) tilePassSettingPanel.SetPanelVisible(false);
     }
 
     /// <summary>
@@ -343,6 +394,7 @@ public class AutoAction : MonoBehaviour{
     private void UpdateTextColor(TMP_Text text, bool value){
         if (text != null){
             text.color = value ? trueColor : falseColor;
+            UpdateSidebarIndicator(text, value);
         }
     }
 
@@ -350,7 +402,7 @@ public class AutoAction : MonoBehaviour{
     private void UpdateAllTextColors(){
         UpdateTextColor(arrangeHandCardsText, isAutoArrangeHandCards);
         UpdateTextColor(autoHepaiText, isAutoHepai);
-        UpdateTextColor(autoCutCardText, isAutoCut);
+        UpdateTextColor(autoCutCardText, IsAutoCut);
         UpdateTextColor(autoPassText, isAutoPass);
         UpdateTextColor(autoBuhuaText, isAutoBuhua);
     }

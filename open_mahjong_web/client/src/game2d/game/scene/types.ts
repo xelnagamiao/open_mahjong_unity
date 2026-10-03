@@ -3,9 +3,16 @@
 import type { WaitInfoData } from './WaitDisplay'
 
 export interface MeldSnapshot {
+  /** Physical face/mask pairs, used by fixed tile mappings such as Wenzhou white dragon. */
+  physical_mask?: number[]
+  /** Heterogeneous special kong: preserve actual tiles and declared substitutions. */
+  physical_tiles?: number[]
+  logical_tiles?: number[]
+  special_kind?: string
   tile: number
   type: 'sequence' | 'triplet' | 'kong'
   concealed?: boolean
+  concealed_face_down?: boolean[]
   chow_mode: number
   meld_from_rel: number
   claimed_from_drawn_discard?: boolean
@@ -15,6 +22,7 @@ export interface MeldSnapshot {
 
 export interface SeatSnapshot {
   seat_index: number
+  duplicate_remaining_tile_count?: number
   score: number
   afk: boolean
   disconnected?: boolean

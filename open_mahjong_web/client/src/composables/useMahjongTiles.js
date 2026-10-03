@@ -15,6 +15,7 @@ export function tileSvgFile(id) {
 
 /** 牌面 SVG 公共路径；无资源时返回 null（回退 Unicode） */
 export function tileSvgUrl(id) {
+  if (id >= 51 && id <= 58) return `/game2d-assets/textures/riichi-mahjong-tiles/Regular/${id}.svg`
   const file = tileSvgFile(id)
   return file ? `/tiles/${file}` : null
 }

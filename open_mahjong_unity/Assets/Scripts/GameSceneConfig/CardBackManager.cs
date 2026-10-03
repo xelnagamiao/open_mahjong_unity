@@ -32,7 +32,18 @@ public static class CardBackManager
     private static bool _savedConfigApplied;
     private static bool _handBgLoaded;
     private static bool _handBackLoaded;
+    private static bool _handBgIsBuiltin;
+    private static bool _handBackIsBuiltin;
     private static bool _tableBgLoaded;
+    private static readonly int TileShadeId = Shader.PropertyToID("_TileShadeTint");
+    private static readonly int TileDirectionId = Shader.PropertyToID("_TileLightDirection");
+    private static readonly int[] TileLightingFloatIds = {
+        Shader.PropertyToID("_TileLightThreshold"),
+        Shader.PropertyToID("_TileLightTransition"),
+        Shader.PropertyToID("_TileWhiteCompression"),
+        Shader.PropertyToID("_TileLightDirectionBlend")
+    };
+    private static Material tileLightingTemplate;
 
     /// <summary>
     /// 场上 + 对象池（含 inactive）全部 Tile3D。
@@ -77,6 +88,14 @@ public static class CardBackManager
     public static void SyncSharedVisualsToMaterial(Material mat)
     {
         if (mat == null) return;
+        // Standalone faces and settings previews inherit the same light as atlas tiles.
+        // Copy only lighting: preserve textures, per-tile MPBs and preview coordinates.
+        if (tileLightingTemplate == null) tileLightingTemplate = Resources.Load<Material>(MaterialResourcePath);
+        if (tileLightingTemplate != null && mat != tileLightingTemplate && mat.shader == tileLightingTemplate.shader) {
+            mat.SetColor(TileShadeId, tileLightingTemplate.GetColor(TileShadeId));
+            mat.SetVector(TileDirectionId, tileLightingTemplate.GetVector(TileDirectionId));
+            foreach (int id in TileLightingFloatIds) mat.SetFloat(id, tileLightingTemplate.GetFloat(id));
+        }
         bool useSolid = ConfigManager.Instance != null && ConfigManager.Instance.TableFaceUseSolidColor;
         bool useBg = ConfigManager.Instance != null
             && ConfigManager.Instance.UseTableFaceBackground
@@ -310,10 +329,21 @@ public static class CardBackManager
     public static Texture2D LoadSavedHandBackground()
     {
         if (_handBgLoaded) return CurrentHandBackground;
-        _handBgLoaded = true;
         if (ConfigManager.Instance == null) return null;
+        _handBgLoaded = true;
         (string path, bool isCustom) = ConfigManager.Instance.GetSelectedHandBackground();
-        if (string.IsNullOrEmpty(path) || !isCustom) return null;
+        if (string.IsNullOrEmpty(path)) return null;
+        if (!isCustom)
+        {
+            if (HandSurfaceStyles.FindIndex(path, false) > 0)
+                ReplaceHandBackground(Resources.Load<Texture2D>(path), true);
+            return CurrentHandBackground;
+        }
+        if (HandSurfaceLibrary.IsId(path))
+        {
+            ReplaceHandBackground(HandSurfaceLibrary.LoadTexture(path, false));
+            return CurrentHandBackground;
+        }
 #if UNITY_WEBGL && !UNITY_EDITOR
         CurrentHandBackground = UnityAssetIdb.LoadTexture(path);
 #else
@@ -328,71 +358,34 @@ public static class CardBackManager
         return CurrentHandBackground;
     }
 
-    public static void PersistHandBackground(byte[] png)
+    // Legacy callers also append to the library; no entry point overwrites the old single slot.
+    public static void PersistHandBackground(byte[] png) => PersistHandSurface(png, false);
+    public static void PersistHandBack(byte[] png) => PersistHandSurface(png, true);
+    private static void PersistHandSurface(byte[] png, bool back)
     {
-        if (png == null || png.Length == 0) return;
-#if UNITY_WEBGL && !UNITY_EDITOR
-        UnityAssetIdb.Put(UnityAssetIdb.KeyHandBg, png, null);
-        if (ConfigManager.Instance != null)
-        {
-            ConfigManager.Instance.SetSelectedHandBackground(UnityAssetIdb.KeyHandBg, true);
-        }
-        ReplaceHandBackground(UnityAssetIdb.ToTexture(png));
-#else
-        try
-        {
-            Directory.CreateDirectory(Path.Combine(Application.persistentDataPath, BackImageDirName));
-            File.WriteAllBytes(HandBgFilePath, png);
-            if (ConfigManager.Instance != null)
-            {
-                ConfigManager.Instance.SetSelectedHandBackground(HandBgFilePath, true);
-            }
-            ReplaceHandBackground(BytesToTexture(png));
-        }
-        catch (Exception e)
-        {
-            Debug.LogWarning("保存手牌背景失败: " + e.Message);
-        }
-#endif
-        TileFaceResolver.NotifyHandBackgroundChanged();
-    }
-
-    public static void PersistHandBack(byte[] png)
-    {
-        if (png == null || png.Length == 0) return;
-#if UNITY_WEBGL && !UNITY_EDITOR
-        UnityAssetIdb.Put(UnityAssetIdb.KeyHandBack, png, null);
-        if (ConfigManager.Instance != null)
-        {
-            ConfigManager.Instance.SetSelectedHandBack(UnityAssetIdb.KeyHandBack, true);
-        }
-        ReplaceHandBack(UnityAssetIdb.ToTexture(png));
-#else
-        try
-        {
-            Directory.CreateDirectory(Path.Combine(Application.persistentDataPath, BackImageDirName));
-            File.WriteAllBytes(HandBackFilePath, png);
-            if (ConfigManager.Instance != null)
-            {
-                ConfigManager.Instance.SetSelectedHandBack(HandBackFilePath, true);
-            }
-            ReplaceHandBack(BytesToTexture(png));
-        }
-        catch (Exception e)
-        {
-            Debug.LogWarning("保存手牌牌背失败: " + e.Message);
-        }
-#endif
-        TileFaceResolver.NotifyHandBackChanged();
+        HandSurfaceLibrary.EnsureReady(() => HandSurfaceLibrary.SaveNew(png,
+            HandSurfaceLibrary.SuggestedName(null, back), back, entry => SelectUploadedHandSurface(entry.id, back),
+            error => Debug.LogWarning(error)));
     }
 
     public static Texture2D LoadSavedHandBack()
     {
         if (_handBackLoaded) return CurrentHandBack;
-        _handBackLoaded = true;
         if (ConfigManager.Instance == null) return null;
+        _handBackLoaded = true;
         (string path, bool isCustom) = ConfigManager.Instance.GetSelectedHandBack();
-        if (string.IsNullOrEmpty(path) || !isCustom) return null;
+        if (string.IsNullOrEmpty(path)) return null;
+        if (!isCustom)
+        {
+            if (HandSurfaceStyles.FindIndex(path, true) > 0)
+                ReplaceHandBack(Resources.Load<Texture2D>(path), true);
+            return CurrentHandBack;
+        }
+        if (HandSurfaceLibrary.IsId(path))
+        {
+            ReplaceHandBack(HandSurfaceLibrary.LoadTexture(path, true));
+            return CurrentHandBack;
+        }
 #if UNITY_WEBGL && !UNITY_EDITOR
         CurrentHandBack = UnityAssetIdb.LoadTexture(path);
 #else
@@ -405,6 +398,83 @@ public static class CardBackManager
         }
 #endif
         return CurrentHandBack;
+    }
+
+    /// <summary>选择内置 2D 底图（0 为经典），保留磁盘/IndexedDB 中已有的上传图片。</summary>
+    public static bool SelectBuiltinHandSurface(int index, bool back, bool preserveFollow = false)
+    {
+        if (ConfigManager.Instance == null || index < 0 || index >= HandSurfaceStyles.Count) return false;
+        string path = HandSurfaceStyles.ResourcePath(index, back);
+        Texture2D texture = index == 0 ? null : Resources.Load<Texture2D>(path);
+        if (index != 0 && texture == null) return false;
+        if (back)
+        {
+            if (!preserveFollow) ConfigManager.Instance.SetHandBackAutoFollow(false);
+            ConfigManager.Instance.SetSelectedHandBack(path, false);
+            ReplaceHandBack(texture, true);
+            TileFaceResolver.NotifyHandBackChanged();
+        }
+        else
+        {
+            ConfigManager.Instance.SetSelectedHandBackground(path, false);
+            ReplaceHandBackground(texture, true);
+            ApplyHandBackFollow(true);
+            TileFaceResolver.NotifyHandBackgroundChanged();
+        }
+        return true;
+    }
+
+    public static bool SelectUploadedHandSurface(string id, bool back, bool preserveFollow = false)
+    {
+        if (ConfigManager.Instance == null) return false;
+        Texture2D texture = HandSurfaceLibrary.LoadTexture(id, back);
+        if (texture == null) return false;
+        if (back)
+        {
+            if (!preserveFollow) ConfigManager.Instance.SetHandBackAutoFollow(false);
+            ConfigManager.Instance.SetSelectedHandBack(id, true);
+            ReplaceHandBack(texture);
+            TileFaceResolver.NotifyHandBackChanged();
+        }
+        else
+        {
+            ConfigManager.Instance.SetSelectedHandBackground(id, true);
+            ReplaceHandBackground(texture);
+            ApplyHandBackFollow(true);
+            TileFaceResolver.NotifyHandBackgroundChanged();
+        }
+        return true;
+    }
+
+    public static void SetHandBackAutoFollow(bool enabled)
+    {
+        if (ConfigManager.Instance == null) return;
+        ConfigManager.Instance.SetHandBackAutoFollow(enabled);
+        if (enabled) ApplyHandBackFollow(true);
+    }
+
+    /// <summary>Only 2D hand surfaces participate; 3D backs and face artwork are unchanged.</summary>
+    public static bool ApplyHandBackFollow(bool showTip = false)
+    {
+        var config = ConfigManager.Instance;
+        if (config == null || !config.HandBackAutoFollow) return false;
+        if (!HandSurfaceLibrary.Ready)
+        {
+            HandSurfaceLibrary.EnsureReady(() => ApplyHandBackFollow(showTip));
+            return false;
+        }
+        var background = config.GetSelectedHandBackground();
+        if (!HandSurfaceLibrary.TryMatchingBack(background.path, background.isCustom, out var path, out var custom, out var reason))
+        {
+            if (showTip) SceneConfigUi.ShowTip(reason);
+            return false;
+        }
+        var current = config.GetSelectedHandBack();
+        if (current.path == path && current.isCustom == custom) return true;
+        bool selected = custom ? SelectUploadedHandSurface(path, true, true)
+            : SelectBuiltinHandSurface(HandSurfaceStyles.FindIndex(path, true), true, true);
+        if (!selected && showTip) SceneConfigUi.ShowTip("同名牌背无法读取，已保留当前牌背");
+        return selected;
     }
 
     public static Texture2D LoadSavedTableBackground()
@@ -625,24 +695,8 @@ public static class CardBackManager
 
     public static void ClearPersistedHandBack()
     {
-        if (ConfigManager.Instance != null)
-        {
-            ConfigManager.Instance.SetSelectedHandBack("", false);
-        }
-#if UNITY_WEBGL && !UNITY_EDITOR
-        UnityAssetIdb.Delete(UnityAssetIdb.KeyHandBack, null);
-#else
-        try
-        {
-            if (File.Exists(HandBackFilePath)) File.Delete(HandBackFilePath);
-        }
-        catch (Exception e)
-        {
-            Debug.LogWarning("删除手牌牌背失败: " + e.Message);
-        }
-#endif
-        ReplaceHandBack(null);
-        TileFaceResolver.NotifyHandBackChanged();
+        // Restore is not deletion. Explicit library deletion owns the confirmation workflow.
+        SelectBuiltinHandSurface(HandSurfaceStyles.DefaultIndex, true);
     }
 
     public static void PersistCardBackImage(byte[] png)
@@ -694,24 +748,7 @@ public static class CardBackManager
 
     public static void ClearPersistedHandBackground()
     {
-        if (ConfigManager.Instance != null)
-        {
-            ConfigManager.Instance.SetSelectedHandBackground("", false);
-        }
-#if UNITY_WEBGL && !UNITY_EDITOR
-        UnityAssetIdb.Delete(UnityAssetIdb.KeyHandBg, null);
-#else
-        try
-        {
-            if (File.Exists(HandBgFilePath)) File.Delete(HandBgFilePath);
-        }
-        catch (Exception e)
-        {
-            Debug.LogWarning("删除手牌背景失败: " + e.Message);
-        }
-#endif
-        ReplaceHandBackground(null);
-        TileFaceResolver.NotifyHandBackgroundChanged();
+        SelectBuiltinHandSurface(HandSurfaceStyles.DefaultIndex, false);
     }
 
     public static bool IsZip(byte[] bytes)
@@ -858,23 +895,25 @@ public static class CardBackManager
             || lower.Contains("3d-bg");
     }
 
-    private static void ReplaceHandBackground(Texture2D texture)
+    private static void ReplaceHandBackground(Texture2D texture, bool builtin = false)
     {
-        if (CurrentHandBackground != null && CurrentHandBackground != texture)
+        if (!_handBgIsBuiltin && CurrentHandBackground != null && CurrentHandBackground != texture)
         {
             UnityEngine.Object.Destroy(CurrentHandBackground);
         }
         CurrentHandBackground = texture;
+        _handBgIsBuiltin = builtin;
         _handBgLoaded = true;
     }
 
-    private static void ReplaceHandBack(Texture2D texture)
+    private static void ReplaceHandBack(Texture2D texture, bool builtin = false)
     {
-        if (CurrentHandBack != null && CurrentHandBack != texture)
+        if (!_handBackIsBuiltin && CurrentHandBack != null && CurrentHandBack != texture)
         {
             UnityEngine.Object.Destroy(CurrentHandBack);
         }
         CurrentHandBack = texture;
+        _handBackIsBuiltin = builtin;
         _handBackLoaded = true;
     }
 

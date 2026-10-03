@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-14",
+  "updated": "2026-09-23",
   "claim_status": [
     "attested",
     "inferred",
@@ -13,7 +13,7 @@
     "constructed",
     "hypothesis"
   ],
-  "lede": "表格里的年代，是这种打法在牌桌上已经能被单独说清楚、和别处区分开的大致时期，不是某本规则书的出版年——协会本、棋牌平台、电脑规则大多是后来才把桌上的规矩写成能核对的文本。年代格空着，不代表这种打法已经消失。东北的摇宝、下蛋、夹胡、穷胡、哈麻已经单独归入东北一列；京津的混儿麻将和山西、陕西留在华北。台湾十六张麻将大约在 1950 到 70 年代在桌上定型，此后南北差异（有花／无花）一直并行发展，直到 2001 年明星三缺一才把一套台数写成电脑规则。广东麻将是多种玩法的统称。「平台支持」只标在现在还能实际对局的那一层。",
+  "lede": "从宁波牌具见证向下核查。表中的日期标明采集、原典出版、机构成立或规则版本，并不自动等于发明年；无法定年的地方规则另列。改出铳、废副、取消未和者结算、增加手牌和改变终局方式分别追踪。连线只显示可明确区分的改法或具名版本关系；相似性及待证传承保存在条目的“待证与比较”和考据审计中。",
   "tracks": [
     {
       "id": "paper",
@@ -29,68 +29,87 @@
     },
     {
       "id": "ningbo",
-      "label": "宁波",
+      "label": "早期原典",
       "span_from": [
         "paper",
         "domino"
       ],
-      "desc": "江南把纸牌戏做到竹骨牌上，时称中发、撮麻雀、叉麻雀。Glover 福州套（≤1875）与 Wilkinson 宁波套（1889/90）是牌具。樊增祥 1906 年夹注「二十年前起于宁波」。沈一帆《绘图麻雀牌谱》（1914）等把番副写成规矩。"
+      "desc": "从宁波牌具见证与早期规则原典起步。采集年、出版年及规则发明年分别记录；Mauger 讲解者的故乡未具名，不把全部早期法直接定位宁波。",
+      "keep_in_modern": true
     },
     {
       "id": "yue",
       "label": "粤港",
-      "desc": "废副、改出铳，走出清章。香港清章渐渐变成三番起糊；协会称港麻为清章，维基百科也有把清章归入广东麻将的写法，两种命名并存。广东麻将其实是多种玩法的统称。新章叠番、鸡平胡、推倒胡都是从老章分出来的平行分支，互相不是父子关系。南洋的麻将也不是同一种：新加坡常见动物牌，马来西亚四家桌常加花加百搭到 164 张，越南则是用专用百搭牌大幅膨胀出的玩法，不带动物牌，和清章的关系比较松散。MIL 广东 2023、推倒和 2024 是协会推广本。澳门 1991 年的赌场法规不算作麻将玩法的一个分支。"
+      "desc": "清章、新章及各地简化法的计分与支付变化分别追踪。澳门有传统和五张和的简易版本。新马越的共同机制尚不足以确定粤港直系传承。"
     },
     {
       "id": "jp",
       "label": "日本",
-      "desc": "1909 名川彦作携牌回日本，章法近中国古典。1952 年天野大三把途中立直、振听写成《报知新闻》连载；赤宝、里宝、食断是往后几十年才陆续定型。天凤前身「半熟荘」2006 年公开，2007 年改名。平台立直按天凤／雀魂，不是报知，也不是 GGHK 大赛本或 MIL／EMA RCR。三麻、韩三麻从报知以后的立直传统分出，不是天凤下级。"
+      "desc": "区分携牌输入、1930 标准、报知原报线索、1962 后出摘要和现行规则。首巡立直不等于途中立直；三人法也不自动起于报知之后。"
     },
     {
       "id": "sixteen",
       "label": "十六张",
-      "desc": "福州加一搭成十六张，并走开金。台湾十六张约 1950s–70s 在桌上定型，精髓是台数与连庄拉庄；此后南北差一直并行（北部有花、南部无花），直到 2001 年明星三缺一才定型一套台数。入台来路有福建十六张、广东十三张两说，台湾麻将协会和维基百科各执一词，这条传承边在谱系里标为存疑。港式十六张糅合了多种来源，不是台制原样照搬。温州十六张兼翻财神。MIL 温州 2024 按十六张分类。"
+      "desc": "1931 台湾小说明确区分十三与十六张。这个见证不自带完整规则，也不决定福州、台湾、温州和港式规则的传播方向。"
     },
     {
       "id": "us",
       "label": "美式",
       "outlier": true,
-      "desc": "Babcock 1920 年红皮书把中国古典简化成美式商品规则。1937 年美国全国麻将联盟成立，当时用花当百搭；1961 年起用专用 joker。年卡合法型每年换卡，2026 年卡仍在发售。Wright-Patterson 无 joker。与亚洲四副一对几乎不能同桌。"
+      "desc": "区分 Babcock 1923、Foster 1924 与 American Code 1924。后者并列三种模式及不同人数法；NMJL 年卡、WP 规则书和署名 Siamese 改编逐版核验。"
     },
     {
       "id": "jiangnan",
       "label": "江南",
-      "desc": "当代甬麻（花、四台、财神）大致是 1980 年代前后才在桌上定型的地方打法，和 1870 年代宁波的祖型隔了一百多年，不是直接继承关系。杭州是白板财神；温州是十六张翻财神；苏沪花麻按花数计分；南京论花与苏州是近亲，但玩法细节不同，不是照搬。上海敲麻则是报听加勒子的打法。杭州、温州、宁波这三条分支相互独立，不在同一条父子链上。1930 到 1980 之间还有一段不短的过渡：民国年间上海敲麻已有报听、勒子雏形，1950 年代苏南花牌桌以花数计分流行，浙北宁波、绍兴则沿用民国旧术语的「古法桌」。",
+      "desc": "宁波、杭州、温州、敲麻及花麻按具名版本比較。原先为 1930s／1950s／1980s 安排的过渡与定型日期缺原典，不再作确定年代。",
       "subtracks": [
-        { "id": "shanghai-line", "label": "沪系" },
-        { "id": "sunan-line", "label": "苏南系" },
-        { "id": "zhebei-line", "label": "浙北系" }
+        {
+          "id": "shanghai-line",
+          "label": "沪系"
+        },
+        {
+          "id": "sunan-line",
+          "label": "苏南系"
+        },
+        {
+          "id": "zhebei-line",
+          "label": "浙北系"
+        }
       ]
     },
     {
       "id": "chuanyu",
       "label": "川渝湘",
-      "desc": "川渝一带去字、禁吃的打法出现时，血战到底和定缺都还没有。1990 年代末流行缺一门，当时还不定张。长沙同样是 108 张牌，但可以吃牌、用 258 将。成都一带 2000 年后开始流行血战到底，并改成开局就定缺；换三张是常见的开局选项。这套打法后来扩散到重庆、贵州、昆明。大邑、崇州的断卡根（72 张牌、10 张手牌）是单独一支，不算主干的延伸。SBR 是 2025 年的协会本，平台上的川麻大多按这一套走，和民间的成都麻将不完全一样。贵州的打法是近亲，同样是 108 张禁吃，但核心是捉鸡，不是血战或定缺；MIL 贵州 2023 是捉鸡赛场本。宜昌、恩施的「血流换三张」是棋牌平台起的名字，不是独立发明的第四种打法。四川红中麻将是在川麻基础上加了癞子，算癞子系的一个分支，不算这条主干上的一环。",
+      "desc": "去字、禁吃、缺门、定缺、血战、血流、换三张分别定年。2016 TMT 与 MIL SBR 可核；108 张及不吃不证明四川向重庆、贵州、昆明的单向传播。",
       "subtracks": [
-        { "id": "chuanyu-core", "label": "川渝主干" },
-        { "id": "yun-gui", "label": "云贵近缘" },
-        { "id": "changsha-branch", "label": "湘中分叉" }
+        {
+          "id": "chuanyu-core",
+          "label": "川渝主干"
+        },
+        {
+          "id": "yun-gui",
+          "label": "云贵规则"
+        },
+        {
+          "id": "changsha-branch",
+          "label": "湖南规则"
+        }
       ]
     },
     {
       "id": "north",
       "label": "华北",
-      "desc": "华北这一支包括京津晋陕。北京可以吃牌、用混儿；天津禁吃、不点炮，中、下家滚混儿。山西是多种玩法的统称，太原立四是其中一个都市玩法。西安禁吃定缺是后来才有的地方改法，不是川麻的直系延伸。东北的打法已经单独归入东北一支；红中麻将属于癞子系，也不算在华北里。北京的推倒和和粤港的推倒胡是两个不同的玩法，名字撞了但不是一回事。平台上的「大众麻将／北方推倒胡／河北麻将」大多是京麻的简化版，没有必要单独立项。"
+      "desc": "京津晋陕等地方规则按具名文本比较，混儿、禁吃、报听不自动证明传播方向。后出的平台日期不当作地方形成日期。"
     },
     {
       "id": "dongbei",
       "label": "东北",
-      "desc": "东北的十三张打法是从华北这一支拆分出来的。战后先是十三张推倒胡这一层；到 1980 到 90 年代，辽宁摇宝、吉林下蛋、黑龙江夹胡、大连穷胡、哈尔滨这些地方打法才能在桌上分开讲清楚。长春大约在 2000 年代把下蛋、夹胡、宝这几样捆在一起，形成自己的都市包，不是又发明了第四种打法。红中麻将和卡五星都不属于东北这一支，分别归在癞子系和华中。"
+      "desc": "东北是地区伞称；摇宝、下蛋、夹胡可跨地区组合。没有充分同期原件前，不编排战后祖型、1980s 省级分化、2000s 长春组合的确定年表。"
     },
     {
       "id": "huazhong",
       "label": "华中",
-      "desc": "鄂西北的卡五星：2005 年前后随州先有四人桌，2007 年前后大悟改成三人 84 张。武汉开口翻本质是癞子系的打法，归在癞子那一支。长沙、常德的打法更接近川渝湘这条脉络，不算华中的一部分。"
+      "desc": "卡五星、武汉等玩法按具名版本比较。流传的 2005／2007 改制故事仍须同期原报或作者记录，不能因为地域相近就连祖先。"
     },
     {
       "id": "mcr",
@@ -100,70 +119,217 @@
     {
       "id": "laizi",
       "label": "癞子",
-      "desc": "红中麻将来自常德：常德麻将加四张万能红中牌。常德本地起步更早，大约 2010 年代才通过互联网扩散到全国。武汉开口翻是翻牌癞子玩法，红中当杠牌用；南昌走开精。卡五星和四川红中都不属于这一支：卡五星归在华中，四川红中是川麻加癞子，算川渝湘的一个分支。"
+      "desc": "财神、金、混儿、红中等百搭机制逐项比较；固定或翻定、白板顶替、可否吃碰等差异分别记录。相似不等于已查明传播。"
     },
     {
       "id": "custom",
       "label": "自制规",
       "desc": "中庸是关兆豪 1997 年起稿、2004 年发布的计分法，2007 年 WSOM 采用。青雀、虹雀、南雀、十样锦是另写的规则。"
+    },
+    {
+      "id": "unplaced",
+      "label": "未归组",
+      "color": "#64748b",
+      "desc": "尚未核实足够信息以归入比较组；不预设地理归属或历史祖先。"
     }
   ],
   "appeared": {
-    "nmjl": "1937",
-    "riichi-hochi": "1952",
-    "nmjl-joker": "1961",
-    "nmjl-card": "1971",
-    "sichuan-nochi": "约 1980s",
-    "guobiao": "1998",
-    "sichuan": "约 2000",
-    "zungjung": "2004",
-    "xueliu": "约 2005",
-    "ema": "约 2005",
-    "riichi": "2006",
-    "hongzhong": "常德起，约 2010s 扩散全国",
-    "guobiao-kshen": "约 2010",
-    "guobiao-kobayashi": "约 2015",
-    "guobiao-lanshi": "约 2022",
-    "qingque": "2024",
-    "hongque": "2025",
-    "jiandan": "2025",
-    "shiyangjin": "2026",
-    "huama": "约 1980s",
-    "suzhou": "约 1980s",
-    "nanjing": "约 1980s",
-    "beijing": "约 1990s",
-    "shanghai-qiaoma-pre80": "约 1930s–1960s",
-    "sunan-huama-pre80": "约 1950s–1960s",
-    "zhebei-zbgyu": "约 1950s–1970s",
-    "salasasa": "2026年6月",
-    "mil-sichuan": "2025",
-    "quzi": "约 1950s",
-    "mil-guangdong": "2023",
-    "mil-tuidao": "2024",
-    "mil-hangzhou": "2025",
-    "mil-wenzhou": "2024",
-    "mil-red-center": "2024",
-    "mil-changchun": "2024",
-    "mil-shanxi": "2023",
-    "mil-guizhou": "2023",
-    "shanghai": "约 1980s",
-    "macau": "1991",
-    "duankagen": "约 2012",
-    "yichang-xueliu": "约 2010s",
-    "sichuan-hongzhong": "约 2010s",
-    "changde": "约 1980s",
-    "taiwan": "约 1950s–70s",
-    "taiwan-south": "约 1950s–70s",
-    "taiwan-mingxing": "2001",
-    "ningbo-local": "约 1980s",
-    "dongbei": "约 1950s",
-    "dongbei-yaobao": "约 1980s–90s",
-    "dongbei-xiadan": "约 1980s–90s",
-    "dongbei-jiahu": "约 1980s–90s",
-    "haerbin": "约 1990s",
-    "dalian-qionghu": "约 1990s",
-    "changchun": "约 2000s",
-    "kawuxing": "2005／2007"
+    "yezi": "旧目录断代；本轮未复核",
+    "madiao": "旧目录断代；本轮未复核",
+    "mohe": "旧目录断代；本轮未复核",
+    "penghe": "旧目录断代；本轮未复核",
+    "tianjiu": "旧目录断代；本轮未复核",
+    "proto-mahjong": "1889–1890 采集／1901 目录",
+    "classical": "当代项目复原版",
+    "drawing-mahjong": "1924（现存本）",
+    "qingzhang": "形成时间待证",
+    "hongkong": "现行协会版（2026 访问）",
+    "guangdong": "形成时间待证",
+    "jipinghu": "形成时间待证",
+    "tuidao": "形成时间待证",
+    "macau": "多版本入口（1988—1991已核）",
+    "hongkong-16": "2025（协会修订）",
+    "japanese-classical": "1962（后出摘要）",
+    "riichi-hochi": "形成时间待证",
+    "riichi": "当前具名版本；形成时间另核",
+    "japanese-3p": "形成时间待证",
+    "korean-3p": "形成时间待证",
+    "babcock": "1920 首版／1923 亲见版",
+    "nmjl": "1937（机构成立）",
+    "nmjl-joker": "1961–62（原卡见证）",
+    "nmjl-card": "形成时间待证",
+    "wright-patterson": "1963 初版（组织回顾）／2022 版说明",
+    "fuzhou": "形成时间待证",
+    "taiwan": "形成时间待证",
+    "taiwan-south": "形成时间待证",
+    "taiwan-mingxing": "形成时间待证",
+    "shanghai": "形成时间待证",
+    "ningbo-local": "形成时间待证",
+    "hangzhou": "形成时间待证",
+    "huama": "形成时间待证",
+    "suzhou": "形成时间待证",
+    "nanjing": "形成时间待证",
+    "wenzhou": "形成时间待证",
+    "shanghai-qiaoma-pre80": "形成时间待证",
+    "sunan-huama-pre80": "形成时间待证",
+    "zhebei-zbgyu": "形成时间待证",
+    "quzi": "形成时间待证",
+    "sichuan-nochi": "前身假说待证",
+    "duankagen": "形成时间待证",
+    "sichuan": "形成时间待证",
+    "sichuan-huansanzhang": "形成时间待证",
+    "xueliu": "形成时间待证",
+    "yichang-xueliu": "形成时间待证",
+    "chongqing": "形成时间待证",
+    "guizhou": "形成时间待证",
+    "changsha": "形成时间待证",
+    "changde": "形成时间待证",
+    "hongzhong": "形成时间待证",
+    "sichuan-hongzhong": "形成时间待证",
+    "beijing": "形成时间待证",
+    "tianjin": "形成时间待证",
+    "wuhan": "形成时间待证",
+    "kawuxing": "形成时间待证",
+    "nanchang": "形成时间待证",
+    "dongbei": "形成时间待证",
+    "dongbei-yaobao": "形成时间待证",
+    "dongbei-xiadan": "形成时间待证",
+    "dongbei-jiahu": "形成时间待证",
+    "haerbin": "形成时间待证",
+    "dalian-qionghu": "形成时间待证",
+    "shanxi": "形成时间待证",
+    "taiyuan-lisi": "形成时间待证",
+    "changchun": "形成时间待证",
+    "xian": "形成时间待证",
+    "kunming": "形成时间待证",
+    "singapore": "形成时间待证",
+    "malaysia": "形成时间待证",
+    "vietnam": "形成时间待证",
+    "guobiao": "多版／平台伞称（1998原本另列）",
+    "salasasa": "形成时间待证",
+    "ema": "当前具名版本；形成时间另核",
+    "mil-sichuan": "2016 已有赛事／馆藏 2025 版",
+    "mil-guangdong": "MIL GD 2023",
+    "mil-tuidao": "MIL 推倒和 2024",
+    "mil-hangzhou": "MIL 杭麻 2025",
+    "mil-wenzhou": "MIL 温麻 2024",
+    "mil-red-center": "MIL 红中 2024",
+    "mil-changchun": "MIL 长春 2024",
+    "mil-shanxi": "MIL 山西 2023",
+    "mil-guizhou": "MIL 贵州 2023",
+    "mil-riichi": "具名馆藏版本",
+    "qingque": "当前具名版本；形成时间另核",
+    "hongque": "当前具名版本；形成时间另核",
+    "guobiao-kobayashi": "当前具名版本；形成时间另核",
+    "guobiao-lanshi": "当前具名版本；形成时间另核",
+    "guobiao-kshen": "当前具名版本；形成时间另核",
+    "zungjung": "形成时间待证",
+    "shiyangjin": "当前具名版本；形成时间另核",
+    "liaoyuan": "形成时间待证",
+    "yanbian": "形成时间待证",
+    "tongliao": "形成时间待证",
+    "chifeng": "形成时间待证",
+    "hulunbeier": "形成时间待证",
+    "jinzhou": "形成时间待证",
+    "mudanjiang": "形成时间待证",
+    "jiamusi": "形成时间待证",
+    "qiqihaer": "形成时间待证",
+    "tangshan": "形成时间待证",
+    "shijiazhuang": "形成时间待证",
+    "baoding": "形成时间待证",
+    "zhangjiakou": "形成时间待证",
+    "lanzhou": "形成时间待证",
+    "ningxia-huashui": "形成时间待证",
+    "qinghai": "形成时间待证",
+    "huhehaote": "形成时间待证",
+    "baotou": "形成时间待证",
+    "hefei": "形成时间待证",
+    "anqing": "形成时间待证",
+    "jiujiang": "形成时间待证",
+    "fuzhou-jiangxi": "形成时间待证",
+    "ganzhou": "形成时间待证",
+    "jingdezhen": "形成时间待证",
+    "wuxi": "形成时间待证",
+    "yangzhou": "形成时间待证",
+    "xuzhou": "形成时间待证",
+    "changzhou": "形成时间待证",
+    "chaoshan": "形成时间待证",
+    "zhanjiang": "形成时间待证",
+    "xiamen": "形成时间待证",
+    "quanzhou": "形成时间待证",
+    "longyan": "形成时间待证",
+    "nanning": "形成时间待证",
+    "liuzhou-guilin": "形成时间待证",
+    "hainan": "形成时间待证",
+    "zhengzhou": "形成时间待证",
+    "luoyang": "形成时间待证",
+    "kaifeng": "形成时间待证",
+    "shaoyang": "形成时间待证",
+    "hengyang-258": "形成时间待证",
+    "zunyi-laizi": "形成时间待证",
+    "xishuangbanna-ka2tiao": "形成时间待证",
+    "jinan": "形成时间待证",
+    "zibo": "形成时间待证",
+    "jining": "形成时间待证",
+    "xinjiang": "形成时间待证",
+    "jiandan": "当前具名版本；形成时间另核",
+    "mauger-1915": "1915（会议／卷年）",
+    "babcock-new-method-1923": "1923（第二版）",
+    "special-peng-1924": "1924（亲见版本）",
+    "newnew-peng-1924": "1924（亲见版本）",
+    "drawing-flowers-1924": "1924（亲见版本）",
+    "foster-1924": "1924（二月版）",
+    "foster-two-player-1924": "1924（二月版）",
+    "foster-three-player-1924": "1924（二月版）",
+    "foster-cleared-suit-1924": "1924（记述）",
+    "japan-standard-1930": "1930（昭和五年版）",
+    "arushiaru-current": "现行网页（2026 访问）",
+    "macau-traditional-1989": "1989（官方版本）",
+    "macau-mini-1991": "1991（官方收录）",
+    "taiwan-softstar-1994": "1994（原版发行）",
+    "sichuan-tmt-2016": "2016（赛事规程）",
+    "american-code-1924": "1924（法典版本）",
+    "american-mixed-1924": "1924（法典版本）",
+    "american-one-double-1924": "1924（法典版本）",
+    "american-cleared-1924": "1924（法典版本）",
+    "american-two-player-1924": "1924（法典版本）",
+    "american-three-player-1924": "1924（法典版本）",
+    "siamese-wp-2022": "2022（署名改编文本）",
+    "ninghai-observed-2017": "2017 观察／2019 发表",
+    "japan-police-1932": "1932（教材版本）",
+    "taiwan-sixteen-1931": "1931-07-25（小说刊载）",
+    "harbin-old-aono-2020": "2020（田野论文发表）",
+    "harbin-new-aono-2020": "2020（田野论文发表）",
+    "sichuan-grand-prix-2016": "2016（赛事观察；2017 发表）",
+    "guanchang-ch31-1904": "1904（书目归年；初印本待校）",
+    "tchou-old-1924": "1924（书中对照旧法）",
+    "tchou-new-1924": "1924（书中对照新法）",
+    "qingbai-maque-1917": "1917（馆藏著录；正文扫描已核）",
+    "ningbo-bamboo-himly-1901": "1889／1901（同作者两次记述）",
+    "wei-strict-1925": "1925（并列解释）",
+    "wei-liberal-1925": "1925（并列解释）",
+    "hochi-heisei-1997": "1997-01（书目；正文核转录）",
+    "jml-riichi-current": "2026-09-23（现行访问；2016 公认）",
+    "hayashi-northern-1924": "1924-07-18（原书发行）",
+    "zhang-diary-1889": "1889-01-30（日记条目；稿本著录1901）",
+    "hunan-diffusion-1912": "1912-05原本题署（2010校点本已读）",
+    "hissho-four-player-1924": "1924-11-25（原书发行）",
+    "hissho-flowers-1924": "1924-11-25（原书发行）",
+    "hissho-five-player-1924": "1924-11-25（原书发行）",
+    "maajh-1939": "1939-10（修订本）",
+    "nmjl-card-1941": "1941年度／版权1940",
+    "haishang-ch26-1894": "1894（所据石印本；连载期号未核）",
+    "mcr-1998": "1998-07题署／09初版",
+    "mcr-wmo-2006": "2006（原书后记）",
+    "ema-mcr-2010": "2010-08 v1.1",
+    "mil-duplicate-mcr-current": "未署制定年（2026访问）",
+    "91y-bloodflow-2015": "2015（平台说明）",
+    "mil-mcr-supplement-2025": "2025（所读规则版本）",
+    "mil-sbr-2025": "2025（所读规则版本）",
+    "mil-sbr-2v2-2025": "2025（所读规则版本）",
+    "mil-sbr-2v2-duplicate-2025": "2025（所读规则版本）",
+    "macau-traditional-1988": "1988-08-22（临时规则颁布）",
+    "macau-traditional-1991": "1991-08-05（官方版本）"
   },
   "eras": [
     {
@@ -210,44 +376,102 @@
     },
     {
       "id": "e-proto",
-      "years": "约 1870–1910",
-      "title": "宁波定型：叉麻雀／中发",
-      "desc": "江南把纸牌戏做到竹骨牌上，时称中发、撮麻雀、叉麻雀。Glover 福州套（≤1875）与 Wilkinson 宁波套（1889/90）是牌具。樊增祥 1906 年夹注「二十年前起于宁波」。闽粤海舶说并存。",
+      "years": "1889–1901",
+      "title": "宁波牌具与同期文字见证",
+      "desc": "1889／1901 Himly记宁波竹牌148张；1901中发目录记盒内140、通常用136。张德彝1889日记另见常例牌与可选加花。材料并列比较，差别的先后方向、完整配牌与支付法仍未齐备。",
       "groups": [
         {
           "track": "ningbo",
           "nodes": [
-            "proto-mahjong"
+            "proto-mahjong",
+            "ningbo-bamboo-himly-1901",
+            "zhang-diary-1889",
+            "haishang-ch26-1894"
           ]
         }
       ]
     },
     {
       "id": "e-classical",
-      "years": "约 1910–1930",
-      "title": "早期规则书",
-      "desc": "民间骨牌戏本无统一规则书。沈一帆《绘图麻雀牌谱》（1914）等把番副写成规矩。榛原 1952 年据 1910 年代书重建「想定宁波」。",
+      "years": "1904–1925",
+      "title": "原典中的并行打法",
+      "desc": "1904 书目归年的小说算例、1915 Mauger 及 1920 年代多种具名版本并列。支付责任、未和者结算、花牌和人数改法分别有证，不预设统一古典祖先。",
       "groups": [
         {
           "track": "ningbo",
           "nodes": [
-            "classical"
+            "mauger-1915",
+            "drawing-mahjong",
+            "special-peng-1924",
+            "newnew-peng-1924",
+            "drawing-flowers-1924",
+            "guanchang-ch31-1904",
+            "tchou-old-1924",
+            "tchou-new-1924",
+            "qingbai-maque-1917",
+            "wei-strict-1925",
+            "wei-liberal-1925",
+            "hayashi-northern-1924",
+            "hunan-diffusion-1912",
+            "hissho-four-player-1924",
+            "hissho-flowers-1924",
+            "hissho-five-player-1924"
+          ]
+        },
+        {
+          "track": "us",
+          "nodes": [
+            "babcock",
+            "babcock-new-method-1923",
+            "foster-1924",
+            "foster-two-player-1924",
+            "foster-three-player-1924",
+            "foster-cleared-suit-1924",
+            "american-code-1924",
+            "american-mixed-1924",
+            "american-one-double-1924",
+            "american-cleared-1924",
+            "american-two-player-1924",
+            "american-three-player-1924"
           ]
         }
       ]
     },
     {
       "id": "e-split1",
-      "years": "约 1920–1950",
-      "title": "第一次分化",
-      "desc": "废副、改出铳，粤港走出清章。1909 年名川彦作携牌回日本。福州加一搭成十六张，并走开金。Babcock 1920 年红皮书把中国古典简化成美式规则。当代甬麻、上海敲麻都是几十年后才成型的地方打法，不属于这一时期。",
+      "years": "1930–1941",
+      "title": "规则文本、报刊见证与组织",
+      "desc": "1930日本标准、1932警务教材及1931台湾小说分别见证当时条款；1937为NMJL成立年，另核1939修订本与1941年卡。各节点的文本、事件和版本日期分开，不当发明年。",
       "groups": [
         {
-          "track": "yue",
+          "track": "jp",
           "nodes": [
-            "qingzhang"
+            "japan-standard-1930",
+            "japan-police-1932"
           ]
         },
+        {
+          "track": "us",
+          "nodes": [
+            "nmjl",
+            "maajh-1939",
+            "nmjl-card-1941"
+          ]
+        },
+        {
+          "track": "sixteen",
+          "nodes": [
+            "taiwan-sixteen-1931"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "e-postwar",
+      "years": "1961–1962",
+      "title": "原卡与后出底本摘要",
+      "desc": "1961–62 NMJL 原卡照片可核十四花加两 joker、东家双倍；日本古典条目来自对 1962 版的后出摘要，证据等级分别标注。",
+      "groups": [
         {
           "track": "jp",
           "nodes": [
@@ -255,257 +479,130 @@
           ]
         },
         {
-          "track": "sixteen",
-          "nodes": [
-            "fuzhou"
-          ]
-        },
-        {
           "track": "us",
           "nodes": [
-            "babcock",
-            "nmjl"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "e-postwar",
-      "years": "约 1950–1980",
-      "title": "战后桌上定型",
-      "desc": "1952 年报知立直成文。香港清章渐成三番起糊。台湾十六张在桌上定型，南北差已经并行，只是还没有写成对照表。NMJL 1961 年起用专用 joker。北京可吃、用混儿；天津禁吃、不点炮。东北此时还是十三张，尚未按省拆开。川渝去字禁吃在桌上出现，血战和定缺都还没有。",
-      "groups": [
-        {
-          "track": "yue",
-          "nodes": [
-            "hongkong"
-          ]
-        },
-        {
-          "track": "jp",
-          "nodes": [
-            "riichi-hochi"
-          ]
-        },
-        {
-          "track": "sixteen",
-          "nodes": [
-            "taiwan"
-          ]
-        },
-        {
-          "track": "us",
-          "nodes": [
-            "nmjl-joker",
-            "wright-patterson"
-          ]
-        },
-        {
-          "track": "chuanyu",
-          "nodes": [
-            "quzi"
-          ]
-        },
-        {
-          "track": "north",
-          "nodes": [
-            "tianjin"
-          ]
-        },
-        {
-          "track": "jiangnan",
-          "nodes": [
-            "shanghai-qiaoma-pre80",
-            "sunan-huama-pre80",
-            "zhebei-zbgyu"
-          ]
-        },
-        {
-          "track": "dongbei",
-          "nodes": [
-            "dongbei"
+            "nmjl-joker"
           ]
         }
       ]
     },
     {
       "id": "e-local",
-      "years": "约 1980–2000",
-      "title": "地方改规与国标",
-      "desc": "1980 到 2000 年前后，各地的打法开始能在桌上分开讲清楚，但大多还没有成文规则。川渝 1990 年代末流行缺一门，当时还不定张。长沙可以吃牌、用 258 将；常德去字禁吃，和长沙的打法平行发展。1998 年国标是国家体育总局出的竞赛本。台湾的南北差异这时也能写成对照：南部无花、不计庄家台。当代甬麻、杭温财神、苏沪花麻、上海敲麻都是这一时期定型的地方打法。东北按省份能分开讲：辽宁摇宝、吉林下蛋、黑龙江夹胡、大连穷胡、哈尔滨。山西的太原立四、西安的禁吃定缺则留在华北这一支。",
-      "show_platform": true,
+      "years": "1989–1998",
+      "title": "具名文本与软件见证",
+      "desc": "澳门 1989 与 1991 原令可直接对照；1994 已有台湾十六张电脑游戏。1998 国标属于竞赛编纂，均不等于地方麻将发明年。",
       "groups": [
         {
           "track": "yue",
           "nodes": [
-            "guangdong",
-            "jipinghu",
-            "tuidao",
-            "singapore"
+            "macau-traditional-1988",
+            "macau-traditional-1989",
+            "macau-traditional-1991",
+            "macau-mini-1991"
           ]
         },
         {
           "track": "sixteen",
           "nodes": [
-            "taiwan-south",
-            "hongkong-16",
-            "wenzhou"
-          ]
-        },
-        {
-          "track": "us",
-          "nodes": [
-            "nmjl-card"
-          ]
-        },
-        {
-          "track": "jiangnan",
-          "nodes": [
-            "shanghai",
-            "huama",
-            "suzhou",
-            "nanjing",
-            "ningbo-local",
-            "hangzhou"
-          ]
-        },
-        {
-          "track": "chuanyu",
-          "nodes": [
-            "sichuan-nochi",
-            "changsha",
-            "changde"
-          ]
-        },
-        {
-          "track": "north",
-          "nodes": [
-            "beijing",
-            "shanxi",
-            "taiyuan-lisi",
-            "xian"
-          ]
-        },
-        {
-          "track": "dongbei",
-          "nodes": [
-            "dongbei-yaobao",
-            "dongbei-xiadan",
-            "dongbei-jiahu",
-            "haerbin",
-            "dalian-qionghu"
+            "taiwan-softstar-1994"
           ]
         },
         {
           "track": "mcr",
           "nodes": [
-            "guobiao"
+            "mcr-1998"
+          ]
+        },
+        {
+          "track": "jp",
+          "nodes": [
+            "hochi-heisei-1997"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "e-mcr-international",
+      "years": "2006–2010",
+      "title": "国标国际修订与赛事细则",
+      "desc": "2006原书明示以1998规则为基础；2010 MERS另列操作与罚则。是文本修订和赛事适配关系。",
+      "groups": [
+        {
+          "track": "mcr",
+          "nodes": [
+            "mcr-wmo-2006",
+            "ema-mcr-2010"
           ]
         }
       ]
     },
     {
       "id": "e-net",
-      "years": "约 2000–2015",
-      "title": "上网、定型与血战",
-      "desc": "成都一带 2000 年后流行血战到底并开局定缺。血流：约 2005 年后；QQ 2005-04 同名桌。2001 年明星三缺一把一套台数写成电脑规则；2002 年中华麻将竞技协会立案。天凤 2006／2007。红中全国上网约 2010s，是常德扩散。卡五星 2005 四人、2007 三人。长春把下蛋、夹胡、宝捆成都市包。中庸 2004 年发布。",
-      "show_platform": true,
+      "years": "2015",
+      "title": "平台版本差异",
+      "desc": "91y 2015 血流说明无预报定缺、和后锁手继续和。这里只定位这份平台文本，不将其设为所有血流的起点。",
       "groups": [
-        {
-          "track": "jp",
-          "nodes": [
-            "riichi"
-          ]
-        },
-        {
-          "track": "sixteen",
-          "nodes": [
-            "taiwan-mingxing"
-          ]
-        },
         {
           "track": "chuanyu",
           "nodes": [
-            "sichuan",
-            "sichuan-huansanzhang",
-            "xueliu"
-          ]
-        },
-        {
-          "track": "dongbei",
-          "nodes": [
-            "changchun"
-          ]
-        },
-        {
-          "track": "huazhong",
-          "nodes": [
-            "kawuxing"
-          ]
-        },
-        {
-          "track": "mcr",
-          "nodes": [
-            "ema"
-          ]
-        },
-        {
-          "track": "custom",
-          "nodes": [
-            "zungjung"
-          ]
-        },
-        {
-          "track": "laizi",
-          "nodes": [
-            "hongzhong",
-            "wuhan",
-            "nanchang"
+            "91y-bloodflow-2015"
           ]
         }
       ]
     },
     {
       "id": "e-now",
-      "years": "约 2015–",
-      "title": "协会本、改版、自制规",
-      "desc": "三麻、韩三麻、MIL 立直竞赛本，是立直圈里按人数或赛制分出的变体。川渝的打法扩散到重庆、贵州、昆明；SBR 是 2025 年协会本，平台上的川麻大多按这一套血战到底，和民间的成都麻将不完全一样。MIL 广东推广本 2023、推倒和推广本 2024 都是协会本：前者用 140 张牌、四花当鬼牌、不能吃牌；后者可以吃牌但须报听，两者都不是民间的鸡平胡或深莞推倒胡。MIL 杭州推广本 2025、温州试点本 2024 也是协会本：前者白板固定、只能自摸；后者按十六张分类，翻财神、不看跟风，都不是民间桌规的原样照搬。小林改、K神改、蓝十改是国标的改版。中庸是 2004 年发布的自制规则；青雀、虹雀、南雀、十样锦是另外写的规则。美式麻将的年卡仍每年更新合法型，2026 年卡仍在发售。MIL 红中推广本 2024 是协会本，骨架接近常德红中（112 张、不能吃牌、只能自摸），不是武汉开口翻，也不是川麻加四张红中。MIL 长春推广本 2024 同样是协会本，内容仍是下蛋、夹胡、宝这一包玩法。马来西亚、越南的麻将现在仍在打，但和粤港清章的关系比较松散。日本的报知立直、天凤、GGHK、MIL RCR 各是不同的赛制版本，彼此不能混为一谈。MIL 山西推广本 2023 不含立四规则；MIL 贵州推广本 2023 是捉鸡赛场本，不是血战玩法。澳门 1991 年的赌场训令只是行业监管文件，不算麻将玩法的分支。宜昌血流、四川红中、断卡根都是具名的变体：前两者接近川渝的打法，断卡根算单独一组。卡五星目前仍是民间和平台上的玩法，还没有协会本。",
-      "show_platform": true,
+      "years": "2016–2026",
+      "title": "协会、平台与作者版本",
+      "desc": "2016 TMT 与 MIL SBR 有直接文本／赛事见证；HKMA 十六张为 2025 修订。现行アルシーアル仍在公布。其余具名馆藏及项目作者版放在当前层，不用来反推地方形成时间。",
       "groups": [
         {
-          "track": "yue",
+          "track": "ningbo",
           "nodes": [
-            "mil-guangdong",
-            "mil-tuidao",
-            "malaysia",
-            "vietnam"
+            "classical",
+            "ninghai-observed-2017"
           ]
         },
         {
           "track": "jp",
           "nodes": [
-            "japanese-3p",
-            "korean-3p",
-            "mil-riichi"
+            "arushiaru-current",
+            "riichi",
+            "mil-riichi",
+            "jml-riichi-current"
           ]
         },
         {
-          "track": "us",
+          "track": "yue",
           "nodes": [
-            "nmjl-card"
+            "hongkong",
+            "mil-guangdong",
+            "mil-tuidao"
+          ]
+        },
+        {
+          "track": "sixteen",
+          "nodes": [
+            "hongkong-16",
+            "mil-wenzhou"
           ]
         },
         {
           "track": "chuanyu",
           "nodes": [
-            "chongqing",
-            "guizhou",
-            "kunming",
+            "sichuan-tmt-2016",
             "mil-sichuan",
             "mil-guizhou",
-            "sichuan-hongzhong",
-            "yichang-xueliu",
-            "duankagen"
+            "sichuan-grand-prix-2016",
+            "mil-sbr-2025",
+            "mil-sbr-2v2-2025",
+            "mil-sbr-2v2-duplicate-2025"
+          ]
+        },
+        {
+          "track": "jiangnan",
+          "nodes": [
+            "mil-hangzhou"
           ]
         },
         {
@@ -517,28 +614,9 @@
         {
           "track": "dongbei",
           "nodes": [
-            "mil-changchun"
-          ]
-        },
-        {
-          "track": "mcr",
-          "nodes": [
-            "guobiao-kshen",
-            "guobiao-kobayashi",
-            "guobiao-lanshi",
-            "salasasa"
-          ]
-        },
-        {
-          "track": "sixteen",
-          "nodes": [
-            "mil-wenzhou"
-          ]
-        },
-        {
-          "track": "jiangnan",
-          "nodes": [
-            "mil-hangzhou"
+            "mil-changchun",
+            "harbin-old-aono-2020",
+            "harbin-new-aono-2020"
           ]
         },
         {
@@ -548,12 +626,203 @@
           ]
         },
         {
+          "track": "mcr",
+          "nodes": [
+            "ema",
+            "guobiao-kshen",
+            "guobiao-kobayashi",
+            "guobiao-lanshi",
+            "mil-duplicate-mcr-current",
+            "mil-mcr-supplement-2025"
+          ]
+        },
+        {
           "track": "custom",
           "nodes": [
             "qingque",
             "hongque",
             "jiandan",
             "shiyangjin"
+          ]
+        },
+        {
+          "track": "us",
+          "nodes": [
+            "wright-patterson",
+            "siamese-wp-2022"
+          ]
+        }
+      ],
+      "show_platform": true
+    },
+    {
+      "id": "e-undated",
+      "years": "形成时间待证",
+      "title": "地方规则与未定年线索",
+      "desc": "此行是研究队列，不在年代轴上表示更晚出现。同组不等于同源；未亲验年份的报知／joker 等线索也在这里保留。四个人工过渡／前身节点已退出确定年表。",
+      "groups": [
+        {
+          "track": "yue",
+          "nodes": [
+            "qingzhang",
+            "guangdong",
+            "jipinghu",
+            "tuidao",
+            "singapore",
+            "malaysia",
+            "vietnam",
+            "chaoshan",
+            "zhanjiang",
+            "macau"
+          ]
+        },
+        {
+          "track": "jp",
+          "nodes": [
+            "riichi-hochi",
+            "japanese-3p",
+            "korean-3p"
+          ]
+        },
+        {
+          "track": "us",
+          "nodes": [
+            "nmjl-card"
+          ]
+        },
+        {
+          "track": "sixteen",
+          "nodes": [
+            "fuzhou",
+            "taiwan",
+            "taiwan-south",
+            "taiwan-mingxing",
+            "wenzhou",
+            "xiamen",
+            "quanzhou",
+            "longyan"
+          ]
+        },
+        {
+          "track": "jiangnan",
+          "nodes": [
+            "shanghai",
+            "ningbo-local",
+            "hangzhou",
+            "huama",
+            "suzhou",
+            "nanjing"
+          ]
+        },
+        {
+          "track": "chuanyu",
+          "nodes": [
+            "duankagen",
+            "sichuan",
+            "sichuan-huansanzhang",
+            "yichang-xueliu",
+            "chongqing",
+            "guizhou",
+            "changsha",
+            "changde",
+            "sichuan-hongzhong",
+            "kunming",
+            "hengyang-258",
+            "zunyi-laizi",
+            "xishuangbanna-ka2tiao",
+            "xueliu"
+          ]
+        },
+        {
+          "track": "laizi",
+          "nodes": [
+            "hongzhong",
+            "wuhan",
+            "nanchang",
+            "shaoyang"
+          ]
+        },
+        {
+          "track": "north",
+          "nodes": [
+            "beijing",
+            "tianjin",
+            "shanxi",
+            "taiyuan-lisi",
+            "xian",
+            "lanzhou",
+            "ningxia-huashui",
+            "qinghai",
+            "huhehaote",
+            "baotou",
+            "xinjiang"
+          ]
+        },
+        {
+          "track": "huazhong",
+          "nodes": [
+            "kawuxing"
+          ]
+        },
+        {
+          "track": "dongbei",
+          "nodes": [
+            "dongbei",
+            "dongbei-yaobao",
+            "dongbei-xiadan",
+            "dongbei-jiahu",
+            "haerbin",
+            "dalian-qionghu",
+            "changchun",
+            "liaoyuan",
+            "yanbian",
+            "tongliao",
+            "chifeng",
+            "hulunbeier",
+            "jinzhou",
+            "mudanjiang",
+            "jiamusi",
+            "qiqihaer"
+          ]
+        },
+        {
+          "track": "custom",
+          "nodes": [
+            "zungjung"
+          ]
+        },
+        {
+          "track": "unplaced",
+          "nodes": [
+            "tangshan",
+            "shijiazhuang",
+            "baoding",
+            "zhangjiakou",
+            "hefei",
+            "anqing",
+            "jiujiang",
+            "fuzhou-jiangxi",
+            "ganzhou",
+            "jingdezhen",
+            "wuxi",
+            "yangzhou",
+            "xuzhou",
+            "changzhou",
+            "nanning",
+            "liuzhou-guilin",
+            "hainan",
+            "zhengzhou",
+            "luoyang",
+            "kaifeng",
+            "jinan",
+            "zibo",
+            "jining"
+          ]
+        },
+        {
+          "track": "mcr",
+          "nodes": [
+            "guobiao"
           ]
         }
       ]
@@ -565,528 +834,1620 @@
       "to": "madiao",
       "type": "descent",
       "status": "attested",
-      "note": "叶子戏到马吊。"
+      "note": "本轮从宁波见证开始；保留旧前史论证的身份，未把此边重新认定为已亲验。",
+      "review_category": "prehistory-outside-round",
+      "source_ids": [],
+      "lineage_display": true,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "madiao",
       "to": "mohe",
       "type": "descent",
       "status": "attested",
-      "note": "默和牌「彷马吊牌而损益之」。"
+      "note": "本轮从宁波见证开始；保留旧前史论证的身份，未把此边重新认定为已亲验。",
+      "review_category": "prehistory-outside-round",
+      "source_ids": [],
+      "lineage_display": true,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "mohe",
       "to": "penghe",
       "type": "descent",
       "status": "attested",
-      "note": "加倍为四副则名碰和。"
+      "note": "本轮从宁波见证开始；保留旧前史论证的身份，未把此边重新认定为已亲验。",
+      "review_category": "prehistory-outside-round",
+      "source_ids": [],
+      "lineage_display": true,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "madiao",
       "to": "proto-mahjong",
       "type": "descent",
       "status": "attested",
-      "note": "只传万索钱牌张，不传斗大。"
+      "note": "本轮从宁波见证开始；保留旧前史论证的身份，未把此边重新认定为已亲验。",
+      "review_category": "prehistory-outside-round",
+      "source_ids": [],
+      "lineage_display": true,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "mohe",
       "to": "proto-mahjong",
       "type": "descent",
       "status": "attested",
-      "note": "凑面子、四人。"
+      "note": "本轮从宁波见证开始；保留旧前史论证的身份，未把此边重新认定为已亲验。",
+      "review_category": "prehistory-outside-round",
+      "source_ids": [],
+      "lineage_display": true,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "penghe",
       "to": "proto-mahjong",
       "type": "descent",
       "status": "attested",
-      "note": "碰、四副。"
+      "note": "本轮从宁波见证开始；保留旧前史论证的身份，未把此边重新认定为已亲验。",
+      "review_category": "prehistory-outside-round",
+      "source_ids": [],
+      "lineage_display": true,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "proto-mahjong",
       "to": "classical",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "1910 年代规则书记录当时打法。"
+      "note": "classical 是项目汇编复原版；史料依据关系不能作为当年发生的规则传承。",
+      "review_category": "reconstruction",
+      "source_ids": [
+        "schreiber-1901",
+        "drawing-1924"
+      ],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "classical",
       "to": "qingzhang",
-      "type": "descent",
-      "status": "attested",
-      "note": "废副、改出铳，变成清章。"
+      "type": "hypothesis",
+      "status": "inferred",
+      "note": "庄家支付、废副、仅和家计分不能合为一次已定年的改规；缺对应粤港原规则。",
+      "review_category": "historical-hypothesis",
+      "source_ids": [
+        "babcock-1923",
+        "drawing-1924"
+      ],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "qingzhang",
       "to": "hongkong",
-      "type": "descent",
-      "status": "attested"
+      "type": "hypothesis",
+      "status": "inferred",
+      "review_category": "classification",
+      "note": "清章／香港规则的身份与范围关系；协会版本不能代表香港所有时期的桌规。",
+      "source_ids": [
+        "hkma-hk-current"
+      ],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "qingzhang",
       "to": "guangdong",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "新章叠番一支。广东麻将是伞称，这一格不代表鸡平胡。"
+      "note": "广东伞称与新章同名混用；叠番差异未给出地方规则的传播时点。",
+      "review_category": "historical-hypothesis",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "qingzhang",
       "to": "singapore",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "近港式番，加动物牌。推断。不是马来西亚或越南。"
+      "note": "港式番种相近可比较；动物牌何时加入与输入渠道尚缺原典。",
+      "review_category": "historical-hypothesis",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "singapore",
       "to": "malaysia",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "侨路近亲，推断。马来西亚四家常 164，不是新加坡 148 复印件。三家 84 另条。"
+      "note": "侨路或地理近邻不证明新加坡是马来西亚四人／三人的直接祖先。",
+      "review_category": "structural-comparison",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "classical",
       "to": "japanese-classical",
-      "type": "descent",
-      "status": "attested",
-      "note": "1909 年名川彦作把牌带回日本。"
+      "type": "hypothesis",
+      "status": "inferred",
+      "note": "1909 输入事件不能承担 1930／1962 规则细节；项目复原版也不是历史祖先。",
+      "review_category": "historical-hypothesis",
+      "source_ids": [
+        "japan-standard-1930",
+        "kwan-japanese-classical"
+      ],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "japanese-classical",
       "to": "riichi-hochi",
-      "type": "descent",
-      "status": "attested",
-      "note": "1952 年天野大三把途中立直写成报载规则。"
+      "type": "hypothesis",
+      "status": "inferred",
+      "note": "1930 首巡立直可证；途中立直的桥梁与 1952 原报尚缺，不把后出摘要当直接修订。",
+      "review_category": "historical-hypothesis",
+      "source_ids": [
+        "japan-standard-1930"
+      ],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "riichi-hochi",
       "to": "riichi",
-      "type": "standardization",
-      "status": "attested",
-      "note": "天凤 2006 半熟荘、2007 改名。平台按天凤／雀魂。"
+      "type": "hypothesis",
+      "status": "inferred",
+      "note": "今日平台版本与 1952 报知差异未逐版对校；平台上线日期不是现代立直起源年。",
+      "review_category": "version-link-needs-collation",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "riichi-hochi",
       "to": "japanese-3p",
-      "type": "descent",
-      "status": "attested",
-      "note": "人数变体。不是天凤下级。"
+      "type": "hypothesis",
+      "status": "inferred",
+      "note": "没有证据把日本三麻起点固定在报知之后；1924 三人改法另有直接见证而机制不同。",
+      "review_category": "historical-hypothesis",
+      "source_ids": [
+        "foster-1924"
+      ],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "riichi-hochi",
       "to": "korean-3p",
-      "type": "diffusion",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "扩散，推断。旧韩麻与 KML 立直赛不是一条。不是天凤下级。"
+      "note": "韩国传统三人法的传入时间及与途中立直的关系待证；不能用现代 KML 赛事替代。",
+      "review_category": "historical-hypothesis",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "riichi",
       "to": "mil-riichi",
-      "type": "standardization",
-      "status": "attested",
-      "note": "EMA RCR 2016 底本 + MIL 2024 细则。协会本，不是天凤，也不是平台对局。"
+      "type": "hypothesis",
+      "status": "inferred",
+      "note": "具名立直竞赛版与立直规则家族的关系；不表示 MIL 从天凤／雀魂代码版本改来。",
+      "review_category": "named-standardization",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "classical",
       "to": "babcock",
-      "type": "descent",
-      "status": "attested",
-      "note": "1920 年红皮书按当时中国打法简化。"
+      "type": "hypothesis",
+      "status": "inferred",
+      "note": "Babcock 是历史原典，不能成为项目后出 classical 汇编版的后代。",
+      "review_category": "reconstruction",
+      "source_ids": [
+        "babcock-1923",
+        "drawing-1924"
+      ],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "babcock",
       "to": "nmjl",
-      "type": "descent",
-      "status": "attested",
-      "note": "1937 年联盟成立；当时花当百搭。"
+      "type": "hypothesis",
+      "status": "inferred",
+      "note": "1937 成立可以核实，但中间美国规则变化及合法牌形体系需要同期文本桥梁。",
+      "review_category": "historical-hypothesis",
+      "source_ids": [
+        "nmjl-league-history"
+      ],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "nmjl",
       "to": "nmjl-joker",
-      "type": "descent",
+      "type": "standardization",
       "status": "attested",
-      "note": "1961 年起用专用 joker。"
+      "note": "NMJL 自署的 1961–62 年卡，十四花加两张 Big Joker；只证明该版条文，初次引入仍待前版对照。",
+      "review_category": "named-version",
+      "source_ids": [
+        "nmjl-card-1961-62"
+      ],
+      "lineage_display": true,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "nmjl-joker",
       "to": "nmjl-card",
-      "type": "standardization",
-      "status": "attested",
-      "note": "1971 年定 8 花 8 joker；合法型和牌型每年换卡，至今仍出。"
+      "type": "hypothesis",
+      "status": "inferred",
+      "note": "年卡传统不必从专用 joker 才起；1971 数量定型和更早卡片须分别亲验。",
+      "review_category": "historical-hypothesis",
+      "source_ids": [
+        "nmjl-league-history"
+      ],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "babcock",
       "to": "wright-patterson",
-      "type": "descent",
-      "status": "inferred"
+      "type": "hypothesis",
+      "status": "inferred",
+      "review_category": "historical-hypothesis",
+      "note": "美式身份及无 joker 不足以认定直接从 Babcock 某版分出。",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "fuzhou",
       "to": "taiwan",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "disputed",
-      "note": "维基：福建十六张入台。台湾麻将协会：广东十三张演成台制。都还没有民初规则书。"
+      "note": "十六张同构不能确定传入方向；旧争论保留，禁止在 parent 字段隐式当真。",
+      "review_category": "disputed-origin",
+      "source_ids": [
+        "chen-taiwan-2014"
+      ],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "taiwan",
       "to": "hongkong-16",
-      "type": "diffusion",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "港称「台湾牌」，不是台制原样。"
+      "note": "港称台湾牌与五组一对可核；台湾到协会新章的具体机制借入仍待版本史。",
+      "review_category": "historical-hypothesis",
+      "source_ids": [
+        "hkma-sixteen-2025"
+      ],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "sichuan-nochi",
       "to": "sichuan",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "约 2000 年后血战到底，并改成开局定缺。"
+      "note": "前身节点本身尚未证实；保留为研究假说。",
+      "review_category": "historical-hypothesis",
+      "source_ids": [
+        "tmt-sichuan-2016"
+      ],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "sichuan",
       "to": "sichuan-huansanzhang",
-      "type": "descent",
-      "status": "inferred"
+      "type": "hypothesis",
+      "status": "inferred",
+      "review_category": "mechanism-option",
+      "note": "换三张是可选的开局机制；具体平台引入年份未证，不当成所有血战的必经阶段。",
+      "source_ids": [
+        "tmt-sichuan-2016"
+      ],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "sichuan",
       "to": "xueliu",
-      "type": "descent",
-      "status": "inferred"
+      "type": "hypothesis",
+      "status": "inferred",
+      "review_category": "documented-variant-comparison",
+      "note": "平台明确比较血战／血流，但差异还包括预报缺门及杠分；不能仅写和后继续一项。",
+      "source_ids": [
+        "91y-bloodflow-2015"
+      ],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "sichuan",
       "to": "chongqing",
-      "type": "diffusion",
-      "status": "inferred"
+      "type": "hypothesis",
+      "status": "inferred",
+      "review_category": "structural-comparison",
+      "note": "口述材料另有成都向重庆学习的方向，旧单向扩散不能直接采信。",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "sichuan",
       "to": "guizhou",
-      "type": "diffusion",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "近缘是 108 禁吃。贵州核心是捉鸡，不是血战或定缺。"
+      "note": "108 与禁吃不足以证明捉鸡来自血战；定缺和血战均非该地方包的同义词。",
+      "review_category": "structural-comparison",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "sichuan",
       "to": "kunming",
-      "type": "diffusion",
-      "status": "inferred"
+      "type": "hypothesis",
+      "status": "inferred",
+      "review_category": "structural-comparison",
+      "note": "同属西南及删字禁吃不能证明川麻传播方向。",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "sichuan",
       "to": "mil-sichuan",
       "type": "standardization",
-      "status": "attested"
+      "status": "attested",
+      "review_category": "named-standardization",
+      "note": "2016 已有 MIL SBR 赛事，2025 为后出所藏版本；赛事规程与地方血战分层。",
+      "source_ids": [
+        "mil-sbr-2016"
+      ],
+      "lineage_display": true,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "dongbei",
       "to": "dongbei-yaobao",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "辽宁摇宝／翻宝。"
+      "note": "东北是地区伞称，宝牌是跨地区机制；不建立伞称祖先。",
+      "review_category": "classification",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "dongbei",
       "to": "dongbei-xiadan",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "吉林下蛋：蛋牌约定。"
+      "note": "东北是地区伞称，下蛋是跨地区机制；不建立伞称祖先。",
+      "review_category": "classification",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "dongbei",
       "to": "dongbei-jiahu",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "黑龙江夹胡：听口约定。"
+      "note": "东北是地区伞称，听口是跨地区机制；不建立伞称祖先。",
+      "review_category": "classification",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "dongbei-xiadan",
       "to": "changchun",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "长春桌上把下蛋、夹胡、宝牌捆在一起。"
+      "note": "长春版本包含下蛋不证明由一个独立的吉林下蛋规则历史分化而来。",
+      "review_category": "structural-comparison",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "dongbei-jiahu",
       "to": "changchun",
-      "type": "diffusion",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "夹胡听口进了长春包。"
+      "note": "夹胡机制共存，不等于已经确定借用渠道。",
+      "review_category": "structural-comparison",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "guobiao",
       "to": "ema",
       "type": "standardization",
-      "status": "attested"
+      "status": "attested",
+      "review_category": "named-standardization",
+      "note": "EMA 采用 MCR 的组织／竞赛关系；不能将 EMA 总组织等同只使用国标。",
+      "source_ids": [],
+      "lineage_display": true,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "guobiao",
       "to": "guobiao-kshen",
       "type": "constructed",
-      "status": "attested"
+      "status": "attested",
+      "review_category": "authored-adaptation",
+      "note": "项目具名改编规则关系，保留作者版本身份；精确发布日期另需作者版本记录。",
+      "source_ids": [],
+      "lineage_display": true,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "guobiao",
       "to": "guobiao-kobayashi",
       "type": "constructed",
-      "status": "attested"
+      "status": "attested",
+      "review_category": "authored-adaptation",
+      "note": "项目具名改编规则关系，保留作者版本身份；精确发布日期另需作者版本记录。",
+      "source_ids": [],
+      "lineage_display": true,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "guobiao",
       "to": "guobiao-lanshi",
       "type": "constructed",
-      "status": "attested"
+      "status": "attested",
+      "review_category": "authored-adaptation",
+      "note": "项目具名改编规则关系，保留作者版本身份；精确发布日期另需作者版本记录。",
+      "source_ids": [],
+      "lineage_display": true,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "guobiao",
       "to": "salasasa",
-      "type": "constructed",
-      "status": "attested",
-      "note": "salasasa 对局入口，挂在国标下面。"
+      "type": "hypothesis",
+      "status": "inferred",
+      "note": "salasasa 是对局入口，不是历史规则分裂；从规则传承边移出。",
+      "review_category": "platform-link",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "huama",
       "to": "suzhou",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "苏州算花：牌张更多，花牌更杂。"
+      "note": "花数计分可归组；泛称花麻不自动构成单一历史祖先。",
+      "review_category": "classification",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "huama",
       "to": "nanjing",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "南京论花：20 张硬花。"
+      "note": "按花计分与硬花内容有差异，缺乏确定的直接传承记录。",
+      "review_category": "classification",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "classical",
       "to": "shanghai-qiaoma-pre80",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "民国宁波打法的上海分支，1930 年代已带报听勒子雏形。"
+      "note": "过渡节点的具体年代、规则组合和相互承继没有同期原件支撑；保留为待证问题，退出确定年代线。",
+      "review_category": "unsubstantiated-intermediate",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "classical",
       "to": "sunan-huama-pre80",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "民国宁波打法的苏南分支，1950 年代在桌上按花数计分流行。"
+      "note": "过渡节点的具体年代、规则组合和相互承继没有同期原件支撑；保留为待证问题，退出确定年代线。",
+      "review_category": "unsubstantiated-intermediate",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "classical",
       "to": "zhebei-zbgyu",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "宁波、绍兴沿用民国老术语的古法桌，1949 年后到 1970 年代仍打。"
+      "note": "过渡节点的具体年代、规则组合和相互承继没有同期原件支撑；保留为待证问题，退出确定年代线。",
+      "review_category": "unsubstantiated-intermediate",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "shanghai-qiaoma-pre80",
       "to": "shanghai",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "报听勒子延续到当代沪麻「敲麻」；约 1980 年代定型。"
+      "note": "过渡节点的具体年代、规则组合和相互承继没有同期原件支撑；保留为待证问题，退出确定年代线。",
+      "review_category": "unsubstantiated-intermediate",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "sunan-huama-pre80",
       "to": "huama",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "花牌桌传统延续到当代苏沪花麻；约 1980 年代定型。"
+      "note": "过渡节点的具体年代、规则组合和相互承继没有同期原件支撑；保留为待证问题，退出确定年代线。",
+      "review_category": "unsubstantiated-intermediate",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "sunan-huama-pre80",
       "to": "suzhou",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "苏南花牌桌分化出苏州算花：常见 152 张。"
+      "note": "过渡节点的具体年代、规则组合和相互承继没有同期原件支撑；保留为待证问题，退出确定年代线。",
+      "review_category": "unsubstantiated-intermediate",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "sunan-huama-pre80",
       "to": "nanjing",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "苏南花牌桌分化出南京论花：20 硬花。"
+      "note": "过渡节点的具体年代、规则组合和相互承继没有同期原件支撑；保留为待证问题，退出确定年代线。",
+      "review_category": "unsubstantiated-intermediate",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "zhebei-zbgyu",
       "to": "ningbo-local",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "古法桌延续到当代甬麻「花按座次、四台起胡、翻财神」。"
+      "note": "过渡节点的具体年代、规则组合和相互承继没有同期原件支撑；保留为待证问题，退出确定年代线。",
+      "review_category": "unsubstantiated-intermediate",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "quzi",
       "to": "sichuan-nochi",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "去字之后，川渝走上禁吃。"
+      "note": "前身节点本身尚未证实；保留为研究假说。",
+      "review_category": "structural-comparison",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "quzi",
       "to": "changsha",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "去字之后，长沙可吃、258 将。"
+      "note": "同为 108 张不能证明长沙与川渝来自同一具名去字规则。",
+      "review_category": "structural-comparison",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "zungjung",
       "to": "jiandan",
       "type": "constructed",
       "status": "attested",
-      "note": "南雀是中庸改规。"
+      "note": "项目原有具名改编关系；仍按作者当前文本与版本维护，不用目标模式替代现行模式。",
+      "review_category": "authored-adaptation",
+      "source_ids": [],
+      "lineage_display": true,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "qingzhang",
       "to": "jipinghu",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "由老章简化，与新章平行；珠三角民间主流。不是新章下级。"
+      "note": "现行番表可比较；老章简化为鸡平胡的时间、地区和直接文本待证。",
+      "review_category": "historical-hypothesis",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "qingzhang",
       "to": "tuidao",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "低门槛兄弟。深莞民间禁吃自摸买马；与 MIL 推倒和、跑马仔、北京推倒和都要分开。"
+      "note": "推倒和名下至少有不同吃牌、点和、听牌机制，不能由名字统一祖先。",
+      "review_category": "historical-hypothesis",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "guangdong",
       "to": "mil-guangdong",
-      "type": "standardization",
-      "status": "attested",
-      "note": "MIL 2023 推广本：140 张、四花为鬼、不见吃。不是民间鸡平胡。"
+      "type": "hypothesis",
+      "status": "inferred",
+      "note": "MIL 广东推广是具名编纂版；广东节点若特指叠番新章，不应画成从它直接改来。",
+      "review_category": "named-standardization",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "tuidao",
       "to": "mil-tuidao",
-      "type": "standardization",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "MIL 2024：可吃、须报听。与深莞民间不是一套，边画成标准化，不画成同一规则改名。"
+      "note": "MIL 与深莞同名但可吃、报听等不同；表示具名规则分层，不确证直接沿革。",
+      "review_category": "named-standardization",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "classical",
       "to": "fuzhou",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "加一搭成十六张，并走开金。"
+      "note": "五组一对相较四组一对多一组，这是结构比较，尚非已证实的福州历史改法。",
+      "review_category": "historical-hypothesis",
+      "source_ids": [
+        "drawing-1924",
+        "chen-taiwan-2014"
+      ],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "hongkong",
       "to": "hongkong-16",
-      "type": "diffusion",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "港式十六张糅合港麻、台制、立直、国标。新章和种从十三张新章传入，不是台制起源。"
+      "note": "现行规则可以比较，不凭同城及相似番种确定新章复合机制的借入时点。",
+      "review_category": "historical-hypothesis",
+      "source_ids": [
+        "hkma-hk-current",
+        "hkma-sixteen-2025"
+      ],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "hangzhou",
       "to": "mil-hangzhou",
       "type": "standardization",
       "status": "attested",
-      "note": "MIL 2025 推广本：白板固定、只能自摸、流局剩 20 张。不是边锋笃三牢庄桌规。"
+      "note": "地区伞称与 MIL 具名版本的对应；不把赛事文本等同所有地方桌规，也不将出版年当地方玩法出生年。",
+      "review_category": "named-standardization",
+      "source_ids": [],
+      "lineage_display": true,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "wenzhou",
       "to": "mil-wenzhou",
       "type": "standardization",
       "status": "attested",
-      "note": "MIL 2024 试点本：十六张、翻财神、白板顶真牌。不见跟风，也不是二人温州。"
+      "note": "地区伞称与 MIL 具名版本的对应；不把赛事文本等同所有地方桌规，也不将出版年当地方玩法出生年。",
+      "review_category": "named-standardization",
+      "source_ids": [],
+      "lineage_display": true,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "hongzhong",
       "to": "mil-red-center",
       "type": "standardization",
       "status": "attested",
-      "note": "MIL 2024：112 张、不见吃、只能自摸。骨架近常德，不是武汉开口翻。"
+      "note": "地区伞称与 MIL 具名版本的对应；不把赛事文本等同所有地方桌规，也不将出版年当地方玩法出生年。",
+      "review_category": "named-standardization",
+      "source_ids": [],
+      "lineage_display": true,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "changchun",
       "to": "mil-changchun",
       "type": "standardization",
       "status": "attested",
-      "note": "MIL 2024 推广本：仍是下蛋 + 夹胡 + 宝。不是第四种发明。"
+      "note": "地区伞称与 MIL 具名版本的对应；不把赛事文本等同所有地方桌规，也不将出版年当地方玩法出生年。",
+      "review_category": "named-standardization",
+      "source_ids": [],
+      "lineage_display": true,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "shanxi",
       "to": "taiyuan-lisi",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "太原立四是山西伞称下的都市包，不是全省山西。"
+      "note": "山西伞称下的太原地区版本；分类关系不能作历史发生次序。",
+      "review_category": "classification",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "shanxi",
       "to": "mil-shanxi",
       "type": "standardization",
       "status": "attested",
-      "note": "MIL 2023：136 张，必须报听，不见立四。"
+      "note": "地区伞称与 MIL 具名版本的对应；不把赛事文本等同所有地方桌规，也不将出版年当地方玩法出生年。",
+      "review_category": "named-standardization",
+      "source_ids": [],
+      "lineage_display": true,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "guizhou",
       "to": "mil-guizhou",
       "type": "standardization",
       "status": "attested",
-      "note": "MIL 2023：捉鸡赛场本。不见定缺、不见血战。"
+      "note": "地区伞称与 MIL 具名版本的对应；不把赛事文本等同所有地方桌规，也不将出版年当地方玩法出生年。",
+      "review_category": "named-standardization",
+      "source_ids": [],
+      "lineage_display": true,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "sichuan-nochi",
       "to": "duankagen",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "再去万、10 张手牌。不进川渝主干。"
+      "note": "前身节点本身尚未证实；保留为研究假说。",
+      "review_category": "historical-hypothesis",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "xueliu",
       "to": "yichang-xueliu",
-      "type": "diffusion",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "棋牌站把血流换三张挂宜昌或恩施，不是第四种发明。"
+      "note": "广告使用血流名称但具体流程可能与血战混用；地域来源与跨地传播未证。",
+      "review_category": "platform-variant-needs-source",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "sichuan",
       "to": "sichuan-hongzhong",
-      "type": "diffusion",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "川麻加四张红中，算川渝湘的分支，不算癞子系的主干。"
+      "note": "川麻加癞子的机制描述可以单独登记；仍需具名平台版本，不当地区统一主流。",
+      "review_category": "platform-variant-needs-source",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "changde",
       "to": "hongzhong",
-      "type": "descent",
-      "status": "attested",
-      "note": "百科：红中麻将是常德麻将加四张万能红中。"
+      "type": "hypothesis",
+      "status": "inferred",
+      "note": "百科式的常德加红中说需要更早本地或平台原文；112 张红中不只一种规则。",
+      "review_category": "historical-hypothesis",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "taiwan",
       "to": "taiwan-south",
-      "type": "descent",
-      "status": "attested",
-      "note": "南部无花、不计庄家台、边嵌单常无台。桌上并行，不是后起发明。"
+      "type": "hypothesis",
+      "status": "inferred",
+      "note": "南北差是地域桌规分类，原图所称战后一直并行的起始年代尚未核实。",
+      "review_category": "classification",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "taiwan",
       "to": "taiwan-mingxing",
       "type": "standardization",
       "status": "attested",
-      "note": "2001 明星三缺一把一套口传台数写成电脑规则。"
+      "note": "具名软件台制版本；1994 已有其他台湾十六张电脑游戏，不是 2001 才首次电脑化。",
+      "review_category": "named-standardization",
+      "source_ids": [
+        "softstar-taiwan-1994"
+      ],
+      "lineage_display": true,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "dongbei",
       "to": "haerbin",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "哈尔滨都市包：112、开门、暗宝。不是常德红中。"
+      "note": "地区伞称与城市规则包，不能直接读成历史演化。",
+      "review_category": "classification",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "dongbei",
       "to": "dalian-qionghu",
-      "type": "descent",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "大连穷胡：报听翻宝。近辽宁摇宝。"
+      "note": "地区伞称与城市规则包，不能直接读成历史演化。",
+      "review_category": "classification",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
     },
     {
       "from": "dongbei-yaobao",
       "to": "dalian-qionghu",
-      "type": "diffusion",
+      "type": "hypothesis",
       "status": "inferred",
-      "note": "都是报听后看宝／冲宝。细则不同。"
+      "note": "报听后看宝等机制相近，缺少借用的版本或传播文本。",
+      "review_category": "structural-comparison",
+      "source_ids": [],
+      "lineage_display": false,
+      "reviewed_at": "2026-09-23"
+    },
+    {
+      "from": "babcock",
+      "to": "babcock-new-method-1923",
+      "type": "descent",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "babcock-1923"
+      ],
+      "note": "第二版 New Method 取消庄家的一般双收双付，改放铳者双付、自摸三家双付；仍算副，未和者仍相互结算。不是废副或现代全铳的同义词。",
+      "review_category": "explicit-source-comparison"
+    },
+    {
+      "from": "drawing-mahjong",
+      "to": "special-peng-1924",
+      "type": "descent",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "drawing-1924"
+      ],
+      "note": "1924《绘图》记苏州、昆山、太仓近来流行的改法：变更庄闲／出铳支付及开门法。书中流行地不等于已证明的发明地。",
+      "review_category": "explicit-source-comparison"
+    },
+    {
+      "from": "special-peng-1924",
+      "to": "newnew-peng-1924",
+      "type": "descent",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "drawing-1924"
+      ],
+      "note": "同书明确与特别碰法比较：改以当局和家作为门风计分参照；并非真实轮庄立刻改变，也不是只凭名称等同粤港新章。",
+      "review_category": "explicit-source-comparison"
+    },
+    {
+      "from": "drawing-mahjong",
+      "to": "drawing-flowers-1924",
+      "type": "descent",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "drawing-1924"
+      ],
+      "note": "同一部规则书的无花正文与有花补遗并存，花副和座花奖励可核；尚不能连成当代苏沪花麻的直接祖先。",
+      "review_category": "explicit-source-comparison"
+    },
+    {
+      "from": "foster-1924",
+      "to": "foster-two-player-1924",
+      "type": "descent",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "foster-1924"
+      ],
+      "note": "原书二人法仍计两手分差；只登记该书版本，不与后来的二人平台规则合并。",
+      "review_category": "explicit-source-comparison"
+    },
+    {
+      "from": "foster-1924",
+      "to": "foster-three-player-1924",
+      "type": "descent",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "foster-1924"
+      ],
+      "note": "三人法去四北及两张四号花，其余沿四人法；与现代日本删一门二至八、禁吃及拔北不可合为一个起源。",
+      "review_category": "explicit-source-comparison"
+    },
+    {
+      "from": "taiwan",
+      "to": "taiwan-softstar-1994",
+      "type": "standardization",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "softstar-taiwan-1994"
+      ],
+      "note": "发行方回溯标注《正宗台湾十六张麻将》原版发行 1994-01-28；Steam 是后来再发行。证明电脑化早于 2001，尚未逐条读取原游戏台数表。",
+      "review_category": "explicit-source-comparison"
+    },
+    {
+      "from": "sichuan",
+      "to": "sichuan-tmt-2016",
+      "type": "standardization",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "tmt-sichuan-2016"
+      ],
+      "note": "腾讯原规程明确以血战为基础，开局定缺、和牌退出、杠补牌取墙首；未列换三张，不自行补入。",
+      "review_category": "explicit-source-comparison"
+    },
+    {
+      "from": "american-code-1924",
+      "to": "american-mixed-1924",
+      "type": "standardization",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "hartman-1924"
+      ],
+      "note": "三模式之一：四组一对不受番数／花色门槛限制，保留十四张死墙；清一色等整手番不奖给未和者。不是所有“中国古典”的统一代称。",
+      "review_category": "explicit-source-comparison"
+    },
+    {
+      "from": "american-code-1924",
+      "to": "american-one-double-1924",
+      "type": "standardization",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "hartman-1924"
+      ],
+      "note": "三模式之一：至少一倍起和，花牌翻倍不能满足门槛；摸尽牌墙，未和家可以计表列整手番。与现代日本一役规则相似处仅供比较。",
+      "review_category": "explicit-source-comparison"
+    },
+    {
+      "from": "american-code-1924",
+      "to": "american-cleared-1924",
+      "type": "standardization",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "hartman-1924"
+      ],
+      "note": "不只是清一色：允许单一数牌门带字、全幺带字及全字；海底、岭上、抢杠、平和、无顺子等按加十分，另两模式相应翻倍。摸尽牌墙。",
+      "review_category": "explicit-source-comparison"
+    },
+    {
+      "from": "american-code-1924",
+      "to": "american-two-player-1924",
+      "type": "standardization",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "hartman-1924"
+      ],
+      "note": "两人每局互换东／西，不因胜负连庄；禁吃，败者付和家全分，庄不双收双付。与 Foster 同年仍算两手分差的二人法有直接文本差别。",
+      "review_category": "explicit-source-comparison"
+    },
+    {
+      "from": "american-code-1924",
+      "to": "american-three-player-1924",
+      "type": "standardization",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "hartman-1924"
+      ],
+      "note": "第 304–305 页只从抽座签拿走西风，轮转时缺席风位改变；入局牌不照 Foster 法删除四北。人数相同不等于同一个三麻版本。",
+      "review_category": "explicit-source-comparison"
+    },
+    {
+      "from": "wright-patterson",
+      "to": "siamese-wp-2022",
+      "type": "constructed",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "siamese-wp-2022"
+      ],
+      "note": "2022 署名规则明确把 Siamese 双手玩法移植到 Wright-Patterson：各管两手、取消 Charleston，已和手参与最终结算。原作者授权改编的关系可核。",
+      "review_category": "explicit-source-comparison"
+    },
+    {
+      "from": "foster-two-player-1924",
+      "to": "american-two-player-1924",
+      "type": "hypothesis",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "hartman-1924"
+      ],
+      "note": "同年二人法的非和家结算不同；这是版本比较，不是已证实修订传承。",
+      "review_category": "structural-comparison"
+    },
+    {
+      "from": "foster-three-player-1924",
+      "to": "american-three-player-1924",
+      "type": "hypothesis",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "hartman-1924"
+      ],
+      "note": "Foster 删除入局北牌；美国法典仅抽座签省西风，不能按人数合并。",
+      "review_category": "structural-comparison"
+    },
+    {
+      "from": "japan-standard-1930",
+      "to": "american-code-1924",
+      "type": "hypothesis",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "hartman-1924"
+      ],
+      "note": "首巡申告与锁手可比较；尚无美国 Delayed Call 向日本立直传播的直接材料。",
+      "review_category": "structural-comparison"
+    },
+    {
+      "from": "ninghai-observed-2017",
+      "to": "ningbo-local",
+      "type": "hypothesis",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "aono-ninghai-2019"
+      ],
+      "note": "同一地级区域存在不同具名规则，不能用当代平台宁波玩法概括宁海观察桌。",
+      "review_category": "structural-comparison"
+    },
+    {
+      "from": "ninghai-observed-2017",
+      "to": "proto-mahjong",
+      "type": "hypothesis",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "aono-ninghai-2019"
+      ],
+      "note": "跨越百年的结构比较；没有连续规则文本支撑直接继承。",
+      "review_category": "structural-comparison"
+    },
+    {
+      "from": "ninghai-observed-2017",
+      "to": "japanese-classical",
+      "type": "hypothesis",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "aono-ninghai-2019"
+      ],
+      "note": "原作者提出源流假说；该轮研究仅确认田野规则，历史传承待证。",
+      "review_category": "structural-comparison"
+    },
+    {
+      "from": "japan-police-1932",
+      "to": "japan-standard-1930",
+      "type": "hypothesis",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "police-manual-1932"
+      ],
+      "note": "版本支付条款比较；出版先后不构成已证实的直接传承。",
+      "review_category": "version-comparison"
+    },
+    {
+      "from": "japan-police-1932",
+      "to": "japanese-classical",
+      "type": "hypothesis",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "police-manual-1932"
+      ],
+      "note": "版本支付条款比较；出版先后不构成已证实的直接传承。",
+      "review_category": "version-comparison"
+    },
+    {
+      "from": "harbin-old-aono-2020",
+      "to": "harbin-new-aono-2020",
+      "type": "descent",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "aono-harbin-2020"
+      ],
+      "note": "作者田野论文明确的老新版条款对照；形成日期与普及年代仅口述，不能当作确定历史年代。",
+      "review_category": "documented-variant-comparison"
+    },
+    {
+      "from": "taiwan-sixteen-1931",
+      "to": "taiwan",
+      "type": "hypothesis",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "xinmin-she-1931"
+      ],
+      "note": "具名见证与今日地区伞称的比较，不据相似性确立传承。",
+      "review_category": "version-comparison"
+    },
+    {
+      "from": "taiwan-sixteen-1931",
+      "to": "fuzhou",
+      "type": "hypothesis",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "xinmin-she-1931"
+      ],
+      "note": "具名见证与今日地区伞称的比较，不据相似性确立传承。",
+      "review_category": "version-comparison"
+    },
+    {
+      "from": "harbin-old-aono-2020",
+      "to": "haerbin",
+      "type": "hypothesis",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "aono-harbin-2020"
+      ],
+      "note": "具名见证与今日地区伞称的比较，不据相似性确立传承。",
+      "review_category": "version-comparison"
+    },
+    {
+      "from": "harbin-new-aono-2020",
+      "to": "haerbin",
+      "type": "hypothesis",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "aono-harbin-2020"
+      ],
+      "note": "具名见证与今日地区伞称的比较，不据相似性确立传承。",
+      "review_category": "version-comparison"
+    },
+    {
+      "from": "sichuan",
+      "to": "sichuan-grand-prix-2016",
+      "type": "standardization",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "aono-sichuan-2017"
+      ],
+      "note": "具名血战赛事的参与观察；非创制年证明。",
+      "review_category": "documented-version"
+    },
+    {
+      "from": "sichuan-grand-prix-2016",
+      "to": "mil-sichuan",
+      "type": "hypothesis",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "aono-sichuan-2017"
+      ],
+      "note": "赛事及同年规则比较；未据赛事名称相近证明文本承继或条款一致。",
+      "review_category": "version-comparison"
+    },
+    {
+      "from": "sichuan-grand-prix-2016",
+      "to": "sichuan-tmt-2016",
+      "type": "hypothesis",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "aono-sichuan-2017"
+      ],
+      "note": "赛事及同年规则比较；未据赛事名称相近证明文本承继或条款一致。",
+      "review_category": "version-comparison"
+    },
+    {
+      "from": "tchou-old-1924",
+      "to": "tchou-new-1924",
+      "type": "descent",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "tchou-1924-transcription"
+      ],
+      "note": "同书明确新旧支付法对照；无确定改制日期及书间传播证据。",
+      "review_category": "documented-rule-comparison"
+    },
+    {
+      "from": "classical",
+      "to": "tchou-old-1924",
+      "type": "hypothesis",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "tchou-1924-transcription"
+      ],
+      "note": "相邻见证的结构比较，未证明文本承继或地方传播。",
+      "review_category": "version-comparison"
+    },
+    {
+      "from": "tchou-new-1924",
+      "to": "babcock-new-method-1923",
+      "type": "hypothesis",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "tchou-1924-transcription"
+      ],
+      "note": "相邻见证的结构比较，未证明文本承继或地方传播。",
+      "review_category": "version-comparison"
+    },
+    {
+      "from": "tchou-new-1924",
+      "to": "special-peng-1924",
+      "type": "hypothesis",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "tchou-1924-transcription"
+      ],
+      "note": "相邻见证的结构比较，未证明文本承继或地方传播。",
+      "review_category": "version-comparison"
+    },
+    {
+      "from": "proto-mahjong",
+      "to": "guanchang-ch31-1904",
+      "type": "hypothesis",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "guanchang-ch31-transcription"
+      ],
+      "note": "相邻见证的结构比较，未证明文本承继或地方传播。",
+      "review_category": "version-comparison"
+    },
+    {
+      "from": "guanchang-ch31-1904",
+      "to": "mauger-1915",
+      "type": "hypothesis",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "guanchang-ch31-transcription"
+      ],
+      "note": "相邻见证的结构比较，未证明文本承继或地方传播。",
+      "review_category": "version-comparison"
+    },
+    {
+      "from": "proto-mahjong",
+      "to": "qingbai-maque-1917",
+      "type": "hypothesis",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "qingbai-1917-scan"
+      ],
+      "note": "牌具与支付条款可比较，未证直接承继；大牌包付不等于一般放铳加付。",
+      "review_category": "version-comparison"
+    },
+    {
+      "from": "qingbai-maque-1917",
+      "to": "special-peng-1924",
+      "type": "hypothesis",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "qingbai-1917-scan"
+      ],
+      "note": "牌具与支付条款可比较，未证直接承继；大牌包付不等于一般放铳加付。",
+      "review_category": "version-comparison"
+    },
+    {
+      "from": "ningbo-bamboo-himly-1901",
+      "to": "proto-mahjong",
+      "type": "hypothesis",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "himly-1889",
+        "himly-1901",
+        "schreiber-1901"
+      ],
+      "note": "不同宁波相关牌具的物质组成可比，但规则、采集时点及具体变更方向未证。",
+      "review_category": "material-comparison"
+    },
+    {
+      "from": "wei-strict-1925",
+      "to": "wei-liberal-1925",
+      "type": "comparison",
+      "status": "attested",
+      "lineage_display": false,
+      "source_ids": [
+        "wei-1925"
+      ],
+      "note": "同书明确的并行解释；没有先后传承方向。",
+      "review_category": "documented-parallel-comparison"
+    },
+    {
+      "from": "qingbai-maque-1917",
+      "to": "wei-liberal-1925",
+      "type": "hypothesis",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "qingbai-1917-scan",
+        "wei-1925"
+      ],
+      "note": "条件性包付可比较，但适用细节与传承关系没有直接证明。",
+      "review_category": "clause-comparison"
+    },
+    {
+      "from": "hochi-heisei-1997",
+      "to": "jml-riichi-current",
+      "type": "descent",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "jml-riichi-adoption-2016"
+      ],
+      "note": "连盟明确以平成版新报知为基础并作修改；不能由当前文本直接定年每条修改。",
+      "review_category": "explicit-named-adaptation"
+    },
+    {
+      "from": "arushiaru-current",
+      "to": "jml-riichi-current",
+      "type": "comparison",
+      "status": "attested",
+      "lineage_display": false,
+      "source_ids": [
+        "jml-riichi-adoption-2016",
+        "jml-arushiaru-current"
+      ],
+      "note": "同一机构并行规则；组织共存不等于前者演变为后者。",
+      "review_category": "organizational-coexistence"
+    },
+    {
+      "from": "hayashi-northern-1924",
+      "to": "japan-standard-1930",
+      "type": "comparison",
+      "status": "attested",
+      "lineage_display": false,
+      "source_ids": [
+        "hayashi-1924",
+        "japan-standard-1930"
+      ],
+      "note": "起手／首巡立直、门前奖励、荒牌及庄闲结算可逐项比较；未取得本书直接成为1930标准底本的证据。",
+      "review_category": "primary-cross-text-comparison"
+    },
+    {
+      "from": "hissho-four-player-1924",
+      "to": "hissho-flowers-1924",
+      "type": "constructed",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "hissho-1924"
+      ],
+      "note": "同书明列的可选改法；箭头表示文本结构，不表示发明先后。",
+      "review_category": "primary-explicit-variant"
+    },
+    {
+      "from": "hissho-four-player-1924",
+      "to": "hissho-five-player-1924",
+      "type": "constructed",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "hissho-1924"
+      ],
+      "note": "同书明列的可选改法；箭头表示文本结构，不表示发明先后。",
+      "review_category": "primary-explicit-variant"
+    },
+    {
+      "from": "hayashi-northern-1924",
+      "to": "hissho-four-player-1924",
+      "type": "comparison",
+      "status": "attested",
+      "lineage_display": false,
+      "source_ids": [
+        "hayashi-1924",
+        "hissho-1924"
+      ],
+      "note": "同年原书的场风、自摸平和、荒牌移庄及听牌奖励可比较，未证直接改编。",
+      "review_category": "primary-cross-text-comparison"
+    },
+    {
+      "from": "nmjl",
+      "to": "maajh-1939",
+      "type": "standardization",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "cecil-maajh-1939"
+      ],
+      "note": "联盟主席署名规则书，1939修订本；机构归属已证，不将全书条款倒填1937。",
+      "review_category": "named-version"
+    },
+    {
+      "from": "nmjl",
+      "to": "nmjl-card-1941",
+      "type": "standardization",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "nmjl-card-1941"
+      ],
+      "note": "NMJL自署年度规则卡；年度标签与版权年分开。",
+      "review_category": "named-version"
+    },
+    {
+      "from": "maajh-1939",
+      "to": "nmjl-card-1941",
+      "type": "comparison",
+      "status": "attested",
+      "lineage_display": false,
+      "source_ids": [
+        "cecil-maajh-1939",
+        "nmjl-card-1941"
+      ],
+      "note": "同一联盟相关文本的礼貌换牌条款相反；不声称相邻版本或准确改规日。",
+      "review_category": "primary-cross-version-comparison"
+    },
+    {
+      "from": "haishang-ch26-1894",
+      "to": "guanchang-ch31-1904",
+      "type": "comparison",
+      "status": "attested",
+      "lineage_display": false,
+      "source_ids": [
+        "haishang-1894-ch26",
+        "guanchang-ch31-transcription"
+      ],
+      "note": "两小说均有翻倍算和及非放铳者支付的文本见证；后者初印待校，不据相似画传播线。",
+      "review_category": "mechanism-comparison"
+    },
+    {
+      "from": "mcr-1998",
+      "to": "mcr-wmo-2006",
+      "type": "adaptation",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "mcr-wmo-2006"
+      ],
+      "note": "2006原书64页明确所据1998规则，同时列其他资料；不是仅凭结构相似。",
+      "review_category": "explicit-named-adaptation"
+    },
+    {
+      "from": "mcr-wmo-2006",
+      "to": "ema-mcr-2010",
+      "type": "adaptation",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "ema-mers-2010"
+      ],
+      "note": "MERS v1.1首段明确以2006 Green Book为底本。",
+      "review_category": "explicit-named-adaptation"
+    },
+    {
+      "from": "guobiao",
+      "to": "mil-duplicate-mcr-current",
+      "type": "adaptation",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "mil-duplicate-current"
+      ],
+      "note": "官方以MCR为底层；具体年份版未说明，故连到伞称，不强连2006版。",
+      "review_category": "explicit-named-adaptation"
+    },
+    {
+      "from": "mcr-1998",
+      "to": "mil-mcr-supplement-2025",
+      "type": "adaptation",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "mil-mcr-supplement-2025"
+      ],
+      "note": "本细则前言及附件1明确以1998规则为依据，不默认经2006／2010单线传下。",
+      "review_category": "explicit-named-adaptation"
+    },
+    {
+      "from": "mil-sbr-2025",
+      "to": "mil-sbr-2v2-2025",
+      "type": "adaptation",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "mil-sbr-2025-primary"
+      ],
+      "note": "38页明说以2025 SBR主本为基础；冲突以附录为准。",
+      "review_category": "explicit-named-adaptation"
+    },
+    {
+      "from": "mil-sbr-2v2-2025",
+      "to": "mil-sbr-2v2-duplicate-2025",
+      "type": "adaptation",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "mil-sbr-2025-primary"
+      ],
+      "note": "同一双打附录39–41页另定义复式，并反复限定牌墙和待机条款只用于复式。",
+      "review_category": "explicit-named-adaptation"
+    },
+    {
+      "from": "ema-mcr-2010",
+      "to": "mil-mcr-supplement-2025",
+      "type": "comparison",
+      "status": "inferred",
+      "lineage_display": false,
+      "source_ids": [
+        "ema-mers-2010",
+        "mil-mcr-supplement-2025"
+      ],
+      "note": "两份赛事文本的罚分和停和限制可比较；没有证明MIL直接采用MERS。",
+      "review_category": "mechanism-comparison-only"
+    },
+    {
+      "from": "macau-traditional-1988",
+      "to": "macau-traditional-1989",
+      "type": "adaptation",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "macau-1989"
+      ],
+      "note": "正式本明示替代临时本；已核核心条款相续，不把法律形式改变称为新玩法。",
+      "review_category": "explicit-legal-version-replacement"
+    },
+    {
+      "from": "macau-traditional-1989",
+      "to": "macau-traditional-1991",
+      "type": "adaptation",
+      "status": "attested",
+      "lineage_display": true,
+      "source_ids": [
+        "macau-1991"
+      ],
+      "note": "明示整体修订旧令；此边只指传统部分的文本后继，简易民间起源未证。",
+      "review_category": "explicit-legal-version-replacement"
     }
   ],
   "legends_not_edges": [
@@ -1120,7 +2481,7 @@
     {
       "id": "jinchi",
       "label": "禁吃",
-      "desc": "不能吃别家打出的牌凑顺子，只能靠自己摸牌、碰、杠，川渝湘、常德一带的常见规矩。"
+      "desc": "禁止取其他玩家的弃牌组成普通顺子副露；是否允许借同样的弃牌完成和牌须另看条文。"
     },
     {
       "id": "dingque",
@@ -1130,42 +2491,42 @@
     {
       "id": "huansanzhang",
       "label": "换三张",
-      "desc": "开局三家先各挑三张同一门的牌互相交换，再决定缺哪门或直接开打，不少川麻桌上把它当开局选项。"
+      "desc": "参与玩家开局选出三张牌按约定方向交换；是否要求同门、随后是否定缺，依具体版本。"
     },
     {
       "id": "lizhi",
       "label": "立直",
-      "desc": "摸到听牌时扣 1000 点分报牌，之后打出的牌不能再换，是日本麻将（天凤、雀魂等平台）的核心规矩之一。"
+      "desc": "听牌时按规则申告并约束后续换牌。1930 标准为首巡限定；现代立直的千点供托及途中申告不能倒填所有历史版本。"
     },
     {
       "id": "taishu",
       "label": "台数",
-      "desc": "台湾麻将按番种、门风、连庄等叠算「台」，台数越高赢得越多；2001 年明星三缺一把这套口传台数写成了电脑规则。"
+      "desc": "以“台”为单位累计符合条件的计分项目，项目及支付依版本。1994 大宇软件已经提供台湾十六张的电脑游戏见证。"
     },
     {
       "id": "laizi",
       "label": "癞子",
-      "desc": "可以当任意牌用的万能牌。常德麻将用红中当癞子，因此也被叫做「红中麻将」。"
+      "desc": "按该版允许范围替代牌张的牌，可能固定指定或翻牌决定；吃碰、和法及计分限制并不统一。"
     },
     {
       "id": "baoting",
       "label": "报听",
-      "desc": "手牌听牌（差一张就能和）时要主动喊出来，别家打出这张就必须让和，常见于常德、武汉一带的癞子麻将。"
+      "desc": "公开申告已听牌；是否必报、怎样锁手、能否杠及过和限制，须看该版条文。报听一词本身不意味着逢牌必须和。"
     },
     {
       "id": "huapai",
       "label": "花牌／算花",
-      "desc": "额外的春夏秋冬、梅兰竹菊等花牌，摸到直接补牌加分。苏州、南京一带的算花麻将靠花牌数量定输赢大小。"
+      "desc": "独立花牌通常另行补牌或计分；算花规则也可能把部分字牌等算作硬花，不能只按春夏秋冬等实体花牌张数理解。"
     },
     {
       "id": "lisi",
       "label": "立四",
-      "desc": "太原一带的都市玩法：指定的四张牌摸到要立起来展示，算加分项目。"
+      "desc": "太原地方玩法名称，涉及起手四张牌与报听操作；具体摆放和打出条件须核具名规则，不概括为四张奖励牌。"
     },
     {
       "id": "258jiang",
       "label": "258 将",
-      "desc": "将牌（对子）限定用 2、5、8 点数才算番，是长沙、湖南一带麻将常见的算番方式。"
+      "desc": "在指定和牌条件下，要求将牌为二、五、八的对子；不等于只要 258 对子就自动加番，例外依版本。"
     }
   ],
   "classification_axes": [
@@ -1173,7 +2534,7 @@
       "id": "zhangfa",
       "label": "章法",
       "source": "关兆豪《中庸麻雀史观》",
-      "note": "按计分法分史：古典副+番 → 清章废副计番 → 新章滥番 → 立直／台数／中庸加法。这是谱系可用的主轴之一。"
+      "note": "计分史的一种解释框架；出铳责任、废副、未和者结算须分别用原典定年，不把章法排列直接当传播树。"
     },
     {
       "id": "function",
@@ -1215,7 +2576,14 @@
       "id": "lineage",
       "label": "谱系",
       "source": "本年表",
-      "note": "继承、扩散、标准化、自制。年表按桌上出现排，成文只作推测依据。"
+      "note": "年表采用可核验见证／版本日期，传承与结构相似分开；未找到原典的不补写出现年。"
     }
-  ]
+  ],
+  "chronology_basis": "documented-witness-and-version; never assumed invention dates",
+  "unsubstantiated_nodes": [
+    "zhebei-zbgyu",
+    "sunan-huama-pre80",
+    "shanghai-qiaoma-pre80"
+  ],
+  "research_archive": "ningbo-downstream"
 }

@@ -14,9 +14,9 @@ public static class TableFrameStyles
         Deep,
         "Edge_Relief_02_WhiteOakSilver",
         "Edge_Relief_03_CherryGunmetal",
+        "Edge_Relief_06_IvoryEnamelWalnut",
         "Edge_Relief_04_EbonyTitanium",
         "Edge_Relief_05_JadeAnodized",
-        "Edge_Relief_06_IvoryEnamelWalnut",
         "Edge_Focus_01_Sakura",
         "Edge_Focus_02_PeacockTeal",
         "Edge_Focus_03_Cobalt",
@@ -34,8 +34,11 @@ public static class TableFrameStyles
 
     public static bool IsSolid(string name) => name != null && SolidColors.ContainsKey(name);
 
-    // Original clean-atlas colors, now stored as parameters rather than ten 2K textures.
+    // Clean-atlas base colors. Wood-grain styles intentionally remain image based.
     private static readonly Dictionary<string, Color32> SolidColors = new Dictionary<string, Color32>(StringComparer.Ordinal) {
+        {"Edge_bule",new Color32(59,75,97,255)},
+        {"Edge_Relief_04_EbonyTitanium",new Color32(73,77,82,255)},
+        {"Edge_Relief_05_JadeAnodized",new Color32(61,79,82,255)},
         {"Edge_Focus_01_Sakura",new Color32(19,40,64,255)},
         {"Edge_Focus_02_PeacockTeal",new Color32(23,61,66,255)},
         {"Edge_Focus_03_Cobalt",new Color32(25,45,78,255)},

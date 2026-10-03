@@ -13,18 +13,17 @@
   - 七对向听严格更优时不鸣；不求人门前不死守
 
 假想番通过 injectable scorer 调用本项目 GB_hepai_check。
-仅面向 guobiao/standard；变种规则暂未支持。
+面向 guobiao/standard 和 guobiao/blood_battle，共用国标计番与起和番判定。
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Callable, Dict, Hashable, List, Optional, Sequence, Set, Tuple
+from dataclasses import dataclass, replace
+from typing import Callable, Dict, Hashable, List, Optional, Sequence, Tuple
 
 from .guobiao_shanten import (
     ALL_TILE_IDS,
     Counts,
     add_tile,
-    copy_counts,
     counts_from_tiles,
     effective_tiles,
     guobiao_shanten,
@@ -93,6 +92,14 @@ class ClaimPlan:
     max_wait_fan: int
     fan_direction: bool = False
     claimed_tile: int = 0
+
+
+@dataclass
+class _DiscardPlan:
+    tile: int
+    remaining: Counts
+    score: DiscardScore
+    legal_ukeire: Optional[float] = None
 
 
 def _meld_count(combs: Sequence[str]) -> int:
@@ -383,7 +390,6 @@ def score_discard(ctx: HeuristicContext, discard_tile: int) -> DiscardScore:
     n_melds = _meld_count(ctx.combination_tiles)
     remaining = remove_tile(hand_counts, discard_tile)
     shanten = guobiao_shanten(remaining, n_melds)
-    eff = effective_tiles(remaining, n_melds)
     if shanten == 0:
         waits = analyze_live_waits(ctx, remaining, list(ctx.combination_tiles), n_melds)
         return DiscardScore(
@@ -398,7 +404,7 @@ def score_discard(ctx: HeuristicContext, discard_tile: int) -> DiscardScore:
     return DiscardScore(
         shanten=shanten,
         max_wait_fan=0,
-        ukeire=float(live_copies(eff, remaining, ctx.visible)),
+        ukeire=float(live_copies(effective_tiles(remaining, n_melds), remaining, ctx.visible)),
         ron_ukeire=0.0,
         shed_priority=shed_priority(discard_tile, hand_counts),
     )
@@ -445,6 +451,9 @@ def qualifying_tenpai_ukeire_one_draw(
     shanten_memo: Optional[Dict[Hashable, int]] = None,
 ) -> float:
     structural = guobiao_shanten(remaining, n_melds)
+    # 摸一张再切一张最多前进一向听；二向听及以上不可能一步进听。
+    if structural > 1:
+        return 0.0
     draw_types = effective_tiles(remaining, n_melds) if structural == 1 else list(ALL_TILE_IDS)
     ukeire = 0.0
     for draw in draw_types:
@@ -684,8 +693,26 @@ def evaluate_claim(
     remaining = counts_from_tiles(after_hand)
     claimed = normalize_tile(claimed)
 
+    value_honour_pon = (
+        action == "peng"
+        and hand.count(claimed) == 2
+        and shanten_before > 0
+        and is_value_honour(claimed, ctx.round_wind, ctx.seat_wind)
+    )
+    was_closed = not any(
+        c and c[0] in ("s", "S", "k", "K", "g") for c in ctx.combination_tiles
+    )
+    # 普通鸣牌必须前进；门清一向听允许靠合法进张改善而持平。
+    # 二向听及以上的一摸合法进张恒为零，不需要为持平候选精算。
+    max_shanten = shanten_before if (
+        action == "gang" or value_honour_pon or (was_closed and shanten_before == 1)
+    ) else shanten_before - 1
+    after_u = None
+
     if action == "gang":
         shanten_after = guobiao_shanten(remaining, n_after)
+        if shanten_after > max_shanten:
+            return None
         ukeire = float(live_copies(effective_tiles(remaining, n_after), remaining, ctx.visible))
         max_fan = 0
         if shanten_after == 0:
@@ -694,87 +721,33 @@ def evaluate_claim(
             ukeire = waits["qualifying_ukeire"]
         best_remaining = remaining
     else:
-        # 鸣后必切：用完整 analyze_live_waits 字段走 is_better_discard
-        #（含 ron_ukeire / L-D 仅自摸种 / L-H 可荣种），与主切牌路径一致。
-        near_exhaust = ctx.wall_left < NEAR_EXHAUST_WALL
-        shanten_after = 99
-        ukeire = -1.0
-        max_fan = -1
-        best_ron_ukeire = -1.0
-        best_tsumo_only = 0
-        best_ron_kinds = 0
-        best_remaining = remaining
-        for tid in list(remaining.keys()):
-            if remaining.get(tid, 0) <= 0:
-                continue
-            after_disc = remove_tile(remaining, tid)
-            s = guobiao_shanten(after_disc, n_after)
-            if s > shanten_after:
-                continue
-            u = float(live_copies(effective_tiles(after_disc, n_after), after_disc, ctx.visible))
-            fan = 0
-            ron_u = 0.0
-            tsumo_only = 0
-            ron_kinds = 0
-            if s == 0:
-                waits = analyze_live_waits(ctx, after_disc, combos_after, n_after)
-                fan = int(waits["max_fan"])
-                u = waits["qualifying_ukeire"]
-                ron_u = waits["ron_ukeire"]
-                tsumo_only = int(waits["tsumo_only_kinds"])
-                ron_kinds = int(waits["ron_wait_kinds"])
-            cand = DiscardScore(
-                shanten=s,
-                max_wait_fan=fan,
-                ukeire=u,
-                ron_ukeire=ron_u,
-                tsumo_only_kinds=tsumo_only,
-                ron_wait_kinds=ron_kinds,
-            )
-            best = DiscardScore(
-                shanten=shanten_after if shanten_after < 99 else 8,
-                max_wait_fan=max(0, max_fan),
-                ukeire=max(0.0, ukeire),
-                ron_ukeire=max(0.0, best_ron_ukeire),
-                tsumo_only_kinds=best_tsumo_only,
-                ron_wait_kinds=best_ron_kinds,
-            )
-            if shanten_after >= 99 or is_better_discard(cand, best, near_exhaust):
-                shanten_after = s
-                ukeire = u
-                max_fan = fan
-                best_ron_ukeire = ron_u
-                best_tsumo_only = tsumo_only
-                best_ron_kinds = ron_kinds
-                best_remaining = after_disc
+        # 直接复用真实出牌决策，包括合法听前瞻、死形逃逸和舍牌优先级。
+        # 自己的暗牌转入副露、他家弃牌转入副露，都不改变已见牌总数。
+        post_claim_ctx = replace(
+            ctx, hand=after_hand, combination_tiles=combos_after,
+        )
+        plan = _choose_discard_plan(post_claim_ctx, max_shanten=max_shanten)
+        if plan is None:
+            return None
+        discard = plan.tile
 
-    # 吃了吐拦截：chi 吃进 X 后手牌仍剩一张 X（原暗顺/对子的剩余），且向听
-    # 持平 —— 等价于把手牌原有完整暗顺（如 234）换成明副露（234），结构不变、
-    # 门清丢失，纯亏（不求人/门前清没了，八番更难凑）。此时真实弃牌几乎必然
-    # 打出 X（端张 shed_priority 高），观感「刚吃又打」。
-    # 孤张变面子（向听前进，如 234+4 吃 4 用 23）不受影响。
-    if (
-        action in ("chi_left", "chi_mid", "chi_right")
-        and remaining.get(claimed, 0) > 0
-        and shanten_after == shanten_before
-    ):
-        return None
+        # 吃碰后立即打出同牌，只是把已有暗面子换成明面子。
+        # 根据真实弃牌判断，不误伤保留该牌或有收益的换顺。
+        if discard == claimed:
+            return None
 
-    value_honour_pon = (
-        action == "peng"
-        and shanten_before > 0
-        and is_value_honour(claimed, ctx.round_wind, ctx.seat_wind)
-    )
+        shanten_after = plan.score.shanten
+        ukeire = plan.score.ukeire
+        max_fan = plan.score.max_wait_fan
+        best_remaining = plan.remaining
+        after_u = plan.legal_ukeire
+
     advances = (
         shanten_after <= shanten_before
         if (action == "gang" or value_honour_pon)
         else shanten_after < shanten_before
     )
 
-    # 仅明顺/明刻/明杠算已副露；暗杠 G 仍门清（对齐 OMC open meld 判定）
-    was_closed = not any(
-        c and c[0] in ("s", "S", "k", "K", "g") for c in ctx.combination_tiles
-    )
     if (
         not advances
         and was_closed
@@ -785,9 +758,10 @@ def evaluate_claim(
         before_u = qualifying_tenpai_ukeire_one_draw(
             ctx, counts_from_tiles(hand), list(ctx.combination_tiles), n_melds
         )
-        after_u = qualifying_tenpai_ukeire_one_draw(
-            ctx, best_remaining, combos_after, n_after
-        )
+        if after_u is None:
+            after_u = qualifying_tenpai_ukeire_one_draw(
+                ctx, best_remaining, combos_after, n_after
+            )
         if after_u > before_u:
             advances = True
             ukeire = after_u
@@ -799,9 +773,10 @@ def evaluate_claim(
         before_u = qualifying_tenpai_ukeire_one_draw(
             ctx, counts_from_tiles(hand), list(ctx.combination_tiles), n_melds
         )
-        after_u = qualifying_tenpai_ukeire_one_draw(
-            ctx, best_remaining, combos_after, n_after
-        )
+        if after_u is None:
+            after_u = qualifying_tenpai_ukeire_one_draw(
+                ctx, best_remaining, combos_after, n_after
+            )
         if after_u <= before_u:
             return None
         ukeire = after_u
@@ -810,9 +785,10 @@ def evaluate_claim(
     # 弃牌侧已有死形→二向听逃逸；鸣牌若仍跳进死形，会提前锁薄听/耗壁。
     # （OMC 弃牌死形逃逸同源；鸣牌侧补同构闸，避免「向听好看、合法进张为零」。）
     if shanten_after == 1:
-        after_u = qualifying_tenpai_ukeire_one_draw(
-            ctx, best_remaining, combos_after, n_after
-        )
+        if after_u is None:
+            after_u = qualifying_tenpai_ukeire_one_draw(
+                ctx, best_remaining, combos_after, n_after
+            )
         if after_u <= 0:
             return None
         ukeire = after_u
@@ -846,6 +822,14 @@ def is_better_claim(a: ClaimPlan, b: ClaimPlan) -> bool:
 
 def choose_best_discard(ctx: HeuristicContext) -> Optional[int]:
     """返回最优切牌 tile_id；手牌空则 None。"""
+    plan = _choose_discard_plan(ctx)
+    return plan.tile if plan is not None else None
+
+
+def _choose_discard_plan(
+    ctx: HeuristicContext, *, max_shanten: Optional[int] = None,
+) -> Optional[_DiscardPlan]:
+    """返回弃牌及已有评估；鸣牌可给出可接受向听上限以跳过无用精算。"""
     hand = [normalize_tile(t) for t in ctx.hand if normalize_tile(t) <= 47 and normalize_tile(t) // 10 != 5]
     if not hand:
         return None
@@ -854,20 +838,28 @@ def choose_best_discard(ctx: HeuristicContext) -> Optional[int]:
         ctx.fan_memo = {}
     near_exhaust = ctx.wall_left < NEAR_EXHAUST_WALL
     candidates: List[Tuple[int, Counts, DiscardScore]] = []
-    seen: Set[int] = set()
     hand_counts = counts_from_tiles(hand)
-    for tid in hand:
-        if tid in seen:
-            continue
-        seen.add(tid)
-        score = score_discard(ctx, tid)
-        candidates.append((tid, remove_tile(hand_counts, tid), score))
+    n_melds = _meld_count(ctx.combination_tiles)
+    structures: List[Tuple[int, Counts, int]] = []
+    for tid in hand_counts:
+        remaining = remove_tile(hand_counts, tid)
+        structures.append((tid, remaining, guobiao_shanten(remaining, n_melds)))
+    min_shanten = min(s for _, _, s in structures)
+    if max_shanten is not None and min_shanten > max_shanten:
+        return None
+    # 不足番的结构听按一向听比较，因此0/1都要精算；更远候选必然落选。
+    # 二向听仅在死形重塑真正需要时再计算进张和舍牌评分。
+    competitive_shanten = max(1, min_shanten)
+    for tid, remaining, s in structures:
+        if s <= competitive_shanten:
+            candidates.append((tid, remaining, score_discard(ctx, tid)))
 
     best = candidates[0]
     for cand in candidates[1:]:
         if is_better_discard(cand[2], best[2], near_exhaust):
             best = cand
 
+    best_legal = None
     if winning_shanten(best[2]) == 1:
         one_step = [c for c in candidates if winning_shanten(c[2]) == 1]
         best_legal = -1.0
@@ -891,12 +883,16 @@ def choose_best_discard(ctx: HeuristicContext) -> Optional[int]:
                 best_legal = legal
 
         if best_legal <= 0:
+            # 死形只会留在一向听或退回二向听；两者均不可接受则不必重塑。
+            if max_shanten is not None and max_shanten < 2:
+                return None
             best_reshape = None
             best_progress = -1.0
             shanten_memo2: Dict[Hashable, int] = {}
-            for cand in candidates:
-                if winning_shanten(cand[2]) != 2:
+            for tid, remaining, s in structures:
+                if s != 2:
                     continue
+                cand = (tid, remaining, score_discard(ctx, tid))
                 progress = thick_one_shanten_ukeire_after_one_draw(
                     cand[1], n_melds, ctx.visible, shanten_memo=shanten_memo2
                 )
@@ -910,7 +906,11 @@ def choose_best_discard(ctx: HeuristicContext) -> Optional[int]:
             if best_reshape is not None:
                 best = best_reshape
 
-    return best[0]
+    if max_shanten is not None and best[2].shanten > max_shanten:
+        return None
+    return _DiscardPlan(
+        *best, legal_ukeire=best_legal if winning_shanten(best[2]) == 1 else None,
+    )
 
 
 def should_open_qidui_protect(hand: Sequence[int], n_melds: int) -> bool:
@@ -928,6 +928,9 @@ def choose_claim(
     cut_tile: int,
 ) -> str:
     """从鸣牌候选中选最优；默认 pass。"""
+    claim_actions = [a for a in action_list if a in ("peng", "gang", "chi_left", "chi_mid", "chi_right")]
+    if not claim_actions:
+        return "pass"
     if should_open_qidui_protect(ctx.hand, _meld_count(ctx.combination_tiles)):
         return "pass"
 
@@ -936,9 +939,7 @@ def choose_claim(
     shanten_before = guobiao_shanten(hand_counts, n_melds)
 
     best: Optional[ClaimPlan] = None
-    for action in action_list:
-        if action not in ("peng", "gang", "chi_left", "chi_mid", "chi_right"):
-            continue
+    for action in claim_actions:
         plan = evaluate_claim(ctx, action, cut_tile, shanten_before)
         if plan is None:
             continue
@@ -987,6 +988,25 @@ def choose_closed_kan(
     if not hand:
         return None
 
+    hand_counts = counts_from_tiles(hand)
+    n_melds = _meld_count(ctx.combination_tiles)
+    combos = list(ctx.combination_tiles)
+    closed_kans = [tid for tid, cnt in hand_counts.items() if allow_angang and cnt >= 4]
+    added_kans = []
+    if allow_jiagang:
+        for c in combos:
+            if not c or c[0] != "k":
+                continue
+            try:
+                tile = normalize_tile(int(c[1:]))
+            except ValueError:
+                continue
+            if hand_counts.get(tile, 0) > 0:
+                added_kans.append((c, tile))
+    # 先确认手里真有可杠的牌，再花成本计算最优弃牌与听口基线。
+    if not closed_kans and not added_kans:
+        return None
+
     best_disc = baseline_discard if baseline_discard is not None else choose_best_discard(ctx)
     if best_disc is None:
         return None
@@ -995,14 +1015,8 @@ def choose_closed_kan(
     baseline_ukeire = base_score.ukeire if baseline_winning == 0 else -1.0
     baseline_raw = base_score.shanten
 
-    hand_counts = counts_from_tiles(hand)
-    n_melds = _meld_count(ctx.combination_tiles)
-    combos = list(ctx.combination_tiles)
-
     if allow_angang:
-        for tid, cnt in list(hand_counts.items()):
-            if cnt < 4:
-                continue
+        for tid in closed_kans:
             after = dict(hand_counts)
             del after[tid]
             combos_after = combos + [f"G{tid}"]
@@ -1019,15 +1033,7 @@ def choose_closed_kan(
             return ("angang", tid)
 
     if allow_jiagang:
-        for c in combos:
-            if not c or c[0] != "k":
-                continue
-            try:
-                ktile = normalize_tile(int(c[1:]))
-            except ValueError:
-                continue
-            if hand_counts.get(ktile, 0) <= 0:
-                continue
+        for c, ktile in added_kans:
             after = remove_tile(hand_counts, ktile)
             combos_after = [f"g{ktile}" if x == c else x for x in combos]
             after_winning, after_ukeire = _winning_after_counts(
@@ -1070,6 +1076,12 @@ def count_visible_from_game(game_state, player_index: int) -> Counts:
                 visible[base] = visible.get(base, 0) + 4
             elif sign == "q":
                 visible[base] = visible.get(base, 0) + 2
+    if getattr(game_state, "sub_rule", None) == "guobiao/blood_battle":
+        # 荣和/抢杠后实体牌已离开牌河/副露；一炮多响也只记录一张。
+        # 只使用公开记录，不读取退场者的暗手或自摸和牌张。
+        for tile in getattr(game_state, "blood_public_win_tiles", []):
+            tid = normalize_tile(tile)
+            visible[tid] = visible.get(tid, 0) + 1
     me = game_state.player_list[player_index]
     for t in getattr(me, "hand_tiles", []):
         tid = normalize_tile(t)

@@ -43,6 +43,7 @@ class SpectatorManager:
                 "username": player.username,
                 "title_used": player.title_used,
                 "profile_used": player.profile_used,
+                "avatar_frame_used": getattr(player, "avatar_frame_used", 0),
                 "character_used": player.character_used,
                 "voice_used": player.voice_used,
             }
@@ -57,9 +58,11 @@ class SpectatorManager:
         gs = self.gamestate
         round_idx = gs.round_index
         self.current_round_index = round_idx
+        header = build_round_header_data(gs)
+        header_filter = getattr(gs, "spectator_round_header", None)
         self.round_headers[round_idx] = {
             "timestamp": time.time(),
-            "data": build_round_header_data(gs),
+            "data": header_filter(header) if callable(header_filter) else header,
         }
         self.round_ticks[round_idx] = []
 
@@ -74,10 +77,6 @@ class SpectatorManager:
             "timestamp": time.time(),
             "tick": tick,
         })
-
-    def record_do_action_ticks(self, action_list, action_player, **kwargs):
-        """已废弃：行动 tick 改由 player_action_record_* → append_action_tick 统一写入。"""
-        return
 
     def record_ask_hand(self, player_index: int, action_list: list):
         if not self.enabled:
@@ -280,7 +279,8 @@ class SpectatorManager:
             for entry in self.round_ticks.get(ri, []):
                 round_data["action_ticks"].append(entry["tick"])
             record["game_round"][f"round_index_{ri}"] = round_data
-        return record
+        complete = getattr(self.gamestate, "complete_spectator_record", None)
+        return complete(record) if callable(complete) else record
 
     def _get_new_updates(self, user_id: int, target_time: float) -> Optional[list]:
         progress = self.spectator_progress.get(user_id)

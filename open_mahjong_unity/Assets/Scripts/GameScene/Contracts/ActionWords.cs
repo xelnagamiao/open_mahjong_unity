@@ -29,8 +29,12 @@ public enum ActionWordKind {
 public readonly struct ActionCandidate {
     public readonly string ActionType;
     public readonly int[] TileIds;
+    public readonly int TargetTile;
+    public readonly string Caption;
 
-    public ActionCandidate(string actionType, int[] tileIds) {
+    public ActionCandidate(string actionType, int[] tileIds, int targetTile = 0, string caption = null) {
+        TargetTile = targetTile;
+        Caption = caption;
         ActionType = actionType;
         TileIds = tileIds ?? Array.Empty<int>();
     }

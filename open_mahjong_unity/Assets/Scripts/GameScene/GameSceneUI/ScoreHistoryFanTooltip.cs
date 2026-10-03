@@ -4,7 +4,7 @@ using TMPro;
 using UnityEngine.UI;
 
 /// <summary>
-/// 计分板主番悬停浮层：固定位置显示/隐藏，手牌布局与 EndResultPanel 一致（50% 尺寸）。
+/// 计分板主番悬停浮层：场景中编辑固定布局，牌张与和牌面板一致，全部竖直并排并适配宽度。
 /// </summary>
 public class ScoreHistoryFanTooltip : MonoBehaviour {
     public static ScoreHistoryFanTooltip Instance { get; private set; }
@@ -21,6 +21,10 @@ public class ScoreHistoryFanTooltip : MonoBehaviour {
     private readonly List<GameObject> _spawnedObjects = new List<GameObject>();
     private Vector2 _cardBaseSize = Vector2.zero;
     private Vector2 _splitBaseSize = Vector2.zero;
+    private ScoreHistoryMainFanCell _hoveredCell;
+    private ScoreHistoryMainFanCell _pinnedCell;
+
+    public bool IsPinned => _pinnedCell != null;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -93,7 +97,13 @@ public class ScoreHistoryFanTooltip : MonoBehaviour {
         panelRect.anchorMax = new Vector2(0.5f, 0.5f);
         panelRect.pivot = new Vector2(0f, 1f);
         panelRect.sizeDelta = new Vector2(520f, 220f);
-        panel.GetComponent<UnityEngine.UI.Image>().color = new Color(0f, 0f, 0f, 0.85f);
+        var background = panel.GetComponent<UnityEngine.UI.Image>();
+        background.color = new Color32(34, 43, 59, 255);
+        background.raycastTarget = false;
+        var border = panel.AddComponent<UnityEngine.UI.Outline>();
+        border.effectColor = new Color32(95, 112, 135, 220);
+        border.effectDistance = new Vector2(1f, -1f);
+        border.useGraphicAlpha = false;
 
         var tilesRootGo = new GameObject("TilesRoot", typeof(RectTransform), typeof(HorizontalLayoutGroup));
         tilesRootGo.transform.SetParent(panel.transform, false);
@@ -161,6 +171,8 @@ public class ScoreHistoryFanTooltip : MonoBehaviour {
             scoreSummaryText.text = ScoreHistorySettlementHelper.BuildScoreSummaryText(subRule, snapshot);
         }
 
+        FitTextContent();
+
         gameObject.SetActive(true);
         if (canvasGroup != null) {
             canvasGroup.alpha = 1f;
@@ -169,7 +181,64 @@ public class ScoreHistoryFanTooltip : MonoBehaviour {
         }
     }
 
+    public void PreviewCell(ScoreHistoryMainFanCell cell, RoundSettlementSnapshot snapshot, string subRule) {
+        if (_pinnedCell != null) return;
+        ClearCellSelection();
+        _hoveredCell = cell;
+        cell.SetHighlighted(true);
+        Show(snapshot, subRule);
+    }
+
+    public void LeaveCell(ScoreHistoryMainFanCell cell) {
+        if (_pinnedCell == null && _hoveredCell == cell) Hide();
+    }
+
+    public void TogglePinnedCell(ScoreHistoryMainFanCell cell, RoundSettlementSnapshot snapshot, string subRule) {
+        if (_pinnedCell == cell) {
+            Hide();
+            return;
+        }
+        ClearCellSelection();
+        _pinnedCell = cell;
+        cell.SetHighlighted(true);
+        Show(snapshot, subRule);
+    }
+
+    public void ReleaseCell(ScoreHistoryMainFanCell cell) {
+        if (_pinnedCell == cell || _hoveredCell == cell) Hide();
+    }
+
+    private void ClearCellSelection() {
+        if (_hoveredCell != null) _hoveredCell.SetHighlighted(false);
+        if (_pinnedCell != null) _pinnedCell.SetHighlighted(false);
+        _hoveredCell = null;
+        _pinnedCell = null;
+    }
+
+    private void OnDisable() => ClearCellSelection();
+
+    /// <summary>根据番种行数收紧面板高度，沿用场景中设置的文本间距和底部留白。</summary>
+    private void FitTextContent() {
+        if (panelRect == null || allFansText == null || scoreSummaryText == null) return;
+        RectTransform fansRect = allFansText.rectTransform;
+        RectTransform summaryRect = scoreSummaryText.rectTransform;
+        float textGap = Mathf.Max(0f, fansRect.anchoredPosition.y - fansRect.rect.height - summaryRect.anchoredPosition.y);
+        float bottomPadding = Mathf.Max(0f, panelRect.rect.height + summaryRect.anchoredPosition.y - summaryRect.rect.height);
+        float fansHeight = Mathf.Ceil(Mathf.Max(allFansText.fontSize,
+            allFansText.GetPreferredValues(allFansText.text, Mathf.Max(1f, fansRect.rect.width), Mathf.Infinity).y));
+        float summaryHeight = Mathf.Ceil(Mathf.Max(scoreSummaryText.fontSize,
+            scoreSummaryText.GetPreferredValues(scoreSummaryText.text, Mathf.Max(1f, summaryRect.rect.width), Mathf.Infinity).y));
+
+        fansRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, fansHeight);
+        summaryRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, summaryHeight);
+        summaryRect.anchoredPosition = new Vector2(summaryRect.anchoredPosition.x,
+            fansRect.anchoredPosition.y - fansHeight - textGap);
+        panelRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,
+            -summaryRect.anchoredPosition.y + summaryHeight + bottomPadding);
+    }
+
     public void Hide() {
+        ClearCellSelection();
         HideImmediate();
     }
 
@@ -182,19 +251,10 @@ public class ScoreHistoryFanTooltip : MonoBehaviour {
 
     private void EnsureTilesLayout() {
         if (tilesRoot == null) return;
-        HorizontalLayoutGroup layout = tilesRoot.GetComponent<HorizontalLayoutGroup>();
-        if (layout == null) {
-            layout = tilesRoot.gameObject.AddComponent<HorizontalLayoutGroup>();
-        }
-        layout.childAlignment = TextAnchor.MiddleLeft;
-        layout.spacing = 0f;
-        layout.childControlWidth = false;
-        layout.childControlHeight = false;
-        layout.childForceExpandWidth = false;
-        layout.childForceExpandHeight = false;
+        SettlementTileRowLayout.Ensure(tilesRoot.gameObject);
     }
 
-    /// <summary>与 EndResultPanel.InitializeShowResult 相同顺序：手牌 | 副露 | 和牌张。</summary>
+    /// <summary>与 EndResultPanel.InitializeShowResult 相同顺序：手牌 | 副露 | 和牌张（最右侧）。</summary>
     private void PopulateTiles(RoundSettlementSnapshot snapshot) {
         if (staticCardPrefab == null || tilesRoot == null || !snapshot.CanShowHandPreview) return;
         if (snapshot.hepaiPlayerHand == null || snapshot.hepaiPlayerHand.Length == 0) return;
@@ -204,7 +264,7 @@ public class ScoreHistoryFanTooltip : MonoBehaviour {
         // 与 EndResultPanel 完全对齐：和牌张取数组末位，剩余手牌过滤掉花牌（牌谱重放时花牌可能残留）后排序。
         var concealed = new List<int>(hand.Length - 1);
         for (int i = 0; i < hand.Length - 1; i++) {
-            if (IsFlowerTile(hand[i])) continue;
+            if (IsFlowerTile(hand[i]) && !GuangdongMilRules.IsMil(snapshot.subRule)) continue;
             concealed.Add(hand[i]);
         }
         concealed.Sort(TileIdOrder.Comparer);
@@ -215,16 +275,12 @@ public class ScoreHistoryFanTooltip : MonoBehaviour {
 
         SpawnSplit();
 
-        int[][] combinationMask = snapshot.combinationMask;
-        if (combinationMask != null) {
-            for (int list = 0; list < combinationMask.Length; list++) {
-                if (combinationMask[list] == null) continue;
-                for (int mask = 1; mask < combinationMask[list].Length; mask += 2) {
-                    SpawnTile(combinationMask[list][mask]);
-                }
+        foreach (var group in SettlementMeldLayoutBuilder.Build(snapshot.combinationMask)) {
+            foreach (var tile in group) {
+                SpawnTile(tile.FaceDown ? 0 : tile.TileId);
+                if (tile.StackedTileId.HasValue) SpawnTile(tile.StackedTileId.Value);
             }
         }
-
         SpawnSplit();
         SpawnTile(lastCard);
     }
@@ -269,13 +325,13 @@ public class ScoreHistoryFanTooltip : MonoBehaviour {
     }
 
     private void ClearSpawned() {
-        for (int i = _spawnedObjects.Count - 1; i >= 0; i--) {
-            if (_spawnedObjects[i] != null) Destroy(_spawnedObjects[i]);
-        }
         _spawnedObjects.Clear();
         if (tilesRoot != null) {
             for (int i = tilesRoot.childCount - 1; i >= 0; i--) {
-                Destroy(tilesRoot.GetChild(i).gameObject);
+                GameObject old = tilesRoot.GetChild(i).gameObject;
+                // Destroy 在帧末执行；先禁用，避免快速切换记录时旧牌参与新一轮布局。
+                old.SetActive(false);
+                Destroy(old);
             }
         }
     }

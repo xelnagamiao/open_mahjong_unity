@@ -142,7 +142,7 @@
       "type": "discussion",
       "lang": "zh",
       "accessed": "2026-08-14",
-      "excerpt": "两者都要求缺门成和，但报缺不同：血战开局摸完 13 张后须报缺；血流不需要报缺，最后手上少于或等于两种颜色即可和。血战已和者退出；血流已和者继续摸打，除和牌外只能摸什么打什么。血战刮风下雨当场收；血流杠进杠出，明杠一番暗杠两番，终局结算。花猪：血战赔最大番，血流赔最大番的 5 倍。C 级平台对照，与 JJ 2012 冲突处并列。",
+      "excerpt": "两者都要求缺门成和，但报缺不同：血战开局摸完 13 张后须报缺；血流不需要报缺，最后手上少于或等于两种颜色即可和。血战已和者退出；血流已和者继续摸打，除和牌外只能摸什么打什么。血战刮风下雨当场收；血流杠进杠出，明杠一番暗杠两番，终局结算。花猪：血战赔最大番，血流赔最大番的 5 倍。C 级平台对照。",
       "rules": [
         "sichuan",
         "xueliu"
@@ -151,26 +151,6 @@
       "reliability": "low",
       "local_kind": "snapshot",
       "local_path": "chuanyu/snapshots/91y-xuezhan-xueliu.html",
-      "local_status": "ok"
-    },
-    {
-      "id": "jj-xueliu-2012",
-      "url": "https://www.jj.cn/news/320/20120925153300025557.shtml",
-      "title": "JJ · 血流成河（甩三张）游戏规则",
-      "type": "discussion",
-      "lang": "zh",
-      "publisher": "竞技世界",
-      "published": "2012-09-25",
-      "accessed": "2026-08-14",
-      "excerpt": "108 张，无字无花。抓牌后每人甩三张同色。可碰杠不能吃，胡牌必须缺一门。胡后继续抓打，不能换张；胡后不能明杠，可以续杠和暗杠。不允许天胡。牌墙抓完后查听；花猪赔已听者 2 倍最大自摸。C 级。与 91y「血流不用报缺」并列，不选边。",
-      "rules": [
-        "xueliu",
-        "sichuan-huansanzhang"
-      ],
-      "source_level": "community",
-      "reliability": "low",
-      "local_kind": "snapshot",
-      "local_path": "chuanyu/snapshots/jj-xueliu-2012.html",
       "local_status": "ok"
     },
     {

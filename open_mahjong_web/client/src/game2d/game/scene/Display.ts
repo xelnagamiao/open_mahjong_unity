@@ -145,7 +145,7 @@ export class Display extends Container {
     }
   }
 
-  setRound(roundCounter: number, format: RoundLabelFormat = 'wind-seat'): void {
+  setRound(roundCounter: number, format: RoundLabelFormat = 'wind-seat', labelOverride?: string): void {
     for (let index = 0; index < 3; index += 1) {
       this.removeText(`round${index}`)
     }
@@ -154,7 +154,7 @@ export class Display extends Container {
       return
     }
     this.removeText('round')
-    const label = tr(roundLabelKey(roundCounter, format, locale.value))
+    const label = labelOverride ?? tr(roundLabelKey(roundCounter, format, locale.value))
     this.addText('round0', label, 0, -0.12, 0, 360, false, 0x000000, false, 4.8)
   }
 

@@ -173,7 +173,7 @@ async def get_ai_action(game_state, player_index: int, action_type: str, cutClas
         raise Exception(f"处理机器人操作时发生错误: {e}") # 出现问题时中断游戏
 
 # 获取玩家行动
-async def get_action(game_state, player_id: str, action_type: str, cutClass: bool, TileId: int, cutIndex: int, target_tile: int, chi_combo_index: int = 0, action_tick: int = None):
+async def get_action(game_state, player_id: str, action_type: str, cutClass: bool, TileId: int, cutIndex: int, target_tile: int, chi_combo_index: int = 0, action_tick: int = None, selected_tiles=None):
     try:
         # 检测行动合法性
         # 从游戏服务器的PlayerConnection中获取user_id
@@ -206,8 +206,18 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
             logger.error(f"无效的玩家索引: {player_index}")
             return
         
-        # 验证玩家是否在等待列表中（只有等待中的玩家才能执行操作）
-        if player_index not in game_state.waiting_players_list:
+        from ..tactical_claim import (
+            tactical_force_pass_is_live,
+            tactical_mark_player_force_passed,
+            tactical_player_is_committed,
+        )
+        live_force_pass = action_type == "force_pass" and tactical_force_pass_is_live(
+            game_state, player_index, action_tick
+        )
+
+        # 验证玩家是否在等待列表中（只有等待中的玩家才能执行操作）。
+        # 战鸣期内的 force_pass 例外：吃牌申请会立刻清空等待列表，放弃必须仍能记入本张弃牌。
+        if player_index not in game_state.waiting_players_list and not live_force_pass:
             logger.warning(f"不是当前玩家的回合, player_index={player_index}, waiting_players_list={game_state.waiting_players_list}")
             return
 
@@ -217,11 +227,10 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
             return
         
         # 验证操作是否合法（检查操作是否在允许的操作列表中）
-        if action_type not in game_state.action_dict.get(player_index, []):
+        if action_type not in game_state.action_dict.get(player_index, []) and not live_force_pass:
             logger.warning(f"不是该玩家的合法行动, player_index={player_index}, action_type={action_type}, allowed_actions={game_state.action_dict.get(player_index, [])}")
             return
 
-        from ..tactical_claim import tactical_player_is_committed
         if (
             tactical_player_is_committed(game_state, player_index)
             and action_type != "pass"
@@ -236,17 +245,28 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
         # 若与当前询问帧不一致，说明这是上一轮询问的延迟到达提交（如战术鸣牌开启前点的取消/碰），予以丢弃，
         # 避免错误地消费掉本轮战术抢断（如战术碰断别人吃）的机会。
         # 定缺不走战术帧语义：waiting_dingque / dingque 豁免，避免旧 LastAskActionTick 把定缺打掉导致整桌空等到超时。
+        # 仅本张弃牌的 force_pass 豁免：再问已换 tick 时，第一轮放弃仍应退出竞争。
         if (
             action_tick is not None
             and game_state.game_status not in ("waiting_ready", "waiting_dingque")
             and action_type != "dingque"
             and action_tick != getattr(game_state, "server_action_tick", action_tick)
+            and not live_force_pass
         ):
             logger.info(
                 f"丢弃过期操作：player_index={player_index}, action_type={action_type}, "
                 f"client_tick={action_tick}, server_tick={getattr(game_state, 'server_action_tick', None)}"
             )
             return
+
+        if action_type == "force_pass" and live_force_pass:
+            tactical_mark_player_force_passed(game_state, player_index)
+            if player_index not in game_state.waiting_players_list:
+                logger.info(
+                    "战术鸣牌：主询问已结束仍收下放弃 player_index=%s",
+                    player_index,
+                )
+                return
 
         # 操作合法，将操作数据放入队列
         if action_type in ("cut", "riichi_cut"): # 切牌/立直切
@@ -282,6 +302,22 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
             logger.info(f"放入队列: player_index={player_index}, action_data={action_data_to_queue}")
             await game_state.action_queues[player_index].put(action_data_to_queue)
             # 设置事件
+            game_state.action_events[player_index].set()
+        elif action_type in ("xueliu_throw_three", "xueliu_exchange_three"):
+            # 血流开局选三张：三张真实牌 ID 必须同花，并且都来自当前手牌。
+            if not getattr(game_state, "is_xueliu", False) or action_type != getattr(game_state, "xueliu_opening_action", "xueliu_throw_three"):
+                return
+            if not hasattr(game_state, "_validate_xueliu_throw_tiles"):
+                return
+            chosen = game_state._validate_xueliu_throw_tiles(player_index, selected_tiles)
+            if chosen is None:
+                logger.warning("选三张参数非法: player_index=%s selected_tiles=%s", player_index, selected_tiles)
+                return
+            await game_state.action_queues[player_index].put({
+                "action_type": action_type,
+                "selected_tiles": chosen,
+                "_action_tick": action_tick,
+            })
             game_state.action_events[player_index].set()
         else: # 其他指令操作（buhua, angang, jiagang, hu_self, chi_left, chi_mid, chi_right, peng, gang, hu_first, hu_second, hu_third, pass）
             # 验证特殊操作的条件

@@ -3,6 +3,10 @@ using UnityEngine;
 
 /// <summary>听牌查询：手牌（不含将要打出的牌）+ 副露字串 + 房间细则。由 RuleManifest.Tingpai 消费。</summary>
 public sealed class TingpaiQuery {
+    public int? PlayerIndex;
+    /// <summary>牌谱座位，用于读取各座位的权威提示快照；实时查询留空。</summary>
+    public int? RecordPlayerIndex;
+    public string SubRule;
     public List<int> Hand;
     public List<string> Melds;
     public Dictionary<string, object> DetailedConfig;
@@ -78,6 +82,7 @@ public static class RuleTips {
     /// <summary>按 room_rule / sub_rule 解析清单后算听牌（牌谱路径）。</summary>
     public static HashSet<int> ComputeWaiting(string roomRule, string subRule, TingpaiQuery query) {
         RuleRegistry.TryResolve(roomRule, subRule, out RuleManifest manifest);
+        query.SubRule = subRule ?? query.SubRule;
         return ComputeWaiting(manifest, query);
     }
 

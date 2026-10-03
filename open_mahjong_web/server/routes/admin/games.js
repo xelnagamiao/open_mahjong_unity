@@ -1,4 +1,5 @@
 const express = require('express');
+const { recordIsLocked, visibleRecordSql, LOCKED_MESSAGE } = require('../../services/duplicateRecordAccess');
 const router = express.Router();
 const pool = require('../../config/database');
 const { writeAudit } = require('../../utils/audit');
@@ -97,10 +98,12 @@ router.get('/:gameId', async (req, res) => {
   try {
     const gameId = req.params.gameId;
     const includeRecord = req.query.include_record === 'true';
+    if (includeRecord && await recordIsLocked(pool, gameId)) return res.status(403).json({ success: false, message: LOCKED_MESSAGE });
+    res.set('Cache-Control', 'no-store');
 
     const gr = await pool.query(
       `SELECT game_id, created_at${includeRecord ? ', record' : ''}
-       FROM game_records WHERE game_id = $1`,
+       FROM game_records gr WHERE game_id = $1 ${includeRecord ? `AND ${visibleRecordSql()}` : ''}`,
       [gameId]
     );
     if (gr.rows.length === 0) {

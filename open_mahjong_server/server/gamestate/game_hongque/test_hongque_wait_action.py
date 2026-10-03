@@ -3,7 +3,13 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+
 from server.gamestate.game_hongque.HongqueGameState import HongqueGameState
+from server.gamestate.game_hongque.action_check import check_action_after_cut
+from server.gamestate.game_hongque.rules import kong_candidates
+from server.gamestate.game_hongque.state_machine import HongqueStatus
+from server.gamestate.game_hongque import wait_action as wait_module
 
 
 def _state() -> HongqueGameState:
@@ -17,6 +23,88 @@ def _state() -> HongqueGameState:
     state.Debug = True
     state.debug_scenario = "tactical_all_claims"
     return state
+
+
+@pytest.mark.parametrize("supplements,wall", [(2, ["GX9"]), (0, [])])
+def test_last_tile_kong_cannot_leave_onlycut_without_an_action(supplements, wall):
+    async def exercise():
+        state = _state()
+        state.Debug = False
+        state.phase = "claim"
+        state._transition(HongqueStatus.ONLYCUT_AFTER_ACTION)
+        player = state.players[0]
+        player.hand = ["AX4"]
+        player.melds = [{"kind": "sequence", "tiles": ["AX1", "AX2", "AX3"]}]
+        player.supplements = supplements
+        state.wall = list(wall)
+        candidate = kong_candidates(player.hand, player.melds)[0]
+        with pytest.raises(ValueError):
+            await state.submit_action(player.user_id, "kong", candidate_id=candidate["id"])
+        assert player.hand == ["AX4"]
+        actions, candidates = state._legal_turn_actions(player)
+        assert actions == ["discard"]
+        assert candidates == []
+        await state.cleanup_game_state()
+
+    asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("supplements,wall", [(2, ["GX9"]), (0, [])])
+def test_all_hand_claim_without_supplement_still_offers_ron(supplements, wall):
+    state = _state()
+    state.players[0].discards = ["AX3"]
+    state.last_discard = {"player": 0, "tile": "AX3"}
+    player = state.players[1]
+    player.hand = ["AX1", "AX2"]
+    player.supplements = supplements
+    state.wall = list(wall)
+    candidates = check_action_after_cut(state)[1]
+    assert [candidate["kind"] for candidate in candidates] == ["win"]
+
+
+@pytest.mark.parametrize("live_wait", [False, True])
+def test_queued_claim_invalidated_by_another_claim_is_reasked(monkeypatch, live_wait):
+    # Both actions arrive before the waiter wakes. Make seat 1's response the
+    # first one consumed so seat 2's old chi expires, but its peng/ron stay legal.
+    real_wait = asyncio.wait
+
+    async def ordered_wait(tasks, **kwargs):
+        done, pending = await real_wait(tasks, **kwargs)
+        return sorted(done, key=lambda task: int(task.get_name().rsplit("-", 1)[-1])), pending
+
+    monkeypatch.setattr(wait_module.asyncio, "wait", ordered_wait)
+
+    async def exercise():
+        state = await _opened_state()
+        state.tactical_grace_seconds = 0.01
+        state._in_wait_action = True
+        tick = state.action_tick
+        for seat in (1, 2):
+            await state.submit_action(
+                state.players[seat].user_id, "claim",
+                candidate_id=_candidate(state, seat, "sequence")["id"], action_tick=tick,
+            )
+        try:
+            if live_wait:
+                await state.wait_action()
+                assert state.phase == "turn"
+                assert state.current_player_index == 1
+            else:
+                await state._drive_local()
+                assert state.claim_window.active.player_index == 1
+                assert 2 in state.claim_window.pending
+                assert state.action_queues[2].empty()
+                # The expired chi must not count as pass: seat 2 can still upgrade.
+                state._in_wait_action = False
+                peng = _candidate(state, 2, "triplet")
+                await state.submit_action(state.players[2].user_id, "claim",
+                                          candidate_id=peng["id"], action_tick=state.action_tick)
+                assert state.claim_window.active.player_index == 2
+                assert state.claim_window.active.candidate["kind"] == "triplet"
+        finally:
+            await state.cleanup_game_state()
+
+    asyncio.run(exercise())
 
 
 async def _opened_state() -> HongqueGameState:

@@ -24,16 +24,33 @@ public sealed class FreeGameState : GameStateBase {
     public FreeDiscardDest DiscardDest { get; set; } = FreeDiscardDest.River;
     public int ScoreRevision { get; private set; }
     public int? TransferTile { get; private set; }
+    public bool TransferFaceDown { get; private set; }
+    public bool PutTransferFaceDown { get; set; }
     public int? LastRiverPlayer { get; private set; }
     public int? LastRiverTile { get; private set; }
     public readonly Dictionary<int, string> Votes = new Dictionary<int, string>();
     public readonly Dictionary<int, bool> Revealed = new Dictionary<int, bool>();
+    public FreeModeActivityLog ActivityLog { get; } = new FreeModeActivityLog();
 
     private bool tableReady;
     private readonly Dictionary<int, List<int>> revealedHands = new Dictionary<int, List<int>>();
     private readonly Dictionary<int, int> scoreDraft = new Dictionary<int, int>();
     private bool hasScoreDraft;
     private FreeModeHud hud;
+    private FreeModeActivityPanel activityPanel;
+
+    // uGUI 的下拉遮罩挂在根 Canvas，不能仅凭面板祖先判断是否正在操作筛选器。
+    public bool BlocksTableShortcuts {
+        get {
+            if (activityPanel == null || !activityPanel.IsExpanded) return false;
+            var dropdown = activityPanel.categoryDropdown;
+            if (dropdown == null || dropdown.template == null || dropdown.template.parent == null) return false;
+            // 当前 uGUI 没有公开展开状态；Show 将运行时列表放在 template 的同级，
+            // Hide 在淡出结束后销毁它。只在消息面板打开时查询这一个固定子物体。
+            Transform list = dropdown.template.parent.Find("Dropdown List");
+            return list != null && list.gameObject.activeInHierarchy;
+        }
+    }
 
     private static TableMirror Mirror => TableMirror.Current;
     private static TurnClock Clock => TurnClock.Current;
@@ -43,7 +60,10 @@ public sealed class FreeGameState : GameStateBase {
         tableReady = true;
         ClearScoreDraft();
         CaptureRevealedHandsFromGameInfo(gameInfo);
+        ActivityLog.Begin(gameInfo, GameSession.Current.SelfIndex);
         EnsureHud();
+        EnsureActivityPanel();
+        hud?.BindActivityPanel(activityPanel);
         hud?.ResetLocalSelection();
         RestorePersistentAsk();
         hud?.Refresh();
@@ -58,8 +78,14 @@ public sealed class FreeGameState : GameStateBase {
         ScoreRevision = 0;
         DiscardDest = FreeDiscardDest.River;
         TransferTile = null;
+        TransferFaceDown = PutTransferFaceDown = false;
         LastRiverPlayer = null;
         LastRiverTile = null;
+        ActivityLog.Clear();
+        if (activityPanel != null) {
+            UnityEngine.Object.Destroy(activityPanel.gameObject);
+            activityPanel = null;
+        }
         if (hud != null) {
             UnityEngine.Object.Destroy(hud.gameObject);
             hud = null;
@@ -71,6 +97,7 @@ public sealed class FreeGameState : GameStateBase {
             case "game_start":
                 AutoReconnect.OnGameRestored();
                 NormalGameStateManager.Instance.InitializeGame(response.success, response.message, response.game_info);
+                ActivityLog.Synchronize(response.free_table_info);
                 ApplyTable(response.free_table_info);
                 RestorePersistentAsk();
                 if (HasAnyRevealed()) RelayoutTable();
@@ -84,6 +111,7 @@ public sealed class FreeGameState : GameStateBase {
             case "scores":
             case "votes":
             case "transfer":
+                if (response.success) ActivityLog.ObserveTable(suffix, response.free_table_info);
                 ApplyTable(response.free_table_info);
                 if (suffix == "reveal" && Host != null) Host.StartCoroutine(CoReveal(response.free_table_info));
                 if (suffix == "stand") RestoreStand(response.free_table_info);
@@ -138,13 +166,14 @@ public sealed class FreeGameState : GameStateBase {
         return false;
     }
 
-    public void SendCreateMeld(int[] mask, bool includeRiver) {
+    public void SendCreateMeld(int[] mask, bool includeRiver, int? riverTileIndex = null) {
         SendRaw(new {
             type = "gamestate/free/send_action",
             gamestate_id = PlayerSession.Current.GamestateId,
             action = "create_meld",
             combination_mask = mask,
             include_river = includeRiver,
+            river_tile_index = riverTileIndex,
         });
     }
 
@@ -183,6 +212,7 @@ public sealed class FreeGameState : GameStateBase {
             gamestate_id = PlayerSession.Current.GamestateId,
             action = "transfer_put",
             tile = tileId,
+            face_down = PutTransferFaceDown,
         });
     }
 
@@ -212,6 +242,11 @@ public sealed class FreeGameState : GameStateBase {
     public IReadOnlyList<int> SelfHand() => Mirror.SelfHandTiles;
     public PlayerInfoClass SelfInfo() => Mirror.Self;
 
+    public void RemoveRevealedMeldTiles(int playerIndex, IReadOnlyList<int> tiles) {
+        if (!revealedHands.TryGetValue(playerIndex, out List<int> hand)) return;
+        foreach (int tile in tiles) hand.Remove(tile);
+    }
+
     public bool TryGetScoreDraft(int playerIndex, out int score) {
         return scoreDraft.TryGetValue(playerIndex, out score);
     }
@@ -223,27 +258,35 @@ public sealed class FreeGameState : GameStateBase {
 
     public bool HasScoreDraft => hasScoreDraft;
 
-    private void ClearScoreDraft() {
+    public void ClearScoreDraft() {
         scoreDraft.Clear();
         hasScoreDraft = false;
     }
 
     public void CommitScoreDraft() {
         var current = new Dictionary<int, int>();
+        bool changed = false;
         foreach (KeyValuePair<int, string> seat in Mirror.IndexToPosition) {
             PlayerInfoClass info = Mirror.Info(seat.Value);
             current[seat.Key] = info != null ? info.score : 0;
         }
         if (hasScoreDraft) {
-            foreach (KeyValuePair<int, int> pair in scoreDraft) current[pair.Key] = pair.Value;
+            foreach (KeyValuePair<int, int> pair in scoreDraft) {
+                if (!current.TryGetValue(pair.Key, out int value)) continue;
+                if (value != pair.Value) changed = true;
+                current[pair.Key] = pair.Value;
+            }
         }
-        SendScores(current);
+        if (changed) SendScores(current);
     }
 
     private void PlayDoAction(Response response) {
         DoActionInfo info = response.do_action_info;
         if (info == null) return;
+        if (response.success) ActivityLog.ObserveAction(info);
         TableAction action = TableAction.From(info, Mirror);
+        // 转移可以改变公开手牌内容，暗牌取回还会先立牌。播放/重建前应用确认快照。
+        ApplyTable(response.free_table_info);
         if (action.IsClaim) {
             ActionPlayback.Current.AnnounceClaim(action);
         } else {
@@ -261,7 +304,7 @@ public sealed class FreeGameState : GameStateBase {
                 }
             }
         }
-        ApplyTable(response.free_table_info);
+        ActivityLog.Synchronize(response.free_table_info);
         RestorePersistentAsk();
         hud?.Refresh();
     }
@@ -272,6 +315,7 @@ public sealed class FreeGameState : GameStateBase {
         if (ScoreRevision != table.score_revision) ClearScoreDraft();
         ScoreRevision = table.score_revision;
         TransferTile = table.transfer_tile;
+        TransferFaceDown = TransferTile.HasValue && table.transfer_face_down;
         LastRiverPlayer = table.last_river_player;
         LastRiverTile = table.last_river_tile;
         CopyIntMap(table.votes, Votes, "blank");
@@ -338,6 +382,7 @@ public sealed class FreeGameState : GameStateBase {
     private void RelayoutTable() {
         Game3DManager.Instance.StopAllRunningAnimations();
         Game3DManager.Instance.Clear3DTile();
+        GameCanvas.Instance.ClearHandCardQueue();
         Transform handContainer = GameCanvas.Instance.HandCardsContainer;
         if (handContainer != null) {
             for (int i = handContainer.childCount - 1; i >= 0; i--) {
@@ -389,6 +434,21 @@ public sealed class FreeGameState : GameStateBase {
         hud.name = "FreeModeHud";
         hud.transform.SetAsLastSibling();
         hud.Bind(this);
+        hud.gameObject.AddComponent<FreeModePlacementPreview>().Bind(this);
+        hud.gameObject.AddComponent<FreeModeTransferTile>().Bind(this);
+    }
+
+    private void EnsureActivityPanel() {
+        if (activityPanel != null || GameCanvas.Instance == null) return;
+        FreeModeActivityPanel prefab = Resources.Load<FreeModeActivityPanel>("UI/FreeModeActivityPanel");
+        if (prefab == null) {
+            Debug.LogError("自由模式消息面板预制体缺失：Resources/UI/FreeModeActivityPanel");
+            return;
+        }
+        activityPanel = UnityEngine.Object.Instantiate(prefab, GameCanvas.Instance.transform, false);
+        activityPanel.name = "FreeModeActivityPanel";
+        activityPanel.transform.SetAsLastSibling();
+        activityPanel.Bind(ActivityLog);
     }
 
     private void CaptureRevealedHandsFromGameInfo(GameInfo gameInfo) {

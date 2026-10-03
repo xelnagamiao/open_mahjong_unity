@@ -21,9 +21,6 @@ public static class PostGameNavigator {
 
         NormalGameStateManager.Instance?.StopAsRealtimeSpectator();
 
-        bool wasMatch = NormalGameStateManager.Instance != null
-            && NormalGameStateManager.Instance.roomType == "match";
-
         if (forceTeardown || (!wasSpectating && !ShouldPreserveActiveGameScene())) {
             UserDataManager.Instance.SetGamestateId("");
             GameSceneTeardown.ResetToIdle();
@@ -31,10 +28,6 @@ public static class PostGameNavigator {
 
         MatchNetworkManager.Instance.ResetMatchLock();
         HeaderPanel.Instance?.SetBackToGameVisible(false);
-
-        if (wasMatch) {
-            UserDataManager.Instance.SetRoomId("");
-        }
 
         string tab = WindowsManager.Instance.GetGameReturnWindow();
         bool alreadyOnReturn = WindowsManager.Instance.GetCurrentWindow() == tab;
@@ -45,7 +38,7 @@ public static class PostGameNavigator {
     private static void RefreshLobbyTabIfNeeded(string tab, bool alreadyOnTab) {
         switch (tab) {
             case "record":
-                RecordPanel.Instance.OpenAndReload();
+                RecordPanel.Instance.ReloadCurrentList();
                 break;
             case "friend":
                 FriendNetworkManager.Instance.ListAllFriendPanels();

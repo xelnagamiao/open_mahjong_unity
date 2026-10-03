@@ -1,0 +1,25 @@
+{
+  "provider": "TTSMaker",
+  "generator": "https://ttsmaker.com/zh-hk",
+  "provenance_recorded_on": "2026-10-02",
+  "terms_reference": "https://ttsmaker.com/copyright_and_commercial_license_terms/zh-hk",
+  "provenance": "沿用山西麻将功能生成的两份报听语音；已核对生成记录及当前资源的 SHA-256。",
+  "clips": [
+    {
+      "voice_id": 204,
+      "voice_name": "潇潇",
+      "text": "报听",
+      "purpose": "报听动作语音",
+      "asset": "open_mahjong_unity/Assets/Resources/Sound/ttsmaker_204_xiaoxiao/baoting.mp3",
+      "sha256": "02265cfe3036a4832d985a735efdce4534b942ac1f9ee090100a0a3ddb37dccc"
+    },
+    {
+      "voice_id": 1513,
+      "voice_name": "球球",
+      "text": "报听",
+      "purpose": "报听动作语音",
+      "asset": "open_mahjong_unity/Assets/Resources/Sound/ttsmaker_1513_qiuqiu/baoting.mp3",
+      "sha256": "f9bda3108e8d7db94ad3b82f781b685638abddb7c35ff331f8e8767c54b2be14"
+    }
+  ]
+}

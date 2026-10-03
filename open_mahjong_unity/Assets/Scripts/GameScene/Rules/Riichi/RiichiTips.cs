@@ -14,14 +14,14 @@ internal static class RiichiTips {
     public static WaitTileHint Describe(WaitHintQuery q) {
         RiichiHandResult ron = RiichiExternal.FullHepaiCheck(
             q.HandWithWin, q.Melds, q.HepaiTile, BuildContext(q, isTsumo: false));
-        if (ron.IsValid && ron.Score > 0) {
+        if (ron.IsValid && ron.Score > 0 && ron.Han >= q.HepaiLimit) {
             return WaitTileHint.Ron(FormatLabel(ron));
         }
         RiichiHandResult tsumo = RiichiExternal.FullHepaiCheck(
             q.HandWithWin, q.Melds, q.HepaiTile, BuildContext(q, isTsumo: true));
-        return tsumo.IsValid && tsumo.Score > 0
+        return tsumo.IsValid && tsumo.Score > 0 && tsumo.Han >= q.HepaiLimit
             ? WaitTileHint.TsumoOnly(FormatLabel(tsumo))
-            : WaitTileHint.None(FormatLabel(null));
+            : WaitTileHint.None(ron.Score > 0 || tsumo.Score > 0 ? "未起和" : "无役");
     }
 
     private static RiichiHandContext BuildContext(WaitHintQuery q, bool isTsumo) {
@@ -30,13 +30,16 @@ internal static class RiichiTips {
             HasOpenTanyao = true,
             CombinationMasks = q.MeldMasks,
             PlayerWind = RiichiTileUtil.East + q.SelfIndex,
-            RoundWind = RiichiTileUtil.East + Mathf.Clamp((q.CurrentRound - 1) / 4, 0, 3),
+            RoundWind = RiichiTileUtil.East + Mathf.Max(0, (q.CurrentRound - 1) / 4) % 4,
             // 里宝仅立直者在和牌时才能看到；提示阶段不计（服务端仍以结算为准）
             UraDoraIndicators = new List<int>(),
         };
+        ctx.ApplyRuleOptions(q.DetailedConfig);
 
         if (q.Record != null) {
             ctx.IsRiichi = q.Record.SelfIsRiichi;
+            ctx.IsDaburuRiichi = q.Record.SelfIsDaburuRiichi;
+            ctx.RedDora = q.Record.RedDora;
             ctx.DoraIndicators = q.Record.DoraIndicators != null ? new List<int>(q.Record.DoraIndicators) : new List<int>();
             return ctx;
         }
@@ -47,6 +50,7 @@ internal static class RiichiTips {
             foreach (string tag in selfTags) {
                 if (tag == "riichi") ctx.IsRiichi = true;
                 else if (tag == "daburu_riichi") { ctx.IsDaburuRiichi = true; ctx.IsRiichi = true; }
+                else if (tag == "ippatsu") ctx.IsIppatsu = true;
             }
         }
         if (RiichiCutSelectionController.Instance != null && RiichiCutSelectionController.Instance.IsActive) {
@@ -60,6 +64,7 @@ internal static class RiichiTips {
         RiichiGameState state = RiichiGameState.Active;
         ctx.DoraIndicators = new List<int>();
         if (state != null) {
+            ctx.RedDora = state.RedDora;
             ctx.DoraIndicators.AddRange(state.DoraIndicators);
             ctx.DoraIndicators.AddRange(state.KanDoraIndicators);
         }
@@ -70,13 +75,13 @@ internal static class RiichiTips {
     private static bool IsDaburuRiichiCandidate(TableMirror mirror) {
         var selfOrigin = mirror.Info("self")?.discard_origin_tiles;
         if (selfOrigin != null && selfOrigin.Count > 0) return false;
-        foreach (string pos in new[] { "left", "top", "right" }) {
+        foreach (string pos in new[] { "self", "left", "top", "right" }) {
             var combos = mirror.Info(pos)?.combination_tiles;
             if (combos == null) continue;
             foreach (string combo in combos) {
                 if (combo.Length == 0) continue;
                 char sign = combo[0];
-                if (sign == 's' || sign == 'k' || sign == 'g') return false;
+                if (sign == 's' || sign == 'k' || sign == 'g' || sign == 'G') return false;
             }
         }
         return true;

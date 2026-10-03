@@ -5,7 +5,7 @@ import time
 from .public.ai.get_action import get_action
 from .game_jiandan.get_action import get_action as jiandan_get_action
 from .public.sticker import broadcast_sticker, resolve_sticker_sender
-from ..response import Response, SpectatorInfo
+from ..response import Response
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +22,18 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
         message: 消息字典（type 字段应为 "gamestate/GB/xxx" 格式）
         websocket: WebSocket连接
     """
+    gid = message.get("gamestate_id")
+    if gid:
+        state = game_server.gamestate_manager.get_game_state_by_gamestate_id(gid)
+        if state is None:
+            await websocket.send_json({"type": "gamestate/closed", "success": False,
+                "gamestate_id": gid, "reason": "unavailable", "message": "对局已结束或不存在"})
+            return
+        conn = game_server.players.get(Connect_id)
+        if conn is not None and conn.user_id in getattr(state, "abandoned_users", ()):
+            await websocket.send_json({"type": "tips", "success": False, "message": "您已放弃当前对局"})
+            return
+
     message_type = message.get("type", "").strip("/")
     
     # 根据完整路径分发
@@ -29,16 +41,63 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
         await handle_cut_tile(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/GB/send_action":
         await handle_send_action(game_server, Connect_id, message, websocket)
+    elif message_type in {"gamestate/changchun/cut_tile", "gamestate/changchun/send_action", "gamestate/changchun/riichi_cut"}:
+        state = game_server.gamestate_manager.get_game_state_by_gamestate_id(message.get("gamestate_id"))
+        if state is None or getattr(state, "room_rule", None) != "changchun":
+            return
+        if message_type.endswith("/cut_tile"):
+            await handle_cut_tile(game_server, Connect_id, message, websocket)
+        elif message_type.endswith("/riichi_cut"):
+            await handle_riichi_cut(game_server, Connect_id, message, websocket)
+        else:
+            await handle_send_action(game_server, Connect_id, message, websocket)
+    elif message_type == "gamestate/shanxi/cut_tile":
+        await handle_cut_tile(game_server, Connect_id, message, websocket)
+    elif message_type == "gamestate/shanxi/send_action":
+        await handle_send_action(game_server, Connect_id, message, websocket)
+    elif message_type == "gamestate/shanxi/riichi_cut":
+        await handle_riichi_cut(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/riichi/cut_tile":
         await handle_cut_tile(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/riichi/riichi_cut":
         await handle_riichi_cut(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/riichi/send_action":
         await handle_send_action(game_server, Connect_id, message, websocket)
-    elif message_type == "gamestate/jiandan/cut_tile":
+    elif message_type in {"gamestate/jiandan/cut_tile", "gamestate/zhongyong/cut_tile"}:
         await handle_jiandan_cut_tile(game_server, Connect_id, message)
-    elif message_type == "gamestate/jiandan/send_action":
+    elif message_type in {"gamestate/jiandan/send_action", "gamestate/zhongyong/send_action"}:
         await handle_jiandan_send_action(game_server, Connect_id, message)
+    elif message_type in {"gamestate/hongkong/cut_tile", "gamestate/hongkong/send_action"}:
+        from .game_hongkong.get_action import handle_action
+        await handle_action(game_server, Connect_id, message, websocket)
+    elif message_type in {"gamestate/guizhou/cut_tile", "gamestate/guizhou/send_action"}:
+        from .game_guizhou.get_action import handle_action
+        await handle_action(game_server, Connect_id, message, websocket)
+    elif message_type in {"gamestate/guangdong/cut_tile", "gamestate/guangdong/send_action"}:
+        state = game_server.gamestate_manager.get_game_state_by_gamestate_id(message.get("gamestate_id"))
+        if state is None or getattr(state, "room_rule", None) != "guangdong":
+            return
+        if message_type.endswith("/cut_tile"):
+            await handle_cut_tile(game_server, Connect_id, message, websocket)
+        else:
+            await handle_send_action(game_server, Connect_id, message, websocket)
+    elif message_type in {"gamestate/hongzhong/cut_tile", "gamestate/hongzhong/send_action"}:
+        state = game_server.gamestate_manager.get_game_state_by_gamestate_id(message.get("gamestate_id"))
+        if state is None or getattr(state, "room_rule", None) != "hongzhong":
+            return
+        if message_type.endswith("/cut_tile"):
+            await handle_cut_tile(game_server, Connect_id, message, websocket)
+        else:
+            await handle_send_action(game_server, Connect_id, message, websocket)
+    elif message_type in {"gamestate/hangzhou/cut_tile", "gamestate/hangzhou/send_action"}:
+        from .game_hangzhou.get_action import handle_action
+        await handle_action(game_server, Connect_id, message, websocket)
+    elif message_type in {"gamestate/wenzhou/cut_tile", "gamestate/wenzhou/send_action"}:
+        from .game_wenzhou.get_action import handle_action
+        await handle_action(game_server, Connect_id, message, websocket)
+    elif message_type in {"gamestate/yixing/cut_tile", "gamestate/yixing/send_action"}:
+        from .game_yixing.get_action import handle_action
+        await handle_action(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/hongque/action":
         await handle_hongque_action(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/free/cut_tile":
@@ -217,6 +276,7 @@ async def handle_send_action(game_server, Connect_id: str, message: dict, websoc
             target_tile=message.get("targetTile"),
             chi_combo_index=message.get("chiComboIndex", 0) or 0,
             action_tick=message.get("action_tick"),
+            selected_tiles=message.get("selectedTiles"),
         )
     except Exception as e:
         logger.error(f"处理发送操作请求失败: {e}", exc_info=True)
@@ -232,7 +292,7 @@ def _get_jiandan_state(game_server, message: dict):
     if game_state is None:
         logger.warning(f"简单麻将游戏状态不存在: {gamestate_id}")
         return None
-    if getattr(game_state, "room_rule", None) != "jiandan":
+    if getattr(game_state, "room_rule", None) != ("zhongyong" if "/zhongyong/" in message.get("type", "") else "jiandan"):
         logger.warning(f"简单麻将操作被路由到其他规则: {gamestate_id}")
         return None
     return game_state

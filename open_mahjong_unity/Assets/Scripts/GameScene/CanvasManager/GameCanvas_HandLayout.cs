@@ -3,7 +3,10 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public partial class GameCanvas {
+    public const float HandLayoutVerticalOffset = -40f;
+    private const float ThirteenTileHandScale = 0.95f;
     private Vector3 defaultHandCardsContainerScale;
+    private Vector2 defaultHandCardsContainerPosition;
     private bool hasCapturedDefaultHandCardsContainerScale;
 
     /// <summary>
@@ -15,20 +18,32 @@ public partial class GameCanvas {
         }
         if (!hasCapturedDefaultHandCardsContainerScale) {
             defaultHandCardsContainerScale = handCardsContainer.localScale;
+            defaultHandCardsContainerPosition = ((RectTransform)handCardsContainer).anchoredPosition;
             hasCapturedDefaultHandCardsContainerScale = true;
         }
 
         HandStructure handStructure = HandStructures.Resolve(roomRule, subRule);
         float scale = (float)HandStructures.ThirteenTile.DisplayWidthUnits
             / handStructure.DisplayWidthUnits;
+        if (handStructure.BaseHandTileCount == HandStructures.ThirteenTile.BaseHandTileCount) {
+            scale *= ThirteenTileHandScale;
+        }
         handCardsContainer.localScale = new Vector3(
             defaultHandCardsContainerScale.x * scale,
             defaultHandCardsContainerScale.y * scale,
             defaultHandCardsContainerScale.z);
+        ((RectTransform)handCardsContainer).anchoredPosition = defaultHandCardsContainerPosition
+            + new Vector2(0f, HandLayoutVerticalOffset);
     }
 
     public static float GetCardWidth(RectTransform cardRect) {
         return cardRect.rect.width;
+    }
+
+    // 容器原点是第一张牌的左下边缘；卡牌保留中心 pivot，供拖拽和命中检测使用。
+    public static Vector2 GetHandCardPosition(RectTransform cardRect, float leftX) {
+        return new Vector2(leftX + cardRect.rect.width * cardRect.pivot.x,
+            cardRect.rect.height * cardRect.pivot.y);
     }
 
     public bool IsHandRecordPlayback() {
@@ -71,7 +86,7 @@ public partial class GameCanvas {
     }
 
     /// <summary>
-    /// 按主列顺序与可选独立摸牌区计算各牌 anchoredPosition（中心 pivot）。
+    /// 从容器左下角排列主列与独立摸牌区，按各牌实际尺寸对齐底边。
     /// </summary>
     public Dictionary<RectTransform, Vector2> BuildHandLayoutPositions(
         List<TileCard> mainOrdered,
@@ -79,7 +94,6 @@ public partial class GameCanvas {
         TileCard positionExclude = null) {
         Dictionary<RectTransform, Vector2> positions = new Dictionary<RectTransform, Vector2>();
         float x = 0f;
-        float lastMainWidth = 0f;
         for (int i = 0; i < mainOrdered.Count; i++) {
             TileCard card = mainOrdered[i];
             if (card == positionExclude) {
@@ -87,16 +101,13 @@ public partial class GameCanvas {
             }
             RectTransform rt = card.GetComponent<RectTransform>();
             float w = GetCardWidth(rt);
-            positions[rt] = new Vector2(x, 0f);
-            lastMainWidth = w;
+            positions[rt] = GetHandCardPosition(rt, x);
             x += w;
         }
         if (drawTileSeparate != null && drawTileSeparate.isDrawSlotPinned && drawTileSeparate != positionExclude) {
             RectTransform drawRt = drawTileSeparate.GetComponent<RectTransform>();
             float dw = GetCardWidth(drawRt);
-            float lastHalf = mainOrdered.Count > 0 ? lastMainWidth * 0.5f : dw * 0.5f;
-            float drawCenterX = x + lastHalf + dw * 0.3f; // 摸牌区间距 0.8 牌宽（原 dw*0.5 → 1.0）
-            positions[drawRt] = new Vector2(drawCenterX, 0f);
+            positions[drawRt] = GetHandCardPosition(drawRt, x + dw * 0.8f);
         }
         return positions;
     }
@@ -112,7 +123,6 @@ public partial class GameCanvas {
         Dictionary<RectTransform, Vector2> positions = new Dictionary<RectTransform, Vector2>();
         gapInsertIndex = Mathf.Clamp(gapInsertIndex, 0, mainOrdered.Count);
         float x = 0f;
-        float lastMainWidth = 0f;
         for (int i = 0; i < mainOrdered.Count; i++) {
             if (i == gapInsertIndex) {
                 x += gapWidth;
@@ -120,8 +130,7 @@ public partial class GameCanvas {
             TileCard card = mainOrdered[i];
             RectTransform rt = card.GetComponent<RectTransform>();
             float w = GetCardWidth(rt);
-            positions[rt] = new Vector2(x, 0f);
-            lastMainWidth = w;
+            positions[rt] = GetHandCardPosition(rt, x);
             x += w;
         }
         if (gapInsertIndex == mainOrdered.Count) {
@@ -130,9 +139,7 @@ public partial class GameCanvas {
         if (drawTileSeparate != null && drawTileSeparate.isDrawSlotPinned) {
             RectTransform drawRt = drawTileSeparate.GetComponent<RectTransform>();
             float dw = GetCardWidth(drawRt);
-            float lastHalf = mainOrdered.Count > 0 ? lastMainWidth * 0.5f : dw * 0.5f;
-            float drawCenterX = x + lastHalf + dw * 0.3f; // 摸牌区间距 0.8 牌宽（原 dw*0.5 → 1.0）
-            positions[drawRt] = new Vector2(drawCenterX, 0f);
+            positions[drawRt] = GetHandCardPosition(drawRt, x + dw * 0.8f);
         }
         return positions;
     }
@@ -200,8 +207,10 @@ public partial class GameCanvas {
     }
 
     private void CancelCompetingHandReflowAnimations(string reason) {
+        StopFreeDrawAnimation(finish: false);
         // 打断队列内重排等正在写位置的 AnimateCardsToPositions，避免与出牌收拢并行撕牌
         _handLayoutAnimEpoch++;
+        _handReflowAnimDepth = 0;
         if (_sortMainHandCoroutine != null) {
             StopCoroutine(_sortMainHandCoroutine);
             _sortMainHandCoroutine = null;
@@ -218,9 +227,14 @@ public partial class GameCanvas {
     }
 
     private IEnumerator RunHandReflowAnim(IEnumerator inner) {
+        int epoch = _handLayoutAnimEpoch;
         _handReflowAnimDepth++;
-        yield return inner;
-        _handReflowAnimDepth--;
+        try {
+            yield return inner;
+        } finally {
+            // 新摸牌可能中止旧排序；旧协程退出不能扣减新动画的输入锁计数。
+            if (epoch == _handLayoutAnimEpoch) _handReflowAnimDepth = Mathf.Max(0, _handReflowAnimDepth - 1);
+        }
     }
 
     private System.Collections.IEnumerator SortMainHandByTileIdCoroutine() {

@@ -62,6 +62,14 @@ namespace Riichi {
         }
 
         private void Finalize(DetectResult result) {
+            if (_ctx.IsTenhou && !result.Yaku.Any(y => y.Name == "天和")) result.Yaku.Add(new YakuEntry { Name = "天和", IsYakuman = true, YakumanMultiplier = 1 });
+            if (_ctx.IsChiihou && !result.Yaku.Any(y => y.Name == "地和")) result.Yaku.Add(new YakuEntry { Name = "地和", IsYakuman = true, YakumanMultiplier = 1 });
+            var yakuman = result.Yaku.Where(y => y.IsYakuman).ToList();
+            if (yakuman.Count > 0) {
+                result.Yaku = yakuman;
+                int total = _ctx.MultipleYakuman ? yakuman.Sum(y => y.YakumanMultiplier) : yakuman.Max(y => y.YakumanMultiplier);
+                result.YakumanMultiplier = System.Math.Min(total, _ctx.YakumanLimit);
+            }
             if (result.YakumanMultiplier > 0) {
                 result.HasYaku = true;
                 return;
@@ -81,12 +89,16 @@ namespace Riichi {
             // sets 非一般型时不复用，这里只做回填。调用方会区分 shape；下面从传入的 winTile 判断十三面。
             var pairTile = sets.FirstOrDefault(s => s.Type == RiichiSetType.Pair)?.Tile ?? -1;
             bool thirteenWait = pairTile != -1 && pairTile == RiichiTileUtil.Normalize(winTile);
-            int mult = thirteenWait ? 2 : 1;
+            int mult = thirteenWait && _ctx.DoubleYakuman ? 2 : 1;
             result.Yaku.Add(new YakuEntry { Name = thirteenWait ? "国士无双十三面" : "国士无双", IsYakuman = true, YakumanMultiplier = mult });
             result.YakumanMultiplier = mult;
         }
 
         private void DetectChiitoitsu(List<RiichiSet> sets, int winTile, DetectResult result) {
+            if (CollectAllTiles(sets).All(RiichiTileUtil.IsHonor)) {
+                result.Yaku.Add(new YakuEntry { Name = "字一色", IsYakuman = true, YakumanMultiplier = 1 });
+                return;
+            }
             result.Yaku.Add(new YakuEntry { Name = "七对子", Han = 2 });
             DetectCommonOnFlatTiles(CollectAllTiles(sets), winTile, result, isChiitoitsu: true);
             DetectContextYaku(result);
@@ -112,8 +124,9 @@ namespace Riichi {
                 mult += 1;
             }
             if (windTriplets == 4) {
-                result.Yaku.Add(new YakuEntry { Name = "大四喜", IsYakuman = true, YakumanMultiplier = 2 });
-                mult += 2;
+                int m = _ctx.DoubleYakuman ? 2 : 1;
+                result.Yaku.Add(new YakuEntry { Name = "大四喜", IsYakuman = true, YakumanMultiplier = m });
+                mult += m;
             } else if (windTriplets == 3 && pairIsWind) {
                 result.Yaku.Add(new YakuEntry { Name = "小四喜", IsYakuman = true, YakumanMultiplier = 1 });
                 mult += 1;
@@ -131,7 +144,7 @@ namespace Riichi {
                 mult += 1;
             }
             if (IsSuuankou(sets, winTile, out bool suuankouTanki)) {
-                int m = suuankouTanki ? 2 : 1;
+                int m = suuankouTanki && _ctx.DoubleYakuman ? 2 : 1;
                 result.Yaku.Add(new YakuEntry { Name = suuankouTanki ? "四暗刻单骑" : "四暗刻", IsYakuman = true, YakumanMultiplier = m });
                 mult += m;
             }
@@ -140,7 +153,7 @@ namespace Riichi {
                 mult += 1;
             }
             if (IsChuurenPoutou(sets, winTile, result.IsClosed, out bool daburu)) {
-                int m = daburu ? 2 : 1;
+                int m = daburu && _ctx.DoubleYakuman ? 2 : 1;
                 result.Yaku.Add(new YakuEntry { Name = daburu ? "纯正九莲宝灯" : "九莲宝灯", IsYakuman = true, YakumanMultiplier = m });
                 mult += m;
             }
@@ -222,7 +235,8 @@ namespace Riichi {
             // 荣和完成的刻子视为明刻；IsSuuankou 的同款判断——这里的 Opened 是由拆解得来的 K/G 默认闭合
             // 如果当前刻子包含 winTile 且是荣和（非自摸），视为明刻
             if (!_ctx.IsTsumo) {
-                var ronTriplet = triplets.FirstOrDefault(s => !s.Opened && s.Tile == RiichiTileUtil.Normalize(winTile));
+                var ronTriplet = triplets.FirstOrDefault(s => s.Type == RiichiSetType.Pon && !s.Opened && s.Tile == RiichiTileUtil.Normalize(winTile)
+                    && (_ctx.WinningSetIndex < 0 || sets.IndexOf(s) == _ctx.WinningSetIndex));
                 if (ronTriplet != null) concealedTriplets--;
             }
             if (concealedTriplets == 3 && !allTripletsLike) {
@@ -273,8 +287,9 @@ namespace Riichi {
         }
 
         private void DetectContextYaku(DetectResult result) {
+            if (_ctx.IsIppatsu && _ctx.IppatsuEnabled && (_ctx.IsRiichi || _ctx.IsDaburuRiichi)) result.Yaku.Add(new YakuEntry { Name = "一发", Han = 1 });
             if (_ctx.IsDaburuRiichi) {
-                result.Yaku.Add(new YakuEntry { Name = "两立直", Han = 2 });
+                result.Yaku.Add(new YakuEntry { Name = "双立直", Han = 2 });
             } else if (_ctx.IsRiichi) {
                 result.Yaku.Add(new YakuEntry { Name = "立直", Han = 1 });
             }
@@ -320,9 +335,9 @@ namespace Riichi {
             } else {
                 aka = allTiles.Count(RiichiTileUtil.IsRedFive);
             }
-            if (aka > 0) result.Yaku.Add(new YakuEntry { Name = "赤宝牌", Han = aka });
+            if (aka > 0 && _ctx.RedDora) result.Yaku.Add(new YakuEntry { Name = "赤宝牌", Han = aka });
 
-            if (_ctx.IsRiichi || _ctx.IsDaburuRiichi) {
+            if (_ctx.UraDoraEnabled && (_ctx.IsRiichi || _ctx.IsDaburuRiichi)) {
                 int ura = 0;
                 foreach (int ind in _ctx.UraDoraIndicators) {
                     int target = RiichiTileUtil.DoraFromIndicator(ind);
@@ -366,7 +381,7 @@ namespace Riichi {
 
         private bool IsChuurenPoutou(List<RiichiSet> sets, int winTile, bool isClosed, out bool daburu) {
             daburu = false;
-            if (!isClosed) return false;
+            if (!isClosed || sets.Any(s => s.Type == RiichiSetType.Kan)) return false;
             var allTiles = CollectAllTiles(sets);
             if (allTiles.Any(RiichiTileUtil.IsHonor)) return false;
             var suits = allTiles.Select(t => RiichiTileUtil.Suit(t)).Distinct().ToList();
@@ -452,6 +467,7 @@ namespace Riichi {
             // 对每个闭合的、含 winTile 的 set 评估待牌类型，取"最优"（ryanmen > 其余）
             RiichiWaitType best = RiichiWaitType.None;
             foreach (var s in sets) {
+                if (_ctx.WinningSetIndex >= 0 && sets.IndexOf(s) != _ctx.WinningSetIndex) continue;
                 if (s.Opened) continue;
                 if (s.Type == RiichiSetType.Pair && s.Tile == w) best = Max(best, RiichiWaitType.Tanki);
                 else if (s.Type == RiichiSetType.Pon && s.Tile == w) best = Max(best, RiichiWaitType.Shanpon);

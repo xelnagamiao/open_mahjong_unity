@@ -59,8 +59,36 @@ function buildStatsRowsBase(s, fuluRateFn) {
   ];
 }
 
-/** 玩家个人统计（PlayerData） */
-export const buildPlayerStatsRows = (s) => buildStatsRowsBase(s, playerFuluRate);
+/** history_stats 只有全历史数据，无法按日期或具体场次拆分。 */
+export const canUsePrestoredPlayerStats = ({ scene, dateRange, recordsOnly = false }) =>
+  !recordsOnly && (scene === 'rank' || scene === 'custom')
+  && !(Array.isArray(dateRange) && dateRange[0] && dateRange[1]);
+
+/** 对局数、净得分和顺位必须来自同一批筛选记录，不与全历史分子混用。 */
+export const mergePlayerRankStats = (base, rankRow) => {
+  if (!rankRow) return base;
+  return {
+    ...base,
+    total_games: rankRow.total_games,
+    total_round_score: rankRow.total_round_score ?? null,
+    first_place_count: rankRow.first_place_count,
+    second_place_count: rankRow.second_place_count,
+    third_place_count: rankRow.third_place_count,
+    fourth_place_count: rankRow.fourth_place_count,
+  };
+};
+
+const PLAYER_SETTLEMENT_LABELS = new Set(['总对局', '平均顺位', '局均点', '一位率', '二位率', '三位率', '四位率']);
+
+/** 玩家个人统计（PlayerData）；未提供的明细不能显示为 0 或沿用全历史值。 */
+export const buildPlayerStatsRows = (s, { detailed = true } = {}) =>
+  buildStatsRowsBase(s, playerFuluRate).map((row) => {
+    if ((!detailed && !PLAYER_SETTLEMENT_LABELS.has(row.label))
+      || (row.label === '局均点' && s.total_round_score == null)) {
+      return { ...row, value: '—' };
+    }
+    return row;
+  });
 
 /** 平台全站聚合统计（管理后台 / 平台数据页） */
 export const buildPlatformStatsRows = (s) => buildStatsRowsBase(s, platformFuluRate);

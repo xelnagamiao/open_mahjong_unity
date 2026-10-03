@@ -5,7 +5,7 @@
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Mapping, Optional
 
 
@@ -35,6 +35,7 @@ def rule_id_from_title(game_title: Optional[Mapping[str, Any]] = None, rule: Opt
 class RecordRuleFlags:
     rule_id: str = ""
     kong_replacement_from_front: bool = False
+    replacement_from_tail_end: bool = False
     jiagang_extends_last_meld: bool = False
     face_down_ankan: bool = False
     peek_ankan: bool = False
@@ -69,10 +70,10 @@ _BY_RULE: dict[str, RecordRuleFlags] = {
         hu_tick_follows_shuhewei=True,
         record_hu_tile_tick_index=7,
     ),
-    "taiwan": RecordRuleFlags(rule_id="taiwan"),
+    "taiwan": RecordRuleFlags(rule_id="taiwan", replacement_from_tail_end=True),
     "guobiao": RecordRuleFlags(rule_id="guobiao"),
     "qingque": RecordRuleFlags(rule_id="qingque"),
-    "jiandan": RecordRuleFlags(rule_id="jiandan"),
+    "zhongyong": RecordRuleFlags(rule_id="zhongyong", replacement_from_tail_end=True),
 }
 
 
@@ -81,6 +82,12 @@ def resolve_record_flags(
     rule: Optional[str] = None,
 ) -> RecordRuleFlags:
     rid = rule_id_from_title(game_title, rule)
+    title_rule = _title_str(game_title, "rule").strip().lower().split("/", 1)[0]
+    title_sub = _title_str(game_title, "sub_rule").strip().lower().split("/", 1)[0]
+    if "jiandan" in {rid, title_rule, title_sub}:
+        raise ValueError("旧版南雀牌谱已停止支持，请使用中庸麻将下的新南雀牌谱。")
     if rid in _BY_RULE:
+        if rid == "sichuan" and _title_str(game_title, "sub_rule") in {"sichuan/xueliu", "sichuan/xueliu_exchange"}:
+            return replace(_BY_RULE[rid], infers_dingque_from_discards=False)
         return _BY_RULE[rid]
     return RecordRuleFlags(rule_id=rid)

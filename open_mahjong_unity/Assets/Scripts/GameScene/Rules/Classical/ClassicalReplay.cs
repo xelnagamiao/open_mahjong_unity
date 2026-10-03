@@ -24,7 +24,8 @@ public partial class GameRecordManager {
     }
 
     private bool ShouldSkipRecordTickVoice(string action) {
-        if (action == "shuhewei") return true;
+        // 和牌语音由对应演出统一播放（普通结算、血战中途和牌或古典数和尾）。
+        if (action == "shuhewei" || IsRecordHuClass(action)) return true;
         return RecordHuTickFollowsShuhewei() && IsClassicalFollowSettlementAction(action);
     }
 

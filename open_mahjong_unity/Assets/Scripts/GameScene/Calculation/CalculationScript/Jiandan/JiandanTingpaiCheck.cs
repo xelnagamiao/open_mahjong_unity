@@ -22,7 +22,7 @@ namespace Jiandan {
 
         public HashSet<int> TingpaiCheck(
             List<int> handTileList,
-            List<string> combinationList) {
+            List<string> combinationList, bool allowQuadSplit = false) {
             var concealed = new List<int>(handTileList ?? new List<int>());
             var combinations = combinationList ?? new List<string>();
             var physicalCounts = BuildPhysicalCounts(concealed, combinations);
@@ -34,14 +34,14 @@ namespace Jiandan {
                 }
 
                 var candidate = new List<int>(concealed) { tile };
-                if (IsWinningShape(candidate, combinations)) {
+                if (IsWinningShape(candidate, combinations, allowQuadSplit)) {
                     waits.Add(tile);
                 }
             }
             return waits;
         }
 
-        private static bool IsWinningShape(List<int> concealed, List<string> combinations) {
+        private static bool IsWinningShape(List<int> concealed, List<string> combinations, bool allowQuadSplit) {
             int declaredSetCount = combinations.Count(IsSetCode);
             if (declaredSetCount == 0
                 && (IsSevenPairs(concealed) || IsThirteenOrphans(concealed))) {
@@ -56,12 +56,12 @@ namespace Jiandan {
             var counts = BuildCounts(concealed);
             foreach (int pairTile in ValidTiles) {
                 int count = counts[pairTile];
-                if (count < 2 || count == 4) {
+                if (count < 2 || (!allowQuadSplit && count == 4)) {
                     continue;
                 }
 
                 counts[pairTile] -= 2;
-                bool complete = CanFormMelds(counts, neededMelds);
+                bool complete = CanFormMelds(counts, neededMelds, allowQuadSplit);
                 counts[pairTile] += 2;
                 if (complete) {
                     return true;
@@ -70,7 +70,7 @@ namespace Jiandan {
             return false;
         }
 
-        private static bool CanFormMelds(Dictionary<int, int> counts, int remaining) {
+        private static bool CanFormMelds(Dictionary<int, int> counts, int remaining, bool allowQuadSplit) {
             if (remaining == 0) {
                 return counts.Values.All(count => count == 0);
             }
@@ -81,9 +81,9 @@ namespace Jiandan {
             }
 
             int firstCount = counts[first];
-            if (firstCount >= 3 && firstCount != 4) {
+            if (firstCount >= 3 && (allowQuadSplit || firstCount != 4)) {
                 counts[first] -= 3;
-                if (CanFormMelds(counts, remaining - 1)) {
+                if (CanFormMelds(counts, remaining - 1, allowQuadSplit)) {
                     counts[first] += 3;
                     return true;
                 }
@@ -96,7 +96,7 @@ namespace Jiandan {
                 counts[first]--;
                 counts[first + 1]--;
                 counts[first + 2]--;
-                if (CanFormMelds(counts, remaining - 1)) {
+                if (CanFormMelds(counts, remaining - 1, allowQuadSplit)) {
                     counts[first]++;
                     counts[first + 1]++;
                     counts[first + 2]++;

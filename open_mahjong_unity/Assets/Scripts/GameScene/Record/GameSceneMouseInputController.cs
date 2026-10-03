@@ -3,19 +3,19 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 
 /// <summary>
-/// 牌谱场景鼠标输入控制（不依赖射线检测，使用 Input + 屏幕矩形排除）：
-/// - 左键：下一步
+/// 牌谱场景鼠标/触屏输入控制（使用 Input + UI 射线排除）：
+/// - 空白处左键/触屏：下一步，长按连续前进
 /// - 右键：上一步
 /// - 滚轮下：下一巡
 /// - 滚轮上：上一巡
 /// - Shift + 滚轮下：下一局
 /// - Shift + 滚轮上：上一局
-/// 通过 Input 直接读取鼠标位置与按键，用「排除用 RectTransform」判断是否在面板上，避免射线导致的指针偏移。
+/// 通过 Input 读取指针位置与按键，命中排除根下的 UI 时不推进。
 /// 无需挂载在带 Graphic 的物体上，也不再依赖 PassThroughToWorldSpaceFilter。
-/// ControPanel 点击仍可通过 HandleExternalPointerClick 转发，与本脚本的 Input 处理二选一生效，不会重复触发。
+/// 牌谱输入统一由 Update 处理；ControPanel 等的抬起转发只用于对局快捷操作，避免牌谱重复步进。
 /// 对局态（StateGame）下由子状态 actionInputPhase 区分 askHandAction / askOtherAction，并结合 ConfigManager 的摸切与鸣牌「取消」快捷配置。
 /// </summary>
-public class GameSceneMouseInputController : MonoBehaviour {
+public partial class GameSceneMouseInputController : MonoBehaviour {
     public static GameSceneMouseInputController Instance { get; private set; }
 
     public const string StateIdle = "Idle";
@@ -67,6 +67,7 @@ public class GameSceneMouseInputController : MonoBehaviour {
     }
 
     public void SetState(string newState) {
+        CancelRecordScreenHold();
         state = newState;
         SetActionInputPhase(InputPhaseNone);
     }
@@ -98,7 +99,15 @@ public class GameSceneMouseInputController : MonoBehaviour {
 
     private void Update() {
         // 对局/牌谱挂后台回到主菜单等非游戏窗口时，禁止任何快捷键，避免右键摸切/双击/滚轮误触。
-        if (!IsGameSceneForeground()) return;
+        if (!IsGameSceneForeground()) {
+            CancelRecordScreenHold();
+            return;
+        }
+
+        if (state == StateRecord) {
+            UpdateRecordScreenInput();
+            return;
+        }
 
         // 右键快照须在 excludeRect 判断之前记录：手牌 UI 常在排除区内，否则抬起路径拿不到 pressPhase。
         if (state == StateGame && Input.GetMouseButtonDown(1)) {
@@ -107,28 +116,7 @@ public class GameSceneMouseInputController : MonoBehaviour {
 
         if (IsPointerOverExcludeRect()) return;
 
-        if (state == StateRecord) {
-            if (GameRecordManager.Instance.BlocksRecordNavigation) {
-                return;
-            }
-            if (Input.GetMouseButtonDown(0)) {
-                GameRecordManager.Instance.NextStep();
-            } else if (Input.GetMouseButtonDown(1)) {
-                GameRecordManager.Instance.BackStep();
-            }
-
-            float scroll = Input.mouseScrollDelta.y;
-            if (Mathf.Abs(scroll) > 0.01f) {
-                bool isShiftPressed = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-                if (isShiftPressed) {
-                    if (scroll < 0f) GameRecordManager.Instance.StepToNextRoundFromInput();
-                    else if (scroll > 0f) GameRecordManager.Instance.GotoSelectRound(GameRecordManager.Instance.currentRoundIndex - 1);
-                } else {
-                    if (scroll < 0f) GameRecordManager.Instance.NextXunmu();
-                    else if (scroll > 0f) GameRecordManager.Instance.BackXunmu();
-                }
-            }
-        } else if (state == StateGame) {
+        if (state == StateGame) {
             TryDisarmHandSelectionOnClickOutside();
             HandleGameStateMouseShortcutsFromInput();
         }
@@ -196,14 +184,21 @@ public class GameSceneMouseInputController : MonoBehaviour {
     }
 
     public bool IsPointerOverExcludeRect() {
+        return IsPointerOverExcludeRect(Input.mousePosition);
+    }
+
+    private bool IsPointerOverExcludeRect(Vector2 screenPosition) {
         if (EventSystem.current == null) return false;
+        FreeGameState freeState = FreeGameState.Active;
+        if (freeState != null && freeState.IsActive && freeState.BlocksTableShortcuts) return true;
         bool hasMain = excludeRect != null;
         bool hasExtra = additionalExcludeRects != null && additionalExcludeRects.Length > 0;
-        if (!hasMain && !hasExtra) return false;
+        bool hasFreeUi = freeState != null && freeState.IsActive;
+        if (!hasMain && !hasExtra && !hasFreeUi) return false;
 
         if (_pointerEventData == null) _pointerEventData = new PointerEventData(EventSystem.current);
         _pointerEventData.Reset();
-        _pointerEventData.position = Input.mousePosition;
+        _pointerEventData.position = screenPosition;
 
         _uiRaycastResults.Clear();
         EventSystem.current.RaycastAll(_pointerEventData, _uiRaycastResults);
@@ -211,6 +206,13 @@ public class GameSceneMouseInputController : MonoBehaviour {
         for (int i = 0; i < _uiRaycastResults.Count; i++) {
             GameObject hit = _uiRaycastResults[i].gameObject;
             if (hit == null) continue;
+            // 自由模式面板是动态挂到 GameCanvas 的，不在场景预设的 GamePanel 排除树内。
+            // 读消息、调分和取转移牌时，不应同时触发右键摸切等牌桌快捷操作。
+            if (hasFreeUi && (hit.GetComponentInParent<FreeModeHud>() != null
+                || hit.GetComponentInParent<FreeModeActivityPanel>() != null
+                || hit.GetComponentInParent<FreeModeTransferTileHitTarget>() != null)) {
+                return true;
+            }
             if (BelongsToAnyExcludeRoot(hit.transform)) {
                 return true;
             }
@@ -261,7 +263,7 @@ public class GameSceneMouseInputController : MonoBehaviour {
     }
 
     /// <summary>
-    /// 允许世界空间面板（如 ControPanel）转发点击，避免被顶层射线截断。与 Update 中的 Input 处理互斥（同一次点击只处理一次）。
+    /// 对局允许世界空间面板（如 ControPanel）转发点击；牌谱只处理原始按下/按住输入。
     /// 对局态下摸切/鸣牌取消与 Update 使用相同子状态与配置判断。
     /// </summary>
     public void HandleExternalPointerClick(PointerEventData eventData) {
@@ -320,16 +322,8 @@ public class GameSceneMouseInputController : MonoBehaviour {
             return;
         }
 
-        if (state == StateRecord) {
-            if (GameRecordManager.Instance.BlocksRecordNavigation) {
-                return;
-            }
-            if (eventData.button == PointerEventData.InputButton.Left) {
-                GameRecordManager.Instance.NextStep();
-            } else if (eventData.button == PointerEventData.InputButton.Right) {
-                GameRecordManager.Instance.BackStep();
-            }
-        }
+        // 牌谱由 UpdateRecordScreenInput 唯一处理。抬起时再次转发会多走一步，
+        // 也会让从 UI 按下再移到空白处的点击穿透排除区域。
     }
 
     /// <summary>

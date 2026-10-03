@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 public class EndResultPanel : MonoBehaviour {
     public enum EndResultTileLayout {
-        /// <summary>国标和牌：暗手 + 分隔 + 副露 + 分隔 + 和牌张。</summary>
+        /// <summary>和牌：暗手 + 分隔 + 副露 + 分隔 + 和牌张（最右侧）。</summary>
         HuWithWinTile,
         /// <summary>查叫：手牌 + 分隔 + 副露（无和牌张）。</summary>
         ClosedHandWithMelds,
@@ -828,6 +828,7 @@ public class EndResultPanel : MonoBehaviour {
 
     private void PopulateEndTilesContainer(int[] hand, int[][] combinationMask, EndResultTileLayout layout) {
         if (hand == null || hand.Length == 0) return;
+        SettlementTileRowLayout.Ensure(EndTilescontainer);
 
         if (layout == EndResultTileLayout.ClosedHandWithMelds) {
             int[] sortedHand = (int[])hand.Clone();
@@ -866,12 +867,11 @@ public class EndResultPanel : MonoBehaviour {
     }
 
     private void SpawnCombinationTiles(int[][] combinationMask) {
-        if (combinationMask == null) return;
-        for (int list = 0; list < combinationMask.Length; list++) {
-            for (int mask = 1; mask < combinationMask[list].Length; mask += 2) {
-                int tileId = combinationMask[list][mask];
-                if (tileId <= 10) continue;
-                SpawnStaticTile(tileId);
+        foreach (var group in SettlementMeldLayoutBuilder.Build(combinationMask)) {
+            foreach (var tile in group) {
+                SpawnStaticTile(tile.FaceDown ? 0 : tile.TileId);
+                // 加杠第四张也独立竖放，不旋转或叠在来源牌上。
+                if (tile.StackedTileId.HasValue) SpawnStaticTile(tile.StackedTileId.Value);
             }
         }
     }

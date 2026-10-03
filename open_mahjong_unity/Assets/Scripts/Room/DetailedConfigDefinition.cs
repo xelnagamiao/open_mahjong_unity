@@ -398,6 +398,8 @@ internal static class DetailedConfigRegistry {
         DetailedConfigDefinition taiwan = Taiwan_Create_RoomConfig.CreateDetailedConfigDefinition();
         return new Dictionary<string, DetailedConfigDefinition> {
             { taiwan.RuleKey, taiwan },
+            { "riichi", RiichiRoomRules.CreateDefinition() },
+            { "hongkong", HongKong_Create_RoomConfig.Definition() },
         };
     }
 }

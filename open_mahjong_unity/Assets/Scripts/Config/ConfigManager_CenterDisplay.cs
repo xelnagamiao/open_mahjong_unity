@@ -7,7 +7,7 @@ public partial class ConfigManager
 
     // Stable IDs keep saved choices independent of card ordering or translated names.
     public string SelectedCenterDisplayId => CenterDisplayStyles.Normalize(
-        PlayerPrefs.GetString(CenterDisplayPreferenceKey, CenterDisplayStyles.Classic));
+        PlayerPrefs.GetString(CenterDisplayPreferenceKey, CenterDisplayStyles.Default));
 
     public event Action<string> CenterDisplayChanged;
 

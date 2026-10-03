@@ -11,5 +11,8 @@ public class RyuukyokuTenpaiChoiceButton : MonoBehaviour {
 
     public void SetSelected(bool selected) {
         image.color = selected ? selectedColor : normalColor;
+        foreach (TMPro.TMP_Text label in GetComponentsInChildren<TMPro.TMP_Text>(true)) {
+            label.color = new Color(0.12f, 0.14f, 0.16f, 1f);
+        }
     }
 }

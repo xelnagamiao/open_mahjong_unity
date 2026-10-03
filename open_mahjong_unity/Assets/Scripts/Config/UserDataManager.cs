@@ -10,8 +10,37 @@ public class UserDataManager : MonoBehaviour {
     public const string ROOM_ID_NONE = "NOROOM";
     public string RoomId { get; private set; } = ROOM_ID_NONE;
     public string GamestateId { get; private set; } = ""; // 当前游戏状态ID（用于游戏内操作）
+    public string GameRoomId { get; private set; } = ROOM_ID_NONE;
+    public string ChatRoomId => !string.IsNullOrEmpty(GamestateId) && GameRoomId != ROOM_ID_NONE
+        ? GameRoomId : RoomId;
     public event Action OnRoomIdChanged;
     public int TitleId { get; private set; }
+    public TitleState Titles { get; private set; }
+    public event Action OnTitlesChanged;
+    public InventoryState Inventory { get; private set; }
+    public int AvatarFrameId { get; private set; }
+    public event Action OnInventoryChanged;
+
+    public void ApplyInventoryState(InventoryState state) {
+        if (state == null || state.user_id != UserId) return;
+        Inventory = state;
+        if (state.appearance != null) {
+            CharacterId = state.appearance.character_id;
+            VoiceId = state.appearance.voice_id;
+            ProfileImageId = state.appearance.profile_image_id;
+            AvatarFrameId = state.appearance.avatar_frame_id;
+        }
+        OnInventoryChanged?.Invoke();
+        GameSettings.NotifyAppearanceChanged(state.appearance);
+    }
+
+    public void ApplyTitleState(TitleState state) {
+        if (state == null || state.user_id != UserId) return;
+        Titles = state;
+        TitleId = state.equipped_title_id;
+        OnTitlesChanged?.Invoke();
+        GameSettings.NotifyTitleChanged(UserId, TitleId);
+    }
     public int ProfileImageId { get; private set; }
     public int CharacterId { get; private set; }
     public int VoiceId { get; private set; }
@@ -19,6 +48,24 @@ public class UserDataManager : MonoBehaviour {
     // 段位数据
     public string GuobiaoRank { get; private set; } = "10级";
     public float GuobiaoScore { get; private set; } = 0;
+    private readonly System.Collections.Generic.Dictionary<string,RuleRating> ratings = new System.Collections.Generic.Dictionary<string,RuleRating>();
+    public event Action RankDataChanged;
+    public RuleRating GetRating(string rule) {
+        var rating=RankedRules.Get(ratings,rule);
+        if(rule=="guobiao"){rating.rank_name=GuobiaoRank;rating.rank_score=GuobiaoScore;}
+        return rating;
+    }
+    public void SetRatings(System.Collections.Generic.Dictionary<string,RuleRating> values) {
+        ratings.Clear();
+        if(values!=null)foreach(var pair in values)if(RankedRules.Supports(pair.Key)&&pair.Value!=null)ratings[pair.Key]=pair.Value;
+        RankDataChanged?.Invoke();
+    }
+    public void UpdateRating(RuleRating rating) {
+        if(rating==null||!RankedRules.Supports(rating.rule))return;
+        ratings[rating.rule]=rating;
+        if(rating.rule=="guobiao"){GuobiaoRank=rating.rank_name;GuobiaoScore=rating.rank_score;}
+        RankDataChanged?.Invoke();
+    }
     public bool IsSponsor { get; private set; } = false;
     public bool IsBeginnerQualified { get; private set; } = false;
     public bool IsIntermediateQualified { get; private set; } = false;
@@ -53,6 +100,12 @@ public class UserDataManager : MonoBehaviour {
         UserId = user_id;
         IsTourist = isTourist;
         if (accountChanged) {
+            Inventory = null;
+            AvatarFrameId = 0;
+            OnInventoryChanged?.Invoke();
+            Titles = null;
+            TitleId = 1;
+            OnTitlesChanged?.Invoke();
             SetGamestateId("");
             SetRoomId(ROOM_ID_NONE);
         }
@@ -67,33 +120,31 @@ public class UserDataManager : MonoBehaviour {
         this.VoiceId = voice_id;
     }
 
-    // 设置房间ID
+    // 大厅成员身份由 room 消息维护，game_start 不会改写它。
     public void SetRoomId(string room_id) {
-        Debug.Log("SetRoomId: " + room_id);
-        Debug.Log("Current RoomId: " + this.RoomId);
-        if (string.IsNullOrEmpty(room_id)) room_id = ROOM_ID_NONE;
-        if (this.RoomId == room_id) return;
-
-        string previous = this.RoomId;
-        this.RoomId = room_id;
-        try {
-            ChatManager chat = ChatManager.Instance;
-            if (chat != null) {
-                if (previous != ROOM_ID_NONE && int.TryParse(previous, out int oldId)) {
-                    chat.LeaveRoom(oldId);
-                } else if (room_id != ROOM_ID_NONE && int.TryParse(room_id, out int newId)) {
-                    chat.JoinRoom(newId);
-                }
-            }
-        } catch (Exception e) {
-            Debug.LogWarning($"SetRoomId 同步聊天房间失败: {e.Message}");
-        }
+        room_id = string.IsNullOrEmpty(room_id) ? ROOM_ID_NONE : room_id;
+        if (RoomId == room_id) return;
+        RoomId = room_id;
+        SyncChatRoom();
         OnRoomIdChanged?.Invoke();
     }
 
-    // 设置当前游戏状态ID
+    public void SetGameSession(string gamestateId, string gameRoomId) {
+        GamestateId = gamestateId ?? "";
+        GameRoomId = string.IsNullOrEmpty(gameRoomId) ? ROOM_ID_NONE : gameRoomId;
+        SyncChatRoom();
+    }
+
     public void SetGamestateId(string gamestate_id) {
-        GamestateId = gamestate_id;
+        if (GamestateId != gamestate_id || string.IsNullOrEmpty(gamestate_id)) {
+            GameRoomId = ROOM_ID_NONE;
+        }
+        GamestateId = gamestate_id ?? "";
+        SyncChatRoom();
+    }
+
+    private void SyncChatRoom() {
+        ChatManager.Instance?.SetRoomChannel(int.TryParse(ChatRoomId, out int channel) ? channel : 0);
     }
 
     // 设置段位数据
@@ -125,9 +176,17 @@ public class UserDataManager : MonoBehaviour {
     /// 断线/登出时清空在线会话，保留本地保存的账号密码输入。
     /// </summary>
     public void ClearSessionState() {
+        ratings.Clear();GuobiaoRank="10级";GuobiaoScore=0;
+        RankDataChanged?.Invoke();
         Username = null;
         Userkey = null;
         UserId = 0;
+        Inventory = null;
+        AvatarFrameId = 0;
+        OnInventoryChanged?.Invoke();
+        Titles = null;
+        TitleId = 1;
+        OnTitlesChanged?.Invoke();
         IsTourist = false;
         SetGamestateId("");
         SetRoomId(ROOM_ID_NONE);

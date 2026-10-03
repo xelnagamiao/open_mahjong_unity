@@ -67,6 +67,16 @@
             <el-form-item label="活动名称">
               <el-input v-model="form.title" maxlength="80" show-word-limit />
             </el-form-item>
+            <el-form-item label="活动简介">
+              <el-input
+                v-model="form.description"
+                type="textarea"
+                :rows="2"
+                maxlength="200"
+                show-word-limit
+                placeholder="选填，留空时通知列表不显示简介"
+              />
+            </el-form-item>
             <el-form-item label="排序">
               <el-input-number v-model="form.sort" :min="0" :max="9999" />
               <span class="field-hint">数字越大越靠前，新建会自动取当前最大值 + 1</span>
@@ -210,6 +220,7 @@
                       {{ row.cover_url ? '' : '标题图片' }}
                     </div>
                     <div class="preview-title">{{ row.title || '活动名称' }}</div>
+                    <div v-if="row.description?.trim()" class="preview-description">{{ row.description.trim() }}</div>
                   </div>
                 </div>
                 <div class="preview-detail">
@@ -330,6 +341,7 @@ const textRefs = []
 const form = reactive({
   id: '',
   title: '',
+  description: '',
   cover_url: '',
   blocks: [],
   status: 'draft',
@@ -350,6 +362,7 @@ const sceneList = computed(() => {
       ...byId.get(form.id),
       id: form.id,
       title: form.title,
+      description: form.description,
       cover_url: form.cover_url,
       status: form.status,
       sort: form.sort,
@@ -429,6 +442,7 @@ function payloadBlocks() {
 function snapshotOf(item) {
   return JSON.stringify({
     title: item.title || '',
+    description: item.description || '',
     sort: Number(item.sort) || 0,
     blocks: (item.blocks || []).map((block) => {
       if (block.type === 'image') {
@@ -442,6 +456,7 @@ function snapshotOf(item) {
 function applyItem(item, { keepBlocks } = {}) {
   form.id = item.id
   form.title = item.title || ''
+  form.description = item.description || ''
   form.cover_url = item.cover_url || ''
   form.status = item.status || (item.published ? 'published' : 'draft')
   form.sort = Number(item.sort) || 0
@@ -457,6 +472,7 @@ function syncListFromForm() {
   if (!form.id) return
   patchListRow(form.id, {
     title: form.title,
+    description: form.description,
     cover_url: form.cover_url,
     status: form.status,
     sort: form.sort,
@@ -468,6 +484,7 @@ function syncListFromForm() {
 function clearForm() {
   form.id = ''
   form.title = ''
+  form.description = ''
   form.cover_url = ''
   form.blocks = []
   form.status = 'draft'
@@ -478,6 +495,7 @@ function clearForm() {
 function contentPayload() {
   return {
     title: form.title,
+    description: form.description,
     sort: form.sort,
     blocks: payloadBlocks(),
   }
@@ -626,6 +644,7 @@ function mergeLocalItem(remote, keepId) {
   const fallback = local || {
     id: form.id,
     title: form.title,
+    description: form.description,
     cover_url: form.cover_url,
     blocks: payloadBlocks(),
     status: form.status,
@@ -1094,6 +1113,17 @@ onBeforeUnmount(() => {
   font-weight: 400;
 }
 .preview-card.selected .preview-title {
+  color: #141c2e;
+}
+.preview-description {
+  color: #c7ccd6;
+  font-size: 18px;
+  line-height: 1.4;
+  margin-top: 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.preview-card.selected .preview-description {
   color: #141c2e;
 }
 .preview-ended {

@@ -22,9 +22,10 @@ def get_rank_data(db_manager, user_id: int) -> dict:
             (user_id,)
         )
         row = cursor.fetchone()
-        if row:
-            return {"guobiao_rank": row[0], "guobiao_score": float(row[1])}
-        return None
+        from ..rule_ratings import read_ratings
+        rank, score = row if row else ("10级", 0.0)
+        return {"guobiao_rank": rank, "guobiao_score": float(score),
+                "ratings": read_ratings(cursor, user_id, rank, score)}
     except Error as e:
         logger.error(f"获取段位数据失败: {e}")
         if conn:
