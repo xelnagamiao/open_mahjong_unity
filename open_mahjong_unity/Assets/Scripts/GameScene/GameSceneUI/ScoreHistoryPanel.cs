@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using TMPro;
-public class ScoreHistoryPanel : MonoBehaviour
+public class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
 {
     public static ScoreHistoryPanel Instance { get; private set; }
     [SerializeField] private GameObject Tmp_Text_Prefab;
@@ -24,7 +25,10 @@ public class ScoreHistoryPanel : MonoBehaviour
     [Header("本局分差列颜色")]
     [SerializeField] private Color scoreGainColor = Color.green;
     [SerializeField] private Color scoreLossColor = Color.red;
-    [SerializeField] private Color tsumoLossColor = Color.blue;
+    [SerializeField] private Color tsumoLossColor = new Color32(0, 128, 255, 255);
+    private GameObject dismissArea;
+    private Canvas tableCanvas;
+    private float borderWidth = -1f;
 
     private void Awake()
     {
@@ -38,10 +42,28 @@ public class ScoreHistoryPanel : MonoBehaviour
             return;
         }
         EnsureReferences();
+        var scrollbar = GetComponentInChildren<UnityEngine.UI.ScrollRect>(true)?.verticalScrollbar;
+        if (scrollbar != null) {
+            var relay = scrollbar.GetComponent<ScoreHistoryBackgroundClickRelay>();
+            if (relay == null) relay = scrollbar.gameObject.AddComponent<ScoreHistoryBackgroundClickRelay>();
+            relay.Owner = this;
+        }
+    }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (eventData.button != PointerEventData.InputButton.Left || eventData.dragging) return;
+        if (fanTooltip != null && fanTooltip.IsPinned) fanTooltip.Hide();
     }
 
     private void OnEnable()
     {
+        if (fanTooltip != null) fanTooltip.Hide();
+        tableCanvas = GetComponentInParent<Canvas>();
+        borderWidth = -1f;
+        Canvas.preWillRenderCanvases += RefreshBorderWidths;
+        ShowDismissArea();
+        if (GameCanvas.Instance != null) GameCanvas.Instance.SetScoreRecordOpen(true);
         if (GameSceneUIManager.Instance == null) return;
 
         bool recordActive = GameRecordManager.Instance != null
@@ -55,6 +77,55 @@ public class ScoreHistoryPanel : MonoBehaviour
         var mgr = NormalGameStateManager.Instance;
         if (mgr == null || (!mgr.IsGameActive && mgr.roundSettlementHistory.Count == 0)) return;
         GameSceneUIManager.Instance.UpdateScoreRecord();
+    }
+
+    private void OnDisable()
+    {
+        Canvas.preWillRenderCanvases -= RefreshBorderWidths;
+        if (dismissArea != null) dismissArea.SetActive(false);
+        if (fanTooltip != null) fanTooltip.Hide();
+        if (GameCanvas.Instance != null) GameCanvas.Instance.SetScoreRecordOpen(false);
+    }
+
+    private void RefreshBorderWidths()
+    {
+        float width = ScoreHistoryCellVisuals.BorderWidth(tableCanvas);
+        if (Mathf.Approximately(width, borderWidth)) return;
+        borderWidth = width;
+        ScoreHistoryCellVisuals.RefreshBorderWidths(transform, width);
+    }
+
+    private void OnDestroy()
+    {
+        if (dismissArea != null) Destroy(dismissArea);
+        if (Instance == this) Instance = null;
+    }
+
+    private void ShowDismissArea()
+    {
+        if (transform.parent is not RectTransform) return;
+        if (dismissArea == null) {
+            dismissArea = new GameObject("ScoreHistoryDismissArea", typeof(RectTransform),
+                typeof(UnityEngine.UI.Image), typeof(UnityEngine.UI.Button), typeof(UnityEngine.UI.LayoutElement));
+            dismissArea.transform.SetParent(transform.parent, false);
+            var rect = (RectTransform)dismissArea.transform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+            dismissArea.GetComponent<UnityEngine.UI.LayoutElement>().ignoreLayout = true;
+            var image = dismissArea.GetComponent<UnityEngine.UI.Image>();
+            image.color = Color.clear;
+            image.raycastTarget = true;
+            var button = dismissArea.GetComponent<UnityEngine.UI.Button>();
+            button.targetGraphic = image;
+            button.transition = UnityEngine.UI.Selectable.Transition.None;
+            button.navigation = new UnityEngine.UI.Navigation { mode = UnityEngine.UI.Navigation.Mode.None };
+            button.onClick.AddListener(Close);
+        }
+        // 放在计分板正下方：表内交互照常，表外点击只关闭面板，不穿透到牌桌快捷操作。
+        dismissArea.transform.SetAsLastSibling();
+        dismissArea.transform.SetSiblingIndex(transform.GetSiblingIndex());
+        dismissArea.SetActive(true);
     }
 
     private void EnsureReferences()
@@ -178,7 +249,7 @@ public class ScoreHistoryPanel : MonoBehaviour
         UpdateScoreRecord(rule, player_to_info, null);
     }
 
-    public void UpdateScoreRecord(string rule, IReadOnlyDictionary<string, PlayerInfoClass> player_to_info, IReadOnlyList<RoundSettlementSnapshot> roundSettlements, int totalRounds = 0, bool maskPlayerNames = false, string subRuleFallback = null)
+    public void UpdateScoreRecord(string rule, IReadOnlyDictionary<string, PlayerInfoClass> player_to_info, IReadOnlyList<RoundSettlementSnapshot> roundSettlements, int totalRounds = 0, bool maskPlayerNames = false, string subRuleFallback = null, IReadOnlyList<int> recordRoundIndices = null)
     {
         if (player_to_info == null || player_to_info.Count < 4) return;
 
@@ -218,7 +289,8 @@ public class ScoreHistoryPanel : MonoBehaviour
             roundNumberHistory,
             roundSettlements,
             totalRounds,
-            subRuleFallback);
+            subRuleFallback,
+            recordRoundIndices);
     }
 
     public void InitializeScoreRecord(
@@ -230,7 +302,8 @@ public class ScoreHistoryPanel : MonoBehaviour
         List<int> roundNumberHistory = null,
         IReadOnlyList<RoundSettlementSnapshot> roundSettlements = null,
         int totalRounds = 0,
-        string subRuleFallback = null)
+        string subRuleFallback = null,
+        IReadOnlyList<int> recordRoundIndices = null)
     {
         EnsureMainFanColumnSetup();
         if (RoundIndexContainer != null)
@@ -267,10 +340,13 @@ public class ScoreHistoryPanel : MonoBehaviour
         for (int i = 0; i < roundCount; i++) {
             int roundNumber = ScoreHistorySettlementHelper.ResolveRoundNumberForRow(i, scoreHistoryCount, roundNumbers);
             if (roundNumber > maxPlayedRoundNumber) maxPlayedRoundNumber = roundNumber;
-            GameObject textObj = Instantiate(Tmp_Text_Prefab, RoundIndexContainer.transform);
+            GameObject textObj = CreateCell(RoundIndexContainer.transform);
             TMP_Text text = textObj.GetComponent<TMP_Text>();
             if (text != null) {
                 text.text = RoundTextDictionary.GetRoundName(rule, roundNumber);
+                if (recordRoundIndices != null && i < recordRoundIndices.Count) {
+                    textObj.AddComponent<ScoreHistoryRoundCell>().Bind(text, recordRoundIndices[i]);
+                }
             }
 
             CreateMainFanCell(i, scoreHistoryCount, roundCount, subRule, roundSettlements);
@@ -285,10 +361,10 @@ public class ScoreHistoryPanel : MonoBehaviour
             }
         }
         foreach (int rn in predictedRoundNumbers) {
-            GameObject textObj = Instantiate(Tmp_Text_Prefab, RoundIndexContainer.transform);
+            GameObject textObj = CreateCell(RoundIndexContainer.transform);
             TMP_Text text = textObj.GetComponent<TMP_Text>();
             if (text != null) {
-                text.text = $"<color=#7A7A7A>{RoundTextDictionary.GetRoundName(rule, rn)}</color>";
+                text.text = $"<color=#C0C0C0>{RoundTextDictionary.GetRoundName(rule, rn)}</color>";
                 text.raycastTarget = false;
             }
             AddEmptyCell(MainFanContainer);
@@ -349,7 +425,7 @@ public class ScoreHistoryPanel : MonoBehaviour
                 }
                 RoundSettlementSnapshot rowSnapshot = ScoreHistorySettlementHelper.ResolveSettlementForRow(
                     i, player.scoreHistory.Count, roundSettlements);
-                GameObject roundScoreObj = Instantiate(Tmp_Text_Prefab, player.roundScoreContainer.transform);
+                GameObject roundScoreObj = CreateCell(player.roundScoreContainer.transform);
                 TMP_Text roundScoreText = roundScoreObj.GetComponent<TMP_Text>();
                 if (roundScoreText != null)
                 {
@@ -357,7 +433,7 @@ public class ScoreHistoryPanel : MonoBehaviour
                 }
 
                 cumulativeScore += scoreValue;
-                GameObject gameScoreObj = Instantiate(Tmp_Text_Prefab, player.gameScoreContainer.transform);
+                GameObject gameScoreObj = CreateCell(player.gameScoreContainer.transform);
                 TMP_Text gameScoreText = gameScoreObj.GetComponent<TMP_Text>();
                 if (gameScoreText != null)
                 {
@@ -411,11 +487,28 @@ public class ScoreHistoryPanel : MonoBehaviour
         return sum;
     }
 
+    private GameObject CreateCell(Transform container)
+    {
+        GameObject cell = Instantiate(Tmp_Text_Prefab, container);
+        ScoreHistoryCellVisuals.AddBorders(cell.transform);
+        TMP_Text text = cell.GetComponent<TMP_Text>();
+        if (text != null) {
+            text.color = Color.white;
+            text.fontSize = 22f;
+            text.enableAutoSizing = false;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Ellipsis;
+            text.margin = new Vector4(2f, 0f, 2f, 0f);
+            text.raycastTarget = false;
+        }
+        return cell;
+    }
+
     /// <summary>在指定列追加一个空白单元格，用于预测局/补齐行数时保持各列对齐。</summary>
     private void AddEmptyCell(Transform container)
     {
         if (container == null || Tmp_Text_Prefab == null) return;
-        GameObject obj = Instantiate(Tmp_Text_Prefab, container);
+        GameObject obj = CreateCell(container);
         TMP_Text text = obj.GetComponent<TMP_Text>();
         if (text != null) {
             text.text = "";
@@ -441,7 +534,7 @@ public class ScoreHistoryPanel : MonoBehaviour
             subRule = snapshot.subRule;
         }
 
-        GameObject cellObj = Instantiate(Tmp_Text_Prefab, MainFanContainer);
+        GameObject cellObj = CreateCell(MainFanContainer);
         string label = ScoreHistorySettlementHelper.GetMainFanColumnLabel(subRule, snapshot, roundIndex);
         bool canHover = snapshot != null && snapshot.CanShowTooltip;
         TMP_Text text = ScoreHistoryCellTextUtil.ApplyLabel(cellObj, label, canHover);
@@ -464,6 +557,7 @@ public class ScoreHistoryPanel : MonoBehaviour
             Transform child = container.GetChild(i);
             if (child != null)
             {
+                child.gameObject.SetActive(false);
                 Destroy(child.gameObject);
             }
         }
@@ -493,6 +587,13 @@ public class ScoreHistoryPanel : MonoBehaviour
     private static string ColorToTmpHex(Color color) {
         return "#" + ColorUtility.ToHtmlStringRGB(color);
     }
+}
+
+// Scrollbar 的按下事件由自身接收，补上同一对象的点击转发，不影响拖拽滚动。
+internal sealed class ScoreHistoryBackgroundClickRelay : MonoBehaviour, IPointerClickHandler {
+    public ScoreHistoryPanel Owner { get; set; }
+
+    public void OnPointerClick(PointerEventData eventData) => Owner?.OnPointerClick(eventData);
 }
 
 internal static class ScoreHistoryCellTextUtil {

@@ -15,6 +15,7 @@ function mapDailyRow(row) {
   return {
     stat_date: formatStatDate(row.stat_date),
     game_count: Number(row.game_count) || 0,
+    new_registered_users: Number(row.new_registered_users) || 0,
     dau: Number(row.dau) || 0,
     active_users: Number(row.active_users) || 0,
     max_online: Number(row.max_online) || 0,
@@ -50,26 +51,53 @@ router.get('/daily', async (req, res) => {
       dateTo = dateTo || defaults.date_to;
     }
 
-    let sql;
     const params = [dateFrom, dateTo];
+    // users.created_at 是北京时间的无时区时间戳，04:00 前注册归入前一统计日。
+    // 注册数据直接读取用户表，尚未生成 daily_stats 的日期也能显示新增注册。
+    const dailySource = `
+      WITH registrations AS (
+        SELECT (created_at - interval '4 hours')::date AS stat_date,
+               COUNT(*)::int AS new_registered_users
+        FROM users
+        WHERE NOT is_tourist AND user_id >= 10000001
+          AND created_at >= $1::date + interval '4 hours'
+          AND created_at < $2::date + interval '1 day 4 hours'
+        GROUP BY 1
+      ), combined AS (
+        SELECT COALESCE(d.stat_date, r.stat_date) AS stat_date,
+               COALESCE(d.game_count, 0) AS game_count,
+               COALESCE(d.dau, 0) AS dau,
+               COALESCE(d.active_users, 0) AS active_users,
+               COALESCE(d.max_online, 0) AS max_online,
+               COALESCE(r.new_registered_users, 0) AS new_registered_users
+        FROM (
+          SELECT stat_date, game_count, dau, active_users, max_online
+          FROM daily_stats
+          WHERE stat_date >= $1::date AND stat_date <= $2::date
+        ) d
+        FULL OUTER JOIN registrations r ON r.stat_date = d.stat_date
+      )
+    `;
+    let sql;
     if (granularity === 'day') {
       sql = `
-        SELECT stat_date, game_count, dau, active_users, max_online
-        FROM daily_stats
-        WHERE stat_date >= $1::date AND stat_date <= $2::date
+        ${dailySource}
+        SELECT stat_date, game_count, dau, active_users, max_online, new_registered_users
+        FROM combined
         ORDER BY stat_date ASC
       `;
     } else {
       const trunc = granularity === 'week' ? 'week' : 'month';
       sql = `
+        ${dailySource}
         SELECT
           date_trunc('${trunc}', stat_date)::date AS stat_date,
           SUM(game_count)::int AS game_count,
           SUM(dau)::int AS dau,
           SUM(active_users)::int AS active_users,
-          MAX(max_online)::int AS max_online
-        FROM daily_stats
-        WHERE stat_date >= $1::date AND stat_date <= $2::date
+          MAX(max_online)::int AS max_online,
+          SUM(new_registered_users)::int AS new_registered_users
+        FROM combined
         GROUP BY 1
         ORDER BY stat_date ASC
       `;

@@ -49,7 +49,9 @@ Python 文件是 C# 的行为翻译，不是另一套规则引擎。改 Unity �
 ## 测试须知
 
 - 示例必须覆盖该规则特殊 tick，不能只「不抛异常」。`test_example_jsonc_replays_without_throwing` 会扫全部 `game_record_example_*.jsonc`，逐步推演与 `goto_action` 终局快照必须一致。
-- **四川定缺**：服务端牌谱没有独立 dingque tick。回放对齐 C# `RecordChongHintCalculator.TryInferRecordDingqueSuit`：切牌后若手牌+副露恰好缺一门，写入 `dingque_suit`。四川示例子 `p0` 起手无条，切一张后应为缺条（3）。
+- **四川定缺**：优先读取局头 `dingque_suits`。仅旧血战牌谱缺失该字段时，切牌后按手牌+副露缺门推断。两种血流子规则均禁止从缺门反推定缺：换三张恢复显式定缺，弃三张不定缺。
+- **血流**：`hu_*` 即时计分，和牌张移至花区，不标记退场；重复和牌、同时点和、抢杠与显式 `gs` 杠分均参与推演。`liuju/chajiao` 包含花猪等终局支付。
+- **中庸/南雀**：中庸尾端补牌、保留14张王牌；南雀中途冻结暗手与和张，`blood/reveal_hu` 恢复终局手牌，`blood/settle_hu` 逐家结算。旧 `jiandan` 牌谱停止支持，导入时直接报错。
 - **虹雀补牌**：服务端 `supplement` 写成 Unity tick `bd`。`tiles_list` 是剩余牌山的反转，补牌从岭上方向取（首张 `bd` 走 double 槽，不是 `tiles_list[0]`）。
 - **台湾**：`bh` / `bd` / `state ready`；死墙从尾消耗。
 - **古典**：和牌张在 tick 下标 7（`RecordHuTileTickIndex`）。

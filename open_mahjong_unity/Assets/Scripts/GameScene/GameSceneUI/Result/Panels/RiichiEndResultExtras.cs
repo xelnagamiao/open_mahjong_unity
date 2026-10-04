@@ -21,6 +21,7 @@ public class RiichiEndResultExtras {
     public Dictionary<int, int[]> TenpaiHands;
     /// <summary>荒牌流局是否发生不听罚符点棒。</summary>
     public bool NotenPenaltyAfterDraw;
+    public int[] NagashiManganWinners;
     /// <summary>浪涌和牌基础收分（乘倍数后，不含本场/供托）。</summary>
     public int LangyongScoredPoints;
     /// <summary>浪涌展示倍数（含浪潮 +1；自摸时为各支付方倍数最大值）。</summary>

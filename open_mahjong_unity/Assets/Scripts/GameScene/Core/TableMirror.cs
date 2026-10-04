@@ -35,6 +35,23 @@ public sealed class TableMirror {
     public List<int> SelfHandTiles = new List<int>();
 
     public int RemainTiles;
+    private int[] duplicateRemainingTiles;
+
+    /// <summary>保存服务端个人牌山快照，按原始座位 0..3 排列；缺失或无效时不显示。</summary>
+    public void SetDuplicateRemainingTiles(int[] counts) {
+        duplicateRemainingTiles = null;
+        if (counts == null || counts.Length != 4) return;
+        foreach (int count in counts) {
+            if (count < 0) return;
+        }
+        duplicateRemainingTiles = (int[])counts.Clone();
+    }
+
+    public int? GetDuplicateRemainingTiles(int originalPlayerIndex) {
+        if (duplicateRemainingTiles == null || originalPlayerIndex < 0 || originalPlayerIndex >= 4) return null;
+        return duplicateRemainingTiles[originalPlayerIndex];
+    }
+
     public int CurrentRound;
     /// <summary>最大风圈数（1=东风 2=半庄 3=东西 4=全庄）。</summary>
     public int MaxRound;

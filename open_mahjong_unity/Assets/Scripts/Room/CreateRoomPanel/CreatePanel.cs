@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.UI;
 using System;
 using System.Collections.Generic;
@@ -46,6 +46,8 @@ public partial class CreatePanel : MonoBehaviour {
     [SerializeField] private Toggle gameTime3Button;
     [SerializeField] private Toggle gameTime4Button;
     [SerializeField] private Toggle tipsToggle;
+    [SerializeField] private Toggle countTipsToggle;
+    [SerializeField] private Toggle pointerTipsToggle;
     [SerializeField] private Toggle CuoHeheToggle;
     [SerializeField] private Toggle passwordToggle;
     [SerializeField] private Toggle SetRandomSeedToggle;
@@ -57,6 +59,7 @@ public partial class CreatePanel : MonoBehaviour {
     [SerializeField] private Toggle XiruToggle;
     [SerializeField] private Toggle TobiToggle;
     [SerializeField] private Toggle TacticalCallToggle;
+    [SerializeField] private Toggle ClaimProtectionToggle;
     [SerializeField] private Toggle BloodBattleToggle;
     [SerializeField] private Toggle ChangshaInitialSiXiToggle;
     [SerializeField] private Toggle ChangshaInitialBanBanHuToggle;
@@ -95,6 +98,17 @@ public partial class CreatePanel : MonoBehaviour {
     [SerializeField] private TMP_InputField passwordInput;
     [SerializeField] private TMP_InputField randomSeedInput;
     [SerializeField] private TMP_InputField HepaiLimitInput;
+    [SerializeField] private GameObject RiichiStartingScorePanel;
+    [SerializeField] private TMP_InputField RiichiStartingScoreInput;
+    [SerializeField] private Toggle DuplicateWallToggle;
+    [SerializeField] private GameObject DuplicateWallPanel;
+    [SerializeField] private TMP_InputField DuplicateKeyInput;
+    [SerializeField] private Toggle GuobiaoFlowersToggle;
+    [SerializeField] private UnityEngine.UI.Toggle TianDiRenHeToggle;
+    [SerializeField] private TMP_Text GuobiaoFlowersLabel;
+
+    private string SelectedDuplicateKey => _ruleState == "guobiao" && DuplicateWallToggle != null && DuplicateWallToggle.isOn
+        ? DuplicateKeyInput?.text.Trim() ?? "" : "";
 
     [Header("按钮")]
     [SerializeField] private Button closeButton;
@@ -103,9 +117,12 @@ public partial class CreatePanel : MonoBehaviour {
     [SerializeField] private Button DetailedConfigButton;
 
     private bool _gameRoundLabelsCached;
+    private bool _duplicateWasEnabled;
+    private bool _spectatorBeforeDuplicate;
     private string[] _defaultGameRoundLabels;
     private int _roomNameBoundUserId = int.MinValue;
     private static readonly List<CreatePanel> LivePanels = new List<CreatePanel>();
+    public static bool IsAnyCreationPanelOpen => LivePanels.Exists(panel => panel && panel.isActiveAndEnabled);
 
     private void EnsureRuleDropdownOptions() {
         if (chooseRule == null) return;
@@ -136,7 +153,10 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private void Start() {
+        BindFixedCreateControls();
         BindDetailedConfigControls("taiwan");
+        BindDetailedConfigControls("hongkong");
+        BindDetailedConfigControls("riichi");
         EnsureRuleDropdownOptions();
         chooseRule.onValueChanged.AddListener(OnRuleDropdownChanged);
         closeButton.onClick.AddListener(ClosePanel);
@@ -166,23 +186,23 @@ public partial class CreatePanel : MonoBehaviour {
 
         ApplyDefaultRoomNameForCurrentUser();
 
-        EnsureRiichiOptionToggles();
-        EnsureCuoheTypePanel();
-        InitCuoheTypeDropdown();
-        EnsureChangshaOptionControls();
-        EnsureWallOptionControls();
         InitSubRuleDropdown();
         ApplyRuleDefaults(_ruleState);
         RefreshVisibility();
         RefreshSubRuleDescription();
+        InitializeRoomPresentation();
+        ApplyDefaultRoomPreset();
     }
 
     private void OnEnable() {
         ApplyDefaultRoomNameForCurrentUser();
+        ShowRoomHelp("");
+        WindowsManager.Instance?.ApplyStreamerModePanels();
     }
 
     private void OnDisable() {
         CancelDetailedConfigChanges();
+        WindowsManager.Instance?.ApplyStreamerModePanels();
     }
 
     /// <summary>登出/换账号后清掉默认房间名草稿，下次打开按当前用户重填。</summary>
@@ -200,6 +220,8 @@ public partial class CreatePanel : MonoBehaviour {
     public void ResetSessionCaches() {
         _roomNameBoundUserId = int.MinValue;
         if (roomNameInput != null) roomNameInput.text = "";
+        if (DuplicateWallToggle != null) DuplicateWallToggle.isOn = false;
+        if (DuplicateKeyInput != null) DuplicateKeyInput.text = "";
     }
 
     /// <summary>账号变了或输入为空时，用「用户名的游戏」填默认房间名；同一账号下保留用户改过的草稿。</summary>
@@ -217,15 +239,15 @@ public partial class CreatePanel : MonoBehaviour {
         _ruleState = CreateRoomRuleTextConfigCatalog.GetRule(selectedIndex).Rule;
         RebuildHepaiWayOptions();
         bool hasSubRule = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.SubRule);
-        if (hasSubRule) {
-            PopulateSubRuleDropdown(_ruleState);
-        }
+        PopulateSubRuleDropdown(_ruleState);
         ApplyRuleDefaults(_ruleState);
         RefreshVisibility();
         if (hasSubRule) {
             OnSubRuleChanged(SubRuleDropdown.value);
         }
         RefreshSubRuleDescription();
+        ApplyDefaultRoomPreset();
+        ShowRoomHelp("");
     }
 
     /// <summary>虹雀只开放“多家和 / 头跳”两项，日麻额外提供三家和了流局。</summary>
@@ -250,9 +272,13 @@ public partial class CreatePanel : MonoBehaviour {
 
     private void SetConfigValue(string key, object value) {
         switch (key) {
+            case GuangdongMilRules.MinimumScoreKey: if (GuangdongMinimumScoreToggle) GuangdongMinimumScoreToggle.isOn = (bool)value; break;
+            case YixingRuleBootstrap.SevenPairsKey: if (YixingSevenPairsToggle) YixingSevenPairsToggle.isOn = (bool)value; break;
             case CreateRoomKeys.GameRound:      SelectGameTime((int)value); break;
             case CreateRoomKeys.RoundTimer:     roundTimer.value = (int)value; break;
             case CreateRoomKeys.StepTimer:      stepTimer.value = (int)value; break;
+            case CreateRoomKeys.PointerTips: pointerTipsToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.CountTips:      countTipsToggle.isOn = (bool)value; break;
             case CreateRoomKeys.Tips:           tipsToggle.isOn = (bool)value; break;
             case CreateRoomKeys.Password:       passwordToggle.isOn = (bool)value; break;
             case CreateRoomKeys.RandomSeed:     SetRandomSeedToggle.isOn = (bool)value; break;
@@ -268,6 +294,9 @@ public partial class CreatePanel : MonoBehaviour {
                 InputHepaiLimitToggle.isOn = false;
                 HepaiLimitInput.text = ((int)value).ToString();
                 break;
+            case CreateRoomKeys.StartingScore:
+                if (RiichiStartingScoreInput != null) RiichiStartingScoreInput.text = ((int)value).ToString();
+                break;
             case CreateRoomKeys.RedDora:        RedDoraToggle.isOn = (bool)value; break;
             case CreateRoomKeys.AllowKuikae:    if (KuikaeToggle != null) KuikaeToggle.isOn = !(bool)value; break;
             case CreateRoomKeys.OpenXiru:       if (XiruToggle != null) XiruToggle.isOn = (bool)value; break;
@@ -276,7 +305,14 @@ public partial class CreatePanel : MonoBehaviour {
                 HepaiWayDropdown.value = (int)value;
                 HepaiWayDropdown.RefreshShownValue();
                 break;
+            case CreateRoomKeys.ClaimProtection: ClaimProtectionToggle.isOn = (bool)value; break;
             case CreateRoomKeys.TacticalCall:   TacticalCallToggle.isOn = (bool)value; break;
+            case CreateRoomKeys.UseFlowers:
+                if (GuobiaoFlowersToggle != null) GuobiaoFlowersToggle.SetIsOnWithoutNotify((bool)value);
+                break;
+            case CreateRoomKeys.TianDiRenHe:
+                if (TianDiRenHeToggle != null) TianDiRenHeToggle.SetIsOnWithoutNotify((bool)value);
+                break;
             case CreateRoomKeys.BloodBattle:    if (BloodBattleToggle != null) BloodBattleToggle.isOn = (bool)value; break;
             case CreateRoomKeys.CsOpenKongCount: SetChangshaOpenKongCount((int)value); break;
             case CreateRoomKeys.CsInitialSiXi:   if (ChangshaInitialSiXiToggle != null) ChangshaInitialSiXiToggle.isOn = (bool)value; break;
@@ -317,54 +353,50 @@ public partial class CreatePanel : MonoBehaviour {
     /// </summary>
     private void RefreshVisibility() {
         Dictionary<string, object> visible = DefaultsOf(_ruleState);
+        if (RiichiStartingScorePanel != null) RiichiStartingScorePanel.SetActive(visible.ContainsKey(CreateRoomKeys.StartingScore));
 
+        bool isBloodBattle = _ruleState == "guobiao" && GetSelectedSubRule() == GuobiaoGameState.BloodBattleSubRule;
+        bool isSichuanXueLiu = _ruleState == "sichuan" && SichuanLobby.IsXueliu(GetSelectedSubRule());
         bool isXiaolin = _ruleState == "guobiao" && SubRuleDropdown.value == 1;
         bool isLanshi  = _ruleState == "guobiao" && SubRuleDropdown.value == 3;
         bool isLangyong = _ruleState == "riichi" && SubRuleDropdown.value == 1;
 
         // 蓝十改固定启用“错和扣 40 分”，不暴露可变开关。
-        bool showCuohe = visible.ContainsKey(CreateRoomKeys.Cuohe) && !isXiaolin && !isLanshi;
+        bool showCuohe = visible.ContainsKey(CreateRoomKeys.Cuohe) && !isXiaolin && !isLanshi && !isBloodBattle;
         CuoHeheToggle.gameObject.SetActive(showCuohe);
 
         // 蓝十仍隐藏起和番自定义；标准/小林/K神均可改
-        bool showHepaiLimit = visible.ContainsKey(CreateRoomKeys.HepaiLimit) && !isLanshi;
+        bool showHepaiLimit = visible.ContainsKey(CreateRoomKeys.HepaiLimit) && !isLanshi && !isBloodBattle
+            && (_ruleState != "shanghai" || IsShanghaiQiaoma);
+        RefreshHepaiLimitCaption();
         InputHepaiLimitToggle.gameObject.SetActive(showHepaiLimit);
-        InputHepaiLimitPlane.SetActive(showHepaiLimit && InputHepaiLimitToggle.isOn);
+        InputHepaiLimitPlane.SetActive(showHepaiLimit && InputHepaiLimitToggle.isOn && !IsShanghaiQiaoma);
 
         RedDoraToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.RedDora));
         if (KuikaeToggle != null) KuikaeToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.AllowKuikae) && !isLangyong);
         if (XiruToggle != null) XiruToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.OpenXiru));
         if (TobiToggle != null) TobiToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.OpenTobi));
         HepaiWayPanel.SetActive(visible.ContainsKey(CreateRoomKeys.HepaiWay));
-        TacticalCallToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.TacticalCall));
-        if (BloodBattleToggle != null) BloodBattleToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.BloodBattle));
+        ClaimProtectionToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.ClaimProtection));
+        TacticalCallToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.TacticalCall) && !isBloodBattle);
+        if (BloodBattleToggle != null) {
+            BloodBattleToggle.gameObject.SetActive(
+                visible.ContainsKey(CreateRoomKeys.BloodBattle) && !isSichuanXueLiu);
+        }
         SetChangshaOptionsVisible(DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.CsBirdCount));
         SetWallOptionsVisible(visible.ContainsKey(CreateRoomKeys.WallWan));
+        if (YixingSevenPairsToggle) YixingSevenPairsToggle.gameObject.SetActive(visible.ContainsKey(YixingRuleBootstrap.SevenPairsKey));
+        RefreshGuangdongControls();
         SetCommonCreateControlsVisible(visible);
         ApplyGameRoundDisplayForRule();
         RefreshCuoheTypePanelVisibility();
         RefreshDetailedConfigEntry();
         RebuildCreateRoomLayoutHierarchy();
+        RefreshRoomPresentation();
     }
 
     private void RebuildCreateRoomLayoutHierarchy() {
-        Transform body = transform.Find("Create_Panel");
-        if (body != null) {
-            // ToggleContainer owns a GridLayoutGroup + ContentSizeFitter. Its
-            // height must be settled before Content's VerticalLayoutGroup can
-            // place it below RuleDescribePanel. Rebuilding from Create_Panel
-            // skips that inner fitter and leaves Content using the old height.
-            Transform toggleContainer = body.Find("Scroll View/Viewport/Content/ToggleContainer");
-            if (toggleContainer != null) {
-                LayoutHierarchyRebuilder.RebuildUpwards(toggleContainer, transform);
-            } else {
-                LayoutHierarchyRebuilder.RebuildUpwards(body, transform);
-            }
-        }
-        Transform header = transform.Find("HeaderPanel");
-        if (header != null) {
-            LayoutHierarchyRebuilder.RebuildUpwards(header, transform);
-        }
+        if (RoomContent) LayoutRebuilder.MarkLayoutForRebuild(RoomContent);
     }
 
     private string GetSelectedRiichiSubRule() {
@@ -376,9 +408,11 @@ public partial class CreatePanel : MonoBehaviour {
         CreateRoomSubRuleTextConfig subRule = CreateRoomRuleTextConfigCatalog
             .GetRule(_ruleState)
             .GetSubRule(SubRuleDropdown.value);
+        createButton.interactable = true;
         SubRuleDescriptionText.text = subRule != null ? subRule.Description : "";
+        if (_ruleState == "hongkong") SubRuleDescriptionText.text = HongKong_Create_RoomConfig.SourceDescription(GetSelectedSubRule(),BuildDetailedConfigValues("hongkong"));
         SubRuleDescriptionText.ForceMeshUpdate();
-        LayoutHierarchyRebuilder.RebuildUpwards(SubRuleDescriptionText.rectTransform, transform);
+        ReflowRoomPresentation();
     }
 
     private void InitSubRuleDropdown() {
@@ -398,7 +432,12 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private void OnSubRuleChanged(int index) {
+        RefreshHongKongMainControls();
+        RefreshGuangdongControls();
         RefreshSubRuleDescription();
+        if (_ruleState == "riichi" && RiichiStartingScoreInput != null) {
+            RiichiStartingScoreInput.text = GetSelectedRiichiSubRule() == "riichi/langyong" ? "50000" : "25000";
+        }
         // 日麻子规则（标准 / 浪涌）不涉及起和番/错和的二次收窄，仅国标需处理。
         if (_ruleState == "guobiao") {
             bool isXiaolin = (index == 1);
@@ -425,116 +464,13 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private string GetSelectedSubRule() {
-        return CreateRoomRuleTextConfigCatalog.GetRule("guobiao")
-            .GetSubRule(SubRuleDropdown.value).Key;
+        CreateRoomRuleTextConfig rule = CreateRoomRuleTextConfigCatalog.GetRule(_ruleState);
+        int index = SubRuleDropdown != null ? SubRuleDropdown.value : 0;
+        CreateRoomSubRuleTextConfig subRule = rule.GetSubRule(index);
+        return subRule?.Key ?? RuleRegistry.Resolve(_ruleState)?.DefaultSubRule ?? (_ruleState + "/standard");
     }
 
     /// <summary>运行时从赤宝牌开关克隆日麻专属选项，避免场景内重复手工挂接。</summary>
-    private void EnsureRiichiOptionToggles() {
-        if (RedDoraToggle == null) return;
-        KuikaeToggle = EnsureClonedToggle(RedDoraToggle, KuikaeToggle, "UseKuikae", "禁止食替", true);
-        Toggle xiruTemplate = KuikaeToggle != null ? KuikaeToggle : RedDoraToggle;
-        XiruToggle = EnsureClonedToggle(xiruTemplate, XiruToggle, "UseXiru", "西入", true);
-        Toggle tobiTemplate = XiruToggle != null ? XiruToggle : xiruTemplate;
-        TobiToggle = EnsureClonedToggle(tobiTemplate, TobiToggle, "UseTobi", "击飞", true);
-    }
-
-    private static Toggle EnsureClonedToggle(Toggle template, Toggle existing, string goName, string labelText, bool defaultOn) {
-        if (existing != null) return existing;
-        if (template == null) return null;
-        var clone = Instantiate(template, template.transform.parent);
-        clone.name = goName;
-        clone.isOn = defaultOn;
-        var label = clone.GetComponentInChildren<TMP_Text>();
-        if (label != null) label.text = labelText;
-        return clone;
-    }
-
-    private void InitCuoheTypeDropdown() {
-        if (CuoheTypeDropdown == null) return;
-        CuoheTypeDropdown.ClearOptions();
-        CuoheTypeDropdown.AddOptions(new List<string> {
-            "-30/+10",
-            "-40/0",
-        });
-        CuoheTypeDropdown.value = 0;
-    }
-
-    /// <summary>运行时从和牌方式面板克隆错和形式面板，避免场景内重复手工挂接。</summary>
-    private void EnsureCuoheTypePanel() {
-        if (CuoheTypePanel != null && CuoheTypeDropdown != null) return;
-        if (HepaiWayPanel == null || HepaiWayDropdown == null) return;
-
-        Transform parent = InputHepaiLimitPlane != null
-            ? InputHepaiLimitPlane.transform.parent
-            : HepaiWayPanel.transform.parent;
-        CuoheTypePanel = Instantiate(HepaiWayPanel, parent);
-        CuoheTypePanel.name = "CuoheTypePanel";
-        CuoheTypePanel.SetActive(false);
-        CuoheTypeDropdown = CuoheTypePanel.GetComponentInChildren<TMP_Dropdown>(true);
-        foreach (TMP_Text label in CuoheTypePanel.GetComponentsInChildren<TMP_Text>(true)) {
-            if (label.GetComponentInParent<TMP_Dropdown>() != null) continue;
-            label.text = "错和形式";
-            break;
-        }
-    }
-
-    private void EnsureChangshaOptionControls() {
-        Toggle toggleTemplate = TacticalCallToggle != null ? TacticalCallToggle : RedDoraToggle;
-        ChangshaInitialSiXiToggle = EnsureClonedToggle(toggleTemplate, ChangshaInitialSiXiToggle, "ChangshaInitialSiXi", "四喜", true);
-        Toggle lastToggle = ChangshaInitialSiXiToggle != null ? ChangshaInitialSiXiToggle : toggleTemplate;
-        ChangshaInitialBanBanHuToggle = EnsureClonedToggle(lastToggle, ChangshaInitialBanBanHuToggle, "ChangshaInitialBanBanHu", "板板胡", true);
-        lastToggle = ChangshaInitialBanBanHuToggle != null ? ChangshaInitialBanBanHuToggle : lastToggle;
-        ChangshaInitialQueYiSeToggle = EnsureClonedToggle(lastToggle, ChangshaInitialQueYiSeToggle, "ChangshaInitialQueYiSe", "缺一色", true);
-        lastToggle = ChangshaInitialQueYiSeToggle != null ? ChangshaInitialQueYiSeToggle : lastToggle;
-        ChangshaInitialLiuLiuShunToggle = EnsureClonedToggle(lastToggle, ChangshaInitialLiuLiuShunToggle, "ChangshaInitialLiuLiuShun", "六六顺", true);
-        lastToggle = ChangshaInitialLiuLiuShunToggle != null ? ChangshaInitialLiuLiuShunToggle : lastToggle;
-        ChangshaInitialSanTongToggle = EnsureClonedToggle(lastToggle, ChangshaInitialSanTongToggle, "ChangshaInitialSanTong", "三同", true);
-        lastToggle = ChangshaInitialSanTongToggle != null ? ChangshaInitialSanTongToggle : lastToggle;
-        ChangshaDealerBirdToggle = EnsureClonedToggle(lastToggle, ChangshaDealerBirdToggle, "ChangshaDealerBird", "定庄扎鸟", true);
-
-        ChangshaOpenKongPanel = EnsureClonedDropdownPanel(HepaiWayPanel, ChangshaOpenKongPanel, "ChangshaOpenKongPanel", "开杠张数");
-        ChangshaOpenKongDropdown = ChangshaOpenKongPanel != null
-            ? ChangshaOpenKongPanel.GetComponentInChildren<TMP_Dropdown>(true)
-            : null;
-        if (ChangshaOpenKongDropdown != null) {
-            ChangshaOpenKongDropdown.ClearOptions();
-            ChangshaOpenKongDropdown.AddOptions(new List<string> { "1张", "2张", "3张", "4张" });
-            SetChangshaOpenKongCount(2);
-        }
-
-        GameObject birdTemplate = ChangshaOpenKongPanel != null ? ChangshaOpenKongPanel : HepaiWayPanel;
-        ChangshaBirdCountPanel = EnsureClonedDropdownPanel(birdTemplate, ChangshaBirdCountPanel, "ChangshaBirdCountPanel", "扎鸟张数");
-        ChangshaBirdCountDropdown = ChangshaBirdCountPanel != null
-            ? ChangshaBirdCountPanel.GetComponentInChildren<TMP_Dropdown>(true)
-            : null;
-        if (ChangshaBirdCountDropdown != null) {
-            ChangshaBirdCountDropdown.ClearOptions();
-            ChangshaBirdCountDropdown.AddOptions(new List<string> { "不扎鸟", "1鸟", "2鸟", "4鸟" });
-            SetChangshaBirdCount(2);
-        }
-
-        EnsureChangshaScoreControls();
-
-        SetChangshaOptionsVisible(false);
-    }
-
-    private void EnsureWallOptionControls() {
-        Toggle template = TacticalCallToggle != null ? TacticalCallToggle : RedDoraToggle;
-        WallWanToggle = EnsureClonedToggle(template, WallWanToggle, "WallWan", "万", true);
-        Toggle last = WallWanToggle != null ? WallWanToggle : template;
-        WallTongToggle = EnsureClonedToggle(last, WallTongToggle, "WallTong", "筒", true);
-        last = WallTongToggle != null ? WallTongToggle : last;
-        WallSuoToggle = EnsureClonedToggle(last, WallSuoToggle, "WallSuo", "索", true);
-        last = WallSuoToggle != null ? WallSuoToggle : last;
-        WallWindsToggle = EnsureClonedToggle(last, WallWindsToggle, "WallWinds", "四风", true);
-        last = WallWindsToggle != null ? WallWindsToggle : last;
-        WallDragonsToggle = EnsureClonedToggle(last, WallDragonsToggle, "WallDragons", "三元", true);
-        last = WallDragonsToggle != null ? WallDragonsToggle : last;
-        WallFlowersToggle = EnsureClonedToggle(last, WallFlowersToggle, "WallFlowers", "花牌", true);
-        SetWallOptionsVisible(false);
-    }
-
     private void SetWallOptionsVisible(bool visible) {
         SetToggleVisible(WallWanToggle, visible);
         SetToggleVisible(WallTongToggle, visible);
@@ -545,6 +481,21 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private void SetCommonCreateControlsVisible(Dictionary<string, object> visible) {
+        if (TianDiRenHeToggle != null) {
+            string subRule = GetSelectedSubRule();
+            bool supported = _ruleState == "guobiao" && (subRule == "guobiao/standard" || subRule == GuobiaoGameState.BloodBattleSubRule);
+            TianDiRenHeToggle.gameObject.SetActive(supported);
+            if (!supported) TianDiRenHeToggle.SetIsOnWithoutNotify(false);
+        }
+        if (DuplicateWallToggle != null) {
+            bool supported = _ruleState == "guobiao";
+            DuplicateWallToggle.gameObject.SetActive(supported);
+            if (!supported) {
+                DuplicateWallToggle.isOn = false;
+                if (DuplicateKeyInput != null) DuplicateKeyInput.text = "";
+                if (DuplicateWallPanel != null) DuplicateWallPanel.SetActive(false);
+            }
+        }
         bool showRound = visible.ContainsKey(CreateRoomKeys.GameRound);
         if (gameTime1Button != null) gameTime1Button.gameObject.SetActive(showRound);
         if (gameTime2Button != null) gameTime2Button.gameObject.SetActive(showRound);
@@ -553,72 +504,37 @@ public partial class CreatePanel : MonoBehaviour {
         if (roundTimer != null) roundTimer.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.RoundTimer));
         if (stepTimer != null) stepTimer.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.StepTimer));
         if (tipsToggle != null) tipsToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.Tips));
+        if (pointerTipsToggle != null) pointerTipsToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.PointerTips));
+        if (countTipsToggle != null) countTipsToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.CountTips));
         if (AllowSpectatorToggle != null) AllowSpectatorToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.AllowSpectator));
         if (TouristLimitToggle != null) TouristLimitToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.TouristLimit));
+        RefreshDuplicateWallOptions();
     }
 
-    private void EnsureChangshaScoreControls() {
-        // 长沙计分模式及自定义分值独占一行，避免与开杠、扎鸟配置挤在同一行。
-        Transform parent = InputHepaiLimitPlane != null
-            ? InputHepaiLimitPlane.transform.parent
-            : transform;
-        if (ChangshaScoreRow == null) {
-            ChangshaScoreRow = new GameObject("ChangshaScoreRow", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
-            ChangshaScoreRow.transform.SetParent(parent, false);
-            HorizontalLayoutGroup layout = ChangshaScoreRow.GetComponent<HorizontalLayoutGroup>();
-            layout.spacing = 12f;
-            layout.childAlignment = TextAnchor.MiddleLeft;
-            layout.childControlWidth = false;
-            layout.childControlHeight = true;
-            layout.childForceExpandWidth = false;
-            layout.childForceExpandHeight = false;
-            ChangshaScoreRow.GetComponent<LayoutElement>().minHeight = 44f;
+    private void RefreshDuplicateWallOptions() {
+        bool enabled = _ruleState == "guobiao" && DuplicateWallToggle != null && DuplicateWallToggle.isOn;
+        if (AllowSpectatorToggle != null) {
+            if (enabled && !_duplicateWasEnabled) _spectatorBeforeDuplicate = AllowSpectatorToggle.isOn;
+            if (!enabled && _duplicateWasEnabled && _ruleState == "guobiao") AllowSpectatorToggle.isOn = _spectatorBeforeDuplicate;
         }
-
-        Toggle toggleTemplate = ChangshaDealerBirdToggle != null ? ChangshaDealerBirdToggle : TacticalCallToggle;
-        ChangshaBaseScoreNoDealerToggle = EnsureClonedToggle(
-            toggleTemplate,
-            ChangshaBaseScoreNoDealerToggle,
-            "ChangshaBaseScoreNoDealer",
-            "不区分庄闲",
-            false);
-        if (ChangshaBaseScoreNoDealerToggle != null) {
-            ChangshaBaseScoreNoDealerToggle.onValueChanged.RemoveListener(OnChangshaBaseScoreModeChanged);
-            ChangshaBaseScoreNoDealerToggle.onValueChanged.AddListener(OnChangshaBaseScoreModeChanged);
-        }
-
-        ChangshaSmallHuScorePanel = EnsureChangshaScoreInputPanel(
-            ChangshaSmallHuScorePanel,
-            "ChangshaSmallHuScorePanel",
-            "小胡分数",
-            out ChangshaSmallHuScoreInput);
-        ChangshaBigHuScorePanel = EnsureChangshaScoreInputPanel(
-            ChangshaBigHuScorePanel,
-            "ChangshaBigHuScorePanel",
-            "大胡分数",
-            out ChangshaBigHuScoreInput);
-        if (ChangshaSmallHuScoreInput != null) ChangshaSmallHuScoreInput.text = "2";
-        if (ChangshaBigHuScoreInput != null) ChangshaBigHuScoreInput.text = "8";
-        RefreshChangshaScoreInputVisibility();
-    }
-
-    private GameObject EnsureChangshaScoreInputPanel(
-        GameObject existing,
-        string objectName,
-        string labelText,
-        out TMP_InputField input) {
-        if (existing == null && InputHepaiLimitPlane != null) {
-            existing = Instantiate(InputHepaiLimitPlane, ChangshaScoreRow.transform);
-            existing.name = objectName;
-            foreach (TMP_Text label in existing.GetComponentsInChildren<TMP_Text>(true)) {
-                if (label.GetComponentInParent<TMP_InputField>() != null) continue;
-                label.text = labelText;
-                break;
+        _duplicateWasEnabled = enabled;
+        if (GuobiaoFlowersToggle != null) {
+            bool isLanshi = _ruleState == "guobiao" && GetSelectedSubRule() == "guobiao/lanshi";
+            GuobiaoFlowersToggle.gameObject.SetActive(_ruleState == "guobiao");
+            GuobiaoFlowersToggle.interactable = !enabled && !isLanshi;
+            if (isLanshi) GuobiaoFlowersToggle.SetIsOnWithoutNotify(false);
+            if (GuobiaoFlowersLabel != null) {
+                GuobiaoFlowersLabel.text = enabled ? "花牌\n<size=65%>跟随复式设置</size>"
+                    : isLanshi ? "花牌\n<size=65%>蓝十改无花</size>" : "花牌";
             }
         }
-        input = existing != null ? existing.GetComponentInChildren<TMP_InputField>(true) : null;
-        if (input != null) input.contentType = TMP_InputField.ContentType.IntegerNumber;
-        return existing;
+        if (AllowSpectatorToggle != null) {
+            AllowSpectatorToggle.interactable = !enabled;
+            if (enabled) AllowSpectatorToggle.isOn = false;
+        }
+        foreach (Toggle round in new[] { gameTime1Button, gameTime2Button, gameTime3Button, gameTime4Button }) {
+            if (round != null) round.interactable = !enabled;
+        }
     }
 
     private void OnChangshaBaseScoreModeChanged(bool _) {
@@ -631,25 +547,6 @@ public partial class CreatePanel : MonoBehaviour {
             && ChangshaBaseScoreNoDealerToggle.isOn;
         if (ChangshaSmallHuScorePanel != null) ChangshaSmallHuScorePanel.SetActive(visible);
         if (ChangshaBigHuScorePanel != null) ChangshaBigHuScorePanel.SetActive(visible);
-    }
-
-    private GameObject EnsureClonedDropdownPanel(GameObject template, GameObject existing, string goName, string labelText) {
-        if (existing != null) return existing;
-        if (template == null) return null;
-        GameObject clone = Instantiate(template, template.transform.parent);
-        clone.name = goName;
-        SetPanelLabel(clone, labelText);
-        clone.SetActive(false);
-        return clone;
-    }
-
-    private static void SetPanelLabel(GameObject panel, string labelText) {
-        if (panel == null) return;
-        foreach (TMP_Text label in panel.GetComponentsInChildren<TMP_Text>(true)) {
-            if (label.GetComponentInParent<TMP_Dropdown>() != null) continue;
-            label.text = labelText;
-            return;
-        }
     }
 
     private void SetChangshaOptionsVisible(bool visible) {
@@ -710,15 +607,16 @@ public partial class CreatePanel : MonoBehaviour {
         CacheDefaultGameRoundLabels();
         bool showRound = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.GameRound);
         bool isChangsha = _ruleState == "changsha";
+        bool usesFixedHandCount = _ruleState == "shanghai" || _ruleState == "zhongyong" || _ruleState == "guangdong" || _ruleState == GuizhouGameState.RuleId || _ruleState == HongzhongGameState.RuleId || _ruleState == HangzhouGameState.RuleId;
         if (!showRound) return;
         if (isChangsha && gameTime3Button != null && gameTime3Button.isOn) {
             SelectGameTime(4);
         }
 
-        SetToggleLabel(gameTime1Button, isChangsha ? "4局" : _defaultGameRoundLabels[0]);
-        SetToggleLabel(gameTime2Button, isChangsha ? "8局" : _defaultGameRoundLabels[1]);
-        SetToggleLabel(gameTime3Button, _defaultGameRoundLabels[2]);
-        SetToggleLabel(gameTime4Button, isChangsha ? "16局" : _defaultGameRoundLabels[3]);
+        SetToggleLabel(gameTime1Button, (isChangsha || usesFixedHandCount) ? "4局" : _defaultGameRoundLabels[0]);
+        SetToggleLabel(gameTime2Button, (isChangsha || usesFixedHandCount) ? "8局" : _defaultGameRoundLabels[1]);
+        SetToggleLabel(gameTime3Button, usesFixedHandCount ? "12局" : _defaultGameRoundLabels[2]);
+        SetToggleLabel(gameTime4Button, (isChangsha || usesFixedHandCount) ? "16局" : _defaultGameRoundLabels[3]);
         if (gameTime3Button != null) gameTime3Button.gameObject.SetActive(!isChangsha);
     }
 
@@ -766,6 +664,32 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private void CreateRoom() {
+        if (_ruleState == HangzhouGameState.RuleId) { CreateHangzhouRoom(); return; }
+        if (_ruleState == "guangdong") { CreateTuidaoRoom(); return; }
+        if (_ruleState == "shanghai" && GetSelectedSubRule() != "shanghai/qiaoma" && GetSelectedSubRule() != "shanghai/qinghunpeng") {
+            NotificationManager.Instance.ShowTip("create_room", false, "不支持的上海麻将子规则");
+            return;
+        }
+        if (_ruleState == "changchun") { CreateChangchunRoom(); return; }
+        if (_ruleState == "shanxi") {
+            CreateShanxiRoom();
+            return;
+        }
+        if (_ruleState == "shanghai") {
+            CreateShanghaiRoom();
+            return;
+        }
+        int minimumLimit = _ruleState == "sichuan" ? 0 : 1;
+        if (InputHepaiLimitToggle.gameObject.activeSelf && InputHepaiLimitToggle.isOn
+            && (!int.TryParse(HepaiLimitInput.text.Trim(), out int limit) || limit < minimumLimit || limit > 64)) {
+            HepaiLimitInput.ActivateInputField();
+            NotificationManager.Instance.ShowTip("create_room", false, $"起和番须为{minimumLimit}–64的整数");
+            return;
+        }
+        if (_ruleState == "guobiao" && DuplicateWallToggle != null && DuplicateWallToggle.isOn && string.IsNullOrEmpty(SelectedDuplicateKey)) {
+            NotificationManager.Instance.ShowTip("create_room", false, "请填写在网站账户面板创建的复式密钥");
+            return;
+        }
         if (_ruleState == "riichi") {
             CreateRiichiRoom();
             return;
@@ -791,13 +715,32 @@ public partial class CreatePanel : MonoBehaviour {
             return;
         }
 
-        if (_ruleState == "jiandan") {
+        if (_ruleState == "jiandan" || _ruleState == "zhongyong") {
             CreateJiandanRoom();
             return;
         }
 
         if (_ruleState == "changsha") {
             CreateChangshaRoom();
+            return;
+        }
+
+        if (_ruleState == WenzhouGameState.RuleId) {
+            CreateWenzhouRoom(); return;
+        }
+        if (_ruleState == HongzhongGameState.RuleId) {
+            CreateHongzhongRoom(); return;
+        }
+        if (_ruleState == YixingGameState.RuleId) {
+            CreateYixingRoom(); return;
+        }
+        if (_ruleState == GuizhouGameState.RuleId) {
+            CreateGuizhouRoom();
+            return;
+        }
+
+        if (_ruleState == "hongkong") {
+            CreateHongKongRoom();
             return;
         }
 
@@ -818,6 +761,10 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private void CreateRiichiRoom() {
+        if (RiichiStartingScoreInput == null || !int.TryParse(RiichiStartingScoreInput.text.Trim(), out int startingScore)) {
+            NotificationManager.Instance.ShowTip("create_room", false, "请填写有效的起始点数");
+            return;
+        }
         // HepaiWayDropdown 选项顺序：0=多家和，1=三家和了流局，2=头跳
         string hepaiWay = HepaiWayDropdown.value switch {
             0 => "multi_ron",
@@ -832,6 +779,8 @@ public partial class CreatePanel : MonoBehaviour {
         }
 
         var config = new Riichi_Create_RoomConfig {
+            ClaimProtection = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.ClaimProtection) && ClaimProtectionToggle.isOn,
+            DetailedConfig = BuildDetailedConfigValues("riichi"),
             RoomName = roomNameInput.text.Trim(),
             GameRound = GetSelectedGameTime(),
             Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
@@ -841,11 +790,14 @@ public partial class CreatePanel : MonoBehaviour {
             RoundTimer = GetSelectedRoundTimer(),
             StepTimer = GetSelectedStepTimer(),
             Tips = tipsToggle.isOn,
+            CountTips = countTipsToggle.isOn,
+            PointerTips = pointerTipsToggle.isOn,
             TouristLimit = TouristLimitToggle.isOn,
             AllowSpectator = AllowSpectatorToggle.isOn,
             CuoHe = CuoHeheToggle.isOn,
             HepaiLimit = hepaiLimit,
             RedDora = RedDoraToggle.isOn,
+            StartingScore = startingScore,
             AllowKuikae = KuikaeToggle != null && !KuikaeToggle.isOn,
             OpenXiru = XiruToggle != null ? XiruToggle.isOn : (bool)DefaultsOf("riichi")[CreateRoomKeys.OpenXiru],
             OpenTobi = TobiToggle != null ? TobiToggle.isOn : (bool)DefaultsOf("riichi")[CreateRoomKeys.OpenTobi],
@@ -876,6 +828,7 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private int ResolveGuobiaoHepaiLimit(string subRule) {
+        if (subRule == "guobiao/lanshi") return 5;
         int hepaiLimit = GetGuobiaoSubRuleDefaultHepaiLimit(subRule);
         if (InputHepaiLimitToggle.isOn && int.TryParse(HepaiLimitInput.text.Trim(), out int inputLimit))
             hepaiLimit = Mathf.Clamp(inputLimit, 1, 64);
@@ -887,21 +840,27 @@ public partial class CreatePanel : MonoBehaviour {
         int hepaiLimit = ResolveGuobiaoHepaiLimit(subRule);
 
         var config = new GB_Create_RoomConfig {
+            ClaimProtection = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.ClaimProtection) && ClaimProtectionToggle.isOn,
             RoomName = roomNameInput.text.Trim(),
             GameRound = GetSelectedGameTime(),
             Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
             RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
+            DuplicateKey = SelectedDuplicateKey,
+            UseFlowers = subRule != "guobiao/lanshi" && (GuobiaoFlowersToggle == null || GuobiaoFlowersToggle.isOn),
+            TianDiRenHe = (subRule == "guobiao/standard" || subRule == GuobiaoGameState.BloodBattleSubRule) && TianDiRenHeToggle != null && TianDiRenHeToggle.isOn,
             Rule = "guobiao",
             SubRule = subRule,
             RoundTimer = GetSelectedRoundTimer(),
             StepTimer = GetSelectedStepTimer(),
             Tips = tipsToggle.isOn,
-            CuoHe = subRule == "guobiao/lanshi" || CuoHeheToggle.isOn,
+            CountTips = countTipsToggle.isOn,
+            PointerTips = pointerTipsToggle.isOn,
+            CuoHe = subRule != "guobiao/blood_battle" && (subRule == "guobiao/lanshi" || CuoHeheToggle.isOn),
             CuoheType = subRule == "guobiao/lanshi" ? 1 : GetSelectedCuoheType(),
-            HepaiLimit = hepaiLimit,
+            HepaiLimit = subRule == "guobiao/blood_battle" ? 8 : hepaiLimit,
             TouristLimit = TouristLimitToggle.isOn,
             AllowSpectator = AllowSpectatorToggle.isOn,
-            TacticalCall = TacticalCallToggle.isOn,
+            TacticalCall = subRule != "guobiao/blood_battle" && TacticalCallToggle.isOn,
             EventId = _venueEventId,
         };
 
@@ -915,6 +874,7 @@ public partial class CreatePanel : MonoBehaviour {
 
     private void CreateQingqueRoom() {
         var config = new Qingque_Create_RoomConfig {
+            ClaimProtection = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.ClaimProtection) && ClaimProtectionToggle.isOn,
             RoomName = roomNameInput.text.Trim(),
             GameRound = GetSelectedGameTime(),
             Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
@@ -924,6 +884,8 @@ public partial class CreatePanel : MonoBehaviour {
             RoundTimer = GetSelectedRoundTimer(),
             StepTimer = GetSelectedStepTimer(),
             Tips = tipsToggle.isOn,
+            CountTips = countTipsToggle.isOn,
+            PointerTips = pointerTipsToggle.isOn,
             TouristLimit = TouristLimitToggle.isOn,
             AllowSpectator = AllowSpectatorToggle.isOn,
             TacticalCall = TacticalCallToggle.isOn,
@@ -949,6 +911,8 @@ public partial class CreatePanel : MonoBehaviour {
             RoundTimer = GetSelectedRoundTimer(),
             StepTimer = GetSelectedStepTimer(),
             Tips = tipsToggle.isOn,
+            CountTips = countTipsToggle.isOn,
+            PointerTips = pointerTipsToggle.isOn,
             TouristLimit = TouristLimitToggle.isOn,
             AllowSpectator = AllowSpectatorToggle.isOn,
             CuoHe = CuoHeheToggle.isOn,
@@ -967,6 +931,7 @@ public partial class CreatePanel : MonoBehaviour {
 
     private void CreateClassicalRoom() {
         var config = new Qingque_Create_RoomConfig {
+            ClaimProtection = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.ClaimProtection) && ClaimProtectionToggle.isOn,
             RoomName = roomNameInput.text.Trim(),
             GameRound = GetSelectedGameTime(),
             Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
@@ -976,6 +941,8 @@ public partial class CreatePanel : MonoBehaviour {
             RoundTimer = GetSelectedRoundTimer(),
             StepTimer = GetSelectedStepTimer(),
             Tips = tipsToggle.isOn,
+            CountTips = countTipsToggle.isOn,
+            PointerTips = pointerTipsToggle.isOn,
             TouristLimit = TouristLimitToggle.isOn,
             AllowSpectator = AllowSpectatorToggle.isOn,
             EventId = _venueEventId,
@@ -989,25 +956,90 @@ public partial class CreatePanel : MonoBehaviour {
         RoomNetworkManager.Instance.Create_Classical_Room(config);
     }
 
+    private bool IsShanghaiQiaoma => _ruleState == "shanghai" && GetSelectedSubRule() == "shanghai/qiaoma";
+
+    private void CreateTuidaoRoom() {
+        var config = new Qingque_Create_RoomConfig {
+            ClaimProtection = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.ClaimProtection) && ClaimProtectionToggle.isOn,
+            RoomName = roomNameInput.text.Trim(),
+            GameRound = GetSelectedGameTime(),
+            Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
+            RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
+            Rule = "guangdong",
+            SubRule = GetSelectedSubRule(),
+            RoundTimer = GetSelectedRoundTimer(),
+            StepTimer = GetSelectedStepTimer(),
+            Tips = tipsToggle.isOn,
+            CountTips = countTipsToggle.isOn,
+            PointerTips = pointerTipsToggle.isOn,
+            TouristLimit = TouristLimitToggle.isOn,
+            AllowSpectator = AllowSpectatorToggle.isOn,
+            EventId = _venueEventId,
+        };
+
+        if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
+            Debug.LogWarning(error);
+            NotificationManager.Instance.ShowTip("create_room", false, $"创建房间失败: {error}");
+            return;
+        }
+        RoomNetworkManager.Instance.Create_Guangdong_Room(config, GuangdongMinimumScoreToggle == null || GuangdongMinimumScoreToggle.isOn);
+    }
+
+    private void CreateShanghaiRoom() {
+        var config = new Qingque_Create_RoomConfig {
+            ClaimProtection = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.ClaimProtection) && ClaimProtectionToggle.isOn,
+            RoomName = roomNameInput.text.Trim(),
+            GameRound = GetSelectedGameTime(),
+            Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
+            RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
+            Rule = "shanghai",
+            SubRule = GetSelectedSubRule(),
+            RoundTimer = GetSelectedRoundTimer(),
+            StepTimer = GetSelectedStepTimer(),
+            Tips = tipsToggle.isOn,
+            CountTips = countTipsToggle.isOn,
+            PointerTips = pointerTipsToggle.isOn,
+            TouristLimit = TouristLimitToggle.isOn,
+            AllowSpectator = AllowSpectatorToggle.isOn,
+            EventId = _venueEventId,
+        };
+
+        if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
+            Debug.LogWarning(error);
+            NotificationManager.Instance.ShowTip("create_room", false, $"创建房间失败: {error}");
+            return;
+        }
+        RoomNetworkManager.Instance.Create_Shanghai_Room(config, IsShanghaiQiaoma && InputHepaiLimitToggle.isOn);
+    }
+
     private void CreateSichuanRoom() {
-        bool bloodBattle = BloodBattleToggle != null
+        string subRule = GetSelectedSubRule();
+        int hepaiLimit = (int)DefaultsOf("sichuan")[CreateRoomKeys.HepaiLimit];
+        if (InputHepaiLimitToggle.isOn && int.TryParse(HepaiLimitInput.text.Trim(), out int parsed)) {
+            hepaiLimit = parsed;
+        }
+        bool bloodBattle = SichuanLobby.IsXueliu(subRule) ? false : BloodBattleToggle != null
             ? BloodBattleToggle.isOn
             : (bool)DefaultsOf("sichuan")[CreateRoomKeys.BloodBattle];
 
         var config = new Sichuan_Create_RoomConfig {
+            ClaimProtection = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.ClaimProtection) && ClaimProtectionToggle.isOn,
             RoomName = roomNameInput.text.Trim(),
             GameRound = GetSelectedGameTime(),
             Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
             RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
             Rule = "sichuan",
-            SubRule = "sichuan/standard",
+            SubRule = subRule,
             RoundTimer = GetSelectedRoundTimer(),
             StepTimer = GetSelectedStepTimer(),
             Tips = tipsToggle.isOn,
+            CountTips = countTipsToggle.isOn,
+            PointerTips = pointerTipsToggle.isOn,
             TouristLimit = TouristLimitToggle.isOn,
             AllowSpectator = AllowSpectatorToggle.isOn,
             TacticalCall = TacticalCallToggle.isOn,
             BloodBattle = bloodBattle,
+            HepaiLimit = hepaiLimit,
             EventId = _venueEventId,
         };
 
@@ -1021,15 +1053,18 @@ public partial class CreatePanel : MonoBehaviour {
 
     private void CreateJiandanRoom() {
         var config = new Jiandan_Create_RoomConfig {
+            ClaimProtection = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.ClaimProtection) && ClaimProtectionToggle.isOn,
             RoomName = roomNameInput.text.Trim(),
             GameRound = GetSelectedGameTime(),
             Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
             RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
-            Rule = "jiandan",
-            SubRule = "jiandan/standard",
+            Rule = _ruleState,
+            SubRule = GetSelectedSubRule(),
             RoundTimer = GetSelectedRoundTimer(),
             StepTimer = GetSelectedStepTimer(),
             Tips = tipsToggle.isOn,
+            CountTips = countTipsToggle.isOn,
+            PointerTips = pointerTipsToggle.isOn,
             TouristLimit = TouristLimitToggle.isOn,
             AllowSpectator = AllowSpectatorToggle.isOn,
             TacticalCall = false,
@@ -1051,6 +1086,7 @@ public partial class CreatePanel : MonoBehaviour {
             _ => "multi_ron",
         };
         var config = new Jiandan_Create_RoomConfig {
+            ClaimProtection = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.ClaimProtection) && ClaimProtectionToggle.isOn,
             RoomName = roomNameInput.text.Trim(),
             GameRound = GetSelectedGameTime(),
             Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
@@ -1060,6 +1096,8 @@ public partial class CreatePanel : MonoBehaviour {
             RoundTimer = GetSelectedRoundTimer(),
             StepTimer = GetSelectedStepTimer(),
             Tips = tipsToggle.isOn,
+            CountTips = countTipsToggle.isOn,
+            PointerTips = pointerTipsToggle.isOn,
             TouristLimit = TouristLimitToggle.isOn,
             AllowSpectator = false,
             TacticalCall = false,
@@ -1075,6 +1113,7 @@ public partial class CreatePanel : MonoBehaviour {
 
     private void CreateChangshaRoom() {
         var config = new Changsha_Create_RoomConfig {
+            ClaimProtection = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.ClaimProtection) && ClaimProtectionToggle.isOn,
             RoomName = roomNameInput.text.Trim(),
             GameRound = GetSelectedGameTime(),
             Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
@@ -1084,6 +1123,8 @@ public partial class CreatePanel : MonoBehaviour {
             RoundTimer = GetSelectedRoundTimer(),
             StepTimer = GetSelectedStepTimer(),
             Tips = tipsToggle.isOn,
+            CountTips = countTipsToggle.isOn,
+            PointerTips = pointerTipsToggle.isOn,
             TouristLimit = TouristLimitToggle.isOn,
             AllowSpectator = AllowSpectatorToggle.isOn,
             TacticalCall = TacticalCallToggle.isOn,
@@ -1115,6 +1156,7 @@ public partial class CreatePanel : MonoBehaviour {
             Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
             RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
             TouristLimit = false,
+            PointerTips = pointerTipsToggle.isOn,
             WallWan = WallWanToggle == null || WallWanToggle.isOn,
             WallTong = WallTongToggle == null || WallTongToggle.isOn,
             WallSuo = WallSuoToggle == null || WallSuoToggle.isOn,
@@ -1164,9 +1206,10 @@ public partial class CreatePanel : MonoBehaviour {
         return stepTimer.value switch {
             0 => 3,
             1 => 5,
-            2 => 10,
-            3 => 20,
-            4 => 40,
+            2 => 8,
+            3 => 10,
+            4 => 20,
+            5 => 40,
             _ => 5
         };
     }
@@ -1176,11 +1219,12 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private void ToggleSetRandomSeed(bool isOn) {
+        if (isOn && DuplicateWallToggle != null) DuplicateWallToggle.isOn = false;
         SetRandomSeedPanel.SetActive(isOn);
     }
 
     private void ToggleInputHepaiLimit(bool isOn) {
-        InputHepaiLimitPlane.SetActive(isOn);
+        InputHepaiLimitPlane.SetActive(isOn && _ruleState != "shanghai");
         if (!isOn) {
             if (_ruleState == "guobiao")
                 HepaiLimitInput.text = GetGuobiaoSubRuleDefaultHepaiLimit(GetSelectedSubRule()).ToString();
@@ -1202,13 +1246,14 @@ public partial class CreatePanel : MonoBehaviour {
 
     private void RefreshCuoheTypePanelVisibility() {
         if (CuoheTypePanel == null) return;
+        bool isBloodBattle = _ruleState == "guobiao" && GetSelectedSubRule() == GuobiaoGameState.BloodBattleSubRule;
         bool isXiaolin = _ruleState == "guobiao" && SubRuleDropdown.value == 1;
         bool isLanshi = _ruleState == "guobiao" && SubRuleDropdown.value == 3;
         bool showPanel = TryGetDefaults(_ruleState, out var config)
             && config.ContainsKey(CreateRoomKeys.CuoheType)
             && !isXiaolin
             && !isLanshi
-            && CuoHeheToggle.isOn;
+            && !isBloodBattle && CuoHeheToggle.isOn;
         CuoheTypePanel.SetActive(showPanel);
     }
 

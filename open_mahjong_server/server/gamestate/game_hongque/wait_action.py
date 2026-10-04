@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import asyncio
+from ..public.lifecycle import start_owned_task
 import time
 from dataclasses import dataclass, field
 from typing import Optional
@@ -19,7 +20,6 @@ from .action_check import check_action_after_cut, check_action_hand_action
 from .hongque_debug import get_debug_forced_discard, resolve_debug_scenario
 from .init_tiles import pop_supplement_tile
 from .ron_resolution import resolve_collected_rons
-from .rules import kong_candidates
 from .scoring import best_win_result
 from .state_machine import HongqueStatus
 from .tile import HongqueTile
@@ -117,6 +117,18 @@ def actions_for_viewer(game_state, player_index: int) -> tuple[list[str], list[d
     return [], []
 
 
+def queued_claim_is_current(game_state, player_index: int, action_data: dict) -> bool:
+    """同批队列中，先执行的申请可能淘汰后执行者的旧候选；保留其重选机会。"""
+    actions, candidates = actions_for_viewer(game_state, player_index)
+    action = action_data.get("action_type")
+    if action not in actions:
+        return False
+    return action != "claim" or any(
+        candidate.get("id") == action_data.get("candidate_id")
+        for candidate in candidates
+    )
+
+
 def refresh_hand_action_dict(game_state) -> None:
     game_state.action_dict = {index: [] for index in range(4)}
     player = game_state.players[game_state.current_player_index]
@@ -161,7 +173,8 @@ def validate_submitted_action(game_state, player, action: str,
         if action == "kong":
             if not after_claim and len(player.hand) == 1:
                 raise ValueError("手牌只剩一张时请使用和")
-            if not any(item["id"] == candidate_id for item in kong_candidates(player.hand, player.melds)):
+            _, candidates = check_action_hand_action(game_state, player)
+            if not any(item["id"] == candidate_id for item in candidates):
                 raise ValueError("杠牌候选无效")
             return
         if action == "win":
@@ -245,8 +258,8 @@ async def _wait_hand_action(game_state) -> None:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             break
-        action_task = asyncio.create_task(game_state.action_events[player.index].wait())
-        timer_task = asyncio.create_task(asyncio.sleep(remaining))
+        action_task = start_owned_task(game_state, game_state.action_events[player.index].wait())
+        timer_task = start_owned_task(game_state, asyncio.sleep(remaining))
         done, pending = await asyncio.wait(
             {action_task, timer_task},
             return_when=asyncio.FIRST_COMPLETED,
@@ -351,12 +364,12 @@ async def _wait_claim_action(game_state) -> None:
         task_to_player = {}
         task_list = []
         for player_index in waiting:
-            action_task = asyncio.create_task(
+            action_task = start_owned_task(game_state,
                 game_state.action_events[player_index].wait()
             )
             task_list.append(action_task)
             task_to_player[action_task] = player_index
-        timer_task = asyncio.create_task(asyncio.sleep(remaining))
+        timer_task = start_owned_task(game_state, asyncio.sleep(remaining))
         task_list.append(timer_task)
         done, pending = await asyncio.wait(
             task_list, return_when=asyncio.FIRST_COMPLETED
@@ -385,7 +398,7 @@ async def _wait_claim_action(game_state) -> None:
             for player_index, action_data in submissions:
                 if game_state.claim_window is None or game_state.phase != "claim":
                     return
-                if player_index not in game_state.claim_window.pending:
+                if not queued_claim_is_current(game_state, player_index, action_data):
                     continue
                 await handle_claim_action(
                     game_state,
@@ -518,7 +531,7 @@ async def handle_hand_action(game_state, player, action: str,
     elif action == "kong":
         if not after_claim and len(player.hand) == 1:
             raise ValueError("手牌只剩一张时请使用和")
-        candidates = kong_candidates(player.hand, player.melds)
+        _, candidates = check_action_hand_action(game_state, player)
         candidate = next((item for item in candidates if item["id"] == candidate_id), None)
         if candidate is None:
             raise ValueError("杠牌候选无效")
@@ -661,8 +674,12 @@ async def _open_tactical_recheck(game_state) -> None:
         await resolve_claims(game_state)
         return
     for player_index in tuple(window.pending):
-        if game_state.players[player_index].user_id in (2, 3):
+        player = game_state.players[player_index]
+        if player.user_id in (2, 3):
             game_state._schedule_bot_claim(player_index, game_state.action_tick)
+        elif player.is_bot:
+            # 普通机器人在初次询问和战术重询都直接 pass，不占用整段五秒窗口。
+            await handle_claim_action(game_state, player, "pass", None)
 
 
 async def resolve_claims(game_state) -> None:

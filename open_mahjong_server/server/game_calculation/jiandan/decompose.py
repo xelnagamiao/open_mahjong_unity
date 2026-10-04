@@ -82,6 +82,7 @@ def is_thirteen_orphans(tiles: Iterable[int]) -> bool:
 def find_standard_decompositions(
     concealed_tiles: Iterable[int],
     exposed_melds: Iterable[Meld] = (),
+    *, allow_quad_split: bool = False,
 ) -> list[Decomposition]:
     concealed = sorted_tiles(concealed_tiles)
     validate_tiles(concealed)
@@ -98,20 +99,20 @@ def find_standard_decompositions(
     for pair_tile in sorted(counts):
         if counts[pair_tile] < 2:
             continue
-        if counts[pair_tile] == 4:
+        if counts[pair_tile] == 4 and not allow_quad_split:
             # Undeclared four identical concealed tiles cannot be used as the
             # standard-hand pair under this rule set.
             continue
         counts[pair_tile] -= 2
         pair = Meld("pair", (pair_tile, pair_tile), concealed=True)
-        for melds in _find_melds(counts, needed_melds):
+        for melds in _find_melds(counts, needed_melds, allow_quad_split):
             results.append(Decomposition(tuple(exposed + tuple(melds)), pair))
         counts[pair_tile] += 2
 
     return results
 
 
-def _find_melds(counts: Counter[int], target_count: int) -> list[list[Meld]]:
+def _find_melds(counts: Counter[int], target_count: int, allow_quad_split: bool = False) -> list[list[Meld]]:
     if target_count == 0:
         return [[]] if all(count == 0 for count in counts.values()) else []
 
@@ -121,9 +122,9 @@ def _find_melds(counts: Counter[int], target_count: int) -> list[list[Meld]]:
 
     results: list[list[Meld]] = []
 
-    if counts[first] >= 3 and counts[first] != 4:
+    if counts[first] >= 3 and (allow_quad_split or counts[first] != 4):
         counts[first] -= 3
-        for tail in _find_melds(counts, target_count - 1):
+        for tail in _find_melds(counts, target_count - 1, allow_quad_split):
             results.append([Meld("triplet", (first, first, first), concealed=True)] + tail)
         counts[first] += 3
 
@@ -139,7 +140,7 @@ def _find_melds(counts: Counter[int], target_count: int) -> list[list[Meld]]:
             counts[first] -= 1
             counts[second] -= 1
             counts[third] -= 1
-            for tail in _find_melds(counts, target_count - 1):
+            for tail in _find_melds(counts, target_count - 1, allow_quad_split):
                 results.append([Meld("sequence", (first, second, third), concealed=True)] + tail)
             counts[first] += 1
             counts[second] += 1

@@ -1,6 +1,21 @@
-using UnityEngine;
+using System;
+using System.Collections.Generic;
 using TMPro;
+using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
+
+public readonly struct MessageAction {
+    public readonly string Label;
+    public readonly Action Click;
+    public readonly bool ClosePanel;
+
+    public MessageAction(string label, Action click = null, bool closePanel = true) {
+        Label = label ?? "";
+        Click = click;
+        ClosePanel = closePanel;
+    }
+}
 
 public class MessagePrefab : MonoBehaviour {
     [SerializeField] private PanelPopupTransition popupTransition;
@@ -20,15 +35,30 @@ public class MessagePrefab : MonoBehaviour {
     private const float BodyBottom = 104;
     private const float MinimumBodyHeight = 112;
     private readonly Vector3[] canvasCorners = new Vector3[4];
-    private RectTransform bodyViewport;
-    private ScrollRect bodyScroll;
-    private Scrollbar bodyScrollbar;
+    private readonly List<ButtonSlot> extraSlots = new List<ButtonSlot>();
+    private ButtonSlot[] activeSlots = Array.Empty<ButtonSlot>();
+    private MessageAction[] currentActions = Array.Empty<MessageAction>();
+    [SerializeField] private RectTransform bodyViewport;
+    [SerializeField] private ScrollRect bodyScroll;
+    [SerializeField] private Scrollbar bodyScrollbar;
     private Vector2 lastAvailableSize;
     private bool hasMessage;
+    private TextAlignmentOptions bodyAlignment = TextAlignmentOptions.Center;
+    private bool selectFirstButton;
 
-    private System.Action confirmationAction;
     private GameObject modalOwner;
     private bool closing;
+    private bool abandonConfirmOpen;
+
+    private readonly struct ButtonSlot {
+        public readonly Button Button;
+        public readonly TMP_Text Text;
+
+        public ButtonSlot(Button button, TMP_Text text) {
+            Button = button;
+            Text = text;
+        }
+    }
 
     private void Awake() {
         if (popupTransition == null) {
@@ -37,54 +67,29 @@ public class MessagePrefab : MonoBehaviour {
     }
 
     public void ShowMessage(string header, string content, string type = "") {
+        Show(header, content, BuildActions(type));
+    }
+
+    public void ShowConfirmation(string header, string content, Action onConfirm,
+        string confirmText = "确定", string cancelText = "取消") {
+        var actions = new List<MessageAction>(2);
+        if (!string.IsNullOrEmpty(cancelText)) {
+            actions.Add(new MessageAction(cancelText));
+        }
+        actions.Add(new MessageAction(string.IsNullOrEmpty(confirmText) ? "确定" : confirmText, onConfirm));
+        Show(header, content, actions, true);
+    }
+
+    public void Show(string header, string content, IReadOnlyList<MessageAction> actions, bool selectFirst = false) {
         closing = false;
-        confirmationAction = null;
-        YesButton.interactable = BackButton.interactable = true;
+        selectFirstButton = selectFirst;
         HeaderText.text = header;
         ContentText.text = content;
         hasMessage = true;
+        BindActions(actions);
         LayoutMessage();
-
-        YesButton.onClick.RemoveAllListeners();
-        BackButton.onClick.RemoveAllListeners();
-
-        if (type == "reconnect_ask") {
-            YesButtonText.text = "重新连接";
-            BackButtonText.text = "放弃比赛";
-            YesButton.onClick.AddListener(() => ReconnectClick("yes"));
-            BackButton.onClick.AddListener(() => ReconnectClick("no"));
-        } else if (type == "error_version") {
-#if UNITY_ANDROID && !UNITY_EDITOR
-            YesButtonText.text = "去下载";
-            BackButtonText.text = "关闭";
-            YesButton.onClick.AddListener(OpenMobileDownloadPage);
-            BackButton.onClick.AddListener(CloseMessage);
-#else
-            YesButtonText.text = "好的";
-            BackButtonText.text = "关闭";
-            YesButton.onClick.AddListener(CloseMessage);
-            BackButton.onClick.AddListener(CloseMessage);
-#endif
-        } else if (type == "login_kickout") {
-            YesButtonText.text = "重新登陆";
-            BackButtonText.text = "关闭";
-            YesButton.onClick.AddListener(ReturnToLoginClick);
-            BackButton.onClick.AddListener(DisconnectCloseClick);
-        } else if (type == "disconnect") {
-            YesButtonText.text = "重连";
-            BackButtonText.text = "关闭";
-            YesButton.onClick.AddListener(ReturnToLoginClick);
-            BackButton.onClick.AddListener(DisconnectCloseClick);
-        } else if (type == "logout_confirm") {
-            YesButtonText.text = "是";
-            BackButtonText.text = "否";
-            YesButton.onClick.AddListener(ReturnToLoginClick);
-            BackButton.onClick.AddListener(CloseMessage);
-        } else {
-            YesButtonText.text = "好的";
-            BackButtonText.text = "关闭";
-            YesButton.onClick.AddListener(CloseMessage);
-            BackButton.onClick.AddListener(CloseMessage);
+        if (selectFirstButton && activeSlots.Length > 0 && EventSystem.current != null) {
+            EventSystem.current.SetSelectedGameObject(activeSlots[0].Button.gameObject);
         }
 
         if (popupTransition != null) {
@@ -96,30 +101,145 @@ public class MessagePrefab : MonoBehaviour {
 
     public void SetModalOwner(GameObject owner) => modalOwner = owner;
 
-    public void ShowConfirmation(string header, string content, System.Action onConfirm,
-        string confirmText = "确定", string cancelText = "取消") {
-        ShowMessage(header, content);
-        confirmationAction = onConfirm;
-        YesButtonText.text = confirmText;
-        BackButtonText.text = cancelText;
-        YesButton.onClick.RemoveAllListeners();
-        BackButton.onClick.RemoveAllListeners();
-        YesButton.onClick.AddListener(ConfirmMessage);
-        BackButton.onClick.AddListener(CloseMessage);
-        BackButton.navigation = new Navigation { mode = Navigation.Mode.Explicit,
-            selectOnLeft = YesButton, selectOnRight = YesButton, selectOnUp = YesButton, selectOnDown = YesButton };
-        YesButton.navigation = new Navigation { mode = Navigation.Mode.Explicit,
-            selectOnLeft = BackButton, selectOnRight = BackButton, selectOnUp = BackButton, selectOnDown = BackButton };
-        // Keyboard submission starts on the non-destructive action.
-        if (UnityEngine.EventSystems.EventSystem.current != null)
-            UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(BackButton.gameObject);
+    public void SetBodyAlignment(TextAlignmentOptions alignment) {
+        bodyAlignment = alignment;
+        if (hasMessage) LayoutMessage();
     }
 
-    private void ConfirmMessage() {
-        if (closing) return;
-        System.Action action = confirmationAction;
-        CloseMessage();
-        action?.Invoke();
+    private MessageAction[] BuildActions(string type) {
+        if (type == "reconnect_ask") {
+            return new[] {
+                new MessageAction("放弃比赛", ConfirmAbandonReconnect, false),
+                new MessageAction("重新连接", () => ReconnectClick("yes")),
+            };
+        }
+        if (type == "error_version") {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            return new[] {
+                new MessageAction("关闭"),
+                new MessageAction("去下载", OpenMobileDownloadPage),
+            };
+#else
+            return new[] { new MessageAction("好的") };
+#endif
+        }
+        if (type == "login_kickout") {
+            return new[] {
+                new MessageAction("关闭", DisconnectCloseClick),
+                new MessageAction("重新登陆", ReturnToLoginClick),
+            };
+        }
+        if (type == "disconnect") {
+            return new[] {
+                new MessageAction("关闭", DisconnectCloseClick),
+                new MessageAction("重连", ReturnToLoginClick),
+            };
+        }
+        if (type == "logout_confirm") {
+            return new[] {
+                new MessageAction("否"),
+                new MessageAction("是", ReturnToLoginClick),
+            };
+        }
+        return new[] { new MessageAction("好的") };
+    }
+
+    private void BindActions(IReadOnlyList<MessageAction> actions) {
+        int count = actions != null ? actions.Count : 0;
+        if (count <= 0) {
+            currentActions = new[] { new MessageAction("好的") };
+            count = 1;
+        } else {
+            currentActions = new MessageAction[count];
+            for (int i = 0; i < count; i++) {
+                currentActions[i] = actions[i];
+            }
+        }
+
+        activeSlots = ResolveSlots(count);
+        for (int i = 0; i < activeSlots.Length; i++) {
+            int index = i;
+            ButtonSlot slot = activeSlots[i];
+            if (slot.Text != null) {
+                slot.Text.text = currentActions[i].Label;
+            }
+            slot.Button.onClick.RemoveAllListeners();
+            slot.Button.onClick.AddListener(() => HandleButton(index));
+            slot.Button.interactable = true;
+        }
+        WireNavigation();
+    }
+
+    private ButtonSlot[] ResolveSlots(int count) {
+        SetTemplateActive(YesButton, false);
+        SetTemplateActive(BackButton, false);
+        for (int i = 0; i < extraSlots.Count; i++) {
+            extraSlots[i].Button.gameObject.SetActive(false);
+        }
+
+        if (count <= 0) {
+            return Array.Empty<ButtonSlot>();
+        }
+
+        var slots = new ButtonSlot[count];
+        if (count == 1) {
+            SetTemplateActive(YesButton, true);
+            slots[0] = new ButtonSlot(YesButton, YesButtonText);
+            return slots;
+        }
+
+        SetTemplateActive(BackButton, true);
+        SetTemplateActive(YesButton, true);
+        slots[0] = new ButtonSlot(BackButton, BackButtonText);
+        slots[count - 1] = new ButtonSlot(YesButton, YesButtonText);
+        EnsureExtraSlots(count - 2);
+        for (int i = 0; i < count - 2; i++) {
+            extraSlots[i].Button.gameObject.SetActive(true);
+            slots[i + 1] = extraSlots[i];
+        }
+        return slots;
+    }
+
+    private void EnsureExtraSlots(int extraCount) {
+        while (extraSlots.Count < extraCount) {
+            Button clone = Instantiate(YesButton, YesButton.transform.parent);
+            clone.name = "MessageButtonExtra";
+            clone.onClick.RemoveAllListeners();
+            extraSlots.Add(new ButtonSlot(clone, clone.GetComponentInChildren<TMP_Text>(true)));
+        }
+    }
+
+    private static void SetTemplateActive(Button button, bool active) {
+        if (button != null) {
+            button.gameObject.SetActive(active);
+        }
+    }
+
+    private void WireNavigation() {
+        int count = activeSlots.Length;
+        for (int i = 0; i < count; i++) {
+            var nav = new Navigation { mode = Navigation.Mode.Explicit };
+            if (count == 1) {
+                nav.selectOnLeft = nav.selectOnRight = nav.selectOnUp = nav.selectOnDown = activeSlots[0].Button;
+            } else {
+                Button previous = activeSlots[(i - 1 + count) % count].Button;
+                Button next = activeSlots[(i + 1) % count].Button;
+                nav.selectOnLeft = nav.selectOnUp = previous;
+                nav.selectOnRight = nav.selectOnDown = next;
+            }
+            activeSlots[i].Button.navigation = nav;
+        }
+    }
+
+    private void HandleButton(int index) {
+        if (closing || index < 0 || index >= currentActions.Length) {
+            return;
+        }
+        Action click = currentActions[index].Click;
+        if (currentActions[index].ClosePanel) {
+            CloseMessage();
+        }
+        click?.Invoke();
     }
 
     private void LayoutMessage() {
@@ -141,7 +261,7 @@ public class MessagePrefab : MonoBehaviour {
         ContentText.enableAutoSizing = false;
         ContentText.textWrappingMode = TextWrappingModes.Normal;
         // TMP centers each explicit/wrapped line, not merely the containing block.
-        ContentText.alignment = TextAlignmentOptions.Center;
+        ContentText.alignment = bodyAlignment;
         ContentText.margin = Vector4.zero;
         ContentText.lineSpacing = 6;
         ContentText.overflowMode = TextOverflowModes.Overflow;
@@ -150,7 +270,6 @@ public class MessagePrefab : MonoBehaviour {
         float bodyHeight = Mathf.Min(Mathf.Max(MinimumBodyHeight, preferredHeight), maximumBodyHeight);
         bool overflow = preferredHeight > bodyHeight + .5f;
         if (overflow) preferredHeight = ContentText.GetPreferredValues(ContentText.text, Mathf.Max(1, bodyWidth - 20), Mathf.Infinity).y + 8;
-        EnsureBodyViewport();
         rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f, .5f);
         rect.anchoredPosition = Vector2.zero;
         rect.sizeDelta = new Vector2(width, bodyHeight + BodyTop + BodyBottom);
@@ -161,10 +280,27 @@ public class MessagePrefab : MonoBehaviour {
         bodyScrollbar.gameObject.SetActive(overflow);
         bodyScroll.StopMovement();
         bodyScroll.verticalNormalizedPosition = 1;
-        float buttonWidth = Mathf.Min(190, (width - horizontalPadding * 2 - 20) / 2);
-        PlaceMessageRect((RectTransform)BackButton.transform, new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(1, 0), new Vector2(-10, 24), new Vector2(buttonWidth, 52));
-        PlaceMessageRect((RectTransform)YesButton.transform, new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(0, 0), new Vector2(10, 24), new Vector2(buttonWidth, 52));
-        foreach (var text in new[] { YesButtonText, BackButtonText }) {
+        LayoutButtons(width, horizontalPadding);
+    }
+
+    private void LayoutButtons(float width, float horizontalPadding) {
+        int count = activeSlots.Length;
+        float available = Mathf.Max(1, width - horizontalPadding * 2);
+        float gap = 20;
+        float buttonWidth = count <= 1
+            ? Mathf.Min(220, available)
+            : Mathf.Min(190, (available - gap * (count - 1)) / Mathf.Max(1, count));
+        float total = count <= 0 ? 0 : buttonWidth * count + gap * Mathf.Max(0, count - 1);
+        float start = -total * 0.5f;
+        for (int i = 0; i < count; i++) {
+            float x = start + buttonWidth * 0.5f + i * (buttonWidth + gap);
+            PlaceMessageRect((RectTransform)activeSlots[i].Button.transform,
+                new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(.5f, 0),
+                new Vector2(x, 24), new Vector2(buttonWidth, 52));
+            TMP_Text text = activeSlots[i].Text;
+            if (text == null) {
+                continue;
+            }
             text.enableAutoSizing = true;
             text.fontSize = text.fontSizeMax = 24;
             text.fontSizeMin = 16;
@@ -196,6 +332,9 @@ public class MessagePrefab : MonoBehaviour {
         if (hasMessage && !closing && (AvailableCanvasSize() - lastAvailableSize).sqrMagnitude > 1)
             LayoutMessage();
     }
+
+#if UNITY_EDITOR
+    public void BakeFixedBody() { EnsureBodyViewport(); LayoutMessage(); }
 
     private void EnsureBodyViewport() {
         if (bodyViewport != null) return;
@@ -233,6 +372,8 @@ public class MessagePrefab : MonoBehaviour {
         bodyScrollbar.navigation = new Navigation { mode = Navigation.Mode.None };
         bodyScroll.verticalScrollbar = bodyScrollbar;
     }
+#endif
+
 
     private static void PlaceMessageRect(RectTransform rect, Vector2 min, Vector2 max, Vector2 pivot, Vector2 position, Vector2 size) {
         // The legacy prefab scaled both buttons to 0.43; use the actual layout dimensions.
@@ -244,8 +385,11 @@ public class MessagePrefab : MonoBehaviour {
     public void CloseMessage() {
         if (closing) return;
         closing = true;
-        confirmationAction = null;
-        YesButton.interactable = BackButton.interactable = false;
+        for (int i = 0; i < activeSlots.Length; i++) {
+            if (activeSlots[i].Button != null) {
+                activeSlots[i].Button.interactable = false;
+            }
+        }
         GameObject owner = modalOwner != null ? modalOwner : gameObject;
         if (popupTransition != null) {
             popupTransition.Hide(() => Destroy(owner));
@@ -260,21 +404,35 @@ public class MessagePrefab : MonoBehaviour {
         } else if (type == "no") {
             NetworkManager.Instance.ReconnectResponse(false);
         }
-        CloseMessage();
+    }
+
+    private void ConfirmAbandonReconnect() {
+        if (closing || abandonConfirmOpen || NotificationManager.Instance == null) {
+            return;
+        }
+        abandonConfirmOpen = true;
+        MessagePrefab reconnectPanel = this;
+        NotificationManager.Instance.ShowModal(
+            "确认放弃对局",
+            "放弃后将退出当前对局，无法再重连到这场游戏。此操作不可撤销，您确定吗？",
+            new MessageAction("再想想", () => reconnectPanel.abandonConfirmOpen = false),
+            new MessageAction("确定放弃", () => {
+                reconnectPanel.abandonConfirmOpen = false;
+                reconnectPanel.CloseMessage();
+                ReconnectClick("no");
+            })
+        );
     }
 
     private void ReturnToLoginClick() {
         AppSession.ReturnToLogin();
-        CloseMessage();
     }
 
     private void DisconnectCloseClick() {
         AppSession.QuitOrReconnectOnDisconnectClose();
-        CloseMessage();
     }
 
     private void OpenMobileDownloadPage() {
         Application.OpenURL(ConfigManager.mobileDownloadUrl);
-        CloseMessage();
     }
 }

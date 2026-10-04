@@ -1,3 +1,7 @@
+import pytest
+
+from server.gamestate.game_hongque import heuristic_bot
+from server.gamestate.game_hongque.action_priority import HONGQUE_ACTION_PRIORITY
 from server.gamestate.game_hongque.group_index import mask_from_codes
 from server.gamestate.game_hongque.heuristic_bot import (
     OpponentView,
@@ -110,10 +114,39 @@ def test_heuristic_claim_refuses_non_advancing_open() -> None:
     assert not _claim_advances(before, after, priority=1)
 
 
+@pytest.mark.parametrize("action_type", [
+    name for name in HONGQUE_ACTION_PRIORITY
+    if name.startswith(("chi_", "peng_", "hong_"))
+])
+def test_neutral_call_bonus_is_only_for_rainbow(action_type) -> None:
+    value = V2Value(2, 5, 0, 20)
+    assert _claim_advances(
+        value, value, HONGQUE_ACTION_PRIORITY[action_type]
+    ) == action_type.startswith("hong_")
+
+
+def test_future_discard_waits_do_not_score_heavenly_win(monkeypatch) -> None:
+    score = heuristic_bot.best_win_result
+    scored_fans = []
+
+    def record_score(*args, **kwargs):
+        result = score(*args, **kwargs)
+        if result is not None:
+            scored_fans.append({fan["name"] for fan in result["fans"]})
+        return result
+
+    monkeypatch.setattr(heuristic_bot, "best_win_result", record_score)
+    hand = "AX1 AX2 AX3 BX4 BX5 BX6 CX7 CX8 GY9".split()
+    choose_turn_plan(hand, [], hand, [], supplements=2,
+                     wall_count=30, drawn_tile="GY9")
+    assert scored_fans
+    assert all("天和" not in fans for fans in scored_fans)
+
+
 def test_heuristic_claim_accepts_rainbow_style_even() -> None:
     before = V2Value(2, 5, 0, 20)
     after = V2Value(2, 5, 0, 20)
-    assert _claim_advances(before, after, priority=3)
+    assert _claim_advances(before, after, priority=HONGQUE_ACTION_PRIORITY["hong_third"])
 
 
 # ── Defense layer ────────────────────────────────────────────────────────────

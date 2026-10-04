@@ -11,7 +11,7 @@ namespace Riichi {
         /// <summary>
         /// 和牌者从对手处总收分（不含本场棒/供托）。
         /// 荣和：放铳者支付（庄家 6×base，闲家 4×base）。
-        /// 自摸：非庄家付 2×base，庄家付 4×base；庄家自摸每人付 4×base。
+        /// 自摸：闲家支付 base，庄家支付 2×base；庄家自摸每人支付 2×base，各自向上取整至百点。
         /// </summary>
         public int Score;
         public List<string> Yaku = new List<string>();

@@ -4,8 +4,16 @@
       <h1>牌谱格式转换</h1>
     </header>
 
+    <section v-if="sharedLoading || sharedError" class="section-block" aria-live="polite">
+      <el-alert v-if="sharedLoading" title="正在读取分享牌谱并自动转换…" type="info" :closable="false" show-icon />
+      <template v-else>
+        <el-alert title="无法打开分享牌谱" :description="sharedError" type="error" :closable="false" show-icon />
+        <el-button @click="loadSharedRecord">重新加载</el-button>
+      </template>
+    </section>
+
     <section class="section-block mode-section">
-      <div class="sec-h">■ 选择转换方向</div>
+      <div class="sec-h">选择转换方向</div>
       <div class="mode-grid">
         <button
           v-for="item in modes"
@@ -14,6 +22,7 @@
           class="mode-option"
           :class="{ active: modeId === item.id }"
           :aria-pressed="modeId === item.id"
+          :disabled="sharedLoading || fetchBusy || busy"
           @click="selectMode(item.id)"
         >
           {{ item.label }}
@@ -21,16 +30,18 @@
       </div>
     </section>
 
+    <p v-if="currentMode?.hint" class="mode-hint">{{ currentMode.hint }}</p>
+
     <div v-if="!currentMode" class="choose-tip">
-      请先在上方选择一种转换方向。
+      请选择转换方向。
     </div>
 
     <template v-else>
       <section class="section-block">
         <div class="info-panel">
           <div class="data-impact">
-            <h2>转换后不会原样保留的数据</h2>
-            <p class="impact-intro">来源格式和目标格式记录的内容不同，以下数据会缺少、被省略，或只能重新推算。</p>
+            <h2>转换限制</h2>
+            <p class="impact-intro">以下字段无法完整转换。</p>
             <div class="impact-list">
               <article v-for="(row, index) in affectedRows" :key="index" class="impact-item">
                 <div class="impact-title">
@@ -39,7 +50,7 @@
                 </div>
                 <p>{{ row.how }}</p>
                 <details>
-                  <summary>查看示例</summary>
+                  <summary>示例</summary>
                   <code>{{ row.example }}</code>
                 </details>
               </article>
@@ -53,24 +64,27 @@
           <div class="fetch-form">
             <el-input
               v-model="tziakchaInput"
+              :disabled="fetchBusy || sharedLoading"
+              @input="onInputChanged"
               clearable
               placeholder="粘贴雀渣牌谱链接或牌谱 ID"
               @keyup.enter="fetchTziakchaRecord"
             />
-            <el-button type="primary" :loading="fetchBusy" @click="fetchTziakchaRecord">转换</el-button>
+            <el-button type="primary" :loading="fetchBusy" :disabled="sharedLoading || busy" @click="fetchTziakchaRecord">转换</el-button>
           </div>
         </template>
 
         <template v-else>
           <input ref="fileInput" type="file" :accept="currentMode.accept" hidden @change="onFile" />
           <div class="source-toolbar">
-            <el-button type="primary" plain @click="fileInput?.click()">选择牌谱文件</el-button>
+            <el-button type="primary" plain :disabled="busy || sharedLoading" @click="fileInput?.click()">选择牌谱文件</el-button>
             <span>{{ selectedFileName || '或在下方粘贴牌谱内容' }}</span>
-            <el-button v-if="inputText" link type="primary" @click="clearAll">清空</el-button>
+            <el-button v-if="inputText" link type="primary" :disabled="busy || sharedLoading" @click="clearAll">清空</el-button>
           </div>
           <el-input
             id="record-source"
             v-model="inputText"
+            :disabled="busy || sharedLoading"
             type="textarea"
             :rows="9"
             :placeholder="`粘贴“${currentMode.label}”的源牌谱内容`"
@@ -81,7 +95,7 @@
             <el-button
               type="primary"
               :loading="busy"
-              :disabled="!inputText.trim()"
+              :disabled="!inputText.trim() || sharedLoading"
               @click="runConvert"
             >转换</el-button>
           </div>
@@ -91,17 +105,25 @@
           v-if="error"
           type="error"
           title="转换失败"
-          :description="`${error}。请确认转换方向正确，并检查输入内容是否完整。`"
+          :description="error"
           :closable="false"
           show-icon
         />
 
-        <div v-if="outputText" class="result-actions">
+        <div v-if="outputText" ref="resultPanel" class="result-actions" aria-live="polite">
           <strong>转换完成</strong>
           <div>
             <el-button type="success" @click="downloadOut">下载 JSON</el-button>
-            <el-button v-if="canOpenIn2d" type="warning" @click="openIn2d">打开 2D 阅览</el-button>
+            <el-button v-if="canOpenReplay" type="warning" @click="openIn2d">打开 2D 阅览</el-button>
+            <el-button v-if="canOpenReplay" type="warning" @click="openIn3d">打开 3D 阅览</el-button>
+            <el-button v-if="canOpenReplay" type="primary" :loading="shareBusy" @click="shareRecord">分享转换牌谱链接</el-button>
           </div>
+        </div>
+        <div v-if="shareUrl" class="share-panel">
+          <p>打开链接后可自动转换牌谱。</p>
+          <el-input :model-value="shareUrl" readonly aria-label="牌谱分享链接" @focus="$event.target.select()">
+            <template #append><el-button @click="copyShareUrl">复制链接</el-button></template>
+          </el-input>
         </div>
       </section>
     </template>
@@ -109,15 +131,16 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref, watch, nextTick, onBeforeUnmount } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { CONVERT_MODES, getMode } from '@/utils/recordConvert'
-import { saveLocalReplayRecord } from '@/game2d/replay/localReplayRecord'
+import { saveLocalReplayRecord, UNITY_LOCAL_REPLAY_ID } from '@/game2d/replay/localReplayRecord'
 
 const modes = CONVERT_MODES
 const router = useRouter()
+const route = useRoute()
 const modeId = ref('')
 const inputText = ref('')
 const outputText = ref('')
@@ -127,28 +150,48 @@ const fileInput = ref(null)
 const selectedFileName = ref('')
 const tziakchaInput = ref('')
 const fetchBusy = ref(false)
+const sharedLoading = ref(false)
+const sharedError = ref('')
+const shareBusy = ref(false)
+const shareUrl = ref('')
+const resultPanel = ref(null)
+let revision = 0
+let convertedSource = null
+
+function invalidateResult() {
+  revision += 1
+  busy.value = false
+  outputText.value = ''
+  shareUrl.value = ''
+  convertedSource = null
+}
 
 const currentMode = computed(() => getMode(modeId.value))
 const affectedRows = computed(() => currentMode.value?.approxRows?.filter((row) => row.status !== '完整') || [])
-const canOpenIn2d = computed(() => outputText.value && ['tz2sala', 'bz2sala', 'mjai2sala'].includes(modeId.value))
+const canOpenReplay = computed(() => outputText.value && ['tz2sala', 'bz2sala', 'mjai2sala'].includes(modeId.value))
 
 function selectMode(id) {
+  invalidateResult()
   modeId.value = id
   outputText.value = ''
   error.value = ''
 }
 
 function lossKind(status) {
-  if (status.includes('缺失') && status.includes('近似')) return '部分缺失或推算'
-  if (status.includes('缺失')) return '不会保留'
-  if (status === '格式限制') return '目标格式不记录'
-  return '重新推算或使用占位值'
+  if (status.includes('缺失') && status.includes('近似')) return '缺失或推算'
+  if (status.includes('缺失')) return '缺失'
+  if (status === '格式限制') return '格式限制'
+  return '推算或占位'
 }
 
 async function readFile(file) {
   if (!file) return
+  invalidateResult()
+  const requestRevision = revision
   try {
-    inputText.value = await file.text()
+    const text = await file.text()
+    if (requestRevision !== revision) return
+    inputText.value = text
     selectedFileName.value = file.name
     outputText.value = ''
     error.value = ''
@@ -163,12 +206,14 @@ async function onFile(event) {
 }
 
 function onInputChanged() {
+  invalidateResult()
   selectedFileName.value = ''
   outputText.value = ''
   error.value = ''
 }
 
 function clearAll() {
+  invalidateResult()
   inputText.value = ''
   outputText.value = ''
   selectedFileName.value = ''
@@ -176,19 +221,24 @@ function clearAll() {
 }
 
 async function fetchTziakchaRecord() {
+  if (fetchBusy.value || sharedLoading.value) return
   const input = tziakchaInput.value.trim()
   if (!input) {
     ElMessage.warning('请先粘贴雀渣牌谱链接或牌谱 ID')
     return
   }
   fetchBusy.value = true
+  invalidateResult()
+  const requestRevision = revision
   error.value = ''
   try {
     const response = await axios.post('/api/mahjong/tziakcha-record', { input })
+    if (requestRevision !== revision) return
     inputText.value = JSON.stringify(response.data?.data || {}, null, 2)
     selectedFileName.value = '已从雀渣读取牌谱'
     await runConvert()
   } catch (cause) {
+    if (requestRevision !== revision) return
     error.value = cause?.response?.data?.message || cause?.message || '无法读取雀渣牌谱'
   } finally {
     fetchBusy.value = false
@@ -196,20 +246,93 @@ async function fetchTziakchaRecord() {
 }
 
 async function runConvert() {
+  invalidateResult()
+  const requestRevision = revision
   error.value = ''
   outputText.value = ''
   const mode = currentMode.value
+  const source = inputText.value
   if (!mode || !inputText.value.trim()) return
 
   busy.value = true
   try {
-    outputText.value = await mode.convert(inputText.value)
+    const result = await mode.convert(source)
+    if (requestRevision !== revision) return
+    outputText.value = result
+    convertedSource = { mode: mode.id, source }
   } catch (cause) {
+    if (requestRevision !== revision) return
     error.value = cause?.message || String(cause)
   } finally {
-    busy.value = false
+    if (requestRevision === revision) busy.value = false
   }
 }
+
+async function shareRecord() {
+  if (!convertedSource || shareBusy.value) return
+  if (shareUrl.value) return copyShareUrl()
+  const requestRevision = revision
+  shareBusy.value = true
+  try {
+    const { data } = await axios.post('/api/record-convert-shares', convertedSource)
+    if (requestRevision !== revision) return
+    shareUrl.value = new URL(router.resolve({ name: 'RecordConvert', query: { share: data.id } }).href, window.location.origin).href
+    await copyShareUrl()
+  } catch (cause) {
+    if (requestRevision === revision) ElMessage.error(cause?.response?.data?.message || '生成分享链接失败，请重试')
+  } finally {
+    shareBusy.value = false
+  }
+}
+
+async function copyShareUrl() {
+  try {
+    await navigator.clipboard.writeText(shareUrl.value)
+    ElMessage.success('分享链接已复制')
+  } catch {
+    ElMessage.info('分享链接已生成，请在下方选中并复制')
+  }
+}
+
+let sharedRequest = 0
+async function loadSharedRecord() {
+  const request = ++sharedRequest
+  invalidateResult()
+  error.value = ''
+  sharedError.value = ''
+  sharedLoading.value = false
+  const id = route.query.share
+  if (id == null) return
+  if (typeof id !== 'string' || !/^[a-f0-9]{32}$/.test(id)) {
+    sharedError.value = '分享链接无效，请检查链接是否完整'
+    return
+  }
+  sharedLoading.value = true
+  try {
+    const { data } = await axios.get(`/api/record-convert-shares/${id}`)
+    if (request !== sharedRequest) return
+    if (!['tz2sala', 'bz2sala', 'mjai2sala'].includes(data.mode) || typeof data.source !== 'string') throw new Error('分享牌谱格式不正确')
+    modeId.value = data.mode
+    inputText.value = data.source
+    selectedFileName.value = '来自分享链接的牌谱'
+    tziakchaInput.value = ''
+    await runConvert()
+    if (request !== sharedRequest) return
+    if (error.value) throw new Error(error.value)
+    if (outputText.value) {
+      shareUrl.value = new URL(router.resolve({ name: 'RecordConvert', query: { share: id } }).href, window.location.origin).href
+      await nextTick()
+      resultPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  } catch (cause) {
+    if (request === sharedRequest) sharedError.value = cause?.response?.data?.message || cause?.message || '读取分享牌谱失败'
+  } finally {
+    if (request === sharedRequest) sharedLoading.value = false
+  }
+}
+
+watch(() => route.query.share, loadSharedRecord, { immediate: true })
+onBeforeUnmount(() => { sharedRequest += 1; revision += 1 })
 
 function openIn2d() {
   try {
@@ -217,6 +340,15 @@ function openIn2d() {
     router.push(`/2d/record/${encodeURIComponent(gameId)}`)
   } catch (cause) {
     ElMessage.error(cause?.message || '无法打开 2D 牌谱')
+  }
+}
+
+function openIn3d() {
+  try {
+    saveLocalReplayRecord(JSON.parse(outputText.value))
+    window.location.assign(`/game-unity?recordId=${encodeURIComponent(UNITY_LOCAL_REPLAY_ID)}`)
+  } catch (cause) {
+    ElMessage.error(cause?.message || '无法打开 3D 牌谱')
   }
 }
 
@@ -298,6 +430,12 @@ function downloadOut() {
   color: #909399;
   background: #fff;
   text-align: center;
+}
+
+.mode-hint {
+  margin: -12px 0 24px;
+  color: #606266;
+  font-size: 13px;
 }
 
 .fetch-form {
@@ -421,6 +559,11 @@ function downloadOut() {
 .result-actions strong {
   color: #529b2e;
 }
+
+.share-panel { margin-top: 16px; }
+.share-panel p { color: #606266; font-size: 13px; }
+.result-actions > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.result-actions :deep(.el-button + .el-button) { margin-left: 0; }
 
 .mono-area :deep(textarea) {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;

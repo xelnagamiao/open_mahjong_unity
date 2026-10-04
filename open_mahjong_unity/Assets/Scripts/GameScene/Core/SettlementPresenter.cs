@@ -166,12 +166,13 @@ public sealed class SettlementPresenter {
             ronDiscarderIndex: env.RonDiscarderIndex,
             recycleDiscard: recycleDiscard,
             isQianggang: env.IsQianggang,
-            endgameScoreOnly: false,
+            endgameScoreOnly: env.BloodBattleStep == "settle_hu",
             // 多家和中间结算（round_continue）：面板自动关闭、不出确认按钮；
             // 最后一家（round_end_by_ready / match_end）才进入确认/准备。
             finalPanel: env.FinalPanel,
             simultaneousHuHands: env.SimultaneousHuHands,
-            skipHandReveal: env.SkipHandReveal);
+            skipHandReveal: env.SkipHandReveal,
+            afterHandReveal: env.AfterHandReveal);
     }
 
     /// <summary>流局字幕。</summary>

@@ -52,7 +52,7 @@ def resolve_acting_player(tick: Sequence[str], action: str, default_player: int)
         return parse_tick_int(tick, 1)
     if action == "state" and len(tick) >= 3:
         return parse_tick_int(tick, 2)
-    if action in ("hu_self", "hu_first", "hu_second", "hu_third", "riichi") and len(tick) >= 2:
+    if action in ("hu_self", "hu_first", "hu_second", "hu_third", "hu_riichi", "riichi", "rk") and len(tick) >= 2:
         return parse_tick_int(tick, 1)
     return default_player
 
@@ -157,13 +157,18 @@ def accumulate_score_changes_from_tick(score_changes: Optional[List[int]], tick:
     sc = None
     if len(tick) >= 5 and act in ("hu_self", "hu_first", "hu_second", "hu_third"):
         sc = parse_score_changes_array(tick, 4)
+    elif act == "riichi" and len(tick) >= 2:
+        seat = parse_tick_int(tick, 1)
+        if 0 <= seat < 4:
+            sc = [0, 0, 0, 0]
+            sc[seat] = -1000
     elif act == "hu_riichi" and len(tick) >= 7:
         sc = parse_score_changes_array(tick, 6)
     elif act == "ryuukyoku" and len(tick) >= 3:
         sc = parse_score_changes_array(tick, 2)
     elif act in ("ag", "jg", "g", "gr"):
         sc = parse_inline_gang_score_changes(tick)
-    elif act == "liuju" and len(tick) >= 2:
+    elif act in ("liuju", "blood") and len(tick) >= 2:
         step = str(tick[1])
         if step == "settle_hu":
             sc = parse_score_changes_array(tick, 6)

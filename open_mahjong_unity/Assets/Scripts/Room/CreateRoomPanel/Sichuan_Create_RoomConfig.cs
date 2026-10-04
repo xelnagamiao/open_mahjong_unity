@@ -1,9 +1,11 @@
 using UnityEngine;
 
 /// <summary>
-/// 四川麻将（血战到底）房间配置。无错和/起和番/日麻项；含战术鸣牌与血战到底可选开关。
+/// 四川麻将房间配置：默认 0 番起和，可自定义起和番、战术鸣牌与血战到底。
 /// </summary>
 public class Sichuan_Create_RoomConfig {
+    public bool PointerTips { get; set; } = true;
+    public bool ClaimProtection { get; set; } = true;
     public string RoomName { get; set; }
     public int GameRound { get; set; }
     public string Password { get; set; }
@@ -12,11 +14,13 @@ public class Sichuan_Create_RoomConfig {
     public int RoundTimer { get; set; }
     public int StepTimer { get; set; }
     public bool Tips { get; set; }
+    public bool CountTips { get; set; }
     public string RandomSeed { get; set; }
     public bool TouristLimit { get; set; }
     public bool AllowSpectator { get; set; }
     public bool TacticalCall { get; set; }
     public bool BloodBattle { get; set; }
+    public int HepaiLimit { get; set; }
     public string EventId { get; set; }
 
     public bool Validate(out string error, bool passwordToggle, bool setRandomSeedToggle) {
@@ -44,6 +48,10 @@ public class Sichuan_Create_RoomConfig {
         }
         if (StepTimer < 0) {
             error = "步时不能为负数";
+            return false;
+        }
+        if (HepaiLimit < 0 || HepaiLimit > 64) {
+            error = "起和番限制必须在0-64之间";
             return false;
         }
         if (passwordToggle) {

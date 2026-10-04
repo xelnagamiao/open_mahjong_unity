@@ -9,10 +9,10 @@
           <input
             v-model="form.username"
             autocomplete="username"
-            maxlength="16"
+            maxlength="20"
             autofocus
           />
-          <small>支持中文、字母、数字、符号等字符；中文按 2 个长度计算，其他字符按 1 计算。</small>
+          <small>用户名应当在2-20个字符之间，只能包含中文、数字及英文，中文计两个字符。</small>
         </label>
         <label>
           <span>密码</span>
@@ -33,7 +33,14 @@
             maxlength="32"
           />
         </label>
-        <button type="submit" :disabled="loading">{{ loading ? '注册中…' : '注册并登录' }}</button>
+        <div class="agreement-row">
+          <label class="agreement-checkbox">
+            <input v-model="acceptedRegulations" type="checkbox" />
+            <span>我已阅读并同意</span>
+          </label>
+          <button type="button" class="agreement-link" @click="regulationsVisible = true">《Salasasa 账户规约》</button>
+        </div>
+        <button type="submit" :disabled="loading || !acceptedRegulations">{{ loading ? '注册中…' : '注册并登录' }}</button>
       </form>
       <p v-if="error" class="err">{{ error }}</p>
       <p class="switch-page">
@@ -41,6 +48,14 @@
         <router-link :to="loginTarget">返回登录</router-link>
       </p>
     </div>
+    <el-dialog v-model="regulationsVisible" title="Salasasa-萨拉飒飒麻将平台账户规约"
+      width="min(760px, 94vw)" append-to-body :close-on-click-modal="false">
+      <div class="regulations-body" tabindex="0" aria-label="账户规约全文">{{ regulationsBody }}</div>
+      <template #footer>
+        <el-button @click="regulationsVisible = false">关闭</el-button>
+        <el-button type="primary" @click="acceptRegulations">同意规约</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -48,12 +63,20 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
+import regulations from '@/content/accountRegulations.txt?raw'
 
 const router = useRouter()
 const route = useRoute()
 const auth = usePlayerAuthStore()
 const loading = ref(false)
 const error = ref('')
+const acceptedRegulations = ref(false)
+const regulationsVisible = ref(false)
+const regulationsBody = regulations.slice(regulations.indexOf('\n') + 1).trim()
+function acceptRegulations() {
+  acceptedRegulations.value = true
+  regulationsVisible.value = false
+}
 const form = reactive({ username: '', password: '', confirmPassword: '' })
 const loginTarget = {
   path: '/login',
@@ -80,7 +103,12 @@ onMounted(async () => {
 })
 
 async function onSubmit() {
+  if (loading.value) return
   error.value = ''
+  if (!acceptedRegulations.value) {
+    error.value = '请先阅读并同意《Salasasa 账户规约》'
+    return
+  }
   if (form.password !== form.confirmPassword) {
     error.value = '两次输入的密码不一致'
     return
@@ -141,7 +169,7 @@ input {
   border: 1px solid #ddd;
   font: inherit;
 }
-button {
+.register-card form > button {
   width: 100%;
   margin-top: 8px;
   padding: 10px;
@@ -151,7 +179,7 @@ button {
   font-weight: 700;
   cursor: pointer;
 }
-button:disabled {
+.register-card form > button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -171,4 +199,10 @@ button:disabled {
   font-weight: 700;
   text-decoration: none;
 }
+.agreement-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 16px 0 10px; font-size: 13px; }
+.agreement-checkbox { display: inline-flex; align-items: center; gap: 7px; margin: 0; cursor: pointer; }
+.agreement-checkbox input { width: 16px; height: 16px; margin: 0; padding: 0; flex-shrink: 0; }
+.agreement-checkbox span { display: inline; margin: 0; }
+.agreement-link { width: auto; margin: 0; padding: 4px 0; border: 0; background: transparent; color: #1677c8; font: inherit; text-align: left; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.regulations-body { max-height: 58vh; overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.85; color: #303133; padding: 0 12px 0 2px; }
 </style>

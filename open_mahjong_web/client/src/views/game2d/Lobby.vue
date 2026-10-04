@@ -176,7 +176,6 @@
       append-to-body
     >
       <div class="match-help-content">
-        <p>九段满 7000 PT 升十段。十段固定 100 / 100 PT，不再升降段，所有场次、局制和名次的 PT 变化均为 0；下方场得规则适用于十段之前。</p>
         <el-tabs v-model="activeHelpTier" class="match-help-tabs">
           <el-tab-pane
             v-for="tier in MATCH_HELP_TIERS"
@@ -324,7 +323,7 @@ const MATCH_HELP_TIERS = [
     settings: '有提示、无错和、战术鸣牌',
   },
   {
-    key: 'intermediate', title: '中级场', admission: '2级及以上，七段及以上不可进入', base: 65, time: '20+8',
+    key: 'intermediate', title: '中级场', admission: '1级及以上，七段及以上不可进入', base: 65, time: '20+8',
     settings: '无提示、错和、战术鸣牌',
   },
   {
@@ -445,7 +444,7 @@ function canEnterTier(tierKey) {
   if (tierKey === 'intermediate' && rankIndex >= 16) return false
   if (tierKey === 'beginner') return true
   if (tierKey === 'intermediate') {
-    return rankIndex >= 8 || Boolean(session.rank?.is_intermediate_qualified)
+    return rankIndex >= 9 || Boolean(session.rank?.is_intermediate_qualified)
   }
   if (tierKey === 'advanced') {
     return rankIndex >= 13 || Boolean(session.rank?.is_advanced_qualified)

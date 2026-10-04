@@ -434,6 +434,10 @@ public partial class GameRecordManager {
         if (RecordHuTickFollowsShuhewei() && (IsRecordHuClass(prev) || prev == "liuju")) {
             return defaultDelay;
         }
+        if (prev == "blood" && prevTick.Count > 1) {
+            if (prevTick[1] == "settle_hu") return RoundEndTiming.GetSichuanSettleHuPanelDuration(ParseHuFanList(prevTick, 5)?.Length ?? 0, true);
+            if (prevTick[1] == "reveal_hu") return RoundEndTiming.RoundEndHandRevealSeconds;
+        }
         switch (prev) {
             case "hu_self":
             case "hu_first":
@@ -480,8 +484,12 @@ public partial class GameRecordManager {
             if (gameRecord.gameRound.rounds.ContainsKey(nextRound)) {
                 GotoSelectRound(nextRound, false);
             }
+        } else if (action == "blood" && IsBloodBattleRecord()) {
+            HandleSichuanLiujuStepReplay(tick);
+            currentNode++;
+            UpdateCurrentXunmuText();
         } else if (action == "liuju") {
-            if (tick.Count >= 2 && IsSichuanBloodBattleRecord()) {
+            if (tick.Count >= 2 && UsesSichuanSettlementRecord()) {
                 HandleSichuanLiujuStepReplay(tick);
                 currentNode++;
                 UpdateCurrentXunmuText();
@@ -519,6 +527,7 @@ public partial class GameRecordManager {
             case "bh":
             case "ag":
             case "jg":
+            case "rk":
             case "cl":
             case "cm":
             case "cr":
@@ -592,6 +601,7 @@ public partial class GameRecordManager {
             case "liuju":
             case "jiuzhongjiupai":
             case "ryuukyoku":
+            case "blood":
                 return true;
             default:
                 return false;
@@ -700,6 +710,7 @@ public partial class GameRecordManager {
         UpdateGameInfoButtonLabel();
         infoView.SetActive(false);
         UpdateRecordAutoPlayButtonVisibility();
+        UpdateRecordShareButtonVisibility();
     }
 
     private static bool IsAskTick(List<string> tick) {
@@ -748,6 +759,7 @@ public partial class GameRecordManager {
                     username = ps["username"]?.Value<string>() ?? "",
                     title_used = ps["title_used"]?.Value<int>(),
                     profile_used = ps["profile_used"]?.Value<int>(),
+                    avatar_frame_used = ps["avatar_frame_used"]?.Value<int>() ?? 0,
                     character_used = ps["character_used"]?.Value<int>(),
                     voice_used = ps["voice_used"]?.Value<int>(),
                 };

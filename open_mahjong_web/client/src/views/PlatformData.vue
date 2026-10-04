@@ -172,6 +172,7 @@
                   <span class="rank-badge" :class="`rank-${p.rank}`">{{ p.rank }}</span>
                   {{ p.username }}
                   <span :class="scoreClass(p.score)">{{ formatScore(p.score) }}</span>
+                  <span :class="scoreClass(p.pt_change)"> · PT {{ formatPtChange(p.pt_change) }}</span>
                 </div>
               </template>
               <span class="cell-players">{{ playersSummary(row) }}</span>
@@ -226,6 +227,7 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount, watch, nextTick } 
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
+import { formatPtChange } from '@/utils/ptChange'
 import * as echarts from 'echarts'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { getPlayerToken } from '@/api/playerClient'
@@ -288,6 +290,7 @@ const selectedEventId = ref('')
 const eventOptions = ref([])
 const dateRange = ref(makeRange(30))
 const recentRecords = ref([])
+let recentRecordsController = null
 const recentTotal = ref(0)
 const recordsPage = reactive({ current: 1, size: 20 })
 
@@ -539,10 +542,14 @@ const setQuickRange = (days) => {
 }
 
 const loadRecentRecords = async () => {
+  recentRecordsController?.abort()
+  const controller = new AbortController()
+  recentRecordsController = controller
   loadingRecords.value = true
   try {
     const offset = (recordsPage.current - 1) * recordsPage.size
     const res = await axios.get('/api/platform/recent-records', {
+      signal: controller.signal,
       params: {
         ...(selectedEventId.value
           ? { event_id: selectedEventId.value }
@@ -551,15 +558,17 @@ const loadRecentRecords = async () => {
         offset,
       },
     })
+    if (controller.signal.aborted) return
     const data = res.data?.data || {}
     recentRecords.value = data.items || []
     recentTotal.value = data.total || 0
   } catch (_) {
+    if (controller.signal.aborted) return
     ElMessage.error('获取最近对局失败')
     recentRecords.value = []
     recentTotal.value = 0
   } finally {
-    loadingRecords.value = false
+    if (recentRecordsController === controller) loadingRecords.value = false
   }
 }
 
@@ -627,6 +636,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  recentRecordsController?.abort()
   window.removeEventListener('resize', handleResize)
   sceneChart?.dispose()
   fanChart?.dispose()

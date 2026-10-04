@@ -2,7 +2,8 @@ from ...response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_
 from typing import List, Dict, Optional
 import logging
 import asyncio
-import time
+from ..public.lifecycle import start_owned_task
+from . import blood_battle
 from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.offline import offline_auto_action
 from ..public.ai.smart_bot_ai import smart_bot_action
@@ -17,18 +18,19 @@ from ..public.hand_slot_utils import bot_ask_hand_game_status
 from ..public.hand_draw_source import ensure_hand_draw_source_round, get_hand_draw_source, update_hand_draw_source
 from ..public.claim_protection import (
     claim_protection_enabled,
-    init_claim_protection_state,
     is_protected_viewer,
     stash_protected_cut_payload,
     arm_claim_protection_timer,
     prepare_protected_meld_for_viewers,
+    finalize_claim_protection,
     end_claim_protection_interval,
     mark_post_meld_gap,
     take_post_meld_gap_delay,
     REAL_MELD_ACTIONS,
 )
 from ..public.game_record_manager import local_record_detail_for_end
-from ..public.ask_timing import begin_ask_round, note_ask_delivered, reconnect_remaining_time
+from ..public.duplicate_wall import duplicate_remaining_tile_counts
+from ..public.ask_timing import begin_ask_round, note_ask_delivered, reconnect_clock
 
 logger = logging.getLogger(__name__)
 
@@ -51,17 +53,20 @@ async def _send_ask_response_to_viewer(
         return
     player_conn = self.game_server.user_id_to_connection[current_player.user_id]
     delay_before = take_post_meld_gap_delay(self, viewer_index)
+    ask_tick = self.server_action_tick
 
     async def _do():
         await player_conn.websocket.send_json(response.dict(exclude_none=True))
         await self.send_to_realtime_spectators(viewer_index, response)
-        note_ask_delivered(self, viewer_index)
+        # A delayed observer ask may belong to a decision window already closed.
+        # It must not start the clock for a newer ask waiting behind it.
+        if self.server_action_tick == ask_tick:
+            note_ask_delivered(self, viewer_index)
 
     if block:
         await send_to_viewer(self, viewer_index, _do, delay_before=delay_before)
     else:
         schedule_viewer_send(self, viewer_index, _do, delay_before=delay_before)
-
 
 # 广播游戏开始/重连 方法
 def _build_game_start_payload_for_viewer(self, viewer_index: int) -> dict:
@@ -70,12 +75,17 @@ def _build_game_start_payload_for_viewer(self, viewer_index: int) -> dict:
     base_game_info = {
         'room_id': self.room_id, # 房间ID
         'gamestate_id': self.gamestate_id, # 游戏状态ID
-        'tips': self.tips, # 是否提示
+        "tips": self.tips, # 是否提示
+        "count_tips": getattr(self, "count_tips", False),
+        "pointer_tips": getattr(self, "pointer_tips", True),
         'current_player_index': self.current_player_index, # 当前轮到的玩家索引
         'dealer_index': getattr(self, 'dealer_index', 0), # 本局庄家逻辑座位
         "action_tick": self.server_action_tick, # 操作帧
         'max_round': self.max_round, # 最大局数
         'tile_count': len(self.tiles_list), # 牌山剩余牌数
+        'use_flowers': getattr(self, 'use_flowers', True),
+        'tian_di_ren_he': getattr(self, 'tian_di_ren_he', False),
+        'duplicate_remaining_tiles': duplicate_remaining_tile_counts(self),
         'commitment': self.commitment,  # 承诺值
         'salt': self.salt, # 盐字符串
         'current_round': self.current_round, # 当前轮数
@@ -94,6 +104,11 @@ def _build_game_start_payload_for_viewer(self, viewer_index: int) -> dict:
     }
     from ..public.game_record_manager import build_player_entry_order_fields
     base_game_info.update(build_player_entry_order_fields(self))
+
+    if blood_battle.enabled(self):
+        base_game_info["blood_battle"] = True
+        if getattr(self, "blood_finished", False) and self.blood_last_result:
+            base_game_info["blood_battle_result"] = blood_battle.result_for_viewer(self.blood_last_result, viewer_index)
 
     viewer_player = self.player_list[viewer_index]
     players_info = []
@@ -118,12 +133,15 @@ def _build_game_start_payload_for_viewer(self, viewer_index: int) -> dict:
             'has_draw_slot': player.has_draw_slot,
             'title_used': player.title_used,
             'profile_used': player.profile_used,
+            "avatar_frame_used": getattr(player, "avatar_frame_used", 0),
             'character_used': player.character_used,
             'voice_used': player.voice_used,
             'score_history': player.score_history,
             'round_number_history': player.round_number_history,
             'tag_list': player.tag_list,
         })
+        if blood_battle.enabled(self):
+            players_info[-1].update(blood_battle.player_snapshot(player, viewer_index))
 
     return {
         **base_game_info,
@@ -183,6 +201,10 @@ async def send_realtime_spectator_snapshot(self, spectator_user_id: int, view_pl
         return
     if view_player_index < 0 or view_player_index >= len(self.player_list):
         return
+    from ..public.claim_protection import claim_protection_enabled
+    if claim_protection_enabled(self):
+        from ..public.outbound_pipe import drain_viewer
+        await drain_viewer(self, view_player_index)
     conn = self.game_server.user_id_to_connection[spectator_user_id]
     payload = _build_game_start_payload_for_viewer(self, view_player_index)
     payload["view_player_index"] = view_player_index
@@ -213,29 +235,29 @@ async def broadcast_ask_hand_action(self):
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 if player_actions:
-                    asyncio.create_task(offline_auto_action(self, seat_index, player_actions, bot_ask_hand_game_status(self, seat_index)))
+                    start_owned_task(self, offline_auto_action(self, seat_index, player_actions, bot_ask_hand_game_status(self, seat_index)))
                 continue
             
             # 如果是机器人，启动自动操作并跳过广播；保留 user_id < 10 整段视为机器人
             if current_player.user_id == 0:
                 if player_actions:
                     logger.info(f"派发摸切机器人操作 seat={seat_index} status={bot_ask_hand_game_status(self, seat_index)} actions={player_actions}")
-                    asyncio.create_task(auto_cut_action(self, seat_index, player_actions, bot_ask_hand_game_status(self, seat_index)))
+                    start_owned_task(self, auto_cut_action(self, seat_index, player_actions, bot_ask_hand_game_status(self, seat_index)))
                 continue
             elif current_player.user_id == 2:
                 if player_actions:
                     logger.info(f"派发牌效机器人操作 seat={seat_index} status={bot_ask_hand_game_status(self, seat_index)} actions={player_actions}")
-                    asyncio.create_task(smart_bot_action(self, seat_index, player_actions, bot_ask_hand_game_status(self, seat_index)))
+                    start_owned_task(self, smart_bot_action(self, seat_index, player_actions, bot_ask_hand_game_status(self, seat_index)))
                 continue
             elif current_player.user_id == 3:
                 if player_actions:
                     logger.info(f"派发高性能罗伯特操作 seat={seat_index} status={bot_ask_hand_game_status(self, seat_index)} actions={player_actions}")
-                    asyncio.create_task(guobiao_heuristic_action(self, seat_index, player_actions, bot_ask_hand_game_status(self, seat_index)))
+                    start_owned_task(self, guobiao_heuristic_action(self, seat_index, player_actions, bot_ask_hand_game_status(self, seat_index)))
                 continue
             elif current_player.user_id < 10:
                 if player_actions:
                     logger.warning(f"未知保留机器人 user_id={current_player.user_id}，按摸切机器人处理 seat={seat_index} actions={player_actions}")
-                    asyncio.create_task(auto_cut_action(self, seat_index, player_actions, bot_ask_hand_game_status(self, seat_index)))
+                    start_owned_task(self, auto_cut_action(self, seat_index, player_actions, bot_ask_hand_game_status(self, seat_index)))
                 continue
             
             response = Response(
@@ -284,29 +306,29 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 if player_actions:
-                    asyncio.create_task(offline_auto_action(self, seat_index, player_actions, self.game_status))
+                    start_owned_task(self, offline_auto_action(self, seat_index, player_actions, self.game_status))
                 continue
             
             # 如果是机器人，启动自动操作并跳过广播；保留 user_id < 10 整段视为机器人
             if current_player.user_id == 0:
                 if player_actions:
                     logger.info(f"派发摸切机器人操作 seat={seat_index} status={self.game_status} actions={player_actions}")
-                    asyncio.create_task(auto_cut_action(self, seat_index, player_actions, self.game_status))
+                    start_owned_task(self, auto_cut_action(self, seat_index, player_actions, self.game_status))
                 continue
             elif current_player.user_id == 2:
                 if player_actions:
                     logger.info(f"派发牌效机器人操作 seat={seat_index} status={self.game_status} actions={player_actions}")
-                    asyncio.create_task(smart_bot_action(self, seat_index, player_actions, self.game_status))
+                    start_owned_task(self, smart_bot_action(self, seat_index, player_actions, self.game_status))
                 continue
             elif current_player.user_id == 3:
                 if player_actions:
                     logger.info(f"派发高性能罗伯特操作 seat={seat_index} status={self.game_status} actions={player_actions}")
-                    asyncio.create_task(guobiao_heuristic_action(self, seat_index, player_actions, self.game_status))
+                    start_owned_task(self, guobiao_heuristic_action(self, seat_index, player_actions, self.game_status))
                 continue
             elif current_player.user_id < 10:
                 if player_actions:
                     logger.warning(f"未知保留机器人 user_id={current_player.user_id}，按摸切机器人处理 seat={seat_index} actions={player_actions}")
-                    asyncio.create_task(auto_cut_action(self, seat_index, player_actions, self.game_status))
+                    start_owned_task(self, auto_cut_action(self, seat_index, player_actions, self.game_status))
                 continue
             
             if player_actions:
@@ -341,9 +363,9 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
             self.spectator_manager.record_ask_other(player_action_map, cut_tile)
 
 
-def _reconnect_remaining_time(self, player) -> int:
-    """重连补发时按「ask 送达时刻 - 已过时间」重算剩余时间。"""
-    return reconnect_remaining_time(self, player)
+def _reconnect_clock(self, player):
+    """重连补发：(剩余局时, 剩余步时)。"""
+    return reconnect_clock(self, player)
 
 
 async def reconnected_send_pending_ask_for_viewer(
@@ -358,7 +380,7 @@ async def reconnected_send_pending_ask_for_viewer(
         return
     player_conn = self.game_server.user_id_to_connection[connection_user_id]
     player = self.player_list[view_player_index]
-    remaining_sent = _reconnect_remaining_time(self, player)
+    remaining_sent, step_sent = _reconnect_clock(self, player)
     if self.game_status == "waiting_hand_action":
         if view_player_index == self.current_player_index:
             response = Response(
@@ -367,6 +389,7 @@ async def reconnected_send_pending_ask_for_viewer(
                 message="发牌，并询问手牌操作",
                 ask_hand_action_info=Ask_hand_action_info(
                     remaining_time=remaining_sent,
+                    step_remaining=step_sent,
                     player_index=self.current_player_index,
                     remain_tiles=len(self.tiles_list),
                     action_list=self.action_dict.get(view_player_index, []),
@@ -390,6 +413,7 @@ async def reconnected_send_pending_ask_for_viewer(
                 message="询问操作",
                 ask_other_action_info=Ask_other_action_info(
                     remaining_time=remaining_sent,
+                    step_remaining=step_sent,
                     action_list=self.action_dict[view_player_index],
                     cut_tile=cut_tile,
                     action_tick=self.server_action_tick,
@@ -428,6 +452,7 @@ def _build_do_action_payload(
     is_mo_buhua=None,
     cut_from_player=None,
     is_timeout_action=False,
+    duplicate_remaining_tiles=None,
 ):
     viewer_mask = combination_mask
     viewer_target = combination_target
@@ -438,6 +463,7 @@ def _build_do_action_payload(
         )
     viewer_deal_tile = sanitize_deal_tile_for_viewer(deal_tile, action_player, viewer_index)
     return {
+        "duplicate_remaining_tiles": list(duplicate_remaining_tiles) if duplicate_remaining_tiles is not None else duplicate_remaining_tile_counts(self),
         "action_list": action_list,
         "action_player": action_player,
         "action_tick": self.server_action_tick,
@@ -481,11 +507,14 @@ async def _deliver_do_action_payload_to_viewer(self, viewer_index: int, payload:
 async def _send_do_action_payload_to_viewer(self, viewer_index: int, payload: dict, msg_type: str = "gamestate/guobiao/do_action"):
     from ..public.outbound_pipe import send_to_viewer
 
-    delay_before = take_post_meld_gap_delay(self, viewer_index)
-
     async def _do():
         await _deliver_do_action_payload_to_viewer(self, viewer_index, payload, msg_type)
 
+    if (payload.get("action_list") or []) == ["cut"]:
+        from ..public.claim_protection import send_cut
+        if await send_cut(self, viewer_index, payload, _do):
+            return
+    delay_before = take_post_meld_gap_delay(self, viewer_index)
     await send_to_viewer(self, viewer_index, _do, delay_before=delay_before)
 
 
@@ -507,6 +536,9 @@ async def broadcast_do_action(
     cut_from_player: int = None,
     is_timeout_action: bool = False,
     ):
+    # Capture before any awaits: protected/deferred viewers receive this action's
+    # counts, even if another draw happens before their queued payload is sent.
+    remaining_tiles = duplicate_remaining_tile_counts(self)
     # 战术鸣牌的实际行为静默执行：申请阶段已发声/动画，本次仅状态变更
     if not is_claim and not silent and getattr(self, "_tactical_silent_action", False):
         silent = True
@@ -524,6 +556,9 @@ async def broadcast_do_action(
     # 鸣牌保护：仅在 after_cut 鸣牌区间内（_cp_active）生效；加杠/暗杠等手牌操作不受影响
     interval_active = claim_protection_enabled(self) and getattr(self, "_cp_active", False)
     is_cut = bool(action_list) and action_list[0] == "cut"
+    if is_cut:
+        from ..public.claim_protection import begin_discard
+        begin_discard(self, action_player)
     is_real_meld = (not is_claim) and bool(action_list) and action_list[0] in REAL_MELD_ACTIONS
     # 本 do_action 调用前受保护观众是否已揭示过出牌（含 claim_protect_delay 超时 flush）。
     # 用于区分：已揭示且看过 is_claim 时实际鸣牌应静默（战术）；追赶 flush 的 cut 始终有声。
@@ -576,12 +611,28 @@ async def broadcast_do_action(
                 is_mo_buhua=is_mo_buhua,
                 cut_from_player=cut_from_player,
                 is_timeout_action=is_timeout_action,
+                duplicate_remaining_tiles=remaining_tiles,
             )
 
             # 出牌对受保护观众延迟：暂存，待鸣牌/申请/pass/超时触发 flush
             if protected and is_cut:
+                from ..public.claim_protection import stage_protected_cut
+                async def protected_cut(vi=i, p=dict(payload, silent=None)):
+                    await _deliver_do_action_payload_to_viewer(self, vi, p)
+                stage_protected_cut(self, i, payload, protected_cut)
                 stash_protected_cut_payload(self, i, payload)
                 continue
+
+            if is_real_meld or is_claim:
+                from ..public.claim_protection import schedule_meld
+
+                async def _paced_meld(vi=i, p=payload):
+                    await _deliver_do_action_payload_to_viewer(self, vi, p)
+
+                if schedule_meld(self, i, _paced_meld, protected=protected):
+                    if protected and is_real_meld:
+                        mark_post_meld_gap(self, i)
+                    continue
 
             # 受保护观众的鸣牌/申请：pipe 延迟入队，不阻塞主循环
             if protected and (is_real_meld or is_claim) and protected_meld_delay > 0:
@@ -635,7 +686,7 @@ async def broadcast_result(self,
                           score_changes: Optional[Dict[int, int]] = None,
                           revealed_angang_masks: Optional[dict] = None,
                           silent: bool = False,
-                          next_status: Optional[str] = None):
+                          next_status: Optional[str] = None, **blood_fields):
     # 战术鸣牌：胡牌结算复用申请阶段的发声/动画，本次静默
     if not silent and getattr(self, "_tactical_silent_action", False):
         silent = True
@@ -656,6 +707,9 @@ async def broadcast_result(self,
             if current_player.user_id in self.game_server.user_id_to_connection:
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
 
+                viewer_fields = blood_battle.result_for_viewer(
+                    {**blood_fields, "hepai_player_index": hepai_player_index}, current_player.player_index)
+                viewer_fields.pop("hepai_player_index", None)
                 response = Response(
                     type="gamestate/guobiao/show_result",
                     success=True,
@@ -674,6 +728,7 @@ async def broadcast_result(self,
                         revealed_angang_masks=revealed_angang_masks,
                         silent=True if silent else None,
                         next_status=next_status,
+                        **viewer_fields,
                     )
                 )
                 from ..public.outbound_pipe import send_to_viewer
@@ -694,6 +749,14 @@ async def broadcast_result(self,
 
 async def broadcast_game_end(self):
     """广播游戏结束信息"""
+    remaining_tiles = duplicate_remaining_tile_counts(self)
+    is_duplicate = bool(getattr(self, "duplicate_key", None))
+    if is_duplicate:
+        active_flush = getattr(self, "_duplicate_claim_flush", None)
+        if active_flush is not None and active_flush[0] is not asyncio.current_task():
+            await asyncio.shield(active_flush[1])
+        await finalize_claim_protection(self, _send_do_action_payload_to_viewer)
+    from ...match.settlement import rating_result_fields
     self.server_action_tick += 1
     
     # 构建玩家最终数据字典，键为座位索引字符串 "0"～"3"（同分并列名次时 rank 可能重复，故不能用名次作键）
@@ -701,15 +764,12 @@ async def broadcast_game_end(self):
     for player in self.player_list:
         pt = getattr(player, 'pt', 0)
         player_final_data[str(player.player_index)] = Player_final_data(
+            **rating_result_fields(player),
             rank=player.record_counter.rank_result,
             score=player.score,
             pt=pt,
             username=player.username,
             original_player_index=player.original_player_index,
-            rank_before=getattr(player, 'rank_before', None),
-            score_before=getattr(player, 'score_before', None),
-            rank_after=getattr(player, 'rank_after', None),
-            score_after=getattr(player, 'score_after', None),
         )
     
     # 为每个玩家发送游戏结束信息
@@ -732,7 +792,11 @@ async def broadcast_game_end(self):
                     success=True,
                     message="游戏结束",
                     game_end_info=Game_end_info(
-                        master_seed=self.master_seed,  # 游戏结束时发送完整随机种子供验证
+                        is_duplicate=is_duplicate,
+                        duplicate_round_count=getattr(self, "duplicate_round_count", None),
+                        duplicate_wall_type=getattr(self, "duplicate_wall_type", None),
+                        duplicate_remaining_tiles=remaining_tiles,
+                        master_seed=None if getattr(self, "duplicate_key", None) else self.master_seed,  # 游戏结束时发送完整随机种子供验证
                         commitment=self.commitment,
                         salt=self.salt,
                         player_final_data=player_final_data,
@@ -740,8 +804,17 @@ async def broadcast_game_end(self):
                     )
                 )
 
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                await self.send_to_realtime_spectators(current_player.player_index, response)
+                if is_duplicate:
+                    from ..public.outbound_pipe import send_to_viewer
+
+                    async def _send_end(conn=player_conn, resp=response, idx=current_player.player_index):
+                        await conn.websocket.send_json(resp.dict(exclude_none=True))
+                        await self.send_to_realtime_spectators(idx, resp)
+
+                    await send_to_viewer(self, current_player.player_index, _send_end)
+                else:
+                    await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                    await self.send_to_realtime_spectators(current_player.player_index, response)
                 logger.info(f"已向玩家 user_id={current_player.user_id}, username={current_player.username} 广播游戏结束信息")
             else:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")

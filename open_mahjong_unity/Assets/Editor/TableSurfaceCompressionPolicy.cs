@@ -26,7 +26,6 @@ public static class TableSurfaceCompressionPolicy
         if (!path.EndsWith(".png", StringComparison.OrdinalIgnoreCase)) return false;
         return path.StartsWith(Board + "TableCloth/", StringComparison.Ordinal)
             || path.StartsWith(Board + "TableSeams/", StringComparison.Ordinal)
-            || path.StartsWith(Board + "Edge/", StringComparison.Ordinal)
             || path == Board + "TableLighting/OriginalLight.png"
             || path.StartsWith(HongqueTable, StringComparison.Ordinal);
     }

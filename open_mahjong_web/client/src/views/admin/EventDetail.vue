@@ -254,7 +254,7 @@
               v-model="statsFilter.q"
               clearable
               size="small"
-              placeholder="玩家 ID / 用户名"
+              placeholder="玩家 ID / 用户名 / 邮箱"
               @keyup.enter="loadPlayerStats"
             />
             <div class="stats-search-actions">
@@ -332,10 +332,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import adminApi from '@/api/adminClient'
 import VenueRoomDialog from '@/components/VenueRoomDialog.vue'
-import {
-  buildGuobiaoRoomPayload,
-  createDefaultGuobiaoRoomConfig,
-} from '@/utils/guobiaoRoomConfig'
+import { buildEventRoomSettings, createEventRoomForm } from '@/utils/eventRoomSettings'
 import { eventStatusLabel, eventStatusTagType, parseVenueKind, venueAdminListPath } from '@/utils/eventMeta'
 import { avgRank, buildPlayerStatsRows, dateRangeToQueryParams, rankRate, STATS_DATE_SHORTCUTS } from '@/utils/statsDisplay'
 
@@ -347,6 +344,9 @@ const RULE_LABELS = {
   sichuan: '四川',
   changsha: '长沙',
   jiandan: '南雀',
+  zhongyong: '中庸麻将',
+  guizhou: '贵州麻将',
+  yixing: '宜兴麻将',
 }
 const GAME_TYPE_OPTIONS = [
   { value: 'quanzhuang', label: '全庄战' },
@@ -383,6 +383,8 @@ const loadingRooms = ref(false)
 const creatingRoom = ref(false)
 const roomDialogVisible = ref(false)
 const roomRuleOptions = [
+  { value: 'guizhou', label: '贵州麻将' },
+  { value: 'yixing', label: '宜兴麻将' },
   { value: 'guobiao', label: '国标' },
   { value: 'riichi', label: '立直' },
   { value: 'qingque', label: '青雀' },
@@ -393,7 +395,7 @@ const roomRuleOptions = [
 const roomForm = reactive({
   room_rule: 'guobiao',
   reason: '',
-  ...createDefaultGuobiaoRoomConfig(),
+  ...createEventRoomForm(),
 })
 
 const loadingStats = ref(false)
@@ -546,13 +548,7 @@ async function createRoom() {
   }
   creatingRoom.value = true
   try {
-    let room_config = {}
-    let password = ''
-    if (roomForm.room_rule === 'guobiao') {
-      ;({ room_config, password } = buildGuobiaoRoomPayload(roomForm))
-    } else if (roomForm.room_name.trim()) {
-      room_config.room_name = roomForm.room_name.trim()
-    }
+    const { room_config, password } = buildEventRoomSettings(roomForm)
     await adminApi.post(`/events/${route.params.eventId}/rooms`, {
       room_rule: roomForm.room_rule,
       room_config,
@@ -566,7 +562,7 @@ async function createRoom() {
     ElMessage.success('房间已创建')
     await loadRooms()
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '创建失败')
+    ElMessage.error(e.response?.data?.message || e.message || '创建失败')
   } finally {
     creatingRoom.value = false
   }

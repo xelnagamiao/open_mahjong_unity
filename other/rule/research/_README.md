@@ -6,6 +6,7 @@
 
 当前：
 
+- `ningbo-downstream/`：宁波起点原典、支付与牌具分裂点、版本对照及原有 139 条目录／77 条关系审计（2026-09-23）；以该档对历史日期的核查结论修正旧年表。
 - `catalog/`：规则总表、谱系边、按机制分组、[`PHYLOGENY.md`](catalog/PHYLOGENY.md)、[`CLASSIFICATION.md`](catalog/CLASSIFICATION.md)
 - `mahjong-phylogeny/`：谱系史料簿
 - `mahjong-studies/`：麻将通论与书志（纸牌演变、国标 1998、盛琦、分类书；2026-08-14）

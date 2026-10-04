@@ -20,6 +20,8 @@ public sealed class TableAction {
     public int? CutTileIndex;
     /// <summary>true=摸切，false=手切。</summary>
     public bool CutClass;
+    public bool ConcealedDiscard;
+    public int? RemainingTiles;
     public bool IsRiichiHorizontal;
     /// <summary>长沙海底牌翻开后进入牌河。</summary>
     public bool SeaBottomDiscard;
@@ -76,6 +78,8 @@ public sealed class TableAction {
             CutTiles = info.cut_tiles,
             CutTileIndex = info.cut_tile_index,
             CutClass = info.cut_class == true,
+            ConcealedDiscard = info.concealed_discard == true,
+            RemainingTiles = info.tile_count,
             IsRiichiHorizontal = info.is_riichi_horizontal == true,
             SeaBottomDiscard = info.sea_bottom_discard == true,
             DealTile = info.deal_tile,

@@ -218,6 +218,13 @@ public partial class GameCanvas : MonoBehaviour {
         ClearSpawnedActionButtons(DedicatedActionButtonContainer);
         SetPersistentActionButton(persistentWord);
 
+        bool freeMode = FreeGameState.Active != null;
+        if (ActionButtonHost != null) {
+            FreeModeActionBar freeBar = ActionButtonHost.GetComponent<FreeModeActionBar>();
+            if (freeMode && freeBar == null) freeBar = ActionButtonHost.gameObject.AddComponent<FreeModeActionBar>();
+            if (freeBar != null) freeBar.enabled = freeMode;
+        }
+
         createdRegularButtonCount = 0;
 
         for (int i = 0; i < action_list.Count; i++){
@@ -386,7 +393,7 @@ public partial class GameCanvas : MonoBehaviour {
 
         // 播放操作按钮出现音效：只数本次新建的询问按钮。
         // 单独出现常驻槽位按钮时保持安静；被 Destroy 的旧按钮本帧仍在 childCount 里，不能拿它判断。
-        if (createdRegularButtonCount > 0) {
+        if (createdRegularButtonCount > 0 && !freeMode) {
             SoundManager.Instance.PlayActionButtonAppearSound();
         }
 

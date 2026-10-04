@@ -52,7 +52,10 @@ public static class RecordHuHandBuilder {
 
     /// <summary>和牌触发牌为花牌时，按花胡处理且不将触发花加入暗手。</summary>
     public static bool IsFlowerWin(List<string> tick, string rule) {
-        return TryParseHepaiTile(tick, rule, out int tile) && tile >= 51 && tile <= 58;
+        // 广东的花鬼是闭手实体牌；胡到鬼也不是独立花胡。
+        if (rule == "guangdong" || (rule?.StartsWith("guangdong/", StringComparison.Ordinal) ?? false)) return false;
+        return RuleRegistry.Resolve(rule, rule)?.RecordFlowerWin?.Invoke(tick) == true
+            || (TryParseHepaiTile(tick, rule, out int tile) && tile >= 51 && tile <= 58);
     }
 
     /// <summary>

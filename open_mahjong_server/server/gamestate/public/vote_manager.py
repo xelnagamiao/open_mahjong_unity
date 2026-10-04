@@ -114,13 +114,13 @@ class VoteManager:
 
     def _cancel_vote_timer(self):
         """仅取消投票/结束倒计时任务，保留暂停 1000s 自动解除任务。"""
-        if self._timer_task and not self._timer_task.done():
+        if self._timer_task and self._timer_task is not asyncio.current_task() and not self._timer_task.done():
             self._timer_task.cancel()
         self._timer_task = None
 
     def _cancel_all_timers(self):
         self._cancel_vote_timer()
-        if self._pause_deadline_task and not self._pause_deadline_task.done():
+        if self._pause_deadline_task and self._pause_deadline_task is not asyncio.current_task() and not self._pause_deadline_task.done():
             self._pause_deadline_task.cancel()
         self._pause_deadline_task = None
 
@@ -224,10 +224,8 @@ class VoteManager:
         await self._broadcast_end()
         try:
             await self.gs.game_server.gamestate_manager.cleanup_game_state_complete(
-                gamestate_id=self.gs.gamestate_id
+                gamestate_id=self.gs.gamestate_id, reason="admin_end"
             )
-            if getattr(self.gs, "room_type", None) != "match":
-                await self.gs.game_server.room_manager.finish_custom_game_room(self.gs.room_id)
         except Exception as e:
             logger.error(f"管理端结束对局清理失败: {e}", exc_info=True)
         logger.info(f"管理端强制结束对局 gamestate_id={self.gs.gamestate_id}")
@@ -328,12 +326,10 @@ class VoteManager:
             await self._broadcast_end()
             try:
                 await self.gs.game_server.gamestate_manager.cleanup_game_state_complete(
-                    gamestate_id=self.gs.gamestate_id
+                    gamestate_id=self.gs.gamestate_id, reason="vote_end"
                 )
                 # 自定义/赛事房间需恢复等待态（重置 is_game_running、清空 ready_list、广播房间信息），
                 # 否则房主再次开局会被「游戏已在进行中」拦截。match 房走销毁，此处不处理。
-                if getattr(self.gs, "room_type", None) != "match":
-                    await self.gs.game_server.room_manager.finish_custom_game_room(self.gs.room_id)
             except Exception as e:
                 logger.error(f"投票结束清理对局失败: {e}", exc_info=True)
         except asyncio.CancelledError:
@@ -460,6 +456,7 @@ class VoteManager:
             type="gamestate/vote_end",
             success=True,
             message="投票结束对局通过",
+            gamestate_id=self.gs.gamestate_id,
         ).dict(exclude_none=True)
         game_server = self.gs.game_server
         for player in self.gs.player_list:

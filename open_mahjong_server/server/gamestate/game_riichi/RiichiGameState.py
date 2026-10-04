@@ -16,9 +16,7 @@ import logging
 from typing import Dict, List, Optional, Any
 
 from .action_check import (
-    check_action_after_cut,
     check_action_hand_action,
-    check_action_jiagang,
     refresh_waiting_tiles,
     check_jiuzhongjiupai,
 )
@@ -37,14 +35,11 @@ from .boardcast import (
     broadcast_refresh_player_tag_list,
     broadcast_ready_status,
     broadcast_update_dora,
-    broadcast_declare_riichi,
     reconnected_send_pending_ask,
 )
-from ..public.logic_common import next_current_num, next_current_index, back_current_num, assign_strict_final_ranks
+from ..public.logic_common import next_current_index, back_current_num, assign_strict_final_ranks
 from ..public.round_end_timing import (
-    hu_result_ready_wait_seconds,
     hu_result_ready_pre_panel_seconds,
-    ROUND_END_HAND_REVEAL_SEC,
     liuju_ready_wait_seconds,
     sichuan_settle_hu_panel_wait_seconds,
 )
@@ -164,9 +159,14 @@ class RiichiPlayer:
         gamestate.rinshan_count += 1
 
 
+from .rule_logic import option, match_should_end, draw_payments, apply_pao, finalize_scores
+
+
 class RiichiGameState:
     def __init__(self, game_server, room_data: dict, calculation_service: GameCalculationService, db_manager: DatabaseManager, gamestate_id: str):
         self.game_server = game_server
+        from ...game_calculation.riichi.rule_config import normalize_riichi_config
+        self.detailed_config = normalize_riichi_config(room_data.get("detailed_config"))
         self.calculation_service = calculation_service
         self.db_manager = db_manager
         self.gamestate_id = gamestate_id
@@ -184,6 +184,9 @@ class RiichiGameState:
             else:
                 username = setting.get("username", f"用户{user_id}")
             p = RiichiPlayer(user_id, username, [], room_data["round_timer"])
+            p.pao_liability = {}
+            p.riichi_paid_this_round = False
+            p.chombo_result_penalty = 0
             p.title_used = setting.get("title_id", 1)
             p.profile_used = setting.get("profile_image_id", 1)
             p.character_used = setting.get("character_id", 1)
@@ -192,10 +195,16 @@ class RiichiGameState:
 
         self.room_id = room_data["room_id"]
         self.tips = room_data["tips"]
+        self.count_tips = bool(room_data.get("count_tips", False))
+        self.pointer_tips = bool(room_data.get("pointer_tips", True))
         self.max_round = room_data["game_round"]  # 1=东风 2=半庄 3=东西 4=全庄
         self.step_time = room_data["step_timer"]
         self.round_time = room_data["round_timer"]
         self.room_rule = room_data["room_rule"]
+        from ..public.claim_protection import room_claim_protection_enabled
+        self.claim_protection = room_claim_protection_enabled(room_data)
+        from ..public.claim_protection import init_claim_protection_state
+        init_claim_protection_state(self)
         self.room_type = room_data["room_type"]
         self.sub_rule = room_data.get("sub_rule") or "riichi/standard"
         self.match_tier = room_data.get("match_tier")
@@ -284,6 +293,8 @@ class RiichiGameState:
         self._last_kan_type: Optional[str] = None
         # 四杠散了：4 杠且由 ≥2 家开出 → 下一张弃牌无人和牌则流局。
         self._pending_four_kan_abort: bool = False
+        self._pending_kan = None
+        self._pending_cuohe_queue = None
         # 错和：和牌番数低于 hepai_limit 时触发，向其余 3 家各赔 3000（合计 9000）并重打本局
         self._cuohe_triggered: bool = False
 
@@ -312,13 +323,14 @@ class RiichiGameState:
         if newly_offline:
             from ..public.offline import schedule_offline_auto_on_disconnect
             schedule_offline_auto_on_disconnect(self, user_id)
-        non_ai = [p for p in self.player_list if p.user_id >= 10]
-        if non_ai and all("offline" in p.tag_list for p in non_ai):
-            await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
+        from ..public.lifecycle import close_if_all_humans_offline
+        await close_if_all_humans_offline(self)
 
     async def player_reconnect(self, user_id: int):
         for p in self.player_list:
             if p.user_id == user_id:
+                from ..public.outbound_pipe import drain_viewer
+                await drain_viewer(self, p.player_index)
                 if "offline" in p.tag_list:
                     p.tag_list.remove("offline")
                     await broadcast_refresh_player_tag_list(self)
@@ -336,6 +348,10 @@ class RiichiGameState:
                 break
 
     async def cleanup_game_state(self):
+        from ..public.claim_protection import end_claim_protection_interval
+        from ..public.outbound_pipe import close_outbound_pipes
+        end_claim_protection_interval(self)
+        close_outbound_pipes(self)
         await self.spectator_manager.cleanup()
         if self.game_task and not self.game_task.done():
             self.game_task.cancel()
@@ -393,14 +409,18 @@ class RiichiGameState:
             self._pending_kan_dora_count = 0
             self._last_kan_type = None
             self._pending_four_kan_abort = False
+            self._pending_kan = None
+            self._pending_cuohe_queue = None
             self._cuohe_triggered = False
 
+            # 日麻 d/c 不带座位，牌谱不写 reset。局头快照前把指针设到亲家，
+            # 避免 start_player_index 吃到上一局残留。
+            self.current_player_index = 0
             await self.broadcast_game_start()
             await self._broadcast_langyong_tags_if_changed()
             init_game_round(self)
 
             self.game_status = "waiting_hand_action"
-            self.current_player_index = 0
             self.dihe_possible = True
             self.hu_class = None
             self.result_dict = {}
@@ -443,6 +463,10 @@ class RiichiGameState:
                             self.hu_class = "four_riichi_abort"
                             break
                         next_current_index(self)
+                        if option(self, "furiten_clear") == "draw":
+                            self.player_list[self.current_player_index].temp_furiten = False
+                            if self.sync_furiten_tags():
+                                await self.broadcast_refresh_player_tag_list()
                         self.refresh_waiting_tiles(self.current_player_index)
                         self.player_list[self.current_player_index].get_tile(self.tiles_list)
                         player_action_record_deal(self, deal_tile=self.player_list[self.current_player_index].hand_tiles[-1], deal_type="d")
@@ -458,9 +482,13 @@ class RiichiGameState:
                         self.game_status = "waiting_hand_action"
 
                     case "deal_card_after_gang":
+                        if option(self, "furiten_clear") == "draw":
+                            self.player_list[self.current_player_index].temp_furiten = False
+                            if self.sync_furiten_tags():
+                                await self.broadcast_refresh_player_tag_list()
                         self.total_kans += 1
                         # 四杠散了判定：≥2 家合计 4 杠 → 等到本次岭上摸牌并打完后再判定流局
-                        if self.total_kans >= 4:
+                        if self.total_kans >= 4 and option(self, 'four_kan_abort'):
                             players_with_kan = set()
                             for p in self.player_list:
                                 for c in p.combination_tiles:
@@ -478,7 +506,7 @@ class RiichiGameState:
                             deal_tile=self.player_list[self.current_player_index].hand_tiles[-1],
                         )
                         # 暗杠：立即翻宝牌指示牌；明杠/加杠：延后到打完牌后翻，此处仅累加待翻数。
-                        if self._last_kan_type == "ankan":
+                        if self._last_kan_type == "ankan" or option(self, "kan_dora_timing") == "immediate":
                             await self._reveal_kan_dora()
                         else:
                             self._pending_kan_dora_count += 1
@@ -619,6 +647,8 @@ class RiichiGameState:
                 p.chi_candidates = {}
                 p.kuikae_forbidden_tiles = []
                 p.riichi_marker_pending = False
+                p.pao_liability = {}
+                p.riichi_paid_this_round = False
                 p.skip_ippatsu = False
                 for tag in list(p.tag_list):
                     if tag in ("riichi", "daburu_riichi", "ippatsu", "furiten") or tag.startswith("langyong_"):
@@ -626,10 +656,14 @@ class RiichiGameState:
 
             logger.info(f"进入下一局 current_round={self.current_round} honba={self.honba} riichi_sticks={self.riichi_sticks}")
 
+        finalize_scores(self)
         end_game_record(self)
+        self.game_record['game_title']['riichi_points'] = {
+            str(p.original_player_index): p.riichi_points for p in self.player_list}
         assign_strict_final_ranks(self.player_list)
 
-        match_type = f"{self.max_round}/4"
+        from ...match.settlement import settle_ranked_game
+        match_type = settle_ranked_game(self)
         game_id = None
         if hasattr(self.db_manager, "store_riichi_game_record"):
             try:
@@ -653,10 +687,6 @@ class RiichiGameState:
             await self.spectator_manager.send_final_record_and_close()
 
         await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
-        if self.room_type == "match":
-            await self.game_server.room_manager.destroy_room(self.room_id)
-        else:
-            await self.game_server.room_manager.finish_custom_game_room(self.room_id)
 
     # ========== 浪涌麻将（riichi/langyong）子规则 ==========
 
@@ -685,10 +715,6 @@ class RiichiGameState:
         if self.starting_scores is not None:
             return self.starting_scores[original_index]
         return self._starting_score()
-
-    def _xiru_target_score(self) -> int:
-        """西入延长/终了的目标分，随起始点数等比缩放（25000→30000，50000→60000）。"""
-        return int(self._starting_score() * 30000 / 25000)
 
     def _langyong_call_count(self, player) -> int:
         """该玩家本局吃/碰/杠（含暗杠）次数；每个副露算一次（加杠由碰升级仍记一次）。"""
@@ -738,51 +764,8 @@ class RiichiGameState:
 
     # ========== 对局终了（西入 / 击飞）==========
 
-    def _riichi_oya_rank(self) -> int:
-        ranked = sorted(self.player_list, key=lambda p: p.score, reverse=True)
-        for i, p in enumerate(ranked):
-            if p.player_index == 0:
-                return i + 1
-        return 4
-
     def _riichi_match_should_end(self, renchan: bool, current_round: Optional[int] = None) -> bool:
-        """非全庄西入延长战与击飞：判定整场是否在本局结束后终了。
-
-        current_round 表示「推进后」的局号（连庄则仍为本局号，过庄则为 +1）。
-        半庄 scheduled=8 时：
-        - 南三过庄后 current_round=8 且未连庄：须打南四，不因有人已达标而提前终了；
-        - 南四结束且连庄：亲家一位且达到西入目标分则终了（不继续本场），否则继续本场；
-        - current_round>scheduled：西入延长战，按达标/亲家一位规则终了。
-        """
-        cr = self.current_round if current_round is None else current_round
-        if self.open_tobi and any(p.score < 0 for p in self.player_list):
-            return True
-        scheduled = self.max_round * 4
-        if self.max_round >= 4 or not self.open_xiru:
-            return False
-        if cr < scheduled:
-            return False
-
-        oya = self.player_list[0]
-        oya_rank = self._riichi_oya_rank()
-        target = self._xiru_target_score()
-        anyone_target = any(p.score >= target for p in self.player_list)
-
-        if cr == scheduled:
-            if renchan:
-                # 南四（或南四本场）刚结束：亲家一位且达标 → 终了，不连庄打本场
-                if oya_rank == 1 and oya.score >= target:
-                    return True
-                return False
-            # 刚从上一局过庄（如南三→南四），预定末局尚未开打
-            return False
-
-        # 南四已打完并过庄，或西入延长局
-        if oya_rank == 1 and oya.score >= target:
-            return True
-        if not renchan and anyone_target:
-            return True
-        return False
+        return match_should_end(self, renchan, self.current_round if current_round is None else current_round)
 
     def _compute_last_renchan(self) -> bool:
         """Settle 后、局数推进前：本局是否连庄（不修改状态）。"""
@@ -792,7 +775,7 @@ class RiichiGameState:
         oya_win = winner_index == 0 or getattr(self, "_multi_ron_any_oya_win", False)
         oya_tenpai = False
         if self.hu_class == "ryuukyoku":
-            oya_tenpai = self._is_ryuukyoku_tenpai(self.player_list[0])
+            oya_tenpai = option(self, "tenpai_renchan") and self._is_ryuukyoku_tenpai(self.player_list[0])
         renchan = oya_win or (self.hu_class == "ryuukyoku" and oya_tenpai)
         if self.hu_class in (
             "jiuzhongjiupai",
@@ -823,7 +806,19 @@ class RiichiGameState:
         self.hepai_player_index = None
         self.next_status = "round_end_by_ready"
         multi_queue = getattr(self, "multi_ron_queue", None)
-        if multi_queue and len(multi_queue) > 1:
+        cuohe_queue = getattr(self, '_pending_cuohe_queue', None)
+        if cuohe_queue:
+            for index, (pi, action) in enumerate(cuohe_queue):
+                self.ron_player_index = pi
+                self.hu_class = action
+                await self._settle_cuohe()
+                if index < len(cuohe_queue) - 1:
+                    delay = sichuan_settle_hu_panel_wait_seconds(1, is_final=False)
+                    if index == 0:
+                        delay += hu_result_ready_pre_panel_seconds()
+                    await asyncio.sleep(delay)
+            self._pending_cuohe_queue = None
+        elif multi_queue and len(multi_queue) > 1:
             await self._settle_multi_ron_sequence(multi_queue)
             self.multi_ron_queue = None
         elif self.hu_class in ("hu_self", "hu_first", "hu_second", "hu_third"):
@@ -864,7 +859,7 @@ class RiichiGameState:
             changes = await self._settle_ryuukyoku()
             tenpai_indexes = [p.player_index for p in self.player_list if self._is_ryuukyoku_tenpai(p)]
             noten_indexes = [p.player_index for p in self.player_list if not self._is_ryuukyoku_tenpai(p)]
-            has_penalty = bool(tenpai_indexes and noten_indexes)
+            has_penalty = bool(any(changes.values()))
             tenpai_tiles = {p.player_index: sorted(p.waiting_tiles) for p in self.player_list if self._is_ryuukyoku_tenpai(p)}
             tenpai_hands = {p.player_index: list(p.hand_tiles) for p in self.player_list if self._is_ryuukyoku_tenpai(p)}
             renchan = self._compute_last_renchan()
@@ -885,6 +880,7 @@ class RiichiGameState:
                 tenpai_tiles=tenpai_tiles,
                 tenpai_hands=tenpai_hands,
                 exhaustive_penalty=has_penalty,
+                nagashi_mangan_winners=self.nagashi_mangan_winners,
                 next_status=self.next_status,
             )
 
@@ -1034,6 +1030,10 @@ class RiichiGameState:
                 langyong_multiplier = max_mult
                 langyong_scored_points = scored
 
+        apply_pao(self, score_changes, winner_index, result, apply_honba)
+        if langyong:
+            langyong_scored_points = score_changes[winner_index] - (self.honba * 300 if apply_honba else 0)
+
         # 场供立直棒给予第一家荣和胜者
         collected = self.riichi_sticks if apply_riichi_sticks else 0
         if apply_riichi_sticks:
@@ -1082,6 +1082,7 @@ class RiichiGameState:
             aka_count=aka_count,
             honba=self.honba,
             riichi_sticks_collected=collected,
+            scored_points=result.get("score", 0),
         )
 
         await broadcast_result(
@@ -1130,14 +1131,25 @@ class RiichiGameState:
             return
         self.hepai_player_index = offender_index
 
-        cuohe_total_penalty = 9000
-        pay_each = cuohe_total_penalty // 3
         score_changes = {i: 0 for i in range(4)}
+        penalty = option(self, 'chombo_penalty')
+        cuohe_total_penalty = 0
         for i in range(4):
             if i == offender_index:
                 continue
+            pay_each = 0 if penalty == 'penalty_20000' else (
+                (4000 if offender_index == 0 or i == 0 else 2000) if penalty == 'reverse_mangan' else 3000)
             score_changes[offender_index] -= pay_each
             score_changes[i] += pay_each
+            cuohe_total_penalty += pay_each
+
+        if penalty == 'penalty_20000':
+            self.player_list[offender_index].chombo_result_penalty += 20
+        for p in self.player_list:
+            if getattr(p, 'riichi_paid_this_round', False):
+                score_changes[p.player_index] += 1000
+                self.riichi_sticks -= 1
+                p.riichi_paid_this_round = False
 
         for p in self.player_list:
             p.score += score_changes[p.player_index]
@@ -1172,6 +1184,7 @@ class RiichiGameState:
             aka_count=aka_count,
             honba=self.honba,
             riichi_sticks_collected=0,
+            scored_points=cuohe_total_penalty,
         )
 
         await broadcast_result(
@@ -1203,19 +1216,11 @@ class RiichiGameState:
             self.refresh_waiting_tiles(p.player_index)
         tenpai_indexes = [p.player_index for p in self.player_list if self._is_ryuukyoku_tenpai(p)]
         noten_indexes = [p.player_index for p in self.player_list if not self._is_ryuukyoku_tenpai(p)]
-        changes = {i: 0 for i in range(4)}
-        if tenpai_indexes and noten_indexes:
-            total = 3000
-            pay_each = total // len(noten_indexes)
-            gain_each = total // len(tenpai_indexes)
-            for i in noten_indexes:
-                changes[i] -= pay_each
-            for i in tenpai_indexes:
-                changes[i] += gain_each
+        changes, self.nagashi_mangan_winners = draw_payments(self, tenpai_indexes)
         for p in self.player_list:
             p.score += changes[p.player_index]
         tenpai_flags = [1 if self._is_ryuukyoku_tenpai(p) else 0 for p in self.player_list]
-        player_action_record_ryuukyoku(self, tenpai_flags=tenpai_flags, score_changes=[changes.get(i, 0) for i in range(4)], reason="exhaustive")
+        player_action_record_ryuukyoku(self, tenpai_flags=tenpai_flags, score_changes=[changes.get(i, 0) for i in range(4)], reason="nagashi_mangan" if self.nagashi_mangan_winners else "exhaustive")
         return changes
 
     def _is_ryuukyoku_tenpai(self, player: RiichiPlayer) -> bool:
@@ -1227,13 +1232,15 @@ class RiichiGameState:
 
     # ========== 抽宝牌 ==========
 
-    async def _reveal_kan_dora(self):
+    async def _reveal_kan_dora(self, *, broadcast=True):
         """翻开下一张杠宝牌指示牌以及对应位置的里杠宝。
 
         王牌布局（init_tiles）：tiles_list[-1..-4] 为 4 张岭上牌；
         宝牌指示牌使用原始牌山倒数 6/8/10/12/14，里宝牌使用倒数 5/7/9/11/13。
         每次岭上摸牌会 pop(-1)，因此当前位置 = 原始位置 + rinshan_count。
         """
+        if not option(self, "kan_dora"):
+            return
         next_kan_number = len(self.kan_dora_indicators) + 1
         if next_kan_number > 4:
             return
@@ -1248,7 +1255,9 @@ class RiichiGameState:
             self.ura_kan_dora_indicators.append(self.tiles_list[ura_idx])
 
         player_action_record_new_dora(self, tile_id=new_ind)
-        await broadcast_update_dora(self, new_indicator=new_ind, is_kan_dora=True)
+        if broadcast:
+            await broadcast_update_dora(self, new_indicator=new_ind, is_kan_dora=True)
+        return new_ind
 
     # ========== 振听 ==========
 
@@ -1273,28 +1282,32 @@ class RiichiGameState:
 
     async def _check_four_wind_abort(self) -> bool:
         """四风连打：首巡 4 家均切出相同风牌且无鸣牌"""
-        if self.xunmu > 1 or not self._first_round_valid:
+        if not option(self, "four_winds_abort") or not self._first_round_valid:
+            return False
+        if any(p.combination_tiles for p in self.player_list):
             return False
         first_discards = []
         for p in self.player_list:
             if p.combination_tiles:
                 return False
-            if len(p.discard_tiles) == 0:
+            if len(p.discard_origin_tiles) != 1:
                 return False
-            first_discards.append(_normalize(p.discard_tiles[0]))
+            first_discards.append(_normalize(p.discard_origin_tiles[0]))
         if len(first_discards) == 4 and first_discards[0] in (41, 42, 43, 44) and all(t == first_discards[0] for t in first_discards):
             return True
         return False
 
     async def _check_four_player_riichi_abort(self) -> bool:
-        if sum(1 for p in self.player_list if "riichi" in p.tag_list) >= 4:
+        if option(self, "four_riichi_abort") and sum(1 for p in self.player_list if "riichi" in p.tag_list) >= 4:
             return True
         return False
 
     def _can_declare_kyuushu(self, player_index: int) -> bool:
         """九种九牌：首巡、全员无鸣牌、当前玩家尚未切过牌，且手牌 14 张含 ≥9 种幺九"""
+        if not option(self, "kyuushu_abort"):
+            return False
         player = self.player_list[player_index]
-        if len(player.discard_tiles) > 0:
+        if len(player.discard_origin_tiles) > 0:
             return False
         for p in self.player_list:
             if p.combination_tiles:
@@ -1312,6 +1325,8 @@ class RiichiGameState:
         from ...response import Response, GameInfo
         from .boardcast import _build_base_game_info, _build_player_info, reconnected_send_pending_ask_for_viewer
 
+        from ..public.outbound_pipe import drain_viewer
+        await drain_viewer(self, view_player_index)
         viewer = self.player_list[view_player_index]
         conn = self.game_server.user_id_to_connection[spectator_user_id]
         base = _build_base_game_info(self)

@@ -6,7 +6,7 @@ using UnityEngine.UI;
 using UnityEngine.Serialization;
 
 /// <summary>牌背颜色与 3D 牌背图片。引用由场景拖好，运行时只改数值和贴图。</summary>
-public class CardBackConfigPanel : MonoBehaviour
+public partial class CardBackConfigPanel : MonoBehaviour
 {
     public static CardBackConfigPanel Instance { get; private set; }
 
@@ -34,7 +34,7 @@ public class CardBackConfigPanel : MonoBehaviour
     private float currentBrightness;
     private Texture2D currentTexture;
     private Sprite previewSprite;
-    private Image previewArtwork;
+    [SerializeField] private Image previewArtwork;
     private bool syncing;
 
     private void Awake()
@@ -126,20 +126,7 @@ public class CardBackConfigPanel : MonoBehaviour
 
     private void UpdatePreview()
     {
-        if (previewArtwork == null)
-        {
-            TileTextureLayout.FitRenderedCardPreview(previewImage.rectTransform, tilePreviewPrefab);
-            var artwork = new GameObject("CardBackArtwork", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            artwork.layer = previewImage.gameObject.layer;
-            artwork.transform.SetParent(previewImage.transform, false);
-            previewArtwork = artwork.GetComponent<Image>();
-            previewArtwork.raycastTarget = false;
-            // Match the back shader: stretch the artwork, composite alpha over the base color.
-            previewArtwork.preserveAspect = false;
-            previewArtwork.rectTransform.anchorMin = Vector2.zero;
-            previewArtwork.rectTransform.anchorMax = Vector2.one;
-            previewArtwork.rectTransform.offsetMin = previewArtwork.rectTransform.offsetMax = Vector2.zero;
-        }
+        if (previewArtwork == null) return;
         if (previewSprite != null) Destroy(previewSprite);
         previewSprite = null;
         previewImage.sprite = null;
@@ -147,10 +134,8 @@ public class CardBackConfigPanel : MonoBehaviour
         previewImage.color = ConfigManager.ApplyColorBrightness(currentColor, currentBrightness);
         if (currentTexture != null)
         {
-            previewSprite = Sprite.Create(
-                currentTexture,
-                new Rect(0f, 0f, currentTexture.width, currentTexture.height),
-                new Vector2(0.5f, 0.5f));
+            previewSprite = Sprite.Create(currentTexture,
+                new Rect(0f, 0f, currentTexture.width, currentTexture.height), new Vector2(0.5f, 0.5f));
         }
         previewArtwork.sprite = previewSprite;
         previewArtwork.color = Color.white;
@@ -307,14 +292,4 @@ public class CardBackConfigPanel : MonoBehaviour
         UpdatePreview();
     }
 
-#if UNITY_EDITOR
-    public void ApplyEditorDroppedTexture(Texture2D source)
-    {
-        if (source == null) return;
-
-        byte[] bytes = SceneConfigTextureCapture.EncodePng(source);
-        ApplyCardBackPng(bytes);
-        SceneConfigUi.ShowTip("牌背图片已应用");
-    }
-#endif
 }

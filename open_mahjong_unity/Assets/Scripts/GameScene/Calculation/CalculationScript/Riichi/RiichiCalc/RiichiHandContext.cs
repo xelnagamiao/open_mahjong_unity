@@ -23,6 +23,29 @@ namespace Riichi {
         public int RoundWind = RiichiTileUtil.East;
 
         public bool HasOpenTanyao = true;
+        public bool RedDora = true;
+        public bool IsIppatsu;
+        public bool IppatsuEnabled = true;
+        public bool UraDoraEnabled = true;
+        public bool DoubleYakuman;
+        public bool MultipleYakuman = true;
+        public int YakumanLimit = 6;
+        public bool KiriageMangan;
+        public string KazoeLimit = "yakuman";
+        public int DoubleWindPairFu = 4;
+        internal int WinningSetIndex = -1;
+
+        public void ApplyRuleOptions(IDictionary<string, object> values) {
+            if (values == null) return;
+            bool Flag(string key, bool fallback) => values.TryGetValue(key, out var v) && bool.TryParse(v?.ToString(), out bool b) ? b : fallback;
+            int Number(string key, int fallback) => values.TryGetValue(key, out var v) && int.TryParse(v?.ToString(), out int n) ? n : fallback;
+            HasOpenTanyao = Flag("open_tanyao", true);
+            IppatsuEnabled = Flag("ippatsu", true); UraDoraEnabled = Flag("ura_dora", true);
+            DoubleYakuman = Flag("double_yakuman", false); MultipleYakuman = Flag("multiple_yakuman", true);
+            KiriageMangan = Flag("kiriage_mangan", false); YakumanLimit = Number("yakuman_limit", 6);
+            DoubleWindPairFu = Number("double_wind_pair_fu", 4);
+            KazoeLimit = values.TryGetValue("kazoe_limit", out var kazoe) ? kazoe.ToString() : "yakuman";
+        }
 
         public List<int> DoraIndicators = new List<int>();
         public List<int> UraDoraIndicators = new List<int>();

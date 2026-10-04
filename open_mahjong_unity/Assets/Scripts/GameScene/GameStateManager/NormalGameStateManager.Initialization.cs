@@ -16,15 +16,16 @@ public partial class NormalGameStateManager {
             ClearStickerMutes();
         }
         if (!IsRealtimeSpectator) {
-            PlayerSession.Current.SetRoomId(gameInfo.room_id.ToString());
+            PlayerSession.Current.SetGameSession(gameInfo.gamestate_id, gameInfo.room_id.ToString());
+        } else {
+            PlayerSession.Current.SetGamestateId(gameInfo.gamestate_id);
         }
-        PlayerSession.Current.SetGamestateId(gameInfo.gamestate_id);
 
         gamestateId = gameInfo.gamestate_id;
         // 0.切换窗口
         MatchStateManager.Instance.StopQueueing();
         MatchNetworkManager.Instance.ResetMatchLock();
-        MatchQueueingPanel.Instance?.HideImmediately();
+
         MatchFoundedPanel.Instance?.StopCountdownAndHide();
         GameHost.Current.SwitchWindow("game"); // 切换到游戏场景
 
@@ -122,18 +123,18 @@ public partial class NormalGameStateManager {
 
                     // 如果 combination_tiles 的字符串有 "k"（刻子/碰），传入 "peng"
                     if (combinationStr.Contains("k")){
-                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "peng", combinationMask, false));
+                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "peng", combinationMask, false, i));
                     }
                     // 如果 combination_mask 中有 "3"（加杠），说明是碰后加杠的情况
                     // 需要先调用 "peng" 再调用 "jiagang"，确保 pengToJiagangPosDict 正确缓存
                     else if (jiagangCount > 0){
                         // 先调用 peng，创建碰牌并缓存横置位置
-                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "peng", combinationMask, false));
+                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "peng", combinationMask, false, i));
                         // 再调用 jiagang，在缓存的位置上添加加杠牌
-                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "jiagang", combinationMask, false));
+                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "jiagang", combinationMask, false, i));
                     }
                     else{
-                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "None", combinationMask, false));
+                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "None", combinationMask, false, i));
                     }
                 }
             }
@@ -211,7 +212,7 @@ public partial class NormalGameStateManager {
         detailedConfig = gameInfo.detailed_config != null
             ? new Dictionary<string, object>(gameInfo.detailed_config)
             : new Dictionary<string, object>();
-        hepaiLimit = gameInfo.hepai_limit ?? 8; // 起和番限制
+        hepaiLimit = gameInfo.hepai_limit ?? RuleRegistry.Current?.DefaultHepaiLimit ?? 8;
         roomStepTime = gameInfo.step_time; // 存储步时
         roomRoundTime = gameInfo.round_time; // 存储局时
         remainTiles = gameInfo.tile_count; // 存储剩余牌数
@@ -227,10 +228,16 @@ public partial class NormalGameStateManager {
         }
         player_to_info["self"].hand_tiles_count = selfHandTiles.Count;
 
-        tips = gameInfo.tips; // 存储是否提示
+        Session.FanTips = gameInfo.tips;
+        Session.CountTips = gameInfo.count_tips;
+        tips = gameInfo.tips || gameInfo.count_tips; // 任一种提示开启即可显示听牌入口
         showMoqieHint = gameInfo.show_moqie_hint; // 手摸切灰显
         isOpenCuoHe = gameInfo.open_cuohe; // 存储是否开启错和
         isSetRandomSeed = gameInfo.isPlayerSetRandomSeed; // 存储是否设置随机种子
+        Session.IsDuplicate = gameInfo.is_duplicate;
+
+        Session.DuplicateWallType = gameInfo.duplicate_wall_type;
+        Mirror.SetDuplicateRemainingTiles(Session.IsDuplicate ? gameInfo.duplicate_remaining_tiles : null);
         if (isOpenCuoHe){
             Debug.Log("开启错和");
         }
@@ -269,6 +276,7 @@ public partial class NormalGameStateManager {
                 player_to_info["self"].huapai_list = player.huapai_list.ToList(); // 存储花牌列表
                 player_to_info["self"].title_used = player.title_used; // 存储使用的称号ID
                 player_to_info["self"].profile_used = player.profile_used; // 存储使用的头像ID
+                player_to_info["self"].avatar_frame_used = player.avatar_frame_used;
                 player_to_info["self"].character_used = player.character_used; // 存储使用的角色ID
                 player_to_info["self"].voice_used = player.voice_used; // 存储使用的音色ID
                 player_to_info["self"].score_history = player.score_history.ToList(); // 存储分数历史变化列表
@@ -289,6 +297,7 @@ public partial class NormalGameStateManager {
                 player_to_info["right"].hand_tiles_count = player.hand_tiles_count; // 存储手牌数量
                 player_to_info["right"].title_used = player.title_used; // 存储使用的称号ID
                 player_to_info["right"].profile_used = player.profile_used; // 存储使用的头像ID
+                player_to_info["right"].avatar_frame_used = player.avatar_frame_used;
                 player_to_info["right"].character_used = player.character_used; // 存储使用的角色ID
                 player_to_info["right"].voice_used = player.voice_used; // 存储使用的音色ID
                 player_to_info["right"].score_history = player.score_history.ToList(); // 存储分数历史变化列表
@@ -309,6 +318,7 @@ public partial class NormalGameStateManager {
                 player_to_info["top"].hand_tiles_count = player.hand_tiles_count; // 存储手牌数量
                 player_to_info["top"].title_used = player.title_used; // 存储使用的称号ID
                 player_to_info["top"].profile_used = player.profile_used; // 存储使用的头像ID
+                player_to_info["top"].avatar_frame_used = player.avatar_frame_used;
                 player_to_info["top"].character_used = player.character_used; // 存储使用的角色ID
                 player_to_info["top"].voice_used = player.voice_used; // 存储使用的音色ID
                 player_to_info["top"].score_history = player.score_history.ToList(); // 存储分数历史变化列表
@@ -329,6 +339,7 @@ public partial class NormalGameStateManager {
                 player_to_info["left"].hand_tiles_count = player.hand_tiles_count; // 存储手牌数量
                 player_to_info["left"].title_used = player.title_used; // 存储使用的称号ID
                 player_to_info["left"].profile_used = player.profile_used; // 存储使用的头像ID
+                player_to_info["left"].avatar_frame_used = player.avatar_frame_used;
                 player_to_info["left"].character_used = player.character_used; // 存储使用的角色ID
                 player_to_info["left"].voice_used = player.voice_used; // 存储使用的音色ID
                 player_to_info["left"].score_history = player.score_history.ToList(); // 存储分数历史变化列表
@@ -337,6 +348,18 @@ public partial class NormalGameStateManager {
                 player_to_info["left"].original_player_index = player.original_player_index; // 存储原始玩家索引
                 player_to_info["left"].tag_list = player.tag_list; // 存储标签列表
             }
+        }
+
+        // 四川 血流的和后锁手状态是可重连状态，镜像保留给 IGameState 查询。
+        foreach (var player in gameInfo.players_info) {
+            if (!indexToPosition.TryGetValue(player.player_index, out string position)) continue;
+            if (!player_to_info.TryGetValue(position, out PlayerInfoClass info)) continue;
+            info.post_hu_lock = player.post_hu_lock;
+            info.has_won = player.has_won;
+            info.win_count = player.win_count;
+            info.xueliu_throw_tiles = player.xueliu_throw_tiles != null
+                ? player.xueliu_throw_tiles.ToList()
+                : new List<int>();
         }
 
         // 重连兜底：同一对局重连时，若本地快照行数与服务端恢复的 score_history 不一致，清空以免错位。

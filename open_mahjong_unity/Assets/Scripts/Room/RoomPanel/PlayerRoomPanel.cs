@@ -5,18 +5,28 @@ using TMPro;
 /// <summary>
 /// 单个玩家栏位面板：负责显示玩家名、查看信息按钮、移除玩家按钮
 /// </summary>
-public class PlayerRoomPanel : MonoBehaviour {
+public partial class PlayerRoomPanel : MonoBehaviour {
     [SerializeField] private TMP_Text playerName;          // 玩家名文本
     [SerializeField] private Button playerinfoButton;      // 玩家信息按钮
     [SerializeField] private Button removePlayerButton;    // 移除玩家按钮
-    [SerializeField] private GameObject readyIcon;         // 准备图标（仅后3个非房主面板挂载，房主面板可为空）
+    [SerializeField] private GameObject readyIcon;         // 准备状态
+    [SerializeField] private GameObject emptySeatBotControls;
+    [SerializeField] private Button addAutoBotButton;
+    [SerializeField] private Button addEfficiencyBotButton;
+    [SerializeField] private Button addHeuristicBotButton;
 
     public int UserId;
+    public int SeatIndex { get; private set; }
+
+    public void SetSeatIndex(int index) => SeatIndex = index;
 
     private void Awake() {
 
         playerinfoButton.onClick.AddListener(OnPlayerInfoClicked);
         removePlayerButton.onClick.AddListener(OnRemovePlayerClicked);
+        if (addAutoBotButton) addAutoBotButton.onClick.AddListener(() => AddBot(0));
+        if (addEfficiencyBotButton) addEfficiencyBotButton.onClick.AddListener(() => AddBot(2));
+        if (addHeuristicBotButton) addHeuristicBotButton.onClick.AddListener(() => AddBot(3));
 
         Clear();
     }
@@ -31,10 +41,11 @@ public class PlayerRoomPanel : MonoBehaviour {
         playerinfoButton.interactable = true;
         removePlayerButton.gameObject.SetActive(canRemove);
         removePlayerButton.interactable = canRemove;
+        if (emptySeatBotControls) emptySeatBotControls.SetActive(false);
     }
 
     /// <summary>
-    /// 设置准备图标显示状态（房主面板未挂载图标时安全跳过）
+    /// 设置准备状态，房主无需准备。
     /// </summary>
     public void SetReady(bool ready) {
         if (readyIcon != null) {
@@ -47,6 +58,7 @@ public class PlayerRoomPanel : MonoBehaviour {
     /// </summary>
     public void Clear() {
         UserId = -1;
+        if (emptySeatBotControls) emptySeatBotControls.SetActive(false);
         playerName.text = string.Empty;
         playerinfoButton.interactable = true;
         removePlayerButton.gameObject.SetActive(false);
@@ -65,11 +77,21 @@ public class PlayerRoomPanel : MonoBehaviour {
         }
     }
 
+    public void SetEmptySeatBotControls(bool canAdd, bool supportsHeuristic) {
+        if (!emptySeatBotControls) return;
+        emptySeatBotControls.SetActive(UserId < 0 && canAdd);
+        if (addHeuristicBotButton) addHeuristicBotButton.gameObject.SetActive(supportsHeuristic);
+    }
+
+    private void AddBot(int kind) {
+        if (UserId < 0 && RoomPanel.Instance != null) RoomPanel.Instance.AddBotFromSeat(kind, SeatIndex);
+    }
+
     private void OnRemovePlayerClicked() {
         // 仅房主才有权限，RoomPanel 会控制 canRemove，因此这里不再重复判断
         string roomId = UserDataManager.Instance.RoomId;
         if (!string.IsNullOrEmpty(roomId)) {
-            RoomNetworkManager.Instance.KickPlayerFromRoom(roomId, UserId);
+            RoomNetworkManager.Instance.KickPlayerFromRoom(roomId, UserId, SeatIndex);
         }
     }
 }

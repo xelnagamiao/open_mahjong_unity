@@ -23,18 +23,99 @@ public partial class GameRecordManager {
 
     /// <summary>四川规则牌谱（含血战/非血战）。杠后摸牌与普通摸牌同向从头取，不用倒序岭上。</summary>
     private bool IsSichuanRecord() {
-        return RecordManifest()?.KongReplacementFromFront == true;
+        return ReadGameTitleString(gameRecord.gameTitle, "rule", "") == "sichuan"
+            || RecordManifest()?.KongReplacementFromFront == true;
     }
 
-    private bool IsSichuanBloodBattleRecord() {
+    private bool IsXueliuRecord() => SichuanLobby.IsXueliu(ReadGameTitleString(gameRecord.gameTitle, "sub_rule", ""));
+
+    private bool UsesSichuanSettlementRecord() => IsBloodBattleRecord() || IsXueliuRecord();
+
+    // 川麻和牌后由最后一位和牌者的下一家续打；血战还要跳过本局已和退场者。
+    // 巡目索引用自己的退场集合，不能读取当前回放节点的 isHu。
+    private int NextRecordPlayerIndex(int fromIndex, HashSet<int> huPlayers = null) {
+        for (int offset = 1; offset <= 4; offset++) {
+            int next = (fromIndex + offset) % 4;
+            if (!IsBloodBattleRecord()) return next;
+            bool isHu = huPlayers != null
+                ? huPlayers.Contains(next)
+                : indexToPosition.TryGetValue(next, out string position)
+                    && recordPlayer_to_info.TryGetValue(position, out RecordPlayer player) && player.isHu;
+            if (!isHu) return next;
+        }
+        return fromIndex;
+    }
+
+    // 血流保留听牌手牌，逐次和牌张累计到花区供连续播放和跳转重建。
+    private void ApplyXueliuRecordWin(List<string> tick, string action) {
+        int winner = ParseTickInt(tick, 1);
+        if (!indexToPosition.TryGetValue(winner, out string position)) return;
+        RecordPlayer player = recordPlayer_to_info[position];
+        RecordHuHandBuilder.ParseSichuanHuExtras(tick, out int tile, out bool multi, out int? source, out bool recycle);
+        if (action == "hu_self" && player.tileList.Count % 3 == 2) {
+            player.tileList.RemoveAt(player.tileList.Count - 1);
+        }
+        player.showHandDrawSlotActive = false;
+        if (tile >= 10) player.huapaiList.Add(tile);
+        if (action == "hu_self") return;
+        string sourcePosition = ResolveRecordRonDiscarderPosition(source);
+        bool qianggang = lastJiagangPlayerIndex >= 0 && lastJiagangPlayerIndex == source;
+        if (qianggang && recordPlayer_to_info.TryGetValue(sourcePosition ?? "", out RecordPlayer from)) {
+            for (int i = 0; i < from.combinationTiles.Count; i++) {
+                if (from.combinationTiles[i] != $"g{tile}") continue;
+                var mask = new List<int>(from.combinationMasks[i]);
+                for (int j = 0; j < mask.Count; j += 2) {
+                    if (mask[j] != 3) continue;
+                    mask.RemoveRange(j, 2);
+                    from.combinationMasks[i] = mask.ToArray();
+                    from.combinationTiles[i] = $"k{tile}";
+                    break;
+                }
+            }
+        } else if (recycle || !multi) {
+            SyncRecordRonDiscardRemoved(sourcePosition, tile);
+        }
+    }
+
+    private void PlayXueliuWinRecord(string action, int winner, int tile, bool multi, int? source, bool recycle, bool qianggang,
+        Dictionary<int, int> after, Dictionary<int, int> changes) {
+        BoardCanvas.Instance.UpdatePlayerScores(after, indexToPosition);
+        GameCanvas.Instance.ShowGangScoreFloats(changes, indexToPosition);
+        if (!indexToPosition.TryGetValue(winner, out string seat)) return;
+        string from = ResolveRecordRonDiscarderPosition(source);
+        if (action != "hu_self") Game3DManager.Instance.SyncRecordLastDiscardForRon(from, tile);
+        if (seat == "self" && action == "hu_self") {
+            TableMirror.Current.SelfHandTiles.Remove(tile);
+            GameCanvas.Instance.ChangeHandCards("RemoveHuWinTile", tile, null, null);
+        }
+        GameCanvas.Instance.ShowActionDisplay(seat, action);
+        SoundManager.Instance.PlayActionSound(seat, action);
+        CancelRecordHuPresentation();
+        _recordHuPresentationCoroutine = StartCoroutine(CoPlayXueliuWinRecord(seat, tile, action == "hu_self", multi, from, recycle, qianggang));
+        StartCoroutine(AutoNextActionAfterDelay(0.5f));
+    }
+
+    private IEnumerator CoPlayXueliuWinRecord(string seat, int tile, bool zimo, bool multi, string source, bool recycle, bool qianggang) {
+        _recordHuPresentationActive = true;
+        try {
+            yield return Game3DManager.Instance.PlayXueliuWinTile(seat, tile, zimo, multi, source, recycle, qianggang, syncLiveState: false);
+        } finally {
+            EndRecordHuPresentation();
+        }
+    }
+
+    private bool IsBloodBattleRecord() {
+        if (IsXueliuRecord()) return false;
+        string subRule = ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "");
+        if (subRule == "zhongyong/nanque") return true;
+        if (ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "") == GuobiaoGameState.BloodBattleSubRule) return true;
         if (!IsSichuanRecord()) return false;
-        string bloodBattle = ReadGameTitleString(gameRecord.gameTitle, "blood_battle", "true");
-        return bloodBattle != "false";
+        return ReadGameTitleBool(gameRecord.gameTitle, "blood_battle", true);
     }
 
     private bool TryParseGangScoreChangesFromTick(List<string> tick, out Dictionary<int, int> changes) {
         changes = null;
-        if (!IsSichuanBloodBattleRecord()) return false;
+        if (!UsesSichuanSettlementRecord() && RecordManifest()?.RecordUsesInlineKongScores != true) return false;
         int[] arr = GameRecordJsonDecoder.ParseInlineGangScoreChanges(tick);
         if (arr == null) return false;
         changes = new Dictionary<int, int>();
@@ -95,7 +176,8 @@ public partial class GameRecordManager {
     private static bool ContainsSichuanQianggangFan(string[] huFan) {
         if (huFan == null) return false;
         for (int i = 0; i < huFan.Length; i++) {
-            if (huFan[i] == "抢杠") return true;
+            if (huFan[i] == "抢杠" || huFan[i] == "抢杠和" || huFan[i] == "chankan") return true;
+            if (huFan[i]?.StartsWith("GD|") == true && huFan[i].EndsWith("|抢杠")) return true;
         }
         return false;
     }
@@ -155,7 +237,7 @@ public partial class GameRecordManager {
                 winnerPos, action, hepaiTile, multiRon, ronDiscarderIndex, recycleDiscard, isQianggang);
             request.DiscardPlayerPosition = discardPos;
             yield return Game3DManager.Instance.PlaySichuanMidGameHu(request);
-            if (action != "hu_self" && recycleDiscard) {
+            if (action != "hu_self" && recycleDiscard && !isQianggang) {
                 SyncRecordRonDiscardRemoved(discardPos, hepaiTile);
             }
             yield return new WaitForSeconds(RoundEndTiming.RoundEndHandRevealSeconds);
@@ -168,6 +250,12 @@ public partial class GameRecordManager {
     private void ApplySichuanLiujuStepState(List<string> tick) {
         if (tick == null || tick.Count < 2) return;
         switch (tick[1]) {
+            case "reveal_hu":
+                if (IsBloodBattleRecord() && tick.Count > 2) {
+                    bloodRecordRevealedHands = ParseRecordHuHandsJson(tick[2]);
+                    sichuanRecordRevealHands = bloodRecordRevealedHands;
+                }
+                break;
             case "settle_hu":
                 if (tick.Count < 7) return;
                 ApplyScoreDeltasFromTickIndex(tick, 6);
@@ -250,6 +338,7 @@ public partial class GameRecordManager {
         sichuanRecordLedger.Begin();
         Dictionary<int, int[]> allHands = ParseRecordHuHandsJson(tick[2]);
         sichuanRecordRevealHands = allHands;
+        if (IsBloodBattleRecord()) bloodRecordRevealedHands = allHands;
         if (allHands.Count > 0) {
             RoundEndPresentation.Instance.ResetSichuanEndgameQueue();
             RoundEndPresentation.Instance.EnqueueSichuanRevealHu(allHands);

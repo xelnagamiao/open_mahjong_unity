@@ -471,12 +471,12 @@ public class CardEdgePanel : MonoBehaviour
         float fade = toggleColorFade;
         Color def = toggleDefaultColor;
         Color on = toggleSelectedColor;
-        SceneConfigUi.SetToggleSelected(backEdgeModeIndependent, currentBackEdgeMode == BackEdgeMode.Independent, def, on, instant, fade);
-        SceneConfigUi.SetToggleSelected(backEdgeModeFollowBack, currentBackEdgeMode == BackEdgeMode.FollowBack, def, on, instant, fade);
-        SceneConfigUi.SetToggleSelected(backEdgeModeFollowFront, currentBackEdgeMode == BackEdgeMode.FollowFront, def, on, instant, fade);
-        SceneConfigUi.SetToggleSelected(frontEdgeModeIndependent, currentFrontEdgeMode == FrontEdgeMode.Independent, def, on, instant, fade);
-        SceneConfigUi.SetToggleSelected(frontEdgeModeFollowTableBg, currentFrontEdgeMode == FrontEdgeMode.FollowTableBg, def, on, instant, fade);
-        SceneConfigUi.SetToggleSelected(frontEdgeModeFollowBackEdge, currentFrontEdgeMode == FrontEdgeMode.FollowBackEdge, def, on, instant, fade);
+        SceneConfigUi.SetToggleSelected(backEdgeModeIndependent, currentBackEdgeMode == BackEdgeMode.Independent, def, on, instant, fade, hoverFeedback: true);
+        SceneConfigUi.SetToggleSelected(backEdgeModeFollowBack, currentBackEdgeMode == BackEdgeMode.FollowBack, def, on, instant, fade, hoverFeedback: true);
+        SceneConfigUi.SetToggleSelected(backEdgeModeFollowFront, currentBackEdgeMode == BackEdgeMode.FollowFront, def, on, instant, fade, hoverFeedback: true);
+        SceneConfigUi.SetToggleSelected(frontEdgeModeIndependent, currentFrontEdgeMode == FrontEdgeMode.Independent, def, on, instant, fade, hoverFeedback: true);
+        SceneConfigUi.SetToggleSelected(frontEdgeModeFollowTableBg, currentFrontEdgeMode == FrontEdgeMode.FollowTableBg, def, on, instant, fade, hoverFeedback: true);
+        SceneConfigUi.SetToggleSelected(frontEdgeModeFollowBackEdge, currentFrontEdgeMode == FrontEdgeMode.FollowBackEdge, def, on, instant, fade, hoverFeedback: true);
     }
 
 #if UNITY_EDITOR

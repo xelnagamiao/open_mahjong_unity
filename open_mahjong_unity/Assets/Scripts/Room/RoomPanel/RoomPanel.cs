@@ -2,13 +2,14 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class RoomPanel : MonoBehaviour {
+public partial class RoomPanel : MonoBehaviour {
     public static RoomPanel Instance { get; private set; }
 
     private const string GuobiaoStandardSubRule = "guobiao/standard";
 
     [SerializeField] private TMP_Text roomIdText; // 房间号
     [SerializeField] private TMP_Text roomnameText; // 房间名
+    [SerializeField] private TMP_Text hostNameText; // 沿用原房主标记，跟随房主所在座位
     [SerializeField] private PlayerRoomPanel playerPanel1; // 玩家1 面板
     [SerializeField] private PlayerRoomPanel playerPanel2; // 玩家2 面板
     [SerializeField] private PlayerRoomPanel playerPanel3; // 玩家3 面板
@@ -21,13 +22,9 @@ public class RoomPanel : MonoBehaviour {
     [SerializeField] private Button addSmartBotButton; // 添加牌效机器人按钮
     [SerializeField] private Button addGuobiaoHeuristicBotButton; // 添加高性能机器人按钮（请在 Inspector 中拖拽绑定）
     [SerializeField] private RoomConfigContainer roomConfigContainer; // 房间设置容器
+    [SerializeField] private TMP_Dropdown botSpeedDropdown;
     [SerializeField] private GameObject noRecordText;
     [SerializeField] private GameObject noSpectatorsText;
-
-    int player1_id = 0;
-    int player2_id = 0;
-    int player3_id = 0;
-    int player4_id = 0;
 
     bool selfReady = false; // 当前玩家（非房主）的准备状态
     private RoomInfo lastRoomInfo;
@@ -39,11 +36,7 @@ public class RoomPanel : MonoBehaviour {
         if (readyButton != null) {
             readyButton.onClick.AddListener(ReadyButtonClicked);
         }
-        addBotButton.onClick.AddListener(AddBotButtonClicked);
-        addSmartBotButton.onClick.AddListener(AddSmartBotButtonClicked);
-        if (addGuobiaoHeuristicBotButton != null) {
-            addGuobiaoHeuristicBotButton.onClick.AddListener(AddGuobiaoHeuristicBotButtonClicked);
-        }
+        if (botSpeedDropdown != null) botSpeedDropdown.onValueChanged.AddListener(BotSpeedChanged);
     }
 
     private void Awake() {
@@ -61,27 +54,17 @@ public class RoomPanel : MonoBehaviour {
         }
     }
 
-    private static bool IsGuobiaoStandard(RoomInfo roomInfo) {
-        if (roomInfo == null || roomInfo.room_rule != "guobiao") return false;
-        string sub = string.IsNullOrEmpty(roomInfo.sub_rule) ? GuobiaoStandardSubRule : roomInfo.sub_rule;
-        return sub == GuobiaoStandardSubRule;
+    public static bool SupportsClaimProtection(string rule) {
+        return rule == "guobiao" || rule == "qingque" || rule == "sichuan" || rule == "changsha"
+            || rule == "zhongyong" || rule == "nanque" || rule == "jiandan" || rule == "riichi";
     }
 
     private static bool SupportsHighPerformanceBot(RoomInfo roomInfo) {
-        return roomInfo != null
-            && (roomInfo.room_rule == "hongque" || IsGuobiaoStandard(roomInfo));
-    }
-
-    private void UpdateGuobiaoHeuristicBotButton(RoomInfo roomInfo, bool isHost) {
-        if (addGuobiaoHeuristicBotButton == null) return;
-
-        // 高性能罗伯特适用于国标标准规则和虹雀，其他规则隐藏按钮。
-        bool supported = SupportsHighPerformanceBot(roomInfo);
-        addGuobiaoHeuristicBotButton.gameObject.SetActive(supported);
-        if (!supported) return;
-
-        bool canAdd = isHost && roomInfo.player_list != null && roomInfo.player_list.Length < 4;
-        addGuobiaoHeuristicBotButton.interactable = canAdd;
+        if (roomInfo == null) return false;
+        if (roomInfo.room_rule == "hongque") return true;
+        if (roomInfo.room_rule != "guobiao") return false;
+        string sub = string.IsNullOrEmpty(roomInfo.sub_rule) ? GuobiaoStandardSubRule : roomInfo.sub_rule;
+        return sub == GuobiaoStandardSubRule || sub == GuobiaoGameState.BloodBattleSubRule;
     }
 
     public void GetRoomInfoResponse(bool success, string message, RoomInfo roomInfo) {
@@ -90,11 +73,12 @@ public class RoomPanel : MonoBehaviour {
         roomIdText.text = $"房间号: {roomInfo.room_id}";
         roomnameText.text = StreamerModeHelper.FormatRoomLabel("房间名: ", roomInfo.room_name);
 
-        // 清空玩家面板
-        playerPanel1.Clear();
-        playerPanel2.Clear();
-        playerPanel3.Clear();
-        playerPanel4.Clear();
+        var panels = new[] { playerPanel1, playerPanel2, playerPanel3, playerPanel4 };
+        if (hostNameText) hostNameText.gameObject.SetActive(false);
+        for (int i = 0; i < panels.Length; i++) {
+            panels[i].SetSeatIndex(i);
+            panels[i].Clear();
+        }
 
         // 判断当前玩家是否为房主（与服务器 refresh_room_info 同步的 host_user_id 一致）
         bool isHost = roomInfo.host_user_id == UserDataManager.Instance.UserId;
@@ -102,14 +86,16 @@ public class RoomPanel : MonoBehaviour {
         // 当前玩家自身的准备状态（用于准备按钮切换）
         selfReady = IsSeatReady(UserDataManager.Instance.UserId, roomInfo);
 
-        // 根据实际玩家数量设置面板
-        for (int i = 0; i < roomInfo.player_list.Length && i < 4; i++) {
+        // 座位列表保留空位；兼容尚未下发 seat_list 的服务器。
+        var seats = roomInfo.seat_list ?? roomInfo.player_list ?? System.Array.Empty<int>();
+        for (int i = 0; i < seats.Length && i < panels.Length; i++) {
             // 按照玩家列表的user_id获取用户设置，同类型机器人共用同一份配置
-            int userId = roomInfo.player_list[i];
+            int userId = seats[i];
+            if (userId < 0) continue;
             string key = userId.ToString();
 
             string username;
-            if (roomInfo.player_settings.TryGetValue(key, out UserSettings userSettings)) {
+            if (roomInfo.player_settings != null && roomInfo.player_settings.TryGetValue(key, out UserSettings userSettings)) {
                 username = userSettings.username;
             } else if (userId == 0) {
                 username = "麻雀罗伯特";
@@ -124,32 +110,16 @@ public class RoomPanel : MonoBehaviour {
             // 房主可以移除除自己外的玩家（包括机器人）
             bool canRemove = isHost && userId != UserDataManager.Instance.UserId;
 
-            // 索引0为房主席位，无需准备图标；后3个席位显示准备状态
-            bool seatReady = i != 0 && IsSeatReady(userId, roomInfo);
+            bool seatHost = userId == roomInfo.host_user_id;
+            bool seatReady = !seatHost && IsSeatReady(userId, roomInfo);
 
             string displayName = StreamerModeHelper.FormatRoomPlayerName(username, userId);
 
-            switch (i) {
-                case 0:
-                    player1_id = userId;
-                    playerPanel1.SetPlayer(displayName, userId, canRemove: false); // 房主面板不显示移除按钮
-                    playerPanel1.SetReady(false);
-                    break;
-                case 1:
-                    player2_id = userId;
-                    playerPanel2.SetPlayer(displayName, userId, canRemove);
-                    playerPanel2.SetReady(seatReady);
-                    break;
-                case 2:
-                    player3_id = userId;
-                    playerPanel3.SetPlayer(displayName, userId, canRemove);
-                    playerPanel3.SetReady(seatReady);
-                    break;
-                case 3:
-                    player4_id = userId;
-                    playerPanel4.SetPlayer(displayName, userId, canRemove);
-                    playerPanel4.SetReady(seatReady);
-                    break;
+            panels[i].SetPlayer(displayName, userId, canRemove);
+            panels[i].SetReady(seatReady);
+            if (seatHost && hostNameText) {
+                hostNameText.transform.SetParent(panels[i].transform, false);
+                hostNameText.gameObject.SetActive(true);
             }
         }
 
@@ -169,17 +139,22 @@ public class RoomPanel : MonoBehaviour {
             readyButtonText.text = selfReady ? "取消准备" : "准备";
         }
 
-        // 只有房主可以添加机器人；规则清单关闭时整组隐藏。
+        // 空座位显示添加入口，整桌已有机器人时才显示速度。
         bool allowBots = RuleRegistry.Resolve(roomInfo.room_rule)?.AllowsRoomBots ?? true;
-        if (addBotButton != null) addBotButton.gameObject.SetActive(allowBots);
-        if (addSmartBotButton != null) addSmartBotButton.gameObject.SetActive(allowBots);
-        addBotButton.interactable = allowBots && isHost;
-        addSmartBotButton.interactable = allowBots && isHost;
+        if (botSpeedDropdown != null) {
+            botSpeedDropdown.transform.parent.gameObject.SetActive(allowBots && CountBots(roomInfo.player_list) > 0);
+            botSpeedDropdown.SetValueWithoutNotify(BotSpeedIndex(roomInfo.bot_speed));
+            botSpeedDropdown.interactable = isHost && !roomInfo.is_game_running;
+        }
+        bool canAddBot = allowBots && isHost && !roomInfo.is_game_running && seated < roomInfo.max_player;
+        bool heuristic = SupportsHighPerformanceBot(roomInfo);
+        playerPanel1.SetEmptySeatBotControls(canAddBot, heuristic);
+        playerPanel2.SetEmptySeatBotControls(canAddBot, heuristic);
+        playerPanel3.SetEmptySeatBotControls(canAddBot, heuristic);
+        playerPanel4.SetEmptySeatBotControls(canAddBot, heuristic);
         if (allowBots) {
-            UpdateGuobiaoHeuristicBotButton(roomInfo, isHost);
             UpdateBotHintTexts(roomInfo.player_list);
         } else {
-            if (addGuobiaoHeuristicBotButton != null) addGuobiaoHeuristicBotButton.gameObject.SetActive(false);
             HideBotHintTexts();
         }
 
@@ -190,6 +165,7 @@ public class RoomPanel : MonoBehaviour {
     /// 判断指定席位是否已准备：机器人（user_id&lt;=10）默认已准备，真人需在 ready_list 中。
     /// </summary>
     private static bool IsSeatReady(int userId, RoomInfo roomInfo) {
+        if (userId < 0) return false;
         if (userId <= 10) return true; // 机器人默认已准备
         if (roomInfo.ready_list == null) return false;
         for (int i = 0; i < roomInfo.ready_list.Length; i++) {
@@ -199,11 +175,12 @@ public class RoomPanel : MonoBehaviour {
     }
 
     /// <summary>
-    /// 除房主（player_list[0]）外的所有玩家是否都已准备。
+    /// 除房主外的所有玩家是否都已准备。
     /// </summary>
     private static bool AllOthersReady(RoomInfo roomInfo) {
         if (roomInfo.player_list == null) return false;
-        for (int i = 1; i < roomInfo.player_list.Length; i++) {
+        for (int i = 0; i < roomInfo.player_list.Length; i++) {
+            if (roomInfo.player_list[i] == roomInfo.host_user_id) continue;
             if (!IsSeatReady(roomInfo.player_list[i], roomInfo)) return false;
         }
         return true;
@@ -213,7 +190,7 @@ public class RoomPanel : MonoBehaviour {
         if (playerList == null) return 0;
         int count = 0;
         for (int i = 0; i < playerList.Length; i++) {
-            if (playerList[i] <= 10) count++;
+            if (playerList[i] >= 0 && playerList[i] < 10) count++;
         }
         return count;
     }
@@ -239,6 +216,7 @@ public class RoomPanel : MonoBehaviour {
         lastRoomInfo = null;
         roomIdText.text = "";
         roomnameText.text = "";
+        if (hostNameText) hostNameText.gameObject.SetActive(false);
         playerPanel1.Clear();
         playerPanel2.Clear();
         playerPanel3.Clear();
@@ -250,11 +228,9 @@ public class RoomPanel : MonoBehaviour {
             readyButton.interactable = false;
         }
         selfReady = false;
-        addBotButton.interactable = false;
-        addSmartBotButton.interactable = false;
-        if (addGuobiaoHeuristicBotButton != null) {
-            addGuobiaoHeuristicBotButton.interactable = false;
-            addGuobiaoHeuristicBotButton.gameObject.SetActive(false);
+        if (botSpeedDropdown != null) {
+            botSpeedDropdown.interactable = false;
+            botSpeedDropdown.transform.parent.gameObject.SetActive(false);
         }
         roomConfigContainer.ClearRoomConfig();
         HideBotHintTexts();
@@ -262,6 +238,22 @@ public class RoomPanel : MonoBehaviour {
 
     private void BackButtonClicked() {
         RoomNetworkManager.Instance.LeaveRoom(UserDataManager.Instance.RoomId);
+    }
+
+    private static int BotSpeedIndex(string speed) => speed == "instant" ? 0 : speed == "medium" ? 2 : speed == "slow" ? 3 : 1;
+
+    private void BotSpeedChanged(int index) {
+        if (lastRoomInfo == null) return;
+        // The shared room broadcast owns the value; a rejected request cannot leave a local draft.
+        botSpeedDropdown.SetValueWithoutNotify(BotSpeedIndex(lastRoomInfo.bot_speed));
+        if (lastRoomInfo.host_user_id != UserDataManager.Instance.UserId || lastRoomInfo.is_game_running) return;
+        string speed = index == 0 ? "instant" : index == 2 ? "medium" : index == 3 ? "slow" : "fast";
+        if (speed != lastRoomInfo.bot_speed) RoomNetworkManager.Instance.SetBotSpeed(lastRoomInfo.room_id, speed);
+    }
+
+    private void OnDestroy() {
+        if (botSpeedDropdown != null) botSpeedDropdown.onValueChanged.RemoveListener(BotSpeedChanged);
+        if (Instance == this) Instance = null;
     }
 
     private void StartButtonClicked() {
@@ -273,18 +265,17 @@ public class RoomPanel : MonoBehaviour {
         RoomNetworkManager.Instance.SetReady(UserDataManager.Instance.RoomId, !selfReady);
     }
 
-    private void AddBotButtonClicked() {
-        RoomNetworkManager.Instance.AddBotToRoom(UserDataManager.Instance.RoomId);
-    }
-
-    private void AddSmartBotButtonClicked() {
-        RoomNetworkManager.Instance.AddSmartBotToRoom(UserDataManager.Instance.RoomId);
-    }
-
-    private void AddGuobiaoHeuristicBotButtonClicked() {
-        if (!SupportsHighPerformanceBot(lastRoomInfo)) {
-            return;
-        }
-        RoomNetworkManager.Instance.AddGuobiaoHeuristicBotToRoom(UserDataManager.Instance.RoomId);
+    public void AddBotFromSeat(int kind, int seatIndex) {
+        if (lastRoomInfo == null || lastRoomInfo.is_game_running
+            || lastRoomInfo.host_user_id != UserDataManager.Instance.UserId
+            || lastRoomInfo.player_list.Length >= lastRoomInfo.max_player
+            || !(RuleRegistry.Resolve(lastRoomInfo.room_rule)?.AllowsRoomBots ?? true)) return;
+        var seats = lastRoomInfo.seat_list ?? lastRoomInfo.player_list;
+        if (seatIndex < 0 || seatIndex >= lastRoomInfo.max_player
+            || (seatIndex < seats.Length && seats[seatIndex] >= 0)) return;
+        if (kind == 0) RoomNetworkManager.Instance.AddBotToRoom(lastRoomInfo.room_id, seatIndex);
+        else if (kind == 2) RoomNetworkManager.Instance.AddSmartBotToRoom(lastRoomInfo.room_id, seatIndex);
+        else if (kind == 3 && SupportsHighPerformanceBot(lastRoomInfo))
+            RoomNetworkManager.Instance.AddGuobiaoHeuristicBotToRoom(lastRoomInfo.room_id, seatIndex);
     }
 }

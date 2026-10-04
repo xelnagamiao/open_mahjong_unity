@@ -33,6 +33,9 @@ const cases = [
   { name: 'records', path: `/records/${USER_ID}?limit=5` },
   { name: 'rank-stats', path: `/rank-stats/${USER_ID}?tier=rank` },
   { name: 'rank', path: `/rank/${USER_ID}` },
+  { name: 'elo-records', path: `/records/${USER_ID}?rule=qingque&tier=elo&limit=5` },
+  { name: 'nanque-records', path: `/records/${USER_ID}?rule=zhongyong&sub_rule=zhongyong/nanque&limit=5` },
+  { name: 'scope-counts', path: `/scope-counts/${USER_ID}?rule=qingque` },
   { name: 'no-auth', path: `/info/${USER_ID}`, skipAuth: true, expectStatus: 401 },
 ];
 
@@ -41,7 +44,14 @@ async function runCase(c) {
   const h = c.skipAuth ? {} : headers;
   const res = await fetch(url, { headers: h });
   const body = await res.json().catch(() => ({}));
-  const ok = c.expectStatus ? res.status === c.expectStatus : res.ok && body.success === true;
+  let ok = c.expectStatus ? res.status === c.expectStatus : res.ok && body.success === true;
+  if (ok && ['info', 'rank'].includes(c.name)) {
+    ok = ['guobiao', 'riichi', 'qingque', 'sichuan'].every(rule => Number.isFinite(body.data?.ratings?.[rule]?.elo));
+    if (c.name === 'info') ok &&= Array.isArray(body.data.nanque_stats) && !!body.data.fan_dict.nanque;
+  }
+  if (ok && c.name === 'elo-records') ok = body.data.items.every(item => item.room_type === 'match' && item.match_tier === 'elo');
+  if (ok && c.name === 'nanque-records') ok = body.data.items.every(item => item.rule === 'zhongyong' && item.sub_rule === 'zhongyong/nanque');
+  if (ok && c.name === 'scope-counts') ok = Number.isInteger(body.data.elo);
   return {
     name: c.name,
     ok,
@@ -68,5 +78,5 @@ async function runCase(c) {
   }
 
   console.log(failed ? `\n${failed} 项失败` : '\n全部通过');
-  process.exit(failed ? 1 : 0);
+  process.exitCode = failed ? 1 : 0;
 })();

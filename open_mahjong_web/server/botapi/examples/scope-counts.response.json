@@ -1,0 +1,13 @@
+{
+  "success": true,
+  "data": {
+    "rank": 8,
+    "custom": 2,
+    "beginner": 0,
+    "intermediate": 0,
+    "advanced": 0,
+    "mcrpl": 0,
+    "elo": 8,
+    "events": 0
+  }
+}

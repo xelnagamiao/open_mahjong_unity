@@ -54,6 +54,12 @@ function activityCatalogDir() {
   return dir;
 }
 
+function funDataDir() {
+  const dir = resolveSubdir('FUN_DATA_DIR', 'fun-data');
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
 function copyMissingTree(src, dest) {
   if (!src || !fs.existsSync(src)) return 0;
   if (path.resolve(src) === path.resolve(dest)) return 0;
@@ -112,5 +118,6 @@ module.exports = {
   userContentDir,
   activityAssetsDir,
   activityCatalogDir,
+  funDataDir,
   migrateLegacyRuntimeData,
 };

@@ -96,6 +96,7 @@ public partial class NormalGameStateManager {
         // 重置自身命令
         TurnClock.Current.Clear("GameEnd");
         IsGameActive = false;
+        PlayerSession.Current.SetGamestateId("");
         SwitchSeatPanel.Instance.ClearSwitchSeatPanel();
 
         if (awaitingMatchEnd) {

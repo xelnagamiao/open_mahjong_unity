@@ -1,51 +1,45 @@
-const MAX_CODE_POINTS = 16;
 const MIN_DISPLAY_LENGTH = 2;
 const MAX_DISPLAY_LENGTH = 20;
-
-// Keep these ranges identical to the Python game server implementation.
-const WIDE_RANGES = [
-  [0x1100, 0x11ff], [0x2e80, 0x303f], [0x3040, 0x30ff],
-  [0x3100, 0x318f], [0x31a0, 0x31bf], [0x31f0, 0x31ff],
-  [0x3400, 0x4dbf], [0x4e00, 0x9fff], [0xa960, 0xa97f],
-  [0xac00, 0xd7af], [0xd7b0, 0xd7ff], [0xf900, 0xfaff],
-  [0xfe10, 0xfe6f], [0xff01, 0xff60], [0xff61, 0xff9f],
-  [0xffe0, 0xffe6], [0x20000, 0x323af],
-];
+const USERNAME_RULE_HINT = '用户名应当在2-20个字符之间，只能包含中文、数字及英文，中文计两个字符。';
 
 function normalizeUsername(value) {
   return String(value ?? '').normalize('NFC').trim();
 }
 
-function isWideUsernameCharacter(char) {
-  const codePoint = char.codePointAt(0);
-  return WIDE_RANGES.some(([start, end]) => codePoint >= start && codePoint <= end);
+function isChineseUsernameCharacter(char) {
+  return /\p{Script=Han}/u.test(char);
+}
+
+function isAllowedUsernameCharacter(char) {
+  return /[A-Za-z0-9]/.test(char) || isChineseUsernameCharacter(char);
 }
 
 function usernameDisplayLength(username) {
   let length = 0;
   for (const char of username) {
     if (/\p{Mark}/u.test(char)) continue;
-    length += isWideUsernameCharacter(char) ? 2 : 1;
+    length += isChineseUsernameCharacter(char) ? 2 : 1;
   }
   return length;
 }
 
-/** 与游戏服的 Unicode 用户名规则保持一致。 */
+/** 与游戏服的用户名规则保持一致。 */
 function validateUsername(username) {
   const name = normalizeUsername(username);
   if (!name) return '用户名不能为空';
-  if ([...name].length > MAX_CODE_POINTS) {
-    return `用户名不能超过${MAX_CODE_POINTS}个字符`;
-  }
-  if (/[\p{Cc}\p{Cf}\p{Cs}\p{Zl}\p{Zp}]/u.test(name)) {
-    return '用户名不能包含控制字符或不可见格式字符';
+  for (const char of name) {
+    if (!isAllowedUsernameCharacter(char)) return USERNAME_RULE_HINT;
   }
   const length = usernameDisplayLength(name);
-  if (length < MIN_DISPLAY_LENGTH) {
-    return '用户名长度至少需要2（中日韩及全角字符=2，其他字符=1）';
+  if (length < MIN_DISPLAY_LENGTH || length > MAX_DISPLAY_LENGTH) {
+    return USERNAME_RULE_HINT;
   }
-  if (length > MAX_DISPLAY_LENGTH) return '用户名显示长度不能超过20';
   return null;
 }
 
-module.exports = { normalizeUsername, usernameDisplayLength, validateUsername };
+module.exports = {
+  USERNAME_RULE_HINT,
+  normalizeUsername,
+  usernameDisplayLength,
+  validateUsername,
+};

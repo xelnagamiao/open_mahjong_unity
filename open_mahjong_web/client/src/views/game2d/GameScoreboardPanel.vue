@@ -66,6 +66,7 @@ const props = defineProps({
   settlements: { type: Array, default: () => [] },
   selectable: { type: Boolean, default: false },
   roundLabelFormat: { type: String, default: 'wind-seat' },
+  roundLabeler: { type: Function, default: null },
 })
 
 defineEmits(['close', 'select-row'])
@@ -83,6 +84,7 @@ function parseDelta(value) {
 
 function roundLabel(round) {
   const number = Number(round)
+  if (props.roundLabeler) return props.roundLabeler(number)
   return tr(roundLabelKey(number, props.roundLabelFormat, locale.value))
 }
 

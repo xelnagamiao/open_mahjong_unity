@@ -127,7 +127,6 @@ public class HeaderPanel : MonoBehaviour {
     }
     private void PlayerData() {
         WindowsManager.Instance.SwitchWindow("player");
-        DataNetworkManager.Instance.GetLeaderboard();
     }
     private void Config() => WindowsManager.Instance.SwitchWindow("config");
     private void AboutUs() => WindowsManager.Instance.SwitchWindow("aboutUs");

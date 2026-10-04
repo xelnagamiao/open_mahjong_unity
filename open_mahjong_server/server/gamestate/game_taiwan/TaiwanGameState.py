@@ -165,6 +165,27 @@ class TaiwanPlayer:
 class TaiwanGameState:
     """台湾麻将标准规则状态机。"""
 
+    flower_tiles = FLOWER_TILES
+    structure_tiles = STRUCTURE_TILES
+
+    def check_hand_actions(self, player_index):
+        return check_action_hand_action(self, player_index)
+
+    def check_discard_actions(self, tile):
+        return check_action_after_cut(self, tile)
+
+    def check_added_kong_actions(self, tile):
+        return check_action_jiagang(self, tile)
+
+    def refresh_waits(self, player_index):
+        return refresh_waiting_tiles(self, player_index)
+
+    def build_concealed_kong_mask(self, tiles):
+        return [value for tile in tiles for value in (2, tile)]
+
+    def after_claim_actions(self):
+        return {index: ["cut"] if index == self.current_player_index else [] for index in range(4)}
+
     def __init__(self, game_server, room_data, calculation_service, db_manager, gamestate_id):
         self.game_server = game_server
         self.calculation_service = calculation_service
@@ -192,6 +213,8 @@ class TaiwanGameState:
 
         self.room_id = room_data["room_id"]
         self.tips = room_data["tips"]
+        self.count_tips = bool(room_data.get("count_tips", False))
+        self.pointer_tips = bool(room_data.get("pointer_tips", True))
         self.max_round = room_data["game_round"]
         self.step_time = room_data["step_timer"]
         self.round_time = room_data["round_timer"]
@@ -316,18 +339,8 @@ class TaiwanGameState:
             from ..public.offline import schedule_offline_auto_on_disconnect
 
             schedule_offline_auto_on_disconnect(self, user_id)
-
-        non_ai_players = [
-            player for player in self.player_list
-            if player.user_id >= 10
-        ]
-        if non_ai_players and all(
-            "offline" in player.tag_list
-            for player in non_ai_players
-        ):
-            await self.game_server.gamestate_manager.cleanup_game_state_complete(
-                gamestate_id=self.gamestate_id
-            )
+        from ..public.lifecycle import close_if_all_humans_offline
+        await close_if_all_humans_offline(self)
 
     async def player_reconnect(self, user_id: int):
         """恢复台湾麻将玩家的完整局面与当前操作窗口。"""
@@ -1117,7 +1130,7 @@ class TaiwanGameState:
             return
         for index in (1, 2, 3):
             player = self.player_list[index]
-            if refresh_waiting_tiles(self, index):
+            if self.refresh_waits(index):
                 player.heavenly_ready = True
                 player.qualification_alive = True
                 player.qualification_ever = True
@@ -1181,7 +1194,7 @@ class TaiwanGameState:
 
         candidates: Dict[int, List[int]] = {}
         for tile in dict.fromkeys(player.hand_tiles):
-            if tile in FLOWER_TILES:
+            if tile in self.flower_tiles:
                 continue
             hand_after_cut = list(player.hand_tiles)
             hand_after_cut.remove(tile)
@@ -1336,7 +1349,7 @@ class TaiwanGameState:
         if ready_mode == "disabled":
             return
         player = self.player_list[player_index]
-        waits = refresh_waiting_tiles(self, player_index)
+        waits = self.refresh_waits(player_index)
         if not waits or player.qualification_ever:
             return
         if ready_mode == "first_eight_table_discards":
@@ -1631,7 +1644,7 @@ class TaiwanGameState:
         if not self.can_take_supplement_tile() or not self.tiles_list:
             return None
         replacement_tile = self.tiles_list[-1]
-        if replacement_tile in FLOWER_TILES:
+        if replacement_tile in self.flower_tiles:
             return None
         _, _, detail = self._seven_flowers_steal_eighth_details(
             info,
@@ -1788,9 +1801,9 @@ class TaiwanGameState:
                 list(getattr(player, "hand_tiles", ()))
                 + list(getattr(player, "huapai_list", ()))
             )
-            if value in FLOWER_TILES
+            if value in self.flower_tiles
         )
-        if tile in FLOWER_TILES and known_flowers >= len(FLOWER_TILES):
+        if tile in self.flower_tiles and known_flowers >= len(self.flower_tiles):
             logger.error(
                 "台湾麻将补牌违反八花牌墙不变量 player=%s tile=%s known_flowers=%s",
                 player_index,
@@ -1831,7 +1844,7 @@ class TaiwanGameState:
         tile = await self._draw_tail_for_player(winner, opening=opening)
         if tile is None:
             return
-        if tile in FLOWER_TILES:
+        if tile in self.flower_tiles:
             logger.error(
                 "台湾麻将七抢一后补牌违反八花牌墙不变量 winner=%s tile=%s",
                 winner,
@@ -1927,7 +1940,7 @@ class TaiwanGameState:
                 for owner_index in range(4):
                     player = self.player_list[owner_index]
                     flowers_this_round = [
-                        tile for tile in player.hand_tiles if tile in FLOWER_TILES
+                        tile for tile in player.hand_tiles if tile in self.flower_tiles
                     ]
                     if flowers_this_round:
                         replaced_in_round = True
@@ -1942,7 +1955,7 @@ class TaiwanGameState:
                 player = self.player_list[owner_index]
                 while True:
                     flower = next(
-                        (tile for tile in player.hand_tiles if tile in FLOWER_TILES),
+                        (tile for tile in player.hand_tiles if tile in self.flower_tiles),
                         None,
                     )
                     if flower is None:
@@ -1964,7 +1977,7 @@ class TaiwanGameState:
             and getattr(self, "last_draw_was_last", False)
             and not self.can_take_supplement_tile()
             and player.hand_tiles
-            and player.hand_tiles[-1] in FLOWER_TILES
+            and player.hand_tiles[-1] in self.flower_tiles
         ):
             # 没有合法补牌时，仅公开末张花并结束本手。
             flower = player.hand_tiles.pop()
@@ -1985,7 +1998,7 @@ class TaiwanGameState:
             origin != "direct_kong"
             or self.rules.direct_kong_replacement_win_allowed
         )
-        if player.hand_tiles and player.hand_tiles[-1] in FLOWER_TILES:
+        if player.hand_tiles and player.hand_tiles[-1] in self.flower_tiles:
             # 由标准手牌操作窗口提供 buhua；客户端的“自动补花”只决定是否自动提交。
             return True
 
@@ -2005,7 +2018,7 @@ class TaiwanGameState:
             (
                 index
                 for index in range(len(player.hand_tiles) - 1, -1, -1)
-                if player.hand_tiles[index] in FLOWER_TILES
+                if player.hand_tiles[index] in self.flower_tiles
             ),
             None,
         )
@@ -2029,7 +2042,7 @@ class TaiwanGameState:
             return
 
         self.last_draw_after_kong = True
-        if player.hand_tiles[-1] in FLOWER_TILES:
+        if player.hand_tiles[-1] in self.flower_tiles:
             await self._prepare_hand_action_after_draw()
             return
 
@@ -2143,7 +2156,7 @@ class TaiwanGameState:
     async def execute_cut(self, player_index: int, action_data: dict, *, declare_ready: bool = False, is_timeout_action: bool = False) -> None:
         player = self.player_list[player_index]
         requested_tile = action_data.get("TileId")
-        if requested_tile in FLOWER_TILES:
+        if requested_tile in self.flower_tiles:
             # 花牌只能公开并补花。
             logger.warning(
                 "台湾麻将拒绝弃出花牌 player=%s tile=%s",
@@ -2200,7 +2213,7 @@ class TaiwanGameState:
         if player_index == 0:
             self.xunmu += 1
 
-        refresh_waiting_tiles(self, player_index)
+        self.refresh_waits(player_index)
         player_action_record_cut(
             self,
             cut_tile=tile,
@@ -2224,7 +2237,7 @@ class TaiwanGameState:
         )
         if declare_ready:
             await broadcast_refresh_player_tag_list(self)
-        self.action_dict = check_action_after_cut(self, tile)
+        self.action_dict = self.check_discard_actions(tile)
         self.pending_four_winds_abort = self._is_four_winds_abort()
         if any(self.action_dict[index] for index in self.action_dict):
             self.game_status = "waiting_action_after_cut"
@@ -2244,7 +2257,7 @@ class TaiwanGameState:
             player,
             forbidden,
             opening_first_discard=opening_first_discard,
-            excluded_tiles=FLOWER_TILES,
+            excluded_tiles=self.flower_tiles,
         )
         await self.execute_cut(
             player_index,
@@ -2255,7 +2268,7 @@ class TaiwanGameState:
     async def execute_angang(self, player_index: int, target_tile: int) -> None:
         player = self.player_list[player_index]
         normal = normalize_tile(target_tile)
-        if normal not in STRUCTURE_TILES or sum(
+        if normal not in self.structure_tiles or sum(
             1 for tile in player.hand_tiles if normalize_tile(tile) == normal
         ) < 4:
             logger.warning(
@@ -2296,7 +2309,7 @@ class TaiwanGameState:
         clear_draw_slot(player)
         player.last_drawn_tile = None
         player.combination_tiles.append(f"G{normal}")
-        mask = [value for tile in removed for value in (2, tile)]
+        mask = self.build_concealed_kong_mask(removed)
         player.combination_mask.append(mask)
         self._break_heavenly_earthly_ready_for_concealed_kong()
         self.table_claim_or_kong = True
@@ -2330,7 +2343,7 @@ class TaiwanGameState:
             -1,
         )
         if (
-            normal not in STRUCTURE_TILES
+            normal not in self.structure_tiles
             or combination_index < 0
             or not any(normalize_tile(tile) == normal for tile in player.hand_tiles)
         ):
@@ -2430,7 +2443,7 @@ class TaiwanGameState:
             combination_mask=jiagang_mask,
             is_mo_gang=is_mo,
         )
-        self.action_dict = check_action_jiagang(self, normal)
+        self.action_dict = self.check_added_kong_actions(normal)
         if any(self.action_dict[index] for index in self.action_dict):
             self.game_status = "waiting_action_qianggang"
         else:
@@ -2877,7 +2890,7 @@ class TaiwanGameState:
         self.result_dict = {}
 
         for item in self.player_list:
-            refresh_waiting_tiles(self, item.player_index)
+            self.refresh_waits(item.player_index)
 
         if pending_winners:
             self.pending_winners = pending_winners
@@ -2889,12 +2902,12 @@ class TaiwanGameState:
 
         self.hu_class = None
         if source == "self_draw":
-            self.action_dict = check_action_hand_action(self, self.current_player_index)
+            self.action_dict = self.check_hand_actions(self.current_player_index)
             self.game_status = "waiting_hand_action"
             return
         if source == "discard":
             cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
-            self.action_dict = check_action_after_cut(self, cut_tile)
+            self.action_dict = self.check_discard_actions(cut_tile)
             if any(self.action_dict.values()):
                 self.game_status = "waiting_action_after_cut"
             elif self.pending_four_winds_abort:
@@ -2903,7 +2916,7 @@ class TaiwanGameState:
                 self.game_status = "deal_card"
             return
         if source == "robbing_kong" and self.jiagang_tile is not None:
-            self.action_dict = check_action_jiagang(self, self.jiagang_tile)
+            self.action_dict = self.check_added_kong_actions(self.jiagang_tile)
             if any(self.action_dict.values()):
                 self.game_status = "waiting_action_qianggang"
             else:
@@ -2938,7 +2951,7 @@ class TaiwanGameState:
     async def _prepare_hand_action_after_draw(self) -> None:
         player_index = self.current_player_index
         self.result_dict = {}
-        self.action_dict = check_action_hand_action(self, player_index)
+        self.action_dict = self.check_hand_actions(player_index)
         auto_jiagang_tile = self._declared_ready_auto_jiagang_tile(player_index)
         if (
             auto_jiagang_tile is not None
@@ -2961,7 +2974,7 @@ class TaiwanGameState:
                 in ("deal_card", "deal_card_after_gang")
             ):
                 self.game_status = "waiting_hand_action"
-                self.action_dict = check_action_hand_action(self, player_index)
+                self.action_dict = self.check_hand_actions(player_index)
             return
         self.game_status = "waiting_hand_action"
 
@@ -2973,7 +2986,7 @@ class TaiwanGameState:
         next_current_index(self)
         player = self.player_list[self.current_player_index]
         if player.normal_draw_count == 0:
-            player.pre_first_draw_waiting = bool(refresh_waiting_tiles(self, self.current_player_index))
+            player.pre_first_draw_waiting = bool(self.refresh_waits(self.current_player_index))
         tile = self.tiles_list.pop(0)
         player.hand_tiles.append(tile)
         player.has_draw_slot = True
@@ -3028,7 +3041,7 @@ class TaiwanGameState:
         self.last_draw_after_kong = False
         self.supplement_win_allowed = True
         self.result_dict = {}
-        self.action_dict = check_action_hand_action(self, 0)
+        self.action_dict = self.check_hand_actions(0)
         self.game_status = "waiting_hand_action"
 
         while self.game_status != "END":
@@ -3048,8 +3061,7 @@ class TaiwanGameState:
             elif self.game_status == "check_cuohe":
                 await self._resolve_cuohe()
             elif self.game_status == "onlycut_after_action":
-                self.action_dict = {0: [], 1: [], 2: [], 3: []}
-                self.action_dict[self.current_player_index] = ["cut"]
+                self.action_dict = self.after_claim_actions()
                 self.game_status = "waiting_hand_action"
             else:
                 logger.error("台湾麻将未知状态: %s", self.game_status)
@@ -3298,8 +3310,6 @@ class TaiwanGameState:
             await self.spectator_manager.send_final_record_and_close()
 
         await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
-        if self.room_type != "match":
-            await self.game_server.room_manager.finish_custom_game_room(self.room_id)
 
 
 # 挂载台湾规则广播方法。

@@ -14,7 +14,7 @@ public static class TableClothStyles
         new Color32(146,172,227,255), new Color32(22,106,98,255),
         new Color32(15,40,77,255), new Color32(27,111,150,255)
     };
-    static readonly string[] Labels = { "纯色孔雀青", "纯色钴蓝", "纯色藤蓝", "纯色竹绿", "纯色月海蓝", "纯色都市青" };
+    static readonly string[] Labels = { "孔雀青", "钴蓝", "藤蓝", "竹绿", "月海蓝", "都市青" };
     public static bool IsSolid(string name) => Array.IndexOf(SolidNames, name) >= 0;
     public static Color DefaultColor(string name) { int i=Array.IndexOf(SolidNames,name); return i>=0 ? Colors[i] : Color.white; }
     public static string DisplayName(string name) { int i=Array.IndexOf(SolidNames,name); return i>=0 ? Labels[i] : name; }

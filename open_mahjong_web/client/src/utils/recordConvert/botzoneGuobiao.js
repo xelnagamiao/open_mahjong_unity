@@ -69,10 +69,8 @@ function convertRoundToBotzoneLines(round, title, roundIdx) {
   const dealCards = hands[0].slice(0, 13).map(tileToBz)
   const allHua = flowers.flat().map(tileToBz)
   lines.push(`1 ${huaCounts.join(' ')} ${dealCards.join(' ')}${allHua.length ? ` ${allHua.join(' ')}` : ''}`)
-  lines.push('# note: Botzone 每人只公开自己的 13 张；此处合并导出，回放/训练请按座位切分')
 
   const ticks = round.action_ticks || []
-  let lastDiscard = null
   let lastDiscardPlayer = null
   let i = 0
   while (i < ticks.length) {
@@ -109,7 +107,6 @@ function convertRoundToBotzoneLines(round, title, roundIdx) {
     if (code === 'c') {
       const player = guessCutSeat(ticks, i, lastDiscardPlayer)
       lines.push(`3 ${player} PLAY ${tileToBz(t[1])}`)
-      lastDiscard = t[1]
       lastDiscardPlayer = player
       i++
       continue
@@ -130,7 +127,6 @@ function convertRoundToBotzoneLines(round, title, roundIdx) {
         `3 ${player} CHI ${tileToBz(mid)} ${tileToBz(playOut ?? h1)}`
       )
       lastDiscardPlayer = player
-      lastDiscard = playOut
       i++
       continue
     }
@@ -143,7 +139,6 @@ function convertRoundToBotzoneLines(round, title, roundIdx) {
       }
       lines.push(`3 ${player} PENG ${tileToBz(playOut ?? t[1])}`)
       lastDiscardPlayer = player
-      lastDiscard = playOut
       i++
       continue
     }
@@ -258,6 +253,7 @@ export function botzoneToSalasasa(input) {
     p2_name: meta.players?.[2]?.name || 'P2',
     p3_uid: 4,
     p3_name: meta.players?.[3]?.name || 'P3',
+    is_external: true,
     source_format: 'botzone'
   }
 
@@ -384,7 +380,7 @@ function parseBotzoneBlock(block, roundIndex) {
     p3_tiles: pTiles[3],
     tiles_list: tilesList,
     action_ticks: ticks,
-    note: 'Botzone→salasasa 为协议近似重建，隐藏信息（他人手牌/摸牌）无法完整还原'
+    note: '协议限制：他人手牌和摸牌信息缺失。'
   }
 }
 

@@ -16,8 +16,6 @@ public sealed class FreeModeTileView : MonoBehaviour {
     public Vector2 artworkBounds = new Vector2(92f, 82f);
 
     private const string FontResource = "font/Chinese/AlibabaPuHuiTi/AlibabaPuHuiTi-3-55-Regular";
-    private static readonly Vector2 FaceInsetMin = new Vector2(0.075f, 0.035f);
-    private static readonly Vector2 FaceInsetMax = new Vector2(0.925f, 0.905f);
     private static readonly string[] NumberNames = { "", "一", "二", "三", "四", "五", "六", "七", "八", "九" };
     private static readonly string[] HonorNames = { "东", "南", "西", "北", "中", "白", "发" };
     private static readonly string[] FlowerNames = { "春", "夏", "秋", "冬", "梅", "兰", "竹", "菊" };
@@ -69,23 +67,20 @@ public sealed class FreeModeTileView : MonoBehaviour {
         if (!hasBinding || art == null) return;
 
         bool faceDown = boundOrient == 2 || boundTileId == ConfigManager.HandBackImageId;
-        bool completeHandArt = faceDown || HongqueTileVisual.IsHongqueId(boundTileId);
-        Sprite faceSprite = completeHandArt
-            ? TileFaceResolver.LoadSprite(faceDown ? ConfigManager.HandBackImageId : boundTileId)
-            : TileFaceResolver.LoadTableSprite(boundTileId);
-        // 桌面花纹本身没有牌体。工具里的预览始终保留牌体，并复用设置里的 3D 背景。
-        Sprite bodySprite = !completeHandArt && faceSprite != null
-            ? TileFaceResolver.LoadTableBackground()
+        int displayId = faceDown ? ConfigManager.HandBackImageId : boundTileId;
+        // 工具面板和 StaticCard 使用相同的 2D 分层资源。table-bg 只是可选的
+        // 3D 正面贴图，不能作为这里的默认牌体，也不能套用旧桌面花纹的缩进。
+        Sprite faceSprite = TileFaceResolver.LoadSprite(displayId);
+        Sprite bodySprite = TileFaceResolver.ShouldLayerHandFace(displayId)
+            ? TileFaceResolver.LoadHandBackground()
             : null;
 
         SetImage(background, bodySprite);
         SetImage(face, faceSprite);
         if (background != null) StretchImage(background.rectTransform, Vector2.zero, Vector2.one);
         if (face != null) {
-            // table 图是 220×366 的不透明牌顶纹理，必须缩进牌体内侧，不能盖住立体边。
-            StretchImage(face.rectTransform,
-                bodySprite != null ? FaceInsetMin : Vector2.zero,
-                bodySprite != null ? FaceInsetMax : Vector2.one);
+            StretchImage(face.rectTransform, Vector2.zero, Vector2.one);
+            face.rectTransform.localScale = Vector3.one * TileFaceFit.HandArtworkScale(displayId);
         }
 
         Sprite fitSprite = bodySprite != null ? bodySprite : faceSprite;
@@ -100,6 +95,8 @@ public sealed class FreeModeTileView : MonoBehaviour {
         art.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
         art.localScale = Vector3.one;
         art.localRotation = Quaternion.Euler(0f, 0f, horizontal ? 90f : 0f);
+        if (bodySprite != null && background != null && face != null)
+            TileFaceFit.ApplyHandArtwork(face, background, displayId, HandSurfaceLibrary.CurrentFaceLayout);
     }
 
     private static void SetImage(Image image, Sprite sprite) {
@@ -109,6 +106,7 @@ public sealed class FreeModeTileView : MonoBehaviour {
         image.color = Color.white;
         image.type = Image.Type.Simple;
         image.preserveAspect = true;
+        image.useSpriteMesh = false;
         image.raycastTarget = false;
     }
 

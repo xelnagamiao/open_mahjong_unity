@@ -105,8 +105,8 @@
           <template v-else>
             <p>网站账户与游戏内账户互通，注册后可直接登录对战平台。</p>
             <div class="panel-actions">
-              <router-link class="panel-btn" to="/register?redirect=/account">注册</router-link>
-              <router-link class="panel-btn ghost" to="/login?redirect=/account">登录</router-link>
+              <router-link class="panel-btn" to="/register?redirect=/">注册</router-link>
+              <router-link class="panel-btn ghost" to="/login?redirect=/">登录</router-link>
               <router-link class="panel-btn ghost" to="/forgot-password">找回密码</router-link>
             </div>
           </template>
@@ -363,7 +363,7 @@ const battleLinks = [
   {
     href: 'https://store.steampowered.com/app/4565740/Salasasa/',
     title: 'Steam商店',
-    description: '转至平台steam商店页面，steam版性能更高，右下角可下载试用版',
+    description: '转至平台steam商店页面',
     color: '#1b2838',
   },
   { to: '/mobile-download', title: '手机版下载', description: 'Android APK', color: '#67c23a' },
@@ -384,6 +384,7 @@ const calcLinks = [
 ]
 
 const toolLinks = [
+  { to: '/duplicate', title: '创建复式牌墙', description: '通过手动构建、随机种子复现、新建随机种子设置不同类型的复式密钥，供开设对局使用。', color: '#17756a' },
   { to: '/rulebook', title: '规则书', description: '查询国标/立直/青雀/古典等规则的PDF说明书。', color: '#a78bfa' },
   { to: '/seed-verify', title: '随机种子验证', description: '输入对局公布的主种子与盐值，在本地复现随机到的座位与每局配牌，验证服务端未替换随机种子。', color: '#e6a23c' },
   { to: '/docs', title: '开发手册', description: '查看开发文档，设计自定义的麻将规则。', color: '#00b300' },

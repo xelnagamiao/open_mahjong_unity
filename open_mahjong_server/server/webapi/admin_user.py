@@ -3,10 +3,8 @@
 """
 import logging
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
-
-from ..response import MessageInfo, Response
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +21,22 @@ class AdminSyncUsernameBody(BaseModel):
     username: str = Field(..., min_length=1, max_length=255)
 
 
+class AdminRefreshTitlesBody(BaseModel):
+    user_ids: list[int] = Field(default_factory=list, max_length=100000)
+
+
 def register_admin_user_routes(app: FastAPI, game_server) -> None:
+    @app.post("/admin/titles/refresh")
+    async def admin_refresh_titles(body: AdminRefreshTitlesBody, request: Request):
+        # This endpoint only rereads authoritative DB state, never accepts title data.
+        # Reject browser/proxy calls even when the reverse proxy connects via loopback.
+        if (not request.client or request.client.host not in ("127.0.0.1", "::1", "localhost")
+                or any(header in request.headers for header in ("origin", "forwarded", "x-forwarded-for"))):
+            raise HTTPException(status_code=403, detail="仅允许本机管理服务调用")
+        from ..database.title_router import sync_titles
+        await sync_titles(game_server, body.user_ids)
+        return {"success": True}
+
     @app.get("/admin/user/{user_id}/online")
     async def admin_user_online(user_id: int):
         player = game_server.user_id_to_connection.get(user_id)

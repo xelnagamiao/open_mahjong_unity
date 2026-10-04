@@ -5,6 +5,7 @@
 - 红5（105/205/305）归一化，正确识别红5的吃/碰
 """
 import asyncio
+from .pacing import paced_bot, submit_bot_action
 import logging
 from typing import List, Set
 
@@ -238,6 +239,7 @@ def _choose_riichi_claim_plan(hand, meld_count, visible, action_list, cut_tile):
 
 # ─── 入口与各 game_status 处理 ─────────────────────────────
 
+@paced_bot()
 async def riichi_smart_bot_action(game_state, player_index: int, action_list: list, game_status: str):
     """
     日麻牌效AI自动操作：在公共牌效逻辑上叠加食替禁切与红5归一化处理。
@@ -246,13 +248,11 @@ async def riichi_smart_bot_action(game_state, player_index: int, action_list: li
         current_player = game_state.player_list[player_index]
 
         if game_status == "waiting_hand_action":
-            await asyncio.sleep(0.5)
             # 摸牌后手牌操作：和牌 > 暗杠/加杠 > 切牌
             await _handle_hand_action(game_state, player_index, action_list, current_player, set())
             return
 
         if game_status == "onlycut_after_action":
-            await asyncio.sleep(0.5)
             # 吃碰后手牌操作：和牌 > 切牌（不可暗杠/加杠），并需遵守食替禁切
             kuikae_forbidden = _kuikae_forbidden_after_meld(current_player)
             await _handle_hand_action(game_state, player_index, action_list, current_player, kuikae_forbidden)
@@ -268,7 +268,6 @@ async def riichi_smart_bot_action(game_state, player_index: int, action_list: li
             return
 
         if game_status == "waiting_buhua_round":
-            await asyncio.sleep(0.5)
             await _handle_buhua_round(game_state, player_index, action_list, current_player)
             return
 
@@ -284,12 +283,12 @@ async def _handle_hand_action(game_state, player_index, action_list, player, kui
     """
     if "buhua" in action_list:
         logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 buhua（手牌补花）")
-        await get_ai_action(game_state, player_index, "buhua", None, None, None, None)
+        await submit_bot_action(get_ai_action, game_state, player_index, "buhua", None, None, None, None)
         return
 
     if "hu_self" in action_list and _riichi_should_accept_hu(game_state, "hu_self"):
         logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 hu_self")
-        await get_ai_action(game_state, player_index, "hu_self", None, None, None, None)
+        await submit_bot_action(get_ai_action, game_state, player_index, "hu_self", None, None, None, None)
         return
 
     is_riichi = "riichi" in player.tag_list or "daburu_riichi" in player.tag_list
@@ -318,11 +317,11 @@ async def _handle_hand_action(game_state, player_index, action_list, player, kui
     if action in ("cut", "riichi_cut") and tile_id is not None:
         is_moqie = infer_bot_cut_class(hand, tile_id, cut_index, draw_slot=has_draw_slot(player))
         logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 {action}, tile_id={tile_id}, moqie={is_moqie}")
-        await get_ai_action(game_state, player_index, action, is_moqie, tile_id, cut_index, None)
+        await submit_bot_action(get_ai_action, game_state, player_index, action, is_moqie, tile_id, cut_index, None)
         return
     if action in ("angang", "jiagang"):
         logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 {action}, tile={tile_id}")
-        await get_ai_action(game_state, player_index, action, None, None, None, tile_id)
+        await submit_bot_action(get_ai_action, game_state, player_index, action, None, None, None, tile_id)
         return
 
 
@@ -362,8 +361,7 @@ async def _handle_after_cut(game_state, player_index, action_list, player):
     for hu_action in ("hu_first", "hu_second", "hu_third"):
         if hu_action in action_list and _riichi_should_accept_ron(game_state, player, hu_action):
             logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 {hu_action}")
-            await asyncio.sleep(0.5)
-            await get_ai_action(game_state, player_index, hu_action, None, None, None, None)
+            await submit_bot_action(get_ai_action, game_state, player_index, hu_action, None, None, None, None)
             return
         if hu_action in action_list and _is_riichi_ron_furiten(player):
             logger.info(
@@ -377,7 +375,7 @@ async def _handle_after_cut(game_state, player_index, action_list, player):
     cut_tile = discard_tiles[-1] if discard_tiles else None
     if cut_tile is None:
         if "pass" in action_list:
-            await get_ai_action(game_state, player_index, "pass", None, None, None, None)
+            await submit_bot_action(get_ai_action, game_state, player_index, "pass", None, None, None, None)
         return
 
     hand = player.hand_tiles[:]
@@ -398,9 +396,7 @@ async def _handle_after_cut(game_state, player_index, action_list, player):
         return
 
     logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 {best_action}")
-    if best_action != "pass":
-        await asyncio.sleep(0.5)
-    await get_ai_action(game_state, player_index, best_action, None, None, None, None)
+    await submit_bot_action(get_ai_action, game_state, player_index, best_action, None, None, None, None)
 
 
 async def _handle_riichi_qianggang(game_state, player_index, action_list, player):
@@ -411,8 +407,7 @@ async def _handle_riichi_qianggang(game_state, player_index, action_list, player
     for hu_action in ("hu_first", "hu_second", "hu_third"):
         if hu_action in action_list and _riichi_should_accept_ron(game_state, player, hu_action):
             logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 {hu_action}（抢杠和）")
-            await asyncio.sleep(0.5)
-            await get_ai_action(game_state, player_index, hu_action, None, None, None, None)
+            await submit_bot_action(get_ai_action, game_state, player_index, hu_action, None, None, None, None)
             return
         if hu_action in action_list and _is_riichi_ron_furiten(player):
             logger.info(
@@ -423,4 +418,4 @@ async def _handle_riichi_qianggang(game_state, player_index, action_list, player
             break
     if "pass" in action_list:
         logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 pass（抢杠）")
-        await get_ai_action(game_state, player_index, "pass", None, None, None, None)
+        await submit_bot_action(get_ai_action, game_state, player_index, "pass", None, None, None, None)

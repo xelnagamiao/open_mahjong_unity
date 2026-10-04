@@ -34,6 +34,7 @@ public class DataNetworkManager : MonoBehaviour {
     /// </summary>
     public void HandleDataMessage(Response response) {
         switch (response.type) {
+            case "data/get_ranked_stats": PlayerInfoPanel.Instance?.OnRankedStatsReceived(response);break;
             case "data/get_record_list":
                 HandleGetRecordListResponse(response);
                 break;
@@ -180,12 +181,12 @@ public class DataNetworkManager : MonoBehaviour {
 
     private void HandleGetLeaderboardResponse(Response response) {
         Debug.Log($"收到排行榜: {response.message}");
-        DataPanel.Instance?.OnLeaderboardReceived(response.success, response.message, response.leaderboard_list);
+        DataPanel.Instance?.OnLeaderboardReceived(response.success, response.message, response.leaderboard_list, response.rating_rule, response.data_request_id);
     }
 
     private void HandleGetRankRecordListResponse(Response response) {
         Debug.Log($"收到天梯对局列表: {response.message}");
-        DataPanel.Instance?.OnRankRecordListReceived(response.success, response.message, response.record_list);
+        DataPanel.Instance?.OnRankRecordListReceived(response.success, response.message, response.record_list, response.rating_rule, response.data_request_id);
     }
 
     /// <summary>
@@ -340,29 +341,34 @@ public class DataNetworkManager : MonoBehaviour {
         }
     }
 
-    public async void GetRankRecordList(int limit = 20) {
+    public async void GetRankedStats(string userid,string rule,string requestId) {
+        try { await GetWebSocket().SendText(JsonConvert.SerializeObject(new {type="data/get_ranked_stats",userid,rule,data_request_id=requestId})); }
+        catch(Exception e){PlayerInfoPanel.Instance?.OnRankedStatsReceived(new Response{success=false,message=e.Message,rating_rule=rule,data_request_id=requestId});}
+    }
+
+    public async void GetRankRecordList(int limit = 20, string rule = "guobiao", string requestId = null) {
         try {
             var request = new GetRankRecordListRequest {
-                type = "data/get_rank_record_list",
+                type = "data/get_rank_record_list", rule=rule, data_request_id=requestId,
                 limit = limit,
             };
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             Debug.LogError($"获取天梯对局列表失败: {e.Message}");
-            DataPanel.Instance?.OnRankRecordListReceived(false, e.Message, null);
+            DataPanel.Instance?.OnRankRecordListReceived(false, e.Message, null, rule, requestId);
         }
     }
 
-    public async void GetLeaderboard() {
+    public async void GetLeaderboard(string rule = "guobiao", string requestId = null) {
         try {
             var request = new GetLeaderboardRequest {
-                type = "data/get_leaderboard"
+                type = "data/get_leaderboard", rule=rule, data_request_id=requestId
             };
             Debug.Log($"发送获取排行榜消息: {request.type}");
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             Debug.LogError($"获取排行榜失败: {e.Message}");
-            DataPanel.Instance?.OnLeaderboardReceived(false, e.Message, null);
+            DataPanel.Instance?.OnLeaderboardReceived(false, e.Message, null, rule, requestId);
         }
     }
 }

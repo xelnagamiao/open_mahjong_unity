@@ -69,11 +69,10 @@ def store_taiwan_game_record(
                     game_id, user_id, username, score, rank,
                     original_player_index, rule, sub_rule, match_type,
                     room_type, match_tier, event_id, title_used,
-                    character_used, profile_used, voice_used
-                ) VALUES (
+                    character_used, profile_used, voice_used, avatar_frame_used
+                    ) VALUES (
                     %s, %s, %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s, %s, %s, %s
-                )
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     game_id,
@@ -92,6 +91,7 @@ def store_taiwan_game_record(
                     getattr(player, "character_used", None),
                     getattr(player, "profile_used", None),
                     getattr(player, "voice_used", None),
+                    getattr(player, "avatar_frame_used", 0),
                 ),
             )
 

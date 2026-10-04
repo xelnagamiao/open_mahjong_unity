@@ -169,9 +169,16 @@
 | `riichi` | `["riichi", player_index, is_daburu]` |
 | `dora` | `["dora", tile_id]` |
 | `ryuukyoku` | `["ryuukyoku", tenpai_flags[], score_changes[], reason]` |
-| `hu_riichi` | `["hu_riichi", hepai_idx, hu_class, han, fu, yaku[], score_changes[], dora[], ura_dora[], aka_count, honba, riichi_sticks]` |
+| `hu_riichi` | `["hu_riichi", hepai_idx, hu_class, han, fu, yaku[], score_changes[], dora[], ura_dora[], aka_count, honba, riichi_sticks, scored_points?]` |
+| `rk` | `["rk", player_index, actual_tile, is_mo_gang, kind, declared_tiles[]]` |
 
 立直 tick 中 `score_changes` 同样按 **当局 player_index** 排列；客户端解码时经 `seats` 换算为 original 顺序累加 `Round.scoreChanges`。
+
+`c` 的 `H` 标记代表立直宣言；`riichi` 代表宣言牌未被荣和、立直成立，需扣该玩家 1000 点并增加一根供托。若宣言牌被荣和，不产生 `riichi`。旧导入谱可能把 `riichi` 放在 `c` 之前，仍可读取。
+
+`rk` 只移除被抢的一张真实牌，保留原碰或手中暗刻，不添加河牌、不完成杠。`kind` 为 `jiagang` / `angang`；`declared_tiles` 保存原碰三张或声明暗杠四张，用于外部格式转换。成功加杠的 `jg` 可在第 4 项追加真实加杠牌 ID，原第 2 项仍为归一化牌号。
+
+`scored_points` 是不含本场及供托的实际和牌点数；旧谱缺失时按其规则配置和番符回算。`ryuukyoku` 的 `reason` 可为 `nagashi_mangan`，表示流局满贯支付。
 
 ### 5.5 其他
 
@@ -387,6 +394,8 @@ RecordPanel / RecordPrefab
 ---
 
 ## 10. 相关源码索引
+
+日麻标题的 `riichi_final_scores` 为原始玩家顺序的终局实点（含剩余供托分配），`riichi_final_sticks` 为最终剩余供托数。回放仅在最后一局 `end` 应用这些字段；中途节点继续按每条动作的分变推演。`riichi_points` 为返还点、顺位点和竞技扣分后的最终比赛点，不可当作桌面实点。
 
 | 模块 | 路径 |
 |------|------|

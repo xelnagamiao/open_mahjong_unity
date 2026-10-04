@@ -21,6 +21,13 @@ public partial class GameCanvas : MonoBehaviour {
     public GamePlayerPanel PlayerTopPanel => playerTopPanel;
     public GamePlayerPanel PlayerRightPanel => playerRightPanel;
 
+    public void RefreshDuplicateRemainingTiles() {
+        playerSelfPanel?.RefreshDuplicateRemainingTiles();
+        playerLeftPanel?.RefreshDuplicateRemainingTiles();
+        playerTopPanel?.RefreshDuplicateRemainingTiles();
+        playerRightPanel?.RefreshDuplicateRemainingTiles();
+    }
+
     [Header("操作界面")]
     [SerializeField] private Transform handCardsContainer; // 手牌容器（显示手牌 水平布局组）
     [SerializeField] private HandCardDragController handCardDragController;
@@ -70,14 +77,13 @@ public partial class GameCanvas : MonoBehaviour {
     public Transform HandCardsContainer => handCardsContainer;
     public RectTransform HandCardsContainerRect => handCardsContainer as RectTransform;
     public bool IsChangeHandCardProcessing => isChangeHandCardProcessing;
-    public bool IsHandReflowAnimating => _handReflowAnimDepth > 0;
+    public bool IsHandReflowAnimating => _handReflowAnimDepth > 0 || _freeDrawAnimation != null;
     public void SetHandArranged(bool value) { isArranged = value; }
 
     private int _handReflowAnimDepth;
     private int _handLayoutAnimEpoch;
     private Coroutine _sortMainHandCoroutine;
     private Coroutine _discardLayoutCoroutine;
-    private bool _isScoreRecordOpen;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -104,9 +110,10 @@ public partial class GameCanvas : MonoBehaviour {
         if (openScoreRecordButtonText == null) openScoreRecordButtonText = openScoreRecordPanelButton.GetComponentInChildren<TMP_Text>(true);
         openScoreRecordPanelButton.onClick.RemoveAllListeners();
         openScoreRecordPanelButton.onClick.AddListener(() => {
-            SetScoreRecordOpen(!_isScoreRecordOpen); // 切换状态
-            if (_isScoreRecordOpen) { ScoreHistoryPanel.Instance.gameObject.SetActive(true); GameSceneUIManager.Instance.UpdateScoreRecord(); } // 打开并由 UIManager 传入数据刷新
-            else { ScoreHistoryPanel.Instance.Close(); } // 关闭并清理
+            var panel = ScoreHistoryPanel.Instance;
+            if (panel == null) return;
+            if (panel.gameObject.activeSelf) panel.Close();
+            else panel.gameObject.SetActive(true); // OnEnable 刷新数据并同步按钮文字
         });
         SetScoreRecordOpen(false); // 初始化按钮文字与状态
         remianTimeText.text = ""; // 清空剩余时间文本
@@ -115,9 +122,8 @@ public partial class GameCanvas : MonoBehaviour {
 
     // 计分板被外部关闭时调整
     public void SetScoreRecordOpen(bool open) {
-        _isScoreRecordOpen = open;
         if (openScoreRecordButtonText != null) {
-            openScoreRecordButtonText.text = _isScoreRecordOpen ? "关闭计分板" : "打开计分板";
+            openScoreRecordButtonText.text = open ? "关闭计分板" : "打开计分板";
         }
     }
 
@@ -126,6 +132,8 @@ public partial class GameCanvas : MonoBehaviour {
     /// </summary>
     private void StopAndClearChangeHandCardQueue()
     {
+        StopFreeDrawAnimation(finish: false);
+        _handLayoutAnimEpoch++;
         while (changeHandCardQueue.Count > 0) changeHandCardQueue.Dequeue();
         if (isChangeHandCardProcessing && _processChangeHandCardQueueCoroutine != null)
         {
@@ -312,6 +320,7 @@ public partial class GameCanvas : MonoBehaviour {
                     original_player_index = recordPlayer.originalPlayerIndex,
                     title_used = recordPlayer.title_used,
                     profile_used = recordPlayer.profile_used,
+                    avatar_frame_used = recordPlayer.avatar_frame_used,
                     character_used = recordPlayer.character_used,
                     voice_used = recordPlayer.voice_used,
                     hand_tiles_count = recordPlayer.tileList != null ? recordPlayer.tileList.Count : 0,
@@ -360,12 +369,16 @@ public partial class GameCanvas : MonoBehaviour {
         }
 
         GameInfo gameInfo = new GameInfo {
+            is_duplicate = ReadBoolValue(gameRecord.gameTitle, "is_duplicate", false),
+            duplicate_round_count = ReadIntValue(gameRecord.gameTitle, "duplicate_round_count", 1),
+            duplicate_wall_type = ReadStringValue(gameRecord.gameTitle, "duplicate_wall_type", ""),
             room_type = recordRoomType,
             room_rule = roomRule,
             sub_rule = subRule,
             hepai_limit = ReadIntValue(gameRecord.gameTitle, "hepai_limit", 0),
             max_round = maxRound,
             current_round = currentRound,
+            detailed_config = roundData?.detailedConfig,
             commitment = CommitmentSaltDisplay.ReadCommitmentFromGameTitle(gameRecord.gameTitle),
             salt = CommitmentSaltDisplay.ReadSaltFromGameTitle(gameRecord.gameTitle),
             honba = honba,
@@ -553,7 +566,10 @@ public partial class GameCanvas : MonoBehaviour {
     private void ClearSpawnedActionButtons(Transform container) {
         if (container == null) return;
         foreach (Transform child in container) {
-            if (child != ExtraActionButton) Destroy(child.gameObject);
+            if (child == ExtraActionButton) continue;
+            // 销毁延迟到帧末；旧按钮先退出布局和射线，避免常驻栏刷新时挤占新按钮。
+            child.gameObject.SetActive(false);
+            Destroy(child.gameObject);
         }
     }
 

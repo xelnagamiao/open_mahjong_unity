@@ -313,6 +313,13 @@ public static class TileFaceResolver {
     }
 
     public static void RefreshVisibleCards() {
+        RefreshVisibleHandCards();
+        if (MahjongObjectPool.Instance != null) {
+            MahjongObjectPool.Instance.RefreshCustomStandardFaces();
+        }
+    }
+
+    private static void RefreshVisibleHandCards() {
         TileCard[] cards = UnityEngine.Object.FindObjectsByType<TileCard>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
         for (int i = 0; i < cards.Length; i++) {
             if (cards[i] != null && cards[i].tileId >= 0) {
@@ -325,9 +332,12 @@ public static class TileFaceResolver {
                 staticCards[i].RefreshVisual();
             }
         }
-        if (MahjongObjectPool.Instance != null) {
-            MahjongObjectPool.Instance.RefreshCustomStandardFaces();
-        }
+    }
+
+    public static void NotifyHandLayoutChanged() {
+        // 拖动 2D 花纹不重建背景 Sprite，也不刷新所有 3D 对象池材质。
+        RefreshVisibleHandCards();
+        OnPackChanged?.Invoke();
     }
 
     public static void NotifyHandBackgroundChanged() {

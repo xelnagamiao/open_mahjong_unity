@@ -4,6 +4,7 @@ from ...response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_
 from typing import List, Dict, Optional
 import logging
 import asyncio
+from ..public.lifecycle import start_owned_task
 from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.offline import offline_auto_action
 from ..public.ai.smart_bot_ai import smart_bot_action
@@ -15,9 +16,22 @@ from ..game_guobiao.combination_mask_view import (
 from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
 from ..public.hand_slot_utils import bot_ask_hand_game_status
 from ..public.hand_draw_source import ensure_hand_draw_source_round, get_hand_draw_source, update_hand_draw_source
-from ..public.ask_timing import begin_ask_round, note_ask_delivered, reconnect_remaining_time
+from ..public.ask_timing import begin_ask_round, note_ask_delivered, reconnect_clock
 from ..public.game_record_manager import local_record_detail_for_end
 logger = logging.getLogger(__name__)
+
+
+async def _prepare_private_rule_fields(game_state, indices):
+    """可选规则计算钩子；耗时提示在规则工作池完成后才组装私有快照。"""
+    prepare = getattr(game_state, "prepare_private_fields", None)
+    if callable(prepare):
+        await prepare(tuple(indices))
+
+
+def _combination_fields_for_rule(game_state, player, viewer_index):
+    if getattr(game_state, "concealed_kongs_public", False):
+        return list(player.combination_tiles), [list(mask) for mask in player.combination_mask]
+    return get_combination_fields_for_viewer(player, viewer_index)
 
 
 def _pending_other_action_tile(game_state) -> int:
@@ -32,12 +46,15 @@ async def broadcast_game_start(self):
     ensure_hand_draw_source_round(self)
     # 重置操作帧（每次广播开始时重置）
     self.server_action_tick = 0
+    await _prepare_private_rule_fields(self, range(len(self.player_list)))
 
     # 基础游戏信息
     base_game_info = {
         'room_id': self.room_id, # 房间ID
         'gamestate_id': self.gamestate_id, # 游戏状态ID
-        'tips': self.tips, # 是否提示
+        "tips": self.tips, # 是否提示
+        "count_tips": getattr(self, "count_tips", False),
+        "pointer_tips": getattr(self, "pointer_tips", True),
         'current_player_index': self.current_player_index, # 当前轮到的玩家索引
         "action_tick": self.server_action_tick, # 操作帧
         'max_round': self.max_round, # 最大局数
@@ -76,7 +93,7 @@ async def broadcast_game_start(self):
             # 为当前玩家构建玩家信息列表（当前玩家看到自己的手牌，其他人看不到）
             players_info_for_current = []
             for player in self.player_list:
-                combo_tiles, combo_masks = get_combination_fields_for_viewer(player, current_player.player_index)
+                combo_tiles, combo_masks = _combination_fields_for_rule(self, player, current_player.player_index)
                 player_info = {
                     'user_id': player.user_id,
                     'username': player.username,
@@ -84,6 +101,7 @@ async def broadcast_game_start(self):
                     'hand_tiles': player.hand_tiles if player.user_id == current_player.user_id else None,  # 只有自己的手牌
                     'discard_tiles': player.discard_tiles,
                     'discard_origin_tiles': player.discard_origin_tiles,
+                    'known_concealed_discards': list(getattr(player, 'concealed_discards', {}).values()) if player.player_index == current_player.player_index else None,
                     'combination_tiles': combo_tiles,
                     'combination_mask': combo_masks,
                     'huapai_list': player.huapai_list,
@@ -93,6 +111,7 @@ async def broadcast_game_start(self):
                     'score': player.score,
                     'title_used': player.title_used,
                     'profile_used': player.profile_used,
+                    "avatar_frame_used": getattr(player, "avatar_frame_used", 0),
                     'character_used': player.character_used,
                     'voice_used': player.voice_used,
                     'score_history': player.score_history,
@@ -107,6 +126,9 @@ async def broadcast_game_start(self):
                 'players_info': players_info_for_current,
                 'self_hand_tiles': None  # 不再使用 self_hand_tiles，手牌在 PlayerInfo 中
             }
+            private_fields = getattr(self, "build_private_game_info_fields", None)
+            if callable(private_fields):
+                game_info_for_current.update(private_fields(current_player.player_index))
 
             # 如果player_list中有玩家在self.game_server.user_id_to_connection:
             if current_player.user_id in self.game_server.user_id_to_connection:
@@ -114,7 +136,7 @@ async def broadcast_game_start(self):
 
                 game_info = GameInfo(**game_info_for_current)
                 response = Response(
-                    type="gamestate/taiwan/game_start",
+                    type=f"gamestate/{getattr(self, 'room_rule', 'taiwan')}/game_start",
                     success=True,
                     message="游戏开始",
                     game_info=game_info
@@ -141,10 +163,12 @@ async def broadcast_game_start(self):
 
 async def send_reconnect_game_state(self, reconnect_player):
     """向台湾麻将重连玩家恢复完整局面和私有手牌。"""
+    await _prepare_private_rule_fields(self, (reconnect_player.player_index,))
     base_game_info = {
         'room_id': self.room_id,
         'gamestate_id': self.gamestate_id,
-        'tips': self.tips,
+        "tips": self.tips,
+        "count_tips": getattr(self, "count_tips", False),
         'current_player_index': self.current_player_index,
         'action_tick': self.server_action_tick,
         'max_round': self.max_round,
@@ -170,7 +194,8 @@ async def send_reconnect_game_state(self, reconnect_player):
     base_game_info.update(build_player_entry_order_fields(self))
 
     for player in self.player_list:
-        combo_tiles, combo_masks = get_combination_fields_for_viewer(
+        combo_tiles, combo_masks = _combination_fields_for_rule(
+            self,
             player,
             reconnect_player.player_index,
         )
@@ -185,6 +210,7 @@ async def send_reconnect_game_state(self, reconnect_player):
             ),
             'discard_tiles': player.discard_tiles,
             'discard_origin_tiles': player.discard_origin_tiles,
+                    'known_concealed_discards': list(getattr(player, 'concealed_discards', {}).values()) if player.player_index == reconnect_player.player_index else None,
             'combination_tiles': combo_tiles,
             'combination_mask': combo_masks,
             'huapai_list': player.huapai_list,
@@ -194,6 +220,7 @@ async def send_reconnect_game_state(self, reconnect_player):
             'score': player.score,
             'title_used': player.title_used,
             'profile_used': player.profile_used,
+            "avatar_frame_used": getattr(player, "avatar_frame_used", 0),
             'character_used': player.character_used,
             'voice_used': player.voice_used,
             'score_history': player.score_history,
@@ -201,9 +228,12 @@ async def send_reconnect_game_state(self, reconnect_player):
             'tag_list': player.tag_list,
         })
 
+    private_fields = getattr(self, "build_private_game_info_fields", None)
+    if callable(private_fields):
+        base_game_info.update(private_fields(reconnect_player.player_index))
     game_info = GameInfo(**base_game_info, self_hand_tiles=None)
     response = Response(
-        type="gamestate/taiwan/game_start",
+        type=f"gamestate/{getattr(self, 'room_rule', 'taiwan')}/game_start",
         success=True,
         message="重连成功，游戏继续",
         game_info=game_info,
@@ -224,11 +254,13 @@ async def send_realtime_spectator_snapshot(
         return
     if view_player_index < 0 or view_player_index >= len(self.player_list):
         return
+    await _prepare_private_rule_fields(self, (view_player_index,))
 
     viewer = self.player_list[view_player_index]
     players_info = []
     for player in self.player_list:
-        combo_tiles, combo_masks = get_combination_fields_for_viewer(
+        combo_tiles, combo_masks = _combination_fields_for_rule(
+            self,
             player,
             view_player_index,
         )
@@ -243,6 +275,7 @@ async def send_realtime_spectator_snapshot(
             ),
             'discard_tiles': player.discard_tiles,
             'discard_origin_tiles': player.discard_origin_tiles,
+                    'known_concealed_discards': list(getattr(player, 'concealed_discards', {}).values()) if player.player_index == view_player_index else None,
             'combination_tiles': combo_tiles,
             'combination_mask': combo_masks,
             'huapai_list': player.huapai_list,
@@ -252,6 +285,7 @@ async def send_realtime_spectator_snapshot(
             'score': player.score,
             'title_used': player.title_used,
             'profile_used': player.profile_used,
+            "avatar_frame_used": getattr(player, "avatar_frame_used", 0),
             'character_used': player.character_used,
             'voice_used': player.voice_used,
             'score_history': player.score_history,
@@ -262,7 +296,8 @@ async def send_realtime_spectator_snapshot(
     game_info_fields = {
         'room_id': self.room_id,
         'gamestate_id': self.gamestate_id,
-        'tips': self.tips,
+        "tips": self.tips,
+        "count_tips": getattr(self, "count_tips", False),
         'current_player_index': self.current_player_index,
         'action_tick': self.server_action_tick,
         'max_round': self.max_round,
@@ -286,12 +321,15 @@ async def send_realtime_spectator_snapshot(
         'view_player_index': view_player_index,
     }
     game_info_fields.update(self.build_game_info_fields())
+    private_fields = getattr(self, "build_private_game_info_fields", None)
+    if callable(private_fields):
+        game_info_fields.update(private_fields(view_player_index))
     from ..public.game_record_manager import build_player_entry_order_fields
     game_info_fields.update(build_player_entry_order_fields(self))
 
     conn = self.game_server.user_id_to_connection[spectator_user_id]
     response = Response(
-        type="gamestate/taiwan/game_start",
+        type=f"gamestate/{getattr(self, 'room_rule', 'taiwan')}/game_start",
         success=True,
         message="实时观战初始化",
         game_info=GameInfo(**game_info_fields),
@@ -307,6 +345,7 @@ async def send_realtime_spectator_snapshot(
 # 广播询问手牌操作 补花 加杠 暗杠 自摸 出牌
 async def broadcast_ask_hand_action(self):
     self.server_action_tick += 1
+    await _prepare_private_rule_fields(self, (self.current_player_index,))
     begin_ask_round(self)
     for current_player in self.player_list:
         try:
@@ -323,7 +362,7 @@ async def broadcast_ask_hand_action(self):
                 if player_actions:
                     # 自动操作没有 websocket 送达回调；将创建自动响应任务的时刻视为该座位的逻辑送达时刻。
                     note_ask_delivered(self, seat_index)
-                    asyncio.create_task(offline_auto_action(
+                    start_owned_task(self, offline_auto_action(
                         self, seat_index, player_actions,
                         bot_ask_hand_game_status(self, seat_index)))
                 continue
@@ -332,14 +371,14 @@ async def broadcast_ask_hand_action(self):
             if current_player.user_id == 0:
                 if player_actions:
                     note_ask_delivered(self, seat_index)
-                    asyncio.create_task(auto_cut_action(
+                    start_owned_task(self, auto_cut_action(
                         self, seat_index, player_actions,
                         bot_ask_hand_game_status(self, seat_index)))
                 continue
             elif current_player.user_id == 2:
                 if player_actions:
                     note_ask_delivered(self, seat_index)
-                    asyncio.create_task(smart_bot_action(
+                    start_owned_task(self, getattr(self, "smart_bot_action", smart_bot_action)(
                         self, seat_index, player_actions,
                         bot_ask_hand_game_status(self, seat_index)))
                 continue
@@ -354,7 +393,7 @@ async def broadcast_ask_hand_action(self):
 
             player_conn = self.game_server.user_id_to_connection[current_player.user_id]
             response = Response(
-                type="gamestate/taiwan/broadcast_hand_action",
+                type=f"gamestate/{getattr(self, 'room_rule', 'taiwan')}/broadcast_hand_action",
                 success=True,
                 message="发牌，并询问手牌操作",
                 ask_hand_action_info=Ask_hand_action_info(
@@ -393,7 +432,7 @@ async def broadcast_ask_other_action(self):
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 if player_actions:
                     note_ask_delivered(self, seat_index)
-                    asyncio.create_task(offline_auto_action(
+                    start_owned_task(self, offline_auto_action(
                         self, seat_index, player_actions, self.game_status))
                 continue
 
@@ -401,13 +440,13 @@ async def broadcast_ask_other_action(self):
             if current_player.user_id == 0:
                 if player_actions:
                     note_ask_delivered(self, seat_index)
-                    asyncio.create_task(auto_cut_action(
+                    start_owned_task(self, auto_cut_action(
                         self, seat_index, player_actions, self.game_status))
                 continue
             elif current_player.user_id == 2:
                 if player_actions:
                     note_ask_delivered(self, seat_index)
-                    asyncio.create_task(smart_bot_action(
+                    start_owned_task(self, getattr(self, "smart_bot_action", smart_bot_action)(
                         self, seat_index, player_actions, self.game_status))
                 continue
             elif current_player.user_id < 10:
@@ -422,12 +461,15 @@ async def broadcast_ask_other_action(self):
                 continue
 
             player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+            clock_hook = getattr(self, "claim_clock", None)
+            remaining_sent, step_sent = clock_hook(current_player) if clock_hook else (current_player.remaining_time, None)
             response = Response(
-                type="gamestate/taiwan/ask_other_action",
+                type=f"gamestate/{getattr(self, 'room_rule', 'taiwan')}/ask_other_action",
                 success=True,
                 message="询问操作",
                 ask_other_action_info=Ask_other_action_info(
-                    remaining_time=current_player.remaining_time,
+                    remaining_time=remaining_sent,
+                    step_remaining=step_sent,
                     action_list=player_actions,
                     cut_tile=cut_tile,
                     action_tick=self.server_action_tick,
@@ -453,9 +495,9 @@ async def broadcast_ask_other_action(self):
             self.spectator_manager.record_ask_other(player_action_map, cut_tile)
 
 
-def _reconnect_remaining_time(self, player) -> int:
-    """重连补发时沿用公共 ask 送达计时。"""
-    return reconnect_remaining_time(self, player)
+def _reconnect_clock(self, player):
+    """重连补发：(剩余局时, 剩余步时)。"""
+    return reconnect_clock(self, player)
 
 
 async def reconnected_send_pending_ask_for_viewer(
@@ -470,15 +512,16 @@ async def reconnected_send_pending_ask_for_viewer(
         return
     player_conn = self.game_server.user_id_to_connection[connection_user_id]
     player = self.player_list[view_player_index]
-    remaining_sent = _reconnect_remaining_time(self, player)
+    remaining_sent, step_sent = _reconnect_clock(self, player)
     if self.game_status in ("waiting_hand_action", "waiting_buhua_round", "waiting_flower_choice"):
         if view_player_index == self.current_player_index:
             response = Response(
-                type="gamestate/taiwan/broadcast_hand_action",
+                type=f"gamestate/{getattr(self, 'room_rule', 'taiwan')}/broadcast_hand_action",
                 success=True,
                 message="发牌，并询问手牌操作",
                 ask_hand_action_info=Ask_hand_action_info(
                     remaining_time=remaining_sent,
+                    step_remaining=step_sent,
                     player_index=self.current_player_index,
                     remain_tiles=self.playable_wall_count(),
                     action_list=self.action_dict.get(view_player_index, []),
@@ -491,13 +534,17 @@ async def reconnected_send_pending_ask_for_viewer(
             logger.info(f"重连补发 ask_hand 给玩家 {player.username}，剩余时间 {remaining_sent}s")
     elif self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang"):
         if self.action_dict.get(view_player_index):
+            clock_hook = getattr(self, "claim_clock", None)
+            if clock_hook:
+                remaining_sent, step_sent = clock_hook(player, reconnecting=True)
             cut_tile = _pending_other_action_tile(self)
             response = Response(
-                type="gamestate/taiwan/ask_other_action",
+                type=f"gamestate/{getattr(self, 'room_rule', 'taiwan')}/ask_other_action",
                 success=True,
                 message="询问操作",
                 ask_other_action_info=Ask_other_action_info(
                     remaining_time=remaining_sent,
+                    step_remaining=step_sent,
                     action_list=self.action_dict[view_player_index],
                     cut_tile=cut_tile,
                     action_tick=self.server_action_tick,
@@ -542,7 +589,7 @@ def _build_do_action_payload(
 ):
     viewer_mask = combination_mask
     viewer_target = combination_target
-    if action_list and "angang" in action_list:
+    if action_list and "angang" in action_list and not getattr(self, "concealed_kongs_public", False):
         viewer_mask = sanitize_angang_mask(combination_mask, action_player, viewer_index)
         viewer_target = sanitize_combination_target_for_viewer(
             combination_target, action_player, viewer_index
@@ -572,7 +619,8 @@ def _build_do_action_payload(
     return payload
 
 
-async def _send_do_action_payload_to_viewer(self, viewer_index: int, payload: dict, msg_type: str = "gamestate/taiwan/do_action"):
+async def _send_do_action_payload_to_viewer(self, viewer_index: int, payload: dict, msg_type: str = None):
+    msg_type = msg_type or f"gamestate/{getattr(self, 'room_rule', 'taiwan')}/do_action"
     current_player = self.player_list[viewer_index]
     if "offline" in current_player.tag_list:
         return
@@ -611,6 +659,7 @@ async def broadcast_do_action(
     ):
     update_hand_draw_source(self, action_list, action_player)
     self.server_action_tick += 1
+    await _prepare_private_rule_fields(self, range(len(self.player_list)))
     if hasattr(self, "_ask_broadcast_time"):
         delattr(self, "_ask_broadcast_time")
 
@@ -687,7 +736,7 @@ async def broadcast_result(self,
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
 
                 response = Response(
-                    type="gamestate/taiwan/show_result",
+                    type=f"gamestate/{getattr(self, 'room_rule', 'taiwan')}/show_result",
                     success=True,
                     message="显示结算结果",
                     show_result_info=Show_result_info(
@@ -756,7 +805,7 @@ async def broadcast_game_end(self):
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
 
                 response = Response(
-                    type="gamestate/taiwan/game_end",
+                    type=f"gamestate/{getattr(self, 'room_rule', 'taiwan')}/game_end",
                     success=True,
                     message="游戏结束",
                     game_end_info=Game_end_info(
@@ -892,7 +941,7 @@ async def broadcast_ready_status(self):
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
 
                 response = Response(
-                    type="gamestate/taiwan/ready_status",
+                    type=f"gamestate/{getattr(self, 'room_rule', 'taiwan')}/ready_status",
                     success=True,
                     message="准备状态更新",
                     ready_status_info=ready_info

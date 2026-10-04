@@ -31,6 +31,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     private bool isHovering = false; // 是否正在悬停
     private bool isSelectable = true;
     private bool hasDangerOverlay;
+    private bool xueliuSelected;
     private static readonly Color DangerOverlayColor = new Color(1f, 0.65f, 0.65f, 1f);
     private static int lastHandledPointerFrame = -1;
     private static int lastGlobalPointerUpFrame = -1;
@@ -118,6 +119,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
     private void OnEnable()
     {
+        if (tileImage != null && tileId >= 0) RefreshVisual();
         // Unity 的 EventSystem 在“物体出现在鼠标下方”时不会自动触发 OnPointerEnter。
         // 这里做一次主动检测，确保提示能立刻出现。
         StartCoroutine(CheckHoverOnEnableNextFrame());
@@ -169,6 +171,11 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         }
         if (!skipSameCardCheck && !pressCard.IsSameCardReleasePoint(releaseScreenPos)) {
             return false;
+        }
+        // 血流开局选三张使用同一套手牌点击命中，但不发送普通 cut。
+        if (GameCanvas.Instance != null && GameCanvas.Instance.TryHandleXueliuTileClick(pressCard)) {
+            lastHandledPointerFrame = Time.frameCount;
+            return true;
         }
         bool canCut = NormalGameStateManager.Instance.allowActionList.Contains("cut")
             || RiichiCutSelectionController.Instance.IsActive;
@@ -293,10 +300,19 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
     /// <summary>换牌面/背景时只刷新显示，保留理牌固定位置与对局提示状态。</summary>
     public void RefreshVisual() {
-        if (!TileFaceFit.ApplyHandLayers(transform as RectTransform, tileImage, ref faceBackground, tileId)) {
+        RectTransform cardRect = transform as RectTransform;
+        Vector2 previousSize = cardRect.rect.size;
+        if (!TileFaceFit.ApplyHandLayers(cardRect, tileImage, ref faceBackground, tileId)) {
             Debug.LogError($"找不到牌面图片: {tileId}");
         }
+        if (GameCanvas.Instance != null && transform.parent == GameCanvas.Instance.HandCardsContainer) {
+            // 换成更高的牌体时向上扩展，保留左下边缘及拖拽中的相对位移。
+            cardRect.anchoredPosition += Vector2.Scale(cardRect.rect.size - previousSize, cardRect.pivot);
+        }
         ApplyDisplayColor();
+        GuangdongMilTileVisual.Refresh(transform, tileId);
+        RuleTileBadge.Apply(this, tileId);
+        WenzhouJokerBadge.Refresh(this);
     }
 
     /// OntileClick 是出牌方法 如果牌属性currentGetTile为flase则为手切，如果为true则为摸切
@@ -367,6 +383,11 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         ApplyDisplayColor();
     }
 
+    public void SetXueliuSelected(bool selected) {
+        xueliuSelected = selected;
+        ApplyDisplayColor();
+    }
+
     public void ClearDangerOverlay() {
         hasDangerOverlay = false;
         ApplyDisplayColor();
@@ -377,6 +398,9 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         Color color = Color.white;
         if (!isSelectable) {
             color = new Color(0.55f, 0.55f, 0.55f, 1f);
+        }
+        else if (xueliuSelected) {
+            color = new Color(0.55f, 0.85f, 1f, 1f);
         }
         else if (hasDangerOverlay) {
             color = DangerOverlayColor;
@@ -459,6 +483,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
         // 执行听牌检测
         HashSet<int> waitingTiles = RuleTips.ComputeWaiting(RuleRegistry.Current, new TingpaiQuery {
+            SubRule = GameSession.Current.SubRule,
             Hand = tempHandTiles,
             Melds = NormalGameStateManager.Instance.player_to_info["self"].combination_tiles ?? new List<string>(),
             DetailedConfig = GameSession.Current.DetailedConfig,

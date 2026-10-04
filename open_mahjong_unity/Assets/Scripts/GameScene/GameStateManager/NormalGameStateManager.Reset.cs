@@ -7,6 +7,10 @@ public partial class NormalGameStateManager {
         GameSceneUIManager.ResetRealtimeSpectatorUi();
         TurnClock.Current.ResetForExit(); // 含 AutoActionPolicy.Cancel 与切牌约束
         IsGameActive = false;
+        Session.IsDuplicate = false;
+
+        Session.DuplicateWallType = null;
+        Mirror.SetDuplicateRemainingTiles(null);
         awaitingMatchEnd = false;
         hasPendingGameEnd = false;
         pendingGameEndMasterSeed = null;

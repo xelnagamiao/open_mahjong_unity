@@ -5,7 +5,7 @@ using UnityEngine;
 /// <summary>Import settings for the production thick frame and its separate material layers.</summary>
 public sealed class TableFrameAssetImporter : AssetPostprocessor
 {
-    private const string Root = "Assets/Resources/TableFrame/";
+    private const string Images = "Assets/Resources/image/Board/Edge/";
     private const string SourceTable = "Assets/Resources/Materials/Board/DeskTopNew.fbx";
 
     private void OnPreprocessModel()
@@ -18,7 +18,7 @@ public sealed class TableFrameAssetImporter : AssetPostprocessor
             importer.isReadable = true;
             return;
         }
-        if (assetPath != Root + "Model/TableFrame_Upright_V8.fbx") return;
+        if (assetPath != "Assets/Resources/3D/TableFrame_Upright_V8.fbx") return;
         importer.globalScale = 1;
         importer.useFileScale = false;
         importer.bakeAxisConversion = true;
@@ -45,9 +45,8 @@ public sealed class TableFrameAssetImporter : AssetPostprocessor
             return;
         }
         if (!assetPath.EndsWith(".png", StringComparison.Ordinal)) return;
-        bool baseLayer = assetPath.StartsWith(Root + "Textures/", StringComparison.Ordinal);
-        bool overlay = assetPath.StartsWith(Root + "Lighting/", StringComparison.Ordinal)
-            || assetPath.StartsWith(Root + "Lines/", StringComparison.Ordinal);
+        bool baseLayer = assetPath.StartsWith(Images, StringComparison.Ordinal);
+        bool overlay = assetPath.StartsWith(Images + "Lighting/", StringComparison.Ordinal);
         if (!baseLayer && !overlay) return;
         var importer = (TextureImporter)assetImporter;
         importer.textureType = TextureImporterType.Default;

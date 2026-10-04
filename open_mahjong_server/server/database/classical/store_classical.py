@@ -6,7 +6,6 @@ import logging
 import string
 import secrets
 from psycopg2 import Error
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -86,15 +85,16 @@ def store_classical_game_record(db_manager, game_record: dict, player_list: list
             character_used = getattr(player, 'character_used', None)
             profile_used = getattr(player, 'profile_used', None)
             voice_used = getattr(player, 'voice_used', None)
+            avatar_frame_used = getattr(player, "avatar_frame_used", 0)
 
             try:
                 cursor.execute("""
                     INSERT INTO game_player_records (
-                        game_id, user_id, username, score, rank, original_player_index, rule, sub_rule, match_type, room_type, match_tier, event_id, title_used, character_used, profile_used, voice_used
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        game_id, user_id, username, score, rank, original_player_index, rule, sub_rule, match_type, room_type, match_tier, event_id, title_used, character_used, profile_used, voice_used, avatar_frame_used
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     game_id, player.user_id, player.username, player.score, rank, player.original_player_index, rule, sub_rule, match_type, room_type, match_tier, event_id,
-                    title_used, character_used, profile_used, voice_used
+                    title_used, character_used, profile_used, voice_used, avatar_frame_used
                 ))
                 saved_count += 1
             except Error as e:

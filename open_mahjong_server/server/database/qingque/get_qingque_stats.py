@@ -59,7 +59,7 @@ def get_qingque_history_stats(db_manager, user_id: int) -> List[Dict[str, Any]]:
             db_manager._put_connection(conn)
 
 
-def get_qingque_fan_stats_total(db_manager, user_id: int) -> Dict[str, int]:
+def get_qingque_fan_stats_total(db_manager, user_id: int, ranked=None) -> Dict[str, int]:
     """
     获取指定用户的青雀番种统计数据汇总（所有模式和规则的番种总和）
     """
@@ -74,8 +74,8 @@ def get_qingque_fan_stats_total(db_manager, user_id: int) -> Dict[str, int]:
         cursor.execute(f"""
             SELECT {fan_columns}
             FROM qingque_fan_stats
-            WHERE user_id = %s
-        """, (user_id,))
+            WHERE user_id = %s AND (%s IS NULL OR (mode LIKE %s) = %s)
+        """, (user_id, ranked, "%_rank", ranked))
         
         row = cursor.fetchone()
         if row:

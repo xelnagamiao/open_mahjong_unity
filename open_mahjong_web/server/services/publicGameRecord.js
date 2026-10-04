@@ -1,6 +1,8 @@
 const pool = require('../config/database');
+const { visibleRecordSql, recordIsLocked, LOCKED_MESSAGE } = require('./duplicateRecordAccess');
 
 const GAME_ID_PATTERN = /^[0-9A-Za-z]{1,16}$/;
+const WEB_REPLAY_RULES = new Set(['guobiao', 'hongzhong', 'hangzhou']);
 
 function normalizeRecord(value) {
   if (value && typeof value === 'object') return value;
@@ -14,9 +16,10 @@ function normalizeRecord(value) {
 
 async function queryPublicGameRecord(gameId, guobiaoOnly) {
   if (!GAME_ID_PATTERN.test(gameId)) return { status: 400, message: '牌谱编号格式不正确' };
+  if (await recordIsLocked(pool, gameId)) return { status: 403, message: LOCKED_MESSAGE };
 
   const recordResult = await pool.query(
-    'SELECT game_id, record, created_at FROM game_records WHERE game_id = $1 LIMIT 1',
+    `SELECT game_id, record, created_at FROM game_records gr WHERE game_id = $1 AND ${visibleRecordSql()} LIMIT 1`,
     [gameId]
   );
   if (!recordResult.rowCount) return { status: 404, message: '没有找到这份牌谱' };
@@ -35,14 +38,15 @@ async function queryPublicGameRecord(gameId, guobiaoOnly) {
   );
   const players = playersResult.rows;
   const rule = players[0]?.rule || record.game_title?.rule || null;
-  if (guobiaoOnly && rule !== 'guobiao') {
-    return { status: 400, message: '2D 牌谱阅览目前只支持国标麻将' };
+  if (guobiaoOnly && !WEB_REPLAY_RULES.has(rule)) {
+    return { status: 400, message: '2D 牌谱阅览暂不支持这套规则' };
   }
 
   return {
     status: 200,
     data: {
       game_id: recordResult.rows[0].game_id,
+      cloud_saved: true,
       created_at: recordResult.rows[0].created_at,
       rule,
       sub_rule: players[0]?.sub_rule || record.game_title?.sub_rule || null,

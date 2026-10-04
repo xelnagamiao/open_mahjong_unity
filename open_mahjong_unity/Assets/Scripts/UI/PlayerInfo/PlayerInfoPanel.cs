@@ -37,7 +37,7 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
     [SerializeField] private PlayerInfoHandView handView;
     [SerializeField] private PlayerInfoTrendChart trendChart;
 
-    private static readonly string[] PrimaryRules = { "guobiao", "riichi", "qingque" };
+    private static readonly string[] PrimaryRules = { "guobiao", "riichi", "qingque", "sichuan" };
     private readonly List<RuleManifest> otherRules = new List<RuleManifest>();
     public static PlayerInfoPanel Instance { get; private set; }
     public string CurrentRule { get; private set; } = "guobiao";
@@ -49,7 +49,16 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
     private bool initialized;
     private string recentRequestId;
     private PlayerRecentRecordsResponse recentRecords;
-    private TMP_Text emptyWinText;
+    [SerializeField] private TMP_Text emptyWinText;
+    private Dictionary<string,RuleRating> ratings;
+    [SerializeField] private GameObject rankPolicyButton;
+    private string rankRule="guobiao";
+    public void CycleRankRule(){rankRule=RankedRules.Next(rankRule);RefreshRating();}
+    private void RefreshRating(){
+        var r=RankedRules.Get(ratings,rankRule);
+        rankText.text=RankedRules.RankCaption(r);rankScoreText.text=RankedRules.ScoreCaption(r);
+        rankProgressBar.gameObject.SetActive(RankedRules.IsGrade(rankRule));rankProgressBar.value=RankedRules.Progress(r);
+    }
 
     private void Awake() {
         Instance = this;
@@ -59,17 +68,7 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
     private void InitializeControls() {
         if (initialized) return;
         initialized = true;
-        // 番名和总番数共用标题右侧的一行，长列表适当缩字号，不挤占牌面及统计区域。
-        var captionRect = winLabel.rectTransform;
-        captionRect.anchorMin = new Vector2(0, 1);
-        captionRect.anchorMax = new Vector2(1, 1);
-        captionRect.pivot = new Vector2(.5f, 1);
-        captionRect.anchoredPosition = new Vector2(76, 0);
-        captionRect.sizeDelta = new Vector2(-152, 32);
-        winLabel.textWrappingMode = TextWrappingModes.NoWrap;
-        winLabel.fontSizeMax = winLabel.fontSize;
-        winLabel.fontSizeMin = 14;
-        winLabel.enableAutoSizing = true;
+        rankSwitchButton.onClick.AddListener(CycleRankRule);
         if (panelPopup == null) panelPopup = GetComponent<PanelPopupTransition>();
         copyUseridButton.onClick.AddListener(CopyUserId);
         closeButton.onClick.AddListener(Close);
@@ -115,7 +114,7 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
         ApplyPlayerInfo(playerInfo);
         recentRecords = null;
         recentRequestId = System.Guid.NewGuid().ToString("N");
-        CurrentRule = customRule = "guobiao";
+        CurrentRule = customRule = ProfileOnClick.RequestedRule;
         ShowingRanked = true;
         statistics.ResetUser(currentUserId, loadedRule, loadedStats);
         RefreshRecords();
@@ -136,15 +135,11 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
         usernameText.text = currentUsername;
         useridText.text = currentUserId.ToString();
         titleText.text = ConfigManager.GetTitleText(settings?.title_id ?? 0);
-        profileImage.sprite = Resources.Load<Sprite>($"image/Profiles/{settings?.profile_image_id ?? 1}")
-            ?? Resources.Load<Sprite>("image/Profiles/1");
-        string rank = string.IsNullOrEmpty(playerInfo.guobiao_rank) ? "10级" : playerInfo.guobiao_rank;
-        float score = RankLevelConfig.NormalizeScore(rank, playerInfo.guobiao_score);
-        var (_, _, promoteScore) = RankConfig.RankTable[RankConfig.GetRankIndex(rank)];
-        // 目前服务器只提供国标段位，切换规则时保留明确的规则名称。
-        rankText.text = "国标 · " + rank;
-        rankProgressBar.value = promoteScore > 0 ? Mathf.Clamp01(score / promoteScore) : 0;
-        rankScoreText.text = $"{score:F2}/{promoteScore}";
+        profileImage.sprite = ConfigManager.GetProfileSprite(settings?.profile_image_id ?? 1);
+        AvatarFrameGraphic.Apply(profileImage, settings?.avatar_frame_id ?? 0);
+        ratings=playerInfo.ratings ?? new Dictionary<string,RuleRating>();
+        if(!ratings.ContainsKey("guobiao"))ratings["guobiao"]=new RuleRating{rule="guobiao",system="grade",rank_name=playerInfo.guobiao_rank??"10级",rank_score=playerInfo.guobiao_score};
+        rankRule=ProfileOnClick.RequestedRule;RefreshRating();
     }
 
     public void SelectRule(int index) {
@@ -153,7 +148,7 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
     }
 
     public void SelectRule(string rule) {
-        if (ShowingRanked && rule != "guobiao") return;
+        if (ShowingRanked && !RankedRules.Supports(rule)) return;
         if (RuleRegistry.Resolve(rule, rule) == null) return;
         CurrentRule = rule;
         if (!ShowingRanked) customRule = rule;
@@ -177,16 +172,15 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
         SetCategorySelected(rankModeButton, rankedTabIndicator, ShowingRanked);
         SetCategorySelected(customModeButton, customTabIndicator, !ShowingRanked);
         for (int i = 0; i < ruleButtons.Length; i++) {
-            ruleButtons[i].gameObject.SetActive(!ShowingRanked || i == 0);
+            ruleButtons[i].gameObject.SetActive(true);
             SetTabSelected(ruleButtons[i], ruleButtons[i].GetComponentInChildren<TMP_Text>(true), PrimaryRules[i] == CurrentRule);
         }
         otherRulesDropdown.gameObject.SetActive(!ShowingRanked);
+        rankPolicyButton?.SetActive(ShowingRanked);
         int otherIndex = otherRules.FindIndex(r => r.RuleId == CurrentRule);
         otherRulesDropdown.SetValueWithoutNotify(otherIndex);
         SetTabSelected(otherRulesDropdown, otherRulesDropdown.captionText, otherIndex >= 0);
         statistics.Show(CurrentRule, ShowingRanked, currentUserId);
-        rulesSection.anchoredPosition = new Vector2(24, -212);
-        recentSection.anchoredPosition = new Vector2(24, -276);
         RefreshRecentRecords();
     }
 
@@ -197,20 +191,6 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
         var win = CurrentRule == "guobiao" ? category?.big_win : null;
         winLabel.text = PlayerInfoStatsFormatter.WinCaption(win);
         handView.SetHand(win?.concealed_tiles, win?.melds);
-        if (win == null && emptyWinText == null) {
-            // 沿用番数文字的字体和颜色，空状态放在牌面区域内。
-            emptyWinText = Instantiate(winLabel, handView.transform, false);
-            emptyWinText.name = "NoRecentWin";
-            emptyWinText.text = "无最近大和";
-            emptyWinText.enableAutoSizing = false;
-            emptyWinText.fontSize = winLabel.fontSizeMax;
-            emptyWinText.alignment = TextAlignmentOptions.MidlineLeft;
-            emptyWinText.raycastTarget = false;
-            var rect = emptyWinText.rectTransform;
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = rect.offsetMax = Vector2.zero;
-        }
         if (emptyWinText != null) emptyWinText.gameObject.SetActive(win == null);
         var placements = new List<int>();
         if (category?.placements != null) {
@@ -265,10 +245,15 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
         else gameObject.SetActive(false);
     }
 
+    public void OnRankedStatsReceived(Response response) {
+        statistics.Receive(response.rating_rule+"_rank",response.success,response.message,response.rule_stats);
+    }
+
     private void RefreshFriendActionButton() {
         bool self = UserDataManager.Instance != null && currentUserId == UserDataManager.Instance.UserId;
         friendActionButton.gameObject.SetActive(!self);
-        changeTitleButton.gameObject.SetActive(self);
+        // Title equipment is intentionally accessible only through the chat command.
+        changeTitleButton.gameObject.SetActive(false);
         friendActionButton.interactable = !self;
         friendActionButtonText.text = FriendRelationCache.IsFriend(currentUserId) ? "移除好友" : "添加好友";
     }

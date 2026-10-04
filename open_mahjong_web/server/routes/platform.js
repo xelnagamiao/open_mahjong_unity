@@ -13,6 +13,8 @@ const {
 const { getPublicQueueStatus } = require('../services/matchQueueStatus');
 const { getPublicGameRecord, getPublicUnityGameRecord } = require('../services/publicGameRecord');
 const activityStore = require('../services/activityStore');
+const classicRecordsStore = require('../services/classicRecordsStore');
+const { getWeeklyScoreboard } = require('../services/weeklyScoreboard');
 
 function defaultDateRange(asOfDate, days = 30) {
   const to = asOfDate ? new Date(`${asOfDate}T12:00:00`) : new Date();
@@ -139,11 +141,41 @@ router.get('/record/:gameId', async (req, res) => {
     if (result.status !== 200) {
       return res.status(result.status).json({ success: false, message: result.message });
     }
-    res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600');
+    res.set('Cache-Control', 'no-store');
     return res.json({ success: true, data: result.data });
   } catch (error) {
     console.error('platform public record error:', error);
     return res.status(500).json({ success: false, message: '牌谱读取失败' });
+  }
+});
+
+/** 数据站趣味数据：周榜缓存 + 经典牌谱。 */
+router.get('/fun-stats', async (_req, res) => {
+  try {
+    const [week, classics] = await Promise.all([
+      getWeeklyScoreboard(),
+      classicRecordsStore.attachRecordMeta(classicRecordsStore.listPublic()),
+    ]);
+    res.set('Cache-Control', 'no-store');
+    return res.json({
+      success: true,
+      data: {
+        week: {
+          metric: week.metric,
+          date_from: week.date_from,
+          date_to: week.date_to,
+          generated_at: week.generated_at,
+          note: week.note,
+          missing_pt_records: week.missing_pt_records,
+        },
+        gainers: week.gainers,
+        losers: week.losers,
+        classics,
+      },
+    });
+  } catch (error) {
+    console.error('platform fun-stats error:', error);
+    return res.status(500).json({ success: false, message: '趣味数据读取失败' });
   }
 });
 
@@ -154,7 +186,7 @@ router.get('/unity-record/:gameId', async (req, res) => {
     if (result.status !== 200) {
       return res.status(result.status).json({ success: false, message: result.message });
     }
-    res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600');
+    res.set('Cache-Control', 'no-store');
     return res.json({ success: true, data: result.data });
   } catch (error) {
     console.error('platform public Unity record error:', error);

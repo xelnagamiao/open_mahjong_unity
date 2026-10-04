@@ -1,9 +1,11 @@
+from ..public.duplicate_wall import DuplicateFinished, finish_duplicate_game, draw_tile_for_player, duplicate_remaining_tile_counts, duplicate_match_complete
+from . import blood_battle
+from .duplicate_rules import duplicate_rules_for
 import random
 import asyncio
 from typing import Any, Dict, List, Optional
-import time
 import logging
-from .action_check import check_action_after_cut,check_action_jiagang,check_action_buhua,check_action_hand_action,refresh_waiting_tiles
+from .action_check import check_action_after_cut, check_action_buhua, check_action_hand_action, refresh_waiting_tiles
 from .wait_action import wait_action
 from .boardcast import (
     broadcast_game_start,
@@ -18,7 +20,7 @@ from .boardcast import (
     reconnected_send_pending_ask,
     send_realtime_spectator_snapshot,
 )
-from ..public.logic_common import get_index_relative_position, player_index_go_to, player_index_next, next_current_num, back_current_num, assign_competition_final_ranks
+from ..public.logic_common import player_index_go_to, player_index_next, next_current_num, assign_competition_final_ranks
 from .init_tiles import init_guobiao_tiles
 from ..public.next_game_round import next_game_round_guobiao_switchseat
 from ..public.round_end_timing import (
@@ -27,7 +29,6 @@ from ..public.round_end_timing import (
 from ..public.ready_phase import run_hu_result_ready_phase as run_synced_hu_ready_phase
 from ..public.spectator_rules import too_many_ai_for_spectator
 from ..public.hand_slot_utils import (
-    has_draw_slot,
     mark_draw_slot as mark_player_draw_slot,
     retain_opening_first_player_draw_slot,
 )
@@ -39,7 +40,7 @@ from .guobiao_debug import (
 )
 from .lanshi_scoring import calculate_lanshi_score_changes
 from .buhua_broadcast import HAND_SETTLE_GAP_SEC, perform_buhua_and_broadcast
-from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record,build_score_changes_by_seat,build_score_changes_dict,capture_player_entry_order,player_action_record_reset,remember_local_record_detail
+from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_hu, player_action_record_liuju, player_action_record_round_end, end_game_record, build_score_changes_by_seat, build_score_changes_dict, capture_player_entry_order, player_action_record_reset, remember_local_record_detail
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
 from ..public.random_seed_manager import setup_random_seed_system
@@ -101,16 +102,21 @@ class GuobiaoPlayer:
         self.guobiao_score = 0.0  # 牌桌侧栏显示用 PT
 
     def get_tile(self, tiles_list, *, mark_draw_slot: bool = True):
-        element = tiles_list.pop(0) # 从牌堆中获取第一张牌
+        element = draw_tile_for_player(self, tiles_list, 0) # 从牌堆中获取第一张牌
         self.hand_tiles.append(element)
         if mark_draw_slot:
             mark_player_draw_slot(self, element)
 
     def get_gang_tile(self, tiles_list, gamestate):
+        if getattr(gamestate, "duplicate_key", None):
+            element = draw_tile_for_player(self, tiles_list, -1)
+            self.hand_tiles.append(element)
+            mark_player_draw_slot(self, element)
+            return
         if len(tiles_list) <= 1 or gamestate.backward_tiles_list_type == "single":
-            element = tiles_list.pop(-1) # 从牌堆中获取倒数第一张牌
+            element = draw_tile_for_player(self, tiles_list, -1) # 从牌堆中获取倒数第一张牌
         else:
-            element = tiles_list.pop(-2) # 从牌堆中获取倒数第二张牌
+            element = draw_tile_for_player(self, tiles_list, -2) # 从牌堆中获取倒数第二张牌
         self.hand_tiles.append(element)
         mark_player_draw_slot(self, element)
         # 切换倒序摸牌状态
@@ -161,6 +167,8 @@ class GuobiaoGameState:
         # 初始化房间配置
         self.room_id = room_data["room_id"] # 房间ID
         self.tips = room_data["tips"] # 是否提示
+        self.count_tips = bool(room_data.get("count_tips", False))
+        self.pointer_tips = bool(room_data.get("pointer_tips", True))
         self.max_round = room_data["game_round"] # 最大局数
         self.step_time = room_data["step_timer"] # 步时
         self.round_time = room_data["round_timer"] # 局时
@@ -168,6 +176,8 @@ class GuobiaoGameState:
         self.room_rule = room_data["room_rule"]
         self.room_type = room_data["room_type"]
         self.sub_rule = room_data.get("sub_rule", "guobiao/standard") # 子规则
+        self.use_flowers = self.sub_rule != "guobiao/lanshi" and bool(room_data.get("use_flowers", True))
+        self.tian_di_ren_he = self.sub_rule in ("guobiao/standard", "guobiao/blood_battle") and bool(room_data.get("tian_di_ren_he", False))
         # 排位场次等级(beginner/intermediate/advanced/mcrpl)与比赛场 event_id，默认 None
         self.match_tier = room_data.get("match_tier")
         self.event_id = room_data.get("event_id")
@@ -184,7 +194,8 @@ class GuobiaoGameState:
             self.cuohe_type = 1
         self.tactical_call = room_data.get("tactical_call", False) # 战术鸣牌：吃牌固定申请-打断；碰/和/杠/加杠仅在有更高优先级竞争者时询问
         self.tactical_commit_lock = self.tactical_call # 国标：选定鸣牌后不可改选（川麻等规则不启用）
-        self.claim_protection = room_data.get("claim_protection", True) # 鸣牌保护：无鸣牌权玩家延迟看到切牌/鸣牌（默认开启）
+        from ..public.claim_protection import room_claim_protection_enabled
+        self.claim_protection = room_claim_protection_enabled(room_data)
         # 战术鸣牌 / 鸣牌保护的时间参数（暂在此写死，后续接入外部设置）：
         self.tactical_pre_grace_delay = room_data.get("tactical_pre_grace_delay", 0.5) # 战术鸣牌：申请广播后、进入打断窗口前的固定停顿（秒）
         self.tactical_grace_seconds = room_data.get("tactical_grace_seconds", 5.0)     # 战术鸣牌：每次申请后的打断窗口时长（秒）
@@ -215,7 +226,8 @@ class GuobiaoGameState:
         self.result_dict = {} # 结算结果 {hu_first:(int,list[str]),hu_second:(int,list[str]),hu_third:(int,list[str])}
         self.hu_class = None # 和牌玩家索引
         self.jiagang_tile = None # 抢杠牌 每次加杠时存储 waiting_jiagang_action 以后删除
-        self.temp_fan = [] ###### 临时番数 不启用 暂时通过不同的和牌检测和给和牌检测传递is_first or if tiles_list == [] 来计算额外加减的役
+        self.qianggang_action_dict = {} # 本次抢杠的候选，跨错和 ready 保留
+        self.qianggang_responses = {} # 已回复的和牌/放弃；未回复者错和后继续询问
 
         # 用于玩家操作的事件和队列
         self.action_events:Dict[int,asyncio.Event] = {0:asyncio.Event(),1:asyncio.Event(),2:asyncio.Event(),3:asyncio.Event()}  # 玩家索引 -> Event
@@ -234,6 +246,17 @@ class GuobiaoGameState:
         }
 
         
+        if blood_battle.enabled(self):
+            if self.room_type == "match" or room_data.get("duplicate_key"):
+                raise ValueError("国标血战暂不支持排位或复式牌墙")
+            self.open_cuohe = False
+            self.hepai_limit = 8
+            self.tactical_call = False
+            self.tactical_commit_lock = False
+            for action in blood_battle.RON_ACTIONS:
+                self.action_priority[action] = 5
+            blood_battle.reset_round(self)
+
         self.backward_tiles_list_type = "double"
 
         from ..public.claim_protection import init_claim_protection_state
@@ -279,19 +302,17 @@ class GuobiaoGameState:
         if newly_offline:
             from ..public.offline import schedule_offline_auto_on_disconnect
             schedule_offline_auto_on_disconnect(self, user_id)
-        
-        # 检查所有非AI玩家（user_id >= 10）是否都offline
-        non_ai_players = [p for p in self.player_list if p.user_id >= 10]
-        if non_ai_players:  # 如果有非AI玩家
-            all_offline = all("offline" in p.tag_list for p in non_ai_players)
-            if all_offline:
-                logger.info(f"所有非AI玩家都已掉线，开始清理gamestate，room_id: {self.room_id}, gamestate_id: {self.gamestate_id}")
-                await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
+        from ..public.lifecycle import close_if_all_humans_offline
+        await close_if_all_humans_offline(self)
 
     async def player_reconnect(self, user_id: int):
         """玩家重连：移除 offline 标签并广播，然后向该玩家发送游戏状态"""
         for p in self.player_list:
             if p.user_id == user_id:
+                from ..public.claim_protection import claim_protection_enabled
+                if claim_protection_enabled(self):
+                    from ..public.outbound_pipe import drain_viewer
+                    await drain_viewer(self, p.player_index)
                 if "offline" in p.tag_list:
                     p.tag_list.remove("offline")
                     await broadcast_refresh_player_tag_list(self)
@@ -306,11 +327,15 @@ class GuobiaoGameState:
                         'room_id': self.room_id,
                         'gamestate_id': self.gamestate_id,
                         'tips': self.tips,
+                        "count_tips": self.count_tips,
+            "pointer_tips": self.pointer_tips,
                         'current_player_index': self.current_player_index,
                         'dealer_index': self.dealer_index,
                         "action_tick": self.server_action_tick,
                         'max_round': self.max_round,
                         'tile_count': len(self.tiles_list),
+                        'use_flowers': self.use_flowers,
+                        'duplicate_remaining_tiles': duplicate_remaining_tile_counts(self),
                         'commitment': self.commitment,  # 承诺值
                         'salt': self.salt,  # 盐字符串
                         'current_round': self.current_round,
@@ -354,6 +379,7 @@ class GuobiaoGameState:
                             'has_draw_slot': player.has_draw_slot,
                             "title_used": player.title_used,
                             'profile_used': player.profile_used,
+                            "avatar_frame_used": getattr(player, "avatar_frame_used", 0),
                             'character_used': player.character_used,
                             'voice_used': player.voice_used,
                             'score_history': player.score_history,
@@ -367,6 +393,10 @@ class GuobiaoGameState:
                         **base_game_info,
                         self_hand_tiles=None
                     )
+
+                    if blood_battle.enabled(self):
+                        from .boardcast import _build_game_start_payload_for_viewer
+                        game_info = GameInfo(**_build_game_start_payload_for_viewer(self, p.player_index))
 
                     response = Response(
                         type="gamestate/guobiao/game_start",
@@ -388,7 +418,7 @@ class GuobiaoGameState:
         await self.spectator_manager.cleanup()
         
         # 取消游戏循环任务
-        if self.game_task and not self.game_task.done():
+        if self.game_task and self.game_task is not asyncio.current_task() and not self.game_task.done():
             self.game_task.cancel()
             try:
                 await self.game_task
@@ -406,9 +436,11 @@ class GuobiaoGameState:
         try:
             await self.game_loop_chinese()
         except asyncio.CancelledError:
-            # 任务被外部正常取消（例如房间销毁），不视为错误
+            # 任务被外部正常取消（例如对局统一回收），不视为错误
             logger.info(f"游戏循环被取消，room_id: {self.room_id}, gamestate_id: {self.gamestate_id}")
             raise
+        except DuplicateFinished as completed:
+            await finish_duplicate_game(self, completed)
         except Exception as e:
             # 捕获所有未处理异常，避免任务静默失败
             logger.error(
@@ -417,7 +449,9 @@ class GuobiaoGameState:
             )
             try:
                 # 出错时尝试执行清理逻辑
-                await self.cleanup_game_state()
+                await self.game_server.gamestate_manager.cleanup_game_state_complete(
+                    gamestate_id=self.gamestate_id, reason="runtime_error"
+                )
             except Exception as cleanup_err:
                 logger.error(
                     f"清理游戏状态时出错，room_id: {self.room_id}, gamestate_id: {self.gamestate_id}, 错误: {cleanup_err}",
@@ -436,7 +470,8 @@ class GuobiaoGameState:
             # 测试时不打乱玩家顺序
             # 使用随机种子创建独立的随机数生成器来打乱玩家顺序
             rng = random.Random(self.master_seed)
-            rng.shuffle(self.player_list)
+            if not getattr(self, "duplicate_key", None):
+                rng.shuffle(self.player_list)
 
             # 根据打乱的玩家顺序设置玩家索引
             for index, player in enumerate[GuobiaoPlayer](self.player_list):
@@ -475,6 +510,8 @@ class GuobiaoGameState:
             scores_before = {player.original_player_index: player.score for player in self.player_list}
 
             init_guobiao_tiles(self) # 初始化牌山和手牌
+            if blood_battle.enabled(self):
+                blood_battle.reset_round(self)
 
             # 新一局广播前先恢复庄家 playindex。上一局可能在任意玩家处结束，不能把旧索引带入 game_start。
             self.current_player_index = self.dealer_index
@@ -541,10 +578,20 @@ class GuobiaoGameState:
 
                     # 普通摸牌操作：切换到下一个玩家进行摸牌
                     case "deal_card": # 无人吃碰杠和后发牌历时行为
-                        if self.tiles_list == []: # 牌山已空
+                        if not getattr(self, "duplicate_key", None) and self.tiles_list == []: # 普通牌山已空
                             self.game_status = "END" # 结束游戏
                             break
-                        self.next_current_index() # 切换到下一个玩家
+                        if blood_battle.enabled(self):
+                            blood_battle.advance_active(self)
+                        else:
+                            self.next_current_index() # 切换到下一个玩家
+                        duplicate_rules = duplicate_rules_for(self)
+                        if duplicate_rules and not duplicate_rules.can_draw(self.current_player_index):
+                            self.duplicate_exhausted_seat = self.player_list[self.current_player_index].original_player_index
+                            self.game_record["game_title"]["duplicate_end_reason"] = "duplicate_wall_exhausted"
+                            self.hu_class = "liuju"
+                            self.game_status = "END"
+                            break
                         self.refresh_waiting_tiles(self.current_player_index) # 摸牌前更新听牌
                         self.player_list[self.current_player_index].get_tile(self.tiles_list) # 摸牌
                         # 牌谱记录摸牌
@@ -611,6 +658,9 @@ class GuobiaoGameState:
 
                     # 玩家和牌操作
                     case "check_hepai":
+                        if blood_battle.enabled(self):
+                            await blood_battle.settle_win(self)
+                            continue
                         logger.info(f"进入check_hepai case: hu_class={self.hu_class}, result_dict keys={list(self.result_dict.keys())}")
                         hu_score, hu_fan = self.result_dict[self.hu_class]
                         # jiagang_tile 非空表示本次为抢杠和（和牌张取自加杠牌，非河牌）
@@ -627,6 +677,8 @@ class GuobiaoGameState:
                                 if is_qianggang:
                                     hepai_tile = self.jiagang_tile
                                     self.jiagang_tile = None
+                                    self.qianggang_action_dict = {}
+                                    self.qianggang_responses = {}
                                 else:
                                     hepai_tile = self.player_list[self.current_player_index].discard_tiles[-1]
                                 self.player_list[hepai_idx].hand_tiles.append(hepai_tile)
@@ -712,10 +764,17 @@ class GuobiaoGameState:
             hu_fan = None
             hepai_player_index = None
 
+            if blood_battle.enabled(self):
+                await blood_battle.finish_round(self, scores_before)
+                if self.next_status == "match_end":
+                    break
+                next_game_round_guobiao_switchseat(self)
+                continue
+
             # 局终下一步
             self.next_status = (
                 "match_end"
-                if self.current_round >= self.max_round * 4
+                if duplicate_match_complete(self)
                 else "round_end_by_ready"
             )
 
@@ -840,6 +899,10 @@ class GuobiaoGameState:
                                        hepai_player_combination_mask = he_combination_mask, # 和牌玩家组合掩码
                                        score_changes = score_changes_dict,
                                        revealed_angang_masks = revealed_angang,
+                                       # 抢杠牌来自加杠者，不能由客户端沿用上一张弃牌的玩家。
+                                       is_qianggang = is_qianggang,
+                                       ron_discarder_index = self.current_player_index if self.hu_class != "hu_self" else None,
+                                       hepai_tile = he_hand[-1],
                                        next_status = self.next_status,
                                        )
                 # 显示和牌传参
@@ -919,53 +982,16 @@ class GuobiaoGameState:
 
         # 终局排名：同分并列（竞赛排名 1,2,2,4），同分组内按开局原始风位排序
         assign_competition_final_ranks(self.player_list)
+        if getattr(self, "duplicate_key", None):
+            # Pending messages use this round's seat indices, including after a seat rotation.
+            self.player_list.sort(key=lambda player: player.player_index)
         player_count = len(self.player_list)
 
         # 排位赛 PT 计算（同名次均摊其占用名次区间的加/扣分）
-        is_match = (self.room_type == "match")
+        from ...match.settlement import settle_ranked_game
+        is_match = self.room_type == "match"
         match_queue_type = getattr(self, 'match_queue_type', None)
-        if is_match and match_queue_type:
-            from ...match.rank_calculator import calculate_pt, apply_pt, parse_queue_type
-            parsed = parse_queue_type(match_queue_type)
-            if parsed:
-                tier, game_type = parsed
-                for index, player in enumerate(self.player_list):
-                    # 计算该玩家所在并列分组占用的名次区间 [start+1, end+1]（1-indexed 名次）
-                    start = index
-                    while start > 0 and self.player_list[start - 1].score == player.score:
-                        start -= 1
-                    end = index
-                    while end < player_count - 1 and self.player_list[end + 1].score == player.score:
-                        end += 1
-
-                    rank_data = self.db_manager.get_rank_data(player.user_id)
-                    old_rank = rank_data["guobiao_rank"] if rank_data else "10级"
-                    old_score = rank_data["guobiao_score"] if rank_data else 0
-                    # 对占用名次区间内每个名次分别算 PT 后取平均，实现同名次均摊加/扣分
-                    pt_values = [
-                        calculate_pt(tier, game_type, pos, old_rank)
-                        for pos in range(start + 1, end + 2)
-                    ]
-                    pt = round(sum(pt_values) / len(pt_values), 2)
-                    new_rank, new_score = apply_pt(old_rank, old_score, pt)
-                    # 存储到 player 对象供广播使用
-                    player.pt = pt
-                    player.rank_before = old_rank
-                    player.score_before = old_score
-                    player.rank_after = new_rank
-                    player.score_after = new_score
-                    player.guobiao_rank = new_rank
-                    player.guobiao_score = float(new_score)
-                    # 更新数据库
-                    self.db_manager.update_rank_data(player.user_id, new_rank, new_score)
-                    logger.info(f"排位 PT: {player.username} rank {player.record_counter.rank_result} (名次区间 {start + 1}-{end + 1}), pt={pt}, {old_rank}({old_score}) -> {new_rank}({new_score})")
-
-        # 先入库再广播 game_end，以便把完整牌谱附在已有消息上（旧客户端忽略多余字段）
-        if is_match and match_queue_type:
-            from ...match.rank_calculator import queue_type_to_match_type
-            match_type = queue_type_to_match_type(match_queue_type)
-        else:
-            match_type = f"{self.max_round}/4"
+        match_type = settle_ranked_game(self)
         game_id = None
         try:
             game_id = self.db_manager.store_guobiao_game_record(
@@ -993,7 +1019,9 @@ class GuobiaoGameState:
         is_custom_hepai = (self.hepai_limit != 8)
         has_ai_player = any(player.user_id <= 10 for player in self.player_list)
         
-        if is_xiaolin or is_kshen or is_lanshi:
+        if blood_battle.enabled(self):
+            logger.info("国标血战仅保存子规则牌谱，不计标准国标累计统计")
+        elif is_xiaolin or is_kshen or is_lanshi:
             rule_label = "小林规" if is_xiaolin else ("K神规" if is_kshen else "蓝十改")
             logger.info(f'{rule_label}对局，仅保存牌谱，跳过统计数据保存，game_id: {game_id}')
         elif is_custom_hepai:
@@ -1023,11 +1051,6 @@ class GuobiaoGameState:
         # 内通过 match_manager.release_match 释放，无需在此单独处理。
         await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
 
-        if self.room_type == "match":
-            # 匹配对局不依赖房间系统（未注册到 room_manager.rooms），无需销毁房间
-            pass
-        else:
-            await self.game_server.room_manager.finish_custom_game_room(self.room_id)
         logger.info(f"游戏实例已清理，room_id: {self.room_id},goodbye!")
 
     def resolve_hepai_player_index(self, hu_class: str) -> int:
@@ -1055,16 +1078,44 @@ class GuobiaoGameState:
 
         # 清理错和残留
         self.hu_class = ""
-        self.result_dict = {}
+        if is_qianggang:
+            self.result_dict.pop(hu_class, None) # 其余抢杠者仍使用同一次算番结果
+        else:
+            self.result_dict = {}
 
         if hu_class == "hu_self":
             self.action_dict = check_action_hand_action(self, self.current_player_index)
             self.game_status = "waiting_hand_action"
         elif hu_class in ("hu_first", "hu_second", "hu_third"):
             if is_qianggang:
-                # 抢杠错和：加杠成立，与无人抢杠相同，由加杠者摸岭上牌
-                self.jiagang_tile = None
-                self.game_status = "deal_card_after_gang"
+                self.qianggang_responses[hepai_player_index] = "pass"
+                self.action_dict = {0:[],1:[],2:[],3:[]}
+                for player_index, actions in self.qianggang_action_dict.items():
+                    if "peida" in self.player_list[player_index].tag_list:
+                        continue
+                    response = self.qianggang_responses.get(player_index)
+                    if response in ("hu_first", "hu_second", "hu_third"):
+                        if not self.hu_class or self.action_priority[response] > self.action_priority[self.hu_class]:
+                            self.hu_class = response
+                    elif response is None:
+                        self.action_dict[player_index] = list(actions)
+
+                # 已提交的和牌不必再点击；只等待还没回复且优先级更高的候选。
+                if self.hu_class:
+                    for player_index, actions in self.action_dict.items():
+                        if all(self.action_priority[action] <= self.action_priority[self.hu_class] for action in actions):
+                            self.action_dict[player_index] = []
+                if any(self.action_dict.values()):
+                    self.game_status = "waiting_action_qianggang"
+                elif self.hu_class:
+                    self.game_status = "check_hepai"
+                else:
+                    # 候选耗尽后加杠才成立，由原玩家摸岭上牌。
+                    self.jiagang_tile = None
+                    self.result_dict = {}
+                    self.qianggang_action_dict = {}
+                    self.qianggang_responses = {}
+                    self.game_status = "deal_card_after_gang"
             else:
                 cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
                 self.action_dict = check_action_after_cut(self, cut_tile)

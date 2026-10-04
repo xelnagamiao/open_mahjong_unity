@@ -1,9 +1,32 @@
 # 数据路由处理器
 import logging
 import asyncio
+from functools import partial
 from ..response import Response, Rule_stats_response, Player_stats_info, Record_info, Record_detail, Player_record_info, Player_info_response, UserSettings, LeaderboardEntry
 
 logger = logging.getLogger(__name__)
+
+# Cancelled requests retain their DB slot until the worker actually finishes.
+_record_read_slots = asyncio.Semaphore(2)
+
+
+async def _run_record_read(func, *args, **kwargs):
+    await _record_read_slots.acquire()
+    try:
+        future = asyncio.get_running_loop().run_in_executor(
+            None, partial(func, *args, **kwargs)
+        )
+    except BaseException:
+        _record_read_slots.release()
+        raise
+
+    def finished(done):
+        _record_read_slots.release()
+        if not done.cancelled():
+            done.exception()
+
+    future.add_done_callback(finished)
+    return await asyncio.shield(future)
 
 async def handle_data_message(game_server, Connect_id: str, message: dict, websocket):
     """
@@ -40,6 +63,8 @@ async def handle_data_message(game_server, Connect_id: str, message: dict, webso
         await handle_get_jiandan_stats(game_server, Connect_id, message, websocket)
     elif message_type == "data/get_leaderboard":
         await handle_get_leaderboard(game_server, Connect_id, message, websocket)
+    elif message_type == "data/get_ranked_stats":
+        await handle_get_ranked_stats(game_server, Connect_id, message, websocket)
     elif message_type == "data/get_rank_record_list":
         await handle_get_rank_record_list(game_server, Connect_id, message, websocket)
     else:
@@ -91,7 +116,8 @@ async def handle_get_record_list(game_server, Connect_id: str, message: dict, we
         except (TypeError, ValueError):
             offset = 0
 
-        records = game_server.db_manager.get_record_list(
+        records = await _run_record_read(
+            game_server.db_manager.get_record_list,
             player.user_id,
             limit=limit,
             offset=offset,
@@ -110,6 +136,7 @@ async def handle_get_record_list(game_server, Connect_id: str, message: dict, we
                     title_used=player_data.get('title_used'),
                     character_used=player_data.get('character_used'),
                     profile_used=player_data.get('profile_used'),
+                    avatar_frame_used=player_data.get('avatar_frame_used',0),
                     voice_used=player_data.get('voice_used')
                 ))
             
@@ -191,108 +218,86 @@ async def handle_update_record_note(game_server, Connect_id: str, message: dict,
     )
     await websocket.send_json(response.dict(exclude_none=True))
 
+async def handle_get_ranked_stats(game_server, connect_id, message, websocket):
+    from .rule_ratings import get_ranked_history
+    from .riichi.get_riichi_stats import get_riichi_fan_stats_total
+    from .qingque.get_qingque_stats import get_qingque_fan_stats_total
+    from ..match.rating_rules import RULES
+    rule = message.get('rule')
+    response = Response(type='data/get_ranked_stats', success=False, message='用户未登录',
+                        rating_rule=rule if isinstance(rule,str) else None, data_request_id=message.get('data_request_id'))
+    try:
+        player = game_server.players.get(connect_id)
+        if player and player.user_id:
+            if not isinstance(rule,str) or rule not in RULES:
+                response.message = '不支持的匹配规则'
+            else:
+                uid = int(message.get('userid',player.user_id))
+                rows = await _run_record_read(get_ranked_history, game_server.db_manager, uid, rule)
+                fans = {}
+                if rule == 'riichi':
+                    fans = await _run_record_read(get_riichi_fan_stats_total, game_server.db_manager, uid, ranked=True)
+                elif rule == 'qingque':
+                    fans = await _run_record_read(get_qingque_fan_stats_total, game_server.db_manager, uid, ranked=True)
+                response.rule_stats = Rule_stats_response(rule=rule, history_stats=[Player_stats_info(**r) for r in rows], total_fan_stats={}, ranked_fan_stats=fans)
+                response.success = True
+                response.message = '匹配统计已更新'
+    except Exception:
+        logger.exception('获取匹配统计失败')
+        response.message = '获取匹配统计失败，请重试'
+    await websocket.send_json(response.dict(exclude_none=True))
+
+
 async def handle_get_rank_record_list(game_server, Connect_id: str, message: dict, websocket):
-    """获取全服最近的天梯（排位）对局元数据；无记录时返回空列表，不中断连接。"""
-    response = Response(
-        type="data/get_rank_record_list",
-        success=False,
-        message="用户未登录",
-        record_list=[],
-    )
+    from ..match.rating_rules import RULES
+    rule = message.get("rule", "guobiao")
+    response = Response(type="data/get_rank_record_list", success=False, message="用户未登录",
+                        rating_rule=rule if isinstance(rule,str) else None,
+                        data_request_id=message.get("data_request_id"), record_list=[])
     try:
         player = game_server.players.get(Connect_id)
         if not (player and player.user_id):
-            await websocket.send_json(response.dict(exclude_none=True))
-            return
-
-        limit = message.get("limit", 20)
-        try:
-            limit = max(1, min(50, int(limit)))
-        except (TypeError, ValueError):
-            limit = 20
-
-        getter = getattr(game_server.db_manager, "get_rank_record_list", None)
-        if getter is None:
-            logger.error("db_manager 未挂载 get_rank_record_list，请重启游戏服")
-            response = Response(
-                type="data/get_rank_record_list",
-                success=True,
-                message="获取到 0 局天梯对局",
-                record_list=[],
-            )
-            await websocket.send_json(response.dict(exclude_none=True))
-            return
-
-        records = getter(limit=limit) or []
-        record_list = []
-        for game_record in records:
-            players_info = []
-            for p in game_record.get("players") or []:
-                players_info.append(
-                    Player_record_info(
-                        user_id=p["user_id"],
-                        username=p.get("username") or "",
-                        score=p.get("score") if p.get("score") is not None else 0,
-                        rank=p.get("rank") if p.get("rank") is not None else 0,
-                        original_player_index=p.get("original_player_index"),
-                    )
-                )
-            record_list.append(
-                Record_info(
-                    game_id=game_record["game_id"],
-                    rule=game_record.get("rule") or "",
-                    sub_rule=game_record.get("sub_rule"),
-                    match_type=game_record.get("match_type"),
-                    match_queue_type=game_record.get("match_queue_type"),
-                    created_at=game_record.get("created_at") or "",
-                    players=players_info,
-                )
-            )
-        response = Response(
-            type="data/get_rank_record_list",
-            success=True,
-            message=f"获取到 {len(record_list)} 局天梯对局",
-            record_list=record_list,
-        )
-    except Exception as e:
-        logger.error(f"处理天梯对局列表失败: {e}", exc_info=True)
-        response = Response(
-            type="data/get_rank_record_list",
-            success=True,
-            message="获取到 0 局天梯对局",
-            record_list=[],
-        )
+            pass
+        elif not isinstance(rule,str) or rule not in RULES:
+            response.message = "不支持的匹配规则"
+        else:
+            try:
+                limit = max(1,min(50,int(message.get("limit",20))))
+            except (ValueError,TypeError):
+                limit = 20
+            records = await _run_record_read(game_server.db_manager.get_rank_record_list, limit=limit, rule=rule)
+            response.record_list = [Record_info(
+                game_id=r['game_id'], rule=r.get('rule') or '', sub_rule=r.get('sub_rule'),
+                match_type=r.get('match_type'), match_queue_type=r.get('match_queue_type'),
+                created_at=r.get('created_at') or '', players=[Player_record_info(**p) for p in r.get('players',[])]) for r in records]
+            response.success = True
+            response.message = f"获取到 {len(records)} 局对局"
+    except Exception:
+        logger.exception("读取规则对局失败")
+        response.message = "读取最近对局失败，请重试"
     await websocket.send_json(response.dict(exclude_none=True))
 
 
 async def handle_get_leaderboard(game_server, Connect_id: str, message: dict, websocket):
-    """处理获取国标段位排行榜请求"""
-    player = game_server.players.get(Connect_id)
-    if player and player.user_id:
-        rows = game_server.db_manager.get_guobiao_leaderboard()
-        leaderboard_list = [
-            LeaderboardEntry(
-                rank_position=row["rank_position"],
-                user_id=row["user_id"],
-                username=row["username"],
-                profile_image_id=row["profile_image_id"],
-                guobiao_rank=row["guobiao_rank"],
-                guobiao_score=row["guobiao_score"],
-            )
-            for row in rows
-        ]
-        response = Response(
-            type="data/get_leaderboard",
-            success=True,
-            message=f"获取到 {len(leaderboard_list)} 名排行榜玩家",
-            leaderboard_list=leaderboard_list,
-        )
-    else:
-        response = Response(
-            type="data/get_leaderboard",
-            success=False,
-            message="用户未登录",
-        )
+    from ..match.rating_rules import RULES
+    rule = message.get("rule", "guobiao")
+    response = Response(type="data/get_leaderboard", success=False, message="用户未登录",
+                        rating_rule=rule if isinstance(rule,str) else None,
+                        data_request_id=message.get("data_request_id"), leaderboard_list=[])
+    try:
+        player = game_server.players.get(Connect_id)
+        if not (player and player.user_id):
+            pass
+        elif not isinstance(rule,str) or rule not in RULES:
+            response.message = "不支持的匹配规则"
+        else:
+            rows = await _run_record_read(game_server.db_manager.get_rule_leaderboard, rule=rule)
+            response.leaderboard_list = [LeaderboardEntry(**row) for row in rows]
+            response.success = True
+            response.message = f"获取到 {len(rows)} 名排行榜玩家"
+    except Exception:
+        logger.exception("读取规则排行榜失败")
+        response.message = "读取排行榜失败，请重试"
     await websocket.send_json(response.dict(exclude_none=True))
 
 async def handle_get_record_by_id(game_server, Connect_id: str, message: dict, websocket):
@@ -317,7 +322,7 @@ async def handle_get_record_by_id(game_server, Connect_id: str, message: dict, w
         await websocket.send_json(response.dict(exclude_none=True))
         return
     
-    result = game_server.db_manager.get_record_by_id(game_id)
+    result = await _run_record_read(game_server.db_manager.get_record_by_id, game_id)
     if result is None:
         response = Response(
             type="data/get_record_by_id",
@@ -336,11 +341,13 @@ async def handle_get_record_by_id(game_server, Connect_id: str, message: dict, w
                 title_used=p.get('title_used'),
                 character_used=p.get('character_used'),
                 profile_used=p.get('profile_used'),
+                avatar_frame_used=p.get('avatar_frame_used',0),
                 voice_used=p.get('voice_used')
             ))
         
         detail = Record_detail(
             game_id=result['game_id'],
+            cloud_saved=True,
             rule=result['rule'],
             sub_rule=result.get('sub_rule'),
             record=result['record'],
@@ -390,6 +397,7 @@ async def handle_get_guobiao_stats(game_server, Connect_id: str, message: dict, 
                 ),
                 gb_stats=[],
                 jp_stats=[],
+                ratings=rank_data.get('ratings', {}) if rank_data else {},
                 guobiao_rank=rank_data.get('guobiao_rank', '10级') if rank_data else '10级',
                 guobiao_score=rank_data.get('guobiao_score', 0.0) if rank_data else 0.0
             )
@@ -474,6 +482,7 @@ async def handle_get_riichi_stats(game_server, Connect_id: str, message: dict, w
                 ),
                 gb_stats=[],
                 jp_stats=[],
+                ratings=rank_data.get('ratings', {}) if rank_data else {},
                 guobiao_rank=rank_data.get('guobiao_rank', '10级') if rank_data else '10级',
                 guobiao_score=rank_data.get('guobiao_score', 0.0) if rank_data else 0.0
             )
@@ -502,7 +511,7 @@ async def handle_get_riichi_stats(game_server, Connect_id: str, message: dict, w
             fan_stats=None,
         ))
 
-    total_fan_stats = get_riichi_fan_stats_total(game_server.db_manager, target_user_id)
+    total_fan_stats = get_riichi_fan_stats_total(game_server.db_manager, target_user_id, ranked=False)
 
     rule_stats_response = Rule_stats_response(
         rule="riichi",
@@ -553,6 +562,7 @@ async def handle_get_qingque_stats(game_server, Connect_id: str, message: dict, 
                 ),
                 gb_stats=[],
                 jp_stats=[],
+                ratings=rank_data.get('ratings', {}) if rank_data else {},
                 guobiao_rank=rank_data.get('guobiao_rank', '10级') if rank_data else '10级',
                 guobiao_score=rank_data.get('guobiao_score', 0.0) if rank_data else 0.0
             )
@@ -583,7 +593,7 @@ async def handle_get_qingque_stats(game_server, Connect_id: str, message: dict, 
         ))
     
     # 获取汇总番种统计数据
-    total_fan_stats = get_qingque_fan_stats_total(game_server.db_manager, target_user_id)
+    total_fan_stats = get_qingque_fan_stats_total(game_server.db_manager, target_user_id, ranked=False)
     
     rule_stats_response = Rule_stats_response(
         rule="qingque",
@@ -633,6 +643,7 @@ async def handle_get_classical_stats(game_server, Connect_id: str, message: dict
                 ),
                 gb_stats=[],
                 jp_stats=[],
+                ratings=rank_data.get('ratings', {}) if rank_data else {},
                 guobiao_rank=rank_data.get('guobiao_rank', '10级') if rank_data else '10级',
                 guobiao_score=rank_data.get('guobiao_score', 0.0) if rank_data else 0.0
             )
@@ -714,6 +725,7 @@ async def handle_get_jiandan_stats(game_server, Connect_id: str, message: dict, 
                 ),
                 gb_stats=[],
                 jp_stats=[],
+                ratings=rank_data.get('ratings', {}) if rank_data else {},
                 guobiao_rank=rank_data.get("guobiao_rank", "10级") if rank_data else "10级",
                 guobiao_score=rank_data.get("guobiao_score", 0.0) if rank_data else 0.0,
             )

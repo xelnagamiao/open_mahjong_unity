@@ -14,7 +14,7 @@ public static class RoundEndTiming {
     /// <summary>延时观战 end tick 等待时长中的确认段（真实对局仍为 HuConfirmCountdownSeconds）。</summary>
     public const float SpectatorHuConfirmCountdownSeconds = 5f;
     /// <summary>四川终局非末步面板停留（由服务端步间 sleep 控制，客户端不再倒计时关面板）。</summary>
-    public const float SichuanMidPanelConfirmSeconds = 3f;
+    public const float SichuanMidPanelConfirmSeconds = 2f;
     /// <summary>四川查叫面板：有叫/没叫/花猪状态展示停留。</summary>
     public const float SichuanChajiaoStatusHoldSeconds = 0.5f;
     /// <summary>四川查叫面板含刮风下雨退税时额外停留。</summary>

@@ -33,9 +33,22 @@ public sealed class GameSession {
     /// <summary>当前规则的详细配置（服务端 detailed_config 原样拷贝）。</summary>
     public Dictionary<string, object> DetailedConfig = new Dictionary<string, object>();
     public bool Tips;
+    public bool FanTips;
+    public bool CountTips;
+    private bool pointerTips = true;
+    public bool PointerTips {
+        get => pointerTips;
+        set {
+            pointerTips = value;
+            if (!value && Card3DHoverManager.Instance) Card3DHoverManager.Instance.OnCardExit();
+        }
+    }
     /// <summary>手摸切灰显（对局河牌摸切灰、手切正常）。</summary>
     public bool ShowMoqieHint;
     public bool IsSetRandomSeed;
+    public bool IsDuplicate;
+
+    public string DuplicateWallType;
 
     // ---- 座位 / 时间 ----
     /// <summary>自身 player_index：0 东 1 南 2 西 3 北。</summary>
@@ -70,14 +83,24 @@ public sealed class GameSession {
         HepaiLimit = gameInfo.hepai_limit ?? 8;
         RoomStepTime = gameInfo.step_time;
         RoomRoundTime = gameInfo.round_time;
-        Tips = gameInfo.tips;
+        FanTips = gameInfo.tips;
+        CountTips = gameInfo.count_tips;
+        PointerTips = gameInfo.pointer_tips;
+        Tips = FanTips || CountTips;
         ShowMoqieHint = gameInfo.show_moqie_hint;
         IsSetRandomSeed = gameInfo.isPlayerSetRandomSeed;
+        IsDuplicate = gameInfo.is_duplicate;
+
+        DuplicateWallType = gameInfo.duplicate_wall_type;
     }
 
     /// <summary>退出对局/牌谱/观战：清掉与本局绑定的规则与标志，保留 Host 与观战标志（由观战入口自行管理）。</summary>
     public void ResetForExit() {
         IsGameActive = false;
+        PointerTips = true;
+        IsDuplicate = false;
+
+        DuplicateWallType = null;
         RoomRule = null;
         SubRule = null;
         DetailedConfig.Clear();

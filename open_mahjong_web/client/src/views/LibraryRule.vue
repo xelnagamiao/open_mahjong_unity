@@ -41,6 +41,7 @@
         :sources="sources"
         :parents="parents"
         :children="children"
+        :comparisons="comparisons"
         :families="families"
         :era-info="eraInfo"
         :appeared="appeared"
@@ -89,6 +90,7 @@ const {
   ruleName,
   parentsOf,
   childrenOf,
+  comparisonsOf,
   familiesOf,
   eraOf,
   appearedOf,
@@ -123,6 +125,7 @@ const docs = computed(() => {
 const sources = computed(() => (isSpecial.value ? [] : sourcesFor(ruleKey.value)))
 const parents = computed(() => parentsOf(catalogSlug.value))
 const children = computed(() => childrenOf(catalogSlug.value))
+const comparisons = computed(() => comparisonsOf(catalogSlug.value))
 const families = computed(() => familiesOf(catalogSlug.value))
 const eraInfo = computed(() => eraOf(catalogSlug.value))
 const appeared = computed(() => appearedOf(catalogSlug.value))

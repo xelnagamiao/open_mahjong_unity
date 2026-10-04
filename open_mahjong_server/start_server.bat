@@ -1,5 +1,5 @@
 @echo off
-cd /d D:\open_mahjong_unity\open_mahjong_server
+cd /d "%~dp0"
 call .\.venv\Scripts\activate.bat
 python main.py
 pause

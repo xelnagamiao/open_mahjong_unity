@@ -66,6 +66,7 @@ class Chinese_Hepai_Check:
                         "g41","G41","g42","G42","g43","G43","g44","G44","g45","G45","g46","G46","g47","G47"} # 幺九刻
     # 存储排斥的番种
     repel_model_dict:Dict[int,list] ={
+        "tianhe":[], "dihe":[], "renhe":[],
         "dasixi":["pengpenghe","quanfengke","menfengke"]+["yaojiuke"]*4,"dasanyuan":["yaojiuke"]*3, # 大四喜 大三元
         "lvyise":["hunyise"],"sigang":["pengpenghe","dandiaojiang"], # 绿一色 四杠子
         "jiulianbaodeng_dianhe":["qingyise","wuzi","yaojiuke","menqianqing"],"jiulianbaodeng_zimo":["qingyise","wuzi","buqiuren","yaojiuke"], # 九莲宝灯 点和/自摸
@@ -100,6 +101,7 @@ class Chinese_Hepai_Check:
         }
     # 存储番种的番数
     count_model_dict:Dict[str,int] = {
+        "tianhe":8, "dihe":8, "renhe":8,
         "dasixi":88,"dasanyuan":88,"lvyise":88,"jiulianbaodeng":88,"sigang":88,
         "lianqidui":88,"shisanyao":88,
         "qingyaojiu":64,"xiaosixi":64,"xiaosanyuan":64,"ziyise":64,"sianke":64,"yiseshuanglonghui":64,
@@ -116,6 +118,7 @@ class Chinese_Hepai_Check:
         "qianzhang":1,"dandiaojiang":1,"zimo":1,"huapai":1,"mingangang":5,
         }
     eng_to_chinese_dict = {
+        "tianhe":"天和", "dihe":"地和", "renhe":"人和",
         "dasixi":"大四喜",
         "dasanyuan":"大三元",
         "lvyise":"绿一色",
@@ -1002,6 +1005,10 @@ class Chinese_Hepai_Check:
                         continue
 
                 # 开始判断传参番种 包括 last_deal 杠上开花 抢杠和 和绝张 花牌 last_cut 全求人 门前清 不求人 自摸
+                case "天和" | "地和" | "人和":
+                    key = {"天和": "tianhe", "地和": "dihe", "人和": "renhe"}[i]
+                    if key in self.count_model_dict and key not in player_tiles.fan_list:
+                        player_tiles.fan_list.append(key)
                 case "last_deal" | "妙手回春":
                     player_tiles.fan_list.append("miaoshouhuichun") # 妙手回春（牌墙空自摸）
                 case "杠上开花":

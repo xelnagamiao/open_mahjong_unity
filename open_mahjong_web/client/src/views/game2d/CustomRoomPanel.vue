@@ -14,6 +14,11 @@
           <strong>{{ currentRoom.room_name || `房间 ${currentRoom.room_id}` }}</strong>
           <el-tag size="small" type="info">#{{ currentRoom.room_id }}</el-tag>
           <el-tag size="small">{{ subRuleLabel(currentRoom.sub_rule) }}</el-tag>
+          <el-tag
+            v-if="['guobiao', 'qingque', 'changsha', 'sichuan', 'zhongyong', 'nanque', 'jiandan', 'riichi'].includes(currentRoom.room_rule)"
+            size="small" type="info"
+          >鸣牌保护：{{ (currentRoom.claim_protection ?? (currentRoom.room_rule !== 'riichi')) ? '开' : '关' }}</el-tag>
+          <el-tag v-if="currentRoom.is_duplicate || currentRoom.duplicate_wall_type" size="small" type="warning">{{ duplicateRoomLabel(currentRoom) }} · {{ currentRoom.duplicate_round_count || 1 }} 局</el-tag>
         </div>
         <el-button type="danger" plain @click="leaveRoom">离开房间</el-button>
       </div>
@@ -21,33 +26,44 @@
       <div class="seat-grid">
         <div v-for="(seat, idx) in seats" :key="`${seat.userId}-${idx}`" class="seat-card">
           <div class="seat-card__head">
-            <span class="seat-idx">座位 {{ idx + 1 }}{{ idx === 0 ? ' · 房主' : '' }}</span>
+            <span class="seat-idx">座位 {{ idx + 1 }}{{ seat.isHost ? ' · 房主' : '' }}</span>
             <el-button
               v-if="isHost && seat.userId !== null && Number(seat.userId) !== Number(myUserId)"
               class="seat-kick"
               size="small"
               text
               type="danger"
-              @click="kickPlayer(seat.userId)"
+              @click="kickPlayer(seat.userId, idx)"
             >移出</el-button>
           </div>
           <strong>{{ seat.username || '空位' }}</strong>
           <small v-if="seat.userId !== null">
-            {{ seat.isBot ? '机器人' : (seat.ready || idx === 0 ? '已准备' : '未准备') }}
+            {{ seat.isBot ? '机器人' : (seat.ready || seat.isHost ? '已准备' : '未准备') }}
           </small>
+          <div v-if="seat.userId === null && isHost && !currentRoom.is_game_running" class="seat-bot-actions">
+            <el-button :disabled="!canAddBot" @click="addBot(false, idx)">添加摸切机器人</el-button>
+            <el-button :disabled="!canAddBot" @click="addBot(true, idx)">添加牌效机器人</el-button>
+            <el-button v-if="isGuobiaoStandardRoom" :disabled="!canAddHeuristicBot" @click="addHeuristicBot(idx)">添加高性能机器人</el-button>
+          </div>
         </div>
       </div>
 
       <el-space wrap class="room-actions">
+        <div v-if="seats.some(seat => seat.isBot)" class="room-bot-speed">
+          <span>机器人速度</span>
+          <el-select
+            :model-value="currentRoom.bot_speed === 'standard' ? 'fast' : (currentRoom.bot_speed || 'fast')"
+            :disabled="!isHost || currentRoom.is_game_running"
+            aria-label="机器人速度"
+            @change="setBotSpeed"
+          >
+            <el-option value="instant" label="极快（0 秒）" />
+            <el-option value="fast" label="快速（0.5 秒）" />
+            <el-option value="medium" label="中等（1 秒）" />
+            <el-option value="slow" label="慢速（1.5 秒）" />
+          </el-select>
+        </div>
         <template v-if="isHost">
-          <el-button :disabled="!canAddBot" @click="addBot(false)">添加机器人</el-button>
-          <el-button :disabled="!canAddBot" @click="addBot(true)">添加牌效机器人</el-button>
-          <el-button
-            v-if="isGuobiaoRoom"
-            :disabled="!canAddHeuristicBot"
-            :title="heuristicBotTitle"
-            @click="addHeuristicBot"
-          >{{ heuristicBotLabel }}</el-button>
           <el-button type="primary" :disabled="!canStart" @click="startGame">开始对局</el-button>
         </template>
         <el-button v-else type="primary" @click="toggleReady">
@@ -75,6 +91,7 @@
             <span class="room-config-summary">{{ roomConfigSummary(row) }}</span>
           </template>
         </el-table-column>
+        <el-table-column label="牌山" min-width="125"><template #default="{ row }">{{ duplicateRoomLabel(row) }}<span v-if="row.is_duplicate"> · {{ row.duplicate_round_count || 1 }} 局</span></template></el-table-column>
         <el-table-column label="密码" width="64">
           <template #default="{ row }">{{ row.has_password ? '有' : '无' }}</template>
         </el-table-column>
@@ -110,6 +127,7 @@ import { Refresh } from '@element-plus/icons-vue'
 import GuobiaoEmptyRoomConfig from '@/components/GuobiaoEmptyRoomConfig.vue'
 import { createDefaultGuobiaoRoomConfig } from '@/utils/guobiaoRoomConfig'
 import { salasasaClient } from '@/game2d/salasasa/client'
+import { duplicateRoomLabel } from '@/utils/duplicateWalls'
 
 const props = defineProps({
   online: { type: Boolean, default: false },
@@ -121,10 +139,12 @@ const props = defineProps({
 const emit = defineEmits(['occupy-changed'])
 
 const SUB_RULE_LABELS = {
+  'zhongyong/standard': '标准中庸',
+  'zhongyong/nanque': '南雀',
   'guobiao/standard': '国标标准',
   'guobiao/xiaolin': '小林',
   'guobiao/kshen': 'K神',
-  'guobiao/lanshi': '蓝氏',
+  'guobiao/lanshi': '蓝十',
 }
 
 const RULE_LABELS = {
@@ -134,6 +154,7 @@ const RULE_LABELS = {
   changsha: '长沙',
   sichuan: '四川',
   jiandan: '南雀',
+  zhongyong: '中庸麻将',
   classical: '古典麻将',
 }
 
@@ -154,19 +175,20 @@ let refreshTimer = null
 const seats = computed(() => {
   const room = currentRoom.value
   if (!room) return []
-  const list = room.player_list || []
+  const list = room.seat_list || room.player_list || []
   const settings = room.player_settings || {}
   const readyList = room.ready_list || []
   const max = room.max_player || 4
   return Array.from({ length: max }, (_, idx) => {
     const userId = list[idx]
-    if (userId == null) return { userId: null, username: '', ready: false, isBot: false }
+    if (userId == null || userId < 0) return { userId: null, username: '', ready: false, isBot: false, isHost: false }
     const meta = settings[userId] || settings[String(userId)] || {}
     return {
       userId,
       username: meta.username || `玩家 ${userId}`,
       ready: readyList.includes(userId) || userId <= 10,
       isBot: userId <= 10,
+      isHost: Number(userId) === Number(room.host_user_id ?? room.player_list?.[0]),
     }
   })
 })
@@ -189,8 +211,6 @@ const canAddBot = computed(() => {
   return (room.player_list || []).length < (room.max_player || 4)
 })
 
-const isGuobiaoRoom = computed(() => currentRoom.value?.room_rule === 'guobiao')
-
 const isGuobiaoStandardRoom = computed(() => {
   const room = currentRoom.value
   if (!room || room.room_rule !== 'guobiao') return false
@@ -199,21 +219,14 @@ const isGuobiaoStandardRoom = computed(() => {
 
 const canAddHeuristicBot = computed(() => canAddBot.value && isGuobiaoStandardRoom.value)
 
-const heuristicBotLabel = computed(() =>
-  isGuobiaoStandardRoom.value ? '添加高性能罗伯特' : '暂未支持',
-)
-
-const heuristicBotTitle = computed(() =>
-  isGuobiaoStandardRoom.value ? '' : '高性能罗伯特暂未支持该国标变种规则',
-)
-
 const canStart = computed(() => {
   const room = currentRoom.value
   if (!room || !isHost.value) return false
   const list = room.player_list || []
   if (list.length < 4) return false
   const readyList = room.ready_list || []
-  return list.slice(1).every((uid) => uid <= 10 || readyList.includes(uid))
+  const hostId = Number(room.host_user_id ?? list[0])
+  return list.every((uid) => Number(uid) === hostId || uid <= 10 || readyList.includes(uid))
 })
 
 function subRuleLabel(rule) {
@@ -231,7 +244,9 @@ function ruleLabel(room) {
 
 function roomConfigSummary(room) {
   const round = Number(room?.game_round || room?.gameround)
-  const roundLabel = round === 1 ? '东风' : round === 2 ? '半庄' : round === 4 ? '全庄' : '标准局数'
+  const roundLabel = room?.is_duplicate || room?.duplicate_wall_type
+    ? `复式 ${room.duplicate_round_count || 1} 局`
+    : round === 1 ? '东风' : round === 2 ? '半庄' : round === 3 ? '三圈' : round === 4 ? '全庄' : '标准局数'
   const parts = [roundLabel]
   if (room?.round_timer != null) parts.push(`局时 ${room.round_timer} 秒`)
   if (room?.step_timer != null) parts.push(`步时 ${room.step_timer} 秒`)
@@ -283,6 +298,8 @@ function handleResponse(response) {
   }
   if (response.type === 'room/leave_room_done') {
     if (response.success) {
+      if (response.room_id && currentRoom.value && String(response.room_id) !== String(currentRoom.value.room_id)) return
+      if (response.room_instance_id && currentRoom.value?.instance_id && response.room_instance_id !== currentRoom.value.instance_id) return
       setCurrentRoom(null)
       refreshRoomList()
     }
@@ -335,8 +352,11 @@ function submitCreate() {
     roundTimerValue: Number(createForm.round_timer) || 0,
     stepTimerValue: Number(createForm.step_timer) || 0,
     tips: !!createForm.tips,
+    tian_di_ren_he: !!createForm.tian_di_ren_he,
     password: String(createForm.password || ''),
     random_seed: 0,
+    duplicate_key: String(createForm.duplicate_key || '').trim(),
+    ...(!String(createForm.duplicate_key || '').trim() ? { use_flowers: createForm.use_flowers !== false } : {}),
     open_cuohe: !!createForm.open_cuohe,
     cuohe_type: createForm.open_cuohe ? Number(createForm.cuohe_type) || 0 : 0,
     hepai_limit: Math.max(1, Math.min(64, Number(createForm.hepai_limit) || 8)),
@@ -387,16 +407,24 @@ function leaveRoom() {
   }
 }
 
-function addBot(smart) {
+function setBotSpeed(speed) {
+  const room = currentRoom.value
+  if (!room || !isHost.value || room.is_game_running) return
+  if (!salasasaClient.send({ type: 'room/set_bot_speed', room_id: String(room.room_id), bot_speed: speed })) {
+    ElMessage.error('连接已断开，请重连后再试')
+  }
+}
+
+function addBot(smart, seatIndex) {
   const room = currentRoom.value
   if (!room) return
   const type = smart ? 'room/add_smart_bot' : 'room/add_bot'
-  if (!salasasaClient.send({ type, room_id: String(room.room_id) })) {
+  if (!salasasaClient.send({ type, room_id: String(room.room_id), seat_index: seatIndex })) {
     ElMessage.error('游戏连接尚未就绪')
   }
 }
 
-function addHeuristicBot() {
+function addHeuristicBot(seatIndex) {
   const room = currentRoom.value
   if (!room) return
   if (!isGuobiaoStandardRoom.value) {
@@ -406,6 +434,7 @@ function addHeuristicBot() {
   if (!salasasaClient.send({
     type: 'room/add_guobiao_heuristic_bot',
     room_id: String(room.room_id),
+    seat_index: seatIndex,
   })) {
     ElMessage.error('游戏连接尚未就绪')
   }
@@ -431,13 +460,14 @@ function startGame() {
   }
 }
 
-function kickPlayer(targetUserId) {
+function kickPlayer(targetUserId, seatIndex) {
   const room = currentRoom.value
   if (!room) return
   if (!salasasaClient.send({
     type: 'room/kick_player',
     room_id: String(room.room_id),
     target_user_id: Number(targetUserId),
+    seat_index: seatIndex,
   })) {
     ElMessage.error('游戏连接尚未就绪')
   }
@@ -486,6 +516,10 @@ defineExpose({ handleResponse, refreshRoomList, hasRoom: () => Boolean(currentRo
 .seat-card strong { font-size: 15px; }
 .seat-card small { color: #595959; }
 .room-actions { width: 100%; }
+.room-bot-speed { display: flex; align-items: center; gap: 12px; }
+.room-bot-speed .el-select { width: 180px; }
+.seat-bot-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 24px; }
+.seat-bot-actions .el-button + .el-button { margin-left: 0; }
 .full-btn { width: 100%; margin-top: 8px; }
 @media (max-width: 860px) {
   .seat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

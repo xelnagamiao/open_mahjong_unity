@@ -20,6 +20,7 @@ import PailiView from '@/views/PailiView.vue'
 import PlayerData from '@/views/PlayerData.vue'
 import PlatformData from '@/views/PlatformData.vue'
 import RecordAnalysis from '@/views/RecordAnalysis.vue'
+import FunData from '@/views/FunData.vue'
 import UnityGame from '@/views/UnityGame.vue'
 import Rulebook from '@/views/Rulebook.vue'
 import Library from '@/views/Library.vue'
@@ -37,6 +38,8 @@ import AdminLayout from '@/layouts/AdminLayout.vue'
 import AdminLogin from '@/views/admin/Login.vue'
 import AdminDashboard from '@/views/admin/Dashboard.vue'
 import AdminUsers from '@/views/admin/Users.vue'
+import AdminTitles from '@/views/admin/Titles.vue'
+import AdminInventory from '@/views/admin/Inventory.vue'
 import AdminUserDetail from '@/views/admin/UserDetail.vue'
 import AdminRank from '@/views/admin/Rank.vue'
 import AdminGames from '@/views/admin/Games.vue'
@@ -50,6 +53,7 @@ import AdminEvents from '@/views/admin/Events.vue'
 import AdminEventDetail from '@/views/admin/EventDetail.vue'
 import AdminEventApplications from '@/views/admin/EventApplications.vue'
 import AdminActivities from '@/views/admin/Activities.vue'
+import AdminClassicRecords from '@/views/admin/ClassicRecords.vue'
 import AdminTileContent from '@/views/admin/TileContent.vue'
 import EventAdminLayout from '@/layouts/EventAdminLayout.vue'
 import EventAdminLogin from '@/views/event-admin/Login.vue'
@@ -136,6 +140,12 @@ const routes = [
         name: 'Rulebook',
         component: Rulebook,
         meta: { title: '规则书 - salasasa.cn' }
+      },
+      {
+        path: 'duplicate',
+        name: 'DuplicateGuide',
+        component: () => import('@/views/DuplicateGuide.vue'),
+        meta: { title: '创建复式牌墙 - salasasa.cn' }
       },
       {
         path: 'seed-verify',
@@ -292,6 +302,18 @@ const routes = [
         name: 'RecordAnalysis',
         component: RecordAnalysis,
         meta: { title: '牌谱分析 - salasasa.cn' }
+      },
+      {
+        path: 'duplicate',
+        name: 'DuplicateData',
+        component: () => import('@/views/DuplicateData.vue'),
+        meta: { title: '复式密钥查询 - salasasa.cn' }
+      },
+      {
+        path: 'fun',
+        name: 'FunData',
+        component: FunData,
+        meta: { title: '其他数据 - salasasa.cn' }
       }
     ]
   },
@@ -326,6 +348,8 @@ const routes = [
     children: [
       { path: '', name: 'AdminDashboard', component: AdminDashboard, meta: { title: '管理仪表盘' } },
       { path: 'users', name: 'AdminUsers', component: AdminUsers, meta: { title: '用户管理' } },
+      { path: 'titles', name: 'AdminTitles', component: AdminTitles, meta: { title: '头衔管理' } },
+      { path: 'inventory', name: 'AdminInventory', component: AdminInventory, meta: { title: '物品管理' } },
       {
         path: 'users/:userId',
         name: 'AdminUserDetail',
@@ -365,6 +389,7 @@ const routes = [
       { path: 'audit', name: 'AdminAudit', component: AdminAudit, meta: { title: '操作审计' } },
       { path: 'messages', name: 'AdminMessages', component: AdminMessages, meta: { title: '消息推送' } },
       { path: 'activities', name: 'AdminActivities', component: AdminActivities, meta: { title: '活动设计' } },
+      { path: 'classic-records', name: 'AdminClassicRecords', component: AdminClassicRecords, meta: { title: '经典牌谱' } },
       { path: 'send-email', name: 'AdminSendEmail', component: AdminSendEmail, meta: { title: '发送邮件' } },
       { path: 'ip-bans', name: 'AdminIpBans', component: AdminIpBans, meta: { title: 'IP 封禁' } },
       { path: 'stats', name: 'AdminStats', component: AdminStats, meta: { title: '全站统计' } }

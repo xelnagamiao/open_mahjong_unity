@@ -32,7 +32,7 @@ public static class RankConfig {
             case "intermediate":
                 if (rankLevel >= 16) return false; // 七段及以上不可进入
                 if (isIntermediateQualified) return true;
-                return rankLevel >= 8; // 2级
+                return rankLevel >= 9; // 1级
             case "advanced":
                 if (isAdvancedQualified) return true;
                 return rankLevel >= 13; // 四段

@@ -25,6 +25,8 @@ def realtime_spectator_watches_broadcast_seat(spectator, game_state, broadcast_p
 
 async def deliver_realtime_spectator_message(game_state, broadcast_player_index: int, response) -> None:
     """向挂在被观战玩家当前座位视角上的实时观战者推送消息。"""
+    if getattr(game_state, "duplicate_key", None):
+        return
     spectators = getattr(game_state, "realtime_spectators", None)
     if not spectators:
         return

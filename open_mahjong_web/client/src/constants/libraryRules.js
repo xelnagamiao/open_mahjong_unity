@@ -1,3 +1,5 @@
+import { hongKongRulebooks } from './hongKongRulebooks.js'
+
 /**
  * 麻雀图书馆规则目录
  * categories:
@@ -41,17 +43,55 @@ export const LIBRARY_SECTIONS = [
 
 export const LIBRARY_RULES = [
   {
+    key: 'wenzhou', label: '温州麻将', short: '温州', categories: ['platform', 'local', 'mil'], accent: '#297b74',
+    description: 'MIL 温州2024：136张、十六张手牌，每局翻财；白板固定代财神本牌，可吃碰杠和点和，八对加单张、三财、软硬和及连庄。',
+    resources: [{ title: 'MIL 温州麻将2024原文', url: '/rulebooks/mil/温州麻将（试点）竞赛规则（试行2024版）.pdf' }, { title: '温州2024平台补则', url: '/rulebooks/wenzhou/MIL2024-platform-supplement.txt' }],
+  },
+  {
+    key: 'changchun', label: '长春麻将', short: '长春', categories: ['platform', 'mil'], accent: '#5c779a',
+    description: 'MIL 长春2024：136张、十三张手牌，三门带幺九，可吃碰杠、报听看宝。一条仅在特殊杠中代牌；六番封顶，流局保留杠分。',
+    resources: [{ title: 'MIL 长春2024原文', url: '/rulebooks/mil/长春麻将（推广）竞赛规则（试行2024版）.pdf' }, { title: '平台补则', url: '/rulebooks/changchun.html' }],
+  },
+  {
+    key: 'hongzhong', label: '红中麻将', short: '红中', categories: ['platform', 'mil'], accent: '#b74b46',
+    description: 'MIL 红中麻将（推广）2024：112张、十三张手牌，红中为万能牌；仅自摸，可碰杠，不吃。最高四番，和后扎两鸟，流局退杠。',
+    resources: [{ title: 'MIL 红中麻将2024原文', url: '/rulebooks/mil/红中麻将（推广）竞赛规则（试行2024版）.pdf' }],
+  },
+  {
+    key: 'hangzhou', label: '杭州麻将', short: '杭州', categories: ['platform', 'mil'], accent: '#1f8a6a',
+    description: 'MIL 杭州麻将（推广）2025：136张、白板财神，仅自摸；爆头、财飘、七对、十风，4番封顶，老庄2/4/8倍、三吃承包，墙尾20张流局。',
+    resources: [{ title: 'MIL 杭州麻将2025原文', url: '/rulebooks/mil/杭州麻将（推广）竞赛规则（试行2025版）.pdf' }],
+  },
+  {
+    key: 'yixing', label: '宜兴麻将', short: '宜兴', categories: ['platform', 'local'], accent: '#537c69',
+    description: "宜兴麻将是江苏宜兴本地的特色玩法，由144张牌组成，其中万条筒各36张，东南西北中发白各4张，花牌8张，2花自摸，3花放冲，一花独吊，最先将手牌全部组成顺子和刻子的玩家赢得一局，起手花牌数能决定你当前牌局打法规划，牌局种类门清，碰碰胡，混一色，清一色等常见大牌，还包括独吊翻倍，杠开翻倍，海底翻倍，抢杠翻3倍等特殊机制，游戏尚在测试阶段，如对本规则感兴趣或有任何建议都可以添加Q541784531一同交流",
+    resources: [
+      { title: '宜兴规则书与平台补则', url: '/rulebooks/yixing.html' },
+      { title: '宜兴麻将规则书（最新 Word）', url: '/rulebooks/yixing-rulebook.docx', filename: '宜兴麻将规则.docx' },
+      { title: '宜兴麻将规则书（PDF）', url: '/rulebooks/yixing-rulebook.pdf' },
+      { title: '宜兴麻将规则书（DOC）', url: '/rulebooks/yixing-rulebook.doc', filename: '宜兴麻将规则.doc' },
+    ],
+  },
+  {
+    key: 'guizhou', label: '贵州麻将', short: '贵州', categories: ['platform', 'mil'],
+    description: 'MIL 贵州麻将（推广）2023：108张、十三张手牌，不吃，无花无癞子；原报、软报、捉鸡，鸡杠局终结算。基本分39分封顶，流局按理论最大听牌分查叫。',
+    accent: '#92752f',
+    resources: [
+      { title: 'MIL 贵州麻将2023原文', url: '/rulebooks/mil/贵州麻将（推广）竞赛规则（试行2023版）.pdf' },
+    ],
+  },
+  {
     key: 'guobiao',
     label: '国标麻将',
     short: '国标',
     categories: ['platform', 'mil'],
     description:
-      '国标麻将源于国家体育总局于1998年11月出台的《中国竞技麻将比赛规则(试行)》、是中国唯一由官方确立的竞技麻将规则；本平台参照Natsuki编著的新编MCR撰写运行逻辑，已通过所有牌例验证，如发现测试过程中出现了不符合国标麻将规则预期的行为，请向Q群906497522反馈。',
+      '国标麻将规则资料，包含 Natsuki 编著的《新编 MCR》及各改编版本规则书。',
     accent: '#3b82f6',
     resources: [
       {
         title: '国标麻将（新编 MCR）',
-        desc: '本平台使用 Natsuki 编著的新编 MCR 规则书设计国标运行逻辑。',
+        desc: 'Natsuki 编著的《新编 MCR》。',
         url: '/rulebooks/guobiao-mcr.pdf',
         filename: '新编MCR.pdf',
       },
@@ -62,7 +102,7 @@ export const LIBRARY_RULES = [
     label: '立直麻将',
     short: '立直',
     categories: ['platform'],
-    description: '立直麻将参照天凤/雀魂规则进行设计，无双倍役满',
+    description: '四人立直麻将，支持多种规则预设及役种、计分和流局设置',
     accent: '#ef4444',
     resources: [
       {
@@ -159,7 +199,7 @@ export const LIBRARY_RULES = [
       },
       {
         title: '绘图麻雀牌谱',
-        desc: '沈一帆 1914 年牌谱。古典麻将按这本书和同层文献还原。',
+        desc: '现存扫描为上海游艺社 1924 年三月初版；与 1914 沈一帆本的版次关系仍待对校。',
         url: '/rulebooks/drawing-mahjong.pdf',
         filename: '绘图麻雀牌谱.pdf',
       },
@@ -205,6 +245,23 @@ export const LIBRARY_RULES = [
     ],
   },
   {
+    key: 'guangdong', label: '广东麻将', short: '广东',
+    categories: ['platform', 'mil'], accent: '#0f766e',
+    description: 'MIL 推倒和2024无癞子标准本。136张，可吃碰杠，报听可选，头跳；23番种，32番封顶另加2底分。',
+    resources: [
+      { title: '推倒和 MIL 2024 原书', url: '/rulebooks/mil/推倒和麻将（推广）竞赛规则（试行2024版）.pdf', filename: '推倒和麻将（推广）竞赛规则（试行2024版）.pdf' },
+    ],
+  },
+  {
+    key: 'hongkong',
+    label: '香港麻将',
+    short: '港麻',
+    categories: ['platform', 'local'],
+    description: '清章十三、新章十三（Wiki）、新章十三（恋绘色）、新章十三（恋绘色魔改）、新章十六，各有独立规则书及来源说明。',
+    accent: '#c0904b',
+    resources: hongKongRulebooks,
+  },
+  {
     key: 'taiwan',
     label: '台湾麻将',
     short: '台麻',
@@ -222,14 +279,35 @@ export const LIBRARY_RULES = [
     ],
   },
   {
+    key: 'zhongyong',
+    label: '中庸麻将',
+    short: '中庸',
+    categories: ['platform'],
+    description: '标准中庸采用关兆豪的中庸 v3.3 计分法，136张牌，无起和限制，同系列取最高和种，不同系列相加。南雀作为子规则，采用独立计分表与三人和牌的血战到底流程。',
+    accent: '#64748b',
+    resources: [{
+        title: '中庸麻将与南雀规则说明',
+        desc: '标准中庸的计分与支付方法，以及南雀血战到底的差异。',
+        url: '/rulebooks/zhongyong.html',
+        filename: '中庸麻将与南雀规则说明.html',
+      }],
+  },
+  {
     key: 'jiandan',
     label: '南雀',
     short: '南雀',
-    categories: ['platform'],
+    categories: [],
     description:
-      '南雀规则由南瓜饼编写，是一个正在测试的规则，目标是在新手易上手与竞技策略深度之间取得平衡。无起和限制。当前版本固定采用一人和牌即止。标准规则将采用三人和牌（血战到底），正在开发中。',
+      '南雀规则由南瓜饼编写，现为中庸麻将的子规则。无起和限制，默认血战到底，和牌者退场，三家和牌或牌墙耗尽后统一结算。',
     accent: '#64748b',
     resources: [],
+  },
+  {
+    key: 'shanxi', label: '山西麻将', short: '山西', categories: ['platform', 'local', 'mil'],
+    description: 'MIL试行2023版，136张、十三张手牌。无癞子、不吃牌；暗扣报听、三点自摸、六点点和、有和必和，和牌时结杠。',
+    accent: '#b7791f', resources: [
+      { title: 'MIL山西麻将试行2023版', url: '/rulebooks/mil/山西麻将（推广）竞赛规则（试行2023版）.pdf', filename: '山西麻将（推广）竞赛规则（试行2023版）.pdf' },
+    ],
   },
   {
     key: 'shiyangjin',
@@ -292,7 +370,7 @@ export const LIBRARY_RULES = [
     resources: [
       {
         title: '蓝十魔改规则第4版',
-        desc: '蓝十改规则说明。',
+        desc: '第4版。平台采用四人赛制，136张无花，5分起和、100分封顶。',
         url: '/rulebooks/guobiao-lanshi.pdf',
         filename: '蓝十魔改规则第4版.pdf',
       },
@@ -341,7 +419,7 @@ export function rulesForSection(sectionKey) {
     const platformRules = LIBRARY_RULES.filter(
       (r) => r.categories.includes('mil') && !r.categories.includes('platform') && r.key !== 'mil-collection',
     )
-    const platformMilFiles = new Set(['mil-sichuan', 'mil-mcr', 'mil-riichi'])
+    const platformMilFiles = new Set(['mil-sichuan', 'mil-mcr', 'mil-riichi', 'mil-tuidao', 'mil-shanxi', 'mil-red-center', 'mil-changchun'])
     return platformRules.concat(MIL_RULES.filter((r) => !platformMilFiles.has(r.key)))
   }
   if (sectionKey === 'materials' || sectionKey === 'submit' || sectionKey === 'lineage') return []
@@ -398,7 +476,7 @@ export const LIBRARY_LINEAGE = {
   key: 'lineage',
   title: '麻将谱系',
   short: '年代表 · 关系表',
-  description: '纸牌、牌九接到宁波麻将再分化。',
+  description: '从宁波早期见证核查规则变化，区分已证改法、结构比较与待证传承。',
   to: '/library/lineage',
   accent: '#1f6b52',
 }

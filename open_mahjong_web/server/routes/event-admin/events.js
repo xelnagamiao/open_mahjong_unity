@@ -1,4 +1,6 @@
+const { withRecordMetadataQuery } = require('../../services/recordMetadataQuery');
 const express = require('express');
+const { accessibleGameIds, recordIsLocked, visibleRecordSql, LOCKED_MESSAGE } = require('../../services/duplicateRecordAccess');
 const router = express.Router();
 const pool = require('../../config/database');
 const config = require('../../config/config');
@@ -725,78 +727,73 @@ const DOWNLOAD_MAX_GAMES = 50;
 
 router.get('/:eventId/records', requireEventMembership, async (req, res) => {
   try {
-    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
-    const offset = (page - 1) * limit;
+    const data = await withRecordMetadataQuery(pool, async (db) => {
+      const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+      const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
+      const offset = (page - 1) * limit;
 
-    const { params, whereSql } = buildEventRecordConditions(req.event.event_id, req.query);
-    const limitIdx = params.length + 1;
-    const offsetIdx = params.length + 2;
-    params.push(limit, offset);
+      const { params, whereSql } = buildEventRecordConditions(req.event.event_id, req.query);
+      const limitIdx = params.length + 1;
+      const offsetIdx = params.length + 2;
+      params.push(limit, offset);
 
-    const listRes2 = await pool.query(
-      `SELECT gr.game_id, gr.created_at,
-              MAX(gpr.rule) AS rule,
-              MAX(gpr.sub_rule) AS sub_rule,
-              MAX(gpr.match_type) AS match_type,
-              MAX(gpr.room_type) AS room_type,
-              MAX(gpr.event_id) AS event_id
-       FROM game_records gr
-       JOIN game_player_records gpr ON gpr.game_id = gr.game_id
-       WHERE ${whereSql}
-       GROUP BY gr.game_id, gr.created_at
-       ORDER BY gr.created_at DESC
-       LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
-      params
-    );
-
-    const countParams = params.slice(0, -2);
-    const countRes = await pool.query(
-      `SELECT COUNT(DISTINCT gpr.game_id)::int AS cnt
-       FROM game_player_records gpr
-       JOIN game_records gr ON gr.game_id = gpr.game_id
-       WHERE ${whereSql}`,
-      countParams
-    );
-
-    const gameIds = listRes2.rows.map((r) => r.game_id);
-    let playersByGame = new Map();
-    if (gameIds.length > 0) {
-      const playersRes = await pool.query(
-        `SELECT game_id, user_id, username, score, rank
-         FROM game_player_records
-         WHERE game_id = ANY($1::varchar[])
-         ORDER BY rank`,
-        [gameIds]
+      const listRes2 = await db.query(
+        `SELECT gr.game_id, gr.created_at,
+                MAX(gpr.rule) AS rule,
+                MAX(gpr.sub_rule) AS sub_rule,
+                MAX(gpr.match_type) AS match_type,
+                MAX(gpr.room_type) AS room_type,
+                MAX(gpr.event_id) AS event_id
+         FROM game_records gr
+         JOIN game_player_records gpr ON gpr.game_id = gr.game_id
+         WHERE ${whereSql}
+         GROUP BY gr.game_id, gr.created_at
+         ORDER BY gr.created_at DESC, gr.game_id DESC
+         LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+        params
       );
-      for (const row of playersRes.rows) {
-        if (!playersByGame.has(row.game_id)) playersByGame.set(row.game_id, []);
-        playersByGame.get(row.game_id).push(row);
+
+      const countParams = params.slice(0, -2);
+      const countRes = await db.query(
+        `SELECT COUNT(DISTINCT gpr.game_id)::int AS cnt
+         FROM game_player_records gpr
+         JOIN game_records gr ON gr.game_id = gpr.game_id
+         WHERE ${whereSql}`,
+        countParams
+      );
+
+      const gameIds = listRes2.rows.map((r) => r.game_id);
+      let playersByGame = new Map();
+      if (gameIds.length > 0) {
+        const playersRes = await db.query(
+          `SELECT game_id, user_id, username, score, rank
+           FROM game_player_records
+           WHERE game_id = ANY($1::varchar[])
+           ORDER BY rank`,
+          [gameIds]
+        );
+        for (const row of playersRes.rows) {
+          if (!playersByGame.has(row.game_id)) playersByGame.set(row.game_id, []);
+          playersByGame.get(row.game_id).push(row);
+        }
       }
-    }
 
-    const eventName = req.event.name || null;
-    const items = listRes2.rows.map((row) => ({
-      game_id: row.game_id,
-      created_at: row.created_at,
-      rule: row.rule,
-      sub_rule: row.sub_rule,
-      match_type: row.match_type,
-      room_type: row.room_type || 'events',
-      event_id: row.event_id || req.event.event_id,
-      event_name: eventName,
-      players: playersByGame.get(row.game_id) || [],
-    }));
+      const eventName = req.event.name || null;
+      const items = listRes2.rows.map((row) => ({
+        game_id: row.game_id,
+        created_at: row.created_at,
+        rule: row.rule,
+        sub_rule: row.sub_rule,
+        match_type: row.match_type,
+        room_type: row.room_type || 'events',
+        event_id: row.event_id || req.event.event_id,
+        event_name: eventName,
+        players: playersByGame.get(row.game_id) || [],
+      }));
 
-    res.json({
-      success: true,
-      data: {
-        items,
-        page,
-        limit,
-        total: countRes.rows[0].cnt,
-      },
+      return { items, page, limit, total: countRes.rows[0].cnt };
     });
+    return res.json({ success: true, data });
   } catch (err) {
     console.error('event-admin records:', err);
     res.status(500).json({ success: false, message: '\u670d\u52a1\u5668\u5185\u90e8\u9519\u8bef' });
@@ -819,8 +816,10 @@ router.get('/:eventId/record/:gameId', requireEventMembership, async (req, res) 
     if (owned.rows.length === 0) {
       return res.status(404).json({ success: false, message: '\u724c\u8c31\u4e0d\u5b58\u5728' });
     }
+    if (await recordIsLocked(pool, gameId)) return res.status(403).json({ success: false, message: LOCKED_MESSAGE });
+    res.set('Cache-Control', 'no-store');
     const result = await pool.query(
-      `SELECT record FROM game_records WHERE game_id = $1`,
+      `SELECT record FROM game_records gr WHERE game_id = $1 AND ${visibleRecordSql()}`,
       [gameId]
     );
     if (result.rows.length === 0) {
@@ -890,8 +889,11 @@ router.post('/:eventId/records/download', requireEventMembership, async (req, re
       return res.status(404).json({ success: false, message: '\u6ca1\u6709\u5339\u914d\u7684\u724c\u8c31' });
     }
 
+    gameIds = await accessibleGameIds(pool, gameIds);
+    if (!gameIds.length) return res.status(403).json({ success: false, message: LOCKED_MESSAGE });
+    res.set('Cache-Control', 'no-store');
     const recordsResult = await pool.query(
-      `SELECT game_id, record FROM game_records WHERE game_id = ANY($1::varchar[])`,
+      `SELECT game_id, record FROM game_records gr WHERE game_id = ANY($1::varchar[]) AND ${visibleRecordSql()}`,
       [gameIds]
     );
     const byGame = new Map(recordsResult.rows.map((r) => [r.game_id, r.record]));

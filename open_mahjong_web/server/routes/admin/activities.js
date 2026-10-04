@@ -77,6 +77,7 @@ router.post(
   wrap(async (req, res) => {
     const item = store.createActivity({
       title: req.body.title,
+      description: req.body.description,
       body: req.body.body,
       sort: req.body.sort,
     });
@@ -90,6 +91,7 @@ router.put(
   wrap(async (req, res) => {
     const item = store.updateActivity(req.params.id, {
       title: req.body.title,
+      description: req.body.description,
       body: req.body.body,
       sort: req.body.sort,
       blocks: req.body.blocks,

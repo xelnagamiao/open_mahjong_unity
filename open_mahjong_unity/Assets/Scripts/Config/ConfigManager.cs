@@ -30,26 +30,28 @@ public partial class ConfigManager : MonoBehaviour {
             gameUrl = "ws://localhost:8081/game"; // 游戏服务器地址(连接到OMU服务器)
             chatUrl = "ws://localhost:8083/chat"; // 聊天服务器地址(连接到OMUChat服务器)
             webApiUrl = "http://localhost:3000"; // 活动专栏 / 平台 HTTP（通知、牌谱公开接口）
-            releaseVersion = 23; // 发行版号(验证客户端-服务器版本是否一致)
+            releaseVersion = 25; // 发行版号(验证客户端-服务器版本是否一致)
         } else {
             // 生产环境接口地址
             gameUrl = "wss://salasasa.cn/game";
             chatUrl = "wss://salasasa.cn/chat";
             webApiUrl = "https://salasasa.cn";
-            releaseVersion = 23;
+            releaseVersion = 25;
         }
         // 官方服务器链接网址 用于访问转到 （不影响游戏进程）
-        clientVersion = "0.4.76.6"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
+        clientVersion = "0.4.78.1"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
         webUrl = "https://salasasa.cn"; // 访问转到
         mobileDownloadUrl = "https://salasasa.cn/mobile-download"; // Android APK 版本更新下载页
         documentUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#"; // 访问转到
         githubUrl = "https://github.com/xelnagamiao/open_mahjong_unity"; // 访问转到
     }
 
-    // 头衔编号 => 头衔名称
+    public const string DefaultTitleName = "暂无头衔";
+
+    // 默认项始终可用，不依赖服务器下发的授权目录。
     private static Dictionary<int, string> titleDictionary = new Dictionary<int, string>{
-        { 1, "暂无头衔" },
-        { 2, "hhmlb" }
+        { 1, DefaultTitleName },
+        { 2, "最初的初段" }
     };
 
     private const string KEY_MASTER_VOLUME = "MasterVolume";
@@ -75,7 +77,6 @@ public partial class ConfigManager : MonoBehaviour {
     private const string KEY_MATCH_SUCCESS_SOUND_ENABLED = "MatchSuccessSoundEnabled";
     private const string KEY_OPENING_AUTO_BUHUA_ENABLED = "OpeningAutoBuhuaEnabled";
     private const string KEY_FORCE_PASS_ENABLED = "ForcePassEnabled";
-    private const string KEY_MELD_SPACING_ENABLED = "MeldSpacingEnabled";
     // Legacy choices are retired; every installation now uses the comic style.
     private const string KEY_LEGACY_TILE_OUTLINE_PRESET = "TileOutlinePreset";
     private const string KEY_CARD_BACK_COLOR = "CardBackColor";
@@ -93,6 +94,8 @@ public partial class ConfigManager : MonoBehaviour {
     private const string KEY_HAND_BG_IS_CUSTOM = "HandBgImageIsCustom";
     private const string KEY_HAND_BACK_PATH = "HandBackImagePath";
     private const string KEY_HAND_BACK_IS_CUSTOM = "HandBackImageIsCustom";
+    private const string KEY_HAND_BACK_AUTO_FOLLOW = "HandBackAutoFollow";
+    private const string KEY_HAND_SURFACE_DEFAULT_VERSION = "HandSurfaceDefaultVersion";
     private const string KEY_USE_HAND_FACE_BACKGROUND = "UseHandFaceBackground";
     private const string KEY_TABLE_BG_PATH = "TableBgImagePath";
     private const string KEY_TABLE_BG_IS_CUSTOM = "TableBgImageIsCustom";
@@ -108,8 +111,8 @@ public partial class ConfigManager : MonoBehaviour {
 
     /// <summary>3D card back default color (same as 3DTile.mat _BackColor).</summary>
     public static readonly Color DefaultCardBackColor = new Color(0.218f, 0.372f, 0.66f, 1f);
-    /// <summary>侧边为白色塑料底色；体积明暗由主光与实时阴影产生。</summary>
-    public static readonly Color DefaultSideColor = Color.white;
+    /// <summary>默认牌体采用柔和白色；体积明暗由牌体光照产生，保留已存的自定义侧色。</summary>
+    public static readonly Color DefaultSideColor = new Color(230f / 255f, 230f / 255f, 228f / 255f, 1f);
     /// <summary>背面侧边默认颜色：默认与牌背颜色同步（跟随 DefaultCardBackColor）。</summary>
     public static readonly Color DefaultBackEdgeColor = DefaultCardBackColor;
     /// <summary>3D 牌面纯色默认：与牌面兜底色相同（245, 246, 247）。</summary>
@@ -158,8 +161,6 @@ public partial class ConfigManager : MonoBehaviour {
     public bool OpeningAutoBuhuaEnabled { get; private set; }
     /// <summary>国标战术鸣牌显示「放弃」：默认关，打开后认领 force_pass。</summary>
     public bool ForcePassEnabled { get; private set; }
-    /// <summary>副露间距：0 关（默认） 1 开</summary>
-    public bool MeldSpacingEnabled { get; private set; }
     /// <summary>3D card back color (default deep blue).</summary>
     public Color CardBackColor { get; private set; } = DefaultCardBackColor;
     /// <summary>3D 牌正面侧边颜色（浅灰）。</summary>
@@ -229,6 +230,7 @@ public partial class ConfigManager : MonoBehaviour {
         gameObject.name = "GlobalConfig";
 
         // 加载用户配置
+        InitializeHandSurfaceDefaults();
         MasterVolume = PlayerPrefs.GetInt(KEY_MASTER_VOLUME, DEFAULT_VOLUME);
         MusicVolume = PlayerPrefs.GetInt(KEY_MUSIC_VOLUME, DEFAULT_VOLUME);
         SoundEffectVolume = PlayerPrefs.GetInt(KEY_SOUND_EFFECT_VOLUME, DEFAULT_VOLUME);
@@ -249,7 +251,6 @@ public partial class ConfigManager : MonoBehaviour {
         MatchSuccessSoundEnabled = PlayerPrefs.GetInt(KEY_MATCH_SUCCESS_SOUND_ENABLED, 1) == 1;
         OpeningAutoBuhuaEnabled = PlayerPrefs.GetInt(KEY_OPENING_AUTO_BUHUA_ENABLED, 1) == 1;
         ForcePassEnabled = PlayerPrefs.GetInt(KEY_FORCE_PASS_ENABLED, 0) == 1;
-        MeldSpacingEnabled = PlayerPrefs.GetInt(KEY_MELD_SPACING_ENABLED, 0) == 1;
         if (PlayerPrefs.HasKey(KEY_LEGACY_TILE_OUTLINE_PRESET)) {
             PlayerPrefs.DeleteKey(KEY_LEGACY_TILE_OUTLINE_PRESET);
             PlayerPrefs.Save();
@@ -287,6 +288,7 @@ public partial class ConfigManager : MonoBehaviour {
         ApplyCameraAntialiasingByPlatform();
         ApplyTileOutlineStyle();
         UnityAssetIdb.EnsureReady(() => {
+            HandSurfaceLibrary.EnsureReady();
             TileFaceResolver.EnsureLoaded();
             if (Desktop.Instance != null) {
                 Desktop.Instance.RefreshAppearance();
@@ -639,14 +641,46 @@ public partial class ConfigManager : MonoBehaviour {
         return (path, isCustom);
     }
 
+    private static void InitializeHandSurfaceDefaults() {
+        int version = PlayerPrefs.GetInt(KEY_HAND_SURFACE_DEFAULT_VERSION, 0);
+        if (version >= 2) return;
+        // 此入口先于其他配置加载；快捷设置的旧迁移标记在历次启动时都会保存。
+        // 旧用户未显式选择过底图时仍用经典，新安装才采用靛蓝；已有选择不覆盖。
+        bool existingUser = PlayerPrefs.HasKey(KEY_ASK_OTHER_PASS_SHORTCUT_ORDER_V2)
+            || PlayerPrefs.HasKey("Login_Username") || PlayerPrefs.HasKey(KEY_MASTER_VOLUME)
+            || PlayerPrefs.HasKey("SelectedTableClothPath") || PlayerPrefs.HasKey(KEY_STANDARD_TILE_PACK_ID)
+            || PlayerPrefs.HasKey(KEY_HAND_BG_PATH) || PlayerPrefs.HasKey(KEY_HAND_BACK_PATH)
+            || PlayerPrefs.HasKey(KEY_HAND_BG_IS_CUSTOM) || PlayerPrefs.HasKey(KEY_HAND_BACK_IS_CUSTOM)
+            || PlayerPrefs.HasKey(KEY_HAND_BACK_AUTO_FOLLOW);
+        InitializeSelection(KEY_HAND_BG_PATH, KEY_HAND_BG_IS_CUSTOM, false);
+        InitializeSelection(KEY_HAND_BACK_PATH, KEY_HAND_BACK_IS_CUSTOM, true);
+        PlayerPrefs.SetInt(KEY_HAND_SURFACE_DEFAULT_VERSION, 2);
+        PlayerPrefs.Save();
+
+        void InitializeSelection(string pathKey, string customKey, bool back) {
+            if (PlayerPrefs.HasKey(pathKey)) return;
+            bool classic = (version == 0 && existingUser) || PlayerPrefs.GetInt(customKey, 0) == 1;
+            PlayerPrefs.SetString(pathKey, classic ? "" : HandSurfaceStyles.ResourcePath(HandSurfaceStyles.DefaultIndex, back));
+            if (!PlayerPrefs.HasKey(customKey)) PlayerPrefs.SetInt(customKey, 0);
+        }
+    }
+
     public void SetSelectedHandBackground(string path, bool isCustom) {
         PlayerPrefs.SetString(KEY_HAND_BG_PATH, path ?? "");
         PlayerPrefs.SetInt(KEY_HAND_BG_IS_CUSTOM, isCustom ? 1 : 0);
         PlayerPrefs.Save();
     }
 
+    // New/reset settings follow by default; an explicit manual opt-out is still remembered.
+    public bool HandBackAutoFollow => PlayerPrefs.GetInt(KEY_HAND_BACK_AUTO_FOLLOW, 1) == 1;
+
+    public void SetHandBackAutoFollow(bool enabled) {
+        PlayerPrefs.SetInt(KEY_HAND_BACK_AUTO_FOLLOW, enabled ? 1 : 0);
+        PlayerPrefs.Save();
+    }
+
     public (string path, bool isCustom) GetSelectedHandBackground() {
-        string path = PlayerPrefs.GetString(KEY_HAND_BG_PATH, "");
+        string path = PlayerPrefs.GetString(KEY_HAND_BG_PATH, HandSurfaceStyles.ResourcePath(HandSurfaceStyles.DefaultIndex, false));
         bool isCustom = PlayerPrefs.GetInt(KEY_HAND_BG_IS_CUSTOM, 0) == 1;
         return (path, isCustom);
     }
@@ -658,7 +692,7 @@ public partial class ConfigManager : MonoBehaviour {
     }
 
     public (string path, bool isCustom) GetSelectedHandBack() {
-        string path = PlayerPrefs.GetString(KEY_HAND_BACK_PATH, "");
+        string path = PlayerPrefs.GetString(KEY_HAND_BACK_PATH, HandSurfaceStyles.ResourcePath(HandSurfaceStyles.DefaultIndex, true));
         bool isCustom = PlayerPrefs.GetInt(KEY_HAND_BACK_IS_CUSTOM, 0) == 1;
         return (path, isCustom);
     }
@@ -728,7 +762,19 @@ public partial class ConfigManager : MonoBehaviour {
     }
 
     public static string GetTitleText(int titleId) {
-        return titleDictionary.ContainsKey(titleId) ? titleDictionary[titleId] : titleDictionary[1];
+        return titleDictionary.TryGetValue(titleId, out string name) && !string.IsNullOrWhiteSpace(name)
+            ? name : DefaultTitleName;
+    }
+
+    public static void ApplyTitleCatalog(TitleDefinition[] catalog) {
+        if (catalog == null) return;
+        titleDictionary.Clear();
+        titleDictionary[1] = DefaultTitleName;
+        foreach (TitleDefinition title in catalog) {
+            if (title != null && title.title_id > 1 && title.is_enabled)
+                titleDictionary[title.title_id] = title.name ?? "";
+        }
+        GameSettings.NotifyTitleChanged(0, 1);
     }
 
     public bool UseBlankWhiteDragonFace(int tileId) {
@@ -852,12 +898,6 @@ public partial class ConfigManager : MonoBehaviour {
     public void SetForcePassEnabled(bool enabled) {
         ForcePassEnabled = enabled;
         PlayerPrefs.SetInt(KEY_FORCE_PASS_ENABLED, enabled ? 1 : 0);
-        PlayerPrefs.Save();
-    }
-
-    public void SetMeldSpacingEnabled(bool enabled) {
-        MeldSpacingEnabled = enabled;
-        PlayerPrefs.SetInt(KEY_MELD_SPACING_ENABLED, enabled ? 1 : 0);
         PlayerPrefs.Save();
     }
 

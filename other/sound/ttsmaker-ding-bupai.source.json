@@ -1,0 +1,48 @@
+{
+  "provider": "TTSMaker",
+  "generator": "https://ttsmaker.com/zh-hk",
+  "generated_on": "2026-09-30",
+  "terms_reference": "https://ttsmaker.com/copyright_and_commercial_license_terms/zh-hk",
+  "settings": {
+    "format": "mp3",
+    "speed": 1.0,
+    "volume_percent": 100,
+    "pitch": "default",
+    "background_music": false
+  },
+  "processing": "保留官网下载原始 MP3；Unity 导入设置沿用同音源的 buhua.mp3。",
+  "clips": [
+    {
+      "voice_id": 204,
+      "voice_name": "潇潇",
+      "text": "叮",
+      "purpose": "香港新章十六张叮牌（含天叮）",
+      "asset": "open_mahjong_unity/Assets/Resources/Sound/ttsmaker_204_xiaoxiao/ding.mp3",
+      "sha256": "abfc880c96d19372a7163eb455f128c9313e3e76db11416a3f0d808bddecea25"
+    },
+    {
+      "voice_id": 204,
+      "voice_name": "潇潇",
+      "text": "补牌",
+      "purpose": "虹雀补牌",
+      "asset": "open_mahjong_unity/Assets/Resources/Sound/ttsmaker_204_xiaoxiao/bupai.mp3",
+      "sha256": "ea4cd672b30697fd9aa031f045816b3efa1cd02391ae6b9765f7806195d8f661"
+    },
+    {
+      "voice_id": 1513,
+      "voice_name": "球球",
+      "text": "叮",
+      "purpose": "香港新章十六张叮牌（含天叮）",
+      "asset": "open_mahjong_unity/Assets/Resources/Sound/ttsmaker_1513_qiuqiu/ding.mp3",
+      "sha256": "01996fd6edcdc29c03bb1c516488c06665a3edde3491a3d02480fc824ad1c20a"
+    },
+    {
+      "voice_id": 1513,
+      "voice_name": "球球",
+      "text": "补牌",
+      "purpose": "虹雀补牌",
+      "asset": "open_mahjong_unity/Assets/Resources/Sound/ttsmaker_1513_qiuqiu/bupai.mp3",
+      "sha256": "e84ab0c6972341f6331cae991d7f8ff23a7d6ff3941beca2469866d117c6794c"
+    }
+  ]
+}

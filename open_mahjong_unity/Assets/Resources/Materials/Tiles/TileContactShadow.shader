@@ -2,8 +2,8 @@ Shader "Mahjong/Tile Contact Shadow"
 {
     Properties
     {
-        [PerRendererData] _ContactShape("Half size / radius / feather", Vector) = (6, 7.98, 0.9, 1.02)
-        [PerRendererData] _ContactOpacity("Opacity", Vector) = (0.36, 0, 0, 0)
+        [PerRendererData] _ContactShape("Half size / radius / feather", Vector) = (6, 7.98, 0.9, 3.12)
+        [PerRendererData] _ContactOpacity("Opacity", Vector) = (0.90, 0, 0, 0)
     }
     SubShader
     {
@@ -48,7 +48,10 @@ Shader "Mahjong/Tile Contact Shadow"
                 float4 shape = UNITY_ACCESS_INSTANCED_PROP(Contact, _ContactShape);
                 float2 q = abs(input.position) - shape.xy + shape.zz;
                 float distance = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - shape.z;
-                float alpha = (1.0 - smoothstep(-shape.w, shape.w, distance))
+                // Keep the middle of the feather visible on textured tables.
+                // Smooth both ends so the stronger shadow has no hard outer rim.
+                float falloff = saturate(1.0 - distance / shape.w);
+                float alpha = falloff * falloff * (3.0 - 2.0 * falloff)
                     * UNITY_ACCESS_INSTANCED_PROP(Contact, _ContactOpacity).x;
                 return half4(0, 0, 0, alpha);
             }

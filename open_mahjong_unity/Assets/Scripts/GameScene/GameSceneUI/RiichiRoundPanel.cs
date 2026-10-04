@@ -61,6 +61,7 @@ public class RiichiRoundPanel : MonoBehaviour {
             if (doraSlots[i] == null) continue;
             int tileId = (doraIndicators != null && i < doraIndicators.Count) ? doraIndicators[i] : TileBackId;
             doraSlots[i].SetTileOnlyImage(tileId);
+            TileFaceFit.FitRowHeight(doraSlots[i].transform.parent);
         }
     }
 }

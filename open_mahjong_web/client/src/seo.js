@@ -159,6 +159,12 @@ export const SEO_PAGES = [
     keywords: '麻将牌谱分析,牌谱下载,对局统计',
   },
   {
+    path: '/player-data/fun',
+    title: '麻将其他数据 - Salasasa',
+    description: '查看每周天梯上分、下分榜与平台精选牌谱，北京时间每天 04:00 刷新。',
+    keywords: '麻将其他数据,麻将上分榜,麻将经典牌谱',
+  },
+  {
     path: '/game-unity',
     title: '麻将在线对战平台：国标、立直、青雀、川麻 - Salasasa',
     description: '进入 Salasasa 对战平台，支持国标、立直、青雀、川麻、长沙麻将，网页/PC/手机三端互通。',
@@ -196,6 +202,7 @@ export const LIBRARY_RULE_PATHS = [
   'changsha',
   'taiwan',
   'jiandan',
+  'zhongyong',
   'shiyangjin',
   'guobiao-kobayashi',
   'guobiao-kshen',
@@ -224,6 +231,7 @@ export const PRERENDER_PATHS = [
   '/player-data',
   '/player-data/platform',
   '/player-data/analysis',
+  '/player-data/fun',
   '/game-unity',
   // 以下为 noindex 壳页，避免搜索引擎通过 SPA fallback 收录到错误的首页 TDK
   '/forgot-password',

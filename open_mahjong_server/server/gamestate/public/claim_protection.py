@@ -1,4 +1,4 @@
-"""鸣牌保护（国标 / 青雀 / 四川等规则可选启用）。
+"""鸣牌保护（支持的规则中，纯真人房可选启用；含机器人时停用）。
 
 目的：可被鸣牌的出牌，对「不能鸣牌的家」延迟广播出牌，隐藏「是否有人能鸣牌」这一信息。
 玩家最多只能推断出「有人可以鸣牌」，无法得知是谁（因为只有能鸣牌者自己会收到询问）。
@@ -23,6 +23,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass, field
 import logging
 import time
 from typing import Dict, Optional
@@ -42,8 +43,35 @@ REAL_MELD_ACTIONS = frozenset({"chi_left", "chi_mid", "chi_right", "peng", "gang
 HU_CLAIM_ACTIONS = frozenset({"hu", "hu_first", "hu_second", "hu_third"})
 
 
+# Only these engines implement the discard visibility protocol.
+CLAIM_PROTECTION_RULES = frozenset({"guobiao", "qingque", "changsha", "sichuan", "zhongyong", "nanque", "jiandan", "riichi"})
+
+
+def supports_claim_protection(rule) -> bool:
+    return rule in CLAIM_PROTECTION_RULES
+
+
+def has_bot_players(players) -> bool:
+    """Reserved bot IDs are 0..9; empty seats (-1) and offline humans are not bots."""
+    return any(
+        isinstance(uid, int) and 0 <= uid < 10
+        for player in (players or ())
+        for uid in (player if isinstance(player, int) else getattr(player, "user_id", None),)
+    )
+
+
+def room_claim_protection_enabled(room, rule=None) -> bool:
+    """Derive effective settings without overwriting the lobby's selected switch."""
+    rule = rule or room.get("room_rule")
+    return (supports_claim_protection(rule)
+            and bool(room.get("claim_protection", rule != "riichi"))
+            and not has_bot_players(room.get("player_list"))
+            and not has_bot_players(room.get("seat_list")))
+
+
 def claim_protection_enabled(game_state) -> bool:
-    return bool(getattr(game_state, "claim_protection", False))
+    return (bool(getattr(game_state, "claim_protection", False))
+            and not has_bot_players(getattr(game_state, "player_list", ())))
 
 
 def get_protect_delay(game_state) -> float:
@@ -94,6 +122,7 @@ def init_claim_protection_state(game_state) -> None:
     game_state._cp_cut_flush_time = None
     game_state._cp_timer_task: Optional[asyncio.Task] = None
     game_state._cp_need_post_gap = [False, False, False, False]
+    game_state._cp_discard_delivery = None
     init_outbound_pipes(game_state)
 
 
@@ -231,6 +260,12 @@ async def flush_protected_cut(game_state, send_fn) -> bool:
     _cancel_timer(game_state)
 
     sent: set[int] = set()
+    duplicate_flush_done = None
+    if getattr(game_state, "duplicate_key", None):
+        # A duplicate terminal broadcast must wait for all viewers of this
+        # flush, including viewers whose send has not entered their pipe yet.
+        duplicate_flush_done = asyncio.get_running_loop().create_future()
+        game_state._duplicate_claim_flush = (asyncio.current_task(), duplicate_flush_done)
     try:
         for viewer_index, payload in pending.items():
             out = dict(payload)
@@ -255,6 +290,9 @@ async def flush_protected_cut(game_state, send_fn) -> bool:
             game_state._cp_cut_flushed = False
             game_state._cp_cut_flush_time = None
         raise
+    finally:
+        if duplicate_flush_done is not None and not duplicate_flush_done.done():
+            duplicate_flush_done.set_result(None)
 
     unsent = {idx: dict(pl) for idx, pl in pending.items() if idx not in sent}
     if unsent:
@@ -278,3 +316,56 @@ def end_claim_protection_interval(game_state) -> None:
     _cancel_timer(game_state)
     game_state._cp_active = False
     game_state._cp_pending_cut = {}
+
+
+@dataclass
+class DiscardDelivery:
+    """Current human discard's FIFO slots and actual delivery times."""
+    tick: int
+    deliveries: dict = field(default_factory=dict)
+    pending: dict = field(default_factory=dict)
+
+
+def begin_discard(state, action_player):
+    state._cp_discard_delivery = (
+        DiscardDelivery(state.server_action_tick) if claim_protection_enabled(state) else None)
+
+
+def stage_protected_cut(state, viewer, payload, deliver):
+    """Reserve the hidden cut's FIFO slot before dora, tags, or other metadata."""
+    from .outbound_pipe import DeliveryMark, schedule_viewer_send
+    record = getattr(state, "_cp_discard_delivery", None)
+    if record is None:
+        return
+    released = record.pending[viewer] = asyncio.Event()
+    mark = record.deliveries[viewer] = DeliveryMark()
+    async def gated():
+        await released.wait()
+        await deliver()
+    schedule_viewer_send(state, viewer, gated,
+                         delay_before=take_post_meld_gap_delay(state, viewer), mark=mark)
+
+
+async def send_cut(state, viewer, payload, deliver):
+    from .outbound_pipe import DeliveryMark, send_to_viewer
+    record = getattr(state, "_cp_discard_delivery", None)
+    if record is None or record.tick != payload.get("action_tick"):
+        return False
+    if viewer in record.pending:
+        record.pending[viewer].set()
+    else:
+        mark = record.deliveries[viewer] = DeliveryMark()
+        await send_to_viewer(state, viewer, deliver,
+                             delay_before=take_post_meld_gap_delay(state, viewer), mark=mark)
+    return True
+
+
+def schedule_meld(state, viewer, deliver, *, protected):
+    from .outbound_pipe import schedule_viewer_send
+    record = getattr(state, "_cp_discard_delivery", None)
+    if not protected or record is None or viewer not in record.deliveries:
+        return False
+    schedule_viewer_send(state, viewer, deliver, after=record.deliveries[viewer],
+                         min_gap=get_meld_followup_gap(state),
+                         delay_before=take_post_meld_gap_delay(state, viewer))
+    return True

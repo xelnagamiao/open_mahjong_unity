@@ -79,7 +79,7 @@ RANK_AVG_LOSS_PT = {
 # 场次准入段位等级（索引值，越大段位越高）
 TIER_MIN_RANK_INDEX = {
     "beginner": 0,       # 所有人
-    "intermediate": 8,   # 2级（index 8）
+    "intermediate": 9,   # 1级（index 9）
     "advanced": 13,      # 四段（index 13）
     "mcrpl": 0,          # MCRPL 由 is_mcrpl_qualified 控制，不用段位限制
 }
@@ -211,6 +211,9 @@ def parse_queue_type(queue_type: str) -> Optional[Tuple[str, str]]:
 
 def queue_type_to_game_round(queue_type: str) -> int:
     """队列类型转游戏局数"""
+    from .rating_rules import QUEUES
+    if queue_type in QUEUES:
+        return QUEUES[queue_type].rounds
     parsed = parse_queue_type(queue_type)
     if not parsed:
         return 4
@@ -226,6 +229,12 @@ def queue_type_to_match_type(queue_type: str) -> str:
 
 def queue_type_to_display_name(queue_type: str) -> str:
     """队列类型转显示名"""
+    from .rating_rules import QUEUES, RULES
+    spec = QUEUES.get(queue_type)
+    if spec and spec.rule != 'guobiao':
+        tier = {'beginner':'初级场','intermediate':'中级场','advanced':'高级场','elo':'Elo 匹配'}[spec.tier]
+        mode = {'dongfeng':'东风战','banzhuang':'半庄战','quanzhuang':'全庄战','xuezhan':'血战到底'}[spec.mode]
+        return f'{RULES[spec.rule]} · {tier} · {mode}'
     parsed = parse_queue_type(queue_type)
     if not parsed:
         return queue_type
@@ -237,12 +246,25 @@ def queue_type_to_display_name(queue_type: str) -> str:
 
 def queue_type_to_room_config(queue_type: str) -> dict:
     """队列类型转房间配置"""
+    from .rating_rules import QUEUES
+    spec = QUEUES.get(queue_type)
+    if spec and spec.rule != 'guobiao':
+        config = queue_type_to_room_config('beginner_dongfeng')
+        config.update(room_rule=spec.rule, sub_rule=f'{spec.rule}/standard', game_round=spec.rounds,
+                      match_tier=spec.tier, hepai_limit=0 if spec.rule == 'sichuan' else 1, open_cuohe=False,
+                      step_timer=8 if spec.tier=='intermediate' else 5,
+                      tactical_call=False, tips=spec.tier in ('beginner','elo'), pointer_tips=True)
+        if spec.rule == 'riichi':
+            from ..game_calculation.riichi.rule_config import preset_room_config
+            config.update(preset_room_config('tenhou'))
+            config.update(game_round=spec.rounds, tips=False, count_tips=spec.tier == 'beginner')
+        return config
     parsed = parse_queue_type(queue_type)
     if not parsed:
         return {}
     tier, game_type = parsed
     game_round = {"dongfeng": 1, "banzhuang": 2, "quanzhuang": 4}.get(game_type, 4)
-    # 初级场有提示无错和，中级场及以上无提示有错和
+    # 国标初级场开启番数提示、无错和；中级场及以上无提示、有错和。
     tips = (tier == "beginner")
     open_cuohe = (tier != "beginner")
     # 初级场及以上启用战术鸣牌；鸣牌保护暂时默认开启（与战术鸣牌独立）
@@ -252,6 +274,8 @@ def queue_type_to_room_config(queue_type: str) -> dict:
     return {
         "game_round": game_round,
         "tips": tips,
+        "count_tips": False,
+        "pointer_tips": tier != "mcrpl",
         "open_cuohe": open_cuohe,
         "show_moqie_hint": False,
         "hepai_limit": 8,

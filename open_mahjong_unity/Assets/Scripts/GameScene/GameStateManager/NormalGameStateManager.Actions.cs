@@ -9,7 +9,8 @@ using UnityEngine;
 /// </summary>
 public partial class NormalGameStateManager {
     // 询问手牌操作 手牌操作包括 切牌 补花 胡 暗杠 加杠
-    public void AskHandAction(int remaining_time, int playerIndex, string[] action_list, string dealTileType = null) {
+    public void AskHandAction(int remaining_time, int playerIndex, string[] action_list, string dealTileType = null,
+                              int stepTimeOverride = -1) {
         string GetCardPlayer = indexToPosition[playerIndex];
         // 如果行动者是自己
         if (playerIndex == selfIndex){
@@ -17,23 +18,23 @@ public partial class NormalGameStateManager {
             // 存储全部可用行动；riichi_cut 的显示名称由当前规则决定。
             string[] AllowHandActionCheck = new string[] {"cut", "buhua", "hu_self", "hu_flower", "initial_hu", "sea_bottom", "buzhang", "angang", "jiagang", "jiuzhongjiupai", "riichi_cut", "pass"};
             foreach (string action in action_list){
-                if (AllowHandActionCheck.Contains(action)){
+                if (AllowHandActionCheck.Contains(action) || ActionWords.LabelOf(action) != null){
                     allowActionList.Add(action);
                 }
             }
         }
         // 切换行动者
-        TurnClock.Current.BeginHandAsk(GetCardPlayer, remaining_time, playerIndex, dealTileType);
+        TurnClock.Current.BeginHandAsk(GetCardPlayer, remaining_time, playerIndex, dealTileType, stepTimeOverride);
     }
 
     // 询问鸣牌操作 鸣牌操作包括 吃 碰 杠 胡 跳过
-    public void AskMingPaiAction(int remaining_time,string[] action_list,int cut_tile, Dictionary<string, int[][]> chi_candidates = null, bool isTacticalRecheck = false){
+    public void AskMingPaiAction(int remaining_time,string[] action_list,int cut_tile, Dictionary<string, int[][]> chi_candidates = null, bool isTacticalRecheck = false, int stepTimeOverride = -1){
         chiCandidates = chi_candidates ?? new Dictionary<string, int[][]>();
         IsQiangGangAsk = pendingAskFromJiagang;
         currentAskCutTileId = cut_tile;
         if (action_list.Length > 0){
             allowActionList = BuildMingPaiAllowActionList(action_list);
-            TurnClock.Current.BeginClaimAsk(remaining_time, isTacticalRecheck);
+            TurnClock.Current.BeginClaimAsk(remaining_time, isTacticalRecheck, stepTimeOverride);
         }
         else {
             // 空询问不弹按钮，同时收掉上一轮遗留的光圈。

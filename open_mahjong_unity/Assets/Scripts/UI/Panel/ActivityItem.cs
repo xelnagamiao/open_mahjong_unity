@@ -8,6 +8,7 @@ using TMPro;
 public class ActivityItem : MonoBehaviour {
     [SerializeField] private RawImage coverImage;
     [SerializeField] private TMP_Text titleText;
+    [SerializeField] private TMP_Text descText;
     [SerializeField] private TMP_Text placeholderText;
     [SerializeField] private Button button;
     [SerializeField] private GameObject badgeRoot;
@@ -28,6 +29,7 @@ public class ActivityItem : MonoBehaviour {
 
     private void Awake() {
         CacheChrome();
+        SetDescription(null);
         ApplyBadgeColor();
         RefreshBadge();
     }
@@ -57,6 +59,7 @@ public class ActivityItem : MonoBehaviour {
                 ? entry.title
                 : "未命名活动";
         }
+        SetDescription(entry != null ? entry.description : null);
         RefreshBadge();
         if (_button == null) return;
         _button.onClick.RemoveAllListeners();
@@ -76,6 +79,9 @@ public class ActivityItem : MonoBehaviour {
         }
         if (titleText != null) {
             titleText.color = _selected ? TitleSelected : TitleNormal;
+        }
+        if (descText != null) {
+            descText.color = _selected ? TitleSelected : new Color(0.78f, 0.8f, 0.84f, 1f);
         }
     }
 
@@ -98,7 +104,18 @@ public class ActivityItem : MonoBehaviour {
         if (badgeImage != null) badgeImage.color = badgeColor;
     }
 
+    private void SetDescription(string description) {
+        if (descText == null) return;
+        descText.richText = false;
+        descText.text = string.IsNullOrWhiteSpace(description) ? "" : description.Trim();
+        descText.gameObject.SetActive(descText.text.Length > 0);
+    }
+
     private void CacheChrome() {
+        if (descText == null) {
+            Transform desc = transform.Find("Desc");
+            if (desc != null) descText = desc.GetComponent<TMP_Text>();
+        }
         if (_background == null) _background = GetComponent<Image>();
         if (_button == null) _button = button != null ? button : GetComponent<Button>();
         if (_button == null) return;

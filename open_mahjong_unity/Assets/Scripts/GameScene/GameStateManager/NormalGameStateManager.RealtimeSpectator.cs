@@ -25,7 +25,10 @@ public partial class NormalGameStateManager {
         RealtimeSpectatorHostUserId = 0;
         PlayerSession.Current.SetGamestateId("");
 
-        ExitButtonManager.Instance.HideAll();
+        // 只在大厅登录过时，对局画布及其退出按钮尚未初始化。
+        if (ExitButtonManager.Instance != null) {
+            ExitButtonManager.Instance.HideAll();
+        }
 
         UnsubscribeRealtimeEndEvents();
     }

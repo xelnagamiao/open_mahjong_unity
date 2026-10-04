@@ -98,8 +98,8 @@ def schedule_offline_auto_on_disconnect(game_state, user_id: int) -> None:
 
     _mark_offline_first_cut_protection(player)
 
-    non_ai = [p for p in game_state.player_list if p.user_id >= 10]
-    if non_ai and all("offline" in p.tag_list for p in non_ai):
+    from ..lifecycle import all_humans_offline, start_owned_task
+    if all_humans_offline(game_state):
         return
 
     player_index = player.player_index
@@ -108,7 +108,7 @@ def schedule_offline_auto_on_disconnect(game_state, user_id: int) -> None:
         return
 
     if getattr(game_state, "game_status", None) == "waiting_dingque" and "dingque" in action_list:
-        asyncio.create_task(_auto_dingque_on_disconnect(game_state, player_index))
+        start_owned_task(game_state, _auto_dingque_on_disconnect(game_state, player_index))
         return
 
     status = bot_ask_hand_game_status(game_state, player_index)
@@ -121,10 +121,10 @@ def schedule_offline_auto_on_disconnect(game_state, user_id: int) -> None:
     if getattr(game_state, "room_rule", None) == "changsha":
         from ..ai.auto_cut_ai import auto_cut_action
 
-        asyncio.create_task(auto_cut_action(game_state, player_index, action_list, status))
+        start_owned_task(game_state, auto_cut_action(game_state, player_index, action_list, status))
         return
 
-    asyncio.create_task(offline_auto_action(game_state, player_index, action_list, status))
+    start_owned_task(game_state, offline_auto_action(game_state, player_index, action_list, status))
 
 
 async def offline_auto_action(game_state, player_index: int, action_list: list, game_status: str):

@@ -439,10 +439,9 @@ public sealed class HongqueGameState : GameStateBase {
                 GameCanvas.Instance.ChangeHandCards("ReSetHandCards", 0, null, null);
             }
             if (isSupplement && gsm.indexToPosition.TryGetValue(actionEvent.player, out string supplementPosition)) {
-                // 虹雀补牌不移出一张花牌，因此不能伪造 buhua 状态动作；只复用标准补花的
-                // 字样、角色语音和物理音，再用标准补花后摸牌动作加入新张。
+                // 补牌不移出花牌：使用专属报声，再由静音的补牌摸牌动作加入新张。
                 GameCanvas.Instance.ShowActionDisplay(supplementPosition, HongqueActionWords.Supplement, RuleId);
-                SoundManager.Instance.PlayActionSound(supplementPosition, "buhua");
+                SoundManager.Instance.PlayActionSound(supplementPosition, HongqueActionWords.Supplement);
                 SoundManager.Instance.PlayPhysicsSound("buhua");
             }
             gsm.DoAction(
@@ -874,6 +873,7 @@ public sealed class HongqueGameState : GameStateBase {
                 ["original_player_index"] = player.index,
             };
         }
+        PlayerSession.Current.SetGamestateId("");
         EndGamePanel.Instance?.ShowGameEndPanel("", "", "", finalData);
     }
 
@@ -974,6 +974,7 @@ public sealed class HongqueGameState : GameStateBase {
             score = source.score,
             title_used = source.title_used > 0 ? source.title_used : 1,
             profile_used = source.profile_used > 0 ? source.profile_used : 1,
+            avatar_frame_used = source.avatar_frame_used,
             character_used = source.character_used > 0 ? source.character_used : 1,
             voice_used = source.voice_used > 0 ? source.voice_used : 1,
             huapai_list = Array.Empty<int>(),

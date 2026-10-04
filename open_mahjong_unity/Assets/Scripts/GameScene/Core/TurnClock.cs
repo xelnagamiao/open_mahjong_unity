@@ -42,6 +42,12 @@ public sealed class TurnClock {
     // ---- 服务端随询问下发的切牌约束（每次 ask_hand_action 覆盖，窗口关闭时清空）----
     /// <summary>可立直切牌候选 {tile_id: [waiting_tile_id, ...]}（日麻）。</summary>
     public Dictionary<int, int[]> RiichiCandidateCuts = new Dictionary<int, int[]>();
+    /// <summary>本次服务器明确允许的杠牌目标；null 保持原有规则的本地候选行为。</summary>
+    public Dictionary<string, int[]> KongCandidates;
+    public bool IsKongCandidate(string action, int tile) {
+        return KongCandidates == null || (KongCandidates.TryGetValue(action, out int[] targets)
+            && targets != null && System.Array.IndexOf(targets, tile) >= 0);
+    }
     /// <summary>本巡禁切牌（食替：吃来源 + 两面搭子的筋）。</summary>
     public HashSet<int> ForbiddenCutTiles = new HashSet<int>();
     /// <summary>强制切牌：只能打这些摸入牌（长沙海底 / 开杠补张）。</summary>
@@ -56,6 +62,7 @@ public sealed class TurnClock {
 
     /// <summary>窗口关闭：清约束。超时只清强制切（候选/禁切留待下一次 ask 覆盖）。</summary>
     public void ClearCutConstraints(AskCloseReason reason) {
+        KongCandidates = null;
         ForcedCutTiles.Clear();
         if (reason != AskCloseReason.TimedOut) {
             RiichiCandidateCuts.Clear();

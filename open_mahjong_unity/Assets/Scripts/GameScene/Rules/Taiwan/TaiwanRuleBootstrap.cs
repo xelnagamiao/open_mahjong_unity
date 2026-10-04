@@ -10,6 +10,7 @@ internal static class TaiwanRuleBootstrap {
             LobbyOrder = 5,
             LobbySubRules = TaiwanLobby.SubRules,
             CreateRoomDefaults = TaiwanLobby.Defaults(),
+            DefaultHepaiLimit = 0,
             LobbyHasDetailedConfig = true,
             GameStateFactory = () => new TaiwanGameState(),
             Tingpai = TaiwanTips.Tingpai,
@@ -20,6 +21,8 @@ internal static class TaiwanRuleBootstrap {
             SettlementTotal = TaiwanFanText.SettlementTotal,
             MidGameCuoheContinues = true,
             SupportsRobbedAddedKongSource = true,
+            ReplacementFromTailEnd = true,
+            PublicReadyStateReplay = true,
             HuPresentationAction = TaiwanExternal.ResolveHuPresentationAction,
             ActionCaption = TaiwanActionCaption,
         });

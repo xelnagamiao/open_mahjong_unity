@@ -6,7 +6,7 @@ public class TableClothPanel : TableSurfacePanel
     public GameObject tableclothPrefab;
     public Transform contentParent;
     [SerializeField] public Button deleteButton;
-    private TableSeamSelector seamSelector;
+    [SerializeField] private TableSeamSelector seamSelector;
 
     protected override bool IsCloth => true;
     protected override GameObject ItemPrefab => tableclothPrefab;
@@ -23,8 +23,8 @@ public class TableClothPanel : TableSurfacePanel
     {
         if (tableclothPrefab == null || contentParent == null) return;
         if (seamSelector == null)
-            seamSelector = GetComponent<TableSeamSelector>() ?? gameObject.AddComponent<TableSeamSelector>();
-        seamSelector.Initialize(this);
+            seamSelector = GetComponent<TableSeamSelector>();
+        seamSelector?.Initialize(this);
     }
 
     public void LoadTablecloths()

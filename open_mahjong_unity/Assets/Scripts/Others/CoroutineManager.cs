@@ -9,7 +9,6 @@ using UnityEngine;
 public static class CoroutineKeys {
     public const string MatchQueueTimer = "match.queue_timer";
     public const string MatchFoundedCountdown = "match.founded_countdown";
-    public const string MatchQueueingPanelDelay = "match.queueing_panel_delay";
     public const string CommitmentSaltHide = "ui.commitment_salt_hide";
     public const string BoardScoreDifference = "ui.board_score_difference";
     public const string BoardCurrentFlash = "ui.board_current_flash";

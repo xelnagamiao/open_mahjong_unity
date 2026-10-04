@@ -2,6 +2,7 @@ from ...response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_
 from typing import List, Dict, Optional
 import logging
 import asyncio
+from ..public.lifecycle import start_owned_task
 import time
 from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.offline import offline_auto_action
@@ -10,6 +11,7 @@ from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
 from ..public.hand_slot_utils import bot_ask_hand_game_status
 from ..public.hand_draw_source import ensure_hand_draw_source_round, get_hand_draw_source, update_hand_draw_source
 from ..public.game_record_manager import local_record_detail_for_end
+from ..public.ask_timing import reconnect_clock
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +22,9 @@ def _build_game_start_payload_for_viewer(self, viewer_index: int) -> dict:
     base_game_info = {
         'room_id': self.room_id, # 房间ID
         'gamestate_id': self.gamestate_id, # 游戏状态ID
-        'tips': self.tips, # 是否提示
+        "tips": self.tips, # 是否提示
+        "count_tips": getattr(self, "count_tips", False),
+        "pointer_tips": getattr(self, "pointer_tips", True),
         'current_player_index': self.current_player_index, # 当前轮到的玩家索引
         "action_tick": self.server_action_tick, # 操作帧
         'max_round': self.max_round, # 最大局数
@@ -61,6 +65,7 @@ def _build_game_start_payload_for_viewer(self, viewer_index: int) -> dict:
             'score': player.score, # 分数
             "title_used": player.title_used, # 称号ID
             'profile_used': player.profile_used, # 使用的头像ID
+            "avatar_frame_used": getattr(player, "avatar_frame_used", 0),
             'character_used': player.character_used, # 使用的角色ID
             'voice_used': player.voice_used, # 使用的音色ID
             'score_history': player.score_history, # 分数历史变化列表
@@ -149,17 +154,17 @@ async def broadcast_ask_hand_action(self):
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 if self.action_dict.get(i, []):
-                    asyncio.create_task(offline_auto_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
+                    start_owned_task(self, offline_auto_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
                 continue
             
             # 如果是机器人，启动自动操作并跳过广播
             if current_player.user_id == 0:
                 if self.action_dict.get(i, []):
-                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
+                    start_owned_task(self, auto_cut_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
                 continue
             elif current_player.user_id == 2:
                 if self.action_dict.get(i, []):
-                    asyncio.create_task(smart_bot_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
+                    start_owned_task(self, smart_bot_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
                 continue
             
             if i == self.current_player_index:
@@ -226,17 +231,17 @@ async def broadcast_ask_other_action(self):
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 if self.action_dict.get(i, []):
-                    asyncio.create_task(offline_auto_action(self, i, self.action_dict[i], self.game_status))
+                    start_owned_task(self, offline_auto_action(self, i, self.action_dict[i], self.game_status))
                 continue
             
             # 如果是机器人，启动自动操作并跳过广播
             if current_player.user_id == 0:
                 if self.action_dict.get(i, []):
-                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], self.game_status))
+                    start_owned_task(self, auto_cut_action(self, i, self.action_dict[i], self.game_status))
                 continue
             elif current_player.user_id == 2:
                 if self.action_dict.get(i, []):
-                    asyncio.create_task(smart_bot_action(self, i, self.action_dict[i], self.game_status))
+                    start_owned_task(self, smart_bot_action(self, i, self.action_dict[i], self.game_status))
                 continue
             
             if self.action_dict[i] != []:
@@ -293,13 +298,9 @@ async def broadcast_ask_other_action(self):
             self.spectator_manager.record_ask_other(player_action_map, cut_tile)
 
 
-def _reconnect_remaining_time(self, player) -> int:
-    """重连补发时按「当时剩余 - 已过时间」重算剩余时间，与观战独立。"""
-    t0 = getattr(self, "_ask_broadcast_time", None)
-    if t0 is None:
-        return player.remaining_time
-    elapsed = max(0, time.time() - t0)
-    return max(0, player.remaining_time - int(elapsed))
+def _reconnect_clock(self, player):
+    """重连补发：(剩余局时, 剩余步时)。"""
+    return reconnect_clock(self, player)
 
 
 async def reconnected_send_pending_ask_for_viewer(
@@ -314,7 +315,7 @@ async def reconnected_send_pending_ask_for_viewer(
         return
     player_conn = self.game_server.user_id_to_connection[connection_user_id]
     player = self.player_list[view_player_index]
-    remaining_sent = _reconnect_remaining_time(self, player)
+    remaining_sent, step_sent = _reconnect_clock(self, player)
     if self.game_status == "waiting_hand_action":
         if view_player_index == self.current_player_index:
             response = Response(
@@ -323,6 +324,7 @@ async def reconnected_send_pending_ask_for_viewer(
                 message="发牌，并询问手牌操作",
                 ask_hand_action_info=Ask_hand_action_info(
                     remaining_time=remaining_sent,
+                    step_remaining=step_sent,
                     player_index=self.current_player_index,
                     remain_tiles=max(0, len(self.tiles_list) - self.dead_wall_count),
                     action_list=self.action_dict.get(view_player_index, []),
@@ -341,6 +343,7 @@ async def reconnected_send_pending_ask_for_viewer(
                 message="询问操作",
                 ask_other_action_info=Ask_other_action_info(
                     remaining_time=remaining_sent,
+                    step_remaining=step_sent,
                     action_list=self.action_dict[view_player_index],
                     cut_tile=cut_tile,
                     action_tick=self.server_action_tick,

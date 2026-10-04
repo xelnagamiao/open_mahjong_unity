@@ -23,13 +23,13 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
         // 这里若清空缓存会把刚算好的提示抹掉。
         if (RuleRegistry.Current != null && RuleRegistry.Current.TipsProvidedByGameState) return;
         HashSet<int> waitingTiles = RuleTips.ComputeWaiting(RuleRegistry.Current, new TingpaiQuery {
+            SubRule = GameSession.Current.SubRule,
             Hand = selfHandTiles,
             Melds = combinationTiles,
             DetailedConfig = GameSession.Current.DetailedConfig,
             ExcludedSuit = RuleRegistry.ActiveGameState?.ExcludedSuit ?? 0,
         });
         // 如果听牌列表不为空，则显示提示
-        TipsContainer.Instance.UpdateRyuukyokuTenpaiChoice(waitingTiles);
         if (waitingTiles.Count > 0){
             var waitingList = waitingTiles.ToList();
             gameObject.SetActive(true);

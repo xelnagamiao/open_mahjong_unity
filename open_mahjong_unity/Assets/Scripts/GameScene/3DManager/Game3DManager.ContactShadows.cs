@@ -2,6 +2,7 @@ using UnityEngine;
 
 public partial class Game3DManager {
     private void OnEnable() {
+        RefreshTileLightingFrame();
         TileContactShadow.RegisterSurface(gameObject.scene, this, TryGetTileContactSurface);
     }
 

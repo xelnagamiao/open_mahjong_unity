@@ -18,50 +18,58 @@ public class MatchDescribePanel : MonoBehaviour {
     [SerializeField] private TMP_Text titleText;
     [SerializeField] private TMP_Text contentText;
     [SerializeField] private Button closeButton;
+    [SerializeField] private ScrollRect scrollView;
 
     private static readonly Dictionary<string, DescribeData> DescribeMap = new Dictionary<string, DescribeData> {
         { "beginner_dongfeng", new DescribeData("段位说明：  初级场-东风战",
-         "国标麻将：初级场\n入场门槛：无\n场得pt：30*0.49\n场失pt：依照段位*0.49\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：有提示 无错和 战术鸣牌\n时间限制：20+5") },
+         "国标麻将：初级场\n入场门槛：无\n场得pt：30*0.49\n场失pt：依照段位*0.49\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：番数提示 无错和 战术鸣牌\n时间限制：20+5") },
         { "beginner_banzhuang", new DescribeData("段位说明：  初级场-半庄战",
-         "国标麻将：初级场\n入场门槛：无\n场得pt：30*0.7\n场失pt：依照段位*0.7\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：有提示 无错和 战术鸣牌\n时间限制：20+5") },
+         "国标麻将：初级场\n入场门槛：无\n场得pt：30*0.7\n场失pt：依照段位*0.7\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：番数提示 无错和 战术鸣牌\n时间限制：20+5") },
         { "beginner_quanzhuang", new DescribeData("段位说明：  初级场-全庄战",
-         "国标麻将：初级场\n入场门槛：无\n场得pt：30\n场失pt：依照段位\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：有提示 无错和 战术鸣牌\n时间限制：20+5") },
+         "国标麻将：初级场\n入场门槛：无\n场得pt：30\n场失pt：依照段位\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：番数提示 无错和 战术鸣牌\n时间限制：20+5") },
         { "intermediate_dongfeng", new DescribeData("段位说明：  中级场-东风战",
-         "国标麻将：中级场\n入场门槛：段位2级及以上\n场得pt：65*0.49\n场失pt：依照段位*0.49\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 错和 战术鸣牌\n时间限制：20+8") },
+         "国标麻将：中级场\n入场门槛：段位1级及以上\n场得pt：65*0.49\n场失pt：依照段位*0.49\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 错和 战术鸣牌\n时间限制：20+8") },
         { "intermediate_banzhuang", new DescribeData("段位说明：  中级场-半庄战",
-         "国标麻将：中级场\n入场门槛：段位2级及以上\n场得pt：65*0.7\n场失pt：依照段位*0.7\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 错和 战术鸣牌\n时间限制：20+8") },
+         "国标麻将：中级场\n入场门槛：段位1级及以上\n场得pt：65*0.7\n场失pt：依照段位*0.7\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 错和 战术鸣牌\n时间限制：20+8") },
         { "intermediate_quanzhuang", new DescribeData("段位说明：  中级场-全庄战",
-         "国标麻将：中级场\n入场门槛：段位2级及以上\n场得pt：65\n场失pt：依照段位\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 错和 战术鸣牌\n时间限制：20+8") },
+         "国标麻将：中级场\n入场门槛：段位1级及以上\n场得pt：65\n场失pt：依照段位\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 错和 战术鸣牌\n时间限制：20+8") },
         { "advanced_dongfeng", new DescribeData("段位说明：  高级场-东风战",
-         "国标麻将：高级场\n入场门槛：段位四段及以上\n场得pt：105*0.49\n场失pt：依照段位*0.49\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5") },
+         "国标麻将：高级场\n入场门槛：段位四段及以上\n场得pt：105*0.49\n场失pt：依照段位*0.49\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 错和 战术鸣牌\n时间限制：20+5") },
         { "advanced_banzhuang", new DescribeData("段位说明：  高级场-半庄战",
-         "国标麻将：高级场\n入场门槛：段位四段及以上\n场得pt：105*0.7\n场失pt：依照段位*0.7\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5") },
+         "国标麻将：高级场\n入场门槛：段位四段及以上\n场得pt：105*0.7\n场失pt：依照段位*0.7\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 错和 战术鸣牌\n时间限制：20+5") },
         { "advanced_quanzhuang", new DescribeData("段位说明：  高级场-全庄战",
-        "国标麻将：高级场\n入场门槛：段位四段及以上\n场得pt：105\n场失pt：依照段位\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5") },
+        "国标麻将：高级场\n入场门槛：段位四段及以上\n场得pt：105\n场失pt：依照段位\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 错和 战术鸣牌\n时间限制：20+5") },
         { "mcrpl_dongfeng", new DescribeData("段位说明：  MCRPL-东风战",
-        "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上或职业五段及以上并实名注册\n场得pt：135*0.49\n场失pt：依照段位*0.49\n分配比例：+0.8+0.2-0.3-0.7\n无提示 无指针提示 错和 战术鸣牌 禁止聊天 仅PC端\n时间限制：20+5") },
+        "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上或职业五段及以上并实名注册\n场得pt：135*0.49\n场失pt：依照段位*0.49\n分配比例：+0.8+0.2-0.3-0.7\n无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5") },
         { "mcrpl_banzhuang", new DescribeData("段位说明：  MCRPL-半庄战",
-        "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上或职业五段及以上并实名注册\n场得pt：135*0.7\n场失pt：依照段位*0.7\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌 禁止聊天 仅PC端\n时间限制：20+5") },
+        "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上或职业五段及以上并实名注册\n场得pt：135*0.7\n场失pt：依照段位*0.7\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5") },
         { "mcrpl_quanzhuang", new DescribeData("段位说明：  MCRPL-全庄战",
-            "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上或职业五段及以上并实名注册\n场得pt：135\n场失pt：依照段位\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌 禁止聊天 仅PC端\n时间限制：20+5") },
+            "国标麻将：MCRPL场\n入场门槛：Salasasa七段及以上或职业五段及以上并实名注册\n场得pt：135\n场失pt：依照段位\n分配比例：+0.8+0.2-0.3-0.7\n对局设置：无提示 无指针提示 错和 战术鸣牌\n时间限制：20+5") },
         };
 
-    private void Start() {
+    private void Awake() {
         if (popupTransition == null) popupTransition = GetComponent<PanelPopupTransition>();
         closeButton.onClick.AddListener(Hide);
-        gameObject.SetActive(false);
     }
 
     public void ShowForQueue(string queueType) {
+        bool riichi=queueType.StartsWith("riichi_");
+        if(riichi)queueType=queueType.Substring(7);
         if (!DescribeMap.TryGetValue(queueType, out DescribeData data)) {
-            data = new DescribeData("【占位】匹配说明标题", "");
+            data = new DescribeData("匹配说明", "此规则暂未开放匹配场");
         }
 
         titleText.text = data.title;
-        contentText.text = data.content;
+        contentText.text = riichi ? data.content.Replace("国标麻将","立直麻将").Replace("番数提示", "枚数提示").Replace(" 无错和 战术鸣牌", " 天凤规").Replace(" 错和 战术鸣牌", " 天凤规") : data.content;
         contentText.gameObject.SetActive(!string.IsNullOrEmpty(data.content));
 
         popupTransition.Show();
+        if (scrollView != null) {
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(scrollView.content);
+            scrollView.StopMovement();
+            scrollView.verticalNormalizedPosition = 1f;
+        }
     }
 
     public void Hide() {

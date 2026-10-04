@@ -259,6 +259,15 @@ public class MahjongObjectPool : MonoBehaviour {
             Debug.LogError("牌型不存在于对象池中: " + type);
             return null;
         }
+        // 空白池也承载独立展示牌；血流连续多响的历史标记可超过初始容量。
+        // 只扩展这个视觉池，实体牌仍保留每种四张的限制。
+        if (type == BlankPoolTileId && poolDictionary[type].Count == 0) {
+            GameObject extra = Instantiate(tile3DPrefab, transform);
+            extra.SetActive(false);
+            SetupPooledTile(extra);
+            ApplyCardTexture(extra, type);
+            poolDictionary[type].Enqueue(extra);
+        }
         if (poolDictionary[type].Count == 0) {
             Debug.LogWarning("牌池中已无可用对象: " + type);
             return null;
@@ -283,6 +292,33 @@ public class MahjongObjectPool : MonoBehaviour {
     /// </summary>
     public GameObject SpawnBlankTile(Vector3 position, Quaternion rotation) {
         return Spawn(BlankPoolTileId, position, rotation);
+    }
+
+    /// <summary>
+    /// 倒牌展示副本不占用每种仅四张的实体牌池；例如荣和张仍在牌河中、多家同时荣和。
+    /// 复用预热的空白牌对象，保留真实牌面，但归还时仍回到空白池。
+    /// </summary>
+    public GameObject SpawnPresentationTile(int tileId, Vector3 position, Quaternion rotation) {
+        GameObject tile = SpawnBlankTile(position, rotation);
+        if (tile == null) return null;
+        ApplyCardTexture(tile, tileId);
+        GetTile3D(tile).SetTileIds(tileId, BlankPoolTileId);
+        return tile;
+    }
+
+    /// <summary>
+    /// 独立展示牌复用正式牌外观，但不借用每种牌固定数量的对象池。
+    /// 调用方拥有实例，结束展示时注销悬停并 Destroy，不能调用 Return。
+    /// </summary>
+    public GameObject CreatePresentationTile(int tileId) {
+        if (tile3DPrefab == null || (!spriteCache.ContainsKey(tileId) && !HongqueTileVisual.IsHongqueId(tileId)))
+            return null;
+        CardBackManager.EnsureSavedConfigApplied();
+        GameObject tile = Instantiate(tile3DPrefab);
+        SetupPooledTile(tile);
+        ApplyCardTexture(tile, tileId);
+        CardBackManager.ApplyInstanceVisuals(GetTile3D(tile));
+        return tile;
     }
 
     /// <summary>

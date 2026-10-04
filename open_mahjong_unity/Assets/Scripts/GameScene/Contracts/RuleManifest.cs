@@ -24,6 +24,9 @@ public sealed class RuleManifest {
     /// </summary>
     public Func<IGameState> GameStateFactory;
 
+    /// <summary>同一大厅规则下具有独立状态机的子规则工厂；优先于族工厂。</summary>
+    public Func<string, IGameState> SubRuleGameStateFactory;
+
     /// <summary>
     /// 回合制出站通道段：<c>gamestate/{OutboundChannel}/cut_tile</c>、<c>send_action</c>。
     /// 大多数回合制族共用服务端的 "GB" 通道；简单麻将用自己的 "jiandan"。虹雀等自带协议的族不使用。
@@ -45,6 +48,14 @@ public sealed class RuleManifest {
     /// 计数/排序前把牌 id 归一：同一张牌有多个 id 的规则（日麻赤宝牌 15/25/35）在此声明；null 表示 id 即牌。
     /// </summary>
     public Func<int, int> NormalizeTileId;
+
+    /// <summary>规则提供的实体牌角标；不改变牌面或牌值。</summary>
+    public Func<int, string> TileBadgeText;
+    /// <summary>可见副露的实际牌；第二参数为是否本家。null 沿用普通副露编码，空数组表示牌值不可见。</summary>
+    public Func<string, bool, int[]> VisibleMeldTiles;
+
+    /// <summary>当前本家有权看见、并从牌墙移出的指示牌。</summary>
+    public Func<IEnumerable<int>> LiveVisibleIndicators;
 
     /// <summary>荒牌前可申报"不听"的规则（日麻流局听牌申报面板）。</summary>
     public bool HasNotenDeclaration;
@@ -73,6 +84,13 @@ public sealed class RuleManifest {
 
     /// <summary>抢杠和的结果里带被抢加杠的牌源信息：公共 3D 演出可回收加杠展示中的第四张并保留原碰牌。</summary>
     public bool SupportsRobbedAddedKongSource;
+
+    /// <summary>
+    /// Final per-rule adjustment of the live/replay reveal request. The bool is the
+    /// authoritative rob-kong fact, before any presentation-only source adjustment.
+    /// Null preserves the normal river/committed-added-kong presentation.
+    /// </summary>
+    public Action<HepaiPresentationRequest, bool> AdjustHepaiPresentation;
 
     /// <summary>
     /// 和牌飘字/报声用的展示动作：(hu_class, 番名列表, detailed_config) → 展示词。
@@ -120,6 +138,12 @@ public sealed class RuleManifest {
     /// <summary>第 n 局的局名（"东风东" / "东一局" / "第三副"）。null 表示 "第n局"。通用表见 RoundTextDictionary。</summary>
     public Func<int, string> RoundName;
 
+    /// <summary>本局状态提示（含子规则动态状态）；为空时使用普通局名。</summary>
+    public Func<GameInfo, string> RoundStatusText;
+
+    /// <summary>房间辅助规则状态；为空使用默认错和开关文案。</summary>
+    public Func<GameInfo, string> RoundSupplementText;
+
     /// <summary>房间 game_round → 总局数文案（"东风战" / "4局" / "八局"）。null 表示通用风圈文案。</summary>
     public Func<int, string> MaxRoundText;
 
@@ -129,10 +153,16 @@ public sealed class RuleManifest {
     /// <summary>web 端规则书页签键（/rulebook/:rule）。null 用 RuleId。</summary>
     public string RulebookKey;
 
+    /// <summary>按子规则和馆规选择站内规则书路径；null 时使用 /rulebook/{RulebookKey}。</summary>
+    public Func<string, IDictionary<string, object>, string> RulebookPath;
+
     // ---------- 大厅 / 建房 ----------
 
     /// <summary>大厅规则下拉排序，数值越小越靠前。</summary>
     public int LobbyOrder;
+
+    /// <summary>Retain protocol/record compatibility without a duplicate create-room entry.</summary>
+    public bool HideFromLobby;
 
     /// <summary>大厅显示名；null 用 DisplayName。</summary>
     public string LobbyName;
@@ -177,8 +207,20 @@ public sealed class RuleManifest {
 
     // ---------- 牌谱回放差异 ----------
 
+    /// <summary>牌谱杠动作的 gs 字段即时结算，和牌 tick 不重复包含该杠分。</summary>
+    public bool RecordUsesInlineKongScores;
+
     /// <summary>杠后补牌与普通摸牌同向从头取（四川），不用倒序岭上。</summary>
     public bool KongReplacementFromFront;
+
+    /// <summary>Whether replay may mark other players' waits as discard-win danger.</summary>
+    public bool ShowsRonDangerHints = true;
+
+    /// <summary>补牌始终取牌墙末张（台湾、上海），不用国标的双单张交替。</summary>
+    public bool ReplacementFromTailEnd;
+
+    /// <summary>回放 state/ready 与承包标签，供公开报听规则使用。</summary>
+    public bool PublicReadyStateReplay;
 
     /// <summary>加杠把第四张追加到最后一组副露（虹雀），而不是改碰牌 mask。</summary>
     public bool JiagangExtendsLastMeld;
@@ -200,6 +242,11 @@ public sealed class RuleManifest {
 
     /// <summary>hu_* tick 里和牌张字段下标（古典 7，其余 5）。</summary>
     public int RecordHuTileTickIndex = 5;
+    public Func<IReadOnlyList<string>, bool> RecordFlowerWin;
+    /// <summary>独立花胡等没有普通和牌张的结算，完整保留暗手，不把末张误画为和牌张。</summary>
+    public Func<IList<string>, bool> SettlementHasNoWinTile;
+    /// <summary>同族子规则的暗杠展示不同，按完整子规则键生成牌谱掩码。</summary>
+    public Func<string, IReadOnlyList<int>, int[]> ReplayConcealedKongMask;
 
     /// <summary>牌谱从弃牌推断定缺（四川）。</summary>
     public bool InfersDingqueFromDiscards;

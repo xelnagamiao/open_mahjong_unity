@@ -79,7 +79,7 @@ public partial class Game3DManager {
         player.showHandDrawSlotActive = false;
     }
 
-    private void LayRecordShowHandTiles(string playerPosition, Transform showCardsPosition, IList<int> handTiles, bool pinLastAsDraw) {
+    private void LayRecordShowHandTiles(string playerPosition, Transform showCardsPosition, IList<int> handTiles, bool pinLastAsDraw, bool ronPresentationCopy) {
         if (!TryGetRecordShowHandLayout(playerPosition, out Vector3 direction, out Quaternion rotation)) return;
 
         // 摸牌巡(showHandDrawSlotActive)时，真正的摸入张是 tileList 的最后一个元素（d/gd/bd 行动 Add 入尾），
@@ -109,7 +109,10 @@ public partial class Game3DManager {
         }
 
         if (hasDraw && drawPosition.HasValue) {
-            GameObject drawObj = MahjongObjectPool.Instance.Spawn(drawTileId, drawPosition.Value, rotation);
+            // 荣和张仍在牌河或抢杠来源处，手牌中的展示不能再借用一张实体牌。
+            GameObject drawObj = ronPresentationCopy
+                ? MahjongObjectPool.Instance.SpawnPresentationTile(drawTileId, drawPosition.Value, rotation)
+                : MahjongObjectPool.Instance.Spawn(drawTileId, drawPosition.Value, rotation);
             if (drawObj != null) {
                 drawObj.transform.SetParent(showCardsPosition, worldPositionStays: true);
                 drawObj.name = "RecordGet_Draw";
@@ -216,22 +219,24 @@ public partial class Game3DManager {
             if (drawTile != null && RecordShowTileIdMatches(drawTile, tileId)) {
                 targetCard = drawTile.transform;
             }
-            if (targetCard == null) {
-                for (int i = showCardsPosition.childCount - 1; i >= 0; i--) {
-                    Transform child = showCardsPosition.GetChild(i);
-                    Tile3D tile3D = child.GetComponent<Tile3D>();
-                    if (tile3D != null && tile3D.isRecordDrawSlotPinned) {
-                        targetCard = child;
-                        break;
-                    }
-                }
-            }
         } else {
             for (int i = 0; i < showCardsPosition.childCount; i++) {
                 Transform child = showCardsPosition.GetChild(i);
                 Tile3D tile3D = child.GetComponent<Tile3D>();
                 if (tile3D != null && !tile3D.isRecordDrawSlotPinned && RecordShowTileIdMatches(tile3D, tileId)) {
                     targetCard = child;
+                    break;
+                }
+            }
+        }
+
+        // 长沙杠后可同时摸入多张牌：摸切牌未必是最后一张摸牌。
+        // 先按牌面找回实际牌张，再为未知手牌使用位置兜底。
+        if (targetCard == null) {
+            for (int i = showCardsPosition.childCount - 1; i >= 0; i--) {
+                Tile3D tile3D = showCardsPosition.GetChild(i).GetComponent<Tile3D>();
+                if (tile3D != null && RecordShowTileIdMatches(tile3D, tileId)) {
+                    targetCard = tile3D.transform;
                     break;
                 }
             }

@@ -12,7 +12,7 @@ using System.Net.Sockets;
 [Serializable]
 public class GameEvent : UnityEvent<bool, string> {} // 标准通知类
 
-public class NetworkManager : MonoBehaviour {
+public partial class NetworkManager : MonoBehaviour {
 
     public static NetworkManager Instance { get; private set; }
     private WebSocket websocket; // 定义websocket
@@ -547,6 +547,10 @@ public class NetworkManager : MonoBehaviour {
     private void HandleLoginResponse(Response response){
         AutoReconnect.OnLoginResponse(response.success);
         if (response.success) {
+            // 各账号的队列版本号独立计数；换号时先清理，再展示大厅并启动轮询。
+            if (UserDataManager.Instance.UserId != response.login_info.user_id) {
+                MatchNetworkManager.Instance?.ClearLocalMatchState();
+            }
             WindowsManager.Instance.SwitchWindow("menu");
             // 设置用户信息
             MeunPanel.Instance.SetUserInfo(
@@ -572,6 +576,7 @@ public class NetworkManager : MonoBehaviour {
                 );
             }
             if (response.rank_data != null) {
+                UserDataManager.Instance.SetRatings(response.rank_data.ratings);
                 UserDataManager.Instance.SetRankData(
                     response.rank_data.guobiao_rank,
                     response.rank_data.guobiao_score,
@@ -617,6 +622,15 @@ public class NetworkManager : MonoBehaviour {
                 Debug.Log($"收到服务器消息: {jsonStr}");
             }
             var response = JsonConvert.DeserializeObject<Response>(jsonStr);
+
+            if (response.type != null && response.type.StartsWith("inventory/")) {
+                HandleInventoryResponse(response);
+                return;
+            }
+            if (response.type != null && response.type.StartsWith("title/")) {
+                HandleTitleResponse(response);
+                return;
+            }
 
             // 好友 / 实时观战相关消息统一交由 FriendNetworkManager 处理
             if (response.type != null && response.type.StartsWith("friend/")) {
@@ -677,6 +691,7 @@ public class NetworkManager : MonoBehaviour {
                 case "data/get_jiandan_stats":
                 case "data/get_leaderboard":
                 case "data/get_rank_record_list":
+                case "data/get_ranked_stats":
                     DataNetworkManager.Instance.HandleDataMessage(response);
                     break;
                 // 观战系统：初始牌谱 / 增量更新 → GameRecordManager
@@ -705,6 +720,7 @@ public class NetworkManager : MonoBehaviour {
                 case "match/join_queue_done":
                 case "match/leave_queue_done":
                 case "match/queue_status":
+                case "match/failed":
                 case "match/match_found":
                     MatchNetworkManager.Instance.HandleMatchMessage(response);
                     break;
@@ -885,6 +901,9 @@ public class NetworkManager : MonoBehaviour {
             if (_disconnectDialogState == DisconnectDialogState.Start) {
                 _disconnectDialogState = DisconnectDialogState.Connected;
             }
+            // Public catalog also supports shared replay viewers without a login.
+            await websocket.SendText("{\"type\":\"title/catalog\"}");
+            await websocket.SendText("{\"type\":\"inventory/catalog\"}");
         }
         catch (Exception e)
         {

@@ -41,7 +41,7 @@
 from typing import List, Optional
 import copy
 
-from mahjong.hand_calculating.hand import HandCalculator
+from .rule_hand_calculator import HandCalculator
 from mahjong.hand_calculating.hand_config import HandConfig, OptionalRules
 from mahjong.meld import Meld
 
@@ -252,7 +252,16 @@ class Riichi_Hepai_Check:
         context: Optional[dict] = None,
         combination_masks: Optional[List[List[int]]] = None,
     ) -> dict:
-        context = context or {}
+        context = dict(context or {})
+        if context.get("is_tenhou") and context.get("double_yakuman") and not context.get("_tenhou_evaluating"):
+            candidates = [self.hepai_check(hand_list, tiles_combination, way_to_hepai, tile,
+                          {**context, "_tenhou_evaluating": True}, combination_masks)
+                          for tile in sorted(set(hand_list))]
+            return max(candidates, key=lambda r: (r.get("is_valid", False), r.get("score", 0)))
+        if not context.get("ura_dora", True):
+            context["ura_dora_indicators"] = []
+        if context.get("kan_ura_dora", True) and context.get("kan_dora", True):
+            context["ura_dora_indicators"] = list(context.get("ura_dora_indicators", [])) + list(context.get("ura_kan_dora_indicators", []))
 
         used_136: set = set()
         melds = self._build_melds(tiles_combination, combination_masks, used_136)
@@ -281,12 +290,17 @@ class Riichi_Hepai_Check:
 
         config_rules = OptionalRules(
             has_open_tanyao=bool(context.get("has_open_tanyao", True)),
-            has_aka_dora=True,
-            has_double_yakuman=False,
-            kazoe_limit=HandConfig.KAZOE_LIMITED,
+            has_aka_dora=bool(context.get("red_dora", True)),
+            has_double_yakuman=bool(context.get("double_yakuman", False)),
+            kazoe_limit={"yakuman": HandConfig.KAZOE_LIMITED, "sanbaiman": HandConfig.KAZOE_SANBAIMAN,
+                         "unlimited": HandConfig.KAZOE_NO_LIMIT}.get(context.get("kazoe_limit"), HandConfig.KAZOE_LIMITED),
+            kiriage=bool(context.get("kiriage_mangan", False)),
             fu_for_open_pinfu=True,
             fu_for_pinfu_tsumo=False,
         )
+        config_rules.double_wind_pair_fu = context.get("double_wind_pair_fu", 4)
+        config_rules.multiple_yakuman = context.get("multiple_yakuman", True)
+        config_rules.yakuman_limit = context.get("yakuman_limit", 6)
 
         player_wind = wind_to_tile_index(int(context.get("player_wind", 0)))
         round_wind = wind_to_tile_index(int(context.get("round_wind", 0)))
@@ -295,7 +309,7 @@ class Riichi_Hepai_Check:
             is_tsumo=bool(context.get("is_tsumo", False)),
             is_riichi=bool(context.get("is_riichi", False)),
             is_daburu_riichi=bool(context.get("is_daburu_riichi", False)),
-            is_ippatsu=bool(context.get("is_ippatsu", False)),
+            is_ippatsu=bool(context.get("is_ippatsu", False)) and bool(context.get("ippatsu", True)),
             is_rinshan=bool(context.get("is_rinshan", False)),
             is_chankan=bool(context.get("is_chankan", False)),
             is_haitei=bool(context.get("is_haitei", False)),
@@ -328,7 +342,7 @@ class Riichi_Hepai_Check:
         # 注意：宝牌/赤宝/里宝不是役，故 han 记 0；错和的展示番数由结算层固定为"错和1番"。
         if result.error == HandCalculator.ERR_NO_YAKU:
             all_tile_ids = self._collect_all_tile_ids(hand_list, tiles_combination, combination_masks)
-            aka_count = count_aka_in_tiles(all_tile_ids)
+            aka_count = count_aka_in_tiles(all_tile_ids) if config_rules.has_aka_dora else 0
             dora_count = count_dora_in_tiles(all_tile_ids, context.get("dora_indicators", []))
             ura_count = count_dora_in_tiles(all_tile_ids, context.get("ura_dora_indicators", [])) if context.get("is_riichi") else 0
             no_yaku_yaku: List[str] = []
@@ -372,9 +386,10 @@ class Riichi_Hepai_Check:
             yaku_names.append(_localize_yaku_display(y.name, context, is_open))
 
         all_tile_ids = self._collect_all_tile_ids(hand_list, tiles_combination, combination_masks)
-        aka_count = count_aka_in_tiles(all_tile_ids)
-        dora_count = count_dora_in_tiles(all_tile_ids, context.get("dora_indicators", []))
-        ura_count = count_dora_in_tiles(all_tile_ids, context.get("ura_dora_indicators", [])) if context.get("is_riichi") else 0
+        is_yakuman = any(y.is_yakuman for y in result.yaku)
+        aka_count = 0 if is_yakuman else lib_aka_han
+        dora_count = 0 if is_yakuman else lib_dora_han
+        ura_count = 0 if is_yakuman else lib_ura_han
         if dora_count > 0:
             yaku_names.append(f"宝牌*{dora_count}")
         if ura_count > 0:
@@ -382,14 +397,8 @@ class Riichi_Hepai_Check:
         if aka_count > 0:
             yaku_names.append(f"赤宝牌*{aka_count}")
 
-        han = int(result.han) - lib_dora_han - lib_aka_han - lib_ura_han
-        han += dora_count + aka_count + ura_count
+        han = int(result.han)
         fu = int(result.fu)
-
-        is_yakuman = han >= 13 or any(
-            (y.han_open if is_open else y.han_closed) >= 13 for y in result.yaku
-            if y.name not in ("Dora", "Aka Dora", "Ura Dora", "Uradora")
-        )
         # 库对国士等例外牌型返回 fu=0；展示与七对子一致，役满统一记 25 符（不影响役满固定点数）
         if is_yakuman:
             fu = 25
@@ -407,6 +416,10 @@ class Riichi_Hepai_Check:
             "yaku": yaku_names,
             "cost": score_info,
             "aka_count": int(aka_count),
+            "yakuman_multiplier": han // 13 if is_yakuman else 0,
+            "yakuman_components": {_localize_yaku(y.name, context):
+                (y.han_open if is_open and y.han_open else y.han_closed) // 13
+                for y in result.yaku if y.is_yakuman},
             "error": None,
         }
 

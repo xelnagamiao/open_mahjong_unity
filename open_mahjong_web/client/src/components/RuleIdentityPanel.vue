@@ -23,21 +23,28 @@
     <section class="block kin-block">
       <dl class="kin">
         <div>
-          <dt>父系</dt>
+          <dt>来源与改编</dt>
           <dd>
             <template v-if="parents.length">
               <router-link v-for="id in parents" :key="id" :to="href(id)">{{ name(id) }}</router-link>
             </template>
-            <span v-else>无</span>
+            <span v-else>尚无已核实关系</span>
           </dd>
         </div>
         <div>
-          <dt>子系</dt>
+          <dt>后续版本</dt>
           <dd>
             <template v-if="children.length">
               <router-link v-for="id in children" :key="id" :to="href(id)">{{ name(id) }}</router-link>
             </template>
-            <span v-else>无</span>
+            <span v-else>尚无已核实关系</span>
+          </dd>
+        </div>
+        <div v-if="comparisons.length">
+          <dt>待证与比较</dt>
+          <dd>
+            <router-link v-for="item in comparisons" :key="item.id" :to="href(item.id)" :title="item.note">{{ name(item.id) }}</router-link>
+            <span>（这些联系不表示已证实的传承）</span>
           </dd>
         </div>
         <div>
@@ -79,9 +86,10 @@
         <article v-for="doc in docs" :key="doc.url" class="res-card">
           <h3>{{ doc.title }}</h3>
           <p v-if="doc.desc">{{ doc.desc }}</p>
+          <p v-if="doc.readHint">{{ doc.readHint }}</p>
           <div class="res-actions">
-            <a class="btn primary" :href="doc.url" target="_blank" rel="noopener noreferrer">阅读</a>
-            <a class="btn" :href="doc.url" :download="doc.filename || ''">下载</a>
+            <a class="btn primary" :href="doc.url" target="_blank" rel="noopener noreferrer">{{ doc.readLabel || '阅读' }}</a>
+            <a v-if="doc.downloadable !== false" class="btn" :href="doc.url" :download="doc.filename || ''">下载</a>
           </div>
         </article>
       </div>
@@ -160,6 +168,7 @@ const props = defineProps({
   sources: { type: Array, default: () => [] },
   parents: { type: Array, default: () => [] },
   children: { type: Array, default: () => [] },
+  comparisons: { type: Array, default: () => [] },
   families: { type: Array, default: () => [] },
   eraInfo: { type: Object, default: null },
   appeared: { type: String, default: '' },
@@ -206,6 +215,8 @@ const FEAT_VALUES = {
   xuezhan: '其他人继续',
   xueliu: '和了还能再和',
   'fu-han': '番副',
+  'fan-mult': '按番倍增',
+  'nmjl-card': 'NMJL 年卡计分',
   fan: '番',
   none: '无',
   one: '一家',
@@ -213,12 +224,14 @@ const FEAT_VALUES = {
   'mcr-fan': '国标番种',
   constructed: '另编',
   additive: '加算',
+  'additive-pattern-points': '番种分值累加',
+  'cross-table-IMP': '同座跨桌比较（IMP）',
+  'MCR plus event penalties': '国标计分及赛事罚分',
   'hua-lezi': '花／辣子',
   bao: '宝牌',
   dan: '蛋牌',
   jing: '精',
   animals: '动物牌',
-  '8': '八张',
   'pung-or-above': '碰碰和以上',
 }
 
@@ -235,7 +248,7 @@ const featureRows = computed(() => {
     .map((k) => ({
       k,
       label: FEAT_LABELS[k],
-      text: featText(feat[k]),
+      text: featText(feat[k], k),
     }))
 })
 
@@ -253,9 +266,10 @@ const filtered = computed(() =>
   }),
 )
 
-function featText(v) {
+function featText(v, field) {
   if (typeof v === 'boolean') return v ? '有' : '无'
   const key = String(v)
+  if (field === 'flowers' && key === '8') return '八张'
   return FEAT_VALUES[key] ?? key
 }
 

@@ -8,7 +8,7 @@
 | `user_id` | **3** |
 | 显示名 | 高性能罗伯特 |
 | 排序 | 在牌效罗伯特（`user_id=2`）之后 |
-| 规则 | **仅国标标准**（`room_rule == guobiao` 且 `sub_rule == guobiao/standard`）；变种暂未支持 |
+| 规则 | **国标标准、国标血战到底**（`guobiao/standard`、`guobiao/blood_battle`）；虹雀使用独立启发式实现 |
 | 加座 WS | `room/add_guobiao_heuristic_bot` |
 
 ## 文件
@@ -18,7 +18,7 @@
 | `guobiao_shanten.py` | 国标向听（一般型 + 七对/十三幺/全不靠/组合龙） |
 | `guobiao_heuristic_logic.py` | 纯决策（切牌/鸣牌/假想番） |
 | `guobiao_heuristic_ai.py` | 异步外壳，对齐 `smart_bot_ai` |
-| `guobiao_heuristic_gate.py` | 加座门闩（仅 standard） |
+| `guobiao_heuristic_gate.py` | 加座门闩（国标标准、血战到底、虹雀） |
 | `test_guobiao_heuristic.py` | 单测 |
 | `test_guobiao_heuristic_smoke.py` | 短 smoke（已跑通 2 全庄）/ 可选更长慢测 |
 | `GUOBIAO_HEURISTIC_PERF.md` | 速度优化说明（测速 / 复测） |
@@ -58,13 +58,24 @@
 - 七对向听严格优于一般型时不鸣；不求人门前不死守
 - 起和番跟随房间 `hepai_limit`（默认 8）
 
+## 国标血战到底
+
+Unity 血战房的空座位可以添加高性能罗伯特，也可与摸切、牌效机器人混搭。
+共用国标检番和异步决策进程池，使用房间的四档机器人速度；含机器人的房间自动停用鸣牌保护。
+血战仍固定八番起和；已和牌玩家由血战状态机停止派发行动，其他玩家继续摸打至第三家和牌或牌山耗尽。
+
+荣和、抢杠后移走的公开和牌张继续计入 AI 已见牌；一炮多响按一张实体牌计算。
+退场者的暗手和自摸和牌张不会进入其他机器人的可见信息。
+Web 2D 测试版的对局入口仍只支持国标标准。
+
 ## 跑测试
 
 在 `open_mahjong_server` 目录：
 
 ```powershell
 python -m pytest server/gamestate/public/ai/test_guobiao_heuristic.py -v
-python -m pytest server/gamestate/public/ai/test_guobiao_heuristic_smoke.py -v -k two_quanzhuang
+python -m pytest server/gamestate/public/ai/test_guobiao_heuristic_blood.py -v
+python -m pytest server/gamestate/public/ai/test_guobiao_heuristic_smoke.py -v -m selfplay -k 'two_quanzhuang or blood_battle'
 ```
 
 覆盖：合法听 vs 假听、尾巡海底假想、仅自摸听权重、绝张假想、鸣牌推进/番牌碰/七对护航、`hepai_limit`、变种 `sub_rule` 拒绝加座、弃牌金标、短全庄接线 smoke。

@@ -30,6 +30,7 @@ public static class SceneConfigUi
     public const float SurfaceHeaderHeight = 80f;
     public static readonly Color SurfaceHeaderBackground = new Color32(237, 242, 248, 255);
 
+#if UNITY_EDITOR
     public static TMP_Text CreateSurfaceHeaderTitle(Transform parent, string caption, TMP_FontAsset font)
     {
         var go = new GameObject("SurfaceTitle", typeof(RectTransform), typeof(TextMeshProUGUI));
@@ -49,6 +50,7 @@ public static class SceneConfigUi
         rect.offsetMin = new Vector2(20, 8); rect.offsetMax = new Vector2(108, -8);
         return text;
     }
+#endif
 
     public static void BindClick(Button button, UnityAction action)
     {
@@ -106,16 +108,42 @@ public static class SceneConfigUi
 
     public static void SetButtonSelected(Button button, bool selected)
     {
-        button.transition = Selectable.Transition.None;
-        button.GetComponent<Image>().color = selected ? TabOn : TabOff;
+        SetButtonSelected(button, selected, TabOn, TabOff);
+    }
+
+    public static void SetButtonSelected(Button button, bool selected, Color selectedColor, Color unselectedColor)
+    {
+        if (button == null) return;
+        Image image = button.GetComponent<Image>() ?? button.targetGraphic as Image;
+        if (image == null) return;
+        button.targetGraphic = image;
+        Color normal = selected ? selectedColor : unselectedColor;
+        ConfigureButtonFeedback(button, normal);
+    }
+
+    public static void ConfigureButtonFeedback(Selectable selectable, Color normal)
+    {
+        if (selectable == null || selectable.targetGraphic == null) return;
+        selectable.targetGraphic.color = Color.white;
+        selectable.transition = Selectable.Transition.ColorTint;
+        var colors = ColorBlock.defaultColorBlock;
+        colors.normalColor = normal;
+        colors.highlightedColor = Color.Lerp(normal, Color.white, .14f);
+        colors.selectedColor = colors.highlightedColor;
+        colors.pressedColor = Color.Lerp(normal, Color.black, .20f);
+        colors.disabledColor = new Color32(65, 71, 83, 255);
+        colors.colorMultiplier = 1f;
+        colors.fadeDuration = .1f;
+        selectable.colors = colors;
     }
 
     /// <summary>
-    /// 关掉 ColorTint / Toggle Fade。graphic 与底图是同一张时，
-    /// Toggle.OnEnable 仍会 PlayEffect 把 alpha 打成 0/1，必须清空 graphic。
+    /// 模式块的选中色由调用方管理。
+    /// graphic 与底图是同一张时，Toggle.OnEnable 仍会 PlayEffect 把 alpha 打成 0/1，必须清空 graphic。
     /// </summary>
     public static void ConfigureToggle(Toggle toggle)
     {
+        if (toggle == null) return;
         toggle.transition = Selectable.Transition.None;
         toggle.toggleTransition = Toggle.ToggleTransition.None;
         toggle.graphic = null;
@@ -131,10 +159,18 @@ public static class SceneConfigUi
         Color defaultColor,
         Color selectedColor,
         bool instant = false,
-        float fade = ToggleColorFade)
+        float fade = ToggleColorFade,
+        bool hoverFeedback = false)
     {
         ConfigureToggle(toggle);
-        Image bg = (Image)toggle.targetGraphic;
+        if (toggle == null || toggle.targetGraphic == null) return;
+        if (hoverFeedback)
+        {
+            ConfigureButtonFeedback(toggle, selected ? selectedColor : defaultColor);
+            return;
+        }
+        Image bg = toggle.targetGraphic as Image;
+        if (bg == null) return;
         bg.color = Color.white;
         Color target = selected ? selectedColor : defaultColor;
         bg.CrossFadeColor(target, instant || !bg.isActiveAndEnabled ? 0f : fade, true, true);

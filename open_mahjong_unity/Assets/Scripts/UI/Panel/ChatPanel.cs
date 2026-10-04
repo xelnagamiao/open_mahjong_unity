@@ -85,8 +85,8 @@ public class ChatPanel : MonoBehaviour {
         if (SwitchSendTarget.value == 0){
             targetChannelId = 0; // 大厅id
         } else if (SwitchSendTarget.value == 1){
-            if (UserDataManager.Instance.RoomId != UserDataManager.ROOM_ID_NONE){
-                targetChannelId = int.Parse(UserDataManager.Instance.RoomId); // 房间id
+            if (UserDataManager.Instance.ChatRoomId != UserDataManager.ROOM_ID_NONE){
+                targetChannelId = int.Parse(UserDataManager.Instance.ChatRoomId); // 房间id
             } else {
                 ShowChatMessage("False", 0, "未进入房间,无法在房间中发送消息");
                 return;

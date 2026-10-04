@@ -12,7 +12,8 @@
         </el-select>
       </el-form-item>
       <el-form-item label="圈数">
-        <el-select :model-value="modelValue.game_round" style="width: 100px" @update:model-value="patch('game_round', $event)">
+        <span v-if="modelValue.duplicate_key?.trim()" class="flower-help">跟随密钥设置</span>
+        <el-select v-else :model-value="modelValue.game_round" style="width: 100px" @update:model-value="patch('game_round', $event)">
           <el-option :value="1" label="东风战" />
           <el-option :value="2" label="东南战" />
           <el-option :value="4" label="全庄战" />
@@ -41,9 +42,10 @@
           @update:model-value="patch('step_timer', $event)"
         />
       </el-form-item>
-      <el-form-item label="起和番">
+      <el-form-item :label="isLanshi ? '起和分' : '起和番'">
         <el-input-number
-          :model-value="modelValue.hepai_limit"
+          :model-value="isLanshi ? 5 : modelValue.hepai_limit"
+          :disabled="isLanshi"
           :min="1"
           :max="64"
           controls-position="right"
@@ -61,15 +63,25 @@
         />
       </el-form-item>
     </div>
+    <DuplicateRoomField :model-value="modelValue.duplicate_key || ''" @update:model-value="patch('duplicate_key', $event)" />
     <div class="gb-room-config-options">
+      <el-form-item label="花牌" class="gb-room-flowers">
+        <span v-if="modelValue.duplicate_key?.trim()" class="flower-help">跟随复式设置</span>
+        <template v-else><el-switch :model-value="modelValue.sub_rule !== 'guobiao/lanshi' && modelValue.use_flowers !== false" :disabled="modelValue.sub_rule === 'guobiao/lanshi'" @update:model-value="patch('use_flowers', $event)" /><span v-if="modelValue.sub_rule === 'guobiao/lanshi'" class="flower-help">固定无花</span></template>
+      </el-form-item>
       <el-form-item label="提示">
         <el-switch :model-value="modelValue.tips" @update:model-value="patch('tips', $event)" />
       </el-form-item>
-      <el-form-item label="错和">
-        <el-switch :model-value="modelValue.open_cuohe" @update:model-value="patch('open_cuohe', $event)" />
+      <el-form-item v-if="supportsOpeningWins" label="天地人和">
+        <el-tooltip content="各加计8番：天和为庄家起手自摸；地和为闲家和庄家首张弃牌；人和为闲家首次摸牌自摸。全桌吃碰杠（含暗杠）打断，补花不打断。">
+          <el-switch :model-value="!!modelValue.tian_di_ren_he" @update:model-value="patch('tian_di_ren_he', $event)" />
+        </el-tooltip>
       </el-form-item>
-      <el-form-item v-if="modelValue.open_cuohe" label="错和形式" class="gb-room-cuohe-type">
-        <el-select :model-value="modelValue.cuohe_type" style="width: 220px" @update:model-value="patch('cuohe_type', $event)">
+      <el-form-item label="错和">
+        <el-switch :model-value="isLanshi || modelValue.open_cuohe" :disabled="isLanshi" @update:model-value="patch('open_cuohe', $event)" />
+      </el-form-item>
+      <el-form-item v-if="isLanshi || modelValue.open_cuohe" label="错和形式" class="gb-room-cuohe-type">
+        <el-select :model-value="isLanshi ? 1 : modelValue.cuohe_type" :disabled="isLanshi" style="width: 220px" @update:model-value="patch('cuohe_type', $event)">
           <el-option :value="0" label="错和-30，其余各+10" />
           <el-option :value="1" label="错和-40，其余不加分" />
         </el-select>
@@ -92,6 +104,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import DuplicateRoomField from '@/components/DuplicateRoomField.vue'
 
 const props = defineProps({
   modelValue: { type: Object, required: true },
@@ -99,7 +112,7 @@ const props = defineProps({
   panelLayout: { type: Boolean, default: false },
   subRuleOptions: { type: Array, default: null },
 })
-const emit = defineEmits(['update:modelValue'])
+defineEmits(['update:modelValue'])
 
 const roundTimerOptions = [
   { value: 0, label: '0（不限时）' },
@@ -114,11 +127,17 @@ const defaultSubRuleOptions = [
   { value: 'guobiao/standard', label: '国标标准' },
   { value: 'guobiao/xiaolin', label: '小林' },
   { value: 'guobiao/kshen', label: 'K神' },
-  { value: 'guobiao/lanshi', label: '蓝氏' },
+  { value: 'guobiao/lanshi', label: '蓝十' },
 ]
 
 const resolvedSubRuleOptions = computed(() =>
   props.subRuleOptions?.length ? props.subRuleOptions : defaultSubRuleOptions,
+)
+
+const isLanshi = computed(() => props.modelValue.sub_rule === 'guobiao/lanshi')
+
+const supportsOpeningWins = computed(() =>
+  ['guobiao/standard', 'guobiao/blood_battle'].includes(props.modelValue.sub_rule),
 )
 
 const defaultHepai = {
@@ -131,7 +150,13 @@ const defaultHepai = {
 function patch(key, value) {
   props.modelValue[key] = value
   if (key === 'sub_rule' && defaultHepai[value] != null) {
+    if (!supportsOpeningWins.value) props.modelValue.tian_di_ren_he = false
     props.modelValue.hepai_limit = defaultHepai[value]
+    if (value === 'guobiao/lanshi') {
+      props.modelValue.use_flowers = false
+      props.modelValue.open_cuohe = true
+      props.modelValue.cuohe_type = 1
+    }
   }
 }
 </script>
@@ -143,6 +168,8 @@ function patch(key, value) {
   column-gap: 16px;
   width: 100%;
 }
+.flower-help { font-size: 12px; color: #737d88; margin-left: 6px; }
+.gb-room-config--panel .gb-room-config-options .gb-room-flowers { max-width: none; }
 .gb-room-config-main,
 .gb-room-config-options {
   display: contents;

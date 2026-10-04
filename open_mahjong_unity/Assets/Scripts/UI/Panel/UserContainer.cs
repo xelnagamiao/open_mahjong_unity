@@ -15,16 +15,43 @@ public class UserContainer : MonoBehaviour {
     [SerializeField] private Slider rankProgressBar;
     [SerializeField] private TMP_Text rankScoreText;
 
+    [SerializeField] private Button rankSwitchButton;
+    public string CurrentRule { get; private set; } = "guobiao";
+    public void CycleRule(){CurrentRule=RankedRules.Next(CurrentRule);RefreshRankDisplay();}
     private void Awake() {
         if (Instance != null && Instance != this) {
             Destroy(gameObject);
             return;
         }
         Instance = this;
+        rankSwitchButton?.onClick.AddListener(CycleRule);
     }
 
     private void OnEnable() {
+        if(UserDataManager.Instance!=null)UserDataManager.Instance.RankDataChanged+=RefreshRankDisplay;
+        GameSettings.TitleChanged += RefreshTitle;
+        GameSettings.AppearanceChanged += RefreshAppearance;
+        RefreshAppearance(null);
+        RefreshTitle(0, 1);
         RefreshRankDisplay();
+    }
+
+    private void OnDisable() {
+        if(UserDataManager.Instance!=null)UserDataManager.Instance.RankDataChanged-=RefreshRankDisplay;
+        GameSettings.TitleChanged -= RefreshTitle;
+        GameSettings.AppearanceChanged -= RefreshAppearance;
+    }
+
+    private void RefreshAppearance(InventoryAppearance appearance) {
+        if (UserDataManager.Instance == null || profileImage == null) return;
+        profileImage.sprite = ConfigManager.GetProfileSprite(UserDataManager.Instance.ProfileImageId);
+        AvatarFrameGraphic.Apply(profileImage, UserDataManager.Instance.AvatarFrameId);
+    }
+
+    private void RefreshTitle(int userId, int titleId) {
+        if (UserDataManager.Instance == null || titleText == null) return;
+        titleText.richText = false;
+        titleText.text = ConfigManager.GetTitleText(UserDataManager.Instance.TitleId);
     }
 
     // 设置用户信息（仅负责UI显示，数据由UserDataManager管理）
@@ -35,7 +62,7 @@ public class UserContainer : MonoBehaviour {
     // 显示用户设置
     public void ShowUserSettings(UserSettings userSettings) {
         usernameText.text = UserDataManager.Instance.Username;
-        Sprite profileSprite = Resources.Load<Sprite>($"image/Profiles/{UserDataManager.Instance.ProfileImageId}");
+        Sprite profileSprite = ConfigManager.GetProfileSprite(UserDataManager.Instance.ProfileImageId);
         if (profileSprite != null) {
             profileImage.sprite = profileSprite;
         }
@@ -53,18 +80,12 @@ public class UserContainer : MonoBehaviour {
     /// 刷新段位文本和进度条
     /// </summary>
     public void RefreshRankDisplay() {
-        string rank = UserDataManager.Instance.GuobiaoRank;
-        float score = RankLevelConfig.NormalizeScore(rank, UserDataManager.Instance.GuobiaoScore);
-        int idx = RankConfig.GetRankIndex(rank);
-        var (_, _, promoteScore) = RankConfig.RankTable[idx];
-
-        if (rankText != null)
-            rankText.text = rank;
-
-        if (rankProgressBar != null) {
-            // 进度按 0 → 升段分（与文案 score/promoteScore、Web 一致）
-            rankProgressBar.value = promoteScore > 0 ? Mathf.Clamp01(score / promoteScore) : 0;
-        }
-        if (rankScoreText != null) rankScoreText.text = $"{score:F2}/{promoteScore}";
+        if(UserDataManager.Instance==null)return;
+        var rating=UserDataManager.Instance.GetRating(CurrentRule);
+        rankText.text=RankedRules.RankCaption(rating);
+        rankScoreText.text=RankedRules.ScoreCaption(rating).Replace("  ·  ","\n");
+        if(profileImage&&profileImage.TryGetComponent<ProfileOnClick>(out var click))click.ratingRule=CurrentRule;
+        rankProgressBar.gameObject.SetActive(RankedRules.IsGrade(CurrentRule));
+        rankProgressBar.value=RankedRules.Progress(rating);
     }
 }

@@ -49,13 +49,11 @@ from .hongque_debug import (
 from .action_priority import HONGQUE_ACTION_PRIORITY
 from .state_machine import HongqueStateMachine, HongqueStatus
 from .wait_action import (
-    advance_after_unclaimed_discard,
-    apply_discard,
-    broadcast_claim_application as wait_broadcast_claim_application,
     deal_card as hongque_deal_card,
     handle_claim_action as wait_handle_claim_action,
     handle_hand_action,
     open_claim_window as wait_open_claim_window,
+    queued_claim_is_current,
     resolve_claims as wait_resolve_claims,
     validate_submitted_action,
     wait_action as hongque_wait_action,
@@ -124,6 +122,8 @@ class HongqueGameState:
         # which made chi/peng/win prompts disappear far too quickly.
         self.claim_seconds = self.turn_seconds
         self.tips = bool(room_data.get("tips", True))
+        self.count_tips = bool(room_data.get("count_tips", False))
+        self.pointer_tips = bool(room_data.get("pointer_tips", True))
         # 战术鸣牌与国标状态机一致：每次申请立刻从开窗快照重问更高优先级。
         self.tactical_grace_seconds = float(
             room_data.get("tactical_grace_seconds", 5.0)
@@ -210,7 +210,9 @@ class HongqueGameState:
                 self.room_id, self.gamestate_id,
             )
             try:
-                await self.cleanup_game_state()
+                await self.game_server.gamestate_manager.cleanup_game_state_complete(
+                    gamestate_id=self.gamestate_id, reason="runtime_error"
+                )
             except Exception:
                 logger.exception(
                     "清理虹雀对局失败，room_id=%s gamestate_id=%s",
@@ -305,8 +307,13 @@ class HongqueGameState:
         return self.game_task is not None and not self.game_task.done()
 
     async def submit_action(self, user_id: int, action: str, tile: Optional[str] = None,
-                            candidate_id: Optional[str] = None, action_tick: Optional[int] = None) -> None:
-        player = next((item for item in self.players if item.user_id == user_id), None)
+                            candidate_id: Optional[str] = None, action_tick: Optional[int] = None,
+                            *, player_index: Optional[int] = None) -> None:
+        # 同类型机器人共用 user_id，内部提交必须同时指定座位。网络入口仍只使用
+        # 已认证的 user_id；即使指定座位，也必须与该 user_id 匹配。
+        player = next((item for item in self.players
+                       if item.user_id == user_id
+                       and (player_index is None or item.index == player_index)), None)
         if player is None:
             raise ValueError("玩家不在本局中")
         if action_tick is not None and int(action_tick) != self.action_tick:
@@ -402,6 +409,8 @@ class HongqueGameState:
                     action_data = dict(await self.action_queues[player_index].get())
                     self.action_events[player_index].clear()
                     flushed = True
+                    if not queued_claim_is_current(self, player_index, action_data):
+                        continue
                     await self._handle_claim_action(
                         self.players[player_index],
                         action_data.get("action_type"),
@@ -414,10 +423,6 @@ class HongqueGameState:
                 return
             self._drop_unwaited_actions(set())
             return
-
-    async def _handle_turn_action(self, player: HongquePlayer, action: str,
-                                  tile: Optional[str], candidate_id: Optional[str]) -> None:
-        await handle_hand_action(self, player, action, tile, candidate_id)
 
     def _apply_kong(self, player: HongquePlayer, candidate: dict) -> None:
         """把杠/杠和候选中的手牌并入对应明牌，同步手牌、副露与事件。"""
@@ -439,10 +444,6 @@ class HongqueGameState:
             claimed_tile=claimed_tile,
         )
 
-    async def _discard_and_open_claim(self, player: HongquePlayer, code: str) -> None:
-        """Apply the one authoritative discard transition for humans and bots."""
-        await apply_discard(self, player, code)
-
     async def _open_claim_window(self) -> None:
         await wait_open_claim_window(self)
 
@@ -450,14 +451,8 @@ class HongqueGameState:
                                    candidate_id: Optional[str]) -> None:
         await wait_handle_claim_action(self, player, action, candidate_id)
 
-    async def _broadcast_claim_apply(self, player_index: int, candidate: dict) -> None:
-        await wait_broadcast_claim_application(self, player_index, candidate)
-
     async def _resolve_claims(self) -> None:
         await wait_resolve_claims(self)
-
-    async def _advance_after_unclaimed_discard(self) -> None:
-        await advance_after_unclaimed_discard(self)
 
     async def _finish_round(
         self,
@@ -678,9 +673,6 @@ class HongqueGameState:
         manager = getattr(self.game_server, "gamestate_manager", None)
         if manager is not None:
             await manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
-        room_manager = getattr(self.game_server, "room_manager", None)
-        if room_manager is not None and hasattr(room_manager, "finish_custom_game_room"):
-            await room_manager.finish_custom_game_room(self.room_id)
 
 
     @staticmethod
@@ -734,6 +726,8 @@ class HongqueGameState:
                 "online": False,
             }
             await self.broadcast_state(events_override=[presence])
+        from ..public.lifecycle import close_if_all_humans_offline
+        await close_if_all_humans_offline(self)
 
     async def player_reconnect(self, user_id: int) -> None:
         async with self._lock:

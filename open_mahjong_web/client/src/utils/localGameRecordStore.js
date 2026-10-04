@@ -1,3 +1,5 @@
+import { isDuplicateGameRecord } from './duplicateWalls.js'
+
 const DB_NAME = 'om.localGameRecords'
 const DB_VERSION = 1
 const RECORD_STORE = 'records'
@@ -89,6 +91,7 @@ export function isLocalOnlyGameId(gameId) {
 /** @param {object} detail 服务端 game_end_info.record_detail */
 export async function saveLocalGameRecord(detail) {
   if (!detail?.record || !detail.game_id) return
+  if (isDuplicateGameRecord(detail)) return
   const row = {
     ...detail,
     game_id: String(detail.game_id),

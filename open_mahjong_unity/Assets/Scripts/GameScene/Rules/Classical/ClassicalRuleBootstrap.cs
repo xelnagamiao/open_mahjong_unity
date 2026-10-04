@@ -10,6 +10,7 @@ internal static class ClassicalRuleBootstrap {
             LobbyOrder = 6,
             LobbySubRules = ClassicalLobby.SubRules,
             CreateRoomDefaults = ClassicalLobby.Defaults(),
+            DefaultHepaiLimit = 1,
             HuTickFollowsShuhewei = true,
             RecordHuTileTickIndex = 7,
             GameStateFactory = () => new ClassicalGameState(),

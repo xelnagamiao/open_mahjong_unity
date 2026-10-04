@@ -1,7 +1,10 @@
 import type { PublicGameRecord, RecordRound, RecordTick } from './recordReplay'
+import { isDuplicateGameRecord } from '@/utils/duplicateWalls'
 
 const STORAGE_KEY = 'salasasa:local-replay-record'
 export const LOCAL_REPLAY_ID = 'local-converted-record'
+/** Unity `recordId` 正则只接受 1–16 位字母数字；与 2D 共用同一份 sessionStorage。 */
+export const UNITY_LOCAL_REPLAY_ID = 'localconverted'
 
 type SalasasaRecord = {
   game_title?: Record<string, unknown>
@@ -69,21 +72,25 @@ function normalizeRecord(value: SalasasaRecord | PublicGameRecord): PublicGameRe
 
 export function saveLocalReplayRecord(value: SalasasaRecord | PublicGameRecord): string {
   const record = normalizeRecord(value)
+  if (isDuplicateGameRecord(record)) throw new Error('复式牌谱不保存在本地，请在密钥解禁后通过数据站查看')
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(record))
   } catch {
-    throw new Error('牌谱过大，浏览器无法暂存用于 2D 回放')
+    throw new Error('牌谱过大，浏览器无法暂存用于回放')
   }
   return LOCAL_REPLAY_ID
 }
 
 export function loadLocalReplayRecord(gameId: string): PublicGameRecord | null {
-  if (gameId !== LOCAL_REPLAY_ID) return null
+  if (!isLocalReplayRecord(gameId)) return null
   const raw = sessionStorage.getItem(STORAGE_KEY)
   if (!raw) throw new Error('本地牌谱已失效，请返回转换工具重新转换')
-  return JSON.parse(raw) as PublicGameRecord
+  const record = JSON.parse(raw) as PublicGameRecord
+  if (isDuplicateGameRecord(record)) throw new Error('复式牌谱请通过数据站查看')
+  return record
 }
 
 export function isLocalReplayRecord(gameId: unknown): boolean {
-  return String(gameId || '') === LOCAL_REPLAY_ID
+  const id = String(gameId || '')
+  return id === LOCAL_REPLAY_ID || id === UNITY_LOCAL_REPLAY_ID
 }

@@ -16,11 +16,18 @@ namespace Riichi {
         public RiichiHandResult Calculate(List<int> handList, List<string> tilesCombination,
                                           int winTile, RiichiHandContext context) {
             context = context ?? new RiichiHandContext();
+            handList = handList ?? new List<int>();
+            tilesCombination = tilesCombination ?? new List<string>();
             context.WinHandTileIds = new List<int>(handList);
             context.OpenCombinationTiles = tilesCombination != null
                 ? new List<string>(tilesCombination)
                 : null;
             var result = new RiichiHandResult();
+            var allTiles = new List<int>(handList);
+            foreach (var combo in tilesCombination) allTiles.AddRange(RiichiYakuDetector.TilesFromCombination(combo));
+            if (handList.Count != 14 - 3 * tilesCombination.Count || allTiles.GroupBy(RiichiTileUtil.Normalize).Any(g => g.Count() > 4)) {
+                result.Error = "手牌张数不合法"; return result;
+            }
 
             // 归一化手牌（把赤 5 还原到普通 5 用于拆解）
             var normalizedHand = handList.Select(RiichiTileUtil.Normalize).ToList();
@@ -50,9 +57,9 @@ namespace Riichi {
                         aka += RiichiTileUtil.CountAkaInTiles(RiichiYakuDetector.TilesFromCombination(combo));
                     }
                 }
-                context.AkaCount = aka;
+                result.AkaCount = context.RedDora ? aka : 0;
             }
-            result.AkaCount = context.AkaCount.Value;
+            else result.AkaCount = context.RedDora ? context.AkaCount.Value : 0;
 
             // --- 检测国士/七对 ---
             RiichiYakuDetector.DetectResult bestDetect = null;
@@ -63,19 +70,15 @@ namespace Riichi {
 
             // 国士无双：直接在计算器内判定十三面，不借助 YakuDetector 的 set 展开
             if (tilesCombination.Count == 0 && CheckKokushi(normalizedHand, winNorm, out int pairTileForKokushi)) {
-                bool thirteenWait = pairTileForKokushi == winNorm;
-                int mult = thirteenWait ? 2 : 1;
-                var det = new RiichiYakuDetector.DetectResult { YakumanMultiplier = mult, HasYaku = true, IsClosed = true };
-                det.Yaku.Add(new RiichiYakuDetector.YakuEntry {
-                    Name = thirteenWait ? "国士无双十三面" : "国士无双",
-                    IsYakuman = true,
-                    YakumanMultiplier = mult,
-                });
-                int han = 0;
+                var kokushiSets = new List<RiichiSet> { new RiichiSet { Type = RiichiSetType.Pair, Tile = pairTileForKokushi } };
+                var det = new RiichiYakuDetector(context).Detect(kokushiSets,
+                    context.IsTenhou && context.DoubleYakuman ? pairTileForKokushi : winNorm, HandShape.Kokushi);
+                int mult = det.YakumanMultiplier;
+                int han = mult * 13;
                 int fu = 25;
                 int score = RiichiScoreCalc.CalculateTotalScore(han, fu,
                     context.PlayerWind == RiichiTileUtil.East, context.IsTsumo, mult);
-                if (score > bestScore) {
+                if (score > bestScore || (score == bestScore && (han > bestHan || (han == bestHan && fu > bestFu)))) {
                     bestScore = score; bestDetect = det;
                     bestHan = han; bestFu = fu;
                 }
@@ -88,8 +91,8 @@ namespace Riichi {
                     int han = det.Yaku.Sum(y => y.Han);
                     int fu = RiichiFuCalc.Calculate(chiitoiSets, winTile, RiichiWaitType.Tanki, context, det, HandShape.Chiitoitsu);
                     int score = RiichiScoreCalc.CalculateTotalScore(han, fu,
-                        context.PlayerWind == RiichiTileUtil.East, context.IsTsumo, det.YakumanMultiplier);
-                    if (score > bestScore) {
+                        context.PlayerWind == RiichiTileUtil.East, context.IsTsumo, det.YakumanMultiplier, context.KiriageMangan, context.KazoeLimit);
+                    if (score > bestScore || (score == bestScore && (han > bestHan || (han == bestHan && fu > bestFu)))) {
                         bestScore = score; bestDetect = det;
                         bestHan = han; bestFu = fu;
                     }
@@ -99,17 +102,24 @@ namespace Riichi {
             // 一般型：使用 RiichiCombinationSolver 求所有拆解
             var allDecompositions = SolveNormal(normalizedHand, tilesCombination);
             foreach (var decomp in allDecompositions) {
-                var det = new RiichiYakuDetector(detectorCtx).Detect(decomp, winTile, HandShape.Normal);
+                var winningTiles = context.IsTenhou && context.DoubleYakuman ? normalizedHand.Distinct().ToList() : new List<int> { winNorm };
+                foreach (int winningTile in winningTiles) for (int setIndex = 0; setIndex < decomp.Count; setIndex++) {
+                var winningSet = decomp[setIndex];
+                if (winningSet.Opened || winningSet.Type == RiichiSetType.Kan || !winningSet.Tiles().Contains(winningTile)) continue;
+                context.WinningSetIndex = setIndex;
+                var det = new RiichiYakuDetector(detectorCtx).Detect(decomp, winningTile, HandShape.Normal);
                 if (!det.HasYaku) continue;
                 int han = det.Yaku.Sum(y => y.Han);
-                int fu = RiichiFuCalc.Calculate(decomp, winTile, det.WaitType, context, det, HandShape.Normal);
+                int fu = RiichiFuCalc.Calculate(decomp, winningTile, det.WaitType, context, det, HandShape.Normal);
                 int score = RiichiScoreCalc.CalculateTotalScore(han, fu,
-                    context.PlayerWind == RiichiTileUtil.East, context.IsTsumo, det.YakumanMultiplier);
-                if (score > bestScore) {
+                    context.PlayerWind == RiichiTileUtil.East, context.IsTsumo, det.YakumanMultiplier, context.KiriageMangan, context.KazoeLimit);
+                if (score > bestScore || (score == bestScore && (han > bestHan || (han == bestHan && fu > bestFu)))) {
                     bestScore = score; bestDetect = det;
                     bestHan = han; bestFu = fu;
                 }
+                }
             }
+            context.WinningSetIndex = -1;
 
             if (bestDetect == null || !bestDetect.HasYaku) {
                 result.IsValid = false;
@@ -119,6 +129,7 @@ namespace Riichi {
 
             if (bestDetect.YakumanMultiplier > 0) {
                 bestFu = 25;
+                bestHan = bestDetect.YakumanMultiplier * 13;
             }
 
             result.IsValid = true;

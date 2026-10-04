@@ -13,9 +13,12 @@ import { splitWinningTileFromRevealedHand } from '../../lib/settlementHand.js'
 export type MeldType = 'chow' | 'pung' | 'kong'
 
 type SnapshotMeldSpec = {
+  physicalMask?: number[]
+  physicalTiles?: number[]
   chowMode?: number
   meldFromRel?: number
   concealed?: boolean
+  concealedFaceDown?: boolean[]
   claimedFromDrawnDiscard?: boolean
   addedFromDrawnTile?: boolean
   concealedFromDrawnTile?: boolean
@@ -595,6 +598,25 @@ export class Hand extends Container {
   // ── Meld from snapshot ───────────────────────────────────────────
 
   addMeld(type: MeldType, middleTid: number, spec: SnapshotMeldSpec = {}): void {
+    if (spec.physicalMask && [6, 8].includes(spec.physicalMask.length)) {
+      const mask = spec.physicalMask
+      let claimedIndex = this.leftList.length
+      for (let i = 0; i < mask.length; i += 2) {
+        const flag = mask[i]!, face = mask[i + 1]!
+        if (flag === 3) continue
+        const tile = this.createVisibleTile(face)
+        if (flag === 1) claimedIndex = this.leftList.length
+        if (flag === 2) tile.setConcealedFaceDown(true, this.direction === 0 && !this.replayStyle)
+        this.appendLeftList(tile, flag === 1)
+      }
+      for (let i = 0; i < mask.length; i += 2)
+        if (mask[i] === 3) this.addKongOn(this.createVisibleTile(mask[i + 1]!), claimedIndex)
+      return
+    }
+    if (spec.physicalTiles?.length) {
+      for (const tile of spec.physicalTiles) this.appendLeftList(this.createVisibleTile(tile), false)
+      return
+    }
     const chowMode = spec.chowMode ?? 0
     const meldFromRel = spec.meldFromRel ?? 0
     const concealed = spec.concealed ?? false
@@ -641,8 +663,8 @@ export class Hand extends Container {
       if (concealedFromDrawnTile) {
         concealedTiles[3].setPersistentTint(TILE_HOVER_TINT)
       }
-      for (const tile of concealedTiles) {
-        tile.setConcealedFaceDown(true, this.direction === 0 && !this.replayStyle)
+      for (const [index, tile] of concealedTiles.entries()) {
+        tile.setConcealedFaceDown(spec.concealedFaceDown?.[index] ?? true, this.direction === 0 && !this.replayStyle)
         this.appendLeftList(tile, false)
       }
       return
@@ -783,7 +805,7 @@ export class Hand extends Container {
     this.updateDisplay(true)
   }
 
-  cKongFromHand(tid: number, useDrawnTile: boolean): void {
+  cKongFromHand(tid: number, useDrawnTile: boolean, faceDown?: boolean[]): void {
     const need = useDrawnTile ? 3 : 4
     let fd: Tile | null = null
     if (useDrawnTile && this.drawnTile) {
@@ -801,8 +823,8 @@ export class Hand extends Container {
     if (this.replayStyle && useDrawnTile && fd) {
       fd.setPersistentTint(TILE_HOVER_TINT)
     }
-    for (const tile of all) {
-      tile.setConcealedFaceDown(true, this.direction === 0 && !this.replayStyle)
+    for (const [index, tile] of all.entries()) {
+      tile.setConcealedFaceDown(faceDown?.[index] ?? true, this.direction === 0 && !this.replayStyle)
     }
     this.appendLeftList(all[3], false); this.appendLeftList(all[2], false)
     this.appendLeftList(all[1], false); this.appendLeftList(all[0], false)

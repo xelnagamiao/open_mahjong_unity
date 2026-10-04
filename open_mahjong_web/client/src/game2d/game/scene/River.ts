@@ -12,22 +12,15 @@ import { tr } from '../../../i18n'
 const RIVER_X = [0, TILE_SEP + TILE_WIDTH * 3 + TILE_HEIGHT / 2, 0, -TILE_SEP - TILE_WIDTH * 3 - TILE_HEIGHT / 2] as const
 const RIVER_Y = [TILE_SEP + TILE_WIDTH * 3 + TILE_HEIGHT / 2, 0, -TILE_SEP - TILE_WIDTH * 3 - TILE_HEIGHT / 2, 0] as const
 const FLOWER_COLUMNS = 4
-const FLOWER_TILE_SCALE = 1.12
-const FLOWER_TILE_WIDTH = TILE_WIDTH * FLOWER_TILE_SCALE
-const FLOWER_TILE_HEIGHT = TILE_HEIGHT * FLOWER_TILE_SCALE
-const FLOWER_AREA_PADDING = TILE_SEP
 const RIVER_RIGHT_EDGE = TILE_WIDTH * 3
 const FLOWER_AREA_GAP = TILE_SEP * 1.35
-const FLOWER_GAP_X = FLOWER_TILE_WIDTH + TILE_SEP * 0.4
-const FLOWER_GAP_Y = FLOWER_TILE_HEIGHT + TILE_SEP * 0.4
-const FLOWER_AREA_WIDTH = FLOWER_GAP_X * (FLOWER_COLUMNS - 1) + FLOWER_TILE_WIDTH + FLOWER_AREA_PADDING * 2
-const FLOWER_AREA_HEIGHT = FLOWER_GAP_Y + FLOWER_TILE_HEIGHT + FLOWER_AREA_PADDING * 2
-const FLOWER_AREA_LEFT = RIVER_RIGHT_EDGE + FLOWER_AREA_GAP + TILE_WIDTH / 2
-// Grow upward, preserving the space below for ready/pass/action buttons.
-const FLOWER_AREA_TOP = TILE_HEIGHT * 2.5 - FLOWER_AREA_HEIGHT
-const FLOWER_AREA_CENTER_X = FLOWER_AREA_LEFT + FLOWER_AREA_WIDTH / 2
-const FLOWER_START_X = FLOWER_AREA_LEFT + FLOWER_AREA_PADDING + FLOWER_TILE_WIDTH / 2
-const FLOWER_START_Y = FLOWER_AREA_TOP + FLOWER_AREA_PADDING + FLOWER_TILE_HEIGHT / 2
+const FLOWER_START_X = RIVER_RIGHT_EDGE + FLOWER_AREA_GAP + TILE_WIDTH
+// The first flower row shares the baseline of the river's second row.
+const FLOWER_START_Y = TILE_HEIGHT
+const FLOWER_GAP_X = TILE_WIDTH + TILE_SEP * 0.12
+const FLOWER_GAP_Y = TILE_HEIGHT + TILE_SEP * 0.12
+const FLOWER_AREA_WIDTH = FLOWER_GAP_X * (FLOWER_COLUMNS - 1) + TILE_WIDTH
+const FLOWER_AREA_HEIGHT = FLOWER_GAP_Y + TILE_HEIGHT
 const FLOWER_FADE_DURATION_MS = 3000
 
 /**
@@ -38,7 +31,7 @@ export class River extends Container {
   readonly tileList: Tile[] = []
   readonly flowerList: Tile[] = []
   private readonly flowerLayer = new Container()
-  // The default filter uses a 1× offscreen texture, softening faces on a 2×/3× canvas.
+  // Keep flower fading at the canvas resolution instead of downsampling to 1×.
   private readonly flowerFadeFilter = new AlphaFilter({ alpha: 1, resolution: 'inherit', antialias: 'inherit' })
   private readonly flowerAreaBackground = new Graphics()
   private readonly flowerAreaInfoLayer = new Container()
@@ -47,6 +40,9 @@ export class River extends Container {
   private readonly flowerAreaCountRow = new Container()
   private readonly flowerAreaCountLabel: Text
   private readonly flowerAreaCountValue: Text
+  private readonly duplicateWallLabel: Text
+  private readonly duplicateWallValue: Text
+  private duplicateWallCount: number | undefined
   private flowerAreaDisplay: FlowerAreaDisplay = 'always'
   private flowerAreaColor = 0x000000
   private flowerAreaAlpha = 0.85
@@ -106,9 +102,19 @@ export class River extends Container {
       text: '0',
       style: { ...infoTextStyle, fill: this.flowerAreaCountColor },
     })
+    this.duplicateWallLabel = new Text({ text: `${tr('余牌')} `, style: infoTextStyle })
+    this.duplicateWallValue = new Text({
+      text: '',
+      style: { ...infoTextStyle, fill: this.flowerAreaCountColor },
+    })
+    for (const text of [this.duplicateWallLabel, this.duplicateWallValue]) {
+      text.anchor.set(0, 0.5)
+      text.eventMode = 'none'
+      text.visible = false
+    }
     for (const text of [this.flowerAreaRank, this.flowerAreaName]) {
       text.anchor.set(0.5)
-      text.x = FLOWER_AREA_CENTER_X
+      text.x = FLOWER_START_X + FLOWER_GAP_X * (FLOWER_COLUMNS - 1) / 2
       text.alpha = 1
       text.eventMode = 'none'
       this.flowerAreaInfoLayer.addChild(text)
@@ -117,12 +123,18 @@ export class River extends Container {
     this.flowerAreaCountValue.anchor.set(0, 0.5)
     this.flowerAreaCountLabel.eventMode = 'none'
     this.flowerAreaCountValue.eventMode = 'none'
-    this.flowerAreaCountRow.x = FLOWER_AREA_CENTER_X
-    this.flowerAreaCountRow.addChild(this.flowerAreaCountLabel, this.flowerAreaCountValue)
+    this.flowerAreaCountRow.x = FLOWER_START_X + FLOWER_GAP_X * (FLOWER_COLUMNS - 1) / 2
+    this.flowerAreaCountRow.addChild(
+      this.flowerAreaCountLabel, this.flowerAreaCountValue,
+      this.duplicateWallLabel, this.duplicateWallValue,
+    )
     this.flowerAreaInfoLayer.addChild(this.flowerAreaCountRow)
-    this.flowerAreaRank.y = FLOWER_AREA_TOP + FLOWER_AREA_HEIGHT * 0.24
-    this.flowerAreaName.y = FLOWER_AREA_TOP + FLOWER_AREA_HEIGHT * 0.54
-    this.flowerAreaCountRow.y = FLOWER_AREA_TOP + FLOWER_AREA_HEIGHT * 0.80
+    // Move the complete information layer upward by about 2 CSS px at desktop scale.
+    this.flowerAreaInfoLayer.y = -20
+    this.flowerAreaRank.y = FLOWER_START_Y + TILE_HEIGHT * 0.06
+    this.flowerAreaName.y = FLOWER_START_Y + FLOWER_GAP_Y * 0.62
+    // The scene is scaled to roughly 10% at desktop size; 20 scene units is about 2 CSS px.
+    this.flowerAreaCountRow.y = FLOWER_START_Y + FLOWER_GAP_Y + TILE_HEIGHT * 0.18 - 20
     this.redrawFlowerAreaBackground()
     this.updateFlowerAreaVisibility()
     this.flowerLayer.filters = [this.flowerFadeFilter]
@@ -131,8 +143,8 @@ export class River extends Container {
     super.addChild(this.flowerLayer)
     this.eventMode = 'static'
     this.hitArea = new Rectangle(
-      FLOWER_AREA_LEFT,
-      FLOWER_AREA_TOP,
+      FLOWER_START_X - TILE_WIDTH / 2,
+      FLOWER_START_Y - TILE_HEIGHT / 2,
       FLOWER_AREA_WIDTH,
       FLOWER_AREA_HEIGHT,
     )
@@ -151,44 +163,62 @@ export class River extends Container {
     parent.addChild(this)
   }
 
-  setPlayerInfo(rank: string, name: string, offline = false): void {
+  setPlayerInfo(rank: string, name: string, offline = false, duplicateRemaining?: number): void {
     this.flowerRank = rank
     this.flowerAreaRank.text = tr(rank)
     this.flowerAreaName.text = name
     this.flowerAreaNameOffline = offline
+    this.duplicateWallCount = typeof duplicateRemaining === 'number' && Number.isInteger(duplicateRemaining) && duplicateRemaining >= 0
+      ? duplicateRemaining : undefined
+    this.duplicateWallLabel.visible = this.duplicateWallCount !== undefined
+    this.duplicateWallValue.visible = this.duplicateWallCount !== undefined
+    this.duplicateWallValue.text = this.duplicateWallCount === undefined ? '' : String(this.duplicateWallCount)
     this.resizeFlowerAreaInfo()
   }
 
   setPlayerName(name: string, offline = false): void {
-    this.setPlayerInfo(this.flowerRank, name, offline)
+    this.setPlayerInfo(this.flowerRank, name, offline, this.duplicateWallCount)
   }
 
   private resizeFlowerAreaInfo(): void {
-    const maxWidth = FLOWER_AREA_WIDTH - FLOWER_AREA_PADDING * 2
-    const baseSizes = [330, 225]
-    const maxHeights = [FLOWER_AREA_HEIGHT * 0.32, FLOWER_AREA_HEIGHT * 0.23]
+    const maxWidth = FLOWER_AREA_WIDTH - TILE_WIDTH * 0.35
+    const baseSizes = [310, 205]
     const labels = [this.flowerAreaRank, this.flowerAreaName]
     labels.forEach((text, index) => {
       text.style.fontSize = baseSizes[index] * this.flowerAreaLabelScale
       text.style.fill = this.flowerAreaNameOffline ? 0xb0b0b0 : this.flowerAreaLabelColor
       text.scale.set(1)
-      text.scale.set(Math.min(1, maxWidth / Math.max(text.width, 1), maxHeights[index] / Math.max(text.height, 1)))
+      text.scale.set(Math.min(1, maxWidth / Math.max(text.width, 1)))
     })
-    const countLabelFontSize = 180 * this.flowerAreaLabelScale
-    const countValueFontSize = 290 * this.flowerAreaLabelScale
-    this.flowerAreaCountLabel.style.fontSize = countLabelFontSize
-    this.flowerAreaCountLabel.style.fill = this.flowerAreaNameOffline ? 0xb0b0b0 : this.flowerAreaLabelColor
-    this.flowerAreaCountValue.style.fontSize = countValueFontSize
-    this.flowerAreaCountValue.style.fill = this.flowerAreaCountColor
+    const countLabelFontSize = 170 * this.flowerAreaLabelScale
+    const countValueFontSize = 270 * this.flowerAreaLabelScale
+    for (const label of [this.flowerAreaCountLabel, this.duplicateWallLabel]) {
+      label.style.fontSize = countLabelFontSize
+      label.style.fill = this.flowerAreaNameOffline ? 0xb0b0b0 : this.flowerAreaLabelColor
+    }
+    for (const value of [this.flowerAreaCountValue, this.duplicateWallValue]) {
+      value.style.fontSize = countValueFontSize
+      value.style.fill = this.flowerAreaCountColor
+    }
+    const lowWall = this.duplicateWallCount !== undefined && this.duplicateWallCount <= 3
+    if (lowWall) {
+      this.duplicateWallLabel.style.fill = 0xff7043
+      this.duplicateWallValue.style.fill = 0xff7043
+    }
+    this.duplicateWallValue.style.fontWeight = lowWall ? 'bold' : 'normal'
     const countGap = TILE_SEP * 0.12 * this.flowerAreaLabelScale
     this.flowerAreaCountLabel.x = 0
     this.flowerAreaCountValue.x = this.flowerAreaCountLabel.width + countGap
+    this.duplicateWallLabel.x = this.flowerAreaCountValue.x + this.flowerAreaCountValue.width + TILE_SEP * 0.6
+    this.duplicateWallValue.x = this.duplicateWallLabel.x + this.duplicateWallLabel.width + countGap
     this.flowerAreaCountRow.scale.set(1)
-    const countWidth = this.flowerAreaCountValue.x + this.flowerAreaCountValue.width
-    const countScale = Math.min(1, maxWidth / Math.max(countWidth, 1),
-      FLOWER_AREA_HEIGHT * 0.27 / Math.max(this.flowerAreaCountRow.height, 1))
+    const lastValue = this.duplicateWallCount === undefined ? this.flowerAreaCountValue : this.duplicateWallValue
+    const countWidth = lastValue.x + lastValue.width
+    const countScale = Math.min(1, maxWidth / Math.max(countWidth, 1))
     this.flowerAreaCountRow.scale.set(countScale)
-    this.flowerAreaCountRow.x = FLOWER_AREA_CENTER_X - countWidth * countScale / 2
+    this.flowerAreaCountRow.x = FLOWER_START_X
+      + FLOWER_GAP_X * (FLOWER_COLUMNS - 1) / 2
+      - countWidth * countScale / 2
   }
 
   setFlowerAreaAppearance(
@@ -213,8 +243,8 @@ export class River extends Container {
   private redrawFlowerAreaBackground(): void {
     this.flowerAreaBackground.clear()
     this.flowerAreaBackground.roundRect(
-      FLOWER_AREA_LEFT,
-      FLOWER_AREA_TOP,
+      FLOWER_START_X - TILE_WIDTH / 2,
+      FLOWER_START_Y - TILE_HEIGHT / 2,
       FLOWER_AREA_WIDTH,
       FLOWER_AREA_HEIGHT,
       TILE_RADIUS,
@@ -247,7 +277,7 @@ export class River extends Container {
 
   /**
    * Restore replay flower identities without showing the historical tiles
-   * immediately. Hovering the flower area reveals the enlarged faces.
+   * immediately. Hovering the flower area reveals the full-size faces.
    */
   setReplayFlowers(tids: number[]): void {
     this.cancelFlowerFade()
@@ -269,20 +299,14 @@ export class River extends Container {
       tile.x = FLOWER_START_X + (index % FLOWER_COLUMNS) * FLOWER_GAP_X
       tile.y = FLOWER_START_Y + Math.floor(index / FLOWER_COLUMNS) * FLOWER_GAP_Y
       tile.rotation = 0
-      tile.scale.set(FLOWER_TILE_SCALE)
+      tile.scale.set(1)
       tile.visible = true
       this.flowerList.push(tile)
       this.flowerLayer.addChild(tile)
     })
 
     this.setFlowerCount(tids.length)
-    this.setFlowerAlpha(this.flowerAreaHovered ? 1 : 0)
-  }
-
-  private setFlowerAlpha(alpha: number): void {
-    this.flowerFadeFilter.alpha = alpha
-    // Keep player labels from showing through the gaps between revealed flowers.
-    this.flowerAreaInfoLayer.alpha = this.flowerList.length > 0 ? 1 - alpha : 1
+    this.flowerFadeFilter.alpha = this.flowerAreaHovered ? 1 : 0
   }
 
   private cancelFlowerFade(): void {
@@ -299,7 +323,7 @@ export class River extends Container {
     const startedAt = performance.now()
     const tick = (now: number) => {
       const progress = Math.min(1, (now - startedAt) / Math.max(1, durationMs))
-      this.setFlowerAlpha(from + (target - from) * progress)
+      this.flowerFadeFilter.alpha = from + (target - from) * progress
       if (progress < 1) {
         this.flowerFadeFrame = requestAnimationFrame(tick)
       } else {
@@ -311,12 +335,12 @@ export class River extends Container {
 
   private revealFlowers(): void {
     this.cancelFlowerFade()
-    this.setFlowerAlpha(1)
+    this.flowerFadeFilter.alpha = 1
   }
 
   private hideFlowers(): void {
     this.cancelFlowerFade()
-    this.setFlowerAlpha(0)
+    this.flowerFadeFilter.alpha = 0
   }
 
   private beginFlowerFade(): void {
@@ -325,7 +349,7 @@ export class River extends Container {
     this.animateFlowerAlpha(0, FLOWER_FADE_DURATION_MS)
   }
 
-  /** Place enlarged flower tiles in a padded grid outside the river. */
+  /** Place full-size flower tiles outside the river, with a fixed clear gap. */
   addFlower(tile: Tile, animate = false): void {
     const index = this.flowerCount
     const x = FLOWER_START_X + (index % FLOWER_COLUMNS) * FLOWER_GAP_X
@@ -337,10 +361,10 @@ export class River extends Container {
     this.flowerList.push(tile)
     this.setFlowerCount(this.flowerCount + 1)
     this.cancelFlowerFade()
-    this.setFlowerAlpha(1)
+    this.flowerFadeFilter.alpha = 1
     if (animate && tile.parent) {
       const movement = tile.generalMove(this.flowerLayer, x, y, 0)
-      tile.scale.set(FLOWER_TILE_SCALE)
+      tile.scale.set(1)
       const fadeAfterPlacement = () => {
         this.revealFlowers()
         this.beginFlowerFade()
@@ -351,7 +375,7 @@ export class River extends Container {
       tile.x = x
       tile.y = y
       tile.rotation = 0
-      tile.scale.set(FLOWER_TILE_SCALE)
+      tile.scale.set(1)
       tile.visible = true
       this.beginFlowerFade()
     }

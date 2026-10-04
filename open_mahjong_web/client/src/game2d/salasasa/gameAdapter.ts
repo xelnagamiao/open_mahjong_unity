@@ -24,7 +24,7 @@ import { buildLocalWaitData, type WaitInfoData as LocalWaitInfoData } from '../c
 /** Salasasa/server tile ids: 45中 46白 47发 → mmcr honor ranks z5/z6/z7 (same order). */
 export function salasasaTileToMmcr(tile: number | null | undefined): number {
   if (!tile || tile < 0) return 0
-  const normalized = tile >= 100 ? tile % 100 : tile
+  const normalized = tile === 105 ? 15 : tile === 205 ? 25 : tile === 305 ? 35 : tile
   const suit = Math.floor(normalized / 10)
   const rank = normalized % 10
   if (suit === 1 && rank >= 1 && rank <= 9) return 0x40 | rank
@@ -213,6 +213,7 @@ function viewerActions(
 function seatStatusFromSnapshot(snapshot: ActiveSessionSnapshot): CompactSeatStatus[] {
   return snapshot.seats.map((seat) => ({
     seat_index: seat.seat_index,
+    duplicate_remaining_tile_count: seat.duplicate_remaining_tile_count,
     score: seat.score,
     afk: seat.afk,
     disconnected: seat.disconnected,
@@ -333,7 +334,20 @@ export class SalasasaGameAdapter {
       },
     }
     this.snapshotValue = snapshot
+    this.updateDuplicateRemainingTiles(game.duplicate_remaining_tiles)
     return snapshot
+  }
+
+  private updateDuplicateRemainingTiles(counts: number[] | undefined): void {
+    const isDuplicate = this.gameInfoValue?.is_duplicate === true
+    const valid = isDuplicate && Array.isArray(counts) && counts.length === 4
+      && counts.every((count) => Number.isInteger(count) && count >= 0)
+    for (const seat of this.ensureSnapshot().seats) {
+      const player = this.gameInfoValue?.players_info.find((item) => item.player_index === seat.seat_index)
+      const originalSeat = player?.original_player_index ?? seat.seat_index
+      seat.duplicate_remaining_tile_count = valid && Number.isInteger(originalSeat)
+        && originalSeat >= 0 && originalSeat < 4 ? counts[originalSeat] : undefined
+    }
   }
 
   private ensureSnapshot(): ActiveSessionSnapshot {
@@ -460,6 +474,11 @@ export class SalasasaGameAdapter {
   }
 
   private fromActions(info: SalasasaDoActionInfo): GameEventPayload[] {
+    // Apply the server's counts before building any events, including combined
+    // replacement draws. A missing optional action field keeps the last snapshot.
+    if (info.duplicate_remaining_tiles !== undefined) {
+      this.updateDuplicateRemainingTiles(info.duplicate_remaining_tiles)
+    }
     const previousWaitData = this.ensureSnapshot().viewer.wait_data ?? null
     const actions = info.action_list.length ? info.action_list : ['']
     // 开局补花会把“移除花牌”和“补进岭上牌”合并在同一帧中。
@@ -638,6 +657,12 @@ export class SalasasaGameAdapter {
         this.lastAddedKongTile = tile || 0
         break
       }
+      case 'rob_kan':
+        kind = 'rob_kong_tile'
+        tile = info.cut_tile
+        this.pendingRobKongSeat = info.action_player
+        this.lastAddedKongTile = tile || 0
+        break
       case 'buhua': kind = 'flower'; tile = info.buhua_tile; this.clearPendingRobKong(); break
       case 'hu_self': kind = 'self_drawn_win'; this.clearPendingRobKong(); break
       case 'hu_first':
@@ -704,6 +729,7 @@ export class SalasasaGameAdapter {
     if (info.action_player !== this.selfSeat) return
     for (const action of info.action_list) {
       switch (action) {
+        case 'rob_kan': this.removeSelfTile(info.cut_tile ?? 0); break
         case 'cut':
           for (const tile of this.resolvedCutTiles(info)) this.removeSelfTile(tile)
           break
@@ -797,6 +823,9 @@ export class SalasasaGameAdapter {
   }
 
   private fromEnd(info: SalasasaGameEndInfo): GameEventPayload {
+    if (info.duplicate_remaining_tiles !== undefined) {
+      this.updateDuplicateRemainingTiles(info.duplicate_remaining_tiles)
+    }
     const snapshot = this.ensureSnapshot()
     const scores = [0, 1, 2, 3].map((seat) => info.player_final_data[String(seat)]?.score ?? 0)
     snapshot.state.ended = true

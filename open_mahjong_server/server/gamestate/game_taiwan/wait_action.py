@@ -1,6 +1,7 @@
 """台湾麻将的并发响应收集与动作分发。"""
 
 import asyncio
+from ..public.lifecycle import start_owned_task
 import logging
 import time
 from typing import Dict, Optional, Tuple
@@ -11,6 +12,13 @@ from .boardcast import broadcast_ready_status
 
 
 logger = logging.getLogger(__name__)
+
+
+def _claim_response_limit(game_state, index):
+    if getattr(game_state, "game_status", None) not in ("waiting_action_after_cut", "waiting_action_qianggang"):
+        return None
+    hook = getattr(game_state, "claim_response_limit", None)
+    return hook(index) if hook else getattr(game_state, "claim_response_seconds", None)
 
 
 def _ask_elapsed_for_deadline(game_state, player_index: int, now_wall: float) -> float:
@@ -35,7 +43,11 @@ def _build_ask_deadlines(
     for index in allowed:
         elapsed = _ask_elapsed_for_deadline(game_state, index, now_wall)
         remaining = max(0.0, float(game_state.player_list[index].remaining_time))
-        deadlines[index] = started + max(0.0, remaining + allowance - elapsed)
+        budget = remaining + allowance
+        response_limit = _claim_response_limit(game_state, index)
+        if response_limit is not None:
+            budget = min(budget, float(response_limit))
+        deadlines[index] = started + max(0.0, budget - elapsed)
     return deadlines
 
 
@@ -75,7 +87,8 @@ async def _collect_responses(game_state) -> Tuple[Dict[int, dict], Dict[int, lis
         expired = [index for index in pending if now >= deadlines[index]]
         for index in expired:
             pending.remove(index)
-            game_state.player_list[index].remaining_time = 0
+            if _claim_response_limit(game_state, index) is None:
+                game_state.player_list[index].remaining_time = 0
             game_state.action_events[index].clear()
             queue = game_state.action_queues[index]
             while not queue.empty():
@@ -87,7 +100,7 @@ async def _collect_responses(game_state) -> Tuple[Dict[int, dict], Dict[int, lis
             break
 
         tasks = {
-            asyncio.create_task(game_state.action_events[index].wait()): index
+            start_owned_task(game_state, game_state.action_events[index].wait()): index
             for index in pending
         }
         timeout = min(1.0, max(0.0, min(deadlines[index] for index in pending) - now))
@@ -106,7 +119,8 @@ async def _collect_responses(game_state) -> Tuple[Dict[int, dict], Dict[int, lis
             game_state.action_events[index].clear()
             if time.monotonic() >= deadlines[index]:
                 pending.discard(index)
-                game_state.player_list[index].remaining_time = 0
+                if _claim_response_limit(game_state, index) is None:
+                    game_state.player_list[index].remaining_time = 0
                 queue = game_state.action_queues[index]
                 while not queue.empty():
                     try:
@@ -142,7 +156,7 @@ async def _collect_responses(game_state) -> Tuple[Dict[int, dict], Dict[int, lis
                 continue
             responses[index] = dict(data)
             pending.discard(index)
-            if game_state.game_status != "waiting_ready":
+            if game_state.game_status != "waiting_ready" and _claim_response_limit(game_state, index) is None:
                 elapsed = get_ask_elapsed(game_state, index)
                 if elapsed <= 0:
                     elapsed = time.monotonic() - started

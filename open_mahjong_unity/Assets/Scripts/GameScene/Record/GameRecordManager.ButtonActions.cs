@@ -61,6 +61,18 @@ public partial class GameRecordManager {
         buttons.RemoveAll(button => button == null);
         if (buttons.Count == 0) return;
 
+        // Keep the toolbar clear of the self player's name and title. Both
+        // panels use the same reference canvas, so this also follows letterboxing.
+        parentRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 900f);
+        Vector2 panelPosition = parentRect.anchoredPosition;
+        panelPosition.x = 70f;
+        parentRect.anchoredPosition = panelPosition;
+        if (spectatingPanel != null && spectatingPanel.transform is RectTransform spectatorRect) {
+            spectatorRect.anchoredPosition = new Vector2(
+                panelPosition.x + parentRect.rect.width * 0.5f + spectatorRect.rect.width * 0.5f,
+                panelPosition.y);
+        }
+
         float panelWidth = parentRect.rect.width > 0f ? parentRect.rect.width : parentRect.sizeDelta.x;
         float maxButtonWidth = 0f;
         foreach (Button button in buttons) {
@@ -79,6 +91,23 @@ public partial class GameRecordManager {
             position.x = buttons.Count > 1 ? left + step * i : 0f;
             buttonRect.anchoredPosition = position;
         }
+        AlignRecordControlPopups();
+    }
+
+    private void AlignRecordControlPopups() {
+        AlignRecordControlPopup(roundScrollView, showGameRoundContentButton);
+        AlignRecordControlPopup(xunmuScrollView, showXunmuContentButton);
+    }
+
+    private static void AlignRecordControlPopup(ScrollRect popup, Button button) {
+        if (popup == null || button == null || button.transform is not RectTransform buttonRect) return;
+        var rect = (RectTransform)popup.transform;
+        // 操作条会因自动播放按钮显隐重新排列；子面板跟随按钮，保持位于操作条上方。
+        if (rect.parent != buttonRect.parent) rect.SetParent(buttonRect.parent, false);
+        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 1f);
+        rect.pivot = new Vector2(0.5f, 0f);
+        rect.anchoredPosition = new Vector2(buttonRect.anchoredPosition.x, 8f);
+        rect.SetAsLastSibling();
     }
 
     private void ToggleRecordAutoPlay() {
@@ -338,7 +367,7 @@ public partial class GameRecordManager {
     }
 
     public void NextStep() {
-        if (BlocksRecordNavigation) {
+        if (BlocksRecordNavigation || _pendingRecordDelayedAdvanceCount > 0 || !CanAnimateNextRecordStep()) {
             return;
         }
         if (IsSpectatorSession) {
@@ -354,6 +383,7 @@ public partial class GameRecordManager {
     }
 
     public void BackStep() {
+        StopRecordAutoPlay();
         if (BlocksRecordNavigation) return;
         if (IsSpectatorSession && CurrentMode == RecordManagerMode.Spectator) {
             SwitchToRecordMode();
@@ -363,6 +393,7 @@ public partial class GameRecordManager {
     }
 
     private void ShowGameRoundContent() {
+        AlignRecordControlPopups();
         bool shouldOpenRound = !roundScrollView.gameObject.activeSelf;
         roundScrollView.gameObject.SetActive(shouldOpenRound);
         if (shouldOpenRound) {
@@ -371,6 +402,7 @@ public partial class GameRecordManager {
     }
 
     private void ShowXunmuContent() {
+        AlignRecordControlPopups();
         bool shouldOpenXunmu = !xunmuScrollView.gameObject.activeSelf;
         xunmuScrollView.gameObject.SetActive(shouldOpenXunmu);
         if (shouldOpenXunmu) {

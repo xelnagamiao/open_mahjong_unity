@@ -38,6 +38,7 @@ public partial class CreatePanel {
         public bool ShowAllFans;
         public bool IsApplyingPreset;
         public bool IsRefreshingFanTable;
+        public int PendingRoomPreset = -1;
 
         public DetailedConfigState(DetailedConfigDefinition definition) {
             Definition = definition;
@@ -58,6 +59,7 @@ public partial class CreatePanel {
     }
 
     private void BindDetailedConfigControls(string ruleKey) {
+        if (ruleKey == "hongkong") { BindHongKongMainControls(); return; }
         if (!DetailedConfigRegistry.TryGet(
                 ruleKey,
                 out DetailedConfigDefinition definition)) return;
@@ -86,8 +88,6 @@ public partial class CreatePanel {
             Debug.LogError($"Prebuilt detailed config panel '{ruleKey}' is incomplete.", this);
             return;
         }
-        ConfigureDetailedConfigScrollViewport(state.Scroll);
-        ConfigureDetailedConfigScrollViewport(state.FanScroll);
 
         Transform presetRow = state.Content.Find("DetailedConfigPreset");
         state.PresetDropdown = presetRow?.GetComponentInChildren<TMP_Dropdown>(true);
@@ -95,6 +95,14 @@ public partial class CreatePanel {
             "PresetDescription")?.GetComponent<TMP_Text>();
         if (state.PresetDropdown != null) {
             state.PresetDropdown.onValueChanged.RemoveAllListeners();
+            if (ruleKey == "riichi") {
+                // The saved scene may predate a catalogue ordering change.
+                state.PresetDropdown.ClearOptions();
+                var labels = new List<string>();
+                foreach (var preset in definition.Presets) labels.Add(preset.Name);
+                labels.Add(definition.Presentation.CustomDescription);
+                state.PresetDropdown.AddOptions(labels);
+            }
             state.PresetDropdown.onValueChanged.AddListener(
                 index => ApplyDetailedConfigPreset(state, index));
         }
@@ -158,17 +166,12 @@ public partial class CreatePanel {
         }
 
         BindDetailedConfigDialogButtons(state);
-        ApplyDetailedConfigPreset(state, definition.DefaultPresetIndex);
+        if (ruleKey == "riichi") {
+            foreach (var option in definition.Options) SetDetailedConfigDropdownValue(state, option, option.DefaultIndex);
+            RefreshDetailedConfigPresetSelection(state);
+        } else ApplyDetailedConfigPreset(state, definition.DefaultPresetIndex);
         if (state.FanTablePanel != null) state.FanTablePanel.SetActive(false);
         state.Panel.SetActive(false);
-    }
-
-    private static void ConfigureDetailedConfigScrollViewport(ScrollRect scroll) {
-        if (scroll == null || scroll.viewport == null) return;
-        Graphic viewportGraphic = scroll.viewport.GetComponent<Graphic>();
-        if (viewportGraphic != null) viewportGraphic.raycastTarget = true;
-        scroll.horizontal = false;
-        scroll.vertical = true;
     }
 
     private void BindDetailedConfigDialogButtons(DetailedConfigState state) {
@@ -178,7 +181,7 @@ public partial class CreatePanel {
         Button confirmButton = footer?.Find("Confirm")?.GetComponent<Button>();
         if (resetButton != null) {
             resetButton.onClick.RemoveAllListeners();
-            resetButton.onClick.AddListener(() => ResetDetailedConfig(state));
+            resetButton.onClick.AddListener(() => ConfirmSettingsReset("确定恢复默认设置？当前面板中修改的规则将被重置。", () => ResetDetailedConfig(state)));
         }
         if (cancelButton != null) {
             cancelButton.onClick.RemoveAllListeners();
@@ -197,7 +200,7 @@ public partial class CreatePanel {
         Button fanConfirmButton = fanFooter?.Find("Confirm")?.GetComponent<Button>();
         if (fanResetButton != null) {
             fanResetButton.onClick.RemoveAllListeners();
-            fanResetButton.onClick.AddListener(() => ResetDetailedConfigFanTable(state));
+            fanResetButton.onClick.AddListener(() => ConfirmSettingsReset("确定恢复默认台表？自定义台值将被重置。", () => ResetDetailedConfigFanTable(state)));
         }
         if (fanCancelButton != null) {
             fanCancelButton.onClick.RemoveAllListeners();
@@ -339,8 +342,7 @@ public partial class CreatePanel {
         }
         state.HasFanEditorSnapshot = true;
         RefreshDetailedConfigFanTable(state);
-        state.FanTablePanel.SetActive(true);
-        state.FanTablePanel.transform.SetAsLastSibling();
+        ShowSettingsDialog(state.FanTablePanel);
         Canvas.ForceUpdateCanvases();
         if (state.FanScroll != null) state.FanScroll.verticalNormalizedPosition = 1f;
     }
@@ -361,12 +363,12 @@ public partial class CreatePanel {
         ClearDetailedConfigFanEditorSnapshot(state);
         RefreshDetailedConfigFanTable(state);
         RefreshDetailedConfigPresetSelection(state);
-        if (state.FanTablePanel != null) state.FanTablePanel.SetActive(false);
+        HideSettingsDialog(state.FanTablePanel);
     }
 
     private void ConfirmDetailedConfigFanTable(DetailedConfigState state) {
         ClearDetailedConfigFanEditorSnapshot(state);
-        if (state.FanTablePanel != null) state.FanTablePanel.SetActive(false);
+        HideSettingsDialog(state.FanTablePanel);
     }
 
     private static void ClearDetailedConfigFanEditorSnapshot(
@@ -385,7 +387,9 @@ public partial class CreatePanel {
             return;
         }
 
+        Vector2 scrollPosition = state.Content.anchoredPosition;
         DetailedConfigPreset preset = state.Definition.Presets[presetIndex];
+        if (state.Definition.RuleKey == "riichi") state.PendingRoomPreset = presetIndex;
         state.FanTaiOverrides.Clear();
         // Applying a base preset starts a new sparse-difference session.  Do
         // not let an editor that was open before the preset change restore
@@ -406,6 +410,10 @@ public partial class CreatePanel {
             state.IsApplyingPreset = false;
         }
         RefreshDetailedConfigFanTable(state);
+        Canvas.ForceUpdateCanvases();
+        state.Scroll.StopMovement();
+        state.Content.anchoredPosition = scrollPosition;
+        RefreshDetailedConfigButtonLabel();
     }
 
     private void OnDetailedConfigOptionChanged(DetailedConfigState state, string optionKey, int index) {
@@ -420,10 +428,15 @@ public partial class CreatePanel {
         }
         RefreshDetailedConfigFanTable(state);
         RefreshDetailedConfigPresetSelection(state);
+        if (state.Definition.RuleKey == "hongkong") { RefreshHongKongMainControls(); RefreshSubRuleDescription(); }
     }
 
     private void RefreshDetailedConfigPresetSelection(DetailedConfigState state) {
         int matchingPreset = FindMatchingDetailedConfigPresetIndex(state);
+        if (matchingPreset >= 0 && state.Definition.RuleKey == "riichi"
+            && (state.PendingRoomPreset >= 0
+                ? state.PendingRoomPreset != matchingPreset
+                : !RiichiPresetMatches(matchingPreset))) matchingPreset = -1;
 
         int displayedIndex = matchingPreset >= 0 ? matchingPreset : state.Definition.Presets.Count;
         SetDetailedConfigPresetDropdownValue(state.PresetDropdown, displayedIndex);
@@ -432,6 +445,7 @@ public partial class CreatePanel {
                 ? state.Definition.Presets[matchingPreset].Description
                 : state.Definition.Presentation.CustomDescription;
         }
+        RefreshDetailedConfigButtonLabel();
     }
 
     private static int FindMatchingDetailedConfigPresetIndex(DetailedConfigState state) {
@@ -509,6 +523,8 @@ public partial class CreatePanel {
     }
 
     private void CancelDetailedConfigChanges(DetailedConfigState state) {
+        if (state.Definition.RuleKey == "hongkong") return;
+        state.PendingRoomPreset = -1;
         RestoreDetailedConfigSnapshot(state);
         ClearDetailedConfigSnapshot(state);
         HideDetailedConfigPanel(state);
@@ -521,8 +537,13 @@ public partial class CreatePanel {
     }
 
     private void ConfirmDetailedConfigChanges(DetailedConfigState state) {
+        if (state.Definition.RuleKey == "riichi" && state.PendingRoomPreset >= 0) {
+            ApplyRiichiCommonPreset(state.PendingRoomPreset);
+            state.PendingRoomPreset = -1;
+        }
         ClearDetailedConfigSnapshot(state);
         HideDetailedConfigPanel(state);
+        RefreshTierPresets();
     }
 
     private static void ClearDetailedConfigSnapshot(DetailedConfigState state) {
@@ -554,8 +575,7 @@ public partial class CreatePanel {
         DetailedConfigState state = GetDetailedConfigState(ruleKey);
         if (state == null || state.Panel == null || state.Panel.activeSelf) return true;
         CaptureDetailedConfigSnapshot(state);
-        state.Panel.SetActive(true);
-        state.Panel.transform.SetAsLastSibling();
+        ShowSettingsDialog(state.Panel);
         Canvas.ForceUpdateCanvases();
         if (state.Scroll != null) state.Scroll.verticalNormalizedPosition = 1f;
         return true;
@@ -564,7 +584,7 @@ public partial class CreatePanel {
     private static void HideDetailedConfigPanel(DetailedConfigState state) {
         ClearDetailedConfigFanEditorSnapshot(state);
         if (state.FanTablePanel != null) state.FanTablePanel.SetActive(false);
-        if (state.Panel != null) state.Panel.SetActive(false);
+        HideSettingsDialog(state.Panel);
     }
 
     private void RefreshDetailedConfigEntry() {
@@ -574,7 +594,7 @@ public partial class CreatePanel {
             out Dictionary<string, object> ruleConfig)
             && ruleConfig.ContainsKey(CreateRoomKeys.SubRule);
         bool showTaiwanDetailedConfig = RuleRegistry.Resolve(_ruleState)?.LobbyHasDetailedConfig == true
-            && DetailedConfigRegistry.TryGet(_ruleState, out _);
+            && _ruleState != "hongkong" && DetailedConfigRegistry.TryGet(_ruleState, out _);
 
         if (SubRuleText != null) {
             SubRuleText.text = showTaiwanDetailedConfig ? "设置馆规" : "子规则";
@@ -584,6 +604,7 @@ public partial class CreatePanel {
         SubRuleDropdown.enabled = true;
         if (DetailedConfigButton != null) {
             DetailedConfigButton.gameObject.SetActive(showTaiwanDetailedConfig);
+            RefreshDetailedConfigButtonLabel();
         }
         if (SubRuleDropdown.transform.parent != null) {
             LayoutHierarchyRebuilder.RebuildUpwards(
@@ -594,5 +615,6 @@ public partial class CreatePanel {
         foreach (KeyValuePair<string, DetailedConfigState> entry in _detailedConfigStates) {
             if (entry.Key != _ruleState) CancelDetailedConfigChanges(entry.Value);
         }
+        RefreshHongKongMainControls();
     }
 }

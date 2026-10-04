@@ -19,6 +19,12 @@ public class SimpleRoundPanel : MonoBehaviour {
 
     public void UpdateRoomInfo(GameInfo gameInfo, string roomType) {
         string rule = RuleNameDictionary.GetWholeName(roomType);
+        // 较长子规则名称必须留在自己的标题栏，避免覆盖右侧局制。
+        ruleText.enableAutoSizing = true;
+        ruleText.fontSizeMin = 16f;
+        ruleText.fontSizeMax = 28f;
+        ruleText.textWrappingMode = TextWrappingModes.NoWrap;
+        ruleText.overflowMode = TextOverflowModes.Ellipsis;
         ruleText.text = rule;
 
         string baseRule = roomType;
@@ -27,10 +33,15 @@ public class SimpleRoundPanel : MonoBehaviour {
             baseRule = roomType.Substring(0, slash);
         }
         GameRoundText.text = RoundTextDictionary.GetMaxRoundText(baseRule, gameInfo.max_round);
-        roomNowRoundText.text = RoundTextDictionary.GetRoundName(baseRule, gameInfo.current_round);
+        if (gameInfo.is_duplicate) GameRoundText.text = $"复式 {Mathf.Max(1, gameInfo.duplicate_round_count)} 局";
+        roomNowRoundText.text = RuleRegistry.Resolve(baseRule)?.RoundStatusText?.Invoke(gameInfo)
+            ?? RoundTextDictionary.GetRoundName(baseRule, gameInfo.current_round);
 
-        isCuoheOpenText.text = gameInfo.open_cuohe ? "错和:开" : "错和:关";
+        isCuoheOpenText.text = RuleRegistry.Resolve(baseRule)?.RoundSupplementText?.Invoke(gameInfo)
+            ?? (gameInfo.open_cuohe ? "错和:开" : "错和:关");
         isTipsOpenText.text = gameInfo.tips ? "提示:开" : "提示:关";
-        isSetRandomSeedText.text = gameInfo.isPlayerSetRandomSeed ? "复式:开" : "复式:关";
+        isSetRandomSeedText.text = gameInfo.is_duplicate
+            ? "复式:" + DuplicateWallDisplay.TypeName(gameInfo.duplicate_wall_type)
+            : gameInfo.isPlayerSetRandomSeed ? "复现:开" : "复现:关";
     }
 }

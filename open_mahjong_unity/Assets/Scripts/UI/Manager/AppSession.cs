@@ -16,6 +16,9 @@ public static class AppSession {
         WindowsManager.Instance?.ResetToLoginUI();
         LoginPanel.Instance?.ShowConnectingState();
 
+        // 匹配属于账号会话，不能因尚未初始化的对局 UI 清理失败而残留到下一个账号。
+        MatchNetworkManager.Instance?.ClearLocalMatchState();
+
         try {
             ResetLocalSessionState();
         } catch (System.Exception e) {
@@ -23,6 +26,9 @@ public static class AppSession {
             Debug.LogWarning($"[AppSession] 清理本地会话时出错: {e.Message}");
         }
 
+        RoomNetworkManager.Instance?.ResetForSessionEnd();
+        RoomListPanel.Instance?.ResetSessionCaches();
+        CreatePanel.ResetAllSessionCaches();
         UserDataManager.Instance?.ClearSessionState();
         UnreadBadgeStore.BindUser(0);
         HeaderPanel.Instance?.SetBackToGameVisible(false);
@@ -40,10 +46,6 @@ public static class AppSession {
             GameRecordManager.ClearDelayedSpectatorSession();
         }
         GameSceneTeardown.ResetToIdle();
-        MatchNetworkManager.Instance?.ClearLocalMatchState();
-        RoomNetworkManager.Instance?.ResetForSessionEnd();
-        RoomListPanel.Instance?.ResetSessionCaches();
-        CreatePanel.ResetAllSessionCaches();
     }
 
     /// <summary>

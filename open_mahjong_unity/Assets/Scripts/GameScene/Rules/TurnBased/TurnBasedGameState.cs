@@ -90,8 +90,10 @@ public class TurnBasedGameState : GameStateBase {
         OnBeforeAsk();
         Mirror.RemainTiles = info.remain_tiles;
         Clock.SetCutConstraints(info.riichi_candidate_cuts, info.forbidden_cut_tiles, info.forced_cut_tiles);
+        Clock.KongCandidates = info.kong_candidates;
         OnHandAskReceived(info);
-        Manager.AskHandAction(info.remaining_time, info.player_index, info.action_list, info.deal_tile_type);
+        Manager.AskHandAction(info.remaining_time, info.player_index, info.action_list, info.deal_tile_type,
+            info.step_remaining ?? -1);
     }
 
     protected virtual void OnAskClaim(Response response) {
@@ -104,7 +106,7 @@ public class TurnBasedGameState : GameStateBase {
         Clock.RiichiCandidateCuts.Clear();
         Clock.ForbiddenCutTiles.Clear();
         Manager.AskMingPaiAction(info.remaining_time, info.action_list, info.cut_tile, info.chi_candidates,
-            info.is_tactical_recheck == true);
+            info.is_tactical_recheck == true, info.step_remaining ?? -1);
     }
 
     /// <summary>
@@ -129,9 +131,16 @@ public class TurnBasedGameState : GameStateBase {
         Debug.Log($"收到执行操作消息: {response.do_action_info}");
         DoActionInfo info = response.do_action_info;
         if (info == null) return;
+        ApplyDuplicateRemainingTiles(info.duplicate_remaining_tiles);
         // 服务器侧已消除乱序源头：受保护观众的实际鸣牌按序 await（cut flush 先发 -> meld -> 下一巡 cut），
         // 此处直接派发即可保证逻辑顺序。鸣牌认走的打牌者+牌张由服务器必填下发 cut_from_player / cut_tile。
         PlayAction(TableAction.From(info, Mirror));
+    }
+
+    private void ApplyDuplicateRemainingTiles(int[] counts) {
+        if (!Session.IsDuplicate || counts == null) return;
+        Mirror.SetDuplicateRemainingTiles(counts);
+        GameCanvas.Instance?.RefreshDuplicateRemainingTiles();
     }
 
     /// <summary>
@@ -175,6 +184,9 @@ public class TurnBasedGameState : GameStateBase {
         return new SettlementEnvelope {
             WinnerIndex = info.hepai_player_index,
             HuClass = info.hu_class,
+            BloodBattleStep = info.blood_battle_step,
+            BloodEndReason = info.blood_end_reason,
+            BloodRoundChanges = info.blood_round_changes,
             ScoresAfter = info.player_to_score,
             ScoreChanges = info.score_changes,
             HuScore = info.hu_score,
@@ -268,7 +280,14 @@ public class TurnBasedGameState : GameStateBase {
         Debug.Log($"收到游戏结束消息: {response.game_end_info}");
         GameEndInfo info = response.game_end_info;
         if (info == null) return;
-        if (!Session.IsRealtimeSpectator) {
+        if (info.is_duplicate) {
+            Session.IsDuplicate = true;
+
+            Session.DuplicateWallType = info.duplicate_wall_type;
+        }
+        // 最后一张摸完会直接终局，必须从终局快照将该家余牌更新为 0。
+        ApplyDuplicateRemainingTiles(info.duplicate_remaining_tiles);
+        if (!Session.IsRealtimeSpectator && !Session.IsDuplicate) {
             LocalRecordStore.SavePushedDetail(info.record_detail);
         }
         Manager.GameEnd(info.master_seed, info.commitment, info.salt, info.player_final_data);

@@ -1,6 +1,7 @@
 # AutoCut机器人（摸切罗伯特）
 # 最简单的机器人AI：摸牌后切最后一张（摸切），其他操作全部pass
 import asyncio
+from .pacing import paced_bot, submit_bot_action, DEFAULT_BOT_DELAY
 import logging
 from ..hand_slot_utils import has_draw_slot, infer_bot_cut_class
 from ..offline.offline_auto_action import _skip_offline_first_cut
@@ -16,7 +17,7 @@ _PASS_WAIT_STATUSES = (
     "waiting_sea_bottom",
     "waiting_flower_choice",
 )
-_BOT_DELAY = 0.5
+_BOT_DELAY = DEFAULT_BOT_DELAY
 
 
 async def _wait_until_actionable(game_state, player_index: int, attempts: int = 200, interval: float = 0.01) -> bool:
@@ -52,7 +53,7 @@ async def _submit_pass_when_ready(game_state, player_index: int, action_list: li
         return False
     if await _wait_until_actionable(game_state, player_index):
         logger.info(f"自动过牌 {player_index} ({current_player.username}) 选择 pass")
-        await get_ai_action(game_state, player_index, "pass", None, None, None, None)
+        await submit_bot_action(get_ai_action, game_state, player_index, "pass", None, None, None, None)
         return True
     logger.warning(
         f"自动过牌失败：玩家 {player_index} ({current_player.username}) 未进入 waiting_players_list"
@@ -61,6 +62,7 @@ async def _submit_pass_when_ready(game_state, player_index: int, action_list: li
 
 
 # 自动切牌机器人，支持补花询问，手牌询问，其他玩家询问，抢杠询问
+@paced_bot(lambda: _BOT_DELAY)
 async def auto_cut_action(game_state, player_index: int, action_list: list, game_status: str):
     """
     机器人自动操作
@@ -74,7 +76,6 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
             return
 
         if game_status == "waiting_hand_action":
-            await asyncio.sleep(_BOT_DELAY)
             if "offline" in getattr(current_player, "tag_list", []) and _skip_offline_first_cut(game_state, current_player):
                 logger.info(f"掉线托管 {player_index} ({current_player.username}) 首个出牌询问受保护，不自动切牌")
                 return
@@ -83,22 +84,19 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
                 return
             if "buhua" in action_list:
                 logger.info(f"机器人 {player_index} ({current_player.username}) 选择 buhua（手牌补花）")
-                await get_ai_action(game_state, player_index, "buhua", None, None, None, None)
+                await submit_bot_action(get_ai_action, game_state, player_index, "buhua", None, None, None, None)
                 return
             if "cut" in action_list and current_player.hand_tiles:
                 tile_id, cut_index, is_moqie = _pick_auto_cut_tile(current_player)
                 logger.info(f"机器人 {player_index} ({current_player.username}) 选择 cut, tile_id={tile_id}, moqie={is_moqie}")
-                await get_ai_action(game_state, player_index, "cut", is_moqie, tile_id, cut_index, None)
+                await submit_bot_action(get_ai_action, game_state, player_index, "cut", is_moqie, tile_id, cut_index, None)
                 return
             if "pass" in action_list:
                 logger.info(f"机器人 {player_index} ({current_player.username}) 选择 pass（手牌阶段无cut）")
-                await get_ai_action(game_state, player_index, "pass", None, None, None, None)
+                await submit_bot_action(get_ai_action, game_state, player_index, "pass", None, None, None, None)
                 return
 
         elif game_status == "onlycut_after_action":
-            cp = bool(getattr(game_state, "claim_protection", False))
-            from ..claim_protection import get_meld_post_gap
-            await asyncio.sleep(_BOT_DELAY + (get_meld_post_gap(game_state) if cp else 0.0))
             if "offline" in getattr(current_player, "tag_list", []) and _skip_offline_first_cut(game_state, current_player):
                 logger.info(f"掉线托管 {player_index} ({current_player.username}) 首个出牌询问受保护，不自动切牌")
                 return
@@ -108,21 +106,20 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
             if "cut" in action_list and current_player.hand_tiles:
                 tile_id, cut_index, is_moqie = _pick_auto_cut_tile(current_player)
                 logger.info(f"机器人 {player_index} ({current_player.username}) 选择 cut, tile_id={tile_id}, moqie={is_moqie}")
-                await get_ai_action(game_state, player_index, "cut", is_moqie, tile_id, cut_index, None)
+                await submit_bot_action(get_ai_action, game_state, player_index, "cut", is_moqie, tile_id, cut_index, None)
                 return
 
         elif game_status == "waiting_buhua_round":
-            await asyncio.sleep(_BOT_DELAY)
             if not await _wait_until_actionable(game_state, player_index):
                 logger.warning(f"机器人 {player_index} ({current_player.username}) 补花轮未进入 waiting_players_list，放弃操作")
                 return
             if "buhua" in action_list:
                 logger.info(f"机器人 {player_index} ({current_player.username}) 选择 buhua（补花轮）")
-                await get_ai_action(game_state, player_index, "buhua", None, None, None, None)
+                await submit_bot_action(get_ai_action, game_state, player_index, "buhua", None, None, None, None)
                 return
             if "pass" in action_list:
                 logger.info(f"机器人 {player_index} ({current_player.username}) 选择 pass（补花轮）")
-                await get_ai_action(game_state, player_index, "pass", None, None, None, None)
+                await submit_bot_action(get_ai_action, game_state, player_index, "pass", None, None, None, None)
                 return
         else:
             logger.warning(f"机器人 {player_index} 遇到未知游戏状态: {game_status}")

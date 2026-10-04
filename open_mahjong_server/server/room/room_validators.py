@@ -1,11 +1,16 @@
+from pydantic import StrictBool
 from dataclasses import asdict
 from pydantic import BaseModel, validator
-from typing import List, Optional, Union, Any, Dict
+from typing import Optional, Union, Any, Dict
 
 from ..gamestate.public.random_seed_manager import parse_user_master_seed
 from ..game_calculation.taiwan.rules import TaiwanRules
+from ..game_calculation.sichuan.xueliu_rules import validate_sichuan_sub_rule
+from ..game_calculation.riichi.rule_config import normalize_riichi_config, validate_riichi_sub_rule
 
 class GBRoomValidator(BaseModel):
+    use_flowers: bool = True
+    tian_di_ren_he: bool = False
     room_name: str
     game_round: int
     round_timer: int
@@ -15,7 +20,7 @@ class GBRoomValidator(BaseModel):
     cuohe_type: int = 0  # 0=错和者-30/其余+10；1=错和者-40/其余+0
     show_moqie_hint: bool = False
     tactical_call: bool = False
-    claim_protection: bool = True
+    claim_protection: StrictBool = True
     
     @validator('room_name')
     def validate_room_name(cls, v):
@@ -54,7 +59,46 @@ class GBRoomValidator(BaseModel):
             raise ValueError('错和形式必须在 0 或 1 之间')
         return v
 
+class ShanghaiRoomValidator(GBRoomValidator):
+    sub_rule: str = "shanghai/qiaoma"
+    hepai_limit: int = 0  # 一番和：0 关闭，1 开启，仅敲麻可用。
+
+    @validator('sub_rule')
+    def validate_sub_rule(cls, value):
+        if value not in ("shanghai/qiaoma", "shanghai/qinghunpeng"):
+            raise ValueError('不支持的上海麻将子规则')
+        return value
+
+    @validator("hepai_limit", pre=True)
+    def validate_hepai_limit(cls, value, values):
+        if type(value) is not int or value not in (0, 1):
+            raise ValueError("一番和配置必须为 0（关闭）或 1（开启）")
+        if value and values.get("sub_rule") != "shanghai/qiaoma":
+            raise ValueError("一番和仅适用于上海敲麻")
+        return value
+
+
 class RiichiRoomValidator(BaseModel):
+    claim_protection: StrictBool = False
+    sub_rule: str = 'riichi/standard'
+    detailed_config: Dict[str, object] = {}
+
+    @validator('sub_rule')
+    def validate_sub_rule(cls, value):
+        return validate_riichi_sub_rule(value)
+
+    @validator('detailed_config', pre=True, always=True)
+    def validate_detailed_config(cls, value):
+        return normalize_riichi_config(value)
+
+    starting_score: int = 25000
+
+    @validator('starting_score', pre=True)
+    def validate_starting_score(cls, v):
+        if type(v) is not int or not 1000 <= v <= 1000000 or v % 100:
+            raise ValueError('起始点数必须为 1000–1000000 之间的整数，且为 100 的倍数')
+        return v
+
     room_name: str
     game_round: int
     round_timer: int
@@ -113,6 +157,8 @@ class RiichiRoomValidator(BaseModel):
         return v
 
 class SichuanRoomValidator(BaseModel):
+    sub_rule: str = "sichuan/standard"
+    hepai_limit: int = 0  # 0 番允许平和，沿用川麻默认规则。
     room_name: str
     game_round: int
     round_timer: int
@@ -120,8 +166,18 @@ class SichuanRoomValidator(BaseModel):
     random_seed: Union[int, str] = 0
     show_moqie_hint: bool = False
     tactical_call: bool = False
-    claim_protection: bool = True
+    claim_protection: StrictBool = True
     blood_battle: bool = True  # 血战到底：开=和牌后续打至三家和或流局；关=一家和牌即结束本盘
+
+    @validator('sub_rule')
+    def validate_sub_rule(cls, v):
+        return validate_sichuan_sub_rule(v)
+
+    @validator('hepai_limit', pre=True)
+    def validate_hepai_limit(cls, v):
+        if type(v) is not int or not 0 <= v <= 64:
+            raise ValueError('起和番数必须是 0-64 之间的整数')
+        return v
 
     @validator('room_name')
     def validate_room_name(cls, v):
@@ -164,7 +220,7 @@ class ChangshaRoomValidator(BaseModel):
     open_cuohe: bool = False
     show_moqie_hint: bool = False
     tactical_call: bool = False
-    claim_protection: bool = True
+    claim_protection: StrictBool = True
     open_kong_replacement_count: int = 2
     initial_hu_si_xi: bool = True
     initial_hu_ban_ban_hu: bool = True
@@ -236,7 +292,7 @@ class JiandanRoomValidator(BaseModel):
     step_timer: int
     random_seed: Union[int, str] = 0
     tactical_call: bool = False
-    claim_protection: bool = True
+    claim_protection: StrictBool = True
 
     @validator('room_name')
     def validate_room_name(cls, v):

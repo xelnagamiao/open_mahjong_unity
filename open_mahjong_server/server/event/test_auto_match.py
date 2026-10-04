@@ -84,6 +84,7 @@ class EventAutoMatchTest(unittest.IsolatedAsyncioTestCase):
             is_user_in_active_game=lambda uid: uid in self.active,
             user_id_to_game_state=self.active,
             get_game_state_by_room_id=lambda room_id: None,
+            get_game_state_by_gamestate_id=lambda gid: None,
             start_game=self.start_game,
             remove_spectator_from_all_games=AsyncMock(),
         )
@@ -189,7 +190,11 @@ class EventAutoMatchTest(unittest.IsolatedAsyncioTestCase):
         self.server.calculation_service = object()
         self.server.gamestate_manager = GameStateManager(self.server)
         def game_state(*args):
-            return SimpleNamespace(gamestate_id=args[-1], room_id=args[1]["room_id"], run_game_loop=AsyncMock())
+            return SimpleNamespace(
+                gamestate_id=args[-1], room_id=args[1]["room_id"], room_rule=args[1]["room_rule"],
+                room_type=args[1]["room_type"], player_list=[SimpleNamespace(user_id=uid) for uid in args[1]["player_list"]],
+                run_game_loop=AsyncMock(), cleanup_game_state=AsyncMock(),
+            )
         with patch("server.gamestate.gamestate_manager.GuobiaoGameState", side_effect=game_state):
             response = await self.manager.match_event_ready_players("venue")
         self.assertTrue(response.success)

@@ -38,12 +38,11 @@ public class HandCardDragController : MonoBehaviour {
     private bool pendingPress;
     private bool dragSessionActive;
     private bool isFinishingDrag;
-    private bool hadPointerMove;
     private bool wasArmedAtPress;   // 按下瞬间该牌是否处于"确认出牌"选中态（拖拽会话会清除选中，微点击提交时需还原）
     private int activeGapIndex = -1;
     private bool activeMergeDraw;
     private float pressStartUnscaledTime;
-    private float handRowHalfHeight;
+    private float handRowHeight;
 
     // 看门狗：物理指针抬起却仍处于按压/拖拽（漏掉 OnPointerUp、触摸丢失等）后强制复位的依据
     private float lastPointerDownUnscaledTime;
@@ -274,17 +273,16 @@ public class HandCardDragController : MonoBehaviour {
         dragCard = card;
         dragCardRect = card.GetComponent<RectTransform>();
         dragCardWidth = GameCanvas.GetCardWidth(dragCardRect);
-        handRowHalfHeight = dragCardRect.rect.height * 0.5f;
+        handRowHeight = dragCardRect.rect.height;
         for (int i = 0; i < gameCanvas.HandCardsContainer.childCount; i++) {
             RectTransform rt = gameCanvas.HandCardsContainer.GetChild(i).GetComponent<RectTransform>();
             if (rt != null) {
-                handRowHalfHeight = Mathf.Max(handRowHalfHeight, rt.rect.height * 0.5f);
+                handRowHeight = Mathf.Max(handRowHeight, rt.rect.height);
             }
         }
         pendingPress = true;
         dragSessionActive = false;
         isFinishingDrag = false;
-        hadPointerMove = false;
         wasArmedAtPress = HandCardSelectionController.Instance.IsArmed(card);
         dragStartScreenPos = eventData.position;
         pointerPressCamera = eventData.pressEventCamera;
@@ -561,7 +559,6 @@ public class HandCardDragController : MonoBehaviour {
             yield break;
         }
         Vector2 start = cardRect.anchoredPosition;
-        targetPos.y = 0f;
         float elapsed = 0f;
         while (elapsed < snapAnimDuration) {
             if (cardRect == null) {
@@ -583,9 +580,6 @@ public class HandCardDragController : MonoBehaviour {
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
             container, screenPos, eventCamera, out Vector2 localPoint);
         dragCardRect.anchoredPosition = localPoint + dragOffsetLocal + new Vector2(0f, dragLiftY);
-        if (Vector2.Distance(screenPos, dragStartScreenPos) >= clickMoveThreshold) {
-            hadPointerMove = true;
-        }
         // 离开手牌行只冻结当前空位，不复位，避免松手时反复横跳
         if (!IsPointerOverHandRow(localPoint.x, localPoint.y)) {
             return;
@@ -598,7 +592,7 @@ public class HandCardDragController : MonoBehaviour {
     }
 
     private bool IsPointerOverHandRow(float localX, float localY) {
-        if (localY < -handRowHalfHeight || localY > handRowHalfHeight) {
+        if (localY < 0f || localY > handRowHeight) {
             return false;
         }
         if (snapshotCenterXs == null || snapshotCenterXs.Count == 0) {
@@ -682,7 +676,7 @@ public class HandCardDragController : MonoBehaviour {
         for (int i = 0; i < insertIndex; i++) {
             x += GameCanvas.GetCardWidth(main[i].GetComponent<RectTransform>());
         }
-        return new Vector2(x, 0f);
+        return GameCanvas.GetHandCardPosition(dragCardRect, x);
     }
 
     private List<TileCard> BuildLayoutMainList(bool mergeDraw) {

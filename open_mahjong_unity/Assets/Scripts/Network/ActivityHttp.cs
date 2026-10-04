@@ -15,6 +15,7 @@ public class ActivityIndexFile {
 public class ActivityIndexItem {
     public string id;
     public string title;
+    public string description;
     public string cover_url;
     public string updated_at;
     public int sort;
@@ -43,6 +44,7 @@ public class ActivityContentBlock {
 public class ActivityDetail {
     public string id;
     public string title;
+    public string description;
     public string body;
     public string cover_url;
     public ActivityContentBlock[] blocks;

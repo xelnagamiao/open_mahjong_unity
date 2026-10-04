@@ -10,6 +10,7 @@ public class LoginRequest { // 登录请求
 }
 
 public class CreateGBRoomRequest { // 创建国标房间请求
+    public bool claim_protection = true;
     public string type;
     public string rule;
     public string sub_rule;
@@ -18,8 +19,13 @@ public class CreateGBRoomRequest { // 创建国标房间请求
     public int roundTimerValue; // 服务器期望的字段名
     public int stepTimerValue; // 服务器期望的字段名
     public bool tips;
+    public bool count_tips;
+    public bool pointer_tips = true;
     public string password;
-    public string random_seed; // 复式主种子：64 位 hex 字符串，空或 "0" 表示关
+    public string duplicate_key; // 数据库中的复式牌墙密钥
+    public bool use_flowers = true; // 国标花牌；复式由保存的牌墙覆盖
+    public bool tian_di_ren_he; // 标准国标/血战：天地人和各 8 番
+    public string random_seed; // 场景复现主种子：64 位 hex 字符串，空或 "0" 表示关
     public bool open_cuohe; // 是否开启错和
     public int cuohe_type; // 错和形式：0=错和者-30/其余+10，1=错和者-40/其余+0（仅国标）
     public int hepai_limit; // 起和番限制
@@ -31,6 +37,8 @@ public class CreateGBRoomRequest { // 创建国标房间请求
 }
 
 public class CreateRiichiRoomRequest { // 创建立直麻将房间请求
+    public bool claim_protection;
+    public Dictionary<string, object> detailed_config;
     public string type;
     public string rule;
     public string sub_rule;
@@ -39,11 +47,14 @@ public class CreateRiichiRoomRequest { // 创建立直麻将房间请求
     public int roundTimerValue;
     public int stepTimerValue;
     public bool tips;
+    public bool count_tips;
+    public bool pointer_tips = true;
     public string password;
-    public string random_seed; // 复式主种子：64 位 hex 字符串，空或 "0" 表示关
+    public string random_seed; // 场景复现主种子：64 位 hex 字符串，空或 "0" 表示关
     public bool open_cuohe; // 是否开启错和（日麻：向其余三家各赔 3000 并重打本局；国标：罚分后继续本局）
     public int hepai_limit; // 自定义起和番数，低于该番数视为错和
     public bool red_dora; // 是否启用赤宝牌
+    public int starting_score;
     public bool allow_kuikae; // 是否允许食替（吃什么打什么）
     public bool open_xiru; // 是否西入
     public bool open_tobi; // 是否击飞
@@ -54,6 +65,7 @@ public class CreateRiichiRoomRequest { // 创建立直麻将房间请求
 }
 
 public class CreateSichuanRoomRequest { // 创建四川麻将（血战到底）房间请求
+    public bool claim_protection = true;
     public string type;
     public string rule;
     public string sub_rule;
@@ -62,16 +74,20 @@ public class CreateSichuanRoomRequest { // 创建四川麻将（血战到底）�
     public int roundTimerValue;
     public int stepTimerValue;
     public bool tips;
+    public bool count_tips;
+    public bool pointer_tips = true;
     public string password;
-    public string random_seed; // 复式主种子：64 位 hex 字符串，空或 "0" 表示关
+    public string random_seed; // 场景复现主种子：64 位 hex 字符串，空或 "0" 表示关
     public bool tourist_limit;
     public bool allow_spectator;
     public bool tactical_call; // 战术鸣牌
     public bool blood_battle; // 血战到底：开=和牌后续打至三家和或流局；关=一家和牌即结束本盘
+    public int hepai_limit; // 四川默认 0 番，允许平和
     public string event_id; // 赛事房间：有则 room_type=events
 }
 
 public class CreateChangshaRoomRequest { // 创建长沙麻将房间请求
+    public bool claim_protection = true;
     public string type;
     public string rule;
     public string sub_rule;
@@ -80,6 +96,8 @@ public class CreateChangshaRoomRequest { // 创建长沙麻将房间请求
     public int roundTimerValue;
     public int stepTimerValue;
     public bool tips;
+    public bool count_tips;
+    public bool pointer_tips = true;
     public string password;
     public string random_seed;
     public bool tourist_limit;
@@ -108,6 +126,8 @@ public class CreateTaiwanRoomRequest { // 创建台湾麻将房间请求
     public int roundTimerValue;
     public int stepTimerValue;
     public bool tips;
+    public bool count_tips;
+    public bool pointer_tips = true;
     public string password;
     public string random_seed;
     public bool tourist_limit;
@@ -162,6 +182,7 @@ public class SendActionRequest { // 发送国标游戏操作请求
     public string gamestate_id; // 游戏状态ID
     public int? chiComboIndex; // 立直麻将赤宝牌吃牌候选索引，默认 0 表示优先非赤 5
     public int? action_tick; // 本次操作所回应的询问帧；服务端用于丢弃战术鸣牌前的过期提交
+    public int[] selectedTiles; // 四川 血流选三张：选择的三张真实牌 ID
 }
 
 public class SetRyuukyokuTenpaiRequest {
@@ -184,11 +205,13 @@ public class UpdateRecordFavoriteRequest {
 }
 
 public class GetRankRecordListRequest { // 获取全服最近天梯对局记录请求
+    public string rule = "guobiao", data_request_id;
     public string type;
     public int limit = 20;
 }
 
 public class GetLeaderboardRequest { // 获取国标段位排行榜请求
+    public string rule = "guobiao", data_request_id;
     public string type;
 }
 
@@ -243,12 +266,14 @@ public class ReconnectRequest { // 重连请求
 public class AddBotToRoomRequest { // 添加机器人请求
     public string type;
     public string room_id;
+    public int? seat_index;
 }
 
 public class KickPlayerFromRoomRequest { // 房主移除玩家请求
     public string type;
     public string room_id;
     public int target_user_id;
+    public int? seat_index;
 }
 
 public class SetReadyRequest { // 设置准备状态请求
@@ -295,6 +320,7 @@ public class VoteResumeRequest { // 解除暂停
 }
 
 public class CreateFreeRoomRequest {
+    public bool pointer_tips = true;
     public string type;
     public string rule;
     public string sub_rule;

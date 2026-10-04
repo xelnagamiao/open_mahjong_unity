@@ -12,6 +12,8 @@ internal static class ClassicalLobby {
             { CreateRoomKeys.RoundTimer, 3 },
             { CreateRoomKeys.StepTimer, 1 },
             { CreateRoomKeys.Tips, true },
+            { CreateRoomKeys.CountTips, false },
+            { CreateRoomKeys.PointerTips, true },
             { CreateRoomKeys.Password, false },
             { CreateRoomKeys.RandomSeed, false },
             { CreateRoomKeys.TouristLimit, false },

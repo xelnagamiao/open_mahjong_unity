@@ -1,0 +1,555 @@
+{
+  "source": "haishang-1894-ch26",
+  "location": "CADAL06200316, image 366 / facsimile p.359 / original ch.26 leaf 十",
+  "assumptions": [
+    "All tiles are dots; transcription of the original drawn tile figures.",
+    "Hypothetical validation model: four melds plus one pair, no wild cards.",
+    "Physical feasibility additionally assumes at most four copies of each tile.",
+    "Opponent hands and previous discards are unknown; physical waits are not counts of live tiles."
+  ],
+  "hand_after_draw": [
+    7,
+    6,
+    6,
+    6,
+    5,
+    5,
+    5,
+    4,
+    4,
+    3,
+    3,
+    3,
+    3,
+    2
+  ],
+  "cases": [
+    {
+      "discard": 6,
+      "hand_after_discard": [
+        7,
+        6,
+        6,
+        5,
+        5,
+        5,
+        4,
+        4,
+        3,
+        3,
+        3,
+        3,
+        2
+      ],
+      "shape_only_waits": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8
+      ],
+      "four_copy_feasible_waits": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8
+      ],
+      "excluded_fifth_copies": [],
+      "decompositions": {
+        "1": [
+          {
+            "pair": [
+              3,
+              3
+            ],
+            "melds": [
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                3,
+                4,
+                5
+              ],
+              [
+                4,
+                5,
+                6
+              ],
+              [
+                5,
+                6,
+                7
+              ]
+            ]
+          }
+        ],
+        "2": [
+          {
+            "pair": [
+              2,
+              2
+            ],
+            "melds": [
+              [
+                3,
+                3,
+                3
+              ],
+              [
+                3,
+                4,
+                5
+              ],
+              [
+                4,
+                5,
+                6
+              ],
+              [
+                5,
+                6,
+                7
+              ]
+            ]
+          },
+          {
+            "pair": [
+              2,
+              2
+            ],
+            "melds": [
+              [
+                3,
+                4,
+                5
+              ],
+              [
+                3,
+                3,
+                3
+              ],
+              [
+                4,
+                5,
+                6
+              ],
+              [
+                5,
+                6,
+                7
+              ]
+            ]
+          }
+        ],
+        "4": [
+          {
+            "pair": [
+              3,
+              3
+            ],
+            "melds": [
+              [
+                2,
+                3,
+                4
+              ],
+              [
+                3,
+                4,
+                5
+              ],
+              [
+                4,
+                5,
+                6
+              ],
+              [
+                5,
+                6,
+                7
+              ]
+            ]
+          }
+        ],
+        "5": [
+          {
+            "pair": [
+              5,
+              5
+            ],
+            "melds": [
+              [
+                2,
+                3,
+                4
+              ],
+              [
+                3,
+                3,
+                3
+              ],
+              [
+                4,
+                5,
+                6
+              ],
+              [
+                5,
+                6,
+                7
+              ]
+            ]
+          }
+        ],
+        "7": [
+          {
+            "pair": [
+              3,
+              3
+            ],
+            "melds": [
+              [
+                2,
+                3,
+                4
+              ],
+              [
+                3,
+                4,
+                5
+              ],
+              [
+                5,
+                6,
+                7
+              ],
+              [
+                5,
+                6,
+                7
+              ]
+            ]
+          }
+        ],
+        "8": [
+          {
+            "pair": [
+              5,
+              5
+            ],
+            "melds": [
+              [
+                2,
+                3,
+                4
+              ],
+              [
+                3,
+                3,
+                3
+              ],
+              [
+                4,
+                5,
+                6
+              ],
+              [
+                6,
+                7,
+                8
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "discard": 7,
+      "hand_after_discard": [
+        6,
+        6,
+        6,
+        5,
+        5,
+        5,
+        4,
+        4,
+        3,
+        3,
+        3,
+        3,
+        2
+      ],
+      "shape_only_waits": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "four_copy_feasible_waits": [
+        1,
+        2,
+        4,
+        5,
+        6
+      ],
+      "excluded_fifth_copies": [
+        3
+      ],
+      "decompositions": {
+        "1": [
+          {
+            "pair": [
+              4,
+              4
+            ],
+            "melds": [
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                3,
+                3,
+                3
+              ],
+              [
+                5,
+                5,
+                5
+              ],
+              [
+                6,
+                6,
+                6
+              ]
+            ]
+          }
+        ],
+        "2": [
+          {
+            "pair": [
+              3,
+              3
+            ],
+            "melds": [
+              [
+                2,
+                3,
+                4
+              ],
+              [
+                2,
+                3,
+                4
+              ],
+              [
+                5,
+                5,
+                5
+              ],
+              [
+                6,
+                6,
+                6
+              ]
+            ]
+          }
+        ],
+        "3": [
+          {
+            "pair": [
+              5,
+              5
+            ],
+            "melds": [
+              [
+                2,
+                3,
+                4
+              ],
+              [
+                3,
+                3,
+                3
+              ],
+              [
+                3,
+                4,
+                5
+              ],
+              [
+                6,
+                6,
+                6
+              ]
+            ]
+          },
+          {
+            "pair": [
+              5,
+              5
+            ],
+            "melds": [
+              [
+                2,
+                3,
+                4
+              ],
+              [
+                3,
+                4,
+                5
+              ],
+              [
+                3,
+                3,
+                3
+              ],
+              [
+                6,
+                6,
+                6
+              ]
+            ]
+          }
+        ],
+        "4": [
+          {
+            "pair": [
+              4,
+              4
+            ],
+            "melds": [
+              [
+                2,
+                3,
+                4
+              ],
+              [
+                3,
+                3,
+                3
+              ],
+              [
+                5,
+                5,
+                5
+              ],
+              [
+                6,
+                6,
+                6
+              ]
+            ]
+          }
+        ],
+        "5": [
+          {
+            "pair": [
+              3,
+              3
+            ],
+            "melds": [
+              [
+                2,
+                3,
+                4
+              ],
+              [
+                3,
+                4,
+                5
+              ],
+              [
+                5,
+                5,
+                5
+              ],
+              [
+                6,
+                6,
+                6
+              ]
+            ]
+          },
+          {
+            "pair": [
+              6,
+              6
+            ],
+            "melds": [
+              [
+                2,
+                3,
+                4
+              ],
+              [
+                3,
+                3,
+                3
+              ],
+              [
+                4,
+                5,
+                6
+              ],
+              [
+                5,
+                5,
+                5
+              ]
+            ]
+          }
+        ],
+        "6": [
+          {
+            "pair": [
+              5,
+              5
+            ],
+            "melds": [
+              [
+                2,
+                3,
+                4
+              ],
+              [
+                3,
+                3,
+                3
+              ],
+              [
+                4,
+                5,
+                6
+              ],
+              [
+                6,
+                6,
+                6
+              ]
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "scoring_comparison": {
+    "textual_actual_total": 80,
+    "textual_alternative_base": 22,
+    "textual_alternative_total": 176,
+    "explicitly_repeated_doubling_factor": 8,
+    "actual_base_inferred": 10.0,
+    "interpretation": "80 / 8 = 10 and 22 * 8 = 176; a 12-point difference is consistent with three extra concealed simple triplets at 4 each, but those unit values are not independently stated on this page. Neither dealer multiplier nor full scoring table is inferred."
+  }
+}

@@ -49,6 +49,10 @@ async def perform_buhua_and_broadcast(
     huapai_before_draw=True：开局补花轮顺序（先 huapai 再 get_gang_tile）；
     False：对局中补花（refresh → get_gang_tile → huapai）。
     """
+    from .duplicate_rules import duplicate_rules_for
+    duplicate_rules = duplicate_rules_for(game_state)
+    if duplicate_rules and not duplicate_rules.can_draw(player_index):
+        raise ValueError("本人牌山已空，不能补花")
     player = game_state.player_list[player_index]
     hand = player.hand_tiles
     max_tile = max(hand)

@@ -22,12 +22,12 @@ public class MenuPanel : MonoBehaviour {
         if (userSettings == null) {
             usernameText.text = UserDataManager.Instance.Username;
             Debug.Log($"image/Profiles/{UserDataManager.Instance.ProfileImageId}");
-            profileImage.sprite = Resources.Load<Sprite>($"image/Profiles/{UserDataManager.Instance.ProfileImageId}");
+            profileImage.sprite = ConfigManager.GetProfileSprite(UserDataManager.Instance.ProfileImageId);
             profileImage.gameObject.GetComponent<ProfileOnClick>().user_id = UserDataManager.Instance.UserId;
         } else {
             usernameText.text = userSettings.username;
             Debug.Log($"image/Profiles/{userSettings.profile_image_id}");
-            profileImage.sprite = Resources.Load<Sprite>($"image/Profiles/{userSettings.profile_image_id}");
+            profileImage.sprite = ConfigManager.GetProfileSprite(userSettings.profile_image_id);
             profileImage.gameObject.GetComponent<ProfileOnClick>().user_id = userSettings.user_id;
         }
     }

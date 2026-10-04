@@ -9,6 +9,8 @@
             <router-link to="/player-data" class="pd-nav-link" exact-active-class="active">玩家数据</router-link>
             <router-link to="/player-data/platform" class="pd-nav-link" exact-active-class="active">平台数据</router-link>
             <router-link to="/player-data/analysis" class="pd-nav-link" active-class="active">牌谱分析</router-link>
+            <router-link to="/player-data/fun" class="pd-nav-link" active-class="active">其他数据</router-link>
+            <router-link to="/player-data/duplicate" class="pd-nav-link" active-class="active">复式密钥查询</router-link>
           </nav>
         </div>
         <nav class="pd-topnav">
@@ -23,7 +25,6 @@
 </template>
 
 <script setup>
-// 独立全屏布局：玩家数据 + 平台数据 + 牌谱分析
 </script>
 
 <style scoped>
@@ -69,6 +70,7 @@
 }
 .pd-section-nav {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
   margin-left: 8px;

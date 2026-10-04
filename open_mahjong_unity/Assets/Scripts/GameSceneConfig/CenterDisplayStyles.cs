@@ -6,6 +6,9 @@ using UnityEngine;
 public static class CenterDisplayStyles
 {
     public const string Classic = "classic";
+    public const string GraphiteImage = "graphite_image";
+    public const string GraphiteImage2 = "graphite_image_2";
+    public const string Default = GraphiteImage2;
     public const string OriginalFlat = "original_flat";
     public const string StudioIndigo = "studio_indigo";
     public const string StudioPaper = "studio_paper";
@@ -13,6 +16,11 @@ public static class CenterDisplayStyles
     public const string TrialCobalt = "trial_cobalt";
     public const string TrialJade = "trial_jade";
     public const string TrialIvory = "trial_ivory";
+    public const string FlatFrame = "flat_frame";
+    public const string FlatSeats = "flat_seats";
+    public const string FlatTicket = "flat_ticket";
+    public const string FlatFold = "flat_fold";
+    public const string FlatContrast = "flat_contrast";
 
     public sealed class Entry
     {
@@ -35,14 +43,37 @@ public static class CenterDisplayStyles
         new Entry("ink", "青灰双框", 8),
         new Entry("ivory", "浅灰双框", 9),
         new Entry("violet", "紫灰双框", 10),
-        new Entry(OriginalFlat, "蓝灰窄框", 11)
+        new Entry(OriginalFlat, "蓝灰窄框", 11),
+        new Entry(GraphiteImage, "灰色凹槽", 12),
+        new Entry(GraphiteImage2, "灰色凹槽 2", 13),
+        new Entry(FlatFrame, "单框", 14),
+        new Entry(FlatSeats, "席条", 15),
+        new Entry(FlatTicket, "票签", 16),
+        new Entry(FlatFold, "折页", 17),
+        new Entry(FlatContrast, "黑白窄框", 18)
     });
+
+    // Gallery order is independent of the stable indices used by existing callers.
+    public static IEnumerable<Entry> DisplayOrder
+    {
+        get
+        {
+            yield return Get(Default);
+            foreach (var style in All)
+                if (style.Id != Default) yield return style;
+        }
+    }
 
     public static Entry Get(string id)
     {
+        Entry defaultStyle = null;
         foreach (var style in All)
+        {
             if (string.Equals(style.Id, id, StringComparison.Ordinal)) return style;
-        return All[0];
+            if (style.Id == Default) defaultStyle = style;
+        }
+        // Empty/retired IDs follow the current default, not the legacy index-zero style.
+        return defaultStyle ?? throw new InvalidOperationException("The default center display is missing from the catalog.");
     }
 
     public static string Normalize(string id) => Get(id).Id;

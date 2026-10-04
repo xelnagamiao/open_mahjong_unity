@@ -1,0 +1,5 @@
+{
+  "Android": "open_mahjong_unity/build/buildAndroid/open_mahjong_unity.apk",
+  "WebGL": "open_mahjong_unity/build/buildweb",
+  "Windows": "C:/Users/Administrator/Desktop/sdk/tools/ContentBuilder/content/Game/open_mahjong_unity.exe"
+}

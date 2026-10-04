@@ -79,6 +79,16 @@ public partial class Game3DManager : MonoBehaviour {
         return cumOffset;
     }
 
+    // 落牌和自由模式落点提示共用同一套槽位计算，包含换行和河牌横置占宽。
+    private Vector3 TableTileSlotPosition(Transform target, Vector3 rowDirection, Vector3 nextRowDirection,
+        int cardsPerRow, bool isDiscard, bool horizontal) {
+        int row = target.childCount / cardsPerRow;
+        int col = target.childCount % cardsPerRow;
+        Vector3 origin = isDiscard ? DiscardRowOrigin(target, rowDirection) : target.position;
+        return origin + rowDirection.normalized * ComputeRowCenterOffset(target, row, col, cardsPerRow, horizontal)
+            + nextRowDirection.normalized * heightSpacing * row;
+    }
+
     // 放置3D卡牌 id-位置-类型-玩家位置（协程版本）
     private IEnumerator Set3DTileCoroutine(int tileId, Transform SetPosition, string SetType, string PlayerPosition, bool isMoqie = false, bool isRiichi = false) {
         Debug.Log($"Set3DTileCoroutine:{tileId} {SetType}, {PlayerPosition}, riichi={isRiichi}");
@@ -131,19 +141,13 @@ public partial class Game3DManager : MonoBehaviour {
             cardsPerRow = 10;
         }
 
-        int index = SetPosition.childCount;
-        int row = index / cardsPerRow;
-        int col = index % cardsPerRow;
-
         bool useHorizontalLayout = isRiichi && SetType == "Discard";
-        if (SetType == "Discard") currentPosition = DiscardRowOrigin(SetPosition, widthdirection);
-        float colOffset = ComputeRowCenterOffset(SetPosition, row, col, cardsPerRow, useHorizontalLayout);
-        currentPosition += widthdirection.normalized * colOffset;
-        currentPosition += heightdirection.normalized * heightSpacing * row;
+        currentPosition = TableTileSlotPosition(SetPosition, widthdirection, heightdirection,
+            cardsPerRow, SetType == "Discard", useHorizontalLayout);
 
         currentPosition = PlaceTileOnTable(currentPosition, rotation);
         Debug.Log($"创建卡片 {SetPosition.childCount}, 牌ID: {tileId}");
-        GameObject cardObj = MahjongObjectPool.Instance.Spawn(tileId, currentPosition, rotation);
+        GameObject cardObj = (tileId == 0 ? MahjongObjectPool.Instance.SpawnBlankTile(currentPosition, rotation) : MahjongObjectPool.Instance.Spawn(tileId, currentPosition, rotation));
         if (cardObj == null) {
             Debug.LogError($"无法从对象池获取牌: {tileId}");
             yield break;
@@ -154,7 +158,10 @@ public partial class Game3DManager : MonoBehaviour {
         }
         // 立直横置标记写入 Tile3D，归还对象池时会被清掉
         Tile3D tile3D = cardObj.GetComponent<Tile3D>();
-        if (tile3D != null) tile3D.isRiichiHorizontal = useHorizontalLayout;
+        if (tile3D != null) {
+            tile3D.isRiichiHorizontal = useHorizontalLayout;
+            tile3D.SetConcealedFaceDown(tileId == 0);
+        }
         cardObj.transform.SetParent(SetPosition, worldPositionStays: true);
         cardObj.name = $"Card_{SetPosition.childCount}";
 
@@ -170,11 +177,18 @@ public partial class Game3DManager : MonoBehaviour {
         }
 
         if (SetType == "Discard") {
-            // 同一家上一张飞牌若仍未结束则先终止，避免同家并发飞牌引用混乱；按玩家隔离不影响他家
+            // 正常出牌已按玩家串行；仍保留定向取消，供鸣牌取走河牌及重建使用。
             StopDiscardMoveCoroutine(PlayerPosition);
-            Coroutine moveCo = StartCoroutine(MoveCardFromRemovePosition(cardObj, currentPosition, startPosition));
+            bool moveCompleted = false;
+            Coroutine moveCo = StartCoroutine(MoveCardFromRemovePosition(cardObj, currentPosition, startPosition, () => moveCompleted = true));
             _discardMoveCoroutinesByPlayer[PlayerPosition] = moveCo;
-            yield return moveCo;
+            // Unity 中 yield return 一个被 StopCoroutine 停掉的协程可能不再恢复。
+            // 同时等待自然完成或登记被取消，确保吃碰取走飞牌后同家队列仍可继续。
+            while (!moveCompleted
+                && _discardMoveCoroutinesByPlayer.TryGetValue(PlayerPosition, out Coroutine activeMove)
+                && activeMove == moveCo) {
+                yield return null;
+            }
             if (_discardMoveCoroutinesByPlayer.TryGetValue(PlayerPosition, out Coroutine cur) && cur == moveCo) {
                 _discardMoveCoroutinesByPlayer[PlayerPosition] = null;
             }
@@ -185,7 +199,7 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     // 放置3D卡牌 id-位置-类型-玩家位置
-    private void Set3DTile(int tileId, Transform SetPosition, string SetType, string PlayerPosition, bool isMoqie = false, bool isRiichi = false) {
+    private void Set3DTile(int tileId, Transform SetPosition, string SetType, string PlayerPosition, bool isMoqie = false, bool isRiichi = false, bool usePresentationCopy = false) {
         Debug.Log($"Set3DTile:{tileId} {SetType}, {PlayerPosition}, riichi={isRiichi}");
 
         Vector3 currentPosition = SetPosition.position;
@@ -239,24 +253,26 @@ public partial class Game3DManager : MonoBehaviour {
             cardsPerRow = 10;
         }
 
-        int index = SetPosition.childCount;
-        int row = index / cardsPerRow;
-        int col = index % cardsPerRow;
-
         bool useHorizontalLayout = isRiichi && isDiscardLike;
-        if (isDiscardLike) currentPosition = DiscardRowOrigin(SetPosition, widthdirection);
-        else if (isRecordSet) currentPosition = HandRowOrigin(SetPosition, widthdirection);
-        // 和牌倒牌与手牌同间距；河/补花仍用 widthSpacing
-        bool useHandSpacing = isRecordSet;
-        float colOffset = ComputeRowCenterOffset(
-            SetPosition, row, col, cardsPerRow, useHorizontalLayout, useHandSpacing);
-        float rowStep = useHandSpacing ? handRowStep : heightSpacing;
-        currentPosition += widthdirection.normalized * colOffset;
-        currentPosition += heightdirection.normalized * rowStep * row;
+        if (isRecordSet) {
+            int row = SetPosition.childCount / cardsPerRow;
+            int col = SetPosition.childCount % cardsPerRow;
+            currentPosition = HandRowOrigin(SetPosition, widthdirection)
+                + widthdirection.normalized * ComputeRowCenterOffset(SetPosition, row, col, cardsPerRow, useHorizontalLayout, true)
+                + heightdirection.normalized * handRowStep * row;
+        } else {
+            currentPosition = TableTileSlotPosition(SetPosition, widthdirection, heightdirection,
+                cardsPerRow, isDiscardLike, useHorizontalLayout);
+        }
 
         currentPosition = PlaceTileOnTable(currentPosition, rotation);
         Debug.Log($"创建卡片 {SetPosition.childCount}, 牌ID: {tileId}");
-        GameObject cardObj = MahjongObjectPool.Instance.Spawn(tileId, currentPosition, rotation);
+        // 血流花区存放历次和牌标记，多响时同一张牌会出现多份展示副本。
+        bool xueliuMarker = (SetType == "Buhua" || SetType == "BuhuaWithoutAnimation")
+            && SichuanLobby.IsXueliu(GameSession.Current.SubRule);
+        GameObject cardObj = (usePresentationCopy || xueliuMarker)
+            ? MahjongObjectPool.Instance.SpawnPresentationTile(tileId, currentPosition, rotation)
+            : (tileId == 0 ? MahjongObjectPool.Instance.SpawnBlankTile(currentPosition, rotation) : MahjongObjectPool.Instance.Spawn(tileId, currentPosition, rotation));
         if (cardObj == null) {
             Debug.LogError($"无法从对象池获取牌: {tileId}");
             return;
@@ -266,7 +282,10 @@ public partial class Game3DManager : MonoBehaviour {
             RegisterLastDiscard(PlayerPosition, cardObj, tileId);
         }
         Tile3D tile3D = cardObj.GetComponent<Tile3D>();
-        if (tile3D != null) tile3D.isRiichiHorizontal = useHorizontalLayout;
+        if (tile3D != null) {
+            tile3D.isRiichiHorizontal = useHorizontalLayout;
+            tile3D.SetConcealedFaceDown(tileId == 0);
+        }
         // 和牌倒牌立牌姿态：牌背统一转 180°（回收时由 Tile3D 复位）。
         if (isRecordSet && tile3D != null) {
             tile3D.SetBackOrientationUpright();

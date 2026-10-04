@@ -1039,18 +1039,6 @@
       "reliability": "medium"
     },
     {
-      "id": "233leyuan-zibo-jining",
-      "url": "https://www.233leyuan.com/post-detail/2075780303103135744",
-      "title": "233乐园 · JJ麻将淄博/济宁麻将玩法",
-      "type": "discussion",
-      "lang": "zh",
-      "accessed": "2026-08-14",
-      "excerpt": "淄博：去花牌 136 张留 14 张臭牌，明楼、跑分，报听可撤（与济南报听后锁死不同）。济宁：144 张，跑钱、四杠散了、包胡、十三不靠、五花不结果。均为棋牌 App 规则介绍，非协会本。",
-      "rules": ["zibo", "jining"],
-      "source_level": "community",
-      "reliability": "low"
-    },
-    {
       "id": "newton-xinjiang",
       "url": "https://www.newton.com.tw/wiki/%E6%96%B0%E7%96%86%E9%BA%BB%E5%B0%87/6440265",
       "title": "中文百科全书 · 新疆麻将",

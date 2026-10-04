@@ -1,0 +1,818 @@
+{
+  "version": 1,
+  "options": [
+    {
+      "section": "役种与宝牌",
+      "key": "open_tanyao",
+      "label": "食断",
+      "default": true,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "副露后允许断幺九。"
+    },
+    {
+      "section": "役种与宝牌",
+      "key": "ippatsu",
+      "label": "一发",
+      "default": true,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "立直成立后一巡内和牌可计一发；成功的吃碰杠会打断。"
+    },
+    {
+      "section": "役种与宝牌",
+      "key": "ura_dora",
+      "label": "里宝牌",
+      "default": true,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "立直和牌时计算初始里宝牌。"
+    },
+    {
+      "section": "役种与宝牌",
+      "key": "kan_dora",
+      "label": "杠宝牌",
+      "default": true,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "成功开杠后增加宝牌指示牌。"
+    },
+    {
+      "section": "役种与宝牌",
+      "key": "kan_ura_dora",
+      "label": "杠里宝牌",
+      "default": true,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "立直和牌时计算已翻杠宝牌对应的里宝牌。"
+    },
+    {
+      "section": "役种与宝牌",
+      "key": "double_yakuman",
+      "label": "双倍役满",
+      "default": false,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "国士十三面、四暗刻单骑、纯正九莲、大四喜按双倍役满。"
+    },
+    {
+      "section": "役种与宝牌",
+      "key": "multiple_yakuman",
+      "label": "役满复合",
+      "default": true,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "不同役满可叠加；关闭时只取最高单项。"
+    },
+    {
+      "section": "役种与宝牌",
+      "key": "kiriage_mangan",
+      "label": "切上满贯",
+      "default": false,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "四番30符、三番60符按满贯计分。"
+    },
+    {
+      "section": "役种与宝牌",
+      "key": "kazoe_limit",
+      "label": "累计役满",
+      "default": "yakuman",
+      "values": [
+        "yakuman",
+        "sanbaiman",
+        "unlimited"
+      ],
+      "choices": [
+        "单倍役满",
+        "最高三倍满",
+        "每13番累加"
+      ],
+      "help": "普通役累计13番以上的计分上限，与真正役满复合分开。"
+    },
+    {
+      "section": "役种与宝牌",
+      "key": "yakuman_limit",
+      "label": "役满上限",
+      "default": 6,
+      "values": [
+        1,
+        4,
+        6
+      ],
+      "choices": [
+        "一倍",
+        "四倍",
+        "六倍"
+      ],
+      "help": "真正役满复合后的最大倍数。"
+    },
+    {
+      "section": "役种与宝牌",
+      "key": "double_wind_pair_fu",
+      "label": "连风雀头",
+      "default": 4,
+      "values": [
+        2,
+        4
+      ],
+      "choices": [
+        "2符",
+        "4符"
+      ],
+      "help": "雀头同时为场风与自风时的符数。"
+    },
+    {
+      "section": "役种与宝牌",
+      "key": "kan_dora_timing",
+      "label": "明杠翻宝",
+      "default": "after_discard",
+      "values": [
+        "after_discard",
+        "immediate"
+      ],
+      "choices": [
+        "打牌后",
+        "立即"
+      ],
+      "help": "后翻时，在本次打牌或下一次成功开杠前翻开；暗杠始终立即翻。"
+    },
+    {
+      "section": "立直与流局",
+      "key": "kokushi_ankan_ron",
+      "label": "国士抢暗杠",
+      "default": false,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "仅国士无双可抢他家暗杠；抢杠不成立时才完成暗杠。"
+    },
+    {
+      "section": "立直与流局",
+      "key": "riichi_kan_rule",
+      "label": "立直后暗杠",
+      "default": "wait",
+      "values": [
+        "wait",
+        "shape",
+        "shape_yaku"
+      ],
+      "choices": [
+        "听张不变",
+        "面子不变",
+        "面子与役不减"
+      ],
+      "help": "均须杠刚摸入的牌。面子不变禁止把原本可作顺子的牌改杠；A规另要求役不减少。"
+    },
+    {
+      "section": "立直与流局",
+      "key": "riichi_min_live_tiles",
+      "label": "立直余牌",
+      "default": 4,
+      "values": [
+        1,
+        4
+      ],
+      "choices": [
+        "至少1张",
+        "至少4张"
+      ],
+      "help": "声明立直后是否必须还有自己的摸牌机会；摸到海底牌后均不可立直。"
+    },
+    {
+      "section": "立直与流局",
+      "key": "furiten_clear",
+      "label": "同巡振听解除",
+      "default": "discard",
+      "values": [
+        "draw",
+        "discard"
+      ],
+      "choices": [
+        "下次摸牌",
+        "下次打牌"
+      ],
+      "help": "放过和牌后的临时振听解除时机；立直振听不解除。"
+    },
+    {
+      "section": "立直与流局",
+      "key": "kyuushu_abort",
+      "label": "九种九牌",
+      "default": true,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "满足条件时中途流局并连庄；四杠散了允许最后一次岭上和牌或荣和优先。"
+    },
+    {
+      "section": "立直与流局",
+      "key": "four_winds_abort",
+      "label": "四风连打",
+      "default": true,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "满足条件时中途流局并连庄；四杠散了允许最后一次岭上和牌或荣和优先。"
+    },
+    {
+      "section": "立直与流局",
+      "key": "four_riichi_abort",
+      "label": "四家立直",
+      "default": true,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "满足条件时中途流局并连庄；四杠散了允许最后一次岭上和牌或荣和优先。"
+    },
+    {
+      "section": "立直与流局",
+      "key": "four_kan_abort",
+      "label": "四杠散了",
+      "default": true,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "满足条件时中途流局并连庄；四杠散了允许最后一次岭上和牌或荣和优先。"
+    },
+    {
+      "section": "立直与流局",
+      "key": "nagashi_mangan",
+      "label": "流局满贯",
+      "default": true,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "荒牌流局时，所有弃牌均为幺九且未被鸣牌，以满贯支付替代不听罚符；按庄家听牌决定连庄。"
+    },
+    {
+      "section": "立直与流局",
+      "key": "nagashi_allow_calls",
+      "label": "流满允许副露",
+      "default": true,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "流局满贯是否允许自己吃碰杠；自己的弃牌被他家鸣走始终不成立。"
+    },
+    {
+      "section": "立直与流局",
+      "key": "noten_penalty",
+      "label": "不听罚符",
+      "default": 3000,
+      "values": [
+        0,
+        3000
+      ],
+      "choices": [
+        "无",
+        "场上3000点"
+      ],
+      "help": "一至三家听牌时，不听者均摊支付给听牌者。"
+    },
+    {
+      "section": "终局与顺位",
+      "key": "tenpai_renchan",
+      "label": "听牌连庄",
+      "default": true,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "荒牌流局时庄家听牌则连庄。"
+    },
+    {
+      "section": "终局与顺位",
+      "key": "agari_yame",
+      "label": "末庄和了止",
+      "default": true,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "预定末局或延长局庄家第一且达到终局目标分时，庄家和牌自动结束。"
+    },
+    {
+      "section": "终局与顺位",
+      "key": "tenpai_yame",
+      "label": "末庄听牌止",
+      "default": true,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "预定末局或延长局庄家第一且达到终局目标分时，听牌流局自动结束。"
+    },
+    {
+      "section": "终局与顺位",
+      "key": "target_score",
+      "label": "终局目标分",
+      "default": 0,
+      "values": [
+        0,
+        25000,
+        30000,
+        35000,
+        40000,
+        50000,
+        60000
+      ],
+      "choices": [
+        "起始点1.2倍",
+        "25000",
+        "30000",
+        "35000",
+        "40000",
+        "50000",
+        "60000"
+      ],
+      "help": "延长战和末庄自动结束的目标分；未领取供托不计入。"
+    },
+    {
+      "section": "终局与顺位",
+      "key": "extension_rounds",
+      "label": "延长上限",
+      "default": 4,
+      "values": [
+        0,
+        4
+      ],
+      "choices": [
+        "不设上限",
+        "追加一圈"
+      ],
+      "help": "开启西入时的最大追加局数；四圈全庄仍按原有设置不延长。"
+    },
+    {
+      "section": "终局与顺位",
+      "key": "return_score",
+      "label": "终局返还点",
+      "default": 0,
+      "values": [
+        0,
+        25000,
+        30000,
+        35000,
+        40000,
+        50000,
+        60000
+      ],
+      "choices": [
+        "同起始点",
+        "25000",
+        "30000",
+        "35000",
+        "40000",
+        "50000",
+        "60000"
+      ],
+      "help": "终局成绩以此为基准；起始点与返还点的总差额作为头名奖。"
+    },
+    {
+      "section": "终局与顺位",
+      "key": "rank_points",
+      "label": "顺位分",
+      "default": "none",
+      "values": [
+        "none",
+        "5_15",
+        "10_20",
+        "10_30",
+        "jpml"
+      ],
+      "choices": [
+        "无",
+        "15/5/-5/-15",
+        "20/10/-10/-20",
+        "30/10/-10/-30",
+        "联盟浮动顺位"
+      ],
+      "help": "ML规采用30/10/-10/-30并另加25000点起始、30000点返还的头名奖。"
+    },
+    {
+      "section": "终局与顺位",
+      "key": "tie_break",
+      "label": "同分顺位",
+      "default": "initial",
+      "values": [
+        "initial",
+        "shared"
+      ],
+      "choices": [
+        "起家优先",
+        "平分顺位分"
+      ],
+      "help": "平分只影响终局成绩；展示顺序仍按初始东南西北稳定排列。"
+    },
+    {
+      "section": "终局与顺位",
+      "key": "end_deposits",
+      "label": "终局供托",
+      "default": "winner",
+      "values": [
+        "winner",
+        "shared",
+        "discard"
+      ],
+      "choices": [
+        "头名领取",
+        "并列头名平分",
+        "留在场外"
+      ],
+      "help": "最后一局流局后剩余立直棒的归属。平分按100点，余数起家优先。"
+    },
+    {
+      "section": "责任支付与错和",
+      "key": "pao",
+      "label": "责任支付",
+      "default": true,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "大三元、大四喜最后一组被鸣出的牌由提供者承担责任支付。"
+    },
+    {
+      "section": "责任支付与错和",
+      "key": "pao_suukantsu",
+      "label": "四杠子包牌",
+      "default": false,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关",
+        "开"
+      ],
+      "help": "已有三杠时，第四次大明杠的出牌者承担四杠子责任支付。"
+    },
+    {
+      "section": "责任支付与错和",
+      "key": "pao_scope",
+      "label": "复合役满包牌",
+      "default": "liable",
+      "values": [
+        "liable",
+        "all"
+      ],
+      "choices": [
+        "仅包牌役满",
+        "全部复合役满"
+      ],
+      "help": "责任支付的范围；其余役满按普通自摸或荣和结算。"
+    },
+    {
+      "section": "责任支付与错和",
+      "key": "pao_honba",
+      "label": "荣和包牌本场",
+      "default": "liable",
+      "values": [
+        "liable",
+        "discarder"
+      ],
+      "choices": [
+        "责任者支付",
+        "放铳者支付"
+      ],
+      "help": "包牌荣和时本场棒由责任者或放铳者支付；自摸始终由责任者支付。"
+    },
+    {
+      "section": "责任支付与错和",
+      "key": "chombo_penalty",
+      "label": "错和罚则",
+      "default": "fixed_9000",
+      "values": [
+        "fixed_9000",
+        "reverse_mangan",
+        "penalty_20000"
+      ],
+      "choices": [
+        "各付3000",
+        "反向满贯",
+        "终局扣20点"
+      ],
+      "help": "仅开启错和时生效。错和重开本局，本场不增加，退还本局立直供托；终局扣点不改变场中持点。"
+    }
+  ],
+  "presets": [
+    {
+      "id": "tenhou",
+      "label": "天凤规",
+      "source": "https://tenhou.net/man/",
+      "room": {
+        "game_round": 2,
+        "starting_score": 25000,
+        "red_dora": true,
+        "allow_kuikae": false,
+        "open_xiru": true,
+        "open_tobi": true,
+        "hepai_way": "three_ron_abort",
+        "hepai_limit": 1,
+        "open_cuohe": false
+      },
+      "values": {
+        "open_tanyao": true,
+        "ippatsu": true,
+        "ura_dora": true,
+        "kan_dora": true,
+        "kan_ura_dora": true,
+        "double_yakuman": false,
+        "multiple_yakuman": true,
+        "kiriage_mangan": false,
+        "kazoe_limit": "yakuman",
+        "yakuman_limit": 6,
+        "double_wind_pair_fu": 4,
+        "kan_dora_timing": "after_discard",
+        "kokushi_ankan_ron": false,
+        "riichi_kan_rule": "wait",
+        "riichi_min_live_tiles": 4,
+        "furiten_clear": "discard",
+        "kyuushu_abort": true,
+        "four_winds_abort": true,
+        "four_riichi_abort": true,
+        "four_kan_abort": true,
+        "nagashi_mangan": true,
+        "nagashi_allow_calls": true,
+        "noten_penalty": 3000,
+        "tenpai_renchan": true,
+        "agari_yame": true,
+        "tenpai_yame": true,
+        "target_score": 30000,
+        "extension_rounds": 4,
+        "return_score": 30000,
+        "rank_points": "10_20",
+        "tie_break": "initial",
+        "end_deposits": "winner",
+        "pao": true,
+        "pao_suukantsu": false,
+        "pao_scope": "all",
+        "pao_honba": "liable",
+        "chombo_penalty": "fixed_9000"
+      }
+    },
+    {
+      "id": "majsoul",
+      "label": "雀魂规",
+      "source": "https://mahjongsoul.com/news/46",
+      "room": {
+        "game_round": 2,
+        "starting_score": 25000,
+        "red_dora": true,
+        "allow_kuikae": false,
+        "open_xiru": true,
+        "open_tobi": true,
+        "hepai_way": "multi_ron",
+        "hepai_limit": 1,
+        "open_cuohe": false
+      },
+      "values": {
+        "open_tanyao": true,
+        "ippatsu": true,
+        "ura_dora": true,
+        "kan_dora": true,
+        "kan_ura_dora": true,
+        "double_yakuman": true,
+        "multiple_yakuman": true,
+        "kiriage_mangan": false,
+        "kazoe_limit": "yakuman",
+        "yakuman_limit": 6,
+        "double_wind_pair_fu": 4,
+        "kan_dora_timing": "after_discard",
+        "kokushi_ankan_ron": true,
+        "riichi_kan_rule": "wait",
+        "riichi_min_live_tiles": 4,
+        "furiten_clear": "draw",
+        "kyuushu_abort": true,
+        "four_winds_abort": true,
+        "four_riichi_abort": true,
+        "four_kan_abort": true,
+        "nagashi_mangan": true,
+        "nagashi_allow_calls": true,
+        "noten_penalty": 3000,
+        "tenpai_renchan": true,
+        "agari_yame": true,
+        "tenpai_yame": true,
+        "target_score": 30000,
+        "extension_rounds": 4,
+        "return_score": 25000,
+        "rank_points": "5_15",
+        "tie_break": "initial",
+        "end_deposits": "winner",
+        "pao": true,
+        "pao_suukantsu": false,
+        "pao_scope": "liable",
+        "pao_honba": "liable",
+        "chombo_penalty": "fixed_9000"
+      }
+    },
+    {
+      "id": "jpml_a",
+      "label": "A规",
+      "source": "https://www.ma-jan.or.jp/activity/game_rule.html",
+      "room": {
+        "game_round": 2,
+        "starting_score": 30000,
+        "red_dora": false,
+        "allow_kuikae": false,
+        "open_xiru": false,
+        "open_tobi": false,
+        "hepai_way": "head_bump",
+        "hepai_limit": 1,
+        "open_cuohe": false
+      },
+      "values": {
+        "open_tanyao": true,
+        "ippatsu": false,
+        "ura_dora": false,
+        "kan_dora": false,
+        "kan_ura_dora": false,
+        "double_yakuman": false,
+        "multiple_yakuman": true,
+        "kiriage_mangan": false,
+        "kazoe_limit": "yakuman",
+        "yakuman_limit": 4,
+        "double_wind_pair_fu": 2,
+        "kan_dora_timing": "after_discard",
+        "kokushi_ankan_ron": false,
+        "riichi_kan_rule": "shape_yaku",
+        "riichi_min_live_tiles": 1,
+        "furiten_clear": "discard",
+        "kyuushu_abort": false,
+        "four_winds_abort": false,
+        "four_riichi_abort": false,
+        "four_kan_abort": false,
+        "nagashi_mangan": false,
+        "nagashi_allow_calls": true,
+        "noten_penalty": 3000,
+        "tenpai_renchan": true,
+        "agari_yame": false,
+        "tenpai_yame": false,
+        "target_score": 0,
+        "extension_rounds": 4,
+        "return_score": 30000,
+        "rank_points": "jpml",
+        "tie_break": "shared",
+        "end_deposits": "discard",
+        "pao": true,
+        "pao_suukantsu": true,
+        "pao_scope": "liable",
+        "pao_honba": "discarder",
+        "chombo_penalty": "penalty_20000"
+      }
+    },
+    {
+      "id": "mleague",
+      "label": "ML规",
+      "source": "https://m-league.jp/about/",
+      "room": {
+        "game_round": 2,
+        "starting_score": 25000,
+        "red_dora": true,
+        "allow_kuikae": false,
+        "open_xiru": false,
+        "open_tobi": false,
+        "hepai_way": "head_bump",
+        "hepai_limit": 1,
+        "open_cuohe": false
+      },
+      "values": {
+        "open_tanyao": true,
+        "ippatsu": true,
+        "ura_dora": true,
+        "kan_dora": true,
+        "kan_ura_dora": true,
+        "double_yakuman": false,
+        "multiple_yakuman": true,
+        "kiriage_mangan": true,
+        "kazoe_limit": "sanbaiman",
+        "yakuman_limit": 6,
+        "double_wind_pair_fu": 2,
+        "kan_dora_timing": "immediate",
+        "kokushi_ankan_ron": false,
+        "riichi_kan_rule": "shape",
+        "riichi_min_live_tiles": 1,
+        "furiten_clear": "discard",
+        "kyuushu_abort": false,
+        "four_winds_abort": false,
+        "four_riichi_abort": false,
+        "four_kan_abort": false,
+        "nagashi_mangan": false,
+        "nagashi_allow_calls": true,
+        "noten_penalty": 3000,
+        "tenpai_renchan": true,
+        "agari_yame": false,
+        "tenpai_yame": false,
+        "target_score": 0,
+        "extension_rounds": 4,
+        "return_score": 30000,
+        "rank_points": "10_30",
+        "tie_break": "shared",
+        "end_deposits": "shared",
+        "pao": true,
+        "pao_suukantsu": true,
+        "pao_scope": "liable",
+        "pao_honba": "liable",
+        "chombo_penalty": "penalty_20000"
+      }
+    }
+  ]
+}

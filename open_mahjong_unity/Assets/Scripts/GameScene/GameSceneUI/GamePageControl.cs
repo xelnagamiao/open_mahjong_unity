@@ -72,7 +72,7 @@ public class GamePageControl : MonoBehaviour {
             return;
         }
         var gsm = NormalGameStateManager.Instance;
-        rulebookPanelController.Open(gsm.roomRule, gsm.subRule);
+        rulebookPanelController.Open(gsm.roomRule, gsm.subRule, gsm.detailedConfig);
     }
 
     private void OnBackToMenuClicked() {

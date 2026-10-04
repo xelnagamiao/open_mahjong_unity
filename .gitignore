@@ -30,6 +30,9 @@
 !/open_mahjong_server/server/
 !/open_mahjong_server/tests/
 !/open_mahjong_server/docs/
+!/open_mahjong_server/scripts/
+/open_mahjong_server/scripts/*
+!/open_mahjong_server/scripts/backfill_player_recent_records.py
 /open_mahjong_server/server/error_log/
 /open_mahjong_server/server/local_config.py
 /open_mahjong_server/logs/
@@ -56,6 +59,10 @@ tmp/
 Temp/
 .DS_Store
 Thumbs.db
+xcuserdata/
+xcuserdata.meta
+*.xcuserstate
+*.xcuserstate.meta
 *.log
 *.tmp
 *.bak
@@ -77,6 +84,7 @@ secret_key.txt
 # Windows 聊天 exe 是本地测试配套文件，需要提交以支持 Python 自动启动。
 # 其他平台的本机构建结果继续忽略。
 /open_mahjong_chatServer/open_mahjong_chatServer
+/open_mahjong_chatServer/chat_server_linux
 /open_mahjong_server/server/chat_server/open_mahjong_chatServer
 
 # Web 构建输出及本机放置的游戏包；public 下仅保留放置说明。
@@ -101,9 +109,8 @@ secret_key.txt
 !/open_mahjong_web/data/fun-data/.gitkeep
 /open_mahjong_web/data/record-convert-shares/
 
-# other 只提交共享素材、配表、规则资料及其来源/许可证/说明。
+# other 提交共享素材、配表、规则资料及说明，以及明确交付的 UnityBatchBuild 工具。
 # 生成器、一次性工具、构建和验收过程文件放 .om_workspace/。
-/other/UnityBatchBuild/
 /other/**/[Tt]ools/
 /other/**/_tools/
 /other/**/[Bb]uild/
@@ -116,3 +123,10 @@ secret_key.txt
 /other/**/*.sh
 /other/**/*.exe
 /other/tiles/face-build.json
+
+# 供开源用户使用的三端构建工具；缓存、日志和产物仍忽略。
+!/other/UnityBatchBuild/build-all.ps1
+!/other/UnityBatchBuild/build-all.bat
+!/other/UnityBatchBuild/Android.lnk
+!/other/UnityBatchBuild/WebGL.lnk
+!/other/UnityBatchBuild/Windows.lnk

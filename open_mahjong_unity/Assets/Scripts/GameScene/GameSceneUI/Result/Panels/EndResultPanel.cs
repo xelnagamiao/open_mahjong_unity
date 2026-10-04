@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 public class EndResultPanel : MonoBehaviour {
     public enum EndResultTileLayout {
-        /// <summary>国标和牌：暗手 + 分隔 + 副露 + 分隔 + 和牌张。</summary>
+        /// <summary>和牌：暗手 + 分隔 + 副露 + 分隔 + 和牌张（最右侧）。</summary>
         HuWithWinTile,
         /// <summary>查叫：手牌 + 分隔 + 副露（无和牌张）。</summary>
         ClosedHandWithMelds,
@@ -431,6 +431,8 @@ public class EndResultPanel : MonoBehaviour {
             && hepai_player_hand != null && hepai_player_hand.Length > 0;
 
         if (showHandInPanel) {
+            if (tileLayout == EndResultTileLayout.HuWithWinTile && RuleRegistry.Resolve(roomRuleForFan,roomRuleForFan)?.SettlementHasNoWinTile?.Invoke(hu_fan)==true)
+                tileLayout=EndResultTileLayout.ClosedHandWithMelds;
             PopulateEndTilesContainer(hepai_player_hand, hepai_player_combination_mask, tileLayout);
         }
 
@@ -629,7 +631,8 @@ public class EndResultPanel : MonoBehaviour {
             },
             hepai_player_hand,
             hepai_player_combination_mask,
-            EndResultTileLayout.HuWithWinTile);
+            RuleRegistry.Resolve(roomType,roomType)?.SettlementHasNoWinTile?.Invoke(hu_fan)==true
+                ? EndResultTileLayout.ClosedHandWithMelds : EndResultTileLayout.HuWithWinTile);
 
         bool animateFanReveal = RecordSetting.Instance != null
             && RecordSetting.Instance.IsShowHepaiAnimation;
@@ -637,7 +640,9 @@ public class EndResultPanel : MonoBehaviour {
         ShowRiichiExtrasPanel(roomType, riichiExtras);
         SetChangshaBirdTiles(changshaBirdTiles);
         ShowChangshaBirdPanel(this.changshaBirdTiles);
-        HideRuleFootnote(guobiaoAngangCheckText);
+        if (RuleRegistry.Resolve(roomType,roomType)?.RuleId == HongzhongGameState.RuleId)
+            ApplyRuleFootnote(guobiaoAngangCheckText,roomType,hu_fan);
+        else HideRuleFootnote(guobiaoAngangCheckText);
         TryPlayGongHuSound(roomType, hu_fan, hu_score);
 
         if (animateFanReveal) {
@@ -695,9 +700,67 @@ public class EndResultPanel : MonoBehaviour {
         return RuleRegistry.Resolve(rule, rule)?.FuValueText != null;
     }
 
+
+    private bool hongzhongFootnoteLayoutCached;
+    private Vector2 hongzhongFootnoteOriginalPosition;
+    private Vector2 hongzhongFootnoteOriginalSize;
+    private float hongzhongFootnoteOriginalFontSize;
+    private TextAlignmentOptions hongzhongFootnoteOriginalAlignment;
+    private TextWrappingModes hongzhongFootnoteOriginalWrapping;
+
+    private static Rect HongzhongFootnoteBounds(RectTransform rect, Transform parent) {
+        var corners = new Vector3[4];
+        rect.GetWorldCorners(corners);
+        Vector2 min = parent.InverseTransformPoint(corners[0]);
+        Vector2 max = min;
+        foreach (var corner in corners) {
+            Vector2 point = parent.InverseTransformPoint(corner);
+            min = Vector2.Min(min, point);
+            max = Vector2.Max(max, point);
+        }
+        return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+    }
+
+    private void ConfigureHongzhongFootnoteLayout(TextMeshProUGUI label, bool isHongzhong) {
+        // The shared hook also serves LiujuPanel; only this panel owns bird cards.
+        if (label != guobiaoAngangCheckText) return;
+        var rect = label.rectTransform;
+        if (!hongzhongFootnoteLayoutCached) {
+            if (!isHongzhong) return;
+            hongzhongFootnoteOriginalPosition = rect.anchoredPosition;
+            hongzhongFootnoteOriginalSize = rect.sizeDelta;
+            hongzhongFootnoteOriginalFontSize = label.fontSize;
+            hongzhongFootnoteOriginalAlignment = label.alignment;
+            hongzhongFootnoteOriginalWrapping = label.textWrappingMode;
+            hongzhongFootnoteLayoutCached = true;
+        }
+        rect.anchoredPosition = hongzhongFootnoteOriginalPosition;
+        rect.sizeDelta = hongzhongFootnoteOriginalSize;
+        label.fontSize = hongzhongFootnoteOriginalFontSize;
+        label.alignment = hongzhongFootnoteOriginalAlignment;
+        label.textWrappingMode = hongzhongFootnoteOriginalWrapping;
+        if (!isHongzhong || ChangshaBirdContainer == null || FanCountTotalPanel == null) return;
+
+        // Use the free right column between bird cards and the total-score row.
+        // Measure even when either panel is hidden during the reveal animation.
+        var bird = HongzhongFootnoteBounds((RectTransform)ChangshaBirdContainer, rect.parent);
+        var total = HongzhongFootnoteBounds((RectTransform)FanCountTotalPanel.transform, rect.parent);
+        const float gap = 16f;
+        var area = Rect.MinMaxRect(bird.xMin, total.yMax + gap, total.xMax - gap, bird.yMin - gap);
+        if (area.width <= 0f || area.height <= 0f) return;
+        rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, area.width);
+        rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, area.height);
+        rect.anchoredPosition += area.center - HongzhongFootnoteBounds(rect, rect.parent).center;
+        label.fontSize = 30f;
+        label.alignment = TextAlignmentOptions.TopLeft;
+        label.textWrappingMode = TextWrappingModes.Normal;
+    }
+
     /// <summary>结算/流局面板底部族附注：由清单 SettlementFootnote 给出文字，空则隐藏。</summary>
     internal static void ApplyRuleFootnote(TMPro.TextMeshProUGUI label, string rule, string[] huFan) {
         if (label == null) return;
+        label.GetComponentInParent<EndResultPanel>(true)?.ConfigureHongzhongFootnoteLayout(
+            label, RuleRegistry.Resolve(rule, rule)?.RuleId == HongzhongGameState.RuleId);
         var hook = RuleRegistry.Resolve(rule, rule)?.SettlementFootnote;
         string text = hook?.Invoke(new SettlementTotalQuery { Rule = rule, HuFan = huFan });
         label.text = text ?? string.Empty;
@@ -706,6 +769,7 @@ public class EndResultPanel : MonoBehaviour {
 
     internal static void HideRuleFootnote(TMPro.TextMeshProUGUI label) {
         if (label == null) return;
+        label.GetComponentInParent<EndResultPanel>(true)?.ConfigureHongzhongFootnoteLayout(label, false);
         label.text = string.Empty;
         label.gameObject.SetActive(false);
     }
@@ -828,6 +892,7 @@ public class EndResultPanel : MonoBehaviour {
 
     private void PopulateEndTilesContainer(int[] hand, int[][] combinationMask, EndResultTileLayout layout) {
         if (hand == null || hand.Length == 0) return;
+        SettlementTileRowLayout.Ensure(EndTilescontainer);
 
         if (layout == EndResultTileLayout.ClosedHandWithMelds) {
             int[] sortedHand = (int[])hand.Clone();
@@ -866,12 +931,11 @@ public class EndResultPanel : MonoBehaviour {
     }
 
     private void SpawnCombinationTiles(int[][] combinationMask) {
-        if (combinationMask == null) return;
-        for (int list = 0; list < combinationMask.Length; list++) {
-            for (int mask = 1; mask < combinationMask[list].Length; mask += 2) {
-                int tileId = combinationMask[list][mask];
-                if (tileId <= 10) continue;
-                SpawnStaticTile(tileId);
+        foreach (var group in SettlementMeldLayoutBuilder.Build(combinationMask)) {
+            foreach (var tile in group) {
+                SpawnStaticTile(tile.FaceDown ? 0 : tile.TileId);
+                // 加杠第四张也独立竖放，不旋转或叠在来源牌上。
+                if (tile.StackedTileId.HasValue) SpawnStaticTile(tile.StackedTileId.Value);
             }
         }
     }
@@ -881,6 +945,8 @@ public class EndResultPanel : MonoBehaviour {
         if (statusKey == "hua_zhu_passive") return "被动花猪";
         if (statusKey == "hua_zhu_active") return "主动花猪";
         if (statusKey == "hua_zhu") return "花猪";
+        if (statusKey == "hua_zhu_no_payee") return "花猪（无人听牌）";
+        if (statusKey == "no_ting_no_payee") return "没叫（无人听牌）";
         return "没叫";
     }
 
@@ -1091,6 +1157,10 @@ public class EndResultPanel : MonoBehaviour {
 
     /// <summary>对局读会话子规则；牌谱会话可能为空，回退到当前规则清单。</summary>
     private static string ResolveSettlementRoomRule() {
+        if (GameRecordManager.Instance != null
+                && GameRecordManager.Instance.TryGetActiveRecordRuleContext(out string recordRule, out string recordSubRule)) {
+            return !string.IsNullOrEmpty(recordSubRule) ? recordSubRule : recordRule;
+        }
         if (!string.IsNullOrEmpty(GameSession.Current.SubRule)) return GameSession.Current.SubRule;
         if (!string.IsNullOrEmpty(GameSession.Current.RoomRule)) return GameSession.Current.RoomRule;
         RuleManifest manifest = RuleRegistry.Current;
@@ -1313,6 +1383,7 @@ public class EndResultPanel : MonoBehaviour {
             if (slots[i] == null) continue;
             int tileId = (indicators != null && i < indicators.Count) ? indicators[i] : CardBackImageId;
             slots[i].SetTileOnlyImage(tileId);
+            TileFaceFit.FitRowHeight(slots[i].transform.parent);
         }
     }
 

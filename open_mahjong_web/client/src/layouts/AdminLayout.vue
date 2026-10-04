@@ -40,6 +40,8 @@ const asideWidth = computed(() => (isMobile.value ? '132px' : '196px'))
 const menuItems = [
   { index: '/admin', label: '仪表盘' },
   { index: '/admin/users', label: '用户' },
+  { index: '/admin/titles', label: '头衔' },
+  { index: '/admin/inventory', label: '物品' },
   { index: '/admin/events', label: '赛事' },
   { index: '/admin/bases', label: '基地' },
   { index: '/admin/event-applications', label: '办赛申请' },
@@ -51,6 +53,7 @@ const menuItems = [
   { index: '/admin/audit', label: '审计' },
   { index: '/admin/messages', label: '消息' },
   { index: '/admin/activities', label: '活动' },
+  { index: '/admin/classic-records', label: '经典牌谱' },
   { index: '/admin/send-email', label: '发送邮件' },
   { index: '/admin/ip-bans', label: 'IP 封禁' },
   { index: '/admin/stats', label: '全站统计' },

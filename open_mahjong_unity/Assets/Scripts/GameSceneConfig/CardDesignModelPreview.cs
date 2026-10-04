@@ -79,6 +79,8 @@ public sealed class CardDesignModelPreview : MonoBehaviour
         if (!gameObject.activeInHierarchy || RenderPipelineManager.currentPipeline == null) return;
         Build();
         CardBackManager.SyncSharedVisualsToMaterial(material);
+        // This independent rig uses world axes, even when the gameplay table rotates.
+        material.SetFloat("_TileLightUseTableFrame", 0f);
         // Match MahjongObjectPool's 3D texture path, not the flat gallery sprite.
         var faceTexture = TileFaceResolver.LoadTableTexture(11);
         if (faceTexture != null) {

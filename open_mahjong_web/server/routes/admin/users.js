@@ -6,6 +6,7 @@ const { hashPassword } = require('../../utils/password');
 const { writeAudit } = require('../../utils/audit');
 const { fetchUserStatsBundle } = require('../../services/playerStats');
 const { normalizeUsername, validateUsername } = require('../../utils/username');
+const { rewriteGameRecordSnapshots } = require('../../utils/gameRecordUsername');
 
 const GAME_SERVER_BASE_URL = config.calcServer.baseUrl.replace(/\/$/, '');
 const GAME_SERVER_TIMEOUT_MS = config.calcServer.timeoutMs;
@@ -41,55 +42,6 @@ async function fetchUserOnline(userId) {
   return { online: !!data.online, username: data.username || null };
 }
 
-function rewriteRecordSnapshot(value, userId, { oldUsername = null, newUsername }) {
-  let changed = false;
-  const visit = (node) => {
-    if (Array.isArray(node)) return node.forEach(visit);
-    if (!node || typeof node !== 'object') return;
-    const id = node.user_id ?? node.userId;
-    if (Number(id) === userId && (oldUsername === null || node.username === oldUsername)) {
-      if (typeof node.username === 'string' && node.username !== newUsername) {
-        node.username = newUsername;
-        changed = true;
-      }
-    }
-    // 牌谱 game_title 使用 p0_uid / p0_name（而不是玩家对象）保存四家快照。
-    for (const key of Object.keys(node)) {
-      const match = key.match(/^(p\d+)_uid$/);
-      if (!match || Number(node[key]) !== userId) continue;
-      const nameKey = `${match[1]}_name`;
-      if ((oldUsername === null || node[nameKey] === oldUsername) && typeof node[nameKey] === 'string' && node[nameKey] !== newUsername) {
-        node[nameKey] = newUsername;
-        changed = true;
-      }
-    }
-    Object.values(node).forEach(visit);
-  };
-  visit(value);
-  return changed;
-}
-
-async function rewriteGameRecordSnapshots(client, userId, options) {
-  const rows = await client.query(
-    `SELECT gr.game_id, gr.record
-       FROM game_records gr
-      WHERE EXISTS (SELECT 1 FROM game_player_records gpr
-                     WHERE gpr.game_id = gr.game_id AND gpr.user_id = $1
-                       AND ($2::text IS NULL OR gpr.username = $2))
-      FOR UPDATE`,
-    [userId, options.oldUsername]
-  );
-  let count = 0;
-  for (const row of rows.rows) {
-    const record = typeof row.record === 'string' ? JSON.parse(row.record) : row.record;
-    if (rewriteRecordSnapshot(record, userId, options)) {
-      await client.query(`UPDATE game_records SET record = $1::jsonb WHERE game_id = $2`, [JSON.stringify(record), row.game_id]);
-      count += 1;
-    }
-  }
-  return count;
-}
-
 const BAN_TYPES = new Set(['login', 'chat', 'match', 'full']);
 const LADDER_PASS_FIELDS = [
   'is_beginner_qualified',
@@ -97,11 +49,11 @@ const LADDER_PASS_FIELDS = [
   'is_advanced_qualified',
   'is_mcrpl_qualified',
 ];
-const USER_LIST_COLUMNS = `u.user_id, u.username, u.is_tourist, u.sponsor_expires_at,
+const USER_LIST_COLUMNS = `u.user_id, u.username, u.email, u.email_verified_at, u.is_tourist, u.sponsor_expires_at,
                 ${LADDER_PASS_FIELDS.map((field) => `u.${field}`).join(', ')},
                 u.ban_expires_at, u.ban_type, u.ban_reason,
                 u.created_at`;
-const USER_DETAIL_COLUMNS = `user_id, username, is_tourist, email, email_verified_at, sponsor_expires_at,
+const USER_DETAIL_COLUMNS = `user_id, username, is_tourist, email, email_verified_at, rename_count, sponsor_expires_at,
               ${LADDER_PASS_FIELDS.join(', ')},
               ban_expires_at, ban_type, ban_reason, created_at`;
 const USER_PATCH_SELECT_COLUMNS = `user_id, username, sponsor_expires_at,
@@ -184,24 +136,27 @@ router.get('/search', async (req, res) => {
       return res.status(400).json({ success: false, message: '请输入搜索关键词' });
     }
 
-    const userId = parseInt(q, 10);
+    const isNumericId = /^\d+$/.test(q) && BigInt(q) <= 9223372036854775807n;
     let result;
-    if (!Number.isNaN(userId)) {
+    if (isNumericId) {
       result = await pool.query(
         `SELECT ${USER_LIST_COLUMNS},
                 EXISTS(SELECT 1 FROM game_player_records g WHERE g.user_id = u.user_id) AS has_game_records
          FROM users u
          WHERE u.user_id = $1
-         ORDER BY u.user_id
-         LIMIT $2 OFFSET $3`,
-        [userId, limit, offset]
+         LIMIT 1`,
+        [q]
       );
+    }
+    if (result?.rows.length > 0) {
+      // 先确认 UID 是否存在再分页，避免后续空页错误回退为名称搜索。
+      result.rows = result.rows.slice(offset, offset + limit);
     } else {
       result = await pool.query(
         `SELECT ${USER_LIST_COLUMNS},
                 EXISTS(SELECT 1 FROM game_player_records g WHERE g.user_id = u.user_id) AS has_game_records
          FROM users u
-         WHERE u.username ILIKE $1
+         WHERE u.username ILIKE $1 OR u.email ILIKE $1
          ORDER BY u.user_id DESC
          LIMIT $2 OFFSET $3`,
         [`%${q}%`, limit, offset]

@@ -13,6 +13,8 @@ public class RecordTipsContext {
     public List<int> SelfHuapaiList;
     public List<int[]> SelfCombinationMasks;
     public bool SelfIsRiichi;
+    public bool SelfIsDaburuRiichi;
+    public bool RedDora = true;
     public string ReadyQualification;
     public List<int> DoraIndicators;
     public int SelfDingqueSuit;
@@ -23,4 +25,5 @@ public class RecordTipsContext {
 public class RecordTipsPlayerVisible {
     public List<int> DiscardTiles;
     public List<string> CombinationTiles;
+    public List<int[]> CombinationMasks;
 }

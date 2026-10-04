@@ -7,7 +7,7 @@ import {
   parseMeldSlotInput,
   meldDisplayTiles,
   tileIdToNotation,
-} from '@/composables/useMahjongTiles'
+} from './useMahjongTiles.js'
 
 export const FULU_SLOT_COUNT = 4
 export const FULU_SLOT_HINTS = ['123m', '333p', '3333s', '1111z']
@@ -44,6 +44,7 @@ export function tryParseMeldTiles(text) {
  * @param {(meld: object, excludeIdx: number) => number|null} [opts.checkOverflow]
  *   返回超限的 tileId，或 null
  * @param {() => void} [opts.onLocked]
+ * @param {(meld: object, index: number) => boolean} [opts.canLock]
  */
 export function useFuluSlots(opts = {}) {
   const slots = reactive(
@@ -90,6 +91,7 @@ export function useFuluSlots(opts = {}) {
   const lockSlot = (idx, opt) => {
     const slot = slots[idx]
     const meld = buildLockedMeld(opt, slot.input)
+    if (opts.canLock && !opts.canLock(meld, idx)) return false
     if (opts.checkOverflow) {
       const overflow = opts.checkOverflow(meld, idx)
       if (overflow) {

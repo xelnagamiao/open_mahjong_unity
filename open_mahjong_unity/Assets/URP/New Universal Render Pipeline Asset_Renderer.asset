@@ -29,7 +29,7 @@ MonoBehaviour:
   - {fileID: 2137618573802964511}
   m_RendererFeatureMap: cb691aee97ac112b1f86cd6cc458aa1d
   m_UseNativeRenderPass: 0
-  xrSystemData: {fileID: 11400000, guid: 60e1133243b97e347b653163a8c01b64, type: 2}
+  xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
   m_AssetVersion: 3
   m_PrepassLayerMask:
@@ -68,11 +68,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2b29426e2471ee744a9d4b948b820ebb, type: 3}
   m_Name: Tile Contact Shadows
   m_EditorClassIdentifier: Assembly-CSharp::TileContactShadowFeature
-  m_Active: 0
+  m_Active: 1
   settings:
     enabled: 1
-    opacity: 0.36
-    featherRatio: 0.085
+    opacity: 0.9
+    flatOpacityRatio: 0.6
+    featherRatio: 0.26
     fadeHeightRatio: 0.65
     liftSpreadRatio: 0.08
   shader: {fileID: 4800000, guid: c2d7c4ea6ac63f64c8267a249bcf4efa, type: 3}

@@ -44,13 +44,14 @@ internal static class GameAppBindings {
         public int HandSortSuitOrderMode => Cfg != null ? Cfg.HandSortSuitOrderMode : 0;
         public bool ForcePassEnabled => Cfg != null && Cfg.ForcePassEnabled;
         public bool OpeningAutoBuhuaEnabled => Cfg == null || Cfg.OpeningAutoBuhuaEnabled;
-        public bool MeldSpacingEnabled => Cfg != null && Cfg.MeldSpacingEnabled;
         public bool ActionButtonColorEnabled => Cfg != null && Cfg.ActionButtonColorEnabled;
         public bool IsEnglish => ConfigManager.IsEnglish;
         public bool UseBlankWhiteDragonFace(int tileId) => Cfg != null && Cfg.UseBlankWhiteDragonFace(tileId);
         public Color DefaultTableFaceFallbackColor => ConfigManager.DefaultTableFaceFallbackColor;
         public void ApplyTileOutlineStyle() => Cfg?.ApplyTileOutlineStyle();
         public string GetTitleText(int titleId) => ConfigManager.GetTitleText(titleId);
+        public Sprite GetProfileSprite(int profileId) => ConfigManager.GetProfileSprite(profileId);
+        public Color GetAvatarFrameColor(int itemId) => ConfigManager.GetAvatarFrameColor(itemId);
         public int MoqieShortcutMode => Cfg != null ? Cfg.MoqieShortcutMode : 0;
         public int AskOtherPassShortcutMode => Cfg != null ? Cfg.AskOtherPassShortcutMode : 0;
     }
@@ -64,6 +65,8 @@ internal static class GameAppBindings {
         public string RoomIdNone => UserDataManager.ROOM_ID_NONE;
         public void SetRoomId(string roomId) => U?.SetRoomId(roomId);
         public void SetGamestateId(string id) => U?.SetGamestateId(id);
+        public void SetGameSession(string id, string gameRoomId) => U?.SetGameSession(id, gameRoomId);
         public void UpdateGuobiaoRank(string rank, float score) => U?.UpdateGuobiaoRank(rank, score);
+        public void UpdateRating(string rule, string rank, float score, float elo, int games) => U?.UpdateRating(new RuleRating{rule=rule,system=RankedRules.IsGrade(rule)?"grade":"elo",rank_name=rank,rank_score=score,elo=elo,games=games});
     }
 }

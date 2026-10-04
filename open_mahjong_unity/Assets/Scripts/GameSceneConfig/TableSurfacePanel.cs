@@ -10,7 +10,7 @@ using UnityEngine.UI;
 /// The gallery owns only small previews. Full table textures are loaded by Desktop
 /// when selected; never enumerate the full-resolution Resources folders here.
 /// </summary>
-public abstract class TableSurfacePanel : MonoBehaviour
+public abstract partial class TableSurfacePanel : MonoBehaviour
 {
     [Serializable] private class PreviewEntry { public string name; public string preview; public string displayName; }
     [Serializable] private class Catalog { public PreviewEntry[] cloth; public PreviewEntry[] edge; }
@@ -21,6 +21,7 @@ public abstract class TableSurfacePanel : MonoBehaviour
         public object Revision;
         public bool Custom;
         public byte[] Bytes;
+        public TableSurfaceColorLibrary.Entry Color;
         public string Key => (Custom ? "custom:" : "builtin:") + Path;
     }
     private sealed class Row
@@ -36,12 +37,42 @@ public abstract class TableSurfacePanel : MonoBehaviour
     private Coroutine loading;
     private UnityWebRequest customRequest;
     private bool requested;
+    private bool scrollToNewColor;
 
     protected abstract bool IsCloth { get; }
     protected abstract GameObject ItemPrefab { get; }
     protected abstract Transform Content { get; }
     protected abstract Button DeleteButton { get; }
     public bool IsLoading => loading != null;
+    public bool IsClothSurface => IsCloth;
+    public (string path, bool isCustom) CurrentSelection => ConfigManager.Instance == null ? ("",false)
+        : IsCloth ? ConfigManager.Instance.GetSelectedTableCloth() : ConfigManager.Instance.GetSelectedTableEdge();
+    public void BeginNewColor() => TableSurfaceColorEditor.Ensure(this).Begin();
+    public void SelectColor(string id)
+    {
+        if (ConfigManager.Instance == null) return;
+        if (IsCloth) ConfigManager.Instance.SetSelectedTableCloth(id,true);
+        else ConfigManager.Instance.SetSelectedTableEdge(id,true);
+    }
+    public void ReloadColors(bool revealNewColor = false)
+    {
+        scrollToNewColor |= revealNewColor;
+        LoadGallery();
+        GetComponent<TableSurfaceColorEditor>()?.RefreshSelection();
+        GetComponent<TableFrameHeader>()?.RefreshSelection();
+    }
+    public void DeleteColor(string id)
+    {
+        TableSurfaceColorLibrary.Delete(id,()=>{
+            if (this == null) return;
+            if (CurrentSelection.path == id && ConfigManager.Instance != null) {
+                if (IsCloth) ConfigManager.Instance.SetSelectedTableCloth("",false);
+                else ConfigManager.Instance.SetSelectedTableEdge(TableFrameStyles.Default,false);
+                Desktop.Instance?.RefreshAppearance();
+            }
+            ReloadColors();
+        }, SceneConfigUi.ShowTip);
+    }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetCatalog() => catalog = null;
@@ -60,70 +91,9 @@ public abstract class TableSurfacePanel : MonoBehaviour
 
     protected virtual void OnEnable()
     {
-        ConfigureGalleryScrolling();
         if (requested) LoadGallery();
     }
 
-    // Shared by cloth and frame galleries; no effect on dropdown popup scrollbars.
-    public void ConfigureGalleryScrolling()
-    {
-        var scroll = Content != null ? Content.GetComponentInParent<ScrollRect>(true) : null;
-        if (scroll == null) return;
-        scroll.horizontal = false;
-        scroll.vertical = true;
-        scroll.scrollSensitivity = 64f;
-        scroll.movementType = ScrollRect.MovementType.Clamped;
-        scroll.inertia = true;
-        scroll.decelerationRate = .135f;
-        // Own the viewport inset explicitly instead of retaining the legacy -17px rail cutout.
-        scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
-        scroll.horizontalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
-        scroll.verticalScrollbarSpacing = 8;
-        var bar = scroll.verticalScrollbar;
-        if (scroll.viewport != null)
-            StretchScrollRect(scroll.viewport, Vector2.zero, new Vector2(bar != null ? -24 : 0, 0));
-        if (bar == null) return;
-        bar.direction = Scrollbar.Direction.BottomToTop;
-        bar.numberOfSteps = 0;
-        var rail = (RectTransform)bar.transform;
-        rail.localScale = Vector3.one;
-        rail.anchorMin = new Vector2(1, 0); rail.anchorMax = Vector2.one;
-        rail.pivot = new Vector2(1, .5f);
-        // Small inset keeps the square rail clear of the header/footer and panel edge.
-        rail.offsetMin = new Vector2(-20, 6); rail.offsetMax = new Vector2(-4, -6);
-        SquareScrollImage(bar.GetComponent<Image>(), new Color32(38, 46, 61, 255));
-        if (bar.handleRect == null) return;
-        var area = bar.handleRect.parent as RectTransform;
-        if (area != null && area != rail)
-            StretchScrollRect(area, new Vector2(3, 0), new Vector2(-3, 0));
-        bar.handleRect.localScale = Vector3.one;
-        bar.handleRect.offsetMin = bar.handleRect.offsetMax = Vector2.zero;
-        var handle = bar.handleRect.GetComponent<Image>();
-        SquareScrollImage(handle, Color.white);
-        if (handle != null) bar.targetGraphic = handle;
-        bar.transition = Selectable.Transition.ColorTint;
-        var colors = ColorBlock.defaultColorBlock;
-        colors.normalColor = new Color32(136, 155, 187, 255);
-        colors.highlightedColor = new Color32(182, 200, 227, 255);
-        colors.selectedColor = colors.highlightedColor;
-        colors.pressedColor = new Color32(88, 107, 204, 255);
-        colors.disabledColor = new Color32(79, 89, 107, 255);
-        colors.fadeDuration = .1f;
-        bar.colors = colors;
-    }
-
-    private static void StretchScrollRect(RectTransform rect, Vector2 min, Vector2 max)
-    {
-        rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one;
-        rect.offsetMin = min; rect.offsetMax = max;
-    }
-
-    private static void SquareScrollImage(Image image, Color color)
-    {
-        if (image == null) return;
-        image.sprite = null; image.type = Image.Type.Simple;
-        image.color = color;
-    }
 
     protected virtual void OnDisable() => StopLoading();
     protected virtual void OnDestroy() => ClearGallery();
@@ -177,7 +147,7 @@ public abstract class TableSurfacePanel : MonoBehaviour
         yield return null;
         if (catalog == null)
         {
-            var manifest = Resources.Load<TextAsset>("TableSurfacePreviews/catalog");
+            var manifest = Resources.Load<TextAsset>("image/Board/Previews/catalog");
             if (manifest != null)
             {
                 catalog = JsonUtility.FromJson<Catalog>(manifest.text);
@@ -208,12 +178,19 @@ public abstract class TableSurfacePanel : MonoBehaviour
         AddFileSources(sources);
 #endif
 
-        if (IsCloth)
-        {
-            var solids = sources.FindAll(s => !s.Custom && TableClothStyles.IsSolid(s.Path));
-            sources.RemoveAll(s => !s.Custom && TableClothStyles.IsSolid(s.Path));
-            sources.AddRange(solids);
+        // Stable partition on both pages, including when an older preview catalog is loaded.
+        Predicate<Source> isSolid = s => !s.Custom && (IsCloth
+            ? TableClothStyles.IsSolid(s.Path) : TableFrameStyles.IsSolid(s.Path));
+        var solids = sources.FindAll(isSolid);
+        sources.RemoveAll(isSolid);
+        sources.AddRange(solids);
+        if (!TableSurfaceColorLibrary.IsReady) {
+            bool returned=false;
+            TableSurfaceColorLibrary.EnsureReady(()=>{if(returned && this!=null && requested && isActiveAndEnabled)LoadGallery();});
+            returned=true;
         }
+        foreach (var entry in TableSurfaceColorLibrary.GetEntries(IsCloth))
+            sources.Add(new Source { Path=entry.id, Custom=true, Revision=entry, Color=entry });
 
         var keep = new HashSet<string>(StringComparer.Ordinal);
         foreach (var source in sources) keep.Add(source.Key);
@@ -231,7 +208,9 @@ public abstract class TableSurfacePanel : MonoBehaviour
             if (row == null)
             {
                 Texture2D texture = null;
-                if (IsCloth && !source.Custom && TableClothStyles.IsSolid(source.Path))
+                if (source.Color != null)
+                    texture = CreateColorPreview(source.Color.DisplayColor, IsCloth);
+                else if (IsCloth && !source.Custom && TableClothStyles.IsSolid(source.Path))
                     texture = Texture2D.whiteTexture;
                 else if (!source.Custom)
                 {
@@ -274,6 +253,18 @@ public abstract class TableSurfacePanel : MonoBehaviour
                 RefreshSelection(row);
             }
         }
+        if (scrollToNewColor)
+        {
+            // Let the grid/content fitter include the new last row before scrolling.
+            yield return null;
+            Canvas.ForceUpdateCanvases();
+            var scroll = Content != null ? Content.GetComponentInParent<ScrollRect>(true) : null;
+            if (scroll != null) { scroll.StopMovement(); scroll.verticalNormalizedPosition = 0; }
+            scrollToNewColor = false;
+        }
+        // IndexedDB may finish opening after the header's initial refresh.
+        GetComponent<TableSurfaceColorEditor>()?.RefreshSelection();
+        GetComponent<TableFrameHeader>()?.RefreshSelection();
     }
 
     private void AddFileSources(List<Source> sources)
@@ -321,7 +312,36 @@ public abstract class TableSurfacePanel : MonoBehaviour
         }
         image.sprite = row.Sprite;
         image.color = Color.white;
+        if (source.Color != null)
+        {
+            var labelObject = new GameObject("ColorName",typeof(RectTransform),typeof(TMPro.TextMeshProUGUI));
+            labelObject.layer=row.Item.layer;labelObject.transform.SetParent(image.transform,false);
+            var label=labelObject.GetComponent<TMPro.TextMeshProUGUI>();
+            label.font=GetComponentInChildren<TMPro.TMP_Text>(true)?.font;label.text=source.Color.name;
+            label.fontSize=16;label.color=Color.white;label.raycastTarget=false;
+            label.alignment=TMPro.TextAlignmentOptions.Center;
+            label.enableAutoSizing=true;label.fontSizeMin=9;label.fontSizeMax=16;
+            label.textWrappingMode=TMPro.TextWrappingModes.NoWrap;label.overflowMode=TMPro.TextOverflowModes.Ellipsis;
+            label.richText=false;
+            // The image is inset by 8px in the gallery prefab; its baked strip is 25/128 of its height.
+            var rect=label.rectTransform;rect.anchorMin=Vector2.zero;rect.anchorMax=new Vector2(1,25f/128f);
+            rect.offsetMin=new Vector2(4,1);rect.offsetMax=new Vector2(-4,-1);
+        }
         return row;
+    }
+
+    private static Texture2D CreateColorPreview(Color color, bool cloth)
+    {
+        // Small derived swatches only; the actual table continues to use shader parameters.
+        const int size=128;var texture=new Texture2D(size,size,TextureFormat.RGBA32,false);
+        var pixels=new Color32[size*size];
+        for(int y=0;y<size;y++)for(int x=0;x<size;x++) {
+            int edge=Mathf.Min(Mathf.Min(x,y),Mathf.Min(size-1-x,size-1-y));
+            pixels[y*size+x]=cloth || edge<16 ? color : Color.clear;
+            if(y<25)pixels[y*size+x]=new Color32(38,44,56,255);
+        }
+        texture.SetPixels32(pixels);texture.Apply(false,true);texture.wrapMode=TextureWrapMode.Clamp;
+        return texture;
     }
 
     private void RefreshSelection(Row row)

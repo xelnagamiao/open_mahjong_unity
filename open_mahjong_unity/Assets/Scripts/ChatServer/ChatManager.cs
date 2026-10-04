@@ -13,6 +13,10 @@ public class ChatManager : MonoBehaviour {
     private WebSocket websocket;
     private bool isConnecting;
     private bool loginSent;
+    private bool loginReady;
+    private int desiredRoomId;
+    private int joinedRoomId;
+    private WebSocket roomSyncSocket;
     private string username;
     private string userkey;
 
@@ -63,6 +67,8 @@ public class ChatManager : MonoBehaviour {
         websocket = newSocket;
         isConnecting = true;
         loginSent = false;
+        loginReady = false;
+        joinedRoomId = 0;
 
         newSocket.OnOpen += () => {
             if (newSocket != websocket) return;
@@ -87,6 +93,8 @@ public class ChatManager : MonoBehaviour {
             websocket = null;
             isConnecting = false;
             loginSent = false;
+            loginReady = false;
+            joinedRoomId = 0;
             Debug.Log($"Go ChatServer 已关闭: {code}");
             // 不重连。下一次连接只能由 Python WebSocket 的 OnOpen 触发。
         };
@@ -110,6 +118,8 @@ public class ChatManager : MonoBehaviour {
         websocket = null;
         isConnecting = false;
         loginSent = false;
+        loginReady = false;
+        joinedRoomId = 0;
         lock (messageQueue) messageQueue.Clear();
         CloseSocket(oldSocket);
     }
@@ -176,7 +186,12 @@ public class ChatManager : MonoBehaviour {
         };
         loginSent = true;
         try {
-            await websocket.SendText(JsonConvert.SerializeObject(request));
+            WebSocket loginSocket = websocket;
+            await loginSocket.SendText(JsonConvert.SerializeObject(request));
+            if (websocket != loginSocket) return;
+            loginReady = true;
+            string roomId = UserDataManager.Instance?.ChatRoomId;
+            SetRoomChannel(int.TryParse(roomId, out int channel) ? channel : 0);
         } catch (Exception exception) {
             Debug.LogWarning($"登录 Go ChatServer 失败: {exception.Message}");
         }
@@ -192,6 +207,42 @@ public class ChatManager : MonoBehaviour {
             },
         };
         await websocket.SendText(JsonConvert.SerializeObject(request));
+    }
+
+    /// <summary>独立维护对局/大厅聊天频道，登录完成后恢复；切换时先退后进。</summary>
+    public void SetRoomChannel(int roomId) {
+        desiredRoomId = roomId;
+        SynchronizeRoomChannel();
+    }
+
+    private async void SynchronizeRoomChannel() {
+        WebSocket socket = websocket;
+        if (!loginReady || socket == null || socket.State != WebSocketState.Open || roomSyncSocket == socket) return;
+        roomSyncSocket = socket;
+        try {
+            while (socket == websocket && loginReady && joinedRoomId != desiredRoomId) {
+                int previous = joinedRoomId;
+                if (previous != 0) {
+                    await socket.SendText(JsonConvert.SerializeObject(new ChatRequest {
+                        type = "leaveRoom", data = new ChatLeaveRoomRequest { roomId = previous }
+                    }));
+                    if (socket != websocket) return;
+                    joinedRoomId = 0;
+                }
+                int next = desiredRoomId;
+                if (next != 0) {
+                    await socket.SendText(JsonConvert.SerializeObject(new ChatRequest {
+                        type = "joinRoom", data = new ChatJoinRoomRequest { roomId = next }
+                    }));
+                    if (socket != websocket) return;
+                    joinedRoomId = next;
+                }
+            }
+        } catch (Exception exception) {
+            Debug.LogWarning($"同步聊天频道失败: {exception.Message}");
+        } finally {
+            if (roomSyncSocket == socket) roomSyncSocket = null;
+        }
     }
 
     public async void JoinRoom(int roomId) {

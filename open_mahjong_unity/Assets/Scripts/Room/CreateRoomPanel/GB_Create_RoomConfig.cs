@@ -1,6 +1,8 @@
 using UnityEngine;
 
 public class GB_Create_RoomConfig {
+    public bool PointerTips { get; set; } = true;
+    public bool ClaimProtection { get; set; } = true;
     public string RoomName { get; set; }
     public int GameRound { get; set; }
     public string Password { get; set; }
@@ -9,7 +11,11 @@ public class GB_Create_RoomConfig {
     public int RoundTimer { get; set; }
     public int StepTimer { get; set; }
     public bool Tips { get; set; }
+    public bool CountTips { get; set; }
     public string RandomSeed { get; set; }
+    public string DuplicateKey { get; set; }
+    public bool UseFlowers { get; set; } = true;
+    public bool TianDiRenHe { get; set; }
     public bool CuoHe { get; set; }
     /// <summary>错和形式：0=错和者扣30/其余各加10；1=错和者扣40/其余不加分。</summary>
     public int CuoheType { get; set; }
@@ -20,6 +26,10 @@ public class GB_Create_RoomConfig {
     public string EventId { get; set; }
 
     public bool Validate(out string error,bool passwordToggle,bool setRandomSeedToggle) {
+        if (SubRule == GuobiaoGameState.BloodBattleSubRule && !string.IsNullOrWhiteSpace(DuplicateKey)) {
+            error = "国标血战暂不支持复式牌墙";
+            return false;
+        }
         if (string.IsNullOrEmpty(RoomName)) {
             error = "房间名不能为空";
             return false;

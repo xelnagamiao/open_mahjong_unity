@@ -22,7 +22,7 @@
           <el-button type="danger" link @click="onLogout">退出</el-button>
         </template>
         <template v-else>
-          <el-button type="primary" link @click="$router.push('/login?redirect=/account')">去登录</el-button>
+          <el-button type="primary" link @click="$router.push({ path: '/login', query: { redirect: route.fullPath } })">去登录</el-button>
         </template>
       </el-header>
       <el-main class="account-main">
@@ -52,6 +52,8 @@ const asideWidth = computed(() => (isMobile.value ? '132px' : '196px'))
 const menuItems = [
   { index: 'sec-account', label: '账户' },
   { index: 'sec-uploads', label: '上传内容' },
+  { index: 'sec-duplicate-personal', label: '个人复式' },
+  { index: 'sec-duplicate-event', label: '比赛复式' },
   { index: 'sec-apply-event', label: '办赛申请' },
   { index: 'sec-apply-base', label: '基地申请' },
   { index: 'sec-manage-event', label: '赛事管理' },
@@ -77,7 +79,7 @@ function onSelect(index) {
 function onLogout() {
   auth.logout()
   eventAuth.logout()
-  router.push('/login?redirect=/account')
+  router.replace('/')
 }
 
 onMounted(async () => {

@@ -154,16 +154,17 @@ Material:
     - _TableFaceBlend: 0
     - _TableFaceFallbackEnabled: 1
     - _TableFaceImageScale: 0.86
-    - _TileLightThreshold: 0.4
-    - _TileLightTransition: 0.15
-    - _TileShadowStrength: 0.16
+    - _TileLightDirectionBlend: 1
+    - _TileLightThreshold: 0.08
+    - _TileLightTransition: 0.1
+    - _TileLightUseTableFrame: 1
     - _TileWhiteCompression: 0.1
     - _UVSec: 0
     - _WorkflowMode: 1
     - _ZWrite: 1
     m_Colors:
-    - _BackColor: {r: 0.218, g: 0.372, b: 0.66, a: 1}
-    - _BackEdgeColor: {r: 0.218, g: 0.372, b: 0.66, a: 1}
+    - _BackColor: {r: 0.21960784, g: 0.37254903, b: 0.65882355, a: 1}
+    - _BackEdgeColor: {r: 0.21960784, g: 0.37254903, b: 0.65882355, a: 1}
     - _BackTilingOffset: {r: 1, g: 1, b: 0, a: 0}
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
@@ -176,9 +177,10 @@ Material:
     - _SideColor: {r: 1, g: 1, b: 1, a: 1}
     - _SideTilingOffset: {r: 1, g: 1, b: 0, a: 0}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
-    - _TableFaceColor: {r: 0.961, g: 0.965, b: 0.969, a: 1}
+    - _TableFaceColor: {r: 0.9607843, g: 0.9647059, b: 0.96862745, a: 1}
     - _TableFaceFallbackColor: {r: 0.961, g: 0.965, b: 0.969, a: 1}
     - _TileInstanceParams: {r: 0, g: 0, b: 0, a: 0}
-    - _TileShadeTint: {r: 0.68235296, g: 0.68235296, b: 0.68235296, a: 1}
+    - _TileLightDirection: {r: 0, g: 0.89377, b: 0.44853, a: 0}
+    - _TileShadeTint: {r: 0.81132, g: 0.81132, b: 0.81132, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

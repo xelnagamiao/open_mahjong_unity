@@ -10,8 +10,8 @@ using UnityEngine.SceneManagement;
 /// <summary>Editor-only thumbnails of the actual frame; no Board source image is needed.</summary>
 internal static class TableFramePreviewRenderer
 {
-    const string Model = "Assets/Resources/TableFrame/Model/TableFrame_Upright_V8.fbx";
-    const string MaterialPath = "Assets/TableFrame/SceneAssets/Frame_OrangeWood_V8.mat";
+    const string Model = "Assets/Resources/3D/TableFrame_Upright_V8.fbx";
+    const string MaterialPath = "Assets/Resources/Materials/Board/Frame_OrangeWood_V8.mat";
     internal static string Fingerprint(string style, string source)
     {
         return "frame-model-v1:" + AssetDatabase.GetAssetDependencyHash(Model) + ":" +

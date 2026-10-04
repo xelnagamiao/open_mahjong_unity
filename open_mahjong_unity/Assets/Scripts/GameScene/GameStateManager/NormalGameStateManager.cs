@@ -11,17 +11,23 @@ public class PlayerInfoClass
     public int[] hand_tiles;
     public List<int> discard_tiles;
     public List<int> discard_origin_tiles;
+    public List<int> known_concealed_discards = new List<int>();
     public List<string> combination_tiles;
     public List<int[]> combination_masks;
     public List<int> huapai_list;
     public int title_used;
     public int profile_used;
+    public int avatar_frame_used;
     public int character_used;
     public int voice_used;
     public List<string> score_history;
     public List<int> round_number_history;
     public int original_player_index;
     public string[] tag_list;
+    public bool? post_hu_lock;
+    public bool? has_won;
+    public int? win_count;
+    public List<int> xueliu_throw_tiles;
     /// <summary>立直规则：与 discard_tiles 同序的横置标记，用于他家鸣牌后续横、重连/牌谱重建复原立直横置弃牌。</summary>
     public List<bool> discard_riichi_flags = new List<bool>();
 
@@ -34,17 +40,23 @@ public class PlayerInfoClass
         hand_tiles = null;
         discard_tiles = new List<int>();
         discard_origin_tiles = new List<int>();
+        known_concealed_discards.Clear();
         combination_tiles = new List<string>();
         combination_masks = new List<int[]>();
         huapai_list = new List<int>();
         title_used = 1;
         profile_used = 1;
+        avatar_frame_used = 0;
         character_used = 1;
         voice_used = 1;
         score_history = new List<string>();
         round_number_history = new List<int>();
         original_player_index = 0;
         tag_list = null;
+        post_hu_lock = null;
+        has_won = null;
+        win_count = null;
+        xueliu_throw_tiles = new List<int>();
         discard_riichi_flags = new List<bool>();
     }
 }

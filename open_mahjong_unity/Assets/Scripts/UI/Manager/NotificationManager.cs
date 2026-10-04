@@ -55,13 +55,14 @@ public class NotificationManager : MonoBehaviour {
     /// <param name="type">消息类型</param>
     /// <returns>实例化的 MessagePrefab</returns>
     public MessagePrefab ShowMessage(string header, string content, string type = "") {
-        if (messagePrefab == null) {
-            Debug.LogError("NotificationManager: MessagePrefab 未设置！");
-            return null;
-        }
-        Transform parent = messagePosition != null ? messagePosition.transform : transform;
-        MessagePrefab messageInstance = Instantiate(messagePrefab, parent);
-        messageInstance.ShowMessage(header, content, type);
+        MessagePrefab messageInstance = CreateMessage(false);
+        messageInstance?.ShowMessage(header, content, type);
+        return messageInstance;
+    }
+
+    public MessagePrefab ShowMessage(string header, string content, params MessageAction[] actions) {
+        MessagePrefab messageInstance = CreateMessage(false);
+        messageInstance?.Show(header, content, actions);
         return messageInstance;
     }
 
@@ -69,23 +70,49 @@ public class NotificationManager : MonoBehaviour {
     public MessagePrefab ShowConfirmation(string header, string content, System.Action onConfirm,
         string confirmText = "确定", string cancelText = "取消")
     {
-        if (messagePrefab == null) return null;
+        MessagePrefab message = CreateMessage(true);
+        message?.ShowConfirmation(header, content, onConfirm, confirmText, cancelText);
+        return message;
+    }
+
+    /// <summary>全屏遮罩弹窗，按钮数量与传入的操作一致。</summary>
+    public MessagePrefab ShowModal(string header, string content, params MessageAction[] actions) {
+        MessagePrefab message = CreateMessage(true);
+        message?.Show(header, content, actions, true);
+        return message;
+    }
+
+    private MessagePrefab CreateMessage(bool modal) {
+        if (messagePrefab == null) {
+            Debug.LogError("NotificationManager: MessagePrefab 未设置！");
+            return null;
+        }
         Transform parent = messagePosition != null ? messagePosition.transform : transform;
-        Canvas canvas = parent.GetComponentInParent<Canvas>();
-        if (canvas != null) parent = canvas.transform;
-        var modal = new GameObject("ConfirmationModal", typeof(RectTransform), typeof(UnityEngine.UI.Image));
-        modal.layer = parent.gameObject.layer;
-        var rect = (RectTransform)modal.transform;
-        rect.SetParent(parent, false);
-        rect.anchorMin = Vector2.zero;
-        rect.anchorMax = Vector2.one;
-        rect.offsetMin = rect.offsetMax = Vector2.zero;
-        var blocker = modal.GetComponent<UnityEngine.UI.Image>();
-        blocker.color = new Color(.04f, .06f, .09f, .55f);
-        blocker.raycastTarget = true;
-        MessagePrefab message = Instantiate(messagePrefab, modal.transform);
-        message.SetModalOwner(modal);
-        message.ShowConfirmation(header, content, onConfirm, confirmText, cancelText);
+        GameObject modalOwner = null;
+        if (modal) {
+            Canvas canvas = parent.GetComponentInParent<Canvas>();
+            if (canvas != null) parent = canvas.transform;
+            modalOwner = new GameObject("MessageModal", typeof(RectTransform), typeof(Canvas),
+                typeof(UnityEngine.UI.GraphicRaycaster), typeof(UnityEngine.UI.Image));
+            modalOwner.layer = parent.gameObject.layer;
+            var rect = (RectTransform)modalOwner.transform;
+            rect.SetParent(parent, false);
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+            var modalCanvas = modalOwner.GetComponent<Canvas>();
+            modalCanvas.overrideSorting = true;
+            if (canvas != null) modalCanvas.sortingLayerID = canvas.sortingLayerID;
+            modalCanvas.sortingOrder = Mathf.Max(300, canvas != null ? canvas.sortingOrder + 1 : 300);
+            var blocker = modalOwner.GetComponent<UnityEngine.UI.Image>();
+            blocker.color = new Color(.04f, .06f, .09f, .55f);
+            blocker.raycastTarget = true;
+            parent = modalOwner.transform;
+        }
+        MessagePrefab message = Instantiate(messagePrefab, parent);
+        if (modalOwner != null) {
+            message.SetModalOwner(modalOwner);
+        }
         return message;
     }
 
@@ -96,11 +123,6 @@ public class NotificationManager : MonoBehaviour {
     /// <param name="message">消息内容</param>
     /// <param name="playerInfo">玩家信息响应数据</param>
     public void OpenPlayerInfoPanel(bool success, string message, PlayerInfoResponse playerInfo) {
-        if (playerInfoPanelPrefab == null) {
-            Debug.LogError("NotificationManager: PlayerInfoPanelPrefab 未设置！");
-            return;
-        }
-
         if (success && playerInfo != null) {
             Transform parent = playerInfoPosition != null ? playerInfoPosition.transform : transform;
             PlayerInfoPanel playerInfoPanel = PlayerInfoPanel.Instance;
@@ -108,6 +130,10 @@ public class NotificationManager : MonoBehaviour {
                 playerInfoPanel = parent.GetComponentInChildren<PlayerInfoPanel>(true);
             }
             if (playerInfoPanel == null) {
+                if (playerInfoPanelPrefab == null) {
+                    Debug.LogError("NotificationManager: PlayerInfoPanel 及其预制体均未设置！");
+                    return;
+                }
                 GameObject playerInfoPanelObject = Instantiate(playerInfoPanelPrefab, parent);
                 playerInfoPanelObject.SetActive(false);
                 playerInfoPanel = playerInfoPanelObject.GetComponent<PlayerInfoPanel>();

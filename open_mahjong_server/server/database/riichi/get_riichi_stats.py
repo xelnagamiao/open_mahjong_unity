@@ -47,7 +47,7 @@ def get_riichi_history_stats(db_manager, user_id: int) -> List[Dict[str, Any]]:
             db_manager._put_connection(conn)
 
 
-def get_riichi_fan_stats_total(db_manager, user_id: int) -> dict:
+def get_riichi_fan_stats_total(db_manager, user_id: int, ranked=None) -> dict:
     """获取指定用户的立直役种统计数据汇总（所有 mode 合计）。"""
     from .store_riichi import FAN_FIELDS
 
@@ -60,9 +60,9 @@ def get_riichi_fan_stats_total(db_manager, user_id: int) -> dict:
             f"""
             SELECT {fan_columns}
             FROM riichi_fan_stats
-            WHERE user_id = %s
+            WHERE user_id = %s AND (%s IS NULL OR (mode LIKE %s) = %s)
             """,
-            (user_id,),
+            (user_id, ranked, "%_rank", ranked),
         )
         row = cursor.fetchone()
         if row:

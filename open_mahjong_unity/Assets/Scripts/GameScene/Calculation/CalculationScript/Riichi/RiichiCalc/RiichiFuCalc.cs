@@ -39,7 +39,7 @@ namespace Riichi {
             if (pair != null) {
                 if (RiichiTileUtil.IsDragon(pair.Tile)) fu += 2;
                 if (pair.Tile == ctx.PlayerWind) fu += 2;
-                if (pair.Tile == ctx.RoundWind) fu += 2;
+                if (pair.Tile == ctx.RoundWind) fu += pair.Tile == ctx.PlayerWind ? ctx.DoubleWindPairFu - 2 : 2;
             }
 
             int winNorm = RiichiTileUtil.Normalize(winTile);
@@ -48,7 +48,8 @@ namespace Riichi {
                 bool yaojiu = RiichiTileUtil.IsYaojiu(s.Tile);
                 bool opened = s.Opened;
                 // 荣和完成的刻子视为明刻
-                if (!ctx.IsTsumo && s.Type == RiichiSetType.Pon && s.Tile == winNorm && !opened) {
+                if (!ctx.IsTsumo && s.Type == RiichiSetType.Pon && s.Tile == winNorm && !opened
+                    && (ctx.WinningSetIndex < 0 || sets.IndexOf(s) == ctx.WinningSetIndex)) {
                     opened = true;
                 }
                 if (s.Type == RiichiSetType.Pon) {

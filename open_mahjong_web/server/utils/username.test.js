@@ -2,30 +2,35 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const {
+  USERNAME_RULE_HINT,
   normalizeUsername,
   usernameDisplayLength,
   validateUsername,
 } = require('./username');
 
-test('single CJK, kana and halfwidth kana are valid double-width names', () => {
+test('Chinese counts as two characters and English as one', () => {
   assert.equal(usernameDisplayLength('麻'), 2);
-  assert.equal(usernameDisplayLength('あ'), 2);
-  assert.equal(usernameDisplayLength('ｶ'), 2);
-  assert.equal(validateUsername('あ'), null);
+  assert.equal(usernameDisplayLength('ab'), 2);
+  assert.equal(validateUsername('麻'), null);
+  assert.equal(validateUsername('ab'), null);
+  assert.equal(validateUsername('a'), USERNAME_RULE_HINT);
 });
 
-test('decomposed kana is normalized before measuring', () => {
-  assert.equal(normalizeUsername(' は\u3099 '), 'ば');
-  assert.equal(usernameDisplayLength(normalizeUsername('は\u3099')), 2);
+test('only Chinese, English letters and digits are allowed', () => {
+  assert.equal(validateUsername('あ'), USERNAME_RULE_HINT);
+  assert.equal(validateUsername('user_1'), USERNAME_RULE_HINT);
+  assert.equal(validateUsername('user1'), null);
+  assert.equal(validateUsername('玩家01'), null);
 });
 
-test('display-width and code-point limits are both enforced', () => {
-  assert.equal(validateUsername('あ'.repeat(10)), null);
-  assert.equal(validateUsername('あ'.repeat(11)), '用户名显示长度不能超过20');
-  assert.equal(validateUsername('a'.repeat(16)), null);
-  assert.equal(validateUsername('a'.repeat(17)), '用户名不能超过16个字符');
+test('display length must stay between 2 and 20', () => {
+  assert.equal(validateUsername('中'.repeat(10)), null);
+  assert.equal(validateUsername('中'.repeat(11)), USERNAME_RULE_HINT);
+  assert.equal(validateUsername('a'.repeat(20)), null);
+  assert.equal(validateUsername('a'.repeat(21)), USERNAME_RULE_HINT);
 });
 
-test('invisible format characters are rejected', () => {
-  assert.equal(validateUsername('a\u200db'), '用户名不能包含控制字符或不可见格式字符');
+test('usernames are trimmed and NFC-normalized', () => {
+  assert.equal(normalizeUsername(' 玩家01 '), '玩家01');
+  assert.equal(validateUsername(' 玩家01 '), null);
 });

@@ -32,6 +32,8 @@
 
           <el-descriptions-item label="类型">{{ detail.user.is_tourist ? '游客' : '注册' }}</el-descriptions-item>
 
+          <el-descriptions-item label="剩余改名次数">{{ detail.user.rename_count ?? 0 }}</el-descriptions-item>
+
           <el-descriptions-item label="牌谱数">{{ detail.game_record_count }}</el-descriptions-item>
 
           <el-descriptions-item label="在线状态">
@@ -224,27 +226,23 @@
 
       <el-card v-if="!detail.user.is_tourist" class="block">
         <template #header>改名</template>
-        <p class="rename-hint">改名规则与游戏内一致：最多 16 个字符，中文计 2、英文/数字计 1，总权重 2～20。当前仅更新账号表；历史牌谱按对局时用户名快照展示。</p>
-        <form class="credential-form" autocomplete="off" @submit.prevent="renameUser">
-          <input class="autofill-decoy" type="text" name="username" autocomplete="username" tabindex="-1" aria-hidden="true" />
-          <input class="autofill-decoy" type="password" name="password" autocomplete="current-password" tabindex="-1" aria-hidden="true" />
+        <div class="credential-form">
+          <p class="rename-hint">用户名最多16个字符，显示长度2–20（中日韩及全角字符计2，其他字符计1）。</p>
           <div class="credential-row">
             <el-input
               v-model="renameForm.new_username"
-              name="admin-rename-username"
+              name="om-admin-rename-target"
               autocomplete="off"
               clearable
               placeholder="新用户名"
               style="max-width: 220px"
-              maxlength="16"
-              show-word-limit
               data-lpignore="true"
               data-1p-ignore="true"
               data-form-type="other"
             />
             <el-input
               v-model="renameForm.reason"
-              name="admin-rename-reason"
+              name="om-admin-rename-reason"
               autocomplete="off"
               clearable
               placeholder="变更原因（必填）"
@@ -254,22 +252,20 @@
               data-form-type="other"
             />
             <el-checkbox v-model="renameForm.sync_history">同步该 UID 的全部历史牌谱名</el-checkbox>
-            <el-button type="primary" native-type="submit" :loading="renaming">保存新用户名</el-button>
+            <el-button type="primary" :loading="renaming" @click="renameUser">保存新用户名</el-button>
           </div>
-        </form>
+        </div>
       </el-card>
 
       <el-card class="block">
         <template #header>重置密码</template>
-        <form class="credential-form" autocomplete="off" @submit.prevent="resetPassword">
-          <input class="autofill-decoy" type="text" name="username" autocomplete="username" tabindex="-1" aria-hidden="true" />
-          <input class="autofill-decoy" type="password" name="password" autocomplete="current-password" tabindex="-1" aria-hidden="true" />
+        <div class="credential-form">
           <div class="credential-row">
             <el-input
               v-model="newPassword"
               type="password"
-              name="admin-new-password"
-              autocomplete="new-password"
+              name="om-admin-reset-secret"
+              autocomplete="off"
               :readonly="passwordReadonly"
               @focus="passwordReadonly = false"
               show-password
@@ -279,9 +275,9 @@
               data-1p-ignore="true"
               data-form-type="other"
             />
-            <el-button type="warning" native-type="submit">重置密码</el-button>
+            <el-button type="warning" @click="resetPassword">重置密码</el-button>
           </div>
-        </form>
+        </div>
       </el-card>
 
 
@@ -292,15 +288,14 @@
 
         <p class="rename-hint">只修改当前 UID 下，原历史用户名完全匹配的牌谱快照；不会影响其他 UID 的同名玩家，也不会改变当前账户用户名。</p>
 
-        <form class="credential-form" autocomplete="off" @submit.prevent="renameHistoryUsername">
-          <input class="autofill-decoy" type="text" name="username" autocomplete="username" tabindex="-1" aria-hidden="true" />
+        <div class="credential-form">
           <div class="credential-row">
-            <el-input v-model="historyRename.oldUsername" name="admin-history-old-username" autocomplete="off" placeholder="原历史用户名" style="max-width: 180px" data-lpignore="true" data-1p-ignore="true" />
-            <el-input v-model="historyRename.newUsername" name="admin-history-new-username" autocomplete="off" placeholder="新历史用户名" style="max-width: 180px" data-lpignore="true" data-1p-ignore="true" />
-            <el-input v-model="historyRename.reason" name="admin-history-reason" autocomplete="off" placeholder="变更原因（必填）" style="max-width: 220px" data-lpignore="true" data-1p-ignore="true" />
-            <el-button type="warning" plain native-type="submit" :loading="renamingHistory">迁移历史用户名</el-button>
+            <el-input v-model="historyRename.oldUsername" name="om-admin-history-old" autocomplete="off" placeholder="原历史用户名" style="max-width: 180px" data-lpignore="true" data-1p-ignore="true" data-form-type="other" />
+            <el-input v-model="historyRename.newUsername" name="om-admin-history-new" autocomplete="off" placeholder="新历史用户名" style="max-width: 180px" data-lpignore="true" data-1p-ignore="true" data-form-type="other" />
+            <el-input v-model="historyRename.reason" name="om-admin-history-reason" autocomplete="off" placeholder="变更原因（必填）" style="max-width: 220px" data-lpignore="true" data-1p-ignore="true" data-form-type="other" />
+            <el-button type="warning" plain :loading="renamingHistory" @click="renameHistoryUsername">迁移历史用户名</el-button>
           </div>
-        </form>
+        </div>
 
       </el-card>
 
@@ -347,6 +342,9 @@
       </el-card>
 
 
+
+      <UserTitlesPanel class="block" :user-id="detail.user.user_id" />
+      <UserInventoryPanel class="block" :user-id="detail.user.user_id" />
 
       <el-card class="block">
 
@@ -435,6 +433,8 @@ import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import adminApi from '@/api/adminClient'
+import UserTitlesPanel from './UserTitlesPanel.vue'
+import UserInventoryPanel from './UserInventoryPanel.vue'
 import { formatRoomType, formatRule, formatSubRule } from '@/utils/gameMeta'
 
 import { addDays, getSponsorStatus, toPickerValue } from '@/utils/sponsor'
@@ -588,13 +588,6 @@ function syncEditFromDetail() {
     : null
 
   edit.ban_reason = detail.value.user.ban_reason || ''
-
-  renameForm.new_username = detail.value.user.username || ''
-
-  renameForm.sync_history = false
-
-  renameForm.reason = ''
-
 }
 
 
@@ -762,6 +755,7 @@ async function resetPassword() {
     ElMessage.success('密码已重置')
 
     newPassword.value = ''
+    passwordReadonly.value = true
 
   } catch (e) {
 
@@ -853,7 +847,9 @@ async function renameUser() {
 
     ElMessage.success(res.data.message || '改名成功')
 
+    renameForm.new_username = ''
     renameForm.reason = ''
+    renameForm.sync_history = false
 
     await load()
 
@@ -1132,16 +1128,6 @@ onMounted(load)
 
 .credential-form {
   position: relative;
-}
-
-.autofill-decoy {
-  position: absolute;
-  left: -9999px;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  opacity: 0;
-  pointer-events: none;
 }
 
 .credential-row {

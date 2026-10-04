@@ -7,6 +7,10 @@ public static class CreateRoomKeys {
     public const string RoundTimer = "round_timer";
     public const string StepTimer = "step_timer";
     public const string Tips = "tips";
+    public const string CountTips = "count_tips";
+    public const string PointerTips = "pointer_tips";
+    public const string UseFlowers = "use_flowers";
+    public const string TianDiRenHe = "tian_di_ren_he";
     public const string Password = "password";
     public const string RandomSeed = "random_seed";
     public const string TouristLimit = "tourist_limit";
@@ -16,10 +20,12 @@ public static class CreateRoomKeys {
     public const string CuoheType = "cuohe_type";
     public const string HepaiLimit = "hepai_limit";
     public const string RedDora = "red_dora";
+    public const string StartingScore = "starting_score";
     public const string AllowKuikae = "allow_kuikae";
     public const string OpenXiru = "open_xiru";
     public const string OpenTobi = "open_tobi";
     public const string HepaiWay = "hepai_way";
+    public const string ClaimProtection = "claim_protection";
     public const string TacticalCall = "tactical_call";
     public const string BloodBattle = "blood_battle";
     public const string CsOpenKongCount = "cs_open_kong_count";

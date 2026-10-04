@@ -43,6 +43,7 @@ public static class CreateRoomRuleTextConfigCatalog {
         get {
             var result = new List<CreateRoomRuleTextConfig>();
             foreach (RuleManifest manifest in RuleRegistry.Ordered) {
+                if (manifest.HideFromLobby) continue;
                 result.Add(FromManifest(manifest));
             }
             return result;

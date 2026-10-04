@@ -29,6 +29,7 @@ public partial class RoundEndPresentation {
 
     private IEnumerator CoRiichiDrawWallLiujuSequence(string displayText, Dictionary<int, int> player_to_score, RiichiEndResultExtras riichiExtras, bool playPresentationEffects) {
         HideSelfGameplayControl(false);
+        if (riichiExtras?.NagashiManganWinners?.Length > 0) displayText = "流局满贯";
         Dictionary<int, int[]> tenpaiTiles = riichiExtras != null ? riichiExtras.TenpaiTiles : null;
         Dictionary<int, int[]> tenpaiHands = riichiExtras != null ? riichiExtras.TenpaiHands : null;
         if (playPresentationEffects) {

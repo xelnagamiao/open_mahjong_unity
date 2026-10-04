@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Iterable, Optional, Sequence
 
+from .action_priority import HONGQUE_ACTION_PRIORITY
 from .group_index import (
     GROUP_MASKS,
     TILE_INDEX,
@@ -343,7 +344,8 @@ def _claim_advances(before: EfficiencyValue, after: EfficiencyValue, priority: i
         return after.distance < before.distance
     if after.live_waits != before.live_waits:
         return after.live_waits > before.live_waits
-    if priority >= 6:  # 虹(6)：结构性中性但番值高，宽松放行；碰(5)/吃(2-4) 需补偿开副露
+    if priority >= HONGQUE_ACTION_PRIORITY["hong_third"]:
+        # 虹可接受结构持平；吃碰必须补偿开副露，不依赖旧版优先级数值。
         return after.flexibility >= before.flexibility
     # Ordinary chi/peng must compensate for opening the hand.
     return after.flexibility > before.flexibility * 5 // 4

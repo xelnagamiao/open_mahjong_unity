@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import playerApi, { getPlayerToken, setPlayerToken } from '@/api/playerClient'
+import { renamePlayer } from '@/api/playerRename'
 import { useEventAdminAuthStore } from '@/stores/eventAdminAuth'
 import { setEventAdminToken } from '@/api/eventAdminClient'
 import { useGame2dSessionStore } from '@/stores/game2dSession'
@@ -25,6 +26,7 @@ export const usePlayerAuthStore = defineStore('playerAuth', {
     username: '',
     email: '',
     emailVerified: false,
+    renameCount: 0,
     isEventAdmin: false,
     loaded: false,
   }),
@@ -32,7 +34,7 @@ export const usePlayerAuthStore = defineStore('playerAuth', {
     isLoggedIn: (s) => !!s.token && s.userId != null && s.userId !== '',
   },
   actions: {
-    _setSession({ token, userId, username, email, emailVerified, isEventAdmin = false }) {
+    _setSession({ token, userId, username, email, emailVerified, renameCount, isEventAdmin = false }) {
       if (token) {
         setPlayerToken(token)
         this.token = token
@@ -41,6 +43,7 @@ export const usePlayerAuthStore = defineStore('playerAuth', {
       if (username != null) this.username = username
       if (email !== undefined) this.email = email || ''
       if (emailVerified !== undefined) this.emailVerified = !!emailVerified
+      if (renameCount !== undefined) this.renameCount = Number(renameCount) || 0
       this.isEventAdmin = !!isEventAdmin
       this.loaded = true
     },
@@ -53,6 +56,7 @@ export const usePlayerAuthStore = defineStore('playerAuth', {
         username: data.username,
         email: data.email,
         emailVerified: data.email_verified,
+        renameCount: data.rename_count,
         isEventAdmin: !!data.is_event_admin,
       })
       applyEventAdminSession(data)
@@ -66,6 +70,7 @@ export const usePlayerAuthStore = defineStore('playerAuth', {
         username: data.username,
         email: data.email,
         emailVerified: data.email_verified,
+        renameCount: data.rename_count,
         isEventAdmin: !!data.is_event_admin,
       })
       applyEventAdminSession(data)
@@ -77,6 +82,7 @@ export const usePlayerAuthStore = defineStore('playerAuth', {
       this.username = ''
       this.email = ''
       this.emailVerified = false
+      this.renameCount = 0
       this.isEventAdmin = false
       this.loaded = true
       try {
@@ -97,6 +103,7 @@ export const usePlayerAuthStore = defineStore('playerAuth', {
         this.username = ''
         this.email = ''
         this.emailVerified = false
+        this.renameCount = 0
         this.isEventAdmin = false
         this.loaded = true
         try {
@@ -111,11 +118,12 @@ export const usePlayerAuthStore = defineStore('playerAuth', {
         const res = await playerApi.get('/auth/me')
         const data = res.data.data
         this._setSession({
-          token: this.token,
+          token: data.token || this.token,
           userId: data.user_id,
           username: data.username,
           email: data.email,
           emailVerified: data.email_verified,
+          renameCount: data.rename_count,
           isEventAdmin: !!data.is_event_admin,
         })
         applyEventAdminSession({ ...data, user_id: data.user_id })
@@ -134,6 +142,21 @@ export const usePlayerAuthStore = defineStore('playerAuth', {
         old_password: oldPassword,
         new_password: newPassword,
       })
+    },
+    async rename(newUsername) {
+      const res = await renamePlayer(playerApi, newUsername, this.userId)
+      const data = res.data
+      this._setSession({
+        token: data.token,
+        userId: data.user_id,
+        username: data.username,
+        email: data.email,
+        emailVerified: data.email_verified,
+        renameCount: data.rename_count,
+        isEventAdmin: !!data.is_event_admin,
+      })
+      applyEventAdminSession(data)
+      return res
     },
   },
 })

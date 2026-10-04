@@ -31,6 +31,8 @@ public class EndGamePanel : MonoBehaviour {
     private string rankAfter;
     private float scoreAfter;
     private float ptChange;
+    private string ratingRule, ratingSystem;
+    private float eloBefore, eloAfter;
 
     private void Awake() {
         if (Instance == null) {
@@ -49,6 +51,7 @@ public class EndGamePanel : MonoBehaviour {
         string salt,
         Dictionary<string, Dictionary<string, object>> player_final_data) {
         gameObject.SetActive(true);
+        AutoAction.Instance?.DismissTimeoutReturnIfAny();
         fadeInEffect?.PlayFadeIn();
 
         var sorted = player_final_data
@@ -76,12 +79,20 @@ public class EndGamePanel : MonoBehaviour {
         gameRandomSeed.text = "主种子: " + normalizedMasterSeed
             + "\n承诺: " + CommitmentSaltDisplay.NormalizeCommitment(commitment)
             + "\n盐: " + (string.IsNullOrEmpty(salt) ? "-" : salt);
+        if (GameSession.Current.IsDuplicate) {
+            gameRandomSeed.text = "复式 · " + DuplicateWallDisplay.TypeName(GameSession.Current.DuplicateWallType)
+                + "\n牌谱须在密钥解除锁定后到数据站查看，不保存本地牌谱。";
+        }
+        if (copyMasterSeedButton != null) copyMasterSeedButton.gameObject.SetActive(!GameSession.Current.IsDuplicate);
 
         // 检测是否为排位赛（当前玩家有 rank_before 字段）
         isRankedMatch = false;
+        ratingRule=ratingSystem=null;
         string myUsername = PlayerSession.Current.Username;
         foreach (var d in player_final_data.Values) {
-            if (d["username"].ToString() != myUsername) {
+            bool samePlayer=d.TryGetValue("user_id",out var uid)&&uid!=null
+                ? System.Convert.ToInt32(uid)==PlayerSession.Current.UserId : d["username"].ToString()==myUsername;
+            if (!samePlayer) {
                 continue;
             }
             if (d.ContainsKey("rank_before") && d["rank_before"] != null) {
@@ -91,6 +102,12 @@ public class EndGamePanel : MonoBehaviour {
                 rankAfter = d["rank_after"].ToString();
                 scoreAfter = System.Convert.ToSingle(d["score_after"]);
                 ptChange = System.Convert.ToSingle(d["pt"]);
+                if(d.TryGetValue("rating_rule",out var rule)&&rule!=null){
+                    ratingRule=rule.ToString();ratingSystem=d["rating_system"].ToString();
+                    eloBefore=System.Convert.ToSingle(d["elo_before"]);eloAfter=System.Convert.ToSingle(d["elo_after"]);
+                    ptChange=System.Convert.ToSingle(d["rating_pt"]);
+                    PlayerSession.Current.UpdateRating(ratingRule,rankAfter,scoreAfter,eloAfter,System.Convert.ToInt32(d["rating_games"]));
+                }
             }
             break;
         }
@@ -112,7 +129,8 @@ public class EndGamePanel : MonoBehaviour {
     private void OnGoHomeButtonClick() {
         gameObject.SetActive(false);
         if (isRankedMatch) {
-            RankChangePanel.Instance.ShowRankChange(rankBefore, scoreBefore, rankAfter, scoreAfter, ptChange);
+            if(ratingRule!=null)RankChangePanel.Instance.ShowRatedChange(ratingRule,ratingSystem,rankBefore,scoreBefore,rankAfter,scoreAfter,ptChange,eloBefore,eloAfter);
+            else RankChangePanel.Instance.ShowRankChange(rankBefore, scoreBefore, rankAfter, scoreAfter, ptChange);
         } else {
             PostGameNavigator.ExitToLobby(forceTeardown: true);
         }

@@ -64,7 +64,7 @@ def validate_master_seed_hex(seed_hex: str) -> bool:
 
 def parse_user_master_seed(raw) -> int:
     """
-    解析复式（玩家指定）主种子。
+    解析场景复现（玩家指定）主种子。
     0 表示未指定；非 0 必须为 256 位，以 64 位十六进制字符串提交。
     """
     if raw is None:

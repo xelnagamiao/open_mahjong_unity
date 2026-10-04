@@ -76,14 +76,21 @@ async function fetchEventPlayerStats(eventId, query = {}) {
   const conditions = buildEventStatFilters(eventId, query, params);
   const whereSql = conditions.join(' AND ');
 
-  // 可选玩家关键字：用户 ID 精确 或 用户名模糊
+  // 可选玩家关键字：用户 ID 精确，或用户名 / 绑定邮箱模糊
   const q = String(query.q || '').trim();
   let playerFilterSql = '';
   if (q) {
     if (/^\d+$/.test(q)) {
       playerFilterSql = ` AND gpr.user_id = ${pushParam(params, parseInt(q, 10))}`;
     } else {
-      playerFilterSql = ` AND gpr.username ILIKE ${pushParam(params, `%${q}%`)}`;
+      const likePh = pushParam(params, `%${q}%`);
+      playerFilterSql = ` AND (
+        gpr.username ILIKE ${likePh}
+        OR EXISTS (
+          SELECT 1 FROM users u
+           WHERE u.user_id = gpr.user_id AND u.email ILIKE ${likePh}
+        )
+      )`;
     }
   }
 

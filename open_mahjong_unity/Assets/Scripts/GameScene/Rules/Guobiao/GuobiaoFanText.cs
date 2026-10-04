@@ -3,6 +3,7 @@ using System.Collections.Generic;
 /// <summary>国标番文本：标准/小林/kshen/兰石四张番表，英文模式下标准番表走英文名。</summary>
 internal static class GuobiaoFanText {
     public static readonly Dictionary<string, string> FanToDisplayGuobiao = new Dictionary<string, string> {
+        {"天和", "8番"}, {"地和", "8番"}, {"人和", "8番"},
         {"大四喜", "88番"}, {"大三元", "88番"}, {"绿一色", "88番"}, {"九莲宝灯", "88番"}, {"四杠", "88番"},
         {"连七对", "88番"}, {"十三幺", "88番"},
         {"清幺九", "64番"}, {"小四喜", "64番"}, {"小三元", "64番"}, {"字一色", "64番"}, {"四暗刻", "64番"}, {"一色双龙会", "64番"},
@@ -32,6 +33,7 @@ internal static class GuobiaoFanText {
     /// 暂未接入 UI，供后续多语言显示使用。
     /// </summary>
     public static readonly Dictionary<string, string> FanToDisplayGuobiaoEnglish = new Dictionary<string, string> {
+        {"天和", "8Fan"}, {"地和", "8Fan"}, {"人和", "8Fan"},
         {"大四喜", "88Fan"}, {"大三元", "88Fan"}, {"绿一色", "88Fan"}, {"九莲宝灯", "88Fan"}, {"四杠", "88Fan"},
         {"连七对", "88Fan"}, {"十三幺", "88Fan"},
         {"清幺九", "64Fan"}, {"小四喜", "64Fan"}, {"小三元", "64Fan"}, {"字一色", "64Fan"}, {"四暗刻", "64Fan"}, {"一色双龙会", "64Fan"},
@@ -61,6 +63,7 @@ internal static class GuobiaoFanText {
     /// 暂未接入 UI，供后续多语言显示使用。
     /// </summary>
     public static readonly Dictionary<string, string> FanNameToEnglishGuobiao = new Dictionary<string, string> {
+        {"天和", "Heavenly Hand"}, {"地和", "Earthly Hand"}, {"人和", "Human Hand"},
         {"大四喜", "Big Four Winds"}, {"大三元", "Big Three Dragons"}, {"绿一色", "All Green"}, {"九莲宝灯", "Nine Gates"}, {"四杠", "Four Kongs"},
         {"连七对", "Seven Shifted Pairs"}, {"十三幺", "Thirteen Orphans"},
         {"清幺九", "All Terminals"}, {"小四喜", "Little Four Winds"}, {"小三元", "Little Three Dragons"}, {"字一色", "All Honors"}, {"四暗刻", "Four Concealed Pungs"}, {"一色双龙会", "Pure Terminal Chows"},

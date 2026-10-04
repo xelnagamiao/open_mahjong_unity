@@ -1,7 +1,8 @@
 """
 高性能罗伯特四席同策 smoke（服务端自对弈）。
 
-口径：guobiao/standard、hepai_limit=8、tactical_call=true、fast_sleep。
+口径：国标标准或血战到底、hepai_limit=8、fast_sleep。
+标准开战术鸣牌；血战分别验证鸣牌保护关闭和开启。
 已跑通规模：两个全庄（四席高性能罗伯特）。63 全庄挂起。
 
 ⚠️ 自战测试约定：本文件内所有测试均标记 @pytest.mark.selfplay。
@@ -186,6 +187,7 @@ class MatchStats:
         self.elapsed_sec = 0.0
         self.seed = 0
         self.error: Optional[str] = None
+        self.blood_winners_per_hand: List[int] = []
 
 
 async def _install_fast_async():
@@ -225,6 +227,8 @@ async def run_one_match(
     game_round: int = 4,
     match_timeout: float = DEFAULT_MATCH_TIMEOUT,
     max_ticks: int = DEFAULT_MAX_TICKS,
+    sub_rule: str = "guobiao/standard",
+    claim_protection: bool = False,
 ) -> MatchStats:
     """跑完一场（东风/半庄/全庄由 game_round 决定）；异常/超时/卡死写入 stats.error。"""
     expected_hands = game_round * 4
@@ -246,6 +250,10 @@ async def run_one_match(
         room_id=room_id,
         game_round=game_round,
     )
+    room.update(sub_rule=sub_rule, claim_protection=claim_protection)
+    if sub_rule == "guobiao/blood_battle":
+        # 血战不允许排位；这里仍使用内存房间和模拟数据库。
+        room.update(room_type="custom", tactical_call=False)
     gamestate_id = str(uuid.uuid4())
 
     game: Optional[GuobiaoGameState] = None
@@ -270,10 +278,28 @@ async def run_one_match(
             gamestate_id,
         )
         assert all(p.user_id == HEURISTIC_USER_ID for p in game.player_list)
-        assert game.tactical_call is tactical_call
+        assert game.tactical_call is room["tactical_call"]
         assert game.hepai_limit == 8
-        assert game.sub_rule == "guobiao/standard"
+        assert game.sub_rule == sub_rule
+        assert game.claim_protection is claim_protection
         assert game.max_round == game_round
+
+        if sub_rule == "guobiao/blood_battle":
+            broadcast_result = game.broadcast_result
+
+            async def track_blood_result(**payload):
+                step = payload.get("blood_battle_step")
+                if step == "final" or (step == "settle_hu" and payload.get("liuju_status_final")):
+                    winners = [p.player_index for p in game.player_list if p.is_hu]
+                    events = game.blood_win_events
+                    assert len(winners) == len(events) <= 3
+                    assert {event["winner"] for event in events} == set(winners)
+                    assert all(event["applied"] for event in events)
+                    assert sum(p.score for p in game.player_list) == 0
+                    stats.blood_winners_per_hand.append(len(winners))
+                await broadcast_result(**payload)
+
+            game.broadcast_result = track_blood_result
 
         server.gamestate_manager.gamestate_id_to_game_state[gamestate_id] = game
         server.gamestate_manager.room_id_to_GuobiaoGameState[room_id] = game
@@ -397,6 +423,25 @@ def test_east_wind_tactical_true():
     stats = results[0]
     assert stats.error is None, stats.error
     assert stats.hands == 4
+
+
+@pytest.mark.selfplay
+@pytest.mark.parametrize("claim_protection", [False, True])
+def test_blood_battle_east_wind(claim_protection, caplog):
+    """四席高性能 AI 打完血战东风，验证退场后继续与逐局零和结算。"""
+    stats = asyncio.run(run_one_match(
+        seed=DEFAULT_BASE_SEED, game_round=1, tactical_call=False,
+        sub_rule="guobiao/blood_battle", claim_protection=claim_protection,
+        match_timeout=180,
+    ))
+    _print_progress(1, 1, stats)
+    assert stats.error is None, stats.error
+    assert stats.hands == 4
+    assert len(stats.blood_winners_per_hand) == 4
+    assert max(stats.blood_winners_per_hand) >= 2
+    assert stats.hu == sum(stats.blood_winners_per_hand)
+    assert sum(stats.final_scores) == 0
+    assert not [record for record in caplog.records if record.levelno >= logging.ERROR]
 
 
 @pytest.mark.selfplay

@@ -43,10 +43,6 @@ playerApi.interceptors.response.use(
           /* pinia 未就绪时忽略 */
         }
       })
-      const path = window.location.pathname
-      if (path === '/account' || path.startsWith('/account/')) {
-        window.location.href = `/login?redirect=${encodeURIComponent(path)}`
-      }
     }
     return Promise.reject(err)
   }

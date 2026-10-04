@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.Collections.Generic;
 
 /// <summary>
 /// 游戏页规则书弹窗：显示「打开 X 规则规则书」与「返回」两个按钮。
@@ -18,7 +19,7 @@ public class RulebookPanelController : MonoBehaviour {
     [SerializeField] private TMP_Text titleText;
     [SerializeField] private TMP_Text openButtonText;
 
-    private string _currentRule;
+    private string _currentPath;
 
     private void Awake() {
         if (popup == null) popup = GetComponent<PanelPopupTransition>();
@@ -28,8 +29,8 @@ public class RulebookPanelController : MonoBehaviour {
     }
 
     /// <summary>显示弹窗。房间规则与子规则决定跳转目标和按钮上显示的规则名。</summary>
-    public void Open(string roomRule, string subRule = null) {
-        _currentRule = ResolveRulebookKey(roomRule, subRule);
+    public void Open(string roomRule, string subRule = null, IDictionary<string, object> detailedConfig = null) {
+        _currentPath = ResolveRulebookPath(roomRule, subRule, detailedConfig);
         ApplyTexts(roomRule, subRule);
         popup.Show();
     }
@@ -47,10 +48,11 @@ public class RulebookPanelController : MonoBehaviour {
         openButtonText.text = $"打开{ruleName}规则书";
     }
 
-    /// <summary>web 端 /rulebook/:rule 页签键：族在 Manifest 里声明 RulebookKey，缺省用 RuleId（web 端未知键会回落到国标）。</summary>
-    private static string ResolveRulebookKey(string roomRule, string subRule) {
+    /// <summary>规则族可按子规则选择文档；未声明时沿用规则书页签。</summary>
+    private static string ResolveRulebookPath(string roomRule, string subRule, IDictionary<string, object> detailedConfig) {
         RuleManifest manifest = RuleRegistry.Resolve(roomRule, subRule);
-        return manifest?.RulebookKey ?? manifest?.RuleId ?? "guobiao";
+        return manifest?.RulebookPath?.Invoke(subRule, detailedConfig)
+            ?? "/rulebook/" + (manifest?.RulebookKey ?? manifest?.RuleId ?? "guobiao");
     }
 
     private static string RuleDisplayName(string roomRule, string subRule) {
@@ -63,7 +65,7 @@ public class RulebookPanelController : MonoBehaviour {
     }
 
     private void OnOpenRulebookClicked() {
-        string url = $"{GameHost.Current.WebUrl}/rulebook/{_currentRule}";
+        string url = GameHost.Current.WebUrl.TrimEnd('/') + _currentPath;
         Application.OpenURL(url);
     }
 }

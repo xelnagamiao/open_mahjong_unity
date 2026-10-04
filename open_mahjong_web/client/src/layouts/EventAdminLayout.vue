@@ -38,7 +38,7 @@ const activeMenu = computed(() => '/account')
 function onLogout() {
   auth.logout()
   playerAuth.logout()
-  router.push('/login?redirect=/account')
+  router.replace('/')
 }
 </script>
 

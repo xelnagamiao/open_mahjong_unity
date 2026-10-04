@@ -6,7 +6,60 @@ using UnityEngine.UI;
 
 public partial class GameRecordManager {
     private const int TileListRowSize = 4;
-    private const float HandSectionDimmedAlpha = 0.4f;
+    private const float DimmedTileBrightness = 0.7f;
+    private readonly int[] duplicateSupplementDraws = new int[4];
+
+    private bool IsDuplicateReplay => gameRecord?.gameTitle != null
+        && !string.IsNullOrEmpty(ReadGameTitleString(gameRecord.gameTitle, "duplicate_key", ""));
+
+    private bool TryGetDuplicateWallRange(int playerIndex, out int start, out int end) {
+        start = end = 0;
+        if (!IsDuplicateReplay || !gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round round)
+            || round.duplicateWalls == null || round.duplicateWalls.Count != 4) return false;
+        RecordPlayer player = recordPlayerList.Find(p => p.playerIndex == playerIndex);
+        int seat = player != null ? player.originalPlayerIndex : playerIndex;
+        if (seat < 0 || seat >= 4) return false;
+        for (int i = 0; i < seat; i++) start += round.duplicateWalls[i]?.Count ?? 0;
+        end = start + (round.duplicateWalls[seat]?.Count ?? 0);
+        return true;
+    }
+
+    private bool TryConsumeDuplicateWallTile(int playerIndex, string action) {
+        if (!TryGetDuplicateWallRange(playerIndex, out int start, out int end)) return false;
+        var positions = new List<int>();
+        for (int i = 0; i < currentOriginalIndices.Count; i++) {
+            if (currentOriginalIndices[i] >= start && currentOriginalIndices[i] < end) positions.Add(i);
+        }
+        RecordPlayer player = recordPlayerList.Find(p => p.playerIndex == playerIndex);
+        int seat = player != null ? player.originalPlayerIndex : playerIndex;
+        bool supplemental = ReadGameTitleInt(gameRecord.gameTitle, "duplicate_rules_version", 1) >= 2
+            && (action == "bd" || action == "gd");
+        int drawIndex = supplemental
+            ? positions.Count - (duplicateSupplementDraws[seat] % 2 == 0 && positions.Count > 1 ? 2 : 1)
+            : 0;
+        int position = positions.Count > 0 ? positions[drawIndex] : -1;
+        if (position >= 0) {
+            consumedBackIndices.Add(currentOriginalIndices[position]);
+            currentTilesList.RemoveAt(position);
+            currentOriginalIndices.RemoveAt(position);
+            if (supplemental) duplicateSupplementDraws[seat]++;
+        }
+        return true;
+    }
+
+    private void ResetDuplicateReplayDraws() {
+        System.Array.Clear(duplicateSupplementDraws, 0, duplicateSupplementDraws.Length);
+    }
+
+    internal bool TryGetDuplicateDrawIndices(ICollection<int> indices, int count) {
+        if (!TryGetDuplicateWallRange(selectedPlayerIndex, out int start, out int end)) return false;
+        foreach (int index in currentOriginalIndices) {
+            if (index < start || index >= end) continue;
+            indices.Add(index);
+            if (--count <= 0) break;
+        }
+        return true;
+    }
 
     [Header("牌山阅览")]
     [SerializeField] private Transform player0HandsContainer;
@@ -17,9 +70,56 @@ public partial class GameRecordManager {
     [SerializeField] private Transform last14TilesContainer;
     [SerializeField] private GameObject tileRowGroupPrefab;
 
+    private void OnEnable() {
+        TileFaceResolver.OnPackChanged += RefreshTileListLayout;
+        RefreshTileListLayout();
+        RefreshRecordPlayerWaits();
+    }
+
+    private void OnDisable() {
+        TileFaceResolver.OnPackChanged -= RefreshTileListLayout;
+        HideRecordPlayerWaits();
+    }
+
+    private void RefreshTileListLayout() {
+        foreach (Transform section in new[] { player0HandsContainer, player1HandsContainer,
+            player2HandsContainer, player3HandsContainer, tilesListContainer, last14TilesContainer }) {
+            if (section == null) continue;
+            var sectionGrid = section.GetComponent<GridLayoutGroup>();
+            if (sectionGrid == null) continue;
+            float sectionHeight = 0f;
+            foreach (Transform row in section) {
+                if (!row.gameObject.activeSelf) continue;
+                var grid = row.GetComponent<GridLayoutGroup>();
+                if (grid == null) {
+                    // 兼容未配置分组预制体、直接将牌放在分区下的场景。
+                    var card = row.GetComponent<StaticCard>();
+                    if (card != null && card.TileId >= 0) sectionHeight = Mathf.Max(sectionHeight,
+                        TileFaceFit.HandSizeFor(card.TileId, sectionGrid.cellSize.x).y);
+                    continue;
+                }
+                float height = 0f;
+                foreach (var card in row.GetComponentsInChildren<StaticCard>(true)) {
+                    if (card.TileId >= 0) height = Mathf.Max(height,
+                        TileFaceFit.HandSizeFor(card.TileId, grid.cellSize.x).y);
+                }
+                if (height <= 0f) continue;
+                // 每组固定四张；内外两层网格都必须使用新牌高，否则父网格会覆盖子牌尺寸。
+                grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+                grid.constraintCount = TileListRowSize;
+                grid.cellSize = new Vector2(grid.cellSize.x, height);
+                sectionHeight = Mathf.Max(sectionHeight, height + grid.padding.vertical);
+            }
+            if (sectionHeight > 0f) sectionGrid.cellSize = new Vector2(sectionGrid.cellSize.x, sectionHeight);
+            LayoutRebuilder.MarkLayoutForRebuild(section as RectTransform);
+        }
+        var scroll = tileListView != null ? tileListView.GetComponent<ScrollRect>() : null;
+        if (scroll != null && scroll.content != null) LayoutRebuilder.MarkLayoutForRebuild(scroll.content);
+    }
+
     /// <summary>
     /// 在牌山阅览各分区中生成初始手牌与牌山（InitGameRound 时调用）。
-    /// tileListCards 仍按 originalTilesList 原始索引顺序保存，供透明度/铳牌提示使用。
+    /// tileListCards 仍按 originalTilesList 原始索引顺序保存，供灰显/铳牌提示使用。
     /// </summary>
     private void BuildTileListInContainer() {
         if (staticCardPrefab == null) return;
@@ -33,7 +133,7 @@ public partial class GameRecordManager {
         }
 
         TryGetActiveRecordRuleContext(out string roomRule, out _);
-        bool isRiichi = RuleRegistry.Resolve(roomRule, roomRule)?.RecordTracksRiichiField == true;
+        bool isRiichi = !IsDuplicateReplay && RuleRegistry.Resolve(roomRule, roomRule)?.RecordTracksRiichiField == true;
 
         BuildInitialHandSection(player0HandsContainer, round.p0Tiles);
         BuildInitialHandSection(player1HandsContainer, round.p1Tiles);
@@ -53,6 +153,7 @@ public partial class GameRecordManager {
             }
         }
 
+        RefreshTileListLayout();
         UpdateTileListOpacity();
         FocusTileListScrollOnWallSection();
     }
@@ -170,19 +271,21 @@ public partial class GameRecordManager {
         if (sectionContainer == null || !sectionContainer.gameObject.activeSelf) return;
         foreach (StaticCard sc in sectionContainer.GetComponentsInChildren<StaticCard>(true)) {
             if (sc == null) continue;
-            sc.ApplyWallVisual(HandSectionDimmedAlpha, false, false);
+            sc.ApplyWallVisual(DimmedTileBrightness, false, false);
         }
     }
 
     /// <summary>打开牌山阅览时，将滚动位置定位到 tilesList 分区（跳过上方四家初始手牌）。</summary>
     internal void FocusTileListScrollOnWallSection() {
-        if (tileListView == null || tilesListContainer == null) return;
+        RefreshTileListLayout();
+        if (!isActiveAndEnabled || tileListView == null || !tileListView.activeInHierarchy
+            || tilesListContainer == null) return;
         StartCoroutine(FocusTileListScrollOnWallSectionCoroutine());
     }
 
     private IEnumerator FocusTileListScrollOnWallSectionCoroutine() {
         yield return null;
-        if (tileListView == null || tilesListContainer == null) yield break;
+        if (tileListView == null || !tileListView.activeInHierarchy || tilesListContainer == null) yield break;
 
         ScrollRect scrollRect = tileListView.GetComponent<ScrollRect>();
         if (scrollRect?.content == null || scrollRect.viewport == null) yield break;

@@ -56,9 +56,12 @@ const TAG_MAP = {
   duankagen: ['duankagen', '断卡根', '断卡钩'],
   chongqing: ['chongqing', '重庆麻将'],
   guizhou: ['guizhou', '贵州麻将'],
+  yixing: ['yixing', '宜兴麻将', '宜兴'],
+  wenzhou: ['wenzhou', '温州麻将', '温州'],
   changsha: ['changsha', '长沙'],
   changde: ['changde', '常德麻将'],
   hongzhong: ['hongzhong', '红中', '常德红中'],
+  changchun: ['changchun', '长春', '长春麻将'],
   'sichuan-hongzhong': ['sichuan-hongzhong', '四川红中', '川麻红中'],
   'mil-red-center': ['mil-red-center', '红中麻将（推广）'],
   beijing: ['beijing', '北京麻将', '京麻'],
@@ -94,7 +97,8 @@ const TAG_MAP = {
   'guobiao-kobayashi': ['kobayashi', '小林'],
   'guobiao-lanshi': ['lanshi', '蓝十'],
   'guobiao-kshen': ['kshen', 'K神'],
-  zungjung: ['zungjung', '中庸'],
+  zungjung: ['zungjung', 'zhongyong', '中庸'],
+  zhongyong: ['zungjung', 'zhongyong', '中庸'],
   shiyangjin: ['shiyangjin', '十样锦'],
   jiandan: ['jiandan', '南雀'],
 }
@@ -163,9 +167,9 @@ export function useMahjongCatalog() {
     const s = catalogRow(slug)?.slug || slug
     const ids = []
     const row = catalogRow(s)
-    if (row?.parent && !ids.includes(row.parent)) ids.push(row.parent)
+    if (row?.parent && row.parent_status === 'attested') ids.push(row.parent)
     for (const e of phy.value?.edges || []) {
-      if (e.to === s && !ids.includes(e.from)) ids.push(e.from)
+      if (isDocumentedRelation(e) && e.to === s && !ids.includes(e.from)) ids.push(e.from)
     }
     return ids
   }
@@ -175,18 +179,35 @@ export function useMahjongCatalog() {
     const ids = []
     for (const r of catalog.value) {
       if (r.fold_into) continue
-      if (r.parent === s && !ids.includes(r.slug)) ids.push(r.slug)
+      if (r.parent === s && r.parent_status === 'attested' && !ids.includes(r.slug)) ids.push(r.slug)
     }
     for (const e of phy.value?.edges || []) {
-      if (e.from === s && !ids.includes(e.to)) ids.push(e.to)
-    }
-    for (const fam of areal.value?.families || []) {
-      if (fam.trunk !== s) continue
-      for (const m of fam.members || []) {
-        if (m.id !== s && !ids.includes(m.id)) ids.push(m.id)
-      }
+      if (isDocumentedRelation(e) && e.from === s && !ids.includes(e.to)) ids.push(e.to)
     }
     return ids.filter((id) => !catalogRow(id)?.fold_into)
+  }
+
+  function isDocumentedRelation(edge) {
+    return edge.status === 'attested' && edge.lineage_display !== false &&
+      ['descent', 'standardization', 'constructed', 'adaptation'].includes(edge.type)
+  }
+
+  function comparisonsOf(slug) {
+    const s = catalogRow(slug)?.slug || slug
+    const relations = []
+    const seen = new Set()
+    for (const edge of phy.value?.edges || []) {
+      if (isDocumentedRelation(edge) || (edge.from !== s && edge.to !== s)) continue
+      const id = edge.from === s ? edge.to : edge.from
+      if (seen.has(id)) continue
+      seen.add(id)
+      relations.push({ id, note: edge.note || '联系仍待核实' })
+    }
+    const row = catalogRow(s)
+    if (row?.parent && row.parent_status !== 'attested' && !seen.has(row.parent)) {
+      relations.push({ id: row.parent, note: row.parent_note || '目录分类或机制比较，传承关系待证' })
+    }
+    return relations
   }
 
   function familiesOf(slug) {
@@ -358,6 +379,7 @@ export function useMahjongCatalog() {
     return (
       slug === 'mahjong-phylogeny' ||
       slug === 'mahjong-studies' ||
+      slug === 'ningbo-downstream' ||
       slug === 'ningbo-classical' ||
       slug === 'chuanyu' ||
       slug === 'yuegang' ||
@@ -393,6 +415,7 @@ export function useMahjongCatalog() {
     ruleName,
     parentsOf,
     childrenOf,
+    comparisonsOf,
     familiesOf,
     eraOf,
     appearedOf,

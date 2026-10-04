@@ -1,4 +1,4 @@
-"""四川麻将（血战到底）对局状态机。
+"""四川麻将标准血战对局状态机及共用基础设施。
 
 要点：
 - 108 张（万/饼/条），庄家 14 张其余 13 张，不允许吃牌。
@@ -50,6 +50,9 @@ from ..public.ready_phase import run_sichuan_liuju_final_ready_phase
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
 from ..public.random_seed_manager import setup_random_seed_system
+from ...game_calculation.sichuan.xueliu_rules import (
+    validate_sichuan_sub_rule,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +105,11 @@ class SichuanPlayer:
         # 川麻专用
         self.dingque_suit = 0   # 1万 2饼 3条 0未定缺
         self.is_hu = False      # 血战：本盘已和退场
+        self.has_won = False    # 血流：曾经和牌，但仍留在牌局中
+        self.win_count = 0      # 血流：本盘累计和牌次数
+        self.post_hu_lock = False  # 血流：和后仅允许摸切，不能换张
+        self.locked_waiting_tiles = set()  # 血流：和后固定听口
+        self.xueliu_throw_tiles = []  # 血流：开局甩掉的三张，仅用于牌谱/重连说明
         self.hu_order = 0       # 和牌顺序（1=最先）
         self.gang_score_records = []  # 刮风下雨记录，用于退税
         self.shunhe_skipped_fan = None     # 顺和：最近一次跳过和牌的番数（待听牌出牌后生效）
@@ -121,6 +129,20 @@ class SichuanPlayer:
 
 
 class SichuanGameState:
+    is_xueliu = False
+
+    def _configure_rule(self):
+        if self.sub_rule != "sichuan/standard":
+            raise ValueError("标准四川状态机仅支持 sichuan/standard")
+        self.xueliu_rule_profile = None
+
+    def _record_rule_profile(self):
+        pass
+
+    async def _opening_phase(self):
+        await self._dingque_phase()
+        await broadcast_dingque_done(self)
+
     def __init__(self, game_server, room_data: dict, calculation_service: GameCalculationService,
                  db_manager: DatabaseManager, gamestate_id: str):
         self.game_server = game_server
@@ -148,12 +170,15 @@ class SichuanGameState:
 
         self.room_id = room_data["room_id"]
         self.tips = room_data["tips"]
+        self.count_tips = bool(room_data.get("count_tips", False))
+        self.pointer_tips = bool(room_data.get("pointer_tips", True))
         self.max_round = room_data["game_round"]
         self.step_time = room_data["step_timer"]
         self.round_time = room_data["round_timer"]
         self.room_rule = room_data["room_rule"]
         self.room_type = room_data["room_type"]
-        self.sub_rule = room_data.get("sub_rule", "sichuan/standard")
+        self.sub_rule = validate_sichuan_sub_rule(room_data.get("sub_rule", "sichuan/standard"))
+        self._configure_rule()
         self.match_tier = room_data.get("match_tier")
         self.event_id = room_data.get("event_id")
 
@@ -161,14 +186,15 @@ class SichuanGameState:
         self.open_cuohe = False
         self.show_moqie_hint = room_data.get("show_moqie_hint", False)
         self.tactical_call = room_data.get("tactical_call", False)
-        self.claim_protection = room_data.get("claim_protection", True)
+        from ..public.claim_protection import room_claim_protection_enabled
+        self.claim_protection = room_claim_protection_enabled(room_data)
         self.tactical_pre_grace_delay = room_data.get("tactical_pre_grace_delay", 0.5)
         self.tactical_grace_seconds = room_data.get("tactical_grace_seconds", 5.0)
         self.claim_protect_delay = room_data.get("claim_protect_delay", 1.3)
         self.claim_meld_followup_gap = room_data.get("claim_meld_followup_gap", 0.7)
         self.claim_meld_post_gap = room_data.get("claim_meld_post_gap", 0.5)
-        self.blood_battle = room_data.get("blood_battle", True)
-        self.hepai_limit = 1
+        self.blood_battle = False if self.is_xueliu else room_data.get("blood_battle", True)
+        self.hepai_limit = room_data.get("hepai_limit", 0)
         self.tourist_limit = room_data.get("tourist_limit", False)
         self.allow_spectator_config = room_data.get("allow_spectator", True)
         self.isPlayerSetRandomSeed = False
@@ -234,14 +260,15 @@ class SichuanGameState:
         if newly_offline:
             from ..public.offline import schedule_offline_auto_on_disconnect
             schedule_offline_auto_on_disconnect(self, user_id)
-        non_ai = [p for p in self.player_list if p.user_id >= 10]
-        if non_ai and all("offline" in p.tag_list for p in non_ai):
-            await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
+        from ..public.lifecycle import close_if_all_humans_offline
+        await close_if_all_humans_offline(self)
 
     async def player_reconnect(self, user_id: int):
         for p in self.player_list:
             if p.user_id != user_id:
                 continue
+            from ..public.outbound_pipe import drain_viewer
+            await drain_viewer(self, p.player_index)
             if "offline" in p.tag_list:
                 p.tag_list.remove("offline")
                 await broadcast_refresh_player_tag_list(self)
@@ -325,6 +352,7 @@ class SichuanGameState:
 
         init_game_record(self)
         self.game_record["game_title"]["sub_rule"] = self.sub_rule
+        self._record_rule_profile()
         self.game_record["game_title"]["hepai_limit"] = self.hepai_limit
         if self.match_tier is not None:
             self.game_record["game_title"]["match_tier"] = self.match_tier
@@ -335,12 +363,12 @@ class SichuanGameState:
         while self.current_round <= self.max_round * 4:
             self._reset_round_state()
             init_sichuan_tiles(self)
+            # 川麻 c tick 不带座位，牌谱不写 reset。局头快照前指向庄家。
+            self.current_player_index = self.dealer_index
             await self.broadcast_game_start()
             init_game_round(self)
 
-            # 定缺阶段（庄家已在发牌时摸好第 14 张）
-            await self._dingque_phase()
-            await broadcast_dingque_done(self)
+            await self._opening_phase()
 
             self.current_player_index = self.dealer_index
             self.game_status = "waiting_hand_action"
@@ -431,7 +459,8 @@ class SichuanGameState:
         end_game_record(self)
         assign_strict_final_ranks(self.player_list)
 
-        match_type = f"{self.max_round}/4"
+        from ...match.settlement import settle_ranked_game
+        match_type = settle_ranked_game(self)
         game_id = None
         try:
             store = getattr(self.db_manager, "store_sichuan_game_record", None)
@@ -446,10 +475,6 @@ class SichuanGameState:
             await self.spectator_manager.send_final_record_and_close()
 
         await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
-        if self.room_type == "match":
-            await self.game_server.room_manager.destroy_room(self.room_id)
-        else:
-            await self.game_server.room_manager.finish_custom_game_room(self.room_id)
         logger.info(f"四川对局结束清理完成 room_id={self.room_id}")
 
     def _reset_round_state(self):
@@ -464,6 +489,11 @@ class SichuanGameState:
             p.has_draw_slot = False
             p.dingque_suit = 0
             p.is_hu = False
+            p.has_won = False
+            p.win_count = 0
+            p.post_hu_lock = False
+            p.locked_waiting_tiles = set()
+            p.xueliu_throw_tiles = []
             p.hu_order = 0
             p.gang_score_records = []
             p.shunhe_skipped_fan = None
@@ -497,16 +527,20 @@ class SichuanGameState:
                 except Exception:
                     break
             self.action_events[i].clear()
+        self.dingque_deadline = time.time() + max(self.step_time, 10)
         await broadcast_dingque_ask(self)
 
-        deadline = time.time() + max(self.step_time, 10)
+        deadline = self.dingque_deadline
         pending = set(range(4))
         while pending and time.time() < deadline:
             tasks = [asyncio.create_task(self.action_events[i].wait()) for i in pending]
-            await asyncio.wait(tasks, timeout=1, return_when=asyncio.FIRST_COMPLETED)
-            for t in tasks:
-                if not t.done():
-                    t.cancel()
+            try:
+                await asyncio.wait(tasks, timeout=1, return_when=asyncio.FIRST_COMPLETED)
+            finally:
+                for task in tasks:
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
             for i in list(pending):
                 if self.action_events[i].is_set():
                     try:
@@ -514,8 +548,11 @@ class SichuanGameState:
                     except Exception:
                         data = {}
                     suit = data.get("target_tile", 0)
-                    if suit in (1, 2, 3):
-                        self.player_list[i].dingque_suit = suit
+                    if data.get("action_type") != "dingque" or type(suit) is not int or suit not in (1, 2, 3):
+                        if self.action_queues[i].empty():
+                            self.action_events[i].clear()
+                        continue
+                    self.player_list[i].dingque_suit = suit
                     self.action_dict[i] = []
                     self.action_events[i].clear()
                     if i in self.waiting_players_list:
@@ -531,18 +568,21 @@ class SichuanGameState:
                 self.waiting_players_list.remove(i)
         logger.info(f"四川定缺完成: {[(p.player_index, p.dingque_suit) for p in self.player_list]}")
 
+
+
+
+
     # ============ 刮风下雨记分/退税 ============
 
-    def _record_gang_score(self, gainer: int, tile: int, gtype: str, payer_index: Optional[int] = None) -> Dict[int, int]:
-        # 已和玩家刮风下雨不影响其他玩家分数
-        if getattr(self.player_list[gainer], "is_hu", False):
+    def _record_gang_score(self, gainer: int, tile: int, gtype: str, payer_index: Optional[int]=None) -> Dict[int, int]:
+        if getattr(self.player_list[gainer], 'is_hu', False):
             return {p.player_index: 0 for p in self.player_list}
-        if gtype == "guafeng":
+        if gtype == 'guafeng':
             payers = {payer_index: 2} if payer_index is not None else {}
-        elif gtype == "xiayu1":
-            payers = {p.player_index: 1 for p in self.player_list if p.player_index != gainer and not p.is_hu}
-        elif gtype == "xiayu2":
-            payers = {p.player_index: 2 for p in self.player_list if p.player_index != gainer and not p.is_hu}
+        elif gtype == 'xiayu1':
+            payers = {p.player_index: 1 for p in self.player_list if p.player_index != gainer and (not p.is_hu)}
+        elif gtype == 'xiayu2':
+            payers = {p.player_index: 2 for p in self.player_list if p.player_index != gainer and (not p.is_hu)}
         else:
             payers = {}
         changes: Dict[int, int] = {}
@@ -554,7 +594,7 @@ class SichuanGameState:
         if total:
             self.player_list[gainer].score += total
             changes[gainer] = changes.get(gainer, 0) + total
-        record = {"type": gtype, "tile": tile, "gainer": gainer, "payers": dict(payers), "total": total}
+        record = {'type': gtype, 'tile': tile, 'gainer': gainer, 'payers': dict(payers), 'total': total}
         self.player_list[gainer].gang_score_records.append(record)
         if total > 0:
             self.paofen_watch = (gainer, record)
@@ -584,203 +624,137 @@ class SichuanGameState:
 
     # ============ 和牌结算（血战续打） ============
 
-    def _apply_hu_score_changes(
-        self, winner: int, base: int, is_zimo: bool, discarder: Optional[int] = None,
-    ) -> Dict[int, int]:
+    def _apply_hu_score_changes(self, winner: int, base: int, is_zimo: bool, discarder: Optional[int]=None, fan: Optional[int]=None) -> Dict[int, int]:
         """和牌收支，返回四家分数变更（未参与者显式为 0，便于客户端展示）。"""
         changes: Dict[int, int] = {p.player_index: 0 for p in self.player_list}
         if is_zimo:
-            pay = base + 1  # 自摸加底
             total = 0
-            winner_order = self.player_list[winner].hu_order or 0
+            winner_order = self.player_list[winner].hu_order
             for p in self.player_list:
                 if p.player_index == winner:
                     continue
-                # 血战：先和者不向后和者的自摸付分；后和者仍须向先和者的自摸付分
-                if p.is_hu and (p.hu_order or 0) < winner_order:
+                if self.blood_battle and p.is_hu and (p.hu_order < winner_order):
                     continue
+                pay = base + 1
                 p.score -= pay
                 changes[p.player_index] = -pay
                 total += pay
             self.player_list[winner].score += total
             changes[winner] = total
         elif discarder is not None:
-            self.player_list[discarder].score -= base
-            changes[discarder] = -base
-            self.player_list[winner].score += base
-            changes[winner] = base
+            payer_base = base
+            self.player_list[discarder].score -= payer_base
+            changes[discarder] = -payer_base
+            self.player_list[winner].score += payer_base
+            changes[winner] = payer_base
         return changes
 
     async def _settle_win(self):
         pw = self.pending_win
         self.pending_win = None
         gang_refund_changes: Dict[int, int] = {}
-        # 杠上炮退税：点炮者恰为上一开杠者（其杠后弃牌被和）
-        if pw["type"] == "ron" and self.paofen_watch and self.paofen_watch[0] == pw["discarder"]:
+        if pw['type'] == 'ron' and self.paofen_watch and (self.paofen_watch[0] == pw['discarder']):
             gang_refund_changes = self._refund_gang_record(self.paofen_watch[1])
             self.paofen_watch = None
-        elif pw.get("gang_refund_changes"):
-            gang_refund_changes = pw["gang_refund_changes"]
-
-        if pw["type"] == "zimo":
+        elif pw.get('gang_refund_changes'):
+            gang_refund_changes = pw['gang_refund_changes']
+        if pw['type'] == 'zimo':
             winners = [self.current_player_index]
         else:
-            discarder = pw["discarder"]
+            discarder = pw['discarder']
             winners = sorted(self.sichuan_hu_results.keys(), key=lambda x: self._distance_from(discarder, x))
-
-        # 血战最多三家和：一炮多响时只取距点炮者最近且未超出剩余名额的和牌者
         if self.blood_battle:
-            slots = max(0, 3 - sum(1 for p in self.player_list if p.is_hu))
+            slots = max(0, 3 - sum((1 for p in self.player_list if p.is_hu)))
             winners = [w for w in winners if not self.player_list[w].is_hu][:slots]
             if not winners:
-                logger.warning("四川血战：无有效和牌者（已满三家或结果为空），续打")
+                logger.warning('四川血战：无有效和牌者（已满三家或结果为空），续打')
                 self.sichuan_hu_results = {}
-                self.game_status = "deal_card"
+                self.game_status = 'deal_card'
                 return
-
         if self.first_win_event is None:
-            self.first_win_event = {
-                "winners": list(winners),
-                "discarder": pw.get("discarder"),
-            }
-
-        has_gang_refund = gang_refund_changes and any(v != 0 for v in gang_refund_changes.values())
+            self.first_win_event = {'winners': list(winners), 'discarder': pw.get('discarder')}
+        has_gang_refund = gang_refund_changes and any((v != 0 for v in gang_refund_changes.values()))
         if has_gang_refund:
             player_action_record_gang_refund(self, gang_refund_changes)
-
         ron_idx = 0
         for ron_i, w in enumerate(winners):
             info = self.sichuan_hu_results.get(w)
             if not info:
                 continue
-            fan = info["fan"]
-            fan_list = info["fan_list"]
+            fan = info['fan']
+            fan_list = info['fan_list']
             base = self.calculation_service.Sichuan_base_from_fan(fan, fan_list)
-            is_zimo = (pw["type"] == "zimo")
-
+            is_zimo = pw['type'] == 'zimo'
             if not is_zimo:
-                self.player_list[w].hand_tiles.append(pw["hepai_tile"])
-
-            discarder = pw.get("discarder") if not is_zimo else None
+                self.player_list[w].hand_tiles.append(pw['hepai_tile'])
+            discarder = pw.get('discarder') if not is_zimo else None
             defer_score = self.blood_battle
             if defer_score:
                 changes = {p.player_index: 0 for p in self.player_list}
             else:
-                changes = self._apply_hu_score_changes(w, base, is_zimo, discarder)
+                changes = self._apply_hu_score_changes(w, base, is_zimo, discarder, fan=fan)
             if is_zimo:
                 self.player_list[w].record_counter.zimo_times += 1
             else:
                 self.player_list[w].record_counter.dianhe_times += 1
                 self.player_list[discarder].record_counter.fangchong_times += 1
                 self.player_list[discarder].record_counter.fangchong_score += base
-
             self.hu_order_counter += 1
             self.player_list[w].hu_order = self.hu_order_counter
             self.player_list[w].is_hu = True
             self.player_list[w].record_counter.recorded_fans.append(fan_list)
             self.player_list[w].record_counter.win_score += base
-
             if defer_score and self.hu_order_counter <= len(HU_ORDER_TAGS):
                 hu_tag = HU_ORDER_TAGS[self.hu_order_counter - 1]
                 if hu_tag not in self.player_list[w].tag_list:
                     self.player_list[w].tag_list.append(hu_tag)
-
-            hued = sum(1 for p in self.player_list if p.is_hu)
-            round_over = (not self.blood_battle) or hued >= 3
-            round_continues = self.blood_battle and not round_over
-            hepai_tile = info.get("hepai_tile", 0)
-            is_qianggang = pw["type"] == "qianggang"
-            multi_ron = (not is_zimo) and len(winners) > 1
-            recycle_discard = (not is_zimo) and ((not multi_ron) or (ron_i == len(winners) - 1))
+            hued = sum((1 for p in self.player_list if p.is_hu))
+            round_over = not self.blood_battle or hued >= 3
+            round_continues = self.blood_battle and (not round_over)
+            hepai_tile = info.get('hepai_tile', 0)
+            is_qianggang = pw['type'] == 'qianggang'
+            multi_ron = not is_zimo and len(winners) > 1
+            recycle_discard = not is_zimo and (not multi_ron or ron_i == len(winners) - 1)
             suppress_hand = self.blood_battle
             hand_payload = None if suppress_hand else self.player_list[w].hand_tiles
             mask_payload = None if suppress_hand else self.player_list[w].combination_mask
-            # 复用既有和牌文案/音效：自摸=hu_self，点炮按一炮多响次序=hu_first/second/third
             if is_zimo:
-                hu_class = "hu_self"
+                hu_class = 'hu_self'
             else:
-                hu_class = ["hu_first", "hu_second", "hu_third"][min(ron_idx, 2)]
+                hu_class = ['hu_first', 'hu_second', 'hu_third'][min(ron_idx, 2)]
                 ron_idx += 1
-
             if defer_score:
-                self.deferred_hu_settlements.append({
-                    "winner": w,
-                    "base": base,
-                    "fan": fan,
-                    "fan_list": list(fan_list),
-                    "is_zimo": is_zimo,
-                    "discarder": discarder,
-                    "hepai_tile": hepai_tile,
-                    "multi_ron": multi_ron,
-                    "hu_class": hu_class,
-                    "hu_order": self.hu_order_counter,
-                })
+                self.deferred_hu_settlements.append({'winner': w, 'base': base, 'fan': fan, 'fan_list': list(fan_list), 'is_zimo': is_zimo, 'discarder': discarder, 'hepai_tile': hepai_tile, 'multi_ron': multi_ron, 'hu_class': hu_class, 'hu_order': self.hu_order_counter})
                 await broadcast_refresh_player_tag_list(self)
-
-            # 牌谱：逐家记录和牌 tick（score_changes 按 player_index 排列）
             hu_changes_list = [changes.get(i, 0) for i in range(4)]
-            player_action_record_hu(
-                self, hu_class=hu_class, hu_score=base, hu_fan=fan_list,
-                hepai_player_index=w, score_changes=hu_changes_list,
-                hepai_tile=hepai_tile,
-                multi_ron=multi_ron if not is_zimo else None,
-                ron_discarder_index=discarder if not is_zimo else None,
-                recycle_discard=recycle_discard if not is_zimo else None,
-            )
+            player_action_record_hu(self, hu_class=hu_class, hu_score=base, hu_fan=fan_list, hepai_player_index=w, score_changes=hu_changes_list, hepai_tile=hepai_tile, multi_ron=multi_ron if not is_zimo else None, ron_discarder_index=discarder if not is_zimo else None, recycle_discard=recycle_discard if not is_zimo else None)
             player_to_score = {p.player_index: p.score for p in self.player_list}
             if defer_score or ron_i < len(winners) - 1:
-                next_status = "round_continue"
+                next_status = 'round_continue'
             elif self.current_round >= self.max_round * 4:
-                next_status = "match_end"
+                next_status = 'match_end'
             else:
-                next_status = "round_end_by_ready"
+                next_status = 'round_end_by_ready'
             self.next_status = next_status
-            await broadcast_result(
-                self, hu_class=hu_class,
-                hepai_player_index=w,
-                win_player_index=w, is_zimo=is_zimo,
-                hu_score=base if not defer_score else None,
-                hu_fan=fan_list,
-                hepai_player_hand=hand_payload,
-                hepai_player_combination_mask=mask_payload,
-                hepai_tile=hepai_tile,
-                multi_ron=multi_ron,
-                is_qianggang=is_qianggang if not is_zimo else None,
-                ron_discarder_index=discarder if not is_zimo else None,
-                recycle_discard=recycle_discard if not is_zimo else None,
-                suppress_hand_reveal=suppress_hand,
-                defer_score_settlement=defer_score,
-                player_to_score=player_to_score,
-                score_changes=None if defer_score else changes,
-                gang_refund_changes=gang_refund_changes if has_gang_refund and ron_i == 0 else None,
-                round_continues=round_continues,
-                next_status=next_status,
-            )
+            await broadcast_result(self, hu_class=hu_class, hepai_player_index=w, win_player_index=w, is_zimo=is_zimo, hu_score=base if not defer_score else None, hu_fan=fan_list, hepai_player_hand=hand_payload, hepai_player_combination_mask=mask_payload, hepai_tile=hepai_tile, multi_ron=multi_ron, is_qianggang=is_qianggang if not is_zimo else None, ron_discarder_index=discarder if not is_zimo else None, recycle_discard=recycle_discard if not is_zimo else None, suppress_hand_reveal=suppress_hand, defer_score_settlement=defer_score, player_to_score=player_to_score, score_changes=None if defer_score else changes, gang_refund_changes=gang_refund_changes if has_gang_refund and ron_i == 0 else None, round_continues=round_continues, next_status=next_status)
             if defer_score:
                 await asyncio.sleep(SICHUAN_MID_HU_ANIM_SECONDS)
-            elif next_status == "match_end":
-                # 整场末局：不等 8s ready，由客户端 match_end 收尾；仅留倒牌/番种渐显余量
+            elif next_status == 'match_end':
                 await asyncio.sleep(hu_result_ready_wait_seconds(len(fan_list)) - HU_CONFIRM_COUNTDOWN_SEC)
-            elif next_status == "round_continue":
-                # 多家和中间家：面板自动关闭后进入下一家结算（与日麻/虹雀按序展示一致）
-                await asyncio.sleep(
-                    sichuan_settle_hu_panel_wait_seconds(len(fan_list), is_final=False)
-                )
+            elif next_status == 'round_continue':
+                await asyncio.sleep(sichuan_settle_hu_panel_wait_seconds(len(fan_list), is_final=False))
             else:
                 await asyncio.sleep(hu_result_ready_wait_seconds(len(fan_list)))
-
         self.sichuan_hu_results = {}
-        hued = sum(1 for p in self.player_list if p.is_hu)
-        if (not self.blood_battle) or hued >= 3:
-            # 血战终局 / 流局：统一走 _settle_liuju（见该函数顶部 ABCD 顺序注释，禁止跳过查叫）
+        hued = sum((1 for p in self.player_list if p.is_hu))
+        if not self.blood_battle or hued >= 3:
             if self.blood_battle and hued >= 3:
                 await self._settle_liuju()
-            self.ended_by = "win"
-            self.game_status = "END"
+            self.ended_by = 'win'
+            self.game_status = 'END'
         else:
-            # 续打：从最后一个和家的下家开始摸牌
             self.current_player_index = winners[-1]
-            self.game_status = "deal_card"
+            self.game_status = 'deal_card'
 
     # ============ 终局结算（流局 / 血战三家和 共用，见 _settle_liuju 顶部 ABCD 顺序注释） ============
 
@@ -818,11 +792,6 @@ class SichuanGameState:
             return "active"
         return None
 
-    def _hand_without_dingque_suit(self, hand_tiles: List[int], dingque_suit: int) -> List[int]:
-        if dingque_suit not in (1, 2, 3):
-            return list(hand_tiles)
-        return [t for t in hand_tiles if (t // 10) != dingque_suit]
-
     def _evaluate_liuju_ting(
         self,
         hand_tiles: List[int],
@@ -855,6 +824,13 @@ class SichuanGameState:
             waits = {w for w in waits if (w // 10) != dingque_suit}
             if not waits:
                 return
+            if getattr(self, "hepai_limit", 0) > 0:
+                # 查叫不计杠上花、抢杠等临时情境番，仅保留达到房间门槛的听口。
+                waits = {w for w in waits if self.calculation_service.Sichuan_hepai_check(
+                    test_hand + [w], combination_tiles, [], w, dingque_suit,
+                )[0] >= self.hepai_limit}
+                if not waits:
+                    return
             mf, mf_names = self.calculation_service.Sichuan_max_fan_for_chajiao(
                 test_hand, combination_tiles, dingque_suit,
             )
@@ -871,54 +847,6 @@ class SichuanGameState:
             _eval_one(hand)
 
         return bool(best_waits), best_waits, best_max_fan, hua_type
-
-    def _max_fan_for_hu_player_hand(self, player: SichuanPlayer) -> Tuple[int, List[str]]:
-        """已和玩家手牌：遍历所有可能和牌张，取理论最大番（查牌付分用）。"""
-        hand = list(player.hand_tiles)
-        best_fan, best_names = 0, []
-        for w in set(hand):
-            fan, names = self.calculation_service.Sichuan_hepai_check(
-                hand, player.combination_tiles, [], w, player.dingque_suit,
-            )
-            if fan > best_fan:
-                best_fan, best_names = fan, list(names) if names else []
-        return best_fan, best_names
-
-    def _max_fan_for_no_ting_payer_hand(
-        self, payer: SichuanPlayer, *, strip_dingque: bool = False,
-    ) -> Tuple[int, List[str]]:
-        """（遗留）按付分者手牌遍历和牌可能取理论最大番；查叫收分应使用听牌家的 tenpai_max_fan。"""
-        hand = list(payer.hand_tiles)
-        if strip_dingque:
-            hand = self._hand_without_dingque_suit(hand, payer.dingque_suit)
-        combo = payer.combination_tiles
-        dingque = payer.dingque_suit
-        best_fan, best_names = 0, []
-
-        def _try_hepai(test_hand: List[int], win_tile: int):
-            nonlocal best_fan, best_names
-            fan, names = self.calculation_service.Sichuan_hepai_check(
-                test_hand, combo, [], win_tile, dingque,
-            )
-            if fan > best_fan:
-                best_fan, best_names = fan, list(names) if names else []
-
-        if len(hand) % 3 == 2:
-            for win_tile in set(hand):
-                _try_hepai(hand, win_tile)
-            for discard in set(hand):
-                test = list(hand)
-                test.remove(discard)
-                mf, mf_names = self.calculation_service.Sichuan_max_fan_for_chajiao(
-                    test, combo, dingque,
-                )
-                if mf > best_fan:
-                    best_fan, best_names = mf, list(mf_names) if mf_names else []
-        else:
-            mf, mf_names = self.calculation_service.Sichuan_max_fan_for_chajiao(hand, combo, dingque)
-            if mf > best_fan:
-                best_fan, best_names = mf, list(mf_names) if mf_names else []
-        return best_fan, best_names
 
     def _reveal_hand_payload(self, player) -> List[int]:
         """终局亮牌：和牌者将和牌张置于末位，便于客户端倒牌展示。"""
@@ -985,11 +913,8 @@ class SichuanGameState:
 
     async def _settle_liuju(self):
         non_hu = [p for p in self.player_list if not p.is_hu]
-        # 血战终局：即使四家均已和（历史一炮多响边界），仍须执行 reveal/settle_hu
-        needs_blood_endgame = self.blood_battle and (
-            self.deferred_hu_settlements or any(p.is_hu for p in self.player_list)
-        )
-        if not non_hu and not needs_blood_endgame:
+        needs_blood_endgame = self.blood_battle and (self.deferred_hu_settlements or any((p.is_hu for p in self.player_list)))
+        if not non_hu and (not needs_blood_endgame):
             return
         self._liuju_final_panel_shown = False
         self._liuju_endgame_started = False
@@ -1000,132 +925,70 @@ class SichuanGameState:
         tenpai_tiles_map: Dict[int, List[int]] = {}
         for p in non_hu:
             original_discards = self._original_discards(p)
-            is_ting, waits, max_fan, hua_type = self._evaluate_liuju_ting(
-                p.hand_tiles, p.combination_tiles, p.dingque_suit, original_discards,
-            )
-            if hua_type == "passive":
-                status[p.player_index] = "no_ting"
-                display_status[p.player_index] = "hua_zhu_passive"
+            is_ting, waits, max_fan, hua_type = self._evaluate_liuju_ting(p.hand_tiles, p.combination_tiles, p.dingque_suit, original_discards)
+            if hua_type == 'passive':
+                status[p.player_index] = 'no_ting'
+                display_status[p.player_index] = 'hua_zhu_passive'
                 continue
-            if hua_type == "active":
-                status[p.player_index] = "no_ting"
-                display_status[p.player_index] = "hua_zhu_active"
+            if hua_type == 'active':
+                status[p.player_index] = 'no_ting'
+                display_status[p.player_index] = 'hua_zhu_active'
                 continue
             if is_ting:
-                status[p.player_index] = "ting"
-                display_status[p.player_index] = "ting"
+                status[p.player_index] = 'ting'
+                display_status[p.player_index] = 'ting'
                 tenpai_max_fan[p.player_index] = max_fan
                 tenpai_tiles_map[p.player_index] = sorted(waits)
-                _, mf_names = self.calculation_service.Sichuan_max_fan_for_chajiao(
-                    self._hand_for_chajiao_eval(p.hand_tiles, p.combination_tiles, p.dingque_suit),
-                    p.combination_tiles,
-                    p.dingque_suit,
-                )
+                _, mf_names = self.calculation_service.Sichuan_max_fan_for_chajiao(self._hand_for_chajiao_eval(p.hand_tiles, p.combination_tiles, p.dingque_suit), p.combination_tiles, p.dingque_suit)
                 tenpai_max_fan_names[p.player_index] = mf_names or []
             else:
-                status[p.player_index] = "no_ting"
-                display_status[p.player_index] = "no_ting"
-
-        ting_players = [idx for idx, s in status.items() if s == "ting"]
-        noting_players = [idx for idx, s in status.items() if s == "no_ting"]
-
+                status[p.player_index] = 'no_ting'
+                display_status[p.player_index] = 'no_ting'
+        ting_players = [idx for idx, s in status.items() if s == 'ting']
+        noting_players = [idx for idx, s in status.items() if s == 'no_ting']
         hu_players = [p for p in self.player_list if p.is_hu]
-        # 三家和：整段跳过查叫（退税仅在查叫且没叫时处理，不在此补播）
         skip_chajiao = len(hu_players) >= 3
-
         if not self.blood_battle:
             player_action_record_liuju(self)
-
         all_hands = {p.player_index: self._reveal_hand_payload(p) for p in self.player_list}
         player_scores = {p.player_index: p.score for p in self.player_list}
-
-        # 1) 查牌：四家一起亮手牌（不计分）
         if self.blood_battle:
             self._liuju_endgame_started = True
-            player_action_record_sichuan_liuju_step(
-                self, "reveal_hu", json.dumps({str(k): v for k, v in all_hands.items()}),
-            )
-        await broadcast_result(
-            self, hu_class="liuju",
-            liuju_step="reveal_hu",
-            liuju_hu_hands=all_hands,
-            player_to_score=player_scores,
-            round_continues=False,
-        )
+            player_action_record_sichuan_liuju_step(self, 'reveal_hu', json.dumps({str(k): v for k, v in all_hands.items()}))
+        await broadcast_result(self, hu_class='liuju', liuju_step='reveal_hu', liuju_hu_hands=all_hands, player_to_score=player_scores, round_continues=False)
         await asyncio.sleep(ROUND_END_HAND_REVEAL_SEC)
-
-        # 2) 先看和牌玩家：按 hu_order（和牌先后）逐笔结算并播面板（血战：终局才入账）
         if self.blood_battle and self.deferred_hu_settlements:
-            deferred_sorted = sorted(
-                self.deferred_hu_settlements,
-                key=lambda x: (x.get("hu_order", 0), x["winner"]),
-            )
+            deferred_sorted = sorted(self.deferred_hu_settlements, key=lambda x: (x.get('hu_order', 0), x['winner']))
             for settle_idx, rec in enumerate(deferred_sorted):
-                w = rec["winner"]
+                w = rec['winner']
                 p = self.player_list[w]
-                changes = self._apply_hu_score_changes(
-                    w, rec["base"], rec["is_zimo"], rec.get("discarder"),
-                )
+                changes = self._apply_hu_score_changes(w, rec['base'], rec['is_zimo'], rec.get('discarder'))
                 player_scores = {p.player_index: p.score for p in self.player_list}
                 is_last_settle = settle_idx == len(deferred_sorted) - 1
-                # settle_hu 为末步：无未和家，或三家和跳过查叫
                 is_final_panel = is_last_settle and (not non_hu or skip_chajiao)
                 if is_final_panel:
                     self._liuju_final_panel_shown = True
                 if self.blood_battle:
-                    player_action_record_sichuan_liuju_step(
-                        self, "settle_hu", rec["hu_class"], w, rec["base"], rec["fan_list"],
-                        [changes.get(i, 0) for i in range(4)],
-                        1 if is_final_panel else 0,
-                    )
+                    player_action_record_sichuan_liuju_step(self, 'settle_hu', rec['hu_class'], w, rec['base'], rec['fan_list'], [changes.get(i, 0) for i in range(4)], 1 if is_final_panel else 0)
                 if not is_final_panel:
-                    next_status = "round_continue"
+                    next_status = 'round_continue'
                 elif self.current_round >= self.max_round * 4:
-                    next_status = "match_end"
+                    next_status = 'match_end'
                 else:
-                    next_status = "round_end_by_ready"
+                    next_status = 'round_end_by_ready'
                 self.next_status = next_status
-                await broadcast_result(
-                    self,
-                    hu_class=rec["hu_class"],
-                    liuju_step="settle_hu",
-                    hepai_player_index=w,
-                    win_player_index=w,
-                    is_zimo=rec["is_zimo"],
-                    hu_score=rec["base"],
-                    hu_fan=rec["fan_list"],
-                    hepai_tile=rec.get("hepai_tile"),
-                    multi_ron=rec.get("multi_ron"),
-                    hepai_player_hand=self._reveal_hand_payload(p),
-                    hepai_player_combination_mask=p.combination_mask,
-                    suppress_hand_reveal=True,
-                    score_changes=changes,
-                    player_to_score=player_scores,
-                    liuju_status_final=is_final_panel,
-                    round_continues=False,
-                    next_status=next_status,
-                )
-                # 末步不含 8s 确认（与查叫末步一致，交给 ready / match_end 收尾）
-                panel_wait = sichuan_settle_hu_panel_wait_seconds(
-                    len(rec["fan_list"]), is_final=is_final_panel
-                )
+                await broadcast_result(self, hu_class=rec['hu_class'], liuju_step='settle_hu', hepai_player_index=w, win_player_index=w, is_zimo=rec['is_zimo'], hu_score=rec['base'], hu_fan=rec['fan_list'], hepai_tile=rec.get('hepai_tile'), multi_ron=rec.get('multi_ron'), hepai_player_hand=self._reveal_hand_payload(p), hepai_player_combination_mask=p.combination_mask, suppress_hand_reveal=True, score_changes=changes, player_to_score=player_scores, liuju_status_final=is_final_panel, round_continues=False, next_status=next_status)
+                panel_wait = sichuan_settle_hu_panel_wait_seconds(len(rec['fan_list']), is_final=is_final_panel)
                 await asyncio.sleep(panel_wait)
-
-        # 3) 再看流局玩家：末家和牌者下家起逆时针逐家展示，每家仅 1 次面板（合并该家全部查叫收支）
-        # 三家和时整段跳过；否则即使分数变动为 0 也须播完所有未和家面板。
-        # 仅没叫/花猪开杠者查叫时并入本副“刮风下雨”退税（不再单独 cha_refund 步）。
         chajiao_targets = [] if skip_chajiao else self._chajiao_presentation_order(non_hu)
-
         for chajiao_idx, n_p in enumerate(chajiao_targets):
             panel_changes: Dict[int, int] = {i: 0 for i in range(4)}
             p_idx = n_p.player_index
-            p_display = display_status.get(p_idx, "no_ting")
-
-            if p_display == "hua_zhu_active":
+            p_display = display_status.get(p_idx, 'no_ting')
+            if p_display == 'hua_zhu_active':
                 self.player_list[p_idx].score -= SICHUAN_ACTIVE_HUAZHU_PENALTY
                 panel_changes[p_idx] -= SICHUAN_ACTIVE_HUAZHU_PENALTY
-
-            if status.get(p_idx) == "ting" and noting_players:
+            if status.get(p_idx) == 'ting' and noting_players:
                 mf = tenpai_max_fan.get(p_idx, 0)
                 mf_names = tenpai_max_fan_names.get(p_idx, [])
                 base = self.calculation_service.Sichuan_base_from_fan(mf, mf_names)
@@ -1135,16 +998,13 @@ class SichuanGameState:
                         panel_changes[n_idx] -= base
                         self.player_list[p_idx].score += base
                         panel_changes[p_idx] += base
-
-            # 没叫/花猪开杠者：本副刮风下雨退税并入本家查叫面板（标“退税”、面板多 0.5s）
             panel_has_refund = False
-            if status.get(p_idx) == "no_ting":
+            if status.get(p_idx) == 'no_ting':
                 for record in list(n_p.gang_score_records):
                     rc = self._refund_gang_record(record)
                     for k, v in rc.items():
                         panel_changes[k] = panel_changes.get(k, 0) + v
                     panel_has_refund = True
-
             player_scores = {p.player_index: p.score for p in self.player_list}
             is_final_panel = chajiao_idx == len(chajiao_targets) - 1
             if is_final_panel:
@@ -1152,39 +1012,22 @@ class SichuanGameState:
             liuju_status = {p_idx: p_display}
             liuju_hands = {p_idx: list(n_p.hand_tiles)}
             if self.blood_battle:
-                player_action_record_sichuan_liuju_step(
-                    self, "chajiao",
-                    p_idx,
-                    p_display,
-                    json.dumps(liuju_hands[p_idx]),
-                    [panel_changes.get(i, 0) for i in range(4)],
-                    1 if is_final_panel else 0,
-                )
+                player_action_record_sichuan_liuju_step(self, 'chajiao', p_idx, p_display, json.dumps(liuju_hands[p_idx]), [panel_changes.get(i, 0) for i in range(4)], 1 if is_final_panel else 0)
             if not is_final_panel:
-                next_status = "round_continue"
+                next_status = 'round_continue'
             elif self.current_round >= self.max_round * 4:
-                next_status = "match_end"
+                next_status = 'match_end'
             else:
-                next_status = "round_end_by_ready"
+                next_status = 'round_end_by_ready'
             self.next_status = next_status
-            await broadcast_result(
-                self, hu_class="liuju",
-                liuju_step="chajiao",
-                hepai_player_index=p_idx,
-                hepai_player_combination_mask=n_p.combination_mask,
-                liuju_status=liuju_status,
-                liuju_hands=liuju_hands,
-                score_changes=panel_changes,
-                player_to_score=player_scores,
-                liuju_status_final=is_final_panel,
-                liuju_refund=True if panel_has_refund else None,
-                round_continues=False,
-                next_status=next_status,
-            )
+            await broadcast_result(self, hu_class='liuju', liuju_step='chajiao', hepai_player_index=p_idx, hepai_player_combination_mask=n_p.combination_mask, liuju_status=liuju_status, liuju_hands=liuju_hands, score_changes=panel_changes, player_to_score=player_scores, liuju_status_final=is_final_panel, liuju_refund=True if panel_has_refund else None, round_continues=False, next_status=next_status)
             if not is_final_panel:
-                await asyncio.sleep(
-                    sichuan_chajiao_panel_wait_seconds(is_final=False, has_refund=panel_has_refund)
-                )
+                await asyncio.sleep(sichuan_chajiao_panel_wait_seconds(is_final=False, has_refund=panel_has_refund))
+
+
+
+
+
 
     def _hand_for_chajiao_eval(
         self, hand_tiles: List[int], combination_tiles: List[str], dingque_suit: int,

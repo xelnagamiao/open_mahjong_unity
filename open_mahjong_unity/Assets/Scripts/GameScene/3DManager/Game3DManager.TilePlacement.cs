@@ -129,6 +129,7 @@ public partial class Game3DManager {
 
     // Animator 在 Update 后采样，这里仅处理正在倒牌的组。静止牌没有每帧放置开销。
     private void LateUpdate() {
+        RefreshTileLightingFrame();
         bool anyActive = false;
         foreach (RevealingHandPlacement placement in revealingHandPlacements) {
             if (placement.active) { anyActive = true; break; }
@@ -176,6 +177,7 @@ public partial class Game3DManager {
     }
 
     private void OnDisable() {
+        ResetTileLightingFrame();
         // 组件被禁用也视为取消倒牌，Animator与补偿一起复位，不能让Cube继续播到错误落点。
         while (revealingHandPlacements.Count > 0) {
             PosPanel3D panel = revealingHandPlacements[revealingHandPlacements.Count - 1].panel;

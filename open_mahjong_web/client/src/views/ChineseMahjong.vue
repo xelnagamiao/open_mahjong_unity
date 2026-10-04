@@ -3,7 +3,7 @@
   <div class="chinese">
     <div class="page-header">
       <CalculatorSwitcher />
-      <p class="subtitle">选择 14 张牌（含右侧和牌张）、副露与和牌方式，自动计算番种、得分以及全部和牌拆解形态。</p>
+      <p class="subtitle">13 张显示听牌与进张；14 张计算番种、得分及全部拆解，未和牌时显示切牌分析。</p>
     </div>
 
     <MahjongNotationHelp />
@@ -37,7 +37,12 @@
         <div
           class="hand-row"
           :class="{ active: activeFuluIdx < 0 }"
+          role="group"
+          aria-label="手牌"
+          tabindex="0"
           @click="activateHand"
+          @keydown.enter.self.prevent="activateHand"
+          @keydown.space.self.prevent="activateHand"
         >
           <div class="hand-bar">
             <TileChip
@@ -47,15 +52,24 @@
               size="sm"
               @click="onHandChipClick(idx)"
             />
+            <TileInputPlaceholder
+              v-if="activeFuluIdx < 0 && form.hand.length < expectedHandCount"
+              label="手牌输入位置"
+            />
           </div>
-          <div class="get-tile-box" :class="{ filled: form.getTile }">
+          <div class="get-tile-box" :class="{ filled: form.getTile }" @click.stop="activateHand">
             <span class="get-tile-label">和牌</span>
             <TileChip
               v-if="form.getTile"
               :tile-id="form.getTile"
               size="sm"
               highlighted
-              @click.stop="clearGetTile"
+              :selected="activeFuluIdx < 0 && form.hand.length === expectedHandCount"
+              @click="onGetTileClick"
+            />
+            <TileInputPlaceholder
+              v-else-if="activeFuluIdx < 0 && form.hand.length === expectedHandCount"
+              label="和牌输入位置"
             />
           </div>
         </div>
@@ -111,29 +125,14 @@
         </div>
       </div>
 
-      <div class="result-embed">
+      <div class="result-embed" aria-live="polite" :aria-busy="loading">
         <div v-if="loading" class="empty">
           <el-icon class="is-loading" :size="18"><Loading /></el-icon>
           <span>正在计算...</span>
         </div>
-        <div v-else-if="!result" class="empty">
-          <span class="input-target-bar">{{ inputTargetLabel }}</span>
-        </div>
-        <div v-else-if="result.mode === 'score'">
-          <div :class="['banner', result.is_hepai ? 'success' : 'fail']">
-            <div class="banner-num">{{ result.score }}</div>
-            <div class="banner-text">{{ result.is_hepai ? '番' : '不能和牌' }}</div>
-          </div>
-          <div v-if="result.is_hepai" class="fan-block">
-            <h4>番种构成（{{ result.fan_list.length }} 项）</h4>
-            <div class="fan-tags nowrap-scroll">
-              <el-tag v-for="(name, idx) in result.fan_list" :key="idx" type="success" effect="plain" size="small">
-                {{ formatGuobiaoFanComposition(name) }}
-              </el-tag>
-            </div>
-          </div>
-          <div v-else class="msg-inline">{{ result.message || '该牌型不构成和牌' }}</div>
-        </div>
+        <div v-else-if="!result" class="empty"><span class="input-target-bar">{{ inputTargetLabel }}</span></div>
+        <GuobiaoScoreResult v-else-if="best" :best="best" />
+        <PailiResult v-else-if="pailiResult" :result="pailiResult" @discard="applyDiscard" @draw="applyDraw" />
       </div>
 
       <div class="row block">
@@ -147,409 +146,75 @@
         <el-button size="default" :loading="loading" @click="calculateDecompose">
           查看全部拆解
         </el-button>
+        <el-button size="default" @click="transfer('/paili')">国标牌理</el-button>
       </div>
     </section>
 
-    <section id="gb-decompose-section" class="decompose-section" v-if="decomposeResult">
-      <div class="decompose-head">
-        <h2>全部拆解</h2>
-        <span class="decompose-count">
-          {{ decomposeResult.is_hepai ? `共 ${decomposeResult.decompositions.length} 种拆解` : '不能和牌，无可用拆解' }}
-        </span>
-      </div>
-      <div v-if="decomposeResult.is_hepai" class="decomp-list">
-        <div
-          v-for="(item, idx) in decomposeResult.decompositions"
-          :key="idx"
-          class="decomp-item"
-        >
-          <div class="decomp-header">
-            <span class="decomp-rank">#{{ idx + 1 }}</span>
-            <span class="decomp-score">{{ item.score }} 番</span>
-          </div>
-          <div class="decomp-tiles">
-            <div
-              v-for="(group, gIdx) in renderDecomposition(item.combinations)"
-              :key="gIdx"
-              class="decomp-group"
-            >
-              <div class="decomp-group-label">{{ group.label }}</div>
-              <div class="decomp-group-tiles nowrap-scroll">
-                <TileMiniGlyph v-for="(t, tIdx) in group.tiles" :key="tIdx" :tile-id="t" />
-              </div>
-            </div>
-          </div>
-          <div class="decomp-fans">
-            <el-tag v-for="(name, fIdx) in item.fan_list" :key="fIdx" size="small" effect="plain">
-              {{ formatGuobiaoFanComposition(name) }}
-            </el-tag>
-          </div>
-        </div>
-      </div>
-      <div v-else class="msg-inline">该牌型不能和牌。</div>
-    </section>
+    <GuobiaoDecompositions v-if="showDecompositions && result?.decompositions?.length" :decompositions="result.decompositions" />
   </div>
 </template>
 <script setup>
-import { ref, reactive, computed, nextTick } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
-import axios from 'axios'
 import CalculatorSwitcher from '@/components/CalculatorSwitcher.vue'
+import { computed, watch, nextTick } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { Loading } from '@element-plus/icons-vue'
 import TileChip from '@/components/TileChip.vue'
+import TileInputPlaceholder from '@/components/TileInputPlaceholder.vue'
 import TilePalette from '@/components/TilePalette.vue'
-import TileMiniGlyph from '@/components/TileMiniGlyph.vue'
 import FuluSlots from '@/components/FuluSlots.vue'
 import TileFaceStyleSwitch from '@/components/TileFaceStyleSwitch.vue'
 import MahjongNotationHelp from '@/components/MahjongNotationHelp.vue'
-import {
-  TILE_NAME,
-  combinationLabel,
-  parseNotationWithGetTile,
-  notationTextWithGetTile,
-  meldDisplayTiles,
-} from '@/composables/useMahjongTiles'
-import { useFuluSlots } from '@/composables/useFuluSlots'
-import { formatGuobiaoFanComposition } from '@/constants/guobiaoFanDict'
+import PailiResult from '@/components/PailiResult.vue'
+import GuobiaoScoreResult from '@/components/GuobiaoScoreResult.vue'
+import GuobiaoDecompositions from '@/components/GuobiaoDecompositions.vue'
+import { useGuobiaoCalculator } from '@/composables/useGuobiaoCalculator'
 
-const textInput = ref('')
-
-// ======== 表单数据 ========
-const form = reactive({
-  hand: [],
-  flowerCount: 0,
-  getTile: null,     // 和牌张
-  hepaiType: 'dianhe',
-  changFeng: '场风东',
-  menFeng: '自风东',
-  flagSet: {
-    heJueZhang: false,
-    gangShangKaiHua: false,
-    qiangGangHe: false,
-    miaoShouHuiChun: false,
-    haiDiLaoYue: false,
-  }
-})
-
-const loading = ref(false)
-const result = ref(null)
-const decomposeResult = ref(null)
-
-const countMeldTiles = (meld, tileId) => {
-  if (!meld) return 0
-  if (meld.kind === 's' || meld.kind === 'S') {
-    if (meld.tileId === tileId || meld.tileId - 1 === tileId || meld.tileId + 1 === tileId) return 1
-    return 0
-  }
-  if (meld.kind === 'g' || meld.kind === 'G') return meld.tileId === tileId ? 4 : 0
-  if (meld.kind === 'k' || meld.kind === 'K') return meld.tileId === tileId ? 3 : 0
-  return 0
-}
-
-const wouldExceedTileLimit = (meld, excludeSlotIdx = -1) => {
-  const tiles = meldDisplayTiles(meld.kind, meld.tileId)
-  const unique = [...new Set(tiles)]
-  for (const tid of unique) {
-    let count = form.hand.filter((t) => t === tid).length
-    if (form.getTile === tid) count += 1
-    for (let i = 0; i < fulu.slots.length; i++) {
-      if (i === excludeSlotIdx) continue
-      count += countMeldTiles(fulu.slots[i].locked, tid)
-    }
-    count += tiles.filter((t) => t === tid).length
-    if (count > 4) return tid
-  }
-  return null
-}
-
-const trimHandIfNeeded = () => {
-  const max = expectedHandCount.value
-  if (form.hand.length > max) {
-    form.hand.splice(max)
-    syncTextInput()
-  }
-}
-
-const fulu = useFuluSlots({
-  checkOverflow: wouldExceedTileLimit,
-  onLocked: trimHandIfNeeded,
-})
-
+const route = useRoute()
+const router = useRouter()
+const session = useGuobiaoCalculator()
+const { draft, form, textInput, result, loading, best, pailiResult, showDecompositions,
+  expectedHandCount, expectedTotalCount, resetAll, clearGetTile, applyDraw, applyDiscard } = session
+const fulu = session.fulu
 const fuluSlots = fulu.slots
 const activeFuluIdx = fulu.activeIdx
-const lockedFuluList = fulu.lockedList
 const lockedFuluCount = fulu.lockedCount
-const activateFulu = (idx) => fulu.activate(idx)
+const activateFulu = fulu.activate
 const activateHand = fulu.activateHand
 const clearFuluSlot = fulu.clearSlot
 const onFuluSlotInput = fulu.onSlotInput
-const lockFuluSlot = (idx, opt) => fulu.lockSlot(idx, opt)
+const lockFuluSlot = fulu.lockSlot
 const removeFuluDraft = fulu.removeDraftTile
 const removeFuluLocked = fulu.removeLockedTile
+const inputTargetLabel = computed(() => activeFuluIdx.value >= 0 ? `输入副露 #${activeFuluIdx.value + 1}` : '输入手牌')
+async function transfer(path) {
+  if (session.prepareTransfer()) await router.push(path)
+}
+watch(() => route.query.example, async id => {
+  if (route.path !== '/calc/chinese') return
+  if (typeof id === 'string') {
+    if (await session.loadExample(id)) {
+      const query = { ...route.query }; delete query.example
+      await router.replace({ path: route.path, query })
+    }
+  }
+  else if (!result.value && !loading.value && [13, 14].includes(draft.value.hand.length + 3 * draft.value.melds.length)) await session.calculate({ decompose: false })
+}, { immediate: true })
 
-const buildFlowerTiles = () =>
-  Array.from({ length: form.flowerCount }, (_, i) => 51 + i)
-
-// ======== 计算属性 ========
-// 手牌栏 13 张 + 右侧和牌 1 张；每副露占 3 张
-const expectedHandCount = computed(() => 13 - lockedFuluCount.value * 3)
-const expectedTotalCount = computed(() => 14 - lockedFuluCount.value * 3)
-const filledTileCount = computed(() => form.hand.length + (form.getTile ? 1 : 0))
+const filledTileCount = computed(() => draft.value.hand.length)
 const handCountText = computed(() => `${filledTileCount.value}/${expectedTotalCount.value}`)
-const handCountTagType = computed(() => {
-  if (filledTileCount.value === expectedTotalCount.value) return 'success'
-  if (filledTileCount.value > expectedTotalCount.value) return 'danger'
-  return 'warning'
-})
-
-const inputTargetLabel = computed(() => {
-  if (activeFuluIdx.value >= 0) return `输入副露 #${activeFuluIdx.value + 1}`
-  return '输入手牌'
-})
-
-const syncTextInput = () => {
-  textInput.value = notationTextWithGetTile(form.hand, form.getTile)
-}
-
-const applyParsedTiles = ({ hand, getTile }) => {
-  const exp = expectedHandCount.value
-  const expTotal = expectedTotalCount.value
-
-  let finalHand = hand
-  let finalGetTile = getTile
-  // 兼容旧写法：无 + 且共 14 张时，按输入顺序取末张为和牌张
-  if (finalGetTile == null && hand.length === exp + 1) {
-    finalHand = hand.slice(0, -1)
-    finalGetTile = hand[hand.length - 1]
-  }
-
-  const total = finalHand.length + (finalGetTile ? 1 : 0)
-  if (total > expTotal) {
-    throw new Error(`手牌应为 ${expTotal} 张（含和牌张），当前简写解析为 ${total} 张`)
-  }
-
-  form.hand = finalHand
-  form.getTile = finalGetTile
-  syncTextInput()
-}
-
-const ensureReadyForSubmit = () => {
-  const expHand = expectedHandCount.value
-  const expTotal = expectedTotalCount.value
-  if (textInput.value?.trim()) {
-    try {
-      const parsed = parseNotationWithGetTile(textInput.value)
-      applyParsedTiles(parsed)
-    } catch (e) {
-      ElMessage.error(`简写解析失败：${e.message}`)
-      return false
-    }
-  }
-  if (filledTileCount.value !== expTotal) {
-    if (form.hand.length !== expHand) {
-      ElMessage.error(`手牌栏须 ${expHand} 张（当前 ${form.hand.length} 张）`)
-    } else if (!form.getTile) {
-      ElMessage.warning('请填写右侧和牌张（手牌栏满后点下方牌面自动填入）')
-    } else {
-      ElMessage.error(`手牌须凑满 ${expTotal} 张（当前 ${filledTileCount.value} 张，含和牌张）`)
-    }
-    return false
-  }
-  return true
-}
-
-// ======== 操作方法 ========
-const onPalettePick = (id) => {
-  if (id >= 51 && id <= 58) return
-  if (fulu.appendTileToActive(id)) return
-  if (form.hand.length < expectedHandCount.value) {
-    addHandTile(id)
-  } else {
-    setGetTile(id)
-  }
-}
-
-const setGetTile = (id) => {
-  const prev = form.getTile
-  form.getTile = null
-  if (countTileEverywhere(id) >= 4) {
-    form.getTile = prev
-    ElMessage.warning(`牌 ${TILE_NAME[id]} 已达 4 张上限`)
-    return
-  }
-  form.getTile = id
-  syncTextInput()
-}
-
-const clearGetTile = () => {
-  form.getTile = null
-  syncTextInput()
-}
-
-const addHandTile = (id) => {
-  if (form.hand.length >= expectedHandCount.value) {
-    setGetTile(id)
-    return
-  }
-  if (countTileEverywhere(id) >= 4) {
-    ElMessage.warning(`牌 ${TILE_NAME[id]} 已达 4 张上限`)
-    return
-  }
-  form.hand.push(id)
-  syncTextInput()
-}
-
-const removeHandTile = (idx) => {
-  form.hand.splice(idx, 1)
-  syncTextInput()
-}
-
-const onHandChipClick = (idx) => {
+const handCountTagType = computed(() => [expectedHandCount.value, expectedTotalCount.value].includes(filledTileCount.value) ? 'success' : filledTileCount.value > expectedTotalCount.value ? 'danger' : 'warning')
+const onPalettePick = id => session.pickTile(id, true)
+const onHandChipClick = index => session.removeTile(index, true)
+const onGetTileClick = () => {
   activateHand()
-  removeHandTile(idx)
+  clearGetTile()
 }
-
-const countTileEverywhere = (id) => {
-  let count = form.hand.filter(t => t === id).length
-  if (form.getTile === id) count += 1
-  for (const meld of lockedFuluList.value) {
-    count += countMeldTiles(meld, id)
-  }
-  return count
-}
-
-const resetAll = () => {
-  form.hand = []
-  form.flowerCount = 0
-  form.getTile = null
-  form.hepaiType = 'dianhe'
-  form.changFeng = '场风东'
-  form.menFeng = '自风东'
-  form.flagSet = {
-    heJueZhang: false,
-    gangShangKaiHua: false,
-    qiangGangHe: false,
-    miaoShouHuiChun: false,
-    haiDiLaoYue: false,
-  }
-  textInput.value = ''
-  result.value = null
-  decomposeResult.value = null
-  fulu.resetAll()
-}
-
-// ======== 接口调用 ========
-const buildRequestBody = async () => {
-  const tilesCombination = lockedFuluList.value.map((m) => m.code)
-
-  const wayToHepai = []
-  wayToHepai.push(form.hepaiType === 'zimo' ? '自摸' : '点和')
-  if (form.changFeng) wayToHepai.push(form.changFeng)
-  if (form.menFeng) wayToHepai.push(form.menFeng)
-
-  // 前 13 张听牌检测：待牌唯一时自动判定和单张
-  try {
-    const tingResp = await axios.post('/api/mahjong/gb/tingpai', {
-      hand_tiles: [...form.hand],
-      tiles_combination: tilesCombination,
-    })
-    if (tingResp.data?.success && tingResp.data.data?.waiting_tiles?.length === 1) {
-      wayToHepai.push('和单张')
-    }
-  } catch (e) {
-    console.warn('和单张自动判定失败，将跳过', e)
-  }
-
-  if (form.flagSet.heJueZhang) wayToHepai.push('和绝张')
-  if (form.flagSet.gangShangKaiHua) wayToHepai.push('杠上开花')
-  if (form.flagSet.qiangGangHe) wayToHepai.push('抢杠和')
-  if (form.flagSet.miaoShouHuiChun) wayToHepai.push('妙手回春')
-  if (form.flagSet.haiDiLaoYue) wayToHepai.push('海底捞月')
-
-  return {
-    hand_tiles: [...form.hand, form.getTile],
-    tiles_combination: tilesCombination,
-    way_to_hepai: wayToHepai,
-    get_tile: form.getTile,
-    flower_tiles: buildFlowerTiles()
-  }
-}
-
-const calculateScore = async () => {
-  if (!ensureReadyForSubmit()) return
-  loading.value = true
-  result.value = null
-  try {
-    const resp = await axios.post('/api/mahjong/gb/score', await buildRequestBody())
-    if (!resp.data.success) {
-      ElMessage.error(resp.data.message || '计算失败')
-      return
-    }
-    result.value = { mode: 'score', ...resp.data.data }
-  } catch (err) {
-    console.error(err)
-    const msg = err.response?.data?.message || err.message
-    ElMessage.error(`计算失败：${msg}`)
-  } finally {
-    loading.value = false
-  }
-}
-
-const calculateDecompose = async () => {
-  if (!ensureReadyForSubmit()) return
-  loading.value = true
-  decomposeResult.value = null
-  try {
-    const resp = await axios.post('/api/mahjong/gb/decompose', await buildRequestBody())
-    if (!resp.data.success) {
-      ElMessage.error(resp.data.message || '计算失败')
-      return
-    }
-    decomposeResult.value = resp.data.data
-    nextTick(() => {
-      document.getElementById('gb-decompose-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    })
-  } catch (err) {
-    console.error(err)
-    const msg = err.response?.data?.message || err.message
-    ElMessage.error(`计算失败：${msg}`)
-  } finally {
-    loading.value = false
-  }
-}
-
-// ======== 拆解可视化 ========
-function renderDecomposition(combinations) {
-  const groups = []
-  for (const code of combinations) {
-    const prefix = code[0]
-    const tileId = parseInt(code.slice(1), 10)
-    if (prefix === 's' || prefix === 'S') {
-      groups.push({
-        label: prefix === 'S' ? '暗顺' : '顺子',
-        tiles: [tileId - 1, tileId, tileId + 1]
-      })
-    } else if (prefix === 'k') {
-      groups.push({ label: '明刻', tiles: [tileId, tileId, tileId] })
-    } else if (prefix === 'K') {
-      groups.push({ label: '暗刻', tiles: [tileId, tileId, tileId] })
-    } else if (prefix === 'g') {
-      groups.push({ label: '明杠', tiles: [tileId, tileId, tileId, tileId] })
-    } else if (prefix === 'G') {
-      groups.push({ label: '暗杠', tiles: [tileId, tileId, tileId, tileId] })
-    } else if (prefix === 'q') {
-      groups.push({ label: '雀头', tiles: [tileId, tileId] })
-    } else if (prefix === 'z') {
-      // 组合龙 / 全不靠：z{set 字符串}，仅展示标签
-      groups.push({ label: '组合龙', tiles: [] })
-    } else {
-      groups.push({ label: combinationLabel(code), tiles: [] })
-    }
-  }
-  return groups
+const calculateScore = () => session.calculate()
+async function calculateDecompose() {
+  await session.calculate({ decompose: true })
+  if (showDecompositions.value) { await nextTick(); document.getElementById('gb-decompose-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
 }
 </script>
-
 <style scoped>
 .chinese {
   max-width: 880px;
@@ -978,4 +643,6 @@ function renderDecomposition(combinations) {
   color: #475569;
   font-weight: 600;
 }
+
+.actions { flex-wrap: wrap; }
 </style>

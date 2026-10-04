@@ -5,7 +5,7 @@
 import psycopg2
 from psycopg2 import Error
 from psycopg2.extras import RealDictCursor
-from psycopg2.pool import ThreadedConnectionPool, SimpleConnectionPool
+from psycopg2.pool import ThreadedConnectionPool
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timezone
 import logging
@@ -13,6 +13,7 @@ import threading
 import hashlib
 import secrets
 import json
+from .inventory_assets import DEFAULT_AVATAR_FRAME_ID
 
 # 禁止登录的封禁类型
 LOGIN_BAN_TYPES = frozenset({'login', 'full'})
@@ -90,6 +91,9 @@ class DatabaseManager:
                 );
             """)
 
+            from .duplicate_walls import ensure_duplicate_tables
+            ensure_duplicate_tables(cursor)
+
             # 创建表 game_records（如果不存在）
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS game_records (
@@ -117,6 +121,9 @@ class DatabaseManager:
                     PRIMARY KEY (game_id, user_id)
                 );
             """)
+            cursor.execute("ALTER TABLE game_player_records ADD COLUMN IF NOT EXISTS avatar_frame_used INTEGER NOT NULL DEFAULT 0;")
+            # 保存结算时实际加扣的 PT；旧记录保持 NULL，不能当作 0 或用场次得分替代。
+            cursor.execute("ALTER TABLE game_player_records ADD COLUMN IF NOT EXISTS pt_change NUMERIC(12, 2) NULL;")
             # 迁移：若表已存在且缺少 match_type，则追加列（重复列时回滚到 savepoint 继续，避免事务被中止）
             cursor.execute("SAVEPOINT sp_add_match_type;")
             try:
@@ -599,6 +606,19 @@ class DatabaseManager:
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) NULL;")
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMP NULL;")
 
+            # 自助改名次数：新注册默认 0。列首次加入时给已有非游客账号各补 1 次。
+            cursor.execute("SAVEPOINT sp_add_rename_count;")
+            try:
+                cursor.execute("ALTER TABLE users ADD COLUMN rename_count INTEGER NOT NULL DEFAULT 0;")
+                cursor.execute(
+                    "UPDATE users SET rename_count = 1 WHERE COALESCE(is_tourist, FALSE) = FALSE;"
+                )
+            except Error as e:
+                if getattr(e, "pgcode", None) == "42701":
+                    cursor.execute("ROLLBACK TO SAVEPOINT sp_add_rename_count;")
+                else:
+                    raise
+
             # users 表迁移：账号封禁字段
             for col_name, col_def in [
                 ("ban_expires_at", "TIMESTAMP NULL"),
@@ -644,6 +664,8 @@ class DatabaseManager:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
+            from .rule_ratings import ensure_rating_schema
+            ensure_rating_schema(cursor)
             # rank_data 表迁移：guobiao_score 改为浮点，支持小数 PT
             cursor.execute("SAVEPOINT sp_rank_score_float;")
             try:
@@ -671,6 +693,11 @@ class DatabaseManager:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
+
+            from .titles import ensure_title_tables
+            ensure_title_tables(cursor)
+            from .inventory import ensure_inventory_tables
+            ensure_inventory_tables(cursor)
 
             # 创建表user_config（如果不存在）
             cursor.execute("""
@@ -1452,7 +1479,7 @@ class DatabaseManager:
             else:
                 # 注册用户：使用自动递增序列
                 cursor.execute(
-                    "INSERT INTO users (username, password, is_tourist, email, email_verified_at) VALUES (%s, %s, %s, %s, NULL) RETURNING user_id",
+                    "INSERT INTO users (username, password, is_tourist, email, email_verified_at, rename_count) VALUES (%s, %s, %s, %s, NULL, 0) RETURNING user_id",
                     (username, password_hash, is_tourist, email)
                 )
                 user_id = cursor.fetchone()[0]
@@ -1888,6 +1915,7 @@ class DatabaseManager:
                     gpr.title_used,
                     gpr.character_used,
                     gpr.profile_used,
+                    gpr.avatar_frame_used,
                     gpr.voice_used,
                     gr.created_at
                 FROM game_player_records gpr
@@ -1924,6 +1952,7 @@ class DatabaseManager:
                     'title_used': row.get('title_used'),
                     'character_used': row.get('character_used'),
                     'profile_used': row.get('profile_used'),
+                    'avatar_frame_used': row.get('avatar_frame_used',0),
                     'voice_used': row.get('voice_used')
                 })
             
@@ -2105,13 +2134,16 @@ class DatabaseManager:
             if isinstance(record_data, str):
                 record_data = json.loads(record_data)
 
+            from .duplicate_walls import duplicate_record_is_visible
+            if not duplicate_record_is_visible(self, record_data, game_id.strip()):
+                return None
             game_title = record_data.get('game_title') or {}
             rule = game_title.get('rule')
             sub_rule = game_title.get('sub_rule')
             room_type = game_title.get('room_type')
             
             cursor.execute("""
-                SELECT user_id, username, score, rank, original_player_index, rule, sub_rule, room_type, title_used, character_used, profile_used, voice_used
+                SELECT user_id, username, score, rank, original_player_index, rule, sub_rule, room_type, title_used, character_used, profile_used, voice_used, avatar_frame_used
                 FROM game_player_records
                 WHERE game_id = %s
                 ORDER BY rank, original_player_index NULLS LAST, score DESC
@@ -2134,6 +2166,7 @@ class DatabaseManager:
                     'title_used': row.get('title_used'),
                     'character_used': row.get('character_used'),
                     'profile_used': row.get('profile_used'),
+                    'avatar_frame_used': row.get('avatar_frame_used',0),
                     'voice_used': row.get('voice_used')
                 })
             
@@ -2261,15 +2294,23 @@ class DatabaseManager:
             cursor.execute("""
                 SELECT 
                     us.user_id,
-                    us.title_id,
+                    CASE WHEN EXISTS (
+                        SELECT 1 FROM user_titles ut JOIN titles t USING (title_id)
+                        WHERE ut.user_id = us.user_id AND ut.title_id = us.title_id AND t.is_enabled
+                    ) THEN us.title_id ELSE 1 END AS title_id,
                     us.profile_image_id,
                     us.character_id,
                     us.voice_id,
+                    COALESCE((SELECT e.item_id FROM user_equipment e
+                        JOIN item_definitions d ON d.item_id=e.item_id
+                        LEFT JOIN user_inventory i ON i.user_id=e.user_id AND i.item_id=e.item_id
+                        WHERE e.user_id=us.user_id AND e.slot='avatar_frame' AND d.use_enabled AND (d.is_default OR i.quantity>0)),
+                        (SELECT item_id FROM item_definitions WHERE item_id=%s AND is_default AND use_enabled),0) AS avatar_frame_id,
                     u.username
                 FROM user_settings us
                 INNER JOIN users u ON us.user_id = u.user_id
                 WHERE us.user_id = %s
-            """, (user_id,))
+            """, (DEFAULT_AVATAR_FRAME_ID, user_id))
             settings = cursor.fetchone()
             
             if settings:
@@ -3471,6 +3512,13 @@ DatabaseManager.store_changsha_game_stats = store_changsha_game_stats
 from .taiwan.store_taiwan import store_taiwan_game_record
 
 DatabaseManager.store_taiwan_game_record = store_taiwan_game_record
+DatabaseManager.store_changchun_game_record = store_taiwan_game_record
+DatabaseManager.store_hongzhong_game_record = store_taiwan_game_record
+DatabaseManager.store_shanghai_game_record = store_taiwan_game_record
+DatabaseManager.store_tuidao_game_record = store_taiwan_game_record
+DatabaseManager.store_guangdong_game_record = store_taiwan_game_record
+DatabaseManager.store_shanxi_game_record = store_taiwan_game_record
+DatabaseManager.store_wenzhou_game_record = store_taiwan_game_record
 
 # Jiandan keeps replay and statistics adapters in the rule-local database module.
 from .jiandan.store_jiandan import (
@@ -3499,6 +3547,9 @@ from .guobiao.get_leaderboard import get_guobiao_leaderboard
 from .guobiao.get_rank_record_list import get_rank_record_list
 
 DatabaseManager.get_rank_data = get_rank_data
+from .rule_ratings import settle_rated_game, get_rule_leaderboard
+DatabaseManager.settle_rated_game = settle_rated_game
+DatabaseManager.get_rule_leaderboard = get_rule_leaderboard
 DatabaseManager.update_rank_data = update_rank_data
 DatabaseManager.get_user_sponsor_mcrpl = get_user_sponsor_mcrpl
 DatabaseManager.get_guobiao_leaderboard = get_guobiao_leaderboard

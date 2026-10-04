@@ -10,6 +10,8 @@ export interface PailiRequest {
   handTiles: number[];
   combinations: string[];
   options?: PailiOptions;
+  /** Visible tiles outside the hand/melds, including discards made while exploring. */
+  visibleTiles?: number[];
 }
 
 export interface PailiAccept {
@@ -417,12 +419,16 @@ function resolvePailiOptions(options?: PailiOptions): Required<PailiOptions> {
 function validateAndCountVisible(
   hand: number[],
   combinations: string[],
+  visibleTiles: number[] = [],
 ): { concealed: number[]; visible: number[] } {
+  if (combinations.length > 4) throw new Error("副露不能超过 4 组");
   const concealed = handToCounts(hand);
   const visible = [...concealed];
   for (const code of combinations) {
     for (const index of meldTileIndices(code)) visible[index]++;
   }
+  const outside = handToCounts(visibleTiles);
+  outside.forEach((count, index) => { visible[index] += count; });
   const overflow = visible.findIndex((count) => count > 4);
   if (overflow >= 0) throw new Error(`牌 ${TILE_IDS[overflow]} 超过 4 张`);
 
@@ -436,14 +442,13 @@ function validateAndCountVisible(
 function buildAccept(
   counts: number[],
   visible: number[],
-  discardIndex: number,
   baseShanten: number,
   getShanten: (counts: number[]) => number,
 ): PailiAccept[] {
   const accept: PailiAccept[] = [];
   for (let index = 0; index < TILE_IDS.length; index++) {
-    const remaining =
-      4 - visible[index] + Number(index === discardIndex);
+    // A discarded tile remains visible; it cannot return to the wall.
+    const remaining = 4 - visible[index];
     if (remaining <= 0) continue;
     counts[index]++;
     const shanten = getShanten(counts);
@@ -483,7 +488,7 @@ export function calculatePailiShanten(
 export function calculatePaili(request: PailiRequest): PailiResult {
   const hand = [...request.handTiles];
   const combinations = [...request.combinations];
-  const { concealed, visible } = validateAndCountVisible(hand, combinations);
+  const { concealed, visible } = validateAndCountVisible(hand, combinations, request.visibleTiles);
   const options = resolvePailiOptions(request.options);
   const shantenCache = new Map<string, number>();
   const getShanten = (counts: number[]) => {
@@ -500,7 +505,6 @@ export function calculatePaili(request: PailiRequest): PailiResult {
     const accept = buildAccept(
       concealed,
       visible,
-      -1,
       shanten,
       getShanten,
     );
@@ -521,7 +525,6 @@ export function calculatePaili(request: PailiRequest): PailiResult {
     const accept = buildAccept(
       concealed,
       visible,
-      discardIndex,
       shanten,
       getShanten,
     );

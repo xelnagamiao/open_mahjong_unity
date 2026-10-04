@@ -34,7 +34,19 @@
         </el-form-item>
       </div>
       <GuobiaoEmptyRoomConfig v-if="form.room_rule === 'guobiao'" :model-value="form" :show-password="false" panel-layout />
-      <el-alert v-else title="当前仅国标提供完整对局配置，其他规则使用服务端默认参数。" type="info" :closable="false" class="preset-notice" />
+      <ShanxiRoomConfig v-else-if="form.room_rule === 'shanxi'" :form="form" />
+      <HongKongRoomConfig v-else-if="form.room_rule === 'hongkong'" :form="form" />
+      <TuidaoRoomConfig v-else-if="form.room_rule === 'guangdong'" :form="form" />
+      <GuizhouRoomConfig v-else-if="form.room_rule === 'guizhou'" :form="form" :show-password="false" />
+      <HongzhongRoomConfig v-else-if="form.room_rule === 'hongzhong'" :form="form" :show-password="false" />
+      <ChangchunRoomConfig v-else-if="form.room_rule === 'changchun'" :form="form" :show-password="false" />
+      <YixingRoomConfig v-else-if="form.room_rule === 'yixing'" :form="form" :show-password="false" />
+      <WenzhouRoomConfig v-else-if="form.room_rule === 'wenzhou'" :form="form" :show-password="false" />
+      <HangzhouRoomConfig v-else-if="form.room_rule === 'hangzhou'" :form="form" :show-password="false" />
+      <el-form-item v-else-if="form.room_rule === 'riichi'" label="起始点数">
+        <el-input-number v-model="form.starting_score" :min="1000" :max="1000000" :step="100" step-strictly :precision="0" />
+      </el-form-item>
+      <el-alert v-else title="此规则使用默认参数。" type="info" :closable="false" class="preset-notice" />
       <div class="preset-form-actions">
         <el-button type="primary" :loading="busy" :disabled="!loaded || sourceMissing || (!dirty && selectedKey !== 'new')" @click="save">保存配置</el-button>
         <el-button :disabled="busy" @click="cancel">取消修改</el-button>
@@ -49,7 +61,16 @@
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import GuobiaoEmptyRoomConfig from '@/components/GuobiaoEmptyRoomConfig.vue'
-import { buildEventRoomSettings, createEventRoomForm } from '@/utils/eventRoomSettings'
+import ShanxiRoomConfig from '@/components/ShanxiRoomConfig.vue'
+import HongKongRoomConfig from '@/components/HongKongRoomConfig.vue'
+import TuidaoRoomConfig from '@/components/TuidaoRoomConfig.vue'
+import GuizhouRoomConfig from '@/components/GuizhouRoomConfig.vue'
+import YixingRoomConfig from '@/components/YixingRoomConfig.vue'
+import WenzhouRoomConfig from '@/components/WenzhouRoomConfig.vue'
+import HangzhouRoomConfig from '@/components/HangzhouRoomConfig.vue'
+import HongzhongRoomConfig from '@/components/HongzhongRoomConfig.vue'
+import ChangchunRoomConfig from '@/components/ChangchunRoomConfig.vue'
+import { buildEventRoomSettings, clearUnsupportedDuplicateRoom, createEventRoomForm } from '@/utils/eventRoomSettings'
 
 const props = defineProps({
   settingsDoc: { type: Object, required: true },
@@ -62,6 +83,7 @@ const props = defineProps({
 const selectedKey = ref('default')
 const draftName = ref('')
 const form = reactive(createEventRoomForm())
+watch(() => form.room_rule, () => clearUnsupportedDuplicateRoom(form), { flush: 'sync' })
 const initialSignature = ref('')
 const draftRevision = ref(0)
 const conflict = ref(false)
@@ -104,7 +126,10 @@ async function save() {
   if (props.busy || !props.loaded || sourceMissing.value) return
   const name = draftName.value.trim()
   if (selectedKey.value !== 'default' && !name) { ElMessage.warning('请填写预设名称'); return }
-  const { room_rule, room_config } = buildEventRoomSettings(form)
+  let payload
+  try { payload = buildEventRoomSettings(form) }
+  catch (error) { ElMessage.warning(error.message); return }
+  const { room_rule, room_config } = payload
   const result = await props.saveChange({
     kind: selectedKey.value === 'default' ? 'default' : selectedKey.value === 'new' ? 'create' : 'update',
     presetId: selectedKey.value,

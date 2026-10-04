@@ -65,6 +65,10 @@ public class TableEdge : MonoBehaviour
         if (string.IsNullOrEmpty(deletePath)) {
             return;
         }
+        if (TableSurfaceColorLibrary.IsId(deletePath)) {
+            GetComponentInParent<TableEdgePanel>(true)?.DeleteColor(deletePath);
+            return;
+        }
         try {
 #if UNITY_WEBGL && !UNITY_EDITOR
             UnityAssetIdb.Delete(deletePath, FinishDelete);

@@ -6,12 +6,17 @@
       :key="idx"
       class="fulu-slot"
       :class="{ locked: !!slot.locked, active: !slot.locked && activeIdx === idx }"
+      role="group"
+      :aria-label="`副露 #${idx + 1}`"
+      :tabindex="slot.locked ? undefined : 0"
       @click="onSlotClick(idx)"
+      @keydown.enter.self.prevent="onSlotClick(idx)"
+      @keydown.space.self.prevent="onSlotClick(idx)"
     >
       <span class="slot-index">#{{ idx + 1 }}</span>
       <template v-if="slot.locked">
         <el-tag size="small" type="info" effect="plain" class="fulu-kind">{{ slot.locked.label }}</el-tag>
-        <div class="fulu-tiles" @click.stop>
+        <div class="fulu-tiles">
           <TileChip
             v-for="(tid, tIdx) in slot.locked.displayTiles"
             :key="tIdx"
@@ -27,7 +32,6 @@
       </template>
       <template v-else>
         <el-input
-          :ref="(el) => setInputRef(idx, el)"
           v-model="slot.input"
           :placeholder="hints[idx]"
           size="small"
@@ -37,7 +41,7 @@
           @focus="activate(idx)"
           @input="onSlotInput(idx)"
         />
-        <div class="fulu-tiles draft" @click.stop>
+        <div class="fulu-tiles draft">
           <TileChip
             v-for="(tid, tIdx) in draftTiles(idx)"
             :key="tIdx"
@@ -45,15 +49,19 @@
             size="sm"
             @click="removeDraftTile(idx, tIdx)"
           />
+          <TileInputPlaceholder
+            v-if="activeIdx === idx && canAppendTile(idx)"
+            :label="`副露 #${idx + 1} 输入位置`"
+          />
         </div>
-        <div class="fulu-options" @click.stop>
+        <div class="fulu-options">
           <el-button
             v-for="(opt, oIdx) in slot.options"
             :key="oIdx"
             type="primary"
             plain
             size="small"
-            @click="lockSlot(idx, opt)"
+            @click.stop="lockSlot(idx, opt)"
           >
             {{ opt.label }}
           </el-button>
@@ -64,8 +72,8 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
 import TileChip from './TileChip.vue'
+import TileInputPlaceholder from './TileInputPlaceholder.vue'
 import { tryParseMeldTiles, FULU_SLOT_HINTS } from '@/composables/useFuluSlots'
 
 const props = defineProps({
@@ -75,12 +83,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['activate', 'clear', 'input', 'lock', 'remove-draft', 'remove-locked'])
-const inputRefs = ref([])
-
-const setInputRef = (idx, el) => {
-  inputRefs.value[idx] = el
-}
-
 const draftTiles = (idx) => {
   const tiles = tryParseMeldTiles(props.slots[idx]?.input)
   return tiles || []
@@ -89,17 +91,24 @@ const draftTiles = (idx) => {
 const onSlotClick = (idx) => {
   if (props.slots[idx].locked) return
   emit('activate', idx)
-  nextTick(() => {
-    const el = inputRefs.value[idx]
-    if (el && typeof el.focus === 'function') el.focus()
-  })
+}
+
+const canAppendTile = (idx) => {
+  const tiles = tryParseMeldTiles(props.slots[idx]?.input)
+  return tiles !== null && tiles.length < 4
 }
 
 const activate = (idx) => emit('activate', idx)
-const clearSlot = (idx) => emit('clear', idx)
+const clearSlot = (idx) => {
+  emit('clear', idx)
+  emit('activate', idx)
+}
 const onSlotInput = (idx) => emit('input', idx)
 const lockSlot = (idx, opt) => emit('lock', idx, opt)
-const removeDraftTile = (idx, tIdx) => emit('remove-draft', idx, tIdx)
+const removeDraftTile = (idx, tIdx) => {
+  emit('activate', idx)
+  emit('remove-draft', idx, tIdx)
+}
 const onLockedTileClick = (idx, tIdx) => emit('remove-locked', idx, tIdx)
 </script>
 

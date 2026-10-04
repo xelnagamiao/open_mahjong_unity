@@ -8,7 +8,7 @@ public class WindowsManager : MonoBehaviour {
 
     [Header("顶层窗口")]
     [SerializeField] private GameObject headerPanel; //
-    [SerializeField] private GameObject chatPanel; // 聊天窗口 保持窗口常开
+    [SerializeField] private GameObject chatPanel; // 主菜单、对局和牌谱中显示；隐藏时继续接收聊天消息
     [SerializeField] private GameObject streamerModePanel; // 主播模式面板
     [SerializeField] private GameObject gamePanel; // 游戏窗口
 
@@ -78,11 +78,24 @@ public class WindowsManager : MonoBehaviour {
     }
 
     public void ApplyStreamerModePanels() {
-        bool showStreamerPanel = StreamerModeHelper.IsEnabled;
+        bool showStreamerPanel = ConfigManager.Instance != null && StreamerModeHelper.IsEnabled;
         GameObject chat = ResolveChatPanel();
         GameObject streamer = ResolveStreamerModePanel();
         if (chat != null) {
-            chat.SetActive(!showStreamerPanel);
+            // 不停用消息接收组件，避免对局期间的新消息触发停用对象上的滚动协程。
+            chat.SetActive(true);
+            bool visible = (currentWindow == "menu" || currentWindow == "game"
+                || currentWindow == "record" || currentWindow == "recordscene")
+                && !showStreamerPanel && !CreatePanel.IsAnyCreationPanelOpen;
+            var visibility = EnsureCanvasGroup(chat);
+            visibility.alpha = visible ? 1 : 0;
+            visibility.interactable = visibility.blocksRaycasts = visible;
+            var events = UnityEngine.EventSystems.EventSystem.current;
+            var selected = events ? events.currentSelectedGameObject : null;
+            if (!visible && selected && selected.transform.IsChildOf(chat.transform)) {
+                selected.GetComponent<TMPro.TMP_InputField>()?.DeactivateInputField();
+                events.SetSelectedGameObject(null);
+            }
         }
         if (streamer != null) {
             streamer.SetActive(showStreamerPanel);
@@ -118,6 +131,7 @@ public class WindowsManager : MonoBehaviour {
         ApplyColdBootHiddenState();
         EnsurePanelVisible(loginPanel);
         currentWindow = "login";
+        ApplyStreamerModePanels();
         lastLobbyTab = "menu";
         gameReturnWindow = "menu";
         roomReturnWindow = "menu";
@@ -169,6 +183,52 @@ public class WindowsManager : MonoBehaviour {
     // 切换窗口
     public void SwitchWindow(string targetWindow) {
         StartSwitchWindow(targetWindow, ensureHeader: false);
+    }
+
+    /// <summary>
+    /// 牌谱组件可以随上一场对局/退出牌谱被停用，首次进入时也可能尚未执行 Awake。
+    /// 退出会停用游戏窗口上层的 GameCanvas，必须恢复完整父链。
+    /// 先从当前游戏窗口查找实际组件，再显式激活其父链，不以单例是否已建立判断场景是否存在。
+    /// </summary>
+    public bool TryPrepareRecordScene(out GameRecordManager recordManager, out string error) {
+        recordManager = null;
+        error = null;
+        if (gamePanel == null) {
+            error = "游戏窗口引用缺失";
+            return false;
+        }
+
+        recordManager = gamePanel.GetComponentInChildren<GameRecordManager>(true);
+        if (recordManager == null) {
+            error = "游戏窗口缺少牌谱组件";
+            return false;
+        }
+        RecordSetting recordSetting = gamePanel.GetComponentInChildren<RecordSetting>(true);
+        if (recordSetting == null) {
+            error = "游戏窗口缺少牌谱设置组件";
+            return false;
+        }
+
+        SwitchWindow("recordscene");
+        ActivateHierarchy(recordManager.transform);
+        ActivateHierarchy(recordSetting.transform);
+
+        if (GameRecordManager.Instance != recordManager || !recordManager.gameObject.activeInHierarchy
+            || RecordSetting.Instance != recordSetting || !recordSetting.gameObject.activeInHierarchy) {
+            error = "牌谱组件未能初始化，请检查场景错误日志";
+            return false;
+        }
+        return true;
+    }
+
+    private static void ActivateHierarchy(Transform child) {
+        var parents = new Stack<GameObject>();
+        for (Transform node = child; node != null; node = node.parent) {
+            parents.Push(node.gameObject);
+        }
+        while (parents.Count > 0) {
+            parents.Pop().SetActive(true);
+        }
     }
 
     /// <summary>
@@ -295,6 +355,7 @@ public class WindowsManager : MonoBehaviour {
             lastLobbyTab = targetWindow;
         }
         currentWindow = targetWindow; // 更新当前窗口状态
+        ApplyStreamerModePanels();
         HeaderPanel.Instance?.UpdateButtonState(targetWindow); // 即时刷新导航栏按钮
         if (targetWindow == "room") {
             if (UserDataManager.Instance.RoomId == UserDataManager.ROOM_ID_NONE) {
@@ -315,6 +376,11 @@ public class WindowsManager : MonoBehaviour {
             if (!wasActive.Contains(go)) fadeIn.Add((go, EnsureCanvasGroup(go))); // 从隐藏到显示
         }
 
+        // 场景退出会停用 GameCanvas 根；恢复游戏窗口的祖先，GamePanel 本身仍由淡入流程激活。
+        // gamePanel.activeSelf 可能已为 true，故每次进入对局/牌谱都必须恢复父链。
+        if ((targetWindow == "game" || targetWindow == "recordscene") && gamePanel != null) {
+            ActivateHierarchy(gamePanel.transform.parent);
+        }
         WindowFadeTransition.PrepareFadeIn(fadeIn); // 统一淡入初态
         WindowFadeTransition.PrepareFadeOut(fadeOut); // 统一淡出初态
         if (fadeOut.Count == 0 && fadeIn.Count == 0) {

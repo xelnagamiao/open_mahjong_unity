@@ -169,6 +169,8 @@ public static class GameRecordMeldCodec {
 
     /// <summary>用实际移除的 4 张牌构建暗杠掩码（含赤宝真实 ID）。</summary>
     public static int[] BuildAngangMaskFromRemoved(IReadOnlyList<int> removedTiles, string rule) {
+        var custom=RuleRegistry.Resolve(rule,rule)?.ReplayConcealedKongMask;
+        if (custom!=null && removedTiles!=null && removedTiles.Count==4) return custom(rule,removedTiles);
         int r0 = removedTiles != null && removedTiles.Count > 0 ? removedTiles[0] : 0;
         int r1 = removedTiles != null && removedTiles.Count > 1 ? removedTiles[1] : r0;
         int r2 = removedTiles != null && removedTiles.Count > 2 ? removedTiles[2] : r0;

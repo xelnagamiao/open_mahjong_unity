@@ -11,6 +11,7 @@ internal static class FreeLobby {
 
     public static Dictionary<string, object> Defaults() {
         return new Dictionary<string, object> {
+            { CreateRoomKeys.PointerTips, true },
             { CreateRoomKeys.Password, false },
             { CreateRoomKeys.RandomSeed, false },
             { CreateRoomKeys.WallWan, true },

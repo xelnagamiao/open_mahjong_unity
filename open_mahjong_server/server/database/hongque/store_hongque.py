@@ -58,8 +58,8 @@ def store_hongque_game_record(db_manager, game_record: dict, player_list: list, 
                     INSERT INTO game_player_records (
                         game_id, user_id, username, score, rank, original_player_index,
                         rule, sub_rule, match_type, room_type, match_tier, event_id,
-                        title_used, character_used, profile_used, voice_used
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        title_used, character_used, profile_used, voice_used, avatar_frame_used
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         game_id, player.user_id, player.username, player.score, rank,
@@ -69,6 +69,7 @@ def store_hongque_game_record(db_manager, game_record: dict, player_list: list, 
                         getattr(player, "character_used", None),
                         getattr(player, "profile_used", None),
                         getattr(player, "voice_used", None),
+                        getattr(player, "avatar_frame_used", 0),
                     ),
                 )
                 saved_count += 1

@@ -44,6 +44,7 @@ class FreeGameState:
         self.spectator_manager = None
         self.game_record: dict = {}
         self.tips = False
+        self.pointer_tips = bool(room_data.get("pointer_tips", True))
         self.wall_flags = {key: bool(room_data.get(key, True)) for key in WALL_FLAG_KEYS}
         self.wall_template = build_wall_tiles({**room_data, **self.wall_flags})
         user_seed = room_data.get("random_seed")
@@ -59,6 +60,7 @@ class FreeGameState:
         self.tiles_list: list[int] = []
         self.action_tick = 0
         self.transfer_tile: Optional[int] = None
+        self.transfer_face_down = False
         self.score_revision = 0
         self.discard_log: list[tuple[int, int]] = []
         self.ended = False
@@ -98,6 +100,7 @@ class FreeGameState:
         for player in self.player_list:
             player.clear_table()
         self.transfer_tile = None
+        self.transfer_face_down = False
         self.discard_log.clear()
         if reshuffle:
             shuffle_wall(self)
@@ -215,14 +218,20 @@ class FreeGameState:
             return
         player.revealed = True
         self._bump_tick()
-        await boardcast.broadcast_free_table(self, "reveal", revealed_player_index=player.player_index)
+        await boardcast.broadcast_free_table(
+            self, "reveal", revealed_player_index=player.player_index,
+            actor_player_index=player.player_index,
+        )
 
     async def _stand(self, player: FreePlayer, _message: dict) -> None:
         if not player.revealed:
             return
         player.revealed = False
         self._bump_tick()
-        await boardcast.broadcast_free_table(self, "stand", revealed_player_index=player.player_index)
+        await boardcast.broadcast_free_table(
+            self, "stand", revealed_player_index=player.player_index,
+            actor_player_index=player.player_index,
+        )
 
     def _parse_mask(self, raw) -> Optional[list[int]]:
         if not isinstance(raw, list) or len(raw) not in (4, 6, 8) or len(raw) % 2:
@@ -248,12 +257,20 @@ class FreeGameState:
         river = boardcast.last_alive_discard(self)
         river_player = None
         river_tile = None
+        river_index = None
         hand_needed = list(tiles)
         if include_river:
             if river is None:
                 return
             river_player, river_tile = river
             if river_tile not in tiles:
+                return
+            # 新客户端可指定拖拽后的来源位置；旧客户端仍取第一张同值牌。
+            river_index = message.get("river_tile_index")
+            if river_index is None:
+                river_index = tiles.index(river_tile)
+            if (type(river_index) is not int or not 0 <= river_index < len(tiles)
+                    or tiles[river_index] != river_tile):
                 return
             hand_needed.remove(river_tile)
         remaining = list(player.hand_tiles)
@@ -271,10 +288,7 @@ class FreeGameState:
             owner.discard_tiles.remove(river_tile)
             self._remove_discard_log(river_player, river_tile)
             cut_from = river_player
-            for i in range(0, len(mask), 2):
-                if mask[i + 1] == river_tile:
-                    mask[i] = 1
-                    break
+            mask[river_index * 2] = 1
         player.combination_mask.append(mask)
         player.combination_tiles.append(f"F{len(player.combination_tiles)}")
         self._bump_tick()
@@ -366,13 +380,16 @@ class FreeGameState:
         if tile_id <= 0 or not player.take_hand_tile(tile_id):
             return
         self.transfer_tile = tile_id
+        self.transfer_face_down = message.get("face_down") is True
         self._bump_tick()
         await boardcast.broadcast_do_action(self, {
             viewer: boardcast.do_action_envelope(
                 self,
                 ["free_transfer_put"],
                 player.player_index,
-                cut_tile=tile_id,
+                revealed_player_index=player.player_index if player.revealed else None,
+                cut_tile=tile_id if not self.transfer_face_down or viewer == player.player_index else 0,
+                transfer_face_down=self.transfer_face_down,
             )
             for viewer in range(self.seat_count)
         })
@@ -381,7 +398,12 @@ class FreeGameState:
         if self.transfer_tile is None:
             return
         tile_id = self.transfer_tile
+        face_down = self.transfer_face_down
         self.transfer_tile = None
+        self.transfer_face_down = False
+        # 暗牌只交给拿牌者；公开手牌须先竖起，避免广播/重连快照立即泄露新牌。
+        if face_down:
+            player.revealed = False
         player.hand_tiles.append(tile_id)
         self._bump_tick()
         await boardcast.broadcast_do_action(self, {
@@ -389,7 +411,9 @@ class FreeGameState:
                 self,
                 ["free_transfer_take"],
                 player.player_index,
-                deal_tile=tile_id,
+                revealed_player_index=player.player_index if player.revealed else None,
+                deal_tile=tile_id if not face_down or viewer == player.player_index else 0,
+                transfer_face_down=face_down,
             )
             for viewer in range(self.seat_count)
         })
@@ -410,14 +434,14 @@ class FreeGameState:
             if 0 <= index < n:
                 self.player_list[index].score = score
         self.score_revision += 1
-        await boardcast.broadcast_free_table(self, "scores")
+        await boardcast.broadcast_free_table(self, "scores", actor_player_index=player.player_index)
 
     async def _set_vote(self, player: FreePlayer, message: dict) -> None:
         vote = str(message.get("vote") or VOTE_BLANK)
         if vote not in VALID_VOTES:
             return
         player.vote = vote
-        await boardcast.broadcast_free_table(self, "votes")
+        await boardcast.broadcast_free_table(self, "votes", actor_player_index=player.player_index)
         if vote == VOTE_BLANK:
             return
         if all(item.vote == vote for item in self.player_list):
@@ -443,9 +467,6 @@ class FreeGameState:
             await self.game_server.gamestate_manager.cleanup_game_state_complete(
                 gamestate_id=self.gamestate_id
             )
-            room_manager = getattr(self.game_server, "room_manager", None)
-            if room_manager is not None and hasattr(room_manager, "finish_custom_game_room"):
-                await room_manager.finish_custom_game_room(self.room_id)
 
     async def player_disconnect(self, user_id: int) -> None:
         player = self._player_by_user(user_id)
@@ -453,6 +474,8 @@ class FreeGameState:
             return
         if "offline" not in player.tag_list:
             player.tag_list.append("offline")
+        from ..public.lifecycle import close_if_all_humans_offline
+        await close_if_all_humans_offline(self)
 
     async def player_reconnect(self, user_id: int) -> None:
         player = self._player_by_user(user_id)

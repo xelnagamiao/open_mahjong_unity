@@ -34,8 +34,8 @@ import { useMahjongCatalog } from '@/composables/useMahjongCatalog'
 const route = useRoute()
 const { catalog, phy, areal, loadError, load } = useMahjongCatalog()
 const mapTab = computed(() => (route.meta.lineageTab === 'rel' ? 'rel' : 'year'))
-const yearLede = '从纸牌、骨牌到各地现行打法，按出现年代排列。点规则名可打开对应条目。'
-const relLede = '按张数、吃、字牌、计分、癞子这类结构特征分组，不是按省名；同组不代表玩法完全一样。'
+const yearLede = '从宁波早期见证向下核查。日期注明采集、出版或规则版本，不自动等于发明年；“形成时间待证”一行是独立研究队列。点规则名可查来源与待证关系。'
+const relLede = '按手牌张数、吃牌、计分、百搭等结构特征及具名版本比较；同组不表示同源，历史联系须有原典支持。'
 
 function syncTitle() {
   document.title = route.meta.title || '麻将谱系 · 麻雀图书馆'

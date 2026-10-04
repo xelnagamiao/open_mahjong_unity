@@ -2,30 +2,24 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>场景里画好的单张牌面预览槽。背景在根 Image 上，花纹叠在 FaceOverlay 上。</summary>
-public class CardFacePreviewSlot : MonoBehaviour {
+public partial class CardFacePreviewSlot : MonoBehaviour {
     public int tileId;
     public Image image;
     [SerializeField] private Image overlay;
-    private Image tableBackgroundLayer;
+    [SerializeField] private Image tableBackgroundLayer;
     private bool showingTable;
     private float tableImageScale = TileTextureLayout.TableImageScale;
 
     public void ApplyTable(Sprite sprite, Sprite background, Color baseColor, bool dimMissingCustom,
         float imageScale = TileTextureLayout.TableImageScale) {
         showingTable = true;
+        overlay.rectTransform.localScale = Vector3.one;
         tableImageScale = imageScale;
         image.sprite = TileFaceResolver.FlatTableBackground;
         image.preserveAspect = true;
-        baseColor.a = dimMissingCustom ? .45f : 1f;
-        image.color = baseColor;
+        baseColor.a = 1f;
         Color tint = dimMissingCustom ? new Color(1f, 1f, 1f, .45f) : Color.white;
-        if (background != null && tableBackgroundLayer == null) {
-            var layer = new GameObject("TableBackgroundLayer", typeof(RectTransform), typeof(Image));
-            layer.transform.SetParent(image.transform, false);
-            layer.transform.SetAsFirstSibling();
-            tableBackgroundLayer = layer.GetComponent<Image>();
-            tableBackgroundLayer.raycastTarget = false;
-        }
+        image.color = baseColor * tint;
         if (tableBackgroundLayer != null) {
             tableBackgroundLayer.gameObject.SetActive(background != null);
             tableBackgroundLayer.sprite = background;
@@ -45,6 +39,7 @@ public class CardFacePreviewSlot : MonoBehaviour {
         FitTableLayers();
     }
 
+
     public void Apply(Sprite sprite, bool dimMissingCustom) {
         Apply(sprite, null, dimMissingCustom);
     }
@@ -54,8 +49,9 @@ public class CardFacePreviewSlot : MonoBehaviour {
         if (tableBackgroundLayer != null) tableBackgroundLayer.gameObject.SetActive(false);
         // 切回手牌时恢复原槽位内的完整等比预览，2D 牌体比例保持原资源设计。
         StretchToParent(overlay.rectTransform);
+        overlay.rectTransform.localScale = Vector3.one * TileFaceFit.HandArtworkScale(tileId);
         image.preserveAspect = true;
-        Color tint = dimMissingCustom ? new Color(1f, 1f, 1f, 0.45f) : Color.white;
+        Color tint = dimMissingCustom ? new Color(1f, 1f, 1f, .45f) : Color.white;
         bool layered = background != null && sprite != null;
         if (layered) {
             image.sprite = background;
@@ -67,6 +63,7 @@ public class CardFacePreviewSlot : MonoBehaviour {
             overlay.useSpriteMesh = false;
             overlay.enabled = true;
             overlay.gameObject.SetActive(true);
+            FitHandLayers();
             return;
         }
         overlay.enabled = false;
@@ -81,20 +78,17 @@ public class CardFacePreviewSlot : MonoBehaviour {
     }
 
     private void OnRectTransformDimensionsChange() {
-        if (showingTable && image != null && overlay != null) FitTableLayers();
+        if (image == null || overlay == null) return;
+        if (showingTable) FitTableLayers();
+        else if (overlay.enabled) FitHandLayers();
+    }
+
+    private void FitHandLayers() {
+        TileFaceFit.ApplyHandArtwork(overlay, image, tileId, HandSurfaceLibrary.CurrentFaceLayout);
     }
 
     private void FitTableLayers() {
-        Vector2 size = TileTextureLayout.FitTableCanvas(image.rectTransform.rect.size);
-        FitLayer(overlay.rectTransform, size * tableImageScale);
-        if (tableBackgroundLayer != null) FitLayer(tableBackgroundLayer.rectTransform, size);
-    }
-
-    private static void FitLayer(RectTransform rect, Vector2 size) {
-        rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f);
-        rect.pivot = new Vector2(.5f, .5f);
-        rect.anchoredPosition = Vector2.zero;
-        rect.sizeDelta = size;
+        TileFaceFit.FitTableArtwork(image.rectTransform, overlay, tableBackgroundLayer, tableImageScale);
     }
 
     private static void StretchToParent(RectTransform rect) {

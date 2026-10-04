@@ -51,21 +51,23 @@ public class GameSceneUIManager : MonoBehaviour
     /// </summary>
     public void ClearTemporaryPanels(){
         ResetRealtimeSpectatorUi();
-        EndResultPanel.Instance.ClearEndResultPanel(); // 清空和牌结算面板
-        EndGamePanel.Instance.ClearEndGamePanel();       // 清空游戏结束面板
-        SwitchSeatPanel.Instance.ClearSwitchSeatPanel(); // 清空换位面板
-        EndLiujuPanel.Instance.ClearEndLiujuPanel();     // 清空流局面板
-        PenaltyPanel.Instance.ClearPenaltyPanel(); // 清空罚符面板
-        EndShuheWeiPanel.Instance.ClearEndShuheWeiPanel(); // 清空数和尾面板
-        StartGamePanel.Instance.ClearStartGamePanel();   // 清空开始游戏面板
-        GameRecordManager.Instance.HideGameRecord();     // 隐藏游戏牌谱面板
+        // 登出可能发生在首次打开对局/牌谱之前；此时这些面板还没有执行 Awake。
+        EndResultPanel.Instance?.ClearEndResultPanel(); // 清空和牌结算面板
+        EndGamePanel.Instance?.ClearEndGamePanel();       // 清空游戏结束面板
+        SwitchSeatPanel.Instance?.ClearSwitchSeatPanel(); // 清空换位面板
+        EndLiujuPanel.Instance?.ClearEndLiujuPanel();     // 清空流局面板
+        PenaltyPanel.Instance?.ClearPenaltyPanel(); // 清空罚符面板
+        EndShuheWeiPanel.Instance?.ClearEndShuheWeiPanel(); // 清空数和尾面板
+        StartGamePanel.Instance?.ClearStartGamePanel();   // 清空开始游戏面板
+        GameRecordManager.Instance?.HideGameRecord();     // 隐藏游戏牌谱面板
         ClearScoreRecordState();
-        TipsBlock.Instance.HideTipsBlock(); // 隐藏提示面板
-        TipsContainer.Instance.HideTips(); // 隐藏提示容器
-        AutoAction.Instance.gameObject.SetActive(false); // 隐藏自动行为组件
-        RecordSetting.Instance.gameObject.SetActive(false); // 隐藏牌谱设置组件
-        RoundEndPresentation.Instance.StopActiveSequence();
-        RoundEndPresentation.Instance.ResetSichuanEndgameQueue();
+        TipsBlock.Instance?.HideTipsBlock(); // 隐藏提示面板
+        TipsContainer.Instance?.HideTips(); // 隐藏提示容器
+        AutoAction.Instance?.DismissTimeoutReturnIfAny();
+        AutoAction.Instance?.gameObject.SetActive(false); // 隐藏自动行为组件
+        RecordSetting.Instance?.gameObject.SetActive(false); // 隐藏牌谱设置组件
+        RoundEndPresentation.Instance?.StopActiveSequence();
+        RoundEndPresentation.Instance?.ResetSichuanEndgameQueue();
     }
 
     /// <summary>
@@ -225,6 +227,7 @@ public class GameSceneUIManager : MonoBehaviour
         TipsBlock.Instance?.HideTipsBlock();
         TipsContainer.Instance?.HideTips();
         if (AutoAction.Instance != null) {
+            AutoAction.Instance.DismissTimeoutReturnIfAny();
             AutoAction.Instance.gameObject.SetActive(false);
         }
         RecordSetting settings = RecordSetting.Instance;

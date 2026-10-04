@@ -6,9 +6,11 @@ using TMPro;
 
 public partial class GamePlayerPanel {
     const string InfoSpritePath = "Icon/iconmonstr.com/iconmonstr-eye-3-240";
+    const string RecordPerspectiveSpritePath = "Icon/iconmonstr.com/iconmonstr-arrow-right-circle-lined-240";
     const string StickerIconPath = "Icon/iconmonstr.com/iconmonstr-x-mark-square-lined-240";
     const string StickerMutedIconPath = "Icon/iconmonstr.com/iconmonstr-x-mark-square-filled-240";
     const string MenuFontResource = "font/Chinese/AlibabaPuHuiTi/AlibabaPuHuiTi-3-55-Regular SDF";
+    const float MenuButtonSize = 76f;
 
     static readonly Color MenuBg = new Color(0.08f, 0.08f, 0.1f, 0.94f);
     static readonly Color ButtonBg = new Color(0.18f, 0.18f, 0.22f, 0.96f);
@@ -16,6 +18,7 @@ public partial class GamePlayerPanel {
     static readonly Color LabelColor = new Color(1f, 1f, 0.95f, 1f);
 
     int _boundUserId;
+    int _boundOriginalPlayerIndex = -1;
     string _boundState;
     string _boundPosition;
     int _ignoreClickOutsideFrame = -1;
@@ -24,11 +27,11 @@ public partial class GamePlayerPanel {
         if (actionMenu != null) actionMenu.SetActive(false);
     }
 
-    /// <summary>对局内点头像/面板：自己直接打开资料；他人弹出信息+屏蔽菜单。返回 true 表示已处理。</summary>
+    /// <summary>点击头像：牌谱弹出信息+转到菜单；对局中自己直接打开资料，他人弹出信息+屏蔽菜单。</summary>
     public bool TryHandleProfileClick() {
-        if (_boundState != "gamestate") return false;
+        if (_boundState != "gamestate" && _boundState != "record") return false;
 
-        if (IsSelfPanel()) {
+        if (_boundState == "gamestate" && IsSelfPanel()) {
             GameCanvas.Instance?.HideAllPlayerActionMenus();
             ProfileOnClick.OpenPlayerInfo(_boundUserId);
             return true;
@@ -41,9 +44,7 @@ public partial class GamePlayerPanel {
         GameCanvas.Instance?.HideAllPlayerActionMenus();
         if (!willShow) return true;
 
-        RefreshMuteVisual();
-        if (infoButton != null) infoButton.gameObject.SetActive(true);
-        if (muteButton != null) muteButton.gameObject.SetActive(_boundUserId >= 10);
+        RefreshActionMenuVisual();
         ApplyActionMenuPosition();
         actionMenu.SetActive(true);
         actionMenu.transform.SetAsLastSibling();
@@ -59,30 +60,43 @@ public partial class GamePlayerPanel {
     }
 
     public void EnsureActionMenu() {
+        if (GoToRecordSelectButton != null) GoToRecordSelectButton.gameObject.SetActive(false);
         Transform found = transform.Find(ActionMenuName);
         if (found != null) BindExistingActionMenu(found);
         else if (actionMenu == null) CreateActionMenu();
+        if (actionMenu != null && recordPerspectiveButton == null) {
+            Transform goTo = actionMenu.transform.Find("GoToButton");
+            recordPerspectiveButton = goTo != null
+                ? goTo.GetComponent<Button>()
+                : CreateMenuButton(actionMenu.transform, "GoToButton", "转到", Resources.Load<Sprite>(RecordPerspectiveSpritePath));
+        }
         LoadMuteSpritesIfNeeded();
         ApplyMuteIconsToButton();
         BindActionMenuButtons();
-        RefreshMuteVisual();
+        RefreshActionMenuVisual();
     }
 
-    void BindActionMenuContext(int userId, string state, string position) {
+    void BindActionMenuContext(int userId, string state, string position, int originalPlayerIndex = -1) {
         _boundUserId = userId;
+        _boundOriginalPlayerIndex = state == "record" && originalPlayerIndex >= 0 && originalPlayerIndex < 4
+            ? originalPlayerIndex : -1;
         _boundState = state;
         _boundPosition = position;
         EnsureActionMenu();
         HideActionMenu();
-        RefreshMuteVisual();
     }
 
     void OnInfoClicked() {
         HideActionMenu();
+        if (_boundState == "record" && GameRecordManager.Instance != null && GameRecordManager.Instance.IsExternalRecord) {
+            NotificationManager.Instance?.ShowTip("玩家资料", false, "外部牌谱玩家，无本站资料");
+            return;
+        }
         ProfileOnClick.OpenPlayerInfo(_boundUserId);
     }
 
     void OnMuteClicked() {
+        if (_boundState != "gamestate") return;
         var mgr = NormalGameStateManager.Instance;
         if (mgr == null || _boundUserId < 10) return;
         bool muted = mgr.ToggleStickerMute(_boundUserId);
@@ -90,10 +104,24 @@ public partial class GamePlayerPanel {
         RefreshMuteVisual();
     }
 
-    void RefreshMuteVisual() {
-        if (infoButton != null) infoButton.gameObject.SetActive(true);
-        if (muteButton != null) muteButton.gameObject.SetActive(_boundUserId < 10 ? false : true);
+    void OnRecordPerspectiveClicked() {
+        HideActionMenu();
+        if (_boundState != "record") return;
+        if (_boundOriginalPlayerIndex >= 0) {
+            GameRecordManager.Instance?.SwitchRecordPerspectiveToOriginalPlayerIndex(_boundOriginalPlayerIndex);
+        } else {
+            GameRecordManager.Instance?.SwitchRecordPerspectiveToUser(_boundUserId);
+        }
+    }
 
+    void RefreshActionMenuVisual() {
+        if (infoButton != null) infoButton.gameObject.SetActive(true);
+        if (muteButton != null) muteButton.gameObject.SetActive(_boundState == "gamestate" && _boundUserId >= 10);
+        if (recordPerspectiveButton != null) recordPerspectiveButton.gameObject.SetActive(_boundState == "record");
+        RefreshMuteVisual();
+    }
+
+    void RefreshMuteVisual() {
         bool muted = IsStickerMutedForBoundPlayer();
         ApplyMuteIconsToButton();
         if (muteButtonLabel != null) muteButtonLabel.text = muted ? "显示" : "屏蔽";
@@ -116,6 +144,10 @@ public partial class GamePlayerPanel {
         if (muteButton != null) {
             muteButton.onClick.RemoveListener(OnMuteClicked);
             muteButton.onClick.AddListener(OnMuteClicked);
+        }
+        if (recordPerspectiveButton != null) {
+            recordPerspectiveButton.onClick.RemoveListener(OnRecordPerspectiveClicked);
+            recordPerspectiveButton.onClick.AddListener(OnRecordPerspectiveClicked);
         }
     }
 
@@ -161,7 +193,7 @@ public partial class GamePlayerPanel {
         fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
         actionMenu = root;
-        infoButton = CreateMenuButton(root.transform, "InfoButton", "信息", Resources.Load<Sprite>(InfoSpritePath));
+        infoButton = CreateMenuButton(root.transform, "InfoButton", "查看信息", Resources.Load<Sprite>(InfoSpritePath));
         muteButton = CreateMenuButton(root.transform, "MuteButton", "屏蔽", stickerVisibleSprite);
         Transform muteIcon = muteButton.transform.Find("Icon");
         if (muteIcon != null) muteButtonImage = muteIcon.GetComponent<Image>();
@@ -176,7 +208,7 @@ public partial class GamePlayerPanel {
         go.layer = gameObject.layer;
         go.transform.SetParent(parent, false);
         RectTransform rt = go.GetComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(56f, 68f);
+        rt.sizeDelta = new Vector2(MenuButtonSize, MenuButtonSize);
 
         Image bg = go.GetComponent<Image>();
         bg.color = ButtonBg;
@@ -197,10 +229,10 @@ public partial class GamePlayerPanel {
         vlayout.childForceExpandHeight = false;
 
         LayoutElement le = go.GetComponent<LayoutElement>();
-        le.preferredWidth = 56f;
-        le.preferredHeight = 68f;
-        le.minWidth = 56f;
-        le.minHeight = 68f;
+        le.preferredWidth = MenuButtonSize;
+        le.preferredHeight = MenuButtonSize;
+        le.minWidth = MenuButtonSize;
+        le.minHeight = MenuButtonSize;
 
         GameObject iconGo = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement));
         iconGo.layer = gameObject.layer;
@@ -228,7 +260,7 @@ public partial class GamePlayerPanel {
         tmp.raycastTarget = false;
         LayoutElement labelLe = labelGo.GetComponent<LayoutElement>();
         labelLe.preferredHeight = 20f;
-        labelGo.GetComponent<RectTransform>().sizeDelta = new Vector2(52f, 20f);
+        labelGo.GetComponent<RectTransform>().sizeDelta = new Vector2(MenuButtonSize - 8f, 20f);
         return button;
     }
 
@@ -247,8 +279,8 @@ public partial class GamePlayerPanel {
         if (actionMenu == null) return;
         RectTransform rt = actionMenu.transform as RectTransform;
         if (rt == null) return;
-        // 左侧玩家贴屏幕左缘，菜单放到头像右侧；其余对手放到头像左侧。
-        bool placeOnRight = IsLeftPanel();
+        // 左侧和自己面板位于屏幕左边，菜单放到头像右侧；其余面板放到头像左侧。
+        bool placeOnRight = IsLeftPanel() || IsSelfPanel();
         rt.anchorMin = new Vector2(0.5f, 0.5f);
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(placeOnRight ? 0f : 1f, 0.5f);
@@ -287,7 +319,7 @@ public partial class GamePlayerPanel {
     }
 }
 
-/// <summary>把头像边框点击转到对局操作菜单，避免点到边框时仍直接开资料。</summary>
+/// <summary>把头像边框点击转到共通操作菜单，避免点到边框时仍直接开资料。</summary>
 public sealed class PlayerPanelClickRelay : MonoBehaviour, IPointerClickHandler {
     public void OnPointerClick(PointerEventData eventData) {
         if (eventData.button != PointerEventData.InputButton.Left) return;

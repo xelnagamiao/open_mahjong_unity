@@ -49,8 +49,8 @@ public class MeunPanel : MonoBehaviour {
         WindowsManager.Instance.SwitchWindow("match");
     }
 
-    public void UpdateMatchPlayerCount(Dictionary<string, QueueStatusEntry> queueStatus) {
-        UpdateMatchPlayerCountText(CountTotalMatchPlayers(queueStatus));
+    public void UpdateMatchPlayerCount(Dictionary<string, QueueStatusEntry> queueStatus, int? uniquePlayerCount = null) {
+        UpdateMatchPlayerCountText(uniquePlayerCount ?? CountTotalMatchPlayers(queueStatus));
     }
 
     public static int CountTotalMatchPlayers(Dictionary<string, QueueStatusEntry> queueStatus) {

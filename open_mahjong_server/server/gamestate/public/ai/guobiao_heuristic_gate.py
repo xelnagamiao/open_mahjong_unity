@@ -3,15 +3,15 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-GUOBIAO_HEURISTIC_ALLOWED_SUB_RULE = "guobiao/standard"
+GUOBIAO_HEURISTIC_ALLOWED_SUB_RULES = frozenset(("guobiao/standard", "guobiao/blood_battle"))
 GUOBIAO_HEURISTIC_UNSUPPORTED_MSG = "高性能罗伯特暂未支持该国标变种规则"
-GUOBIAO_HEURISTIC_NON_GUOBIAO_MSG = "高性能罗伯特仅可加入国标标准或虹雀房间"
+GUOBIAO_HEURISTIC_NON_GUOBIAO_MSG = "高性能罗伯特仅可加入国标标准、国标血战到底或虹雀房间"
 
 
 def guobiao_heuristic_bot_reject_reason(room_data: Dict[str, Any]) -> Optional[str]:
     """若不可加座返回错误文案，否则 None。
 
-    允许虹雀，或 room_rule==guobiao 且 sub_rule==guobiao/standard
+    允许虹雀，或国标标准、血战到底
     （国标缺省子规则视为 standard）。
     """
     room_rule = room_data.get("room_rule")
@@ -19,7 +19,7 @@ def guobiao_heuristic_bot_reject_reason(room_data: Dict[str, Any]) -> Optional[s
         return None
     if room_rule != "guobiao":
         return GUOBIAO_HEURISTIC_NON_GUOBIAO_MSG
-    sub_rule = room_data.get("sub_rule") or GUOBIAO_HEURISTIC_ALLOWED_SUB_RULE
-    if sub_rule != GUOBIAO_HEURISTIC_ALLOWED_SUB_RULE:
+    sub_rule = room_data.get("sub_rule") or "guobiao/standard"
+    if sub_rule not in GUOBIAO_HEURISTIC_ALLOWED_SUB_RULES:
         return GUOBIAO_HEURISTIC_UNSUPPORTED_MSG
     return None

@@ -139,9 +139,11 @@ export class MahjongScene {
   private scores: [number, number, number, number] = [0, 0, 0, 0]
   private voiceIds: [number, number, number, number] = [1, 1, 1, 1]
   private present: [boolean, boolean, boolean, boolean] = [true, true, true, true]
+  private duplicateRemainingTiles: (number | undefined)[] = [undefined, undefined, undefined, undefined]
   private currentDir = 0
   private lastDiscarderSeat = 0
   private round = 0
+  private roundLabelFormatter: ((roundCounter: number) => string) | null = null
   private remainingTiles = 0
   private currentStageCounter = 0
   // private lastEventUi64Value = 0
@@ -297,9 +299,14 @@ export class MahjongScene {
     if (fontChanged) this.applyFontTheme()
   }
 
+  setRoundLabelFormatter(formatter: ((roundCounter: number) => string) | null): void {
+    this.roundLabelFormatter = formatter
+    this.refreshRoundLabel()
+  }
+
   refreshRoundLabel(): void {
     if (!this.mounted) return
-    this.stateDisplay.setRound(this.round, this.appearance.roundLabelFormat)
+    this.stateDisplay.setRound(this.round, this.appearance.roundLabelFormat, this.roundLabelFormatter?.(this.round))
   }
 
   setActiveTileCoverIndex(index: number): void {
@@ -418,6 +425,7 @@ export class MahjongScene {
   }
 
   destroy(): void {
+    this.duplicateRemainingTiles.fill(undefined)
     this.destroyed = true
     this.mountGeneration += 1
     if (this.resizeFrame !== null) {
@@ -779,7 +787,7 @@ export class MahjongScene {
 
   private applyCenterScores(): void {
     for (let i = 0; i < 4; i += 1) {
-      this.rivers[i]?.setPlayerInfo(this.ranks[i], this.names[i], !this.present[i])
+      this.rivers[i]?.setPlayerInfo(this.ranks[i], this.names[i], !this.present[i], this.duplicateRemainingTiles[i])
       this.stateDisplay.setScore(
         this.names[i],
         this.scores[i],
@@ -1591,6 +1599,7 @@ export class MahjongScene {
     }
 
     // Populate seats
+    this.duplicateRemainingTiles.fill(undefined)
     const localSeats: (SeatSnapshot | null)[] = [null, null, null, null]
     for (const seat of seats) {
       const localDir = transDir(seat.seat_index, this.selfDir)
@@ -1602,6 +1611,7 @@ export class MahjongScene {
       if (!seat) continue
 
       this.names[localDir] = displayPlayerName(seat.username)
+      this.duplicateRemainingTiles[localDir] = seat.duplicate_remaining_tile_count
       this.ranks[localDir] = seat.rank || '—'
       this.scores[localDir] = seat.score
       this.voiceIds[localDir] = seat.voice_id === 2 ? 2 : 1
@@ -1625,9 +1635,12 @@ export class MahjongScene {
       for (const meld of seat.melds) {
         const meldType = meld.type === 'sequence' ? 'chow' : meld.type === 'triplet' ? 'pung' : 'kong'
         this.hands[localDir].addMeld(meldType as 'chow' | 'pung' | 'kong', meld.tile, {
+          physicalTiles: meld.physical_tiles,
           chowMode: meld.chow_mode,
           meldFromRel: meld.meld_from_rel,
           concealed: meld.concealed ?? false,
+          concealedFaceDown: meld.concealed_face_down,
+          physicalMask: meld.physical_mask,
           claimedFromDrawnDiscard: meld.claimed_from_drawn_discard ?? false,
           addedFromDrawnTile: meld.added_from_drawn_tile ?? false,
           concealedFromDrawnTile: meld.concealed_from_drawn_tile ?? false,
@@ -1684,7 +1697,7 @@ export class MahjongScene {
     }
 
     // Display
-    this.stateDisplay.setRound(this.round, this.appearance.roundLabelFormat)
+    this.stateDisplay.setRound(this.round, this.appearance.roundLabelFormat, this.roundLabelFormatter?.(this.round))
     this.applyCenterScores()
     this.stateDisplay.setRemaining(this.remainingTiles)
     this.stateDisplay.setCurrent(transDir(this.currentDir, this.selfDir))
@@ -1789,6 +1802,7 @@ export class MahjongScene {
     if (category === 'transition') {
       switch (kind) {
         case 'start': {
+          this.duplicateRemainingTiles.fill(undefined)
           // New round: clear all tiles and reposition based on the new seat wind
           this.roundEnded = false
           this.openingReplacementTile = null
@@ -1942,6 +1956,10 @@ export class MahjongScene {
           if (!event.silent) this.playCallSound('gang', actorDir)
           break
         }
+        case 'rob_kong_tile': {
+          this.hands[actorDir].discardTile(tile ?? 0, event.use_drawn_tile ?? false)
+          break
+        }
         case 'added_kong': {
           const t = tile ?? 0
           const useDrawn = event.use_drawn_tile ?? false
@@ -1960,9 +1978,9 @@ export class MahjongScene {
           const t = tile ?? 0
           const useDrawn = event.use_drawn_tile ?? false
           if (actorDir === 0) {
-            this.hands[0].cKongFromHand(t, useDrawn)
+            this.hands[0].cKongFromHand(t, useDrawn, event.concealed_face_down)
           } else {
-            this.hands[actorDir].cKongFromHand(t, useDrawn)
+            this.hands[actorDir].cKongFromHand(t, useDrawn, event.concealed_face_down)
           }
           if (this.presentationMode === 'replay' && !event.silent) {
             this.showReplayClaimLabel(actorDir, tr('杠'), true)
@@ -2055,6 +2073,7 @@ export class MahjongScene {
     for (const ss of seatStatus) {
       const dir = transDir(ss.seat_index as number, this.selfDir)
       this.names[dir] = displayPlayerName(ss.username)
+      this.duplicateRemainingTiles[dir] = ss.duplicate_remaining_tile_count as number | undefined
       if (typeof ss.rank === 'string') this.ranks[dir] = ss.rank || '—'
       this.scores[dir] = ss.score as number ?? 0
       const isActorPresenceEvent =
@@ -2073,7 +2092,7 @@ export class MahjongScene {
         4.0,
         this.seatWindLabel(dir),
       )
-      this.rivers[dir]?.setPlayerInfo(this.ranks[dir], this.names[dir], !this.present[dir])
+      this.rivers[dir]?.setPlayerInfo(this.ranks[dir], this.names[dir], !this.present[dir], this.duplicateRemainingTiles[dir])
     }
     if (this.scoreDifferenceVisible) {
       this.renderScoreDifferences()
@@ -2090,7 +2109,7 @@ export class MahjongScene {
     const rc: number = state.round_counter ?? -1
     if (rc >= 0 && rc !== this.round) {
       this.round = rc
-      this.stateDisplay.setRound(this.round, this.appearance.roundLabelFormat)
+      this.stateDisplay.setRound(this.round, this.appearance.roundLabelFormat, this.roundLabelFormatter?.(this.round))
     }
     this.stateDisplay.setRemaining(state.remaining_tile_count ?? this.remainingTiles)
     this.applyTileCoverPalette()
@@ -2244,6 +2263,10 @@ export class MahjongScene {
     }
 
     this.deferredPending = null
+    this.duplicateRemainingTiles.fill(undefined)
+    for (let i = 0; i < 4; i += 1) {
+      this.rivers[i]?.setPlayerInfo(this.ranks[i], this.names[i], !this.present[i])
+    }
     this.currentViewerActions = []
     this.currentPendingStatus = 'none'
     this.inputEnabled = false

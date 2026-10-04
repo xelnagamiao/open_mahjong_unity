@@ -196,7 +196,6 @@ export function convertTziakchaStepToSalasasaRound(step, roundOrdinal = 1, recor
   let wallFront = [...remain]
   let lastDiscard = null
   let lastDiscardPlayer = null
-  let lastWasGang = false
   let lastWasFlower = false
 
   const actions = (step.a || []).map(decodeAction)
@@ -233,7 +232,6 @@ export function convertTziakchaStepToSalasasaRound(step, roundOrdinal = 1, recor
       pl.lastDraw = drawn
       ticks.push(['bd', tzToSalasasa(drawn), p])
       lastWasFlower = true
-      lastWasGang = false
       continue
     }
 
@@ -251,7 +249,6 @@ export function convertTziakchaStepToSalasasaRound(step, roundOrdinal = 1, recor
       const sala = tzToSalasasa(tile)
       if (backward) ticks.push(lastWasFlower ? ['bd', sala, p] : ['gd', sala])
       else ticks.push(['d', sala])
-      lastWasGang = false
       lastWasFlower = false
       continue
     }
@@ -264,7 +261,6 @@ export function convertTziakchaStepToSalasasaRound(step, roundOrdinal = 1, recor
       lastDiscard = actual
       lastDiscardPlayer = p
       pl.lastDraw = null
-      lastWasGang = false
       lastWasFlower = false
       continue
     }
@@ -329,7 +325,6 @@ export function convertTziakchaStepToSalasasaRound(step, roundOrdinal = 1, recor
         const actual = removeByBase(pl.hand, tl)
         const isMo = pl.lastDraw != null && (pl.lastDraw & ~3) === (actual & ~3)
         ticks.push(['jg', tzToSalasasa(actual), isMo ? 'T' : 'F'])
-        lastWasGang = true
         pl.lastDraw = null
         continue
       }
@@ -349,7 +344,6 @@ export function convertTziakchaStepToSalasasaRound(step, roundOrdinal = 1, recor
         ])
         lastDiscard = null
       }
-      lastWasGang = true
       pl.lastDraw = null
       continue
     }
@@ -416,6 +410,8 @@ function buildTitleFromTziakcha(session, records, sourceUrl) {
   const g = first.g || {}
   const players = first.p || session?.players || []
   const title = {
+    is_external: true,
+    source_format: 'tziakcha',
     rule: 'guobiao',
     room_type: 'custom',
     sub_rule: 'guobiao/standard',
@@ -435,12 +431,14 @@ function buildTitleFromTziakcha(session, records, sourceUrl) {
   const entry = []
   for (let i = 0; i < 4; i++) {
     const src = players[i] || {}
-    const name = src.n || src.name || `P${i}`
-    const pid = src.i || src.id || name
-    const uid = stableUid(pid)
+    const name = String(src.n ?? src.name ?? `P${i}`)
+    const pid = src.i ?? src.id ?? name
+    let uid = stableUid(pid)
+    while (entry.includes(uid)) uid++
     entry.push(uid)
     title[`p${i}_uid`] = uid
     title[`p${i}_name`] = name
+    title[`p${i}_external_id`] = String(pid)
     title[`p${i}_tziakcha_id`] = pid
   }
   title.player_entry_order = entry
@@ -448,7 +446,6 @@ function buildTitleFromTziakcha(session, records, sourceUrl) {
 }
 
 function stableUid(pid) {
-  if (typeof pid === 'number') return pid
   let h = 0
   for (const ch of String(pid)) h = (h * 131 + ch.charCodeAt(0)) & 0x7fffffff
   return 900000000 + (h % 99999999)
@@ -745,7 +742,7 @@ export function convertSalasasaRoundToTziakchaStep(round, title = {}, roundOrdin
 
   const roundI = Math.max(0, (round.current_round || roundOrdinal) - 1)
   const names = [0, 1, 2, 3].map((i) => ({
-    i: title[`p${i}_tziakcha_id`] || `p${i}`,
+    i: title[`p${i}_external_id`] ?? title[`p${i}_tziakcha_id`] ?? `p${i}`,
     n: title[`p${i}_name`] || `P${i}`,
     e: title[`p${i}_elo`] || 2000,
     a: 0,
@@ -864,10 +861,10 @@ export async function salasasaToTziakcha(input, options = {}) {
       periods: records.length,
       players: [0, 1, 2, 3].map((i) => ({
         n: data.game_title[`p${i}_name`],
-        i: data.game_title[`p${i}_tziakcha_id`]
+        i: data.game_title[`p${i}_external_id`] ?? data.game_title[`p${i}_tziakcha_id`]
       }))
     },
     records,
-    note: 'salasasa→雀渣为近似重建：骰子/实例 id/摸牌座位启发式，可用于分析，不宜当作权威原始谱'
+    note: '近似转换：骰子、实例 ID、摸牌座位由牌谱推算。'
   }
 }

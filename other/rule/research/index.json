@@ -1,6 +1,12 @@
 {
   "rules": [
     {
+      "slug": "ningbo-downstream",
+      "label": "宁波起点与规则分裂点",
+      "collected_at": "2026-09-23",
+      "count": 62
+    },
+    {
       "slug": "mahjong-phylogeny",
       "label": "麻将谱系与分类",
       "collected_at": "2026-08-14",

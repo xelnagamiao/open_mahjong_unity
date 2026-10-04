@@ -20,7 +20,38 @@ internal static class SichuanFanText {
     };
 
     public static string FanValue(string subRule, string fanName) {
+        if (subRule == "sichuan/xueliu_exchange" && UsesModernExchangeDisplay()) {
+            switch (fanName) {
+                case "基本胡": return "2番";
+                case "碰碰胡": return "4番";
+                case "清一色": case "七对": return "6番";
+                case "金钩钓": return "8番";
+                case "清碰": return "10番";
+                case "清七对": return "12番";
+                case "清金钩钓": return "16番";
+                case "门清": case "断幺九": return "1番";
+                case "根": case "杠上花": case "杠上炮": case "抢杠": case "海底": return "+1倍";
+                default: return "0番";
+            }
+        }
+        if (SichuanLobby.IsXueliu(subRule)) {
+            switch (fanName) {
+                case "基本胡": case "门清自摸": case "明杠": return "1番";
+                case "暗杠": return "2番";
+                case "碰碰胡": return "4番";
+                case "清一色": return "6番";
+                case "清碰": return "12番";
+                default: return "0番";
+            }
+        }
         return FanToDisplaySichuan.TryGetValue(fanName, out string display) ? display : "0番";
+    }
+
+    private static bool UsesModernExchangeDisplay() {
+        var record = GameRecordManager.Instance;
+        Dictionary<string, object> config = record != null && record.gameObject.activeSelf
+            ? record.GetDetailedConfigSnapshot() : GameSession.Current.DetailedConfig;
+        return SichuanTips.UsesExchangeScoring("sichuan/xueliu_exchange", config);
     }
 
     /// <summary>总计栏：累加番 + 点。</summary>
@@ -35,11 +66,13 @@ internal static class SichuanFanText {
     public static int FanTotal(string subRule, string[] huFan) {
         if (huFan == null) return 0;
         int total = 0;
+        int extraRoots = 0;
         foreach (string fan in huFan) {
             string display = FanValue(subRule, fan);
+            if (display == "+1倍") extraRoots++;
             if (display.EndsWith("番") && int.TryParse(display.Replace("番", ""), out int val)) total += val;
         }
-        return total;
+        return total * (1 + extraRoots);
     }
 
     public static string ScoreboardFanText(SettlementTotalQuery q) => $"{FanTotal(q.Rule, q.HuFan)}番";

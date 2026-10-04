@@ -1,9 +1,11 @@
+const { withRecordMetadataQuery } = require('./recordMetadataQuery');
 /**
  * /api/player 与 /api/bot/player 共用的 info / records / rank 查询逻辑
  */
 const pool = require('../config/database');
 const { INFO_FAN_DICT } = require('../constants/playerFanDicts');
 const { getScoreBounds, getPromotionProgress } = require('../utils/rankNames');
+const { queryPlayerRatings, queryRankedStats, queryRecordRatings, recordRatingFields } = require('./playerRatings');
 
 const LIST_PAGE_MAX = 50;
 
@@ -13,6 +15,7 @@ const ruleConfig = {
   qingque: { historyTable: 'qingque_history_stats', fanTable: 'qingque_fan_stats' },
   classical: { historyTable: 'classical_history_stats', fanTable: 'classical_fan_stats' },
   changsha: { historyTable: 'changsha_history_stats', fanTable: null },
+  nanque: { historyTable: 'jiandan_history_stats', fanTable: 'jiandan_fan_stats' },
 };
 
 const HISTORY_FIELDS = new Set([
@@ -65,11 +68,13 @@ async function queryRuleStats(userId, rule) {
   }
 
   let fanTotal = null;
+  const fansByMode = new Map();
   if (fanRows.length) {
     const merged = {};
     for (const row of fanRows) {
       const extracted = extractFanStats(row);
       if (!extracted) continue;
+      fansByMode.set(row.mode, extracted);
       for (const [k, v] of Object.entries(extracted)) {
         merged[k] = (merged[k] || 0) + v;
       }
@@ -78,7 +83,8 @@ async function queryRuleStats(userId, rule) {
   }
 
   return historyResult.rows.map((row, idx) => ({
-    rule: row.rule,
+    rule: rule === 'nanque' ? 'zhongyong' : row.rule,
+    ...(rule === 'nanque' ? { sub_rule: 'zhongyong/nanque' } : {}),
     mode: row.mode,
     total_games: row.total_games,
     total_rounds: row.total_rounds,
@@ -96,16 +102,19 @@ async function queryRuleStats(userId, rule) {
     cuohe_count: row.cuohe_count,
     total_round_score: row.total_round_score,
     fan_stats: idx === 0 ? fanTotal : null,
+    mode_fan_stats: fansByMode.get(row.mode) || null,
   }));
 }
 
 async function resolveUserId(key) {
   const raw = String(key == null ? '' : key).trim();
   if (!raw) return null;
-  if (/^\d+$/.test(raw)) {
-    const id = parseInt(raw, 10);
-    return Number.isNaN(id) ? null : id;
+  // 超过 PostgreSQL BIGINT 范围的数字只能作为用户名，避免 UID 查询溢出。
+  if (/^\d+$/.test(raw) && BigInt(raw) <= 9223372036854775807n) {
+    const byId = await pool.query('SELECT user_id FROM users WHERE user_id = $1 LIMIT 1', [raw]);
+    if (byId.rows.length > 0) return parseInt(byId.rows[0].user_id, 10);
   }
+  // UID 未命中时按原始用户名查询，保留纯数字名字中的前导零。
   const r = await pool.query('SELECT user_id FROM users WHERE username = $1 LIMIT 1', [raw]);
   if (r.rows.length === 0) return null;
   return parseInt(r.rows[0].user_id, 10);
@@ -125,7 +134,8 @@ function tierToConditions(tier, params) {
     case 'beginner':
     case 'intermediate':
     case 'advanced':
-    case 'mcrpl': {
+    case 'mcrpl':
+    case 'elo': {
       params.push('match');
       const c1 = `gpr.room_type = $${params.length}`;
       params.push(tier);
@@ -138,6 +148,8 @@ function tierToConditions(tier, params) {
 }
 
 function buildRecordFilters(userId, query, params) {
+  // Lists and settlement statistics expose metadata, including locked games.
+  // Full JSON downloads perform their own duplicateRecordAccess checks.
   const conditions = ['gpr.user_id = $1'];
   params.push(userId);
 
@@ -146,7 +158,8 @@ function buildRecordFilters(userId, query, params) {
     if (tierConds) conditions.push(...tierConds);
   } else if (query.room_type) {
     conditions.push(`gpr.room_type = $${params.push(query.room_type)}`);
-  } else if (query.match_tier) {
+  }
+  if (query.match_tier) {
     conditions.push(`gpr.match_tier = $${params.push(query.match_tier)}`);
   }
 
@@ -241,14 +254,20 @@ async function fetchPlayerInfo(userId) {
   if (userSettingsResult.rows.length === 0) return null;
 
   const userSettings = userSettingsResult.rows[0];
-  const [guobiaoStats, riichiStats, qingqueStats, classicalStats, changshaStats, rankResult] = await Promise.all([
+  const [guobiaoStats, riichiStats, qingqueStats, classicalStats, changshaStats, nanqueStats, rankedStats, rankResult, recordCountsResult] = await Promise.all([
     queryRuleStats(userId, 'guobiao'),
     queryRuleStats(userId, 'riichi'),
     queryRuleStats(userId, 'qingque'),
     queryRuleStats(userId, 'classical'),
     queryRuleStats(userId, 'changsha'),
+    queryRuleStats(userId, 'nanque'),
+    queryRankedStats(pool, userId),
     pool.query(
       'SELECT guobiao_rank, guobiao_score, updated_at FROM rank_data WHERE user_id = $1',
+      [userId]
+    ),
+    pool.query(
+      'SELECT rule, COUNT(*)::int AS total_games FROM game_player_records WHERE user_id = $1 GROUP BY rule',
       [userId]
     ),
   ]);
@@ -260,6 +279,7 @@ async function fetchPlayerInfo(userId) {
   };
   const guobiao_rank = rankRow.guobiao_rank;
   const guobiao_score = parseFloat(rankRow.guobiao_score) || 0;
+  const ratings = await queryPlayerRatings(pool, userId, { ...rankRow, guobiao_rank, guobiao_score });
 
   return {
     user_id: userId,
@@ -283,145 +303,192 @@ async function fetchPlayerInfo(userId) {
     qingque_stats: qingqueStats,
     classical_stats: classicalStats,
     changsha_stats: changshaStats,
+    nanque_stats: nanqueStats,
+    ratings,
+    ranked_stats: rankedStats,
+    record_counts: Object.fromEntries(recordCountsResult.rows.map(row => [row.rule, Number(row.total_games) || 0])),
     fan_dict: INFO_FAN_DICT,
   };
 }
 
 /** 与 GET /api/player/records/:key 的 data 字段一致 */
 async function fetchPlayerRecords(userId, query, offset, limit) {
-  const pageParams = [];
-  const conditions = buildRecordFilters(userId, query, pageParams);
-  const pageSql = `
-    SELECT game_id, created_at, COUNT(*) OVER() AS total
-    FROM (
-      SELECT DISTINCT gpr.game_id, gr.created_at
+  return withRecordMetadataQuery(pool, async (db) => {
+    const pageParams = [];
+    const conditions = buildRecordFilters(userId, query, pageParams);
+    const pageSql = `
+      SELECT gpr.game_id, gr.created_at, COUNT(*) OVER() AS total
       FROM game_player_records gpr
       JOIN game_records gr ON gr.game_id = gpr.game_id
       WHERE ${conditions.join(' AND ')}
-    ) sub
-    ORDER BY created_at DESC
-    LIMIT $${pageParams.length + 1} OFFSET $${pageParams.length + 2}
-  `;
-  pageParams.push(limit, offset);
-  const pageResult = await pool.query(pageSql, pageParams);
+      ORDER BY gr.created_at DESC, gpr.game_id DESC
+      LIMIT $${pageParams.length + 1} OFFSET $${pageParams.length + 2}
+    `;
+    pageParams.push(limit, offset);
+    const pageResult = await db.query(pageSql, pageParams);
 
-  const total = pageResult.rows.length > 0 ? parseInt(pageResult.rows[0].total, 10) : 0;
-  const gameIds = pageResult.rows.map((r) => r.game_id);
-  const createdAtByGame = new Map(pageResult.rows.map((r) => [r.game_id, r.created_at]));
+    let total = pageResult.rows.length > 0 ? parseInt(pageResult.rows[0].total, 10) : 0;
+    // A page beyond the end has no window-count row, but must retain its total.
+    if (pageResult.rows.length === 0 && offset > 0) {
+      const countResult = await db.query(
+        `SELECT COUNT(*)::int AS total
+         FROM game_player_records gpr
+         JOIN game_records gr ON gr.game_id = gpr.game_id
+         WHERE ${conditions.join(' AND ')}`,
+        pageParams.slice(0, -2),
+      );
+      total = countResult.rows[0]?.total || 0;
+    }
+    const gameIds = pageResult.rows.map((r) => r.game_id);
+    const createdAtByGame = new Map(pageResult.rows.map((r) => [r.game_id, r.created_at]));
 
-  const filterResult = await pool.query(`
-    SELECT DISTINCT room_type, match_tier, event_id, rule
-    FROM game_player_records
-    WHERE user_id = $1
-    ORDER BY room_type, match_tier, event_id, rule
-  `, [userId]);
-  const filters = filterResult.rows.map((r) => ({
-    room_type: r.room_type,
-    match_tier: r.match_tier,
-    event_id: r.event_id,
-    rule: r.rule,
-  }));
+    const filterResult = await db.query(`
+      SELECT DISTINCT room_type, match_tier, event_id, rule
+      FROM game_player_records
+      WHERE user_id = $1
+      ORDER BY room_type, match_tier, event_id, rule
+    `, [userId]);
+    const filters = filterResult.rows.map((r) => ({
+      room_type: r.room_type,
+      match_tier: r.match_tier,
+      event_id: r.event_id,
+      rule: r.rule,
+    }));
 
-  if (gameIds.length === 0) {
-    return { total, items: [], filters };
-  }
+    if (gameIds.length === 0) {
+      return { total, items: [], filters };
+    }
 
-  const playersResult = await pool.query(
-    `SELECT game_id, user_id, username, score, rank, rule, sub_rule, match_type, room_type,
-            match_tier, event_id,
-            title_used, character_used, profile_used, voice_used
-     FROM game_player_records
-     WHERE game_id = ANY($1::varchar[])
-     ORDER BY game_id, rank`,
-    [gameIds]
-  );
+    const playersResult = await db.query(
+      `SELECT game_id, user_id, username, score, rank, pt_change, rule, sub_rule, match_type, room_type,
+              match_tier, event_id,
+              title_used, character_used, profile_used, voice_used
+       FROM game_player_records
+       WHERE game_id = ANY($1::varchar[])
+       ORDER BY game_id, rank`,
+      [gameIds]
+    );
 
-  const playersByGame = new Map();
-  const metaByGame = new Map();
-  for (const row of playersResult.rows) {
-    if (!playersByGame.has(row.game_id)) playersByGame.set(row.game_id, []);
-    playersByGame.get(row.game_id).push({
-      user_id: row.user_id,
-      username: row.username,
-      score: row.score,
-      rank: row.rank,
-      title_used: row.title_used,
-      character_used: row.character_used,
-      profile_used: row.profile_used,
-      voice_used: row.voice_used,
-    });
-    if (!metaByGame.has(row.game_id)) {
-      metaByGame.set(row.game_id, {
-        rule: row.rule || '',
-        sub_rule: row.sub_rule || null,
-        match_type: row.match_type || null,
-        room_type: row.room_type || null,
-        match_tier: row.match_tier || null,
-        event_id: row.event_id || null,
+    const playersByGame = new Map();
+    const metaByGame = new Map();
+    const ratingsByGame = await queryRecordRatings(db, playersResult.rows);
+    for (const row of playersResult.rows) {
+      if (!playersByGame.has(row.game_id)) playersByGame.set(row.game_id, []);
+      playersByGame.get(row.game_id).push({
+        user_id: row.user_id,
+        username: row.username,
+        score: row.score,
+        rank: row.rank,
+        ...recordRatingFields(row, ratingsByGame.get(row.game_id)),
+        title_used: row.title_used,
+        character_used: row.character_used,
+        profile_used: row.profile_used,
+        voice_used: row.voice_used,
+      });
+      if (!metaByGame.has(row.game_id)) {
+        metaByGame.set(row.game_id, {
+          rule: row.rule || '',
+          sub_rule: row.sub_rule || null,
+          match_type: row.match_type || null,
+          room_type: row.room_type || null,
+          match_tier: row.match_tier || null,
+          event_id: row.event_id || null,
+        });
+      }
+    }
+
+    const items = [];
+    for (const gameId of gameIds) {
+      const meta = metaByGame.get(gameId) || {};
+      items.push({
+        game_id: gameId,
+        created_at: createdAtByGame.get(gameId),
+        rule: meta.rule,
+        sub_rule: meta.sub_rule,
+        match_type: meta.match_type,
+        room_type: meta.room_type,
+        match_tier: meta.match_tier || null,
+        event_id: meta.event_id || null,
+        event_name: null,
+        players: playersByGame.get(gameId) || [],
       });
     }
-  }
 
-  const items = [];
-  for (const gameId of gameIds) {
-    const meta = metaByGame.get(gameId) || {};
-    items.push({
-      game_id: gameId,
-      created_at: createdAtByGame.get(gameId),
-      rule: meta.rule,
-      sub_rule: meta.sub_rule,
-      match_type: meta.match_type,
-      room_type: meta.room_type,
-      match_tier: meta.match_tier || null,
-      event_id: meta.event_id || null,
-      event_name: null,
-      players: playersByGame.get(gameId) || [],
-    });
-  }
-
-  // 批量补全赛事名称（含已关闭历史赛事）
-  const eventIds = [...new Set(items.map((it) => it.event_id).filter(Boolean))];
-  if (eventIds.length > 0) {
-    const nameRes = await pool.query(
-      `SELECT event_id, name FROM events WHERE event_id = ANY($1::varchar[])`,
-      [eventIds]
-    );
-    const nameMap = new Map(nameRes.rows.map((r) => [r.event_id, r.name]));
-    for (const it of items) {
-      if (it.event_id) it.event_name = nameMap.get(it.event_id) || null;
+    // 批量补全赛事名称（含已关闭历史赛事）
+    const eventIds = [...new Set(items.map((it) => it.event_id).filter(Boolean))];
+    if (eventIds.length > 0) {
+      const nameRes = await db.query(
+        `SELECT event_id, name FROM events WHERE event_id = ANY($1::varchar[])`,
+        [eventIds]
+      );
+      const nameMap = new Map(nameRes.rows.map((r) => [r.event_id, r.name]));
+      for (const it of items) {
+        if (it.event_id) it.event_name = nameMap.get(it.event_id) || null;
+      }
     }
-  }
 
-  return { total, items, filters };
+    return { total, items, filters };
+  });
 }
 
 /** 与 GET /api/player/rank-stats/:key 的 data 字段一致 */
 async function fetchPlayerRankStats(userId, query) {
-  const params = [];
-  const conditions = buildRecordFilters(userId, query, params);
-  const sql = `
-    SELECT
-      COUNT(*)::int AS total_games,
-      COUNT(*) FILTER (WHERE gpr.rank = 1)::int AS first_place_count,
-      COUNT(*) FILTER (WHERE gpr.rank = 2)::int AS second_place_count,
-      COUNT(*) FILTER (WHERE gpr.rank = 3)::int AS third_place_count,
-      COUNT(*) FILTER (WHERE gpr.rank = 4)::int AS fourth_place_count
-    FROM game_player_records gpr
-    JOIN game_records gr ON gr.game_id = gpr.game_id
-    WHERE ${conditions.join(' AND ')}
-  `;
-  const result = await pool.query(sql, params);
-  const row = result.rows[0] || {};
-  return {
-    total_games: Number(row.total_games) || 0,
-    first_place_count: Number(row.first_place_count) || 0,
-    second_place_count: Number(row.second_place_count) || 0,
-    third_place_count: Number(row.third_place_count) || 0,
-    fourth_place_count: Number(row.fourth_place_count) || 0,
-  };
+  return withRecordMetadataQuery(pool, async (db) => {
+    const params = [];
+    const conditions = buildRecordFilters(userId, query, params);
+    const sql = `
+      SELECT
+        COUNT(*)::int AS total_games,
+        -- 国标从 0 分开局，结算分就是本场净得分；与顺位共用全部筛选条件。
+        -- 其他规则可能带起始点数，缺失分数也不能当作 0 分混入均值。
+        CASE WHEN COUNT(*) FILTER (WHERE gpr.rule IS DISTINCT FROM 'guobiao' OR gpr.score IS NULL) = 0
+          THEN COALESCE(SUM(gpr.score), 0)
+        END AS total_round_score,
+        COUNT(*) FILTER (WHERE gpr.rank = 1)::int AS first_place_count,
+        COUNT(*) FILTER (WHERE gpr.rank = 2)::int AS second_place_count,
+        COUNT(*) FILTER (WHERE gpr.rank = 3)::int AS third_place_count,
+        COUNT(*) FILTER (WHERE gpr.rank = 4)::int AS fourth_place_count
+      FROM game_player_records gpr
+      JOIN game_records gr ON gr.game_id = gpr.game_id
+      WHERE ${conditions.join(' AND ')}
+    `;
+    const result = await db.query(sql, params);
+    const row = result.rows[0] || {};
+    return {
+      total_games: Number(row.total_games) || 0,
+      total_round_score: row.total_round_score == null ? null : Number(row.total_round_score),
+      first_place_count: Number(row.first_place_count) || 0,
+      second_place_count: Number(row.second_place_count) || 0,
+      third_place_count: Number(row.third_place_count) || 0,
+      fourth_place_count: Number(row.fourth_place_count) || 0,
+    };
+  });
 }
 
-/** Bot API 专用：国标段位查询 */
+/** All scene counts in one scan and one connection, preserving the list filters. */
+async function fetchPlayerScopeCounts(userId, query) {
+  return withRecordMetadataQuery(pool, async (db) => {
+    const params = [];
+    const conditions = buildRecordFilters(userId, query, params);
+    const result = await db.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE gpr.room_type = 'match')::int AS rank,
+        COUNT(*) FILTER (WHERE gpr.room_type = 'custom')::int AS custom,
+        COUNT(*) FILTER (WHERE gpr.room_type = 'match' AND gpr.match_tier = 'beginner')::int AS beginner,
+        COUNT(*) FILTER (WHERE gpr.room_type = 'match' AND gpr.match_tier = 'intermediate')::int AS intermediate,
+        COUNT(*) FILTER (WHERE gpr.room_type = 'match' AND gpr.match_tier = 'advanced')::int AS advanced,
+        COUNT(*) FILTER (WHERE gpr.room_type = 'match' AND gpr.match_tier = 'mcrpl')::int AS mcrpl,
+        COUNT(*) FILTER (WHERE gpr.room_type = 'match' AND gpr.match_tier = 'elo')::int AS elo,
+        COUNT(*) FILTER (WHERE gpr.room_type = 'events')::int AS events
+      FROM game_player_records gpr
+      JOIN game_records gr ON gr.game_id = gpr.game_id
+      WHERE ${conditions.join(' AND ')}
+    `, params);
+    return result.rows[0];
+  });
+}
+
+/** Bot API 专用：多规则评级，保留旧国标段位字段。 */
 async function fetchPlayerRank(userId) {
   const userResult = await pool.query(
     'SELECT user_id, username FROM users WHERE user_id = $1 LIMIT 1',
@@ -441,11 +508,13 @@ async function fetchPlayerRank(userId) {
     updated_at: null,
   };
   const guobiao_rank = rankRow.guobiao_rank;
-  const guobiao_score = parseFloat(rankRow.guobiao_score);
+  const guobiao_score = parseFloat(rankRow.guobiao_score) || 0;
+  const ratings = await queryPlayerRatings(pool, userId, { ...rankRow, guobiao_rank, guobiao_score });
 
   return {
     user_id: userId,
     username,
+    ratings,
     guobiao_rank,
     guobiao_score,
     updated_at: rankRow.updated_at || null,
@@ -528,6 +597,7 @@ module.exports = {
   fetchPlayerInfo,
   fetchPlayerRecords,
   fetchPlayerRankStats,
+  fetchPlayerScopeCounts,
   fetchPlayerRank,
   listPublicEvents,
   fetchPublicEventDetail,

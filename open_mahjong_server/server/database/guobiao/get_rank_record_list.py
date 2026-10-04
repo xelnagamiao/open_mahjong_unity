@@ -8,7 +8,7 @@ from psycopg2.extras import RealDictCursor
 logger = logging.getLogger(__name__)
 
 
-def get_rank_record_list(db_manager, limit: int = 20) -> list:
+def get_rank_record_list(db_manager, limit: int = 20, rule: str = "guobiao") -> list:
     """
     获取全服最近 N 局天梯对局元数据（room_type = match），非按玩家过滤。
     场次名优先从牌谱 JSON game_title.match_queue_type 解析。
@@ -28,12 +28,12 @@ def get_rank_record_list(db_manager, limit: int = 20) -> list:
                 SELECT 1
                 FROM game_player_records gpr
                 WHERE gpr.game_id = gr.game_id
-                  AND gpr.room_type = 'match'
+                  AND gpr.room_type = 'match' AND gpr.rule = %s
             )
             ORDER BY gr.created_at DESC
             LIMIT %s
             """,
-            (limit,),
+            (rule, limit),
         )
         game_rows = cursor.fetchall()
         if not game_rows:
@@ -101,7 +101,7 @@ def get_rank_record_list(db_manager, limit: int = 20) -> list:
                 conn.rollback()
             except Exception:
                 pass
-        return []
+        raise
     finally:
         if cursor is not None:
             try:

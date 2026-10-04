@@ -366,20 +366,24 @@
     {
       "id": "shen-yifan-1914",
       "url": "/rule-research/绘图麻雀牌谱.pdf",
-      "title": "沈一帆《绘图麻雀牌谱》（1914/1924）",
+      "title": "绘图麻雀牌谱（上海游艺社 1924 年 3 月本）",
       "type": "book",
       "lang": "zh",
       "tags": [
         "early-manual"
       ],
-      "excerpt": "时务书馆 1914，上海游艺社 1924 重印。目前能拿到原件的最早中文牌谱之一。「始于宁波，不过三十余年」。本地已有扫描。",
-      "accessed": "2026-08-14",
+      "excerpt": "本地三份 PDF 的 SHA-256 相同，版权页为 1924 年 3 月上海游艺社本。内载古典副番、花牌补遗、特别碰法及新新碰法。1914 沈一帆本尚未取得对校，不能认定当前 PDF 就是 1914 原版全文，也不维持“史上第一本”的断言。",
+      "accessed": "2026-09-23",
       "local_kind": "file",
       "local_path": "mahjong-studies/files/shen-yifan-1914.pdf",
       "local_status": "ok",
       "rules": [
         "classical"
-      ]
+      ],
+      "published": "1924-03",
+      "source_level": "primary",
+      "quote_location": "63 页 PDF；第 62 页版权页为民国十三年三月。正文 PDF＝印刷页＋1。",
+      "limitations": "旧文件名含 1914 仅为历史命名；实际版本按版权页记 1924。1914 与此本的关系仍待原件核验。"
     },
     {
       "id": "wiki-maque-pai",
@@ -1055,20 +1059,22 @@
     {
       "id": "fan-zengxiang-1906",
       "url": "https://archive.org/details/02106614.cn",
-      "title": "樊增祥《樊山续集》卷二十六《十忆集·忆博》（1906）",
+      "title": "樊增祥《樊山续集》卷二十六《十忆集·忆博》（整组诗丙午春告成）",
       "type": "book",
       "lang": "zh",
       "tags": [
         "cards-to-mahjong"
       ],
-      "excerpt": "诗写宁波麻雀。夹注：撮麻雀之戏，二十年前起于宁波，今遍天下矣。丙午春自识，倒推约 1886。CADAL/IA 扫描。",
-      "accessed": "2026-08-14",
+      "excerpt": "卷二十六《十忆集》PDF 53–54 页可见《忆博》宁波麻雀诗与“二十年前起于宁波”夹注。PDF 78 页自识署丙午春，并明说二百篇“非一岁所作”。1906 是整组诗的告成时间，单篇作年不明，不能直接倒推 1886 为起源年。",
+      "accessed": "2026-09-23",
       "local_kind": "file",
       "local_path": "mahjong-studies/files/fan-zengxiang-1906.pdf",
       "local_status": "ok",
       "rules": [
         "proto-mahjong"
-      ]
+      ],
+      "quote_location": "PDF 2 为卷二十五题页；36 为卷二十六《十忆集》题页；53–54 为《忆博》本文及夹注（版心叶九）；78 为丙午春自识，原图均已核。",
+      "limitations": "回顾性起源叙述，且单篇时间未定；没有配牌、和牌结构或计分条文。不据此增建 1886 规则节点。"
     },
     {
       "id": "cinii-boshi",

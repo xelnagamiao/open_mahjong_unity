@@ -6,6 +6,9 @@ from .guobiao_debug import apply_guobiao_debug_hands, prepare_debug_wall
 
 
 def init_guobiao_tiles(self):
+    from ..public.duplicate_wall import init_duplicate_tiles
+    if init_duplicate_tiles(self):
+        return
     """初始化国标麻将牌堆（每人13张 + 庄家额外1张）"""
     for player in self.player_list:
         clear_draw_slot(player)
@@ -25,7 +28,7 @@ def init_guobiao_tiles(self):
         self.tiles_list.extend([tile] * 4)
     # 蓝十改（MCR 1001—2025）已删除花牌：牌堆不含花牌，客户端无需改动，
     # 不摸到花牌即不会触发补花/花牌计分。
-    if getattr(self, "sub_rule", None) != "guobiao/lanshi":
+    if getattr(self, "sub_rule", None) != "guobiao/lanshi" and getattr(self, "use_flowers", True):
         self.tiles_list.extend(hua_tiles_set)
 
     # 生成本局随机种子并洗牌

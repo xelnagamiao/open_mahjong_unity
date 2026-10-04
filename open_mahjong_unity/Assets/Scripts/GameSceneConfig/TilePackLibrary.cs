@@ -7,10 +7,12 @@ using UnityEngine;
 /// <summary>每次导入保留一个独立牌组；PlayerPrefs 只保存目录和名称，文件体保存在本地或 IndexedDB。</summary>
 public static class TilePackLibrary {
     const string CatalogKey = "CustomTilePackLibraryV1";
+    static readonly HashSet<string> deleting = new HashSet<string>(StringComparer.Ordinal);
     [Serializable] public sealed class Entry {
         public string id;
         public string fileName;
-        public string DisplayName => string.IsNullOrEmpty(fileName) ? "自定义" : Path.GetFileNameWithoutExtension(fileName);
+        public string name;
+        public string DisplayName => !string.IsNullOrEmpty(name) ? name : string.IsNullOrEmpty(fileName) ? "自定义" : Path.GetFileNameWithoutExtension(fileName);
     }
     [Serializable] sealed class Catalog { public List<Entry> entries = new List<Entry>(); }
 
@@ -35,13 +37,61 @@ public static class TilePackLibrary {
 
     public static string DisplayName(string id) => GetEntries().Find(e => e.id == id)?.DisplayName ?? "自定义";
 
+    public static bool Rename(string id, string name, out string error) {
+        error = null;
+        if (!HandSurfaceLibrary.TryName(name, out name)) { error = "请输入 1–24 个字的名称，不可换行"; return false; }
+        if (deleting.Contains(id)) { error = "正在删除该牌面"; return false; }
+        var entries = GetEntries(); var entry = entries.Find(e => e.id == id);
+        if (entry == null) { error = "自定义牌面不存在"; return false; }
+        entry.name = name;
+        try { PlayerPrefs.SetString(CatalogKey, JsonUtility.ToJson(new Catalog { entries = entries })); PlayerPrefs.Save(); return true; }
+        catch (Exception e) { error = "保存名称失败：" + e.Message; return false; }
+    }
+
+    public static void Delete(string id, Action onDeleted, Action<string> onError) {
+        if (!TilePackIds.IsCustomPack(id) || !GetEntries().Exists(e => e.id == id)) {
+            onError?.Invoke("自定义牌面不存在"); return;
+        }
+        if (!deleting.Add(id)) { onError?.Invoke("正在删除该牌面，请稍候"); return; }
+        Action<string> fail = error => { deleting.Remove(id); onError?.Invoke(error); };
+        Action complete = () => {
+            try {
+                // Re-read after asynchronous IO so concurrent uploads are retained.
+                var entries = GetEntries();
+                entries.RemoveAll(e => e.id == id);
+                PlayerPrefs.SetString(CatalogKey, JsonUtility.ToJson(new Catalog { entries = entries }));
+                if (id == TilePackIds.PackCustom) ConfigManager.Instance?.SetCustomTilePackFileName("");
+                if (ConfigManager.Instance != null && ConfigManager.Instance.StandardTilePackId == id)
+                    TileFaceResolver.SelectPack(TilePackIds.PackOfficial);
+                PlayerPrefs.Save();
+            } catch (Exception e) { fail("更新牌面目录失败：" + e.Message); return; }
+            deleting.Remove(id);
+            onDeleted?.Invoke();
+        };
+#if UNITY_WEBGL && !UNITY_EDITOR
+        TilePackLibraryRequest.Delete(id, complete, fail);
+#else
+        try {
+            if (id == TilePackIds.PackCustom) {
+                // Only legacy PNGs owned by this feature; never recursively remove a user folder.
+                foreach (string directory in new[] { TilePackStorage.HandDirectory, TilePackStorage.TableDirectory })
+                    if (Directory.Exists(directory))
+                        foreach (string file in Directory.GetFiles(directory, "*.png", SearchOption.TopDirectoryOnly))
+                            File.Delete(file);
+            } else File.Delete(FilePath(id));
+        } catch (Exception e) { fail("删除牌面失败：" + e.Message); return; }
+        complete();
+#endif
+    }
+
     public static void SaveNew(byte[] zip, string fileName, TilePackImporter.Result validated,
-        Action<Entry> onSaved, Action<string> onError) {
+        Action<Entry> onSaved, Action<string> onError, string displayName = null) {
         if (validated == null || !validated.Success || zip == null || zip.Length == 0
             || zip.Length > TilePackImporter.MaxUncompressedBytes) {
             onError?.Invoke("牌面包无效，未保存"); return;
         }
-        var entry = new Entry { id = "custom-" + Guid.NewGuid().ToString("N"), fileName = Path.GetFileName(fileName ?? "自定义.zip") };
+        if (displayName != null && !HandSurfaceLibrary.TryName(displayName, out displayName)) { onError?.Invoke("名称无效"); return; }
+        var entry = new Entry { id = "custom-" + Guid.NewGuid().ToString("N"), fileName = Path.GetFileName(fileName ?? "自定义.zip"), name = displayName };
         Action complete = () => {
             var entries = GetEntries(); entries.Add(entry);
             PlayerPrefs.SetString(CatalogKey, JsonUtility.ToJson(new Catalog { entries = entries }));
@@ -94,6 +144,7 @@ public static class TilePackLibrary {
 public sealed class TilePackLibraryRequest : MonoBehaviour {
     [DllImport("__Internal")] static extern void TilePackIdbSaveLibraryZip(string key, byte[] bytes, int length, string go);
     [DllImport("__Internal")] static extern void TilePackIdbLoadLibraryZip(string key, string go);
+    [DllImport("__Internal")] static extern void TilePackIdbDeleteLibraryZip(string key, string go);
     [DllImport("__Internal")] static extern int TilePackIdbCopyZip(IntPtr dst, int length);
     Action saved; Action<byte[]> loaded; Action<string> error;
     static TilePackLibraryRequest Create(Action<string> error) {
@@ -108,6 +159,11 @@ public sealed class TilePackLibraryRequest : MonoBehaviour {
     public static void Load(string id, Action<byte[]> loaded, Action<string> error) {
         var r = Create(error); r.loaded = loaded;
         try { TilePackIdbLoadLibraryZip(id == TilePackIds.PackCustom ? "standardZip" : "tilepack/" + id, r.name); }
+        catch (Exception e) { r.OnResult("error|" + e.Message); }
+    }
+    public static void Delete(string id, Action deleted, Action<string> error) {
+        var r = Create(error); r.saved = deleted;
+        try { TilePackIdbDeleteLibraryZip(id == TilePackIds.PackCustom ? "standardZip" : "tilepack/" + id, r.name); }
         catch (Exception e) { r.OnResult("error|" + e.Message); }
     }
     public void OnResult(string message) {

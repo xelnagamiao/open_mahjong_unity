@@ -1,5 +1,5 @@
 {
-  "sim_client_version": 1,
+  "sim_client_version": 2,
   "rule": "guobiao",
   "hand_actions": [
     "cut",
@@ -36,10 +36,56 @@
     "open_mahjong_unity/Assets/Scripts/Network/GameStateNetworkManager.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/GameStateManager/NormalGameStateManager.Actions.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/CanvasManager/GameCanvas_ActionButton.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/GameSceneUI/Result/Panels/EndResultPanel.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordJsonDecoder.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordData.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordMeldCodec.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/RecordHuHandBuilder.cs",
-    "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordManager.GotoAction.cs"
+    "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordManager.GotoAction.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Sichuan/SichuanGameState.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Sichuan/GameCanvas.Sichuan.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Sichuan/SichuanReplay.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordManager.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordManager.ChongHint.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Zhongyong/ZhongyongGameState.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Zhongyong/NanqueGameState.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Guobiao/GuobiaoBloodBattleReplay.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Taiwan/TaiwanReplay.cs"
+  ],
+  "component_profiles": {
+    "sichuan/xueliu": {
+      "opening_action": "xueliu_throw_three",
+      "dingque": false,
+      "continue_message": "xueliu_continue",
+      "mid_win_result_panel": false
+    },
+    "sichuan/xueliu_exchange": {
+      "opening_action": "xueliu_exchange_three",
+      "dingque": true,
+      "continue_message": "xueliu_continue",
+      "mid_win_result_panel": false
+    },
+    "zhongyong/standard": {
+      "blood_battle": false
+    },
+    "zhongyong/nanque": {
+      "blood_battle": true,
+      "deferred_score_settlement": true
+    }
+  },
+  "special_phase_actions": {
+    "three_tiles": [
+      "xueliu_throw_three",
+      "xueliu_exchange_three"
+    ],
+    "dingque": [
+      "dingque"
+    ]
+  },
+  "scope_notes": [
+    "rule identifies the interactive lab session default; component and record regressions cover the listed additional profiles.",
+    "Dedicated opening selectors do not extend the common hand-action or other-action button allowlists.",
+    "Settlement label formatting is verified in Unity using the active replay rule context; component-state simulations do not render these labels.",
+    "Hashes detect source drift; passing the lock is not a claim that every field or visual behavior has been tested."
   ]
 }

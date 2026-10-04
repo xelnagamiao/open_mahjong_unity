@@ -12,13 +12,13 @@ public partial class RoundEndPresentation {
         bool suppressHandReveal = false, int hepaiTile = 0, bool multiRon = false,
         bool deferScoreSettlement = false, int? ronDiscarderIndex = null, bool recycleDiscard = false,
         bool isQianggang = false, bool endgameScoreOnly = false, bool finalPanel = true,
-        Dictionary<int, int[]> simultaneousHuHands = null, bool skipHandReveal = false) {
+        Dictionary<int, int[]> simultaneousHuHands = null, bool skipHandReveal = false, System.Action afterHandReveal = null) {
         StartSequence(PresentHuResultSequenceCoroutine(
             hepai_player_index, player_to_score, hu_score, hu_fan, hu_class,
             hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask,
             base_fu, fu_fan_list, riichiExtras, score_changes, isSilent, playPresentationEffects,
             suppressHandReveal, hepaiTile, multiRon, deferScoreSettlement, ronDiscarderIndex, recycleDiscard,
-            isQianggang, endgameScoreOnly, finalPanel, simultaneousHuHands, skipHandReveal));
+            isQianggang, endgameScoreOnly, finalPanel, simultaneousHuHands, skipHandReveal, afterHandReveal));
     }
 
     /// <summary>协程版和牌结算：供虹雀多家和按顺序逐家展示，等上一家面板播完再进下家。</summary>
@@ -30,13 +30,13 @@ public partial class RoundEndPresentation {
         bool suppressHandReveal = false, int hepaiTile = 0, bool multiRon = false,
         bool deferScoreSettlement = false, int? ronDiscarderIndex = null, bool recycleDiscard = false,
         bool isQianggang = false, bool endgameScoreOnly = false, bool finalPanel = true,
-        Dictionary<int, int[]> simultaneousHuHands = null, bool skipHandReveal = false) {
+        Dictionary<int, int[]> simultaneousHuHands = null, bool skipHandReveal = false, System.Action afterHandReveal = null) {
         yield return HuResult(
             hepai_player_index, player_to_score, hu_score, hu_fan, hu_class,
             hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask,
             base_fu, fu_fan_list, riichiExtras, score_changes, isSilent, playPresentationEffects,
             suppressHandReveal, hepaiTile, multiRon, deferScoreSettlement, ronDiscarderIndex, recycleDiscard,
-            isQianggang, endgameScoreOnly, finalPanel, simultaneousHuHands, skipHandReveal);
+            isQianggang, endgameScoreOnly, finalPanel, simultaneousHuHands, skipHandReveal, afterHandReveal);
     }
 
     private IEnumerator HuResult(
@@ -46,7 +46,7 @@ public partial class RoundEndPresentation {
         bool isSilent, bool playPresentationEffects,
         bool suppressHandReveal, int hepaiTile, bool multiRon, bool deferScoreSettlement, int? ronDiscarderIndex,
         bool recycleDiscard, bool isQianggang, bool endgameScoreOnly, bool finalPanel,
-        Dictionary<int, int[]> simultaneousHuHands, bool skipHandReveal) {
+        Dictionary<int, int[]> simultaneousHuHands, bool skipHandReveal, System.Action afterHandReveal) {
         bool selfWon = NormalGameStateManager.Instance.indexToPosition[hepai_player_index] == "self";
         // 分数延后到终局统一结算的局中和（川麻血战）：只演出亮牌，不出分数面板
         bool isMidGameSichuanHu = deferScoreSettlement && !endgameScoreOnly;
@@ -96,6 +96,7 @@ public partial class RoundEndPresentation {
             yield break;
         }
 
+        afterHandReveal?.Invoke();
         PreparePresentationRoot(playPresentationEffects);
         EndResultPanel.Instance.PrepareShowResult(
             hepai_player_index, player_to_score, hu_score, hu_fan, hu_class,
@@ -107,7 +108,7 @@ public partial class RoundEndPresentation {
                 playPresentationEffects
             );
         } else {
-            // 多家和中间面板：完整播完番数动画并维持 3s 后再进入下家；
+            // 多家和中间面板：完整播完番数动画并维持 2s 后再进入下家；
             // 不出可点击的确定按钮（最后一家才确认）。PlayAfterFade 只触发协程即返回，
             // 不会等待面板播完，因此这里必须直接 yield 面板协程。
             yield return PlayPresentationFade(playPresentationEffects);

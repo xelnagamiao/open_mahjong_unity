@@ -6,7 +6,7 @@ import { RANK_NAMES, TOP_RANK_NAME } from '../constants/rankTable.js'
 // Historical PT must never be averaged: each result is rescored at each target rank.
 export const STABLE_RANK_TIERS = [
   { value: 'beginner', label: '初级场', basePt: 30, minRankIndex: 0 },
-  { value: 'intermediate', label: '中级场', basePt: 65, minRankIndex: 8, maxRankIndex: 16 },
+  { value: 'intermediate', label: '中级场', basePt: 65, minRankIndex: 9, maxRankIndex: 16 },
   { value: 'advanced', label: '高级场', basePt: 105, minRankIndex: 13 },
   { value: 'mcrpl', label: 'MCRPL', basePt: 135, minRankIndex: 0, qualificationRequired: true },
 ]

@@ -52,6 +52,38 @@ public class RiichiGameState : TurnBasedGameState {
         TipsContainer.Instance.ResetRyuukyokuTenpaiChoiceForRound();
         TipsContainer.Instance.HideRyuukyokuTenpaiChoice();
         RefreshSelfStatusIndicators();
+        RefreshRyuukyokuTenpaiChoice();
+    }
+
+    // 申报是对局操作，不受听牌提示开关或悬停预览影响。
+    protected override void OnHandAskReceived(AskHandActionGBInfo info) {
+        base.OnHandAskReceived(info);
+        RefreshRyuukyokuTenpaiChoice();
+    }
+
+    protected override void OnActionPlayed(TableAction action) {
+        base.OnActionPlayed(action);
+        RefreshRyuukyokuTenpaiChoice();
+    }
+
+    private void RefreshRyuukyokuTenpaiChoice() {
+        TipsContainer tips = TipsContainer.Instance;
+        if (tips == null) return;
+        if (!IsActive || Session.IsRealtimeSpectator || IsSelfLocked
+            || Mirror.RemainTiles < 0 || Mirror.RemainTiles > 15) {
+            tips.HideRyuukyokuTenpaiChoice();
+            return;
+        }
+        // 摸牌或吃碰后尚未弃牌时，保留上一稳定手牌的面板及申报选择。
+        // 14 张并不代表退出听牌；实际弃牌后再重算，避免每巡闪隐。
+        if (Mirror.SelfHandTiles.Count % 3 != 1) return;
+        // 只根据实际弃牌后的手牌判断，不能用“假设打出某张牌”的听牌预览。
+        HashSet<int> waits = RuleTips.ComputeWaiting(RuleRegistry.Current, new TingpaiQuery {
+            Hand = Mirror.SelfHandTiles,
+            Melds = Mirror.Self.combination_tiles ?? new List<string>(),
+            DetailedConfig = Session.DetailedConfig,
+        });
+        tips.UpdateRyuukyokuTenpaiChoice(waits);
     }
 
     // =====================================================================
@@ -94,6 +126,7 @@ public class RiichiGameState : TurnBasedGameState {
         if (doraFromServer != null) DoraIndicators = new List<int>(doraFromServer);
         if (kanDoraFromServer != null) KanDoraIndicators = new List<int>(kanDoraFromServer);
         RefreshRoundPanel();
+        TipsContainer.Instance?.RefreshTenpaiTipsIfCached();
     }
 
     private void RefreshRoundPanel() {
@@ -166,6 +199,7 @@ public class RiichiGameState : TurnBasedGameState {
             TenpaiTiles = info.tenpai_tiles,
             TenpaiHands = info.tenpai_hands,
             NotenPenaltyAfterDraw = info.exhaustive_penalty ?? false,
+            NagashiManganWinners = info.nagashi_mangan_winners,
             LangyongScoredPoints = info.langyong_scored_points ?? 0,
             LangyongMultiplier = info.langyong_multiplier ?? 0,
         };
@@ -201,6 +235,7 @@ public class RiichiGameState : TurnBasedGameState {
     }
 
     public override void OnSessionReset() {
+        TipsContainer.Instance?.HideRyuukyokuTenpaiChoice();
         Honba = 0;
         RiichiSticks = 0;
         DoraIndicators = new List<int>();

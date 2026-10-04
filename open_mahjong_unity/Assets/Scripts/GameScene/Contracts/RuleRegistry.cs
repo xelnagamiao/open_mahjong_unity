@@ -44,6 +44,7 @@ public static class RuleRegistry {
         // 不清 ManifestsByRule / DefaultGameStateFactory：各模块的 Register 与本方法同属 SubsystemRegistration，
         // 执行顺序无保证。Register 采用覆盖写入，因此重复注册是幂等的。
         Current = null;
+        CurrentSubRule = null;
         ActiveGameState = null;
     }
 
@@ -82,7 +83,8 @@ public static class RuleRegistry {
         return manifest;
     }
     /// <summary>为该清单创建一个新的族 GameState；清单未声明工厂时用默认族。</summary>
-    public static IGameState CreateGameState(RuleManifest manifest) {
+    public static IGameState CreateGameState(RuleManifest manifest, string subRule = null) {
+        if (manifest?.SubRuleGameStateFactory != null) return manifest.SubRuleGameStateFactory(subRule ?? manifest.DefaultSubRule);
         Func<IGameState> factory = manifest?.GameStateFactory ?? DefaultGameStateFactory;
         return factory?.Invoke();
     }
@@ -93,12 +95,17 @@ public static class RuleRegistry {
     /// 族的跨局挂起状态得以保留）；清单变化或尚无实例时新建。
     /// 对局开始（InitializeGame）与 gamestate 消息路由都走这里；退出走 ClearCurrent。
     /// </summary>
+    public static string CurrentSubRule { get; private set; }
+
     public static IGameState SetCurrent(string roomRule, string subRule = null) {
         TryResolve(roomRule, subRule, out RuleManifest manifest);
-        if (ActiveGameState != null && Current == manifest) return ActiveGameState;
+        string effectiveSubRule = subRule ?? (Current == manifest ? CurrentSubRule : null) ?? manifest?.DefaultSubRule;
+        if (ActiveGameState != null && Current == manifest
+            && (manifest?.SubRuleGameStateFactory == null || CurrentSubRule == effectiveSubRule)) return ActiveGameState;
         ActiveGameState?.OnSessionReset();
         Current = manifest;
-        ActiveGameState = CreateGameState(manifest);
+        CurrentSubRule = effectiveSubRule;
+        ActiveGameState = CreateGameState(manifest, effectiveSubRule);
         return ActiveGameState;
     }
 
@@ -106,6 +113,7 @@ public static class RuleRegistry {
     public static void ClearCurrent() {
         ActiveGameState?.OnSessionReset();
         Current = null;
+        CurrentSubRule = null;
         ActiveGameState = null;
     }
 
