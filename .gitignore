@@ -59,6 +59,10 @@ tmp/
 Temp/
 .DS_Store
 Thumbs.db
+xcuserdata/
+xcuserdata.meta
+*.xcuserstate
+*.xcuserstate.meta
 *.log
 *.tmp
 *.bak
@@ -80,6 +84,7 @@ secret_key.txt
 # Windows 聊天 exe 是本地测试配套文件，需要提交以支持 Python 自动启动。
 # 其他平台的本机构建结果继续忽略。
 /open_mahjong_chatServer/open_mahjong_chatServer
+/open_mahjong_chatServer/chat_server_linux
 /open_mahjong_server/server/chat_server/open_mahjong_chatServer
 
 # Web 构建输出及本机放置的游戏包；public 下仅保留放置说明。

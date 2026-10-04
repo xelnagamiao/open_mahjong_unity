@@ -332,24 +332,15 @@ public sealed class SharedRecordLink : MonoBehaviour {
             yield break;
         }
 
-        IsPublicSharePlayback = true;
-        // GameRecordManager lives under the inactive game panel. Activate the
-        // record scene first; waiting for it before switching creates a deadlock.
-        WindowsManager.Instance.SwitchWindow("recordscene");
-
-        deadline = Time.realtimeSinceStartup + SceneReadyTimeoutSeconds;
-        while (GameRecordManager.Instance == null && Time.realtimeSinceStartup < deadline) {
-            yield return null;
-        }
-
-        if (GameRecordManager.Instance == null) {
+        if (GameSessionGuard.BlockIfExclusiveSession("阅览牌谱")) {
             ClearPendingJump();
-            Debug.LogError("打开分享牌谱失败：3D 牌谱场景未能初始化");
-            AppSession.ReturnToLogin();
             yield break;
         }
-
-        RecordPanel.OpenRecord(detail, localPlayback);
+        IsPublicSharePlayback = true;
+        // 与列表/本地牌谱共用显式场景初始化和失败返回，避免等待未激活组件的单例。
+        if (!RecordPanel.OpenRecord(detail, localPlayback)) {
+            IsPublicSharePlayback = false;
+        }
     }
 
     static byte[] CopyLocalConvertedBytes(int length) {

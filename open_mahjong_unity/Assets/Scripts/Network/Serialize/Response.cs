@@ -4,10 +4,12 @@ using System.Collections.Generic;
 
 public class RoomInfo {
     public bool? use_flowers; // 旧消息缺省含花，蓝十始终无花
+    public bool tian_di_ren_he;
     public bool is_duplicate;
     public int duplicate_round_count;
     public string duplicate_wall_type;
     public string room_id;
+    public string instance_id;
     public string room_type;
     public string room_rule;
     public string sub_rule;       // 子规则，如 guobiao/standard、guobiao/xiaolin、qingque/standard
@@ -16,6 +18,7 @@ public class RoomInfo {
     public bool allow_spectator;  // 是否允许观战
     public int max_player;
     public int[] player_list;
+    public int[] seat_list; // 固定座位，-1 为空位；player_list 保留入房顺序
     public int[] ready_list; // 已准备玩家的 user_id 列表（房主不计入，机器人默认已准备不入列）
     // key: user_id (string in JSON) -> setting
     public Dictionary<string, UserSettings> player_settings;
@@ -30,6 +33,7 @@ public class RoomInfo {
     public int round_timer;
     public int step_timer;
     public bool is_game_running; // 游戏是否正在运行
+    public string bot_speed = "fast"; // instant / fast / medium / slow，整桌机器人共用
     public bool is_player_set_random_seed; // 场景复现：是否玩家指定主种子
     public bool open_cuohe; // 是否开启错和
     public int cuohe_type; // 国标/台湾错和形式，由房间列表返回
@@ -152,6 +156,25 @@ public class GameEndInfo { // 显示游戏结束结果
 }
 
 public class ShowResultInfo {
+    public HangzhouInfo hangzhou_info;
+    public string hangzhou_win_source;
+    public Newtonsoft.Json.Linq.JObject hangzhou_fan_details;
+    public HongzhongInfo hongzhong_info;
+    public GuangdongResult guangdong_result;
+    public ChangchunInfo changchun;
+    public Dictionary<int, int[]> revealed_hands;
+    public GuizhouInfo guizhou_info;
+    public YixingInfo yixing_info;
+    public WenzhouInfo wenzhou_info;
+    public Dictionary<int,int> guizhou_round_changes;
+    public Dictionary<int,int[]> guizhou_end_hands;
+    public Dictionary<int,int[]> wenzhou_end_hands;
+    public GuizhouFan[] guizhou_fan_details;
+    public YixingScoreInfo yixing_fan_details;
+    public Dictionary<int,int> yixing_round_changes;
+    public HongKongInfo hongkong_info;
+    public string hongkong_flower_win;
+    public Dictionary<int,int> hongkong_round_changes;
     public string blood_battle_step;
     public int? blood_event_id;
     public string blood_end_reason;
@@ -241,7 +264,16 @@ public class ShowShuheWeiInfo { // 数和尾结算信息
     public string next_status;
 }
 
-public class AskHandActionGBInfo { // 询问手牌操作
+public class AskHandActionGBInfo {
+    public HangzhouInfo hangzhou_info;
+    public HongzhongHints hongzhong_hints;
+    public GuangdongTips guangdong_tips;
+    public ChangchunInfo changchun;
+    public Dictionary<string, int[]> kong_candidates; // 询问手牌操作
+    public GuizhouInfo guizhou_info;
+    public YixingInfo yixing_info;
+    public WenzhouInfo wenzhou_info;
+    public Dictionary<string,int[]> guizhou_kong_tiles;
     public string[] action_list; // 操作列表
     public int remaining_time; // 剩余局时
     public int? step_remaining; // 重连补发的剩余步时；缺省则叠房间完整步时
@@ -270,7 +302,13 @@ public class AskOtherActionGBInfo { // 询问切牌后操作
     public bool? is_tactical_recheck;
 }
 
-public class DoActionInfo { // 执行操作
+public class DoActionInfo {
+    public HangzhouInfo hangzhou_info;
+    public HongzhongHints hongzhong_hints; // 执行操作
+    public WenzhouInfo wenzhou_info;
+    public GuangdongPublicState guangdong_state;
+    public GuangdongTips guangdong_tips;
+    public ChangchunInfo changchun;
     public string[] action_list;
     public int[] duplicate_remaining_tiles; // 非复式省略；0 表示该家牌山已摸完
     public int action_player;
@@ -278,6 +316,8 @@ public class DoActionInfo { // 执行操作
     public int? cut_from_player;      // 鸣牌（吃/碰/明杠）必填：被认走的打牌者座位索引；切牌等其它动作可空
     public bool? sea_bottom_discard;  // 长沙海底牌翻开后进入牌河
     public int? cut_tile;           // 可空类型
+    public int? tile_count; // 权威可摸牌墙余数；七墩保留会随补牌变化。
+    public bool? concealed_discard; // 暗扣报听弃牌；他家 cut_tile 为0。
     public int[] cut_tiles;
     public int? cut_tile_index;     // 可空类型
     public bool? cut_class;         // 可空类型
@@ -306,7 +346,8 @@ public class DoActionInfo { // 执行操作
     public string ready_qualification;
 }
 
-public class PlayerInfo { // 房间信息中单个玩家信息
+public class PlayerInfo {
+    public int[] known_concealed_discards; // 房间信息中单个玩家信息
     public string username;             // 玩家名
     public int user_id;                  // 玩家uid
     public int hand_tiles_count;        // 手牌数量
@@ -314,6 +355,7 @@ public class PlayerInfo { // 房间信息中单个玩家信息
     public int[] discard_tiles;         // 弃牌 (改为int数组)
     public int[] discard_origin_tiles;        // 理论弃牌
     public string[] combination_tiles;  // 组合牌
+    public WenzhouMeldRecord[] meld_records;
     public int[][] combination_mask;   // 组合牌掩码（二维数组，每个副露的掩码是一个子数组）
 
     public int remaining_time;          // 剩余时间
@@ -343,8 +385,21 @@ public class PlayerInfo { // 房间信息中单个玩家信息
     public int[] xueliu_throw_tiles;    // 血流：开局甩掉的三张
 }
 
-public class GameInfo { // 游戏开始时传递房间信息
+public class GameInfo {
+    public HangzhouInfo hangzhou_info;
+    public HongzhongInfo hongzhong_info;
+    public HongzhongHints hongzhong_hints; // 游戏开始时传递房间信息
+    public GuangdongPublicState guangdong_state;
+    public GuangdongTips guangdong_tips;
+    public ChangchunInfo changchun;
+    public GuizhouInfo guizhou_info;
+    public YixingInfo yixing_info;
+    public WenzhouInfo wenzhou_info;
+    public HongKongInfo hongkong_info;
+    public Dictionary<string,HongKongWait[]> hongkong_waits;
+    public Dictionary<string,WenzhouWait[]> wenzhou_waits;
     public bool? use_flowers;
+    public bool tian_di_ren_he;
     public bool is_duplicate;
     public int duplicate_round_count;
     public string duplicate_wall_type;
@@ -412,7 +467,14 @@ public class RefreshPlayerTagListInfo { // 刷新玩家标签列表信息
     public int? riichi_declared_player_index;
 }
 
-public class ReadyStatusInfo { // 准备状态信息
+public class ReadyStatusInfo {
+    public HangzhouInfo hangzhou_info; // 准备状态信息
+    public GuizhouInfo guizhou_info;
+    public YixingInfo yixing_info;
+    public WenzhouInfo wenzhou_info;
+    public int action_tick;
+    public HongKongInfo hongkong_info;
+    public bool can_cut_pull;
     public Dictionary<int, bool> player_to_ready; // 玩家索引到准备状态的映射 {player_index: ready}
 }
 public class PlayerRecordInfo { // 玩家对局记录信息
@@ -527,7 +589,14 @@ public class RuleStatsResponse { // 单个规则的统计数据响应
     public Dictionary<string, int> ranked_fan_stats; // 天梯对局(_rank)番种统计（仅国标）
 }
 
+public class RuleRating {
+    public string rule, system, rank_name;
+    public float rank_score, elo = 1500;
+    public int games;
+}
+
 public class PlayerInfoResponse { // 玩家信息响应（包含所有统计数据）
+    public Dictionary<string, RuleRating> ratings;
     public int user_id;                // 用户ID
     public UserSettings user_settings; // 用户设置信息
     public PlayerStatsInfo[] gb_stats; // 国标麻将统计数据列表
@@ -542,6 +611,7 @@ public class UserConfig { // 用户游戏配置信息（音量等）
 }
 
 public class RankData { // 段位数据（登录时同步）
+    public Dictionary<string, RuleRating> ratings;
     public string guobiao_rank;
     public float guobiao_score;
     public bool is_sponsor;
@@ -607,6 +677,9 @@ public class RealtimeSpectatorEntry { // 实时观战者条目
 }
 
 public class LeaderboardEntry { // 国标段位排行榜条目
+    public string rule = "guobiao", system = "grade", rank_name;
+    public float rank_score, elo = 1500;
+    public int games;
     public int rank_position;
     public int user_id;
     public string username;
@@ -812,11 +885,15 @@ public class PlayerRecentRecordsResponse {
 }
 
 public class Response { // 所有后端的返回数据都由Response类接收
+    public string rating_rule, data_request_id;
     // 消息头
     public string type; // 消息类型
     public bool success; // 消息是否成功
     public string message; // 消息内容
     public string gamestate_id; // 对局状态标识
+    public string reason;
+    public string room_id;
+    public string room_instance_id;
     public bool show_tip; // room/get_room_list 时回显：True=显示刷新成功tips
     // 消息体
     public MessageInfo message_info; // 用于返回消息信息

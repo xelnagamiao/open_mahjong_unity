@@ -16,6 +16,7 @@ public sealed class MatchLobbyView : MonoBehaviour {
     [SerializeField] private Button startButton,clearButton,cancelButton;
     [SerializeField] private GameObject queueStatus,joiningLabel,queueingLabel,cancelingLabel,foundLabel;
     [SerializeField] private GameObject queueGroup;
+    [SerializeField] private GameObject eloHelp;
     [SerializeField] private CanvasGroup queueOpacity;
     [SerializeField, Min(.01f)] private float transitionDuration=.24f;
     private readonly List<MatchButton> selected=new List<MatchButton>(MaximumSelections);
@@ -107,9 +108,11 @@ public sealed class MatchLobbyView : MonoBehaviour {
         elapsedText.text=renderedState==1?"连接中":renderedState==4?"即将进入":"00:00";lastSecond=-1;
     }
     private void RefreshRank(){
+        string rule=RankedRules.Ids[activeRule];
+        if(eloHelp!=null)eloHelp.SetActive(!RankedRules.IsGrade(rule));
         var user=UserDataManager.Instance;
         if(user==null)return;
-        var rating=user.GetRating(RankedRules.Ids[activeRule]);
+        var rating=user.GetRating(rule);
         rankText.text=RankedRules.RankCaption(rating);
         pointsText.text=RankedRules.ScoreCaption(rating);
         progress.transform.parent.gameObject.SetActive(RankedRules.IsGrade(rating.rule));

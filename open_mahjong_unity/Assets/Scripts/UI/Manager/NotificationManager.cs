@@ -123,11 +123,6 @@ public class NotificationManager : MonoBehaviour {
     /// <param name="message">消息内容</param>
     /// <param name="playerInfo">玩家信息响应数据</param>
     public void OpenPlayerInfoPanel(bool success, string message, PlayerInfoResponse playerInfo) {
-        if (playerInfoPanelPrefab == null) {
-            Debug.LogError("NotificationManager: PlayerInfoPanelPrefab 未设置！");
-            return;
-        }
-
         if (success && playerInfo != null) {
             Transform parent = playerInfoPosition != null ? playerInfoPosition.transform : transform;
             PlayerInfoPanel playerInfoPanel = PlayerInfoPanel.Instance;
@@ -135,6 +130,10 @@ public class NotificationManager : MonoBehaviour {
                 playerInfoPanel = parent.GetComponentInChildren<PlayerInfoPanel>(true);
             }
             if (playerInfoPanel == null) {
+                if (playerInfoPanelPrefab == null) {
+                    Debug.LogError("NotificationManager: PlayerInfoPanel 及其预制体均未设置！");
+                    return;
+                }
                 GameObject playerInfoPanelObject = Instantiate(playerInfoPanelPrefab, parent);
                 playerInfoPanelObject.SetActive(false);
                 playerInfoPanel = playerInfoPanelObject.GetComponent<PlayerInfoPanel>();

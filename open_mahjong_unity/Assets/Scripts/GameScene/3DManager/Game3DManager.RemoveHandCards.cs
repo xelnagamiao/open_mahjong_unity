@@ -94,6 +94,8 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     private IEnumerator RemoveSelfHandCardsCoroutine(Transform cardPosition, int removeCount, bool cut_class, int discardTileId, int[] combinationMaskForSelf, bool skipRearrange, string playerPosition) {
+        // 正常行牌自家由 2D 手牌展示，3D 容器为空是预期状态。
+        if (cardPosition == null || cardPosition.childCount == 0) yield break;
         if (removeCount > 1 && combinationMaskForSelf != null) {
             List<int> tilesToRemove = new List<int>();
             for (int i = 0; i + 1 < combinationMaskForSelf.Length; i += 2) {

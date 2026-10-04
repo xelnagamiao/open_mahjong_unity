@@ -49,9 +49,6 @@ from .hongque_debug import (
 from .action_priority import HONGQUE_ACTION_PRIORITY
 from .state_machine import HongqueStateMachine, HongqueStatus
 from .wait_action import (
-    advance_after_unclaimed_discard,
-    apply_discard,
-    broadcast_claim_application as wait_broadcast_claim_application,
     deal_card as hongque_deal_card,
     handle_claim_action as wait_handle_claim_action,
     handle_hand_action,
@@ -427,10 +424,6 @@ class HongqueGameState:
             self._drop_unwaited_actions(set())
             return
 
-    async def _handle_turn_action(self, player: HongquePlayer, action: str,
-                                  tile: Optional[str], candidate_id: Optional[str]) -> None:
-        await handle_hand_action(self, player, action, tile, candidate_id)
-
     def _apply_kong(self, player: HongquePlayer, candidate: dict) -> None:
         """把杠/杠和候选中的手牌并入对应明牌，同步手牌、副露与事件。"""
         for code in candidate["hand_tiles"]:
@@ -451,10 +444,6 @@ class HongqueGameState:
             claimed_tile=claimed_tile,
         )
 
-    async def _discard_and_open_claim(self, player: HongquePlayer, code: str) -> None:
-        """Apply the one authoritative discard transition for humans and bots."""
-        await apply_discard(self, player, code)
-
     async def _open_claim_window(self) -> None:
         await wait_open_claim_window(self)
 
@@ -462,14 +451,8 @@ class HongqueGameState:
                                    candidate_id: Optional[str]) -> None:
         await wait_handle_claim_action(self, player, action, candidate_id)
 
-    async def _broadcast_claim_apply(self, player_index: int, candidate: dict) -> None:
-        await wait_broadcast_claim_application(self, player_index, candidate)
-
     async def _resolve_claims(self) -> None:
         await wait_resolve_claims(self)
-
-    async def _advance_after_unclaimed_discard(self) -> None:
-        await advance_after_unclaimed_discard(self)
 
     async def _finish_round(
         self,

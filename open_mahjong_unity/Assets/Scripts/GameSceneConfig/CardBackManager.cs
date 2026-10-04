@@ -181,10 +181,15 @@ public static class CardBackManager
         {
             ReplaceHandBackground(null);
             ReplaceHandBack(null);
+            // Replace 标记的是已加载的空纹理；恢复默认后必须重新读取新的选择。
+            _handBgLoaded = _handBackLoaded = false;
+        }
+        ApplySavedConfig();
+        if (includeHand)
+        {
             TileFaceResolver.NotifyHandBackgroundChanged();
             TileFaceResolver.NotifyHandBackChanged();
         }
-        ApplySavedConfig();
         TileFaceResolver.NotifyTableBackgroundChanged();
     }
 
@@ -748,6 +753,7 @@ public static class CardBackManager
 
     public static void ClearPersistedHandBackground()
     {
+        HandSurfaceLibrary.RestoreDefaultFaceLayout(HandSurfaceStyles.ResourcePath(HandSurfaceStyles.DefaultIndex, false));
         SelectBuiltinHandSurface(HandSurfaceStyles.DefaultIndex, false);
     }
 

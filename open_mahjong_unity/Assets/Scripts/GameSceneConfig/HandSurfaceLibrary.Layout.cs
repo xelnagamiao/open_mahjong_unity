@@ -57,12 +57,20 @@ public static partial class HandSurfaceLibrary
     public static FaceLayout DefaultFaceLayout(string backgroundPath)
     {
         // 272×424 新版牌体：正面中心约 y=233，原花纹基准中心约 y=207。
-        // 按全部 46 种牌面、三套内置花纹交叉校准；原版及上传图保留原始基准。
+        // 经典正面高约 344px，新版正面高约 376px，花纹等比放大至 109%。
+        // 三套内置花纹共用此基准；经典及上传图保留原始基准。
         int builtin = HandSurfaceStyles.FindIndex(backgroundPath, false);
-        return builtin > 0 ? new FaceLayout { y = -.02f, scale = 1.03f } : FaceLayout.Default;
+        return builtin > 0 ? new FaceLayout { y = -.02f, scale = 1.09f } : FaceLayout.Default;
     }
     public static FaceLayout CurrentFaceLayout => ConfigManager.Instance == null ? FaceLayout.Default
         : GetFaceLayout(ConfigManager.Instance.GetSelectedHandBackground().path);
+
+    public static void RestoreDefaultFaceLayout(string backgroundPath)
+    {
+        if (!Ready) { EnsureReady(() => RestoreDefaultFaceLayout(backgroundPath)); return; }
+        RemoveFaceLayout(backgroundPath);
+        TileFaceResolver.NotifyHandLayoutChanged();
+    }
 
     public static void PreviewFaceLayout(string backgroundPath, FaceLayout layout)
     {

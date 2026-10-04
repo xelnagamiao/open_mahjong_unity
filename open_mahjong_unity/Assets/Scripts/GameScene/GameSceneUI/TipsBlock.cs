@@ -23,6 +23,7 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
         // 这里若清空缓存会把刚算好的提示抹掉。
         if (RuleRegistry.Current != null && RuleRegistry.Current.TipsProvidedByGameState) return;
         HashSet<int> waitingTiles = RuleTips.ComputeWaiting(RuleRegistry.Current, new TingpaiQuery {
+            SubRule = GameSession.Current.SubRule,
             Hand = selfHandTiles,
             Melds = combinationTiles,
             DetailedConfig = GameSession.Current.DetailedConfig,

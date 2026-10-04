@@ -82,7 +82,10 @@ def init_tactical_round_state(gs) -> None:
         gs._tactical_opening_action_tick = getattr(gs, "server_action_tick", None)
 
 
-def clear_tactical_round_state(gs) -> None:
+def clear_tactical_round_state(gs, submitted_actions=None) -> None:
+    if submitted_actions is not None:
+        for pid in getattr(gs, "_tactical_force_passed_players", ()):
+            submitted_actions[pid] = "force_pass"
     gs._tactical_action_snapshot = None
     gs._tactical_opening_action_tick = None
     gs._tactical_passed_players = set()
@@ -187,12 +190,16 @@ def _pop_queued_actions(gs, pid):
     return items
 
 
-def _take_pre_submitted_claim(gs, competitors, current_priority):
+def _take_pre_submitted_claim(gs, competitors, current_priority, submitted_actions=None):
     """抽队列里的抢断；force_pass 记入放弃集合，不当垃圾丢掉。"""
     pre_submitted = None
     competitor_set = set(competitors)
     for pid in range(4):
         queued_actions = _pop_queued_actions(gs, pid)
+        if submitted_actions is not None:
+            for item in queued_actions:
+                if item.get("action_type") in (tactical_opening_snapshot(gs) or {}).get(pid, []):
+                    submitted_actions[pid] = item["action_type"]
         if any(item.get("action_type") == "force_pass" for item in queued_actions):
             tactical_mark_player_force_passed(gs, pid)
         if pid not in competitor_set or tactical_player_has_force_passed(gs, pid):
@@ -221,6 +228,7 @@ async def tactical_grace_phase(
     broadcast_do_action: BroadcastFn,
     broadcast_ask_other_action: BroadcastFn,
     initial_claim_broadcasted: bool = False,
+    submitted_actions=None,
 ):
     """战术鸣牌打断阶段。返回 (action_type, player_index, action_data, claim_broadcasted)。"""
     grace_seconds = float(getattr(gs, "tactical_grace_seconds", TACTICAL_GRACE_SECONDS))
@@ -233,7 +241,7 @@ async def tactical_grace_phase(
 
         current_priority = gs.action_priority[action_type]
         competitors = [pid for pid, alist in higher_action_dict.items() if alist]
-        pre_submitted = _take_pre_submitted_claim(gs, competitors, current_priority)
+        pre_submitted = _take_pre_submitted_claim(gs, competitors, current_priority, submitted_actions)
 
         if pre_submitted is not None:
             _, action_type, player_index, action_data = pre_submitted
@@ -309,6 +317,8 @@ async def tactical_grace_phase(
                 temp_pid = task_to_player[t]
                 temp_data = await gs.action_queues[temp_pid].get()
                 temp_type = temp_data.get("action_type")
+                if submitted_actions is not None:
+                    submitted_actions[temp_pid] = temp_type
                 gs.action_events[temp_pid].clear()
                 if is_decline_action(temp_type):
                     if temp_type == "force_pass":
@@ -331,6 +341,10 @@ async def tactical_grace_phase(
                 break
 
         if new_claim is None:
+            if submitted_actions is not None:
+                for pid in competitors:
+                    if gs.action_dict[pid]:
+                        submitted_actions[pid] = "pass" # 打断窗口超时
             return action_type, player_index, action_data, True
 
         _, action_type, player_index, action_data = new_claim
@@ -345,12 +359,14 @@ async def apply_tactical_claim_if_needed(
     *,
     broadcast_do_action: BroadcastFn,
     broadcast_ask_other_action: BroadcastFn,
+    submitted_actions=None,
 ):
     """主询问结束后：战术鸣牌申请广播；有更高竞争者则再进入打断窗口。
 
     荣和即使无更高优先级竞争者也发 is_claim：和牌不走带音效的 do_action，
     否则申请阶段无声，鸣牌保护 gap 后才在 show_result 听到。结算侧靠
     _tactical_silent_action 跳过重复和牌音效。
+    submitted_actions 可保留所有候选的回复，供国标抢杠错和后续判。
     """
     if not (
         getattr(gs, "tactical_call", False)
@@ -358,13 +374,13 @@ async def apply_tactical_claim_if_needed(
         and not is_decline_action(action_type)
         and gs.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
     ):
-        clear_tactical_round_state(gs)
+        clear_tactical_round_state(gs, submitted_actions)
         return action_type, player_index, action_data, False
 
     need_grace = should_enter_tactical_grace(gs, action_type, player_index)
     need_hu_claim_sfx = is_hu_claim_action(action_type) and not need_grace
     if not need_grace and not need_hu_claim_sfx:
-        clear_tactical_round_state(gs)
+        clear_tactical_round_state(gs, submitted_actions)
         return action_type, player_index, action_data, False
 
     if gs.game_status == "waiting_action_qianggang" and getattr(gs, "jiagang_tile", None) is not None:
@@ -381,7 +397,7 @@ async def apply_tactical_claim_if_needed(
     await asyncio.sleep(float(getattr(gs, "tactical_pre_grace_delay", TACTICAL_PRE_GRACE_DELAY)))
 
     if not need_grace:
-        clear_tactical_round_state(gs)
+        clear_tactical_round_state(gs, submitted_actions)
         gs._tactical_silent_action = True
         return action_type, player_index, action_data, True
 
@@ -394,8 +410,9 @@ async def apply_tactical_claim_if_needed(
         broadcast_do_action=broadcast_do_action,
         broadcast_ask_other_action=broadcast_ask_other_action,
         initial_claim_broadcasted=True,
+        submitted_actions=submitted_actions,
     )
-    clear_tactical_round_state(gs)
+    clear_tactical_round_state(gs, submitted_actions)
     if claim_broadcasted:
         gs._tactical_silent_action = True
     return action_type, player_index, action_data, claim_broadcasted

@@ -18,7 +18,7 @@ public partial class NormalGameStateManager {
             // 存储全部可用行动；riichi_cut 的显示名称由当前规则决定。
             string[] AllowHandActionCheck = new string[] {"cut", "buhua", "hu_self", "hu_flower", "initial_hu", "sea_bottom", "buzhang", "angang", "jiagang", "jiuzhongjiupai", "riichi_cut", "pass"};
             foreach (string action in action_list){
-                if (AllowHandActionCheck.Contains(action)){
+                if (AllowHandActionCheck.Contains(action) || ActionWords.LabelOf(action) != null){
                     allowActionList.Add(action);
                 }
             }

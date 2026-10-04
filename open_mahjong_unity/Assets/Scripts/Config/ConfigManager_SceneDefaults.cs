@@ -67,6 +67,7 @@ public partial class ConfigManager
         StandardTilePackId = TilePackIds.PackOfficial;
         UseHandFaceBackground = true;
         PlayerPrefs.Save();
+        HandSurfaceLibrary.RestoreDefaultFaceLayout(HandSurfaceStyles.ResourcePath(HandSurfaceStyles.DefaultIndex, false));
         RestoreDefaultCenterDisplay();
     }
 

@@ -123,18 +123,18 @@ public partial class NormalGameStateManager {
 
                     // 如果 combination_tiles 的字符串有 "k"（刻子/碰），传入 "peng"
                     if (combinationStr.Contains("k")){
-                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "peng", combinationMask, false));
+                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "peng", combinationMask, false, i));
                     }
                     // 如果 combination_mask 中有 "3"（加杠），说明是碰后加杠的情况
                     // 需要先调用 "peng" 再调用 "jiagang"，确保 pengToJiagangPosDict 正确缓存
                     else if (jiagangCount > 0){
                         // 先调用 peng，创建碰牌并缓存横置位置
-                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "peng", combinationMask, false));
+                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "peng", combinationMask, false, i));
                         // 再调用 jiagang，在缓存的位置上添加加杠牌
-                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "jiagang", combinationMask, false));
+                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "jiagang", combinationMask, false, i));
                     }
                     else{
-                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "None", combinationMask, false));
+                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "None", combinationMask, false, i));
                     }
                 }
             }
@@ -212,7 +212,7 @@ public partial class NormalGameStateManager {
         detailedConfig = gameInfo.detailed_config != null
             ? new Dictionary<string, object>(gameInfo.detailed_config)
             : new Dictionary<string, object>();
-        hepaiLimit = gameInfo.hepai_limit ?? 8; // 起和番限制
+        hepaiLimit = gameInfo.hepai_limit ?? RuleRegistry.Current?.DefaultHepaiLimit ?? 8;
         roomStepTime = gameInfo.step_time; // 存储步时
         roomRoundTime = gameInfo.round_time; // 存储局时
         remainTiles = gameInfo.tile_count; // 存储剩余牌数

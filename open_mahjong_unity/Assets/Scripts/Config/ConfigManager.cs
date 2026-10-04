@@ -9,7 +9,7 @@ using UnityEngine.Rendering.Universal;
 public partial class ConfigManager : MonoBehaviour {
     public static ConfigManager Instance { get; private set; }
 
-    public static bool Debug = true;
+    public static bool Debug = false;
 
     /// <summary>Steam 构建开关：为 true 时，场景中挂载 SteamBuildHider 的物体列表会被隐藏。</summary>
     public static bool BuildForSteam = true;
@@ -39,7 +39,7 @@ public partial class ConfigManager : MonoBehaviour {
             releaseVersion = 25;
         }
         // 官方服务器链接网址 用于访问转到 （不影响游戏进程）
-        clientVersion = "0.4.78.0"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
+        clientVersion = "0.4.78.1"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
         webUrl = "https://salasasa.cn"; // 访问转到
         mobileDownloadUrl = "https://salasasa.cn/mobile-download"; // Android APK 版本更新下载页
         documentUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#"; // 访问转到
@@ -230,7 +230,7 @@ public partial class ConfigManager : MonoBehaviour {
         gameObject.name = "GlobalConfig";
 
         // 加载用户配置
-        MigrateHandSurfaceDefaults();
+        InitializeHandSurfaceDefaults();
         MasterVolume = PlayerPrefs.GetInt(KEY_MASTER_VOLUME, DEFAULT_VOLUME);
         MusicVolume = PlayerPrefs.GetInt(KEY_MUSIC_VOLUME, DEFAULT_VOLUME);
         SoundEffectVolume = PlayerPrefs.GetInt(KEY_SOUND_EFFECT_VOLUME, DEFAULT_VOLUME);
@@ -641,18 +641,27 @@ public partial class ConfigManager : MonoBehaviour {
         return (path, isCustom);
     }
 
-    private static void MigrateHandSurfaceDefaults() {
-        if (PlayerPrefs.GetInt(KEY_HAND_SURFACE_DEFAULT_VERSION, 0) >= 1) return;
-        // 只升级旧经典/未设置的底图；升级后重新选择经典仍可正常保存。
-        MigrateSelection(KEY_HAND_BG_PATH, KEY_HAND_BG_IS_CUSTOM, false);
-        MigrateSelection(KEY_HAND_BACK_PATH, KEY_HAND_BACK_IS_CUSTOM, true);
-        PlayerPrefs.SetInt(KEY_HAND_SURFACE_DEFAULT_VERSION, 1);
+    private static void InitializeHandSurfaceDefaults() {
+        int version = PlayerPrefs.GetInt(KEY_HAND_SURFACE_DEFAULT_VERSION, 0);
+        if (version >= 2) return;
+        // 此入口先于其他配置加载；快捷设置的旧迁移标记在历次启动时都会保存。
+        // 旧用户未显式选择过底图时仍用经典，新安装才采用靛蓝；已有选择不覆盖。
+        bool existingUser = PlayerPrefs.HasKey(KEY_ASK_OTHER_PASS_SHORTCUT_ORDER_V2)
+            || PlayerPrefs.HasKey("Login_Username") || PlayerPrefs.HasKey(KEY_MASTER_VOLUME)
+            || PlayerPrefs.HasKey("SelectedTableClothPath") || PlayerPrefs.HasKey(KEY_STANDARD_TILE_PACK_ID)
+            || PlayerPrefs.HasKey(KEY_HAND_BG_PATH) || PlayerPrefs.HasKey(KEY_HAND_BACK_PATH)
+            || PlayerPrefs.HasKey(KEY_HAND_BG_IS_CUSTOM) || PlayerPrefs.HasKey(KEY_HAND_BACK_IS_CUSTOM)
+            || PlayerPrefs.HasKey(KEY_HAND_BACK_AUTO_FOLLOW);
+        InitializeSelection(KEY_HAND_BG_PATH, KEY_HAND_BG_IS_CUSTOM, false);
+        InitializeSelection(KEY_HAND_BACK_PATH, KEY_HAND_BACK_IS_CUSTOM, true);
+        PlayerPrefs.SetInt(KEY_HAND_SURFACE_DEFAULT_VERSION, 2);
         PlayerPrefs.Save();
 
-        void MigrateSelection(string pathKey, string customKey, bool back) {
-            if (PlayerPrefs.GetInt(customKey, 0) == 1 || !string.IsNullOrEmpty(PlayerPrefs.GetString(pathKey, ""))) return;
-            PlayerPrefs.SetString(pathKey, HandSurfaceStyles.ResourcePath(HandSurfaceStyles.DefaultIndex, back));
-            PlayerPrefs.SetInt(customKey, 0);
+        void InitializeSelection(string pathKey, string customKey, bool back) {
+            if (PlayerPrefs.HasKey(pathKey)) return;
+            bool classic = (version == 0 && existingUser) || PlayerPrefs.GetInt(customKey, 0) == 1;
+            PlayerPrefs.SetString(pathKey, classic ? "" : HandSurfaceStyles.ResourcePath(HandSurfaceStyles.DefaultIndex, back));
+            if (!PlayerPrefs.HasKey(customKey)) PlayerPrefs.SetInt(customKey, 0);
         }
     }
 

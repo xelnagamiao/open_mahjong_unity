@@ -683,11 +683,6 @@ class ClassicalGameState:
         'G': {'normal': "暗杠", 'yaojiu': "幺九暗杠", 'fanpai': "番牌暗杠"},
     }
 
-    def _calc_player_fu(self, player) -> int:
-        """根据玩家副露计算副数（仅计副露组合）"""
-        fu, _ = self._calc_player_fu_detail(player)
-        return fu
-
     def _calc_player_fu_detail(self, player) -> tuple[int, List[str]]:
         """根据玩家副露与手牌中的番牌对子计算副数与副种列表"""
         active_fanpai = set(self._FANPAI)

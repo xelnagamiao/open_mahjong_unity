@@ -280,8 +280,8 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     /// <summary>牌谱 Goto 重建：同步跑完副露放置（无动画），避免加杠 3D 下一帧才生成。</summary>
-    public void RunMeldRebuildImmediate(string playerIndex, string actionType, int[] combinationMask) {
-        RunCoroutineImmediate(ActionAnimationCoroutine(playerIndex, actionType, combinationMask, false));
+    public void RunMeldRebuildImmediate(string playerIndex, string actionType, int[] combinationMask, int meldIndex = -1) {
+        RunCoroutineImmediate(ActionAnimationCoroutine(playerIndex, actionType, combinationMask, false, meldIndex));
     }
 
     private static void RunCoroutineImmediate(IEnumerator routine) {
@@ -550,16 +550,16 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     // 所有出牌（含单张与多张切）共用各家串行队列，不能让第一张绕过队列。
-    public void Change3DDiscardTiles(int[] tileIds, string PlayerPosition, bool cut_class, bool isRiichi = false, bool playCutPhysicsSound = false) {
+    public void Change3DDiscardTiles(int[] tileIds, string PlayerPosition, bool cut_class, bool isRiichi = false, bool playCutPhysicsSound = false, bool concealedDiscard = false) {
         if (tileIds == null || tileIds.Length == 0) {
             return;
         }
         for (int i = 0; i < tileIds.Length; i++) {
-            EnqueueDiscardHandWork(PlayerPosition, tileIds[i], cut_class, isRiichi, playCutPhysicsSound && i == 0);
+            EnqueueDiscardHandWork(PlayerPosition, tileIds[i], cut_class, isRiichi, playCutPhysicsSound && i == 0, concealedDiscard);
         }
     }
 
-    public void Change3DTile(string actionType,int tileId,int removeCount,string PlayerPosition,bool cut_class,int[] combination_mask, bool isRiichi = false, bool isMoGang = false, bool playCutPhysicsSound = false, string meldDiscarderPos = null, int meldClaimedTile = 0){
+    public void Change3DTile(string actionType,int tileId,int removeCount,string PlayerPosition,bool cut_class,int[] combination_mask, bool isRiichi = false, bool isMoGang = false, bool playCutPhysicsSound = false, string meldDiscarderPos = null, int meldClaimedTile = 0, bool concealedDiscard = false){
         // 牌谱重建/重连的无动画分支直接执行，避免队列协程逐帧处理
         if (actionType == "SetDiscardWithoutAnimation" || actionType == "SetBuhuacardWithoutAnimation" || actionType == "SetRecordDiscardWithoutAnimation"){
             PosPanel3D panel = GetPosPanel(PlayerPosition);
@@ -604,11 +604,18 @@ public partial class Game3DManager : MonoBehaviour {
         // 从第一张起就入队，完整等待删牌、飞牌与收拢；否则直接启动的出牌不在
         // HasPendingHandAnimWork 的跟踪范围内，下一张会中断同家尚未落地的飞牌。
         if (actionType == "Discard" || actionType == "RecordDiscard") {
-            EnqueueDiscardHandWork(PlayerPosition, tileId, cut_class, isRiichi, playCutPhysicsSound);
+            EnqueueDiscardHandWork(PlayerPosition, tileId, cut_class, isRiichi, playCutPhysicsSound, concealedDiscard);
             return;
         }
 
-        StartCoroutine(Change3DTileCoroutine(actionType, tileId, removeCount, PlayerPosition, cut_class, combination_mask, isRiichi, playCutPhysicsSound, meldDiscarderPos, meldClaimedTile));
+        var animation = Change3DTileCoroutine(actionType, tileId, removeCount, PlayerPosition, cut_class, combination_mask, isRiichi, playCutPhysicsSound, meldDiscarderPos, meldClaimedTile);
+        // Live draws also yield before spawning. Settlement must see them as
+        // pending work, otherwise a late blank tile can appear after reveal.
+        if (IsHandAnimPlayer(PlayerPosition)) {
+            StartCoroutine(TrackRecordHandAnimation(animation, PlayerPosition));
+        } else {
+            StartCoroutine(animation);
+        }
     }
 
     // 同步初始化各家手牌：清空当前 cardsPosition，按 player_to_info 与 selfHandTiles 立即生成
@@ -790,16 +797,16 @@ public partial class Game3DManager : MonoBehaviour {
         Dictionary<string, GameRecordManager.RecordPlayer> players,
         string roomRule,
         HashSet<string> hiddenHandPositions,
-        IDictionary<string, object> detailedConfig = null) {
+        IDictionary<string, object> detailedConfig = null, string subRule = null) {
         if (players == null) return;
         if (!RecordSetting.Instance.IsShowCardsMode) return;
 
         Color overlayColor = Card3DHoverManager.Instance.DangerOverlayColor;
         float intensity = Card3DHoverManager.Instance.DangerOverlayIntensity;
 
-        ApplyChongHintForPosition("left", leftPosPanel.ShowCardsPosition, players, roomRule, hiddenHandPositions, overlayColor, intensity, detailedConfig);
-        ApplyChongHintForPosition("top", topPosPanel.ShowCardsPosition, players, roomRule, hiddenHandPositions, overlayColor, intensity, detailedConfig);
-        ApplyChongHintForPosition("right", rightPosPanel.ShowCardsPosition, players, roomRule, hiddenHandPositions, overlayColor, intensity, detailedConfig);
+        ApplyChongHintForPosition("left", leftPosPanel.ShowCardsPosition, players, roomRule, hiddenHandPositions, overlayColor, intensity, detailedConfig, subRule);
+        ApplyChongHintForPosition("top", topPosPanel.ShowCardsPosition, players, roomRule, hiddenHandPositions, overlayColor, intensity, detailedConfig, subRule);
+        ApplyChongHintForPosition("right", rightPosPanel.ShowCardsPosition, players, roomRule, hiddenHandPositions, overlayColor, intensity, detailedConfig, subRule);
     }
 
     private static void ApplyChongHintForPosition(
@@ -810,9 +817,9 @@ public partial class Game3DManager : MonoBehaviour {
         HashSet<string> hiddenHandPositions,
         Color overlayColor,
         float intensity,
-        IDictionary<string, object> detailedConfig) {
+        IDictionary<string, object> detailedConfig, string subRule) {
         if (hiddenHandPositions != null && hiddenHandPositions.Contains(position)) return;
-        HashSet<int> dangerTileIds = RecordChongHintCalculator.ComputeRonDangerForHandOwner(players, position, roomRule, detailedConfig);
+        HashSet<int> dangerTileIds = RecordChongHintCalculator.ComputeRonDangerForHandOwner(players, position, roomRule, detailedConfig, subRule);
         if (dangerTileIds.Count == 0) return;
         ApplyChongHintToShowCardsTransform(showCardsPosition, dangerTileIds, overlayColor, intensity);
     }

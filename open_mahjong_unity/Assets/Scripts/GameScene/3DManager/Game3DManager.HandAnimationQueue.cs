@@ -28,6 +28,7 @@ public partial class Game3DManager {
         public int[] CombinationMask;
         public bool IsRiichi;
         public bool PlayCutPhysicsSound;
+        public bool ConcealedDiscard;
         public bool MergeBeforeDraw;
         public int MeldIndex;
         public int[] HandTiles;
@@ -49,18 +50,36 @@ public partial class Game3DManager {
 
     private int _recordHandAnimationCount;
     private int _recordHandAnimationGeneration;
+    private readonly Dictionary<string, int> _recordHandAnimationsByPlayer = new Dictionary<string, int>();
 
     /// <summary>牌谱明牌的删牌、飞牌和收拢尚未结束；自动播放须等它们完成再修改下一笔手牌状态。</summary>
     public bool HasPendingRecordHandAnimations => _recordHandAnimationCount > 0;
 
-    private IEnumerator TrackRecordHandAnimation(IEnumerator animation) {
+    public bool HasPendingRecordStepAnimations(string playerPosition) {
+        return HasPendingHandAnimWork(playerPosition)
+            || (_recordHandAnimationsByPlayer.TryGetValue(playerPosition, out int count) && count > 0);
+    }
+
+    public bool HasPendingRecordTableAnimations {
+        get {
+            foreach (string position in HandAnimPlayerPositions) {
+                if (HasPendingRecordStepAnimations(position)) return true;
+            }
+            return false;
+        }
+    }
+
+    private IEnumerator TrackRecordHandAnimation(IEnumerator animation, string playerPosition) {
         int generation = _recordHandAnimationGeneration;
         _recordHandAnimationCount++;
+        _recordHandAnimationsByPlayer.TryGetValue(playerPosition, out int count);
+        _recordHandAnimationsByPlayer[playerPosition] = count + 1;
         try {
             yield return animation;
         } finally {
             if (generation == _recordHandAnimationGeneration) {
                 _recordHandAnimationCount--;
+                _recordHandAnimationsByPlayer[playerPosition]--;
             }
         }
     }
@@ -97,6 +116,7 @@ public partial class Game3DManager {
         // 跳转/切局会中断嵌套动画；旧协程的 finally 不得扣减新一轮播放的计数。
         _recordHandAnimationGeneration++;
         _recordHandAnimationCount = 0;
+        _recordHandAnimationsByPlayer.Clear();
         foreach (var kv in _handAnimProcessors) {
             if (kv.Value != null) {
                 StopCoroutine(kv.Value);
@@ -238,7 +258,7 @@ public partial class Game3DManager {
 
     /// <summary>自由模式的他家摸牌、切牌和补花共用队列，避免旧摸牌尚未收拢就增删下一张。</summary>
     private bool TryEnqueueFreeHandChange(string actionType, int tileId, string playerPosition,
-        bool cutClass, bool isRiichi, bool playCutPhysicsSound) {
+        bool cutClass, bool isRiichi, bool playCutPhysicsSound, bool concealedDiscard = false) {
         if (FreeGameState.Active == null || playerPosition == "self" || !IsHandAnimPlayer(playerPosition)
                 || IsRecordShowCardsModeActive()) return false;
 
@@ -280,7 +300,7 @@ public partial class Game3DManager {
 
     private IEnumerator DiscardTileFromQueue(PosPanel3D panel, HandAnimOp op) {
         if (IsRecordShowCardsModeActive() && op.PlayerPosition != "self") {
-            yield return RecordDiscardShowCardsCoroutine(op.PlayerPosition, op.TileId, op.CutClass, op.IsRiichi);
+            yield return RecordDiscardShowCardsCoroutine(op.PlayerPosition, op.TileId, op.CutClass, op.IsRiichi, op.ConcealedDiscard);
             yield break;
         }
 
@@ -294,7 +314,7 @@ public partial class Game3DManager {
             SoundManager.Instance.PlayPhysicsSound("cut");
         }
         bool moqieGrayOnDiscard = ShouldApplyMoqieDiscardGray(op.CutClass);
-        yield return Set3DTileCoroutine(op.TileId, panel.discardsPosition, "Discard", op.PlayerPosition, moqieGrayOnDiscard, isRiichi: op.IsRiichi);
+        yield return Set3DTileCoroutine(op.ConcealedDiscard ? 0 : op.TileId, panel.discardsPosition, "Discard", op.PlayerPosition, moqieGrayOnDiscard, isRiichi: op.IsRiichi);
         if (op.PlayerPosition != "self" && DiscardSettlePauseSec > 0f) {
             yield return new WaitForSeconds(DiscardSettlePauseSec);
         }
@@ -333,7 +353,7 @@ public partial class Game3DManager {
         });
     }
 
-    private void EnqueueDiscardHandWork(string playerPosition, int tileId, bool cutClass, bool isRiichi, bool playCutPhysicsSound) {
+    private void EnqueueDiscardHandWork(string playerPosition, int tileId, bool cutClass, bool isRiichi, bool playCutPhysicsSound, bool concealedDiscard = false) {
         EnqueueHandAnimOp(playerPosition, new HandAnimOp {
             Kind = HandAnimOpKind.DiscardTile,
             TileId = tileId,
@@ -341,6 +361,7 @@ public partial class Game3DManager {
             CutClass = cutClass,
             IsRiichi = isRiichi,
             PlayCutPhysicsSound = playCutPhysicsSound,
+            ConcealedDiscard = concealedDiscard,
         });
     }
 
@@ -453,23 +474,23 @@ public partial class Game3DManager {
         yield return ActionAnimationCoroutine(playerPosition, actionType, combinationMask, true);
     }
 
-    private IEnumerator RecordDiscardShowCardsCoroutine(string playerPosition, int tileId, bool fromDrawSlot, bool isRiichi) {
-        return TrackRecordHandAnimation(RecordDiscardShowCardsCore(playerPosition, tileId, fromDrawSlot, isRiichi));
+    private IEnumerator RecordDiscardShowCardsCoroutine(string playerPosition, int tileId, bool fromDrawSlot, bool isRiichi, bool concealedDiscard = false) {
+        return TrackRecordHandAnimation(RecordDiscardShowCardsCore(playerPosition, tileId, fromDrawSlot, isRiichi, concealedDiscard), playerPosition);
     }
 
-    private IEnumerator RecordDiscardShowCardsCore(string playerPosition, int tileId, bool fromDrawSlot, bool isRiichi) {
+    private IEnumerator RecordDiscardShowCardsCore(string playerPosition, int tileId, bool fromDrawSlot, bool isRiichi, bool concealedDiscard = false) {
         PosPanel3D panel = GetPosPanel(playerPosition);
         yield return RemoveRecordShowHandCardCoroutine(panel.ShowCardsPosition, tileId, fromDrawSlot, playerPosition);
         if (fromDrawSlot) {
             ClearRecordPlayerDrawSlotState(playerPosition);
         }
         bool moqieGrayOnDiscard = ShouldApplyMoqieDiscardGray(fromDrawSlot);
-        yield return Set3DTileCoroutine(tileId, panel.discardsPosition, "Discard", playerPosition, moqieGrayOnDiscard, isRiichi: isRiichi);
+        yield return Set3DTileCoroutine(concealedDiscard ? 0 : tileId, panel.discardsPosition, "Discard", playerPosition, moqieGrayOnDiscard, isRiichi: isRiichi);
         yield return RearrangeRecordShowMergeAllWithAnimation(panel.ShowCardsPosition, playerPosition);
     }
 
     private IEnumerator RecordBuhuaShowCardsCoroutine(string playerPosition, int tileId, bool fromDrawSlot) {
-        return TrackRecordHandAnimation(RecordBuhuaShowCardsCore(playerPosition, tileId, fromDrawSlot));
+        return TrackRecordHandAnimation(RecordBuhuaShowCardsCore(playerPosition, tileId, fromDrawSlot), playerPosition);
     }
 
     private IEnumerator RecordBuhuaShowCardsCore(string playerPosition, int tileId, bool fromDrawSlot) {
@@ -493,7 +514,7 @@ public partial class Game3DManager {
         string discarderPos = null,
         int claimedTile = 0) {
         return TrackRecordHandAnimation(RecordMeldShowCardsCore(
-            playerPosition, actionType, combinationMask, removeDrawSlotFirst, drawSlotTileId, discarderPos, claimedTile));
+            playerPosition, actionType, combinationMask, removeDrawSlotFirst, drawSlotTileId, discarderPos, claimedTile), playerPosition);
     }
 
     private IEnumerator RecordMeldShowCardsCore(

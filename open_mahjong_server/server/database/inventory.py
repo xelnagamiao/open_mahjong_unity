@@ -11,7 +11,7 @@ import re
 import uuid
 
 from psycopg2.extras import Json, RealDictCursor
-from .inventory_assets import ASSETS, SEEDS, DEFAULT_AVATAR_FRAME_ID, LEGACY_FRAME_DESCRIPTIONS
+from .inventory_assets import ASSETS, SEEDS, DEFAULT_AVATAR_FRAME_ID, LEGACY_FRAME_DESCRIPTIONS, LEGACY_FRAME_NAMES
 
 CATALOG_LOCK = 220922041
 
@@ -56,8 +56,11 @@ def ensure_inventory_tables(cursor):
         if key in LEGACY_FRAME_DESCRIPTIONS:
             # Refresh only our previous built-in copy, preserving administrator edits.
             cursor.execute('''UPDATE item_definitions SET description=%s
-                WHERE item_id=%s AND code=%s AND asset_key=%s AND description=%s''',
-                (description, iid, code, key, LEGACY_FRAME_DESCRIPTIONS[key]))
+                WHERE item_id=%s AND code=%s AND asset_key=%s AND description=ANY(%s)''',
+                (description, iid, code, key, list(LEGACY_FRAME_DESCRIPTIONS[key])))
+            cursor.execute('''UPDATE item_definitions SET name=%s
+                WHERE item_id=%s AND code=%s AND asset_key=%s AND name=%s''',
+                (name, iid, code, key, LEGACY_FRAME_NAMES[key]))
 
 
 def _public(row):

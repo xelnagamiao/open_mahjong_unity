@@ -716,10 +716,6 @@ class RiichiGameState:
             return self.starting_scores[original_index]
         return self._starting_score()
 
-    def _xiru_target_score(self) -> int:
-        """西入延长/终了的目标分，随起始点数等比缩放（25000→30000，50000→60000）。"""
-        return option(self, 'target_score') or self._starting_score() * 6 // 5
-
     def _langyong_call_count(self, player) -> int:
         """该玩家本局吃/碰/杠（含暗杠）次数；每个副露算一次（加杠由碰升级仍记一次）。"""
         return len(player.combination_tiles)
@@ -767,13 +763,6 @@ class RiichiGameState:
             await self.broadcast_refresh_player_tag_list()
 
     # ========== 对局终了（西入 / 击飞）==========
-
-    def _riichi_oya_rank(self) -> int:
-        ranked = sorted(self.player_list, key=lambda p: (-p.score, p.original_player_index))
-        for i, p in enumerate(ranked):
-            if p.player_index == 0:
-                return i + 1
-        return 4
 
     def _riichi_match_should_end(self, renchan: bool, current_round: Optional[int] = None) -> bool:
         return match_should_end(self, renchan, self.current_round if current_round is None else current_round)

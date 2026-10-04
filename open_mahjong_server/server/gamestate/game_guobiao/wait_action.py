@@ -79,6 +79,11 @@ async def wait_action(self):
     collect_blood = blood_battle.enabled(self) and self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
     if collect_blood:
         self.blood_pending_claims = {}
+    qianggang_responses = None
+    if self.game_status == "waiting_action_qianggang" and self.open_cuohe:
+        if not self.qianggang_action_dict:
+            self.qianggang_action_dict = {i: list(actions) for i, actions in self.action_dict.items()}
+        qianggang_responses = self.qianggang_responses
 
     # 玩家可能在询问广播尚未遍历完四家时就已回复。这里若无条件清空，
     # 会把本轮的有效回复一并删除，牌局只能等到超时。仅丢弃明确属于旧 tick 的操作。
@@ -123,6 +128,12 @@ async def wait_action(self):
     player_index = None # 保存操作玩家索引 (如果玩家有操作则左侧三个变量有值 否则为None)
     action_data = None # 保存操作数据
     action_type = None # 保存操作类型
+    if qianggang_responses is not None:
+        for i, response in qianggang_responses.items():
+            if response in ("hu_first", "hu_second", "hu_third"):
+                if action_type is None or self.action_priority[response] > self.action_priority[action_type]:
+                    player_index, action_type = i, response
+                    action_data = {"action_type": response}
 
     # waiting_ready
     timeout_grace = 0 if self.game_status == "waiting_ready" else self.step_time
@@ -164,6 +175,11 @@ async def wait_action(self):
             temp_player_index = task_to_player[task]
             temp_action_data = dict(await self.action_queues[temp_player_index].get())
             completed_submissions.append((temp_player_index, temp_action_data))
+
+        # 同批未被优先选中的和牌也需保留，避免前家错和后丢失后家的已提交操作。
+        if qianggang_responses is not None:
+            for i, submission in completed_submissions:
+                qianggang_responses[i] = submission.get("action_type")
 
         tactical_batch = (
             getattr(self, "tactical_call", False)
@@ -229,6 +245,8 @@ async def wait_action(self):
     if self.waiting_players_list:
         for i in self.waiting_players_list:
             self.player_list[i].remaining_time = 0
+            if qianggang_responses is not None:
+                qianggang_responses[i] = "pass" # 超时放弃，错和续判时不再询问
 
     if action_data:
         logger.debug(f"player_index={player_index} action_type={action_type} action_data={action_data} game_status={self.game_status} player_hand_tiles={self.player_list[player_index].hand_tiles}")
@@ -242,7 +260,16 @@ async def wait_action(self):
         action_data,
         broadcast_do_action=broadcast_do_action,
         broadcast_ask_other_action=broadcast_ask_other_action,
+        submitted_actions=qianggang_responses,
     )
+
+    if qianggang_responses is not None:
+        # 主询问提前结束时，收下已经入队但未被本批任务取出的有效回复。
+        for i, actions in self.qianggang_action_dict.items():
+            while not self.action_queues[i].empty():
+                queued = self.action_queues[i].get_nowait()
+                if i not in qianggang_responses and queued.get("_action_tick") in (None, self.server_action_tick) and queued.get("action_type") in actions:
+                    qianggang_responses[i] = queued["action_type"]
 
     # 情形处理
     match self.game_status:
@@ -356,6 +383,8 @@ async def wait_action(self):
                                                   ) # 广播加杠动画
 
                     self.jiagang_tile = normal_jia # 存储抢杠牌
+                    self.qianggang_action_dict = {}
+                    self.qianggang_responses = {}
                     self.action_dict = check_action_jiagang(self,normal_jia) # 检查是否有人可以抢杠
                     if any(self.action_dict[i] for i in self.action_dict):
                         self.game_status = "waiting_action_qianggang" # 如果有则执行 等待抢杠行为 转移行为
@@ -626,6 +655,8 @@ async def wait_action(self):
                     return
                 elif action_type == "pass":
                     self.jiagang_tile = None
+                    self.qianggang_action_dict = {}
+                    self.qianggang_responses = {}
                     self.game_status = "deal_card_after_gang" # 无人抢杠，原玩家摸岭上牌
                     return
                 else:
@@ -633,6 +664,8 @@ async def wait_action(self):
             # 超时放弃抢杠
             else:
                 self.jiagang_tile = None
+                self.qianggang_action_dict = {}
+                self.qianggang_responses = {}
                 self.game_status = "deal_card_after_gang" # 无人抢杠，原玩家摸岭上牌
                 return
         case "waiting_ready":

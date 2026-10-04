@@ -292,40 +292,52 @@ public class RecordPanel : MonoBehaviour {
     /// <summary>
     /// 打开牌谱回放（天梯列表、牌谱面板等入口共用）。
     /// </summary>
-    public static void OpenRecord(RecordDetail detail, bool localPlayback = false) {
+    public static bool OpenRecord(RecordDetail detail, bool localPlayback = false) {
         if (detail == null || detail.record == null) {
-            NotificationManager.Instance.ShowTip("牌谱", false, "牌谱数据为空");
-            return;
+            SharedRecordLink.ClearPendingJump();
+            NotificationManager.Instance?.ShowTip("牌谱", false, "牌谱数据为空");
+            return false;
         }
-
-        // Dictionary 内嵌 JArray 时不能直接 SerializeObject，需经 JToken 还原
-        string recordJson = JToken.FromObject(detail.record).ToString(Formatting.None);
-
-        if (string.IsNullOrWhiteSpace(recordJson)) {
-            NotificationManager.Instance.ShowTip("牌谱", false, "牌谱内容为空");
-            return;
+        // 入口先守卫，避免 LoadRecord 拒绝加载后留下已经切换的空游戏窗口。
+        if (GameSessionGuard.BlockIfExclusiveSession("阅览牌谱")) {
+            SharedRecordLink.ClearPendingJump();
+            return false;
         }
-
-        if (WindowsManager.Instance == null) {
+        WindowsManager windows = WindowsManager.Instance;
+        if (windows == null) {
+            SharedRecordLink.ClearPendingJump();
             NotificationManager.Instance?.ShowTip("牌谱", false, "场景管理器未就绪");
-            return;
+            return false;
         }
-
-        WindowsManager.Instance.SwitchWindow("recordscene");
-        if (GameRecordManager.Instance == null) {
-            NotificationManager.Instance?.ShowTip("牌谱", false, "牌谱场景未就绪");
-            return;
-        }
-
+        bool enteredRecordScene = false;
         try {
+            // Dictionary 内嵌 JArray 时不能直接 SerializeObject，需经 JToken 还原。
+            string recordJson = JToken.FromObject(detail.record).ToString(Formatting.None);
+            if (string.IsNullOrWhiteSpace(recordJson)) {
+                throw new System.InvalidOperationException("牌谱内容为空");
+            }
+            enteredRecordScene = true;
+            if (!windows.TryPrepareRecordScene(out GameRecordManager manager, out string error)) {
+                throw new System.InvalidOperationException(error);
+            }
             RecordSetting.Instance?.SetShowCardsMode(!detail.perspective);
             // 是否可分享取决于云端保存标记，与从云端还是本地副本打开无关。
-            GameRecordManager.Instance.LoadRecord(recordJson, detail.players, detail.cloud_saved ? detail.game_id : null);
+            manager.LoadRecord(recordJson, detail.players, detail.cloud_saved ? detail.game_id : null);
             SharedRecordLink.ApplyPendingJumpIfAny();
+            return true;
         } catch (System.Exception e) {
             SharedRecordLink.ClearPendingJump();
             Debug.LogError($"加载牌谱失败: {e}");
-            NotificationManager.Instance?.ShowTip("牌谱", false, $"解析牌谱失败: {e.Message}");
+            if (enteredRecordScene && windows.GetCurrentWindow() == "recordscene") {
+                GameRecordManager.Instance?.HideGameRecord();
+                if (SharedRecordLink.IsPublicSharePlayback) {
+                    AppSession.ReturnToLogin();
+                } else {
+                    windows.ExitGameToReturnWindow();
+                }
+            }
+            NotificationManager.Instance?.ShowTip("牌谱", false, $"无法打开牌谱: {e.Message}");
+            return false;
         }
     }
 }

@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Tuple, Set
 from .boardcast import broadcast_result, broadcast_xueliu_continue, broadcast_dingque_done
 from ..public.game_record_manager import player_action_record_hu, player_action_record_liuju, player_action_record_sichuan_liuju_step, player_action_record_gang_refund
 from ..public.round_end_timing import ROUND_END_HAND_REVEAL_SEC, sichuan_chajiao_panel_wait_seconds
-from ...game_calculation.sichuan.xueliu_rules import XUELIU_FAN_VALUES, XUELIU_RULE_PROFILE, XUELIU_EXCHANGE_RULE_PROFILE, is_xueliu_sub_rule
+from ...game_calculation.sichuan.xueliu_rules import XUELIU_RULE_PROFILE, XUELIU_EXCHANGE_RULE_PROFILE, is_xueliu_sub_rule
 from .SichuanGameState import SichuanGameState, SichuanPlayer
 from .action_check import refresh_waiting_tiles
 from ..public.game_record_manager import init_game_round
@@ -155,13 +155,6 @@ class XueliuGameState(SichuanGameState):
             elif meld[:1] in ('s', 'S'):
                 tiles.extend([tile - 1, tile, tile + 1])
         return tiles
-
-    def _xueliu_fan_from_names(self, names: List[str]) -> int:
-        """Convert a recorded fan list back to its numeric fan value."""
-        if self.xueliu_exchange:
-            from ...game_calculation.sichuan.xueliu_exchange_rules import fan_from_names
-            return fan_from_names(names)
-        return sum((XUELIU_FAN_VALUES.get(name, 0) for name in names))
 
     def _xueliu_base_from_fan(self, fan: int) -> int:
         checker = getattr(self.calculation_service, 'Sichuan_xueliu_base_from_fan', None)

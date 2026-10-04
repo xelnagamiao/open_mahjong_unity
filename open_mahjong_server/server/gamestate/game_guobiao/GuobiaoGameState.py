@@ -226,6 +226,8 @@ class GuobiaoGameState:
         self.result_dict = {} # 结算结果 {hu_first:(int,list[str]),hu_second:(int,list[str]),hu_third:(int,list[str])}
         self.hu_class = None # 和牌玩家索引
         self.jiagang_tile = None # 抢杠牌 每次加杠时存储 waiting_jiagang_action 以后删除
+        self.qianggang_action_dict = {} # 本次抢杠的候选，跨错和 ready 保留
+        self.qianggang_responses = {} # 已回复的和牌/放弃；未回复者错和后继续询问
 
         # 用于玩家操作的事件和队列
         self.action_events:Dict[int,asyncio.Event] = {0:asyncio.Event(),1:asyncio.Event(),2:asyncio.Event(),3:asyncio.Event()}  # 玩家索引 -> Event
@@ -675,6 +677,8 @@ class GuobiaoGameState:
                                 if is_qianggang:
                                     hepai_tile = self.jiagang_tile
                                     self.jiagang_tile = None
+                                    self.qianggang_action_dict = {}
+                                    self.qianggang_responses = {}
                                 else:
                                     hepai_tile = self.player_list[self.current_player_index].discard_tiles[-1]
                                 self.player_list[hepai_idx].hand_tiles.append(hepai_tile)
@@ -1074,16 +1078,44 @@ class GuobiaoGameState:
 
         # 清理错和残留
         self.hu_class = ""
-        self.result_dict = {}
+        if is_qianggang:
+            self.result_dict.pop(hu_class, None) # 其余抢杠者仍使用同一次算番结果
+        else:
+            self.result_dict = {}
 
         if hu_class == "hu_self":
             self.action_dict = check_action_hand_action(self, self.current_player_index)
             self.game_status = "waiting_hand_action"
         elif hu_class in ("hu_first", "hu_second", "hu_third"):
             if is_qianggang:
-                # 抢杠错和：加杠成立，与无人抢杠相同，由加杠者摸岭上牌
-                self.jiagang_tile = None
-                self.game_status = "deal_card_after_gang"
+                self.qianggang_responses[hepai_player_index] = "pass"
+                self.action_dict = {0:[],1:[],2:[],3:[]}
+                for player_index, actions in self.qianggang_action_dict.items():
+                    if "peida" in self.player_list[player_index].tag_list:
+                        continue
+                    response = self.qianggang_responses.get(player_index)
+                    if response in ("hu_first", "hu_second", "hu_third"):
+                        if not self.hu_class or self.action_priority[response] > self.action_priority[self.hu_class]:
+                            self.hu_class = response
+                    elif response is None:
+                        self.action_dict[player_index] = list(actions)
+
+                # 已提交的和牌不必再点击；只等待还没回复且优先级更高的候选。
+                if self.hu_class:
+                    for player_index, actions in self.action_dict.items():
+                        if all(self.action_priority[action] <= self.action_priority[self.hu_class] for action in actions):
+                            self.action_dict[player_index] = []
+                if any(self.action_dict.values()):
+                    self.game_status = "waiting_action_qianggang"
+                elif self.hu_class:
+                    self.game_status = "check_hepai"
+                else:
+                    # 候选耗尽后加杠才成立，由原玩家摸岭上牌。
+                    self.jiagang_tile = None
+                    self.result_dict = {}
+                    self.qianggang_action_dict = {}
+                    self.qianggang_responses = {}
+                    self.game_status = "deal_card_after_gang"
             else:
                 cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
                 self.action_dict = check_action_after_cut(self, cut_tile)

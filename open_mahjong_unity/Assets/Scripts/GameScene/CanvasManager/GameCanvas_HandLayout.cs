@@ -3,10 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public partial class GameCanvas {
-    public const float HandLayoutVerticalOffset = -40f;
-    private const float ThirteenTileHandScale = 0.95f;
     private Vector3 defaultHandCardsContainerScale;
-    private Vector2 defaultHandCardsContainerPosition;
     private bool hasCapturedDefaultHandCardsContainerScale;
 
     /// <summary>
@@ -18,22 +15,16 @@ public partial class GameCanvas {
         }
         if (!hasCapturedDefaultHandCardsContainerScale) {
             defaultHandCardsContainerScale = handCardsContainer.localScale;
-            defaultHandCardsContainerPosition = ((RectTransform)handCardsContainer).anchoredPosition;
             hasCapturedDefaultHandCardsContainerScale = true;
         }
 
         HandStructure handStructure = HandStructures.Resolve(roomRule, subRule);
         float scale = (float)HandStructures.ThirteenTile.DisplayWidthUnits
             / handStructure.DisplayWidthUnits;
-        if (handStructure.BaseHandTileCount == HandStructures.ThirteenTile.BaseHandTileCount) {
-            scale *= ThirteenTileHandScale;
-        }
         handCardsContainer.localScale = new Vector3(
             defaultHandCardsContainerScale.x * scale,
             defaultHandCardsContainerScale.y * scale,
             defaultHandCardsContainerScale.z);
-        ((RectTransform)handCardsContainer).anchoredPosition = defaultHandCardsContainerPosition
-            + new Vector2(0f, HandLayoutVerticalOffset);
     }
 
     public static float GetCardWidth(RectTransform cardRect) {

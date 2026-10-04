@@ -12,8 +12,6 @@ public partial class GameRecordManager {
     private Coroutine recordAutoPlayCoroutine;
     private int _recordPlaybackGeneration;
     private int _pendingRecordDelayedAdvanceCount;
-    private float recordControlBaseY;
-    private bool hasCapturedRecordControlBaseY;
 
     public bool IsRecordAutoPlaying { get; private set; }
 
@@ -67,12 +65,7 @@ public partial class GameRecordManager {
         // panels use the same reference canvas, so this also follows letterboxing.
         parentRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 900f);
         Vector2 panelPosition = parentRect.anchoredPosition;
-        if (!hasCapturedRecordControlBaseY) {
-            recordControlBaseY = panelPosition.y;
-            hasCapturedRecordControlBaseY = true;
-        }
         panelPosition.x = 70f;
-        panelPosition.y = recordControlBaseY + GameCanvas.HandLayoutVerticalOffset;
         parentRect.anchoredPosition = panelPosition;
         if (spectatingPanel != null && spectatingPanel.transform is RectTransform spectatorRect) {
             spectatorRect.anchoredPosition = new Vector2(

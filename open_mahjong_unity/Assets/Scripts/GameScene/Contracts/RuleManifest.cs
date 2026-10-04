@@ -49,6 +49,14 @@ public sealed class RuleManifest {
     /// </summary>
     public Func<int, int> NormalizeTileId;
 
+    /// <summary>规则提供的实体牌角标；不改变牌面或牌值。</summary>
+    public Func<int, string> TileBadgeText;
+    /// <summary>可见副露的实际牌；第二参数为是否本家。null 沿用普通副露编码，空数组表示牌值不可见。</summary>
+    public Func<string, bool, int[]> VisibleMeldTiles;
+
+    /// <summary>当前本家有权看见、并从牌墙移出的指示牌。</summary>
+    public Func<IEnumerable<int>> LiveVisibleIndicators;
+
     /// <summary>荒牌前可申报"不听"的规则（日麻流局听牌申报面板）。</summary>
     public bool HasNotenDeclaration;
 
@@ -76,6 +84,13 @@ public sealed class RuleManifest {
 
     /// <summary>抢杠和的结果里带被抢加杠的牌源信息：公共 3D 演出可回收加杠展示中的第四张并保留原碰牌。</summary>
     public bool SupportsRobbedAddedKongSource;
+
+    /// <summary>
+    /// Final per-rule adjustment of the live/replay reveal request. The bool is the
+    /// authoritative rob-kong fact, before any presentation-only source adjustment.
+    /// Null preserves the normal river/committed-added-kong presentation.
+    /// </summary>
+    public Action<HepaiPresentationRequest, bool> AdjustHepaiPresentation;
 
     /// <summary>
     /// 和牌飘字/报声用的展示动作：(hu_class, 番名列表, detailed_config) → 展示词。
@@ -192,8 +207,14 @@ public sealed class RuleManifest {
 
     // ---------- 牌谱回放差异 ----------
 
+    /// <summary>牌谱杠动作的 gs 字段即时结算，和牌 tick 不重复包含该杠分。</summary>
+    public bool RecordUsesInlineKongScores;
+
     /// <summary>杠后补牌与普通摸牌同向从头取（四川），不用倒序岭上。</summary>
     public bool KongReplacementFromFront;
+
+    /// <summary>Whether replay may mark other players' waits as discard-win danger.</summary>
+    public bool ShowsRonDangerHints = true;
 
     /// <summary>补牌始终取牌墙末张（台湾、上海），不用国标的双单张交替。</summary>
     public bool ReplacementFromTailEnd;

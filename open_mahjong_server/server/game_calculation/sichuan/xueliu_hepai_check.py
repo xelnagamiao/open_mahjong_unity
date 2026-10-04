@@ -25,11 +25,6 @@ def _meld_tile(meld: str) -> int | None:
         return None
 
 
-def _meld_suit(meld: str) -> int | None:
-    tile = _meld_tile(meld)
-    return tile // 10 if tile is not None else None
-
-
 def _logical_meld_tiles(meld: str) -> List[int]:
     """Return the suit tiles represented by an exposed meld.
 

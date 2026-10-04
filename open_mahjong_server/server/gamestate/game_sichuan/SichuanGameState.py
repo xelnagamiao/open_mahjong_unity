@@ -792,11 +792,6 @@ class SichuanGameState:
             return "active"
         return None
 
-    def _hand_without_dingque_suit(self, hand_tiles: List[int], dingque_suit: int) -> List[int]:
-        if dingque_suit not in (1, 2, 3):
-            return list(hand_tiles)
-        return [t for t in hand_tiles if (t // 10) != dingque_suit]
-
     def _evaluate_liuju_ting(
         self,
         hand_tiles: List[int],
@@ -852,54 +847,6 @@ class SichuanGameState:
             _eval_one(hand)
 
         return bool(best_waits), best_waits, best_max_fan, hua_type
-
-    def _max_fan_for_hu_player_hand(self, player: SichuanPlayer) -> Tuple[int, List[str]]:
-        """已和玩家手牌：遍历所有可能和牌张，取理论最大番（查牌付分用）。"""
-        hand = list(player.hand_tiles)
-        best_fan, best_names = 0, []
-        for w in set(hand):
-            fan, names = self.calculation_service.Sichuan_hepai_check(
-                hand, player.combination_tiles, [], w, player.dingque_suit,
-            )
-            if fan > best_fan:
-                best_fan, best_names = fan, list(names) if names else []
-        return best_fan, best_names
-
-    def _max_fan_for_no_ting_payer_hand(
-        self, payer: SichuanPlayer, *, strip_dingque: bool = False,
-    ) -> Tuple[int, List[str]]:
-        """（遗留）按付分者手牌遍历和牌可能取理论最大番；查叫收分应使用听牌家的 tenpai_max_fan。"""
-        hand = list(payer.hand_tiles)
-        if strip_dingque:
-            hand = self._hand_without_dingque_suit(hand, payer.dingque_suit)
-        combo = payer.combination_tiles
-        dingque = payer.dingque_suit
-        best_fan, best_names = 0, []
-
-        def _try_hepai(test_hand: List[int], win_tile: int):
-            nonlocal best_fan, best_names
-            fan, names = self.calculation_service.Sichuan_hepai_check(
-                test_hand, combo, [], win_tile, dingque,
-            )
-            if fan > best_fan:
-                best_fan, best_names = fan, list(names) if names else []
-
-        if len(hand) % 3 == 2:
-            for win_tile in set(hand):
-                _try_hepai(hand, win_tile)
-            for discard in set(hand):
-                test = list(hand)
-                test.remove(discard)
-                mf, mf_names = self.calculation_service.Sichuan_max_fan_for_chajiao(
-                    test, combo, dingque,
-                )
-                if mf > best_fan:
-                    best_fan, best_names = mf, list(mf_names) if mf_names else []
-        else:
-            mf, mf_names = self.calculation_service.Sichuan_max_fan_for_chajiao(hand, combo, dingque)
-            if mf > best_fan:
-                best_fan, best_names = mf, list(mf_names) if mf_names else []
-        return best_fan, best_names
 
     def _reveal_hand_payload(self, player) -> List[int]:
         """终局亮牌：和牌者将和牌张置于末位，便于客户端倒牌展示。"""

@@ -74,7 +74,7 @@ class InventoryDatabaseTests(unittest.TestCase):
 
     def test_minimal_catalog_does_not_reseed_retired_presets(self):
         self.migrate()
-        self.assertEqual([(i['item_id'],i['name']) for i in get_catalog(self.db)],[(2201,'A1 · 淡香槟'),(2202,'B1 · 冰青'),(3001,'改名卡')])
+        self.assertEqual([(i['item_id'],i['name']) for i in get_catalog(self.db)],[(2201,'金橙色'),(2202,'青色'),(3001,'改名卡')])
         self.assertEqual(self.sql('SELECT title_id,name FROM titles'),[(2,'最初的初段')])
         self.assertEqual(self.qty(1002,103),0)
         self.assertEqual(get_inventory(self.db,103)['appearance']['voice_id'],2)

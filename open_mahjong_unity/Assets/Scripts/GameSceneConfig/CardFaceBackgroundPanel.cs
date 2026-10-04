@@ -235,7 +235,7 @@ public partial class CardFaceBackgroundPanel : MonoBehaviour {
     }
 
     private void RestoreHandBg() {
-        CardBackManager.SelectBuiltinHandSurface(HandSurfaceStyles.DefaultIndex, false);
+        CardBackManager.ClearPersistedHandBackground();
         RefreshPreviews();
     }
 

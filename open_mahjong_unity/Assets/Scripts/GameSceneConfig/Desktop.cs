@@ -84,8 +84,10 @@ public class Desktop : MonoBehaviour
         if (disposed || edge.Material == null || !Application.isPlaying) return;
         if (tableFrame == null) tableFrame = GetComponent<TableFrameRenderer>();
         if (tableFrame == null) return;
+        bool useDefault = !edge.Pending && !edge.Applied;
         tableFrame.ApplySelection(this, edge.SourceTexture ?? edge.Material.mainTexture as Texture2D,
-            edge.Path, edge.Custom, edge.Pending, edgePreviewColor ?? edge.SolidColor);
+            useDefault ? TableFrameStyles.Default : edge.Path, !useDefault && edge.Custom,
+            edge.Pending, edgePreviewColor ?? edge.SolidColor);
     }
 
     private bool EnsureMaterials()

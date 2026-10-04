@@ -49,7 +49,7 @@ public class LoginPanel : MonoBehaviour {
     private string userNameTips = "输入用户名或邮箱登录";
     private string passwordTips = "密码应当在6-32个字符之间，只能包含英文、数字、特殊字符";
     private const string RegisterEmailTips = "邮箱应当为有效的邮箱地址";
-    private const string RegisterUsernameTips = "用户名应当在2-20个字符之间，只能包含中文、数字及英文，中文计两个字符。";
+    private const string RegisterUsernameTips = "用户名最多16个字符，显示长度2–20（中日韩及全角字符计2，其他字符计1）。";
     private const string RegisterConfirmPasswordTips = "确认密码应当与上方密码一致";
 
     private Coroutine serverConnectCoroutine;
@@ -64,6 +64,11 @@ public class LoginPanel : MonoBehaviour {
 
         if (debugObject != null) {
             debugObject.SetActive(ConfigManager.Debug);
+            // The full-panel debug label is decorative and must not intercept
+            // clicks intended for the login form underneath it.
+            if (debugObject.TryGetComponent<Graphic>(out var debugGraphic)) {
+                debugGraphic.raycastTarget = false;
+            }
         }
 
         loginButton.onClick.AddListener(LoginClick);
@@ -77,7 +82,8 @@ public class LoginPanel : MonoBehaviour {
         inputUser.onSelect.AddListener((text) => ShowTip(userNameTips));
         inputPassword.onSelect.AddListener((text) => ShowTip(passwordTips));
         BindRegisterField(registerEmail, RegisterEmailTips, 255);
-        BindRegisterField(registerUsername, RegisterUsernameTips, 20);
+        // 校验 NFC 后的 Unicode 字符数，避免输入框按 UTF-16 截断代理对或组合字符。
+        BindRegisterField(registerUsername, RegisterUsernameTips, 0);
         BindRegisterField(registerPassword, passwordTips, 32);
         BindRegisterField(registerConfirmPassword, RegisterConfirmPasswordTips, 32);
 
@@ -206,36 +212,51 @@ public class LoginPanel : MonoBehaviour {
     }
 
     private static bool IsValidRegisterUsername(string username) {
-        string name = username.Normalize(NormalizationForm.FormC).Trim();
+        if (string.IsNullOrEmpty(username)) return false;
+        string name;
+        try {
+            name = username.Normalize(NormalizationForm.FormC).Trim();
+        } catch (System.ArgumentException) {
+            return false;
+        }
         if (string.IsNullOrEmpty(name)) return false;
         int length = 0;
-        foreach (char c in name) {
-            UnicodeCategory category = CharUnicodeInfo.GetUnicodeCategory(c);
+        int codePoints = 0;
+        for (int index = 0; index < name.Length; index++) {
+            if (++codePoints > 16) return false;
+            UnicodeCategory category = CharUnicodeInfo.GetUnicodeCategory(name, index);
+            if (category == UnicodeCategory.Control || category == UnicodeCategory.Format
+                || category == UnicodeCategory.Surrogate || category == UnicodeCategory.LineSeparator
+                || category == UnicodeCategory.ParagraphSeparator) return false;
+            int codePoint = char.ConvertToUtf32(name, index);
+            if (codePoint > 0xFFFF) index++;
             if (category == UnicodeCategory.NonSpacingMark || category == UnicodeCategory.SpacingCombiningMark || category == UnicodeCategory.EnclosingMark) {
                 continue;
             }
-            if (IsEnglishOrDigit(c)) {
-                length += 1;
-                continue;
-            }
-            if (IsChineseChar(c)) {
-                length += 2;
-                continue;
-            }
-            return false;
+            length += IsWideUsernameCharacter(codePoint) ? 2 : 1;
         }
         return length >= 2 && length <= 20;
     }
 
-    private static bool IsEnglishOrDigit(char c) {
-        return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9');
-    }
-
-    private static bool IsChineseChar(char c) {
-        int code = c;
-        return (code >= 0x4E00 && code <= 0x9FFF)
-            || (code >= 0x3400 && code <= 0x4DBF)
-            || (code >= 0xF900 && code <= 0xFAFF);
+    private static bool IsWideUsernameCharacter(int codePoint) {
+        // 与 Python / Node 共用的历史用户名计数范围保持一致，包含半角假名。
+        return (codePoint >= 0x1100 && codePoint <= 0x11FF)
+            || (codePoint >= 0x2E80 && codePoint <= 0x303F)
+            || (codePoint >= 0x3040 && codePoint <= 0x30FF)
+            || (codePoint >= 0x3100 && codePoint <= 0x318F)
+            || (codePoint >= 0x31A0 && codePoint <= 0x31BF)
+            || (codePoint >= 0x31F0 && codePoint <= 0x31FF)
+            || (codePoint >= 0x3400 && codePoint <= 0x4DBF)
+            || (codePoint >= 0x4E00 && codePoint <= 0x9FFF)
+            || (codePoint >= 0xA960 && codePoint <= 0xA97F)
+            || (codePoint >= 0xAC00 && codePoint <= 0xD7AF)
+            || (codePoint >= 0xD7B0 && codePoint <= 0xD7FF)
+            || (codePoint >= 0xF900 && codePoint <= 0xFAFF)
+            || (codePoint >= 0xFE10 && codePoint <= 0xFE6F)
+            || (codePoint >= 0xFF01 && codePoint <= 0xFF60)
+            || (codePoint >= 0xFF61 && codePoint <= 0xFF9F)
+            || (codePoint >= 0xFFE0 && codePoint <= 0xFFE6)
+            || (codePoint >= 0x20000 && codePoint <= 0x323AF);
     }
 
     private void ShowRegistrationError(string message) {

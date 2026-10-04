@@ -193,16 +193,15 @@ public partial class GameCanvas{
             cardObj.transform.SetSiblingIndex(handCardCount);
             RectTransform cardRect = cardObj.GetComponent<RectTransform>();
             float rightEdge = 0f;
-            bool hasCard = false;
             for (int i = 0; i < handCardsContainer.childCount; i++){
                 Transform child = handCardsContainer.GetChild(i);
                 if (child == cardObj.transform) continue;
                 RectTransform childRect = child.GetComponent<RectTransform>();
                 if (childRect == null) continue;
-                rightEdge = hasCard ? Mathf.Max(rightEdge, childRect.anchoredPosition.x) : childRect.anchoredPosition.x;
-                hasCard = true;
+                rightEdge = Mathf.Max(rightEdge, childRect.anchoredPosition.x
+                    + childRect.rect.width * (1f - childRect.pivot.x));
             }
-            cardRect.anchoredPosition = new Vector2(rightEdge + tileCardWidth, 0f);
+            cardRect.anchoredPosition = GetHandCardPosition(cardRect, rightEdge);
             GameRecordManager.Instance?.ReapplySelf2DHandChongOverlay();
         }
 
