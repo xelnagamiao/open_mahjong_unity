@@ -13,6 +13,7 @@ import threading
 import hashlib
 import secrets
 import json
+from pathlib import Path
 from .inventory_assets import DEFAULT_AVATAR_FRAME_ID
 
 # 禁止登录的封禁类型
@@ -189,22 +190,6 @@ class DatabaseManager:
                     cursor.execute("ROLLBACK TO SAVEPOINT sp_add_note;")
                 else:
                     raise
-            # 迁移：若表中曾有 mode 列，将 mode 拷贝到 match_type 后丢弃 mode
-            cursor.execute("""
-                SELECT 1 FROM information_schema.columns
-                WHERE table_schema = 'public' AND table_name = 'game_player_records' AND column_name = 'mode';
-            """)
-            if cursor.fetchone():
-                cursor.execute("SAVEPOINT sp_migrate_mode;")
-                try:
-                    cursor.execute("""
-                        UPDATE game_player_records SET match_type = mode
-                        WHERE match_type IS NULL AND mode IS NOT NULL;
-                    """)
-                    cursor.execute("ALTER TABLE game_player_records DROP COLUMN mode;")
-                except Error:
-                    cursor.execute("ROLLBACK TO SAVEPOINT sp_migrate_mode;")
-
             # 创建表guobiao_history_stats（如果不存在）
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS guobiao_history_stats (
@@ -257,6 +242,8 @@ class DatabaseManager:
                 );
             """)
 
+            from .riichi.record_stats import ensure_schema as ensure_riichi_stats_schema
+            ensure_riichi_stats_schema(cursor)
             from .riichi.store_riichi import FAN_FIELDS as RIICHI_FAN_FIELDS
             riichi_fan_columns = ",\n                    ".join(
                 f"{field} INT NOT NULL DEFAULT 0" for field in RIICHI_FAN_FIELDS
@@ -633,26 +620,6 @@ class DatabaseManager:
                         cursor.execute(f"ROLLBACK TO SAVEPOINT sp_add_{col_name};")
                     else:
                         raise
-
-            # 旧版 is_sponsor 布尔字段迁移为 sponsor_expires_at 后删除
-            cursor.execute("""
-                SELECT 1 FROM information_schema.columns
-                WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'is_sponsor';
-            """)
-            if cursor.fetchone():
-                cursor.execute("""
-                    UPDATE users
-                    SET sponsor_expires_at = TIMESTAMP '2099-12-31 23:59:59'
-                    WHERE is_sponsor = TRUE AND sponsor_expires_at IS NULL;
-                """)
-                cursor.execute("SAVEPOINT sp_drop_is_sponsor;")
-                try:
-                    cursor.execute("ALTER TABLE users DROP COLUMN is_sponsor;")
-                except Error as e:
-                    if getattr(e, "pgcode", None) != "42703":
-                        cursor.execute("ROLLBACK TO SAVEPOINT sp_drop_is_sponsor;")
-                        raise
-                    cursor.execute("ROLLBACK TO SAVEPOINT sp_drop_is_sponsor;")
 
             # 创建通用段位数据表 rank_data
             cursor.execute("""
@@ -1222,62 +1189,22 @@ class DatabaseManager:
 
             from .player_recent_records import ensure_schema
             ensure_schema(cursor)
+            cursor.execute(Path(__file__).with_name('record_indexes.sql').read_text(encoding='utf-8'))
             conn.commit() # 提交
             logger.info('数据表初始化成功')
             print('数据表初始化成功')
             self._get_pool()
-
-            # 清理远古数据：删除 room_type 不属于 match/custom/events 的对局记录
-            # （早期数据可能 room_type 为 NULL 或非法值），重建统计前先清掉避免污染。
-            self._cleanup_legacy_room_type_records()
 
         except Exception as e:
             logger.error(f'数据表初始化失败: {e}', exc_info=True)
             print(f'数据表初始化失败: {e}')
             if conn:
                 conn.rollback()
+            raise
         finally:
             if conn:
                 cursor.close()
                 conn.close()
-
-    def _cleanup_legacy_room_type_records(self) -> None:
-        """清理远古数据：删除 room_type 不属于 match/custom/events 的对局。
-
-        删除 game_records（级联到 game_player_records），并清理 game_player_metrics
-        中对应 game_id 的残留。每次 init 执行一次，无遗留时无副作用。
-        """
-        conn = None
-        try:
-            conn = self._get_connection()
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT DISTINCT game_id FROM game_player_records
-                WHERE room_type IS NULL OR room_type NOT IN ('match','custom','events')
-            """)
-            legacy_game_ids = [r[0] for r in cursor.fetchall()]
-            if not legacy_game_ids:
-                return
-            logger.info("清理远古 room_type 数据：game_id 数=%d", len(legacy_game_ids))
-            # game_player_metrics 无 FK，需显式删
-            cursor.execute(
-                "DELETE FROM game_player_metrics WHERE game_id = ANY(%s::varchar[])",
-                (legacy_game_ids,),
-            )
-            # 删 game_records 级联到 game_player_records
-            cursor.execute(
-                "DELETE FROM game_records WHERE game_id = ANY(%s::varchar[])",
-                (legacy_game_ids,),
-            )
-            conn.commit()
-        except Exception as e:
-            logger.error(f"清理远古 room_type 数据失败: {e}", exc_info=True)
-            if conn:
-                conn.rollback()
-        finally:
-            if conn:
-                cursor.close()
-                self._put_connection(conn)
 
     # 获取用户名
     def get_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
@@ -3280,7 +3207,10 @@ class DatabaseManager:
                     FROM events e JOIN event_ready_pool p ON p.event_id = e.event_id
                     WHERE e.status = 'active'
                       AND e.room_settings->'auto_match'->>'enabled' = 'true'
-                    GROUP BY e.event_id HAVING COUNT(*) >= 4
+                    GROUP BY e.event_id HAVING COUNT(*) >= CASE
+                        WHEN e.room_settings->'auto_match'->>'room_rule' = 'riichi'
+                          AND e.room_settings->'auto_match'->'room_config'->>'sub_rule' = 'riichi/sanma'
+                        THEN 3 ELSE 4 END
                     ORDER BY MIN(p.ready_at), e.event_id
                 """)
                 result = [row[0] for row in cursor.fetchall()]
@@ -3293,8 +3223,9 @@ class DatabaseManager:
             self._put_connection(conn)
 
     def claim_event_ready_players(self, event_id: str, user_ids: List[int], automatic: bool = False) -> List[Dict[str, Any]]:
-        """Consume all four entries or none. Return their timestamps for rollback."""
-        if len(set(user_ids)) != 4:
+        """Consume every requested seat or none. Return timestamps for rollback."""
+        count = len(user_ids)
+        if count not in (3, 4) or len(set(user_ids)) != count:
             return []
         conn = self._get_connection()
         try:
@@ -3307,7 +3238,10 @@ class DatabaseManager:
                     return []
                 if automatic:
                     from ..event.auto_match import event_auto_match_config
-                    if event_auto_match_config(dict(event)).get("enabled") is not True:
+                    from ..game_calculation.riichi.sanma import player_count
+                    cfg = event_auto_match_config(dict(event))
+                    expected = player_count((cfg.get("room_config") or {}).get("sub_rule")) if cfg.get("room_rule") == "riichi" else 4
+                    if cfg.get("enabled") is not True or count != expected:
                         conn.rollback()
                         return []
                 cursor.execute("""
@@ -3315,7 +3249,7 @@ class DatabaseManager:
                     RETURNING event_id, user_id, ready_at
                 """, (event_id, user_ids))
                 rows = [dict(row) for row in cursor.fetchall()]
-                if len(rows) != 4:
+                if len(rows) != count:
                     conn.rollback()
                     return []
             conn.commit()

@@ -25,7 +25,7 @@ namespace Riichi {
             var result = new RiichiHandResult();
             var allTiles = new List<int>(handList);
             foreach (var combo in tilesCombination) allTiles.AddRange(RiichiYakuDetector.TilesFromCombination(combo));
-            if (handList.Count != 14 - 3 * tilesCombination.Count || allTiles.GroupBy(RiichiTileUtil.Normalize).Any(g => g.Count() > 4)) {
+            if ((context.IsSanma && allTiles.Any(t => (RiichiTileUtil.Normalize(t) >= 12 && RiichiTileUtil.Normalize(t) <= 18))) || handList.Count != 14 - 3 * tilesCombination.Count || allTiles.GroupBy(RiichiTileUtil.Normalize).Any(g => g.Count() > 4)) {
                 result.Error = "手牌张数不合法"; return result;
             }
 
@@ -77,7 +77,7 @@ namespace Riichi {
                 int han = mult * 13;
                 int fu = 25;
                 int score = RiichiScoreCalc.CalculateTotalScore(han, fu,
-                    context.PlayerWind == RiichiTileUtil.East, context.IsTsumo, mult);
+                    context.PlayerWind == RiichiTileUtil.East, context.IsTsumo, mult, context.KiriageMangan, context.KazoeLimit, context.IsSanma ? 3 : 4, context.SanmaTsumo);
                 if (score > bestScore || (score == bestScore && (han > bestHan || (han == bestHan && fu > bestFu)))) {
                     bestScore = score; bestDetect = det;
                     bestHan = han; bestFu = fu;
@@ -91,7 +91,7 @@ namespace Riichi {
                     int han = det.Yaku.Sum(y => y.Han);
                     int fu = RiichiFuCalc.Calculate(chiitoiSets, winTile, RiichiWaitType.Tanki, context, det, HandShape.Chiitoitsu);
                     int score = RiichiScoreCalc.CalculateTotalScore(han, fu,
-                        context.PlayerWind == RiichiTileUtil.East, context.IsTsumo, det.YakumanMultiplier, context.KiriageMangan, context.KazoeLimit);
+                        context.PlayerWind == RiichiTileUtil.East, context.IsTsumo, det.YakumanMultiplier, context.KiriageMangan, context.KazoeLimit, context.IsSanma ? 3 : 4, context.SanmaTsumo);
                     if (score > bestScore || (score == bestScore && (han > bestHan || (han == bestHan && fu > bestFu)))) {
                         bestScore = score; bestDetect = det;
                         bestHan = han; bestFu = fu;
@@ -112,7 +112,7 @@ namespace Riichi {
                 int han = det.Yaku.Sum(y => y.Han);
                 int fu = RiichiFuCalc.Calculate(decomp, winningTile, det.WaitType, context, det, HandShape.Normal);
                 int score = RiichiScoreCalc.CalculateTotalScore(han, fu,
-                    context.PlayerWind == RiichiTileUtil.East, context.IsTsumo, det.YakumanMultiplier, context.KiriageMangan, context.KazoeLimit);
+                    context.PlayerWind == RiichiTileUtil.East, context.IsTsumo, det.YakumanMultiplier, context.KiriageMangan, context.KazoeLimit, context.IsSanma ? 3 : 4, context.SanmaTsumo);
                 if (score > bestScore || (score == bestScore && (han > bestHan || (han == bestHan && fu > bestFu)))) {
                     bestScore = score; bestDetect = det;
                     bestHan = han; bestFu = fu;

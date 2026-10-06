@@ -206,6 +206,10 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
             logger.error(f"无效的玩家索引: {player_index}")
             return
         
+        ingress_gate = getattr(game_state, 'accept_action_ingress', None)
+        if callable(ingress_gate) and not ingress_gate(player_index, action_type):
+            return
+
         from ..tactical_claim import (
             tactical_force_pass_is_live,
             tactical_mark_player_force_passed,
@@ -297,7 +301,10 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
             
             action_data_to_queue = {
                 "action_type": "ready",
-                "_action_tick": action_tick,
+                # ready 确认当前结算，不属于最后一次出牌/鸣牌询问。
+                # Unity 会沿用 LastAskActionTick；入口已验证 waiting_ready 和座位权限，
+                # 入队时绑定当前帧，避免 wait_action 再按旧询问帧丢弃有效确认。
+                "_action_tick": getattr(game_state, "server_action_tick", None),
             }
             logger.info(f"放入队列: player_index={player_index}, action_data={action_data_to_queue}")
             await game_state.action_queues[player_index].put(action_data_to_queue)

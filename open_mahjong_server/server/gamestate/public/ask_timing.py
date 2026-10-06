@@ -14,6 +14,9 @@ from typing import Dict, Optional, Tuple
 def begin_ask_round(game_state) -> None:
     game_state._ask_delivered_at: Dict[int, float] = {}
     game_state._ask_broadcast_time = time.time()
+    hook = getattr(game_state, "on_action_window_broadcast", None)
+    if callable(hook):
+        hook()
 
 
 def note_ask_delivered(game_state, viewer_index: int) -> None:
@@ -24,6 +27,9 @@ def note_ask_delivered(game_state, viewer_index: int) -> None:
     # 只记首次送达，避免重连补发重置时钟
     if viewer_index not in delivered:
         delivered[viewer_index] = time.time()
+        hook = getattr(game_state, "on_action_window_delivered", None)
+        if callable(hook):
+            hook(viewer_index)
 
 
 def get_ask_elapsed(game_state, viewer_index: int) -> float:

@@ -40,6 +40,7 @@ def duplicate_db(monkeypatch):
                     original_player_index INT, rule VARCHAR(10), sub_rule TEXT, match_type TEXT,
                     room_type TEXT, match_tier TEXT, event_id TEXT, title_used INT,
                     character_used INT, profile_used INT, voice_used INT, avatar_frame_used INT,
+                    pt_change NUMERIC(12, 2),
                     PRIMARY KEY (game_id, user_id));
             """)
     pool.putconn(conn)
@@ -111,6 +112,8 @@ def test_store_links_same_reserved_game_and_rechecks_record_lock(duplicate_db, w
                                record_counter=SimpleNamespace(rank_result=i+1)) for i in range(4)]
     store = getattr(DatabaseManager, f"store_{rule}_game_record")
     assert store(db, record, players, "custom", "duplicate") == game_id
+    assert execute(db, "SELECT COUNT(*), COUNT(pt_change) FROM game_player_records WHERE game_id=%s",
+                   (game_id,), fetch=True) == (4, 0)
     ended = execute(db, """SELECT g.ended_at, w.ended_at FROM duplicate_games g
         JOIN duplicate_walls w ON w.id=g.wall_id WHERE game_id=%s""", (game_id,), fetch=True)
     assert all(ended)

@@ -28,6 +28,7 @@ from ..public.claim_protection import (
     REAL_MELD_ACTIONS,
 )
 from .shunhe import tag_list_for_viewer
+from .action_window import prepare_action_window
 
 from ..public.ask_timing import begin_ask_round, note_ask_delivered, reconnect_clock
 
@@ -267,6 +268,7 @@ async def broadcast_dingque_done(self):
 async def broadcast_ask_hand_action(self):
     self.server_action_tick += 1
     begin_ask_round(self)
+    prepare_action_window(self, new_ask=True)
     # 当前行动者优先 await；其余座位 schedule，避免 post_gap/延迟鸣牌卡住出牌权
     seat_order = [self.current_player_index] + [
         i for i in range(len(self.player_list)) if i != self.current_player_index
@@ -358,10 +360,8 @@ async def broadcast_xueliu_throw_three_ask(self):
 async def broadcast_ask_other_action(self, remaining_time_override: Optional[int] = None, is_tactical_recheck: bool = False):
     cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
     self.server_action_tick += 1
-    # 战术打断再问：在派发 AI 前同步 waiting tick，避免机器人因 tick 不一致拒动
-    if is_tactical_recheck:
-        self._waiting_action_tick = self.server_action_tick
     begin_ask_round(self)
+    prepare_action_window(self, new_ask=True, is_tactical_recheck=is_tactical_recheck)
     for i, current_player in enumerate(self.player_list):
         try:
             if "offline" in current_player.tag_list:
@@ -409,7 +409,7 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
                         action_tick=self.server_action_tick,
                     ),
                 )
-                await _send_ask_response_to_viewer(self, i, response)
+                await _send_ask_response_to_viewer(self, i, response, block=False)
         except Exception as e:
             logger.error(f"四川 ask_other 广播失败 {current_player.user_id}: {e}")
 
@@ -806,6 +806,8 @@ async def broadcast_refresh_player_tag_list(self):
 
 
 async def broadcast_ready_status(self):
+    if self.game_status == "waiting_ready":
+        prepare_action_window(self)
     player_to_ready = {}
     for player in self.player_list:
         pending = self.action_dict.get(player.player_index, [])

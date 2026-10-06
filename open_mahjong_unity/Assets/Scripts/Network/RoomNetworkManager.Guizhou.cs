@@ -15,7 +15,7 @@ public partial class RoomNetworkManager {
                 type = "room/create_Guizhou_room", rule = GuizhouGameState.RuleId, sub_rule = GuizhouGameState.SubRule,
                 roomname = config.RoomName, gameround = config.GameRound, password = config.Password, random_seed = seed,
                 roundTimerValue = config.RoundTimer, stepTimerValue = config.StepTimer, tips = config.Tips,
-                count_tips = config.CountTips, pointer_tips = config.PointerTips, tourist_limit = config.TouristLimit,
+                tactical_call = config.TacticalCall, count_tips = config.CountTips, pointer_tips = config.PointerTips, tourist_limit = config.TouristLimit,
                 allow_spectator = config.AllowSpectator, event_id = string.IsNullOrEmpty(config.EventId) ? null : config.EventId,
                 detailed_config = new { rule_version = GuizhouGameState.RuleVersion },
             };

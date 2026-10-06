@@ -1,3 +1,5 @@
+import { buildMeldStacks, hasMeldStacks, isMeldStack } from './meldStack.js'
+
 /**
  * Split a revealed winning hand into concealed tiles and the separately
  * rendered winning tile. Depending on the server/replay version, the payload
@@ -32,7 +34,9 @@ export function splitSettlementHand(handTiles, winningTile, meldCount, sortKey) 
  * Convert server combination masks into the settlement-only meld layout.
  *
  * Mask modes: 0 upright, 1 sideways (the claimed tile), 2 concealed,
- * 3 stacked added-kong tile, 4 empty. Concealed kongs stay fully hidden in
+ * 3 stacked added-kong tile, 4 empty; reserved 101 face-up stack, 102 face-down stack.
+ * The reserved signs attach to the preceding 0/1/2/3 tile in original order.
+ * Concealed kongs stay fully hidden in
  * play, but settlement follows the common riichi layout: back, face, face,
  * back.
  */
@@ -41,6 +45,7 @@ export function buildSettlementMeldGroups(combinationMasks) {
 
   return combinationMasks.map((mask) => {
     if (!Array.isArray(mask)) return null
+    if (hasMeldStacks(mask)) return buildStackedSettlementMeld(mask)
 
     const pairs = []
     for (let index = 0; index + 1 < mask.length; index += 2) {
@@ -77,6 +82,49 @@ export function buildSettlementMeldGroups(combinationMasks) {
       })),
     }
   }).filter((group) => group?.tiles.length)
+}
+
+function buildStackedSettlementMeld(mask) {
+  const tiles = [], added = [], anchors = new Map(), onAdded = new Set()
+  let concealedCount = 0
+  for (let index = 0; index + 1 < mask.length; index += 2) {
+    const mode = Number(mask[index]), tile = Number(mask[index + 1])
+    if (isMeldStack(mode) || !Number.isInteger(mode) || mode < 0 || mode > 3
+      || !Number.isInteger(tile) || (tile !== 0 && tile <= 10)) continue
+    if (mode === 3) {
+      added.push({ index: index / 2, tile })
+      continue
+    }
+    const slot = { tile, sideways: mode === 1, faceDown: mode === 2 || tile === 0, stackedTile: null }
+    tiles.push(slot)
+    anchors.set(index / 2, slot)
+    if (mode === 2) concealedCount++
+  }
+  const concealedKong = tiles.length === 4 && concealedCount === 4 && added.length === 0
+  if (concealedKong) {
+    tiles[1].faceDown = tiles[1].tile === 0
+    tiles[2].faceDown = tiles[2].tile === 0
+  }
+  const claimed = tiles.find((slot) => slot.sideways)
+  for (const entry of added) {
+    if (claimed && claimed.stackedTile === null) {
+      claimed.stackedTile = entry.tile
+      anchors.set(entry.index, claimed)
+      onAdded.add(entry.index)
+    } else {
+      const slot = { tile: entry.tile, sideways: false, faceDown: entry.tile === 0, stackedTile: null }
+      tiles.push(slot)
+      anchors.set(entry.index, slot)
+    }
+  }
+  for (const stack of buildMeldStacks(mask)) {
+    const slot = anchors.get(stack.anchorIndex)
+    if (!slot) continue
+    slot.stackedTiles ??= []
+    slot.stackedTiles.push({ tile: stack.tile, faceDown: stack.faceDown || stack.tile === 0,
+      layer: stack.layer, onAddedKong: onAdded.has(stack.anchorIndex) })
+  }
+  return { type: concealedKong ? 'concealed-kong' : 'open', tiles }
 }
 
 /** Salasasa ids: 11-19万, 21-29筒, 31-39索, 41-47字, 51-58花. */

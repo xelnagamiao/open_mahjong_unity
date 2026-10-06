@@ -1,8 +1,23 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { createRequire } from 'node:module'
 import { buildGuizhouRoomPayload, loadGuizhouForm, GUIZHOU_VERSION } from '../src/utils/guizhouRoomConfig.js'
 
 const defaults = () => loadGuizhouForm({ room_rule: 'guizhou', room_name: ' 贵州测试 ', password: ' 123 ', duplicate_key: '' })
+
+test('default 20+5 and custom/zero timers survive the frontend to Node boundary', () => {
+  const require = createRequire(import.meta.url)
+  const { normalizeGuizhouRoomConfig } = require('../../server/utils/guizhouRoomSettings.js')
+  const initial = buildGuizhouRoomPayload(defaults()).room_config
+  assert.equal(initial.round_timer, 20)
+  assert.equal(initial.step_timer, 5)
+  for (const [round_timer, step_timer] of [[20, 5], [7, 11], [0, 8], [0, 0]]) {
+    const source = { ...initial, round_timer, step_timer }
+    const request = buildGuizhouRoomPayload(loadGuizhouForm(defaults(), source)).room_config
+    assert.deepEqual(normalizeGuizhouRoomConfig(request, Error), request)
+    assert.deepEqual(buildGuizhouRoomPayload(loadGuizhouForm(defaults(), request)).room_config, source)
+  }
+})
 
 test('MIL profile emits its exact version and never inherits foreign house rules', () => {
   const form = { ...defaults(), hk_flowers: true, hepai_limit: 8, use_flowers: true, tactical_call: true }
@@ -12,14 +27,14 @@ test('MIL profile emits its exact version and never inherits foreign house rules
   assert.equal(payload.room_config.room_name, '贵州测试')
   assert.deepEqual(payload.room_config.detailed_config, { rule_version: GUIZHOU_VERSION })
   assert.equal(payload.room_config.use_flowers, false)
-  assert.equal(payload.room_config.tactical_call, false)
+  assert.equal(payload.room_config.tactical_call, true)
   assert.ok(!('hepai_limit' in payload.room_config))
 })
 
 test('all selectable lengths and switch branches round-trip independently', () => {
   for (const game_round of [1, 2, 3, 4]) {
     for (const value of [false, true]) {
-      const options = { game_round, tips: value, count_tips: value, pointer_tips: value, tourist_limit: value, allow_spectator: value }
+      const options = { game_round, tips: value, count_tips: value, pointer_tips: value, tourist_limit: value, allow_spectator: value, tactical_call: value }
       const form = loadGuizhouForm(defaults(), options)
       const config = buildGuizhouRoomPayload(form).room_config
       for (const [key, expected] of Object.entries(options)) assert.equal(config[key], expected)
@@ -38,7 +53,7 @@ test('time limits and explicit zero survive serialization', () => {
 test('reject invalid rules, duplicate walls, numbers and booleans', () => {
   for (const [key, values] of Object.entries({
     game_round: [0, 5, 1.5, '1', true, NaN], round_timer: [-1, 1001, 1.5, '20'], step_timer: [-1, 101, true],
-    tips: ['false', 1], count_tips: ['true'], pointer_tips: [0], tourist_limit: ['true'], allow_spectator: ['false'],
+    tips: ['false', 1], count_tips: ['true'], pointer_tips: [0], tourist_limit: ['true'], allow_spectator: ['false'], tactical_call: ['true', 1],
     sub_rule: ['guobiao/standard', 'guizhou/joker'], duplicate_key: ['secret'],
   })) for (const value of values) assert.throws(() => buildGuizhouRoomPayload({ ...defaults(), [key]: value }))
 })

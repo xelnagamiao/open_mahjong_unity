@@ -28,7 +28,7 @@ def assign_competition_final_ranks(player_list) -> None:
 
 
 # 输入自身索引和他家索引，获取相对位置
-def get_index_relative_position(self_index: int, other_index: int) -> str:
+def get_index_relative_position(self_index: int, other_index: int, player_count: int = 4) -> str:
     """
     获取两个玩家之间的相对位置
     
@@ -39,6 +39,8 @@ def get_index_relative_position(self_index: int, other_index: int) -> str:
     Returns:
         相对位置字符串: "left", "right", "top", "self"
     """
+    if player_count == 3:
+        return ('self', 'right', 'left')[(other_index - self_index) % 3]
     if self_index == 0:
         if other_index == 1:
             return "right"
@@ -79,7 +81,7 @@ def get_index_relative_position(self_index: int, other_index: int) -> str:
 # 递进下一个玩家索引 东 → 南 → 西 → 北 → 东 0 → 1 → 2 → 3 → 0
 def next_current_index(self):
     """递进当前玩家索引（不含巡目；国标请用 player_index_next）"""
-    if self.current_player_index == 3:
+    if self.current_player_index == len(self.player_list) - 1:
         self.current_player_index = 0
     else:
         self.current_player_index += 1
@@ -88,7 +90,7 @@ def next_current_index(self):
 def player_index_go_to(self, player_index: int):
     """ 通过action_history历史行动列表，保存此前所有的操作player_index，示例：[0,1,1,2,2,3,0,1,1]，其中0指东家，1、2、3指南西北家
         指针每次重新指向的时候判断
-        1.开局1巡，亲家出牌列表为空不加巡目（含弃牌被鸣走后河空）
+        1.开局1巡，亲家牌河与被鸣走的弃牌列表均为空时不加巡目
         2.如果指针指向的是action_history[-1]，则Skip
         3.如果历史行动列表往前追溯时指向玩家小于上一个玩家，则巡目+1
         国标按庄家巡（player_index 0）计算。
@@ -103,7 +105,7 @@ def player_index_go_to(self, player_index: int):
         history
         and player_index != history[-1]
         and player_index < history[-1]
-        and self.player_list[0].discard_tiles
+        and (self.player_list[0].discard_tiles or self.player_list[0].discard_origin_tiles)
     ):
         self.xunmu += 1
     history.append(player_index)
@@ -112,10 +114,10 @@ def player_index_go_to(self, player_index: int):
 
 def player_index_next(self):
     """历时：东→南→西→北→东，并更新巡目。"""
-    player_index_go_to(self, 0 if self.current_player_index == 3 else self.current_player_index + 1)
+    player_index_go_to(self, (self.current_player_index + 1) % len(self.player_list))
 
 # 输入玩家索引，获取下一个玩家索引
-def next_current_num(num: int) -> int:
+def next_current_num(num: int, player_count: int = 4) -> int:
     """
     获取下一个玩家索引
     
@@ -125,13 +127,13 @@ def next_current_num(num: int) -> int:
     Returns:
         下一个玩家索引 (0-3)
     """
-    if num == 3:
+    if num == player_count - 1:
         return 0
     else:
         return num + 1
 
 # 倒退玩家索引 用于实现回合数前进 可放心使用
-def back_current_num(num: int) -> int:
+def back_current_num(num: int, player_count: int = 4) -> int:
     """
     倒退玩家索引
     
@@ -142,7 +144,6 @@ def back_current_num(num: int) -> int:
         上一个玩家索引 (0-3)
     """
     if num == 0:
-        return 3
+        return player_count - 1
     else:
         return num - 1
-

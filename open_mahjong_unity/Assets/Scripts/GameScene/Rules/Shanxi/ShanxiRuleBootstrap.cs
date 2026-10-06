@@ -7,7 +7,7 @@ internal static class ShanxiRuleBootstrap {
         RuleRegistry.Register(new RuleManifest {
             RuleId = "shanxi", DefaultSubRule = "shanxi/mil2023", DisplayName = "山西麻将", LobbyOrder = 11,
             LobbySubRules = new[] { new RuleLobbySubRule("shanxi/mil2023", "MIL 2023",
-                "MIL《山西麻将（推广）竞赛规则（试行2023版）》：136张、十三张手牌，不吃牌、无花无癞子；暗扣一张牌报听，三点可自摸、六点可点和。和牌时结算全桌杠账，未报听放铳须包全桌。") },
+                "MIL《山西麻将（推广）竞赛规则（试行2023版）》：136张、十三张手牌，不吃牌、无花无癞子；暗扣一张牌报听，三点可自摸、六点可点和。和牌时结算全桌杠账，未报听放铳须包全桌。线上使用房间配置，默认每局额外思考局时20秒、每次步时5秒，先用步时再扣局时；原书线下3秒报牌时限不另设线上上限。零局时只用步时，重连不重开窗口。") },
             CreateRoomDefaults = new Dictionary<string, object> {
                 { CreateRoomKeys.SubRule, 0 }, { CreateRoomKeys.GameRound, 4 },
                 { CreateRoomKeys.RoundTimer, 3 }, { CreateRoomKeys.StepTimer, 1 },

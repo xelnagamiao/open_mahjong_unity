@@ -15,6 +15,12 @@
             @click="selectRule(r.value)"
           >{{ r.label }}</button>
         </div>
+        <label class="rule-picker">
+          <span>全部规则</span>
+          <select :value="activeRule" aria-label="选择全部规则" @change="selectRule($event.target.value)">
+            <option v-for="rule in allRuleOptions" :key="rule.value" :value="rule.value">{{ rule.label }}</option>
+          </select>
+        </label>
       </div>
       <div class="bd">
         <div class="stats-side">
@@ -47,7 +53,7 @@
           <div v-if="loading" class="tip">加载中…</div>
           <div v-else class="stats-grid">
             <div v-for="row in statsRows" :key="row.label" class="stats-cell">
-              <span class="stats-label">{{ row.label }}</span>
+              <span class="stats-label" :title="row.tip">{{ row.label }}</span>
               <span class="stats-value">{{ row.value }}</span>
             </div>
           </div>
@@ -216,7 +222,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
-import { buildPlatformStatsRows } from '@/utils/statsDisplay'
+import { HOME_RULE_DEFS, homeRuleOptions, homeSceneOptions, homeDefaultScene, selectHomeStats, buildHomeStatsRows } from '@/utils/homeStats'
 import { eventStatusLabel } from '@/utils/eventMeta'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { locale } from '@/i18n'
@@ -239,26 +245,7 @@ async function loadRecentEvents() {
   }
 }
 
-const RULE_DEFS = [
-  { value: 'guobiao', label: '国标' },
-  { value: 'riichi', label: '立直' },
-  { value: 'qingque', label: '青雀' },
-  { value: 'classical', label: '古典' },
-  { value: 'sichuan', label: '川麻' },
-  { value: 'changsha', label: '长沙' },
-]
-
-const MATCH_SCENE_OPTIONS = [
-  { value: 'beginner', label: '初级' },
-  { value: 'intermediate', label: '中级' },
-  { value: 'advanced', label: '高级' },
-  { value: 'mcrpl', label: 'mcrpl' },
-]
-
-const OTHER_SCENE_OPTIONS = [
-  { value: 'custom', label: '自定义' },
-  { value: 'events', label: '比赛场' },
-]
+const RULE_DEFS = HOME_RULE_DEFS
 
 const GAME_TYPE_OPTIONS = [
   { value: 'quanzhuang', label: '全庄战' },
@@ -267,91 +254,24 @@ const GAME_TYPE_OPTIONS = [
   { value: 'dongfeng', label: '东风战' },
 ]
 
-const EMPTY_STATS = {
-  total_games: 0,
-  total_rounds: 0,
-  win_count: 0,
-  self_draw_count: 0,
-  deal_in_count: 0,
-  total_fan_score: 0,
-  total_win_turn: 0,
-  total_fangchong_score: 0,
-  first_place_count: 0,
-  second_place_count: 0,
-  third_place_count: 0,
-  fourth_place_count: 0,
-  fulu_round_count: 0,
-  cuohe_count: 0,
-  total_round_score: 0,
-}
-
 const loading = ref(false)
 const allRows = ref([])
+const allRuleOptions = computed(() => homeRuleOptions(allRows.value))
 
 const activeRule = ref('guobiao')
-const activeScene = ref('beginner')
+const activeScene = ref(homeDefaultScene(activeRule.value))
 const activeMode = ref('') // game_type: quanzhuang / xifeng / ...
 
-/** 仅国标有匹配场；其他规则只显示自定义 / 比赛场 */
-const sceneOptions = computed(() =>
-  activeRule.value === 'guobiao'
-    ? [...MATCH_SCENE_OPTIONS, ...OTHER_SCENE_OPTIONS]
-    : OTHER_SCENE_OPTIONS
-)
+const sceneOptions = computed(() => homeSceneOptions(activeRule.value))
 
 const selectRule = (rule) => {
   activeRule.value = rule
-  const opts = rule === 'guobiao'
-    ? [...MATCH_SCENE_OPTIONS, ...OTHER_SCENE_OPTIONS]
-    : OTHER_SCENE_OPTIONS
-  // 切换规则时默认选中该规则下第一个场次标签（国标=初级）
-  activeScene.value = opts[0].value
+  activeScene.value = homeDefaultScene(rule)
   activeMode.value = ''
 }
 
-const ruleRows = computed(() => allRows.value.filter((r) => r.rule === activeRule.value))
-
-function rowGameType(row) {
-  if (row.game_type) return row.game_type
-  const mode = String(row.mode || '').replace(/_rank$/, '')
-  return ({ '4/4': 'quanzhuang', '3/4': 'xifeng', '2/4': 'banzhuang', '1/4': 'dongfeng' })[mode] || null
-}
-
-function filteredByScene(rows, scene, gameType) {
-  let out = rows
-  if (scene === 'rank') {
-    out = out.filter((r) => r.room_type === 'match')
-  } else if (scene === 'custom') {
-    out = out.filter((r) => r.room_type === 'custom')
-  } else if (scene === 'events') {
-    out = out.filter((r) => r.room_type === 'events')
-  } else if (scene === 'beginner' || scene === 'intermediate' || scene === 'advanced' || scene === 'mcrpl') {
-    out = out.filter((r) => r.room_type === 'match' && r.match_tier === scene)
-  }
-  if (gameType) out = out.filter((r) => rowGameType(r) === gameType)
-  return out
-}
-
-const selectedStats = computed(() => {
-  let rows = filteredByScene(ruleRows.value, activeScene.value, activeMode.value || null)
-
-  // 天梯等级场：有 metrics 时优先用 metrics，避免与 history _rank 桶重复
-  if (['beginner', 'intermediate', 'advanced', 'mcrpl'].includes(activeScene.value)) {
-    const tiered = rows.filter((r) => r.source === 'metrics' && r.match_tier)
-    const historyMatch = rows.filter((r) => r.room_type === 'match' && r.source === 'history')
-    rows = tiered.length ? tiered.filter((r) => r.match_tier === activeScene.value) : historyMatch
-  } else if (activeScene.value === 'custom' || activeScene.value === 'events') {
-    rows = rows.filter((r) => r.source !== 'metrics')
-  }
-
-  const total = { ...EMPTY_STATS }
-  for (const r of rows) {
-    for (const k of Object.keys(total)) total[k] += Number(r[k]) || 0
-  }
-  return total
-})
-
-const statsRows = computed(() => buildPlatformStatsRows(selectedStats.value))
+const selectedStats = computed(() => selectHomeStats(allRows.value, activeRule.value, activeScene.value, activeMode.value || null))
+const statsRows = computed(() => buildHomeStatsRows(selectedStats.value))
 
 watch([activeRule, activeScene], () => {
   if (activeMode.value && !GAME_TYPE_OPTIONS.some((m) => m.value === activeMode.value)) {
@@ -397,6 +317,12 @@ const toolLinks = [
   { to: '/tools/record-convert', title: '牌谱格式转换', description: '在Salasasa、Botzone、雀渣 与 MJAI 牌谱格式之间转换。', color: '#409eff' },
   { to: '/library', title: '麻雀图书馆', description: '查阅各类麻将规则的说明书、牌例或文档。', color: '#f97316' },
   { to: '/tiles', title: '牌面', description: '下载已审核的牌面与牌面背景。', color: '#0891b2' },
+  {
+    href: 'https://mcr.pinkst.cn/#/replay',
+    title: 'ai牌谱分析',
+    description: '基于kdens3的简易牌谱分析，由群友新手求教提供~',
+    color: '#6d28d9',
+  },
 ]
 
 const loadStats = async () => {
@@ -451,6 +377,7 @@ onMounted(() => {
   font-size: 14px;
   display: flex;
   align-items: stretch;
+  flex-wrap: wrap;
   min-height: 48px;
 }
 
@@ -459,11 +386,13 @@ onMounted(() => {
   flex-wrap: wrap;
   align-items: stretch;
   width: 50%;
+  min-width: 0;
   gap: 0;
 }
 
 .hd-rules button {
   flex: 1;
+  min-width: max-content;
   padding: 14px 8px;
   font-size: 14px;
   color: #ccc;
@@ -472,6 +401,25 @@ onMounted(() => {
   cursor: pointer;
   font-family: inherit;
   text-align: center;
+  white-space: nowrap;
+}
+
+.rule-picker {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.rule-picker select {
+  width: 200px;
+  max-width: 100%;
+  color: #eee;
+  background: #2a2a2a;
+  border: 1px solid #555;
+  padding: 6px;
+  font: inherit;
 }
 
 .hd-rules button:hover {
@@ -638,6 +586,7 @@ onMounted(() => {
   box-shadow: none;
   text-decoration: none;
   box-sizing: border-box;
+  min-width: 0;
 }
 
 .account-events .panel.platform-card {

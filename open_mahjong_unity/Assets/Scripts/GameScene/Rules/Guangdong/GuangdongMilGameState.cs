@@ -2,6 +2,7 @@ using System.Collections.Generic;
 
 /// <summary>广东花鬼沿用回合制状态机，合法行动、提示和支付均由服务端裁定。</summary>
 public sealed class GuangdongMilGameState : TurnBasedGameState {
+    private readonly GuangdongAskClock askClock = new GuangdongAskClock();
     private Dictionary<int, int[]> revealedHands;
     public GuangdongPublicState Info { get; private set; }
     public GuangdongResult Result { get; private set; }
@@ -16,13 +17,47 @@ public sealed class GuangdongMilGameState : TurnBasedGameState {
         base.OnGameStartMessage(response);
     }
     protected override void OnRoundStarted(GameInfo info) {
+        askClock.EnterRound(info?.gamestate_id ?? Session.GamestateId, info?.current_round ?? Mirror.CurrentRound,
+            Session.IsRealtimeSpectator ? Session.SelfIndex : (int?)null);
         RoundEndPresentation.Instance?.StopActiveSequence();
         Info = null; Result = null; revealedHands = null;
         Accept(info?.guangdong_state, info?.guangdong_tips);
     }
     protected override void OnAskHandAction(Response response) {
-        Accept(response.game_info?.guangdong_state, response.ask_hand_action_info?.guangdong_tips ?? response.game_info?.guangdong_tips);
-        base.OnAskHandAction(response);
+        var info = response.ask_hand_action_info;
+        bool ownAsk = info != null && info.action_list != null && info.action_list.Length > 0
+            && info.player_index == Session.SelfIndex;
+        if (ownAsk && askClock.IsClosed(info.action_tick)) return;
+        Accept(response.game_info?.guangdong_state, info?.guangdong_tips ?? response.game_info?.guangdong_tips);
+        if (!ownAsk) { base.OnAskHandAction(response); return; }
+        int bank = info.remaining_time;
+        int? step = info.step_remaining;
+        askClock.ApplyHand(response, Session.RoomStepTime);
+        try {
+            base.OnAskHandAction(response);
+            if (Clock.IsSelfActionRequired && !AutoActionPolicy.Current.TryResolveHand(info.deal_tile_type, out _, out _))
+                ApplyExactTimer();
+        } finally { info.remaining_time = bank; info.step_remaining = step; }
+    }
+    protected override void OnAskClaim(Response response) {
+        var info = response.ask_other_action_info;
+        if (info?.action_list == null || info.action_list.Length == 0 || askClock.IsClosed(info.action_tick)) return;
+        int bank = info.remaining_time;
+        int? step = info.step_remaining;
+        askClock.ApplyClaim(response, Session.RoomStepTime);
+        try {
+            base.OnAskClaim(response);
+            if (Clock.IsSelfActionRequired && !AutoActionPolicy.Current.TryResolveClaim(out _, out _))
+                ApplyExactTimer();
+        } finally { info.remaining_time = bank; info.step_remaining = step; }
+    }
+    private void ApplyExactTimer() {
+        askClock.Remaining(GuangdongAskClock.Now, out double bank, out double step);
+        GameCanvas.Instance?.LoadingRemianTime(bank, step);
+    }
+    public override void OnAskWindowClosed(AskCloseReason reason) {
+        askClock.Close();
+        base.OnAskWindowClosed(reason);
     }
     protected override void OnDoAction(Response response) {
         Accept(response.do_action_info?.guangdong_state ?? response.game_info?.guangdong_state, response.do_action_info?.guangdong_tips ?? response.game_info?.guangdong_tips);
@@ -98,6 +133,7 @@ public sealed class GuangdongMilGameState : TurnBasedGameState {
         if (env.IsLiuju) Presenter.ApplyScores(env.ScoresAfter);
     }
     public override void OnSessionReset() {
+        askClock.Reset();
         // Cancel a still-fading draw result before its panel is cleared for the next table.
         RoundEndPresentation.Instance?.StopActiveSequence();
         Info = null; Result = null; revealedHands = null; GuangdongServerTips.Clear(); GuangdongServerTips.Clear(true); GuangdongLedgerPanel.Hide();

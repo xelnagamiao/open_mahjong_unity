@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 using Taiwan;
 using UnityEngine;
@@ -88,6 +89,7 @@ public partial class CreatePanel {
             Debug.LogError($"Prebuilt detailed config panel '{ruleKey}' is incomplete.", this);
             return;
         }
+        if (ruleKey == "riichi") EnsureRiichiCatalogRows(state.Content, definition, state.Panel);
 
         Transform presetRow = state.Content.Find("DetailedConfigPreset");
         state.PresetDropdown = presetRow?.GetComponentInChildren<TMP_Dropdown>(true);
@@ -111,6 +113,10 @@ public partial class CreatePanel {
             Transform row = state.Content.Find($"DetailedConfig_{option.Key}");
             TMP_Dropdown dropdown = row?.GetComponentInChildren<TMP_Dropdown>(true);
             if (dropdown == null) continue;
+            if (ruleKey == "riichi") {
+                dropdown.ClearOptions();
+                dropdown.AddOptions(option.Choices.ToList());
+            }
             state.Dropdowns[option.Key] = dropdown;
             string optionKey = option.Key;
             dropdown.onValueChanged.RemoveAllListeners();

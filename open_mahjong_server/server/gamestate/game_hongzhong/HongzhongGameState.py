@@ -5,9 +5,7 @@
 """
 
 import asyncio
-import math
 import random
-import time
 from copy import deepcopy
 from dataclasses import replace
 
@@ -27,12 +25,14 @@ from ...database.fulu_utils import record_fulu_rounds_for_players
 from .result import broadcast_result
 from .hints import compute_hand, match_hint
 from ..public.ai.bot_executor import run_room_bot_cpu
+from .timing import ActionClock, TimedActionQueue, PHASES, collect_responses
 
 
 class HongzhongGameState(TaiwanGameState):
     flower_tiles = ()
     structure_tiles = book.NUMBERS
-    claim_response_seconds = 3.0
+    # Online timing follows room step + remaining hand bank, without a book cap.
+    claim_response_seconds = None
 
     def __init__(self, game_server, room_data, calculation_service, db_manager, gamestate_id):
         if room_data.get("sub_rule", book.SUB_RULE) != book.SUB_RULE:
@@ -50,11 +50,15 @@ class HongzhongGameState(TaiwanGameState):
             seven_flowers_steal_eighth_enabled=False)
         self.rules_dict, self.dead_wall_count = config, 0
         self.hepai_limit, self.open_cuohe = 0, False
+        self.action_clock = ActionClock(self)
+        self.action_queues = {index: TimedActionQueue(self.action_clock) for index in range(4)}
         from .bot import hongzhong_bot_action
         self.smart_bot_action = hongzhong_bot_action
 
     def _reset_taiwan_players(self):
         super()._reset_taiwan_players()
+        if hasattr(self, "action_clock"):
+            self.action_clock.reset()
         self._hint_generation = getattr(self, "_hint_generation", 0) + 1
         self.kong_ledger = []
         self.birds = []
@@ -68,8 +72,20 @@ class HongzhongGameState(TaiwanGameState):
         self._recorded_hints = {}
 
     async def player_reconnect(self, user_id):
+        player = next((p for p in self.player_list if p.user_id == user_id), None)
+        window = self.action_clock.ensure()
+        if window is not None and player is not None and self.is_action_pending(player.player_index):
+            # A reconnect can send the first ask while the original broadcast is
+            # still warming private hints. Its response must already be accepted.
+            self.prepare_action_window()
+            self._open_pending_action_players(window)
         await super().player_reconnect(user_id)
         connection = self.game_server.user_id_to_connection.get(user_id)
+        if (connection is not None and player is not None and window is not None
+                and self.action_clock.ensure() is window
+                and self.is_action_pending(player.player_index)):
+            # setdefault records only a first ask; ordinary reconnect never renews.
+            self.action_clock.delivered(player.player_index)
         if connection is not None and self._terminal_result is not None:
             await connection.websocket.send_json(self._terminal_result)
 
@@ -81,13 +97,56 @@ class HongzhongGameState(TaiwanGameState):
         return tile
 
     def claim_clock(self, player, reconnecting=False):
-        elapsed = 0.0
-        if reconnecting:
-            start = (getattr(self, "_ask_delivered_at", None) or {}).get(
-                player.player_index, getattr(self, "_ask_broadcast_time", None))
-            if start is not None:
-                elapsed = max(0, time.time() - start)
-        return 0, math.ceil(max(0, min(3.0, player.remaining_time + self.step_time) - elapsed))
+        return self.action_clock.project(player) or (player.remaining_time, self.step_time)
+
+    def on_action_window_broadcast(self):
+        fresh = self.action_clock.begin()
+        window = self.action_clock.window
+        if self.game_status in PHASES:
+            # The real submission entry checks this list before queueing. Open it
+            # before sending: later players/spectators may block the broadcast.
+            self._open_pending_action_players(window)
+        return fresh
+
+    def _open_pending_action_players(self, window):
+        self.waiting_players_list = sorted(index for index, actions in self.action_dict.items()
+                                           if actions and index not in window.resolved)
+
+    def on_action_window_delivered(self, index):
+        self.action_clock.delivered(index)
+
+    def is_action_pending(self, index):
+        window = self.action_clock.ensure()
+        return bool(self.action_dict.get(index)) and (window is None or index not in window.resolved)
+
+    async def collect_action_responses(self):
+        if self.game_status in PHASES:
+            return await collect_responses(self)
+        from ..game_taiwan.wait_action import _collect_responses
+        return await _collect_responses(self)
+
+    def prepare_action_window(self):
+        window = self.action_clock.ensure()
+        if window is not None and window.prepared:
+            # A resend is still the same decision. In-flight timely responses
+            # belong to this window and must survive a later original broadcast.
+            return
+        super().prepare_action_window()
+        if window is not None:
+            window.prepared = True
+
+    async def wait_action(self):
+        window = self.action_clock.ensure()
+        index = self.current_player_index
+        actions = list(self.action_dict.get(index, []))
+        result = await super().wait_action()
+        # A valid action word with a forged tile can be rejected by the executor.
+        # Reask this decision without renewing its step or charging the bank twice.
+        if (window is not None and self.game_status == "waiting_hand_action"
+                and self.action_clock.key() == window.key):
+            window.resolved.discard(index)
+            self.action_dict[index] = actions
+        return result
 
     def refresh_waits(self, index):
         player = self.player_list[index]

@@ -29,6 +29,10 @@ public class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
     private GameObject dismissArea;
     private Canvas tableCanvas;
     private float borderWidth = -1f;
+    private float fourPlayerPanelWidth = -1f;
+    private float fourPlayerTableWidth;
+    private float fourPlayerNameWidth;
+    private float fourPlayerFanHeaderX;
 
     private void Awake()
     {
@@ -251,21 +255,23 @@ public class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
 
     public void UpdateScoreRecord(string rule, IReadOnlyDictionary<string, PlayerInfoClass> player_to_info, IReadOnlyList<RoundSettlementSnapshot> roundSettlements, int totalRounds = 0, bool maskPlayerNames = false, string subRuleFallback = null, IReadOnlyList<int> recordRoundIndices = null)
     {
-        if (player_to_info == null || player_to_info.Count < 4) return;
-
         var mgr = NormalGameStateManager.Instance;
+        if (string.IsNullOrEmpty(subRuleFallback)) subRuleFallback = mgr?.subRule;
+        bool isSanma = MahjongPlayerCount.ForSubRule(ScoreHistorySettlementHelper.ResolveSubRule(rule, subRuleFallback)) == 3;
+        int playerCount = isSanma ? 3 : 4;
+        var sorted = SelectScoreboardPlayers(player_to_info, isSanma);
+        if (sorted.Count < playerCount) return;
         if (roundSettlements == null || roundSettlements.Count == 0) {
             roundSettlements = mgr != null ? mgr.roundSettlementHistory : null;
         }
 
         // 总局数（用于预测未来局名占位）：优先用调用方传入，其次由实时对局的 maxRound 按族换算（风圈数×4 或本身即局数）
         if (totalRounds <= 0 && mgr != null) {
-            totalRounds = RoundTextDictionary.ToTotalHands(mgr.roomRule, mgr.maxRound);
+            totalRounds = isSanma ? mgr.maxRound * 3 : RoundTextDictionary.ToTotalHands(mgr.roomRule, mgr.maxRound);
         }
 
-        var sorted = new List<PlayerInfoClass>(player_to_info.Values);
-        sorted.Sort((a, b) => a.original_player_index.CompareTo(b.original_player_index));
         List<int> roundNumberHistory = sorted[0].round_number_history ?? new List<int>();
+        if (isSanma) sorted.Add(new PlayerInfoClass {original_player_index = 3, username = ""});
 
         string ResolveDisplayName(PlayerInfoClass player) {
             string position = null;
@@ -291,6 +297,64 @@ public class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
             totalRounds,
             subRuleFallback,
             recordRoundIndices);
+    }
+
+    internal static List<PlayerInfoClass> SelectScoreboardPlayers(IReadOnlyDictionary<string, PlayerInfoClass> players, bool isSanma) {
+        var selected = new List<PlayerInfoClass>();
+        if (players == null) return selected;
+        foreach (var pair in players) {
+            if (pair.Value != null && (!isSanma || pair.Key != "top")) selected.Add(pair.Value);
+        }
+        selected.Sort((a, b) => a.original_player_index.CompareTo(b.original_player_index));
+        return selected;
+    }
+
+    internal static string ScoreboardRoundName(string rule, string subRule, int round) =>
+        subRule == "guobiao/sanma" ? RoundTextDictionary.ThreePlayerWindSeatRoundName(round)
+        : rule == "guobiao" ? RoundTextDictionary.WindSeatRoundName(round)
+        : subRule == "riichi/sanma" ? RiichiRoundText.SanmaName(round)
+        : rule == "riichi" || (rule?.StartsWith("riichi/") ?? false) ? RoundTextDictionary.WindNumberRoundName(round)
+        : RoundTextDictionary.GetRoundName(rule, round);
+
+    private void ConfigurePlayerColumns(bool isSanma)
+    {
+        if (player3UserName != null) player3UserName.gameObject.SetActive(!isSanma);
+        if (player3RoundScoreContainer != null) player3RoundScoreContainer.gameObject.SetActive(!isSanma);
+        if (player3GameScoreContainer != null) player3GameScoreContainer.gameObject.SetActive(!isSanma);
+
+        var names = player0UserName != null ? player0UserName.transform.parent as RectTransform : null;
+        var header = names != null ? names.parent as RectTransform : null;
+        var nameGrid = names != null ? names.GetComponent<UnityEngine.UI.GridLayoutGroup>() : null;
+        if (header == null || nameGrid == null) return;
+        var countHeader = header.Find("Count") as RectTransform;
+        TMP_Text fanHeader = null;
+        foreach (Transform child in header) {
+            if (child.TryGetComponent(out TMP_Text text) && text.text == "主番") fanHeader = text;
+        }
+        if (countHeader == null || fanHeader == null) return;
+
+        var panel = (RectTransform)transform;
+        if (fourPlayerPanelWidth < 0f) {
+            fourPlayerPanelWidth = panel.rect.width;
+            fourPlayerTableWidth = header.rect.width;
+            fourPlayerNameWidth = names.rect.width;
+            fourPlayerFanHeaderX = fanHeader.rectTransform.anchoredPosition.x;
+        }
+        // 收拢整列，包括局计/总计表头和主番位置；四麻恢复原来的尺寸。
+        float removedWidth = isSanma ? nameGrid.cellSize.x : 0f;
+        names.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, fourPlayerNameWidth - removedWidth);
+        countHeader.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, fourPlayerNameWidth - removedWidth);
+        for (int i = 0; i < countHeader.childCount; i++) {
+            countHeader.GetChild(i).gameObject.SetActive(!isSanma || i < 6);
+        }
+        var fanPosition = fanHeader.rectTransform.anchoredPosition;
+        fanPosition.x = fourPlayerFanHeaderX - removedWidth;
+        fanHeader.rectTransform.anchoredPosition = fanPosition;
+        header.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, fourPlayerTableWidth - removedWidth);
+        if (header.parent is RectTransform content) {
+            content.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, fourPlayerTableWidth - removedWidth);
+        }
+        panel.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, fourPlayerPanelWidth - removedWidth);
     }
 
     public void InitializeScoreRecord(
@@ -326,6 +390,8 @@ public class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
             subRuleFallback = mgr.subRule;
         }
         string subRule = ScoreHistorySettlementHelper.ResolveSubRule(rule, subRuleFallback);
+        bool isSanma = MahjongPlayerCount.ForSubRule(subRule) == 3;
+        ConfigurePlayerColumns(isSanma);
 
         List<int> roundNumbers = roundNumberHistory ?? new List<int>();
 
@@ -343,7 +409,7 @@ public class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
             GameObject textObj = CreateCell(RoundIndexContainer.transform);
             TMP_Text text = textObj.GetComponent<TMP_Text>();
             if (text != null) {
-                text.text = RoundTextDictionary.GetRoundName(rule, roundNumber);
+                text.text = ScoreboardRoundName(rule, subRule, roundNumber);
                 if (recordRoundIndices != null && i < recordRoundIndices.Count) {
                     textObj.AddComponent<ScoreHistoryRoundCell>().Bind(text, recordRoundIndices[i]);
                 }
@@ -364,7 +430,7 @@ public class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
             GameObject textObj = CreateCell(RoundIndexContainer.transform);
             TMP_Text text = textObj.GetComponent<TMP_Text>();
             if (text != null) {
-                text.text = $"<color=#C0C0C0>{RoundTextDictionary.GetRoundName(rule, rn)}</color>";
+                text.text = $"<color=#C0C0C0>{ScoreboardRoundName(rule, subRule, rn)}</color>";
                 text.raycastTarget = false;
             }
             AddEmptyCell(MainFanContainer);
@@ -379,6 +445,7 @@ public class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
         };
 
         players.Sort((a, b) => a.originIndex.CompareTo(b.originIndex));
+        if (isSanma) players.RemoveAll(player => player.originIndex >= 3);
 
         foreach (var player in players)
         {

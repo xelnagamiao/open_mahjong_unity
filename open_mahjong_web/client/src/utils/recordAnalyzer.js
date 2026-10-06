@@ -15,6 +15,7 @@ import {
   guobiaoXunmuOnCut,
   guobiaoXunmuOnClaim,
 } from './guobiaoXunmu.js'
+import { analyzeRiichiRecords } from './riichiRecordStats.js'
 
 const HU_ACTIONS = new Set(['hu_self', 'hu_first', 'hu_second', 'hu_third']);
 const RON_ACTIONS = new Set(['hu_first', 'hu_second', 'hu_third']);
@@ -58,7 +59,7 @@ export function resolveRoundSeats(rd) {
 
 /**
  * 从一局 action_ticks 按服务端 player_index_go_to 重建每位 seat 的和巡总和。
- * 国标按庄家巡：回绕时看庄家牌河当前是否非空（弃牌被鸣走后河空不加巡）。
+ * 国标按庄家巡：回绕时判断庄家是否曾出牌，含已被鸣走的弃牌。
  */
 function reconstructRoundWinTurns(rd) {
   const ticks = rd?.action_ticks;
@@ -308,6 +309,9 @@ export function resolveRecordRank(record, userId) {
  * 顺位由牌谱得分独立重建，允许同分同排位。
  */
 export function analyzeRecords(items, userId) {
+  if (items.length && items.every(item => (item?.record ?? item)?.game_title?.rule === 'riichi')) {
+    return analyzeRiichiRecords(items, userId);
+  }
   const acc = {
     total_games: 0,
     total_rounds: 0,

@@ -33,6 +33,8 @@ public class EndGamePanel : MonoBehaviour {
     private float ptChange;
     private string ratingRule, ratingSystem;
     private float eloBefore, eloAfter;
+    private float? ratingMatchPoints;
+    private float ratingGameMultiplier, ratingTierMultiplier, ratingRankCost;
 
     private void Awake() {
         if (Instance == null) {
@@ -63,6 +65,18 @@ public class EndGamePanel : MonoBehaviour {
             .ThenByDescending(v => System.Convert.ToInt32(v["score"]))
             .ToList();
 
+        for (int i = 0; i < rankDisplays.Length; i++) {
+            var display = rankDisplays[i];
+            bool visible = i < sorted.Count;
+            display.username.transform.parent.gameObject.SetActive(visible);
+            if (!visible) {
+                display.username.text = "";
+                display.score.text = "";
+                display.rank.text = "";
+                display.pt.text = "";
+            }
+        }
+
         for (int i = 0; i < sorted.Count && i < rankDisplays.Length; i++) {
             var playerData = sorted[i];
             var display = rankDisplays[i];
@@ -88,6 +102,10 @@ public class EndGamePanel : MonoBehaviour {
         // 检测是否为排位赛（当前玩家有 rank_before 字段）
         isRankedMatch = false;
         ratingRule=ratingSystem=null;
+        eloBefore=eloAfter=0;
+        ratingMatchPoints=null;
+        ratingGameMultiplier=ratingTierMultiplier=1;
+        ratingRankCost=0;
         string myUsername = PlayerSession.Current.Username;
         foreach (var d in player_final_data.Values) {
             bool samePlayer=d.TryGetValue("user_id",out var uid)&&uid!=null
@@ -104,8 +122,16 @@ public class EndGamePanel : MonoBehaviour {
                 ptChange = System.Convert.ToSingle(d["pt"]);
                 if(d.TryGetValue("rating_rule",out var rule)&&rule!=null){
                     ratingRule=rule.ToString();ratingSystem=d["rating_system"].ToString();
-                    eloBefore=System.Convert.ToSingle(d["elo_before"]);eloAfter=System.Convert.ToSingle(d["elo_after"]);
+                    if(ratingSystem=="elo") {
+                        eloBefore=System.Convert.ToSingle(d["elo_before"]);eloAfter=System.Convert.ToSingle(d["elo_after"]);
+                    }
                     ptChange=System.Convert.ToSingle(d["rating_pt"]);
+                    if (d.TryGetValue("rating_match_points",out var points) && points != null) {
+                        ratingMatchPoints=System.Convert.ToSingle(points);
+                        ratingGameMultiplier=System.Convert.ToSingle(d["rating_game_multiplier"]);
+                        ratingTierMultiplier=System.Convert.ToSingle(d["rating_tier_multiplier"]);
+                        ratingRankCost=System.Convert.ToSingle(d["rating_rank_cost"]);
+                    }
                     PlayerSession.Current.UpdateRating(ratingRule,rankAfter,scoreAfter,eloAfter,System.Convert.ToInt32(d["rating_games"]));
                 }
             }
@@ -129,7 +155,8 @@ public class EndGamePanel : MonoBehaviour {
     private void OnGoHomeButtonClick() {
         gameObject.SetActive(false);
         if (isRankedMatch) {
-            if(ratingRule!=null)RankChangePanel.Instance.ShowRatedChange(ratingRule,ratingSystem,rankBefore,scoreBefore,rankAfter,scoreAfter,ptChange,eloBefore,eloAfter);
+            if(ratingRule!=null)RankChangePanel.Instance.ShowRatedChange(ratingRule,ratingSystem,rankBefore,scoreBefore,rankAfter,scoreAfter,ptChange,eloBefore,eloAfter,
+                ratingMatchPoints,ratingGameMultiplier,ratingTierMultiplier,ratingRankCost);
             else RankChangePanel.Instance.ShowRankChange(rankBefore, scoreBefore, rankAfter, scoreAfter, ptChange);
         } else {
             PostGameNavigator.ExitToLobby(forceTeardown: true);

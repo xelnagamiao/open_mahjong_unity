@@ -6,6 +6,25 @@ import { parseHangzhouFan, hangzhouInfoAt, hangzhouWaitDataAt, hangzhouKnownTile
 const compiled=await build({entryPoints:[fileURLToPath(new URL('../src/game2d/replay/recordReplay.ts',import.meta.url))],bundle:true,platform:'node',format:'esm',write:false,logLevel:'silent'})
 const {RecordReplay}=await import('data:text/javascript;base64,'+Buffer.from(compiled.outputFiles[0].text).toString('base64'))
 function replay(ticks,rule='hangzhou',wall=[11,12,13,14,15,16],titleRule=rule) { return new RecordReplay({game_id:'hangzhou-client-test',created_at:'',rule,players:[0,1,2,3].map(i=>({user_id:100+i,username:String(i),score:[6,-2,-2,-2][i],rank:i+1,original_player_index:i})),record:{game_title:{rule:titleRule,sub_rule:titleRule+'/mil2025'},game_round:{round_index_1:{hangzhou:{dealer_streak:1},seats:[0,1,2,3],tiles_list:wall,start_player_index:0,p0_tiles:[11,12,13,21,22,23,31,32,33,41,41,46,46],p1_tiles:[],p2_tiles:[],p3_tiles:[],action_ticks:ticks}}}}) }
+
+test('杭州被抢断的ca申请不改变牌面，只有最终碰牌落牌，往返不重复执行', () => {
+  const r = replay([['c',13,'F'],['ca',1,'cr',13],['p',13,2,[0,13,1,13,0,13],[13,13]]])
+  r.rounds[0].p0_tiles = [11,12,13,21,22,23,31,32,33,41,41,41,42,42]
+  r.rounds[0].p1_tiles = [11,12,14,15,16,17,18,19,21,22,23,24,25]
+  r.rounds[0].p2_tiles = [13,13,26,27,28,29,31,32,33,34,35,36,37]
+  const before = r.build(0,1).snapshot.seats
+  assert.deepEqual(r.build(0,2).snapshot.seats, before)
+  const after = r.build(0,3).snapshot.seats
+  assert.equal(after[0].discard_pile.length, 0)
+  assert.equal(after[1].melds.length, 0)
+  assert.equal(after[2].melds.length, 1)
+  assert.equal(after[2].hand_tiles.length, 11)
+  for (const node of [2,3,0,2,3]) {
+    const seats = r.build(0,node).snapshot.seats
+    if (node === 2) assert.deepEqual(seats, before)
+    if (node === 3) assert.deepEqual(seats, after)
+  }
+})
 test('杭州先暗弃上牌再摸下牌，节点重放和墙索引一致',()=>{
   const r=replay([['hangzhou','tail_burn',0,15],['gd',16],['d',11]])
   assert.equal(r.remainingWallAt(0,1).length,5);assert.equal(r.remainingWallAt(0,2).length,4)

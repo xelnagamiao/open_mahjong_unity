@@ -113,11 +113,12 @@ public class UserDataManager : MonoBehaviour {
     }
 
     // 设置用户设置信息
-    public void SetUserSettings(int title_id,int profile_image_id,int character_id,int voice_id) {
+    public void SetUserSettings(int title_id,int profile_image_id,int character_id,int voice_id,int avatar_frame_id = 0) {
         this.TitleId = title_id;
         this.ProfileImageId = profile_image_id;
         this.CharacterId = character_id;
         this.VoiceId = voice_id;
+        this.AvatarFrameId = avatar_frame_id;
     }
 
     // 大厅成员身份由 room 消息维护，game_start 不会改写它。

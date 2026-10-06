@@ -229,7 +229,7 @@ class SichuanGameState:
             "hu_self": 6, "hu": 5,
             "peng": 2, "gang": 2,
             "dingque": 6, "ready": 0,
-            "pass": 0, "cut": 0, "angang": 0, "jiagang": 0,
+            "pass": 0, "force_pass": 0, "cut": 0, "angang": 0, "jiagang": 0,
             "deal_tile": 0, "deal_gang_tile": 0,
         }
         self.dead_wall_count = 0  # 四川无死墙
@@ -516,6 +516,7 @@ class SichuanGameState:
 
     async def _dingque_phase(self):
         self.game_status = "waiting_dingque"
+        self.server_action_tick += 1
         self.action_dict = {i: ["dingque"] for i in range(4)}
         self.waiting_players_list = [0, 1, 2, 3]
         for p in self.player_list:
@@ -548,7 +549,8 @@ class SichuanGameState:
                     except Exception:
                         data = {}
                     suit = data.get("target_tile", 0)
-                    if data.get("action_type") != "dingque" or type(suit) is not int or suit not in (1, 2, 3):
+                    if (data.get('_action_tick', self.server_action_tick) != self.server_action_tick
+                            or data.get("action_type") != "dingque" or type(suit) is not int or suit not in (1, 2, 3)):
                         if self.action_queues[i].empty():
                             self.action_events[i].clear()
                         continue

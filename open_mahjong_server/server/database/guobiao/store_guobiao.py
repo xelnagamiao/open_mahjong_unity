@@ -211,8 +211,8 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
         # 写入每玩家每局原始指标，供每日 4 点聚合 scene_daily_stats
         try:
             from ..scene_stats import record_game_metrics
-            if sub_rule == "guobiao/blood_battle":
-                return game_id  # 血战不写入按国标规则聚合的标准场景统计。
+            if sub_rule in ("guobiao/blood_battle", "guobiao/sanma"):
+                return game_id  # 独立子规则不写入按四人国标聚合的标准场景统计。
             record_game_metrics(db_manager, game_id, game_record, player_list, {
                 "rule": rule, "sub_rule": sub_rule, "room_type": room_type,
                 "match_tier": match_tier, "event_id": event_id, "match_type": match_type,

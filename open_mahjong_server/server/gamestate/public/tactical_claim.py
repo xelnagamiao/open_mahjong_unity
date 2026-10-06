@@ -1,4 +1,4 @@
-"""战术鸣牌共享逻辑（国标 / 青雀 / 四川）。
+"""战术鸣牌共享逻辑（国标 / 青雀 / 四川 / 长沙）。
 
 开局 ask 时冻结 _tactical_action_snapshot（只读）；主询问阶段的 pass 不记入 passed，
 低优先级鸣牌申请后仍从完整快照重算更高优先级竞争者并再次询问（含主阶段已 pass 者）。
@@ -12,6 +12,7 @@ grace 多轮抢断时已承诺者不再作为竞争者。川麻 / 青雀不启�
 """
 from __future__ import annotations
 
+from .player_count import game_player_count
 import asyncio
 import logging
 import math
@@ -39,6 +40,15 @@ def is_chi_action(action_type: str) -> bool:
 
 def is_decline_action(action_type: str) -> bool:
     return action_type in _DECLINE_ACTIONS
+
+
+def add_tactical_force_pass_options(gs, action_dict):
+    """所有战术鸣牌询问都在取消右侧提供放弃；手牌与补花询问不调用。"""
+    if getattr(gs, "tactical_call", False):
+        for actions in action_dict.values():
+            if "pass" in actions and "force_pass" not in actions:
+                actions.append("force_pass")
+    return action_dict
 
 
 def is_hu_claim_action(action_type: str) -> bool:
@@ -148,13 +158,18 @@ def tactical_player_has_force_passed(gs, player_index: int) -> bool:
     return force_passed is not None and player_index in force_passed
 
 
+def tactical_action_rank(gs, action_type, player_index):
+    rank = getattr(gs, "tactical_action_rank", None)
+    return rank(action_type, player_index) if callable(rank) else (gs.action_priority.get(action_type, -1),)
+
+
 def get_higher_priority_snapshot(gs, action_type, player_index):
     """从开局冻结快照重算「更高优先级竞争者」；主询问 pass 不排除。"""
-    current_priority = gs.action_priority[action_type]
-    higher_action_dict = {pid: [] for pid in range(4)}
+    current_rank = tactical_action_rank(gs, action_type, player_index)
+    higher_action_dict = {pid: [] for pid in range(game_player_count(gs))}
     any_higher = False
     source = tactical_opening_snapshot(gs) or gs.action_dict
-    for pid in range(4):
+    for pid in range(game_player_count(gs)):
         if pid == player_index or tactical_player_has_passed(gs, pid):
             continue
         if tactical_player_has_force_passed(gs, pid):
@@ -165,7 +180,7 @@ def get_higher_priority_snapshot(gs, action_type, player_index):
         declines = [a for a in source_actions if is_decline_action(a)]
         filtered = [
             a for a in source_actions
-            if not is_decline_action(a) and gs.action_priority[a] > current_priority
+            if not is_decline_action(a) and tactical_action_rank(gs, a, pid) > current_rank
         ]
         if filtered:
             higher_action_dict[pid] = filtered + declines
@@ -184,18 +199,30 @@ def _pop_queued_actions(gs, pid):
     gs.action_events[pid].clear()
     while not gs.action_queues[pid].empty():
         try:
-            items.append(gs.action_queues[pid].get_nowait())
+            item = gs.action_queues[pid].get_nowait()
+            if _valid_tactical_receipt(gs, pid, item):
+                items.append(item)
         except asyncio.QueueEmpty:
             break
     return items
 
 
-def _take_pre_submitted_claim(gs, competitors, current_priority, submitted_actions=None):
+def _valid_tactical_receipt(gs, pid, item):
+    """Optional authoritative arrival/deadline validation for timed adapters."""
+    hook = getattr(gs, "tactical_action_receipt_valid", None)
+    return hook(pid, item) if callable(hook) else True
+
+
+def _take_pre_submitted_claim(gs, competitors, current_priority, submitted_actions=None, *, current_rank=None):
     """抽队列里的抢断；force_pass 记入放弃集合，不当垃圾丢掉。"""
     pre_submitted = None
+    current_rank = (current_priority,) if current_rank is None else current_rank
     competitor_set = set(competitors)
-    for pid in range(4):
+    for pid in range(game_player_count(gs)):
         queued_actions = _pop_queued_actions(gs, pid)
+        validate = getattr(gs, "validate_tactical_queued_action", None)
+        if callable(validate):
+            queued_actions = [item for item in queued_actions if validate(pid, item)]
         if submitted_actions is not None:
             for item in queued_actions:
                 if item.get("action_type") in (tactical_opening_snapshot(gs) or {}).get(pid, []):
@@ -211,9 +238,10 @@ def _take_pre_submitted_claim(gs, competitors, current_priority, submitted_actio
             if is_decline_action(d_type):
                 continue
             d_priority = gs.action_priority.get(d_type, -1)
-            if d_priority <= current_priority:
+            candidate_rank = tactical_action_rank(gs, d_type, pid)
+            if candidate_rank <= current_rank:
                 continue
-            if pre_submitted is None or d_priority > pre_submitted[0]:
+            if pre_submitted is None or candidate_rank > tactical_action_rank(gs, pre_submitted[1], pre_submitted[2]):
                 pre_submitted = (d_priority, d_type, pid, dict(drained))
     return pre_submitted
 
@@ -241,7 +269,8 @@ async def tactical_grace_phase(
 
         current_priority = gs.action_priority[action_type]
         competitors = [pid for pid, alist in higher_action_dict.items() if alist]
-        pre_submitted = _take_pre_submitted_claim(gs, competitors, current_priority, submitted_actions)
+        current_rank = tactical_action_rank(gs, action_type, player_index)
+        pre_submitted = _take_pre_submitted_claim(gs, competitors, current_priority, submitted_actions, current_rank=current_rank)
 
         if pre_submitted is not None:
             _, action_type, player_index, action_data = pre_submitted
@@ -286,12 +315,13 @@ async def tactical_grace_phase(
         gs._waiting_action_tick = getattr(gs, "server_action_tick", None)
 
         elapsed = 0.0
-        new_claim = None
-        while elapsed < grace_seconds:
+        collector = getattr(gs, "collect_tactical_recheck", None)
+        new_claim = await collector(current_priority, submitted_actions) if callable(collector) else None
+        while not callable(collector) and elapsed < grace_seconds:
             remaining = grace_seconds - elapsed
             task_list = []
             task_to_player = {}
-            for pid in range(4):
+            for pid in range(game_player_count(gs)):
                 if gs.action_dict[pid]:
                     t = asyncio.create_task(gs.action_events[pid].wait())
                     task_list.append(t)
@@ -316,6 +346,12 @@ async def tactical_grace_phase(
                     continue
                 temp_pid = task_to_player[t]
                 temp_data = await gs.action_queues[temp_pid].get()
+                if not _valid_tactical_receipt(gs, temp_pid, temp_data):
+                    gs.action_events[temp_pid].clear()
+                    # Preserve another already queued valid response's wake-up.
+                    if not gs.action_queues[temp_pid].empty():
+                        gs.action_events[temp_pid].set()
+                    continue
                 temp_type = temp_data.get("action_type")
                 if submitted_actions is not None:
                     submitted_actions[temp_pid] = temp_type
@@ -328,16 +364,17 @@ async def tactical_grace_phase(
                     continue
                 gs.action_dict[temp_pid] = []
                 temp_priority = gs.action_priority.get(temp_type, -1)
-                if temp_priority <= current_priority:
+                candidate_rank = tactical_action_rank(gs, temp_type, temp_pid)
+                if candidate_rank <= current_rank:
                     continue
-                if best_submitted is None or temp_priority > best_submitted[0]:
+                if best_submitted is None or candidate_rank > tactical_action_rank(gs, best_submitted[1], best_submitted[2]):
                     best_submitted = (temp_priority, temp_type, temp_pid, dict(temp_data))
 
             if best_submitted is not None:
                 new_claim = best_submitted
                 break
 
-            if not any(gs.action_dict[pid] for pid in range(4)):
+            if not any(gs.action_dict[pid] for pid in range(game_player_count(gs))):
                 break
 
         if new_claim is None:

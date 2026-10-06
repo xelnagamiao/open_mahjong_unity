@@ -9,13 +9,15 @@ public partial class RoundEndPresentation {
     /// <summary>荒牌不听罚符在 PenaltyPanel 上的总演出秒数（三等分）。</summary>
     public const float DrawNotenPenaltyHoldSeconds = 3f;
 
-    public void PresentLiuju(string displayText, bool playPresentationEffects = true) {
-        StartSequence(CoLiuju(displayText, playPresentationEffects));
+    public void PresentLiuju(string displayText, bool playPresentationEffects = true,
+        Dictionary<int, int[]> tenpaiTiles = null, IDictionary<int, string> indexToPosition = null) {
+        StartSequence(CoLiuju(displayText, playPresentationEffects, tenpaiTiles, indexToPosition));
     }
 
-    private IEnumerator CoLiuju(string displayText, bool playPresentationEffects) {
+    private IEnumerator CoLiuju(string displayText, bool playPresentationEffects,
+        Dictionary<int, int[]> tenpaiTiles, IDictionary<int, string> indexToPosition) {
         PreparePresentationRoot(playPresentationEffects);
-        EndLiujuPanel.Instance.PrepareLiujuPanel(displayText);
+        EndLiujuPanel.Instance.PrepareLiujuPanel(displayText, tenpaiTiles, indexToPosition);
         yield return PlayAfterFade(
             () => EndLiujuPanel.Instance.PlayPreparedLiujuPanel(DrawCaptionHoldSeconds),
             playPresentationEffects

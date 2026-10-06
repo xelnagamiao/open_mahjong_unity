@@ -8,6 +8,11 @@ from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.offline import offline_auto_action
 from ..public.ai.smart_bot_ai import smart_bot_action
 from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
+from ..game_guobiao.combination_mask_view import (
+    get_combination_fields_for_viewer,
+    sanitize_angang_mask,
+    sanitize_combination_target_for_viewer,
+)
 from ..public.hand_slot_utils import bot_ask_hand_game_status
 from ..public.hand_draw_source import ensure_hand_draw_source_round, get_hand_draw_source, update_hand_draw_source
 from ..public.game_record_manager import local_record_detail_for_end
@@ -49,6 +54,7 @@ def _build_game_start_payload_for_viewer(self, viewer_index: int) -> dict:
     viewer_player = self.player_list[viewer_index]
     players_info = []
     for player in self.player_list:
+        combo_tiles, combo_masks = get_combination_fields_for_viewer(player, viewer_index)
         players_info.append({
             'user_id': player.user_id, # 用户ID
             'username': player.username, # 用户名（用于显示）
@@ -56,8 +62,8 @@ def _build_game_start_payload_for_viewer(self, viewer_index: int) -> dict:
             'hand_tiles': player.hand_tiles if player.user_id == viewer_player.user_id else None,  # 只有视角玩家的手牌
             'discard_tiles': player.discard_tiles, # 弃牌
             'discard_origin_tiles': player.discard_origin_tiles, # 理论弃牌
-            'combination_tiles': player.combination_tiles, # 组合
-            "combination_mask": player.combination_mask, # 组合形状
+            'combination_tiles': combo_tiles, # 组合（他家暗杠牌值隐藏）
+            "combination_mask": combo_masks, # 组合形状
             "huapai_list": player.huapai_list, # 花牌列表
             'remaining_time': player.remaining_time, # 剩余局时
             'player_index': player.player_index, # 东南西北位置
@@ -400,6 +406,13 @@ async def broadcast_do_action(
                 viewer_deal_tile = sanitize_deal_tile_for_viewer(
                     deal_tile, action_player, current_player.player_index
                 )
+                viewer_mask = combination_mask
+                viewer_target = combination_target
+                if action_list and "angang" in action_list:
+                    viewer_mask = sanitize_angang_mask(combination_mask, action_player, current_player.player_index)
+                    viewer_target = sanitize_combination_target_for_viewer(
+                        combination_target, action_player, current_player.player_index
+                    )
 
                 response = Response(
                     type="gamestate/classical/do_action",
@@ -415,8 +428,8 @@ async def broadcast_do_action(
                         is_timeout_action=True if is_timeout_action else None,
                         deal_tile=viewer_deal_tile,
                         buhua_tile=buhua_tile,
-                        combination_mask=combination_mask,
-                        combination_target=combination_target,
+                        combination_mask=viewer_mask,
+                        combination_target=viewer_target,
                         is_mo_gang=is_mo_gang,
                         cut_from_player=cut_from_player,
                     )

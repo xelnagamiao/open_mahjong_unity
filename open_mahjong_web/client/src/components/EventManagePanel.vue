@@ -691,6 +691,8 @@
       :title="roomDialogTitle"
       confirm-text="创建房间"
       :loading="creatingRoom"
+      :show-auto-duplicate="!isBase"
+      :load-duplicate-quota="loadDuplicateQuota"
       :room-rule-options="roomRuleOptions"
       @confirm="createRoom"
     />
@@ -706,6 +708,7 @@ import { useEventAdminAuthStore } from '@/stores/eventAdminAuth'
 import VenueRoomDialog from '@/components/VenueRoomDialog.vue'
 import EventRoomPresetEditor from '@/components/EventRoomPresetEditor.vue'
 import { buildEventRoomSettings, createEventRoomForm, eventRoomSettingsSummary, eventRoomSettingsRows } from '@/utils/eventRoomSettings'
+import { buildEventRoomCreation, createEventRoomCreationForm, eventRoomCreationError } from '@/utils/eventRoomCreation'
 import {
   eventRoleLabel,
   eventStatusLabel,
@@ -812,15 +815,15 @@ const roomRuleOptions = [
   { value: 'qingque', label: '青雀' },
   { value: 'classical', label: '古典' },
   { value: 'sichuan', label: '四川' },
-  { value: 'changsha', label: '长沙' },
-  { value: 'taiwan', label: '台湾' },
+  { value: 'changsha', label: '长沙麻将' },
+  { value: 'taiwan', label: '台湾麻将' },
   { value: 'hongkong', label: '香港麻将' },
   { value: 'guangdong', label: '广东麻将' },
   { value: 'guizhou', label: '贵州麻将' },
   { value: 'yixing', label: '宜兴麻将' },
   { value: 'shanxi', label: '山西麻将' },
 ]
-const roomForm = reactive(createEventRoomForm())
+const roomForm = reactive(createEventRoomCreationForm())
 
 const games = ref([])
 const loadingGames = ref(false)
@@ -914,7 +917,7 @@ const lifecycleHint = computed(() => {
     return `${noun}注册成功，开启后可创建房间、审核报名并组桌。`
   }
   if (s === 'active') {
-    return `${noun}已开启。全程结束后可关闭；关闭后仍可查看数据。`
+    return `${noun}已开启。${noun}结束后可关闭${noun}，${noun}数据仍将保留。`
   }
   if (s === 'closed') {
     return detail.value?.reopen_requested
@@ -1785,22 +1788,36 @@ async function createRoom() {
   if (creatingRoom.value) return
   creatingRoom.value = true
   try {
-    await eventAdminApi.post(`/events/${props.eventId}/rooms`, buildEventRoomSettings(roomForm))
+    const res = await eventAdminApi.post(`/events/${props.eventId}/rooms`, buildEventRoomCreation(roomForm), { timeout: 120000 })
+    const created = res.data.data?.created_count || 1
+    const keys = res.data.data?.generated_key_count || 0
     roomForm.room_name = ''
     roomForm.password = ''
+    roomForm.room_count = 1
+    roomForm.auto_duplicate = false
     roomDialogVisible.value = false
-    ElMessage.success('房间已创建')
+    ElMessage.success(`已创建 ${created} 个房间${keys ? `及 ${keys} 个复式密钥` : ''}`)
     await loadRooms()
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || e.message || '创建失败')
+    ElMessage.error({ message: eventRoomCreationError(e), duration: 8000 })
+    const result = e.response?.data?.data
+    if (result?.created_count || result?.generated_key_count) {
+      roomDialogVisible.value = false
+      await loadRooms()
+    }
   } finally {
     creatingRoom.value = false
   }
 }
 
 function openRoomDialog() {
-  Object.assign(roomForm, createEventRoomForm(manualSettings.value))
+  Object.assign(roomForm, createEventRoomCreationForm(manualSettings.value))
   roomDialogVisible.value = true
+}
+
+async function loadDuplicateQuota() {
+  const res = await eventAdminApi.get(`/events/${props.eventId}/duplicate-quota`)
+  return res.data.data
 }
 
 async function deleteRoom(row) {

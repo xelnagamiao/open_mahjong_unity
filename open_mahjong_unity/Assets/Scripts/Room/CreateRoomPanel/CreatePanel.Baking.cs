@@ -434,7 +434,7 @@ public partial class CreatePanel {
     }
 
     public void BakeRiichiDetailsPanel() {
-        if (transform.Find("DetailedConfigPanel_riichi")) return;
+        if (transform.Find("DetailedConfigPanel_riichi")) { BakeRiichiCatalogSettings(); return; }
         var source = transform.Find("DetailedConfigPanel_taiwan");
         if (!source) throw new InvalidOperationException("Taiwan rule panel template missing");
         var copy = Instantiate(source.gameObject, transform);
@@ -477,6 +477,17 @@ public partial class CreatePanel {
             RoomGet<CreateRoomScrollbarSize>(scroll.gameObject);
             ConfigureSettingsDialog(copy);
         } catch { DestroyImmediate(copy); throw; }
+    }
+
+    public void BakeRiichiCatalogSettings() {
+        var overlay = transform.Find("DetailedConfigPanel_riichi");
+        if (!overlay || !DetailedConfigRegistry.TryGet("riichi", out var definition)) return;
+        var content = overlay.Find("Dialog/Create_Panel/ScrollArea/Viewport/Content") as RectTransform;
+        EnsureRiichiCatalogRows(content, definition, overlay.gameObject);
+        SyncDetailedConfigLabels("riichi");
+        var preset = content.Find("DetailedConfigPreset").GetComponentInChildren<TMP_Dropdown>(true);
+        preset.ClearOptions();
+        preset.AddOptions(RiichiRoomRules.Presets.Select(p => p.Label).Concat(new[] { "自定义规则" }).ToList());
     }
 
     private void ConfigureRoomSettingsPresentation() {

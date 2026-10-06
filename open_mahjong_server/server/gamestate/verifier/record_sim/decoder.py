@@ -48,7 +48,7 @@ def resolve_acting_player(tick: Sequence[str], action: str, default_player: int)
         return default_player
     if action in ("bh", "bd", "cl", "cm", "cr", "p", "g") and len(tick) >= 3:
         return parse_tick_int(tick, 2)
-    if action == "ca" and len(tick) >= 2:
+    if action in ("ca", "nuki") and len(tick) >= 2:
         return parse_tick_int(tick, 1)
     if action == "state" and len(tick) >= 3:
         return parse_tick_int(tick, 2)
@@ -139,10 +139,10 @@ def parse_score_changes_array(tick: Sequence[str], index: int) -> Optional[List[
 
 
 def convert_score_changes_to_original(by_player_index: Optional[List[int]], seats: Optional[Sequence[int]]) -> Optional[List[int]]:
-    if by_player_index is None or seats is None or len(seats) < 4:
+    if by_player_index is None or seats is None or len(seats) not in (3, 4):
         return None
     by_original = [0, 0, 0, 0]
-    for orig in range(4):
+    for orig in range(len(seats)):
         seat = int(seats[orig])
         if 0 <= seat < len(by_player_index):
             by_original[orig] = by_player_index[seat]

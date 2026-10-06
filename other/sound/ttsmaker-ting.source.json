@@ -1,0 +1,34 @@
+{
+  "provider": "TTSMaker",
+  "generator": "https://ttsmaker.com/zh-hk",
+  "generated_on": "2026-10-06",
+  "commercial_terms": "https://ttsmaker.com/copyright_and_commercial_license_terms/zh-hk",
+  "settings": {
+    "language": "中文",
+    "format": "mp3",
+    "quality": "standard",
+    "speed": 1.0,
+    "volume_percent": 100,
+    "pitch": "default",
+    "background_music": false
+  },
+  "provenance": "Generated through local Chrome TTSMaker UI with confirmed CAPTCHA handling; original MP3 bytes retained and imported with each voice family buhua.mp3 settings.",
+  "clips": [
+    {
+      "voice_id": 204,
+      "voice_name": "潇潇",
+      "text": "听",
+      "sha256": "cb36eba62f3790d7081b51d7421e99ab73c983e8b5b5d5b24b97dad09d9ad89d",
+      "original_download_name": "2026-10-06-005253_158320.mp3",
+      "unity_path": "open_mahjong_unity/Assets/Resources/Sound/ttsmaker_204_xiaoxiao/ting.mp3"
+    },
+    {
+      "voice_id": 1513,
+      "voice_name": "球球",
+      "text": "听",
+      "sha256": "c94fe44ed3b0b1cdd8f08e736bbd407dce682cbf9731903f673f125fe93d55f8",
+      "original_download_name": "2026-10-06-005635_116244.mp3",
+      "unity_path": "open_mahjong_unity/Assets/Resources/Sound/ttsmaker_1513_qiuqiu/ting.mp3"
+    }
+  ]
+}

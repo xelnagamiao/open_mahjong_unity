@@ -5,6 +5,9 @@ using System.Linq;
 using Newtonsoft.Json.Linq;
 
 public sealed class ChangchunGameState : TurnBasedGameState {
+    private readonly ChangchunAskClock askClock = new ChangchunAskClock();
+    private int clockRound = -1;
+    private string clockGame;
     public ChangchunInfo Info { get; private set; }
     private readonly HashSet<int> announcedReady = new HashSet<int>();
     private Dictionary<int,int[]> revealedHands;
@@ -13,6 +16,9 @@ public sealed class ChangchunGameState : TurnBasedGameState {
     private Response pendingReadyStatus,pendingGameEnd;
     public override bool IsSelfLocked => SeatHasTag("self",t=>t=="declared_ready") || Info?.window=="before_draw" || Info?.window=="final_four";
     protected override void OnRoundStarted(GameInfo info) {
+        if(clockRound!=info.current_round || clockGame!=Session.GamestateId) {
+            askClock.Reset();clockRound=info.current_round;clockGame=Session.GamestateId;
+        }
         roundGeneration++;
         settlementAccepted=pendingSettlement=false;
         pendingReadyStatus=pendingGameEnd=null;
@@ -35,9 +41,59 @@ public sealed class ChangchunGameState : TurnBasedGameState {
         RefreshSelfStatusIndicators();
     }
     protected override void OnHandAskReceived(AskHandActionGBInfo info) {Info=info.changchun;RefreshSelfStatusIndicators();}
+    protected override void OnAskHandAction(Response response) {
+        var info=response.ask_hand_action_info;
+        if(info==null || askClock.ShouldIgnore(info.action_tick)) return;
+        int bank=info.remaining_time;int? step=info.step_remaining;
+        double exactBank=info.remaining_time_ms.HasValue ? info.remaining_time_ms.Value/1000d : bank;
+        double exactStep=info.step_remaining_ms.HasValue ? info.step_remaining_ms.Value/1000d : step??Session.RoomStepTime;
+        double received=response.received_monotonic??ChangchunAskClock.Now;
+        askClock.Project(info.action_tick,exactBank,exactStep,received,ChangchunAskClock.Now,
+            out double b,out double s);
+        info.remaining_time=ChangchunAskClock.Seconds(b);info.step_remaining=ChangchunAskClock.Seconds(s);
+        try {
+            base.OnAskHandAction(response);
+            if(!AutoActionPolicy.Current.TryResolveHand(info.deal_tile_type,out _,out _))
+                PresentAskClock(info.action_tick,exactBank,exactStep,received);
+        } finally {info.remaining_time=bank;info.step_remaining=step;}
+    }
     protected override void OnAskClaim(Response response) {
+        var info=response.ask_other_action_info;
+        if(info==null || askClock.ShouldIgnore(info.action_tick)) return;
         if(response.game_info?.changchun!=null) {Info=response.game_info.changchun;Clock.PendingAskFromJiagang=Info.phase=="waiting_action_qianggang";}
-        base.OnAskClaim(response);
+        int bank=info.remaining_time;int? step=info.step_remaining;
+        double exactBank=info.remaining_time_ms.HasValue ? info.remaining_time_ms.Value/1000d : bank;
+        double exactStep=info.is_tactical_recheck==true ? 0d : info.step_remaining_ms.HasValue ? info.step_remaining_ms.Value/1000d : step??Session.RoomStepTime;
+        double received=response.received_monotonic??ChangchunAskClock.Now;
+        askClock.Project(info.action_tick,exactBank,exactStep,received,ChangchunAskClock.Now,
+            out double b,out double s);
+        info.remaining_time=ChangchunAskClock.Seconds(b);info.step_remaining=ChangchunAskClock.Seconds(s);
+        try {
+            base.OnAskClaim(response);
+            if(!AutoActionPolicy.Current.TryResolveClaim(out _,out _))
+                PresentAskClock(info.action_tick,exactBank,exactStep,received);
+        } finally {info.remaining_time=bank;info.step_remaining=step;}
+    }
+    private void PresentAskClock(int tick,double bank,double step,double received) {
+        if(!Clock.IsSelfActionRequired || GameCanvas.Instance==null) return;
+        askClock.Project(tick,bank,step,received,ChangchunAskClock.Now,out double b,out double s);
+        if(b+s<=0) {
+            Clock.Timeout();GameCanvas.Instance.StopTimeRunning();
+        } else if(GameCanvas.Instance.IsCountdownRunning)
+            GameCanvas.Instance.CorrectCountdownBudget(b,s);
+    }
+    public override void OnAskWindowClosed(AskCloseReason reason) {
+        if(reason==AskCloseReason.Acted || reason==AskCloseReason.TimedOut) askClock.Close();
+        base.OnAskWindowClosed(reason);
+    }
+    protected override bool HandleExtraMessage(string suffix,Response response) {
+        if(suffix!="ask_closed") return base.HandleExtraMessage(suffix,response);
+        var info=response.ask_other_action_info;
+        if(info!=null &&
+           askClock.AcceptsClosure(info.action_tick,info.player_index,Session.SelfIndex)) {
+            askClock.Close();Clock.Clear("changchunAnswered");
+        }
+        return true;
     }
     public override void OnPlayerTagsRefreshed() {
         base.OnPlayerTagsRefreshed();
@@ -230,5 +286,5 @@ public sealed class ChangchunGameState : TurnBasedGameState {
         }
         Presenter.ApplyScores(env.ScoresAfter);GameSceneUIManager.Instance?.UpdateScoreRecord();
     }
-    public override void OnSessionReset() {roundGeneration++;settlementAccepted=pendingSettlement=false;pendingReadyStatus=pendingGameEnd=null;RoundEndPresentation.Instance?.StopActiveSequence();Info=null;revealedHands=null;announcedReady.Clear();GameCanvas.Instance?.SetSelfStatusIndicator(GameCanvas.StatusSlotShunhe,false,"");}
+    public override void OnSessionReset() {askClock.Reset();clockRound=-1;clockGame=null;roundGeneration++;settlementAccepted=pendingSettlement=false;pendingReadyStatus=pendingGameEnd=null;RoundEndPresentation.Instance?.StopActiveSequence();Info=null;revealedHands=null;announcedReady.Clear();GameCanvas.Instance?.SetSelfStatusIndicator(GameCanvas.StatusSlotShunhe,false,"");}
 }

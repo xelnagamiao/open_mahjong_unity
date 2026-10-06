@@ -101,7 +101,7 @@ public partial class Game3DManager : MonoBehaviour {
             for (int i = 0; i + 1 < combinationMaskForSelf.Length; i += 2) {
                 int flag = combinationMaskForSelf[i];
                 int tid = combinationMaskForSelf[i + 1];
-                if (flag != 1 && tid >= 10) {
+                if (flag != 1 && !MeldStackLayout.IsStack(flag) && tid >= 10) {
                     tilesToRemove.Add(tid);
                 }
             }

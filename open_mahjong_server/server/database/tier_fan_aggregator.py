@@ -77,52 +77,6 @@ def _write_fan_daily(cursor, stat_date: date, fan_agg: Dict[tuple, Dict[str, int
     return inserted
 
 
-def rebuild_scene_tier_fan_daily_range(
-    db_manager,
-    date_from: date,
-    date_to: date,
-) -> None:
-    """按统计日逐日重建 scene_tier_fan_daily（首次回填）。"""
-    conn = None
-    try:
-        conn = db_manager._get_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            "DELETE FROM scene_tier_fan_daily WHERE stat_date >= %s AND stat_date <= %s",
-            (date_from, date_to),
-        )
-        current = date_from
-        total_rows = 0
-        while current <= date_to:
-            date_expr = _stat_date_expr("created_at")
-            cursor.execute(f"""
-                SELECT DISTINCT game_id FROM game_player_metrics
-                WHERE {date_expr} = %s
-                  AND (
-                    (room_type = 'match' AND match_tier IN ({MATCH_TIER_SQL}))
-                    OR (room_type = 'events' AND event_id IS NOT NULL)
-                  )
-                  AND rule = 'guobiao'
-            """, (current,))
-            game_ids = [r[0] for r in cursor.fetchall()]
-            fan_agg: Dict[tuple, Dict[str, int]] = {}
-            _accumulate_tier_fans(cursor, game_ids, fan_agg)
-            total_rows += _write_fan_daily(cursor, current, fan_agg)
-            current = date.fromordinal(current.toordinal() + 1)
-        conn.commit()
-        logger.info(
-            "scene_tier_fan_daily 重建完成：%s ~ %s，共 %d 行",
-            date_from, date_to, total_rows,
-        )
-    except Error as e:
-        logger.error("重建 scene_tier_fan_daily 失败: %s", e, exc_info=True)
-        if conn:
-            conn.rollback()
-        raise
-    finally:
-        if conn:
-            cursor.close()
-            db_manager._put_connection(conn)
 
 
 def increment_scene_tier_fan_for_date(db_manager, stat_date: date) -> None:
@@ -151,6 +105,7 @@ def increment_scene_tier_fan_for_date(db_manager, stat_date: date) -> None:
         logger.error("聚合 scene_tier_fan_daily 失败 %s: %s", stat_date, e, exc_info=True)
         if conn:
             conn.rollback()
+        raise
     finally:
         if conn:
             cursor.close()

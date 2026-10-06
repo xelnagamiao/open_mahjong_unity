@@ -32,6 +32,8 @@ def load_duplicate_wall(db, key):
 def validate_duplicate_wall(wall, room):
     rule = room.get("room_rule", "")
     sub_rule = room.get("sub_rule", "")
+    if sub_rule == "guobiao/sanma":
+        raise ValueError("三人国标不支持四人复式牌墙")
     if rule not in SUPPORTED_RULES:
         raise ValueError("复式牌墙仅支持国标麻将（含蓝十改）")
     if wall["rule"] not in (rule, sub_rule):

@@ -3,7 +3,7 @@
   <div class="usage-guide">
     <header class="page-banner">
       <h1>使用说明</h1>
-      <p>平台简介、对局机制、猜番对抗与办赛说明。规则细则请参阅「规则书」。</p>
+      <p>平台简介、对局机制、猜番对抗、办赛说明与平台规约。规则细则请参阅「规则书」。</p>
     </header>
 
     <div class="panel">
@@ -183,7 +183,8 @@
                   </p>
                 </li>
                 <li>
-                  <p>房间配置中可开关战术鸣牌。关闭时走「等待最高优先级操作执行完成」的原始流程。</p>
+                  <p>房间配置中可开关战术鸣牌。关闭时走「等待最高优先级操作执行完成」的原始流程。开启时，首次询问仍使用房间步时加剩余局时；只有有效申请后的抢断再询问使用独立5秒，不扣普通局时。</p>
+                  <p>推倒和（MIL 2024）按规则书第六节允许升级申请：B 吃、C 碰后，B 仍可改报和牌；本张牌主动选择“放弃”则退出竞争。纯真人新房默认开启，有机器人时自动关闭；鸣牌保护是另一项功能。</p>
                 </li>
               </ol>
             </template>
@@ -436,20 +437,40 @@
 
             <template v-else-if="sec.id === 'thanks'">
               <ul class="thanks-list">
-                <li><span class="k">牌面提供者</span>雪枫 XueFun9</li>
-                <li><span class="k">表情包提供者</span>影子</li>
-                <li><span class="k">随机种子设计</span>Zoe</li>
-                <li><span class="k">新编 MCR 编著者</span>Natsuki</li>
-                <li><span class="k">青雀设计者</span>莫莫柴</li>
-                <li><span class="k">浪涌麻将设计者</span>自恧</li>
-                <li><span class="k">直播宣传</span>Cloud980Ti、轻轻的飘</li>
+                <li>
+                  <span class="k">开发团队</span>
+                  <span data-no-translate>Xelnaga(主程)  雪枫XueFun9(牌面提供者)  Zoe(随机种子设计)  Natsuki(新编MCR编著者)  坏狗影子(表情包提供者)  GitHub/baisebaoma(高性能罗伯特设计) troooobot(长沙麻将实现)  Zoe(台湾麻将实现)  二階堂 ヒロ(中心盘设计)  莫莫柴(青雀、2D桌面)  Shq、Zoe(bug修复)  salasasasa数据bot(PCX1078)  插件开发(新手求教)</span>
+                </li>
+                <li>
+                  <span class="k">自定义规则设计</span>
+                  <span data-no-translate>莫莫柴(青雀)  关兆豪先生(中庸麻将)  Null(虹雀)  K神传说(K神麻将)  恋绘色(香港清章恋绘色魔改)  小林(国标小林改)  蓝十(国标蓝十改)  自恧(浪涌麻将)  南瓜饼(南雀)</span>
+                </li>
+                <li>
+                  <span class="k">地方规则考据</span>
+                  <span data-no-translate>上海清混碰(何苏)  古典麻将(莫莫柴、何苏、古明地梦)  宜兴麻将(苦鱼)  Mil推广规则(MIL国际麻将联盟)</span>
+                </li>
+                <li>
+                  <span class="k">直播宣传</span>
+                  <span data-no-translate>Cloud980Ti  轻轻的飘  等候1234  立直喵  Ce/Est1al  鬼头刀鱼fish  神源之心  方片杰克  Ni9e_9  大柠劳斯</span>
+                </li>
                 <li>
                   <span class="k">赞助</span>
-                  九曜、健哥、何苏、Null、莫莫柴、Zazaka、中山大学国标麻将同好会、kiki、东西喵、GitHub/baisebaoma
+                  <span data-no-translate>九曜、kiki、健哥、何苏、Null、莫莫柴、恋绘色、Zazaka、中山大学国标麻将同好会、东西喵、山东大学老年人活动中心、Sw123</span>
                 </li>
-                <li><span class="k">特别感谢</span>莫莫柴、码龙、Null、影子、chinkaku</li>
-                <li><span class="k">支持</span>棋牌游戏研究院、立直麻雀研习社、柴 de 麻将群</li>
+                <li>
+                  <span class="k">特别感谢</span>
+                  <span data-no-translate>莫莫柴、码龙、Null、坏狗影子、何苏</span>
+                </li>
+                <li>
+                  <span class="k">支持社团</span>
+                  <span data-no-translate>棋牌游戏研究院、立直麻雀研习社、柴の麻将群、雀渣玩家群、中山大学国标麻将同好会</span>
+                </li>
+                <li>
+                  <span class="k">早期测试</span>
+                  <span data-no-translate>夜色祢 chlorine 陪练的命运</span>
+                </li>
               </ul>
+              <p class="thanks-message" data-no-translate>以及游玩salasasa平台的所有玩家！</p>
             </template>
 
             <template v-else-if="sec.id === 'links'">
@@ -492,6 +513,9 @@
                 </li>
               </ul>
             </template>
+            <template v-else-if="sec.id === 'regulations'">
+              <div class="regulations-text" data-no-translate>{{ accountRegulations }}</div>
+            </template>
           </section>
         </div>
 
@@ -518,6 +542,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { locale } from '@/i18n'
+import accountRegulations from '@/content/accountRegulations.txt?raw'
 
 const seedCodeLabels = {
   'zh-CN': {
@@ -591,6 +616,7 @@ const sections = [
   { id: 'sponsor', title: '十二、赞助' },
   { id: 'thanks', title: '十三、鸣谢' },
   { id: 'links', title: '十四、相关链接' },
+  { id: 'regulations', title: '十五、萨拉飒飒平台规约' },
 ]
 
 const activeId = ref(sections[0].id)
@@ -820,6 +846,26 @@ onUnmounted(() => {
   list-style: none;
 }
 
+.thanks-list,
+.thanks-message {
+  overflow-wrap: anywhere;
+}
+
+.thanks-message {
+  margin: 12px 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #444;
+}
+
+.regulations-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #444;
+}
+
 .thanks-list li,
 .link-list li {
   font-size: 14px;
@@ -828,7 +874,22 @@ onUnmounted(() => {
   color: #444;
 }
 
-.thanks-list .k,
+.thanks-list li {
+  display: grid;
+  grid-template-columns: 7.5em minmax(0, 1fr);
+  column-gap: 8px;
+  align-items: start;
+}
+
+.thanks-list .k {
+  color: #666;
+  font-weight: 600;
+}
+
+.thanks-list li > span {
+  min-width: 0;
+}
+
 .link-list .k {
   display: inline-block;
   min-width: 7.5em;

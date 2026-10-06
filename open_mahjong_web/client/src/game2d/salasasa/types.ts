@@ -91,6 +91,9 @@ export interface SalasasaGameInfo {
 export interface SalasasaAskHandInfo {
   action_list: string[]
   remaining_time: number
+  step_remaining?: number | null
+  remaining_time_ms?: number | null
+  step_remaining_ms?: number | null
   player_index: number
   remain_tiles: number
   forced_cut_tiles?: number[]
@@ -102,6 +105,9 @@ export interface SalasasaAskHandInfo {
 export interface SalasasaAskOtherInfo {
   action_list: string[]
   remaining_time: number
+  step_remaining?: number | null
+  remaining_time_ms?: number | null
+  step_remaining_ms?: number | null
   cut_tile: number
   action_tick: number
   player_index?: number

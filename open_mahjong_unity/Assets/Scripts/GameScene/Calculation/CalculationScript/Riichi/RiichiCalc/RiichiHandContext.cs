@@ -15,6 +15,9 @@ namespace Riichi {
         public bool IsHoutei;
         public bool IsTenhou;
         public bool IsChiihou;
+        public bool IsSanma;
+        public int NukiCount;
+        public string SanmaTsumo = "loss";
 
         /// <summary>门风：41=东 42=南 43=西 44=北</summary>
         public int PlayerWind = RiichiTileUtil.East;
@@ -45,6 +48,7 @@ namespace Riichi {
             KiriageMangan = Flag("kiriage_mangan", false); YakumanLimit = Number("yakuman_limit", 6);
             DoubleWindPairFu = Number("double_wind_pair_fu", 4);
             KazoeLimit = values.TryGetValue("kazoe_limit", out var kazoe) ? kazoe.ToString() : "yakuman";
+            SanmaTsumo = values.TryGetValue("sanma_tsumo", out var sanma) ? sanma.ToString() : "loss";
         }
 
         public List<int> DoraIndicators = new List<int>();

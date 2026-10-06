@@ -1088,7 +1088,7 @@ function presentTerminalResult(action: string, handRevealApplied = false) {
     scheduleResult(() => {
       showResultTotal.value = true
       showResultConfirm.value = true
-      if (roundResult.value?.kind === 'win') scene?.playResultGong(roundResult.value.fans)
+      if (roundResult.value?.kind === 'win') scene?.playResultGong(roundResult.value.fans, roundResult.value.fan, detail.value?.rule || 'guobiao')
     }, resultFans.value.length * 500 + 350)
   }, 1500)
 }

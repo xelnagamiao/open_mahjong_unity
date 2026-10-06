@@ -2,7 +2,6 @@
 
 import asyncio
 from copy import deepcopy
-import time
 
 import pytest
 
@@ -135,17 +134,18 @@ def test_reconnect_clock_does_not_restart_turn_or_claim_budget():
         s = turn(step_timer=1, round_timer=4)
         waiter = asyncio.create_task(s.wait_action())
         await asyncio.sleep(0)
-        s._action_deadlines[0] = time.monotonic() + 1.1
+        clock = s._action_clocks[0]
+        clock.started_at = s._timing_now() - 2
         prompt = s.build_pending_action_payload(0)["ask_hand_action_info"]
-        assert prompt["step_remaining"] == 1 and prompt["remaining_time"] == 1
+        assert prompt["step_remaining"] == 0 and prompt["remaining_time"] == 3
         await s.submit_action(0,"cut",TileId=42,cutClass=True)
         await waiter
-        s = turn()
+        s = turn(step_timer=5, round_timer=20)
         s.player_list[1].hand_tiles = [41,41]+PLAIN[:11]
         river(s,0,41)
-        s._action_deadlines[1] = time.monotonic()+0.5
+        s._action_clocks[1].started_at = s._timing_now() - 8
         prompt = s.build_pending_action_payload(1)["ask_other_action_info"]
-        assert prompt["step_remaining"] == 0 and prompt["remaining_time"] == 1
+        assert prompt["step_remaining"] == 0 and prompt["remaining_time"] == 17
     asyncio.run(run())
 
 

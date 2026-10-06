@@ -59,16 +59,23 @@ function validateNewPassword(raw) {
   return { value: password };
 }
 
-function signPlayerToken(userId, username) {
+function signPlayerToken(userId, username, expiresInSec = config.playerAuth.jwtExpiresSec, expiresAt) {
   return signToken(
     {
       user_id: userId,
       username,
       aud: config.playerAuth.audience,
+      ...(expiresAt != null ? { exp: expiresAt } : {}),
     },
     config.playerAuth.jwtSecret,
-    config.playerAuth.jwtExpiresSec
+    expiresAt != null ? null : expiresInSec
   );
+}
+
+function remainingPlayerSessionSec(player) {
+  return player.expiresAt == null
+    ? config.playerAuth.jwtExpiresSec
+    : Math.max(0, player.expiresAt - Math.floor(Date.now() / 1000));
 }
 
 async function syncOnlineUsername(userId, username) {
@@ -98,7 +105,7 @@ async function syncOnlineUsername(userId, username) {
   }
 }
 
-async function buildAuthPayload(userId) {
+async function buildAuthPayload(userId, expiresInSec = config.playerAuth.jwtExpiresSec) {
   const userRes = await pool.query(
     `SELECT username, email, email_verified_at, COALESCE(rename_count, 0) AS rename_count
        FROM users WHERE user_id = $1`,
@@ -126,7 +133,7 @@ async function buildAuthPayload(userId) {
     email: user.email || null,
     email_verified: !!user.email_verified_at,
     email_verified_at: user.email_verified_at || null,
-    expires_in: config.playerAuth.jwtExpiresSec,
+    expires_in: expiresInSec,
     is_event_admin: events.length > 0,
     event_admin_token: eventAdminToken,
     events,
@@ -235,14 +242,17 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: '用户名或密码错误' });
     }
 
-    const payload = await buildAuthPayload(user.user_id);
+    const expiresInSec = req.body.keep_logged_in === true
+      ? config.playerAuth.rememberJwtExpiresSec
+      : config.playerAuth.jwtExpiresSec;
+    const payload = await buildAuthPayload(user.user_id, expiresInSec);
     if (!payload) {
       return res.status(404).json({ success: false, message: '用户不存在' });
     }
     return res.json({
       success: true,
       data: {
-        token: signPlayerToken(user.user_id, user.username),
+        token: signPlayerToken(user.user_id, user.username, expiresInSec),
         ...payload,
       },
     });
@@ -254,13 +264,13 @@ router.post('/login', async (req, res) => {
 
 router.get('/me', requirePlayer, async (req, res) => {
   try {
-    const payload = await buildAuthPayload(req.player.userId);
+    const payload = await buildAuthPayload(req.player.userId, remainingPlayerSessionSec(req.player));
     if (!payload) {
       return res.status(404).json({ success: false, message: '用户不存在' });
     }
     // 改名响应可能丢失；查询实际账号状态时同步更正令牌中的旧用户名。
     if (req.player.username !== payload.username) {
-      payload.token = signPlayerToken(req.player.userId, payload.username);
+      payload.token = signPlayerToken(req.player.userId, payload.username, undefined, req.player.expiresAt);
     }
     res.json({ success: true, data: payload });
   } catch (err) {
@@ -347,7 +357,7 @@ router.post('/rename', requirePlayer, createWindowLimiter({
 
   const syncedOnline = await syncOnlineUsername(userId, newName);
   try {
-    payload = await buildAuthPayload(userId);
+    payload = await buildAuthPayload(userId, remainingPlayerSessionSec(req.player));
   } catch (err) {
     console.error('player rename payload error:', err);
     return res.status(500).json({ success: false, message: '改名已生效，请重新登录' });
@@ -359,7 +369,7 @@ router.post('/rename', requirePlayer, createWindowLimiter({
   return res.json({
     success: true,
     data: {
-      token: signPlayerToken(userId, newName),
+      token: signPlayerToken(userId, newName, undefined, req.player.expiresAt),
       ...payload,
       synced_online: syncedOnline,
       synced_history: true,

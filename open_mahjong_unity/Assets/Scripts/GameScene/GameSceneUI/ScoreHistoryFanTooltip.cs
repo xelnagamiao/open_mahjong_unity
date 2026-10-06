@@ -279,6 +279,8 @@ public class ScoreHistoryFanTooltip : MonoBehaviour {
             foreach (var tile in group) {
                 SpawnTile(tile.FaceDown ? 0 : tile.TileId);
                 if (tile.StackedTileId.HasValue) SpawnTile(tile.StackedTileId.Value);
+                if (tile.StackedTiles != null) foreach (var stack in tile.StackedTiles)
+                    SpawnTile(stack.FaceDown ? 0 : stack.TileId);
             }
         }
         SpawnSplit();

@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 AI_RESERVED_MAX_USER_ID = 10
 
 def ai_player_count(player_list) -> int:
@@ -23,7 +25,7 @@ def realtime_spectator_watches_broadcast_seat(spectator, game_state, broadcast_p
     return host_idx is not None and host_idx == broadcast_player_index
 
 
-async def deliver_realtime_spectator_message(game_state, broadcast_player_index: int, response) -> None:
+async def deliver_realtime_spectator_message(game_state, broadcast_player_index: int, response, *, prepare_payload=None) -> None:
     """向挂在被观战玩家当前座位视角上的实时观战者推送消息。"""
     if getattr(game_state, "duplicate_key", None):
         return
@@ -49,6 +51,9 @@ async def deliver_realtime_spectator_message(game_state, broadcast_player_index:
         game_info = payload.get("game_info")
         if host_idx is not None and isinstance(game_info, dict):
             payload = {**payload, "game_info": {**game_info, "view_player_index": host_idx}}
+        if prepare_payload is not None:
+            payload = deepcopy(payload)
+            prepare_payload(payload)
         try:
             await conn.websocket.send_json(payload)
         except Exception:

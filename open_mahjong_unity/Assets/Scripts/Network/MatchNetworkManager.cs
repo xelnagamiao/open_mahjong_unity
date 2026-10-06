@@ -152,7 +152,7 @@ public class MatchNetworkManager : MonoBehaviour {
         if(response.queue_status==null||pendingQueueStatusConsumers.Count==0)return;
         switch(pendingQueueStatusConsumers.Dequeue()){
             case MatchQueueStatusConsumer.MenuTotalCount:MeunPanel.Instance?.UpdateMatchPlayerCount(response.queue_status,response.match_player_count);break;
-            case MatchQueueStatusConsumer.MatchPanelDetail:MatchPanel.Instance?.UpdateQueueStatus(response.queue_status);break;
+            case MatchQueueStatusConsumer.MatchPanelDetail:MatchPanel.Instance?.UpdateQueueStatus(response.queue_status,response.match_rule_player_counts);break;
         }
     }
 

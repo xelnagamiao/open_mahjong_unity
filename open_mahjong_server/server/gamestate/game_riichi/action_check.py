@@ -120,12 +120,13 @@ def _maybe_add_chi_action(
 
 
 def check_action_after_cut(self, cut_tile: int):
-    temp_action_dict: Dict[int, list] = {0: [], 1: [], 2: [], 3: []}
+    temp_action_dict: Dict[int, list] = {i: [] for i in range(len(self.player_list))}
     self._ron_shape_waiters = []
     normal_cut = _normalize(cut_tile)
 
     # 四杠已达上限后，任何玩家不得再开杠（含大明杠）。
-    kan_allowed = getattr(self, "total_kans", 0) < 4
+    kan_allowed = (getattr(self, "total_kans", 0) < 4
+                   and getattr(self, 'rinshan_count', 0) < (8 if self.sub_rule == 'riichi/sanma' else 4))
 
     # 每次计算前清空所有玩家吃牌候选，避免跨巡残留
     for p in self.player_list:
@@ -136,9 +137,9 @@ def check_action_after_cut(self, cut_tile: int):
 
     # 立直宣言后不能吃/碰/杠（除非听牌不变的暗杠，这里作为简化，立直者不主动鸣牌）
     if len(self.tiles_list) > self.dead_wall_count:
-        next_player_index = next_current_num(self.current_player_index)
+        next_player_index = (self.current_player_index + 1) % len(self.player_list)
         np = self.player_list[next_player_index]
-        if normal_cut < 40 and "riichi" not in np.tag_list:
+        if self.sub_rule != 'riichi/sanma' and normal_cut < 40 and "riichi" not in np.tag_list:
             hand_norm = [_normalize(t) for t in np.hand_tiles]
             if (normal_cut - 2) in hand_norm and (normal_cut - 1) in hand_norm:
                 _maybe_add_chi_action(np, cut_tile, "chi_left", normal_cut - 1, normal_cut - 2, temp_action_dict, enforce_kuikae)
@@ -181,7 +182,7 @@ def check_action_after_cut(self, cut_tile: int):
 
 def check_action_jiagang(self, jiagang_tile: int):
     """抢杠和检查"""
-    temp_action_dict: Dict[int, list] = {0: [], 1: [], 2: [], 3: []}
+    temp_action_dict: Dict[int, list] = {i: [] for i in range(len(self.player_list))}
     self._ron_shape_waiters = []
     normal_tile = _normalize(jiagang_tile)
     for item in self.player_list:
@@ -200,7 +201,7 @@ def check_action_jiagang(self, jiagang_tile: int):
 
 
 def check_action_ankan(self, tile):
-    actions = {i: [] for i in range(4)}
+    actions = {i: [] for i in range(len(self.player_list))}
     self._ron_shape_waiters = []
     if not option(self, 'kokushi_ankan_ron'):
         return actions
@@ -217,16 +218,17 @@ def check_action_ankan(self, tile):
     return actions
 
 
-def check_action_hand_action(self, player_index: int, is_get_gang_tile: bool = False, is_first_action: bool = False):
+def check_action_hand_action(self, player_index: int, is_get_gang_tile: bool = False, is_first_action: bool = False, is_nuki_tile: bool = False):
     """摸牌后的手牌动作检查：和牌/暗杠/加杠/立直/切牌。
     立直已宣告者：不允许加杠，仅允许「不改变听牌张集合且不改变听牌结构」的暗杠；其余仅可切牌（强制摸切由主循环处理）。
     """
-    temp_action_dict: Dict[int, list] = {0: [], 1: [], 2: [], 3: []}
+    temp_action_dict: Dict[int, list] = {i: [] for i in range(len(self.player_list))}
     player_item = self.player_list[player_index]
     is_riichi = "riichi" in player_item.tag_list
 
     # 四杠已达上限后禁止任何开杠
-    kan_allowed = getattr(self, "total_kans", 0) < 4
+    kan_allowed = (getattr(self, "total_kans", 0) < 4
+                   and getattr(self, 'rinshan_count', 0) < (8 if self.sub_rule == 'riichi/sanma' else 4))
     if kan_allowed and len(self.tiles_list) > self.dead_wall_count:
         processed = set()
         for carditem in player_item.hand_tiles:
@@ -251,6 +253,9 @@ def check_action_hand_action(self, player_index: int, is_get_gang_tile: bool = F
                     if jiagang_tile in [_normalize(t) for t in player_item.hand_tiles]:
                         temp_action_dict[player_index].append("jiagang")
 
+    from .nuki_actions import can_nuki
+    if can_nuki(self, player_index):
+        temp_action_dict[player_index].append('nuki')
     temp_action_dict[player_index].append("cut")
 
     # 立直宣告：门前清 + 听牌 + 击飞时点数须≥1000 + 未立直；并要求剩余可摸牌 ≥4（即剩余 ≤3 时禁止立直），
@@ -270,7 +275,7 @@ def check_action_hand_action(self, player_index: int, is_get_gang_tile: bool = F
     last_tile = player_item.hand_tiles[-1]
     normal_last = _normalize(last_tile)
     if normal_last in player_item.waiting_tiles:
-        check_hepai(self, temp_action_dict, last_tile, player_index, "tsumo", is_first_action, is_get_gang_tile)
+        check_hepai(self, temp_action_dict, last_tile, player_index, "tsumo", is_first_action, is_get_gang_tile, is_nuki_tile)
 
     return temp_action_dict
 
@@ -283,6 +288,8 @@ def refresh_waiting_tiles(self, player_index: int, is_first_action: bool = False
     if len(current_hand) % 3 == 2:
         current_hand = current_hand[:-1]
     waiting = self.calculation_service.Riichi_tingpai_check(current_hand, player_item.combination_tiles)
+    if self.sub_rule == 'riichi/sanma':
+        waiting = set(waiting) - set(range(12, 19))
     if waiting != player_item.waiting_tiles:
         player_item.waiting_tiles = waiting
         logger.info(f"玩家{player_index}的等待牌更新为{sorted(player_item.waiting_tiles)}")
@@ -302,6 +309,8 @@ def refresh_waiting_tiles_after_cut(self, player_index: int):
             temp = hand[:i] + hand[i + 1:]
             temp_norm = [_normalize(t) for t in temp]
             waits = self.calculation_service.Riichi_tingpai_check(temp_norm, player_item.combination_tiles)
+            if self.sub_rule == 'riichi/sanma':
+                waits = set(waits) - set(range(12, 19))
             checked_norm[key] = sorted(list(waits)) if waits else []
         waits = checked_norm[key]
         if waits:
@@ -385,7 +394,7 @@ def compute_kuikae_forbidden(player) -> List[int]:
     return sorted(forbidden)
 
 
-def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepai_type: str, is_first_action: bool = False, is_get_gang_tile: bool = False):
+def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepai_type: str, is_first_action: bool = False, is_get_gang_tile: bool = False, is_nuki_tile: bool = False):
     """调用服务端 mahjong 库进行和牌判定；成功则记入 temp_action_dict。"""
     player = self.player_list[player_index]
 
@@ -394,7 +403,7 @@ def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepa
         tiles_list.append(hepai_tile)
 
     # 荣和方振听判定（永久 / 同巡 / 立直）：任一成立都不能荣和/抢杠和（只能自摸），按规则正确拦截
-    if hepai_type in ("ron", "chankan", "ankan_ron"):
+    if hepai_type in ("ron", "chankan", "ankan_ron", "nuki_ron"):
         permanent_furiten = _is_furiten(player)
         if permanent_furiten or player.temp_furiten or getattr(player, "riichi_furiten", False):
             logger.info(
@@ -405,7 +414,7 @@ def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepa
             )
             return
 
-    is_haitei = hepai_type == "tsumo" and len(self.tiles_list) <= self.dead_wall_count and not is_get_gang_tile
+    is_haitei = hepai_type == "tsumo" and len(self.tiles_list) <= self.dead_wall_count and not is_get_gang_tile and not is_nuki_tile
     is_houtei = hepai_type == "ron" and len(self.tiles_list) <= self.dead_wall_count
 
     is_first_action = is_first_draw(self, player)
@@ -423,7 +432,7 @@ def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepa
         "is_tenhou": is_first_action and hepai_type == "tsumo" and player.player_index == 0 and not player.combination_tiles,
         "is_chiihou": is_first_action and hepai_type == "tsumo" and player.player_index != 0 and not player.combination_tiles,
         "player_wind": player.player_index,
-        "round_wind": (self.current_round - 1) // 4 % 4,
+        "round_wind": (self.current_round - 1) // len(self.player_list) % 4,
         "has_open_tanyao": option(self, 'open_tanyao'),
         "red_dora": self.red_dora,
         "dora_indicators": self.dora_indicators + (self.kan_dora_indicators if option(self, 'kan_dora') else []),
@@ -432,6 +441,8 @@ def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepa
         "aka_count": None,
         "kyoutaku_number": self.riichi_sticks,
         "tsumi_number": self.honba,
+        "is_sanma": self.sub_rule == 'riichi/sanma',
+        "nuki_count": len(player.huapai_list),
     }
     ctx.update(getattr(self, 'detailed_config', {}))
 
@@ -456,11 +467,12 @@ def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepa
             )
             return
 
-    rel = get_index_relative_position(player.player_index, self.current_player_index)
+    rel = get_index_relative_position(player.player_index, self.current_player_index, len(self.player_list))
     if hepai_type == "tsumo":
         temp_action_dict[player.player_index].append("hu_self")
         self.result_dict["hu_self"] = result
     else:
-        key = {"left": "hu_first", "top": "hu_second", "right": "hu_third"}.get(rel, "hu_first")
+        distance = (player_index - self.current_player_index) % len(self.player_list)
+        key = ('hu_self', 'hu_first', 'hu_second', 'hu_third')[distance]
         temp_action_dict[player.player_index].append(key)
         self.result_dict[key] = result

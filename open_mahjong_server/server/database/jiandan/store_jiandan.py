@@ -1,4 +1,4 @@
-"""Store Jiandan replays in the existing shared replay tables."""
+"""Store Zhongyong/Nanque replays; jiandan_* table names are compatibility storage."""
 
 from __future__ import annotations
 
@@ -85,6 +85,8 @@ def store_jiandan_game_record(
     try:
         conn = db_manager._get_connection()
         cursor = conn.cursor()
+        from ..rule_identity import canonical_game_record
+        game_record = canonical_game_record(game_record)
         game_record_json = json.dumps(game_record, ensure_ascii=False, default=str)
 
         game_id = None

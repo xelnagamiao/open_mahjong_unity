@@ -193,14 +193,14 @@ def test_timeout_after_ready_keeps_locked_hand_and_makes_tsumogiri():
     assert player.hand_tiles == HAND and player.discard_tiles[-1] == 19
 
 
-def test_claim_clock_recovers_three_second_limit_with_elapsed_time():
+def test_claim_clock_recovers_room_step_then_bank_with_elapsed_time():
     state = make_state(); player = state.player_list[1]
-    assert state.claim_clock(player) == (0,3)
+    assert state.claim_clock(player) == (20,5)
     state._ask_delivered_at = {1: 100.0}
-    with patch("server.gamestate.game_tuidao.TuidaoGameState.time.time", return_value=101.2):
-        assert state.claim_clock(player, reconnecting=True) == (0,2)
-    with patch("server.gamestate.game_tuidao.TuidaoGameState.time.time", return_value=104.0):
-        assert state.claim_clock(player, reconnecting=True) == (0,0)
+    with patch("server.gamestate.public.ask_timing.time.time", return_value=101.2):
+        assert state.claim_clock(player, reconnecting=True) == (20,4)
+    with patch("server.gamestate.public.ask_timing.time.time", return_value=108.0):
+        assert state.claim_clock(player, reconnecting=True) == (17,0)
 
 
 @pytest.mark.parametrize("flowers", [False, True])

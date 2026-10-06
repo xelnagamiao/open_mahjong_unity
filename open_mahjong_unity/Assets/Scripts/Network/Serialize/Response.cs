@@ -202,6 +202,7 @@ public class ShowResultInfo {
     public int? honba;                        // 本场数
     public int? riichi_sticks_collected;      // 和牌者收走的立直棒数
     public Dictionary<int, int> score_changes; // 点数变化 {original_player_index: delta}，全规则通用
+    public Dictionary<int, int> score_history_changes; // 日麻计分板局差，含已付立直棒；键为 original_player_index
     public int[] initial_hu_dice;
     public int[] initial_hu_bird_seats;
     public Dictionary<string, int>[] initial_hu_payer_details;
@@ -277,6 +278,8 @@ public class AskHandActionGBInfo {
     public string[] action_list; // 操作列表
     public int remaining_time; // 剩余局时
     public int? step_remaining; // 重连补发的剩余步时；缺省则叠房间完整步时
+    public int? remaining_time_ms; // 可选精确预算，缺省兼容整数秒
+    public int? step_remaining_ms;
     public int player_index; // 玩家索引
     public int remain_tiles; // 剩余牌数 只有摸牌以后牌堆牌数会减少
     public int[] forced_cut_tiles;
@@ -294,12 +297,15 @@ public class AskOtherActionGBInfo { // 询问切牌后操作
     public string[] action_list; // 操作列表
     public int remaining_time; // 剩余局时
     public int? step_remaining; // 重连补发的剩余步时；缺省则叠房间完整步时
+    public int? remaining_time_ms; // 可选精确预算，缺省兼容整数秒
+    public int? step_remaining_ms;
     public int cut_tile; // 切牌
     public int action_tick;
     // 立直麻将赤宝牌吃牌候选：键为方向 "chi_left"/"chi_mid"/"chi_right"，值为每条候选的两张真实牌 ID（含 105/205/305）
     public System.Collections.Generic.Dictionary<string, int[][]> chi_candidates;
     // 战术鸣牌：True 时表示申请阶段对更高优先级行为的再次询问；倒计时仍用 remaining_time
     public bool? is_tactical_recheck;
+    public int? player_index; // 询问/关闭通知对应的座位
 }
 
 public class DoActionInfo {
@@ -545,6 +551,7 @@ public class PlayerStatsInfo { // 玩家统计数据信息（单个规则和模�
     public int? cuohe_count;           // 错和次数（国标）
     public int? total_round_score;     // 累计小局净得分（国标局均点分子）
     public Dictionary<string, int> fan_stats; // 番种统计数据（字段名 -> 次数）
+    public Dictionary<string, int> riichi_details; // 日麻立直、流局和点数原始计数
 }
 
 public class TitleDefinition {
@@ -885,6 +892,8 @@ public class PlayerRecentRecordsResponse {
 }
 
 public class Response { // 所有后端的返回数据都由Response类接收
+    [Newtonsoft.Json.JsonIgnore]
+    public double? received_monotonic; // 本机收件时间，禁止从网络字段赋值
     public string rating_rule, data_request_id;
     // 消息头
     public string type; // 消息类型
@@ -931,6 +940,7 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public ServerStatsInfo server_stats; // 返回服务器统计信息
     public SpectatorInfo[] spectator_list; // 返回观战列表
     public Dictionary<string, QueueStatusEntry> queue_status; // 匹配队列状态
+    public Dictionary<string, int> match_rule_player_counts;
     public string my_queue; // 当前玩家所在等待队列（get_queue_status / join_queue_done）
     public string[] my_queues;
     public string match_queue_type;

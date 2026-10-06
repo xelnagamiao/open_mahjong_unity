@@ -29,7 +29,7 @@ def _logical_meld_tiles(meld: str) -> List[int]:
     """Return the suit tiles represented by an exposed meld.
 
     A kong is four physical tiles, but it occupies one logical three-tile
-   面子 in the 10/11 hand shape.
+    面子，不增加和牌结构要求的面子数。
     """
 
     sign = _meld_sign(meld)
@@ -89,7 +89,7 @@ def _solve_groups(counts: Counter[int], groups_left: int, need_pair: bool):
 
 
 class Xueliu_Hepai_Check:
-    """Check the 3-meld-plus-pair shape and return fan values."""
+    """Check the selected blood-flow hand shape and return fan values."""
 
     def _all_tiles(self, hand: Sequence[int], melds: Sequence[str]) -> List[int]:
         result = list(hand)
@@ -162,7 +162,7 @@ class Xueliu_Hepai_Check:
 
 
 class Xueliu_Tingpai_Check:
-    """Enumerate waits for a 10-tile blood-flow hand."""
+    """Enumerate waits for the selected blood-flow hand shape."""
 
     def __init__(self):
         self._hepai = Xueliu_Hepai_Check()

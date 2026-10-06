@@ -54,16 +54,8 @@ public partial class NormalGameStateManager {
 
     // 执行换位
     public void HandleSwitchSeat(int current_round){
-        if (maxRound > 0) {
-            int minMaxRoundForSwitch = current_round switch {
-                5 => 2,
-                9 => 3,
-                13 => 4,
-                _ => 0
-            };
-            if (minMaxRoundForSwitch > 0 && maxRound < minMaxRoundForSwitch) return;
-            if (current_round > maxRound * 4) return;
-        }
+        int playerCount = MahjongPlayerCount.ForSubRule(subRule);
+        if (!SwitchSeatPanel.IsWindChange(current_round, maxRound, playerCount)) return;
         GameSceneUIManager.Instance.ShowSwitchSeat(current_round);
     }
 

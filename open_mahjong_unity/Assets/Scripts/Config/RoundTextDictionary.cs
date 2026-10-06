@@ -39,8 +39,15 @@ public static class RoundTextDictionary {
 
     /// <summary>按规则（room_rule 或 sub_rule）给出第 currentRound 局的局名；未声明的族用 "第n局"。</summary>
     public static string GetRoundName(string rule, int currentRound) {
+        if (rule == "guobiao/sanma") return ThreePlayerWindSeatRoundName(currentRound);
+        if (rule == "guobiao/standard") return WindSeatRoundName(currentRound);
         var hook = RuleRegistry.Resolve(rule, rule)?.RoundName;
         return hook != null ? hook(currentRound) : $"第{currentRound}局";
+    }
+
+    public static string ThreePlayerWindSeatRoundName(int round) {
+        if (round < 1 || round > 12) return $"第{round}局";
+        return "东南西北"[(round - 1) / 3] + "风" + "东南西"[(round - 1) % 3];
     }
 
     public static string GetMaxRoundText(int gameRound) {
@@ -57,7 +64,7 @@ public static class RoundTextDictionary {
     /// </summary>
     public static int ToTotalHands(string rule, int maxRound) {
         if (maxRound <= 0) return 0;
-        return RuleRegistry.Resolve(rule, rule)?.MaxRoundIsHandCount == true ? maxRound : maxRound * 4;
+        return RuleRegistry.Resolve(rule, rule)?.MaxRoundIsHandCount == true ? maxRound : maxRound * MahjongPlayerCount.ForSubRule(rule);
     }
 
     public static string GetMatchTypeDisplay(string matchType) {

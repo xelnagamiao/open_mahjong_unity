@@ -17,7 +17,9 @@ SOFT = BASE[:-1] + [45, 43, 43]
 
 def make_state(**room_changes):
     room = WenzhouGameState._default_room_data()
-    room.update(random_seed=20241002, allow_spectator=False)
+    # Calculation/state fixtures intentionally run with no human wait. Tests of
+    # the room timing contract supply their actual timers explicitly.
+    room.update(random_seed=20241002, allow_spectator=False, round_timer=0, step_timer=0)
     room.update(room_changes)
     # The legacy calculation service is unused by this domain. Supplying a
     # sentinel avoids importing its unrelated native rule engines, not the

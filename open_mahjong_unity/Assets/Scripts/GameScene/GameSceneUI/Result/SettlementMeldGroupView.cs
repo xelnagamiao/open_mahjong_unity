@@ -7,10 +7,38 @@ public class SettlementMeldGroupView : UnityEngine.UI.LayoutGroup {
         public RectTransform Base;
         public RectTransform Added;
         public bool Sideways;
+        public List<Overlay> Stacks;
         public Vector2 BaseSize => SizeOf(Base, Sideways);
         public Vector2 AddedSize => Added == null ? Vector2.zero : SizeOf(Added, true);
         public float Width => Mathf.Max(BaseSize.x, AddedSize.x);
-        public float Height => BaseSize.y + AddedSize.y;
+        public float Height {
+            get {
+                float height = BaseSize.y + BaseStackHeight + AddedSize.y;
+                if (Stacks == null) return height;
+                foreach (var stack in Stacks) height = Mathf.Max(height, StackY(stack) + SizeOf(stack.Card, stack.Sideways).y * .5f);
+                return height;
+            }
+        }
+        public float BaseStackHeight {
+            get {
+                float height = 0f;
+                if (Stacks != null) foreach (var stack in Stacks)
+                    if (!stack.OnAddedKong) height = Mathf.Max(height, SizeOf(stack.Card, stack.Sideways).y * stack.Layer);
+                return height;
+            }
+        }
+        public float StackY(Overlay stack) {
+            float tileHeight = SizeOf(stack.Card, stack.Sideways).y;
+            return BaseSize.y + (stack.OnAddedKong ? BaseStackHeight + AddedSize.y : 0f)
+                + tileHeight * (stack.Layer - .5f);
+        }
+    }
+
+    private sealed class Overlay {
+        public RectTransform Card;
+        public bool Sideways;
+        public int Layer;
+        public bool OnAddedKong;
     }
 
     private readonly List<Slot> slots = new List<Slot>();
@@ -27,6 +55,14 @@ public class SettlementMeldGroupView : UnityEngine.UI.LayoutGroup {
                 Sideways = tile.Sideways,
             };
             if (tile.StackedTileId.HasValue) slot.Added = CreateCard(go.transform, cardPrefab, tile.StackedTileId.Value);
+            if (tile.StackedTiles != null) foreach (var stack in tile.StackedTiles) {
+                if (slot.Stacks == null) slot.Stacks = new List<Overlay>();
+                slot.Stacks.Add(new Overlay {
+                    Card = CreateCard(go.transform, cardPrefab, stack.FaceDown ? 0 : stack.TileId),
+                    Sideways = stack.OnAddedKong || tile.Sideways, Layer = stack.Layer,
+                    OnAddedKong = stack.OnAddedKong,
+                });
+            }
             view.slots.Add(slot);
         }
         view.CalculateLayoutInputHorizontal();
@@ -68,8 +104,10 @@ public class SettlementMeldGroupView : UnityEngine.UI.LayoutGroup {
         foreach (var slot in slots) {
             Place(slot.Base, slot.Sideways, x + slot.Width * .5f, slot.BaseSize.y * .5f);
             if (slot.Added != null) {
-                Place(slot.Added, true, x + slot.Width * .5f, slot.BaseSize.y + slot.AddedSize.y * .5f);
+                Place(slot.Added, true, x + slot.Width * .5f, slot.BaseSize.y + slot.BaseStackHeight + slot.AddedSize.y * .5f);
             }
+            if (slot.Stacks != null) foreach (var stack in slot.Stacks)
+                Place(stack.Card, stack.Sideways, x + slot.Width * .5f, slot.StackY(stack));
             x += slot.Width;
         }
     }

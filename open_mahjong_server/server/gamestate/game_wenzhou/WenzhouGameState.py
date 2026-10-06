@@ -60,7 +60,7 @@ class WenzhouGameState(HandFlow, Protocol, Recording, Session, EndOfHand, Zhongy
     def _default_room_data():
         return dict(room_id="wenzhou-test", room_rule="wenzhou", sub_rule=SUB_RULE,
                     player_list=[101,102,103,104], player_settings={}, game_round=1,
-                    round_timer=0, step_timer=0, room_type="custom", tips=False, random_seed=1)
+                    round_timer=20, step_timer=5, room_type="custom", tips=False, random_seed=1)
 
     def _derive_round_seed(self):
         return derive_round_seed(self.master_seed, self.round_index)

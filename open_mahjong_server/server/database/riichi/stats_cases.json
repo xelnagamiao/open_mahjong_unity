@@ -1,0 +1,166 @@
+[
+  {
+    "name": "established riichi can lose; double ron is one deal-in",
+    "index": 0,
+    "record": {
+      "game_title": {"rule": "riichi", "starting_score": 25000},
+      "game_round": {
+        "round_index_1": {"seats": [0,1,2,3], "dealer_index": 0, "action_ticks": [
+          ["d",11], ["c",11,"F"], ["riichi",0,1],
+          ["hu_riichi",1,"hu_first",2,30,["平和"],[-2000,2000,0,0]],
+          ["hu_riichi",2,"hu_second",3,40,["断幺九"],[-4000,0,4000,0]], ["end"]
+        ]}
+      }
+    },
+    "expected": {"total_rounds":1, "win_count":0, "deal_in_count":1, "total_round_score":-7000,
+      "riichi_details":{"riichi_round_count":1,"total_riichi_turn":1,"riichi_deal_in_count":1,"total_deal_in_points":6000}}
+  },
+  {
+    "name": "seat rotation and own declaration turn; ankan remains closed",
+    "index": 0,
+    "record": {
+      "game_title": {"rule":"riichi"},
+      "game_round": {
+        "round_index_1": {"seats":[2,0,3,1], "dealer_index":2, "action_ticks":[
+          ["d",11], ["c",11,"F"], ["ag",44,"T"], ["gd",21], ["c",21,"F"],
+          ["riichi",2,0], ["hu_riichi",2,"hu_self",3,30,["立直","宝牌*2"],[-1000,-1000,3000,-1000]], ["end"]
+        ]}
+      }
+    },
+    "expected": {"fulu_round_count":0,"win_count":1,"self_draw_count":1,"total_win_turn":3,
+      "fan_stats":{"riichi":1,"dora":2},
+      "riichi_details":{"riichi_round_count":1,"total_riichi_turn":2,"riichi_win_count":1,"total_win_points":3000}}
+  },
+  {
+    "name": "exhaustive tenpai and abort draws have separate denominators",
+    "index": 1,
+    "record": {
+      "game_title":{"rule":"riichi"},
+      "game_round": {
+        "round_index_1":{"action_ticks":[["ryuukyoku",[0,1,0,0],[-1000,3000,-1000,-1000],"exhaustive"],["end"]]},
+        "round_index_2":{"action_ticks":[["ryuukyoku",[1,1,1,1],[0,0,0,0],"four_riichi_abort"],["end"]]},
+        "round_index_3":{"action_ticks":[["riichi",1,0]]}
+      }
+    },
+    "expected":{"total_rounds":2,"total_round_score":3000,
+      "riichi_details":{"draw_round_count":2,"exhaustive_draw_count":1,"tenpai_draw_count":1,"riichi_round_count":0}}
+  },
+  {
+    "name":"multiple calls count one open hand; declaration discard without commitment",
+    "index":1,
+    "record":{
+      "game_title":{"rule":"riichi"},
+      "game_round":{
+        "round_index_1":{"action_ticks":[["d",11],["c",11,"F","H"],["p",11,1,11,11],["c",12,"F"],
+          ["cl",22,1,21,23],["hu_riichi",1,"hu_self",2,30,["断幺九"],[-1000,3000,-1000,-1000]],["end"]]}
+      }
+    },
+    "expected":{"fulu_round_count":1,"win_count":1,
+      "riichi_details":{"riichi_round_count":0,"fulu_win_count":1,"damaten_win_count":0}}
+  },
+  {
+    "name":"closed dama and paid riichi with no win",
+    "index":0,
+    "record":{
+      "game_title":{"rule":"riichi"},
+      "game_round":{
+        "round_index_1":{"action_ticks":[["d",11],["ag",44,"T"],["hu_riichi",0,"hu_self",2,30,["门前清自摸和","断幺九"],[3000,-1000,-1000,-1000]],["end"]]},
+        "round_index_2":{"action_ticks":[["c",11,"F"],["riichi",0,0],["d",12],["hu_riichi",1,"hu_self",2,30,["平和"],[-1000,3000,-1000,-1000]],["end"]]}
+      }
+    },
+    "expected":{"total_rounds":2,"fulu_round_count":0,"win_count":1,"total_round_score":1000,
+      "riichi_details":{"riichi_round_count":1,"riichi_win_count":0,"damaten_win_count":1,"tsumo_loss_count":1}}
+  },
+  {
+    "name":"custom starting points and final settlement are authoritative",
+    "index":1,"score":-2000,"rank":4,
+    "record":{
+      "game_title":{"rule":"riichi","starting_scores":[10000,15000,20000,25000]},
+      "game_round":{"round_index_1":{"action_ticks":[["ryuukyoku",[0,0,0,0],[0,0,0,0],"exhaustive"],["end"]]}}
+    },
+    "expected":{"total_round_score":-17000,"fourth_place_count":1,
+      "riichi_details":{"final_score_total":-2000,"final_score_count":1,"busted_count":1}}
+  },
+  {
+    "name":"pao payer is not the discarder",
+    "index":0,
+    "record":{
+      "game_title":{"rule":"riichi"},
+      "game_round":{"round_index_1":{"dealer_index":0,"action_ticks":[
+        ["d",11],["c",11,"F"],["d",12],["c",12,"F"],
+        ["hu_riichi",2,"hu_second",13,0,["大三元"],[-16000,-16000,32000,0]],["end"]]}}
+    },
+    "expected":{"deal_in_count":0,"total_round_score":-16000,"riichi_details":{"total_deal_in_points":0}}
+  },
+  {
+    "name":"nondealer first draw is personal turn one after dealer discard",
+    "index":1,
+    "record":{"game_title":{"rule":"riichi"},"game_round":{
+      "round_index_1":{"action_ticks":[["d",11],["c",11,"F"],["d",12],
+        ["hu_riichi",1,"hu_self",2,30,["门前清自摸和"],[-1000,3000,-1000,-1000]],["end"]]}}},
+    "expected":{"win_count":1,"total_win_turn":1}
+  },
+  {
+    "name":"ron before own first draw uses opening waiting turn",
+    "index":1,
+    "record":{"game_title":{"rule":"riichi"},"game_round":{
+      "round_index_1":{"action_ticks":[["d",11],["c",11,"F"],
+        ["hu_riichi",1,"hu_first",13,0,["国士无双"],[-32000,32000,0,0]],["end"]]}}},
+    "expected":{"win_count":1,"self_draw_count":0,"total_win_turn":1}
+  },
+  {
+    "name":"ron after own discard uses next personal waiting turn",
+    "index":1,
+    "record":{"game_title":{"rule":"riichi"},"game_round":{
+      "round_index_1":{"action_ticks":[["d",11],["c",11,"F"],["d",12],["c",12,"F"],
+        ["d",13],["c",13,"F"],["hu_riichi",1,"hu_first",1,30,["断幺九"],[0,1000,-1000,0]],["end"]]}}},
+    "expected":{"win_count":1,"total_win_turn":2}
+  },
+  {
+    "name":"claimed discard stays in personal turn count when another seat takes extra turns",
+    "index":0,
+    "record":{"game_title":{"rule":"riichi"},"game_round":{
+      "round_index_1":{"action_ticks":[["d",11],["c",11,"F"],["p",11,3,11,11],["c",12,"F"],
+        ["d",13],["hu_riichi",0,"hu_self",2,30,["门前清自摸和"],[6000,-2000,-2000,-2000]],["end"]]}}},
+    "expected":{"win_count":1,"total_win_turn":2,"fulu_round_count":0}
+  },
+  {
+    "name":"consecutive kan replacements stay in same personal turn with rotated seats",
+    "index":0,
+    "record":{"game_title":{"rule":"riichi"},"game_round":{
+      "round_index_1":{"seats":[2,0,3,1],"dealer_index":2,"action_ticks":[["d",11],
+        ["ag",44,"T"],["gd",21],["ag",45,"T"],["gd",22],
+        ["hu_riichi",2,"hu_self",2,30,["岭上开花"],[-1000,-1000,3000,-1000]],["end"]]}}},
+    "expected":{"win_count":1,"total_win_turn":1,"fulu_round_count":0}
+  },
+  {
+    "name":"delayed riichi commitment after a call keeps declarer discard ordinal",
+    "index":0,
+    "record":{"game_title":{"rule":"riichi"},"game_round":{
+      "round_index_1":{"action_ticks":[["d",11],["c",11,"F","H"],["p",11,2,11,11],
+        ["riichi",0,0],["c",12,"F"],["d",13],["c",13,"F"],["d",14],
+        ["hu_riichi",0,"hu_self",2,30,["立直","门前清自摸和"],[3000,-1000,-1000,-1000]],["end"]]}}},
+    "expected":{"win_count":1,"total_win_turn":2,
+      "riichi_details":{"riichi_round_count":1,"total_riichi_turn":1,"riichi_win_count":1}}
+  },
+  {
+    "name":"sanma nuki replacement keeps personal turn and three-seat score array",
+    "index":0,"score":41000,"rank":1,
+    "record":{"game_title":{"rule":"riichi","sub_rule":"riichi/sanma","starting_scores":[35000,36000,37000]},
+      "game_round":{"round_index_1":{"seats":[2,0,1],"start_player_index":2,"action_ticks":[
+        ["d",44],["nuki",2,44,"T"],["nd",31],
+        ["hu_riichi",2,"hu_self",3,40,["门前清自摸和","拔北宝牌"],[-4000,-2000,6000]],["end"]]}}},
+    "expected":{"total_rounds":1,"win_count":1,"self_draw_count":1,"total_win_turn":1,"total_round_score":6000,
+      "fulu_round_count":0,"first_place_count":1,"fourth_place_count":0}
+  },
+  {
+    "name":"sanma next draw rotates modulo three and counts declaration after nuki",
+    "index":1,
+    "record":{"game_title":{"rule":"riichi","sub_rule":"riichi/sanma"},
+      "game_round":{"round_index_1":{"seats":[2,0,1],"start_player_index":2,"action_ticks":[
+        ["d",44],["nuki",2,44,"T"],["nd",31],["c",31],["d",21],["c",21],["riichi",0],
+        ["hu_riichi",1,"hu_first",3,40,["立直"],[-8000,8000,0]],["end"]]}}},
+    "expected":{"total_rounds":1,"deal_in_count":1,"total_round_score":-9000,
+      "riichi_details":{"riichi_deal_in_count":1,"total_riichi_turn":1,"total_deal_in_points":8000}}
+  }
+]

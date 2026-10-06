@@ -1,4 +1,5 @@
 from typing import Dict
+from ..public.tactical_claim import add_tactical_force_pass_options, is_decline_action
 import logging
 from ..public.logic_common import get_index_relative_position, next_current_num
 
@@ -8,7 +9,7 @@ DEFAULT_ACTION_PRIORITY = {
     "hu_self": 6, "hu_first": 5, "hu_second": 4, "hu_third": 3,
     "peng": 2, "gang": 2,
     "chi_left": 1, "chi_mid": 1, "chi_right": 1,
-    "pass": 0,
+    "pass": 0, "force_pass": 0,
 }
 
 # 检查操作 返回 action_dict
@@ -115,7 +116,7 @@ def check_action_after_cut(self,cut_tile):
     # 地和仅在庄家首次切牌时有效，切牌检查完毕后关闭
     self.dihe_possible = False
 
-    return temp_action_dict
+    return add_tactical_force_pass_options(self, temp_action_dict)
 
 # 加杠检查操作 存储 抢杠
 def check_action_jiagang(self,jiagang_tile):
@@ -136,7 +137,7 @@ def check_action_jiagang(self,jiagang_tile):
         if "peida" in item.tag_list:
             temp_action_dict[item.player_index] = []
 
-    return temp_action_dict
+    return add_tactical_force_pass_options(self, temp_action_dict)
 
 # 长沙麻将没有花牌，保留空实现供主循环兼容。
 def check_action_buhua(self,player_index):
@@ -215,7 +216,7 @@ def _max_claim_priority(self, action_dict):
     max_priority = 0
     for actions in action_dict.values():
         for action in actions:
-            if action == "pass":
+            if is_decline_action(action):
                 continue
             max_priority = max(max_priority, action_priority.get(action, 0))
     return max_priority
@@ -227,13 +228,13 @@ def _filter_action_dict_to_priority(self, action_dict, priority):
     for player_index, actions in action_dict.items():
         kept = [
             action for action in actions
-            if action != "pass" and action_priority.get(action, 0) == priority
+            if not is_decline_action(action) and action_priority.get(action, 0) == priority
         ]
         if kept:
             kept.append("pass")
         filtered[player_index] = kept
     filtered[self.current_player_index] = []
-    return filtered
+    return add_tactical_force_pass_options(self, filtered)
 
 
 def check_action_after_gang_forced_cut(self, cut_tile):

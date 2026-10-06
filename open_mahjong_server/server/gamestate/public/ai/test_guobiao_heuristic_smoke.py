@@ -2,7 +2,7 @@
 高性能罗伯特四席同策 smoke（服务端自对弈）。
 
 口径：国标标准或血战到底、hepai_limit=8、fast_sleep。
-标准开战术鸣牌；血战分别验证鸣牌保护关闭和开启。
+标准开战术鸣牌；血战分别验证鸣牌保护开关在含机器人房间被停用。
 已跑通规模：两个全庄（四席高性能罗伯特）。63 全庄挂起。
 
 ⚠️ 自战测试约定：本文件内所有测试均标记 @pytest.mark.selfplay。
@@ -95,7 +95,7 @@ def _build_room_data(
         "step_timer": 10,
         "round_timer": 60,  # 超时兜底；正常应由 bot 出牌
         "room_rule": "guobiao",
-        "room_type": "match",  # 跳过 custom 房间销毁
+        "room_type": "custom",  # 自对弈不属于排位队列，房间销毁由模拟管理器处理。
         "sub_rule": "guobiao/standard",
         "random_seed": seed,
         "open_cuohe": False,
@@ -281,7 +281,7 @@ async def run_one_match(
         assert game.tactical_call is room["tactical_call"]
         assert game.hepai_limit == 8
         assert game.sub_rule == sub_rule
-        assert game.claim_protection is claim_protection
+        assert game.claim_protection is False, "含机器人房间应停用鸣牌保护"
         assert game.max_round == game_round
 
         if sub_rule == "guobiao/blood_battle":
@@ -428,7 +428,7 @@ def test_east_wind_tactical_true():
 @pytest.mark.selfplay
 @pytest.mark.parametrize("claim_protection", [False, True])
 def test_blood_battle_east_wind(claim_protection, caplog):
-    """四席高性能 AI 打完血战东风，验证退场后继续与逐局零和结算。"""
+    """四席 AI 打完血战东风，验证保护开关停用、退场后继续及逐局零和。"""
     stats = asyncio.run(run_one_match(
         seed=DEFAULT_BASE_SEED, game_round=1, tactical_call=False,
         sub_rule="guobiao/blood_battle", claim_protection=claim_protection,

@@ -1,8 +1,9 @@
+using System.Collections;
 using UnityEngine;
 using TMPro;
 
 /// <summary>
-/// 匹配已成功（found）后的进入游戏状态面板，与 <see cref="MatchLobbyView"/> 区分。
+/// 匹配已成功（found）后的进入游戏倒计时面板，与 <see cref="MatchLobbyView"/> 区分。
 /// 应挂在 OverlayCanvas 上，不随 <see cref="MatchPanel"/> 窗口切换而隐藏。
 /// </summary>
 public class MatchFoundedPanel : MonoBehaviour {
@@ -34,6 +35,7 @@ public class MatchFoundedPanel : MonoBehaviour {
     }
 
     public void StopCountdownAndHide() {
+        CoroutineManager.Instance?.StopNamed(CoroutineKeys.MatchFoundedCountdown);
         ResetCanvasGroupBeforeHide();
         gameObject.SetActive(false);
     }
@@ -50,7 +52,12 @@ public class MatchFoundedPanel : MonoBehaviour {
         } else {
             EnsureCanvasGroupOpaque();
         }
-        if (foundedCountdownText != null) foundedCountdownText.text = "正在进入对局…";
+        CoroutineManager.Ensure();
+        CoroutineManager.Instance?.RunNamed(
+            CoroutineKeys.MatchFoundedCountdown,
+            CountdownRoutine(),
+            restartIfRunning: true
+        );
     }
 
     private CanvasGroup GetCanvasGroup() {
@@ -83,4 +90,15 @@ public class MatchFoundedPanel : MonoBehaviour {
         cg.blocksRaycasts = true;
     }
 
+    private IEnumerator CountdownRoutine() {
+        while (MatchStateManager.Instance.IsMatchFound) {
+            int remaining = Mathf.CeilToInt(MatchStateManager.Instance.MatchFoundRemaining);
+            if (foundedCountdownText != null) {
+                foundedCountdownText.text = remaining > 0
+                    ? $"{remaining} 秒后进入游戏..."
+                    : "正在进入对局…";
+            }
+            yield return new WaitForSecondsRealtime(0.1f);
+        }
+    }
 }

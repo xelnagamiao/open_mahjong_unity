@@ -18,6 +18,7 @@ from .boardcast import (
     reconnected_send_pending_ask,
     send_realtime_spectator_snapshot,
 )
+from ..game_guobiao.combination_mask_view import get_combination_fields_for_viewer
 from ..public.logic_common import next_current_index, next_current_num, assign_strict_final_ranks
 from .init_tiles import init_qingque_tiles
 from ..public.next_game_round import next_game_round_qingque_switchseat
@@ -194,7 +195,7 @@ class QingqueGameState:
         "peng": 2, "gang": 2,  # 碰杠优先级 次高优先级
         "chi_left": 1, "chi_mid": 1, "chi_right": 1,  # 吃牌优先级 次低优先级
         "ready": 0,  # 准备操作优先级 最低优先级
-        "pass": 0,"buhua":0,"cut":0,"angang":0,"jiagang":0,"deal_tile":0,"deal_gang_tile":0,"deal_buhua_tile":0 # 其他优先级 最低优先级
+        "pass": 0,"force_pass":0,"buhua":0,"cut":0,"angang":0,"jiagang":0,"deal_tile":0,"deal_gang_tile":0,"deal_buhua_tile":0 # 其他优先级 最低优先级
         }
 
         self.backward_tiles_list_type = "double"
@@ -278,6 +279,7 @@ class QingqueGameState:
                     
                     # 构建玩家信息列表
                     for player in self.player_list:
+                        combo_tiles, combo_masks = get_combination_fields_for_viewer(player, p.player_index)
                         player_info = {
                             'user_id': player.user_id,
                             'username': player.username,
@@ -285,8 +287,8 @@ class QingqueGameState:
                             'hand_tiles': player.hand_tiles if player.user_id == user_id else None,  # 只有自己可见手牌
                             'discard_tiles': player.discard_tiles,
                             'discard_origin_tiles': player.discard_origin_tiles,
-                            'combination_tiles': player.combination_tiles,
-                            "combination_mask": player.combination_mask,
+                            'combination_tiles': combo_tiles,
+                            "combination_mask": combo_masks,
                             "huapai_list": player.huapai_list,
                             'remaining_time': player.remaining_time,
                             'player_index': player.player_index,

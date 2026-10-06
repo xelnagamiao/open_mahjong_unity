@@ -29,6 +29,17 @@ public class RiichiCutSelectionController : MonoBehaviour {
 
     public void EnterRiichiCutMode() {
         if (IsActive) return;
+        // 旧场景的取消面板可能没有按钮或引用；进入选牌前补齐并绑定本地返回操作。
+        if (backButton == null && riichiCutPanelRoot != null) {
+            backButton = riichiCutPanelRoot.GetComponentInChildren<Button>(true);
+            if (backButton == null) {
+                backButton = GameCanvas.Instance.CreateReadyCancelButton(riichiCutPanelRoot.transform);
+            }
+        }
+        if (backButton != null) {
+            backButton.onClick.RemoveListener(ExitRiichiCutMode);
+            backButton.onClick.AddListener(ExitRiichiCutMode);
+        }
         HandCardSelectionController.Instance.DisarmAll();
         IsActive = true;
         GameCanvas.Instance.SetActionButtonContainerVisible(false);

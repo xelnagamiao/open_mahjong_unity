@@ -47,7 +47,9 @@ class GuangdongTipsMixin:
         return {"detailed_config": dict(self.rules_dict), "guangdong_state": self.public_guangdong_state()}
 
     def build_record_title_fields(self):
-        return {"detailed_config": dict(self.rules_dict)}
+        return {"detailed_config": dict(self.rules_dict),
+                "tactical_call": self.tactical_call, "tactical_grace_seconds": self.tactical_grace_seconds,
+                "round_timer": self.round_time, "step_timer": self.step_time}
 
     def build_record_round_fields(self):
         return self.build_game_info_fields()
@@ -94,6 +96,7 @@ class GuangdongTipsMixin:
         player = self.player_list[index]
         self.record_guangdong_tips(index)
         return {**self.build_private_game_info_fields(index),
+                **self.action_clock_fields(player),
                 "kong_candidates": {action: [tile for tile in sorted(set(player.hand_tiles))
                     if self.kong_allowed(index, tile, kind)]
                     for action, kind in (("angang", "concealed"), ("jiagang", "added"))},

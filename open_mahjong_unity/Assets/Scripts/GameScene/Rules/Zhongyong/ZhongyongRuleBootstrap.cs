@@ -26,8 +26,8 @@ internal static class ZhongyongRuleBootstrap {
             MaxRoundText = rounds => $"{rounds * 4}局",
             ScoreboardFanText = q => $"{q.HuScore}{(ZhongyongFanText.IsNanque(q.Rule) ? "番" : "分")}",
             SettlementTotal = q => new SettlementTotalDisplay {
-                FanText = ZhongyongFanText.IsNanque(q.Rule) ? "番值" : "和种分",
-                ScoreText = $"{q.HuScore}{(ZhongyongFanText.IsNanque(q.Rule) ? "番" : "分")}",
+                FanText = ZhongyongFanText.IsNanque(q.Rule) ? "番值" : null,
+                ScoreText = ZhongyongFanText.IsNanque(q.Rule) ? $"{q.HuScore}番" : $"共{q.HuScore}分",
             },
             HasFlowerReplacement = false,
             SupportsRobbedAddedKongSource = true,

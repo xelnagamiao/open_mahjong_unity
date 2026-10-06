@@ -151,7 +151,7 @@ Material:
     - _Surface: 0
     - _TableBgCoverFace: 0
     - _TableFaceAspect: 0.7518797
-    - _TableFaceBlend: 0
+    - _TableFaceBlend: 1
     - _TableFaceFallbackEnabled: 1
     - _TableFaceImageScale: 0.86
     - _TileLightDirectionBlend: 1
@@ -163,8 +163,8 @@ Material:
     - _WorkflowMode: 1
     - _ZWrite: 1
     m_Colors:
-    - _BackColor: {r: 0.21960784, g: 0.37254903, b: 0.65882355, a: 1}
-    - _BackEdgeColor: {r: 0.21960784, g: 0.37254903, b: 0.65882355, a: 1}
+    - _BackColor: {r: 0.218, g: 0.372, b: 0.66, a: 1}
+    - _BackEdgeColor: {r: 0.218, g: 0.372, b: 0.66, a: 1}
     - _BackTilingOffset: {r: 1, g: 1, b: 0, a: 0}
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
@@ -174,10 +174,10 @@ Material:
     - _FrontColor: {r: 1, g: 1, b: 1, a: 1}
     - _FrontEdgeColor: {r: 1, g: 1, b: 1, a: 1}
     - _FrontTilingOffset: {r: 1, g: 1, b: 0, a: 0}
-    - _SideColor: {r: 1, g: 1, b: 1, a: 1}
+    - _SideColor: {r: 0.9019608, g: 0.9019608, b: 0.89411765, a: 1}
     - _SideTilingOffset: {r: 1, g: 1, b: 0, a: 0}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
-    - _TableFaceColor: {r: 0.9607843, g: 0.9647059, b: 0.96862745, a: 1}
+    - _TableFaceColor: {r: 0.961, g: 0.965, b: 0.969, a: 1}
     - _TableFaceFallbackColor: {r: 0.961, g: 0.965, b: 0.969, a: 1}
     - _TileInstanceParams: {r: 0, g: 0, b: 0, a: 0}
     - _TileLightDirection: {r: 0, g: 0.89377, b: 0.44853, a: 0}

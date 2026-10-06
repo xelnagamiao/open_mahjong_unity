@@ -11,6 +11,7 @@ function readPlayer(req) {
   return {
     userId: Number(payload.user_id),
     username: payload.username || '',
+    expiresAt: payload.exp,
   };
 }
 

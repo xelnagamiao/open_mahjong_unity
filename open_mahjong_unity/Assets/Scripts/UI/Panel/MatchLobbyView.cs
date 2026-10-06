@@ -11,6 +11,12 @@ public sealed class MatchLobbyView : MonoBehaviour {
     [SerializeField] private Button[] ruleButtons;
     [SerializeField] private GameObject[] selectedTabs;
     [SerializeField] private TMP_Text rankText,pointsText,selectionText,startText,elapsedText,limitText;
+    [SerializeField] private TMP_Text[] rulePlayerCounts=new TMP_Text[0];
+    [SerializeField] private GameObject variantBar;
+    [SerializeField] private Button[] variantButtons=new Button[0];
+    [SerializeField] private GameObject[] selectedVariants=new GameObject[0];
+    [SerializeField] private TMP_Text[] variantLabels=new TMP_Text[0],variantPlayerCounts=new TMP_Text[0];
+    [SerializeField] private TMP_Text variantHint;
     [SerializeField] private Image progress;
     [SerializeField] private MatchQueueSlot[] slots;
     [SerializeField] private Button startButton,clearButton,cancelButton;
@@ -20,26 +26,70 @@ public sealed class MatchLobbyView : MonoBehaviour {
     [SerializeField] private CanvasGroup queueOpacity;
     [SerializeField, Min(.01f)] private float transitionDuration=.24f;
     private readonly List<MatchButton> selected=new List<MatchButton>(MaximumSelections);
+    private readonly int[] rememberedRules={0,1,2,3};
+    private Dictionary<string,int> playerCounts;
     private int activeRule,renderedState=-1,lastSecond=-1;
     private int renderedVersion=-1;
     private bool bound;
     private bool hasPresented;
     public IReadOnlyList<MatchButton> Selections=>selected;
     public int ActiveRule=>activeRule;
+    public int ActiveFamily=>RankedRules.FamilyIndex(activeRule);
+    public void UpdateRulePlayerCounts(Dictionary<string,int> counts){
+        playerCounts=counts==null?null:new Dictionary<string,int>(counts);
+        for(int i=0;i<rulePlayerCounts.Length;i++){
+            int total=0;bool known=playerCounts!=null;
+            foreach(int rule in RankedRules.FamilyRuleIndices[i]){
+                if(playerCounts!=null&&playerCounts.TryGetValue(RankedRules.Ids[rule],out int count))total+=count;
+                else known=false;
+            }
+            rulePlayerCounts[i].text=known?total.ToString():"—";
+        }
+        RefreshVariantCounts();
+    }
     public bool IsBusy=>MatchStateManager.Instance.IsQueueing||MatchStateManager.Instance.IsMatchFound||
         (MatchNetworkManager.Instance!=null&&(MatchNetworkManager.Instance.IsJoinPending||MatchNetworkManager.Instance.IsLeavePending));
     private void Awake(){Bind();}
-    private void OnEnable(){hasPresented=false;Bind();RefreshRank();RefreshState();}
+    private void OnEnable(){hasPresented=false;Bind();SelectRule(activeRule);RefreshState();}
     private void OnDisable(){hasPresented=false;}
     private void Bind(){
         if(bound)return;bound=true;
-        for(int i=0;i<ruleButtons.Length;i++){int index=i;ruleButtons[i].onClick.AddListener(()=>SelectRule(index));}
+        for(int i=0;i<ruleButtons.Length;i++){int index=i;ruleButtons[i].onClick.AddListener(()=>SelectFamily(index));}
+        for(int i=0;i<variantButtons.Length;i++){int index=i;variantButtons[i].onClick.AddListener(()=>SelectVariant(index));}
         cancelButton.onClick.AddListener(CancelMatching);
+    }
+    public void SelectFamily(int index){
+        if(index<0||index>=rememberedRules.Length)return;
+        SelectRule(rememberedRules[index]);
+    }
+    public void SelectVariant(int index){
+        var rules=RankedRules.FamilyRuleIndices[ActiveFamily];
+        if(index<0||index>=rules.Length)return;
+        SelectRule(rules[index]);
     }
     public void SelectRule(int index){
         if(index<0||index>=rulePages.Length)return;activeRule=index;
-        for(int i=0;i<rulePages.Length;i++){rulePages[i].SetActive(i==index);selectedTabs[i].SetActive(i==index);}
+        int family=ActiveFamily;rememberedRules[family]=index;
+        for(int i=0;i<rulePages.Length;i++)rulePages[i].SetActive(i==index);
+        for(int i=0;i<selectedTabs.Length;i++)selectedTabs[i].SetActive(i==family);
+        var rules=RankedRules.FamilyRuleIndices[family];
+        if(variantBar!=null){
+            variantBar.SetActive(rules.Length>1);
+            for(int i=0;i<variantButtons.Length;i++){
+                variantButtons[i].gameObject.SetActive(i<rules.Length);
+                if(i>=rules.Length)continue;
+                variantLabels[i].text=RankedRules.VariantName(rules[i]);
+                selectedVariants[i].SetActive(rules[i]==index);
+            }
+            if(variantHint!=null){variantHint.text=string.Empty;variantHint.gameObject.SetActive(false);}
+        }
+        RefreshVariantCounts();
         RefreshRank();
+    }
+    private void RefreshVariantCounts(){
+        var rules=RankedRules.FamilyRuleIndices[ActiveFamily];
+        for(int i=0;i<variantPlayerCounts.Length&&i<rules.Length;i++)
+            variantPlayerCounts[i].text=playerCounts!=null&&playerCounts.TryGetValue(RankedRules.Ids[rules[i]],out int count)?count.ToString():"—";
     }
     public void ToggleSelection(MatchButton entry){
         var network=MatchNetworkManager.Instance;
@@ -72,8 +122,24 @@ public sealed class MatchLobbyView : MonoBehaviour {
             queueOpacity.alpha=Mathf.MoveTowards(queueOpacity.alpha,visible?1:0,Time.unscaledDeltaTime/transitionDuration);
             if(!visible&&!HasVisibleSlots()){queueGroup.SetActive(false);}
         }
+        FitQueueSlots(true);
     }
     private bool HasVisibleSlots(){foreach(var slot in slots)if(slot.IsVisible)return true;return false;}
+    private void FitQueueSlots(bool animate){
+        if(queueGroup==null||!queueGroup.activeSelf)return;
+        var layout=queueGroup.GetComponent<HorizontalLayoutGroup>();
+        var slotLayout=slots[0].transform.parent.GetComponent<HorizontalLayoutGroup>();
+        var container=(RectTransform)queueGroup.transform.parent.parent;
+        var containerLayout=container.GetComponent<HorizontalOrVerticalLayoutGroup>();
+        float available=container.rect.width-containerLayout.padding.horizontal-layout.padding.horizontal-slotLayout.padding.horizontal;
+        if(queueStatus.activeSelf)available-=LayoutUtility.GetPreferredWidth((RectTransform)queueStatus.transform)+layout.spacing;
+        float preferred=0;int count=0;
+        foreach(var slot in slots)if(slot.IsVisible){preferred+=slot.PreferredWidth;count++;}
+        available-=Mathf.Max(0,count-1)*slotLayout.spacing;
+        if(preferred<=0||available<=0)return;
+        float scale=Mathf.Min(1,available/preferred);
+        foreach(var slot in slots)if(slot.IsVisible)slot.FitWidth(slot.PreferredWidth*scale,animate);
+    }
     public void RefreshState(){
         var network=MatchNetworkManager.Instance;
         renderedState=StateCode();renderedVersion=network!=null?network.ViewVersion:0;
@@ -106,13 +172,13 @@ public sealed class MatchLobbyView : MonoBehaviour {
         queueStatus.SetActive(presenting);joiningLabel.SetActive(renderedState==1);queueingLabel.SetActive(renderedState==2);cancelingLabel.SetActive(renderedState==3||(!busy&&presenting));foundLabel.SetActive(renderedState==4);
         cancelButton.gameObject.SetActive(busy&&renderedState!=4);cancelButton.interactable=renderedState!=3;
         elapsedText.text=renderedState==1?"连接中":renderedState==4?"即将进入":"00:00";lastSecond=-1;
+        FitQueueSlots(animate);
     }
     private void RefreshRank(){
         string rule=RankedRules.Ids[activeRule];
         if(eloHelp!=null)eloHelp.SetActive(!RankedRules.IsGrade(rule));
         var user=UserDataManager.Instance;
-        if(user==null)return;
-        var rating=user.GetRating(rule);
+        var rating=user==null?RankedRules.Get(null,rule):user.GetRating(rule);
         rankText.text=RankedRules.RankCaption(rating);
         pointsText.text=RankedRules.ScoreCaption(rating);
         progress.transform.parent.gameObject.SetActive(RankedRules.IsGrade(rating.rule));

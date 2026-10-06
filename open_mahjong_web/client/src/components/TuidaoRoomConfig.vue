@@ -13,6 +13,7 @@
       <el-form-item label="听牌提示"><el-switch v-model="form.tips" /></el-form-item>
       <el-form-item label="限制游客"><el-switch v-model="form.tourist_limit" /></el-form-item>
       <el-form-item label="允许观战"><el-switch v-model="form.allow_spectator" /></el-form-item>
+      <el-form-item label="战术鸣牌"><el-switch v-model="form.tactical_call" /><span class="score-note">抢断5秒，有机器人时自动关闭</span></el-form-item>
       <el-form-item v-if="form.sub_rule === GUANGDONG_MIL_SUB_RULE" label="至少4分起和"><el-switch v-model="form.require_minimum_score" /><span class="score-note">关闭后仍须至少2番</span></el-form-item>
     </div>
     <el-form-item v-if="showPassword" label="房间密码（可选）"><el-input v-model="form.password" type="password" show-password /></el-form-item>
@@ -22,12 +23,13 @@
 
 <script setup>
 import { computed, watch } from 'vue'
-import { GUANGDONG_MIL_SUB_RULE, guangdongProfiles } from '@/utils/guangdongRoomConfig.js'
+import { GUANGDONG_MIL_SUB_RULE, TUIDAO_SUB_RULE, guangdongProfiles } from '@/utils/guangdongRoomConfig.js'
 const props = defineProps({ form: { type: Object, required: true }, showPassword: Boolean })
 const selectedProfile = computed(() => guangdongProfiles.find(item => item.value === props.form.sub_rule) || guangdongProfiles[0])
 watch(() => props.form.sub_rule, value => {
   if (!guangdongProfiles.some(item => item.value === value)) props.form.sub_rule = guangdongProfiles[0].value
   if (typeof props.form.require_minimum_score !== 'boolean') props.form.require_minimum_score = true
+  if (typeof props.form.tactical_call !== 'boolean') props.form.tactical_call = true
 }, { immediate: true })
 </script>
 

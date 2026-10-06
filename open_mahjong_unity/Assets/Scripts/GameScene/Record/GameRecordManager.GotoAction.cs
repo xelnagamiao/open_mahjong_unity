@@ -139,7 +139,7 @@ public partial class GameRecordManager
         bool isRuleStateAction = ApplyRecordRuleActionBeforeMutation(tick);
         nextPlayerIndex = ResolveChangchunRecordNextPlayer(tick,nextPlayerIndex);
 
-        if (!isRuleStateAction && (action == "d" || action == "gd" || action == "bd")) {
+        if (!isRuleStateAction && (action == "d" || action == "gd" || action == "bd" || action == "nd")) {
             int dealTile = ParseTickInt(tick, 1);
             actingPlayer.tileList.Add(dealTile);
             actingPlayer.showHandDrawSlotActive = true;
@@ -186,11 +186,11 @@ public partial class GameRecordManager
             OnRecordPlayerCut(actingPlayer);
             nextPlayerIndex = NextRecordPlayerAfterCut(actingPlayerIndex, currentNode);
         }
-        else if (action == "bh") {
-            int buhuaTile = ParseTickInt(tick, 1);
+        else if (action == "bh" || action == "nuki") {
+            int buhuaTile = ParseTickInt(tick, action == "nuki" ? 2 : 1);
             bool isMoBuhua = GameRecordJsonDecoder.ParseBuhuaMoFlag(tick);
             RemoveTileForBuhua(actingPlayer.tileList, buhuaTile, isMoBuhua);
-            if (isMoBuhua) {
+            if (isMoBuhua || action == "nuki") {
                 actingPlayer.showHandDrawSlotActive = false;
             }
             ApplyRecordBuhuaOwnership(
@@ -269,7 +269,7 @@ public partial class GameRecordManager
             if (IsSichuanRecord()) nextPlayerIndex = NextRecordPlayerIndex(hepaiPlayerIndex);
             if (!RecordHuTickFollowsShuhewei()) {
                 int[] sc = ParseTickScoreChanges(tick, 4);
-                if (sc != null && sc.Length >= 4) {
+                if (sc != null && sc.Length >= RecordPlayerCount) {
                     var deltas = new Dictionary<int, int>();
                     MapTickScoreChangesToDeltas(sc, deltas);
                     ApplyScoreDeltas(deltas, out _, out _);
@@ -279,7 +279,7 @@ public partial class GameRecordManager
         else if (action == "hu_riichi") {
             ApplyRecordRonHuToHandState(tick, tick.Count > 2 ? tick[2] : "hu_self");
             int[] sc = tick.Count > 6 ? ParseTickScoreChanges(tick, 6) : null;
-            if (sc != null && sc.Length >= 4) {
+            if (sc != null && sc.Length >= RecordPlayerCount) {
                 var deltas = new Dictionary<int, int>();
                 MapTickScoreChangesToDeltas(sc, deltas);
                 ApplyScoreDeltas(deltas, out _, out _);
@@ -291,7 +291,7 @@ public partial class GameRecordManager
         }
         else if (action == "ryuukyoku") {
             int[] sc = ParseTickScoreChanges(tick, 2);
-            if (sc != null && sc.Length >= 4) {
+            if (sc != null && sc.Length >= RecordPlayerCount) {
                 var deltas = new Dictionary<int, int>();
                 MapTickScoreChangesToDeltas(sc, deltas);
                 ApplyScoreDeltas(deltas, out _, out _);

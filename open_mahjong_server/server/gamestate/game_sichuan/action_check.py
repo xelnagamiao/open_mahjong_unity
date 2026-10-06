@@ -8,6 +8,7 @@
 - 顺和：跳过自摸/点炮/抢杠（含碰杠放弃）记录番数；听牌时立即生效，至下次摸牌前不可点和≤跳过番的牌（自摸不受限，tag: shunhe_N，仅本人可见）。
 """
 from typing import Dict
+from ..public.tactical_claim import add_tactical_force_pass_options
 import logging
 from ..public.hand_slot_utils import normalize_tile
 from .shunhe import is_blocked_by_shunhe
@@ -183,7 +184,7 @@ def check_action_after_cut(self, cut_tile):
             temp_action_dict[i].append("pass")
 
     temp_action_dict[self.current_player_index] = []
-    return temp_action_dict
+    return add_tactical_force_pass_options(self, temp_action_dict)
 
 
 def check_action_jiagang(self, jiagang_tile):
@@ -198,7 +199,7 @@ def check_action_jiagang(self, jiagang_tile):
     for i in temp_action_dict:
         if temp_action_dict[i]:
             temp_action_dict[i].append("pass")
-    return temp_action_dict
+    return add_tactical_force_pass_options(self, temp_action_dict)
 
 
 def check_action_hand_action(self, player_index, is_get_gang_tile=False, is_first_action=False):

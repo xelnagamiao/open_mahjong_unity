@@ -16,21 +16,34 @@ from .recording import Recording
 from .settlement import EndOfHand
 from .state_machine import Phase as P, StateMachine
 from .clock import ActionClock
+from .tactical import TacticalClaims
+from ..public import tactical_claim as tactical
 
 
-class GuizhouGameState(HandFlow, Protocol, Recording, EndOfHand, ZhongyongGameState):
+class GuizhouGameState(TacticalClaims, HandFlow, Protocol, Recording, EndOfHand, ZhongyongGameState):
     def __init__(self, game_server=None, room_data=None, calculation_service=None,
                  db_manager=None, gamestate_id="guizhou-test"):
         data = dict(room_data or self._default_room_data())
         if data.get("sub_rule", SUB_RULE) != SUB_RULE:
             raise ValueError("未开放的贵州麻将子规则")
         config = normalize_config(data.get("detailed_config"))
-        if any(data.get(key, False) for key in ("use_flowers", "open_cuohe", "tactical_call", "claim_protection", "tian_di_ren_he")):
+        if any(data.get(key, False) for key in ("use_flowers", "open_cuohe", "claim_protection", "tian_di_ren_he")):
             raise ValueError("贵州 MIL 标准规不支持此选项")
         data.update(room_rule="guizhou", sub_rule=SUB_RULE)
         self.machine = StateMachine()
         super().__init__(game_server, data, calculation_service, db_manager, gamestate_id)
         self.player_list = [GuizhouPlayer(**vars(p)) for p in self.player_list]
+        # New-room defaults come from the validator; missing/false old settings
+        # stay false. Seated bots authoritatively disable tactical claims.
+        self.tactical_call = data.get("tactical_call", False) is True and not any(p.is_bot for p in self.player_list)
+        self.tactical_commit_lock = False  # VII.4 permits higher amendments.
+        self.tactical_grace_seconds = tactical.TACTICAL_GRACE_SECONDS
+        self.tactical_pre_grace_delay = tactical.TACTICAL_PRE_GRACE_DELAY
+        self.action_priority["force_pass"] = 0
+        self.reset_tactical_window()
+        self._tactical_hu_announced = set()
+        if room_data is not None and any(p.is_bot for p in self.player_list):
+            room_data["tactical_call"] = False
         self.action_policy = ActionPolicy()
         self.dead_wall_count = 0
         self.rule_version = RULE_VERSION
@@ -69,6 +82,8 @@ class GuizhouGameState(HandFlow, Protocol, Recording, EndOfHand, ZhongyongGameSt
         if self.machine.phase != P.START:
             raise RuntimeError("须先结束上局的确认阶段")
         self.reset_round_state()
+        self.reset_tactical_window()
+        self._tactical_hu_announced = set()
         self.pending_kong = None
         self.hot_discard = False
         self.chickens, self.kongs = {}, []
@@ -140,9 +155,13 @@ class GuizhouGameState(HandFlow, Protocol, Recording, EndOfHand, ZhongyongGameSt
         return legal_cuts(self, index)
 
     def open_action_window(self, window):
+        self.reset_tactical_window()
+        if window["status"] in (P.RESPONSE.value, P.KONG.value):
+            tactical.add_tactical_force_pass_options(self, window["actions"])
         # Selection/cancel carries the same clock; a physical action starts a
         # new budget. Reconnect only reads it and never creates another clock.
         clocks = window.setdefault("_clocks", {})
+        window["_delivered"] = set()
         for index, actions in window.get("actions", {}).items():
             if actions and index not in clocks:
                 clocks[index] = ActionClock(self.step_time, self.player_list[index].remaining_time)
@@ -151,13 +170,33 @@ class GuizhouGameState(HandFlow, Protocol, Recording, EndOfHand, ZhongyongGameSt
             self.action_events[i].clear()
             while not self.action_queues[i].empty():
                 self.action_queues[i].get_nowait()
-        return super().open_action_window(window)
+        result = super().open_action_window(window)
+        tactical.init_tactical_round_state(self)
+        self._tactical_original_tick = self.server_action_tick
+        return result
 
     async def submit_action(self, player_index, action_type, **kwargs):
         if type(player_index) is not int or player_index not in range(4) or not self.action_queues[player_index].empty():
             raise ValueError("非法座位或重复响应")
+        clock = self.action_clock(player_index)
+        received_at = clock.now() if clock is not None else None
         self.validate_response(player_index, dict(action_type=action_type, **kwargs), self.action_dict.get(player_index, []))
+        if clock is not None and (clock.started is not None or clock.elapsed > 0) and clock.remaining(received_at) <= 0:
+            # A packet queued after the deadline cannot beat timeout merely
+            # because the collector is still sending another view.
+            if not self.player_list[player_index].is_bot:
+                self.action_events[player_index].set()
+                raise ValueError("行动已超时")
         await super().submit_action(player_index, action_type, **kwargs)
+        self._tactical_receipts[player_index] = (self.server_action_tick, received_at, action_type)
+        if action_type == "force_pass":
+            tactical.tactical_mark_player_force_passed(self, player_index)
+        if clock is not None:
+            if not self._tactical_recheck:
+                clock.prepare(self.step_time, self.player_list[player_index].remaining_time)
+            clock.stop(received_at)  # Validation/collection cost is not thinking time.
+            if not self._tactical_recheck:
+                self.player_list[player_index].remaining_time = clock.bank_remaining()
 
     def _build_timeout_action(self, index):
         actions = self.action_dict.get(index, [])
@@ -190,19 +229,27 @@ class GuizhouGameState(HandFlow, Protocol, Recording, EndOfHand, ZhongyongGameSt
     async def wait_action(self, timeout=None):
         self.schedule_bot_actions()
         loop = asyncio.get_running_loop()
-        started, responses = loop.time(), {}
-        deadlines = {}
+        responses, ready_deadlines, bot_deadlines = {}, {}, {}
         for i in self.waiting_players_list:
             if self.machine.phase == P.READY:
                 seconds = timeout if timeout is not None else 8
+                ready_deadlines[i] = loop.time() + max(0, seconds)
             else:
                 clock = self.live_pending_window["_clocks"][i]
-                clock.start(self.step_time, self.player_list[i].remaining_time)
-                seconds = clock.remaining()
+                if self.action_queues[i].empty():
+                    # Delivery normally started it. Offline/failed delivery
+                    # gets one fallback start, never another bank or step.
+                    clock.start(self.step_time, self.player_list[i].remaining_time)
+                    self.live_pending_window["_delivered"].add(i)
             if self.player_list[i].is_bot:
                 from ..public.ai.pacing import bot_delay
-                seconds = max(seconds, bot_delay(self)+0.1)
-            deadlines[i] = started + max(0, seconds)
+                bot_deadlines[i] = loop.time() + bot_delay(self)+0.1
+
+        def remaining(i):
+            seconds = (ready_deadlines[i]-loop.time() if self.machine.phase == P.READY
+                       else self.live_pending_window["_clocks"][i].remaining())
+            return max(0, seconds, bot_deadlines.get(i, 0)-loop.time())
+
         while self.waiting_players_list:
             for i in list(self.waiting_players_list):
                 if not self.action_queues[i].empty():
@@ -213,8 +260,8 @@ class GuizhouGameState(HandFlow, Protocol, Recording, EndOfHand, ZhongyongGameSt
                     if self.machine.phase != P.READY:
                         clock = self.live_pending_window["_clocks"][i]
                         clock.stop()
-                        self.player_list[i].remaining_time = clock.display()[0]
-                elif loop.time() >= deadlines[i]:
+                        self.player_list[i].remaining_time = clock.bank_remaining()
+                elif remaining(i) <= 0:
                     if self.machine.phase != P.READY:
                         self.live_pending_window["_clocks"][i].stop()
                     data = self._build_timeout_action(i)
@@ -222,14 +269,21 @@ class GuizhouGameState(HandFlow, Protocol, Recording, EndOfHand, ZhongyongGameSt
                         responses[i] = data
             if not self.waiting_players_list:
                 break
+            if self.tactical_call and self.machine.phase in (P.RESPONSE, P.KONG):
+                claims = [(i, d) for i, d in responses.items() if not tactical.is_decline_action(d["action_type"])]
+                if claims and not any(d["action_type"] == "hu" for _, d in claims):
+                    if any(tactical.should_enter_tactical_grace(self, d["action_type"], i) for i, d in claims):
+                        break
             tasks = [asyncio.create_task(self.action_events[i].wait()) for i in self.waiting_players_list]
             try:
-                await asyncio.wait(tasks, timeout=max(0, min(deadlines[i] for i in self.waiting_players_list)-loop.time()),
+                await asyncio.wait(tasks, timeout=min(remaining(i) for i in self.waiting_players_list),
                                    return_when=asyncio.FIRST_COMPLETED)
             finally:
                 for task in tasks:
                     task.cancel()
                 await asyncio.gather(*tasks, return_exceptions=True)
+        if self.tactical_call and self.machine.phase in (P.RESPONSE, P.KONG):
+            return await self.finish_tactical_claim(responses)
         return responses
 
     async def run_game_loop(self):

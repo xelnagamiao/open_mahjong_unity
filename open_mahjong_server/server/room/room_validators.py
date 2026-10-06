@@ -88,13 +88,16 @@ class RiichiRoomValidator(BaseModel):
         return validate_riichi_sub_rule(value)
 
     @validator('detailed_config', pre=True, always=True)
-    def validate_detailed_config(cls, value):
-        return normalize_riichi_config(value)
+    def validate_detailed_config(cls, value, values):
+        return normalize_riichi_config(value, values.get('sub_rule'))
 
-    starting_score: int = 25000
+    starting_score: int = None
 
-    @validator('starting_score', pre=True)
-    def validate_starting_score(cls, v):
+    @validator('starting_score', pre=True, always=True)
+    def validate_starting_score(cls, v, values):
+        if v is None:
+            from ..game_calculation.riichi.sanma import starting_score
+            v = starting_score(values.get('sub_rule'))
         if type(v) is not int or not 1000 <= v <= 1000000 or v % 100:
             raise ValueError('起始点数必须为 1000–1000000 之间的整数，且为 100 的倍数')
         return v

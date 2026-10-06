@@ -32,7 +32,6 @@
 !/open_mahjong_server/docs/
 !/open_mahjong_server/scripts/
 /open_mahjong_server/scripts/*
-!/open_mahjong_server/scripts/backfill_player_recent_records.py
 /open_mahjong_server/server/error_log/
 /open_mahjong_server/server/local_config.py
 /open_mahjong_server/logs/

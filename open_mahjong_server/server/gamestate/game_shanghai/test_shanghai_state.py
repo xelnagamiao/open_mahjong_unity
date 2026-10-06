@@ -238,15 +238,15 @@ def test_concealed_kong_shows_middle_two_tiles():
     assert make_state().build_concealed_kong_mask([11] * 4) == [2, 11, 0, 11, 0, 11, 2, 11]
 
 
-def test_claim_deadline_is_three_seconds_not_entire_thinking_bank():
+def test_claim_deadline_uses_entire_room_thinking_bank_and_step():
     from ..game_taiwan.wait_action import _build_ask_deadlines
     state = make_state()
     state.game_status = "waiting_action_after_cut"
     state.player_list[1].remaining_time = 30
-    assert _build_ask_deadlines(state, {1: ["peng"]}, 5, 100)[1] == 103
+    assert _build_ask_deadlines(state, {1: ["peng"]}, 5, 100)[1] == 135
 
 
-def test_first_flower_claim_is_exempt_and_reconnect_keeps_elapsed_time():
+def test_first_and_later_flower_claims_share_room_budget_and_reconnect_origin():
     from ..game_taiwan.wait_action import _build_ask_deadlines
     state = make_state()
     state.game_status = "waiting_action_after_cut"
@@ -255,16 +255,15 @@ def test_first_flower_claim_is_exempt_and_reconnect_keeps_elapsed_time():
     player.remaining_time = 30
     state.opening_claim_exempt.add(1)
     assert _build_ask_deadlines(state, {1: ["peng"]}, 5, 100)[1] == 135
-    assert state.claim_clock(player) == (30, None)
+    assert state.claim_clock(player) == (30, 5)
     state.opening_claim_exempt.clear()
-    assert state.claim_clock(player) == (0, 3)
+    assert state.claim_clock(player) == (30, 5)
     state._ask_delivered_at = {1: 100}
-    with patch('server.gamestate.game_shanghai.ShanghaiGameState.time.time', return_value=101.2):
-        assert state.claim_clock(player, reconnecting=True) == (0, 2)
+    with patch('server.gamestate.game_shanghai.action_timing.time.time', return_value=101.2):
+        assert state.claim_clock(player, reconnecting=True) == (30, 4)
 
 
-def test_three_second_timeout_does_not_erase_thinking_bank():
-    from ..game_taiwan.wait_action import _collect_responses
+def test_expired_full_budget_consumes_thinking_bank():
     async def run():
         state = make_state()
         state.game_status = "waiting_action_after_cut"
@@ -273,9 +272,9 @@ def test_three_second_timeout_does_not_erase_thinking_bank():
         state.player_list[1].remaining_time = 30
         # The received claim is already expired, so this test needs no real sleep.
         state._ask_delivered_at = {1: 0}
-        responses, _ = await _collect_responses(state)
+        responses, _ = await state.collect_action_responses()
         assert responses == {}
-        assert state.player_list[1].remaining_time == 30
+        assert state.player_list[1].remaining_time == 0
     asyncio.run(run())
 
 

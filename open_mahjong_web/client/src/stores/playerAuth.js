@@ -47,8 +47,8 @@ export const usePlayerAuthStore = defineStore('playerAuth', {
       this.isEventAdmin = !!isEventAdmin
       this.loaded = true
     },
-    async login(username, password) {
-      const res = await playerApi.post('/auth/login', { username, password })
+    async login(username, password, keepLoggedIn = true) {
+      const res = await playerApi.post('/auth/login', { username, password, keep_logged_in: keepLoggedIn })
       const data = res.data.data
       this._setSession({
         token: data.token,

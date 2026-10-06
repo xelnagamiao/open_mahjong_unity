@@ -429,11 +429,13 @@
       "default": 4,
       "values": [
         0,
+        3,
         4
       ],
       "choices": [
-        "不设上限",
-        "追加一圈"
+        "无限制",
+        "3局（三麻一圈）",
+        "4局（四麻一圈）"
       ],
       "help": "开启西入时的最大追加局数；四圈全庄仍按原有设置不延长。"
     },
@@ -472,14 +474,18 @@
         "5_15",
         "10_20",
         "10_30",
-        "jpml"
+        "jpml",
+        "sanma_15",
+        "sanma_20"
       ],
       "choices": [
         "无",
         "15/5/-5/-15",
         "20/10/-10/-20",
         "30/10/-10/-30",
-        "联盟浮动顺位"
+        "联盟浮动顺位",
+        "三麻 +15/0/-15",
+        "三麻 +20/0/-20"
       ],
       "help": "ML规采用30/10/-10/-30并另加25000点起始、30000点返还的头名奖。"
     },
@@ -591,6 +597,53 @@
         "终局扣20点"
       ],
       "help": "仅开启错和时生效。错和重开本局，本场不增加，退还本局立直供托；终局扣点不改变场中持点。"
+    },
+    {
+      "section": "三人麻将",
+      "key": "sanma_tsumo",
+      "label": "三麻自摸支付",
+      "default": "loss",
+      "values": [
+        "loss",
+        "split"
+      ],
+      "choices": [
+        "自摸损",
+        "北家支付均摊"
+      ],
+      "help": "仅三人日麻生效。自摸损：仅实际两家按四麻标准支付；均摊：北家原应支付额由两家均摊，各自向上取整到百点。本场每家另付100点。"
+    },
+    {
+      "section": "三人麻将",
+      "key": "nuki_ron",
+      "label": "抢拔北",
+      "default": "all",
+      "values": [
+        "all",
+        "kokushi",
+        "none"
+      ],
+      "choices": [
+        "有役即可",
+        "仅国士无双",
+        "不允许"
+      ],
+      "help": "拔北先宣告并询问荣和，确认无人抢北后才移出手牌并补牌。抢北本身不增加枪杠役，仍受振听限制。"
+    },
+    {
+      "section": "三人麻将",
+      "key": "nuki_rinshan",
+      "label": "拔北补牌岭上开花",
+      "default": true,
+      "values": [
+        false,
+        true
+      ],
+      "choices": [
+        "关闭",
+        "开启"
+      ],
+      "help": "仅三人日麻生效。开启时拔北补牌自摸计岭上开花；关闭时只按普通自摸计役。拔北始终中断一发、地和、双立直和九种九牌。"
     }
   ],
   "presets": [
@@ -646,7 +699,10 @@
         "pao_suukantsu": false,
         "pao_scope": "all",
         "pao_honba": "liable",
-        "chombo_penalty": "fixed_9000"
+        "chombo_penalty": "fixed_9000",
+        "sanma_tsumo": "loss",
+        "nuki_ron": "all",
+        "nuki_rinshan": true
       }
     },
     {
@@ -701,7 +757,10 @@
         "pao_suukantsu": false,
         "pao_scope": "liable",
         "pao_honba": "liable",
-        "chombo_penalty": "fixed_9000"
+        "chombo_penalty": "fixed_9000",
+        "sanma_tsumo": "loss",
+        "nuki_ron": "all",
+        "nuki_rinshan": true
       }
     },
     {
@@ -756,7 +815,10 @@
         "pao_suukantsu": true,
         "pao_scope": "liable",
         "pao_honba": "discarder",
-        "chombo_penalty": "penalty_20000"
+        "chombo_penalty": "penalty_20000",
+        "sanma_tsumo": "loss",
+        "nuki_ron": "all",
+        "nuki_rinshan": true
       }
     },
     {
@@ -811,8 +873,129 @@
         "pao_suukantsu": true,
         "pao_scope": "liable",
         "pao_honba": "liable",
-        "chombo_penalty": "penalty_20000"
+        "chombo_penalty": "penalty_20000",
+        "sanma_tsumo": "loss",
+        "nuki_ron": "all",
+        "nuki_rinshan": true
       }
+    },
+    {
+      "id": "sanma_tenhou",
+      "label": "天凤三麻",
+      "source": "https://tenhou.net/man/",
+      "room": {
+        "game_round": 2,
+        "starting_score": 35000,
+        "red_dora": true,
+        "allow_kuikae": false,
+        "open_xiru": true,
+        "open_tobi": true,
+        "hepai_way": "multi_ron",
+        "hepai_limit": 1,
+        "open_cuohe": false
+      },
+      "values": {
+        "open_tanyao": true,
+        "ippatsu": true,
+        "ura_dora": true,
+        "kan_dora": true,
+        "kan_ura_dora": true,
+        "double_yakuman": false,
+        "multiple_yakuman": true,
+        "kiriage_mangan": false,
+        "kazoe_limit": "yakuman",
+        "yakuman_limit": 6,
+        "double_wind_pair_fu": 4,
+        "kan_dora_timing": "after_discard",
+        "kokushi_ankan_ron": false,
+        "riichi_kan_rule": "wait",
+        "riichi_min_live_tiles": 4,
+        "furiten_clear": "discard",
+        "kyuushu_abort": true,
+        "four_winds_abort": false,
+        "four_riichi_abort": false,
+        "four_kan_abort": true,
+        "nagashi_mangan": true,
+        "nagashi_allow_calls": true,
+        "noten_penalty": 3000,
+        "tenpai_renchan": true,
+        "agari_yame": true,
+        "tenpai_yame": true,
+        "target_score": 40000,
+        "extension_rounds": 3,
+        "return_score": 40000,
+        "rank_points": "sanma_20",
+        "tie_break": "initial",
+        "end_deposits": "winner",
+        "pao": true,
+        "pao_suukantsu": false,
+        "pao_scope": "all",
+        "pao_honba": "liable",
+        "chombo_penalty": "fixed_9000",
+        "sanma_tsumo": "loss",
+        "nuki_ron": "all",
+        "nuki_rinshan": true
+      },
+      "sub_rule": "riichi/sanma"
+    },
+    {
+      "id": "sanma_majsoul",
+      "label": "雀魂三麻",
+      "source": "https://mahjongsoul.com/news/46",
+      "room": {
+        "game_round": 2,
+        "starting_score": 35000,
+        "red_dora": true,
+        "allow_kuikae": false,
+        "open_xiru": true,
+        "open_tobi": true,
+        "hepai_way": "multi_ron",
+        "hepai_limit": 1,
+        "open_cuohe": false
+      },
+      "values": {
+        "open_tanyao": true,
+        "ippatsu": true,
+        "ura_dora": true,
+        "kan_dora": true,
+        "kan_ura_dora": true,
+        "double_yakuman": true,
+        "multiple_yakuman": true,
+        "kiriage_mangan": false,
+        "kazoe_limit": "yakuman",
+        "yakuman_limit": 6,
+        "double_wind_pair_fu": 4,
+        "kan_dora_timing": "after_discard",
+        "kokushi_ankan_ron": true,
+        "riichi_kan_rule": "wait",
+        "riichi_min_live_tiles": 4,
+        "furiten_clear": "draw",
+        "kyuushu_abort": true,
+        "four_winds_abort": false,
+        "four_riichi_abort": false,
+        "four_kan_abort": true,
+        "nagashi_mangan": true,
+        "nagashi_allow_calls": true,
+        "noten_penalty": 3000,
+        "tenpai_renchan": true,
+        "agari_yame": true,
+        "tenpai_yame": true,
+        "target_score": 40000,
+        "extension_rounds": 3,
+        "return_score": 35000,
+        "rank_points": "sanma_15",
+        "tie_break": "initial",
+        "end_deposits": "winner",
+        "pao": true,
+        "pao_suukantsu": false,
+        "pao_scope": "liable",
+        "pao_honba": "liable",
+        "chombo_penalty": "fixed_9000",
+        "sanma_tsumo": "loss",
+        "nuki_ron": "all",
+        "nuki_rinshan": true
+      },
+      "sub_rule": "riichi/sanma"
     }
   ]
 }

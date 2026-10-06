@@ -71,8 +71,10 @@ public sealed class SettlementPresenter {
     /// <summary>
     /// 追加一条计分板结算快照并同步各家本地分数/历史列（通用路径；川麻简化计分板由族自行追加）。
     /// scoreChanges 缺省时依次回退：族 extras 里的分变 → 按 ScoresAfter 与镜像现分推算。
+    /// scoreHistoryChanges 仅用于计分板（含日麻已付供托），快照中的和牌分变保留结算值。
     /// </summary>
-    public void AppendScoreboard(SettlementEnvelope env, Dictionary<int, int> extrasScoreChanges = null) {
+    public void AppendScoreboard(SettlementEnvelope env, Dictionary<int, int> extrasScoreChanges = null,
+        Dictionary<int, int> scoreHistoryChanges = null) {
         string winnerUsername = "";
         if (env.WinnerIndex >= 0 && Mirror.IndexToPosition.TryGetValue(env.WinnerIndex, out string huPos)
             && Mirror.PlayerToInfo.TryGetValue(huPos, out PlayerInfoClass winnerInfo)) {
@@ -92,7 +94,8 @@ public sealed class SettlementPresenter {
             env.WinnerHand, env.WinnerMelds, env.BaseFu, env.FuFanList,
             env.ExtrasAs<RiichiEndResultExtras>(), scoreChanges);
         Mirror.RoundSettlementHistory.Add(snapshot);
-        ApplyLocalScoreHistory(snapshot, scoreChanges);
+        ApplyLocalScoreHistory(snapshot, scoreHistoryChanges ?? scoreChanges,
+            scoreHistoryChanges != null ? env.ScoresAfter : null);
         GameSceneUIManager.Instance.UpdateScoreRecord();
     }
 
@@ -116,7 +119,8 @@ public sealed class SettlementPresenter {
     }
 
     /// <summary>按分变更新各家镜像分数与 score_history / round_number_history 两列。</summary>
-    public void ApplyLocalScoreHistory(RoundSettlementSnapshot snapshot, Dictionary<int, int> scoreChanges) {
+    public void ApplyLocalScoreHistory(RoundSettlementSnapshot snapshot, Dictionary<int, int> scoreChanges,
+        Dictionary<int, int> scoresAfter = null) {
         if (scoreChanges == null || scoreChanges.Count == 0) {
             if (!snapshot.isLiuju) return;
             scoreChanges = new Dictionary<int, int>();
@@ -131,7 +135,13 @@ public sealed class SettlementPresenter {
             if (ShowResultPlayerScoreResolver.TryGetDelta(scoreChanges, kvp.Key, info.original_player_index, out int resolvedDelta)) {
                 delta = resolvedDelta;
             }
-            info.score += delta;
+            // 重连时镜像可能已扣过立直棒；局差仍记完整值，绝对分以服务端快照为准。
+            if (scoresAfter != null && ShowResultPlayerScoreResolver.TryGetAfterScore(
+                scoresAfter, kvp.Key, info.original_player_index, out int afterScore)) {
+                info.score = afterScore;
+            } else {
+                info.score += delta;
+            }
             info.score_history ??= new List<string>();
             info.score_history.Add(FormatLocalScoreChange(delta));
         }
@@ -146,6 +156,25 @@ public sealed class SettlementPresenter {
         if (delta > 0) return "+" + delta;
         if (delta < 0) return delta.ToString();
         return "0";
+    }
+
+    /// <summary>终局剩余供托的分配归入最后一行；不会增加局号或重复扣点。</summary>
+    public bool ApplyFinalScoreHistory(Dictionary<int, int> scoresByOriginal) {
+        if (scoresByOriginal == null) return false;
+        bool changed = false;
+        foreach (PlayerInfoClass info in Mirror.PlayerToInfo.Values) {
+            if (!scoresByOriginal.TryGetValue(info.original_player_index, out int finalScore)) continue;
+            int extra = finalScore - info.score;
+            if (extra == 0) continue;
+            if (info.score_history != null && info.score_history.Count > 0) {
+                int last = info.score_history.Count - 1;
+                if (int.TryParse(info.score_history[last], out int delta))
+                    info.score_history[last] = FormatLocalScoreChange(delta + extra);
+            }
+            info.score = finalScore;
+            changed = true;
+        }
+        return changed;
     }
 
     // ---- 呈现 ----

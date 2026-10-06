@@ -74,8 +74,13 @@ public partial class RoomPanel : MonoBehaviour {
         roomnameText.text = StreamerModeHelper.FormatRoomLabel("房间名: ", roomInfo.room_name);
 
         var panels = new[] { playerPanel1, playerPanel2, playerPanel3, playerPanel4 };
+        int maxPlayers = roomInfo.max_player > 0
+            ? Mathf.Min(roomInfo.max_player, panels.Length)
+            : MahjongPlayerCount.ForSubRule(roomInfo.sub_rule);
         if (hostNameText) hostNameText.gameObject.SetActive(false);
         for (int i = 0; i < panels.Length; i++) {
+            // 玩家栏固定宽度并靠左排列；停用超出人数的栏位后原位置留空。
+            panels[i].gameObject.SetActive(i < maxPlayers);
             panels[i].SetSeatIndex(i);
             panels[i].Clear();
         }
@@ -88,7 +93,7 @@ public partial class RoomPanel : MonoBehaviour {
 
         // 座位列表保留空位；兼容尚未下发 seat_list 的服务器。
         var seats = roomInfo.seat_list ?? roomInfo.player_list ?? System.Array.Empty<int>();
-        for (int i = 0; i < seats.Length && i < panels.Length; i++) {
+        for (int i = 0; i < seats.Length && i < maxPlayers; i++) {
             // 按照玩家列表的user_id获取用户设置，同类型机器人共用同一份配置
             int userId = seats[i];
             if (userId < 0) continue;
@@ -127,8 +132,9 @@ public partial class RoomPanel : MonoBehaviour {
         startButton.gameObject.SetActive(isHost);
         int seated = roomInfo.player_list != null ? roomInfo.player_list.Length : 0;
         int minPlayers = RuleRegistry.Resolve(roomInfo.room_rule)?.MinPlayersToStart ?? 4;
-        if (minPlayers < 1) minPlayers = 1;
-        startButton.interactable = isHost && seated >= minPlayers && AllOthersReady(roomInfo);
+        minPlayers = Mathf.Clamp(minPlayers, 1, maxPlayers);
+        startButton.interactable = isHost && !roomInfo.is_game_running
+            && seated >= minPlayers && AllOthersReady(roomInfo);
 
         // 准备按钮：仅非房主显示
         if (readyButton != null) {
@@ -148,10 +154,9 @@ public partial class RoomPanel : MonoBehaviour {
         }
         bool canAddBot = allowBots && isHost && !roomInfo.is_game_running && seated < roomInfo.max_player;
         bool heuristic = SupportsHighPerformanceBot(roomInfo);
-        playerPanel1.SetEmptySeatBotControls(canAddBot, heuristic);
-        playerPanel2.SetEmptySeatBotControls(canAddBot, heuristic);
-        playerPanel3.SetEmptySeatBotControls(canAddBot, heuristic);
-        playerPanel4.SetEmptySeatBotControls(canAddBot, heuristic);
+        for (int i = 0; i < panels.Length; i++) {
+            panels[i].SetEmptySeatBotControls(canAddBot && i < maxPlayers, heuristic);
+        }
         if (allowBots) {
             UpdateBotHintTexts(roomInfo.player_list);
         } else {

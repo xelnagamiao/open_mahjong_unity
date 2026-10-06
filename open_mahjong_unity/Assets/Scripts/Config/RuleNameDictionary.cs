@@ -10,6 +10,7 @@ public static class RuleNameDictionary {
         { "qingque/standard", "青雀" },
         { "guobiao/blood_battle", "国标麻将(血战到底)" },
         { "guobiao/standard", "国标麻将(标准)" },
+        { "guobiao/sanma", "三人国标麻将" },
         { "guobiao/xiaolin", "国标麻将(小林改)" },
         { "guobiao/kshen", "K神麻将" },
         { "guobiao/lanshi", "国标麻将(蓝十改)" },
@@ -41,6 +42,7 @@ public static class RuleNameDictionary {
         { "shanghai/qinghunpeng", "清混碰" },
         { "riichi/standard", "立直麻将(标准)" },
         { "riichi/langyong", "浪涌麻将(日麻)" },
+        { "riichi/sanma", "三人立直麻将" },
         { "free", "自由模式" },
         { "free/standard", "自由模式" },
     };
@@ -49,6 +51,7 @@ public static class RuleNameDictionary {
     public static readonly Dictionary<string, string> ShortName = new Dictionary<string, string> {
         { "guobiao/blood_battle", "国标血战" },
         { "guobiao/standard", "国标" },
+        { "guobiao/sanma", "三人国标" },
         { "guobiao/xiaolin", "小林" },
         { "guobiao/kshen", "K神" },
         { "guobiao/lanshi", "蓝十" },
@@ -81,6 +84,7 @@ public static class RuleNameDictionary {
         { "shanghai/qinghunpeng", "清混碰" },
         { "riichi/standard", "立直" },
         { "riichi/langyong", "浪涌" },
+        { "riichi/sanma", "三麻" },
         { "free", "自由" },
         { "free/standard", "自由" },
     };

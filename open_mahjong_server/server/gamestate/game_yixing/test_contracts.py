@@ -22,21 +22,32 @@ def test_bad_shape_data_never_raises_or_qualifies(bad):
     assert score_hand(PLAIN,flowers=bad) is None
 
 
-def test_hidden_hand_concealed_kong_and_new_draw_are_private_in_all_views():
-    s=turn([11]*4+[21,22,23,34,35,36,28,28,41,41])
-    s.player_list[0].huapai_list=[51]
-    act(s,0,"angang",target_tile=11)
+@pytest.mark.parametrize("actor", range(4))
+def test_concealed_kong_reveals_one_middle_tile_but_keeps_hand_and_draw_private(actor):
+    s=turn([11]*4+[21,22,23,34,35,36,28,28,41,41],index=actor)
+    s.player_list[actor].huapai_list=[51]
+    act(s,actor,"angang",target_tile=11)
     act(s)
+    mask=[2,11,0,11,2,11,2,11]
+    assert s.player_list[actor].combination_tiles==["G11"]
+    assert s.player_list[actor].combination_mask==[mask]
     for viewer in range(4):
         snapshot=s.build_game_start_payload(viewer)["game_info"]
-        assert snapshot["players_info"][0]["huapai_list"]==[51]
+        assert snapshot["players_info"][actor]["huapai_list"]==[51]
         assert all((p["hand_tiles"] is not None)==(i==viewer) for i,p in enumerate(snapshot["players_info"]))
-        assert snapshot["players_info"][0]["combination_tiles"]==["G11" if viewer==0 else "G0"]
-        assert snapshot["players_info"][0]["combination_mask"]==[[2,11 if viewer==0 else 0]*4]
+        assert snapshot["players_info"][actor]["combination_tiles"]==["G11"]
+        assert snapshot["players_info"][actor]["combination_mask"]==[mask]
         kong=next(p for p in s.outbound_payloads if p.get("player_index")==viewer and p.get("action")=="angang")
-        assert kong["tile"]==(11 if viewer==0 else 0)
+        assert kong["tile"]==11
+        assert kong["meld_code"]=="G11"
+        assert kong["do_action_info"]["combination_target"]=="G11"
+        assert kong["do_action_info"]["combination_mask"]==mask
+        assert kong["game_info"]["players_info"][actor]["combination_mask"]==[mask]
+        restored=s.restore_payloads(viewer)[0]["game_info"]
+        assert restored["players_info"][actor]["combination_tiles"]==["G11"]
+        assert restored["players_info"][actor]["combination_mask"]==[mask]
         drawn=next(p for p in s.outbound_payloads if p.get("player_index")==viewer and p.get("action")=="deal_gang_tile")
-        assert drawn["tile"]==(19 if viewer==0 else None)
+        assert drawn["tile"]==(19 if viewer==actor else None)
 
 
 def test_added_kong_targets_existing_pung_in_every_client_view():

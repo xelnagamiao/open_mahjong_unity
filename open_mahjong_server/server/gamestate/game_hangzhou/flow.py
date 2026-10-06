@@ -135,7 +135,7 @@ class HandFlow:
 
     def _response(self, window, responses):
         actor, tile = window["player"], window["tile"]
-        claims = [i for i, data in responses.items() if data["action_type"] != "pass"]
+        claims = [i for i, data in responses.items() if data["action_type"] not in ("pass", "force_pass")]
         if not claims:
             return self.draw_for((actor + 1) % 4)
         index = min(claims, key=lambda i: (responses[i]["action_type"] in CHOWS, (i - actor) % 4))

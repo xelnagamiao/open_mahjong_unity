@@ -612,7 +612,7 @@ public partial class Game3DManager : MonoBehaviour {
         // Live draws also yield before spawning. Settlement must see them as
         // pending work, otherwise a late blank tile can appear after reveal.
         if (IsHandAnimPlayer(PlayerPosition)) {
-            StartCoroutine(TrackRecordHandAnimation(animation, PlayerPosition));
+            StartCoroutine(TrackRecordHandAnimation(animation, PlayerPosition, isBuhua: actionType == "Buhua"));
         } else {
             StartCoroutine(animation);
         }
@@ -717,6 +717,7 @@ public partial class Game3DManager : MonoBehaviour {
         }
 
         if (actionType == "Buhua") {
+            int generation = _handAnimationGeneration;
             if (IsRecordShowCardsModeActive() && PlayerPosition != "self") {
                 yield return RecordBuhuaShowCardsCoroutine(PlayerPosition, tileId, cut_class);
                 yield break;
@@ -730,7 +731,8 @@ public partial class Game3DManager : MonoBehaviour {
             yield return Set3DTileCoroutine(tileId, panel.buhuaPosition, "Buhua", PlayerPosition);
             // 摸补：摸牌区删花后保留主列与摸牌区间距，不收拢；手补仍收拢主列
             if (!cut_class) {
-                yield return Rearrange3DCardsWithAnimation(panel.cardsPosition);
+                yield return FinishBuhuaHandRearrange(PlayerPosition,
+                    Rearrange3DCardsWithAnimation(panel.cardsPosition), generation);
             }
             yield break;
         }

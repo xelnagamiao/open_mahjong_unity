@@ -5,7 +5,7 @@ using System.Linq;
 /// <summary>
 /// 虹雀的动作词表：服务端 game_hongque/wait_action 给客户端下发的词在这里声明"算什么、写什么、点了怎么办"。
 ///
-/// 服务端 legal_actions 是 discard/win/supplement/kong/claim/pass，HongqueGameState 把它们编成
+/// 服务端 legal_actions 是 discard/win/supplement/kong/claim/pass/force_pass，HongqueGameState 把它们编成
 /// 下面这些客户端词放进 allowActionList；核心（AutoAction / GameCanvas / ActionButton）只通过
 /// <see cref="ActionWords"/> 查类别与文案，不认识任何 hongque_ 前缀。
 /// </summary>
@@ -13,6 +13,7 @@ public static class HongqueActionWords {
     public const string Win = "hongque_win";
     public const string Supplement = "hongque_supplement";
     public const string Pass = "hongque_pass";
+    public const string ForcePass = "hongque_force_pass";
     /// <summary>仅飘字用的展示词：虹（组成彩虹）。不会出现在 allowActionList。</summary>
     public const string Rainbow = "hongque_rainbow";
 
@@ -27,6 +28,9 @@ public static class HongqueActionWords {
         ActionWords.Register(new ActionWordSpec { Word = Win, Kind = ActionWordKind.Tsumo, Label = _ => "和" });
         ActionWords.Register(new ActionWordSpec { Word = Supplement, Kind = ActionWordKind.Persistent, Label = _ => "补牌" });
         ActionWords.Register(new ActionWordSpec { Word = Pass, Kind = ActionWordKind.Pass, Label = _ => "取消" });
+        ActionWords.Register(new ActionWordSpec {
+            Word = ForcePass, Kind = ActionWordKind.Pass, DisplayPriority = 70, Label = _ => "放弃"
+        });
         ActionWords.Register(new ActionWordSpec { Word = Rainbow, Kind = ActionWordKind.Other, Label = _ => "虹" });
         ActionWords.Register(new ActionWordSpec {
             Word = GroupPrefix,

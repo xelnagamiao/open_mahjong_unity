@@ -271,7 +271,7 @@ async def handle_create_Changsha_room(game_server, Connect_id: str, message: dic
 
 async def handle_create_Jiandan_room(game_server, Connect_id: str, message: dict, websocket):
     """Handle Zhongyong family rooms and the legacy Nanque request."""
-    logging.info(f"创建简单麻将房间请求 - 用户名: {Connect_id}")
+    logging.info(f"创建中庸／南雀房间请求 - 用户名: {Connect_id}")
     if Connect_id in game_server.players:
         player = game_server.players[Connect_id]
         blocked = _reject_room_entry(game_server, player)

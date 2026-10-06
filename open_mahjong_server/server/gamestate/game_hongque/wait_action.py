@@ -49,6 +49,7 @@ class ClaimWindow:
     active: Optional[ClaimSubmission] = None
     accepted_rons: dict[int, ClaimSubmission] = field(default_factory=dict)
     accepted_ticks: dict[int, set[int]] = field(default_factory=dict)
+    force_passed: set[int] = field(default_factory=set)
     deadline: Optional[float] = None
 
     def submit(self, player_index: int, candidate: dict) -> ClaimSubmission:
@@ -73,6 +74,8 @@ def candidate_rank(candidate: dict) -> int:
 # 「完整快照重新过滤」：开窗时冻结全部候选；每次有人申请，都从原快照筛出
 # 更高优先级动作重新询问。旧选择不锁定，玩家被别人打断后可以改选。
 def _filtered_snapshot(window: ClaimWindow, player_index: int) -> list[dict]:
+    if player_index in window.force_passed:
+        return []
     options = window.options.get(player_index, [])
     if window.stage != "tactical" or window.active is None:
         return list(options)
@@ -109,16 +112,38 @@ def actions_for_viewer(game_state, player_index: int) -> tuple[list[str], list[d
         if player_index not in window.pending:
             return [], []
         options = _filtered_snapshot(window, player_index)
-        return (["pass", "claim"], list(options)) if options else ([], [])
+        actions = ["pass", "claim"]
+        if game_state.tactical_call:
+            actions.append("force_pass")
+        return (actions, list(options)) if options else ([], [])
     if player_index not in getattr(game_state, "claim_options", {}):
         return [], []
     if player_index not in game_state.claim_responses:
-        return ["pass", "claim"], list(game_state.claim_options[player_index])
+        actions = ["pass", "claim"]
+        if game_state.tactical_call:
+            actions.append("force_pass")
+        return actions, list(game_state.claim_options[player_index])
     return [], []
+
+
+def force_pass_is_live(game_state, player_index: int) -> bool:
+    """放弃可使用本张弃牌已下发的询问，不撤销已经申请的和牌或当前鸣牌。"""
+    window: Optional[ClaimWindow] = getattr(game_state, "claim_window", None)
+    return bool(
+        game_state.phase == "claim"
+        and getattr(game_state, "tactical_call", False)
+        and window is not None
+        and window.options.get(player_index)
+        and window.accepted_ticks.get(player_index)
+        and player_index not in window.accepted_rons
+        and (window.active is None or window.active.player_index != player_index)
+    )
 
 
 def queued_claim_is_current(game_state, player_index: int, action_data: dict) -> bool:
     """同批队列中，先执行的申请可能淘汰后执行者的旧候选；保留其重选机会。"""
+    if action_data.get("action_type") == "force_pass":
+        return force_pass_is_live(game_state, player_index)
     actions, candidates = actions_for_viewer(game_state, player_index)
     action = action_data.get("action_type")
     if action not in actions:
@@ -194,6 +219,8 @@ def validate_submitted_action(game_state, player, action: str,
         raise ValueError("未知的回合操作")
     if status == HongqueStatus.WAITING_ACTION_AFTER_CUT:
         window: Optional[ClaimWindow] = getattr(game_state, "claim_window", None)
+        if action == "force_pass" and force_pass_is_live(game_state, player.index):
+            return
         if window is None or player.index not in window.pending:
             raise ValueError("你没有待回应的亮牌操作")
         if action == "pass":
@@ -600,15 +627,18 @@ async def handle_claim_action(game_state, player, action: str,
     window: Optional[ClaimWindow] = getattr(game_state, "claim_window", None)
     if game_state.phase != "claim" or window is None:
         raise ValueError("当前不在亮牌等待阶段")
-    if player.index not in window.pending:
+    is_force_pass = action == "force_pass" and force_pass_is_live(game_state, player.index)
+    if player.index not in window.pending and not is_force_pass:
         raise ValueError("你没有待回应的亮牌操作")
 
     _, candidates = actions_for_viewer(game_state, player.index)
 
-    if action == "pass":
+    if action == "pass" or is_force_pass:
+        if is_force_pass:
+            window.force_passed.add(player.index)
         if window.stage == "initial":
             game_state._consume_time_bank(player, game_state.claim_started_at)
-        game_state.claim_responses[player.index] = {"action": "pass"}
+        game_state.claim_responses[player.index] = {"action": action}
         window.pending.discard(player.index)
         if not window.pending:
             await resolve_claims(game_state)

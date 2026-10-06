@@ -1,7 +1,7 @@
 const CHANGCHUN_SUB_RULE = 'changchun/mil2024';
 const CHANGCHUN_CONFIG = Object.freeze({ edition: 'mil-changchun-2024-om1', fan_cap: 6, special_initial_replacement: 0, ordinary_jokers: false });
-const FIXED_FALSE = ['open_cuohe', 'tactical_call', 'claim_protection', 'tian_di_ren_he', 'use_flowers'];
-const SWITCHES = ['tips', 'count_tips', 'pointer_tips', 'tourist_limit', 'allow_spectator'];
+const FIXED_FALSE = ['open_cuohe', 'claim_protection', 'tian_di_ren_he', 'use_flowers'];
+const SWITCHES = ['tips', 'count_tips', 'pointer_tips', 'tourist_limit', 'allow_spectator', 'tactical_call'];
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 function normalizeChangchunRoomConfig(raw, SettingsError) {
@@ -9,7 +9,7 @@ function normalizeChangchunRoomConfig(raw, SettingsError) {
   if (!object(raw)) invalid('长春对局设置必须是对象');
   const config = {
     room_name: '', sub_rule: CHANGCHUN_SUB_RULE, game_round: 4, round_timer: 20, step_timer: 5,
-    tips: true, count_tips: false, pointer_tips: true, tourist_limit: false, allow_spectator: true,
+    tips: true, count_tips: false, pointer_tips: true, tourist_limit: false, allow_spectator: true, tactical_call: true,
     ...Object.fromEntries(FIXED_FALSE.map(key => [key, false])), detailed_config: { ...CHANGCHUN_CONFIG },
   };
   for (const key of Object.keys(raw)) if (!Object.hasOwn(config, key) && key !== 'duplicate_key') invalid(`不支持的长春设置：${key}`);

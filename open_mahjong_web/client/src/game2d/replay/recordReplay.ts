@@ -713,7 +713,7 @@ export class RecordReplay {
           tile: salasasaTileToMmcr(normalizedTile(tile)),
           type: 'kong',
           concealed: true,
-          ...(guizhou ? { concealed_face_down: [true, hiddenOpening, hiddenOpening, true] } : ((yixing || hangzhou) || changchun || wenzhou) ? { concealed_face_down: [true, true, true, true] } : (hongzhong || guangdongMil) ? { concealed_face_down: [true, false, false, true] } : {}),
+          ...(guizhou ? { concealed_face_down: [true, hiddenOpening, hiddenOpening, true] } : (hangzhou || changchun || wenzhou) ? { concealed_face_down: [true, true, true, true] } : yixing ? { concealed_face_down: [true, false, true, true] } : (hongzhong || guangdongMil) ? { concealed_face_down: [true, false, false, true] } : {}),
           chow_mode: 0,
           meld_from_rel: 0,
         })

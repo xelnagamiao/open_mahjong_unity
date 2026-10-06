@@ -9,6 +9,7 @@ from collections import Counter
 from functools import lru_cache
 from itertools import permutations
 
+from ..compact_counter import pack_counter as _key, unpack_counter
 from .models import HongKongRules, Meld, Shape, TILES, NUMBERS, HONORS, ORPHANS
 
 
@@ -28,13 +29,9 @@ def parse_meld(code: str) -> Meld:
     return Meld("triplet" if code[0] == "k" else "kong", tile, True, code[0] == "G")
 
 
-def _key(counts):
-    return tuple(sorted((t, c) for t, c in counts.items() if c))
-
-
 @lru_cache(maxsize=65536)
-def _partitions(key, count):
-    tiles = Counter(dict(key))
+def _partitions(key: bytes, count: int):
+    tiles = unpack_counter(key)
     if not tiles:
         return ((),) if count == 0 else ()
     if count <= 0 or sum(tiles.values()) != count * 3:

@@ -1,15 +1,91 @@
 /// <summary>MIL 推倒和：公开报听锁手，杠分由服务端独立记账。</summary>
 public sealed class TuidaoGameState : TurnBasedGameState {
+    private readonly TuidaoAskClock askClock = new TuidaoAskClock();
+    private int clockRoundNumber = -1;
+    private string clockGameId;
     private System.Collections.Generic.Dictionary<int, int[]> revealedHands;
     public override bool IsSelfLocked => SeatHasTag("self", tag => tag == "declared_ready");
 
     private readonly System.Collections.Generic.HashSet<int> announcedReady = new System.Collections.Generic.HashSet<int>();
 
     protected override void OnRoundStarted(GameInfo gameInfo) {
+        int nextRound = gameInfo?.current_round ?? 0;
+        string nextGame = gameInfo?.gamestate_id ?? Session.GamestateId;
+        if (nextRound != clockRoundNumber || nextGame != clockGameId) {
+            askClock.Reset();
+            clockRoundNumber = nextRound;
+            clockGameId = nextGame;
+        }
         announcedReady.Clear();
         // 重连快照已有的声明只恢复标记；不重播报声。
         foreach (var pair in Mirror.IndexToPosition)
             if (SeatHasTag(pair.Value, tag => tag == "declared_ready")) announcedReady.Add(pair.Key);
+    }
+
+
+    protected override void OnAskHandAction(Response response) {
+        var info = response.ask_hand_action_info;
+        if (info == null || askClock.ShouldIgnore(info.action_tick)) return;
+        if (info.player_index != Session.SelfIndex) { base.OnAskHandAction(response); return; }
+        int bank = info.remaining_time;
+        int? step = info.step_remaining;
+        double exactBankMs = info.remaining_time_ms ?? System.Math.Max(0, bank) * 1000d;
+        double exactStepMs = info.step_remaining_ms ?? System.Math.Max(0, step ?? Session.RoomStepTime) * 1000d;
+        askClock.ProjectExact(info.action_tick,
+            exactBankMs + exactStepMs, exactStepMs,
+            response.received_monotonic ?? TuidaoAskClock.Now, TuidaoAskClock.Now,
+            out double exactBank, out double exactStep);
+        info.remaining_time = (int)System.Math.Ceiling(System.Math.Max(0, exactBank - 1e-9));
+        int projectedStep = (int)System.Math.Ceiling(System.Math.Max(0, exactStep - 1e-9));
+        info.step_remaining = projectedStep;
+        try {
+            if (info.remaining_time == 0 && projectedStep == 0) { askClock.Close(); GameCanvas.Instance?.StopTimeRunning(); Clock.Timeout(); return; }
+            base.OnAskHandAction(response);
+            RebaseAskClock();
+        } finally { info.remaining_time = bank; info.step_remaining = step; }
+    }
+
+    protected override void OnAskClaim(Response response) {
+        var info = response.ask_other_action_info;
+        if (info == null || askClock.ShouldIgnore(info.action_tick)) return;
+        int bank = info.remaining_time;
+        int? step = info.step_remaining;
+        int effectiveStep = info.is_tactical_recheck == true ? 0 : step ?? Session.RoomStepTime;
+        double exactBankMs = info.remaining_time_ms ?? System.Math.Max(0, bank) * 1000d;
+        double exactStepMs = info.is_tactical_recheck == true ? 0
+            : info.step_remaining_ms ?? System.Math.Max(0, effectiveStep) * 1000d;
+        askClock.ProjectExact(info.action_tick,
+            exactBankMs + exactStepMs, exactStepMs,
+            response.received_monotonic ?? TuidaoAskClock.Now, TuidaoAskClock.Now,
+            out double exactBank, out double exactStep);
+        info.remaining_time = (int)System.Math.Ceiling(System.Math.Max(0, exactBank - 1e-9));
+        int projectedStep = (int)System.Math.Ceiling(System.Math.Max(0, exactStep - 1e-9));
+        info.step_remaining = projectedStep;
+        try {
+            if (info.remaining_time == 0 && projectedStep == 0) { askClock.Close(); GameCanvas.Instance?.StopTimeRunning(); Clock.Timeout(); return; }
+            base.OnAskClaim(response);
+            RebaseAskClock();
+        } finally { info.remaining_time = bank; info.step_remaining = step; }
+    }
+
+    private void RebaseAskClock() {
+        if (!Clock.IsSelfActionRequired) return;
+        askClock.RemainingSeconds(TuidaoAskClock.Now, out double bank, out double step);
+        GameCanvas.Instance?.RebaseDecisionClock(bank, step);
+    }
+
+    public override void OnAskWindowClosed(AskCloseReason reason) {
+        askClock.Close();
+        RiichiCutSelectionController.Instance?.ExitRiichiCutMode();
+        base.OnAskWindowClosed(reason);
+    }
+
+    public override void OnSessionReset() {
+        askClock.Reset();
+        clockRoundNumber = -1;
+        clockGameId = null;
+        base.OnSessionReset();
+        RiichiCutSelectionController.Instance?.ExitRiichiCutMode();
     }
 
     public override void OnPlayerTagsRefreshed() {

@@ -50,12 +50,22 @@ public partial class GameRecordManager {
     }
 
     private Coroutine recordPlayerWaitsRoutine;
+    private GameRecord recordPlayerWaitsRecord;
+    private int recordPlayerWaitsRound = -1;
+    private int recordPlayerWaitsPerspective = -1;
 
-    public void HideRecordPlayerWaits() {
+    private void StopRecordPlayerWaitsUpdate() {
         if (recordPlayerWaitsRoutine != null) {
             StopCoroutine(recordPlayerWaitsRoutine);
             recordPlayerWaitsRoutine = null;
         }
+    }
+
+    public void HideRecordPlayerWaits() {
+        StopRecordPlayerWaitsUpdate();
+        recordPlayerWaitsRecord = null;
+        recordPlayerWaitsRound = -1;
+        recordPlayerWaitsPerspective = -1;
         var canvas = GameCanvas.Instance;
         if (canvas == null) return;
         canvas.PlayerSelfPanel?.RecordWaits?.Hide();
@@ -65,9 +75,21 @@ public partial class GameRecordManager {
     }
 
     public void RefreshRecordPlayerWaits() {
-        HideRecordPlayerWaits();
+        StopRecordPlayerWaitsUpdate();
         if (!isActiveAndEnabled || !ShouldShowRecordTips()
-            || RecordSetting.Instance == null || !RecordSetting.Instance.IsShowWaitingTiles) return;
+            || RecordSetting.Instance == null || !RecordSetting.Instance.IsShowWaitingTiles) {
+            HideRecordPlayerWaits();
+            return;
+        }
+        // 同局同视角刷新时保留上一份结果，避免分帧计番期间四家的听牌条一起闪隐。
+        // 切换牌谱、局数或视角时则立即清空，不能暂留属于另一家/上一局的听牌。
+        if (recordPlayerWaitsRecord != gameRecord || recordPlayerWaitsRound != currentRoundIndex
+            || recordPlayerWaitsPerspective != selectedPlayerIndex) {
+            HideRecordPlayerWaits();
+        }
+        recordPlayerWaitsRecord = gameRecord;
+        recordPlayerWaitsRound = currentRoundIndex;
+        recordPlayerWaitsPerspective = selectedPlayerIndex;
         recordPlayerWaitsRoutine = StartCoroutine(UpdateRecordPlayerWaits());
     }
 
@@ -80,17 +102,25 @@ public partial class GameRecordManager {
         RuleRegistry.TryResolve(roomRule, subRule, out RuleManifest manifest);
         if (manifest?.Tingpai == null || manifest.DescribeWaitingTile == null) {
             recordPlayerWaitsRoutine = null;
+            HideRecordPlayerWaits();
             yield break;
         }
         string[] positions = { "self", "left", "top", "right" };
         GamePlayerPanel[] panels = { canvas.PlayerSelfPanel, canvas.PlayerLeftPanel, canvas.PlayerTopPanel, canvas.PlayerRightPanel };
         for (int i = 0; i < positions.Length; i++) {
             RecordPlayerWaits view = panels[i]?.RecordWaits;
-            if (view == null || !panels[i].gameObject.activeInHierarchy
+            if (view == null) continue;
+            if (!panels[i].gameObject.activeInHierarchy
                 || !recordPlayer_to_info.TryGetValue(positions[i], out RecordPlayer player)
-                || player == null || player.isHu || player.hasRonWinningTile) continue;
+                || player == null || player.isHu || player.hasRonWinningTile) {
+                view.Hide();
+                continue;
+            }
             List<int> hand = RecordChongHintCalculator.NormalizeHandForTingpai(player.tileList);
-            if (hand == null) continue;
+            if (hand == null) {
+                view.Hide();
+                continue;
+            }
             RecordTipsContext ctx = BuildRecordTipsContext(player);
             HashSet<int> waiting = RuleTips.ComputeWaiting(manifest, new TingpaiQuery {
                 SubRule = subRule,
@@ -98,7 +128,10 @@ public partial class GameRecordManager {
                 DetailedConfig = ctx.DetailedConfig, ExcludedSuit = player.dingqueSuit,
                 RecordPlayerIndex = player.playerIndex,
             });
-            if (waiting.Count == 0) continue;
+            if (waiting.Count == 0) {
+                view.Hide();
+                continue;
+            }
             var visible = RecordWaitHintCalculator.CountVisibleTiles(ctx, player.tileList);
             var entries = new List<RecordPlayerWaits.Entry>();
             foreach (WaitHintQuery query in RecordWaitHintCalculator.BuildQueries(ctx, hand, waiting.ToList())) {

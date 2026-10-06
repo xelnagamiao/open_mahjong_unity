@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 
-/// <summary>简单麻将番文本：服务端下发稳定番种 ID，这里映射中文名与番值。</summary>
+/// <summary>南雀旧兼容番文本：服务端下发稳定番种 ID，这里映射中文名与番值。</summary>
 public static class JiandanFanText {
-    /// <summary>简单麻将番表，key 使用服务端稳定番种 ID。</summary>
+    /// <summary>南雀旧兼容番表，key 使用服务端稳定番种 ID。</summary>
     public static readonly Dictionary<string, string> FanToDisplayJiandan = new Dictionary<string, string> {
         {"two_wind_triplets", "1番"}, {"small_three_winds", "3番"}, {"big_three_winds", "8番"}, {"small_four_winds", "20番"}, {"big_four_winds", "20番"},
         {"red_dragon", "1番"}, {"green_dragon", "1番"}, {"white_dragon", "1番"}, {"two_dragon_triplets", "3番"}, {"small_three_dragons", "8番"}, {"big_three_dragons", "20番"},

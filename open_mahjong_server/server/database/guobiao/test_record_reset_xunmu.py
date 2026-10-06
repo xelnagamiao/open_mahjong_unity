@@ -122,7 +122,7 @@ def test_hu_seat_as_string_still_counts_win_turn():
     assert reconstruct_round_win_turns(rd)[1] == 1
 
 
-def test_claimed_dealer_discard_stays_xunmu_1():
+def test_claimed_dealer_discard_second_draw_is_xunmu_2():
     rd = {
         "start_player_index": 0,
         "action_ticks": [
@@ -133,9 +133,7 @@ def test_claimed_dealer_discard_stays_xunmu_1():
             ["d", 13],
             ["c", 13, "T"],
             ["d", 14],
-            ["c", 14, "T"],
-            ["d", 14],
             ["hu_self", 0, 8, ["平胡"], [8, 0, 0, 0]],
         ],
     }
-    assert reconstruct_round_win_turns(rd)[0] == 1
+    assert reconstruct_round_win_turns(rd)[0] == 2

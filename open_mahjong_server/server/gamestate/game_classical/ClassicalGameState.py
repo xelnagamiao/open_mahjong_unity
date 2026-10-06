@@ -21,6 +21,7 @@ from .boardcast import (
     send_realtime_spectator_snapshot,
 )
 from ..public.logic_common import next_current_index, next_current_num, assign_strict_final_ranks
+from ..game_guobiao.combination_mask_view import get_combination_fields_for_viewer
 from .init_tiles import init_classical_tiles
 from ..public.next_game_round import next_game_round_classical_switchseat
 from ..public.spectator_rules import too_many_ai_for_spectator
@@ -242,6 +243,7 @@ class ClassicalGameState:
                     base_game_info.update(build_player_entry_order_fields(self))
 
                     for player in self.player_list:
+                        combo_tiles, combo_masks = get_combination_fields_for_viewer(player, p.player_index)
                         player_info = {
                             'user_id': player.user_id,
                             'username': player.username,
@@ -249,8 +251,8 @@ class ClassicalGameState:
                             'hand_tiles': player.hand_tiles if player.user_id == user_id else None,
                             'discard_tiles': player.discard_tiles,
                             'discard_origin_tiles': player.discard_origin_tiles,
-                            'combination_tiles': player.combination_tiles,
-                            "combination_mask": player.combination_mask,
+                            'combination_tiles': combo_tiles,
+                            "combination_mask": combo_masks,
                             "huapai_list": player.huapai_list,
                             'remaining_time': player.remaining_time,
                             'player_index': player.player_index,

@@ -7,7 +7,7 @@ export function loadChangchunForm(form, config = {}) {
   form.sub_rule = CHANGCHUN_SUB_RULE
   for (const [key, fallback] of Object.entries({
     game_round: 4, round_timer: 20, step_timer: 5, tips: true,
-    count_tips: false, pointer_tips: true, tourist_limit: false, allow_spectator: true,
+    count_tips: false, pointer_tips: true, tourist_limit: false, allow_spectator: true, tactical_call: true,
   })) form[key] = config[key] ?? fallback
   return form
 }
@@ -35,7 +35,7 @@ export function buildChangchunRoomPayload(form) {
       round_timer: integer('round_timer', 0, 1000, '局时'), step_timer: integer('step_timer', 0, 100, '步时'),
       tips: boolean('tips', true), count_tips: boolean('count_tips', false), pointer_tips: boolean('pointer_tips', true),
       tourist_limit: boolean('tourist_limit', false), allow_spectator: boolean('allow_spectator', true),
-      use_flowers: false, open_cuohe: false, tactical_call: false, claim_protection: false, tian_di_ren_he: false,
+      use_flowers: false, open_cuohe: false, tactical_call: boolean('tactical_call', true), claim_protection: false, tian_di_ren_he: false,
       detailed_config: { ...CHANGCHUN_CONFIG },
     },
   }

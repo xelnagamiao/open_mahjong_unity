@@ -27,6 +27,8 @@ const token = signToken(
 );
 
 const headers = { Authorization: `Bearer ${token}` };
+const GRADE_RULES = ['guobiao', 'riichi', 'riichi_sanma'];
+const ELO_RULES = ['qingque', 'sichuan', 'sichuan_xueliu_exchange'];
 
 const cases = [
   { name: 'info', path: `/info/${USER_ID}` },
@@ -35,6 +37,9 @@ const cases = [
   { name: 'rank', path: `/rank/${USER_ID}` },
   { name: 'elo-records', path: `/records/${USER_ID}?rule=qingque&tier=elo&limit=5` },
   { name: 'nanque-records', path: `/records/${USER_ID}?rule=zhongyong&sub_rule=zhongyong/nanque&limit=5` },
+  { name: 'sanma-east', path: `/records/${USER_ID}?rule=riichi&sub_rule=riichi/sanma&tier=rank&game_type=dongfeng&limit=5`, rule: 'riichi', subRule: 'riichi/sanma', matchType: '1/4_sanma_rank' },
+  { name: 'sanma-south', path: `/records/${USER_ID}?rule=riichi&sub_rule=riichi/sanma&tier=rank&game_type=banzhuang&limit=5`, rule: 'riichi', subRule: 'riichi/sanma', matchType: '2/4_sanma_rank' },
+  { name: 'exchange-records', path: `/records/${USER_ID}?rule=sichuan&sub_rule=sichuan/xueliu_exchange&tier=elo&limit=5`, rule: 'sichuan', subRule: 'sichuan/xueliu_exchange', matchType: '4/4_rank' },
   { name: 'scope-counts', path: `/scope-counts/${USER_ID}?rule=qingque` },
   { name: 'no-auth', path: `/info/${USER_ID}`, skipAuth: true, expectStatus: 401 },
 ];
@@ -46,11 +51,24 @@ async function runCase(c) {
   const body = await res.json().catch(() => ({}));
   let ok = c.expectStatus ? res.status === c.expectStatus : res.ok && body.success === true;
   if (ok && ['info', 'rank'].includes(c.name)) {
-    ok = ['guobiao', 'riichi', 'qingque', 'sichuan'].every(rule => Number.isFinite(body.data?.ratings?.[rule]?.elo));
-    if (c.name === 'info') ok &&= Array.isArray(body.data.nanque_stats) && !!body.data.fan_dict.nanque;
+    const ratings = body.data?.ratings;
+    ok = GRADE_RULES.every(rule => {
+      const rating = ratings?.[rule];
+      return rating?.rule === rule && rating.system === 'grade' && !('elo' in rating)
+        && typeof rating.rank_name === 'string' && Number.isFinite(rating.rank_score)
+        && Number.isInteger(rating.games) && rating.games >= 0 && !!rating.bounds && !!rating.progress;
+    }) && ELO_RULES.every(rule => {
+      const rating = ratings?.[rule];
+      return rating?.rule === rule && rating.system === 'elo' && Number.isFinite(rating.elo)
+        && Number.isInteger(rating.games) && rating.games >= 0 && rating.bounds === null && rating.progress === null;
+    });
+    if (c.name === 'info') ok &&= Array.isArray(body.data.nanque_stats) && !!body.data.fan_dict.nanque
+      && [...GRADE_RULES, ...ELO_RULES].every(rule => Array.isArray(body.data.ranked_stats?.[rule]));
   }
   if (ok && c.name === 'elo-records') ok = body.data.items.every(item => item.room_type === 'match' && item.match_tier === 'elo');
   if (ok && c.name === 'nanque-records') ok = body.data.items.every(item => item.rule === 'zhongyong' && item.sub_rule === 'zhongyong/nanque');
+  if (ok && c.matchType) ok = body.data.items.every(item => item.rule === c.rule && item.sub_rule === c.subRule
+    && item.room_type === 'match' && item.match_type === c.matchType);
   if (ok && c.name === 'scope-counts') ok = Number.isInteger(body.data.elo);
   return {
     name: c.name,

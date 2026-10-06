@@ -23,7 +23,7 @@ class GuizhouRoomValidator(GBRoomValidator):
     use_flowers: StrictBool = False
     claim_protection: StrictBool = False
     open_cuohe: StrictBool = False
-    tactical_call: StrictBool = False
+    tactical_call: StrictBool = True
     tian_di_ren_he: StrictBool = False
     detailed_config: Dict[str, Any] = Field(default_factory=lambda: {"rule_version": RULE_VERSION})
 
@@ -37,11 +37,18 @@ class GuizhouRoomValidator(GBRoomValidator):
     def valid_config(cls, value):
         return normalize_config(value)
 
-    @validator("use_flowers", "claim_protection", "open_cuohe", "tactical_call", "tian_di_ren_he")
+    @validator("use_flowers", "claim_protection", "open_cuohe", "tian_di_ren_he")
     def fixed_false(cls, value):
         if value:
             raise ValueError("贵州 MIL 标准规不支持此选项")
         return False
+
+
+def apply_bot_tactical_policy(room):
+    """Only actual seated bots close the switch; never reopen saved false."""
+    if room.get("room_rule") == "guizhou" and any(type(user_id) is int and 0 <= user_id <= 10
+                                                 for user_id in room.get("player_list", [])):
+        room["tactical_call"] = False
 
 
 async def create_guizhou_room(manager, player_id, *, room_name, gameround=1, password="",

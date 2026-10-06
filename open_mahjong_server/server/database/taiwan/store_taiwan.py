@@ -35,6 +35,8 @@ def store_taiwan_game_record(
     try:
         conn = db_manager._get_connection()
         cursor = conn.cursor()
+        from ..rule_identity import canonical_game_record
+        game_record = canonical_game_record(game_record)
         record_json = json.dumps(game_record, ensure_ascii=False, default=str)
 
         game_id = None

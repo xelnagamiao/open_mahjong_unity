@@ -44,8 +44,6 @@ def ensure_inventory_tables(cursor):
         id BIGSERIAL PRIMARY KEY, admin_user_id BIGINT NOT NULL, action VARCHAR(64) NOT NULL,
         target_type VARCHAR(32), target_id VARCHAR(64), payload JSONB, reason TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-    # Complete the historical one-time cleanup before adding current built-ins.
-    cursor.execute(Path(__file__).with_name('store_catalog_migration.sql').read_text(encoding='utf-8'))
     for iid, code, name, description, key, default, config in SEEDS:
         asset = ASSETS[key]
         cursor.execute('''INSERT INTO item_definitions

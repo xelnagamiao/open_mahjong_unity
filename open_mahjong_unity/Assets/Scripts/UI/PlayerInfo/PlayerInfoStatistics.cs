@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-/// <summary>原版局制和番种明细。仅调用已有五种统计接口；其他规则显示其条目和空数据状态。</summary>
+/// <summary>按当前规则和场次查询局制、基础统计与番种明细。</summary>
 public sealed class PlayerInfoStatistics : MonoBehaviour {
     [SerializeField] private ScrollRect scroll;
     [SerializeField] private RectTransform content;
@@ -11,6 +11,7 @@ public sealed class PlayerInfoStatistics : MonoBehaviour {
     private readonly Dictionary<string, RuleStatsResponse> cache = new Dictionary<string, RuleStatsResponse>();
     private readonly Dictionary<string, int> inFlightUsers = new Dictionary<string, int>();
     private readonly HashSet<string> failedRules = new HashSet<string>();
+    private readonly Dictionary<string, string> filteredRequests = new Dictionary<string, string>();
     private int userId;
     private string currentRule;
     private bool ranked;
@@ -46,7 +47,7 @@ public sealed class PlayerInfoStatistics : MonoBehaviour {
         Vector2 offset = keepExpanded ? content.anchoredPosition : Vector2.zero;
         refreshing = true;
         cache.TryGetValue(CacheKey, out var response);
-        string[] modes = PlayerInfoStatsFormatter.Modes(currentRule, ranked);
+        string[] modes = PlayerInfoStatsFormatter.Modes(currentRule, ranked, response);
         int index = 0;
         void Add(string caption, IList<KeyValuePair<string, string>> fields) {
             if (index == entries.Count) {
@@ -64,15 +65,17 @@ public sealed class PlayerInfoStatistics : MonoBehaviour {
             var modeStats = PlayerInfoStatsFormatter.Find(response, currentRule, mode);
             // 已收到完整统计但此局制尚无对局时，保留原版的零值明细。
             if (modeStats == null && response?.history_stats != null)
-                modeStats = new PlayerStatsInfo { rule = currentRule, mode = mode };
+                modeStats = new PlayerStatsInfo { rule = currentRule, mode = mode,
+                    riichi_details = PlayerInfoRuleCatalog.IsRiichi(currentRule) ? new Dictionary<string, int>() : null };
             Add(PlayerInfoStatsFormatter.ModeCaption(currentRule, mode, ranked), PlayerInfoStatsFormatter.GameDetails(modeStats, currentRule));
         }
         if (ranked) {
             var total = PlayerInfoStatsFormatter.Aggregate(response, currentRule, modes);
-            if (total == null && response?.history_stats != null) total = new PlayerStatsInfo { rule = currentRule };
-            Add(RankedRules.Name(currentRule)+"总计（匹配）", PlayerInfoStatsFormatter.GameDetails(total, currentRule));
+            if (total == null && response?.history_stats != null) total = new PlayerStatsInfo { rule = currentRule,
+                riichi_details = PlayerInfoRuleCatalog.IsRiichi(currentRule) ? new Dictionary<string, int>() : null };
+            Add(PlayerInfoStatsFormatter.RuleName(currentRule)+"总计（匹配）", PlayerInfoStatsFormatter.GameDetails(total, currentRule));
         }
-        if(currentRule!="sichuan")Add(PlayerInfoStatsFormatter.FanCaption(currentRule, ranked),
+        if(currentRule!="sichuan" && currentRule!=RankedRules.XueliuExchangeRule)Add(PlayerInfoStatsFormatter.FanCaption(currentRule, ranked),
             PlayerInfoStatsFormatter.FanDetails(currentRule, ranked ? response?.ranked_fan_stats : response?.total_fan_stats));
         for (int i = index; i < entries.Count; i++) entries[i].gameObject.SetActive(false);
         refreshing = false;
@@ -123,7 +126,20 @@ public sealed class PlayerInfoStatistics : MonoBehaviour {
             case "qingque": inFlightUsers[currentRule] = userId; network.GetQingqueStats(id); break;
             case "classical": inFlightUsers[currentRule] = userId; network.GetClassicalStats(id); break;
             case "jiandan": inFlightUsers[currentRule] = userId; network.GetJiandanStats(id); break;
+            default:
+                string requestId = System.Guid.NewGuid().ToString("N");
+                inFlightUsers[CacheKey] = userId;
+                filteredRequests[requestId] = CacheKey;
+                network.GetRuleStats(id, currentRule, requestId);
+                break;
         }
+    }
+
+    public void ReceiveFiltered(Response response) {
+        if (response == null || string.IsNullOrEmpty(response.data_request_id)
+            || !filteredRequests.TryGetValue(response.data_request_id, out string key)) return;
+        filteredRequests.Remove(response.data_request_id);
+        Receive(key, response.success, response.message, response.rule_stats);
     }
 
     public void Receive(string rule, bool success, string message, RuleStatsResponse response) {

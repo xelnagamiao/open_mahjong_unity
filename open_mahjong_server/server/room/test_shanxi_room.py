@@ -97,3 +97,42 @@ def test_websocket_adapter_and_event_room_use_same_fixed_profile():
     assert result.success and result.room_info["detailed_config"]=={"rule_version":VERSION}
     assert result.room_info["use_flowers"] is False and result.room_info["hepai_limit"]==0
     assert result.room_info["allow_spectator"] is False
+
+
+@pytest.mark.parametrize("timers", [None,(20,5),(11,9),(0,9),(11,0),(0,0)])
+def test_request_room_and_state_keep_the_same_timing_contract(timers):
+    from ..gamestate.game_shanxi.ShanxiGameState import ShanxiGameState
+    m=manager()
+    m.game_server.room_manager=m
+    m.game_server.gamestate_manager=SimpleNamespace()
+    m.game_server.user_id_to_connection={}
+    socket=SimpleNamespace(send_json=AsyncMock())
+    message={"roomname":"时间合同","allow_spectator":False}
+    if timers is not None:
+        message.update(roundTimerValue=timers[0],stepTimerValue=timers[1])
+    asyncio.run(handle_create_shanxi_room(m.game_server,"conn",message,socket))
+    wire=socket.send_json.await_args.args[0]
+    assert wire["success"]
+    expected=timers or (20,5)
+    room=m.rooms["sx123"]
+    assert (room["round_timer"],room["step_timer"])==expected
+    assert (wire["room_info"]["round_timer"],wire["room_info"]["step_timer"])==expected
+    state=ShanxiGameState(m.game_server,{**room,"player_list":[101,102,103,104]},None,None,"sx-timing")
+    assert (state.round_time,state.step_time)==expected
+    assert all(p.remaining_time==expected[0] for p in state.player_list)
+
+
+@pytest.mark.parametrize("timers", [(20,5),(11,9),(0,9),(11,0),(0,0)])
+def test_empty_event_room_does_not_replace_configured_timers(timers):
+    from .room_manager import RoomManager
+    m=manager()
+    real=RoomManager(m.game_server)
+    real._normalize_event_id=lambda v:v
+    real._validate_event_for_room=lambda *a:None
+    real._apply_event_fields=lambda *a:None
+    real._generate_room_id=lambda:"event-time"
+    real._broadcast_room_info=AsyncMock()
+    result=asyncio.run(real.create_empty_event_room("event-id","shanxi",
+        {"round_timer":timers[0],"step_timer":timers[1]},broadcast=False))
+    assert result.success
+    assert (result.room_info["round_timer"],result.room_info["step_timer"])==timers

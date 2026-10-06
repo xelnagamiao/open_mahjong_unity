@@ -3,7 +3,7 @@ from typing import Dict, Optional
 from .room_validators import GBRoomValidator, MMCValidator, RiichiRoomValidator, SichuanRoomValidator, ChangshaRoomValidator, JiandanRoomValidator, TaiwanRoomValidator, FreeRoomValidator, ShanghaiRoomValidator
 from .hongkong_room import HongKongRoomValidator, create_hongkong_room
 from .guizhou_room import GuizhouRoomValidator, create_guizhou_room
-from .hangzhou_room import HangzhouRoomValidator, create_hangzhou_room
+from .hangzhou_room import HangzhouRoomValidator, create_hangzhou_room, enforce_hangzhou_tactical_room
 from .yixing_room import YixingRoomValidator, create_yixing_room
 from .wenzhou_room import WenzhouRoomValidator, create_wenzhou_room
 from .changchun_room import ChangchunRoomValidator
@@ -15,6 +15,7 @@ from .room_seats import get_seats, seat_player, unseat_player
 from ..gamestate.public.ai.guobiao_heuristic_gate import guobiao_heuristic_bot_reject_reason
 from ..game_calculation.game_calculation_service import Chinese_Hepai_Check
 from ..game_calculation.game_calculation_service import Chinese_Tingpai_Check
+from ..gamestate.public.player_count import player_count_for_sub_rule
 import asyncio
 import logging
 import uuid
@@ -301,7 +302,7 @@ class RoomManager:
                 "tactical_call": tactical_call, # 战术鸣牌
                 "claim_protection": claim_protection, # 鸣牌保护
                 "use_flowers": False if sub_rule == "guobiao/lanshi" else use_flowers,
-                "tian_di_ren_he": tian_di_ren_he if sub_rule in ("guobiao/standard", "guobiao/blood_battle") else False,
+                "tian_di_ren_he": tian_di_ren_he if sub_rule in ("guobiao/standard", "guobiao/sanma", "guobiao/blood_battle") else False,
             }
 
             # 拿取国标麻将验证器 使用验证器验证room_config
@@ -327,7 +328,7 @@ class RoomManager:
                 "hepai_limit": hepai_limit, # 起和番限制
                 "tourist_limit": tourist_limit, # 游客限制
                 "allow_spectator": allow_spectator, # 允许观战
-                "max_player": 4, # 最大玩家数
+                "max_player": player_count_for_sub_rule(sub_rule), # 最大玩家数
                 "player_list": [host_user_id], # 玩家列表（使用 user_id）
                 "player_settings": {
                     host_user_id: {
@@ -750,7 +751,7 @@ class RoomManager:
                 room_info=room_data,
             )
         except Exception as e:
-            logger.error("创建简单麻将房间失败: %s", e, exc_info=True)
+            logger.error("创建中庸／南雀房间失败: %s", e, exc_info=True)
             return Response(type="error_message", success=False, message=f"创建房间失败: {str(e)}")
 
     async def create_Hongque_room(
@@ -1389,7 +1390,7 @@ class RoomManager:
                 "open_cuohe": open_cuohe,
                 "hepai_limit": hepai_limit,
                 "red_dora": red_dora,
-                "starting_score": starting_score if starting_score is not None else (50000 if sub_rule == "riichi/langyong" else 25000),
+                "starting_score": starting_score if starting_score is not None else (35000 if sub_rule == "riichi/sanma" else 50000 if sub_rule == "riichi/langyong" else 25000),
                 "sub_rule": sub_rule,
                 "detailed_config": detailed_config,
                 "allow_kuikae": allow_kuikae,
@@ -1413,7 +1414,7 @@ class RoomManager:
                 "sub_rule": sub_rule,
                 "tourist_limit": tourist_limit,
                 "allow_spectator": allow_spectator,
-                "max_player": 4,
+                "max_player": 3 if sub_rule == "riichi/sanma" else 4,
                 "player_list": [host_user_id],
                 "player_settings": {
                     host_user_id: {
@@ -1717,6 +1718,7 @@ class RoomManager:
         except ValueError as error:
             return Response(type="error_message", success=False, message=str(error))
 
+        enforce_hangzhou_tactical_room(room)
         username = {0: "麻雀罗伯特", 2: "牌效罗伯特", 3: "高性能罗伯特"}[bot_user_id]
         room.setdefault("player_settings", {})[bot_user_id] = {
             "user_id": bot_user_id, "username": username,
@@ -1973,6 +1975,9 @@ class RoomManager:
 
     def _sync_room_host(self, room_data: dict):
         """按入房顺序选择仍在房内的第一位真人，座位位置不影响房主。"""
+        if room_data.get("room_rule") == "guizhou":
+            from .guizhou_room import apply_bot_tactical_policy
+            apply_bot_tactical_policy(room_data)
         player_list = room_data.get("player_list") or []
         host_user_id = next((user_id for user_id in player_list if user_id > 10), 0)
         room_data["host_user_id"] = host_user_id
@@ -2002,10 +2007,15 @@ class RoomManager:
         user_id = player.user_id
         for room_id, room_data in self.rooms.items():
             if user_id in room_data.get("player_list", []):
+                from .tuidao_room import enforce_tuidao_tactical_room
+                enforce_tuidao_tactical_room(room_data)
                 player.current_room_id = room_id
                 room_data.setdefault("ready_list", [])
                 get_seats(room_data)
                 self._sync_room_host(room_data)
+                from .guangdong_room import enforce_guangdong_tactical
+                enforce_guangdong_tactical(room_data)
+                enforce_hangzhou_tactical_room(room_data)
                 return Response(
                     type="room/refresh_room_info",
                     success=True,
@@ -2023,6 +2033,13 @@ class RoomManager:
     async def _broadcast_room_info(self, room_id: str):
         """广播房间信息给所有房间内的玩家"""
         room_data = self.rooms[room_id]
+        from .changchun_room import enforce_changchun_tactical_room
+        enforce_changchun_tactical_room(room_data)
+        enforce_hangzhou_tactical_room(room_data)
+        from .guangdong_room import enforce_guangdong_tactical
+        enforce_guangdong_tactical(room_data)
+        from .tuidao_room import enforce_tuidao_tactical_room
+        enforce_tuidao_tactical_room(room_data)
         from ..gamestate.public.ai.pacing import normalize_bot_speed
         room_data["bot_speed"] = normalize_bot_speed(room_data.get("bot_speed"))
         # 确保准备列表存在，使客户端始终能收到该字段
@@ -2106,7 +2123,7 @@ class RoomManager:
                 validated = self.room_validators["guobiao"](
                     **base_config,
                     use_flowers=False if sub_rule == "guobiao/lanshi" else room_config.get("use_flowers", True),
-                    tian_di_ren_he=room_config.get("tian_di_ren_he", False) if sub_rule in ("guobiao/standard", "guobiao/blood_battle") else False,
+                    tian_di_ren_he=room_config.get("tian_di_ren_he", False) if sub_rule in ("guobiao/standard", "guobiao/sanma", "guobiao/blood_battle") else False,
                     open_cuohe=True if sub_rule == "guobiao/lanshi" else bool(room_config.get("open_cuohe", False)),
                     cuohe_type=1 if sub_rule == "guobiao/lanshi" else int(room_config.get("cuohe_type", 0) or 0),
                     tactical_call=bool(room_config.get("tactical_call", False)),
@@ -2136,7 +2153,7 @@ class RoomManager:
                     open_cuohe=bool(room_config.get("open_cuohe", False)),
                     hepai_limit=max(1, min(64, int(room_config.get("hepai_limit", 1)))),
                     red_dora=bool(room_config.get("red_dora", True)),
-                    starting_score=room_config.get("starting_score", 50000 if sub_rule == "riichi/langyong" else 25000),
+                    starting_score=room_config.get("starting_score", 35000 if sub_rule == "riichi/sanma" else 50000 if sub_rule == "riichi/langyong" else 25000),
                     allow_kuikae=bool(room_config.get("allow_kuikae", False)),
                     open_xiru=bool(room_config.get("open_xiru", True)),
                     open_tobi=bool(room_config.get("open_tobi", True)),
@@ -2224,7 +2241,7 @@ class RoomManager:
             "sub_rule": sub_rule,
             "tourist_limit": tourist_limit,
             "allow_spectator": allow_spectator,
-            "max_player": 4,
+            "max_player": player_count_for_sub_rule(sub_rule),
             "player_list": [],
             "player_settings": {},
             "ready_list": [],
@@ -2359,19 +2376,21 @@ class RoomManager:
 
     async def match_event_ready_players(self, event_id: str) -> Optional[Response]:
         from ..event.auto_match import event_auto_match_config
+        from ..game_calculation.riichi.sanma import player_count
         async with self.event_seating_lock:
             event = self.game_server.db_manager.get_event(event_id)
             cfg = event_auto_match_config(event)
             if not event or event.get("status") != "active" or cfg.get("enabled") is not True:
                 return None
+            count = player_count((cfg.get("room_config") or {}).get("sub_rule")) if cfg.get("room_rule") == "riichi" else 4
             ids = []
             for row in self.game_server.db_manager.list_event_ready_players(event_id):
                 uid = int(row["user_id"])
                 if uid not in ids and self.event_auto_player_eligible(event, uid):
                     ids.append(uid)
-                if len(ids) == 4:
+                if len(ids) == count:
                     break
-            if len(ids) < 4:
+            if len(ids) < count:
                 return None
             if not isinstance(cfg.get("room_config"), dict) or not cfg.get("room_rule"):
                 return Response(type="event/seat_table", success=False, message="请先保存自动匹配的对局设置")
@@ -2382,6 +2401,7 @@ class RoomManager:
     async def _seat_event_table_locked(
         self, admin_user_id, event_id, user_ids, room_rule, room_config, *, automatic,
     ) -> Response:
+        from ..game_calculation.riichi.sanma import player_count
         event_id = self._normalize_event_id(event_id)
         if not event_id:
             return Response(type="event/seat_table", success=False, message="场馆无效")
@@ -2396,8 +2416,9 @@ class RoomManager:
             if parsed in ids:
                 return Response(type="event/seat_table", success=False, message="不能重复选择同一玩家")
             ids.append(parsed)
-        if len(ids) != 4:
-            return Response(type="event/seat_table", success=False, message="请恰好选择 4 名准备中的玩家")
+        count = player_count((room_config or {}).get("sub_rule")) if room_rule == "riichi" else 4
+        if len(ids) != count:
+            return Response(type="event/seat_table", success=False, message=f"请恰好选择 {count} 名准备中的玩家")
 
         ready_rows = self.game_server.db_manager.list_event_ready_players(event_id)
         ready_ids = {int(row["user_id"]) for row in ready_rows}
@@ -2419,7 +2440,7 @@ class RoomManager:
         committed = False
         self.event_seating_users.update(ids)
         try:
-            # No networking between creation and reservation of the four seats.
+            # Reserve every seat before yielding to networking.
             created = await self.create_empty_event_room(
                 event_id=event_id, room_rule=room_rule or "guobiao", room_config=room_config or {},
                 created_by=admin_user_id, broadcast=False,
@@ -2429,7 +2450,7 @@ class RoomManager:
             room_id = created.room_info["room_id"]
             room_data = self.rooms[room_id]
             claimed = self.game_server.db_manager.claim_event_ready_players(event_id, ids, automatic=automatic)
-            if len(claimed) != 4:
+            if len(claimed) != count:
                 raise ValueError("准备状态或场馆设置已变化，请重新组桌")
             for uid in ids:
                 seat_player(room_data, uid)

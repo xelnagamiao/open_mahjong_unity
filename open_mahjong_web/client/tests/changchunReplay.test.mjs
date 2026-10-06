@@ -71,3 +71,21 @@ test('active delayed spectators retain wall counts without secret tile identitie
     assert.ok(!changchunInfoAt(r, node, 0).tile)
   }
 })
+
+test('interrupted tactical applications remain silent and never move tiles, including reverse seeking', () => {
+  const r = round([['c', 25, 0, 'F'], ['ca', 1, 'cm', 25], ['ca', 2, 'p', 25], ['hu_third', 3, 4, [], [0, 0, 0, 0], 25]])
+  r.p0_tiles = [25, 11, 12, 13, 21, 22, 23, 31, 32, 33, 41, 42, 43, 46]
+  r.p1_tiles = [24, 26, 11, 14, 16, 21, 24, 27, 32, 35, 38, 45, 45]
+  r.p2_tiles = [25, 25, 12, 15, 18, 22, 24, 28, 33, 36, 39, 47, 47]
+  const replay = new RecordReplay(fixture(r))
+  const before = replay.build(0, 1).snapshot
+  for (const node of [2, 3, 1, 3, 2, 1]) {
+    assert.deepEqual(replay.build(0, node).snapshot.seats, before.seats)
+    assert.equal(replay.build(0, node).snapshot.state.remaining_tile_count, before.state.remaining_tile_count)
+  }
+  const winner = replay.build(0, 4).snapshot
+  assert.equal(winner.seats[1].melds.length, 0)
+  assert.equal(winner.seats[2].melds.length, 0)
+  assert.equal(winner.seats[0].discard_pile.length, 0)
+  assert.equal(winner.seats[3].drawn_tile, 101) // MMCR ID for physical 25 (five dots).
+})

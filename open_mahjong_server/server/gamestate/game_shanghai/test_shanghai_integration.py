@@ -103,7 +103,9 @@ def test_four_clients_complete_four_hands(seed):
     asyncio.run(run())
 
 
-def test_claim_broadcast_and_reconnect_use_three_second_clock():
+def test_claim_broadcast_and_reconnect_use_room_step_then_bank():
+    from . import action_timing
+    from ..public import ask_timing
     from ..game_taiwan.boardcast import broadcast_ask_other_action, reconnected_send_pending_ask_for_viewer
     async def run():
         state = make_state()
@@ -114,15 +116,18 @@ def test_claim_broadcast_and_reconnect_use_three_second_clock():
         for player in state.player_list:
             player.remaining_time = 30
             state.game_server.user_id_to_connection[player.user_id] = SimpleNamespace(websocket=AsyncMock())
-        await broadcast_ask_other_action(state)
-        socket = state.game_server.user_id_to_connection[102].websocket
-        info = socket.send_json.await_args.args[0]["ask_other_action_info"]
-        assert info["remaining_time"] == 0 and info["step_remaining"] == 3
-        state._ask_delivered_at = {1: 100}
-        with patch('server.gamestate.game_shanghai.ShanghaiGameState.time.time', return_value=101.2):
+        clock = SimpleNamespace(now=100)
+        clock.time = lambda: clock.now
+        clock.monotonic = lambda: clock.now + 1000
+        with patch.object(action_timing, "time", clock), patch.object(ask_timing, "time", clock):
+            await broadcast_ask_other_action(state)
+            socket = state.game_server.user_id_to_connection[102].websocket
+            info = socket.send_json.await_args.args[0]["ask_other_action_info"]
+            assert info["remaining_time"] == 30 and info["step_remaining"] == 5
+            clock.now = 101.2
             await reconnected_send_pending_ask_for_viewer(state, 102, 1)
         info = socket.send_json.await_args.args[0]["ask_other_action_info"]
-        assert info["remaining_time"] == 0 and info["step_remaining"] == 2
+        assert info["remaining_time"] == 30 and info["step_remaining"] == 4
     asyncio.run(run())
 
 

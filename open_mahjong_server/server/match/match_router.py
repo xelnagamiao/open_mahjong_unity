@@ -37,6 +37,7 @@ async def handle_match_message(game_server, connect_id: str, message: dict, webs
         )
         response_dict = response.dict(exclude_none=True)
         response_dict["queue_status"] = status
+        response_dict["match_rule_player_counts"] = game_server.match_manager.get_rule_player_counts()
         await websocket.send_json(response_dict)
 
     else:

@@ -9,6 +9,7 @@ import type { RiverMatchHighlight } from './RiverMatchHighlight'
 import { DiscardHelper } from './DiscardHelper'
 import { WaitDisplay } from './WaitDisplay'
 import { splitWinningTileFromRevealedHand } from '../../lib/settlementHand.js'
+import { buildMeldStacks, hasMeldStacks, isMeldStack } from '../../lib/meldStack.js'
 
 export type MeldType = 'chow' | 'pung' | 'kong'
 
@@ -434,7 +435,7 @@ export class Hand extends Container {
       for (const t of this.leftList) {
         t.scale.set(1.0)
         t.generalMove(this, this.getXLeft(t.pos), t.posy,
-          t.posy === 0 ? 0 : -Math.PI / 2,
+          t.meldStackRotation ?? (t.posy === 0 ? 0 : -Math.PI / 2),
           movementTime, setVisible)
           .then(() => { if (gradualAppear) t.gradualAppear(ANIMATION_TIME, flush) })
           .catch(() => {})
@@ -443,7 +444,7 @@ export class Hand extends Container {
       for (const t of this.leftList) {
         t.scale.set(1.0)
         t.generalMove(this, this.getXLeft(t.pos), t.posy,
-          t.posy === 0 ? 0 : -Math.PI / 2,
+          t.meldStackRotation ?? (t.posy === 0 ? 0 : -Math.PI / 2),
           movementTime, setVisible)
           .then(() => { if (gradualAppear) t.gradualAppear(ANIMATION_TIME, flush) })
           .catch(() => {})
@@ -598,6 +599,10 @@ export class Hand extends Container {
   // ── Meld from snapshot ───────────────────────────────────────────
 
   addMeld(type: MeldType, middleTid: number, spec: SnapshotMeldSpec = {}): void {
+    if (hasMeldStacks(spec.physicalMask)) {
+      this.appendStackedPhysicalMeld(spec.physicalMask!)
+      return
+    }
     if (spec.physicalMask && [6, 8].includes(spec.physicalMask.length)) {
       const mask = spec.physicalMask
       let claimedIndex = this.leftList.length
@@ -670,6 +675,40 @@ export class Hand extends Container {
       return
     }
     this.appendMeldedKong(middleTid, meldFromRel, claimedFromDrawnDiscard)
+  }
+
+  /** 备用 101/102 的显示路径，基础牌仍复用原有横向槽位和加杠布局。 */
+  private appendStackedPhysicalMeld(mask: number[]): void {
+    const anchors = new Map<number, Tile>()
+    let claimedIndex = this.leftList.length
+    for (let index = 0; index + 1 < mask.length; index += 2) {
+      const sign = mask[index]!, face = mask[index + 1]!
+      if (isMeldStack(sign) || sign < 0 || sign > 2 || (face !== 0 && face <= 10)) continue
+      const tile = this.createVisibleTile(face)
+      if (sign === 1) claimedIndex = this.leftList.length
+      if (sign === 2) tile.setConcealedFaceDown(true, this.direction === 0 && !this.replayStyle)
+      this.appendLeftList(tile, sign === 1)
+      anchors.set(index / 2, tile)
+    }
+    for (let index = 0; index + 1 < mask.length; index += 2) {
+      if (mask[index] !== 3) continue
+      const tile = this.createVisibleTile(mask[index + 1]!)
+      if (!this.leftList[claimedIndex]) { tile.destroy(); continue }
+      this.addKongOn(tile, claimedIndex)
+      anchors.set(index / 2, tile)
+    }
+    for (const stack of buildMeldStacks(mask)) {
+      const anchor = anchors.get(stack.anchorIndex)
+      if (!anchor) continue
+      const tile = this.createVisibleTile(stack.tile)
+      this.applyTileStyle(tile)
+      if (stack.faceDown) tile.setConcealedFaceDown(true, this.direction === 0 && !this.replayStyle)
+      tile.pos = anchor.pos
+      tile.posy = anchor.posy - stack.layer * (anchor.rotation === 0 ? TILE_HEIGHT : TILE_WIDTH)
+      tile.rotation = anchor.rotation
+      tile.meldStackRotation = anchor.rotation
+      this.leftList.push(tile)
+    }
   }
 
   /** 国标花牌：放入牌河右下侧的独立补花区。 */

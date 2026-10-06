@@ -3,7 +3,7 @@ const ROUND_COUNTS = Object.freeze([1, 4, 8, 12, 16]);
 
 const QUOTAS = Object.freeze({
   personal: { daily_limit: 5, storage_limit: 25 },
-  event: { daily_limit: 20, storage_limit: 100 },
+  event: { daily_limit: 25, storage_limit: 100 },
 });
 const LABELS = { 41: '东', 42: '南', 43: '西', 44: '北', 45: '中', 46: '白', 47: '发', 51: '春', 52: '夏', 53: '秋', 54: '冬', 55: '梅', 56: '兰', 57: '竹', 58: '菊' };
 const NUMBER_TILES = [1, 2, 3].flatMap((suit) => Array.from({ length: 9 }, (_, i) => suit * 10 + i + 1));
@@ -135,12 +135,14 @@ function quotaDto(scope, row = {}) {
 }
 
 function createDuplicateWallService(pool) {
-  async function authorizeScope(db, userId, scope, eventId, forCreate = false) {
+  async function authorizeScope(db, userId, scope, eventId, forCreate = false, { platformAdmin = false } = {}) {
     if (!Object.hasOwn(QUOTAS, scope)) fail(400, '无效的复式范围');
     if (scope !== 'event') return;
-    const result = await db.query(
-      `SELECT e.status FROM events e JOIN event_admins ea ON ea.event_id = e.event_id
-       WHERE e.event_id = $1 AND ea.user_id = $2 AND e.kind = 'event'`, [eventId, userId]);
+    const result = platformAdmin
+      ? await db.query("SELECT status FROM events WHERE event_id = $1 AND kind = 'event'", [eventId])
+      : await db.query(
+        `SELECT e.status FROM events e JOIN event_admins ea ON ea.event_id = e.event_id
+         WHERE e.event_id = $1 AND ea.user_id = $2 AND e.kind = 'event'`, [eventId, userId]);
     if (!result.rows.length) fail(403, '只有该比赛的管理员可以管理比赛复式牌墙');
     if (forCreate && !['registered', 'active'].includes(result.rows[0].status)) fail(409, '只有申办完成且尚未结束的比赛可以创建牌墙');
   }
@@ -156,30 +158,44 @@ function createDuplicateWallService(pool) {
        FROM duplicate_walls WHERE ${where.sql}`, where.params);
     return quotaDto(scope, result.rows[0]);
   }
-  async function create(userId, body) {
-    const input = normalizeInput(body);
+  async function createBatch(userId, body, count, options = {}) {
+    if (!Number.isSafeInteger(count) || count < 1 || count > 25) fail(400, '批量密钥数量须为 1–25 个');
+    const inputs = Array.from({ length: count }, () => normalizeInput(body));
+    const input = inputs[0];
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
       // One scope-wide lock serializes both daily and stored counts. Deleted rows remain in daily counts.
       const lockKey = input.scope === 'event' ? `duplicate:event:${input.event_id}` : `duplicate:personal:${userId}`;
       await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [lockKey]);
-      await authorizeScope(client, userId, input.scope, input.event_id, true);
+      await authorizeScope(client, userId, input.scope, input.event_id, true, options);
       const before = await quota(client, userId, input.scope, input.event_id);
-      if (!before.remaining_today) fail(429, `今天最多创建 ${before.daily_limit} 个复式牌墙（北京时间零点刷新）`);
-      if (!before.remaining_storage) fail(409, `最多同时保存 ${before.storage_limit} 个复式牌墙，请先删除不再使用的牌墙`);
-      const key = `dup_${crypto.randomBytes(16).toString('hex')}`;
-      const result = await client.query(
-        `INSERT INTO duplicate_walls (key, owner_user_id, event_id, scope, wall_type, rule, name, tiles, seed, use_flowers, round_count, round_tiles)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,$12::jsonb) RETURNING *`,
-        [key, userId, input.event_id, input.scope, input.wall_type, input.rule, input.name, JSON.stringify(input.tiles), input.seed, input.use_flowers, input.round_count, JSON.stringify(input.round_tiles)]);
+      if (before.remaining_today < count) fail(429, `今天最多创建 ${before.daily_limit} 个复式牌墙，剩余 ${before.remaining_today} 个，无法创建本批 ${count} 个密钥（北京时间零点刷新）`);
+      if (before.remaining_storage < count) fail(409, `最多同时保存 ${before.storage_limit} 个复式牌墙，剩余 ${before.remaining_storage} 个位置，无法保存本批 ${count} 个密钥`);
+      const walls = [];
+      for (const next of inputs) {
+        const key = `dup_${crypto.randomBytes(16).toString('hex')}`;
+        const result = await client.query(
+          `INSERT INTO duplicate_walls (key, owner_user_id, event_id, scope, wall_type, rule, name, tiles, seed, use_flowers, round_count, round_tiles)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,$12::jsonb) RETURNING *`,
+          [key, userId, next.event_id, next.scope, next.wall_type, next.rule, next.name, JSON.stringify(next.tiles), next.seed, next.use_flowers, next.round_count, JSON.stringify(next.round_tiles)]);
+        walls.push(wallDto(result.rows[0], true));
+      }
       const after = await quota(client, userId, input.scope, input.event_id);
       await client.query('COMMIT');
-      return { wall: wallDto(result.rows[0], true), quota: after };
+      return { walls, quota: after };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
     } finally { client.release(); }
+  }
+  async function create(userId, body) {
+    const result = await createBatch(userId, body, 1);
+    return { wall: result.walls[0], quota: result.quota };
+  }
+  async function getQuota(userId, scope, eventId, options = {}) {
+    await authorizeScope(pool, userId, scope, eventId, false, options);
+    return quota(pool, userId, scope, eventId);
   }
   async function mine(userId, scope = 'personal', eventId = null) {
     await authorizeScope(pool, userId, scope, eventId);
@@ -256,7 +272,7 @@ function createDuplicateWallService(pool) {
        ORDER BY dg.ended_at DESC NULLS FIRST, dg.game_id`, [wall.id, wall.key]);
     return { wall: wallDto(wall), games: games.rows };
   }
-  return { create, mine, manage, publicList, publicDetail };
+  return { create, createBatch, getQuota, mine, manage, publicList, publicDetail };
 }
 
-module.exports = { QUOTAS, RULES, catalog, fullWall, validateTiles, generateTiles, normalizeInput, normalizeUseFlowers, wallDto, quotaDto, createDuplicateWallService };
+module.exports = { QUOTAS, RULES, ROUND_COUNTS, catalog, fullWall, validateTiles, generateTiles, normalizeInput, normalizeUseFlowers, wallDto, quotaDto, createDuplicateWallService };

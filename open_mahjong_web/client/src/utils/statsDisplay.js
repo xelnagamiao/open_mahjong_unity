@@ -1,5 +1,5 @@
 export const ratio = (n, d, suffix = '%') =>
-  (!d || d <= 0 ? '0.00' + suffix : ((n / d) * 100).toFixed(2) + suffix);
+  (!d || d <= 0 ? '0.00' + suffix : (((Number(n) || 0) / d) * 100).toFixed(2) + suffix);
 
 /** 有顺位的对局数（1–4 位次数之和），顺位相关比率的分母 */
 export const rankedGames = (s) =>
@@ -25,7 +25,7 @@ export const platformFuluRate = (fuluCount, totalRounds) =>
   ratio(fuluCount, (Number(totalRounds) || 0) * 4);
 
 export const avg = (n, d) =>
-  (d === undefined || !d || d <= 0 ? '0.00' : (n / d).toFixed(2));
+  (d === undefined || !d || d <= 0 ? '0.00' : ((Number(n) || 0) / d).toFixed(2));
 
 export const avgRank = (s) => {
   const games = rankedGames(s);
@@ -81,14 +81,61 @@ export const mergePlayerRankStats = (base, rankRow) => {
 const PLAYER_SETTLEMENT_LABELS = new Set(['总对局', '平均顺位', '局均点', '一位率', '二位率', '三位率', '四位率']);
 
 /** 玩家个人统计（PlayerData）；未提供的明细不能显示为 0 或沿用全历史值。 */
-export const buildPlayerStatsRows = (s, { detailed = true } = {}) =>
-  buildStatsRowsBase(s, playerFuluRate).map((row) => {
+export const buildPlayerStatsRows = (s, { detailed = true, rule = s?.rule } = {}) => {
+  if (rule === 'riichi') return buildRiichiStatsRows(s, detailed);
+  return buildStatsRowsBase(s, playerFuluRate).map((row) => {
     if ((!detailed && !PLAYER_SETTLEMENT_LABELS.has(row.label))
       || (row.label === '局均点' && s.total_round_score == null)) {
       return { ...row, value: '—' };
     }
     return row;
   });
+};
+
+function buildRiichiStatsRows(s, detailed) {
+  const d = s.riichi_details || {};
+  const rows = buildStatsRowsBase(s, playerFuluRate)
+    .filter(row => !['错和率', '平均铳番', '平均和巡', '平均和番'].includes(row.label))
+    .map(row => row.label === '局均点' ? { ...row, tip: '本批对局净得点合计 / 玩家参赛场数；包含立直棒和流局收支。' } : row);
+  rows.push(
+    { label: '被飞率', value: ratio(d.busted_count || 0, d.final_score_count), tip: '终局点数小于 0 的场数 / 有结算点数的场数。' },
+    { label: '立直率', value: ratio(d.riichi_round_count || 0, s.total_rounds), tip: '成功支付立直棒的局数 / 已结束小局数；宣言牌被荣和不算成立。' },
+    { label: '平均和了打点', value: avg(d.total_win_points || 0, s.win_count), tip: '和了时实际获得点数的平均，含本场和供托。' },
+    { label: '平均和了巡目', value: avg(s.total_win_turn, s.win_count), tip: '本家待和巡目：历史弃牌次数加一，自摸和荣和均按此计算；被鸣走的弃牌计入，杠后补牌不另加巡。' },
+  );
+  return rows;
+}
+
+/** 日麻条件统计仅供数据站高级分析，样本数和分母随分组一起展示。 */
+export function buildRiichiAdvancedStatsGroups(s) {
+  if (!s) return [];
+  const d = s.riichi_details;
+  const available = d != null && s.details_available !== false;
+  const rate = (n, count) => available && count > 0 ? ratio(n, count) : '—';
+  const mean = (n, count) => available && count > 0 ? avg(n, count) : '—';
+  const sample = (n, unit) => available ? `${n || 0} ${unit}` : '样本不可用';
+  return [
+    { title: '立直分析', sample: sample(d?.riichi_round_count, '次成立立直'), rows: [
+      { label: '平均立直巡目', value: mean(d?.total_riichi_turn, d?.riichi_round_count), tip: '本家立直弃牌序号的平均，包含被鸣走的弃牌。' },
+      { label: '立直后和牌率', value: rate(d?.riichi_win_count, d?.riichi_round_count), tip: '立直后和牌局数 / 成立立直局数。' },
+      { label: '立直后放铳率', value: rate(d?.riichi_deal_in_count, d?.riichi_round_count), tip: '立直后放铳局数 / 成立立直局数。' },
+    ] },
+    { title: '副露与门清', sample: `${sample(s.fulu_round_count, '个副露小局')} · ${sample(s.win_count, '次和牌')}`, rows: [
+      { label: '副露后和牌率', value: rate(d?.fulu_win_count, s.fulu_round_count), tip: '有明副露且和牌的局数 / 有明副露的局数；暗杠保持门清。' },
+      { label: '默听和牌占比', value: rate(d?.damaten_win_count, s.win_count), tip: '门清且未成立立直的和牌次数 / 全部和牌次数（含门清自摸），不是默听后的和牌率。' },
+    ] },
+    { title: '流局与失点', sample: `${sample(d?.exhaustive_draw_count, '次荒牌流局')} · ${sample(s.deal_in_count, '次放铳')}`, rows: [
+      { label: '流局率', value: rate(d?.draw_round_count, s.total_rounds), tip: '荒牌或途中流局的小局数 / 已结束小局数。' },
+      { label: '荒牌流局听牌率', value: rate(d?.tenpai_draw_count, d?.exhaustive_draw_count), tip: '荒牌流局时本家听牌局数 / 荒牌流局局数；途中流局不计。' },
+      { label: '被自摸率', value: rate(d?.tsumo_loss_count, s.total_rounds), tip: '对手自摸且本家实际失点的小局数 / 已结束小局数。' },
+      { label: '平均放铳失点', value: mean(d?.total_deal_in_points, s.deal_in_count), tip: '荣和放铳时实际支付点数的平均；一炮多响计一局并合计失点。' },
+    ] },
+    { title: '点数与和牌', sample: `${sample(d?.final_score_count, '场终局')} · ${sample(s.win_count, '次和牌')}`, rows: [
+      { label: '平均终局点数', value: mean(d?.final_score_total, d?.final_score_count), tip: '实际终局点数的平均，与净得点分开。' },
+      { label: '平均和了番数', value: mean(s.total_fan_score, s.win_count), tip: '和牌番数合计 / 和牌次数。' },
+    ] },
+  ];
+}
 
 /** 平台全站聚合统计（管理后台 / 平台数据页） */
 export const buildPlatformStatsRows = (s) => buildStatsRowsBase(s, platformFuluRate);

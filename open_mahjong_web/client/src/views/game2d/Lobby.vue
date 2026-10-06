@@ -73,7 +73,11 @@
       <div v-if="joinedQueue || matchFound" class="queue-banner">
         <div>
           <el-icon class="is-loading"><Loading /></el-icon>
-          <span>{{ matchFound ? '匹配成功，正在准备牌桌' : '正在匹配' }}</span>
+          <span>{{ matchFound
+            ? (session.matchFoundRemaining > 0
+              ? `匹配成功，${session.matchFoundRemaining} 秒后进入游戏`
+              : '匹配成功，正在准备牌桌')
+            : '正在匹配' }}</span>
           <strong>{{ joinedQueueLabel }}</strong>
         </div>
         <el-button v-if="!matchFound" @click="leaveQueue">取消匹配</el-button>

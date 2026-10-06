@@ -1,12 +1,12 @@
 <template>
-  <el-form-item label="复式密钥" class="duplicate-room-field">
-    <el-input :model-value="modelValue" clearable maxlength="128" placeholder="可选，填入已创建牌墙的密钥" autocomplete="off" @update:model-value="$emit('update:modelValue', $event)" />
+  <el-form-item label="复式密钥" class="duplicate-room-field" :required="required">
+    <el-input :model-value="modelValue" aria-label="复式密钥" clearable maxlength="128" :placeholder="required ? '填入已创建牌墙的密钥' : '可选，填入已创建牌墙的密钥'" autocomplete="off" @update:model-value="$emit('update:modelValue', $event)" />
     <p class="duplicate-room-help">局数和花牌跟随密钥设置。房间不显示密钥，解锁后可在牌谱中查看。<router-link to="/duplicate" target="_blank">创建与说明</router-link></p>
   </el-form-item>
 </template>
 
 <script setup>
-defineProps({ modelValue: { type: String, default: '' } })
+defineProps({ modelValue: { type: String, default: '' }, required: { type: Boolean, default: false } })
 defineEmits(['update:modelValue'])
 </script>
 

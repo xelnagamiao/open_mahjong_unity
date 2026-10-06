@@ -286,14 +286,14 @@ def _get_jiandan_state(game_server, message: dict):
     """Resolve a Jiandan state without allowing cross-rule action routing."""
     gamestate_id = message.get("gamestate_id")
     if not gamestate_id:
-        logger.warning(f"简单麻将操作缺少 gamestate_id: {message}")
+        logger.warning(f"中庸／南雀操作缺少 gamestate_id: {message}")
         return None
     game_state = game_server.gamestate_manager.get_game_state_by_gamestate_id(gamestate_id)
     if game_state is None:
-        logger.warning(f"简单麻将游戏状态不存在: {gamestate_id}")
+        logger.warning(f"中庸／南雀游戏状态不存在: {gamestate_id}")
         return None
     if getattr(game_state, "room_rule", None) != ("zhongyong" if "/zhongyong/" in message.get("type", "") else "jiandan"):
-        logger.warning(f"简单麻将操作被路由到其他规则: {gamestate_id}")
+        logger.warning(f"中庸／南雀操作被路由到其他规则: {gamestate_id}")
         return None
     return game_state
 
@@ -315,7 +315,7 @@ async def handle_jiandan_cut_tile(game_server, Connect_id: str, message: dict):
             action_tick=message.get("action_tick"),
         )
     except Exception as e:
-        logger.error(f"处理简单麻将切牌请求失败: {e}", exc_info=True)
+        logger.error(f"处理中庸／南雀切牌请求失败: {e}", exc_info=True)
 
 
 async def handle_jiandan_send_action(game_server, Connect_id: str, message: dict):
@@ -335,7 +335,7 @@ async def handle_jiandan_send_action(game_server, Connect_id: str, message: dict
             action_tick=message.get("action_tick"),
         )
     except Exception as e:
-        logger.error(f"处理简单麻将操作请求失败: {e}", exc_info=True)
+        logger.error(f"处理中庸／南雀操作请求失败: {e}", exc_info=True)
 
 async def handle_send_sticker(game_server, Connect_id: str, message: dict, websocket):
     """处理对局表情包发送请求（仅对局玩家可发）。"""

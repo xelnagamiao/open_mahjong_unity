@@ -341,15 +341,8 @@ public partial class TipsContainer : MonoBehaviour
 
         // 场风判断
         int currentRound = gameManager.currentRound;
-        if (currentRound <= 4) {
-            wayToHepai.Add("场风东");
-        } else if (currentRound <= 8) {
-            wayToHepai.Add("场风南");
-        } else if (currentRound <= 12) {
-            wayToHepai.Add("场风西");
-        } else if (currentRound <= 16) {
-            wayToHepai.Add("场风北");
-        }
+        int wind = (currentRound - 1) / MahjongPlayerCount.ForSubRule(gameManager.subRule);
+        if (wind >= 0 && wind < 4) wayToHepai.Add("场风" + "东南西北"[wind]);
 
         // 自风判断
         int selfIndex = gameManager.selfIndex;

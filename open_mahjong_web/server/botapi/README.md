@@ -70,18 +70,21 @@ node scripts/issue-bot-token.js my-qq-bot 86400
 
 ### info / rank 中的多规则评级
 
-两个接口都在 `data.ratings` 返回四种独立评级，以规则 ID 为键：
+两个接口都在 `data.ratings` 返回六种独立评级，以评级规则 ID 为键：
 
 | 键 | 展示名称 | `system` |
 |----|----------|----------|
 | `guobiao` | 国标 | `grade` |
-| `riichi` | 立直 | `grade` |
+| `riichi` | 四人立直 | `grade` |
+| `riichi_sanma` | 三人立直 | `grade` |
 | `qingque` | 青雀 | `elo` |
 | `sichuan` | 川麻血战 | `elo` |
+| `sichuan_xueliu_exchange` | 川麻血流换三张 | `elo` |
 
-每项包含 `rule`、`system`、`rank_name`、`rank_score`、`elo`、`games`、`updated_at`、`bounds`、`progress`。
-`games` 是该规则的评级局数；所有规则都维护 Elo。未参加过评级的规则默认 Elo 为 `1500`、局数为 `0`。
-`grade` 规则另有段位和 PT；`elo` 规则的 `rank_name` 为 `""`、`rank_score` 为 `0`，`bounds/progress` 为 `null`，应展示 Elo。
+每项包含 `rule`、`system`、`rank_name`、`rank_score`、`games`、`updated_at`、`bounds`、`progress`；`elo` 仅在 `system=elo` 时存在。
+`games` 是该评级规则的局数，各项独立累计。未参加过评级时局数为 `0`；段位规则默认为 `10级`、PT `0`，Elo 规则默认为 `1500`。
+`grade` 规则展示段位、PT 和 `progress`，不返回 `elo`；`elo` 规则的 `rank_name` 为 `""`、`rank_score` 为 `0`，`bounds/progress` 为 `null`，展示 Elo。
+Bot 应按 `system` 选择显示字段，不能要求每项都有 Elo。四人立直和三人立直的段位、PT、局数彼此独立；川麻血战和血流换三张的 Elo、局数也彼此独立。
 国标段位/PT 以现有 `rank_data` 为准，包含管理员调整。
 
 旧 `rank` 接口的 `guobiao_rank`、`guobiao_score`、`bounds`、`progress`，以及 `info.data.rank` 的含义和结构保持不变。
@@ -92,7 +95,7 @@ node scripts/issue-bot-token.js my-qq-bot 86400
 - 新增 `nanque_stats`：南雀基础统计和番种统计。统计存储沿用内部 `jiandan_*` 表，对外规则标识为 `rule=zhongyong`、`sub_rule=zhongyong/nanque`，不新增“简单麻将”规则。
 - `fan_dict` 新增 `riichi` 和 `nanque` 中文番种字典。
 - 基础统计行新增 `mode_fan_stats`，只统计该行 `mode` 的番种。原 `fan_stats` 仍为全历史番种合计，放在第一行；按匹配/自定义或局制筛选时请使用 `mode_fan_stats`。
-- 新增 `ranked_stats`，以四种评级规则 ID 为键，各项为按 `mode` 分组的匹配基础统计数组，包含川麻血战。数据来自已保存的每玩家指标，不混入自定义房。旧对局未保存指标时无法补齐，可能与记录列表的对局数不同。
+- `ranked_stats` 以六种评级规则 ID 为键，各项为按 `mode` 分组的匹配统计数组。四人立直与三人立直、川麻血战与血流换三张分别统计，不混入自定义房。立直统计来自已保存的日麻统计，其他规则来自每玩家指标；缺少统计数据的历史对局可能无法补齐，与记录列表的对局数可能不同。
 - `record_counts` 是各主规则的牌谱对局数；南雀记录计入 `zhongyong`。南雀记录应使用下面的子规则筛选查询。
 
 以上 `info` 统计均为全历史数据，不接受日期或具体场次筛选。`rank-stats` 提供筛选后的结算与顺位统计。接口不提供高级分析结果。
@@ -108,7 +111,7 @@ node scripts/issue-bot-token.js my-qq-bot 86400
 | `limit` | 每页条数，1–50，默认 20 |
 | `offset` | 偏移，默认 0 |
 | `rule` | 主规则，如 `guobiao`、`riichi`、`qingque`、`sichuan`、`zhongyong` |
-| `sub_rule` | 子规则；南雀为 `zhongyong/nanque` |
+| `sub_rule` | 子规则，如 `riichi/standard`、`riichi/sanma`、`sichuan/standard`、`sichuan/xueliu_exchange`、`zhongyong/nanque` |
 | `tier` | 场次：`rank`、`custom`、`events`、`beginner`、`intermediate`、`advanced`、`mcrpl`、`elo` |
 | `event_id` | 具体赛事 ID（配合 `tier=events`） |
 | `room_type` | 房间类型 |
@@ -120,6 +123,18 @@ node scripts/issue-bot-token.js my-qq-bot 86400
 `match_tier` 可与 `tier=rank` 或 `room_type=match` 同时使用。
 `scope-counts` 接受 `rule`、`sub_rule`、`game_type`、`date_from`、`date_to`，返回 `rank`、`custom`、`beginner`、`intermediate`、`advanced`、`mcrpl`、`elo`、`events` 的对局数。
 `rank` 已包含各具体匹配场的总数，不要与具体场次的数量相加。
+
+评级键与记录的主规则/子规则对应如下。`records`、`rank-stats`、`scope-counts` 使用后两列筛选：
+
+| 评级键 | `rule` | `sub_rule` |
+|--------|--------|------------|
+| `riichi` | `riichi` | `riichi/standard` |
+| `riichi_sanma` | `riichi` | `riichi/sanma` |
+| `sichuan` | `sichuan` | `sichuan/standard` |
+| `sichuan_xueliu_exchange` | `sichuan` | `sichuan/xueliu_exchange` |
+
+例如三麻东风排位使用 `rule=riichi&sub_rule=riichi/sanma&tier=rank&game_type=dongfeng`；血流换三张使用 `rule=sichuan&sub_rule=sichuan/xueliu_exchange&tier=elo`。仅指定 `rule=riichi` 或 `rule=sichuan` 会包含该主规则下的多个子规则。
+`game_type=dongfeng`、`banzhuang` 同时支持四人和三人局制；三麻记录的 `match_type` 分别为 `1/4_sanma_rank`、`2/4_sanma_rank`（自定义房没有 `_rank` 后缀）。三麻顺位只有一至三位，`fourth_place_count` 为 `0`。
 
 ### 对局记录中的 PT 变更
 
@@ -138,16 +153,17 @@ node scripts/issue-bot-token.js my-qq-bot 86400
 | 字段 | 含义 |
 |------|------|
 | `rating_rule` / `rating_system` | 评级规则与体系（`grade` 或 `elo`）；未保存时为 `null` |
-| `rating_pt` | 国标或立直的本局 PT 加扣，`number | null` |
+| `rating_pt` | 国标、四人立直或三人立直的本局 PT 加扣，`number | null` |
 | `rank_before` / `rank_after` | 对局前后段位，`string | null` |
 | `score_before` / `score_after` | 对局前后段位 PT 余额，`number | null` |
 | `elo_before` / `elo_after` / `elo_delta` | 对局前后 Elo 与本局 Elo 加扣，`number | null` |
 | `rating_games` | 本局结束后的该规则评级局数，`number | null` |
 
 `pt_change` 优先使用已保存的 PT 字段；国标/立直未保存该字段时，读取本局结算中保存的 `rating_pt`。
-青雀/川麻的 PT 不适用，`rating_pt` 和 `pt_change` 为 `null`，应展示 `elo_delta`。
+青雀、川麻血战、川麻血流换三张的 PT 不适用，`rating_pt` 和 `pt_change` 为 `null`，应展示 `elo_delta`。国标、四人立直、三人立直的 `elo_before`、`elo_after`、`elo_delta` 为 `null`。
 自定义房与未保存评级结算的历史对局，新增评级字段为 `null`；原来保存的国标 `pt_change` 仍保留。
 `score_after - score_before` 可能跨越升降段，不等于 `rating_pt`。接口只按分页读取结算片段，不下载或返回完整牌谱，不按当前评级推算历史变化。
+Bot 直接显示保存的 `rating_pt` 或 `elo_delta` 即可；四人立直、三人立直和 Elo 的计分公式由游戏服务执行，Bot 无需增加公式计算或高级分析。
 
 ## 错误响应
 
@@ -208,4 +224,6 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 
 Bot API 与 `/api/player` 等同走现有 `location /api/` 反代，部署 Node 新版本并配置 `BOT_API_JWT_SECRET` 即可，**无需修改 Nginx**。
 
-评级和南雀统计使用游戏服务已有的数据库表，请先部署包含多规则评级及南雀统计的 Python 版本，再更新 Node。历史记录缺少结算数据时继续返回 `null`，不会在部署时重算或修改评级。
+评级和南雀统计使用游戏服务已有的数据库表，请先部署包含六种独立评级及南雀统计的 Python 版本，再更新 Node。
+当前 Python 版本首次启动会按新 Elo 算法执行一次历史重算，并清除段位规则的旧 Elo；各评级池独立处理，段位与 PT 保留。重算在事务中保存备份及完成标记，失败时回滚并中止启动，成功后再次启动会跳过。更新前应备份数据库并检查启动日志。
+Bot 查询只读取当前评级和已保存的结算片段，不触发重算；无法补齐的历史结算字段仍为 `null`。

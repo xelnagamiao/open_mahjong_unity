@@ -11,6 +11,12 @@ logger = logging.getLogger(__name__)
 
 def get_riichi_history_stats(db_manager, user_id: int) -> List[Dict[str, Any]]:
     """获取指定用户的立直历史统计数据（按 mode 分组）。"""
+    from .record_stats import get_history_stats
+    return get_history_stats(db_manager, user_id)
+
+
+def _get_legacy_history_stats(db_manager, user_id: int) -> List[Dict[str, Any]]:
+    """保留旧累计表查询，供离线核对原统计。"""
     conn = None
     try:
         conn = db_manager._get_connection()
@@ -47,8 +53,19 @@ def get_riichi_history_stats(db_manager, user_id: int) -> List[Dict[str, Any]]:
             db_manager._put_connection(conn)
 
 
-def get_riichi_fan_stats_total(db_manager, user_id: int, ranked=None) -> dict:
+def get_riichi_fan_stats_total(db_manager, user_id: int, ranked=None, sanma=None) -> dict:
     """获取指定用户的立直役种统计数据汇总（所有 mode 合计）。"""
+    from .record_stats import get_history_stats
+    from .store_riichi import FAN_FIELDS
+    total = dict.fromkeys(FAN_FIELDS, 0)
+    for row in get_history_stats(db_manager, user_id, ranked=ranked, sanma=sanma):
+        for field, count in row.get("fan_stats", {}).items():
+            total[field] = total.get(field, 0) + count
+    return total
+
+
+def _get_legacy_fan_stats_total(db_manager, user_id: int, ranked=None) -> dict:
+    """旧累计役种表，供离线核对；展示使用与行为指标相同的逐局摘要。"""
     from .store_riichi import FAN_FIELDS
 
     conn = None

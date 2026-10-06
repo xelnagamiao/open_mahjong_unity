@@ -43,6 +43,7 @@ class RecordRuleFlags:
     infers_dingque_from_discards: bool = False
     hu_tick_follows_shuhewei: bool = False
     record_tracks_riichi_field: bool = False
+    supports_robbed_added_kong_source: bool = False
 
 
 _BY_RULE: dict[str, RecordRuleFlags] = {
@@ -62,6 +63,7 @@ _BY_RULE: dict[str, RecordRuleFlags] = {
     ),
     "riichi": RecordRuleFlags(
         rule_id="riichi",
+        replacement_from_tail_end=True,
         peek_ankan=True,
         record_tracks_riichi_field=True,
     ),
@@ -71,7 +73,7 @@ _BY_RULE: dict[str, RecordRuleFlags] = {
         record_hu_tile_tick_index=7,
     ),
     "taiwan": RecordRuleFlags(rule_id="taiwan", replacement_from_tail_end=True),
-    "guobiao": RecordRuleFlags(rule_id="guobiao"),
+    "guobiao": RecordRuleFlags(rule_id="guobiao", supports_robbed_added_kong_source=True),
     "qingque": RecordRuleFlags(rule_id="qingque"),
     "zhongyong": RecordRuleFlags(rule_id="zhongyong", replacement_from_tail_end=True),
 }

@@ -5,6 +5,7 @@
       <el-form-item label="局数"><el-select v-model="form.game_round"><el-option v-for="round in [1,2,3,4]" :key="round" :value="round" :label="`${round * 4}局`" /></el-select></el-form-item>
       <el-form-item label="局时储备（秒）"><el-input-number v-model="form.round_timer" :min="0" :max="1000" :precision="0" /></el-form-item>
       <el-form-item label="步时（秒）"><el-input-number v-model="form.step_timer" :min="0" :max="100" :precision="0" /></el-form-item>
+      <el-form-item label="战术鸣牌"><el-switch v-model="form.tactical_call" /><span>抢断再询问5秒；机器人参与时自动关闭</span></el-form-item>
       <el-form-item v-if="showPassword" label="房间密码"><el-input v-model="form.password" type="password" show-password clearable /></el-form-item>
       <el-form-item label="听牌提示"><el-switch v-model="form.tips" /></el-form-item>
       <el-form-item label="剩余张数提示"><el-switch v-model="form.count_tips" /></el-form-item>

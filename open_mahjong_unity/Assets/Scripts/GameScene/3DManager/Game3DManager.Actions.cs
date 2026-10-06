@@ -119,10 +119,21 @@ public partial class Game3DManager : MonoBehaviour
         }
         SetTileList.Reverse();
         SignDirectionList.Reverse();
+        Transform[] stackAnchors = CreateMeldStackAnchors(combination_mask);
         Debug.Log($"actionType: {actionType}, combination_mask: {combination_mask}, SetTileList: {SetTileList}, SignDirectionList: {SignDirectionList}");
 
         if (actionType == "jiagang")
         {
+            int existingChildren = SetParent.childCount;
+            if (stackAnchors != null) {
+                int child = 0;
+                for (int i = 0; i < SetTileList.Count; i++) {
+                    int sign = SignDirectionList[i];
+                    if (sign < 0 || sign > 2) continue;
+                    if (child < SetParent.childCount)
+                        stackAnchors[SetTileList.Count - 1 - i] = SetParent.GetChild(child++);
+                }
+            }
             for (int i = 0; i < SetTileList.Count; i++)
             {
                 if (SignDirectionList[i] != 3) {
@@ -156,8 +167,9 @@ public partial class Game3DManager : MonoBehaviour
 
                 Card3DHoverManager.Instance.RegisterCard(cardObj, jiagangTileId);
                 cardObj.transform.SetParent(SetParent, worldPositionStays: true);
+                if (stackAnchors != null) stackAnchors[SetTileList.Count - 1 - i] = cardObj.transform;
                 RegisterLastJiagang(playerIndex, cardObj, jiagangTileId);
-                if (doAnimation)
+                if (doAnimation && stackAnchors == null)
                 {
                     StartCoroutine(MoveCardAnimation(cardObj, SetDirection, cardWidth, playerIndex));
                 }
@@ -166,6 +178,13 @@ public partial class Game3DManager : MonoBehaviour
                 {
                     yield return null;
                 }
+            }
+            int firstStackChild = SetParent.childCount;
+            SpawnMeldStacks(combination_mask, stackAnchors, SetParent);
+            if (doAnimation && stackAnchors != null) {
+                for (int child = existingChildren; child < SetParent.childCount; child++)
+                    StartCoroutine(MoveCardAnimation(SetParent.GetChild(child).gameObject, SetDirection, cardWidth,
+                        playerIndex, trackRemovePosition: child < firstStackChild));
             }
             yield break;
         }
@@ -178,7 +197,7 @@ public partial class Game3DManager : MonoBehaviour
         for (int i = 0; i < SetTileList.Count; i++)
         {
             int sign = SignDirectionList[i];
-            if (sign == 3 || sign == 4) {
+            if (sign == 3 || sign == 4 || MeldStackLayout.IsStack(sign)) {
                 continue;
             }
 
@@ -236,7 +255,10 @@ public partial class Game3DManager : MonoBehaviour
 
             Tile3D tile3D = cardObj.GetComponent<Tile3D>();
             tile3D?.ApplyCombinationPeekState(tileId, sign);
+            if (stackAnchors != null) stackAnchors[SetTileList.Count - 1 - i] = cardObj.transform;
         }
+
+        SpawnMeldStacks(combination_mask, stackAnchors, SetParent);
 
         StoreCombinationCursor(playerIndex, SetPositionpoint);
         if (lastPlacedSlot > 0f) {
@@ -326,6 +348,7 @@ public partial class Game3DManager : MonoBehaviour
             }
             tileList.Reverse();
             signList.Reverse();
+            Transform[] stackAnchors = CreateMeldStackAnchors(combinationMask);
 
             Transform setParent = panel.combination3DObjects[meldIndex];
             Vector3 setPositionpoint = playerPosition == "self" ? selfSetCombinationsPoint
@@ -342,7 +365,7 @@ public partial class Game3DManager : MonoBehaviour
                 int sign = signList[i];
                 // 竖排规则把追加张排入本组；普通加杠须放在认走横牌旁，
                 // 待基础三张放好后再处理，不能占用下一张的横向位置。
-                if (sign == 4 || (sign == 3 && !vertical)) continue;
+                if (sign == 4 || (sign == 3 && !vertical) || MeldStackLayout.IsStack(sign)) continue;
 
                 // 虹雀竖排：认走张（flag=1）也不旋转、不用长槽。
                 bool claimedHorizontal = sign == 1 && !IsVerticalMelds();
@@ -389,6 +412,7 @@ public partial class Game3DManager : MonoBehaviour
                 MahjongObjectPool.Instance.RefreshTileCollider(cardObj);
                 Tile3D tile3D = cardObj.GetComponent<Tile3D>();
                 tile3D?.ApplyCombinationPeekState(tileId, sign);
+                if (stackAnchors != null) stackAnchors[tileList.Count - 1 - i] = cardObj.transform;
             }
 
             if (!vertical && signList.Contains(3)) {
@@ -406,9 +430,12 @@ public partial class Game3DManager : MonoBehaviour
                         MahjongObjectPool.Instance.RefreshTileCollider(added);
                         added.GetComponent<Tile3D>()?.ApplyCombinationPeekState(tileList[i], 3);
                         RegisterLastJiagang(playerPosition, added, tileList[i]);
+                        if (stackAnchors != null) stackAnchors[tileList.Count - 1 - i] = added.transform;
                     }
                 }
             }
+
+            SpawnMeldStacks(combinationMask, stackAnchors, setParent);
 
             StoreCombinationCursor(playerPosition, setPositionpoint);
             if (lastPlacedSlot > 0f) {

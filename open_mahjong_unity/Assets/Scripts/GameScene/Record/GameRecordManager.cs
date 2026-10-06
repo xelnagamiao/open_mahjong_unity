@@ -180,7 +180,7 @@ public partial class GameRecordManager : MonoBehaviour {
     }
 
     private static readonly Dictionary<string, string> RecordToDisplay = new Dictionary<string, string> {
-        {"bh", "buhua"}, {"c", "cut"}, {"ag", "angang"}, {"jg", "jiagang"},
+        {"bh", "buhua"}, {"nuki", "nuki"}, {"c", "cut"}, {"ag", "angang"}, {"jg", "jiagang"},
         {"cl", "chi_left"}, {"cm", "chi_mid"}, {"cr", "chi_right"},
         {"p", "peng"}, {"g", "gang"},
     };
@@ -407,14 +407,14 @@ public partial class GameRecordManager : MonoBehaviour {
                 else if (PlayerSetting.userId == Convert.ToInt32(gameRecord.gameTitle["p2_uid"])){
                     PlayerSetting.originalPlayerIndex = 2;
                 }
-                else if (PlayerSetting.userId == Convert.ToInt32(gameRecord.gameTitle["p3_uid"])){
+                else if (RecordPlayerCount == 4 && PlayerSetting.userId == ReadGameTitleInt(gameRecord.gameTitle, "p3_uid")){
                     PlayerSetting.originalPlayerIndex = 3;
                 }
             }
         }
 
         if (IsExternalRecord) {
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < RecordPlayerCount; i++) {
                 int uid = ReadGameTitleInt(gameRecord.gameTitle, $"p{i}_uid");
                 userIdToUsername[uid] = ReadGameTitleString(gameRecord.gameTitle, $"p{i}_name", $"玩家 {i + 1}");
             }
@@ -448,9 +448,9 @@ public partial class GameRecordManager : MonoBehaviour {
         // 计算截至当前局之前的累计分数（起手分 + 前面各局 scoreChanges）
         int[] cumulativeByOrig = BuildCumulativeScoresBeforeRound(roundIndex);
 
-        // 初始化四个空userid的局对象（含累计分数），稍后进行赋值
+        // 按牌谱人数初始化局对象（含累计分数）。
         recordPlayerList.Clear();
-        for (int p = 0; p < 4; p++) {
+        for (int p = 0; p < RecordPlayerCount; p++) {
             recordPlayerList.Add(new RecordPlayer {
                 userId = ReadGameTitleInt(gameRecord.gameTitle, $"p{p}_uid"),
                 originalPlayerIndex = p,
@@ -528,7 +528,13 @@ public partial class GameRecordManager : MonoBehaviour {
         selectedPlayerIndex = selected.playerIndex;
 
         // 根据选中玩家的playerindex设置每个玩家的相对位置
-        if (selectedPlayerIndex == 0) {
+        indexToPosition.Clear();
+        foreach (string position in new[] { "self", "right", "top", "left" })
+            recordPlayer_to_info[position] = new RecordPlayer { userId = -1, playerIndex = -1, originalPlayerIndex = -1 };
+        if (RecordPlayerCount == 3) {
+            string[] positions = { "self", "right", "left" };
+            for (int offset = 0; offset < 3; offset++) indexToPosition[(selectedPlayerIndex + offset) % 3] = positions[offset];
+        } else if (selectedPlayerIndex == 0) {
             indexToPosition[0] = "self";
             indexToPosition[1] = "right";
             indexToPosition[2] = "top";
@@ -763,7 +769,7 @@ public partial class GameRecordManager : MonoBehaviour {
 
     /// <summary>按开局原始座位切换牌谱视角，跨局跟随同一玩家，并保持当前节点。</summary>
     public void SwitchRecordPerspectiveToOriginalPlayerIndex(int originalPlayerIndex) {
-        if (gameRecord == null || originalPlayerIndex < 0 || originalPlayerIndex >= 4) return;
+        if (gameRecord == null || originalPlayerIndex < 0 || originalPlayerIndex >= RecordPlayerCount) return;
         if (!recordPlayerList.Exists(player => player.originalPlayerIndex == originalPlayerIndex)) return;
         selectedPlayerOriginalIndex = originalPlayerIndex;
         int targetNode = currentNode;
@@ -841,6 +847,7 @@ public partial class GameRecordManager : MonoBehaviour {
             : ToDisplayAction(action);
         bool isRecordState = action == "cc" || action == "state" || action == "hongkong" || action == "tuidao" || action == "guizhou" || action == "yixing" || action == "hangzhou" || action == "wenzhou" || action == "guangdong" || action == "hongzhong";
         PlayTuidaoRecordAnnouncement(tick);
+        PlayShanghaiRecordAnnouncement(tick);
         PlayHangzhouRecordAnnouncement(tick,currentPlayerPosition,currentRecordPlayer.voice_used);
         PlayChangchunRecordAnnouncement(tick);
         if (action != "riichi" && action != "rk" && !isRecordState && !ShouldSkipRecordTickVoice(action)) {
@@ -852,7 +859,7 @@ public partial class GameRecordManager : MonoBehaviour {
         nextPlayerIndex = ResolveChangchunRecordNextPlayer(tick,nextPlayerIndex);
         if (action == "cc") RefreshChangchunRecordEvent(tick);
 
-        if (!isRuleStateAction && (action == "d" || action == "gd" || action == "bd")) {
+        if (!isRuleStateAction && (action == "d" || action == "gd" || action == "bd" || action == "nd")) {
             int dealTile = ParseTickInt(tick, 1);
             currentRecordPlayer.tileList.Add(dealTile);
             currentRecordPlayer.showHandDrawSlotActive = true;
@@ -919,11 +926,11 @@ public partial class GameRecordManager : MonoBehaviour {
             waitingForDrawAfterCut = true;
             nextPlayerIndex = NextRecordPlayerAfterCut(actingPlayerIndex, currentNode);
         }
-        else if (action == "bh") {
-            int buhuaTile = ParseTickInt(tick, 1);
+        else if (action == "bh" || action == "nuki") {
+            int buhuaTile = ParseTickInt(tick, action == "nuki" ? 2 : 1);
             bool isMoBuhua = GameRecordJsonDecoder.ParseBuhuaMoFlag(tick);
             RemoveTileForBuhua(currentRecordPlayer.tileList, buhuaTile, isMoBuhua);
-            if (isMoBuhua) {
+            if (isMoBuhua || action == "nuki") {
                 currentRecordPlayer.showHandDrawSlotActive = false;
             }
             bool hasFlowerTransfer = ApplyRecordBuhuaOwnership(
@@ -941,7 +948,7 @@ public partial class GameRecordManager : MonoBehaviour {
             if (hasFlowerTransfer) {
                 Game3DManager.Instance.TransferFlowerWinTile(transferTile, transferFromPosition, recipientPosition);
             }
-            GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, "buhua");
+            GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, action == "nuki" ? "nuki" : "buhua", IsRiichiRuleRecord() ? "riichi" : null);
             nextPlayerIndex = actingPlayerIndex;
         }
         else if (action == "ca") {
@@ -1178,7 +1185,10 @@ public partial class GameRecordManager : MonoBehaviour {
                 ApplyScoreDeltas(deltas, out _, out Dictionary<int, int> after);
                 BoardCanvas.Instance.UpdatePlayerScores(after, indexToPosition);
             }
-            RoundEndPresentation.Instance.PresentLiuju(text, false);
+            var tenpaiTiles = reason == "exhaustive" || reason == "nagashi_mangan"
+                ? RiichiDrawRecord.BuildTenpaiTiles(ParseTickScoreChanges(tick, 1), recordPlayerList)
+                : null;
+            RoundEndPresentation.Instance.PresentLiuju(text, false, tenpaiTiles, indexToPosition);
             HideRecordRiichiSticksOnLiuju();
             StartCoroutine(AutoNextActionAfterDelay(2f));
         }
@@ -1290,7 +1300,8 @@ public partial class GameRecordManager : MonoBehaviour {
     }
 
     private string FormatRoundText(string rule, int roundNo) {
-        return RoundTextDictionary.GetRoundName(rule, roundNo);
+        string subRule = ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", "");
+        return RoundTextDictionary.GetRoundName(rule == "guobiao" ? (subRule == "guobiao/sanma" ? subRule : "guobiao/standard") : rule, roundNo);
     }
 
     /// <summary>
@@ -1477,8 +1488,9 @@ public partial class GameRecordManager : MonoBehaviour {
             if (gt.ContainsKey("open_tobi")) {
                 sb.AppendLine($"击飞: {(ReadGameTitleBool(gt, "open_tobi", false) ? "开" : "关")}");
             }
-            if (gt.TryGetValue("starting_scores", out object scoresObj) && scoresObj is JArray scoresArr && scoresArr.Count >= 4) {
-                sb.AppendLine($"起手分: {scoresArr[0]}, {scoresArr[1]}, {scoresArr[2]}, {scoresArr[3]}");
+            int recordPlayerCount = MahjongPlayerCount.ForSubRule(recordSubRule);
+            if (gt.TryGetValue("starting_scores", out object scoresObj) && scoresObj is JArray scoresArr && scoresArr.Count >= recordPlayerCount) {
+                sb.AppendLine("起手分: " + string.Join(", ", scoresArr.Take(recordPlayerCount)));
             } else {
                 sb.AppendLine($"起手分: {ReadRecordStartingScoreUniform(gt)}");
             }
@@ -1561,7 +1573,7 @@ public partial class GameRecordManager : MonoBehaviour {
     private Dictionary<int, int> ResolveScoreDeltas(Round roundData, string rule,
         string huClass, double huScore, int hepaiPlayerIndex, int fangchongPlayerIndex) {
 
-        if (roundData?.scoreChanges != null && roundData.scoreChanges.Count >= 4) {
+        if (roundData?.scoreChanges != null && roundData.scoreChanges.Count >= RecordPlayerCount) {
             var deltas = new Dictionary<int, int>();
             foreach (var rp in recordPlayerList) {
                 deltas[rp.playerIndex] = roundData.scoreChanges[rp.originalPlayerIndex];
@@ -1576,7 +1588,7 @@ public partial class GameRecordManager : MonoBehaviour {
     /// 将 tick 中的 score_changes 数组（player_index 顺序）映射为 playerIndex → delta。
     /// </summary>
     private void MapTickScoreChangesToDeltas(int[] tickScoreChanges, Dictionary<int, int> deltas) {
-        if (tickScoreChanges == null || tickScoreChanges.Length < 4) return;
+        if (tickScoreChanges == null || tickScoreChanges.Length < RecordPlayerCount) return;
         foreach (var rp in recordPlayerList) {
             deltas[rp.playerIndex] = tickScoreChanges[rp.playerIndex];
         }
@@ -1850,7 +1862,7 @@ public partial class GameRecordManager : MonoBehaviour {
 
         var deltas = new Dictionary<int, int>();
         int winnerDelta = 0;
-        if (scoreChanges != null && scoreChanges.Length >= 4) {
+        if (scoreChanges != null && scoreChanges.Length >= RecordPlayerCount) {
             MapTickScoreChangesToDeltas(scoreChanges, deltas);
             if (hepaiPlayerIndex >= 0 && hepaiPlayerIndex < scoreChanges.Length) {
                 winnerDelta = scoreChanges[hepaiPlayerIndex];
@@ -1861,7 +1873,7 @@ public partial class GameRecordManager : MonoBehaviour {
         bool isDealer = hepaiPlayerIndex == 0;
         var scoreContext = new Riichi.RiichiHandContext(); scoreContext.ApplyRuleOptions(GetDetailedConfigSnapshot());
         int huScore = tick.Count > 12 && !string.IsNullOrEmpty(tick[12]) && tick[12] != "null" ? ParseTickInt(tick, 12)
-            : Riichi.RiichiScoreCalc.ResolveDisplayPoints(han, fu, isDealer, isTsumo, winnerDelta, honba, riichiSticksCollected, yaku, scoreContext.KiriageMangan, scoreContext.KazoeLimit);
+            : Riichi.RiichiScoreCalc.ResolveDisplayPoints(han, fu, isDealer, isTsumo, winnerDelta, honba, riichiSticksCollected, yaku, scoreContext.KiriageMangan, scoreContext.KazoeLimit, RecordPlayerCount, scoreContext.SanmaTsumo);
         ApplyScoreDeltas(deltas, out Dictionary<int, int> playerToScoreBefore, out Dictionary<int, int> playerToScoreAfter);
 
         var extras = new RiichiEndResultExtras {
@@ -2117,6 +2129,9 @@ public partial class GameRecordManager : MonoBehaviour {
     }
 
     private string GetRelativePosition(int selfIndex, int otherIndex) {
+        if (RecordPlayerCount == 3) {
+            return new[] { "self", "right", "left" }[(otherIndex - selfIndex + 3) % 3];
+        }
         if (selfIndex == 0) {
             if (otherIndex == 1) return "right";
             if (otherIndex == 2) return "top";
@@ -2172,7 +2187,7 @@ public partial class GameRecordManager : MonoBehaviour {
                 simulateCurrentPlayerIndex = ParseTickInt(tick, 1);
                 continue;
             }
-            if (action == "bh" || action == "bd") {
+            if (action == "bh" || action == "bd" || action == "nuki" || action == "nd") {
                 simulateCurrentPlayerIndex = GameRecordJsonDecoder.ResolveRecordActingPlayerIndex(
                     tick, action, simulateCurrentPlayerIndex);
                 continue;
@@ -2232,7 +2247,9 @@ public partial class GameRecordManager : MonoBehaviour {
             GameObject itemObj = Instantiate(recordRoundItemPrefab, recordRoundItemContainer);
             RecordRoundItem item = itemObj.GetComponent<RecordRoundItem>();
             if (item != null) {
-                item.Initialize(rule, round.roundIndex, round.currentRound, honba);
+                string roundRule = rule == "guobiao"
+                    ? (ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "") == "guobiao/sanma" ? "guobiao/sanma" : "guobiao/standard") : rule;
+                item.Initialize(roundRule, round.roundIndex, round.currentRound, honba);
             }
         }
         recordRoundItemContainer.gameObject.SetActive(true);
@@ -2366,7 +2383,11 @@ public partial class GameRecordManager : MonoBehaviour {
         };
         // 总局数：牌谱标题 max_round（风圈数 1~4）* 4；缺省则用已记录局的最大局号兜底
         int recordMaxRound = ReadGameTitleInt(gameRecord.gameTitle, "max_round", 0);
-        int totalRounds = recordMaxRound > 0 ? recordMaxRound * 4 : 0;
+        int totalRounds = recordMaxRound > 0 ? recordMaxRound * RecordPlayerCount : 0;
+        if (RecordPlayerCount == 3) {
+            player_to_info["left"] = player_to_info["top"];
+            player_to_info.Remove("top");
+        }
         string subRule = ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "");
         ScoreHistoryPanel.Instance.UpdateScoreRecord(rule, player_to_info, settlements, totalRounds,
             subRuleFallback: subRule, recordRoundIndices: recordRoundIndices);

@@ -62,6 +62,7 @@ internal static class GuobiaoTips {
         HashSet<int> waiting = q.SubRule == "guobiao/lanshi"
             ? GBhepaiLanshi.TingpaiCheck(q.Hand, melds)
             : GBtingpai.TingpaiCheck(q.Hand, melds, false);
+        if (q.SubRule == GuobiaoGameState.SanmaSubRule) waiting.RemoveWhere(tile => tile >= 12 && tile <= 18);
         var snapshot = new int[waiting.Count];
         waiting.CopyTo(snapshot);
         Remember(WaitingCache, WaitingKeys, key, snapshot);
@@ -105,6 +106,7 @@ internal static class GuobiaoTips {
     }
 
     private static WaitTileHint CalculateHint(WaitHintQuery q) {
+        if (q.SubRule == GuobiaoGameState.SanmaSubRule && q.HepaiTile >= 12 && q.HepaiTile <= 18) return WaitTileHint.None("不在牌组内");
         // The calculators append derived wind conditions. Keep the caller's query and cache key stable.
         var ronWay = new List<string>(q.MergedWay);
         Tuple<int, List<string>> ron = Check(q.SubRule, q.HandWithWin, q.Melds, ronWay, q.HepaiTile);

@@ -13,10 +13,12 @@ from psycopg2 import Error
 from .guobiao.record_analyzer import analyze_record_for_player
 from .guobiao.round_score_utils import sum_player_round_score
 from .scene_stats import derive_game_type, normalize_scene_fields, should_record_scene_metrics
+from .rule_identity import canonical_rule_identity
 
 logger = logging.getLogger(__name__)
 
 REGISTERED_USER_ID_MIN = 10000000
+BOT_USER_ID_MAX = 10
 STAT_TZ = "Asia/Shanghai"
 STAT_DAY_OFFSET_HOURS = 4
 
@@ -115,7 +117,7 @@ def _build_metrics_row(
     total_fan_score = total_win_turn = total_fangchong_score = 0
     fulu_round_count = cuohe_count = total_round_score = 0
 
-    if rule == "guobiao" and original_player_index is not None:
+    if rule == "guobiao" and sub_rule != "guobiao/sanma" and original_player_index is not None:
         cnt = analyze_record_for_player(record, original_player_index)
         if cnt:
             self_draw = cnt["zimo"]
@@ -127,17 +129,39 @@ def _build_metrics_row(
             cuohe_count = cnt["cuohe"]
             total_win_turn = cnt["win_turn"]
         total_round_score = sum_player_round_score(record, original_player_index)
+        if sub_rule in (None, "", "guobiao", "guobiao/standard"):
+            from .guobiao.record_replay import replay_win_turns
+            _, total_rounds, turns, wins = replay_win_turns(record)
+            total_win_turn = turns[original_player_index]
+            win_count = wins[original_player_index]
+    elif rule == "riichi":
+        from .riichi.record_stats import analyze_riichi_record, resolve_original_index
+        index = resolve_original_index(record, user_id, original_player_index)
+        stats = analyze_riichi_record(record, index, score, rank)
+        if stats:
+            total_rounds = stats["total_rounds"]
+            win_count = stats["win_count"]
+            self_draw = stats["self_draw_count"]
+            deal_in = stats["deal_in_count"]
+            total_fan_score = stats["total_fan_score"]
+            total_win_turn = stats["total_win_turn"]
+            total_fangchong_score = stats["total_fangchong_score"]
+            fulu_round_count = stats["fulu_round_count"]
+            cuohe_count = stats["cuohe_count"]
+            total_round_score = stats["total_round_score"]
     elif original_player_index is not None:
-        cnt = analyze_record_for_player(record, original_player_index)
-        if cnt:
-            self_draw = cnt["zimo"]
-            win_count = cnt["zimo"] + cnt["dianhe"]
-            deal_in = cnt["fangchong"]
-            total_fan_score = cnt["win_score"]
-            total_fangchong_score = cnt["fangchong_score"]
-            fulu_round_count = cnt["fulu_rounds"]
-            cuohe_count = cnt["cuohe"]
-            total_win_turn = cnt["win_turn"]
+        from .shared_record_metrics import analyze_shared_record_for_player
+        cnt = analyze_shared_record_for_player(record, original_player_index)
+        total_rounds = cnt["total_rounds"]
+        self_draw = cnt["self_draw_count"]
+        win_count = cnt["win_count"]
+        deal_in = cnt["deal_in_count"]
+        total_fan_score = cnt["total_fan_score"]
+        total_fangchong_score = cnt["total_fangchong_score"]
+        fulu_round_count = cnt["fulu_round_count"]
+        cuohe_count = cnt["cuohe_count"]
+        total_win_turn = cnt["total_win_turn"]
+        total_round_score = cnt["total_round_score"]
 
     return (
         game_id, user_id, username, rule, sub_rule, room_type, match_tier, event_id,
@@ -154,7 +178,8 @@ def _get_ai_game_ids(
     date_to: Optional[date] = None,
 ) -> Set[str]:
     where = ["gpr.user_id <= %s"]
-    params: list = [REGISTERED_USER_ID_MIN]
+    # 与实时保存一致：机器人排除整桌；游客只跳过游客本人，不能丢掉同桌注册玩家。
+    params: list = [BOT_USER_ID_MAX]
     if date_from or date_to:
         where.append("gr.created_at IS NOT NULL")
         if date_from:
@@ -178,7 +203,7 @@ def _get_ai_game_ids(
             SELECT DISTINCT game_id FROM game_player_records
             WHERE user_id <= %s
             """,
-            (REGISTERED_USER_ID_MIN,),
+            (BOT_USER_ID_MAX,),
         )
     return {r[0] for r in cursor.fetchall()}
 
@@ -264,6 +289,8 @@ def backfill_missing_game_player_metrics(
             record = _parse_record(record_raw)
             if record is None:
                 continue
+            title = record.get("game_title") or {}
+            rule, sub_rule = canonical_rule_identity(rule or title.get("rule"), sub_rule or title.get("sub_rule"))
             room_type, match_tier, event_id = _resolve_scene_fields(
                 record, room_type, match_tier, event_id,
             )

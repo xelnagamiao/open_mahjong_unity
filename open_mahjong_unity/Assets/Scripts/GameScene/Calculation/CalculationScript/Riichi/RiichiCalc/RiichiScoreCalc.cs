@@ -8,16 +8,23 @@ namespace Riichi {
     /// 返回和牌者从三家收到的总分（不含本场/供托）。
     /// </summary>
     public static class RiichiScoreCalc {
-        public static int CalculateTotalScore(int han, int fu, bool isDealer, bool isTsumo, int yakumanMultiplier, bool kiriage = false, string kazoe = "yakuman") {
+        public static int CalculateTotalScore(int han, int fu, bool isDealer, bool isTsumo, int yakumanMultiplier, bool kiriage = false, string kazoe = "yakuman", int playerCount = 4, string sanmaTsumo = "loss") {
             int basePoints = yakumanMultiplier > 0
                 ? 8000 * yakumanMultiplier
                 : GetBasePoints(han, fu, kiriage, kazoe);
 
             if (isDealer) {
-                if (isTsumo) return CeilTo100(basePoints * 2) * 3;
+                if (isTsumo) {
+                    int each = CeilTo100(basePoints * 2);
+                    return playerCount == 3 ? each * 2 + (sanmaTsumo == "split" ? CeilTo100((each + 1) / 2) * 2 : 0) : each * 3;
+                }
                 return CeilTo100(basePoints * 6);
             }
-            if (isTsumo) return CeilTo100(basePoints * 2) + CeilTo100(basePoints) * 2;
+            if (isTsumo) {
+                int child = CeilTo100(basePoints);
+                return CeilTo100(basePoints * 2) + child * (playerCount == 3 ? 1 : 2)
+                    + (playerCount == 3 && sanmaTsumo == "split" ? CeilTo100((child + 1) / 2) * 2 : 0);
+            }
             return CeilTo100(basePoints * 4);
         }
 
@@ -33,22 +40,22 @@ namespace Riichi {
             int winnerScoreDelta,
             int honba,
             int riichiSticksCollected,
-            string[] yaku = null, bool kiriage = false, string kazoe = "yakuman") {
+            string[] yaku = null, bool kiriage = false, string kazoe = "yakuman", int playerCount = 4, string sanmaTsumo = "loss") {
             if (ContainsCuohe(yaku)) {
-                return StripFieldBonuses(winnerScoreDelta, isTsumo, honba, riichiSticksCollected);
+                return StripFieldBonuses(winnerScoreDelta, isTsumo, honba, riichiSticksCollected, playerCount);
             }
             if (han > 0 && fu > 0) {
                 bool trueYakuman = yaku != null && Array.Exists(yaku, IsYakumanName);
                 int yakumanMult = trueYakuman ? Math.Max(1, han / 13) : 0;
-                return CalculateTotalScore(han, fu, isDealer, isTsumo, yakumanMult, kiriage, kazoe);
+                return CalculateTotalScore(han, fu, isDealer, isTsumo, yakumanMult, kiriage, kazoe, playerCount, sanmaTsumo);
             }
-            return StripFieldBonuses(winnerScoreDelta, isTsumo, honba, riichiSticksCollected);
+            return StripFieldBonuses(winnerScoreDelta, isTsumo, honba, riichiSticksCollected, playerCount);
         }
 
         /// <summary>从和牌者本笔 score_changes 中去掉场供与本场。</summary>
-        public static int StripFieldBonuses(int winnerDelta, bool isTsumo, int honba, int riichiSticksCollected) {
+        public static int StripFieldBonuses(int winnerDelta, bool isTsumo, int honba, int riichiSticksCollected, int playerCount = 4) {
             int points = winnerDelta - Math.Max(0, riichiSticksCollected) * 1000;
-            int honbaBonus = Math.Max(0, honba) * 300;
+            int honbaBonus = Math.Max(0, honba) * (isTsumo ? (playerCount - 1) * 100 : 300);
             if (honbaBonus <= 0) {
                 return Math.Max(0, points);
             }

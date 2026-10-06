@@ -10,24 +10,15 @@
 - 最近大和仅统计国标，取该玩家该分类的历史最高**实际结算总番数**，没有 10/30 场或时间限制；同番取较新的一次。
 - 从全部现存牌谱恢复历史；已经被删除的原始牌谱无法追溯。完成采集的历史最高番独立保留，不会因十场窗口滑动而失效。
 
-## 启动与独立脚本
+## 正常启动与错误重试
 
-正常执行 `python main.py` 时，FastAPI lifespan 会在开始提供服务前自动回填。首次运行读取全部历史，默认每 100 份牌谱提交一次数据和检查点。后续启动检查完成标记，不重复扫描。
+历史全量回填已完成并核验，一次性独立脚本及启动全库扫描已归档，不再作为正常部署入口。已有的 `player_recent_record_migrations` 记录仅保留作历史审计；新数据库不依赖这张迁移表。
 
-也可以在 `open_mahjong_server` 目录手动执行：
+正常执行 `python main.py` 时，仅通过 `retry_player_recent_record_errors` 重试明确登记在 `player_recent_record_errors` 的牌谱，不重复扫描或重置全部个人历史。每页重试与缓存更新在事务内完成；成功后清除对应错误，失败时保留错误供下一次重试，不修改原始牌谱。
 
-```powershell
-.\.venv\Scripts\python.exe scripts/backfill_player_recent_records.py --batch-size 100
-```
-
-脚本使用与服务器一致的 `server.local_config.Config`（不存在时回退 `test_config`）。不启动游戏服务、不改动牌谱、不重建原有累计统计。
-
-首次回填期间日志按页输出进度。进程中断后从最后已提交的页继续；重复执行不会重复增加顺位点。数据库错误回滚当前页并向调用方报错。
-
-不能完整还原的国标牌谱写入 `player_recent_record_errors`，顺位仍正常保存。错误记录会在下次启动/手动运行时重试；存在错误时完成标记保持空，独立脚本返回退出码 1。修复对应牌谱或追溯逻辑后再次运行即可。检查：
+不能完整还原的国标牌谱仍登记错误，顺位正常保存。修复对应牌谱或追溯逻辑后，重启服务可再次重试。检查：
 
 ```sql
-SELECT * FROM player_recent_record_migrations;
 SELECT game_id, details FROM player_recent_record_errors ORDER BY game_id;
 ```
 
@@ -44,7 +35,7 @@ SELECT game_id, details FROM player_recent_record_errors ORDER BY game_id;
 
 旧国标牌谱逐手还原摸切、补花、吃碰、明杠/暗杠/加杠、抢杠和，使用每手 `seats` 将当前座位映射回原始座位与 user_id。保留历史结算番数，不用当前规则重新计番。旧牌谱可恢复牌面分组；`combination_mask` 仅新结算快照保留原始方向掩码。
 
-九种规则的 `store_*_game_record` 在提交前统一调用 `update_player_recent_records`，与牌谱、玩家行处于同一事务。按固定玩家顺序锁行，避免并发对局相互覆盖。相同 game_id 重复处理会合并而不是追加重复点。迁移使用数据库互斥锁，避免多个服务进程同时回填。
+九种规则的 `store_*_game_record` 在提交前统一调用 `update_player_recent_records`，与牌谱、玩家行处于同一事务。按固定玩家顺序锁行，避免并发对局相互覆盖。相同 game_id 重复处理会合并而不是追加重复点；错误重试沿用这一幂等更新路径。
 
 ## 同步和显示
 

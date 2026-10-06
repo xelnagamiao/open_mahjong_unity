@@ -80,7 +80,9 @@ def _prepare(hand, melds, policy):
                 natural[INDEX[logical]] += 1
         if policy.closed_cap is not None and any(n > policy.closed_cap for n in natural):
             return None
-        return hand, external, tuple(natural), tuple(jokers), physical
+        # Counts fit in one byte (at most 17 concealed tiles). Keep global
+        # cache capacities while avoiding 34-slot tuple keys and their slices.
+        return hand, external, bytes(natural), tuple(jokers), physical
     except (ValueError, TypeError, KeyError, AttributeError):
         return None
 
@@ -93,15 +95,15 @@ def _group_engine(counts, sequences, cap, budget, allowed, targets, pairs):
         minimum = counts[rank]
         pending = prev1 + prev2
         maximum = min(minimum + budget, cap) if cap else minimum + budget
-        if not allowed[rank]:
+        if not (allowed >> rank) & 1:
             maximum = 0
-        for pair in range(1 + int(bool(pair_left and pairs[rank]))):
+        for pair in range(1 + int(bool(pair_left and (pairs >> rank) & 1))):
             for pung in range(max(0, (maximum - pending - 2 * pair) // 3 + 1)):
                 base = pending + 2 * pair + 3 * pung
                 max_seq = maximum - base if sequences and rank < len(counts) - 2 else 0
                 for seq in range(max_seq + 1):
                     cost = base + seq - minimum
-                    if cost < 0 or cost > budget or (cost and not targets[rank]):
+                    if cost < 0 or cost > budget or (cost and not (targets >> rank) & 1):
                         continue
                     yield pair, pung, seq, cost
 
@@ -123,15 +125,22 @@ def _group_profile(counts, sequences, cap, budget, allowed, targets, pairs):
     return resources(0, 0, 0, 0), resources(0, 0, 0, 1)
 
 
-def _group_inputs(counts, budget, policy):
+@lru_cache(maxsize=128)
+def _group_domains(policy):
+    """Small shared rank masks, rather than three boolean tuples per key."""
     logical = set(policy.logical_tiles)
     targets = logical if policy.joker_targets is None else set(policy.joker_targets)
     pairs = logical if policy.pair_tiles is None else set(policy.pair_tiles)
-    for start, end, sequences in GROUPS:
-        faces = TILES[start:end]
+    return tuple(tuple(sum(1 << rank for rank, tile in enumerate(TILES[start:end])
+                           if tile in domain) for domain in (logical, targets, pairs))
+                 for start, end, _ in GROUPS)
+
+
+def _group_inputs(counts, budget, policy):
+    domains = _group_domains(policy)
+    for (start, end, sequences), masks in zip(GROUPS, domains):
         yield (counts[start:end], sequences, policy.closed_cap or 0, budget,
-               tuple(t in logical for t in faces), tuple(t in targets for t in faces),
-               tuple(t in pairs for t in faces))
+               *masks)
 
 
 @lru_cache(maxsize=32768)
@@ -151,7 +160,7 @@ def _minimum_group_jokers(counts, pair, sequences):
         used = min(counts[first], size)
         remaining = list(counts)
         remaining[first] -= used
-        best = min(best, size - used + _minimum_group_jokers(tuple(remaining),
+        best = min(best, size - used + _minimum_group_jokers(bytes(remaining),
                                                            pair and size != 2, sequences))
     if sequences:
         for start in range(max(0, first - 2), min(first, len(counts) - 3) + 1):
@@ -162,7 +171,7 @@ def _minimum_group_jokers(counts, pair, sequences):
                     remaining[rank] -= 1
                 else:
                     cost += 1
-            best = min(best, cost + _minimum_group_jokers(tuple(remaining), pair, True))
+            best = min(best, cost + _minimum_group_jokers(bytes(remaining), pair, True))
     return best
 
 
@@ -317,7 +326,12 @@ def _waits(hand, melds, policy):
 def structural_waits(hand, melds=(), policy=None):
     policy = policy or DEFAULT_POLICY
     try:
-        return _waits(tuple(sorted(hand)), tuple(melds), policy)
+        ordered = sorted(hand)
+        # Validate before packing: bytes would otherwise coerce int subclasses
+        # and bools, bypassing _prepare's exact physical-identity type check.
+        if any(type(tile) is not int for tile in ordered):
+            return frozenset()
+        return _waits(bytes(ordered), tuple(melds), policy)
     except (TypeError, ValueError):
         return frozenset()
 
@@ -571,7 +585,7 @@ def iter_winning_shapes(hand, melds=(), policy=None, winning_tile=None, *, winni
 
 
 def clear_caches():
-    for function in (_group_profile, _minimum_group_jokers, _standard, _pairs, _waits):
+    for function in (_group_domains, _group_profile, _minimum_group_jokers, _standard, _pairs, _waits):
         function.cache_clear()
 
 

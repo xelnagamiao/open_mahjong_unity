@@ -10,10 +10,8 @@ public static class RecordWaitHintCalculator {
         if (ctx.SelfHuapaiList != null) {
             foreach (int _ in ctx.SelfHuapaiList) way.Add("花牌");
         }
-        if (ctx.CurrentRound <= 4) way.Add("场风东");
-        else if (ctx.CurrentRound <= 8) way.Add("场风南");
-        else if (ctx.CurrentRound <= 12) way.Add("场风西");
-        else if (ctx.CurrentRound <= 16) way.Add("场风北");
+        int wind = (ctx.CurrentRound - 1) / MahjongPlayerCount.ForSubRule(ctx.SubRule);
+        if (wind >= 0 && wind < 4) way.Add("场风" + "东南西北"[wind]);
         switch (ctx.SelfPlayerIndex) {
             case 0: way.Add("自风东"); break;
             case 1: way.Add("自风南"); break;

@@ -271,6 +271,7 @@ public partial class GameCanvas : MonoBehaviour {
     // 从牌谱记录初始化游戏UI
     public void InitializeUIInfoFromRecord(List<GameRecordManager.RecordPlayer> recordPlayerList, Dictionary<int, string> indexToPosition, Dictionary<int, string> userIdToUsername) {
         gameObject.SetActive(true);
+        ApplyOccupiedSeatPanels(indexToPosition);
         StopAndClearChangeHandCardQueue();
         ClearActionDisplay();
         ClearActionButton();

@@ -104,7 +104,7 @@ def test_hand_action_window_includes_available_kongs_and_clock_without_timestamp
     assert "angang" in state.check_hand_actions(0)[0]
     draw(hand(state, 0, [22, 23, 24, 31, 32, 33, 27, 28, 29, 45], ["k11"]), 11)
     assert "jiagang" in state.check_hand_actions(0)[0]
-    assert state.claim_clock(state.player_list[0], reconnecting=True) == (0, 3)
+    assert state.claim_clock(state.player_list[0], reconnecting=True) == (20, 5)
 
 
 @pytest.mark.parametrize("allowed,phase,action", [

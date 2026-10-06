@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 /// <summary>
@@ -53,6 +54,9 @@ public sealed class ActionWordSpec {
     /// <summary>按完整词动态判类；为 null 时使用 <see cref="Kind"/>。</summary>
     public Func<string, ActionWordKind> ResolveKind;
 
+    /// <summary>按钮显示优先级；为空时按语义类别排序，不影响规则裁定或自动操作。</summary>
+    public int? DisplayPriority;
+
     /// <summary>按钮文案；为 null 表示核心用自己的文案表（标准词都走核心文案）。</summary>
     public Func<string, string> Label;
 
@@ -103,6 +107,14 @@ public static class ActionWords {
         RegisterKind(ActionWordKind.MingGang, "gang");
         RegisterKind(ActionWordKind.Ron, "hu", "hu_first", "hu_second", "hu_third");
         RegisterKind(ActionWordKind.Tsumo, "hu_self");
+        ExactWords["force_pass"].DisplayPriority = 70;
+        foreach (string word in new[] { "angang", "jiagang", "buzhang" }) {
+            Register(new ActionWordSpec { Word = word, DisplayPriority = 30 });
+        }
+        foreach (string word in new[] { "hu_flower", "initial_hu" }) {
+            Register(new ActionWordSpec { Word = word, DisplayPriority = 50 });
+        }
+        Register(new ActionWordSpec { Word = "riichi_cut_cancel", DisplayPriority = 60 });
     }
 
     private static void RegisterKind(ActionWordKind kind, params string[] words) {
@@ -145,6 +157,27 @@ public static class ActionWords {
     }
 
     public static bool Is(string word, ActionWordKind kind) => KindOf(word) == kind;
+
+    /// <summary>从左到右：吃、碰、杠、特殊操作、和牌、取消、放弃。</summary>
+    public static int DisplayPriorityOf(string word) {
+        if (TryGet(word, out ActionWordSpec spec) && spec.DisplayPriority.HasValue) {
+            return spec.DisplayPriority.Value;
+        }
+        switch (KindOf(word)) {
+            case ActionWordKind.Chi: return 10;
+            case ActionWordKind.Peng: return 20;
+            case ActionWordKind.MingGang: return 30;
+            case ActionWordKind.Ron:
+            case ActionWordKind.Tsumo: return 50;
+            case ActionWordKind.Pass: return 60;
+            default: return 40;
+        }
+    }
+
+    /// <summary>仅供按钮生成使用的稳定排序副本；同类候选及原始合法动作列表保持原序。</summary>
+    public static List<string> OrderForDisplay(IEnumerable<string> words) {
+        return words == null ? new List<string>() : words.OrderBy(DisplayPriorityOf).ToList();
+    }
 
     /// <summary>规则模块提供的按钮文案；标准词或未登记的词返回 null，由核心用自己的文案。</summary>
     public static string LabelOf(string word) {

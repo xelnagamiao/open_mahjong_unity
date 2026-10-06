@@ -208,15 +208,13 @@ def test_round_reset_clears_passed_pung_hidden_discards_and_kong_ledger():
     assert not state.kong_ledger and not state.tail_single and state.dead_wall_count==14
 
 
-def test_claim_clock_uses_actual_delivery_and_three_second_cap():
+def test_claim_clock_starts_with_configured_bank_and_step():
     state=make_state()
     p=state.player_list[0]
     p.remaining_time=20
     state.step_time=5
-    assert state.claim_clock(p)==(0,3)
-    state._ask_delivered_at={0:100.0}
-    with patch("server.gamestate.game_shanxi.ShanxiGameState.time.time",return_value=101.2):
-        assert state.claim_clock(p,True)==(0,2)
+    state.game_status="waiting_action_after_cut"
+    assert state.claim_clock(p)==(20,5)
 
 
 def test_registered_state_retains_shanxi_index_and_reconnect_identity():

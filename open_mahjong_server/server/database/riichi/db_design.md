@@ -1,5 +1,7 @@
 # 立直麻将数据库表设计
 
+当前玩家展示使用可重建的逐对局摘要 `riichi_player_game_stats`，基础累计表继续保留。完整指标口径、筛选与兼容说明见 [日麻玩家统计设计](../../../docs/riichi-player-statistics.md)。
+
 ## riichi_history_stats 立直麻将对局统计表
 
 专门用于立直麻将（riichi）规则的基础统计数据，按照 `rule`（规则，如 riichi）与 `mode`（模式，如 `1/4`、`2/4`、`3/4`、`4/4`、`1/4_rank` 等）区分不同维度。客户端展示排行榜/统计时需与 `riichi_fan_stats` 表关联查询。

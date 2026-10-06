@@ -26,10 +26,10 @@ This module is deliberately import/mutation-free like ``efficiency_bot``.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import Iterable, Optional, Sequence
 
 from .action_priority import HONGQUE_ACTION_PRIORITY
+from .efficiency_bot import _structural_value
 from .group_index import (
     FULL_DECK_MASK,
     GROUP_MASKS,
@@ -137,14 +137,6 @@ def _hypothetical_points(
     if result is None:
         return 0
     return int(result.get("points", 0) or 0)
-
-
-@lru_cache(maxsize=32768)
-def _structural_value(hand_mask: int) -> tuple[int, int]:
-    """Replacement distance + flexibility (delegated to efficiency_bot)."""
-    from .efficiency_bot import _structural_value as _base
-
-    return _base(hand_mask)
 
 
 def _meld_tiles(melds: Sequence[dict]) -> list[str]:

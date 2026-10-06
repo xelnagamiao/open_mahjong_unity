@@ -22,7 +22,7 @@
         <section :key="active.key" class="rule-section">
           <div class="rule-intro">
             <h2>{{ active.label }}</h2>
-            <p>{{ active.description }}</p>
+            <p>{{ activeDescription }}</p>
           </div>
 
           <div v-if="active.key === 'hongkong'" class="tab-bar" aria-label="香港麻将子规则">
@@ -30,6 +30,13 @@
               :class="['tab-pill', { 'is-active': selectedHongKong.subRule === profile.subRule }]"
               :aria-pressed="selectedHongKong.subRule === profile.subRule"
               @click="setHongKongProfile(profile.subRule)">{{ profile.label }}</button>
+          </div>
+
+          <div v-if="active.key === 'guangdong'" class="tab-bar" aria-label="广东麻将子规则">
+            <button v-for="profile in milRulebooks.guangdong" :key="profile.subRule"
+              :class="['tab-pill', { 'is-active': selectedGuangdong.subRule === profile.subRule }]"
+              :aria-pressed="selectedGuangdong.subRule === profile.subRule"
+              @click="setGuangdongProfile(profile.subRule)">{{ profile.label }}</button>
           </div>
 
           <div class="docs-grid">
@@ -63,6 +70,7 @@
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { hongKongRulebooks, hongKongRulebook } from '../constants/hongKongRulebooks.js'
+import { milRulebooks, milRulebook } from '../constants/milRulebooks.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -147,7 +155,7 @@ const rules = [
     docs: [
       {
         title: '四川麻将（SBR）竞赛规则',
-        desc: '四川麻将（SBR）竞赛规则（试行 2025 版）。',
+        desc: '四川麻将（血战到底）',
         url: '/rulebooks/sichuan-sbr.pdf',
         filename: '四川麻将（SBR）竞赛规则（试行2025版）.pdf'
       },
@@ -174,32 +182,29 @@ const rules = [
     ]
   },
   {
-    key: 'guangdong', label: '广东麻将', short: '广东',
-    categories: ['platform', 'mil'], accent: '#0f766e',
-    description: 'MIL 推倒和2024无癞子标准本。136张，可吃碰杠，报听可选，头跳；23番种，32番封顶另加2底分。',
-    docs: [
-      { title: '推倒和 MIL 2024 原书', url: '/rulebooks/mil/推倒和麻将（推广）竞赛规则（试行2024版）.pdf', filename: '推倒和麻将（推广）竞赛规则（试行2024版）.pdf' },
-    ],
+    key: 'guangdong', label: '广东麻将', short: '广东', categories: ['platform', 'mil'], accent: '#0f766e',
+    description: milRulebooks.guangdong[0].desc,
+    docs: milRulebooks.guangdong,
   },
   {
     key: 'changchun', label: '长春麻将', short: '长春', categories: ['platform', 'mil'], accent: '#5c779a',
-    description: 'MIL 长春2024：136张、十三张手牌，三门带幺九，可吃碰杠、报听看宝。一条仅在特殊杠中代牌；六番封顶，流局保留杠分。',
-    docs: [{ title: 'MIL 长春2024原文', url: '/rulebooks/mil/长春麻将（推广）竞赛规则（试行2024版）.pdf' }, { title: '平台补则', url: '/rulebooks/changchun.html' }],
+    description: milRulebooks.changchun[0].desc,
+    docs: [...milRulebooks.changchun, { title: '平台补则', url: '/rulebooks/changchun.html' }],
   },
   {
     key: 'hongzhong', label: '红中麻将', short: '红中', categories: ['platform', 'mil'], accent: '#b74b46',
-    description: 'MIL 红中麻将（推广）2024：112张、十三张手牌，红中为万能牌；仅自摸，可碰杠，不吃。最高四番，和后扎两鸟，流局退杠。',
-    resources: [{ title: 'MIL 红中麻将2024原文', url: '/rulebooks/mil/红中麻将（推广）竞赛规则（试行2024版）.pdf' }],
+    description: milRulebooks.hongzhong[0].desc,
+    docs: milRulebooks.hongzhong,
   },
   {
     key: 'hangzhou', label: '杭州麻将', short: '杭州', categories: ['platform', 'mil'], accent: '#1f8a6a',
-    description: 'MIL 杭州麻将（推广）2025：136张、白板财神，仅自摸；爆头、财飘、七对、十风，4番封顶，老庄2/4/8倍、三吃承包，墙尾20张流局。',
-    docs: [{ title: 'MIL 杭州麻将2025原文', url: '/rulebooks/mil/杭州麻将（推广）竞赛规则（试行2025版）.pdf' }],
+    description: milRulebooks.hangzhou[0].desc,
+    docs: milRulebooks.hangzhou,
   },
   {
     key: 'wenzhou', label: '温州麻将', short: '温州', categories: ['platform', 'local', 'mil'], accent: '#297b74',
-    description: 'MIL 温州2024：136张、十六张手牌，每局翻财；白板固定代财神本牌，可吃碰杠和点和，八对加单张、三财、软硬和及连庄。',
-    docs: [{ title: 'MIL 温州麻将2024原文', url: '/rulebooks/mil/温州麻将（试点）竞赛规则（试行2024版）.pdf' }, { title: '温州2024平台补则', url: '/rulebooks/wenzhou/MIL2024-platform-supplement.txt' }],
+    description: milRulebooks.wenzhou[0].desc,
+    docs: [...milRulebooks.wenzhou, { title: '温州2024平台补则', url: '/rulebooks/wenzhou/MIL2024-platform-supplement.txt' }],
   },
   {
     key: 'yixing', label: '宜兴麻将', short: '宜兴', categories: ['platform', 'local'], accent: '#537c69',
@@ -212,11 +217,14 @@ const rules = [
     ],
   },
   {
-    key: 'guizhou', label: '贵州麻将',
-    description: 'MIL 贵州麻将（推广）2023：无花无癞子、不吃、开局报听、捉鸡和局终鸡杠结算。',
-    docs: [
-      { title: 'MIL 贵州麻将2023原文', url: '/rulebooks/mil/贵州麻将（推广）竞赛规则（试行2023版）.pdf' },
-    ],
+    key: 'guizhou', label: '贵州麻将', short: '贵州', categories: ['platform', 'mil'], accent: '#92752f',
+    description: milRulebooks.guizhou[0].desc,
+    docs: milRulebooks.guizhou,
+  },
+  {
+    key: 'shanxi', label: '山西麻将', short: '山西', categories: ['platform', 'local', 'mil'], accent: '#b7791f',
+    description: milRulebooks.shanxi[0].desc,
+    docs: milRulebooks.shanxi,
   },
   {
     key: 'hongkong',
@@ -255,7 +263,7 @@ const rules = [
     description: '上海敲麻：上海特色麻将规则，使用144张麻将牌，有着中发白当花、可以垃圾和、听牌后要敲牌报听、番种简单等特点，节奏快且易上手。上海清混碰：上海传统麻将规则，使用144张麻将牌，以必须做出清、混一色或碰碰和才能和牌为特色，与快节奏的上海敲麻有着鲜明对比，独具特色。',
     docs: [{
       title: 'MIL 上海麻将（推广）竞赛规则（试行2024版）',
-      desc: '国际麻将联盟（MIL）规则委员会审定的上海敲麻规则书。',
+      desc: '上海敲麻：上海特色麻将规则，使用144张麻将牌，有着中发白当花、可以垃圾和、听牌后要敲牌报听、番种简单等特点，节奏快且易上手。线上计时使用房间配置（默认局时20秒、步时5秒），先耗步时再耗本局局时；吃碰杠和及补花没有独立3秒上限，重连不重置窗口。原PDF保留线下规则原文。',
       url: '/rulebooks/shanghai-qiaoma-2024.pdf',
       filename: '上海麻将（推广）竞赛规则（试行2024版）.pdf'
     }, {
@@ -321,7 +329,16 @@ const selectedHongKong = computed(() => hongKongRulebook({
   sub_rule: route.query.sub_rule,
   hk_new13_version: route.query.new13_version,
 }))
-const activeDocs = computed(() => active.value.key === 'hongkong' ? [selectedHongKong.value] : active.value.docs)
+const selectedGuangdong = computed(() => milRulebook('guangdong', route.query.sub_rule))
+const activeDescription = computed(() => active.value.key === 'guangdong' ? selectedGuangdong.value.desc : active.value.description)
+const activeDocs = computed(() => {
+  if (active.value.key === 'hongkong') return [selectedHongKong.value]
+  if (active.value.key === 'guangdong') return [selectedGuangdong.value]
+  return active.value.docs
+})
+const setGuangdongProfile = (subRule) => {
+  router.replace({ name: 'Rulebook', params: { rule: 'guangdong' }, query: { sub_rule: subRule } })
+}
 const setHongKongProfile = (subRule) => {
   router.replace({ name: 'Rulebook', params: { rule: 'hongkong' }, query: { sub_rule: subRule } })
 }

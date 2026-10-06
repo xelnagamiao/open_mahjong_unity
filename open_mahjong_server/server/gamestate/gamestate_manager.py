@@ -90,6 +90,10 @@ class GameStateManager:
             return Response(type="error_message", success=False, message="房间不存在")
             
         room_data = self.game_server.room_manager.rooms[room_id]
+        from ..room.changchun_room import enforce_changchun_tactical_room
+        enforce_changchun_tactical_room(room_data)
+        from ..room.tuidao_room import enforce_tuidao_tactical_room
+        enforce_tuidao_tactical_room(room_data)
         if room_data.get("duplicate_key") and room_data.get("room_rule") != "guobiao":
             return Response(type="error_message", success=False, message="复式牌墙仅支持国标麻将（含蓝十改）")
         if room_data.get("event_seating_pending") and not event_auto_start:
@@ -101,11 +105,13 @@ class GameStateManager:
         if player.user_id != room_data.get("host_user_id"):
             return Response(type="error_message", success=False, message="只有房主能开始游戏")
             
-        # 检查人数是否满足：默认满 4 人；房间可声明 min_players_to_start（自由模式为 1）
+        # 三人立直默认满 3 人；其余默认满 4 人，自由模式可声明最少 1 人。
+        from .public.player_count import player_count_for_sub_rule
+        default_min_players = player_count_for_sub_rule(room_data.get("sub_rule"))
         try:
-            min_players = int(room_data.get("min_players_to_start", 4) or 4)
+            min_players = int(room_data.get("min_players_to_start", default_min_players) or default_min_players)
         except (TypeError, ValueError):
-            min_players = 4
+            min_players = default_min_players
         if min_players < 1:
             min_players = 1
         if len(room_data["player_list"]) < min_players:
@@ -163,6 +169,8 @@ class GameStateManager:
         if room_data["room_rule"] == "zhongyong" and room_data.get("sub_rule") == "zhongyong/nanque":
             state_class = NanqueGameState
         room_data.setdefault("instance_id", str(uuid.uuid4()))
+        from ..room.guangdong_room import enforce_guangdong_tactical
+        enforce_guangdong_tactical(room_data)
         game_state = None
         try:
             snapshot = deepcopy(room_data)

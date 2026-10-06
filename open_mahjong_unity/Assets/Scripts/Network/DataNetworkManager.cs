@@ -34,6 +34,7 @@ public class DataNetworkManager : MonoBehaviour {
     /// </summary>
     public void HandleDataMessage(Response response) {
         switch (response.type) {
+            case "data/get_rule_stats": PlayerInfoPanel.Instance?.OnRuleStatsReceived(response); break;
             case "data/get_ranked_stats": PlayerInfoPanel.Instance?.OnRankedStatsReceived(response);break;
             case "data/get_record_list":
                 HandleGetRecordListResponse(response);
@@ -166,7 +167,7 @@ public class DataNetworkManager : MonoBehaviour {
     }
 
     /// <summary>
-    /// 处理获取简单麻将统计数据响应
+    /// 处理获取南雀旧兼容统计数据响应
     /// </summary>
     private void HandleGetJiandanStatsResponse(Response response) {
         if (PlayerInfoPanel.Instance == null) return;
@@ -325,7 +326,7 @@ public class DataNetworkManager : MonoBehaviour {
     }
 
     /// <summary>
-    /// 获取简单麻将统计数据
+    /// 获取南雀旧兼容统计数据
     /// </summary>
     public async void GetJiandanStats(string userid, bool need_player_info = false) {
         try {
@@ -336,8 +337,24 @@ public class DataNetworkManager : MonoBehaviour {
             };
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
-            Debug.LogError($"获取简单麻将统计数据失败: {e.Message}");
+            Debug.LogError($"获取南雀统计数据失败: {e.Message}");
             PlayerInfoPanel.Instance?.OnJiandanStatsReceived(false, e.Message, null);
+        }
+    }
+
+    public async void GetRuleStats(string userid, string rule, string requestId) {
+        try {
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(new {
+                type = "data/get_rule_stats", userid, rule,
+                source_rule = PlayerInfoRuleCatalog.SourceRule(rule),
+                sub_rule = PlayerInfoRuleCatalog.SubRule(rule),
+                player_count = PlayerInfoRuleCatalog.PlayerCount(rule),
+                room_type = "custom", data_request_id = requestId
+            }));
+        } catch (Exception e) {
+            PlayerInfoPanel.Instance?.OnRuleStatsReceived(new Response {
+                success = false, message = e.Message, data_request_id = requestId
+            });
         }
     }
 

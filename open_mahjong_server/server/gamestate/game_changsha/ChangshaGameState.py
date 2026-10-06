@@ -231,7 +231,7 @@ class ChangshaGameState:
         "peng": 2, "gang": 2,  # 碰杠优先级 次高优先级
         "chi_left": 1, "chi_mid": 1, "chi_right": 1,
         "ready": 0,  # 准备操作优先级 最低优先级
-        "pass": 0,"cut":0,"buzhang":0,"angang":0,"jiagang":0,"deal_tile":0,"deal_gang_tile":0,
+        "pass": 0,"force_pass":0,"cut":0,"buzhang":0,"angang":0,"jiagang":0,"deal_tile":0,"deal_gang_tile":0,
         "initial_hu": 0, "sea_bottom": 0 # 其他优先级 最低优先级
         }
 

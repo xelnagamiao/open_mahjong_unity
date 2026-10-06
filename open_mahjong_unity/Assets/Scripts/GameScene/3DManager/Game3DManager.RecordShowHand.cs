@@ -277,7 +277,7 @@ public partial class Game3DManager {
         for (int i = 0; i + 1 < combinationMask.Length; i += 2) {
             int flag = combinationMask[i];
             int tid = combinationMask[i + 1];
-            if (flag != 1 && tid >= 10) {
+            if (flag != 1 && !MeldStackLayout.IsStack(flag) && tid >= 10) {
                 tilesToRemove.Add(tid);
             }
         }

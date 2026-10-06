@@ -1,4 +1,6 @@
 const en = {
+  '记住密码': 'Remember password',
+  '保持登录状态 30 天': 'Stay logged in for 30 days',
   '首页': 'Home', '比赛': 'Events', '进入平台': 'Play', '2D版': '2D', 'Steam商店': 'Steam Store',
   '历史记录': 'Game Records', '数据统计': 'Statistics', '牌理': 'Hand Analysis', '国标计算器': 'MCR Calculator',
   '规则书': 'Rulebooks', '种子验证': 'Seed Verification', '手机版': 'Mobile', '使用说明': 'Guide',
@@ -197,6 +199,8 @@ const en = {
 }
 
 const ja = {
+  '记住密码': 'パスワードを保存',
+  '保持登录状态 30 天': '30日間ログイン状態を保持',
   ...Object.fromEntries(Object.keys(en).map((key) => [key, key])),
   '首页': 'ホーム', '比赛': '大会', '进入平台': 'プレイ', '2D版': '2D版', 'Steam商店': 'Steamストア',
   '历史记录': '対局履歴', '数据统计': '統計', '牌理': '牌効率', '国标计算器': '中国公式麻雀計算機',
@@ -1814,6 +1818,7 @@ export const textPatterns = {
     { match: /^(\d+)巡$/, replace: (turn) => `Turn ${turn}` },
     { match: /^剩余 (\d+) 张$/, replace: (count) => `${count} tiles left` },
     { match: /^(\d+) 番起和$/, replace: (fan) => `${fan} fan minimum` },
+    { match: /^匹配成功，(\d+) 秒后进入游戏$/, replace: (seconds) => `Match found. Entering game in ${seconds}s` },
     { match: /^局时 (\d+) 秒$/, replace: (seconds) => `${seconds}s per hand` },
     { match: /^步时 (\d+) 秒$/, replace: (seconds) => `${seconds}s per turn` },
     { match: /^已保存图片：(.+)$/, replace: (name) => `Saved image: ${name}` },
@@ -1849,6 +1854,7 @@ export const textPatterns = {
     { match: /^第 (\d+) 名$/, replace: (rank) => `${rank}位` },
     { match: /^第(\d+)局$/, replace: (hand) => `第${hand}局` },
     { match: /^(\d+)巡$/, replace: (turn) => `${turn}巡` },
+    { match: /^匹配成功，(\d+) 秒后进入游戏$/, replace: (seconds) => `マッチ成立。${seconds}秒後に対局開始` },
     { match: /^剩余 (\d+) 张$/, replace: (count) => `残り${count}枚` },
     { match: /^已保存图片：(.+)$/, replace: (name) => `保存済み画像：${name}` },
     { match: /^使用或拖动第 (\d+) 个牌背$/, replace: (index) => `${index}番目の牌背を使用またはドラッグ` },

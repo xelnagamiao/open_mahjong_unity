@@ -322,7 +322,8 @@ namespace Riichi {
             var allTiles = CollectAllTilesForDora(sets);
             int dora = 0;
             foreach (int ind in _ctx.DoraIndicators) {
-                int target = RiichiTileUtil.DoraFromIndicator(ind);
+                int target = _ctx.IsSanma && ind == 11 ? 19 : RiichiTileUtil.DoraFromIndicator(ind);
+                if (_ctx.IsSanma && target == 44) dora += _ctx.NukiCount;
                 foreach (int t in allTiles) {
                     if (RiichiTileUtil.Normalize(t) == target) dora++;
                 }
@@ -340,13 +341,15 @@ namespace Riichi {
             if (_ctx.UraDoraEnabled && (_ctx.IsRiichi || _ctx.IsDaburuRiichi)) {
                 int ura = 0;
                 foreach (int ind in _ctx.UraDoraIndicators) {
-                    int target = RiichiTileUtil.DoraFromIndicator(ind);
+                    int target = _ctx.IsSanma && ind == 11 ? 19 : RiichiTileUtil.DoraFromIndicator(ind);
+                    if (_ctx.IsSanma && target == 44) ura += _ctx.NukiCount;
                     foreach (int t in allTiles) {
                         if (RiichiTileUtil.Normalize(t) == target) ura++;
                     }
                 }
                 if (ura > 0) result.Yaku.Add(new YakuEntry { Name = "里宝牌", Han = ura });
             }
+            if (_ctx.IsSanma && _ctx.NukiCount > 0) result.Yaku.Add(new YakuEntry { Name = "拔北宝牌", Han = _ctx.NukiCount });
         }
 
         // ---------- 工具 ----------

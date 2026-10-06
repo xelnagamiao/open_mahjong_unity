@@ -10,8 +10,7 @@
   "query_params": {
     "limit": 20,
     "offset": 0,
-    "tier": "rank",
-    "rule": "guobiao"
+    "tier": "rank"
   },
-  "query_params_note": "query 参数均可选，与 /api/player/records/:key 相同"
+  "query_params_note": "示例查询所有排位记录；按评级池筛选时使用 README 中的 rule/sub_rule 对应关系"
 }

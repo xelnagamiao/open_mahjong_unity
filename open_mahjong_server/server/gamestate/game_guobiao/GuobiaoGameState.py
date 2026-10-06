@@ -39,6 +39,7 @@ from .guobiao_debug import (
     get_debug_buhua_start_index,
 )
 from .lanshi_scoring import calculate_lanshi_score_changes
+from .sanma import SUB_RULE as SANMA_SUB_RULE, standard_score_changes, cuohe_payments
 from .buhua_broadcast import HAND_SETTLE_GAP_SEC, perform_buhua_and_broadcast
 from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_hu, player_action_record_liuju, player_action_record_round_end, end_game_record, build_score_changes_by_seat, build_score_changes_dict, capture_player_entry_order, player_action_record_reset, remember_local_record_detail
 from ...game_calculation.game_calculation_service import GameCalculationService
@@ -177,7 +178,7 @@ class GuobiaoGameState:
         self.room_type = room_data["room_type"]
         self.sub_rule = room_data.get("sub_rule", "guobiao/standard") # 子规则
         self.use_flowers = self.sub_rule != "guobiao/lanshi" and bool(room_data.get("use_flowers", True))
-        self.tian_di_ren_he = self.sub_rule in ("guobiao/standard", "guobiao/blood_battle") and bool(room_data.get("tian_di_ren_he", False))
+        self.tian_di_ren_he = self.sub_rule in ("guobiao/standard", SANMA_SUB_RULE, "guobiao/blood_battle") and bool(room_data.get("tian_di_ren_he", False))
         # 排位场次等级(beginner/intermediate/advanced/mcrpl)与比赛场 event_id，默认 None
         self.match_tier = room_data.get("match_tier")
         self.event_id = room_data.get("event_id")
@@ -230,12 +231,12 @@ class GuobiaoGameState:
         self.qianggang_responses = {} # 已回复的和牌/放弃；未回复者错和后继续询问
 
         # 用于玩家操作的事件和队列
-        self.action_events:Dict[int,asyncio.Event] = {0:asyncio.Event(),1:asyncio.Event(),2:asyncio.Event(),3:asyncio.Event()}  # 玩家索引 -> Event
-        self.action_queues:Dict[int,asyncio.Queue] = {0:asyncio.Queue(),1:asyncio.Queue(),2:asyncio.Queue(),3:asyncio.Queue()}  # 玩家索引 -> Queue
+        self.action_events:Dict[int,asyncio.Event] = {i: asyncio.Event() for i in range(len(self.player_list))}  # 玩家索引 -> Event
+        self.action_queues:Dict[int,asyncio.Queue] = {i: asyncio.Queue() for i in range(len(self.player_list))}  # 玩家索引 -> Queue
         self.waiting_players_list = [] # 等待操作的玩家列表
         
         # 所有check方法都返回action_dict字典
-        self.action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]} # 玩家索引 -> 操作列表
+        self.action_dict:Dict[int,list] = {i: [] for i in range(len(self.player_list))} # 玩家索引 -> 操作列表
         # 行为 -> 优先级 用于在多人共通等待行为时判断是否需要等待更高优先级玩家的操作或直接结束更低优先级玩家的等待
         self.action_priority:Dict[str,int] = {
         "hu_self": 6, "hu_first": 5, "hu_second": 4, "hu_third": 3,  # 和牌优先级 三种优先级对应多人和牌时的优先权
@@ -335,6 +336,7 @@ class GuobiaoGameState:
                         'max_round': self.max_round,
                         'tile_count': len(self.tiles_list),
                         'use_flowers': self.use_flowers,
+                        'tian_di_ren_he': self.tian_di_ren_he,
                         'duplicate_remaining_tiles': duplicate_remaining_tile_counts(self),
                         'commitment': self.commitment,  # 承诺值
                         'salt': self.salt,  # 盐字符串
@@ -498,10 +500,10 @@ class GuobiaoGameState:
         if self.event_id is not None:
             self.game_record["game_title"]["event_id"] = self.event_id
         # 游戏主循环
-        while self.current_round <= self.max_round * 4:
+        while self.current_round <= self.max_round * len(self.player_list):
 
             # 换位：仅在本局设置下会实际进行该风圈对局时广播（半庄不播西/北圈换位，末局后不推进局数）
-            _switch_min_max_round = {5: 2, 9: 3, 13: 4}
+            _switch_min_max_round = {len(self.player_list) * circle + 1: circle + 1 for circle in range(1, 4)}
             if self.current_round in _switch_min_max_round and self.max_round >= _switch_min_max_round[self.current_round]:
                 await broadcast_switch_seat(self)
                 await asyncio.sleep(4)
@@ -525,8 +527,8 @@ class GuobiaoGameState:
             # 遍历每个玩家,直到玩家选择pass或没有新的补花行为
             self.game_status = "waiting_buhua_round"
             buhua_start = get_debug_buhua_start_index(self) if self.Debug else 0
-            for offset in range(4):
-                i = (buhua_start + offset) % 4
+            for offset in range(len(self.player_list)):
+                i = (buhua_start + offset) % len(self.player_list)
                 self.player_index_go_to(i)
                 action_anymore = True
                 while action_anymore: # 如果单个玩家可以补花
@@ -652,7 +654,7 @@ class GuobiaoGameState:
                     # 等待手牌操作（仅切牌、吃碰后）：
                     case "onlycut_after_action": # 吃碰后切牌行为
                         print("onlycut_after_action")
-                        self.action_dict = {0:[],1:[],2:[],3:[]}
+                        self.action_dict = {i: [] for i in range(len(self.player_list))}
                         self.action_dict[self.current_player_index].append("cut") # 吃碰后只允许切牌
                         self.game_status = "waiting_hand_action" # 切换到摸牌后状态
 
@@ -689,10 +691,7 @@ class GuobiaoGameState:
                             hepai_player_index = self.resolve_hepai_player_index(self.hu_class)
                             saved_hu_class = self.hu_class
                             self.player_list[hepai_player_index].record_counter.cuohe_times += 1
-                            if self.cuohe_type == 1:
-                                cuohe_penalty, others_bonus = 40, 0
-                            else:
-                                cuohe_penalty, others_bonus = 30, 10
+                            cuohe_penalty, others_bonus = cuohe_payments(len(self.player_list), self.cuohe_type)
                             for i in self.player_list:
                                 if i.player_index == hepai_player_index:
                                     i.score -= cuohe_penalty
@@ -723,6 +722,9 @@ class GuobiaoGameState:
                             # 由于错和不推进 current_round，故本局后续真正和牌会出现同一局号的第二行。
                             for player in self.player_list:
                                 cuohe_change = player.score - scores_before[player.original_player_index]
+                                # 错和随后会刷新 scores_before；罚分必须在此计入局均点，
+                                # 否则局终只能统计真正和牌的增量而漏掉错和收支。
+                                player.record_counter.round_score_total += cuohe_change
                                 if cuohe_change > 0:
                                     player.score_history.append(f"+{cuohe_change:02d}")
                                 elif cuohe_change < 0:
@@ -807,9 +809,9 @@ class GuobiaoGameState:
                                 i.score -= hu_score
                     else:
                         # 标准国标自摸
-                        self.player_list[hepai_player_index].score += hu_score*4 + 32
-                        for i in self.player_list:
-                            i.score -= hu_score + 8
+                        changes = standard_score_changes(len(self.player_list), hepai_player_index, hu_score)
+                        for player in self.player_list:
+                            player.score += changes[player.player_index]
 
                     self.player_list[hepai_player_index].record_counter.zimo_times += 1
                     self.player_list[hepai_player_index].record_counter.recorded_fans.append(hu_fan)
@@ -859,11 +861,9 @@ class GuobiaoGameState:
                             self.player_list[fangpao_index].score -= hu_score * 3 - 24
                     else:
                         # 标准国标荣和
-                        self.player_list[hepai_player_index].score += hu_score + 24
-                        self.player_list[self.current_player_index].score -= hu_score
-                        for i in self.player_list:
-                            if i.player_index != hepai_player_index:
-                                i.score -= 8
+                        changes = standard_score_changes(len(self.player_list), hepai_player_index, hu_score, self.current_player_index)
+                        for player in self.player_list:
+                            player.score += changes[player.player_index]
                     
                     self.player_list[hepai_player_index].record_counter.dianhe_times += 1
                     self.player_list[hepai_player_index].record_counter.recorded_fans.append(hu_fan)
@@ -1019,7 +1019,9 @@ class GuobiaoGameState:
         is_custom_hepai = (self.hepai_limit != 8)
         has_ai_player = any(player.user_id <= 10 for player in self.player_list)
         
-        if blood_battle.enabled(self):
+        if self.sub_rule == SANMA_SUB_RULE:
+            logger.info("三人国标仅保存子规则牌谱，不计四人标准国标累计统计")
+        elif blood_battle.enabled(self):
             logger.info("国标血战仅保存子规则牌谱，不计标准国标累计统计")
         elif is_xiaolin or is_kshen or is_lanshi:
             rule_label = "小林规" if is_xiaolin else ("K神规" if is_kshen else "蓝十改")
@@ -1057,13 +1059,13 @@ class GuobiaoGameState:
         """与局终正和一致：由切牌者与 hu_class 推算实际和牌玩家座位索引。"""
         if hu_class == "hu_self":
             return self.current_player_index
-        idx = next_current_num(self.current_player_index)
+        idx = next_current_num(self.current_player_index, len(self.player_list))
         if hu_class == "hu_first":
             return idx
-        idx = next_current_num(idx)
+        idx = next_current_num(idx, len(self.player_list))
         if hu_class == "hu_second":
             return idx
-        return next_current_num(idx)
+        return next_current_num(idx, len(self.player_list))
 
     async def run_hu_result_ready_phase(self, fan_count: int) -> None:
         """结算展示时长内进入 waiting_ready，与正常和牌局终流程一致。"""
@@ -1089,7 +1091,7 @@ class GuobiaoGameState:
         elif hu_class in ("hu_first", "hu_second", "hu_third"):
             if is_qianggang:
                 self.qianggang_responses[hepai_player_index] = "pass"
-                self.action_dict = {0:[],1:[],2:[],3:[]}
+                self.action_dict = {i: [] for i in range(len(self.player_list))}
                 for player_index, actions in self.qianggang_action_dict.items():
                     if "peida" in self.player_list[player_index].tag_list:
                         continue

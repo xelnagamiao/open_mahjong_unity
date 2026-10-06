@@ -49,8 +49,10 @@ def test_fixed_false_options_and_claim_delivery_fallback():
     p=s.player_list[0]
     p.remaining_time=10
     s._ask_broadcast_time=100
-    with patch("server.gamestate.game_shanxi.ShanxiGameState.time.time",return_value=105):
-        assert s.claim_clock(p,True)==(0,0)
+    # Outside an active ask, the inherited clock fallback projects the bank;
+    # it must not revive the removed three-second claim cap.
+    with patch("server.gamestate.public.ask_timing.time.time",return_value=105):
+        assert s.claim_clock(p,True)==(5,0)
     tick=["c",11,"T"]
     s.decorate_record_cut_tick(tick)
     assert len(tick)==3

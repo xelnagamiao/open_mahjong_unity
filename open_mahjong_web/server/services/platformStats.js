@@ -1,6 +1,8 @@
 const { withRecordMetadataQuery } = require('./recordMetadataQuery');
 const pool = require('../config/database');
 const { GUOBIAO_FAN_KEYS } = require('../constants/guobiaoFanDict');
+const { queryRiichiHomeStats } = require('./riichiHomeStats');
+const { queryRecordHomeStats } = require('./recordHomeStats');
 
 const LADDER_TIERS = ['beginner', 'intermediate', 'advanced', 'mcrpl'];
 const EVENT_ALL = 'all';
@@ -300,14 +302,6 @@ async function querySceneDailyGames({ dateFrom, dateTo, asOfDate, tier, gameType
   }));
 }
 
-const HISTORY_RULE_TABLES = [
-  { rule: 'guobiao', table: 'guobiao_history_stats' },
-  { rule: 'riichi', table: 'riichi_history_stats' },
-  { rule: 'qingque', table: 'qingque_history_stats' },
-  { rule: 'classical', table: 'classical_history_stats' },
-  { rule: 'changsha', table: 'changsha_history_stats' },
-];
-
 const MODE_TO_GAME_TYPE = {
   '1/4': 'dongfeng',
   '1/4_rank': 'dongfeng',
@@ -325,165 +319,20 @@ const GAME_TYPE_LABEL = {
   quanzhuang: '全庄战',
 };
 
-function emptyMetricRow() {
-  return {
-    total_games: 0,
-    total_rounds: 0,
-    win_count: 0,
-    self_draw_count: 0,
-    deal_in_count: 0,
-    total_fan_score: 0,
-    total_win_turn: 0,
-    total_fangchong_score: 0,
-    first_place_count: 0,
-    second_place_count: 0,
-    third_place_count: 0,
-    fourth_place_count: 0,
-    fulu_round_count: 0,
-    cuohe_count: 0,
-    total_round_score: 0,
-  };
-}
-
-function historyRoomType(rule, mode) {
-  // 国标：mode 带 _rank 的是匹配场局制桶；其他规则目前只有自定义
-  if (rule === 'guobiao') return String(mode || '').endsWith('_rank') ? 'match' : 'custom';
-  return 'custom';
-}
-
 /**
- * 首页层级统计：规则 → 匹配/自定义 → 局制(mode) → 等级场(match_tier，仅匹配)
- * - 自定义 / 无等级场：来自各规则 history_stats
- * - 匹配 + 等级场：来自 game_player_metrics（天梯四档）
+ * 首页统计按真实牌谱的场次/局制归口，不从混合个人累计倒推桌数。
+ * 日麻使用逐玩家摘要，其余规则使用牌谱参与者和逐场指标。
  */
 async function queryHomeHierarchyStats() {
-  const rows = [];
-
-  for (const { rule, table } of HISTORY_RULE_TABLES) {
-    let result;
-    try {
-      result = await pool.query(`
-      SELECT mode,
-             SUM(total_games)::int AS total_games,
-             SUM(total_rounds)::int AS total_rounds,
-             SUM(win_count)::int AS win_count,
-             SUM(self_draw_count)::int AS self_draw_count,
-             SUM(deal_in_count)::int AS deal_in_count,
-             SUM(total_fan_score)::int AS total_fan_score,
-             SUM(total_win_turn)::int AS total_win_turn,
-             SUM(total_fangchong_score)::int AS total_fangchong_score,
-             SUM(first_place_count)::int AS first_place_count,
-             SUM(second_place_count)::int AS second_place_count,
-             SUM(third_place_count)::int AS third_place_count,
-             SUM(fourth_place_count)::int AS fourth_place_count,
-             SUM(fulu_round_count)::int AS fulu_round_count
-      FROM ${table}
-      GROUP BY mode
-      ORDER BY mode
-    `);
-    } catch (err) {
-      if (err && err.code === '42P01') continue; // 表尚未创建（如新规则）
-      throw err;
-    }
-    for (const row of result.rows) {
-      const mode = row.mode;
-      const roomType = historyRoomType(rule, mode);
-      const totals = mapTotalsRow({ ...row, match_tier: null, cuohe_count: 0, total_round_score: 0 });
-      // history 按玩家累加，平台视角对局/回合需 ÷4，与数据站 metrics 按局聚合一致
-      totals.total_games = Math.round((Number(totals.total_games) || 0) / 4);
-      totals.total_rounds = Math.round((Number(totals.total_rounds) || 0) / 4);
-      rows.push({
-        rule,
-        room_type: roomType,
-        mode,
-        game_type: MODE_TO_GAME_TYPE[mode] || null,
-        game_type_label: GAME_TYPE_LABEL[MODE_TO_GAME_TYPE[mode]] || mode,
-        match_tier: null,
-        source: 'history',
-        ...emptyMetricRow(),
-        ...totals,
-      });
-    }
-  }
-
-  // 川麻 / 尚无 history 的长沙 / 各规则比赛场：用牌谱对局数（按 game_id 去重，避免×4）
-  const recordsOnly = await pool.query(`
-    SELECT rule, room_type, match_type AS mode, COUNT(DISTINCT game_id)::int AS total_games
-    FROM game_player_records
-    WHERE rule IN ('sichuan', 'changsha')
-       OR room_type = 'events'
-    GROUP BY rule, room_type, match_type
-    ORDER BY rule, room_type, match_type
-  `);
-  for (const row of recordsOnly.rows) {
-    const mode = row.mode || '4/4';
-    if (row.rule === 'changsha' && row.room_type !== 'events') {
-      const hasHistory = rows.some(
-        (r) => r.rule === 'changsha' && r.mode === mode && r.source === 'history'
-      );
-      if (hasHistory) continue;
-    }
-    if (row.rule === 'sichuan' && row.room_type !== 'custom' && row.room_type !== 'events') continue;
-    rows.push({
-      rule: row.rule,
-      room_type: row.room_type,
-      mode,
-      game_type: MODE_TO_GAME_TYPE[mode] || null,
-      game_type_label: GAME_TYPE_LABEL[MODE_TO_GAME_TYPE[mode]] || mode,
-      match_tier: null,
-      source: 'records',
-      ...emptyMetricRow(),
-      total_games: Number(row.total_games) || 0,
-    });
-  }
-
-  const metrics = await pool.query(`
-    SELECT rule, room_type, match_type AS mode, match_tier, game_type,
-           ${SCENE_METRIC_SUMS.replace(/\n/g, '\n           ')}
-    FROM (
-      SELECT game_id, room_type, match_tier, rule, match_type, game_type,
-             MAX(total_rounds) AS per_game_rounds,
-             SUM(win_count) AS win_count,
-             SUM(self_draw_count) AS self_draw_count,
-             SUM(deal_in_count) AS deal_in_count,
-             SUM(total_fan_score) AS total_fan_score,
-             SUM(total_win_turn) AS total_win_turn,
-             SUM(total_fangchong_score) AS total_fangchong_score,
-             SUM(first_place_count) AS first_place_count,
-             SUM(second_place_count) AS second_place_count,
-             SUM(third_place_count) AS third_place_count,
-             SUM(fourth_place_count) AS fourth_place_count,
-             SUM(fulu_round_count) AS fulu_round_count,
-             SUM(cuohe_count) AS cuohe_count,
-             SUM(total_round_score) AS total_round_score
-      FROM game_player_metrics
-      WHERE room_type = 'match'
-        AND match_tier IN ('beginner', 'intermediate', 'advanced', 'mcrpl')
-      GROUP BY game_id, room_type, match_tier, rule, match_type, game_type
-    ) g
-    GROUP BY rule, room_type, match_type, match_tier, game_type
-    ORDER BY rule, match_type, match_tier
-  `);
-  for (const row of metrics.rows) {
-    const mode = row.mode;
-    const gameType = row.game_type || MODE_TO_GAME_TYPE[mode] || null;
-    rows.push({
-      rule: row.rule,
-      room_type: 'match',
-      mode,
-      game_type: gameType,
-      game_type_label: GAME_TYPE_LABEL[gameType] || mode,
-      match_tier: row.match_tier,
-      source: 'metrics',
-      ...mapTotalsRow(row),
-    });
-  }
-
+  const rows = [
+    ...await queryRiichiHomeStats(pool),
+    ...await queryRecordHomeStats(pool, ['riichi'], { exclude: true }),
+  ];
   return {
     rows,
     meta: {
       hierarchy: ['rule', 'room_type', 'mode', 'match_tier'],
-      note: '规则 → 全部天梯/初级/中级/高级/mcrpl/自定义/比赛场 → 局制；metrics 按局聚合与数据站一致',
+      note: '场次按原始牌谱归口，对局数去重；缺少完整指标时保留可核验的记录计数',
     },
   };
 }

@@ -19,7 +19,8 @@ internal static class GuobiaoRuleBootstrap {
             DescribeWaitingTile = GuobiaoTips.Describe,
             FanNameText = GuobiaoFanText.FanName,
             FanValueText = GuobiaoFanText.FanValue,
-            RoundName = RoundTextDictionary.WindSeatRoundName,
+            RoundName = round => GameSession.Current.SubRule == GuobiaoGameState.SanmaSubRule
+                ? RoundTextDictionary.ThreePlayerWindSeatRoundName(round) : RoundTextDictionary.WindSeatRoundName(round),
             PlaysGongHuSound = GuobiaoFanText.PlaysGongHu,
             SettlementFootnote = GuobiaoAngangCheck.Footnote,
             // 国标自摸也叫"和"，报声同

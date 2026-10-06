@@ -153,14 +153,15 @@
       <div class="stats-area">
         <template v-if="showStatsTable">
           <div class="stats-table">
-            <div class="stats-row" v-for="item in statsDisplay" :key="item.label">
+            <div class="stats-row" v-for="item in statsDisplay" :key="item.label" :title="item.tip">
               <span class="stats-label">{{ item.label }}</span>
               <span class="stats-value">{{ item.value }}</span>
             </div>
           </div>
         </template>
+        <p v-if="currentRule === 'riichi' && showStatsTable" class="no-prestored compact">日麻统计以当前筛选内已保存的牌谱为样本；缺失或已删除的历史牌谱不计入。</p>
         <div v-if="needsLocalAnalysis" class="no-prestored" :class="{ compact: showStatsTable }">
-          <span>当前筛选的回合、和牌及番种等详细数据需下载牌谱后分析</span>
+          <span>{{ currentRule === 'riichi' ? '部分历史日麻牌谱尚未完成统计，详细数据暂不可用。' : '当前筛选的回合、和牌及番种等详细数据需下载牌谱后分析' }}</span>
         </div>
       </div>
 
@@ -371,13 +372,14 @@ import { formatPtChange } from '@/utils/ptChange'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
-import { buildPlayerStatsRows, canUsePrestoredPlayerStats, dateRangeToQueryParams, mergePlayerRankStats, rankRatePieLabel, rankedGames, ratio } from '../utils/statsDisplay'
+import { avg, buildPlayerStatsRows, canUsePrestoredPlayerStats, dateRangeToQueryParams, mergePlayerRankStats, rankRatePieLabel, rankedGames, ratio } from '../utils/statsDisplay'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import playerApi, { getPlayerToken } from '@/api/playerClient'
 import { tr } from '@/i18n'
 import { GUOBIAO_FAN_VALUES, listGuobiaoFanEntries } from '@/constants/guobiaoFanDict'
 import { getLocalRecordIdSet, putLocalRecords } from '../utils/recordLocalStore'
 import { confirmRecordDownload } from '../utils/recordDownloadConfirm'
+import { getPromotionProgress } from '@/constants/rankTable'
 
 const route = useRoute()
 const router = useRouter()
@@ -403,12 +405,12 @@ const downloadQuotaTip = computed(() => {
 
 const RULE_DEFS = [
   { key: 'guobiao', label: '国标', statsField: 'guobiao_stats', fanField: 'guobiao' },
-  { key: 'riichi', label: '立直', statsField: 'riichi_stats', fanField: null },
+  { key: 'riichi', label: '立直', statsField: 'riichi_stats', fanField: 'riichi' },
   { key: 'qingque', label: '青雀', statsField: 'qingque_stats', fanField: 'qingque' },
-  { key: 'classical', label: '古典', statsField: 'classical_stats', fanField: 'classical' },
+  { key: 'classical', label: '古典麻将', statsField: 'classical_stats', fanField: 'classical' },
   { key: 'sichuan', label: '川麻', statsField: 'sichuan_stats', fanField: null },
-  { key: 'changsha', label: '长沙', statsField: 'changsha_stats', fanField: null },
-  { key: 'hongzhong', label: '红中', statsField: 'hongzhong_stats', recordsOnly: true, fanField: null },
+  { key: 'changsha', label: '长沙麻将', statsField: 'changsha_stats', fanField: null },
+  { key: 'hongzhong', label: '红中麻将', statsField: 'hongzhong_stats', recordsOnly: true, fanField: null },
 ]
 
 const SCENE_OPTIONS = [
@@ -477,7 +479,18 @@ let searchSeq = 0
 const downloading = ref(false)
 const caching = ref(false)
 
-const playerRank = computed(() => playerInfo.value?.rank || null)
+const playerRank = computed(() => {
+  if (!playerInfo.value) return null
+  if (currentRule.value !== 'riichi') return playerInfo.value.rank || null
+  const rating = playerInfo.value.ratings?.riichi
+  const rankName = rating?.rank_name || '10级'
+  const score = rating?.rank_score ?? 0
+  return {
+    guobiao_rank: rankName,
+    guobiao_score: score,
+    progress: rating?.progress || getPromotionProgress(rankName, score),
+  }
+})
 const formatPt = (v) => {
   if (v == null || Number.isNaN(Number(v))) return '-'
   const n = Number(v)
@@ -655,16 +668,21 @@ const mergedPrestored = computed(() => {
 
 const activeStats = computed(() => {
   const rankRow = rankStatsForFilter.value
+  if (currentRule.value === 'riichi') return rankRow
   return mergePlayerRankStats(prestoredAvailable.value ? mergedPrestored.value : null, rankRow)
 })
 
 /** 无预存场次 → 引导前往牌谱分析页 */
-const needsLocalAnalysis = computed(() => !prestoredAvailable.value)
+const needsLocalAnalysis = computed(() => currentRule.value === 'riichi'
+  ? activeStats.value?.details_available === false : !prestoredAvailable.value)
 const showStatsTable = computed(() => !!activeStats.value)
 
 const statsDisplay = computed(() => {
   if (!activeStats.value) return []
-  const rows = buildPlayerStatsRows(activeStats.value, { detailed: prestoredAvailable.value })
+  const rows = buildPlayerStatsRows(activeStats.value, {
+    rule: currentRule.value, detailed: currentRule.value === 'riichi'
+      ? activeStats.value.details_available : prestoredAvailable.value,
+  })
   return currentRuleDef.value?.recordsOnly ? rows.filter(row => ['总对局', '平均顺位', '一位率', '二位率', '三位率', '四位率'].includes(row.label)) : rows
 })
 
@@ -743,7 +761,7 @@ const currentFanDict = computed(() => {
 })
 
 const fanEntries = computed(() => {
-  if (!prestoredAvailable.value) return []
+  if (currentRule.value === 'riichi' ? !activeStats.value?.details_available : !prestoredAvailable.value) return []
   const wins = Number(activeStats.value?.win_count) || 0
   const counts = activeStats.value?.fan_stats || {}
   const toRow = (key, name, pts = 0) => {
@@ -753,7 +771,8 @@ const fanEntries = computed(() => {
       name,
       pts,
       count,
-      display: `${count} · ${ratio(count, wins)}`,
+      display: currentRule.value === 'riichi' && ['dora', 'uradora', 'akadora'].includes(key)
+        ? `${count} 枚 · ${avg(count, wins)} 枚/和牌` : `${count} · ${ratio(count, wins)}`,
     }
   }
   if (currentRule.value === 'guobiao') {

@@ -264,6 +264,11 @@ def test_malformed_cut_never_changes_state(index, drawn, tile, position):
 def test_network_auth_stale_tick_and_duplicate_are_rejected():
     async def run():
         s = configured_turn()
+        # A stale-tick repair now starts the real delivery clock. Give this
+        # authentication fixture a usable room budget instead of 0 + 0.
+        s.step_time = 5
+        s.player_list[0].remaining_time = 20
+        s.open_action_window(s.begin_turn(0))
         ws = SimpleNamespace(send_json=AsyncMock())
         server = SimpleNamespace(gamestate_manager=SimpleNamespace(get_game_state_by_gamestate_id=lambda _: s),
                                  players={"own": SimpleNamespace(user_id=101), "outside": SimpleNamespace(user_id=999)})
@@ -306,7 +311,7 @@ def test_reconnect_and_spectator_snapshots_retain_same_projection():
 
 
 @pytest.mark.parametrize("key,value", [
-    ("use_flowers", True), ("open_cuohe", True), ("tactical_call", True), ("claim_protection", True),
+    ("use_flowers", True), ("open_cuohe", True), ("tactical_call", "true"), ("claim_protection", True),
     ("tian_di_ren_he", True), ("tips", "false"), ("allow_spectator", 1), ("game_round", True),
     ("game_round", 5), ("round_timer", -1), ("step_timer", 101), ("sub_rule", "guizhou/joker"),
     ("detailed_config", {"jokers": True}),
@@ -327,7 +332,8 @@ def test_room_configuration_defaults_and_ordinary_toggle_branches():
             assert data["room_name"] == "test" and data["game_round"] == game_round
             assert data["tips"] == switch and data["allow_spectator"] == switch
             assert data["detailed_config"] == {"rule_version": RULE_VERSION}
-            assert not any(data[k] for k in ("use_flowers", "open_cuohe", "tactical_call", "claim_protection"))
+            assert data["tactical_call"] is True
+            assert not any(data[k] for k in ("use_flowers", "open_cuohe", "claim_protection"))
 
 
 def fake_room_manager():

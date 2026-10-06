@@ -15,9 +15,11 @@ from ..public.random_seed_manager import derive_round_seed
 from ..public.ai.bot_executor import run_room_bot_cpu
 from .lifecycle import GuangdongMatchMixin
 from .tips import GuangdongTipsMixin
+from .timing import GuangdongTimingMixin
+from .tactical import GuangdongTacticalMixin
 
 
-class GuangdongGameState(GuangdongMatchMixin, GuangdongTipsMixin, TaiwanGameState):
+class GuangdongGameState(GuangdongTacticalMixin, GuangdongMatchMixin, GuangdongTipsMixin, GuangdongTimingMixin, TaiwanGameState):
     flower_tiles = ()  # 55–58 是留在手内的实体鬼，不能自动补花。
     structure_tiles = book.TILES
     concealed_kongs_public = True  # 原书五-5：先公示，再仅扣两侧两张。
@@ -47,6 +49,8 @@ class GuangdongGameState(GuangdongMatchMixin, GuangdongTipsMixin, TaiwanGameStat
         self.open_cuohe = False
         from .bot import guangdong_bot_action
         self.smart_bot_action = guangdong_bot_action
+        self.initialize_action_timing()
+        self.initialize_tactical_calls(room_data)
 
     def _reset_taiwan_players(self):
         super()._reset_taiwan_players()

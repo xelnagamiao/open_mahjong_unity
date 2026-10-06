@@ -1,4 +1,5 @@
 from typing import Dict
+from ..public.tactical_claim import add_tactical_force_pass_options
 import logging
 from ..public.logic_common import get_index_relative_position, next_current_num
 
@@ -62,7 +63,7 @@ def check_action_after_cut(self,cut_tile):
     # 地和仅在庄家首次切牌时有效，切牌检查完毕后关闭
     self.dihe_possible = False
 
-    return temp_action_dict
+    return add_tactical_force_pass_options(self, temp_action_dict)
 
 # 加杠检查操作 存储 抢杠
 def check_action_jiagang(self,jiagang_tile):
@@ -83,7 +84,7 @@ def check_action_jiagang(self,jiagang_tile):
         if "peida" in item.tag_list:
             temp_action_dict[item.player_index] = []
     
-    return temp_action_dict
+    return add_tactical_force_pass_options(self, temp_action_dict)
 
 # 开局检查补花操作 存储 补花buhua
 def check_action_buhua(self,player_index):

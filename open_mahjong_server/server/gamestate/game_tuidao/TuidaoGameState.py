@@ -2,9 +2,7 @@
 
 import asyncio
 import logging
-import math
 import random
-import time
 from dataclasses import replace
 
 from ...game_calculation.tuidao import rules as book
@@ -12,6 +10,7 @@ from ..game_taiwan.TaiwanGameState import TaiwanGameState
 from ..game_taiwan import action_check as actions
 from ..game_taiwan.boardcast import broadcast_game_start, broadcast_do_action, broadcast_game_end
 from .result import broadcast_result
+from .timing import ACTION_PHASES, TimedActionQueue, TuidaoActionClock, display_seconds
 from ..game_guobiao.combination_mask_view import build_revealed_angang_masks
 from ..public.game_record_manager import (capture_player_entry_order, init_game_record, init_game_round,
     append_action_tick, player_action_record_hu, player_action_record_round_end,
@@ -27,14 +26,16 @@ logger = logging.getLogger(__name__)
 class TuidaoGameState(TaiwanGameState):
     flower_tiles = ()
     structure_tiles = book.TILES
-    claim_response_seconds = 3.0
+    # Online asks follow the room clock; MIL's spoken-call limits are offline procedure.
+    claim_response_seconds = None
 
     def __init__(self, game_server, room_data, calculation_service, db_manager, gamestate_id):
-        from ...room.tuidao_room import normalize_tuidao_config
+        from ...room.tuidao_room import normalize_tuidao_config, enforce_tuidao_tactical_room
         sub_rule = room_data.get("sub_rule", book.SUB_RULE)
         if sub_rule != book.SUB_RULE:
             raise ValueError("不支持的推倒和子规则")
         config = normalize_tuidao_config(room_data.get("detailed_config"))
+        enforce_tuidao_tactical_room(room_data)
         super().__init__(game_server, {**room_data, "detailed_config": None},
                          calculation_service, db_manager, gamestate_id)
         self.room_rule, self.sub_rule = "guangdong", book.SUB_RULE
@@ -49,8 +50,19 @@ class TuidaoGameState(TaiwanGameState):
         self.dead_wall_count = 12
         self.hepai_limit = 0
         self.open_cuohe = False
+        from ..public.claim_protection import has_bot_players
+        self.tactical_call = bool(room_data.get("tactical_call", False)) and not has_bot_players(self.player_list)
+        # MIL 6.4–6.5 permits upgrading an earlier claim after another player calls.
+        self.tactical_commit_lock = False
+        from ..public.tactical_claim import TACTICAL_GRACE_SECONDS, TACTICAL_PRE_GRACE_DELAY
+        self.tactical_grace_seconds = TACTICAL_GRACE_SECONDS
+        self.tactical_pre_grace_delay = TACTICAL_PRE_GRACE_DELAY
+        self._tuidao_recheck = False
+        self.action_priority.update(hu_first=5, hu_second=4, hu_third=3, force_pass=0)
         from .bot import tuidao_bot_action
         self.smart_bot_action = tuidao_bot_action
+        self.action_queues = {index: TimedActionQueue() for index in range(4)}
+        self.action_clock_manager = TuidaoActionClock(self)
 
     def _reset_taiwan_players(self):
         super()._reset_taiwan_players()
@@ -68,6 +80,23 @@ class TuidaoGameState(TaiwanGameState):
         if connection is not None and self._terminal_result is not None:
             await connection.websocket.send_json(self._terminal_result)
 
+    async def send_to_realtime_spectators(self, player_index, response):
+        from ..public.spectator_rules import deliver_realtime_spectator_message
+        def project_clock(payload):
+            for field in ("ask_hand_action_info", "ask_other_action_info"):
+                info = payload.get(field)
+                if not isinstance(info, dict) or info.get("action_tick") != self.server_action_tick:
+                    continue
+                if field == "ask_hand_action_info" and info.get("player_index") != player_index:
+                    continue
+                player = self.player_list[player_index]
+                bank, step = self.action_clock(player, reconnecting=True)
+                info.update(remaining_time=bank, step_remaining=step,
+                            **self.action_clock_fields(player, reconnecting=True))
+                if not self.is_action_pending(player_index):
+                    info["action_list"] = []
+        await deliver_realtime_spectator_message(self, player_index, response, prepare_payload=project_clock)
+
     def can_take_normal_tile(self):
         # 末端单张不计墩数：12、13张均已到六墩；不能固定保留12张。
         return len(self.tiles_list)//2 > 6
@@ -77,14 +106,63 @@ class TuidaoGameState(TaiwanGameState):
     def playable_wall_count(self):
         return max(0, len(self.tiles_list) - 13)
 
-    def claim_clock(self, player, reconnecting=False):
-        elapsed = 0.0
-        if reconnecting:
-            start = (getattr(self, "_ask_delivered_at", None) or {}).get(player.player_index,
-                getattr(self, "_ask_broadcast_time", None))
-            if start is not None:
-                elapsed = max(0, time.time()-start)
-        return 0, math.ceil(max(0, min(3.0, player.remaining_time+self.step_time)-elapsed))
+    def action_clock(self, player, reconnecting=False):
+        if reconnecting and player.player_index not in self.action_clock_manager.windows:
+            from ..public.ask_timing import reconnect_clock
+            return reconnect_clock(self, player)
+        return self.action_clock_manager.clock(player)
+
+    claim_clock = action_clock
+
+    def action_clock_fields(self, player, reconnecting=False):
+        if reconnecting and player.player_index not in self.action_clock_manager.windows:
+            bank, step = self.action_clock(player, reconnecting=True)
+        else:
+            bank, step = self.action_clock_manager.seconds(player)
+        fields = {"remaining_time_ms": display_seconds(bank * 1000),
+                  "step_remaining_ms": display_seconds(step * 1000)}
+        if reconnecting and self._tuidao_recheck:
+            fields["is_tactical_recheck"] = True
+        return fields
+
+    claim_clock_fields = action_clock_fields
+
+    def on_action_window_broadcast(self):
+        self.action_clock_manager.begin()
+
+    def on_action_window_delivered(self, index):
+        self.action_clock_manager.delivered(index)
+
+    def is_action_pending(self, index):
+        return self.action_clock_manager.is_pending(index)
+
+    async def collect_action_responses(self):
+        if self.tactical_call and self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang"):
+            from .tactical import collect_claim_responses
+            return await collect_claim_responses(self)
+        if self.game_status in ACTION_PHASES:
+            return await self.action_clock_manager.collect()
+        from ..game_taiwan.wait_action import _collect_responses
+        return await _collect_responses(self)
+
+    def validate_tactical_queued_action(self, index, data):
+        return self.action_clock_manager.valid_tactical_action(index, data)
+
+    async def collect_tactical_recheck(self, priority, submitted_actions):
+        from .tactical import collect_recheck
+        return await collect_recheck(self, priority, submitted_actions)
+
+    def prepare_action_window(self):
+        self._tuidao_recheck = False
+        from ..public.tactical_claim import add_tactical_force_pass_options
+        if self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang"):
+            add_tactical_force_pass_options(self, self.action_dict)
+        super().prepare_action_window()
+
+    def _reset_hand_runtime(self):
+        super()._reset_hand_runtime()
+        self._tuidao_recheck = False
+        self.action_clock_manager.reset_round()
 
     def refresh_waits(self, index):
         player = self.player_list[index]
@@ -238,7 +316,8 @@ class TuidaoGameState(TaiwanGameState):
 
     def build_private_hand_action_info(self, index):
         player = self.player_list[index]
-        return {"riichi_candidate_cuts": player.riichi_candidate_cuts,
+        return {**self.action_clock_fields(player),
+                "riichi_candidate_cuts": player.riichi_candidate_cuts,
                 "kong_candidates": {action: [tile for tile in sorted(set(player.hand_tiles))
                     if self.kong_allowed(index, tile, kind)]
                     for action, kind in (("angang", "concealed"), ("jiagang", "added"))},

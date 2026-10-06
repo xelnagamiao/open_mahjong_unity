@@ -36,10 +36,15 @@ def test_memory_bounded_lru_evicts_oldest_and_tracks_stats():
     assert snap.evictions == 1
 
 
-def test_default_guobiao_cache_budget_reserves_decision_headroom():
+def test_default_shanten_cache_budgets_separate_general_callers():
     stats = shanten_cache_stats()
-    persistent = sum(item["budget_bytes"] for item in stats.values())
-    assert persistent == 160 * 1024 * 1024
+    assert {name: item["budget_bytes"] for name, item in stats.items()} == {
+        name: mib * 1024 * 1024
+        for name, mib in {
+            "suit": 8, "shanten": 12, "yiban": 8,
+            "effective": 16, "yiban_general": 48,
+        }.items()
+    }
 
 
 def test_stale_bot_result_is_rejected():

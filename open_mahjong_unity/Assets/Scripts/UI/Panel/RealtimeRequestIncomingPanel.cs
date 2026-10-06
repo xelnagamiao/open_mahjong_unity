@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 /// <summary>
 /// B 端（被申请方）的"对方申请实时观战"小弹窗。挂 PanelPopupTransition。
-/// 收到 friend/realtime_request_incoming 时弹出；点 allow / deny 会回包；点 close 仅本地关闭，等服务器 10s 超时。
+/// 收到 friend/realtime_request_incoming 时按设置显示申请或自动回包；点 allow / deny 会回包；点 close 仅本地关闭，等服务器 10s 超时。
 /// 若被 cancel/revoke，本面板自动 Hide。
 /// </summary>
 public class RealtimeRequestIncomingPanel : MonoBehaviour {
@@ -52,6 +52,12 @@ public class RealtimeRequestIncomingPanel : MonoBehaviour {
             || string.IsNullOrEmpty(response.realtime_gamestate_id)
             || gsm == null || !gsm.IsGameActive || gsm.IsRealtimeSpectator
             || !string.Equals(response.realtime_gamestate_id, gsm.gamestateId, System.StringComparison.Ordinal)) {
+            return;
+        }
+
+        int mode = ConfigManager.Instance != null ? ConfigManager.Instance.RealtimeSpectateMode : 0;
+        if (mode == 1 || mode == 2) {
+            FriendNetworkManager.Instance.RespondRealtime(response.realtime_request_id, mode == 1);
             return;
         }
 

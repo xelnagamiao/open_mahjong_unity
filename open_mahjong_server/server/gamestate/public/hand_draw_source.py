@@ -3,7 +3,7 @@
 from typing import Iterable, Optional
 
 
-DEAL_ACTIONS = frozenset({"deal_tile", "deal_gang_tile", "deal_buhua_tile"})
+DEAL_ACTIONS = frozenset({"deal_tile", "deal_gang_tile", "deal_buhua_tile", "deal_nuki_tile"})
 
 
 def reset_hand_draw_source(game_state) -> None:

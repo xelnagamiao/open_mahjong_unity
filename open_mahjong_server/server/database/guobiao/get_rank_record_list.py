@@ -17,6 +17,11 @@ def get_rank_record_list(db_manager, limit: int = 20, rule: str = "guobiao") -> 
     conn = None
     cursor = None
     try:
+        from ...match.rating_rules import RULES, ranked_record_scope
+        if rule not in RULES:
+            raise ValueError('不支持的匹配规则')
+        game_rule, sub_rule = ranked_record_scope(rule)
+        sanma = rule == 'riichi_sanma'
         conn = db_manager._get_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
 
@@ -29,11 +34,13 @@ def get_rank_record_list(db_manager, limit: int = 20, rule: str = "guobiao") -> 
                 FROM game_player_records gpr
                 WHERE gpr.game_id = gr.game_id
                   AND gpr.room_type = 'match' AND gpr.rule = %s
+                  AND (%s <> 'riichi' OR (COALESCE(gpr.sub_rule, '') = 'riichi/sanma') = %s)
+                  AND (%s <> 'sichuan' OR COALESCE(NULLIF(gpr.sub_rule, ''), 'sichuan/standard') = %s)
             )
             ORDER BY gr.created_at DESC
             LIMIT %s
             """,
-            (rule, limit),
+            (game_rule, game_rule, sanma, game_rule, sub_rule, limit),
         )
         game_rows = cursor.fetchall()
         if not game_rows:

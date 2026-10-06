@@ -40,11 +40,11 @@ Layout Group 管理的对象应通过 Layout Element 修改尺寸，避免仅修
 
 `LegacyPresentation` 保存旧背景和标题的停用对象。旧 `MatchQueueingPanel` 场景对象、脚本及调用已移除；排队由 `MatchLobbyView` 的底部胶囊显示，状态和计时仍由 `MatchStateManager` 维护。原 `MatchDescribePanel` 和 OverlayCanvas 上的 `MatchFoundedPanel` 继续复用。
 
-## 段位详情与两张规则表
+## 段位详情与规则表
 
 入口为 `OverlayCanvas/NotificationPanel/DescribePos/DescribePanel`，子对象 `DescribePanel` 是蓝紫色内容面板。内容面板居中，RectTransform 尺寸为 1136 × 840。外层遮罩铺满画布；面板初始隐藏，由场次感叹号及“查看条件”打开。
 
-标题固定在顶部，下面的 `Scroll View/Viewport/Content` 始终按 `Describe`（原说明文字）、`MatchScoreTable`（场次计分表）、`RankProgressionTable`（段位升降表）的顺序纵向排列。切换场次或重新打开会回到顶端。
+标题固定在顶部，下面的 `Scroll View/Viewport/Content` 按说明文字、计分表、段位表的顺序纵向排列。国标使用 `MatchScoreTable`、`RankProgressionTable`；立直使用独立的 `RiichiMatchScoreTable`、`RiichiRankProgressionTable`，两套表互斥显示。切换场次或重新打开会回到顶端。
 
 | 对象 | 手动修改位置 |
 | --- | --- |
@@ -56,9 +56,13 @@ Layout Group 管理的对象应通过 Layout Element 修改尺寸，避免仅修
 | DataRow_01… / FixedRank_10 | 两表正文统一 44 行高、22 号字；Row 的 Image 为网格线色，Cell 的 Image 为交替行底色 |
 | Cell_01… / Label | RectTransform 的横向锚点控制列宽；TextMeshPro 修改单元格文字；相邻行的同列需同步调整 |
 
-两表间距为 24，表格行间距为 -1，用于让相邻网格共用细边线。旧表格 Image 组件已停用，旧 PNG 素材保留；实际显示的文字、边框和底色均可在场景里编辑。运行时不生成或重设表格样式。
+两表间距为 24，表格行间距为 -1，用于让相邻网格共用细边线。旧表格 Image 组件已停用，旧 PNG 素材保留；实际显示的文字、边框和底色均可在场景或对应预制体里编辑。运行时不生成或重设表格样式。四个预制体保存在 `Assets/Resources/UI/Description/`。
 
 两张表的标题居中显示。段位升降表的四个场次名称、“分段”表头及所有段位名称均左对齐，Label 的左边距统一为 32，使文字起点沿同一条竖线排列。计分表的局制分组名称仍居中。表中数值按当前国标配置核对：九段升段分数为 7000，十段说明仅显示“荣誉称号”。此次仅更新展示，没有修改实际升降段算法。
+
+立直表按 M 规争一计分：`PT = q × (k × M - C)`。计分表包含顺位奖励、终局点数示例和六个场次倍率；段位表包含起始／升段 PT、掉段和三种场次的 C，不能进入的场次显示“—”。负 C 是保护奖励，十段固定 100/100 PT。立直计分表正文行高 62、段位表正文 44、说明分组行 66，列宽由各 Cell 的横向锚点控制，文字 22 号。
+
+修改计分配置后，使用 `Tools/Mahjong/Main Scene/Update Riichi Ranked Descriptions` 更新两张立直表、机制说明和 `RankChangePanel/RatingDetails` 序列化引用。该工具只增量维护这些对象；结算明细在原面板 PT 变化下方显示 M、k、C、q，仅新算法立直结算可见。
 
 ## 当前正式能力
 

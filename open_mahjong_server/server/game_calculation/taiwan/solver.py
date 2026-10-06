@@ -4,6 +4,7 @@ from collections import Counter
 from functools import lru_cache
 from typing import Iterable, List, Optional, Sequence, Set, Tuple
 
+from ..compact_counter import pack_counter as _counter_key, unpack_counter
 from ..hand_structure import SIXTEEN_TILE_MAHJONG
 from .rules import Decomposition, Meld, STRUCTURE_TILES, TaiwanRules
 
@@ -49,16 +50,12 @@ def parse_melds(codes: Iterable[str]) -> Tuple[Meld, ...]:
     return melds
 
 
-def _counter_key(counter: Counter) -> Tuple[Tuple[int, int], ...]:
-    return tuple(sorted((tile, count) for tile, count in counter.items() if count))
-
-
 @lru_cache(maxsize=32768)
 def _meld_partitions(
-    counter_key: Tuple[Tuple[int, int], ...],
+    counter_key: bytes,
     needed: int,
 ) -> Tuple[Tuple[Tuple[str, int], ...], ...]:
-    counter = Counter(dict(counter_key))
+    counter = unpack_counter(counter_key)
     remaining_count = sum(counter.values())
     if needed == 0:
         return ((),) if remaining_count == 0 else ()
@@ -93,11 +90,11 @@ def _meld_partitions(
 
 @lru_cache(maxsize=131072)
 def _can_form_melds(
-    counter_key: Tuple[Tuple[int, int], ...],
+    counter_key: bytes,
     needed: int,
 ) -> bool:
     """只判断余牌能否组成指定数量的面子，不构造完整拆分。"""
-    counter = Counter(dict(counter_key))
+    counter = unpack_counter(counter_key)
     remaining_count = sum(counter.values())
     if needed == 0:
         return remaining_count == 0
@@ -129,11 +126,11 @@ def _can_form_melds(
 
 @lru_cache(maxsize=65536)
 def _has_standard_shape(
-    counter_key: Tuple[Tuple[int, int], ...],
+    counter_key: bytes,
     concealed_needed: int,
 ) -> bool:
     """判断暗手是否满足配置的标准面子加一将结构。"""
-    counter = Counter(dict(counter_key))
+    counter = unpack_counter(counter_key)
     if sum(counter.values()) != concealed_needed * 3 + 2:
         return False
     for pair in sorted(tile for tile, count in counter.items() if count >= 2):
@@ -164,11 +161,11 @@ def _counter_is_eight_pairs_half(counter: Counter) -> bool:
 
 @lru_cache(maxsize=32768)
 def _structural_waits_cached(
-    counter_key: Tuple[Tuple[int, int], ...],
+    counter_key: bytes,
     concealed_needed: int,
     allow_eight_pairs_half: bool,
 ) -> Tuple[int, ...]:
-    counter = Counter(dict(counter_key))
+    counter = unpack_counter(counter_key)
     waits = set()
     for tile in STRUCTURE_TILES:
         if counter[tile] >= 4:

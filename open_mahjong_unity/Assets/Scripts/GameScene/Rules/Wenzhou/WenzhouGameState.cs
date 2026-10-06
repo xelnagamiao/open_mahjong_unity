@@ -15,6 +15,9 @@ public sealed class WenzhouGameState : TurnBasedGameState {
     private int roundGeneration;
     private bool settlementAccepted, pendingSettlement;
     private Response pendingReadyStatus, pendingGameEnd;
+    private readonly WenzhouAskClock askClock = new WenzhouAskClock();
+    private int clockHandNumber;
+    private string clockGamestateId;
 
     private void Accept(GameInfo info) {
         if (info == null) return;
@@ -23,6 +26,10 @@ public sealed class WenzhouGameState : TurnBasedGameState {
         WenzhouPanel.Show(Info);
     }
     protected override void OnRoundStarted(GameInfo info) {
+        int nextHand = info?.wenzhou_info?.hand_number ?? 0;
+        if (nextHand != clockHandNumber || Session.GamestateId != clockGamestateId) {
+            askClock.Reset(); clockHandNumber = nextHand; clockGamestateId = Session.GamestateId;
+        }
         ResetSettlement();
         Info = null; waits.Clear(); endHands = null; Accept(info);
         if (Info?.self_has_draw_slot == true && Mirror.SelfHandTiles.Count > 0) {
@@ -31,11 +38,36 @@ public sealed class WenzhouGameState : TurnBasedGameState {
             GameCanvas.Instance.ChangeHandCards("GetCardNoAnimation", tiles[tiles.Length - 1], null, null);
         }
     }
-    protected override void OnAskHandAction(Response response) { Accept(response.game_info); base.OnAskHandAction(response); }
+    protected override void OnAskHandAction(Response response) {
+        Accept(response.game_info);
+        var info = response.ask_hand_action_info;
+        if (info == null || askClock.IsClosed(info.action_tick)) return;
+        base.OnAskHandAction(response);
+        PresentAskClock(response,info.action_tick,info.remaining_time,info.step_remaining ?? Session.RoomStepTime);
+    }
     protected override void OnAskClaim(Response response) {
         Accept(response.game_info);
+        var info = response.ask_other_action_info;
+        if (info == null || askClock.IsClosed(info.action_tick)) return;
         Clock.PendingAskFromJiagang = Info?.phase == "waiting_action_qianggang";
         base.OnAskClaim(response);
+        PresentAskClock(response,info.action_tick,info.remaining_time,info.step_remaining ?? Session.RoomStepTime);
+    }
+    private void PresentAskClock(Response response, int tick, int bank, int step) {
+        if (!Clock.IsSelfActionRequired) return;
+        if (Info?.clock_active == false || Clock.AllowActionList.Count == 0) {
+            Clock.Clear("wenzhouAlreadyAnswered");
+            return;
+        }
+        double now = WenzhouAskClock.Now;
+        askClock.Project(tick,Info?.clock_remaining_ms ?? (bank+(double)step)*1000,
+            Info?.clock_step_remaining_ms ?? step*1000d,response.received_monotonic ?? now,now,
+            out double bankSeconds,out double stepSeconds);
+        GameCanvas.Instance.LoadingRemianTime(bankSeconds,stepSeconds);
+    }
+    public override void OnAskWindowClosed(AskCloseReason reason) {
+        if (reason == AskCloseReason.Acted || reason == AskCloseReason.TimedOut) askClock.Close();
+        base.OnAskWindowClosed(reason);
     }
     protected override void OnDoAction(Response response) {
         Accept(response.game_info);
@@ -211,5 +243,5 @@ public sealed class WenzhouGameState : TurnBasedGameState {
         if (hint?.self_draw == true) return WaitTileHint.TsumoOnly($"自摸{hint.self_draw_multiplier}倍");
         return WaitTileHint.None("过水或未成和");
     }
-    public override void OnSessionReset() { ResetSettlement(); Info = null; waits.Clear(); endHands = null; WenzhouPanel.Hide(); }
+    public override void OnSessionReset() { askClock.Reset(); clockHandNumber=0; clockGamestateId=null; ResetSettlement(); Info = null; waits.Clear(); endHands = null; WenzhouPanel.Hide(); }
 }

@@ -5,7 +5,7 @@
     "username": "示例玩家",
     "guobiao_rank": "三段",
     "guobiao_score": 850.5,
-    "updated_at": "2026-10-04T08:00:00.000Z",
+    "updated_at": "2026-10-06T08:00:00.000Z",
     "bounds": {
       "startScore": 600,
       "promoteScore": 1200,
@@ -27,9 +27,8 @@
         "system": "grade",
         "rank_name": "三段",
         "rank_score": 850.5,
-        "elo": 1550.25,
         "games": 42,
-        "updated_at": "2026-10-04T08:00:00.000Z",
+        "updated_at": "2026-10-06T08:00:00.000Z",
         "bounds": {
           "startScore": 600,
           "promoteScore": 1200,
@@ -50,8 +49,7 @@
         "rule": "riichi",
         "system": "grade",
         "rank_name": "6级",
-        "rank_score": 60.5,
-        "elo": 1580.75,
+        "rank_score": 30.5,
         "games": 3,
         "updated_at": null,
         "bounds": {
@@ -63,10 +61,10 @@
           "isTopRank": false
         },
         "progress": {
-          "current": 60.5,
+          "current": 30.5,
           "target": 40,
-          "percent": 100,
-          "remaining": 0,
+          "percent": 76.3,
+          "remaining": 9.5,
           "isMaxRank": false
         }
       },
@@ -88,6 +86,40 @@
         "rank_score": 0,
         "elo": 1500,
         "games": 0,
+        "updated_at": null,
+        "bounds": null,
+        "progress": null
+      },
+      "riichi_sanma": {
+        "rule": "riichi_sanma",
+        "system": "grade",
+        "rank_name": "初段",
+        "rank_score": 245,
+        "games": 1,
+        "updated_at": null,
+        "bounds": {
+          "startScore": 200,
+          "promoteScore": 400,
+          "canDemote": true,
+          "minScore": 0,
+          "maxScore": 399.99,
+          "isTopRank": false
+        },
+        "progress": {
+          "current": 245,
+          "target": 400,
+          "percent": 61.3,
+          "remaining": 155,
+          "isMaxRank": false
+        }
+      },
+      "sichuan_xueliu_exchange": {
+        "rule": "sichuan_xueliu_exchange",
+        "system": "elo",
+        "rank_name": "",
+        "rank_score": 0,
+        "elo": 1516,
+        "games": 1,
         "updated_at": null,
         "bounds": null,
         "progress": null

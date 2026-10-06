@@ -73,7 +73,7 @@ def test_new_validator_cannot_be_used_to_coerce_a_different_profile():
     {"detailed_config": {"require_minimum_score": "false"}},
     {"detailed_config": {"unknown": True}},
     *[{key: True} for key in FIXED_OPTIONS],
-    *[{key: "false"} for key in (*FIXED_OPTIONS, "tips", "tourist_limit", "allow_spectator", "count_tips", "pointer_tips")],
+    *[{key: "false"} for key in (*FIXED_OPTIONS, "tactical_call", "tips", "tourist_limit", "allow_spectator", "count_tips", "pointer_tips")],
 ])
 def test_new_profile_rejects_wrong_types_unknown_settings_and_fixed_rule_changes(overrides):
     with pytest.raises(ValueError):

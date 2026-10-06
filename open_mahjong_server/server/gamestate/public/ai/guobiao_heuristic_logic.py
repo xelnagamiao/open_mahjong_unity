@@ -27,13 +27,13 @@ from .guobiao_shanten import (
     counts_from_tiles,
     effective_tiles,
     guobiao_shanten,
+    guobiao_yiban_shanten,
     live_copies,
     normalize_tile,
     pack_adjust,
     pack_counts,
     remove_tile,
     shanten_qidui,
-    xiangting_yiban,
 )
 from .smart_bot_logic import count_melds
 
@@ -918,7 +918,7 @@ def should_open_qidui_protect(hand: Sequence[int], n_melds: int) -> bool:
         return False
     counts = counts_from_tiles(hand)
     q = shanten_qidui(counts)
-    y = xiangting_yiban(counts, 0)
+    y = guobiao_yiban_shanten(counts, 0)
     return q < y
 
 

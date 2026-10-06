@@ -61,6 +61,8 @@ async def handle_data_message(game_server, Connect_id: str, message: dict, webso
         await handle_get_classical_stats(game_server, Connect_id, message, websocket)
     elif message_type == "data/get_jiandan_stats":
         await handle_get_jiandan_stats(game_server, Connect_id, message, websocket)
+    elif message_type == "data/get_rule_stats":
+        await handle_get_rule_stats(game_server, Connect_id, message, websocket)
     elif message_type == "data/get_leaderboard":
         await handle_get_leaderboard(game_server, Connect_id, message, websocket)
     elif message_type == "data/get_ranked_stats":
@@ -218,6 +220,37 @@ async def handle_update_record_note(game_server, Connect_id: str, message: dict,
     )
     await websocket.send_json(response.dict(exclude_none=True))
 
+async def handle_get_rule_stats(game_server, connect_id, message, websocket):
+    from .get_rule_stats import get_custom_rule_history, validate_selection
+    response = Response(type="data/get_rule_stats", success=False, message="用户未登录",
+                        data_request_id=str(message.get("data_request_id") or "")[:128])
+    try:
+        player = game_server.players.get(connect_id)
+        if player and player.user_id:
+            rule = validate_selection(message)
+            try:
+                uid = int(message.get("userid", player.user_id))
+            except (TypeError, ValueError):
+                raise ValueError("无效的用户ID") from None
+            if uid <= 10:
+                raise ValueError("无效的用户ID")
+            rows = await _run_record_read(get_custom_rule_history, game_server.db_manager, uid, rule)
+            fans = {}
+            for row in rows:
+                for key, value in (row.get("fan_stats") or {}).items():
+                    fans[key] = fans.get(key, 0) + value
+            response.rule_stats = Rule_stats_response(rule=rule, history_stats=[Player_stats_info(**row) for row in rows],
+                                                     total_fan_stats=fans, ranked_fan_stats={})
+            response.success = True
+            response.message = "自定义对局统计已更新"
+    except ValueError as error:
+        response.message = str(error)
+    except Exception:
+        logger.exception("获取自定义玩法统计失败")
+        response.message = "获取统计失败，请重试"
+    await websocket.send_json(response.dict(exclude_none=True))
+
+
 async def handle_get_ranked_stats(game_server, connect_id, message, websocket):
     from .rule_ratings import get_ranked_history
     from .riichi.get_riichi_stats import get_riichi_fan_stats_total
@@ -235,8 +268,8 @@ async def handle_get_ranked_stats(game_server, connect_id, message, websocket):
                 uid = int(message.get('userid',player.user_id))
                 rows = await _run_record_read(get_ranked_history, game_server.db_manager, uid, rule)
                 fans = {}
-                if rule == 'riichi':
-                    fans = await _run_record_read(get_riichi_fan_stats_total, game_server.db_manager, uid, ranked=True)
+                if rule in ('riichi', 'riichi_sanma'):
+                    fans = await _run_record_read(get_riichi_fan_stats_total, game_server.db_manager, uid, ranked=True, sanma=rule == 'riichi_sanma')
                 elif rule == 'qingque':
                     fans = await _run_record_read(get_qingque_fan_stats_total, game_server.db_manager, uid, ranked=True)
                 response.rule_stats = Rule_stats_response(rule=rule, history_stats=[Player_stats_info(**r) for r in rows], total_fan_stats={}, ranked_fan_stats=fans)
@@ -392,6 +425,7 @@ async def handle_get_guobiao_stats(game_server, Connect_id: str, message: dict, 
                     username=user_settings_data.get('username'),
                     title_id=user_settings_data.get('title_id'),
                     profile_image_id=user_settings_data.get('profile_image_id'),
+                    avatar_frame_id=user_settings_data.get('avatar_frame_id', 0),
                     character_id=user_settings_data.get('character_id'),
                     voice_id=user_settings_data.get('voice_id')
                 ),
@@ -450,7 +484,7 @@ async def handle_get_guobiao_stats(game_server, Connect_id: str, message: dict, 
     await websocket.send_json(response.dict(exclude_none=True))
 
 async def handle_get_riichi_stats(game_server, Connect_id: str, message: dict, websocket):
-    """处理获取立直统计数据请求（暂时返回空数据，待实现）"""
+    """读取日麻逐局摘要，返回局制、行为、流局、点数及役种统计。"""
     try:
         target_user_id = int(message.get("userid"))
     except (ValueError, TypeError):
@@ -477,6 +511,7 @@ async def handle_get_riichi_stats(game_server, Connect_id: str, message: dict, w
                     username=user_settings_data.get('username'),
                     title_id=user_settings_data.get('title_id'),
                     profile_image_id=user_settings_data.get('profile_image_id'),
+                    avatar_frame_id=user_settings_data.get('avatar_frame_id', 0),
                     character_id=user_settings_data.get('character_id'),
                     voice_id=user_settings_data.get('voice_id')
                 ),
@@ -490,26 +525,7 @@ async def handle_get_riichi_stats(game_server, Connect_id: str, message: dict, w
     from .riichi.get_riichi_stats import get_riichi_history_stats, get_riichi_fan_stats_total
 
     history_stats_rows = get_riichi_history_stats(game_server.db_manager, target_user_id)
-    history_stats_list = []
-    for stats_row in history_stats_rows:
-        history_stats_list.append(Player_stats_info(
-            rule=stats_row.get('rule', 'riichi'),
-            mode=stats_row.get('mode'),
-            total_games=stats_row.get('total_games'),
-            total_rounds=stats_row.get('total_rounds'),
-            win_count=stats_row.get('win_count'),
-            self_draw_count=stats_row.get('self_draw_count'),
-            deal_in_count=stats_row.get('deal_in_count'),
-            total_fan_score=stats_row.get('total_fan_score'),
-            total_win_turn=stats_row.get('total_win_turn'),
-            total_fangchong_score=stats_row.get('total_fangchong_score'),
-            first_place_count=stats_row.get('first_place_count'),
-            second_place_count=stats_row.get('second_place_count'),
-            third_place_count=stats_row.get('third_place_count'),
-            fourth_place_count=stats_row.get('fourth_place_count'),
-            fulu_round_count=stats_row.get('fulu_round_count'),
-            fan_stats=None,
-        ))
+    history_stats_list = [Player_stats_info(**row) for row in history_stats_rows]
 
     total_fan_stats = get_riichi_fan_stats_total(game_server.db_manager, target_user_id, ranked=False)
 
@@ -557,6 +573,7 @@ async def handle_get_qingque_stats(game_server, Connect_id: str, message: dict, 
                     username=user_settings_data.get('username'),
                     title_id=user_settings_data.get('title_id'),
                     profile_image_id=user_settings_data.get('profile_image_id'),
+                    avatar_frame_id=user_settings_data.get('avatar_frame_id', 0),
                     character_id=user_settings_data.get('character_id'),
                     voice_id=user_settings_data.get('voice_id')
                 ),
@@ -638,6 +655,7 @@ async def handle_get_classical_stats(game_server, Connect_id: str, message: dict
                     username=user_settings_data.get('username'),
                     title_id=user_settings_data.get('title_id'),
                     profile_image_id=user_settings_data.get('profile_image_id'),
+                    avatar_frame_id=user_settings_data.get('avatar_frame_id', 0),
                     character_id=user_settings_data.get('character_id'),
                     voice_id=user_settings_data.get('voice_id')
                 ),
@@ -720,6 +738,7 @@ async def handle_get_jiandan_stats(game_server, Connect_id: str, message: dict, 
                     username=user_settings_data.get("username"),
                     title_id=user_settings_data.get("title_id"),
                     profile_image_id=user_settings_data.get("profile_image_id"),
+                    avatar_frame_id=user_settings_data.get("avatar_frame_id", 0),
                     character_id=user_settings_data.get("character_id"),
                     voice_id=user_settings_data.get("voice_id"),
                 ),

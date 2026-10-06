@@ -17,7 +17,7 @@ internal static class ChangchunRuleBootstrap {
                 "MIL《长春麻将（推广）竞赛规则（试行2024版）》：136张、十三张手牌，须有三门与幺九。首个出牌回合可亮幺九杠、旋风杠、喜杠，一条只在这些特殊杠中替牌。报听后下次轮到自己看宝，支持冲宝、摸宝；6番封顶，未听或未合理看宝放铳包三家。末四张只和不打。") },
             CreateRoomDefaults = new Dictionary<string, object> {
                 {CreateRoomKeys.SubRule,0},{CreateRoomKeys.GameRound,4},{CreateRoomKeys.RoundTimer,3},{CreateRoomKeys.StepTimer,1},
-                {CreateRoomKeys.Tips,true},{CreateRoomKeys.CountTips,false},{CreateRoomKeys.PointerTips,true},
+                {CreateRoomKeys.Tips,true},{CreateRoomKeys.CountTips,false},{CreateRoomKeys.PointerTips,true},{CreateRoomKeys.TacticalCall,true},
                 {CreateRoomKeys.Password,false},{CreateRoomKeys.RandomSeed,false},{CreateRoomKeys.TouristLimit,false},{CreateRoomKeys.AllowSpectator,true}
             },
             GameStateFactory = () => new ChangchunGameState(),

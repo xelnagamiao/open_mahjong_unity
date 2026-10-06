@@ -77,6 +77,7 @@ public partial class GameRecordManager {
     }
 
     private void OnDisable() {
+        CancelRecordBuhuaContinuation();
         TileFaceResolver.OnPackChanged -= RefreshTileListLayout;
         HideRecordPlayerWaits();
     }

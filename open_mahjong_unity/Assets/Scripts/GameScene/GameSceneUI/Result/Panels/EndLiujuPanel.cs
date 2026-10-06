@@ -45,7 +45,8 @@ public class EndLiujuPanel : MonoBehaviour {
         PlayPreparedLiujuPanel(visibleSeconds);
     }
 
-    public void PrepareLiujuPanel(string displayText, Dictionary<int, int[]> tenpaiTilesByPlayerIndex = null) {
+    public void PrepareLiujuPanel(string displayText, Dictionary<int, int[]> tenpaiTilesByPlayerIndex = null,
+        IDictionary<int, string> indexToPosition = null) {
         if (autoHideCoroutine != null) {
             StopCoroutine(autoHideCoroutine);
             autoHideCoroutine = null;
@@ -53,7 +54,7 @@ public class EndLiujuPanel : MonoBehaviour {
         if (liujuText != null) liujuText.text = displayText;
         EndResultPanel.ApplyRuleFootnote(guobiaoAngangCheckText, GameSession.Current.SubRule, null);
         ClearTenpaiMarkers();
-        ApplyTenpaiMarkers(tenpaiTilesByPlayerIndex);
+        ApplyTenpaiMarkers(tenpaiTilesByPlayerIndex, indexToPosition);
         gameObject.SetActive(true);
     }
 
@@ -94,9 +95,9 @@ public class EndLiujuPanel : MonoBehaviour {
         }
     }
 
-    private void ApplyTenpaiMarkers(Dictionary<int, int[]> tenpaiTilesByPlayerIndex) {
+    private void ApplyTenpaiMarkers(Dictionary<int, int[]> tenpaiTilesByPlayerIndex, IDictionary<int, string> indexToPosition) {
         if (tenpaiTilesByPlayerIndex == null || tenpaiTilesByPlayerIndex.Count == 0) return;
-        var indexToPosition = NormalGameStateManager.Instance.indexToPosition;
+        indexToPosition ??= NormalGameStateManager.Instance.indexToPosition;
         foreach (var kvp in tenpaiTilesByPlayerIndex) {
             int playerIndex = kvp.Key;
             int[] tiles = kvp.Value;

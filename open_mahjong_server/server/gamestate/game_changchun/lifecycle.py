@@ -93,7 +93,9 @@ class ChangchunLifecycle:
             player_action_record_hu(self,hu_class=item["hu_class"],hu_score=detail["fan"],hu_fan=detail["fan_names"],
                 hepai_player_index=index,score_changes=[changes[i] for i in range(4)],hepai_tile=item["tile"],
                 ron_discarder_index=payer if ron else None,recycle_discard=True if ron else None)
-            await broadcast_result(self,hepai_player_index=index,
+            tactical_silent = bool(getattr(self, '_tactical_silent_action', False))
+            self._tactical_silent_action = False
+            await broadcast_result(self,silent=tactical_silent,hepai_player_index=index,
                 player_to_score={p.player_index:p.score for p in self.player_list},
                 hu_score=detail["fan"],hu_fan=detail["fan_names"],hu_class=item["hu_class"],
                 hepai_player_hand=winning_hand,hepai_player_huapai=[],hepai_player_combination_mask=winner.combination_mask,

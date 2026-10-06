@@ -21,7 +21,8 @@ class Protocol:
         data["hand_tiles"] = list(p.hand_tiles) if index == viewer or ended else None
         data["hand_tiles_count"] = len(p.hand_tiles)
         data["huapai_list"] = list(p.huapai_list)
-        data["combination_tiles"] = wire.public_melds_for_viewer(p,viewer,reveal_final=ended)
+        # One face-up tile of a Yixing concealed kong reveals its kind.
+        data["combination_tiles"] = list(p.combination_tiles)
         data["combination_mask"] = wire.public_combination_masks_for_viewer(p,viewer,reveal_final=ended)
         return data
 
@@ -77,7 +78,7 @@ class Protocol:
 
     def emit_visible_action_payloads(self,event,*,reveal_final=False):
         self.record_visible_action(event)
-        action,actor = event["action"],event["player"]
+        action = event["action"]
         if action.startswith("hu"):
             return []
         payloads = []
@@ -88,9 +89,6 @@ class Protocol:
                 # The client upgrades this existing pung; the authoritative
                 # snapshot already contains the resulting g meld.
                 info["combination_target"] = f"k{event['tile']}"
-            if action == "angang" and viewer != actor:
-                payload["tile"],payload["meld_code"] = 0,"G0"
-                info["combination_target"],info["combination_mask"] = "G0",[2,0]*4
             if action == "buhua":
                 info.update(buhua_tile=event["tile"],is_mo_buhua=event.get("is_mo_buhua",False))
             if action == "yixing_last_choice":

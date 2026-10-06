@@ -145,6 +145,21 @@ class MultiQueueTests(unittest.IsolatedAsyncioTestCase):
         await handle_match_message(self.server,"1",{"type":"match/get_queue_status"},ws)
         self.assertEqual(ws.send_json.call_args.args[0]["match_player_count"],2)
 
+    async def test_rule_counts_deduplicate_waiting_players_and_add_playing(self):
+        await self.join(1, self.a); await self.join(1, self.b); await self.join(2, self.b)
+        await self.join(1, "riichi_beginner_dongfeng")
+        self.manager.playing_counts[self.a] = 4
+        self.manager.playing_counts[self.c] = 8
+        self.manager.playing_counts["riichi_beginner_dongfeng"] = 4
+        ws = SimpleNamespace(send_json=AsyncMock())
+        await handle_match_message(self.server, "1", {"type": "match/get_queue_status"}, ws)
+        self.assertEqual(ws.send_json.call_args.args[0]["match_rule_player_counts"],
+                         {"guobiao": 14, "riichi": 5, "qingque": 0, "sichuan": 0, "riichi_sanma": 0, "sichuan_xueliu_exchange": 0})
+        self.assertEqual(self.manager.get_queue_status()[self.b]["waiting"], 2)
+        self.manager.player_disconnect(1)
+        self.assertEqual(self.manager.get_rule_player_counts()["guobiao"], 13)
+        self.assertEqual(self.manager.get_rule_player_counts()["riichi"], 4)
+
     async def test_join_exception_returns_failure_without_losing_existing_queue(self):
         await self.join(1,self.a)
         self.server.gamestate_manager.remove_spectator_from_all_games.side_effect=RuntimeError("test cleanup failure")

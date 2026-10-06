@@ -15,17 +15,18 @@ from .protocol import Protocol
 from .recording import Recording
 from .runtime import Runtime
 from .settlement import EndOfHand
+from .tactical import Tactical
 from .state_machine import Phase as P, StateMachine
 
 
-class HangzhouGameState(HandFlow, Protocol, Recording, Runtime, EndOfHand, ZhongyongGameState):
+class HangzhouGameState(HandFlow, Protocol, Recording, Tactical, Runtime, EndOfHand, ZhongyongGameState):
     def __init__(self, game_server=None, room_data=None, calculation_service=None,
                  db_manager=None, gamestate_id="hangzhou-test"):
         data = dict(room_data or self._default_room_data())
         if data.get("sub_rule", SUB_RULE) != SUB_RULE:
             raise ValueError("未开放的杭州麻将子规则")
         config = normalize_config(data.get("detailed_config"))
-        if any(data.get(key, False) for key in ("use_flowers", "open_cuohe", "tactical_call", "claim_protection", "tian_di_ren_he")):
+        if any(data.get(key, False) for key in ("use_flowers", "open_cuohe", "claim_protection", "tian_di_ren_he")):
             raise ValueError("杭州 MIL 标准规不支持此选项")
         if len(data["player_list"]) != 4:
             raise ValueError("杭州麻将必须四人开局")
@@ -33,6 +34,18 @@ class HangzhouGameState(HandFlow, Protocol, Recording, Runtime, EndOfHand, Zhong
         self.machine = StateMachine()
         super().__init__(game_server, data, calculation_service, db_manager, gamestate_id)
         self.player_list = [HangzhouPlayer(**vars(p)) for p in self.player_list]
+        self.tactical_call = bool(data.get("tactical_call", False))
+        self.tactical_commit_lock = False  # MIL 6-4/6: changed circumstances allow upgrading a declaration.
+        from ..public.tactical_claim import TACTICAL_GRACE_SECONDS
+        self.tactical_grace_seconds = TACTICAL_GRACE_SECONDS
+        self.tactical_pre_grace_delay = 0.5
+        self._tactical_recheck_active = self._tactical_in_application = False
+        self._tactical_initial_submission = None
+        self.action_priority = {"pass": 0, "force_pass": 0, "chi_left": 1, "chi_mid": 1,
+                                "chi_right": 1, "peng": 2, "gang": 2, "hu_self": 3}
+        self.sync_tactical_enabled()
+        if room_data is not None and not self.tactical_call:
+            room_data["tactical_call"] = False
         self.action_policy = ActionPolicy()
         self.dead_wall_count = 20
         self.rule_version = RULE_VERSION
@@ -73,6 +86,7 @@ class HangzhouGameState(HandFlow, Protocol, Recording, Runtime, EndOfHand, Zhong
         if self.machine.phase != P.START:
             raise RuntimeError("须先结束上局的确认阶段")
         self.reset_round_state()
+        self._action_clocks, self._action_deadlines = {}, {}
         self.round_settlement = None
         self.round_changes = [0] * 4
         self.round_start_scores = [p.score for p in self.player_list]

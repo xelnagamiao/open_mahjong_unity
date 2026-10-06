@@ -1,4 +1,4 @@
-# 四人立直麻将规则预设
+# 立直麻将规则预设
 
 规则目录为 `server/game_calculation/riichi/rule_options.json`。普通建房、比赛建房、服务端计算、Unity 创建房间及牌谱使用同一组键名。Unity 副本位于 `Assets/Resources/RiichiRuleOptions.json`，目录一致性由 `test_riichi_rule_config.py` 检查。
 
@@ -15,11 +15,11 @@ A 规按日本职业麻将联盟 A 规则解释，ML 规按 M 联赛解释。预
 
 选择预设会同时应用详细规则和相关基础设置，包括场次、起始点、赤牌、食替、西入、击飞及多响方式。房间名称、密码、计时、权限和随机种子保持当前输入。手动改动后显示为自定义规则。详细面板内选择预设后，只有“应用规则”才同步基础设置；取消恢复编辑前状态。
 
-`riichi/standard` 与 `riichi/langyong` 保持为独立子规则。四个预设应用到标准日麻；原有浪涌玩法和配置仍保留。
+`riichi/standard` 与 `riichi/langyong` 保持为独立子规则。四个预设应用到标准日麻；原有浪涌玩法和配置仍保留。另有 `riichi/sanma` 子规则及雀魂三麻、天凤三麻两套预设，三人席位、拔北、补牌和结算设计详见[三人立直麻将](riichi-sanma.md)。
 
 ## 新增配置
 
-37 项详细配置按以下分组显示，所有分组同时存在，顶部选择用于滚动定位。
+40 项详细配置按以下分组显示，所有分组同时存在，顶部选择用于滚动定位。
 
 | 分组 | 配置键 |
 | --- | --- |
@@ -28,6 +28,7 @@ A 规按日本职业麻将联盟 A 规则解释，ML 规按 M 联赛解释。预
 | 流局与连庄 | `kyuushu_abort`、`four_winds_abort`、`four_riichi_abort`、`four_kan_abort`、`nagashi_mangan`、`nagashi_allow_calls`、`noten_penalty`、`tenpai_renchan` |
 | 终局 | `agari_yame`、`tenpai_yame`、`target_score`、`extension_rounds`、`return_score`、`rank_points`、`tie_break`、`end_deposits` |
 | 包牌与错和 | `pao`、`pao_suukantsu`、`pao_scope`、`pao_honba`、`chombo_penalty` |
+| 三人麻将 | `sanma_tsumo`、`nuki_ron`、`nuki_rinshan` |
 
 有效值、默认值及界面解释以规则目录中的 `values`、`default`、`help` 为准。服务端严格校验类型和值，拒绝未知键，不把字符串或整数自动转换为布尔值。旧房间和旧牌谱缺少详细配置时采用兼容默认值。
 

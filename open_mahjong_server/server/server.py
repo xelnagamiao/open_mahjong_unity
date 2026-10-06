@@ -141,13 +141,17 @@ async def _daily_stats_loop() -> None:
         if now >= next_reset:
             next_reset += timedelta(days=1)
         await asyncio.sleep((next_reset - now).total_seconds())
-        try:
-            from .database.daily_aggregator import run_daily_aggregation, current_stat_date
-            yesterday = current_stat_date() - timedelta(days=1)
-            run_daily_aggregation(db_manager, yesterday)
-            logging.info("每日统计已聚合 %s", yesterday)
-        except Exception as e:
-            logging.error("每日统计聚合失败: %s", e, exc_info=True)
+        from .database.daily_aggregator import run_daily_aggregation, current_stat_date
+        yesterday = current_stat_date() - timedelta(days=1)
+        for attempt in range(3):
+            try:
+                await asyncio.to_thread(run_daily_aggregation, db_manager, yesterday)
+                logging.info("每日统计已聚合 %s", yesterday)
+                break
+            except Exception as e:
+                logging.error("每日统计聚合失败（第 %d 次）: %s", attempt + 1, e, exc_info=True)
+                if attempt < 2:
+                    await asyncio.sleep(60)
 
 
 async def _daily_stats_startup_restore() -> None:
@@ -163,9 +167,9 @@ async def _daily_stats_startup_restore() -> None:
 async def lifespan(app: FastAPI):
     # 启动时执行
     db_manager.init_database()
-    # 首次启动补齐所有玩家；分页保存进度，完成后启动只检查迁移标记。
-    from .database.player_recent_records import backfill_player_recent_records
-    await asyncio.to_thread(backfill_player_recent_records, db_manager)
+    # 历史重建已完成；启动只重试明确登记的失败记录，不再执行一次性全库迁移。
+    from .database.player_recent_records import retry_player_recent_record_errors
+    await asyncio.to_thread(retry_player_recent_record_errors, db_manager)
     # 只生成秘钥文件，不启动聊天服务器
     # 聊天服务器应由 supervisor/systemd 等进程管理工具独立管理
     await chat_server.generate_secret_key()
@@ -759,6 +763,7 @@ async def _finalize_player_login(
             username=user_settings_data.get('username'),
             title_id=user_settings_data.get('title_id'),
             profile_image_id=user_settings_data.get('profile_image_id'),
+            avatar_frame_id=user_settings_data.get('avatar_frame_id', 0),
             character_id=user_settings_data.get('character_id'),
             voice_id=user_settings_data.get('voice_id')
         )
