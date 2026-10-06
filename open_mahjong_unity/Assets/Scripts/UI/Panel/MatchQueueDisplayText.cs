@@ -36,8 +36,8 @@ public static class MatchQueueDisplayText {
         if (string.IsNullOrEmpty(queueType)) {
             return "排位";
         }
-        string ruleTitle=RuleTitle;
-        foreach(string rule in RankedRules.Ids)if(queueType.StartsWith(rule+"_")){ruleTitle=RankedRules.Name(rule);queueType=queueType.Substring(rule.Length+1);break;}
+        string rule=RankedRules.QueueRule(queueType);
+        if(queueType.StartsWith(rule+"_"))queueType=queueType.Substring(rule.Length+1);
         int u = queueType.LastIndexOf('_');
         string tierKey = u > 0 ? queueType.Substring(0, u) : queueType;
         return TierTitles.TryGetValue(tierKey, out string t) ? t : tierKey;
@@ -53,8 +53,9 @@ public static class MatchQueueDisplayText {
         if (ExplicitTitles.TryGetValue(queueType, out string custom)) {
             return custom;
         }
-        string ruleTitle=RuleTitle;
-        foreach(string rule in RankedRules.Ids)if(queueType.StartsWith(rule+"_")){ruleTitle=RankedRules.Name(rule);queueType=queueType.Substring(rule.Length+1);break;}
+        string rule=RankedRules.QueueRule(queueType);
+        string ruleTitle=RankedRules.Name(rule);
+        if(queueType.StartsWith(rule+"_"))queueType=queueType.Substring(rule.Length+1);
         int u = queueType.LastIndexOf('_');
         if (u <= 0 || u >= queueType.Length - 1) {
             return $"{RuleTitle}-{queueType}";

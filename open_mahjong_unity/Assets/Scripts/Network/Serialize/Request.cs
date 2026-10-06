@@ -24,7 +24,7 @@ public class CreateGBRoomRequest { // 创建国标房间请求
     public string password;
     public string duplicate_key; // 数据库中的复式牌墙密钥
     public bool use_flowers = true; // 国标花牌；复式由保存的牌墙覆盖
-    public bool tian_di_ren_he; // 标准国标/血战：天地人和各 8 番
+    public bool tian_di_ren_he; // 标准国标/三人国标/血战：天地人和各 8 番
     public string random_seed; // 场景复现主种子：64 位 hex 字符串，空或 "0" 表示关
     public bool open_cuohe; // 是否开启错和
     public int cuohe_type; // 错和形式：0=错和者-30/其余+10，1=错和者-40/其余+0（仅国标）
@@ -238,7 +238,7 @@ public class GetQingqueStatsRequest { // 获取青雀统计数据请求
     public bool need_player_info; // 是否需要玩家信息（第一次加载时需要）
 }
 
-public class GetJiandanStatsRequest { // 获取简单麻将统计数据请求
+public class GetJiandanStatsRequest { // 获取南雀旧兼容统计数据请求
     public string type;
     public string userid;
     public bool need_player_info;

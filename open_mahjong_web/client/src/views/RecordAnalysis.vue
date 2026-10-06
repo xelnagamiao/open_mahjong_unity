@@ -175,7 +175,7 @@
         <div class="section-title">分析工具</div>
         <div class="tool-row">
           <div class="tool-card" :class="{ active: resultTab === 'standard' }">
-            <div class="tool-name">标准分析<span class="tool-rule">（国标）</span></div>
+            <div class="tool-name">标准分析<span class="tool-rule">（{{ currentRuleLabel }}）</span></div>
             <p class="tool-desc">对当前筛选中已下载的牌谱进行玩家数据的常规统计。</p>
             <div class="tool-actions">
               <el-button
@@ -189,17 +189,18 @@
             </div>
           </div>
           <div class="tool-card" :class="{ active: resultTab === 'advanced' }">
-            <div class="tool-name">高级分析<span class="tool-rule">（国标）</span></div>
-            <p class="tool-desc">包含常规统计、听牌巡目、点炮听牌率、分巡场得、番数统计及按场次区分的安定段位预测。</p>
+            <div class="tool-name">高级分析<span class="tool-rule">（国标 / 日麻）</span></div>
+            <p class="tool-desc">{{ isRiichi ? '分析立直、副露、默听、流局和失点，显示对应样本数及指标口径。' : '包含常规统计、听牌巡目、点炮听牌率、分巡场得、番数统计及按场次区分的安定段位预测。' }}</p>
             <div class="tool-actions">
               <el-button
                 type="primary"
                 size="small"
                 :loading="analyzingKind === 'advanced'"
-                :disabled="localCount === 0 || idsLoading || !!analyzingKind || !isGuobiao"
+                :disabled="localCount === 0 || idsLoading || !!analyzingKind || !supportsAdvanced"
                 @click="runAdvancedAnalysis"
               >分析当前筛选</el-button>
               <el-button
+                v-if="isGuobiao"
                 size="small"
                 :loading="analyzingKind === 'stable'"
                 :disabled="localCount === 0 || idsLoading || !!analyzingKind || !isGuobiao"
@@ -271,7 +272,7 @@
           <div class="section-title">分析结果</div>
           <p v-if="isGuobiao" class="result-note">国标巡目按庄家巡计算，与对局进程一致。顺位按牌谱得分独立计算，允许同分同排位。</p>
           <div class="stats-table">
-            <div class="stats-row" v-for="item in statsDisplay" :key="item.label">
+            <div class="stats-row" v-for="item in statsDisplay" :key="item.label" :title="item.tip">
               <span class="stats-label">{{ item.label }}</span>
               <span class="stats-value">{{ item.value }}</span>
             </div>
@@ -303,11 +304,11 @@
               </div>
             </div>
           </div>
-          <el-collapse v-if="isGuobiao && standardFanEntries.length" class="fan-collapse">
+          <el-collapse v-if="standardFanEntries.length" class="fan-collapse">
             <el-collapse-item :title="`番种统计（${standardFanEntries.length}）`" name="fan">
               <div class="fan-grid">
                 <div v-for="item in standardFanEntries" :key="item.key" class="fan-item">
-                  <span class="fan-name">{{ item.name }}<span class="fan-pts">（{{ item.value }} 番）</span></span>
+                  <span class="fan-name">{{ item.name }}<span v-if="isGuobiao" class="fan-pts">（{{ item.value }} 番）</span></span>
                   <span class="fan-value">{{ item.display }}</span>
                 </div>
               </div>
@@ -324,8 +325,9 @@
 
         <template v-else-if="resultTab === 'advanced' && advancedStats">
           <div class="section-title">高级分析</div>
-          <p class="result-note">国标巡目按庄家巡计算，与对局进程一致。顺位按牌谱得分独立计算，允许同分同排位。</p>
-          <div class="fun-tags">
+          <p v-if="isGuobiao" class="result-note">国标巡目按庄家巡计算，与对局进程一致。顺位按牌谱得分独立计算，允许同分同排位。</p>
+          <p v-else-if="isRiichi" class="result-note">以下统计仅覆盖当前筛选内已下载的牌谱。条件比率使用对应的立直、副露或和牌样本；无样本时显示“—”。各指标可查看计算口径。</p>
+          <div v-if="isGuobiao" class="fun-tags">
             <div v-for="tag in funTags" :key="tag.name" class="fun-tag" :class="tag.tone">
               <span class="fun-tag-name">{{ tag.name }}</span>
               <strong>{{ tag.value }}</strong>
@@ -333,18 +335,28 @@
             </div>
           </div>
           <div class="stats-table">
-            <div class="stats-row" v-for="item in advancedBasicRows" :key="'b-'+item.label">
+            <div class="stats-row" v-for="item in advancedBasicRows" :key="'b-'+item.label" :title="item.tip">
               <span class="stats-label">{{ item.label }}</span>
               <span class="stats-value">{{ item.value }}</span>
             </div>
           </div>
-          <div class="stats-table">
+          <div v-if="isGuobiao" class="stats-table">
             <div class="stats-row" v-for="item in advancedExtraRows" :key="'e-'+item.label">
               <span class="stats-label">{{ item.label }}</span>
               <span class="stats-value">{{ item.value }}</span>
             </div>
           </div>
-          <div class="chart-box xun-end-box">
+          <div v-for="group in riichiAdvancedGroups" :key="group.title" class="chart-box">
+            <div class="chart-title">{{ group.title }}</div>
+            <p class="result-note">{{ group.sample }}</p>
+            <div class="stats-table nested">
+              <div v-for="item in group.rows" :key="item.label" class="stats-row" :title="item.tip">
+                <span class="stats-label">{{ item.label }}</span>
+                <span class="stats-value">{{ item.value }}</span>
+              </div>
+            </div>
+          </div>
+          <div v-if="isGuobiao" class="chart-box xun-end-box">
             <div class="chart-title">分巡平均场得</div>
             <div class="stats-table nested">
               <div class="stats-row" v-for="item in xunEndScoreRows" :key="item.label">
@@ -380,17 +392,17 @@
               </div>
             </div>
           </div>
-          <el-collapse v-if="isGuobiao && advancedFanEntries.length" class="fan-collapse">
+          <el-collapse v-if="advancedFanEntries.length" class="fan-collapse">
             <el-collapse-item :title="`番种统计（${advancedFanEntries.length}）`" name="fan">
               <div class="fan-grid">
                 <div v-for="item in advancedFanEntries" :key="'adv-'+item.key" class="fan-item">
-                  <span class="fan-name">{{ item.name }}<span class="fan-pts">（{{ item.value }} 番）</span></span>
+                  <span class="fan-name">{{ item.name }}<span v-if="isGuobiao" class="fan-pts">（{{ item.value }} 番）</span></span>
                   <span class="fan-value">{{ item.display }}</span>
                 </div>
               </div>
             </el-collapse-item>
           </el-collapse>
-          <div class="adv-grid">
+          <div v-if="isGuobiao" class="adv-grid">
             <div class="chart-box">
               <div class="chart-title">点炮（放铳）</div>
               <div class="stats-table nested">
@@ -415,7 +427,7 @@
               </div>
             </div>
           </div>
-          <div class="chart-box fan-box">
+          <div v-if="isGuobiao" class="chart-box fan-box">
             <div class="chart-title">主番分布（点击可按该番查谱）</div>
             <div v-if="!mainFanRows.length" class="bar-empty">没有和牌记录</div>
             <div v-else class="bar-list">
@@ -433,7 +445,7 @@
               </button>
             </div>
           </div>
-          <div class="adv-grid">
+          <div v-if="isGuobiao" class="adv-grid">
             <div class="chart-box">
               <div class="chart-title">和牌张 · 次数 / 占和牌</div>
               <div class="tile-freq">
@@ -637,8 +649,9 @@ import {
   XUN_END_SCORE_BUCKETS,
 } from '../utils/recordAdvancedAnalyzer'
 import { sharePathForWin, sharePathForWin3d } from '../utils/recordShareLink'
-import { buildPlayerStatsRows, rankRatePieLabel, rankedGames, ratio, avg } from '../utils/statsDisplay'
+import { buildPlayerStatsRows, buildRiichiAdvancedStatsGroups, rankRatePieLabel, rankedGames, ratio, avg } from '../utils/statsDisplay'
 import { listGuobiaoFanEntries } from '../constants/guobiaoFanDict'
+import { RIICHI_FAN_NAMES } from '../constants/riichiFanDict'
 import { barsFromCount, barsFromItems } from '../utils/recordBarUnits'
 import { getLocalRecordIdSet, getLocalRecords, putLocalRecords, listCachedPlayers } from '../utils/recordLocalStore'
 import { zipStoreFiles } from '../utils/zipStore'
@@ -657,10 +670,10 @@ const RULE_DEFS = [
   { key: 'guobiao', label: '国标', statsField: 'guobiao_stats' },
   { key: 'riichi', label: '立直', statsField: 'riichi_stats' },
   { key: 'qingque', label: '青雀', statsField: 'qingque_stats' },
-  { key: 'classical', label: '古典', statsField: 'classical_stats' },
+  { key: 'classical', label: '古典麻将', statsField: 'classical_stats' },
   { key: 'sichuan', label: '川麻', statsField: 'sichuan_stats' },
-  { key: 'changsha', label: '长沙', statsField: 'changsha_stats' },
-  { key: 'hongzhong', label: '红中', statsField: 'hongzhong_stats', recordsOnly: true },
+  { key: 'changsha', label: '长沙麻将', statsField: 'changsha_stats' },
+  { key: 'hongzhong', label: '红中麻将', statsField: 'hongzhong_stats', recordsOnly: true },
 ]
 const SCENE_OPTIONS = [
   { value: 'rank', label: '全部天梯' },
@@ -832,7 +845,18 @@ const pieTotal = computed(() => rankedGames(analyzedStats.value))
 const advancedPieSegments = computed(() => pieFromStats(advancedStats.value))
 const advancedPieTotal = computed(() => rankedGames(advancedStats.value))
 const isGuobiao = computed(() => currentRule.value === 'guobiao')
+const isRiichi = computed(() => currentRule.value === 'riichi')
+const supportsAdvanced = computed(() => isGuobiao.value || isRiichi.value)
+const currentRuleLabel = computed(() => RULE_DEFS.find(rule => rule.key === currentRule.value)?.label || currentRule.value)
 const buildFanStatEntries = (stats) => {
+  if (currentRule.value === 'riichi') {
+    const wins = Number(stats?.win_count) || 0;
+    return Object.entries(RIICHI_FAN_NAMES).map(([key, name]) => {
+      const count = Number(stats?.fan_stats?.[key]) || 0;
+      return { key, name, value: 0, count, display: ['dora', 'uradora', 'akadora'].includes(key)
+        ? `${count} 枚 · ${avg(count, wins)} 枚/和牌` : `${count} · ${ratio(count, wins)}` };
+    }).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'zh-CN'));
+  }
   if (!isGuobiao.value) return []
   const wins = Number(stats?.win_count) || 0
   const counts = stats?.fan_stats || {}
@@ -853,7 +877,7 @@ const hasAnyResult = computed(() =>
   !!analyzedStats.value || !!advancedStats.value || !!stableRankData.value || fanQueried.value
 )
 const advancedHint = computed(() => {
-  if (!isGuobiao.value) return '目前仅国标规则'
+  if (!supportsAdvanced.value) return '目前支持国标和日麻规则'
   if (analyzingKind.value === 'advanced' && analyzingProgress.value) {
     return analyzingProgress.value
   }
@@ -870,6 +894,8 @@ const pagedFanHits = computed(() => {
 const advancedBasicRows = computed(() =>
   advancedStats.value ? buildPlayerStatsRows(advancedStats.value) : []
 )
+const riichiAdvancedGroups = computed(() => isRiichi.value
+  ? buildRiichiAdvancedStatsGroups(advancedStats.value) : [])
 const advancedExtraRows = computed(() => {
   const s = advancedStats.value
   if (!s) return []
@@ -1475,8 +1501,8 @@ const runStableAnalysis = async () => {
 
 const runAdvancedAnalysis = async () => {
   if (analyzingKind.value) return
-  if (!isGuobiao.value) {
-    ElMessage.info('高级分析目前仅支持国标')
+  if (!supportsAdvanced.value) {
+    ElMessage.info('高级分析目前支持国标和日麻')
     return
   }
   analyzingKind.value = 'advanced'
@@ -1484,7 +1510,7 @@ const runAdvancedAnalysis = async () => {
     const loaded = await loadCachedRecords()
     if (!loaded) return
     analyzingProgress.value = `0 / ${loaded.items.length} 局`
-    const stats = await analyzeRecordsAdvanced(loaded.items, loaded.uid, {
+    const stats = isRiichi.value ? analyzeRecords(loaded.items, loaded.uid) : await analyzeRecordsAdvanced(loaded.items, loaded.uid, {
       tingpai: true,
       onProgress: (done, total) => {
         analyzingProgress.value = `${done} / ${total} 局`
@@ -1492,10 +1518,12 @@ const runAdvancedAnalysis = async () => {
     })
     if (loaded.filterKey !== filterKey.value) return
     advancedStats.value = stats
-    advancedHasTenpai.value = true
+    advancedHasTenpai.value = isGuobiao.value
     advancedFilterKey.value = filterKey.value
-    winEvents.value = stats.wins || []
-    winEventsKey.value = filterKey.value
+    if (isGuobiao.value) {
+      winEvents.value = stats.wins || []
+      winEventsKey.value = filterKey.value
+    }
     resultTab.value = 'advanced'
     ElMessage.success(`已分析 ${stats.total_games || 0} 局 · ${stats.win_count || 0} 次和牌`)
   } catch (e) {

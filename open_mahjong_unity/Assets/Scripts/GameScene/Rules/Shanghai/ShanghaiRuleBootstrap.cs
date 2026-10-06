@@ -44,6 +44,7 @@ internal static class ShanghaiRuleBootstrap {
             ScoreboardFanText = query => $"{query.HuScore}分",
             SettlementTotal = query => new SettlementTotalDisplay { FanText = query.Rule == "shanghai/qinghunpeng" ? "和牌点数" : "基本分", ScoreText = $"{query.HuScore}分" },
             ActionCaption = ActionCaption,
+            ActionVoice = word => (word == "riichi" || word == "riichi_cut") && IsQiaomaActionContext() ? "ting" : null,
             PeekAnkan = true,
             SupportsRobbedAddedKongSource = true,
             ReplacementFromTailEnd = true,
@@ -72,6 +73,12 @@ internal static class ShanghaiRuleBootstrap {
             case "riichi_cut_cancel": return "取消敲牌";
             default: return null;
         }
+    }
+
+    private static bool IsQiaomaActionContext() {
+        // 牌谱和观战使用自己的规则上下文；旧上海牌谱缺少子规则时沿用默认敲麻。
+        GameRecordManager.ResolveActionRuleContext(null, null, out string roomRule, out string subRule);
+        return subRule == "shanghai/qiaoma" || (string.IsNullOrEmpty(subRule) && roomRule == "shanghai");
     }
 
     private static bool TryFlowerValue(string name, out string label, out string value) {

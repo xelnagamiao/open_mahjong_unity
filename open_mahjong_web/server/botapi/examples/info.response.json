@@ -40,7 +40,53 @@
         }
       }
     ],
-    "riichi_stats": [],
+    "riichi_stats": [
+      {
+        "total_games": 1,
+        "total_rounds": 3,
+        "win_count": 0,
+        "self_draw_count": 0,
+        "deal_in_count": 0,
+        "total_fan_score": 0,
+        "total_win_turn": 0,
+        "total_fangchong_score": 0,
+        "fulu_round_count": 0,
+        "cuohe_count": 0,
+        "total_round_score": 20,
+        "first_place_count": 1,
+        "second_place_count": 0,
+        "third_place_count": 0,
+        "fourth_place_count": 0,
+        "rule": "riichi",
+        "riichi_details": {
+          "riichi_round_count": 0,
+          "total_riichi_turn": 0,
+          "riichi_win_count": 0,
+          "riichi_deal_in_count": 0,
+          "fulu_win_count": 0,
+          "damaten_win_count": 0,
+          "draw_round_count": 0,
+          "exhaustive_draw_count": 0,
+          "tenpai_draw_count": 0,
+          "tsumo_loss_count": 0,
+          "total_win_points": 0,
+          "total_deal_in_points": 0,
+          "final_score_total": 0,
+          "final_score_count": 0,
+          "busted_count": 0,
+          "net_score_count": 1
+        },
+        "fan_stats": {
+          "riichi": 1
+        },
+        "details_available": true,
+        "analyzed_games": 1,
+        "mode": "1/4_sanma_rank",
+        "mode_fan_stats": {
+          "riichi": 1
+        }
+      }
+    ],
     "qingque_stats": [],
     "classical_stats": [],
     "fan_dict": {
@@ -371,7 +417,7 @@
     "rank": {
       "guobiao_rank": "三段",
       "guobiao_score": 850.5,
-      "updated_at": "2026-10-04T08:00:00.000Z",
+      "updated_at": "2026-10-06T08:00:00.000Z",
       "bounds": {
         "startScore": 600,
         "promoteScore": 1200,
@@ -394,9 +440,8 @@
         "system": "grade",
         "rank_name": "三段",
         "rank_score": 850.5,
-        "elo": 1550.25,
         "games": 42,
-        "updated_at": "2026-10-04T08:00:00.000Z",
+        "updated_at": "2026-10-06T08:00:00.000Z",
         "bounds": {
           "startScore": 600,
           "promoteScore": 1200,
@@ -417,8 +462,7 @@
         "rule": "riichi",
         "system": "grade",
         "rank_name": "6级",
-        "rank_score": 60.5,
-        "elo": 1580.75,
+        "rank_score": 30.5,
         "games": 3,
         "updated_at": null,
         "bounds": {
@@ -430,10 +474,10 @@
           "isTopRank": false
         },
         "progress": {
-          "current": 60.5,
+          "current": 30.5,
           "target": 40,
-          "percent": 100,
-          "remaining": 0,
+          "percent": 76.3,
+          "remaining": 9.5,
           "isMaxRank": false
         }
       },
@@ -455,6 +499,40 @@
         "rank_score": 0,
         "elo": 1500,
         "games": 0,
+        "updated_at": null,
+        "bounds": null,
+        "progress": null
+      },
+      "riichi_sanma": {
+        "rule": "riichi_sanma",
+        "system": "grade",
+        "rank_name": "初段",
+        "rank_score": 245,
+        "games": 1,
+        "updated_at": null,
+        "bounds": {
+          "startScore": 200,
+          "promoteScore": 400,
+          "canDemote": true,
+          "minScore": 0,
+          "maxScore": 399.99,
+          "isTopRank": false
+        },
+        "progress": {
+          "current": 245,
+          "target": 400,
+          "percent": 61.3,
+          "remaining": 155,
+          "isMaxRank": false
+        }
+      },
+      "sichuan_xueliu_exchange": {
+        "rule": "sichuan_xueliu_exchange",
+        "system": "elo",
+        "rank_name": "",
+        "rank_score": 0,
+        "elo": 1516,
+        "games": 1,
         "updated_at": null,
         "bounds": null,
         "progress": null
@@ -511,11 +589,78 @@
       ],
       "riichi": [],
       "qingque": [],
-      "sichuan": []
+      "sichuan": [],
+      "riichi_sanma": [
+        {
+          "total_games": 1,
+          "total_rounds": 3,
+          "win_count": 0,
+          "self_draw_count": 0,
+          "deal_in_count": 0,
+          "total_fan_score": 0,
+          "total_win_turn": 0,
+          "total_fangchong_score": 0,
+          "fulu_round_count": 0,
+          "cuohe_count": 0,
+          "total_round_score": 20,
+          "first_place_count": 1,
+          "second_place_count": 0,
+          "third_place_count": 0,
+          "fourth_place_count": 0,
+          "rule": "riichi_sanma",
+          "riichi_details": {
+            "riichi_round_count": 0,
+            "total_riichi_turn": 0,
+            "riichi_win_count": 0,
+            "riichi_deal_in_count": 0,
+            "fulu_win_count": 0,
+            "damaten_win_count": 0,
+            "draw_round_count": 0,
+            "exhaustive_draw_count": 0,
+            "tenpai_draw_count": 0,
+            "tsumo_loss_count": 0,
+            "total_win_points": 0,
+            "total_deal_in_points": 0,
+            "final_score_total": 0,
+            "final_score_count": 0,
+            "busted_count": 0,
+            "net_score_count": 1
+          },
+          "fan_stats": {
+            "riichi": 1
+          },
+          "details_available": true,
+          "analyzed_games": 1,
+          "mode": "1/4_sanma_rank"
+        }
+      ],
+      "sichuan_xueliu_exchange": [
+        {
+          "rule": "sichuan_xueliu_exchange",
+          "mode": "4/4_rank",
+          "total_games": 1,
+          "total_rounds": 16,
+          "win_count": 0,
+          "self_draw_count": 0,
+          "deal_in_count": 0,
+          "total_fan_score": 0,
+          "total_win_turn": 0,
+          "total_fangchong_score": 0,
+          "first_place_count": 1,
+          "second_place_count": 0,
+          "third_place_count": 0,
+          "fourth_place_count": 0,
+          "fulu_round_count": 0,
+          "cuohe_count": 0,
+          "total_round_score": 0
+        }
+      ]
     },
     "record_counts": {
       "guobiao": 128,
-      "zhongyong": 2
+      "zhongyong": 2,
+      "riichi": 1,
+      "sichuan": 1
     }
   }
 }

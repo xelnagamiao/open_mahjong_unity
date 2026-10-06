@@ -18,6 +18,7 @@ test('filtered player scores and counts use the same records', {
         match_type text, match_tier text, event_id text, score int, rank int,
         PRIMARY KEY (game_id, user_id)
       );
+      CREATE TEMP TABLE riichi_player_game_stats (game_id text,user_id bigint,version int,stats jsonb);
     `);
     const fixtures = [
       ['old', '2026-07-31 23:59:59', 'match', 'beginner', '1/4_rank', null, 10000, 1],
@@ -78,6 +79,23 @@ test('filtered player scores and counts use the same records', {
       const result = await fetchPlayerRankStats(101, { ...query, rule: 'riichi' });
       assert.equal(result.total_games, 1);
       assert.equal(result.total_round_score, null);
+    });
+    await t.test('riichi filtered details use only the same selected player and records', async () => {
+      const stats = { total_games: 1, total_rounds: 4, total_round_score: 10000, win_count: 1,
+        riichi_details: { riichi_round_count: 2, riichi_win_count: 1, net_score_count: 1 }, fan_stats: { riichi: 1 } };
+      const { RIICHI_STATS_VERSION } = require('./riichiStats');
+      await pool.query('INSERT INTO riichi_player_game_stats VALUES ($1, $2, $3, $4)', ['start', 101, RIICHI_STATS_VERSION, stats]);
+      await pool.query('INSERT INTO riichi_player_game_stats VALUES ($1, $2, $3, $4)', ['outside', 101, RIICHI_STATS_VERSION, { ...stats, total_rounds: 999 }]);
+      const result = await fetchPlayerRankStats(101, { ...query, rule: 'riichi' });
+      assert.equal(result.details_available, true);
+      assert.equal(result.total_games, 1);
+      assert.equal(result.total_rounds, 4);
+      assert.equal(result.total_round_score, 10000);
+      assert.equal(result.riichi_details.riichi_round_count, 2);
+      assert.equal(result.fan_stats.riichi, 1);
+      const empty = await fetchPlayerRankStats(101, { ...query, rule: 'riichi', tier: 'custom' });
+      assert.equal(empty.total_rounds, 0);
+      assert.equal(empty.riichi_details.riichi_round_count, 0);
     });
   } finally {
     if (previousDatabase) require.cache[databasePath] = previousDatabase;

@@ -12,8 +12,13 @@ from .state_machine import Phase as P
 class Session:
     def open_action_window(self, window):
         window["_clock_started"] = None
+        window["_clock_started_by_player"] = {}
+        window["_clock_deadlines"] = {}
         window["_clock_bank"] = {i:p.remaining_time for i,p in enumerate(self.player_list)}
+        window["_clock_step"] = self.step_time
         window["_clock_finished"] = {}
+        window["_clock_finished_exact"] = {}
+        window["_clock_responses"] = {}
         # Clear stale replies BEFORE broadcasting, preserving fast new replies.
         for i in range(4):
             self.action_events[i].clear()
@@ -21,20 +26,66 @@ class Session:
                 self.action_queues[i].get_nowait()
         return super().open_action_window(window)
 
+    def _clock_start(self, index, window):
+        starts = window.get("_clock_started_by_player", {})
+        # The single-start fallback also supports driver-created windows.
+        return starts.get(index) if starts else window.get("_clock_started")
+
+    def start_action_clock(self, index, window=None):
+        """Anchor the first actual player ask; retransmits never renew it."""
+        window = window if window is not None else self.live_pending_window
+        if not window or not window["actions"].get(index) or index in window["_clock_finished"]:
+            return
+        started = self._clock_start(index, window)
+        if started is None:
+            started = time.monotonic()
+        window["_clock_started_by_player"].setdefault(index, started)
+        if window["_clock_started"] is None:
+            window["_clock_started"] = started
+        seconds = window["_clock_step"] + max(0, window["_clock_bank"][index])
+        if self.player_list[index].is_bot:
+            from ..public.ai.pacing import bot_delay
+            # Bot pacing is an automatic action, not an extra human grace.
+            seconds = max(seconds, bot_delay(self)+0.1)
+        window["_clock_deadlines"].setdefault(index, started+max(0,seconds))
+
+    def _clock_values(self, index, window, now=None):
+        if index in window.get("_clock_finished_exact", {}):
+            return window["_clock_finished_exact"][index]
+        started = self._clock_start(index, window)
+        elapsed = max(0, (time.monotonic() if now is None else now)-started) if started is not None and window["actions"].get(index) else 0
+        bank = window.get("_clock_bank", {}).get(index, self.player_list[index].remaining_time)
+        step = window.get("_clock_step", self.step_time)
+        return max(0, bank-max(0, elapsed-step)), max(0, step-elapsed)
+
     def remaining_clock(self, index, window):
-        """Project the existing action budget; reconnect never starts a new one."""
+        """Round only the wire display, never the authoritative bank."""
         if index in window.get("_clock_finished", {}):
             return window["_clock_finished"][index]
-        started = window.get("_clock_started")
-        elapsed = max(0, time.monotonic()-started) if started is not None and window["actions"].get(index) else 0
-        bank = window.get("_clock_bank", {}).get(index, self.player_list[index].remaining_time)
-        return (math.ceil(max(0, bank-max(0, elapsed-self.step_time))),
-                math.ceil(max(0, self.step_time-elapsed)))
+        return tuple(math.ceil(value) for value in self._clock_values(index,window))
+
+    def _finish_action_clock(self, index, window, received_at):
+        if index in window["_clock_finished"]:
+            return
+        remaining = self._clock_values(index,window,received_at)
+        self.player_list[index].remaining_time = remaining[0]
+        window["_clock_finished_exact"][index] = remaining
+        window["_clock_finished"][index] = tuple(math.ceil(value) for value in remaining)
 
     async def submit_action(self, player_index, action_type, **kwargs):
+        received_at = time.monotonic()
         if type(player_index) is not int or player_index not in range(4) or not self.action_queues[player_index].empty():
             raise ValueError("非法座位或重复响应")
         self.validate_response(player_index, dict(action_type=action_type, **kwargs), self.action_dict.get(player_index, []))
+        if self.machine.phase != P.READY:
+            window = self.live_pending_window
+            deadline = window["_clock_deadlines"].get(player_index)
+            if deadline is None and self._clock_start(player_index,window) is not None:
+                self.start_action_clock(player_index,window)
+                deadline = window["_clock_deadlines"].get(player_index)
+            if deadline is not None and received_at >= deadline:
+                raise ValueError("行动时间已耗尽")
+            self._finish_action_clock(player_index,window,received_at)
         await super().submit_action(player_index, action_type, **kwargs)
 
     def _build_timeout_action(self, index):
@@ -61,16 +112,18 @@ class Session:
 
     async def wait_action(self, timeout=None):
         self.schedule_bot_actions()
-        loop = asyncio.get_running_loop()
-        started, responses, deadlines = loop.time(), {}, {}
-        if self.machine.phase != P.READY:
-            self.live_pending_window["_clock_started"] = time.monotonic()
+        ready = self.machine.phase == P.READY
+        window = self.live_pending_window
+        responses = {} if ready else window["_clock_responses"]
+        deadlines = {}
         for i in self.waiting_players_list:
-            seconds = (8 if timeout is None else timeout) if self.machine.phase == P.READY else self.step_time+self.player_list[i].remaining_time
-            if self.player_list[i].is_bot:
-                from ..public.ai.pacing import bot_delay
-                seconds = max(seconds, bot_delay(self)+0.1)
-            deadlines[i] = started+max(0,seconds)
+            if ready:
+                deadlines[i] = time.monotonic()+max(0,8 if timeout is None else timeout)
+            else:
+                # Offline/local drivers start here; already sent asks keep their
+                # per-seat start, including after collector cancellation/retry.
+                self.start_action_clock(i,window)
+                deadlines[i] = window["_clock_deadlines"].get(i,time.monotonic())
         while self.waiting_players_list:
             for i in list(self.waiting_players_list):
                 if not self.action_queues[i].empty():
@@ -78,19 +131,18 @@ class Session:
                     self.waiting_players_list.remove(i)
                     self.action_dict[i] = []
                     self.action_events[i].clear()
-                    if self.machine.phase != P.READY:
-                        remaining = self.remaining_clock(i,self.live_pending_window)
-                        self.live_pending_window["_clock_finished"][i] = remaining
-                        self.player_list[i].remaining_time = remaining[0]
-                elif loop.time() >= deadlines[i]:
-                    if self.machine.phase != P.READY:
-                        self.live_pending_window["_clock_finished"][i] = (0,0)
+                    if not ready:
+                        self._finish_action_clock(i,window,time.monotonic())
+                elif time.monotonic() >= deadlines[i]:
+                    if not ready:
+                        window["_clock_finished"][i] = (0,0)
+                        window["_clock_finished_exact"][i] = (0,0)
                     responses[i] = self._build_timeout_action(i)
             if not self.waiting_players_list:
                 break
             tasks = [asyncio.create_task(self.action_events[i].wait()) for i in self.waiting_players_list]
             try:
-                await asyncio.wait(tasks, timeout=max(0,min(deadlines[i] for i in self.waiting_players_list)-loop.time()),
+                await asyncio.wait(tasks, timeout=max(0,min(deadlines[i] for i in self.waiting_players_list)-time.monotonic()),
                                    return_when=asyncio.FIRST_COMPLETED)
             finally:
                 for task in tasks:

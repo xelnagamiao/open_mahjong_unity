@@ -291,6 +291,9 @@ async def _handle_hand_action(game_state, player_index, action_list, player, kui
         await submit_bot_action(get_ai_action, game_state, player_index, "hu_self", None, None, None, None)
         return
 
+    if "nuki" in action_list:
+        await submit_bot_action(get_ai_action, game_state, player_index, "nuki", None, None, None, None)
+        return
     is_riichi = "riichi" in player.tag_list or "daburu_riichi" in player.tag_list
     hand = player.hand_tiles[:]
     combs = list(getattr(player, 'combination_tiles', []))

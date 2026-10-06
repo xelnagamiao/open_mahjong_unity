@@ -13,8 +13,16 @@ from ..response import Response
 
 
 FIXED_OPTIONS = (
-    "use_flowers", "claim_protection", "open_cuohe", "tactical_call", "tian_di_ren_he",
+    "use_flowers", "claim_protection", "open_cuohe", "tian_di_ren_he",
 )
+
+
+def enforce_guangdong_tactical(room):
+    """Only occupied bot seats disable MIL flower-ghost tactical calls; never enable."""
+    from ..gamestate.public.claim_protection import has_bot_players
+    if (room.get("room_rule") == "guangdong" and room.get("sub_rule") == SUB_RULE
+            and (has_bot_players(room.get("player_list")) or has_bot_players(room.get("seat_list")))):
+        room["tactical_call"] = False
 
 
 class GuangdongMilRoomValidator(GBRoomValidator):
@@ -30,7 +38,7 @@ class GuangdongMilRoomValidator(GBRoomValidator):
     use_flowers: StrictBool = False
     claim_protection: StrictBool = False
     open_cuohe: StrictBool = False
-    tactical_call: StrictBool = False
+    tactical_call: StrictBool = True
     tian_di_ren_he: StrictBool = False
     hepai_limit: StrictInt = 2
     detailed_config: dict[str, Any] = Field(default_factory=dict)
@@ -77,12 +85,18 @@ async def create_guangdong_room(
 ):
     # Keep old calls without a sub-rule on the existing, unchanged Tuidao path.
     if sub_rule == TUIDAO_SUB_RULE:
+        try:
+            TuidaoRoomValidator(room_name=room_name, game_round=gameround,
+                round_timer=roundTimerValue, step_timer=stepTimerValue, **fixed_options)
+        except (TypeError, ValueError) as exc:
+            return Response(type="tips", success=False, message=f"房间配置无效: {exc}")
         return await create_tuidao_room(
             manager, player_id, room_name=room_name, gameround=gameround, password=password,
             roundTimerValue=roundTimerValue, stepTimerValue=stepTimerValue, tips=tips,
             random_seed=random_seed, sub_rule=sub_rule, detailed_config=detailed_config,
             tourist_limit=tourist_limit, allow_spectator=allow_spectator, event_id=event_id,
             count_tips=count_tips, pointer_tips=pointer_tips,
+            tactical_call=fixed_options.get("tactical_call", True),
         )
     connection = manager.game_server.players.get(player_id)
     if connection is None or not connection.user_id:
@@ -141,6 +155,6 @@ async def handle_create_guangdong_room(server, connection_id, message, websocket
         tourist_limit=message.get("tourist_limit", False), allow_spectator=message.get("allow_spectator", True),
         event_id=message.get("event_id"), count_tips=message.get("count_tips", False),
         pointer_tips=message.get("pointer_tips", True),
-        **{key: message[key] for key in (*FIXED_OPTIONS, "hepai_limit") if key in message},
+        **{key: message[key] for key in (*FIXED_OPTIONS, "tactical_call", "hepai_limit") if key in message},
     )
     await websocket.send_json(response.model_dump(exclude_none=True))

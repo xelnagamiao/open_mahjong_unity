@@ -27,7 +27,7 @@ public partial class GameRecordManager {
         sichuanRecordRevealHands = null;
         recordTaiwanRonBlockedPlayers.Clear();
         if (!IsTaiwanRecord()) {
-            recordDeadWallCount = ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", "") == "zhongyong/standard" || IsShanxiRecord() ? 14 : 0;
+            recordDeadWallCount = ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", "") == "zhongyong/standard" || IsShanxiRecord() || IsRiichiRuleRecord() ? 14 : 0;
             if (RecordRuleManifest?.RuleId == "guangdong" && !IsGuangdongMilRecord()) recordDeadWallCount = 13;
             if (IsWenzhouRecord()) recordDeadWallCount = 4;
             if (IsHangzhouRecord()) recordDeadWallCount = 20;
@@ -200,6 +200,7 @@ public partial class GameRecordManager {
         }
 
         int removePos = currentTilesList.Count - 1;
+        if (IsSanmaRecord() && consumedBackIndices.Count >= 4) removePos -= 10;
         int originalIndex = currentOriginalIndices[removePos];
         currentTilesList.RemoveAt(removePos);
         currentOriginalIndices.RemoveAt(removePos);

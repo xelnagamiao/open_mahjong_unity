@@ -15,6 +15,7 @@ public static class StandardActionCaptions {
             case "jiagang": return "加杠";
             case "buzhang": return "补张";
             case "buhua": return "补花";
+            case "nuki": return "拔北";
             case "riichi":
             case "riichi_cut":
                 return "立直";

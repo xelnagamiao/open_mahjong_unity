@@ -29,6 +29,7 @@ class TuidaoRoomValidator(GBRoomValidator):
     detailed_config: Optional[Dict[str, Any]] = None
     use_flowers: StrictBool = False
     claim_protection: StrictBool = False
+    tactical_call: StrictBool = True
 
     @validator("sub_rule")
     def validate_profile(cls, value):
@@ -40,17 +41,26 @@ class TuidaoRoomValidator(GBRoomValidator):
     def validate_config(cls, value):
         return normalize_tuidao_config(value)
 
-    @validator("open_cuohe", "tactical_call", "use_flowers", "tian_di_ren_he", "claim_protection")
+    @validator("open_cuohe", "use_flowers", "tian_di_ren_he", "claim_protection")
     def fixed_standard(cls, value):
         if value:
             raise ValueError("MIL推倒和标准本不支持该规则覆盖")
         return value
 
 
+def enforce_tuidao_tactical_room(room):
+    """Robot seats disable this option for this room; never re-enable it automatically."""
+    if room.get("room_rule") != "guangdong" or room.get("sub_rule", SUB_RULE) != SUB_RULE:
+        return
+    from ..gamestate.public.claim_protection import has_bot_players
+    if has_bot_players(room.get("player_list")) or has_bot_players(room.get("seat_list")):
+        room["tactical_call"] = False
+
+
 async def create_tuidao_room(manager, player_id, *, room_name, gameround, password="",
                              roundTimerValue=20, stepTimerValue=5, tips=True, random_seed=0,
                              sub_rule=SUB_RULE, detailed_config=None, tourist_limit=False,
-                             allow_spectator=True, event_id=None, count_tips=False, pointer_tips=True):
+                             allow_spectator=True, event_id=None, count_tips=False, pointer_tips=True, tactical_call=True):
     connection = manager.game_server.players.get(player_id)
     if connection is None or not connection.user_id:
         return Response(type="tips", success=False, message="请先登录")
@@ -66,7 +76,7 @@ async def create_tuidao_room(manager, player_id, *, room_name, gameround, passwo
     try:
         config = TuidaoRoomValidator(room_name=room_name, game_round=gameround,
             round_timer=roundTimerValue, step_timer=stepTimerValue, tips=tips,
-            random_seed=random_seed, sub_rule=sub_rule, detailed_config=detailed_config)
+            random_seed=random_seed, sub_rule=sub_rule, detailed_config=detailed_config, tactical_call=tactical_call)
     except (TypeError, ValueError) as exc:
         return Response(type="tips", success=False, message=f"房间配置无效: {exc}")
     settings = manager.game_server.db_manager.get_user_settings(connection.user_id)
@@ -101,6 +111,6 @@ async def handle_create_tuidao_room(server, connection_id, message, websocket):
         random_seed=message.get("random_seed", 0), sub_rule=message.get("sub_rule", SUB_RULE),
         detailed_config=message.get("detailed_config"), tourist_limit=message.get("tourist_limit", False),
         allow_spectator=message.get("allow_spectator", True), event_id=message.get("event_id"),
-        count_tips=message.get("count_tips", False), pointer_tips=message.get("pointer_tips", True))
+        count_tips=message.get("count_tips", False), pointer_tips=message.get("pointer_tips", True),
+        tactical_call=message.get("tactical_call", True))
     await websocket.send_json(response.model_dump(exclude_none=True))
-

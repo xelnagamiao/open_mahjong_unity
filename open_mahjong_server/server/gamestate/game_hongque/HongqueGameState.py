@@ -50,6 +50,7 @@ from .action_priority import HONGQUE_ACTION_PRIORITY
 from .state_machine import HongqueStateMachine, HongqueStatus
 from .wait_action import (
     deal_card as hongque_deal_card,
+    force_pass_is_live,
     handle_claim_action as wait_handle_claim_action,
     handle_hand_action,
     open_claim_window as wait_open_claim_window,
@@ -320,7 +321,8 @@ class HongqueGameState:
             claim_tick_is_valid = (
                 self.phase == "claim"
                 and self.claim_window is not None
-                and player.index in self.claim_window.pending
+                and (player.index in self.claim_window.pending
+                     or (action == "force_pass" and force_pass_is_live(self, player.index)))
                 and self.claim_window.accepts_tick(player.index, int(action_tick))
             )
             if not claim_tick_is_valid:
@@ -329,6 +331,11 @@ class HongqueGameState:
             await self._handle_ready_action(player)
             return
         validate_submitted_action(self, player, action, tile, candidate_id)
+        if action == "force_pass":
+            # 在入队时保留本张弃牌的退出决定，防止同批其他申请先刷新窗口而丢掉放弃。
+            self.claim_window.force_passed.add(player.index)
+            if player.index not in self.claim_window.pending:
+                return
         await self.action_queues[player.index].put({
             "action_type": action,
             "tile": tile,

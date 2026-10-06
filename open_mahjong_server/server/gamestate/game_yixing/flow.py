@@ -174,7 +174,7 @@ class HandFlow:
         if pending["concealed"]:
             for _ in range(4):
                 p.hand_tiles.remove(tile)
-            code, mask, action = f"G{tile}", [2,tile]*4, "angang"
+            code, mask, action = f"G{tile}", [2,tile,0,tile,2,tile,2,tile], "angang"
             p.combination_tiles.append(code)
             p.combination_mask.append(mask)
         else:

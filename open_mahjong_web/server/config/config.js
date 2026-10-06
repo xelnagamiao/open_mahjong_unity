@@ -131,6 +131,7 @@ function loadPlayerAuthConfig() {
   return {
     jwtSecret: (process.env.PLAYER_JWT_SECRET || adminConfig.jwtSecret).trim(),
     jwtExpiresSec,
+    rememberJwtExpiresSec: 30 * 24 * 60 * 60,
     audience: 'player',
   };
 }

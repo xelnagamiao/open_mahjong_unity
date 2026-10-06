@@ -92,8 +92,13 @@ public partial class GameSceneMouseInputController {
         }
         if (!recordScreenHolding) return;
         if (manager.IsRecordAutoPlaying || (manager.IsSpectatorSession && manager.IsLiveSpectatorMode)
-            || manager.currentRoundIndex != recordExpectedRound || manager.currentNode != recordExpectedNode
+            || manager.currentRoundIndex != recordExpectedRound
             || manager.RecordNavigationVersion != recordExpectedNavigationVersion) {
+            CancelRecordScreenHold();
+            return;
+        }
+        if (manager.HasPendingRecordBuhuaContinuation) return;
+        if (manager.currentNode != recordExpectedNode) {
             CancelRecordScreenHold();
             return;
         }
@@ -104,9 +109,9 @@ public partial class GameSceneMouseInputController {
     }
 
     private void AdvanceRecordScreenStep(GameRecordManager manager) {
-        manager.StepRecordFromInput(true);
+        manager.StepRecordFromInput(true, continueBuhua: true);
         recordExpectedRound = manager.currentRoundIndex;
-        recordExpectedNode = manager.currentNode;
+        recordExpectedNode = manager.RecordStepInputTargetNode;
         recordExpectedNavigationVersion = manager.RecordNavigationVersion;
     }
 

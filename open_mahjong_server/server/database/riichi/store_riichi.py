@@ -87,6 +87,10 @@ def store_riichi_game_record(db_manager, game_record: dict, player_list: list, r
                 logger.warning(f"跳过立直玩家对局记录: user_id={player.user_id}, error={e}")
 
         from ..player_recent_records import update_player_recent_records
+        from .record_stats import write_stats
+        for player in player_list:
+            write_stats(cursor, game_id, player.user_id, game_record,
+                        player.original_player_index, player.score, player.record_counter.rank_result)
         update_player_recent_records(cursor, game_id, game_record)
         conn.commit()
         logger.info(f"立直牌谱已保存 game_id={game_id}，玩家记录 {saved_count} 条")
@@ -121,7 +125,7 @@ def store_riichi_game_stats(db_manager, game_id: str, player_list: list, room_ty
         cursor = conn.cursor()
 
         rule = "riichi"
-        mode = f"{max_round}/4" + ("_rank" if room_type == "match" else "")
+        mode = f"{max_round}/4" + ("_sanma" if len(player_list) == 3 else "") + ("_rank" if room_type == "match" else "")
 
         stats_columns = [
             "total_games", "total_rounds", "win_count", "self_draw_count",
@@ -302,7 +306,7 @@ def store_riichi_fan_stats(db_manager, game_id: str, player_list: list, room_typ
         cursor = conn.cursor()
 
         rule = "riichi"
-        mode = f"{max_round}/4" + ("_rank" if room_type == "match" else "")
+        mode = f"{max_round}/4" + ("_sanma" if len(player_list) == 3 else "") + ("_rank" if room_type == "match" else "")
 
         for player in player_list:
             user_id = player.user_id

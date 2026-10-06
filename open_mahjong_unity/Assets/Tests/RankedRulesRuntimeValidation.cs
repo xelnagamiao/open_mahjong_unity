@@ -114,37 +114,45 @@ public sealed class RankedRulesRuntimeValidation : MonoBehaviour {
         for(int i=1;i<=4;i++){int index=(3+i)%4;Add(()=>{Click(Field<Button>(profile,"rankSwitchButton"));Check(Field<TMP_Text>(profile,"rankText").text.StartsWith(RankedRules.Names[index]),"Profile rank cycles "+index);});}
         for(int i=0;i<4;i++){int index=i;Add(()=>{Click(Field<Button[]>(profile,"ruleButtons")[index]);Check(profile.CurrentRule==RankedRules.Ids[index],"Profile ranked statistics select "+index);});}
         Add(()=>Capture("profile"));
-        Add(()=>Click(Field<GameObject>(profile,"rankPolicyButton").GetComponent<Button>()));
-        Add(()=>{Check(policy.gameObject.activeInHierarchy,"Profile policy button opens baked dialog");Capture("policy");});
-        Add(()=>Click(Field<Button>(policy,"closeButton")));
+        Add(()=>{
+            Check(!Field<GameObject>(profile,"rankPolicyButton").activeSelf,"Profile policy entry is replaced by other rules");
+            var dropdown=Field<TMP_Dropdown>(profile,"otherRulesDropdown");
+            Check(dropdown.gameObject.activeInHierarchy&&dropdown.options[0].text=="其他规则","Ranked profile exposes other rule selector");
+            dropdown.value=1;
+            Check(profile.CurrentRule==RiichiSanmaRankConfig.Rule,"Profile dropdown selects independent three-player riichi statistics");
+        });
         Add(()=>Click(Field<Button>(profile,"closeButton")));
         Add(()=>Click(Header("matchButton")));
         var eloHelp=Find<RankedEloHelp>();
         Add(()=>Check(!eloHelp.IsVisible,"Baked Elo tooltip starts hidden"));
-        Add(()=>Click(lobby.transform.Find("MatchLayout/RankPolicyButton").GetComponent<Button>()));
+        Add(()=>Click(lobby.transform.Find("MatchLayout/MatchTools/RankPolicyButton").GetComponent<Button>()));
         Add(()=>Check(policy.gameObject.activeInHierarchy,"Match page policy button is visible and clickable"));
         Add(()=>Click(Field<Button>(policy,"closeButton")));
-        for(int i=0;i<4;i++){
-            int index=i;
-            Add(()=>{Click(Field<Button[]>(lobby,"ruleButtons")[index]);Check(lobby.ActiveRule==index,"Match tab selects "+index);
-                if(index>=2){
+        for(int i=0;i<RankedRules.Ids.Length;i++){
+            int index=i,family=RankedRules.FamilyIndex(i),variant=Array.IndexOf(RankedRules.FamilyRuleIndices[family],i);
+            Add(()=>Click(Field<Button[]>(lobby,"ruleButtons")[family]));
+            if(RankedRules.FamilyRuleIndices[family].Length>1)Add(()=>Click(Field<Button[]>(lobby,"variantButtons")[variant]));
+            Add(()=>{Check(lobby.ActiveRule==index,"Match family and variant select "+index);
+                if(!RankedRules.IsGrade(RankedRules.Ids[index])){
                     var entries=Field<MatchButton[]>(lobby,"entries").Where(c=>c.RuleId==RankedRules.Ids[index]).ToArray();
                     Check(entries.Length==1&&entries[0].ModeTitle.Contains("全庄战"),"Elo rule offers only full-length match "+index);
                     Check(MatchQueueDisplayText.GetQueueTitle(entries[0].QueueType).Contains("全庄战"),"Elo queue and match-found title show full length "+index);
-                    Check(lobby.transform.Find("MatchLayout/RulePages/"+(index==2?"Qingque":"Sichuan")+"/EloSummary")==null,"Obsolete rating-window description removed "+index);
+                    Check(Field<GameObject[]>(lobby,"rulePages")[index].transform.Find("EloSummary")==null,"Obsolete rating-window description removed "+index);
                 }
                 Capture("match-"+RankedRules.Ids[index]);});
+            if(!RankedRules.IsGrade(RankedRules.Ids[index])){
             Add(()=>HoverHelp(eloHelp,true));
             Add(()=>{
                 Check(eloHelp.IsVisible,"Hover opens Elo algorithm for rule "+index);
                 var label=Field<GameObject>(eloHelp,"tooltip").GetComponentInChildren<TMP_Text>();label.ForceMeshUpdate();
-                Check(label.text==RankedRules.EloAlgorithm&&label.text.Contains("2000"),"Tooltip shows current server formula "+index);
+                Check(label.text==RankedRules.EloAlgorithm&&label.text.Contains("2400")&&label.text.Contains("保护奖励"),"Tooltip shows current server formula "+index);
                 Check(!label.isTextOverflowing,"Algorithm text fits baked tooltip "+index);
                 var corners=new Vector3[4];((RectTransform)Field<GameObject>(eloHelp,"tooltip").transform).GetWorldCorners(corners);
                 Check(corners.All(c=>{var p=RectTransformUtility.WorldToScreenPoint(null,c);return p.x>=0&&p.x<=Screen.width&&p.y>=0&&p.y<=Screen.height;}),"Tooltip stays inside screen "+index);
                 Capture("elo-hover-"+RankedRules.Ids[index]);
             });
             Add(()=>{HoverHelp(eloHelp,false);Check(!eloHelp.IsVisible,"Pointer exit hides Elo tooltip "+index);});
+            }
             foreach(var c in Field<MatchButton[]>(lobby,"entries").Where(c=>c.RuleId==RankedRules.Ids[i])){
                 var card=c;
                 Add(()=>Click(Field<Button>(card,"button")));
@@ -166,6 +174,8 @@ public sealed class RankedRulesRuntimeValidation : MonoBehaviour {
                 }
             }
         }
+        Add(()=>Click(Field<Button[]>(lobby,"ruleButtons")[3]));
+        Add(()=>Click(Field<Button[]>(lobby,"variantButtons")[0]));
         Add(()=>{var card=Field<MatchButton[]>(lobby,"entries").First(c=>c.RuleId=="sichuan");Click(Field<Button>(card,"infoButton"));});
         Add(()=>{Check(Field<GameObject>(policy,"eloContent").activeSelf,"Elo card information opens baked copy");
             var text=Field<GameObject>(policy,"eloContent").GetComponent<TMP_Text>().text;
@@ -200,14 +210,16 @@ public sealed class RankedRulesRuntimeValidation : MonoBehaviour {
                 bool grade=RankedRules.IsGrade(rule);string oldRank=index==1?"四段":"10级",newRank=index==1?"三段":"9级";
                 float rAfter=index==3?1484:1516;
                 var own=new Dictionary<string,object>{{"username","测试·改名前"},{"user_id",11000001},{"rank",1},{"score",32000},{"pt",16f},{"rank_before",grade?oldRank:""},{"rank_after",grade?newRank:""},{"score_before",grade?18f:0f},{"score_after",grade?10f:0f},{"rating_rule",rule},{"rating_system",grade?"grade":"elo"},{"rating_pt",index==1?-28f:12f},{"elo_before",1500f},{"elo_after",rAfter},{"rating_games",2}};
+                if(grade){own.Remove("elo_before");own.Remove("elo_after");}
                 gameResult.ShowGameEndPanel("qa-seed","qa-commitment","qa-salt",new Dictionary<string,Dictionary<string,object>>{{"0",own}});
-                Check(UserDataManager.Instance.GetRating(rule).elo==rAfter,"Settlement applies rating immediately by user ID "+rule);
+                Check(grade?UserDataManager.Instance.GetRating(rule).rank_name==newRank:UserDataManager.Instance.GetRating(rule).elo==rAfter,"Settlement applies grade or Elo immediately by user ID "+rule);
             });
             Add(()=>Click(Field<Button>(gameResult,"goHomeButton")));
             for(int wait=0;wait<8;wait++)Add(()=>{});
             Add(()=>{
                 Check(rankResult.gameObject.activeInHierarchy&&Field<Button>(rankResult,"confirmButton").IsInteractable(),"Settlement animation completes "+rule);
                 Check(Field<Slider>(rankResult,"progressBar").gameObject.activeSelf==RankedRules.IsGrade(rule),"Settlement shows correct grade/Elo presentation "+rule);
+                if(RankedRules.IsGrade(rule))Check(!Field<TMP_Text>(rankResult,"ptChangeText").text.Contains("R "),"Grade settlement shows only PT "+rule);
                 Check(UserDataManager.Instance.GuobiaoRank=="9级","Other rule settlements preserve Guobiao rank "+rule);
                 Capture("settlement-"+rule);
             });

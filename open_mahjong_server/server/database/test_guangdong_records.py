@@ -162,7 +162,7 @@ def test_guangdong_custom_records_update_and_read_recent_placements(sub_rule):
     assert len(updates) == 4
     placements = updates[0].args[1][0].adapted
     assert placements[0]["game_id"] == "gd-unit-record" and placements[0]["rank"] == 1
-    cursor.fetchall.return_value = [("guangdong", "custom", placements, None)]
+    cursor.fetchall.side_effect = [[("guangdong", "custom", placements, None)], [], [], [], []]
     recent = get_player_recent_records(db, UIDS[0])
     assert recent["guangdong"]["custom"] == {"placements": placements, "big_win": None}
     assert recent["guangdong"]["match"] == {"placements": [], "big_win": None}

@@ -174,7 +174,7 @@ internal static class GuobiaoFanText {
     };
 
     public static string FanName(string subRule, string fanName) {
-        if (subRule == "guobiao/standard" && GameSettings.Current.IsEnglish
+        if ((subRule == "guobiao/standard" || subRule == GuobiaoGameState.SanmaSubRule) && GameSettings.Current.IsEnglish
             && FanNameToEnglishGuobiao.TryGetValue(fanName, out string englishName)) {
             return englishName;
         }
@@ -182,7 +182,7 @@ internal static class GuobiaoFanText {
     }
 
     public static string FanValue(string subRule, string fanName) {
-        if (subRule == "guobiao/standard" && GameSettings.Current.IsEnglish) {
+        if ((subRule == "guobiao/standard" || subRule == GuobiaoGameState.SanmaSubRule) && GameSettings.Current.IsEnglish) {
             return FanToDisplayGuobiaoEnglish.TryGetValue(fanName, out string englishDisplay) ? englishDisplay : "0Fan";
         }
         Dictionary<string, string> map;
@@ -195,12 +195,16 @@ internal static class GuobiaoFanText {
         return map.TryGetValue(fanName, out string display) ? display : "0番";
     }
 
-    /// <summary>任一单项番数 &gt; 24 播放 Gong_hu。</summary>
+    /// <summary>和牌累计番数扣除花牌后达到 64 番播放 Gong_hu。</summary>
     public static bool PlaysGongHu(string subRule, string[] huFan, int huScore) {
         if (huFan == null) return false;
+        int fanWithoutFlowers = huScore;
         foreach (string fanKey in huFan) {
-            if (FanTextDictionary.TryParseSingleFanValue(FanValue(subRule, fanKey), out int fan) && fan > 24) return true;
+            if (!string.IsNullOrEmpty(fanKey) && fanKey.StartsWith("花牌")
+                && FanTextDictionary.TryParseSingleFanValue(FanValue(subRule, fanKey), out int flowerFan)) {
+                fanWithoutFlowers -= flowerFan;
+            }
         }
-        return false;
+        return fanWithoutFlowers >= 64;
     }
 }

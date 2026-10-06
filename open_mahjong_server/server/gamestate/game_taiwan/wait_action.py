@@ -170,7 +170,8 @@ async def _collect_responses(game_state) -> Tuple[Dict[int, dict], Dict[int, lis
 
 
 async def wait_action(game_state) -> Optional[bool]:
-    responses, allowed = await _collect_responses(game_state)
+    collector = getattr(game_state, "collect_action_responses", None)
+    responses, allowed = await collector() if callable(collector) else await _collect_responses(game_state)
 
     if game_state.game_status == "waiting_ready":
         for index in responses:

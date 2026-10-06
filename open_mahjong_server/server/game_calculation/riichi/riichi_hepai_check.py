@@ -253,6 +253,13 @@ class Riichi_Hepai_Check:
         combination_masks: Optional[List[List[int]]] = None,
     ) -> dict:
         context = dict(context or {})
+        from .sanma import dora_indicator, tsumo_payments, REMOVED_TILES
+        is_sanma = bool(context.get('is_sanma', False))
+        if is_sanma and any(t in REMOVED_TILES for t in self._collect_all_tile_ids(hand_list, tiles_combination, combination_masks)):
+            return dict(is_valid=False, han=0, fu=0, score=0, yaku=[], error='三麻不使用二至八万')
+        for key in ('dora_indicators', 'ura_dora_indicators', 'ura_kan_dora_indicators'):
+            context[key] = [dora_indicator(t, is_sanma) for t in context.get(key, [])]
+        nuki_count = int(context.get('nuki_count', 0)) if is_sanma else 0
         if context.get("is_tenhou") and context.get("double_yakuman") and not context.get("_tenhou_evaluating"):
             candidates = [self.hepai_check(hand_list, tiles_combination, way_to_hepai, tile,
                           {**context, "_tenhou_evaluating": True}, combination_masks)
@@ -346,6 +353,9 @@ class Riichi_Hepai_Check:
             dora_count = count_dora_in_tiles(all_tile_ids, context.get("dora_indicators", []))
             ura_count = count_dora_in_tiles(all_tile_ids, context.get("ura_dora_indicators", [])) if context.get("is_riichi") else 0
             no_yaku_yaku: List[str] = []
+            if nuki_count:
+                dora_count += count_dora_in_tiles([44] * nuki_count, context.get('dora_indicators', []))
+                no_yaku_yaku.append(f'拔北宝牌*{nuki_count}')
             if dora_count > 0:
                 no_yaku_yaku.append(f"宝牌*{dora_count}")
             if ura_count > 0:
@@ -390,6 +400,15 @@ class Riichi_Hepai_Check:
         aka_count = 0 if is_yakuman else lib_aka_han
         dora_count = 0 if is_yakuman else lib_dora_han
         ura_count = 0 if is_yakuman else lib_ura_han
+        nuki_han = 0 if is_yakuman else nuki_count
+        if nuki_han:
+            extracted = [44] * nuki_count
+            nuki_dora = count_dora_in_tiles(extracted, context.get('dora_indicators', []))
+            nuki_ura = count_dora_in_tiles(extracted, context.get('ura_dora_indicators', [])) if context.get('is_riichi') else 0
+            dora_count += nuki_dora
+            ura_count += nuki_ura
+            nuki_han += nuki_dora + nuki_ura
+            yaku_names.append(f'拔北宝牌*{nuki_count}')
         if dora_count > 0:
             yaku_names.append(f"宝牌*{dora_count}")
         if ura_count > 0:
@@ -397,7 +416,7 @@ class Riichi_Hepai_Check:
         if aka_count > 0:
             yaku_names.append(f"赤宝牌*{aka_count}")
 
-        han = int(result.han)
+        han = int(result.han) + nuki_han
         fu = int(result.fu)
         # 库对国士等例外牌型返回 fu=0；展示与七对子一致，役满统一记 25 符（不影响役满固定点数）
         if is_yakuman:
@@ -406,7 +425,8 @@ class Riichi_Hepai_Check:
         if not context.get("is_tsumo", False):
             score = int(score_info.get("main", 0))
         else:
-            score = int(score_info.get("main", 0)) + int(score_info.get("additional", 0)) * 2
+            score = sum(tsumo_payments(score_info, int(context.get('player_wind', 0)),
+                        3 if is_sanma else 4, context.get('sanma_tsumo', 'loss')).values())
 
         return {
             "is_valid": True,

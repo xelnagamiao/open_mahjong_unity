@@ -71,6 +71,9 @@ def _pick_timeout_cut_tile(player) -> int:
 def _is_valid_cut_action(self, player_index: int, action_data: dict) -> bool:
     action_type = action_data.get("action_type")
     player = self.player_list[player_index]
+    if action_type == 'nuki':
+        from .nuki_actions import can_nuki
+        return can_nuki(self, player_index)
     if action_type == 'angang':
         return ankan_allowed(self, player, action_data.get('target_tile'))
     if action_type == 'jiagang':
@@ -111,7 +114,7 @@ async def wait_action(self):
     self._pending_ron_claims = {}
     used_time = 0
 
-    for i in range(4):
+    for i in range(len(self.player_list)):
         while not self.action_queues[i].empty():
             try:
                 self.action_queues[i].get_nowait()
@@ -242,6 +245,10 @@ async def wait_action(self):
                     from .kan_actions import begin_kan
                     await begin_kan(self, action_type, action_data.get("target_tile"))
                     return
+                elif action_type == 'nuki':
+                    from .nuki_actions import begin_nuki
+                    await begin_nuki(self)
+                    return
                 elif action_type == "hu_self":
                     await _broadcast_hu_and_end(self, self.current_player_index, "hu_self")
                     return
@@ -335,7 +342,7 @@ async def wait_action(self):
                     r1 = _remove_by_normal(self.player_list[player_index].hand_tiles, normal_tile)
                     r2 = _remove_by_normal(self.player_list[player_index].hand_tiles, normal_tile)
                     self.player_list[player_index].combination_tiles.append(f"k{normal_tile}")
-                    rel = get_index_relative_position(player_index, self.current_player_index)
+                    rel = get_index_relative_position(player_index, self.current_player_index, len(self.player_list))
                     combination_target = f"k{normal_tile}"
                     if rel == "left":
                         combination_mask = [1, tile_id, 0, r1, 0, r2]
@@ -348,7 +355,7 @@ async def wait_action(self):
                     r2 = _remove_by_normal(self.player_list[player_index].hand_tiles, normal_tile)
                     r3 = _remove_by_normal(self.player_list[player_index].hand_tiles, normal_tile)
                     self.player_list[player_index].combination_tiles.append(f"g{normal_tile}")
-                    rel = get_index_relative_position(player_index, self.current_player_index)
+                    rel = get_index_relative_position(player_index, self.current_player_index, len(self.player_list))
                     combination_target = f"g{normal_tile}"
                     if rel == "left":
                         combination_mask = [1, tile_id, 0, r1, 0, r2, 0, r3]
@@ -566,7 +573,8 @@ async def _execute_cut(
         # 保留基础立直标记供摸切锁定、振听和里宝牌使用，额外标记双立直供计分与客户端读取。
         if is_daburu and "daburu_riichi" not in player.tag_list:
             player.tag_list.append("daburu_riichi")
-        player.riichi_turn = self.xunmu
+        # 此时宣言弃牌已写入；使用本家的弃牌序号，不使用全桌 xunmu。
+        player.riichi_turn = len(player.discard_origin_tiles)
 
     # Update dora before scoring the response snapshot, but send its notification
     # after the discard. No second hand analysis and no change to scoring order.

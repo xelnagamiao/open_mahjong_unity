@@ -3,7 +3,6 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime, timedelta
-import importlib
 import os
 from types import SimpleNamespace
 from uuid import uuid4
@@ -174,9 +173,13 @@ def database():
                     username TEXT, score INT, rank INT CHECK (rank BETWEEN 1 AND 4),
                     original_player_index INT, rule VARCHAR(10), sub_rule TEXT, match_type TEXT,
                     room_type TEXT, match_tier TEXT, event_id TEXT, title_used INT,
-                    character_used INT, profile_used INT, voice_used INT,
+                    character_used INT, profile_used INT, voice_used INT, avatar_frame_used INT DEFAULT 0,
+                    pt_change NUMERIC DEFAULT 0,
                     PRIMARY KEY (game_id, user_id));
             """)
+            from server.database.riichi.record_stats import ensure_schema
+            ensure_schema(cursor)
+            recent.ensure_schema(cursor)
     yield manager
     pool.closeall()
     with admin.cursor() as cursor:
@@ -194,7 +197,7 @@ def connection(manager):
         manager._put_connection(conn)
 
 
-def insert_game(manager, game_id, record, rank=1, update=False):
+def insert_game(manager, game_id, record, rank=1, update=True):
     with connection(manager) as conn, conn.cursor() as cursor:
         cursor.execute("INSERT INTO game_records (game_id, record) VALUES (%s, %s)", (game_id, Json(record)))
         title = record["game_title"]
@@ -207,7 +210,7 @@ def insert_game(manager, game_id, record, rank=1, update=False):
             recent.update_player_recent_records(cursor, game_id, record)
 
 
-def test_backfill_all_rules_scopes_ten_games_and_lifetime_best(database):
+def test_live_all_rules_scopes_ten_games_and_lifetime_best(database):
     for r, rule in enumerate(recent.RULES):
         for c, category in enumerate(recent.CATEGORIES):
             for day in range(12):
@@ -217,12 +220,9 @@ def test_backfill_all_rules_scopes_ten_games_and_lifetime_best(database):
     bot_record = replay(fan=999)
     bot_record["game_title"]["p3_uid"] = 1
     insert_game(database, "robot", bot_record)
-    result = recent.backfill_player_recent_records(database, batch_size=17)
-    assert result["complete"]
-    assert result["processed"] == 219
     for uid in UIDS:
         data = recent.get_player_recent_records(database, uid)
-        assert set(data) == set(recent.RULES)
+        assert set(data) == set(recent.RULES) | {"riichi_sanma", "sichuan_xueliu_exchange"}
         for rule in recent.RULES:
             for category in recent.CATEGORIES:
                 values = data[rule][category]
@@ -231,11 +231,9 @@ def test_backfill_all_rules_scopes_ten_games_and_lifetime_best(database):
                     assert values["big_win"]["total_fan"] == 88
                 else:
                     assert values["big_win"] is None
-    assert recent.backfill_player_recent_records(database)["processed"] == 0
 
 
 def test_lifetime_record_survives_more_than_thirty_games_and_updates(database):
-    recent.backfill_player_recent_records(database)
     for day in range(42):
         insert_game(database, f"game{day:03}", replay(day=day, fan=88 if day == 0 else 8), update=True)
     data = recent.get_player_recent_records(database, UIDS[0])["guobiao"]["custom"]
@@ -252,11 +250,11 @@ def test_lifetime_record_survives_more_than_thirty_games_and_updates(database):
 
 @pytest.mark.parametrize("rule", recent.RULES)
 def test_real_rule_save_entry_updates_in_same_transaction(database, monkeypatch, rule):
-    recent.backfill_player_recent_records(database)
     from server.database import scene_stats
     monkeypatch.setattr(scene_stats, "record_game_metrics", lambda *args: None)
-    module = importlib.import_module(f"server.database.{rule}.store_{rule}")
-    save = getattr(module, f"store_{rule}_game_record")
+    from server.database.db_manager import DatabaseManager
+    # Regional variants use the shared generic record adapter.
+    save = getattr(DatabaseManager, f"store_{rule}_game_record", DatabaseManager.store_taiwan_game_record)
     players = [SimpleNamespace(user_id=uid, username=f"u{i}", score=0, original_player_index=i,
                                record_counter=SimpleNamespace(rank_result=i + 1)) for i, uid in enumerate(UIDS)]
     game_id = save(database, replay(rule), players, "custom", "1/4")
@@ -267,7 +265,6 @@ def test_real_rule_save_entry_updates_in_same_transaction(database, monkeypatch,
 
 
 def test_concurrent_games_do_not_lose_points_or_best_win(database):
-    recent.backfill_player_recent_records(database)
     with ThreadPoolExecutor(max_workers=4) as workers:
         futures = [workers.submit(insert_game, database, f"parallel{i}", replay(day=i, fan=40 - i), i % 4 + 1, True) for i in range(4)]
         for future in futures:
@@ -277,34 +274,17 @@ def test_concurrent_games_do_not_lose_points_or_best_win(database):
     assert data["big_win"]["total_fan"] == 40
 
 
-def test_backfill_resumes_from_committed_page(database, monkeypatch):
-    for i in range(5):
-        insert_game(database, f"game{i}", replay(day=i))
-    original = recent.update_player_recent_records
-    def interrupt(cursor, game_id, *args, **kwargs):
-        if game_id == "game3":
-            raise RuntimeError("simulated restart")
-        original(cursor, game_id, *args, **kwargs)
-    monkeypatch.setattr(recent, "update_player_recent_records", interrupt)
-    with pytest.raises(RuntimeError):
-        recent.backfill_player_recent_records(database, batch_size=2)
-    assert len(recent.get_player_recent_records(database, UIDS[0])["guobiao"]["custom"]["placements"]) == 2
-    monkeypatch.setattr(recent, "update_player_recent_records", original)
-    assert recent.backfill_player_recent_records(database, batch_size=2)["processed"] == 3
-    assert len(recent.get_player_recent_records(database, UIDS[0])["guobiao"]["custom"]["placements"]) == 5
-
-
 def test_incomplete_replay_is_reported_and_retried_after_repair(database):
     record = replay()
     record["game_round"]["round_index_1"]["action_ticks"].insert(0, ["c", 47, "F"])
     insert_game(database, "broken", record)
-    result = recent.backfill_player_recent_records(database)
+    result = recent.retry_player_recent_record_errors(database)
     assert result == {"processed": 1, "errors": 1, "complete": False}
     data = recent.get_player_recent_records(database, UIDS[0])["guobiao"]["custom"]
     assert len(data["placements"]) == 1 and data["big_win"] is None
     with connection(database) as conn, conn.cursor() as cursor:
         cursor.execute("UPDATE game_records SET record = %s WHERE game_id = 'broken'", (Json(replay()),))
-    assert recent.backfill_player_recent_records(database) == {"processed": 0, "errors": 0, "complete": True}
+    assert recent.retry_player_recent_record_errors(database) == {"processed": 1, "errors": 0, "complete": True}
     assert recent.get_player_recent_records(database, UIDS[0])["guobiao"]["custom"]["big_win"]["total_fan"] == 24
 
 
@@ -316,7 +296,6 @@ def test_invalid_added_kan_is_a_recoverable_replay_error():
 
 
 def test_record_and_summary_rollback_together(database):
-    recent.backfill_player_recent_records(database)
     with pytest.raises(RuntimeError), connection(database) as conn, conn.cursor() as cursor:
         record = replay()
         cursor.execute("INSERT INTO game_records (game_id, record) VALUES ('rollback', %s)", (Json(record),))
@@ -336,7 +315,6 @@ def test_record_and_summary_rollback_together(database):
 def test_finished_time_not_import_order_and_tied_final_ranks(database):
     insert_game(database, "a_new", replay(day=5), rank=2)
     insert_game(database, "z_old", replay(day=1), rank=2)
-    recent.backfill_player_recent_records(database)
     for uid in UIDS:
         points = recent.get_player_recent_records(database, uid)["guobiao"]["custom"]["placements"]
         assert [(point["game_id"], point["rank"]) for point in points] == [("z_old", 2), ("a_new", 2)]
@@ -345,7 +323,6 @@ def test_finished_time_not_import_order_and_tied_final_ranks(database):
 def test_api_all_rules_and_request_identity(database):
     import asyncio
     from server.database.data_router import handle_data_message
-    recent.backfill_player_recent_records(database)
     insert_game(database, "one", replay(), update=True)
     messages = []
     async def send_json(value):
@@ -356,5 +333,5 @@ def test_api_all_rules_and_request_identity(database):
     assert response["success"]
     payload = response["player_recent_records"]
     assert payload["request_id"] == "request-a" and payload["user_id"] == UIDS[0]
-    assert set(payload["rules"]) == set(recent.RULES)
+    assert set(payload["rules"]) == set(recent.RULES) | {"riichi_sanma", "sichuan_xueliu_exchange"}
     assert payload["rules"]["guobiao"]["custom"]["big_win"]["total_fan"] == 24

@@ -19,6 +19,10 @@ public class MatchDescribePanel : MonoBehaviour {
     [SerializeField] private TMP_Text contentText;
     [SerializeField] private Button closeButton;
     [SerializeField] private ScrollRect scrollView;
+    [SerializeField] private GameObject matchScoreTable;
+    [SerializeField] private GameObject rankProgressionTable;
+    [SerializeField] private GameObject riichiScoreTable;
+    [SerializeField] private GameObject riichiRankTable;
 
     private static readonly Dictionary<string, DescribeData> DescribeMap = new Dictionary<string, DescribeData> {
         { "beginner_dongfeng", new DescribeData("段位说明：  初级场-东风战",
@@ -53,15 +57,22 @@ public class MatchDescribePanel : MonoBehaviour {
     }
 
     public void ShowForQueue(string queueType) {
+        string originalQueue = queueType;
+        bool sanma=queueType.StartsWith(RiichiSanmaRankConfig.Rule+"_");
         bool riichi=queueType.StartsWith("riichi_");
-        if(riichi)queueType=queueType.Substring(7);
+        if(sanma)queueType=queueType.Substring(RiichiSanmaRankConfig.Rule.Length+1);
+        else if(riichi)queueType=queueType.Substring(7);
         if (!DescribeMap.TryGetValue(queueType, out DescribeData data)) {
             data = new DescribeData("匹配说明", "此规则暂未开放匹配场");
         }
 
-        titleText.text = data.title;
-        contentText.text = riichi ? data.content.Replace("国标麻将","立直麻将").Replace("番数提示", "枚数提示").Replace(" 无错和 战术鸣牌", " 天凤规").Replace(" 错和 战术鸣牌", " 天凤规") : data.content;
+        titleText.text = sanma ? data.title.Replace("段位说明：", "立直三麻：") : riichi ? data.title.Replace("段位说明：", "立直 M规：") : data.title;
+        contentText.text = sanma ? RiichiSanmaRankConfig.DescribeQueue(originalQueue) : riichi ? RiichiRankConfig.DescribeQueue(originalQueue) : data.content;
         contentText.gameObject.SetActive(!string.IsNullOrEmpty(data.content));
+        if (matchScoreTable != null) matchScoreTable.SetActive(!riichi);
+        if (rankProgressionTable != null) rankProgressionTable.SetActive(!riichi);
+        if (riichiScoreTable != null) riichiScoreTable.SetActive(riichi && !sanma);
+        if (riichiRankTable != null) riichiRankTable.SetActive(riichi && !sanma);
 
         popupTransition.Show();
         if (scrollView != null) {

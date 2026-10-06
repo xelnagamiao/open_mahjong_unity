@@ -8,6 +8,7 @@ export const guangdongProfiles = Object.freeze([
 export function loadGuangdongForm(form, config = {}) {
   form.sub_rule = config.sub_rule || form.sub_rule || TUIDAO_SUB_RULE
   form.require_minimum_score = config.detailed_config?.require_minimum_score !== false
+  form.tactical_call = config.tactical_call ?? true
   return form
 }
 
@@ -20,12 +21,14 @@ export function guangdongDetail(form) {
 
 export function buildGuangdongRoomPayload(form) {
   if (String(form.duplicate_key || '').trim()) throw new Error('复式房间仅支持国标麻将')
+  if (typeof form.tactical_call !== 'boolean') throw new Error('战术鸣牌开关必须是布尔值')
   return {
     room_rule: 'guangdong', password: String(form.password || '').trim(),
     room_config: {
       room_name: String(form.room_name || '').trim(), sub_rule: form.sub_rule, game_round: form.game_round,
       round_timer: form.round_timer, step_timer: form.step_timer, tips: form.tips,
       tourist_limit: form.tourist_limit, allow_spectator: form.allow_spectator,
+      tactical_call: form.tactical_call,
       detailed_config: guangdongDetail(form),
     },
   }
@@ -33,6 +36,6 @@ export function buildGuangdongRoomPayload(form) {
 
 export function guangdongRows(form) {
   return form.sub_rule === GUANGDONG_MIL_SUB_RULE
-    ? [{ label: '规则底本', value: 'MIL 2023 花鬼标准本' }, { label: '起和条件', value: form.require_minimum_score ? '至少2番，同时至少4分' : '至少2番' }, { label: '鬼牌', value: '梅兰竹菊留手，不补花' }, { label: '奖马', value: '自摸翻前4马，不足不补' }]
-    : [{ label: '规则底本', value: 'MIL 2024 无癞子标准本' }, { label: '封顶', value: '32番，另加2底分' }]
+    ? [{ label: '规则底本', value: 'MIL 2023 花鬼标准本' }, { label: '起和条件', value: form.require_minimum_score ? '至少2番，同时至少4分' : '至少2番' }, { label: '鬼牌', value: '梅兰竹菊留手，不补花' }, { label: '奖马', value: '自摸翻前4马，不足不补' }, { label: '战术鸣牌', value: form.tactical_call !== false ? '开启（抢断5秒，有机器人时自动关闭）' : '关闭' }]
+    : [{ label: '规则底本', value: 'MIL 2024 无癞子标准本' }, { label: '封顶', value: '32番，另加2底分' }, { label: '战术鸣牌', value: form.tactical_call !== false ? '开启（有机器人时自动关闭）' : '关闭' }]
 }

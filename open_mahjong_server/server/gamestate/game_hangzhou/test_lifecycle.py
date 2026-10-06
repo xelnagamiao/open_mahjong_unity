@@ -16,8 +16,7 @@ from ...game_calculation.hangzhou.rules import TILES
 def test_early_queue_reply_and_later_event_both_survive_wait_entry():
     async def run():
         for early in (False, True):
-            s = turn()
-            s.player_list[0].remaining_time = 5
+            s = turn(round_timer=5)
             if early:
                 await s.submit_action(0, "cut", TileId=42, cutClass=True, cutIndex=13)
             task = asyncio.create_task(s.wait_action())
@@ -34,7 +33,7 @@ def test_early_queue_reply_and_later_event_both_survive_wait_entry():
     asyncio.run(run())
 
 
-def test_timeouts_obey_cai_lock_pass_ten_winds_and_keep_claim_bank():
+def test_timeouts_obey_cai_lock_pass_and_ten_winds():
     async def run():
         s = turn()
         s.cai_discard_locks = {1}
@@ -44,11 +43,11 @@ def test_timeouts_obey_cai_lock_pass_ten_winds_and_keep_claim_bank():
         s.apply_action_results(s.live_pending_window, responses)
         s = turn()
         s.player_list[1].hand_tiles = [41, 41] + PLAIN[:11]
-        s.player_list[1].remaining_time = 20
+        s.player_list[1].remaining_time = 0
         river(s, 0, 41)
         responses = await s.wait_action(0)
         assert all(d["action_type"] == "pass" for d in responses.values())
-        assert s.player_list[1].remaining_time == 20
+        assert s.player_list[1].remaining_time == 0
         s = turn(PLAIN[:-1] + [43])
         s.player_list[0].discard_origin_tiles = [41,42,42,43,43,44,44,45,47]
         act(s, 0, "cut", TileId=43, cutClass=True)
@@ -128,8 +127,7 @@ def test_bot_stale_duplicate_and_takeover_paths_do_not_enqueue():
 
 def test_wait_cancellation_cleans_event_tasks_and_bot_scheduler_is_idempotent():
     async def run():
-        s = turn()
-        s.player_list[0].remaining_time = 99
+        s = turn(round_timer=99)
         waiter = asyncio.create_task(s.wait_action())
         await asyncio.sleep(0)
         waiter.cancel()

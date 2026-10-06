@@ -12,6 +12,11 @@ const {
 const { listUserEvents } = require('../../utils/eventAdminHelpers');
 const { createRoomSettingsService } = require('../../services/eventRoomSettings');
 const { createSeatHandler } = require('./roomSettings');
+const { createDuplicateWallService } = require('../../services/duplicateWalls');
+const { createEventRoomCreationService } = require('../../services/eventRoomCreation');
+
+const duplicateWalls = createDuplicateWallService(pool);
+const roomCreation = createEventRoomCreationService({ duplicateWalls, proxyToGameServer, writeAudit });
 const {
   fetchEventPlayerStats,
   GAME_TYPE_MATCH_TYPES,
@@ -451,53 +456,22 @@ router.delete('/:eventId/admins/:userId', requireEventMembership, requireEventOw
   }
 });
 
+router.get('/:eventId/duplicate-quota', requireEventMembership, async (req, res) => {
+  try {
+    const data = await duplicateWalls.getQuota(req.eventAdmin.userId, 'event', req.event.event_id);
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(err.status || 500).json({ success: false, message: err.status ? err.message : '读取复式密钥额度失败' });
+  }
+});
+
 router.post('/:eventId/rooms', requireEventMembership, async (req, res) => {
   try {
-    if (req.event.status !== 'active') {
-      return res.status(400).json({
-        success: false,
-        message:
-          req.event.status === 'registered'
-            ? '\u8d5b\u4e8b\u5c1a\u672a\u5f00\u542f\uff0c\u65e0\u6cd5\u521b\u5efa\u623f\u95f4'
-            : '\u8d5b\u4e8b\u5df2\u5173\u95ed\uff0c\u65e0\u6cd5\u521b\u5efa\u623f\u95f4',
-      });
-    }
-    const { room_rule, room_config, password, reason } = req.body || {};
-    if (!room_rule || !String(room_rule).trim()) {
-      return res.status(400).json({ success: false, message: '\u8bf7\u9009\u62e9\u89c4\u5219' });
-    }
-
-    const { status, data } = await proxyToGameServer('/admin/event/rooms/create', {
-      event_id: req.event.event_id,
-      room_rule: String(room_rule).trim(),
-      room_config: room_config || {},
-      password: password || '',
-      created_by: req.eventAdmin.userId,
-    });
-    if (status >= 400) {
-      return res.status(status).json({
-        success: false,
-        message: data?.detail || data?.message || '\u521b\u5efa\u623f\u95f4\u5931\u8d25',
-      });
-    }
-
-    await writeAudit({
-      adminUserId: req.eventAdmin.userId,
-      action: 'event_admin.room.create',
-      targetType: 'event',
-      targetId: req.event.event_id,
-      payload: {
-        room_rule: String(room_rule).trim(),
-        room_config: room_config || {},
-        room_info: data?.room_info || null,
-      },
-      reason: String(reason || '').trim(),
-    });
-
+    const data = await roomCreation.create(req.event, req.eventAdmin.userId, req.body || {});
     res.json({ success: true, data });
   } catch (err) {
     console.error('event-admin create room:', err);
-    res.status(500).json({ success: false, message: '\u670d\u52a1\u5668\u5185\u90e8\u9519\u8bef' });
+    res.status(err.status || 500).json({ success: false, message: err.status ? err.message : '创建房间失败，请检查游戏服与审计服务', data: err.data });
   }
 });
 

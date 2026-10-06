@@ -21,6 +21,18 @@ def normalize_changchun_config(raw=None):
 from ..response import Response
 
 
+def enforce_changchun_tactical_room(room):
+    """Seated bots disable tactical claims; never auto-enable an existing room."""
+    if room.get('room_rule') != 'changchun':
+        return
+    players = room.get('player_list', ())
+    seats = room.get('seat_list', players)
+    has_bot = any(type(user_id) is int and 0 <= user_id <= 10 and user_id in players
+                  for user_id in seats)
+    if has_bot:
+        room['tactical_call'] = False
+
+
 class ChangchunRoomValidator(GBRoomValidator):
     room_name: str = Field(max_length=128)
     sub_rule: str = SUB_RULE
@@ -36,7 +48,7 @@ class ChangchunRoomValidator(GBRoomValidator):
     hepai_limit: StrictInt = 0
     claim_protection: StrictBool = False
     open_cuohe: StrictBool = False
-    tactical_call: StrictBool = False
+    tactical_call: StrictBool = True
     tian_di_ren_he: StrictBool = False
     detailed_config: dict[str, Any] = Field(default_factory=lambda: dict(CONFIG))
 
@@ -50,7 +62,7 @@ class ChangchunRoomValidator(GBRoomValidator):
     def valid_config(cls,value):
         return normalize_changchun_config(value)
 
-    @validator("claim_protection","open_cuohe","tactical_call","tian_di_ren_he","use_flowers","hepai_limit")
+    @validator("claim_protection","open_cuohe","tian_di_ren_he","use_flowers","hepai_limit")
     def fixed_false(cls,value):
         if value:
             raise ValueError("长春麻将不支持此选项")

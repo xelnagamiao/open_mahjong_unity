@@ -1,9 +1,10 @@
 <template>
   <div>
     <p>山西麻将 · MIL试行2023版。136张、十三张手牌、无花无癞子；须暗扣报听，有和必和，和牌时结杠。</p>
+    <p>局时是每局额外思考储备，默认20秒；每次操作先使用步时，默认5秒。零局时只使用步时。</p>
     <div class="shanxi-common-fields">
       <el-form-item label="圈数"><el-input-number v-model="form.game_round" :min="1" :max="4" :precision="0" /></el-form-item>
-      <el-form-item label="局时（秒）"><el-input-number v-model="form.round_timer" :min="0" :max="1000" :precision="0" /></el-form-item>
+      <el-form-item label="局时储备（秒）"><el-input-number v-model="form.round_timer" :min="0" :max="1000" :precision="0" /></el-form-item>
       <el-form-item label="步时（秒）"><el-input-number v-model="form.step_timer" :min="0" :max="100" :precision="0" /></el-form-item>
       <el-form-item label="听牌提示"><el-switch v-model="form.tips" /></el-form-item>
       <el-form-item label="限制游客"><el-switch v-model="form.tourist_limit" /></el-form-item>

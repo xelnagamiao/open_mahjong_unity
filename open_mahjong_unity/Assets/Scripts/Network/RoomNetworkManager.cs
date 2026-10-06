@@ -314,7 +314,7 @@ public partial class RoomNetworkManager : MonoBehaviour {
                 random_seed = randomSeed,
                 duplicate_key = config.DuplicateKey,
                 use_flowers = config.SubRule != "guobiao/lanshi" && config.UseFlowers,
-                tian_di_ren_he = (config.SubRule == "guobiao/standard" || config.SubRule == GuobiaoGameState.BloodBattleSubRule) && config.TianDiRenHe,
+                tian_di_ren_he = (config.SubRule == "guobiao/standard" || config.SubRule == GuobiaoGameState.SanmaSubRule || config.SubRule == GuobiaoGameState.BloodBattleSubRule) && config.TianDiRenHe,
                 open_cuohe = config.CuoHe,
                 cuohe_type = config.CuoheType,
                 hepai_limit = config.HepaiLimit,
@@ -461,7 +461,7 @@ public partial class RoomNetworkManager : MonoBehaviour {
                 tactical_call = false,
                 event_id = string.IsNullOrEmpty(config.EventId) ? null : config.EventId
             };
-            Debug.Log($"发送创建简单麻将房间消息: {config.RoomName}, {config.GameRound}, {config.SubRule}");
+            Debug.Log($"发送创建中庸／南雀房间消息: {config.RoomName}, {config.GameRound}, {config.SubRule}");
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             CancelPendingRoomEntry();
@@ -568,6 +568,7 @@ public partial class RoomNetworkManager : MonoBehaviour {
                 password = config.Password,
                 random_seed = randomSeed,
                 open_cuohe = false,
+                tactical_call = config.TacticalCall,
                 hepai_limit = 0,
                 tourist_limit = config.TouristLimit,
                 allow_spectator = config.AllowSpectator,

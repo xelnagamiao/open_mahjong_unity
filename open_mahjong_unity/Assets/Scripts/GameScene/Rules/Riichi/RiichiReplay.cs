@@ -6,6 +6,8 @@ using Newtonsoft.Json.Linq;
 /// 立直麻将牌谱回放：宝牌/场供。仍是 GameRecordManager partial，文件在族目录。
 /// </summary>
 public partial class GameRecordManager {
+    private bool IsSanmaRecord() => ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", "") == "riichi/sanma";
+    private int RecordPlayerCount => MahjongPlayerCount.ForSubRule(ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", ""));
     /// <summary>当前推演节点对应的场供立直棒数（开局值 + 宣告立直 - 和牌收走）。</summary>
     private int recordRiichiSticks;
     private int recordInitialRiichiSticks;
@@ -23,17 +25,17 @@ public partial class GameRecordManager {
         if ((!IsRiichiRuleRecord() && !IsHongKongRecord()) || gameRecord?.gameTitle == null) return scores;
         var gt = gameRecord.gameTitle;
         if (gt.TryGetValue("starting_scores", out object arrObj)) {
-            if (arrObj is JArray arr && arr.Count >= 4) {
-                for (int i = 0; i < 4; i++) scores[i] = Convert.ToInt32(arr[i]);
+            if (arrObj is JArray arr && arr.Count >= RecordPlayerCount) {
+                for (int i = 0; i < RecordPlayerCount; i++) scores[i] = Convert.ToInt32(arr[i]);
                 return scores;
             }
-            if (arrObj is IList<object> list && list.Count >= 4) {
-                for (int i = 0; i < 4; i++) scores[i] = Convert.ToInt32(list[i]);
+            if (arrObj is IList<object> list && list.Count >= RecordPlayerCount) {
+                for (int i = 0; i < RecordPlayerCount; i++) scores[i] = Convert.ToInt32(list[i]);
                 return scores;
             }
         }
         int uniform = ReadRecordStartingScoreUniform(gt);
-        for (int i = 0; i < 4; i++) scores[i] = uniform;
+        for (int i = 0; i < RecordPlayerCount; i++) scores[i] = uniform;
         return scores;
     }
 
@@ -49,8 +51,8 @@ public partial class GameRecordManager {
         if (gameRecord?.gameRound?.rounds == null) return cumulativeByOrig;
         for (int r = 1; r < roundIndex; r++) {
             if (gameRecord.gameRound.rounds.TryGetValue(r, out Round prevRound) &&
-                prevRound.scoreChanges != null && prevRound.scoreChanges.Count >= 4) {
-                for (int p = 0; p < 4; p++) cumulativeByOrig[p] += prevRound.scoreChanges[p];
+                prevRound.scoreChanges != null && prevRound.scoreChanges.Count >= RecordPlayerCount) {
+                for (int p = 0; p < RecordPlayerCount; p++) cumulativeByOrig[p] += prevRound.scoreChanges[p];
             }
         }
         return cumulativeByOrig;
@@ -80,7 +82,7 @@ public partial class GameRecordManager {
         foreach (int round in gameRecord.gameRound.rounds.Keys) if (round > currentRoundIndex) return;
         if (!gameRecord.gameTitle.TryGetValue("riichi_final_scores", out object raw)) return;
         JArray scores = raw as JArray;
-        if (scores == null || scores.Count != 4) return;
+        if (scores == null || scores.Count != RecordPlayerCount) return;
         var deltas = new Dictionary<int, int>();
         foreach (var player in recordPlayerList) {
             deltas[player.playerIndex] = (int)scores[player.originalPlayerIndex] - player.score;

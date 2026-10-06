@@ -8,7 +8,9 @@ using UnityEngine;
 /// </summary>
 internal static class RiichiTips {
     public static HashSet<int> Tingpai(TingpaiQuery q) {
-        return RiichiExternal.TingpaiCheck(q.Hand, q.Melds ?? new List<string>(), false);
+        var waits = RiichiExternal.TingpaiCheck(q.Hand, q.Melds ?? new List<string>(), false);
+        if ((q.SubRule ?? GameSession.Current.SubRule) == "riichi/sanma") waits.RemoveWhere(tile => tile >= 12 && tile <= 18);
+        return waits;
     }
 
     public static WaitTileHint Describe(WaitHintQuery q) {
@@ -30,7 +32,9 @@ internal static class RiichiTips {
             HasOpenTanyao = true,
             CombinationMasks = q.MeldMasks,
             PlayerWind = RiichiTileUtil.East + q.SelfIndex,
-            RoundWind = RiichiTileUtil.East + Mathf.Max(0, (q.CurrentRound - 1) / 4) % 4,
+            RoundWind = RiichiTileUtil.East + Mathf.Max(0, (q.CurrentRound - 1) / (q.SubRule == "riichi/sanma" ? 3 : 4)) % 4,
+            IsSanma = q.SubRule == "riichi/sanma",
+            NukiCount = (q.Record?.SelfHuapaiList ?? q.SelfFlowers)?.Count ?? 0,
             // 里宝仅立直者在和牌时才能看到；提示阶段不计（服务端仍以结算为准）
             UraDoraIndicators = new List<int>(),
         };
@@ -76,6 +80,7 @@ internal static class RiichiTips {
         var selfOrigin = mirror.Info("self")?.discard_origin_tiles;
         if (selfOrigin != null && selfOrigin.Count > 0) return false;
         foreach (string pos in new[] { "self", "left", "top", "right" }) {
+            if (mirror.Info(pos)?.huapai_list?.Count > 0) return false;
             var combos = mirror.Info(pos)?.combination_tiles;
             if (combos == null) continue;
             foreach (string combo in combos) {

@@ -15,6 +15,10 @@ public class RoomConfigContainer : MonoBehaviour {
 
     // 每条规则需要显示的配置项及其顺序。未登记的规则回退到 default 列表
     private static readonly Dictionary<string, List<string>> RuleDisplayFields = new Dictionary<string, List<string>> {
+        { "guangdong", new List<string> {
+            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
+            "tips", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
+        } },
         { "guobiao", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
             "tips", "use_flowers", "tian_di_ren_he", "open_cuohe", "cuohe_type", "tactical_call", "has_password", "tourist_limit", "hepai_limit", "allow_spectator",
@@ -45,6 +49,14 @@ public class RoomConfigContainer : MonoBehaviour {
             "tips", "open_kong_replacement_count", "initial_hu_types", "bird_count",
             "dealer_bird", "base_score", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
         } },
+        { "guizhou", new List<string> {
+            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
+            "tips", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
+        } },
+        { "hangzhou", new List<string> {
+            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
+            "tips", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
+        } },
         { "jiandan", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
             "tips", "has_password", "tourist_limit", "allow_spectator",
@@ -56,6 +68,10 @@ public class RoomConfigContainer : MonoBehaviour {
         { "taiwan", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
             "tips", "open_cuohe", "cuohe_type", "has_password", "tourist_limit", "allow_spectator",
+        } },
+        { "changchun", new List<string> {
+            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
+            "tips", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
         } },
         { "free", new List<string> {
             "room_type", "random_seed", "has_password", "tourist_limit",
@@ -241,7 +257,7 @@ public class RoomConfigContainer : MonoBehaviour {
                 return true;
             case "cuohe_type":
                 displayName = "错和形式";
-                displayValue = roomInfo.cuohe_type == 1 ? "-40/0" : "-30/+10";
+                displayValue = roomInfo.cuohe_type == 1 ? "-40/0" : roomInfo.sub_rule == GuobiaoGameState.SanmaSubRule ? "-20/+10" : "-30/+10";
                 return true;
             case "use_flowers":
                 displayName = "花牌";
@@ -251,7 +267,7 @@ public class RoomConfigContainer : MonoBehaviour {
             case "tian_di_ren_he":
                 displayName = "天地人和";
                 displayValue = roomInfo.tian_di_ren_he ? "开（各8番）" : "关";
-                return roomInfo.sub_rule == "guobiao/standard" || roomInfo.sub_rule == GuobiaoGameState.BloodBattleSubRule;
+                return roomInfo.sub_rule == "guobiao/standard" || roomInfo.sub_rule == GuobiaoGameState.SanmaSubRule || roomInfo.sub_rule == GuobiaoGameState.BloodBattleSubRule;
             case "blood_battle":
                 displayName = "血战到底";
                 displayValue = (roomInfo.blood_battle ?? true) ? "开" : "关";

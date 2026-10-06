@@ -66,6 +66,8 @@ def claim_actions(state, actor, tile):
                     actions[index].append(action)
         if actions[index]:
             actions[index].append("pass")
+            if state.sync_tactical_enabled():
+                actions[index].append("force_pass")
     return actions
 
 

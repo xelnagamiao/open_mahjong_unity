@@ -4,6 +4,7 @@ const pool = require('../config/database');
 const { createWindowLimiter, getClientIp } = require('../middleware/rateLimit');
 const { requirePlayer } = require('../middleware/requirePlayer');
 const { accessibleGameIds, recordIsLocked, visibleRecordSql, LOCKED_MESSAGE } = require('../services/duplicateRecordAccess');
+const { streamRecordZip, DOWNLOAD_CANCELLED } = require('../services/recordDownloadZip');
 
 // Lock state is mutable; no browser/proxy may reuse an earlier unlocked replay response.
 router.use((_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
@@ -281,7 +282,9 @@ router.post('/records/download', requirePlayer, async (req, res) => {
       gameIds = idResult.rows.map(r => r.game_id);
     }
 
+    if (res.destroyed) return;
     gameIds = await accessibleGameIds(pool, gameIds);
+    if (res.destroyed) return;
     if (gameIds.length === 0) {
       return res.status(404).json({ success: false, message: '没有匹配的牌谱' });
     }
@@ -309,36 +312,15 @@ router.post('/records/download', requirePlayer, async (req, res) => {
       });
     }
 
-    const recordsResult = await pool.query(
-      `SELECT game_id, record FROM game_records gr WHERE game_id = ANY($1::varchar[]) AND ${visibleRecordSql()}`,
-      [gameIds]
-    );
-    const byGame = new Map(recordsResult.rows.map(r => [r.game_id, r.record]));
-
-    const archiver = require('archiver');
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="player_${userId}_records.zip"`);
-    const archive = archiver('zip', { zlib: { level: 5 } });
-    archive.on('error', (err) => {
-      console.error('zip 打包错误:', err);
-      if (!res.headersSent) {
-        res.status(500).json({ success: false, message: '打包失败' });
-      } else {
-        res.end();
-      }
-    });
-    archive.pipe(res);
-    for (const gameId of gameIds) {
-      const raw = byGame.get(gameId);
-      if (raw === undefined || raw === null) continue;
-      const body = typeof raw === 'string' ? raw : JSON.stringify(raw);
-      archive.append(body, { name: `${gameId}.json` });
-    }
-    await archive.finalize();
+    await streamRecordZip(pool, gameIds, userId, res);
   } catch (error) {
+    if (error.code === DOWNLOAD_CANCELLED || res.destroyed) return;
     console.error('批量牌谱下载错误:', error);
     if (!res.headersSent) {
+      res.removeHeader('Content-Disposition');
       res.status(500).json({ success: false, message: '服务器内部错误' });
+    } else {
+      res.destroy();
     }
   }
 });

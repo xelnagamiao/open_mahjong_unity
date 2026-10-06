@@ -221,6 +221,7 @@ public sealed class HongqueGameState : GameStateBase {
         if (encodedAction == HongqueActionWords.Win) Send("win");
         else if (encodedAction == HongqueActionWords.Supplement) Send("supplement");
         else if (encodedAction == HongqueActionWords.Pass) Send("pass");
+        else if (encodedAction == HongqueActionWords.ForcePass) Send("force_pass");
         else if (encodedAction.StartsWith(HongqueActionWords.ClaimPrefix)) {
             Send("claim", null, encodedAction.Substring(HongqueActionWords.ClaimPrefix.Length));
         }
@@ -283,6 +284,9 @@ public sealed class HongqueGameState : GameStateBase {
             }
         }
         if (legalActions.Contains("pass")) actions.Add(HongqueActionWords.Pass);
+        if (GameSettings.Current.ForcePassEnabled && legalActions.Contains("force_pass")) {
+            actions.Add(HongqueActionWords.ForcePass);
+        }
 
         string actionUiKey = string.Join("|", new[] {
             gamestateId ?? string.Empty,

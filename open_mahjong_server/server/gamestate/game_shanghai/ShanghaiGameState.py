@@ -2,8 +2,6 @@
 
 import asyncio
 import random
-import math
-import time
 from collections import Counter
 from dataclasses import replace
 
@@ -21,7 +19,7 @@ from ..public.game_record_manager import (
     player_action_record_round_end, end_game_record, remember_local_record_detail,
 )
 from ..public.hand_slot_utils import has_draw_slot
-from ..public.ask_timing import reconnect_clock
+from . import action_timing
 from ..public.logic_common import assign_competition_final_ranks
 from ..public.random_seed_manager import setup_random_seed_system, derive_round_seed
 from ..public.round_end_timing import liuju_ready_wait_seconds
@@ -31,27 +29,94 @@ from ...database.fulu_utils import record_fulu_rounds_for_players
 class ShanghaiGameState(TaiwanGameState):
     flower_tiles = qiaoma.FLOWERS
     structure_tiles = qiaoma.TILES
-    claim_response_seconds = 3.0
+    claim_response_seconds = None
 
     def claim_response_limit(self, player_index):
-        # 规则六-3：第一次补花后的报牌不受三秒限制。
-        if self.game_status == "waiting_action_after_cut" and player_index in self.opening_claim_exempt:
-            return None
-        return self.claim_response_seconds
+        # 线上所有实际询问都执行房间步时 + 本局剩余局时，不套用线下报牌上限。
+        return None
 
     def claim_clock(self, player, reconnecting=False):
-        limit = self.claim_response_limit(player.player_index)
-        if limit is None:
-            return reconnect_clock(self, player) if reconnecting else (player.remaining_time, None)
-        budget = min(limit, max(0, player.remaining_time) + max(0, self.step_time))
-        elapsed = 0
-        if reconnecting:
-            started = (getattr(self, "_ask_delivered_at", None) or {}).get(player.player_index)
-            if started is None:
-                started = getattr(self, "_ask_broadcast_time", None)
-            if started is not None:
-                elapsed = max(0, time.time() - started)
-        return 0, math.ceil(max(0, budget - elapsed))
+        return action_timing.clock(self, player, reconnecting)
+
+    action_clock = claim_clock
+
+    def claim_clock_fields(self, player, reconnecting=False):
+        return action_timing.clock_fields(self, player, reconnecting)
+
+    async def send_to_realtime_spectators(self, player_index, response):
+        from ..public.spectator_rules import deliver_realtime_spectator_message
+
+        await deliver_realtime_spectator_message(
+            self, player_index, response,
+            prepare_payload=lambda packet: self._refresh_spectator_clock(player_index, packet),
+        )
+
+    def _refresh_spectator_clock(self, player_index, packet):
+        info = packet.get("ask_hand_action_info") or packet.get("ask_other_action_info")
+        if info is None or info.get("action_tick") != self.server_action_tick:
+            return
+        if not self.is_action_pending(player_index):
+            info.update(remaining_time=0, step_remaining=0,
+                        remaining_time_ms=0, step_remaining_ms=0, action_list=[])
+            return
+        player = self.player_list[player_index]
+        info["remaining_time"], info["step_remaining"] = self.claim_clock(player, reconnecting=True)
+        info.update(self.claim_clock_fields(player, reconnecting=True))
+
+    def on_action_window_delivered(self, player_index):
+        value = action_timing.window(self, player_index)
+        if not value.delivery_recorded:
+            value.monotonic_origin = action_timing.time.monotonic()
+            value.delivery_recorded = True
+
+    def on_action_window_broadcast(self):
+        self._qiaoma_broadcast_monotonic = action_timing.time.monotonic()
+        self._qiaoma_broadcast_wall = self._ask_broadcast_time
+
+    def is_action_pending(self, player_index):
+        return bool(self.action_dict.get(player_index))
+
+    def is_valid_timed_response(self, player_index, data):
+        """无效的锁手/报敲提交留在原窗口，不能结账后重新获得一步时间。"""
+        if self.game_status != "waiting_hand_action":
+            return True
+        action = data.get("action_type")
+        player = self.player_list[player_index]
+        if action in ("cut", "riichi_cut"):
+            tile = data.get("TileId")
+            if tile not in player.hand_tiles or tile in self.flower_tiles or tile in player.kuikae_forbidden_tiles:
+                return False
+            if player.ready_locked and player.last_drawn_tile is not None and tile != player.last_drawn_tile:
+                return False
+            if action == "riichi_cut" and tile not in self.ready_candidate_cuts(player_index):
+                return False
+        elif action in ("angang", "jiagang"):
+            tile = data.get("target_tile")
+            if tile not in self.structure_tiles:
+                return False
+            if action == "angang" and player.hand_tiles.count(tile) < 4:
+                return False
+            if action == "jiagang" and (tile not in player.hand_tiles or f"k{tile}" not in player.combination_tiles):
+                return False
+            if player.ready_locked and not self._kong_preserves_waits(player_index, tile, "G" if action == "angang" else "added"):
+                return False
+        return True
+
+    async def collect_action_responses(self):
+        return await action_timing.collect_responses(self)
+
+    def prepare_action_window(self):
+        super().prepare_action_window()
+        self._qiaoma_window_key = None
+        # 真人可以在广播尚未发完其他座位时就回复，不能等收集器才开放输入。
+        self.waiting_players_list = [i for i, actions in self.action_dict.items() if actions]
+
+    def _reset_hand_runtime(self):
+        for player in self.player_list:
+            action_timing.set_bank(player, float(self.round_time))
+        self._qiaoma_window_key = None
+        self._qiaoma_deadlines = {}
+        super()._reset_hand_runtime()
 
     def build_concealed_kong_mask(self, tiles):
         return [value for position, tile in enumerate(tiles)
@@ -62,6 +127,7 @@ class ShanghaiGameState(TaiwanGameState):
             raise ValueError("尚未开放的上海麻将子规则")
         super().__init__(game_server, {**room_data, "detailed_config": None},
                          calculation_service, db_manager, gamestate_id)
+        self.action_queues = {i: action_timing.ActionQueue() for i in range(4)}
         self.room_rule = "shanghai"
         self.sub_rule = qiaoma.SUB_RULE
         self.open_cuohe = False
@@ -342,7 +408,7 @@ class ShanghaiGameState(TaiwanGameState):
         self.current_player_index = player_index
         player_action_record_deal(self, deal_tile=tile, deal_type="gd")
         self.current_player_index = previous
-        await broadcast_do_action(self, action_list=["deal_gang_tile"],
+        await broadcast_do_action(self, action_list=["deal_buhua_tile"],
                                   action_player=player_index, deal_tile=tile)
         return True
 
@@ -361,8 +427,10 @@ class ShanghaiGameState(TaiwanGameState):
 
     def build_private_hand_action_info(self, player_index):
         player = self.player_list[player_index]
+        value = action_timing.window(self, player_index)
         return {"riichi_candidate_cuts": player.riichi_candidate_cuts,
-                "forbidden_cut_tiles": sorted(player.kuikae_forbidden_tiles)}
+                "forbidden_cut_tiles": sorted(player.kuikae_forbidden_tiles),
+                **action_timing.clock_fields(self, player, reconnecting=value.monotonic_origin is not None)}
 
     def build_private_do_action_info(self, action_player, viewer_index):
         return {}

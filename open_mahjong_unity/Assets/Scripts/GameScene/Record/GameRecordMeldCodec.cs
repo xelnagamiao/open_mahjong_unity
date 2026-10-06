@@ -5,7 +5,8 @@ using Riichi;
 /// <summary>
 /// 吃碰杠组合掩码编解码与手牌删牌工具（对局 / 牌谱 / 四规则共用）。
 /// 掩码格式：[flag, tileId, flag, tileId, ...]
-/// flag=0 手牌侧 / flag=1 河牌来源 / flag=2 暗杠 / flag=3 加杠
+/// flag=0 手牌侧 / flag=1 河牌来源 / flag=2 暗杠 / flag=3 加杠 / flag=4 空位。
+/// 备用显示 sign=101 明面叠牌 / sign=102 暗面叠牌，参见 MeldStackLayout；现行规则不生成它们。
 /// </summary>
 public static class GameRecordMeldCodec {
     public static int HandTileCount(string recordAction) => recordAction == "g" ? 3 : 2;
@@ -45,7 +46,7 @@ public static class GameRecordMeldCodec {
         var handTiles = new List<int>();
         if (mask == null) return handTiles;
         for (int i = 0; i + 1 < mask.Length; i += 2) {
-            if (mask[i] == 1) continue;
+            if (mask[i] == 1 || MeldStackLayout.IsStack(mask[i])) continue;
             int tid = mask[i + 1];
             if (tid > 10) handTiles.Add(tid);
         }

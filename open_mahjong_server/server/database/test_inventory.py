@@ -34,7 +34,7 @@ class InventoryDatabaseTests(unittest.TestCase):
                 title_id int DEFAULT 1,profile_image_id int DEFAULT 1,character_id int DEFAULT 1,voice_id int DEFAULT 1,updated_at timestamp DEFAULT NOW());
             INSERT INTO users(user_id,is_tourist) VALUES (101,FALSE),(102,TRUE),(103,FALSE);
             INSERT INTO user_settings(user_id,character_id,voice_id) VALUES (101,1,1),(102,1,1),(103,2,2);''')
-        self.migrate()
+        self.ensure_schema()
 
     def tearDown(self):
         self.pool.closeall()
@@ -51,7 +51,7 @@ class InventoryDatabaseTests(unittest.TestCase):
         except Exception: c.rollback(); raise
         finally: self.pool.putconn(c)
 
-    def migrate(self):
+    def ensure_schema(self):
         c=self.pool.getconn()
         try:
             with c.cursor() as cursor:
@@ -73,43 +73,27 @@ class InventoryDatabaseTests(unittest.TestCase):
         return dict(body,reason='test definition',**changes)
 
     def test_minimal_catalog_does_not_reseed_retired_presets(self):
-        self.migrate()
+        self.ensure_schema()
         self.assertEqual([(i['item_id'],i['name']) for i in get_catalog(self.db)],[(2201,'金橙色'),(2202,'青色'),(3001,'改名卡')])
         self.assertEqual(self.sql('SELECT title_id,name FROM titles'),[(2,'最初的初段')])
         self.assertEqual(self.qty(1002,103),0)
         self.assertEqual(get_inventory(self.db,103)['appearance']['voice_id'],2)
         self.assertEqual(get_inventory(self.db,103)['equipment'],[{'slot':'avatar_frame','item_id':2201}])
         self.assertEqual(get_inventory(self.db,103)['owned'],[{'item_id':2201,'quantity':1},{'item_id':2202,'quantity':1}])
-        self.assertEqual(self.sql("SELECT COUNT(*) FROM admin_audit_log WHERE action='store.catalog_reset'"),[(1,)])
+        self.assertEqual(self.sql("SELECT COUNT(*) FROM admin_audit_log WHERE action='store.catalog_reset'"),[(0,)])
 
-    def test_cleanup_archives_retired_content_and_preserves_rename_cards(self):
+    def test_schema_bootstrap_preserves_catalog_ownership_and_appearance(self):
         self.call('grant',3001,4)
         self.sql("""UPDATE users SET rename_count=7 WHERE user_id=101;
-            DELETE FROM admin_audit_log WHERE action='store.catalog_reset';
-            INSERT INTO titles(title_id,name) VALUES(3,'旧头衔');
-            INSERT INTO user_titles(user_id,title_id) VALUES(101,3),(103,2);
-            INSERT INTO item_definitions(item_id,code,name,category,asset_key,slot,max_quantity)
-                VALUES(1002,'old_character','旧角色','character','character.qiuqiu','character',1),
-                      (2001,'old_avatar','旧头像','cosmetic','avatar.pixel_teal','avatar',1);
-            INSERT INTO user_inventory(user_id,item_id,quantity) VALUES(101,1002,1),(101,2001,1);
-            INSERT INTO user_equipment(user_id,slot,item_id) VALUES(101,'character',1002),(101,'avatar',2001);
-            UPDATE user_settings SET title_id=3,character_id=2,voice_id=2,profile_image_id=2001 WHERE user_id=101;
-            INSERT INTO inventory_ledger(operation_id,user_id,item_id,delta,quantity_after)
-                SELECT operation_id,101,1002,1,1 FROM inventory_operations LIMIT 1;""")
-        self.migrate()
-        state=get_inventory(self.db,101)
-        self.assertEqual(state['owned'],[{'item_id':3001,'quantity':4},{'item_id':2201,'quantity':1},{'item_id':2202,'quantity':1}])
-        self.assertEqual(state['rename_count'],7)
-        self.assertEqual(state['equipment'],[{'slot':'avatar_frame','item_id':2201}])
-        self.assertEqual(state['appearance'],dict(user_id=101,character_id=1,voice_id=1,profile_image_id=1,avatar_frame_id=2201))
-        self.assertEqual(self.sql('SELECT title_id FROM user_settings WHERE user_id=101'),[(1,)])
-        self.assertEqual(self.sql('SELECT user_id,title_id FROM user_titles'),[(103,2)])
-        archived=self.sql("SELECT payload FROM admin_audit_log WHERE action='store.catalog_reset'")[0][0]
-        self.assertEqual(len(archived['user_inventory']),2)
-        self.assertEqual(len(archived['inventory_ledger']),1)
-        self.assertEqual(len(get_ledger(self.db,101)),1)
-        self.migrate()
-        self.assertEqual(self.qty(3001),4)
+            INSERT INTO titles(title_id,name) VALUES(3,'管理员新增头衔');
+            INSERT INTO user_titles(user_id,title_id) VALUES(101,3);
+            UPDATE user_settings SET title_id=3,character_id=2,voice_id=2 WHERE user_id=101;""")
+        before=get_inventory(self.db,101)
+        self.ensure_schema()
+        self.ensure_schema()
+        self.assertEqual(get_inventory(self.db,101),before)
+        self.assertEqual(self.sql('SELECT title_id FROM user_settings WHERE user_id=101'),[(3,)])
+        self.assertEqual(self.sql("SELECT COUNT(*) FROM admin_audit_log WHERE action='store.catalog_reset'"),[(0,)])
 
     def test_removed_items_and_equipping_consumables_are_rejected(self):
         with self.assertRaises(InventoryError): self.call('equip',1002,slot='character')
@@ -128,7 +112,7 @@ class InventoryDatabaseTests(unittest.TestCase):
             self.call('equip',B1_AVATAR_FRAME_ID,uid=uid,slot='avatar_frame')
             self.assertEqual(get_inventory(self.db,uid)['appearance']['avatar_frame_id'],B1_AVATAR_FRAME_ID)
             self.assertEqual(DatabaseManager.get_user_settings(self.db,uid)['avatar_frame_id'],B1_AVATAR_FRAME_ID)
-            self.migrate()
+            self.ensure_schema()
             self.assertEqual(get_inventory(self.db,uid)['appearance']['avatar_frame_id'],B1_AVATAR_FRAME_ID)
             self.call('equip',0,uid=uid,slot='avatar_frame')
             self.assertEqual(get_inventory(self.db,uid)['appearance']['avatar_frame_id'],DEFAULT_AVATAR_FRAME_ID)
@@ -222,7 +206,7 @@ class InventoryDatabaseTests(unittest.TestCase):
         created=save_definition(self.db,999,None,body)['item']
         self.assertGreaterEqual(created['item_id'],4000)
         self.call('grant',created['item_id'])
-        self.migrate()
+        self.ensure_schema()
         self.assertEqual(self.qty(created['item_id']),1)
         self.call('use',created['item_id'])
         self.assertEqual(get_inventory(self.db,101)['rename_count'],1)

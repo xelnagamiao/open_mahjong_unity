@@ -33,9 +33,11 @@ public sealed class ActionPlayback {
     public ActionPlayback() {
         coreHandlers["deal_tile"] = ApplyDeal;
         coreHandlers["deal_gang_tile"] = ApplyDeal;
+        coreHandlers["deal_nuki_tile"] = ApplyDeal;
         coreHandlers["deal_buhua_tile"] = ApplyDeal;
         coreHandlers["cut"] = ApplyCut;
         coreHandlers["buhua"] = ApplyBuhua;
+        coreHandlers["nuki"] = ApplyBuhua;
         coreHandlers["hu_self"] = ApplyHuNoop;
         coreHandlers["hu_first"] = ApplyHuNoop;
         coreHandlers["hu_second"] = ApplyHuNoop;

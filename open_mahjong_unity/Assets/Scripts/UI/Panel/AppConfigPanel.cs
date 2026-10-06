@@ -20,6 +20,7 @@ public class AppConfigPanel : MonoBehaviour {
     [SerializeField] private TMP_Dropdown askOtherPassShortcutDropdown;
     [SerializeField] private TMP_Dropdown targetFrameRateDropdown;
     [SerializeField] private TMP_Dropdown streamerModeDropdown;
+    [SerializeField] private TMP_Dropdown realtimeSpectateModeDropdown;
     [SerializeField] private TMP_Dropdown handCutConfirmDropdown;
     [SerializeField] private TMP_Dropdown handSortSuitDropdown;
     [SerializeField] private TMP_Dropdown handSortHonorDropdown;
@@ -48,6 +49,7 @@ public class AppConfigPanel : MonoBehaviour {
         moqieShortcutDropdown.onValueChanged.AddListener(OnMoqieShortcutDropdownChanged);
         askOtherPassShortcutDropdown.onValueChanged.AddListener(OnAskOtherPassShortcutDropdownChanged);
         streamerModeDropdown.onValueChanged.AddListener(OnStreamerModeDropdownChanged);
+        realtimeSpectateModeDropdown.onValueChanged.AddListener(OnRealtimeSpectateModeDropdownChanged);
         handCutConfirmDropdown.onValueChanged.AddListener(OnHandCutConfirmDropdownChanged);
         handSortSuitDropdown.onValueChanged.AddListener(OnHandSortSuitDropdownChanged);
         handSortHonorDropdown.onValueChanged.AddListener(OnHandSortHonorDropdownChanged);
@@ -81,6 +83,8 @@ public class AppConfigPanel : MonoBehaviour {
         askOtherPassShortcutDropdown.AddOptions(new List<string> { "右键取消", "双击取消", "无快捷键" });
         streamerModeDropdown.ClearOptions();
         streamerModeDropdown.AddOptions(new List<string> { "关", "开" });
+        realtimeSpectateModeDropdown.ClearOptions();
+        realtimeSpectateModeDropdown.AddOptions(new List<string> { "显示申请", "自动同意", "自动拒绝" });
         handCutConfirmDropdown.ClearOptions();
         handCutConfirmDropdown.AddOptions(new List<string> { "关", "开" });
         handSortSuitDropdown.ClearOptions();
@@ -127,6 +131,8 @@ public class AppConfigPanel : MonoBehaviour {
         askOtherPassShortcutDropdown.RefreshShownValue();
         streamerModeDropdown.SetValueWithoutNotify(ConfigManager.Instance.StreamerModeEnabled ? 1 : 0);
         streamerModeDropdown.RefreshShownValue();
+        realtimeSpectateModeDropdown.SetValueWithoutNotify(ConfigManager.Instance.RealtimeSpectateMode);
+        realtimeSpectateModeDropdown.RefreshShownValue();
         handCutConfirmDropdown.SetValueWithoutNotify(ConfigManager.Instance.HandCutConfirmMode);
         handCutConfirmDropdown.RefreshShownValue();
         handSortSuitDropdown.SetValueWithoutNotify(ConfigManager.Instance.HandSortSuitOrderMode);
@@ -176,6 +182,10 @@ public class AppConfigPanel : MonoBehaviour {
 
     private void OnStreamerModeDropdownChanged(int value) {
         ConfigManager.Instance.SetStreamerModeEnabled(value == 1);
+    }
+
+    private void OnRealtimeSpectateModeDropdownChanged(int value) {
+        ConfigManager.Instance.SetRealtimeSpectateMode(value);
     }
 
     private void OnHandCutConfirmDropdownChanged(int value) {

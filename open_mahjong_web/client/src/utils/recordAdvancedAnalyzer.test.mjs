@@ -406,8 +406,6 @@ const claimedDealer = {
         ['d', 13],
         ['c', 13, 'T'],
         ['d', 14],
-        ['c', 14, 'T'],
-        ['d', 14],
         ['hu_self', 0, 8, ['平胡'], [8, 0, 0, 0]],
         ['end'],
       ],
@@ -415,8 +413,8 @@ const claimedDealer = {
   },
 }
 const claimedStats = await analyzeRecordsAdvanced([{ game_id: 'gid-xun', record: claimedDealer }], 1, { tingpai: false })
-assert(claimedStats.wins[0].xunmu === 1, `claimed dealer first discard stays 巡1, got ${claimedStats.wins[0].xunmu}`)
-assert(claimedStats.total_win_turn === 1, `total_win_turn ${claimedStats.total_win_turn}`)
+assert(claimedStats.wins[0].xunmu === 2, `claimed dealer second draw is 巡2, got ${claimedStats.wins[0].xunmu}`)
+assert(claimedStats.total_win_turn === 2, `total_win_turn ${claimedStats.total_win_turn}`)
 
 const tieRecord = {
   game_title: { p0_uid: 1, p1_uid: 2, p2_uid: 3, p3_uid: 4, rule: 'guobiao' },

@@ -77,7 +77,8 @@ class GuangdongMatchMixin:
                 revealed_angang_masks=build_revealed_angang_masks(self.player_list), hepai_tile=item["tile"],
                 is_qianggang=True if item["source"] == "robbing_kong" else None,
                 ron_discarder_index=item["payer"], recycle_discard=True if ron else None,
-                guangdong_result=result, next_status=next_status)
+                guangdong_result=result, next_status=next_status,
+                silent=True if self._tactical_silent_action and not self_draw else None)
             if not match_end:
                 await self.run_hu_result_ready_phase(len(names))
         else:

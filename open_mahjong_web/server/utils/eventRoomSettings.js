@@ -72,7 +72,7 @@ function defaultConfig(rule = 'guobiao') {
     allow_spectator: true,
   };
   if (rule === 'hongkong') return { ...common, detailed_config: { flowers: false, new13_full_shoot: true } };
-  if (rule === 'guangdong') return { ...common, detailed_config: { edition: 'mil-tuidao-2024-om1', fan_cap: 32, wildcards: false } };
+  if (rule === 'guangdong') return { ...common, tactical_call: true, detailed_config: { edition: 'mil-tuidao-2024-om1', fan_cap: 32, wildcards: false } };
   if (rule === 'shanxi') return { ...common, detailed_config: { rule_version: 'mil-shanxi-2023-om1' } };
   if (rule === 'riichi') return { ...common, starting_score: 25000 };
   if (rule !== 'guobiao') return common;
@@ -112,7 +112,8 @@ function normalizeRoomConfig(rule, raw) {
   if (!isObject(raw)) throw new SettingsError(400, '对局设置必须是对象');
   const allowed = rule === 'guobiao' ? GUOBIAO_CONFIG_KEYS
     : rule === 'riichi' ? [...COMMON_CONFIG_KEYS, 'starting_score']
-      : ['hongkong', 'guangdong', 'shanxi'].includes(rule) ? [...COMMON_CONFIG_KEYS, 'detailed_config'] : COMMON_CONFIG_KEYS;
+      : rule === 'guangdong' ? [...COMMON_CONFIG_KEYS, 'detailed_config', 'tactical_call']
+        : ['hongkong', 'shanxi'].includes(rule) ? [...COMMON_CONFIG_KEYS, 'detailed_config'] : COMMON_CONFIG_KEYS;
   for (const key of Object.keys(raw)) {
     if (!allowed.includes(key)) throw new SettingsError(400, `不支持的对局设置字段：${key}`);
   }
@@ -174,6 +175,7 @@ function normalizeRoomConfig(rule, raw) {
   integerField(config, 'round_timer', 0, 1000, '局时');
   integerField(config, 'step_timer', 0, 100, '步时');
   const booleanKeys = ['tips', 'tourist_limit', 'allow_spectator'];
+  if (rule === 'guangdong') booleanKeys.push('tactical_call');
   if (rule === 'riichi') {
     integerField(config, 'starting_score', 1000, 1000000, '起始点数');
     if (config.starting_score % 100 !== 0) throw new SettingsError(400, '起始点数必须为 100 的倍数');

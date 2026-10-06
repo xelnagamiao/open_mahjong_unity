@@ -22,6 +22,7 @@
 """
 from __future__ import annotations
 
+from .player_count import game_player_count
 import asyncio
 from dataclasses import dataclass, field
 import logging
@@ -116,12 +117,12 @@ def init_claim_protection_state(game_state) -> None:
     from .outbound_pipe import init_outbound_pipes
 
     game_state._cp_active = False
-    game_state._cp_protected = [False, False, False, False]
+    game_state._cp_protected = [False] * game_player_count(game_state)
     game_state._cp_pending_cut: Dict[int, dict] = {}
     game_state._cp_cut_flushed = False
     game_state._cp_cut_flush_time = None
     game_state._cp_timer_task: Optional[asyncio.Task] = None
-    game_state._cp_need_post_gap = [False, False, False, False]
+    game_state._cp_need_post_gap = [False] * game_player_count(game_state)
     game_state._cp_discard_delivery = None
     init_outbound_pipes(game_state)
 
@@ -149,13 +150,13 @@ def _cancel_timer(game_state) -> None:
 def is_protected_viewer(game_state, viewer_index: int) -> bool:
     """该座位在本区间是否为受保护观众（不能鸣牌且非出牌者）。flush 后仍保持，便于鸣牌阶段判断。"""
     protected = getattr(game_state, "_cp_protected", None)
-    return bool(protected) and 0 <= viewer_index < 4 and bool(protected[viewer_index])
+    return bool(protected) and 0 <= viewer_index < game_player_count(game_state) and bool(protected[viewer_index])
 
 
 def action_dict_has_hu_claim(action_dict) -> bool:
     """询问快照中是否存在可和牌动作（荣和/抢杠和等）。"""
-    for pid in range(4):
-        for action in (action_dict.get(pid) or []):
+    for actions in action_dict.values():
+        for action in (actions or []):
             if action in HU_CLAIM_ACTIONS:
                 return True
     return False
@@ -165,16 +166,16 @@ def mark_post_meld_gap(game_state, viewer_index: int) -> None:
     """实际鸣牌已入队/发出后调用：该观众下一条 pipe 消息需再等第二追赶。"""
     need = getattr(game_state, "_cp_need_post_gap", None)
     if need is None:
-        game_state._cp_need_post_gap = [False, False, False, False]
+        game_state._cp_need_post_gap = [False] * game_player_count(game_state)
         need = game_state._cp_need_post_gap
-    if 0 <= viewer_index < 4:
+    if 0 <= viewer_index < game_player_count(game_state):
         need[viewer_index] = True
 
 
 def take_post_meld_gap_delay(game_state, viewer_index: int) -> float:
     """若该观众需要第二追赶，返回间隔并清除标记；否则 0。"""
     need = getattr(game_state, "_cp_need_post_gap", None)
-    if not need or not (0 <= viewer_index < 4) or not need[viewer_index]:
+    if not need or not (0 <= viewer_index < game_player_count(game_state)) or not need[viewer_index]:
         return 0.0
     need[viewer_index] = False
     return get_meld_post_gap(game_state)
@@ -190,7 +191,7 @@ def begin_claim_protection_interval(game_state, action_dict, action_player: int)
     game_state._cp_pending_cut = {}
     game_state._cp_cut_flushed = False
     game_state._cp_cut_flush_time = None
-    game_state._cp_protected = [False, False, False, False]
+    game_state._cp_protected = [False] * game_player_count(game_state)
     game_state._cp_active = False
     # 注意：不清除 _cp_need_post_gap——上一手鸣牌的第二追赶要作用到本手 cut
     if not claim_protection_enabled(game_state):
@@ -200,14 +201,14 @@ def begin_claim_protection_interval(game_state, action_dict, action_player: int)
         logger.info("鸣牌保护跳过：本张可和牌 cutter=%s", action_player)
         return
     can_claim = {
-        pid for pid in range(4)
+        pid for pid in range(game_player_count(game_state))
         if any(a != "pass" for a in (action_dict.get(pid) or []))
     }
     if not can_claim:
         # 没人能鸣牌：不延迟（claimable_only）
         return
     game_state._cp_protected = [
-        (pid != action_player and pid not in can_claim) for pid in range(4)
+        (pid != action_player and pid not in can_claim) for pid in range(game_player_count(game_state))
     ]
     game_state._cp_active = any(game_state._cp_protected)
     if game_state._cp_active:

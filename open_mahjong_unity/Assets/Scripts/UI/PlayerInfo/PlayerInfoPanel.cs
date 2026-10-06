@@ -15,11 +15,11 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
     [SerializeField] private Button friendActionButton;
     [SerializeField] private TMP_Text friendActionButtonText;
     [SerializeField] private Button changeTitleButton;
-    [Header("国标段位")]
+    [Header("规则评分")]
     [SerializeField] private TMP_Text rankText;
     [SerializeField] private Slider rankProgressBar;
     [SerializeField] private TMP_Text rankScoreText;
-    [SerializeField] private Button rankSwitchButton; // 预留段位切换，暂不绑定点击事件。
+    [SerializeField] private Button rankSwitchButton;
     [Header("规则与场次")]
     [SerializeField] private Button[] ruleButtons;
     [SerializeField] private TMP_Dropdown otherRulesDropdown;
@@ -37,13 +37,15 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
     [SerializeField] private PlayerInfoHandView handView;
     [SerializeField] private PlayerInfoTrendChart trendChart;
 
-    private static readonly string[] PrimaryRules = { "guobiao", "riichi", "qingque", "sichuan" };
-    private readonly List<RuleManifest> otherRules = new List<RuleManifest>();
+    private static readonly string[] PrimaryRules = PlayerInfoRuleCatalog.PrimaryRules;
+    private readonly List<KeyValuePair<string, string>> otherRules = new List<KeyValuePair<string, string>>();
     public static PlayerInfoPanel Instance { get; private set; }
     public string CurrentRule { get; private set; } = "guobiao";
     public bool ShowingRanked { get; private set; } = true;
     private string customRule = "guobiao";
     private int currentUserId;
+    private int currentProfileImageId = 1;
+    private int currentAvatarFrameId;
     private string currentUsername;
     private bool shownOnce;
     private bool initialized;
@@ -53,11 +55,17 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
     private Dictionary<string,RuleRating> ratings;
     [SerializeField] private GameObject rankPolicyButton;
     private string rankRule="guobiao";
-    public void CycleRankRule(){rankRule=RankedRules.Next(rankRule);RefreshRating();}
-    private void RefreshRating(){
-        var r=RankedRules.Get(ratings,rankRule);
-        rankText.text=RankedRules.RankCaption(r);rankScoreText.text=RankedRules.ScoreCaption(r);
-        rankProgressBar.gameObject.SetActive(RankedRules.IsGrade(rankRule));rankProgressBar.value=RankedRules.Progress(r);
+    public void CycleRankRule() => SelectRule(RankedRules.Next(rankRule));
+
+    private void RefreshRating() {
+        var rating = RankedRules.Get(ratings, rankRule);
+        bool grade = RankedRules.IsGrade(rankRule);
+        // 沿用原版三行段位区，短规则名给段位和分数保留完整的显示宽度。
+        string name = RankedRules.Name(rankRule).Replace("麻将", "");
+        rankText.text = name + " · " + (grade ? rating.rank_name : "Elo");
+        rankScoreText.text = RankedRules.ScoreCaption(rating);
+        rankProgressBar.gameObject.SetActive(grade);
+        rankProgressBar.value = RankedRules.Progress(rating);
     }
 
     private void Awake() {
@@ -85,25 +93,31 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
 
     private void PopulateOtherRules() {
         otherRules.Clear();
-        var options = new List<TMP_Dropdown.OptionData>();
-        foreach (var manifest in RuleRegistry.Ordered) {
-            if (System.Array.IndexOf(PrimaryRules, manifest.RuleId) >= 0) continue;
-            otherRules.Add(manifest);
-            options.Add(new TMP_Dropdown.OptionData(manifest.LobbyName ?? manifest.DisplayName));
-        }
+        var options = new List<TMP_Dropdown.OptionData> { new TMP_Dropdown.OptionData("其他规则") };
+        otherRules.AddRange(PlayerInfoRuleCatalog.OtherRules(ShowingRanked));
+        foreach (var rule in otherRules) options.Add(new TMP_Dropdown.OptionData(rule.Value));
         otherRulesDropdown.ClearOptions();
         otherRulesDropdown.AddOptions(options);
-        otherRulesDropdown.SetValueWithoutNotify(-1);
+        otherRulesDropdown.SetValueWithoutNotify(0);
     }
 
     private void Start() {
         if (!shownOnce) gameObject.SetActive(false);
     }
 
-    private void OnDisable() => FriendRelationCache.OnChanged -= RefreshFriendActionButton;
+    private void OnEnable() {
+        GameSettings.AppearanceChanged += RefreshAppearance;
+        RefreshAppearance(null);
+    }
+
+    private void OnDisable() {
+        FriendRelationCache.OnChanged -= RefreshFriendActionButton;
+        GameSettings.AppearanceChanged -= RefreshAppearance;
+    }
 
     private void OnDestroy() {
         FriendRelationCache.OnChanged -= RefreshFriendActionButton;
+        GameSettings.AppearanceChanged -= RefreshAppearance;
         if (Instance == this) Instance = null;
     }
 
@@ -114,8 +128,10 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
         ApplyPlayerInfo(playerInfo);
         recentRecords = null;
         recentRequestId = System.Guid.NewGuid().ToString("N");
-        CurrentRule = customRule = ProfileOnClick.RequestedRule;
+        CurrentRule = ProfileOnClick.RequestedRule;
+        customRule = CurrentRule;
         ShowingRanked = true;
+        PopulateOtherRules();
         statistics.ResetUser(currentUserId, loadedRule, loadedStats);
         RefreshRecords();
         DataNetworkManager.Instance?.GetPlayerRecentRecords(currentUserId, recentRequestId);
@@ -135,11 +151,30 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
         usernameText.text = currentUsername;
         useridText.text = currentUserId.ToString();
         titleText.text = ConfigManager.GetTitleText(settings?.title_id ?? 0);
-        profileImage.sprite = ConfigManager.GetProfileSprite(settings?.profile_image_id ?? 1);
-        AvatarFrameGraphic.Apply(profileImage, settings?.avatar_frame_id ?? 0);
+        currentProfileImageId = settings?.profile_image_id ?? 1;
+        currentAvatarFrameId = settings?.avatar_frame_id ?? 0;
+        RefreshAppearance(null);
         ratings=playerInfo.ratings ?? new Dictionary<string,RuleRating>();
         if(!ratings.ContainsKey("guobiao"))ratings["guobiao"]=new RuleRating{rule="guobiao",system="grade",rank_name=playerInfo.guobiao_rank??"10级",rank_score=playerInfo.guobiao_score};
         rankRule=ProfileOnClick.RequestedRule;RefreshRating();
+    }
+
+    private void RefreshAppearance(InventoryAppearance appearance) {
+        if (currentUserId == 0 || profileImage == null) return;
+        if (appearance != null) {
+            if (appearance.user_id != currentUserId) return;
+            currentProfileImageId = appearance.profile_image_id;
+            currentAvatarFrameId = appearance.avatar_frame_id;
+        } else {
+            // A hidden self profile may have missed equipment broadcasts.
+            var user = UserDataManager.Instance;
+            if (user != null && user.UserId == currentUserId && user.Inventory?.appearance != null) {
+                currentProfileImageId = user.ProfileImageId;
+                currentAvatarFrameId = user.AvatarFrameId;
+            }
+        }
+        profileImage.sprite = ConfigManager.GetProfileSprite(currentProfileImageId);
+        AvatarFrameGraphic.Apply(profileImage, currentAvatarFrameId);
     }
 
     public void SelectRule(int index) {
@@ -148,26 +183,30 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
     }
 
     public void SelectRule(string rule) {
+        if (rule == "jiandan") rule = PlayerInfoRuleCatalog.Nanque;
         if (ShowingRanked && !RankedRules.Supports(rule)) return;
-        if (RuleRegistry.Resolve(rule, rule) == null) return;
+        if (!PlayerInfoRuleCatalog.Supports(rule)) return;
         CurrentRule = rule;
         if (!ShowingRanked) customRule = rule;
         RefreshRecords();
     }
 
     private void SelectOtherRule(int index) {
-        if (index >= 0 && index < otherRules.Count) SelectRule(otherRules[index].RuleId);
+        if (index > 0 && index <= otherRules.Count) SelectRule(otherRules[index - 1].Key);
     }
 
     public void SelectCategory(bool ranked) {
         if (ShowingRanked == ranked) return;
         otherRulesDropdown.Hide();
         ShowingRanked = ranked;
-        CurrentRule = ranked ? "guobiao" : customRule;
+        PopulateOtherRules();
+        CurrentRule = ranked ? rankRule : customRule;
         RefreshRecords();
     }
 
     private void RefreshRecords() {
+        if (ShowingRanked && RankedRules.Supports(CurrentRule)) rankRule = CurrentRule;
+        RefreshRating();
         modeToggleContainer.SetActive(true);
         SetCategorySelected(rankModeButton, rankedTabIndicator, ShowingRanked);
         SetCategorySelected(customModeButton, customTabIndicator, !ShowingRanked);
@@ -175,10 +214,10 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
             ruleButtons[i].gameObject.SetActive(true);
             SetTabSelected(ruleButtons[i], ruleButtons[i].GetComponentInChildren<TMP_Text>(true), PrimaryRules[i] == CurrentRule);
         }
-        otherRulesDropdown.gameObject.SetActive(!ShowingRanked);
-        rankPolicyButton?.SetActive(ShowingRanked);
-        int otherIndex = otherRules.FindIndex(r => r.RuleId == CurrentRule);
-        otherRulesDropdown.SetValueWithoutNotify(otherIndex);
+        otherRulesDropdown.gameObject.SetActive(true);
+        rankPolicyButton?.SetActive(false);
+        int otherIndex = otherRules.FindIndex(r => r.Key == CurrentRule);
+        otherRulesDropdown.SetValueWithoutNotify(otherIndex + 1);
         SetTabSelected(otherRulesDropdown, otherRulesDropdown.captionText, otherIndex >= 0);
         statistics.Show(CurrentRule, ShowingRanked, currentUserId);
         RefreshRecentRecords();
@@ -186,18 +225,23 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
 
     private void RefreshRecentRecords() {
         PlayerRecentCategory category = null;
-        if (recentRecords?.rules != null && recentRecords.rules.TryGetValue(CurrentRule, out var rule))
-            rule.TryGetValue(ShowingRanked ? "match" : "custom", out category);
+        if (recentRecords?.rules != null) {
+            // 旧近期记录以 jiandan 缓存南雀；界面与新统计统一使用 nanque。
+            if (recentRecords.rules.TryGetValue(CurrentRule, out var rule)
+                || (CurrentRule == PlayerInfoRuleCatalog.Nanque && recentRecords.rules.TryGetValue("jiandan", out rule)))
+                rule.TryGetValue(ShowingRanked ? "match" : "custom", out category);
+        }
         var win = CurrentRule == "guobiao" ? category?.big_win : null;
         winLabel.text = PlayerInfoStatsFormatter.WinCaption(win);
         handView.SetHand(win?.concealed_tiles, win?.melds);
         if (emptyWinText != null) emptyWinText.gameObject.SetActive(win == null);
         var placements = new List<int>();
+        int participants = PlayerInfoRuleCatalog.PlayerCount(CurrentRule);
         if (category?.placements != null) {
             foreach (var entry in category.placements)
-                if (entry != null && entry.rank >= 1 && entry.rank <= 4) placements.Add(entry.rank);
+                if (entry != null && entry.rank >= 1 && entry.rank <= participants) placements.Add(entry.rank);
         }
-        trendChart.SetPlacements(placements.ToArray());
+        trendChart.SetPlacements(placements.ToArray(), participants);
     }
 
     public void OnRecentRecordsReceived(bool success, string message, PlayerRecentRecordsResponse response) {
@@ -248,6 +292,8 @@ public sealed class PlayerInfoPanel : MonoBehaviour {
     public void OnRankedStatsReceived(Response response) {
         statistics.Receive(response.rating_rule+"_rank",response.success,response.message,response.rule_stats);
     }
+
+    public void OnRuleStatsReceived(Response response) => statistics.ReceiveFiltered(response);
 
     private void RefreshFriendActionButton() {
         bool self = UserDataManager.Instance != null && currentUserId == UserDataManager.Instance.UserId;

@@ -30,16 +30,16 @@ public partial class ConfigManager : MonoBehaviour {
             gameUrl = "ws://localhost:8081/game"; // 游戏服务器地址(连接到OMU服务器)
             chatUrl = "ws://localhost:8083/chat"; // 聊天服务器地址(连接到OMUChat服务器)
             webApiUrl = "http://localhost:3000"; // 活动专栏 / 平台 HTTP（通知、牌谱公开接口）
-            releaseVersion = 25; // 发行版号(验证客户端-服务器版本是否一致)
+            releaseVersion = 26; // 发行版号(验证客户端-服务器版本是否一致)
         } else {
             // 生产环境接口地址
             gameUrl = "wss://salasasa.cn/game";
             chatUrl = "wss://salasasa.cn/chat";
             webApiUrl = "https://salasasa.cn";
-            releaseVersion = 25;
+            releaseVersion = 26;
         }
         // 官方服务器链接网址 用于访问转到 （不影响游戏进程）
-        clientVersion = "0.4.78.1"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
+        clientVersion = "0.4.79.0"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
         webUrl = "https://salasasa.cn"; // 访问转到
         mobileDownloadUrl = "https://salasasa.cn/mobile-download"; // Android APK 版本更新下载页
         documentUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#"; // 访问转到
@@ -66,6 +66,7 @@ public partial class ConfigManager : MonoBehaviour {
     private const string KEY_TARGET_FRAME_RATE = "TargetFrameRate";
     private const string KEY_VSYNC_ENABLED = "VsyncEnabled";
     private const string KEY_STREAMER_MODE = "StreamerMode";
+    private const string KEY_REALTIME_SPECTATE_MODE = "RealtimeSpectateMode";
     private const string KEY_HAND_CUT_CONFIRM = "HandCutConfirmMode";
     private const string KEY_HAND_SORT_SUIT_ORDER = "HandSortSuitOrderMode";
     private const string KEY_HAND_SORT_HONOR_ORDER = "HandSortHonorOrderMode";
@@ -141,6 +142,8 @@ public partial class ConfigManager : MonoBehaviour {
     public bool VsyncEnabled { get; private set; }
     /// <summary>主播模式：0 关 1 开</summary>
     public bool StreamerModeEnabled { get; private set; }
+    /// <summary>实时观战设置：0 显示申请，1 自动同意，2 自动拒绝。</summary>
+    public int RealtimeSpectateMode { get; private set; }
     /// <summary>两次点击确认出牌：0 关 1 开</summary>
     public int HandCutConfirmMode { get; private set; }
     public bool IsHandCutConfirmEnabled => HandCutConfirmMode == 1;
@@ -159,7 +162,7 @@ public partial class ConfigManager : MonoBehaviour {
     /// <summary>匹配成功音效：默认开启</summary>
     public bool MatchSuccessSoundEnabled { get; private set; }
     public bool OpeningAutoBuhuaEnabled { get; private set; }
-    /// <summary>国标战术鸣牌显示「放弃」：默认关，打开后认领 force_pass。</summary>
+    /// <summary>战术鸣牌规则显示「放弃」：默认关，打开后认领 force_pass。</summary>
     public bool ForcePassEnabled { get; private set; }
     /// <summary>3D card back color (default deep blue).</summary>
     public Color CardBackColor { get; private set; } = DefaultCardBackColor;
@@ -240,6 +243,7 @@ public partial class ConfigManager : MonoBehaviour {
         MoqieShortcutMode = PlayerPrefs.GetInt(KEY_MOQIE_SHORTCUT, 0);
         AskOtherPassShortcutMode = LoadAskOtherPassShortcutMode();
         StreamerModeEnabled = PlayerPrefs.GetInt(KEY_STREAMER_MODE, 0) == 1;
+        RealtimeSpectateMode = NormalizeRealtimeSpectateMode(PlayerPrefs.GetInt(KEY_REALTIME_SPECTATE_MODE, 0));
         HandCutConfirmMode = PlayerPrefs.GetInt(KEY_HAND_CUT_CONFIRM, DefaultHandCutConfirmMode);
         HandSortSuitOrderMode = Mathf.Clamp(PlayerPrefs.GetInt(KEY_HAND_SORT_SUIT_ORDER, 0), 0, TileIdOrder.SuitOrderOptions.Length - 1);
         HandSortHonorOrderMode = Mathf.Clamp(PlayerPrefs.GetInt(KEY_HAND_SORT_HONOR_ORDER, 0), 0, TileIdOrder.HonorOrderOptions.Length - 1);
@@ -818,6 +822,16 @@ public partial class ConfigManager : MonoBehaviour {
         PlayerPrefs.SetInt(KEY_STREAMER_MODE, enabled ? 1 : 0);
         PlayerPrefs.Save();
         StreamerModeHelper.NotifyChanged();
+    }
+
+    public void SetRealtimeSpectateMode(int mode) {
+        RealtimeSpectateMode = NormalizeRealtimeSpectateMode(mode);
+        PlayerPrefs.SetInt(KEY_REALTIME_SPECTATE_MODE, RealtimeSpectateMode);
+        PlayerPrefs.Save();
+    }
+
+    private static int NormalizeRealtimeSpectateMode(int mode) {
+        return mode >= 0 && mode <= 2 ? mode : 0;
     }
 
     public void SetHandCutConfirmMode(int mode) {

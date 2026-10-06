@@ -14,7 +14,6 @@ export const FRONT_COLOR = 0xf7f7f0
 export const BACK_COLOR = 0xf6bc1e
 export const BORDER_COLOR = 0x606060
 export const WINDOW_SCALE = 0.95
-export const DUANG_CUTOFF = 32
 export const MELD_OPT_SCALE = 1.23
 export const SELF_HAND_SCALE = 1.23
 export const SUIT_HONOR = 0b10100000

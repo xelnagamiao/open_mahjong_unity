@@ -436,7 +436,13 @@ public partial class CreatePanel : MonoBehaviour {
         RefreshGuangdongControls();
         RefreshSubRuleDescription();
         if (_ruleState == "riichi" && RiichiStartingScoreInput != null) {
-            RiichiStartingScoreInput.text = GetSelectedRiichiSubRule() == "riichi/langyong" ? "50000" : "25000";
+            string selectedSubRule = GetSelectedRiichiSubRule();
+            if (selectedSubRule == "riichi/sanma") ApplyRiichiPreset(5);
+            else if (selectedRiichiPresetIndex >= 4) {
+                ApplyRiichiPreset(1);
+                SubRuleDropdown.SetValueWithoutNotify(index);
+            }
+            RiichiStartingScoreInput.text = selectedSubRule == "riichi/sanma" ? "35000" : selectedSubRule == "riichi/langyong" ? "50000" : "25000";
         }
         // 日麻子规则（标准 / 浪涌）不涉及起和番/错和的二次收窄，仅国标需处理。
         if (_ruleState == "guobiao") {
@@ -483,12 +489,12 @@ public partial class CreatePanel : MonoBehaviour {
     private void SetCommonCreateControlsVisible(Dictionary<string, object> visible) {
         if (TianDiRenHeToggle != null) {
             string subRule = GetSelectedSubRule();
-            bool supported = _ruleState == "guobiao" && (subRule == "guobiao/standard" || subRule == GuobiaoGameState.BloodBattleSubRule);
+            bool supported = _ruleState == "guobiao" && (subRule == "guobiao/standard" || subRule == GuobiaoGameState.SanmaSubRule || subRule == GuobiaoGameState.BloodBattleSubRule);
             TianDiRenHeToggle.gameObject.SetActive(supported);
             if (!supported) TianDiRenHeToggle.SetIsOnWithoutNotify(false);
         }
         if (DuplicateWallToggle != null) {
-            bool supported = _ruleState == "guobiao";
+            bool supported = _ruleState == "guobiao" && GetSelectedSubRule() != GuobiaoGameState.SanmaSubRule;
             DuplicateWallToggle.gameObject.SetActive(supported);
             if (!supported) {
                 DuplicateWallToggle.isOn = false;
@@ -847,7 +853,7 @@ public partial class CreatePanel : MonoBehaviour {
             RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
             DuplicateKey = SelectedDuplicateKey,
             UseFlowers = subRule != "guobiao/lanshi" && (GuobiaoFlowersToggle == null || GuobiaoFlowersToggle.isOn),
-            TianDiRenHe = (subRule == "guobiao/standard" || subRule == GuobiaoGameState.BloodBattleSubRule) && TianDiRenHeToggle != null && TianDiRenHeToggle.isOn,
+            TianDiRenHe = (subRule == "guobiao/standard" || subRule == GuobiaoGameState.SanmaSubRule || subRule == GuobiaoGameState.BloodBattleSubRule) && TianDiRenHeToggle != null && TianDiRenHeToggle.isOn,
             Rule = "guobiao",
             SubRule = subRule,
             RoundTimer = GetSelectedRoundTimer(),
@@ -960,6 +966,7 @@ public partial class CreatePanel : MonoBehaviour {
 
     private void CreateTuidaoRoom() {
         var config = new Qingque_Create_RoomConfig {
+            TacticalCall = TacticalCallToggle != null && TacticalCallToggle.isOn,
             ClaimProtection = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.ClaimProtection) && ClaimProtectionToggle.isOn,
             RoomName = roomNameInput.text.Trim(),
             GameRound = GetSelectedGameTime(),
@@ -1246,6 +1253,10 @@ public partial class CreatePanel : MonoBehaviour {
 
     private void RefreshCuoheTypePanelVisibility() {
         if (CuoheTypePanel == null) return;
+        if (CuoheTypeDropdown != null && CuoheTypeDropdown.options.Count > 0) {
+            CuoheTypeDropdown.options[0].text = _ruleState == "guobiao" && GetSelectedSubRule() == GuobiaoGameState.SanmaSubRule ? "-20/+10" : "-30/+10";
+            CuoheTypeDropdown.RefreshShownValue();
+        }
         bool isBloodBattle = _ruleState == "guobiao" && GetSelectedSubRule() == GuobiaoGameState.BloodBattleSubRule;
         bool isXiaolin = _ruleState == "guobiao" && SubRuleDropdown.value == 1;
         bool isLanshi = _ruleState == "guobiao" && SubRuleDropdown.value == 3;

@@ -5,6 +5,9 @@
 import logging
 from psycopg2 import Error
 from typing import Any, Dict, Optional
+import re
+
+from .rule_identity import canonical_rule_identity
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +19,7 @@ LADDER_TIERS = ("beginner", "intermediate", "advanced", "mcrpl", "elo")
 _GAME_TYPE_MAP = {
     "1/4": "dongfeng", "1/4_rank": "dongfeng",
     "2/4": "banzhuang", "2/4_rank": "banzhuang",
+    "1/4_sanma_rank": "dongfeng", "2/4_sanma_rank": "banzhuang",
     "3/4": "xifeng",
     "4/4": "quanzhuang", "4/4_rank": "quanzhuang",
 }
@@ -48,6 +52,8 @@ def should_record_scene_metrics(
     event_id: Optional[str] = None,
 ) -> bool:
     room_type, match_tier, event_id = normalize_scene_fields(room_type, match_tier, event_id)
+    if room_type == "custom":
+        return True
     if room_type == "match" and match_tier in LADDER_TIERS:
         return True
     if room_type == "events" and event_id:
@@ -58,7 +64,8 @@ def should_record_scene_metrics(
 def derive_game_type(match_type: Optional[str]) -> Optional[str]:
     if not match_type:
         return None
-    return _GAME_TYPE_MAP.get(match_type)
+    match = re.fullmatch(r"([1-4])/(?:3|4)(?:_sanma)?(?:_rank)?", match_type)
+    return {"1": "dongfeng", "2": "banzhuang", "3": "xifeng", "4": "quanzhuang"}.get(match[1]) if match else _GAME_TYPE_MAP.get(match_type)
 
 
 def _count_rounds(game_record: Dict[str, Any]) -> int:
@@ -100,6 +107,7 @@ def record_game_metrics(
         total_rounds = _count_rounds(game_record)
         match_type = scene.get("match_type")
         game_type = derive_game_type(match_type)
+        rule, sub_rule = canonical_rule_identity(scene.get("rule"), scene.get("sub_rule"))
 
         conn = db_manager._get_connection()
         cursor = conn.cursor()
@@ -116,6 +124,24 @@ def record_game_metrics(
             dianhe = getattr(counter, "dianhe_times", 0) or 0
             fangchong = getattr(counter, "fangchong_times", 0) or 0
             rank = getattr(counter, "rank_result", 0) or 0
+            replay_metrics = None
+            if rule in ("sichuan", "qingque", "classical"):
+                # 各规则的巡目/基础分/实际支付口径不同，统一与专用牌谱回放对齐。
+                from .shared_record_metrics import analyze_shared_record_for_player
+                original_index = getattr(player, "original_player_index", None)
+                if original_index is not None:
+                    replay_metrics = analyze_shared_record_for_player(game_record, original_index)
+                    zimo = replay_metrics["self_draw_count"]
+                    dianhe = replay_metrics["win_count"] - zimo
+                    fangchong = replay_metrics["deal_in_count"]
+            round_score_total = getattr(counter, "round_score_total", None)
+            if round_score_total is None:
+                from .shared_record_metrics import analyze_shared_record_for_player
+                original_index = getattr(player, "original_player_index", None)
+                round_score_total = (analyze_shared_record_for_player(game_record, original_index)["total_round_score"]
+                                     if original_index is not None else 0)
+            if replay_metrics:
+                round_score_total = replay_metrics["total_round_score"]
 
             cursor.execute("""
                 INSERT INTO game_player_metrics (
@@ -132,8 +158,8 @@ def record_game_metrics(
                 game_id,
                 user_id,
                 getattr(player, "username", f"用户{user_id}"),
-                scene.get("rule"),
-                scene.get("sub_rule"),
+                rule,
+                sub_rule,
                 room_type,
                 match_tier,
                 event_id,
@@ -145,16 +171,16 @@ def record_game_metrics(
                 zimo + dianhe,
                 zimo,
                 fangchong,
-                getattr(counter, "win_score", 0) or 0,
-                getattr(counter, "win_turn", 0) or 0,
-                getattr(counter, "fangchong_score", 0) or 0,
+                replay_metrics["total_fan_score"] if replay_metrics else (getattr(counter, "win_score", 0) or 0),
+                replay_metrics["total_win_turn"] if replay_metrics else (getattr(counter, "win_turn", 0) or 0),
+                replay_metrics["total_fangchong_score"] if replay_metrics else (getattr(counter, "fangchong_score", 0) or 0),
                 1 if rank == 1 else 0,
                 1 if rank == 2 else 0,
                 1 if rank == 3 else 0,
                 1 if rank == 4 else 0,
-                getattr(counter, "fulu_times", 0) or 0,
+                replay_metrics["fulu_round_count"] if replay_metrics else (getattr(counter, "fulu_times", 0) or 0),
                 getattr(counter, "cuohe_times", 0) or 0,
-                getattr(counter, "round_score_total", 0) or 0,
+                round_score_total or 0,
             ))
             saved += 1
         conn.commit()

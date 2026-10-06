@@ -65,7 +65,7 @@ public static class GameRecordJsonDecoder {
                     break;
                 }
 
-                Round round = ParseRound(roundData, roundIndex, playerUserIds);
+                Round round = ParseRound(roundData, roundIndex, playerUserIds, MahjongPlayerCount.ForSubRule(recordSubRule));
                 gameRecord.gameRound.rounds[roundIndex] = round;
                 roundIndex++;
             }
@@ -76,7 +76,7 @@ public static class GameRecordJsonDecoder {
         }
     }
 
-    public static void ApplyRoundHeader(Round round, JObject roundData, int roundIndex) {
+    public static void ApplyRoundHeader(Round round, JObject roundData, int roundIndex, int playerCount = 4) {
         if (roundData["round_index"] != null) {
             round.roundIndex = roundData["round_index"].Value<int>();
         } else {
@@ -91,9 +91,11 @@ public static class GameRecordJsonDecoder {
             throw new Exception($"round_index_{roundIndex} 缺少 seats 字段");
         }
         round.seats = roundData["seats"].ToObject<List<int>>();
-        if (round.seats == null || round.seats.Count != 4) {
-            throw new Exception($"round_index_{roundIndex} seats 必须为长度 4 的数组");
+        if (round.seats == null || round.seats.Count != playerCount || new HashSet<int>(round.seats).Count != playerCount) {
+            throw new Exception($"round_index_{roundIndex} seats 必须为长度 {playerCount} 的座位排列");
         }
+        foreach (int seat in round.seats) if (seat < 0 || seat >= playerCount)
+            throw new Exception($"round_index_{roundIndex} seats 包含无效座位");
         if (roundData["dealer_index"] == null || roundData["start_player_index"] == null) {
             throw new Exception($"round_index_{roundIndex} 缺少 dealer_index 或 start_player_index");
         }
@@ -131,10 +133,10 @@ public static class GameRecordJsonDecoder {
         if (playerUserIds.ContainsKey(3)) round.p3UserId = playerUserIds[3];
     }
 
-    private static Round ParseRound(JObject roundData, int roundIndex, Dictionary<int, int> playerUserIds) {
+    private static Round ParseRound(JObject roundData, int roundIndex, Dictionary<int, int> playerUserIds, int playerCount) {
         Round round = new Round();
         ApplyPlayerUserIds(round, playerUserIds);
-        ApplyRoundHeader(round, roundData, roundIndex);
+        ApplyRoundHeader(round, roundData, roundIndex, playerCount);
 
         JArray actionTicks = roundData["action_ticks"] as JArray;
         if (actionTicks != null) {
@@ -243,9 +245,9 @@ public static class GameRecordJsonDecoder {
     /// seats[original_i] = player_index。
     /// </summary>
     public static int[] ConvertPlayerIndexScoreChangesToOriginal(int[] byPlayerIndex, List<int> seats) {
-        if (byPlayerIndex == null || seats == null || seats.Count < 4) return null;
+        if (byPlayerIndex == null || seats == null || (seats.Count != 3 && seats.Count != 4)) return null;
         int[] byOriginal = new int[4];
-        for (int orig = 0; orig < 4; orig++) {
+        for (int orig = 0; orig < seats.Count; orig++) {
             int seat = seats[orig];
             if (seat >= 0 && seat < byPlayerIndex.Length) {
                 byOriginal[orig] = byPlayerIndex[seat];
@@ -300,7 +302,7 @@ public static class GameRecordJsonDecoder {
             if (!int.TryParse(tick[2]?.Trim(), out int seat)) return defaultPlayer;
             return seat;
         }
-        if ((action == "ca" || action == "rk") && tick.Count >= 2) {
+        if ((action == "ca" || action == "rk" || action == "nuki") && tick.Count >= 2) {
             if (!int.TryParse(tick[1]?.Trim(), out int seat)) return defaultPlayer;
             return seat;
         }

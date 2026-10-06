@@ -10,6 +10,7 @@
       <el-form-item label="局时储备（秒）"><el-input-number v-model="form.round_timer" :min="0" :max="1000" :precision="0" /></el-form-item>
       <el-form-item label="步时（秒）"><el-input-number v-model="form.step_timer" :min="0" :max="100" :precision="0" /></el-form-item>
       <el-form-item v-if="showPassword" label="房间密码"><el-input v-model="form.password" type="password" show-password clearable /></el-form-item>
+      <el-form-item label="战术鸣牌"><el-switch v-model="form.tactical_call" /></el-form-item>
       <el-form-item label="听牌提示"><el-switch v-model="form.tips" /></el-form-item>
       <el-form-item label="剩余张数提示"><el-switch v-model="form.count_tips" /></el-form-item>
       <el-form-item label="指针提示"><el-switch v-model="form.pointer_tips" /></el-form-item>

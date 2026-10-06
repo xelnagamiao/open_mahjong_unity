@@ -82,6 +82,9 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
             if not await _wait_until_actionable(game_state, player_index):
                 logger.warning(f"机器人 {player_index} ({current_player.username}) 手牌询问未进入 waiting_players_list，放弃操作")
                 return
+            if "nuki" in action_list:
+                await submit_bot_action(get_ai_action, game_state, player_index, "nuki", None, None, None, None)
+                return
             if "buhua" in action_list:
                 logger.info(f"机器人 {player_index} ({current_player.username}) 选择 buhua（手牌补花）")
                 await submit_bot_action(get_ai_action, game_state, player_index, "buhua", None, None, None, None)

@@ -35,6 +35,10 @@ function memoryPool() {
       const status = admins.get(`${params[0]}:${params[1]}`);
       return { rows: status ? [{ status }] : [] };
     }
+    if (sql.startsWith('SELECT status FROM events WHERE')) {
+      const status = admins.get(`${params[0]}:10`);
+      return { rows: status ? [{ status }] : [] };
+    }
     if (sql.includes('COUNT(*) FILTER')) {
       const rows = scoped(params, sql);
       return { rows: [{ created_today: rows.filter((r) => r.today !== false).length, stored: rows.filter((r) => !r.deleted_at).length }] };
@@ -184,8 +188,8 @@ test('competition authorization, closed events, shared daily quota and owner loc
   await assert.rejects(service.create(10, input({ scope: 'event', event_id: 'evt_closed' })), { status: 409 });
   await assert.rejects(service.create(10, input({ scope: 'event', event_id: 'evt_pending' })), { status: 409 });
   assert.equal((await service.create(10, input({ scope: 'event', event_id: 'evt_registered' }))).wall.event_id, 'evt_registered');
-  const results = await Promise.allSettled(Array.from({ length: 23 }, () => service.create(10, input({ scope: 'event', event_id: 'evt_A' }))));
-  assert.equal(results.filter((r) => r.status === 'fulfilled').length, 20);
+  const results = await Promise.allSettled(Array.from({ length: 28 }, () => service.create(10, input({ scope: 'event', event_id: 'evt_A' }))));
+  assert.equal(results.filter((r) => r.status === 'fulfilled').length, 25);
   assert.equal((await service.mine(10, 'event', 'evt_A')).quota.storage_limit, 100);
   const personal = await service.create(10, input());
   await assert.rejects(service.manage(11, personal.wall.id, { is_unlocked: true }), { status: 403 });
@@ -201,6 +205,59 @@ test('competition authorization, closed events, shared daily quota and owner loc
   const removed = await service.manage(10, personal.wall.id, { remove: true });
   assert.equal(removed.wall.is_unlocked, true);
   assert.equal(removed.wall.unlocked_at, unlocked.wall.unlocked_at);
+});
+
+test('event batches and single creates share the 25-key daily quota with no partial reservation', async () => {
+  const pool = memoryPool(); const service = createDuplicateWallService(pool);
+  const body = input({ scope: 'event', event_id: 'evt_A', round_count: 8 });
+  await service.create(10, body);
+  const batch = await service.createBatch(10, body, 20);
+  assert.equal(batch.walls.length, 20);
+  assert.equal(new Set(batch.walls.map(wall => wall.key)).size, 20);
+  assert.equal(new Set(pool.walls.map(wall => wall.seed)).size, 21);
+  assert.equal(batch.quota.created_today, 21);
+  assert.equal(batch.quota.remaining_today, 4);
+  await assert.rejects(service.createBatch(10, body, 5), { status: 429 });
+  assert.equal(pool.walls.length, 21);
+  assert.equal((await service.createBatch(10, body, 4)).quota.created_today, 25);
+  await assert.rejects(service.create(10, body), { status: 429 });
+  assert.ok(pool.walls.every(wall => wall.round_count === 8 && wall.round_tiles.length === 8));
+  assert.ok(batch.walls.every(wall => !('seed' in wall) && !('tiles' in wall) && !('round_tiles' in wall)));
+});
+
+test('concurrent event batches use the same lock as manual creates and reject the whole excess batch', async () => {
+  const pool = memoryPool(); const service = createDuplicateWallService(pool);
+  const body = input({ scope: 'event', event_id: 'evt_A' });
+  const results = await Promise.allSettled([
+    service.createBatch(10, body, 20), service.createBatch(10, body, 10),
+    ...Array.from({ length: 8 }, () => service.create(10, body)),
+  ]);
+  assert.equal(results[0].status, 'fulfilled');
+  assert.equal(results[1].reason.status, 429);
+  assert.equal(pool.walls.length, 25);
+  await service.manage(10, pool.walls[0].id, { is_unlocked: true });
+  await service.manage(10, pool.walls[0].id, { remove: true });
+  await assert.rejects(service.createBatch(10, body, 1), { status: 429 });
+  assert.equal((await service.getQuota(10, 'event', 'evt_A')).remaining_today, 0);
+});
+
+test('event batch storage and trusted platform administration preserve authorization', async () => {
+  const pool = memoryPool(); const service = createDuplicateWallService(pool);
+  const body = input({ scope: 'event', event_id: 'evt_A' });
+  await assert.rejects(service.createBatch(11, { ...body, platformAdmin: true }, 3), { status: 403 });
+  await assert.rejects(service.getQuota(11, 'event', 'evt_A'), { status: 403 });
+  await service.createBatch(11, body, 3, { platformAdmin: true });
+  assert.equal((await service.getQuota(11, 'event', 'evt_A', { platformAdmin: true })).created_today, 3);
+  await assert.rejects(service.createBatch(11, { ...body, event_id: 'evt_closed' }, 3, { platformAdmin: true }), { status: 409 });
+  for (let day = 0; day < 3; day += 1) {
+    for (const row of pool.walls) row.today = false;
+    await service.createBatch(10, body, 25);
+  }
+  for (const row of pool.walls) row.today = false;
+  await service.createBatch(10, body, 20);
+  assert.equal(pool.walls.length, 98);
+  await assert.rejects(service.createBatch(10, body, 3), { status: 409 });
+  assert.equal(pool.walls.length, 98);
 });
 
 test('standard Guobiao flower toggle validates exact 136/144 tiles and preserves old seed order', () => {

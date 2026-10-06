@@ -107,6 +107,29 @@ class WenzhouRoomLifecycleTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response["room_info"]["game_round"], 2)
         self.assertEqual(response["room_info"]["detailed_config"]["edition"], EDITION)
 
+    async def test_wire_timers_are_saved_and_used_by_real_state(self):
+        from ..gamestate.game_wenzhou.WenzhouGameState import WenzhouGameState
+        for supplied,bank,step in (({},20,5),({"roundTimerValue":11,"stepTimerValue":8},11,8),
+                                   ({"roundTimerValue":0,"stepTimerValue":10},0,10),
+                                   ({"roundTimerValue":20,"stepTimerValue":0},20,0),
+                                   ({"roundTimerValue":0,"stepTimerValue":0},0,0)):
+            with self.subTest(bank=bank,step=step):
+                self.connection.current_room_id=None
+                socket=SimpleNamespace(send_json=AsyncMock())
+                await handle_create_wenzhou_room(SimpleNamespace(room_manager=self.manager),"player",
+                    {"roomname":"计时温州",**supplied},socket)
+                payload=socket.send_json.await_args.args[0]
+                self.assertTrue(payload["success"])
+                saved=self.manager.rooms[payload["room_info"]["room_id"]]
+                self.assertEqual((saved["round_timer"],saved["step_timer"]),(bank,step))
+                room=dict(saved,player_list=[101,102,103,104])
+                state=WenzhouGameState(room_data=room,calculation_service=object())
+                state.initialize_round()
+                state.open_action_window(state.opening_window())
+                ask=state.build_pending_action_payload(0)["ask_hand_action_info"]
+                self.assertEqual((ask["remaining_time"],ask["step_remaining"]),(bank,step))
+                self.assertEqual([p.remaining_time for p in state.player_list],[bank]*4)
+
 
 if __name__ == "__main__":
     unittest.main()

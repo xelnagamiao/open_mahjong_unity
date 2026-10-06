@@ -51,6 +51,7 @@ internal static class HongKongRuleBootstrap {
         });
         foreach (string word in new[] {"riichi","riichi_cancel","ding_initial","pull_cut"}) {
             ActionWords.Register(new ActionWordSpec { Word=word, Kind=ActionWordKind.Other,
+                DisplayPriority=word=="riichi_cancel" ? (int?)60 : null,
                 // Shared action words must leave other rule families' captions intact.
                 Label=w=>GameSession.Current.RoomRule!=HongKongGameState.RuleId ? null
                     : w=="ding_initial" ? "天叮" : w=="pull_cut" ? "斩拉" : w=="riichi_cancel" ? "取消声明"

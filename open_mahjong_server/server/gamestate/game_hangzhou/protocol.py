@@ -1,7 +1,6 @@
 """One viewer-safe snapshot for live play, reconnect, and real-time spectating."""
 
 import math
-import time
 
 from ..game_zhongyong import boardcast as wire
 from ...game_calculation.hangzhou.rules import JOKER
@@ -41,13 +40,17 @@ class Protocol:
         data["hand_tiles_count"] = len(p.hand_tiles)
         data["combination_tiles"] = wire.public_melds_for_viewer(p, viewer, reveal_final=ended)
         data["combination_mask"] = wire.public_combination_masks_for_viewer(p, viewer, reveal_final=ended)
+        data["remaining_time"] = (self._clock_parts(index)[0] if not ended and not self._tactical_recheck_active
+                                  else math.ceil(max(0.0, p.remaining_time)))
         return data
 
     def _adapt(self, payload, viewer):
+        self.sync_tactical_enabled()
         payload["player_index"] = viewer
         payload.setdefault("message", "")
         info = payload.get("game_info")
         if info is not None:
+            info["tactical_call"] = self.tactical_call
             info["detailed_config"] = dict(self.detailed_config)
             info["hangzhou_info"] = self.hangzhou_info(viewer)
             info["players_info"] = [self._player_view(i, viewer) for i in range(4)]
@@ -64,6 +67,8 @@ class Protocol:
         payload = wire.ask_action_payload(self, index, self.action_dict.get(index, []), action_player_index=actor,
                                          cut_tile=window.get("tile") if phase == P.RESPONSE else None)
         info = payload.get("ask_hand_action_info")
+        if self._tactical_recheck_active and payload.get("ask_other_action_info"):
+            payload["ask_other_action_info"]["is_tactical_recheck"] = True
         if info is not None:
             info["hangzhou_info"] = self.hangzhou_info(index)
             active = self.player_list[actor]
@@ -75,15 +80,7 @@ class Protocol:
                 if self.is_cai_locked(index):
                     info["forced_cut_tiles"] = sorted(legal)
                 info["kong_candidates"] = {a: sorted(kong_tiles(self, index, a)) for a in ("angang", "jiagang")}
-        if phase == P.RESPONSE and payload.get("ask_other_action_info"):
-            payload["ask_other_action_info"]["remaining_time"] = 3
-            payload["ask_other_action_info"]["step_remaining"] = 0
-        deadline = getattr(self, "_action_deadlines", {}).get(index)
-        if deadline is not None and index in self.waiting_players_list:
-            active_info = info or payload.get("ask_other_action_info")
-            remaining = max(0, math.ceil(deadline - time.monotonic()))
-            step_remaining = 0 if phase == P.RESPONSE else min(self.step_time, remaining)
-            active_info.update(remaining_time=max(0, remaining - step_remaining), step_remaining=step_remaining)
+        self._refresh_clock_payload(index, payload)
         return self._adapt(payload, index)
 
     def emit_window_payloads(self, window):
@@ -97,8 +94,11 @@ class Protocol:
         return payloads
 
     def build_pending_action_payload(self, index):
-        if self.machine.phase in (P.END, P.READY, P.FINISHED) or not self.live_pending_window:
+        if self.machine.phase in (P.END, P.READY, P.FINISHED) or not self.live_pending_window or self._decision_paused():
             return None
+        clock = getattr(self, "_action_clocks", {}).get(index)
+        if clock is not None and (index not in self.waiting_players_list or clock.received_at is not None):
+            return None  # A queued reply already closed this player's decision.
         return self._ask_payload(index, self.live_pending_window)
 
     def emit_visible_action_payloads(self, event, *, reveal_final=False):
@@ -110,6 +110,8 @@ class Protocol:
         for viewer in range(4):
             payload = wire.visible_action_payload(self, viewer, event)
             info = payload["do_action_info"]
+            if getattr(self, "_tactical_silent_action", False) and action in ("chi_left", "chi_mid", "chi_right", "peng", "gang"):
+                info["silent"] = True
             if action == "jiagang":
                 info["combination_target"] = f"k{event['tile']}"
             if action == "angang" and viewer != actor:
@@ -121,6 +123,8 @@ class Protocol:
             info["hangzhou_info"] = self.hangzhou_info(viewer)
             payloads.append(self._adapt(payload, viewer))
         self.outbound_payloads.extend(payloads)
+        if action in ("chi_left", "chi_mid", "chi_right", "peng", "gang"):
+            self._tactical_silent_action = False
         return payloads
 
     def build_final_settlement_payload(self, index):
@@ -186,4 +190,5 @@ class Protocol:
         if connection is not None and connection.websocket is not None:
             await self.prepare_private_hints(index)
             for payload in self.restore_payloads(index):
+                self._refresh_clock_payload(index, payload)
                 await connection.websocket.send_json(payload)

@@ -2,7 +2,7 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const { randomUUID } = require('node:crypto')
 
-test('real PostgreSQL migrations and Elo settlements in disposable schemas',
+test('real PostgreSQL schema bootstrap and Elo settlements in disposable schemas',
   { skip: process.env.GUESS_FAN_TEST_DATABASE !== '1' }, async t => {
   require('dotenv').config()
   const config = require('../config/config')
@@ -33,20 +33,13 @@ test('real PostgreSQL migrations and Elo settlements in disposable schemas',
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(user_id,rule_set))`
   const players=[{userId:1,username:'one'},{userId:2,username:'two'}]
   try {
-    await t.test('all pools migrate once, preserve other data, and retain exact originals',()=>fixture(async(db,s)=>{
+    await t.test('startup preserves existing ratings and never runs historical rescaling',()=>fixture(async(db,s)=>{
       await db.query(oldTable)
-      await db.query("INSERT INTO guess_fan_ratings (user_id,rule_set,username,rating,wins,matches,streak,best_streak) VALUES (1,'mixed','one',1100,7,12,2,4),(1,'riichi','one',900,3,10,1,3),(2,'mixed','two',1000,0,0,0,0)")
-      const before=(await db.query('SELECT * FROM guess_fan_ratings ORDER BY rule_set,user_id')).rows
+      await db.query("INSERT INTO guess_fan_ratings(user_id,username,rating,wins,matches) VALUES(1,'one',1806,7,12)")
+      const before=(await db.query('SELECT * FROM guess_fan_ratings')).rows
       await Promise.all([s.ensureGuessFanTables(),s.ensureGuessFanTables()])
-      const after=(await db.query('SELECT * FROM guess_fan_ratings ORDER BY rule_set,user_id')).rows
-      assert.deepEqual(after,before.map(r=>({...r,rating:1500+(r.rating-1000)*5})))
-      const marker=(await db.query('SELECT * FROM guess_fan_rating_migrations')).rows
-      assert.equal(marker.length,1);assert.equal(marker[0].previous_rows.length,3)
-      assert.deepEqual(marker[0].previous_rows.map(r=>r.rating),before.map(r=>r.rating))
-      await s.ensureGuessFanTables()
-      assert.deepEqual((await db.query('SELECT * FROM guess_fan_ratings ORDER BY rule_set,user_id')).rows,after)
-      assert.equal((await s.fetchLeaderboardTop(20,'mixed'))[0].rating,2000)
-      assert.equal((await s.fetchLeaderboardTop(20,'riichi'))[0].rating,1000)
+      assert.deepEqual((await db.query('SELECT * FROM guess_fan_ratings')).rows,before)
+      assert.equal((await db.query("SELECT to_regclass('guess_fan_rating_migrations') AS name")).rows[0].name,null)
     }))
     await t.test('fresh database defaults to 1500 and settles both winner positions',()=>fixture(async(db,s)=>{
       await s.ensureGuessFanTables()
@@ -64,22 +57,6 @@ test('real PostgreSQL migrations and Elo settlements in disposable schemas',
       assert.equal(rows[0].rating+rows[1].rating,3600)
       await db.query("UPDATE guess_fan_ratings SET rating=0 WHERE user_id=9")
       assert.equal((await s.fetchLeaderboardTop()).find(r=>r.userId==='9').rating,0)
-    }))
-    await t.test('old single-pool schema remains upgradeable',()=>fixture(async(db,s)=>{
-      await db.query(oldTable.replace("rule_set VARCHAR(16) NOT NULL DEFAULT 'mixed',",'').replace('PRIMARY KEY(user_id,rule_set)','PRIMARY KEY(user_id)'))
-      await db.query("INSERT INTO guess_fan_ratings(user_id,username,rating) VALUES(1,'legacy',1200)")
-      await s.ensureGuessFanTables()
-      assert.equal((await s.fetchLeaderboardTop())[0].rating,2500)
-    }))
-    await t.test('failed migration rolls back originals and marker; retry converts once',()=>fixture(async(db,s)=>{
-      await db.query(oldTable)
-      await db.query("INSERT INTO guess_fan_ratings(user_id,username,rating) VALUES(1,'legacy',1200)")
-      await db.query('ALTER TABLE guess_fan_ratings ADD CONSTRAINT fail_migration CHECK(rating<2000)')
-      await assert.rejects(s.ensureGuessFanTables())
-      assert.equal((await db.query('SELECT rating FROM guess_fan_ratings')).rows[0].rating,1200)
-      assert.equal((await db.query("SELECT to_regclass('guess_fan_rating_migrations') AS name")).rows[0].name,null)
-      await db.query('ALTER TABLE guess_fan_ratings DROP CONSTRAINT fail_migration')
-      await s.ensureGuessFanTables();assert.equal((await s.fetchLeaderboardTop())[0].rating,2500)
     }))
     await t.test('failed settlement rolls back both players',()=>fixture(async(db,s)=>{
       await s.ensureGuessFanTables()

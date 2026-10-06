@@ -27,7 +27,7 @@ import { Hand } from './Hand'
 import { Display, Countdown, DirLabel, TempLabel, TenpaiTipButton } from './Display'
 import { MeldChoices, type MeldViewerSnapshot } from './MeldChoices'
 import type { ActiveSessionSnapshot, SeatSnapshot } from './types'
-import { hasSingleFanAtLeast } from '../../../constants/guessFanCatalog'
+import { shouldPlayResultGong } from '../../lib/resultGong'
 import {
   DEFAULT_ASSIST_SETTINGS,
   normalizeAssistSettings,
@@ -37,8 +37,6 @@ import { tr } from '../../../i18n'
 
 export type { WaitInfoData, AssistSettings }
 
-// 仅当番种明细里存在单个 >=32 番的番种时播放敲锣音；总番数不参与判断。
-const DUANG_CUTOFF = 32
 const AUTO_WIN_DELAY_MS = 1600
 const AUTO_DISCARD_DELAY_MS = 500
 
@@ -2151,14 +2149,14 @@ export class MahjongScene {
       const shooterLoss = selfDrawn ? 0 : bp * 3
       this.tempDisplay.handleWin(selfDrawn, winnerName, shooterName, eachLoss, shooterLoss, fan, fans)
       this.tempDisplay.visible = true
-      if (hasSingleFanAtLeast(fans, DUANG_CUTOFF, 'guobiao')) {
+      if (shouldPlayResultGong(fans, fan)) {
         setTimeout(() => this.playSound('01-start'), 50)
       }
     }
   }
 
-  playResultGong(fans: string[]): void {
-    if (hasSingleFanAtLeast(fans, DUANG_CUTOFF, 'guobiao')) {
+  playResultGong(fans: string[], totalFan: number, rule = 'guobiao'): void {
+    if (shouldPlayResultGong(fans, totalFan, rule)) {
       this.playSound('01-start')
     }
   }

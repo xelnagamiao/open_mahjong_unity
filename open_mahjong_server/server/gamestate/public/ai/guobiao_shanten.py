@@ -11,10 +11,14 @@ Copyright (c) Satoshi Kobayashi. Licensed under the MIT License.
 """
 from __future__ import annotations
 
-import os
 from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 from .bounded_lru_cache import MemoryBoundedLRUCache
+from .shanten_cache_config import (
+    ShantenCacheBudgets,
+    cache_budgets_from_total_mib,
+    configured_shanten_cache_budgets,
+)
 
 # ── 常量 ──────────────────────────────────────────────────────────────────────
 
@@ -166,24 +170,12 @@ def _mianzi_suit(bingpai: List[int], n: int = 1) -> Tuple[List[int], List[int]]:
 
 SuitSides = Tuple[Tuple[int, int, int], Tuple[int, int, int]]
 
-def _configured_cache_mib() -> float:
-    try:
-        return max(0.0, float(os.getenv("GUOBIAO_AI_CACHE_MB", "200")))
-    except ValueError:
-        return 200.0
+_CACHE_BUDGETS = configured_shanten_cache_budgets()
 
-
-def _cache_budget_bytes(weight: float, total_mib: Optional[float] = None) -> int:
-    """Allocate 80% of the per-process budget; leave 20% for decision-local memo."""
-    if total_mib is None:
-        total_mib = _configured_cache_mib()
-    return int(total_mib * 1024 * 1024 * 0.8 * weight)
-
-
-# 200 MiB default: 16/80/48/16 MiB persistent cache plus 40 MiB headroom.
+# Guobiao/blood share 44 MiB. General-only callers have a separate 48 MiB LRU.
 # Charges include padding for OrderedDict nodes and allocator overhead.
 _SUIT_CACHE = MemoryBoundedLRUCache[int, SuitSides](
-    "suit", _cache_budget_bytes(0.10), 384
+    "suit", _CACHE_BUDGETS.suit, 384
 )
 
 
@@ -285,14 +277,18 @@ def _counts_to_bingpai(counts: Counts) -> Tuple[List[int], List[int], List[int],
 
 
 _SHANTEN_CACHE = MemoryBoundedLRUCache[Tuple[bytes, int, int], int](
-    "shanten", _cache_budget_bytes(0.50), 288
+    "shanten", _CACHE_BUDGETS.shanten, 288
 )
 _YIBAN_CACHE = MemoryBoundedLRUCache[Tuple[bytes, int], int](
-    "yiban", _cache_budget_bytes(0.30), 272
+    "yiban", _CACHE_BUDGETS.yiban, 272
 )
 _EFF_CACHE = MemoryBoundedLRUCache[Tuple[bytes, int, int], Tuple[int, ...]](
-    "effective", _cache_budget_bytes(0.10), 448
+    "effective", _CACHE_BUDGETS.effective, 448
 )
+_GENERAL_YIBAN_CACHE = MemoryBoundedLRUCache[Tuple[bytes, int], int](
+    "yiban_general", _CACHE_BUDGETS.yiban_general, 272
+)
+_CACHES = (_SUIT_CACHE, _SHANTEN_CACHE, _YIBAN_CACHE, _EFF_CACHE, _GENERAL_YIBAN_CACHE)
 
 _TILE_INDEX: Dict[int, int] = {tid: i for i, tid in enumerate(ALL_TILE_IDS)}
 
@@ -321,26 +317,23 @@ _pack_counts = pack_counts
 
 
 def clear_shanten_cache() -> None:
-    _SHANTEN_CACHE.clear()
-    _YIBAN_CACHE.clear()
-    _EFF_CACHE.clear()
-    _SUIT_CACHE.clear()
+    for cache in _CACHES:
+        cache.clear()
+
+
+def configure_shanten_cache_budgets(budgets: ShantenCacheBudgets) -> None:
+    """Apply this process' explicit allowances, including the general-only LRU."""
+    for cache in _CACHES:
+        cache.resize(getattr(budgets, cache.name))
 
 
 def configure_shanten_cache_budget(total_mib: float) -> None:
-    """Resize this process' cache share (used by bot process-pool workers)."""
-    for cache, weight in (
-        (_SUIT_CACHE, 0.10),
-        (_SHANTEN_CACHE, 0.50),
-        (_YIBAN_CACHE, 0.30),
-        (_EFF_CACHE, 0.10),
-    ):
-        cache.resize(_cache_budget_bytes(weight, max(0.0, float(total_mib))))
+    """Legacy total-MiB API; all five persistent LRUs share 80% of the total."""
+    configure_shanten_cache_budgets(cache_budgets_from_total_mib(total_mib))
 
 
 def shanten_cache_stats() -> Dict[str, dict]:
     """Return serializable cache metrics for logs/admin diagnostics."""
-    caches = (_SUIT_CACHE, _SHANTEN_CACHE, _YIBAN_CACHE, _EFF_CACHE)
     return {
         cache.name: {
             "entries": snap.entries,
@@ -352,16 +345,34 @@ def shanten_cache_stats() -> Dict[str, dict]:
             "hit_rate": snap.hit_rate,
             "evictions": snap.evictions,
         }
-        for cache in caches
+        for cache in _CACHES
         for snap in (cache.snapshot(),)
     }
 
 
 def xiangting_yiban(counts: Counts, n_melds: int = 0, *, packed: Optional[bytes] = None) -> int:
+    """General-only callers (e.g. Shanghai/Sichuan) retain their own working set."""
+    return _xiangting_yiban(counts, n_melds, _GENERAL_YIBAN_CACHE, packed=packed)
+
+
+def guobiao_yiban_shanten(
+    counts: Counts, n_melds: int = 0, *, packed: Optional[bytes] = None,
+) -> int:
+    """Guobiao-only general-shape checks use the same small internal LRU."""
+    return _xiangting_yiban(counts, n_melds, _YIBAN_CACHE, packed=packed)
+
+
+def _xiangting_yiban(
+    counts: Counts,
+    n_melds: int,
+    cache: MemoryBoundedLRUCache[Tuple[bytes, int], int],
+    *,
+    packed: Optional[bytes] = None,
+) -> int:
     if packed is None:
         packed = pack_counts(counts)
     key = (packed, n_melds)
-    hit = _YIBAN_CACHE.get(key)
+    hit = cache.get(key)
     if hit is not None:
         return hit
     m, p, s, z = _counts_to_bingpai(counts)
@@ -399,7 +410,7 @@ def xiangting_yiban(counts: Counts, n_melds: int = 0, *, packed: Optional[bytes]
             if cand < best:
                 best = cand
 
-    _YIBAN_CACHE[key] = best
+    cache[key] = best
     return best
 
 
@@ -457,7 +468,7 @@ def shanten_zuhelong(counts: Counts, n_melds: int = 0, upper_bound: int = 99) ->
                 if remaining[tid] <= 0:
                     del remaining[tid]
         # remaining 已去掉图案牌；需再凑 1 面子 + 雀头（n_fulou=3+n_melds）
-        rest = xiangting_yiban(remaining, 3 + n_melds)
+        rest = _xiangting_yiban(remaining, 3 + n_melds, _YIBAN_CACHE)
         total = missing + rest
         if total < best:
             best = total
@@ -485,7 +496,7 @@ def guobiao_shanten(
     hit = _SHANTEN_CACHE.get(key)
     if hit is not None:
         return hit
-    best = xiangting_yiban(counts, n_melds, packed=packed)
+    best = _xiangting_yiban(counts, n_melds, _YIBAN_CACHE, packed=packed)
     if specials and best > -1 and n_melds == 0:
         best = min(
             best,

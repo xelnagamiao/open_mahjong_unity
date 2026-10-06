@@ -8,6 +8,7 @@ public class MatchPanel : MonoBehaviour {
     public static MatchPanel Instance { get; private set; }
 
     public MatchButton[] matchButtons;
+    [SerializeField] private MatchLobbyView lobbyView;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -39,8 +40,9 @@ public class MatchPanel : MonoBehaviour {
     /// <summary>
     /// 由 MatchNetworkManager 调用，更新所有按钮的人数显示
     /// </summary>
-    public void UpdateQueueStatus(Dictionary<string, QueueStatusEntry> queueStatus) {
+    public void UpdateQueueStatus(Dictionary<string, QueueStatusEntry> queueStatus, Dictionary<string, int> rulePlayerCounts = null) {
         if (queueStatus == null) return;
+        lobbyView?.UpdateRulePlayerCounts(rulePlayerCounts);
         if (matchButtons == null || matchButtons.Length == 0) {
             matchButtons = GetComponentsInChildren<MatchButton>(true);
         }

@@ -56,6 +56,10 @@ public class Tile3D : MonoBehaviour
 
     public bool IsConcealedFaceDown { get; private set; }
 
+    /// <summary>备用叠牌继承的平面朝向。牌面网格就是根节点时，移除暗面翻转，避免 101 跟着暗面基础牌翻背。</summary>
+    public Quaternion FaceUpRootRotation => IsConcealedFaceDown && !isPeekFaceUp && GetFaceMeshTransform() == transform
+        ? transform.rotation * Quaternion.Euler(0f, 180f, 0f) : transform.rotation;
+
     /// <summary>牌谱展开明牌：固定在独立摸牌区（对齐 2D TileCard.isDrawSlotPinned）。</summary>
     public bool isRecordDrawSlotPinned;
 
@@ -99,10 +103,11 @@ public class Tile3D : MonoBehaviour
     }
 
     /// <summary>
-    /// 副露 mask 方向位：0 竖 1 横 2 暗面 3 加杠。暗面一律翻面展示；能否 hover peek 见 CanPeekOnHover。
+    /// 副露 mask 方向位：0 竖 1 横 2 暗面 3 加杠 4 空位；101 明面叠牌、102 暗面叠牌（备用）。
+    /// 暗面一律翻面展示；能否 hover peek 见 CanPeekOnHover。
     /// </summary>
     public void ApplyCombinationPeekState(int tileId, int directionFlag) {
-        if (directionFlag == 2) {
+        if (directionFlag == 2 || directionFlag == MeldStackLayout.FaceDown) {
             SetConcealedFaceDown(true);
         }
     }

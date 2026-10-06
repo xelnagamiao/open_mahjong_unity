@@ -62,10 +62,7 @@ public class UserContainer : MonoBehaviour {
     // 显示用户设置
     public void ShowUserSettings(UserSettings userSettings) {
         usernameText.text = UserDataManager.Instance.Username;
-        Sprite profileSprite = ConfigManager.GetProfileSprite(UserDataManager.Instance.ProfileImageId);
-        if (profileSprite != null) {
-            profileImage.sprite = profileSprite;
-        }
+        RefreshAppearance(null);
 
         ProfileOnClick profileOnClick = profileImage.gameObject.GetComponent<ProfileOnClick>();
         if (profileOnClick != null) {

@@ -10,6 +10,7 @@ from concurrent.futures.process import BrokenProcessPool
 from functools import partial
 from typing import Any, Callable, TypeVar
 
+from .shanten_cache_config import ShantenCacheBudgets, configured_shanten_cache_budgets
 
 T = TypeVar("T")
 logger = logging.getLogger(__name__)
@@ -29,12 +30,12 @@ _EXECUTOR: Executor | None = None
 _USE_THREAD_FALLBACK = False
 
 
-def _init_worker(cache_mib: float) -> None:
+def _init_worker(cache_budgets: ShantenCacheBudgets) -> None:
     # Imported lazily inside the child so each process receives only its share
     # of the total configured cache budget.
-    from .guobiao_shanten import configure_shanten_cache_budget
+    from .guobiao_shanten import configure_shanten_cache_budgets
 
-    configure_shanten_cache_budget(cache_mib)
+    configure_shanten_cache_budgets(cache_budgets)
 
 
 def _warm_worker() -> int:
@@ -44,14 +45,11 @@ def _warm_worker() -> int:
 
 def _process_executor() -> ProcessPoolExecutor:
     workers = _worker_count()
-    try:
-        total_cache_mib = max(0.0, float(os.getenv("GUOBIAO_AI_CACHE_MB", "200")))
-    except ValueError:
-        total_cache_mib = 200.0
+    cache_budgets = configured_shanten_cache_budgets().divided(workers)
     return ProcessPoolExecutor(
         max_workers=workers,
         initializer=_init_worker,
-        initargs=(total_cache_mib / workers,),
+        initargs=(cache_budgets,),
     )
 
 

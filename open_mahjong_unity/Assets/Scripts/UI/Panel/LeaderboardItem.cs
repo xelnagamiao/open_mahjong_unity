@@ -23,7 +23,14 @@ public class LeaderboardItem : MonoBehaviour {
         bool grade=RankedRules.IsGrade(entry.rule);
         var rating=new RuleRating{rule=entry.rule,rank_name=entry.rank_name??entry.guobiao_rank,rank_score=entry.rank_name==null?entry.guobiao_score:entry.rank_score,elo=entry.elo,games=entry.games};
         if(rankNameText!=null)rankNameText.text=grade?rating.rank_name:$"R {rating.elo:0.##}";
-        if(scoreText!=null)scoreText.text=grade?$"{rating.rank_score:0.##} PT  ·  R {rating.elo:0.##}":$"{rating.games} 场 Elo 对局";
+        if(scoreText!=null){
+            if(grade){
+                string rank=rating.rank_name??"10级";
+                int promoteScore=RankConfig.RankTable[RankConfig.GetRankIndex(rank)].promoteScore;
+                float score=RankLevelConfig.NormalizeScore(rank,rating.rank_score);
+                scoreText.text=$"{score:F2}/{promoteScore}";
+            }else scoreText.text=$"{rating.games} 场 Elo 对局";
+        }
         LoadAvatar(entry.profile_image_id);
 
         UpdateAvatarClickTarget(entry.user_id);

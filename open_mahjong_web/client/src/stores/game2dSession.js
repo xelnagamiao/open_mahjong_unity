@@ -7,6 +7,8 @@ import { preloadGame2dResources } from '@/game2d/game/resources'
 let stateSubscribed = false
 let matchSubscribed = false
 let restorePromise = null
+let matchCountdownTimer = null
+const MATCH_FOUND_DELAY_SECONDS = 5
 
 export const useGame2dSessionStore = defineStore('game2dSession', {
   state: () => ({
@@ -16,6 +18,8 @@ export const useGame2dSessionStore = defineStore('game2dSession', {
     restoring: true,
     joinedQueue: null,
     matchFound: false,
+    matchFoundRemaining: 0,
+    matchFoundAt: null,
     joinPending: false,
   }),
   actions: {
@@ -43,9 +47,26 @@ export const useGame2dSessionStore = defineStore('game2dSession', {
       }
     },
     clearMatch() {
+      clearInterval(matchCountdownTimer)
+      matchCountdownTimer = null
       this.joinedQueue = null
       this.matchFound = false
+      this.matchFoundRemaining = 0
+      this.matchFoundAt = null
       this.joinPending = false
+    },
+    startMatchCountdown() {
+      this.matchFoundAt = Date.now()
+      this.matchFoundRemaining = MATCH_FOUND_DELAY_SECONDS
+      matchCountdownTimer = setInterval(() => {
+        this.matchFoundRemaining = Math.max(0, Math.ceil(
+          MATCH_FOUND_DELAY_SECONDS - (Date.now() - this.matchFoundAt) / 1000,
+        ))
+        if (this.matchFoundRemaining === 0) {
+          clearInterval(matchCountdownTimer)
+          matchCountdownTimer = null
+        }
+      }, 100)
     },
     beginJoin() {
       this.joinPending = true
@@ -82,8 +103,16 @@ export const useGame2dSessionStore = defineStore('game2dSession', {
       }
       if (message.type === 'match/match_found') {
         this.joinPending = false
-        this.matchFound = true
-        ElMessage.success(message.message || '匹配成功，即将开局')
+        if (!this.matchFound) {
+          this.matchFound = true
+          this.startMatchCountdown()
+          ElMessage.success(message.message || '匹配成功，即将开局')
+        }
+        return
+      }
+      if (message.type === 'match/failed') {
+        this.clearMatch()
+        ElMessage.warning(message.message || '匹配开局失败，请重新匹配')
         return
       }
       if (this.joinPending && (message.type === 'tips' || message.type === 'error_message') && message.success === false) {

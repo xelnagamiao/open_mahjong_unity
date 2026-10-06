@@ -8,7 +8,6 @@ const {
   msUntilNextShanghaiHour,
 } = require('../utils/funStatsTime');
 const { pickPtLeaders } = require('../utils/funStatsLeaders');
-const { backfillWeeklyPt, ptBackfillEnabled } = require('./weeklyPtBackfill');
 
 // game_records.created_at 是北京时间的 TIMESTAMP（不带时区），直接按 04:00 切日。
 const STAT_DATE_EXPR = "(gr.created_at - interval '4 hours')::date";
@@ -87,13 +86,10 @@ function readCachedScoreboard(now = new Date()) {
   if (cache?.metric !== METRIC) return null;
   if (!cacheMatchesWeek(cache, now)) return null;
   if (!Array.isArray(cache.gainers) || !Array.isArray(cache.losers)) return null;
-  if (ptBackfillEnabled() && cache.missing_pt_records > 0
-      && now.getTime() - Date.parse(cache.generated_at) >= 5 * 60 * 1000) return null;
   return cache;
 }
 
 async function refreshWeeklyScoreboard(now = new Date()) {
-  await backfillWeeklyPt();
   const data = await computeWeeklyScoreboard(now);
   writeJsonAtomic(cachePath(), data);
   return data;

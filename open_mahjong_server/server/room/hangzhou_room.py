@@ -10,6 +10,14 @@ from ..game_calculation.hangzhou.rules import RULE_VERSION, SUB_RULE, normalize_
 from ..response import Response
 
 
+def enforce_hangzhou_tactical_room(room):
+    if room.get("room_rule") != "hangzhou":
+        return
+    from ..gamestate.public.spectator_rules import AI_RESERVED_MAX_USER_ID
+    if any(type(uid) is int and 0 <= uid <= AI_RESERVED_MAX_USER_ID for uid in room.get("player_list", [])):
+        room["tactical_call"] = False
+
+
 class HangzhouRoomValidator(GBRoomValidator):
     sub_rule: str = SUB_RULE
     game_round: StrictInt
@@ -23,7 +31,7 @@ class HangzhouRoomValidator(GBRoomValidator):
     use_flowers: StrictBool = False
     claim_protection: StrictBool = False
     open_cuohe: StrictBool = False
-    tactical_call: StrictBool = False
+    tactical_call: StrictBool = True
     tian_di_ren_he: StrictBool = False
     detailed_config: Dict[str, Any] = Field(default_factory=lambda: {"rule_version": RULE_VERSION})
 
@@ -37,7 +45,7 @@ class HangzhouRoomValidator(GBRoomValidator):
     def valid_config(cls, value):
         return normalize_config(value)
 
-    @validator("use_flowers", "claim_protection", "open_cuohe", "tactical_call", "tian_di_ren_he")
+    @validator("use_flowers", "claim_protection", "open_cuohe", "tian_di_ren_he")
     def fixed_false(cls, value):
         if value:
             raise ValueError("杭州 MIL 标准规不支持此选项")

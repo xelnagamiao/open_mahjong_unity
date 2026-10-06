@@ -100,7 +100,10 @@ def test_pending_restore_has_same_window_tick_and_hides_others():
     assert payloads[1]["action_tick"] == window["action_tick"]
     assert payloads[1]["action_list"] == []
     assert payloads[0]["game_info"]["players_info"][0]["hand_tiles"] is None
-    assert payloads[0]["game_info"]["wenzhou_info"] == payloads[1]["game_info"]["wenzhou_info"]
+    # The ask adds its current exact clock; the immutable rule snapshot agrees.
+    assert payloads[0]["game_info"]["wenzhou_info"] == {
+        key:value for key,value in payloads[1]["game_info"]["wenzhou_info"].items()
+        if not key.startswith("clock_")}
 
 
 def test_restore_ended_and_ready_does_not_apply_scores_twice():

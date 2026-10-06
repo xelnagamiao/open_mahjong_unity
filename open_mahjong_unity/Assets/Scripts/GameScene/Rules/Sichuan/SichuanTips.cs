@@ -2,23 +2,22 @@ using System.Collections.Generic;
 
 /// <summary>
 /// 四川听牌与和牌张提示：默认允许 0 番平和，自定义起和番按房间配置判断；
-/// 定缺花色的和牌张在听牌阶段就剔除。
+/// 手牌或副露仍含定缺牌时不提示听牌，并剔除定缺花色的和牌张。
 /// </summary>
 internal static class SichuanTips {
     public static HashSet<int> Tingpai(TingpaiQuery q) {
+        int dingque = q.ExcludedSuit;
+        if (dingque >= 1 && dingque <= 3) {
+            if (q.Hand.Exists(t => t / 10 == dingque)) return new HashSet<int>();
+            if (q.Melds != null && q.Melds.Exists(m => m.Length > 1 && int.TryParse(m.Substring(1), out int tile) && tile / 10 == dingque)) return new HashSet<int>();
+        }
         // 血流弃三张后的逻辑手牌为 10 张；包含副露的标准川麻始终为 13 张。
         if (SichuanLobby.IsXueliu(q.SubRule) || q.Hand.Count + (q.Melds?.Count ?? 0) * 3 == 10) {
-            int excluded = q.ExcludedSuit;
-            if (excluded >= 1 && excluded <= 3) {
-                if (q.Hand.Exists(t => t / 10 == excluded)) return new HashSet<int>();
-                if (q.Melds != null && q.Melds.Exists(m => m.Length > 1 && int.TryParse(m.Substring(1), out int tile) && tile / 10 == excluded)) return new HashSet<int>();
-            }
             HashSet<int> result = XueliuTips.Tingpai(q.Hand, q.Melds, q.SubRule == "sichuan/xueliu_exchange" ? 4 : 3, UsesExchangeScoring(q.SubRule, q.DetailedConfig));
-            result.RemoveWhere(t => t / 10 == excluded);
+            result.RemoveWhere(t => t / 10 == dingque);
             return result;
         }
         HashSet<int> waiting = SichuanExternal.TingpaiCheck(q.Hand, q.Melds ?? new List<string>());
-        int dingque = q.ExcludedSuit;
         if (dingque >= 1 && dingque <= 3) {
             waiting.RemoveWhere(w => (w / 10) == dingque);
         }

@@ -29,3 +29,17 @@ test('invalid profile and duplicate wall cannot silently become ordinary Wenzhou
   assert.equal(empty.password, '')
   assert.equal('room_name' in empty.room_config, false)
 })
+
+test('Wenzhou room clocks keep defaults, custom seconds and zero bank on save/load', () => {
+  for (const [bank, step] of [[20,5], [11,8], [0,10], [20,0], [0,0]]) {
+    const config = buildWenzhouRoomPayload(form({ round_timer: bank, step_timer: step })).room_config
+    assert.equal(config.round_timer, bank)
+    assert.equal(config.step_timer, step)
+    const restored = loadWenzhouForm({}, config)
+    assert.equal(restored.round_timer, bank)
+    assert.equal(restored.step_timer, step)
+  }
+  const defaults = buildWenzhouRoomPayload(form()).room_config
+  assert.equal(defaults.round_timer, 20)
+  assert.equal(defaults.step_timer, 5)
+})

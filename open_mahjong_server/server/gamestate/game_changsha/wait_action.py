@@ -30,6 +30,8 @@ from ..public.claim_protection import (
 from ..public.tactical_claim import (
     init_tactical_round_state,
     apply_tactical_claim_if_needed,
+    is_decline_action,
+    tactical_mark_player_force_passed,
 )
 from ..public.ask_timing import get_ask_elapsed, note_ask_delivered
 from .boardcast import _send_do_action_payload_to_viewer
@@ -247,6 +249,8 @@ async def wait_action(self):
                 temp_player_index = task_to_player[task]
                 temp_action_data = await self.action_queues[temp_player_index].get() # 获取操作数据
                 temp_action_type = temp_action_data.get("action_type") # 获取操作类型
+                if temp_action_type == "force_pass":
+                    tactical_mark_player_force_passed(self, temp_player_index)
                 allowed_actions_before = list(self.action_dict.get(temp_player_index, []))
 
                 # 复制字典以避免引用问题
@@ -257,7 +261,7 @@ async def wait_action(self):
                 if timeout_grace > 0 and used_int_time >= timeout_grace: # 扣除玩家超出步时的时间
                     self.player_list[temp_player_index].remaining_time -= (used_int_time - timeout_grace)
 
-                if temp_action_type == "pass" and hasattr(self, "record_hu_pass"):
+                if is_decline_action(temp_action_type) and hasattr(self, "record_hu_pass"):
                     self.record_hu_pass(temp_player_index, allowed_actions_before)
 
                 self.action_dict[temp_player_index] = [] # 从可执行操作列表中移除操作
@@ -291,7 +295,7 @@ async def wait_action(self):
                 # 战术鸣牌：任一非 pass 提交立即结束主询问
                 tactical_immediate_break = (
                     getattr(self, "tactical_call", False)
-                    and temp_action_type != "pass"
+                    and not is_decline_action(temp_action_type)
                     and self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
                 )
                 if do_interrupt or tactical_immediate_break:
@@ -719,7 +723,7 @@ async def wait_action(self):
                         self.game_status = "onlycut_after_action" # 转移行为
                     return
 
-                if action_type == "pass":
+                if is_decline_action(action_type):
                     flush_unexecuted_claim_applications(self, tile_id)
                     await finalize_claim_protection(self, _send_do_action_payload_to_viewer)
                     self.game_status = self.next_status_after_claim_window() if hasattr(self, "next_status_after_claim_window") else "deal_card"
@@ -837,7 +841,7 @@ async def wait_action(self):
                     self.hu_class = action_type
                     self.game_status = "END"
                     return
-                elif action_type == "pass":
+                elif is_decline_action(action_type):
                     self.game_status = "deal_card_after_gang" # 抢杠无人胡，原玩家继续补杠牌
                     return
                 else:

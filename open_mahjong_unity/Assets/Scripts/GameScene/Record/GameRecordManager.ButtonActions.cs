@@ -119,6 +119,7 @@ public partial class GameRecordManager {
             return;
         }
 
+        CancelRecordBuhuaContinuation();
         IsRecordAutoPlaying = true;
         UpdateRecordAutoPlayButtonText();
         recordAutoPlayCoroutine = StartCoroutine(RecordAutoPlayCoroutine());
@@ -192,8 +193,10 @@ public partial class GameRecordManager {
         switch (action) {
             case "d":
             case "gd":
+            case "nd":
             case "bd":
             case "bh":
+            case "nuki":
                 return 0.5f;
             case "c":
                 return 0.7f;
@@ -248,6 +251,7 @@ public partial class GameRecordManager {
     }
 
     private void InvalidateRecordDelayedAdvances() {
+        CancelRecordBuhuaContinuation();
         _recordPlaybackGeneration++;
         _pendingRecordDelayedAdvanceCount = 0;
     }
@@ -367,7 +371,12 @@ public partial class GameRecordManager {
     }
 
     public void NextStep() {
-        if (BlocksRecordNavigation || _pendingRecordDelayedAdvanceCount > 0 || !CanAnimateNextRecordStep()) {
+        if (HasPendingRecordBuhuaContinuation) return;
+        AdvanceRecordStep();
+    }
+
+    private void AdvanceRecordStep(bool allowBuhuaDraw = false) {
+        if (BlocksRecordNavigation || _pendingRecordDelayedAdvanceCount > 0 || !CanAnimateNextRecordStep(allowBuhuaDraw)) {
             return;
         }
         if (IsSpectatorSession) {

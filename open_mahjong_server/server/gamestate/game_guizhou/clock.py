@@ -11,21 +11,36 @@ class ActionClock:
 
     def start(self, step, bank):
         if self.started is None:
-            if self.elapsed == 0:
-                self.step, self.bank = max(0, step), max(0, bank)
+            self.prepare(step, bank)
             self.started = time.monotonic()
 
-    def used(self):
-        return self.elapsed + (max(0, time.monotonic()-self.started) if self.started is not None else 0)
+    def prepare(self, step, bank):
+        if self.started is None and self.elapsed == 0:
+            self.step, self.bank = max(0, step), max(0, bank)
 
-    def stop(self):
-        self.elapsed = self.used()
+    @staticmethod
+    def now():
+        return time.monotonic()
+
+    def used(self, at=None):
+        now = self.now() if at is None else at
+        return self.elapsed + (max(0, now-self.started) if self.started is not None else 0)
+
+    def stop(self, at=None):
+        self.elapsed = self.used(at)
         self.started = None
 
-    def remaining(self):
-        return max(0, self.step+self.bank-self.used())
+    def remaining(self, at=None):
+        return max(0, self.step+self.bank-self.used(at))
+
+    def bank_remaining(self):
+        # Retain fractions on the server; rounding is only a wire/UI concern.
+        return max(0, self.bank-max(0, self.used()-self.step))
+
+    def step_remaining(self):
+        return max(0, self.step-self.used())
 
     def display(self):
         elapsed = self.used()
-        return (math.ceil(max(0, self.bank-max(0, elapsed-self.step))),
+        return (math.ceil(self.bank_remaining()),
                 math.ceil(max(0, self.step-elapsed)))

@@ -95,6 +95,11 @@ public sealed class TableMirror {
     public void BuildSeatMap(int selfIndex, IReadOnlyList<int> playerIndexes = null) {
         IndexToPosition.Clear();
         string[] relativeSeats = { "self", "right", "top", "left" };
+        if (MahjongPlayerCount.ForSubRule(GameSession.Current.SubRule) == 3 && playerIndexes != null && playerIndexes.Count == 3) {
+            string[] sanmaSeats = { "self", "right", "left" };
+            foreach (int index in playerIndexes) IndexToPosition[index] = sanmaSeats[(index - selfIndex + 3) % 3];
+            return;
+        }
         if (playerIndexes == null || playerIndexes.Count == 0) {
             for (int i = 0; i < 4; i++) {
                 IndexToPosition[(selfIndex + i) % 4] = relativeSeats[i];

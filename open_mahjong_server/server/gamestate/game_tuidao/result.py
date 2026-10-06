@@ -7,6 +7,9 @@ logger = logging.getLogger(__name__)
 
 
 async def broadcast_result(state, **fields):
+    if getattr(state, "_tactical_silent_action", False):
+        fields["silent"] = True
+        state._tactical_silent_action = False
     state.server_action_tick += 1
     hands = {p.player_index: list(p.hand_tiles) for p in state.player_list}
     winner = fields.get("hepai_player_index")

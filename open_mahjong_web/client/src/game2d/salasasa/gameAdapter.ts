@@ -1,3 +1,4 @@
+import { hasMeldStacks, isMeldStack } from '../lib/meldStack.js'
 import type {
   ActiveSessionSnapshot,
   CompactSeatStatus,
@@ -52,11 +53,17 @@ function parseMeld(target: string, mask: number[] | undefined, ownerSeat: number
   const prefix = target[0]
   const rawTile = Number(target.slice(1))
   const horizontalPairIndex = mask?.findIndex((value, index) => index % 2 === 0 && value === 1) ?? -1
-  const horizontalTilePosition = horizontalPairIndex >= 0 ? Math.floor(horizontalPairIndex / 2) : 0
+  const reserved = hasMeldStacks(mask)
+  const horizontalTilePosition = reserved && horizontalPairIndex >= 0
+    ? mask!.slice(0, horizontalPairIndex).filter((value, index) => index % 2 === 0 && !isMeldStack(value) && value !== 3 && value !== 4).length
+    : horizontalPairIndex >= 0 ? Math.floor(horizontalPairIndex / 2) : 0
+  const presentation = reserved
+    ? { physical_mask: mask!.map((value, index) => index % 2 ? salasasaTileToMmcr(value) : value) } : {}
   const meldFromRel = ([1, 2, 3][horizontalTilePosition] ?? 1) as number
   void ownerSeat
   if (prefix.toLowerCase() === 's') {
     return {
+      ...presentation,
       tile: salasasaTileToMmcr(rawTile),
       type: 'sequence',
       chow_mode: horizontalTilePosition + 1,
@@ -65,6 +72,7 @@ function parseMeld(target: string, mask: number[] | undefined, ownerSeat: number
   }
   if (prefix === 'k') {
     return {
+      ...presentation,
       tile: salasasaTileToMmcr(rawTile),
       type: 'triplet',
       chow_mode: 0,
@@ -73,6 +81,7 @@ function parseMeld(target: string, mask: number[] | undefined, ownerSeat: number
   }
   if (prefix === 'g' || prefix === 'G') {
     return {
+      ...presentation,
       tile: salasasaTileToMmcr(rawTile),
       type: 'kong',
       concealed: prefix === 'G',
@@ -416,7 +425,7 @@ export class SalasasaGameAdapter {
       seat_index: snapshot.viewer.seat_index,
       pending: ownActions.length ? 'decision' : 'none',
       decision_timer_ms: ownActions.length
-        ? this.decisionTimerMs(info.remaining_time)
+        ? this.decisionTimerMs(info.remaining_time, false, info.step_remaining, info.remaining_time_ms, info.step_remaining_ms)
         : null,
       available_actions: viewerActions(
         ownActions,
@@ -450,7 +459,8 @@ export class SalasasaGameAdapter {
     const viewer: ViewerSnapshot = {
       seat_index: snapshot.viewer.seat_index,
       pending: info.action_list.length ? 'decision' : 'none',
-      decision_timer_ms: this.decisionTimerMs(info.remaining_time, Boolean(info.is_tactical_recheck)),
+      decision_timer_ms: this.decisionTimerMs(info.remaining_time, Boolean(info.is_tactical_recheck), info.step_remaining,
+        info.remaining_time_ms, info.step_remaining_ms),
       available_actions: viewerActions(
         info.action_list,
         info.cut_tile,
@@ -466,11 +476,14 @@ export class SalasasaGameAdapter {
     })
   }
 
-  private decisionTimerMs(remainingTime: number, tacticalRecheck = false): number {
+  private decisionTimerMs(remainingTime: number, tacticalRecheck = false, stepRemaining?: number | null,
+    remainingTimeMs?: number | null, stepRemainingMs?: number | null): number {
     // Server timeout = per-action grace (step_time) + remaining round bank.
     // Tactical rechecks already send their complete grace window directly.
-    const stepTime = tacticalRecheck ? 0 : Number(this.gameInfoValue?.step_time ?? 0)
-    return Math.max(0, (Number(remainingTime) + stepTime) * 1000)
+    const stepTime = tacticalRecheck ? 0 : Number(stepRemaining ?? this.gameInfoValue?.step_time ?? 0)
+    const bankMs = remainingTimeMs ?? Number(remainingTime) * 1000
+    const stepMs = tacticalRecheck ? 0 : stepRemainingMs ?? stepTime * 1000
+    return Math.max(0, bankMs + stepMs)
   }
 
   private fromActions(info: SalasasaDoActionInfo): GameEventPayload[] {

@@ -184,7 +184,7 @@ public class RiichiGameState : TurnBasedGameState {
     public static RiichiEndResultExtras BuildExtras(ShowResultInfo info) {
         bool hasHuExtras = info.han != null || info.fu != null || info.ura_dora_indicators != null || info.honba != null;
         bool hasRyuuExtras = (info.tenpai_tiles != null && info.tenpai_tiles.Count > 0) || info.exhaustive_penalty != null;
-        if (!hasHuExtras && !hasRyuuExtras) return null;
+        if (!hasHuExtras && !hasRyuuExtras && info.score_history_changes == null) return null;
         return new RiichiEndResultExtras {
             Han = info.han ?? 0,
             Fu = info.fu ?? 0,
@@ -196,6 +196,7 @@ public class RiichiGameState : TurnBasedGameState {
             Honba = info.honba ?? 0,
             RiichiSticksCollected = info.riichi_sticks_collected ?? 0,
             ScoreChanges = info.score_changes,
+            ScoreHistoryChanges = info.score_history_changes,
             TenpaiTiles = info.tenpai_tiles,
             TenpaiHands = info.tenpai_hands,
             NotenPenaltyAfterDraw = info.exhaustive_penalty ?? false,
@@ -220,7 +221,8 @@ public class RiichiGameState : TurnBasedGameState {
     }
 
     protected override void AppendScoreboard(SettlementEnvelope env) {
-        Presenter.AppendScoreboard(env, env.ExtrasAs<RiichiEndResultExtras>()?.ScoreChanges);
+        RiichiEndResultExtras extras = env.ExtrasAs<RiichiEndResultExtras>();
+        Presenter.AppendScoreboard(env, extras?.ScoreChanges, extras?.ScoreHistoryChanges);
     }
 
     protected override string GetSpecialLiujuCaption(string huClass) {
@@ -231,6 +233,15 @@ public class RiichiGameState : TurnBasedGameState {
 
     protected override void OnGameEnd(Response response) {
         TipsContainer.Instance.HideRyuukyokuTenpaiChoice();
+        var finalScores = new Dictionary<int, int>();
+        if (response.game_end_info?.player_final_data != null) {
+            foreach (var player in response.game_end_info.player_final_data.Values) {
+                if (player.TryGetValue("original_player_index", out object original)
+                    && player.TryGetValue("score", out object score))
+                    finalScores[System.Convert.ToInt32(original)] = System.Convert.ToInt32(score);
+            }
+        }
+        if (Presenter.ApplyFinalScoreHistory(finalScores)) GameSceneUIManager.Instance?.UpdateScoreRecord();
         base.OnGameEnd(response);
     }
 

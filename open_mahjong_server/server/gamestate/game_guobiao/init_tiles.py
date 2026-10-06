@@ -3,6 +3,7 @@ import random
 from ..public.random_seed_manager import derive_round_seed
 from ..public.hand_slot_utils import clear_draw_slot
 from .guobiao_debug import apply_guobiao_debug_hands, prepare_debug_wall
+from .sanma import filter_tiles
 
 
 def init_guobiao_tiles(self):
@@ -24,7 +25,7 @@ def init_guobiao_tiles(self):
     hua_tiles_set = {51, 52, 53, 54, 55, 56, 57, 58}  # 春夏秋冬 梅兰竹菊
     # 生成牌堆
     self.tiles_list = []
-    for tile in sth_tiles_set:
+    for tile in filter_tiles(sth_tiles_set, self.sub_rule):
         self.tiles_list.extend([tile] * 4)
     # 蓝十改（MCR 1001—2025）已删除花牌：牌堆不含花牌，客户端无需改动，
     # 不摸到花牌即不会触发补花/花牌计分。

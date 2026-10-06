@@ -1,6 +1,6 @@
 const VERSION = 'mil-guizhou-2023-om1';
-const FIXED_FALSE = ['use_flowers', 'open_cuohe', 'tactical_call', 'claim_protection', 'tian_di_ren_he'];
-const SWITCHES = ['tips', 'count_tips', 'pointer_tips', 'tourist_limit', 'allow_spectator'];
+const FIXED_FALSE = ['use_flowers', 'open_cuohe', 'claim_protection', 'tian_di_ren_he'];
+const SWITCHES = ['tips', 'count_tips', 'pointer_tips', 'tourist_limit', 'allow_spectator', 'tactical_call'];
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 function normalizeGuizhouRoomConfig(raw, SettingsError) {
@@ -8,7 +8,7 @@ function normalizeGuizhouRoomConfig(raw, SettingsError) {
   if (!object(raw)) invalid('贵州对局设置必须是对象');
   const config = {
     room_name: '', sub_rule: 'guizhou/standard', game_round: 4, round_timer: 20, step_timer: 5,
-    tips: true, count_tips: false, pointer_tips: true, tourist_limit: false, allow_spectator: true,
+    tips: true, count_tips: false, pointer_tips: true, tourist_limit: false, allow_spectator: true, tactical_call: true,
     ...Object.fromEntries(FIXED_FALSE.map(key => [key, false])), detailed_config: { rule_version: VERSION },
   };
   for (const key of Object.keys(raw)) if (!(key in config) && key !== 'duplicate_key') invalid(`不支持的贵州设置：${key}`);

@@ -145,9 +145,35 @@
                               'has-stacked-tile': tile.stackedTile,
                             }"
                           >
+                            <span
+                              v-for="(stack, stackIndex) in [...(tile.stackedTiles ?? [])].filter(stack => stack.onAddedKong).reverse()"
+                              :key="`stack-${stackIndex}`"
+                              class="end-result-meld__tile-frame"
+                            >
+                              <span
+                                class="end-result-tile end-result-meld__tile"
+                                :class="{ 'is-face-down': stack.faceDown }"
+                                :style="stack.faceDown ? { backgroundColor: resultTileCoverColor } : null"
+                              >
+                                <img v-if="!stack.faceDown" :src="tileAsset(stack.tile)" alt="" />
+                              </span>
+                            </span>
                             <span v-if="tile.stackedTile" class="end-result-meld__tile-frame">
                               <span class="end-result-tile end-result-meld__tile">
                                 <img :src="tileAsset(tile.stackedTile)" alt="" />
+                              </span>
+                            </span>
+                            <span
+                              v-for="(stack, stackIndex) in [...(tile.stackedTiles ?? [])].filter(stack => !stack.onAddedKong).reverse()"
+                              :key="`base-stack-${stackIndex}`"
+                              class="end-result-meld__tile-frame"
+                            >
+                              <span
+                                class="end-result-tile end-result-meld__tile"
+                                :class="{ 'is-face-down': stack.faceDown }"
+                                :style="stack.faceDown ? { backgroundColor: resultTileCoverColor } : null"
+                              >
+                                <img v-if="!stack.faceDown" :src="tileAsset(stack.tile)" alt="" />
                               </span>
                             </span>
                             <span class="end-result-meld__tile-frame">
@@ -623,7 +649,7 @@ function startWinFanRevealSequence(result, token, targetScene) {
     if (!mounted || token !== resultRevealToken) return
     showResultTotal.value = true
     // 高番锣与 3D 总分出现时机对齐，不在弹面板瞬间播。
-    targetScene.playResultGong(result.hu_fan ?? [])
+    targetScene.playResultGong(result.hu_fan ?? [], Number(result.hu_score ?? 0))
     if (isMatchEndWinResult(result)) {
       // Match Unity: the final hand has a plain Confirm button and never readies.
       showReadyButton.value = true

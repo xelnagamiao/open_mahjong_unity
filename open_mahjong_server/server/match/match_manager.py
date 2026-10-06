@@ -1,6 +1,6 @@
 """
 匹配队列管理器
-管理四种规则的 20 个段位 / Elo 匹配队列（配置见 rating_rules.py）。
+管理独立评分池的段位 / Elo 匹配队列（配置见 rating_rules.py）。
 """
 import asyncio
 import uuid
@@ -12,7 +12,7 @@ from .rank_calculator import (
     queue_type_to_display_name, parse_queue_type,
 )
 from ..response import Response
-from .rating_rules import QUEUES, default_rating
+from .rating_rules import QUEUES, RULES, default_rating
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,7 @@ ALL_QUEUE_TYPES = list(QUEUES)
 
 class MatchManager:
     MAX_QUEUES = 4
+    MATCH_FOUND_DELAY_SECONDS = 5
 
     def __init__(self, game_server):
         self.game_server = game_server
@@ -111,7 +112,7 @@ class MatchManager:
         rank_data = self.game_server.db_manager.get_rank_data(user_id)
         if rank_data is None:
             return self._reply("join", user_id, False, "无法读取评分，请稍后重试")
-        rating = (rank_data or {}).get('ratings', {}).get(spec.rule, default_rating(spec.rule))
+        rating = (rank_data or {}).get('ratings', {}).get(spec.rating_rule, default_rating(spec.rating_rule))
         privileges = self.game_server.db_manager.get_user_sponsor_mcrpl(user_id) or {}
         rank_name = (rank_data or {}).get("guobiao_rank", "10级") if spec.rule == 'guobiao' else rating['rank_name']
         if spec.graded and not can_play_tier(
@@ -199,6 +200,14 @@ class MatchManager:
             }
         return status
 
+    def get_rule_player_counts(self) -> dict:
+        waiting_users = {rule: set() for rule in RULES}
+        playing_counts = {rule: 0 for rule in RULES}
+        for queue_type, spec in QUEUES.items():
+            waiting_users[spec.rating_rule].update(self.queues[queue_type])
+            playing_counts[spec.rating_rule] += self.playing_counts.get(queue_type, 0)
+        return {rule: len(waiting_users[rule]) + playing_counts[rule] for rule in RULES}
+
     def get_my_match_state(self, user_id: Optional[int]) -> tuple[Optional[str], bool]:
         """当前玩家所在等待队列，以及是否已匹配成功且对局未结束。"""
         if not user_id:
@@ -209,13 +218,14 @@ class MatchManager:
     # ==================== 匹配与开局 ====================
 
     async def _try_start_match(self, queue_type: str):
-        """检查队列是否凑满 4 人，凑满则创建对局"""
+        """按队列所需人数凑桌，并在首次 await 前移除所有竞争队列。"""
         queue = self.queues[queue_type]
-        if len(queue) < 4:
+        player_count = QUEUES[queue_type].player_count
+        if len(queue) < player_count:
             return
 
-        matched_users = queue[:4]
-        # Commit all four and remove every competing queue before the first await.
+        matched_users = queue[:player_count]
+        # Commit the whole table before the first await.
         for uid in matched_users:
             self._remove_queues(uid)
             self.committed_users.add(uid)
@@ -229,7 +239,7 @@ class MatchManager:
 
         logger.info(f"匹配成功: {queue_type}, 玩家: {matched_users}")
 
-        # 通知客户端匹配成功，随后立即创建对局。
+        # 先通知所有客户端显示匹配成功倒计时，再统一等待 5 秒开局。
         display_name = queue_type_to_display_name(queue_type)
         for uid in matched_users:
             match_found_response = Response(
@@ -245,13 +255,15 @@ class MatchManager:
         asyncio.create_task(self._start_game(queue_type, matched_users))
 
     async def _start_game(self, queue_type: str, user_ids: List[int]):
-        """直接创建对局并启动（不依赖房间系统）。
+        """匹配成功倒计时结束后创建对局并启动（不依赖房间系统）。
 
         匹配对局不再写入 room_manager.rooms，因此不会出现在房间列表、也无法被加入；
         仅向 RoomManager 申请一个唯一房间号用于对局内部映射键与客户端聊天频道。
         """
         try:
-            # A disconnect while notifying players has no GameState to notify yet.
+            await asyncio.sleep(self.MATCH_FOUND_DELAY_SECONDS)
+
+            # A disconnect during the countdown has no GameState to notify yet.
             # Apply the same all-offline cleanup policy before creating the game.
             if not any(uid in self.game_server.user_id_to_connection for uid in user_ids):
                 for uid in user_ids:
@@ -290,7 +302,7 @@ class MatchManager:
                 "hepai_limit": room_config["hepai_limit"],
                 "tourist_limit": True,
                 "allow_spectator": True,
-                "max_player": 4,
+                "max_player": QUEUES[queue_type].player_count,
                 "player_list": list(user_ids),
                 "player_settings": player_settings,
                 "has_password": False,
@@ -319,8 +331,11 @@ class MatchManager:
             from ..gamestate.game_riichi.RiichiGameState import RiichiGameState
             from ..gamestate.game_mmcr.QingqueGameState import QingqueGameState
             from ..gamestate.game_sichuan.SichuanGameState import SichuanGameState
+            from ..gamestate.game_sichuan.XueliuGameState import XueliuGameState
             state_class = dict(guobiao=GuobiaoGameState, riichi=RiichiGameState,
                                qingque=QingqueGameState, sichuan=SichuanGameState)[room_data['room_rule']]
+            if room_data['room_rule'] == 'sichuan' and room_data['sub_rule'] == 'sichuan/xueliu_exchange':
+                state_class = XueliuGameState
             gamestate_id = str(uuid.uuid4())
             game_state = state_class(
                 self.game_server,
@@ -330,6 +345,10 @@ class MatchManager:
                 gamestate_id,
             )
             game_state.match_queue_type = queue_type
+            if room_data['room_rule'] == 'riichi':
+                from .riichi_rank_calculator import RIICHI_PT_ALGORITHM
+                from .sanma_rank_calculator import SANMA_PT_ALGORITHM
+                game_state.match_rating_algorithm = SANMA_PT_ALGORITHM if QUEUES[queue_type].player_count == 3 else RIICHI_PT_ALGORITHM
             for player in game_state.player_list:
                 if player.user_id not in self.game_server.user_id_to_connection:
                     player.tag_list.append("offline")

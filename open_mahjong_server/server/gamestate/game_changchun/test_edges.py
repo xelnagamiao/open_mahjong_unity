@@ -94,7 +94,7 @@ def test_wait_action_dispatches_authoritative_windows(mode):
     action={'timeout':None,'change':'cc_change_bao','draw':'cut','tail':'cut','special':'cc_special','added':'cc_added','win':'hu_self'}.get(mode,mode)
     state.cc_window='before_draw' if mode in ('change','draw') else 'final_four' if mode=='tail' else 'normal'
     mock=AsyncMock() if mode!='win' else __import__('unittest.mock',fromlist=['Mock']).Mock()
-    with patch('server.gamestate.game_changchun.ChangchunGameState._collect_responses',new=AsyncMock(return_value=({0:{'action_type':action,'target_tile':0}},{0:['hu_self']}))), \
+    with patch.object(state,'collect_action_responses',new=AsyncMock(return_value=({0:{'action_type':action,'target_tile':0}},{0:['hu_self']}))), \
          patch.object(state,'can_change_bao',return_value=True),patch.object(state,name,mock):
         asyncio.run(state.wait_action())
     mock.assert_called_once()
@@ -188,11 +188,11 @@ def test_clock_reconnect_deducts_elapsed_and_rejects_profile():
     with pytest.raises(ValueError):make_state(sub_rule='changchun/unknown')
     state=make_state();p=state.player_list[0];p.remaining_time=20
     state._ask_broadcast_time=100
-    with patch('server.gamestate.game_changchun.ChangchunGameState.time.time',return_value=102):
-        assert state.claim_clock(p)==(0,3)
-        assert state.claim_clock(p,True)==(0,1)
+    with patch('server.gamestate.game_changchun.timing.time.time',return_value=102):
+        assert state.claim_clock(p)==(20,5)
+        assert state.claim_clock(p,True)==(20,3)
     state._ask_broadcast_time=None
-    assert state.claim_clock(p,True)==(0,3)
+    assert state.claim_clock(p,True)==(20,5)
     assert state._liability_payer_for_win() is None
 
 

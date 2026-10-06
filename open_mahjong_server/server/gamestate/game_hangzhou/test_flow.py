@@ -313,7 +313,7 @@ def test_invalid_state_transitions_and_profile_are_rejected():
         machine.transition(P.READY)
     with pytest.raises(ValueError):
         HangzhouGameState(room_data=dict(HangzhouGameState._default_room_data(), sub_rule="hangzhou/other"))
-    for key in ("use_flowers", "open_cuohe", "tactical_call", "claim_protection", "tian_di_ren_he"):
+    for key in ("use_flowers", "open_cuohe", "claim_protection", "tian_di_ren_he"):
         with pytest.raises(ValueError):
             HangzhouGameState(room_data=dict(HangzhouGameState._default_room_data(), **{key: True}))
     with pytest.raises(ValueError):

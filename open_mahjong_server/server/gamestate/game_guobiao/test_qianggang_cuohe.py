@@ -137,6 +137,7 @@ def test_real_loop_wrong_rob_settlement_and_resume(monkeypatch, both_claim, pena
         second_changes = [-62, -8, 78, -8] if limit == 16 else ([10, 10, -30, 10] if penalty == 0 else [0, 0, -40, 0])
         expected_scores = [score + change for score, change in zip(expected_scores, second_changes)]
     assert [p.score for p in s.player_list] == expected_scores
+    assert [p.record_counter.round_score_total for p in s.player_list] == expected_scores
     assert s.player_list[1].hand_tiles == LOW
     assert s.player_list[0].combination_tiles == ['g23']
     assert s.player_list[1].record_counter.cuohe_times == 1

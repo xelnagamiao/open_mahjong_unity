@@ -2,8 +2,24 @@ using System.Collections;
 using UnityEngine;
 
 public partial class GameCanvas : MonoBehaviour {
+    private double _timerStepDeadline;
+    private double _timerDeadline;
+    public bool IsCountdownRunning => _countdownCoroutine != null && remianTimeText != null
+        && _timerDeadline > Time.realtimeSinceStartupAsDouble;
+
+    public void CorrectCountdownBudget(double remainingTime, double stepTime) {
+        double now = Time.realtimeSinceStartupAsDouble;
+        _timerStepDeadline = now + System.Math.Max(0, stepTime);
+        _timerDeadline = _timerStepDeadline + System.Math.Max(0, remainingTime);
+        _currentRemainingTime = (int)System.Math.Ceiling(System.Math.Max(0, remainingTime));
+        _currentCutTime = (int)System.Math.Ceiling(System.Math.Max(0, stepTime));
+        if (remianTimeText != null) RefreshRemainTimeDisplay();
+    }
     // 显示倒计时
-    public void LoadingRemianTime(int remainingTime, int cuttime){
+    public void LoadingRemianTime(int remainingTime, int cuttime) => LoadingRemianTime((double)remainingTime, cuttime);
+
+    // Families with an exact server budget retain fractions until display.
+    public void LoadingRemianTime(double remainingTime, double cuttime){
         if (VotePanel.Instance != null && VotePanel.Instance.IsGameTimerSuppressed) {
             StopTimeRunning();
             return;
@@ -14,8 +30,11 @@ public partial class GameCanvas : MonoBehaviour {
             StopCoroutine(_countdownCoroutine);
 
         // 保存初始时间值
-        _currentRemainingTime = remainingTime;
-        _currentCutTime = cuttime;
+        _currentRemainingTime = (int)System.Math.Ceiling(System.Math.Max(0, remainingTime));
+        _currentCutTime = (int)System.Math.Ceiling(System.Math.Max(0, cuttime));
+        double now = Time.realtimeSinceStartupAsDouble;
+        _timerStepDeadline = now + System.Math.Max(0, cuttime);
+        _timerDeadline = _timerStepDeadline + System.Math.Max(0, remainingTime);
 
         // 设置倒计时初始值
         if (remianTimeText == null) return;
@@ -26,42 +45,40 @@ public partial class GameCanvas : MonoBehaviour {
         _countdownCoroutine = StartCoroutine(CountdownTimer());
     }
 
+    /// <summary>仅修正已开启的手动操作时钟；自动动作或已停止的窗口不会被重开。</summary>
+    public void RebaseDecisionClock(double bankSeconds, double stepSeconds) {
+        if (!IsCountdownRunning) return;
+        CorrectCountdownBudget(bankSeconds, stepSeconds);
+    }
+
     // 倒计时协程
     private IEnumerator CountdownTimer(){
-        // 使用WaitForSeconds缓存，提高性能
-        WaitForSeconds oneSecondWait = new WaitForSeconds(1.0f);
-
-        while (_currentCutTime > 0 || _currentRemainingTime > 0){
+        int lastSoundSecond = TotalRemainSeconds;
+        while (true){
             if (VotePanel.Instance != null && VotePanel.Instance.IsGameTimerSuppressed) {
                 StopTimeRunning();
                 yield break;
             }
 
-            // 等待1秒
-            yield return oneSecondWait;
-            if (VotePanel.Instance != null && VotePanel.Instance.IsGameTimerSuppressed) {
-                StopTimeRunning();
-                yield break;
-            }
-
-            // 先扣步时，再扣储备
-            if (_currentCutTime > 0){
-                _currentCutTime--;
-            }
-            else if (_currentRemainingTime > 0){
-                _currentRemainingTime--;
-            }
+            double now = Time.realtimeSinceStartupAsDouble;
+            _currentCutTime = (int)System.Math.Ceiling(System.Math.Max(0, _timerStepDeadline - now));
+            _currentRemainingTime = (int)System.Math.Ceiling(System.Math.Max(0,
+                _timerDeadline - System.Math.Max(now, _timerStepDeadline)));
 
             if (remianTimeText == null) yield break;
             RefreshRemainTimeDisplay();
-            TryPlayCountdownTickSound();
+            if (TotalRemainSeconds != lastSoundSecond) {
+                lastSoundSecond = TotalRemainSeconds;
+                TryPlayCountdownTickSound();
+            }
 
             // 剩余时间为0 结束协程
             if (_currentRemainingTime <= 0 && _currentCutTime <= 0){
                 remianTimeText.text = "";
-                NormalGameStateManager.Instance.SwitchCurrentPlayer("self","TimeOut",0);
+                NormalGameStateManager.Instance?.SwitchCurrentPlayer("self","TimeOut",0);
                 break;
             }
+            yield return null; // unscaled deadline also advances through timeScale=0 and long frames
         }
     }
 
@@ -77,7 +94,8 @@ public partial class GameCanvas : MonoBehaviour {
         remianTimeText.color = Color.white;
     }
 
-    private int TotalRemainSeconds => _currentRemainingTime + _currentCutTime;
+    private int TotalRemainSeconds => (int)System.Math.Ceiling(System.Math.Max(0,
+        _timerDeadline - Time.realtimeSinceStartupAsDouble));
 
     private void RefreshRemainTimeDisplay() {
         if (_currentCutTime > 0){

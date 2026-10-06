@@ -1,5 +1,7 @@
 """Viewer-safe physical snapshots; authoritative waits never expose other hands."""
 
+import math
+
 from ...game_calculation.wenzhou.rules import hand_multiplier, waiting_tiles
 from ..game_zhongyong import boardcast as wire
 from .actions import CHOWS, kong_tiles, natural, needed_tiles, physical_for
@@ -28,6 +30,7 @@ class Protocol:
         data = wire.player_info_payload(self,index,viewer,reveal_final=ended)
         data["hand_tiles"] = list(p.hand_tiles) if index == viewer or ended else None
         data["hand_tiles_count"] = len(p.hand_tiles)
+        data["remaining_time"] = math.ceil(p.remaining_time)
         data["combination_tiles"] = wire.public_melds_for_viewer(p,viewer,reveal_final=ended)
         data["combination_mask"] = wire.public_combination_masks_for_viewer(p,viewer,reveal_final=ended)
         return data
@@ -88,7 +91,8 @@ class Protocol:
     def _ask_payload(self,index,window):
         actor = window["player"] if window.get("player") is not None else self.current_player_index
         phase = P(window["status"])
-        payload = wire.ask_action_payload(self,index,self.action_dict.get(index,[]),action_player_index=actor,
+        actions = [] if index in window["_clock_finished"] else self.action_dict.get(index,[])
+        payload = wire.ask_action_payload(self,index,actions,action_player_index=actor,
             cut_tile=window.get("tile") if phase == P.RESPONSE else None,
             rob_kong_tile=window.get("tile") if phase == P.KONG else None)
         info = payload.get("ask_hand_action_info")
@@ -102,12 +106,45 @@ class Protocol:
         if claim is not None:
             logical = natural(window["tile"],self.caishen)
             claim["chi_candidates"] = {kind:[physical_for(self.player_list[index].hand_tiles,
-                needed_tiles(kind,logical),self.caishen)] for kind in self.action_dict.get(index,[]) if kind in CHOWS}
+                needed_tiles(kind,logical),self.caishen)] for kind in actions if kind in CHOWS}
         bank,step = self.remaining_clock(index,window)
         for ask in (info,claim):
             if ask is not None:
                 ask.update(remaining_time=bank,step_remaining=step)
-        return self._adapt(payload,index)
+        payload = self._adapt(payload,index)
+        bank_exact,step_exact = self._clock_values(index,window)
+        payload["game_info"]["wenzhou_info"].update(
+            clock_remaining_ms=(bank_exact+step_exact)*1000,
+            clock_step_remaining_ms=step_exact*1000,
+            clock_active=bool(actions))
+        return payload
+
+    def _live_ask_window(self, payload):
+        ask = payload.get("ask_hand_action_info") or payload.get("ask_other_action_info")
+        window = self.live_pending_window
+        return window if ask is not None and window and ask.get("action_tick") == window.get("action_tick") else None
+
+    async def _deliver_claim_payload(self, index, payload):
+        """Use the existing pipe, but anchor each seat before later sends wait."""
+        window = self._live_ask_window(payload)
+        if window is not None:
+            payload = self._ask_payload(index,window)
+        connection = (getattr(self.game_server,"user_id_to_connection",{}) or {}).get(self.player_list[index].user_id)
+        if connection is not None and getattr(connection,"websocket",None) is not None:
+            await connection.websocket.send_json(payload)
+            if window is not None:
+                self.start_action_clock(index,window)
+            self.websocket_sent_payloads.append(payload)
+        await self.send_to_realtime_spectators(index,payload)
+
+    async def send_payload_to_player(self, index, payload, *, record_fallback=True):
+        window = self._live_ask_window(payload)
+        if window is not None:
+            payload = self._ask_payload(index,window)
+        sent = await super().send_payload_to_player(index,payload,record_fallback=record_fallback)
+        if sent and window is not None:
+            self.start_action_clock(index,window)
+        return sent
 
     def emit_window_payloads(self,window):
         if window["status"] == P.END.value:

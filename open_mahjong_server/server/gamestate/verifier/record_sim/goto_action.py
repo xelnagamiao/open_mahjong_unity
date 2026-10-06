@@ -63,7 +63,9 @@ def parse_score_changes(tick: Sequence[str], index: int) -> Optional[List[int]]:
         return result
 
 
-def relative_position(self_index: int, other_index: int) -> str:
+def relative_position(self_index: int, other_index: int, player_count: int = 4) -> str:
+    if player_count == 3:
+        return ("self", "right", "left")[(other_index - self_index) % 3]
     if self_index == other_index:
         return "self"
     mapping = {
@@ -123,6 +125,8 @@ class RecordSim:
     def __init__(self, record: dict):
         self.record = record
         self.game_title = record.get("game_title") or {}
+        from ...public.player_count import player_count_for_sub_rule
+        self.player_count = player_count_for_sub_rule(self.game_title.get("sub_rule"))
         self.flags = resolve_record_flags(self.game_title)
         self.players: Dict[int, RecordPlayer] = {}
         self.current_player_index = 0
@@ -132,6 +136,7 @@ class RecordSim:
         self.last_jiagang_player_index = -1
         self.current_tiles_list: List[int] = []
         self.backward_tiles_type = "double"
+        self.replacement_draw_count = 0
         self.record_dead_wall_count = 0
         self.record_dead_wall_mode = ""
         self.record_taiwan_ron_blocked: set[int] = set()
@@ -150,8 +155,8 @@ class RecordSim:
         return title_str(self.game_title, "sub_rule") in {"sichuan/xueliu", "sichuan/xueliu_exchange"}
 
     def _next_player(self, source):
-        for offset in range(1, 5):
-            seat = (source + offset) % 4
+        for offset in range(1, self.player_count + 1):
+            seat = (source + offset) % self.player_count
             if not (self.is_sichuan_blood() or self.is_concealed_blood()) or not self.players[seat].is_hu:
                 return seat
         return source
@@ -178,7 +183,10 @@ class RecordSim:
         self.last_jiagang_player_index = -1
         self.current_tiles_list = list(round_data.get("tiles_list") or [])
         self.backward_tiles_type = "double"
+        self.replacement_draw_count = 0
         self.record_dead_wall_count = 16 if self.is_taiwan() else 0
+        if self.flags.rule_id == "riichi":
+            self.record_dead_wall_count = 14
         if title_str(self.game_title, "sub_rule") == "zhongyong/standard":
             self.record_dead_wall_count = 14
         self.record_dead_wall_mode = "fixed_tail_16" if self.is_taiwan() else ""
@@ -186,10 +194,10 @@ class RecordSim:
         riichi = round_data.get("riichi") or {}
         self.record_riichi_sticks = int(riichi.get("riichi_sticks") or 0)
         self.players = {}
-        seats = round_data.get("seats") or list(range(4))
-        if sorted(seats) != [0, 1, 2, 3]:
-            seats = list(range(4))
-        for seat in range(4):
+        seats = round_data.get("seats") or list(range(self.player_count))
+        if sorted(seats) != list(range(self.player_count)):
+            seats = list(range(self.player_count))
+        for seat in range(self.player_count):
             tiles = list(round_data.get(f"p{seat}_tiles") or [])
             self.players[seat] = RecordPlayer(
                 original_player_index=seats.index(seat),
@@ -250,8 +258,10 @@ class RecordSim:
             if action == "d":
                 self.current_tiles_list.pop(0)
                 return
-            if action in ("gd", "bd"):
-                self.current_tiles_list.pop()
+            if action in ("gd", "bd", "nd"):
+                from ....game_calculation.riichi.sanma import replacement_index
+                self.current_tiles_list.pop(replacement_index(self.replacement_draw_count, self.player_count == 3))
+                self.replacement_draw_count += 1
                 if self.record_dead_wall_mode == "fixed_replacement_wall_16":
                     remaining = max(0, self.record_dead_wall_count - 1)
                     if len(self.current_tiles_list) > remaining:
@@ -274,7 +284,7 @@ class RecordSim:
             self.current_tiles_list.pop(0)
 
     def _apply_score_array(self, changes: Optional[List[int]]) -> None:
-        if not changes or len(changes) < 4:
+        if not changes or len(changes) < self.player_count:
             return
         for player in self.players.values():
             player.score += int(changes[player.player_index])
@@ -334,7 +344,8 @@ class RecordSim:
             return
         if self.is_taiwan():
             self._apply_taiwan_wall_action(action)
-        if self.is_taiwan() or self.is_xueliu() or self.flags.rule_id in {"zhongyong", "jiandan"}:
+        if (self.flags.supports_robbed_added_kong_source or self.is_taiwan()
+                or self.is_xueliu() or self.flags.rule_id in {"zhongyong", "jiandan"}):
             self._restore_taiwan_robbed_jiagang(tick)
         acting = resolve_acting_player(tick, action, self.current_player_index)
         player = self.players[acting]
@@ -358,7 +369,7 @@ class RecordSim:
             self.current_player_index = next_player
             return
 
-        if action in ("d", "gd", "bd"):
+        if action in ("d", "gd", "bd", "nd"):
             player.tile_list.append(codec.parse_tick_int(tick, 1))
             player.show_hand_draw_slot_active = True
             self._consume_wall(action)
@@ -381,15 +392,19 @@ class RecordSim:
             self.last_jiagang_player_index = -1
             next_player = self._next_player(acting)
             self._maybe_infer_dingque(player)
-        elif action == "bh":
-            buhua_tile = codec.parse_tick_int(tick, 1)
+        elif action in ("bh", "nuki"):
+            buhua_tile = codec.parse_tick_int(tick, 2 if action == "nuki" else 1)
             is_mo = parse_buhua_mo_flag(tick)
             if is_mo and player.tile_list and player.tile_list[-1] == buhua_tile:
                 player.tile_list.pop()
                 player.show_hand_draw_slot_active = False
             elif buhua_tile in player.tile_list:
                 player.tile_list.remove(buhua_tile)
-            self._apply_buhua_ownership(tick, acting, buhua_tile)
+            if action == "nuki":
+                player.huapai_list.append(buhua_tile)
+                player.show_hand_draw_slot_active = False
+            else:
+                self._apply_buhua_ownership(tick, acting, buhua_tile)
             next_player = acting
         elif action == "ag":
             angang_tile = codec.parse_tick_int(tick, 1)
@@ -434,7 +449,7 @@ class RecordSim:
             self.last_jiagang_player_index = -1
             self._remove_claimed_discard(ming)
             discarder = self.last_discard_player_index if self.last_discard_player_index >= 0 else self.current_player_index
-            relative = relative_position(acting, discarder)
+            relative = relative_position(acting, discarder, self.player_count)
             player.combination_tiles.append(codec.build_combination_target(action, ming))
             player.combination_masks.append(codec.build_mingpai_mask(action, ming, removed, relative))
             player.show_hand_draw_slot_active = False
@@ -529,7 +544,7 @@ class RecordSim:
                             self.players[i].score = int(value)
         elif action == "end":
             scores = self.game_title.get("riichi_final_scores")
-            if self.is_last_round and isinstance(scores, list) and len(scores) == 4:
+            if self.is_last_round and isinstance(scores, list) and len(scores) == self.player_count:
                 for player in self.players.values():
                     player.score = int(scores[player.original_player_index])
                 self.record_riichi_sticks = int(self.game_title.get("riichi_final_sticks", self.record_riichi_sticks))

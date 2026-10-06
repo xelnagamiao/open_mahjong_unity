@@ -160,12 +160,14 @@ python guobiao_heuristic_drawrate.py --matches 4 --workers 2 --skip-half --out g
 
 ## 生产缓存与机器人执行器
 
-- `GUOBIAO_AI_CACHE_MB`：单个服务器进程的国标 AI 缓存预算，默认 `200` MiB。
-- 持久缓存只使用预算的 80%（默认 160 MiB），其余 20% 留给单次决策 memo 和分配器余量。
-- 持久配额按 `SUIT/SHANTEN/YIBAN/EFFECTIVE = 10%/50%/30%/10%` 分配，超过配额按 LRU 淘汰。
+- 默认持久计费配额：国标／血战共用 `SUIT/SHANTEN/YIBAN/EFFECTIVE = 8/12/8/16` MiB（合计 44 MiB），通用一般型 `YIBAN_GENERAL` 独立 48 MiB，供上海／四川等调用。缓存按需填充，超过配额按 LRU 淘汰。
+- 分项环境变量：`GUOBIAO_AI_CACHE_SUIT_MB`、`GUOBIAO_AI_CACHE_SHANTEN_MB`、`GUOBIAO_AI_CACHE_YIBAN_MB`、`GUOBIAO_AI_CACHE_EFFECTIVE_MB`、`GENERAL_AI_CACHE_YIBAN_MB`；均以 MiB 设置，可用 `0` 禁用单项。
+- 兼容旧 `GUOBIAO_AI_CACHE_MB` 和 `configure_shanten_cache_budget(total_mib)`：显式设置时仍将总数的 80% 用作持久计费上限，但改按新五项的 `8:12:8:16:48` 比例分配；分项环境变量再覆盖对应项。未设置旧变量时直接采用 44+48 MiB 默认值。旧变量若显式保留 `200`，五项合计仍约 160 MiB，需移除旧变量或显式设置分项才能采用本次默认额度。
+- `shanten_cache_stats()` 分别返回五个缓存的实际条目、估算占用、配额、命中和淘汰。字节计费含节点与分配器余量，但不是整个进程内存上限；决策 memo、虹雀、其他规则与业务对象仍另占内存。
 - `BOT_CPU_WORKERS`：跨房间机器人工作进程数，默认 `min(4, cpu_count-1)` 且至少 1。
 - 同一房间的 AI 计算串行，不同房间可并行；主事件循环先生成快照，后台只运行纯计算，结果返回后校验 action tick。
-- 多进程部署时缓存预算是每进程预算；总预算 200 MiB 时，应按 worker 数设置 `GUOBIAO_AI_CACHE_MB=200/worker_count`。
+- 上述配置是主进程的一份额度，也是**整个机器人计算池**的一份额度。执行器将五项分别除以 worker 数传入初始化，不应再手动除一次。主进程与计算池均达到上限时，默认持久计费合计最多约 184 MiB；多个独立服务器实例还会各自占用。
+- 线程执行器及其回退模式共用主进程缓存，不另分配 worker 缓存。虹雀两种策略共用同一个 32,768 条结构 LRU；台湾／港式采用紧凑 Counter 键，原条目容量保留，它们不计入上述 92 MiB。
 
 ## 注意
 

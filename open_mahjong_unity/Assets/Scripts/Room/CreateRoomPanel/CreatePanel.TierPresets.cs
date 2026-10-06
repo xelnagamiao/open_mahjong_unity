@@ -34,7 +34,7 @@ public partial class CreatePanel {
         for (int i = 0; i < TierNames.Length; i++) {
             int tier = i;
             root.GetChild(i).GetComponent<Button>().onClick.AddListener(() => {
-                if (_ruleState == "riichi") ApplyRiichiPreset(tier); else ApplyGuobiaoTierPreset(tier);
+                if (_ruleState == "riichi") ApplyRiichiPreset(RiichiSidebarPresetIndex(tier)); else ApplyGuobiaoTierPreset(tier);
             });
         }
     }
@@ -43,7 +43,7 @@ public partial class CreatePanel {
         var root = transform.Find("Create_Panel/TierPresets") as RectTransform;
         if (!root) return;
         bool visible = (_ruleState == "guobiao" && GetSelectedSubRule() == "guobiao/standard")
-            || (_ruleState == "riichi" && GetSelectedRiichiSubRule() == "riichi/standard");
+            || (_ruleState == "riichi" && (GetSelectedRiichiSubRule() == "riichi/standard" || GetSelectedRiichiSubRule() == "riichi/sanma"));
         root.gameObject.SetActive(visible);
         if (!visible) return;
         bool sidebar = margin >= 210;
@@ -51,7 +51,10 @@ public partial class CreatePanel {
         float buttonWidth = sidebar ? root.rect.width : (root.rect.width - 24) / 4;
         for (int i = 0; i < root.childCount; i++) {
             var button = root.GetChild(i).GetComponent<Button>();
-            button.GetComponentInChildren<TMP_Text>().text = _ruleState == "riichi" ? RiichiRoomRules.Presets[i].Label : TierNames[i];
+            bool sanma = _ruleState == "riichi" && GetSelectedRiichiSubRule() == "riichi/sanma";
+            button.gameObject.SetActive(!sanma || i < 2);
+            if (sanma && i >= 2) continue;
+            button.GetComponentInChildren<TMP_Text>().text = _ruleState == "riichi" ? RiichiRoomRules.Presets[RiichiSidebarPresetIndex(i)].Label : TierNames[i];
             RoomBox((RectTransform)button.transform, sidebar ? 0 : i * (buttonWidth + 8), sidebar ? i * 80 : 0, buttonWidth, 64);
         }
         if (!sidebar) ((RectTransform)scroll.transform).offsetMax = new Vector2(-rightMargin, -96);
@@ -69,10 +72,12 @@ public partial class CreatePanel {
                 && CuoHeheToggle.isOn == (i != 0) && (i == 0 || CuoheTypeDropdown.value == 0)
                 && TacticalCallToggle.isOn && GetSelectedRoundTimer() == 20 && GetSelectedStepTimer() == (i == 1 ? 8 : 5);
             var button = root.GetChild(i).GetComponent<Button>();
-            if (_ruleState == "riichi") selected = i == selectedRiichiPresetIndex;
+            if (_ruleState == "riichi") selected = RiichiSidebarPresetIndex(i) == selectedRiichiPresetIndex;
             button.GetComponent<Image>().color = selected ? RoomNavy : Color.white;
             button.GetComponentInChildren<TMP_Text>().color = selected ? Color.white : Color.black;
         }
     }
+
+    private int RiichiSidebarPresetIndex(int slot) => GetSelectedRiichiSubRule() == "riichi/sanma" ? 4 + slot : slot;
 
 }

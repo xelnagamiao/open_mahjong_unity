@@ -35,6 +35,10 @@ async def commit_kan(game):
         return
     player = game.player_list[game.current_player_index]
     normal, kind = pending['normal'], pending['kind']
+    if kind == 'nuki':
+        from .nuki_actions import commit_nuki
+        await commit_nuki(game, pending)
+        return
     if kind == 'angang':
         removed = remove_angang_tiles(player.hand_tiles, normal, draw_slot=has_draw_slot(player))
         mask=[2,removed[0],0,removed[1],0,removed[2],2,removed[3]]
@@ -68,6 +72,8 @@ async def rob_pending_kan(game):
     if pending['kind'] == 'jiagang':
         meld_index = player.combination_tiles.index(f"k{pending['normal']}")
         declared_tiles = list(player.combination_mask[meld_index][1::2])
+    elif pending['kind'] == 'nuki':
+        declared_tiles = [44]
     else:
         declared_tiles = [t for t in player.hand_tiles if _normalize(t) == pending['normal']]
     actual=remove_cut_tile(player.hand_tiles,pending['actual'],pending['is_mo_gang'],draw_slot=has_draw_slot(player))

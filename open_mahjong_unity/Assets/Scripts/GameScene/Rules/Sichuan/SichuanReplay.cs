@@ -34,8 +34,8 @@ public partial class GameRecordManager {
     // 川麻和牌后由最后一位和牌者的下一家续打；血战还要跳过本局已和退场者。
     // 巡目索引用自己的退场集合，不能读取当前回放节点的 isHu。
     private int NextRecordPlayerIndex(int fromIndex, HashSet<int> huPlayers = null) {
-        for (int offset = 1; offset <= 4; offset++) {
-            int next = (fromIndex + offset) % 4;
+        for (int offset = 1; offset <= RecordPlayerCount; offset++) {
+            int next = (fromIndex + offset) % RecordPlayerCount;
             if (!IsBloodBattleRecord()) return next;
             bool isHu = huPlayers != null
                 ? huPlayers.Contains(next)

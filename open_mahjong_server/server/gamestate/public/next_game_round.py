@@ -159,22 +159,30 @@ def next_game_round_guobiao_switchseat(self):
     self.current_player_index = 0
     self.xunmu = 1
     self.action_history = []
-    self.action_dict: Dict[int, list] = {0: [], 1: [], 2: [], 3: []}
+    player_count = len(self.player_list)
+    self.action_dict: Dict[int, list] = {i: [] for i in range(player_count)}
     self.backward_tiles_list_type = "double"
     self.hu_class = None
     for i in self.player_list:
         i.hand_tiles = []
         i.huapai_list = []
         i.discard_tiles = []
+        i.discard_origin_tiles = []
         i.waiting_tiles = set()
         i.combination_tiles = []
         i.combination_mask = []
         i.remaining_time = self.round_time
         if "peida" in i.tag_list:
             i.tag_list.remove("peida")
-        i.player_index = back_current_num(i.player_index)
+        i.player_index = back_current_num(i.player_index, player_count)
 
-    if self.current_round in [5, 9, 13]:
+    if player_count == 3:
+        # Reverse neighbours between wind rounds, so every pair plays both sides.
+        if self.current_round in (4, 7, 10):
+            seats = (0, 2, 1) if self.current_round in (4, 10) else (0, 1, 2)
+            for player in self.player_list:
+                player.player_index = seats[player.original_player_index]
+    elif self.current_round in [5, 9, 13]:
         if self.current_round == 5:
             for i in self.player_list:
                 if i.original_player_index == 0:

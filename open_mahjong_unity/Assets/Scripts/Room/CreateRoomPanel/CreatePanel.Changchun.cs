@@ -3,7 +3,8 @@ using UnityEngine;
 public partial class CreatePanel {
     private void CreateChangchunRoom() {
         var config = new Qingque_Create_RoomConfig {
-            ClaimProtection = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.ClaimProtection) && ClaimProtectionToggle.isOn,
+            ClaimProtection = false,
+            TacticalCall = TacticalCallToggle.isOn,
             RoomName = roomNameInput.text.Trim(),
             GameRound = GetSelectedGameTime(),
             Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",

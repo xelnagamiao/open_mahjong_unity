@@ -8,7 +8,7 @@ public partial class CreatePanel {
             RoundTimer=GetSelectedRoundTimer(), StepTimer=GetSelectedStepTimer(),
             Tips=tipsToggle.isOn, CountTips=countTipsToggle.isOn, PointerTips=pointerTipsToggle.isOn,
             TouristLimit=TouristLimitToggle.isOn, AllowSpectator=AllowSpectatorToggle.isOn,
-            ClaimProtection=false, TacticalCall=false, EventId=_venueEventId,
+            ClaimProtection=false, TacticalCall=TacticalCallToggle.isOn, EventId=_venueEventId,
         };
         if (!config.Validate(out string error,passwordToggle.isOn,SetRandomSeedToggle.isOn)) {
             NotificationManager.Instance.ShowTip("create_room",false,error); return;

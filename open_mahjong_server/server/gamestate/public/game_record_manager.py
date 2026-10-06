@@ -20,7 +20,7 @@ def build_player_entry_order_fields(gs) -> Dict[str, Any]:
     from .duplicate_wall import duplicate_fields
     fields = duplicate_fields(gs)
     order = getattr(gs, "player_entry_order", None)
-    if order and len(order) == 4:
+    if order and len(order) == len(gs.player_list):
         fields["player_entry_order"] = list(order)
     return fields
 
@@ -40,7 +40,7 @@ def build_player_entry_order_fields(gs) -> Dict[str, Any]:
 def resolve_riichi_starting_score_fields(gs) -> Dict[str, Any]:
     """立直麻将牌谱表头：起手分。优先 per-player starting_scores，否则写入统一 starting_score。"""
     custom_scores = getattr(gs, "starting_scores", None)
-    if custom_scores and len(custom_scores) == 4:
+    if custom_scores and len(custom_scores) == len(gs.player_list):
         return {"starting_scores": [int(x) for x in custom_scores]}
     if hasattr(gs, "_starting_score"):
         return {"starting_score": int(gs._starting_score())}
@@ -92,6 +92,7 @@ def build_game_title_data(gs) -> Dict[str, Any]:
         title["sichuan_hepai_limit_version"] = 1
     # 以下字段仅立直麻将 room_rule == "riichi"
     if getattr(gs, "room_rule", None) == "riichi":
+        title['player_count'] = len(gs.player_list)
         title["detailed_config"] = dict(getattr(gs, "detailed_config", {}))
         # red_dora: 是否启用赤宝牌
         title["red_dora"] = getattr(gs, "red_dora", False)
@@ -116,7 +117,7 @@ def build_game_title_data(gs) -> Dict[str, Any]:
         title["match_queue_type"] = match_queue_type
     # player_entry_order: shuffle 前对局入场顺序（user_id[4]，用于验证 master_seed 随机座位）
     player_entry_order = getattr(gs, "player_entry_order", None)
-    if player_entry_order and len(player_entry_order) == 4:
+    if player_entry_order and len(player_entry_order) == len(gs.player_list):
         title["player_entry_order"] = list(player_entry_order)
     # p0_uid … p3_uid / p0_name … p3_name: 随机座位分配后的 original 0～3（整局不变）
     for i, player in enumerate(gs.player_list):
@@ -125,6 +126,7 @@ def build_game_title_data(gs) -> Dict[str, Any]:
     from .duplicate_wall import duplicate_fields
     title.update(duplicate_fields(gs))
     if getattr(gs, "room_rule", None) == "guobiao":
+        title["player_count"] = len(gs.player_list)
         title["use_flowers"] = getattr(gs, "use_flowers", getattr(gs, "sub_rule", None) != "guobiao/lanshi")
         title["tian_di_ren_he"] = getattr(gs, "tian_di_ren_he", False)
         if getattr(gs, "sub_rule", None) == "guobiao/lanshi":
@@ -171,7 +173,7 @@ def end_game_record(self):
 
 def build_round_header_data(gs) -> Dict[str, Any]:
     """构建局头快照（与牌谱 JSON 格式一致，供 init_game_round / 观战 record_round_start 共用）。"""
-    seats = [0] * 4
+    seats = [0] * len(gs.player_list)
     for p in gs.player_list:
         seats[p.original_player_index] = p.player_index
     round_data: Dict[str, Any] = {
@@ -179,10 +181,7 @@ def build_round_header_data(gs) -> Dict[str, Any]:
         "seats": seats,
         "dealer_index": int(getattr(gs, "dealer_index", 0) or 0),
         "start_player_index": int(getattr(gs, "current_player_index", 0) or 0),
-        "p0_tiles": gs.player_list[0].hand_tiles.copy(),
-        "p1_tiles": gs.player_list[1].hand_tiles.copy(),
-        "p2_tiles": gs.player_list[2].hand_tiles.copy(),
-        "p3_tiles": gs.player_list[3].hand_tiles.copy(),
+        **{f'p{p.player_index}_tiles': p.hand_tiles.copy() for p in gs.player_list},
         "tiles_list": gs.tiles_list.copy(),
         "round_index": gs.round_index,
     }

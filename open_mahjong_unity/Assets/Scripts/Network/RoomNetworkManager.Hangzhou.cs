@@ -14,6 +14,7 @@ public partial class RoomNetworkManager {
                 roundTimerValue=config.RoundTimer, stepTimerValue=config.StepTimer,
                 tips=config.Tips, count_tips=config.CountTips, pointer_tips=config.PointerTips,
                 tourist_limit=config.TouristLimit, allow_spectator=config.AllowSpectator,
+                tactical_call=config.TacticalCall,
                 event_id=string.IsNullOrEmpty(config.EventId) ? null : config.EventId,
                 detailed_config=new { rule_version=HangzhouGameState.RuleVersion },
             };

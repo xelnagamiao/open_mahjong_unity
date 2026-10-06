@@ -7,6 +7,7 @@ from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.offline import offline_auto_action
 from ..public.ai.smart_bot_ai import smart_bot_action
 from ..game_guobiao.combination_mask_view import (
+    get_combination_fields_for_viewer,
     sanitize_angang_mask,
     sanitize_combination_target_for_viewer,
 )
@@ -100,6 +101,7 @@ def _build_game_start_payload_for_viewer(self, viewer_index: int) -> dict:
     viewer_player = self.player_list[viewer_index]
     players_info = []
     for player in self.player_list:
+        combo_tiles, combo_masks = get_combination_fields_for_viewer(player, viewer_index)
         players_info.append({
             'user_id': player.user_id, # 用户ID
             'username': player.username, # 用户名（用于显示）
@@ -107,8 +109,8 @@ def _build_game_start_payload_for_viewer(self, viewer_index: int) -> dict:
             'hand_tiles': player.hand_tiles if player.user_id == viewer_player.user_id else None,  # 只有视角玩家的手牌
             'discard_tiles': player.discard_tiles, # 弃牌
             'discard_origin_tiles': player.discard_origin_tiles, # 理论弃牌
-            'combination_tiles': player.combination_tiles, # 组合
-            "combination_mask": player.combination_mask, # 组合形状
+            'combination_tiles': combo_tiles, # 组合（他家暗杠牌值隐藏）
+            "combination_mask": combo_masks, # 组合形状
             "huapai_list": player.huapai_list, # 花牌列表
             'remaining_time': player.remaining_time, # 剩余局时
             'player_index': player.player_index, # 东南西北位置

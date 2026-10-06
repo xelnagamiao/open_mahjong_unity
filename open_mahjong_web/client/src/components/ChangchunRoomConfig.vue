@@ -15,6 +15,7 @@
       <el-form-item label="指针提示"><el-switch v-model="form.pointer_tips" /></el-form-item>
       <el-form-item label="限制游客"><el-switch v-model="form.tourist_limit" /></el-form-item>
       <el-form-item label="允许观战"><el-switch v-model="form.allow_spectator" /></el-form-item>
+      <el-form-item label="战术鸣牌"><el-switch v-model="form.tactical_call" title="有效申请后可在5秒内以更高优先级抢断；机器人入座自动关闭" /></el-form-item>
     </div>
     <a href="/rulebooks/mil/长春麻将（推广）竞赛规则（试行2024版）.pdf" target="_blank" rel="noopener">阅读 MIL 长春规则书</a>
   </div>

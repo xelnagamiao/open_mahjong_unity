@@ -147,25 +147,45 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
       await assert.rejects(service.manage(999, mine.items[1].id, { is_unlocked: true }), { status: 403 });
     });
 
-    await t.test('event administrators share twenty daily walls and outsiders cannot use the quota', async () => {
+    await t.test('event administrators share twenty-five daily walls and outsiders cannot use the quota', async () => {
       const input = { ...body, scope: 'event', event_id: 'event-a' };
       await assert.rejects(service.create(999, input), { status: 403 });
       assert.equal((await service.create(101, { ...input, event_id: 'registered-a' })).wall.event_id, 'registered-a');
       for (const event_id of ['closed-a', 'pending-a']) await assert.rejects(service.create(101, { ...input, event_id }), { status: 409 });
       await assert.rejects(service.create(101, { ...input, event_id: 'base-a' }), { status: 403 });
       const results = await Promise.allSettled(Array.from({ length: 26 }, (_, i) => service.create(i % 2 ? 101 : 102, input)));
-      assert.equal(results.filter((r) => r.status === 'fulfilled').length, 20);
+      assert.equal(results.filter((r) => r.status === 'fulfilled').length, 25);
       const mine = await service.mine(102, 'event', 'event-a');
-      assert.equal(mine.quota.created_today, 20);
-      assert.equal(mine.items.length, 20);
+      assert.equal(mine.quota.created_today, 25);
+      assert.equal(mine.items.length, 25);
       assert.equal(mine.quota.storage_limit, 100);
+    });
+
+    await t.test('whole batches share the event quota with manual creates under the real PostgreSQL lock', async () => {
+      await pool.query("INSERT INTO events VALUES ('event-batch', 'Batch test', 'event', 'active')");
+      await pool.query("INSERT INTO event_admins VALUES ('event-batch', 101), ('event-batch', 102)");
+      const input = { ...body, scope: 'event', event_id: 'event-batch', round_count: 8, use_flowers: false };
+      await service.create(101, input);
+      const batch = await service.createBatch(102, input, 20);
+      assert.equal(batch.quota.created_today, 21);
+      assert.equal(batch.walls.length, 20);
+      assert.equal(new Set(batch.walls.map(wall => wall.key)).size, 20);
+      await assert.rejects(service.createBatch(101, input, 5), { status: 429 });
+      assert.equal((await service.getQuota(102, 'event', 'event-batch')).created_today, 21);
+      const concurrent = await Promise.allSettled([service.createBatch(101, input, 3), service.createBatch(102, input, 3)]);
+      assert.equal(concurrent.filter(result => result.status === 'fulfilled').length, 1);
+      assert.equal(concurrent.find(result => result.status === 'rejected').reason.status, 429);
+      assert.equal((await service.create(101, input)).quota.created_today, 25);
+      await assert.rejects(service.createBatch(102, input, 1), { status: 429 });
+      const stored = await pool.query("SELECT COUNT(DISTINCT seed)::int AS seeds FROM duplicate_walls WHERE event_id = 'event-batch'");
+      assert.equal(stored.rows[0].seeds, 25);
     });
 
     await t.test('storage limits still apply after the daily count resets', async () => {
       for (const [scope, owner, eventId, limit] of [['personal', 201, null, 25], ['event', 101, 'event-a', 100]]) {
         await pool.query(`INSERT INTO duplicate_walls (key,owner_user_id,event_id,scope,wall_type,rule,tiles,created_at)
           SELECT 'fixture_' || $1 || '_' || i, $2, $3, $1, 'manual', 'guobiao', $4::jsonb, NOW() - INTERVAL '2 days'
-          FROM generate_series(1,$5::int) i`, [scope, owner, eventId, JSON.stringify(fullWall('guobiao')), limit - (scope === 'event' ? 20 : 0)]);
+          FROM generate_series(1,$5::int) i`, [scope, owner, eventId, JSON.stringify(fullWall('guobiao')), limit - (scope === 'event' ? 25 : 0)]);
         if (scope === 'event') await pool.query("UPDATE duplicate_walls SET created_at = NOW() - INTERVAL '2 days' WHERE event_id = 'event-a'");
         await assert.rejects(service.create(owner, { ...body, scope, event_id: eventId }), { status: 409 });
       }

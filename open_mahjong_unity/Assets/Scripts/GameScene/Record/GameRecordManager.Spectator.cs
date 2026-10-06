@@ -387,9 +387,11 @@ public partial class GameRecordManager {
             case "ca": return 0f;
             case "d":
             case "gd":
+            case "nd":
             case "bd": return 0.3f;
             case "c": return 0.4f;
-            case "bh": return 0.3f;
+            case "bh":
+            case "nuki": return 0.3f;
             case "ag":
             case "jg": return 0.6f;
             case "cl":
@@ -522,9 +524,11 @@ public partial class GameRecordManager {
         switch (action) {
             case "d":
             case "gd":
+            case "nd":
             case "bd":
             case "c":
             case "bh":
+            case "nuki":
             case "ag":
             case "jg":
             case "rk":
@@ -781,7 +785,7 @@ public partial class GameRecordManager {
             };
             GameRecordJsonDecoder.ApplyPlayerUserIds(round, playerUserIds);
         }
-        GameRecordJsonDecoder.ApplyRoundHeader(round, roundData, roundIndex);
+        GameRecordJsonDecoder.ApplyRoundHeader(round, roundData, roundIndex, RecordPlayerCount);
 
         round.actionTicks = new List<List<string>>();
         JArray actionTicks = roundData["action_ticks"] as JArray;

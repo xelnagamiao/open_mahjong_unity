@@ -6,7 +6,7 @@ using UnityEngine;
 
 internal static class RiichiRoomRules {
     internal sealed class Preset {
-        public string Id, Label, Source;
+        public string Id, Label, Source, SubRule;
         public Dictionary<string, object> Room, Values;
     }
 
@@ -17,6 +17,7 @@ internal static class RiichiRoomRules {
     private static Preset[] presets;
     public static Preset[] Presets => presets ?? (presets = Catalog["presets"].Select(p => new Preset {
         Id = (string)p["id"], Label = (string)p["label"], Source = (string)p["source"],
+        SubRule = (string)p["sub_rule"] ?? "riichi/standard",
         Room = Values(p["room"]), Values = Values(p["values"]),
     }).ToArray());
 

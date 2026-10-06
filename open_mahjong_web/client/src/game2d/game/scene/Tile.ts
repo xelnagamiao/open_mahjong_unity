@@ -62,6 +62,8 @@ export class Tile extends Container {
   pos = 0
   /** Stack offset for added-kong tiles. */
   posy = 0
+  /** 备用 101/102 叠牌显式继承基础牌朝向，不能从叠牌偏移推断为横牌。 */
+  meldStackRotation: number | null = null
 
   private readonly bg: Graphics
   private readonly cover: Graphics

@@ -10,6 +10,8 @@ public sealed class GuizhouGameState : TurnBasedGameState {
     public static GuizhouGameState Active => RuleRegistry.ActiveGameState as GuizhouGameState;
     public GuizhouInfo Info { get; private set; }
     private Dictionary<int, int[]> endHands;
+    private readonly GuizhouAskClock askClock = new GuizhouAskClock();
+    private int clockHandNumber;
     public override bool IsSelfLocked => SeatHasTag("self", tag => tag == "declared_ready");
 
     private void Accept(GameInfo info) {
@@ -21,6 +23,8 @@ public sealed class GuizhouGameState : TurnBasedGameState {
     }
 
     protected override void OnRoundStarted(GameInfo info) {
+        int nextHand = info?.guizhou_info?.hand_number ?? 0;
+        if (nextHand != clockHandNumber) { askClock.Reset(); clockHandNumber = nextHand; }
         Info = null; endHands = null; Accept(info);
         // game_start (including reconnect) builds all tiles as held tiles.
         // Restore the authoritative draw slot before accepting a tile click.
@@ -30,11 +34,38 @@ public sealed class GuizhouGameState : TurnBasedGameState {
             GameCanvas.Instance.ChangeHandCards("GetCardNoAnimation", tiles[tiles.Length - 1], null, null);
         }
     }
-    protected override void OnAskHandAction(Response response) { Accept(response.game_info); base.OnAskHandAction(response); }
+    protected override void OnAskHandAction(Response response) {
+        Accept(response.game_info);
+        var info = response.ask_hand_action_info;
+        if (info == null || (info.player_index == Session.SelfIndex && askClock.IsClosed(info.action_tick))) return;
+        if (info.player_index == Session.SelfIndex && (info.action_list == null || info.action_list.Length == 0)) {
+            Clock.Clear("guizhouNoDecision");
+            return;
+        }
+        base.OnAskHandAction(response);
+        PresentAskClock(response, info.action_tick, info.remaining_time, info.step_remaining ?? Session.RoomStepTime);
+    }
     protected override void OnAskClaim(Response response) {
         Accept(response.game_info);
+        var info = response.ask_other_action_info;
+        if (info == null || askClock.IsClosed(info.action_tick)) return;
         Clock.PendingAskFromJiagang = Info?.phase == "waiting_action_qianggang";
         base.OnAskClaim(response);
+        PresentAskClock(response, info.action_tick, info.remaining_time, info.is_tactical_recheck == true ? 0 : info.step_remaining ?? Session.RoomStepTime);
+    }
+    private void PresentAskClock(Response response, int tick, int bank, int step) {
+        if (!Clock.IsSelfActionRequired || Clock.AllowActionList.Count == 0) return;
+        var precise = Info?.action_clock;
+        double now = GuizhouAskClock.Now;
+        askClock.Project(tick,
+            precise?.action_tick == tick ? precise.remaining_time : bank,
+            precise?.action_tick == tick ? precise.step_remaining : step,
+            response.received_monotonic ?? now, now, out double bankSeconds, out double stepSeconds);
+        GameCanvas.Instance.LoadingRemianTime(bankSeconds, stepSeconds);
+    }
+    public override void OnAskWindowClosed(AskCloseReason reason) {
+        if (reason == AskCloseReason.Acted || reason == AskCloseReason.TimedOut) askClock.Close();
+        base.OnAskWindowClosed(reason);
     }
     protected override void OnDoAction(Response response) {
         Accept(response.game_info);
@@ -104,5 +135,5 @@ public sealed class GuizhouGameState : TurnBasedGameState {
         GuizhouLedgerPanel.Show(Info);
         base.OnReadyStatus(response);
     }
-    public override void OnSessionReset() { Info = null; endHands = null; GuizhouLedgerPanel.Hide(); }
+    public override void OnSessionReset() { askClock.Reset(); clockHandNumber = 0; Info = null; endHands = null; GuizhouLedgerPanel.Hide(); }
 }

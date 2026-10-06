@@ -6,6 +6,7 @@ from . import blood_battle
 from .action_check import check_action_after_cut, check_action_jiagang, refresh_waiting_tiles
 from .boardcast import broadcast_do_action, broadcast_ready_status, broadcast_ask_other_action
 from ..public.logic_common import get_index_relative_position
+from ..public.player_count import game_player_count
 from ..public.game_record_manager import (
     player_action_record_cut,
     player_action_record_angang,
@@ -52,7 +53,7 @@ def select_tactical_initial_submission(game_state, submissions):
         candidates,
         key=lambda item: (
             game_state.action_priority.get(item[1].get("action_type"), -1),
-            (item[0] - discarder) % 4,
+            (item[0] - discarder) % game_player_count(game_state),
         ),
     )
 
@@ -88,7 +89,7 @@ async def wait_action(self):
     # 玩家可能在询问广播尚未遍历完四家时就已回复。这里若无条件清空，
     # 会把本轮的有效回复一并删除，牌局只能等到超时。仅丢弃明确属于旧 tick 的操作。
     expected_action_tick = getattr(self, "server_action_tick", None)
-    for i in range(4):
+    for i in range(len(self.player_list)):
         retained_actions = []
         while not self.action_queues[i].empty():
             try:
@@ -499,7 +500,7 @@ async def wait_action(self):
                                 break
                     self.player_list[player_index].combination_tiles.append(f"k{normal_tile}")
                     # 获取相对位置 (操作者, 出牌者)
-                    relative_position = get_index_relative_position(player_index, self.current_player_index)
+                    relative_position = get_index_relative_position(player_index, self.current_player_index, len(self.player_list))
                     combination_target = f"k{normal_tile}"
                     if relative_position == "left":
                         combination_mask = [1,tile_id,0,tile_id,0,tile_id]
@@ -526,7 +527,7 @@ async def wait_action(self):
                                 break
                     self.player_list[player_index].combination_tiles.append(f"g{normal_tile}")
                     # 获取相对位置 (操作者, 出牌者)
-                    relative_position = get_index_relative_position(player_index, self.current_player_index)
+                    relative_position = get_index_relative_position(player_index, self.current_player_index, len(self.player_list))
                     combination_target = f"g{normal_tile}"
                     if relative_position == "left":
                         combination_mask = [1,tile_id,0,tile_id,0,tile_id,0,tile_id]
@@ -559,7 +560,7 @@ async def wait_action(self):
                     discarder_index = self.current_player_index  # 转移前即为被认走的打牌者，供客户端精确移除其牌河弃牌
                     if blood_battle.enabled(self) and action_type.startswith("chi_"):
                         others = combination_mask[2:]
-                        relative = get_index_relative_position(player_index, discarder_index)
+                        relative = get_index_relative_position(player_index, discarder_index, len(self.player_list))
                         combination_mask = (others[:2] + [1, tile_id] + others[2:] if relative == "top"
                                             else others + [1, tile_id] if relative == "right"
                                             else combination_mask)
@@ -653,7 +654,7 @@ async def wait_action(self):
                     self.hu_class = action_type
                     self.game_status = "check_hepai"
                     return
-                elif action_type == "pass":
+                elif is_decline_action(action_type):
                     self.jiagang_tile = None
                     self.qianggang_action_dict = {}
                     self.qianggang_responses = {}

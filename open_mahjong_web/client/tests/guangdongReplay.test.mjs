@@ -73,3 +73,17 @@ test('广东暗杠先公示牌种，回放中间两张正面、两侧背面', ()
   assert.equal(meld.tile, 0x41)
   assert.deepEqual(meld.concealed_face_down, [true, false, false, true])
 })
+
+test('战鸣申请只作表现，跳转不重复移牌；最终碰只认走一次', () => {
+  const r=new RecordReplay(fixture([['c',11,'F'],['ca',2,'g',11],['p',11,1]],{hands:[[11,12,13],[11,11,22],[],[]]}))
+  const before=r.build(0,1).snapshot
+  const afterClaim=r.build(0,2).snapshot
+  assert.deepEqual(afterClaim.seats.map(s=>s.hand_tiles),before.seats.map(s=>s.hand_tiles))
+  assert.deepEqual(afterClaim.seats.map(s=>s.melds),before.seats.map(s=>s.melds))
+  assert.deepEqual(afterClaim.seats[0].discard_pile,before.seats[0].discard_pile)
+  for(const node of [3,1,2,3]) {
+    const result=r.build(0,node).snapshot
+    assert.equal(result.seats[1].melds.length,node===3?1:0)
+    assert.equal(result.seats[0].discard_pile.length,node===3?0:1)
+  }
+})

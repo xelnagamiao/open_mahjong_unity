@@ -13,6 +13,7 @@ import asyncio
 import time
 import math
 import logging
+from copy import deepcopy
 from typing import Dict, List, Optional, Any
 
 from .action_check import (
@@ -152,8 +153,9 @@ class RiichiPlayer:
             self.has_draw_slot = True
 
     def get_gang_tile(self, tiles_list, gamestate):
-        # 从王牌区取岭上牌（王牌最靠右的那张）；同时从牌山头取一张补到王牌
-        element = tiles_list.pop(-1)
+        from ...game_calculation.riichi.sanma import replacement_index
+        # 三麻第 5~8 张补牌绕过所有宝牌/里宝指示牌；末尾仍保留 14 张。
+        element = tiles_list.pop(replacement_index(gamestate.rinshan_count, gamestate.sub_rule == 'riichi/sanma'))
         self.hand_tiles.append(element)
         self.has_draw_slot = True
         gamestate.rinshan_count += 1
@@ -166,7 +168,7 @@ class RiichiGameState:
     def __init__(self, game_server, room_data: dict, calculation_service: GameCalculationService, db_manager: DatabaseManager, gamestate_id: str):
         self.game_server = game_server
         from ...game_calculation.riichi.rule_config import normalize_riichi_config
-        self.detailed_config = normalize_riichi_config(room_data.get("detailed_config"))
+        self.detailed_config = normalize_riichi_config(room_data.get("detailed_config"), room_data.get("sub_rule"))
         self.calculation_service = calculation_service
         self.db_manager = db_manager
         self.gamestate_id = gamestate_id
@@ -227,7 +229,7 @@ class RiichiGameState:
         raw_starting = room_data.get("starting_score")
         self.starting_score: Optional[int] = int(raw_starting) if raw_starting is not None else None
         raw_starting_scores = room_data.get("starting_scores")
-        if raw_starting_scores and len(raw_starting_scores) == 4:
+        if raw_starting_scores and len(raw_starting_scores) == len(self.player_list):
             self.starting_scores: Optional[List[int]] = [int(x) for x in raw_starting_scores]
         else:
             self.starting_scores = None
@@ -256,10 +258,10 @@ class RiichiGameState:
         self.ron_player_index: Optional[int] = None
         self.jiagang_tile: Optional[int] = None
 
-        self.action_events: Dict[int, asyncio.Event] = {i: asyncio.Event() for i in range(4)}
-        self.action_queues: Dict[int, asyncio.Queue] = {i: asyncio.Queue() for i in range(4)}
+        self.action_events: Dict[int, asyncio.Event] = {i: asyncio.Event() for i in range(len(self.player_list))}
+        self.action_queues: Dict[int, asyncio.Queue] = {i: asyncio.Queue() for i in range(len(self.player_list))}
         self.waiting_players_list: List[int] = []
-        self.action_dict: Dict[int, list] = {i: [] for i in range(4)}
+        self.action_dict: Dict[int, list] = {i: [] for i in range(len(self.player_list))}
 
         self.action_priority: Dict[str, int] = {
             "hu_self": 6, "hu_first": 5, "hu_second": 4, "hu_third": 3,
@@ -397,11 +399,13 @@ class RiichiGameState:
         self.game_record["game_title"]["open_xiru"] = self.open_xiru
         self.game_record["game_title"]["open_tobi"] = self.open_tobi
 
-        scheduled_rounds = self.max_round * 4
+        scheduled_rounds = self.max_round * len(self.player_list)
         while True:
             if self.current_round > scheduled_rounds:
                 if self.max_round >= 4 or not self.open_xiru:
                     break
+            # 局差从开局计算，包含本局途中支付的立直供托。
+            self._begin_round_score_history()
             init_riichi_tiles(self)
             self._first_round_discards = []
             self._first_round_valid = True
@@ -481,12 +485,14 @@ class RiichiGameState:
                             self.action_dict[self.current_player_index].append("jiuzhongjiupai")
                         self.game_status = "waiting_hand_action"
 
-                    case "deal_card_after_gang":
+                    case "deal_card_after_gang" | "deal_card_after_nuki":
+                        is_nuki = self.game_status == 'deal_card_after_nuki'
                         if option(self, "furiten_clear") == "draw":
                             self.player_list[self.current_player_index].temp_furiten = False
                             if self.sync_furiten_tags():
                                 await self.broadcast_refresh_player_tag_list()
-                        self.total_kans += 1
+                        if not is_nuki:
+                            self.total_kans += 1
                         # 四杠散了判定：≥2 家合计 4 杠 → 等到本次岭上摸牌并打完后再判定流局
                         if self.total_kans >= 4 and option(self, 'four_kan_abort'):
                             players_with_kan = set()
@@ -499,19 +505,20 @@ class RiichiGameState:
 
                         self.refresh_waiting_tiles(self.current_player_index)
                         self.player_list[self.current_player_index].get_gang_tile(self.tiles_list, self)
-                        player_action_record_deal(self, deal_tile=self.player_list[self.current_player_index].hand_tiles[-1], deal_type="gd")
+                        player_action_record_deal(self, deal_tile=self.player_list[self.current_player_index].hand_tiles[-1], deal_type="nd" if is_nuki else "gd")
                         await self.broadcast_do_action(
-                            action_list=["deal_gang_tile"],
+                            action_list=["deal_nuki_tile" if is_nuki else "deal_gang_tile"],
                             action_player=self.current_player_index,
                             deal_tile=self.player_list[self.current_player_index].hand_tiles[-1],
                         )
                         # 暗杠：立即翻宝牌指示牌；明杠/加杠：延后到打完牌后翻，此处仅累加待翻数。
-                        if self._last_kan_type == "ankan" or option(self, "kan_dora_timing") == "immediate":
+                        if not is_nuki and (self._last_kan_type == "ankan" or option(self, "kan_dora_timing") == "immediate"):
                             await self._reveal_kan_dora()
-                        else:
+                        elif not is_nuki:
                             self._pending_kan_dora_count += 1
                         self._last_kan_type = None
-                        self.action_dict = check_action_hand_action(self, self.current_player_index, is_get_gang_tile=True)
+                        self.action_dict = check_action_hand_action(self, self.current_player_index,
+                            is_get_gang_tile=not is_nuki or option(self, 'nuki_rinshan'), is_nuki_tile=is_nuki)
                         self.game_status = "waiting_hand_action"
 
                     case "waiting_hand_action":
@@ -527,7 +534,7 @@ class RiichiGameState:
                         await self.wait_action()
 
                     case "onlycut_after_action":
-                        self.action_dict = {i: [] for i in range(4)}
+                        self.action_dict = {i: [] for i in range(len(self.player_list))}
                         self.action_dict[self.current_player_index] = ["cut"]
                         self.game_status = "waiting_hand_action"
 
@@ -536,20 +543,11 @@ class RiichiGameState:
                         break
 
             # 结算
-            scores_before = {p.original_player_index: p.score for p in self.player_list}
             await self._settle_round()
 
             record_fulu_rounds_for_players(self.player_list)
 
-            for p in self.player_list:
-                delta = p.score - scores_before[p.original_player_index]
-                if delta > 0:
-                    p.score_history.append(f"+{delta}")
-                elif delta < 0:
-                    p.score_history.append(f"-{abs(delta)}")
-                else:
-                    p.score_history.append("0")
-                p.round_number_history.append(self.current_round)
+            self._append_round_score_history()
 
             player_action_record_round_end(self)
 
@@ -656,11 +654,11 @@ class RiichiGameState:
 
             logger.info(f"进入下一局 current_round={self.current_round} honba={self.honba} riichi_sticks={self.riichi_sticks}")
 
-        finalize_scores(self)
+        self._finalize_scores_and_history()
         end_game_record(self)
         self.game_record['game_title']['riichi_points'] = {
             str(p.original_player_index): p.riichi_points for p in self.player_list}
-        assign_strict_final_ranks(self.player_list)
+        self._assign_final_ranks()
 
         from ...match.settlement import settle_ranked_game
         match_type = settle_ranked_game(self)
@@ -688,6 +686,38 @@ class RiichiGameState:
 
         await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
 
+    def _assign_final_ranks(self):
+        if option(self, 'tie_break') == 'shared':
+            # Use the pre-deposit scores: 400/300/300 rounding must not split a tie.
+            tie_scores = self._riichi_final_tie_scores
+            for player in self.player_list:
+                player.record_counter.rank_result = 1 + sum(
+                    score > tie_scores[player.original_player_index] for score in tie_scores.values())
+            self.player_list.sort(key=lambda p: (p.record_counter.rank_result, p.original_player_index))
+        else:
+            assign_strict_final_ranks(self.player_list)
+
+    def _begin_round_score_history(self):
+        self._round_scores_before = {p.original_player_index: p.score for p in self.player_list}
+        # 多家荣和逐次广播时，只在第一条计分板局差中计入已付供托。
+        self._score_history_scores_before = dict(self._round_scores_before)
+
+    def _append_round_score_history(self):
+        for p in self.player_list:
+            delta = p.score - self._round_scores_before[p.original_player_index]
+            p.score_history.append(f"+{delta}" if delta > 0 else str(delta))
+            p.round_number_history.append(self.current_round)
+
+    def _finalize_scores_and_history(self):
+        before = {p.original_player_index: p.score for p in self.player_list}
+        finalize_scores(self)
+        # 终局剩余供托按规则分配后，归入最后一行，保持历史累计与最终点数一致。
+        for p in self.player_list:
+            extra = p.score - before[p.original_player_index]
+            if extra and p.score_history:
+                delta = int(p.score_history[-1]) + extra
+                p.score_history[-1] = f"+{delta}" if delta > 0 else str(delta)
+
     # ========== 浪涌麻将（riichi/langyong）子规则 ==========
 
     def _is_langyong(self) -> bool:
@@ -709,7 +739,7 @@ class RiichiGameState:
     def _starting_score(self) -> int:
         if self.starting_score is not None:
             return self.starting_score
-        return 50000 if self._is_langyong() else 25000
+        return 35000 if self.sub_rule == "riichi/sanma" else 50000 if self._is_langyong() else 25000
 
     def _player_starting_score(self, original_index: int) -> int:
         if self.starting_scores is not None:
@@ -799,7 +829,7 @@ class RiichiGameState:
     def _rotate_seats(self):
         """过庄：player_index 0 恒为亲家，轮转座位编号。"""
         for p in self.player_list:
-            p.player_index = back_current_num(p.player_index)
+            p.player_index = back_current_num(p.player_index, len(self.player_list))
         self.player_list.sort(key=lambda x: x.player_index)
 
     async def _settle_round(self):
@@ -842,7 +872,7 @@ class RiichiGameState:
             round_after = self.current_round if renchan else self.current_round + 1
             ending = self._riichi_match_should_end(renchan, current_round=round_after)
             if not ending:
-                scheduled = self.max_round * 4
+                scheduled = self.max_round * len(self.player_list)
                 if round_after > scheduled and (self.max_round >= 4 or not self.open_xiru):
                     ending = True
             self.next_status = "match_end" if ending else "round_end_by_ready"
@@ -866,7 +896,7 @@ class RiichiGameState:
             round_after = self.current_round if renchan else self.current_round + 1
             ending = self._riichi_match_should_end(renchan, current_round=round_after)
             if not ending:
-                scheduled = self.max_round * 4
+                scheduled = self.max_round * len(self.player_list)
                 if round_after > scheduled and (self.max_round >= 4 or not self.open_xiru):
                     ending = True
             self.next_status = "match_end" if ending else "round_end_by_ready"
@@ -968,29 +998,15 @@ class RiichiGameState:
         def _mult(payer_index: int) -> int:
             return self._langyong_multiplier(payer_index, winner_index) if langyong else 1
 
-        score_changes = {i: 0 for i in range(4)}
+        score_changes = {i: 0 for i in range(len(self.player_list))}
         langyong_multiplier = None
         langyong_scored_points = None
         if self.hu_class == "hu_self":
-            # 自摸：每家支付，本场每家 +100
-            if is_dealer_win:
-                main_each = score_info.get("main", 0)  # 每家分摊
-                for i in range(4):
-                    if i == winner_index:
-                        continue
-                    pay = main_each * _mult(i)
-                    score_changes[i] -= pay + self.honba * 100
-                    score_changes[winner_index] += pay + self.honba * 100
-            else:
-                main = score_info.get("main", 0)  # 亲家支付
-                add = score_info.get("additional", 0)  # 子家支付
-                for i in range(4):
-                    if i == winner_index:
-                        continue
-                    base = main if i == 0 else add
-                    pay = base * _mult(i)
-                    score_changes[i] -= pay + self.honba * 100
-                    score_changes[winner_index] += pay + self.honba * 100
+            from ...game_calculation.riichi.sanma import tsumo_payments
+            for i, base in tsumo_payments(score_info, winner_index, len(self.player_list), option(self, 'sanma_tsumo')).items():
+                pay = base * _mult(i) + (self.honba * 100 if apply_honba else 0)
+                score_changes[i] -= pay
+                score_changes[winner_index] += pay
         else:
             # 荣和：出铳家全额支付；本场棒仅第一家荣和者收取
             loser_index = self.current_player_index
@@ -1005,7 +1021,7 @@ class RiichiGameState:
             if self.hu_class == "hu_self":
                 if is_dealer_win:
                     main_each = score_info.get("main", 0)
-                    for i in range(4):
+                    for i in range(len(self.player_list)):
                         if i == winner_index:
                             continue
                         m = _mult(i)
@@ -1014,7 +1030,7 @@ class RiichiGameState:
                 else:
                     main = score_info.get("main", 0)
                     add = score_info.get("additional", 0)
-                    for i in range(4):
+                    for i in range(len(self.player_list)):
                         if i == winner_index:
                             continue
                         base = main if i == 0 else add
@@ -1049,7 +1065,7 @@ class RiichiGameState:
             round_after = self.current_round if renchan else self.current_round + 1
             ending = self._riichi_match_should_end(renchan, current_round=round_after)
             if not ending:
-                scheduled = self.max_round * 4
+                scheduled = self.max_round * len(self.player_list)
                 if round_after > scheduled and (self.max_round >= 4 or not self.open_xiru):
                     ending = True
             self.next_status = "match_end" if ending else "round_end_by_ready"
@@ -1060,7 +1076,8 @@ class RiichiGameState:
         stats_yaku = [y for y in yaku if y != "错和"]
         winner.record_counter.recorded_fans.append(stats_yaku)
         winner.record_counter.win_score += han
-        winner.record_counter.win_turn += self.xunmu
+        # 与牌谱摘要相同：按本家历史弃牌数计算待和巡目，鸣走的弃牌仍计数。
+        winner.record_counter.win_turn += len(winner.discard_origin_tiles) + 1
         if self.hu_class == "hu_self":
             winner.record_counter.zimo_times += 1
         else:
@@ -1076,7 +1093,7 @@ class RiichiGameState:
             han=han,
             fu=fu,
             yaku=yaku,
-            score_changes=[score_changes.get(i, 0) for i in range(4)],
+            score_changes=[score_changes.get(i, 0) for i in range(len(self.player_list))],
             dora_indicators=list(self.dora_indicators) + list(self.kan_dora_indicators),
             ura_dora_indicators=list(self.ura_dora_indicators + self.ura_kan_dora_indicators) if "riichi" in self.player_list[winner_index].tag_list else [],
             aka_count=aka_count,
@@ -1131,10 +1148,10 @@ class RiichiGameState:
             return
         self.hepai_player_index = offender_index
 
-        score_changes = {i: 0 for i in range(4)}
+        score_changes = {i: 0 for i in range(len(self.player_list))}
         penalty = option(self, 'chombo_penalty')
         cuohe_total_penalty = 0
-        for i in range(4):
+        for i in range(len(self.player_list)):
             if i == offender_index:
                 continue
             pay_each = 0 if penalty == 'penalty_20000' else (
@@ -1178,7 +1195,7 @@ class RiichiGameState:
             han=han,
             fu=fu,
             yaku=yaku,
-            score_changes=[score_changes.get(i, 0) for i in range(4)],
+            score_changes=[score_changes.get(i, 0) for i in range(len(self.player_list))],
             dora_indicators=list(self.dora_indicators) + list(self.kan_dora_indicators),
             ura_dora_indicators=cuohe_ura_indicators,
             aka_count=aka_count,
@@ -1220,7 +1237,7 @@ class RiichiGameState:
         for p in self.player_list:
             p.score += changes[p.player_index]
         tenpai_flags = [1 if self._is_ryuukyoku_tenpai(p) else 0 for p in self.player_list]
-        player_action_record_ryuukyoku(self, tenpai_flags=tenpai_flags, score_changes=[changes.get(i, 0) for i in range(4)], reason="nagashi_mangan" if self.nagashi_mangan_winners else "exhaustive")
+        player_action_record_ryuukyoku(self, tenpai_flags=tenpai_flags, score_changes=[changes.get(i, 0) for i in range(len(self.player_list))], reason="nagashi_mangan" if self.nagashi_mangan_winners else "exhaustive")
         return changes
 
     def _is_ryuukyoku_tenpai(self, player: RiichiPlayer) -> bool:
@@ -1244,6 +1261,14 @@ class RiichiGameState:
         next_kan_number = len(self.kan_dora_indicators) + 1
         if next_kan_number > 4:
             return
+        if self.sub_rule == 'riichi/sanma':
+            new_ind = self._dora_slots[next_kan_number]
+            self.kan_dora_indicators.append(new_ind)
+            self.ura_kan_dora_indicators.append(self._ura_slots[next_kan_number])
+            player_action_record_new_dora(self, tile_id=new_ind)
+            if broadcast:
+                await broadcast_update_dora(self, new_indicator=new_ind, is_kan_dora=True)
+            return new_ind
         idx = -(6 + 2 * next_kan_number) + self.rinshan_count
         if -idx > self.dead_wall_count or -idx > len(self.tiles_list):
             return
@@ -1284,11 +1309,11 @@ class RiichiGameState:
         """四风连打：首巡 4 家均切出相同风牌且无鸣牌"""
         if not option(self, "four_winds_abort") or not self._first_round_valid:
             return False
-        if any(p.combination_tiles for p in self.player_list):
+        if any(p.combination_tiles or p.huapai_list for p in self.player_list):
             return False
         first_discards = []
         for p in self.player_list:
-            if p.combination_tiles:
+            if p.combination_tiles or p.huapai_list:
                 return False
             if len(p.discard_origin_tiles) != 1:
                 return False
@@ -1310,11 +1335,16 @@ class RiichiGameState:
         if len(player.discard_origin_tiles) > 0:
             return False
         for p in self.player_list:
-            if p.combination_tiles:
+            if p.combination_tiles or p.huapai_list:
                 return False
         return check_jiuzhongjiupai(player.hand_tiles)
 
     # ========== 观战 ==========
+
+    def complete_spectator_record(self, record):
+        # 终局供托分配、实点和顺位点只在结算后写入正式牌谱，不能沿用开局缓存。
+        record.setdefault('game_title', {}).update(deepcopy(self.game_record.get('game_title', {})))
+        return record
 
     async def send_realtime_spectator_snapshot(self, spectator_user_id: int, view_player_index: int):
         """实时观战接入：按被观战座位视角补发 game_start 与当前 pending ask，与断线重连一致。"""

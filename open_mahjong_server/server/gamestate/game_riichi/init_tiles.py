@@ -15,6 +15,8 @@ def init_riichi_tiles(self):
         41, 42, 43, 44,
         45, 46, 47,
     ]
+    if getattr(self, 'sub_rule', None) == 'riichi/sanma':
+        tile_ids = [tile for tile in tile_ids if tile not in range(12, 19)]
     self.tiles_list = []
     for tile in tile_ids:
         self.tiles_list.extend([tile] * 4)
@@ -39,8 +41,11 @@ def _shuffle_and_deal(self) -> None:
 
     # 王牌区（dead wall）：最后 14 张固定保留；倒数第 6 张为首张宝牌指示牌，倒数第 5 张为首张里宝牌指示牌。
     self.dead_wall_count = 14
-    self.dora_indicators = [self.tiles_list[-6]]
+    offset = 6
+    self._dora_slots = [self.tiles_list[-offset - 2 * i] for i in range(5)]
+    self._ura_slots = [self.tiles_list[-offset + 1 - 2 * i] for i in range(5)]
+    self.dora_indicators = [self._dora_slots[0]]
     self.kan_dora_indicators = []
-    self.ura_dora_indicators = [self.tiles_list[-5]]
+    self.ura_dora_indicators = [self._ura_slots[0]]
     self.ura_kan_dora_indicators = []
     self.rinshan_count = 0

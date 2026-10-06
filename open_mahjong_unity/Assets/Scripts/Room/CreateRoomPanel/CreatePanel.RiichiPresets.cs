@@ -35,7 +35,7 @@ public partial class CreatePanel {
         selectedRiichiPresetIndex = index;
         var scrollPosition = RoomContent.anchoredPosition;
         var values = RiichiRoomRules.Presets[index].Room;
-        SubRuleDropdown.SetValueWithoutNotify(0);
+        SubRuleDropdown.SetValueWithoutNotify(Array.FindIndex(RiichiLobby.SubRules, sub => sub.Key == RiichiRoomRules.Presets[index].SubRule));
         SelectGameTime((int)values["game_round"]);
         RiichiStartingScoreInput.text = values["starting_score"].ToString();
         RedDoraToggle.SetIsOnWithoutNotify((bool)values["red_dora"]);
@@ -54,7 +54,7 @@ public partial class CreatePanel {
 
     private bool RiichiPresetMatches(int index) {
         var state = GetDetailedConfigState("riichi");
-        if (state == null || SubRuleDropdown.value != 0) return false;
+        if (state == null || GetSelectedRiichiSubRule() != RiichiRoomRules.Presets[index].SubRule) return false;
         if (!DetailedConfigPresetMatches(state, state.Definition.Presets[index])) return false;
         var values = RiichiRoomRules.Presets[index].Room;
         return GetSelectedGameTime() == (int)values["game_round"]

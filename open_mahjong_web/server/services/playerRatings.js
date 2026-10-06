@@ -1,7 +1,9 @@
 const { getScoreBounds, getPromotionProgress } = require('../utils/rankNames');
 
-const RATED_RULES = ['guobiao', 'riichi', 'qingque', 'sichuan'];
-const GRADE_RULES = new Set(['guobiao', 'riichi']);
+const RATED_RULES = ['guobiao', 'riichi', 'qingque', 'sichuan', 'riichi_sanma', 'sichuan_xueliu_exchange'];
+const GRADE_RULES = new Set(['guobiao', 'riichi', 'riichi_sanma']);
+const ratingRule = row => row.rule === 'riichi' && row.sub_rule === 'riichi/sanma' ? 'riichi_sanma'
+  : row.rule === 'sichuan' && row.sub_rule === 'sichuan/xueliu_exchange' ? 'sichuan_xueliu_exchange' : row.rule;
 
 function numberOrNull(value) {
   if (value == null || (typeof value === 'string' && value.trim() === '') || !['number', 'string'].includes(typeof value)) return null;
@@ -31,7 +33,7 @@ async function queryPlayerRatings(db, userId, nationalRank) {
       system: graded ? 'grade' : 'elo',
       rank_name: graded ? rankName : '',
       rank_score: graded ? score : 0,
-      elo: numberOrNull(row.elo) ?? 1500,
+      ...(graded ? {} : { elo: numberOrNull(row.elo) ?? 1500 }),
       games: numberOrNull(row.games) ?? 0,
       updated_at: rule === 'guobiao' ? (nationalRank.updated_at || null) : (row.updated_at || null),
       bounds: graded ? getScoreBounds(rankName) : null,
@@ -51,11 +53,15 @@ async function queryRankedStats(db, userId) {
   let rows;
   try {
     ({ rows } = await db.query(`
-      SELECT rule, match_type AS mode, COUNT(*)::int AS total_games,
+      SELECT CASE WHEN rule='sichuan' AND sub_rule='sichuan/xueliu_exchange'
+          THEN 'sichuan_xueliu_exchange' ELSE rule END AS rule,
+        match_type AS mode, COUNT(*)::int AS total_games,
         ${METRIC_FIELDS.map(field => `COALESCE(SUM(${field}), 0) AS ${field}`).join(', ')}
       FROM game_player_metrics
       WHERE user_id = $1 AND room_type = 'match' AND rule = ANY($2::text[])
-      GROUP BY rule, match_type ORDER BY rule, match_type
+      GROUP BY CASE WHEN rule='sichuan' AND sub_rule='sichuan/xueliu_exchange'
+          THEN 'sichuan_xueliu_exchange' ELSE rule END, match_type
+      ORDER BY rule, match_type
     `, [userId, RATED_RULES]));
   } catch (error) {
     if (error.code !== '42P01') throw error;
@@ -67,6 +73,26 @@ async function queryRankedStats(db, userId) {
       rule: row.rule, mode: row.mode, total_games: Number(row.total_games),
       ...Object.fromEntries(METRIC_FIELDS.map(field => [field, numberOrNull(row[field]) ?? 0])),
     });
+  }
+  const { aggregateRiichiStats, fetchRiichiRows } = require('./riichiStats');
+  let riichiRows;
+  try {
+    riichiRows = await fetchRiichiRows(db,
+      ["gpr.user_id=$1", "gpr.rule='riichi'", "gpr.room_type='match'"], [userId]);
+  } catch (error) {
+    if (error.code === '42P01') return result;
+    throw error;
+  }
+  const modes = new Map();
+  for (const row of riichiRows) {
+    if (!modes.has(row.mode)) modes.set(row.mode, []);
+    modes.get(row.mode).push(row);
+  }
+  result.riichi = [];
+  result.riichi_sanma = [];
+  for (const [mode, entries] of modes) {
+    const rule = mode.includes('_sanma') ? 'riichi_sanma' : 'riichi';
+    result[rule].push({ ...aggregateRiichiStats(entries), rule, mode });
   }
   return result;
 }
@@ -84,26 +110,27 @@ async function queryRecordRatings(db, playerRows) {
 }
 
 function recordRatingFields(row, results) {
-  const graded = GRADE_RULES.has(row.rule);
+  const rule = ratingRule(row);
+  const graded = GRADE_RULES.has(rule);
   const savedPt = numberOrNull(row.pt_change);
   const payload = results?.[String(row.user_id)];
   const system = graded ? 'grade' : 'elo';
   const rated = row.room_type === 'match' && RATED_RULES.includes(row.rule);
   const valid = rated && payload && typeof payload === 'object' && !Array.isArray(payload)
-    && payload.rating_rule === row.rule && payload.rating_system === system;
+    && payload.rating_rule === rule && payload.rating_system === system;
   const pt = graded && rated ? (savedPt ?? (valid ? numberOrNull(payload.rating_pt) : null)) : null;
   return {
     pt_change: rated && !graded ? null : (savedPt ?? pt),
-    rating_rule: valid || pt != null ? row.rule : null,
+    rating_rule: valid || pt != null ? rule : null,
     rating_system: valid || pt != null ? system : null,
     rating_pt: pt,
     rank_before: valid && graded && typeof payload.rank_before === 'string' ? payload.rank_before : null,
     rank_after: valid && graded && typeof payload.rank_after === 'string' ? payload.rank_after : null,
     score_before: valid && graded ? numberOrNull(payload.score_before) : null,
     score_after: valid && graded ? numberOrNull(payload.score_after) : null,
-    elo_before: valid ? numberOrNull(payload.elo_before) : null,
-    elo_after: valid ? numberOrNull(payload.elo_after) : null,
-    elo_delta: valid ? numberOrNull(payload.elo_delta) : null,
+    elo_before: valid && !graded ? numberOrNull(payload.elo_before) : null,
+    elo_after: valid && !graded ? numberOrNull(payload.elo_after) : null,
+    elo_delta: valid && !graded ? numberOrNull(payload.elo_delta) : null,
     rating_games: valid ? numberOrNull(payload.rating_games) : null,
   };
 }

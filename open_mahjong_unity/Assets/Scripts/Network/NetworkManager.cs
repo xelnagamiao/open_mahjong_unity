@@ -28,8 +28,17 @@ public partial class NetworkManager : MonoBehaviour {
     private bool suppressConnectionFailureUi = false;
     private Coroutine loginConnectionRestartCoroutine;
     private int loginConnectionRestartVersion;
-    private Queue<byte[]> messageQueue = new Queue<byte[]>(); // 定义消息队列
-    private readonly Queue<byte[]> priorityMessageQueue = new Queue<byte[]>(); // 需立即处理的消息（如 match/match_found）
+    private readonly struct IncomingMessage {
+        public readonly byte[] Bytes;
+        public readonly double ReceivedAt;
+        public IncomingMessage(byte[] bytes) {
+            Bytes = bytes;
+            ReceivedAt = System.Diagnostics.Stopwatch.GetTimestamp()
+                / (double)System.Diagnostics.Stopwatch.Frequency;
+        }
+    }
+    private Queue<IncomingMessage> messageQueue = new Queue<IncomingMessage>();
+    private readonly Queue<IncomingMessage> priorityMessageQueue = new Queue<IncomingMessage>();
     private const string MatchFoundTypeJson = "\"type\":\"match/match_found\"";
 
     public GameEvent ErrorResponse = new GameEvent(); // 定义错误响应事件
@@ -85,16 +94,17 @@ public partial class NetworkManager : MonoBehaviour {
     }
 
     private void EnqueueIncomingMessage(byte[] bytes) {
+        var incoming = new IncomingMessage(bytes);
         lock (messageQueue) {
             if (IsMatchFoundMessage(bytes)) {
-                priorityMessageQueue.Enqueue(bytes);
+                priorityMessageQueue.Enqueue(incoming);
             } else {
-                messageQueue.Enqueue(bytes);
+                messageQueue.Enqueue(incoming);
             }
         }
     }
 
-    private bool TryDequeueNextMessage(out byte[] message) {
+    private bool TryDequeueNextMessage(out IncomingMessage message) {
         lock (messageQueue) {
             if (priorityMessageQueue.Count > 0) {
                 message = priorityMessageQueue.Dequeue();
@@ -105,7 +115,7 @@ public partial class NetworkManager : MonoBehaviour {
                 return true;
             }
         }
-        message = null;
+        message = default;
         return false;
     }
 
@@ -461,8 +471,8 @@ public partial class NetworkManager : MonoBehaviour {
 #endif
 
         // 处理消息队列（match/match_found 等优先消息先于普通队列）
-        if (TryDequeueNextMessage(out byte[] message)) {
-            Get_Message(message);
+        if (TryDequeueNextMessage(out IncomingMessage message)) {
+            Get_Message(message.Bytes, message.ReceivedAt);
         }
 
         // 处理主线程调度器
@@ -572,7 +582,8 @@ public partial class NetworkManager : MonoBehaviour {
                     response.user_settings.title_id,
                     response.user_settings.profile_image_id,
                     response.user_settings.character_id,
-                    response.user_settings.voice_id
+                    response.user_settings.voice_id,
+                    response.user_settings.avatar_frame_id
                 );
             }
             if (response.rank_data != null) {
@@ -614,7 +625,7 @@ public partial class NetworkManager : MonoBehaviour {
     }
 
     // 3.Get_Message方法用于处理服务器返回的消息
-    private void Get_Message(byte[] bytes){
+    private void Get_Message(byte[] bytes, double? receivedAt = null){
         try{
             string jsonStr = System.Text.Encoding.UTF8.GetString(bytes);
             // 心跳响应频繁出现，跳过日志避免刷屏
@@ -622,6 +633,8 @@ public partial class NetworkManager : MonoBehaviour {
                 Debug.Log($"收到服务器消息: {jsonStr}");
             }
             var response = JsonConvert.DeserializeObject<Response>(jsonStr);
+            response.received_monotonic = receivedAt ?? (System.Diagnostics.Stopwatch.GetTimestamp()
+                / (double)System.Diagnostics.Stopwatch.Frequency);
 
             if (response.type != null && response.type.StartsWith("inventory/")) {
                 HandleInventoryResponse(response);
@@ -689,6 +702,7 @@ public partial class NetworkManager : MonoBehaviour {
                 case "data/get_qingque_stats":
                 case "data/get_classical_stats":
                 case "data/get_jiandan_stats":
+                case "data/get_rule_stats":
                 case "data/get_leaderboard":
                 case "data/get_rank_record_list":
                 case "data/get_ranked_stats":

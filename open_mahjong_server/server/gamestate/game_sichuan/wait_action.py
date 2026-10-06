@@ -36,9 +36,11 @@ from ..public.claim_protection import (
     finalize_claim_protection,
     )
 from ..public.tactical_claim import (
-    init_tactical_round_state,
     apply_tactical_claim_if_needed,
+    is_decline_action,
+    tactical_mark_player_force_passed,
 )
+from .action_window import prepare_action_window
 from ..public.ask_timing import get_ask_elapsed, note_ask_delivered
 from .boardcast import _send_do_action_payload_to_viewer
 
@@ -97,32 +99,9 @@ async def _handle_cut_shunhe(self, player, was_tenpai: bool):
 
 
 async def wait_action(self):
-    self.waiting_players_list = []
-
-
-    for i in range(4):
-        # 血流询问已在进入等待前发出，快速客户端的当前帧响应可能已经入队。
-        # 由下方 action_tick 校验丢弃旧帧，不能无条件清掉合法响应。
-        if getattr(self, "is_xueliu", False):
-            continue
-        while not self.action_queues[i].empty():
-            try:
-                self.action_queues[i].get_nowait()
-            except Exception:
-                break
-
-    for player_index, action_list in self.action_dict.items():
-        if action_list:
-            self.waiting_players_list.append(player_index)
-            if self.action_queues[player_index].empty():
-                self.action_events[player_index].clear()
-            else:
-                self.action_events[player_index].set()
-
+    prepare_action_window(self)
     for player_index in self.waiting_players_list:
         note_ask_delivered(self, player_index)
-
-    init_tactical_round_state(self)
 
     player_index = None
     action_data = None
@@ -174,6 +153,8 @@ async def wait_action(self):
                         continue
                 if temp_action_type == "hu":
                     accepted_winners.add(temp_player_index)
+                elif temp_action_type == "force_pass":
+                    tactical_mark_player_force_passed(self, temp_player_index)
                 temp_action_data = dict(temp_action_data)
                 used_int_time = int(get_ask_elapsed(self, temp_player_index))
                 if timeout_grace > 0 and used_int_time >= timeout_grace:
@@ -202,7 +183,7 @@ async def wait_action(self):
 
                 tactical_immediate_break = (
                     getattr(self, "tactical_call", False)
-                    and temp_action_type != "pass"
+                    and not is_decline_action(temp_action_type)
                     and self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
                 )
                 if do_interrupt or (tactical_immediate_break and not xueliu_claim_window):
@@ -222,6 +203,9 @@ async def wait_action(self):
     )
 
     if xueliu_claim_window:
+        # 战术再问中抢断碰/杠的和牌也属于本轮有效响应，不能被主询问的集合过滤掉。
+        if action_type == "hu" and player_index is not None:
+            accepted_winners.add(player_index)
         skipped = set(self.sichuan_hu_results) - accepted_winners
         if apply_passed_win_shunhe(self, skipped):
             await broadcast_refresh_player_tag_list(self)
@@ -498,7 +482,7 @@ async def wait_action(self):
                         self.game_status = "onlycut_after_action"
                     return
 
-                if action_type == "pass":
+                if is_decline_action(action_type):
                     flush_unexecuted_claim_applications(self, tile_id)
                     await finalize_claim_protection(self, _send_do_action_payload_to_viewer)
                     if player_has_ron_hu_result(self, player_index):
@@ -598,7 +582,7 @@ async def wait_action(self):
                 self.game_status = "settle_win"
                 return
             else:
-                if action_data and action_type == "pass":
+                if action_data and is_decline_action(action_type):
                     passed_indexes = (
                         [player_index] if player_has_ron_hu_result(self, player_index) else []
                     )

@@ -10,12 +10,14 @@ public sealed class HangzhouGameState : TurnBasedGameState {
     public static HangzhouGameState Active => RuleRegistry.ActiveGameState as HangzhouGameState;
     public HangzhouInfo Info { get; private set; }
     public readonly HangzhouHintsCache Hints = new HangzhouHintsCache();
+    private readonly HangzhouAskClock askClock = new HangzhouAskClock();
     public override bool IsSelfLocked => Info?.forced_draw_discard != null && Session.SelfIndex >= 0 && Session.SelfIndex < Info.forced_draw_discard.Length && Info.forced_draw_discard[Session.SelfIndex];
     private void Accept(HangzhouInfo info) {
         if (info == null) return;
         Info = info; Hints.Accept(info); HangzhouStatePanel.Show(info);
     }
     protected override void OnRoundStarted(GameInfo info) {
+        BindClockRound(info);
         Info = null; Hints.Reset(); Accept(info?.hangzhou_info);
         if (Info?.self_has_draw_slot == true && Mirror.SelfHandTiles.Count > 0) {
             var hand = Mirror.SelfHandTiles.ToArray();
@@ -23,8 +25,43 @@ public sealed class HangzhouGameState : TurnBasedGameState {
             GameCanvas.Instance.ChangeHandCards("GetCardNoAnimation", hand[hand.Length - 1], null, null);
         }
     }
-    protected override void OnAskHandAction(Response response) { Accept(response.game_info?.hangzhou_info); Accept(response.ask_hand_action_info?.hangzhou_info); base.OnAskHandAction(response); }
-    protected override void OnAskClaim(Response response) { Accept(response.game_info?.hangzhou_info); base.OnAskClaim(response); }
+    private void BindClockRound(GameInfo info) {
+        if (info == null) return;
+        askClock.BindRound(info.gamestate_id, info.hangzhou_info?.hand_number ?? info.current_round,
+            info.view_player_index ?? Session.SelfIndex);
+    }
+    protected override void OnAskHandAction(Response response) {
+        Accept(response.game_info?.hangzhou_info); Accept(response.ask_hand_action_info?.hangzhou_info);
+        BindClockRound(response.game_info);
+        var info = response.ask_hand_action_info;
+        if (info == null || askClock.IsClosed(info.action_tick)) return;
+        int bank = info.remaining_time;
+        int? step = info.step_remaining;
+        askClock.Project(info.action_tick, bank, step ?? Session.RoomStepTime,
+            response.received_monotonic ?? HangzhouAskClock.Now, HangzhouAskClock.Now,
+            out info.remaining_time, out int projectedStep);
+        info.step_remaining = projectedStep;
+        try { base.OnAskHandAction(response); }
+        finally { info.remaining_time = bank; info.step_remaining = step; }
+    }
+    protected override void OnAskClaim(Response response) {
+        Accept(response.game_info?.hangzhou_info);
+        BindClockRound(response.game_info);
+        var info = response.ask_other_action_info;
+        if (info == null || askClock.IsClosed(info.action_tick)) return;
+        int bank = info.remaining_time;
+        int? step = info.step_remaining;
+        askClock.Project(info.action_tick, bank, info.is_tactical_recheck == true ? 0 : step ?? Session.RoomStepTime,
+            response.received_monotonic ?? HangzhouAskClock.Now, HangzhouAskClock.Now,
+            out info.remaining_time, out int projectedStep);
+        info.step_remaining = projectedStep;
+        try { base.OnAskClaim(response); }
+        finally { info.remaining_time = bank; info.step_remaining = step; }
+    }
+    public override void OnAskWindowClosed(AskCloseReason reason) {
+        if (reason == AskCloseReason.Acted || reason == AskCloseReason.TimedOut) askClock.Close();
+        base.OnAskWindowClosed(reason);
+    }
     protected override void OnDoAction(Response response) { Accept(response.game_info?.hangzhou_info); Accept(response.do_action_info?.hangzhou_info); base.OnDoAction(response); }
     public static bool IsPiaoDiscard(TableAction action) => action != null && !action.Silent && !action.ConcealedDiscard && action.HasWord("cut") && action.ResolveCutTiles().Contains(Joker);
     protected override void OnBeforeActionPlayed(TableAction action) {
@@ -52,5 +89,5 @@ public sealed class HangzhouGameState : TurnBasedGameState {
         Clock.LastAskActionTick = response.ready_status_info.action_tick;
         Accept(response.ready_status_info.hangzhou_info); base.OnReadyStatus(response);
     }
-    public override void OnSessionReset() { Info = null; Hints.Reset(); HangzhouStatePanel.Hide(); }
+    public override void OnSessionReset() { askClock.Reset(); Info = null; Hints.Reset(); HangzhouStatePanel.Hide(); }
 }

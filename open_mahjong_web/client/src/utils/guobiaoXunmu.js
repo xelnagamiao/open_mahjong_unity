@@ -1,6 +1,6 @@
 /**
  * 国标巡目按庄家巡计算（当局 player_index 0 为庄），与对局进程 player_index_go_to 一致。
- * 指针回绕且庄家牌河当前非空才 +1；庄家弃牌被鸣走后河空，不加巡。
+ * 指针回绕且庄家曾出牌才 +1；同时保留牌河和被鸣走的弃牌数量。
  */
 
 export function createGuobiaoXunmuClock(startSeat = 0) {
@@ -10,6 +10,7 @@ export function createGuobiaoXunmuClock(startSeat = 0) {
     history: [],
     xunmu: 1,
     eastRiver: 0,
+    eastOrigin: 0,
   }
 }
 
@@ -19,7 +20,7 @@ export function guobiaoXunmuGoTo(clock, seat) {
     clock.history.length
     && next !== clock.history[clock.history.length - 1]
     && next < clock.history[clock.history.length - 1]
-    && clock.eastRiver > 0
+    && (clock.eastRiver > 0 || clock.eastOrigin > 0)
   ) {
     clock.xunmu += 1
   }
@@ -32,6 +33,9 @@ export function guobiaoXunmuOnCut(clock) {
 }
 
 export function guobiaoXunmuOnClaim(clock, seat) {
-  if (clock.currentSeat === 0 && clock.eastRiver > 0) clock.eastRiver -= 1
+  if (clock.currentSeat === 0 && clock.eastRiver > 0) {
+    clock.eastRiver -= 1
+    clock.eastOrigin += 1
+  }
   guobiaoXunmuGoTo(clock, seat)
 }

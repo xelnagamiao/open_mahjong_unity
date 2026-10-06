@@ -224,7 +224,9 @@ def queue_type_to_game_round(queue_type: str) -> int:
 def queue_type_to_match_type(queue_type: str) -> str:
     """队列类型转统计 mode（如 1/4_rank）"""
     game_round = queue_type_to_game_round(queue_type)
-    return f"{game_round}/4_rank"
+    from .rating_rules import QUEUES
+    spec = QUEUES.get(queue_type)
+    return f"{game_round}/4" + ("_sanma" if spec and spec.player_count == 3 else "") + "_rank"
 
 
 def queue_type_to_display_name(queue_type: str) -> str:
@@ -234,7 +236,7 @@ def queue_type_to_display_name(queue_type: str) -> str:
     if spec and spec.rule != 'guobiao':
         tier = {'beginner':'初级场','intermediate':'中级场','advanced':'高级场','elo':'Elo 匹配'}[spec.tier]
         mode = {'dongfeng':'东风战','banzhuang':'半庄战','quanzhuang':'全庄战','xuezhan':'血战到底'}[spec.mode]
-        return f'{RULES[spec.rule]} · {tier} · {mode}'
+        return f'{RULES[spec.rating_rule]} · {tier} · {mode}'
     parsed = parse_queue_type(queue_type)
     if not parsed:
         return queue_type
@@ -250,13 +252,15 @@ def queue_type_to_room_config(queue_type: str) -> dict:
     spec = QUEUES.get(queue_type)
     if spec and spec.rule != 'guobiao':
         config = queue_type_to_room_config('beginner_dongfeng')
-        config.update(room_rule=spec.rule, sub_rule=f'{spec.rule}/standard', game_round=spec.rounds,
+        config.update(room_rule=spec.rule, sub_rule=spec.sub_rule or f'{spec.rule}/standard', game_round=spec.rounds,
                       match_tier=spec.tier, hepai_limit=0 if spec.rule == 'sichuan' else 1, open_cuohe=False,
                       step_timer=8 if spec.tier=='intermediate' else 5,
                       tactical_call=False, tips=spec.tier in ('beginner','elo'), pointer_tips=True)
+        if spec.sub_rule == 'sichuan/xueliu_exchange':
+            config.update(blood_battle=False, detailed_config={'xueliu_exchange_scoring': True})
         if spec.rule == 'riichi':
             from ..game_calculation.riichi.rule_config import preset_room_config
-            config.update(preset_room_config('tenhou'))
+            config.update(preset_room_config('sanma_tenhou' if spec.player_count == 3 else 'mleague'))
             config.update(game_round=spec.rounds, tips=False, count_tips=spec.tier == 'beginner')
         return config
     parsed = parse_queue_type(queue_type)

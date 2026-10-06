@@ -131,13 +131,13 @@ Unity 接收 inventory/state（自己的持有量和装备）及 inventory/updat
 
 Node 代理到既有 calcServer.baseUrl 的 Python `/admin/inventory/...`，传递实际管理员 Bearer token。Python 调用 Node `/api/admin/auth/me` 再次验证操作者。认证地址优先使用 `INVENTORY_ADMIN_AUTH_URL`；未设置时读取同工作区 `open_mahjong_web/.env` 的 `PORT`，连接 `http://127.0.0.1:<PORT>/api/admin/auth/me`，没有 Web 配置时回退本地开发端口 3000。生产 Web 使用 8082 时须在 Web `.env` 中配置该端口；若端口只由启动器环境指定，或服务分机/容器部署，须显式设置 `INVENTORY_ADMIN_AUTH_URL`。不会使用请求提供的地址，认证不可用时拒绝管理操作。
 
-## 迁移、验证与发布
+## 正常初始化、历史迁移与验证
 
-Python 启动执行 store_catalog_migration.sql 的一次性迁移：旧目录、移出的持有记录、装备和数量流水先归档到 admin_audit_log.payload，再清理。已有改名卡数量、改名次数、保留头衔的授权不变；被移除的头衔取消佩戴，被移除的角色/头像装备恢复基础设置。
+商品目录的一次性迁移已经完成，迁移脚本已归档，Python 正常启动不再清空或重置目录、持有记录、装备和数量流水。正常建表和默认物品初始化保留，重复执行必须保留现有库存、余额、装备以及管理员添加的定义。
 
-迁移标记为 store.catalog_reset / 20260923_minimal_store。后续重启不重复清理，也不删除管理员此后新增的内容。Python 与 Node 的初始头衔统一为“最初的初段”；物品初始化仅生成改名卡。
+旧迁移的审计标记为 store.catalog_reset / 20260923_minimal_store，改动前数据保存在 admin_audit_log.payload，留作追溯及回退，不作为正常启动触发器。Python 与 Node 的初始头衔统一为“最初的初段”；物品初始化仅生成改名卡。
 
-自动化覆盖独立 PostgreSQL schema 的清理归档、重复迁移、保留余额、移除模板、防重、并发扣卡、停用、鉴权、事务回滚及历史牌谱字段；头衔测试覆盖授权与单选/取消佩戴。运行方式：
+自动化覆盖独立 PostgreSQL schema 的正常建表、重复初始化保留目录/余额/外观、不创建目录重置审计、防重、并发扣卡、停用、鉴权、事务回滚及历史牌谱字段；头衔测试覆盖授权与单选/取消佩戴。运行方式：
 
 - Python：python -m unittest server.database.test_inventory server.database.test_titles -v，分别设置 INVENTORY_TEST_DATABASE_URL / TITLES_TEST_DATABASE_URL；测试只操作各自创建的独立 schema。
 - Node：node --test server/services/inventory.integration.test.js server/services/titles.integration.test.js。

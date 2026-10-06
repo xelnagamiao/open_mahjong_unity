@@ -936,6 +936,8 @@ public class EndResultPanel : MonoBehaviour {
                 SpawnStaticTile(tile.FaceDown ? 0 : tile.TileId);
                 // 加杠第四张也独立竖放，不旋转或叠在来源牌上。
                 if (tile.StackedTileId.HasValue) SpawnStaticTile(tile.StackedTileId.Value);
+                if (tile.StackedTiles != null) foreach (var stack in tile.StackedTiles)
+                    SpawnStaticTile(stack.FaceDown ? 0 : stack.TileId);
             }
         }
     }

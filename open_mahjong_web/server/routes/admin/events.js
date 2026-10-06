@@ -5,6 +5,11 @@ const config = require('../../config/config');
 const { writeAudit } = require('../../utils/audit');
 const { generateEventId } = require('../../utils/eventsTables');
 const { fetchEventPlayerStats } = require('../../services/eventPlayerStats');
+const { createDuplicateWallService } = require('../../services/duplicateWalls');
+const { createEventRoomCreationService } = require('../../services/eventRoomCreation');
+
+const duplicateWalls = createDuplicateWallService(pool);
+const roomCreation = createEventRoomCreationService({ duplicateWalls, proxyToGameServer, writeAudit });
 
 const MAX_EVENT_ADMINS = 10;
 
@@ -694,59 +699,27 @@ router.delete('/:eventId/admins/:userId', async (req, res) => {
   }
 });
 
-// 赛事空房间：创建（代理游戏服）
+router.get('/:eventId/duplicate-quota', async (req, res) => {
+  try {
+    const data = await duplicateWalls.getQuota(req.admin.userId, 'event', req.params.eventId, { platformAdmin: true });
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(err.status || 500).json({ success: false, message: err.status ? err.message : '读取复式密钥额度失败' });
+  }
+});
+
+// 赛事空房间：批量创建，可为每间房间自动生成复式密钥。
 router.post('/:eventId/rooms', async (req, res) => {
   try {
     const event = await fetchEventRow(req.params.eventId);
     if (!event) {
       return res.status(404).json({ success: false, message: '赛事不存在' });
     }
-    if (event.status !== 'active') {
-      return res.status(400).json({
-        success: false,
-        message: event.status === 'registered' ? '赛事尚未开启，无法创建房间' : '赛事已关闭，无法创建房间',
-      });
-    }
-
-    const { room_rule, room_config, password, reason } = req.body || {};
-    if (!reason || !String(reason).trim()) {
-      return res.status(400).json({ success: false, message: '请填写操作原因' });
-    }
-    if (!room_rule || !String(room_rule).trim()) {
-      return res.status(400).json({ success: false, message: '请选择房间规则' });
-    }
-
-    const { status, data } = await proxyToGameServer('/admin/event/rooms/create', {
-      event_id: event.event_id,
-      room_rule: String(room_rule).trim(),
-      room_config: room_config || {},
-      password: password || '',
-      created_by: req.admin.userId,
-    });
-    if (status >= 400) {
-      return res.status(status).json({
-        success: false,
-        message: data?.detail || data?.message || '创建房间失败',
-      });
-    }
-
-    await writeAudit({
-      adminUserId: req.admin.userId,
-      action: 'event.room.create',
-      targetType: 'event',
-      targetId: event.event_id,
-      payload: {
-        room_rule: String(room_rule).trim(),
-        room_config: room_config || {},
-        room_info: data?.room_info || null,
-      },
-      reason: String(reason).trim(),
-    });
-
+    const data = await roomCreation.create(event, req.admin.userId, req.body || {}, { platformAdmin: true });
     res.json({ success: true, data });
   } catch (err) {
     console.error('admin events create room:', err);
-    res.status(500).json({ success: false, message: '游戏服不可达' });
+    res.status(err.status || 500).json({ success: false, message: err.status ? err.message : '创建房间失败，请检查游戏服与审计服务', data: err.data });
   }
 });
 

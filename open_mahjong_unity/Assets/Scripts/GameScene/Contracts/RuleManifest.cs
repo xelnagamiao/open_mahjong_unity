@@ -29,7 +29,7 @@ public sealed class RuleManifest {
 
     /// <summary>
     /// 回合制出站通道段：<c>gamestate/{OutboundChannel}/cut_tile</c>、<c>send_action</c>。
-    /// 大多数回合制族共用服务端的 "GB" 通道；简单麻将用自己的 "jiandan"。虹雀等自带协议的族不使用。
+    /// 大多数回合制族共用服务端的 "GB" 通道；南雀旧兼容族保留 "jiandan"。虹雀等自带协议的族不使用。
     /// </summary>
     public string OutboundChannel = "GB";
 

@@ -11,6 +11,7 @@ public sealed class GuizhouInfo {
     public GuizhouChicken[] chickens;
     public GuizhouKong[] kongs;
     public GuizhouLedger ledger;
+    public GuizhouActionClock action_clock;
 }
 
 [Serializable]
@@ -47,4 +48,10 @@ public sealed class GuizhouTransfer {
 public sealed class GuizhouFan {
     public string id, name;
     public int points;
+}
+
+[Serializable]
+public sealed class GuizhouActionClock {
+    public int action_tick;
+    public double remaining_time, step_remaining;
 }

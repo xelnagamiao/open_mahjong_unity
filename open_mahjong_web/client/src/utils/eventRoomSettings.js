@@ -99,7 +99,7 @@ export function eventRoomSettingsSummary(settings, ruleLabels = {}) {
   if (form.room_rule === 'yixing') return `${rule} · ${form.game_round}圈 · 七小对${form.seven_pairs ? '开启' : '关闭'}`
   if (form.room_rule === 'wenzhou') return `${rule} · MIL 2024 · ${form.game_round}圈`
   if (form.room_rule !== 'guobiao') return `${rule}${duplicate}`
-  const round = ({ 1: '东风战', 2: '东南战', 4: '全庄战' })[form.game_round] || `${form.game_round} 圈`
+  const round = ({ 1: '东风战', 2: '东南战', 3: '东西战', 4: '全庄战' })[form.game_round] || `${form.game_round} 圈`
   return `${rule} · ${isDuplicate ? (config.duplicate_round_count ? `${config.duplicate_round_count} 局` : '局数跟随密钥') : round} · 局时 ${form.round_timer}s · 步时 ${form.step_timer}s${duplicate}`
 }
 
@@ -128,10 +128,14 @@ export function eventRoomSettingsRows(settings, ruleLabels = {}) {
     { label: '规则', value: ruleLabels[form.room_rule] || form.room_rule },
     { label: '房间名', value: form.room_name || '自动命名' },
     { label: '子规则', value: form.room_rule === 'hongkong' ? hkProfileLabel(form) : subRules[form.sub_rule] || form.sub_rule },
-    { label: form.room_rule === 'guizhou' ? '局数' : '圈数', value: form.room_rule === 'guizhou' ? `${form.game_round * 4}局` : ({ 1: '东风战', 2: '东南战', 4: '全庄战' })[form.game_round] || `${form.game_round} 圈` },
+    { label: form.room_rule === 'guizhou' ? '局数' : '圈数', value: form.room_rule === 'guizhou' ? `${form.game_round * 4}局` : ({ 1: '东风战', 2: '东南战', 3: '东西战', 4: '全庄战' })[form.game_round] || `${form.game_round} 圈` },
     { label: form.room_rule === 'guizhou' ? '局时储备' : '局时', value: Number(form.round_timer) === 0 && form.room_rule !== 'guizhou' ? '不限时' : `${form.round_timer} 秒` },
     { label: '步时', value: `${form.step_timer} 秒` },
   ]
+  if (form.room_rule === 'shanxi') {
+    const timerRow = rows.find(row => row.label === '局时')
+    if (timerRow) { timerRow.label = '局时储备'; timerRow.value = `${form.round_timer} 秒` }
+  }
   if (isDuplicate) {
     rows.push({ label: '复式', value: settings.room_config?.duplicate_wall_type ? duplicateWallLabel(settings.room_config.duplicate_wall_type) : '开启' })
     const roundRow = rows.find(row => row.label === '圈数')
@@ -148,14 +152,16 @@ export function eventRoomSettingsRows(settings, ruleLabels = {}) {
   if (form.room_rule === 'hangzhou') {
     const row = rows.find(item => item.label === '圈数')
     if (row) { row.label = '局数'; row.value = `${form.game_round * 4}局` }
-    rows.push({ label: '财神', value: '白板' }, { label: '封顶', value: '4番' }, { label: '剩余张数提示', value: enabled(form.count_tips) }, { label: '指针提示', value: enabled(form.pointer_tips) })
+    const timerRow = rows.find(item => item.label === '局时')
+    if (timerRow) { timerRow.label = '局时储备'; timerRow.value = `${form.round_timer} 秒` }
+    rows.push({ label: '财神', value: '白板' }, { label: '封顶', value: '4番' }, { label: '战术鸣牌', value: enabled(form.tactical_call) }, { label: '剩余张数提示', value: enabled(form.count_tips) }, { label: '指针提示', value: enabled(form.pointer_tips) })
   }
   if (form.room_rule === 'changchun') {
     const roundRow = rows.find(row => row.label === '圈数')
     if (roundRow) { roundRow.label = '局数'; roundRow.value = `${form.game_round * 4}局` }
     const timerRow = rows.find(row => row.label === '局时')
     if (timerRow) { timerRow.label = '局时储备'; timerRow.value = `${form.round_timer} 秒` }
-    rows.push({ label: '规则版本', value: 'MIL 2024' }, { label: '封顶', value: '六番（含庄家、点和、自摸）' }, { label: '特殊杠', value: '首次三张不补牌，以后每加一张补一张' }, { label: '剩余张数提示', value: enabled(form.count_tips) }, { label: '指针提示', value: enabled(form.pointer_tips) })
+    rows.push({ label: '规则版本', value: 'MIL 2024' }, { label: '封顶', value: '六番（含庄家、点和、自摸）' }, { label: '战术鸣牌', value: enabled(form.tactical_call) }, { label: '特殊杠', value: '首次三张不补牌，以后每加一张补一张' }, { label: '剩余张数提示', value: enabled(form.count_tips) }, { label: '指针提示', value: enabled(form.pointer_tips) })
   }
   if (form.room_rule === 'hongzhong') {
     const roundRow = rows.find(row => row.label === '圈数')

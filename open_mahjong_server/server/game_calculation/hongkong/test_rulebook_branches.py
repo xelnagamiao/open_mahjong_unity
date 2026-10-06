@@ -7,7 +7,7 @@ from .models import HandContext, HongKongRules, PROFILES
 from .scoring import score_hand
 from .ledger import Debt, PullLedger
 from .old_style import old_payments
-from .solver import _partitions
+from .solver import _key, _partitions
 from .test_hongkong_calculation import tiles
 
 OLD=HongKongRules()
@@ -162,5 +162,5 @@ def test_classical_single_kong_replacement_does_not_award_consecutive_kongs():
 
 
 def test_partition_primitive_rejects_inconsistent_remaining_meld_count():
-    assert _partitions(((11,1),),1)==()
-    assert _partitions(((11,3),),0)==()
+    assert _partitions(_key({11: 1}),1)==()
+    assert _partitions(_key({11: 3}),0)==()

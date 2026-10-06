@@ -21,6 +21,12 @@ from ..public.game_record_manager import local_record_detail_for_end
 logger = logging.getLogger(__name__)
 
 
+def _player_snapshot_remaining_time(game_state, player):
+    """Optional display-only projection; never change a rule's authoritative bank."""
+    hook = getattr(game_state, "player_snapshot_remaining_time", None)
+    return hook(player) if callable(hook) else player.remaining_time
+
+
 async def _prepare_private_rule_fields(game_state, indices):
     """可选规则计算钩子；耗时提示在规则工作池完成后才组装私有快照。"""
     prepare = getattr(game_state, "prepare_private_fields", None)
@@ -105,7 +111,7 @@ async def broadcast_game_start(self):
                     'combination_tiles': combo_tiles,
                     'combination_mask': combo_masks,
                     'huapai_list': player.huapai_list,
-                    'remaining_time': player.remaining_time,
+                    'remaining_time': _player_snapshot_remaining_time(self, player),
                     'player_index': player.player_index,
                     'original_player_index': player.original_player_index,
                     'score': player.score,
@@ -214,7 +220,7 @@ async def send_reconnect_game_state(self, reconnect_player):
             'combination_tiles': combo_tiles,
             'combination_mask': combo_masks,
             'huapai_list': player.huapai_list,
-            'remaining_time': player.remaining_time,
+            'remaining_time': _player_snapshot_remaining_time(self, player),
             'player_index': player.player_index,
             'original_player_index': player.original_player_index,
             'score': player.score,
@@ -279,7 +285,7 @@ async def send_realtime_spectator_snapshot(
             'combination_tiles': combo_tiles,
             'combination_mask': combo_masks,
             'huapai_list': player.huapai_list,
-            'remaining_time': player.remaining_time,
+            'remaining_time': _player_snapshot_remaining_time(self, player),
             'player_index': player.player_index,
             'original_player_index': player.original_player_index,
             'score': player.score,
@@ -392,12 +398,15 @@ async def broadcast_ask_hand_action(self):
                 continue
 
             player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+            clock_hook = getattr(self, "action_clock", None)
+            remaining_sent, step_sent = clock_hook(current_player) if callable(clock_hook) else (current_player.remaining_time, None)
             response = Response(
                 type=f"gamestate/{getattr(self, 'room_rule', 'taiwan')}/broadcast_hand_action",
                 success=True,
                 message="发牌，并询问手牌操作",
                 ask_hand_action_info=Ask_hand_action_info(
-                    remaining_time=current_player.remaining_time,
+                    remaining_time=remaining_sent,
+                    step_remaining=step_sent,
                     player_index=self.current_player_index,
                     remain_tiles=self.playable_wall_count(),
                     action_list=player_actions,
@@ -419,7 +428,7 @@ async def broadcast_ask_hand_action(self):
         self.spectator_manager.record_ask_hand(self.current_player_index, self.action_dict.get(self.current_player_index, []))
 
 # 广播询问切牌后操作 吃 碰 杠 胡
-async def broadcast_ask_other_action(self):
+async def broadcast_ask_other_action(self, *, remaining_time_override=None, is_tactical_recheck=False):
     cut_tile = _pending_other_action_tile(self)
     self.server_action_tick += 1
     begin_ask_round(self)
@@ -463,6 +472,10 @@ async def broadcast_ask_other_action(self):
             player_conn = self.game_server.user_id_to_connection[current_player.user_id]
             clock_hook = getattr(self, "claim_clock", None)
             remaining_sent, step_sent = clock_hook(current_player) if clock_hook else (current_player.remaining_time, None)
+            clock_fields = getattr(self, "claim_clock_fields", None)
+            extra_clock = clock_fields(current_player) if callable(clock_fields) else {}
+            if remaining_time_override is not None and not callable(clock_hook):
+                remaining_sent, step_sent = remaining_time_override, 0
             response = Response(
                 type=f"gamestate/{getattr(self, 'room_rule', 'taiwan')}/ask_other_action",
                 success=True,
@@ -471,6 +484,8 @@ async def broadcast_ask_other_action(self):
                     remaining_time=remaining_sent,
                     step_remaining=step_sent,
                     action_list=player_actions,
+                    is_tactical_recheck=True if is_tactical_recheck else None,
+                    **extra_clock,
                     cut_tile=cut_tile,
                     action_tick=self.server_action_tick,
                     player_index=seat_index,
@@ -497,6 +512,9 @@ async def broadcast_ask_other_action(self):
 
 def _reconnect_clock(self, player):
     """重连补发：(剩余局时, 剩余步时)。"""
+    hook = getattr(self, "action_clock", None)
+    if callable(hook):
+        return hook(player, reconnecting=True)
     return reconnect_clock(self, player)
 
 
@@ -509,6 +527,9 @@ async def reconnected_send_pending_ask_for_viewer(
     if connection_user_id not in self.game_server.user_id_to_connection:
         return
     if view_player_index < 0 or view_player_index >= len(self.player_list):
+        return
+    pending = getattr(self, "is_action_pending", None)
+    if callable(pending) and not pending(view_player_index):
         return
     player_conn = self.game_server.user_id_to_connection[connection_user_id]
     player = self.player_list[view_player_index]
@@ -537,6 +558,8 @@ async def reconnected_send_pending_ask_for_viewer(
             clock_hook = getattr(self, "claim_clock", None)
             if clock_hook:
                 remaining_sent, step_sent = clock_hook(player, reconnecting=True)
+            clock_fields = getattr(self, "claim_clock_fields", None)
+            extra_clock = clock_fields(player, reconnecting=True) if callable(clock_fields) else {}
             cut_tile = _pending_other_action_tile(self)
             response = Response(
                 type=f"gamestate/{getattr(self, 'room_rule', 'taiwan')}/ask_other_action",
@@ -546,6 +569,7 @@ async def reconnected_send_pending_ask_for_viewer(
                     remaining_time=remaining_sent,
                     step_remaining=step_sent,
                     action_list=self.action_dict[view_player_index],
+                    **extra_clock,
                     cut_tile=cut_tile,
                     action_tick=self.server_action_tick,
                     player_index=view_player_index,
@@ -586,6 +610,7 @@ def _build_do_action_payload(
     buhua_recipient=None,
     cut_from_player=None,
     is_timeout_action=False,
+    is_claim=False,
 ):
     viewer_mask = combination_mask
     viewer_target = combination_target
@@ -603,6 +628,7 @@ def _build_do_action_payload(
         "cut_class": cut_class,
         "cut_tile_index": cut_tile_index,
         "is_timeout_action": True if is_timeout_action else None,
+        "is_claim": True if is_claim else None,
         "deal_tile": viewer_deal_tile,
         "buhua_tile": buhua_tile,
         "combination_mask": viewer_mask,
@@ -656,9 +682,17 @@ async def broadcast_do_action(
     buhua_recipient: int = None,
     cut_from_player: int = None,
     is_timeout_action: bool = False,
+    is_claim: bool = False,
     ):
-    update_hand_draw_source(self, action_list, action_player)
-    self.server_action_tick += 1
+    if not is_claim:
+        update_hand_draw_source(self, action_list, action_player)
+        if getattr(self, "_tactical_silent_action", False):
+            silent = True
+            self._tactical_silent_action = False
+        self.server_action_tick += 1
+    elif action_list and cut_tile is not None:
+        from ..public.game_record_manager import track_claim_application
+        track_claim_application(self, action_player, action_list[0], cut_tile)
     await _prepare_private_rule_fields(self, range(len(self.player_list)))
     if hasattr(self, "_ask_broadcast_time"):
         delattr(self, "_ask_broadcast_time")
@@ -689,6 +723,7 @@ async def broadcast_do_action(
                 buhua_recipient=buhua_recipient,
                 cut_from_player=cut_from_player,
                 is_timeout_action=is_timeout_action,
+                is_claim=is_claim,
             )
 
             if current_player.user_id in self.game_server.user_id_to_connection:

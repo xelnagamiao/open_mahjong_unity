@@ -1,9 +1,23 @@
 {
   "sim_client_version": 2,
   "rule": "guobiao",
+  "table_variants": {
+    "guobiao/standard": { "player_count": 4, "hands_per_wind": 4 },
+    "guobiao/sanma": {
+      "player_count": 3,
+      "hands_per_wind": 3,
+      "removed_tiles": [12, 13, 14, 15, 16, 17, 18],
+      "seat_positions": ["self", "right", "left"],
+      "ron_actions": ["hu_first", "hu_second"],
+      "score_changes_count": 3,
+      "record_seats_count": 3,
+      "fourth_seat_is_placeholder": true
+    }
+  },
   "hand_actions": [
     "cut",
     "buhua",
+    "nuki",
     "hu_self",
     "hu_flower",
     "initial_hu",
@@ -40,6 +54,7 @@
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordJsonDecoder.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordData.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordMeldCodec.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Record/MeldStackLayout.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/RecordHuHandBuilder.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordManager.GotoAction.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Sichuan/SichuanGameState.cs",
@@ -87,5 +102,9 @@
     "Dedicated opening selectors do not extend the common hand-action or other-action button allowlists.",
     "Settlement label formatting is verified in Unity using the active replay rule context; component-state simulations do not render these labels.",
     "Hashes detect source drift; passing the lock is not a claim that every field or visual behavior has been tested."
-  ]
+  ],
+  "meld_display_signs": {
+    "101": "明面叠牌（备用）：沿原始 mask 顺序叠在最近的 sign=0/1/2/3 牌上，连续标记逐层增加，不占横向槽位。",
+    "102": "暗面叠牌（备用）：位置及归属同 101，显示牌背；当前行牌规则不生成 101/102，展示牌不参与基础副露删牌或计分。"
+  }
 }

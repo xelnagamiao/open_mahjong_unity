@@ -2,9 +2,9 @@
 
 import asyncio
 import random
-import math
-import time
 from dataclasses import replace
+
+from .clock import RoomActionClock, TimedActionQueue
 
 from ...game_calculation.shanxi import rules as sx
 from ..game_taiwan.TaiwanGameState import TaiwanGameState
@@ -26,7 +26,6 @@ from ...database.fulu_utils import record_fulu_rounds_for_players
 class ShanxiGameState(TaiwanGameState):
     flower_tiles = ()
     structure_tiles = sx.TILES
-    claim_response_seconds = 3.0
 
     def __init__(self, game_server, room_data, calculation_service, db_manager, gamestate_id):
         if room_data.get("sub_rule", sx.SUB_RULE) != sx.SUB_RULE:
@@ -50,6 +49,8 @@ class ShanxiGameState(TaiwanGameState):
         self.dead_wall_count = 14
         from .bot import shanxi_smart_bot_action
         self.smart_bot_action = shanxi_smart_bot_action
+        self.room_action_clock = RoomActionClock(self)
+        self.action_queues = {i: TimedActionQueue(self.room_action_clock, i) for i in range(4)}
 
     def _reset_taiwan_players(self):
         super()._reset_taiwan_players()
@@ -61,15 +62,31 @@ class ShanxiGameState(TaiwanGameState):
             player.concealed_discards = {}
             player.discard_origin_tiles = []
 
+    def action_clock(self, player, reconnecting=False):
+        if not self.room_action_clock.active():
+            from ..public.ask_timing import reconnect_clock
+            return reconnect_clock(self, player)
+        return self.room_action_clock.snapshot(player)
+
     def claim_clock(self, player, reconnecting=False):
-        budget = min(self.claim_response_seconds, max(0, player.remaining_time) + max(0, self.step_time))
-        started = None
-        if reconnecting:
-            started = (getattr(self, "_ask_delivered_at", None) or {}).get(player.player_index)
-            if started is None:
-                started = getattr(self, "_ask_broadcast_time", None)
-        elapsed = max(0, time.time() - started) if started is not None else 0
-        return 0, math.ceil(max(0, budget - elapsed))
+        return self.action_clock(player, reconnecting)
+
+    def on_action_window_broadcast(self):
+        self.room_action_clock.begin()
+
+    def on_action_window_delivered(self, index):
+        self.room_action_clock.delivered(index)
+
+    def is_action_pending(self, index):
+        return not self.room_action_clock.active() or self.room_action_clock.is_pending(index)
+
+    async def collect_action_responses(self):
+        if self.room_action_clock.active():
+            return await self.room_action_clock.collect()
+        # Result confirmation has its own presentation deadline, not a new
+        # thinking step. Reuse the existing ready-phase collector unchanged.
+        from ..game_taiwan.wait_action import _collect_responses
+        return await _collect_responses(self)
 
     def decorate_record_cut_tick(self, tick):
         # c 的 C 扩展在同一事件标明暗扣，逐步回放不会先亮出再翻回。
@@ -79,6 +96,7 @@ class ShanxiGameState(TaiwanGameState):
     def _reset_hand_runtime(self):
         super()._reset_hand_runtime()
         self.dead_wall_count = 14
+        self.room_action_clock.reset_hand()
 
     def init_tiles(self):
         self.round_random_seed = derive_round_seed(self.master_seed, self.round_index)

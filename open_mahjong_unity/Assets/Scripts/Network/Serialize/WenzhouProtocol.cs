@@ -16,6 +16,8 @@ public sealed class WenzhouInfo {
     public JObject score_details;
     public Dictionary<string, WenzhouWait[]> waits;
     public int? remain_tiles, dead_wall_count;
+    public double? clock_remaining_ms, clock_step_remaining_ms;
+    public bool? clock_active;
 }
 
 [Serializable]

@@ -50,7 +50,31 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
                 result[i].roundIndex = round.roundIndex;
             }
         }
+        ApplyRiichiFinalScores(gameRecord.gameTitle, rule, result);
         return result;
+    }
+
+    /// <summary>完整牌谱的终局供托分配由最终点数快照补入末行，兼容既有牌谱。</summary>
+    private static void ApplyRiichiFinalScores(Dictionary<string, object> title, string rule, List<RecordScoreRow> rows) {
+        if (!rule.StartsWith("riichi", StringComparison.Ordinal) || rows.Count == 0 || title == null
+            || !title.TryGetValue("riichi_final_scores", out object finalRaw) || finalRaw == null) return;
+        int[] finalScores = JArray.FromObject(finalRaw).ToObject<int[]>();
+        int playerCount = MahjongPlayerCount.ForSubRule(ReadTitleString(title, "sub_rule", ""));
+        if (finalScores == null || finalScores.Length != playerCount) return;
+        int[] totals;
+        if (title.TryGetValue("starting_scores", out object startingRaw)) {
+            totals = JArray.FromObject(startingRaw).ToObject<int[]>();
+            if (totals == null || totals.Length != playerCount) return;
+        } else if (title.TryGetValue("starting_score", out object startingScore)) {
+            int start = Convert.ToInt32(startingScore);
+            totals = new[] {start,start,start,start};
+        } else {
+            return;
+        }
+        foreach (RecordScoreRow row in rows) AccumulateSeatScores(totals, row.scoreChangesByOriginal);
+        RecordScoreRow last = rows[rows.Count - 1];
+        last.scoreChangesByOriginal ??= new int[4];
+        for (int i = 0; i < playerCount; i++) last.scoreChangesByOriginal[i] += finalScores[i] - totals[i];
     }
 
     private static void ExtractRoundRows(
@@ -58,7 +82,8 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
         string subRule,
         Dictionary<string, object> gameTitle,
         List<RecordScoreRow> output) {
-        if (round?.actionTicks == null || round.seats == null || round.seats.Count < 4) {
+        int playerCount = MahjongPlayerCount.ForSubRule(subRule);
+        if (round?.actionTicks == null || round.seats == null || round.seats.Count < playerCount) {
             return;
         }
 
@@ -84,11 +109,17 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
         bool sichuanHadChajiao = false;
         int[] sichuanAccumBySeat = null;
         int[] immediateScores = new int[4];
+        int[] riichiPayments = new int[4];
 
         foreach (List<string> tick in round.actionTicks) {
             if (tick == null || tick.Count == 0) continue;
             string action = tick[0];
-            if (action == "ask_hand" || action == "ask_other" || action == "ca" || action == "end" || action == "dora" || action == "riichi" || action == "state") {
+            if (action == "riichi") {
+                if (tick.Count >= 2 && int.TryParse(tick[1], out int payer) && payer >= 0 && payer < 4)
+                    riichiPayments[payer] -= 1000;
+                continue;
+            }
+            if (action == "ask_hand" || action == "ask_other" || action == "ca" || action == "end" || action == "dora" || action == "state") {
                 continue;
             }
 
@@ -156,13 +187,13 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
                 continue;
             }
 
-            if (action == "bh" || action == "bd") {
+            if (action == "bh" || action == "bd" || action == "nuki" || action == "nd") {
                 int flowerActingIndex = GameRecordJsonDecoder.ResolveRecordActingPlayerIndex(
                     tick, action, currentPlayerIndex);
                 SimPlayer flowerActor = players[flowerActingIndex];
-                if (action == "bh") {
+                if (action == "bh" || action == "nuki") {
                     bool isMoBuhua = GameRecordJsonDecoder.ParseBuhuaMoFlag(tick);
-                    RemoveTileForBuhua(flowerActor.tileList, ParseInt(tick, 1), isMoBuhua);
+                    RemoveTileForBuhua(flowerActor.tileList, ParseInt(tick, action == "nuki" ? 2 : 1), isMoBuhua);
                 } else {
                     flowerActor.tileList.Add(ParseInt(tick, 1));
                 }
@@ -185,7 +216,7 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
                     lastDiscardPlayerIndex = actingPlayerIndex;
                     lastDiscardTileId = ParseInt(tick, 1);
                     lastWinnableTileId = ParseInt(tick, 1);
-                    currentPlayerIndex = (actingPlayerIndex + 1) % 4;
+                    currentPlayerIndex = (actingPlayerIndex + 1) % (MahjongPlayerCount.ForSubRule(subRule));
                     break;
                 case "ag": {
                     int tile = ParseInt(tick, 1);
@@ -227,7 +258,7 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
                     }
                     lastWinnableTileId = -1;
                     int discardPlayerIndex = lastDiscardPlayerIndex >= 0 ? lastDiscardPlayerIndex : previousPlayerIndex;
-                    string relative = GetRelativePosition(actingPlayerIndex, discardPlayerIndex);
+                    string relative = GetRelativePosition(actingPlayerIndex, discardPlayerIndex, playerCount);
                     actor.combinationTiles.Add(GameRecordMeldCodec.BuildCombinationTarget(action, mingTile));
                     actor.combinationMasks.Add(GameRecordMeldCodec.BuildMingpaiMask(action, mingTile, removedTiles, relative));
                     currentPlayerIndex = actingPlayerIndex;
@@ -263,7 +294,8 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
                     RoundSettlementSnapshot snap = BuildRiichiHuSnapshot(tick, subRule, round, players, lastWinnableTileId, gameTitle);
                     lastRow = new RecordScoreRow {
                         snapshot = snap,
-                        scoreChangesByOriginal = GameRecordJsonDecoder.ConvertPlayerIndexScoreChangesToOriginal(ParseScoreChanges(tick, 6), round.seats),
+                        scoreChangesByOriginal = GameRecordJsonDecoder.ConvertPlayerIndexScoreChangesToOriginal(
+                            IncludeRiichiPayments(ParseScoreChanges(tick, 6), riichiPayments), round.seats),
                         roundNumber = roundNumber,
                     };
                     output.Add(lastRow);
@@ -287,7 +319,8 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
                 case "ryuukyoku": {
                     lastRow = new RecordScoreRow {
                         snapshot = new RoundSettlementSnapshot { subRule = subRule, isLiuju = true, hasWin = false, huClass = action },
-                        scoreChangesByOriginal = GameRecordJsonDecoder.ConvertPlayerIndexScoreChangesToOriginal(ParseScoreChanges(tick, 2), round.seats),
+                        scoreChangesByOriginal = GameRecordJsonDecoder.ConvertPlayerIndexScoreChangesToOriginal(
+                            IncludeRiichiPayments(ParseScoreChanges(tick, 2), riichiPayments), round.seats),
                         roundNumber = roundNumber,
                     };
                     output.Add(lastRow);
@@ -336,7 +369,8 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
                     if (roundManifest?.HuTickFollowsShuhewei == true && lastRow != null) break;
                     lastRow = new RecordScoreRow {
                         snapshot = new RoundSettlementSnapshot { subRule = subRule, isLiuju = true, hasWin = false, huClass = action },
-                        scoreChangesByOriginal = new int[4],
+                        scoreChangesByOriginal = GameRecordJsonDecoder.ConvertPlayerIndexScoreChangesToOriginal(
+                            IncludeRiichiPayments(new int[4], riichiPayments), round.seats),
                         roundNumber = roundNumber,
                     };
                     output.Add(lastRow);
@@ -352,6 +386,15 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
                 && lastRow.snapshot.hepaiPlayerIndex < 4)
                 lastRow.snapshot.winnerScoreDelta += immediateScores[lastRow.snapshot.hepaiPlayerIndex];
         }
+    }
+
+    /// <summary>已成立的立直供托并入下一条计分板结算，多家和时只计入一次；错和退款仍由结算分变抵消。</summary>
+    private static int[] IncludeRiichiPayments(int[] changes, int[] payments) {
+        var result = new int[4];
+        AccumulateSeatScores(result, changes);
+        AccumulateSeatScores(result, payments);
+        Array.Clear(payments, 0, payments.Length);
+        return result;
     }
 
     /// <summary>血战中途和牌：score_changes 全 0 表示分数延至终局结算（hu_score 仍可能 &gt; 0）。</summary>
@@ -677,8 +720,9 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
         return fallback;
     }
 
-    private static string GetRelativePosition(int selfIndex, int otherIndex) {
+    private static string GetRelativePosition(int selfIndex, int otherIndex, int playerCount) {
         if (selfIndex == otherIndex) return "self";
+        if (playerCount == 3) return (otherIndex - selfIndex + 3) % 3 == 1 ? "right" : "left";
         if (selfIndex == 0) {
             if (otherIndex == 1) return "right";
             if (otherIndex == 2) return "top";

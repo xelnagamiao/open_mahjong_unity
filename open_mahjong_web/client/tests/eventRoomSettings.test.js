@@ -49,7 +49,7 @@ test('table confirmation shows every supported setting without mutating the save
   const initial = JSON.stringify(settings)
   const rows = eventRoomSettingsRows(settings, { guobiao: '国标' })
   const values = Object.fromEntries(rows.map(row => [row.label, row.value]))
-  assert.equal(values['子规则'], '蓝氏')
+  assert.equal(values['子规则'], '蓝十')
   assert.equal(values['局时'], '不限时')
   assert.equal(values['步时'], '0 秒')
   assert.equal(values['起和番'], '5 番')

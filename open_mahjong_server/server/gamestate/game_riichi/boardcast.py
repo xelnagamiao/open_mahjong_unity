@@ -205,7 +205,7 @@ async def broadcast_game_start(self):
 async def broadcast_ask_hand_action(self):
     self.server_action_tick += 1
     begin_ask_round(self)
-    for i in [self.current_player_index] + [j for j in range(4) if j != self.current_player_index]:
+    for i in [self.current_player_index] + [j for j in range(len(self.player_list)) if j != self.current_player_index]:
         cp = self.player_list[i]
         try:
             if "offline" in cp.tag_list:
@@ -304,6 +304,7 @@ async def broadcast_do_action(
     combination_mask: List[int] = None,
     is_riichi_horizontal: bool = None,
     is_mo_gang: bool = None,
+    is_mo_buhua: bool = None,
     is_claim: bool = False,
     silent: bool = False,
     cut_from_player: int = None,
@@ -347,6 +348,7 @@ async def broadcast_do_action(
                     combination_target=combination_target,
                     is_riichi_horizontal=is_riichi_horizontal,
                     is_mo_gang=is_mo_gang,
+                    is_mo_buhua=is_mo_buhua,
                     is_claim=True if is_claim else None,
                     silent=True if silent else None,
                     cut_from_player=cut_from_player,
@@ -408,6 +410,17 @@ async def broadcast_result(
     silent: bool = False,
     next_status: Optional[str] = None,
 ):
+    # 和牌分变只描述本次结算；计分板还须计入此前支付的立直棒。
+    history_before = getattr(self, "_score_history_scores_before", None)
+    score_history_changes = None
+    if history_before is not None:
+        score_history_changes = {
+            p.original_player_index: p.score - history_before[p.original_player_index]
+            for p in self.player_list
+        }
+        self._score_history_scores_before = {p.original_player_index: p.score for p in self.player_list}
+        if player_to_score is None:
+            player_to_score = {p.player_index: p.score for p in self.player_list}
     self.server_action_tick += 1
     for cp in self.player_list:
         try:
@@ -439,6 +452,7 @@ async def broadcast_result(
                     honba=honba,
                     riichi_sticks_collected=riichi_sticks_collected,
                     score_changes=score_changes,
+                    score_history_changes=score_history_changes,
                     tenpai_tiles=tenpai_tiles,
                     tenpai_hands=tenpai_hands,
                     exhaustive_penalty=exhaustive_penalty,

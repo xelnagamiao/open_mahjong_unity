@@ -14,7 +14,7 @@ def duplicate_fields(state):
 
 
 def duplicate_match_complete(state):
-    total = getattr(state, "duplicate_round_count", 1) if getattr(state, "duplicate_key", None) else state.max_round * 4
+    total = getattr(state, "duplicate_round_count", 1) if getattr(state, "duplicate_key", None) else state.max_round * len(state.player_list)
     return state.current_round >= total
 
 
@@ -31,6 +31,8 @@ def configure_duplicate_state(state, room):
         return
     if room.get("room_rule") != "guobiao":
         raise ValueError("复式牌墙仅支持国标麻将（含蓝十改）")
+    if room.get("sub_rule") == "guobiao/sanma":
+        raise ValueError("三人国标不支持四人复式牌墙")
     if room.get("sub_rule") == "guobiao/blood_battle":
         raise ValueError("国标血战暂不支持复式牌墙")
     from ...database.duplicate_walls import load_duplicate_wall, validate_duplicate_wall, reserve_duplicate_game

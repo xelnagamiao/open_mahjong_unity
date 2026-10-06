@@ -32,7 +32,7 @@ public sealed class AutoActionPolicy {
     /// 自摸类（ActionWordKind.Tsumo）另由词表判定，见 ShouldStartAutoCut。
     /// </summary>
     private static readonly string[] HandActionsBlockingAutoCut = {
-        "buzhang", "angang", "jiagang", "hu_flower", "initial_hu", "sea_bottom", "buhua"
+        "buzhang", "angang", "jiagang", "hu_flower", "initial_hu", "sea_bottom", "buhua", "nuki"
     };
 
     // ---- 超时自动摸切 ----

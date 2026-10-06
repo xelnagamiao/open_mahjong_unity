@@ -4,6 +4,7 @@
 /// </summary>
 public partial class GuobiaoGameState : TurnBasedGameState {
     public const string RuleId = "guobiao";
+    public const string SanmaSubRule = "guobiao/sanma";
 
     public static GuobiaoGameState Active => RuleRegistry.ActiveGameState as GuobiaoGameState;
 

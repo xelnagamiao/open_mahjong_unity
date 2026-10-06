@@ -32,6 +32,7 @@ test('record metadata is public while locked content remains protected', {
         created_at timestamp DEFAULT now(), updated_at timestamp DEFAULT now());
       CREATE TABLE event_admins (event_id varchar(32), user_id bigint, role text);
       CREATE TABLE game_records (game_id varchar(16) PRIMARY KEY, record jsonb, created_at timestamp NOT NULL);
+      CREATE TABLE riichi_player_game_stats (game_id text, user_id bigint, version int, stats jsonb);
       CREATE TABLE game_player_records (game_id varchar(16), user_id bigint, username text,
         score int, rank int, pt_change numeric(12,2), original_player_index int, title_used int, character_used int,
         profile_used int, voice_used int, rule text, sub_rule text, room_type text,
@@ -207,10 +208,10 @@ test('record metadata is public while locked content remains protected', {
       } finally {await single.end();}
     });
 
-    await t.test('explicit concurrent indexes are valid and repeatable in an isolated schema', async () => {
-      const sql=readFileSync(path.join(__dirname,'../../scripts/migrations/20260927_record_metadata_indexes.sql'),'utf8');
+    await t.test('normal schema indexes are valid and repeatable in an isolated schema', async () => {
+      const sql=readFileSync(path.resolve(__dirname,'../../../open_mahjong_server/server/database/record_indexes.sql'),'utf8');
       const statements=sql.replace(/--[^\n]*/g,'').split(';').map((s)=>s.trim()).filter(Boolean);
-      // One dedicated connection keeps session limits scoped to this migration.
+      // Exercise the same idempotent schema used by fresh and existing databases.
       const client=await pool.connect();
       try {for(let repeat=0;repeat<2;repeat++) for(const statement of statements) await client.query(statement);}
       finally {client.release();}

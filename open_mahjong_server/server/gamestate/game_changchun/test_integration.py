@@ -65,8 +65,9 @@ def test_complete_four_hand_match_production_loop_conserves_physical_and_records
         windows.append((current.game_status,current.cc_window))
         assert len(windows)<2000,'non-progressing action cycle'
         return responses,allowed
-    with patch('server.gamestate.game_changchun.ChangchunGameState._collect_responses',side_effect=collect), \
-         patch('server.gamestate.game_taiwan.wait_action._collect_responses',side_effect=collect), \
+    async def collect_owned():
+        return await collect(state)
+    with patch.object(state,'collect_action_responses',side_effect=collect_owned), \
          patch('server.gamestate.game_changchun.lifecycle.asyncio.sleep',new=AsyncMock()):
         asyncio.run(state.game_loop_chinese())
     assert_supply(state)

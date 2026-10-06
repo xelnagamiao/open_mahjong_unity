@@ -179,6 +179,8 @@ public partial class Game3DManager : MonoBehaviour
             }
             tileList.Reverse();
             signList.Reverse();
+            int[] stackMask = mask.Exists(MeldStackLayout.IsStack) ? mask.ToArray() : null;
+            Transform[] stackAnchors = CreateMeldStackAnchors(stackMask);
 
             float prevSlotWidth = 0f;
             bool hasPrevInGroup = false;
@@ -187,7 +189,7 @@ public partial class Game3DManager : MonoBehaviour
             for (int i = 0; i < tileList.Count; i++)
             {
                 int sign = signList[i];
-                if (sign == 3 || sign == 4) continue;
+                if (sign == 3 || sign == 4 || MeldStackLayout.IsStack(sign)) continue;
 
                 Quaternion tileRotation = rotation;
                 float slotWidth = CombinationSlotWidth(sign, cardWidth, cardHeight);
@@ -226,7 +228,9 @@ public partial class Game3DManager : MonoBehaviour
                 MahjongObjectPool.Instance.RefreshTileCollider(cardObj);
                 Tile3D tile3D = cardObj.GetComponent<Tile3D>();
                 tile3D?.ApplyCombinationPeekState(tileId, sign);
+                if (stackAnchors != null) stackAnchors[tileList.Count - 1 - i] = cardObj.transform;
             }
+            SpawnMeldStacks(stackMask, stackAnchors, setParent);
 
             if (lastPlacedSlot > 0f) acrossGroupLastSlot = lastPlacedSlot;
         }

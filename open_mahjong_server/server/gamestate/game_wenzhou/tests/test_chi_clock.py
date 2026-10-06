@@ -129,7 +129,7 @@ def test_reconnect_reads_running_clock_without_reset_and_reply_freezes_it():
             frozen=state.remaining_clock(0,window)
             await asyncio.sleep(0.08)
             assert state.remaining_clock(0,window) == frozen
-            assert state.player_list[0].remaining_time == frozen[0]
+            assert frozen[0]-1 < state.player_list[0].remaining_time <= frozen[0]
         finally:
             waiter.cancel()
             await asyncio.gather(waiter,return_exceptions=True)

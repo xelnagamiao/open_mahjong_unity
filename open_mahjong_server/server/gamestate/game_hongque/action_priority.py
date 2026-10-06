@@ -20,6 +20,7 @@ HONGQUE_ACTION_PRIORITY = {
     "chi_second": 4,
     "chi_third": 3,
     "pass": 0,
+    "force_pass": 0,
     "discard": 0,
     "kong": 0,
     "supplement": 0,
@@ -44,4 +45,3 @@ def claim_action_type(kind: str, claimant_index: int | None,
         "win": "hu",
     }[kind]
     return f"{prefix}_{relative_position_suffix(claimant_index, discarder_index)}"
-

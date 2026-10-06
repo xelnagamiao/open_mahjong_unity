@@ -3,8 +3,6 @@
 The extra pre-draw and final-four windows are explicit substates of the
 existing hand-action phase. They never admit a discard or an ordinary kong.
 """
-import math
-import time
 from dataclasses import replace
 
 from ...game_calculation.changchun import rules as book
@@ -16,12 +14,15 @@ from ..public.game_record_manager import append_action_tick
 from .bao import BaoFlow
 from .special_kongs import SpecialKongFlow
 from .lifecycle import ChangchunLifecycle
+from .timing import ACTION_PHASES, ChangchunActionClock, TimedActionQueue
+from .tactical import ChangchunTacticalFlow
 
 
-class ChangchunGameState(BaoFlow, SpecialKongFlow, ChangchunLifecycle, TaiwanGameState):
+class ChangchunGameState(ChangchunTacticalFlow, BaoFlow, SpecialKongFlow, ChangchunLifecycle, TaiwanGameState):
     flower_tiles = ()
     structure_tiles = book.TILES
-    claim_response_seconds = 3.0
+    # Online action windows use the room bank plus step, including claims.
+    claim_response_seconds = None
 
     def __init__(self, game_server, room_data, calculation_service, db_manager, gamestate_id):
         from ...room.changchun_room import normalize_changchun_config
@@ -37,11 +38,21 @@ class ChangchunGameState(BaoFlow, SpecialKongFlow, ChangchunLifecycle, TaiwanGam
             missed_win_blocks_self_draw=False, missed_win_blocks_claims=False, missed_win_released_by_kong=False,
             seven_flowers_steal_eighth_enabled=False)
         self.rules_dict = config
+        # New room defaults are applied by validation; absent legacy flags stay off.
+        self.tactical_call = bool(room_data.get('tactical_call', False)) and not any(
+            player.is_bot for player in self.player_list)
+        self.tactical_commit_lock = False  # MIL VI-4/5 permits higher-priority changes.
+        from ..public.tactical_claim import TACTICAL_GRACE_SECONDS
+        self.tactical_grace_seconds = TACTICAL_GRACE_SECONDS
+        self._cc_tactical_recheck = False
+        self.action_priority.update(hu_first=5, hu_second=4, hu_third=3, force_pass=0)
         self.dead_wall_count = 14
         self.hepai_limit = 0
         self.open_cuohe = False
         from .bot import changchun_bot_action
         self.smart_bot_action = changchun_bot_action
+        self.action_clock_manager = ChangchunActionClock(self)
+        self.action_queues = {i: TimedActionQueue(self) for i in range(4)}
 
     def _reset_taiwan_players(self):
         super()._reset_taiwan_players()
@@ -69,10 +80,53 @@ class ChangchunGameState(BaoFlow, SpecialKongFlow, ChangchunLifecycle, TaiwanGam
             player.cc_first_from_claim = False
             player.cc_no_kong_until_draw = False
 
-    def claim_clock(self, player, reconnecting=False):
-        start = (getattr(self, "_ask_delivered_at", None) or {}).get(player.player_index, getattr(self, "_ask_broadcast_time", None))
-        elapsed = max(0, time.time()-start) if reconnecting and start is not None else 0
-        return 0, math.ceil(max(0, min(3.0, player.remaining_time+self.step_time)-elapsed))
+    def action_clock(self, player, reconnecting=False):
+        return self.action_clock_manager.clock(player, reconnecting)
+
+    def player_snapshot_remaining_time(self, player):
+        from .timing import display_seconds
+        return display_seconds(player.remaining_time)
+
+    claim_clock = action_clock
+
+    def claim_clock_fields(self, player, reconnecting=False):
+        return self.action_clock_manager.wire_fields(player, reconnecting)
+
+    async def notify_cc_window_closed(self, index, *, include_player=False):
+        if not self.realtime_spectators and not include_player:
+            return
+        from ...response import Response, Ask_other_action_info
+        bank, step = self.action_clock(self.player_list[index])
+        response = Response(type='gamestate/changchun/ask_closed', success=True,
+            message='操作询问已结束', ask_other_action_info=Ask_other_action_info(
+                remaining_time=bank, step_remaining=step, action_list=[], cut_tile=0,
+                action_tick=self.server_action_tick, player_index=index,
+                **self.claim_clock_fields(self.player_list[index])))
+        if include_player:
+            connection = self.game_server.user_id_to_connection.get(self.player_list[index].user_id)
+            if connection is not None:
+                await connection.websocket.send_json(response.model_dump(exclude_none=True))
+        await self.send_to_realtime_spectators(index, response)
+
+    def on_action_window_broadcast(self):
+        self.action_clock_manager.begin()
+
+    def on_action_window_delivered(self, index):
+        self.action_clock_manager.delivered(index)
+
+    def is_action_pending(self, index):
+        return self.action_clock_manager.is_pending(index)
+
+    async def collect_action_responses(self):
+        if self.game_status in ACTION_PHASES:
+            return await self.action_clock_manager.collect()
+        return await _collect_responses(self)
+
+    def _reset_hand_runtime(self):
+        super()._reset_hand_runtime()
+        manager = getattr(self, 'action_clock_manager', None)
+        if manager is not None:
+            manager.reset_round()
 
     def refresh_waits(self, index):
         player = self.player_list[index]
@@ -260,6 +314,7 @@ class ChangchunGameState(BaoFlow, SpecialKongFlow, ChangchunLifecycle, TaiwanGam
                                     for a,k in (("angang","concealed"),("jiagang","added"))}}
         info["changchun"]["special_candidates"] = self.special_candidates(index)
         info["changchun"]["added_candidates"] = self.special_added_candidates(index)
+        info.update(self.action_clock_manager.wire_fields(player, reconnecting=True))
         return info
 
     def build_private_do_action_info(self, action_player, viewer_index):
@@ -272,15 +327,20 @@ class ChangchunGameState(BaoFlow, SpecialKongFlow, ChangchunLifecycle, TaiwanGam
         # Private tile identity only appears in view_state for eligible viewers.
         self.cc_event = {k:v for k,v in event.items() if not private or k not in ("tile", "slot", "dice", "old_slot")}
         append_action_tick(self, ["cc", dict(event)])
+        tactical_silent = getattr(self, '_tactical_silent_action', False)
+        self._tactical_silent_action = False
         try:
             await broadcast_do_action(self, action_list=[], action_player=self.current_player_index)
         finally:
+            self._tactical_silent_action = tactical_silent
             self.cc_event = None
 
     async def wait_action(self):
+        if self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang"):
+            return await self.wait_claim_action()
         if self.game_status != "waiting_hand_action":
             return await super().wait_action()
-        responses, allowed = await _collect_responses(self)
+        responses, allowed = await self.collect_action_responses()
         index = self.current_player_index
         data = responses.get(index, {})
         action = data.get("action_type")

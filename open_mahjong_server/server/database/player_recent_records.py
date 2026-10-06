@@ -9,10 +9,8 @@ from ..gamestate.public.guobiao_win_snapshot import restore_guobiao_best_wins
 
 
 logger = logging.getLogger(__name__)
-RULES = ("guobiao", "riichi", "qingque", "classical", "jiandan", "sichuan", "changsha", "taiwan", "hongque", "guizhou", "yixing", "wenzhou", "hangzhou", "guangdong", "hongzhong")
+RULES = ("guobiao", "riichi", "qingque", "classical", "jiandan", "zhongyong", "sichuan", "changsha", "taiwan", "hongque", "guizhou", "yixing", "wenzhou", "hangzhou", "guangdong", "hongzhong")
 CATEGORIES = ("match", "custom")
-MIGRATION = "player_recent_records_v1"
-MIGRATION_LOCK = 723419681025
 RECENT_LIMIT = 10
 # 老牌谱 end_time 与 CURRENT_TIMESTAMP 一样没有时区；与原服务器的本地时区对齐。
 LEGACY_TIMEZONE = ZoneInfo("Asia/Shanghai")
@@ -28,11 +26,6 @@ def ensure_schema(cursor):
             big_win JSONB,
             updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (user_id, rule, room_type)
-        );
-        CREATE TABLE IF NOT EXISTS player_recent_record_migrations (
-            name TEXT PRIMARY KEY,
-            last_game_id VARCHAR(16) NOT NULL DEFAULT '',
-            completed_at TIMESTAMPTZ
         );
         CREATE TABLE IF NOT EXISTS player_recent_record_errors (
             game_id VARCHAR(16) PRIMARY KEY REFERENCES game_records(game_id) ON DELETE CASCADE,
@@ -64,10 +57,8 @@ def best_win_key(win):
     return (win["total_fan"], win["ended_at"], win["game_id"], win["round_index"], win["action_index"])
 
 
-def update_player_recent_records(cursor, game_id, record=None, *, migration=False):
+def update_player_recent_records(cursor, game_id, record=None):
     """调用方的牌谱事务内更新；只读取实际写入的玩家行，不自行提交。"""
-    if not migration:
-        cursor.execute("SELECT pg_advisory_xact_lock_shared(%s)", (MIGRATION_LOCK,))
     cursor.execute("SELECT record, created_at FROM game_records WHERE game_id = %s", (game_id,))
     row = cursor.fetchone()
     if row is None:
@@ -89,6 +80,10 @@ def update_player_recent_records(cursor, game_id, record=None, *, migration=Fals
     if any(user_id <= 10 for user_id in title_users) or any(row[0] <= 10 for row in players):
         cursor.execute("DELETE FROM player_recent_record_errors WHERE game_id = %s", (game_id,))
         return
+    # Existing Unity clients use the jiandan cache key for Nanque; standard Zhongyong stays separate.
+    if title.get("sub_rule") == "zhongyong/nanque":
+        players = [(uid, "jiandan" if rule == "zhongyong" else rule, category, rank, mode)
+                   for uid, rule, category, rank, mode in players]
     players = [row for row in players if row[1] in RULES and row[2] in CATEGORIES]
     if not players:
         cursor.execute("DELETE FROM player_recent_record_errors WHERE game_id = %s", (game_id,))
@@ -129,72 +124,41 @@ def update_player_recent_records(cursor, game_id, record=None, *, migration=Fals
         """, (Json(placements), Json(big_win) if big_win else None, *key))
 
 
-def backfill_player_recent_records(db_manager, batch_size=100):
-    """首次启动分页回填全部历史。每页提交进度，中断后续跑；完成后不再全表扫描。"""
+def retry_player_recent_record_errors(db_manager, batch_size=100):
+    """只重试已登记的牌谱错误；正常启动不扫描全部历史或维护迁移游标。"""
     if batch_size < 1:
         raise ValueError("batch_size 必须大于零")
     conn = db_manager._get_connection()
-    locked = False
-    processed = 0
+    processed, last_id = 0, ""
     try:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT pg_advisory_lock(%s)", (MIGRATION_LOCK,))
-            locked = True
-            ensure_schema(cursor)
-            cursor.execute("INSERT INTO player_recent_record_migrations (name) VALUES (%s) ON CONFLICT DO NOTHING", (MIGRATION,))
-            cursor.execute("SELECT last_game_id, completed_at FROM player_recent_record_migrations WHERE name = %s", (MIGRATION,))
-            last_id, completed = cursor.fetchone()
-            conn.commit()
-            if completed is None:
-                logger.info("开始/继续回填玩家近期记录，checkpoint=%s", last_id or "起点")
-                while True:
-                    cursor.execute("SELECT game_id FROM game_records WHERE game_id > %s ORDER BY game_id LIMIT %s", (last_id, batch_size))
-                    ids = [row[0] for row in cursor.fetchall()]
-                    if not ids:
-                        break
-                    for game_id in ids:
-                        update_player_recent_records(cursor, game_id, migration=True)
-                    last_id = ids[-1]
-                    cursor.execute("UPDATE player_recent_record_migrations SET last_game_id = %s WHERE name = %s", (last_id, MIGRATION))
-                    conn.commit()
-                    processed += len(ids)
-                    logger.info("玩家近期记录已回填 %d 份牌谱，checkpoint=%s", processed, last_id)
-            # 旧版不完整/损坏的牌谱单独登记，不伪造恢复成功；每次启动重新尝试。
-            retry_after = ""
             while True:
-                cursor.execute("SELECT game_id FROM player_recent_record_errors WHERE game_id > %s ORDER BY game_id LIMIT %s", (retry_after, batch_size))
+                cursor.execute("SELECT game_id FROM player_recent_record_errors WHERE game_id>%s ORDER BY game_id LIMIT %s",
+                               (last_id, batch_size))
                 ids = [row[0] for row in cursor.fetchall()]
                 if not ids:
                     break
                 for game_id in ids:
-                    update_player_recent_records(cursor, game_id, migration=True)
-                retry_after = ids[-1]
+                    update_player_recent_records(cursor, game_id)
+                last_id = ids[-1]
                 conn.commit()
+                processed += len(ids)
             cursor.execute("SELECT COUNT(*) FROM player_recent_record_errors")
             errors = cursor.fetchone()[0]
-            cursor.execute("""
-                UPDATE player_recent_record_migrations SET completed_at =
-                    CASE WHEN %s = 0 THEN COALESCE(completed_at, CURRENT_TIMESTAMP) ELSE NULL END
-                WHERE name = %s
-            """, (errors, MIGRATION))
             conn.commit()
-            logger.info("玩家近期记录回填结束：本次扫描 %d，待修复牌谱 %d", processed, errors)
             return {"processed": processed, "errors": errors, "complete": errors == 0}
     except Exception:
         conn.rollback()
         raise
     finally:
-        try:
-            if locked and not conn.closed:
-                with conn.cursor() as cursor:
-                    cursor.execute("SELECT pg_advisory_unlock(%s)", (MIGRATION_LOCK,))
-                conn.commit()
-        finally:
-            db_manager._put_connection(conn)
+        db_manager._put_connection(conn)
 
 
 def get_player_recent_records(db_manager, user_id):
     result = {rule: {category: {"placements": [], "big_win": None} for category in CATEGORIES} for rule in RULES}
+    from ..match.rating_rules import XUELIU_EXCHANGE_RATING_RULE
+    result[XUELIU_EXCHANGE_RATING_RULE] = {category: {"placements": [], "big_win": None} for category in CATEGORIES}
+    result['riichi_sanma'] = {category: {"placements": [], "big_win": None} for category in CATEGORIES}
     conn = db_manager._get_connection()
     try:
         with conn.cursor() as cursor:
@@ -202,6 +166,30 @@ def get_player_recent_records(db_manager, user_id):
             for rule, category, placements, big_win in cursor.fetchall():
                 if rule in result and category in CATEGORIES:
                     result[rule][category] = {"placements": placements, "big_win": big_win if rule == "guobiao" else None}
+            # Rated variants use the saved sub-rule rather than the shared game-rule cache.
+            for rating_rule, sub_rule in (('sichuan', 'sichuan/standard'),
+                                          (XUELIU_EXCHANGE_RATING_RULE, 'sichuan/xueliu_exchange')):
+                cursor.execute("""SELECT gpr.game_id,
+                        jsonb_build_object('game_title', jsonb_build_object('end_time', gr.record #>> '{game_title,end_time}')),
+                        gr.created_at, gpr.rank, gpr.match_type
+                    FROM game_player_records gpr JOIN game_records gr ON gr.game_id=gpr.game_id
+                    WHERE gpr.user_id=%s AND gpr.rule='sichuan' AND gpr.room_type='match'
+                      AND COALESCE(NULLIF(gpr.sub_rule, ''), 'sichuan/standard')=%s
+                    ORDER BY gr.created_at DESC, gpr.game_id DESC LIMIT %s""", (user_id, sub_rule, RECENT_LIMIT))
+                result[rating_rule]['match']['placements'] = [
+                    dict(game_id=gid, ended_at=ended_at(record, created_at), rank=rank, match_type=mode)
+                    for gid, record, created_at, rank, mode in reversed(cursor.fetchall())]
+            for rating_rule in ('riichi', 'riichi_sanma'):
+                cursor.execute("""SELECT gpr.game_id,
+                        jsonb_build_object('game_title', jsonb_build_object('end_time', gr.record #>> '{game_title,end_time}')),
+                        gr.created_at, gpr.rank, gpr.match_type
+                    FROM game_player_records gpr JOIN game_records gr ON gr.game_id=gpr.game_id
+                    WHERE gpr.user_id=%s AND gpr.rule='riichi' AND gpr.room_type='match'
+                      AND (COALESCE(gpr.sub_rule, '')='riichi/sanma')=%s
+                    ORDER BY gr.created_at DESC, gpr.game_id DESC LIMIT %s""", (user_id, rating_rule == 'riichi_sanma', RECENT_LIMIT))
+                result[rating_rule]['match']['placements'] = [
+                    dict(game_id=gid, ended_at=ended_at(record, created_at), rank=rank, match_type=mode)
+                    for gid, record, created_at, rank, mode in reversed(cursor.fetchall())]
         conn.commit()
         return result
     except Exception:

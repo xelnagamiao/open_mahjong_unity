@@ -31,12 +31,11 @@ internal static class YixingRuleBootstrap {
                 ScoreText = q.WinnerPointDelta.HasValue ? $"{q.WinnerPointDelta.Value:+#;-#;0}分" : "",
             },
             ScoreboardFanText = q => $"{q.HuScore}分",
-            SettlementFootnote = q => "固定牌型已含胡牌底花；普通放冲一家支付，抢杠及海底放冲已计三倍。",
             RoundName = round => RoundTextDictionary.WindSeatRoundName(round),
             RoundSupplementText = info => info.yixing_info?.phase == "waiting_last_tile" ? "海底选择" : $"连庄{info.yixing_info?.dealer_streak ?? 0}次",
             DefaultHepaiLimit = 0, HasFlowerReplacement = true, ReplacementFromTailEnd = true,
             SupportsRobbedAddedKongSource = true,
-            ReplayConcealedKongMask = (rule, tiles) => new[] {2,tiles[0],2,tiles[1],2,tiles[2],2,tiles[3]},
+            ReplayConcealedKongMask = (rule, tiles) => new[] {2,tiles[0],0,tiles[1],2,tiles[2],2,tiles[3]},
             RulebookKey = "yixing",
         });
         ActionWords.Register(new ActionWordSpec { Word = "yixing_last_draw", Kind = ActionWordKind.Other, Label = _ => "摸海底" });

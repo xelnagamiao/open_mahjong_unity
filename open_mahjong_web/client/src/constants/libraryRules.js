@@ -1,4 +1,5 @@
 import { hongKongRulebooks } from './hongKongRulebooks.js'
+import { milRulebooks } from './milRulebooks.js'
 
 /**
  * 麻雀图书馆规则目录
@@ -44,23 +45,23 @@ export const LIBRARY_SECTIONS = [
 export const LIBRARY_RULES = [
   {
     key: 'wenzhou', label: '温州麻将', short: '温州', categories: ['platform', 'local', 'mil'], accent: '#297b74',
-    description: 'MIL 温州2024：136张、十六张手牌，每局翻财；白板固定代财神本牌，可吃碰杠和点和，八对加单张、三财、软硬和及连庄。',
-    resources: [{ title: 'MIL 温州麻将2024原文', url: '/rulebooks/mil/温州麻将（试点）竞赛规则（试行2024版）.pdf' }, { title: '温州2024平台补则', url: '/rulebooks/wenzhou/MIL2024-platform-supplement.txt' }],
+    description: milRulebooks.wenzhou[0].desc,
+    resources: [...milRulebooks.wenzhou, { title: '温州2024平台补则', url: '/rulebooks/wenzhou/MIL2024-platform-supplement.txt' }],
   },
   {
     key: 'changchun', label: '长春麻将', short: '长春', categories: ['platform', 'mil'], accent: '#5c779a',
-    description: 'MIL 长春2024：136张、十三张手牌，三门带幺九，可吃碰杠、报听看宝。一条仅在特殊杠中代牌；六番封顶，流局保留杠分。',
-    resources: [{ title: 'MIL 长春2024原文', url: '/rulebooks/mil/长春麻将（推广）竞赛规则（试行2024版）.pdf' }, { title: '平台补则', url: '/rulebooks/changchun.html' }],
+    description: milRulebooks.changchun[0].desc,
+    resources: [...milRulebooks.changchun, { title: '平台补则', url: '/rulebooks/changchun.html' }],
   },
   {
     key: 'hongzhong', label: '红中麻将', short: '红中', categories: ['platform', 'mil'], accent: '#b74b46',
-    description: 'MIL 红中麻将（推广）2024：112张、十三张手牌，红中为万能牌；仅自摸，可碰杠，不吃。最高四番，和后扎两鸟，流局退杠。',
-    resources: [{ title: 'MIL 红中麻将2024原文', url: '/rulebooks/mil/红中麻将（推广）竞赛规则（试行2024版）.pdf' }],
+    description: milRulebooks.hongzhong[0].desc,
+    resources: milRulebooks.hongzhong,
   },
   {
     key: 'hangzhou', label: '杭州麻将', short: '杭州', categories: ['platform', 'mil'], accent: '#1f8a6a',
-    description: 'MIL 杭州麻将（推广）2025：136张、白板财神，仅自摸；爆头、财飘、七对、十风，4番封顶，老庄2/4/8倍、三吃承包，墙尾20张流局。',
-    resources: [{ title: 'MIL 杭州麻将2025原文', url: '/rulebooks/mil/杭州麻将（推广）竞赛规则（试行2025版）.pdf' }],
+    description: milRulebooks.hangzhou[0].desc,
+    resources: milRulebooks.hangzhou,
   },
   {
     key: 'yixing', label: '宜兴麻将', short: '宜兴', categories: ['platform', 'local'], accent: '#537c69',
@@ -73,12 +74,9 @@ export const LIBRARY_RULES = [
     ],
   },
   {
-    key: 'guizhou', label: '贵州麻将', short: '贵州', categories: ['platform', 'mil'],
-    description: 'MIL 贵州麻将（推广）2023：108张、十三张手牌，不吃，无花无癞子；原报、软报、捉鸡，鸡杠局终结算。基本分39分封顶，流局按理论最大听牌分查叫。',
-    accent: '#92752f',
-    resources: [
-      { title: 'MIL 贵州麻将2023原文', url: '/rulebooks/mil/贵州麻将（推广）竞赛规则（试行2023版）.pdf' },
-    ],
+    key: 'guizhou', label: '贵州麻将', short: '贵州', categories: ['platform', 'mil'], accent: '#92752f',
+    description: milRulebooks.guizhou[0].desc,
+    resources: milRulebooks.guizhou,
   },
   {
     key: 'guobiao',
@@ -221,7 +219,7 @@ export const LIBRARY_RULES = [
     resources: [
       {
         title: '四川麻将（SBR）竞赛规则',
-        desc: '四川麻将（SBR）竞赛规则（试行 2025 版）。',
+        desc: '四川麻将（血战到底）',
         url: '/rulebooks/sichuan-sbr.pdf',
         filename: '四川麻将（SBR）竞赛规则（试行2025版）.pdf',
       },
@@ -245,12 +243,9 @@ export const LIBRARY_RULES = [
     ],
   },
   {
-    key: 'guangdong', label: '广东麻将', short: '广东',
-    categories: ['platform', 'mil'], accent: '#0f766e',
-    description: 'MIL 推倒和2024无癞子标准本。136张，可吃碰杠，报听可选，头跳；23番种，32番封顶另加2底分。',
-    resources: [
-      { title: '推倒和 MIL 2024 原书', url: '/rulebooks/mil/推倒和麻将（推广）竞赛规则（试行2024版）.pdf', filename: '推倒和麻将（推广）竞赛规则（试行2024版）.pdf' },
-    ],
+    key: 'guangdong', label: '广东麻将', short: '广东', categories: ['platform', 'mil'], accent: '#0f766e',
+    description: milRulebooks.guangdong.map(profile => profile.desc).join(' '),
+    resources: milRulebooks.guangdong,
   },
   {
     key: 'hongkong',
@@ -303,11 +298,9 @@ export const LIBRARY_RULES = [
     resources: [],
   },
   {
-    key: 'shanxi', label: '山西麻将', short: '山西', categories: ['platform', 'local', 'mil'],
-    description: 'MIL试行2023版，136张、十三张手牌。无癞子、不吃牌；暗扣报听、三点自摸、六点点和、有和必和，和牌时结杠。',
-    accent: '#b7791f', resources: [
-      { title: 'MIL山西麻将试行2023版', url: '/rulebooks/mil/山西麻将（推广）竞赛规则（试行2023版）.pdf', filename: '山西麻将（推广）竞赛规则（试行2023版）.pdf' },
-    ],
+    key: 'shanxi', label: '山西麻将', short: '山西', categories: ['platform', 'local', 'mil'], accent: '#b7791f',
+    description: milRulebooks.shanxi[0].desc,
+    resources: milRulebooks.shanxi,
   },
   {
     key: 'shiyangjin',

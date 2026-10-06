@@ -15,7 +15,7 @@ internal static class GuizhouRuleBootstrap {
                 "MIL《贵州麻将（推广）竞赛规则（试行2023版）》：108张、十三张手牌，无花无癞子，不吃；开局原报或软报，鸡杠局终结算，基本分39分封顶，流局查叫。") },
             CreateRoomDefaults = new Dictionary<string, object> {
                 { CreateRoomKeys.GameRound, 4 }, { CreateRoomKeys.RoundTimer, 3 }, { CreateRoomKeys.StepTimer, 1 },
-                { CreateRoomKeys.Tips, true }, { CreateRoomKeys.CountTips, false }, { CreateRoomKeys.PointerTips, true },
+                { CreateRoomKeys.TacticalCall, true }, { CreateRoomKeys.Tips, true }, { CreateRoomKeys.CountTips, false }, { CreateRoomKeys.PointerTips, true },
                 { CreateRoomKeys.Password, false }, { CreateRoomKeys.RandomSeed, false },
                 { CreateRoomKeys.TouristLimit, false }, { CreateRoomKeys.AllowSpectator, true },
             },
@@ -49,7 +49,7 @@ internal static class GuizhouRuleBootstrap {
             Word = "guizhou_ready", Kind = ActionWordKind.Other, Label = _ => "报听",
         });
         ActionWords.Register(new ActionWordSpec {
-            Word = "guizhou_ready_cancel", Kind = ActionWordKind.Other, Label = _ => "取消报听",
+            Word = "guizhou_ready_cancel", Kind = ActionWordKind.Other, DisplayPriority = 60, Label = _ => "取消报听",
         });
     }
 }

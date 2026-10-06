@@ -10,7 +10,7 @@ def option(game, key):
 
 
 def is_first_draw(game, player):
-    return not player.discard_origin_tiles and not any(p.combination_tiles for p in game.player_list)
+    return not player.discard_origin_tiles and not any(p.combination_tiles or p.huapai_list for p in game.player_list)
 
 
 def ankan_allowed(game, player, tile):
@@ -46,7 +46,7 @@ def ankan_allowed(game, player, tile):
             return False
         if option(game, 'riichi_kan_rule') == 'shape_yaku':
             ctx = dict(is_riichi=True, is_tsumo=True, player_wind=player.player_index,
-                       round_wind=(game.current_round-1)//4%4, red_dora=False,
+                       round_wind=(game.current_round-1)//len(game.player_list)%4, red_dora=False,
                        has_open_tanyao=option(game, 'open_tanyao'))
             a = checker.hepai_check(before+[wait], player.combination_tiles, [], wait, ctx)
             b = checker.hepai_check(after+[wait], melds, [], wait, ctx)
@@ -60,7 +60,7 @@ def match_should_end(game, renchan, round_after):
         return True
     if getattr(game, '_cuohe_triggered', False):
         return False
-    scheduled = game.max_round * 4
+    scheduled = game.max_round * len(game.player_list)
     # An abortive draw repeats the hand even when the dealer leads.
     if game.hu_class in ('jiuzhongjiupai','four_wind_abort','four_kan_abort','four_riichi_abort','three_ron_abort'):
         return False
@@ -68,7 +68,7 @@ def match_should_end(game, renchan, round_after):
         return False
     players = sorted(game.player_list, key=lambda p: (-p.score, p.original_player_index))
     dealer = game.player_list[0]
-    target = option(game, 'target_score') or game._starting_score() * 6 // 5
+    target = option(game, 'target_score') or (40000 if game.sub_rule == 'riichi/sanma' else game._starting_score() * 6 // 5)
     if renchan:
         stopping = option(game, 'tenpai_yame' if game.hu_class == 'ryuukyoku' else 'agari_yame')
         return stopping and players[0] is dealer and dealer.score >= target
@@ -92,17 +92,16 @@ def nagashi_winners(game):
 
 def draw_payments(game, tenpai):
     winners = nagashi_winners(game)
-    changes = {i: 0 for i in range(4)}
+    changes = {i: 0 for i in range(len(game.player_list))}
     if winners:
         for winner in winners:
-            for payer in range(4):
-                if payer == winner:
-                    continue
-                pay = 4000 if winner == 0 or payer == 0 else 2000
+            from ...game_calculation.riichi.sanma import tsumo_payments
+            cost = dict(main=4000, additional=4000 if winner == 0 else 2000)
+            for payer, pay in tsumo_payments(cost, winner, len(game.player_list), option(game, 'sanma_tsumo')).items():
                 changes[payer] -= pay
                 changes[winner] += pay
         return changes, winners
-    noten = [i for i in range(4) if i not in tenpai]
+    noten = [i for i in range(len(game.player_list)) if i not in tenpai]
     total = option(game, 'noten_penalty')
     if tenpai and noten:
         for i in noten: changes[i] -= total // len(noten)
@@ -144,9 +143,11 @@ def apply_pao(game, changes, winner, result, apply_honba):
         count = min(multiplier, remaining); remaining -= count
         total = count * (48000 if winner == 0 else 32000)
         if tsumo:
-            for seat in range(4):
+            from ...game_calculation.riichi.sanma import tsumo_payments
+            cost = dict(main=count * 16000, additional=count * (16000 if winner == 0 else 8000))
+            for seat, base in tsumo_payments(cost, winner, len(game.player_list), option(game, 'sanma_tsumo')).items():
                 if seat != winner:
-                    original = count * (16000 if winner == 0 or seat == 0 else 8000) * factor(seat)
+                    original = base * factor(seat)
                     changes[seat] += original
                     changes[winner] -= original
             changes[liable] -= total * factor(liable)
@@ -161,9 +162,9 @@ def apply_pao(game, changes, winner, result, apply_honba):
     if apply_honba and game.honba:
         liable = payments[0][0]
         if tsumo:
-            for seat in range(4):
+            for seat in range(len(game.player_list)):
                 if seat != winner: changes[seat] += game.honba * 100
-            changes[liable] -= game.honba * 300
+            changes[liable] -= game.honba * 100 * (len(game.player_list) - 1)
         elif option(game, 'pao_honba') == 'liable':
             changes[game.current_player_index] += game.honba * 300
             changes[liable] -= game.honba * 300
@@ -176,6 +177,7 @@ def finalize_scores(game):
     game._riichi_finalized = True
     ranked = sorted(game.player_list, key=lambda p: (-p.score, p.original_player_index))
     tie_scores = {p.original_player_index: p.score for p in ranked}
+    game._riichi_final_tie_scores = tie_scores
     deposits = game.riichi_sticks * 1000
     mode = option(game, 'end_deposits')
     if deposits and mode != 'discard':
@@ -185,23 +187,29 @@ def finalize_scores(game):
         game.riichi_sticks = 0
     # Ties for uma are determined before distributing split deposits.
     kind = option(game, 'rank_points')
+    count = len(ranked)
     uma = {'none':[0,0,0,0], '5_15':[15,5,-5,-15], '10_20':[20,10,-10,-20],
            '10_30':[30,10,-10,-30]}.get(kind)
     if kind == 'jpml':
         floating = sum(p.score >= 30000 for p in ranked)
         uma = {0:[0,0,0,0],1:[12,-1,-3,-8],2:[8,4,-4,-8],3:[8,3,1,-12],4:[0,0,0,0]}[floating]
+    if count == 3:
+        # Four-player uma adapted to three seats never allocates a fourth result.
+        uma = [0, 0, 0] if kind == 'none' else [20, 0, -20] if kind in ('sanma_20', '10_20') else [15, 0, -15]
+    elif uma is None:
+        raise ValueError('三麻顺位点仅用于三人麻将')
     start = game._starting_score()
     returned = option(game, 'return_score') or start
     awards = [int(x*1000) for x in uma]
     starting_total = sum(game._player_starting_score(p.original_player_index) for p in ranked)
-    awards[0] += returned * 4 - starting_total
+    awards[0] += returned * count - starting_total
     if option(game, 'tie_break') == 'shared':
         # Original tied groups remain tied even if a 100-point deposit remainder exists.
         groups = tie_scores
         i=0
-        while i<4:
+        while i<count:
             j=i+1
-            while j<4 and groups[ranked[j].original_player_index] == groups[ranked[i].original_player_index]: j+=1
+            while j<count and groups[ranked[j].original_player_index] == groups[ranked[i].original_player_index]: j+=1
             total=sum(awards[i:j]); quotient,remainder=divmod(total//100,j-i)
             for k in range(i,j): awards[k]=100*(quotient+(k-i<remainder))
             i=j

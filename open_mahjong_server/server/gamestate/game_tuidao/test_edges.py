@@ -64,7 +64,7 @@ def test_reconnect_without_connection_or_terminal_snapshot_never_rebroadcasts():
 
 def test_claim_clock_without_delivery_timestamp_keeps_full_window():
     state=make_state()
-    assert state.claim_clock(state.player_list[1],reconnecting=True)==(0,3)
+    assert state.claim_clock(state.player_list[1],reconnecting=True)==(20,5)
     assert state.enter_water(1) is False
     assert state.player_list[1].passed_fan==-1
 

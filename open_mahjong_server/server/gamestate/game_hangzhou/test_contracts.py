@@ -142,7 +142,7 @@ def test_reconnect_and_selected_spectator_restore_identical_authoritative_views(
 
 def test_network_authentication_stale_tick_and_duplicate_replies():
     async def run():
-        s = turn()
+        s = turn(round_timer=20, step_timer=5)
         ws = SimpleNamespace(send_json=AsyncMock())
         server = SimpleNamespace(gamestate_manager=SimpleNamespace(get_game_state_by_gamestate_id=lambda _: s),
             players={"own": SimpleNamespace(user_id=101), "outsider": SimpleNamespace(user_id=999)})
@@ -191,7 +191,7 @@ def test_pydantic_transport_preserves_hangzhou_extensions():
 
 
 @pytest.mark.parametrize("key,value", [
-    ("use_flowers", True), ("open_cuohe", True), ("tactical_call", True), ("claim_protection", True),
+    ("use_flowers", True), ("open_cuohe", True), ("tactical_call", 0), ("claim_protection", True),
     ("tian_di_ren_he", True), ("tips", "false"), ("allow_spectator", 1), ("game_round", True),
     ("game_round", 5), ("round_timer", -1), ("step_timer", 101), ("sub_rule", "hangzhou/other"),
     ("detailed_config", {"joker": 47}), ("detailed_config", {"rule_version": "old"}),

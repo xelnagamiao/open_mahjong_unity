@@ -1,12 +1,12 @@
 # 血流成河规则与实现
 
-更新日期：2026-09-29。新牌谱规则快照版本为 3。
+更新日期：2026-10-05。新牌谱规则快照版本为 3。完整换三张设计见 [川麻血流换三张设计稿](sichuan-xueliu-exchange-design.md)。
 
 ## 玩法隔离
 
 | 项目 | 弃三张 `sichuan/xueliu` | 换三张 `sichuan/xueliu_exchange` |
 | --- | --- | --- |
-| 状态机 | `XueliuGameState` | `XueliuExchangeGameState`，复用血流流程 |
+| 状态机 | `XueliuGameState` | `XueliuGameState` 的独立换牌配置，复用血流流程 |
 | 牌 | 万、筒、条共108张 | 同左 |
 | 开局 | 弃三张同花色牌，不补牌 | 四家交换三张同花色牌，方向统一随机 |
 | 手牌张数 | 庄家11、闲家10 | 庄家14、闲家13 |

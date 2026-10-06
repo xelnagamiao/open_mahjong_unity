@@ -51,6 +51,21 @@ public partial class Game3DManager {
     private int _recordHandAnimationCount;
     private int _recordHandAnimationGeneration;
     private readonly Dictionary<string, int> _recordHandAnimationsByPlayer = new Dictionary<string, int>();
+    private readonly Dictionary<string, int> _recordBuhuaAnimationsByPlayer = new Dictionary<string, int>();
+    private readonly Dictionary<string, int> _recordBuhuaRearrangesByPlayer = new Dictionary<string, int>();
+
+    internal int RecordHandAnimationVersion => _handAnimationGeneration;
+
+    internal bool HasRecordBuhuaAnimation(string playerPosition) {
+        return _recordBuhuaAnimationsByPlayer.TryGetValue(playerPosition, out int count) && count > 0;
+    }
+
+    internal bool CanContinueRecordBuhuaDraw(string playerPosition) {
+        return !HasPendingHandAnimWork(playerPosition)
+            && _recordBuhuaAnimationsByPlayer.TryGetValue(playerPosition, out int flowers) && flowers > 0
+            && _recordBuhuaRearrangesByPlayer.TryGetValue(playerPosition, out int rearranges) && rearranges == flowers
+            && _recordHandAnimationsByPlayer.TryGetValue(playerPosition, out int animations) && animations == flowers;
+    }
 
     /// <summary>牌谱明牌的删牌、飞牌和收拢尚未结束；自动播放须等它们完成再修改下一笔手牌状态。</summary>
     public bool HasPendingRecordHandAnimations => _recordHandAnimationCount > 0;
@@ -69,18 +84,36 @@ public partial class Game3DManager {
         }
     }
 
-    private IEnumerator TrackRecordHandAnimation(IEnumerator animation, string playerPosition) {
+    private IEnumerator TrackRecordHandAnimation(IEnumerator animation, string playerPosition, bool isBuhua = false) {
         int generation = _recordHandAnimationGeneration;
         _recordHandAnimationCount++;
         _recordHandAnimationsByPlayer.TryGetValue(playerPosition, out int count);
         _recordHandAnimationsByPlayer[playerPosition] = count + 1;
+        if (isBuhua) {
+            _recordBuhuaAnimationsByPlayer.TryGetValue(playerPosition, out int flowers);
+            _recordBuhuaAnimationsByPlayer[playerPosition] = flowers + 1;
+        }
         try {
             yield return animation;
         } finally {
             if (generation == _recordHandAnimationGeneration) {
                 _recordHandAnimationCount--;
                 _recordHandAnimationsByPlayer[playerPosition]--;
+                if (isBuhua) _recordBuhuaAnimationsByPlayer[playerPosition]--;
             }
+        }
+    }
+
+    private IEnumerator FinishBuhuaHandRearrange(string playerPosition, IEnumerator rearrange, int generation) {
+        if (generation != _handAnimationGeneration) yield break;
+        // 先启动收拢，取得本次旧手牌列表，再放行补摸；随后加入的摸牌不会被旧动画收走。
+        Coroutine running = StartCoroutine(rearrange);
+        _recordBuhuaRearrangesByPlayer.TryGetValue(playerPosition, out int count);
+        _recordBuhuaRearrangesByPlayer[playerPosition] = count + 1;
+        try {
+            yield return running;
+        } finally {
+            if (generation == _handAnimationGeneration) _recordBuhuaRearrangesByPlayer[playerPosition]--;
         }
     }
 
@@ -117,6 +150,8 @@ public partial class Game3DManager {
         _recordHandAnimationGeneration++;
         _recordHandAnimationCount = 0;
         _recordHandAnimationsByPlayer.Clear();
+        _recordBuhuaAnimationsByPlayer.Clear();
+        _recordBuhuaRearrangesByPlayer.Clear();
         foreach (var kv in _handAnimProcessors) {
             if (kv.Value != null) {
                 StopCoroutine(kv.Value);
@@ -490,10 +525,7 @@ public partial class Game3DManager {
     }
 
     private IEnumerator RecordBuhuaShowCardsCoroutine(string playerPosition, int tileId, bool fromDrawSlot) {
-        return TrackRecordHandAnimation(RecordBuhuaShowCardsCore(playerPosition, tileId, fromDrawSlot), playerPosition);
-    }
-
-    private IEnumerator RecordBuhuaShowCardsCore(string playerPosition, int tileId, bool fromDrawSlot) {
+        int generation = _handAnimationGeneration;
         PosPanel3D panel = GetPosPanel(playerPosition);
         yield return RemoveRecordShowHandCardCoroutine(panel.ShowCardsPosition, tileId, fromDrawSlot, playerPosition);
         if (fromDrawSlot) {
@@ -501,7 +533,8 @@ public partial class Game3DManager {
         }
         yield return Set3DTileCoroutine(tileId, panel.buhuaPosition, "Buhua", playerPosition);
         if (!fromDrawSlot) {
-            yield return RearrangeRecordShowMergeAllWithAnimation(panel.ShowCardsPosition, playerPosition);
+            yield return FinishBuhuaHandRearrange(playerPosition,
+                RearrangeRecordShowMergeAllWithAnimation(panel.ShowCardsPosition, playerPosition), generation);
         }
     }
 

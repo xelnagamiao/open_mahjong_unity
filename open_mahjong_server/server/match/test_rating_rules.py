@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
-from .rating_rules import QUEUES, RULES, elo_deltas, default_rating
+from .rating_rules import QUEUES, RULES, GRADE_RULES, elo_deltas, default_rating
 from .rank_calculator import queue_type_to_room_config, queue_type_to_match_type
 from .test_lifecycle import server_fixture, USERS
 from .match_manager import MatchManager
@@ -21,8 +21,8 @@ def test_elo_equal_players_and_ties():
     with pytest.raises(ValueError): elo_deltas([float('nan')]*4,[1,2,3,4])
 
 
-@pytest.mark.parametrize('place,expected', [(1,10.68),(2,0.02),(3,-10.65),(4,-21.32)])
-def test_large_gap_uses_2000_point_expectation(place,expected):
+@pytest.mark.parametrize('place,expected', [(1,11.52),(2,0.85),(3,-9.82),(4,-20.48)])
+def test_large_gap_uses_2400_point_expectation(place,expected):
     places=[place]+[p for p in (1,2,3,4) if p!=place]
     deltas=elo_deltas([2100,1500,1500,1500],places)
     assert deltas[0]==expected
@@ -32,18 +32,37 @@ def test_large_gap_uses_2000_point_expectation(place,expected):
 def test_elo_mapping_is_symmetric_and_finite_at_extremes():
     for ratings in ([0,2000,4000,6000],[-1e300,0,1500,1e300]):
         deltas=elo_deltas(ratings,[1,2,3,4])
-        assert sum(deltas)==pytest.approx(0)
+        assert sum(deltas)>=-0.001
         assert all(-32.02<=d<=32.02 for d in deltas)
     assert elo_deltas([1500,1500,1500,1500],[1,2,3,4])==elo_deltas([2000]*4,[1,2,3,4])
 
 
-@pytest.mark.parametrize('rule', ['qingque', 'sichuan'])
+def test_low_table_protection_matches_the_agreed_experiment_without_a_personal_floor():
+    assert elo_deltas([1000]*4,[1,2,3,4]) == [19.77,9.1,-1.56,-12.23]
+    assert elo_deltas([1000]*4,[1,1,1,1]) == [3.77]*4
+    assert elo_deltas([900]*4,[1,2,3,4])[-1] < 0
+    # Protection is based on the table average, not a single low player's R.
+    assert sum(elo_deltas([800,2200,2000,1800],[1,2,3,4])) == pytest.approx(0)
+
+
+@pytest.mark.parametrize('rule', RULES)
+def test_grade_defaults_and_protocol_have_no_elo(rule):
+    from ..response import RuleRating, LeaderboardEntry
+    rating = default_rating(rule)
+    assert ('elo' in rating) == (rule not in GRADE_RULES)
+    assert ('elo' in RuleRating(**rating).model_dump()) == (rule not in GRADE_RULES)
+    entry = LeaderboardEntry(**rating,rank_position=1,user_id=11000001,username='test',
+        guobiao_rank='10级',guobiao_score=0)
+    assert ('elo' in entry.model_dump()) == (rule not in GRADE_RULES)
+
+
+@pytest.mark.parametrize('rule', ['qingque', 'sichuan', 'sichuan_xueliu_exchange'])
 def test_elo_full_game_starts_with_four_players_regardless_of_rating(rule):
     async def run():
         server=server_fixture();manager=server.match_manager
         manager.committed_users.clear();manager.winning_queues.clear()
-        queue=next(q for q,s in QUEUES.items() if s.rule==rule)
-        assert [(s.mode,s.rounds) for s in QUEUES.values() if s.rule==rule]==[('quanzhuang',4)]
+        queue=next(q for q,s in QUEUES.items() if s.rating_rule==rule)
+        assert [(s.mode,s.rounds) for s in QUEUES.values() if s.rating_rule==rule]==[('quanzhuang',4)]
         ratings=dict(zip(USERS,[600,2600,1100,1900]))
         server.db_manager.get_rank_data.side_effect=lambda uid: {'ratings':{rule:{**default_rating(rule),'elo':ratings[uid]}}}
         started=asyncio.Event()
@@ -55,8 +74,9 @@ def test_elo_full_game_starts_with_four_players_regardless_of_rating(rule):
             assert (await manager.join_queue(str(uid),queue)).success
             assert not manager.committed_users
             assert not server.gamestate_manager.gamestate_id_to_game_state
-        assert (await manager.join_queue(str(USERS[3]),queue)).success
-        await asyncio.wait_for(started.wait(),1)
+        with patch.object(manager, 'MATCH_FOUND_DELAY_SECONDS', 0):
+            assert (await manager.join_queue(str(USERS[3]),queue)).success
+            await asyncio.wait_for(started.wait(),1)
         game=next(iter(server.gamestate_manager.gamestate_id_to_game_state.values()))
         assert game.max_round==4
         assert {p.user_id for p in game.player_list}==set(USERS)
@@ -79,7 +99,7 @@ def test_removed_short_elo_queues_cannot_be_joined(queue):
     asyncio.run(run())
 
 
-@pytest.mark.parametrize('queue',['qingque_elo_quanzhuang','sichuan_elo_xuezhan'])
+@pytest.mark.parametrize('queue',['qingque_elo_quanzhuang','sichuan_elo_xuezhan','sichuan_xueliu_exchange_elo_quanzhuang'])
 def test_elo_queue_uses_arrival_order_and_keeps_the_fifth_player(queue):
     async def run():
         server=server_fixture();manager=server.match_manager
@@ -100,10 +120,12 @@ def test_elo_queue_uses_arrival_order_and_keeps_the_fifth_player(queue):
 def test_queue_config_and_real_game_construction(queue):
     async def run():
         server=server_fixture();spec=QUEUES[queue]
+        server.match_manager.committed_users.intersection_update(USERS[:spec.player_count])
+        server.match_manager.winning_queues={uid:queue for uid in USERS[:spec.player_count]}
         async def hold(*args): await asyncio.Event().wait()
         server.gamestate_manager.run_game=hold
         with patch('server.match.match_manager.asyncio.sleep',new=AsyncMock()):
-            await server.match_manager._start_game(queue,USERS)
+            await server.match_manager._start_game(queue,USERS[:spec.player_count])
         game=next(iter(server.gamestate_manager.gamestate_id_to_game_state.values()))
         assert game.room_rule==spec.rule
         assert game.max_round==spec.rounds
@@ -114,24 +136,26 @@ def test_queue_config_and_real_game_construction(queue):
         if spec.rule=='riichi':
             from ..game_calculation.riichi.rule_config import preset_room_config
             from ..gamestate.game_riichi.boardcast import _build_base_game_info
-            preset = preset_room_config('tenhou')
+            preset = preset_room_config('sanma_tenhou' if spec.player_count == 3 else 'mleague')
             assert game.detailed_config == preset['detailed_config']
             for key, value in preset.items():
                 if key not in ('game_round', 'detailed_config'):
                     assert getattr(game, key) == value, key
-            assert game.hepai_way == 'three_ron_abort'
-            assert game.detailed_config['double_yakuman'] is False
-            assert game.detailed_config['kokushi_ankan_ron'] is False
-            assert game.detailed_config['furiten_clear'] == 'discard'
+            assert game.match_rating_algorithm == ('riichi_sanma_place_pt_v1' if spec.player_count == 3 else 'riichi_mleague_pt_v1')
+            if spec.player_count == 4:
+                assert game.hepai_way == 'head_bump'
+                assert game.detailed_config['double_yakuman'] is False
+                assert game.detailed_config['kokushi_ankan_ron'] is False
+                assert game.detailed_config['furiten_clear'] == 'discard'
             info=_build_base_game_info(game)
             assert info['tips'] is False
             assert info['count_tips']==expected_count
             assert info['detailed_config'] == preset['detailed_config']
-            assert info['hepai_way'] == 'three_ron_abort'
+            assert info['hepai_way'] == preset['hepai_way']
         assert game.match_queue_type==queue
-        assert queue_type_to_match_type(queue)==f'{spec.rounds}/4_rank'
-        assert len(game.player_list)==4
-        assert server.match_manager.playing_counts[queue]==4
+        assert queue_type_to_match_type(queue)==f'{spec.rounds}/4' + ('_sanma_rank' if spec.player_count == 3 else '_rank')
+        assert len(game.player_list)==spec.player_count
+        assert server.match_manager.playing_counts[queue]==spec.player_count
         await server.gamestate_manager.cleanup_game_state_complete(game.gamestate_id)
         assert not server.match_manager.committed_users
         assert not server.room_manager.match_room_ids
@@ -151,7 +175,7 @@ def test_ranked_stats_api_receives_rule_and_fan_data(rule):
             assert body['success'] and body['data_request_id']=='stats-1'
             assert body['rule_stats']['history_stats'][0]['total_games']==3
             history.assert_called_once_with(server.db_manager,11000002,rule)
-            if rule in ('riichi','qingque'):assert body['rule_stats']['ranked_fan_stats']
+            if rule in ('riichi','riichi_sanma','qingque'):assert body['rule_stats']['ranked_fan_stats']
             await handle_get_ranked_stats(server,'missing',dict(rule=rule),ws)
             assert not ws.send_json.call_args.args[0]['success']
     asyncio.run(run())
@@ -176,7 +200,7 @@ def test_rule_specific_join_guest_cancel_and_commit(rule):
         server=server_fixture();manager=server.match_manager
         manager.committed_users.clear();manager.winning_queues.clear()
         manager._start_game=AsyncMock()
-        queue=next(q for q,s in QUEUES.items() if s.rule==rule)
+        queue=next(q for q,s in QUEUES.items() if s.rating_rule==rule)
         ratings={r:default_rating(r) for r in RULES}
         server.db_manager.get_rank_data.return_value={'guobiao_rank':'四段','ratings':ratings}
         server.players[str(USERS[0])].is_tourist=True
@@ -185,9 +209,10 @@ def test_rule_specific_join_guest_cancel_and_commit(rule):
         assert (await manager.join_queue(str(USERS[0]),queue)).success
         assert (await manager.leave_queue(str(USERS[0]),queue)).success
         assert not manager.queues[queue]
-        for uid in USERS: assert (await manager.join_queue(str(uid),queue)).success
+        table_users=USERS[:QUEUES[queue].player_count]
+        for uid in table_users: assert (await manager.join_queue(str(uid),queue)).success
         await asyncio.sleep(0)
-        assert manager.committed_users==set(USERS)
+        assert manager.committed_users==set(table_users)
         assert not manager.queues[queue]
         manager._start_game.assert_awaited_once()
         assert not (await manager.leave_queue(str(USERS[0]))).success
@@ -207,12 +232,15 @@ def test_riichi_eligibility_uses_own_rank():
 @pytest.mark.parametrize('queue',list(QUEUES))
 def test_settlement_dispatch_only_for_matching_rule(queue):
     spec=QUEUES[queue]
-    players=[SimpleNamespace(user_id=u,record_counter=SimpleNamespace(rank_result=i+1)) for i,u in enumerate(USERS)]
-    result={str(u):{'rating_rule':spec.rule,'rank_after':'9级','score_after':3} for u in USERS}
+    players=[SimpleNamespace(user_id=u,riichi_points=points,record_counter=SimpleNamespace(rank_result=i+1)) for i,(u,points) in enumerate(zip(USERS[:spec.player_count],(60,10,-20,-50)))]
+    result={str(u):{'rating_rule':spec.rating_rule,'rank_after':'9级','score_after':3} for u in USERS[:spec.player_count]}
     db=SimpleNamespace(settle_rated_game=Mock(return_value=result))
-    state=SimpleNamespace(room_type='match',room_rule=spec.rule,match_queue_type=queue,max_round=spec.rounds,game_record={'game_title':{}},player_list=players,db_manager=db,gamestate_id='sample')
-    assert settle_ranked_game(state)==f'{spec.rounds}/4_rank'
-    assert all(p.rating_rule==spec.rule for p in players)
+    state=SimpleNamespace(room_type='match',room_rule=spec.rule,sub_rule=spec.sub_rule or ('riichi/sanma' if spec.player_count == 3 else f'{spec.rule}/standard'),match_queue_type=queue,max_round=spec.rounds,game_record={'game_title':{}},player_list=players,db_manager=db,gamestate_id='sample')
+    assert settle_ranked_game(state)==queue_type_to_match_type(queue)
+    assert all(p.rating_rule==spec.rating_rule for p in players)
+    if spec.rule == 'riichi':
+        assert db.settle_rated_game.call_args.kwargs['rating_algorithm'] == ('riichi_sanma_place_pt_v1' if spec.player_count == 3 else 'grade_place_pt_v1')
+        assert [p['match_points'] for p in db.settle_rated_game.call_args.args[2]] == [60,10,-20,-50][:spec.player_count]
     state.room_type='custom';db.settle_rated_game.reset_mock()
     assert settle_ranked_game(state)==f'{spec.rounds}/4'
     db.settle_rated_game.assert_not_called()

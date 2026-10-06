@@ -151,7 +151,8 @@ public class GameSceneUIManager : MonoBehaviour
             return;
         }
 
-        if (player_to_info != null && player_to_info.Count >= 4
+        int playerCount = MahjongPlayerCount.ForSubRule(mgr?.subRule);
+        if (player_to_info != null && player_to_info.Count >= playerCount
             && mgr != null && (mgr.IsGameActive || mgr.roundSettlementHistory.Count > 0)) {
             string rule = !string.IsNullOrEmpty(mgr.roomRule) ? mgr.roomRule : "UNKNOWN";
             bool maskPlayerNames = StreamerModeHelper.IsEnabled && !mgr.IsRealtimeSpectator;
@@ -159,7 +160,7 @@ public class GameSceneUIManager : MonoBehaviour
             return;
         }
 
-        if (player_to_info == null || player_to_info.Count < 4) return;
+        if (player_to_info == null || player_to_info.Count < playerCount) return;
 
         string fallbackRule = mgr != null ? mgr.roomRule : "UNKNOWN";
         var settlements = mgr?.roundSettlementHistory;

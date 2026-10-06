@@ -39,3 +39,20 @@ test('hand count, clocks and all room toggles survive canonical storage', () => 
     for (const [key, value] of Object.entries(raw)) assert.equal(saved[key], value);
   }
 });
+
+test('Tuidao new preset defaults tactical on and retains explicit off on reopen', () => {
+  assert.equal(save({}).room_config.tactical_call, true);
+  for (const tactical_call of [true, false]) {
+    const first = save({ tactical_call, round_timer: 42, step_timer: 11 }).room_config;
+    assert.equal(first.tactical_call, tactical_call);
+    const second = save(first).room_config;
+    assert.equal(second.tactical_call, tactical_call);
+    assert.equal(second.round_timer, 42);
+    assert.equal(second.step_timer, 11);
+  }
+});
+
+test('Tuidao tactical config rejects type coercion and does not expose protection', () => {
+  for (const tactical_call of ['false', 0, null]) assert.throws(() => save({ tactical_call }));
+  assert.throws(() => save({ claim_protection: true }));
+});

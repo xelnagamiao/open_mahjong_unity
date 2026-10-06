@@ -7,7 +7,7 @@
     </el-form>
     <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon class="notice" />
     <template v-if="scope === 'personal' || eventId">
-      <div class="quota-row"><span>今日创建 <b>{{ quota?.created_today ?? '—' }} / {{ quota?.daily_limit ?? (scope === 'event' ? 20 : 5) }}</b></span><span>保留密钥 <b>{{ quota?.stored ?? '—' }} / {{ quota?.storage_limit ?? (scope === 'event' ? 100 : 25) }}</b></span><el-button text :loading="loading" :disabled="busy" @click="loadWalls">刷新</el-button></div>
+      <div class="quota-row"><span>今日创建 <b>{{ quota?.created_today ?? '—' }} / {{ quota?.daily_limit ?? (scope === 'event' ? 25 : 5) }}</b></span><span>保留密钥 <b>{{ quota?.stored ?? '—' }} / {{ quota?.storage_limit ?? (scope === 'event' ? 100 : 25) }}</b></span><el-button text :loading="loading" :disabled="busy" @click="loadWalls">刷新</el-button></div>
       <el-card v-loading="loadingCatalog" class="create-card" shadow="never">
         <template #header>创建复式密钥</template>
         <el-form label-position="top" :disabled="busy || loading || loadingCatalog" @submit.prevent="createWall">

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 
 /// <summary>
-/// 简单麻将听牌与和牌张提示：只算静态手牌番；海底/岭上/抢杠等情境番以服务端结算为准。
+/// 南雀旧兼容听牌与和牌张提示：只算静态手牌番；海底/岭上/抢杠等情境番以服务端结算为准。
 /// </summary>
 internal static class JiandanTips {
     public static HashSet<int> Tingpai(TingpaiQuery q) {

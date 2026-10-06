@@ -75,6 +75,38 @@ public partial class GameCanvas : MonoBehaviour {
         return actionButton;
     }
 
+    /// <summary>声明选牌的本地取消按钮；复用操作按钮外观，不绑定发送对局动作的组件。</summary>
+    internal Button CreateReadyCancelButton(Transform parent) {
+        ActionButton actionButton = Instantiate(ActionButtonPrefab, parent);
+        actionButton.gameObject.name = "CancelReadyButton";
+        actionButton.enabled = false;
+        TMP_Text label = actionButton.TextObject;
+        ConfigureActionButtonText(label);
+        label.text = StandardActionCaptions.Resolve(null, "riichi_cut_cancel");
+        label.raycastTarget = false;
+        Button button = actionButton.GetComponent<Button>();
+        button.onClick = new Button.ButtonClickedEvent();
+        button.colors = GetActionButtonColorPreset("pass").ToColorBlock();
+        Destroy(actionButton);
+
+        // 取消按钮沿用询问操作区的位置，隐藏原按钮后仍在同一行显示。
+        RectTransform panelRect = parent as RectTransform;
+        RectTransform actionRect = ActionButtonHost as RectTransform;
+        if (panelRect != null && actionRect != null && panelRect.parent == actionRect.parent) {
+            panelRect.anchorMin = actionRect.anchorMin;
+            panelRect.anchorMax = actionRect.anchorMax;
+            panelRect.pivot = actionRect.pivot;
+            panelRect.anchoredPosition = actionRect.anchoredPosition;
+            panelRect.sizeDelta = actionRect.sizeDelta;
+        }
+        RectTransform buttonRect = button.transform as RectTransform;
+        buttonRect.anchorMin = buttonRect.anchorMax = Vector2.one;
+        buttonRect.pivot = Vector2.one;
+        buttonRect.anchoredPosition = Vector2.zero;
+        buttonRect.sizeDelta = new Vector2(220f, buttonRect.sizeDelta.y);
+        return button;
+    }
+
     /// <summary>
     /// 常驻槽位按钮（ExtraActionButton）：显示词表里归为 Persistent 的词；传 null 隐藏。
     /// 槽位不随询问生成/销毁，所以文案与配色都从词表取，核心不认识具体的词。
@@ -202,6 +234,8 @@ public partial class GameCanvas : MonoBehaviour {
     // 显示可用行动按钮
     public void SetActionButton(List<string> action_list){
         action_list = action_list ?? new List<string>();
+        bool freeMode = FreeGameState.Active != null;
+        if (!freeMode) action_list = ActionWords.OrderForDisplay(action_list);
         bool isSeaBottomAsk = action_list.Contains("sea_bottom");
         string persistentWord = ActionWords.First(action_list, ActionWordKind.Persistent);
         // 用于跟踪吃牌按钮
@@ -218,7 +252,6 @@ public partial class GameCanvas : MonoBehaviour {
         ClearSpawnedActionButtons(DedicatedActionButtonContainer);
         SetPersistentActionButton(persistentWord);
 
-        bool freeMode = FreeGameState.Active != null;
         if (ActionButtonHost != null) {
             FreeModeActionBar freeBar = ActionButtonHost.GetComponent<FreeModeActionBar>();
             if (freeMode && freeBar == null) freeBar = ActionButtonHost.gameObject.AddComponent<FreeModeActionBar>();
@@ -306,11 +339,11 @@ public partial class GameCanvas : MonoBehaviour {
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
             // 补花
-            else if (action_list[i] == "buhua"){
+            else if (action_list[i] == "buhua" || action_list[i] == "nuki"){
                 Debug.Log($"补花");
                 ActionButton ActionButtonObj = CreateActionButton(colorPreset);
                 TMP_Text buttonText = ActionButtonObj.TextObject;
-                buttonText.text = "补花";
+                buttonText.text = action_list[i] == "nuki" ? "拔北" : "补花";
                 Debug.Log($"补花按钮: {ActionButtonObj}");
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }

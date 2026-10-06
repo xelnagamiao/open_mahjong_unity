@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_serializer, field_validator
+from pydantic import BaseModel, Field, field_serializer, field_validator, model_serializer
 from typing import Dict, Optional, List
 
 
@@ -68,7 +68,7 @@ class GameInfo(BaseModel):
     guangdong_tips: Optional[Dict[str, object]] = None  # 仅本人或授权视角的权威听牌提示
     changchun: Optional[Dict[str, object]] = None  # 长春宝牌严格按接收者资格生成
     use_flowers: Optional[bool] = None  # 国标花牌开关；蓝十改固定关闭
-    tian_di_ren_he: bool = False  # 标准国标/血战：天地人和各加计 8 番
+    tian_di_ren_he: bool = False  # 标准国标/三人国标/血战：天地人和各加计 8 番
     is_duplicate: bool = False
     duplicate_round_count: Optional[int] = None
     duplicate_wall_type: Optional[str] = None
@@ -144,6 +144,8 @@ class Ask_hand_action_info(BaseModel):
     remaining_time: int
     # 重连补发时的剩余步时；缺省则客户端叠房间完整步时
     step_remaining: Optional[int] = None
+    remaining_time_ms: Optional[int] = None  # 可选精确预算；旧整数秒字段继续保留
+    step_remaining_ms: Optional[int] = None
     player_index: int
     remain_tiles: int
     action_list: List[str]
@@ -164,6 +166,8 @@ class Ask_other_action_info(BaseModel):
     remaining_time: int
     # 重连补发时的剩余步时；缺省则客户端叠房间完整步时
     step_remaining: Optional[int] = None
+    remaining_time_ms: Optional[int] = None
+    step_remaining_ms: Optional[int] = None
     action_list: List[str]
     cut_tile: int
     action_tick: int
@@ -257,6 +261,7 @@ class Show_result_info(BaseModel):
     honba: Optional[int] = None  # 本场数
     riichi_sticks_collected: Optional[int] = None  # 和牌者收走的立直棒数
     score_changes: Optional[Dict[int, int]] = None  # 各玩家点数变化 {original_player_index: delta}，全规则通用
+    score_history_changes: Optional[Dict[int, int]] = None  # 日麻计分板局差，含已付立直棒；多家和按本次广播增量计入
     # 荒牌流局：各家听牌张（{player_index: [tile_id...]}，未听家给空列表或不出现），以及是否发生不听罚符点棒
     tenpai_tiles: Optional[Dict[int, List[int]]] = None
     # 荒牌流局：听牌家的实际手牌，用于客户端倒牌展示。
@@ -323,6 +328,11 @@ class Player_final_data(BaseModel):
     rating_rule: Optional[str] = None
     rating_system: Optional[str] = None
     rating_pt: Optional[float] = None
+    rating_algorithm: Optional[str] = None
+    rating_match_points: Optional[float] = None
+    rating_game_multiplier: Optional[float] = None
+    rating_tier_multiplier: Optional[float] = None
+    rating_rank_cost: Optional[float] = None
     elo_before: Optional[float] = None
     elo_after: Optional[float] = None
     elo_delta: Optional[float] = None
@@ -432,6 +442,7 @@ class Player_stats_info(BaseModel):
     total_round_score: Optional[int] = None  # 累计小局净得分（国标局均点分子）
     # 其他字段使用 Dict 存储，因为不同规则的番种字段不同
     fan_stats: Optional[Dict[str, int]] = None  # 番种统计数据（字段名 -> 次数）
+    riichi_details: Optional[Dict[str, int]] = None  # 日麻行为、流局、点数计数
 
 class UserSettings(BaseModel):
     """用户设置信息（称号、头像、角色、音色）"""
@@ -455,8 +466,15 @@ class RuleRating(BaseModel):
     system: str
     rank_name: str = ""
     rank_score: float = 0
-    elo: float = 1500
+    elo: Optional[float] = None
     games: int = 0
+
+    @model_serializer(mode='wrap')
+    def serialize_rating(self, handler):
+        data = handler(self)
+        if self.system == 'grade':
+            data.pop('elo', None)
+        return data
 
 class Player_info_response(BaseModel):
     ratings: Dict[str, RuleRating] = Field(default_factory=dict)
@@ -528,7 +546,7 @@ class LeaderboardEntry(BaseModel):
     system: str = "grade"
     rank_name: str = "10级"
     rank_score: float = 0
-    elo: float = 1500
+    elo: Optional[float] = None
     games: int = 0
     """国标段位排行榜条目"""
     rank_position: int
@@ -537,6 +555,13 @@ class LeaderboardEntry(BaseModel):
     profile_image_id: int = 1
     guobiao_rank: str
     guobiao_score: float
+
+    @model_serializer(mode='wrap')
+    def serialize_rating(self, handler):
+        data = handler(self)
+        if self.system == 'grade':
+            data.pop('elo', None)
+        return data
 
 class LoginInfo(BaseModel):
     """登录信息"""

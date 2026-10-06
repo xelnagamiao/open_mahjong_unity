@@ -1,56 +1,23 @@
 const pool = require('../config/database')
-const { INITIAL_RATING, K, MIGRATION_ID, expectedScore } = require('./guessFanElo')
+const { INITIAL_RATING, K, expectedScore } = require('./guessFanElo')
 
 async function ensureGuessFanTables() {
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
-    // Serialize startup/migration across Node workers before reading the version marker.
     await client.query("SELECT pg_advisory_xact_lock(hashtext('guess_fan_ratings_schema'))")
     await client.query(`
-    CREATE TABLE IF NOT EXISTS guess_fan_ratings (
-      user_id       BIGINT NOT NULL,
-      rule_set      VARCHAR(16) NOT NULL DEFAULT 'mixed',
-      username      VARCHAR(64) NOT NULL,
-      wins          INTEGER NOT NULL DEFAULT 0,
-      matches       INTEGER NOT NULL DEFAULT 0,
-      rating        INTEGER NOT NULL DEFAULT 1000,
-      streak        INTEGER NOT NULL DEFAULT 0,
-      best_streak   INTEGER NOT NULL DEFAULT 0,
-      updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (user_id, rule_set)
-    );
-  `)
-  // 旧表迁移：补充 rule_set 列并把主键改为 (user_id, rule_set)
-  const column = await client.query(
-    `SELECT 1 FROM information_schema.columns
-     WHERE table_schema = current_schema() AND table_name = 'guess_fan_ratings' AND column_name = 'rule_set'`
-  )
-  if (column.rowCount === 0) {
-    await client.query(`ALTER TABLE guess_fan_ratings ADD COLUMN rule_set VARCHAR(16) NOT NULL DEFAULT 'mixed'`)
-    await client.query(`DROP INDEX IF EXISTS idx_guess_fan_ratings_rating`)
-    await client.query(`ALTER TABLE guess_fan_ratings DROP CONSTRAINT IF EXISTS guess_fan_ratings_pkey`)
-    await client.query(`ALTER TABLE guess_fan_ratings ADD PRIMARY KEY (user_id, rule_set)`)
-  }
-  await client.query(`
-    CREATE INDEX IF NOT EXISTS idx_guess_fan_ratings_rating
-      ON guess_fan_ratings (rule_set, rating DESC, wins DESC, matches ASC);
-  `)
-    await client.query(`CREATE TABLE IF NOT EXISTS guess_fan_rating_migrations (
-      version TEXT PRIMARY KEY,
-      migrated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      previous_rows JSONB NOT NULL
-    )`)
-    const applied = await client.query('SELECT 1 FROM guess_fan_rating_migrations WHERE version = $1', [MIGRATION_ID])
-    if (!applied.rowCount) {
-      // Keep the exact original rows for recovery. A failure rolls back both rows and marker.
-      await client.query('LOCK TABLE guess_fan_ratings IN ACCESS EXCLUSIVE MODE')
-      await client.query(`INSERT INTO guess_fan_rating_migrations (version, previous_rows)
-        SELECT $1, COALESCE(jsonb_agg(to_jsonb(r) ORDER BY rule_set, user_id), '[]'::jsonb)
-        FROM guess_fan_ratings r`, [MIGRATION_ID])
-      await client.query('UPDATE guess_fan_ratings SET rating = 1500 + (rating - 1000) * 5')
-    }
-    await client.query(`ALTER TABLE guess_fan_ratings ALTER COLUMN rating SET DEFAULT ${INITIAL_RATING}`)
+      CREATE TABLE IF NOT EXISTS guess_fan_ratings (
+        user_id BIGINT NOT NULL, rule_set VARCHAR(16) NOT NULL DEFAULT 'mixed',
+        username VARCHAR(64) NOT NULL, wins INTEGER NOT NULL DEFAULT 0,
+        matches INTEGER NOT NULL DEFAULT 0, rating INTEGER NOT NULL DEFAULT ${INITIAL_RATING},
+        streak INTEGER NOT NULL DEFAULT 0, best_streak INTEGER NOT NULL DEFAULT 0,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, rule_set));
+      CREATE INDEX IF NOT EXISTS idx_guess_fan_ratings_rating
+        ON guess_fan_ratings (rule_set, rating DESC, wins DESC, matches ASC);
+      ALTER TABLE guess_fan_ratings ALTER COLUMN rating SET DEFAULT ${INITIAL_RATING};
+    `)
     await client.query('COMMIT')
   } catch (err) {
     await client.query('ROLLBACK')

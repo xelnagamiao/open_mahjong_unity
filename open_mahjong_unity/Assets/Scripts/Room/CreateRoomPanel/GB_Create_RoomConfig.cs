@@ -26,6 +26,10 @@ public class GB_Create_RoomConfig {
     public string EventId { get; set; }
 
     public bool Validate(out string error,bool passwordToggle,bool setRandomSeedToggle) {
+        if (SubRule == GuobiaoGameState.SanmaSubRule && !string.IsNullOrWhiteSpace(DuplicateKey)) {
+            error = "三人国标不能使用四人复式牌墙";
+            return false;
+        }
         if (SubRule == GuobiaoGameState.BloodBattleSubRule && !string.IsNullOrWhiteSpace(DuplicateKey)) {
             error = "国标血战暂不支持复式牌墙";
             return false;

@@ -11,17 +11,29 @@ public class RankChangePanel : MonoBehaviour {
     [SerializeField] private TMP_Text scoreText;
     [SerializeField] private TMP_Text ptChangeText;
     [SerializeField] private TMP_Text resultTitle;
+    [SerializeField] private TMP_Text ratingDetailsText;
     [SerializeField] private Button confirmButton;
 
     private Coroutine animCoroutine;
     private bool ratingAlreadyApplied;
 
-    public void ShowRatedChange(string rule,string system,string oldRank,float oldScore,string newRank,float newScore,float pt,float oldR,float newR) {
+    public void ShowRatedChange(string rule,string system,string oldRank,float oldScore,string newRank,float newScore,float pt,float oldR,float newR,
+        float? matchPoints=null,float gameMultiplier=1,float tierMultiplier=1,float rankCost=0) {
         ratingAlreadyApplied=true;
         if(system=="grade") {
             ShowRankChange(oldRank,oldScore,newRank,newScore,pt);
-            ptChangeText.text=$"{RankedRules.Name(rule)}  {pt:+0.##;-0.##;0} PT\nR {oldR:0.##} 至 {newR:0.##}";
+            ptChangeText.text=$"{RankedRules.Name(rule)}  {pt:+0.##;-0.##;0} PT";
+            if (ratingDetailsText != null && rule == RiichiSanmaRankConfig.Rule) {
+                ratingDetailsText.gameObject.SetActive(true);
+                ratingDetailsText.text = oldRank == "十段" ? "立直三麻 · 十段固定 100/100 PT"
+                    : "三人独立段位 · 按名次计分\n第一名加分 · 第二名 0 · 第三名扣分";
+            } else if (ratingDetailsText != null && rule == "riichi" && matchPoints.HasValue) {
+                ratingDetailsText.gameObject.SetActive(true);
+                ratingDetailsText.text = oldRank == "十段" ? $"比赛分 {matchPoints.Value:+0.##;-0.##;0} · 十段固定 100/100 PT"
+                    : $"比赛分 {matchPoints.Value:+0.##;-0.##;0} × 场次倍率 {tierMultiplier:0.##}\n段位扣分 {rankCost:0.###} · 局制系数 {gameMultiplier:0.##}";
+            }
         } else {
+            if (ratingDetailsText != null) ratingDetailsText.gameObject.SetActive(false);
             if(animCoroutine!=null)StopCoroutine(animCoroutine);
             gameObject.SetActive(true);progressBar.gameObject.SetActive(false);
             if(resultTitle!=null)resultTitle.text="Elo 结算";
@@ -46,6 +58,7 @@ public class RankChangePanel : MonoBehaviour {
     /// 显示段位变动动画
     /// </summary>
     public void ShowRankChange(string oldRank, float oldScore, string newRank, float newScore, float pt) {
+        if (ratingDetailsText != null) ratingDetailsText.gameObject.SetActive(false);
         if(resultTitle!=null)resultTitle.text="段位结算";
         progressBar.gameObject.SetActive(true);
         oldScore = RankLevelConfig.NormalizeScore(oldRank, oldScore);

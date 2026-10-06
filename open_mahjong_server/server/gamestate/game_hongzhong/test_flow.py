@@ -192,9 +192,15 @@ def test_winner_takes_dealer(winner):
 
 def test_claim_clock_reconnect_expiry():
     state = make_state(); player = state.player_list[0]
-    assert state.claim_clock(player) == (0, 3)
-    state._ask_delivered_at = {0: 100.0}
-    with patch("server.gamestate.game_hongzhong.HongzhongGameState.time.time", return_value=104):
-        assert state.claim_clock(player, reconnecting=True) == (0, 0)
-    player.remaining_time = 0; state.step_time = 1
-    assert state.claim_clock(player) == (0, 1)
+    state.game_status = "waiting_action_after_cut"
+    clock = [100.0]
+    state.action_clock.now = lambda: clock[0]
+    state.on_action_window_broadcast(); state.on_action_window_delivered(0)
+    assert state.claim_clock(player) == (20, 5)
+    clock[0] = 104.0
+    assert state.claim_clock(player, reconnecting=True) == (20, 1)
+    clock[0] = 125.0
+    assert state.claim_clock(player, reconnecting=True) == (0, 0)
+    zero = make_state(round_timer=0, step_timer=1)
+    zero.game_status = "waiting_action_after_cut"
+    assert zero.claim_clock(zero.player_list[0]) == (0, 1)

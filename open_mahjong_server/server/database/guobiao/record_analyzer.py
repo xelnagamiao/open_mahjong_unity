@@ -1,6 +1,6 @@
 """
 从国标牌谱 JSON 推理玩家本场指标（和牌/放铳/错和/副露/和巡等）。
-供 backfill_history_stats 与 backfill_game_player_metrics 共用。
+供场次指标恢复、统计查询与纯牌谱验证共用。
 """
 from types import SimpleNamespace
 from typing import Any, Dict, Optional
@@ -71,13 +71,13 @@ def round_start_player(rd: Dict[str, Any]) -> int:
     return start % 4
 
 
-def _xunmu_live_state(dealer: int = 0):
-    """与对局进程相同的巡目状态：player_index_go_to 读 player_list[0].discard_tiles。"""
+def _xunmu_live_state(dealer: int = 0, player_count: int = 4):
+    """与对局进程相同的巡目状态：保留庄家牌河及被鸣走的弃牌。"""
     return SimpleNamespace(
-        current_player_index=dealer % 4,
+        current_player_index=dealer % player_count,
         xunmu=1,
         action_history=[],
-        player_list=[SimpleNamespace(discard_tiles=[]) for _ in range(4)],
+        player_list=[SimpleNamespace(discard_tiles=[], discard_origin_tiles=[]) for _ in range(player_count)],
     )
 
 
@@ -85,7 +85,7 @@ def normalize_riichi_round_for_xunmu(rd: Dict[str, Any]) -> Dict[str, Any]:
     """日麻牌谱把亲家第 14 张也记成无座位 `d`，国标则从 reset 后的切牌开始。
 
     去掉开局第一张无座位摸牌并补上 reset，才能走与对局进程相同的庄家巡
-    （回绕且庄家河非空才 +1）。不要在亲家切牌时 +1，否则荣和亲家首打会变成 2 巡。
+    （回绕且庄家曾出牌才 +1，含被鸣走的弃牌）。不要在亲家切牌时 +1，否则荣和亲家首打会变成 2 巡。
     """
     ticks = rd.get("action_ticks")
     if not isinstance(ticks, list):
@@ -117,12 +117,14 @@ def normalize_riichi_round_for_xunmu(rd: Dict[str, Any]) -> Dict[str, Any]:
 def reconstruct_round_win_turns(rd: Dict[str, Any]) -> Dict[int, int]:
     """用对局进程 player_index_go_to / player_index_next 重建每位 seat 的和巡总和。
 
-    切牌写入当局牌河，鸣牌 pop 被鸣走的河牌；国标回绕且庄家河非空才 +1。
+    切牌写入当局牌河，鸣牌将河牌移入 discard_origin_tiles；国标回绕且庄家曾出牌才 +1。
     """
     ticks = rd.get("action_ticks") or []
     if not isinstance(ticks, list):
         return {}
-    state = _xunmu_live_state(round_start_player(rd))
+    seats = rd.get("seats")
+    player_count = len(seats) if isinstance(seats, list) and len(seats) in (3, 4) else 4
+    state = _xunmu_live_state(round_start_player(rd), player_count)
     win_turn_by_seat: Dict[int, int] = {}
 
     for tick in ticks:
@@ -134,23 +136,23 @@ def reconstruct_round_win_turns(rd: Dict[str, Any]) -> Dict[int, int]:
         if code == "reset":
             seat = _tick_int(tick, 1, state.current_player_index)
             if seat is not None:
-                player_index_go_to(state, seat % 4)
+                player_index_go_to(state, seat % player_count)
             continue
         if code in ("bh", "bd"):
             seat = _tick_int(tick, 2, state.current_player_index)
             if seat is not None:
-                player_index_go_to(state, seat % 4)
+                player_index_go_to(state, seat % player_count)
             continue
         if code in ("d", "mo"):
             explicit = _tick_int(tick, 2)
-            if explicit is not None and 0 <= explicit <= 3:
+            if explicit is not None and 0 <= explicit < player_count:
                 player_index_go_to(state, explicit)
             else:
                 player_index_next(state)
             continue
         if code == "gd":
             explicit = _tick_int(tick, 2)
-            if explicit is not None and 0 <= explicit <= 3:
+            if explicit is not None and 0 <= explicit < player_count:
                 player_index_go_to(state, explicit)
             continue
         if code == "c":
@@ -160,10 +162,10 @@ def reconstruct_round_win_turns(rd: Dict[str, Any]) -> Dict[int, int]:
         if code in CLAIM_CODES:
             river = state.player_list[state.current_player_index].discard_tiles
             if river:
-                river.pop(-1)
+                state.player_list[state.current_player_index].discard_origin_tiles.append(river.pop(-1))
             seat = _tick_int(tick, 2)
             if seat is not None:
-                player_index_go_to(state, seat % 4)
+                player_index_go_to(state, seat % player_count)
             continue
         hu = _parse_hu_tick(tick)
         if hu:

@@ -12,10 +12,11 @@
         </el-select>
       </el-form-item>
       <el-form-item label="圈数">
-        <span v-if="modelValue.duplicate_key?.trim()" class="flower-help">跟随密钥设置</span>
-        <el-select v-else :model-value="modelValue.game_round" style="width: 100px" @update:model-value="patch('game_round', $event)">
+        <span v-if="autoDuplicate || modelValue.duplicate_key?.trim()" class="flower-help">跟随密钥设置</span>
+        <el-select v-else :model-value="modelValue.game_round" aria-label="圈数" style="width: 100px" @update:model-value="patch('game_round', $event)">
           <el-option :value="1" label="东风战" />
           <el-option :value="2" label="东南战" />
+          <el-option :value="3" label="东西战" />
           <el-option :value="4" label="全庄战" />
         </el-select>
       </el-form-item>
@@ -63,7 +64,7 @@
         />
       </el-form-item>
     </div>
-    <DuplicateRoomField :model-value="modelValue.duplicate_key || ''" @update:model-value="patch('duplicate_key', $event)" />
+    <DuplicateRoomField v-if="showDuplicateField && !autoDuplicate" :model-value="modelValue.duplicate_key || ''" @update:model-value="patch('duplicate_key', $event)" />
     <div class="gb-room-config-options">
       <el-form-item label="花牌" class="gb-room-flowers">
         <span v-if="modelValue.duplicate_key?.trim()" class="flower-help">跟随复式设置</span>
@@ -90,7 +91,7 @@
         <el-switch :model-value="modelValue.tourist_limit" @update:model-value="patch('tourist_limit', $event)" />
       </el-form-item>
       <el-form-item label="允许观战">
-        <el-switch :model-value="modelValue.allow_spectator" @update:model-value="patch('allow_spectator', $event)" />
+        <el-switch :model-value="autoDuplicate ? false : modelValue.allow_spectator" :disabled="autoDuplicate" @update:model-value="patch('allow_spectator', $event)" />
       </el-form-item>
       <el-form-item label="战术鸣牌">
         <el-switch :model-value="modelValue.tactical_call" @update:model-value="patch('tactical_call', $event)" />
@@ -109,6 +110,8 @@ import DuplicateRoomField from '@/components/DuplicateRoomField.vue'
 const props = defineProps({
   modelValue: { type: Object, required: true },
   showPassword: { type: Boolean, default: true },
+  autoDuplicate: { type: Boolean, default: false },
+  showDuplicateField: { type: Boolean, default: true },
   panelLayout: { type: Boolean, default: false },
   subRuleOptions: { type: Array, default: null },
 })

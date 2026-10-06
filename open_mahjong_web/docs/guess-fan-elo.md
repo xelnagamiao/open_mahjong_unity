@@ -4,18 +4,34 @@
 系统匹配使用 `E = 1 / (1 + 10^((对手 R - 自己 R) / 2000))`，
 `变化值 = round(32 × (S - E))`，胜为 1、负为 0。沿用整数积分及最低 0 分的规则，自建房不计分。
 
-旧版初始分 1000、预期分母 400。升级时对每条已有评分执行一次：
+旧版初始分 1000、预期分母 400。历史积分按迁移前备份修正一次：
 
-`新 R = 1500 + (旧 R - 1000) × 5`
+`新 R = 旧 R + 500`
 
-这同时完成基准平移和历史积分差的比例转换，保留旧积分表达的相对胜率预期。
-K 保持 32，升级后的每局分数按新公式重新计算。胜负、场数、连胜、更新时间不因迁移改变。
-旧系统只有累计评分，没有持久化逐局 Elo 日志，不重建不存在的历史明细。
+原迁移曾执行 `1500 + (旧 R - 1000) × 5`，会把历史积分差放大五倍。
+此次按确认的口径只平移基准，现行分母 2000、K＝32 保留；历史相对胜率预期随之改变。
+胜负、场数、连胜、用户名、更新时间不因修复改变。数据库只有累计评分，没有逐场对手和胜负顺序，无法精确重放历史 Elo。
 
-`ensureGuessFanTables()` 在启动时通过事务、数据库锁和版本标记完成迁移。
-`guess_fan_rating_migrations` 中的 `elo_1500_2000_v1` 保存原始行，重复启动不会再次转换。
-迁移失败时整笔回滚并阻止 Web 服务启动，避免旧分数与新公式混用。
+若备份后已有新比赛，保留其实际已结算的净积分变化：
+`修正 R = max(0, 旧 R + 500 + 当前 R − [1500 + (旧 R − 1000) × 5])`。
+这是去掉历史放大的备份修正，不会重新计算这些比赛的胜率预期。
+脚本核对场数、胜场、连胜和每场最多 32 分的变化范围；无法解释的变动及备份之外的新账户保留并写入报告。
+
+`ensureGuessFanTables()` 在 Node 启动、开始接收连接之前自动运行修复。
+`guess_fan_rating_migrations` 的 `elo_1500_2000_v1` 保存迁移前原始行；
+`elo_1500_2000_history_unscaled_v2` 保存本次修复前完整行及修复报告。
+事务和数据库锁保证多进程启动只执行一次，失败时整笔回滚并阻止 Web 服务启动。
+尚未迁移的旧数据库直接执行 +500；已经修复的数据库重复启动不会改分。
+
+在 Web 项目根目录也可手动预览、执行（需要已有 v1 原始备份）：
+
+```sh
+node server/utils/guessFanRatingRepair.js --dry-run --report /path/to/preview.json
+node server/utils/guessFanRatingRepair.js --report /path/to/applied.json
+```
+
+预览会回滚所有数据库修改。报告文件应放在本机工作区或部署备份目录，不加入 Git。
 
 验证：`node --test server/utils/guessFanElo.test.js`；数据库测试需显式设置
-`GUESS_FAN_TEST_DATABASE=1` 后运行 `server/utils/guessFanTables.test.js`。
+`GUESS_FAN_TEST_DATABASE=1` 后运行 `server/utils/guessFanTables.test.js` 和 `server/utils/guessFanRatingRepair.test.js`。
 后者只接受本机数据库连接，使用临时 schema，并在结束后清理。

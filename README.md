@@ -12,7 +12,7 @@ Salasasa麻将平台测试群 906497522
 
 ## 项目简介
 
-open_mahjong_unity是一款基于unity/python-fastapi的麻将平台项目，该项目遵循MIT许可协议、免费、开源、支持PC/安卓/ios三端互通；目标是支持所有麻将规则、并且提供给玩家自定义规则的选项。欢迎加入qq群参与讨论、协助和测试。
+open_mahjong_unity是一款基于unity/python-fastapi的麻将平台项目，该项目遵循MIT许可协议、免费、开源、支持PC/安卓/Web三端互通；目标是支持所有麻将规则、并且提供给玩家自定义规则的选项。欢迎加入qq群参与讨论、协助和测试。
 
 ## 1.许可说明
 
@@ -43,7 +43,7 @@ open_mahjong_unity是一款基于unity/python-fastapi的麻将平台项目，该
 
 ## 2.项目结构
 
-仓库由 Unity 客户端、Python 游戏服务器、Node.js/Vue Web 平台和 Go 聊天服务器组成。以下仅列出主要源码目录；规则实现、第三方资源以及构建生成目录不继续展开。
+仓库由 Unity 客户端、Python 游戏服务器、Node.js/Vue Web 平台和 Go 聊天服务器组成，other文件夹保存默认的Ngnix配置、段位配表、美术素材的原始格式等可能会帮助到你的内容。
 
 ```text
 open_mahjong_unity/
@@ -130,22 +130,6 @@ open_mahjong_unity/
 └── README.md
 ```
 
-### 仓库提交范围
-
-根目录仅提交四个主项目 `open_mahjong_unity/`、`open_mahjong_web/`、
-`open_mahjong_server/`、`open_mahjong_chatServer/`，以及 `other/`、
-`.gitignore`、`.gitattributes`、`README.md` 和 `LICENSE`。
-
-`other/` 保存面向开源使用者的美术源文件、可用素材、段位配表、规则资料，以及
-必要的来源、许可证和制作说明。本机工具、临时脚本、构建包、备份、日志、缓存、
-工作区约定和任务报告放在 Git 忽略的 `.om_workspace/`，不放入共享素材目录。
-
-Web `.env` 与 Python `test_config.py` 提供可提交的本地测试默认配置，
-环境私有配置和真实凭据由各运行环境单独管理。Windows 聊天 `.exe` 是测试配套文件，
-保留在聊天项目及 Python 的 `server/chat_server/` 中，支持测试服务自动启动聊天。
-聊天密钥由服务端启动时生成，无需提交。Unity 必须成对提交资源与 `.meta`，保留依赖锁文件。
-提交前检查 `git diff --cached --name-status`；不要强制添加被忽略的过程文件。
-
 ## 3.技术栈
 
 ### 游戏客户端 (open_mahjong_unity)
@@ -173,35 +157,33 @@ Web `.env` 与 Python `test_config.py` 提供可提交的本地测试默认配�
 
 - **Salasasa平台测试群**: 906497522
 - **open_mahjong_unity开发交流群**: 1084537740
-- **项目负责人微信**: q1448826180 / 18006251803
+- **Telegram群组**: t.me/open_mahjong_unity
+- **Discord**: [https://discord.gg/RqvxDDgdFH](https://discord.gg/RqvxDDgdFH)
+- **项目负责人微信**: q1448826180
 - **项目地址**: [https://github.com/xelnagamiao/open_mahjong_unity](https://github.com/xelnagamiao/open_mahjong_unity)
 - **语雀文档(未完成)**: [https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#](https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#)
 - **开发进度表**: [https://docs.qq.com/sheet/DZkh2a2VBQkpucXNr?tab=BB08J2](https://docs.qq.com/sheet/DZkh2a2VBQkpucXNr?tab=BB08J2)
 - **赞助**: q1448826180
-- **求职**: 上海-苏州-无锡-常州-南京-杭州 岗位可联系
+- **其他**: 上海-苏州-无锡-常州-南京-杭州 岗位可联系
 
 ### 5.鸣谢
 
-牌面提供者：雪枫XueFun9
+开发团队：Xelnaga(主程)  雪枫XueFun9(牌面提供者)  Zoe(随机种子设计)  Natsuki(新编MCR编著者)  坏狗影子(表情包提供者)  GitHub/baisebaoma(高性能罗伯特设计) troooobot(长沙麻将实现)  Zoe(台湾麻将实现)  二階堂 ヒロ(中心盘设计)  莫莫柴(青雀、2D桌面)  Shq、Zoe、ShiauLo(bug修复)  salasasa数据bot(PCX1078)  大海(k麻计分)  插件开发(新手求教)
 
-表情包提供者：影子
+自定义规则设计：莫莫柴(青雀)  关兆豪先生(中庸麻将)  Null(虹雀)  K神传说(K神麻将)  恋绘色(香港清章恋绘色魔改)  小林(国标小林改)  蓝十(国标蓝十改)  自恧(浪涌麻将)  南瓜饼(南雀)
 
-随机种子设计：Zoe
+地方规则考据：上海清混碰(何苏)  古典麻将(莫莫柴、何苏、古明地梦)  宜兴麻将(苦鱼)  Mil推广规则(MIL国际麻将联盟)
 
-新编MCR编著者：Natsuki
+直播宣传：Cloud980Ti  轻轻的飘  等候1234  立直喵  Ce/Est1al  鬼头刀鱼fish  神源之心  方片杰克  Ni9e_9  大柠劳斯  大口啃排骨
 
-青雀设计者：莫莫柴
+赞助：九曜、kiki、健哥、何苏、Null、莫莫柴、恋绘色、Zazaka、中山大学国标麻将同好会、东西喵、山东大学老年人活动中心、Sw123
 
-浪涌麻将设计者：自恧
+特别感谢：莫莫柴、码龙、Null、坏狗影子、何苏
 
-直播宣传：Cloud980Ti  轻轻的飘
-
-赞助：九曜、健哥、何苏、Null、莫莫柴、Zazaka、中山大学国标麻将同好会、kiki、东西喵、GitHub/baisebaoma
-
-特别感谢：莫莫柴、码龙、Null、影子、chinkaku
-
-支持：棋牌游戏研究院、立直麻雀研习社、柴の麻将群
+支持社团：棋牌游戏研究院、立直麻雀研习社、柴の麻将群、雀渣玩家群、中山大学国标麻将同好会
 
 早期测试：夜色祢 chlorine 陪练的命运
 
-*最后更新：2026年7月29日 dev ver 0.4.74.0*
+以及游玩salasasa平台的所有玩家！
+
+*最后更新：2026年10月6日 dev ver 0.4.79.0*

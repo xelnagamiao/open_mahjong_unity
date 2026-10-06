@@ -6,6 +6,7 @@ const pool = require('../config/database');
 const { INFO_FAN_DICT } = require('../constants/playerFanDicts');
 const { getScoreBounds, getPromotionProgress } = require('../utils/rankNames');
 const { queryPlayerRatings, queryRankedStats, queryRecordRatings, recordRatingFields } = require('./playerRatings');
+const { aggregateRiichiStats, fetchRiichiRows } = require('./riichiStats');
 
 const LIST_PAGE_MAX = 50;
 
@@ -27,8 +28,8 @@ const HISTORY_FIELDS = new Set([
 ]);
 
 const GAME_TYPE_MATCH_TYPES = {
-  dongfeng: ['1/4', '1/4_rank'],
-  banzhuang: ['2/4', '2/4_rank'],
+  dongfeng: ['1/4', '1/4_rank', '1/4_sanma', '1/4_sanma_rank'],
+  banzhuang: ['2/4', '2/4_rank', '2/4_sanma', '2/4_sanma_rank'],
   xifeng: ['3/4'],
   quanzhuang: ['4/4', '4/4_rank'],
 };
@@ -44,6 +45,16 @@ function extractFanStats(fanRow) {
 }
 
 async function queryRuleStats(userId, rule) {
+  if (rule === 'riichi') {
+    const rows = await fetchRiichiRows(pool, ["gpr.user_id=$1", "gpr.rule='riichi'", "gpr.room_type IN ('match','custom')"], [userId]);
+    const modes = new Map();
+    for (const row of rows) {
+      if (!modes.has(row.mode)) modes.set(row.mode, []);
+      modes.get(row.mode).push(row);
+    }
+    return [...modes].map(([mode, items]) => ({ ...aggregateRiichiStats(items), mode,
+      mode_fan_stats: aggregateRiichiStats(items).fan_stats }));
+  }
   const cfg = ruleConfig[rule];
   if (!cfg) return [];
 
@@ -454,9 +465,13 @@ async function fetchPlayerRankStats(userId, query) {
     `;
     const result = await db.query(sql, params);
     const row = result.rows[0] || {};
+    const riichi = query.rule === 'riichi'
+      ? aggregateRiichiStats(await fetchRiichiRows(db, conditions, params)) : null;
     return {
+      ...(riichi || {}),
       total_games: Number(row.total_games) || 0,
-      total_round_score: row.total_round_score == null ? null : Number(row.total_round_score),
+      total_round_score: riichi?.details_available ? (riichi.riichi_details.net_score_count === riichi.total_games ? riichi.total_round_score : null)
+        : row.total_round_score == null ? null : Number(row.total_round_score),
       first_place_count: Number(row.first_place_count) || 0,
       second_place_count: Number(row.second_place_count) || 0,
       third_place_count: Number(row.third_place_count) || 0,
