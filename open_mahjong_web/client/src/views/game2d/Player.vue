@@ -9,7 +9,7 @@
       <el-card class="profile-identity" shadow="never">
         <div class="identity-body">
           <div class="profile-avatar"><el-icon><Postcard /></el-icon></div>
-          <div><span>Salasasa 玩家资料</span><h1>{{ username }}</h1><p>用户 ID：{{ profile.user_id }}</p></div>
+          <div><span>Salasasa 玩家资料</span><h1 data-no-translate>{{ username }}</h1><p>用户 ID：{{ profile.user_id }}</p></div>
         </div>
       </el-card>
       <div class="profile-grid">
@@ -20,7 +20,7 @@
       <el-card shadow="never">
         <template #header>公开资料</template>
         <el-descriptions :column="2" border>
-          <el-descriptions-item label="用户名">{{ username }}</el-descriptions-item>
+          <el-descriptions-item label="用户名"><span data-no-translate>{{ username }}</span></el-descriptions-item>
           <el-descriptions-item label="用户 ID">{{ profile.user_id }}</el-descriptions-item>
           <el-descriptions-item label="国标段位">{{ rank }}</el-descriptions-item>
           <el-descriptions-item label="国标分数">{{ score }}</el-descriptions-item>

@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import { mcrSeoPlugin } from './scripts/vite-mcr-seo.mjs'
 import { resolve, dirname, join, relative, isAbsolute } from 'path'
 import { fileURLToPath } from 'url'
 import {
@@ -71,7 +72,7 @@ function skipManualGamePackages() {
 }
 
 export default defineConfig({
-  plugins: [vue(), skipManualGamePackages()],
+  plugins: [vue(), skipManualGamePackages(), mcrSeoPlugin()],
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src')

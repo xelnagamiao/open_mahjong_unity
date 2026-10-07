@@ -1,16 +1,20 @@
 /**
- * 构建后为每个公开 URL 生成带独立 TDK 的静态 HTML 壳，
+ * 构建后为公开 URL 生成独立 TDK；MCR 落地页输出完整静态正文，
  * 让不执行 JS 的搜索引擎（尤其百度）也能读到每页的 title/description。
  *
  * 运行时机：npm run build 时在 vite build 之后自动执行。
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { SITE, PRERENDER_PATHS, seoEntryFor, noindexEntryFor } from '../src/seo.js'
+import { mcrPageForPath } from '../src/seo/mcr-pages.js'
+import { renderMcrDocument } from '../src/seo/mcr-render.js'
+import { renderSitemap } from '../src/seo/sitemap.js'
 
 const clientDir = dirname(dirname(fileURLToPath(import.meta.url)))
-const distDir = join(clientDir, 'dist')
+// An explicit output path allows isolated validation without touching live game packages.
+const distDir = process.argv[2] ? resolve(clientDir, process.argv[2]) : join(clientDir, 'dist')
 const indexPath = join(distDir, 'index.html')
 
 let template
@@ -36,6 +40,10 @@ function replaceTag(html, pattern, tag) {
 }
 
 function renderPage(url) {
+  const landing = mcrPageForPath(url)
+  if (landing) {
+    return renderMcrDocument(landing, readFileSync(join(clientDir, 'src/seo/mcr-landing.css'), 'utf-8'), SITE.domain)
+  }
   const seo = seoEntryFor(url) || {}
   const noindex = noindexEntryFor(url)
   const title = seo.title || noindex?.title || SITE.name
@@ -71,4 +79,5 @@ for (const url of PRERENDER_PATHS) {
   count += 1
 }
 
-console.log(`[prerender-seo] 已为 ${count} 个 URL 生成 TDK 静态页面`)
+writeFileSync(join(distDir, 'sitemap.xml'), renderSitemap(), 'utf-8')
+console.log(`[prerender-seo] 已为 ${count} 个 URL 生成 SEO 页面及 sitemap（MCR 含完整正文）`)

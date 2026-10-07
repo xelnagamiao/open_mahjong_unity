@@ -25,36 +25,38 @@
           <div class="game-felt-layout">
             <div class="game-felt-playfield">
               <div ref="stageElement" class="game-stage" />
-              <div class="game-stage-toolbar">
-                <GameAssistPanel
-                  :settings="assistSettings"
-                  :expanded="assistExpandOpen"
-                  show-tile-settings
-                  :tile-settings-expanded="tileSkipOpen"
-                  @update="patchAssistSettings"
-                  @toggle-expand="toggleAssistExpand"
-                  @toggle-tile-settings="toggleTileSkipPanel"
-                >
-                  <template v-if="tileSkipOpen" #tile-panel>
-                    <div class="scene-appearance-toggle__card">
-                      <GameTileSkipPanel
-                        :settings="assistSettings"
-                        :tile-src="mmcrTileAsset"
-                        @update="patchAssistSettings"
-                        @clear-tiles="patchAssistSettings({ silentTiles: [] })"
-                      />
-                    </div>
-                  </template>
-                </GameAssistPanel>
-              </div>
-              <div v-if="assistExpandOpen" class="game-stage-panel">
-                <div class="scene-appearance-toggle__card">
+              <div class="game-stage-controls">
+                <div class="game-stage-toolbar">
                   <GameAssistPanel
-                    detail-only
                     :settings="assistSettings"
-                    :expanded="true"
+                    :expanded="assistExpandOpen"
+                    show-tile-settings
+                    :tile-settings-expanded="tileSkipOpen"
                     @update="patchAssistSettings"
-                  />
+                    @toggle-expand="toggleAssistExpand"
+                    @toggle-tile-settings="toggleTileSkipPanel"
+                  >
+                    <template v-if="tileSkipOpen" #tile-panel>
+                      <div class="scene-appearance-toggle__card">
+                        <GameTileSkipPanel
+                          :settings="assistSettings"
+                          :tile-src="mmcrTileAsset"
+                          @update="patchAssistSettings"
+                          @clear-tiles="patchAssistSettings({ silentTiles: [] })"
+                        />
+                      </div>
+                    </template>
+                  </GameAssistPanel>
+                </div>
+                <div v-if="assistExpandOpen" class="game-stage-panel">
+                  <div class="scene-appearance-toggle__card">
+                    <GameAssistPanel
+                      detail-only
+                      :settings="assistSettings"
+                      :expanded="true"
+                      @update="patchAssistSettings"
+                    />
+                  </div>
                 </div>
               </div>
               <div v-if="!sceneReady || !hasSnapshot" class="game-loading">
@@ -90,7 +92,7 @@
                     class="end-result-draw-delta"
                     :class="`is-rel-${seat.relative}`"
                   >
-                    <span class="end-result-draw-delta__name">{{ seat.username }}</span>
+                    <span class="end-result-draw-delta__name" data-no-translate>{{ seat.username }}</span>
                     <span
                       v-if="seat.change"
                       class="end-result-draw-delta__change"
@@ -127,7 +129,7 @@
                         :key="`closed-${index}`"
                         class="end-result-tile"
                       >
-                        <img :src="tileAsset(tile)" alt="" />
+                        <TileFaceImage :src="tileAsset(tile)" :face-id="salasasaFaceId(tile)" />
                       </span>
                       <span v-if="resultMeldGroups.length" class="end-result-hand__split" />
                       <span v-if="resultMeldGroups.length" class="end-result-melds">
@@ -155,12 +157,12 @@
                                 :class="{ 'is-face-down': stack.faceDown }"
                                 :style="stack.faceDown ? { backgroundColor: resultTileCoverColor } : null"
                               >
-                                <img v-if="!stack.faceDown" :src="tileAsset(stack.tile)" alt="" />
+                                <TileFaceImage v-if="!stack.faceDown" :src="tileAsset(stack.tile)" :face-id="salasasaFaceId(stack.tile)" />
                               </span>
                             </span>
                             <span v-if="tile.stackedTile" class="end-result-meld__tile-frame">
                               <span class="end-result-tile end-result-meld__tile">
-                                <img :src="tileAsset(tile.stackedTile)" alt="" />
+                                <TileFaceImage :src="tileAsset(tile.stackedTile)" :face-id="salasasaFaceId(tile.stackedTile)" />
                               </span>
                             </span>
                             <span
@@ -173,7 +175,7 @@
                                 :class="{ 'is-face-down': stack.faceDown }"
                                 :style="stack.faceDown ? { backgroundColor: resultTileCoverColor } : null"
                               >
-                                <img v-if="!stack.faceDown" :src="tileAsset(stack.tile)" alt="" />
+                                <TileFaceImage v-if="!stack.faceDown" :src="tileAsset(stack.tile)" :face-id="salasasaFaceId(stack.tile)" />
                               </span>
                             </span>
                             <span class="end-result-meld__tile-frame">
@@ -182,7 +184,7 @@
                                 :class="{ 'is-face-down': tile.faceDown }"
                                 :style="tile.faceDown ? { backgroundColor: resultTileCoverColor } : null"
                               >
-                                <img v-if="!tile.faceDown" :src="tileAsset(tile.tile)" alt="" />
+                                <TileFaceImage v-if="!tile.faceDown" :src="tileAsset(tile.tile)" :face-id="salasasaFaceId(tile.tile)" />
                               </span>
                             </span>
                           </span>
@@ -190,7 +192,7 @@
                       </span>
                       <span class="end-result-hand__split" />
                       <span v-if="resultWinTile" class="end-result-tile is-winning">
-                        <img :src="tileAsset(resultWinTile)" alt="和牌张" />
+                        <TileFaceImage :src="tileAsset(resultWinTile)" :face-id="salasasaFaceId(resultWinTile)" alt="和牌张" />
                       </span>
                     </div>
                     <div v-if="resultFlowerTiles.length" class="end-result-flowers">
@@ -200,7 +202,7 @@
                         :key="`flower-${index}`"
                         class="end-result-tile end-result-tile--flower"
                       >
-                        <img :src="tileAsset(tile)" alt="" />
+                        <TileFaceImage :src="tileAsset(tile)" :face-id="salasasaFaceId(tile)" />
                       </span>
                     </div>
 
@@ -247,7 +249,7 @@
                         ]"
                       >
                         <template v-if="slot.player">
-                          <strong class="end-result-seat__name">{{ slot.player.username }}</strong>
+                          <strong class="end-result-seat__name" data-no-translate>{{ slot.player.username }}</strong>
                           <div class="end-result-seat__score">
                             <span>{{ slot.player.score }}</span>
                             <span
@@ -347,6 +349,7 @@
                       @flower-area-count-color="setAppearanceField('flowerAreaCountColor', $event)"
                       @flower-area-label-scale="setAppearanceField('flowerAreaLabelScale', $event)"
                       @tile-face-theme="setAppearanceField('tileFaceTheme', $event)"
+                      @tile-label-mode="setAppearanceField('tileLabelMode', $event)"
                       @flower-face-theme="setAppearanceField('flowerFaceTheme', $event)"
                       @font-theme="setAppearanceField('fontTheme', $event)"
                       @latin-font-theme="setAppearanceField('latinFontTheme', $event)"
@@ -391,7 +394,7 @@
                 </button>
                 <div class="game-page__ratings-area" :class="{ 'is-expanded': ratingsExpanded }">
                   <div v-for="player in sidebarPlayers" :key="player.player_index" class="game-page__sidebar-card">
-                    <div class="player-name">{{ player.username || `#${player.user_id}` }}</div>
+                    <div class="player-name" data-no-translate>{{ player.username || `#${player.user_id}` }}</div>
                     <div class="player-rating">{{ player.guobiao_rank }} · {{ player.guobiao_score.toFixed(2) }} PT</div>
                     <div class="player-rating">对局分 {{ player.score }}</div>
                     <div v-if="player.duplicate_remaining_tile_count !== undefined" class="player-rating">
@@ -420,7 +423,9 @@
     >
       <el-table :data="finalRows">
         <el-table-column prop="rank" label="名次" width="80"><template #default="scope">第 {{ scope.row.rank }} 名</template></el-table-column>
-        <el-table-column prop="username" label="玩家" />
+        <el-table-column prop="username" label="玩家">
+          <template #default="{ row }"><span data-no-translate>{{ row.username }}</span></template>
+        </el-table-column>
         <el-table-column prop="score" label="总分" width="90" />
         <el-table-column label="PT 变化" width="100"><template #default="scope">{{ formatPtChange(scope.row.pt) }}</template></el-table-column>
         <el-table-column label="段位变化" width="160"><template #default="scope">{{ formatRankChange(scope.row) }}</template></el-table-column>
@@ -431,10 +436,11 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import SceneAppearancePanel from './SceneAppearancePanel.vue'
+import TileFaceImage from './TileFaceImage.vue'
 import GameAssistPanel from './GameAssistPanel.vue'
 import GamePlaySettingsPanel from './GamePlaySettingsPanel.vue'
 import GameTileSkipPanel from './GameTileSkipPanel.vue'
@@ -471,6 +477,7 @@ import {
   splitSettlementHand,
 } from '@/game2d/lib/settlementHand'
 import { mmcrFaceId, salasasaFaceId, tileFaceAssetUrl } from '@/game2d/lib/tileFaceAsset'
+import { shouldShowTileLabels } from '@/game2d/lib/tileLabels'
 import {
   clearStoredSceneBackgroundImage,
   loadStoredSceneBackgroundImage,
@@ -507,6 +514,7 @@ const voteStartPending = ref(false)
 const sidebarPlayers = ref([])
 const volume = ref(loadStoredVolume())
 const appearance = ref(loadStoredSceneAppearance())
+provide('game2d.tileLabelsEnabled', computed(() => shouldShowTileLabels(appearance.value.tileLabelMode, locale.value)))
 const assistSettings = ref(loadStoredAssistSettings())
 const backgroundImage = ref(null)
 const reconnectPromptOpen = ref(false)
@@ -1425,7 +1433,7 @@ watch(() => session.status, (status, previousStatus) => {
 })
 
 watch(locale, () => {
-  scene?.refreshRoundLabel()
+  scene?.setAppearance(appearance.value)
 })
 
 onBeforeRouteLeave(async () => {

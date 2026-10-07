@@ -10,11 +10,16 @@ npm run build
 
 构建产物仍然是 `client/dist`。`unity-game` / `ios-game` / `android-game` 为人工安放的包（见仓库根旁 `deploy.config.json` 的 `manualGamePackages`）：Vite 构建不会从 `public/` 拷贝它们，生产同步静态文件时也必须跳过，避免覆盖线上 Unity。
 
-以下路由都由同一个 Vue `index.html` 提供：
+以下路由都由同一个 Vue 应用提供；构建同时生成独立 TDK 的入口 HTML：
 
 - `/2d`
 - `/2d/game`
 - `/2d/player/:id`
+
+海外 MCR 入口 `/en/mcr`、`/fr/mcr` 则输出完整静态正文，CTA 指向 `/2d?lang=en`。
+部署时合并 `../nginx-mcr-seo.conf` 中的规则，避免入口被 SPA fallback 覆盖，
+并将目录形式 URL 统一到 canonical。术语研究、语言扩展与验收见
+[multilingual-mcr-seo.md](multilingual-mcr-seo.md)。
 
 浏览器固定使用 `/2d/api/*` 和 `/2d/ws/*`。Nginx 在反向代理时分别映射到已有 Node `/api/*` 与 Python `/game/*`，不需要复制 API 路由：
 

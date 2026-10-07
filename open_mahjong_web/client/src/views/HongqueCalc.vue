@@ -24,7 +24,7 @@
         </div>
       </header>
 
-      <div class="row">
+      <div class="row notation-row">
         <label class="row-label">牌码简写</label>
         <el-input
           v-model="textInput"
@@ -1025,5 +1025,41 @@ const resetAll = () => {
   display: flex;
   gap: 8px;
   border-top: 1px dashed #dbeafe;
+  flex-wrap: wrap;
+}
+
+.hongque-calc:lang(fr) .row-line {
+  flex-wrap: wrap;
+}
+
+.hongque-calc:lang(fr) .row-line .row-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.hongque-calc:lang(fr) .row-line :deep(.el-tag),
+.hongque-calc:lang(fr) .decomp-fans :deep(.el-tag) {
+  max-width: 100%;
+  height: auto;
+  min-height: 20px;
+}
+
+.hongque-calc:lang(fr) .row-line :deep(.el-tag__content),
+.hongque-calc:lang(fr) .decomp-fans :deep(.el-tag__content) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
+@media (max-width: 640px) {
+  .hongque-calc:lang(fr) .notation-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .hongque-calc:lang(fr) .notation-row .row-label {
+    grid-column: 1 / -1;
+  }
 }
 </style>

@@ -78,7 +78,7 @@
                 'is-predicted': item.isPredicted,
               }"
             >
-              <img :src="tileAsset(item.tile)" :alt="`第 ${rowIndex * 4 + offset + 1} 张${item.consumed ? '，已摸' : ''}`" />
+              <TileFaceImage :src="tileAsset(item.tile)" :face-id="mmcrFaceId(item.tile)" :scale="0.86" :alt="`第 ${rowIndex * 4 + offset + 1} 张${item.consumed ? '，已摸' : ''}`" />
             </span>
           </div>
         </div>
@@ -91,6 +91,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { ReplayWallTile } from '@/game2d/replay/recordReplay'
+import { mmcrFaceId } from '@/game2d/lib/tileFaceAsset'
+import TileFaceImage from './TileFaceImage.vue'
 
 const props = defineProps<{
   tiles: (ReplayWallTile & { isDanger: boolean, isPredicted: boolean })[]

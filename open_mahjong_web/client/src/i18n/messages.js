@@ -1,4 +1,11 @@
+import { fr, frTextPatterns } from './fr.js'
+
 const en = {
+  '用户名 / 邮箱': 'Username / email',
+  '忘记密码？': 'Forgot your password?',
+  '玩家登录 - Salasasa': 'Player Login - Salasasa',
+  '注册 Salasasa 账号 - Salasasa': 'Create a Salasasa Account - Salasasa',
+  '找回密码 - Salasasa': 'Reset Password - Salasasa',
   '记住密码': 'Remember password',
   '保持登录状态 30 天': 'Stay logged in for 30 days',
   '首页': 'Home', '比赛': 'Events', '进入平台': 'Play', '2D版': '2D', 'Steam商店': 'Steam Store',
@@ -103,6 +110,8 @@ const en = {
   '图像不透明度': 'Image opacity', '选择图片': 'Choose image', '移除图片': 'Remove image',
   '正在读取已保存图片…': 'Loading saved image…', '未选择背景图片': 'No background image selected',
   '牌面': 'Tile faces', '牌面样式': 'Tile face style', '标准白色': 'Standard white',
+  '牌面角标': 'Tile numbers and letters', '跟随语言': 'Follow language',
+  '显示': 'Show', '不显示': 'Hide',
   'FluffyStuff 黑色': 'FluffyStuff black', '花牌样式': 'Flower tile style',
   '图像样式': 'Illustrated', '平面文字样式': 'Flat text style', '牌背': 'Tile backs', '轮换方式': 'Rotation mode',
   '循环': 'Cycle', '随机': 'Random', '随机（两局不重复）': 'Random (no repeat for two games)',
@@ -287,6 +296,8 @@ const ja = {
   '图像不透明度': '画像の不透明度', '选择图片': '画像を選択', '移除图片': '画像を削除',
   '正在读取已保存图片…': '保存済み画像を読み込み中…', '未选择背景图片': '背景画像が選択されていません',
   '牌面': '牌の表面', '牌面样式': '牌面スタイル', '标准白色': '標準白',
+  '牌面角标': '牌の数字・英字', '跟随语言': '言語に合わせる',
+  '显示': '表示', '不显示': '非表示',
   'FluffyStuff 黑色': 'FluffyStuff 黒', '花牌样式': '花牌スタイル',
   '图像样式': '画像スタイル', '平面文字样式': '平面文字スタイル', '牌背': '牌の背', '轮换方式': '切替方式',
   '循环': '順番', '随机': 'ランダム', '随机（两局不重复）': 'ランダム（2局連続なし）',
@@ -1628,6 +1639,7 @@ Object.assign(ja, {
 })
 
 const traditionalPhrases = {
+  '牌面角标': '牌面角標', '跟随语言': '跟隨語言',
   '完整支持繁体中文、英语、日语': '完整支援繁體中文、英文、日文',
   '下载选中({count})': '下載所選項目（{count}）', '下载筛选结果(ZIP)': '下載篩選結果（ZIP）',
   '下载到数据站缓存': '下載到資料站快取',
@@ -1775,9 +1787,10 @@ const zhHK = new Proxy({}, {
   },
 })
 
-export const messages = { 'zh-CN': {}, 'zh-TW': zhTW, 'zh-HK': zhHK, en, ja }
+export const messages = { 'zh-CN': {}, 'zh-TW': zhTW, 'zh-HK': zhHK, en, ja, fr }
 
 export const textPatterns = {
+  fr: frTextPatterns,
   en: [
     { match: /^牌谱 (\d+)$/, replace: (count) => `${count} records` },
     { match: /^比赛场 · (.+)$/, replace: (name) => `Event Room · ${name}` },

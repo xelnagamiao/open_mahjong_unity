@@ -7,7 +7,7 @@ import {
 import { Tile } from './Tile'
 import type { FlowerAreaDisplay } from '../../lib/sceneAppearance'
 import { getGameFontFamily } from '../fontLoader'
-import { tr } from '../../../i18n'
+import { locale, tr } from '../../../i18n'
 
 const RIVER_X = [0, TILE_SEP + TILE_WIDTH * 3 + TILE_HEIGHT / 2, 0, -TILE_SEP - TILE_WIDTH * 3 - TILE_HEIGHT / 2] as const
 const RIVER_Y = [TILE_SEP + TILE_WIDTH * 3 + TILE_HEIGHT / 2, 0, -TILE_SEP - TILE_WIDTH * 3 - TILE_HEIGHT / 2, 0] as const
@@ -182,7 +182,7 @@ export class River extends Container {
 
   private resizeFlowerAreaInfo(): void {
     const maxWidth = FLOWER_AREA_WIDTH - TILE_WIDTH * 0.35
-    const baseSizes = [310, 205]
+    const baseSizes = [locale.value === 'fr' ? 190 : 310, 205]
     const labels = [this.flowerAreaRank, this.flowerAreaName]
     labels.forEach((text, index) => {
       text.style.fontSize = baseSizes[index] * this.flowerAreaLabelScale

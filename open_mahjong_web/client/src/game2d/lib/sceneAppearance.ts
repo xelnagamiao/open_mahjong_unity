@@ -4,6 +4,7 @@ import {
   type GameFontTheme,
   type GameLatinFontTheme,
 } from '../game/fontLoader'
+import { normalizeTileLabelMode, type TileLabelMode } from './tileLabels'
 
 export type FlowerAreaDisplay = 'always' | 'when-present' | 'never'
 export type TileFaceTheme = 'regular' | 'black'
@@ -34,6 +35,7 @@ export type SceneAppearanceSettings = {
   flowerAreaCountColor: string
   flowerAreaLabelScale: number
   tileFaceTheme: TileFaceTheme
+  tileLabelMode: TileLabelMode
   flowerFaceTheme: FlowerFaceTheme
   moqieShortcutMode: MoqieShortcutMode
   passShortcutMode: PassShortcutMode
@@ -63,6 +65,7 @@ export const DEFAULT_SCENE_APPEARANCE: SceneAppearanceSettings = {
   flowerAreaCountColor: '#ffa726',
   flowerAreaLabelScale: 1,
   tileFaceTheme: 'regular',
+  tileLabelMode: 'auto',
   flowerFaceTheme: 'unity',
   moqieShortcutMode: 1,
   passShortcutMode: 0,
@@ -168,6 +171,7 @@ export function normalizeSceneAppearanceSettings(
       DEFAULT_SCENE_APPEARANCE.flowerAreaLabelScale,
     ),
     tileFaceTheme: value?.tileFaceTheme === 'black' ? 'black' : 'regular',
+    tileLabelMode: normalizeTileLabelMode(value?.tileLabelMode),
     flowerFaceTheme: value?.flowerFaceTheme === 'flat' ? 'flat' : 'unity',
     moqieShortcutMode: normalizeShortcutMode(value?.moqieShortcutMode, DEFAULT_SCENE_APPEARANCE.moqieShortcutMode),
     passShortcutMode: normalizeShortcutMode(value?.passShortcutMode, DEFAULT_SCENE_APPEARANCE.passShortcutMode),

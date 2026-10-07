@@ -36,7 +36,7 @@
             </div>
             <div class="record-row__players">
               <span v-for="player in record.players" :key="`${record.game_id}-${player.user_id}`" :class="{ 'record-row__self': isCurrentPlayer(player) }">
-                <em>{{ player.rank ?? '—' }} 位</em><span class="record-player-name">{{ playerName(player) }}</span> <b>{{ formatScore(player.score) }}</b>
+                <em>{{ player.rank ?? '—' }} 位</em><span class="record-player-name" data-no-translate>{{ playerName(player) }}</span> <b>{{ formatScore(player.score) }}</b>
                 <small>PT {{ formatPtChange(player.pt_change) }}</small>
               </span>
             </div>
@@ -262,5 +262,56 @@ onBeforeUnmount(() => recordsController?.abort())
 .record-row__side { padding: 0; display: flex; flex: 0 0 auto; align-items: center; justify-content: flex-start; gap: 4px; }
 .record-favorite { width: 74px; justify-content: flex-start; }
 .record-browser__footer { padding: 14px; display: flex; justify-content: center; }
+
+.record-browser:lang(fr) .record-list { min-width: 0; }
+.record-browser:lang(fr) .record-row { min-width: 0; }
+.record-browser:lang(fr) .record-row__main {
+  width: auto;
+  flex: 1 1 0;
+}
+.record-browser:lang(fr) .record-row__players {
+  width: 100%;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.record-browser:lang(fr) .record-row__players > span {
+  grid-template-columns: max-content minmax(0, 1fr) auto;
+  column-gap: 4px;
+}
+.record-browser:lang(fr) .record-row__players small { grid-column: 2 / -1; }
+.record-browser:lang(fr) .record-browser__tabs button {
+  height: auto;
+  min-height: 48px;
+  padding: 10px 14px;
+  line-height: 1.3;
+}
+
+@media (max-width: 720px) {
+  .record-browser:lang(fr) .record-browser__login {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .record-browser:lang(fr) .record-row { flex-wrap: wrap; }
+  .record-browser:lang(fr) .record-row__main {
+    flex-basis: 100%;
+    max-width: 100%;
+  }
+  .record-browser:lang(fr) .record-row__topline { flex-wrap: wrap; }
+  .record-browser:lang(fr) .record-row__players {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 16px;
+  }
+  .record-browser:lang(fr) .record-row__players > span {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .record-browser:lang(fr) .record-row__players em {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    text-align: left;
+  }
+  .record-browser:lang(fr) .record-player-name { grid-column: 1; grid-row: 2; }
+  .record-browser:lang(fr) .record-row__players b { grid-column: 2; grid-row: 2; }
+  .record-browser:lang(fr) .record-row__players small { grid-column: 1 / -1; grid-row: 3; }
+  .record-browser:lang(fr) .record-row__side { margin-left: auto; padding: 0 14px 8px; }
+}
 @media (max-width: 720px) { .record-browser__header { align-items: stretch; flex-direction: column; } .record-browser__lookup { width: 100%; } .record-browser__tabs { overflow-x: auto; } .record-browser__tabs button { flex: 1 0 116px; } .record-row__main { max-width: calc(100% - 108px); padding-inline: 14px; } .record-row__topline { gap: 8px; } .record-row__players { grid-template-columns: repeat(2, 15.8em); gap: 4px 8px; } .record-row__side { padding-right: 4px; } .record-favorite { min-width: 0; } }
 </style>

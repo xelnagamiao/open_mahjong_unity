@@ -12,7 +12,7 @@
         class="vote-panel__player"
         :class="`is-${item.vote}`"
       >
-        <span>{{ item.name }}</span>
+        <span data-no-translate>{{ item.name }}</span>
         <small>{{ voteLabel(item.vote) }}</small>
       </div>
     </div>

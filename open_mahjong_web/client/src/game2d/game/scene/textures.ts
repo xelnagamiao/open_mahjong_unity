@@ -1,15 +1,29 @@
 import { Assets, Texture } from 'pixi.js'
 import { isFlowerFaceId, tileIdToAlias, TILE_TEXTURE_PATHS } from './constants'
 import type { FlowerFaceTheme, TileFaceTheme } from '../../lib/sceneAppearance'
+import { shouldShowTileLabels, tileFaceLabel, tileFaceLabelColor, type TileLabelMode } from '../../lib/tileLabels'
+import { locale } from '../../../i18n'
 
 let loaded = false
 let loadPromise: Promise<void> | null = null
 let tileFaceTheme: TileFaceTheme = 'regular'
 let flowerFaceTheme: FlowerFaceTheme = 'unity'
+let tileLabelMode: TileLabelMode = 'auto'
 
-export function setTileThemes(tileTheme: TileFaceTheme, flowerTheme: FlowerFaceTheme): void {
+export function setTileThemes(tileTheme: TileFaceTheme, flowerTheme: FlowerFaceTheme, labelMode: TileLabelMode): void {
   tileFaceTheme = tileTheme
   flowerFaceTheme = flowerTheme
+  tileLabelMode = labelMode
+}
+
+export function getTileFaceLabel(tid: number): string {
+  return shouldShowTileLabels(tileLabelMode, locale.value)
+    ? tileFaceLabel(Number(tileIdToAlias(tid)))
+    : ''
+}
+
+export function getTileFaceLabelColor(tid: number): string {
+  return tileFaceLabelColor(Number(tileIdToAlias(tid)))
 }
 
 export function isBlackTileFaceTheme(): boolean {

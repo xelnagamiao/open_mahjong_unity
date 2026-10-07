@@ -12,9 +12,10 @@ import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 import zhTw from 'element-plus/dist/locale/zh-tw.mjs'
 import en from 'element-plus/dist/locale/en.mjs'
 import ja from 'element-plus/dist/locale/ja.mjs'
+import fr from 'element-plus/dist/locale/fr.mjs'
 import { installDomLocalization, locale } from '@/i18n'
 
-const localePacks = { 'zh-CN': zhCn, 'zh-TW': zhTw, 'zh-HK': zhTw, en, ja }
+const localePacks = { 'zh-CN': zhCn, 'zh-TW': zhTw, 'zh-HK': zhTw, en, ja, fr }
 const elementLocale = computed(() => localePacks[locale.value] || zhCn)
 let disposeLocalization
 
