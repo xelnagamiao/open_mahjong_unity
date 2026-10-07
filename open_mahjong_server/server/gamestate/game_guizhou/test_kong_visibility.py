@@ -28,6 +28,12 @@ def test_concealed_kong_visibility_uses_other_first_discards(seat, initial, disc
         concealed = hidden and viewer != seat
         assert payload["players_info"][seat]["combination_tiles"] == ["G0" if concealed else "G11"]
         assert payload["guizhou_info"]["kongs"][0]["tile"] == (0 if concealed else 11)
+        action = next(packet for packet in s.outbound_payloads
+                      if packet.get("action") == "angang" and packet["player_index"] == viewer)
+        assert action["tile"] == (0 if concealed else 11)
+        assert action["meld_code"] == ("G0" if concealed else "G11")
+        assert action["do_action_info"]["combination_target"] == ("G0" if concealed else "G11")
+        assert action["do_action_info"]["combination_mask"] == ([2,0]*4 if concealed else expected)
 
 
 def test_initial_kong_is_visible_even_when_first_discards_were_claimed():

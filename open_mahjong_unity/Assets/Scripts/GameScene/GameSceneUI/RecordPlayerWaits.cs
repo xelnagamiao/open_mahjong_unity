@@ -51,8 +51,9 @@ public sealed class RecordPlayerWaits : MonoBehaviour {
             cell.Card.SetTileOnlyImage(entry.Tile);
             cell.Count.text = entry.Remaining.ToString();
             cell.Count.color = Color.white;
-            string kind = entry.Remaining == 0 ? WaitTileHint.KindNone : entry.Hint?.Kind;
-            cell.CountBackground.color = kind == WaitTileHint.KindRon ? hintStyle.dianheColor
+            string kind = entry.Hint?.Kind;
+            cell.CountBackground.color = entry.Remaining <= 0 ? hintStyle.exhaustedColor
+                : kind == WaitTileHint.KindRon ? hintStyle.dianheColor
                 : kind == WaitTileHint.KindTsumoOnly ? hintStyle.zimoColor : hintStyle.wuyiColor;
         }
         for (int i = entries.Count; i < cells.Count; i++) cells[i].Root.gameObject.SetActive(false);

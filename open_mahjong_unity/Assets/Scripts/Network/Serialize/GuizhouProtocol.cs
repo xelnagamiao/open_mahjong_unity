@@ -7,6 +7,9 @@ public sealed class GuizhouInfo {
     public int hand_number, total_hands;
     public bool match_finishing, opening_revealed;
     public bool self_has_draw_slot;
+    // Viewer-local hint state; nullable pending keeps legacy payloads compatible.
+    public string self_ready_qualification;
+    public bool? self_ready_pending;
     public int[] seat_to_original, start_scores;
     public GuizhouChicken[] chickens;
     public GuizhouKong[] kongs;

@@ -27,7 +27,7 @@ def current_request(state, index, *, for_record=False):
     p = state.player_list[index]
     if p.is_hu or state.machine.phase in (P.END, P.READY, P.FINISHED):
         return None
-    if not for_record and (not state.tips or p.is_bot):
+    if not for_record and (not (state.tips or state.count_tips) or p.is_bot):
         return None
     return HintRequest(tuple(p.hand_tiles), tuple(p.combination_tiles),
                        tuple(sorted(legal_cuts(state, index))), state.rule_version)
@@ -75,7 +75,7 @@ def _snapshot_request(state, payload):
     index = payload.get("player_index")
     info = payload.get("game_info") or {}
     public = info.get("hangzhou_info")
-    if index not in range(4) or not public or not state.tips or state.player_list[index].is_bot:
+    if index not in range(4) or not public or not (state.tips or state.count_tips) or state.player_list[index].is_bot:
         return None
     if public["phase"] in (P.END.value, P.READY.value, P.FINISHED.value):
         return None

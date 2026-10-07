@@ -4,7 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-/// <summary>房间卡片：名称、精简配置、四个席位；完整信息由问号展示。</summary>
+/// <summary>房间卡片：名称、精简配置、按房间容量显示席位；完整信息由问号展示。</summary>
 public class RoomItem : MonoBehaviour {
     [SerializeField] private TMP_Text roomName;
     [SerializeField] private TMP_Text playRule;
@@ -41,7 +41,7 @@ public class RoomItem : MonoBehaviour {
         string title = masked ? StreamerModeHelper.MaskedRoomText : Fallback(data.room_name, "未命名房间");
         string host = masked ? StreamerModeHelper.MaskedRoomText : Fallback(data.host_name, "暂无房主");
         int count = data.player_list?.Length ?? 0;
-        int capacity = data.max_player > 0 ? Mathf.Min(data.max_player, 4) : 4;
+        int capacity = data.max_player > 0 ? Mathf.Min(data.max_player, 4) : MahjongPlayerCount.ForSubRule(data.sub_rule);
         bool isEvent = data.room_type == "events" || !string.IsNullOrEmpty(data.event_id);
         string rule = RuleNameDictionary.GetWholeName(Fallback(data.sub_rule, data.room_rule ?? ""));
         Set(roomName, title);
@@ -61,6 +61,14 @@ public class RoomItem : MonoBehaviour {
         details.AppendLine(title).AppendLine("房主  " + host).AppendLine("房间  " + data.room_id);
         details.AppendLine().AppendLine("房间玩家");
         for (int seat = 0; seat < 4; seat++) {
+            bool available = seat < capacity;
+            if (seat < playerNames.Length && playerNames[seat] != null)
+                playerNames[seat].transform.parent.gameObject.SetActive(available);
+            if (!available) {
+                if (seat < playerNames.Length) Set(playerNames[seat], "");
+                if (seat < playerStates.Length) Set(playerStates[seat], "");
+                continue;
+            }
             bool occupied = seat < count;
             int id = occupied ? data.player_list[seat] : 0;
             string name = occupied ? PlayerName(data, id) : "等待加入";

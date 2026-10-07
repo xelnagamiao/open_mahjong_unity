@@ -13,8 +13,18 @@ public partial class GameRecordManager {
     }
     public HashSet<int> HongzhongWaiting(TingpaiQuery query) {
         var result = new HashSet<int>();
-        if (IsHongzhongRecord()) foreach (var cache in recordHongzhongHints) result.UnionWith(cache.Waiting(query));
+        if (!IsHongzhongRecord() || query == null) return result;
+        if (query.RecordPlayerIndex.HasValue) {
+            int seat = query.RecordPlayerIndex.Value;
+            return seat >= 0 && seat < recordHongzhongHints.Length ? recordHongzhongHints[seat].Waiting(query) : result;
+        }
+        foreach (var cache in recordHongzhongHints) result.UnionWith(cache.Waiting(query));
         return result;
+    }
+    public WaitTileHint DescribeHongzhongWaiting(WaitHintQuery query) {
+        if (!IsHongzhongRecord() || query == null) return null;
+        int seat = query.Record?.SelfPlayerIndex ?? query.SelfIndex;
+        return seat >= 0 && seat < recordHongzhongHints.Length ? recordHongzhongHints[seat].Describe(query) : null;
     }
     private bool ApplyHongzhongRecordAction(IReadOnlyList<string> tick) {
         if (!IsHongzhongRecord() || tick == null || tick.Count<3 || tick[0]!="hongzhong") return false;

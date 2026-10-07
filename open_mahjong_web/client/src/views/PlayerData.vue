@@ -161,7 +161,7 @@
         </template>
         <p v-if="currentRule === 'riichi' && showStatsTable" class="no-prestored compact">日麻统计以当前筛选内已保存的牌谱为样本；缺失或已删除的历史牌谱不计入。</p>
         <div v-if="needsLocalAnalysis" class="no-prestored" :class="{ compact: showStatsTable }">
-          <span>{{ currentRule === 'riichi' ? '部分历史日麻牌谱尚未完成统计，详细数据暂不可用。' : '当前筛选的回合、和牌及番种等详细数据需下载牌谱后分析' }}</span>
+          <span>{{ currentRule === 'riichi' ? '部分历史日麻牌谱尚未完成统计，详细数据暂不可用。' : '当前筛选的部分对局尚无完整统计，回合及和牌等明细暂不可用。' }}</span>
         </div>
       </div>
 
@@ -672,16 +672,14 @@ const activeStats = computed(() => {
   return mergePlayerRankStats(prestoredAvailable.value ? mergedPrestored.value : null, rankRow)
 })
 
-/** 无预存场次 → 引导前往牌谱分析页 */
-const needsLocalAnalysis = computed(() => currentRule.value === 'riichi'
-  ? activeStats.value?.details_available === false : !prestoredAvailable.value)
+const detailedStatsAvailable = computed(() => activeStats.value?.details_available ?? prestoredAvailable.value)
+const needsLocalAnalysis = computed(() => !!activeStats.value && !detailedStatsAvailable.value)
 const showStatsTable = computed(() => !!activeStats.value)
 
 const statsDisplay = computed(() => {
   if (!activeStats.value) return []
   const rows = buildPlayerStatsRows(activeStats.value, {
-    rule: currentRule.value, detailed: currentRule.value === 'riichi'
-      ? activeStats.value.details_available : prestoredAvailable.value,
+    rule: currentRule.value, detailed: detailedStatsAvailable.value,
   })
   return currentRuleDef.value?.recordsOnly ? rows.filter(row => ['总对局', '平均顺位', '一位率', '二位率', '三位率', '四位率'].includes(row.label)) : rows
 })

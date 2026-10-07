@@ -34,6 +34,12 @@ const GAME_TYPE_MATCH_TYPES = {
   quanzhuang: ['4/4', '4/4_rank'],
 };
 
+const PLAYER_METRIC_FIELDS = [
+  'total_rounds', 'win_count', 'self_draw_count', 'deal_in_count',
+  'total_fan_score', 'total_win_turn', 'total_fangchong_score',
+  'fulu_round_count', 'cuohe_count',
+];
+
 function extractFanStats(fanRow) {
   if (!fanRow) return null;
   const fanStats = {};
@@ -447,8 +453,23 @@ async function fetchPlayerRankStats(userId, query) {
   return withRecordMetadataQuery(pool, async (db) => {
     const params = [];
     const conditions = buildRecordFilters(userId, query, params);
+    // 日麻沿用带版本的专用摘要；其他规则直接汇总同一批对局的每玩家指标。
+    const useMetrics = query.rule !== 'riichi';
+    const metricColumns = useMetrics ? `
+        COUNT(gpm.game_id)::int AS analyzed_games,
+        COUNT(gpm.game_id) = COUNT(*) AS details_available,
+        ${PLAYER_METRIC_FIELDS.map(field => `COALESCE(SUM(gpm.${field}), 0) AS ${field}`).join(',\n        ')},` : '';
+    // 指标表没有 (game_id, user_id) 唯一约束，先按玩家取每局最新一条，避免重复放大统计。
+    // 批量连接避免对每局分别扫描指标表；筛选日期始终使用 game_records.created_at。
+    const metricsJoin = useMetrics ? `
+      LEFT JOIN (
+        SELECT DISTINCT ON (game_id) game_id, ${PLAYER_METRIC_FIELDS.join(', ')}
+        FROM game_player_metrics WHERE user_id = $1
+        ORDER BY game_id, id DESC
+      ) gpm ON gpm.game_id = gpr.game_id` : '';
     const sql = `
       SELECT
+        ${metricColumns}
         COUNT(*)::int AS total_games,
         -- 国标从 0 分开局，结算分就是本场净得分；与顺位共用全部筛选条件。
         -- 其他规则可能带起始点数，缺失分数也不能当作 0 分混入均值。
@@ -461,14 +482,22 @@ async function fetchPlayerRankStats(userId, query) {
         COUNT(*) FILTER (WHERE gpr.rank = 4)::int AS fourth_place_count
       FROM game_player_records gpr
       JOIN game_records gr ON gr.game_id = gpr.game_id
+      ${metricsJoin}
       WHERE ${conditions.join(' AND ')}
     `;
     const result = await db.query(sql, params);
     const row = result.rows[0] || {};
     const riichi = query.rule === 'riichi'
       ? aggregateRiichiStats(await fetchRiichiRows(db, conditions, params)) : null;
+    const details = riichi || {
+      details_available: row.details_available === true,
+      analyzed_games: Number(row.analyzed_games) || 0,
+      // 缺失任意一局时不能将部分合计伪装成完整明细；空筛选则返回完整的零值。
+      ...Object.fromEntries(PLAYER_METRIC_FIELDS.map(field => [field,
+        row.details_available ? Number(row[field]) || 0 : null])),
+    };
     return {
-      ...(riichi || {}),
+      ...details,
       total_games: Number(row.total_games) || 0,
       total_round_score: riichi?.details_available ? (riichi.riichi_details.net_score_count === riichi.total_games ? riichi.total_round_score : null)
         : row.total_round_score == null ? null : Number(row.total_round_score),

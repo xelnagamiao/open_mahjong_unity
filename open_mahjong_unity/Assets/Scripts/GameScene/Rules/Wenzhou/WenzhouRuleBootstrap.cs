@@ -29,6 +29,7 @@ internal static class WenzhouRuleBootstrap {
             },
             ScoreboardFanText = q => $"{q.HuScore}倍",
             SettlementFootnote = q => "和牌底分1分，庄家按连庄倍数收付；杠分与财神另行结算。",
+            ActionVoice = word => word == "hu_self" ? "hu" : null,
             RoundName = RoundTextDictionary.WindSeatRoundName,
             // The dedicated legend owns dynamic joker/streak metadata in both live play and replay.
             RoundSupplementText = info => "",

@@ -144,6 +144,6 @@ public static class YixingCalculator {
         var ron=Score(q.HandWithWin,q.Melds,q.SelfFlowers,q.HepaiTile,seatWind:41+q.SelfIndex,sevenPairs:seven);
         if (ron != null) return WaitTileHint.Ron($"{ron.base_flowers}花起");
         var tsumo=Score(q.HandWithWin,q.Melds,q.SelfFlowers,q.HepaiTile,selfDraw:true,seatWind:41+q.SelfIndex,sevenPairs:seven);
-        return tsumo != null ? WaitTileHint.TsumoOnly($"自摸{tsumo.base_flowers}花起") : WaitTileHint.None("花数不足");
+        return tsumo != null ? WaitTileHint.TsumoOnly($"自摸{tsumo.base_flowers}花起") : WaitTileHint.None("未起和");
     }
 }

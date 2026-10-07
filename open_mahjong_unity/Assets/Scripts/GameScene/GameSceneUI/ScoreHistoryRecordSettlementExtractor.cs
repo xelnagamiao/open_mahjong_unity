@@ -114,6 +114,10 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
         foreach (List<string> tick in round.actionTicks) {
             if (tick == null || tick.Count == 0) continue;
             string action = tick[0];
+            if (isSichuan && (action == "g" || action == "ag" || action == "jg" || action == "gr")) {
+                // 杠分与即时退税不单独占计分行，统一并入本局末次结算。
+                AccumulateSeatScores(immediateScores, GameRecordJsonDecoder.ParseInlineGangScoreChanges(tick));
+            }
             if (action == "riichi") {
                 if (tick.Count >= 2 && int.TryParse(tick[1], out int payer) && payer >= 0 && payer < 4)
                     riichiPayments[payer] -= 1000;
@@ -329,7 +333,7 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
                 case "blood":
                 case "liuju":
                 case "jiuzhongjiupai": {
-                    if ((action == "liuju" || action == "blood") && tick.Count >= 2 && isSichuanBlood) {
+                    if ((action == "liuju" || action == "blood") && tick.Count >= 2 && (isSichuan || isSichuanBlood)) {
                         string step = tick[1];
                         if (step == "reveal_hu") {
                             sichuanHuCount = 0;
@@ -338,22 +342,28 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
                             break;
                         }
                         if (step == "settle_hu") {
+                            sichuanAccumBySeat ??= new int[4];
                             sichuanHuCount++;
                             AccumulateSeatScores(sichuanAccumBySeat, ParseScoreChanges(tick, 6));
                             if (tick.Count > 7 && ParseInt(tick, 7) != 0 && !sichuanHadChajiao) {
-                                FlushSichuanEndgameRow(output, roundNumber, subRule, sichuanHuCount, sichuanHadChajiao, sichuanAccumBySeat, round);
+                                lastRow = FlushSichuanEndgameRow(output, roundNumber, subRule, sichuanHuCount, sichuanHadChajiao, sichuanAccumBySeat, round);
                             }
                             break;
                         }
                         if (step == "chajiao") {
+                            sichuanAccumBySeat ??= new int[4];
                             sichuanHadChajiao = true;
                             AccumulateSeatScores(sichuanAccumBySeat, ParseScoreChanges(tick, 5));
                             if (tick.Count > 6 && ParseInt(tick, 6) != 0) {
-                                FlushSichuanEndgameRow(output, roundNumber, subRule, sichuanHuCount, sichuanHadChajiao, sichuanAccumBySeat, round);
+                                lastRow = FlushSichuanEndgameRow(output, roundNumber, subRule, sichuanHuCount, sichuanHadChajiao, sichuanAccumBySeat, round);
                             }
                             break;
                         }
-                        if (step == "final" || step == "cha_refund") break;
+                        if (step == "cha_refund") {
+                            AccumulateSeatScores(immediateScores, ParseScoreChanges(tick, 2));
+                            break;
+                        }
+                        if (step == "final") break;
                     }
                     if (isSichuan) {
                         lastRow = new RecordScoreRow {
@@ -414,7 +424,7 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
         }
     }
 
-    private static void FlushSichuanEndgameRow(
+    private static RecordScoreRow FlushSichuanEndgameRow(
         List<RecordScoreRow> output,
         int roundNumber,
         string subRule,
@@ -423,12 +433,14 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
         int[] accumBySeat,
         Round round) {
         string label = ScoreHistorySettlementHelper.ResolveSichuanEndgameRoundLabel(huCount, hadChajiao);
-        output.Add(new RecordScoreRow {
+        var row = new RecordScoreRow {
             snapshot = ScoreHistorySettlementHelper.CreateSichuanScoreboardSnapshot(subRule, label),
             scoreChangesByOriginal = GameRecordJsonDecoder.ConvertPlayerIndexScoreChangesToOriginal(
                 accumBySeat ?? new int[4], round.seats),
             roundNumber = roundNumber,
-        });
+        };
+        output.Add(row);
+        return row;
     }
 
     private static void InitHands(SimPlayer[] players, Round round) {

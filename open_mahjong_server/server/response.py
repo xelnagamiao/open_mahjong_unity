@@ -48,6 +48,7 @@ class PlayerInfo(BaseModel):
     tag_list: Optional[List[str]] = None  # 标签列表
     initial_hu_types: Optional[List[str]] = None  # 长沙麻将起手胡类型
     discard_riichi_flags: Optional[List[bool]] = None  # 立直规则：与 discard_tiles 同序的横置标记，重连/牌谱重建时还原横置弃牌
+    riichi_accepted: Optional[bool] = None  # 宣言牌响应结束且已付供托，重连时据此还原立直棒
     # 四川麻将（血战到底）专用
     dingque_suit: Optional[int] = None  # 定缺花色：1=万 2=饼 3=条，0/None=未定缺
     hu_order: Optional[int] = None
@@ -375,8 +376,11 @@ class Switch_seat_info(BaseModel):
 class Refresh_player_tag_list_info(BaseModel):
     """刷新玩家标签列表信息"""
     player_to_tag_list: Dict[int, List[str]]  # 玩家索引到标签列表的映射 {player_index: tag_list}
-    # 立直宣告广播复用此结构时填入：刚宣告立直的玩家索引（用于客户端音效/点棒动画定位）
+    # 立直宣告只播放语音；成立广播在宣言牌无人荣和后同步供托与绝对分数。
     riichi_declared_player_index: Optional[int] = None
+    riichi_accepted_player_index: Optional[int] = None
+    player_to_score: Optional[Dict[int, int]] = None  # 当局座位 player_index -> score
+    riichi_sticks: Optional[int] = None
 
 class Ready_status_info(BaseModel):
     hangzhou_info: Optional[dict] = None  # MIL 2025 state; hints scoped to recipient

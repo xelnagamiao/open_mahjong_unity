@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-/// <summary>只索引已收到的权威提示，不在客户端重新解释癞子与起和门槛。</summary>
+/// <summary>实战索引权威基本提示；牌谱按快照补算同一基本牌型及起和门槛。</summary>
 internal static class GuangdongServerTips {
     private static readonly Dictionary<string, GuangdongWait[]> live = new Dictionary<string, GuangdongWait[]>();
     private static readonly Dictionary<int, Dictionary<string, GuangdongWait[]>> replay = new Dictionary<int, Dictionary<string, GuangdongWait[]>>();
@@ -13,7 +13,9 @@ internal static class GuangdongServerTips {
         if (!replay.TryGetValue(seat, out var cache)) replay[seat] = cache = new Dictionary<string, GuangdongWait[]>();
         return cache;
     }
-    internal static void Clear(bool record = false) { if(record) replay.Clear(); else live.Clear(); }
+    internal static void Clear(bool record = false) {
+        if(record) { replay.Clear(); GuangdongBaseHints.Clear(); } else live.Clear();
+    }
     internal static void Accept(GuangdongTips tips, bool record = false, int seat = 0) {
         var cache = Cache(record, seat);
         cache.Clear();
@@ -29,6 +31,7 @@ internal static class GuangdongServerTips {
         return Waiting(query, query.RecordPlayerIndex.HasValue, query.RecordPlayerIndex ?? 0);
     }
     internal static HashSet<int> Waiting(TingpaiQuery query, bool record, int seat = 0) {
+        if (record) return GuangdongBaseHints.Waiting(query.Hand, query.Melds);
         string key = Key(query.Hand, query.Melds);
         var cache = Cache(record, seat);
         return cache.TryGetValue(key, out var waits) ? new HashSet<int>(waits.Select(w => w.tile)) : new HashSet<int>();
@@ -36,6 +39,7 @@ internal static class GuangdongServerTips {
     private static string Format(string label, int? fan, int? score) => label
         + (fan.HasValue ? fan.Value + "番" : "") + (score.HasValue ? score.Value + "分" : "");
     internal static WaitTileHint Describe(WaitHintQuery query) {
+        if (query.Record != null) return GuangdongBaseHints.Describe(query);
         var hand = new List<int>(query.HandWithWin ?? new List<int>());
         hand.Remove(query.HepaiTile);
         var cache = Cache(query.Record != null, query.Record?.SelfPlayerIndex ?? 0);

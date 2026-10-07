@@ -6,6 +6,101 @@ using Newtonsoft.Json;
 using UnityEngine;
 
 public static class ChangchunClientValidation {
+    public static string RunAutoCutContract() {
+        typeof(ChangchunRuleBootstrap).GetMethod("Register",System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic).Invoke(null,null);
+        var checks=new List<string>();
+        void Check(bool value,string label) {if(!value) throw new Exception("Changchun: "+label);checks.Add(label);}
+        var clock=TurnClock.Current;
+        var session=GameSession.Current;
+        var savedActions=clock.AllowActionList;
+        bool savedSpectator=session.IsRealtimeSpectator;
+        var savedInstance=AutoAction.Instance;
+        var automatic=savedInstance;
+        GameObject temporary=null;
+        var instanceSetter=typeof(AutoAction).GetProperty("Instance").GetSetMethod(true);
+        if(automatic==null) {
+            temporary=new GameObject("Changchun auto-cut validation");
+            temporary.hideFlags=HideFlags.HideAndDontSave;
+            temporary.SetActive(false);
+            automatic=temporary.AddComponent<AutoAction>();
+            instanceSetter.Invoke(null,new object[]{automatic});
+        }
+        var preference=typeof(AutoAction).GetField("isAutoCut",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic);
+        bool savedPreference=(bool)preference.GetValue(automatic),savedLock=automatic.IsAutoCutLocked;
+        try {
+            session.IsRealtimeSpectator=false;
+            foreach(bool manual in new[]{false,true}) {
+                preference.SetValue(automatic,manual);
+                foreach(bool locked in new[]{false,true}) {
+                    automatic.SetAutoCutLocked(locked);
+                    clock.AllowActionList=new List<string>{"cut"};
+                    Check(AutoActionPolicy.Current.ShouldStartAutoCut("deal_tile")== (manual || locked),$"ordinary draw honors auto-cut preference={manual}, ready={locked}");
+                    foreach(string action in new[]{"cc_special","cc_added","angang","jiagang","hu_self"}) {
+                        clock.AllowActionList=new List<string>{action,"cut"};
+                        Check(!AutoActionPolicy.Current.ShouldStartAutoCut("deal_tile"),$"manual choice for {action}, preference={manual}, ready={locked}");
+                    }
+                    foreach(string[] actions in new[]{new[]{"cc_draw"},new[]{"cc_change_bao","cc_draw"},new[]{"cc_pass"}}) {
+                        clock.AllowActionList=new List<string>(actions);
+                        Check(!AutoActionPolicy.Current.ShouldStartAutoCut("deal_tile"),$"no discard during {string.Join(",",actions)}, preference={manual}, ready={locked}");
+                    }
+                    clock.AllowActionList=new List<string>{"cut"};
+                    Check(!AutoActionPolicy.Current.ShouldStartAutoCut("deal_gang_tile"),$"supplement keeps decision window, preference={manual}, ready={locked}");
+                }
+            }
+            session.IsRealtimeSpectator=true;
+            clock.AllowActionList=new List<string>{"cut"};
+            Check(!AutoActionPolicy.Current.ShouldStartAutoCut("deal_tile"),"spectator never discards automatically");
+            Check(ActionWords.KindOf("cc_added")==ActionWordKind.Other,"special addition keeps its independent action category");
+        } finally {
+            preference.SetValue(automatic,savedPreference);
+            automatic.SetAutoCutLocked(savedLock);
+            clock.AllowActionList=savedActions;
+            session.IsRealtimeSpectator=savedSpectator;
+            if(temporary!=null) {
+                instanceSetter.Invoke(null,new object[]{savedInstance});
+                UnityEngine.Object.DestroyImmediate(temporary);
+            }
+        }
+        return JsonConvert.SerializeObject(new{passed=checks.Count,checks},Formatting.Indented);
+    }
+
+    public static string RunTailPeekPermissionContract() {
+        var checks=new List<string>();
+        void Check(bool value,string label) {if(!value) throw new Exception("Changchun tail peek: "+label);checks.Add(label);}
+        var temporary=GameObject.CreatePrimitive(PrimitiveType.Cube);
+        temporary.hideFlags=HideFlags.HideAndDontSave;
+        temporary.SetActive(false);
+        var tile=temporary.AddComponent<Tile3D>();
+        var collider=temporary.GetComponent<BoxCollider>();
+        try {
+            foreach(int id in new[]{11,205,1001,2,0}) {
+                tile.ResetConcealedState();
+                tile.SetTileIds(id,id);
+                tile.SetConcealedFaceDown(true);
+                bool known=id>=10;
+                Check(tile.CanPeekOnHover==known,$"known identity contract for {id}");
+                Check(collider.enabled==known,$"raycast permission for {id}");
+                Quaternion concealed=temporary.transform.localRotation;
+                tile.SetPeekFaceUp(true);
+                float angle=Quaternion.Angle(concealed,temporary.transform.localRotation);
+                Check(known ? angle>179f : angle<0.01f,$"identity-gated peek for {id}");
+                tile.SetHoverPeekAllowed(false);
+                Check(!tile.CanPeekOnHover && !collider.enabled,$"denied viewpoint cannot hover for {id}");
+                Check(Quaternion.Angle(concealed,temporary.transform.localRotation)<0.01f,$"revoking permission closes active peek for {id}");
+                tile.SetPeekFaceUp(true);
+                Check(Quaternion.Angle(concealed,temporary.transform.localRotation)<0.01f,$"direct request obeys denial for {id}");
+                tile.SetConcealedFaceDown(true);
+                Check(!tile.CanPeekOnHover,$"presentation refresh preserves denial for {id}");
+                tile.ResetConcealedState();
+                tile.SetConcealedFaceDown(true);
+                Check(tile.CanPeekOnHover==known && collider.enabled==known,$"pool reset restores ordinary concealed-tile policy for {id}");
+                tile.SetConcealedFaceDown(false);
+                Check(!tile.CanPeekOnHover && !collider.enabled,$"public face has no peek interaction for {id}");
+            }
+        } finally {UnityEngine.Object.DestroyImmediate(temporary);}
+        return JsonConvert.SerializeObject(new{passed=checks.Count,checks},Formatting.Indented);
+    }
+
     public static string Run(string oraclePath=null) {
         var checks=new List<string>();
         void Check(bool value,string label) {if(!value) throw new Exception("Changchun: "+label);checks.Add(label);}

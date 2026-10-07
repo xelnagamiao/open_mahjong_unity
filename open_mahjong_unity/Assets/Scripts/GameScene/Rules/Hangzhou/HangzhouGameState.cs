@@ -24,6 +24,13 @@ public sealed class HangzhouGameState : TurnBasedGameState {
             GameCanvas.Instance.ChangeHandCards("SyncHandCards", 0, hand.Take(hand.Length - 1).ToArray(), null);
             GameCanvas.Instance.ChangeHandCards("GetCardNoAnimation", hand[hand.Length - 1], null, null);
         }
+        // Restore player and spectator tips only after their authoritative cache is loaded.
+        // A real draw is removed only from the query copy, never from the physical mirror.
+        if (Session.Tips) {
+            var hand = new List<int>(Mirror.SelfHandTiles);
+            if (Info?.self_has_draw_slot == true && hand.Count % 3 == 2) hand.RemoveAt(hand.Count - 1);
+            TipsBlock.Instance?.ShowTipsBlock(hand, Mirror.Self.combination_tiles ?? new List<string>());
+        }
     }
     private void BindClockRound(GameInfo info) {
         if (info == null) return;

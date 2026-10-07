@@ -297,7 +297,8 @@ class FreeGameState:
                 self,
                 ["free_meld"],
                 player.player_index,
-                combination_mask=list(mask),
+                combination_mask=boardcast.combination_mask_for_viewer(
+                    player, mask, viewer, reveal_tiles=player.revealed),
                 combination_target=player.combination_tiles[-1],
                 cut_tile=river_tile,
                 cut_from_player=cut_from,
@@ -366,7 +367,8 @@ class FreeGameState:
                 self,
                 ["free_recall_meld"],
                 player.player_index,
-                combination_mask=mask,
+                combination_mask=boardcast.combination_mask_for_viewer(
+                    player, mask, viewer, reveal_tiles=player.revealed),
                 cut_tile_index=index,
                 deal_tiles=tiles if viewer == player.player_index or player.revealed else None,
             )

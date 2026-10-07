@@ -1,5 +1,5 @@
 """
-立直麻将广播：沿用 classical 的消息布局，新增 declare_riichi / update_dora；
+立直麻将广播：沿用 classical 的消息布局，新增 declare_riichi / riichi_accepted / update_dora；
 GameInfo 额外携带 honba / riichi_sticks / dora_indicators / kan_dora_indicators / hepai_way / red_dora。
 """
 from typing import List, Dict, Optional
@@ -178,6 +178,7 @@ def _build_player_info(player, viewer_uid: int, viewer_player_index: int) -> dic
         "round_number_history": player.round_number_history,
         "tag_list": _tag_list_for_viewer(player.tag_list, player.player_index, viewer_player_index),
         "discard_riichi_flags": list(getattr(player, "discard_riichi_flags", []) or []),
+        "riichi_accepted": bool(getattr(player, "riichi_paid_this_round", False)),
     }
 
 
@@ -493,6 +494,32 @@ async def broadcast_declare_riichi(self, player_index: int, is_daburu: bool = Fa
             await _send_response(self, cp.player_index, response, block=not claim_protection_enabled(self))
         except Exception as e:
             logger.error(f"riichi broadcast_declare_riichi 失败: {e}")
+
+
+async def broadcast_riichi_accepted(self, player_index: int):
+    """宣言牌无人荣和后才放棒；绝对分数避免客户端/重连重复扣供托。"""
+    self.server_action_tick += 1
+    scores = {p.player_index: p.score for p in self.player_list}
+    for cp in self.player_list:
+        if "offline" in cp.tag_list or cp.user_id == 0:
+            continue
+        if cp.user_id not in self.game_server.user_id_to_connection:
+            continue
+        try:
+            response = Response(
+                type="gamestate/riichi/riichi_accepted",
+                success=True,
+                message="立直成立",
+                refresh_player_tag_list_info=Refresh_player_tag_list_info(
+                    player_to_tag_list=_player_to_tag_list_for_viewer(self.player_list, cp.player_index),
+                    riichi_accepted_player_index=player_index,
+                    player_to_score=scores,
+                    riichi_sticks=self.riichi_sticks,
+                ),
+            )
+            await _send_response(self, cp.player_index, response, block=not claim_protection_enabled(self))
+        except Exception as e:
+            logger.error(f"riichi broadcast_riichi_accepted 失败: {e}")
 
 
 async def broadcast_update_dora(self, new_indicator: int, is_kan_dora: bool = False):

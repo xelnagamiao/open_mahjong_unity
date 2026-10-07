@@ -21,8 +21,8 @@ internal static class GuizhouRuleBootstrap {
             },
             GameStateFactory = () => new GuizhouGameState(), OutboundChannel = "guizhou",
             Tingpai = GuizhouShape.Waiting,
-            // Physical hand-shape hints are deliberately not a scoring / ron promise.
-            DescribeWaitingTile = query => WaitTileHint.None("牌形听牌"),
+            DescribeWaitingTile = GuizhouTips.Describe,
+            RecordDangerUsesWaitHint = true,
             FanNameText = (rule, label) => GuizhouFanText.Name(label),
             FanValueText = (rule, label) => GuizhouFanText.Value(label),
             SettlementTotal = q => new SettlementTotalDisplay {
@@ -39,7 +39,8 @@ internal static class GuizhouRuleBootstrap {
             // the final stack, then its lower tile, like the common MCR path.
             ReplayConcealedKongMask = (rule, tiles) => GameRecordManager.GuizhouReplayKongMask(tiles),
             ActionCaption = word => word == "riichi" ? "报听" : null,
-            ActionVoice = word => word == "riichi" ? "baoting" : null,
+            // MIL 2023三-22/23：声明天听（原报/软报），口头报“天听”。
+            ActionVoice = word => word == "riichi" ? "tianting" : word == "hu_self" ? "hu" : null,
             RulebookKey = "guizhou",
         });
         ActionWords.Register(new ActionWordSpec {

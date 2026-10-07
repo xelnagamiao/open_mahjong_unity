@@ -93,10 +93,7 @@ def test_real_batch_13_14_and_invalid_nominal_sizes():
     for tile, waits in batch[1]["discard_waits"].items():
         remainder = list(complete)
         remainder.remove(int(tile))
-        declined = rules.score(complete, MELDS, winning_tile=int(tile), context=context)
-        assert declined
-        assert waits == rules.waiting_scores(remainder, MELDS, context=context,
-                                             passed_base_score=declined["base_score"])
+        assert waits == rules.waiting_scores(remainder, MELDS, context=context)
     assert batch[2] == {"hand": [11], "melds": [], "waits": [], "discard_waits": {}}
 
 
@@ -114,10 +111,28 @@ def test_discard_ghost_tips_include_new_coefficient_without_passing_win(ghost):
 
 
 def test_nonwinning_14_hand_excludes_discards_without_legal_waits():
-    # 独立真实结构：切 47 后仍不能满足四分，因此不展示误导的听牌项。
+    # 任何切牌均未形成基本听牌结构。
     complete = (11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 47)
     payload = tips.calculate_tip_batch([(complete, (), Context(), -1)])[0]
     assert payload["discard_waits"] == {}
+
+
+@pytest.mark.parametrize("fan,count", [(False, False), (False, True), (True, False), (True, True)])
+def test_hint_switches_supply_structure_for_count_only_rooms(cpu, fan, count):
+    state = protocol_state(tips=fan, count_tips=count)
+    player = hand(state, 0, [11, 12, 13, 21, 22, 23, 31, 32, 33, 41, 41, 41, 55])
+    asyncio.run(boardcast.broadcast_game_start(state))
+    fields = inbox(state, 0)[0]["game_info"]
+    if not fan and not count:
+        assert "guangdong_tips" not in fields and cpu.await_count == 0
+        return
+    payload = fields["guangdong_tips"]
+    assert {item["tile"] for item in payload["waits"]} == set(rules.structural_waits(player.hand_tiles))
+    assert len(payload["waits"]) == 36
+    asyncio.run(boardcast.broadcast_do_action(state, ["cut"], 1, cut_tile=46))
+    own = inbox(state, 0)[-1]["do_action_info"]["guangdong_tips"]
+    assert own["hand"] == sorted(player.hand_tiles)
+    assert any(tick[2] == 0 and tick[3]["waits"] == payload["waits"] for tick in tip_ticks(state))
 
 
 def test_prepare_cache_skips_invalid_seats_reuses_snapshot_and_getters_are_read_only(cpu):

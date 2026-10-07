@@ -114,22 +114,22 @@ def _waiting_scores(hand, melds, context, passed_base_score):
     result = []
     for tile in sorted(_structural_waits(hand, melds)):
         complete = tuple(sorted(hand + (tile,)))
-        ron_context = replace(context, self_draw=False, rob_kong=False, heavenly=False,
-                              earthly=False, kong_flower=False)
-        self_context = replace(context, self_draw=True, rob_kong=False)
+        # 提示只描述基本牌型与起和门槛；过水和偶然番由实际动作判断。
+        ron_context = Context(discarded_ghosts=context.discarded_ghosts,
+                              require_minimum_score=context.require_minimum_score)
+        self_context = replace(ron_context, self_draw=True)
         ron = _score(complete, melds, tile, ron_context)
         self_draw = _score(complete, melds, tile, self_context)
-        legal_ron = bool(ron and ron["base_score"] > passed_base_score)
-        if legal_ron or self_draw:
-            # 默认显示可达的较高基本分；仍分别列两种得分，避免自摸番误用于点和。
-            best = max((item for item in (ron if legal_ron else None, self_draw) if item),
-                       key=lambda item: item["base_score"])
-            result.append({"tile": tile, "fan": best["fan"], "score": best["base_score"],
-                "ron": legal_ron, "self_draw": bool(self_draw),
-                "ron_fan": ron["fan"] if legal_ron else 0,
-                "self_draw_fan": self_draw["fan"] if self_draw else 0,
-                "ron_score": ron["base_score"] if legal_ron else 0,
-                "self_draw_score": self_draw["base_score"] if self_draw else 0})
+        best = max((item for item in (ron, self_draw) if item),
+                   key=lambda item: item["base_score"], default=None)
+        # 不达标的结构听牌也保留，客户端统一显示“未起和”。
+        result.append({"tile": tile, "fan": best["fan"] if best else 0,
+            "score": best["base_score"] if best else 0,
+            "ron": bool(ron), "self_draw": bool(self_draw),
+            "ron_fan": ron["fan"] if ron else 0,
+            "self_draw_fan": self_draw["fan"] if self_draw else 0,
+            "ron_score": ron["base_score"] if ron else 0,
+            "self_draw_score": self_draw["base_score"] if self_draw else 0})
     return tuple(result)
 
 

@@ -320,7 +320,11 @@ class ChangchunGameState(ChangchunTacticalFlow, BaoFlow, SpecialKongFlow, Changc
     def build_private_do_action_info(self, action_player, viewer_index):
         result = {"changchun": self.view_state(viewer_index)}
         if self.cc_event:
-            result["changchun"]["event"] = dict(self.cc_event)
+            event = dict(self.cc_event)
+            if (event.get("kind") == "kong_score" and event.get("kong_kind") == "concealed"
+                    and viewer_index != event.get("player")):
+                event["tile"] = 0
+            result["changchun"]["event"] = event
         return result
 
     async def emit_cc_event(self, event, *, private=False):

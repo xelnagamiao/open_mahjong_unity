@@ -33,6 +33,12 @@ test('record metadata is public while locked content remains protected', {
       CREATE TABLE event_admins (event_id varchar(32), user_id bigint, role text);
       CREATE TABLE game_records (game_id varchar(16) PRIMARY KEY, record jsonb, created_at timestamp NOT NULL);
       CREATE TABLE riichi_player_game_stats (game_id text, user_id bigint, version int, stats jsonb);
+      CREATE TABLE game_player_metrics (
+        id bigserial PRIMARY KEY, game_id text, user_id bigint,
+        total_rounds int, win_count int, self_draw_count int, deal_in_count int,
+        total_fan_score int, total_win_turn int, total_fangchong_score int,
+        fulu_round_count int, cuohe_count int
+      );
       CREATE TABLE game_player_records (game_id varchar(16), user_id bigint, username text,
         score int, rank int, pt_change numeric(12,2), original_player_index int, title_used int, character_used int,
         profile_used int, voice_used int, rule text, sub_rule text, room_type text,

@@ -4,14 +4,6 @@ using UnityEngine;
 internal static class TuidaoRuleBootstrap {
     internal const string RuleId = "guangdong";
     internal const string SubRule = "guangdong/tuidao_mil2024";
-    private static readonly Dictionary<string, int> Fans = new Dictionary<string, int> {
-        { "门清", 2 }, { "平和", 2 }, { "断幺", 2 }, { "报听", 2 },
-        { "碰碰和", 6 }, { "全带幺", 6 }, { "大吊车", 6 }, { "混一色", 6 },
-        { "抢杠", 8 }, { "海底", 8 }, { "杠上开花", 8 }, { "全不靠", 8 }, { "清龙", 8 },
-        { "天听", 16 }, { "七对", 16 }, { "清一色", 16 }, { "豪华七对", 24 },
-        { "天和", 32 }, { "十三幺", 32 }, { "大三元", 32 }, { "字一色", 32 },
-        { "四暗刻", 32 }, { "大四喜", 32 },
-    };
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Register() {
@@ -38,7 +30,7 @@ internal static class TuidaoRuleBootstrap {
             RoundName = round => $"第{round}局", MaxRoundText = rounds => $"{rounds * 4}局",
             RoundSupplementText = info => GuangdongMilRules.IsMil(info.sub_rule) ? "花鬼" : "无癞子",
             FanNameText = (rule, name) => GuangdongMilRules.IsMil(rule) ? GuangdongMilRules.FanName(name) : name,
-            FanValueText = (rule, name) => GuangdongMilRules.IsMil(rule) ? GuangdongMilRules.FanValue(name) : Fans.TryGetValue(name, out int value) ? $"{value}番" : "",
+            FanValueText = (rule, name) => GuangdongMilRules.IsMil(rule) ? GuangdongMilRules.FanValue(name) : TuidaoHandCalculator.FanValues.TryGetValue(name, out int value) ? $"{value}番" : "",
             ScoreboardFanText = query => GuangdongMilRules.IsMil(query.Rule) ? $"基本分{query.HuScore}分" : $"{query.HuScore}番",
             SettlementTotal = query => GuangdongMilRules.IsMil(query.Rule) ? GuangdongMilRules.Total(query) : new SettlementTotalDisplay {
                 FanText = $"{query.HuScore}番", ScoreText = $"{2 + query.HuScore}分"
@@ -47,11 +39,19 @@ internal static class TuidaoRuleBootstrap {
                 : "基本分＝2＋番数（32封顶），杠分另计。\n自摸三家各付；点和一家付双份。",
             ActionCaption = word => word == "riichi" || word == "riichi_cut" ? "报听"
                 : word == "riichi_cut_cancel" ? "取消报听" : null,
-            ActionVoice = word => word == "riichi" || word == "riichi_cut" ? "baoting" : null,
+            ActionVoice = ActionVoice,
             HasFlowerReplacement = false, DefaultHepaiLimit = 0,
             SupportsRobbedAddedKongSource = true, ReplacementFromTailEnd = true,
             PublicReadyStateReplay = true, PeekAnkan = true,
             RulebookPath = (subRule, detail) => "/rulebook/guangdong?sub_rule=" + System.Uri.EscapeDataString(GuangdongMilRules.IsMil(subRule) ? GuangdongMilRules.SubRule : SubRule),
         });
+    }
+
+    private static string ActionVoice(string word) {
+        if (word == "hu_self") return "hu";
+        if (word != "riichi" && word != "riichi_cut") return null;
+        GameRecordManager.ResolveActionRuleContext(null, null, out _, out string subRule);
+        // 推倒和六-2报“听”；同族的花鬼规则没有报听动作。
+        return GuangdongMilRules.IsMil(subRule) ? null : "ting";
     }
 }

@@ -101,6 +101,62 @@ def test_added_special_commits_after_window_and_pays_once():
     assert len(state.tiles_list)==size-1 and len(player.hand_tiles)==11
 
 
+@pytest.mark.parametrize("kind,tile",[
+    (kind,tile) for kind,domain in book.SPECIAL_DOMAINS.items()
+    for tile in sorted(set(domain) | {book.ONE_BAMBOO})
+])
+def test_declared_ready_special_addition_is_offered_and_preserves_lock_through_supplement(kind,tile):
+    state=make_state()
+    domain=book.SPECIAL_DOMAINS[kind]
+    code=book.special_code(kind,domain[:3],domain[:3])
+    standing=[11,12,13,22,23,24,35,36,37,45]
+    player=hand(state,0,standing+[tile],[code],ready=True,drawn=tile)
+    player.discard_count=1
+    player.cc_looked_turn=state.cc_turn_serial
+    state.cc_bao_exhausted=True
+    state.tiles_list[-2]=28
+    size=len(state.tiles_list)
+    assert player.locked_waits=={45}
+    assert "cc_added" in state.check_hand_actions(0)[0]
+    wire=state.build_private_hand_action_info(0)
+    candidate=next(c for c in wire["changchun"]["added_candidates"] if c["tile"]==tile)
+    assert wire["changchun"]["self_has_draw_slot"]
+    assert wire["changchun"]["self_last_drawn_tile"]==tile
+
+    assert asyncio.run(state.execute_special_added(0,candidate["token"]))
+    assert state.game_status=="deal_card_after_gang"
+    assert Counter(player.hand_tiles)==Counter(standing) and player.last_drawn_tile is None
+    assert book.parse_meld(player.combination_tiles[0]).physical[-1]==tile
+    assert [p.score for p in state.player_list]==[3,-1,-1,-1]
+    asyncio.run(state._deal_supplement())
+    assert len(state.tiles_list)==size-1 and player.last_drawn_tile==28
+    assert player.ready_locked and player.declared_ready and player.locked_waits=={45}
+    assert book.waits(player.hand_tiles[:-1],player.combination_tiles,declaration=True)=={45}
+    before=list(player.hand_tiles)
+    asyncio.run(state.execute_cut(0,{"TileId":11}))
+    assert player.hand_tiles==before
+    asyncio.run(state.execute_cut(0,{"TileId":28,"cutIndex":10,"cutClass":True}))
+    assert Counter(player.hand_tiles)==Counter(standing) and player.discard_tiles[-1]==28
+    assert player.ready_locked and player.locked_waits=={45}
+
+
+def test_declared_ready_special_addition_can_be_robbed_without_payment_or_supplement():
+    state,player,candidate=special_ready_for_add()
+    player=hand(state,0,player.hand_tiles,player.combination_tiles,ready=True,drawn=31)
+    player.discard_count=1
+    other=hand(state,1,[31,31,11,12,13,22,23,24,33,34,35,45,45])
+    original=player.combination_tiles[0]
+    size=len(state.tiles_list)
+    assert asyncio.run(state.execute_special_added(0,candidate["token"]))
+    assert "peng" in state.action_dict[1]
+    asyncio.run(state.resolve_rob_kong_responses({1:{"action_type":"peng"}},state.action_dict))
+    assert player.combination_tiles==[original] and "k31" in other.combination_tiles
+    assert player.ready_locked and player.declared_ready and player.locked_waits=={45}
+    assert book.waits(player.hand_tiles,player.combination_tiles,declaration=True)=={45}
+    assert len(state.tiles_list)==size and not state.kong_ledger
+    assert state.current_player_index==1 and state.cc_pending_special is None
+
+
 def test_physical_one_bamboo_can_be_robbed_as_pung():
     state,player,candidate=special_ready_for_add()
     other=hand(state,1,[31,31,11,12,13,22,23,24,33,34,35,45,45])

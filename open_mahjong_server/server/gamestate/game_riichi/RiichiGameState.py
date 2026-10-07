@@ -21,7 +21,7 @@ from .action_check import (
     refresh_waiting_tiles,
     check_jiuzhongjiupai,
 )
-from .wait_action import wait_action, _commit_pending_riichi
+from .wait_action import wait_action, _accept_pending_riichi
 from ..public.spectator_rules import too_many_ai_for_spectator
 from ..public.vote_manager import vote_checkpoint
 from .init_tiles import init_riichi_tiles
@@ -884,7 +884,7 @@ class RiichiGameState:
             player_action_record_liuju(self)
         else:
             # 荒牌流局：听牌家均分 3000 分；供托立直棒留场，先结算尚未提交的立直供托
-            _commit_pending_riichi(self)
+            await _accept_pending_riichi(self)
             self.hu_class = "ryuukyoku"
             changes = await self._settle_ryuukyoku()
             tenpai_indexes = [p.player_index for p in self.player_list if self._is_ryuukyoku_tenpai(p)]

@@ -12,6 +12,13 @@ public sealed class ShanghaiGameState : TurnBasedGameState {
             if (SeatHasTag(pair.Value, tag => tag == "declared_ready")) announcedReady.Add(pair.Key);
         askClock.Bind(info.gamestate_id, info.current_round, Session.SelfIndex);
         base.OnRoundStarted(info);
+        // 重连不一定向本家补问；快照恢复提示时只从查询副本移除摸牌位。
+        if (Session.Tips) {
+            var hand = new System.Collections.Generic.List<int>(Mirror.SelfHandTiles);
+            if (hand.Count % 3 == 2) hand.RemoveAt(hand.Count - 1);
+            TipsBlock.Instance?.ShowTipsBlock(hand, Mirror.Self.combination_tiles
+                ?? new System.Collections.Generic.List<string>());
+        }
     }
 
     public override void OnPlayerTagsRefreshed() {

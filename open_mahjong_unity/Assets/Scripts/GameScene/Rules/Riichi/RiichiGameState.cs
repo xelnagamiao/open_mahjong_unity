@@ -20,6 +20,7 @@ public class RiichiGameState : TurnBasedGameState {
     public string HepaiWay { get; private set; } = "multi_ron";
     public bool RedDora { get; private set; }
     public int DealerIndex { get; private set; }
+    private readonly HashSet<int> acceptedRiichiPlayers = new HashSet<int>();
 
     public static bool IsReadyLockTag(string tag) => tag == "riichi" || tag == "daburu_riichi";
 
@@ -28,6 +29,7 @@ public class RiichiGameState : TurnBasedGameState {
     // =====================================================================
 
     protected override void OnRoundStarted(GameInfo gameInfo) {
+        acceptedRiichiPlayers.Clear();
         Honba = gameInfo.honba ?? 0;
         RiichiSticks = gameInfo.riichi_sticks ?? 0;
         DoraIndicators = gameInfo.dora_indicators != null ? new List<int>(gameInfo.dora_indicators) : new List<int>();
@@ -36,12 +38,14 @@ public class RiichiGameState : TurnBasedGameState {
         RedDora = gameInfo.red_dora ?? false;
         DealerIndex = gameInfo.dealer_index ?? 0;
 
-        // 重连/初始化时：已立直的玩家直接放置立直棒（无飞行动画）
+        // 仅为已支付供托的玩家还原点棒；旧快照未带成立字段时兼容原有标签。
         if (gameInfo.players_info != null) {
             foreach (PlayerInfo player in gameInfo.players_info) {
-                if (player?.tag_list == null || !Mirror.IndexToPosition.TryGetValue(player.player_index, out string seat)) continue;
+                if (player?.tag_list == null || player.riichi_accepted == false
+                    || !Mirror.IndexToPosition.TryGetValue(player.player_index, out string seat)) continue;
                 for (int i = 0; i < player.tag_list.Length; i++) {
                     if (IsReadyLockTag(player.tag_list[i])) {
+                        acceptedRiichiPlayers.Add(player.player_index);
                         Game3DManager.Instance.PlaceRiichiTenbouAt(seat);
                         break;
                     }
@@ -95,6 +99,9 @@ public class RiichiGameState : TurnBasedGameState {
             case "declare_riichi":
                 OnRiichiDeclared(response);
                 return true;
+            case "riichi_accepted":
+                OnRiichiAccepted(response);
+                return true;
             case "update_dora":
                 Debug.Log($"收到宝牌更新: {response.message}");
                 OnDoraUpdated(response.dora_indicators, response.kan_dora_indicators);
@@ -105,18 +112,29 @@ public class RiichiGameState : TurnBasedGameState {
     }
 
     /// <summary>
-    /// 立直宣告广播：刷新玩家 tag_list、播放立直语音、立直棒从 outputPos 飞向 tenbouPos，
-    /// 并把场供立直棒 +1 同步到 RoundPanel；服务端的供托结算在 _commit_pending_riichi 与和牌/抽水时处理，此处仅做表现。
+    /// 宣言广播只刷新标签和播放语音；宣言牌的横置由随后 cut 行动呈现。
     /// </summary>
     private void OnRiichiDeclared(Response response) {
         Debug.Log($"收到立直宣告: {response.message}");
         RefreshPlayerTagListInfo info = response.refresh_player_tag_list_info;
         RefreshTags(info?.player_to_tag_list);
-        RiichiSticks += 1;
-        RefreshRoundPanel();
         int? declarer = info?.riichi_declared_player_index;
         if (declarer.HasValue && Mirror.IndexToPosition.TryGetValue(declarer.Value, out string seat)) {
             SoundManager.Instance.PlayRiichiVoice(seat);
+        }
+    }
+
+    /// <summary>宣言牌响应结束后成立：同步已扣供托的绝对分数，只在结算时记计分板局差。</summary>
+    private void OnRiichiAccepted(Response response) {
+        RefreshPlayerTagListInfo info = response.refresh_player_tag_list_info;
+        if (info == null) return;
+        RefreshTags(info.player_to_tag_list);
+        Presenter.ApplyScores(info.player_to_score);
+        if (info.riichi_sticks.HasValue) RiichiSticks = info.riichi_sticks.Value;
+        RefreshRoundPanel();
+        int? declarer = info.riichi_accepted_player_index;
+        if (declarer.HasValue && acceptedRiichiPlayers.Add(declarer.Value)
+            && Mirror.IndexToPosition.TryGetValue(declarer.Value, out string seat)) {
             Game3DManager.Instance.PlayRiichiTenbouFlight(seat);
         }
     }
@@ -246,6 +264,7 @@ public class RiichiGameState : TurnBasedGameState {
     }
 
     public override void OnSessionReset() {
+        acceptedRiichiPlayers.Clear();
         TipsContainer.Instance?.HideRyuukyokuTenpaiChoice();
         Honba = 0;
         RiichiSticks = 0;

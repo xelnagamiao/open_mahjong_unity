@@ -17,7 +17,7 @@
       <el-form-item label="限制游客"><el-switch v-model="form.tourist_limit" /></el-form-item>
       <el-form-item label="允许观战"><el-switch v-model="form.allow_spectator" /></el-form-item>
     </div>
-    <a href="/rulebooks/yixing.html" target="_blank" rel="noopener">阅读宜兴规则书与补则</a>
+    <a href="/rulebooks/yixing.html" target="_blank" rel="noopener">阅读宜兴规则书</a>
   </div>
 </template>
 

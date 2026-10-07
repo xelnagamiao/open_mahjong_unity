@@ -189,7 +189,7 @@ const rules = [
   {
     key: 'changchun', label: '长春麻将', short: '长春', categories: ['platform', 'mil'], accent: '#5c779a',
     description: milRulebooks.changchun[0].desc,
-    docs: [...milRulebooks.changchun, { title: '平台补则', url: '/rulebooks/changchun.html' }],
+    docs: milRulebooks.changchun,
   },
   {
     key: 'hongzhong', label: '红中麻将', short: '红中', categories: ['platform', 'mil'], accent: '#b74b46',
@@ -204,13 +204,13 @@ const rules = [
   {
     key: 'wenzhou', label: '温州麻将', short: '温州', categories: ['platform', 'local', 'mil'], accent: '#297b74',
     description: milRulebooks.wenzhou[0].desc,
-    docs: [...milRulebooks.wenzhou, { title: '温州2024平台补则', url: '/rulebooks/wenzhou/MIL2024-platform-supplement.txt' }],
+    docs: milRulebooks.wenzhou,
   },
   {
     key: 'yixing', label: '宜兴麻将', short: '宜兴', categories: ['platform', 'local'], accent: '#537c69',
     description: "宜兴麻将是江苏宜兴本地的特色玩法，由144张牌组成，其中万条筒各36张，东南西北中发白各4张，花牌8张，2花自摸，3花放冲，一花独吊，最先将手牌全部组成顺子和刻子的玩家赢得一局，起手花牌数能决定你当前牌局打法规划，牌局种类门清，碰碰胡，混一色，清一色等常见大牌，还包括独吊翻倍，杠开翻倍，海底翻倍，抢杠翻3倍等特殊机制，游戏尚在测试阶段，如对本规则感兴趣或有任何建议都可以添加Q541784531一同交流",
     docs: [
-      { title: '宜兴规则书与平台补则', url: '/rulebooks/yixing.html' },
+      { title: '宜兴麻将规则书', url: '/rulebooks/yixing.html' },
       { title: '宜兴麻将规则书（最新 Word）', url: '/rulebooks/yixing-rulebook.docx', filename: '宜兴麻将规则.docx' },
       { title: '宜兴麻将规则书（PDF）', url: '/rulebooks/yixing-rulebook.pdf' },
       { title: '宜兴麻将规则书（DOC）', url: '/rulebooks/yixing-rulebook.doc', filename: '宜兴麻将规则.doc' },
@@ -263,7 +263,7 @@ const rules = [
     description: '上海敲麻：上海特色麻将规则，使用144张麻将牌，有着中发白当花、可以垃圾和、听牌后要敲牌报听、番种简单等特点，节奏快且易上手。上海清混碰：上海传统麻将规则，使用144张麻将牌，以必须做出清、混一色或碰碰和才能和牌为特色，与快节奏的上海敲麻有着鲜明对比，独具特色。',
     docs: [{
       title: 'MIL 上海麻将（推广）竞赛规则（试行2024版）',
-      desc: '上海敲麻：上海特色麻将规则，使用144张麻将牌，有着中发白当花、可以垃圾和、听牌后要敲牌报听、番种简单等特点，节奏快且易上手。线上计时使用房间配置（默认局时20秒、步时5秒），先耗步时再耗本局局时；吃碰杠和及补花没有独立3秒上限，重连不重置窗口。原PDF保留线下规则原文。',
+      desc: '上海敲麻：上海特色麻将规则，使用144张麻将牌，有着中发白当花、可以垃圾和、听牌后要敲牌报听、番种简单等特点，节奏快且易上手。',
       url: '/rulebooks/shanghai-qiaoma-2024.pdf',
       filename: '上海麻将（推广）竞赛规则（试行2024版）.pdf'
     }, {

@@ -156,13 +156,14 @@ public partial class Game3DManager : MonoBehaviour {
             // 登记为该家最新弃牌对象：鸣牌认走时直接用此确切对象，避免河里同类牌歧义。
             RegisterLastDiscard(PlayerPosition, cardObj, tileId);
         }
+        // 翻面基准是局部旋转，须在最终父节点下缓存，避免后续翻面把平放牌转进桌面。
+        cardObj.transform.SetParent(SetPosition, worldPositionStays: true);
         // 立直横置标记写入 Tile3D，归还对象池时会被清掉
         Tile3D tile3D = cardObj.GetComponent<Tile3D>();
         if (tile3D != null) {
             tile3D.isRiichiHorizontal = useHorizontalLayout;
             tile3D.SetConcealedFaceDown(tileId == 0);
         }
-        cardObj.transform.SetParent(SetPosition, worldPositionStays: true);
         cardObj.name = $"Card_{SetPosition.childCount}";
 
         Card3DHoverManager.Instance.RegisterCard(cardObj, tileId);
@@ -281,6 +282,8 @@ public partial class Game3DManager : MonoBehaviour {
             // 牌谱重建/重连无动画弃牌也须登记，否则荣和/鸣牌认不到河牌。
             RegisterLastDiscard(PlayerPosition, cardObj, tileId);
         }
+        // 与动画放牌保持相同顺序；重连和牌谱中的反复翻面也使用这个基准。
+        cardObj.transform.SetParent(SetPosition, worldPositionStays: true);
         Tile3D tile3D = cardObj.GetComponent<Tile3D>();
         if (tile3D != null) {
             tile3D.isRiichiHorizontal = useHorizontalLayout;
@@ -290,7 +293,6 @@ public partial class Game3DManager : MonoBehaviour {
         if (isRecordSet && tile3D != null) {
             tile3D.SetBackOrientationUpright();
         }
-        cardObj.transform.SetParent(SetPosition, worldPositionStays: true);
         cardObj.name = $"Card_{SetPosition.childCount}";
 
         Card3DHoverManager.Instance.RegisterCard(cardObj, tileId);

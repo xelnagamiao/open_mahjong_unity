@@ -75,6 +75,7 @@ public static class ScoreHistorySettlementHelper {
             || fanKey.StartsWith("宝牌")
             || fanKey.StartsWith("里宝牌")
             || fanKey.StartsWith("赤宝牌")
+            || fanKey.StartsWith("拔北宝牌")
             || fanKey.StartsWith("鸟牌:")
             || fanKey.StartsWith("中鸟:")
             || fanKey.StartsWith("中鸟x")

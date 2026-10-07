@@ -47,6 +47,53 @@ test('a date range excludes lifetime details, including while the filtered respo
   }
 })
 
+test('complete server metrics display all nine filtered details without replay analysis', () => {
+  const row = {
+    ...settlement(), details_available: true, analyzed_games: 2,
+    total_rounds: 12, win_count: 4, self_draw_count: 2, deal_in_count: 2,
+    total_fan_score: 200, total_win_turn: 36, total_fangchong_score: 48,
+    fulu_round_count: 5, cuohe_count: 1,
+  }
+  for (const base of [null, lifetime]) {
+    const stats = mergePlayerRankStats(base, row)
+    assert.equal(stats.details_available, true)
+    const display = values(stats, { detailed: stats.details_available })
+    assert.deepEqual(Object.fromEntries([
+      '总回合', '和牌率', '自摸率', '放铳率', '错和率', '副露率', '平均和番', '平均和巡', '平均铳番',
+    ].map(label => [label, display[label]])), {
+      总回合: '12', 和牌率: '33.33%', 自摸率: '50.00%', 放铳率: '16.67%',
+      错和率: '8.33%', 副露率: '41.67%', 平均和番: '50.00', 平均和巡: '9.00', 平均铳番: '24.00',
+    })
+    assert.equal(display['局均点'], '40.00')
+  }
+  // A date-filtered response has no fan breakdown; never borrow the lifetime fan counts.
+  assert.equal(mergePlayerRankStats(null, row).fan_stats, undefined)
+})
+
+test('incomplete metrics stay unavailable for filtered selections while valid lifetime details remain usable', () => {
+  const row = { ...settlement(), details_available: false, analyzed_games: 1, total_rounds: null, win_count: null }
+  const filtered = mergePlayerRankStats(null, row)
+  assert.equal(filtered.details_available, false)
+  const display = values(filtered, { detailed: filtered.details_available })
+  assert.equal(display['总回合'], '—')
+  assert.equal(display['和牌率'], '—')
+  assert.equal(display['局均点'], '40.00')
+  const allTime = mergePlayerRankStats(lifetime, row)
+  assert.equal(allTime.details_available, true)
+  assert.equal(allTime.total_rounds, lifetime.total_rounds)
+  assert.equal(allTime.win_count, lifetime.win_count)
+  assert.deepEqual(allTime.fan_stats, lifetime.fan_stats)
+})
+
+test('an empty server selection has complete zero details without NaN or unavailable placeholders', () => {
+  const row = { ...settlement(0, 0), details_available: true, analyzed_games: 0,
+    total_rounds: 0, win_count: 0, self_draw_count: 0, deal_in_count: 0,
+    total_fan_score: 0, total_win_turn: 0, total_fangchong_score: 0, fulu_round_count: 0, cuohe_count: 0 }
+  const stats = mergePlayerRankStats(null, row)
+  assert.equal(stats.details_available, true)
+  assert.ok(Object.values(values(stats, { detailed: stats.details_available })).every(value => /^0(?:\.00%?)?$/.test(value)))
+})
+
 test('clearing dates restores lifetime details and a cached selection keeps its own score', () => {
   for (const scene of ['rank', 'custom']) {
     assert.equal(canUsePrestoredPlayerStats({ scene, dateRange: null }), true)

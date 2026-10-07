@@ -216,6 +216,12 @@ public sealed class RuleManifest {
     /// <summary>Whether replay may mark other players' waits as discard-win danger.</summary>
     public bool ShowsRonDangerHints = true;
 
+    /// <summary>牌谱放铳标记只包含普通提示中可点和的听张，排除仅自摸与未满足。</summary>
+    public bool RecordDangerUsesWaitHint;
+
+    /// <summary>额外的牌谱点和资格；不影响结构听牌与条件性估分，null 沿用普通提示筛选。</summary>
+    public Func<WaitHintQuery, bool> RecordDangerQualification;
+
     /// <summary>补牌始终取牌墙末张（台湾、上海），不用国标的双单张交替。</summary>
     public bool ReplacementFromTailEnd;
 

@@ -11,6 +11,8 @@ export interface WaitDetail {
   selfdrawn_f: number
   remaining_count: number
   unit?: string
+  label?: string
+  kind?: 'dianhe' | 'zimo' | 'wuyi'
 }
 
 export interface WaitAddDetail {
@@ -19,6 +21,8 @@ export interface WaitAddDetail {
   selfdrawn_f: number
   remaining_count: number
   unit?: string
+  label?: string
+  kind?: 'dianhe' | 'zimo' | 'wuyi'
 }
 
 export interface WaitsMessage {
@@ -91,7 +95,7 @@ export class WaitDisplay extends Container {
     if (data.type === 'waits') {
       const sorted = [...data.details].sort(sortByTileKeyAsc)
       for (const entry of sorted) {
-        this.addEntry(new WaitEntry(null, 0, 0, entry.tile, entry.base_f, entry.selfdrawn_f, entry.remaining_count, entry.unit))
+        this.addEntry(new WaitEntry(null, 0, 0, entry.tile, entry.base_f, entry.selfdrawn_f, entry.remaining_count, entry.unit, entry))
       }
     } else if (data.type === 'waits_all') {
       if (tid === 0) return
@@ -99,7 +103,7 @@ export class WaitDisplay extends Container {
         if (entry.discard_tile !== tid) continue
         const sorted = [...entry.adds].sort(sortByTileKeyAsc)
         for (const add of sorted) {
-          this.addEntry(new WaitEntry(null, 0, 0, add.tile, add.base_f, add.selfdrawn_f, add.remaining_count, add.unit))
+          this.addEntry(new WaitEntry(null, 0, 0, add.tile, add.base_f, add.selfdrawn_f, add.remaining_count, add.unit, add))
         }
       }
     }

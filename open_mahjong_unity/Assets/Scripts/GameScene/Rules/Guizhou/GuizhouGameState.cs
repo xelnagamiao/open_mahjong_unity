@@ -9,6 +9,10 @@ public sealed class GuizhouGameState : TurnBasedGameState {
     public const string RuleVersion = "mil-guizhou-2023-om1";
     public static GuizhouGameState Active => RuleRegistry.ActiveGameState as GuizhouGameState;
     public GuizhouInfo Info { get; private set; }
+    private string legacyReadyQualification;
+    private bool legacyReadyPending;
+    public string SelfReadyQualification => (Info?.self_ready_pending ?? legacyReadyPending) ? "soft_ready"
+        : Info?.self_ready_qualification ?? legacyReadyQualification;
     private Dictionary<int, int[]> endHands;
     private readonly GuizhouAskClock askClock = new GuizhouAskClock();
     private int clockHandNumber;
@@ -25,7 +29,7 @@ public sealed class GuizhouGameState : TurnBasedGameState {
     protected override void OnRoundStarted(GameInfo info) {
         int nextHand = info?.guizhou_info?.hand_number ?? 0;
         if (nextHand != clockHandNumber) { askClock.Reset(); clockHandNumber = nextHand; }
-        Info = null; endHands = null; Accept(info);
+        Info = null; endHands = null; legacyReadyQualification = null; legacyReadyPending = false; Accept(info);
         // game_start (including reconnect) builds all tiles as held tiles.
         // Restore the authoritative draw slot before accepting a tile click.
         if (Info?.self_has_draw_slot == true && Mirror.SelfHandTiles.Count > 0) {
@@ -33,6 +37,12 @@ public sealed class GuizhouGameState : TurnBasedGameState {
             GameCanvas.Instance.ChangeHandCards("SyncHandCards", 0, tiles.Take(tiles.Length - 1).ToArray(), null);
             GameCanvas.Instance.ChangeHandCards("GetCardNoAnimation", tiles[tiles.Length - 1], null, null);
         }
+        // Restore player and spectator hints after viewer-local ready state, even without a subsequent ask.
+        if (Session.Tips && Info?.phase != "END" && Info?.phase != "waiting_ready" && Info?.phase != "finished") {
+            var hand = new List<int>(Mirror.SelfHandTiles);
+            if (Info?.self_has_draw_slot == true && hand.Count % 3 == 2) hand.RemoveAt(hand.Count - 1);
+            TipsBlock.Instance?.ShowTipsBlock(hand, Mirror.Info("self")?.combination_tiles ?? new List<string>());
+        } else TipsBlock.Instance?.HideTipsBlock();
     }
     protected override void OnAskHandAction(Response response) {
         Accept(response.game_info);
@@ -44,6 +54,16 @@ public sealed class GuizhouGameState : TurnBasedGameState {
         }
         base.OnAskHandAction(response);
         PresentAskClock(response, info.action_tick, info.remaining_time, info.step_remaining ?? Session.RoomStepTime);
+    }
+    protected override void OnHandAskReceived(AskHandActionGBInfo info) {
+        if (info.player_index != Session.SelfIndex) return;
+        if (info.ready_qualification != null) legacyReadyQualification = info.ready_qualification;
+        legacyReadyPending = info.action_list?.Contains("guizhou_ready_cancel") == true;
+    }
+    protected override void OnBeforeActionPlayed(TableAction action) {
+        if (action.PlayerIndex != Session.SelfIndex || action.ReadyQualification == null) return;
+        legacyReadyQualification = action.ReadyQualification;
+        legacyReadyPending = false;
     }
     protected override void OnAskClaim(Response response) {
         Accept(response.game_info);
@@ -135,5 +155,5 @@ public sealed class GuizhouGameState : TurnBasedGameState {
         GuizhouLedgerPanel.Show(Info);
         base.OnReadyStatus(response);
     }
-    public override void OnSessionReset() { askClock.Reset(); clockHandNumber = 0; Info = null; endHands = null; GuizhouLedgerPanel.Hide(); }
+    public override void OnSessionReset() { askClock.Reset(); clockHandNumber = 0; Info = null; endHands = null; legacyReadyQualification = null; legacyReadyPending = false; GuizhouLedgerPanel.Hide(); }
 }

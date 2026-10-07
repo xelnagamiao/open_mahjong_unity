@@ -3,7 +3,9 @@ import assert from 'node:assert/strict'
 import { build } from 'esbuild'
 import {
   isSichuanBloodBattle, isSichuanBloodFlow,
+  sichuanScoreChanges,
 } from '../src/utils/sichuanReplay.js'
+import { analyzeRecords, resolveRecordRank } from '../src/utils/recordAnalyzer.js'
 
 const compiled = await build({ entryPoints: [new URL('../src/game2d/replay/recordReplay.ts', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')],
   bundle: true, platform: 'node', format: 'esm', write: false, logLevel: 'silent' })
@@ -139,4 +141,75 @@ test('ordinary point-win defaults recycling, false win and other rule turn order
   assert.deepEqual(new RecordReplay(detail(data)).build(0, 2).snapshot.seats[0].discard_pile, [mm(24)])
   const other = new RecordReplay(detail(multiRound(), {}, 'guobiao'))
   assert.equal(other.build(0, 4).snapshot.seats[1].drawn_tile, mm(17))
+})
+
+test('kong payments, refunds, deferred wins and chajiao agree at every seek and rotated round', () => {
+  const first = {
+    seats: [2, 3, 0, 1], start_player_index: 0, tiles_list: [],
+    p0_tiles: [11, 11, 11, 11], p1_tiles: [], p2_tiles: [], p3_tiles: [],
+    action_ticks: [
+      ['ag', 11, 'F', 11, 11, 11, 11, 'gs', 6, -2, -2, -2],
+      ['gr', 'gs', -6, 2, 2, 2],
+      ['g', 22, 1, 22, 22, 22, 'gs', -2, 2, 0, 0],
+      ['jg', 22, 'T', 'gs', -1, 3, -1, -1],
+      ['hu_first', 1, 2, ['基本胡'], [0, 0, 0, 0], 24],
+      ['liuju', 'reveal_hu', '{}'],
+      ['liuju', 'settle_hu', 'hu_first', 1, 2, ['基本胡'], [-2, 2, 0, 0], 0],
+      ['liuju', 'chajiao', 2, 'ting', '[]', [0, -2, 2, 0], 1],
+      ['liuju', 'cha_refund', [1, -3, 1, 1]],
+      ['end'],
+    ],
+  }
+  const second = { seats: [1, 2, 3, 0], start_player_index: 0, tiles_list: [], action_ticks: [
+    ['hu_self', 0, 1, ['基本胡'], [0, 0, 0, 0], 11],
+    ['liuju', 'settle_hu', 'hu_self', 0, 1, ['基本胡'], [6, -2, -2, -2], 1],
+    ['liuju', 'final', [-6, 2, -2, 6]], ['end'],
+  ] }
+  const expectedFirst = [2, 0, -4, 2]
+  const expectedFinal = [0, -2, -6, 8]
+  const d = detail(first)
+  d.players = expectedFinal.map((score, original_player_index) => ({ original_player_index, score }))
+  d.record.game_round.round_index_2 = second
+  const before = structuredClone(d), r = new RecordReplay(d)
+  const scores = (roundIndex, node) => {
+    const seats = r.rounds[roundIndex].seats
+    return seats.map(seat => r.build(roundIndex, node).snapshot.seats[seat].score)
+  }
+  assert.deepEqual(scores(0, 0), [0, 0, 0, 0])
+  assert.deepEqual(scores(0, 1), [-2, -2, 6, -2])
+  assert.deepEqual(scores(0, 2), [0, 0, 0, 0])
+  assert.deepEqual(scores(0, 3), [0, 0, -2, 2])
+  assert.deepEqual(scores(0, 4), [-1, -1, -3, 5])
+  assert.deepEqual(scores(0, 5), scores(0, 4), 'deferred hu is not charged twice')
+  assert.deepEqual(scores(0, 7), [-1, -1, -5, 7])
+  assert.deepEqual(scores(0, 8), [1, -1, -5, 5])
+  for (const node of [10, 4, 8, 2, 10]) {
+    if (node === 10) assert.deepEqual(scores(0, node), expectedFirst)
+    else scores(0, node)
+  }
+  assert.deepEqual(scores(1, 0), expectedFirst)
+  for (const node of [2, 3, 4, 0, 4]) {
+    assert.deepEqual(scores(1, node), node === 0 ? expectedFirst : expectedFinal)
+  }
+  assert.deepEqual(r.roundScoreChangesByOriginal(0), expectedFirst)
+  assert.deepEqual(r.roundScoreChangesByOriginal(1), [-2, -2, -2, 6])
+  assert.deepEqual(d, before)
+})
+
+test('Sichuan analysis score and rank include kong transfers and endgame settlement', () => {
+  const d = detail({ seats: [2, 3, 0, 1], tiles_list: [], action_ticks: [
+    ['ag', 11, 'F', 'gs', 6, -2, -2, -2],
+    ['hu_first', 1, 2, ['基本胡'], [0, 0, 0, 0], 24],
+    ['liuju', 'reveal_hu', '{}'],
+    ['liuju', 'settle_hu', 'hu_first', 1, 2, ['基本胡'], [-2, 2, 0, 0], 1], ['end'],
+  ] }, { p0_uid: 100, p1_uid: 101, p2_uid: 102, p3_uid: 103 })
+  assert.deepEqual([100, 101, 102, 103].map(uid => analyzeRecords([d], uid).total_round_score), [-2, -2, 4, 0])
+  assert.deepEqual([100, 101, 102, 103].map(uid => resolveRecordRank(d.record, uid)), [3, 3, 1, 2])
+})
+
+test('score reader accepts stored array strings and ignores absolute final scores and unscored kongs', () => {
+  assert.deepEqual(sichuanScoreChanges(['liuju', 'chajiao', 1, 'no_ting', '[]', '[1,-3,1,1]', 1]), [1, -3, 1, 1])
+  for (const tick of [['jg', 11, 'F'], ['ag', 11, 'T'], ['liuju', 'final', [100, 200, 300, 400]]]) {
+    assert.equal(sichuanScoreChanges(tick), null)
+  }
 })

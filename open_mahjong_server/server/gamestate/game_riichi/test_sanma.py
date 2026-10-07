@@ -168,6 +168,47 @@ def test_every_three_player_noten_distribution(tenpai,penalty):
     else:assert not any(changes.values())
 
 
+@pytest.mark.parametrize('preset', ['sanma_majsoul', 'sanma_tenhou'])
+@pytest.mark.parametrize('tenpai', [list(c) for n in range(4) for c in combinations(range(3), n)])
+@pytest.mark.parametrize('rotation', range(3))
+@pytest.mark.parametrize('penalty', [0, 3000])
+def test_draw_result_record_and_history_only_include_three_real_players(preset, tenpai, rotation, penalty):
+    g = sanma(preset)
+    g.detailed_config['noten_penalty'] = penalty
+    sockets = {p.user_id: SimpleNamespace(websocket=AsyncMock(), user_id=p.user_id) for p in g.player_list}
+    g.game_server.user_id_to_connection = sockets
+    g.send_to_realtime_spectators = AsyncMock()
+    for p in g.player_list:
+        p.original_player_index = (p.player_index + rotation) % 3
+        p.ryuukyoku_declared_tenpai = p.player_index in tenpai
+    expected = [0, 0, 0]
+    if 0 < len(tenpai) < 3:
+        expected = [penalty // len(tenpai) if i in tenpai else -penalty // (3 - len(tenpai))
+                    for i in range(3)]
+    g._begin_round_score_history()
+    g.hu_class = 'ryuukyoku'
+    asyncio.run(g._settle_round())
+    g._append_round_score_history()
+
+    assert [p.score for p in g.player_list] == [35000 + delta for delta in expected]
+    assert [int(p.score_history[-1]) for p in g.player_list] == expected
+    assert sum(p.score for p in g.player_list) == 105000
+    tick = g.game_record['game_round']['round_index_1']['action_ticks'][-1]
+    assert tick[:3] == ['ryuukyoku', [int(i in tenpai) for i in range(3)], expected]
+    expected_changes = {str(p.original_player_index): expected[p.player_index] for p in g.player_list}
+    expected_scores = {str(p.player_index): p.score for p in g.player_list}
+    for socket in sockets.values():
+        results = [json.loads(json.dumps(call.args[0]['show_result_info']))
+                   for call in socket.websocket.send_json.call_args_list
+                   if call.args[0]['type'] == 'gamestate/riichi/show_result']
+        assert len(results) == 1
+        payload = results[0]
+        assert payload['player_to_score'] == expected_scores
+        assert payload['score_changes'] == payload['score_history_changes'] == expected_changes
+        assert payload['exhaustive_penalty'] is any(expected)
+        assert set(payload['tenpai_tiles']) == set(payload['tenpai_hands']) == {str(i) for i in tenpai}
+
+
 @pytest.mark.parametrize('preset', ['sanma_majsoul','sanma_tenhou'])
 @pytest.mark.parametrize('tie', ['initial','shared'])
 @pytest.mark.parametrize('deposits', ['winner','shared','discard'])
