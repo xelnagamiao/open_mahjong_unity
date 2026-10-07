@@ -11,7 +11,7 @@
     <el-card v-if="currentRoom" class="room-panel" shadow="never">
       <div class="room-panel__head">
         <div>
-          <strong>{{ currentRoom.room_name || `房间 ${currentRoom.room_id}` }}</strong>
+          <strong :data-no-translate="currentRoom.room_name ? '' : null">{{ currentRoom.room_name || `房间 ${currentRoom.room_id}` }}</strong>
           <el-tag size="small" type="info">#{{ currentRoom.room_id }}</el-tag>
           <el-tag size="small">{{ subRuleLabel(currentRoom.sub_rule) }}</el-tag>
           <el-tag
@@ -36,7 +36,7 @@
               @click="kickPlayer(seat.userId, idx)"
             >移出</el-button>
           </div>
-          <strong>{{ seat.username || '空位' }}</strong>
+          <strong :data-no-translate="seat.userId != null ? '' : null">{{ seat.username || '空位' }}</strong>
           <small v-if="seat.userId !== null">
             {{ seat.isBot ? '机器人' : (seat.ready || seat.isHost ? '已准备' : '未准备') }}
           </small>
@@ -75,7 +75,9 @@
     <el-card v-else class="room-list-card" shadow="never">
       <el-table v-loading="listBusy" :data="visibleRooms" size="small" empty-text="暂无公开自定义房间">
         <el-table-column prop="room_id" label="房号" width="72" />
-        <el-table-column prop="room_name" label="房间名" min-width="120" show-overflow-tooltip />
+        <el-table-column prop="room_name" label="房间名" min-width="120" show-overflow-tooltip>
+          <template #default="{ row }"><span data-no-translate>{{ row.room_name }}</span></template>
+        </el-table-column>
         <el-table-column label="人数" width="72">
           <template #default="{ row }">{{ (row.player_list || []).length }}/{{ row.max_player || 4 }}</template>
         </el-table-column>
@@ -128,6 +130,7 @@ import GuobiaoEmptyRoomConfig from '@/components/GuobiaoEmptyRoomConfig.vue'
 import { createDefaultGuobiaoRoomConfig } from '@/utils/guobiaoRoomConfig'
 import { salasasaClient } from '@/game2d/salasasa/client'
 import { duplicateRoomLabel } from '@/utils/duplicateWalls'
+import { tr } from '@/i18n'
 
 const props = defineProps({
   online: { type: Boolean, default: false },
@@ -185,7 +188,7 @@ const seats = computed(() => {
     const meta = settings[userId] || settings[String(userId)] || {}
     return {
       userId,
-      username: meta.username || `玩家 ${userId}`,
+      username: meta.username || tr(`玩家 ${userId}`),
       ready: readyList.includes(userId) || userId <= 10,
       isBot: userId <= 10,
       isHost: Number(userId) === Number(room.host_user_id ?? room.player_list?.[0]),
@@ -252,7 +255,7 @@ function roomConfigSummary(room) {
   if (room?.step_timer != null) parts.push(`步时 ${room.step_timer} 秒`)
   if (room?.hepai_limit != null) parts.push(`${room.hepai_limit} 番起和`)
   if (room?.tactical_call) parts.push('战术鸣牌')
-  return parts.join(' · ')
+  return parts.map((part) => tr(part)).join(' · ')
 }
 
 function canJoinRoom(room) {
@@ -518,6 +521,8 @@ defineExpose({ handleResponse, refreshRoomList, hasRoom: () => Boolean(currentRo
 .room-actions { width: 100%; }
 .room-bot-speed { display: flex; align-items: center; gap: 12px; }
 .room-bot-speed .el-select { width: 180px; }
+.custom-room:lang(fr) :deep(.el-dialog .el-select) { min-width: min(220px, 100%); max-width: 100%; }
+.custom-room:lang(fr) :deep(.duplicate-room-help a) { margin-inline-start: 0.25em; }
 .seat-bot-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 24px; }
 .seat-bot-actions .el-button + .el-button { margin-left: 0; }
 .full-btn { width: 100%; margin-top: 8px; }

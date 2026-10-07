@@ -5,6 +5,7 @@ import {
 } from './constants'
 import { Tile } from './Tile'
 import { getGameFontFamily } from '../fontLoader'
+import { locale, tr } from '../../../i18n'
 
 export type MeldButtonType = 'chow' | 'pung' | 'ckong' | 'hkong' | 'rkong' | 'hwin' | 'rkwin' | 'flower' | 'pass' | 'final_pass' | 'force_pass'
 
@@ -56,7 +57,7 @@ export class MeldButton extends Container {
 
     // Label
     const label = new Text({
-      text: meldType === 'flower' ? '花' : (MELD_LABELS[meldType] ?? '?'),
+      text: tr(meldType === 'flower' ? '花' : (MELD_LABELS[meldType] ?? '?')),
       style: {
         fontFamily: getGameFontFamily(),
         fontSize: 200,
@@ -68,6 +69,10 @@ export class MeldButton extends Container {
       },
     })
     label.anchor.set(0.5)
+    const labelWidth = TILE_WIDTH * (isSimple && small === 0 ? 2.2 : 0.9)
+    if (locale.value === 'fr' && label.width > labelWidth) {
+      label.scale.set(labelWidth / label.width)
+    }
     label.x = -TILE_WIDTH * 0.7
     label.y = 0
     this.addChild(label)

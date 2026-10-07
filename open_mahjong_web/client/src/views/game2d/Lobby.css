@@ -220,6 +220,41 @@
 }
 .battle-mode .queue-banner + .lobby-grid { margin-top: 20px; }
 
+.lobby-page:lang(fr) .lobby-header { flex-wrap: wrap; }
+.lobby-page:lang(fr) .lobby-header__actions { max-width: 100%; }
+
+.lobby-page:lang(fr) .match-row {
+  grid-template-columns: minmax(0, 1fr) 180px 170px;
+}
+
+.lobby-page:lang(fr) .match-row > .el-button {
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: 32px;
+  padding: 7px 10px;
+  white-space: normal;
+  line-height: 1.3;
+}
+
+@media (max-width: 720px) {
+  .lobby-page:lang(fr) .match-row {
+    grid-template-columns: minmax(0, 1fr) 150px;
+  }
+
+  .lobby-page:lang(fr) .match-row__counts {
+    grid-column: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .lobby-page:lang(fr) .match-row > .el-button {
+    grid-column: 2;
+    grid-row: 1 / 3;
+  }
+}
+
 .match-help-content { color: #262626; }
 .match-help-meta { margin: 2px 0 14px; display: grid; gap: 8px; }
 .match-help-meta > div { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 10px; }

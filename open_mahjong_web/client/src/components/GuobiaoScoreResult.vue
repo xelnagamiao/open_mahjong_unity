@@ -2,7 +2,7 @@
   <div>
     <div :class="['banner', best.canWin ? 'success' : 'fail']">
       <div class="banner-num">{{ best.fan }}</div>
-      <div class="banner-text">番<span v-if="!best.canWin"> · 不足 8 番，不能和牌</span></div>
+      <div class="banner-text">{{ tr('番') }}{{ locale === 'fr' && best.fan > 1 ? 's' : '' }}<span v-if="!best.canWin"> · 不足 8 番，不能和牌</span></div>
     </div>
     <div v-if="!best.canWin" class="msg-inline">牌型成立；花牌不计入 8 番起和条件（不计花牌 {{ best.baseFan }} 番）。</div>
     <div class="fan-block">
@@ -16,6 +16,7 @@
 </template>
 <script setup>
 import { formatGuobiaoFanComposition } from '../constants/guobiaoFanDict'
+import { locale, tr } from '@/i18n'
 defineProps({ best: { type: Object, required: true }, conditions: { type: String, default: '' } })
 </script>
 <style scoped>

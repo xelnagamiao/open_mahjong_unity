@@ -1310,7 +1310,7 @@ export class MahjongScene {
   }
 
   private applyTileFaceTheme(): void {
-    setTileThemes(this.appearance.tileFaceTheme, this.appearance.flowerFaceTheme)
+    setTileThemes(this.appearance.tileFaceTheme, this.appearance.flowerFaceTheme, this.appearance.tileLabelMode)
     if (!this.mounted) return
     const refresh = (container: Container): void => {
       for (const child of container.children) {

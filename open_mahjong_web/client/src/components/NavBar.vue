@@ -59,7 +59,7 @@
             :class="{ on: route.path === '/account' }"
             aria-label="账户菜单"
           >
-            {{ displayName }}
+            <span :data-no-translate="username ? '' : null">{{ displayName }}</span>
             <el-icon class="auth-caret"><arrow-down /></el-icon>
           </button>
           <template #dropdown>

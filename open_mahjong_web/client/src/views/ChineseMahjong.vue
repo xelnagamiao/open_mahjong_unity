@@ -17,7 +17,7 @@
         </div>
       </header>
 
-      <div class="row">
+      <div class="row notation-row">
         <label class="row-label">牌面简写</label>
         <el-input
           v-model="textInput"
@@ -109,11 +109,11 @@
             <el-radio-button label="dianhe">点和</el-radio-button>
             <el-radio-button label="zimo">自摸</el-radio-button>
           </el-radio-group>
-          <el-select v-model="form.changFeng" size="small" style="width: 110px;">
-            <el-option v-for="opt in ['场风东','场风南','场风西','场风北']" :key="opt" :label="opt" :value="opt" />
+          <el-select v-model="form.changFeng" size="small" :style="{ width: locale === 'fr' ? '205px' : '110px' }">
+            <el-option v-for="opt in ['场风东','场风南','场风西','场风北']" :key="opt" :label="tr(opt)" :value="opt" />
           </el-select>
-          <el-select v-model="form.menFeng" size="small" style="width: 110px;">
-            <el-option v-for="opt in ['自风东','自风南','自风西','自风北']" :key="opt" :label="opt" :value="opt" />
+          <el-select v-model="form.menFeng" size="small" :style="{ width: locale === 'fr' ? '205px' : '110px' }">
+            <el-option v-for="opt in ['自风东','自风南','自风西','自风北']" :key="opt" :label="tr(opt)" :value="opt" />
           </el-select>
         </div>
         <div class="ways flags nowrap-scroll">
@@ -168,6 +168,7 @@ import PailiResult from '@/components/PailiResult.vue'
 import GuobiaoScoreResult from '@/components/GuobiaoScoreResult.vue'
 import GuobiaoDecompositions from '@/components/GuobiaoDecompositions.vue'
 import { useGuobiaoCalculator } from '@/composables/useGuobiaoCalculator'
+import { locale, tr } from '@/i18n'
 
 const route = useRoute()
 const router = useRouter()
@@ -645,4 +646,14 @@ async function calculateDecompose() {
 }
 
 .actions { flex-wrap: wrap; }
+
+@media (max-width: 640px) {
+  .chinese:lang(fr) .notation-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .chinese:lang(fr) .notation-row .row-label {
+    grid-column: 1 / -1;
+  }
+}
 </style>

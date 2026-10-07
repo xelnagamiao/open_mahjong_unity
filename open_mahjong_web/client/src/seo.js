@@ -2,6 +2,7 @@
  * 站点 SEO（TDK）配置——单一数据源。
  * 被 router（运行时 head 更新）与 scripts/prerender-seo.mjs（构建期预渲染）共用。
  */
+import { MCR_PAGES, mcrPageForPath } from './seo/mcr-pages.js'
 
 export const SITE = {
   name: 'Salasasa',
@@ -211,6 +212,7 @@ export const LIBRARY_RULE_PATHS = [
 /** 构建期需要生成静态 HTML（含 TDK）的具体 URL。 */
 export const PRERENDER_PATHS = [
   '/',
+  ...MCR_PAGES.map((page) => page.path),
   '/rulebook',
   '/library',
   '/library/lineage',
@@ -253,6 +255,8 @@ function patternToRegex(pattern) {
 
 /** 按具体路径查找 TDK 配置：先精确匹配，再匹配动态路由模式。 */
 export function seoEntryFor(path) {
+  const landing = mcrPageForPath(path)
+  if (landing) return landing
   const exact = SEO_PAGES.find((p) => p.path === path)
   if (exact) return exact
   return SEO_PAGES.find((p) => p.path.includes(':') && patternToRegex(p.path).test(path)) || null

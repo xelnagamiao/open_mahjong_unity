@@ -1,9 +1,9 @@
-import { Container, Graphics, Sprite } from 'pixi.js'
+import { Container, Graphics, Sprite, Text } from 'pixi.js'
 import {
   TILE_WIDTH, TILE_HEIGHT, TILE_RADIUS, LINE_WIDTH,
   FRONT_COLOR, BACK_COLOR, BORDER_COLOR, ANIMATION_TIME,
 } from './constants'
-import { getTexture, isBlackTileFaceTheme, isUnityFlowerFace } from './textures'
+import { getTexture, getTileFaceLabel, getTileFaceLabelColor, isBlackTileFaceTheme, isUnityFlowerFace } from './textures'
 
 export const TILE_HOVER_TINT = 0xe0e0e0
 export const TILE_SELECTED_TINT = 0xb8d9ff
@@ -68,6 +68,7 @@ export class Tile extends Container {
   private readonly bg: Graphics
   private readonly cover: Graphics
   private readonly sprite: Sprite | null
+  private readonly faceLabel: Text
   private coverColor = BACK_COLOR
   private onHoverIn: (() => void) | null = null
   private onHoverOut: (() => void) | null = null
@@ -107,6 +108,18 @@ export class Tile extends Container {
       this.sprite = null
     }
 
+    this.faceLabel = new Text({
+      text: getTileFaceLabel(tid),
+      style: {
+        fontFamily: 'Arial, sans-serif', fontSize: 90, fontWeight: 'bold',
+        fill: getTileFaceLabelColor(tid), stroke: { color: FRONT_COLOR, width: 6 },
+      },
+    })
+    this.faceLabel.anchor.set(1, 0)
+    this.faceLabel.position.set(TILE_WIDTH / 2 - 10, -TILE_HEIGHT / 2 + 8)
+    this.refreshFaceLabel()
+    this.addChild(this.faceLabel)
+
     // Cover (face-down)
     this.cover = new Graphics()
     this.redrawCover()
@@ -137,6 +150,7 @@ export class Tile extends Container {
     this.bg.tint = tint
     this.cover.tint = tint
     if (this.sprite) this.sprite.tint = tint
+    this.faceLabel.tint = tint
   }
 
   private redrawCover(): void {
@@ -248,12 +262,14 @@ export class Tile extends Container {
   private applyConcealedFaceVisibility(): void {
     if (!this.concealedFaceDown) {
       if (this.sprite) this.sprite.visible = this.shown
+      this.faceLabel.visible = this.shown && !!this.faceLabel.text
       this.bg.visible = this.shown
       this.cover.visible = !this.shown
       return
     }
     const faceUp = this.concealedPeekActive
     if (this.sprite) this.sprite.visible = faceUp
+    this.faceLabel.visible = faceUp && !!this.faceLabel.text
     this.bg.visible = faceUp
     this.cover.visible = !faceUp
   }
@@ -267,6 +283,7 @@ export class Tile extends Container {
     this.concealedPeekActive = false
     this.shown = false
     if (this.sprite) this.sprite.visible = false
+    this.faceLabel.visible = false
     this.bg.visible = false
     this.cover.visible = true
     this.setHoverEnabled(false)
@@ -279,6 +296,7 @@ export class Tile extends Container {
     this.concealedPeekActive = false
     this.shown = true
     if (this.sprite) this.sprite.visible = true
+    this.faceLabel.visible = !!this.faceLabel.text
     this.bg.visible = true
     this.cover.visible = false
     this.setHoverEnabled(true)
@@ -292,10 +310,18 @@ export class Tile extends Container {
     const faceScale = isUnityFlowerFace(this.tid) ? 0.94 : 5 / 6
     this.sprite.width = TILE_WIDTH * faceScale
     this.sprite.height = TILE_HEIGHT * faceScale
+    this.sprite.y = 0
+  }
+
+  private refreshFaceLabel(): void {
+    this.faceLabel.text = getTileFaceLabel(this.tid)
+    this.faceLabel.style.fill = getTileFaceLabelColor(this.tid)
+    this.faceLabel.visible = this.shown && !!this.faceLabel.text
   }
 
   refreshTexture(): void {
     this.redrawBackground()
+    this.refreshFaceLabel()
     if (!this.sprite) return
     this.sprite.texture = getTexture(this.tid)
     this.fitSpriteToTileFace()
@@ -307,6 +333,7 @@ export class Tile extends Container {
     if (newTid === 0) { this.hide(); this.tid = 0; return }
     this.tid = newTid
     this.redrawBackground()
+    this.refreshFaceLabel()
     const texture = getTexture(newTid)
     if (texture && this.sprite) {
       this.sprite.texture = texture

@@ -26,17 +26,17 @@
             :aria-expanded="expanded.has(group.fan)"
             @click="toggle(group.fan)"
           >
-            <span>{{ group.fan }}番</span>
+            <span>{{ formatFanCount(group.fan) }}</span>
             <span class="guobiao-fan-table__chevron">{{ expanded.has(group.fan) ? '−' : '+' }}</span>
           </button>
           <div v-if="expanded.has(group.fan)" class="guobiao-fan-table__entries">
             <div v-for="item in group.items" :key="item.id" class="guobiao-fan-table__entry">
               <div class="guobiao-fan-table__name">
-                <strong>{{ item.names[0] }}</strong>
-                <span>{{ group.fan }}番</span>
+                <strong>{{ translateFanName(item.names[0]) }}</strong>
+                <span>{{ formatFanCount(group.fan) }}</span>
               </div>
               <p>{{ item.description }}</p>
-              <p class="guobiao-fan-table__example"><span>牌例：</span>{{ item.example }}</p>
+              <p class="guobiao-fan-table__example"><span>牌例：</span>{{ tr(item.example) }}</p>
             </div>
           </div>
         </article>
@@ -48,6 +48,8 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { GUOBIAO } from '@/constants/guessFanCatalog'
+import { tr } from '@/i18n'
+import { formatFanCount, translateFanName } from '@/i18n/fanNames'
 
 const open = ref(false)
 const expanded = ref(new Set())

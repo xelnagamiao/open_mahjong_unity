@@ -18,7 +18,7 @@
           <el-tag :type="session.status === 'online' ? 'success' : 'warning'">
             {{ session.status === 'online' ? '已连接' : '重连中' }}
           </el-tag>
-          <el-button :icon="User" @click="router.push(`/2d/player/${session.player.user_id}`)">
+          <el-button :icon="User" data-no-translate @click="router.push(`/2d/player/${session.player.user_id}`)">
             {{ session.player.username }}
           </el-button>
           <el-button :icon="SwitchButton" @click="handleLogout">退出登录</el-button>
@@ -156,7 +156,9 @@
               @row-click="openPlayer"
             >
               <el-table-column prop="rank_position" label="排名" width="56" align="center" />
-              <el-table-column prop="username" label="玩家" show-overflow-tooltip />
+              <el-table-column prop="username" label="玩家" show-overflow-tooltip>
+                <template #default="{ row }"><span data-no-translate>{{ row.username }}</span></template>
+              </el-table-column>
               <el-table-column label="PT" width="92" align="right">
                 <template #default="{ row }">
                   <span class="leaderboard-pt">{{ formatRankPt(row) }}</span>

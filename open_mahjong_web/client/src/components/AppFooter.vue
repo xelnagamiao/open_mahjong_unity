@@ -45,7 +45,7 @@
     </div>
     <el-dialog v-model="regulationsVisible" title="Salasasa-萨拉飒飒麻将平台账户规约"
       width="min(760px, 94vw)" append-to-body :close-on-click-modal="false">
-      <div class="regulations-body" tabindex="0" aria-label="账户规约全文">{{ regulationsBody }}</div>
+      <div class="regulations-body" tabindex="0" aria-label="账户规约全文"><span data-no-translate>{{ regulationsBody }}</span></div>
       <template #footer>
         <el-button @click="regulationsVisible = false">关闭</el-button>
       </template>
@@ -54,11 +54,16 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { locale } from '@/i18n'
 import regulations from '@/content/accountRegulations.txt?raw'
+import regulationsFr from '@/content/accountRegulations.fr.txt?raw'
 
 const regulationsVisible = ref(false)
-const regulationsBody = regulations.slice(regulations.indexOf('\n') + 1).trim()
+const regulationsBody = computed(() => {
+  const text = locale.value === 'fr' ? regulationsFr : regulations
+  return text.slice(text.indexOf('\n') + 1).trim()
+})
 </script>
 
 <style scoped>

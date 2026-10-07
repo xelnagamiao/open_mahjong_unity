@@ -44,7 +44,7 @@
           :title="String(tile)"
           @click="toggleTile(tile)"
         >
-          <img :src="tileSrc(tile)" alt="">
+          <TileFaceImage :src="tileSrc(tile)" :face-id="mmcrFaceId(tile)" :scale="1" />
         </button>
       </div>
     </div>
@@ -70,6 +70,8 @@
 <script setup>
 import { computed } from 'vue'
 import { standardSilentTileChoices } from '@/game2d/lib/assistSettings'
+import { mmcrFaceId } from '@/game2d/lib/tileFaceAsset'
+import TileFaceImage from './TileFaceImage.vue'
 
 const props = defineProps({
   settings: { type: Object, required: true },

@@ -18,7 +18,7 @@
             <tr>
               <th rowspan="2" class="scoreboard-table__round">局数</th>
               <th rowspan="2" class="scoreboard-table__fan">主番</th>
-              <th v-for="player in orderedPlayers" :key="player.player_index" colspan="2">
+              <th v-for="player in orderedPlayers" :key="player.player_index" colspan="2" data-no-translate>
                 {{ player.username || `#${player.user_id}` }}
               </th>
             </tr>
@@ -273,4 +273,19 @@ const rows = computed(() => {
   outline: none;
 }
 .scoreboard-table__empty { height: 88px !important; color: #444; }
+
+.scoreboard-panel:lang(fr) { max-height: min(100%, 660px); }
+.scoreboard-table:lang(fr) { min-width: 920px; }
+.scoreboard-table:lang(fr) .scoreboard-table__fan { width: 210px; }
+.scoreboard-table:lang(fr) th,
+.scoreboard-table:lang(fr) td {
+  padding: 5px 6px;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 860px) {
+  .scoreboard-layer:lang(fr) { position: fixed; }
+}
 </style>

@@ -3,8 +3,11 @@ import { useAdminAuthStore } from '@/stores/adminAuth'
 import { useEventAdminAuthStore } from '@/stores/eventAdminAuth'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { watch } from 'vue'
-import { locale, tr } from '@/i18n'
-import { SITE, seoEntryFor, noindexEntryFor } from '@/seo'
+import { locale, tr, setLocale } from '@/i18n'
+import { requestedGameLocale } from '@/i18n/locale-utils.js'
+import { seoEntryFor, noindexEntryFor } from '@/seo'
+import { MCR_PAGES } from '@/seo/mcr-pages.js'
+import { applyRouteHead } from '@/seo/head.js'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import PlayerDataLayout from '@/layouts/PlayerDataLayout.vue'
 import AccountLayout from '@/layouts/AccountLayout.vue'
@@ -61,6 +64,12 @@ import EventAdminEvents from '@/views/event-admin/Events.vue'
 import EventAdminEventDetail from '@/views/event-admin/EventDetail.vue'
 
 const routes = [
+  ...MCR_PAGES.map((page) => ({
+    path: page.path,
+    name: `McrLanding-${page.locale}`,
+    component: () => import('@/views/McrLanding.vue'),
+    meta: { title: page.title },
+  })),
   // 含布局（顶部导航 + 底部）
   {
     path: '/',
@@ -458,6 +467,10 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to, from, next) => {
+  const gameLocale = requestedGameLocale(to.path, new URLSearchParams(
+    typeof to.query.lang === 'string' ? { lang: to.query.lang } : {}
+  ).toString())
+  if (gameLocale) setLocale(gameLocale)
   if (to.path.startsWith('/admin')) {
     const auth = useAdminAuthStore()
     if (to.meta.publicAdmin) {
@@ -507,41 +520,8 @@ router.beforeEach(async (to, from, next) => {
   next()
 })
 
-function setHeadMeta(name, content) {
-  let el = document.head.querySelector(`meta[name="${name}"]`)
-  if (!el) {
-    el = document.createElement('meta')
-    el.setAttribute('name', name)
-    document.head.appendChild(el)
-  }
-  el.setAttribute('content', content)
-}
-
 function applyHead(route) {
-  const title = route.meta.title
-  if (title) {
-    // 后台标题保持原文，不参与 i18n（与原逻辑一致）
-    document.title = route.path.startsWith('/admin') ? title : tr(title)
-  }
-  if (route.meta.description) {
-    setHeadMeta('description', route.meta.description)
-  } else {
-    document.head.querySelector('meta[name="description"]')?.remove()
-  }
-  if (route.meta.keywords) {
-    setHeadMeta('keywords', route.meta.keywords)
-  } else {
-    document.head.querySelector('meta[name="keywords"]')?.remove()
-  }
-  setHeadMeta('robots', route.meta.noindex ? 'noindex,nofollow' : 'index,follow')
-
-  let canonical = document.head.querySelector('link[rel="canonical"]')
-  if (!canonical) {
-    canonical = document.createElement('link')
-    canonical.setAttribute('rel', 'canonical')
-    document.head.appendChild(canonical)
-  }
-  canonical.setAttribute('href', SITE.domain + route.path)
+  applyRouteHead(route, locale.value, tr)
 }
 
 watch(locale, () => applyHead(router.currentRoute.value), { immediate: true })

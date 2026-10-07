@@ -70,7 +70,7 @@
               <summary>本局完整初始牌墙（{{ duplicateInitialPartitions.reduce((total, tiles) => total + tiles.length, 0) }} 张）</summary>
               <section v-for="(tiles, original) in duplicateInitialPartitions" :key="original" class="replay-wall__section">
                 <h3>{{ original + 1 }} 号 · {{ winds[original] }}位 · 前 {{ original === 0 ? 14 : 13 }} 张为起始手牌</h3>
-                <div class="replay-wall__hand-tiles"><span v-for="(tile, index) in tiles" :key="index"><img :src="mmcrTileAsset(tile)" :alt="`第 ${index + 1} 张`" /></span></div>
+                <div class="replay-wall__hand-tiles"><span v-for="(tile, index) in tiles" :key="index"><TileFaceImage :src="mmcrTileAsset(tile)" :face-id="mmcrFaceId(tile)" :scale="0.86" :alt="`第 ${index + 1} 张`" /></span></div>
               </section>
             </details>
             <section
@@ -81,7 +81,7 @@
               <h3>{{ winds[seat] }}家初始手牌</h3>
               <div class="replay-wall__hand-tiles">
                 <span v-for="(tile, index) in hand" :key="`${seat}-${index}-${tile}`">
-                  <img :src="mmcrTileAsset(tile)" alt="" />
+                  <TileFaceImage :src="mmcrTileAsset(tile)" :face-id="mmcrFaceId(tile)" :scale="0.86" />
                 </span>
               </div>
             </section>
@@ -98,7 +98,7 @@
                       'is-predicted': item.isPredicted,
                     }"
                   >
-                    <img :src="mmcrTileAsset(item.tile)" alt="" />
+                    <TileFaceImage :src="mmcrTileAsset(item.tile)" :face-id="mmcrFaceId(item.tile)" :scale="0.86" />
                   </span>
                 </div>
               </div>
@@ -147,6 +147,7 @@
               @flower-area-count-color="setAppearanceField('flowerAreaCountColor', $event)"
               @flower-area-label-scale="setAppearanceField('flowerAreaLabelScale', $event)"
               @tile-face-theme="setAppearanceField('tileFaceTheme', $event)"
+              @tile-label-mode="setAppearanceField('tileLabelMode', $event)"
               @flower-face-theme="setAppearanceField('flowerFaceTheme', $event)"
               @font-theme="setAppearanceField('fontTheme', $event)"
               @latin-font-theme="setAppearanceField('latinFontTheme', $event)"
@@ -171,7 +172,7 @@
               class="end-result-draw-delta"
               :class="`is-rel-${seat.relative}`"
             >
-              <span class="end-result-draw-delta__name">{{ seat.player }}</span>
+              <span class="end-result-draw-delta__name" data-no-translate>{{ seat.player }}</span>
               <span
                 class="end-result-draw-delta__change"
                 :class="seat.value > 0 ? 'is-plus' : seat.value < 0 ? 'is-minus' : 'is-zero'"
@@ -186,21 +187,21 @@
           <section v-else class="end-result-panel end-result-panel--win" aria-label="本局和牌结算">
             <div v-if="resultClosedTiles.length || resultWinTile" class="end-result-hand">
               <span v-for="(tile, index) in resultClosedTiles" :key="`closed-${index}`" class="end-result-tile">
-                <img :src="mmcrTileAsset(tile)" alt="" />
+                <TileFaceImage :src="mmcrTileAsset(tile)" :face-id="mmcrFaceId(tile)" />
               </span>
               <span v-if="resultMeldTiles.length" class="end-result-hand__split" />
               <span v-for="(tile, index) in resultMeldTiles" :key="`meld-${index}`" class="end-result-tile">
-                <img :src="mmcrTileAsset(tile)" alt="" />
+                <TileFaceImage :src="mmcrTileAsset(tile)" :face-id="mmcrFaceId(tile)" />
               </span>
               <span class="end-result-hand__split" />
               <span v-if="resultWinTile" class="end-result-tile is-winning">
-                <img :src="mmcrTileAsset(resultWinTile)" alt="和牌张" />
+                <TileFaceImage :src="mmcrTileAsset(resultWinTile)" :face-id="mmcrFaceId(resultWinTile)" alt="和牌张" />
               </span>
             </div>
             <div v-if="resultFlowerTiles.length" class="end-result-flowers">
               <span class="end-result-flowers__label">花</span>
               <span v-for="(tile, index) in resultFlowerTiles" :key="`flower-${index}`" class="end-result-tile end-result-tile--flower">
-                <img :src="mmcrTileAsset(tile)" alt="" />
+                <TileFaceImage :src="mmcrTileAsset(tile)" :face-id="mmcrFaceId(tile)" />
               </span>
             </div>
             <div class="end-result-fan-grid" :style="{ minHeight: fanGridMinHeight }">
@@ -228,7 +229,7 @@
                 class="end-result-seat"
                 :class="[`is-rel-${slot.relative}`, { 'is-winner': slot.seat === roundResult.winnerSeat }]"
               >
-                <strong class="end-result-seat__name">{{ slot.player }}</strong>
+                <strong class="end-result-seat__name" data-no-translate>{{ slot.player }}</strong>
                 <div class="end-result-seat__score">
                   <span>{{ slot.score }}</span>
                   <span :class="slot.value > 0 ? 'is-plus' : slot.value < 0 ? 'is-minus' : 'is-zero'">
@@ -287,7 +288,7 @@
               </select>
             </label>
             <span class="replay-controls__status">
-              {{ actionLabel }} · {{ node }}/{{ maxNode }}
+              {{ tr(actionLabel) }} · {{ node }}/{{ maxNode }}
             </span>
           </div>
           <input
@@ -371,7 +372,7 @@
               :key="`${hoveredRoundIndex}-${row.original}`"
               :class="{ 'is-viewer': row.original === viewerOriginal }"
             >
-              <em>{{ row.username }}</em>
+              <em data-no-translate>{{ row.username }}</em>
               <b :class="{ 'is-plus': row.change > 0, 'is-minus': row.change < 0 }">
                 {{ row.change > 0 ? '+' : '' }}{{ row.change }}
               </b>
@@ -390,7 +391,7 @@
               @click="viewerOriginal = player.original"
             >
               <span>{{ player.wind }}</span>
-              <strong>{{ player.username }}</strong>
+              <strong data-no-translate>{{ player.username }}</strong>
               <small>{{ player.score }}</small>
             </button>
           </div>
@@ -402,7 +403,7 @@
             <dl>
               <div v-for="row in gameInfoRows" :key="row.label">
                 <dt>{{ row.label }}</dt>
-                <dd :class="{ 'is-code': row.code }">{{ row.value }}</dd>
+                <dd :class="{ 'is-code': row.code }" :data-no-translate="/^玩家 |^入场顺序$/.test(row.label) ? '' : null">{{ row.value }}</dd>
               </div>
             </dl>
           </div>
@@ -415,7 +416,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { ElMessage } from 'element-plus'
@@ -456,10 +457,12 @@ import {
   splitSettlementHand,
 } from '@/game2d/lib/settlementHand'
 import { mmcrFaceId, tileFaceAssetUrl } from '@/game2d/lib/tileFaceAsset'
+import { shouldShowTileLabels } from '@/game2d/lib/tileLabels'
 import type { ActiveSessionSnapshot, MeldSnapshot } from '@/game2d/game/scene/types'
 import GameScoreboardPanel from './GameScoreboardPanel.vue'
 import ReplayIndependentWall from './ReplayIndependentWall.vue'
 import SceneAppearancePanel from './SceneAppearancePanel.vue'
+import TileFaceImage from './TileFaceImage.vue'
 import GuizhouReplayLedger from '@/components/GuizhouReplayLedger.vue'
 import { guizhouInfoAt, parseGuizhouFan } from '@/utils/guizhouReplay.js'
 import { parseYixingFan } from '@/utils/yixingReplay.js'
@@ -514,6 +517,7 @@ const currentRanks = ref<Record<string, string>>({})
 const backgroundImage = ref<Awaited<ReturnType<typeof loadStoredSceneBackgroundImage>>>(null)
 const backgroundImageLoading = ref(true)
 const appearance = ref(loadStoredSceneAppearance())
+provide('game2d.tileLabelsEnabled', computed(() => shouldShowTileLabels(appearance.value.tileLabelMode, locale.value)))
 const volume = ref(loadStoredVolume())
 let scene: MahjongScene | null = null
 let playTimer: number | null = null
@@ -562,7 +566,7 @@ function hasGameTitleField(title: Record<string, unknown>, key: string): boolean
 
 function enabledLabel(value: unknown): string {
   if (value === true || value === 1 || String(value).toLowerCase() === 'true') return '开启'
-  return '关闭'
+  return locale.value === 'fr' ? tr('关') : '关闭'
 }
 
 function compactRecordTime(value: unknown): string {
@@ -1732,7 +1736,7 @@ watch([roundIndex, node, viewerOriginal], () => {
   renderPosition()
 })
 watch(locale, () => {
-  scene?.refreshRoundLabel()
+  scene?.setAppearance(appearance.value)
 })
 watch(() => route.params.gameId, loadRecord)
 

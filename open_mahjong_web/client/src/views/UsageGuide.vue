@@ -34,11 +34,11 @@
                 </li>
                 <li>
                   <p>
-                    可通过网页版「进入平台」、
+                    可通过网页版「<router-link to="/game-unity">进入平台</router-link>」、
                     <a href="https://store.steampowered.com/app/4565740/Salasasa/" target="_blank" rel="noopener noreferrer">Steam 商店</a>
                     或
                     <router-link to="/mobile-download">手机版 APK</router-link>
-                    开始对局。Steam 版性能更高，商店页右下角可下载试用版。
+                    开始对局。点此可进入<router-link to="/2d">Salasasa2D客户端</router-link>，体验不同风格，2D客户端可以与3D客户端互通对局。
                   </p>
                 </li>
               </ol>
@@ -47,52 +47,40 @@
             <template v-else-if="sec.id === 'features'">
               <ol class="faq-list">
                 <li>
-                  <p>多规则同台：国标、立直、青雀、四川麻将、长沙麻将等，规则书与牌例可在站内查阅。</p>
-                </li>
-                <li>
-                  <p>开源可自建：项目遵循 MIT，可自行部署服务器；公共平台若因攻击等原因无法维持，规则制定者仍可自建服务。</p>
+                  <p>多规则对局：平台支持国标、立直、青雀、四川麻将、长沙麻将等多个规则。</p>
                 </li>
                 <li>
                   <p>
-                    公平可验证：对局开始前公布承诺值，结束后公布主随机种子与盐值，可用站内
-                    <router-link to="/seed-verify">种子验证</router-link>
-                    工具本地复现座位与配牌。
+                    公平性承诺：平台承诺不会对特定的用户或ip针对性的使用控牌，优待等非公平性行为，并且保证自己的核心代码与开源项目open_mahjong_unity的行为一致，详情可见<button type="button" class="guide-text-button" @click="regulationsVisible = true">Salasasa-萨拉飒飒麻将平台账户规约</button>
                   </p>
                 </li>
                 <li>
                   <p>
-                    自定义规则：可提交核心逻辑由项目组适配、发起 Pull Request，或委托开发（默认进入公共仓库并接受 MIT）。详见下文「添加自定义规则」。
+                    自定义规则：平台提供自由模式，在自由模式中可以使用虚拟牌桌进行不受规则制约的对局；如果想提交自己的规则，也可以通过发起 Pull Request，提交核心代码或委托开发等形式在平台的下一个发行版中发布您的自定义规则，平台官方也会持续推进地方麻将规则的适配进程。具体详见下文「<a href="#addrule" @click.prevent="scrollTo('addrule')">添加自定义规则</a>」。
                   </p>
                 </li>
                 <li>
                   <p>
-                    辅助工具：站内提供
+                    辅助工具：平台提供
                     <router-link to="/paili">牌理</router-link>、
                     <router-link to="/calc/chinese">国标计算器</router-link>、
                     <router-link to="/guess-fan">猜番对抗</router-link>、
                     <router-link to="/rulebook">规则书</router-link>
-                    等。
+                    等麻将相关的必要工具。
                   </p>
                 </li>
                 <li>
                   <p>
-                    赛事与数据：支持
-                    <a href="#events" @click.prevent="scrollTo('events')">申办赛事</a>
-                    与管理，并可查询
-                    <router-link to="/player-data">玩家历史</router-link>
-                    、
-                    <router-link to="/player-data/platform">平台统计</router-link>
-                    与
-                    <router-link to="/player-data/fun">其他数据</router-link>。
+                    赛事与数据：平台支持<a href="#events" @click.prevent="scrollTo('events')">申办赛事</a>与赛事管理，并可查询<router-link to="/player-data">玩家对局</router-link>、<router-link to="/player-data/platform">平台统计</router-link>、<router-link to="/player-data/duplicate">复式密钥查询</router-link>等所有数据，平台的完整对局数据都公开展示并且支持被用作数据统计、ai训练、制作视频等任意用途，平台也授权任何人均可以使用这些公共领域的数据，任何人都可以随意打包，分发，学习salasasa的对局数据，并且用作商业目的。（玩家账户的段位信息、头像、签名；比赛、基地的公告等非对局数据不在此列）
                   </p>
                 </li>
                 <li>
                   <p>
-                    对局机制：国标等规则可选开启
+                    对局机制：平台致力于推广与发展竞技麻将的完整体验，国标等规则可选开启
                     <a href="#meld-protect" @click.prevent="scrollTo('meld-protect')">鸣牌保护</a>
                     与
                     <a href="#tactical-call" @click.prevent="scrollTo('tactical-call')">战术鸣牌</a>，
-                    以在网麻中保留部分线下信息节奏与战术空间。
+                    以在网麻中保留部分线下信息节奏与战术空间。日麻也支持流局听牌扣牌等还原真实场景的完整设计
                   </p>
                 </li>
               </ol>
@@ -102,28 +90,26 @@
               <ol class="faq-list">
                 <li>
                   <p>
-                    推荐先
+                    点击此处
                     <router-link to="/login?redirect=/guide">注册 / 登录</router-link>
-                    账户，再进入平台对局。账户面板可绑定邮箱、修改密码、申请或管理赛事。
+                    账户，再进入平台对局。此处的<router-link to="/account">账户面板</router-link>可绑定邮箱、修改密码、申请或管理赛事。
                   </p>
                 </li>
                 <li>
                   <p>
-                    网页对战入口：首页「进入平台」或导航栏同名项，地址为
-                    <router-link to="/game-unity">/game-unity</router-link>。
+                    网页对战入口：
+                    <router-link to="/game-unity">https://salasasa.cn/game-unity</router-link>
                   </p>
                 </li>
                 <li>
                   <p>
-                    手机端请下载
-                    <router-link to="/mobile-download">Android APK</router-link>；iOS / PC 亦可关注 Steam 商店页说明。
+                    手机端请下载<router-link to="/mobile-download">Android APK</router-link>；PC端点击此处进入
+                    <a href="https://store.steampowered.com/app/4565740/Salasasa/" target="_blank" rel="noopener noreferrer">Steam 商店页</a>，ios端稍缓适配
                   </p>
                 </li>
                 <li>
                   <p>
-                    遇到规则疑问，请先查阅
-                    <router-link to="/rulebook">规则书</router-link>
-                    ；仍有问题可到 QQ 群反馈。测试期问题也可联系管理员 Q1448826180。
+                    如有规则方面的疑问，可在此处查询完整的<router-link to="/rulebook">规则书</router-link>文本；如果在游戏过程中发现任何问题，可以到QQ群<a href="https://qm.qq.com/q/MGGZV58hOO" target="_blank" rel="noopener noreferrer">906497522</a>反馈，也可以直接联系测试群群主及开发者Q1448826180。
                   </p>
                 </li>
               </ol>
@@ -148,19 +134,6 @@
                     <li>第一追赶时间：0.7s</li>
                     <li>第二追赶时间：0.5s</li>
                   </ul>
-                </li>
-                <li>
-                  <p>
-                    <strong>可操作玩家</strong>：可以执行操作、立刻看见行动的玩家。若在吃碰选项出现的 2 秒以内执行吃碰或 pass，则能避免他家获取「有人能够吃碰」的额外信息。
-                  </p>
-                </li>
-                <li>
-                  <p>
-                    <strong>受保护玩家</strong>：在鸣牌保护时间内受到信息制约的玩家。该设计可在网麻的高效对局中保留一些线下对局的信息节奏。
-                  </p>
-                </li>
-                <li>
-                  <p>房间配置中可开关鸣牌保护（国标 / 青雀 / 四川等规则支持）。存在可和牌机会时，本区间通常不启用，以避免和牌面板与出牌揭示贴脸。</p>
                 </li>
               </ol>
             </template>
@@ -251,64 +224,66 @@
             <template v-else-if="sec.id === 'guess-fan'">
               <ol class="faq-list">
                 <li>
+                  <p>请先使用 salasasa 游戏账号登录后再进入猜番对抗。</p>
+                  <p><router-link to="/guess-fan">猜番对抗</router-link></p>
+                </li>
+                <li>
+                  <p>■ 个人训练、创建房间、匹配</p>
+                  <ul class="sub-list">
+                    <li><strong>个人训练</strong><p>开启单人猜番</p></li>
+                    <li><strong>创建房间</strong><p>开设联机房间，不计统计数据</p></li>
+                    <li>规则集：立直、BO5、限时60s、8次猜番机会、计入排行</li>
+                    <li>规则集：国标+立直、BO5、限时60s、8次猜番机会、计入排行</li>
+                  </ul>
+                </li>
+                <li>
+                  <h3>什么是关联提示</h3>
+                  <p>黄色提示代表所猜番种的一列数据与正确答案的对应数据列存在以下任意一种关联：</p>
+                  <ul class="sub-list">
+                    <li><b>同义、同名关联：</b>两个规则中的同名番，或共享同一种番型的同义番。例如答案是立直「一气通贯」，猜国标「清龙」，名字显示黄色；只有猜中题库中的那个具体番种才显示绿色。<br />示例 1：答案一气通贯 [一气通贯、清龙]，猜出清龙 [清龙、一气通贯] 时名字一侧会显示关联的黄色提示。<br />示例 2：答案平和 [国标]，猜测时选择平和 [日麻]，同名的平和一侧会显示关联的黄色提示。<br />示例 3：答案全大 [全大，全中，全小]，猜出全中时名字一侧会显示关联的黄色提示；只有猜中全大本身才显示绿色。</li>
+                    <li><b>类型关联：</b>在答案是多类型番时，猜测到该类型番的任意一个副类型时，则显示黄色；只有猜中具体番种的主类型时，才显示绿色。<br />示例 1：答案组合龙 [顺子系、全不靠系]，猜出三色三步高 [顺子系] 时番种类型一侧会显示关联的黄色提示。<br />示例 2：答案里宝牌 [条件系、偶然系]，猜出立直 [条件系] 时番种类型一侧会显示关联的黄色提示。</li>
+                    <li><b>浮动番数关联：</b>同一立直役可能因门清、副露拥有两个番数。例如一气通贯为门清 2 番、副露 1 番；猜测命中该役的另一种合法番数时显示黄色，命中本题实际抽到的番数才绿色。<br />示例：答案一气通贯 [2, 1]，猜出红宝牌 [1] 时番种番数一侧会显示关联的黄色提示。</li>
+                  </ul>
+                  <p><b>关闭关联提示：</b>所有上述黄色提示都会变成灰色，只保留完全匹配的绿色和数值方向箭头，提升对局难度。</p>
+                </li>
+                <li>
+                  <h3>同时拥有多个值的番种是如何标定的</h3>
+                  <ol class="sub-list">
+                    <li><b>出现概率原则</b>：组合龙复合全不靠的概率为 29.3%（161/550），因此组合龙应当被优先计为顺子系、其次再被计为全不靠系，即 [顺子系、全不靠系]。</li>
+                    <li><b>先置逻辑优先原则</b>：在能够预测到导致和牌的行动的具体番数的情况下，优先记条件系，其次记偶然系。例如一发、里宝牌、抢杠、岭上开花、海底捞月应当记 [条件系、偶然系]；天和、地和应当记 [偶然系]；立直、双立直、和绝张应当记 [条件系]。</li>
+                    <li><b>复计只计其一原则</b>：在可以复计的番种当中，例如四归一、花牌、红宝牌，应当计单个番种的番值，例如四归一应当记 [2]。</li>
+                    <li><b>食下役一律副值原则</b>：涉及食下的番种，应当以番种门清状态下的原生番数为主番数，食下番数为副番数，例如纯全带幺九应当记 [3、2]。抽题时答案番数一律取主番数（门清原生番数），例如纯全带幺九抽 3 番、混全带幺九抽 2 番。</li>
+                    <li><b>声明特殊番种原则</b>：四归一的组数规定为 [4、3、2]；组合龙、九莲宝灯的组数规定为 [1]；全不靠、七星不靠与一色系番种的组数规定为 [全体]；对子系的组数规定为 [7]；流局满贯的番数为 [5]。</li>
+                    <li><b>避免重复猜取原则</b>：涉及番种意义相近但是需要重复猜取的番种将会开启关联提示或合并，例如答案「全大」的番名规定为 [全大，全中，全小]，答案「宝牌」的番名规定为[宝牌，赤宝牌，里宝牌]，答案「海底捞月」的番名规定为[海底捞月，河底捞鱼，妙手回春]；役牌·白、役牌·中、自风·南等番种合并为役牌、自风与场风。立直与双立直、混一色与清一色之类猜取较为简单的不设关联提示。</li>
+                  </ol>
+                </li>
+                <li>
+                  <h3>番种如何归类</h3>
+                  <ul class="sub-list">
+                    <li><b>顺子系</b>：由特定顺子组合构成的番种，例如清龙、三色同顺、三色三步高等。</li>
+                    <li><b>刻子系</b>：由刻子、雀头或杠构成的番种，例如小三元、三暗刻、三风刻等。</li>
+                    <li><b>对子系</b>：由对子构成的番种，例如七对子、连七对、大七星等。</li>
+                    <li><b>全体系</b>：满足整手牌固定特征的番种，例如清一色、断幺九、全带五、全带幺；组数显示「全体」。</li>
+                    <li><b>全不靠系</b>：包括全不靠、七星不靠、组合龙（副归类）等。</li>
+                    <li><b>特殊系</b>：由特殊规定的牌型和牌构成的番种，例如十三幺、九莲宝灯。</li>
+                    <li><b>条件系</b>：满足特定条件构成的番种，例如立直、一发、门前清、不求人、岭上开花（副归类）、宝牌等。</li>
+                    <li><b>偶然系</b>：满足偶然条件构成的番种，例如岭上开花、里宝牌、宝牌（副归类）等。</li>
+                  </ul>
+                </li>
+                <li>
+                  <h3>对战与排行</h3>
+                  <p>个人训练和自建房可选择 6、8、10 或 12 次猜测机会，以及 40、60、80 或 100 秒限时；系统匹配固定为 8 次、60 秒。有人猜中、次数用尽或时间结束后展示答案与双方猜测，6 秒后自动进入下一局。</p>
+                  <p>匹配分为「国标+立直」与「立直」两个池，各自独立排队与计分；排行榜默认展示国标+立直，可切换成立直查看。</p>
+                  <p>只有系统匹配计入排行榜。战胜高分对手获得更多积分，负于低分对手扣分更多。</p>
+                </li>
+                <li>
                   <p>
-                    <router-link to="/guess-fan">猜番对抗</router-link>
-                    是站内猜番小游戏：根据提示逐步缩小范围，猜出国标或立直番种。需先登录 salasasa 游戏账号。
+                    <b>Elo 积分规则</b><br />
+                    初始 1000 分，仅系统匹配计分，自建房不计。<br />
+                    K 值为 32：胜者加分与败者扣分数值相同。<br />
+                    战胜高分玩家加分更多，战胜低分玩家加分更少；反之亦然。<br />
+                    计算式：变化值 = 32 ×（实际结果 − 预期胜率），结果四舍五入。
                   </p>
-                </li>
-                <li>
-                  <p>入口模式：</p>
-                  <ul class="sub-list">
-                    <li><strong>个人训练</strong>：单人猜番，可自选番种集，不计入排行。</li>
-                    <li><strong>创建房间</strong>：开设联机房间与好友对战，不计统计数据。</li>
-                    <li><strong>系统匹配</strong>：分为「国标+立直」与「立直」两个池，各自独立排队与计分；BO5、限时 60 秒、每局最多 8 次猜测，均计入对应排行榜。</li>
-                  </ul>
-                </li>
-                <li>
-                  <p>
-                    每局有人猜中或时间结束后展示答案与双方猜测，约 6 秒后自动进入下一局。排行榜仅统计系统匹配；初始 Elo 1000，K 值为 32；战胜高分对手加分更多，负于低分对手扣分更多。
-                  </p>
-                </li>
-                <li>
-                  <p>
-                    <strong>关联提示（黄色）</strong>代表所猜番种的一列数据与正确答案的对应数据列存在以下任意一种关联。
-                  </p>
-                  <ul class="sub-list">
-                    <li>
-                      <strong>同义、同名关联：</strong>两个规则中的同名番，或共享同一种番型的同义番。例如答案是立直「一气通贯」，猜国标「清龙」，名字显示黄色；只有猜中题库中的那个具体番种才显示绿色。示例 1：答案一气通贯 [一气通贯、清龙]，猜出清龙 [清龙、一气通贯] 时名字一侧会显示关联的黄色提示。示例 2：答案平和 [国标]，猜测时选择平和 [日麻]，同名的平和一侧会显示关联的黄色提示。示例 3：答案全大 [全大，全中，全小]，猜出全中时名字一侧会显示关联的黄色提示；只有猜中全大本身才显示绿色。
-                    </li>
-                    <li>
-                      <strong>类型关联：</strong>在答案是多类型番时，猜测到该类型番的任意一个副类型时，则显示黄色；只有猜中具体番种的主类型时，才显示绿色。示例 1：答案组合龙 [顺子系、全不靠系]，猜出三色三步高 [顺子系] 时番种类型一侧会显示关联的黄色提示。示例 2：答案里宝牌 [条件系、偶然系]，猜出立直 [条件系] 时番种类型一侧会显示关联的黄色提示。
-                    </li>
-                    <li>
-                      <strong>浮动番数关联：</strong>同一立直役可能因门清、副露拥有两个番数。例如一气通贯为门清 2 番、副露 1 番；猜测命中该役的另一种合法番数时显示黄色，命中本题实际抽到的番数才显示绿色。示例：答案一气通贯 [2, 1]，猜出红宝牌 [1] 时番种番数一侧会显示关联的黄色提示。
-                    </li>
-                  </ul>
-                  <p><strong>关闭关联提示：</strong>所有上述黄色提示都会变成灰色，只保留完全匹配的绿色和数值方向箭头，提升对局难度。</p>
-                </li>
-                <li>
-                  <p><strong>多值番种的标定原则：</strong></p>
-                  <ul class="sub-list">
-                    <li>出现概率原则：组合龙复合全不靠的概率为 29.3%（161/550），因此组合龙应当被优先计为顺子系、其次再被计为全不靠系，即 [顺子系、全不靠系]。</li>
-                    <li>先置逻辑优先原则：在能够预测到导致和牌的行动的具体番数的情况下，优先记条件系，其次记偶然系。例如一发、里宝牌、抢杠、岭上开花、海底捞月应当记 [条件系、偶然系]；天和、地和应当记 [偶然系]；立直、双立直、和绝张应当记 [条件系]。</li>
-                    <li>复计只计其一原则：在可以复计的番种当中，例如四归一、花牌、红宝牌，应当计单个番种的番值，例如四归一应当记 [2]。</li>
-                    <li>食下役一律副值原则：涉及食下的番种，应当以番种门清状态下的原生番数为主番数，食下番数为副番数，例如纯全带幺九应当记 [3、2]。抽题时答案番数一律取主番数（门清原生番数），例如纯全带幺九抽 3 番、混全带幺九抽 2 番。</li>
-                    <li>声明特殊番种原则：四归一的组数规定为 [4、3、2]；组合龙、九莲宝灯的组数规定为 [1]；全不靠、七星不靠与一色系番种的组数规定为 [全体]；对子系的组数规定为 [7]；流局满贯的番数为 [5]。</li>
-                    <li>避免重复猜取原则：涉及番种意义相近但是需要重复猜取的番种将会开启关联提示或合并，例如答案「全大」的番名规定为 [全大，全中，全小]，答案「宝牌」的番名规定为[宝牌，赤宝牌，里宝牌]，答案「海底捞月」的番名规定为[海底捞月，河底捞鱼，妙手回春]；役牌·白、役牌·中、自风·南等番种合并为役牌、自风与场风。立直与双立直、混一色与清一色之类猜取较为简单的不设关联提示。</li>
-                  </ul>
-                </li>
-                <li>
-                  <p><strong>番种归类：</strong></p>
-                  <ul class="sub-list">
-                    <li>顺子系：清龙、三色同顺、三色三步高等。</li>
-                    <li>刻子系：小三元、三暗刻、三风刻等。</li>
-                    <li>对子系：七对子、连七对、大七星等。</li>
-                    <li>全体系：清一色、断幺九、全带五、全带幺等；组数显示「全体」。</li>
-                    <li>全不靠系：全不靠、七星不靠、组合龙（副归类）等。</li>
-                    <li>特殊系：十三幺、九莲宝灯等。</li>
-                    <li>条件系：立直、一发、门前清、不求人、岭上开花（副归类）、宝牌等。</li>
-                    <li>偶然系：岭上开花、里宝牌、宝牌（副归类）等。</li>
-                  </ul>
                 </li>
               </ol>
             </template>
@@ -316,35 +291,40 @@
             <template v-else-if="sec.id === 'events'">
               <ol class="faq-list">
                 <li>
-                  <p>
-                    登录后打开
-                    <router-link to="/account">账户面板</router-link>
-                    ，在「提交办赛申请」中填写资料并提交；平台管理员审核通过后，赛事进入「已注册」状态，申请人成为赛事主管理员。
-                  </p>
+                  <p><router-link to="/account#sec-apply-event">提交办赛申请</router-link></p>
                 </li>
                 <li>
-                  <p>申请字段说明：</p>
-                  <ul class="sub-list">
-                    <li><strong>赛事名称</strong>（必填）：对外展示的比赛名称。</li>
-                    <li>
-                      <strong>拟定开始 / 结束时间</strong>（开始必填，结束可选）：仅为开启与关闭的大致时间范围，实际开启与关闭由比赛管理员自行决定。长期月赛或季度赛可不设截止时间，或连续申报；拟定日期确定后亦可随时更改。
-                    </li>
-                    <li>
-                      <strong>赛事介绍</strong>（必填）：必须包含明确的报名联系方式。实际赛程此处可不写死，即使写了后期也可改。若介绍中承诺了规则或奖励却未兑现，或临时改赛制引发争议，平台可能介入监管（批评、取消办赛资格、封禁个别账户等）。
-                    </li>
-                    <li><strong>备注</strong>（可选）：给审核管理员的说明，或不希望展示在赛事介绍中、但需预先告知的特殊声明。</li>
-                  </ul>
+                  <p><strong>Salasasa 平台赛事规约</strong></p>
+                  <ol class="sub-list">
+                    <li>赛事的组织、奖金等各项成本开支不得低于报名费的 80%，如赛事奖励中提供更上级比赛名额或特殊奖励的，可以进行独立核算。</li>
+                    <li>收取报名费的赛事必须明确规定赛事规则与奖励方式；该内容同样受赛事介绍中平台可能对赛制争端进行介入的声明约束。</li>
+                    <li>涉及烟、酒、槟榔等成瘾品赞助的赛事，须提前联系平台管理员后再申报。</li>
+                  </ol>
                 </li>
                 <li>
-                  <p>
-                    审核通过后，在账户「赛事管理」中可查看申请记录与已注册赛事，点击「管理赛事」展开管理面板。生命周期大致为：已注册 → 开始赛事（开启后可创建比赛房间）→ 关闭赛事（封存，仍可查看数据）→ 如需再开则提交「申请重新开启」，由平台管理员审核。
-                  </p>
+                  <p><strong>赛事名称</strong></p>
+                  <p>赛事名称必须提交中文、英文或其他语言的完整赛事全称，不得使用简写、表述不清或者有公共性质的赛事名称；错误案例：国标麻将比赛、FST杯；正确案例：第一届神秘嘉宾杯国标麻将比赛、咕咕嘎嘎国标麻将群内赛。</p>
                 </li>
                 <li>
-                  <p>
-                    主管理员可添加子管理员协助办赛；修改赛事名或简介需再次提交平台审核，通过后才会在公开页生效。赛事公开页地址形如
-                    <code>/events/赛事ID</code>。
-                  </p>
+                  <p><strong>拟定开始时间 / 拟定结束时间</strong></p>
+                  <p>拟定开始时间和结束时间只是申请的开启赛事和关闭赛事的大致时间范围，赛事的开启与关闭将由比赛管理员自行决定；
+                  如果是长期的月赛或者季度赛，可以不设截止时间或连续申报比赛，在确定拟定日期以后也可以随时进行更改。</p>
+                </li>
+                <li>
+                  <p><strong>赛事介绍</strong></p>
+                  <p>赛事介绍中必须包含明确的报名联系方式，对于实际赛程这里可以不予规定、即使予以规定，后期也可以进行更改。但是，如果赛事在实际赛程中规定了某些赛事规则或者奖励方式但未达成，或者在临时更改赛制以后出现了争议或争端，平台也会一定程度上对赛事进行一些介入监管；包括且不限于，批评、取消办赛资格、封禁个别账户等惩罚，请务必注意这一点。</p>
+                </li>
+                <li>
+                  <p><strong>赛事负责人</strong></p>
+                  <p>请填写真实姓名与24小时内能够联系上的联系方式，手机号仅作为实名验证使用，如果不希望平台使用手机号进行联系，可以在备注内填写偏好的联系方式，平台绝不会通过偏好联系方式以外的方式联系您；如果不希望暴露真实姓名，可以填写惯用id，只需要手机号是实名的即可。</p>
+                </li>
+                <li>
+                  <p><strong>备注</strong></p>
+                  <p>给予管理员的说明，或不希望在公开介绍中展示、但需预先告知的特殊声明。修改申请、保存修改、重新提交时填写的内容会按时间追加到双方往来备注栏。</p>
+                </li>
+                <li>
+                  <p><router-link to="/account#sec-manage-event">赛事管理</router-link></p>
+                  <p>查看办赛申请与已注册赛事；点击「管理」在下方展开管理面板。</p>
                 </li>
               </ol>
             </template>
@@ -399,7 +379,7 @@
                   </ul>
                 </li>
                 <li>
-                  <p>具体认证可在测试群联系管理员 Xe 办理。</p>
+                  <p>具体认证可在测试群联系群主 Xe 办理。</p>
                 </li>
               </ol>
             </template>
@@ -409,7 +389,7 @@
                 <li>
                   <p>
                     若想对项目本身提出意见、提交美术 / 音频资源或 Pull Request，或希望私有部署、关注项目进展，可加入 OMU 平台开发群
-                    <strong>10845740</strong>。
+                    <strong><a href="https://qm.qq.com/q/MualpyNFoi" target="_blank" rel="noopener noreferrer">1084537740</a></strong>。
                   </p>
                 </li>
                 <li>
@@ -425,29 +405,22 @@
             </template>
 
             <template v-else-if="sec.id === 'sponsor'">
-              <ol class="faq-list">
-                <li>
-                  <p>赞助可联系管理员 Xe。赞助无法获得任何特权。</p>
-                </li>
-                <li>
-                  <p>赞助满 100 元可上鸣谢名单（见下文「鸣谢」）。</p>
-                </li>
-              </ol>
+              <p class="sponsor-text">赞助可联系群主Xe，赞助者在数据站可以额外获得下载牌谱的限额，也可以提前准入中级场，赞助100元添加鸣谢名单</p>
             </template>
 
             <template v-else-if="sec.id === 'thanks'">
               <ul class="thanks-list">
                 <li>
                   <span class="k">开发团队</span>
-                  <span data-no-translate>Xelnaga(主程)  雪枫XueFun9(牌面提供者)  Zoe(随机种子设计)  Natsuki(新编MCR编著者)  坏狗影子(表情包提供者)  GitHub/baisebaoma(高性能罗伯特设计) troooobot(长沙麻将实现)  Zoe(台湾麻将实现)  二階堂 ヒロ(中心盘设计)  莫莫柴(青雀、2D桌面)  Shq、Zoe(bug修复)  salasasasa数据bot(PCX1078)  插件开发(新手求教)</span>
+                  <span data-no-translate>{{ creditLine("Xelnaga(主程)  雪枫XueFun9(牌面提供者)  Zoe(随机种子设计)  Natsuki(新编MCR编著者)  坏狗影子(表情包提供者)  GitHub/baisebaoma(高性能罗伯特设计) troooobot(长沙麻将实现)  Zoe(台湾麻将实现)  二階堂 ヒロ(中心盘设计)  莫莫柴(青雀、2D桌面)  Shq、Zoe(bug修复)  salasasasa数据bot(PCX1078)  插件开发(新手求教)") }}</span>
                 </li>
                 <li>
                   <span class="k">自定义规则设计</span>
-                  <span data-no-translate>莫莫柴(青雀)  关兆豪先生(中庸麻将)  Null(虹雀)  K神传说(K神麻将)  恋绘色(香港清章恋绘色魔改)  小林(国标小林改)  蓝十(国标蓝十改)  自恧(浪涌麻将)  南瓜饼(南雀)</span>
+                  <span data-no-translate>{{ creditLine("莫莫柴(青雀)  关兆豪先生(中庸麻将)  Null(虹雀)  K神传说(K神麻将)  恋绘色(香港清章恋绘色魔改)  小林(国标小林改)  蓝十(国标蓝十改)  自恧(浪涌麻将)  南瓜饼(南雀)") }}</span>
                 </li>
                 <li>
                   <span class="k">地方规则考据</span>
-                  <span data-no-translate>上海清混碰(何苏)  古典麻将(莫莫柴、何苏、古明地梦)  宜兴麻将(苦鱼)  Mil推广规则(MIL国际麻将联盟)</span>
+                  <span data-no-translate>{{ creditLine("上海清混碰(何苏)  古典麻将(莫莫柴、何苏、古明地梦)  宜兴麻将(苦鱼)  Mil推广规则(MIL国际麻将联盟)") }}</span>
                 </li>
                 <li>
                   <span class="k">直播宣传</span>
@@ -459,7 +432,7 @@
                 </li>
                 <li>
                   <span class="k">特别感谢</span>
-                  <span data-no-translate>莫莫柴、码龙、Null、坏狗影子、何苏</span>
+                  <span data-no-translate>{{ creditLine("莫莫柴、码龙、Null、坏狗影子、何苏、FFMJ法国麻将协会(翻译支持)") }}</span>
                 </li>
                 <li>
                   <span class="k">支持社团</span>
@@ -470,23 +443,21 @@
                   <span data-no-translate>夜色祢 chlorine 陪练的命运</span>
                 </li>
               </ul>
-              <p class="thanks-message" data-no-translate>以及游玩salasasa平台的所有玩家！</p>
+              <p class="thanks-message">以及游玩salasasa平台的所有玩家！</p>
             </template>
 
             <template v-else-if="sec.id === 'links'">
               <ul class="link-list">
                 <li>
-                  <span class="k">官方服务器</span>
+                  <span class="k"><span>官方服务器</span>：</span>
                   <a href="https://salasasa.cn" target="_blank" rel="noopener noreferrer">salasasa.cn</a>
                 </li>
                 <li>
-                  <span class="k">GitHub</span>
-                  <a href="https://github.com/xelnagamiao/open_mahjong_unity" target="_blank" rel="noopener noreferrer">
-                    github.com/xelnagamiao/open_mahjong_unity
-                  </a>
+                  <span class="k"><span>GitHub</span>：</span>
+                  <a href="https://github.com/xelnagamiao/open_mahjong_unity" target="_blank" rel="noopener noreferrer">github.com/xelnagamiao/open_mahjong_unity</a>
                 </li>
                 <li>
-                  <span class="k">语雀文档</span>
+                  <span class="k"><span>语雀文档</span>：</span>
                   <a
                     href="https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#"
                     target="_blank"
@@ -494,27 +465,25 @@
                   >开发手册</a>
                 </li>
                 <li>
-                  <span class="k">交流测试群</span>
+                  <span class="k"><span>交流测试群</span>：</span>
                   <a href="https://qm.qq.com/q/MGGZV58hOO" target="_blank" rel="noopener noreferrer">906497522</a>
                 </li>
                 <li>
-                  <span class="k">OMU 开发群</span>
-                  10845740
+                  <span class="k"><span>OMU 开发群</span>：</span>
+                  <a href="https://qm.qq.com/q/MualpyNFoi" target="_blank" rel="noopener noreferrer">1084537740</a>
                 </li>
                 <li>
-                  <span class="k">语音聊天室</span>
+                  <span class="k"><span>语音聊天室</span>：</span>
                   <a href="https://oopz.cn/i/zzCOJF" target="_blank" rel="noopener noreferrer">oopz.cn/i/zzCOJF</a>
                 </li>
                 <li>
-                  <span class="k">Steam</span>
-                  <a href="https://store.steampowered.com/app/4565740/Salasasa/" target="_blank" rel="noopener noreferrer">
-                    Salasasa 商店页
-                  </a>
+                  <span class="k"><span>Steam</span>：</span>
+                  <a href="https://store.steampowered.com/app/4565740/Salasasa/" target="_blank" rel="noopener noreferrer">Salasasa 商店页</a>
                 </li>
               </ul>
             </template>
             <template v-else-if="sec.id === 'regulations'">
-              <div class="regulations-text" data-no-translate>{{ accountRegulations }}</div>
+              <div class="regulations-text" data-no-translate>{{ localizedRegulations }}</div>
             </template>
           </section>
         </div>
@@ -536,13 +505,38 @@
         </aside>
       </div>
     </div>
+    <el-dialog v-model="regulationsVisible" title="Salasasa-萨拉飒飒麻将平台账户规约"
+      width="min(760px, 94vw)" append-to-body :close-on-click-modal="false">
+      <div class="regulations-body" tabindex="0" aria-label="账户规约全文"><span data-no-translate>{{ regulationsBody }}</span></div>
+      <template #footer>
+        <el-button @click="regulationsVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { locale } from '@/i18n'
+import { locale, tr } from '@/i18n'
 import accountRegulations from '@/content/accountRegulations.txt?raw'
+import accountRegulationsFr from '@/content/accountRegulations.fr.txt?raw'
+
+const regulationsVisible = ref(false)
+const localizedRegulations = computed(() => locale.value === 'fr' ? accountRegulationsFr : accountRegulations)
+const regulationsBody = computed(() => {
+  const text = localizedRegulations.value
+  return text.slice(text.indexOf('\n') + 1).trim()
+})
+
+function creditLine(source) {
+  if (locale.value !== 'fr') return source
+  return source.replace(/\(([^)]+)\)/g, (_, role) => `(${tr(role)})`)
+    .replace(/(^|\s)([^()\s]+)\(/g, (_, space, name) => {
+      const label = ['上海清混碰', '古典麻将', '宜兴麻将', 'Mil推广规则', '插件开发'].includes(name) ? tr(name) : name
+      return `${space}${label} (`
+    })
+    .replace('FFMJ法国麻将协会', 'FFMJ — Fédération Française de Mah-Jong')
+}
 
 const seedCodeLabels = {
   'zh-CN': {
@@ -561,6 +555,11 @@ const seedCodeLabels = {
     characters: 'Characters', dots: 'Dots', bamboos: 'Bamboos', winds: 'East, South, West, North',
     dragons: 'Red, White, Green', flowers: 'Spring, Summer, Autumn, Winter; Plum, Orchid, Bamboo, Chrysanthemum',
     round: 'Riichi/Classical use round_index; MCR/Qingque use current_round',
+  },
+  fr: {
+    characters: 'Caractères', dots: 'Cercles', bamboos: 'Bambous', winds: 'Est, Sud, Ouest, Nord',
+    dragons: 'Rouge, Blanc, Vert', flowers: 'Printemps, Été, Automne, Hiver ; Prunier, Orchidée, Bambou, Chrysanthème',
+    round: 'Riichi/Classique : round_index ; MCR/Qingque : current_round',
   },
   ja: {
     characters: '萬子', dots: '筒子', bamboos: '索子', winds: '東・南・西・北',
@@ -603,7 +602,7 @@ random.shuffle(tiles_list)`
 
 const sections = [
   { id: 'intro', title: '一、平台简介' },
-  { id: 'features', title: '二、平台特性' },
+  { id: 'features', title: '二、平台功能' },
   { id: 'start', title: '三、开始游戏' },
   { id: 'meld-protect', title: '四、鸣牌保护' },
   { id: 'tactical-call', title: '五、战术鸣牌' },
@@ -792,15 +791,42 @@ onUnmounted(() => {
   color: var(--accent-deep);
 }
 
-.faq-list p {
+.faq-list p,
+.sponsor-text {
   margin: 0;
   font-size: 14px;
   line-height: 1.7;
 }
 
+.sponsor-text {
+  color: #444;
+}
+
 .faq-list a,
 .link-list a {
   color: var(--accent-deep);
+}
+
+.guide-text-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent-deep);
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.regulations-body {
+  max-height: 58vh;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.85;
+  color: #303133;
+  padding: 0 12px 0 2px;
 }
 
 .sub-list {
@@ -898,6 +924,27 @@ onUnmounted(() => {
   margin-right: 8px;
 }
 
+.link-list li {
+  display: grid;
+  grid-template-columns: 7.5em minmax(0, 1fr);
+  gap: 2px 12px;
+  align-items: baseline;
+  padding: 6px 0;
+}
+
+.link-list .k {
+  min-width: 0;
+  margin: 0;
+}
+
+.link-list a {
+  min-width: 0;
+  max-width: 100%;
+  justify-self: start;
+  overflow-wrap: anywhere;
+  text-underline-offset: 3px;
+}
+
 .back-top {
   display: inline-block;
   margin-top: 14px;
@@ -956,10 +1003,13 @@ onUnmounted(() => {
     padding: 14px 14px 24px;
   }
 
-  .thanks-list .k,
-  .link-list .k {
-    display: block;
-    margin-bottom: 2px;
+  .thanks-list li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .link-list li {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 8px 0;
   }
 }
 </style>

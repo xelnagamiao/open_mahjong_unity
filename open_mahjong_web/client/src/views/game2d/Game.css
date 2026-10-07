@@ -288,6 +288,17 @@
   white-space: nowrap;
 }
 
+.mahjongGame:lang(fr) .scene-appearance-panel__select {
+  flex: 0 1 190px;
+  width: 190px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.mahjongGame:lang(fr) .scene-appearance-panel__field:has(> select) {
+  flex-wrap: wrap;
+}
+
 .scene-appearance-panel__range-row,
 .scene-appearance-panel__button-row,
 .scene-appearance-panel__swatch-list { display: flex; gap: 8px; }
@@ -509,6 +520,8 @@
   overflow: hidden;
 }
 
+.game-stage-controls { display: contents; }
+
 .game-stage-toolbar {
   position: absolute;
   top: 10px;
@@ -606,6 +619,72 @@
 .assist-switch.is-on .assist-switch__thumb {
   transform: translateX(16px);
 }
+
+.mahjongGame:lang(fr) .game-felt-playfield { container: game-playfield / size; }
+.mahjongGame:lang(fr):not(.replay-page) .game-stage { width: calc(100% - 180px); }
+
+.mahjongGame:lang(fr) .game-stage-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  max-width: calc(100% - 20px);
+  max-height: calc(100% - 20px);
+  pointer-events: none;
+}
+
+.mahjongGame:lang(fr) .game-stage-toolbar {
+  position: relative;
+  inset: auto;
+  flex: 0 0 auto;
+  width: 150px;
+  max-width: 100%;
+}
+
+.mahjongGame:lang(fr) .game-stage-panel {
+  position: relative;
+  inset: auto;
+  flex: 0 1 auto;
+  min-height: 0;
+  width: min(300px, calc(100vw - 40px));
+  max-width: 100%;
+  pointer-events: auto;
+}
+
+.mahjongGame:lang(fr) .game-stage-toolbar .assist-inline { grid-template-columns: 1fr; }
+.mahjongGame:lang(fr) .game-stage-toolbar .assist-inline__tile-column,
+.mahjongGame:lang(fr) .game-stage-toolbar .assist-inline__operation-column,
+.mahjongGame:lang(fr) .game-stage-toolbar .assist-inline__tile-settings { width: 100%; }
+.mahjongGame:lang(fr) .game-stage-toolbar .assist-inline__operation-column { container: game-assist / inline-size; }
+
+.mahjongGame:lang(fr) .assist-switch__label {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+@container game-playfield ((min-width: 1000px) and (min-aspect-ratio: 1.33 / 1)) or ((min-width: 900px) and (min-aspect-ratio: 1.4 / 1)) {
+  .mahjongGame:lang(fr):not(.replay-page) .game-stage { width: 100%; }
+  .mahjongGame:lang(fr) .game-stage-toolbar { width: fit-content; }
+  .mahjongGame:lang(fr) .game-stage-toolbar .assist-inline { grid-template-columns: max-content max-content; }
+  .mahjongGame:lang(fr) .game-stage-toolbar .assist-inline__tile-column { width: max-content; }
+  .mahjongGame:lang(fr) .game-stage-toolbar .assist-inline__tile-settings { width: auto; }
+  .mahjongGame:lang(fr) .game-stage-toolbar .assist-inline__operation-column {
+    width: clamp(130px, calc((100cqw - 100cqh) / 2), 180px);
+  }
+}
+
+@container game-assist (max-width: 169px) {
+  .mahjongGame:lang(fr) .game-stage-toolbar .assist-switch__track { display: none; }
+}
+
+.mahjongGame:lang(fr) .game-vote-start { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+.mahjongGame:lang(fr) .game-vote-start__button { white-space: normal; }
+.mahjongGame:lang(fr) .silent-tile-batch__buttons { grid-template-columns: repeat(auto-fit, minmax(85px, 1fr)); }
 
 /*
  * Optional replay-inspired dark chrome. Deliberately scoped to the right rail
@@ -798,6 +877,16 @@
   color: #fff;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
   user-select: none;
+}
+
+.mahjongGame:lang(fr) .end-result-panel--draw { width: min(88%, 420px); }
+.mahjongGame:lang(fr) .end-result-draw-title {
+  max-width: calc(100% - 120px);
+  font-size: clamp(22px, 3vw, 34px);
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  text-indent: 0;
+  text-align: center;
 }
 
 .end-result-draw-delta {
@@ -1082,6 +1171,9 @@
   white-space: nowrap;
 }
 
+.mahjongGame:lang(fr) .end-result-fan { width: 100%; margin: 0; box-sizing: border-box; }
+.mahjongGame:lang(fr) .end-result-fan span { white-space: normal; text-overflow: clip; overflow-wrap: anywhere; line-height: 1.15; }
+
 @keyframes end-result-fan-in {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
@@ -1333,6 +1425,7 @@
   .game-page__board-panel { flex: 1 1 auto; min-height: 0; }
   .game-page__stage-shell { height: auto; }
   .game-stage-toolbar { top: 8px; right: 8px; }
+  .mahjongGame:lang(fr) .game-stage-controls { top: 8px; right: 8px; }
   .game-stage-panel {
     top: 208px;
     right: 8px;
@@ -1439,6 +1532,20 @@
       max-width: none;
       align-items: stretch;
     }
+
+    .mahjongGame:lang(fr) .game-stage-controls {
+      top: 10px;
+      right: 10px;
+      left: 10px;
+      width: auto;
+      align-items: stretch;
+    }
+
+    .mahjongGame:lang(fr) .game-stage-toolbar,
+    .mahjongGame:lang(fr) .game-stage-panel { width: 100%; }
+    .mahjongGame:lang(fr):not(.replay-page) .game-stage { width: 100%; }
+    .mahjongGame:lang(fr) .game-stage-toolbar .assist-inline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .mahjongGame:lang(fr) .game-stage-toolbar .assist-inline__tile-panel { max-width: 100%; }
 
     .game-stage-toolbar .assist-switch,
     .game-stage-toolbar .assist-inline__tile-settings {

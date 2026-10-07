@@ -18,7 +18,7 @@
           <option value="dark">深色</option>
         </select>
       </label>
-      <label v-if="locale !== 'en'" class="scene-appearance-panel__field">
+      <label v-if="locale !== 'en' && locale !== 'fr'" class="scene-appearance-panel__field">
         <span class="scene-appearance-panel__label">局数显示</span>
         <select
           class="scene-appearance-panel__select"
@@ -132,6 +132,17 @@
         >
           <option value="regular">标准白色</option>
           <option value="black">FluffyStuff 黑色</option>
+        </select>
+      </label>
+      <label class="scene-appearance-panel__field">
+        <span class="scene-appearance-panel__label">牌面角标</span>
+        <select
+          class="scene-appearance-panel__select"
+          :value="shouldShowTileLabels(appearance.tileLabelMode, locale) ? 'on' : 'off'"
+          @change="$emit('tile-label-mode', $event.target.value)"
+        >
+          <option value="on">显示</option>
+          <option value="off" data-no-translate>{{ locale.startsWith('zh') ? tr('关闭') : tr('不显示') }}</option>
         </select>
       </label>
       <label class="scene-appearance-panel__field">
@@ -286,7 +297,8 @@
 
 <script setup>
 import { ref } from 'vue'
-import { locale } from '@/i18n'
+import { locale, tr } from '@/i18n'
+import { shouldShowTileLabels } from '@/game2d/lib/tileLabels'
 
 const props = defineProps({
   appearance: { type: Object, required: true },
@@ -302,7 +314,7 @@ const emit = defineEmits([
   'remove-cover-color', 'reorder-cover-colors', 'select-cover-index', 'cover-rotate-mode',
   'flower-area-display', 'flower-area-color',
   'flower-area-alpha', 'flower-area-label-color', 'flower-area-count-color', 'flower-area-label-scale',
-  'tile-face-theme', 'flower-face-theme', 'font-theme', 'latin-font-theme', 'interface-theme',
+  'tile-face-theme', 'tile-label-mode', 'flower-face-theme', 'font-theme', 'latin-font-theme', 'interface-theme',
   'round-label-format', 'volume',
 ])
 

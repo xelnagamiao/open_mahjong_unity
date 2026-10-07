@@ -1,4 +1,5 @@
 import { locale, tr } from './index'
+import { frenchFanNames } from './fr.js'
 
 // English terms match Assets/Scripts/Config/FanTextDictionary.cs in the Unity client.
 const english = {
@@ -62,10 +63,12 @@ export function translateFanName(value, targetLocale = locale.value) {
   const suffix = match ? match[2] : ''
   if (targetLocale === 'en') return `${english[base] || base}${suffix}`
   if (targetLocale === 'ja') return `${japanese[base] || base}${suffix}`
+  if (targetLocale === 'fr') return `${frenchFanNames[base] || tr(base, {}, targetLocale)}${suffix}`
   return tr(source, {}, targetLocale)
 }
 
 export function formatFanCount(value, targetLocale = locale.value) {
   const amount = String(value ?? 0)
+  if (targetLocale === 'fr') return `${amount} fan${Number(value) === 1 ? '' : 's'}`
   return targetLocale === 'en' ? `${amount} Fan` : `${amount}${tr('番', {}, targetLocale)}`
 }

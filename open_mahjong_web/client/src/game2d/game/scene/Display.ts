@@ -7,6 +7,7 @@ import {
 import type { WaitDisplay } from './WaitDisplay'
 import { getGameFontFamily } from '../fontLoader'
 import { locale, roundLabelKey, tr } from '../../../i18n'
+import { translateFanName } from '../../../i18n/fanNames'
 import type { RoundLabelFormat } from '../../lib/sceneAppearance'
 
 // ── MyText ────────────────────────────────────────────────────────────
@@ -150,7 +151,7 @@ export class Display extends Container {
       this.removeText(`round${index}`)
     }
     if (roundCounter === -1) {
-      this.addText('round', '结束', 0, 0, 0, 390, false, 0x000000, true)
+      this.addText('round', tr('结束'), 0, 0, 0, 390, false, 0x000000, true)
       return
     }
     this.removeText('round')
@@ -171,7 +172,7 @@ export class Display extends Container {
   }
 
   setRemaining(rem: number): void {
-    this.addText('remaining', `余 ${rem} 枚`, 0, 0.3, 0, 170)
+    this.addText('remaining', tr(`余 ${rem} 枚`), 0, 0.3, 0, 170)
   }
 
   setPresent(direction: number, present: boolean): void {
@@ -222,7 +223,7 @@ export class Display extends Container {
       const color = typeof e === 'string' ? 0x000000 : (e.color ?? 0x000000)
       this.addText(`queue${i}`, label, 0, -0.8 + 0.28 * (i + 0.5), 0, 190, false, color)
     }
-    this.addText('queueCount', `等待中:  ${entries.length}/4`, 0, 0.8, 0, 190)
+    this.addText('queueCount', tr(`等待中:  ${entries.length}/4`), 0, 0.8, 0, 190)
   }
 
   // ── Win result ───────────────────────────────────────────────────
@@ -243,13 +244,13 @@ export class Display extends Container {
 
     // Title
     const title = selfDrawn ? `${winName} 自摸和` : `${winName} 和,  ${shootName} 铳`
-    this.addText('title', title, 0, -0.8, 0, 190, false, 0x000000, false, 5.5)
+    this.addText('title', tr(title), 0, -0.8, 0, 190, false, 0x000000, false, 5.5)
 
     // Fan list
     let finalY: number
     if (fans.length <= 4) {
       for (let i = 0; i < fans.length; i += 1) {
-        this.addText(`fan${i}`, fans[i], 0,
+        this.addText(`fan${i}`, translateFanName(fans[i]), 0,
           -0.58 + 0.22 * (i + 0.5 + (fans.length === 1 ? 0.25 : 0)),
           0, 190, false, 0x000000, true)
       }
@@ -259,10 +260,10 @@ export class Display extends Container {
       const lineSpace = fans.length > 8 ? 0.18 : 0.22
       for (let i = 0; i < fans.length; i += 1) {
         const left = i * 2 < fans.length
-        this.addText(`fan${i}`, fans[i],
+        this.addText(`fan${i}`, translateFanName(fans[i]),
           left ? -0.4 : 0.4,
           -0.58 + lineSpace * (left ? i + 0.5 : i - Math.ceil(fans.length / 2) + 0.5),
-          0, textSize, false, 0x000000, true)
+          0, textSize, false, 0x000000, true, locale.value === 'fr' ? 2.2 : 5.1)
       }
       finalY = -0.54 + lineSpace * Math.ceil(fans.length / 2)
     }
@@ -279,13 +280,13 @@ export class Display extends Container {
     const endText = selfDrawn
       ? `共 ${fanStr} 番 (各 ${eachLoss}')`
       : `共 ${fanStr} 番 (${shooterLoss}')`
-    this.addText('summary', endText, 0, finalY + 0.15, 0, 170)
+    this.addText('summary', tr(endText), 0, finalY + 0.15, 0, 170)
   }
 
   // ── Volume ───────────────────────────────────────────────────────
 
   displayVolume(volume: number): void {
-    this.addText('volume', `音量：${Math.round(volume * 100)}%`, 0, 0, 0, 230, false, 0x000000, true)
+    this.addText('volume', tr(`音量：${Math.round(volume * 100)}%`), 0, 0, 0, 230, false, 0x000000, true)
   }
 }
 
@@ -436,6 +437,9 @@ export class TempLabel extends Container {
       style: { fontFamily: getGameFontFamily(), fontSize: 270, fill: 0x000000, align: 'center' },
     })
     label.anchor.set(0.5)
+    if (locale.value === 'fr' && label.width > TILE_HEIGHT * 0.84) {
+      label.scale.set(TILE_HEIGHT * 0.84 / label.width)
+    }
     this.addChild(label)
 
     const l0 = SCALE_FACTOR / 2 - TILE_HEIGHT * 2.5

@@ -2,6 +2,7 @@ import { Container, Text } from 'pixi.js'
 import { TILE_WIDTH, TILE_HEIGHT } from './constants'
 import { Tile } from './Tile'
 import { getGameFontFamily } from '../fontLoader'
+import { locale, tr } from '../../../i18n'
 
 /**
  * One entry in the wait-info bar. Shows a tile with its base fan,
@@ -25,7 +26,7 @@ export class WaitEntry extends Container {
 
     const selfDrawnOnly = selfDrawnF > 0 && baseF <= 0
     const notEnough = selfDrawnF <= 0 && baseF <= 0
-    const fanLabel = baseF > 0 ? `${Math.round(baseF)}${unit}` : selfDrawnOnly ? '仅自摸' : '未起和'
+    const fanLabel = tr(baseF > 0 ? `${Math.round(baseF)}${unit}` : selfDrawnOnly ? '仅自摸' : '未起和')
     const fanText = new Text({
       text: fanLabel,
       style: {
@@ -36,6 +37,9 @@ export class WaitEntry extends Container {
       },
     })
     fanText.anchor.set(0.5)
+    if (locale.value === 'fr' && fanText.width > TILE_WIDTH * 1.15) {
+      fanText.scale.set(TILE_WIDTH * 1.15 / fanText.width)
+    }
     fanText.y = TILE_HEIGHT / 2 + 150
     this.addChild(fanText)
 

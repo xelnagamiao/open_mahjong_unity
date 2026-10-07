@@ -1,20 +1,14 @@
 import { computed, ref, watch } from 'vue'
 import { messages, textPatterns } from './messages'
+import { SUPPORTED_LOCALES, normalizeLocale, requestedGameLocale } from './locale-utils.js'
+import { mcrPageForPath } from '../seo/mcr-pages.js'
 
-export const SUPPORTED_LOCALES = ['zh-CN', 'zh-TW', 'zh-HK', 'en', 'ja']
+export { SUPPORTED_LOCALES }
 export const LOCALE_STORAGE_KEY = 'salasasa.language'
 
-function normalizeLocale(value) {
-  const locale = String(value || '').replace('_', '-').toLowerCase()
-  if (locale === 'zh-hk' || locale === 'zh-mo' || locale.includes('-hk') || locale.includes('-mo')) return 'zh-HK'
-  if (locale === 'zh-tw' || locale.includes('-tw') || locale.includes('hant')) return 'zh-TW'
-  if (locale.startsWith('zh')) return 'zh-CN'
-  if (locale.startsWith('ja')) return 'ja'
-  if (locale.startsWith('en')) return 'en'
-  return null
-}
-
 function detectLocale() {
+  const requested = requestedGameLocale(window.location.pathname, window.location.search)
+  if (requested) return requested
   try {
     const saved = normalizeLocale(window.localStorage.getItem(LOCALE_STORAGE_KEY))
     if (saved) return saved
@@ -33,6 +27,10 @@ function detectLocale() {
 
 export const locale = ref(typeof window === 'undefined' ? 'zh-CN' : detectLocale())
 
+function syncDocumentLanguage() {
+  document.documentElement.lang = mcrPageForPath(window.location.pathname)?.locale || locale.value
+}
+
 const ROUND_WINDS = ['东', '南', '西', '北']
 const ROUND_NUMBERS = ['一', '二', '三', '四']
 
@@ -42,7 +40,7 @@ export function roundLabelKey(roundCounter, format = 'wind-seat', targetLocale =
   const index = Math.max(0, Math.trunc(number) - 1)
   const prevailingWind = ROUND_WINDS[Math.floor(index / 4) % 4]
   const handIndex = index % 4
-  return targetLocale === 'en' || format === 'round-number'
+  return targetLocale === 'en' || targetLocale === 'fr' || format === 'round-number'
     ? `${prevailingWind}${ROUND_NUMBERS[handIndex]}局`
     : `${prevailingWind}风${ROUND_WINDS[handIndex]}`
 }
@@ -50,7 +48,7 @@ export function roundLabelKey(roundCounter, format = 'wind-seat', targetLocale =
 export function setLocale(value) {
   const next = normalizeLocale(value) || 'zh-CN'
   locale.value = next
-  if (typeof document !== 'undefined') document.documentElement.lang = next
+  if (typeof document !== 'undefined') syncDocumentLanguage()
   try {
     window.localStorage.setItem(LOCALE_STORAGE_KEY, next)
   } catch {
@@ -61,7 +59,7 @@ export function setLocale(value) {
 export function tr(source, params = {}, targetLocale = locale.value) {
   if (source == null) return ''
   const raw = String(source)
-  let translated = messages[targetLocale]?.[raw] ?? raw
+  let translated = messages[targetLocale]?.[raw] ?? messages[targetLocale]?.[raw.replace(/\s+/g, ' ').trim()] ?? raw
   if (translated === raw && targetLocale !== 'zh-CN') {
     for (const pattern of textPatterns[targetLocale] || []) {
       const match = raw.match(pattern.match)
@@ -110,8 +108,8 @@ export function installDomLocalization() {
       return
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return
-    if (node.hasAttribute?.('data-no-translate')) return
-    for (const attribute of ['aria-label', 'title', 'placeholder']) {
+    if (node.closest?.('[data-no-translate]')) return
+    for (const attribute of ['aria-label', 'title', 'placeholder', 'alt']) {
       if (!node.hasAttribute(attribute)) continue
       const key = `attr:${attribute}`
       const source = refresh && node[key] ? node[key] : node.getAttribute(attribute)
@@ -131,24 +129,30 @@ export function installDomLocalization() {
         if (mutation.type === 'characterData') {
           originals.delete(mutation.target)
           translateNode(mutation.target)
+        } else if (mutation.type === 'attributes') {
+          delete mutation.target[`attr:${mutation.attributeName}`]
+          translateNode(mutation.target)
         } else {
           for (const node of mutation.addedNodes) translateNode(node)
         }
       }
       observe()
     })
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true })
+    observer.observe(document.body, {
+      childList: true, subtree: true, characterData: true,
+      attributes: true, attributeFilter: ['aria-label', 'title', 'placeholder', 'alt'],
+    })
   }
 
   translateNode(document.body)
   observe()
   const stop = watch(locale, () => {
-    document.documentElement.lang = locale.value
+    syncDocumentLanguage()
     observer.disconnect()
     translateNode(document.body, true)
     observe()
   })
-  document.documentElement.lang = locale.value
+  syncDocumentLanguage()
   return () => {
     stop()
     observer?.disconnect()

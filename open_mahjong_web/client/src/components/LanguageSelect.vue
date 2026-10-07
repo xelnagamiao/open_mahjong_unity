@@ -21,6 +21,7 @@
       <option value="zh-HK">中(繁/港)</option>
       <option value="en">English</option>
       <option value="ja">日本語</option>
+      <option value="fr">Français</option>
     </select>
   </label>
 </template>

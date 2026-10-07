@@ -92,7 +92,7 @@
               class="mini-item link"
               :to="`/events/${ev.event_id}`"
             >
-              <span class="ev-name">{{ ev.name }}</span>
+              <span class="ev-name" data-no-translate>{{ ev.name }}</span>
               <span :class="['st', ev.status]">{{ eventStatusLabel(ev.status) }}</span>
             </router-link>
           </div>
@@ -622,6 +622,7 @@ onMounted(() => {
 
 .account-events .panel.platform-card .platform-2d-link {
   display: block;
+  flex-shrink: 0;
   padding: 9px 16px;
   background: #f59e0b;
   color: #fff;
@@ -688,6 +689,20 @@ onMounted(() => {
 
 .panel-actions .panel-btn {
   margin-top: 0;
+}
+
+.home:lang(fr) .panel-actions {
+  flex-wrap: wrap;
+}
+
+.home:lang(fr) .grid > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.home:lang(fr) .ad-slot {
+  padding: 16px;
+  text-align: center;
 }
 
 .apply-form {
@@ -895,6 +910,16 @@ onMounted(() => {
 }
 
 @media (max-width: 560px) {
+  .home:lang(fr) .g3,
+  .home:lang(fr) .g4,
+  .home:lang(fr) .g2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home:lang(fr) .ad-slot {
+    grid-column: auto;
+  }
+
   .welcome h1 {
     font-size: 1.25rem;
   }
