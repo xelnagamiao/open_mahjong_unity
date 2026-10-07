@@ -1,7 +1,7 @@
 """MIL《山西麻将（推广）竞赛规则（试行2023版）》第五、七、八节。
 
 牌值是点数，不能使用指数番表。公开面子只有碰和杠；暗手允许顺子。
-规则书的三处文字冲突及线上补则见 other/rule/shanxi/README.md。
+原始规则书来源见 other/rule/shanxi/README.md。
 """
 
 from collections import Counter

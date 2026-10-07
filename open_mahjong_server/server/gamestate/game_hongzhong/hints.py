@@ -9,17 +9,36 @@ def waiting(hand, melds):
     return tuple(sorted(book.waits(hand, melds)))
 
 
+@lru_cache(maxsize=4096)
+def ordinary_wait_details(hand, melds):
+    """Basic-shape scores only: no guessed replacement, birds or other timing."""
+    result = []
+    for tile in waiting(hand, melds):
+        detail = book.score(list(hand) + [tile], melds, winning_tile=tile, replacement=False)
+        if detail is not None:
+            result.append((tile, detail["fan"], detail["base_score"]))
+    return tuple(result)
+
+
+def _details(hand, melds):
+    return {tile: {"fan": fan, "base_score": points}
+            for tile, fan, points in ordinary_wait_details(tuple(sorted(hand)), melds)}
+
+
 @lru_cache(maxsize=1024)
 def compute_hand(hand, melds, winning_tile, replacement):
     payload = {"source_hand_tiles": list(hand), "source_melds": list(melds),
-               "waiting_tiles": [], "waiting_by_discard": {}}
+               "waiting_tiles": [], "waiting_by_discard": {}, "hint_version": 2,
+               "waiting_details": {}, "waiting_details_by_discard": {}}
     total = len(hand) + 3*len(melds)
     if total == 13:
         payload["waiting_tiles"] = list(waiting(tuple(sorted(hand)), melds))
+        payload["waiting_details"] = _details(hand, melds)
     elif total == 14:
         for tile in sorted(set(hand)):
             remaining = list(hand); remaining.remove(tile)
             payload["waiting_by_discard"][tile] = list(waiting(tuple(sorted(remaining)), melds))
+            payload["waiting_details_by_discard"][tile] = _details(remaining, melds)
     detail = book.score(hand, melds, winning_tile=winning_tile, replacement=replacement) if total == 14 else None
     return payload, detail
 
@@ -36,5 +55,8 @@ def match_hint(payload, hand, melds):
             remaining = list(original); remaining.remove(tile)
             if sorted(remaining) == sorted(hand):
                 return {"source_hand_tiles": list(hand), "source_melds": list(melds),
-                        "waiting_tiles": waits, "waiting_by_discard": {}}
+                        "waiting_tiles": waits, "waiting_by_discard": {},
+                        "hint_version": payload.get("hint_version", 1),
+                        "waiting_details": payload.get("waiting_details_by_discard", {}).get(tile, {}),
+                        "waiting_details_by_discard": {}}
     return None

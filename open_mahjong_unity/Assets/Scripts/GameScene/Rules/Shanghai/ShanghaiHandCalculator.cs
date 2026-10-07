@@ -88,6 +88,9 @@ internal static class ShanghaiHandCalculator {
         int ron = Score(query.HandWithWin, query.Melds, flowers, false, query.HepaiLimit);
         if (ron > 0) return WaitTileHint.Ron($"敲牌后 {ron}分");
         int tsumo = Score(query.HandWithWin, query.Melds, flowers, true, query.HepaiLimit);
-        return tsumo > 0 ? WaitTileHint.TsumoOnly($"敲牌后仅自摸 {tsumo}分") : WaitTileHint.None(query.HepaiLimit > 0 ? "普通和牌不足一番" : "花数不足");
+        if (tsumo > 0) return WaitTileHint.TsumoOnly($"敲牌后仅自摸 {tsumo}分");
+        // 其他普通和牌条件已满足时，才将起和番门槛不足单独标为“未起和”。
+        bool belowMinimum = query.HepaiLimit > 0 && Score(query.HandWithWin, query.Melds, flowers, true) > 0;
+        return WaitTileHint.None(belowMinimum ? "未起和" : "未满足");
     }
 }

@@ -28,10 +28,18 @@ public sealed class HongzhongKong {
     public Dictionary<int,int> changes;
 }
 [Serializable]
+public sealed class HongzhongWaitDetail {
+    public int fan, base_score;
+}
+[Serializable]
 public sealed class HongzhongHints {
+    public int hint_version;
+    public bool win_blocked;
     public int[] source_hand_tiles, waiting_tiles;
     public string[] source_melds;
     public Dictionary<int,int[]> waiting_by_discard;
+    public Dictionary<int,HongzhongWaitDetail> waiting_details;
+    public Dictionary<int,Dictionary<int,HongzhongWaitDetail>> waiting_details_by_discard;
 }
 [Serializable]
 public sealed class HongzhongBirdEvent {

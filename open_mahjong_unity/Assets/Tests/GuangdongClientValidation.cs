@@ -42,7 +42,8 @@ public static class GuangdongClientValidation {
         var hint=GuangdongServerTips.Describe(new WaitHintQuery{HandWithWin=withWin,HepaiTile=57,Melds=new List<string>()});
         Check("仅自摸及服务端分值",hint.Kind==WaitTileHint.KindTsumoOnly&&hint.Label.Contains("8分"));
         GuangdongServerTips.Accept(new GuangdongTips{hand=hand,melds=Array.Empty<string>(),waits=new[]{new GuangdongWait{tile=11,fan=3,score=16,ron=true}}},true);
-        Check("实时与牌谱缓存隔离",GuangdongServerTips.Waiting(query,true).SetEquals(new[]{11})&&GuangdongServerTips.Waiting(query,false).SetEquals(new[]{57}));
+        var localWaiting=GuangdongBaseHints.Waiting(query.Hand,query.Melds);
+        Check("牌谱补算且实时缓存隔离",GuangdongServerTips.Waiting(query,true).SetEquals(localWaiting)&&GuangdongServerTips.Waiting(query,false).SetEquals(new[]{57}));
         GuangdongServerTips.Accept(new GuangdongTips{hand=hand.Concat(new[]{58}).ToArray(),melds=Array.Empty<string>(),discard_waits=new Dictionary<int,GuangdongWait[]>{{58,new[]{new GuangdongWait{tile=11,fan=2,score=8,ron=true}}}}});
         Check("摸牌后弃鬼提示",GuangdongServerTips.Waiting(query,false).SetEquals(new[]{11}));
         GuangdongServerTips.Accept(null);
@@ -62,9 +63,9 @@ public static class GuangdongClientValidation {
         Check("鬼牌余张唯一",RecordWaitHintCalculator.Remaining(55,new Dictionary<int,int>(),manifest)==1);
         GuangdongServerTips.Accept(payload,true,1);
         GuangdongServerTips.Accept(new GuangdongTips{hand=hand,melds=Array.Empty<string>(),waits=Array.Empty<GuangdongWait>()},true,2);
-        Check("牌谱座位提示隔离",GuangdongServerTips.Waiting(query,true,1).Count==1&&GuangdongServerTips.Waiting(query,true,2).Count==0);
+        Check("牌谱按各座位手牌补算",GuangdongServerTips.Waiting(query,true,1).SetEquals(localWaiting)&&GuangdongServerTips.Waiting(query,true,2).SetEquals(localWaiting));
         GuangdongServerTips.Accept(new GuangdongTips{hand=hand,melds=Array.Empty<string>(),waits=Array.Empty<GuangdongWait>()},true,1);
-        Check("旧提示随新快照失效",GuangdongServerTips.Waiting(query,true,1).Count==0);
+        Check("旧空快照不屏蔽结构听牌",GuangdongServerTips.Waiting(query,true,1).SetEquals(localWaiting));
         var total=GuangdongMilRules.RoundChanges(new GuangdongResult{kong_changes=new[]{6,-2,-2,-2},win_changes=new[]{36,-12,-12,-12}},null);
         Check("即时杠和牌全局历史净分",total[0]==42&&total[1]==-14);
         total=GuangdongMilRules.RoundChanges(new GuangdongResult{draw=true,kong_changes=new[]{6,-2,-2,-2},refund_changes=new[]{-6,2,2,2}},null);
@@ -81,9 +82,54 @@ public static class GuangdongClientValidation {
         separate.ron_score=10;separate.self_draw_score=12;
         GuangdongServerTips.Accept(exact);
         Check("旧独立分协议保留可确认分数",GuangdongServerTips.Describe(exactQuery).Label=="点和10分\n自摸12分");
+        exactQuery.Record=new RecordTipsContext();
+        Check("无提示记录的牌谱独立番分",GuangdongServerTips.Describe(exactQuery).Label=="点和5番10分\n自摸6番12分");
+        exactQuery.Record.PlayersByPosition=new Dictionary<string,RecordTipsPlayerVisible>{{"self",new RecordTipsPlayerVisible{DiscardTiles=new List<int>{55,56}}}};
+        Check("牌谱出两鬼无鬼连续相乘",GuangdongServerTips.Describe(exactQuery).Label=="点和5番40分\n自摸6番48分");
+        int[] below={11,12,13,21,22,23,31,32,33,41,41,41,55};
+        var belowQuery=new WaitHintQuery{HandWithWin=below.Concat(new[]{45}).ToList(),HepaiTile=45,Melds=new List<string>(),Record=new RecordTipsContext()};
+        Check("未达门槛也保留结构候选",GuangdongServerTips.Waiting(new TingpaiQuery{Hand=below.ToList(),Melds=new List<string>(),RecordPlayerIndex=0}).Count==36);
+        var belowHint=GuangdongServerTips.Describe(belowQuery);
+        Check("牌谱未起和标签和类别",belowHint.Label=="未起和"&&belowHint.Kind==WaitTileHint.KindNone);
+        belowQuery.DetailedConfig=GuangdongMilRules.Detail(false);
+        Check("关闭四分门槛后自摸",GuangdongServerTips.Describe(belowQuery).Label=="自摸2番2分");
+        GuangdongServerTips.Accept(new GuangdongTips{hand=below,melds=Array.Empty<string>(),waits=new[]{new GuangdongWait{tile=45}}});
+        belowQuery.Record=null;
+        Check("实战未起和标签和类别",GuangdongServerTips.Describe(belowQuery).Label=="未起和"&&GuangdongServerTips.Describe(belowQuery).Kind==WaitTileHint.KindNone);
+        var impossible=new List<int>{11,12,13,21,22,23,31,32,33,41,41,41,41};
+        Check("第五张字牌不可由鬼替代",!GuangdongBaseHints.Waiting(impossible,new List<string>()).Contains(55));
+        Check("重复实体鬼库存无效",GuangdongBaseHints.Waiting(new List<int>{11,12,13,21,22,23,31,32,33,41,55,55,57},new List<string>()).Count==0);
+        var copy=GuangdongBaseHints.Waiting(below.ToList(),new List<string>());copy.Clear();
+        Check("牌谱候选缓存不泄露可变集合",GuangdongBaseHints.Waiting(below.ToList(),new List<string>()).Count==36);
+        void BasicScore(string name, int[] complete, int tile, string[] melds, int ron, int self) {
+            var result=GuangdongBaseHints.Evaluate(complete.ToList(),melds.ToList(),tile,true,0);
+            Check(name,result.ron==(ron>0)&&result.self_draw==(self>0)&&result.ron_fan==ron&&result.self_draw_fan==self);
+        }
+        int[] M(string digits)=>digits.Select(d=>10+d-'0').ToArray();
+        BasicScore("基础碰碰清一色",M("11122233344455"),15,Array.Empty<string>(),13,14);
+        BasicScore("基础幺九不重复碰碰",new[]{11,11,11,19,19,19,41,41,41,42,42,42,21,21},21,Array.Empty<string>(),13,14);
+        BasicScore("基础小三元",new[]{11,12,13,21,22,23,45,45,45,46,46,46,47,47},47,Array.Empty<string>(),13,14);
+        BasicScore("基础大三元叠加碰碰",new[]{11,11,11,45,45,45,46,46,46,47,47,47,22,22},22,Array.Empty<string>(),21,22);
+        BasicScore("基础大三元复合幺九",new[]{11,11,11,45,45,45,46,46,46,47,47,47,21,21},21,Array.Empty<string>(),29,30);
+        BasicScore("基础小四喜复合幺九",new[]{41,41,41,42,42,42,43,43,43,11,11,11,44,44},44,Array.Empty<string>(),29,30);
+        BasicScore("基础全字大四喜",new[]{41,41,41,42,42,42,43,43,43,44,44,44,45,45},45,Array.Empty<string>(),29,30);
+        BasicScore("基础七对不计门清",new[]{11,11,22,22,33,33,44,44,45,45,46,46,47,47},47,Array.Empty<string>(),6,7);
+        BasicScore("基础清七对",M("11223344556677"),17,Array.Empty<string>(),14,15);
+        BasicScore("基础十三幺不计门清",new[]{11,19,21,29,31,39,41,42,43,44,45,46,47,11},11,Array.Empty<string>(),16,17);
+        BasicScore("基础四鬼不加自摸",new[]{11,14,17,21,24,27,31,34,37,41,55,56,57,58},58,Array.Empty<string>(),0,12);
+        BasicScore("四鬼另解九莲取高",new[]{11,11,11,12,13,14,15,16,17,18,55,56,57,58},58,Array.Empty<string>(),0,17);
+        BasicScore("基础明杠副露计番",new[]{46,46,46,47,47,47,11,12,13,41,41},41,new[]{"g45"},20,21);
+        BasicScore("基础暗杠保留门清",new[]{46,46,46,47,47,47,11,12,13,41,41},41,new[]{"G45"},21,22);
+        BasicScore("闭手逻辑四张上限",M("1234444556677").Concat(new[]{55}).ToArray(),55,Array.Empty<string>(),0,10);
+        BasicScore("副露不占闭手逻辑上限",M("1234556677").Concat(new[]{55}).ToArray(),55,new[]{"k14"},0,9);
+        foreach(int tile in Enumerable.Range(11,9)) {
+            BasicScore("九莲自然和牌张 "+tile,M("1112345678999").Concat(new[]{tile}).ToArray(),tile,Array.Empty<string>(),16,17);
+        }
+        BasicScore("九莲鬼和牌张",M("1112345678999").Concat(new[]{55}).ToArray(),55,Array.Empty<string>(),0,17);
+
         GuangdongServerTips.Clear(); GuangdongServerTips.Clear(true);
         var report=JsonConvert.SerializeObject(new{scope="Guangdong client adapters only; runtime/network tests are separate",passed=passed.Count,checks=passed},Formatting.Indented);
-        string path=Path.GetFullPath(Path.Combine(Application.dataPath,"../../.om_workspace/mil-joker-forks-20261002/guangdong/client/unity-adapter-tests.json"));
+        string path=Path.GetFullPath(Path.Combine(Application.dataPath,"../../.om_workspace/guangdong-hints-fix-20261007/unity-adapter-tests.json"));
         Directory.CreateDirectory(Path.GetDirectoryName(path)); File.WriteAllText(path,report);
         Debug.Log(report); return report;
     }

@@ -429,7 +429,8 @@ public partial class Game3DManager : MonoBehaviour {
         GameObject tenbou = Instantiate(riichiTenbouPrefab, startTransform.position, endRot);
         tenbou.name = $"RiichiTenbou_{playerPosition}";
         tenbou.transform.SetParent(panel.tenbouPos.parent, worldPositionStays: true);
-        StartCoroutine(MoveTenbouCoroutine(tenbou, startTransform.position, endTransform, endRot, 0.6f));
+        tenbou.SetActive(false);
+        StartCoroutine(MoveRiichiTenbouAfterDiscardCoroutine(tenbou, playerPosition, startTransform.position, endTransform, endRot));
     }
 
     /// <summary>
@@ -799,16 +800,17 @@ public partial class Game3DManager : MonoBehaviour {
         Dictionary<string, GameRecordManager.RecordPlayer> players,
         string roomRule,
         HashSet<string> hiddenHandPositions,
-        IDictionary<string, object> detailedConfig = null, string subRule = null) {
+        IDictionary<string, object> detailedConfig = null, string subRule = null,
+        System.Func<GameRecordManager.RecordPlayer, RecordTipsContext> tipsContext = null) {
         if (players == null) return;
         if (!RecordSetting.Instance.IsShowCardsMode) return;
 
         Color overlayColor = Card3DHoverManager.Instance.DangerOverlayColor;
         float intensity = Card3DHoverManager.Instance.DangerOverlayIntensity;
 
-        ApplyChongHintForPosition("left", leftPosPanel.ShowCardsPosition, players, roomRule, hiddenHandPositions, overlayColor, intensity, detailedConfig, subRule);
-        ApplyChongHintForPosition("top", topPosPanel.ShowCardsPosition, players, roomRule, hiddenHandPositions, overlayColor, intensity, detailedConfig, subRule);
-        ApplyChongHintForPosition("right", rightPosPanel.ShowCardsPosition, players, roomRule, hiddenHandPositions, overlayColor, intensity, detailedConfig, subRule);
+        ApplyChongHintForPosition("left", leftPosPanel.ShowCardsPosition, players, roomRule, hiddenHandPositions, overlayColor, intensity, detailedConfig, subRule, tipsContext);
+        ApplyChongHintForPosition("top", topPosPanel.ShowCardsPosition, players, roomRule, hiddenHandPositions, overlayColor, intensity, detailedConfig, subRule, tipsContext);
+        ApplyChongHintForPosition("right", rightPosPanel.ShowCardsPosition, players, roomRule, hiddenHandPositions, overlayColor, intensity, detailedConfig, subRule, tipsContext);
     }
 
     private static void ApplyChongHintForPosition(
@@ -819,9 +821,10 @@ public partial class Game3DManager : MonoBehaviour {
         HashSet<string> hiddenHandPositions,
         Color overlayColor,
         float intensity,
-        IDictionary<string, object> detailedConfig, string subRule) {
+        IDictionary<string, object> detailedConfig, string subRule,
+        System.Func<GameRecordManager.RecordPlayer, RecordTipsContext> tipsContext) {
         if (hiddenHandPositions != null && hiddenHandPositions.Contains(position)) return;
-        HashSet<int> dangerTileIds = RecordChongHintCalculator.ComputeRonDangerForHandOwner(players, position, roomRule, detailedConfig, subRule);
+        HashSet<int> dangerTileIds = RecordChongHintCalculator.ComputeRonDangerForHandOwner(players, position, roomRule, detailedConfig, subRule, tipsContext);
         if (dangerTileIds.Count == 0) return;
         ApplyChongHintToShowCardsTransform(showCardsPosition, dangerTileIds, overlayColor, intensity);
     }

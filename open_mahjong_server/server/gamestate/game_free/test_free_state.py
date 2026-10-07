@@ -291,8 +291,13 @@ def test_dragged_meld_river_slot_preserves_identical_hand_tile_orientation() -> 
             assert player.combination_mask == [expected]
             assert player.hand_tiles == []
             assert owner.discard_tiles == []
-            for socket in sockets.values():
-                assert socket.messages[-1]["do_action_info"]["combination_mask"] == expected
+            for viewer, socket in enumerate(sockets.values()):
+                visible = list(expected)
+                if viewer != player.player_index:
+                    for index in range(0, len(visible), 2):
+                        if visible[index] == 2:
+                            visible[index + 1] = 0
+                assert socket.messages[-1]["do_action_info"]["combination_mask"] == visible
 
     asyncio.run(scenario())
 

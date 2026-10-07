@@ -52,7 +52,7 @@ for (const page of MCR_PAGES) {
 test('MCR descriptions, instructions and FAQ reflect French game support', () => {
   const french = mcrPageForPath('/fr/mcr')
   assert.match(french.description, /jeu en français/)
-  assert.match(french.gameNote, /s’ouvre en français/)
+  assert.match(french.gameNote, /s'ouvre en français/)
   assert.match(french.steps[0], /en français/)
   const frenchAnswer = french.faq.find((item) => item.question.includes('disponible en français')).answer
   assert.match(frenchAnswer, /^Oui\./)

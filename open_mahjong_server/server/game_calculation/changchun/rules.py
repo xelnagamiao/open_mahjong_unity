@@ -1,7 +1,6 @@
 """Pure, deterministic MIL Changchun rules; physical tiles never change identity.
 
 Source: MIL 长春麻将（推广）竞赛规则（试行2024版）pp.3–10.
-Platform clarifications are versioned in other/rule/changchun/platform.md.
 Special meld wire format: Ckind:physical,...:logical,... . The first three
 members establish one meld; subsequent members are individual added kongs.
 The encoding preserves the physical one-bamboo when another player robs it.

@@ -2,26 +2,15 @@ using System.Collections.Generic;
 
 /// <summary>
 /// 四川听牌与和牌张提示：默认允许 0 番平和，自定义起和番按房间配置判断；
-/// 手牌或副露仍含定缺牌时不提示听牌，并剔除定缺花色的和牌张。
+/// 基本牌型已听就显示听张；硬条件不满足显示“未满足”，起和番数不足显示“未起和”。
 /// </summary>
 internal static class SichuanTips {
     public static HashSet<int> Tingpai(TingpaiQuery q) {
-        int dingque = q.ExcludedSuit;
-        if (dingque >= 1 && dingque <= 3) {
-            if (q.Hand.Exists(t => t / 10 == dingque)) return new HashSet<int>();
-            if (q.Melds != null && q.Melds.Exists(m => m.Length > 1 && int.TryParse(m.Substring(1), out int tile) && tile / 10 == dingque)) return new HashSet<int>();
-        }
         // 血流弃三张后的逻辑手牌为 10 张；包含副露的标准川麻始终为 13 张。
         if (SichuanLobby.IsXueliu(q.SubRule) || q.Hand.Count + (q.Melds?.Count ?? 0) * 3 == 10) {
-            HashSet<int> result = XueliuTips.Tingpai(q.Hand, q.Melds, q.SubRule == "sichuan/xueliu_exchange" ? 4 : 3, UsesExchangeScoring(q.SubRule, q.DetailedConfig));
-            result.RemoveWhere(t => t / 10 == dingque);
-            return result;
+            return XueliuTips.Tingpai(q.Hand, q.Melds, q.SubRule == "sichuan/xueliu_exchange" ? 4 : 3, UsesExchangeScoring(q.SubRule, q.DetailedConfig));
         }
-        HashSet<int> waiting = SichuanExternal.TingpaiCheck(q.Hand, q.Melds ?? new List<string>());
-        if (dingque >= 1 && dingque <= 3) {
-            waiting.RemoveWhere(w => (w / 10) == dingque);
-        }
-        return waiting;
+        return SichuanExternal.TingpaiCheck(q.Hand, q.Melds ?? new List<string>());
     }
 
     internal static bool UsesExchangeScoring(string subRule, Dictionary<string, object> config) {
@@ -31,20 +20,29 @@ internal static class SichuanTips {
     }
 
     public static WaitTileHint Describe(WaitHintQuery q) {
+        int dingque = q.ExcludedSuit;
+        if (dingque >= 1 && dingque <= 3
+            && (q.HandWithWin.Exists(t => t / 10 == dingque)
+                || (q.Melds != null && q.Melds.Exists(m => m.Length > 1
+                    && int.TryParse(m.Substring(1), out int tile) && tile / 10 == dingque)))) {
+            return WaitTileHint.None("未满足");
+        }
         if (SichuanLobby.IsXueliu(q.SubRule)) {
             int meldCount = q.SubRule == "sichuan/xueliu_exchange" ? 4 : 3;
             bool exchange = UsesExchangeScoring(q.SubRule, q.DetailedConfig);
             int ron = XueliuTips.Fan(q.HandWithWin, q.Melds, false, meldCount, exchange);
-            if (ron > 0 && ron >= q.HepaiLimit) return WaitTileHint.Ron($"{ron}番");
             int zimo = XueliuTips.Fan(q.HandWithWin, q.Melds, true, meldCount, exchange);
+            if (ron > 0 && ron >= q.HepaiLimit) {
+                return WaitTileHint.Ron(zimo > ron ? $"点和{ron}番\n自摸{zimo}番" : $"{ron}番");
+            }
             return zimo > 0 && zimo >= q.HepaiLimit
                 ? WaitTileHint.TsumoOnly($"仅自摸 {zimo}番")
-                : WaitTileHint.None("未起和");
+                : WaitTileHint.None(zimo > 0 ? "未起和" : "未满足");
         }
         var result = SichuanExternal.HepaiCheck(q.HandWithWin, q.Melds, new List<string>(), q.HepaiTile, q.ExcludedSuit, false);
         return result.Item2.Count > 0 && result.Item1 >= q.HepaiLimit
             ? WaitTileHint.Ron($"{result.Item1}番")
-            : WaitTileHint.None("未起和");
+            : WaitTileHint.None(result.Item2.Count > 0 ? "未起和" : "未满足");
     }
 }
 
@@ -57,7 +55,7 @@ internal static class XueliuTips {
             for (int rank = 1; rank <= 9; rank++) {
                 int tile = suit * 10 + rank;
                 candidate.Add(tile);
-                if (Fan(candidate, melds, false, meldCount, modernExchange) > 0) waits.Add(tile);
+                if (EvaluateFan(candidate, melds, false, meldCount, modernExchange, false) > 0) waits.Add(tile);
                 candidate.RemoveAt(candidate.Count - 1);
             }
         }
@@ -65,6 +63,10 @@ internal static class XueliuTips {
     }
 
     public static int Fan(List<int> hand, List<string> melds, bool zimo, int meldCount = 3, bool modernExchange = false) {
+        return EvaluateFan(hand, melds, zimo, meldCount, modernExchange, true);
+    }
+
+    private static int EvaluateFan(List<int> hand, List<string> melds, bool zimo, int meldCount, bool modernExchange, bool requireMissingSuit) {
         melds = melds ?? new List<string>();
         if ((meldCount != 3 && meldCount != 4) || melds.Count > meldCount || hand.Count != (meldCount - melds.Count) * 3 + 2) return 0;
         var counts = new int[40];
@@ -85,7 +87,7 @@ internal static class XueliuTips {
             concealed &= sign == 'G';
             kongFan += sign == 'G' ? 2 : sign == 'g' ? 1 : 0;
         }
-        if (suits.Count > 2) return 0;
+        if (requireMissingSuit && suits.Count > 2) return 0;
         foreach (int count in physical) if (count > 4) return 0;
         int roots = 0;
         bool noTerminals = true;

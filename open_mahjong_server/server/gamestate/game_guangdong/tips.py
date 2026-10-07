@@ -21,13 +21,7 @@ def calculate_tip_batch(requests):
                 remainder.remove(cut)
                 after_cut = replace(context, heavenly=False, earthly=False, kong_flower=False,
                     discarded_ghosts=context.discarded_ghosts + (cut in config.GHOSTS))
-                threshold = passed_score
-                if cut not in config.GHOSTS:
-                    declined = rules.score(hand, melds, winning_tile=cut,
-                        context=replace(context, self_draw=False, heavenly=False, earthly=False, kong_flower=False))
-                    if declined:
-                        threshold = max(threshold, declined["base_score"])
-                waits = rules.waiting_scores(remainder, melds, context=after_cut, passed_base_score=threshold)
+                waits = rules.waiting_scores(remainder, melds, context=after_cut)
                 if waits:
                     payload["discard_waits"][str(cut)] = waits
         result.append(payload)
@@ -61,7 +55,7 @@ class GuangdongTipsMixin:
         return (hand, melds, context, player.passed_base_score)
 
     async def prepare_private_fields(self, indices):
-        if not self.tips:
+        if not self.tips and not self.count_tips:
             return
         requests = [(i, self._tips_key(i)) for i in indices if i in range(4)]
         requests = [(i, key) for i, key in requests
@@ -82,7 +76,7 @@ class GuangdongTipsMixin:
         return {"hand": list(key[0]), "melds": list(key[1]), "waits": [], "discard_waits": {}}
 
     def record_guangdong_tips(self, index):
-        if not self.tips or not self.game_record.get("game_round", {}).get(f"round_index_{self.round_index}"):
+        if not (self.tips or self.count_tips) or not self.game_record.get("game_round", {}).get(f"round_index_{self.round_index}"):
             return
         payload = self.guangdong_tips(index)
         if self._recorded_tips.get(index) != payload:
@@ -90,7 +84,7 @@ class GuangdongTipsMixin:
             self._recorded_tips[index] = payload
 
     def build_private_game_info_fields(self, index):
-        return {"guangdong_tips": self.guangdong_tips(index)} if self.tips and index in range(4) else {}
+        return {"guangdong_tips": self.guangdong_tips(index)} if (self.tips or self.count_tips) and index in range(4) else {}
 
     def build_private_hand_action_info(self, index):
         player = self.player_list[index]

@@ -14,6 +14,13 @@ public sealed class HongzhongGameState : TurnBasedGameState {
     private UnityEngine.Coroutine settlementCoroutine;
     private Game3DManager settlementHost;
 
+    public WaitTileHint DescribeWaiting(WaitHintQuery query) => Hints.Describe(query, SeatHasTag("self", tag => tag == "peida"));
+
+    public override void OnPlayerTagsRefreshed() {
+        base.OnPlayerTagsRefreshed();
+        if (Manager?.tips == true) TipsContainer.Instance?.RefreshTenpaiTipsIfCached();
+    }
+
     protected override void OnRoundStarted(GameInfo info) {
         CancelPendingSettlement();
         RoundEndPresentation.Instance?.StopActiveSequence();
@@ -26,6 +33,10 @@ public sealed class HongzhongGameState : TurnBasedGameState {
             GameCanvas.Instance.ChangeHandCards("SyncHandCards", 0, tiles.Take(tiles.Length - 1).ToArray(), null);
             GameCanvas.Instance.ChangeHandCards("GetCardNoAnimation", tiles[tiles.Length - 1], null, null);
         }
+        // Spectator initialization queries tips before this hook loads private hints.
+        // Rebuild the stable marker only after the matching authoritative cache is ready.
+        if (Manager?.tips == true && Mirror?.Self != null && TipsBlock.Instance != null && TipsContainer.Instance != null)
+            TipsBlock.Instance.ShowTipsBlock(Mirror.SelfHandTiles, Mirror.Self.combination_tiles ?? new List<string>());
     }
     protected override void OnAskHandAction(Response response) {
         Hints.Accept(response.ask_hand_action_info?.hongzhong_hints);

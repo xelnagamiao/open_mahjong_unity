@@ -2,7 +2,7 @@ export const GUANGDONG_MIL_SUB_RULE = 'guangdong/mil2023'
 export const TUIDAO_SUB_RULE = 'guangdong/tuidao_mil2024'
 export const guangdongProfiles = Object.freeze([
   { value: TUIDAO_SUB_RULE, label: '推倒和（MIL 2024，无癞子）', description: '136张，报听可选，头跳，32番封顶，另加2底分。未启用地方附录的万能牌等补则。', book: '推倒和麻将（推广）竞赛规则（试行2024版）.pdf' },
-  { value: GUANGDONG_MIL_SUB_RULE, label: '广东麻将（MIL 2023，花鬼）', description: '140张，梅兰竹菊为鬼牌，留手不补花；不吃，不报听，头跳。至少2番，默认同时满足4分起和；自摸翻剩余牌墙前4张奖马，流局退杠分。平台补则：无鬼×2与每张出鬼×2连续相乘，出2鬼且无鬼为×8。', book: '广东麻将（推广）竞赛规则（试行2023版）.pdf' },
+  { value: GUANGDONG_MIL_SUB_RULE, label: '广东麻将（MIL 2023，花鬼）', description: '140张，梅兰竹菊为鬼牌，留手不补花；不吃，不报听，头跳。至少2番，默认同时满足4分起和；自摸翻剩余牌墙前4张奖马，流局退杠分。', book: '广东麻将（推广）竞赛规则（试行2023版）.pdf' },
 ])
 
 export function loadGuangdongForm(form, config = {}) {

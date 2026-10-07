@@ -15,7 +15,7 @@ from .action_check import (
     compute_kuikae_forbidden,
     _chi_pair_has_valid_discard,
 )
-from .boardcast import broadcast_do_action, broadcast_ready_status, broadcast_declare_riichi, broadcast_refresh_player_tag_list
+from .boardcast import broadcast_do_action, broadcast_ready_status, broadcast_declare_riichi, broadcast_riichi_accepted, broadcast_refresh_player_tag_list
 from ..public.logic_common import get_index_relative_position
 from ..public.game_record_manager import (
     player_action_record_cut,
@@ -393,7 +393,7 @@ async def wait_action(self):
                     if getattr(discarder, "pending_riichi", False):
                         discarder.skip_ippatsu = True
                     await _clear_ippatsu_and_notify(self)
-                    _commit_pending_riichi(self)
+                    await _accept_pending_riichi(self)
                     # 食替：吃/碰后到本家切牌前不可丢回的牌（吃来源 + 两面搭子的筋）
                     # 浪涌麻将可食替：不设禁切牌，允许吃什么打什么。
                     if self._kuikae_enabled() and action_type in ("chi_left", "chi_mid", "chi_right", "peng"):
@@ -409,7 +409,7 @@ async def wait_action(self):
 
                 if action_type == "pass":
                     await finalize_claim_protection(self, _send_do_action_payload_to_viewer)
-                    _commit_pending_riichi(self)
+                    await _accept_pending_riichi(self)
                     _apply_passed_ron_furiten(self, ron_eligible_indexes)
                     # 立直振听/同巡振听挂上后立刻同步给客户端，否则 furiten 图标需等到下次广播才显示
                     if self.sync_furiten_tags():
@@ -422,7 +422,7 @@ async def wait_action(self):
                     return
             else:
                 await finalize_claim_protection(self, _send_do_action_payload_to_viewer)
-                _commit_pending_riichi(self)
+                await _accept_pending_riichi(self)
                 _apply_passed_ron_furiten(self, ron_eligible_indexes)
                 if self.sync_furiten_tags():
                     await broadcast_refresh_player_tag_list(self)
@@ -611,7 +611,7 @@ async def _execute_cut(
         if has_ron:
             self.game_status = "waiting_action_after_cut"
         else:
-            _commit_pending_riichi(self)
+            await _accept_pending_riichi(self)
             self.hu_class = "four_kan_abort"
             self.game_status = "END"
         return
@@ -619,7 +619,7 @@ async def _execute_cut(
     if any(self.action_dict[i] for i in self.action_dict):
         self.game_status = "waiting_action_after_cut"
     else:
-        _commit_pending_riichi(self)
+        await _accept_pending_riichi(self)
         _apply_passed_ron_furiten(self, getattr(self, '_ron_shape_waiters', []))
         if self.sync_furiten_tags():
             await broadcast_refresh_player_tag_list(self)
@@ -635,6 +635,7 @@ def _is_first_discard_untouched(self, player_index: int) -> bool:
 
 
 def _commit_pending_riichi(self):
+    accepted = []
     for p in self.player_list:
         if getattr(p, "pending_riichi", False):
             if not self._can_declare_riichi_by_score(p.score):
@@ -650,6 +651,13 @@ def _commit_pending_riichi(self):
             player_action_record_riichi(self, player_index=p.player_index, is_daburu=p.pending_daburu)
             if option(self, 'ippatsu') and not getattr(p, "skip_ippatsu", False) and "ippatsu" not in p.tag_list:
                 p.tag_list.append("ippatsu")
+            accepted.append(p.player_index)
+    return accepted
+
+
+async def _accept_pending_riichi(self):
+    for player_index in _commit_pending_riichi(self):
+        await broadcast_riichi_accepted(self, player_index)
 
 
 def _clear_ippatsu(self):

@@ -17,15 +17,15 @@ class Recording:
 
     def build_record_round_fields(self):
         return dict(wenzhou=dict(self.wenzhou_info(),start_scores=list(self.round_start_scores)),
-                    wenzhou_waits={i:self.authoritative_waits(i) for i in range(4)})
+                    wenzhou_waits={i:self.authoritative_waits(i,for_record=True) for i in range(4)})
 
     def record_waits(self):
-        if not self._has_active_round_record() or not self.tips:
+        if not self._has_active_round_record():
             return
         if not hasattr(self,"_recorded_waits"):
             self._recorded_waits = {}
         for i in range(4):
-            value = self.authoritative_waits(i)
+            value = self.authoritative_waits(i,for_record=True)
             if self._recorded_waits.get(i) != value:
                 self._recorded_waits[i] = copy.deepcopy(value)
                 record.append_action_tick(self,["wenzhou","waits",i,value])

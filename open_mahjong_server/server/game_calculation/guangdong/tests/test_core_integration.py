@@ -94,9 +94,11 @@ def test_nine_gates_requires_prewin_shape_not_just_complete_multiset():
 def test_waits_distinguish_self_draw_ron_threshold_and_copy_safe_cache():
     hand = [11, 12, 13, 21, 22, 23, 31, 32, 33, 41, 41, 41, 45]
     details = waiting_scores(hand)
-    assert details == [{"tile": 45, "fan": 2, "score": 4, "ron": False,
+    assert details[0] == {"tile": 45, "fan": 2, "score": 4, "ron": False,
                        "ron_fan": 0, "self_draw_fan": 2,
-                       "self_draw": True, "ron_score": 0, "self_draw_score": 4}]
+                       "self_draw": True, "ron_score": 0, "self_draw_score": 4}
+    assert {item["tile"] for item in details} == set(structural_waits(hand))
+    assert all(not item["ron"] and not item["self_draw"] for item in details[1:])
     details[0]["score"] = -1
     assert waiting_scores(hand)[0]["score"] == 4
     assert set(structural_waits(hand)) == {45, 55, 56, 57, 58}
@@ -108,9 +110,35 @@ def test_wait_hint_keeps_ron_and_self_draw_fan_and_points_separate():
     assert detail["ron"] and detail["self_draw"]
     assert (detail["ron_fan"], detail["ron_score"]) == (5, 10)
     assert (detail["self_draw_fan"], detail["self_draw_score"]) == (6, 12)
-    blocked = next(x for x in waiting_scores(hand, passed_base_score=10) if x["tile"] == 45)
-    assert not blocked["ron"] and blocked["ron_fan"] == blocked["ron_score"] == 0
-    assert (blocked["self_draw_fan"], blocked["self_draw_score"]) == (6, 12)
+    assert waiting_scores(hand, passed_base_score=10) == waiting_scores(hand)
+
+
+def test_structural_wait_below_minimum_is_kept_and_score_toggle_does_not_change_shape():
+    hand = [11, 12, 13, 21, 22, 23, 31, 32, 33, 41, 41, 41, 55]
+    normal = waiting_scores(hand)
+    relaxed = waiting_scores(hand, context=Context(require_minimum_score=False))
+    assert {item["tile"] for item in normal} == set(structural_waits(hand))
+    assert len(normal) == 36
+    assert {item["tile"] for item in normal} == {item["tile"] for item in relaxed}
+    below = next(item for item in normal if item["tile"] == 45)
+    eligible = next(item for item in relaxed if item["tile"] == 45)
+    assert not below["ron"] and not below["self_draw"] and below["score"] == 0
+    assert not eligible["ron"] and eligible["self_draw"]
+    assert (eligible["self_draw_fan"], eligible["self_draw_score"]) == (2, 2)
+
+
+def test_basic_hints_do_not_predict_accidental_fans_or_passed_win():
+    hand = [21, 22, 23, 31, 32, 33, 41, 41, 41, 45]
+    accidental = Context(rob_kong=True, last_tile=True, kong_flower=True,
+                         heavenly=True, earthly=True)
+    baseline = waiting_scores(hand, ["k11"])
+    assert baseline
+    assert waiting_scores(hand, ["k11"], context=accidental, passed_base_score=100) == baseline
+    target = next(item for item in baseline if item["tile"] == 45)
+    assert not target["ron"] and not target["self_draw"]
+    # 这里只改变提示；实际抢杠/杠上花仍可以达到起和门槛。
+    assert score(hand + [45], ["k11"], context=Context(rob_kong=True))["base_score"] == 8
+    assert score(hand + [45], ["k11"], context=Context(self_draw=True, kong_flower=True))["base_score"] == 10
 
 
 @pytest.mark.parametrize("hand,melds", [(None, []), ([], None), ({11, 12}, []), ([True] * 14, []), ([11] * 14, []),

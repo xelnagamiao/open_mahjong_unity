@@ -14,7 +14,8 @@ internal static class QinghunpengHandCalculator {
         if (hand == null || hand.Count + melds.Count * 3 != 13) return result;
         foreach (int tile in Tiles) {
             var candidate = new List<int>(hand) { tile };
-            if (Score(candidate, melds, 0, true) > 0) result.Add(tile);
+            // Keep structural waits visible even before a starting pattern is satisfied.
+            if (Decompositions(candidate, melds).Count > 0 || Score(candidate, melds, 0, true) > 0) result.Add(tile);
         }
         return result;
     }
@@ -99,6 +100,6 @@ internal static class QinghunpengHandCalculator {
         int ron = Score(query.HandWithWin, query.Melds, flowers, false);
         if (ron > 0) return WaitTileHint.Ron($"{ron}花（{ron * multiplier}分）" + (multiplier == 2 ? " 荒番" : ""));
         int tsumo = Score(query.HandWithWin, query.Melds, flowers, true);
-        return tsumo > 0 ? WaitTileHint.TsumoOnly($"仅自摸 {tsumo}花（{tsumo * multiplier}分）" + (multiplier == 2 ? " 荒番" : "")) : WaitTileHint.None("无起和番");
+        return tsumo > 0 ? WaitTileHint.TsumoOnly($"仅自摸 {tsumo}花（{tsumo * multiplier}分）" + (multiplier == 2 ? " 荒番" : "")) : WaitTileHint.None("未满足");
     }
 }

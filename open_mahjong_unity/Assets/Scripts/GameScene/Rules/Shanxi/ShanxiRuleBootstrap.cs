@@ -25,7 +25,8 @@ internal static class ShanxiRuleBootstrap {
             SettlementTotal = q => new SettlementTotalDisplay { FanText = "和牌基本分", ScoreText = $"{q.HuScore}分" },
             ActionCaption = word => word == "riichi" || word == "riichi_cut" ? "报听"
                 : word == "riichi_cut_cancel" ? "取消报听" : null,
-            ActionVoice = word => word == "riichi" || word == "riichi_cut" ? "baoting" : null,
+            // 五-5专条要求“报听”；六-2规定和牌报“和”。
+            ActionVoice = word => word == "riichi" || word == "riichi_cut" ? "baoting" : word == "hu_self" ? "hu" : null,
             HasFlowerReplacement = false,
             RonWinTileTravelsFromRiver = true,
             PeekAnkan = true, PublicReadyStateReplay = true, DefaultHepaiLimit = 0,

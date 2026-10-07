@@ -74,6 +74,7 @@ public static class RecordWaitHintCalculator {
             counts[key] = count + 1;
         }
         if (hand != null) foreach (int tile in hand) Add(tile);
+        if (ctx.SelfKnownConcealedDiscards != null) foreach (int tile in ctx.SelfKnownConcealedDiscards) Add(tile);
         if (pendingCut.HasValue) Add(pendingCut.Value);
         if (ctx.DoraIndicators != null) foreach (int tile in ctx.DoraIndicators) Add(tile);
         if (ctx.PlayersByPosition == null) return counts;

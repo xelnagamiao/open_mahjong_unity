@@ -86,6 +86,15 @@ internal static class ShanxiHandCalculator {
         int ron = Score(query.HandWithWin, query.Melds, query.HepaiTile, false);
         if (ron > 0) return WaitTileHint.Ron($"报听后基本分 {ron}分");
         int tsumo = Score(query.HandWithWin, query.Melds, query.HepaiTile, true);
-        return tsumo > 0 ? WaitTileHint.TsumoOnly($"报听后仅自摸 基本分 {tsumo}分") : WaitTileHint.None("和牌张不足三点");
+        if (tsumo > 0) {
+            var hand = new List<int>(query.HandWithWin);
+            hand.Remove(query.HepaiTile);
+            // 基本听牌型仍显示；只有低点听口时不能满足六点报听的基本条件。
+            // 分值按报听后估计，不按过水或临时状态隐藏听牌。
+            if (Waits(hand, query.Melds).Any(tile => TilePoints(tile) >= 6))
+                return WaitTileHint.TsumoOnly($"报听后仅自摸 基本分 {tsumo}分");
+            return WaitTileHint.None("未满足");
+        }
+        return WaitTileHint.None("未起和");
     }
 }

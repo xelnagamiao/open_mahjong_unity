@@ -133,7 +133,8 @@ public static class FreeActionWords {
         var tiles = new List<int>();
         if (mask == null) return tiles;
         for (int i = 0; i + 1 < mask.Length; i += 2) {
-            if (mask[i + 1] > 10) tiles.Add(mask[i + 1]);
+            // 0 是他家倒扣的未知牌，创建和收回副露仍须计入手牌数量。
+            if (mask[i + 1] == 0 || mask[i + 1] > 10) tiles.Add(mask[i + 1]);
         }
         return tiles;
     }

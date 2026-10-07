@@ -30,6 +30,8 @@ class Protocol:
                     total_hands=self.max_round*4, match_finishing=self.match_finishing,
                     opening_revealed=self.opening_revealed, action_clock=action_clock,
                     self_has_draw_slot=not ended and viewer in range(4) and self.player_list[viewer].has_draw_slot,
+                    self_ready_qualification=(self.player_list[viewer].ready_kind or "none") if viewer in range(4) else "none",
+                    self_ready_pending=viewer in range(4) and self.player_list[viewer].ready_pending,
                     chickens=[asdict(c) for c in self.chickens.values()], kongs=kongs,
                     seat_to_original=[p.original_player_index for p in self.player_list],
                     ledger=self.round_settlement.as_dict() if ended and self.round_settlement else None)

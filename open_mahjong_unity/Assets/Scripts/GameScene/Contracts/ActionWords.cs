@@ -57,6 +57,9 @@ public sealed class ActionWordSpec {
     /// <summary>按钮显示优先级；为空时按语义类别排序，不影响规则裁定或自动操作。</summary>
     public int? DisplayPriority;
 
+    /// <summary>本动作需要保留手动选择窗口，出现时阻止自动摸切。</summary>
+    public bool BlocksAutoCut;
+
     /// <summary>按钮文案；为 null 表示核心用自己的文案表（标准词都走核心文案）。</summary>
     public Func<string, string> Label;
 
@@ -157,6 +160,8 @@ public static class ActionWords {
     }
 
     public static bool Is(string word, ActionWordKind kind) => KindOf(word) == kind;
+
+    public static bool BlocksAutoCut(string word) => TryGet(word, out ActionWordSpec spec) && spec.BlocksAutoCut;
 
     /// <summary>从左到右：吃、碰、杠、特殊操作、和牌、取消、放弃。</summary>
     public static int DisplayPriorityOf(string word) {

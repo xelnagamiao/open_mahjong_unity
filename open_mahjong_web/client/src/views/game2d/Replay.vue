@@ -446,6 +446,7 @@ import {
 } from '@/game2d/lib/sceneAppearance'
 import { tingpaiCheck } from '@/game2d/calc/guobiao'
 import { buildLocalWaitData } from '@/game2d/calc/guobiao/waitTips'
+import { buildShanxiWaitData, shanxiWaits, shanxiMeldTiles, shanxiKnownConcealedDiscards } from '@/game2d/calc/shanxi/waitTips'
 import { mmcrTileToSalasasa, salasasaTileToMmcr } from '@/game2d/salasasa/gameAdapter'
 import { formatFanField, resolveFanLabel } from '@/constants/guessFanCatalog'
 import { lanshiFanPoints } from '@/game2d/calc/guobiao/lanshiV4'
@@ -464,15 +465,17 @@ import ReplayIndependentWall from './ReplayIndependentWall.vue'
 import SceneAppearancePanel from './SceneAppearancePanel.vue'
 import TileFaceImage from './TileFaceImage.vue'
 import GuizhouReplayLedger from '@/components/GuizhouReplayLedger.vue'
-import { guizhouInfoAt, parseGuizhouFan } from '@/utils/guizhouReplay.js'
+import { guizhouInfoAt, guizhouReadyAt, parseGuizhouFan } from '@/utils/guizhouReplay.js'
+import { buildGuizhouWaitData, guizhouRonWaitingTiles } from '@/game2d/calc/guizhou/waitTips'
 import { parseYixingFan } from '@/utils/yixingReplay.js'
 import { parseWenzhouFan, wenzhouInfoAt, wenzhouTileName, wenzhouLedgerRows, wenzhouLedgerEntries, wenzhouWaitData, wenzhouWaitsAt } from '@/utils/wenzhouReplay.js'
 import { parseHangzhouFan, hangzhouInfoAt, hangzhouKnownTiles, hangzhouWaitDataAt, hangzhouNormalDrawableWallIndices } from '@/utils/hangzhouReplay.js'
 import HangzhouReplayState from '@/components/HangzhouReplayState.vue'
 import HongzhongReplayDetail from '@/components/HongzhongReplayDetail.vue'
 import ChangchunReplayDetail from '@/components/ChangchunReplayDetail.vue'
-import { changchunInfoAt, CHANGCHUN_FANS } from '@/utils/changchunReplay.js'
-import { hongzhongInfoAt, hongzhongKongEventsAt, parseHongzhongFan } from '@/utils/hongzhongReplay.js'
+import { changchunInfoAt, isChangchunRecord, CHANGCHUN_FANS } from '@/utils/changchunReplay.js'
+import { buildChangchunWaitData, qualifiedWaits as changchunQualifiedWaits } from '@/game2d/calc/changchun'
+import { hongzhongInfoAt, hongzhongKongEventsAt, parseHongzhongFan, hongzhongWaitDataAt, hongzhongKnownTiles } from '@/utils/hongzhongReplay.js'
 import { guangdongInfoAt, isGuangdongMilRecord, parseGuangdongFan } from '@/utils/guangdongReplay.js'
 import GuangdongReplayLedger from '@/components/GuangdongReplayLedger.vue'
 
@@ -852,7 +855,7 @@ const wallTiles = computed(() => replay.value?.wallViewAt(roundIndex.value, node
 const replayDangerBySeat = computed(() => {
   const snapshot = resultPosition.value?.snapshot
   const dangerBySeat = new Map<number, Set<number>>()
-  if (!snapshot || !chongHintEnabled.value || detail.value?.rule === 'hangzhou') return dangerBySeat
+  if (!snapshot || !chongHintEnabled.value || ['hangzhou', 'hongzhong'].includes(detail.value?.rule || '')) return dangerBySeat
 
   const waitsBySeat = new Map<number, Set<number>>()
   for (const seat of snapshot.seats) {
@@ -1371,6 +1374,9 @@ function renderPosition() {
 }
 
 function meldKey(meld: MeldSnapshot): string {
+  if (isChangchunRecord(detail.value) && meld.special_kind && meld.physical_tiles && meld.logical_tiles) {
+    return `C${meld.special_kind}:${meld.physical_tiles.map(mmcrTileToSalasasa).join(',')}:${meld.logical_tiles.map(mmcrTileToSalasasa).join(',')}`
+  }
   const tile = mmcrTileToSalasasa(meld.tile)
   if (meld.type === 'sequence') return `s${tile}`
   if (meld.type === 'triplet') return `k${tile}`
@@ -1382,9 +1388,30 @@ function waitDataForSnapshot(snapshot: ActiveSessionSnapshot) {
   if (!viewer?.hand_tiles) return null
   const hand = viewer.hand_tiles.map(mmcrTileToSalasasa)
   if (viewer.drawn_tile != null) hand.push(mmcrTileToSalasasa(viewer.drawn_tile))
+  if (isChangchunRecord(detail.value)) return buildChangchunWaitData({
+    hand, combinations: viewer.melds.map(meldKey), playerIndex: viewer.seat_index,
+    seatDiscards: snapshot.seats.map(seat => seat.discard_pile.map(mmcrTileToSalasasa)),
+    seatCombinations: snapshot.seats.map(seat => seat.melds.map(meldKey)),
+    knownTiles: changchunInfo.value?.tile ? [changchunInfo.value.tile] : [],
+  }, viewer.drawn_tile != null)
+  if (detail.value?.rule === 'hongzhong') return hongzhongWaitDataAt(currentRound.value, node.value, viewer.seat_index, hand, viewer.melds.map(meldKey), hongzhongKnownTiles(snapshot, mmcrTileToSalasasa))
   if (detail.value?.rule === 'hangzhou') return hangzhouWaitDataAt(currentRound.value, node.value, viewer.seat_index, hand, viewer.melds.map(meldKey), hangzhouKnownTiles(snapshot, mmcrTileToSalasasa))
+  if (detail.value?.rule === 'shanxi') {
+    const publicTiles = snapshot.seats.flatMap(seat => [
+      ...seat.discard_pile.map(mmcrTileToSalasasa),
+      ...seat.melds.flatMap(meld => shanxiMeldTiles(meldKey(meld))),
+    ])
+    publicTiles.push(...shanxiKnownConcealedDiscards(currentRound.value, node.value, viewer.seat_index))
+    return buildShanxiWaitData({ hand, combinations: viewer.melds.map(meldKey), publicTiles }, viewer.drawn_tile != null)
+  }
   const title = detail.value?.record.game_title ?? {}
   if (detail.value?.rule === 'wenzhou') return wenzhouWaitData(currentRound.value, node.value, viewer.seat_index, hand, snapshot, mmcrTileToSalasasa)
+  if (detail.value?.rule === 'guizhou') return buildGuizhouWaitData({
+    hand, combinations: viewer.melds.map(meldKey),
+    ready: guizhouReadyAt(currentRound.value, node.value, viewer.seat_index),
+    seatDiscards: snapshot.seats.map((seat) => seat.discard_pile.map(mmcrTileToSalasasa)),
+    seatCombinations: snapshot.seats.map((seat) => seat.melds.map(meldKey)),
+  }, { includeDiscards: viewer.drawn_tile != null })
   return buildLocalWaitData({
     tips: true,
     hand,
@@ -1402,7 +1429,12 @@ function waitDataForSnapshot(snapshot: ActiveSessionSnapshot) {
 function waitingTilesForSnapshotSeat(seat: ActiveSessionSnapshot['seats'][number]): Set<number> {
   const hand = (seat.hand_tiles ?? []).map(mmcrTileToSalasasa)
   if (hand.length === 0) return new Set<number>()
+  if (detail.value?.rule === 'shanxi') return new Set(shanxiWaits(hand, seat.melds.map(meldKey)).map(salasasaTileToMmcr))
+  if (isChangchunRecord(detail.value)) return new Set(changchunQualifiedWaits(hand, seat.melds.map(meldKey)).map(salasasaTileToMmcr))
+  if (detail.value?.rule === 'hongzhong') return new Set<number>() // This rule never permits a discard win.
   if (detail.value?.rule === 'wenzhou') return new Set<number>(wenzhouWaitsAt(currentRound.value, node.value, seat.seat_index, hand).map((wait: { tile: number }) => salasasaTileToMmcr(wait.tile)))
+  if (detail.value?.rule === 'guizhou') return new Set(guizhouRonWaitingTiles(hand, seat.melds.map(meldKey),
+    guizhouReadyAt(currentRound.value, node.value, seat.seat_index)).map(salasasaTileToMmcr))
   try {
     const waits = tingpaiCheck(hand, seat.melds.map(meldKey), false)
     return new Set(waits.map(salasasaTileToMmcr))

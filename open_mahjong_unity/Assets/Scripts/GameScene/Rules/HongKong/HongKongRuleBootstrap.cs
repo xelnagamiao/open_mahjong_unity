@@ -47,7 +47,7 @@ internal static class HongKongRuleBootstrap {
                 return mask;
             },
             ActionCaption=word=>word=="riichi" ? (IsDingRuleContext() ? "叮" : "报听") : null,
-            ActionVoice=word=>word=="riichi" && IsDingRuleContext() ? "ding" : null,
+            ActionVoice=ActionVoice,
         });
         foreach (string word in new[] {"riichi","riichi_cancel","ding_initial","pull_cut"}) {
             ActionWords.Register(new ActionWordSpec { Word=word, Kind=ActionWordKind.Other,
@@ -57,6 +57,14 @@ internal static class HongKongRuleBootstrap {
                     : w=="ding_initial" ? "天叮" : w=="pull_cut" ? "斩拉" : w=="riichi_cancel" ? "取消声明"
                     : GameSession.Current.SubRule==HongKongGameState.New16 ? "叮牌" : "报听" });
         }
+    }
+
+    private static string ActionVoice(string word) {
+        if (word != "riichi") return null;
+        GameRecordManager.ResolveActionRuleContext(null, null, out _, out string subRule);
+        if (subRule == HongKongGameState.New16) return "ding";
+        // Wiki新章十三按平台补则公开报听；其余十三张版本没有此声明。
+        return subRule == HongKongGameState.New13Gametower || subRule == HongKongGameState.New13 ? "baoting" : null;
     }
 
     private static bool IsDingRuleContext() {

@@ -55,6 +55,7 @@ public class Tile3D : MonoBehaviour
     public bool isRiichiHorizontal;
 
     public bool IsConcealedFaceDown { get; private set; }
+    private bool hoverPeekAllowed = true;
 
     /// <summary>备用叠牌继承的平面朝向。牌面网格就是根节点时，移除暗面翻转，避免 101 跟着暗面基础牌翻背。</summary>
     public Quaternion FaceUpRootRotation => IsConcealedFaceDown && !isPeekFaceUp && GetFaceMeshTransform() == transform
@@ -63,8 +64,8 @@ public class Tile3D : MonoBehaviour
     /// <summary>牌谱展开明牌：固定在独立摸牌区（对齐 2D TileCard.isDrawSlotPinned）。</summary>
     public bool isRecordDrawSlotPinned;
 
-    /// <summary>悬停时可临时翻面：已知牌 id（≥10）且当前为暗面展示（mask 方向位 2）。</summary>
-    public bool CanPeekOnHover => currentTileId >= 10 && IsConcealedFaceDown;
+    /// <summary>悬停时可临时翻面：有查看权限、已知牌 id（≥10）且当前为暗面展示。</summary>
+    public bool CanPeekOnHover => hoverPeekAllowed && currentTileId >= 10 && IsConcealedFaceDown;
 
     private Transform faceMeshTransform;
     private Quaternion faceUpLocalRotation;
@@ -113,6 +114,7 @@ public class Tile3D : MonoBehaviour
     }
 
     public void SetPeekFaceUp(bool peek) {
+        if (peek && !CanPeekOnHover) return;
         if (!IsConcealedFaceDown || !hasFaceRotationBaseline) return;
         if (isPeekFaceUp == peek) return;
         isPeekFaceUp = peek;
@@ -121,8 +123,17 @@ public class Tile3D : MonoBehaviour
         RuleTileBadge3D.Apply(cardRenderer, currentVisibleFaceTileId, !IsConcealedFaceDown || isPeekFaceUp);
     }
 
+    /// <summary>单张暗牌的查看权限；已知牌值不代表当前视角有权翻开。</summary>
+    public void SetHoverPeekAllowed(bool allowed) {
+        if (hoverPeekAllowed == allowed) return;
+        if (!allowed) SetPeekFaceUp(false);
+        hoverPeekAllowed = allowed;
+        RefreshPeekCollider();
+    }
+
     public void ResetConcealedState() {
         IsConcealedFaceDown = false;
+        hoverPeekAllowed = true;
         isRecordDrawSlotPinned = false;
         isPeekFaceUp = false;
         if (hasFaceRotationBaseline) {

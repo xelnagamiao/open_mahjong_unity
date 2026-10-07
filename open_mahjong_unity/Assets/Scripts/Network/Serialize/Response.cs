@@ -379,6 +379,7 @@ public class PlayerInfo {
     public string[] tag_list;           // 标签列表
     public string[] initial_hu_types;   // 长沙麻将起手胡类型
     public bool[] discard_riichi_flags; // 立直规则：与 discard_tiles 同序的横置标记，重连/牌谱重建时还原横置弃牌
+    public bool? riichi_accepted;        // 宣言牌响应结束且已付供托，重连时据此还原立直棒
     public int dingque_suit;            // 四川麻将：定缺花色（1万/2饼/3条，0=未定缺），重连/初始同步
     public int? hu_order;
     public int? blood_hu_tile;
@@ -469,8 +470,11 @@ public class SwitchSeatInfo { // 换位信息
 
 public class RefreshPlayerTagListInfo { // 刷新玩家标签列表信息
     public Dictionary<int, string[]> player_to_tag_list; // 玩家索引到标签列表的映射 {player_index: tag_list}
-    // 立直宣告广播复用此结构时填入：刚宣告立直的玩家索引（用于音效/点棒动画定位）
+    // 宣告只播放语音；成立时同步立直棒和绝对分数。
     public int? riichi_declared_player_index;
+    public int? riichi_accepted_player_index;
+    public Dictionary<int, int> player_to_score;
+    public int? riichi_sticks;
 }
 
 public class ReadyStatusInfo {

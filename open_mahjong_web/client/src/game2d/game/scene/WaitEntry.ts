@@ -18,15 +18,16 @@ export class WaitEntry extends Container {
     selfDrawnF: number,
     remainingCount: number,
     unit = '番',
+    hint?: {label?: string; kind?: 'dianhe' | 'zimo' | 'wuyi'},
   ) {
     super()
     this.x = x
     this.y = y
     this.scale.set(0.7)
 
-    const selfDrawnOnly = selfDrawnF > 0 && baseF <= 0
-    const notEnough = selfDrawnF <= 0 && baseF <= 0
-    const fanLabel = tr(baseF > 0 ? `${Math.round(baseF)}${unit}` : selfDrawnOnly ? '仅自摸' : '未起和')
+    const selfDrawnOnly = hint?.kind ? hint.kind === 'zimo' : selfDrawnF > 0 && baseF <= 0
+    const notEnough = hint?.kind ? hint.kind === 'wuyi' : selfDrawnF <= 0 && baseF <= 0
+    const fanLabel = tr(hint?.label ?? (baseF > 0 ? `${Math.round(baseF)}${unit}` : selfDrawnOnly ? '仅自摸' : '未起和'))
     const fanText = new Text({
       text: fanLabel,
       style: {

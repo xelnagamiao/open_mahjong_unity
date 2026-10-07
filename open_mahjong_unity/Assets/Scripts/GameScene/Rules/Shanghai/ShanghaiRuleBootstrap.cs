@@ -35,6 +35,9 @@ internal static class ShanghaiRuleBootstrap {
                 : ShanghaiHandCalculator.Waits(query.Hand, query.Melds),
             DescribeWaitingTile = query => query.SubRule == "shanghai/qinghunpeng"
                 ? QinghunpengHandCalculator.Describe(query) : ShanghaiHandCalculator.Describe(query),
+            RecordDangerUsesWaitHint = true,
+            RecordDangerQualification = query => query.SubRule == "shanghai/qinghunpeng"
+                || query.Record?.SelfTags?.Contains("declared_ready") == true,
             RoundName = round => $"第{round}局",
             RoundStatusText = RoundStatus,
             RoundSupplementText = RoundSupplement,
@@ -44,7 +47,7 @@ internal static class ShanghaiRuleBootstrap {
             ScoreboardFanText = query => $"{query.HuScore}分",
             SettlementTotal = query => new SettlementTotalDisplay { FanText = query.Rule == "shanghai/qinghunpeng" ? "和牌点数" : "基本分", ScoreText = $"{query.HuScore}分" },
             ActionCaption = ActionCaption,
-            ActionVoice = word => (word == "riichi" || word == "riichi_cut") && IsQiaomaActionContext() ? "ting" : null,
+            ActionVoice = ActionVoice,
             PeekAnkan = true,
             SupportsRobbedAddedKongSource = true,
             ReplacementFromTailEnd = true,
@@ -71,6 +74,17 @@ internal static class ShanghaiRuleBootstrap {
             case "riichi":
             case "riichi_cut": return "敲牌";
             case "riichi_cut_cancel": return "取消敲牌";
+            default: return null;
+        }
+    }
+
+    private static string ActionVoice(string word) {
+        if (!IsQiaomaActionContext()) return null;
+        // 敲麻MIL 2024六-2：听、花、和，清混碰保留自己的报声。
+        switch (word) {
+            case "riichi": case "riichi_cut": return "ting";
+            case "buhua": return "hua";
+            case "hu_self": return "hu";
             default: return null;
         }
     }

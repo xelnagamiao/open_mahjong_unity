@@ -109,6 +109,52 @@ def test_recording_does_not_duplicate_win_or_wait_snapshots():
     reduce_round(state.game_record["game_round"]["round_index_1"])
 
 
+@pytest.mark.parametrize("tips", [False, True])
+@pytest.mark.parametrize("drawn_preview", [False, True])
+def test_replay_wait_snapshots_are_independent_of_live_tips(tips, drawn_preview):
+    from .test_overwater_waits import MIXED_WAIT
+
+    seat = 0 if drawn_preview else 1
+    hand = MIXED_WAIT + [39] if drawn_preview else MIXED_WAIT
+    state = fixture_state({seat: hand}, caishen=11, tips=tips)
+    key = ",".join(map(str, sorted(MIXED_WAIT)))
+    state.start_game_recording()
+    state.start_round_recording()
+    round_data = state.game_record["game_round"]["round_index_1"]
+    initial = copy.deepcopy(round_data["wenzhou_waits"][seat])
+    assert key in initial
+    rows = {row["tile"]: row for row in initial[key]}
+    assert rows[13]["ron"] and rows[13]["ron_multiplier"] == 2
+    assert rows[14]["ron"] and rows[14]["self_draw_multiplier"] == 2
+    assert state.game_record["game_title"]["tips"] is tips
+    live = state.build_game_start_payload(seat)["game_info"]["wenzhou_waits"]
+    assert live == (initial if tips else {})
+
+    window = open_turn(state)
+    ticks = round_data["action_ticks"]
+    saved = [tick for tick in ticks if tick[:3] == ["wenzhou", "waits", seat]]
+    assert saved[-1][3] == initial
+    before = copy.deepcopy(ticks)
+    state.record_waits()
+    assert ticks == before
+
+    # Advance a real discard and any ordinary claim window. The saved cache
+    # must follow the new hand in a tips-disabled room as well as an enabled one.
+    tile = 39 if drawn_preview else state.player_list[0].hand_tiles[-1]
+    window = cut(state, tile, drawn=True)
+    if state.machine.phase == P.RESPONSE:
+        state.apply_action_results(window, response_map(window))
+    saved = [tick for tick in ticks if tick[:3] == ["wenzhou", "waits", seat]]
+    assert saved[-1][3] != initial
+    state.tips = True
+    expected = copy.deepcopy(state.authoritative_waits(seat))
+    state.tips = tips
+    assert saved[-1][3] == expected
+    assert state.build_game_start_payload(seat)["game_info"]["wenzhou_waits"] == (expected if tips else {})
+    assert round_data["wenzhou_waits"][seat] == initial
+    assert_conserved(state)
+
+
 def white_rob_kong_replay():
     """Construct a full, physically legal hand from its 17/16 starting deal."""
     wait_white = [11,13,21,22,23,31,32,33,17,18,19,41,41,41,43,43]

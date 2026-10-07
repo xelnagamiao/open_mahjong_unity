@@ -98,11 +98,15 @@ Bot 应按 `system` 选择显示字段，不能要求每项都有 Elo。四人�
 - `ranked_stats` 以六种评级规则 ID 为键，各项为按 `mode` 分组的匹配统计数组。四人立直与三人立直、川麻血战与血流换三张分别统计，不混入自定义房。立直统计来自已保存的日麻统计，其他规则来自每玩家指标；缺少统计数据的历史对局可能无法补齐，与记录列表的对局数可能不同。
 - `record_counts` 是各主规则的牌谱对局数；南雀记录计入 `zhongyong`。南雀记录应使用下面的子规则筛选查询。
 
-以上 `info` 统计均为全历史数据，不接受日期或具体场次筛选。`rank-stats` 提供筛选后的结算与顺位统计。接口不提供高级分析结果。
+以上 `info` 统计均为全历史数据，不接受日期或具体场次筛选。`rank-stats` 提供筛选后的结算、顺位和基础回合指标。接口不提供高级分析结果。
 
 ### records / rank-stats 可选 Query 参数
 
 `rank-stats` 的 `total_round_score` 为同一筛选范围内国标对局的结算净得分之和，除以 `total_games` 得到局均点。无对局时为 `0`；包含其他规则或缺失结算分时为 `null`，不把起始点数当作净得分。
+
+非日麻规则同时返回 `total_rounds`、`win_count`、`self_draw_count`、`deal_in_count`、`cuohe_count`、`fulu_round_count`、`total_fan_score`、`total_win_turn`、`total_fangchong_score`，从 `game_player_metrics` 按当前玩家、日期、规则、子规则、场次和局制筛选汇总，无需下载牌谱。每局取该玩家最新的一条指标，避免重复计数。
+
+`analyzed_games` 表示筛选中具有指标的对局数；全部对局都有指标时 `details_available=true`。若有缺失，上述九个字段为 `null`、`details_available=false`，结算与顺位仍覆盖全部筛选对局。空筛选返回九个零值且 `details_available=true`。指标不包含按筛选拆分的番种分布。日麻继续使用其专用的版本化摘要。
 
 与 `/api/player/records/:key`、`/api/player/rank-stats/:key` 相同：
 

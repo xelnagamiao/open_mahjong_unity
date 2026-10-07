@@ -21,7 +21,9 @@ public sealed class GuangdongMilGameState : TurnBasedGameState {
             Session.IsRealtimeSpectator ? Session.SelfIndex : (int?)null);
         RoundEndPresentation.Instance?.StopActiveSequence();
         Info = null; Result = null; revealedHands = null;
+        GuangdongServerTips.Clear();
         Accept(info?.guangdong_state, info?.guangdong_tips);
+        RefreshStableTips();
     }
     protected override void OnAskHandAction(Response response) {
         var info = response.ask_hand_action_info;
@@ -62,6 +64,12 @@ public sealed class GuangdongMilGameState : TurnBasedGameState {
     protected override void OnDoAction(Response response) {
         Accept(response.do_action_info?.guangdong_state ?? response.game_info?.guangdong_state, response.do_action_info?.guangdong_tips ?? response.game_info?.guangdong_tips);
         base.OnDoAction(response);
+        RefreshStableTips();
+    }
+    private static void RefreshStableTips() {
+        // 初始化可能先绘制通用提示；权威快照就绪后重建，旧提示块为空时也能恢复。
+        if (Session.Tips && Mirror.SelfHandTiles.Count + 3 * (Mirror.Self.combination_tiles?.Count ?? 0) == 13)
+            TipsBlock.Instance?.ShowTipsBlock(Mirror.SelfHandTiles, Mirror.Self.combination_tiles);
     }
     protected override void OnActionPlayed(TableAction action) {
         if (action.Silent || !GameCanvas.HasNonZeroGangScoreChanges(action.GangScoreChanges)) return;

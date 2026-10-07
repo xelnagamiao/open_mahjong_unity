@@ -264,10 +264,11 @@ public sealed class AutoActionPolicy {
 
     /// <summary>是否应在已显示按钮后挂起自动摸切协程。</summary>
     public bool ShouldStartAutoCut(string dealTileType) {
-        if (Session.IsRealtimeSpectator || !AutoAction.Instance.IsAutoCut) {
+        if (Session.IsRealtimeSpectator || !AutoAction.Instance.IsAutoCut || !AllowActions.Contains("cut")) {
             return false;
         }
         if (HandActionsBlockingAutoCut.Any(AllowActions.Contains)
+            || AllowActions.Any(ActionWords.BlocksAutoCut)
             || ActionWords.Any(AllowActions, ActionWordKind.Tsumo)) {
             return false;
         }

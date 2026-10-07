@@ -29,6 +29,17 @@ def last_alive_discard(game_state) -> Optional[tuple[int, int]]:
     return None
 
 
+def combination_mask_for_viewer(player, mask: list[int], viewer_index: int, *, reveal_tiles: bool = False) -> list[int]:
+    visible = list(mask)
+    # Only actions moving tiles to/from a public hand may explicitly reveal them.
+    # Revealing the remaining hand does not expose older face-down melds in snapshots.
+    if viewer_index != player.player_index and not reveal_tiles:
+        for index in range(0, len(visible) - 1, 2):
+            if visible[index] == 2:
+                visible[index + 1] = 0
+    return visible
+
+
 def player_info_payload(game_state, player_index: int, viewer_index: int) -> dict:
     player = game_state.player_list[player_index]
     include_hand = viewer_index == player_index or player.revealed
@@ -40,7 +51,8 @@ def player_info_payload(game_state, player_index: int, viewer_index: int) -> dic
         "discard_tiles": list(player.discard_tiles),
         "discard_origin_tiles": list(player.discard_origin_tiles),
         "combination_tiles": list(player.combination_tiles),
-        "combination_mask": [list(mask) for mask in player.combination_mask],
+        "combination_mask": [combination_mask_for_viewer(player, mask, viewer_index)
+                             for mask in player.combination_mask],
         "remaining_time": 0,
         "player_index": player_index,
         "original_player_index": player.original_player_index,

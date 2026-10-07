@@ -69,6 +69,9 @@ export const mergePlayerRankStats = (base, rankRow) => {
   if (!rankRow) return base;
   return {
     ...base,
+    // 完整的筛选明细优先；缺少指标时仅允许使用确实覆盖当前筛选的预存数据。
+    ...(rankRow.details_available === true ? rankRow : {}),
+    details_available: rankRow.details_available === true || base != null,
     total_games: rankRow.total_games,
     total_round_score: rankRow.total_round_score ?? null,
     first_place_count: rankRow.first_place_count,

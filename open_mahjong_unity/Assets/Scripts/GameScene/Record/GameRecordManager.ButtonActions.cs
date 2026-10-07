@@ -256,11 +256,10 @@ public partial class GameRecordManager {
         _pendingRecordDelayedAdvanceCount = 0;
     }
 
-    /// <summary>滚轮切下一局：本局若还有未播和牌/流局，先停在结算面板，确认后再切局。</summary>
+    /// <summary>Shift + 滚轮直接切到下一局局首，并停止自动播放。</summary>
     public void StepToNextRoundFromInput() {
         StopRecordAutoPlay();
         if (BlocksRecordNavigation) return;
-        if (TryPlayPendingSettlementPause()) return;
         GotoSelectRound(currentRoundIndex + 1);
     }
 
@@ -475,7 +474,7 @@ public partial class GameRecordManager {
         return true;
     }
 
-    /// <summary>当前节点及之后尚未播放的和牌/流局。滚轮切巡/切局都要先停在这里出结算面板。</summary>
+    /// <summary>查找当前节点及之后的和牌/流局，供末巡步进展示结算。</summary>
     private int FindSettlementPauseNodeAtOrAfter(Round roundData, int nodeIndex) {
         if (roundData?.actionTicks == null) return -1;
         int start = Mathf.Max(0, nodeIndex);
@@ -489,21 +488,5 @@ public partial class GameRecordManager {
 
     private int FindNextTerminalPauseNode(Round roundData, int currentNodeIndex) {
         return FindSettlementPauseNodeAtOrAfter(roundData, currentNodeIndex + 1);
-    }
-
-    /// <summary>若本局后面还有未播的和牌/流局，跳过去播放并停住；否则返回 false 让调用方切下一局。</summary>
-    private bool TryPlayPendingSettlementPause() {
-        if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData)
-            || roundData.actionTicks == null) {
-            return false;
-        }
-        int pauseNode = FindSettlementPauseNodeAtOrAfter(roundData, currentNode);
-        if (pauseNode < 0) return false;
-        bool updateMode = !(IsSpectatorSession && CurrentMode == RecordManagerMode.Spectator);
-        if (pauseNode > currentNode) {
-            GotoSelectNode(pauseNode, updateMode);
-        }
-        NextStep();
-        return true;
     }
 }

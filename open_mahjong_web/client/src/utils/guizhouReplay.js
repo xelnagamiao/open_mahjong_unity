@@ -15,6 +15,16 @@ export function guizhouInfoAt(round, node) {
   return info
 }
 
+export function guizhouReadyAt(round, node, seat) {
+  let ready = ""
+  const end = Math.max(0, Math.floor(Number(node) || 0))
+  for (const tick of (round?.action_ticks || []).slice(0, end)) {
+    if (tick[0] === "guizhou" && tick[1] === "ready" && Number(tick[2]) === seat
+      && ["soft_ready", "hard_ready"].includes(tick[3])) ready = tick[3]
+  }
+  return ready
+}
+
 export function guizhouLedgerRows(info) {
   if (!info?.ledger) return []
   const rows = Array.from({ length: 4 }, (_, seat) => ({

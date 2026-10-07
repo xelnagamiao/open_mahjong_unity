@@ -6,6 +6,14 @@ from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
 from ..public.game_record_manager import local_record_detail_for_end
 
 
+def _concealed_kong_is_public(game_state: Any, mask: Optional[list[int]] = None) -> bool:
+    # Standard Zhongyong requires immediate disclosure. Other rules can explicitly
+    # reveal a kong through a face-up tile; fully face-down kongs remain private.
+    if game_state.room_rule == "zhongyong" and not game_state.is_nanque:
+        return True
+    return bool(mask and len(mask) == 8 and any(mask[i] != 2 for i in range(0, 8, 2)))
+
+
 def _is_full_concealed_kong_mask(mask: Optional[list[int]]) -> bool:
     if not mask or len(mask) != 8:
         return False
@@ -77,6 +85,7 @@ def player_info_payload(
     if player.is_hu and not reveal_final and settlement and settlement.get("source") == "self_draw":
         concealed = concealed[:-1]
     hand_tiles = concealed if include_hand else None
+    reveal_kongs = reveal_final or _concealed_kong_is_public(game_state)
     return {
         "username": player.username,
         "user_id": player.user_id,
@@ -84,8 +93,8 @@ def player_info_payload(
         "hand_tiles": hand_tiles,
         "discard_tiles": list(player.discard_tiles),
         "discard_origin_tiles": list(player.discard_origin_tiles),
-        "combination_tiles": public_melds_for_viewer(player, viewer_index, reveal_final=reveal_final or not game_state.is_nanque),
-        "combination_mask": public_combination_masks_for_viewer(player, viewer_index, reveal_final=reveal_final or not game_state.is_nanque),
+        "combination_tiles": public_melds_for_viewer(player, viewer_index, reveal_final=reveal_kongs),
+        "combination_mask": public_combination_masks_for_viewer(player, viewer_index, reveal_final=reveal_kongs),
         "remaining_time": player.remaining_time,
         "player_index": player_index,
         "original_player_index": player.original_player_index,
@@ -236,14 +245,18 @@ def visible_action_payload(
     deal_tile = action_info.get("tile") if action in {"deal_tile", "deal_gang_tile", "deal_buhua_tile"} else None
     viewer_deal_tile = sanitize_deal_tile_for_viewer(deal_tile, actor, viewer_index) if actor is not None and viewer_index is not None else deal_tile
     public_tile = viewer_deal_tile if deal_tile is not None else action_info.get("tile")
+    reveal_kongs = reveal_final or _concealed_kong_is_public(game_state, action_info.get("combination_mask"))
     combination_mask = _public_concealed_kong_mask(
         action_info.get("combination_mask"),
         actor,
         viewer_index,
-        reveal_final=reveal_final or not game_state.is_nanque,
+        reveal_final=reveal_kongs,
     )
     combination_target = action_info.get("meld_code")
-    if action == "angang" and game_state.is_nanque and not reveal_final and viewer_index != actor:
+    hide_concealed_kong = action == "angang" and not reveal_kongs and viewer_index != actor
+    if hide_concealed_kong:
+        # Private kongs must hide the redundant tile field as well as the meld and mask.
+        public_tile = None
         combination_target = "G0"
     # 切牌：弃牌张；吃/碰/明杠：被认走的弃牌张。与其它规则 broadcast_do_action(cut_tile + cut_from_player) 一致。
     claim_actions = {"chi_left", "chi_mid", "chi_right", "peng", "gang"}
@@ -271,7 +284,7 @@ def visible_action_payload(
         },
     }
 
-    if action == "angang" and game_state.is_nanque and not reveal_final and viewer_index != actor:
+    if hide_concealed_kong:
         payload["meld_code"] = "G0"
     elif "meld_code" in action_info:
         payload["meld_code"] = action_info["meld_code"]

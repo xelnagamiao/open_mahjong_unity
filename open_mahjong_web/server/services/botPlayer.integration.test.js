@@ -48,7 +48,8 @@ test('Bot player API exposes saved multi-rule data without replay contents', {
       INSERT INTO jiandan_fan_stats VALUES(101,'jiandan','4/4',3);
       INSERT INTO riichi_history_stats(user_id,rule,mode,total_games) VALUES(101,'riichi','1/4',1),(101,'riichi','1/4_rank',2);
       INSERT INTO riichi_fan_stats VALUES(101,'riichi','1/4',1),(101,'riichi','1/4_rank',4);
-      CREATE TABLE game_player_metrics(user_id bigint, rule text, sub_rule text, room_type text, match_type text,
+      CREATE TABLE game_player_metrics(id bigserial PRIMARY KEY, game_id text,
+        user_id bigint, rule text, sub_rule text, room_type text, match_type text,
         ${metricFields.map(field => `${field} int DEFAULT 0`).join(',')});
       INSERT INTO game_player_metrics(user_id,rule,room_type,match_type,total_rounds,win_count,total_round_score)
         VALUES(101,'riichi','match','1/4_rank',4,1,100),(101,'riichi','custom','1/4',8,6,999),

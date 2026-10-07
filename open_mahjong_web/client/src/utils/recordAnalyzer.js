@@ -16,6 +16,7 @@ import {
   guobiaoXunmuOnClaim,
 } from './guobiaoXunmu.js'
 import { analyzeRiichiRecords } from './riichiRecordStats.js'
+import { sichuanScoreChanges } from './sichuanReplay.js'
 
 const HU_ACTIONS = new Set(['hu_self', 'hu_first', 'hu_second', 'hu_third']);
 const RON_ACTIONS = new Set(['hu_first', 'hu_second', 'hu_third']);
@@ -352,7 +353,7 @@ export function analyzeRecords(items, userId) {
   return acc;
 }
 
-// 单条牌谱某玩家最终分（所有小局 hu tick 净得分之和）
+// 单条牌谱某玩家最终分（含川麻杠分、退税和终局分步结算）。
 function computeFinalScore(record, originalIndex) {
   if (originalIndex < 0) return 0;
   const gameRound = record?.game_round;
@@ -364,6 +365,11 @@ function computeFinalScore(record, originalIndex) {
     const seats = resolveRoundSeats(rd);
     const mySeat = seatForOriginal(seats, originalIndex);
     for (const tick of rd.action_ticks || []) {
+      const sichuanChanges = record?.game_title?.rule === 'sichuan' ? sichuanScoreChanges(tick) : null;
+      if (sichuanChanges) {
+        total += sichuanChanges[mySeat] || 0;
+        continue;
+      }
       const hu = parseHuTick(tick);
       if (!hu) continue;
       const sc = hu.scoreChanges;

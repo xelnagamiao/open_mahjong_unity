@@ -35,7 +35,7 @@ internal static class HangzhouRuleBootstrap {
             RecordFlowerWin = tick => tick != null && tick.Count > 3 && tick[3].Contains("十风"),
             HuPresentationAction = (kind,fans,config) => HangzhouFanText.IsTenWinds(fans) ? "hangzhou_ten_winds" : kind,
             ActionCaption = word => word == "hangzhou_piao" ? "飘" : word == "hangzhou_ten_winds" || (word == "hu_self" && HangzhouGameState.Active?.Info?.phase == "waiting_hangzhou_ten_winds") ? "十风和" : null,
-            ActionVoice = word => word == "hangzhou_ten_winds" ? "hu" : word == "hangzhou_piao" ? "piao" : null,
+            ActionVoice = word => word == "hangzhou_ten_winds" || word == "hu_self" ? "hu" : word == "hangzhou_piao" ? "piao" : null,
             RoundName = round => $"第{round}局", MaxRoundText = rounds => $"{rounds * 4}局", RoundStatusText = info => $"第{info.current_round}局",
             RoundSupplementText = info => "4番封顶",
             DefaultHepaiLimit = 0, HasFlowerReplacement = false, ReplacementFromTailEnd = true,

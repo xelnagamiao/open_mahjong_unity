@@ -27,15 +27,17 @@ internal static class HongzhongRuleBootstrap {
             GameStateFactory = () => new HongzhongGameState(), OutboundChannel = "hongzhong",
             Tingpai = q => GameRecordManager.Instance?.ShouldShowRecordTips() == true
                 ? GameRecordManager.Instance.HongzhongWaiting(q) : HongzhongGameState.Active?.Hints.Waiting(q) ?? new HashSet<int>(),
-            DescribeWaitingTile = q => WaitTileHint.TsumoOnly("仅自摸"),
+            DescribeWaitingTile = q => q.Record != null
+                ? GameRecordManager.Instance?.DescribeHongzhongWaiting(q) : HongzhongGameState.Active?.DescribeWaiting(q),
             TileBadgeText = tile => tile == 45 ? "癞" : null,
             FanValueText = (rule,name) => Fans.TryGetValue(name,out int value) ? $"{value}番" : "",
             SettlementTotal = q => new SettlementTotalDisplay { FanText=$"{q.HuScore}番",ScoreText=$"基本分 {1 << Math.Min(4,q.HuScore)}分" },
             ScoreboardFanText = q => $"{q.HuScore}番",
             SettlementFootnote = Footnote,
+            ActionVoice = word => word == "hu_self" ? "hu" : null,
             RoundName = round => $"第{round}局", MaxRoundText = rounds => $"{rounds*4}局",
             RoundSupplementText = info => "<size=18>仅自摸</size>",
-            HasFlowerReplacement = false, DefaultHepaiLimit = 0, PeekAnkan = true,
+            HasFlowerReplacement = false, DefaultHepaiLimit = 0, PeekAnkan = true, ShowsRonDangerHints = false,
             // 默认MCR补牌顺序就是末墩上牌、下牌交替。
             RulebookKey = "hongzhong",
         });

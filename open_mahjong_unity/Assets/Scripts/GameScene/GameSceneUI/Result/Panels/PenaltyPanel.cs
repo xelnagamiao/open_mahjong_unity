@@ -10,7 +10,7 @@ public enum PenaltyPresentation {
 }
 
 /// <summary>
-/// 罚符结算：特殊流局四家分数变化、荒牌不听罚符时三段过渡。
+/// 罚符结算：实际在桌玩家的分数变化、荒牌不听罚符时三段过渡。
 /// </summary>
 public class PenaltyPanel : MonoBehaviour {
     public static PenaltyPanel Instance { get; private set; }
@@ -124,10 +124,23 @@ public class PenaltyPanel : MonoBehaviour {
         Dictionary<string, string> usernameByPos,
         Dictionary<string, int> scoreByPos,
         Dictionary<string, int> deltaByPos) {
-        userNameText.text = StreamerModeHelper.FormatGamestatePlayerName(usernameByPos[pos], pos);
+        if (!PrepareRow(pos, userNameText, scoreText, deltaText, usernameByPos)) return;
         scoreText.text = scoreByPos[pos].ToString();
         int d = deltaByPos[pos];
         deltaText.text = d > 0 ? $"+{d}" : d.ToString();
+    }
+
+    private static bool PrepareRow(string pos, TMP_Text userNameText, TMP_Text scoreText,
+        TMP_Text deltaText, Dictionary<string, string> usernameByPos) {
+        bool occupied = usernameByPos.TryGetValue(pos, out string username);
+        // 名称、分数和分变共用一行容器；空座位连同背景一起隐藏，再次四麻时恢复。
+        userNameText.transform.parent.gameObject.SetActive(occupied);
+        userNameText.text = occupied ? StreamerModeHelper.FormatGamestatePlayerName(username, pos) : "";
+        if (!occupied) {
+            scoreText.text = "";
+            deltaText.text = "";
+        }
+        return occupied;
     }
 
     private static void SetRowScoreDelta(TMP_Text scoreText, TMP_Text deltaText, int scoreValue, int deltaValue) {
@@ -153,8 +166,8 @@ public class PenaltyPanel : MonoBehaviour {
         Dictionary<string, string> usernameByPos,
         Dictionary<string, int> scoresAfter,
         Dictionary<string, int> deltas) {
+        if (!PrepareRow(pos, userNameText, scoreText, deltaText, usernameByPos)) return;
         int delta = deltas[pos];
-        userNameText.text = StreamerModeHelper.FormatGamestatePlayerName(usernameByPos[pos], pos);
         SetRowScoreDelta(scoreText, deltaText, scoresAfter[pos] - delta, delta);
     }
 
@@ -171,15 +184,19 @@ public class PenaltyPanel : MonoBehaviour {
         int[] before = new int[4];
         int[] after = new int[4];
         int[] delta = new int[4];
+        bool[] occupied = new bool[4];
         for (int i = 0; i < 4; i++) {
             string pos = order[i];
+            occupied[i] = usernameByPos.ContainsKey(pos);
+            if (!occupied[i]) continue;
             after[i] = scoresAfter[pos];
             delta[i] = deltas[pos];
             before[i] = after[i] - delta[i];
-            users[i].text = usernameByPos[pos];
+            users[i].text = StreamerModeHelper.FormatGamestatePlayerName(usernameByPos[pos], pos);
         }
 
         for (int i = 0; i < 4; i++) {
+            if (!occupied[i]) continue;
             SetRowScoreDelta(scores[i], deltasT[i], before[i], delta[i]);
         }
         float phase = totalSeconds / 3f;
@@ -190,6 +207,7 @@ public class PenaltyPanel : MonoBehaviour {
             t += Time.deltaTime;
             float u = Mathf.Clamp01(t / phase);
             for (int i = 0; i < 4; i++) {
+                if (!occupied[i]) continue;
                 int s = Mathf.RoundToInt(Mathf.Lerp(before[i], after[i], u));
                 int d = Mathf.RoundToInt(Mathf.Lerp(delta[i], 0, u));
                 SetRowScoreDelta(scores[i], deltasT[i], s, d);
@@ -198,6 +216,7 @@ public class PenaltyPanel : MonoBehaviour {
         }
 
         for (int i = 0; i < 4; i++) {
+            if (!occupied[i]) continue;
             SetRowScoreDelta(scores[i], deltasT[i], after[i], 0);
         }
         yield return new WaitForSeconds(phase);

@@ -21,21 +21,25 @@ internal static class ChangchunRuleBootstrap {
                 {CreateRoomKeys.Password,false},{CreateRoomKeys.RandomSeed,false},{CreateRoomKeys.TouristLimit,false},{CreateRoomKeys.AllowSpectator,true}
             },
             GameStateFactory = () => new ChangchunGameState(),
-            Tingpai = q => ChangchunHandCalculator.Waits(q.Hand,q.Melds),
+            Tingpai = q => ChangchunHandCalculator.BasicWaits(q.Hand,q.Melds),
             VisibleMeldTiles = (code,self) => !self && code?.StartsWith("G")==true ? Array.Empty<int>() : code?.StartsWith("C")==true ? ChangchunHandCalculator.MeldTiles(code) : null,
             LiveVisibleIndicators = VisibleBaoTiles,
-            DescribeWaitingTile = q => WaitTileHint.Ron($"基础{ChangchunHandCalculator.Score(q.HandWithWin,q.Melds,q.HepaiTile)}番，另计庄及和法"),
+            DescribeWaitingTile = q => ChangchunHandCalculator.IsQualified(q.HandWithWin,q.Melds)
+                ? WaitTileHint.Ron($"基础{ChangchunHandCalculator.Score(q.HandWithWin,q.Melds,q.HepaiTile)}番，另计庄及和法")
+                : WaitTileHint.None("未满足"),
             RoundName = r => $"第{r}副", RoundStatusText = q => $"第{q.current_round}副", MaxRoundText = r => $"{r*4}副",
             FanValueText = (r,n) => FanValue(n), ScoreboardFanText = q => $"基础{q.HuScore}番",
             SettlementTotal = q => new SettlementTotalDisplay {FanText=$"基础{q.HuScore}番",ScoreText="6番封顶"},
             SettlementFootnote = q => "逐家结算，杠分另计；庄家、和法加番后每家6番封顶。",
             AdjustHepaiPresentation = AdjustRobbedKongPresentation,
             ActionCaption = a => a == "riichi" || a == "riichi_cut" ? "报听" : a=="riichi_cut_cancel" ? "取消报听" : null,
-            ActionVoice = a => a == "riichi" || a == "riichi_cut" ? "baoting" : null,
-            HasFlowerReplacement=false,RonWinTileTravelsFromRiver=true,FaceDownAnkan=true,PublicReadyStateReplay=true,DefaultHepaiLimit=0
+            // MIL 2024 三-23、六-2：声明报“听”；自摸也报“和”。
+            ActionVoice = a => a == "riichi" || a == "riichi_cut" ? "ting" : a == "hu_self" ? "hu" : null,
+            HasFlowerReplacement=false,RonWinTileTravelsFromRiver=true,FaceDownAnkan=true,PublicReadyStateReplay=true,DefaultHepaiLimit=0,
+            RecordDangerUsesWaitHint=true
         });
-        ActionWords.Register(new ActionWordSpec {Word="cc_special",Label=_=>"特殊杠",Expand=_=>Candidates(false)});
-        ActionWords.Register(new ActionWordSpec {Word="cc_added",Label=_=>"加特殊杠",Expand=_=>Candidates(true)});
+        ActionWords.Register(new ActionWordSpec {Word="cc_special",BlocksAutoCut=true,Label=_=>"特殊杠",Expand=_=>Candidates(false)});
+        ActionWords.Register(new ActionWordSpec {Word="cc_added",BlocksAutoCut=true,Label=_=>"加特殊杠",Expand=_=>Candidates(true)});
         ActionWords.Register(new ActionWordSpec {Word="cc_draw",Label=_=>"摸牌"});
         ActionWords.Register(new ActionWordSpec {Word="cc_change_bao",Label=_=>"换宝"});
         ActionWords.Register(new ActionWordSpec {Word="cc_pass",Kind=ActionWordKind.Pass,Label=_=>"过"});

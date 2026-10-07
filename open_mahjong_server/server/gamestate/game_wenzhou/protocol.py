@@ -52,8 +52,11 @@ class Protocol:
             self._wait_cache.popitem(last=False)
         return result
 
-    def authoritative_waits(self, viewer):
-        if viewer not in range(4) or not self.tips or self.machine.phase in (P.END,P.READY,P.FINISHED):
+    def authoritative_waits(self, viewer, *, for_record=False):
+        # Replays expose their own analysis controls independently of live room
+        # tips. Keep the same scorer and hand keys without exposing live hints
+        # when that room option is disabled.
+        if viewer not in range(4) or (not self.tips and not for_record) or self.machine.phase in (P.END,P.READY,P.FINISHED):
             return {}
         p = self.player_list[viewer]
         hand, hands = sorted(p.hand_tiles), []

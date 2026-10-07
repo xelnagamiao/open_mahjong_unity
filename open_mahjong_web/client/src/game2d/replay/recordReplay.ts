@@ -9,7 +9,7 @@ import { duplicateReplayWall } from '../../utils/duplicateReplayWall.js'
 import { isExternalRecord } from '../../utils/recordConvert/externalPlayers.js'
 import { isGuangdongMilRecord } from '../../utils/guangdongReplay.js'
 import { hangzhouActionLabel } from '../../utils/hangzhouReplay.js'
-import { isSichuanRecord, isSichuanBloodBattle, isSichuanBloodFlow, nextSichuanPlayer } from '../../utils/sichuanReplay.js'
+import { isSichuanRecord, isSichuanBloodBattle, isSichuanBloodFlow, nextSichuanPlayer, sichuanScoreChanges } from '../../utils/sichuanReplay.js'
 import { isChangchunRecord, changchunWallAt, applyChangchunPhysical, CHANGCHUN_EVENT_NAMES } from '../../utils/changchunReplay.js'
 
 export type RecordTick = unknown[]
@@ -131,9 +131,7 @@ function scoreChangeFromTick(tick: RecordTick): number[] | null {
   else if (action === 'hongzhong' && ['kong_score', 'kong_refund'].includes(String(tick[1]))) value = tick[2]
   else if (action === 'guangdong' && ['kong_score', 'refund_kongs'].includes(String(tick[1]))) value = tick[2]
   else if (action === 'guizhou' && tick[1] === 'draw_score') value = tick[2]
-  else if (['g', 'ag', 'jg'].includes(action) && tick.includes('gs')) {
-    const index = tick.lastIndexOf('gs'); value = tick.slice(index + 1, index + 5)
-  }
+  else value = sichuanScoreChanges(tick)
   if (action === 'cc' && (tick[1] as any)?.kind === 'kong_score') value = [0, 1, 2, 3].map(i => (tick[1] as any).delta?.[i] ?? 0)
   if (!Array.isArray(value) || value.length < 4) return null
   return value.slice(0, 4).map((item) => int(item))

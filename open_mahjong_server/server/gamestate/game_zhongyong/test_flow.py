@@ -131,7 +131,8 @@ def test_concealed_kong_visibility_differs_by_profile():
         s=state(cls); p=s.player_list[0]
         p.combination_tiles=["G11"]; p.combination_mask=[[2,11]*4]
         snapshot=s.build_game_start_payload(1)["game_info"]["players_info"][0]
-        assert snapshot["combination_mask"][0][1]==expected
+        assert snapshot["combination_tiles"]==[f"G{expected}"]
+        assert snapshot["combination_mask"]==[[2,expected]*4]
 
 
 def test_robbed_added_kong_stays_pung_and_no_supplement_draw():

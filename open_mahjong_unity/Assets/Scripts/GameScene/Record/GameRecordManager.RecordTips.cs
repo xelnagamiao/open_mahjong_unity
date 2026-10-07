@@ -170,6 +170,8 @@ public partial class GameRecordManager {
             SelfPlayerIndex = selfPlayer.playerIndex,
             RemainTiles = GetRecordRemainTiles(),
             SelfHuapaiList = selfPlayer.huapaiList ?? new List<int>(),
+            SelfTags = new List<string>(selfPlayer.tagList ?? new List<string>()),
+            SelfKnownConcealedDiscards = selfPlayer.knownConcealedDiscards,
             SelfCombinationMasks = selfPlayer.combinationMasks ?? new List<int[]>(),
             SelfIsRiichi = selfPlayer.isRiichi,
             SelfIsDaburuRiichi = selfPlayer.isDaburuRiichi,

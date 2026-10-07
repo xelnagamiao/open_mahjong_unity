@@ -19,6 +19,12 @@ test('filtered player scores and counts use the same records', {
         PRIMARY KEY (game_id, user_id)
       );
       CREATE TEMP TABLE riichi_player_game_stats (game_id text,user_id bigint,version int,stats jsonb);
+      CREATE TEMP TABLE game_player_metrics (
+        id bigserial PRIMARY KEY, game_id text, user_id bigint,
+        total_rounds int, win_count int, self_draw_count int, deal_in_count int,
+        total_fan_score int, total_win_turn int, total_fangchong_score int,
+        fulu_round_count int, cuohe_count int
+      );
     `);
     const fixtures = [
       ['old', '2026-07-31 23:59:59', 'match', 'beginner', '1/4_rank', null, 10000, 1],
@@ -38,6 +44,19 @@ test('filtered player scores and counts use the same records', {
         ($1, 202, 'guobiao', 'guobiao', $2, $3, $4, $5, -9999, 4)`,
       [id, room, length, tier, event, score, rank]);
     }
+    const metricKeys = ['total_rounds', 'win_count', 'self_draw_count', 'deal_in_count',
+      'total_fan_score', 'total_win_turn', 'total_fangchong_score', 'fulu_round_count', 'cuohe_count'];
+    const startMetrics = [4, 1, 1, 0, 32, 6, 0, 1, 0];
+    const endMetrics = [8, 3, 1, 2, 168, 30, 48, 4, 1];
+    const selectedMetrics = Object.fromEntries(metricKeys.map((key, i) => [key, startMetrics[i] + endMetrics[i]]));
+    for (const [id] of fixtures) {
+      // Other players and out-of-range games must never contribute to this player's details.
+      for (const userId of [101, 202]) {
+        const metrics = userId === 101 ? (id === 'start' ? startMetrics : endMetrics) : metricKeys.map(() => 9999);
+        await pool.query(`INSERT INTO game_player_metrics (game_id, user_id, ${metricKeys.join(',')})
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, [id, userId, ...metrics]);
+      }
+    }
     const { fetchPlayerRankStats } = require('./playerPublicApi');
     const dates = { date_from: '2026-08-01T00:00:00', date_to: '2026-09-01T00:00:00' };
     const query = { rule: 'guobiao', tier: 'beginner', game_type: 'dongfeng', ...dates };
@@ -47,6 +66,7 @@ test('filtered player scores and counts use the same records', {
       assert.deepEqual(result, {
         total_games: 2, total_round_score: 80,
         first_place_count: 1, second_place_count: 0, third_place_count: 0, fourth_place_count: 1,
+        details_available: true, analyzed_games: 2, ...selectedMetrics,
       });
       assert.equal(result.total_round_score / result.total_games, 40);
     });
@@ -63,6 +83,12 @@ test('filtered player scores and counts use the same records', {
         const result = await fetchPlayerRankStats(101, filters);
         assert.equal(result.total_games, games);
         assert.equal(result.total_round_score, score);
+        assert.equal(result.details_available, true);
+        assert.equal(result.analyzed_games, games);
+        const includesStart = !['banzhuang'].includes(filters.game_type) && ['beginner', 'rank'].includes(filters.tier);
+        for (const [i, key] of metricKeys.entries()) {
+          assert.equal(result[key], endMetrics[i] * games + (includesStart ? startMetrics[i] - endMetrics[i] : 0), key);
+        }
       }
     });
 
@@ -70,6 +96,62 @@ test('filtered player scores and counts use the same records', {
       const result = await fetchPlayerRankStats(101, { ...query, date_from: '2026-12-01', date_to: '2026-12-02' });
       assert.equal(result.total_games, 0);
       assert.equal(result.total_round_score, 0);
+      assert.equal(result.details_available, true);
+      assert.equal(result.analyzed_games, 0);
+      for (const key of metricKeys) assert.equal(result[key], 0, key);
+    });
+
+    await t.test('rule, sub-rule, raw scene filters and one-sided dates select the same metrics', async () => {
+      await pool.query("UPDATE game_player_records SET sub_rule='guobiao/lanshi' WHERE game_id='end'");
+      try {
+        for (const filters of [
+          { ...query, sub_rule: 'guobiao' },
+          { ...query, tier: null, room_type: 'match', match_tier: 'beginner', sub_rule: 'guobiao' },
+          { ...query, date_to: null, sub_rule: 'guobiao/lanshi' },
+          { ...query, date_from: null, sub_rule: 'guobiao/lanshi' },
+        ]) {
+          const result = await fetchPlayerRankStats(101, filters);
+          const expected = filters.sub_rule === 'guobiao' ? startMetrics : endMetrics;
+          assert.equal(result.total_games, 1);
+          for (const [i, key] of metricKeys.entries()) assert.equal(result[key], expected[i], key);
+        }
+        const otherRule = await fetchPlayerRankStats(101, { ...query, rule: 'qingque' });
+        assert.equal(otherRule.total_games, 0);
+        assert.equal(otherRule.total_rounds, 0);
+      } finally {
+        await pool.query("UPDATE game_player_records SET sub_rule='guobiao' WHERE game_id='end'");
+      }
+    });
+
+    await t.test('duplicate metric rows use the latest snapshot without multiplying games or scores', async () => {
+      await pool.query(`INSERT INTO game_player_metrics (id, game_id, user_id, ${metricKeys.join(',')})
+        VALUES (-1, 'start', 101, 999,999,999,999,999,999,999,999,999)`);
+      const result = await fetchPlayerRankStats(101, query);
+      assert.equal(result.total_games, 2);
+      assert.equal(result.total_round_score, 80);
+      assert.equal(result.analyzed_games, 2);
+      for (const key of metricKeys) assert.equal(result[key], selectedMetrics[key], key);
+      await pool.query('DELETE FROM game_player_metrics WHERE id=-1');
+    });
+
+    await t.test('missing metrics keep settlement totals but do not expose partial details as complete', async () => {
+      await pool.query("UPDATE game_player_metrics SET user_id=303 WHERE game_id='end' AND user_id=101");
+      try {
+        const result = await fetchPlayerRankStats(101, query);
+        assert.equal(result.total_games, 2);
+        assert.equal(result.total_round_score, 80);
+        assert.equal(result.fourth_place_count, 1);
+        assert.equal(result.analyzed_games, 1);
+        assert.equal(result.details_available, false);
+        for (const key of metricKeys) assert.equal(result[key], null, key);
+        const missing = await fetchPlayerRankStats(101, { ...query, date_from: '2026-08-31' });
+        assert.equal(missing.total_games, 1);
+        assert.equal(missing.analyzed_games, 0);
+        assert.equal(missing.details_available, false);
+        for (const key of metricKeys) assert.equal(missing[key], null, key);
+      } finally {
+        await pool.query("UPDATE game_player_metrics SET user_id=101 WHERE user_id=303");
+      }
     });
 
     await t.test('missing scores and rules with starting points remain unavailable', async () => {

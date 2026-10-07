@@ -184,11 +184,12 @@ class HongzhongGameState(TaiwanGameState):
 
     def _record_hints(self, index):
         payload = self._hint_cache.get(index)
-        key = (tuple(payload["source_hand_tiles"]), tuple(payload["source_melds"])) if payload else None
+        blocked = "peida" in self.player_list[index].tag_list
+        key = (tuple(payload["source_hand_tiles"]), tuple(payload["source_melds"]), blocked) if payload else None
         round_key = f"round_index_{self.round_index}"
         if (payload and round_key in self.game_record.get("game_round", {})
                 and self._recorded_hints.get(index) != key):
-            append_action_tick(self, ["hongzhong", "hints", index, payload])
+            append_action_tick(self, ["hongzhong", "hints", index, {**payload, "win_blocked": blocked}])
             self._recorded_hints[index] = key
 
     async def _prepare_hand_action_after_draw(self):
@@ -289,8 +290,8 @@ class HongzhongGameState(TaiwanGameState):
             "self_has_draw_slot": bool(player.has_draw_slot),
             "last_drawn_tile": player.last_drawn_tile if player.has_draw_slot else None,
         }}
-        if payload and self.tips:
-            fields["hongzhong_hints"] = payload
+        if payload and (self.tips or self.count_tips):
+            fields["hongzhong_hints"] = {**payload, "win_blocked": "peida" in player.tag_list}
         return fields
 
     async def execute_cut(self, index, data, *, declare_ready=False, is_timeout_action=False):

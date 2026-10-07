@@ -46,12 +46,12 @@ export const LIBRARY_RULES = [
   {
     key: 'wenzhou', label: '温州麻将', short: '温州', categories: ['platform', 'local', 'mil'], accent: '#297b74',
     description: milRulebooks.wenzhou[0].desc,
-    resources: [...milRulebooks.wenzhou, { title: '温州2024平台补则', url: '/rulebooks/wenzhou/MIL2024-platform-supplement.txt' }],
+    resources: milRulebooks.wenzhou,
   },
   {
     key: 'changchun', label: '长春麻将', short: '长春', categories: ['platform', 'mil'], accent: '#5c779a',
     description: milRulebooks.changchun[0].desc,
-    resources: [...milRulebooks.changchun, { title: '平台补则', url: '/rulebooks/changchun.html' }],
+    resources: milRulebooks.changchun,
   },
   {
     key: 'hongzhong', label: '红中麻将', short: '红中', categories: ['platform', 'mil'], accent: '#b74b46',
@@ -67,7 +67,7 @@ export const LIBRARY_RULES = [
     key: 'yixing', label: '宜兴麻将', short: '宜兴', categories: ['platform', 'local'], accent: '#537c69',
     description: "宜兴麻将是江苏宜兴本地的特色玩法，由144张牌组成，其中万条筒各36张，东南西北中发白各4张，花牌8张，2花自摸，3花放冲，一花独吊，最先将手牌全部组成顺子和刻子的玩家赢得一局，起手花牌数能决定你当前牌局打法规划，牌局种类门清，碰碰胡，混一色，清一色等常见大牌，还包括独吊翻倍，杠开翻倍，海底翻倍，抢杠翻3倍等特殊机制，游戏尚在测试阶段，如对本规则感兴趣或有任何建议都可以添加Q541784531一同交流",
     resources: [
-      { title: '宜兴规则书与平台补则', url: '/rulebooks/yixing.html' },
+      { title: '宜兴麻将规则书', url: '/rulebooks/yixing.html' },
       { title: '宜兴麻将规则书（最新 Word）', url: '/rulebooks/yixing-rulebook.docx', filename: '宜兴麻将规则.docx' },
       { title: '宜兴麻将规则书（PDF）', url: '/rulebooks/yixing-rulebook.pdf' },
       { title: '宜兴麻将规则书（DOC）', url: '/rulebooks/yixing-rulebook.doc', filename: '宜兴麻将规则.doc' },

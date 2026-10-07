@@ -6,18 +6,19 @@ using UnityEngine;
 /// 牌谱铳牌/自摸提示：听牌计算、放铳危险牌、下一摸预测。
 /// </summary>
 public static class RecordChongHintCalculator {
-  /// <summary>合并所有未和牌玩家的待牌（用于牌山铳牌标红）。</summary>
+  /// <summary>合并所有未退场玩家的普通点和待牌（用于牌山铳牌标红）。</summary>
   public static HashSet<int> ComputeDangerTiles(
     Dictionary<string, GameRecordManager.RecordPlayer> players,
     string roomRule,
-    IDictionary<string, object> detailedConfig = null, string subRule = null) {
+    IDictionary<string, object> detailedConfig = null, string subRule = null,
+    Func<GameRecordManager.RecordPlayer, RecordTipsContext> tipsContext = null) {
     var danger = new HashSet<int>();
     if (RuleRegistry.Resolve(roomRule, subRule)?.ShowsRonDangerHints == false) return danger;
     if (players == null || string.IsNullOrEmpty(roomRule)) return danger;
 
     foreach (var kv in players) {
       if (kv.Value == null || kv.Value.isHu) continue;
-      foreach (int tileId in ComputeWaitingTilesForPlayer(kv.Value, roomRule, detailedConfig, subRule)) {
+      foreach (int tileId in ComputeRonWaitingTilesForPlayer(kv.Value, roomRule, detailedConfig, subRule, tipsContext)) {
         danger.Add(tileId);
       }
     }
@@ -31,7 +32,8 @@ public static class RecordChongHintCalculator {
     Dictionary<string, GameRecordManager.RecordPlayer> players,
     string handOwnerPosition,
     string roomRule,
-    IDictionary<string, object> detailedConfig = null, string subRule = null) {
+    IDictionary<string, object> detailedConfig = null, string subRule = null,
+    Func<GameRecordManager.RecordPlayer, RecordTipsContext> tipsContext = null) {
     var danger = new HashSet<int>();
     if (RuleRegistry.Resolve(roomRule, subRule)?.ShowsRonDangerHints == false) return danger;
     if (players == null || string.IsNullOrEmpty(roomRule) || string.IsNullOrEmpty(handOwnerPosition)) {
@@ -41,11 +43,42 @@ public static class RecordChongHintCalculator {
     foreach (var kv in players) {
       if (kv.Key == handOwnerPosition) continue;
       if (kv.Value == null || kv.Value.isHu) continue;
-      foreach (int tileId in ComputeWaitingTilesForPlayer(kv.Value, roomRule, detailedConfig, subRule)) {
+      foreach (int tileId in ComputeRonWaitingTilesForPlayer(kv.Value, roomRule, detailedConfig, subRule, tipsContext)) {
         danger.Add(tileId);
       }
     }
     return danger;
+  }
+
+  private static HashSet<int> ComputeRonWaitingTilesForPlayer(
+    GameRecordManager.RecordPlayer player, string roomRule,
+    IDictionary<string, object> detailedConfig, string subRule,
+    Func<GameRecordManager.RecordPlayer, RecordTipsContext> tipsContext) {
+    var waiting = ComputeWaitingTilesForPlayer(player, roomRule, detailedConfig, subRule);
+    RuleManifest manifest = RuleRegistry.Resolve(roomRule, subRule);
+    if (waiting.Count == 0 || manifest?.RecordDangerUsesWaitHint != true) return waiting;
+
+    RecordTipsContext ctx = tipsContext?.Invoke(player) ?? new RecordTipsContext {
+      RoomRule = roomRule, SubRule = subRule ?? manifest.DefaultSubRule,
+      HepaiLimit = manifest.DefaultHepaiLimit, CurrentRound = 1,
+      SelfPlayerIndex = player.playerIndex, SelfDingqueSuit = player.dingqueSuit,
+      ReadyQualification = player.readyQualification,
+      SelfHuapaiList = player.huapaiList, SelfCombinationMasks = player.combinationMasks,
+      SelfTags = new List<string>(player.tagList ?? new List<string>()),
+      DetailedConfig = detailedConfig != null ? new Dictionary<string, object>(detailedConfig) : null,
+      PlayersByPosition = new Dictionary<string, RecordTipsPlayerVisible> {
+        { "self", new RecordTipsPlayerVisible { DiscardTiles = player.discardTiles, CombinationTiles = player.combinationTiles } },
+      },
+    };
+    var result = new HashSet<int>();
+    foreach (WaitHintQuery query in RecordWaitHintCalculator.BuildQueries(
+      ctx, NormalizeHandForTingpai(player.tileList), new List<int>(waiting))) {
+      if ((manifest.RecordDangerQualification?.Invoke(query) ?? true)
+          && RuleTips.DescribeWaitingTile(manifest, query)?.Kind == WaitTileHint.KindRon) {
+        result.Add(TileIdOrder.Normalize(query.HepaiTile));
+      }
+    }
+    return result;
   }
 
   public static HashSet<int> ComputeWaitingTilesForPlayer(

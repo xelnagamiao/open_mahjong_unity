@@ -197,6 +197,7 @@ public partial class GameRecordManager : MonoBehaviour {
         public int score;
         public List<int> tileList = new List<int>();
         public List<int> discardTiles = new List<int>();
+        public List<int> knownConcealedDiscards = new List<int>();
         public List<bool> discardIsMoqie = new List<bool>();
         /// <summary>立直规则：与 discardTiles 同序的横置标记，回放或跳到指定动作时复原立直横置弃牌。</summary>
         public List<bool> discardRiichiFlags = new List<bool>();
@@ -559,6 +560,7 @@ public partial class GameRecordManager : MonoBehaviour {
         // 将牌谱玩家信息存储到字典中
         foreach (var recordPlayer in recordPlayerList) {
             recordPlayer.discardTiles.Clear();
+            recordPlayer.knownConcealedDiscards.Clear();
             recordPlayer.discardIsMoqie.Clear();
             recordPlayer.discardRiichiFlags.Clear();
             recordPlayer.pendingRiichiHorizontal = false;
@@ -907,6 +909,8 @@ public partial class GameRecordManager : MonoBehaviour {
             int cutIndex = RemoveTileForCut(currentRecordPlayer.tileList, cutTile, isMoqie);
             currentRecordPlayer.showHandDrawSlotActive = false;
             currentRecordPlayer.discardTiles.Add(concealedDiscard ? 0 : cutTile);
+            if (concealedDiscard && RecordRuleManifest?.RuleId == "shanxi")
+                currentRecordPlayer.knownConcealedDiscards.Add(cutTile);
             currentRecordPlayer.discardIsMoqie.Add(isMoqie);
             currentRecordPlayer.discardRiichiFlags.Add(isRiichiHorizontal);
             OnRecordPlayerCut(currentRecordPlayer);

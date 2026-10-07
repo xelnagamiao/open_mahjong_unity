@@ -30,7 +30,7 @@ public static class GuizhouShape {
         return result;
     }
     private static bool Valid(int tile) => tile >= 11 && tile <= 39 && tile % 10 >= 1 && tile % 10 <= 9;
-    private static bool Standard(int[] counts, int groups) {
+    internal static bool Standard(int[] counts, int groups) {
         for (int tile = 11; tile <= 39; tile++) {
             if (counts[tile] < 2) continue;
             counts[tile] -= 2;
