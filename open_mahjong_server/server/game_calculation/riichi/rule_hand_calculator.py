@@ -17,12 +17,14 @@ from mahjong.hand_calculating.yaku import Yaku
 from mahjong.meld import Meld
 from mahjong.tile import TilesConverter
 from mahjong.utils import build_dora_count_map, classify_hand_suits, count_dora_for_hand, plus_dora
+from .win_requirements import standard_ron_score
 
 class _CalculatedHand(TypedDict):
     cost: ScoresResult | None
     error: str | None
     hand_yaku: list[Yaku]
     han: int
+    yaku_han: int
     fu: int
     fu_details: list[FuDetail]
 _ALL_SUITS_MASK = 7
@@ -52,7 +54,7 @@ class HandCalculator:
     ERR_RENHOU_WITH_MELD = 'renhou_with_meld_not_allowed'
 
     @staticmethod
-    def estimate_hand_value(tiles: Collection[int], win_tile: int, melds: Collection[Meld] | None=None, dora_indicators: Collection[int] | None=None, config: HandConfig | None=None, scores_calculator_factory: type[ScoresCalculator]=ScoresCalculator, ura_dora_indicators: Collection[int] | None=None) -> HandResponse:
+    def estimate_hand_value(tiles: Collection[int], win_tile: int, melds: Collection[Meld] | None=None, dora_indicators: Collection[int] | None=None, config: HandConfig | None=None, scores_calculator_factory: type[ScoresCalculator]=ScoresCalculator, ura_dora_indicators: Collection[int] | None=None, minimum_yaku_han: int=1, minimum_win_score: int=0, extra_bonus_han: int=0) -> HandResponse:
         if not melds:
             melds = []
         if not dora_indicators:
@@ -292,6 +294,7 @@ class HandCalculator:
                         han += item.han_closed
                 if yakuman_list:
                     han = _limited_yakuman_han(hand_yaku, is_open_hand, config)
+                yaku_han = han
                 if han == 0:
                     error = HandCalculator.ERR_NO_YAKU
                     cost = None
@@ -314,7 +317,7 @@ class HandCalculator:
                     han = 78
                 if not error:
                     cost = scores_calculator.calculate_scores(han, fu, config, len(yakuman_list) > 0)
-                calculated_hand = _CalculatedHand(cost=cost, error=error, hand_yaku=hand_yaku, han=han, fu=fu, fu_details=fu_details)
+                calculated_hand = _CalculatedHand(cost=cost, error=error, hand_yaku=hand_yaku, han=han, yaku_han=yaku_han, fu=fu, fu_details=fu_details)
                 calculated_hands.append(calculated_hand)
         if not is_open_hand and config.yaku.kokushi.is_condition_met(None, tiles_34):
             if tiles_34[win_tile // 4] == 2:
@@ -358,10 +361,20 @@ class HandCalculator:
             if not is_aotenjou:
                 han = _limited_yakuman_han(hand_yaku, False, config)
             cost = scores_calculator.calculate_scores(han, fu, config, len(hand_yaku) > 0)
-            calculated_hands.append(_CalculatedHand(cost=cost, error=None, hand_yaku=hand_yaku, han=han, fu=fu, fu_details=[]))
+            calculated_hands.append(_CalculatedHand(cost=cost, error=None, hand_yaku=hand_yaku, han=han, yaku_han=han, fu=fu, fu_details=[]))
         if not calculated_hands:
             return HandResponse(error=HandCalculator.ERR_HAND_NOT_WINNING)
-        calculated_hand = max(calculated_hands, key=lambda x: ((x['cost'] or {}).get('total', -1), x['han'], x['fu'], sum((y['fu'] for y in x['fu_details']))))
+        def qualifies(hand):
+            if hand['error'] or hand['yaku_han'] < max(1, minimum_yaku_han):
+                return False
+            if minimum_win_score <= 0:
+                return True
+            yakuman = any(y.is_yakuman for y in hand['hand_yaku'])
+            han = hand['han'] + (0 if yakuman else extra_bonus_han)
+            return standard_ron_score(han, hand['fu'], config.options, yakuman) >= minimum_win_score
+
+        # A higher-paying decomposition must not hide another legal interpretation.
+        calculated_hand = max(calculated_hands, key=lambda x: (qualifies(x), (x['cost'] or {}).get('total', -1), x['han'], x['fu'], sum((y['fu'] for y in x['fu_details']))))
         error = calculated_hand['error']
         if error:
             return HandResponse(error=error)

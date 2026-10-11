@@ -56,13 +56,14 @@ def test_grade_defaults_and_protocol_have_no_elo(rule):
     assert ('elo' in entry.model_dump()) == (rule not in GRADE_RULES)
 
 
-@pytest.mark.parametrize('rule', ['qingque', 'sichuan', 'sichuan_xueliu_exchange'])
-def test_elo_full_game_starts_with_four_players_regardless_of_rating(rule):
+@pytest.mark.parametrize('rule', ['qingque', 'sichuan', 'sichuan_xueliu_exchange', 'hongque'])
+def test_elo_game_starts_with_configured_length_regardless_of_rating(rule):
     async def run():
         server=server_fixture();manager=server.match_manager
         manager.committed_users.clear();manager.winning_queues.clear()
         queue=next(q for q,s in QUEUES.items() if s.rating_rule==rule)
-        assert [(s.mode,s.rounds) for s in QUEUES.values() if s.rating_rule==rule]==[('quanzhuang',4)]
+        expected_mode, expected_rounds = ('banzhuang', 2) if rule == 'sichuan' else ('quanzhuang', 16 if rule == 'hongque' else 4)
+        assert [(s.mode,s.rounds) for s in QUEUES.values() if s.rating_rule==rule]==[(expected_mode,expected_rounds)]
         ratings=dict(zip(USERS,[600,2600,1100,1900]))
         server.db_manager.get_rank_data.side_effect=lambda uid: {'ratings':{rule:{**default_rating(rule),'elo':ratings[uid]}}}
         started=asyncio.Event()
@@ -78,19 +79,28 @@ def test_elo_full_game_starts_with_four_players_regardless_of_rating(rule):
             assert (await manager.join_queue(str(USERS[3]),queue)).success
             await asyncio.wait_for(started.wait(),1)
         game=next(iter(server.gamestate_manager.gamestate_id_to_game_state.values()))
-        assert game.max_round==4
+        assert game.max_round==(16 if rule=='hongque' else expected_rounds)
+        if rule == 'sichuan':
+            assert game.sub_rule == 'sichuan/standard' and game.max_round * 4 == 8
+            assert queue_type_to_match_type(queue) == '2/4_rank'
+            game.current_round = 7
+            assert not game._is_match_end()
+            game.current_round = 8
+            assert game._should_play_round() and game._is_match_end()
+            game.current_round = 9
+            assert not game._should_play_round()
         assert {p.user_id for p in game.player_list}==set(USERS)
         assert manager.committed_users==set(USERS)
         assert not manager.queues[queue]
         for uid in USERS:
             payload=server.user_id_to_connection[uid].websocket.send_json.call_args.args[0]
             assert payload['type']=='match/match_found'
-            assert '全庄战' in payload['message']
+            assert ('半庄战' if rule == 'sichuan' else '全庄战') in payload['message']
         await server.gamestate_manager.cleanup_game_state_complete(game.gamestate_id)
     asyncio.run(run())
 
 
-@pytest.mark.parametrize('queue',['qingque_elo_dongfeng','qingque_elo_banzhuang'])
+@pytest.mark.parametrize('queue',['qingque_elo_dongfeng','qingque_elo_banzhuang','hongque_elo_dongfeng','hongque_elo_banzhuang'])
 def test_removed_short_elo_queues_cannot_be_joined(queue):
     async def run():
         server=server_fixture();server.match_manager.committed_users.clear()
@@ -99,7 +109,7 @@ def test_removed_short_elo_queues_cannot_be_joined(queue):
     asyncio.run(run())
 
 
-@pytest.mark.parametrize('queue',['qingque_elo_quanzhuang','sichuan_elo_xuezhan','sichuan_xueliu_exchange_elo_quanzhuang'])
+@pytest.mark.parametrize('queue',['qingque_elo_quanzhuang','sichuan_elo_xuezhan','sichuan_xueliu_exchange_elo_quanzhuang','hongque_elo_quanzhuang'])
 def test_elo_queue_uses_arrival_order_and_keeps_the_fifth_player(queue):
     async def run():
         server=server_fixture();manager=server.match_manager
@@ -167,15 +177,14 @@ def test_ranked_stats_api_receives_rule_and_fan_data(rule):
     async def run():
         server=SimpleNamespace(players={'c':SimpleNamespace(user_id=11000001)},db_manager=object())
         ws=SimpleNamespace(send_json=AsyncMock())
-        with patch('server.database.rule_ratings.get_ranked_history',return_value=[dict(rule=rule,mode='1/4_rank',total_games=3)]) as history, \
-             patch('server.database.riichi.get_riichi_stats.get_riichi_fan_stats_total',return_value={'riichi':2}), \
-             patch('server.database.qingque.get_qingque_stats.get_qingque_fan_stats_total',return_value={'qingyise':1}):
+        fans = {'riichi': 2} if rule in ('riichi', 'riichi_sanma') else {'qingyise': 1} if rule == 'qingque' else {}
+        with patch('server.database.rule_ratings.get_ranked_history',return_value=[dict(rule=rule,mode='1/4_rank',total_games=3,fan_stats=fans)]) as history:
             await handle_get_ranked_stats(server,'c',dict(rule=rule,userid='11000002',data_request_id='stats-1'),ws)
             body=ws.send_json.call_args.args[0]
             assert body['success'] and body['data_request_id']=='stats-1'
             assert body['rule_stats']['history_stats'][0]['total_games']==3
             history.assert_called_once_with(server.db_manager,11000002,rule)
-            if rule in ('riichi','riichi_sanma','qingque'):assert body['rule_stats']['ranked_fan_stats']
+            assert body['rule_stats']['ranked_fan_stats'] == fans
             await handle_get_ranked_stats(server,'missing',dict(rule=rule),ws)
             assert not ws.send_json.call_args.args[0]['success']
     asyncio.run(run())

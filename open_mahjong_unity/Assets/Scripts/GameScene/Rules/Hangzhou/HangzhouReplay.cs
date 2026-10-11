@@ -3,11 +3,29 @@ using System.Collections.Generic;
 using Newtonsoft.Json;
 
 public partial class GameRecordManager {
+    internal RuleReplayModule CreateHangzhouReplayModule() => new RuleReplayModule("hangzhou") {
+        ReservedWallTiles = 20,
+        Reset = ResetHangzhouRecordState,
+        Clear = () => {
+            recordHangzhouInfo = null; recordHangzhouWinSource = null;
+            foreach (var cache in recordHangzhouHints) cache.Reset();
+            GameCanvas.Instance?.SetHangzhouPlayerStatus(null, indexToPosition);
+        },
+        InitializePlayers = InitializeHangzhouRecordDrawSlots,
+        ApplyBeforeMutation = ApplyHangzhouRecordAction,
+        RefreshPlayerTags = RefreshHangzhouRecordPlayerStatus,
+        AnnounceBeforeAction = PlayHangzhouRecordAnnouncement,
+        AfterSilentMutation = tick => SyncRecordBoardScores(),
+    };
+
     private HangzhouInfo recordHangzhouInfo;
     private string recordHangzhouWinSource;
     private readonly HangzhouHintsCache[] recordHangzhouHints = { new HangzhouHintsCache(),new HangzhouHintsCache(),new HangzhouHintsCache(),new HangzhouHintsCache() };
     private bool IsHangzhouRecord() => RecordRuleManifest?.RuleId == HangzhouGameState.RuleId;
     private bool IsHangzhouRecordTenWinds => IsHangzhouRecord() && recordHangzhouWinSource == "ten_winds";
+    private void RefreshHangzhouRecordPlayerStatus() {
+        GameCanvas.Instance?.SetHangzhouPlayerStatus(IsHangzhouRecord() ? recordHangzhouInfo : null, indexToPosition);
+    }
     private void InitializeHangzhouRecordDrawSlots() {
         if (!IsHangzhouRecord() || !gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex,out Round round)) return;
         foreach(var player in recordPlayerList)
@@ -18,13 +36,18 @@ public partial class GameRecordManager {
         foreach(var cache in recordHangzhouHints) cache.Reset();
         if (IsHangzhouRecord() && gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex,out Round round))
             recordHangzhouInfo=round.hangzhou==null ? null : JsonConvert.DeserializeObject<HangzhouInfo>(JsonConvert.SerializeObject(round.hangzhou));
-        HangzhouStatePanel.Show(recordHangzhouInfo);
+        RefreshHangzhouRecordPlayerStatus();
     }
     public HashSet<int> HangzhouWaiting(TingpaiQuery query) {
         if (!IsHangzhouRecord()) return new HashSet<int>();
         int? seat=query?.RecordPlayerIndex;
         if (!seat.HasValue && recordPlayer_to_info.TryGetValue("self",out RecordPlayer self)) seat=self.playerIndex;
         return seat.HasValue && seat.Value>=0 && seat.Value<4 ? recordHangzhouHints[seat.Value].Waiting(query) : new HashSet<int>();
+    }
+    public WaitTileHint DescribeHangzhouWaiting(WaitHintQuery query) {
+        if (!IsHangzhouRecord() || query == null) return null;
+        int seat = query.Record?.SelfPlayerIndex ?? query.SelfIndex;
+        return seat >= 0 && seat < recordHangzhouHints.Length ? recordHangzhouHints[seat].Describe(query) : null;
     }
     private void PlayHangzhouRecordAnnouncement(IReadOnlyList<string> tick,string position,int voiceId) {
         if (!IsHangzhouRecord() || tick==null || tick.Count<2 || tick[0]!="c" || (tick.Count>3 && tick[3]=="C")
@@ -65,7 +88,7 @@ public partial class GameRecordManager {
                 }
                 break;
         }
-        HangzhouStatePanel.Show(recordHangzhouInfo);
+        RefreshHangzhouRecordPlayerStatus();
         return true;
     }
 }

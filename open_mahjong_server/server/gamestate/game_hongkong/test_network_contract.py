@@ -73,6 +73,31 @@ def test_private_wait_previews_match_authoritative_baseline(profile):
     assert not private_hints(state,2)
 
 
+@pytest.mark.parametrize('profile', PROFILES)
+@pytest.mark.parametrize('tips,count_tips', [(False, False), (False, True), (True, False), (True, True)])
+@pytest.mark.parametrize('drawn', [False, True])
+def test_wait_eligibility_is_available_with_either_hint_switch(profile, tips, count_tips, drawn):
+    state = make_state(profile)
+    open_round(state)
+    state.tips, state.count_tips = True, False
+    hand = [11,12,13,21,22,23,31,32,33,41,41,41,45]
+    if profile == PROFILES[2]:
+        hand += [14,15,16]
+    player = state.player_list[2]
+    player.hand_tiles = hand + ([19] if drawn else [])
+    player.combination_tiles, player.huapai_list = [], []
+    expected = private_hints(state, 2)
+    assert expected and any(row['tile'] == 45 for rows in expected.values() for row in rows)
+
+    state.tips, state.count_tips = tips, count_tips
+    actual = private_hints(state, 2)
+    assert actual == (expected if tips or count_tips else {})
+    info = state.build_game_start_payload(2)['game_info']
+    assert info['hongkong_waits'] == actual
+    assert info['tips'] is tips and info['count_tips'] is count_tips
+    assert ','.join(map(str, sorted(hand))) not in state.build_game_start_payload(1)['game_info']['hongkong_waits']
+
+
 def test_ready_reconnect_and_observer_restore_rule_metadata_and_never_other_hands():
     async def run():
         state = make_state(PROFILES[2])

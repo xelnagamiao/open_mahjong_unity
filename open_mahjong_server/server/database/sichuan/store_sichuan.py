@@ -25,7 +25,7 @@ def store_sichuan_game_record(db_manager, game_record: dict, player_list: list, 
     """存储四川麻将牌谱记录（game_records）与玩家对局记录（game_player_records）。"""
     conn = None
     try:
-        if any(getattr(p, "user_id", 0) <= 10 for p in player_list):
+        if not (game_record.get("game_title") or {}).get("duplicate_key") and any(getattr(p, "user_id", 0) <= 10 for p in player_list):
             logger.info("对局包含机器人，跳过牌谱与对局记录保存")
             return None
 
@@ -36,8 +36,21 @@ def store_sichuan_game_record(db_manager, game_record: dict, player_list: list, 
         max_retries = 5
         game_id = None
         for _ in range(max_retries):
-            candidate_id = generate_game_id()
+            candidate_id = (game_record.get("game_title") or {}).get("duplicate_game_id") or generate_game_id()
             try:
+                if (game_record.get("game_title") or {}).get("duplicate_game_id"):
+                    cursor.execute("INSERT INTO game_records (game_id, record) VALUES (%s,%s) ON CONFLICT (game_id) DO NOTHING RETURNING game_id",
+                                   (candidate_id, game_record_json))
+                    if not cursor.fetchone():
+                        cursor.execute("SELECT record FROM game_records WHERE game_id=%s", (candidate_id,))
+                        stored = cursor.fetchone()[0]
+                        stored = json.loads(stored) if isinstance(stored, str) else stored
+                        if stored != json.loads(game_record_json):
+                            raise ValueError("复式牌谱重复写入内容冲突")
+                        conn.commit()
+                        return candidate_id
+                    game_id = candidate_id
+                    break
                 cursor.execute(
                     "INSERT INTO game_records (game_id, record) VALUES (%s, %s)",
                     (candidate_id, game_record_json)
@@ -62,6 +75,8 @@ def store_sichuan_game_record(db_manager, game_record: dict, player_list: list, 
         room_type, match_tier, event_id = normalize_scene_fields(room_type, match_tier, event_id)
         saved_count = 0
         for player in player_list:
+            if player.user_id <= 10:
+                continue
             rank = player.record_counter.rank_result
             title_used = getattr(player, 'title_used', None)
             character_used = getattr(player, 'character_used', None)
@@ -79,25 +94,26 @@ def store_sichuan_game_record(db_manager, game_record: dict, player_list: list, 
                     title_used, character_used, profile_used, voice_used, avatar_frame_used
                 ))
                 saved_count += 1
-            except Error as e:
+            except Exception as e:
                 logger.warning(f'跳过玩家对局记录存储: user_id={player.user_id}, username={player.username}, error={e}')
+                raise
         logger.info(f'已为 {saved_count} 名玩家保存对局记录到 game_player_records 表')
 
+        from ..duplicate_walls import link_duplicate_record
+        link_duplicate_record(cursor, game_id, game_record)
         from ..player_recent_records import update_player_recent_records
         update_player_recent_records(cursor, game_id, game_record)
+        # 牌谱、参与者和统计同事务发布，成功保存不依赖后续回填。
+        from ..scene_stats import record_game_metrics
+        record_game_metrics(db_manager, game_id, game_record, player_list, {
+            "rule": rule, "sub_rule": sub_rule, "room_type": room_type,
+            "match_tier": match_tier, "event_id": event_id, "match_type": match_type,
+        }, cursor=cursor)
         conn.commit()
-        logger.info(f'四川游戏记录已保存，game_id: {game_id}')
-        try:
-            from ..scene_stats import record_game_metrics
-            record_game_metrics(db_manager, game_id, game_record, player_list, {
-                "rule": rule, "sub_rule": sub_rule, "room_type": room_type,
-                "match_tier": match_tier, "event_id": event_id, "match_type": match_type,
-            })
-        except Exception as e:
-            logger.warning(f"写入 game_player_metrics 失败: {e}")
+        logger.info("牌谱及子规则统计已保存，game_id: %s", game_id)
         return game_id
 
-    except Error as e:
+    except Exception as e:
         logger.error(f'存储四川游戏记录失败: {e}', exc_info=True)
         if conn:
             conn.rollback()

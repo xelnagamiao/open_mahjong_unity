@@ -223,6 +223,7 @@ public static class TileFaceResolver {
     }
 
     public static bool ShouldLayerHandFace(int tileId) {
+        tileId = WashizuTile.Face(tileId);
         // 缺失上传牌面也会回退到透明官方图，因此不能按“是否有上传图”跳过底图。
         return tileId != ConfigManager.HandBackImageId && tileId != 1
             && !HongqueTileVisual.IsHongqueId(tileId) && TilePackIds.IsStandardFaceId(tileId);
@@ -414,6 +415,7 @@ public static class TileFaceResolver {
     }
 
     private static int ResolveFaceId(int tileId, bool applyWhiteDragonFaceSetting) {
+        tileId = WashizuTile.Face(tileId);
         if (applyWhiteDragonFaceSetting
             && ConfigManager.Instance != null
             && ConfigManager.Instance.UseBlankWhiteDragonFace(tileId)) {

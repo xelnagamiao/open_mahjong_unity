@@ -4,7 +4,7 @@
 - 108 张（万/饼/条），庄家 14 张其余 13 张，不允许吃牌。
 - 定缺阶段：庄家先摸第 14 张，四家同时选缺门花色。
 - 血战到底（可选 blood_battle）：开=和牌后退场续打至三家和或流局；关=一家和牌即结束本盘。
-- 一炮多响：同一弃牌所有可和家均和。
+- 一炮多响：逐家等待确认，仅结算实际报和者；过和或超时者继续行牌并受顺和限制。
 - 刮风下雨：点杠/摸杠加杠/暗杠即时收分，流局没叫者退税、杠上炮/抢杠退税。
 - 流局查大叫：没叫者按有叫者理论最大番支付基本分；花猪均按没叫查叫，分被动（原始出牌全为定缺）/主动（曾打非定缺且手含定缺→没叫 + 额外扣 24 分）。
 - 定庄：上副最先和者为庄；并列最先（一炮多响）则点炮者为庄；流局连庄。
@@ -17,7 +17,8 @@ import random
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-from .action_check import check_action_hand_action, refresh_waiting_tiles
+from .action_check import check_action_after_peng, check_action_hand_action, refresh_waiting_tiles
+from .action_window import collect_tactical_recheck, validate_tactical_queued_action
 from .wait_action import wait_action
 from .shunhe import clear_shunhe
 from .boardcast import (
@@ -29,6 +30,7 @@ from .boardcast import (
 )
 from ..public.logic_common import next_current_num, assign_strict_final_ranks
 from .init_tiles import init_sichuan_tiles
+from .duplicate_wall import can_draw
 from ..public.spectator_rules import too_many_ai_for_spectator
 from ..public.vote_manager import vote_checkpoint
 from ..public.game_record_manager import (
@@ -52,6 +54,10 @@ from ...database.db_manager import DatabaseManager
 from ..public.random_seed_manager import setup_random_seed_system
 from ...game_calculation.sichuan.xueliu_rules import (
     validate_sichuan_sub_rule,
+)
+from ...game_calculation.sichuan.doubles_rules import (
+    DOUBLES_RULE_PROFILE, is_doubles, has_missing_suit, classify_flower_pig,
+    team_first_two_finished, team_scores, match_result,
 )
 
 logger = logging.getLogger(__name__)
@@ -108,7 +114,6 @@ class SichuanPlayer:
         self.has_won = False    # 血流：曾经和牌，但仍留在牌局中
         self.win_count = 0      # 血流：本盘累计和牌次数
         self.post_hu_lock = False  # 血流：和后仅允许摸切，不能换张
-        self.locked_waiting_tiles = set()  # 血流：和后固定听口
         self.xueliu_throw_tiles = []  # 血流：开局甩掉的三张，仅用于牌谱/重连说明
         self.hu_order = 0       # 和牌顺序（1=最先）
         self.gang_score_records = []  # 刮风下雨记录，用于退税
@@ -116,32 +121,77 @@ class SichuanPlayer:
         self.shunhe_passed_max_fan = None  # 顺和：已生效跳过番（下次摸牌前不可点和≤该番，自摸不受限）
 
     def get_tile(self, tiles_list, *, mark_draw_slot: bool = True):
-        element = tiles_list.pop(0)
+        element = tiles_list.pop_for_player(self) if hasattr(tiles_list, "pop_for_player") else tiles_list.pop(0)
         self.hand_tiles.append(element)
         if mark_draw_slot:
             self.has_draw_slot = True
 
     def get_gang_tile(self, tiles_list, gamestate):
         # 川麻无死墙/无岭上：杠后补牌与普通摸牌一致，从牌墙头取
-        element = tiles_list.pop(0)
+        element = tiles_list.pop_for_player(self) if hasattr(tiles_list, "pop_for_player") else tiles_list.pop(0)
         self.hand_tiles.append(element)
         self.has_draw_slot = True
 
 
 class SichuanGameState:
     is_xueliu = False
+    is_doubles = False
+    is_team_game = False
+    is_xueliu_doubles = False
 
     def _configure_rule(self):
-        if self.sub_rule != "sichuan/standard":
-            raise ValueError("标准四川状态机仅支持 sichuan/standard")
+        self.is_doubles = is_doubles(self.sub_rule)
+        self.is_team_game = self.is_doubles
+        if self.sub_rule != "sichuan/standard" and not self.is_doubles:
+            raise ValueError("四川血战状态机不支持此子规则")
         self.xueliu_rule_profile = None
 
     def _record_rule_profile(self):
-        pass
+        if self.is_doubles:
+            self.game_record["game_title"]["doubles_rule_profile"] = dict(DOUBLES_RULE_PROFILE)
+            self.game_record["game_title"]["team_by_player_index"] = [p.team_id for p in self.player_list]
+
+    def _shuffle_players(self, rng):
+        if not self.is_team_game:
+            rng.shuffle(self.player_list)
+            return
+        groups = [[p for p in self.player_list if p.team_id == team] for team in (0, 1)]
+        if any(len(group) != 2 for group in groups):
+            raise ValueError("双打需要每队两人")
+        rng.shuffle(groups)
+        for group in groups:
+            rng.shuffle(group)
+        self.player_list[:] = [groups[0][0], groups[1][0], groups[0][1], groups[1][1]]
+
+    def _record_team_round(self):
+        if not self.is_team_game:
+            return
+        scores = team_scores(self.player_list)
+        summary = {"round": self.current_round, "end_reason": self.doubles_end_reason or self.ended_by,
+                   "scores": scores, "score_changes": {t: scores[t] - self.team_scores_before[t] for t in (0, 1)}}
+        self.team_round_history.append(summary)
+        self.game_record["doubles_rounds"] = list(self.team_round_history)
+        self.settled_team_scores = scores
+
+    def _finish_team_match(self):
+        self.team_result = match_result(team_scores(self.player_list), self.team_round_history)
+        self.game_record["doubles_result"] = self.team_result
+        self.game_record["game_title"]["doubles_result"] = self.team_result
+        for player in self.player_list:
+            winner = self.team_result["winner_team_id"]
+            player.record_counter.rank_result = 1 if winner is None or player.team_id == winner else 2
 
     async def _opening_phase(self):
+        if self.is_doubles:
+            return
         await self._dingque_phase()
         await broadcast_dingque_done(self)
+
+    async def _after_round_settled(self):
+        """Paired-table subclasses settle both tables before advancing."""
+
+    def _active_flower_pig_penalty(self, player_index):
+        return SICHUAN_ACTIVE_HUAZHU_PENALTY
 
     def __init__(self, game_server, room_data: dict, calculation_service: GameCalculationService,
                  db_manager: DatabaseManager, gamestate_id: str):
@@ -153,7 +203,7 @@ class SichuanGameState:
         self.game_task: Optional[asyncio.Task] = None
         self.player_list: List[SichuanPlayer] = []
         player_settings = room_data.get("player_settings", {})
-        for user_id in room_data["player_list"]:
+        for seat_index, user_id in enumerate(room_data["player_list"]):
             ps = player_settings.get(user_id, {})
             if user_id == 0:
                 username = "麻雀罗伯特"
@@ -162,6 +212,7 @@ class SichuanGameState:
             else:
                 username = ps.get("username", f"用户{user_id}")
             player = SichuanPlayer(user_id, username, [], room_data["round_timer"])
+            player.team_id = room_data.get("team_by_seat", [-1] * 4)[seat_index]
             player.title_used = ps.get("title_id", 1)
             player.profile_used = ps.get("profile_image_id", 1)
             player.character_used = ps.get("character_id", 1)
@@ -195,6 +246,14 @@ class SichuanGameState:
         self.claim_meld_post_gap = room_data.get("claim_meld_post_gap", 0.5)
         self.blood_battle = False if self.is_xueliu else room_data.get("blood_battle", True)
         self.hepai_limit = room_data.get("hepai_limit", 0)
+        if self.is_team_game:
+            if sorted(p.team_id for p in self.player_list) != [0, 0, 1, 1]:
+                raise ValueError("双打需要 A、B 两队各两名玩家")
+            self.blood_battle = not self.is_xueliu
+            self.hepai_limit = 0
+        self.team_round_history = []
+        self.settled_team_scores = {0: 0, 1: 0}
+        self.team_result = None
         self.tourist_limit = room_data.get("tourist_limit", False)
         self.allow_spectator_config = room_data.get("allow_spectator", True)
         self.isPlayerSetRandomSeed = False
@@ -324,7 +383,7 @@ class SichuanGameState:
         idx = from_index
         for _ in range(4):
             idx = next_current_num(idx)
-            if not self.player_list[idx].is_hu:
+            if not self.player_list[idx].is_hu and can_draw(self, idx):
                 return idx
         return None
 
@@ -342,7 +401,7 @@ class SichuanGameState:
             self.master_seed, self.salt, self.commitment, self.isPlayerSetRandomSeed = setup_random_seed_system(user_seed)
             capture_player_entry_order(self)
             rng = random.Random(self.master_seed)
-            rng.shuffle(self.player_list)
+            self._shuffle_players(rng)
         else:
             self.master_seed, self.salt, self.commitment, self.isPlayerSetRandomSeed = setup_random_seed_system()
             capture_player_entry_order(self)
@@ -360,7 +419,8 @@ class SichuanGameState:
             self.game_record["game_title"]["event_id"] = self.event_id
         self.dealer_index = 0
 
-        while self.current_round <= self.max_round * 4:
+        self._restore_match_checkpoint()
+        while self._should_play_round():
             self._reset_round_state()
             init_sichuan_tiles(self)
             # 川麻 c tick 不带座位，牌谱不写 reset。局头快照前指向庄家。
@@ -400,7 +460,7 @@ class SichuanGameState:
                         self.game_status = "waiting_hand_action"
 
                     case "deal_card_after_gang":
-                        if len(self.tiles_list) <= self.dead_wall_count:
+                        if not can_draw(self, self.current_player_index):
                             self.ended_by = "liuju"
                             self.game_status = "END"
                             break
@@ -424,8 +484,7 @@ class SichuanGameState:
                         await self.wait_action()
 
                     case "onlycut_after_action":
-                        self.action_dict = {0: [], 1: [], 2: [], 3: []}
-                        self.action_dict[self.current_player_index].append("cut")
+                        self.action_dict = check_action_after_peng(self, self.current_player_index)
                         self.game_status = "waiting_hand_action"
 
                     case "settle_win":
@@ -438,18 +497,17 @@ class SichuanGameState:
             # 流局终局：与血战三家和共用 _settle_liuju（见 ABCD 顺序注释，禁止跳过查叫）
             self.next_status = (
                 "match_end"
-                if self.current_round >= self.max_round * 4
+                if self._is_match_end()
                 else "round_end_by_ready"
             )
             if self.ended_by == "liuju":
                 await self._settle_liuju()
-                player_action_record_round_end(self)
-                if self.next_status != "match_end":
-                    await self._ready_phase(liuju=True)
-            else:
-                player_action_record_round_end(self)
-                if self.next_status != "match_end":
-                    await self._ready_phase(liuju=False)
+            self._record_team_round()
+            player_action_record_round_end(self)
+            await self._after_round_settled()
+            self.next_status = "match_end" if self._is_match_end() else "round_end_by_ready"
+            if self.next_status != "match_end":
+                await self._ready_phase(liuju=self.ended_by == "liuju")
 
             # 定庄
             self.dealer_index = self._decide_next_dealer()
@@ -458,6 +516,8 @@ class SichuanGameState:
 
         end_game_record(self)
         assign_strict_final_ranks(self.player_list)
+        if self.is_team_game:
+            self._finish_team_match()
 
         from ...match.settlement import settle_ranked_game
         match_type = settle_ranked_game(self)
@@ -469,6 +529,7 @@ class SichuanGameState:
         except Exception as e:
             logger.warning(f"四川对局落库跳过/失败: {e}")
         remember_local_record_detail(self, game_id, match_type)
+        self._after_record_saved(game_id)
 
         await self.broadcast_game_end()
         if hasattr(self, 'spectator_manager'):
@@ -477,7 +538,22 @@ class SichuanGameState:
         await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
         logger.info(f"四川对局结束清理完成 room_id={self.room_id}")
 
+    def _restore_match_checkpoint(self):
+        pass
+
+    def _after_record_saved(self, game_id):
+        pass
+
+    def _is_match_end(self):
+        return self.current_round >= self.max_round * 4
+
+    def _should_play_round(self):
+        return self.current_round <= self.max_round * 4
+
     def _reset_round_state(self):
+        if self.is_team_game:
+            self.team_scores_before = team_scores(self.player_list)
+            self.doubles_end_reason = None
         for p in self.player_list:
             p.hand_tiles = []
             p.huapai_list = []
@@ -492,7 +568,6 @@ class SichuanGameState:
             p.has_won = False
             p.win_count = 0
             p.post_hu_lock = False
-            p.locked_waiting_tiles = set()
             p.xueliu_throw_tiles = []
             p.hu_order = 0
             p.gang_score_records = []
@@ -711,7 +786,8 @@ class SichuanGameState:
                 if hu_tag not in self.player_list[w].tag_list:
                     self.player_list[w].tag_list.append(hu_tag)
             hued = sum((1 for p in self.player_list if p.is_hu))
-            round_over = not self.blood_battle or hued >= 3
+            team_end = self.is_doubles and ron_i == len(winners) - 1 and team_first_two_finished(self.player_list)
+            round_over = not self.blood_battle or hued >= 3 or team_end
             round_continues = self.blood_battle and (not round_over)
             hepai_tile = info.get('hepai_tile', 0)
             is_qianggang = pw['type'] == 'qianggang'
@@ -749,8 +825,11 @@ class SichuanGameState:
                 await asyncio.sleep(hu_result_ready_wait_seconds(len(fan_list)))
         self.sichuan_hu_results = {}
         hued = sum((1 for p in self.player_list if p.is_hu))
-        if not self.blood_battle or hued >= 3:
-            if self.blood_battle and hued >= 3:
+        team_end = self.is_doubles and team_first_two_finished(self.player_list)
+        if not self.blood_battle or hued >= 3 or team_end:
+            if team_end:
+                self.doubles_end_reason = 'team_first_two'
+            if self.blood_battle and (hued >= 3 or team_end):
                 await self._settle_liuju()
             self.ended_by = 'win'
             self.game_status = 'END'
@@ -782,6 +861,8 @@ class SichuanGameState:
         original_discards: List[int],
     ) -> Optional[str]:
         """None=非花猪；passive=被动花猪；active=主动花猪。"""
+        if self.is_doubles:
+            return classify_flower_pig(hand_tiles, combination_tiles, original_discards)
         if dingque_suit not in (1, 2, 3):
             return None
         if not self._player_has_dingque_tile(hand_tiles, combination_tiles, dingque_suit):
@@ -824,6 +905,8 @@ class SichuanGameState:
             nonlocal best_waits, best_max_fan
             waits = self.calculation_service.Sichuan_tingpai_check(test_hand, combination_tiles)
             waits = {w for w in waits if (w // 10) != dingque_suit}
+            if self.is_doubles:
+                waits = {w for w in waits if has_missing_suit(test_hand + [w], combination_tiles)}
             if not waits:
                 return
             if getattr(self, "hepai_limit", 0) > 0:
@@ -949,7 +1032,7 @@ class SichuanGameState:
         ting_players = [idx for idx, s in status.items() if s == 'ting']
         noting_players = [idx for idx, s in status.items() if s == 'no_ting']
         hu_players = [p for p in self.player_list if p.is_hu]
-        skip_chajiao = len(hu_players) >= 3
+        skip_chajiao = len(hu_players) >= 3 or (self.is_doubles and team_first_two_finished(self.player_list))
         if not self.blood_battle:
             player_action_record_liuju(self)
         all_hands = {p.player_index: self._reveal_hand_payload(p) for p in self.player_list}
@@ -988,8 +1071,9 @@ class SichuanGameState:
             p_idx = n_p.player_index
             p_display = display_status.get(p_idx, 'no_ting')
             if p_display == 'hua_zhu_active':
-                self.player_list[p_idx].score -= SICHUAN_ACTIVE_HUAZHU_PENALTY
-                panel_changes[p_idx] -= SICHUAN_ACTIVE_HUAZHU_PENALTY
+                penalty = self._active_flower_pig_penalty(p_idx)
+                self.player_list[p_idx].score -= penalty
+                panel_changes[p_idx] -= penalty
             if status.get(p_idx) == 'ting' and noting_players:
                 mf = tenpai_max_fan.get(p_idx, 0)
                 mf_names = tenpai_max_fan_names.get(p_idx, [])
@@ -1107,6 +1191,8 @@ class SichuanGameState:
 
 # 挂载方法
 SichuanGameState.wait_action = wait_action
+SichuanGameState.collect_tactical_recheck = collect_tactical_recheck
+SichuanGameState.validate_tactical_queued_action = validate_tactical_queued_action
 SichuanGameState.broadcast_game_start = broadcast_game_start
 SichuanGameState.broadcast_ask_hand_action = broadcast_ask_hand_action
 SichuanGameState.broadcast_ask_other_action = broadcast_ask_other_action

@@ -7,13 +7,8 @@ from time import time
 
 
 def _normalize_tile(t: int) -> int:
-    if t == 105:
-        return 15
-    if t == 205:
-        return 25
-    if t == 305:
-        return 35
-    return t
+    from .washizu_tiles import normalize
+    return normalize(t)
 
 
 class PlayerTiles:

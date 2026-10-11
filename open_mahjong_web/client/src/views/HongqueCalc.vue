@@ -198,7 +198,7 @@
           <div class="decomp-groups">
             <div v-for="(group, gIdx) in item.groups" :key="gIdx" class="decomp-group">
               <span
-                v-for="code in group"
+                v-for="code in meldDisplayOrder(group)"
                 :key="code"
                 class="hq-tile hq-tile-sm"
                 :title="code"
@@ -223,6 +223,7 @@
 import { ref, reactive, computed, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import CalculatorSwitcher from '@/components/CalculatorSwitcher.vue'
+import { sortHandCodes, sortMeldCodes, meldDisplayOrder } from '@/game2d/calc/hongque/displayOrder.ts'
 import {
   bestWinResult,
   allWinResults,
@@ -260,20 +261,6 @@ function tileFaceUrl(code) {
   return `${TILE_BASE_URL}${code}.png`
 }
 
-const tileColourOf = (code) => COLOUR_GROUPS.findIndex((group) => group.codePrefix === code.slice(0, 2))
-const tileNumberOf = (code) => Number(code[2])
-
-/** 手牌按（花色，数字）排序，与牌面调色板/对局手牌一致。 */
-const sortHandCodes = (codes) => {
-  codes.sort((a, b) => tileColourOf(a) - tileColourOf(b) || tileNumberOf(a) - tileNumberOf(b))
-  return codes
-}
-
-/** 副露组内按（数字，花色）排序：顺子/彩虹按数字自然递增，同数刻子按花色。 */
-const sortMeldCodes = (codes) => {
-  codes.sort((a, b) => tileNumberOf(a) - tileNumberOf(b) || tileColourOf(a) - tileColourOf(b))
-  return codes
-}
 
 const textInput = ref('')
 const result = ref(null)

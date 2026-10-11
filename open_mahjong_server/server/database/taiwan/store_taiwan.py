@@ -99,29 +99,16 @@ def store_taiwan_game_record(
 
         from ..player_recent_records import update_player_recent_records
         update_player_recent_records(cursor, game_id, game_record)
+        # 牌谱、参与者和统计同事务发布，成功保存不依赖后续回填。
+        from ..scene_stats import record_game_metrics
+        record_game_metrics(db_manager, game_id, game_record, player_list, {
+            "rule": rule, "sub_rule": sub_rule, "room_type": room_type,
+            "match_tier": match_tier, "event_id": event_id, "match_type": match_type,
+        }, cursor=cursor)
         conn.commit()
-        logger.info("台湾麻将游戏记录已保存，game_id: %s", game_id)
-        try:
-            from ..scene_stats import record_game_metrics
-
-            record_game_metrics(
-                db_manager,
-                game_id,
-                game_record,
-                player_list,
-                {
-                    "rule": rule,
-                    "sub_rule": sub_rule,
-                    "room_type": room_type,
-                    "match_tier": match_tier,
-                    "event_id": event_id,
-                    "match_type": match_type,
-                },
-            )
-        except Exception as exc:
-            logger.warning("写入台湾麻将 game_player_metrics 失败: %s", exc)
+        logger.info("牌谱及子规则统计已保存，game_id: %s", game_id)
         return game_id
-    except Error as exc:
+    except Exception as exc:
         logger.error("存储台湾麻将游戏记录失败: %s", exc, exc_info=True)
         if conn:
             conn.rollback()

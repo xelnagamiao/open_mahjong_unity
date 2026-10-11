@@ -4,6 +4,8 @@ internal static class TaiwanRuleBootstrap {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Register() {
         RuleRegistry.Register(new RuleManifest {
+            ReplayFactory = record => record.CreateTaiwanReplayModule(),
+            BuildRoom = TaiwanRoomBuilder.Build,
             RuleId = TaiwanGameState.RuleId,
             DefaultSubRule = "taiwan/standard",
             DisplayName = "台湾麻将",

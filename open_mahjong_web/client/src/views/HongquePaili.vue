@@ -158,6 +158,7 @@ import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 import PailiSwitcher from '@/components/PailiSwitcher.vue'
 import { calculateHongquePaili } from '@/game2d/calc/hongque'
+import { sortHandCodes } from '@/game2d/calc/hongque/displayOrder.ts'
 
 const TILE_BASE_URL = '/game2d-assets/hongque-hand/'
 const MAX_HAND = 14
@@ -289,15 +290,7 @@ const parseCodes = (text) => {
   return codes
 }
 
-const sortHandCodes = (codes) => {
-  codes.sort((a, b) => {
-    const colourA = COLOUR_GROUPS.findIndex((group) => group.codePrefix === a.slice(0, 2))
-    const colourB = COLOUR_GROUPS.findIndex((group) => group.codePrefix === b.slice(0, 2))
-    if (colourA !== colourB) return colourA - colourB
-    return Number(a[2]) - Number(b[2])
-  })
-  return codes
-}
+// 同对局手牌：按色环的连续区间理牌。
 
 const addHandTile = (code) => {
   if (form.hand.includes(code)) {

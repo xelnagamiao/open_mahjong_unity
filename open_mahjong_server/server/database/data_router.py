@@ -268,10 +268,9 @@ async def handle_get_ranked_stats(game_server, connect_id, message, websocket):
                 uid = int(message.get('userid',player.user_id))
                 rows = await _run_record_read(get_ranked_history, game_server.db_manager, uid, rule)
                 fans = {}
-                if rule in ('riichi', 'riichi_sanma'):
-                    fans = await _run_record_read(get_riichi_fan_stats_total, game_server.db_manager, uid, ranked=True, sanma=rule == 'riichi_sanma')
-                elif rule == 'qingque':
-                    fans = await _run_record_read(get_qingque_fan_stats_total, game_server.db_manager, uid, ranked=True)
+                for row in rows:
+                    for key, value in (row.get("fan_stats") or {}).items():
+                        fans[key] = fans.get(key, 0) + value
                 response.rule_stats = Rule_stats_response(rule=rule, history_stats=[Player_stats_info(**r) for r in rows], total_fan_stats={}, ranked_fan_stats=fans)
                 response.success = True
                 response.message = '匹配统计已更新'

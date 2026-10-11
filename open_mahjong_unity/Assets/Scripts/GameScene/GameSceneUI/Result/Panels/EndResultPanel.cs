@@ -5,7 +5,7 @@ using TMPro;
 using System;
 using UnityEngine.UI;
 
-public class EndResultPanel : MonoBehaviour {
+public partial class EndResultPanel : MonoBehaviour {
     public enum EndResultTileLayout {
         /// <summary>和牌：暗手 + 分隔 + 副露 + 分隔 + 和牌张（最右侧）。</summary>
         HuWithWinTile,
@@ -419,6 +419,7 @@ public class EndResultPanel : MonoBehaviour {
 
         string roomRuleForFan = GameSession.Current.SubRule;
         ShowRiichiExtrasPanel(roomRuleForFan, riichiExtras);
+        ConfigureGuizhouSettlement(roomRuleForFan, GuizhouGameState.Active?.Info, hepai_player_index, false);
         ShowChangshaBirdPanel(changshaBirdTiles);
         ApplyRuleFootnote(guobiaoAngangCheckText, roomRuleForFan, hu_fan);
         TryPlayGongHuSound(roomRuleForFan, hu_fan, hu_score);
@@ -506,6 +507,8 @@ public class EndResultPanel : MonoBehaviour {
         }
         // 显示番数
         string roomRuleForFan = ResolveSettlementRoomRule();
+        hu_fan = AppendGuizhouEntries(hu_fan);
+        yield return RevealGuizhouChicken();
 
         if (HasFuList(roomRuleForFan) && fu_fan_list != null) {
             // 副番制（古典）：先显示副番列表
@@ -638,6 +641,8 @@ public class EndResultPanel : MonoBehaviour {
             && RecordSetting.Instance.IsShowHepaiAnimation;
 
         ShowRiichiExtrasPanel(roomType, riichiExtras);
+        ConfigureGuizhouSettlement(roomType, GameRecordManager.Instance?.GuizhouRecordInfo, hepai_player_index, !animateFanReveal);
+        hu_fan = AppendGuizhouEntries(hu_fan);
         SetChangshaBirdTiles(changshaBirdTiles);
         ShowChangshaBirdPanel(this.changshaBirdTiles);
         if (RuleRegistry.Resolve(roomType,roomType)?.RuleId == HongzhongGameState.RuleId)
@@ -661,6 +666,7 @@ public class EndResultPanel : MonoBehaviour {
     private IEnumerator PlayRecordFanRevealRoutine(
         string roomType, int huScore, string[] huFan, int? baseFu, string[] fuFanList,
         RiichiEndResultExtras riichiExtras, bool isSpectator) {
+        yield return RevealGuizhouChicken();
         if (HasFuList(roomType) && fuFanList != null) {
             for (int i = 0; i < fuFanList.Length; i++) {
                 yield return new WaitForSeconds(RoundEndTiming.HuFanRevealIntervalSeconds);
@@ -896,7 +902,7 @@ public class EndResultPanel : MonoBehaviour {
 
         if (layout == EndResultTileLayout.ClosedHandWithMelds) {
             int[] sortedHand = (int[])hand.Clone();
-            System.Array.Sort(sortedHand, TileIdOrder.Comparer);
+            TileIdOrder.SortHand(sortedHand);
             for (int i = 0; i < sortedHand.Length; i++) {
                 SpawnStaticTile(sortedHand[i]);
             }
@@ -908,7 +914,7 @@ public class EndResultPanel : MonoBehaviour {
         int lastCard = hand[hand.Length - 1];
         int[] closedHand = (int[])hand.Clone();
         System.Array.Resize(ref closedHand, closedHand.Length - 1);
-        System.Array.Sort(closedHand, TileIdOrder.Comparer);
+        TileIdOrder.SortHand(closedHand);
 
         for (int i = 0; i < closedHand.Length; i++) {
             SpawnStaticTile(closedHand[i]);
@@ -997,7 +1003,7 @@ public class EndResultPanel : MonoBehaviour {
         // 该玩家手牌整体显示（流局无和牌张，不做末张拆分）
         if (hand != null && hand.Length > 0) {
             int[] sorted = (int[])hand.Clone();
-            Array.Sort(sorted, TileIdOrder.Comparer);
+            TileIdOrder.SortHand(sorted);
             for (int i = 0; i < sorted.Length; i++) {
                 GameObject staticCard = Instantiate(StaticCardPrefab, EndTilescontainer.transform);
                 staticCard.GetComponent<StaticCard>().SetTileOnlyImage(sorted[i]);
@@ -1267,7 +1273,8 @@ public class EndResultPanel : MonoBehaviour {
     /// 立直麻将显示番（han）+符（fu）+点数。
     /// </summary>
     private void ShowTotalPanel(string rule, int huScore, string[] huFan, int? baseFu, RiichiEndResultExtras riichiExtras = null) {
-        ShowTotalPanel(BuildTotalDisplay(rule, huScore, huFan, baseFu, riichiExtras, currentWinnerPointDelta));
+        ShowTotalPanel(guizhouSettlement != null ? guizhouSettlement.TotalDisplay()
+            : BuildTotalDisplay(rule, huScore, huFan, baseFu, riichiExtras, currentWinnerPointDelta));
     }
 
     /// <summary>总计栏只负责摆字：读 <see cref="SettlementTotalDisplay"/>，null 字段即隐藏该栏。</summary>
@@ -1278,6 +1285,7 @@ public class EndResultPanel : MonoBehaviour {
         TotalScore.text = display.ScoreText ?? string.Empty;
         SetTotalColumn(TotalLimitDisplay, display.LimitText);
         RebuildFanCountTotalLayout();
+        ApplyGuizhouTotalLayout();
     }
 
     private static void SetTotalColumn(TMP_Text label, string text) {
@@ -1333,6 +1341,7 @@ public class EndResultPanel : MonoBehaviour {
 
     /// <summary>立直麻将结算扩展：宝牌/里宝牌指示牌槽位。长沙扎鸟走独立面板，不占用这里。</summary>
     private void ShowRiichiExtrasPanel(string rule, RiichiEndResultExtras extras) {
+        ClearGuizhouSettlement();
         if (RiichiPanel != null) {
             RiichiPanel.SetActive(extras != null);
         }
@@ -1397,6 +1406,7 @@ public class EndResultPanel : MonoBehaviour {
     }
 
     public void ClearEndResultPanel(){
+        ClearGuizhouSettlement();
         if (showResultCoroutine != null) {
             StopCoroutine(showResultCoroutine);
             showResultCoroutine = null;

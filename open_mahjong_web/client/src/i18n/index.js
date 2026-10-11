@@ -1,7 +1,7 @@
 import { computed, ref, watch } from 'vue'
 import { messages, textPatterns } from './messages'
 import { SUPPORTED_LOCALES, normalizeLocale, requestedGameLocale } from './locale-utils.js'
-import { mcrPageForPath } from '../seo/mcr-pages.js'
+import { staticPageForPath } from '../seo/pages.js'
 
 export { SUPPORTED_LOCALES }
 export const LOCALE_STORAGE_KEY = 'salasasa.language'
@@ -28,7 +28,7 @@ function detectLocale() {
 export const locale = ref(typeof window === 'undefined' ? 'zh-CN' : detectLocale())
 
 function syncDocumentLanguage() {
-  document.documentElement.lang = mcrPageForPath(window.location.pathname)?.locale || locale.value
+  document.documentElement.lang = staticPageForPath(window.location.pathname)?.locale || locale.value
 }
 
 const ROUND_WINDS = ['东', '南', '西', '北']

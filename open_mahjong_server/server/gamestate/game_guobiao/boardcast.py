@@ -3,7 +3,7 @@ from typing import List, Dict, Optional
 import logging
 import asyncio
 from ..public.lifecycle import start_owned_task
-from . import blood_battle
+from . import blood_battle, transparent
 from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.offline import offline_auto_action
 from ..public.ai.smart_bot_ai import smart_bot_action
@@ -82,6 +82,7 @@ def _build_game_start_payload_for_viewer(self, viewer_index: int) -> dict:
         'dealer_index': getattr(self, 'dealer_index', 0), # 本局庄家逻辑座位
         "action_tick": self.server_action_tick, # 操作帧
         'max_round': self.max_round, # 最大局数
+        'washizu_hands': transparent.public_hands(self),
         'tile_count': len(self.tiles_list), # 牌山剩余牌数
         'use_flowers': getattr(self, 'use_flowers', True),
         'tian_di_ren_he': getattr(self, 'tian_di_ren_he', False),
@@ -344,6 +345,7 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
                         action_tick=self.server_action_tick,
                         player_index=current_player.player_index,
                         is_tactical_recheck=is_tactical_recheck if is_tactical_recheck else None,
+                        chi_candidates=getattr(current_player, "chi_candidates", None) if transparent.enabled(self) else None,
                     )
                 )
                 await _send_ask_response_to_viewer(self, seat_index, response)
@@ -415,6 +417,7 @@ async def reconnected_send_pending_ask_for_viewer(
                     remaining_time=remaining_sent,
                     step_remaining=step_sent,
                     action_list=self.action_dict[view_player_index],
+                    chi_candidates=getattr(player, "chi_candidates", None) if transparent.enabled(self) else None,
                     cut_tile=cut_tile,
                     action_tick=self.server_action_tick,
                     player_index=view_player_index,
@@ -453,6 +456,7 @@ def _build_do_action_payload(
     cut_from_player=None,
     is_timeout_action=False,
     duplicate_remaining_tiles=None,
+    public_hand_snapshot=None,
 ):
     viewer_mask = combination_mask
     viewer_target = combination_target
@@ -464,6 +468,7 @@ def _build_do_action_payload(
     viewer_deal_tile = sanitize_deal_tile_for_viewer(deal_tile, action_player, viewer_index)
     return {
         "duplicate_remaining_tiles": list(duplicate_remaining_tiles) if duplicate_remaining_tiles is not None else duplicate_remaining_tile_counts(self),
+        "washizu_hands": (public_hand_snapshot if public_hand_snapshot is not None else transparent.public_hands(self)) if not is_claim else None,
         "action_list": action_list,
         "action_player": action_player,
         "action_tick": self.server_action_tick,
@@ -535,10 +540,13 @@ async def broadcast_do_action(
     is_mo_buhua: bool = None,
     cut_from_player: int = None,
     is_timeout_action: bool = False,
+    public_hand_snapshot=None,
     ):
     # Capture before any awaits: protected/deferred viewers receive this action's
     # counts, even if another draw happens before their queued payload is sent.
     remaining_tiles = duplicate_remaining_tile_counts(self)
+    if public_hand_snapshot is None:
+        public_hand_snapshot = transparent.public_hands(self)
     # 战术鸣牌的实际行为静默执行：申请阶段已发声/动画，本次仅状态变更
     if not is_claim and not silent and getattr(self, "_tactical_silent_action", False):
         silent = True
@@ -612,6 +620,7 @@ async def broadcast_do_action(
                 cut_from_player=cut_from_player,
                 is_timeout_action=is_timeout_action,
                 duplicate_remaining_tiles=remaining_tiles,
+                public_hand_snapshot=public_hand_snapshot,
             )
 
             # 出牌对受保护观众延迟：暂存，待鸣牌/申请/pass/超时触发 flush

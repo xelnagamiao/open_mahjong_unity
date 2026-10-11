@@ -73,15 +73,12 @@
         </template>
       </div>
 
-      <!-- 第一行：规则 -->
       <div class="filter-row">
-        <button
-          v-for="rule in availableRules"
-          :key="rule.key"
-          class="chip"
-          :class="{ selected: currentRule === rule.key }"
-          @click="switchRule(rule.key)"
-        >{{ rule.label }}<span class="chip-count">{{ rule.count }}</span></button>
+        <el-select :model-value="currentRule" filterable aria-label="数据统计规则" @change="switchRule">
+          <el-option v-for="rule in availableRules" :key="rule.key" :value="rule.key" :label="rule.label" :class="{ standard: rule.standard }">
+            <span>{{ rule.label }}</span><span class="chip-count">{{ rule.count }}</span>
+          </el-option>
+        </el-select>
       </div>
 
       <!-- 第二行：全部天梯 / 初级 / 中级 / 高级 / mcrpl / 自定义 / 比赛场 -->
@@ -257,7 +254,7 @@
           </el-table-column>
           <el-table-column label="局制" width="80">
             <template #default="{ row }">
-              <span class="cell-mode">{{ gameTypeLabel(row.match_type) }}</span>
+              <span class="cell-mode">{{ statisticsModeLabel(row.sub_rule || row.rule, row.match_type) }}</span>
             </template>
           </el-table-column>
           <el-table-column label="顺位" width="64">
@@ -297,7 +294,7 @@
           <el-table-column label="操作" width="168" fixed="right">
             <template #default="{ row }">
               <el-button
-                v-if="['guobiao', 'hongzhong'].includes(row.rule)"
+                v-if="['guobiao', 'hongzhong', 'jiujiang'].includes(row.rule)"
                 link
                 type="warning"
                 size="small"
@@ -367,12 +364,13 @@
 </template>
 
 <script setup>
+import { STATISTICS_RULES, statisticsSelection, statisticsGameType, statisticsModeLabel } from '@/utils/statisticsCatalog'
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { formatPtChange } from '@/utils/ptChange'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
-import { avg, buildPlayerStatsRows, canUsePrestoredPlayerStats, dateRangeToQueryParams, mergePlayerRankStats, rankRatePieLabel, rankedGames, ratio } from '../utils/statsDisplay'
+import { avg, buildPlayerStatsRows, dateRangeToQueryParams, rankRatePieLabel, rankedGames, ratio } from '../utils/statsDisplay'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import playerApi, { getPlayerToken } from '@/api/playerClient'
 import { tr } from '@/i18n'
@@ -403,15 +401,10 @@ const downloadQuotaTip = computed(() => {
   return `今日已用 ${quota.value.used} / ${quota.value.max} 局`
 })
 
-const RULE_DEFS = [
-  { key: 'guobiao', label: '国标', statsField: 'guobiao_stats', fanField: 'guobiao' },
-  { key: 'riichi', label: '立直', statsField: 'riichi_stats', fanField: 'riichi' },
-  { key: 'qingque', label: '青雀', statsField: 'qingque_stats', fanField: 'qingque' },
-  { key: 'classical', label: '古典麻将', statsField: 'classical_stats', fanField: 'classical' },
-  { key: 'sichuan', label: '川麻', statsField: 'sichuan_stats', fanField: null },
-  { key: 'changsha', label: '长沙麻将', statsField: 'changsha_stats', fanField: null },
-  { key: 'hongzhong', label: '红中麻将', statsField: 'hongzhong_stats', recordsOnly: true, fanField: null },
-]
+const RULE_DEFS = STATISTICS_RULES.map(row => ({ key: row.key, label: row.stats_name,
+  sourceRule: row.rule, subRule: row.sub_rule, standard: row.standard,
+  fanField: row.fan_stats ? row.fan_key : null, playerCount: row.player_count,
+  matchmaking: row.matchmaking }))
 
 const SCENE_OPTIONS = [
   { value: 'rank', label: '全部天梯' },
@@ -419,31 +412,26 @@ const SCENE_OPTIONS = [
   { value: 'intermediate', label: '中级' },
   { value: 'advanced', label: '高级' },
   { value: 'mcrpl', label: 'mcrpl' },
+  { value: 'elo', label: 'Elo 匹配' },
   { value: 'custom', label: '自定义' },
   { value: 'events', label: '比赛场' },
 ]
 
-const LENGTH_OPTIONS = [
-  { value: '4', label: '全庄战' },
-  { value: '3', label: '东西战' },
-  { value: '2', label: '半庄战' },
-  { value: '1', label: '东风战' }
-]
+const LENGTH_OPTIONS = computed(() => {
+  const def = statisticsSelection(currentRule.value)
+  const modes = ['custom', 'events'].includes(scene.value) ? def?.custom_modes : def?.ranked_modes
+  return [...new Set((modes || []).map(mode => mode.split('/')[0]))].reverse().map(value => ({
+    value,
+    label: def?.rule === 'hongque' ? `${value}局` : def?.rule === 'changsha' ? `${Number(value) * 4}局`
+      : ({4:'全庄战',3:'东西战',2:'半庄战',1:'东风战'})[value] || `[${value}/4]`,
+  }))
+})
 
 const TIER_LABELS = {
   beginner: '初级',
   intermediate: '中级',
   advanced: '高级',
   mcrpl: 'mcrpl',
-}
-
-const LENGTH_TO_GAME_TYPE = { '4': 'quanzhuang', '3': 'xifeng', '2': 'banzhuang', '1': 'dongfeng' }
-const MODE_LABELS = { '4/4': '全庄战', '3/4': '东西战', '2/4': '半庄战', '1/4': '东风战' }
-
-const gameTypeLabel = (matchType) => {
-  if (!matchType) return '-'
-  const base = matchType.replace(/_rank$/, '')
-  return MODE_LABELS[base] || matchType
 }
 
 const sceneLabel = (row) => {
@@ -460,13 +448,6 @@ const sceneLabel = (row) => {
   return row.room_type || row.rule || '-'
 }
 
-const EMPTY_TOTAL = {
-  total_games: 0, total_rounds: 0, win_count: 0, self_draw_count: 0,
-  deal_in_count: 0, total_fan_score: 0, total_win_turn: 0,
-  total_fangchong_score: 0, total_round_score: 0, cuohe_count: 0,
-  first_place_count: 0, second_place_count: 0,
-  third_place_count: 0, fourth_place_count: 0, fulu_round_count: 0, fan_stats: {}
-}
 
 const searchForm = reactive({ key: '' })
 const playerInfo = ref(null)
@@ -529,8 +510,8 @@ const leaderList = ref([])
 const availableRules = computed(() =>
   RULE_DEFS.map(def => ({
     key: def.key,
-    label: def.label,
-    count: def.recordsOnly ? (playerInfo.value?.record_counts?.[def.key] || 0) : sumGames(playerInfo.value?.[def.statsField] || [])
+    label: def.label, standard: def.standard,
+    count: sumGames(playerInfo.value?.stats_by_rule?.[def.key] || [])
   }))
 )
 
@@ -538,7 +519,7 @@ const currentRuleDef = computed(() => RULE_DEFS.find(d => d.key === currentRule.
 
 const currentStats = computed(() => {
   if (!playerInfo.value || !currentRuleDef.value) return []
-  return playerInfo.value[currentRuleDef.value.statsField] || []
+  return playerInfo.value.stats_by_rule?.[currentRule.value] || []
 })
 
 const sumGames = (stats) => (stats || []).reduce((s, x) => s + (x.total_games || 0), 0)
@@ -580,7 +561,7 @@ const buildFilterPayload = (opts = {}) => {
   const dateVal = opts.date !== undefined ? opts.date : dateRange.value
   const eventIdVal = opts.event_id !== undefined ? opts.event_id : selectedEventId.value
   const payload = { rule: opts.rule ?? currentRule.value }
-  if (lengthVal) payload.game_type = LENGTH_TO_GAME_TYPE[lengthVal]
+  if (lengthVal) payload.game_type = statisticsGameType(payload.rule, `${lengthVal}/4`)
   Object.assign(payload, dateRangeToQueryParams(dateVal))
   if (tierVal) payload.tier = tierVal
   else if (scopeVal === 'custom') payload.tier = 'custom'
@@ -611,77 +592,21 @@ const sceneCount = (s) => {
   return 0
 }
 
-// 预存统计：按 scope + length 过滤 history_stats（具体等级场无预存拆分）
-const filteredPrestoredStats = computed(() => {
-  let rows = currentStats.value
-  const rule = currentRule.value
-  const scopeVal = scope.value
-  if (scopeVal === 'rank') {
-    rows = rule === 'guobiao' ? rows.filter((x) => isGuobiaoMatchMode(x.mode)) : []
-  } else if (scopeVal === 'custom') {
-    rows = rule === 'guobiao' ? rows.filter((x) => !isGuobiaoMatchMode(x.mode)) : rows
-  }
-  if (length.value) {
-    const base = `${length.value}/4`
-    rows = rows.filter((x) => String(x.mode).replace(/_rank$/, '') === base)
-  }
-  return rows
-})
-
-// 预存明细仅覆盖全历史的全部天梯 / 自定义，不能用于指定日期。
-const prestoredAvailable = computed(() => canUsePrestoredPlayerStats({
-  scene: scene.value,
-  dateRange: dateRange.value,
-  recordsOnly: currentRuleDef.value?.recordsOnly,
-}))
-
 const filterKey = computed(() => buildFilterKey())
-
 const rankStatsForFilter = computed(() => rankStatsCache.value[filterKey.value] ?? null)
 
-const mergedPrestored = computed(() => {
-  const total = { ...EMPTY_TOTAL, fan_stats: {} }
-  for (const stat of filteredPrestoredStats.value) {
-    total.total_games += stat.total_games || 0
-    total.total_rounds += stat.total_rounds || 0
-    total.win_count += stat.win_count || 0
-    total.self_draw_count += stat.self_draw_count || 0
-    total.deal_in_count += stat.deal_in_count || 0
-    total.total_fan_score += stat.total_fan_score || 0
-    total.total_win_turn += stat.total_win_turn || 0
-    total.total_fangchong_score += stat.total_fangchong_score || 0
-    total.total_round_score += stat.total_round_score || 0
-    total.first_place_count += stat.first_place_count || 0
-    total.second_place_count += stat.second_place_count || 0
-    total.third_place_count += stat.third_place_count || 0
-    total.fourth_place_count += stat.fourth_place_count || 0
-    total.fulu_round_count += stat.fulu_round_count || 0
-    total.cuohe_count += stat.cuohe_count || 0
-    if (stat.fan_stats) {
-      for (const [k, v] of Object.entries(stat.fan_stats)) {
-        total.fan_stats[k] = (total.fan_stats[k] || 0) + v
-      }
-    }
-  }
-  return total
-})
+const activeStats = computed(() => rankStatsForFilter.value)
 
-const activeStats = computed(() => {
-  const rankRow = rankStatsForFilter.value
-  if (currentRule.value === 'riichi') return rankRow
-  return mergePlayerRankStats(prestoredAvailable.value ? mergedPrestored.value : null, rankRow)
-})
-
-const detailedStatsAvailable = computed(() => activeStats.value?.details_available ?? prestoredAvailable.value)
+const detailedStatsAvailable = computed(() => activeStats.value?.details_available === true)
 const needsLocalAnalysis = computed(() => !!activeStats.value && !detailedStatsAvailable.value)
 const showStatsTable = computed(() => !!activeStats.value)
 
 const statsDisplay = computed(() => {
   if (!activeStats.value) return []
   const rows = buildPlayerStatsRows(activeStats.value, {
-    rule: currentRule.value, detailed: detailedStatsAvailable.value,
+    rule: currentRuleDef.value?.sourceRule, detailed: detailedStatsAvailable.value,
   })
-  return currentRuleDef.value?.recordsOnly ? rows.filter(row => ['总对局', '平均顺位', '一位率', '二位率', '三位率', '四位率'].includes(row.label)) : rows
+  return currentRuleDef.value?.playerCount === 3 ? rows.filter(row => row.label !== '四位率') : rows
 })
 
 // ===== 图表数据 =====
@@ -759,7 +684,7 @@ const currentFanDict = computed(() => {
 })
 
 const fanEntries = computed(() => {
-  if (currentRule.value === 'riichi' ? !activeStats.value?.details_available : !prestoredAvailable.value) return []
+  if (!currentRuleDef.value?.fanField || !activeStats.value?.details_available) return []
   const wins = Number(activeStats.value?.win_count) || 0
   const counts = activeStats.value?.fan_stats || {}
   const toRow = (key, name, pts = 0) => {
@@ -778,16 +703,16 @@ const fanEntries = computed(() => {
       .map((item) => toRow(item.key, item.name, item.value || GUOBIAO_FAN_VALUES[item.key] || 0))
       .sort((a, b) => b.count - a.count || a.pts - b.pts || a.name.localeCompare(b.name, 'zh-CN'))
   }
-  const d = currentFanDict.value
-  if (!d || typeof d !== 'object') return []
-  return Object.entries(d)
-    .map(([key, name]) => toRow(key, name, 0))
+  const d = currentFanDict.value || {}
+  return [...new Set([...Object.keys(d), ...Object.keys(counts)])]
+    .map(key => toRow(key, d[key] || key, 0))
     .sort((a, b) => b.count - a.count || String(a.name).localeCompare(String(b.name), 'zh-CN'))
 })
 
 const switchRule = (rule) => {
   currentRule.value = rule
-  if (rule === 'hongzhong' && !['custom', 'events'].includes(scene.value)) scene.value = 'custom'
+  length.value = ''
+  if (!currentRuleDef.value?.matchmaking && !['custom', 'events'].includes(scene.value)) scene.value = 'custom'
   rankStatsCache.value = {}
   scopeCountsFromApi.value = null
   onFilterChange()
@@ -795,6 +720,7 @@ const switchRule = (rule) => {
 
 const selectScene = (s) => {
   scene.value = s
+  if (!LENGTH_OPTIONS.value.some(option => option.value === length.value)) length.value = ''
   if (s === 'events') loadEventOptions()
   else selectedEventId.value = null
   onFilterChange()
@@ -884,7 +810,7 @@ const handleAxiosError = (e, fallback) => {
 
 const scopeCountsPayload = () => {
   const payload = { rule: currentRule.value }
-  if (length.value) payload.game_type = LENGTH_TO_GAME_TYPE[length.value]
+  if (length.value) payload.game_type = statisticsGameType(currentRule.value, `${length.value}/4`)
   Object.assign(payload, dateRangeToQueryParams(dateRange.value))
   return payload
 }
@@ -1260,7 +1186,7 @@ const searchPlayer = async (rawKey, isManual = true) => {
     if (searchToken !== searchSeq) return
     if (infoResp.data.success) {
       playerInfo.value = infoResp.data.data
-      const defaultRule = RULE_DEFS.find(d => d.recordsOnly ? (playerInfo.value.record_counts?.[d.key] || 0) > 0 : (playerInfo.value[d.statsField] || []).length > 0)
+      const defaultRule = RULE_DEFS.find(d => (playerInfo.value.stats_by_rule?.[d.key] || []).length > 0)
       currentRule.value = defaultRule ? defaultRule.key : 'guobiao'
       scene.value = defaultRule?.recordsOnly ? 'custom' : 'rank'
       length.value = null
@@ -1367,6 +1293,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.standard { color: #8a5700; background: #fff4cf; font-weight: 700; }
 .player-data {
   color: #1f2329;
   text-align: left;

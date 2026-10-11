@@ -1,6 +1,6 @@
 from typing import Dict
 import logging
-from . import blood_battle
+from . import blood_battle, transparent
 from .duplicate_rules import duplicate_rules_for
 from .sanma import filter_tiles, round_wind, ron_action
 from ..public.logic_common import get_index_relative_position, next_current_num
@@ -24,28 +24,30 @@ def check_action_after_cut(self,cut_tile):
         # 如果切牌是万 饼 条 且下家有C+1和C-1 则可以吃
         next_player_index = (blood_battle.next_active_index(self, self.current_player_index)
                              if blood_battle.enabled(self) else next_current_num(self.current_player_index, len(self.player_list)))
-        if cut_tile <= 40:
+        normal_cut = normalize_tile(cut_tile)
+        next_hand = [normalize_tile(t) for t in self.player_list[next_player_index].hand_tiles]
+        if normal_cut <= 40:
             # left 左侧吃牌 [a-2,a-1,a]
-            if cut_tile-2 in self.player_list[next_player_index].hand_tiles:
-                if cut_tile-1 in self.player_list[next_player_index].hand_tiles:
+            if normal_cut-2 in next_hand:
+                if normal_cut-1 in next_hand:
                     temp_action_dict[next_player_index].append("chi_left")
             # mid 中间吃牌 [a-1,a,a+1]
-            if cut_tile-1 in self.player_list[next_player_index].hand_tiles:
-                if cut_tile+1 in self.player_list[next_player_index].hand_tiles:
+            if normal_cut-1 in next_hand:
+                if normal_cut+1 in next_hand:
                         temp_action_dict[next_player_index].append("chi_mid")
             # right 右侧吃牌 [a,a+1,a+2]
-            if cut_tile+2 in self.player_list[next_player_index].hand_tiles:
-                if cut_tile+1 in self.player_list[next_player_index].hand_tiles:
+            if normal_cut+2 in next_hand:
+                if normal_cut+1 in next_hand:
                     temp_action_dict[next_player_index].append("chi_right")
 
         # 如果任意一家有C=2，则可以碰
         for item in self.player_list:
-            if item.hand_tiles.count(cut_tile) >= 2:
+            if sum(normalize_tile(t) == normal_cut for t in item.hand_tiles) >= 2:
                 temp_action_dict[item.player_index].append("peng")
         
         # 检测杠牌：手牌中有3张相同的牌
         for item in self.player_list:
-            if item.hand_tiles.count(cut_tile) == 3:
+            if sum(normalize_tile(t) == normal_cut for t in item.hand_tiles) == 3:
                 if duplicate_rules.can_draw(item.player_index) if duplicate_rules else self.tiles_list != []:
                         temp_action_dict[item.player_index].append("gang")
 
@@ -54,7 +56,7 @@ def check_action_after_cut(self,cut_tile):
         if item.player_index == self.current_player_index:
             continue
         refresh_waiting_tiles(self, item.player_index)
-        if cut_tile in item.waiting_tiles:
+        if normalize_tile(cut_tile) in item.waiting_tiles:
             check_hepai(self, temp_action_dict, cut_tile, item.player_index, "dianhe")
 
     # 如果玩家有操作则添加取消；战术鸣牌的放弃统一在返回前附带。
@@ -70,6 +72,8 @@ def check_action_after_cut(self,cut_tile):
         if "peida" in item.tag_list or (blood_battle.enabled(self) and getattr(item, "is_hu", False)):
             temp_action_dict[item.player_index] = []
 
+    if transparent.enabled(self):
+        transparent.prepare_choices(self, cut_tile, temp_action_dict)
     return add_tactical_force_pass_options(self, temp_action_dict)
 
 # 加杠检查操作 存储 抢杠
@@ -80,9 +84,9 @@ def check_action_jiagang(self,jiagang_tile):
     temp_action_dict:Dict[int,list] = {i: [] for i in range(len(self.player_list))}
     # 如果该牌是任意家的等待牌 且不是自己
     for item in self.player_list:
-        if jiagang_tile in item.waiting_tiles and item.player_index != self.current_player_index:
+        if normalize_tile(jiagang_tile) in item.waiting_tiles and item.player_index != self.current_player_index:
             refresh_waiting_tiles(self, item.player_index)
-            if jiagang_tile in item.waiting_tiles:
+            if normalize_tile(jiagang_tile) in item.waiting_tiles:
                 check_hepai(self,temp_action_dict,jiagang_tile,item.player_index,"qianggang")
     
     # 如果玩家有操作 则添加pass
@@ -103,7 +107,7 @@ def check_action_buhua(self,player_index):
     duplicate_rules = duplicate_rules_for(self)
     if duplicate_rules and not duplicate_rules.can_draw(player_index):
         return temp_action_dict
-    if any(carditem >= 50 for carditem in self.player_list[player_index].hand_tiles):
+    if any(51 <= carditem <= 58 for carditem in self.player_list[player_index].hand_tiles):
         temp_action_dict[player_index].append("buhua")
         temp_action_dict[player_index].append("pass")
     return temp_action_dict
@@ -119,14 +123,15 @@ def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_a
     # 如果牌堆内仍有牌则可以补花暗杠加杠
     if duplicate_rules.can_draw(player_index) if duplicate_rules else self.tiles_list != []:
         # 如果手牌中有花牌 则可以补花
-        if any(carditem >= 50 for carditem in player_item.hand_tiles):
+        if any(51 <= carditem <= 58 for carditem in player_item.hand_tiles):
             if self.tiles_list != []:
                 temp_action_dict[player_index].append("buhua")
 
         # 如果手牌中有4张相同的牌 则可以暗杠
         processed_cards = set()
-        for carditem in player_item.hand_tiles:
-            if carditem not in processed_cards and player_item.hand_tiles.count(carditem) == 4:
+        normal_hand = [normalize_tile(t) for t in player_item.hand_tiles]
+        for carditem in normal_hand:
+            if carditem not in processed_cards and normal_hand.count(carditem) == 4:
                 if self.tiles_list != []:
                     temp_action_dict[player_index].append("angang")
                     processed_cards.add(carditem)
@@ -143,7 +148,7 @@ def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_a
     temp_action_dict[player_index].append("cut")
 
     # 如果手牌中有等待牌 则检测和牌
-    if player_item.hand_tiles[-1] in player_item.waiting_tiles:
+    if normalize_tile(player_item.hand_tiles[-1]) in player_item.waiting_tiles:
         check_hepai(self,temp_action_dict,player_item.hand_tiles[-1],player_index,"handgot",is_first_action,is_get_gang_tile)
 
     # 如果玩家陪打，只允许加杠、暗杠、补花和切牌
@@ -189,7 +194,7 @@ def refresh_waiting_tiles(self,player_index,is_first_action=False):
 def opening_win_fan(self, player_index, hepai_type, is_get_gang_tile=False):
     """可选天地人和；补花不打断，任何吃碰杠（包括暗杠）均打断。"""
     if (not getattr(self, "tian_di_ren_he", False)
-            or getattr(self, "sub_rule", "guobiao/standard") not in ("guobiao/standard", "guobiao/sanma", "guobiao/blood_battle")
+            or getattr(self, "sub_rule", "guobiao/standard") not in ("guobiao/standard", "guobiao/sanma", "guobiao/blood_battle", transparent.SUB_RULE)
             or is_get_gang_tile
             or any(player.combination_tiles for player in self.player_list)):
         return None
@@ -270,12 +275,14 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
               and discard_counts[self.dealer_index] == 1 and sum(discard_counts) == 1):
             way_to_hepai.append("地和")
 
+    # 透明手牌仍不是弃牌或副露，不额外计入和绝张。
+    hepai_tile = normalize_tile(hepai_tile)
     # 和绝张检查 弃牌+1 有顺子+1 有刻+2
     show_tiles_count = (getattr(self, "blood_public_win_tiles", []).count(hepai_tile)
                         if blood_battle.enabled(self) else 0)
     now_combinations = []
     for i in self.player_list:
-        show_tiles_count += i.discard_tiles.count(hepai_tile)
+        show_tiles_count += sum(normalize_tile(t) == hepai_tile for t in i.discard_tiles)
         now_combinations.extend(i.combination_tiles)
     for i in now_combinations:
         if f"k{hepai_tile}" in i:

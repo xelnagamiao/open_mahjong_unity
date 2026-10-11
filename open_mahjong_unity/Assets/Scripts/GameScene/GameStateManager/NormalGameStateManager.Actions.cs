@@ -92,7 +92,8 @@ public partial class NormalGameStateManager {
         bool allowForcePass = GameSettings.Current.ForcePassEnabled;
         List<string> result = new List<string>();
         foreach (string action in action_list) {
-            if (allowOtherActionCheck.Contains(action) || (allowForcePass && action == "force_pass")) {
+            if (allowOtherActionCheck.Contains(action) || (allowForcePass && action == "force_pass")
+                || ActionWords.LabelOf(action) != null) {
                 result.Add(action);
             }
         }

@@ -16,7 +16,7 @@ public static class RiichiSanmaValidation {
         }
         var catalog = JObject.Parse(Resources.Load<TextAsset>("RiichiRuleOptions").text);
         Check(RiichiLobby.SubRules.Any(rule => rule.Key == "riichi/sanma"), "riichi subrule registered");
-        Check(catalog["presets"].Count() == 6 && catalog["options"].Count() == 40, "complete catalogue");
+        Check(catalog["presets"].Count() == 6 && catalog["options"].Count() == 41, "complete catalogue");
         foreach (int index in new[] {4,5}) {
             Check(RiichiRoomRules.Presets[index].SubRule == "riichi/sanma", "preset subrule " + index);
             Check((int)RiichiRoomRules.Presets[index].Room["starting_score"] == 35000, "starting score " + index);
@@ -27,7 +27,7 @@ public static class RiichiSanmaValidation {
             ["self"]=new PlayerInfoClass {original_player_index=2},
             ["right"]=new PlayerInfoClass {original_player_index=0},
             ["left"]=new PlayerInfoClass {original_player_index=1},
-            ["top"]=new PlayerInfoClass {original_player_index=0},
+            ["top"]=new PlayerInfoClass {original_player_index=-1},
         };
         Check(ScoreHistoryPanel.SelectScoreboardPlayers(scoreboardPlayers,true).Select(p=>p.original_player_index)
             .SequenceEqual(new[] {0,1,2}),"live scoreboard omits empty top seat");
@@ -50,8 +50,9 @@ public static class RiichiSanmaValidation {
             mirror.IndexToPosition = new Dictionary<int,string>();
             for (int seat = 0; seat < 3; seat++) {
                 mirror.BuildSeatMap(seat, new[] {0,1,2});
-                Check(mirror.IndexToPosition.Count == 3 && mirror.IndexToPosition[seat] == "self"
-                    && mirror.IndexToPosition[(seat+1)%3] == "right" && mirror.IndexToPosition[(seat+2)%3] == "left", "seat map " + seat);
+                string[][] expected = { new[] { "self", "right", "top" }, new[] { "left", "self", "right" }, new[] { "top", "left", "self" } };
+                Check(mirror.IndexToPosition.Count == 3
+                    && Enumerable.Range(0, 3).All(index => mirror.IndexToPosition[index] == expected[seat][index]), "seat map " + seat);
             }
         } finally { mirror.IndexToPosition = oldMap; GameSession.Current.SubRule = oldSub; }
         var hand = new List<int> {21,22,23,24,25,26,31,32,33,36,37,38,29,29};

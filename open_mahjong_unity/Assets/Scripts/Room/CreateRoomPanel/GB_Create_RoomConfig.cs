@@ -26,6 +26,10 @@ public class GB_Create_RoomConfig {
     public string EventId { get; set; }
 
     public bool Validate(out string error,bool passwordToggle,bool setRandomSeedToggle) {
+        if (SubRule == GuobiaoGameState.TransparentSubRule && !string.IsNullOrWhiteSpace(DuplicateKey)) {
+            error = "透明国标不能使用普通复式牌墙，可用随机种子复现牌局";
+            return false;
+        }
         if (SubRule == GuobiaoGameState.SanmaSubRule && !string.IsNullOrWhiteSpace(DuplicateKey)) {
             error = "三人国标不能使用四人复式牌墙";
             return false;

@@ -114,6 +114,37 @@ public static class ShanghaiTipsValidation {
             manifest.RecordDangerUsesWaitHint = false;
             Check("未接入普通提示筛选的规则路径保持结构语义", Danger(Player(open, melds, 2, false), 1).SetEquals(new[] {44}));
         } finally { manifest.RecordDangerUsesWaitHint = savedFilter; }
+        Check("清三混二碰二默认关闭", manifest.CreateRoomDefaults[ShanghaiHandCalculator.Qing3Hun2Peng2Key] is bool defaultProfile && !defaultProfile);
+        foreach (var pattern in new[] {
+            new {Name="清一色", Hand=new List<int> {11,12,13,12,13,14,15,16,17,19,19}, Melds=new List<string> {"s18"}, Old=8, New=16, Fan=3},
+            new {Name="混一色", Hand=new List<int> {11,12,13,12,13,14,15,16,17,41,41}, Melds=new List<string> {"s18"}, Old=4, New=8, Fan=2},
+            new {Name="碰碰和", Hand=new List<int> {21,21,21,31,31,31,14,14,14,22,22}, Melds=new List<string> {"k11"}, Old=4, New=8, Fan=2},
+        }) {
+            foreach (bool enabled in new[] {false, true}) {
+                var config = new Dictionary<string, object> {{ShanghaiHandCalculator.Qing3Hun2Peng2Key, enabled}};
+                int tile = pattern.Hand.Last();
+                var before = pattern.Hand.Take(pattern.Hand.Count - 1).ToList();
+                int points = enabled ? pattern.New : pattern.Old;
+                string suffix = pattern.Name + (enabled ? "开" : "关");
+                Check("配置番值计分" + suffix, ShanghaiHandCalculator.Score(pattern.Hand, pattern.Melds, 1, false, 1, enabled) == points);
+                var hint = RuleTips.DescribeWaitingTile(manifest, new WaitHintQuery {
+                    SubRule="shanghai/qiaoma", HandWithWin=pattern.Hand, HepaiTile=tile,
+                    Melds=pattern.Melds, SelfFlowers=new List<int> {51}, HepaiLimit=1, DetailedConfig=config,
+                });
+                Check("实时提示使用房间番值" + suffix, hint.Kind == WaitTileHint.KindRon && hint.Label == $"敲牌后 {points}分");
+                var profilePlayer = Player(before, pattern.Melds, 1, true);
+                var context = Context(profilePlayer, 1); context.DetailedConfig = config;
+                var waits = ShanghaiHandCalculator.Waits(before, pattern.Melds);
+                var replay = RecordWaitHintCalculator.BuildQueries(context, before, waits.ToList()).Single(q => q.HepaiTile == tile);
+                Check("牌谱提示读取自己的配置" + suffix, RuleTips.DescribeWaitingTile(manifest, replay).Label == hint.Label);
+                var preview = RecordWaitHintCalculator.BuildQueries(context, before, waits.ToList(), 29).Single(q => q.HepaiTile == tile);
+                Check("切牌预览同步房间番值" + suffix, RuleTips.DescribeWaitingTile(manifest, preview).Label == hint.Label);
+            }
+            string encoded = $"{pattern.Name}（{pattern.Fan}番）";
+            Check("结算牌谱番值显示" + pattern.Name, manifest.FanNameText("shanghai/qiaoma", encoded) == pattern.Name
+                && manifest.FanValueText("shanghai/qiaoma", encoded) == $"{pattern.Fan}番");
+        }
+        Check("缺省牌谱番值维持旧清一色", ShanghaiHandCalculator.Score(new List<int> {11,12,13,12,13,14,15,16,17,19,19}, new List<string> {"s18"}, 1, false) == 8);
         return checks.ToArray();
     }
 }

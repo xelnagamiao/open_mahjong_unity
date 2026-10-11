@@ -12,6 +12,8 @@ internal static class ChangchunRuleBootstrap {
         RuleNameDictionary.ShortName[RuleId] = "长春";
         RuleNameDictionary.ShortName["changchun/mil2024"] = "长春";
         RuleRegistry.Register(new RuleManifest {
+            ReplayFactory = record => record.CreateChangchunReplayModule(),
+            BuildRoom = ChangchunRoomBuilder.Build,
             RuleId = RuleId, DefaultSubRule = "changchun/mil2024", DisplayName = "长春麻将", LobbyOrder = 16, OutboundChannel="changchun",
             LobbySubRules = new[] { new RuleLobbySubRule("changchun/mil2024", "MIL 2024",
                 "MIL《长春麻将（推广）竞赛规则（试行2024版）》：136张、十三张手牌，须有三门与幺九。首个出牌回合可亮幺九杠、旋风杠、喜杠，一条只在这些特殊杠中替牌。报听后下次轮到自己看宝，支持冲宝、摸宝；6番封顶，未听或未合理看宝放铳包三家。末四张只和不打。") },
@@ -21,6 +23,7 @@ internal static class ChangchunRuleBootstrap {
                 {CreateRoomKeys.Password,false},{CreateRoomKeys.RandomSeed,false},{CreateRoomKeys.TouristLimit,false},{CreateRoomKeys.AllowSpectator,true}
             },
             GameStateFactory = () => new ChangchunGameState(),
+            OpeningHandHasDrawSlot = info => info?.changchun?.self_has_draw_slot == true,
             Tingpai = q => ChangchunHandCalculator.BasicWaits(q.Hand,q.Melds),
             VisibleMeldTiles = (code,self) => !self && code?.StartsWith("G")==true ? Array.Empty<int>() : code?.StartsWith("C")==true ? ChangchunHandCalculator.MeldTiles(code) : null,
             LiveVisibleIndicators = VisibleBaoTiles,
@@ -30,7 +33,6 @@ internal static class ChangchunRuleBootstrap {
             RoundName = r => $"第{r}副", RoundStatusText = q => $"第{q.current_round}副", MaxRoundText = r => $"{r*4}副",
             FanValueText = (r,n) => FanValue(n), ScoreboardFanText = q => $"基础{q.HuScore}番",
             SettlementTotal = q => new SettlementTotalDisplay {FanText=$"基础{q.HuScore}番",ScoreText="6番封顶"},
-            SettlementFootnote = q => "逐家结算，杠分另计；庄家、和法加番后每家6番封顶。",
             AdjustHepaiPresentation = AdjustRobbedKongPresentation,
             ActionCaption = a => a == "riichi" || a == "riichi_cut" ? "报听" : a=="riichi_cut_cancel" ? "取消报听" : null,
             // MIL 2024 三-23、六-2：声明报“听”；自摸也报“和”。
@@ -70,7 +72,7 @@ internal static class ChangchunRuleBootstrap {
     }
     private static string FanValue(string name) {
         switch(name) {
-            case "门清":case "夹/单吊/单和":case "摸宝":return "1番";
+            case "门清":case "夹/单吊/单和":case "摸宝":case "庄（各家）":case "庄（庄家份）":return "1番";
             case "飘和":case "冲宝":return "2番";
             case "七对":return "3番";case "豪华七对":return "4番";default:return "";
         }

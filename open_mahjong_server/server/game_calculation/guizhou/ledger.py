@@ -31,6 +31,8 @@ class Transfer:
     category: str
     reason: str
     tile: int | None = None
+    count: int | None = None
+    unit_points: int | None = None
 
 
 @dataclass(frozen=True)
@@ -80,9 +82,9 @@ def settle(players, *, winners=(), source="draw", payer=None, scores=None,
     ready = tuple(i in winners or ready_values[i] > 0 for i in range(4))
     transfers = []
 
-    def transfer(a, b, points, category, reason, tile=None):
+    def transfer(a, b, points, category, reason, tile=None, count=None, unit_points=None):
         if points and a != b:
-            transfers.append(Transfer(a, b, points, category, reason, tile))
+            transfers.append(Transfer(a, b, points, category, reason, tile, count, unit_points))
 
     if source == "draw":
         for a in range(4):
@@ -95,12 +97,12 @@ def settle(players, *, winners=(), source="draw", payer=None, scores=None,
     chicken_types = set(NORMAL_CHICKENS) | ({chicken_tile} if chicken_tile else set())
     offender = payer if source == "rob_kong" or hot else None
 
-    def account(owner, other, points, category, reason, tile):
+    def account(owner, other, points, category, reason, tile, count, unit_points):
         if ready[owner]:
             if owner != offender:
-                transfer(other, owner, points, category, reason, tile)
+                transfer(other, owner, points, category, reason, tile, count, unit_points)
         elif ready[other]:
-            transfer(owner, other, points, category, "包鸡" if category == "chicken" else "包杠", tile)
+            transfer(owner, other, points, category, "包鸡" if category == "chicken" else "包杠", tile, count, unit_points)
 
     for owner, player in enumerate(players):
         physical = list(player["discard_tiles"])
@@ -113,7 +115,7 @@ def settle(players, *, winners=(), source="draw", payer=None, scores=None,
             multiplier = 2 if tile == chicken_tile and tile in NORMAL_CHICKENS else 1
             for other in range(4):
                 if other != owner:
-                    account(owner, other, counts[tile] * multiplier, "chicken", "金鸡" if multiplier == 2 else "鸡牌", tile)
+                    account(owner, other, counts[tile] * multiplier, "chicken", "金鸡" if multiplier == 2 else "鸡牌", tile, counts[tile], multiplier)
     for chicken in chickens:
         if chicken.won:
             continue
@@ -122,7 +124,7 @@ def settle(players, *, winners=(), source="draw", payer=None, scores=None,
         for other in range(4):
             if other != owner and (chicken.claimant is None or other == chicken.supplier):
                 account(owner, other, 2 * multiplier, "chicken",
-                        "冲锋鸡加分" if chicken.claimant is None else "责任鸡加分", chicken.tile)
+                        "冲锋鸡加分" if chicken.claimant is None else "责任鸡加分", chicken.tile, 1, 2 * multiplier)
     for kong in kongs:
         if kong.hanbao:
             continue
@@ -134,7 +136,7 @@ def settle(players, *, winners=(), source="draw", payer=None, scores=None,
         for other in opponents:
             if type(other) is not int or other not in range(4) or other == kong.owner:
                 raise ValueError("无效点杠责任家")
-            account(kong.owner, other, 3, "kong", {"concealed": "暗杠", "added": "加杠", "direct": "点杠"}[kong.kind], kong.tile)
+            account(kong.owner, other, 3, "kong", {"concealed": "暗杠", "added": "加杠", "direct": "点杠"}[kong.kind], kong.tile, 1, 3)
     for winner in winners:
         if source == "self_draw":
             for other in range(4):

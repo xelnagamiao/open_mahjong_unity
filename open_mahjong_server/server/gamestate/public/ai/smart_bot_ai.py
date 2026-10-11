@@ -9,7 +9,7 @@ from .bot_executor import bot_action_is_current, run_room_bot_cpu
 from .get_action import get_ai_action
 from .smart_bot_logic import (
     count_melds, count_visible_tiles, cut_candidate_hand, evaluate_hand,
-    find_best_cut, find_best_cut_score, should_accept_hu,
+    find_best_cut, find_best_cut_score, should_accept_hu, normalize_tile,
 )
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,8 @@ _RON_HU_ACTIONS = ("hu", "hu_first", "hu_second", "hu_third")
 
 def _choose_hand_action(hand, combs, meld_count, visible, dingque, action_list):
     """Pure CPU decision over snapshots; returns (action, tile)."""
-    hand = list(hand)
+    physical_hand = list(hand)
+    hand = [normalize_tile(t) for t in physical_hand]
     combs = list(combs)
     actions = set(action_list)
     if "buzhang" in actions:
@@ -63,14 +64,15 @@ def _choose_hand_action(hand, combs, meld_count, visible, dingque, action_list):
                     if evaluate_hand(test, meld_count, visible) >= evaluate_hand(hand, meld_count, visible):
                         return "jiagang", tile
     if "cut" in actions and hand:
-        cut_hand = cut_candidate_hand(hand, dingque)
+        cut_hand = cut_candidate_hand(physical_hand, dingque)
         tile, _ = find_best_cut(cut_hand, meld_count, visible)
         return "cut", tile
     return "pass", None
 
 
 def _choose_claim_action(hand, meld_count, visible, action_list, cut_tile):
-    hand = list(hand)
+    hand = [normalize_tile(t) for t in hand]
+    cut_tile = normalize_tile(cut_tile)
     actions = set(action_list)
     best_action = "pass"
     best_score = evaluate_hand(hand, meld_count, visible)
@@ -210,7 +212,7 @@ async def _handle_hand_action(game_state, player_index, action_list, player):
     hand = player.hand_tiles[:]
     combs = list(getattr(player, 'combination_tiles', []))
     meld_count = count_melds(combs)
-    visible = count_visible_tiles(game_state)
+    visible = count_visible_tiles(game_state, player_index)
     expected_tick = getattr(game_state, "server_action_tick", None)
     action, tile_id = await run_room_bot_cpu(
         game_state,
@@ -259,7 +261,7 @@ async def _handle_after_cut(game_state, player_index, action_list, player):
     hand = player.hand_tiles[:]
     combs = getattr(player, 'combination_tiles', [])
     meld_count = count_melds(combs)
-    visible = count_visible_tiles(game_state)
+    visible = count_visible_tiles(game_state, player_index)
 
     # 当前手牌基准评分（不做任何操作时 pass 后的手牌价值）
     expected_tick = getattr(game_state, "server_action_tick", None)

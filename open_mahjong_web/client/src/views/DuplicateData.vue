@@ -30,6 +30,16 @@
         <div class="detail-meta"><el-tag>{{ duplicateWallLabel(detail.wall.wall_type) }}</el-tag><span>{{ ruleLabel(detail.wall.rule) }}</span><span>最近对局结束时间：{{ duplicateDate(detail.wall.ended_at) }}</span><span>每场 {{ detail.wall.round_count || 1 }} 局</span><span>对局数：{{ detail.games.length }}</span></div>
         <p class="help">结束时间取该密钥最近一场已结束对局的时间。</p>
         <div class="detail-meta"><span>创建时间：{{ duplicateDate(detail.wall.created_at) }}</span><span>解锁时间：{{ duplicateDate(detail.wall.unlocked_at) }}</span><span>{{ detail.wall.is_deleted || detail.wall.deleted_at ? `已删除 · ${duplicateDate(detail.wall.deleted_at)}` : '未删除' }}</span><span>花牌：{{ detail.wall.use_flowers === false ? '无花' : '有花' }}</span></div>
+        <template v-if="detail.paired_match">
+          <p>蓝队 {{ detail.paired_match.scores[0] }} : {{ detail.paired_match.scores[1] }} 红队 · {{ detail.paired_match.scoring === 'imp' ? 'IMP' : '副差分' }}</p>
+          <el-table :data="detail.paired_match.boards" aria-label="逐副复式分数">
+            <el-table-column prop="number" label="副号" width="80" />
+            <el-table-column label="开室蓝队副分"><template #default="{ row }">{{ row.tables.open.delta[0] }}</template></el-table-column>
+            <el-table-column label="闭室蓝队副分"><template #default="{ row }">{{ row.tables.closed.delta[0] }}</template></el-table-column>
+            <el-table-column label="蓝队副差分"><template #default="{ row }">{{ row.raw_difference[0] }}</template></el-table-column>
+            <el-table-column :label="detail.paired_match.scoring === 'imp' ? '蓝 : 红 IMP' : '蓝 : 红 副差分'"><template #default="{ row }">{{ row.scores[0] }} : {{ row.scores[1] }}</template></el-table-column>
+          </el-table>
+        </template>
         <el-table :data="detail.games" empty-text="该密钥还没有对局记录">
           <el-table-column prop="game_id" label="对局编号" min-width="140" />
           <el-table-column label="所属赛事" min-width="150"><template #default="{ row }"><router-link v-if="row.event_id" :to="`/events/${encodeURIComponent(row.event_id)}`">{{ row.event_name || row.event_id }}</router-link><span v-else>个人对局</span></template></el-table-column>
@@ -60,7 +70,7 @@ const detailLoading = ref(false)
 const error = ref('')
 let searchVersion = 0
 let detailVersion = 0
-function ruleLabel(rule) { return rules.value.find(item => item.rule === rule)?.label || rule }
+function ruleLabel(rule) { return ({ 'sichuan/doubles_duplicate': '血战双打复式', 'sichuan/xueliu_doubles_duplicate': '血流双打复式' })[rule] || rules.value.find(item => item.rule === rule)?.label || rule }
 function playerNames(game) {
   if (Array.isArray(game.players)) return game.players.map(player => typeof player === 'string' ? player : player.username || player.name || player.user_id).filter(Boolean).join(' / ') || '—'
   return [0, 1, 2, 3].map(index => game[`p${index}_name`]).filter(Boolean).join(' / ') || '—'

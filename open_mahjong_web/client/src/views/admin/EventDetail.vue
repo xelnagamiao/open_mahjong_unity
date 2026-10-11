@@ -148,39 +148,7 @@
           >刷新</el-button>
         </template>
 
-        <el-table
-          :data="rooms"
-          size="small"
-          style="margin-top: 12px"
-          v-loading="loadingRooms"
-          empty-text="暂无房间"
-        >
-          <el-table-column prop="room_id" label="房间 ID" min-width="120" />
-          <el-table-column prop="room_name" label="名称" min-width="120" />
-          <el-table-column prop="room_rule" label="规则" width="100" />
-          <el-table-column label="人数" width="80">
-            <template #default="{ row }">
-              {{ (row.player_list || []).length }} / {{ row.max_player || 4 }}
-            </template>
-          </el-table-column>
-          <el-table-column label="对局中" width="80">
-            <template #default="{ row }">
-              <el-tag :type="row.is_game_running ? 'warning' : 'info'" size="small">
-                {{ row.is_game_running ? '是' : '否' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="100">
-            <template #default="{ row }">
-              <el-button
-                link
-                type="danger"
-                :disabled="!!row.is_game_running"
-                @click="deleteRoom(row)"
-              >删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+        <EventRoomCards :rooms="rooms" :loading="loadingRooms" :rule-labels="RULE_LABELS" allow-restart @delete="deleteRoom" @restart-pair="restartPair" />
       </el-card>
 
       <el-card class="block">
@@ -334,6 +302,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import adminApi from '@/api/adminClient'
 import VenueRoomDialog from '@/components/VenueRoomDialog.vue'
+import EventRoomCards from '@/components/EventRoomCards.vue'
 import { buildEventRoomCreation, createEventRoomCreationForm, eventRoomCreationError } from '@/utils/eventRoomCreation'
 import { eventStatusLabel, eventStatusTagType, parseVenueKind, venueAdminListPath } from '@/utils/eventMeta'
 import { avgRank, buildPlayerStatsRows, dateRangeToQueryParams, rankRate, STATS_DATE_SHORTCUTS } from '@/utils/statsDisplay'
@@ -349,6 +318,10 @@ const RULE_LABELS = {
   zhongyong: '中庸麻将',
   guizhou: '贵州麻将',
   yixing: '宜兴麻将',
+  shenyang: '沈阳麻将',
+  nanjing: '南京麻将',
+  wuhan: '武汉麻将',
+  nanchang: '南昌麻将',
 }
 const GAME_TYPE_OPTIONS = [
   { value: 'quanzhuang', label: '全庄战' },
@@ -387,6 +360,10 @@ const roomDialogVisible = ref(false)
 const roomRuleOptions = [
   { value: 'guizhou', label: '贵州麻将' },
   { value: 'yixing', label: '宜兴麻将' },
+  { value: 'shenyang', label: '沈阳麻将' },
+  { value: 'nanjing', label: '南京麻将' },
+  { value: 'wuhan', label: '武汉麻将' },
+  { value: 'nanchang', label: '南昌麻将' },
   { value: 'guobiao', label: '国标' },
   { value: 'riichi', label: '立直' },
   { value: 'qingque', label: '青雀' },
@@ -563,7 +540,7 @@ async function createRoom() {
     roomForm.room_count = 1
     roomForm.auto_duplicate = false
     roomDialogVisible.value = false
-    ElMessage.success(`已创建 ${created} 个房间${keys ? `及 ${keys} 个复式密钥` : ''}`)
+    ElMessage.success(res.data.data?.paired ? `已创建 ${created} 组开闭室，共 ${created * 2} 间房间` : `已创建 ${created} 个房间${keys ? `及 ${keys} 个复式密钥` : ''}`)
     await loadRooms()
   } catch (e) {
     ElMessage.error({ message: eventRoomCreationError(e), duration: 8000 })
@@ -591,7 +568,7 @@ async function loadDuplicateQuota() {
 
 async function deleteRoom(row) {
   try {
-    const reason = await promptReason('删除房间')
+    const reason = await promptReason(row.duplicate_match_id ? '删除整组开闭室' : '删除房间')
     await adminApi.delete(`/events/${route.params.eventId}/rooms/${row.room_id}`, {
       data: { reason },
     })
@@ -600,6 +577,17 @@ async function deleteRoom(row) {
   } catch (e) {
     if (e === 'cancel' || e === 'close') return
     ElMessage.error(e.response?.data?.message || '删除失败')
+  }
+}
+
+async function restartPair(row) {
+  try {
+    const reason = await promptReason('两室同时重开未完成副（已完成副的分数保留）')
+    const res = await adminApi.post(`/events/${route.params.eventId}/rooms/${row.room_id}/restart-pair`, { reason })
+    ElMessage.success(res.data.message)
+    await loadRooms()
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') ElMessage.error(e.response?.data?.message || '续赛失败')
   }
 }
 

@@ -45,6 +45,7 @@ public sealed class GuizhouTransfer {
     public int payer, payee, points;
     public string category, reason;
     public int? tile;
+    public int? count, unit_points;
 }
 
 [Serializable]

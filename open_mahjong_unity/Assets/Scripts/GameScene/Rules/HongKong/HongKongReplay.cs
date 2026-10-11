@@ -4,6 +4,23 @@ using System.Linq;
 using Newtonsoft.Json;
 
 public partial class GameRecordManager {
+    internal RuleReplayModule CreateHongKongReplayModule() => new RuleReplayModule("hongkong") {
+        Reset = ResetHongKongRecordState,
+        Clear = () => {
+            recordHongKongInfo = null; recordHongKongWinSource = null; recordHongKongFlowerWin = null;
+            HongKong16LedgerPanel.Hide();
+        },
+        ApplyBeforeMutation = ApplyHongKongRecordAction,
+        AfterSilentMutation = tick => {
+            RefreshRecordRulePlayerTags(); SyncRecordBoardScores();
+            if (tick.Count > 1 && tick[1] == "opening_complete") {
+                GameCanvas.Instance.ChangeHandCards("InitHandCardsFromRecord", 0, recordPlayer_to_info["self"].tileList.ToArray(), null);
+                Game3DManager.Instance.Change3DTile("InitHandCardsFromRecord", 0, 0, null, false, null);
+            }
+        },
+        AnnounceAfterSilentAction = PlayHongKongRecordAnnouncement,
+    };
+
     private HongKongInfo recordHongKongInfo;
     private string recordHongKongWinSource;
     private string recordHongKongFlowerWin;
@@ -27,7 +44,8 @@ public partial class GameRecordManager {
         recordHongKongInfo=null;
         if (IsHongKongRecord() && gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex,out Round round))
             recordHongKongInfo=JsonConvert.DeserializeObject<HongKongInfo>(JsonConvert.SerializeObject(round.hongkong));
-        HongKongLedgerPanel.Show(recordHongKongInfo,false);
+        HongKong16LedgerPanel.Close();
+        RefreshHongKongRecordLedger();
     }
 
     private bool ApplyHongKongRecordAction(IReadOnlyList<string> tick) {
@@ -93,8 +111,19 @@ public partial class GameRecordManager {
                 break;
             }
         }
-        HongKongLedgerPanel.Show(recordHongKongInfo,false);
+        RefreshHongKongRecordLedger();
         return true;
+    }
+
+    private void RefreshHongKongRecordLedger() {
+        var names = new string[4];
+        for (int i = 0; i < names.Length; i++)
+            names[i] = ReadGameTitleString(gameRecord?.gameTitle, $"p{i}_name", "");
+        foreach (var player in recordPlayerList)
+            if (player.originalPlayerIndex >= 0 && player.originalPlayerIndex < names.Length
+                && userIdToUsername.TryGetValue(player.userId, out string name))
+                names[player.originalPlayerIndex] = name;
+        HongKong16LedgerPanel.Show(ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", ""), recordHongKongInfo, names);
     }
 
     private bool IsHongKongRecordRobWin => IsHongKongRecord() && recordHongKongWinSource=="rob_kong";

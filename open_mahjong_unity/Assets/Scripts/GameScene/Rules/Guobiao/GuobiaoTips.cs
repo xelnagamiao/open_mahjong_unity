@@ -59,9 +59,10 @@ internal static class GuobiaoTips {
         if (q.Hand.Count + melds.Count * 3 != 13) return new HashSet<int>();
         string key = q.SubRule + "|" + HandKey(q.Hand, melds);
         if (WaitingCache.TryGetValue(key, out int[] cached)) return new HashSet<int>(cached);
+        var hand = q.Hand.ConvertAll(WashizuTile.Face);
         HashSet<int> waiting = q.SubRule == "guobiao/lanshi"
-            ? GBhepaiLanshi.TingpaiCheck(q.Hand, melds)
-            : GBtingpai.TingpaiCheck(q.Hand, melds, false);
+            ? GBhepaiLanshi.TingpaiCheck(hand, melds)
+            : GBtingpai.TingpaiCheck(hand, melds, false);
         if (q.SubRule == GuobiaoGameState.SanmaSubRule) waiting.RemoveWhere(tile => tile >= 12 && tile <= 18);
         var snapshot = new int[waiting.Count];
         waiting.CopyTo(snapshot);
@@ -120,6 +121,8 @@ internal static class GuobiaoTips {
     }
 
     private static Tuple<int, List<string>> Check(string subRule, List<int> hand, List<string> melds, List<string> way, int tile) {
+        hand = hand.ConvertAll(WashizuTile.Face);
+        tile = WashizuTile.Face(tile);
         switch (subRule) {
             case "guobiao/xiaolin": {
                 var r = GBhepaiXiaolin.HepaiCheck(hand, melds, way, tile, false);

@@ -1,13 +1,10 @@
 """
 每玩家每局原始指标写入 game_player_metrics，供每天 04:00 聚合 scene_daily_stats。
-复用各规则 record_counter 已有字段，避免重解牌谱 JSON。
+实时写入使用统一牌谱解析器，保持所有子规则的统计口径一致。
 """
 import logging
-from psycopg2 import Error
 from typing import Any, Dict, Optional
 import re
-
-from .rule_identity import canonical_rule_identity
 
 logger = logging.getLogger(__name__)
 
@@ -61,9 +58,12 @@ def should_record_scene_metrics(
     return False
 
 
-def derive_game_type(match_type: Optional[str]) -> Optional[str]:
+def derive_game_type(match_type: Optional[str], rule: Optional[str] = None) -> Optional[str]:
     if not match_type:
         return None
+    if rule == "hongque":
+        match = re.fullmatch(r"(4|8|12|16)/4(?:_rank)?", match_type)
+        return f"hands{match[1]}" if match else None
     match = re.fullmatch(r"([1-4])/(?:3|4)(?:_sanma)?(?:_rank)?", match_type)
     return {"1": "dongfeng", "2": "banzhuang", "3": "xifeng", "4": "quanzhuang"}.get(match[1]) if match else _GAME_TYPE_MAP.get(match_type)
 
@@ -75,121 +75,44 @@ def _count_rounds(game_record: Dict[str, Any]) -> int:
     return sum(1 for k in game_round.keys() if isinstance(k, str) and k.startswith("round_index_"))
 
 
-def record_game_metrics(
-    db_manager,
-    game_id: str,
-    game_record: Dict[str, Any],
-    player_list: list,
-    scene: Dict[str, Any],
-) -> None:
-    """
-    将每位注册玩家的本局指标写入 game_player_metrics。
-
-    Args:
-        db_manager: DatabaseManager
-        game_id: 牌谱 id
-        game_record: 牌谱 dict（用于统计小局数）
-        player_list: 玩家列表，每个玩家含 record_counter
-        scene: {rule, sub_rule, room_type, match_tier, event_id, match_type}
-    """
-    room_type, match_tier, event_id = normalize_scene_fields(
-        scene.get("room_type"), scene.get("match_tier"), scene.get("event_id"),
-    )
-    if not should_record_scene_metrics(room_type, match_tier, event_id):
+def record_game_metrics(db_manager, game_id, game_record, player_list, scene, *, cursor=None):
+    """解析当前结算牌谱；传入 cursor 时由牌谱事务统一提交或回滚。"""
+    from .record_metrics import _build_metrics_row, _METRIC_INSERT_SQL
+    from .statistics_catalog import resolve_statistics_identity, BY_SUB_RULE
+    from .riichi.record_stats import resolve_original_index
+    title = game_record.get("game_title") or {}
+    rule, sub_rule = resolve_statistics_identity(scene.get("rule"), scene.get("sub_rule"), title, scene.get("match_type"))
+    if not BY_SUB_RULE.get(sub_rule, {}).get("basic_stats"):
         return
-
-    conn = None
-    try:
-        # 含机器人或无注册玩家时不记录
-        if any(getattr(p, "user_id", 0) <= 10 for p in player_list):
-            return
-
-        total_rounds = _count_rounds(game_record)
-        match_type = scene.get("match_type")
-        game_type = derive_game_type(match_type)
-        rule, sub_rule = canonical_rule_identity(scene.get("rule"), scene.get("sub_rule"))
-
-        conn = db_manager._get_connection()
-        cursor = conn.cursor()
-        saved = 0
+    record = {**game_record, "game_title": {**title, "rule": rule, "sub_rule": sub_rule}}
+    room_type, tier, event_id = normalize_scene_fields(scene.get("room_type"), scene.get("match_tier"), scene.get("event_id"))
+    if not should_record_scene_metrics(room_type, tier, event_id) or any(getattr(p, "user_id", 0) <= 10 for p in player_list):
+        return
+    def write_rows(target):
         for player in player_list:
-            user_id = getattr(player, "user_id", 0)
-            # 跳过游客（仅统计注册用户 user_id > 10000000）
-            if user_id <= 10000000:
+            uid = getattr(player, "user_id", 0)
+            if uid <= 10000000:
                 continue
-            counter = getattr(player, "record_counter", None)
-            if counter is None:
-                continue
-            zimo = getattr(counter, "zimo_times", 0) or 0
-            dianhe = getattr(counter, "dianhe_times", 0) or 0
-            fangchong = getattr(counter, "fangchong_times", 0) or 0
-            rank = getattr(counter, "rank_result", 0) or 0
-            replay_metrics = None
-            if rule in ("sichuan", "qingque", "classical"):
-                # 各规则的巡目/基础分/实际支付口径不同，统一与专用牌谱回放对齐。
-                from .shared_record_metrics import analyze_shared_record_for_player
-                original_index = getattr(player, "original_player_index", None)
-                if original_index is not None:
-                    replay_metrics = analyze_shared_record_for_player(game_record, original_index)
-                    zimo = replay_metrics["self_draw_count"]
-                    dianhe = replay_metrics["win_count"] - zimo
-                    fangchong = replay_metrics["deal_in_count"]
-            round_score_total = getattr(counter, "round_score_total", None)
-            if round_score_total is None:
-                from .shared_record_metrics import analyze_shared_record_for_player
-                original_index = getattr(player, "original_player_index", None)
-                round_score_total = (analyze_shared_record_for_player(game_record, original_index)["total_round_score"]
-                                     if original_index is not None else 0)
-            if replay_metrics:
-                round_score_total = replay_metrics["total_round_score"]
+            index = resolve_original_index(record, uid, getattr(player, "original_player_index", None))
+            if index < 0:
+                raise ValueError(f"无法识别统计玩家席位: {game_id}/{uid}")
+            row = _build_metrics_row(game_id, uid, player.username, rule, sub_rule,
+                room_type, tier, event_id, scene.get("match_type"), getattr(player, "score", 0) or 0,
+                getattr(getattr(player, "record_counter", None), "rank_result", 0) or 0,
+                record, index, None)
+            target.execute(_METRIC_INSERT_SQL + " ON CONFLICT (game_id, user_id) DO NOTHING", row)
 
-            cursor.execute("""
-                INSERT INTO game_player_metrics (
-                    game_id, user_id, username, rule, sub_rule, room_type, match_tier, event_id,
-                    game_type, match_type, score, rank, total_rounds,
-                    win_count, self_draw_count, deal_in_count, total_fan_score, total_win_turn,
-                    total_fangchong_score, first_place_count, second_place_count, third_place_count,
-                    fourth_place_count, fulu_round_count, cuohe_count, total_round_score
-                ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-                )
-            """, (
-                game_id,
-                user_id,
-                getattr(player, "username", f"用户{user_id}"),
-                rule,
-                sub_rule,
-                room_type,
-                match_tier,
-                event_id,
-                game_type,
-                match_type,
-                getattr(player, "score", 0) or 0,
-                rank,
-                total_rounds,
-                zimo + dianhe,
-                zimo,
-                fangchong,
-                replay_metrics["total_fan_score"] if replay_metrics else (getattr(counter, "win_score", 0) or 0),
-                replay_metrics["total_win_turn"] if replay_metrics else (getattr(counter, "win_turn", 0) or 0),
-                replay_metrics["total_fangchong_score"] if replay_metrics else (getattr(counter, "fangchong_score", 0) or 0),
-                1 if rank == 1 else 0,
-                1 if rank == 2 else 0,
-                1 if rank == 3 else 0,
-                1 if rank == 4 else 0,
-                replay_metrics["fulu_round_count"] if replay_metrics else (getattr(counter, "fulu_times", 0) or 0),
-                getattr(counter, "cuohe_times", 0) or 0,
-                round_score_total or 0,
-            ))
-            saved += 1
+    if cursor is not None:
+        write_rows(cursor)
+        return
+    conn = db_manager._get_connection()
+    try:
+        with conn.cursor() as target:
+            write_rows(target)
         conn.commit()
-        logger.info(f"game_player_metrics 已写入 {saved} 行，game_id={game_id}")
-    except Error as e:
-        logger.error(f"写入 game_player_metrics 失败: {e}", exc_info=True)
-        if conn:
-            conn.rollback()
+    except Exception:
+        conn.rollback()
+        logger.exception("写入子规则统计失败: %s", game_id)
+        raise
     finally:
-        if conn:
-            cursor.close()
-            db_manager._put_connection(conn)
+        db_manager._put_connection(conn)

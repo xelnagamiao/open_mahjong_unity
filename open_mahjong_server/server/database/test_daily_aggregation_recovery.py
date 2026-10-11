@@ -51,9 +51,26 @@ def test_elo_scene_is_an_ordinary_daily_bucket():
     assert 'elo' in daily.MATCH_TIERS
 
 
-def test_missing_metrics_recovery_excludes_bots_not_guest_tables():
-    from .backfill_game_player_metrics import _get_ai_game_ids
+def test_daily_refresh_requires_one_explicit_date():
     cur = Mock()
-    cur.fetchall.return_value = [('only-bots',)]
-    assert _get_ai_game_ids(cur) == {'only-bots'}
-    assert cur.execute.call_args.args[1] == (10,)
+    with pytest.raises(ValueError):
+        daily._write_scene_statistics(cur, None)
+    cur.execute.assert_not_called()
+    day = date(2026, 10, 5)
+    daily._write_scene_statistics(cur, day)
+    deletes = [call.args for call in cur.execute.call_args_list if call.args[0].startswith('DELETE')]
+    assert len(deletes) == 2
+    assert all('WHERE stat_date=%s' in statement and params == (day,) for statement, params in deletes)
+
+
+def test_startup_only_catches_up_closed_days_using_existing_metrics(monkeypatch):
+    db = Mock()
+    monkeypatch.setattr(daily, 'current_stat_date', lambda: date(2026, 10, 6))
+    monkeypatch.setattr(daily, '_get_meta_value', lambda *a: '2026-10-04')
+    aggregate, save = Mock(), Mock()
+    monkeypatch.setattr(daily, 'run_catchup_aggregation', aggregate)
+    monkeypatch.setattr(daily, '_set_meta_value', save)
+    daily.run_startup_stats_restore(db)
+    aggregate.assert_called_once_with(db, since_date=date(2026, 10, 3), date_to=date(2026, 10, 5))
+    save.assert_called_once_with(db, daily.STATS_CATCHUP_THROUGH_META_KEY, '2026-10-05')
+    db._get_connection.assert_not_called()

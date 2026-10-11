@@ -18,7 +18,7 @@ LEGACY_FRAME_NAMES = {
 ASSETS = {
     'item.rename_credit': dict(label='改名卡', category='item', slot='', effect='rename_credit'),
     'frame.a1': dict(label='金橙色', category='cosmetic', slot='avatar_frame',
-                     icon_path='image/Profiles/1', frame_color='#DCC7A0'),
+                     icon_path='image/Profiles/1', frame_color='#EFC23D'),
     'frame.b1': dict(label='青色', category='cosmetic', slot='avatar_frame',
                      icon_path='image/Profiles/1', frame_color='#7ACDE4'),
 }

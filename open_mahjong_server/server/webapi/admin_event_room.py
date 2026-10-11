@@ -55,6 +55,8 @@ def register_admin_event_room_routes(app: FastAPI, game_server) -> None:
                 password=body.password or "",
                 created_by=body.created_by,
             )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         except Exception as exc:
             logger.error("创建赛事空房间失败: %s", exc, exc_info=True)
             raise HTTPException(status_code=500, detail="创建房间失败") from exc
@@ -64,6 +66,9 @@ def register_admin_event_room_routes(app: FastAPI, game_server) -> None:
             "success": True,
             "message": response.message,
             "room_info": response.room_info,
+            "room_infos": [r for r in game_server.room_manager.list_event_rooms(body.event_id)
+                           if response.room_info.get("duplicate_match_id")
+                           and r.get("duplicate_match_id") == response.room_info["duplicate_match_id"]],
         }
 
     @app.get("/admin/event/rooms")
@@ -91,6 +96,14 @@ def register_admin_event_room_routes(app: FastAPI, game_server) -> None:
         if not response.success:
             raise HTTPException(status_code=400, detail=response.message or "删除房间失败")
         return {"success": True, "message": response.message}
+
+    @app.post("/admin/event/rooms/{room_id}/restart-pair")
+    async def admin_event_pair_restart(room_id: str, event_id: str = Query(..., min_length=1)):
+        from ..room.sichuan_duplicate import restart_pair
+        try:
+            return await restart_pair(game_server.room_manager, room_id, event_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/admin/event/rooms/seat")
     async def admin_event_room_seat(body: AdminEventSeatBody):

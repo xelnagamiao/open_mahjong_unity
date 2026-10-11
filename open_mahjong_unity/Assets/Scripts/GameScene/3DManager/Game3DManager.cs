@@ -205,6 +205,11 @@ public partial class Game3DManager : MonoBehaviour {
             == GameRecordMeldCodec.NormalizeMeldsLookupTileId(expectedTileId);
     }
 
+    /// <summary>牌谱吃碰可接走已登记的飞牌，不必等出牌者的落河与收拢结束。</summary>
+    internal bool HasClaimableRecordDiscard(string discarderPos, int expectedTileId) {
+        return ResolveLastDiscardObject(discarderPos, expectedTileId) != null;
+    }
+
     /// <summary>
     /// 认走/荣和取走弃牌时，仅认 Discard 分支 RegisterLastDiscard 登记的对象。
     /// 不扫描河牌；认不到返回 null，由调用方打日志并放弃。
@@ -593,7 +598,7 @@ public partial class Game3DManager : MonoBehaviour {
         }
 
         // 自由模式允许同一家连续摸切，先把旧摸牌收拢，再串行执行后续增删。
-        if (TryEnqueueFreeHandChange(actionType, tileId, PlayerPosition, cut_class, isRiichi, playCutPhysicsSound)) {
+        if (TryEnqueueFreeHandChange(actionType, tileId, PlayerPosition, cut_class, isRiichi, playCutPhysicsSound, concealedDiscard)) {
             return;
         }
 
@@ -605,11 +610,16 @@ public partial class Game3DManager : MonoBehaviour {
         // 从第一张起就入队，完整等待删牌、飞牌与收拢；否则直接启动的出牌不在
         // HasPendingHandAnimWork 的跟踪范围内，下一张会中断同家尚未落地的飞牌。
         if (actionType == "Discard" || actionType == "RecordDiscard") {
+            // 手动牌谱每家串行步进：新出牌开始时立即废弃旧登记，等本次 Spawn 后才允许吃碰。
+            // 已有队列工作时沿用队列的认牌顺序，不提前清掉仍可能被取走的弃牌。
+            if (actionType == "RecordDiscard" && !HasPendingHandAnimWork(PlayerPosition)) {
+                ClearLastDiscard(PlayerPosition);
+            }
             EnqueueDiscardHandWork(PlayerPosition, tileId, cut_class, isRiichi, playCutPhysicsSound, concealedDiscard);
             return;
         }
 
-        var animation = Change3DTileCoroutine(actionType, tileId, removeCount, PlayerPosition, cut_class, combination_mask, isRiichi, playCutPhysicsSound, meldDiscarderPos, meldClaimedTile);
+        var animation = Change3DTileCoroutine(actionType, tileId, removeCount, PlayerPosition, cut_class, combination_mask, isRiichi, playCutPhysicsSound, meldDiscarderPos, meldClaimedTile, concealedDiscard);
         // Live draws also yield before spawning. Settlement must see them as
         // pending work, otherwise a late blank tile can appear after reveal.
         if (IsHandAnimPlayer(PlayerPosition)) {
@@ -649,11 +659,13 @@ public partial class Game3DManager : MonoBehaviour {
 
     /// <summary>牌谱 GotoAction / 切换明牌展示：同步清空并重建 left/top/right 手牌区。</summary>
     private void InitHandCardsFromRecordImmediate() {
+        ClearWashizuPresentation();
         StopAllHandAnimationQueues();
         ClearRecordHandCardsImmediate();
         RenderRecordPlayerHand("left");
         RenderRecordPlayerHand("top");
         RenderRecordPlayerHand("right");
+        RefreshWashizuRecordHands();
     }
 
     private void ClearRecordHandCardsImmediate() {
@@ -675,7 +687,7 @@ public partial class Game3DManager : MonoBehaviour {
         }
     }
 
-    public IEnumerator Change3DTileCoroutine(string actionType, int tileId, int removeCount, string PlayerPosition, bool cut_class, int[] combination_mask, bool isRiichi = false, bool playCutPhysicsSound = false, string meldDiscarderPos = null, int meldClaimedTile = 0) {
+    public IEnumerator Change3DTileCoroutine(string actionType, int tileId, int removeCount, string PlayerPosition, bool cut_class, int[] combination_mask, bool isRiichi = false, bool playCutPhysicsSound = false, string meldDiscarderPos = null, int meldClaimedTile = 0, bool concealedDiscard = false) {
         PosPanel3D panel = GetPosPanel(PlayerPosition);
         if (panel == null) {
             yield break;
@@ -729,7 +741,7 @@ public partial class Game3DManager : MonoBehaviour {
             else {
                 yield return RemoveHandCardsCoroutine(panel.cardsPosition, 1, cut_class, tileId, null, skipRearrange: true, PlayerPosition);
             }
-            yield return Set3DTileCoroutine(tileId, panel.buhuaPosition, "Buhua", PlayerPosition);
+            yield return Set3DTileCoroutine(concealedDiscard ? 0 : tileId, panel.buhuaPosition, "Buhua", PlayerPosition);
             // 摸补：摸牌区删花后保留主列与摸牌区间距，不收拢；手补仍收拢主列
             if (!cut_class) {
                 yield return FinishBuhuaHandRearrange(PlayerPosition,
@@ -907,6 +919,7 @@ public partial class Game3DManager : MonoBehaviour {
 
     // 清除3D手牌
     public void Clear3DTile(){
+        ClearWashizuPresentation();
         ClearAllLastDiscardAndJiagang();
         // 重置组合牌指针
         selfSetCombinationsPoint = selfPosPanel.combinationsPosition.position;

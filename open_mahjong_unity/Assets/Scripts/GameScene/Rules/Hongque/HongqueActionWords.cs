@@ -85,7 +85,7 @@ public static class HongqueActionWords {
                 .Select(HongqueTileVisual.FromCode)
                 .Where(id => id != 0)
                 .ToArray();
-            result.Add(new ActionCandidate(EncodeCandidate(candidate), tiles));
+            result.Add(new ActionCandidate(EncodeCandidate(candidate), HongqueDisplayOrder.Meld(tiles)));
         }
         return result;
     }

@@ -168,7 +168,7 @@ class HandFlow:
         if action == "angang":
             for _ in range(4):
                 p.hand_tiles.remove(tile)
-            code, mask = f"G{tile}", [2, tile] * 4
+            code, mask = f"G{tile}", [2, tile, 0, tile, 0, tile, 2, tile]
             p.combination_tiles.append(code)
             p.combination_mask.append(mask)
         else:

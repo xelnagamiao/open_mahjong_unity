@@ -16,6 +16,7 @@ from .game_classical.ClassicalGameState import ClassicalGameState
 from .game_riichi.RiichiGameState import RiichiGameState
 from .game_sichuan.SichuanGameState import SichuanGameState
 from .game_sichuan.XueliuGameState import XueliuGameState
+from .game_sichuan.XueliuDoublesGameState import XueliuDoublesGameState
 from .game_jiandan.JiandanGameState import JiandanGameState
 from .game_zhongyong import ZhongyongGameState, NanqueGameState
 from .game_taiwan.TaiwanGameState import TaiwanGameState
@@ -23,14 +24,20 @@ from .game_hongkong import HongKongGameState
 from .game_guizhou import GuizhouGameState
 from .game_hangzhou import HangzhouGameState
 from .game_yixing import YixingGameState
+from .game_nanjing import NanjingGameState
 from .game_wenzhou.WenzhouGameState import WenzhouGameState
+from .game_nanchang.NanchangGameState import NanchangGameState
 from .game_hongzhong.HongzhongGameState import HongzhongGameState
+from .game_jiujiang.JiujiangGameState import JiujiangGameState
 from .game_tuidao import TuidaoGameState
 from .game_guangdong import GuangdongGameState
+from .game_shenyang import ShenyangGameState
 from .game_shanxi import ShanxiGameState
+from .game_wuhan import WuhanGameState
 from .game_changchun import ChangchunGameState
 from .game_shanghai.ShanghaiGameState import ShanghaiGameState
 from .game_shanghai.QinghunpengGameState import QinghunpengGameState
+from .game_shanghai.LajiheGameState import LajiheGameState
 from .game_hongque.HongqueGameState import HongqueGameState
 from .game_free.FreeGameState import FreeGameState
 logger = logging.getLogger(__name__)
@@ -66,15 +73,21 @@ class GameStateManager:
         self.room_id_to_WenzhouGameState: Dict[str, WenzhouGameState] = {}
         self.room_id_to_HangzhouGameState: Dict[str, HangzhouGameState] = {}
         self.room_id_to_HongzhongGameState: Dict[str, HongzhongGameState] = {}
+        self.room_id_to_JiujiangGameState: Dict[str, JiujiangGameState] = {}
         self.room_id_to_ShanxiGameState: Dict[str, ShanxiGameState] = {}
         self.room_id_to_ChangchunGameState: Dict[str, ChangchunGameState] = {}
         # gamestate_id 到游戏状态的映射（主要管理方式）
         self.gamestate_id_to_game_state: Dict[str, Any] = {}
         # 用户ID到游戏状态的映射（用于快速查找玩家所在的活跃游戏）
         self.user_id_to_game_state: Dict[int, Any] = {}
+        self.room_id_to_NanchangGameState: Dict[str, NanchangGameState] = {}
+        self.room_id_to_WuhanGameState: Dict[str, WuhanGameState] = {}
+        self.room_id_to_ShenyangGameState: Dict[str, ShenyangGameState] = {}
+        self.room_id_to_NanjingGameState: Dict[str, NanjingGameState] = {}
         self._closing_games = {}
+        self.sichuan_duplicate_matches = {}
     
-    async def start_game(self, Connect_id: str, room_id: str, *, event_auto_start: bool = False) -> Optional[Response]:
+    async def start_game(self, Connect_id: str, room_id: str, *, event_auto_start: bool = False, roster_revision=None, _paired_prepare=False) -> Optional[Response]:
         """
         开始游戏
         
@@ -94,7 +107,7 @@ class GameStateManager:
         enforce_changchun_tactical_room(room_data)
         from ..room.tuidao_room import enforce_tuidao_tactical_room
         enforce_tuidao_tactical_room(room_data)
-        if room_data.get("duplicate_key") and room_data.get("room_rule") != "guobiao":
+        if room_data.get("duplicate_key") and room_data.get("room_rule") != "guobiao" and not room_data.get("duplicate_match_id"):
             return Response(type="error_message", success=False, message="复式牌墙仅支持国标麻将（含蓝十改）")
         if room_data.get("event_seating_pending") and not event_auto_start:
             return Response(type="error_message", success=False, message="自动匹配正在安排入座，请稍候")
@@ -117,6 +130,13 @@ class GameStateManager:
         if len(room_data["player_list"]) < min_players:
             return Response(type="error_message", success=False, message="人数不足")
 
+        from ..room.room_teams import validate_team_start
+        get_seats(room_data)
+        try:
+            validate_team_start(room_data, room_data.get("roster_revision") if event_auto_start else roster_revision)
+        except ValueError as exc:
+            return Response(type="error_message", success=False, message=str(exc))
+
         # 检查除房主外的所有玩家是否都已准备（机器人默认已准备）
         if not self.game_server.room_manager.all_players_ready(room_data):
             return Response(type="error_message", success=False, message="有玩家尚未准备")
@@ -136,6 +156,11 @@ class GameStateManager:
                     message="有玩家正在对局中，无法开始游戏",
                 )
             
+        from ..game_calculation.sichuan.duplicate_rules import is_duplicate_sub_rule
+        if is_duplicate_sub_rule(room_data.get("sub_rule")) and not _paired_prepare:
+            from ..room.sichuan_duplicate import request_start
+            return await request_start(self, room_data, Connect_id)
+
         # Re-read equipment at start, including rooms created before an admin revoked a grant.
         # Matchmaking already reads get_user_settings when constructing its room data.
         for player_id in room_data["player_list"]:
@@ -153,9 +178,9 @@ class GameStateManager:
             "riichi": RiichiGameState, "sichuan": SichuanGameState,
             "jiandan": JiandanGameState, "zhongyong": ZhongyongGameState, "taiwan": TaiwanGameState,
             "shanghai": ShanghaiGameState, "hongque": HongqueGameState, "hongkong": HongKongGameState, "guangdong": TuidaoGameState,
-            "shanxi": ShanxiGameState,
+            "shanxi": ShanxiGameState, "wuhan": WuhanGameState, "shenyang": ShenyangGameState,
             "changchun": ChangchunGameState,
-            "free": FreeGameState, "guizhou": GuizhouGameState, "yixing": YixingGameState, "wenzhou": WenzhouGameState, "hangzhou": HangzhouGameState, "hongzhong": HongzhongGameState,
+            "free": FreeGameState, "guizhou": GuizhouGameState, "yixing": YixingGameState, "nanjing": NanjingGameState, "wenzhou": WenzhouGameState, "nanchang": NanchangGameState, "hangzhou": HangzhouGameState, "hongzhong": HongzhongGameState, "jiujiang": JiujiangGameState,
         }
         state_class = classes.get(room_data["room_rule"])
         if room_data["room_rule"] == "guangdong" and room_data.get("sub_rule") == "guangdong/mil2023":
@@ -164,10 +189,17 @@ class GameStateManager:
             return Response(type="error_message", success=False, message="房间类型不支持")
         if room_data["room_rule"] == "sichuan" and room_data.get("sub_rule") in ("sichuan/xueliu", "sichuan/xueliu_exchange"):
             state_class = XueliuGameState
+        if room_data["room_rule"] == "sichuan" and room_data.get("sub_rule") == "sichuan/xueliu_doubles":
+            state_class = XueliuDoublesGameState
         if room_data["room_rule"] == "shanghai" and room_data.get("sub_rule") == "shanghai/qinghunpeng":
             state_class = QinghunpengGameState
+        if room_data["room_rule"] == "shanghai" and room_data.get("sub_rule") == "shanghai/lajihe":
+            state_class = LajiheGameState
         if room_data["room_rule"] == "zhongyong" and room_data.get("sub_rule") == "zhongyong/nanque":
             state_class = NanqueGameState
+        if is_duplicate_sub_rule(room_data.get("sub_rule")):
+            from .game_sichuan.DuplicateGameState import SbrDuplicateGameState, XueliuDuplicateGameState
+            state_class = XueliuDuplicateGameState if room_data["sub_rule"] == "sichuan/xueliu_doubles_duplicate" else SbrDuplicateGameState
         room_data.setdefault("instance_id", str(uuid.uuid4()))
         from ..room.guangdong_room import enforce_guangdong_tactical
         enforce_guangdong_tactical(room_data)
@@ -183,9 +215,11 @@ class GameStateManager:
             snapshot.setdefault("bot_speed", DEFAULT_BOT_SPEED)
             configure_bot_pacing(game_state, snapshot)
             self.register_game(game_state, room_data)
-            configure_duplicate_state(game_state, snapshot)
+            if not room_data.get("duplicate_match_id"):
+                configure_duplicate_state(game_state, snapshot)
             attach_game_frames(game_state, snapshot)
-            game_state.game_task = asyncio.create_task(self.run_game(game_state, game_state.run_game_loop))
+            if not _paired_prepare:
+                game_state.game_task = asyncio.create_task(self.run_game(game_state, game_state.run_game_loop))
             logger.info("对局已启动 room_id=%s gamestate_id=%s", room_id, game_state.gamestate_id)
         except Exception as exc:
             logger.exception("启动对局失败 room_id=%s", room_id)
@@ -194,22 +228,17 @@ class GameStateManager:
             return Response(type="error_message", success=False, message=f"启动游戏失败: {exc}")
         return None
 
+    def _rule_room_indexes(self):
+        return {(name.removeprefix("room_id_to_").removesuffix("GameState").lower()
+                 if name != "room_id_to_TuidaoGameState" else "guangdong"): index
+                for name, index in vars(self).items() if name.startswith("room_id_to_")}
+
     def _room_indexes(self):
-        return (
-            self.room_id_to_GuobiaoGameState, self.room_id_to_QingqueGameState,
-            self.room_id_to_ChangshaGameState, self.room_id_to_ClassicalGameState,
-            self.room_id_to_RiichiGameState, self.room_id_to_SichuanGameState,
-            self.room_id_to_JiandanGameState, self.room_id_to_ZhongyongGameState, self.room_id_to_TaiwanGameState,
-            self.room_id_to_ShanghaiGameState, self.room_id_to_HongqueGameState, self.room_id_to_HongKongGameState, self.room_id_to_TuidaoGameState,
-            self.room_id_to_ShanxiGameState, self.room_id_to_ChangchunGameState, self.room_id_to_FreeGameState, self.room_id_to_GuizhouGameState, self.room_id_to_YixingGameState, self.room_id_to_WenzhouGameState, self.room_id_to_HangzhouGameState, self.room_id_to_HongzhongGameState,
-        )
+        return tuple(self._rule_room_indexes().values())
 
     def register_game(self, state, room_data):
         """Register one independent game and reserve its display/chat room number."""
-        indexes = dict(zip(
-            ("guobiao", "qingque", "changsha", "classical", "riichi", "sichuan",
-             "jiandan", "zhongyong", "taiwan", "shanghai", "hongque", "hongkong", "guangdong", "shanxi", "changchun", "free", "guizhou", "yixing", "wenzhou", "hangzhou", "hongzhong"), self._room_indexes()
-        ))
+        indexes = self._rule_room_indexes()
         index = indexes[state.room_rule]
         if self.get_game_state_by_room_id(state.room_id) is not None:
             raise ValueError("房间已有活跃对局")
@@ -452,6 +481,7 @@ class GameStateManager:
         """
         from ..response import SpectatorInfo
         from .public.spectator_rules import too_many_ai_for_spectator
+        from ..game_calculation.sichuan.doubles_rules import is_team_sub_rule
         spectator_list = []
         
         # 遍历所有游戏状态
@@ -477,12 +507,15 @@ class GameStateManager:
                 player4_name = game_state.player_list[3].username or str(game_state.player_list[3].user_id)
                 
                 # 创建观战信息
-                event_id = getattr(game_state, "event_id", None)
-                if not event_id:
-                    room_id = getattr(game_state, "room_id", None)
-                    room = self.game_server.room_manager.rooms.get(room_id) if room_id else None
-                    if room:
-                        event_id = room.get("event_id")
+                room_id = getattr(game_state, "room_id", None)
+                room = self.game_server.room_manager.rooms.get(room_id, {}) if room_id else {}
+                event_id = getattr(game_state, "event_id", None) or room.get("event_id")
+                room_type = getattr(game_state, "room_type", None) or room.get("room_type", "custom")
+                ranked = room_type == "match"
+                # Names and teams use the same current player order, including after seat rotation.
+                teams = None
+                if is_team_sub_rule(sub_rule):
+                    teams = [getattr(player, "team_id", -1) for player in game_state.player_list[:4]]
                 spectator_info = SpectatorInfo(
                     rule=rule,
                     sub_rule=sub_rule,
@@ -492,6 +525,10 @@ class GameStateManager:
                     player4_name=player4_name,
                     gamestate_id=gamestate_id,
                     event_id=event_id,
+                    room_type=room_type,
+                    match_queue_type=(getattr(game_state, "match_queue_type", None) or room.get("match_queue_type")) if ranked else None,
+                    match_tier=(getattr(game_state, "match_tier", None) or room.get("match_tier")) if ranked else None,
+                    team_by_player_index=teams,
                 )
                 spectator_list.append(spectator_info)
         
@@ -515,6 +552,12 @@ class GameStateManager:
         state.close_reason = reason or getattr(state, "close_reason", None) or "completed"
         room_manager = self.game_server.room_manager
         try:
+            pair = getattr(state, "duplicate_match", None)
+            if pair and not pair.completed:
+                try:
+                    pair.interrupt(state.close_reason)
+                except Exception:
+                    logger.exception("保存复式中断状态失败 gamestate_id=%s", gid)
             try:
                 await cancel_auxiliary_tasks(state)
                 await state.cleanup_game_state()

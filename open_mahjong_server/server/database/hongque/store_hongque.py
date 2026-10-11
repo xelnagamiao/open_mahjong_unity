@@ -73,25 +73,24 @@ def store_hongque_game_record(db_manager, game_record: dict, player_list: list, 
                     ),
                 )
                 saved_count += 1
-            except Error as error:
+            except Exception as error:
                 logger.warning(
                     "跳过虹雀对局记录: user_id=%s error=%s",
                     getattr(player, "user_id", None), error,
                 )
+                raise
         from ..player_recent_records import update_player_recent_records
         update_player_recent_records(cursor, game_id, game_record)
+        # 牌谱、参与者和统计同事务发布，成功保存不依赖后续回填。
+        from ..scene_stats import record_game_metrics
+        record_game_metrics(db_manager, game_id, game_record, player_list, {
+            "rule": rule, "sub_rule": sub_rule, "room_type": room_type,
+            "match_tier": match_tier, "event_id": event_id, "match_type": match_type,
+        }, cursor=cursor)
         conn.commit()
-        logger.info("虹雀牌谱已保存 game_id=%s players=%s", game_id, saved_count)
-        try:
-            from ..scene_stats import record_game_metrics
-            record_game_metrics(db_manager, game_id, game_record, player_list, {
-                "rule": rule, "sub_rule": sub_rule, "room_type": room_type,
-                "match_tier": match_tier, "event_id": event_id, "match_type": match_type,
-            })
-        except Exception as error:
-            logger.warning("写入 game_player_metrics 失败: %s", error)
+        logger.info("牌谱及子规则统计已保存，game_id: %s", game_id)
         return game_id
-    except Error as error:
+    except Exception as error:
         logger.error("存储虹雀牌谱失败: %s", error, exc_info=True)
         if conn:
             conn.rollback()

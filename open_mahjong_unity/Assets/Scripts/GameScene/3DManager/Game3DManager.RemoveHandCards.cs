@@ -14,6 +14,29 @@ public partial class Game3DManager : MonoBehaviour {
             yield break;
         }
 
+        if (washizuPublicHands.ContainsKey(playerPosition)) {
+            var requested = new List<int>();
+            if (removeCount > 1 && combinationMaskForSelf != null) {
+                for (int i=0;i+1<combinationMaskForSelf.Length;i+=2)
+                    if (combinationMaskForSelf[i]!=1 && !MeldStackLayout.IsStack(combinationMaskForSelf[i]))
+                        requested.Add(combinationMaskForSelf[i+1]);
+            } else requested.Add(discardTileId);
+            for (int i=0;i<removeCount && cardPosition.childCount>0;i++) {
+                int target=i<requested.Count && WashizuTile.IsTransparent(requested[i]) ? requested[i] : 0;
+                Transform chosen=null;
+                for (int j=0;j<cardPosition.childCount;j++) {
+                    Transform child=cardPosition.GetChild(j);
+                    if (MahjongObjectPool.GetTile3D(child.gameObject)?.GetTileId()==target) { chosen=child;break; }
+                }
+                // Rapid replay may remove a draw before its public snapshot paints it.
+                if (chosen==null) chosen=cardPosition.GetChild(cardPosition.childCount-1);
+                SetLastRemovePos(playerPosition,chosen.position);
+                MahjongObjectPool.Instance.Return(-1,chosen.gameObject);
+            }
+            if (!skipRearrange) { yield return null; yield return Rearrange3DCardsWithAnimation(cardPosition); }
+            yield break;
+        }
+
         Debug.Log($"移除其他玩家手牌 {cardPosition}, 删除数量: {removeCount}, 摸切: {cut_class}");
 
         // 如果removeCount > 1，使用组合删除方法

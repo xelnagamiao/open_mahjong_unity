@@ -1,65 +1,39 @@
 import { buildPlayerStatsRows, buildPlatformStatsRows, SCENE_TOTAL_KEYS, ratio } from './statsDisplay.js';
 
-export const HOME_RULE_DEFS = [
-  { value: 'guobiao', label: '国标' },
-  { value: 'riichi', label: '立直' },
-  { value: 'qingque', label: '青雀' },
-  { value: 'classical', label: '古典' },
-  { value: 'sichuan', label: '川麻(血战)' },
-  { value: 'changsha', label: '长沙' },
-];
-const EXTRA_RULE_DEFS = [
-  { value: 'riichi_sanma', label: '立直(三人)' },
-  { value: 'guobiao_sanma', label: '国标(三人)' },
-  { value: 'sichuan_xueliu_exchange', label: '川麻(血流换三)' },
-  { value: 'sichuan_xueliu', label: '川麻(血流)' },
-  { value: 'zhongyong', label: '中庸麻将' },
-  { value: 'taiwan', label: '台湾麻将' },
-  { value: 'shanghai', label: '上海麻将（敲麻）' },
-  { value: 'shanghai_qinghunpeng', label: '上海麻将（清混碰）' },
-  { value: 'hongque', label: '虹雀' }, { value: 'hongkong', label: '香港麻将' },
-  { value: 'guangdong', label: '广东麻将' }, { value: 'guangdong_tuidao', label: '广东麻将（推倒和）' },
-  { value: 'shanxi', label: '山西麻将' },
-  { value: 'changchun', label: '长春麻将' }, { value: 'free', label: '自由模式' },
-  { value: 'guizhou', label: '贵州麻将' }, { value: 'yixing', label: '宜兴麻将' },
-  { value: 'wenzhou', label: '温州麻将' }, { value: 'hangzhou', label: '杭州麻将' },
-  { value: 'hongzhong', label: '红中麻将' },
-];
+import { STATISTICS_RULES, statisticsSelection, statisticRuleKey, statisticsGameType } from './statisticsCatalog.js';
 
-function displayRule(row) {
-  if (['jiandan', 'nanque'].includes(row.rule) || (row.rule === 'zhongyong' && row.sub_rule === 'zhongyong/nanque')) return 'nanque';
-  if (row.rule === 'guangdong' && row.sub_rule === 'guangdong/tuidao_mil2024') return 'guangdong_tuidao';
-  if (row.rule === 'guobiao' && row.sub_rule === 'guobiao/sanma') return 'guobiao_sanma';
-  if (row.rule === 'shanghai' && row.sub_rule === 'shanghai/qinghunpeng') return 'shanghai_qinghunpeng';
-  if (row.rule === 'sichuan' && row.sub_rule === 'sichuan/xueliu') return 'sichuan_xueliu';
-  if (row.rule === 'sichuan' && row.sub_rule === 'sichuan/xueliu_exchange') return 'sichuan_xueliu_exchange';
-  return row.rule;
+export const HOME_RULE_DEFS = STATISTICS_RULES.filter(r => r.home_header)
+  .map(r => ({ value: r.key, label: r.home_label || r.stats_name }));
+const displayRule = statisticRuleKey;
+export function homeRuleOptions() {
+  return STATISTICS_RULES.map(r => ({ value: r.key, label: r.stats_name, standard: r.standard }));
 }
-
-export function homeRuleOptions(rows) {
-  const options = [...HOME_RULE_DEFS.map(rule => rule.value === 'classical' ? { ...rule, label: '古典麻将' } : rule), ...EXTRA_RULE_DEFS];
-  for (const row of rows) {
-    const rule = displayRule(row);
-    if (rule && rule !== 'nanque' && !options.some(option => option.value === rule)) options.push({ value: rule, label: row.rule_label || rule });
-  }
-  options.push({ value: 'nanque', label: '南雀' });
-  return options;
-}
-export const isRiichiHomeRule = rule => rule === 'riichi' || rule === 'riichi_sanma';
-const isSichuanHomeRule = rule => ['sichuan', 'sichuan_xueliu', 'sichuan_xueliu_exchange'].includes(rule);
+export const isRiichiHomeRule = rule => statisticsSelection(rule)?.rule === 'riichi';
+const isSichuanHomeRule = rule => statisticsSelection(rule)?.rule === 'sichuan';
 
 export function homeSceneOptions(rule) {
   const other = [{ value: 'custom', label: '自定义' }, { value: 'events', label: '比赛场' }];
   const tiers = [{ value: 'beginner', label: '初级' }, { value: 'intermediate', label: '中级' },
     { value: 'advanced', label: '高级' }, { value: 'mcrpl', label: 'mcrpl' }];
-  if (isRiichiHomeRule(rule)) return [...tiers.slice(0, 3), ...other];
-  if (isSichuanHomeRule(rule) || rule === 'qingque') return [{ value: 'rank', label: '段位场' }, ...other];
+  if (['riichi','riichi_sanma'].includes(rule)) return [...tiers.slice(0, 3), ...other];
+  if (['sichuan','sichuan_xueliu_exchange','hongque'].includes(rule) || rule === 'qingque') return [{ value: 'rank', label: '段位场' }, ...other];
   return rule === 'guobiao' ? [...tiers, ...other] : other;
 }
 
 export const homeDefaultScene = rule => homeSceneOptions(rule)[0].value;
 
+export function homeModeOptions(rule, scene) {
+  if (statisticsSelection(rule)?.rule === 'hongque') {
+    const definition = statisticsSelection(rule);
+    const modes = ['custom','events'].includes(scene) ? definition.custom_modes : definition.ranked_modes;
+    return [...modes].reverse().map(mode => ({value: statisticsGameType(rule, mode), label: `${mode.split('/')[0]}局`}));
+  }
+  return [{value:'quanzhuang',label:'全庄战'},{value:'xifeng',label:'东西战'},
+    {value:'banzhuang',label:'半庄战'},{value:'dongfeng',label:'东风战'}];
+}
+
 export function homeGameType(row) {
+  if (displayRule(row) === 'hongque') return statisticsGameType('hongque', row.mode);
   if (row.game_type) return row.game_type;
   const match = /^(\d+)\/(?:3|4)(?:_sanma)?(?:_rank)?$/.exec(String(row.mode || ''));
   return ({ 1: 'dongfeng', 2: 'banzhuang', 3: 'xifeng', 4: 'quanzhuang' })[match?.[1]] || null;

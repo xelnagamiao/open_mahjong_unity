@@ -4,6 +4,12 @@ using System.Linq;
 
 /// <summary>上海敲麻结构听牌与基本分提示，与服务端 qiaoma 的四面子一将规则一致。</summary>
 internal static class ShanghaiHandCalculator {
+    internal const string Qing3Hun2Peng2Key = "qing3_hun2_peng2";
+
+    internal static bool UsesQing3Hun2Peng2(IDictionary<string, object> config) {
+        return config != null && config.TryGetValue(Qing3Hun2Peng2Key, out object value)
+            && bool.TryParse(value?.ToString(), out bool enabled) && enabled;
+    }
     private static readonly int[] Tiles = Enumerable.Range(1, 3)
         .SelectMany(suit => Enumerable.Range(1, 9).Select(rank => suit * 10 + rank))
         .Concat(new[] { 41, 42, 43, 44 }).ToArray();
@@ -59,7 +65,7 @@ internal static class ShanghaiHandCalculator {
         }
     }
 
-    public static int Score(List<int> hand, List<string> melds, int flowerCount, bool selfDraw, int minFan = 0) {
+    public static int Score(List<int> hand, List<string> melds, int flowerCount, bool selfDraw, int minFan = 0, bool qing3Hun2Peng2 = false) {
         melds = melds ?? new List<string>();
         int best = 0;
         var all = hand.Concat(melds.SelectMany(MeldTiles)).ToList();
@@ -67,8 +73,8 @@ internal static class ShanghaiHandCalculator {
             int fan = melds.All(code => code[0] == 'G') ? 1 : 0;
             if (hand.Count == 2) fan++;
             if (all.Where(tile => tile < 40).Select(tile => tile / 10).Distinct().Count() == 1)
-                fan += all.Any(tile => tile >= 41) ? 1 : 2;
-            if (sets.Concat(melds).All(code => code[0] != 's')) fan++;
+                fan += all.Any(tile => tile >= 41) ? (qing3Hun2Peng2 ? 2 : 1) : (qing3Hun2Peng2 ? 3 : 2);
+            if (sets.Concat(melds).All(code => code[0] != 's')) fan += qing3Hun2Peng2 ? 2 : 1;
             int flowers = flowerCount;
             foreach (string code in sets.Concat(melds)) {
                 int tile = int.Parse(code.Substring(1));
@@ -85,12 +91,13 @@ internal static class ShanghaiHandCalculator {
 
     public static WaitTileHint Describe(WaitHintQuery query) {
         int flowers = query.SelfFlowers?.Count ?? query.HuapaiCount;
-        int ron = Score(query.HandWithWin, query.Melds, flowers, false, query.HepaiLimit);
+        bool profile = UsesQing3Hun2Peng2(query.DetailedConfig);
+        int ron = Score(query.HandWithWin, query.Melds, flowers, false, query.HepaiLimit, profile);
         if (ron > 0) return WaitTileHint.Ron($"敲牌后 {ron}分");
-        int tsumo = Score(query.HandWithWin, query.Melds, flowers, true, query.HepaiLimit);
+        int tsumo = Score(query.HandWithWin, query.Melds, flowers, true, query.HepaiLimit, profile);
         if (tsumo > 0) return WaitTileHint.TsumoOnly($"敲牌后仅自摸 {tsumo}分");
         // 其他普通和牌条件已满足时，才将起和番门槛不足单独标为“未起和”。
-        bool belowMinimum = query.HepaiLimit > 0 && Score(query.HandWithWin, query.Melds, flowers, true) > 0;
+        bool belowMinimum = query.HepaiLimit > 0 && Score(query.HandWithWin, query.Melds, flowers, true, 0, profile) > 0;
         return WaitTileHint.None(belowMinimum ? "未起和" : "未满足");
     }
 }

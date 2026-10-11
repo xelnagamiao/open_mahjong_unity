@@ -16,7 +16,7 @@ const config = {
 
 const loginUser = { user_id: 101, username: '测试账号', password: hashPassword('test-password'), is_tourist: false };
 
-function loadAuthRoutes(user, { events = [], account = loginUser } = {}) {
+function loadAuthRoutes(user, { events = [], account = loginUser, loginHistory = [] } = {}) {
   const routes = new Map();
   const router = {
     get(route, ...handlers) { routes.set(`GET ${route}`, handlers.at(-1)); },
@@ -39,6 +39,11 @@ function loadAuthRoutes(user, { events = [], account = loginUser } = {}) {
     '../../utils/loginAccount': { findLoginAccount: async () => ({ user: account }) },
     '../../utils/mailer': {},
     '../../utils/passwordReset': { createPasswordResetHandlers: () => ({}) },
+    '../../services/loginHistory': { recordSuccessfulWebLogin: (_pool, id, ip) => {
+      loginHistory.push({ id, ip });
+      // A pending best-effort write must not hold the HTTP response open.
+      return new Promise(() => {});
+    } },
   };
   const realRequire = createRequire(authPath);
   const context = {
@@ -80,6 +85,16 @@ async function login(body, options) {
   await loadAuthRoutes(loginUser, options).get('POST /login')({ body }, res);
   return res;
 }
+
+test('only a successful password login schedules history, without waiting for it', async () => {
+  const history = [];
+  const failed = await login({ username: loginUser.username, password: 'wrong' }, { loginHistory: history });
+  assert.equal(failed.statusCode, 401);
+  assert.equal(history.length, 0);
+  const success = await login({ username: loginUser.username, password: 'test-password' }, { loginHistory: history });
+  assert.equal(success.statusCode, 200);
+  assert.deepEqual(history, [{ id: 101, ip: '127.0.0.1' }]);
+});
 
 for (const [label, keepLoggedIn, ttl] of [
   ['30 days when selected', true, 30 * 24 * 60 * 60],

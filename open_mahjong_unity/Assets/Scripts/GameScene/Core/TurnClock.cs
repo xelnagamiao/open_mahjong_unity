@@ -68,6 +68,8 @@ public sealed class TurnClock {
             RiichiCandidateCuts.Clear();
             ForbiddenCutTiles.Clear();
         }
+        // 立直、报听、敲牌使用同一个选牌窗口，关闭时不依赖各规则自行实现清理钩子。
+        RiichiCutSelectionController.Instance?.ExitRiichiCutMode();
     }
 
     // ---- 询问 ----
@@ -217,8 +219,6 @@ public sealed class TurnClock {
         LastAskHandPlayerIndex = -1;
         IsQiangGangAsk = false;
         PendingAskFromJiagang = false;
-        RiichiCandidateCuts.Clear();
-        ForbiddenCutTiles.Clear();
-        ForcedCutTiles.Clear();
+        ClearCutConstraints(AskCloseReason.Cleared);
     }
 }

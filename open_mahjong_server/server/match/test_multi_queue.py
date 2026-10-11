@@ -154,7 +154,7 @@ class MultiQueueTests(unittest.IsolatedAsyncioTestCase):
         ws = SimpleNamespace(send_json=AsyncMock())
         await handle_match_message(self.server, "1", {"type": "match/get_queue_status"}, ws)
         self.assertEqual(ws.send_json.call_args.args[0]["match_rule_player_counts"],
-                         {"guobiao": 14, "riichi": 5, "qingque": 0, "sichuan": 0, "riichi_sanma": 0, "sichuan_xueliu_exchange": 0})
+                         {"guobiao": 14, "riichi": 5, "qingque": 0, "sichuan": 0, "riichi_sanma": 0, "sichuan_xueliu_exchange": 0, "hongque": 0})
         self.assertEqual(self.manager.get_queue_status()[self.b]["waiting"], 2)
         self.manager.player_disconnect(1)
         self.assertEqual(self.manager.get_rule_player_counts()["guobiao"], 13)

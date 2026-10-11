@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { build } from 'esbuild'
+import { build, transformSync } from 'esbuild'
 import { hongzhongHintsAt, hongzhongKnownTiles, hongzhongWaitDataAt } from '../src/utils/hongzhongReplay.js'
 
 async function bundled(options) {
@@ -104,16 +104,20 @@ const waitBody = body(/function waitDataForSnapshot\(snapshot: ActiveSessionSnap
 const dangerBody = body(/function waitingTilesForSnapshotSeat\(seat: ActiveSessionSnapshot\['seats'\]\[number\]\): Set<number> \{([\s\S]*?)\n\}\n/)
 const dangerComputed = body(/const replayDangerBySeat = computed\(\(\) => \{([\s\S]*?)\n\}\)/)
 const unexpected = () => { throw Error('Hongzhong must not use another rule solver') }
+// Vue 的入口是 TypeScript；用编译器去除类型，避免其他规则新增类型注解破坏本测试。
+function entrySource(argument, contents) {
+  return 'return ' + transformSync(`function entry(${argument}) {${contents}\n}`, { loader: 'ts' }).code
+}
 function currentEntries(payload) {
   const detail = { value: { rule: 'hongzhong' } }
   const currentRound = { value: round(payload) }
   const node = { value: 1 }
   const wait = new Function('detail', 'currentRound', 'node', 'mmcrTileToSalasasa', 'meldKey', 'hongzhongWaitDataAt', 'hongzhongKnownTiles', 'isChangchunRecord', 'buildLocalWaitData',
-    'return function(snapshot) {' + waitBody + '\n}')(detail, currentRound, node, mmcrTileToSalasasa, unexpected, hongzhongWaitDataAt, hongzhongKnownTiles, () => false, unexpected)
+    entrySource('snapshot', waitBody))(detail, currentRound, node, mmcrTileToSalasasa, unexpected, hongzhongWaitDataAt, hongzhongKnownTiles, () => false, unexpected)
   const danger = new Function('detail', 'mmcrTileToSalasasa', 'tingpaiCheck', 'isChangchunRecord',
-    'return function(seat) {' + dangerBody.replace(/new Set<number>/g, 'new Set').replace(/\(wait: \{ tile: number \}\)/g, '(wait)') + '\n}')(detail, mmcrTileToSalasasa, unexpected, () => false)
+    entrySource('seat', dangerBody))(detail, mmcrTileToSalasasa, unexpected, () => false)
   const computedDanger = new Function('detail', 'resultPosition', 'chongHintEnabled', 'waitingTilesForSnapshotSeat',
-    'return function() {' + dangerComputed.replace(/new Map<number, Set<number>>/g, 'new Map').replace(/new Set<number>/g, 'new Set') + '\n}')(
+    entrySource('', dangerComputed))(
     detail, { value: { snapshot: snapshot() } }, { value: true }, unexpected)
   return { wait, danger, computedDanger, node }
 }

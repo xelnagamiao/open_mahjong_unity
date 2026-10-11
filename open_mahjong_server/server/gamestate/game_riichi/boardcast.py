@@ -46,7 +46,10 @@ from ..public.ask_timing import begin_ask_round, note_ask_delivered
 
 
 async def _deliver(self, viewer, payload):
-    conn = self.game_server.user_id_to_connection.get(self.player_list[viewer].user_id)
+    # Final ranking sorts player_list. A seat index remains stable and must not
+    # become an array offset, especially when a human finishes behind bots.
+    player = next((p for p in self.player_list if p.player_index == viewer), None)
+    conn = self.game_server.user_id_to_connection.get(player.user_id) if player is not None else None
     if conn is not None:
         data = payload if isinstance(payload, dict) else payload.dict(exclude_none=True)
         await conn.websocket.send_json(data)
@@ -118,7 +121,9 @@ def _player_to_tag_list_for_viewer(player_list, viewer_player_index: int) -> dic
 
 
 def _build_base_game_info(self) -> dict:
+    from .washizu import public_hands
     info = {
+        "washizu_hands": public_hands(self),
         "room_id": self.room_id,
         "gamestate_id": self.gamestate_id,
         "tips": self.tips,
@@ -311,6 +316,7 @@ async def broadcast_do_action(
     cut_from_player: int = None,
     is_timeout_action: bool = False,
 ):
+    from .washizu import public_hands
     if not is_claim:
         update_hand_draw_source(self, action_list, action_player)
         self.server_action_tick += 1
@@ -336,6 +342,8 @@ async def broadcast_do_action(
                 success=True,
                 message="返回操作内容",
                 do_action_info=Do_action_info(
+                    washizu_hands=public_hands(self),
+                    tile_count=max(0, len(self.tiles_list)-self.dead_wall_count) if self.sub_rule == 'riichi/washizu' else None,
                     action_list=action_list,
                     action_player=action_player,
                     action_tick=self.server_action_tick,

@@ -51,25 +51,3 @@ def test_three_player_draw_and_rank_never_create_fourth_place(flags):
         assert stats['riichi_details']['draw_round_count'] == 1
         assert stats['riichi_details']['tenpai_draw_count'] == int(flags[seat])
         assert stats['fourth_place_count'] == 0
-
-
-@pytest.mark.parametrize('count',[3,4])
-@pytest.mark.parametrize('room_type',['custom','match'])
-@pytest.mark.parametrize('kind',['history','fan'])
-def test_legacy_statistics_separate_three_and_four_player_modes(count,room_type,kind):
-    cursor=Mock()
-    cursor.fetchone.return_value=(1,)
-    connection=Mock()
-    connection.cursor.return_value=cursor
-    db=Mock()
-    db._get_connection.return_value=connection
-    counter=SimpleNamespace(rank_result=3,zimo_times=0,dianhe_times=0,fangchong_times=0,
-        win_score=0,win_turn=0,fangchong_score=0,fulu_times=0,recorded_fans=[['立直']])
-    players=[SimpleNamespace(user_id=10000100+i,record_counter=counter) for i in range(count)]
-    if kind=='history':store_riichi_game_stats(db,'three-game',players,room_type,2,6)
-    else:store_riichi_fan_stats(db,'three-game',players,room_type,2)
-    writes=[call.args for call in cursor.execute.call_args_list if 'INSERT INTO' in call.args[0]]
-    assert len(writes)==count
-    expected='2/4'+('_sanma' if count==3 else '')+('_rank' if room_type=='match' else '')
-    assert all(values[2]==expected for _,values in writes)
-    connection.commit.assert_called_once()

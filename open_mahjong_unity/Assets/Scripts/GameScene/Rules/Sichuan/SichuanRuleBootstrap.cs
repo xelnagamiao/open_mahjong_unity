@@ -4,6 +4,8 @@ internal static class SichuanRuleBootstrap {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Register() {
         RuleRegistry.Register(new RuleManifest {
+            ReplayFactory = record => record.CreateSichuanReplayModule(),
+            BuildRoom = SichuanRoomBuilder.Build,
             RuleId = SichuanGameState.RuleId,
             DefaultSubRule = "sichuan/standard",
             DisplayName = "四川麻将",

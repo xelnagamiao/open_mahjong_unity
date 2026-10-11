@@ -135,8 +135,9 @@ public sealed class RankedRulesRuntimeValidation : MonoBehaviour {
             Add(()=>{Check(lobby.ActiveRule==index,"Match family and variant select "+index);
                 if(!RankedRules.IsGrade(RankedRules.Ids[index])){
                     var entries=Field<MatchButton[]>(lobby,"entries").Where(c=>c.RuleId==RankedRules.Ids[index]).ToArray();
-                    Check(entries.Length==1&&entries[0].ModeTitle.Contains("全庄战"),"Elo rule offers only full-length match "+index);
-                    Check(MatchQueueDisplayText.GetQueueTitle(entries[0].QueueType).Contains("全庄战"),"Elo queue and match-found title show full length "+index);
+                    string expectedLength=RankedRules.Ids[index]=="sichuan"?"半庄战":"全庄战";
+                    Check(entries.Length==1&&entries[0].ModeTitle.Contains(expectedLength),"Elo rule offers configured match length "+index);
+                    Check(MatchQueueDisplayText.GetQueueTitle(entries[0].QueueType).Contains(expectedLength),"Elo queue and match-found title agree "+index);
                     Check(Field<GameObject[]>(lobby,"rulePages")[index].transform.Find("EloSummary")==null,"Obsolete rating-window description removed "+index);
                 }
                 Capture("match-"+RankedRules.Ids[index]);});

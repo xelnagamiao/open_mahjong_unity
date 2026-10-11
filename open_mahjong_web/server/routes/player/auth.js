@@ -13,6 +13,7 @@ const { createPasswordResetHandlers } = require('../../utils/passwordReset');
 const { findLoginAccount } = require('../../utils/loginAccount');
 const { normalizeUsername, validateUsername } = require('../../utils/username');
 const { rewriteGameRecordSnapshots } = require('../../utils/gameRecordUsername');
+const { recordSuccessfulWebLogin } = require('../../services/loginHistory');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CODE_TTL_MS = 10 * 60 * 1000;
@@ -249,6 +250,8 @@ router.post('/login', async (req, res) => {
     if (!payload) {
       return res.status(404).json({ success: false, message: '用户不存在' });
     }
+    // Best effort: response delivery never waits for login history or IP geolocation.
+    void recordSuccessfulWebLogin(pool, user.user_id, getClientIp(req));
     return res.json({
       success: true,
       data: {

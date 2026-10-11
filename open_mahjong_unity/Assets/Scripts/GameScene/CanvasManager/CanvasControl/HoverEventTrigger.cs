@@ -75,6 +75,7 @@ public class HoverEventTrigger : MonoBehaviour, IPointerEnterHandler, IPointerEx
         if (backgroundRect != null) {
             backgroundRect.localPosition += delta;
         }
+        GetComponent<WashizuHandVisual>()?.SyncLayout();
         isVisuallyLifted = lift;
     }
 }

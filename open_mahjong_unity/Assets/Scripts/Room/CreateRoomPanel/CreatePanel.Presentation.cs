@@ -100,17 +100,25 @@ public partial class CreatePanel {
     public void ReflowRoomPresentation() {
         if (!roomPresentationBaked) return;
         float width = ((RectTransform)transform).rect.width;
-        bool narrow = width < 1700;
-        float headerHeight = narrow ? 196 : 128;
-        var header = (RectTransform)transform.Find("HeaderPanel"); RoomFill(header); header.anchorMin = new Vector2(0, 1); header.offsetMin = new Vector2(0, -headerHeight);
-        var title = header.Find("TitleText").GetComponent<TMP_Text>(); title.fontSize = SubRuleText.fontSize = narrow ? 40 : 44;
+        var header = (RectTransform)transform.Find("HeaderPanel");
+        var title = header.Find("TitleText").GetComponent<TMP_Text>();
+        title.fontSize = SubRuleText.fontSize = 44;
         title.margin = Vector4.zero; SubRuleText.margin = Vector4.zero;
-        float titleWidth = Mathf.Ceil(title.GetPreferredValues().x), ruleX = narrow ? 36 : 36 + titleWidth + 16;
-        float subX = ruleX + RoomRuleDropdownWidth + 32, subWidth = Mathf.Ceil(SubRuleText.GetPreferredValues().x);
+        float titleWidth = Mathf.Ceil(title.GetPreferredValues().x), subWidth = Mathf.Ceil(SubRuleText.GetPreferredValues().x);
+        float subDropdownWidth = _ruleState == "hongkong" ? 420 : 326;
+        bool narrow = width < 36 + titleWidth + 16 + RoomRuleDropdownWidth + 32 + subWidth + 12 + subDropdownWidth + 728;
+        if (narrow) {
+            title.fontSize = SubRuleText.fontSize = 40;
+            titleWidth = Mathf.Ceil(title.GetPreferredValues().x); subWidth = Mathf.Ceil(SubRuleText.GetPreferredValues().x);
+        }
+        float headerHeight = narrow ? 196 : 128;
+        RoomFill(header); header.anchorMin = new Vector2(0, 1); header.offsetMin = new Vector2(0, -headerHeight);
+        float ruleX = narrow ? 36 : 36 + titleWidth + 16;
+        float subX = ruleX + RoomRuleDropdownWidth + 32;
         RoomBox(title.rectTransform, 36, narrow ? 0 : 16, titleWidth, 96);
         RoomBox((RectTransform)chooseRule.transform, ruleX, narrow ? 112 : 36, RoomRuleDropdownWidth, 56);
         RoomBox(SubRuleText.rectTransform, subX, narrow ? 100 : 24, subWidth, 80);
-        RoomBox((RectTransform)SubRuleDropdown.transform, subX + subWidth + 12, narrow ? 112 : 36, _ruleState=="hongkong" ? 420 : 326, 56);
+        RoomBox((RectTransform)SubRuleDropdown.transform, subX + subWidth + 12, narrow ? 112 : 36, subDropdownWidth, 56);
         foreach (var dropdown in new[] { chooseRule, SubRuleDropdown }) {
             RoomDropdownTemplateHeight(dropdown);
             dropdown.captionText.enableAutoSizing = false;
@@ -126,6 +134,7 @@ public partial class CreatePanel {
             }
         }
         var add = (RectTransform)addRuleButton.transform; RoomBox(add, 0, 16, 410, 92); add.anchorMin = add.anchorMax = Vector2.one; add.pivot = Vector2.one; add.anchoredPosition = new Vector2(-36, -16);
+        ReflowRuleSupportTable();
         var body = (RectTransform)transform.Find("Create_Panel"); RoomFill(body, 0, headerHeight, 0, 116);
         float margin = Mathf.Max(36, (width - 1440) / 2);
         float rightMargin = Mathf.Max(margin, RoomHelpWidth(width) + RoomHelpGutter);

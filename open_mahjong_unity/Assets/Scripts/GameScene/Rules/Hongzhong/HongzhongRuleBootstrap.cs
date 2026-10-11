@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 internal static class HongzhongRuleBootstrap {
@@ -16,6 +15,8 @@ internal static class HongzhongRuleBootstrap {
         RuleNameDictionary.ShortName[HongzhongGameState.RuleId] = "红中";
         RuleNameDictionary.ShortName[HongzhongGameState.SubRule] = "红中";
         RuleRegistry.Register(new RuleManifest {
+            ReplayFactory = record => record.CreateHongzhongReplayModule(),
+            BuildRoom = HongzhongRoomBuilder.Build,
             RuleId = HongzhongGameState.RuleId, DefaultSubRule = HongzhongGameState.SubRule,
             DisplayName = "红中麻将", LobbyName = "红中麻将", LobbyOrder = 14,
             LobbySubRules = new[] { new RuleLobbySubRule(HongzhongGameState.SubRule,"MIL 2024",Description) },
@@ -25,6 +26,7 @@ internal static class HongzhongRuleBootstrap {
                 {CreateRoomKeys.Password,false},{CreateRoomKeys.RandomSeed,false},{CreateRoomKeys.TouristLimit,false},{CreateRoomKeys.AllowSpectator,true},
             },
             GameStateFactory = () => new HongzhongGameState(), OutboundChannel = "hongzhong",
+            OpeningHandHasDrawSlot = info => info?.hongzhong_info?.self_has_draw_slot == true,
             Tingpai = q => GameRecordManager.Instance?.ShouldShowRecordTips() == true
                 ? GameRecordManager.Instance.HongzhongWaiting(q) : HongzhongGameState.Active?.Hints.Waiting(q) ?? new HashSet<int>(),
             DescribeWaitingTile = q => q.Record != null
@@ -33,7 +35,6 @@ internal static class HongzhongRuleBootstrap {
             FanValueText = (rule,name) => Fans.TryGetValue(name,out int value) ? $"{value}番" : "",
             SettlementTotal = q => new SettlementTotalDisplay { FanText=$"{q.HuScore}番",ScoreText=$"基本分 {1 << Math.Min(4,q.HuScore)}分" },
             ScoreboardFanText = q => $"{q.HuScore}番",
-            SettlementFootnote = Footnote,
             ActionVoice = word => word == "hu_self" ? "hu" : null,
             RoundName = round => $"第{round}局", MaxRoundText = rounds => $"{rounds*4}局",
             RoundSupplementText = info => "<size=18>仅自摸</size>",
@@ -42,15 +43,4 @@ internal static class HongzhongRuleBootstrap {
             RulebookKey = "hongzhong",
         });
     }
-    public static string Footnote(SettlementTotalQuery query) {
-        if (query.HuFan == null) return "流局：本副全部杠分已退还。";
-        var info = GameRecordManager.Instance?.ShouldShowRecordTips() == true
-            ? GameRecordManager.Instance.HongzhongRecordInfo : HongzhongGameState.Active?.Info;
-        string cap = info?.detail?.raw_fan > 4 ? $"原始{info.detail.raw_fan}番，4番封顶" : "4番封顶";
-        string text = info == null ? "4番封顶；杠分及扎鸟另计。" : $"{cap}；扎中{info.bird_hits}鸟，每家另付{info.bird_hits}分；杠分另计。";
-        var uses = info?.detail?.joker_substitutions;
-        if (uses?.Length > 0) text += "\n红中替代：" + string.Join("、",uses.Where(u=>u.Length>=3).Select(u=>Tile(u[2])));
-        return text;
-    }
-    private static string Tile(int value) => $"{value%10}{(value/10==1 ? "万" : value/10==2 ? "饼" : "条")}";
 }

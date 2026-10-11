@@ -156,16 +156,23 @@ def test_guangdong_custom_records_update_and_read_recent_placements(sub_rule):
     db, conn, cursor = database()
     source = record(sub_rule)
     cursor.fetchone.side_effect = [(source, datetime(2026, 10, 2, 12, 30))] + [([], None)] * 4
-    cursor.fetchall.return_value = [(p.user_id, "guangdong", "custom", p.record_counter.rank_result, "1/4") for p in players()]
+    cursor.fetchall.return_value = [(p.user_id, "guangdong", "custom", p.record_counter.rank_result, "1/4", sub_rule) for p in players()]
     update_player_recent_records(cursor, "gd-unit-record", source)
     updates = [call for call in cursor.execute.call_args_list if "UPDATE player_recent_records SET" in call.args[0]]
     assert len(updates) == 4
+    statistics_key = "guangdong" if sub_rule == SUB_RULE else "guangdong_tuidao"
+    assert all(call.args[1][3:] == (statistics_key, "custom") for call in updates)
     placements = updates[0].args[1][0].adapted
     assert placements[0]["game_id"] == "gd-unit-record" and placements[0]["rank"] == 1
-    cursor.fetchall.side_effect = [[("guangdong", "custom", placements, None)], [], [], [], []]
+    cursor.fetchall.side_effect = [
+        [(sub_rule, "custom", "gd-unit-record", datetime(2026, 10, 2, 12, 30), 1, "1/4")],
+        [],
+    ]
     recent = get_player_recent_records(db, UIDS[0])
-    assert recent["guangdong"]["custom"] == {"placements": placements, "big_win": None}
-    assert recent["guangdong"]["match"] == {"placements": [], "big_win": None}
+    assert recent[statistics_key]["custom"] == {"placements": placements, "big_win": None}
+    assert recent[statistics_key]["match"] == {"placements": [], "big_win": None}
+    other_statistics_key = "guangdong_tuidao" if sub_rule == SUB_RULE else "guangdong"
+    assert recent[other_statistics_key]["custom"] == {"placements": [], "big_win": None}
     conn.commit.assert_called_once()
 
 

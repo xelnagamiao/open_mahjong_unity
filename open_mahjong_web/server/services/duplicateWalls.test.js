@@ -8,6 +8,8 @@ function memoryPool() {
   const walls = [];
   const admins = new Map([['evt_A:10', 'active'], ['evt_closed:10', 'closed'], ['evt_registered:10', 'registered'], ['evt_pending:10', 'pending']]);
   const linked = new Set();
+  const pairs = new Map();
+  const records = new Set();
   const locks = new Map();
   let nextId = 1;
   function scoped(params, sql) {
@@ -51,6 +53,8 @@ function memoryPool() {
     }
     if (sql.startsWith('SELECT * FROM duplicate_walls WHERE id')) return { rows: walls.filter((r) => String(r.id) === String(params[0]) && !r.deleted_at).map((r) => ({ ...r })) };
     if (sql.startsWith('SELECT 1 FROM duplicate_games')) return { rows: linked.has(String(params[0])) ? [{}] : [] };
+    if (sql.startsWith('SELECT status, data FROM sichuan_duplicate_matches')) return { rows: pairs.has(String(params[0])) ? [pairs.get(String(params[0]))] : [] };
+    if (sql.startsWith('SELECT game_id FROM game_records')) return { rows: params[0].filter(id => records.has(id)).map(game_id => ({ game_id })) };
     if (sql.startsWith('UPDATE duplicate_walls')) {
       const row = walls.find((r) => String(r.id) === String(params[0]));
       if (sql.includes('deleted_at =')) row.deleted_at = new Date();
@@ -60,7 +64,29 @@ function memoryPool() {
     if (sql.startsWith('SELECT * FROM duplicate_walls WHERE')) return { rows: scoped(params, sql).filter((r) => !r.deleted_at) };
     throw new Error(`Unexpected query: ${sql}`);
   }
-  return { walls, admins, linked, query, async connect() { const client = { release() {} }; client.query = (sql, params) => query(sql, params, client); return client; } };
+  return { walls, admins, linked, pairs, records, query, async connect() { const client = { release() {} }; client.query = (sql, params) => query(sql, params, client); return client; } };
+}
+
+for (const rule of ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate']) {
+  test(`${rule}: paired records remain locked until both tables and records finish`, async () => {
+    const pool = memoryPool(); const service = createDuplicateWallService(pool);
+    const {wall} = await service.create(10, { scope:'event', event_id:'evt_A', wall_type:'key', rule:'guobiao' });
+    pool.walls[0].rule = rule;
+    for (const status of [null, 'waiting', 'running', 'interrupted']) {
+      if (status) pool.pairs.set(wall.id, {status, data:{}});
+      await assert.rejects(service.manage(10, wall.id, {is_unlocked:true}), {status:409});
+      assert.equal(pool.walls[0].is_unlocked, false);
+    }
+    const pair = {status:'completed',data:{record_ids:{open:'record-open',closed:null}}};
+    pool.pairs.set(wall.id,pair);
+    await assert.rejects(service.manage(10,wall.id,{is_unlocked:true}),{status:409});
+    pair.data.record_ids.closed='record-closed';
+    pool.records.add('record-open');
+    await assert.rejects(service.manage(10,wall.id,{is_unlocked:true}),{status:409});
+    pool.records.add('record-closed');
+    assert.equal((await service.manage(10,wall.id,{is_unlocked:true})).wall.is_unlocked,true);
+    await service.manage(10,wall.id,{remove:true});
+  });
 }
 const input = (overrides = {}) => ({ scope: 'personal', wall_type: 'key', rule: 'guobiao', ...overrides });
 

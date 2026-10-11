@@ -23,7 +23,6 @@ public sealed class GuizhouGameState : TurnBasedGameState {
         Info = info.guizhou_info ?? Info;
         if (info.players_info != null && IsActive)
             RefreshTags(info.players_info.ToDictionary(p => p.player_index, p => p.tag_list ?? Array.Empty<string>()));
-        GuizhouLedgerPanel.Show(Info);
     }
 
     protected override void OnRoundStarted(GameInfo info) {
@@ -32,11 +31,6 @@ public sealed class GuizhouGameState : TurnBasedGameState {
         Info = null; endHands = null; legacyReadyQualification = null; legacyReadyPending = false; Accept(info);
         // game_start (including reconnect) builds all tiles as held tiles.
         // Restore the authoritative draw slot before accepting a tile click.
-        if (Info?.self_has_draw_slot == true && Mirror.SelfHandTiles.Count > 0) {
-            var tiles = Mirror.SelfHandTiles.ToArray();
-            GameCanvas.Instance.ChangeHandCards("SyncHandCards", 0, tiles.Take(tiles.Length - 1).ToArray(), null);
-            GameCanvas.Instance.ChangeHandCards("GetCardNoAnimation", tiles[tiles.Length - 1], null, null);
-        }
         // Restore player and spectator hints after viewer-local ready state, even without a subsequent ask.
         if (Session.Tips && Info?.phase != "END" && Info?.phase != "waiting_ready" && Info?.phase != "finished") {
             var hand = new List<int>(Mirror.SelfHandTiles);
@@ -118,7 +112,6 @@ public sealed class GuizhouGameState : TurnBasedGameState {
         Accept(response.game_info);
         endHands = response.show_result_info?.guizhou_end_hands;
         Info = response.show_result_info?.guizhou_info ?? Info;
-        GuizhouLedgerPanel.Show(Info);
         base.OnShowResult(response);
     }
     protected override SettlementEnvelope BuildEnvelope(ShowResultInfo info) {
@@ -152,8 +145,7 @@ public sealed class GuizhouGameState : TurnBasedGameState {
         if (response.ready_status_info == null) return;
         Clock.LastAskActionTick = response.ready_status_info.action_tick;
         Info = response.ready_status_info.guizhou_info ?? Info;
-        GuizhouLedgerPanel.Show(Info);
         base.OnReadyStatus(response);
     }
-    public override void OnSessionReset() { askClock.Reset(); clockHandNumber = 0; Info = null; endHands = null; legacyReadyQualification = null; legacyReadyPending = false; GuizhouLedgerPanel.Hide(); }
+    public override void OnSessionReset() { askClock.Reset(); clockHandNumber = 0; Info = null; endHands = null; legacyReadyQualification = null; legacyReadyPending = false; }
 }

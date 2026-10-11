@@ -1,5 +1,6 @@
 const crypto = require('node:crypto');
 const ROUND_COUNTS = Object.freeze([1, 4, 8, 12, 16]);
+const SICHUAN_PAIRED = new Set(['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate']);
 
 const QUOTAS = Object.freeze({
   personal: { daily_limit: 5, storage_limit: 25 },
@@ -224,6 +225,17 @@ function createDuplicateWallService(pool) {
       if (change.remove && !row.is_unlocked) {
         fail(409, '锁定的密钥不能删除，请先解除锁定');
       }
+      if (SICHUAN_PAIRED.has(row.rule) && (change.is_unlocked || change.remove)) {
+        const pairs = await client.query('SELECT status, data FROM sichuan_duplicate_matches WHERE wall_id=$1', [id]);
+        const pair = pairs.rows[0];
+        if (!pair || !['completed', 'cancelled'].includes(pair.status)) fail(409, '开室、闭室尚未全部结束，不能提前解锁牌谱');
+        if (pair.status === 'completed') {
+          const ids = Object.values(pair.data?.record_ids || {});
+          if (ids.length !== 2 || ids.some(value => !value)) fail(409, '两桌牌谱尚未保存完整，请稍后重试');
+          const records = await client.query('SELECT game_id FROM game_records WHERE game_id = ANY($1::text[])', [ids]);
+          if (records.rows.length !== 2) fail(409, '两桌牌谱尚未保存完整，请稍后重试');
+        }
+      }
       const updated = change.remove
         ? await client.query('UPDATE duplicate_walls SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *', [id])
         : await client.query(`UPDATE duplicate_walls SET is_unlocked = $2,
@@ -270,7 +282,16 @@ function createDuplicateWallService(pool) {
        LEFT JOIN events e ON e.event_id = dw.event_id
        LEFT JOIN game_records gr ON gr.game_id = dg.game_id
        ORDER BY dg.ended_at DESC NULLS FIRST, dg.game_id`, [wall.id, wall.key]);
-    return { wall: wallDto(wall), games: games.rows };
+    let pairedMatch;
+    if (SICHUAN_PAIRED.has(wall.rule)) {
+      const pair = (await pool.query('SELECT status,data FROM sichuan_duplicate_matches WHERE wall_id=$1', [wall.id])).rows[0];
+      if (pair?.status === 'completed') pairedMatch = {
+        status: pair.status, scoring: pair.data.profile.scoring, scores: pair.data.scores,
+        planned_boards: pair.data.planned_boards, completed_boards: pair.data.completed_boards,
+        boards: pair.data.results, record_ids: pair.data.record_ids,
+      };
+    }
+    return { wall: wallDto(wall), games: games.rows, ...(pairedMatch ? { paired_match: pairedMatch } : {}) };
   }
   return { create, createBatch, getQuota, mine, manage, publicList, publicDetail };
 }

@@ -14,8 +14,8 @@ def analyze_shared_record_for_player(record, original_index):
                fulu_round_count=0, cuohe_count=0, total_round_score=0)
     title = record.get("game_title") or {}
     sichuan = title.get("rule") == "sichuan"
-    own_turns = sichuan or title.get("rule") in ("zhongyong", "jiandan", "nanque")
-    dealer_cut_turns = title.get("rule") in ("qingque", "classical")
+    own_turns = sichuan or title.get("rule") in ("zhongyong", "jiandan", "nanque", "nanjing", "nanchang")
+    dealer_cut_turns = title.get("rule") in ("qingque", "classical", "shenyang", "wuhan")
     fractional_fan_total = Decimal(0)
     for rd in (record.get("game_round") or {}).values():
         if not isinstance(rd, dict):
@@ -93,6 +93,8 @@ def analyze_shared_record_for_player(record, original_index):
                     # The shuhewei panel preserves each player's exact total fu.
                     fan_score = (classical_fu[winner] if classical_fu is not None
                                  else fan_score // (6 if winner == 0 else 4))
+                if title.get("rule") in ("shenyang", "wuhan") and changes is not None:
+                    fan_score = max(0, changes[winner])
                 invalid = any("错和" in str(fan) for fan in (hu["yaku"] or []))
                 if invalid:
                     out["cuohe_count"] += int(winner == seat)
@@ -106,7 +108,7 @@ def analyze_shared_record_for_player(record, original_index):
                     if own_turns:
                         out["total_win_turn"] += discards[seat] + 1
                     elif dealer_cut_turns:
-                        # These two engines increment on dealer cuts, not seat wraparound.
+                        # These engines increment on dealer cuts, not seat wraparound.
                         out["total_win_turn"] += discards[0] + 1
                 if not invalid and hu["hu_class"] in RON_ACTIONS:
                     # hu_first/second/third encode the winner's distance from the payer.
@@ -117,7 +119,7 @@ def analyze_shared_record_for_player(record, original_index):
                         payer = _tick_int(tick, 7, actor) if len(tick) >= 9 else actor
                     if payer == seat:
                         out["deal_in_count"] += 1
-                        if title.get("rule") == "qingque" and changes is not None:
+                        if title.get("rule") in ("qingque", "wuhan", "nanjing") and changes is not None:
                             out["total_fangchong_score"] += max(0, -changes[seat])
                         else:
                             out["total_fangchong_score"] += fan_score
@@ -135,6 +137,9 @@ def analyze_shared_record_for_player(record, original_index):
                 # payment. In a drawn round there is no hu tick, so count the panel.
                 if title.get("rule") != "classical" or not has_final_hu:
                     changes = _parse_score_changes(tick[2])
+            elif code == "sy" and len(tick) > 1 and isinstance(tick[1], dict) and tick[1].get("kind") == "egg":
+                delta = tick[1].get("changes") or {}
+                changes = _parse_score_changes([delta.get(i, delta.get(str(i), 0)) for i in range(count)])
             elif "gs" in tick:
                 at = tick.index("gs")
                 changes = _parse_score_changes(tick[at + 1:at + 1 + count])

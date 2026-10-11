@@ -45,7 +45,7 @@ def duplicate_db(monkeypatch):
             """)
     pool.putconn(conn)
     from server.database import scene_stats
-    monkeypatch.setattr(scene_stats, "record_game_metrics", lambda *args: None)
+    monkeypatch.setattr(scene_stats, "record_game_metrics", lambda *args, **kwargs: None)
     try:
         yield db
     finally:

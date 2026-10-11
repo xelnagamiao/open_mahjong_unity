@@ -32,6 +32,8 @@
 {
     "is_valid": bool,
     "han": int,
+    "yaku_han": int,     # 起和番使用的实际役番，不含任何宝牌
+    "standard_ron_score": int,  # 含宝牌的闲家荣和等值，用于起和线
     "fu": int,
     "score": int,        # 和牌者从敌方总收分（不含本场/供托）
     "yaku": [str, ...],  # 役名（中文）
@@ -42,6 +44,7 @@ from typing import List, Optional
 import copy
 
 from .rule_hand_calculator import HandCalculator
+from .win_requirements import meets_win_requirements, standard_ron_score
 from mahjong.hand_calculating.hand_config import HandConfig, OptionalRules
 from mahjong.meld import Meld
 
@@ -264,7 +267,9 @@ class Riichi_Hepai_Check:
             candidates = [self.hepai_check(hand_list, tiles_combination, way_to_hepai, tile,
                           {**context, "_tenhou_evaluating": True}, combination_masks)
                           for tile in sorted(set(hand_list))]
-            return max(candidates, key=lambda r: (r.get("is_valid", False), r.get("score", 0)))
+            return max(candidates, key=lambda r: (
+                meets_win_requirements(r, context.get('hepai_limit', 1), context.get('minimum_win_score', 0)),
+                r.get("is_valid", False), r.get("score", 0)))
         if not context.get("ura_dora", True):
             context["ura_dora_indicators"] = []
         if context.get("kan_ura_dora", True) and context.get("kan_dora", True):
@@ -335,6 +340,9 @@ class Riichi_Hepai_Check:
         if context.get("is_riichi") and context.get("ura_dora_indicators"):
             ura_dora_indicators = [tile_id_to_34(t) * 4 for t in context.get("ura_dora_indicators", [])]
 
+        extracted = [44] * nuki_count
+        nuki_dora = count_dora_in_tiles(extracted, context.get('dora_indicators', []))
+        nuki_ura = count_dora_in_tiles(extracted, context.get('ura_dora_indicators', [])) if context.get('is_riichi') else 0
         result = self._calc.estimate_hand_value(
             tiles=tiles_136_total,
             win_tile=win_136,
@@ -342,6 +350,9 @@ class Riichi_Hepai_Check:
             dora_indicators=dora_indicators if dora_indicators else None,
             ura_dora_indicators=ura_dora_indicators,
             config=config,
+            minimum_yaku_han=int(context.get('hepai_limit', 1)),
+            minimum_win_score=int(context.get('minimum_win_score', 0)),
+            extra_bonus_han=nuki_count + nuki_dora + nuki_ura,
         )
 
         # 牌型成立但无役（如吃了牌却没有任何役、单纯宝牌无役）：日麻规则下不能正常和牌。
@@ -366,6 +377,8 @@ class Riichi_Hepai_Check:
                 "is_valid": True,
                 "no_yaku": True,
                 "han": 0,
+                "yaku_han": 0,
+                "standard_ron_score": 0,
                 "fu": 0,
                 "score": 0,
                 "yaku": no_yaku_yaku,
@@ -402,9 +415,6 @@ class Riichi_Hepai_Check:
         ura_count = 0 if is_yakuman else lib_ura_han
         nuki_han = 0 if is_yakuman else nuki_count
         if nuki_han:
-            extracted = [44] * nuki_count
-            nuki_dora = count_dora_in_tiles(extracted, context.get('dora_indicators', []))
-            nuki_ura = count_dora_in_tiles(extracted, context.get('ura_dora_indicators', [])) if context.get('is_riichi') else 0
             dora_count += nuki_dora
             ura_count += nuki_ura
             nuki_han += nuki_dora + nuki_ura
@@ -431,6 +441,8 @@ class Riichi_Hepai_Check:
         return {
             "is_valid": True,
             "han": int(han),
+            "yaku_han": int(result.han) - lib_dora_han - lib_aka_han - lib_ura_han,
+            "standard_ron_score": standard_ron_score(han, fu, config_rules, is_yakuman),
             "fu": int(fu),
             "score": score,
             "yaku": yaku_names,

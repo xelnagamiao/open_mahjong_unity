@@ -4,8 +4,8 @@ from ..public.hand_slot_utils import has_draw_slot
 
 class DuplicateGuobiaoRules:
     def __init__(self, state):
-        if state.room_rule != "guobiao" or state.sub_rule == "guobiao/blood_battle":
-            raise ValueError("国标血战及其他玩法不支持复式牌墙")
+        if state.room_rule != "guobiao" or state.sub_rule in ("guobiao/blood_battle", "guobiao/transparent"):
+            raise ValueError("国标血战、透明国标及其他玩法不支持复式牌墙")
         self.state = state
 
     def can_draw(self, player_index):

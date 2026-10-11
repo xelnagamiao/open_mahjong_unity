@@ -21,7 +21,7 @@ def duplicate_match_complete(state):
 def duplicate_remaining_tile_counts(state):
     """Public count snapshot in original-seat order, without exposing wall tiles."""
     wall = getattr(state, "tiles_list", None)
-    if not getattr(state, "duplicate_key", None) or not isinstance(wall, DuplicateWall):
+    if not getattr(state, "duplicate_key", None) or not (isinstance(wall, DuplicateWall) or hasattr(wall, "remaining_counts")):
         return None
     return [len(part) for part in wall.parts]
 

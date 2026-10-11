@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 /// <summary>宜兴的客户端状态投影；合法性、补花顺序和支付均由服务端裁定。</summary>
 public sealed class YixingGameState : TurnBasedGameState {
@@ -8,14 +9,25 @@ public sealed class YixingGameState : TurnBasedGameState {
     public static YixingGameState Active => RuleRegistry.ActiveGameState as YixingGameState;
     public YixingInfo Info { get; private set; }
     private void Accept(GameInfo info) { if (info?.yixing_info != null) Info = info.yixing_info; }
-    protected override void OnRoundStarted(GameInfo info) { Info = null; Accept(info); }
+    protected override void OnRoundStarted(GameInfo info) { Info = null; Accept(info); RefreshFlowerCounts(); }
     protected override void OnAskHandAction(Response response) { Accept(response.game_info); base.OnAskHandAction(response); }
     protected override void OnAskClaim(Response response) {
         Accept(response.game_info);
         Clock.PendingAskFromJiagang = Info?.phase == "waiting_action_qianggang";
         base.OnAskClaim(response);
     }
-    protected override void OnDoAction(Response response) { Accept(response.game_info); base.OnDoAction(response); }
+    protected override void OnDoAction(Response response) {
+        Accept(response.game_info);
+        base.OnDoAction(response);
+        RefreshFlowerCounts();
+    }
+
+    private void RefreshFlowerCounts() {
+        var counts = new Dictionary<int, int>();
+        foreach (var pair in Mirror.IndexToPosition)
+            counts[pair.Key] = Mirror.Info(pair.Value)?.huapai_list?.Count ?? 0;
+        GameCanvas.Instance?.SetPlayerFlowerCounts(counts, Mirror.IndexToPosition);
+    }
     protected override bool TryApplyFamilyWord(TableAction action, string word) => word == "yixing_last_choice";
     protected override void OnShowResult(Response response) {
         Accept(response.game_info);
@@ -28,5 +40,8 @@ public sealed class YixingGameState : TurnBasedGameState {
         Info = response.ready_status_info.yixing_info ?? Info;
         base.OnReadyStatus(response);
     }
-    public override void OnSessionReset() { Info = null; }
+    public override void OnSessionReset() {
+        Info = null;
+        GameCanvas.Instance?.SetPlayerFlowerCounts(null, null);
+    }
 }

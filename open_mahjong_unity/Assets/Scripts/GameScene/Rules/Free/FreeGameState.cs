@@ -23,9 +23,9 @@ public sealed class FreeGameState : GameStateBase {
 
     public FreeDiscardDest DiscardDest { get; set; } = FreeDiscardDest.River;
     public int ScoreRevision { get; private set; }
-    public int? TransferTile { get; private set; }
-    public bool TransferFaceDown { get; private set; }
-    public bool PutTransferFaceDown { get; set; }
+    public IReadOnlyList<FreeTransferTileInfo> TransferTiles => transferTiles;
+    public bool PlaceFaceDown { get; set; }
+    public bool IsSelfRevealed => IsRevealed(GameSession.Current.SelfIndex);
     public int? LastRiverPlayer { get; private set; }
     public int? LastRiverTile { get; private set; }
     public readonly Dictionary<int, string> Votes = new Dictionary<int, string>();
@@ -33,7 +33,10 @@ public sealed class FreeGameState : GameStateBase {
     public FreeModeActivityLog ActivityLog { get; } = new FreeModeActivityLog();
 
     private bool tableReady;
+    private readonly List<FreeTransferTileInfo> transferTiles = new List<FreeTransferTileInfo>();
+    private Dictionary<string, int[]> riverTokens, flowerTokens;
     private readonly Dictionary<int, List<int>> revealedHands = new Dictionary<int, List<int>>();
+    private readonly Dictionary<int, Coroutine> revealAnimations = new Dictionary<int, Coroutine>();
     private readonly Dictionary<int, int> scoreDraft = new Dictionary<int, int>();
     private bool hasScoreDraft;
     private FreeModeHud hud;
@@ -71,14 +74,17 @@ public sealed class FreeGameState : GameStateBase {
 
     public override void OnSessionReset() {
         tableReady = false;
+        CancelAllReveals();
         Votes.Clear();
         Revealed.Clear();
         revealedHands.Clear();
         ClearScoreDraft();
         ScoreRevision = 0;
         DiscardDest = FreeDiscardDest.River;
-        TransferTile = null;
-        TransferFaceDown = PutTransferFaceDown = false;
+        transferTiles.Clear();
+        riverTokens = flowerTokens = null;
+        PlaceFaceDown = false;
+        GameCanvas.Instance?.SetFreeHandCounts(null);
         LastRiverPlayer = null;
         LastRiverTile = null;
         ActivityLog.Clear();
@@ -113,7 +119,8 @@ public sealed class FreeGameState : GameStateBase {
             case "transfer":
                 if (response.success) ActivityLog.ObserveTable(suffix, response.free_table_info);
                 ApplyTable(response.free_table_info);
-                if (suffix == "reveal" && Host != null) Host.StartCoroutine(CoReveal(response.free_table_info));
+                if (suffix == "reveal" && response.free_table_info?.revealed_player_index != null)
+                    StartReveal(response.free_table_info.revealed_player_index.Value);
                 if (suffix == "stand") RestoreStand(response.free_table_info);
                 if (suffix == "scores") ApplyScores(response.free_table_info);
                 RestorePersistentAsk();
@@ -134,7 +141,7 @@ public sealed class FreeGameState : GameStateBase {
             return true;
         }
         if (actionType == FreeActionWords.Push) {
-            SendAction("reveal");
+            SendAction(IsSelfRevealed ? "stand" : "reveal");
             return true;
         }
         if (actionType == FreeActionWords.Stand) {
@@ -152,18 +159,19 @@ public sealed class FreeGameState : GameStateBase {
     public override bool TryCutTile(int tileId) {
         if (!IsActive) return false;
         if (DiscardDest == FreeDiscardDest.Flower) {
-            SendAction("to_flower", tileId);
+            SendPlacement("to_flower", tileId);
             return true;
         }
         if (DiscardDest == FreeDiscardDest.Transfer) {
-            if (TransferTile.HasValue) {
+            if (TransferTiles.Count >= 3) {
                 GameCanvas.Instance.ClearPendingLocalCuts();
                 return true;
             }
             SendTransferPut(tileId);
             return true;
         }
-        return false;
+        SendPlacement("cut", tileId);
+        return true;
     }
 
     public void SendCreateMeld(int[] mask, bool includeRiver, int? riverTileIndex = null) {
@@ -177,23 +185,25 @@ public sealed class FreeGameState : GameStateBase {
         });
     }
 
-    public void SendRecallRiver(int index, int tileId) {
+    public void SendRecallRiver(int index, int tileId, int token) {
         SendRaw(new {
             type = "gamestate/free/send_action",
             gamestate_id = PlayerSession.Current.GamestateId,
             action = "recall_river",
             index,
             tile = tileId,
+            token,
         });
     }
 
-    public void SendRecallFlower(int index, int tileId) {
+    public void SendRecallFlower(int index, int tileId, int token) {
         SendRaw(new {
             type = "gamestate/free/send_action",
             gamestate_id = PlayerSession.Current.GamestateId,
             action = "recall_flower",
             index,
             tile = tileId,
+            token,
         });
     }
 
@@ -207,17 +217,35 @@ public sealed class FreeGameState : GameStateBase {
     }
 
     public void SendTransferPut(int tileId) {
+        SendPlacement("transfer_put", tileId);
+    }
+
+    private void SendPlacement(string action, int tileId) {
         SendRaw(new {
             type = "gamestate/free/send_action",
             gamestate_id = PlayerSession.Current.GamestateId,
-            action = "transfer_put",
+            action,
             tile = tileId,
-            face_down = PutTransferFaceDown,
+            face_down = PlaceFaceDown,
         });
     }
 
-    public void SendTransferTake() {
-        SendAction("transfer_take");
+    public void SendTransferTake(IReadOnlyList<FreeTransferTileInfo> selection) {
+        if (selection == null || selection.Count == 0) return;
+        var tiles = new List<object>();
+        foreach (FreeTransferTileInfo item in selection) tiles.Add(new { item.slot, item.token });
+        SendRaw(new {
+            type = "gamestate/free/send_action",
+            gamestate_id = PlayerSession.Current.GamestateId,
+            action = "transfer_take",
+            tiles,
+        });
+    }
+
+    public IReadOnlyList<int> SelfAreaTokens(bool flower) {
+        var tokens = flower ? flowerTokens : riverTokens;
+        return tokens != null && tokens.TryGetValue(GameSession.Current.SelfIndex.ToString(), out int[] values)
+            ? values : Array.Empty<int>();
     }
 
     public void SendScores(Dictionary<int, int> scores) {
@@ -298,9 +326,11 @@ public sealed class FreeGameState : GameStateBase {
                         break;
                     }
                 }
-                if (action.HasWord("deal_tile") && IsRevealed(action.PlayerIndex) && Host != null) {
+                if (action.HasWord("deal_tile") && IsRevealed(action.PlayerIndex)) {
                     AppendRevealedTile(action.PlayerIndex, action.DealTile ?? 0);
-                    Host.StartCoroutine(CoRevealPlayer(action.PlayerIndex));
+                    StartReveal(action.PlayerIndex);
+                } else if (IsRevealed(action.PlayerIndex) && (action.HasWord("cut") || action.HasWord(FreeActionWords.ToFlower))) {
+                    StartReveal(action.PlayerIndex);
                 }
             }
         }
@@ -314,12 +344,19 @@ public sealed class FreeGameState : GameStateBase {
         // The revision also advances when a confirmed edit keeps the same values.
         if (ScoreRevision != table.score_revision) ClearScoreDraft();
         ScoreRevision = table.score_revision;
-        TransferTile = table.transfer_tile;
-        TransferFaceDown = TransferTile.HasValue && table.transfer_face_down;
+        transferTiles.Clear();
+        if (table.transfer_tiles != null) transferTiles.AddRange(table.transfer_tiles);
+        else if (table.transfer_tile.HasValue)
+            transferTiles.Add(new FreeTransferTileInfo { slot = 1, tile = table.transfer_tile.Value, face_down = table.transfer_face_down });
+        riverTokens = table.river_tokens;
+        flowerTokens = table.flower_tokens;
+        GameCanvas.Instance?.SetFreeHandCounts(table.hand_counts);
         LastRiverPlayer = table.last_river_player;
         LastRiverTile = table.last_river_tile;
         CopyIntMap(table.votes, Votes, "blank");
         CopyBoolMap(table.revealed, Revealed);
+        foreach (KeyValuePair<int, bool> pair in Revealed)
+            if (!pair.Value) revealedHands.Remove(pair.Key);
         if (table.revealed_player_index.HasValue && table.revealed_hand != null) {
             revealedHands[table.revealed_player_index.Value] = new List<int>(table.revealed_hand);
         }
@@ -349,18 +386,34 @@ public sealed class FreeGameState : GameStateBase {
         BoardCanvas.Instance?.UpdatePlayerScores(scores, Mirror.IndexToPosition);
     }
 
-    private IEnumerator CoReveal(FreeTableInfo table) {
-        if (table?.revealed_player_index == null || table.revealed_hand == null || table.revealed_hand.Length == 0) {
-            yield break;
+    private void StartReveal(int playerIndex) {
+        CancelReveal(playerIndex);
+        if (Host != null && IsRevealed(playerIndex))
+            revealAnimations[playerIndex] = Host.StartCoroutine(CoRevealPlayer(playerIndex));
+    }
+
+    private void CancelReveal(int playerIndex) {
+        if (revealAnimations.TryGetValue(playerIndex, out Coroutine animation)) {
+            if (Host != null && animation != null) Host.StopCoroutine(animation);
+            revealAnimations.Remove(playerIndex);
         }
-        yield return CoRevealPlayer(table.revealed_player_index.Value);
+    }
+
+    private void CancelAllReveals() {
+        if (Host != null) foreach (Coroutine animation in revealAnimations.Values)
+            if (animation != null) Host.StopCoroutine(animation);
+        revealAnimations.Clear();
     }
 
     private IEnumerator CoRevealPlayer(int playerIndex) {
+        string seat = Mirror.SeatOf(playerIndex);
+        // Let the confirmed removal finish before rebuilding an already revealed hand.
+        while (IsActive && IsRevealed(playerIndex) && Game3DManager.Instance != null
+            && Game3DManager.Instance.HasPendingRecordStepAnimations(seat)) yield return null;
+        if (!IsActive || !IsRevealed(playerIndex) || Game3DManager.Instance == null) yield break;
         if (!revealedHands.TryGetValue(playerIndex, out List<int> hand) || hand == null || hand.Count == 0) {
             yield break;
         }
-        string seat = Mirror.SeatOf(playerIndex);
         var request = new HepaiPresentationRequest {
             HepaiPlayerIndex = playerIndex,
             WinnerPosition = seat,
@@ -373,6 +426,7 @@ public sealed class FreeGameState : GameStateBase {
     private void RestoreStand(FreeTableInfo table) {
         if (table?.revealed_player_index == null) return;
         int playerIndex = table.revealed_player_index.Value;
+        CancelReveal(playerIndex);
         Revealed[playerIndex] = false;
         revealedHands.Remove(playerIndex);
         string seat = Mirror.SeatOf(playerIndex);
@@ -380,6 +434,7 @@ public sealed class FreeGameState : GameStateBase {
     }
 
     private void RelayoutTable() {
+        CancelAllReveals();
         Game3DManager.Instance.StopAllRunningAnimations();
         Game3DManager.Instance.Clear3DTile();
         GameCanvas.Instance.ClearHandCardQueue();
@@ -408,7 +463,7 @@ public sealed class FreeGameState : GameStateBase {
             Game3DManager.Instance.RebuildPlayerMelds(seat);
         }
         foreach (KeyValuePair<int, bool> pair in Revealed) {
-            if (pair.Value && Host != null) Host.StartCoroutine(CoRevealPlayer(pair.Key));
+            if (pair.Value) StartReveal(pair.Key);
         }
         BoardCanvas.Instance?.ShowCurrentPlayer(Clock.CurrentPlayer ?? "self", Mirror.RemainTiles);
     }

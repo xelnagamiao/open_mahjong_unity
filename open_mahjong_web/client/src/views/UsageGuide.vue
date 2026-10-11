@@ -518,18 +518,17 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { locale, tr } from '@/i18n'
-import accountRegulations from '@/content/accountRegulations.txt?raw'
-import accountRegulationsFr from '@/content/accountRegulations.fr.txt?raw'
+import { accountRegulationsFor } from '@/content/accountRegulations'
 
 const regulationsVisible = ref(false)
-const localizedRegulations = computed(() => locale.value === 'fr' ? accountRegulationsFr : accountRegulations)
+const localizedRegulations = computed(() => accountRegulationsFor(locale.value))
 const regulationsBody = computed(() => {
   const text = localizedRegulations.value
   return text.slice(text.indexOf('\n') + 1).trim()
 })
 
 function creditLine(source) {
-  if (locale.value !== 'fr') return source
+  if (locale.value === 'zh-CN') return source
   return source.replace(/\(([^)]+)\)/g, (_, role) => `(${tr(role)})`)
     .replace(/(^|\s)([^()\s]+)\(/g, (_, space, name) => {
       const label = ['上海清混碰', '古典麻将', '宜兴麻将', 'Mil推广规则', '插件开发'].includes(name) ? tr(name) : name

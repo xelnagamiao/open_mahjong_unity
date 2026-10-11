@@ -1,12 +1,27 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { build } from 'esbuild'
-import { changchunInfoAt, changchunWallAt, applyChangchunPhysical } from '../src/utils/changchunReplay.js'
+import { changchunInfoAt, changchunWallAt, applyChangchunPhysical, CHANGCHUN_FANS } from '../src/utils/changchunReplay.js'
 const compiled = await build({ entryPoints: [new URL('../src/game2d/replay/recordReplay.ts', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')], bundle: true, platform: 'node', format: 'esm', write: false, logLevel: 'silent' })
 const { RecordReplay } = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString('base64')}`)
 const cc = data => ['cc', data]
 const round = ticks => ({ round_index: 1, current_round: 1, seats: [0, 1, 2, 3], start_player_index: 0, p0_tiles: [41, 42, 31, 11, 12, 13, 22, 23, 24, 35, 36, 37, 45, 45], p1_tiles: [], p2_tiles: [], p3_tiles: [], tiles_list: Array.from({ length: 28 }, (_, i) => 11 + i % 9), action_ticks: ticks })
 const fixture = (r, scores = [0, 0, 0, 0]) => ({ game_id: 'cc-test', rule: 'changchun', players: scores.map((score, i) => ({ score, original_player_index: i, user_id: i + 100, username: String(i) })), record: { game_title: { rule: 'changchun', sub_rule: 'changchun/mil2024' }, game_round: { round_index_1: r } } })
+
+test('separate dealer fan remains display-only across replay, rewind and bao-zhuang', () => {
+  for (const [action,winner,label,changes] of [['hu_self',0,'庄（各家）',[48,-16,-16,-16]],['hu_self',1,'庄（庄家份）',[-16,32,-8,-8]],['hu_first',1,'庄（庄家份）',[0,20,-20,0]]]) {
+    const fans = ['门清','夹/单吊/单和',label]
+    const hu = [action,winner,2,fans,changes,45]
+    const r = round([hu]), replay = new RecordReplay(fixture(r,changes))
+    const before = replay.build(0,0).snapshot.seats.map(s => s.score)
+    for (const node of [1,0,1]) {
+      const scores = replay.build(0,node).snapshot.seats.map(s => s.score)
+      assert.deepEqual(scores, before.map((score,i) => score+(node ? changes[i] : 0)))
+    }
+    assert.deepEqual(hu.slice(2,4), [2,['门清','夹/单吊/单和',label]])
+    assert.deepEqual(fans.map(name => [name,`${CHANGCHUN_FANS[name]}番`]).at(-1), [label,'1番'])
+  }
+})
 
 test('passed final tiles remain separate and private until the round reveal, including rewind', () => {
   const r = round([cc({ kind: 'tail_pass', player: 0, tile: 11 }), cc({ kind: 'tail_pass', player: 1, tile: 22 }), cc({ kind: 'round_reveal', tail_tiles: [{ player: 0, tile: 11 }, { player: 1, tile: 22 }] })])

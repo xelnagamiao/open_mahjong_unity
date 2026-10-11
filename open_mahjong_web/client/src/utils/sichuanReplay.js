@@ -1,11 +1,24 @@
 /** Sichuan family and ordinary continuous-win replay state helpers. */
+export function sichuanDoublesSummary(detail) {
+  const title = detail?.record?.game_title || {}
+  if (!['sichuan/doubles', 'sichuan/xueliu_doubles', 'sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate'].includes(title.sub_rule)) return null
+  const teams = title.team_by_player_index
+  if (!Array.isArray(teams) || teams.length !== 4 || teams.filter(t => t === 0).length !== 2 || teams.filter(t => t === 1).length !== 2) return null
+  return {
+    teams: [0, 1].map(team => ({ id: team, name: team === 0 ? 'A队' : 'B队',
+      players: teams.flatMap((t, index) => t === team ? [String(title[`p${index}_name`] || `座位${index + 1}`)] : []),
+    })),
+    result: detail.record.doubles_result || title.doubles_result || null,
+  }
+}
+
 export function isSichuanRecord(detail) {
   return detail?.rule === 'sichuan' || detail?.record?.game_title?.rule === 'sichuan'
 }
 
 export function isSichuanBloodFlow(detail) {
   const subRule = detail?.record?.game_title?.sub_rule ?? detail?.sub_rule
-  return isSichuanRecord(detail) && ['sichuan/xueliu', 'sichuan/xueliu_exchange'].includes(subRule)
+  return isSichuanRecord(detail) && ['sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/xueliu_doubles', 'sichuan/xueliu_doubles_duplicate'].includes(subRule)
 }
 
 export function isSichuanBloodBattle(detail) {

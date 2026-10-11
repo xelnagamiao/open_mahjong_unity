@@ -113,7 +113,7 @@
           :players="scoreboardPlayers"
           :settlements="scoreboardSettlements"
           :round-label-format="appearance.roundLabelFormat"
-          :round-labeler="isHangzhouReplay ? hangzhouRoundLabel : null"
+          :round-labeler="replayRoundLabeler"
           @select-row="jumpToScoreboardRound"
           @close="scoreboardOpen = false"
         />
@@ -219,7 +219,7 @@
             <div class="end-result-total" :class="{ 'is-visible': showResultTotal }">
               <div class="end-result-total__line">
                 <span class="end-result-total__method">{{ winMethodLabel }}</span>
-                <strong>{{ roundResult.fan }}</strong><span>{{ detail?.rule === 'guizhou' ? '基本分' : ['yixing', 'hangzhou'].includes(detail?.rule || '') ? '分' : detail?.rule === 'wenzhou' ? '倍' : '番' }}</span>
+                <strong>{{ roundResult.fan }}</strong><span>{{ detail?.rule === 'changchun' ? '基础番' : detail?.rule === 'guizhou' ? '基本分' : ['yixing', 'hangzhou', 'jiujiang', 'shanxi', 'nanchang'].includes(detail?.rule || '') ? '分' : detail?.rule === 'wenzhou' ? '倍' : '番' }}</span>
               </div>
             </div>
             <div class="end-result-diamond">
@@ -246,6 +246,11 @@
 
         <HongzhongReplayDetail v-if="detail?.rule === 'hongzhong'" :info="hongzhongInfo" :ledger="hongzhongKongEvents" />
         <ChangchunReplayDetail v-if="changchunInfo" :info="changchunInfo" />
+        <section v-if="nanchangInfo" class="nanchang-replay-info" aria-label="南昌精牌与结算">
+          <strong>正精 {{ wenzhouTileName(nanchangInfo.indicator) }} · 副精 {{ wenzhouTileName(nanchangInfo.secondary) }}</strong>
+          <p>四人单打 · 精牌翻开后仍在牌墙中，可正常摸取。</p>
+          <p v-for="row in nanchangLedgerRows(nanchangInfo)" :key="row.seat">{{ ['东起','南起','西起','北起'][row.original] }}：精分{{ row.jing }}，杠分{{ row.kong }}，和牌{{ row.win }}，本副{{ row.total }}分</p>
+        </section>
         <section v-if="wenzhouInfo" class="wenzhou-replay-info" aria-label="温州翻财与结算">
           <strong>财神 {{ wenzhouTileName(wenzhouInfo.caishen) }} · 连庄{{ wenzhouInfo.dealer_streak || 0 }}次</strong>
           <p>{{ wenzhouInfo.caishen === 46 ? '白板为财神' : `白板固定代${wenzhouTileName(wenzhouInfo.white_natural)}` }}；牌面保留实体身份。</p>
@@ -418,6 +423,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { sichuanDoublesSummary } from '@/utils/sichuanReplay.js'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { ElMessage } from 'element-plus'
 import { MahjongScene } from '@/game2d/game/scene/MahjongScene'
@@ -453,6 +459,7 @@ import { lanshiFanPoints } from '@/game2d/calc/guobiao/lanshiV4'
 import { formatFanCount, translateFanName } from '@/i18n/fanNames'
 import { locale, roundLabelKey, tr } from '@/i18n'
 import { replaySharePath } from '@/utils/recordShareLink'
+import { riichiWinLineLabel } from '@/utils/riichiWinRequirements.js'
 import {
   mmcrSettlementSortKey,
   splitSettlementHand,
@@ -469,12 +476,15 @@ import { guizhouInfoAt, guizhouReadyAt, parseGuizhouFan } from '@/utils/guizhouR
 import { buildGuizhouWaitData, guizhouRonWaitingTiles } from '@/game2d/calc/guizhou/waitTips'
 import { parseYixingFan } from '@/utils/yixingReplay.js'
 import { parseWenzhouFan, wenzhouInfoAt, wenzhouTileName, wenzhouLedgerRows, wenzhouLedgerEntries, wenzhouWaitData, wenzhouWaitsAt } from '@/utils/wenzhouReplay.js'
+import { parseNanchangFan, nanchangInfoAt, nanchangLedgerRows, nanchangWaitData, nanchangWaitsAt } from '@/utils/nanchangReplay.js'
 import { parseHangzhouFan, hangzhouInfoAt, hangzhouKnownTiles, hangzhouWaitDataAt, hangzhouNormalDrawableWallIndices } from '@/utils/hangzhouReplay.js'
 import HangzhouReplayState from '@/components/HangzhouReplayState.vue'
 import HongzhongReplayDetail from '@/components/HongzhongReplayDetail.vue'
 import ChangchunReplayDetail from '@/components/ChangchunReplayDetail.vue'
 import { changchunInfoAt, isChangchunRecord, CHANGCHUN_FANS } from '@/utils/changchunReplay.js'
 import { buildChangchunWaitData, qualifiedWaits as changchunQualifiedWaits } from '@/game2d/calc/changchun'
+import { jiujiangWaitDataAt, jiujiangHintsAt, jiujiangKnownTiles, parseJiujiangFan } from '@/utils/jiujiangReplay.js'
+import { parseShanxiFan } from '@/utils/shanxiPresentation.js'
 import { hongzhongInfoAt, hongzhongKongEventsAt, parseHongzhongFan, hongzhongWaitDataAt, hongzhongKnownTiles } from '@/utils/hongzhongReplay.js'
 import { guangdongInfoAt, isGuangdongMilRecord, parseGuangdongFan } from '@/utils/guangdongReplay.js'
 import GuangdongReplayLedger from '@/components/GuangdongReplayLedger.vue'
@@ -503,6 +513,12 @@ const showOtherHands = ref(true)
 const playWinAnimation = ref(false)
 const chongHintEnabled = ref(true)
 const isHangzhouReplay = computed(() => detail.value?.rule === 'hangzhou')
+const replayRoundLabeler = computed(() => isHangzhouReplay.value ? hangzhouRoundLabel
+  : detail.value?.rule === 'shanxi' ? shanxiRoundLabel : null)
+
+function shanxiRoundLabel(round: number) {
+  return `第${round}庄`
+}
 const hangzhouRoundLabel = (number: number) => tr(`第${number}局`)
 const showMoqieMode = ref(true)
 const gameInfoScrollElement = ref<HTMLElement | null>(null)
@@ -592,8 +608,10 @@ function ruleDisplayName(rule: unknown): string {
     guizhou: '贵州麻将',
     yixing: '宜兴麻将',
     wenzhou: '温州麻将',
+    nanchang: '南昌麻将',
     hangzhou: '杭州麻将',
     hongzhong: '红中麻将',
+    jiujiang: '九江麻将',
     changchun: '长春麻将',
     shanxi: '山西麻将',
   }
@@ -604,15 +622,22 @@ function ruleDisplayName(rule: unknown): string {
 function subRuleDisplayName(subRule: unknown): string {
   const names: Record<string, string> = {
     'guobiao/standard': '国标标准',
+    'sichuan/doubles': '血战双打·2V2', 'sichuan/xueliu_doubles': '血流双打·2V2',
     'hongzhong/mil2024': 'MIL 红中2024',
+    'jiujiang/standard': '九江麻将',
     'changchun/mil2024': 'MIL 长春2024',
     'hangzhou/mil2025': 'MIL 杭州2025',
+    'shanxi/mil2023': 'MIL 山西2023',
   }
   const key = String(subRule ?? '')
   return names[key] || key || '—'
 }
 
 function roundModeLabel(maxRound: unknown, queueType: unknown): string {
+  if (detail.value?.rule === 'shanxi') {
+    const count = Number(maxRound)
+    return Number.isFinite(count) && count > 0 ? `${Math.trunc(count) * 4}庄` : '—'
+  }
   if (isHangzhouReplay.value) {
     const count = Number(maxRound)
     return Number.isFinite(count) && count > 0 ? `${Math.trunc(count) * 4}局` : '—'
@@ -650,6 +675,16 @@ const gameInfoRows = computed<GameInfoRow[]>(() => {
   const queueTier = String(queueType ?? '').split('_')[0]
 
   push('规则', ruleDisplayName(title.rule ?? detail.value?.rule))
+  const doubles = sichuanDoublesSummary(detail.value)
+  if (doubles) {
+    for (const team of doubles.teams) push(team.name, team.players.join(' / '))
+    if (doubles.result) {
+      const result = doubles.result
+      push('团队累计副分', `A队 ${result.scores[0]} / B队 ${result.scores[1]}`)
+      push('盘分', `A队 ${result.match_points[0]} / B队 ${result.match_points[1]}`)
+      push('胜负判定', result.reason === 'last_positive_board' ? '同分，追平队胜' : result.reason === 'draw' ? '平局，各0.5盘分' : '按团队累计副分')
+    }
+  }
   push('房间', roomLabel.value)
   push('完成时间', hasGameTitleField(title, 'end_time') ? compactRecordTime(title.end_time) : formattedCreatedAt.value)
   if (hasGameTitleField(title, 'sub_rule') || detail.value?.sub_rule) {
@@ -664,7 +699,13 @@ const gameInfoRows = computed<GameInfoRow[]>(() => {
   if (hasGameTitleField(title, 'max_round') || queueType) {
     push('局制', roundModeLabel(title.max_round, queueType))
   }
-  if (hasGameTitleField(title, 'hepai_limit')) push('起和番', `${Number(title.hepai_limit) || 0} 番`)
+  if (title.rule === 'jiujiang') push('起和分', '1分（含花分）')
+  else if (detail.value?.rule === 'shanxi') push('起和牌值', '自摸≥3点，点和≥6点（须报听）')
+  else if (hasGameTitleField(title, 'hepai_limit')) push('起和番', `${Number(title.hepai_limit) || 0} 番${title.rule === 'riichi' ? '（不含宝牌）' : ''}`)
+  if (title.rule === 'riichi') push('起和线', riichiWinLineLabel(title.detailed_config?.minimum_win_score ?? 0))
+  if (title.rule === 'shanghai' && (title.sub_rule || 'shanghai/qiaoma') === 'shanghai/qiaoma') {
+    push('清三混二碰二', enabledLabel(title.detailed_config?.qing3_hun2_peng2 === true))
+  }
   if (hasGameTitleField(title, 'round_timer')) push('局时', `${Number(title.round_timer) || 0} 秒`)
   if (hasGameTitleField(title, 'step_timer')) push('步时', `${Number(title.step_timer) || 0} 秒`)
   if (hasGameTitleField(title, 'open_cuohe')) push('错和', enabledLabel(title.open_cuohe))
@@ -722,6 +763,7 @@ const hongzhongInfo = computed(() => detail.value?.rule === 'hongzhong' ? hongzh
 const changchunInfo = computed(() => detail.value?.rule === 'changchun' ? changchunInfoAt(currentRound.value, node.value, currentRound.value?.seats?.[viewerOriginal.value] ?? viewerOriginal.value) : null)
 const hangzhouInfo = computed(() => detail.value?.rule === 'hangzhou' ? hangzhouInfoAt(currentRound.value, node.value) : null)
 const wenzhouInfo = computed(() => detail.value?.rule === 'wenzhou' ? wenzhouInfoAt(currentRound.value, node.value) : null)
+const nanchangInfo = computed(() => detail.value?.rule === 'nanchang' ? nanchangInfoAt(currentRound.value, node.value) : null)
 const guizhouInfo = computed(() => detail.value?.rule === 'guizhou' ? guizhouInfoAt(currentRound.value, node.value) : null)
 const guangdongInfo = computed(() => isGuangdongMilRecord(detail.value) ? guangdongInfoAt(currentRound.value, node.value) : null)
 
@@ -736,7 +778,7 @@ const roundResult = computed(() => {
   })
   if (!tick) return null
   const action = String(tick[0] ?? '')
-  const scoreValues = wenzhouInfo.value?.round_changes ? wenzhouInfo.value.round_changes : action === 'liuju' && guizhouInfo.value?.ledger ? guizhouInfo.value.ledger.score_changes
+  const scoreValues = nanchangInfo.value?.ledger?.changes ? nanchangInfo.value.ledger.changes : wenzhouInfo.value?.round_changes ? wenzhouInfo.value.round_changes : action === 'liuju' && guizhouInfo.value?.ledger ? guizhouInfo.value.ledger.score_changes
     : action === 'ryuukyoku' || action === 'liuju' ? tick[2] : tick[4]
   const changes = Array.isArray(scoreValues)
     ? scoreValues.slice(0, 4).map((value, seat) => ({
@@ -790,16 +832,26 @@ const resultMeldTiles = computed(() => (resultWinner.value?.melds ?? []).flatMap
 const resultFlowerTiles = computed(() => resultWinner.value?.flower_tiles ?? [])
 const resultFans = computed(() => roundResult.value?.kind === 'win'
   ? roundResult.value.fans.map((name) => {
+    if (detail.value?.rule === 'shanxi') return parseShanxiFan(name)
     const guizhouFan = detail.value?.rule === 'guizhou' ? parseGuizhouFan(name) : null
     if (guizhouFan) return guizhouFan
     const yixingFan = detail.value?.rule === 'yixing' ? parseYixingFan(name) : null
     if (yixingFan) return yixingFan
     const wenzhouFan = detail.value?.rule === 'wenzhou' ? parseWenzhouFan(name) : null
     if (wenzhouFan) return wenzhouFan
+    if (detail.value?.rule === 'nanchang') return parseNanchangFan(name) || {name,value:""}
     const hangzhouFan = detail.value?.rule === 'hangzhou' ? parseHangzhouFan(name) : null
     if (hangzhouFan) return hangzhouFan
+    if (detail.value?.rule === 'jiujiang') return parseJiujiangFan(name)
     if (detail.value?.rule === 'hongzhong') return parseHongzhongFan(name) || { name, value: `${hongzhongInfo.value?.detail?.fan_values?.[name] ?? 0}番` }
     if (detail.value?.rule === 'changchun') return { name, value: `${CHANGCHUN_FANS[name] ?? 0}番` }
+    if (detail.value?.rule === 'shanghai' && (detail.value.sub_rule || detail.value.record?.game_title?.sub_rule || 'shanghai/qiaoma') === 'shanghai/qiaoma') {
+      const encoded = name.match(/^(.+)（(\d+)(番|花)）$/)
+      if (encoded) return { name: encoded[1], value: `${encoded[2]}${encoded[3]}` }
+      const profile = detail.value.record?.game_title?.detailed_config?.qing3_hun2_peng2 === true
+      const fans: Record<string, number> = { '清一色': profile ? 3 : 2, '混一色': profile ? 2 : 1, '碰碰和': profile ? 2 : 1, '门清': 1, '大吊车': 1, '杠开': 1, '抢杠': 1 }
+      return { name, value: fans[name] == null ? '' : `${fans[name]}番` }
+    }
     const guangdongFan = guangdongInfo.value ? parseGuangdongFan(name) : null
     if (guangdongFan) return guangdongFan
     if ((detail.value?.sub_rule || detail.value?.record?.game_title?.sub_rule) === 'guobiao/lanshi') {
@@ -970,7 +1022,7 @@ const scoreboardSettlements = computed(() => replay.value?.rounds.map((round) =>
   if (action === 'liuju' || action === 'ryuukyoku') return '流局'
   const fans = Array.isArray(terminal[3]) ? terminal[3].map(String) : []
   const mainFan = fans.find((fan) => !fan.startsWith('花牌')) || fans[0]
-  return (detail.value?.rule === 'guizhou' ? parseGuizhouFan(mainFan)?.name : detail.value?.rule === 'yixing' ? parseYixingFan(mainFan)?.name : detail.value?.rule === 'wenzhou' ? parseWenzhouFan(mainFan)?.name : detail.value?.rule === 'hangzhou' ? parseHangzhouFan(mainFan)?.name : isGuangdongMilRecord(detail.value) ? parseGuangdongFan(mainFan)?.name : mainFan) || `${Number(terminal[2]) || 0}${['guizhou', 'yixing', 'hangzhou'].includes(detail.value?.rule || '') ? '分' : '番'}`
+  return (detail.value?.rule === 'guizhou' ? parseGuizhouFan(mainFan)?.name : detail.value?.rule === 'yixing' ? parseYixingFan(mainFan)?.name : detail.value?.rule === 'nanchang' ? parseNanchangFan(mainFan)?.name : detail.value?.rule === 'wenzhou' ? parseWenzhouFan(mainFan)?.name : detail.value?.rule === 'hangzhou' ? parseHangzhouFan(mainFan)?.name : detail.value?.rule === 'shanxi' ? parseShanxiFan(mainFan).name : isGuangdongMilRecord(detail.value) ? parseGuangdongFan(mainFan)?.name : mainFan) || `${Number(terminal[2]) || 0}${['guizhou', 'yixing', 'hangzhou', 'jiujiang', 'shanxi', 'nanchang'].includes(detail.value?.rule || '') ? '分' : '番'}`
 }) ?? [])
 
 function stopPlaying() {
@@ -1172,7 +1224,7 @@ function advanceAnimatedStep() {
   }
   // Guizhou has silent physical mutations (opening-kong reveals and the
   // unique source tile of multi-ron). Apply those before the next animation.
-  if (ticks.slice(node.value, playNode).some((entry) => ['guizhou', 'wenzhou'].includes(String(entry[0])))) {
+  if (ticks.slice(node.value, playNode).some((entry) => ['guizhou', 'wenzhou', 'nanchang'].includes(String(entry[0])))) {
     const before = replay.value.build(roundIndex.value, playNode, viewerOriginal.value, showOtherHands.value)
     decorateSnapshotRanks(before.snapshot)
     scene.flushFromSnapshot(before.snapshot)
@@ -1201,7 +1253,7 @@ function advanceAnimatedStep() {
     // Replay stepping uses the same board mutation path as the live game. In
     // particular, chow/pung/kong now move tiles out of the river and hand instead
     // of replacing the whole table with the post-action snapshot.
-    if (detail.value?.rule === 'wenzhou' && ['cl', 'cm', 'cr', 'p', 'g', 'ag', 'jg'].includes(action)) {
+    if (['wenzhou', 'nanchang'].includes(detail.value?.rule || '') && ['cl', 'cm', 'cr', 'p', 'g', 'ag', 'jg'].includes(action)) {
       let physicalNode = nextNode
       while (physicalNode < ticks.length && isRecordSilentTick(ticks[physicalNode])) physicalNode++
       const physical = replay.value.build(roundIndex.value, physicalNode, viewerOriginal.value, showOtherHands.value)
@@ -1316,7 +1368,7 @@ function showRoundTooltipFromFocus(index: number, event: FocusEvent) {
 
 function roundSelectLabel(round: RecordRound, index: number) {
   const number = Number(round.current_round ?? index + 1)
-  if (isHangzhouReplay.value) return hangzhouRoundLabel(number)
+  if (replayRoundLabeler.value) return replayRoundLabeler.value(number)
   return tr(roundLabelKey(number, appearance.value.roundLabelFormat, locale.value))
 }
 
@@ -1394,6 +1446,7 @@ function waitDataForSnapshot(snapshot: ActiveSessionSnapshot) {
     seatCombinations: snapshot.seats.map(seat => seat.melds.map(meldKey)),
     knownTiles: changchunInfo.value?.tile ? [changchunInfo.value.tile] : [],
   }, viewer.drawn_tile != null)
+  if (detail.value?.rule === 'jiujiang') return jiujiangWaitDataAt(currentRound.value, node.value, viewer.seat_index, hand, viewer.melds.map(meldKey), jiujiangKnownTiles(snapshot, mmcrTileToSalasasa))
   if (detail.value?.rule === 'hongzhong') return hongzhongWaitDataAt(currentRound.value, node.value, viewer.seat_index, hand, viewer.melds.map(meldKey), hongzhongKnownTiles(snapshot, mmcrTileToSalasasa))
   if (detail.value?.rule === 'hangzhou') return hangzhouWaitDataAt(currentRound.value, node.value, viewer.seat_index, hand, viewer.melds.map(meldKey), hangzhouKnownTiles(snapshot, mmcrTileToSalasasa))
   if (detail.value?.rule === 'shanxi') {
@@ -1431,6 +1484,10 @@ function waitingTilesForSnapshotSeat(seat: ActiveSessionSnapshot['seats'][number
   if (hand.length === 0) return new Set<number>()
   if (detail.value?.rule === 'shanxi') return new Set(shanxiWaits(hand, seat.melds.map(meldKey)).map(salasasaTileToMmcr))
   if (isChangchunRecord(detail.value)) return new Set(changchunQualifiedWaits(hand, seat.melds.map(meldKey)).map(salasasaTileToMmcr))
+  if (detail.value?.rule === 'jiujiang') {
+    const hints = jiujiangHintsAt(currentRound.value,node.value,seat.seat_index,hand,seat.melds.map(meldKey))
+    return new Set<number>((hints?.waiting_tiles || []).filter((tile: number)=>hints.waiting_details?.[tile]?.kind === 'dianhe').map(salasasaTileToMmcr))
+  }
   if (detail.value?.rule === 'hongzhong') return new Set<number>() // This rule never permits a discard win.
   if (detail.value?.rule === 'wenzhou') return new Set<number>(wenzhouWaitsAt(currentRound.value, node.value, seat.seat_index, hand).map((wait: { tile: number }) => salasasaTileToMmcr(wait.tile)))
   if (detail.value?.rule === 'guizhou') return new Set(guizhouRonWaitingTiles(hand, seat.melds.map(meldKey),
@@ -1662,7 +1719,7 @@ async function mountScene() {
   if (!stageElement.value || scene) return
   const currentScene = new MahjongScene(() => {})
   currentScene.setPresentationMode('replay')
-  currentScene.setRoundLabelFormatter(isHangzhouReplay.value ? hangzhouRoundLabel : null)
+  currentScene.setRoundLabelFormatter(replayRoundLabeler.value)
   currentScene.setReplayRecordVersion(6)
   currentScene.setReplayMoqieHintEnabled(showMoqieMode.value)
   currentScene.setReplayWaitTips(null)

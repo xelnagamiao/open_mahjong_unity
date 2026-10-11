@@ -60,6 +60,8 @@ public sealed class FreeModeHud : MonoBehaviour {
     private FreeModeActivityPanel activityPanel;
     private Button transferFaceButton;
     private Text transferFaceLabel;
+    private readonly List<FreeModeTileView> transferViews = new List<FreeModeTileView>();
+    private readonly HashSet<int> selectedTransfer = new HashSet<int>();
     private static readonly string[] PageNames = { "收回手牌", "创建副露", "配置", "配置" };
 
     public void Bind(FreeGameState owner) {
@@ -102,6 +104,7 @@ public sealed class FreeModeHud : MonoBehaviour {
                 quickDestinationButtons[i].onClick.AddListener(() => SelectDestination(dest));
             }
             CreateTransferFaceButton();
+            CreateTransferChoices();
             for (int i = 0; i < recallButtons.Length; i++) {
                 int source = i;
                 recallButtons[i].onClick.AddListener(() => {
@@ -111,7 +114,12 @@ public sealed class FreeModeHud : MonoBehaviour {
                     recallScroll.verticalNormalizedPosition = 1f;
                 });
             }
-            takeTransferButton.onClick.AddListener(() => state.SendTransferTake());
+            takeTransferButton.onClick.AddListener(() => {
+                var selection = new List<FreeTransferTileInfo>();
+                foreach (FreeTransferTileInfo item in state.TransferTiles)
+                    if (selectedTransfer.Contains(item.token)) selection.Add(item);
+                state.SendTransferTake(selection);
+            });
             includeRiverToggle.onValueChanged.AddListener(on => {
                 includeRiver = on;
                 if (on && selected.Count == 4) {
@@ -198,6 +206,7 @@ public sealed class FreeModeHud : MonoBehaviour {
     }
 
     public void ResetLocalSelection() {
+        selectedTransfer.Clear();
         selected.Clear();
         selectionOrder.Clear();
         selectionSnapshot = null;
@@ -230,27 +239,12 @@ public sealed class FreeModeHud : MonoBehaviour {
         RefreshToolButtons();
         for (int i = 0; i < destinationToggles.Length; i++) PaintToggle(destinationToggles[i], i == (int)state.DiscardDest);
         for (int i = 0; i < quickDestinationButtons.Length; i++) PaintButton(quickDestinationButtons[i], i == (int)state.DiscardDest);
-        bool transferSelected = state.DiscardDest == FreeDiscardDest.Transfer;
         if (transferFaceButton != null) {
-            transferFaceButton.gameObject.SetActive(transferSelected);
-            transferFaceLabel.text = state.PutTransferFaceDown ? "暗面出牌\n点击切换" : "明面出牌\n点击切换";
-            PaintButton(transferFaceButton, state.PutTransferFaceDown);
+            transferFaceButton.gameObject.SetActive(true);
+            transferFaceLabel.text = state.PlaceFaceDown ? "暗面" : "明面";
+            PaintButton(transferFaceButton, state.PlaceFaceDown);
         }
-        transferTile.gameObject.SetActive(true);
-        transferTile.art.gameObject.SetActive(state.TransferTile.HasValue);
-        if (state.TransferTile.HasValue)
-            transferTile.Bind(state.TransferTile.Value, orient: state.TransferFaceDown ? 2 : 0,
-                selected: transferSelected, label: state.TransferFaceDown ? "暗面共享牌" : "共享牌");
-        else {
-            transferTile.selection.enabled = transferSelected;
-            transferTile.caption.text = transferSelected ? "出牌落点" : "空转移区";
-            transferTile.button.interactable = false;
-        }
-        transferHint.text = state.TransferTile.HasValue
-            ? (state.TransferFaceDown ? "暗牌取走后仅拿牌者可见\n展示中的手牌将自动竖起" : "转移区已有牌，请先收回\n任何玩家均可取走这张牌")
-            : (transferSelected ? (state.PutTransferFaceDown ? "暗面出牌：取走后仅拿牌者可见\n点击手牌放入转移区" : "明面出牌：所有玩家可见\n点击手牌放入转移区")
-                : "转移区为空\n选择右侧「转移区」后，点手牌放入");
-        takeTransferButton.interactable = state.TransferTile.HasValue;
+        RefreshTransferChoices();
         string snapshot = Signature(state.SelfHand());
         if (handSnapshot != snapshot) {
             selected.Clear();
@@ -289,7 +283,7 @@ public sealed class FreeModeHud : MonoBehaviour {
         transferFaceButton.name = "TransferFaceButton";
         transferFaceButton.onClick = new Button.ButtonClickedEvent();
         transferFaceButton.onClick.AddListener(() => {
-            state.PutTransferFaceDown = !state.PutTransferFaceDown;
+            state.PlaceFaceDown = !state.PlaceFaceDown;
             Refresh();
         });
         transferFaceButton.navigation = new Navigation { mode = Navigation.Mode.None };
@@ -301,8 +295,64 @@ public sealed class FreeModeHud : MonoBehaviour {
         transferFaceLabel = transferFaceButton.GetComponentInChildren<Text>(true);
         transferFaceLabel.resizeTextForBestFit = true;
         transferFaceLabel.resizeTextMinSize = 14;
-        transferFaceLabel.resizeTextMaxSize = 20;
+        transferFaceLabel.resizeTextMaxSize = 32;
         transferFaceButton.gameObject.SetActive(false);
+    }
+
+    private void CreateTransferChoices() {
+        Transform section = transferTile.transform.parent;
+        var holder = new GameObject("TransferChoices", typeof(RectTransform), typeof(LayoutElement), typeof(HorizontalLayoutGroup));
+        holder.transform.SetParent(section, false);
+        holder.transform.SetAsFirstSibling();
+        LayoutElement size = holder.GetComponent<LayoutElement>();
+        size.minWidth = size.preferredWidth = 204f;
+        size.minHeight = size.preferredHeight = 100f;
+        var layout = holder.GetComponent<HorizontalLayoutGroup>();
+        layout.spacing = 6f;
+        layout.childControlWidth = layout.childControlHeight = true;
+        layout.childForceExpandWidth = layout.childForceExpandHeight = false;
+        transferTile.transform.SetParent(holder.transform, false);
+        for (int i = 0; i < 3; i++) {
+            FreeModeTileView view = i == 0 ? transferTile : Instantiate(transferTile, holder.transform);
+            view.name = "TransferChoice" + i;
+            LayoutElement cell = view.GetComponent<LayoutElement>() ?? view.gameObject.AddComponent<LayoutElement>();
+            cell.minWidth = cell.preferredWidth = 64f;
+            cell.minHeight = cell.preferredHeight = 100f;
+            cell.flexibleWidth = cell.flexibleHeight = 0f;
+            view.artworkBounds = new Vector2(60f, 74f);
+            transferViews.Add(view);
+        }
+    }
+
+    private bool HasTransferToken(int token) {
+        foreach (FreeTransferTileInfo item in state.TransferTiles)
+            if (item.token == token) return true;
+        return false;
+    }
+
+    private void RefreshTransferChoices() {
+        selectedTransfer.RemoveWhere(token => !HasTransferToken(token));
+        for (int i = 0; i < transferViews.Count; i++) {
+            FreeModeTileView view = transferViews[i];
+            view.gameObject.SetActive(true);
+            bool occupied = i < state.TransferTiles.Count;
+            view.art.gameObject.SetActive(occupied);
+            if (occupied) {
+                FreeTransferTileInfo item = state.TransferTiles[i];
+                view.Bind(item.tile, item.face_down ? 2 : 0, selectedTransfer.Contains(item.token),
+                    item.slot.ToString(), () => {
+                        if (!HasTransferToken(item.token)) return;
+                        if (!selectedTransfer.Add(item.token)) selectedTransfer.Remove(item.token);
+                        RefreshTransferChoices();
+                    });
+            } else {
+                view.Bind(0, label: "空位");
+            }
+        }
+        transferHint.text = "转移区 " + state.TransferTiles.Count + "/3\n点击选牌，可多选";
+        takeTransferButton.interactable = selectedTransfer.Count > 0;
+        takeTransferButton.GetComponentInChildren<Text>(true).text = selectedTransfer.Count > 0
+            ? "收回（" + selectedTransfer.Count + " 张）" : "请选择牌";
     }
 
     private void SetToolboxOpen(bool open) {
@@ -344,7 +394,11 @@ public sealed class FreeModeHud : MonoBehaviour {
 
     private void RefreshSelection() {
         IReadOnlyList<int> hand = state.SelfHand();
-        includeRiverToggle.interactable = state.LastRiverTile.HasValue;
+        includeRiverToggle.interactable = state.LastRiverTile.GetValueOrDefault() > 0;
+        if (!includeRiverToggle.interactable) {
+            includeRiver = false;
+            selectionOrder.Remove(RiverSelectionKey);
+        }
         PaintToggle(includeRiverToggle, includeRiver);
         for (int i = 0; i < handViews.Count; i++) {
             int index = i;
@@ -403,7 +457,7 @@ public sealed class FreeModeHud : MonoBehaviour {
         var mask = new List<int>();
         foreach (int key in selectionOrder) {
             if (key == RiverSelectionKey) {
-                if (!state.LastRiverTile.HasValue) return;
+                if (state.LastRiverTile.GetValueOrDefault() <= 0) return;
                 mask.Add(1); mask.Add(state.LastRiverTile.Value);
             } else {
                 if (hand == null || key >= hand.Count) return;
@@ -419,7 +473,8 @@ public sealed class FreeModeHud : MonoBehaviour {
     private void RefreshRecall() {
         PlayerInfoClass info = state.SelfInfo();
         for (int i = 0; i < recallButtons.Length; i++) PaintButton(recallButtons[i], i == recallSource);
-        var parts = new List<string> { recallSource.ToString(), Signature(info?.discard_tiles), Signature(info?.huapai_list) };
+        var parts = new List<string> { recallSource.ToString(), Signature(info?.discard_tiles), Signature(info?.huapai_list),
+            Signature(state.SelfAreaTokens(false)), Signature(state.SelfAreaTokens(true)) };
         if (info?.combination_masks != null) foreach (int[] mask in info.combination_masks) parts.Add(Signature(mask));
         string snapshot = string.Join("/", parts);
         if (snapshot == recallSnapshot) return;
@@ -442,9 +497,11 @@ public sealed class FreeModeHud : MonoBehaviour {
             if (tiles != null) for (int i = 0; i < tiles.Count; i++) {
                 int index = i, tile = tiles[i];
                 bool river = recallSource == 0;
+                IReadOnlyList<int> tokens = state.SelfAreaTokens(!river);
+                int token = i < tokens.Count ? tokens[i] : 0;
                 NewTile(recallContent).Bind(tile, label: "收回手牌", onClick: () => {
-                    if (river) state.SendRecallRiver(index, tile);
-                    else state.SendRecallFlower(index, tile);
+                    if (river) state.SendRecallRiver(index, tile, token);
+                    else state.SendRecallFlower(index, tile, token);
                 });
                 count++;
             }

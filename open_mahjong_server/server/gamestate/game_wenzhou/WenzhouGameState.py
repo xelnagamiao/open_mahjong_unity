@@ -99,8 +99,7 @@ class WenzhouGameState(HandFlow, Protocol, Recording, Session, EndOfHand, Zhongy
             for p in self.player_list:
                 p.hand_tiles.extend(self.tiles_list[:4])
                 del self.tiles_list[:4]
-        for p in self.player_list:
-            p.hand_tiles.sort()
+        # 保留发牌顺序；客户端统一播放十六张主列理牌，庄家摸牌仍放在末张。
         self.player_list[0].hand_tiles.append(self.tiles_list.pop(0))
         self.player_list[0].has_draw_slot = True
         self.player_list[0].draw_kind = "normal"

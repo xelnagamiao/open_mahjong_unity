@@ -59,6 +59,7 @@ public class EndGamePanel : MonoBehaviour {
         var sorted = player_final_data
             .Select(kv => kv.Value)
             .OrderBy(v => System.Convert.ToInt32(v["rank"]))
+            .ThenBy(v => v.TryGetValue("team_id", out object team) && team != null ? System.Convert.ToInt32(team) : -1)
             .ThenBy(v => v.ContainsKey("original_player_index") && v["original_player_index"] != null
                 ? System.Convert.ToInt32(v["original_player_index"])
                 : int.MaxValue)
@@ -88,13 +89,37 @@ public class EndGamePanel : MonoBehaviour {
             display.score.text = playerData["score"].ToString();
             display.rank.text = playerData["rank"].ToString();
             display.pt.text = $"{System.Convert.ToSingle(playerData["pt"]):F2}";
+            if (playerData.TryGetValue("competition_points", out object competitionPoints) && competitionPoints != null)
+                display.pt.text = $"{System.Convert.ToSingle(competitionPoints):0.#}盘分";
+            if (playerData.TryGetValue("team_id", out object teamId) && teamId != null) {
+                string scoring = playerData.TryGetValue("team_result_reason", out object resultReason) ? resultReason?.ToString() : null;
+                bool paired = scoring == "imp" || scoring == "raw_difference";
+                string teamName = System.Convert.ToInt32(teamId) == 0 ? (paired ? "蓝队" : "A队") : (paired ? "红队" : "B队");
+                float points = System.Convert.ToSingle(playerData["team_match_points"]);
+                display.username.text = teamName + " · " + display.username.text;
+                display.rank.text = points == .5f ? "平" : points == 1 ? "胜" : "负";
+                display.score.text = "个人 " + playerData["score"];
+                string scoreUnit = scoring == "imp" ? "IMP" : scoring == "raw_difference" ? "副差分" : "队分";
+                display.pt.text = paired
+                    ? $"<line-height=20><size=20>全队 {playerData["team_score"]} {scoreUnit}\n两室合计</size></line-height>"
+                    : $"<line-height=20><size=20>队分 {playerData["team_score"]}\n{points:0.#}盘分</size></line-height>";
+            }
         }
         normalizedMasterSeed = CommitmentSaltDisplay.NormalizeCommitment(master_seed);
         gameRandomSeed.text = "主种子: " + normalizedMasterSeed
             + "\n承诺: " + CommitmentSaltDisplay.NormalizeCommitment(commitment)
             + "\n盐: " + (string.IsNullOrEmpty(salt) ? "-" : salt);
+        var teamResult = sorted.FirstOrDefault(v => v.ContainsKey("team_result_reason"));
+        if (teamResult != null) {
+            string reason = teamResult["team_result_reason"]?.ToString();
+            string reasonLabel = reason == "last_positive_board" ? "同分，追平队胜"
+                : reason == "draw" ? "平局，各0.5盘分" : "按团队累计副分";
+            gameRandomSeed.text = "<size=24>双打判定：" + reasonLabel + "\n" + gameRandomSeed.text + "</size>";
+        }
         if (GameSession.Current.IsDuplicate) {
-            gameRandomSeed.text = "复式 · " + DuplicateWallDisplay.TypeName(GameSession.Current.DuplicateWallType)
+            string scoring = teamResult?["team_result_reason"]?.ToString();
+            string title = scoring == "imp" ? "血战双打复式 · IMP" : scoring == "raw_difference" ? "血流双打复式 · 副差分" : "复式 · " + DuplicateWallDisplay.TypeName(GameSession.Current.DuplicateWallType);
+            gameRandomSeed.text = title
                 + "\n牌谱须在密钥解除锁定后到数据站查看，不保存本地牌谱。";
         }
         if (copyMasterSeedButton != null) copyMasterSeedButton.gameObject.SetActive(!GameSession.Current.IsDuplicate);

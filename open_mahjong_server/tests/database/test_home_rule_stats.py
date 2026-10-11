@@ -2,7 +2,7 @@
 
 from copy import deepcopy
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 import pytest
 
 from server.database.rule_identity import canonical_game_record
@@ -63,9 +63,9 @@ def test_nanque_opening_draw_stays_with_dealer_and_invalid_seats_are_ignored():
 
 @pytest.mark.parametrize("rule,profile", [("guangdong","guangdong/mil2023"),("guangdong","guangdong/tuidao_mil2024"),
     ("shanghai","shanghai/qiaoma"),("shanghai","shanghai/qinghunpeng")])
-def test_regional_custom_writes_keep_profile_and_actual_player_counters(rule,profile):
-    cursor, conn = Mock(), Mock()
-    conn.cursor.return_value = cursor
+def test_regional_custom_writes_keep_profile_and_replay_counters(rule,profile):
+    cursor, conn = Mock(), MagicMock()
+    conn.cursor.return_value = MagicMock(__enter__=Mock(return_value=cursor))
     db = SimpleNamespace(_get_connection=lambda: conn, _put_connection=Mock())
     player = SimpleNamespace(user_id=10000101,username="测试",score=32,original_player_index=0,
         record_counter=SimpleNamespace(zimo_times=2,dianhe_times=1,fangchong_times=1,rank_result=1,
@@ -74,8 +74,8 @@ def test_regional_custom_writes_keep_profile_and_actual_player_counters(rule,pro
         dict(rule=rule,sub_rule=profile,room_type="custom",match_type="1/4"))
     values = cursor.execute.call_args.args[1]
     assert values[3:8] == (rule,profile,"custom",None,None)
-    assert values[13:16] == (3,2,1)
-    assert values[25] == 32
+    assert values[13:16] == (1,1,0)
+    assert values[25] == 24
     conn.commit.assert_called_once()
 
 

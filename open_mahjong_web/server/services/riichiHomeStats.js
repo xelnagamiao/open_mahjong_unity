@@ -1,3 +1,4 @@
+const { subRuleSql, statsKeySql } = require('./statisticsCatalog');
 const { RIICHI_STATS_VERSION, BASE_KEYS, DETAIL_KEYS } = require('./riichiStats');
 
 const GAME_TYPES = { 1: 'dongfeng', 2: 'banzhuang', 3: 'xifeng', 4: 'quanzhuang' };
@@ -9,7 +10,7 @@ function querySql(withSummaries) {
   const details = DETAIL_KEYS.map(key => `'${key}',COALESCE(SUM((stats->'riichi_details'->>'${key}')::bigint),0)`).join(',');
   return `
     WITH players AS (
-      SELECT p.game_id,p.room_type,p.match_type,p.sub_rule,p.match_tier,p.rank,
+      SELECT p.game_id,p.room_type,p.match_type,${subRuleSql()} AS sub_rule,${statsKeySql(subRuleSql())} AS rule,p.match_tier,p.rank,
              ${withSummaries ? 's.stats' : 'NULL::jsonb AS stats'},
              (COALESCE(p.sub_rule,'')='riichi/sanma'
                OR COALESCE(p.match_type,'') ~ '^[0-9]+/3(_rank)?$'
@@ -26,7 +27,7 @@ function querySql(withSummaries) {
           CASE WHEN room_type='match' THEN match_tier ELSE NULL END AS tier
       FROM players
     )
-    SELECT room_type,mode,tier AS match_tier,player_count,
+    SELECT rule,sub_rule,room_type,mode,tier AS match_tier,player_count,
            COUNT(DISTINCT game_id)::int AS total_games,
            COUNT(*)::int AS player_game_count,
            COUNT(stats)::int AS analyzed_player_games,
@@ -34,7 +35,7 @@ function querySql(withSummaries) {
            ${BASE_KEYS.filter(key => key !== 'total_games' && !RANK_KEYS.includes(key)).map(sum).join(',')},
            ${RANK_KEYS.map((key, index) => `COUNT(*) FILTER (WHERE rank=${index + 1} AND rank<=player_count)::int AS ${key}`).join(',')},
            jsonb_build_object(${details}) AS riichi_details
-    FROM samples GROUP BY room_type,mode,tier,player_count
+    FROM samples WHERE rule IS NOT NULL GROUP BY rule,sub_rule,room_type,mode,tier,player_count
     ORDER BY room_type,mode,tier,player_count
   `;
 }
@@ -51,7 +52,7 @@ async function queryRiichiHomeStats(db) {
   }
   return result.rows.map(row => {
     const gameType = GAME_TYPES[Number.parseInt(row.mode, 10)] || null;
-    const out = { ...row, rule: Number(row.player_count) === 3 ? 'riichi_sanma' : 'riichi', source: 'riichi_summary',
+    const out = { ...row, source: 'riichi_summary',
       game_type: gameType, game_type_label: GAME_LABELS[gameType] || row.mode,
       riichi_details: row.riichi_details };
     for (const key of [...BASE_KEYS, 'player_game_count', 'analyzed_player_games', 'player_count']) {

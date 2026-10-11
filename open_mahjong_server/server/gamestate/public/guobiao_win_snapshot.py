@@ -4,6 +4,7 @@ from copy import deepcopy
 import json
 
 from ...game_calculation.guobiao_hepai_check import Chinese_Hepai_Check
+from ...game_calculation.riichi.washizu_tiles import face
 
 
 SNAPSHOT_VERSION = 1
@@ -37,7 +38,7 @@ def make_snapshot(hand, melds, flowers, *, total_fan, fans, win_type,
     all_tiles = hand + [tile for group in melds for tile in group]
     if len(hand) + 3 * len(melds) != 14 or any(len(group) not in (3, 4) for group in melds):
         raise ValueError("和牌手牌与副露数量不完整")
-    if any(tile not in TILES for tile in all_tiles) or any(count > 4 for count in Counter(all_tiles).values()):
+    if any(face(tile) not in TILES for tile in all_tiles) or any(count > 4 for count in Counter(map(face, all_tiles)).values()):
         raise ValueError("和牌牌面包含非法牌号或超过四张同牌")
     if winning_tile not in hand:
         raise ValueError("和牌张未包含在手牌中")
@@ -150,16 +151,18 @@ def _round_wins(record, round_data, round_index):
             drawn[actor] = False
             last_winnable = None
         elif action == "ag":
-            _remove(hand, [tile] * 4)
-            melds[actor].append([tile] * 4)
+            removed = [int(t) for t in tick[3:7]] if len(tick) >= 7 else [tile] * 4
+            _remove(hand, removed)
+            melds[actor].append(removed)
             drawn[actor] = False
         elif action == "jg":
-            _remove(hand, [tile])
-            group = next((group for group in melds[actor] if group == [tile] * 3), None)
+            actual = int(tick[3]) if len(tick) > 3 else tile
+            _remove(hand, [actual])
+            group = next((group for group in melds[actor] if [face(t) for t in group] == [face(tile)] * 3), None)
             if group is None:
                 raise ValueError("加杠缺少对应碰牌")
-            group.append(tile)
-            last_winnable = tile
+            group.append(actual)
+            last_winnable = actual
             drawn[actor] = False
         else:
             raise ValueError(f"不支持的国标牌谱动作: {action}")

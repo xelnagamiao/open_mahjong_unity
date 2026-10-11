@@ -59,10 +59,9 @@ class FreeGameState:
         self.round_random_seed = 0
         self.tiles_list: list[int] = []
         self.action_tick = 0
-        self.transfer_tile: Optional[int] = None
-        self.transfer_face_down = False
+        self.transfer_tiles: list[dict] = []
         self.score_revision = 0
-        self.discard_log: list[tuple[int, int]] = []
+        self.discard_log: list[tuple] = []
         self.ended = False
         self._ended = asyncio.Event()
         self._lock = asyncio.Lock()
@@ -87,6 +86,14 @@ class FreeGameState:
     def seat_count(self) -> int:
         return len(self.player_list)
 
+    @property
+    def transfer_tile(self) -> Optional[int]:
+        return self.transfer_tiles[0]["tile"] if self.transfer_tiles else None
+
+    @property
+    def transfer_face_down(self) -> bool:
+        return bool(self.transfer_tiles and self.transfer_tiles[0]["face_down"])
+
     def _player_by_user(self, user_id: int) -> Optional[FreePlayer]:
         for player in self.player_list:
             if player.user_id == user_id:
@@ -99,15 +106,15 @@ class FreeGameState:
     def _reset_table(self, *, reshuffle: bool) -> None:
         for player in self.player_list:
             player.clear_table()
-        self.transfer_tile = None
-        self.transfer_face_down = False
+        self.transfer_tiles.clear()
         self.discard_log.clear()
         if reshuffle:
             shuffle_wall(self)
 
-    def _remove_discard_log(self, player_index: int, tile_id: int) -> None:
+    def _remove_discard_log(self, player_index: int, tile_id: int, token: int = 0) -> None:
         for i in range(len(self.discard_log) - 1, -1, -1):
-            if self.discard_log[i] == (player_index, tile_id):
+            entry = self.discard_log[i]
+            if entry[:2] == (player_index, tile_id) and (not token or len(entry) > 2 and entry[2] == token):
                 del self.discard_log[i]
                 return
 
@@ -130,7 +137,7 @@ class FreeGameState:
             action = (message.get("action") or "").strip()
             tile_id = message.get("TileId", message.get("tile"))
             if action == "cut" or (not action and tile_id is not None):
-                await self._cut(player, int(tile_id or 0))
+                await self._cut(player, int(tile_id or 0), message.get("face_down") is True)
                 return
             if action in SHOUT_WORDS:
                 await self._shout(player, action)
@@ -163,21 +170,26 @@ class FreeGameState:
         self._bump_tick()
         await boardcast.broadcast_do_action(self, boardcast.deal_payloads(self, player.player_index, tile_id))
 
-    async def _cut(self, player: FreePlayer, tile_id: int) -> None:
+    async def _cut(self, player: FreePlayer, tile_id: int, face_down: bool = False) -> None:
         if tile_id <= 0:
             return
         cut_class = player.has_draw_slot and player.last_drawn_tile == tile_id
         if not player.take_hand_tile(tile_id):
             return
-        player.discard_tiles.append(tile_id)
-        self.discard_log.append((player.player_index, tile_id))
+        faces, tokens = player.area_metadata()
         self._bump_tick()
+        player.discard_tiles.append(tile_id)
+        faces.append(face_down)
+        tokens.append(self.action_tick)
+        self.discard_log.append((player.player_index, tile_id, self.action_tick))
         await boardcast.broadcast_do_action(self, {
             viewer: boardcast.do_action_envelope(
                 self,
                 ["cut"],
                 player.player_index,
-                cut_tile=tile_id,
+                revealed_player_index=player.player_index if player.revealed else None,
+                cut_tile=tile_id if not face_down or viewer == player.player_index else 0,
+                concealed_discard=face_down,
                 cut_class=cut_class,
             )
             for viewer in range(self.seat_count)
@@ -187,14 +199,20 @@ class FreeGameState:
         tile_id = int(message.get("tile") or message.get("TileId") or 0)
         if tile_id <= 0 or not player.take_hand_tile(tile_id):
             return
-        player.huapai_list.append(tile_id)
+        face_down = message.get("face_down") is True
+        faces, tokens = player.area_metadata(flower=True)
         self._bump_tick()
+        player.huapai_list.append(tile_id)
+        faces.append(face_down)
+        tokens.append(self.action_tick)
         await boardcast.broadcast_do_action(self, {
             viewer: boardcast.do_action_envelope(
                 self,
                 ["free_to_flower"],
                 player.player_index,
-                buhua_tile=tile_id,
+                revealed_player_index=player.player_index if player.revealed else None,
+                buhua_tile=tile_id if not face_down or viewer == player.player_index else 0,
+                free_face_down=face_down,
                 is_mo_buhua=False,
                 silent=True,
             )
@@ -255,6 +273,7 @@ class FreeGameState:
         tiles = [mask[i + 1] for i in range(0, len(mask), 2)]
         include_river = bool(message.get("include_river"))
         river = boardcast.last_alive_discard(self)
+        river_location = boardcast.last_discard_location(self)
         river_player = None
         river_tile = None
         river_index = None
@@ -285,8 +304,11 @@ class FreeGameState:
             owner = self.player_list[river_player]
             if river_tile not in owner.discard_tiles:
                 return
-            owner.discard_tiles.remove(river_tile)
-            self._remove_discard_log(river_player, river_tile)
+            discard_index = river_location[1]
+            faces, tokens = owner.area_metadata()
+            owner.discard_tiles.pop(discard_index)
+            faces.pop(discard_index)
+            self._remove_discard_log(river_player, river_tile, tokens.pop(discard_index))
             cut_from = river_player
             mask[river_index * 2] = 1
         player.combination_mask.append(mask)
@@ -308,46 +330,43 @@ class FreeGameState:
         })
 
     async def _recall_river(self, player: FreePlayer, message: dict) -> None:
-        index = int(message.get("index", -1))
-        tile_id = int(message.get("tile") or 0)
-        if index < 0 or index >= len(player.discard_tiles):
-            return
-        if player.discard_tiles[index] != tile_id:
-            return
-        player.discard_tiles.pop(index)
-        self._remove_discard_log(player.player_index, tile_id)
-        player.hand_tiles.append(tile_id)
-        self._bump_tick()
-        await boardcast.broadcast_do_action(self, {
-            viewer: boardcast.do_action_envelope(
-                self,
-                ["free_recall_river"],
-                player.player_index,
-                cut_tile=tile_id,
-                cut_tile_index=index,
-                deal_tile=tile_id if viewer == player.player_index or player.revealed else None,
-            )
-            for viewer in range(self.seat_count)
-        })
+        await self._recall_area(player, message, flower=False)
 
     async def _recall_flower(self, player: FreePlayer, message: dict) -> None:
-        index = int(message.get("index", -1))
-        tile_id = int(message.get("tile") or 0)
-        if index < 0 or index >= len(player.huapai_list):
+        await self._recall_area(player, message, flower=True)
+
+    async def _recall_area(self, player: FreePlayer, message: dict, *, flower: bool) -> None:
+        tiles = player.huapai_list if flower else player.discard_tiles
+        index = message.get("index", -1)
+        if type(index) is not int or not 0 <= index < len(tiles):
             return
-        if player.huapai_list[index] != tile_id:
+        faces, tokens = player.area_metadata(flower)
+        face_down = faces[index]
+        expected_tile = 0 if face_down else tiles[index]
+        # A hidden tile cannot be identified by value. Reject stale selections after a removal.
+        if message.get("tile") != expected_tile:
             return
-        player.huapai_list.pop(index)
+        if (face_down or "token" in message) and (type(message.get("token")) is not int or message["token"] != tokens[index]):
+            return
+        tile_id = tiles.pop(index)
+        token = tokens.pop(index)
+        faces.pop(index)
+        if not flower:
+            self._remove_discard_log(player.player_index, tile_id, token)
+        if face_down:
+            player.revealed = False
         player.hand_tiles.append(tile_id)
         self._bump_tick()
         await boardcast.broadcast_do_action(self, {
             viewer: boardcast.do_action_envelope(
                 self,
-                ["free_recall_flower"],
+                ["free_recall_flower" if flower else "free_recall_river"],
                 player.player_index,
-                buhua_tile=tile_id,
+                revealed_player_index=player.player_index if player.revealed else None,
+                **{"buhua_tile" if flower else "cut_tile": expected_tile},
                 cut_tile_index=index,
                 deal_tile=tile_id if viewer == player.player_index or player.revealed else None,
+                free_face_down=face_down,
             )
             for viewer in range(self.seat_count)
         })
@@ -376,37 +395,54 @@ class FreeGameState:
         })
 
     async def _transfer_put(self, player: FreePlayer, message: dict) -> None:
-        if self.transfer_tile is not None:
+        if len(self.transfer_tiles) >= 3:
             return
         tile_id = int(message.get("tile") or 0)
         if tile_id <= 0 or not player.take_hand_tile(tile_id):
             return
-        self.transfer_tile = tile_id
-        self.transfer_face_down = message.get("face_down") is True
+        face_down = message.get("face_down") is True
+        used_slots = {item["slot"] for item in self.transfer_tiles}
+        slot = next(number for number in (1, 2, 3) if number not in used_slots)
         self._bump_tick()
+        self.transfer_tiles.append({"slot": slot, "tile": tile_id, "face_down": face_down, "token": self.action_tick})
         await boardcast.broadcast_do_action(self, {
             viewer: boardcast.do_action_envelope(
                 self,
                 ["free_transfer_put"],
                 player.player_index,
                 revealed_player_index=player.player_index if player.revealed else None,
-                cut_tile=tile_id if not self.transfer_face_down or viewer == player.player_index else 0,
-                transfer_face_down=self.transfer_face_down,
+                cut_tile=tile_id if not face_down or viewer == player.player_index else 0,
+                transfer_face_down=face_down,
+                transfer_slots=[slot],
             )
             for viewer in range(self.seat_count)
         })
 
-    async def _transfer_take(self, player: FreePlayer, _message: dict) -> None:
-        if self.transfer_tile is None:
+    async def _transfer_take(self, player: FreePlayer, message: dict) -> None:
+        if not self.transfer_tiles:
             return
-        tile_id = self.transfer_tile
-        face_down = self.transfer_face_down
-        self.transfer_tile = None
-        self.transfer_face_down = False
+        selection = message.get("tiles")
+        if selection is None:
+            # Compatibility for older clients, which only display the first tile.
+            selection = [self.transfer_tiles[0]]
+        if not isinstance(selection, list) or not 1 <= len(selection) <= 3:
+            return
+        selected = {}
+        for item in selection:
+            if (not isinstance(item, dict) or type(item.get("slot")) is not int
+                    or type(item.get("token")) is not int or item["slot"] in selected):
+                return
+            selected[item["slot"]] = item["token"]
+        taken = [item for item in self.transfer_tiles if selected.get(item["slot"]) == item["token"]]
+        # Validate the complete batch before changing either the table or the hand.
+        if len(taken) != len(selected):
+            return
+        self.transfer_tiles[:] = [item for item in self.transfer_tiles if item["slot"] not in selected]
+        face_down = any(item["face_down"] for item in taken)
         # 暗牌只交给拿牌者；公开手牌须先竖起，避免广播/重连快照立即泄露新牌。
         if face_down:
             player.revealed = False
-        player.hand_tiles.append(tile_id)
+        player.hand_tiles.extend(item["tile"] for item in taken)
         self._bump_tick()
         await boardcast.broadcast_do_action(self, {
             viewer: boardcast.do_action_envelope(
@@ -414,8 +450,10 @@ class FreeGameState:
                 ["free_transfer_take"],
                 player.player_index,
                 revealed_player_index=player.player_index if player.revealed else None,
-                deal_tile=tile_id if not face_down or viewer == player.player_index else 0,
+                deal_tile=(taken[0]["tile"] if not taken[0]["face_down"] or viewer == player.player_index else 0) if len(taken) == 1 else None,
+                deal_tiles=[item["tile"] if not item["face_down"] or viewer == player.player_index else 0 for item in taken],
                 transfer_face_down=face_down,
+                transfer_slots=[item["slot"] for item in taken],
             )
             for viewer in range(self.seat_count)
         })

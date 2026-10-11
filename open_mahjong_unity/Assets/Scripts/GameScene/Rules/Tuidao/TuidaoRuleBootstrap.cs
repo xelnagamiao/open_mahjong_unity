@@ -10,6 +10,8 @@ internal static class TuidaoRuleBootstrap {
         RuleNameDictionary.WholeName[GuangdongMilRules.SubRule] = "广东麻将（MIL 2023，花鬼）";
         RuleNameDictionary.ShortName[GuangdongMilRules.SubRule] = "广东花鬼";
         RuleRegistry.Register(new RuleManifest {
+            ReplayFactory = record => record.CreateTuidaoReplayModule(),
+            BuildRoom = TuidaoRoomBuilder.Build,
             RuleId = RuleId, DefaultSubRule = SubRule, DisplayName = "广东麻将", LobbyOrder = 15,
             LobbySubRules = new[] { new RuleLobbySubRule(SubRule, "MIL 2024（推倒和）",
                 "MIL《推倒和麻将（推广）竞赛规则（试行2024版）》：136张、十三张手牌，无花无癞子。可以吃碰杠，报听可选，头跳；番数相加32封顶，另加2底分，自摸三家付，点和一家付双份。杠分即时结算。战术鸣牌默认开启，有机器人时关闭；普通询问按房间步时加剩余局时，抢断再问独立5秒，允许升级申请。"), new RuleLobbySubRule(GuangdongMilRules.SubRule, "MIL 2023（花鬼）", GuangdongMilRules.Description) },
@@ -35,8 +37,6 @@ internal static class TuidaoRuleBootstrap {
             SettlementTotal = query => GuangdongMilRules.IsMil(query.Rule) ? GuangdongMilRules.Total(query) : new SettlementTotalDisplay {
                 FanText = $"{query.HuScore}番", ScoreText = $"{2 + query.HuScore}分"
             },
-            SettlementFootnote = query => GuangdongMilRules.IsMil(query.Rule) ? "花鬼留手；奖马及杠分明细见花鬼账目。流局退杠。" : query.HuFan == null ? "荒庄：保留已成立的杠分。"
-                : "基本分＝2＋番数（32封顶），杠分另计。\n自摸三家各付；点和一家付双份。",
             ActionCaption = word => word == "riichi" || word == "riichi_cut" ? "报听"
                 : word == "riichi_cut_cancel" ? "取消报听" : null,
             ActionVoice = ActionVoice,

@@ -8,20 +8,6 @@ using UnityEngine.UI;
 public partial class CreatePanel {
     private string _hongKongControlsSubRule;
 
-    private void CreateHongKongRoom() {
-        var config=new HongKong_Create_RoomConfig {
-            RoomName=roomNameInput.text.Trim(), GameRound=GetSelectedGameTime(), Rule="hongkong",SubRule=GetSelectedSubRule(),
-            Password=passwordToggle.isOn?passwordInput.text.Trim():"",RandomSeed=SetRandomSeedToggle.isOn?randomSeedInput.text.Trim():"",
-            RoundTimer=GetSelectedRoundTimer(),StepTimer=GetSelectedStepTimer(),Tips=tipsToggle.isOn,
-            CountTips=countTipsToggle.isOn,PointerTips=pointerTipsToggle.isOn,TouristLimit=TouristLimitToggle.isOn,
-            AllowSpectator=AllowSpectatorToggle.isOn,EventId=_venueEventId,DetailedConfig=BuildDetailedConfigValues("hongkong"),
-        };
-        if (!config.Validate(out string error,passwordToggle.isOn,SetRandomSeedToggle.isOn)) {
-            NotificationManager.Instance.ShowTip("create_room",false,error); return;
-        }
-        RoomNetworkManager.Instance.Create_HongKong_Room(config);
-    }
-
     private void BindHongKongMainControls() {
         var root=RoomContent.Find("HongKongSettings") as RectTransform;
         if (!root) { Debug.LogError("香港麻将主页面设置尚未烘焙。",this); return; }

@@ -1,0 +1,27 @@
+Salasasa Mahjong Platform Account Regulations
+
+General provisions
+
+1. The Salasasa mahjong platform is a demo server for the open-source open_mahjong_unity project (OMU). The platform is an independent project, distinct from the open-source project. It is currently maintained by the author of the OMU repository, but neither project is subordinate to the other.
+
+2. We understand that developers building their own platforms from the open-source project may not be able to replace every reference to Salasasa immediately. When reading these regulations, players should therefore check that the current domain is salasasa.cn and that they are using the correct Steam store page and APK version. The developer shown on the Steam store page must be Salasasa Studio. The authorized APK download is the one provided through salasasa.cn; all other means of obtaining it are unauthorized.
+
+3. Users must comply with all these regulations when registering an account or playing on the Salasasa mahjong platform.
+
+4. The platform may interpret or revise these regulations. Continuing to use Salasasa after the user agreement has been updated constitutes acceptance of the revised agreement.
+
+Accounts and account information
+
+1. An account registered on the platform belongs to you personally and must not be lent, rented or transferred to someone else. The platform may make exceptions for reasonable account sharing in beginner and intermediate rooms. If such sharing has harmful consequences, the platform may still take action against the accounts involved.
+
+2. The platform may issue warnings, suspend accounts, block IP addresses or delete data for conduct including, but not limited to, sensitive nicknames, unlawful activity, disruption of public order, insulting statements and collusion or cheating. When imposing a penalty, the platform should explain the action taken and its reason. Accounts without a login for an extended period of more than six months may also be reclaimed. If a well-known mahjong player or public figure requests a username associated with them, the platform may require the current account to change its name to release that name. Some nonessential peripheral data may also be deleted during updates; players are notified of that possibility here.
+
+3. To support the continued development of competitive mahjong, all your game data will be publicly accessible on the statistics site. You permit it to be used for statistics, AI training, videos or any other purpose. The platform also authorizes anyone to use this public-domain game data: anyone may package, distribute and study Salasasa game records, including for commercial purposes. Non-game data, such as account ranks, avatars, signatures, and event or club announcements, is excluded.
+
+Obligations and standards for the platform and its players
+
+1. Salasasa guarantees that it will not manipulate deals, provide preferential treatment or otherwise act unfairly toward particular users or IP addresses. It guarantees that its core code behaves consistently with the open-source open_mahjong_unity project. Here, core code specifically means wall construction and game-play logic affecting fairness. Platform releases and repository updates may not occur simultaneously, so differences can exist for a period. Certain special rulesets may deliberately include asymmetric mechanics for entertainment; non-core features may also contain unintended fairness shortcomings caused by design oversights. Any future novelty rules that deal tiles according to a username or user ID are outside this restriction. The platform accepts legal responsibility for problems found within the scope of this guarantee.
+
+2. Users questioning the fairness of dealing on Salasasa must provide actual evidence. The platform states that it will unconditionally bring legal action against people who publicly make allegations impugning its fairness. Public venues include, but are not limited to, Xiaoheihe, Xiaohongshu, Tieba, Bilibili, highly upvoted comment sections and large QQ groups. Ordinary venting about unpleasant deals, feeling targeted, or saying that a particular player always gets good tiles is considered acceptable. This provision is limited to explicit statements alleging suspected manipulation of deals. The platform states that it will also pursue such action against people who do not use the platform.
+
+3. This platform is built on open_mahjong_unity. The README at https://github.com/xelnagamiao/open_mahjong_unity sets out separate restrictions and requirements concerning asset licensing, commercial use and operating obligations. As the project's demo platform, Salasasa has an exceptional status and those restrictions and requirements do not apply to it.

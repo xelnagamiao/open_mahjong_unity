@@ -23,12 +23,15 @@ export function createDefaultGuobiaoRoomConfig() {
 
 /** 组装提交给服务端的 room_config + password */
 export function buildGuobiaoRoomPayload(form) {
+  if (form.sub_rule === 'guobiao/transparent' && String(form.duplicate_key || '').trim()) {
+    throw new Error('透明国标不能使用普通复式牌墙，可用随机种子复现牌局')
+  }
   const password = String(form.password || '').trim()
   const room_config = {
     ...(String(form.duplicate_key || '').trim() ? { duplicate_key: String(form.duplicate_key).trim() } : {}),
     room_name: String(form.room_name || '').trim() || undefined,
     sub_rule: form.sub_rule || 'guobiao/standard',
-    tian_di_ren_he: ['guobiao/standard', 'guobiao/blood_battle'].includes(form.sub_rule || 'guobiao/standard') && !!form.tian_di_ren_he,
+    tian_di_ren_he: ['guobiao/standard', 'guobiao/blood_battle', 'guobiao/transparent'].includes(form.sub_rule || 'guobiao/standard') && !!form.tian_di_ren_he,
     // A duplicate wall owns this setting; omit independent room overrides.
     ...(!String(form.duplicate_key || '').trim() ? { use_flowers: form.sub_rule === 'guobiao/lanshi' ? false : form.use_flowers !== false } : {}),
     game_round: Number(form.game_round) || 4,

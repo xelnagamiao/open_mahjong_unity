@@ -65,3 +65,28 @@ def test_unity_catalog_matches_server():
     asset = root/'open_mahjong_unity/Assets/Resources/RiichiRuleOptions.json'
     assert asset.is_file(), 'Main Unity catalog must be present in the workspace'
     assert json.loads(asset.read_text(encoding='utf-8')) == catalog()
+    web_option = root/'open_mahjong_web/shared/riichiWinRequirements.json'
+    assert json.loads(web_option.read_text(encoding='utf-8')) == next(o for o in catalog()['options'] if o['key'] == 'minimum_win_score')
+
+
+@pytest.mark.parametrize('score', [0,2000,4000,6000,8000,12000,16000,24000,32000])
+def test_both_thresholds_roundtrip_through_custom_and_event_rooms(score):
+    async def check():
+        for event in (False, True):
+            manager, server = helpers.RiichiStartingScoreTests().manager()
+            detail = {'minimum_win_score': score}
+            if event:
+                response = await manager.create_empty_event_room('event-test','riichi',
+                    dict(hepai_limit=3, detailed_config=detail), broadcast=False)
+            else:
+                response = await manager.create_Riichi_room('connection','thresholds',2,'',20,5,False,
+                    hepai_limit=3, detailed_config=detail)
+            assert response.success, response.message
+            game = RiichiGameState(server,response.room_info,None,None,'thresholds-test')
+            assert game.hepai_limit == 3 and game.detailed_config['minimum_win_score'] == score
+    asyncio.run(check())
+
+
+@pytest.mark.parametrize('score', [True, False, '8000', -1, 1000, 3000, None])
+def test_invalid_win_line_rejected(score):
+    with pytest.raises(ValueError): validate(detailed_config={'minimum_win_score': score})

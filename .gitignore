@@ -32,6 +32,8 @@
 !/open_mahjong_server/docs/
 !/open_mahjong_server/scripts/
 /open_mahjong_server/scripts/*
+!/open_mahjong_server/scripts/sync_statistics_catalog.py
+!/open_mahjong_server/scripts/validate_rule_support_table.py
 /open_mahjong_server/server/error_log/
 /open_mahjong_server/server/local_config.py
 /open_mahjong_server/logs/
@@ -66,6 +68,7 @@ xcuserdata.meta
 *.tmp
 *.bak
 *.orig
+*.inspect.ndjson
 *.lnk
 *.blend[0-9]*
 *~
@@ -75,6 +78,7 @@ xcuserdata.meta
 .env.*
 !/open_mahjong_web/.env
 !/open_mahjong_web/.env.example
+!/open_mahjong_web/client/.env.production.example
 !/open_mahjong_server/.env.example
 !/open_mahjong_chatServer/.env.example
 *.pem
@@ -107,6 +111,7 @@ secret_key.txt
 /open_mahjong_web/data/fun-data/**
 !/open_mahjong_web/data/fun-data/.gitkeep
 /open_mahjong_web/data/record-convert-shares/
+/open_mahjong_web/data/geoip/
 
 # other 提交共享素材、配表、规则资料及说明，以及明确交付的 UnityBatchBuild 工具。
 # 生成器、一次性工具、构建和验收过程文件放 .om_workspace/。

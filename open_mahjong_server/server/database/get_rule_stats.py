@@ -16,23 +16,10 @@ class StatsSelection:
     player_count: int = 4
 
 
-SELECTIONS = {rule: StatsSelection(rule) for rule in (
-    "guobiao", "riichi", "qingque", "classical", "changsha", "taiwan",
-    "hongque", "hongkong", "shanxi", "changchun", "free",
-    "guizhou", "yixing", "wenzhou", "hangzhou", "hongzhong",
-)}
-SELECTIONS.update({
-    "guobiao_sanma": StatsSelection("guobiao", "guobiao/sanma", 3),
-    "riichi_sanma": StatsSelection("riichi", "riichi/sanma", 3),
-    "sichuan": StatsSelection("sichuan", "sichuan/standard"),
-    "sichuan_xueliu_exchange": StatsSelection("sichuan", "sichuan/xueliu_exchange"),
-    "zhongyong": StatsSelection("zhongyong", "zhongyong/standard"),
-    "nanque": StatsSelection("zhongyong", "zhongyong/nanque"),
-    "guangdong": StatsSelection("guangdong", "guangdong/mil2023"),
-    "guangdong_tuidao": StatsSelection("guangdong", "guangdong/tuidao_mil2024"),
-    "shanghai": StatsSelection("shanghai", "shanghai/qiaoma"),
-    "shanghai_qinghunpeng": StatsSelection("shanghai", "shanghai/qinghunpeng"),
-})
+from .statistics_catalog import RULES, selection
+
+SELECTIONS = {row["key"]: StatsSelection(row["rule"], row["sub_rule"], row["player_count"])
+              for row in RULES if row["basic_stats"]}
 
 
 def validate_selection(message):
@@ -62,70 +49,55 @@ def canonical_mode(mode, count):
     return f"{match[1]}/4" + ("_sanma" if count == 3 else "") if match else (mode or "")
 
 
-def get_custom_rule_history(db, user_id, rule):
-    selection = SELECTIONS[rule]
-    # 古早房间缺子规则时，沿用各房间入口当时的实际默认玩法。
-    default_sub_rule = {
-        "guangdong": "guangdong/tuidao_mil2024", "zhongyong": "zhongyong/standard",
-        "sichuan": "sichuan/standard",
-        "shanghai": "shanghai/qiaoma",
-    }.get(selection.source_rule, "")
-    sub_expr = "COALESCE(NULLIF(p.sub_rule,''),NULLIF(g.record->'game_title'->>'sub_rule',''),%s)"
-    params = [user_id, selection.source_rule, default_sub_rule]
-    if selection.source_rule in ("guobiao", "riichi"):
-        # 兼容旧 /3 局制，但不会将三人、四人的样本合在一起。
-        predicate = f"({sub_expr}=%s OR COALESCE(p.match_type,'') ~ '^[1-4]/3(_rank)?$' OR COALESCE(p.match_type,'') ~ '^[1-4]/4_sanma(_rank)?$')"
-        params.append(selection.source_rule + "/sanma")
-        if selection.player_count == 4:
-            predicate = "NOT " + predicate
-    elif selection.sub_rule:
-        predicate = sub_expr + "=%s"
-        params.append(selection.sub_rule)
-    else:
-        predicate = sub_expr + " IS NOT NULL"
-
-    riichi = selection.source_rule == "riichi"
-    summary_join = "LEFT JOIN riichi_player_game_stats s ON s.game_id=p.game_id AND s.user_id=p.user_id AND s.version=%s" if riichi else ""
-    # 版本参数位于 WHERE 参数之前。
-    if riichi:
-        params.insert(0, VERSION)
-    metrics = [key for key in BASE_KEYS if key != "total_games"]
+def get_rule_history(db, user_id, rule, room_type="custom"):
+    definition = selection(rule)
+    fields = [key for key in BASE_KEYS if key != "total_games"]
     conn = db._get_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(f"""SELECT p.match_type AS mode,p.rank,
-                {','.join('m.' + key for key in metrics)},
-                {'s.stats' if riichi else 'NULL::jsonb'} AS summary
-                FROM game_player_records p JOIN game_records g USING(game_id)
-                LEFT JOIN LATERAL (SELECT * FROM game_player_metrics
-                    WHERE game_id=p.game_id AND user_id=p.user_id ORDER BY id DESC LIMIT 1) m ON TRUE
-                {summary_join}
-                WHERE p.user_id=%s AND p.rule=%s AND p.room_type='custom' AND {predicate}
-                AND NOT EXISTS (SELECT 1 FROM game_player_records bot
-                    WHERE bot.game_id=p.game_id AND bot.user_id<=10000000)
-                ORDER BY p.match_type,p.game_id""", params)
+            cur.execute(f"""SELECT m.match_type AS mode,m.room_type,{','.join('m.' + key for key in fields)},
+                m.fan_stats,s.stats AS summary
+                FROM game_player_metrics m
+                LEFT JOIN riichi_player_game_stats s ON m.rule='riichi'
+                    AND s.game_id=m.game_id AND s.user_id=m.user_id AND s.version=%s
+                WHERE m.user_id=%s AND m.rule=%s AND m.sub_rule=%s
+                    AND (%s IS NULL OR m.room_type=%s)
+                ORDER BY m.match_type,m.game_id""",
+                (VERSION, user_id, definition["rule"], definition["sub_rule"], room_type, room_type))
             totals = defaultdict(empty_stats)
             for row in cur.fetchall():
-                total = totals[canonical_mode(row["mode"], selection.player_count)]
-                summary = row["summary"]
-                if summary:
-                    for key in BASE_KEYS:
-                        total[key] += int(summary.get(key) or 0)
-                    for group in ("riichi_details", "fan_stats"):
-                        for key, value in (summary.get(group) or {}).items():
-                            total[group][key] = total[group].get(key, 0) + int(value or 0)
-                else:
-                    total["total_games"] += 1
-                    for key in metrics:
-                        if not key.endswith("_place_count"):
-                            total[key] += int(row[key] or 0)
-                    if row["rank"] in range(1, selection.player_count + 1):
-                        total[("first", "second", "third", "fourth")[row["rank"] - 1] + "_place_count"] += 1
-            return [dict(rule=rule, mode=mode,
-                         **(stats if riichi else {key: stats[key] for key in BASE_KEYS}))
+                mode = canonical_mode(row["mode"], definition["player_count"])
+                if row["room_type"] == "match":
+                    mode += "_rank" if not mode.endswith("_rank") else ""
+                total = totals[mode]
+                summary = row["summary"] if definition["rule"] == "riichi" else None
+                total["total_games"] += 1
+                for key in fields:
+                    total[key] += (summary.get(key, 0) if summary else row[key]) or 0
+                for key, value in ((summary or {}).get("riichi_details") or {}).items():
+                    total["riichi_details"][key] = total["riichi_details"].get(key, 0) + value
+                if definition["fan_stats"]:
+                    for key, value in (row["fan_stats"] or {}).items():
+                        total["fan_stats"][key] = total["fan_stats"].get(key, 0) + value
+            return [dict(rule=definition["key"], sub_rule=definition["sub_rule"], mode=mode,
+                         **{key: stats[key] for key in BASE_KEYS},
+                         **({"fan_stats": stats["fan_stats"]} if definition["fan_stats"] else {}),
+                         **({"riichi_details": stats["riichi_details"]} if definition["rule"] == "riichi" else {}))
                     for mode, stats in sorted(totals.items())]
     except Exception:
         conn.rollback()
         raise
     finally:
         db._put_connection(conn)
+
+
+def get_custom_rule_history(db, user_id, rule):
+    return get_rule_history(db, user_id, rule, "custom")
+
+
+def get_rule_fans(db, user_id, rule, room_type="custom"):
+    total = {}
+    for row in get_rule_history(db, user_id, rule, room_type):
+        for key, value in (row.get("fan_stats") or {}).items():
+            total[key] = total.get(key, 0) + value
+    return total

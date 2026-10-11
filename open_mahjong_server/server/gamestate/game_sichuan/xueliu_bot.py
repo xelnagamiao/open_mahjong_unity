@@ -76,7 +76,7 @@ def choose_opening(hand, exchange=False):
 def choose_hand(hand, melds, visible, actions, meld_count, dingque, locked=False):
     hand, melds = list(hand), list(melds)
     before = evaluate(hand, melds, visible, meld_count, dingque)
-    for tile in sorted(set(hand)):
+    for tile in ([hand[-1]] if locked else sorted(set(hand))):
         if tile // 10 == dingque:
             continue
         if 'angang' in actions and hand.count(tile) == 4:
@@ -116,8 +116,9 @@ def choose_claim(hand, melds, visible, actions, tile, meld_count=3, dingque=0):
 
 @paced_bot(lambda: _BOT_DELAY)
 async def xueliu_smart_bot_action(state, index, actions, status):
-    if not getattr(state, 'is_xueliu', False):
+    if not getattr(state, 'is_xueliu', False) and not getattr(state, 'is_doubles', False):
         return await smart_bot_action(state, index, actions, status)
+    meld_count = 4 if getattr(state, 'is_doubles', False) else state.xueliu_meld_count
     tick = state.server_action_tick
     if not await _wait_until_actionable(state, index) or not bot_action_is_current(state, index, tick):
         return
@@ -130,17 +131,17 @@ async def xueliu_smart_bot_action(state, index, actions, status):
         for p in state.player_list:
             for t in p.huapai_list:
                 visible[tile_to_34(t)] += 1
-            if not state.xueliu_exchange:
+            if not getattr(state, 'xueliu_exchange', False):
                 for t in p.xueliu_throw_tiles:
                     visible[tile_to_34(t)] += 1
         args = (list(player.hand_tiles), list(player.combination_tiles), visible, tuple(actions))
         if status in ('waiting_hand_action', 'onlycut_after_action'):
             choice, tile, cut_index = await run_room_bot_cpu(state, choose_hand, *args,
-                state.xueliu_meld_count, player.dingque_suit, player.post_hu_lock)
+                meld_count, player.dingque_suit, player.post_hu_lock)
         elif status == 'waiting_action_after_cut':
             cut_tile = state.player_list[state.current_player_index].discard_tiles[-1]
             choice = await run_room_bot_cpu(state, choose_claim, *args, cut_tile,
-                state.xueliu_meld_count, player.dingque_suit)
+                meld_count, player.dingque_suit)
         else:
             choice = 'pass'
     if bot_action_is_current(state, index, tick):

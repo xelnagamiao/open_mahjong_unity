@@ -1,5 +1,6 @@
 """国标副露掩码按视角脱敏：暗杠对他人隐藏真实牌 id。"""
 from typing import List, Optional, Tuple
+from ...game_calculation.riichi.washizu_tiles import is_transparent
 
 
 def _is_full_concealed_kong_mask(mask: List[int]) -> bool:
@@ -20,7 +21,8 @@ def sanitize_angang_mask(mask: Optional[List[int]], owner_index: int, viewer_ind
         return mask
     out = list(mask)
     for i in range(1, len(out), 2):
-        out[i] = 0
+        if not is_transparent(out[i]):
+            out[i] = 0
     return out
 
 

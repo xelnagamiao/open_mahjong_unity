@@ -96,7 +96,7 @@ public partial class Game3DManager : MonoBehaviour
         if (playerPosition == "self")
         {
             // 自家：明牌立姿，按牌面排序，沿 RightDirection 排列
-            closedHand.Sort(TileIdOrder.Comparer);
+            TileIdOrder.SortHand(closedHand);
             Vector3 direction = RightDirection.normalized;
             Quaternion rotation = SelfHandStandingRotation();
             for (int i = 0; i < closedHand.Count; i++)

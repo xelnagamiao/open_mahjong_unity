@@ -13,6 +13,7 @@ from psycopg2.pool import ThreadedConnectionPool
 import pytest
 
 from server.database import player_recent_records as recent
+from server.database.statistics_catalog import BY_KEY
 from server.gamestate.public.guobiao_win_snapshot import (
     capture_guobiao_win, restore_guobiao_best_wins, SNAPSHOT_VERSION,
 )
@@ -23,17 +24,25 @@ UIDS = [10000001, 10000002, 10000003, 10000004]
 
 
 def replay(rule="guobiao", category="custom", fan=24, day=0, ticks=None, hands=None, seats=None):
+    definition = BY_KEY.get(rule, {})
+    source_rule = definition.get("rule", rule)
+    count = definition.get("player_count", 4)
+    modes = definition.get("custom_modes") or ["1/4"]
+    win = (["hu_riichi", 0, "hu_self", fan, 30, ["清一色", "自摸"], [0] * count]
+           if source_rule == "riichi" else ["hu_self", 0, fan, ["清一色", "自摸"], [0] * count, 22])
     return {
         "game_title": {
-            "rule": rule, "sub_rule": rule + "/standard", "room_type": category,
+            "rule": source_rule, "sub_rule": definition.get("sub_rule", rule + "/standard"),
+            "room_type": category, "match_type": modes[0],
+            "match_tier": "beginner" if category == "match" else None,
             "end_time": (datetime(2026, 1, 1) + timedelta(days=day)).isoformat(),
-            **{f"p{i}_uid": uid for i, uid in enumerate(UIDS)},
+            **{f"p{i}_uid": uid for i, uid in enumerate(UIDS[:count])},
         },
         "game_round": {"round_index_1": {
-            "round_index": 1, "seats": seats or [0, 1, 2, 3], "start_player_index": 0,
-            **{f"p{i}_tiles": list((hands or {}).get(i, HAND)) for i in range(4)},
+            "round_index": 1, "seats": seats or list(range(count)), "start_player_index": 0,
+            **{f"p{i}_tiles": list((hands or {}).get(i, HAND)) for i in range(count)},
             "action_ticks": ticks if ticks is not None else [
-                ["d", 22], ["hu_self", 0, fan, ["清一色", "自摸"], [0, 0, 0, 0], 22], ["end"],
+                ["d", 22], win, ["end"],
             ],
         }},
     }
@@ -180,6 +189,15 @@ def database():
             from server.database.riichi.record_stats import ensure_schema
             ensure_schema(cursor)
             recent.ensure_schema(cursor)
+            from server.database.riichi.record_stats import BASE_KEYS
+            fields = [key for key in BASE_KEYS if key != "total_games"]
+            cursor.execute(f"""CREATE TABLE game_player_metrics(
+                game_id VARCHAR(16), user_id BIGINT, username TEXT, rule VARCHAR(10),
+                sub_rule VARCHAR(96), room_type TEXT, match_tier TEXT, event_id TEXT,
+                game_type TEXT, match_type TEXT, score INT, rank INT,
+                {','.join(key + ' INT DEFAULT 0' for key in fields)},
+                created_at TIMESTAMPTZ DEFAULT NOW(), fan_stats JSONB,
+                PRIMARY KEY(game_id,user_id))""")
     yield manager
     pool.closeall()
     with admin.cursor() as cursor:
@@ -201,20 +219,32 @@ def insert_game(manager, game_id, record, rank=1, update=True):
     with connection(manager) as conn, conn.cursor() as cursor:
         cursor.execute("INSERT INTO game_records (game_id, record) VALUES (%s, %s)", (game_id, Json(record)))
         title = record["game_title"]
+        players = []
         for i in range(4):
+            if f"p{i}_uid" not in title:
+                continue
             cursor.execute("""
-                INSERT INTO game_player_records (game_id, user_id, rule, room_type, rank, match_type)
-                VALUES (%s, %s, %s, %s, %s, '1/4')
-            """, (game_id, title[f"p{i}_uid"], title["rule"], title["room_type"], rank))
+                INSERT INTO game_player_records (game_id, user_id, rule, sub_rule, room_type, rank, match_type,
+                    original_player_index, match_tier)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (game_id, title[f"p{i}_uid"], title["rule"], title["sub_rule"], title["room_type"], rank,
+                  title["match_type"], i, title.get("match_tier")))
+            players.append(SimpleNamespace(user_id=title[f"p{i}_uid"], username=f"u{i}", score=0,
+                original_player_index=i, record_counter=SimpleNamespace(rank_result=rank)))
+        from server.database.scene_stats import record_game_metrics
+        record_game_metrics(manager, game_id, record, players, title, cursor=cursor)
+        cursor.execute("UPDATE game_player_metrics SET created_at=%s WHERE game_id=%s",
+                       (recent.ended_at(record, datetime.now()), game_id))
         if update:
             recent.update_player_recent_records(cursor, game_id, record)
 
 
 def test_live_all_rules_scopes_ten_games_and_lifetime_best(database):
     for r, rule in enumerate(recent.RULES):
+        count = BY_KEY[rule]["player_count"]
         for c, category in enumerate(recent.CATEGORIES):
             for day in range(12):
-                insert_game(database, f"{r}{c}{day:02}", replay(rule, category, day=day, fan=88 if day == 0 else 8), rank=day % 4 + 1)
+                insert_game(database, f"{r}{c}{day:02}", replay(rule, category, day=day, fan=88 if day == 0 else 8), rank=day % count + 1)
     for game_id, rule, category in [("free", "free", "custom"), ("events", "guobiao", "events")]:
         insert_game(database, game_id, replay(rule, category, fan=999))
     bot_record = replay(fan=999)
@@ -222,11 +252,13 @@ def test_live_all_rules_scopes_ten_games_and_lifetime_best(database):
     insert_game(database, "robot", bot_record)
     for uid in UIDS:
         data = recent.get_player_recent_records(database, uid)
-        assert set(data) == set(recent.RULES) | {"riichi_sanma", "sichuan_xueliu_exchange"}
+        assert set(data) == set(recent.RULES)
         for rule in recent.RULES:
+            count = BY_KEY[rule]["player_count"]
             for category in recent.CATEGORIES:
                 values = data[rule][category]
-                assert [entry["rank"] for entry in values["placements"]] == [i % 4 + 1 for i in range(2, 12)]
+                expected = [i % count + 1 for i in range(2, 12)] if uid in UIDS[:count] else []
+                assert [entry["rank"] for entry in values["placements"]] == expected, (rule, category, uid)
                 if rule == "guobiao" and uid == UIDS[0]:
                     assert values["big_win"]["total_fan"] == 88
                 else:
@@ -249,17 +281,18 @@ def test_lifetime_record_survives_more_than_thirty_games_and_updates(database):
 
 
 @pytest.mark.parametrize("rule", recent.RULES)
-def test_real_rule_save_entry_updates_in_same_transaction(database, monkeypatch, rule):
-    from server.database import scene_stats
-    monkeypatch.setattr(scene_stats, "record_game_metrics", lambda *args: None)
+def test_real_rule_save_entry_updates_in_same_transaction(database, rule):
     from server.database.db_manager import DatabaseManager
-    # Regional variants use the shared generic record adapter.
-    save = getattr(DatabaseManager, f"store_{rule}_game_record", DatabaseManager.store_taiwan_game_record)
+    definition = BY_KEY[rule]
+    family = "jiandan" if definition["sub_rule"] == "zhongyong/nanque" else definition["rule"]
+    save = getattr(DatabaseManager, f"store_{family}_game_record", DatabaseManager.store_taiwan_game_record)
+    uids = UIDS[:definition["player_count"]]
     players = [SimpleNamespace(user_id=uid, username=f"u{i}", score=0, original_player_index=i,
-                               record_counter=SimpleNamespace(rank_result=i + 1)) for i, uid in enumerate(UIDS)]
-    game_id = save(database, replay(rule), players, "custom", "1/4")
+                               record_counter=SimpleNamespace(rank_result=i + 1)) for i, uid in enumerate(uids)]
+    record = replay(rule)
+    game_id = save(database, record, players, "custom", record["game_title"]["match_type"])
     assert game_id
-    for i, uid in enumerate(UIDS):
+    for i, uid in enumerate(uids):
         data = recent.get_player_recent_records(database, uid)[rule]["custom"]
         assert [(entry["game_id"], entry["rank"]) for entry in data["placements"]] == [(game_id, i + 1)]
 

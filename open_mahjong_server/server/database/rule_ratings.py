@@ -11,7 +11,7 @@ from ..match.sanma_rank_calculator import SANMA_PT_ALGORITHM, sanma_pt_details
 def rating_end_time(value):
     if not isinstance(value, datetime):
         if not isinstance(value, str) or not value.strip():
-            raise ValueError("评分重算缺少对局结束时间")
+            raise ValueError("评分结算缺少对局结束时间")
         value = datetime.fromisoformat(value.replace('Z', '+00:00'))
     if value.tzinfo is None:
         value = value.replace(tzinfo=timezone(timedelta(hours=8)))
@@ -22,7 +22,7 @@ def ensure_rating_schema(cursor):
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS rule_ratings (
             user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-            rule TEXT NOT NULL CHECK (rule IN ('guobiao','riichi','qingque','sichuan','riichi_sanma','sichuan_xueliu_exchange')),
+            rule TEXT NOT NULL CHECK (rule IN ('guobiao','riichi','qingque','sichuan','riichi_sanma','sichuan_xueliu_exchange','hongque')),
             rank_name TEXT NOT NULL DEFAULT '10级', rank_score DOUBLE PRECISION NOT NULL DEFAULT 0,
             elo DOUBLE PRECISION DEFAULT 1500, games INTEGER NOT NULL DEFAULT 0,
             updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -34,7 +34,7 @@ def ensure_rating_schema(cursor):
         ALTER TABLE rule_ratings ALTER COLUMN elo DROP NOT NULL;
         ALTER TABLE rule_ratings DROP CONSTRAINT IF EXISTS rule_ratings_rule_check;
         ALTER TABLE rule_ratings ADD CONSTRAINT rule_ratings_rule_check
-            CHECK (rule IN ('guobiao','riichi','qingque','sichuan','riichi_sanma','sichuan_xueliu_exchange'));
+            CHECK (rule IN ('guobiao','riichi','qingque','sichuan','riichi_sanma','sichuan_xueliu_exchange','hongque'));
         ALTER TABLE rating_settlements ADD COLUMN IF NOT EXISTS players JSONB;
         ALTER TABLE rating_settlements ADD COLUMN IF NOT EXISTS ended_at TIMESTAMPTZ;
     """)
@@ -178,22 +178,5 @@ def get_rule_leaderboard(db, rule='guobiao', limit=100):
 def get_ranked_history(db, user_id, rule):
     if rule not in RULES:
         raise ValueError('不支持的匹配规则')
-    if rule in ('riichi', 'riichi_sanma'):
-        from .riichi.record_stats import get_history_stats
-        return get_history_stats(db, user_id, ranked=True, sanma=rule == 'riichi_sanma')
-    fields = ('total_rounds','win_count','self_draw_count','deal_in_count','total_fan_score',
-              'total_win_turn','total_fangchong_score','first_place_count','second_place_count',
-              'third_place_count','fourth_place_count','fulu_round_count','cuohe_count','total_round_score')
-    conn = db._get_connection()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            columns = ','.join(f'COALESCE(SUM({f}),0) AS {f}' for f in fields)
-            from ..match.rating_rules import ranked_record_scope
-            game_rule, sub_rule = ranked_record_scope(rule)
-            cur.execute(f"SELECT rule,match_type AS mode,COUNT(*) AS total_games,{columns} FROM game_player_metrics WHERE user_id=%s AND rule=%s AND room_type='match' AND (%s IS NULL OR COALESCE(NULLIF(sub_rule, ''), 'sichuan/standard')=%s) GROUP BY rule,match_type", (user_id,game_rule,sub_rule,sub_rule))
-            return [dict(row, rule=rule) for row in cur.fetchall()]
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        db._put_connection(conn)
+    from .get_rule_stats import get_rule_history
+    return get_rule_history(db, user_id, rule, "match")

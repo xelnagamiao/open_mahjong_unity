@@ -26,6 +26,7 @@ def visible_event(source: dict, viewer_index: int) -> dict:
 def _table_snapshot(game_state, viewer) -> dict:
     return {
         "room_id": int(game_state.room_id),
+        "room_type": game_state.room_type,
         "max_round": game_state.max_round,
         "round_time": game_state.round_time,
         "step_time": game_state.step_time,
@@ -138,12 +139,14 @@ async def broadcast_state(game_state, **kwargs) -> None:
 async def broadcast_game_end(game_state) -> None:
     """终局下发 game_end，附带 record_detail 供客户端落盘本地牌谱。"""
     from ...response import Game_end_info, Player_final_data
+    from ...match.settlement import rating_result_fields
     from ..public.game_record_manager import local_record_detail_for_end
 
     player_final_data = {}
     for player in game_state.players:
         rank = int(getattr(getattr(player, "record_counter", None), "rank_result", 0) or 0)
         player_final_data[str(player.index)] = Player_final_data(
+            **rating_result_fields(player),
             username=player.username,
             rank=rank,
             score=int(player.score),

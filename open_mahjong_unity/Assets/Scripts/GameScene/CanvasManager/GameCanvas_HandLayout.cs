@@ -168,8 +168,9 @@ public partial class GameCanvas {
 
     public bool IsMainHandSortedByTileId() {
         List<TileCard> main = GetMainHandCardsOrdered();
+        var comparer = TileIdOrder.HandComparer(main.ConvertAll(card => card.tileId));
         for (int i = 1; i < main.Count; i++) {
-            if (TileIdOrder.Compare(main[i - 1].tileId, main[i].tileId) > 0) {
+            if (comparer.Compare(main[i - 1].tileId, main[i].tileId) > 0) {
                 return false;
             }
         }
@@ -230,7 +231,7 @@ public partial class GameCanvas {
 
     private System.Collections.IEnumerator SortMainHandByTileIdCoroutine() {
         List<TileCard> main = GetMainHandCardsOrdered();
-        main.Sort((a, b) => TileIdOrder.Compare(a.tileId, b.tileId));
+        TileIdOrder.SortHand(main, card => card.tileId);
         TileCard draw = GetPinnedDrawTile();
         Dictionary<RectTransform, Vector2> targetPositions = BuildHandLayoutPositions(main, draw, null);
 
@@ -332,7 +333,7 @@ public partial class GameCanvas {
                 }
                 bool autoArrange = AutoAction.Instance.IsAutoArrangeHandCards;
                 if (autoArrange) {
-                    main.Sort((a, b) => TileIdOrder.Compare(a.tileId, b.tileId));
+                    TileIdOrder.SortHand(main, card => card.tileId);
                 } else {
                     main.Sort((a, b) => a.handSortIndex.CompareTo(b.handSortIndex));
                 }

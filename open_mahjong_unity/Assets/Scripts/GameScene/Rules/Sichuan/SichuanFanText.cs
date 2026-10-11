@@ -20,7 +20,7 @@ internal static class SichuanFanText {
     };
 
     public static string FanValue(string subRule, string fanName) {
-        if (subRule == "sichuan/xueliu_exchange" && UsesModernExchangeDisplay()) {
+        if (SichuanLobby.IsExchange(subRule) && UsesModernExchangeDisplay()) {
             switch (fanName) {
                 case "基本胡": return "2番";
                 case "碰碰胡": return "4番";

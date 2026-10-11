@@ -66,10 +66,27 @@ def test_melds_must_retain_a_starting_pattern(melds, allowed):
     (1,[],False,[10,-10,0,0]), (None,[],False,[30,-10,-10,-10]),
     (1,[2],False,[20,-10,-10,0]), (1,[1],False,[20,-20,0,0]),
     (None,[1],False,[50,-30,-10,-10]), (None,[1,2,1],False,[70,-30,-30,-10]),
-    (1,[],True,[30,-30,0,0]), (1,[1],True,[60,-60,0,0]), (1,[2],True,[60,-30,-30,0]),
-    (1,[1,2,1],True,[90,-60,-30,0]), (1,[2,3],True,[90,-30,-30,-30]),
+    (1,[],True,[30,-30,0,0]), (1,[1],True,[60,-60,0,0]), (1,[2],True,[40,-30,-10,0]),
+    (1,[1,2,1],True,[70,-60,-10,0]), (1,[2,3],True,[50,-30,-10,-10]),
 ])
 def test_zero_sum_payments(discarder, partners, rob, expected):
     changes = rule.payments(0, 10, discarder=discarder, partners=partners, rob_kong=rob)
     assert list(changes.values()) == expected
     assert sum(changes.values()) == 0
+
+
+@pytest.mark.parametrize("melds", [
+    ["G11", "s15", "s18", "k41"],
+    ["G11", "k22", "k33", "k41"],
+    ["G11", "G14", "G22", "G25"],
+])
+def test_rulebook_four_melds_including_concealed_kongs_are_dadiaoche(melds):
+    detail = rule.score([45, 45], melds)
+    assert detail["base_score"] == 10
+    assert "大吊车" in detail["fan_names"]
+
+
+def test_three_concealed_kongs_do_not_alone_supply_dadiaoche():
+    detail = rule.score([25, 25, 25, 45, 45], ["G11", "G14", "G22"])
+    assert detail["base_score"] == 7
+    assert "大吊车" not in detail["fan_names"]

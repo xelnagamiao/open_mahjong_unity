@@ -120,6 +120,26 @@ def test_drawn_hand_hints_include_each_physical_cut_and_own_discard_threshold():
     assert intrinsic[14]["ron"] is True
 
 
+@pytest.mark.parametrize('tips,count_tips', [(False, False), (False, True), (True, False), (True, True)])
+@pytest.mark.parametrize('drawn', [False, True])
+def test_wait_eligibility_and_overwater_survive_count_only_mode(tips, count_tips, drawn):
+    hand = MIXED_WAIT + ([14] if drawn else [])
+    state = fixture_state({1: hand}, caishen=11, actor=1 if drawn else 0, tips=True)
+    state.player_list[1].passed_win_multiplier = 1
+    expected = state.authoritative_waits(1)
+    key = ','.join(map(str, sorted(MIXED_WAIT)))
+    waits = {row['tile']: row for row in expected[key]}
+    assert waits[13]['ron'] and not waits[14]['ron'] and waits[14]['self_draw']
+
+    state.tips, state.count_tips = tips, count_tips
+    assert state.authoritative_waits(1) == (expected if tips or count_tips else {})
+    info = state.build_game_start_payload(1)['game_info']
+    assert info['wenzhou_waits'] == (expected if tips or count_tips else {})
+    assert info['tips'] is tips and info['count_tips'] is count_tips
+    assert state.authoritative_waits(1, for_record=True) == expected
+    assert key not in state.build_game_start_payload(2)['game_info']['wenzhou_waits']
+
+
 def test_wait_cache_bounded_identity_sensitive_and_reset_between_rounds():
     state = make_state(tips=True)
     state.initialize_round()

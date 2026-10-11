@@ -8,8 +8,8 @@ public static class MatchQueueDisplayText {
     /// 与 <see cref="MatchButton"/> 的 QueueType 一致，例如 beginner_banzhuang。在此写死即可单独覆盖展示，不写则走默认拼接。
     /// </summary>
     public static readonly Dictionary<string, string> ExplicitTitles = new Dictionary<string, string> {
-        // The legacy queue ID now represents a full-length Sichuan match.
-        { "sichuan_elo_xuezhan", "川麻血战-Elo 匹配-全庄战" },
+        // Keep the transport ID while showing the current eight-hand length.
+        { "sichuan_elo_xuezhan", "川麻血战-Elo 匹配-半庄战（8副）" },
     };
 
     private const string RuleTitle = "国标麻将";

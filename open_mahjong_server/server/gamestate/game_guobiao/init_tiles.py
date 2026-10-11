@@ -4,6 +4,7 @@ from ..public.random_seed_manager import derive_round_seed
 from ..public.hand_slot_utils import clear_draw_slot
 from .guobiao_debug import apply_guobiao_debug_hands, prepare_debug_wall
 from .sanma import filter_tiles
+from . import transparent
 
 
 def init_guobiao_tiles(self):
@@ -26,7 +27,8 @@ def init_guobiao_tiles(self):
     # 生成牌堆
     self.tiles_list = []
     for tile in filter_tiles(sth_tiles_set, self.sub_rule):
-        self.tiles_list.extend([tile] * 4)
+        self.tiles_list.extend([tile, tile + transparent.OFFSET, tile + transparent.OFFSET, tile + transparent.OFFSET]
+                               if transparent.enabled(self) else [tile] * 4)
     # 蓝十改（MCR 1001—2025）已删除花牌：牌堆不含花牌，客户端无需改动，
     # 不摸到花牌即不会触发补花/花牌计分。
     if getattr(self, "sub_rule", None) != "guobiao/lanshi" and getattr(self, "use_flowers", True):

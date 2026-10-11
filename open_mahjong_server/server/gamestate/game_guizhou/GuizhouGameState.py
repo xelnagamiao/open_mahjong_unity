@@ -109,7 +109,7 @@ class GuizhouGameState(TacticalClaims, HandFlow, Protocol, Recording, EndOfHand,
         last_five, self.tiles_list = self.tiles_list[:5], self.tiles_list[5:]
         for index, offset in enumerate((0, 1, 3, 4)):
             self.player_list[index].hand_tiles.append(last_five[offset])
-            self.player_list[index].hand_tiles.sort()
+            # 发牌顺序留给客户端理牌动画，庄家第十四张的摸牌语义不变。
         self.player_list[0].hand_tiles.append(last_five[2])
         self.player_list[0].has_draw_slot = True
         for p in self.player_list:

@@ -82,7 +82,7 @@ def test_repeated_self_draw_preserves_ten_tile_base_and_continuation():
         assert player.has_draw_slot is False
         assert player.win_count == count
         assert player.is_hu is False
-        assert player.locked_waiting_tiles == {25}
+        assert player.waiting_tiles == {25}
         assert state.game_status == "deal_card"
         result = next(m['message']['show_result_info'] for m in reversed(messages) if m['type'].endswith('/show_result'))
         assert result['round_continues'] is True
@@ -225,7 +225,7 @@ def test_post_win_forces_drawn_tile_discard():
         player = state.player_list[0]
         player.hand_tiles = WAIT_HAND + [29]
         player.has_draw_slot = player.post_hu_lock = player.has_won = True
-        player.locked_waiting_tiles = {25}
+        player.huapai_list = [25]
         state.current_player_index = 0
         state.game_status = 'waiting_hand_action'
         state.action_dict = {0: ['cut'], 1: [], 2: [], 3: []}
@@ -297,13 +297,14 @@ def test_meld_fan_is_paid_per_opponent_and_zero_sum():
     ([15,12,11,16,12,12,13], ['G36'], 12, {14,17}, False),
     ([25,26,27,17,22,22,15,28,22,25], [], 22, {16}, True),
 ])
-def test_post_win_concealed_kong_must_preserve_every_wait(hand, melds, tile, waits, allowed):
+def test_post_win_concealed_kong_must_preserve_every_won_tile(hand, melds, tile, waits, allowed):
     state, _ = full_state()
     player = state.player_list[0]
     player.hand_tiles = hand + [tile]
     player.combination_tiles = melds
     player.has_draw_slot = player.post_hu_lock = player.has_won = True
-    player.waiting_tiles = player.locked_waiting_tiles = waits
+    player.waiting_tiles = waits
+    player.huapai_list = list(waits)
     assert ('angang' in check_action_hand_action(state, 0)[0]) is allowed
 
 

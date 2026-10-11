@@ -222,7 +222,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
-import { HOME_RULE_DEFS, homeRuleOptions, homeSceneOptions, homeDefaultScene, selectHomeStats, buildHomeStatsRows } from '@/utils/homeStats'
+import { HOME_RULE_DEFS, homeRuleOptions, homeSceneOptions, homeModeOptions, homeDefaultScene, selectHomeStats, buildHomeStatsRows } from '@/utils/homeStats'
 import { eventStatusLabel } from '@/utils/eventMeta'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { locale } from '@/i18n'
@@ -247,12 +247,7 @@ async function loadRecentEvents() {
 
 const RULE_DEFS = HOME_RULE_DEFS
 
-const GAME_TYPE_OPTIONS = [
-  { value: 'quanzhuang', label: '全庄战' },
-  { value: 'xifeng', label: '东西战' },
-  { value: 'banzhuang', label: '半庄战' },
-  { value: 'dongfeng', label: '东风战' },
-]
+const GAME_TYPE_OPTIONS = computed(() => homeModeOptions(activeRule.value, activeScene.value))
 
 const loading = ref(false)
 const allRows = ref([])
@@ -274,7 +269,7 @@ const selectedStats = computed(() => selectHomeStats(allRows.value, activeRule.v
 const statsRows = computed(() => buildHomeStatsRows(selectedStats.value))
 
 watch([activeRule, activeScene], () => {
-  if (activeMode.value && !GAME_TYPE_OPTIONS.some((m) => m.value === activeMode.value)) {
+  if (activeMode.value && !GAME_TYPE_OPTIONS.value.some((m) => m.value === activeMode.value)) {
     activeMode.value = ''
   }
 })

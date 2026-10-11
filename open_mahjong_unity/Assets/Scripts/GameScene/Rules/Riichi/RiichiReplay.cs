@@ -6,6 +6,18 @@ using Newtonsoft.Json.Linq;
 /// 立直麻将牌谱回放：宝牌/场供。仍是 GameRecordManager partial，文件在族目录。
 /// </summary>
 public partial class GameRecordManager {
+    internal RuleReplayModule CreateRiichiReplayModule() => new RuleReplayModule {
+        ReservedWallTiles = 14,
+        ConsumeWallTile = action => {
+            if (!IsWashizuRecord()) return false;
+            // Washizu kan replacements share the front pool with ordinary draws.
+            if (currentTilesList.Count > 0) {
+                consumedFromFront++; currentTilesList.RemoveAt(0); currentOriginalIndices.RemoveAt(0);
+            }
+            return true;
+        },
+    };
+
     private bool IsSanmaRecord() => ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", "") == "riichi/sanma";
     private int RecordPlayerCount => MahjongPlayerCount.ForSubRule(ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", ""));
     /// <summary>当前推演节点对应的场供立直棒数（开局值 + 宣告立直 - 和牌收走）。</summary>
@@ -63,7 +75,11 @@ public partial class GameRecordManager {
     /// </summary>
     private void ResetRecordRiichiFieldState(Round roundData) {
         recordRiichiDoraIndicators.Clear();
-        if (roundData?.riichi?.doraMarker >= 10) {
+        if (IsWashizuRecord()) {
+            if (roundData?.washizu?.dora_indicators != null)
+                recordRiichiDoraIndicators.AddRange(roundData.washizu.dora_indicators);
+            recordDeadWallCount = roundData?.washizu?.dead_wall_count ?? 13;
+        } else if (roundData?.riichi?.doraMarker >= 10) {
             recordRiichiDoraIndicators.Add(roundData.riichi.doraMarker);
         } else if (roundData?.tilesList != null && roundData.tilesList.Count >= 6) {
             recordRiichiDoraIndicators.Add(roundData.tilesList[roundData.tilesList.Count - 6]);
@@ -74,6 +90,12 @@ public partial class GameRecordManager {
     }
 
     private void ApplyRecordRiichiDoraTick(int doraTile) {
+        if (IsWashizuRecord() && currentTilesList.Count > 0) {
+            int index = currentTilesList.Count-1;
+            consumedBackIndices.Add(currentOriginalIndices[index]);
+            currentTilesList.RemoveAt(index);currentOriginalIndices.RemoveAt(index);
+            recordDeadWallCount--;
+        }
         recordRiichiDoraIndicators.Add(doraTile);
     }
 

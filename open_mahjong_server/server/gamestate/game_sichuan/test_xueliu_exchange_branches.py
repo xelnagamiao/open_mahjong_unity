@@ -10,7 +10,7 @@ import pytest
 from .test_xueliu_exchange import exchange_state, EXCHANGE_WIN
 from .test_xueliu_integration import enqueue, fast_sleep
 from .action_check import (refresh_waiting_tiles, check_action_after_cut, check_action_hand_action,
-    check_action_jiagang, _xueliu_jiagang_preserves_waiting)
+    check_action_jiagang, _xueliu_post_hu_kong_allowed)
 from .action_check import check_hepai
 from .wait_action import wait_action
 
@@ -207,15 +207,16 @@ def test_dingque_advances_tick_and_rejects_stale_and_malformed_choices():
 
 
 @pytest.mark.parametrize('allowed', [True, False])
-def test_added_kong_after_win_must_preserve_the_complete_wait_set(allowed):
+def test_added_kong_after_win_must_preserve_every_won_tile(allowed):
     state, _ = exchange_state()
     p = state.player_list[0]
     p.hand_tiles = [12,13,14,21,22,23,24,25,26,28,11]
     p.combination_tiles = ['k11']
     p.dingque_suit = 3
     p.has_won = p.post_hu_lock = p.has_draw_slot = True
-    p.waiting_tiles = p.locked_waiting_tiles = {28} if allowed else {28,29}
-    assert _xueliu_jiagang_preserves_waiting(state, p, 11) is allowed
+    p.waiting_tiles = {28}
+    p.huapai_list = [28] if allowed else [28,29]
+    assert _xueliu_post_hu_kong_allowed(state, p, "jiagang", 11) is allowed
     assert ('jiagang' in check_action_hand_action(state, 0)[0]) is allowed
 
 
@@ -314,7 +315,7 @@ def test_wall_end_rechecks_previously_won_players_and_finishes_sixteenth_hand():
         p.hand_tiles = list(EXCHANGE_WIN[:-1])
     state.player_list[3].hand_tiles = [11,13,15,17,19,22,24,26,28,29,12,24,29]
     state.player_list[3].has_won = state.player_list[3].post_hu_lock = True
-    state.player_list[3].locked_waiting_tiles = {28}
+    state.player_list[3].huapai_list = [28]
     with patch(__package__+'.XueliuGameState.asyncio.sleep',fast_sleep):
         asyncio.run(state._settle_liuju())
     assert [p.score for p in state.player_list] == [3,3,3,-9]
@@ -327,12 +328,11 @@ def test_round_reset_removes_locks_passed_wins_and_kong_records_without_resettin
     for p in state.player_list:
         p.score = 7
         p.has_won = p.post_hu_lock = True
-        p.locked_waiting_tiles = {28}
         p.shunhe_passed_max_fan = 3
         p.gang_score_records = [{'type':'xiayu1'}]
         p.huapai_list = [28,28]
     state.first_win_event = {'winners':[1],'discarder':0}
     state._reset_round_state()
-    assert all(p.score == 7 and not p.has_won and not p.post_hu_lock and not p.locked_waiting_tiles
+    assert all(p.score == 7 and not p.has_won and not p.post_hu_lock
                and not p.gang_score_records and not p.huapai_list and p.shunhe_passed_max_fan is None for p in state.player_list)
     assert state.first_win_event is None

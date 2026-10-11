@@ -36,6 +36,7 @@ public partial class CreatePanel {
         EnsureChangshaOptionControls(); EnsureWallOptionControls(); BakeRiichiDetailsPanel();
         BakeHongKongDetailsPanel();
         BakeYixingRoomControls();
+        BakeShanghaiRoomControls();
         EnsureRuleDropdownOptions(); InitCuoheTypeDropdown();
         BakeRoomFooterAndHelp();
         RoomGet<CanvasGroup>(CuoheTypePanel);

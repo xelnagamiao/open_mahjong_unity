@@ -4,6 +4,8 @@ internal static class FreeRuleBootstrap {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Register() {
         RuleRegistry.Register(new RuleManifest {
+            ReplayFactory = record => record.CreateStandardReplayModule(),
+            BuildRoom = FreeRoomBuilder.Build,
             RuleId = FreeGameState.RuleId,
             DefaultSubRule = "free/standard",
             DisplayName = "自由模式",

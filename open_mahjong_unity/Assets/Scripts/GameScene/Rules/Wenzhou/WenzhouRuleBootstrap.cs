@@ -10,6 +10,8 @@ internal static class WenzhouRuleBootstrap {
         RuleNameDictionary.ShortName[WenzhouGameState.RuleId] = "温州";
         RuleNameDictionary.ShortName[WenzhouGameState.SubRule] = "温州";
         RuleRegistry.Register(new RuleManifest {
+            ReplayFactory = record => record.CreateWenzhouReplayModule(),
+            BuildRoom = WenzhouRoomBuilder.Build,
             RuleId = WenzhouGameState.RuleId, DefaultSubRule = WenzhouGameState.SubRule,
             DisplayName = "温州麻将", LobbyName = "温州麻将", LobbyOrder = 21,
             LobbySubRules = new[] { new RuleLobbySubRule(WenzhouGameState.SubRule, "MIL 2024", Description) },
@@ -20,6 +22,7 @@ internal static class WenzhouRuleBootstrap {
                 { CreateRoomKeys.TouristLimit, false }, { CreateRoomKeys.AllowSpectator, true },
             },
             GameStateFactory = () => new WenzhouGameState(), OutboundChannel = "wenzhou",
+            OpeningHandHasDrawSlot = info => info?.wenzhou_info?.self_has_draw_slot == true,
             Tingpai = WenzhouGameState.Waiting, DescribeWaitingTile = WenzhouGameState.Describe,
             FanNameText = (rule, label) => WenzhouText.FanName(label),
             FanValueText = (rule, label) => WenzhouText.FanValue(label),
@@ -28,11 +31,9 @@ internal static class WenzhouRuleBootstrap {
                 ScoreText = q.WinnerPointDelta.HasValue ? $"{q.WinnerPointDelta.Value:+#;-#;0}分" : "",
             },
             ScoreboardFanText = q => $"{q.HuScore}倍",
-            SettlementFootnote = q => "和牌底分1分，庄家按连庄倍数收付；杠分与财神另行结算。",
             ActionVoice = word => word == "hu_self" ? "hu" : null,
             RoundName = RoundTextDictionary.WindSeatRoundName,
-            // The dedicated legend owns dynamic joker/streak metadata in both live play and replay.
-            RoundSupplementText = info => "",
+            RoundIndicators = info => WenzhouTableIndicators.FieldState(info?.wenzhou_info ?? WenzhouTableIndicators.DisplayedInfo),
             DefaultHepaiLimit = 0, HasFlowerReplacement = false,
             RonWinTileTravelsFromRiver = true, SupportsRobbedAddedKongSource = false,
             AdjustHepaiPresentation = AdjustPendingKongWinPresentation,

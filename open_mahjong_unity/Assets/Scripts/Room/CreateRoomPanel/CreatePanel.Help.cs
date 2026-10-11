@@ -21,6 +21,9 @@ public partial class CreatePanel {
         if (_ruleState == "sichuan" && source && (source.gameObject == InputHepaiLimitToggle.gameObject
             || source.transform.IsChildOf(InputHepaiLimitPlane.transform)))
             message = "修改起和番：输入0–64的整数。默认0番，允许平和；低于设置番数不能和牌，番数提示和流局查叫同步使用此限制。";
+        if (_ruleState == "riichi" && source && (source.gameObject == InputHepaiLimitToggle.gameObject
+            || source.transform.IsChildOf(InputHepaiLimitPlane.transform)))
+            message = "起和番：输入1–64的整数，只计算实际役的番数，不含宝牌、赤宝牌、里宝牌和拔北宝牌。满足起和番后，还须达到高级设置中的起和线；起和线包含宝牌，统一按闲家荣和等值计算。";
         roomHelpText.text = message;
         if (roomHelpPanel) roomHelpPanel.gameObject.SetActive(!string.IsNullOrEmpty(message));
         ReflowRoomHelp();

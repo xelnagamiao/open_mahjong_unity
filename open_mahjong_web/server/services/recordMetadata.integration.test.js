@@ -34,7 +34,7 @@ test('record metadata is public while locked content remains protected', {
       CREATE TABLE game_records (game_id varchar(16) PRIMARY KEY, record jsonb, created_at timestamp NOT NULL);
       CREATE TABLE riichi_player_game_stats (game_id text, user_id bigint, version int, stats jsonb);
       CREATE TABLE game_player_metrics (
-        id bigserial PRIMARY KEY, game_id text, user_id bigint,
+        id bigserial PRIMARY KEY, game_id text, user_id bigint, sub_rule text,
         total_rounds int, win_count int, self_draw_count int, deal_in_count int,
         total_fan_score int, total_win_turn int, total_fangchong_score int,
         fulu_round_count int, cuohe_count int
@@ -44,34 +44,34 @@ test('record metadata is public while locked content remains protected', {
         profile_used int, voice_used int, rule text, sub_rule text, room_type text,
         match_type text, match_tier text, event_id varchar(32), is_favorite boolean DEFAULT false,
         note text, PRIMARY KEY(game_id,user_id));
-      INSERT INTO users VALUES (101,'Test player'),(201,'Other player');
+      INSERT INTO users VALUES (10000101,'Test player'),(10000201,'Other player');
       INSERT INTO events (event_id,name) VALUES ('evtA','Test event');
-      INSERT INTO event_admins VALUES ('evtA',101,'owner');
+      INSERT INTO event_admins VALUES ('evtA',10000101,'owner');
     `);
     await require('../utils/duplicateTables').ensureDuplicateTables(pool);
     const walls = await pool.query(`INSERT INTO duplicate_walls
       (key,owner_user_id,scope,wall_type,rule,tiles,seed,is_unlocked)
-      VALUES ('DUP_locked',101,'personal','key','guobiao','[11,12]','SECRET_SEED',false),
-             ('DUP_open',101,'personal','key','guobiao','[11,12]','OPEN_SEED',true)
+      VALUES ('DUP_locked',10000101,'personal','key','guobiao','[11,12]','SECRET_SEED',false),
+             ('DUP_open',10000101,'personal','key','guobiao','[11,12]','OPEN_SEED',true)
       RETURNING id,key`);
     const ids = Object.fromEntries(walls.rows.map((r) => [r.key, r.id]));
     const fixtures = [
-      ['aNormal','match','beginner',101,null,null],
-      ['bLocked','match','beginner',101,'DUP_locked','DUP_locked'],
-      ['cUnlocked','match','intermediate',101,'DUP_open','DUP_open'],
-      ['dTitleOnly','match','beginner',101,'DUP_locked',null],
-      ['eOrphan','custom',null,101,'DUP_missing',null],
-      ['fEvent','events',null,101,'DUP_locked','DUP_locked'],
-      ['gOther','match','beginner',201,null,null],
+      ['aNormal','match','beginner',10000101,null,null],
+      ['bLocked','match','beginner',10000101,'DUP_locked','DUP_locked'],
+      ['cUnlocked','match','intermediate',10000101,'DUP_open','DUP_open'],
+      ['dTitleOnly','match','beginner',10000101,'DUP_locked',null],
+      ['eOrphan','custom',null,10000101,'DUP_missing',null],
+      ['fEvent','events',null,10000101,'DUP_locked','DUP_locked'],
+      ['gOther','match','beginner',10000201,null,null],
     ];
     for (const [gameId, room, tier, owner, key, link] of fixtures) {
-      const title = { rule: 'guobiao', ...(key ? { is_duplicate: true, duplicate_key: key, duplicate_seed: 'SECRET_SEED', duplicate_tiles: [11,12] } : {}) };
+      const title = { rule: 'guobiao', sub_rule: 'guobiao/standard', ...(key ? { is_duplicate: true, duplicate_key: key, duplicate_seed: 'SECRET_SEED', duplicate_tiles: [11,12] } : {}) };
       await pool.query('INSERT INTO game_records VALUES($1,$2,$3)', [gameId,{ game_title: title, game_round: {} },'2026-09-27 12:00:00']);
       if (link) await pool.query('INSERT INTO duplicate_games(game_id,wall_id) VALUES($1,$2)', [gameId,ids[link]]);
       for (let seat=0; seat<4; seat++) {
         await pool.query(`INSERT INTO game_player_records
           (game_id,user_id,username,score,rank,original_player_index,rule,sub_rule,room_type,match_type,match_tier,event_id,is_favorite,pt_change)
-          VALUES($1,$2,$3,$4,$5,$6,'guobiao','guobiao',$7,'normal',$8,$9,$10,$11)`,
+          VALUES($1,$2,$3,$4,$5,$6,'guobiao','guobiao/standard',$7,'normal',$8,$9,$10,$11)`,
           [gameId,owner+seat,`Player ${owner+seat}`,100-seat*10,seat+1,seat,room,tier,room==='events'?'evtA':null,gameId==='bLocked',room==='match'?[11.76,0,-5.15,null][seat]:null]);
       }
     }
@@ -103,21 +103,22 @@ test('record metadata is public while locked content remains protected', {
     });
 
     await t.test('personal and Bot shared lists, ID filters and rank statistics include locked summaries', async () => {
-      const result = await fetchPlayerRecords(101,{},0,20);
+      const result = await fetchPlayerRecords(10000101,{},0,20);
       assert.equal(result.total,6); assert.ok(result.items.some((r)=>r.game_id==='bLocked'));
       assert.ok(result.items.some((r)=>r.game_id==='eOrphan')); safeMetadata(result);
-      const empty = await fetchPlayerRecords(101,{},100,20);
+      const empty = await fetchPlayerRecords(10000101,{},100,20);
       assert.equal(empty.total,6); assert.deepEqual(empty.items,[]);
-      const rank = await fetchPlayerRankStats(101,{});
+      const rank = await fetchPlayerRankStats(10000101,{rule:'guobiao'});
       assert.equal(rank.total_games,6); assert.equal(rank.first_place_count,6);
-      assert.equal((await fetchPlayerRecords(101,{tier:'beginner'},0,20)).total,3);
+      assert.equal((await fetchPlayerRecords(10000101,{tier:'beginner'},0,20)).total,3);
     });
 
     await t.test('combined scene counts preserve filtered totals and empty results', async () => {
       for (const query of [{}, {rule:'guobiao'}, {rule:'riichi'}, {date_from:'2026-09-28'}, {date_to:'2026-09-28'}, {game_type:'dongfeng'}]) {
-        const result = await fetchPlayerScopeCounts(101, query);
+        const filters = {rule:'guobiao',...query};
+        const result = await fetchPlayerScopeCounts(10000101, filters);
         for (const tier of ['rank','custom','beginner','intermediate','advanced','mcrpl','elo','events']) {
-          assert.equal(result[tier], (await fetchPlayerRankStats(101,{...query,tier})).total_games,JSON.stringify({query,tier}));
+          assert.equal(result[tier], (await fetchPlayerRankStats(10000101,{...filters,tier})).total_games,JSON.stringify({query,tier}));
         }
       }
     });
@@ -135,8 +136,8 @@ test('record metadata is public while locked content remains protected', {
     server = app.listen(0,'127.0.0.1');
     await new Promise((resolve)=>server.once('listening',resolve));
     const base = `http://127.0.0.1:${server.address().port}`;
-    const playerToken = signToken({user_id:101,aud:config.playerAuth.audience},config.playerAuth.jwtSecret,3600);
-    const eventToken = signToken({user_id:101,aud:config.eventAdmin.audience},config.eventAdmin.jwtSecret,3600);
+    const playerToken = signToken({user_id:10000101,aud:config.playerAuth.audience},config.playerAuth.jwtSecret,3600);
+    const eventToken = signToken({user_id:10000101,aud:config.eventAdmin.audience},config.eventAdmin.jwtSecret,3600);
     const request = (url,token=playerToken,body) => fetch(base+url,{
       method:body?'POST':'GET',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
       ...(body?{body:JSON.stringify(body)}:{}),
@@ -147,11 +148,11 @@ test('record metadata is public while locked content remains protected', {
       const data = (await mine.json()).data;assert.equal(data.total,6);safeMetadata(data);
       const favourite = (await (await request('/player/my-records?favorites_only=1')).json()).data;
       assert.deepEqual(favourite.items.map((r)=>r.game_id),['bLocked']);safeMetadata(favourite);
-      const idList = (await (await request('/player/record-ids/101')).json()).data;
+      const idList = (await (await request('/player/record-ids/10000101')).json()).data;
       assert.ok(idList.items.some((r)=>r.game_id==='bLocked'));safeMetadata(idList);
       const botToken = signToken({aud:'botapi',bot_name:'test'},config.botApi.jwtSecret,3600);
-      const bot = await request('/bot/player/records/101',botToken);assert.equal(bot.status,200);safeMetadata((await bot.json()).data);
-      assert.equal((await fetch(base+'/bot/player/records/101')).status,401);
+      const bot = await request('/bot/player/records/10000101',botToken);assert.equal(bot.status,200);safeMetadata((await bot.json()).data);
+      assert.equal((await fetch(base+'/bot/player/records/10000101')).status,401);
       const event = await request('/events/evtA/records',eventToken);assert.equal(event.status,200);
       const eventData=(await event.json()).data;assert.equal(eventData.total,1);assert.equal(eventData.items[0].game_id,'fEvent');safeMetadata(eventData);
       const outsider=signToken({user_id:999,aud:config.eventAdmin.audience},config.eventAdmin.jwtSecret,3600);
@@ -160,14 +161,14 @@ test('record metadata is public while locked content remains protected', {
 
     await t.test('Web, QQ Bot, 2D and platform return saved numeric PT, retaining zero and null', async () => {
       const botToken = signToken({aud:'botapi',bot_name:'pt-test'},config.botApi.jwtSecret,3600);
-      for (const [route,token] of [['/player/records/101',playerToken],['/bot/player/records/101',botToken],['/player/my-records',playerToken],['/platform/recent-records',playerToken]]) {
+      for (const [route,token] of [['/player/records/10000101',playerToken],['/bot/player/records/10000101',botToken],['/player/my-records',playerToken],['/platform/recent-records',playerToken]]) {
         const response=await request(route,token);assert.equal(response.status,200,route);
         const body=(await response.json()).data;
         const item=body.items.find(item=>item.game_id==='aNormal');assert.ok(item,route);
         assert.deepEqual(item.players.map(player=>player.pt_change),[11.76,0,-5.15,null],route);
         safeMetadata(body);
       }
-      const counts=await request('/player/scope-counts/101?rule=guobiao');assert.equal(counts.status,200);
+      const counts=await request('/player/scope-counts/10000101?rule=guobiao');assert.equal(counts.status,200);
       assert.deepEqual((await counts.json()).data,{rank:4,custom:1,beginner:3,intermediate:1,advanced:0,mcrpl:0,elo:0,events:1});
     });
 
@@ -180,7 +181,7 @@ test('record metadata is public while locked content remains protected', {
       }
       assert.deepEqual(await accessibleGameIds(pool,['aNormal','bLocked','cUnlocked']),['aNormal','cUnlocked']);
       for (const endpoint of ['/player/records/fetch-json','/player/records/download']) {
-        const r=await request(endpoint,playerToken,{target_user_id:101,user_id:101,game_ids:['bLocked','dTitleOnly']});
+        const r=await request(endpoint,playerToken,{target_user_id:10000101,user_id:10000101,game_ids:['bLocked','dTitleOnly']});
         assert.equal(r.status,404,endpoint);assert.equal((await r.text()).includes('SECRET_SEED'),false);
       }
       assert.equal((await request('/events/evtA/record/fEvent',eventToken)).status,403);

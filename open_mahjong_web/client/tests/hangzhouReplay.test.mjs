@@ -25,6 +25,18 @@ test('杭州被抢断的ca申请不改变牌面，只有最终碰牌落牌，往
     if (node === 3) assert.deepEqual(seats, after)
   }
 })
+test('杭州暗杠中间两张亮明，步进和跳转重建保持一致', () => {
+  const r = replay([['ag', 11, 'F', 11, 11, 11, 11]])
+  r.rounds[0].p0_tiles = [11,11,11,11,21,22,23,31,32,33,41,41,42,42]
+  const expected = [true, false, false, true]
+  for (const node of [1,0,1]) {
+    const melds = r.build(0,node).snapshot.seats[0].melds
+    if (node === 0) assert.equal(melds.length, 0)
+    else assert.deepEqual(melds[0].concealed_face_down, expected)
+  }
+  assert.deepEqual(r.eventForStep(0,0).event.concealed_face_down, expected)
+})
+
 test('杭州先暗弃上牌再摸下牌，节点重放和墙索引一致',()=>{
   const r=replay([['hangzhou','tail_burn',0,15],['gd',16],['d',11]])
   assert.equal(r.remainingWallAt(0,1).length,5);assert.equal(r.remainingWallAt(0,2).length,4)

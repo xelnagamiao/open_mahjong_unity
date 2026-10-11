@@ -1,16 +1,17 @@
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { SITE } from '../src/seo.js'
-import { MCR_LOCALES, mcrPageForPath } from '../src/seo/mcr-pages.js'
-import { renderMcrDocument } from '../src/seo/mcr-render.js'
+import { STATIC_PAGES, staticPageForPath } from '../src/seo/pages.js'
+import { renderPageDocument } from '../src/seo/page-render.js'
 import { renderSitemap } from '../src/seo/sitemap.js'
+import { originalPageContent } from './original-seo-content.mjs'
 
 // Match only this feature's URLs; game, auth, API and all existing pages pass through.
-const paths = new Set(MCR_LOCALES.map((entry) => entry.path))
-const namespacePattern = new RegExp(`^/(${MCR_LOCALES.map((entry) => entry.locale).join('|')})/mcr(?:/|$)`)
+const paths = new Set(STATIC_PAGES.map((entry) => entry.path))
+const namespacePattern = /^\/(en|fr|zh|de|nl|es|it)(?:\/|$)/
 
 function seoMiddleware(server, preview = false) {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     if (!['GET', 'HEAD'].includes(req.method)) return next()
     const url = new URL(req.url, 'http://localhost')
     if (!preview && url.pathname === '/sitemap.xml') {
@@ -23,7 +24,7 @@ function seoMiddleware(server, preview = false) {
       if (!namespacePattern.test(url.pathname)) return next()
       res.statusCode = 404
       res.setHeader('Content-Type', 'text/plain; charset=utf-8')
-      res.end(req.method === 'HEAD' ? '' : 'MCR page not available.')
+      res.end(req.method === 'HEAD' ? '' : 'This language page is not available.')
       return
     }
     if (path !== url.pathname) {
@@ -32,7 +33,7 @@ function seoMiddleware(server, preview = false) {
       res.end()
       return
     }
-    const page = mcrPageForPath(path)
+    const page = staticPageForPath(path)
     const builtPath = resolve(server.config.root, server.config.build.outDir, path.slice(1), 'index.html')
     if (!page || (preview && !existsSync(builtPath))) {
       res.statusCode = 404
@@ -40,8 +41,11 @@ function seoMiddleware(server, preview = false) {
       res.end(req.method === 'HEAD' ? '' : 'This language page is not available yet.')
       return
     }
-    const html = preview ? readFileSync(builtPath, 'utf8')
-      : renderMcrDocument(page, readFileSync(resolve(server.config.root, 'src/seo/mcr-landing.css'), 'utf8'), SITE.domain)
+    let html
+    try {
+      html = preview ? readFileSync(builtPath, 'utf8')
+        : renderPageDocument(page, ['mcr-landing.css', 'content-pages.css'].map((file) => readFileSync(resolve(server.config.root, 'src/seo', file), 'utf8')).join('\n'), SITE.domain, await originalPageContent(page))
+    } catch (error) { return next(error) }
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
     res.end(req.method === 'HEAD' ? '' : html)
   }

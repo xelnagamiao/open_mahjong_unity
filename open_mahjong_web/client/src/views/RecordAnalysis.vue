@@ -587,7 +587,7 @@
             <el-table-column label="操作" width="168" fixed="right">
               <template #default="{ row }">
                 <el-button
-                  v-if="['guobiao', 'hongzhong'].includes(row.rule)"
+                  v-if="['guobiao', 'hongzhong', 'jiujiang'].includes(row.rule)"
                   link
                   type="warning"
                   size="small"
@@ -673,6 +673,7 @@ const RULE_DEFS = [
   { key: 'classical', label: '古典麻将', statsField: 'classical_stats' },
   { key: 'sichuan', label: '川麻', statsField: 'sichuan_stats' },
   { key: 'changsha', label: '长沙麻将', statsField: 'changsha_stats' },
+  { key: 'jiujiang', label: '九江麻将', statsField: 'jiujiang_stats', recordsOnly: true, fanField: null },
   { key: 'hongzhong', label: '红中麻将', statsField: 'hongzhong_stats', recordsOnly: true },
 ]
 const SCENE_OPTIONS = [
@@ -1625,7 +1626,7 @@ const applyQueryFilters = () => {
 
 const switchRule = (rule) => {
   currentRule.value = rule
-  if (rule === 'hongzhong' && !['custom', 'events'].includes(scene.value)) scene.value = 'custom'
+  if (['hongzhong', 'jiujiang'].includes(rule) && !['custom', 'events'].includes(scene.value)) scene.value = 'custom'
   onFilterChange()
 }
 const selectScene = (s) => {

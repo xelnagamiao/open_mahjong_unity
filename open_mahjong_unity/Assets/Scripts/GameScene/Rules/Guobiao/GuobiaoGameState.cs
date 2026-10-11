@@ -16,6 +16,7 @@ public partial class GuobiaoGameState : TurnBasedGameState {
     protected override void OnRoundStarted(GameInfo gameInfo) {
         cuohe.Clear();
         RestoreBloodBattle(gameInfo);
+        RestoreTransparentHands(gameInfo);
     }
 
     protected override void OnBeforeAsk() {
@@ -41,5 +42,6 @@ public partial class GuobiaoGameState : TurnBasedGameState {
         LastEndExtras = null;
         bloodPendingContinue = false;
         bloodHistoryWritten = false;
+        transparentPublicHands = null;
     }
 }

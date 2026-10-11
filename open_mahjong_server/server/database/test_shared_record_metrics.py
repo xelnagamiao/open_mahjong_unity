@@ -1,6 +1,6 @@
 """Deferred Sichuan payments and active-player order must agree with saved records."""
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 
 from .shared_record_metrics import analyze_shared_record_for_player
 from .scene_stats import record_game_metrics
@@ -42,8 +42,8 @@ def test_next_draw_skips_retired_winner_and_gang_refunds_cancel_only_money():
 
 def test_live_scene_writer_uses_the_same_completed_blood_replay():
     cur = Mock()
-    conn = Mock()
-    conn.cursor.return_value = cur
+    conn = MagicMock()
+    conn.cursor.return_value.__enter__.return_value = cur
     db = Mock()
     db._get_connection.return_value = conn
     player = SimpleNamespace(user_id=10000003, username='player', original_player_index=2,

@@ -1,0 +1,55 @@
+using UnityEngine;
+using UnityEngine.UI;
+
+public partial class CreatePanel {
+    private static bool ReadRoomToggle(Toggle toggle, bool fallback = false) => toggle != null ? toggle.isOn : fallback;
+
+    internal RoomCreationInput CaptureRoomCreationInput() {
+        return new RoomCreationInput {
+            Rule = _ruleState, SubRule = GetSelectedSubRule(), RoomName = roomNameInput.text.Trim(),
+            Password = passwordInput.text.Trim(), RandomSeed = randomSeedInput.text.Trim(), EventId = _venueEventId,
+            DuplicateKey = SelectedDuplicateKey, DuplicateEnabled = ReadRoomToggle(DuplicateWallToggle),
+            GameRound = GetSelectedGameTime(), RoundTimer = GetSelectedRoundTimer(), StepTimer = GetSelectedStepTimer(),
+            CuoheType = GetSelectedCuoheType(), HepaiWayIndex = HepaiWayDropdown.value,
+            HepaiLimitText = HepaiLimitInput.text.Trim(), HepaiLimitVisible = InputHepaiLimitToggle.gameObject.activeSelf,
+            StartingScoreText = RiichiStartingScoreInput != null ? RiichiStartingScoreInput.text.Trim() : "",
+            DetailedConfig = BuildDetailedConfigValues(_ruleState),
+            AllowKuikae = KuikaeToggle != null && !KuikaeToggle.isOn,
+            OpenXiru = ReadRoomToggle(XiruToggle, DefaultsOf(_ruleState).TryGetValue(CreateRoomKeys.OpenXiru, out var xiru) && (bool)xiru),
+            OpenTobi = ReadRoomToggle(TobiToggle, DefaultsOf(_ruleState).TryGetValue(CreateRoomKeys.OpenTobi, out var tobi) && (bool)tobi),
+            BloodBattle = ReadRoomToggle(BloodBattleToggle, DefaultsOf(_ruleState).TryGetValue(CreateRoomKeys.BloodBattle, out var blood) && (bool)blood),
+            OpenKongCount = GetChangshaOpenKongCount(), BirdCount = GetChangshaBirdCount(),
+            SmallHuScore = ReadChangshaScore(ChangshaSmallHuScoreInput, 2), BigHuScore = ReadChangshaScore(ChangshaBigHuScoreInput, 8),
+            PasswordEnabled = ReadRoomToggle(passwordToggle),
+            RandomSeedEnabled = ReadRoomToggle(SetRandomSeedToggle),
+            HepaiLimitEnabled = ReadRoomToggle(InputHepaiLimitToggle),
+            Tips = ReadRoomToggle(tipsToggle),
+            CountTips = ReadRoomToggle(countTipsToggle),
+            PointerTips = ReadRoomToggle(pointerTipsToggle),
+            TouristLimit = ReadRoomToggle(TouristLimitToggle),
+            AllowSpectator = ReadRoomToggle(AllowSpectatorToggle),
+            ClaimProtection = ReadRoomToggle(ClaimProtectionToggle),
+            TacticalCall = ReadRoomToggle(TacticalCallToggle),
+            CuoHe = ReadRoomToggle(CuoHeheToggle),
+            RedDora = ReadRoomToggle(RedDoraToggle),
+            UseFlowers = ReadRoomToggle(GuobiaoFlowersToggle, true),
+            TianDiRenHe = ReadRoomToggle(TianDiRenHeToggle),
+            GuangdongMinimumScore = ReadRoomToggle(GuangdongMinimumScoreToggle, true),
+            ShanghaiQing3Hun2Peng2 = ReadRoomToggle(ShanghaiQing3Hun2Peng2Toggle),
+            YixingSevenPairs = ReadRoomToggle(YixingSevenPairsToggle),
+            InitialSiXi = ReadRoomToggle(ChangshaInitialSiXiToggle, true),
+            InitialBanBanHu = ReadRoomToggle(ChangshaInitialBanBanHuToggle, true),
+            InitialQueYiSe = ReadRoomToggle(ChangshaInitialQueYiSeToggle, true),
+            InitialLiuLiuShun = ReadRoomToggle(ChangshaInitialLiuLiuShunToggle, true),
+            InitialSanTong = ReadRoomToggle(ChangshaInitialSanTongToggle, true),
+            DealerBird = ReadRoomToggle(ChangshaDealerBirdToggle, true),
+            BaseScoreNoDealer = ReadRoomToggle(ChangshaBaseScoreNoDealerToggle),
+            WallWan = ReadRoomToggle(WallWanToggle, true),
+            WallTong = ReadRoomToggle(WallTongToggle, true),
+            WallSuo = ReadRoomToggle(WallSuoToggle, true),
+            WallWinds = ReadRoomToggle(WallWindsToggle, true),
+            WallDragons = ReadRoomToggle(WallDragonsToggle, true),
+            WallFlowers = ReadRoomToggle(WallFlowersToggle, true),
+        };
+    }
+}

@@ -1,0 +1,30 @@
+Account geography
+=================
+Admin > Users > Account country/region distribution (Chinese UI: 账号国家／地区分布).
+Each registered account counts once, using its latest successful login IP. Guests and bot-range IDs are excluded. Accounts without usable login history count as unknown. This estimates a network location, not nationality or residence.
+
+The game server already writes user_login_ips. Successful website password logins now append to that same bounded history (latest 20 entries). This one best-effort database write does not delay the login response. Failed logins, /me, page views and game actions do not add writes or geolocation calls. A crash immediately after login can lose this best-effort website record.
+
+Country lookup is entirely offline and is only used by admin user details or the distribution dialog. The distribution is queried on demand, coalesces concurrent requests and caches for five minutes. There is no timer, traffic counter, frontend tracking pixel or per-game geography work. A new latest login may take five minutes to appear. Reader initialization is lazy and the IP cache is capped at 10,000 entries.
+
+Install Node dependencies with npm ci. Install a DB-IP Country Lite MMDB at OM_GEOIP_DATABASE, or at <OM_DATA_DIR>/geoip/country.mmdb (default production data root: /var/open-mahjong/data). Do not place it in public/ or commit it. The reader supports country-level MMDB data; this feature does not collect cities or precise location. An unavailable/invalid database yields unknown locations and an admin notice, never a login failure.
+
+Official dataset and license: https://db-ip.com/db/download/ip-to-country-lite
+Country Lite is updated monthly and licensed under CC BY 4.0. Keep the visible “IP Geolocation by DB-IP” attribution on the admin views. Download updates from the official site, verify its checksum, replace the database atomically, and restart the Node service to reload the reader. No automatic downloads are scheduled by this feature.
+
+The reverse proxy must pass the real client address under the existing trusted-proxy configuration. The feature uses the same server-derived IP as rate limiting; it never trusts a country or IP sent in a JSON request. Historic loopback or proxy addresses cannot be reconstructed and stay unknown. VPN and proxy exits can produce a different country from the player's actual location.
+
+No database schema migration is required. The existing idx_user_login_ips_user_time index supports latest-login selection. The aggregation endpoint requires the existing administrator JWT and returns aggregate counts only. Recent per-account locations are visible only in the existing protected user-detail endpoint.
+
+Cloudflare Web Analytics (optional)
+==================================
+A Cloudflare account and a Web Analytics site token are required; Salasasa application keys cannot substitute for that token. DNS and hosting can remain at Alibaba Cloud.
+1. In Cloudflare > Web Analytics, add salasasa.cn and choose manual JavaScript installation.
+2. Copy the public token from the data-cf-beacon JavaScript snippet (not an API token/key).
+3. Set VITE_CLOUDFLARE_ANALYTICS_TOKEN in the build environment or client/.env.production.local. The example file documents this variable. Run the normal frontend build and deployment.
+4. Verify one beacon script on the main SPA and on /en/mcr, /fr/mcr and the other static language pages; then check requests to Cloudflare and the country dimension in its dashboard. An empty token leaves the feature entirely disabled.
+
+The build inserts the same deferred beacon for the SPA and standalone SEO documents. It only activates on salasasa.cn and www.salasasa.cn, and skips direct admin/event-admin entry pages. Cloudflare handles SPA navigation; do not add a second router page-view hook. Navigating from an already tracked public SPA page to admin does not unload the existing beacon. The integration sends no custom account IDs, usernames or login IP records. A browser extension or network block can prevent analytics without preventing the site from working. Do not enable automatic Cloudflare injection alongside this manual integration.
+
+Official installation: https://developers.cloudflare.com/web-analytics/get-started/
+The feature remains disabled when no site token is supplied. Configuring the token does not enable collection on the live site until the rebuilt frontend is deployed.

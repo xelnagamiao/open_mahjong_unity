@@ -158,7 +158,8 @@ def score(hand, codes=(), *, winning_tile, bao=""):
         if kind == "seven_pairs":
             names.append("豪华七对" if before.count(winning_tile) == 3 else "七对")
         else:
-            if all(m.concealed for m in external):
+            # Special kongs are public melds but do not break menzen.
+            if all(m.concealed or m.special for m in external):
                 names.append("门清")
             piao = all(m.kind != "sequence" for m in partition) and all(m.kind != "sequence" for m in external)
             if piao:

@@ -1,5 +1,6 @@
 using UnityEngine;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using NativeWebSocket;
 using Newtonsoft.Json;
@@ -582,7 +583,7 @@ public partial class RoomNetworkManager : MonoBehaviour {
         }
     }
 
-    public async void Create_Shanghai_Room(Qingque_Create_RoomConfig config, bool oneFanMinimum = false) {
+    public async void Create_Shanghai_Room(Qingque_Create_RoomConfig config, bool oneFanMinimum = false, bool qing3Hun2Peng2 = false) {
         if (!TryBeginCreateRequest()) return;
         try {
             if (!TryResolveRandomSeed(config.RandomSeed, out string randomSeed, out string seedError)) {
@@ -591,7 +592,7 @@ public partial class RoomNetworkManager : MonoBehaviour {
                 return;
             }
 
-            var request = new CreateGBRoomRequest {
+            var request = new CreateShanghaiRoomRequest {
                 type = "room/create_Shanghai_room",
                 rule = config.Rule,
                 sub_rule = config.SubRule ?? "shanghai/qiaoma",
@@ -606,6 +607,8 @@ public partial class RoomNetworkManager : MonoBehaviour {
                 random_seed = randomSeed,
                 open_cuohe = false,
                 hepai_limit = (config.SubRule ?? "shanghai/qiaoma") == "shanghai/qiaoma" && oneFanMinimum ? 1 : 0,
+                detailed_config = (config.SubRule ?? "shanghai/qiaoma") == "shanghai/qiaoma"
+                    ? new Dictionary<string, object> { { ShanghaiHandCalculator.Qing3Hun2Peng2Key, qing3Hun2Peng2 } } : null,
                 tourist_limit = config.TouristLimit,
                 allow_spectator = config.AllowSpectator,
                 event_id = string.IsNullOrEmpty(config.EventId) ? null : config.EventId
@@ -871,9 +874,10 @@ public partial class RoomNetworkManager : MonoBehaviour {
     /// <summary>
     /// 开始游戏
     /// </summary>
-    public async void StartGame(string roomId) {
+    public async void StartGame(string roomId, int? rosterRevision = null) {
         var request = new StartGameRequest {
             type = "room/start_game",
+            roster_revision = rosterRevision,
             room_id = roomId
         };
         await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
@@ -937,10 +941,11 @@ public partial class RoomNetworkManager : MonoBehaviour {
     /// <summary>
     /// 设置准备状态（非房主玩家可用）
     /// </summary>
-    public async void SetReady(string roomId, bool ready) {
+    public async void SetReady(string roomId, bool ready, int? rosterRevision = null) {
         try {
             var request = new SetReadyRequest {
                 type = "room/set_ready",
+                roster_revision = rosterRevision,
                 room_id = roomId,
                 ready = ready
             };
@@ -967,6 +972,28 @@ public partial class RoomNetworkManager : MonoBehaviour {
         } catch (Exception e) {
             Debug.LogError($"发送移除玩家请求失败: {e.Message}");
             NotificationManager.Instance.ShowTip("kick_player", false, "移除玩家失败");
+        }
+    }
+
+    public async void SetTeam(string roomId, int revision, int seatIndex, int teamId) {
+        try {
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(new {
+                type = "room/set_team", room_id = roomId, roster_revision = revision,
+                seat_index = seatIndex, team_id = teamId,
+            }));
+        } catch (Exception e) {
+            NotificationManager.Instance.ShowTip("team", false, "分队请求失败：" + e.Message);
+        }
+    }
+
+    public async void MoveDuplicateSeat(string roomId, int revision, int seatIndex, int targetSeat) {
+        try {
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(new {
+                type = "room/move_duplicate_seat", room_id = roomId, roster_revision = revision,
+                seat_index = seatIndex, target_seat = targetSeat,
+            }));
+        } catch (Exception e) {
+            NotificationManager.Instance.ShowTip("seat", false, "调整座位失败：" + e.Message);
         }
     }
 

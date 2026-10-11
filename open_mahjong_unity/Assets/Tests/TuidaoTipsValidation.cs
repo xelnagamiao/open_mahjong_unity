@@ -47,7 +47,7 @@ public static class TuidaoTipsValidation {
             Expect(ron != null && ron.Fan == row.ron && ron.Points == row.ron + 2, row.name + "点和基本分");
             Expect(tsumo != null && tsumo.Fan == row.tsumo && tsumo.Points == row.tsumo + 2, row.name + "自摸基本分");
             var query = new WaitHintQuery { HandWithWin = row.hand, Melds = row.melds, HepaiTile = row.tile };
-            string label = $"基础{row.ron}番{row.ron + 2}分";
+            string label = $"{row.ron}番{row.ron + 2}分";
             if (row.ron != row.tsumo) label += $"\n自摸{row.tsumo}番{row.tsumo + 2}分";
             var live = TuidaoHandCalculator.Describe(query);
             Expect(live.Kind == WaitTileHint.KindRon && live.Label == label, row.name + "实战提示");

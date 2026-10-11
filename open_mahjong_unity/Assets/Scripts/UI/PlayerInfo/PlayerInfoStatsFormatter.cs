@@ -25,44 +25,23 @@ public static class PlayerInfoStatsFormatter {
     }
 
     public static string[] Modes(string rule, bool ranked, RuleStatsResponse response = null) {
-        if (ranked && rule == RiichiSanmaRankConfig.Rule) return new[]{"2/4_sanma_rank","1/4_sanma_rank"};
-        if(ranked&&RankedRules.Supports(rule))return rule==RankedRules.XueliuExchangeRule?new[]{"4/4_rank"}:rule=="sichuan"?new[]{"4/4_rank","1/4_rank"}:rule=="riichi"?new[]{"2/4_rank","1/4_rank"}:new[]{"4/4_rank","2/4_rank","1/4_rank"};
-        string sourceRule = PlayerInfoRuleCatalog.SourceRule(rule);
-        bool sanma = PlayerInfoRuleCatalog.PlayerCount(rule) == 3;
-        var manifest = RuleRegistry.Resolve(sourceRule);
-        if (manifest?.CreateRoomDefaults != null && !manifest.CreateRoomDefaults.ContainsKey(CreateRoomKeys.GameRound)) {
-            var savedModes = new List<string>();
-            if (response?.history_stats != null) foreach (var row in response.history_stats) {
-                if (row != null && !savedModes.Contains(row.mode)) savedModes.Add(row.mode);
-            }
-            return savedModes.ToArray();
-        }
-        int[] rounds = sourceRule == "riichi" ? new[] { 2, 1 }
-            : manifest?.MaxRoundIsHandCount == true ? new[] { 16, 8, 4 } : new[] { 4, 3, 2, 1 };
-        var modes = new List<string>();
-        foreach (int round in rounds) {
-            if (RoundTextDictionary.GetMaxRoundText(sourceRule, round).StartsWith("未知")) continue;
-            modes.Add(round + "/4" + (sanma ? "_sanma" : "") + (ranked ? "_rank" : ""));
-        }
-        // 历史自定义日麻存在三圈、四圈局制，保留这些真实记录的统计入口。
-        if (sourceRule == "riichi" && !ranked && response?.history_stats != null) {
-            foreach (var row in response.history_stats) {
-                if (row == null || string.IsNullOrEmpty(row.mode)) continue;
-                string normalized = NormalizeMode(row.mode, sanma);
-                if ((row.rule == rule || row.rule == sourceRule || string.IsNullOrEmpty(row.rule))
-                    && (normalized == "3/4" + (sanma ? "_sanma" : "") || normalized == "4/4" + (sanma ? "_sanma" : ""))
-                    && !modes.Contains(normalized)) modes.Add(normalized);
-            }
+        var modes = new List<string>(PlayerInfoRuleCatalog.Modes(rule, ranked));
+        // 保留本子规则已有的历史局制，默认入口取自统计配表。
+        if (response?.history_stats != null) foreach (var row in response.history_stats) {
+            if (row == null || string.IsNullOrEmpty(row.mode) || row.rule != rule) continue;
+            string mode = NormalizeMode(row.mode, PlayerInfoRuleCatalog.PlayerCount(rule) == 3);
+            if (mode.EndsWith("_rank") == ranked && !modes.Contains(mode)) modes.Add(mode);
         }
         return modes.ToArray();
     }
 
     public static string ModeCaption(string rule, string mode, bool ranked) {
         if (string.IsNullOrEmpty(mode)) return RuleName(rule) + "总计" + CategorySuffix(rule, ranked);
+        if (ranked && rule == "hongque" && mode == "16/4_rank") return "虹雀 · 全庄（16局）（Elo 匹配）";
         if (rule == RiichiSanmaRankConfig.Rule) return RuleName(rule) + " · " + RiichiModeCaption(mode) + CategorySuffix(rule, ranked);
         if (rule == PlayerInfoRuleCatalog.GuobiaoSanma) return RuleName(rule) + " · "
             + RoundTextDictionary.GetMatchTypeDisplay("guobiao", mode.Replace("_sanma", "")) + CategorySuffix(rule, ranked);
-        if(ranked&&(rule=="sichuan" || rule==RankedRules.XueliuExchangeRule))return RankedRules.Name(rule)+(mode=="4/4_rank"?" · 全庄（16局）":" · 四局（历史）")+"（Elo 匹配）";
+        if(ranked&&(rule=="sichuan" || rule==RankedRules.XueliuExchangeRule))return RankedRules.Name(rule)+(mode=="4/4_rank"?" · 全庄（16局）":mode=="2/4_rank"?" · 半庄（8局）":" · 四局（历史）")+"（Elo 匹配）";
         string match = rule == "riichi" && mode == "2/4" ? "半庄（东南战）"
             : rule == "riichi" && mode == "3/4" ? "东南西战（历史）"
             : rule == "riichi" && mode == "4/4" ? "全庄战（历史）"
@@ -79,7 +58,7 @@ public static class PlayerInfoStatsFormatter {
         foreach (var row in response.history_stats) {
             if (row == null || NormalizeMode(row.mode, PlayerInfoRuleCatalog.PlayerCount(rule) == 3) != mode) continue;
             string source = PlayerInfoRuleCatalog.SourceRule(rule);
-            if (!string.IsNullOrEmpty(row.rule) && row.rule != rule && row.rule.Split('/')[0] != source) continue;
+            if (!string.IsNullOrEmpty(row.rule) && row.rule != rule) continue;
             return row;
         }
         return null;

@@ -14,16 +14,12 @@ public sealed class HangzhouGameState : TurnBasedGameState {
     public override bool IsSelfLocked => Info?.forced_draw_discard != null && Session.SelfIndex >= 0 && Session.SelfIndex < Info.forced_draw_discard.Length && Info.forced_draw_discard[Session.SelfIndex];
     private void Accept(HangzhouInfo info) {
         if (info == null) return;
-        Info = info; Hints.Accept(info); HangzhouStatePanel.Show(info);
+        Info = info; Hints.Accept(info);
+        GameCanvas.Instance?.SetHangzhouPlayerStatus(info, Mirror.IndexToPosition);
     }
     protected override void OnRoundStarted(GameInfo info) {
         BindClockRound(info);
         Info = null; Hints.Reset(); Accept(info?.hangzhou_info);
-        if (Info?.self_has_draw_slot == true && Mirror.SelfHandTiles.Count > 0) {
-            var hand = Mirror.SelfHandTiles.ToArray();
-            GameCanvas.Instance.ChangeHandCards("SyncHandCards", 0, hand.Take(hand.Length - 1).ToArray(), null);
-            GameCanvas.Instance.ChangeHandCards("GetCardNoAnimation", hand[hand.Length - 1], null, null);
-        }
         // Restore player and spectator tips only after their authoritative cache is loaded.
         // A real draw is removed only from the query copy, never from the physical mirror.
         if (Session.Tips) {
@@ -96,5 +92,8 @@ public sealed class HangzhouGameState : TurnBasedGameState {
         Clock.LastAskActionTick = response.ready_status_info.action_tick;
         Accept(response.ready_status_info.hangzhou_info); base.OnReadyStatus(response);
     }
-    public override void OnSessionReset() { askClock.Reset(); Info = null; Hints.Reset(); HangzhouStatePanel.Hide(); }
+    public override void OnSessionReset() {
+        askClock.Reset(); Info = null; Hints.Reset();
+        GameCanvas.Instance?.SetHangzhouPlayerStatus(null, null);
+    }
 }

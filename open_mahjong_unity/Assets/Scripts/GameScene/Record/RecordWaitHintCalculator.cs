@@ -80,7 +80,14 @@ public static class RecordWaitHintCalculator {
         if (ctx.PlayersByPosition == null) return counts;
         foreach (var entry in ctx.PlayersByPosition) {
             var player = entry.Value;
+            if (entry.Key != "self" && WashizuTile.UsesTransparentHands(ctx.SubRule) && player?.PublicHandTiles != null)
+                foreach (int tile in player.PublicHandTiles) if (WashizuTile.IsTransparent(tile)) Add(tile);
             if (player?.DiscardTiles != null) foreach (int tile in player.DiscardTiles) Add(tile);
+            if (WashizuTile.UsesTransparentHands(ctx.SubRule) && player?.CombinationMasks != null) {
+                foreach (var mask in player.CombinationMasks)
+                    foreach (int tile in WashizuTile.VisibleMeldTiles(mask)) Add(tile);
+                continue;
+            }
             if (ctx.RoomRule == WenzhouGameState.RuleId && player?.CombinationMasks != null) {
                 foreach (var mask in player.CombinationMasks) for (int i = 1; mask != null && i < mask.Length; i += 2) Add(mask[i]);
                 continue;

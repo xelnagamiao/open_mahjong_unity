@@ -236,6 +236,8 @@ def queue_type_to_display_name(queue_type: str) -> str:
     if spec and spec.rule != 'guobiao':
         tier = {'beginner':'初级场','intermediate':'中级场','advanced':'高级场','elo':'Elo 匹配'}[spec.tier]
         mode = {'dongfeng':'东风战','banzhuang':'半庄战','quanzhuang':'全庄战','xuezhan':'血战到底'}[spec.mode]
+        if spec.rule == 'hongque':
+            mode += f'（{spec.rounds}局）'
         return f'{RULES[spec.rating_rule]} · {tier} · {mode}'
     parsed = parse_queue_type(queue_type)
     if not parsed:
@@ -258,6 +260,9 @@ def queue_type_to_room_config(queue_type: str) -> dict:
                       tactical_call=False, tips=spec.tier in ('beginner','elo'), pointer_tips=True)
         if spec.sub_rule == 'sichuan/xueliu_exchange':
             config.update(blood_battle=False, detailed_config={'xueliu_exchange_scoring': True})
+        if spec.rule == 'hongque':
+            # 虹雀队列、状态和统计均使用实际局数。
+            config.update(tactical_call=True)
         if spec.rule == 'riichi':
             from ..game_calculation.riichi.rule_config import preset_room_config
             config.update(preset_room_config('sanma_tenhou' if spec.player_count == 3 else 'mleague'))

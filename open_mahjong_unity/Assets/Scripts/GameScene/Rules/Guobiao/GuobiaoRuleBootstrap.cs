@@ -4,9 +4,11 @@ internal static class GuobiaoRuleBootstrap {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Register() {
         RuleRegistry.Register(new RuleManifest {
+            ReplayFactory = record => record.CreateStandardReplayModule(),
+            BuildRoom = GuobiaoRoomBuilder.Build,
             RuleId = GuobiaoGameState.RuleId,
             DefaultSubRule = "guobiao/standard",
-            RulebookPath = (subRule, config) => subRule == "guobiao/lanshi" ? "/rulebook/guobiao-lanshi" : "/rulebook/guobiao",
+            RulebookPath = (subRule, config) => subRule == GuobiaoGameState.TransparentSubRule ? "/rulebook/guobiao-transparent" : subRule == "guobiao/lanshi" ? "/rulebook/guobiao-lanshi" : "/rulebook/guobiao",
             DisplayName = "国标麻将",
             LobbyOrder = 0,
             LobbySubRules = GuobiaoLobby.SubRules,
@@ -15,6 +17,7 @@ internal static class GuobiaoRuleBootstrap {
             ShowsHepaiLimitInRoomList = true,
             StatsFanNames = RankConfig.GuobiaoFanTranslation,
             GameStateFactory = () => new GuobiaoGameState(),
+            NormalizeTileId = WashizuTile.Face,
             Tingpai = GuobiaoTips.Tingpai,
             DescribeWaitingTile = GuobiaoTips.Describe,
             FanNameText = GuobiaoFanText.FanName,

@@ -36,6 +36,9 @@ public sealed class RuleManifest {
     /// <summary>副露统一竖排（认走张不横置）。</summary>
     public bool VerticalMelds;
 
+    /// <summary>副露组间保留额外间距；仅由规则内部启用，不提供玩家设置。</summary>
+    public bool MeldSpacingEnabled;
+
     // ---- 提示（TipsBlock / TileCard / TipsContainer / 牌谱危险张）----
 
     /// <summary>听牌计算。TipsProvidedByGameState 为 true 的族可不提供。</summary>
@@ -75,6 +78,9 @@ public sealed class RuleManifest {
 
     /// <summary>有补花流程；false 时隐藏"自动补花"设置。</summary>
     public bool HasFlowerReplacement = true;
+
+    /// <summary>起手/重连快照的末张须保留在独立摸牌区。null 时全部属于主列。</summary>
+    public Func<GameInfo, bool> OpeningHandHasDrawSlot;
 
     /// <summary>荣和时和牌张从河里飘到手（国标演出）；错和不飘。</summary>
     public bool RonWinTileTravelsFromRiver;
@@ -144,6 +150,9 @@ public sealed class RuleManifest {
     /// <summary>房间辅助规则状态；为空使用默认错和开关文案。</summary>
     public Func<GameInfo, string> RoundSupplementText;
 
+    /// <summary>复用指示牌回合面板，替换日麻的点棒信息；null 保持原布局。</summary>
+    public Func<GameInfo, RoundIndicatorDisplay> RoundIndicators;
+
     /// <summary>房间 game_round → 总局数文案（"东风战" / "4局" / "八局"）。null 表示通用风圈文案。</summary>
     public Func<int, string> MaxRoundText;
 
@@ -174,6 +183,9 @@ public sealed class RuleManifest {
     /// 建房面板默认值：键见 <see cref="CreateRoomKeys"/>。出现即显示对应控件。
     /// </summary>
     public Dictionary<string, object> CreateRoomDefaults;
+
+    /// <summary>Build and validate this family's room request without accessing scene controls.</summary>
+    public Func<RoomCreationInput, RoomCreationRequest> BuildRoom;
 
     /// <summary>和牌方式下拉文案；null 表示默认三项（多家和 / 三家和了流局 / 头跳）。</summary>
     public string[] HepaiWayOptions;
@@ -207,6 +219,9 @@ public sealed class RuleManifest {
 
     // ---------- 牌谱回放差异 ----------
 
+    /// <summary>Creates the rule's replay interpreter and presentation hooks for one record manager.</summary>
+    public Func<GameRecordManager, RuleReplayModule> ReplayFactory;
+
     /// <summary>牌谱杠动作的 gs 字段即时结算，和牌 tick 不重复包含该杠分。</summary>
     public bool RecordUsesInlineKongScores;
 
@@ -228,8 +243,8 @@ public sealed class RuleManifest {
     /// <summary>回放 state/ready 与承包标签，供公开报听规则使用。</summary>
     public bool PublicReadyStateReplay;
 
-    /// <summary>加杠把第四张追加到最后一组副露（虹雀），而不是改碰牌 mask。</summary>
-    public bool JiagangExtendsLastMeld;
+    /// <summary>牌谱加杠显式记录被扩展的副露索引（虹雀），扩展后重排整个牌组。</summary>
+    public bool RecordKongHasMeldIndex;
 
     /// <summary>牌谱追踪宝牌指示牌 / 立直棒 / 起手分（日麻）。</summary>
     public bool RecordTracksRiichiField;
@@ -273,4 +288,11 @@ public sealed class RuleManifest {
         if (string.IsNullOrEmpty(subRule) || string.IsNullOrEmpty(RuleId)) return false;
         return subRule.StartsWith(RuleId + "/", StringComparison.Ordinal) || subRule == RuleId;
     }
+}
+
+/// <summary>规则提供的公开指示牌与局况；只影响显示，不参与牌义或计分。</summary>
+public sealed class RoundIndicatorDisplay {
+    public int[] Tiles = Array.Empty<int>();
+    public string Caption = "";
+    public string Counter = "";
 }

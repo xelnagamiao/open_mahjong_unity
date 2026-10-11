@@ -298,7 +298,7 @@ async def _handle_hand_action(game_state, player_index, action_list, player, kui
     hand = player.hand_tiles[:]
     combs = list(getattr(player, 'combination_tiles', []))
     meld_count = count_melds(combs)
-    visible = count_visible_tiles(game_state)
+    visible = count_visible_tiles(game_state, player_index)
     forbidden = set(kuikae_forbidden or set())
     forbidden.update(normalize_tile(t) for t in (getattr(player, 'kuikae_forbidden_tiles', None) or []))
     candidates = dict(getattr(player, "riichi_candidate_cuts", None) or {})
@@ -384,7 +384,7 @@ async def _handle_after_cut(game_state, player_index, action_list, player):
     hand = player.hand_tiles[:]
     combs = getattr(player, 'combination_tiles', [])
     meld_count = count_melds(combs)
-    visible = count_visible_tiles(game_state)
+    visible = count_visible_tiles(game_state, player_index)
     expected_tick = getattr(game_state, "server_action_tick", None)
     best_action = await run_room_bot_cpu(
         game_state,

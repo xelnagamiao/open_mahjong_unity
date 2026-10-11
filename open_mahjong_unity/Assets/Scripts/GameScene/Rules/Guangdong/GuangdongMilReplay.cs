@@ -3,6 +3,20 @@ using System.Collections.Generic;
 using Newtonsoft.Json;
 
 public partial class GameRecordManager {
+    internal RuleReplayModule CreateGuangdongMilReplayModule() => new RuleReplayModule("guangdong") {
+        Reset = ResetGuangdongRecordState,
+        Clear = () => {
+            GuangdongServerTips.Clear(true);
+            recordGuangdongState = null; recordGuangdongResult = null; recordGuangdongHorses = null;
+        },
+        ApplyBeforeMutation = ApplyGuangdongRecordAction,
+        AfterSilentMutation = tick => {
+            SyncRecordBoardScores();
+            if (indexToPosition.TryGetValue(currentPlayerIndex, out string position))
+                BoardCanvas.Instance?.ShowCurrentPlayer(position, GetRecordRemainTiles());
+        },
+    };
+
     private GuangdongPublicState recordGuangdongState;
     private GuangdongResult recordGuangdongResult;
     private GuangdongHorses recordGuangdongHorses;
@@ -11,7 +25,7 @@ public partial class GameRecordManager {
         GuangdongServerTips.Clear(true);
         recordGuangdongState = IsGuangdongMilRecord() ? new GuangdongPublicState { edition = GuangdongMilRules.Version, ghost_discard_counts = new int[4], kong_ledger = new List<GuangdongKongEntry>() } : null;
         recordGuangdongResult = null; recordGuangdongHorses = null;
-        GuangdongLedgerPanel.Show(recordGuangdongState, null);
+        RefreshTaiwanRecordPlayerTags();
     }
     private bool ApplyGuangdongRecordAction(IReadOnlyList<string> tick) {
         if (!IsGuangdongMilRecord() || tick == null || tick.Count == 0) return false;
@@ -58,7 +72,7 @@ public partial class GameRecordManager {
                 }
                 break;
         }
-        GuangdongLedgerPanel.Show(recordGuangdongState, recordGuangdongResult, recordGuangdongHorses);
+        RefreshTaiwanRecordPlayerTags();
         return true;
     }
 }

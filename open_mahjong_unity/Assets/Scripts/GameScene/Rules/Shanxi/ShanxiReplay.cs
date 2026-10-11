@@ -2,6 +2,14 @@ using System;
 using System.Collections.Generic;
 
 public partial class GameRecordManager {
+    internal RuleReplayModule CreateShanxiReplayModule() => new RuleReplayModule {
+        ReservedWallTiles = 14,
+        Reset = () => recordShanxiTailSingle = false,
+        Clear = () => recordShanxiTailSingle = false,
+        ApplyBeforeMutation = tick => { RestoreShanxiRonDiscard(tick); return false; },
+        ConsumeWallTile = action => { ConsumeShanxiRecordWallTile(action); return true; },
+    };
+
     private bool recordShanxiTailSingle;
     private bool IsShanxiRecord() => ReadGameTitleString(gameRecord?.gameTitle, "rule", "") == "shanxi";
     private void RestoreShanxiRonDiscard(IReadOnlyList<string> tick) {

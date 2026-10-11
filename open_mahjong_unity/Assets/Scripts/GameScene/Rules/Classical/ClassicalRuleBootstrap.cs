@@ -4,6 +4,8 @@ internal static class ClassicalRuleBootstrap {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Register() {
         RuleRegistry.Register(new RuleManifest {
+            ReplayFactory = record => record.CreateStandardReplayModule(),
+            BuildRoom = ClassicalRoomBuilder.Build,
             RuleId = ClassicalGameState.RuleId,
             DefaultSubRule = "classical/standard",
             DisplayName = "古典麻将",

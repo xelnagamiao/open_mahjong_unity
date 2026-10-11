@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
+using System.Linq;
 
 public class RoomListPanel : MonoBehaviour {
     public static RoomListPanel Instance { get; private set; }
@@ -120,7 +121,10 @@ public class RoomListPanel : MonoBehaviour {
         if (roomItems.Count == 0) ClearRoomListContent();
         var retained = new HashSet<string>();
         if (room_List != null) {
-            foreach (var roomData in room_List) {
+            foreach (var entry in room_List.Where(r => r != null)
+                .GroupBy(r => string.IsNullOrEmpty(r.duplicate_match_id) ? "room:" + r.room_id : "pair:" + r.duplicate_match_id)
+                .SelectMany((g, index) => g.OrderBy(r => r.duplicate_table == "closed" ? 1 : 0).Select(r => new { Room = r, ColorIndex = index }))) {
+                var roomData = entry.Room;
                 if (roomData == null || string.IsNullOrEmpty(roomData.room_id) || !retained.Add(roomData.room_id)) continue;
                 if (!roomItems.TryGetValue(roomData.room_id, out RoomItem item) || item == null) {
                     var instance = Instantiate(roomItemPrefab, roomListContent);
@@ -128,7 +132,7 @@ public class RoomListPanel : MonoBehaviour {
                     item = instance.GetComponent<RoomItem>();
                     roomItems[roomData.room_id] = item;
                 }
-                item.SetRoomInfo(roomData);
+                item.SetRoomInfo(roomData, entry.ColorIndex);
                 item.transform.SetSiblingIndex(retained.Count - 1);
             }
         }

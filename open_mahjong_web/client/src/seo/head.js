@@ -1,5 +1,6 @@
 import { SITE } from '../seo.js'
-import { MCR_PAGES, mcrPageForPath, mcrAlternates, mcrStructuredData } from './mcr-pages.js'
+import { staticPageForPath, languageVersions, pageAlternates, pageStructuredData } from './pages.js'
+import { localizedRouteCopy } from './site-copy.js'
 import { jsonLdText } from './mcr-render.js'
 
 function setMeta(attribute, name, content) {
@@ -15,9 +16,10 @@ function setMeta(attribute, name, content) {
 
 /** Keep social metadata in sync during SPA navigation, including cleanup on exit. */
 export function applyRouteHead(route, locale, translate) {
-  const page = mcrPageForPath(route.path)
-  const title = page?.title || (route.path.startsWith('/admin') ? route.meta.title : translate(route.meta.title || SITE.name))
-  const description = page?.description || route.meta.description || ''
+  const page = staticPageForPath(route.path)
+  const copy = localizedRouteCopy(route.path, locale)
+  const title = page?.title || copy?.title || (route.path.startsWith('/admin') ? route.meta.title : translate(route.meta.title || SITE.name))
+  const description = page?.description || copy?.description || translate(route.meta.description || '')
   const canonicalUrl = SITE.domain + (page?.path || route.path)
   document.title = title
   document.documentElement.lang = page?.locale || locale
@@ -37,11 +39,12 @@ export function applyRouteHead(route, locale, translate) {
   setMeta('property', 'og:title', title)
   setMeta('property', 'og:description', description)
   setMeta('property', 'og:url', canonicalUrl)
-  setMeta('property', 'og:locale', page?.ogLocale || 'zh_CN')
+  const ogLocales = { en: 'en_US', fr: 'fr_FR', ja: 'ja_JP', 'zh-CN': 'zh_CN', 'zh-TW': 'zh_TW', 'zh-HK': 'zh_HK' }
+  setMeta('property', 'og:locale', page?.ogLocale || ogLocales[locale] || 'en_US')
 
   document.head.querySelectorAll('[data-mcr-seo]').forEach((element) => element.remove())
   if (page) {
-    for (const alternate of mcrAlternates(SITE.domain)) {
+    for (const alternate of pageAlternates(page, SITE.domain)) {
       const link = document.createElement('link')
       link.setAttribute('rel', 'alternate')
       link.setAttribute('hreflang', alternate.language)
@@ -49,7 +52,7 @@ export function applyRouteHead(route, locale, translate) {
       link.setAttribute('data-mcr-seo', 'alternate')
       document.head.appendChild(link)
     }
-    for (const other of MCR_PAGES.filter((entry) => entry.locale !== page.locale)) {
+    for (const other of languageVersions(page).filter((entry) => entry.locale !== page.locale)) {
       const meta = document.createElement('meta')
       meta.setAttribute('property', 'og:locale:alternate')
       meta.setAttribute('content', other.ogLocale)
@@ -59,16 +62,16 @@ export function applyRouteHead(route, locale, translate) {
     const script = document.createElement('script')
     script.type = 'application/ld+json'
     script.setAttribute('data-mcr-seo', 'structured-data')
-    script.textContent = jsonLdText(mcrStructuredData(page, SITE.domain))
+    script.textContent = jsonLdText(pageStructuredData(page, SITE.domain))
     document.head.appendChild(script)
   }
 
-  const image = page ? `${SITE.domain}/seo/mcr-${page.locale}.png` : null
+  const image = page?.imagePath ? SITE.domain + page.imagePath : null
   setMeta('property', 'og:image', image)
-  setMeta('property', 'og:image:width', page ? '1200' : null)
-  setMeta('property', 'og:image:height', page ? '630' : null)
+  setMeta('property', 'og:image:width', image ? '1200' : null)
+  setMeta('property', 'og:image:height', image ? '630' : null)
   setMeta('property', 'og:image:alt', page?.imageAlt)
-  setMeta('name', 'twitter:card', page ? 'summary_large_image' : null)
+  setMeta('name', 'twitter:card', page ? (image ? 'summary_large_image' : 'summary') : null)
   setMeta('name', 'twitter:title', page ? title : null)
   setMeta('name', 'twitter:description', page ? description : null)
   setMeta('name', 'twitter:image', image)

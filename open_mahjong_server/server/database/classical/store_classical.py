@@ -97,25 +97,24 @@ def store_classical_game_record(db_manager, game_record: dict, player_list: list
                     title_used, character_used, profile_used, voice_used, avatar_frame_used
                 ))
                 saved_count += 1
-            except Error as e:
+            except Exception as e:
                 logger.warning(f'跳过玩家对局记录存储: user_id={player.user_id}, username={player.username}, error={e}')
+                raise
         logger.info(f'已为 {saved_count} 名玩家保存对局记录到 game_player_records 表')
 
         from ..player_recent_records import update_player_recent_records
         update_player_recent_records(cursor, game_id, game_record)
+        # 牌谱、参与者和统计同事务发布，成功保存不依赖后续回填。
+        from ..scene_stats import record_game_metrics
+        record_game_metrics(db_manager, game_id, game_record, player_list, {
+            "rule": rule, "sub_rule": sub_rule, "room_type": room_type,
+            "match_tier": match_tier, "event_id": event_id, "match_type": match_type,
+        }, cursor=cursor)
         conn.commit()
-        logger.info(f'游戏记录已保存，game_id: {game_id}')
-        try:
-            from ..scene_stats import record_game_metrics
-            record_game_metrics(db_manager, game_id, game_record, player_list, {
-                "rule": rule, "sub_rule": sub_rule, "room_type": room_type,
-                "match_tier": match_tier, "event_id": event_id, "match_type": match_type,
-            })
-        except Exception as e:
-            logger.warning(f"写入 game_player_metrics 失败: {e}")
+        logger.info("牌谱及子规则统计已保存，game_id: %s", game_id)
         return game_id
 
-    except Error as e:
+    except Exception as e:
         logger.error(f'存储游戏记录失败: {e}', exc_info=True)
         if conn:
             conn.rollback()
@@ -127,157 +126,12 @@ def store_classical_game_record(db_manager, game_record: dict, player_list: list
 
 
 def store_classical_game_stats(db_manager, game_id: str, player_list: list, room_type: str, game_round: int, total_rounds: int):
-    """
-    存储古典麻将游戏基础统计数据到 classical_history_stats 表
-    """
-    conn = None
-    try:
-        if any(getattr(p, "user_id", 0) <= 10 for p in player_list):
-            logger.info("对局包含机器人，跳过基础统计保存")
-            return
-
-        conn = db_manager._get_connection()
-        cursor = conn.cursor()
-
-        rule = "classical"
-        mode = f"{game_round}/4"
-
-        stats_columns = [
-            "total_games", "total_rounds", "win_count", "self_draw_count",
-            "deal_in_count", "total_fan_score", "total_win_turn",
-            "total_fangchong_score", "first_place_count", "second_place_count",
-            "third_place_count", "fourth_place_count", "fulu_round_count",
-        ]
-
-        for player in player_list:
-            user_id = player.user_id
-            if user_id <= 10000000:
-                continue
-
-            cursor.execute("SELECT 1 FROM users WHERE user_id = %s", (user_id,))
-            if cursor.fetchone() is None:
-                continue
-
-            counter = player.record_counter
-            win_count = counter.zimo_times + counter.dianhe_times
-
-            stats_increment = {
-                "total_games": 1,
-                "total_rounds": total_rounds,
-                "win_count": win_count,
-                "self_draw_count": counter.zimo_times,
-                "deal_in_count": counter.fangchong_times,
-                "total_fan_score": counter.win_score,
-                "total_win_turn": counter.win_turn,
-                "total_fangchong_score": counter.fangchong_score,
-                "first_place_count": 1 if counter.rank_result == 1 else 0,
-                "second_place_count": 1 if counter.rank_result == 2 else 0,
-                "third_place_count": 1 if counter.rank_result == 3 else 0,
-                "fourth_place_count": 1 if counter.rank_result == 4 else 0,
-                "fulu_round_count": counter.fulu_times,
-            }
-
-            insert_columns = ["user_id", "rule", "mode"] + stats_columns
-            insert_values = [user_id, rule, mode] + [stats_increment.get(col, 0) for col in stats_columns]
-
-            update_clauses = ", ".join(
-                f"{col} = classical_history_stats.{col} + EXCLUDED.{col}"
-                for col in stats_columns
-            )
-
-            cursor.execute(f"""
-                INSERT INTO classical_history_stats (
-                    {', '.join(insert_columns)}
-                ) VALUES (
-                    {', '.join(['%s'] * len(insert_columns))}
-                )
-                ON CONFLICT (user_id, rule, mode) DO UPDATE SET
-                    {update_clauses},
-                    updated_at = CURRENT_TIMESTAMP
-            """, insert_values)
-
-        conn.commit()
-        logger.info(f'古典麻将基础统计数据已保存，game_id: {game_id}')
-
-    except Error as e:
-        logger.error(f'存储古典麻将基础统计数据失败: {e}', exc_info=True)
-        if conn:
-            conn.rollback()
-    finally:
-        if conn:
-            cursor.close()
-            db_manager._put_connection(conn)
+    """兼容入口：按完整子规则从逐局指标覆盖累计，重试不会翻倍。"""
+    from ..legacy_statistics import refresh_legacy_statistics
+    refresh_legacy_statistics(db_manager, game_id, "classical")
 
 
 def store_classical_fan_stats(db_manager, game_id: str, player_list: list, room_type: str, game_round: int):
-    """
-    存储古典麻将游戏番种统计数据到 classical_fan_stats 表
-    """
-    conn = None
-    try:
-        if any(getattr(p, "user_id", 0) <= 10 for p in player_list):
-            logger.info("对局包含机器人，跳过番种统计保存")
-            return
-
-        conn = db_manager._get_connection()
-        cursor = conn.cursor()
-
-        rule = "classical"
-        mode = f"{game_round}/4"
-
-        for player in player_list:
-            user_id = player.user_id
-            if user_id <= 10000000:
-                continue
-
-            cursor.execute("SELECT 1 FROM users WHERE user_id = %s", (user_id,))
-            if cursor.fetchone() is None:
-                continue
-
-            counter = player.record_counter
-            fan_increment = {field: 0 for field in FAN_FIELDS}
-            recorded_fans = getattr(counter, "recorded_fans", [])
-
-            for fan_entry in recorded_fans:
-                if isinstance(fan_entry, list):
-                    fan_iterable = fan_entry
-                else:
-                    fan_iterable = [fan_entry]
-
-                for fan_name in fan_iterable:
-                    if not isinstance(fan_name, str):
-                        continue
-                    if fan_name in FAN_NAME_TO_FIELD:
-                        field = FAN_NAME_TO_FIELD[fan_name]
-                        fan_increment[field] += 1
-
-            insert_columns = ["user_id", "rule", "mode"] + FAN_FIELDS
-            insert_values = [user_id, rule, mode] + [fan_increment.get(col, 0) for col in FAN_FIELDS]
-
-            update_clauses = ", ".join(
-                f"{col} = classical_fan_stats.{col} + EXCLUDED.{col}"
-                for col in FAN_FIELDS
-            )
-
-            cursor.execute(f"""
-                INSERT INTO classical_fan_stats (
-                    {', '.join(insert_columns)}
-                ) VALUES (
-                    {', '.join(['%s'] * len(insert_columns))}
-                )
-                ON CONFLICT (user_id, rule, mode) DO UPDATE SET
-                    {update_clauses},
-                    updated_at = CURRENT_TIMESTAMP
-            """, insert_values)
-
-        conn.commit()
-        logger.info(f'古典麻将番种统计数据已保存，game_id: {game_id}')
-
-    except Error as e:
-        logger.error(f'存储古典麻将番种统计数据失败: {e}', exc_info=True)
-        if conn:
-            conn.rollback()
-    finally:
-        if conn:
-            cursor.close()
-            db_manager._put_connection(conn)
+    """兼容入口：按完整子规则从逐局指标覆盖累计，重试不会翻倍。"""
+    from ..legacy_statistics import refresh_legacy_statistics
+    refresh_legacy_statistics(db_manager, game_id, "classical")

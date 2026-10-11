@@ -88,6 +88,10 @@ def build_game_title_data(gs) -> Dict[str, Any]:
         title.update(blood_battle=True, blood_battle_version=1)
     if getattr(gs, "room_rule", None) == "sichuan":
         title["blood_battle"] = bool(getattr(gs, "blood_battle", True))
+        if getattr(gs, "is_doubles", False):
+            from ...game_calculation.sichuan.doubles_rules import DOUBLES_RULE_PROFILE
+            title["doubles_rule_profile"] = dict(DOUBLES_RULE_PROFILE)
+            title["team_by_player_index"] = [p.team_id for p in gs.player_list]
         # 老川麻牌谱的 hepai_limit=1 只是占位值，没有参与和牌判定。
         title["sichuan_hepai_limit_version"] = 1
     # 以下字段仅立直麻将 room_rule == "riichi"
@@ -259,7 +263,11 @@ def player_action_record_deal(self, deal_tile: int, deal_type: str = "d", action
             action_player = self.current_player_index
         append_action_tick(self, [deal_type, deal_tile, action_player])
     else:
-        append_action_tick(self, [deal_type, deal_tile])
+        entry = [deal_type, deal_tile]
+        draw = getattr(self, "duplicate_last_draw", None)
+        if draw:
+            entry.extend(["dw", draw["draw_from_seat"], draw["wall_index"], self.current_player_index])
+        append_action_tick(self, entry)
 
 # 牌谱记录切牌
 def player_action_record_cut(self, cut_tile: int, is_moqie: bool = False, is_riichi_horizontal: bool = False):

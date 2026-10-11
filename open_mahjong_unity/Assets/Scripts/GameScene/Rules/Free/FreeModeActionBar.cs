@@ -33,13 +33,13 @@ public sealed class FreeModeActionBar : MonoBehaviour {
             if (child.gameObject.activeSelf && button != null) buttons.Add(button);
         }
         if (buttons.Count == 0) return;
-        float width = buttons.Count * ButtonWidth + (buttons.Count - 1) * Spacing + (buttons.Count > 3 ? GroupGap : 0f);
+        float width = buttons.Count * ButtonWidth + (buttons.Count - 1) * Spacing + (buttons.Count > 2 ? GroupGap : 0f);
         float available = rect.parent is RectTransform parent ? Mathf.Max(1f, parent.rect.width - 96f) : width;
         float scale = Mathf.Min(1f, available / width);
         rect.sizeDelta = new Vector2(width * scale, ButtonHeight * scale);
         float x = 0f;
         for (int i = 0; i < buttons.Count; i++) {
-            if (i == 3) x += GroupGap;
+            if (i == 2) x += GroupGap;
             RectTransform cell = (RectTransform)buttons[i].transform;
             cell.anchorMin = cell.anchorMax = Vector2.zero;
             cell.pivot = Vector2.zero;

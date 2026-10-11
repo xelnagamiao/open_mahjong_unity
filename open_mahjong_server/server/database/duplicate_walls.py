@@ -32,6 +32,8 @@ def load_duplicate_wall(db, key):
 def validate_duplicate_wall(wall, room):
     rule = room.get("room_rule", "")
     sub_rule = room.get("sub_rule", "")
+    if sub_rule == "guobiao/transparent":
+        raise ValueError("透明国标不支持普通复式牌墙，请使用随机种子复现牌局")
     if sub_rule == "guobiao/sanma":
         raise ValueError("三人国标不支持四人复式牌墙")
     if rule not in SUPPORTED_RULES:
@@ -103,7 +105,7 @@ def reserve_duplicate_game(db, wall_id):
             row = cursor.fetchone()
             if not row:
                 raise ValueError("复式牌墙已删除，无法开始对局")
-            if row[1].split("/", 1)[0] != "guobiao":
+            if row[1].split("/", 1)[0] != "guobiao" and row[1] not in ("sichuan/doubles_duplicate", "sichuan/xueliu_doubles_duplicate"):
                 raise ValueError("复式牌墙仅支持国标麻将（含蓝十改）")
             cursor.execute("INSERT INTO duplicate_games (game_id, wall_id) VALUES (%s, %s)", (game_id, wall_id))
         conn.commit()
@@ -184,6 +186,9 @@ ALTER TABLE duplicate_walls ALTER COLUMN use_flowers SET DEFAULT TRUE;
 ALTER TABLE duplicate_walls ALTER COLUMN use_flowers SET NOT NULL;
 ALTER TABLE duplicate_walls ADD COLUMN IF NOT EXISTS round_count INTEGER NOT NULL DEFAULT 1
   CHECK (round_count IN (1, 4, 8, 12, 16));
+ALTER TABLE duplicate_walls DROP CONSTRAINT IF EXISTS duplicate_walls_round_count_check;
+ALTER TABLE duplicate_walls ADD CONSTRAINT duplicate_walls_round_count_check CHECK (
+  round_count IN (1, 4, 8, 12, 16) OR (rule = 'sichuan/xueliu_doubles_duplicate' AND round_count > 0));
 ALTER TABLE duplicate_walls ADD COLUMN IF NOT EXISTS round_tiles JSONB
   CHECK (round_tiles IS NULL OR (jsonb_typeof(round_tiles) = 'array' AND jsonb_array_length(round_tiles) = round_count));
 CREATE INDEX IF NOT EXISTS idx_duplicate_walls_owner ON duplicate_walls(owner_user_id, scope, created_at);

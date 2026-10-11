@@ -2,7 +2,8 @@
  * 站点 SEO（TDK）配置——单一数据源。
  * 被 router（运行时 head 更新）与 scripts/prerender-seo.mjs（构建期预渲染）共用。
  */
-import { MCR_PAGES, mcrPageForPath } from './seo/mcr-pages.js'
+import { STATIC_PAGES, staticPageForPath } from './seo/pages.js'
+import { siteCopy } from './seo/site-copy.js'
 
 export const SITE = {
   name: 'Salasasa',
@@ -17,8 +18,7 @@ export const SEO_PAGES = [
   {
     path: '/',
     title: 'Salasasa国标麻将对战平台-萨拉飒飒',
-    description:
-      '支持国标麻将、立直麻将、长沙麻将、四川麻将、台湾麻将等一系列规则的开源麻将平台，提供2D、3D网页对战、数据站、牌理分析等多种功能；Salasasa平台也是open_mahjong_unity项目的示例服务器。',
+    description: siteCopy('zh-CN').description,
     keywords: '国标麻将,立直麻将,长沙麻将,四川麻将,台湾麻将,在线麻将,麻将平台,麻将计算器,麻将规则,Salasasa',
   },
   {
@@ -138,7 +138,7 @@ export const SEO_PAGES = [
   {
     path: '/2d',
     title: 'Salasasa 2D 国标麻将：网页在线对战 - Salasasa',
-    description: '免下载网页直接开局：2D 国标麻将在线对战、牌谱阅览与玩家数据查询，支持繁中、英文、日文。',
+    description: '在浏览器中免费进行国标麻将 MCR 对局，支持自动算番、段位匹配与牌谱复盘，界面提供简繁中文、英语、日语和法语。',
     keywords: '2D麻将,在线麻将,国标麻将网页版,麻将网页游戏',
   },
   {
@@ -212,7 +212,7 @@ export const LIBRARY_RULE_PATHS = [
 /** 构建期需要生成静态 HTML（含 TDK）的具体 URL。 */
 export const PRERENDER_PATHS = [
   '/',
-  ...MCR_PAGES.map((page) => page.path),
+  ...STATIC_PAGES.map((page) => page.path),
   '/rulebook',
   '/library',
   '/library/lineage',
@@ -255,7 +255,7 @@ function patternToRegex(pattern) {
 
 /** 按具体路径查找 TDK 配置：先精确匹配，再匹配动态路由模式。 */
 export function seoEntryFor(path) {
-  const landing = mcrPageForPath(path)
+  const landing = staticPageForPath(path)
   if (landing) return landing
   const exact = SEO_PAGES.find((p) => p.path === path)
   if (exact) return exact

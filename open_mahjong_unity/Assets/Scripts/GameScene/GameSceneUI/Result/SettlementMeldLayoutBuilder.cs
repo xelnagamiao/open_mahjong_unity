@@ -20,7 +20,8 @@ public static class SettlementMeldLayoutBuilder {
     public static List<List<TileSlot>> Build(int[][] masks) {
         var groups = new List<List<TileSlot>>();
         if (masks == null) return groups;
-        foreach (int[] mask in masks) {
+        foreach (int[] sourceMask in masks) {
+            int[] mask = HongqueDisplayOrder.MeldMask(sourceMask, vertical: true);
             if (mask == null) continue;
             var slots = new List<TileSlot>();
             var addedTiles = new List<int>();

@@ -46,9 +46,11 @@ def validate_kan_mo_gang_tick(tick: Sequence[str], context: str = "") -> None:
 def resolve_acting_player(tick: Sequence[str], action: str, default_player: int) -> int:
     if tick is None or not tick:
         return default_player
+    if action in ("d", "gd") and len(tick) >= 6 and tick[2] == "dw":
+        return parse_tick_int(tick, 5)
     if action in ("bh", "bd", "cl", "cm", "cr", "p", "g") and len(tick) >= 3:
         return parse_tick_int(tick, 2)
-    if action in ("ca", "nuki") and len(tick) >= 2:
+    if action in ("ca", "nuki", "lajihe_eight_flowers") and len(tick) >= 2:
         return parse_tick_int(tick, 1)
     if action == "state" and len(tick) >= 3:
         return parse_tick_int(tick, 2)
@@ -155,7 +157,7 @@ def accumulate_score_changes_from_tick(score_changes: Optional[List[int]], tick:
         return score_changes
     act = str(tick[0])
     sc = None
-    if len(tick) >= 5 and act in ("hu_self", "hu_first", "hu_second", "hu_third"):
+    if len(tick) >= 5 and act in ("hu_self", "hu_first", "hu_second", "hu_third", "lajihe_eight_flowers"):
         sc = parse_score_changes_array(tick, 4)
     elif act == "riichi" and len(tick) >= 2:
         seat = parse_tick_int(tick, 1)

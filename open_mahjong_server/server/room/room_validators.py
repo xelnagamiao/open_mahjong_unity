@@ -7,6 +7,7 @@ from ..gamestate.public.random_seed_manager import parse_user_master_seed
 from ..game_calculation.taiwan.rules import TaiwanRules
 from ..game_calculation.sichuan.xueliu_rules import validate_sichuan_sub_rule
 from ..game_calculation.riichi.rule_config import normalize_riichi_config, validate_riichi_sub_rule
+from ..game_calculation.shanghai.qiaoma import normalize_room_config as normalize_qiaoma_config
 
 class GBRoomValidator(BaseModel):
     use_flowers: bool = True
@@ -62,10 +63,11 @@ class GBRoomValidator(BaseModel):
 class ShanghaiRoomValidator(GBRoomValidator):
     sub_rule: str = "shanghai/qiaoma"
     hepai_limit: int = 0  # 一番和：0 关闭，1 开启，仅敲麻可用。
+    detailed_config: Optional[Dict[str, object]] = None
 
     @validator('sub_rule')
     def validate_sub_rule(cls, value):
-        if value not in ("shanghai/qiaoma", "shanghai/qinghunpeng"):
+        if value not in ("shanghai/qiaoma", "shanghai/qinghunpeng", "shanghai/lajihe"):
             raise ValueError('不支持的上海麻将子规则')
         return value
 
@@ -76,6 +78,10 @@ class ShanghaiRoomValidator(GBRoomValidator):
         if value and values.get("sub_rule") != "shanghai/qiaoma":
             raise ValueError("一番和仅适用于上海敲麻")
         return value
+
+    @validator("detailed_config", pre=True, always=True)
+    def validate_detailed_config(cls, value, values):
+        return normalize_qiaoma_config(value, values.get("sub_rule", "shanghai/qiaoma"))
 
 
 class RiichiRoomValidator(BaseModel):
@@ -93,6 +99,10 @@ class RiichiRoomValidator(BaseModel):
 
     starting_score: int = None
 
+    @validator('red_dora', 'open_xiru', pre=True, always=True)
+    def washizu_fixed_flags(cls, value, values):
+        return False if values.get('sub_rule') == 'riichi/washizu' else value
+
     @validator('starting_score', pre=True, always=True)
     def validate_starting_score(cls, v, values):
         if v is None:
@@ -109,7 +119,7 @@ class RiichiRoomValidator(BaseModel):
     random_seed: Union[int, str] = 0
     open_cuohe: bool = False
     show_moqie_hint: bool = False
-    hepai_limit: int = 1  # 自定义起和番数，低于此番数视为错和（仅在 open_cuohe=True 时触发罚分）
+    hepai_limit: int = 1  # 只计算实际役番，不含宝牌；起和线另由 detailed_config.minimum_win_score 控制。
     red_dora: bool = True
     allow_kuikae: bool = False  # 允许食替（吃什么打什么）；默认关即标准日麻禁切
     hepai_way: str = "multi_ron"  # head_bump / multi_ron / three_ron_abort
@@ -147,11 +157,11 @@ class RiichiRoomValidator(BaseModel):
         except ValueError as e:
             raise ValueError(str(e)) from e
 
-    @validator('hepai_way')
-    def validate_hepai_way(cls, v):
+    @validator('hepai_way', always=True)
+    def validate_hepai_way(cls, v, values):
         if v not in ("head_bump", "multi_ron", "three_ron_abort"):
             raise ValueError('hepai_way 必须在 head_bump / multi_ron / three_ron_abort 中')
-        return v
+        return 'head_bump' if values.get('sub_rule') == 'riichi/washizu' else v
 
     @validator('hepai_limit')
     def validate_hepai_limit(cls, v):
@@ -176,11 +186,19 @@ class SichuanRoomValidator(BaseModel):
     def validate_sub_rule(cls, v):
         return validate_sichuan_sub_rule(v)
 
-    @validator('hepai_limit', pre=True)
-    def validate_hepai_limit(cls, v):
+    @validator('hepai_limit', pre=True, always=True)
+    def validate_hepai_limit(cls, v, values):
         if type(v) is not int or not 0 <= v <= 64:
             raise ValueError('起和番数必须是 0-64 之间的整数')
+        if values.get('sub_rule') in ('sichuan/doubles', 'sichuan/xueliu_doubles', 'sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate'):
+            return 0
         return v
+
+    @validator('blood_battle', always=True)
+    def doubles_blood_battle(cls, v, values):
+        if values.get('sub_rule') in ('sichuan/xueliu_doubles', 'sichuan/xueliu_doubles_duplicate'):
+            return False
+        return True if values.get('sub_rule') in ('sichuan/doubles', 'sichuan/doubles_duplicate') else v
 
     @validator('room_name')
     def validate_room_name(cls, v):

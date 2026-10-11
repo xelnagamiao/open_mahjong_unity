@@ -7,6 +7,10 @@ namespace Riichi {
     public class RiichiHandResult {
         public bool IsValid;
         public int Han;
+        /// <summary>实际役番，不含宝牌、赤宝、里宝及拔北宝牌；用于起和番。</summary>
+        public int YakuHan;
+        /// <summary>包含宝牌的闲家荣和等值，不含本场、供托及浪涌倍率；用于起和线。</summary>
+        public int StandardRonScore;
         public int Fu;
         /// <summary>
         /// 和牌者从对手处总收分（不含本场棒/供托）。
@@ -20,5 +24,8 @@ namespace Riichi {
 
         /// <summary>役满倍数（0=非役满；1=役满；2=双倍役满…）</summary>
         public int YakumanMultiplier;
+
+        public bool MeetsWinRequirements(int minimumHan, int minimumScore = 0) =>
+            IsValid && YakuHan >= System.Math.Max(1, minimumHan) && StandardRonScore >= minimumScore;
     }
 }

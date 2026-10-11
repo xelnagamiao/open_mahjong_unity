@@ -23,6 +23,33 @@ function fixture({ failAt, quotaError, failAudit } = {}) {
   return { service, calls, audits, batches };
 }
 
+test('both Sichuan paired subrules create pairs as groups without invoking generic wall creation', async () => {
+  for (const sub_rule of ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate']) {
+    for (const duplicate_round_count of [1,4,8,12,16]) {
+      const { service, calls, batches } = fixture();
+      const result = await service.create(event,10,{room_rule:'sichuan',room_count:3,room_config:{sub_rule,duplicate_round_count}});
+      assert.equal(result.created_pair_count,3); assert.equal(result.created_room_count,6);
+      assert.equal(result.paired,true); assert.equal(batches.length,0);
+      assert.ok(calls.every(call => call.body.room_config.duplicate_round_count === duplicate_round_count));
+    }
+  }
+});
+
+test('paired rules reject bases, other rule families, foreign walls and invalid counts before creating rooms', async () => {
+  for (const override of [
+    {room_rule:'guobiao'}, {auto_duplicate:true}, {duplicate_enabled:true},
+    {room_config:{duplicate_round_count:2}}, {room_config:{duplicate_round_count:'8'}},
+    {room_config:{duplicate_key:'dup_bad'}}, {room_config:{random_seed:3}},
+  ]) {
+    const { service, calls }=fixture();
+    const body={room_rule:'sichuan',...override,room_config:{sub_rule:'sichuan/doubles_duplicate',duplicate_round_count:8,...override.room_config}};
+    await assert.rejects(service.create(event,10,body)); assert.equal(calls.length,0);
+  }
+  const { service, calls }=fixture();
+  await assert.rejects(service.create({...event,kind:'base'},10,{room_rule:'sichuan',room_config:{sub_rule:'sichuan/doubles_duplicate',duplicate_round_count:8}}));
+  assert.equal(calls.length,0);
+});
+
 test('every room count creates that many rooms with the same settings, password and audit', async () => {
   assert.deepEqual(ROOM_COUNTS, [1, 3, 5, 8, 10, 20]);
   for (const room_count of ROOM_COUNTS) {

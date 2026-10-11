@@ -14,14 +14,15 @@ internal static class RiichiTips {
     }
 
     public static WaitTileHint Describe(WaitHintQuery q) {
+        var ronContext = BuildContext(q, isTsumo: false);
         RiichiHandResult ron = RiichiExternal.FullHepaiCheck(
-            q.HandWithWin, q.Melds, q.HepaiTile, BuildContext(q, isTsumo: false));
-        if (ron.IsValid && ron.Score > 0 && ron.Han >= q.HepaiLimit) {
+            q.HandWithWin, q.Melds, q.HepaiTile, ronContext);
+        if (ron.MeetsWinRequirements(q.HepaiLimit, ronContext.MinimumWinScore)) {
             return WaitTileHint.Ron(FormatLabel(ron));
         }
         RiichiHandResult tsumo = RiichiExternal.FullHepaiCheck(
             q.HandWithWin, q.Melds, q.HepaiTile, BuildContext(q, isTsumo: true));
-        return tsumo.IsValid && tsumo.Score > 0 && tsumo.Han >= q.HepaiLimit
+        return tsumo.MeetsWinRequirements(q.HepaiLimit, ronContext.MinimumWinScore)
             ? WaitTileHint.TsumoOnly(FormatLabel(tsumo))
             : WaitTileHint.None(ron.Score > 0 || tsumo.Score > 0 ? "未起和" : "无役");
     }
@@ -35,6 +36,7 @@ internal static class RiichiTips {
             RoundWind = RiichiTileUtil.East + Mathf.Max(0, (q.CurrentRound - 1) / (q.SubRule == "riichi/sanma" ? 3 : 4)) % 4,
             IsSanma = q.SubRule == "riichi/sanma",
             NukiCount = (q.Record?.SelfHuapaiList ?? q.SelfFlowers)?.Count ?? 0,
+            MinimumYakuHan = q.HepaiLimit,
             // 里宝仅立直者在和牌时才能看到；提示阶段不计（服务端仍以结算为准）
             UraDoraIndicators = new List<int>(),
         };

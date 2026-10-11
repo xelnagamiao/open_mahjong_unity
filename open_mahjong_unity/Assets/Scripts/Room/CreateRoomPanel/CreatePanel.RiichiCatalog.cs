@@ -30,6 +30,13 @@ public partial class CreatePanel {
             added = true;
         }
         if (added) {
+            int sibling = content.Cast<Transform>().Where(row => row.name.StartsWith("Section_"))
+                .Min(row => row.GetSiblingIndex());
+            foreach (var group in definition.Options.GroupBy(option => option.Section)) {
+                content.Find("Section_" + group.Key).SetSiblingIndex(sibling++);
+                foreach (var option in group)
+                    content.Find("DetailedConfig_" + option.Key).SetSiblingIndex(sibling++);
+            }
             var scroll = panel.transform.Find("Dialog/Create_Panel/ScrollArea")?.GetComponent<ScrollRect>();
             var nav = panel.transform.Find("Dialog/HeaderPanel/SectionJump")?.GetComponent<TMP_Dropdown>();
             if (nav && scroll) {

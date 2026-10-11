@@ -93,6 +93,9 @@ async def _dispatch_room_message(game_server, Connect_id: str, message: dict, we
         await handle_create_Shanghai_room(game_server, Connect_id, message, websocket)
     elif message_type == "room/create_Sichuan_room":
         await handle_create_Sichuan_room(game_server, Connect_id, message, websocket)
+    elif message_type in {"room/create_Shenyang_room", "room/create_shenyang_room"}:
+        from .shenyang_room import handle_create_shenyang_room
+        await handle_create_shenyang_room(game_server, Connect_id, message, websocket)
     elif message_type == "room/create_Shanxi_room":
         from .shanxi_room import handle_create_shanxi_room
         await handle_create_shanxi_room(game_server, Connect_id, message, websocket)
@@ -108,15 +111,27 @@ async def _dispatch_room_message(game_server, Connect_id: str, message: dict, we
     elif message_type == "room/create_Guizhou_room":
         from .guizhou_room import handle_create_guizhou_room
         await handle_create_guizhou_room(game_server, Connect_id, message, websocket)
+    elif message_type in {"room/create_Jiujiang_room", "room/create_jiujiang_room"}:
+        from .jiujiang_room import handle_create_jiujiang_room
+        await handle_create_jiujiang_room(game_server, Connect_id, message, websocket)
+    elif message_type in {"room/create_Wuhan_room", "room/create_wuhan_room"}:
+        from .wuhan_room import handle_create_wuhan_room
+        await handle_create_wuhan_room(game_server, Connect_id, message, websocket)
     elif message_type in {"room/create_Hongzhong_room", "room/create_hongzhong_room"}:
         from .hongzhong_room import handle_create_hongzhong_room
         await handle_create_hongzhong_room(game_server, Connect_id, message, websocket)
     elif message_type in {"room/create_Hangzhou_room", "room/create_hangzhou_room"}:
         from .hangzhou_room import handle_create_hangzhou_room
         await handle_create_hangzhou_room(game_server, Connect_id, message, websocket)
+    elif message_type in {"room/create_Nanchang_room", "room/create_nanchang_room"}:
+        from .nanchang_room import handle_create_nanchang_room
+        await handle_create_nanchang_room(game_server, Connect_id, message, websocket)
     elif message_type == "room/create_Wenzhou_room":
         from .wenzhou_room import handle_create_wenzhou_room
         await handle_create_wenzhou_room(game_server, Connect_id, message, websocket)
+    elif message_type in {"room/create_Nanjing_room", "room/create_nanjing_room"}:
+        from .nanjing_room import handle_create_nanjing_room
+        await handle_create_nanjing_room(game_server, Connect_id, message, websocket)
     elif message_type == "room/create_Yixing_room":
         from .yixing_room import handle_create_yixing_room
         await handle_create_yixing_room(game_server, Connect_id, message, websocket)
@@ -145,6 +160,18 @@ async def _dispatch_room_message(game_server, Connect_id: str, message: dict, we
         await handle_kick_player_from_room(game_server, Connect_id, message, websocket)
     elif message_type == "room/set_ready":
         await handle_set_ready(game_server, Connect_id, message, websocket)
+    elif message_type == "room/set_team":
+        response = await game_server.room_manager.set_room_team(
+            Connect_id, message.get("room_id"), revision=message.get("roster_revision"),
+            seat_index=message.get("seat_index"), team_id=message.get("team_id"))
+        if response is not None:
+            await websocket.send_json(response.model_dump(exclude_none=True))
+    elif message_type == "room/move_duplicate_seat":
+        response = await game_server.room_manager.move_duplicate_seat(
+            Connect_id, message.get("room_id"), revision=message.get("roster_revision"),
+            seat_index=message.get("seat_index"), target_seat=message.get("target_seat"))
+        if response is not None:
+            await websocket.send_json(response.model_dump(exclude_none=True))
     elif message_type == "room/set_claim_protection":
         response = await game_server.room_manager.set_claim_protection(
             Connect_id, message.get("room_id"), message.get("claim_protection"))
@@ -404,6 +431,7 @@ async def handle_create_Shanghai_room(game_server, Connect_id: str, message: dic
         count_tips=message.get("count_tips", False),
         pointer_tips=message.get("pointer_tips", True),
         hepai_limit=message.get("hepai_limit", 0),
+        detailed_config=message.get("detailed_config"),
     )
     await websocket.send_json(response.dict(exclude_none=True))
 
@@ -527,7 +555,7 @@ async def handle_leave_room(game_server, Connect_id: str, message: dict, websock
 
 async def handle_start_game(game_server, Connect_id: str, message: dict, websocket):
     """处理开始游戏请求"""
-    await game_server.start_game(Connect_id, message["room_id"])
+    await game_server.start_game(Connect_id, message["room_id"], roster_revision=message.get("roster_revision"))
 
 async def handle_add_bot_to_room(game_server, Connect_id: str, message: dict, websocket):
     """处理添加机器人到房间请求"""
@@ -547,7 +575,7 @@ async def handle_kick_player_from_room(game_server, Connect_id: str, message: di
 
 async def handle_set_ready(game_server, Connect_id: str, message: dict, websocket):
     """处理玩家准备状态变更请求"""
-    await game_server.set_player_ready(Connect_id, message["room_id"], message.get("ready", True))
+    await game_server.set_player_ready(Connect_id, message["room_id"], message.get("ready", True), roster_revision=message.get("roster_revision"))
 
 async def handle_sync_my_room(game_server, Connect_id: str, websocket):
     """处理同步当前玩家房间状态请求"""

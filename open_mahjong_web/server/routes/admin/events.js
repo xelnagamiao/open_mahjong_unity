@@ -750,6 +750,19 @@ router.get('/:eventId/rooms', async (req, res) => {
 });
 
 // 赛事空房间：删除（代理游戏服）
+router.post('/:eventId/rooms/:roomId/restart-pair', async (req, res) => {
+  try {
+    const event = await fetchEventRow(req.params.eventId);
+    if (!event) return res.status(404).json({ success: false, message: '赛事不存在' });
+    if (!String(req.body?.reason || '').trim()) return res.status(400).json({ success: false, message: '请填写操作原因' });
+    const qs = new URLSearchParams({ event_id: event.event_id });
+    const { status, data } = await proxyToGameServer(`/admin/event/rooms/${encodeURIComponent(req.params.roomId)}/restart-pair?${qs}`, {});
+    if (status >= 400) return res.status(status).json({ success: false, message: data?.detail || '续赛失败' });
+    await writeAudit({ adminUserId: req.admin.userId, action: 'event.room.restart_pair', targetType: 'event', targetId: event.event_id, payload: { room_id: req.params.roomId }, reason: String(req.body.reason).trim() });
+    res.json(data);
+  } catch (error) { res.status(500).json({ success: false, message: '游戏服不可达' }); }
+});
+
 router.delete('/:eventId/rooms/:roomId', async (req, res) => {
   try {
     const event = await fetchEventRow(req.params.eventId);

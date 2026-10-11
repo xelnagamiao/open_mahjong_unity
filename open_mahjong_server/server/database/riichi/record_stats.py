@@ -1,12 +1,8 @@
-"""日麻逐对局统计。牌谱是事实来源；摘要可重建，旧累计表保持兼容。"""
-import json
-import logging
-from collections import defaultdict
-from psycopg2.extras import Json, RealDictCursor
+"""日麻逐对局统计：实时写入当前牌谱摘要，旧累计表保持兼容。"""
+from psycopg2.extras import Json
 from .store_riichi import FAN_FIELDS, _accumulate_yaku_stats
 from ...game_calculation.riichi.sanma import player_count
 
-logger = logging.getLogger(__name__)
 VERSION = 3
 DETAIL_KEYS = (
     "riichi_round_count", "total_riichi_turn", "riichi_win_count", "riichi_deal_in_count",
@@ -186,65 +182,7 @@ def resolve_original_index(record, user_id, original_index):
     return original_index if isinstance(original_index, int) and 0 <= original_index < count else -1
 
 
-def backfill_stats(db, batch_size=200):
-    """启动维护中增量重建摘要；每批提交，可重试且不会累加两次。"""
-    conn = db._get_connection()
-    count = 0
-    try:
-        while True:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute("""SELECT gpr.game_id,gpr.user_id,gpr.original_player_index,gpr.score,gpr.rank,gr.record
-                    FROM game_player_records gpr JOIN game_records gr USING(game_id)
-                    LEFT JOIN riichi_player_game_stats s ON s.game_id=gpr.game_id AND s.user_id=gpr.user_id
-                    WHERE gpr.rule='riichi' AND (s.version IS NULL OR s.version<>%s)
-                    ORDER BY gpr.game_id,gpr.user_id LIMIT %s""", (VERSION, batch_size))
-                rows = cur.fetchall()
-                if not rows:
-                    break
-                for row in rows:
-                    record = row["record"]
-                    if isinstance(record, str):
-                        record = json.loads(record)
-                    index = resolve_original_index(record, row["user_id"], row["original_player_index"])
-                    if index < 0:
-                        logger.warning("无法重建日麻摘要 game_id=%s user_id=%s", row["game_id"], row["user_id"])
-                    write_stats(cur, row["game_id"], row["user_id"], record, index, row["score"], row["rank"])
-                    count += 1
-            conn.commit()
-        logger.info("日麻统计摘要增量重建 %s 条", count)
-        return count
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        db._put_connection(conn)
-
-
 def get_history_stats(db, user_id, ranked=None, sanma=None):
-    conn = db._get_connection()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""SELECT gpr.match_type AS mode,s.stats FROM game_player_records gpr
-                JOIN riichi_player_game_stats s USING(game_id,user_id)
-                WHERE gpr.rule='riichi' AND gpr.user_id=%s
-                AND s.version=%s
-                AND (gpr.room_type='match' OR gpr.room_type='custom')
-                AND (%s IS NULL OR (gpr.room_type='match')=%s)
-                AND (%s IS NULL OR (COALESCE(gpr.sub_rule,'')='riichi/sanma')=%s)
-                ORDER BY gpr.match_type""", (user_id, VERSION, ranked, ranked, sanma, sanma))
-            totals = defaultdict(empty_stats)
-            for row in cur.fetchall():
-                if row["stats"] is None:
-                    continue
-                total = totals[row["mode"]]
-                for key in BASE_KEYS:
-                    total[key] += row["stats"].get(key, 0)
-                for group in ("riichi_details", "fan_stats"):
-                    for key, value in row["stats"].get(group, {}).items():
-                        total[group][key] = total[group].get(key, 0) + value
-            return [dict(rule="riichi_sanma" if sanma else "riichi", mode=mode, **stats) for mode, stats in totals.items()]
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        db._put_connection(conn)
+    from ..get_rule_stats import get_rule_history
+    return get_rule_history(db, user_id, "riichi_sanma" if sanma else "riichi",
+                            "match" if ranked is True else "custom" if ranked is False else None)

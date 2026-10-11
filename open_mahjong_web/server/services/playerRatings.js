@@ -1,6 +1,6 @@
 const { getScoreBounds, getPromotionProgress } = require('../utils/rankNames');
 
-const RATED_RULES = ['guobiao', 'riichi', 'qingque', 'sichuan', 'riichi_sanma', 'sichuan_xueliu_exchange'];
+const RATED_RULES = ['guobiao', 'riichi', 'qingque', 'sichuan', 'riichi_sanma', 'sichuan_xueliu_exchange', 'hongque'];
 const GRADE_RULES = new Set(['guobiao', 'riichi', 'riichi_sanma']);
 const ratingRule = row => row.rule === 'riichi' && row.sub_rule === 'riichi/sanma' ? 'riichi_sanma'
   : row.rule === 'sichuan' && row.sub_rule === 'sichuan/xueliu_exchange' ? 'sichuan_xueliu_exchange' : row.rule;
@@ -49,52 +49,9 @@ const METRIC_FIELDS = [
 ];
 
 async function queryRankedStats(db, userId) {
-  const result = Object.fromEntries(RATED_RULES.map(rule => [rule, []]));
-  let rows;
-  try {
-    ({ rows } = await db.query(`
-      SELECT CASE WHEN rule='sichuan' AND sub_rule='sichuan/xueliu_exchange'
-          THEN 'sichuan_xueliu_exchange' ELSE rule END AS rule,
-        match_type AS mode, COUNT(*)::int AS total_games,
-        ${METRIC_FIELDS.map(field => `COALESCE(SUM(${field}), 0) AS ${field}`).join(', ')}
-      FROM game_player_metrics
-      WHERE user_id = $1 AND room_type = 'match' AND rule = ANY($2::text[])
-      GROUP BY CASE WHEN rule='sichuan' AND sub_rule='sichuan/xueliu_exchange'
-          THEN 'sichuan_xueliu_exchange' ELSE rule END, match_type
-      ORDER BY rule, match_type
-    `, [userId, RATED_RULES]));
-  } catch (error) {
-    if (error.code !== '42P01') throw error;
-    rows = [];
-  }
-  for (const row of rows) {
-    if (!result[row.rule]) continue;
-    result[row.rule].push({
-      rule: row.rule, mode: row.mode, total_games: Number(row.total_games),
-      ...Object.fromEntries(METRIC_FIELDS.map(field => [field, numberOrNull(row[field]) ?? 0])),
-    });
-  }
-  const { aggregateRiichiStats, fetchRiichiRows } = require('./riichiStats');
-  let riichiRows;
-  try {
-    riichiRows = await fetchRiichiRows(db,
-      ["gpr.user_id=$1", "gpr.rule='riichi'", "gpr.room_type='match'"], [userId]);
-  } catch (error) {
-    if (error.code === '42P01') return result;
-    throw error;
-  }
-  const modes = new Map();
-  for (const row of riichiRows) {
-    if (!modes.has(row.mode)) modes.set(row.mode, []);
-    modes.get(row.mode).push(row);
-  }
-  result.riichi = [];
-  result.riichi_sanma = [];
-  for (const [mode, entries] of modes) {
-    const rule = mode.includes('_sanma') ? 'riichi_sanma' : 'riichi';
-    result[rule].push({ ...aggregateRiichiStats(entries), rule, mode });
-  }
-  return result;
+  const { allPlayerRuleStats } = require('./subrulePlayerStats');
+  const all = await allPlayerRuleStats(db, userId);
+  return Object.fromEntries(RATED_RULES.map(rule => [rule, (all[rule] || []).filter(row => row.room_type === 'match')]));
 }
 
 async function queryRecordRatings(db, playerRows) {

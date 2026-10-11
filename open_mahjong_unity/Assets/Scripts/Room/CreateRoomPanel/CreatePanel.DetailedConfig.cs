@@ -116,6 +116,8 @@ public partial class CreatePanel {
             if (ruleKey == "riichi") {
                 dropdown.ClearOptions();
                 dropdown.AddOptions(option.Choices.ToList());
+                foreach (var help in row.GetComponentsInChildren<CreateRoomHelpTrigger>(true))
+                    help.Configure(this, RiichiRoomRules.Help(option.Key));
             }
             state.Dropdowns[option.Key] = dropdown;
             string optionKey = option.Key;

@@ -5,9 +5,7 @@ public sealed class CreateRoomHelpTrigger : MonoBehaviour, IPointerEnterHandler,
     [SerializeField] private CreatePanel owner;
     [SerializeField, TextArea] private string message;
 
-#if UNITY_EDITOR
     public void Configure(CreatePanel panel, string text) { owner = panel; message = text; }
-#endif
 
     internal bool IsOwnedBy(CreatePanel panel) => owner == panel;
     public void OnPointerEnter(PointerEventData eventData) {

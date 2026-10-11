@@ -324,3 +324,57 @@ def test_settlement_baozhuang_and_draw_preserves_kong_score():
     assert [p.score for p in state.player_list]==[12,-4,-4,-4]
     assert state._terminal_result["show_result_info"]["changchun"]["round_score_changes"]=={0:12,1:-4,2:-4,3:-4}
     assert state.next_dealer()==0
+
+
+@pytest.mark.parametrize("source,winner,payer,expected", [
+    ("self_draw",0,None,[48,-16,-16,-16]),
+    ("self_draw",1,None,[-16,32,-8,-8]),
+    ("discard",0,1,[32,-16,-8,-8]),
+    ("discard",1,0,[-16,24,-4,-4]),
+    ("discard",1,2,[-8,20,-8,-4]),
+])
+@pytest.mark.parametrize("added", [False,True])
+@pytest.mark.parametrize("bao_seen", [False,True])
+def test_special_menzen_and_dealer_reach_result_protocol_and_record(source,winner,payer,expected,added,bao_seen):
+    state=make_state();state.current_round=4;state.cc_window="normal"
+    code="Cwind:41,42,31:41,42,43"
+    if added: code=book.add_special(code,31,44)
+    tiles=[11,12,13,22,23,24,35,36,37,45]
+    self_draw=source=="self_draw"
+    hand(state,winner,tiles+([45] if self_draw else []),[code],drawn=45 if self_draw else None)
+    if payer is not None and bao_seen:
+        state.cc_bao_tile=19;state.cc_bao_revision=1
+        state.player_list[payer].declared_ready=True
+        state.player_list[payer].cc_bao_seen=1
+    detail=state.score_candidate(winner,source,45)
+    assert detail["fan_names"]==["门清","夹/单吊/单和"]
+    hu_class="hu_self" if self_draw else "hu_first"
+    state.pending_winners=[state._build_pending_winner(winner,source,hu_class,detail,45,payer)]
+    asyncio.run(state._settle_hand({i:0 for i in range(4)}))
+    actual_delta=list(expected)
+    if payer is not None and not bao_seen:
+        actual_delta=[0]*4;actual_delta[winner]=expected[winner];actual_delta[payer]=-expected[winner]
+    assert [p.score for p in state.player_list]==actual_delta
+    result=state._terminal_result["show_result_info"]
+    display_fans=["门清","夹/单吊/单和"]
+    assert result["hu_score"]==2 and result["hu_fan"]==display_fans
+    assert detail["fan_names"]==["门清","夹/单吊/单和"]  # no mutation or double counting
+    assert result["score_changes"]==dict(enumerate(actual_delta))
+    parts=result["changchun"]["payments"]
+    assert {p["payer"]:p["score"] for p in parts}=={i:-n for i,n in enumerate(expected) if i!=winner}
+    record=ticks(state)
+    settlement=next(t[1] for t in record if t[0]=="cc" and t[1]["kind"]=="settlement")
+    assert settlement["payments"]==parts
+    hu=next(t for t in record if t[0]==hu_class)
+    assert hu[2:5]==[2,display_fans,actual_delta]
+
+
+def test_result_reveal_timing_excludes_dealer_display_row():
+    state=make_state();state.current_round=1
+    hand(state,0,READY+[19],drawn=19)
+    detail=state.score_candidate(0,"self_draw",19)
+    state.pending_winners=[state._build_pending_winner(0,"self_draw","hu_self",detail,19,None)]
+    state.run_hu_result_ready_phase=AsyncMock()
+    asyncio.run(state._settle_hand({i:0 for i in range(4)}))
+    state.run_hu_result_ready_phase.assert_awaited_once_with(2)
+    assert state._terminal_result["show_result_info"]["hu_fan"]==["门清","夹/单吊/单和"]

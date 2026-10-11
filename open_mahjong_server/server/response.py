@@ -9,7 +9,7 @@ def public_room_data(value):
     if isinstance(value, list):
         return [public_room_data(child) for child in value]
     if isinstance(value, dict):
-        result = {key: public_room_data(child) for key, child in value.items() if key != 'duplicate_key'}
+        result = {key: public_room_data(child) for key, child in value.items() if key not in ('duplicate_key', 'duplicate_game_id')}
         if value.get('room_rule'):
             from .gamestate.public.claim_protection import supports_claim_protection, room_claim_protection_enabled
             if supports_claim_protection(value['room_rule']):
@@ -21,6 +21,7 @@ def public_room_data(value):
 
 
 class PlayerInfo(BaseModel):
+    team_id: Optional[int] = None
     user_id: int  # 用户ID
     username: str  # 用户名（用于显示）
     hand_tiles_count: int
@@ -62,11 +63,22 @@ class PlayerInfo(BaseModel):
     xueliu_throw_tiles: Optional[List[int]] = None  # 血流：开局甩掉的三张
 
 class GameInfo(BaseModel):
+    wuhan_info: Optional[dict] = None
+    wuhan_hints: Optional[dict] = None
+    duplicate_match: Optional[dict] = None
+    washizu_hands: Optional[Dict[int, List[int]]] = None  # 仅公开透明牌；不透明牌用 0 占位
+    lajihe_passed_win: Optional[bool] = None
+    sichuan_teams: Optional[dict] = None
     hongzhong_info: Optional[dict] = None  # MIL 红中：仅本人或获准视角的实体摸牌槽快照
+    jiujiang_info: Optional[dict] = None
+    jiujiang_hints: Optional[dict] = None
     hongzhong_hints: Optional[dict] = None  # 按物理手牌与副露匹配的权威听牌快照
     hangzhou_info: Optional[dict] = None  # MIL 2025 state; hints scoped to recipient
     guangdong_state: Optional[Dict[str, object]] = None  # MIL 广东：公共出鬼/杠账快照
     guangdong_tips: Optional[Dict[str, object]] = None  # 仅本人或授权视角的权威听牌提示
+    nanchang_info: Optional[dict] = None
+    nanchang_hints: Optional[dict] = None
+    shenyang: Optional[Dict[str, object]] = None
     changchun: Optional[Dict[str, object]] = None  # 长春宝牌严格按接收者资格生成
     use_flowers: Optional[bool] = None  # 国标花牌开关；蓝十改固定关闭
     tian_di_ren_he: bool = False  # 标准国标/三人国标/血战：天地人和各加计 8 番
@@ -137,9 +149,18 @@ class GameInfo(BaseModel):
         return str(v)
 
 class Ask_hand_action_info(BaseModel):
+    wuhan_info: Optional[dict] = None
+    wuhan_hints: Optional[dict] = None
+    lajihe_passed_win: Optional[bool] = None
+    xueliu_exchange: Optional[dict] = None  # 两阶段换牌；仅接收视角可见队友换出花色
+    jiujiang_info: Optional[dict] = None
+    jiujiang_hints: Optional[dict] = None
     hongzhong_hints: Optional[dict] = None  # 按物理手牌与副露匹配的权威听牌快照
     hangzhou_info: Optional[dict] = None  # MIL 2025 state; hints scoped to recipient
     guangdong_tips: Optional[Dict[str, object]] = None
+    nanchang_info: Optional[dict] = None
+    nanchang_hints: Optional[dict] = None
+    shenyang: Optional[Dict[str, object]] = None
     changchun: Optional[Dict[str, object]] = None
     kong_candidates: Optional[Dict[str, List[int]]] = None  # 本次权威杠牌目标；省略时沿用客户端通用候选
     remaining_time: int
@@ -164,6 +185,7 @@ class Ask_hand_action_info(BaseModel):
     ready_qualification: Optional[str] = None
 
 class Ask_other_action_info(BaseModel):
+    nanchang_chows: Optional[Dict[str, List[int]]] = None
     remaining_time: int
     # 重连补发时的剩余步时；缺省则客户端叠房间完整步时
     step_remaining: Optional[int] = None
@@ -180,11 +202,21 @@ class Ask_other_action_info(BaseModel):
     is_tactical_recheck: Optional[bool] = None
 
 class Do_action_info(BaseModel):
+    wuhan_info: Optional[dict] = None
+    wuhan_hints: Optional[dict] = None
+    draw_from_seat: Optional[int] = None
+    washizu_hands: Optional[Dict[int, List[int]]] = None  # 仅公开透明牌；不透明牌用 0 占位
+    lajihe_passed_win: Optional[bool] = None
+    jiujiang_info: Optional[dict] = None
+    jiujiang_hints: Optional[dict] = None
     hongzhong_hints: Optional[dict] = None  # 按物理手牌与副露匹配的权威听牌快照
     hangzhou_burn_count: Optional[int] = None
     hangzhou_info: Optional[dict] = None  # MIL 2025 state; hints scoped to recipient
     guangdong_state: Optional[Dict[str, object]] = None
     guangdong_tips: Optional[Dict[str, object]] = None
+    nanchang_info: Optional[dict] = None
+    nanchang_hints: Optional[dict] = None
+    shenyang: Optional[Dict[str, object]] = None
     changchun: Optional[Dict[str, object]] = None
     duplicate_remaining_tiles: Optional[List[int]] = None  # 动作生成时的余张快照，按原始座位 0..3
     # 存储操作列表 包含 切牌 吃 碰 杠 胡 补花 [chi_left,chi_mid,chi_right,peng,gang,angang,hu,buhua,cut,deal_tile] 
@@ -228,11 +260,18 @@ class Do_action_info(BaseModel):
     ready_qualification: Optional[str] = None
 
 class Show_result_info(BaseModel):
+    nanchang_end_hands: Optional[Dict[int, List[int]]] = None
+    wuhan_info: Optional[dict] = None
+    wuhan_hints: Optional[dict] = None
+    jiujiang_payments: Optional[List[dict]] = None
     hangzhou_win_source: Optional[str] = None
     hangzhou_fan_details: Optional[dict] = None
     hangzhou_round_changes: Optional[Dict[int, int]] = None
     hangzhou_info: Optional[dict] = None  # MIL 2025 state; hints scoped to recipient
     guangdong_result: Optional[Dict[str, object]] = None  # MIL 广东：替代见证、系数、奖马和杠账
+    nanchang_info: Optional[dict] = None
+    nanchang_hints: Optional[dict] = None
+    shenyang: Optional[Dict[str, object]] = None
     changchun: Optional[Dict[str, object]] = None
     hongzhong_info: Optional[dict] = None  # MIL 红中：扎鸟、计分替代及杠账快照
     revealed_hands: Optional[Dict[int, List[int]]] = None  # 规则要求的终局公开手牌；局中不发送
@@ -325,6 +364,11 @@ class Show_shuhewei_info(BaseModel):
     next_status: Optional[str] = None  # "round_continue" | "round_end_by_ready" | "match_end"
 
 class Player_final_data(BaseModel):
+    competition_points: Optional[float] = None
+    team_id: Optional[int] = None
+    team_score: Optional[int] = None
+    team_match_points: Optional[float] = None
+    team_result_reason: Optional[str] = None
     user_id: Optional[int] = None
     rating_rule: Optional[str] = None
     rating_system: Optional[str] = None
@@ -349,14 +393,16 @@ class Player_final_data(BaseModel):
     score_after: Optional[float] = None  # 对局后段位分数
 
 class Game_end_info(BaseModel):
+    duplicate_match: Optional[dict] = None
+    team_result: Optional[dict] = None
     is_duplicate: bool = False
     duplicate_round_count: Optional[int] = None
     duplicate_wall_type: Optional[str] = None
     duplicate_remaining_tiles: Optional[List[int]] = None  # 终局个人牌山余张，包含耗尽座位的 0
     """游戏结束信息"""
     master_seed: Optional[int] = None  # 复式不公开主种子
-    commitment: int  # 承诺值
-    salt: str  # 盐字符串
+    commitment: Optional[int] = None  # 复式不公开种子承诺字段
+    salt: Optional[str] = None
     player_final_data: Dict[str, Player_final_data]  # 玩家最终数据，键为顺位 "1"～"4"
     # 终局附带完整牌谱。旧客户端 GameEndInfo 无此字段，Newtonsoft 默认忽略未知 JSON 成员。
     record_detail: Optional["Record_detail"] = None
@@ -383,6 +429,8 @@ class Refresh_player_tag_list_info(BaseModel):
     riichi_sticks: Optional[int] = None
 
 class Ready_status_info(BaseModel):
+    action_tick: Optional[int] = None
+    nanchang_info: Optional[dict] = None
     hangzhou_info: Optional[dict] = None  # MIL 2025 state; hints scoped to recipient
     """准备状态信息"""
     player_to_ready: Dict[int, bool]  # 玩家索引到准备状态的映射 {player_index: ready}
@@ -524,6 +572,10 @@ class SpectatorInfo(BaseModel):
     player4_name: str  # 玩家4 用户名
     gamestate_id: str  # 游戏状态ID
     event_id: Optional[str] = None
+    room_type: str = "custom"
+    match_queue_type: Optional[str] = None
+    match_tier: Optional[str] = None
+    team_by_player_index: Optional[List[int]] = None
 
 class FriendInfo(BaseModel):
     """好友/关注信息"""
@@ -620,6 +672,7 @@ class Player_recent_records_response(BaseModel):
 
 
 class Response(BaseModel):
+    duplicate_match_info: Optional[dict] = None
     rating_rule: Optional[str] = None
     data_request_id: Optional[str] = None
     @field_validator('room_info', 'room_list', 'event_detail', 'event_list', mode='before')

@@ -229,7 +229,7 @@ public partial class Game3DManager {
                 yield return DiscardTileFromQueue(panel, op);
                 break;
             case HandAnimOpKind.BuhuaTile:
-                yield return Change3DTileCoroutine("Buhua", op.TileId, 0, op.PlayerPosition, op.CutClass, null);
+                yield return Change3DTileCoroutine("Buhua", op.TileId, 0, op.PlayerPosition, op.CutClass, null, concealedDiscard: op.ConcealedDiscard);
                 break;
             case HandAnimOpKind.FreeMeld:
                 yield return FreeMeldFromQueue(panel, op);
@@ -310,13 +310,14 @@ public partial class Game3DManager {
                 });
                 return true;
             case "Discard":
-                EnqueueDiscardHandWork(playerPosition, tileId, cutClass, isRiichi, playCutPhysicsSound);
+                EnqueueDiscardHandWork(playerPosition, tileId, cutClass, isRiichi, playCutPhysicsSound, concealedDiscard);
                 return true;
             case "Buhua":
                 EnqueueHandAnimOp(playerPosition, new HandAnimOp {
                     Kind = HandAnimOpKind.BuhuaTile,
                     TileId = tileId,
                     CutClass = cutClass,
+                    ConcealedDiscard = concealedDiscard,
                 });
                 return true;
             default:

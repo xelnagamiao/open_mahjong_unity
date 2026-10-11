@@ -12,6 +12,7 @@ namespace Riichi {
         public struct YakuEntry {
             public string Name;
             public int Han;
+            public bool IsBonus => Name == "宝牌" || Name == "赤宝牌" || Name == "里宝牌" || Name == "拔北宝牌";
             public bool IsYakuman;
             public int YakumanMultiplier;
         }
@@ -76,7 +77,7 @@ namespace Riichi {
             }
             int nonBonusHan = 0;
             foreach (var y in result.Yaku) {
-                if (y.Name != "宝牌" && y.Name != "赤宝牌" && y.Name != "里宝牌") {
+                if (!y.IsBonus) {
                     nonBonusHan += y.Han;
                 }
             }

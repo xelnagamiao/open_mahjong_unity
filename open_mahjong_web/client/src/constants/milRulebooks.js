@@ -1,5 +1,9 @@
 // Rulebook introductions summarize the source documents linked below.
 export const milRulebooks = {
+  shenyang: [{"subRule": "shenyang/mil2025", "label": "MIL 2025", "title": "MIL 沈阳麻将（推广）竞赛规则（试行2025版）", "desc": "136张，须先碰或明杠开门才能吃；闭门可报听。喜杠不补牌，旋风杠补牌；补牌可公示过蛋，筒子每家5分、一条每家10分。末四张只和不打，六番封顶，和者坐庄。", "url": "/rulebooks/mil/沈阳麻将（推广）竞赛规则（试行2025版）.pdf", "filename": "沈阳麻将（推广）竞赛规则（试行2025版）.pdf"}],
+  nanchang: [{"subRule": "nanchang/mil2026", "label": "MIL 2026（单打）", "title": "MIL 南昌麻将（推广）竞赛规则（试行2026版）", "desc": "MIL《南昌麻将（推广）竞赛规则（试行2026版）》四人单打：136张，正副精万能牌，字牌可吃，支持十三烂、七对、精吊、德国及冲关、霸王精。1番起和、6番封顶，精分、杠分、和牌分分别结算。", "url": "/rulebooks/mil/南昌麻将（推广）竞赛规则 （试行2026版）.pdf", "filename": "南昌麻将（推广）竞赛规则 （试行2026版）.pdf"}],
+  wuhan: [{"subRule": "wuhan/mil2025", "label": "MIL 2025", "title": "MIL 武汉麻将（推广）竞赛规则（试行 2025 版）", "desc": "MIL 2025：136张，皮癞单张杠，必须开口、逐家六番起和；轮庄、截和、海底四张、七皮与十杠。", "url": "/rulebooks/mil/武汉麻将（推广）竞赛规则（试行 2025 版）.pdf", "filename": "武汉麻将（推广）竞赛规则（试行 2025 版）.pdf"}],
+  nanjing: [{ subRule: 'nanjing/mil2024', label: 'MIL 2024', title: 'MIL 南京麻将（推广）竞赛规则（试行2024版）', desc: '144张，中发白及八花须补花；不吃牌，四花或非偶然番起和，底分10分、120分封顶，轮庄，含花杠、跟牌、承包和包外。', url: '/rulebooks/mil/南京麻将（推广）竞赛规则（试行2024版）.pdf', filename: '南京麻将（推广）竞赛规则（试行2024版）.pdf' }],
   guangdong: [
     {
       subRule: 'guangdong/tuidao_mil2024',

@@ -5,6 +5,10 @@ from ..public.random_seed_manager import derive_round_seed
 
 def init_sichuan_tiles(self):
     """初始化四川麻将牌堆并发牌：闲家 13 张，庄家 14 张（定缺前已摸好第 14 张）。"""
+    if getattr(self, "duplicate_match", None) is not None:
+        from .duplicate_wall import init_duplicate_board
+        init_duplicate_board(self, self.duplicate_match.board(self.current_round))
+        return
     sth_tiles_set = [
         11, 12, 13, 14, 15, 16, 17, 18, 19,  # 万
         21, 22, 23, 24, 25, 26, 27, 28, 29,  # 饼

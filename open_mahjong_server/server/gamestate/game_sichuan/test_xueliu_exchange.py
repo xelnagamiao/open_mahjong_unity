@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from .action_check import refresh_waiting_tiles, _xueliu_angang_preserves_waiting
+from .action_check import refresh_waiting_tiles, _xueliu_post_hu_kong_allowed
 from .test_xueliu_integration import full_state, settle_win
 from ...game_calculation.sichuan.xueliu_rules import validate_sichuan_sub_rule
 
@@ -88,11 +88,12 @@ def test_exchange_uses_four_groups_and_preserves_thirteen_tile_wait_after_repeat
     assert [p.score for p in state.player_list] == [18, -6, -6, -6]
 
 
-def test_exchange_post_win_kong_keeps_all_waits():
+def test_exchange_post_win_kong_keeps_won_tiles():
     state, _ = exchange_state()
     player = state.player_list[0]
     player.hand_tiles = [11, 11, 11, 12, 13, 14, 21, 22, 23, 24, 25, 26, 28]
     refresh_waiting_tiles(state, 0)
-    player.locked_waiting_tiles = set(player.waiting_tiles)
+    player.huapai_list = [28]
     player.hand_tiles.append(11)
-    assert _xueliu_angang_preserves_waiting(state, player, 11)
+    player.has_draw_slot = player.post_hu_lock = player.has_won = True
+    assert _xueliu_post_hu_kong_allowed(state, player, "angang", 11)

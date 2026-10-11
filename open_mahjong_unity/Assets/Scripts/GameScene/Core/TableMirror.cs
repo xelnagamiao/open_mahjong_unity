@@ -91,26 +91,24 @@ public sealed class TableMirror {
 
     // ---- 变更 ----
 
-    /// <summary>按自家座位号建立 player_index → 座位映射（自家为 self，逆时针 right/top/left）。</summary>
+    /// <summary>桌面始终是四个方位；三人只占 0/1/2，空位随观察视角旋转，不能按行牌人数压缩。</summary>
+    public static string RelativeSeat(int selfIndex, int otherIndex) {
+        int offset = ((otherIndex - selfIndex) % 4 + 4) % 4;
+        return offset == 0 ? "self" : offset == 1 ? "right" : offset == 2 ? "top" : "left";
+    }
+
+    /// <summary>按自家座位号建立 player_index → 四边桌面方位映射，仅包含实际玩家。</summary>
     public void BuildSeatMap(int selfIndex, IReadOnlyList<int> playerIndexes = null) {
         IndexToPosition.Clear();
-        string[] relativeSeats = { "self", "right", "top", "left" };
-        if (MahjongPlayerCount.ForSubRule(GameSession.Current.SubRule) == 3 && playerIndexes != null && playerIndexes.Count == 3) {
-            string[] sanmaSeats = { "self", "right", "left" };
-            foreach (int index in playerIndexes) IndexToPosition[index] = sanmaSeats[(index - selfIndex + 3) % 3];
-            return;
-        }
         if (playerIndexes == null || playerIndexes.Count == 0) {
-            for (int i = 0; i < 4; i++) {
-                IndexToPosition[(selfIndex + i) % 4] = relativeSeats[i];
+            for (int i = 0; i < MahjongPlayerCount.ForSubRule(GameSession.Current.SubRule); i++) {
+                IndexToPosition[i] = RelativeSeat(selfIndex, i);
             }
             return;
         }
         for (int i = 0; i < playerIndexes.Count; i++) {
             int index = playerIndexes[i];
-            int relative = (index - selfIndex) % 4;
-            if (relative < 0) relative += 4;
-            IndexToPosition[index] = relativeSeats[relative];
+            IndexToPosition[index] = RelativeSeat(selfIndex, index);
         }
     }
 

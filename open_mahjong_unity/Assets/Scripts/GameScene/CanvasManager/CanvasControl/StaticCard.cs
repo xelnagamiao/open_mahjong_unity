@@ -117,6 +117,7 @@ public class StaticCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
             faceBackground.color = bodyColor * c;
         }
         if (tableBackground != null && tableBackground.enabled) tableBackground.color = c;
+        WashizuTile.ApplyHandVisual(transform, tileId, faceBackground, tileImage, tableBackground);
     }
 
     public void OnPointerEnter(PointerEventData eventData) {

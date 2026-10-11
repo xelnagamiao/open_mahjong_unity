@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Optional, Sequence
 
 from ..public.game_record_manager import (
+    append_action_tick,
     end_game_record,
     flush_all_unexecuted_claim_applications,
     flush_unexecuted_claim_applications,
@@ -17,7 +18,6 @@ from ..public.game_record_manager import (
     player_action_record_cut,
     player_action_record_deal,
     player_action_record_hu,
-    player_action_record_jiagang,
     player_action_record_liuju,
     player_action_record_round_end,
     remember_local_record_detail,
@@ -124,7 +124,9 @@ def record_kong(game_state, player, candidate: dict) -> None:
         return
     tile_id = code_to_id(hand_tiles[0])
     is_mo = player.drawn_tile in hand_tiles
-    player_action_record_jiagang(game_state, jiagang_tile=tile_id, is_mo_gang=is_mo)
+    # 虹雀可扩展任意明牌，不能沿用“最后一组”的隐含约定。
+    # 当前格式：[jg, 追加牌, 摸杠标记, 目标副露索引]；旧谱需独立离线核验，不在运行时猜测目标。
+    append_action_tick(game_state, ["jg", tile_id, "T" if is_mo else "F", int(candidate["meld_index"])])
 
 
 def record_claim_apply(game_state, player_index: int, candidate: dict) -> None:
@@ -224,7 +226,8 @@ def persist_and_remember(game_state) -> Optional[str]:
         return None
     end_game_record(game_state)
     assign_hongque_ranks(game_state.players)
-    match_type = f"{game_state.max_round}/4"
+    from ...match.settlement import settle_ranked_game
+    match_type = settle_ranked_game(game_state)
     game_id = None
     db_manager = getattr(game_state, "db_manager", None)
     if db_manager is not None and hasattr(db_manager, "store_hongque_game_record"):

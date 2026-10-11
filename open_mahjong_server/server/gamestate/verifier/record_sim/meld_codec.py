@@ -5,13 +5,8 @@ from typing import List, Optional, Sequence
 
 
 def normalize_tile(tile_id: int) -> int:
-    if tile_id == 105:
-        return 15
-    if tile_id == 205:
-        return 25
-    if tile_id == 305:
-        return 35
-    return int(tile_id)
+    from ....game_calculation.riichi.washizu_tiles import normalize
+    return normalize(int(tile_id))
 
 
 def hand_tile_count(record_action: str) -> int:
@@ -108,10 +103,8 @@ def build_mingpai_mask(
     hand_tiles: Sequence[int],
     relative: str,
 ) -> list[int]:
-    if record_action in ("cl", "cm", "cr"):
-        return [1, mingpai_tile_id, 0, hand_tiles[0], 0, hand_tiles[1]]
     r1, r2 = hand_tiles[0], hand_tiles[1]
-    if record_action == "p":
+    if record_action in ("p", "cl", "cm", "cr"):
         if relative == "left":
             return [1, mingpai_tile_id, 0, r1, 0, r2]
         if relative == "right":

@@ -32,6 +32,7 @@ public partial class TipsContainer : MonoBehaviour
         public WaitHintQuery Query;
         public TipsFanCount View;
         public int Remaining;
+        public bool ShowFan;
         public bool ShowCount;
     }
     private readonly Queue<PendingFanHint> _pendingFanHints = new Queue<PendingFanHint>();
@@ -87,13 +88,8 @@ public partial class TipsContainer : MonoBehaviour
             if (!cached) hint = RuleTips.DescribeWaitingTile(pending.Manifest, pending.Query);
             if (generation != _fanHintGeneration) yield break;
             if (pending.View != null) {
-                string label = hint?.Label ?? "";
-                if (pending.ShowCount) {
-                    if (label.Length > 0) label += "\n";
-                    label += $"{pending.Remaining}枚";
-                }
-                string kind = pending.Remaining <= 0 ? "exhausted" : hint?.Kind ?? "dianhe";
-                pending.View.SetTipsFanCount(label, kind);
+                pending.View.SetHint(hint, pending.Remaining, pending.ShowFan, pending.ShowCount);
+                UpdateContainerSize();
             }
             // A scoring call itself is synchronous. Limit each frame to one uncached call.
             if (!cached) yield return null;
@@ -236,11 +232,9 @@ public partial class TipsContainer : MonoBehaviour
             GameObject fanObject = InstantiateTipsFan();
             // 只显示直接分值，不展示底/番公式。
             string label = $"{hint.points}分";
-            string colorType = unavailableTiles != null && unavailableTiles.Contains(tileId) ? "exhausted"
-                : (hint.self_draw_only ? "zimo" : "dianhe");
-            // 已公开为灰色；仅自摸（杠和听牌）叠黄色底；可点和为绿色。
-            fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(
-                FormatHintLabel(label, unavailableTiles != null && unavailableTiles.Contains(tileId) ? 0 : 1), colorType);
+            fanObject.GetComponent<TipsFanCount>().SetHint(
+                hint.self_draw_only ? WaitTileHint.TsumoOnly(label) : WaitTileHint.Ron(label),
+                unavailableTiles != null && unavailableTiles.Contains(tileId) ? 0 : 1, ShowFanTips, ShowCountTips);
         }
         UpdateContainerSize();
     }
@@ -265,10 +259,10 @@ public partial class TipsContainer : MonoBehaviour
             if (tileId == 0) continue;
             InstantiateTipsTile(tileId);
             GameObject fanObject = InstantiateTipsFan();
-            string colorType = unavailableTiles.Contains(tileId) ? "exhausted"
-                : (hint.self_draw_only ? "zimo" : "dianhe");
-            fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(
-                FormatHintLabel($"{hint.points}分", unavailableTiles.Contains(tileId) ? 0 : 1), colorType);
+            string label = $"{hint.points}分";
+            fanObject.GetComponent<TipsFanCount>().SetHint(
+                hint.self_draw_only ? WaitTileHint.TsumoOnly(label) : WaitTileHint.Ron(label),
+                unavailableTiles.Contains(tileId) ? 0 : 1, ShowFanTips, ShowCountTips);
         }
         UpdateContainerSize();
     }
@@ -406,18 +400,19 @@ public partial class TipsContainer : MonoBehaviour
         WaitTileHint hint = null;
         // Guobiao uses only the copied hand/meld/way lists in this query. Other rules keep their
         // synchronous path because they may depend on live rule state or replay context.
-        bool defer = ShowFanTips && manifest?.RuleId == "guobiao"
+        bool needsHint = ShowFanTips || ShowCountTips;
+        bool defer = needsHint && manifest?.RuleId == "guobiao"
             && WindowsManager.Instance != null && WindowsManager.Instance.isActiveAndEnabled
             && !GuobiaoTips.TryDescribeCached(query, out hint);
-        if (ShowFanTips && !defer && hint == null) hint = RuleTips.DescribeWaitingTile(manifest, query);
+        if (needsHint && !defer && hint == null) hint = RuleTips.DescribeWaitingTile(manifest, query);
         InstantiateTipsTile(query.HepaiTile);
         if (hint == null && !ShowCountTips && !defer) return;
         GameObject fanObject = InstantiateTipsFan();
         if (defer) {
-            SetTipsFanCount(fanObject, "…", "pending", query.HepaiTile);
+            SetTipsFanCount(fanObject, null, query.HepaiTile);
             _pendingFanHints.Enqueue(new PendingFanHint {
                 Manifest = manifest, Query = query, View = fanObject.GetComponent<TipsFanCount>(),
-                Remaining = GetWaitingTileRemaining(query.HepaiTile), ShowCount = ShowCountTips,
+                Remaining = GetWaitingTileRemaining(query.HepaiTile), ShowFan = ShowFanTips, ShowCount = ShowCountTips,
             });
             if (_fanHintRoutine == null) {
                 _fanHintHost = WindowsManager.Instance;
@@ -425,7 +420,7 @@ public partial class TipsContainer : MonoBehaviour
             }
             return;
         }
-        SetTipsFanCount(fanObject, hint?.Label, hint?.Kind ?? "dianhe", query.HepaiTile);
+        SetTipsFanCount(fanObject, hint, query.HepaiTile);
     }
 
     /// <summary>牌谱/延时观战：基于 RecordTipsContext 展示听牌与番数提示。</summary>
@@ -495,7 +490,10 @@ public partial class TipsContainer : MonoBehaviour
         if (riichi != null) {
             foreach (int tile in riichi.DoraIndicators) AddVisibleTile(tile, roomRule);
             foreach (int tile in riichi.KanDoraIndicators) AddVisibleTile(tile, roomRule);
+            foreach (int tile in riichi.PublicOpponentHandTiles()) AddVisibleTile(tile, roomRule);
         }
+        if (GuobiaoGameState.Active != null)
+            foreach (int tile in GuobiaoGameState.Active.PublicOpponentHandTiles()) AddVisibleTile(tile, roomRule);
         if (gameManager.player_to_info.TryGetValue("self", out var selfInfo))
             foreach (int tile in selfInfo.known_concealed_discards) AddVisibleTile(tile, roomRule);
         foreach (int tile in selfHandTiles) {
@@ -509,6 +507,11 @@ public partial class TipsContainer : MonoBehaviour
                 foreach (int tile in playerInfo.discard_tiles) {
                     AddVisibleTile(tile, roomRule);
                 }
+            }
+            if (WashizuTile.UsesTransparentHands(GameSession.Current.SubRule) && playerInfo.combination_masks != null) {
+                foreach (var mask in playerInfo.combination_masks)
+                    foreach (int tile in WashizuTile.VisibleMeldTiles(mask)) AddVisibleTile(tile, roomRule);
+                continue;
             }
             if (roomRule == WenzhouGameState.RuleId && playerInfo.combination_masks != null) {
                 foreach (var mask in playerInfo.combination_masks) for (int i = 1; mask != null && i < mask.Length; i += 2) AddVisibleTile(mask[i], roomRule);
@@ -583,27 +586,13 @@ public partial class TipsContainer : MonoBehaviour
         return fanObject;
     }
 
-    private void SetTipsFanCount(GameObject fanObject, string fanLabel, string kindTag, int hepaiTile) {
-        string colorType = GetWaitingTileRemaining(hepaiTile) <= 0 ? "exhausted" : kindTag;
-        fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(FormatTipsFanLabel(fanLabel, hepaiTile), colorType);
+    private void SetTipsFanCount(GameObject fanObject, WaitTileHint hint, int hepaiTile) {
+        fanObject.GetComponent<TipsFanCount>().SetHint(hint, GetWaitingTileRemaining(hepaiTile), ShowFanTips, ShowCountTips);
     }
 
     // Replay analysis keeps its existing fan hints independently of room restrictions.
     private bool ShowFanTips => _recordTipsContext != null || GameSession.Current.FanTips;
     private bool ShowCountTips => _recordTipsContext == null && GameSession.Current.CountTips;
-
-    private string FormatHintLabel(string fanLabel, int remaining) {
-        string label = ShowFanTips ? fanLabel ?? "" : "";
-        if (ShowCountTips) {
-            if (label.Length > 0) label += "\n";
-            label += $"{remaining}枚";
-        }
-        return label;
-    }
-
-    private string FormatTipsFanLabel(string fanLabel, int hepaiTile) {
-        return FormatHintLabel(fanLabel, GetWaitingTileRemaining(hepaiTile));
-    }
 
     public void HideTips(){
         CancelPendingFanHints();

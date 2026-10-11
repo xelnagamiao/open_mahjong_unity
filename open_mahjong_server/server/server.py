@@ -155,7 +155,7 @@ async def _daily_stats_loop() -> None:
 
 
 async def _daily_stats_startup_restore() -> None:
-    """启动时在后台增量回补未合并的 metrics，并补齐缺失日的聚合。"""
+    """使用结算时已写入的指标，补齐已结束统计日的聚合。"""
     try:
         from .database.daily_aggregator import run_startup_stats_restore
         await asyncio.to_thread(run_startup_stats_restore, db_manager)
@@ -167,7 +167,7 @@ async def _daily_stats_startup_restore() -> None:
 async def lifespan(app: FastAPI):
     # 启动时执行
     db_manager.init_database()
-    # 历史重建已完成；启动只重试明确登记的失败记录，不再执行一次性全库迁移。
+    # 重试近期记录缓存中登记的失败项；不扫描历史牌谱重算统计。
     from .database.player_recent_records import retry_player_recent_record_errors
     await asyncio.to_thread(retry_player_recent_record_errors, db_manager)
     # 只生成秘钥文件，不启动聊天服务器
@@ -247,6 +247,8 @@ class GameServer:
         # 好友 / 实时观战 管理器
         self.friend_manager = FriendManager(self)
         self.event_auto_matcher = EventAutoMatcher(self)
+        from .room.sichuan_duplicate import restore_pairs
+        restore_pairs(self)
 
     # 玩家连接：使用websocket为key 存储[sebsocket,uuid] : PlayerConnection[1,1,0,0]
     async def connect(self, websocket: WebSocket, Connect_id: str):
@@ -377,8 +379,8 @@ class GameServer:
         return await self.room_manager.create_Riichi_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, open_cuohe, hepai_limit, red_dora, allow_kuikae, open_xiru, open_tobi, hepai_way, tourist_limit, allow_spectator, event_id, count_tips=count_tips, starting_score=starting_score, pointer_tips=pointer_tips, detailed_config=detailed_config, claim_protection=claim_protection)
 
     # 创建四川麻将（血战到底）房间
-    async def create_Shanghai_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "shanghai/qiaoma", tourist_limit: bool = False, allow_spectator: bool = True, event_id=None, count_tips: bool = False, pointer_tips: bool = True, hepai_limit: int = 0) -> Response:
-        return await self.room_manager.create_Shanghai_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, event_id, count_tips=count_tips, pointer_tips=pointer_tips, hepai_limit=hepai_limit)
+    async def create_Shanghai_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "shanghai/qiaoma", tourist_limit: bool = False, allow_spectator: bool = True, event_id=None, count_tips: bool = False, pointer_tips: bool = True, hepai_limit: int = 0, detailed_config: dict = None) -> Response:
+        return await self.room_manager.create_Shanghai_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, event_id, count_tips=count_tips, pointer_tips=pointer_tips, hepai_limit=hepai_limit, detailed_config=detailed_config)
 
     async def create_Sichuan_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "sichuan/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, blood_battle: bool = True, claim_protection: bool = True, event_id=None, count_tips: bool = False, pointer_tips: bool = True, hepai_limit: int = 0) -> Response:
         return await self.room_manager.create_Sichuan_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, tactical_call, blood_battle, claim_protection, event_id, count_tips=count_tips, pointer_tips=pointer_tips, hepai_limit=hepai_limit)
@@ -425,15 +427,15 @@ class GameServer:
         await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
 
     # 设置玩家准备状态
-    async def set_player_ready(self, Connect_id: str, room_id: str, ready: bool):
-        response = await self.room_manager.set_player_ready(Connect_id, room_id, ready)
+    async def set_player_ready(self, Connect_id: str, room_id: str, ready: bool, roster_revision=None):
+        response = await self.room_manager.set_player_ready(Connect_id, room_id, ready, roster_revision=roster_revision)
         if response:
             await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
 
     # 开始游戏
-    async def start_game(self, Connect_id: str, room_id: str):
+    async def start_game(self, Connect_id: str, room_id: str, roster_revision=None):
         """开始游戏（委托给游戏状态管理器）"""
-        response = await self.gamestate_manager.start_game(Connect_id, room_id)
+        response = await self.gamestate_manager.start_game(Connect_id, room_id, roster_revision=roster_revision)
         if response:
             await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
 

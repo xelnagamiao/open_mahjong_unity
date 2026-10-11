@@ -22,8 +22,7 @@ public static class MainSceneUiBaker {
             MarkHierarchy(panel.gameObject);
         }
         foreach (var panel in Find<GamePlayerPanel>(scene)) {
-            panel.BakeDuplicateRemainingTilesLabel();
-            panel.transform.Find("DuplicateRemainingTiles").gameObject.SetActive(false);
+            GamePlayerPanelUiBaker.Bake(panel);
             MarkHierarchy(panel.gameObject);
         }
         foreach (var panel in Find<TipsContainer>(scene)) {
@@ -40,6 +39,7 @@ public static class MainSceneUiBaker {
             panel.BakeBotSpeedUi();
             MarkHierarchy(panel.gameObject);
         }
+        RuleSupportTableBaker.Bake(scene);
         Validate(scene);
         EditorSceneManager.MarkSceneDirty(scene);
     }
@@ -51,6 +51,7 @@ public static class MainSceneUiBaker {
     }
 
     public static void Validate(Scene scene) {
+        RuleSupportTableBaker.Validate(scene);
         foreach (var panel in Find<CreatePanel>(scene)) {
             var serialized = new SerializedObject(panel);
             var property = serialized.GetIterator();
@@ -70,6 +71,7 @@ public static class MainSceneUiBaker {
             Require(panel.transform.Find("Create_Panel/TierPresets")?.childCount == 4, panel, "四种规则预设");
         }
         foreach (var panel in Find<SpectatorPanel>(scene)) {
+            SpectatorUiBaker.Validate(panel);
             Require(!PrefabUtility.IsPartOfPrefabInstance(panel), panel, "观战页面应直接保存在主场景");
             var item = new SerializedObject(panel).FindProperty("SpectatorPrefab").objectReferenceValue;
             Require(item && PrefabUtility.IsPartOfPrefabAsset(item), panel, "观战条目预制体");
@@ -78,7 +80,7 @@ public static class MainSceneUiBaker {
             Require(chat.GetComponent<CanvasGroup>(), chat, "创房时的聊天显示控制");
         }
         foreach (var player in Find<GamePlayerPanel>(scene))
-            Require(new SerializedObject(player).FindProperty("duplicateRemainingTilesText").objectReferenceValue, player, "复式余牌标签");
+            GamePlayerPanelUiBaker.Validate(player);
         foreach (var tips in Find<TipsContainer>(scene))
             Require(tips.transform.Find("HintFrame")?.GetComponent<TipsCornerFrame>(), tips, "听牌提示边框");
         foreach (var panel in Find<InventoryPanel>(scene)) panel.ValidateWarehouseUi();
@@ -100,7 +102,7 @@ public static class MainSceneUiBaker {
 public sealed class MainSceneUiBuildCheck : IProcessSceneWithReport {
     public int callbackOrder => 1;
     public void OnProcessScene(Scene scene, BuildReport report) {
-        try { MainSceneUiBaker.Validate(scene); }
+        try { RuleSupportTableBaker.Bake(scene); MainSceneUiBaker.Validate(scene); }
         catch (Exception error) { throw new BuildFailedException(error.Message); }
     }
 }

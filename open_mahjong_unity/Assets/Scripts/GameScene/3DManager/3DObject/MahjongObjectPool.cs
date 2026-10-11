@@ -31,6 +31,9 @@ public class MahjongObjectPool : MonoBehaviour {
     [SerializeField] SpriteAtlas cardAtlas;
     private Dictionary<int, Queue<GameObject>> poolDictionary;
     private Dictionary<int, Sprite> spriteCache = new Dictionary<int, Sprite>();
+    private readonly Dictionary<Material, Material> washizuMaterials = new Dictionary<Material, Material>();
+    private readonly Dictionary<Material, Material> washizuReadingMaterials = new Dictionary<Material, Material>();
+    private Mesh washizuReadingMesh;
     private Dictionary<int, Material> hongqueMaterialCache = new Dictionary<int, Material>();
     private Dictionary<int, Material> customStandardMaterialCache = new Dictionary<int, Material>();
 
@@ -191,6 +194,12 @@ public class MahjongObjectPool : MonoBehaviour {
         foreach (Material material in customStandardMaterialCache.Values) {
             if (material != null) action(material);
         }
+        foreach (Material material in washizuMaterials.Values) {
+            if (material != null) action(material);
+        }
+        foreach (Material material in washizuReadingMaterials.Values) {
+            if (material != null) action(material);
+        }
     }
 
     public static Tile3D GetTile3D(GameObject obj) {
@@ -251,6 +260,8 @@ public class MahjongObjectPool : MonoBehaviour {
     /// 从池中取出一张指定类型的牌
     /// </summary>
     public GameObject Spawn(int type, Vector3 position, Quaternion rotation) {
+        int logicalType = type;
+        type = WashizuTile.Face(type);
         if (HongqueTileVisual.IsHongqueId(type) && !poolDictionary.ContainsKey(type)) {
             // 兼容旧入口/重连：正常虹雀对局会在首个快照时整批预热。
             EnsureHongqueTilePool(type);
@@ -282,7 +293,7 @@ public class MahjongObjectPool : MonoBehaviour {
         tile.transform.position = position;
         tile.transform.rotation = rotation;
         EnsureTileCollider(tile);
-        ApplyCardTexture(tile, type);
+        ApplyCardTexture(tile, logicalType);
         CardBackManager.ApplyInstanceVisuals(GetTile3D(tile));
         return tile;
     }
@@ -307,11 +318,31 @@ public class MahjongObjectPool : MonoBehaviour {
     }
 
     /// <summary>
-    /// 独立展示牌复用正式牌外观，但不借用每种牌固定数量的对象池。
-    /// 调用方拥有实例，结束展示时注销悬停并 Destroy，不能调用 Return。
+    /// 桌面公开牌面：复用展示池，但只绘制贴在桌布上的圆角平面。
+    /// Return 会恢复实体网格、描边与阴影，不能把平面状态带到下一张普通牌。
     /// </summary>
+    public GameObject SpawnWashizuReadingTile(int tileId, Vector3 position, Quaternion rotation) {
+        GameObject tile = SpawnPresentationTile(tileId, position, rotation);
+        if (tile == null) return null;
+        var surface = tile.GetComponent<WashizuReadingSurface>() ?? tile.AddComponent<WashizuReadingSurface>();
+        surface.Show(ref washizuReadingMesh);
+        ApplyWashizuReadingMaterial(GetTile3D(tile));
+        return tile;
+    }
+
+    private void ApplyWashizuReadingMaterial(Tile3D state) {
+        Material source = state.TileMaterial;
+        if (!washizuReadingMaterials.TryGetValue(source, out Material paper) || paper == null) {
+            Shader shader = Resources.Load<Shader>("Washizu/ReadingFace");
+            paper = new Material(source) { shader = shader, name = "WashizuReading_" + source.name, renderQueue = 2990 };
+            washizuReadingMaterials[source] = paper;
+        }
+        state.SetGlassMaterial(paper);
+    }
+
+    /// <summary>独立展示实例不借用实体牌池；调用方注销悬停并 Destroy，不能 Return。</summary>
     public GameObject CreatePresentationTile(int tileId) {
-        if (tile3DPrefab == null || (!spriteCache.ContainsKey(tileId) && !HongqueTileVisual.IsHongqueId(tileId)))
+        if (tile3DPrefab == null || (!spriteCache.ContainsKey(WashizuTile.Face(tileId)) && !HongqueTileVisual.IsHongqueId(tileId)))
             return null;
         CardBackManager.EnsureSavedConfigApplied();
         GameObject tile = Instantiate(tile3DPrefab);
@@ -337,6 +368,7 @@ public class MahjongObjectPool : MonoBehaviour {
     /// 将牌归还到池中
     /// </summary>
     public void Return(int type, GameObject tile) {
+        tile.GetComponent<WashizuReadingSurface>()?.Restore();
         GetTile3D(tile)?.InvalidatePoolLease();
         // 归还前重置材质颜色并取消悬停管理器注册
         if (Card3DHoverManager.Instance != null) {
@@ -355,6 +387,7 @@ public class MahjongObjectPool : MonoBehaviour {
             tile3D.ResetConcealedState();
         }
 
+        type = WashizuTile.Face(type);
         int blankId = BlankPoolTileId;
         if (type == 0 || type == 1) {
             type = blankId;
@@ -384,6 +417,22 @@ public class MahjongObjectPool : MonoBehaviour {
         Tile3D tile3D = cardObj.GetComponent<Tile3D>();
         if (tile3D == null) {
             tile3D = cardObj.AddComponent<Tile3D>();
+        }
+        if (WashizuTile.IsTransparent(tileId)) {
+            int face = WashizuTile.Face(tileId);
+            ApplyCardTexture(cardObj, face);
+            Material source = tile3D.TileMaterial;
+            if (source != null) {
+                if (!washizuMaterials.TryGetValue(source, out Material glass) || glass == null) {
+                    Shader shader = Resources.Load<Shader>("Washizu/TransparentTile");
+                    if (shader == null) { Debug.LogError("Washizu glass shader is missing"); return; }
+                    glass = new Material(source) { shader = shader, name = "WashizuGlass_" + source.name, renderQueue = 3000 };
+                    washizuMaterials[source] = glass;
+                }
+                tile3D.SetGlassMaterial(glass);
+            }
+            tile3D.SetTileIds(tileId, face);
+            return;
         }
         if (HongqueTileVisual.IsHongqueId(tileId)) {
             Texture2D texture = HongqueTileVisual.LoadTableTexture(tileId);
@@ -430,8 +479,34 @@ public class MahjongObjectPool : MonoBehaviour {
         }
     }
 
+    public void SetPresentationFace(GameObject tile, int tileId) {
+        Tile3D component = GetTile3D(tile);
+        int poolId = component != null ? component.GetPoolTileId() : BlankPoolTileId;
+        ApplyCardTexture(tile, tileId > 0 ? tileId : BlankPoolTileId);
+        component = GetTile3D(tile);
+        component.SetTileIds(tileId, poolId);
+        CardBackManager.ApplyInstanceVisuals(component);
+        if (tile.GetComponent<WashizuReadingSurface>()?.IsReadingSurface == true)
+            ApplyWashizuReadingMaterial(component);
+    }
+
+    private void ClearWashizuMaterials() {
+        foreach (Material glass in washizuMaterials.Values) if (glass != null) Destroy(glass);
+        washizuMaterials.Clear();
+        foreach (Material paper in washizuReadingMaterials.Values) if (paper != null) Destroy(paper);
+        washizuReadingMaterials.Clear();
+    }
+
+    private void OnDestroy() {
+        ClearWashizuMaterials();
+        if (washizuReadingMesh != null) Destroy(washizuReadingMesh);
+        if (Instance == this) Instance = null;
+    }
+
     /// <summary>自定义标准牌面变更后，刷新池内与场上非虹雀 3D 牌。</summary>
     public void RefreshCustomStandardFaces() {
+        // Derived textures must not outlive a user-selected face pack.
+        ClearWashizuMaterials();
         Dictionary<int, Material> previous = customStandardMaterialCache;
         customStandardMaterialCache = new Dictionary<int, Material>();
         ForEachPooledTile(tile => {
@@ -449,7 +524,7 @@ public class MahjongObjectPool : MonoBehaviour {
             if (activeTile == null) continue;
             int poolId = activeTile.GetPoolTileId();
             if (poolId > 0 && !HongqueTileVisual.IsHongqueId(poolId)) {
-                ApplyCardTexture(activeTile.gameObject, poolId);
+                SetPresentationFace(activeTile.gameObject, activeTile.GetTileId());
                 CardBackManager.ApplyInstanceVisuals(activeTile);
             }
         }

@@ -162,6 +162,7 @@ public partial class CreatePanel : MonoBehaviour {
         closeButton.onClick.AddListener(ClosePanel);
         createButton.onClick.AddListener(CreateRoom);
         addRuleButton.onClick.AddListener(OnAddRuleClick);
+        BindRuleSupportTable();
         if (DetailedConfigButton != null) {
             DetailedConfigButton.onClick.AddListener(
                 () => ShowDetailedConfigPanel(_ruleState));
@@ -201,6 +202,7 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private void OnDisable() {
+        if (ruleSupportPanel) ruleSupportPanel.SetActive(false);
         CancelDetailedConfigChanges();
         WindowsManager.Instance?.ApplyStreamerModePanels();
     }
@@ -274,6 +276,7 @@ public partial class CreatePanel : MonoBehaviour {
         switch (key) {
             case GuangdongMilRules.MinimumScoreKey: if (GuangdongMinimumScoreToggle) GuangdongMinimumScoreToggle.isOn = (bool)value; break;
             case YixingRuleBootstrap.SevenPairsKey: if (YixingSevenPairsToggle) YixingSevenPairsToggle.isOn = (bool)value; break;
+            case ShanghaiHandCalculator.Qing3Hun2Peng2Key: if (ShanghaiQing3Hun2Peng2Toggle) ShanghaiQing3Hun2Peng2Toggle.isOn = (bool)value; break;
             case CreateRoomKeys.GameRound:      SelectGameTime((int)value); break;
             case CreateRoomKeys.RoundTimer:     roundTimer.value = (int)value; break;
             case CreateRoomKeys.StepTimer:      stepTimer.value = (int)value; break;
@@ -357,6 +360,7 @@ public partial class CreatePanel : MonoBehaviour {
 
         bool isBloodBattle = _ruleState == "guobiao" && GetSelectedSubRule() == GuobiaoGameState.BloodBattleSubRule;
         bool isSichuanXueLiu = _ruleState == "sichuan" && SichuanLobby.IsXueliu(GetSelectedSubRule());
+        bool isSichuanDoubles = _ruleState == "sichuan" && SichuanLobby.IsTeamMode(GetSelectedSubRule());
         bool isXiaolin = _ruleState == "guobiao" && SubRuleDropdown.value == 1;
         bool isLanshi  = _ruleState == "guobiao" && SubRuleDropdown.value == 3;
         bool isLangyong = _ruleState == "riichi" && SubRuleDropdown.value == 1;
@@ -366,27 +370,34 @@ public partial class CreatePanel : MonoBehaviour {
         CuoHeheToggle.gameObject.SetActive(showCuohe);
 
         // 蓝十仍隐藏起和番自定义；标准/小林/K神均可改
-        bool showHepaiLimit = visible.ContainsKey(CreateRoomKeys.HepaiLimit) && !isLanshi && !isBloodBattle
+        bool showHepaiLimit = visible.ContainsKey(CreateRoomKeys.HepaiLimit) && !isLanshi && !isBloodBattle && !isSichuanDoubles
             && (_ruleState != "shanghai" || IsShanghaiQiaoma);
         RefreshHepaiLimitCaption();
         InputHepaiLimitToggle.gameObject.SetActive(showHepaiLimit);
         InputHepaiLimitPlane.SetActive(showHepaiLimit && InputHepaiLimitToggle.isOn && !IsShanghaiQiaoma);
 
-        RedDoraToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.RedDora));
+        bool isWashizu = _ruleState == "riichi" && GetSelectedRiichiSubRule() == WashizuTile.SubRule;
+        if (isWashizu) {
+            RedDoraToggle.SetIsOnWithoutNotify(false);
+            XiruToggle?.SetIsOnWithoutNotify(false);
+            HepaiWayDropdown.SetValueWithoutNotify(2);
+        }
+        RedDoraToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.RedDora) && !isWashizu);
         if (KuikaeToggle != null) KuikaeToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.AllowKuikae) && !isLangyong);
-        if (XiruToggle != null) XiruToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.OpenXiru));
+        if (XiruToggle != null) XiruToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.OpenXiru) && !isWashizu);
         if (TobiToggle != null) TobiToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.OpenTobi));
-        HepaiWayPanel.SetActive(visible.ContainsKey(CreateRoomKeys.HepaiWay));
+        HepaiWayPanel.SetActive(visible.ContainsKey(CreateRoomKeys.HepaiWay) && !isWashizu);
         ClaimProtectionToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.ClaimProtection));
         TacticalCallToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.TacticalCall) && !isBloodBattle);
         if (BloodBattleToggle != null) {
             BloodBattleToggle.gameObject.SetActive(
-                visible.ContainsKey(CreateRoomKeys.BloodBattle) && !isSichuanXueLiu);
+                visible.ContainsKey(CreateRoomKeys.BloodBattle) && !isSichuanXueLiu && !isSichuanDoubles);
         }
         SetChangshaOptionsVisible(DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.CsBirdCount));
         SetWallOptionsVisible(visible.ContainsKey(CreateRoomKeys.WallWan));
         if (YixingSevenPairsToggle) YixingSevenPairsToggle.gameObject.SetActive(visible.ContainsKey(YixingRuleBootstrap.SevenPairsKey));
         RefreshGuangdongControls();
+        RefreshShanghaiControls();
         SetCommonCreateControlsVisible(visible);
         ApplyGameRoundDisplayForRule();
         RefreshCuoheTypePanelVisibility();
@@ -408,7 +419,7 @@ public partial class CreatePanel : MonoBehaviour {
         CreateRoomSubRuleTextConfig subRule = CreateRoomRuleTextConfigCatalog
             .GetRule(_ruleState)
             .GetSubRule(SubRuleDropdown.value);
-        createButton.interactable = true;
+        createButton.interactable = !SichuanLobby.IsDuplicate(GetSelectedSubRule());
         SubRuleDescriptionText.text = subRule != null ? subRule.Description : "";
         if (_ruleState == "hongkong") SubRuleDescriptionText.text = HongKong_Create_RoomConfig.SourceDescription(GetSelectedSubRule(),BuildDetailedConfigValues("hongkong"));
         SubRuleDescriptionText.ForceMeshUpdate();
@@ -489,12 +500,13 @@ public partial class CreatePanel : MonoBehaviour {
     private void SetCommonCreateControlsVisible(Dictionary<string, object> visible) {
         if (TianDiRenHeToggle != null) {
             string subRule = GetSelectedSubRule();
-            bool supported = _ruleState == "guobiao" && (subRule == "guobiao/standard" || subRule == GuobiaoGameState.SanmaSubRule || subRule == GuobiaoGameState.BloodBattleSubRule);
+            bool supported = _ruleState == "guobiao" && (subRule == "guobiao/standard" || subRule == GuobiaoGameState.SanmaSubRule || subRule == GuobiaoGameState.BloodBattleSubRule || subRule == GuobiaoGameState.TransparentSubRule);
             TianDiRenHeToggle.gameObject.SetActive(supported);
             if (!supported) TianDiRenHeToggle.SetIsOnWithoutNotify(false);
         }
         if (DuplicateWallToggle != null) {
-            bool supported = _ruleState == "guobiao" && GetSelectedSubRule() != GuobiaoGameState.SanmaSubRule;
+            bool supported = _ruleState == "guobiao" && GetSelectedSubRule() != GuobiaoGameState.SanmaSubRule
+                && GetSelectedSubRule() != GuobiaoGameState.TransparentSubRule;
             DuplicateWallToggle.gameObject.SetActive(supported);
             if (!supported) {
                 DuplicateWallToggle.isOn = false;
@@ -613,7 +625,7 @@ public partial class CreatePanel : MonoBehaviour {
         CacheDefaultGameRoundLabels();
         bool showRound = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.GameRound);
         bool isChangsha = _ruleState == "changsha";
-        bool usesFixedHandCount = _ruleState == "shanghai" || _ruleState == "zhongyong" || _ruleState == "guangdong" || _ruleState == GuizhouGameState.RuleId || _ruleState == HongzhongGameState.RuleId || _ruleState == HangzhouGameState.RuleId;
+        bool usesFixedHandCount = _ruleState == "shanghai" || _ruleState == "zhongyong" || _ruleState == "guangdong" || _ruleState == GuizhouGameState.RuleId || _ruleState == JiujiangGameState.RuleId || _ruleState == HongzhongGameState.RuleId || _ruleState == HangzhouGameState.RuleId;
         if (!showRound) return;
         if (isChangsha && gameTime3Button != null && gameTime3Button.isOn) {
             SelectGameTime(4);
@@ -670,153 +682,22 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private void CreateRoom() {
-        if (_ruleState == HangzhouGameState.RuleId) { CreateHangzhouRoom(); return; }
-        if (_ruleState == "guangdong") { CreateTuidaoRoom(); return; }
-        if (_ruleState == "shanghai" && GetSelectedSubRule() != "shanghai/qiaoma" && GetSelectedSubRule() != "shanghai/qinghunpeng") {
-            NotificationManager.Instance.ShowTip("create_room", false, "不支持的上海麻将子规则");
+        RoomCreationRequest request = BuildRoomRequest();
+        if (!request.IsValid) {
+            if (request.FocusHepaiLimit) HepaiLimitInput.ActivateInputField();
+            NotificationManager.Instance.ShowTip("create_room", false, request.Error);
             return;
         }
-        if (_ruleState == "changchun") { CreateChangchunRoom(); return; }
-        if (_ruleState == "shanxi") {
-            CreateShanxiRoom();
-            return;
-        }
-        if (_ruleState == "shanghai") {
-            CreateShanghaiRoom();
-            return;
-        }
-        int minimumLimit = _ruleState == "sichuan" ? 0 : 1;
-        if (InputHepaiLimitToggle.gameObject.activeSelf && InputHepaiLimitToggle.isOn
-            && (!int.TryParse(HepaiLimitInput.text.Trim(), out int limit) || limit < minimumLimit || limit > 64)) {
-            HepaiLimitInput.ActivateInputField();
-            NotificationManager.Instance.ShowTip("create_room", false, $"起和番须为{minimumLimit}–64的整数");
-            return;
-        }
-        if (_ruleState == "guobiao" && DuplicateWallToggle != null && DuplicateWallToggle.isOn && string.IsNullOrEmpty(SelectedDuplicateKey)) {
-            NotificationManager.Instance.ShowTip("create_room", false, "请填写在网站账户面板创建的复式密钥");
-            return;
-        }
-        if (_ruleState == "riichi") {
-            CreateRiichiRoom();
-            return;
-        }
-
-        if (_ruleState == "guobiao") {
-            CreateGBRoom();
-            return;
-        }
-
-        if (_ruleState == "qingque") {
-            CreateQingqueRoom();
-            return;
-        }
-
-        if (_ruleState == "classical") {
-            CreateClassicalRoom();
-            return;
-        }
-
-        if (_ruleState == "sichuan") {
-            CreateSichuanRoom();
-            return;
-        }
-
-        if (_ruleState == "jiandan" || _ruleState == "zhongyong") {
-            CreateJiandanRoom();
-            return;
-        }
-
-        if (_ruleState == "changsha") {
-            CreateChangshaRoom();
-            return;
-        }
-
-        if (_ruleState == WenzhouGameState.RuleId) {
-            CreateWenzhouRoom(); return;
-        }
-        if (_ruleState == HongzhongGameState.RuleId) {
-            CreateHongzhongRoom(); return;
-        }
-        if (_ruleState == YixingGameState.RuleId) {
-            CreateYixingRoom(); return;
-        }
-        if (_ruleState == GuizhouGameState.RuleId) {
-            CreateGuizhouRoom();
-            return;
-        }
-
-        if (_ruleState == "hongkong") {
-            CreateHongKongRoom();
-            return;
-        }
-
-        if (_ruleState == "taiwan") {
-            CreateTaiwanRoom();
-            return;
-        }
-
-        if (_ruleState == "hongque") {
-            CreateHongqueRoom();
-            return;
-        }
-
-        if (_ruleState == "free") {
-            CreateFreeRoom();
-            return;
-        }
+        request.Send(RoomNetworkManager.Instance);
     }
 
-    private void CreateRiichiRoom() {
-        if (RiichiStartingScoreInput == null || !int.TryParse(RiichiStartingScoreInput.text.Trim(), out int startingScore)) {
-            NotificationManager.Instance.ShowTip("create_room", false, "请填写有效的起始点数");
-            return;
-        }
-        // HepaiWayDropdown 选项顺序：0=多家和，1=三家和了流局，2=头跳
-        string hepaiWay = HepaiWayDropdown.value switch {
-            0 => "multi_ron",
-            1 => "three_ron_abort",
-            2 => "head_bump",
-            _ => "multi_ron",
-        };
-
-        int hepaiLimit = (int)DefaultsOf("riichi")[CreateRoomKeys.HepaiLimit];
-        if (InputHepaiLimitToggle.isOn && int.TryParse(HepaiLimitInput.text.Trim(), out int parsed)) {
-            hepaiLimit = Mathf.Clamp(parsed, 1, 64);
-        }
-
-        var config = new Riichi_Create_RoomConfig {
-            ClaimProtection = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.ClaimProtection) && ClaimProtectionToggle.isOn,
-            DetailedConfig = BuildDetailedConfigValues("riichi"),
-            RoomName = roomNameInput.text.Trim(),
-            GameRound = GetSelectedGameTime(),
-            Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
-            RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
-            Rule = "riichi",
-            SubRule = GetSelectedRiichiSubRule(),
-            RoundTimer = GetSelectedRoundTimer(),
-            StepTimer = GetSelectedStepTimer(),
-            Tips = tipsToggle.isOn,
-            CountTips = countTipsToggle.isOn,
-            PointerTips = pointerTipsToggle.isOn,
-            TouristLimit = TouristLimitToggle.isOn,
-            AllowSpectator = AllowSpectatorToggle.isOn,
-            CuoHe = CuoHeheToggle.isOn,
-            HepaiLimit = hepaiLimit,
-            RedDora = RedDoraToggle.isOn,
-            StartingScore = startingScore,
-            AllowKuikae = KuikaeToggle != null && !KuikaeToggle.isOn,
-            OpenXiru = XiruToggle != null ? XiruToggle.isOn : (bool)DefaultsOf("riichi")[CreateRoomKeys.OpenXiru],
-            OpenTobi = TobiToggle != null ? TobiToggle.isOn : (bool)DefaultsOf("riichi")[CreateRoomKeys.OpenTobi],
-            HepaiWay = hepaiWay,
-            EventId = _venueEventId,
-        };
-
-        if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
-            Debug.LogWarning(error);
-            NotificationManager.Instance.ShowTip("create_room", false, $"创建房间失败: {error}");
-            return;
-        }
-        RoomNetworkManager.Instance.Create_Riichi_Room(config);
+    internal RoomCreationRequest BuildRoomRequest() {
+        if (SichuanLobby.IsDuplicate(GetSelectedSubRule()))
+            return RoomCreationRequest.Invalid(SichuanLobby.DuplicateCreationMessage);
+        RuleManifest manifest = RuleRegistry.Resolve(_ruleState);
+        return manifest?.BuildRoom == null
+            ? RoomCreationRequest.Invalid("该规则尚未注册建房模块")
+            : manifest.BuildRoom(CaptureRoomCreationInput());
     }
 
     private static string GetDefaultRoomName() {
@@ -833,351 +714,7 @@ public partial class CreatePanel : MonoBehaviour {
         };
     }
 
-    private int ResolveGuobiaoHepaiLimit(string subRule) {
-        if (subRule == "guobiao/lanshi") return 5;
-        int hepaiLimit = GetGuobiaoSubRuleDefaultHepaiLimit(subRule);
-        if (InputHepaiLimitToggle.isOn && int.TryParse(HepaiLimitInput.text.Trim(), out int inputLimit))
-            hepaiLimit = Mathf.Clamp(inputLimit, 1, 64);
-        return hepaiLimit;
-    }
-
-    private void CreateGBRoom() {
-        string subRule = GetSelectedSubRule();
-        int hepaiLimit = ResolveGuobiaoHepaiLimit(subRule);
-
-        var config = new GB_Create_RoomConfig {
-            ClaimProtection = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.ClaimProtection) && ClaimProtectionToggle.isOn,
-            RoomName = roomNameInput.text.Trim(),
-            GameRound = GetSelectedGameTime(),
-            Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
-            RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
-            DuplicateKey = SelectedDuplicateKey,
-            UseFlowers = subRule != "guobiao/lanshi" && (GuobiaoFlowersToggle == null || GuobiaoFlowersToggle.isOn),
-            TianDiRenHe = (subRule == "guobiao/standard" || subRule == GuobiaoGameState.SanmaSubRule || subRule == GuobiaoGameState.BloodBattleSubRule) && TianDiRenHeToggle != null && TianDiRenHeToggle.isOn,
-            Rule = "guobiao",
-            SubRule = subRule,
-            RoundTimer = GetSelectedRoundTimer(),
-            StepTimer = GetSelectedStepTimer(),
-            Tips = tipsToggle.isOn,
-            CountTips = countTipsToggle.isOn,
-            PointerTips = pointerTipsToggle.isOn,
-            CuoHe = subRule != "guobiao/blood_battle" && (subRule == "guobiao/lanshi" || CuoHeheToggle.isOn),
-            CuoheType = subRule == "guobiao/lanshi" ? 1 : GetSelectedCuoheType(),
-            HepaiLimit = subRule == "guobiao/blood_battle" ? 8 : hepaiLimit,
-            TouristLimit = TouristLimitToggle.isOn,
-            AllowSpectator = AllowSpectatorToggle.isOn,
-            TacticalCall = subRule != "guobiao/blood_battle" && TacticalCallToggle.isOn,
-            EventId = _venueEventId,
-        };
-
-        if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
-            Debug.LogWarning(error);
-            NotificationManager.Instance.ShowTip("create_room", false, $"创建房间失败: {error}");
-            return;
-        }
-        RoomNetworkManager.Instance.Create_GB_Room(config);
-    }
-
-    private void CreateQingqueRoom() {
-        var config = new Qingque_Create_RoomConfig {
-            ClaimProtection = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.ClaimProtection) && ClaimProtectionToggle.isOn,
-            RoomName = roomNameInput.text.Trim(),
-            GameRound = GetSelectedGameTime(),
-            Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
-            RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
-            Rule = "qingque",
-            SubRule = "qingque/standard",
-            RoundTimer = GetSelectedRoundTimer(),
-            StepTimer = GetSelectedStepTimer(),
-            Tips = tipsToggle.isOn,
-            CountTips = countTipsToggle.isOn,
-            PointerTips = pointerTipsToggle.isOn,
-            TouristLimit = TouristLimitToggle.isOn,
-            AllowSpectator = AllowSpectatorToggle.isOn,
-            TacticalCall = TacticalCallToggle.isOn,
-            EventId = _venueEventId,
-        };
-
-        if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
-            Debug.LogWarning(error);
-            NotificationManager.Instance.ShowTip("create_room", false, $"创建房间失败: {error}");
-            return;
-        }
-        RoomNetworkManager.Instance.Create_Qingque_Room(config);
-    }
-
-    private void CreateTaiwanRoom() {
-        var config = new Taiwan_Create_RoomConfig {
-            RoomName = roomNameInput.text.Trim(),
-            GameRound = GetSelectedGameTime(),
-            Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
-            RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
-            Rule = "taiwan",
-            SubRule = "taiwan/standard",
-            RoundTimer = GetSelectedRoundTimer(),
-            StepTimer = GetSelectedStepTimer(),
-            Tips = tipsToggle.isOn,
-            CountTips = countTipsToggle.isOn,
-            PointerTips = pointerTipsToggle.isOn,
-            TouristLimit = TouristLimitToggle.isOn,
-            AllowSpectator = AllowSpectatorToggle.isOn,
-            CuoHe = CuoHeheToggle.isOn,
-            CuoheType = GetSelectedCuoheType(),
-            DetailedConfig = BuildDetailedConfigValues("taiwan"),
-            EventId = _venueEventId,
-        };
-
-        if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
-            Debug.LogWarning(error);
-            NotificationManager.Instance.ShowTip("create_room", false, $"创建房间失败: {error}");
-            return;
-        }
-        RoomNetworkManager.Instance.Create_Taiwan_Room(config);
-    }
-
-    private void CreateClassicalRoom() {
-        var config = new Qingque_Create_RoomConfig {
-            ClaimProtection = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.ClaimProtection) && ClaimProtectionToggle.isOn,
-            RoomName = roomNameInput.text.Trim(),
-            GameRound = GetSelectedGameTime(),
-            Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
-            RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
-            Rule = "classical",
-            SubRule = "classical/standard",
-            RoundTimer = GetSelectedRoundTimer(),
-            StepTimer = GetSelectedStepTimer(),
-            Tips = tipsToggle.isOn,
-            CountTips = countTipsToggle.isOn,
-            PointerTips = pointerTipsToggle.isOn,
-            TouristLimit = TouristLimitToggle.isOn,
-            AllowSpectator = AllowSpectatorToggle.isOn,
-            EventId = _venueEventId,
-        };
-
-        if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
-            Debug.LogWarning(error);
-            NotificationManager.Instance.ShowTip("create_room", false, $"创建房间失败: {error}");
-            return;
-        }
-        RoomNetworkManager.Instance.Create_Classical_Room(config);
-    }
-
     private bool IsShanghaiQiaoma => _ruleState == "shanghai" && GetSelectedSubRule() == "shanghai/qiaoma";
-
-    private void CreateTuidaoRoom() {
-        var config = new Qingque_Create_RoomConfig {
-            TacticalCall = TacticalCallToggle != null && TacticalCallToggle.isOn,
-            ClaimProtection = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.ClaimProtection) && ClaimProtectionToggle.isOn,
-            RoomName = roomNameInput.text.Trim(),
-            GameRound = GetSelectedGameTime(),
-            Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
-            RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
-            Rule = "guangdong",
-            SubRule = GetSelectedSubRule(),
-            RoundTimer = GetSelectedRoundTimer(),
-            StepTimer = GetSelectedStepTimer(),
-            Tips = tipsToggle.isOn,
-            CountTips = countTipsToggle.isOn,
-            PointerTips = pointerTipsToggle.isOn,
-            TouristLimit = TouristLimitToggle.isOn,
-            AllowSpectator = AllowSpectatorToggle.isOn,
-            EventId = _venueEventId,
-        };
-
-        if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
-            Debug.LogWarning(error);
-            NotificationManager.Instance.ShowTip("create_room", false, $"创建房间失败: {error}");
-            return;
-        }
-        RoomNetworkManager.Instance.Create_Guangdong_Room(config, GuangdongMinimumScoreToggle == null || GuangdongMinimumScoreToggle.isOn);
-    }
-
-    private void CreateShanghaiRoom() {
-        var config = new Qingque_Create_RoomConfig {
-            ClaimProtection = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.ClaimProtection) && ClaimProtectionToggle.isOn,
-            RoomName = roomNameInput.text.Trim(),
-            GameRound = GetSelectedGameTime(),
-            Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
-            RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
-            Rule = "shanghai",
-            SubRule = GetSelectedSubRule(),
-            RoundTimer = GetSelectedRoundTimer(),
-            StepTimer = GetSelectedStepTimer(),
-            Tips = tipsToggle.isOn,
-            CountTips = countTipsToggle.isOn,
-            PointerTips = pointerTipsToggle.isOn,
-            TouristLimit = TouristLimitToggle.isOn,
-            AllowSpectator = AllowSpectatorToggle.isOn,
-            EventId = _venueEventId,
-        };
-
-        if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
-            Debug.LogWarning(error);
-            NotificationManager.Instance.ShowTip("create_room", false, $"创建房间失败: {error}");
-            return;
-        }
-        RoomNetworkManager.Instance.Create_Shanghai_Room(config, IsShanghaiQiaoma && InputHepaiLimitToggle.isOn);
-    }
-
-    private void CreateSichuanRoom() {
-        string subRule = GetSelectedSubRule();
-        int hepaiLimit = (int)DefaultsOf("sichuan")[CreateRoomKeys.HepaiLimit];
-        if (InputHepaiLimitToggle.isOn && int.TryParse(HepaiLimitInput.text.Trim(), out int parsed)) {
-            hepaiLimit = parsed;
-        }
-        bool bloodBattle = SichuanLobby.IsXueliu(subRule) ? false : BloodBattleToggle != null
-            ? BloodBattleToggle.isOn
-            : (bool)DefaultsOf("sichuan")[CreateRoomKeys.BloodBattle];
-
-        var config = new Sichuan_Create_RoomConfig {
-            ClaimProtection = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.ClaimProtection) && ClaimProtectionToggle.isOn,
-            RoomName = roomNameInput.text.Trim(),
-            GameRound = GetSelectedGameTime(),
-            Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
-            RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
-            Rule = "sichuan",
-            SubRule = subRule,
-            RoundTimer = GetSelectedRoundTimer(),
-            StepTimer = GetSelectedStepTimer(),
-            Tips = tipsToggle.isOn,
-            CountTips = countTipsToggle.isOn,
-            PointerTips = pointerTipsToggle.isOn,
-            TouristLimit = TouristLimitToggle.isOn,
-            AllowSpectator = AllowSpectatorToggle.isOn,
-            TacticalCall = TacticalCallToggle.isOn,
-            BloodBattle = bloodBattle,
-            HepaiLimit = hepaiLimit,
-            EventId = _venueEventId,
-        };
-
-        if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
-            Debug.LogWarning(error);
-            NotificationManager.Instance.ShowTip("create_room", false, $"创建房间失败: {error}");
-            return;
-        }
-        RoomNetworkManager.Instance.Create_Sichuan_Room(config);
-    }
-
-    private void CreateJiandanRoom() {
-        var config = new Jiandan_Create_RoomConfig {
-            ClaimProtection = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.ClaimProtection) && ClaimProtectionToggle.isOn,
-            RoomName = roomNameInput.text.Trim(),
-            GameRound = GetSelectedGameTime(),
-            Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
-            RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
-            Rule = _ruleState,
-            SubRule = GetSelectedSubRule(),
-            RoundTimer = GetSelectedRoundTimer(),
-            StepTimer = GetSelectedStepTimer(),
-            Tips = tipsToggle.isOn,
-            CountTips = countTipsToggle.isOn,
-            PointerTips = pointerTipsToggle.isOn,
-            TouristLimit = TouristLimitToggle.isOn,
-            AllowSpectator = AllowSpectatorToggle.isOn,
-            TacticalCall = false,
-            EventId = _venueEventId,
-        };
-
-        if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
-            Debug.LogWarning(error);
-            NotificationManager.Instance.ShowTip("create_room", false, $"创建房间失败: {error}");
-            return;
-        }
-        RoomNetworkManager.Instance.Create_Jiandan_Room(config);
-    }
-
-    private void CreateHongqueRoom() {
-        // 虹雀和牌方式：0=允许多家和（multi_ron），1=头跳（head_bump）
-        string hepaiWay = HepaiWayDropdown.value switch {
-            1 => "head_bump",
-            _ => "multi_ron",
-        };
-        var config = new Jiandan_Create_RoomConfig {
-            ClaimProtection = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.ClaimProtection) && ClaimProtectionToggle.isOn,
-            RoomName = roomNameInput.text.Trim(),
-            GameRound = GetSelectedGameTime(),
-            Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
-            RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
-            Rule = "hongque",
-            SubRule = "hongque/v1.6",
-            RoundTimer = GetSelectedRoundTimer(),
-            StepTimer = GetSelectedStepTimer(),
-            Tips = tipsToggle.isOn,
-            CountTips = countTipsToggle.isOn,
-            PointerTips = pointerTipsToggle.isOn,
-            TouristLimit = TouristLimitToggle.isOn,
-            AllowSpectator = false,
-            TacticalCall = false,
-            HepaiWay = hepaiWay,
-            EventId = _venueEventId,
-        };
-        if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
-            NotificationManager.Instance.ShowTip("create_room", false, $"创建房间失败: {error}");
-            return;
-        }
-        RoomNetworkManager.Instance.Create_Hongque_Room(config);
-    }
-
-    private void CreateChangshaRoom() {
-        var config = new Changsha_Create_RoomConfig {
-            ClaimProtection = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.ClaimProtection) && ClaimProtectionToggle.isOn,
-            RoomName = roomNameInput.text.Trim(),
-            GameRound = GetSelectedGameTime(),
-            Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
-            RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
-            Rule = "changsha",
-            SubRule = "changsha/classic_double_bird",
-            RoundTimer = GetSelectedRoundTimer(),
-            StepTimer = GetSelectedStepTimer(),
-            Tips = tipsToggle.isOn,
-            CountTips = countTipsToggle.isOn,
-            PointerTips = pointerTipsToggle.isOn,
-            TouristLimit = TouristLimitToggle.isOn,
-            AllowSpectator = AllowSpectatorToggle.isOn,
-            TacticalCall = TacticalCallToggle.isOn,
-            OpenKongReplacementCount = GetChangshaOpenKongCount(),
-            InitialHuSiXi = ChangshaInitialSiXiToggle == null || ChangshaInitialSiXiToggle.isOn,
-            InitialHuBanBanHu = ChangshaInitialBanBanHuToggle == null || ChangshaInitialBanBanHuToggle.isOn,
-            InitialHuQueYiSe = ChangshaInitialQueYiSeToggle == null || ChangshaInitialQueYiSeToggle.isOn,
-            InitialHuLiuLiuShun = ChangshaInitialLiuLiuShunToggle == null || ChangshaInitialLiuLiuShunToggle.isOn,
-            InitialHuSanTong = ChangshaInitialSanTongToggle == null || ChangshaInitialSanTongToggle.isOn,
-            BirdCount = GetChangshaBirdCount(),
-            DealerBird = ChangshaDealerBirdToggle == null || ChangshaDealerBirdToggle.isOn,
-            BaseScoreNoDealer = ChangshaBaseScoreNoDealerToggle != null && ChangshaBaseScoreNoDealerToggle.isOn,
-            SmallHuScore = ReadChangshaScore(ChangshaSmallHuScoreInput, 2),
-            BigHuScore = ReadChangshaScore(ChangshaBigHuScoreInput, 8),
-            EventId = _venueEventId,
-        };
-
-        if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
-            Debug.LogWarning(error);
-            NotificationManager.Instance.ShowTip("create_room", false, $"创建房间失败: {error}");
-            return;
-        }
-        RoomNetworkManager.Instance.Create_Changsha_Room(config);
-    }
-
-    private void CreateFreeRoom() {
-        var config = new Free_Create_RoomConfig {
-            RoomName = roomNameInput.text.Trim(),
-            Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
-            RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
-            TouristLimit = false,
-            PointerTips = pointerTipsToggle.isOn,
-            WallWan = WallWanToggle == null || WallWanToggle.isOn,
-            WallTong = WallTongToggle == null || WallTongToggle.isOn,
-            WallSuo = WallSuoToggle == null || WallSuoToggle.isOn,
-            WallWinds = WallWindsToggle == null || WallWindsToggle.isOn,
-            WallDragons = WallDragonsToggle == null || WallDragonsToggle.isOn,
-            WallFlowers = WallFlowersToggle == null || WallFlowersToggle.isOn,
-        };
-        if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
-            Debug.LogWarning(error);
-            NotificationManager.Instance.ShowTip("create_room", false, $"创建房间失败: {error}");
-            return;
-        }
-        RoomNetworkManager.Instance.Create_Free_Room(config);
-    }
 
     private static int ReadChangshaScore(TMP_InputField input, int fallback) {
         if (input == null) return fallback;

@@ -23,22 +23,22 @@ TILE_NOT_IN_HAND_TIP_MESSAGE = "此牌不在您的手牌中"
 
 def normalize_tile(tile: int) -> int:
     """赤 5 与普通 5 等价：105→15, 205→25, 305→35（与客户端 RiichiTileUtil 一致）。"""
-    if tile == 105:
-        return 15
-    if tile == 205:
-        return 25
-    if tile == 305:
-        return 35
-    return tile
+    from ...game_calculation.riichi.washizu_tiles import normalize
+    return normalize(tile)
 
 
 def tiles_equal(a: int, b: int) -> bool:
     return normalize_tile(a) == normalize_tile(b)
 
 
+def same_copy_kind(a, b):
+    from ...game_calculation.riichi.washizu_tiles import same_physical_kind
+    return same_physical_kind(a, b)
+
+
 def hand_contains_tile(hand: List[int], tile_id: int) -> bool:
     """手牌中是否存在该牌（含赤宝牌归一化匹配）。"""
-    return any(tiles_equal(t, tile_id) for t in hand)
+    return any(same_copy_kind(t, tile_id) for t in hand)
 
 
 def has_draw_slot(player) -> bool:
@@ -97,7 +97,7 @@ def bot_ask_hand_game_status(game_state, player_index: int) -> str:
 def is_last_slot_tile(hand: List[int], tile_id: int) -> bool:
     if not hand:
         return False
-    return tiles_equal(hand[-1], tile_id)
+    return same_copy_kind(hand[-1], tile_id)
 
 
 def has_tile_in_hand_zone(hand: List[int], tile_id: int) -> bool:
@@ -171,13 +171,13 @@ def _find_index(hand: List[int], tile_id: int, lo: int, hi: int) -> int:
         if hand[i] == tile_id:
             return i
     for i in range(hi - 1, lo - 1, -1):
-        if tiles_equal(hand[i], tile_id):
+        if same_copy_kind(hand[i], tile_id):
             return i
     return -1
 
 
 def _remove_from_draw_zone(hand: List[int], tile_id: int) -> Optional[int]:
-    if hand and tiles_equal(hand[-1], tile_id):
+    if hand and same_copy_kind(hand[-1], tile_id):
         return hand.pop()
     return None
 

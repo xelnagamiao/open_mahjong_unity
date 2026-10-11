@@ -31,7 +31,7 @@ class Recording:
             return
         key = (tuple(hints["source_hand_tiles"]), tuple(hints["source_melds"]),
                tuple((tile, tuple(waits)) for tile, waits in hints["waiting_by_discard"].items()),
-               tuple(hints["waiting_tiles"]))
+               tuple(hints["waiting_tiles"]), hints.get("source_cai_piao_count", 0))
         if self._recorded_hint_keys.get(index) != key:
             self._recorded_hint_keys[index] = key
             record.append_action_tick(self, ["hangzhou", "hints", index, hints])

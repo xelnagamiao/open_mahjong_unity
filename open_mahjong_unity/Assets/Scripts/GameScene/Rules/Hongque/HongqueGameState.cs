@@ -62,6 +62,13 @@ public sealed class HongqueGameState : GameStateBase {
                     EndResultPanel.Instance.UpdateReadyStatus(response.ready_status_info.player_to_ready);
                 }
                 return true;
+            case "game_end":
+                GameEndInfo end = response.game_end_info;
+                if (end == null) return true;
+                gameEndShown = true;
+                LocalRecordStore.SavePushedDetail(end.record_detail);
+                NormalGameStateManager.Instance.GameEnd(end.master_seed, end.commitment, end.salt, end.player_final_data);
+                return true;
             default:
                 return false;
         }
@@ -141,6 +148,7 @@ public sealed class HongqueGameState : GameStateBase {
             newState.players = state.players;
             newState.hand = state.hand;
             newState.room_id = state.room_id;
+            newState.room_type = state.room_type;
             newState.max_round = state.max_round;
             newState.round_time = state.round_time;
             newState.step_time = state.step_time;
@@ -345,6 +353,7 @@ public sealed class HongqueGameState : GameStateBase {
             state.action_tick.ToString(),
             state.phase ?? string.Empty,
             state.tips.ToString(),
+            state.count_tips.ToString(),
             state.current_player.ToString(),
             state.you.ToString(),
             state.win_hint?.tile ?? string.Empty,
@@ -354,7 +363,7 @@ public sealed class HongqueGameState : GameStateBase {
         });
         if (tipsUiKey == lastTipsUiKey) return;
         lastTipsUiKey = tipsUiKey;
-        if (!state.tips || state.phase == "round_end" || state.phase == "game_end") {
+        if (!(state.tips || state.count_tips) || state.phase == "round_end" || state.phase == "game_end") {
             TipsBlock.Instance.HideTipsBlock();
             TipsContainer.Instance.HideTips();
             return;
@@ -834,7 +843,8 @@ public sealed class HongqueGameState : GameStateBase {
     /// 关闭上一局的结算面板，用最终分数展示排位并允许返回大厅。
     /// </summary>
     private void ShowGameEnd(HongqueStateInfo current) {
-        if (gameEndShown) return;
+        // Ranked games must wait for the authoritative game_end packet with Elo results.
+        if (gameEndShown || GameSession.Current.RoomType == "match") return;
         gameEndShown = true;
         HongqueRoundResultInfo result = current.round_result;
         if (result?.scores == null || result.scores.Count != 4) {
@@ -920,6 +930,7 @@ public sealed class HongqueGameState : GameStateBase {
             room_id = state.room_id,
             gamestate_id = gamestateId,
             tips = state.tips,
+            count_tips = state.count_tips,
             current_player_index = state.current_player,
             action_tick = state.action_tick,
             max_round = state.max_round,
@@ -927,7 +938,7 @@ public sealed class HongqueGameState : GameStateBase {
             current_round = state.round,
             step_time = state.step_time,
             round_time = state.round_time,
-            room_type = "custom",
+            room_type = string.IsNullOrEmpty(state.room_type) ? "custom" : state.room_type,
             room_rule = "hongque",
             sub_rule = "hongque/v1.6",
             dealer_index = state.dealer,

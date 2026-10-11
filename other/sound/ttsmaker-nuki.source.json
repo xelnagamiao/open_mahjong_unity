@@ -1,0 +1,34 @@
+{
+  "provider": "TTSMaker",
+  "generator": "https://ttsmaker.com/zh-hk",
+  "generated_on": "2026-10-09",
+  "commercial_terms": "https://ttsmaker.com/copyright_and_commercial_license_terms/zh-hk",
+  "settings": {
+    "language": "中文",
+    "format": "mp3",
+    "quality": "standard",
+    "speed": 1.0,
+    "volume_percent": 100,
+    "pitch": "default",
+    "background_music": false
+  },
+  "provenance": "Generated through local Chrome TTSMaker UI with confirmed CAPTCHA handling. The spoken word is 北; the action caption remains 拔北. Original MP3 bytes retained and imported with each voice family's buhua.mp3 settings.",
+  "clips": [
+    {
+      "voice_id": 204,
+      "voice_name": "潇潇",
+      "text": "北",
+      "sha256": "0261f0ae582dadd23726564217f50d32f140d20b16f5a8348278037cb694e438",
+      "original_download_name": "2026-10-09-231605_141476.mp3",
+      "unity_path": "open_mahjong_unity/Assets/Resources/Sound/ttsmaker_204_xiaoxiao/nuki.mp3"
+    },
+    {
+      "voice_id": 1513,
+      "voice_name": "球球",
+      "text": "北",
+      "sha256": "1fe18f541729a743757a3b307ca53a0773465fb06fa9a40b4b9f45446396a5de",
+      "original_download_name": "2026-10-09-232246_105671.mp3",
+      "unity_path": "open_mahjong_unity/Assets/Resources/Sound/ttsmaker_1513_qiuqiu/nuki.mp3"
+    }
+  ]
+}

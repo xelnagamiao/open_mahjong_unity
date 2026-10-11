@@ -1,10 +1,12 @@
+const { statisticsSelection, subRuleSql } = require('./statisticsCatalog');
+const { INFO_FAN_DICT } = require('../constants/playerFanDicts');
 const { withRecordMetadataQuery } = require('./recordMetadataQuery');
 const pool = require('../config/database');
 const { GUOBIAO_FAN_KEYS } = require('../constants/guobiaoFanDict');
 const { queryRiichiHomeStats } = require('./riichiHomeStats');
 const { queryRecordHomeStats } = require('./recordHomeStats');
 
-const LADDER_TIERS = ['beginner', 'intermediate', 'advanced', 'mcrpl'];
+const LADDER_TIERS = ['beginner', 'intermediate', 'advanced', 'mcrpl', 'elo'];
 const EVENT_ALL = 'all';
 const STAT_DATE_EXPR = "((created_at AT TIME ZONE 'Asia/Shanghai') - interval '4 hours')::date";
 const CURRENT_STAT_DATE_EXPR = "((NOW() AT TIME ZONE 'Asia/Shanghai') - interval '4 hours')::date";
@@ -167,10 +169,10 @@ async function querySceneTotals({ asOfDate, tier, gameType, rule, detail, eventI
     params.push(gameType);
     extraWhere.push(`game_type = $${params.length}`);
   }
-  if (rule) {
-    params.push(rule);
-    extraWhere.push(`rule = $${params.length}`);
-  }
+  const def = statisticsSelection(rule || "guobiao");
+  if (!def) return [];
+  params.push(def.sub_rule);
+  extraWhere.push(`sub_rule = $${params.length}`);
   const groupByTierOnly = detail !== '1';
   const { sql, params: queryParams } = buildSceneTotalsQuery(
     groupByTierOnly, extraWhere, params, { roomType },
@@ -179,16 +181,17 @@ async function querySceneTotals({ asOfDate, tier, gameType, rule, detail, eventI
   return appendSceneTotalRow(result.rows.map(mapTotalsRow), groupByTierOnly);
 }
 
-function fillFanByKeys(rawByTier, keys) {
+function fillFanByKeys(rawByTier, keys, fanKeys = GUOBIAO_FAN_KEYS) {
+  fanKeys = [...new Set([...fanKeys, ...keys.flatMap(key => Object.keys(rawByTier[key] || {}))])];
   const byTier = {};
   for (const key of keys) {
     byTier[key] = {};
-    for (const fanKey of GUOBIAO_FAN_KEYS) {
+    for (const fanKey of fanKeys) {
       byTier[key][fanKey] = Number(rawByTier[key]?.[fanKey]) || 0;
     }
   }
   const total = {};
-  for (const fanKey of GUOBIAO_FAN_KEYS) {
+  for (const fanKey of fanKeys) {
     total[fanKey] = keys.reduce((sum, key) => sum + (byTier[key][fanKey] || 0), 0);
   }
   byTier.total = total;
@@ -200,6 +203,9 @@ function fillFanByTier(rawByTier) {
 }
 
 async function querySceneTotalsFans({ asOfDate, tier, rule, eventId } = {}) {
+  const def = statisticsSelection(rule || "guobiao");
+  if (!def?.fan_stats) return {};
+  const fanKeys = Object.keys(INFO_FAN_DICT[def.fan_key] || {});
   const where = [];
   const params = [];
   if (isEventScope(eventId)) {
@@ -222,12 +228,8 @@ async function querySceneTotalsFans({ asOfDate, tier, rule, eventId } = {}) {
     params.push(asOfDate);
     where.push(`stat_date <= $${params.length}::date`);
   }
-  if (rule) {
-    params.push(rule);
-    where.push(`rule = $${params.length}`);
-  } else {
-    where.push("rule = 'guobiao'");
-  }
+  params.push(def.sub_rule);
+  where.push(`sub_rule = $${params.length}`);
   const result = await pool.query(
     `SELECT match_tier, fan_field, SUM(fan_count)::int AS fan_count
      FROM scene_tier_fan_daily
@@ -245,9 +247,9 @@ async function querySceneTotalsFans({ asOfDate, tier, rule, eventId } = {}) {
     const keys = isAllEvents(eventId)
       ? Object.keys(rawByTier)
       : [String(eventId).trim()];
-    return fillFanByKeys(rawByTier, keys);
+    return fillFanByKeys(rawByTier, keys, fanKeys);
   }
-  return fillFanByTier(rawByTier);
+  return fillFanByKeys(rawByTier, LADDER_TIERS, fanKeys);
 }
 
 async function querySceneDailyGames({ dateFrom, dateTo, asOfDate, tier, gameType, rule, eventId } = {}) {
@@ -283,10 +285,10 @@ async function querySceneDailyGames({ dateFrom, dateTo, asOfDate, tier, gameType
     params.push(gameType);
     where.push(`game_type = $${params.length}`);
   }
-  if (rule) {
-    params.push(rule);
-    where.push(`rule = $${params.length}`);
-  }
+  const def = statisticsSelection(rule || "guobiao");
+  if (!def) return [];
+  params.push(def.sub_rule);
+  where.push(`sub_rule = $${params.length}`);
   const result = await pool.query(
     `SELECT stat_date, match_tier, SUM(total_games)::int AS total_games
      FROM scene_daily_stats
@@ -341,13 +343,14 @@ async function queryHomeHierarchyStats() {
  * 平台最近牌谱（天梯或比赛场，与数据站对局记录字段对齐，含同桌玩家）
  * @param {{ matchTier?: string|null, eventId?: string|null, limit?: number, offset?: number }} opts
  */
-async function queryRecentLadderRecords({ matchTier = null, eventId = null, limit = 20, offset = 0 } = {}) {
+async function queryRecentLadderRecords({ rule = "guobiao", matchTier = null, eventId = null, limit = 20, offset = 0 } = {}) {
   return withRecordMetadataQuery(pool, async (db) => {
     const lim = Math.min(50, Math.max(1, parseInt(limit, 10) || 20));
     const off = Math.max(0, parseInt(offset, 10) || 0);
     const params = [];
     // A list exposes game summaries; full replay endpoints enforce unlock state.
-    const conditions = [];
+    const def = statisticsSelection(rule);
+    const conditions = def ? [`gpr.sub_rule=$${params.push(def.sub_rule)}`] : ["FALSE"];
 
     if (isEventScope(eventId)) {
       conditions.push(`gpr.room_type = 'events'`);

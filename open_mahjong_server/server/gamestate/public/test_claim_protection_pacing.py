@@ -28,7 +28,8 @@ def wire_state(monkeypatch, rule, speed='fast', enabled=True, bot=False):
     for i,p in enumerate(players):
         async def send(payload,seat=i): wire[seat].append((time.monotonic(),payload))
         conns[p.user_id]=NS(websocket=NS(send_json=send))
-    s=NS(room_rule=rule,player_list=players,bot_speed=speed,claim_protection=enabled,
+    s=NS(room_rule=rule,sub_rule=f'{rule}/standard',tiles_list=[11,12,13],dead_wall_count=0,
+         player_list=players,bot_speed=speed,claim_protection=enabled,
          claim_protect_delay=.1,claim_meld_followup_gap=.04,claim_meld_post_gap=.02,
          server_action_tick=1,current_player_index=0,game_status='waiting_hand_action',
          waiting_players_list=[0],game_server=NS(user_id_to_connection=conns),

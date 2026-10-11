@@ -40,7 +40,8 @@ def test_explicit_wall_two_dice_throws_and_four_packet_deal(dice):
     drawn_order = [wall[i] for i in physical_order]
     for seat, p in enumerate(state.player_list):
         packets = [drawn_order[r * 16 + seat * 4:r * 16 + seat * 4 + 4] for r in range(4)]
-        expected = sorted([t for packet in packets for t in packet])
+        # 起手按实际发牌包顺序提供给客户端，排序属于客户端演出。
+        expected = [t for packet in packets for t in packet]
         if seat == 0:
             expected += drawn_order[64:65]
         assert p.hand_tiles == expected

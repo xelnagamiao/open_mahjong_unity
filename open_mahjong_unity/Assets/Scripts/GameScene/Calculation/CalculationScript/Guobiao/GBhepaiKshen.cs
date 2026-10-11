@@ -305,7 +305,8 @@ public class Kshen_Hepai_Check {
                 foreach (var i in check_done_list)
                 {
                     if (debug) Debug.Log($"计算番种：{i},{get_tile},{way_to_hepai}");
-                    allow_list.Add(FanCount(i, get_tile, way_to_hepai));
+                    // 暗转明、门风圈风相同等派生条件只属于当前拆分，不得污染下一种拆分或调用方。
+                    allow_list.Add(FanCount(i, get_tile, new List<string>(way_to_hepai)));
                 }
             }
 

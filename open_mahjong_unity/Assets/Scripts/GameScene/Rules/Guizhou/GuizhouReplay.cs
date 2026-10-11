@@ -4,7 +4,19 @@ using System.Linq;
 using Newtonsoft.Json;
 
 public partial class GameRecordManager {
+    internal RuleReplayModule CreateGuizhouReplayModule() => new RuleReplayModule("guizhou") {
+        Reset = ResetGuizhouRecordState,
+        Clear = () => { recordGuizhouInfo = null; recordGuizhouWinSource = null; recordGuizhouKongs.Reset(null); },
+        ApplyBeforeMutation = ApplyGuizhouRecordAction,
+        AfterSilentMutation = tick => {
+            RefreshRecordRulePlayerTags(); SyncRecordBoardScores();
+            if (tick.Count > 1 && tick[1] == "reveal_kongs") RefreshGuizhouRecordMelds();
+        },
+        AnnounceAfterSilentAction = PlayGuizhouRecordAnnouncement,
+    };
+
     private GuizhouInfo recordGuizhouInfo;
+    public GuizhouInfo GuizhouRecordInfo => IsGuizhouRecord() ? recordGuizhouInfo : null;
     private string recordGuizhouWinSource;
     private readonly GuizhouReplayKongVisibility recordGuizhouKongs = new GuizhouReplayKongVisibility();
     private bool IsGuizhouRecord() => RecordRuleManifest?.RuleId == GuizhouGameState.RuleId;
@@ -21,7 +33,6 @@ public partial class GameRecordManager {
             recordGuizhouInfo = JsonConvert.DeserializeObject<GuizhouInfo>(JsonConvert.SerializeObject(round.guizhou));
             recordGuizhouKongs.Reset(new IReadOnlyList<int>[] { round.p0Tiles, round.p1Tiles, round.p2Tiles, round.p3Tiles });
         }
-        GuizhouLedgerPanel.Show(recordGuizhouInfo);
     }
     private void PlayGuizhouRecordAnnouncement(IReadOnlyList<string> tick) {
         if (!IsGuizhouRecord() || tick.Count < 4 || tick[0] != "guizhou" || tick[1] != "ready") return;
@@ -91,7 +102,6 @@ public partial class GameRecordManager {
                 break;
             }
         }
-        GuizhouLedgerPanel.Show(recordGuizhouInfo);
         return true;
     }
     private void RefreshGuizhouRecordMelds() {

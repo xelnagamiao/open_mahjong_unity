@@ -66,6 +66,21 @@ namespace Riichi {
             int bestScore = -1;
             int bestHan = 0, bestFu = 0;
 
+            int YakuHan(RiichiYakuDetector.DetectResult det) => det.YakumanMultiplier > 0
+                ? det.YakumanMultiplier * 13 : det.Yaku.Where(y => !y.IsBonus).Sum(y => y.Han);
+            int StandardScore(RiichiYakuDetector.DetectResult det, int han, int fu) =>
+                RiichiScoreCalc.CalculateTotalScore(han, fu, false, false, det.YakumanMultiplier,
+                    context.KiriageMangan, context.KazoeLimit);
+            bool Qualifies(RiichiYakuDetector.DetectResult det, int han, int fu) => det != null
+                && YakuHan(det) >= System.Math.Max(1, context.MinimumYakuHan)
+                && StandardScore(det, han, fu) >= context.MinimumWinScore;
+            bool Prefer(RiichiYakuDetector.DetectResult det, int han, int fu, int score) {
+                bool qualifies = Qualifies(det, han, fu);
+                bool bestQualifies = Qualifies(bestDetect, bestHan, bestFu);
+                if (qualifies != bestQualifies) return qualifies;
+                return score > bestScore || (score == bestScore && (han > bestHan || (han == bestHan && fu > bestFu)));
+            }
+
             var detectorCtx = context;
 
             // 国士无双：直接在计算器内判定十三面，不借助 YakuDetector 的 set 展开
@@ -78,7 +93,7 @@ namespace Riichi {
                 int fu = 25;
                 int score = RiichiScoreCalc.CalculateTotalScore(han, fu,
                     context.PlayerWind == RiichiTileUtil.East, context.IsTsumo, mult, context.KiriageMangan, context.KazoeLimit, context.IsSanma ? 3 : 4, context.SanmaTsumo);
-                if (score > bestScore || (score == bestScore && (han > bestHan || (han == bestHan && fu > bestFu)))) {
+                if (Prefer(det, han, fu, score)) {
                     bestScore = score; bestDetect = det;
                     bestHan = han; bestFu = fu;
                 }
@@ -92,7 +107,7 @@ namespace Riichi {
                     int fu = RiichiFuCalc.Calculate(chiitoiSets, winTile, RiichiWaitType.Tanki, context, det, HandShape.Chiitoitsu);
                     int score = RiichiScoreCalc.CalculateTotalScore(han, fu,
                         context.PlayerWind == RiichiTileUtil.East, context.IsTsumo, det.YakumanMultiplier, context.KiriageMangan, context.KazoeLimit, context.IsSanma ? 3 : 4, context.SanmaTsumo);
-                    if (score > bestScore || (score == bestScore && (han > bestHan || (han == bestHan && fu > bestFu)))) {
+                    if (Prefer(det, han, fu, score)) {
                         bestScore = score; bestDetect = det;
                         bestHan = han; bestFu = fu;
                     }
@@ -113,7 +128,7 @@ namespace Riichi {
                 int fu = RiichiFuCalc.Calculate(decomp, winningTile, det.WaitType, context, det, HandShape.Normal);
                 int score = RiichiScoreCalc.CalculateTotalScore(han, fu,
                     context.PlayerWind == RiichiTileUtil.East, context.IsTsumo, det.YakumanMultiplier, context.KiriageMangan, context.KazoeLimit, context.IsSanma ? 3 : 4, context.SanmaTsumo);
-                if (score > bestScore || (score == bestScore && (han > bestHan || (han == bestHan && fu > bestFu)))) {
+                if (Prefer(det, han, fu, score)) {
                     bestScore = score; bestDetect = det;
                     bestHan = han; bestFu = fu;
                 }
@@ -134,6 +149,8 @@ namespace Riichi {
 
             result.IsValid = true;
             result.Han = bestHan;
+            result.YakuHan = YakuHan(bestDetect);
+            result.StandardRonScore = StandardScore(bestDetect, bestHan, bestFu);
             result.Fu = bestFu;
             result.Score = bestScore;
             result.YakumanMultiplier = bestDetect.YakumanMultiplier;

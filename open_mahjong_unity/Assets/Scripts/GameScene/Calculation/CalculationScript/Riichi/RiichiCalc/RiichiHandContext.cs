@@ -36,6 +36,8 @@ namespace Riichi {
         public bool KiriageMangan;
         public string KazoeLimit = "yakuman";
         public int DoubleWindPairFu = 4;
+        public int MinimumYakuHan = 1;
+        public int MinimumWinScore;
         internal int WinningSetIndex = -1;
 
         public void ApplyRuleOptions(IDictionary<string, object> values) {
@@ -47,6 +49,7 @@ namespace Riichi {
             DoubleYakuman = Flag("double_yakuman", false); MultipleYakuman = Flag("multiple_yakuman", true);
             KiriageMangan = Flag("kiriage_mangan", false); YakumanLimit = Number("yakuman_limit", 6);
             DoubleWindPairFu = Number("double_wind_pair_fu", 4);
+            MinimumWinScore = Number("minimum_win_score", 0);
             KazoeLimit = values.TryGetValue("kazoe_limit", out var kazoe) ? kazoe.ToString() : "yakuman";
             SanmaTsumo = values.TryGetValue("sanma_tsumo", out var sanma) ? sanma.ToString() : "loss";
         }

@@ -22,7 +22,7 @@ public class PlayerInfoClass
     public int voice_used;
     public List<string> score_history;
     public List<int> round_number_history;
-    public int original_player_index;
+    public int original_player_index = -1;
     public string[] tag_list;
     public bool? post_hu_lock;
     public bool? has_won;
@@ -51,7 +51,7 @@ public class PlayerInfoClass
         voice_used = 1;
         score_history = new List<string>();
         round_number_history = new List<int>();
-        original_player_index = 0;
+        original_player_index = -1;
         tag_list = null;
         post_hu_lock = null;
         has_won = null;

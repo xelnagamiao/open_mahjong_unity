@@ -21,12 +21,31 @@ def _seats(game_state):
     return range(len(game_state.player_list))
 
 
-def last_alive_discard(game_state) -> Optional[tuple[int, int]]:
-    for player_index, tile_id in reversed(game_state.discard_log):
+def last_discard_location(game_state) -> Optional[tuple[int, int]]:
+    for entry in reversed(game_state.discard_log):
+        player_index, tile_id = entry[:2]
         player = game_state.player_list[player_index]
-        if tile_id in player.discard_tiles:
-            return player_index, tile_id
+        _, tokens = player.area_metadata()
+        for index in range(len(player.discard_tiles) - 1, -1, -1):
+            if player.discard_tiles[index] == tile_id and (len(entry) == 2 or tokens[index] == entry[2]):
+                return player_index, index
     return None
+
+
+def last_alive_discard(game_state) -> Optional[tuple[int, int]]:
+    location = last_discard_location(game_state)
+    if location is None:
+        return None
+    player_index, index = location
+    player = game_state.player_list[player_index]
+    faces, _ = player.area_metadata()
+    return player_index, 0 if faces[index] else player.discard_tiles[index]
+
+
+def visible_area(player, *, flower: bool = False) -> list[int]:
+    faces, _ = player.area_metadata(flower)
+    tiles = player.huapai_list if flower else player.discard_tiles
+    return [0 if hidden else tile for tile, hidden in zip(tiles, faces)]
 
 
 def combination_mask_for_viewer(player, mask: list[int], viewer_index: int, *, reveal_tiles: bool = False) -> list[int]:
@@ -48,7 +67,7 @@ def player_info_payload(game_state, player_index: int, viewer_index: int) -> dic
         "user_id": player.user_id,
         "hand_tiles_count": len(player.hand_tiles),
         "hand_tiles": list(player.hand_tiles) if include_hand else None,
-        "discard_tiles": list(player.discard_tiles),
+        "discard_tiles": visible_area(player),
         "discard_origin_tiles": list(player.discard_origin_tiles),
         "combination_tiles": list(player.combination_tiles),
         "combination_mask": [combination_mask_for_viewer(player, mask, viewer_index)
@@ -57,7 +76,7 @@ def player_info_payload(game_state, player_index: int, viewer_index: int) -> dic
         "player_index": player_index,
         "original_player_index": player.original_player_index,
         "score": player.score,
-        "huapai_list": list(player.huapai_list),
+        "huapai_list": visible_area(player, flower=True),
         "title_used": player.title_used,
         "character_used": player.character_used,
         "profile_used": player.profile_used,
@@ -81,9 +100,15 @@ def free_table_payload(
     last = last_alive_discard(game_state)
     return {
         "votes": {str(idx): game_state.player_list[idx].vote for idx in _seats(game_state)},
-        # None 表示空区，0 表示有一张未知牌；所有快照/其他操作广播共用此遮蔽。
+        # 旧单牌字段投影首张牌；新客户端按 transfer_tiles 的放入顺序展示，不按编号排序。
+        # None 表示空区，0 表示未知牌；所有快照/其他操作广播共用此遮蔽。
         "transfer_tile": 0 if game_state.transfer_face_down and game_state.transfer_tile is not None else game_state.transfer_tile,
         "transfer_face_down": game_state.transfer_face_down,
+        "transfer_tiles": [{**item, "tile": 0 if item["face_down"] else item["tile"]}
+                           for item in game_state.transfer_tiles],
+        "hand_counts": {str(idx): len(game_state.player_list[idx].hand_tiles) for idx in _seats(game_state)},
+        "river_tokens": {str(idx): list(game_state.player_list[idx].area_metadata()[1]) for idx in _seats(game_state)},
+        "flower_tokens": {str(idx): list(game_state.player_list[idx].area_metadata(True)[1]) for idx in _seats(game_state)},
         "score_revision": game_state.score_revision,
         "actor_player_index": actor_player_index,
         "scores": {str(idx): game_state.player_list[idx].score for idx in _seats(game_state)},

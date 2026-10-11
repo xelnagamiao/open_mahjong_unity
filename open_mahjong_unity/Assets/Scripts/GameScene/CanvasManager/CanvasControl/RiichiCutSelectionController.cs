@@ -5,8 +5,8 @@ using UnityEngine.UI;
 /// <summary>
 /// 立直/报听选牌模式控制：进入后隐藏其他操作按钮容器，仅显示「返回」按钮，
 /// 自家手牌按 selfRiichiCandidateCuts 限制可点（不可立直的切牌变暗）；
-/// 点击合法手牌发送 riichi_cut；点击返回回到普通切牌状态；
-/// SwitchCurrentPlayer 在自家行动结束/超时/清空操作时也会调用 ExitRiichiCutMode。
+/// 合法手牌共用普通切牌的点击确认设置，确认后发送 riichi_cut；点击返回回到普通切牌状态；
+/// TurnClock 在自家行动结束/超时/清空操作时统一退出选牌模式。
 /// </summary>
 public class RiichiCutSelectionController : MonoBehaviour {
     public static RiichiCutSelectionController Instance { get; private set; }
@@ -41,6 +41,7 @@ public class RiichiCutSelectionController : MonoBehaviour {
             backButton.onClick.AddListener(ExitRiichiCutMode);
         }
         HandCardSelectionController.Instance.DisarmAll();
+        TileCard.ClearPendingPointerState();
         IsActive = true;
         GameCanvas.Instance.SetActionButtonContainerVisible(false);
         if (riichiCutPanelRoot != null) riichiCutPanelRoot.SetActive(true);
@@ -58,6 +59,9 @@ public class RiichiCutSelectionController : MonoBehaviour {
 
     public void ExitRiichiCutMode() {
         if (!IsActive) return;
+        // 取消、超时或行动结束都不能将候选牌的第一次点击带到普通切牌/下次询问。
+        HandCardSelectionController.Instance.DisarmAll();
+        TileCard.ClearPendingPointerState();
         IsActive = false;
         if (riichiCutPanelRoot != null) riichiCutPanelRoot.SetActive(false);
         if (backButtonOriginalText != null && backButton != null) {

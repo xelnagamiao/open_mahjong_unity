@@ -10,10 +10,12 @@ export function duplicateReplayWall(round, requestedNode, rulesVersion = round?.
     if (action === 'reset') { currentPlayer = Number(tick[1]); continue }
     if (['bh', 'bd', 'cl', 'cm', 'cr', 'p', 'g'].includes(action) && tick.length >= 3) currentPlayer = Number(tick[2])
     if (['d', 'gd', 'bd'].includes(action)) {
-      const originalPlayer = seats.findIndex(seat => Number(seat) === currentPlayer)
+      const sichuanDraw = tick[2] === 'dw' && tick.length >= 6
+      if (sichuanDraw) currentPlayer = Number(tick[5])
+      const originalPlayer = sichuanDraw ? Number(tick[3]) : seats.findIndex(seat => Number(seat) === currentPlayer)
       if (originalPlayer < 0 || originalPlayer > 3) continue
       const remaining = piles[originalPlayer].filter(tile => !tile.consumed)
-      const replacement = Number(rulesVersion) >= 2 && action !== 'd'
+      const replacement = !sichuanDraw && Number(rulesVersion) >= 2 && action !== 'd'
       const index = replacement
         ? remaining.length - (useSecondFromBack[originalPlayer] && remaining.length > 1 ? 2 : 1)
         : 0

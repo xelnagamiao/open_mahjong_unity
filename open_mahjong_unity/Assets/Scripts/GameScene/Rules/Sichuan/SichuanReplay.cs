@@ -9,6 +9,19 @@ using UnityEngine;
 /// 文件放在族目录便于合并。拆程序集时再改成独立 SichuanReplay 助手。
 /// </summary>
 public partial class GameRecordManager {
+    internal RuleReplayModule CreateSichuanReplayModule() => new RuleReplayModule {
+        Reset = () => sichuanRecordRevealHands = null,
+        Clear = () => sichuanRecordRevealHands = null,
+    };
+
+    private void RefreshDoublesRecordTeams() {
+        string subRule = ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "");
+        if (!SichuanLobby.IsTeamMode(subRule)) return;
+        if (gameRecord.gameTitle.TryGetValue("team_by_player_index", out object value) && value != null) {
+            int[] teams = JArray.FromObject(value).ToObject<int[]>();
+            GameCanvas.Instance.UpdateSichuanTeams(teams, indexToPosition, SichuanLobby.IsXueliuDoubles(subRule));
+        }
+    }
     /// <summary>终局分步结算的分差累加（回放自己持有，不借用对局族实例）。</summary>
     private readonly SichuanEndgameLedger sichuanRecordLedger = new SichuanEndgameLedger();
 
@@ -177,6 +190,8 @@ public partial class GameRecordManager {
         if (huFan == null) return false;
         for (int i = 0; i < huFan.Length; i++) {
             if (huFan[i] == "抢杠" || huFan[i] == "抢杠和" || huFan[i] == "chankan") return true;
+            if (huFan[i]?.StartsWith("抢杠（") == true) return true;
+            if (huFan[i]?.StartsWith("抢杠胡（") == true) return true;
             if (huFan[i]?.StartsWith("GD|") == true && huFan[i].EndsWith("|抢杠")) return true;
         }
         return false;

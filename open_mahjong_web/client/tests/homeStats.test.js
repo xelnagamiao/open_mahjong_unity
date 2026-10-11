@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { STATISTICS_RULES } from '../src/utils/statisticsCatalog.js';
 import { HOME_RULE_DEFS, homeRuleOptions, homeSceneOptions, homeDefaultScene, selectHomeStats, buildHomeStatsRows } from '../src/utils/homeStats.js';
 
 test('shortcut rules end with Changsha and keep other variants in the complete rule selector', () => {
@@ -7,17 +8,19 @@ test('shortcut rules end with Changsha and keep other variants in the complete r
   const options = homeRuleOptions([{ rule: 'custom_future', rule_label: '后续规则' }]);
   assert.ok(options.some(rule => rule.value === 'hongque'));
   assert.ok(options.some(rule => rule.value === 'yixing'));
-  assert.ok(options.some(rule => rule.label === '后续规则'));
+  assert.equal(options.some(rule => rule.label === '后续规则'), false);
   assert.equal(options.some(rule => rule.value === 'jiandan' || rule.label.includes('简单')), false);
-  assert.equal(options.at(-1).label, '南雀');
-  assert.equal(options.find(rule => rule.value === 'guangdong').label, '广东麻将');
-  assert.equal(options.find(rule => rule.value === 'guangdong_tuidao').label, '广东麻将（推倒和）');
-  assert.equal(options.find(rule => rule.value === 'sichuan_xueliu_exchange').label, '川麻(血流换三)');
-  for (const [rule, label] of Object.entries({ riichi_sanma: '立直(三人)', guobiao_sanma: '国标(三人)',
-    classical: '古典麻将', hongzhong: '红中麻将', free: '自由模式' })) {
+  assert.equal(options.find(rule => rule.value === 'nanque').label, '南雀');
+  assert.equal(options.find(rule => rule.value === 'guangdong').label, '广东麻将（花鬼 MIL2023）');
+  assert.equal(options.find(rule => rule.value === 'guangdong_tuidao').label, '广东麻将（推倒和 MIL2024）');
+  assert.equal(options.find(rule => rule.value === 'sichuan_xueliu_exchange').label, '川麻（血流换三张）');
+  for (const [rule, label] of Object.entries({ riichi_sanma: '立直（三人）', guobiao_sanma: '国标（三人）',
+    classical: '古典麻将（标准）', hongzhong: '红中麻将（MIL 2024）' })) {
     assert.equal(options.find(option => option.value === rule).label, label);
   }
   assert.equal(new Set(options.map(rule => rule.value)).size, options.length);
+  assert.equal(options.some(rule => rule.value === 'free'), false);
+  assert.equal(options.length, STATISTICS_RULES.length);
 });
 
 test('ranked scenes reflect grade and Elo queues', () => {
@@ -25,12 +28,13 @@ test('ranked scenes reflect grade and Elo queues', () => {
     assert.deepEqual(homeSceneOptions(rule).map(scene => scene.value), ['beginner','intermediate','advanced','custom','events']);
     assert.equal(homeDefaultScene(rule), 'beginner');
   }
-  for (const rule of ['sichuan','sichuan_xueliu','sichuan_xueliu_exchange','qingque']) {
+  for (const rule of ['sichuan','sichuan_xueliu_exchange','qingque','hongque']) {
     assert.deepEqual(homeSceneOptions(rule).map(scene => scene.value), ['rank','custom','events']);
     assert.equal(homeDefaultScene(rule), 'rank');
   }
   assert.equal(homeDefaultScene('guobiao'), 'beginner');
   assert.equal(homeDefaultScene('classical'), 'custom');
+  assert.equal(homeDefaultScene('sichuan_xueliu'), 'custom');
 });
 
 test('legacy Nanque metadata cannot recreate a Simple Mahjong option', () => {
@@ -46,6 +50,7 @@ test('Shanghai variants use separate samples and retain the historical Qiaoma de
   const rows = [
     { rule: 'shanghai', sub_rule: 'shanghai/qiaoma', room_type: 'custom', source: 'record_metrics', total_games: 2, win_count: 3 },
     { rule: 'shanghai', sub_rule: 'shanghai/qinghunpeng', room_type: 'custom', source: 'record_metrics', total_games: 1, win_count: 2 },
+    { rule: 'shanghai', sub_rule: 'shanghai/lajihe', room_type: 'custom', source: 'record_metrics', total_games: 7, win_count: 8 },
     { rule: 'shanghai_qinghunpeng', room_type: 'events', source: 'record_metrics', total_games: 4, win_count: 5 },
     { rule: 'shanghai', sub_rule: null, room_type: 'custom', source: 'record_metrics', total_games: 1, win_count: 1 },
   ];
@@ -56,6 +61,8 @@ test('Shanghai variants use separate samples and retain the historical Qiaoma de
   assert.equal(qinghunpeng.total_games,1);
   assert.equal(qinghunpeng.win_count,2);
   assert.equal(selectHomeStats(rows,'shanghai_qinghunpeng','events').total_games,4);
+  assert.equal(selectHomeStats(rows,'shanghai_lajihe','custom').total_games,7);
+  assert.equal(homeRuleOptions([]).find(option => option.value === 'shanghai_lajihe').label, '上海麻将（垃圾和）');
 });
 
 test('riichi keeps original basic labels, points in fourth position and numeric results', () => {

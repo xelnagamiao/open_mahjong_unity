@@ -164,6 +164,7 @@ public partial class RoomPanel : MonoBehaviour {
         }
 
         this.roomConfigContainer.SetRoomConfig(roomInfo);
+        RefreshDoublesTeams(roomInfo, panels, seats, isHost);
     }
 
     /// <summary>
@@ -218,6 +219,7 @@ public partial class RoomPanel : MonoBehaviour {
     }
 
     public void ClearRoomState() {
+        HideDoublesTeams();
         lastRoomInfo = null;
         roomIdText.text = "";
         roomnameText.text = "";
@@ -262,12 +264,12 @@ public partial class RoomPanel : MonoBehaviour {
     }
 
     private void StartButtonClicked() {
-        RoomNetworkManager.Instance.StartGame(UserDataManager.Instance.RoomId);
+        RoomNetworkManager.Instance.StartGame(UserDataManager.Instance.RoomId, DoublesRevision);
     }
 
     private void ReadyButtonClicked() {
         // 切换准备状态：发送当前状态的取反
-        RoomNetworkManager.Instance.SetReady(UserDataManager.Instance.RoomId, !selfReady);
+        RoomNetworkManager.Instance.SetReady(UserDataManager.Instance.RoomId, !selfReady, DoublesRevision);
     }
 
     public void AddBotFromSeat(int kind, int seatIndex) {

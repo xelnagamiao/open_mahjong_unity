@@ -14,6 +14,7 @@ public class UserContainer : MonoBehaviour {
     [SerializeField] private TMP_Text rankText;
     [SerializeField] private Slider rankProgressBar;
     [SerializeField] private TMP_Text rankScoreText;
+    [SerializeField] private TMP_Text eloScoreText;
 
     [SerializeField] private Button rankSwitchButton;
     public string CurrentRule { get; private set; } = "guobiao";
@@ -79,10 +80,14 @@ public class UserContainer : MonoBehaviour {
     public void RefreshRankDisplay() {
         if(UserDataManager.Instance==null)return;
         var rating=UserDataManager.Instance.GetRating(CurrentRule);
-        rankText.text=RankedRules.RankCaption(rating);
-        rankScoreText.text=RankedRules.ScoreCaption(rating).Replace("  ·  ","\n");
+        bool isGrade=RankedRules.IsGrade(CurrentRule);
+        rankText.text=isGrade?RankedRules.RankCaption(rating):RankedRules.Name(CurrentRule);
+        rankScoreText.gameObject.SetActive(isGrade);
+        eloScoreText.gameObject.SetActive(!isGrade);
+        if(isGrade)rankScoreText.text=RankedRules.ScoreCaption(rating);
+        else eloScoreText.text=$"R {rating.elo:0.##}";
         if(profileImage&&profileImage.TryGetComponent<ProfileOnClick>(out var click))click.ratingRule=CurrentRule;
-        rankProgressBar.gameObject.SetActive(RankedRules.IsGrade(CurrentRule));
+        rankProgressBar.gameObject.SetActive(isGrade);
         rankProgressBar.value=RankedRules.Progress(rating);
     }
 }

@@ -88,6 +88,25 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
         }
 
         int roundNumber = round.currentRound > 0 ? round.currentRound : round.roundIndex;
+        int firstRoundRow = output.Count;
+
+        if (SichuanLobby.IsXueliu(subRule)) {
+            // 与实时计分板一致：连续和牌、杠分、退税及查叫均累计到本局唯一一行。
+            // 复用逐帧分数解码，避免另一套杠分/换位算法漏算或重复计算。
+            var totals = new Round { seats = round.seats };
+            string label = null;
+            foreach (List<string> tick in round.actionTicks) {
+                GameRecordJsonDecoder.AccumulateScoreChangesFromTick(totals, tick);
+                if (tick != null && tick.Count >= 2 && tick[0] == "liuju" && tick[1] == "chajiao")
+                    label = SichuanRoundLabel.Chajiao;
+            }
+            output.Add(new RecordScoreRow {
+                snapshot = ScoreHistorySettlementHelper.CreateSichuanScoreboardSnapshot(subRule, label),
+                scoreChangesByOriginal = totals.scoreChanges?.ToArray() ?? new int[4],
+                roundNumber = roundNumber,
+            });
+            return;
+        }
 
         var players = new SimPlayer[4];
         for (int i = 0; i < 4; i++) players[i] = new SimPlayer();
@@ -104,7 +123,7 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
         bool isSichuan = roundManifest?.KongReplacementFromFront == true;
         bool isSichuanBlood = subRule == GuobiaoGameState.BloodBattleSubRule
             || (isSichuan && ReadTitleString(gameTitle, "blood_battle", "true") != "false");
-        bool isHongque = roundManifest?.JiagangExtendsLastMeld == true;
+        bool isHongque = roundManifest?.RecordKongHasMeldIndex == true;
         int sichuanHuCount = 0;
         bool sichuanHadChajiao = false;
         int[] sichuanAccumBySeat = null;
@@ -137,6 +156,7 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
                     AccumulateSeatScores(immediateScores, ParseScoreChanges(tick, 2));
                 continue;
             }
+            if (rule == "shenyang" && ApplyShenyangScoreTick(tick,players,immediateScores,ref currentPlayerIndex)) continue;
             if (rule == "changchun" && ApplyChangchunScoreTick(tick,players,immediateScores,ref lastWinnableTileId,ref currentPlayerIndex)) continue;
             if (action == "tuidao" && tick.Count >= 3 && tick[1] == "kong_score") {
                 AccumulateSeatScores(immediateScores, ParseScoreChanges(tick, 2));
@@ -159,6 +179,45 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
                     int[] scores = JArray.Parse(tick[3]).ToObject<int[]>();
                     var changes = new int[4]; for (int i = 0; i < 4; i++) changes[i] = scores[i] - round.wenzhou.start_scores[i];
                     lastRow.scoreChangesByOriginal = GameRecordJsonDecoder.ConvertPlayerIndexScoreChangesToOriginal(changes, round.seats);
+                }
+                continue;
+            }
+            if (rule == NanchangGameState.RuleId && action == "nanchang" && tick.Count >= 3) {
+                if (tick[1] == "meld" && tick.Count >= 5) {
+                    var player = players[ParseInt(tick, 2)];
+                    string code = tick[4]; int index = player.combinationTiles.FindLastIndex(c => c == code);
+                    if (index < 0) index = player.combinationTiles.Count - 1;
+                    if (index >= 0) { player.combinationTiles[index] = code; player.combinationMasks[index] = JArray.Parse(tick[3]).ToObject<int[]>(); }
+                } else if (tick[1] == "kong_claim_source") {
+                    lastDiscardPlayerIndex = ParseInt(tick, 2); lastWinnableTileId = ParseInt(tick, 3);
+                    RemoveOneTile(players[lastDiscardPlayerIndex].tileList, lastWinnableTileId);
+                } else if (tick[1] == "win_source") {
+                    lastWinnableTileId = ParseInt(tick, 5); int payer = ParseInt(tick, 3);
+                    if (payer >= 0) lastDiscardPlayerIndex = payer;
+                    if (tick[4] == "rob_kong" && payer >= 0) RemoveOneTile(players[payer].tileList, lastWinnableTileId);
+                } else if (tick[1] == "state" && lastRow != null && round.nanchang?.start_scores?.Length == 4 && tick.Count > 3) {
+                    int[] scores = JArray.Parse(tick[3]).ToObject<int[]>();
+                    var changes = new int[4]; for (int i = 0; i < 4; i++) changes[i] = scores[i] - round.nanchang.start_scores[i];
+                    lastRow.scoreChangesByOriginal = GameRecordJsonDecoder.ConvertPlayerIndexScoreChangesToOriginal(changes, round.seats);
+                }
+                continue;
+            }
+            if (rule == NanjingGameState.RuleId && action == "nanjing" && tick.Count >= 3) {
+                if (tick[1] == "win_source") {
+                    lastWinnableTileId = ParseInt(tick, 5);
+                    int payer = ParseInt(tick, 3);
+                    lastDiscardPlayerIndex = payer;
+                    if (tick[4] == "rob_kong" && payer >= 0) RemoveOneTile(players[payer].tileList, lastWinnableTileId);
+                } else if (tick[1] == "state" && lastRow != null && round.nanjing?.start_scores?.Length == 4 && tick.Count > 3) {
+                    int[] scores = JArray.Parse(tick[3]).ToObject<int[]>();
+                    var changes = new int[4];
+                    for (int i = 0; i < 4; i++) changes[i] = scores[i] - round.nanjing.start_scores[i];
+                    lastRow.scoreChangesByOriginal = GameRecordJsonDecoder.ConvertPlayerIndexScoreChangesToOriginal(changes, round.seats);
+                    var info = Newtonsoft.Json.JsonConvert.DeserializeObject<NanjingInfo>(tick[2]);
+                    if (lastRow.snapshot?.hepaiPlayerIndex >= 0 && info?.final_hands != null
+                        && info.final_hands.TryGetValue(lastRow.snapshot.hepaiPlayerIndex, out int[] hand))
+                        lastRow.snapshot.hepaiPlayerHand = hand;
+                    while (output.Count > firstRoundRow + 1) output.RemoveAt(firstRoundRow);
                 }
                 continue;
             }
@@ -246,7 +305,13 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
                         actor.tileList, rule == WenzhouGameState.RuleId && tick.Count > 3 ? ParseInt(tick, 3) : tile, 1, preferDrawSlotFirst: isMoGang);
                     int actualJia = removedTiles.Count > 0 ? removedTiles[0] : tile;
                     lastWinnableTileId = actualJia;
-                    BuildJiagangMask(actor, tile, actualJia, isHongque);
+                    if (isHongque) {
+                        if (tick.Count != 4 || !int.TryParse(tick[3], out int targetMeld))
+                            throw new System.InvalidOperationException("虹雀牌谱缺少杠牌目标组，请先运行一次性牌谱迁移脚本。");
+                        HongqueDisplayOrder.ExtendRecordedMeld(actor.combinationMasks, actor.combinationTiles, targetMeld, actualJia);
+                    } else {
+                        BuildJiagangMask(actor, tile, actualJia);
+                    }
                     currentPlayerIndex = actingPlayerIndex;
                     break;
                 }
@@ -266,6 +331,21 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
                     actor.combinationTiles.Add(GameRecordMeldCodec.BuildCombinationTarget(action, mingTile));
                     actor.combinationMasks.Add(GameRecordMeldCodec.BuildMingpaiMask(action, mingTile, removedTiles, relative));
                     currentPlayerIndex = actingPlayerIndex;
+                    break;
+                }
+                case "lajihe_eight_flowers": {
+                    int winner = ParseInt(tick, 1);
+                    var snapshot = new RoundSettlementSnapshot {
+                        subRule = subRule, huClass = "lajihe_eight_flowers", hasWin = false,
+                        huScore = 30, huFan = new[] { "八花齐" }, hepaiPlayerIndex = winner,
+                        winnerScoreDelta = 90,
+                    };
+                    lastRow = new RecordScoreRow {
+                        snapshot = snapshot,
+                        scoreChangesByOriginal = GameRecordJsonDecoder.ConvertPlayerIndexScoreChangesToOriginal(ParseScoreChanges(tick, 4), round.seats),
+                        roundNumber = roundNumber,
+                    };
+                    output.Add(lastRow);
                     break;
                 }
                 case "hu_self":
@@ -432,7 +512,7 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
         bool hadChajiao,
         int[] accumBySeat,
         Round round) {
-        string label = ScoreHistorySettlementHelper.ResolveSichuanEndgameRoundLabel(huCount, hadChajiao);
+        string label = ScoreHistorySettlementHelper.ResolveSichuanEndgameRoundLabel(huCount, hadChajiao, subRule);
         var row = new RecordScoreRow {
             snapshot = ScoreHistorySettlementHelper.CreateSichuanScoreboardSnapshot(subRule, label),
             scoreChangesByOriginal = GameRecordJsonDecoder.ConvertPlayerIndexScoreChangesToOriginal(
@@ -702,15 +782,7 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
         RemoveOneTile(tileList, tileId);
     }
 
-    private static int[] BuildJiagangMask(SimPlayer player, int jiagangTile, int actualJiaTile, bool isHongque = false) {
-        if (isHongque && player.combinationMasks != null && player.combinationMasks.Count > 0) {
-            int lastMaskIdx = player.combinationMasks.Count - 1;
-            var hongqueMask = new List<int>(player.combinationMasks[lastMaskIdx]);
-            hongqueMask.Add(3);
-            hongqueMask.Add(actualJiaTile);
-            player.combinationMasks[lastMaskIdx] = hongqueMask.ToArray();
-            return player.combinationMasks[lastMaskIdx];
-        }
+    private static int[] BuildJiagangMask(SimPlayer player, int jiagangTile, int actualJiaTile) {
         string kCombo = GameRecordMeldCodec.BuildCombinationKey('k', jiagangTile);
         int idx = GameRecordMeldCodec.FindCombinationIndex(player.combinationTiles, kCombo);
         if (idx >= 0) {
@@ -733,26 +805,7 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
     }
 
     private static string GetRelativePosition(int selfIndex, int otherIndex, int playerCount) {
-        if (selfIndex == otherIndex) return "self";
-        if (playerCount == 3) return (otherIndex - selfIndex + 3) % 3 == 1 ? "right" : "left";
-        if (selfIndex == 0) {
-            if (otherIndex == 1) return "right";
-            if (otherIndex == 2) return "top";
-            return "left";
-        }
-        if (selfIndex == 1) {
-            if (otherIndex == 0) return "left";
-            if (otherIndex == 2) return "right";
-            return "top";
-        }
-        if (selfIndex == 2) {
-            if (otherIndex == 0) return "top";
-            if (otherIndex == 1) return "left";
-            return "right";
-        }
-        if (otherIndex == 0) return "right";
-        if (otherIndex == 1) return "top";
-        return "left";
+        return TableMirror.RelativeSeat(selfIndex, otherIndex);
     }
 
     /// <summary>计分板：自摸原样；荣和仅追加铳张（与服务器 hand.append 一致，不删摸入张、不跳过同色追加）。</summary>

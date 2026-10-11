@@ -2,7 +2,7 @@
 import asyncio
 from ..public.lifecycle import start_owned_task
 import logging
-from . import blood_battle
+from . import blood_battle, transparent
 from .action_check import check_action_after_cut, check_action_jiagang, refresh_waiting_tiles
 from .boardcast import broadcast_do_action, broadcast_ready_status, broadcast_ask_other_action
 from ..public.logic_common import get_index_relative_position
@@ -175,6 +175,11 @@ async def wait_action(self):
                 continue
             temp_player_index = task_to_player[task]
             temp_action_data = dict(await self.action_queues[temp_player_index].get())
+            if (transparent.enabled(self) and temp_action_data.get("action_type") in transparent.CHOICE_ACTIONS
+                    and not transparent.valid_call_choice(self.player_list[temp_player_index], temp_action_data["action_type"], temp_action_data.get("chi_combo_index", 0))):
+                if self.action_queues[temp_player_index].empty():
+                    self.action_events[temp_player_index].clear()
+                continue
             completed_submissions.append((temp_player_index, temp_action_data))
 
         # 同批未被优先选中的和牌也需保留，避免前家错和后丢失后家的已提交操作。
@@ -346,6 +351,8 @@ async def wait_action(self):
                     hand = player.hand_tiles
                     draw_slot = has_draw_slot(player)
                     is_mo_gang = resolve_is_mo_gang(hand, normal_jia, draw_slot=draw_slot)
+                    # The command targets a face; take its actual glass/opaque copy from the hand.
+                    jiagang_tile = next(t for t in reversed(hand) if normalize_tile(t) == normal_jia)
                     actual_jia = remove_cut_tile(hand, jiagang_tile, is_mo_gang, draw_slot=draw_slot)
                     clear_draw_slot(player)
 
@@ -374,7 +381,8 @@ async def wait_action(self):
                     self.player_list[self.current_player_index].combination_tiles[combination_index] = f"g{normal_jia}"
 
                     # 牌谱记录加杠
-                    player_action_record_jiagang(self, jiagang_tile=normal_jia, is_mo_gang=is_mo_gang)
+                    player_action_record_jiagang(self, jiagang_tile=normal_jia, is_mo_gang=is_mo_gang,
+                                                 actual_tile=actual_jia if transparent.enabled(self) else None)
 
                     await broadcast_do_action(self,action_list = ["jiagang"],
                                                   action_player = self.current_player_index,
@@ -383,10 +391,10 @@ async def wait_action(self):
                                                   is_mo_gang=is_mo_gang,
                                                   ) # 广播加杠动画
 
-                    self.jiagang_tile = normal_jia # 存储抢杠牌
+                    self.jiagang_tile = actual_jia # 存储抢杠牌
                     self.qianggang_action_dict = {}
                     self.qianggang_responses = {}
-                    self.action_dict = check_action_jiagang(self,normal_jia) # 检查是否有人可以抢杠
+                    self.action_dict = check_action_jiagang(self,actual_jia) # 检查是否有人可以抢杠
                     if any(self.action_dict[i] for i in self.action_dict):
                         self.game_status = "waiting_action_qianggang" # 如果有则执行 等待抢杠行为 转移行为
                     else:
@@ -444,7 +452,13 @@ async def wait_action(self):
             combination_target = ""
             if action_data:
                 refresh_waiting_tiles(self,player_index) # 更新听牌
-                if action_type == "chi_left": # [tile_id-2,tile_id-1,tile_id]
+                if transparent.enabled(self) and action_type in (*transparent.CHOICE_ACTIONS, "gang"):
+                    meld = transparent.consume_meld(self, player_index, action_type, tile_id, action_data.get("chi_combo_index", 0))
+                    if meld is None:
+                        logger.warning("忽略失效的透明牌鸣牌选择: %s", action_data)
+                        return
+                    combination_target, combination_mask = meld
+                elif action_type == "chi_left": # [tile_id-2,tile_id-1,tile_id]
                     # 保护：校验吃牌所需手牌是否存在，避免 remove 抛异常导致主循环中断
                     if (tile_id - 1) not in self.player_list[player_index].hand_tiles or (tile_id - 2) not in self.player_list[player_index].hand_tiles:
                         logger.error(
@@ -558,7 +572,7 @@ async def wait_action(self):
                 # 如果发生吃碰杠而不是和牌 则发生转移行为
                 if action_type == "chi_left" or action_type == "chi_mid" or action_type == "chi_right" or action_type == "peng" or action_type == "gang":
                     discarder_index = self.current_player_index  # 转移前即为被认走的打牌者，供客户端精确移除其牌河弃牌
-                    if blood_battle.enabled(self) and action_type.startswith("chi_"):
+                    if (blood_battle.enabled(self) or len(self.player_list) == 3) and action_type.startswith("chi_"):
                         others = combination_mask[2:]
                         relative = get_index_relative_position(player_index, discarder_index, len(self.player_list))
                         combination_mask = (others[:2] + [1, tile_id] + others[2:] if relative == "top"

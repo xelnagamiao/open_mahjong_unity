@@ -5,9 +5,12 @@ internal static class RiichiRuleBootstrap {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Register() {
         RuleRegistry.Register(new RuleManifest {
+            ReplayFactory = record => record.CreateRiichiReplayModule(),
+            BuildRoom = RiichiRoomBuilder.Build,
             RuleId = RiichiGameState.RuleId,
             DefaultSubRule = "riichi/standard",
             DisplayName = "日本麻将",
+            RulebookPath = (subRule, config) => subRule == WashizuTile.SubRule ? "/rulebook/washizu" : "/rulebook/riichi",
             LobbyOrder = 1,
             LobbyName = "立直麻将",
             LobbySubRules = RiichiLobby.SubRules,
@@ -30,7 +33,7 @@ internal static class RiichiRuleBootstrap {
             NormalizeTileId = RiichiTileUtil.Normalize,
             HasNotenDeclaration = true,
             ActionCaption = word => word == "nuki" ? "拔北" : ActionWords.Is(word, ActionWordKind.Ron) ? "荣" : null,
-            ActionVoice = word => ActionWords.Is(word, ActionWordKind.Ron) ? "rong" : null,
+            ActionVoice = word => word == "nuki" ? "nuki" : ActionWords.Is(word, ActionWordKind.Ron) ? "rong" : null,
             UsesRiichiDragonOrder = true,
             RiichiRoundLayout = true,
         });

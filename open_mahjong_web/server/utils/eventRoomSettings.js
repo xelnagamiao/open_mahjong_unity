@@ -1,12 +1,18 @@
+const { normalizeWuhanRoomConfig } = require('./wuhanRoomSettings');
 const { randomUUID, createHash } = require('node:crypto');
 const { normalizeGuizhouRoomConfig } = require('./guizhouRoomSettings');
 const { normalizeYixingRoomConfig } = require('./yixingRoomSettings');
+const { normalizeShenyangRoomConfig } = require('./shenyangRoomSettings');
+const { normalizeNanjingRoomConfig } = require('./nanjingRoomSettings');
 const { normalizeWenzhouRoomConfig } = require('./wenzhouRoomSettings');
+const { normalizeNanchangRoomConfig } = require('./nanchangRoomSettings');
 const { normalizeHangzhouRoomConfig } = require('./hangzhouRoomSettings');
+const { normalizeJiujiangRoomConfig } = require('./jiujiangRoomSettings');
 const { normalizeHongzhongRoomConfig } = require('./hongzhongRoomSettings');
 const { normalizeGuangdongDetails, GUANGDONG_SUB_RULES } = require('./guangdongRoomSettings');
 
 const { normalizeChangchunRoomConfig } = require('./changchunRoomSettings');
+const riichiWinLine = require('../../shared/riichiWinRequirements.json');
 
 const MAX_PRESETS = 50;
 // A v1 custom automatic setting may need one extra row during migration.
@@ -23,9 +29,14 @@ const DEFAULT_SUB_RULES = Object.freeze({
   guangdong: 'guangdong/tuidao_mil2024',
   guizhou: 'guizhou/standard',
   yixing: 'yixing/standard',
+  shenyang: 'shenyang/mil2025',
+  nanjing: 'nanjing/mil2024',
+  wuhan: 'wuhan/mil2025',
   wenzhou: 'wenzhou/mil2024',
+  nanchang: 'nanchang/mil2026',
   hangzhou: 'hangzhou/mil2025',
   hongzhong: 'hongzhong/mil2024',
+  jiujiang: 'jiujiang/standard',
   changchun: 'changchun/mil2024',
   shanxi: 'shanxi/mil2023',
 });
@@ -55,10 +66,15 @@ class SettingsError extends Error {
 }
 
 function defaultConfig(rule = 'guobiao') {
+  if (rule === 'wuhan') return normalizeWuhanRoomConfig({}, SettingsError);
   if (rule === 'guizhou') return normalizeGuizhouRoomConfig({}, SettingsError);
   if (rule === 'yixing') return normalizeYixingRoomConfig({}, SettingsError);
+  if (rule === 'shenyang') return normalizeShenyangRoomConfig({}, SettingsError);
+  if (rule === 'nanjing') return normalizeNanjingRoomConfig({}, SettingsError);
   if (rule === 'wenzhou') return normalizeWenzhouRoomConfig({}, SettingsError);
+  if (rule === 'nanchang') return normalizeNanchangRoomConfig({}, SettingsError);
   if (rule === 'hangzhou') return normalizeHangzhouRoomConfig({}, SettingsError);
+  if (rule === 'jiujiang') return normalizeJiujiangRoomConfig({}, SettingsError);
   if (rule === 'hongzhong') return normalizeHongzhongRoomConfig({}, SettingsError);
   if (rule === 'changchun') return normalizeChangchunRoomConfig({}, SettingsError);
   const common = {
@@ -74,7 +90,7 @@ function defaultConfig(rule = 'guobiao') {
   if (rule === 'hongkong') return { ...common, detailed_config: { flowers: false, new13_full_shoot: true } };
   if (rule === 'guangdong') return { ...common, tactical_call: true, detailed_config: { edition: 'mil-tuidao-2024-om1', fan_cap: 32, wildcards: false } };
   if (rule === 'shanxi') return { ...common, detailed_config: { rule_version: 'mil-shanxi-2023-om1' } };
-  if (rule === 'riichi') return { ...common, starting_score: 25000 };
+  if (rule === 'riichi') return { ...common, starting_score: 25000, hepai_limit: 1, detailed_config: { minimum_win_score: 0 } };
   if (rule !== 'guobiao') return common;
   return {
     ...common,
@@ -103,15 +119,20 @@ function integerField(config, key, min, max, label) {
 
 /** Persist only settings understood by the current room editor and game server. */
 function normalizeRoomConfig(rule, raw) {
+  if (rule === 'wuhan') return normalizeWuhanRoomConfig(raw, SettingsError);
   if (rule === 'guizhou') return normalizeGuizhouRoomConfig(raw, SettingsError);
   if (rule === 'yixing') return normalizeYixingRoomConfig(raw, SettingsError);
+  if (rule === 'shenyang') return normalizeShenyangRoomConfig(raw, SettingsError);
+  if (rule === 'nanjing') return normalizeNanjingRoomConfig(raw, SettingsError);
   if (rule === 'wenzhou') return normalizeWenzhouRoomConfig(raw, SettingsError);
+  if (rule === 'nanchang') return normalizeNanchangRoomConfig(raw, SettingsError);
   if (rule === 'hangzhou') return normalizeHangzhouRoomConfig(raw, SettingsError);
+  if (rule === 'jiujiang') return normalizeJiujiangRoomConfig(raw, SettingsError);
   if (rule === 'hongzhong') return normalizeHongzhongRoomConfig(raw, SettingsError);
   if (rule === 'changchun') return normalizeChangchunRoomConfig(raw, SettingsError);
   if (!isObject(raw)) throw new SettingsError(400, '对局设置必须是对象');
   const allowed = rule === 'guobiao' ? GUOBIAO_CONFIG_KEYS
-    : rule === 'riichi' ? [...COMMON_CONFIG_KEYS, 'starting_score']
+    : rule === 'riichi' ? [...COMMON_CONFIG_KEYS, 'starting_score', 'hepai_limit', 'detailed_config']
       : rule === 'guangdong' ? [...COMMON_CONFIG_KEYS, 'detailed_config', 'tactical_call']
         : ['hongkong', 'shanxi'].includes(rule) ? [...COMMON_CONFIG_KEYS, 'detailed_config'] : COMMON_CONFIG_KEYS;
   for (const key of Object.keys(raw)) {
@@ -133,6 +154,7 @@ function normalizeRoomConfig(rule, raw) {
   }
   const validSubRule = rule === 'guobiao'
     ? GUOBIAO_SUB_RULES.has(config.sub_rule)
+    : rule === 'sichuan' ? ['sichuan/standard', 'sichuan/doubles', 'sichuan/xueliu_doubles'].includes(config.sub_rule)
     : rule === 'hongkong' ? ['hongkong/qingzhang', 'hongkong/new13', 'hongkong/new16', 'hongkong/new13_gametower', 'hongkong/new13_lianhuise', 'hongkong/qingzhang_lianhuise'].includes(config.sub_rule)
       : rule === 'guangdong' ? GUANGDONG_SUB_RULES.includes(config.sub_rule) : config.sub_rule === DEFAULT_SUB_RULES[rule];
   if (!validSubRule) throw new SettingsError(400, '不支持的对局子规则');
@@ -179,6 +201,13 @@ function normalizeRoomConfig(rule, raw) {
   if (rule === 'riichi') {
     integerField(config, 'starting_score', 1000, 1000000, '起始点数');
     if (config.starting_score % 100 !== 0) throw new SettingsError(400, '起始点数必须为 100 的倍数');
+    integerField(config, 'hepai_limit', 1, 64, '起和番（不含宝牌）');
+    const detail = config.detailed_config;
+    if (!isObject(detail) || Object.keys(detail).some(key => key !== 'minimum_win_score')
+      || (has(detail, 'minimum_win_score') && !riichiWinLine.values.includes(detail.minimum_win_score))) {
+      throw new SettingsError(400, '无效的日麻起和线');
+    }
+    config.detailed_config = { minimum_win_score: detail.minimum_win_score ?? 0 };
   }
   if (rule === 'guobiao') {
     integerField(config, 'hepai_limit', 1, 64, '起和番');

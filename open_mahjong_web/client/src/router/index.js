@@ -6,7 +6,7 @@ import { watch } from 'vue'
 import { locale, tr, setLocale } from '@/i18n'
 import { requestedGameLocale } from '@/i18n/locale-utils.js'
 import { seoEntryFor, noindexEntryFor } from '@/seo'
-import { MCR_PAGES } from '@/seo/mcr-pages.js'
+import { STATIC_PAGES } from '@/seo/pages.js'
 import { applyRouteHead } from '@/seo/head.js'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import PlayerDataLayout from '@/layouts/PlayerDataLayout.vue'
@@ -64,9 +64,9 @@ import EventAdminEvents from '@/views/event-admin/Events.vue'
 import EventAdminEventDetail from '@/views/event-admin/EventDetail.vue'
 
 const routes = [
-  ...MCR_PAGES.map((page) => ({
+  ...STATIC_PAGES.map((page) => ({
     path: page.path,
-    name: `McrLanding-${page.locale}`,
+    name: `Content-${page.family}-${page.locale}`,
     component: () => import('@/views/McrLanding.vue'),
     meta: { title: page.title },
   })),
