@@ -13,8 +13,6 @@ public partial class GamePlayerPanel : MonoBehaviour {
     [SerializeField] private Image playerProfileEdgePicture;   // 玩家头像边框
     [SerializeField] private Image playerIslossconnPicture; // 玩家是否掉线图片
     [SerializeField] private GameObject playerIsPeidaPicture; // 玩家是否陪打图片
-    [SerializeField] private GameObject playerLangyongBadge; // 浪涌麻将：鸣牌次数标记（tag: langyong_N）
-    [SerializeField] private TMP_Text playerLangyongCountText; // 浪涌鸣牌次数文字（可选）
     [SerializeField] private Button GoToRecordSelectButton; // 兼容旧场景引用，独立“转到”按钮始终隐藏
 
     [Header("四川·定缺标记")]
@@ -38,10 +36,8 @@ public partial class GamePlayerPanel : MonoBehaviour {
     private const float StickerSettleDuration = 0.1f;
     private const float StickerHoldDuration = 2f;
     private const float StickerFadeDuration = 0.5f;
-    private const float StickerDisplaySize = 140f;
 
     private Coroutine _stickerCoroutine;
-    [SerializeField] private TMP_Text duplicateRemainingTilesText;
     private int duplicateOriginalPlayerIndex = -1;
     [SerializeField] private RecordPlayerWaits recordWaits;
     public RecordPlayerWaits RecordWaits => recordWaits;
@@ -102,9 +98,10 @@ public partial class GamePlayerPanel : MonoBehaviour {
     private void Awake() {
         playerIslossconnPicture.gameObject.SetActive(false);
         playerIsPeidaPicture.gameObject.SetActive(false);
-        if (playerLangyongBadge != null) playerLangyongBadge.SetActive(false);
+        ResetPlayerVariables();
         SetDingque(0);
-        EnsureShowStickerPos();
+        SetSichuanTeam(-1);
+        ClearSticker();
         EnsureActionMenu();
         HideActionMenu();
         if (playerProfileEdgePicture != null
@@ -121,19 +118,6 @@ public partial class GamePlayerPanel : MonoBehaviour {
         HideActionMenu();
     }
 
-    private void EnsureShowStickerPos() {
-        if (showStickerPos != null) return;
-        GameObject anchor = new GameObject("ShowStickerPos", typeof(RectTransform));
-        anchor.transform.SetParent(transform, false);
-        RectTransform rt = anchor.GetComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0.5f, 0.5f);
-        rt.anchorMax = new Vector2(0.5f, 0.5f);
-        rt.pivot = new Vector2(0.5f, 0.5f);
-        rt.anchoredPosition = new Vector2(0f, 72f);
-        rt.sizeDelta = new Vector2(StickerDisplaySize, StickerDisplaySize);
-        showStickerPos = anchor.transform;
-    }
-
     /// <summary>
     /// 设置该玩家的定缺显示。suit: 1=万 2=饼 3=条，其余（含 0=未定缺）隐藏。
     /// 与 tag_list 类似，由 GameCanvas 在收到服务端定缺同步时统一调用。
@@ -147,56 +131,56 @@ public partial class GamePlayerPanel : MonoBehaviour {
         if (playerDingqueImage != null) playerDingqueImage.color = DingqueColors[suit];
     }
 
+    private Image sichuanTeamBackground;
+    private Color originalNameBackgroundColor;
+    public int SichuanTeamId { get; private set; } = -1;
+
+    public void SetSichuanTeam(int team, bool keepDingque = false) {
+        // 队色直接染现有 ID 底板；不新增方块，也不占用定缺卡的位置。
+        if (sichuanTeamBackground == null && playerNameText != null) {
+            sichuanTeamBackground = playerNameText.transform.parent?.Find("BackGround")?.GetComponent<Image>();
+            if (sichuanTeamBackground != null) originalNameBackgroundColor = sichuanTeamBackground.color;
+        }
+        SichuanTeamId = team == 0 || team == 1 ? team : -1;
+        if (sichuanTeamBackground == null) return;
+        sichuanTeamBackground.color = team == 0 ? new Color(.15f, .48f, .82f, .85f)
+            : team == 1 ? new Color(.82f, .18f, .22f, .85f) : originalNameBackgroundColor;
+    }
+
+    public RectTransform DingqueAnchor => playerDingqueImage != null ? playerDingqueImage.rectTransform : null;
+
+    /// <summary>复制现有定缺卡的外观用于开局演出；卡片不接收鼠标事件。</summary>
+    public RectTransform CreateDingquePresentationCard(Transform parent, int suit) {
+        if (playerDingqueImage == null || suit < 1 || suit > 3) return null;
+        Image card = Instantiate(playerDingqueImage, parent, false);
+        card.name = "DingqueCard";
+        card.color = DingqueColors[suit];
+        foreach (Graphic graphic in card.GetComponentsInChildren<Graphic>(true)) graphic.raycastTarget = false;
+        TMP_Text text = card.GetComponentInChildren<TMP_Text>(true);
+        if (text != null) {
+            text.gameObject.SetActive(true);
+            text.text = DingqueTexts[suit];
+        }
+        card.gameObject.SetActive(true);
+        return card.rectTransform;
+    }
+
     /// <summary>复式每家只摸自己的牌山；按原始座位显示服务端余牌，0 也显示。</summary>
     public void RefreshDuplicateRemainingTiles() {
         int? remaining = GameSession.Current.IsDuplicate && GameSession.Current.RoomRule == "guobiao"
             ? TableMirror.Current.GetDuplicateRemainingTiles(duplicateOriginalPlayerIndex)
             : null;
-        if (!remaining.HasValue) {
-            if (duplicateRemainingTilesText != null) duplicateRemainingTilesText.transform.parent.gameObject.SetActive(false);
-            return;
-        }
-        duplicateRemainingTilesText.transform.parent.gameObject.SetActive(true);
-        duplicateRemainingTilesText.text = $"余牌 {remaining.Value}";
-        duplicateRemainingTilesText.color = remaining.Value <= 3
+        SetPlayerVariable(VariableRemainingTiles, remaining.HasValue ? $"余牌 {remaining.Value}" : null);
+        TMP_Text label = FindPlayerVariable(VariableRemainingTiles);
+        if (!remaining.HasValue || label == null) return;
+        label.color = remaining.Value <= 3
             ? new Color(1f, 0.67f, 0.4f)
             : new Color(0.94f, 0.97f, 1f);
     }
 
-#if UNITY_EDITOR
-    public void BakeDuplicateRemainingTilesLabel() {
-        if (duplicateRemainingTilesText != null) return;
-        GameObject badge = new GameObject("DuplicateRemainingTiles", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        badge.layer = gameObject.layer;
-        badge.transform.SetParent(transform, false);
-        RectTransform rect = badge.GetComponent<RectTransform>();
-        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
-        // 四家面板的头衔下方留白，不覆盖头像、用户名或玩家状态标记。
-        rect.anchoredPosition = new Vector2(0f, -88f);
-        rect.sizeDelta = new Vector2(120f, 28f);
-        Image background = badge.GetComponent<Image>();
-        background.color = new Color(0.07f, 0.13f, 0.16f, 0.85f);
-        background.raycastTarget = false;
-
-        GameObject label = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
-        label.layer = gameObject.layer;
-        label.transform.SetParent(badge.transform, false);
-        duplicateRemainingTilesText = label.GetComponent<TextMeshProUGUI>();
-        RectTransform textRect = duplicateRemainingTilesText.rectTransform;
-        textRect.anchorMin = Vector2.zero;
-        textRect.anchorMax = Vector2.one;
-        textRect.offsetMin = textRect.offsetMax = Vector2.zero;
-        if (playerTitleText != null) duplicateRemainingTilesText.font = playerTitleText.font;
-        else if (playerNameText != null) duplicateRemainingTilesText.font = playerNameText.font;
-        duplicateRemainingTilesText.fontSize = 22f;
-        duplicateRemainingTilesText.alignment = TextAlignmentOptions.Center;
-        duplicateRemainingTilesText.enableWordWrapping = false;
-        duplicateRemainingTilesText.raycastTarget = false;
-    }
-#endif
-
-
     public void SetPlayerInfo(PlayerInfo playerInfo, string state, string position = null) {
+        ResetPlayerVariables();
+        SetSichuanTeam(-1);
         if (state != "record") recordWaits?.Hide();
         duplicateOriginalPlayerIndex = state == "gamestate" ? playerInfo.original_player_index : -1;
         RefreshDuplicateRemainingTiles();
@@ -231,29 +215,31 @@ public partial class GamePlayerPanel : MonoBehaviour {
         BindActionMenuContext(playerInfo.user_id, state, position, playerInfo.original_player_index);
         HideActionMenu();
 
-        UpdateTagList(playerInfo.tag_list);
+        UpdateTagList(playerInfo.tag_list, GameSession.Current.RoomRule);
+        SetYixingFlowerCount(state == "gamestate" && GameSession.Current.RoomRule == "yixing"
+            ? playerInfo.huapai_list?.Length ?? 0 : (int?)null);
     }
 
     // 更新标签列表显示（立直/振听由对局内其他 UI 表现，此处处理掉线、陪打、浪涌鸣牌次数等）
-    public void UpdateTagList(string[] tag_list, string roomRule = null) {
+    public void UpdateTagList(string[] tag_list, string roomRule = null, int? ghostDiscardCount = null) {
         playerIslossconnPicture.gameObject.SetActive(false);
         playerIsPeidaPicture.gameObject.SetActive(false);
-        if (playerLangyongBadge != null) playerLangyongBadge.SetActive(false);
-        if (playerLangyongCountText != null) playerLangyongCountText.text = "";
+        SetPlayerVariable(VariableLangyong, null);
+        SetPlayerVariable(VariableDeclaredReady, null);
+        SetPlayerVariable(VariableChengbao, null);
+        SetPlayerVariable(VariableGhosts, roomRule == "guangdong" && ghostDiscardCount.HasValue
+            ? $"打鬼 {Mathf.Max(0, ghostDiscardCount.Value)}" : null);
 
         if (tag_list != null) {
-            if ((roomRule == "shanghai" || roomRule == "shanxi") && playerLangyongBadge != null) {
-                var labels = new System.Collections.Generic.List<string>();
+            if (roomRule == "shanghai" || roomRule == "shanxi" || roomRule == "guangdong") {
                 var partners = new System.Collections.Generic.List<string>();
                 foreach (string tag in tag_list) {
-                    if (tag == "declared_ready") labels.Add(roomRule == "shanxi" ? "已报听" : "已敲牌");
+                    if (tag == "declared_ready") SetPlayerVariable(VariableDeclaredReady, roomRule == "shanghai" ? "已敲牌" : "已报听");
                     if (tag != null && tag.StartsWith("chengbao_")
                         && int.TryParse(tag.Substring(9), out int seat) && seat >= 0 && seat < 4)
                         partners.Add(new[] { "东", "南", "西", "北" }[seat]);
                 }
-                if (partners.Count > 0) labels.Add("承包" + string.Join("", partners));
-                playerLangyongBadge.SetActive(labels.Count > 0);
-                if (playerLangyongCountText != null) playerLangyongCountText.text = string.Join(" · ", labels);
+                if (partners.Count > 0) SetPlayerVariable(VariableChengbao, "承包" + string.Join("", partners));
             }
             int langyongCount = -1;
             foreach(var item in tag_list) {
@@ -270,18 +256,13 @@ public partial class GamePlayerPanel : MonoBehaviour {
                     }
                 }
             }
-            if (langyongCount >= 0 && playerLangyongBadge != null) {
-                playerLangyongBadge.SetActive(true);
-                if (playerLangyongCountText != null) {
-                    playerLangyongCountText.text = $"浪涌点数*{langyongCount}";
-                }
-            }
+            if (langyongCount >= 0) SetPlayerVariable(VariableLangyong, $"浪涌点数*{langyongCount}");
         }
     }
 
     /// <summary>在 showStickerPos 弹出表情（sticker 格式 pack/id，如 turtle/3）。</summary>
     public void ShowSticker(string stickerPath) {
-        if (showStickerPos == null || string.IsNullOrEmpty(stickerPath)) return;
+        if (stickerDisplay == null || string.IsNullOrEmpty(stickerPath)) return;
         ClearSticker();
 
         Sprite sprite = LoadStickerSprite(stickerPath);
@@ -290,22 +271,11 @@ public partial class GamePlayerPanel : MonoBehaviour {
             return;
         }
 
-        GameObject stickerObj = new GameObject("StickerDisplay", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        stickerObj.transform.SetParent(showStickerPos, false);
-        RectTransform rt = stickerObj.GetComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0.5f, 0.5f);
-        rt.anchorMax = new Vector2(0.5f, 0.5f);
-        rt.pivot = new Vector2(0.5f, 0.5f);
-        rt.sizeDelta = new Vector2(StickerDisplaySize, StickerDisplaySize);
-        rt.anchoredPosition = Vector2.zero;
-        rt.localScale = Vector3.zero;
-
-        Image image = stickerObj.GetComponent<Image>();
-        image.sprite = sprite;
-        image.preserveAspect = false;
-        image.raycastTarget = false;
-
-        _stickerCoroutine = StartCoroutine(PopAndFadeSticker(stickerObj, image));
+        stickerDisplay.sprite = sprite;
+        stickerDisplay.color = Color.white;
+        stickerDisplay.rectTransform.localScale = Vector3.zero;
+        stickerDisplay.gameObject.SetActive(true);
+        _stickerCoroutine = StartCoroutine(PopAndFadeSticker(stickerDisplay.gameObject, stickerDisplay));
     }
 
     private static Sprite LoadStickerSprite(string stickerPath) {
@@ -317,17 +287,13 @@ public partial class GamePlayerPanel : MonoBehaviour {
         return Resources.Load<Sprite>($"image/sticker/{stickerPath}");
     }
 
-    /// <summary>停止协程并销毁 showStickerPos 下所有表情实例。</summary>
+    /// <summary>停止协程并隐藏场景预置的表情显示对象。</summary>
     public void ClearSticker() {
         if (_stickerCoroutine != null) {
             StopCoroutine(_stickerCoroutine);
             _stickerCoroutine = null;
         }
-        if (showStickerPos == null) return;
-        for (int i = showStickerPos.childCount - 1; i >= 0; i--) {
-            Transform child = showStickerPos.GetChild(i);
-            if (child != null) Destroy(child.gameObject);
-        }
+        if (stickerDisplay != null) stickerDisplay.gameObject.SetActive(false);
     }
 
     private IEnumerator PopAndFadeSticker(GameObject stickerObj, Image image) {
@@ -365,7 +331,7 @@ public partial class GamePlayerPanel : MonoBehaviour {
             yield return null;
         }
 
-        if (stickerObj != null) Destroy(stickerObj);
+        if (stickerObj != null) stickerObj.SetActive(false);
         _stickerCoroutine = null;
     }
 
@@ -376,6 +342,7 @@ public partial class GamePlayerPanel : MonoBehaviour {
     }
 
     public void Clear() {
+        ResetPlayerVariables();
         titlePlayerInfo = null;
         ApplyAvatarFrame(-1);
         duplicateOriginalPlayerIndex = -1;
@@ -390,6 +357,7 @@ public partial class GamePlayerPanel : MonoBehaviour {
         }
         UpdateTagList(null);
         SetDingque(0);
+        SetSichuanTeam(-1);
         ClearSticker();
         HideActionMenu();
         BindActionMenuContext(0, null, null);

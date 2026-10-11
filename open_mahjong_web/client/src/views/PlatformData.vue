@@ -5,6 +5,9 @@
     </p>
 
     <section class="section-card">
+      <el-select v-model="activeRule" filterable aria-label="数据统计规则" @change="onRuleChange">
+        <el-option v-for="r in STATISTICS_RULES" :key="r.key" :value="r.key" :label="r.stats_name" :class="{ standard: r.standard }" />
+      </el-select>
       <div class="totals-toolbar">
         <h3 class="section-title">{{ totalsTitle }}</h3>
         <div class="tier-bar">
@@ -46,13 +49,13 @@
               </div>
             </div>
             <p v-else class="empty-hint">{{ selectedEventId ? '暂无该比赛累计数据' : '暂无该场次累计数据' }}</p>
-            <el-collapse class="fan-collapse">
+            <el-collapse v-if="activeRuleDef?.fan_stats" class="fan-collapse">
               <el-collapse-item name="fan">
                 <template #title>
                   <span class="fan-collapse-title">番种出现次数（{{ fanDictSize }}）</span>
                 </template>
                 <div class="fan-toolbar">
-                  <el-radio-group v-model="fanTier" size="small" class="fan-toolbar-group">
+                  <el-radio-group v-if="activeRuleDef?.rule === 'guobiao'" v-model="fanTier" size="small" class="fan-toolbar-group">
                     <el-radio-button value="all">全部</el-radio-button>
                     <el-radio-button value="low">1-3番</el-radio-button>
                     <el-radio-button value="mid">4-24番</el-radio-button>
@@ -223,6 +226,7 @@
 </template>
 
 <script setup>
+import { STATISTICS_RULES, statisticsSelection } from '@/utils/statisticsCatalog'
 import { ref, reactive, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -250,11 +254,30 @@ const TIER_OPTIONS = [
   { value: 'intermediate', label: '中级场' },
   { value: 'advanced', label: '高级场' },
   { value: 'mcrpl', label: 'mcrpl' },
+  { value: 'elo', label: 'Elo 匹配' },
 ]
 const TOTALS_TIER_OPTIONS = [...TIER_OPTIONS, { value: 'total', label: '总计' }]
 const TIER_LABEL = Object.fromEntries(TOTALS_TIER_OPTIONS.map((t) => [t.value, t.label]))
 const MODE_LABELS = { '4/4': '全庄战', '3/4': '东西战', '2/4': '半庄战', '1/4': '东风战' }
-const fanDictSize = Object.keys(GUOBIAO_FAN_DICT).length
+const activeRule = ref('guobiao')
+const activeRuleDef = computed(() => statisticsSelection(activeRule.value))
+const currentFanDict = ref(GUOBIAO_FAN_DICT)
+const fanDictSize = computed(() => new Set([
+  ...Object.keys(currentFanDict.value || {}),
+  ...Object.values(sceneTierFans.value).flatMap(fans => Object.keys(fans || {})),
+]).size)
+const onRuleChange = () => {
+  fanTier.value = 'all'
+  recordsPage.current = 1
+  sceneTotals.value = []
+  sceneDaily.value = []
+  sceneTierFans.value = {}
+  currentFanDict.value = {}
+  fanChart?.dispose()
+  fanChart = null
+  loadStats()
+  loadRecentRecords()
+}
 const showFanPercent = ref(false)
 const fanTier = ref('all')
 const fanView = ref('table')
@@ -280,6 +303,7 @@ const makeRange = (days, endDateStr) => {
 }
 
 const loading = ref(false)
+let statsController = null
 const loadingRecords = ref(false)
 const meta = ref({})
 const sceneTotals = ref([])
@@ -370,9 +394,9 @@ const tierFanEntries = computed(() => {
       : sceneTierFans.value[totalsTierTab.value]);
   const entries = buildAllFanEntries(
     fans,
-    GUOBIAO_FAN_DICT,
+    currentFanDict.value || {},
     activeTierTotals.value?.win_count,
-    GUOBIAO_FAN_VALUES,
+    activeRuleDef.value?.rule === 'guobiao' ? GUOBIAO_FAN_VALUES : {},
     fanSort.value,
   )
   const tier = fanTier.value
@@ -551,6 +575,7 @@ const loadRecentRecords = async () => {
     const res = await axios.get('/api/platform/recent-records', {
       signal: controller.signal,
       params: {
+        rule: activeRule.value,
         ...(selectedEventId.value
           ? { event_id: selectedEventId.value }
           : (totalsTierTab.value === 'total' ? {} : { match_tier: totalsTierTab.value })),
@@ -578,9 +603,12 @@ const onRecordsSizeChange = () => {
 }
 
 const loadStats = async () => {
+  statsController?.abort()
+  const controller = new AbortController()
+  statsController = controller
   loading.value = true
   try {
-    const params = {}
+    const params = { rule: activeRule.value }
     if (dateRange.value?.length === 2) {
       params.date_from = dateRange.value[0]
       params.date_to = dateRange.value[1]
@@ -588,10 +616,12 @@ const loadStats = async () => {
       params.days = 30
     }
     if (selectedEventId.value) params.event_id = selectedEventId.value
-    const res = await axios.get('/api/platform/stats', { params })
+    const res = await axios.get('/api/platform/stats', { params, signal: controller.signal })
+    if (controller.signal.aborted) return
     const payload = res.data?.data || {}
     sceneTotals.value = payload.totals || []
-    sceneTierFans.value = payload.fans || {}
+    sceneTierFans.value = activeRuleDef.value?.fan_stats ? payload.fans || {} : {}
+    currentFanDict.value = activeRuleDef.value?.fan_stats ? payload.fan_dict || {} : {}
     sceneDaily.value = payload.daily || []
     eventOptions.value = payload.events || eventOptions.value
     meta.value = res.data?.meta || {}
@@ -601,12 +631,13 @@ const loadStats = async () => {
     await nextTick()
     renderSceneChart()
   } catch (e) {
+    if (controller.signal.aborted) return
     ElMessage.error('获取平台数据失败')
     sceneTotals.value = []
     sceneTierFans.value = {}
     sceneDaily.value = []
   } finally {
-    loading.value = false
+    if (statsController === controller) loading.value = false
   }
 }
 
@@ -636,6 +667,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  statsController?.abort()
   recentRecordsController?.abort()
   window.removeEventListener('resize', handleResize)
   sceneChart?.dispose()
@@ -644,6 +676,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.standard { color: #8a5700; background: #fff4cf; font-weight: 700; }
 .platform-data { color: #1f2329; }
 .as-of-tip {
   margin: 0 0 14px;

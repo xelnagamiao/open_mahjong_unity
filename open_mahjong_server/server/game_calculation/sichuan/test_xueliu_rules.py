@@ -16,7 +16,7 @@ def test_xueliu_profile_discards_three_without_exchange():
     assert XUELIU_RULE_PROFILE.discard_three is True
     assert XUELIU_RULE_PROFILE.discard_three_same_suit is True
     assert XUELIU_RULE_PROFILE.hu_winner_stays_active is True
-    assert XUELIU_RULE_PROFILE.allow_post_hu_ming_gang is False
+    assert XUELIU_RULE_PROFILE.allow_post_hu_ming_gang is True
 
 
 @pytest.mark.parametrize(

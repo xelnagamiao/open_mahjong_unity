@@ -3,6 +3,21 @@ using System.Linq;
 using Newtonsoft.Json;
 
 public partial class GameRecordManager {
+    internal RuleReplayModule CreateWenzhouReplayModule() => new RuleReplayModule("wenzhou") {
+        ReservedWallTiles = 4,
+        Reset = ResetWenzhouRecordState,
+        Clear = () => {
+            recordWenzhouInfo = null; recordWenzhouWinSource = null; recordWenzhouRonRecycled = false;
+            recordWenzhouWaits.Clear(); WenzhouTableIndicators.Refresh(null);
+        },
+        NormalizeTick = NormalizeWenzhouRecordTick,
+        ApplyBeforeMutation = ApplyWenzhouRecordAction,
+        AfterSilentMutation = tick => {
+            SyncRecordBoardScores();
+            if (tick.Count > 1 && (tick[1] == "meld" || tick[1] == "kong_claim_source")) RefreshGuizhouRecordMelds();
+        },
+    };
+
     private WenzhouInfo recordWenzhouInfo;
     private string recordWenzhouWinSource;
     private bool recordWenzhouRonRecycled;
@@ -21,7 +36,7 @@ public partial class GameRecordManager {
             recordWenzhouInfo = JsonConvert.DeserializeObject<WenzhouInfo>(JsonConvert.SerializeObject(round.wenzhou));
             if (round.wenzhouWaits != null) recordWenzhouWaits = JsonConvert.DeserializeObject<Dictionary<int, Dictionary<string, WenzhouWait[]>>>(JsonConvert.SerializeObject(round.wenzhouWaits));
         }
-        WenzhouPanel.Show(recordWenzhouInfo);
+        WenzhouTableIndicators.Refresh(recordWenzhouInfo);
     }
 
     private List<string> NormalizeWenzhouRecordTick(List<string> source) {
@@ -91,7 +106,7 @@ public partial class GameRecordManager {
                 if (tick.Count >= 4) recordWenzhouWaits[int.Parse(tick[2])] = JsonConvert.DeserializeObject<Dictionary<string, WenzhouWait[]>>(tick[3]);
                 break;
         }
-        WenzhouPanel.Show(recordWenzhouInfo);
+        WenzhouTableIndicators.Refresh(recordWenzhouInfo);
         return true;
     }
 }

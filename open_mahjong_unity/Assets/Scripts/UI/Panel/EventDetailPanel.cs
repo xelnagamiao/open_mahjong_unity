@@ -203,15 +203,7 @@ public class EventDetailPanel : MonoBehaviour {
                 var go = Instantiate(spectateItemPrefab, spectateContent);
                 go.SetActive(true);
                 var binder = go.GetComponent<SpectatorPrefab>();
-                binder.InitializeSpectatorItem(
-                    item.rule,
-                    item.sub_rule,
-                    item.player1_name,
-                    item.player2_name,
-                    item.player3_name,
-                    item.player4_name,
-                    item.gamestate_id
-                );
+                binder.InitializeSpectatorItem(item);
                 _spectateSpawned.Add(go);
                 count++;
             }

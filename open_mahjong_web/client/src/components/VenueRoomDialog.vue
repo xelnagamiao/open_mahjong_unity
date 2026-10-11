@@ -29,7 +29,7 @@
         </el-form-item>
         <el-form-item label="创建数量">
           <el-select v-model="form.room_count" aria-label="创建数量" style="width: 100%">
-            <el-option v-for="count in EVENT_ROOM_COUNTS" :key="count" :label="`${count} 个房间`" :value="count" />
+            <el-option v-for="count in EVENT_ROOM_COUNTS" :key="count" :label="paired ? `${count} 组（${count * 2} 间）` : `${count} 个房间`" :value="count" />
           </el-select>
         </el-form-item>
         <el-form-item v-if="showReason" label="操作原因" required class="room-top-full">
@@ -39,16 +39,20 @@
       <GuobiaoEmptyRoomConfig v-if="form.room_rule === 'guobiao'" :model-value="form" :show-password="showPassword" :auto-duplicate="autoDuplicate" :show-duplicate-field="false" />
       <ShanxiRoomConfig v-else-if="form.room_rule === 'shanxi'" :form="form" :show-password="showPassword" />
       <HongKongRoomConfig v-else-if="form.room_rule === 'hongkong'" :form="form" />
+      <SichuanRoomConfig v-else-if="form.room_rule === 'sichuan'" :form="form" :allow-paired="showAutoDuplicate" />
       <TuidaoRoomConfig v-else-if="form.room_rule === 'guangdong'" :form="form" :show-password="showPassword" />
       <GuizhouRoomConfig v-else-if="form.room_rule === 'guizhou'" :form="form" :show-password="showPassword" />
+      <JiujiangRoomConfig v-else-if="form.room_rule === 'jiujiang'" :form="form" :show-password="showPassword" />
+      <WuhanRoomConfig v-else-if="form.room_rule === 'wuhan'" :form="form" :show-password="showPassword" />
       <HongzhongRoomConfig v-else-if="form.room_rule === 'hongzhong'" :form="form" :show-password="showPassword" />
       <ChangchunRoomConfig v-else-if="form.room_rule === 'changchun'" :form="form" :show-password="showPassword" />
       <YixingRoomConfig v-else-if="form.room_rule === 'yixing'" :form="form" :show-password="showPassword" />
+      <ShenyangRoomConfig v-else-if="form.room_rule === 'shenyang'" :form="form" :show-password="showPassword" />
+      <NanjingRoomConfig v-else-if="form.room_rule === 'nanjing'" :form="form" :show-password="showPassword" />
       <WenzhouRoomConfig v-else-if="form.room_rule === 'wenzhou'" :form="form" :show-password="showPassword" />
+      <NanchangRoomConfig v-else-if="form.room_rule === 'nanchang'" :form="form" :show-password="showPassword" />
       <HangzhouRoomConfig v-else-if="form.room_rule === 'hangzhou'" :form="form" :show-password="showPassword" />
-      <el-form-item v-else-if="form.room_rule === 'riichi'" label="起始点数">
-        <el-input-number v-model="form.starting_score" :min="1000" :max="1000000" :step="100" step-strictly :precision="0" />
-      </el-form-item>
+      <RiichiRoomConfig v-else-if="form.room_rule === 'riichi'" :form="form" />
       <el-alert
         v-else
         title="此规则按默认参数创建。"
@@ -56,6 +60,19 @@
         :closable="false"
         show-icon
       />
+      <div v-if="paired" class="paired-settings">
+        <div class="paired-preview" aria-label="开闭室配对">
+          <div><strong>开室</strong><span>东西蓝队 · 南北红队</span></div>
+          <span class="paired-link" aria-hidden="true">⇄</span>
+          <div><strong>闭室</strong><span>东西红队 · 南北蓝队</span></div>
+        </div>
+        <el-form-item label="比赛副数">
+          <el-select v-model="form.duplicate_round_count" aria-label="比赛副数">
+            <el-option v-for="count in DUPLICATE_ROUND_COUNTS" :key="count" :label="`${count} 副`" :value="count" />
+          </el-select>
+        </el-form-item>
+        <p class="duplicate-help">{{ form.sub_rule === 'sichuan/doubles_duplicate' ? '逐副按 SBR IMP 计分，保留副差分明细。' : '逐副累计双桌分差，整场平分时两室同步加副。' }}每组自动生成同一套牌墙，两室同时就绪后开始。</p>
+      </div>
       <div v-if="form.room_rule === 'guobiao'" class="duplicate-settings">
         <div class="room-top">
           <el-form-item label="复式">
@@ -82,13 +99,14 @@
     </el-form>
     <template #footer>
       <el-button :disabled="loading" @click="$emit('update:modelValue', false)">取消</el-button>
-      <el-button type="primary" :loading="loading" :disabled="Boolean(creationProblem)" @click="confirm">{{ form.room_count > 1 ? `创建 ${form.room_count} 个房间` : confirmText }}</el-button>
+      <el-button type="primary" :loading="loading" :disabled="Boolean(creationProblem)" @click="confirm">{{ paired ? `创建 ${form.room_count} 组开闭室` : form.room_count > 1 ? `创建 ${form.room_count} 个房间` : confirmText }}</el-button>
     </template>
   </el-dialog>
 </template>
 
 <script setup>
 import { computed, ref, watch } from 'vue'
+import SichuanRoomConfig from '@/components/SichuanRoomConfig.vue'
 import GuobiaoEmptyRoomConfig from '@/components/GuobiaoEmptyRoomConfig.vue'
 import DuplicateRoomField from '@/components/DuplicateRoomField.vue'
 import ShanxiRoomConfig from '@/components/ShanxiRoomConfig.vue'
@@ -96,13 +114,20 @@ import HongKongRoomConfig from '@/components/HongKongRoomConfig.vue'
 import TuidaoRoomConfig from '@/components/TuidaoRoomConfig.vue'
 import GuizhouRoomConfig from '@/components/GuizhouRoomConfig.vue'
 import YixingRoomConfig from '@/components/YixingRoomConfig.vue'
+import ShenyangRoomConfig from '@/components/ShenyangRoomConfig.vue'
+import NanjingRoomConfig from '@/components/NanjingRoomConfig.vue'
 import WenzhouRoomConfig from '@/components/WenzhouRoomConfig.vue'
+import NanchangRoomConfig from '@/components/NanchangRoomConfig.vue'
 import HangzhouRoomConfig from '@/components/HangzhouRoomConfig.vue'
+import JiujiangRoomConfig from '@/components/JiujiangRoomConfig.vue'
+import WuhanRoomConfig from '@/components/WuhanRoomConfig.vue'
 import HongzhongRoomConfig from '@/components/HongzhongRoomConfig.vue'
 import ChangchunRoomConfig from '@/components/ChangchunRoomConfig.vue'
+import RiichiRoomConfig from '@/components/RiichiRoomConfig.vue'
 import { clearUnsupportedDuplicateRoom } from '@/utils/eventRoomSettings'
 import { EVENT_ROOM_COUNTS } from '@/utils/eventRoomCreation'
 import { DUPLICATE_ROUND_COUNTS } from '@/utils/duplicateWalls'
+import { isSichuanDuplicate } from '@/utils/sichuanDuplicate'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -119,6 +144,10 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'confirm'])
 const duplicateQuota = ref(null)
+const paired = computed(() => props.form.room_rule === 'sichuan' && isSichuanDuplicate(props.form.sub_rule))
+watch(() => props.form.sub_rule, value => {
+  if (isSichuanDuplicate(value)) props.form.duplicate_round_count = value === 'sichuan/doubles_duplicate' ? 8 : 16
+})
 const quotaLoading = ref(false)
 const quotaError = ref('')
 let quotaVersion = 0
@@ -183,6 +212,13 @@ function confirm() {
 </script>
 
 <style scoped>
+.paired-settings { margin-top: 16px; padding: 16px; background: #f0f5fc; border: 1px solid #d9e5f5; border-radius: 12px; }
+.paired-preview { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin-bottom: 18px; }
+.paired-preview > div { display: flex; flex-direction: column; gap: 6px; padding: 14px; background: #fff; border-radius: 8px; }
+.paired-preview strong { color: #344f73; font-size: 15px; }
+.paired-preview span { color: #657b98; font-size: 12px; }
+.paired-preview .paired-link { font-size: 23px; }
+@media (max-width: 440px) { .paired-preview { gap: 6px; } .paired-preview > div { padding: 10px; } }
 .room-top {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

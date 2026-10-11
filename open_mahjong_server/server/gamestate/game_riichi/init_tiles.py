@@ -27,6 +27,9 @@ def init_riichi_tiles(self):
                 self.tiles_list.remove(normal_id)
                 self.tiles_list.append(aka_id)
 
+    from ...game_calculation.riichi.washizu_tiles import SUB_RULE, make_tiles
+    if getattr(self, 'sub_rule', None) == SUB_RULE:
+        self.tiles_list = make_tiles()
     _shuffle_and_deal(self)
 
 
@@ -40,6 +43,10 @@ def _shuffle_and_deal(self) -> None:
             player.get_tile(self.tiles_list, mark_draw_slot=False)
 
     # 王牌区（dead wall）：最后 14 张固定保留；倒数第 6 张为首张宝牌指示牌，倒数第 5 张为首张里宝牌指示牌。
+    from .washizu import enabled, init_pool_after_deal
+    if enabled(self):
+        init_pool_after_deal(self)
+        return
     self.dead_wall_count = 14
     offset = 6
     self._dora_slots = [self.tiles_list[-offset - 2 * i] for i in range(5)]

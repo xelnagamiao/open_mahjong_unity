@@ -1,17 +1,19 @@
 <template>
   <div class="event-room-preset-editor" data-testid="room-preset-editor">
-    <aside class="preset-list" aria-label="对局设置列表">
-      <button type="button" class="preset-item" :class="{ active: selectedKey === 'default' }" @click="selectEntry('default')">默认配置</button>
+    <nav class="preset-list" aria-label="对局设置列表">
+      <button type="button" class="preset-item" :class="{ active: selectedKey === 'default' }" :aria-pressed="selectedKey === 'default'" :disabled="busy || !loaded" @click="selectEntry('default')">默认配置</button>
       <button
         v-for="preset in settingsDoc.presets || []"
         :key="preset.preset_id"
         type="button"
         class="preset-item"
         :class="{ active: selectedKey === preset.preset_id }"
+        :aria-pressed="selectedKey === preset.preset_id"
+        :disabled="busy || !loaded"
         @click="selectEntry(preset.preset_id)"
       >{{ preset.name }}</button>
-      <el-button class="new-preset-button" text type="primary" :disabled="busy || !loaded" @click="selectEntry('new')">＋ 新建预设</el-button>
-    </aside>
+      <el-button class="new-preset-button" :class="{ active: selectedKey === 'new' }" text type="primary" :disabled="busy || !loaded" @click="selectEntry('new')">＋ 新建预设</el-button>
+    </nav>
     <el-form label-position="top" class="preset-form" :disabled="busy || !loaded" @submit.prevent="save">
       <div v-if="selectedKey !== 'default' || dirty" class="preset-form-heading">
         <strong v-if="selectedKey !== 'default'">{{ selectedKey === 'new' ? '新建预设' : '编辑预设' }}</strong>
@@ -20,32 +22,49 @@
       <p class="preset-help">{{ selectedKey === 'default' ? '用于手动组桌和自动匹配。' : '保存后可在组桌和自动匹配中选择。' }}修改仅影响后续新桌。</p>
       <el-alert v-if="remoteChanged || conflict" title="已保存的设置发生更新，当前草稿仍保留。请核对后再保存，或取消修改以载入最新设置。" type="warning" :closable="false" class="preset-notice" />
       <el-alert v-if="sourceMissing" title="该预设已被删除，草稿仍保留。请选择其他配置，或复制内容后新建预设。" type="warning" :closable="false" class="preset-notice" />
-      <div class="preset-top-fields">
+      <div v-if="selectedKey !== 'default' || form.room_rule !== 'guobiao'" class="preset-top-fields">
         <el-form-item v-if="selectedKey !== 'default'" label="预设名称" required class="preset-name-field">
           <el-input v-model="draftName" maxlength="40" show-word-limit placeholder="例如：小组赛 · 东南战" />
         </el-form-item>
-        <el-form-item label="规则">
+        <el-form-item v-if="form.room_rule !== 'guobiao'" label="规则">
           <el-select v-model="form.room_rule">
             <el-option v-for="rule in ruleOptions" :key="rule.value" :label="rule.label" :value="rule.value" />
           </el-select>
         </el-form-item>
-        <el-form-item label="房间名" class="preset-room-name-field">
+        <el-form-item v-if="form.room_rule !== 'guobiao'" label="房间名" class="preset-room-name-field">
           <el-input v-model="form.room_name" clearable placeholder="可选，留空自动命名" />
         </el-form-item>
       </div>
-      <GuobiaoEmptyRoomConfig v-if="form.room_rule === 'guobiao'" :model-value="form" :show-password="false" panel-layout />
+      <GuobiaoEmptyRoomConfig v-if="form.room_rule === 'guobiao'" :model-value="form" :show-password="false" panel-layout>
+        <template #before-sub-rule>
+          <el-form-item label="规则">
+            <el-select v-model="form.room_rule">
+              <el-option v-for="rule in ruleOptions" :key="rule.value" :label="rule.label" :value="rule.value" />
+            </el-select>
+          </el-form-item>
+        </template>
+        <template #after-sub-rule>
+          <el-form-item label="房间名" class="preset-room-name-field">
+            <el-input v-model="form.room_name" clearable placeholder="可选，留空自动命名" />
+          </el-form-item>
+        </template>
+      </GuobiaoEmptyRoomConfig>
       <ShanxiRoomConfig v-else-if="form.room_rule === 'shanxi'" :form="form" />
       <HongKongRoomConfig v-else-if="form.room_rule === 'hongkong'" :form="form" />
       <TuidaoRoomConfig v-else-if="form.room_rule === 'guangdong'" :form="form" />
       <GuizhouRoomConfig v-else-if="form.room_rule === 'guizhou'" :form="form" :show-password="false" />
+      <JiujiangRoomConfig v-else-if="form.room_rule === 'jiujiang'" :form="form" :show-password="false" />
+      <WuhanRoomConfig v-else-if="form.room_rule === 'wuhan'" :form="form" :show-password="false" />
       <HongzhongRoomConfig v-else-if="form.room_rule === 'hongzhong'" :form="form" :show-password="false" />
       <ChangchunRoomConfig v-else-if="form.room_rule === 'changchun'" :form="form" :show-password="false" />
       <YixingRoomConfig v-else-if="form.room_rule === 'yixing'" :form="form" :show-password="false" />
+      <ShenyangRoomConfig v-else-if="form.room_rule === 'shenyang'" :form="form" :show-password="false" />
+      <NanjingRoomConfig v-else-if="form.room_rule === 'nanjing'" :form="form" :show-password="false" />
       <WenzhouRoomConfig v-else-if="form.room_rule === 'wenzhou'" :form="form" :show-password="false" />
+      <NanchangRoomConfig v-else-if="form.room_rule === 'nanchang'" :form="form" :show-password="false" />
       <HangzhouRoomConfig v-else-if="form.room_rule === 'hangzhou'" :form="form" :show-password="false" />
-      <el-form-item v-else-if="form.room_rule === 'riichi'" label="起始点数">
-        <el-input-number v-model="form.starting_score" :min="1000" :max="1000000" :step="100" step-strictly :precision="0" />
-      </el-form-item>
+      <RiichiRoomConfig v-else-if="form.room_rule === 'riichi'" :form="form" />
+      <SichuanRoomConfig v-else-if="form.room_rule === 'sichuan'" :form="form" />
       <el-alert v-else title="此规则使用默认参数。" type="info" :closable="false" class="preset-notice" />
       <div class="preset-form-actions">
         <el-button type="primary" :loading="busy" :disabled="!loaded || sourceMissing || (!dirty && selectedKey !== 'new')" @click="save">保存配置</el-button>
@@ -59,6 +78,7 @@
 
 <script setup>
 import { computed, nextTick, reactive, ref, watch } from 'vue'
+import SichuanRoomConfig from '@/components/SichuanRoomConfig.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import GuobiaoEmptyRoomConfig from '@/components/GuobiaoEmptyRoomConfig.vue'
 import ShanxiRoomConfig from '@/components/ShanxiRoomConfig.vue'
@@ -66,10 +86,16 @@ import HongKongRoomConfig from '@/components/HongKongRoomConfig.vue'
 import TuidaoRoomConfig from '@/components/TuidaoRoomConfig.vue'
 import GuizhouRoomConfig from '@/components/GuizhouRoomConfig.vue'
 import YixingRoomConfig from '@/components/YixingRoomConfig.vue'
+import ShenyangRoomConfig from '@/components/ShenyangRoomConfig.vue'
+import NanjingRoomConfig from '@/components/NanjingRoomConfig.vue'
 import WenzhouRoomConfig from '@/components/WenzhouRoomConfig.vue'
+import NanchangRoomConfig from '@/components/NanchangRoomConfig.vue'
 import HangzhouRoomConfig from '@/components/HangzhouRoomConfig.vue'
+import JiujiangRoomConfig from '@/components/JiujiangRoomConfig.vue'
+import WuhanRoomConfig from '@/components/WuhanRoomConfig.vue'
 import HongzhongRoomConfig from '@/components/HongzhongRoomConfig.vue'
 import ChangchunRoomConfig from '@/components/ChangchunRoomConfig.vue'
+import RiichiRoomConfig from '@/components/RiichiRoomConfig.vue'
 import { buildEventRoomSettings, clearUnsupportedDuplicateRoom, createEventRoomForm } from '@/utils/eventRoomSettings'
 
 const props = defineProps({
@@ -162,34 +188,31 @@ defineExpose({ canDiscard, resetDraft, dirty })
 </script>
 
 <style scoped>
-.event-room-preset-editor { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 20px; padding: 14px 0 18px; border-top: 1px solid #ebeef5; }
-.preset-list { display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding-right: 14px; border-right: 1px solid #ebeef5; }
-.preset-item { padding: 9px 10px; border: 0; border-radius: 4px; background: transparent; color: #606266; font: inherit; font-size: 13px; line-height: 1.5; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
-.preset-item:hover { background: #f5f7fa; }
-.preset-item.active { background: #ecf5ff; color: #409eff; }
-.new-preset-button { margin: 4px 0 0; justify-content: flex-start; }
+.event-room-preset-editor { container-type: inline-size; padding: 14px 0 18px; border-top: 1px solid #ebeef5; }
+.preset-list { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #ebeef5; }
+.preset-item { min-width: 106px; max-width: 100%; padding: 8px 12px; border: 0; border-radius: 4px; background: transparent; color: #606266; font: inherit; font-size: 13px; line-height: 1.5; text-align: center; overflow-wrap: anywhere; cursor: pointer; }
+.preset-item:hover:not(:disabled) { background: #f5f7fa; }
+.preset-item.active, .new-preset-button.active { background: #ecf5ff; color: #409eff; }
+.preset-item:focus-visible { outline: 2px solid #409eff; outline-offset: 2px; }
+.preset-item:disabled { cursor: not-allowed; opacity: .6; }
+.new-preset-button { margin: 0; }
 .preset-form { min-width: 0; }
 .preset-form-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 14px; color: #303133; }
 .preset-unsaved { color: #b88230; font-size: 12px; }
 .preset-help { margin: 0 0 14px; color: #909399; font-size: 12px; line-height: 1.6; }
 .preset-form-heading + .preset-help { margin-top: 5px; }
 .preset-notice { margin-bottom: 12px; }
-.preset-top-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 14px; }
+.preset-top-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 12px; }
 .preset-name-field { grid-column: 1 / -1; }
-.preset-room-name-field { grid-column: span 2; }
+.preset-top-fields > .preset-room-name-field { grid-column: span 2; }
 .preset-form :deep(.el-form-item) { margin-bottom: 12px; }
-.preset-form :deep(.el-select), .preset-form :deep(.el-input) { width: 100% !important; }
+.preset-form :deep(.el-select), .preset-form :deep(.el-input), .preset-form :deep(.el-input-number) { width: 100% !important; }
 .preset-form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid #ebeef5; }
 .preset-form-actions :deep(.el-button) { margin-left: 0; }
 .preset-form-actions .preset-help { margin: 0; }
-@media (max-width: 960px) {
-  .event-room-preset-editor { grid-template-columns: minmax(0, 1fr); gap: 14px; }
-  .preset-list { flex-direction: row; flex-wrap: wrap; padding-right: 0; padding-bottom: 10px; border-right: 0; border-bottom: 1px solid #ebeef5; }
-  .preset-item { max-width: 100%; }
-  .new-preset-button { margin-top: 0; }
-}
-@media (max-width: 640px) {
-  .preset-top-fields { grid-template-columns: minmax(0, 1fr); }
-  .preset-room-name-field { grid-column: auto; }
+@container (max-width: 620px) {
+  .preset-top-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .preset-room-name-field { grid-column: 1 / -1; }
+  .preset-top-fields > .preset-room-name-field { grid-column: 1 / -1; }
 }
 </style>

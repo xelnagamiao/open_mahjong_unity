@@ -9,6 +9,8 @@ internal static class GuizhouRuleBootstrap {
         RuleNameDictionary.ShortName[GuizhouGameState.RuleId] = "贵州";
         RuleNameDictionary.ShortName[GuizhouGameState.SubRule] = "贵州";
         RuleRegistry.Register(new RuleManifest {
+            ReplayFactory = record => record.CreateGuizhouReplayModule(),
+            BuildRoom = GuizhouRoomBuilder.Build,
             RuleId = GuizhouGameState.RuleId, DefaultSubRule = GuizhouGameState.SubRule,
             DisplayName = "贵州麻将", LobbyName = "贵州麻将", LobbyOrder = 9,
             LobbySubRules = new[] { new RuleLobbySubRule(GuizhouGameState.SubRule, "MIL 2023",
@@ -20,17 +22,17 @@ internal static class GuizhouRuleBootstrap {
                 { CreateRoomKeys.TouristLimit, false }, { CreateRoomKeys.AllowSpectator, true },
             },
             GameStateFactory = () => new GuizhouGameState(), OutboundChannel = "guizhou",
+            OpeningHandHasDrawSlot = info => info?.guizhou_info?.self_has_draw_slot == true,
             Tingpai = GuizhouShape.Waiting,
             DescribeWaitingTile = GuizhouTips.Describe,
             RecordDangerUsesWaitHint = true,
             FanNameText = (rule, label) => GuizhouFanText.Name(label),
             FanValueText = (rule, label) => GuizhouFanText.Value(label),
             SettlementTotal = q => new SettlementTotalDisplay {
-                FanText = $"基本分 {q.HuScore}分",
+                FanText = $"和牌得分 {q.HuScore}分",
                 ScoreText = q.WinnerPointDelta.HasValue ? $"{q.WinnerPointDelta.Value:+#;-#;0}分" : "",
             },
-            ScoreboardFanText = q => $"基本分 {q.HuScore}分",
-            SettlementFootnote = q => "鸡杠另计；基本分上限39分。",
+            ScoreboardFanText = q => $"和牌得分 {q.HuScore}分",
             RoundName = round => $"第{round}局", MaxRoundText = rounds => $"{rounds * 4}局",
             RoundStatusText = info => $"第{info.current_round}局", RoundSupplementText = info => "捉鸡",
             DefaultHepaiLimit = 0, HasFlowerReplacement = false,

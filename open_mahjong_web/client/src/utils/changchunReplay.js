@@ -1,6 +1,6 @@
 /** MIL Changchun records retain physical special melds and private bao revisions. */
 export const CHANGCHUN_EVENT_NAMES = Object.freeze({ special: '特殊杠', added_offer: '追加特殊杠', added_commit: '加杠成立', added_robbed: '加杠被抢', rob_claim: '抢碰杠牌', kong_score: '杠分', bao_reveal: '翻宝', bao_change: '换宝', bao_seen: '看宝', bao_exhausted: '无宝', tail_pass: '末四张过', round_reveal: '亮牌', settlement: '和牌结算' })
-export const CHANGCHUN_FANS = Object.freeze({ 门清: 1, '夹/单吊/单和': 1, 飘和: 2, 七对: 3, 豪华七对: 4, 冲宝: 2, 摸宝: 1 })
+export const CHANGCHUN_FANS = Object.freeze({ 门清: 1, '夹/单吊/单和': 1, 飘和: 2, 七对: 3, 豪华七对: 4, 冲宝: 2, 摸宝: 1, '庄（各家）': 1, '庄（庄家份）': 1 })
 export function isChangchunRecord(detail) { return detail?.rule === 'changchun' || detail?.record?.game_title?.rule === 'changchun' }
 export function changchunInfoAt(round, node, seat) {
   const info = { tile: null, revision: 0, seen: [-1, -1, -1, -1], exhausted: false, revealed: false, ledger: [], payments: [], bao: '', tailTiles: [] }

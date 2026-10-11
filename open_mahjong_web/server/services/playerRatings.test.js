@@ -4,13 +4,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { queryPlayerRatings, queryRankedStats, recordRatingFields } = require('./playerRatings');
 
-test('older database defaults are additive and genuine database failures are not hidden', async () => {
+test('rating defaults are additive while missing statistics migrations and database failures are not hidden', async () => {
   const missing = { query: async () => { throw Object.assign(new Error('missing table'), {code:'42P01'}); } };
   const ratings = await queryPlayerRatings(missing,101,{guobiao_rank:'三段',guobiao_score:0});
   assert.equal(ratings.guobiao.rank_name,'三段');assert.equal(ratings.guobiao.rank_score,0);
   assert.equal(ratings.riichi.rank_name,'10级');assert.equal(ratings.qingque.elo,1500);
   assert.equal('elo' in ratings.guobiao,false);assert.equal('elo' in ratings.riichi,false);
-  assert.deepEqual(await queryRankedStats(missing,101),{guobiao:[],riichi:[],qingque:[],sichuan:[],riichi_sanma:[],sichuan_xueliu_exchange:[]});
+  assert.equal(ratings.hongque.elo,1500);
+  await assert.rejects(queryRankedStats(missing,101),{code:'42P01'});
+  assert.deepEqual(await queryRankedStats({query:async()=>({rows:[]})},101),{guobiao:[],riichi:[],qingque:[],sichuan:[],riichi_sanma:[],sichuan_xueliu_exchange:[],hongque:[]});
   const broken = { query: async () => { throw Object.assign(new Error('connection failed'), {code:'08006'}); } };
   await assert.rejects(queryPlayerRatings(broken,101,{}),{code:'08006'});
   await assert.rejects(queryRankedStats(broken,101),{code:'08006'});
@@ -67,5 +69,19 @@ test('exchange-three ratings default independently and replay results require th
   const row = { user_id: 101, rule: 'sichuan', sub_rule: 'sichuan/xueliu_exchange', room_type: 'match' };
   assert.equal(recordRatingFields(row, results).elo_delta, 16);
   assert.equal(recordRatingFields({ ...row, sub_rule: 'sichuan/standard' }, results).elo_delta, null);
+  assert.equal(recordRatingFields({ ...row, room_type: 'custom' }, results).rating_rule, null);
+});
+
+test('Hongque ratings and ranked records use an independent Elo pool', async () => {
+  const ratings = await queryPlayerRatings({ query: async () => ({ rows: [
+    { rule: 'qingque', elo: 1777, games: 8 }, { rule: 'hongque', elo: 1516, games: 1 },
+  ] }) }, 101, {});
+  assert.equal(ratings.qingque.elo, 1777);
+  assert.equal(ratings.hongque.elo, 1516);
+  assert.equal(ratings.hongque.games, 1);
+  const results = { 101: { rating_rule: 'hongque', rating_system: 'elo', elo_before: 1500, elo_after: 1516, elo_delta: 16, rating_games: 1 } };
+  const row = { user_id: 101, rule: 'hongque', sub_rule: 'hongque/v1.6', room_type: 'match' };
+  assert.equal(recordRatingFields(row, results).elo_delta, 16);
+  assert.equal(recordRatingFields({ ...row, rule: 'qingque' }, results).rating_rule, null);
   assert.equal(recordRatingFields({ ...row, room_type: 'custom' }, results).rating_rule, null);
 });

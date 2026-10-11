@@ -119,7 +119,7 @@ def score(hand, melds=(), flowers=(), *, self_draw=False, replacement=False,
         # 乱风向不要求四面子一将；即使全为对子也按乱风向，不开放七对番。
         decomposed.append((None, None))
     extras = []
-    if len(melds) == 4 and all(code[0] != "G" for code in melds):
+    if len(melds) == 4:
         extras.append("大吊车")
     if self_draw and replacement:
         extras.append("杠头开花")
@@ -153,9 +153,9 @@ def payments(winner, points, *, discarder=None, partners=(), rob_kong=False):
     charges = {index: points for index in range(4) if index != winner} if discarder is None else {
         discarder: points * (3 if rob_kong else 1)
     }
-    # 抢杠时每个承包家另付三份；杠者兼承包家则共付六份。
-    contract_shares = 3 if rob_kong else (2 if discarder is None else 1)
     for partner in partners:
+        # 杠者兼包牌者追加三份；其他包牌者只追加一份。
+        contract_shares = 3 if rob_kong and partner == discarder else (2 if discarder is None else 1)
         charges[partner] = charges.get(partner, 0) + points * contract_shares
     result = {index: 0 for index in range(4)}
     for payer, charge in charges.items():

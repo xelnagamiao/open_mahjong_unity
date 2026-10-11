@@ -62,7 +62,7 @@ def test_contracts_are_symmetric_at_three_and_do_not_stack():
 
 
 @pytest.mark.parametrize("partner,expected", [
-    (2, [60,-30,-30,0]),
+    (2, [40,-30,-10,0]),
     (1, [60,-60,0,0]),
 ])
 @pytest.mark.parametrize("draw_debt,multiplier", [(0,1),(2,2)])
@@ -165,12 +165,13 @@ def test_multi_ron_consumes_one_huangfan_and_one_match_hand():
     asyncio.run(run())
 
 
-def test_fourth_chow_allows_same_tile_discard_only_at_fourth_exposed_meld():
+@pytest.mark.parametrize("first_meld", ["s15", "G14"])
+def test_fourth_chow_allows_same_tile_discard_and_ron_even_after_concealed_kong(first_meld):
     async def run():
         state = make_state()
         player = state.player_list[1]
         player.hand_tiles = [11,11,12,13]
-        player.combination_tiles = ["s15","s18","k41"]
+        player.combination_tiles = [first_meld,"s18","k41"]
         state.player_list[0].discard_tiles = [11]
         assert "chi_right" in state.check_discard_actions(11)[1]
         await state.execute_claim(1,"chi_right")
@@ -183,7 +184,7 @@ def test_fourth_chow_allows_same_tile_discard_only_at_fourth_exposed_meld():
     asyncio.run(run())
 
 
-def test_pass_ron_blocks_only_same_tile_until_own_draw():
+def test_pass_ron_blocks_all_waits_until_own_draw():
     async def run():
         state = make_state()
         player = state.player_list[1]
@@ -193,7 +194,9 @@ def test_pass_ron_blocks_only_same_tile_until_own_draw():
         allowed = state.check_discard_actions(47)
         await state.resolve_discard_responses({1:{"action_type":"pass"}}, allowed)
         assert state.score_candidate(1,"discard",47) is None
-        assert state.score_candidate(1,"discard",46)["base_score"] == 20
+        assert state.score_candidate(1,"discard",46) is None
+        assert state.score_candidate(1,"robbing_kong",46) is None
+        assert "hu_first" not in state.check_discard_actions(46)[1]
         await state._deal_normal()
         assert not player.passed_win_tiles
     asyncio.run(run())
@@ -207,6 +210,57 @@ def test_declined_self_draw_marks_discard_but_does_not_lock_hand():
         await state.execute_cut(0,{"TileId":41,"TileIndex":13,"CutClass":False})
         assert player.discard_tiles == [41] and 41 in player.passed_win_tiles
         assert not player.ready_locked
+    asyncio.run(run())
+
+
+def test_discarding_own_winning_tile_blocks_other_waits_until_next_draw():
+    async def run():
+        state = make_state()
+        player = state.player_list[0]
+        player.hand_tiles = [41,41,42,42,43,43,44,44,45,45,46,46,47,47]
+        await state.execute_cut(0,{"TileId":47,"TileIndex":13,"CutClass":False})
+        assert player.passed_win_tiles == {47}
+        assert state.score_candidate(0,"discard",46) is None
+        assert state.score_candidate(0,"robbing_kong",45) is None
+        assert not player.ready_locked
+        state.current_player_index = 3
+        await state._deal_normal()
+        assert not player.passed_win_tiles
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("source,points,expected", [
+    ("discard", (10,20), ([20,-10,0,-10], [-20,40,0,-20])),
+    ("robbing_kong", (10,10), ([40,-10,0,-30], [-10,40,0,-30])),
+])
+@pytest.mark.parametrize("draw_debt,multiplier", [(0,1),(2,2)])
+def test_multi_win_mutual_contracts_settle_each_win_independently(source, points, expected, draw_debt, multiplier):
+    async def run():
+        state = make_state()
+        state.huangfan_count = draw_debt
+        state.run_hu_result_ready_phase = AsyncMock()
+        for _ in range(3):
+            state._remember_claim_liability(0,1,11)
+            state._remember_claim_liability(1,0,11)
+        assert state.contracts == {(0,1)}
+        state.pending_winners = [
+            {"index":i,"payer":3,"source":source,"hu_class":action,"tile":13,
+             "detail":{"base_score":points[i],"fan_names":["抢杠" if source == "robbing_kong" else "清一色"]}}
+            for i,action in [(0,"hu_first"),(1,"hu_second")]
+        ]
+        before = {p.original_player_index:p.score for p in state.player_list}
+        rows = [[change * multiplier for change in row] for row in expected]
+        with patch('server.gamestate.game_shanghai.QinghunpengGameState.broadcast_result',new=AsyncMock()) as broadcast:
+            assert not await state._settle_hand(before)
+        assert [call.kwargs["score_changes"] for call in broadcast.await_args_list] == [dict(enumerate(row)) for row in rows]
+        ticks = state.game_record["game_round"][f"round_index_{state.round_index}"]["action_ticks"]
+        wins = [tick for tick in ticks if tick[0] in ("hu_first","hu_second")]
+        assert [tick[4] for tick in wins] == rows
+        for i,player in enumerate(state.player_list):
+            assert player.score - before[player.original_player_index] == sum(row[i] for row in rows)
+            assert player.score_history == [f"{row[i]:+d}" if row[i] else "0" for row in rows]
+        assert all(sum(row) == 0 for row in rows)
+        assert state.next_dealer() == 3
     asyncio.run(run())
 
 

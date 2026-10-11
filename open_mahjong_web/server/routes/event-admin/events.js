@@ -496,6 +496,16 @@ router.get('/:eventId/rooms', requireEventMembership, async (req, res) => {
   }
 });
 
+router.post('/:eventId/rooms/:roomId/restart-pair', requireEventMembership, async (req, res) => {
+  try {
+    const qs = new URLSearchParams({ event_id: req.event.event_id });
+    const { status, data } = await proxyToGameServer(`/admin/event/rooms/${encodeURIComponent(req.params.roomId)}/restart-pair?${qs}`, {});
+    if (status >= 400) return res.status(status).json({ success: false, message: data?.detail || '续赛失败' });
+    await writeAudit({ adminUserId: req.eventAdmin.userId, action: 'event_admin.room.restart_pair', targetType: 'event', targetId: req.event.event_id, payload: { room_id: req.params.roomId }, reason: String(req.body?.reason || '') });
+    res.json(data);
+  } catch (error) { res.status(500).json({ success: false, message: '游戏服不可达' }); }
+});
+
 router.delete('/:eventId/rooms/:roomId', requireEventMembership, async (req, res) => {
   try {
     const { reason } = req.body || {};

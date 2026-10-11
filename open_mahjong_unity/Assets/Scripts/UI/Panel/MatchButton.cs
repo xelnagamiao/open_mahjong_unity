@@ -7,7 +7,7 @@ using UnityEngine.EventSystems;
 /// 匹配按钮组件：在 Inspector 中配置规则、局制、场次，自行管理遮罩与人数显示。
 /// </summary>
 public class MatchButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler, IPointerUpHandler {
-    public enum MatchRule { Guobiao, Riichi, Sichuan, Qingque, RiichiSanma, SichuanXueliuExchange }
+    public enum MatchRule { Guobiao, Riichi, Sichuan, Qingque, RiichiSanma, SichuanXueliuExchange, Hongque }
     public enum MatchGameType { Dongfeng, Banzhuang, Quanzhuang, Xuezhan, Xueliu }
     public enum MatchTier { Beginner, Intermediate, Advanced, MCRPL }
 
@@ -40,7 +40,7 @@ public class MatchButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHand
     public string ModeTitle => modeLabel != null ? modeLabel.text : "";
     public string RuleId => rule == MatchRule.SichuanXueliuExchange ? RankedRules.XueliuExchangeRule : rule == MatchRule.RiichiSanma ? RiichiSanmaRankConfig.Rule : rule.ToString().ToLowerInvariant();
     public bool IsElo => !RankedRules.IsGrade(RuleId);
-    public bool IsAvailable => rule==MatchRule.Guobiao || (rule==MatchRule.Riichi || rule==MatchRule.RiichiSanma) && tier!=MatchTier.MCRPL && gameType<=MatchGameType.Banzhuang || (rule==MatchRule.Qingque || rule==MatchRule.Sichuan || rule==MatchRule.SichuanXueliuExchange) && gameType==MatchGameType.Quanzhuang;
+    public bool IsAvailable => rule==MatchRule.Guobiao || (rule==MatchRule.Riichi || rule==MatchRule.RiichiSanma) && tier!=MatchTier.MCRPL && gameType<=MatchGameType.Banzhuang || rule==MatchRule.Sichuan && gameType==MatchGameType.Banzhuang || (rule==MatchRule.Qingque || rule==MatchRule.SichuanXueliuExchange || rule==MatchRule.Hongque) && gameType==MatchGameType.Quanzhuang;
     [SerializeField] private RankPolicyPanel policyPanel;
     public void SetSelected(bool value) {
         selected = value;
@@ -82,8 +82,8 @@ public class MatchButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHand
     /// <summary>
     /// 由配置生成的队列标识符，如 "beginner_dongfeng"
     /// </summary>
-    // Sichuan retains its original transport ID; its authored game type is full-length.
-    public string QueueType => rule==MatchRule.Sichuan && gameType==MatchGameType.Quanzhuang
+    // Sichuan retains its original transport ID for the eight-hand match.
+    public string QueueType => rule==MatchRule.Sichuan && gameType==MatchGameType.Banzhuang
         ? "sichuan_elo_xuezhan"
         : (rule==MatchRule.Guobiao ? "" : RuleId+"_")+(IsElo ? "elo" : TierKeys[(int)tier])+"_"+GameTypeKeys[(int)gameType];
 

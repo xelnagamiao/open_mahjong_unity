@@ -28,9 +28,14 @@ def repo_root() -> Path:
     return Path(__file__).resolve().parents[4]
 
 
+def contract_source_bytes(path: Path) -> bytes:
+    # Match the repository's eol=lf checkout contract across Windows editors and CI.
+    return path.read_bytes().replace(b"\r\n", b"\n")
+
+
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
-    digest.update(path.read_bytes())
+    digest.update(contract_source_bytes(path))
     return digest.hexdigest()
 
 
@@ -74,7 +79,7 @@ def build_lock() -> Dict[str, Any]:
             raise SystemExit(f"缺少 Unity 契约文件: {rel}")
         files[rel] = {
             "sha256": sha256_file(path),
-            "size": path.stat().st_size,
+            "size": len(contract_source_bytes(path)),
         }
     actions_rel = "open_mahjong_unity/Assets/Scripts/GameScene/GameStateManager/NormalGameStateManager.Actions.cs"
     allow = extract_unity_allowlists(root / actions_rel)

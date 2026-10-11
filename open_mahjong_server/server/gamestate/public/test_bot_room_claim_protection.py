@@ -33,7 +33,8 @@ def test_two_humans_receive_bot_cut_together_before_any_response(monkeypatch, ru
             async def send(payload, index=seat):
                 wire[index].append((time.monotonic(), payload))
             connections[uid] = NS(websocket=NS(send_json=send))
-        state = NS(room_rule=rule, bot_speed="fast", claim_protection=enabled, tactical_call=tactical,
+        state = NS(room_rule=rule, sub_rule=f"{rule}/standard", tiles_list=[11, 12, 13], dead_wall_count=0,
+                   bot_speed="fast", claim_protection=enabled, tactical_call=tactical,
                    player_list=players, current_player_index=actor, server_action_tick=1,
                    game_status="waiting_hand_action", waiting_players_list=[actor], lifecycle_state="running",
                    game_server=NS(user_id_to_connection=connections), send_to_realtime_spectators=AsyncMock())

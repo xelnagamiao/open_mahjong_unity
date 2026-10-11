@@ -1,3 +1,5 @@
+const { statisticsSelection, subRuleSql, statsKeySql } = require('./statisticsCatalog');
+const { aggregatePlayerRows, fetchMetricRows, allPlayerRuleStats } = require('./subrulePlayerStats');
 const { withRecordMetadataQuery } = require('./recordMetadataQuery');
 /**
  * /api/player 与 /api/bot/player 共用的 info / records / rank 查询逻辑
@@ -10,117 +12,16 @@ const { aggregateRiichiStats, fetchRiichiRows } = require('./riichiStats');
 
 const LIST_PAGE_MAX = 50;
 
-const ruleConfig = {
-  guobiao: { historyTable: 'guobiao_history_stats', fanTable: 'guobiao_fan_stats' },
-  riichi: { historyTable: 'riichi_history_stats', fanTable: 'riichi_fan_stats' },
-  qingque: { historyTable: 'qingque_history_stats', fanTable: 'qingque_fan_stats' },
-  classical: { historyTable: 'classical_history_stats', fanTable: 'classical_fan_stats' },
-  changsha: { historyTable: 'changsha_history_stats', fanTable: null },
-  nanque: { historyTable: 'jiandan_history_stats', fanTable: 'jiandan_fan_stats' },
-};
-
-const HISTORY_FIELDS = new Set([
-  'user_id', 'rule', 'mode', 'total_games', 'total_rounds', 'win_count',
-  'self_draw_count', 'deal_in_count', 'total_fan_score', 'total_win_turn',
-  'total_fangchong_score', 'first_place_count', 'second_place_count',
-  'third_place_count', 'fourth_place_count', 'fulu_round_count',
-  'created_at', 'updated_at',
-]);
-
 const GAME_TYPE_MATCH_TYPES = {
   dongfeng: ['1/4', '1/4_rank', '1/4_sanma', '1/4_sanma_rank'],
   banzhuang: ['2/4', '2/4_rank', '2/4_sanma', '2/4_sanma_rank'],
-  xifeng: ['3/4'],
-  quanzhuang: ['4/4', '4/4_rank'],
+  xifeng: ['3/4', '3/4_sanma', '3/4_sanma_rank'],
+  quanzhuang: ['4/4', '4/4_rank', '4/4_sanma', '4/4_sanma_rank'],
+  hands8: ['8/4'], hands12: ['12/4'], hands16: ['16/4'],
 };
 
-const PLAYER_METRIC_FIELDS = [
-  'total_rounds', 'win_count', 'self_draw_count', 'deal_in_count',
-  'total_fan_score', 'total_win_turn', 'total_fangchong_score',
-  'fulu_round_count', 'cuohe_count',
-];
-
-function extractFanStats(fanRow) {
-  if (!fanRow) return null;
-  const fanStats = {};
-  for (const [key, value] of Object.entries(fanRow)) {
-    if (HISTORY_FIELDS.has(key)) continue;
-    if (value !== null && value !== 0) fanStats[key] = value;
-  }
-  return Object.keys(fanStats).length > 0 ? fanStats : null;
-}
-
 async function queryRuleStats(userId, rule) {
-  if (rule === 'riichi') {
-    const rows = await fetchRiichiRows(pool, ["gpr.user_id=$1", "gpr.rule='riichi'", "gpr.room_type IN ('match','custom')"], [userId]);
-    const modes = new Map();
-    for (const row of rows) {
-      if (!modes.has(row.mode)) modes.set(row.mode, []);
-      modes.get(row.mode).push(row);
-    }
-    return [...modes].map(([mode, items]) => ({ ...aggregateRiichiStats(items), mode,
-      mode_fan_stats: aggregateRiichiStats(items).fan_stats }));
-  }
-  const cfg = ruleConfig[rule];
-  if (!cfg) return [];
-
-  let historyResult;
-  try {
-    historyResult = await pool.query(
-      `SELECT * FROM ${cfg.historyTable} WHERE user_id = $1 ORDER BY rule, mode`,
-      [userId]
-    );
-  } catch (err) {
-    if (err && err.code === '42P01') return [];
-    throw err;
-  }
-
-  let fanRows = [];
-  if (cfg.fanTable) {
-    const fanResult = await pool.query(
-      `SELECT * FROM ${cfg.fanTable} WHERE user_id = $1`,
-      [userId]
-    );
-    fanRows = fanResult.rows;
-  }
-
-  let fanTotal = null;
-  const fansByMode = new Map();
-  if (fanRows.length) {
-    const merged = {};
-    for (const row of fanRows) {
-      const extracted = extractFanStats(row);
-      if (!extracted) continue;
-      fansByMode.set(row.mode, extracted);
-      for (const [k, v] of Object.entries(extracted)) {
-        merged[k] = (merged[k] || 0) + v;
-      }
-    }
-    if (Object.keys(merged).length > 0) fanTotal = merged;
-  }
-
-  return historyResult.rows.map((row, idx) => ({
-    rule: rule === 'nanque' ? 'zhongyong' : row.rule,
-    ...(rule === 'nanque' ? { sub_rule: 'zhongyong/nanque' } : {}),
-    mode: row.mode,
-    total_games: row.total_games,
-    total_rounds: row.total_rounds,
-    win_count: row.win_count,
-    self_draw_count: row.self_draw_count,
-    deal_in_count: row.deal_in_count,
-    total_fan_score: row.total_fan_score,
-    total_win_turn: row.total_win_turn,
-    total_fangchong_score: row.total_fangchong_score,
-    first_place_count: row.first_place_count,
-    second_place_count: row.second_place_count,
-    third_place_count: row.third_place_count,
-    fourth_place_count: row.fourth_place_count,
-    fulu_round_count: row.fulu_round_count,
-    cuohe_count: row.cuohe_count,
-    total_round_score: row.total_round_score,
-    fan_stats: idx === 0 ? fanTotal : null,
-    mode_fan_stats: fansByMode.get(row.mode) || null,
-  }));
+  return (await allPlayerRuleStats(pool, userId))[rule] || [];
 }
 
 async function resolveUserId(key) {
@@ -184,12 +85,21 @@ function buildRecordFilters(userId, query, params) {
     conditions.push(`gpr.event_id = $${params.push(String(query.event_id).trim())}`);
   }
 
-  if (query.rule) conditions.push(`gpr.rule = $${params.push(query.rule)}`);
-  if (query.sub_rule) conditions.push(`gpr.sub_rule = $${params.push(query.sub_rule)}`);
+  const def = statisticsSelection(query.sub_rule || query.rule);
+  if (def) {
+    conditions.push(`${subRuleSql('gpr','gr')} = $${params.push(def.sub_rule)}`);
+  } else {
+    if (query.rule) conditions.push(`gpr.rule = $${params.push(query.rule)}`);
+    if (query.sub_rule) conditions.push(`gpr.sub_rule = $${params.push(query.sub_rule)}`);
+  }
   if (query.game_type) {
-    const mts = GAME_TYPE_MATCH_TYPES[query.game_type];
+    const hongqueModes = { hands4:['4/4'], hands8:['8/4'], hands12:['12/4'],
+      hands16:['16/4','16/4_rank'] };
+    const mts = def?.rule === 'hongque' ? hongqueModes[query.game_type] : GAME_TYPE_MATCH_TYPES[query.game_type];
     if (mts && mts.length) {
       conditions.push(`gpr.match_type = ANY($${params.push(mts)}::varchar[])`);
+    } else if (def?.rule === 'hongque') {
+      conditions.push('FALSE');
     }
   }
   if (query.date_from) conditions.push(`gr.created_at >= $${params.push(query.date_from)}`);
@@ -220,7 +130,7 @@ function buildRecordMeta(gameRecord, playersRows) {
   if (sampleRow) {
     if (!rule) rule = sampleRow.rule || '';
     if (!subRule) subRule = sampleRow.sub_rule || null;
-    if (!matchType) matchType = sampleRow.match_type || null;
+    matchType = sampleRow.match_type || matchType;
     if (!roomType) roomType = sampleRow.room_type || null;
     if (!eventId) eventId = sampleRow.event_id || null;
   }
@@ -271,22 +181,17 @@ async function fetchPlayerInfo(userId) {
   if (userSettingsResult.rows.length === 0) return null;
 
   const userSettings = userSettingsResult.rows[0];
-  const [guobiaoStats, riichiStats, qingqueStats, classicalStats, changshaStats, nanqueStats, rankedStats, rankResult, recordCountsResult] = await Promise.all([
-    queryRuleStats(userId, 'guobiao'),
-    queryRuleStats(userId, 'riichi'),
-    queryRuleStats(userId, 'qingque'),
-    queryRuleStats(userId, 'classical'),
-    queryRuleStats(userId, 'changsha'),
-    queryRuleStats(userId, 'nanque'),
+  const [rankedStats, rankResult, recordCountsResult, statsByRule] = await Promise.all([
     queryRankedStats(pool, userId),
     pool.query(
       'SELECT guobiao_rank, guobiao_score, updated_at FROM rank_data WHERE user_id = $1',
       [userId]
     ),
     pool.query(
-      'SELECT rule, COUNT(*)::int AS total_games FROM game_player_records WHERE user_id = $1 GROUP BY rule',
+      `SELECT ${statsKeySql(subRuleSql('p','g'))} AS rule,COUNT(*)::int AS total_games FROM game_player_records p JOIN game_records g USING(game_id) WHERE user_id=$1 GROUP BY 1`,
       [userId]
     ),
+    allPlayerRuleStats(pool, userId),
   ]);
 
   const rankRow = rankResult.rows[0] || {
@@ -315,12 +220,13 @@ async function fetchPlayerInfo(userId) {
       bounds: getScoreBounds(guobiao_rank),
       progress: getPromotionProgress(guobiao_rank, guobiao_score),
     },
-    guobiao_stats: guobiaoStats,
-    riichi_stats: riichiStats,
-    qingque_stats: qingqueStats,
-    classical_stats: classicalStats,
-    changsha_stats: changshaStats,
-    nanque_stats: nanqueStats,
+    stats_by_rule: statsByRule,
+    guobiao_stats: statsByRule.guobiao || [],
+    riichi_stats: statsByRule.riichi || [],
+    qingque_stats: statsByRule.qingque || [],
+    classical_stats: statsByRule.classical || [],
+    changsha_stats: statsByRule.changsha || [],
+    nanque_stats: statsByRule.nanque || [],
     ratings,
     ranked_stats: rankedStats,
     record_counts: Object.fromEntries(recordCountsResult.rows.map(row => [row.rule, Number(row.total_games) || 0])),
@@ -450,62 +356,14 @@ async function fetchPlayerRecords(userId, query, offset, limit) {
 
 /** 与 GET /api/player/rank-stats/:key 的 data 字段一致 */
 async function fetchPlayerRankStats(userId, query) {
+  const def = statisticsSelection(query.sub_rule || query.rule);
+  if (!def) return { details_available: false, total_games: 0, supports_fan_stats: false };
   return withRecordMetadataQuery(pool, async (db) => {
     const params = [];
     const conditions = buildRecordFilters(userId, query, params);
-    // 日麻沿用带版本的专用摘要；其他规则直接汇总同一批对局的每玩家指标。
-    const useMetrics = query.rule !== 'riichi';
-    const metricColumns = useMetrics ? `
-        COUNT(gpm.game_id)::int AS analyzed_games,
-        COUNT(gpm.game_id) = COUNT(*) AS details_available,
-        ${PLAYER_METRIC_FIELDS.map(field => `COALESCE(SUM(gpm.${field}), 0) AS ${field}`).join(',\n        ')},` : '';
-    // 指标表没有 (game_id, user_id) 唯一约束，先按玩家取每局最新一条，避免重复放大统计。
-    // 批量连接避免对每局分别扫描指标表；筛选日期始终使用 game_records.created_at。
-    const metricsJoin = useMetrics ? `
-      LEFT JOIN (
-        SELECT DISTINCT ON (game_id) game_id, ${PLAYER_METRIC_FIELDS.join(', ')}
-        FROM game_player_metrics WHERE user_id = $1
-        ORDER BY game_id, id DESC
-      ) gpm ON gpm.game_id = gpr.game_id` : '';
-    const sql = `
-      SELECT
-        ${metricColumns}
-        COUNT(*)::int AS total_games,
-        -- 国标从 0 分开局，结算分就是本场净得分；与顺位共用全部筛选条件。
-        -- 其他规则可能带起始点数，缺失分数也不能当作 0 分混入均值。
-        CASE WHEN COUNT(*) FILTER (WHERE gpr.rule IS DISTINCT FROM 'guobiao' OR gpr.score IS NULL) = 0
-          THEN COALESCE(SUM(gpr.score), 0)
-        END AS total_round_score,
-        COUNT(*) FILTER (WHERE gpr.rank = 1)::int AS first_place_count,
-        COUNT(*) FILTER (WHERE gpr.rank = 2)::int AS second_place_count,
-        COUNT(*) FILTER (WHERE gpr.rank = 3)::int AS third_place_count,
-        COUNT(*) FILTER (WHERE gpr.rank = 4)::int AS fourth_place_count
-      FROM game_player_records gpr
-      JOIN game_records gr ON gr.game_id = gpr.game_id
-      ${metricsJoin}
-      WHERE ${conditions.join(' AND ')}
-    `;
-    const result = await db.query(sql, params);
-    const row = result.rows[0] || {};
-    const riichi = query.rule === 'riichi'
-      ? aggregateRiichiStats(await fetchRiichiRows(db, conditions, params)) : null;
-    const details = riichi || {
-      details_available: row.details_available === true,
-      analyzed_games: Number(row.analyzed_games) || 0,
-      // 缺失任意一局时不能将部分合计伪装成完整明细；空筛选则返回完整的零值。
-      ...Object.fromEntries(PLAYER_METRIC_FIELDS.map(field => [field,
-        row.details_available ? Number(row[field]) || 0 : null])),
-    };
-    return {
-      ...details,
-      total_games: Number(row.total_games) || 0,
-      total_round_score: riichi?.details_available ? (riichi.riichi_details.net_score_count === riichi.total_games ? riichi.total_round_score : null)
-        : row.total_round_score == null ? null : Number(row.total_round_score),
-      first_place_count: Number(row.first_place_count) || 0,
-      second_place_count: Number(row.second_place_count) || 0,
-      third_place_count: Number(row.third_place_count) || 0,
-      fourth_place_count: Number(row.fourth_place_count) || 0,
-    };
+    conditions.push('gpr.user_id>10000000');
+    conditions.push('NOT EXISTS (SELECT 1 FROM game_player_records bot WHERE bot.game_id=gpr.game_id AND bot.user_id<=10)');
+    return aggregatePlayerRows(await fetchMetricRows(db, conditions, params), def);
   });
 }
 

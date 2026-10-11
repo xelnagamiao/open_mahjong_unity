@@ -1,104 +1,128 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 
-/// <summary>中心盘上的单张共享牌；服务器拥有牌值，展示实例不占用任何玩家的牌容器或数量池。</summary>
+/// <summary>中心盘上的共享牌按放入顺序展示，编号保留至该张牌被取走。</summary>
 public sealed class FreeModeTransferTile : MonoBehaviour {
+    private sealed class Presentation {
+        public GameObject tile;
+        public RectTransform target, number;
+        public Canvas canvas;
+        public int token, tileId;
+        public bool faceDown;
+    }
     private FreeGameState state;
-    private GameObject tile;
-    private int displayedTile;
-    private bool displayedFaceDown;
-    private RectTransform clickTarget;
-    private Canvas clickCanvas;
+    private readonly Dictionary<int, Presentation> displayed = new Dictionary<int, Presentation>();
+    private readonly List<int> removed = new List<int>();
     private float nextTakeTime;
 
-    public void Bind(FreeGameState owner) {
-        state = owner;
-        Refresh();
-    }
-
+    public void Bind(FreeGameState owner) { state = owner; Refresh(); }
     private void LateUpdate() => Refresh();
 
     public void Refresh() {
         Game3DManager table = Game3DManager.Instance;
         if (!isActiveAndEnabled || state == null || !state.IsActive || FreeGameState.Active != state
-            || GameHost.Current.CurrentWindow != "game" || !state.TransferTile.HasValue || table == null
+            || GameHost.Current.CurrentWindow != "game" || state.TransferTiles.Count == 0 || table == null
             || !table.TryGetTransferTilePlacement(out Vector3 position, out Quaternion rotation,
                 out Vector3 hitPosition, out Quaternion hitRotation, out Vector2 hitSize)) {
-            ClearTile();
+            ClearTiles();
             return;
         }
-        if (tile != null && (displayedTile != state.TransferTile.Value || displayedFaceDown != state.TransferFaceDown)) ClearTile();
-        if (tile == null) {
-            MahjongObjectPool pool = MahjongObjectPool.Instance;
-            if (pool == null) return;
-            // 暗牌用空白实体翻到牌背；从未绑定真实牌值，因此悬停也不能偷看。
-            tile = pool.CreatePresentationTile(state.TransferFaceDown ? ConfigManager.BlankFaceImageId : state.TransferTile.Value);
-            if (tile == null) return;
-            displayedTile = state.TransferTile.Value;
-            displayedFaceDown = state.TransferFaceDown;
-            tile.GetComponent<Tile3D>()?.SetConcealedFaceDown(displayedFaceDown);
-            tile.name = "FreeModeTransferTile";
-            SceneManager.MoveGameObjectToScene(tile, table.gameObject.scene);
-            if (!displayedFaceDown) Card3DHoverManager.Instance?.RegisterCard(tile, displayedTile);
-            EnsureClickTarget(table);
+        removed.Clear();
+        foreach (KeyValuePair<int, Presentation> pair in displayed) {
+            bool found = false;
+            foreach (FreeTransferTileInfo item in state.TransferTiles)
+                if (item.slot == pair.Key && item.token == pair.Value.token && item.tile == pair.Value.tileId
+                    && item.face_down == pair.Value.faceDown) { found = true; break; }
+            if (!found) removed.Add(pair.Key);
         }
-        tile.transform.SetPositionAndRotation(position, rotation);
-        clickTarget.SetPositionAndRotation(hitPosition, hitRotation);
-        clickTarget.sizeDelta = hitSize;
-        bool canTake = !GameSession.Current.IsRealtimeSpectator;
-        clickTarget.gameObject.SetActive(canTake);
-        if (clickCanvas.worldCamera == null) clickCanvas.worldCamera = Camera.main;
+        foreach (int slot in removed) { DestroyPresentation(displayed[slot]); displayed.Remove(slot); }
+        for (int index = 0; index < state.TransferTiles.Count; index++) {
+            FreeTransferTileInfo item = state.TransferTiles[index];
+            if (!displayed.TryGetValue(item.slot, out Presentation view)) {
+                view = CreatePresentation(table, item);
+                if (view == null) continue;
+                displayed[item.slot] = view;
+            }
+            Vector3 offset = hitRotation * Vector3.right * ((index - (state.TransferTiles.Count - 1) * 0.5f) * hitSize.x * 1.14f);
+            view.tile.transform.SetPositionAndRotation(position + offset, rotation);
+            view.target.SetPositionAndRotation(hitPosition + offset, hitRotation);
+            view.target.sizeDelta = hitSize;
+            view.number.anchoredPosition = new Vector2(0f, -hitSize.y * 0.64f);
+            view.number.localScale = Vector3.one * (hitSize.y * 0.3f / 70f);
+            if (view.canvas.worldCamera == null) view.canvas.worldCamera = Camera.main;
+        }
     }
 
-    private void EnsureClickTarget(Game3DManager table) {
-        if (clickTarget != null) return;
-        var root = new GameObject("FreeModeTransferTake", typeof(RectTransform), typeof(Canvas),
+    private Presentation CreatePresentation(Game3DManager table, FreeTransferTileInfo item) {
+        MahjongObjectPool pool = MahjongObjectPool.Instance;
+        if (pool == null) return null;
+        // Unknown tiles never bind the real face, including their hover target.
+        GameObject tile = pool.CreatePresentationTile(item.face_down ? ConfigManager.BlankFaceImageId : item.tile);
+        if (tile == null) return null;
+        tile.GetComponent<Tile3D>()?.SetConcealedFaceDown(item.face_down);
+        tile.name = "FreeModeTransferTile" + item.slot;
+        SceneManager.MoveGameObjectToScene(tile, table.gameObject.scene);
+        if (!item.face_down) Card3DHoverManager.Instance?.RegisterCard(tile, item.tile);
+        var root = new GameObject("FreeModeTransferTake" + item.slot, typeof(RectTransform), typeof(Canvas),
             typeof(GraphicRaycaster), typeof(Image), typeof(FreeModeTransferTileHitTarget));
         SceneManager.MoveGameObjectToScene(root, table.gameObject.scene);
-        clickTarget = root.GetComponent<RectTransform>();
-        clickTarget.localScale = Vector3.one;
-        clickCanvas = root.GetComponent<Canvas>();
-        clickCanvas.renderMode = RenderMode.WorldSpace;
+        Canvas canvas = root.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.WorldSpace;
         Canvas board = BoardCanvas.Instance != null ? BoardCanvas.Instance.GetComponent<Canvas>() : null;
-        clickCanvas.worldCamera = board != null && board.worldCamera != null ? board.worldCamera : Camera.main;
-        if (board != null) {
-            clickCanvas.sortingLayerID = board.sortingLayerID;
-            clickCanvas.sortingOrder = board.sortingOrder + 1;
+        canvas.worldCamera = board != null && board.worldCamera != null ? board.worldCamera : Camera.main;
+        if (board != null) { canvas.sortingLayerID = board.sortingLayerID; canvas.sortingOrder = board.sortingOrder + 1; }
+        Image hit = root.GetComponent<Image>();
+        hit.color = Color.clear;
+        hit.raycastTarget = true;
+        root.GetComponent<FreeModeTransferTileHitTarget>().Bind(this, item.slot, item.token);
+        var number = new GameObject("Number", typeof(RectTransform), typeof(Image));
+        var numberRect = (RectTransform)number.transform;
+        numberRect.SetParent(root.transform, false);
+        numberRect.sizeDelta = new Vector2(86f, 70f);
+        var backing = number.GetComponent<Image>();
+        backing.color = new Color(0.04f, 0.09f, 0.12f, 0.92f);
+        backing.raycastTarget = false;
+        var label = new GameObject("Label", typeof(RectTransform), typeof(Text)).GetComponent<Text>();
+        label.transform.SetParent(number.transform, false);
+        label.rectTransform.anchorMin = Vector2.zero;
+        label.rectTransform.anchorMax = Vector2.one;
+        label.rectTransform.offsetMin = label.rectTransform.offsetMax = Vector2.zero;
+        label.font = Resources.Load<Font>("font/Chinese/AlibabaPuHuiTi/AlibabaPuHuiTi-3-55-Regular");
+        label.fontSize = 56;
+        label.alignment = TextAnchor.MiddleCenter;
+        label.color = Color.white;
+        label.raycastTarget = false;
+        label.text = item.slot.ToString();
+        return new Presentation { tile = tile, target = (RectTransform)root.transform, number = numberRect,
+            canvas = canvas, token = item.token, tileId = item.tile, faceDown = item.face_down };
+    }
+
+    internal void TakeTile(int slot, int token) {
+        if (!isActiveAndEnabled || state == null || !state.IsActive || FreeGameState.Active != state
+            || GameSession.Current.IsRealtimeSpectator || GameHost.Current.CurrentWindow != "game"
+            || Time.unscaledTime < nextTakeTime || Game3DManager.Instance == null || !Game3DManager.Instance.isActiveAndEnabled) return;
+        foreach (FreeTransferTileInfo item in state.TransferTiles) {
+            if (item.slot != slot || item.token != token) continue;
+            nextTakeTime = Time.unscaledTime + 0.35f;
+            state.SendTransferTake(new[] { item });
+            return;
         }
-        // 只有牌顶大小的透明点击面；世界 Canvas 保持低于屏幕抽屉、弹窗的事件优先级。
-        Image image = root.GetComponent<Image>();
-        image.color = Color.clear;
-        image.raycastTarget = true;
-        root.GetComponent<FreeModeTransferTileHitTarget>().Bind(this);
     }
 
-    internal void TakeTile() {
-        if (!isActiveAndEnabled || tile == null || state == null || !state.IsActive
-            || FreeGameState.Active != state || GameSession.Current.IsRealtimeSpectator
-            || GameHost.Current.CurrentWindow != "game"
-            || state.TransferTile != displayedTile || Time.unscaledTime < nextTakeTime
-            || Game3DManager.Instance == null || !Game3DManager.Instance.isActiveAndEnabled) return;
-        nextTakeTime = Time.unscaledTime + 0.35f;
-        state.SendTransferTake();
-    }
-
-    private void ClearTile() {
-        if (tile != null) {
-            Card3DHoverManager.Instance?.ResetAndUnregisterCard(tile);
-            tile.SetActive(false);
-            Destroy(tile);
-            tile = null;
+    private void DestroyPresentation(Presentation view) {
+        if (view.tile != null) {
+            Card3DHoverManager.Instance?.ResetAndUnregisterCard(view.tile);
+            view.tile.SetActive(false);
+            Destroy(view.tile);
         }
-        if (clickTarget != null) clickTarget.gameObject.SetActive(false);
-        displayedTile = 0;
-        displayedFaceDown = false;
+        if (view.target != null) { view.target.gameObject.SetActive(false); Destroy(view.target.gameObject); }
     }
-
-    private void OnDisable() => ClearTile();
-
-    private void OnDestroy() {
-        ClearTile();
-        if (clickTarget != null) Destroy(clickTarget.gameObject);
+    private void ClearTiles() {
+        foreach (Presentation view in displayed.Values) DestroyPresentation(view);
+        displayed.Clear();
     }
+    private void OnDisable() => ClearTiles();
+    private void OnDestroy() => ClearTiles();
 }

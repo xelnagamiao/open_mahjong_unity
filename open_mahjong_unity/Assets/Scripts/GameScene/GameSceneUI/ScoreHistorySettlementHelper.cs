@@ -30,9 +30,10 @@ public static class ScoreHistorySettlementHelper {
     }
 
     /// <summary>四川血战终局：根据和牌家数与是否查叫，确定计分板主番类型。</summary>
-    public static string ResolveSichuanEndgameRoundLabel(int huCount, bool hadChajiaoStep) {
+    public static string ResolveSichuanEndgameRoundLabel(int huCount, bool hadChajiaoStep, string subRule = null) {
         if (hadChajiaoStep) return SichuanRoundLabel.Chajiao;
         if (huCount >= 3) return SichuanRoundLabel.ThreeHu;
+        if (huCount == 2 && SichuanLobby.IsDoubles(subRule)) return SichuanRoundLabel.TeamFirstTwo;
         return SichuanRoundLabel.Liuju;
     }
 
@@ -269,7 +270,7 @@ public static class ScoreHistorySettlementHelper {
         bool isLiuju = huClass == "liuju" || huClass == "ryuukyoku"
             || SpecialLiujuCaptions.IsRiichiAbort(huClass)
             || huClass == "jiuzhongjiupai";
-        bool hasWin = !isLiuju && huFan != null && huFan.Length > 0;
+        bool hasWin = !isLiuju && huClass != "lajihe_eight_flowers" && huFan != null && huFan.Length > 0;
 
         return new RoundSettlementSnapshot {
             hasWin = hasWin,

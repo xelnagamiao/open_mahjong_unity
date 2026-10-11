@@ -303,7 +303,8 @@ public class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
         var selected = new List<PlayerInfoClass>();
         if (players == null) return selected;
         foreach (var pair in players) {
-            if (pair.Value != null && (!isSanma || pair.Key != "top")) selected.Add(pair.Value);
+            if (pair.Value != null && (!isSanma || (pair.Value.original_player_index >= 0
+                && pair.Value.original_player_index < 3))) selected.Add(pair.Value);
         }
         selected.Sort((a, b) => a.original_player_index.CompareTo(b.original_player_index));
         return selected;

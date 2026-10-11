@@ -23,7 +23,7 @@ public sealed class WenzhouGameState : TurnBasedGameState {
         if (info == null) return;
         Info = info.wenzhou_info ?? Info;
         if (info.wenzhou_waits != null) waits = info.wenzhou_waits;
-        WenzhouPanel.Show(Info);
+        WenzhouTableIndicators.Refresh(Info);
     }
     protected override void OnRoundStarted(GameInfo info) {
         int nextHand = info?.wenzhou_info?.hand_number ?? 0;
@@ -32,11 +32,6 @@ public sealed class WenzhouGameState : TurnBasedGameState {
         }
         ResetSettlement();
         Info = null; waits.Clear(); endHands = null; Accept(info);
-        if (Info?.self_has_draw_slot == true && Mirror.SelfHandTiles.Count > 0) {
-            var tiles = Mirror.SelfHandTiles.ToArray();
-            GameCanvas.Instance.ChangeHandCards("SyncHandCards", 0, tiles.Take(tiles.Length - 1).ToArray(), null);
-            GameCanvas.Instance.ChangeHandCards("GetCardNoAnimation", tiles[tiles.Length - 1], null, null);
-        }
     }
     protected override void OnAskHandAction(Response response) {
         Accept(response.game_info);
@@ -77,7 +72,7 @@ public sealed class WenzhouGameState : TurnBasedGameState {
             action.Words = new[] { "cut" }; action.CutClass = action.IsMoGang; action.Silent = true;
             PlayAction(action);
         } else base.OnDoAction(response);
-        WenzhouPanel.Show(Info);
+        WenzhouTableIndicators.Refresh(Info);
     }
     protected override void OnShowResult(Response response) {
         if (response.show_result_info == null || settlementAccepted) return;
@@ -86,7 +81,7 @@ public sealed class WenzhouGameState : TurnBasedGameState {
         AcceptFinalMelds(response.game_info);
         Info = response.show_result_info?.wenzhou_info ?? Info;
         endHands = response.show_result_info?.wenzhou_end_hands;
-        WenzhouPanel.Show(Info);
+        WenzhouTableIndicators.Refresh(Info);
         var table = Game3DManager.Instance;
         if (table != null && table.HasPendingRecordTableAnimations) {
             pendingSettlement = true;
@@ -204,7 +199,7 @@ public sealed class WenzhouGameState : TurnBasedGameState {
     protected override void OnReadyStatus(Response response) {
         if (response.ready_status_info == null) return;
         Info = response.ready_status_info.wenzhou_info ?? Info;
-        WenzhouPanel.Show(Info);
+        WenzhouTableIndicators.Refresh(Info);
         // Every Wenzhou ready packet contains all four seats, so the newest
         // snapshot subsumes earlier packets without starting the UI lifecycle twice.
         if (pendingSettlement) { pendingReadyStatus = response; return; }
@@ -243,5 +238,5 @@ public sealed class WenzhouGameState : TurnBasedGameState {
         if (hint?.self_draw == true) return WaitTileHint.TsumoOnly($"自摸{hint.self_draw_multiplier}倍");
         return WaitTileHint.None("过水或未成和");
     }
-    public override void OnSessionReset() { askClock.Reset(); clockHandNumber=0; clockGamestateId=null; ResetSettlement(); Info = null; waits.Clear(); endHands = null; WenzhouPanel.Hide(); }
+    public override void OnSessionReset() { askClock.Reset(); clockHandNumber=0; clockGamestateId=null; ResetSettlement(); Info = null; waits.Clear(); endHands = null; WenzhouTableIndicators.Clear(); }
 }

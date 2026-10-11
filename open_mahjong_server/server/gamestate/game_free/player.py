@@ -23,6 +23,10 @@ class FreePlayer:
     combination_tiles: list[str] = field(default_factory=list)
     combination_mask: list = field(default_factory=list)
     huapai_list: list[int] = field(default_factory=list)
+    discard_face_down: list[bool] = field(default_factory=list)
+    discard_tokens: list[int] = field(default_factory=list)
+    flower_face_down: list[bool] = field(default_factory=list)
+    flower_tokens: list[int] = field(default_factory=list)
     score: int = 0
     tag_list: list[str] = field(default_factory=list)
     score_history: list[str] = field(default_factory=list)
@@ -47,6 +51,10 @@ class FreePlayer:
         self.combination_tiles.clear()
         self.combination_mask.clear()
         self.huapai_list.clear()
+        self.discard_face_down.clear()
+        self.discard_tokens.clear()
+        self.flower_face_down.clear()
+        self.flower_tokens.clear()
         self.revealed = False
         self.vote = VOTE_BLANK
         self.last_drawn_tile = None
@@ -64,3 +72,12 @@ class FreePlayer:
         elif tile_id not in self.hand_tiles:
             self.has_draw_slot = False
         return True
+
+    def area_metadata(self, flower: bool = False) -> tuple[list[bool], list[int]]:
+        """Keep metadata aligned with older tables that only stored tile values."""
+        tiles = self.huapai_list if flower else self.discard_tiles
+        faces = self.flower_face_down if flower else self.discard_face_down
+        tokens = self.flower_tokens if flower else self.discard_tokens
+        faces.extend([False] * (len(tiles) - len(faces)))
+        tokens.extend([0] * (len(tiles) - len(tokens)))
+        return faces, tokens

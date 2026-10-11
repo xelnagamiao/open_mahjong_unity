@@ -3,11 +3,29 @@ using System.Linq;
 using Newtonsoft.Json;
 
 public partial class GameRecordManager {
+    internal RuleReplayModule CreateYixingReplayModule() => new RuleReplayModule("yixing") {
+        Reset = ResetYixingRecordState,
+        Clear = () => {
+            recordYixingInfo = null; recordYixingWinSource = null; recordYixingRonRecycled = false;
+            GameCanvas.Instance?.SetPlayerFlowerCounts(null, indexToPosition);
+        },
+        ApplyBeforeMutation = ApplyYixingRecordAction,
+        RefreshPlayerTags = RefreshYixingRecordFlowers,
+        RefreshAfterAction = RefreshYixingRecordFlowers,
+        AfterSilentMutation = tick => SyncRecordBoardScores(),
+    };
+
     private YixingInfo recordYixingInfo;
     private string recordYixingWinSource;
     private bool recordYixingRonRecycled;
     private bool IsYixingRecord() => RecordRuleManifest?.RuleId == YixingGameState.RuleId;
     private bool IsYixingRecordRobWin => IsYixingRecord() && recordYixingWinSource == "rob_kong";
+    private void RefreshYixingRecordFlowers() {
+        var counts = IsYixingRecord()
+            ? recordPlayerList.ToDictionary(player => player.playerIndex, player => player.huapaiList?.Count ?? 0)
+            : null;
+        GameCanvas.Instance?.SetPlayerFlowerCounts(counts, indexToPosition);
+    }
     private void ResetYixingRecordState() {
         recordYixingInfo = null; recordYixingWinSource = null; recordYixingRonRecycled = false;
         if (IsYixingRecord() && gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round round))

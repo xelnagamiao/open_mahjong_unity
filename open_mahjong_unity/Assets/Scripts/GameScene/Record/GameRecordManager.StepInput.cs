@@ -110,10 +110,12 @@ public partial class GameRecordManager {
                 if (!indexToPosition.TryGetValue(actor, out string position)
                     || (Game3DManager.Instance.HasPendingRecordStepAnimations(position)
                         && !(allowBuhuaDraw && action == "bd" && Game3DManager.Instance.CanContinueRecordBuhuaDraw(position)))) return false;
-                // 吃碰认牌依赖上一张河牌；待来源落定再改牌谱手牌，避免展示读到未来状态。
+                // 本次弃牌登记后即可在飞行中被吃碰；来源手牌仍由其队列完成收拢。
+                // 尚未登记时继续等，不能误认该家上一张同点数的河牌。
                 if ((action == "cl" || action == "cm" || action == "cr" || action == "p" || action == "g")
                     && indexToPosition.TryGetValue(lastDiscardPlayerIndex, out string discarder)
-                    && Game3DManager.Instance.HasPendingRecordStepAnimations(discarder)) return false;
+                    && Game3DManager.Instance.HasPendingRecordStepAnimations(discarder)
+                    && !Game3DManager.Instance.HasClaimableRecordDiscard(discarder, ParseTickInt(tick, 1))) return false;
                 return true;
             default:
                 // 和牌、流局、局末等全桌变化，须等当前动画完成后再交给既有结算流程。

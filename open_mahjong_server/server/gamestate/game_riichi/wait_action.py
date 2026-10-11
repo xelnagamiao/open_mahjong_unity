@@ -43,13 +43,8 @@ logger = logging.getLogger(__name__)
 
 
 def _normalize(tile: int) -> int:
-    if tile == 105:
-        return 15
-    if tile == 205:
-        return 25
-    if tile == 305:
-        return 35
-    return tile
+    from ...game_calculation.riichi.washizu_tiles import normalize
+    return normalize(tile)
 
 
 def _is_kuikae_forbidden_cut(player, tile_id: int) -> bool:
@@ -71,6 +66,9 @@ def _pick_timeout_cut_tile(player) -> int:
 def _is_valid_cut_action(self, player_index: int, action_data: dict) -> bool:
     action_type = action_data.get("action_type")
     player = self.player_list[player_index]
+    from .washizu import enabled, valid_call_choice
+    if enabled(self) and action_type in ('chi_left', 'chi_mid', 'chi_right', 'peng'):
+        return valid_call_choice(player, action_type, action_data.get('chi_combo_index', 0))
     if action_type == 'nuki':
         from .nuki_actions import can_nuki
         return can_nuki(self, player_index)
@@ -339,8 +337,15 @@ async def wait_action(self):
                     combination_target = f"s{normal_tile + 1}"
                     combination_mask = [1, tile_id, 0, r1, 0, r2]
                 elif action_type == "peng":
-                    r1 = _remove_by_normal(self.player_list[player_index].hand_tiles, normal_tile)
-                    r2 = _remove_by_normal(self.player_list[player_index].hand_tiles, normal_tile)
+                    from .washizu import enabled
+                    if enabled(self):
+                        p = self.player_list[player_index]
+                        r1, r2 = p.chi_candidates['peng'][action_data.get('chi_combo_index', 0)]
+                        p.hand_tiles.remove(r1)
+                        p.hand_tiles.remove(r2)
+                    else:
+                        r1 = _remove_by_normal(self.player_list[player_index].hand_tiles, normal_tile)
+                        r2 = _remove_by_normal(self.player_list[player_index].hand_tiles, normal_tile)
                     self.player_list[player_index].combination_tiles.append(f"k{normal_tile}")
                     rel = get_index_relative_position(player_index, self.current_player_index, len(self.player_list))
                     combination_target = f"k{normal_tile}"

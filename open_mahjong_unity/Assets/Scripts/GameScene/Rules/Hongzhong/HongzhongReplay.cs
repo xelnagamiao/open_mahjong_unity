@@ -2,6 +2,18 @@ using System.Collections.Generic;
 using Newtonsoft.Json;
 
 public partial class GameRecordManager {
+    internal RuleReplayModule CreateHongzhongReplayModule() => new RuleReplayModule("hongzhong") {
+        Reset = ResetHongzhongRecordState,
+        Clear = ResetHongzhongRecordState,
+        InitializePlayers = () => {
+            foreach (var player in recordPlayerList)
+                player.showHandDrawSlotActive = player.playerIndex == gameRecord.gameRound.rounds[currentRoundIndex].startPlayerIndex
+                    && player.tileList.Count == 14;
+        },
+        ApplyBeforeMutation = ApplyHongzhongRecordAction,
+        AfterSilentMutation = tick => { SyncRecordBoardScores(); RefreshCurrentRecordTexts(); RefreshTileListViewIfVisible(); },
+    };
+
     public HongzhongInfo HongzhongRecordInfo { get; private set; }
     private readonly HongzhongHintsCache[] recordHongzhongHints = {
         new HongzhongHintsCache(),new HongzhongHintsCache(),new HongzhongHintsCache(),new HongzhongHintsCache(),

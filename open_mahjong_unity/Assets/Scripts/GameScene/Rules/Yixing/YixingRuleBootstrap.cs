@@ -11,6 +11,8 @@ internal static class YixingRuleBootstrap {
         RuleNameDictionary.ShortName[YixingGameState.RuleId] = "宜兴";
         RuleNameDictionary.ShortName[YixingGameState.SubRule] = "宜兴";
         RuleRegistry.Register(new RuleManifest {
+            ReplayFactory = record => record.CreateYixingReplayModule(),
+            BuildRoom = YixingRoomBuilder.Build,
             RuleId = YixingGameState.RuleId, DefaultSubRule = YixingGameState.SubRule,
             DisplayName = "宜兴麻将", LobbyName = "宜兴麻将", LobbyOrder = 10,
             LobbySubRules = new[] { new RuleLobbySubRule(YixingGameState.SubRule, "标准规", Description) },

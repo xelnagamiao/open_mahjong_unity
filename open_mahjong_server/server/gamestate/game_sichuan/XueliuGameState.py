@@ -22,7 +22,7 @@ class XueliuGameState(SichuanGameState):
     def _configure_rule(self):
         if not is_xueliu_sub_rule(self.sub_rule):
             raise ValueError('不支持的血流子规则')
-        self.xueliu_exchange = self.sub_rule == 'sichuan/xueliu_exchange'
+        self.xueliu_exchange = self.sub_rule in ('sichuan/xueliu_exchange', 'sichuan/xueliu_doubles', 'sichuan/xueliu_doubles_duplicate')
         self.xueliu_meld_count = 4 if self.xueliu_exchange else 3
         self.xueliu_opening_action = 'xueliu_exchange_three' if self.xueliu_exchange else 'xueliu_throw_three'
         self.xueliu_rule_profile = (XUELIU_EXCHANGE_RULE_PROFILE if self.xueliu_exchange else XUELIU_RULE_PROFILE).as_dict()
@@ -55,9 +55,15 @@ class XueliuGameState(SichuanGameState):
 
     async def _xueliu_throw_three_phase(self):
         """同时选三张同花牌；弃牌版移出对局，换牌版统一按随机方向交换。"""
+        await self._collect_xueliu_selection(range(4))
+        if self.xueliu_exchange:
+            self._exchange_selected_tiles()
+        self.waiting_players_list = []
+
+    async def _collect_xueliu_selection(self, seats):
         self.game_status = 'waiting_xueliu_throw'
-        self.action_dict = {i: [self.xueliu_opening_action] for i in range(4)}
-        self.waiting_players_list = list(range(4))
+        self.action_dict = {i: [self.xueliu_opening_action] if i in seats else [] for i in range(4)}
+        self.waiting_players_list = list(seats)
         self.server_action_tick += 1
         for p in self.player_list:
             p.remaining_time = self.round_time
@@ -71,7 +77,7 @@ class XueliuGameState(SichuanGameState):
         from .boardcast import broadcast_xueliu_throw_three_ask
         self.xueliu_throw_deadline = time.time() + max(self.step_time, 10)
         await broadcast_xueliu_throw_three_ask(self)
-        pending = set(range(4))
+        pending = set(seats)
         deadline = self.xueliu_throw_deadline
         while pending and time.time() < deadline:
             tasks = [asyncio.create_task(self.action_events[i].wait()) for i in pending]
@@ -105,8 +111,6 @@ class XueliuGameState(SichuanGameState):
             self._consume_xueliu_throw_tiles(i, chosen)
             self.action_dict[i] = []
             self.action_events[i].clear()
-        if self.xueliu_exchange:
-            self._exchange_selected_tiles()
         self.waiting_players_list = []
         logger.info('血流%s完成: %s', '换三张' if self.xueliu_exchange else '弃三张', [getattr(p, 'xueliu_throw_tiles', []) for p in self.player_list])
 
@@ -212,11 +216,13 @@ class XueliuGameState(SichuanGameState):
             payer_changes = {i: 0 for i in range(4)}
             multiplier = 2 if statuses[payer_idx] == 'hua_zhu' else 1
             for target_idx in ting_players:
+                if not self._can_score_between(payer_idx, target_idx):
+                    continue
                 fan = max_fans[target_idx] + sum(
                     r.get('xueliu_fan', 0) for r in self.player_list[payer_idx].gang_score_records if not self.xueliu_exchange
                 )
                 base = self._xueliu_base_from_fan(fan)
-                amount = base * multiplier
+                amount = self._wall_end_payment(base, statuses[payer_idx] == 'hua_zhu')
                 payer_changes[payer_idx] -= amount
                 payer_changes[target_idx] += amount
             score_changes_by_payer[payer_idx] = payer_changes
@@ -231,13 +237,13 @@ class XueliuGameState(SichuanGameState):
         for index, payer_idx in enumerate(settlement_players):
             changes = score_changes_by_payer.get(payer_idx, {i: 0 for i in range(4)})
             display_status = statuses[payer_idx]
-            if not ting_players and display_status in ('hua_zhu', 'no_ting'):
+            if not any(self._can_score_between(payer_idx, t) for t in ting_players) and display_status in ('hua_zhu', 'no_ting'):
                 display_status += '_no_payee'
             for player in self.player_list:
                 player.score += changes.get(player.player_index, 0)
             player_scores = {p.player_index: p.score for p in self.player_list}
             is_final = index == len(settlement_players) - 1
-            self.next_status = ('match_end' if self.current_round >= self.max_round * 4 else 'round_end_by_ready') if is_final else 'round_continue'
+            self.next_status = ('match_end' if self._is_match_end() else 'round_end_by_ready') if is_final else 'round_continue'
             player_action_record_sichuan_liuju_step(self, 'chajiao', payer_idx, display_status, json.dumps(list(self.player_list[payer_idx].hand_tiles)), [changes.get(i, 0) for i in range(4)], 1 if is_final else 0)
             await broadcast_result(self, hu_class='liuju', liuju_step='chajiao', hepai_player_index=payer_idx, hepai_player_combination_mask=self.player_list[payer_idx].combination_mask, liuju_status={payer_idx: display_status}, liuju_hands={payer_idx: list(self.player_list[payer_idx].hand_tiles)}, score_changes=changes, player_to_score=player_scores, liuju_status_final=is_final, liuju_refund=False, round_continues=False, next_status=self.next_status)
             if not is_final:
@@ -248,10 +254,11 @@ class XueliuGameState(SichuanGameState):
         if self.xueliu_exchange:
             # 即时杠分与胡牌的根倍率相互独立；不沿用血战的杠上炮转移规则。
             if gtype == 'guafeng':
-                payers = {payer_index: 3} if payer_index is not None else {}
+                payers = {payer_index: self.xueliu_rule_profile.get("direct_kong_payment", 3)} if payer_index is not None else {}
             else:
                 amount = 2 if gtype == 'xiayu2' else 1
                 payers = {p.player_index: amount for p in self.player_list if p.player_index != gainer}
+            payers = {index: amount for index, amount in payers.items() if self._can_score_between(index, gainer)}
             changes = {p.player_index: 0 for p in self.player_list}
             for index, amount in payers.items():
                 self.player_list[index].score -= amount
@@ -266,6 +273,12 @@ class XueliuGameState(SichuanGameState):
         self.player_list[gainer].gang_score_records.append(record)
         return {p.player_index: 0 for p in self.player_list}
 
+    def _can_score_between(self, payer, receiver):
+        return payer != receiver
+
+    def _wall_end_payment(self, base, flower_pig):
+        return base * (2 if flower_pig else 1)
+
     def _apply_hu_score_changes(self, winner: int, base: int, is_zimo: bool, discarder: Optional[int]=None, fan: Optional[int]=None) -> Dict[int, int]:
         """和牌收支，返回四家分数变更（未参与者显式为 0，便于客户端展示）。"""
         changes: Dict[int, int] = {p.player_index: 0 for p in self.player_list}
@@ -273,7 +286,7 @@ class XueliuGameState(SichuanGameState):
             total = 0
             winner_order = self.player_list[winner].hu_order
             for p in self.player_list:
-                if p.player_index == winner:
+                if not self._can_score_between(p.player_index, winner):
                     continue
                 extra_fan = sum((r.get('xueliu_fan', 0) for r in getattr(p, 'gang_score_records', [])))
                 pay = fan + extra_fan if extra_fan and fan is not None else base
@@ -282,7 +295,7 @@ class XueliuGameState(SichuanGameState):
                 total += pay
             self.player_list[winner].score += total
             changes[winner] = total
-        elif discarder is not None:
+        elif discarder is not None and self._can_score_between(discarder, winner):
             extra_fan = sum((r.get('xueliu_fan', 0) for r in getattr(self.player_list[discarder], 'gang_score_records', [])))
             payer_base = fan + extra_fan if extra_fan and fan is not None else base
             self.player_list[discarder].score -= payer_base
@@ -332,8 +345,6 @@ class XueliuGameState(SichuanGameState):
             self.player_list[w].has_won = True
             self.player_list[w].win_count += 1
             self.player_list[w].post_hu_lock = True
-            if not self.player_list[w].locked_waiting_tiles:
-                self.player_list[w].locked_waiting_tiles = set(self.player_list[w].waiting_tiles)
             self.player_list[w].record_counter.recorded_fans.append(fan_list)
             self.player_list[w].record_counter.win_score += base
             # 最后一张和牌之后仍有查叫，结束/下一局按钮只由查叫最终面板发出。

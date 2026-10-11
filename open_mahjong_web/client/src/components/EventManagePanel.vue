@@ -217,37 +217,20 @@
             <el-button
               type="primary"
               :disabled="detail.status !== 'active'"
-              @click="openRoomDialog('create')"
+              :loading="openingRoomDialog"
+              @click="openRoomDialog"
             >创建房间</el-button>
             <el-button text type="primary" :loading="loadingRooms" @click="loadRooms">刷新</el-button>
           </div>
-          <el-table :data="rooms" size="small" v-loading="loadingRooms" empty-text="暂无房间">
-            <el-table-column prop="room_name" label="名称" min-width="100" />
-            <el-table-column prop="room_id" label="房间 ID" min-width="100" />
-            <el-table-column prop="room_rule" label="规则" width="90" />
-            <el-table-column label="人数" width="80">
-              <template #default="{ row }">
-                {{ (row.player_list || []).length }} / {{ row.max_player || 4 }}
-              </template>
-            </el-table-column>
-            <el-table-column label="对局中" width="80">
-              <template #default="{ row }">
-                <el-tag :type="row.is_game_running ? 'warning' : 'info'" size="small">
-                  {{ row.is_game_running ? '是' : '否' }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="90">
-              <template #default="{ row }">
-                <el-button
-                  link
-                  type="danger"
-                  :disabled="!!row.is_game_running"
-                  @click="deleteRoom(row)"
-                >删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
+          <EventRoomCards
+            allow-restart
+            @restart-pair="restartPair"
+            :key="eventId"
+            :rooms="rooms"
+            :loading="loadingRooms"
+            :rule-labels="RULE_LABELS"
+            @delete="deleteRoom"
+          />
         </el-tab-pane>
 
         <el-tab-pane :label="isBase ? '加入审核' : '报名审核'" name="registrations">
@@ -310,7 +293,7 @@
         </el-tab-pane>
 
         <el-tab-pane label="准备组桌" name="ready">
-          <section class="emp-default-settings" data-testid="default-settings">
+          <section class="emp-ready-card emp-default-settings" data-testid="default-settings">
             <div class="emp-ready-section-head">
               <div class="emp-ready-summary"><h4>默认配置</h4><span>{{ roomSettingsSummary }}</span></div>
               <el-button link type="primary" :disabled="!roomSettingsLoaded || savingRoomSettings" @click="togglePresetEditor">{{ settingsEditorExpanded ? '收起对局设置' : '修改对局设置' }}</el-button>
@@ -329,7 +312,7 @@
           </section>
           <el-alert v-if="!roomSettingsLoaded && !loadingRoomSettings" title="对局设置未加载，请点击刷新后再操作。" type="warning" :closable="false" show-icon class="emp-alert" />
 
-          <section class="emp-manual-seating" data-testid="manual-seating">
+          <section class="emp-ready-card emp-manual-seating" data-testid="manual-seating">
             <div class="emp-ready-section-head">
               <div><h4>手动组桌</h4><p class="emp-settings-description">勾选 4 名玩家后，可在确认组桌时选择默认配置或预设。组桌后进入房间，不自动开局。</p></div>
               <div class="emp-ready-actions">
@@ -345,7 +328,7 @@
             </el-table>
           </section>
 
-          <section class="emp-auto-match" data-testid="auto-matching" v-loading="loadingRoomSettings">
+          <section class="emp-ready-card emp-auto-match" data-testid="auto-matching" v-loading="loadingRoomSettings">
             <div class="emp-auto-match-head">
               <h4>自动匹配</h4>
               <el-switch :model-value="autoMatching.enabled" :loading="savingMatchmaking" :disabled="!roomSettingsLoaded || (detail.status !== 'active' && !autoMatching.enabled) || savingRoomSettings || seatingTable || !matchingChoiceExists" active-text="已开启" inactive-text="未开启" aria-label="自动匹配" @change="toggleAutoMatching" />
@@ -695,7 +678,16 @@
       :load-duplicate-quota="loadDuplicateQuota"
       :room-rule-options="roomRuleOptions"
       @confirm="createRoom"
-    />
+    >
+      <template #before-settings>
+        <el-form-item label="对局预设">
+          <el-select :model-value="roomPresetChoice" aria-label="创建房间对局预设" class="emp-create-preset-select" @change="applyRoomPreset">
+            <el-option value="default" label="默认配置" />
+            <el-option v-for="preset in roomPresets" :key="preset.preset_id" :value="preset.preset_id" :label="preset.name" />
+          </el-select>
+        </el-form-item>
+      </template>
+    </VenueRoomDialog>
   </div>
 </template>
 
@@ -707,6 +699,7 @@ import eventAdminApi, { getEventAdminToken } from '@/api/eventAdminClient'
 import { useEventAdminAuthStore } from '@/stores/eventAdminAuth'
 import VenueRoomDialog from '@/components/VenueRoomDialog.vue'
 import EventRoomPresetEditor from '@/components/EventRoomPresetEditor.vue'
+import EventRoomCards from '@/components/EventRoomCards.vue'
 import { buildEventRoomSettings, createEventRoomForm, eventRoomSettingsSummary, eventRoomSettingsRows } from '@/utils/eventRoomSettings'
 import { buildEventRoomCreation, createEventRoomCreationForm, eventRoomCreationError } from '@/utils/eventRoomCreation'
 import {
@@ -721,6 +714,7 @@ import {
 import { buildPlayerStatsRows, dateRangeToQueryParams, STATS_DATE_SHORTCUTS } from '@/utils/statsDisplay'
 
 const RULE_LABELS = {
+  jiujiang: '九江麻将',
   guobiao: '国标',
   riichi: '立直',
   qingque: '青雀',
@@ -732,6 +726,10 @@ const RULE_LABELS = {
   guangdong: '广东麻将',
   guizhou: '贵州麻将',
   yixing: '宜兴麻将',
+  shenyang: '沈阳麻将',
+  nanjing: '南京麻将',
+  wuhan: '武汉麻将',
+  nanchang: '南昌麻将',
   shanxi: '山西麻将',
   jiandan: '南雀',
   zhongyong: '中庸麻将',
@@ -784,7 +782,9 @@ const adminForm = reactive({ user_id: '' })
 const rooms = ref([])
 const loadingRooms = ref(false)
 const creatingRoom = ref(false)
+const openingRoomDialog = ref(false)
 const roomDialogVisible = ref(false)
+const roomPresetChoice = ref('default')
 const presetEditorRef = ref(null)
 const settingsEditorExpanded = ref(true)
 const loadingRoomSettings = ref(false)
@@ -810,6 +810,7 @@ const roomDialogTitle = computed(() => isBase.value ? '创建基地房间' : '�
 const roomSettingsSummary = computed(() => eventRoomSettingsSummary(manualSettings.value, RULE_LABELS))
 const matchingSettingsSummary = computed(() => eventRoomSettingsSummary(settingsForChoice(matchingPresetChoice.value) || {}, RULE_LABELS))
 const roomRuleOptions = [
+  { value: 'jiujiang', label: '九江麻将' },
   { value: 'guobiao', label: '国标' },
   { value: 'riichi', label: '立直' },
   { value: 'qingque', label: '青雀' },
@@ -821,6 +822,10 @@ const roomRuleOptions = [
   { value: 'guangdong', label: '广东麻将' },
   { value: 'guizhou', label: '贵州麻将' },
   { value: 'yixing', label: '宜兴麻将' },
+  { value: 'shenyang', label: '沈阳麻将' },
+  { value: 'nanjing', label: '南京麻将' },
+  { value: 'wuhan', label: '武汉麻将' },
+  { value: 'nanchang', label: '南昌麻将' },
   { value: 'shanxi', label: '山西麻将' },
 ]
 const roomForm = reactive(createEventRoomCreationForm())
@@ -1491,11 +1496,14 @@ async function loadRoomSettings(silent = false) {
   if (!silent) loadingRoomSettings.value = true
   try {
     const res = await eventAdminApi.get(`/events/${eventId}/room-settings`)
-    if (eventId === props.eventId) applyRoomSettingsDoc(res.data.data)
+    if (eventId !== props.eventId) return false
+    applyRoomSettingsDoc(res.data.data)
+    return roomSettingsLoaded.value
   } catch (e) {
     if (!silent && eventId === props.eventId) {
       ElMessage.error(e.response?.data?.message || '加载对局设置失败，请刷新后重试')
     }
+    return false
   } finally {
     if (eventId === props.eventId && !silent) loadingRoomSettings.value = false
   }
@@ -1796,7 +1804,7 @@ async function createRoom() {
     roomForm.room_count = 1
     roomForm.auto_duplicate = false
     roomDialogVisible.value = false
-    ElMessage.success(`已创建 ${created} 个房间${keys ? `及 ${keys} 个复式密钥` : ''}`)
+    ElMessage.success(res.data.data?.paired ? `已创建 ${created} 组开闭室，共 ${created * 2} 间房间` : `已创建 ${created} 个房间${keys ? `及 ${keys} 个复式密钥` : ''}`)
     await loadRooms()
   } catch (e) {
     ElMessage.error({ message: eventRoomCreationError(e), duration: 8000 })
@@ -1810,9 +1818,26 @@ async function createRoom() {
   }
 }
 
-function openRoomDialog() {
-  Object.assign(roomForm, createEventRoomCreationForm(manualSettings.value))
-  roomDialogVisible.value = true
+function applyRoomPreset(choice) {
+  const settings = settingsForChoice(choice)
+  if (!settings) { ElMessage.warning('所选预设已删除，请重新选择'); return }
+  const { room_count, password } = roomForm
+  Object.assign(roomForm, createEventRoomCreationForm(settings), { room_count, password })
+  roomPresetChoice.value = choice
+}
+
+async function openRoomDialog() {
+  if (openingRoomDialog.value || creatingRoom.value || detail.value?.status !== 'active') return
+  const eventId = props.eventId
+  openingRoomDialog.value = true
+  try {
+    if (!await loadRoomSettings() || eventId !== props.eventId) return
+    Object.assign(roomForm, createEventRoomCreationForm(manualSettings.value))
+    roomPresetChoice.value = 'default'
+    roomDialogVisible.value = true
+  } finally {
+    if (eventId === props.eventId) openingRoomDialog.value = false
+  }
 }
 
 async function loadDuplicateQuota() {
@@ -1823,7 +1848,7 @@ async function loadDuplicateQuota() {
 async function deleteRoom(row) {
   try {
     await ElMessageBox.confirm(
-      `确认删除房间 ${row.room_id}？`,
+      row.duplicate_match_id ? `确认整组删除房间 ${row.room_id} 和 ${row.duplicate_peer_room_id}？` : `确认删除房间 ${row.room_id}？`,
       '删除房间',
       { type: 'warning' }
     )
@@ -1833,6 +1858,17 @@ async function deleteRoom(row) {
   } catch (e) {
     if (e === 'cancel' || e === 'close') return
     ElMessage.error(e.response?.data?.message || '删除失败')
+  }
+}
+
+async function restartPair(row) {
+  try {
+    await ElMessageBox.confirm('两室未完成副将同时更换新牌，已完成副的分数保留。原八名选手按原座位入座后续赛。', '重开未完成副', { type: 'warning' })
+    const res = await eventAdminApi.post(`/events/${props.eventId}/rooms/${row.room_id}/restart-pair`)
+    ElMessage.success(res.data.message)
+    await loadRooms()
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') ElMessage.error(e.response?.data?.message || '续赛失败')
   }
 }
 
@@ -1885,6 +1921,8 @@ watch(
     roomSettingsDoc.value = { revision: 0, manual: {}, auto_match: { enabled: false }, presets: [] }
     roomSettingsLoaded.value = false
     roomDialogVisible.value = false
+    openingRoomDialog.value = false
+    roomPresetChoice.value = 'default'
     settingsEditorExpanded.value = true
     seatDialogVisible.value = false
     seatingPlayers.value = []
@@ -1903,6 +1941,7 @@ watch(
 
 watch(activeTab, (tab) => {
   if (tab === 'ready') refreshReadyTab()
+  if (tab === 'rooms') loadRooms()
 })
 
 let pollingReady = false
@@ -2077,19 +2116,29 @@ onUnmounted(() => clearInterval(readyPollTimer))
   flex-wrap: wrap;
   gap: 8px;
 }
-.emp-ready-section-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px 16px; margin: 12px 0; }
+.emp-ready-card {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 760px;
+  margin: 16px auto;
+  padding: 20px 24px;
+  border: 1px solid #dcdfe6;
+  border-radius: 8px;
+  background: #fff;
+}
+.emp-ready-card:last-child { margin-bottom: 0; }
+.emp-ready-section-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px 16px; margin: 0 0 14px; }
 .emp-ready-section-head h4 { margin: 0; color: #303133; font-size: 14px; font-weight: 600; }
-.emp-default-settings { margin-bottom: 16px; }
 .emp-default-settings > .emp-ready-section-head { align-items: center; }
 .emp-default-settings > .emp-ready-section-head .emp-ready-summary { display: block; min-width: 0; }
 .emp-default-settings > .emp-ready-section-head .emp-ready-summary > span { display: block; margin-top: 5px; color: #909399; line-height: 1.6; }
 .emp-default-settings > .emp-ready-section-head > .el-button { flex-shrink: 0; margin-left: 0; }
-.emp-manual-seating { padding-top: 2px; border-top: 1px solid #ebeef5; }
+.emp-manual-seating .emp-ready-section-head > :first-child { flex: 1 1 320px; min-width: 0; }
 .emp-manual-seating .emp-settings-description { margin: 5px 0 0; }
 .emp-seat-players { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; margin: 0 0 16px; padding: 0; list-style: none; }
 .emp-seat-players li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 8px; padding: 8px 10px; background: #f5f7fa; border-radius: 4px; font-size: 13px; }
 .emp-seat-players span { color: #909399; font-size: 12px; }
-.emp-seat-preset-select { width: 100%; }
+.emp-seat-preset-select, .emp-create-preset-select { width: 100%; }
 .emp-seat-settings-title { margin: 12px 0 8px; font-size: 14px; color: #303133; }
 .emp-seat-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; margin: 0 0 16px; }
 .emp-seat-settings > div { display: flex; justify-content: space-between; gap: 8px; padding: 7px 0; border-bottom: 1px solid #ebeef5; font-size: 13px; }
@@ -2404,15 +2453,11 @@ onUnmounted(() => clearInterval(readyPollTimer))
   font-size: 12px;
   line-height: 1.6;
 }
-.emp-auto-match {
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px solid #ebeef5;
-}
 .emp-auto-match-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
 }
 .emp-auto-match-head h4 {
@@ -2443,6 +2488,7 @@ onUnmounted(() => clearInterval(readyPollTimer))
   margin: 0;
 }
 @media (max-width: 640px) {
+  .emp-ready-card { padding: 16px 12px; }
   .emp-seat-players, .emp-seat-settings { grid-template-columns: minmax(0, 1fr); }
   .emp-room-presets :deep(.emp-preset-select) { flex: 1; min-width: 140px; }
   .emp-room-presets > .emp-settings-hint,

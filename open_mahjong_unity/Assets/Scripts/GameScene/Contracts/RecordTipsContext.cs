@@ -27,6 +27,7 @@ public class RecordTipsContext {
 }
 
 public class RecordTipsPlayerVisible {
+    public List<int> PublicHandTiles;
     public List<int> DiscardTiles;
     public List<string> CombinationTiles;
     public List<int[]> CombinationMasks;

@@ -17,13 +17,8 @@ from mahjong.tile import TilesConverter
 
 
 def _normalize(tile: int) -> int:
-    if tile == 105:
-        return 15
-    if tile == 205:
-        return 25
-    if tile == 305:
-        return 35
-    return tile
+    from .washizu_tiles import normalize
+    return normalize(tile)
 
 
 def tile_id_to_34(tile: int) -> int:

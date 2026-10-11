@@ -194,6 +194,7 @@ public partial class GameRecordManager {
                 DiscardTiles = kv.Value.discardTiles ?? new List<int>(),
                 CombinationTiles = kv.Value.combinationTiles ?? new List<string>(),
                 CombinationMasks = kv.Value.combinationMasks,
+                PublicHandTiles = IsTransparentRecord() ? kv.Value.tileList.FindAll(WashizuTile.IsTransparent) : null,
             };
         }
 

@@ -3,6 +3,8 @@ import asyncio
 import logging
 
 from .boardcast import broadcast_do_action
+from .rule_logic import option
+from ...game_calculation.riichi.win_requirements import meets_win_requirements
 
 logger = logging.getLogger(__name__)
 
@@ -14,8 +16,8 @@ THREE_RON_ABORT_HOLD_SEC = 1.0
 
 def valid_ron_result(game_state, action):
     result = getattr(game_state, 'result_dict', {}).get(action)
-    return result is None or (not result.get('no_yaku') and
-                              int(result.get('han', 0)) >= int(getattr(game_state, 'hepai_limit', 1)))
+    return result is None or meets_win_requirements(
+        result, getattr(game_state, 'hepai_limit', 1), option(game_state, 'minimum_win_score'))
 
 
 def action_priority(game_state, action):

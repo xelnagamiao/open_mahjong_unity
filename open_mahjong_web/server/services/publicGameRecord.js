@@ -2,7 +2,7 @@ const pool = require('../config/database');
 const { visibleRecordSql, recordIsLocked, LOCKED_MESSAGE } = require('./duplicateRecordAccess');
 
 const GAME_ID_PATTERN = /^[0-9A-Za-z]{1,16}$/;
-const WEB_REPLAY_RULES = new Set(['guobiao', 'hongzhong', 'hangzhou']);
+const WEB_REPLAY_RULES = new Set(['guobiao', 'hongzhong', 'hangzhou', 'jiujiang', 'shanxi']);
 
 function normalizeRecord(value) {
   if (value && typeof value === 'object') return value;

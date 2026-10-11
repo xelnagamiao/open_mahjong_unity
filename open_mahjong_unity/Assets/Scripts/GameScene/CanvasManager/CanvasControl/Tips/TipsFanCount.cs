@@ -18,21 +18,41 @@ public class TipsFanCount : MonoBehaviour
     [Header("颜色设置")]
     public Color dianheColor = Color.green; // 点和颜色（绿色，可和牌）
     public Color zimoColor = Color.yellow; // 自摸颜色（黄色，仅自摸）
-    public Color wuyiColor = new Color(1f, 0.647f, 0f); // 无役颜色（橙色，未起和）
+    public Color wuyiColor = new Color32(166, 0, 0, 255); // 未起和 / 无役（与提示预制体一致的红色）
     public Color exhaustedColor = new Color(0.55f, 0.55f, 0.55f, 1f); // 听牌张已用尽（灰色）
 
-    public void SetTipsFanCount(string fanCount, string colorType) {
+    /// <summary>枚数与番数共用和牌资格；关闭番数只隐藏分值，不跳过起和判定。</summary>
+    public void SetHint(WaitTileHint hint, int remaining, bool showFan, bool showCount) {
+        string label = "";
+        if (showFan || showCount) {
+            // 尚未算完或缺少权威快照时，不能用枚数暗示已经可以和牌。
+            if (hint == null) label = "…";
+            else if (hint.Kind == WaitTileHint.KindNone)
+                label = string.IsNullOrWhiteSpace(hint.Label) ? "未起和" : hint.Label;
+            else {
+                if (showFan) label = hint.Label ?? "";
+                if (showCount) label += (label.Length > 0 ? "\n" : "") + $"{remaining}枚";
+            }
+        }
+        string kind = hint?.Kind ?? "pending";
+        // 未起和始终显示红色；合法但已耗尽的听张沿用番数行的灰色。
+        string fanKind = remaining <= 0 && hint != null && kind != WaitTileHint.KindNone ? "exhausted" : kind;
+        SetTipsFanCount(label, fanKind, kind);
+    }
+
+    public void SetTipsFanCount(string fanCount, string colorType, string countKind = null) {
         string[] lines = (fanCount ?? "").Split(new[] {'\n'}, 3);
         tipsFanCountText.text = lines[0];
         bool twoLines = lines.Length > 1;
         secondHintText.text = twoLines ? lines[1] : "";
         secondHintText.gameObject.SetActive(twoLines);
         secondChip.gameObject.SetActive(twoLines);
-        // A count-only hint occupies the first row, but must not inherit the fan status color.
+        // 枚数可占第一、二或三行：仅自摸用同款黄底，可点和保留蓝底。
         string firstLine = lines[0].Trim();
         bool countOnly = !twoLines && firstLine.EndsWith("枚")
             && int.TryParse(firstLine.Substring(0, firstLine.Length - 1), out _);
-        Color countColor = new Color32(70,86,126,255);
+        Color countColor = (countKind ?? colorType) == WaitTileHint.KindTsumoOnly ? zimoColor
+            : (countKind ?? colorType) == WaitTileHint.KindNone ? wuyiColor : new Color32(70,86,126,255);
         Color fanColor = colorType == "exhausted" ? exhaustedColor
             : colorType == "zimo" ? zimoColor
             : colorType == "wuyi" ? wuyiColor

@@ -45,7 +45,6 @@ public partial class GamePlayerPanel {
         if (!willShow) return true;
 
         RefreshActionMenuVisual();
-        ApplyActionMenuPosition();
         actionMenu.SetActive(true);
         actionMenu.transform.SetAsLastSibling();
         RectTransform menuRt = actionMenu.transform as RectTransform;
@@ -61,16 +60,6 @@ public partial class GamePlayerPanel {
 
     public void EnsureActionMenu() {
         if (GoToRecordSelectButton != null) GoToRecordSelectButton.gameObject.SetActive(false);
-        Transform found = transform.Find(ActionMenuName);
-        if (found != null) BindExistingActionMenu(found);
-        else if (actionMenu == null) CreateActionMenu();
-        if (actionMenu != null && recordPerspectiveButton == null) {
-            Transform goTo = actionMenu.transform.Find("GoToButton");
-            recordPerspectiveButton = goTo != null
-                ? goTo.GetComponent<Button>()
-                : CreateMenuButton(actionMenu.transform, "GoToButton", "转到", Resources.Load<Sprite>(RecordPerspectiveSpritePath));
-        }
-        LoadMuteSpritesIfNeeded();
         ApplyMuteIconsToButton();
         BindActionMenuButtons();
         RefreshActionMenuVisual();
@@ -149,6 +138,20 @@ public partial class GamePlayerPanel {
             recordPerspectiveButton.onClick.RemoveListener(OnRecordPerspectiveClicked);
             recordPerspectiveButton.onClick.AddListener(OnRecordPerspectiveClicked);
         }
+    }
+
+#if UNITY_EDITOR
+    public void BakeActionMenu() {
+        Transform root = transform.Find(ActionMenuName);
+        if (root != null) BindExistingActionMenu(root);
+        else CreateActionMenu();
+        Transform goTo = actionMenu.transform.Find("GoToButton");
+        recordPerspectiveButton = goTo != null ? goTo.GetComponent<Button>()
+            : CreateMenuButton(actionMenu.transform, "GoToButton", "转到", Resources.Load<Sprite>(RecordPerspectiveSpritePath));
+        LoadMuteSpritesIfNeeded();
+        ApplyActionMenuPosition();
+        HideActionMenu();
+        if (GoToRecordSelectButton != null) GoToRecordSelectButton.gameObject.SetActive(false);
     }
 
     void BindExistingActionMenu(Transform root) {
@@ -263,6 +266,7 @@ public partial class GamePlayerPanel {
         labelGo.GetComponent<RectTransform>().sizeDelta = new Vector2(MenuButtonSize - 8f, 20f);
         return button;
     }
+#endif
 
     bool IsSelfPanel() {
         if (_boundPosition == "self") return true;
@@ -272,9 +276,11 @@ public partial class GamePlayerPanel {
 
     bool IsLeftPanel() {
         if (_boundPosition == "left") return true;
+        if (gameObject.name == "#LeftPlayer") return true;
         return GameCanvas.Instance != null && GameCanvas.Instance.PlayerLeftPanel == this;
     }
 
+#if UNITY_EDITOR
     void ApplyActionMenuPosition() {
         if (actionMenu == null) return;
         RectTransform rt = actionMenu.transform as RectTransform;
@@ -291,6 +297,7 @@ public partial class GamePlayerPanel {
         stickerVisibleSprite = Resources.Load<Sprite>(StickerIconPath);
         stickerMutedSprite = Resources.Load<Sprite>(StickerMutedIconPath);
     }
+#endif
 
     void Update() {
         if (actionMenu == null || !actionMenu.activeSelf) return;

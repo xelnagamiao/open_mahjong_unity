@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-/// <summary>自由模式专有动作词：摸牌/推牌/立牌按钮，以及进花、副露、收回、转移的落桌。</summary>
+/// <summary>自由模式专有动作词：摸牌与推牌切换，以及进花、副露、收回、转移的落桌。</summary>
 public static class FreeActionWords {
     public const string Draw = "free_draw";
     public const string Push = "free_push";
@@ -14,12 +14,13 @@ public static class FreeActionWords {
     public const string TransferTake = "free_transfer_take";
 
     public static readonly string[] PersistentButtons = {
-        "cut", Draw, Stand, Push, "chi_left", "peng", "gang", "buhua", "hu", "hu_self",
+        "cut", Draw, Push, "chi_left", "peng", "gang", "buhua", "hu", "hu_self",
     };
 
     public static void RegisterAll() {
         ActionWords.Register(new ActionWordSpec { Word = Draw, Kind = ActionWordKind.Other, Label = _ => "摸牌" });
-        ActionWords.Register(new ActionWordSpec { Word = Push, Kind = ActionWordKind.Other, Label = _ => "推牌" });
+        ActionWords.Register(new ActionWordSpec { Word = Push, Kind = ActionWordKind.Other,
+            Label = _ => FreeGameState.Active?.IsSelfRevealed == true ? "收起" : "推牌" });
         ActionWords.Register(new ActionWordSpec { Word = Stand, Kind = ActionWordKind.Other, Label = _ => "立牌" });
         ActionWords.Register(new ActionWordSpec { Word = ToFlower, Kind = ActionWordKind.Other, Apply = ApplyToFlower });
         ActionWords.Register(new ActionWordSpec { Word = Meld, Kind = ActionWordKind.Other, Apply = ApplyMeld });
@@ -41,14 +42,14 @@ public static class FreeActionWords {
         if (!action.BuhuaTile.HasValue) return;
         int tileId = action.BuhuaTile.Value;
         string seat = action.Seat;
-        Mirror.Info(seat).huapai_list.Add(tileId);
+        Mirror.Info(seat).huapai_list.Add(action.FreeFaceDown ? 0 : tileId);
         if (seat == "self") {
             Mirror.SelfHandTiles.Remove(tileId);
             GameCanvas.Instance.ChangeHandCards("RemoveBuhuaCard", tileId, null, null);
         } else {
             Mirror.Info(seat).hand_tiles_count--;
         }
-        Game3DManager.Instance.Change3DTile("Buhua", tileId, 0, seat, false, null);
+        Game3DManager.Instance.Change3DTile("Buhua", tileId, 0, seat, false, null, concealedDiscard: action.FreeFaceDown);
     }
 
     private static void ApplyMeld(TableAction action) {
@@ -82,7 +83,7 @@ public static class FreeActionWords {
         if (player.discard_tiles[index] != tileId) return;
         player.discard_tiles.RemoveAt(index);
         if (index < player.discard_riichi_flags.Count) player.discard_riichi_flags.RemoveAt(index);
-        AddToHand(action.Seat, tileId);
+        AddToHand(action.Seat, action.DealTile ?? tileId);
     }
 
     private static void ApplyRecallFlower(TableAction action) {
@@ -92,7 +93,7 @@ public static class FreeActionWords {
         if (player == null || index < 0 || index >= player.huapai_list.Count) return;
         if (player.huapai_list[index] != tileId) return;
         player.huapai_list.RemoveAt(index);
-        AddToHand(action.Seat, tileId);
+        AddToHand(action.Seat, action.DealTile ?? tileId);
     }
 
     private static void ApplyRecallMeld(TableAction action) {
@@ -120,8 +121,7 @@ public static class FreeActionWords {
 
     private static void ApplyTransferTake(TableAction action) {
         int[] dealt = action.ResolveDealTiles();
-        if (dealt.Length == 0) return;
-        AddToHand(action.Seat, dealt[0]);
+        foreach (int tileId in dealt) AddToHand(action.Seat, tileId);
     }
 
     private static void AddToHand(string seat, int tileId) {

@@ -56,14 +56,10 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { locale } from '@/i18n'
-import regulations from '@/content/accountRegulations.txt?raw'
-import regulationsFr from '@/content/accountRegulations.fr.txt?raw'
+import { accountRegulationsBody } from '@/content/accountRegulations'
 
 const regulationsVisible = ref(false)
-const regulationsBody = computed(() => {
-  const text = locale.value === 'fr' ? regulationsFr : regulations
-  return text.slice(text.indexOf('\n') + 1).trim()
-})
+const regulationsBody = computed(() => accountRegulationsBody(locale.value))
 </script>
 
 <style scoped>

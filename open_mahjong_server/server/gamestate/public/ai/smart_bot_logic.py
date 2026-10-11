@@ -45,13 +45,8 @@ def first_dingque_tile(hand_tiles: List[int], dingque_suit: int) -> Optional[int
 
 def normalize_tile(tile_id: int) -> int:
     """红5归一化：105->15, 205->25, 305->35。其他牌原值返回。"""
-    if tile_id == 105:
-        return 15
-    if tile_id == 205:
-        return 25
-    if tile_id == 305:
-        return 35
-    return tile_id
+    from ....game_calculation.riichi.washizu_tiles import normalize
+    return normalize(tile_id)
 
 def tile_to_34(tile_id: int) -> int:
     tile_id = normalize_tile(tile_id)
@@ -120,7 +115,7 @@ def calc_shanten(hand_tiles: List[int], meld_count: int = 0) -> int:
 
 # ─── 场上已见牌统计 ─────────────────────────────────────────
 
-def count_visible_tiles(game_state) -> List[int]:
+def count_visible_tiles(game_state, viewer_index=None) -> List[int]:
     """统计所有玩家的弃牌 + 副露中的已见牌（34 数组）"""
     visible = [0] * 34
     for player in game_state.player_list:
@@ -131,6 +126,16 @@ def count_visible_tiles(game_state) -> List[int]:
         comb_arr = combination_to_34array(getattr(player, 'combination_tiles', []))
         for i in range(34):
             visible[i] += comb_arr[i]
+    if getattr(game_state, 'sub_rule', None) in ('riichi/washizu', 'guobiao/transparent') and viewer_index is not None:
+        from ....game_calculation.riichi.washizu_tiles import is_transparent
+        for player in game_state.player_list:
+            if player.player_index == viewer_index:
+                continue  # Own hand is subtracted separately by count_acceptance.
+            for tile in player.hand_tiles:
+                if is_transparent(tile):
+                    visible[tile_to_34(tile)] += 1
+        for tile in getattr(game_state, "dora_indicators", []) + getattr(game_state, "kan_dora_indicators", []):
+            visible[tile_to_34(tile)] += 1
     return visible
 
 # ─── 进张数计算 ─────────────────────────────────────────────

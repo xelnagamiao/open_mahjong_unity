@@ -12,6 +12,8 @@ internal static class HangzhouRuleBootstrap {
         RuleNameDictionary.ShortName[HangzhouGameState.RuleId] = "杭州";
         RuleNameDictionary.ShortName[HangzhouGameState.SubRule] = "杭州";
         RuleRegistry.Register(new RuleManifest {
+            ReplayFactory = record => record.CreateHangzhouReplayModule(),
+            BuildRoom = HangzhouRoomBuilder.Build,
             RuleId = HangzhouGameState.RuleId, DefaultSubRule = HangzhouGameState.SubRule,
             DisplayName = "杭州麻将", LobbyName = "杭州麻将", LobbyOrder = 12,
             LobbySubRules = new[] { new RuleLobbySubRule(HangzhouGameState.SubRule, "MIL 2025", Description) },
@@ -22,15 +24,15 @@ internal static class HangzhouRuleBootstrap {
                 { CreateRoomKeys.Password, false }, { CreateRoomKeys.RandomSeed, false }, { CreateRoomKeys.TouristLimit, false }, { CreateRoomKeys.AllowSpectator, true },
             },
             GameStateFactory = () => new HangzhouGameState(), OutboundChannel = "hangzhou",
+            OpeningHandHasDrawSlot = info => info?.hangzhou_info?.self_has_draw_slot == true,
             Tingpai = query => GameRecordManager.Instance?.ShouldShowRecordTips() == true
                 ? GameRecordManager.Instance.HangzhouWaiting(query) : HangzhouGameState.Active?.Hints.Waiting(query) ?? new HashSet<int>(),
-            DescribeWaitingTile = query => WaitTileHint.TsumoOnly("仅自摸"),
+            DescribeWaitingTile = query => query.Record != null
+                ? GameRecordManager.Instance?.DescribeHangzhouWaiting(query) : HangzhouGameState.Active?.Hints.Describe(query),
             TileBadgeText = tile => tile == HangzhouGameState.Joker ? "财" : null,
             FanNameText = (rule,label) => HangzhouFanText.Name(label), FanValueText = (rule,label) => HangzhouFanText.Value(label),
             SettlementTotal = query => new SettlementTotalDisplay { FanText = $"基本分 {query.HuScore}分", ScoreText = query.WinnerPointDelta.HasValue ? $"{query.WinnerPointDelta.Value:+#;-#;0}分" : "" },
             ScoreboardFanText = query => $"基本分 {query.HuScore}分",
-            SettlementFootnote = query => query.HuFan != null && query.HuFan.Length > 0
-                ? "4番封顶；庄家2/4/8倍\n三吃承包依责任支付。" : null,
             SettlementHasNoWinTile = HangzhouFanText.IsTenWinds,
             RecordFlowerWin = tick => tick != null && tick.Count > 3 && tick[3].Contains("十风"),
             HuPresentationAction = (kind,fans,config) => HangzhouFanText.IsTenWinds(fans) ? "hangzhou_ten_winds" : kind,
@@ -40,7 +42,7 @@ internal static class HangzhouRuleBootstrap {
             RoundSupplementText = info => "4番封顶",
             DefaultHepaiLimit = 0, HasFlowerReplacement = false, ReplacementFromTailEnd = true,
             ShowsRonDangerHints = false,
-            ReplayConcealedKongMask = (rule,tiles) => new[] { 2,tiles[0],2,tiles[1],2,tiles[2],2,tiles[3] },
+            ReplayConcealedKongMask = (rule,tiles) => new[] { 2,tiles[0],0,tiles[1],0,tiles[2],2,tiles[3] },
             RulebookKey = "hangzhou",
         });
         ActionWords.Register(new ActionWordSpec { Word = "hangzhou_piao", Kind = ActionWordKind.Other, Label = _ => "飘" });

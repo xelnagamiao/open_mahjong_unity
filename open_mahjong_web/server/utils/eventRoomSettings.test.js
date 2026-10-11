@@ -190,7 +190,7 @@ test('all seven supported rules have the correct common defaults and rule change
     assert.equal(settings.manual.room_rule, room_rule);
     assert.equal(settings.manual.room_config.room_name, '测试桌');
     assert.equal(settings.manual.room_config.round_timer, 20);
-    if (room_rule !== 'guobiao') assert.equal('hepai_limit' in settings.manual.room_config, false);
+    if (!['guobiao', 'riichi'].includes(room_rule)) assert.equal('hepai_limit' in settings.manual.room_config, false);
   }
   const riichi = change(doc, 'manual', { room_rule: 'riichi' }).settings;
   assert.equal(riichi.manual.room_config.sub_rule, 'riichi/standard');

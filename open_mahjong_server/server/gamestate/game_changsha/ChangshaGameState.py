@@ -606,6 +606,11 @@ class ChangshaGameState:
         winner.record_counter.zimo_times += 1
         winner.record_counter.recorded_fans.append(score_info["fan_display"])
         winner.record_counter.win_score += score_info["actual_hu_score"]
+        # 起手胡不结束回合，单独保留已结算番种供实时统计和历史重建共用。
+        round_record = (getattr(self, "game_record", {}).get("game_round") or {}).get(
+            f"round_index_{getattr(self, 'round_index', 0)}")
+        if round_record is not None:
+            round_record.setdefault("initial_hu_events", []).append({"seat": player_index, "fans": hu_types})
         player_to_score = {player.player_index: player.score for player in self.player_list}
         score_changes_dict = build_score_changes_dict(self.player_list, scores_before)
         await broadcast_result(

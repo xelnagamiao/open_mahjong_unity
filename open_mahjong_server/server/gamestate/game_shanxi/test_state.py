@@ -1,4 +1,5 @@
 import asyncio
+import random
 from collections import Counter
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -40,6 +41,24 @@ def test_136_tiles_13_tile_hand_deal_is_deterministic():
     first=list(state.tiles_list)
     state.init_tiles()
     assert first==state.tiles_list
+
+
+def test_opening_hand_retains_actual_deal_order_for_client_animation():
+    state=make_state()
+    state.master_seed=4727
+    state.init_tiles()
+    wall=[tile for tile in sx.TILES for _ in range(4)]
+    random.Random(state.round_random_seed).shuffle(wall)
+    expected=[[] for _ in range(4)]
+    for group in range(3):
+        for seat in range(4):
+            start=group*16+seat*4
+            expected[seat].extend(wall[start:start+4])
+    for seat in range(4): expected[seat].append(wall[48+seat])
+    expected[0].append(wall[52])
+    assert [p.hand_tiles for p in state.player_list]==expected
+    assert any(hand!=sorted(hand) for hand in expected)
+    assert state.tiles_list==wall[53:]
 
 
 def test_ready_cut_is_concealed_and_not_claimable():

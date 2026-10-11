@@ -51,6 +51,7 @@ public class WindowsManager : MonoBehaviour {
     /// </summary>
     private string roomReturnWindow = "menu";
     private Coroutine _switchRoutine;
+    private bool applicationPaused;
 
     private static bool IsLobbyTab(string window) {
         return window == "menu" || window == "room" || window == "record" || window == "player"
@@ -71,6 +72,31 @@ public class WindowsManager : MonoBehaviour {
 
     private void Start() {
         ApplyStreamerModePanels();
+    }
+
+    private void OnEnable() {
+        ApplyScreenSleepTimeout();
+    }
+
+    private void OnDisable() {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        if (Instance == this) Screen.sleepTimeout = SleepTimeout.SystemSetting;
+#endif
+    }
+
+    private void OnApplicationPause(bool paused) {
+        applicationPaused = paused;
+        ApplyScreenSleepTimeout();
+    }
+
+    private void ApplyScreenSleepTimeout() {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        if (Instance != this) return;
+        // 牌谱、观战和结算也要常亮；挂回大厅时 gamePanel 仍运行，因此以当前页面为准。
+        bool keepAwake = isActiveAndEnabled && !applicationPaused
+            && (currentWindow == "game" || currentWindow == "recordscene");
+        Screen.sleepTimeout = keepAwake ? SleepTimeout.NeverSleep : SleepTimeout.SystemSetting;
+#endif
     }
 
     private void OnDestroy() {
@@ -131,6 +157,7 @@ public class WindowsManager : MonoBehaviour {
         ApplyColdBootHiddenState();
         EnsurePanelVisible(loginPanel);
         currentWindow = "login";
+        ApplyScreenSleepTimeout();
         ApplyStreamerModePanels();
         lastLobbyTab = "menu";
         gameReturnWindow = "menu";
@@ -355,6 +382,7 @@ public class WindowsManager : MonoBehaviour {
             lastLobbyTab = targetWindow;
         }
         currentWindow = targetWindow; // 更新当前窗口状态
+        ApplyScreenSleepTimeout();
         ApplyStreamerModePanels();
         HeaderPanel.Instance?.UpdateButtonState(targetWindow); // 即时刷新导航栏按钮
         if (targetWindow == "room") {

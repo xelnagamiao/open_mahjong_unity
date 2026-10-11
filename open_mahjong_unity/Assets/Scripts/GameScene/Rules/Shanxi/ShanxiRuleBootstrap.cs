@@ -5,6 +5,8 @@ internal static class ShanxiRuleBootstrap {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Register() {
         RuleRegistry.Register(new RuleManifest {
+            ReplayFactory = record => record.CreateShanxiReplayModule(),
+            BuildRoom = ShanxiRoomBuilder.Build,
             RuleId = "shanxi", DefaultSubRule = "shanxi/mil2023", DisplayName = "山西麻将", LobbyOrder = 11,
             LobbySubRules = new[] { new RuleLobbySubRule("shanxi/mil2023", "MIL 2023",
                 "MIL《山西麻将（推广）竞赛规则（试行2023版）》：136张、十三张手牌，不吃牌、无花无癞子；暗扣一张牌报听，三点可自摸、六点可点和。和牌时结算全桌杠账，未报听放铳须包全桌。线上使用房间配置，默认每局额外思考局时20秒、每次步时5秒，先用步时再扣局时；原书线下3秒报牌时限不另设线上上限。零局时只用步时，重连不重开窗口。") },
@@ -20,19 +22,34 @@ internal static class ShanxiRuleBootstrap {
             DescribeWaitingTile = ShanxiHandCalculator.Describe,
             RoundName = r => $"第{r}庄", RoundStatusText = q => $"第{q.current_round}庄",
             MaxRoundText = r => $"{r * 4}庄",
+            FanNameText = FanName,
             FanValueText = FanValue,
             ScoreboardFanText = q => $"基本分 {q.HuScore}分",
             SettlementTotal = q => new SettlementTotalDisplay { FanText = "和牌基本分", ScoreText = $"{q.HuScore}分" },
-            ActionCaption = word => word == "riichi" || word == "riichi_cut" ? "报听"
+            ActionCaption = word => word == "riichi" ? "听" : word == "riichi_cut" ? "报听"
                 : word == "riichi_cut_cancel" ? "取消报听" : null,
-            // 五-5专条要求“报听”；六-2规定和牌报“和”。
-            ActionVoice = word => word == "riichi" || word == "riichi_cut" ? "baoting" : word == "hu_self" ? "hu" : null,
+            // 六-2列出的有效报牌为“碰、杠、听、和”。操作按钮仍称“报听”。
+            ActionVoice = word => word == "riichi" || word == "riichi_cut" ? "ting" : word == "hu_self" ? "hu" : null,
             HasFlowerReplacement = false,
             RonWinTileTravelsFromRiver = true,
             PeekAnkan = true, PublicReadyStateReplay = true, DefaultHepaiLimit = 0,
         });
     }
+    private static bool TryWinningTilePoints(string name, out int points) {
+        points = 0;
+        const string prefix = "和牌张（";
+        const string suffix = "分）";
+        // 协议/旧牌谱保留这个带值键；表现分别交给名称栏和分值栏。
+        return name != null && name.StartsWith(prefix, System.StringComparison.Ordinal)
+            && name.EndsWith(suffix, System.StringComparison.Ordinal)
+            && int.TryParse(name.Substring(prefix.Length, name.Length - prefix.Length - suffix.Length), out points)
+            && points >= 3 && points <= 10;
+    }
+    private static string FanName(string rule, string name) {
+        return TryWinningTilePoints(name, out _) ? "和牌张" : name;
+    }
     private static string FanValue(string rule, string name) {
+        if (TryWinningTilePoints(name, out int points)) return $"{points}分";
         switch (name) {
             case "一条龙": case "清一色": case "七对": return "20分";
             case "豪华七对": return "40分";

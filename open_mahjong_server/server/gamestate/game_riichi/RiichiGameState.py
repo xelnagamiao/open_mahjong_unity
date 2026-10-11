@@ -14,6 +14,7 @@ import time
 import math
 import logging
 from copy import deepcopy
+from ...game_calculation.riichi.win_requirements import meets_win_requirements
 from typing import Dict, List, Optional, Any
 
 from .action_check import (
@@ -67,13 +68,8 @@ logger = logging.getLogger(__name__)
 
 
 def _normalize(tile: int) -> int:
-    if tile == 105:
-        return 15
-    if tile == 205:
-        return 25
-    if tile == 305:
-        return 35
-    return tile
+    from ...game_calculation.riichi.washizu_tiles import normalize
+    return normalize(tile)
 
 
 def _count_bonus_yaku(names: List[str], base: str) -> int:
@@ -155,7 +151,7 @@ class RiichiPlayer:
     def get_gang_tile(self, tiles_list, gamestate):
         from ...game_calculation.riichi.sanma import replacement_index
         # 三麻第 5~8 张补牌绕过所有宝牌/里宝指示牌；末尾仍保留 14 张。
-        element = tiles_list.pop(replacement_index(gamestate.rinshan_count, gamestate.sub_rule == 'riichi/sanma'))
+        element = tiles_list.pop(0 if gamestate.sub_rule == 'riichi/washizu' else replacement_index(gamestate.rinshan_count, gamestate.sub_rule == 'riichi/sanma'))
         self.hand_tiles.append(element)
         self.has_draw_slot = True
         gamestate.rinshan_count += 1
@@ -225,6 +221,12 @@ class RiichiGameState:
         self.hepai_way: str = room_data.get("hepai_way", "multi_ron")  # head_bump / multi_ron / three_ron_abort
         self.open_xiru: bool = room_data.get("open_xiru", True)
         self.open_tobi: bool = room_data.get("open_tobi", True)
+        if self.sub_rule == 'riichi/washizu':
+            if len(self.player_list) != 4:
+                raise ValueError('鹫巢麻将需要四位玩家')
+            self.red_dora = False
+            self.hepai_way = 'head_bump'
+            self.open_xiru = False
         # 起手分：未指定时由子规则决定（标准 25000 / 浪涌 50000）；可房间级覆盖或 per-player 设置
         raw_starting = room_data.get("starting_score")
         self.starting_score: Optional[int] = int(raw_starting) if raw_starting is not None else None
@@ -798,6 +800,8 @@ class RiichiGameState:
         return match_should_end(self, renchan, self.current_round if current_round is None else current_round)
 
     def _compute_last_renchan(self) -> bool:
+        if self.sub_rule == 'riichi/washizu':
+            return False
         """Settle 后、局数推进前：本局是否连庄（不修改状态）。"""
         if self._cuohe_triggered:
             return True
@@ -853,9 +857,9 @@ class RiichiGameState:
             self.multi_ron_queue = None
         elif self.hu_class in ("hu_self", "hu_first", "hu_second", "hu_third"):
             result = self.result_dict.get(self.hu_class) or {}
-            # 错和：①牌型成立但无役（no_yaku，0番不能正常和牌）②和牌番数低于起和番数。
+            # 错和：无役、实际役番不足，或含宝牌的闲家荣和等值未达起和线。
             # 两者均仅在开启错和（open_cuohe）时才允许宣告并走错和罚分流程。
-            needs_cuohe = bool(result.get("no_yaku")) or int(result.get("han", 0)) < int(self.hepai_limit)
+            needs_cuohe = not meets_win_requirements(result, self.hepai_limit, self.detailed_config['minimum_win_score'])
             if needs_cuohe and self.open_cuohe:
                 await self._settle_cuohe()
             else:
@@ -1258,6 +1262,16 @@ class RiichiGameState:
         """
         if not option(self, "kan_dora"):
             return
+        if self.sub_rule == 'riichi/washizu':
+            if len(self.kan_dora_indicators) >= 4:
+                return
+            from .washizu import draw_indicator
+            new_ind = draw_indicator(self)
+            self.kan_dora_indicators.append(new_ind)
+            player_action_record_new_dora(self, tile_id=new_ind)
+            if broadcast:
+                await broadcast_update_dora(self, new_indicator=new_ind, is_kan_dora=True)
+            return
         next_kan_number = len(self.kan_dora_indicators) + 1
         if next_kan_number > 4:
             return
@@ -1340,6 +1354,16 @@ class RiichiGameState:
         return check_jiuzhongjiupai(player.hand_tiles)
 
     # ========== 观战 ==========
+
+    def build_record_round_fields(self):
+        if self.sub_rule != 'riichi/washizu':
+            return {}
+        return {'washizu': {
+            'version': 1,
+            'draw_limit': 70,
+            'dora_indicators': list(self.dora_indicators),
+            'dead_wall_count': self.dead_wall_count,
+        }}
 
     def complete_spectator_record(self, record):
         # 终局供托分配、实点和顺位点只在结算后写入正式牌谱，不能沿用开局缓存。

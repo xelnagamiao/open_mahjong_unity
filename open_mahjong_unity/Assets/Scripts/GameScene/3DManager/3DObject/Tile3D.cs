@@ -48,6 +48,7 @@ public class Tile3D : MonoBehaviour
     private float baseGrayScale;
     private float instanceGrayScale;
     private float instanceTableImageScale;
+    private bool frontFaceHalfTurn;
     private bool materialDefaultsCached;
 
     /// <summary>立直横置标记：用于河中后续牌偏移计算与重连/牌谱重建。
@@ -113,6 +114,8 @@ public class Tile3D : MonoBehaviour
         }
     }
 
+    public void RefreshRuleBadge() => RuleTileBadge3D.Apply(cardRenderer, currentVisibleFaceTileId, !IsConcealedFaceDown || isPeekFaceUp);
+
     public void SetPeekFaceUp(bool peek) {
         if (peek && !CanPeekOnHover) return;
         if (!IsConcealedFaceDown || !hasFaceRotationBaseline) return;
@@ -142,6 +145,7 @@ public class Tile3D : MonoBehaviour
         }
         hasFaceRotationBaseline = false;
         faceMeshTransform = null;
+        SetFrontFaceHalfTurn(false);
         ResetBackOrientation();
         RefreshPeekCollider();
     }
@@ -247,10 +251,10 @@ public class Tile3D : MonoBehaviour
         propBlock.SetColor(SideColorId, instanceSideColor);
         propBlock.SetColor(BackEdgeColorId, instanceBackEdgeColor);
         propBlock.SetColor(FrontEdgeColorId, instanceFrontEdgeColor);
-        // x 为灰化，y 为图片区域尺度（0 沿用材质默认值）；zw 预留。
+        // x 为灰化，y 为图片区域尺度（0 沿用材质默认值），z 为透明立牌正面半周旋转。
         propBlock.SetVector(
             TileInstanceParamsId,
-            new Vector4(instanceGrayScale, instanceTableImageScale, 0f, 0f));
+            new Vector4(instanceGrayScale, instanceTableImageScale, frontFaceHalfTurn ? 1f : 0f, 0f));
         cardRenderer.SetPropertyBlock(propBlock, tileMaterialIndex);
         RuleTileBadge3D.Apply(cardRenderer, currentVisibleFaceTileId, !IsConcealedFaceDown || isPeekFaceUp);
     }
@@ -321,6 +325,7 @@ public class Tile3D : MonoBehaviour
         materials[tileMaterialIndex] = faceMaterial;
         cardRenderer.sharedMaterials = materials;
         sharedTileMaterial = faceMaterial;
+        SetTransparentPresentation(false);
         // 标准麻将的独立图片统一等比留白；虹雀沿用原独立映射。
         faceMaterial.SetFloat("_FrontTexContain", contain ? 1f : 0f);
         instanceTableImageScale = contain ? imageScale : 0f;
@@ -343,8 +348,69 @@ public class Tile3D : MonoBehaviour
         SetStandaloneCardTexture(tileId, texture, faceMaterial, true, imageScale);
     }
 
+    public Material TileMaterial { get { InitializeComponents(); return sharedTileMaterial; } }
+
+    /// <summary>补偿暗牌立牌的正面朝向；按实例保存，换皮肤保留、回池清除。</summary>
+    public void SetFrontFaceHalfTurn(bool halfTurn) {
+        if (frontFaceHalfTurn == halfTurn) return;
+        InitializeComponents();
+        frontFaceHalfTurn = halfTurn;
+        ApplyPropertyBlock();
+    }
+
+    private Renderer[] opaqueOutlines;
+    private bool[] opaqueOutlineEnabled;
+    private TileContactShadow opaqueContactShadow;
+    private bool opaqueContactShadowEnabled;
+    private bool hasTransparentPresentation;
+
+    // Opaque support strokes and filled contact shadows would show through glass
+    // (and leave a floating cuboid behind a flat reading aid). Preserve pool state.
+    private void SetTransparentPresentation(bool transparent) {
+        if (transparent == hasTransparentPresentation) return;
+        if (transparent) {
+            var outlines = new System.Collections.Generic.List<Renderer>();
+            foreach (Renderer r in GetComponentsInChildren<Renderer>(true)) {
+                if (r == cardRenderer) continue;
+                foreach (Material m in r.sharedMaterials) {
+                    if (m != null && m.shader != null && m.shader.name == "Hidden/Mahjong/TileOutlineRibbon") {
+                        outlines.Add(r); break;
+                    }
+                }
+            }
+            opaqueOutlines = outlines.ToArray();
+            opaqueOutlineEnabled = new bool[opaqueOutlines.Length];
+            for (int i=0;i<opaqueOutlines.Length;i++) {
+                opaqueOutlineEnabled[i]=opaqueOutlines[i].enabled;
+                opaqueOutlines[i].enabled=false;
+            }
+            opaqueContactShadow=GetComponent<TileContactShadow>();
+            if (opaqueContactShadow != null) {
+                opaqueContactShadowEnabled=opaqueContactShadow.enabled;
+                opaqueContactShadow.enabled=false;
+            }
+        } else {
+            if (opaqueOutlines != null) for (int i=0;i<opaqueOutlines.Length;i++)
+                if (opaqueOutlines[i] != null) opaqueOutlines[i].enabled=opaqueOutlineEnabled[i];
+            if (opaqueContactShadow != null) opaqueContactShadow.enabled=opaqueContactShadowEnabled;
+        }
+        hasTransparentPresentation=transparent;
+    }
+
+    public void SetGlassMaterial(Material material) {
+        InitializeComponents();
+        if (material == null || cardRenderer == null || tileMaterialIndex < 0) return;
+        Material[] materials = cardRenderer.sharedMaterials;
+        materials[tileMaterialIndex] = material;
+        cardRenderer.sharedMaterials = materials;
+        sharedTileMaterial = material;
+        SetTransparentPresentation(true);
+        ApplyPropertyBlock();
+    }
+
     public void RestoreAtlasMaterial() {
         InitializeComponents();
+        SetTransparentPresentation(false);
         if (originalAtlasMaterial == null || cardRenderer == null || tileMaterialIndex < 0) {
             return;
         }

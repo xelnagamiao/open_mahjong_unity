@@ -108,6 +108,20 @@ const rules = [
     docs: [{title: '蓝十魔改规则第4版', desc: '四人规则与番种牌例；线下赛事编排、裁判与纪律条款供参考。', url: '/rulebooks/guobiao-lanshi.pdf', filename: '蓝十魔改规则第4版.pdf'}]
   },
   {
+    key: 'guobiao-transparent',
+    label: '透明国标',
+    description: '标准国标计番与补花流程，每种常规牌三张透明、一张不透明。',
+    docs: [{ title: '透明国标：本站规则与牌例', desc: '三透一暗、吃碰选牌、暗杠、八番起和与普通牌墙。', url: '/rulebooks/guobiao-transparent.html' }]
+  },
+  {
+    key: 'washizu',
+    label: '鹫巢麻将',
+    description: '四人三透一暗，透明手牌公开；本站完整规则与外部资料。',
+    docs: [{ title: '鹫巢麻将：本站规则与牌例', desc: '含透明牌、吃碰选牌、70次摸牌、宝牌、头跳和回放说明。', url: '/rulebooks/washizu.html' },
+      { title: '雀魂2021年明镜之战攻略（日文）', desc: '非官方活动说明，可参考透明牌和选牌方式；与本站的可配置日麻细则并非完全相同。', url: 'https://mahjongsoul.info/2021-10event/' },
+      { title: '原作式鹫巢麻将规则（日文）', desc: '用于对照无牌山玩法；其70次弃牌计数与本站70次摸牌不同。', url: 'https://ketto.com/zw/wasirule.shtml' } ]
+  },
+  {
     key: 'riichi',
     label: '立直麻将',
     description: '四人立直麻将，支持多种规则预设及役种、计分和流局设置',
@@ -192,6 +206,16 @@ const rules = [
     docs: milRulebooks.changchun,
   },
   {
+    key: 'jiujiang', label: '九江麻将', short: '九江', categories: ['platform', 'local', 'custom'], accent: '#467b85',
+    description: '九江麻将是九江地区一个没落的麻将规则，目前九江地区通行红中麻将，本规则是芋蔗凭借小时候的记忆和一定程度上的改良复现的一种失传规则，如发现任何问题或者能够提供九江麻将的资料的玩家可以联系Q2264033554',
+    docs: [{ title: '九江麻将规则书', desc: '芋蔗提供的更新版规则书。', url: '/rulebooks/jiujiang.docx', filename: '九江麻将规则书.docx' }],
+  },
+  {
+    key: 'wuhan', label: '武汉麻将', short: '武汉', categories: ['platform', 'mil'], accent: '#337e9f',
+    description: milRulebooks.wuhan[0].desc,
+    docs: milRulebooks.wuhan,
+  },
+  {
     key: 'hongzhong', label: '红中麻将', short: '红中', categories: ['platform', 'mil'], accent: '#b74b46',
     description: milRulebooks.hongzhong[0].desc,
     docs: milRulebooks.hongzhong,
@@ -205,6 +229,18 @@ const rules = [
     key: 'wenzhou', label: '温州麻将', short: '温州', categories: ['platform', 'local', 'mil'], accent: '#297b74',
     description: milRulebooks.wenzhou[0].desc,
     docs: milRulebooks.wenzhou,
+  },
+  {
+    key: 'shenyang', label: '沈阳麻将', short: '沈阳', categories: ['platform', 'mil'], accent: '#587c88',
+    description: milRulebooks.shenyang[0].desc, docs: milRulebooks.shenyang,
+  },
+  {
+    key: 'nanjing', label: '南京麻将', short: '南京', categories: ['platform', 'mil'], accent: '#947344',
+    description: milRulebooks.nanjing[0].desc, docs: milRulebooks.nanjing,
+  },
+  {
+    key: 'nanchang', label: '南昌麻将', short: '南昌', categories: ['platform', 'mil'], accent: '#587a69',
+    description: milRulebooks.nanchang[0].desc, docs: milRulebooks.nanchang,
   },
   {
     key: 'yixing', label: '宜兴麻将', short: '宜兴', categories: ['platform', 'local'], accent: '#537c69',
@@ -249,7 +285,7 @@ const rules = [
   {
     key: 'zhongyong',
     label: '中庸麻将',
-    description: '标准中庸采用关兆豪的中庸 v3.3 计分法，136张牌，无起和限制，同系列取最高和种，不同系列相加。南雀作为子规则，采用独立计分表与三人和牌的血战到底流程。',
+    description: '中庸麻雀是香港学者关兆豪于2006年提出的一种竞技麻将规则体系，其得分授受制度称为“中庸竞技制”，旨在平衡竞技性与娱乐性。',
     docs: [{
         title: '中庸麻将与南雀规则说明',
         desc: '标准中庸的计分与支付方法，以及南雀血战到底的差异。',
@@ -271,6 +307,11 @@ const rules = [
       desc: '上海清混碰：上海传统麻将规则，使用144张麻将牌，以必须做出清、混一色或碰碰和才能和牌为特色，与快节奏的上海敲麻有着鲜明对比，独具特色。',
       url: '/rulebooks/shanghai-qinghunpeng.docx',
       filename: '上海清混碰规则.docx'
+    }, {
+      title: '上海垃圾和规则',
+      desc: '上海垃圾和是上海本地的一款特色麻将规则，使用144张麻将牌，允许垃圾和的同时对点和做了花数上的限制，并有七对子、自摸加底等特色内容，节奏适中。',
+      url: '/rulebooks/shanghai-lajihe.docx',
+      filename: '上海垃圾和规则.docx'
     }]
   },
   {

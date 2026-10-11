@@ -149,6 +149,7 @@ public partial class GameCanvas {
     /// <summary>血流开局弃三张：复用定缺面板的按钮作为提交入口，牌面本身负责选择。</summary>
     public void ShowXueliuThrowThreeSelection(int seconds = 10, bool exchange = false) {
         if (IsDingqueSelectionSuppressed()) return;
+        HideXueliuThrowThreeSelection();
         _xueliuSelecting = true;
         _xueliuExchange = exchange;
         _xueliuSelectedCards.Clear();
@@ -168,6 +169,36 @@ public partial class GameCanvas {
         _xueliuCountdownCoroutine = StartCoroutine(XueliuThrowCountdown(Mathf.Max(1, seconds)));
     }
 
+    private string _xueliuTeamHint = "";
+
+    public void ShowXueliuTeamExchange(AskHandActionGBInfo info) {
+        HideXueliuThrowThreeSelection();
+        if (IsDingqueSelectionSuppressed()) return;
+        bool canSelect = System.Array.IndexOf(info.action_list ?? System.Array.Empty<string>(), "xueliu_exchange_three") >= 0;
+        XueliuExchangeInfo phase = info.xueliu_exchange;
+        if (phase.animating) {
+            SetXueliuCardSelectability(false);
+            return;
+        }
+        if (canSelect) {
+            ShowXueliuThrowThreeSelection(info.remaining_time, true);
+            _xueliuTeamHint = phase.teammate_suit >= 1 && phase.teammate_suit <= 3
+                ? $"队友换出{DingqueSuitLabels[phase.teammate_suit]}牌 · " : "";
+            SetDingqueTip($"{_xueliuTeamHint}已选 0/3");
+        } else {
+            if (dingqueSelectionPanel != null) dingqueSelectionPanel.SetActive(true);
+            if (dingqueWanButton != null) dingqueWanButton.gameObject.SetActive(false);
+            if (dingqueBingButton != null) dingqueBingButton.gameObject.SetActive(false);
+            if (dingqueTiaoButton != null) dingqueTiaoButton.gameObject.SetActive(false);
+            if (dingqueCountdownText != null) dingqueCountdownText.text = "";
+            string[] seats = { "东", "南", "西", "北" };
+            var active = new List<string>();
+            foreach (int index in phase.active_players ?? System.Array.Empty<int>()) if (index >= 0 && index < 4) active.Add(seats[index]);
+            SetDingqueTip($"{(phase.selection_done ? "已提交 · " : "")}等待{string.Join("、", active)}家选牌");
+            SetXueliuCardSelectability(false);
+        }
+    }
+
     public bool TryHandleXueliuTileClick(TileCard card) {
         if (!_xueliuSelecting || card == null) return false;
         int suit = card.tileId / 10;
@@ -184,7 +215,7 @@ public partial class GameCanvas {
             _xueliuSelectedCards.Add(card);
             card.SetXueliuSelected(true);
         }
-        SetDingqueTip($"{XueliuOpeningLabel}：选择同花牌（已选 {_xueliuSelectedCards.Count}/3）");
+        SetDingqueTip(string.IsNullOrEmpty(_xueliuTeamHint) ? $"{XueliuOpeningLabel}：选择同花牌（已选 {_xueliuSelectedCards.Count}/3）" : $"{_xueliuTeamHint}已选 {_xueliuSelectedCards.Count}/3");
         return true;
     }
 
@@ -237,10 +268,12 @@ public partial class GameCanvas {
         foreach (TileCard card in _xueliuSelectedCards) card.SetXueliuSelected(false);
         _xueliuSelectedCards.Clear();
         if (dingqueSelectionPanel != null) dingqueSelectionPanel.SetActive(false);
+        SetXueliuCardSelectability(false);
         GameStateNetworkManager.Instance.SendAction(_xueliuExchange ? "xueliu_exchange_three" : "xueliu_throw_three", 0, 0, tiles);
     }
 
     public void HideXueliuThrowThreeSelection() {
+        _xueliuTeamHint = "";
         _xueliuSelecting = false;
         if (_xueliuCountdownCoroutine != null) {
             StopCoroutine(_xueliuCountdownCoroutine);
@@ -306,5 +339,13 @@ public partial class GameCanvas {
             case "left":  return playerLeftPanel;
             default:      return null;
         }
+    }
+
+    public void UpdateSichuanTeams(int[] teams, Dictionary<int, string> positions = null, bool keepDingque = false) {
+        if (teams == null || teams.Length != 4) return;
+        positions = positions ?? NormalGameStateManager.Instance?.indexToPosition;
+        if (positions == null) return;
+        for (int i = 0; i < teams.Length; i++)
+            if (positions.TryGetValue(i, out string position)) GetPanelByPosition(position)?.SetSichuanTeam(teams[i], keepDingque);
     }
 }

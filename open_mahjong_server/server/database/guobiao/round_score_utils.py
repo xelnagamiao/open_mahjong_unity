@@ -47,10 +47,10 @@ def infer_guobiao_seats(current_round: int) -> List[int]:
 def resolve_round_seats(rd: Dict[str, Any]) -> List[int]:
     """优先用牌谱 seats；旧牌谱缺字段时按国标换位从 current_round 还原。"""
     seats = rd.get("seats") if isinstance(rd, dict) else None
-    if isinstance(seats, list) and len(seats) == 4:
+    if isinstance(seats, list) and len(seats) in (3, 4):
         try:
-            parsed = [int(s) % 4 for s in seats]
-            if len(set(parsed)) == 4:
+            parsed = [int(s) for s in seats]
+            if set(parsed) == set(range(len(seats))):
                 return parsed
         except (TypeError, ValueError):
             pass

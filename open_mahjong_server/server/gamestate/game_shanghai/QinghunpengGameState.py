@@ -28,14 +28,16 @@ from ...database.fulu_utils import record_fulu_rounds_for_players
 class QinghunpengGameState(TaiwanGameState):
     flower_tiles = calculation.FLOWERS
     structure_tiles = calculation.TILES
+    sub_rule_id = calculation.SUB_RULE
+    draw_debt_enabled = True
 
     def __init__(self, game_server, room_data, calculation_service, db_manager, gamestate_id):
-        if room_data.get("sub_rule", calculation.SUB_RULE) != calculation.SUB_RULE:
-            raise ValueError("清混碰状态机只接受 shanghai/qinghunpeng")
+        if room_data.get("sub_rule", self.sub_rule_id) != self.sub_rule_id:
+            raise ValueError(f"状态机只接受 {self.sub_rule_id}")
         super().__init__(game_server, {**room_data, "detailed_config": None},
                          calculation_service, db_manager, gamestate_id)
         self.room_rule = "shanghai"
-        self.sub_rule = calculation.SUB_RULE
+        self.sub_rule = self.sub_rule_id
         self.open_cuohe = False
         self.rules = replace(
             self.rules, dead_wall_count=0, multi_win_mode="multiple_winners",
@@ -76,9 +78,11 @@ class QinghunpengGameState(TaiwanGameState):
 
     def score_candidate(self, player_index, source, tile=None, **_):
         player = self.player_list[player_index]
+        if player.passed_win_tiles:
+            return None
         hand = list(player.hand_tiles)
         if source != "self_draw":
-            if tile is None or tile in player.passed_win_tiles:
+            if tile is None:
                 return None
             hand.append(tile)
         return calculation.score(
@@ -106,7 +110,7 @@ class QinghunpengGameState(TaiwanGameState):
         return None
 
     def enter_water(self, player_index):
-        # 仅限制本次放过的同张牌，不产生台湾规则的全听口过水。
+        # 记录拒和；下次实际摸牌前，所有听口均由 score_candidate 拒绝。
         if self.game_status not in ("waiting_action_after_cut", "waiting_action_qianggang"):
             return False  # 拒绝自摸的实际弃牌由 execute_cut 处理。
         tile = self.jiagang_tile if self.game_status == "waiting_action_qianggang" else None
@@ -133,7 +137,8 @@ class QinghunpengGameState(TaiwanGameState):
 
     @staticmethod
     def _fourth_exposed(player):
-        return len(player.combination_tiles) == 4 and all(code[0] != "G" for code in player.combination_tiles)
+        # 第四个面子由吃或碰完成，前三个面子可以包含暗杠。
+        return len(player.combination_tiles) == 4 and player.combination_tiles[-1][0] in "sk"
 
     def _kong_allowed(self, index, tile, kind):
         player = self.player_list[index]
@@ -192,7 +197,7 @@ class QinghunpengGameState(TaiwanGameState):
                     remaining = list(player.hand_tiles)
                     for t in required:
                         remaining.remove(t)
-                    fourth = len(player.combination_tiles) == 3 and all(c[0] != "G" for c in player.combination_tiles)
+                    fourth = len(player.combination_tiles) == 3
                     if action != "gang" and not any(t != tile or fourth for t in remaining):
                         continue
                     actions[index].append(action)
@@ -334,7 +339,7 @@ class QinghunpengGameState(TaiwanGameState):
     async def _settle_hand(self, scores_before):
         won = bool(self.pending_winners)
         doubled = self.huangfan_count > 0
-        remaining_debt = max(0, self.huangfan_count - 1) if won else self.huangfan_count + 1
+        remaining_debt = (max(0, self.huangfan_count - 1) if won else self.huangfan_count + 1) if self.draw_debt_enabled else 0
         match_end = self.current_round >= self.max_round * 4 and remaining_debt == 0
         next_status = "match_end" if match_end else "round_end_by_ready"
         for number, item in enumerate(self.pending_winners):

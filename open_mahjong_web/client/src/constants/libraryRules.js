@@ -43,6 +43,8 @@ export const LIBRARY_SECTIONS = [
 ]
 
 export const LIBRARY_RULES = [
+  { key: 'shenyang', label: '沈阳麻将', short: '沈阳', categories: ['platform', 'mil'], accent: '#587c88', description: milRulebooks.shenyang[0].desc, resources: milRulebooks.shenyang },
+  { key: 'nanchang', label: '南昌麻将', short: '南昌', categories: ['platform', 'local', 'mil'], accent: '#297b74', description: milRulebooks.nanchang[0].desc, resources: milRulebooks.nanchang },
   {
     key: 'wenzhou', label: '温州麻将', short: '温州', categories: ['platform', 'local', 'mil'], accent: '#297b74',
     description: milRulebooks.wenzhou[0].desc,
@@ -54,6 +56,16 @@ export const LIBRARY_RULES = [
     resources: milRulebooks.changchun,
   },
   {
+    key: 'jiujiang', label: '九江麻将', short: '九江', categories: ['platform', 'local', 'custom'], accent: '#467b85',
+    description: '九江麻将是九江地区一个没落的麻将规则，目前九江地区通行红中麻将，本规则是芋蔗凭借小时候的记忆和一定程度上的改良复现的一种失传规则，如发现任何问题或者能够提供九江麻将的资料的玩家可以联系Q2264033554',
+    resources: [{ title: '九江麻将规则书', desc: '芋蔗提供的更新版规则书。', url: '/rulebooks/jiujiang.docx', filename: '九江麻将规则书.docx' }],
+  },
+  {
+    key: 'wuhan', label: '武汉麻将', short: '武汉', categories: ['platform', 'mil'], accent: '#337e9f',
+    description: milRulebooks.wuhan[0].desc,
+    resources: milRulebooks.wuhan,
+  },
+  {
     key: 'hongzhong', label: '红中麻将', short: '红中', categories: ['platform', 'mil'], accent: '#b74b46',
     description: milRulebooks.hongzhong[0].desc,
     resources: milRulebooks.hongzhong,
@@ -62,6 +74,10 @@ export const LIBRARY_RULES = [
     key: 'hangzhou', label: '杭州麻将', short: '杭州', categories: ['platform', 'mil'], accent: '#1f8a6a',
     description: milRulebooks.hangzhou[0].desc,
     resources: milRulebooks.hangzhou,
+  },
+  {
+    key: 'nanjing', label: '南京麻将', short: '南京', categories: ['platform', 'mil'], accent: '#947344',
+    description: milRulebooks.nanjing[0].desc, resources: milRulebooks.nanjing,
   },
   {
     key: 'yixing', label: '宜兴麻将', short: '宜兴', categories: ['platform', 'local'], accent: '#537c69',
@@ -278,7 +294,7 @@ export const LIBRARY_RULES = [
     label: '中庸麻将',
     short: '中庸',
     categories: ['platform'],
-    description: '标准中庸采用关兆豪的中庸 v3.3 计分法，136张牌，无起和限制，同系列取最高和种，不同系列相加。南雀作为子规则，采用独立计分表与三人和牌的血战到底流程。',
+    description: '中庸麻雀是香港学者关兆豪于2006年提出的一种竞技麻将规则体系，其得分授受制度称为“中庸竞技制”，旨在平衡竞技性与娱乐性。',
     accent: '#64748b',
     resources: [{
         title: '中庸麻将与南雀规则说明',
@@ -412,7 +428,7 @@ export function rulesForSection(sectionKey) {
     const platformRules = LIBRARY_RULES.filter(
       (r) => r.categories.includes('mil') && !r.categories.includes('platform') && r.key !== 'mil-collection',
     )
-    const platformMilFiles = new Set(['mil-sichuan', 'mil-mcr', 'mil-riichi', 'mil-tuidao', 'mil-shanxi', 'mil-red-center', 'mil-changchun'])
+    const platformMilFiles = new Set(['mil-sichuan', 'mil-mcr', 'mil-riichi', 'mil-tuidao', 'mil-shanxi', 'mil-red-center', 'mil-changchun', 'mil-shenyang'])
     return platformRules.concat(MIL_RULES.filter((r) => !platformMilFiles.has(r.key)))
   }
   if (sectionKey === 'materials' || sectionKey === 'submit' || sectionKey === 'lineage') return []

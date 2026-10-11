@@ -68,6 +68,16 @@ public partial class GameCanvas{
 
         Debug.Log($"手牌处理: {ChangeType}");
 
+        // 续打广播并不代表本家手牌发生了变化。此检查必须在队列执行时进行，
+        // 等前面的和牌张移除完成，且在中止拖拽/理牌动画之前返回。
+        if (ChangeType == "SyncHandCardsPreservingOrder") {
+            if (TilesList == null || HandCardsMatchSnapshot(TilesList)) yield break;
+            handCardDragController?.AbortForHandChange("续打手牌内容校正");
+            StopFreeDrawAnimation(finish: true);
+            ReconcileHandCardsPreservingOrder(TilesList);
+            yield break;
+        }
+
         if (ShouldAbortDragForHandChange(ChangeType)) {
             handCardDragController?.AbortForHandChange($"手牌变更:{ChangeType}");
         }
@@ -88,17 +98,23 @@ public partial class GameCanvas{
         }
 
         // 初始化手牌（全部直接创建）
-        if (ChangeType == "InitHandCards"){
+        if (ChangeType == "InitHandCards" || ChangeType == "InitHandCardsWithDrawSlot"){
             if (TilesList == null){
                 yield break;
             }
             for (int i = 0; i < TilesList.Length; i++){
                 GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
                 TileCard tileCard = cardObj.GetComponent<TileCard>();
-                tileCard.SetTile(TilesList[i], false);
+                tileCard.SetTile(TilesList[i], ChangeType == "InitHandCardsWithDrawSlot" && i == TilesList.Length - 1);
                 tileCard.handSortIndex = i;
             }
             LayoutHandCardsFromCurrentOrder();
+            if (ChangeType == "InitHandCardsWithDrawSlot") {
+                // 独立摸牌区在首次建手牌时就确定，不先整手排序再删牌/重建。
+                if (AutoAction.Instance.IsAutoArrangeHandCards) yield return SortMainHandByTileIdWrapped();
+                isArranged = true;
+                yield break;
+            }
         }
 
         else if (ChangeType == "InitHandCardsFromRecord"){
@@ -115,7 +131,7 @@ public partial class GameCanvas{
             int mainCount = pinDraw ? TilesList.Length - 1 : TilesList.Length;
             int[] mainTiles = new int[mainCount];
             Array.Copy(TilesList, 0, mainTiles, 0, mainCount);
-            Array.Sort(mainTiles, TileIdOrder.Comparer);
+            TileIdOrder.SortHand(mainTiles);
 
             for (int i = handCardsContainer.childCount - 1; i >= 0; i--){
                 Transform child = handCardsContainer.GetChild(i);
@@ -136,6 +152,19 @@ public partial class GameCanvas{
             LayoutHandCardsFromCurrentOrder();
             // 重建后补涂铳张遮罩：RefreshRecordChongHint 在入队前同步执行，此时新牌尚未创建
             GameRecordManager.Instance?.ReapplySelf2DHandChongOverlay();
+        }
+
+        // 起手补花后仍未取得行牌张：补回主列，不冒充独立摸牌张。
+        else if (ChangeType == "GetCardIntoMainHand") {
+            GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
+            TileCard tileCard = cardObj.GetComponent<TileCard>();
+            tileCard.SetTile(tileId, false);
+            tileCard.handSortIndex = handCardsContainer.childCount - 1;
+            LayoutHandCardsFromCurrentOrder();
+            if (AutoAction.Instance.IsAutoArrangeHandCards) yield return SortMainHandByTileIdWrapped();
+            isArranged = true;
+            RefreshHandTileSelectability();
+            yield break;
         }
 
         // 摸牌 添加摸牌区手牌
@@ -368,7 +397,7 @@ public partial class GameCanvas{
         bool isRecordPlayback = GameRecordManager.Instance.gameObject.activeSelf;
         // 牌谱模式始终按牌值排序；对局模式在勾选自动排序时排序
         if (isRecordPlayback || ( AutoAction.Instance.IsAutoArrangeHandCards)){
-            tileCards.Sort((a, b) => TileIdOrder.Compare(a.tileId, b.tileId));
+            TileIdOrder.SortHand(tileCards, card => card.tileId);
         }
         // 对局且不勾选自动排序时保持原有顺序
 
@@ -421,11 +450,16 @@ public partial class GameCanvas{
 
         // 动画循环
         while (elapsedTime < animationDuration){
+            // StartCoroutine 会在发牌/重建手牌的这一帧立即执行。该帧的 deltaTime
+            // 属于动画启动前的工作，不能让开局一次耗时直接吃完整段理牌动画。
+            yield return null;
             if (epoch != _handLayoutAnimEpoch) {
                 yield break;
             }
-            elapsedTime += Time.deltaTime;
-            float progress = elapsedTime / animationDuration;
+            // 网络入站、开局资源加载或后台恢复的长帧也不能把牌一帧闪到终点。
+            // 与游戏 timeScale 无关；至少提供完整的可见过渡帧。
+            elapsedTime += Mathf.Min(Time.unscaledDeltaTime, 1f / 30f);
+            float progress = Mathf.Clamp01(elapsedTime / animationDuration);
 
             // 使用平滑插值函数（easeOutCubic）
             float smoothProgress = 1f - Mathf.Pow(1f - progress, 3f);
@@ -437,8 +471,6 @@ public partial class GameCanvas{
                     cards[i].anchoredPosition = currentPos;
                 }
             }
-
-            yield return null; // 等待下一帧
         }
 
         if (epoch != _handLayoutAnimEpoch) {

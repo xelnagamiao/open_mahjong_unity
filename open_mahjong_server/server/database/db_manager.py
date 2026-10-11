@@ -113,7 +113,7 @@ class DatabaseManager:
                     score INT NOT NULL,
                     rank INT NOT NULL CHECK (rank >= 1 AND rank <= 4),
                     rule VARCHAR(10) NOT NULL,
-                    sub_rule VARCHAR(32) NULL,
+                    sub_rule VARCHAR(96) NULL,
                     match_type VARCHAR(24) NULL,
                     title_used INT NULL,
                     character_used INT NULL,
@@ -806,7 +806,7 @@ class DatabaseManager:
                     user_id BIGINT NOT NULL,
                     username VARCHAR(255) NOT NULL,
                     rule VARCHAR(10) NOT NULL,
-                    sub_rule VARCHAR(32) NULL,
+                    sub_rule VARCHAR(96) NULL,
                     room_type VARCHAR(16) NULL,
                     match_tier VARCHAR(64) NULL,
                     event_id VARCHAR(64) NULL,
@@ -828,7 +828,8 @@ class DatabaseManager:
                     fulu_round_count INT NOT NULL DEFAULT 0,
                     cuohe_count INT NOT NULL DEFAULT 0,
                     total_round_score INT NOT NULL DEFAULT 0,
-                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    fan_stats JSONB
                 );
             """)
             cursor.execute(
@@ -920,7 +921,7 @@ class DatabaseManager:
                 );
             """)
 
-            # 每日场次统计：与 guobiao_history_stats 相同的指标列，按 (日期, 场次, 规则, 局制) 聚合
+            # 每日场次统计：按日期、场次、完整子规则和局制聚合，唯一索引统一在 statistics_schema 初始化。
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS scene_daily_stats (
                     id BIGSERIAL PRIMARY KEY,
@@ -929,6 +930,7 @@ class DatabaseManager:
                     match_tier VARCHAR(64) NULL,
                     event_id VARCHAR(64) NULL,
                     rule VARCHAR(10) NOT NULL,
+                    sub_rule VARCHAR(96) NULL,
                     game_type VARCHAR(16) NULL,
                     total_games INT NOT NULL DEFAULT 0,
                     total_rounds INT NOT NULL DEFAULT 0,
@@ -945,8 +947,7 @@ class DatabaseManager:
                     fulu_round_count INT NOT NULL DEFAULT 0,
                     cuohe_count INT NOT NULL DEFAULT 0,
                     total_round_score INT NOT NULL DEFAULT 0,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (stat_date, room_type, match_tier, event_id, rule, game_type)
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
 
@@ -956,10 +957,10 @@ class DatabaseManager:
                     stat_date DATE NOT NULL,
                     match_tier VARCHAR(64) NOT NULL,
                     rule VARCHAR(10) NOT NULL DEFAULT 'guobiao',
+                    sub_rule VARCHAR(96) NOT NULL DEFAULT '',
                     fan_field VARCHAR(32) NOT NULL,
                     fan_count INT NOT NULL DEFAULT 0,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    PRIMARY KEY (stat_date, match_tier, rule, fan_field)
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
 
@@ -1189,6 +1190,8 @@ class DatabaseManager:
 
             from .player_recent_records import ensure_schema
             ensure_schema(cursor)
+            from .statistics_schema import ensure_statistics_schema
+            ensure_statistics_schema(cursor)
             cursor.execute(Path(__file__).with_name('record_indexes.sql').read_text(encoding='utf-8'))
             conn.commit() # 提交
             logger.info('数据表初始化成功')
@@ -3448,11 +3451,15 @@ from .taiwan.store_taiwan import store_taiwan_game_record
 DatabaseManager.store_taiwan_game_record = store_taiwan_game_record
 DatabaseManager.store_changchun_game_record = store_taiwan_game_record
 DatabaseManager.store_hongzhong_game_record = store_taiwan_game_record
+DatabaseManager.store_jiujiang_game_record = store_taiwan_game_record
 DatabaseManager.store_shanghai_game_record = store_taiwan_game_record
 DatabaseManager.store_tuidao_game_record = store_taiwan_game_record
 DatabaseManager.store_guangdong_game_record = store_taiwan_game_record
 DatabaseManager.store_shanxi_game_record = store_taiwan_game_record
+DatabaseManager.store_wuhan_game_record = store_taiwan_game_record
+DatabaseManager.store_shenyang_game_record = store_taiwan_game_record
 DatabaseManager.store_wenzhou_game_record = store_taiwan_game_record
+DatabaseManager.store_nanchang_game_record = store_taiwan_game_record
 
 # Jiandan keeps replay and statistics adapters in the rule-local database module.
 from .jiandan.store_jiandan import (

@@ -4,11 +4,18 @@ using UnityEngine;
 
 public partial class Game3DManager : MonoBehaviour
 {
+    /// <summary>沿用旧版副露组间距：额外留出牌宽的 20%。</summary>
+    private const float CombinationGroupGapFactor = 0.2f;
 
     /// <summary>副露统一竖排（由规则清单声明，如虹雀）：认走张（flag=1）也按竖牌摆放，杠张顺排左右。</summary>
     private static bool IsVerticalMelds() {
         RuleManifest rule = RuleRegistry.Current;
         return rule != null && rule.VerticalMelds;
+    }
+
+    private float MeldSpacingGap() {
+        return RuleRegistry.Current?.MeldSpacingEnabled == true
+            ? cardWidth * CombinationGroupGapFactor : 0f;
     }
 
     private void ResetCombinationLastSlotWidths() {
@@ -66,6 +73,11 @@ public partial class Game3DManager : MonoBehaviour
         Transform SetParent = null;
         PosPanel3D panel = GetPosPanel(playerIndex);
         if (panel == null) yield break;
+        if (actionType == "jiagang" && HongqueDisplayOrder.IsMeldMask(combination_mask)) {
+            // 虹雀追加张可能插入中间或改变色环端点，必须重摆整组，不能套用普通加杠的追加位置。
+            RebuildPlayerMelds(playerIndex);
+            yield break;
+        }
         int groupIndex = meldIndex >= 0 ? meldIndex : Mathf.Max(0, GetPlayerCombinationCount(playerIndex) - 1);
         // An added tile belongs to its upgraded pung, which need not be the last group.
         if (meldIndex < 0 && actionType == "jiagang" && combination_mask != null) {
@@ -80,6 +92,7 @@ public partial class Game3DManager : MonoBehaviour
         if (panel.combination3DObjects == null || groupIndex >= panel.combination3DObjects.Length) yield break;
         SetParent = panel.combination3DObjects[groupIndex];
         if (SetParent == null || combination_mask == null) yield break;
+        combination_mask = HongqueDisplayOrder.MeldMask(combination_mask);
 
         if (playerIndex == "self")
         {
@@ -193,6 +206,7 @@ public partial class Game3DManager : MonoBehaviour
         float prevSlotWidth = 0f;
         bool hasPrevInGroup = false;
         float lastPlacedSlot = 0f;
+        float groupGap = MeldSpacingGap();
 
         for (int i = 0; i < SetTileList.Count; i++)
         {
@@ -213,7 +227,7 @@ public partial class Game3DManager : MonoBehaviour
             if (!hasPrevInGroup) {
                 // 本组第一张：接上组末槽（吃后再吃不再叠），首组仍从原点迈整槽
                 advance = acrossGroupLastSlot > 0f
-                    ? 0.5f * (acrossGroupLastSlot + slotWidth)
+                    ? 0.5f * (acrossGroupLastSlot + slotWidth) + groupGap
                     : slotWidth;
             } else {
                 advance = 0.5f * (prevSlotWidth + slotWidth);
@@ -297,11 +311,20 @@ public partial class Game3DManager : MonoBehaviour
     public void RebuildPlayerMelds(string playerPosition) {
         PosPanel3D panel = GetPosPanel(playerPosition);
         if (panel == null) return;
-        if (!NormalGameStateManager.Instance.player_to_info.TryGetValue(
-                playerPosition, out PlayerInfoClass playerInfo)) {
-            return;
+        List<int[]> masks;
+        List<string> combinations;
+        var record = GameRecordManager.Instance;
+        if (record != null && record.gameObject.activeSelf
+                && record.recordPlayer_to_info.TryGetValue(playerPosition, out var recordPlayer)) {
+            masks = recordPlayer.combinationMasks;
+            combinations = recordPlayer.combinationTiles;
+        } else {
+            if (!NormalGameStateManager.Instance.player_to_info.TryGetValue(
+                    playerPosition, out PlayerInfoClass playerInfo)) return;
+            masks = playerInfo.combination_masks;
+            combinations = playerInfo.combination_tiles;
         }
-        List<int[]> masks = playerInfo.combination_masks ?? new List<int[]>();
+        masks = masks ?? new List<int[]>();
         EnsureMeldGroups(panel, masks.Count);
 
         // 归还该家全部副露牌，重置组合光标。
@@ -336,8 +359,9 @@ public partial class Game3DManager : MonoBehaviour
         }
 
         float acrossGroupLastSlot = GetCombinationLastSlotWidth(playerPosition);
+        float groupGap = MeldSpacingGap();
         for (int meldIndex = 0; meldIndex < masks.Count && meldIndex < panel.combination3DObjects.Length; meldIndex++) {
-            int[] combinationMask = masks[meldIndex];
+            int[] combinationMask = HongqueDisplayOrder.MeldMask(masks[meldIndex], vertical: true);
             if (combinationMask == null || combinationMask.Length == 0) continue;
 
             List<int> tileList = new List<int>();
@@ -377,7 +401,7 @@ public partial class Game3DManager : MonoBehaviour
                 float advance;
                 if (!hasPrevInGroup) {
                     advance = acrossGroupLastSlot > 0f
-                        ? 0.5f * (acrossGroupLastSlot + slotWidth)
+                        ? 0.5f * (acrossGroupLastSlot + slotWidth) + groupGap
                         : slotWidth;
                 } else {
                     advance = 0.5f * (prevSlotWidth + slotWidth);
@@ -393,8 +417,8 @@ public partial class Game3DManager : MonoBehaviour
 
                 if (sign == 1 && !vertical) {
                     claimedPosition = tilePosition;
-                    string combination = playerInfo.combination_tiles != null && meldIndex < playerInfo.combination_tiles.Count
-                        ? playerInfo.combination_tiles[meldIndex] : null;
+                    string combination = combinations != null && meldIndex < combinations.Count
+                        ? combinations[meldIndex] : null;
                     if (!string.IsNullOrEmpty(combination) && (combination.StartsWith("k") || combination.StartsWith("g"))) {
                         int lookupKey = GameRecordMeldCodec.NormalizeMeldsLookupTileId(tileList[i]);
                         pengToJiagangPosDict[lookupKey] = tilePosition;

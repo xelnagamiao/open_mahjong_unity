@@ -19,6 +19,15 @@ public class RiichiGameState : TurnBasedGameState {
     /// <summary>和牌方式 head_bump / multi_ron / three_ron_abort。</summary>
     public string HepaiWay { get; private set; } = "multi_ron";
     public bool RedDora { get; private set; }
+    private Dictionary<int, int[]> washizuPublicHands;
+
+    public IEnumerable<int> PublicOpponentHandTiles() {
+        if (washizuPublicHands == null) yield break;
+        foreach (var pair in washizuPublicHands) {
+            if (!Mirror.IndexToPosition.TryGetValue(pair.Key, out string seat) || seat == "self") continue;
+            foreach (int tile in pair.Value) if (WashizuTile.IsTransparent(tile)) yield return tile;
+        }
+    }
     public int DealerIndex { get; private set; }
     private readonly HashSet<int> acceptedRiichiPlayers = new HashSet<int>();
 
@@ -30,6 +39,8 @@ public class RiichiGameState : TurnBasedGameState {
 
     protected override void OnRoundStarted(GameInfo gameInfo) {
         acceptedRiichiPlayers.Clear();
+        washizuPublicHands = gameInfo.washizu_hands;
+        Game3DManager.Instance?.SetWashizuPublicHands(washizuPublicHands, Mirror.IndexToPosition);
         Honba = gameInfo.honba ?? 0;
         RiichiSticks = gameInfo.riichi_sticks ?? 0;
         DoraIndicators = gameInfo.dora_indicators != null ? new List<int>(gameInfo.dora_indicators) : new List<int>();
@@ -63,6 +74,14 @@ public class RiichiGameState : TurnBasedGameState {
     protected override void OnHandAskReceived(AskHandActionGBInfo info) {
         base.OnHandAskReceived(info);
         RefreshRyuukyokuTenpaiChoice();
+    }
+
+    protected override void OnDoAction(Response response) {
+        if (response.do_action_info?.is_claim != true && response.do_action_info?.washizu_hands != null)
+            washizuPublicHands = response.do_action_info.washizu_hands;
+        base.OnDoAction(response);
+        if (response.do_action_info?.is_claim != true && response.do_action_info?.washizu_hands != null)
+            Game3DManager.Instance?.SetWashizuPublicHands(response.do_action_info.washizu_hands, Mirror.IndexToPosition);
     }
 
     protected override void OnActionPlayed(TableAction action) {
@@ -264,6 +283,7 @@ public class RiichiGameState : TurnBasedGameState {
     }
 
     public override void OnSessionReset() {
+        washizuPublicHands = null;
         acceptedRiichiPlayers.Clear();
         TipsContainer.Instance?.HideRyuukyokuTenpaiChoice();
         Honba = 0;

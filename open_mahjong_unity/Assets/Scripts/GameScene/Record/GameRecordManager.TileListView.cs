@@ -24,7 +24,11 @@ public partial class GameRecordManager {
         return true;
     }
 
-    private bool TryConsumeDuplicateWallTile(int playerIndex, string action) {
+    private bool TryConsumeDuplicateWallTile(int playerIndex, string action, List<string> tick = null) {
+        if (tick != null && tick.Count >= 6 && tick[2] == "dw" && int.TryParse(tick[3], out int sourceSeat)) {
+            RecordPlayer source = recordPlayerList.Find(p => p.originalPlayerIndex == sourceSeat);
+            playerIndex = source != null ? source.playerIndex : sourceSeat;
+        }
         if (!TryGetDuplicateWallRange(playerIndex, out int start, out int end)) return false;
         var positions = new List<int>();
         for (int i = 0; i < currentOriginalIndices.Count; i++) {
@@ -32,7 +36,7 @@ public partial class GameRecordManager {
         }
         RecordPlayer player = recordPlayerList.Find(p => p.playerIndex == playerIndex);
         int seat = player != null ? player.originalPlayerIndex : playerIndex;
-        bool supplemental = ReadGameTitleInt(gameRecord.gameTitle, "duplicate_rules_version", 1) >= 2
+        bool supplemental = !IsSichuanRecord() && ReadGameTitleInt(gameRecord.gameTitle, "duplicate_rules_version", 1) >= 2
             && (action == "bd" || action == "gd");
         int drawIndex = supplemental
             ? positions.Count - (duplicateSupplementDraws[seat] % 2 == 0 && positions.Count > 1 ? 2 : 1)
@@ -57,6 +61,17 @@ public partial class GameRecordManager {
             if (index < start || index >= end) continue;
             indices.Add(index);
             if (--count <= 0) break;
+        }
+        if (count > 0 && IsSichuanRecord() && ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "") == "sichuan/doubles_duplicate") {
+            RecordPlayer selected = recordPlayerList.Find(p => p.playerIndex == selectedPlayerIndex);
+            RecordPlayer partner = selected == null ? null : recordPlayerList.Find(p => p.originalPlayerIndex == (selected.originalPlayerIndex + 2) % 4);
+            if (selected != null && !selected.isHu && partner != null && partner.isHu && TryGetDuplicateWallRange(partner.playerIndex, out int partnerStart, out int partnerEnd)) {
+                foreach (int index in currentOriginalIndices) {
+                    if (index < partnerStart || index >= partnerEnd) continue;
+                    indices.Add(index);
+                    if (--count <= 0) break;
+                }
+            }
         }
         return true;
     }
@@ -134,7 +149,7 @@ public partial class GameRecordManager {
         }
 
         TryGetActiveRecordRuleContext(out string roomRule, out _);
-        bool isRiichi = !IsDuplicateReplay && RuleRegistry.Resolve(roomRule, roomRule)?.RecordTracksRiichiField == true;
+        bool isRiichi = !IsWashizuRecord() && !IsDuplicateReplay && RuleRegistry.Resolve(roomRule, roomRule)?.RecordTracksRiichiField == true;
 
         BuildInitialHandSection(player0HandsContainer, round.p0Tiles);
         BuildInitialHandSection(player1HandsContainer, round.p1Tiles);
@@ -180,7 +195,7 @@ public partial class GameRecordManager {
         }
 
         sectionContainer.gameObject.SetActive(true);
-        List<int> sorted = handTiles.OrderBy(t => t, TileIdOrder.Comparer).ToList();
+        List<int> sorted = handTiles.OrderBy(t => t, TileIdOrder.HandComparer(handTiles)).ToList();
         SpawnTilesInRows(sectionContainer, sorted);
     }
 

@@ -26,10 +26,6 @@ public sealed class ChangchunGameState : TurnBasedGameState {
         Info=info.changchun;
         Clock.PendingAskFromJiagang=Info?.phase=="waiting_action_qianggang";
         if(Info!=null) {
-            var tiles=Mirror.SelfHandTiles.ToArray();
-            int standing=tiles.Length-(Info.self_has_draw_slot && tiles.Length>0 ? 1 : 0);
-            GameCanvas.Instance?.ChangeHandCards("SyncHandCards",0,tiles.Take(standing).ToArray(),null);
-            if(Info.self_has_draw_slot && tiles.Length>0) GameCanvas.Instance?.ChangeHandCards("GetCardNoAnimation",Info.self_last_drawn_tile,null,null);
             Mirror.LastDealTileId=Info.self_has_draw_slot ? Info.self_last_drawn_tile : 0;
             foreach(string seat in Mirror.IndexToPosition.Values)
                 if(Mirror.Info(seat)?.combination_masks?.Count>0) Game3DManager.Instance?.RebuildPlayerMelds(seat);

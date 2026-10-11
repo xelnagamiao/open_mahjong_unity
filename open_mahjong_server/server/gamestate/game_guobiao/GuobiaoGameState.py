@@ -1,5 +1,5 @@
 from ..public.duplicate_wall import DuplicateFinished, finish_duplicate_game, draw_tile_for_player, duplicate_remaining_tile_counts, duplicate_match_complete
-from . import blood_battle
+from . import blood_battle, transparent
 from .duplicate_rules import duplicate_rules_for
 import random
 import asyncio
@@ -178,7 +178,7 @@ class GuobiaoGameState:
         self.room_type = room_data["room_type"]
         self.sub_rule = room_data.get("sub_rule", "guobiao/standard") # 子规则
         self.use_flowers = self.sub_rule != "guobiao/lanshi" and bool(room_data.get("use_flowers", True))
-        self.tian_di_ren_he = self.sub_rule in ("guobiao/standard", SANMA_SUB_RULE, "guobiao/blood_battle") and bool(room_data.get("tian_di_ren_he", False))
+        self.tian_di_ren_he = self.sub_rule in ("guobiao/standard", SANMA_SUB_RULE, "guobiao/blood_battle", transparent.SUB_RULE) and bool(room_data.get("tian_di_ren_he", False))
         # 排位场次等级(beginner/intermediate/advanced/mcrpl)与比赛场 event_id，默认 None
         self.match_tier = room_data.get("match_tier")
         self.event_id = room_data.get("event_id")
@@ -335,6 +335,7 @@ class GuobiaoGameState:
                         "action_tick": self.server_action_tick,
                         'max_round': self.max_round,
                         'tile_count': len(self.tiles_list),
+                        'washizu_hands': transparent.public_hands(self),
                         'use_flowers': self.use_flowers,
                         'tian_di_ren_he': self.tian_di_ren_he,
                         'duplicate_remaining_tiles': duplicate_remaining_tile_counts(self),

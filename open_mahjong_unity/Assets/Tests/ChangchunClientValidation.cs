@@ -107,10 +107,39 @@ public static class ChangchunClientValidation {
         var manifest=RuleRegistry.Resolve("changchun","changchun/mil2024");
         Check(manifest!=null && manifest.DisplayName=="长春麻将","rule registered");
         Check(manifest.FaceDownAnkan && !manifest.HasFlowerReplacement,"no flowers and concealed kongs");
+        foreach(string dealerFan in new[]{"庄（各家）","庄（庄家份）"}) {
+            Check(FanTextDictionary.GetFanDisplayText("changchun/mil2024",dealerFan)=="1番","separate dealer fan value "+dealerFan);
+            Check(FanTextDictionary.GetFanNameDisplayText("changchun/mil2024",dealerFan)==dealerFan,"dealer payment scope "+dealerFan);
+            var total=manifest.SettlementTotal(new SettlementTotalQuery{HuScore=2,HuFan=new[]{"门清","夹/单吊/单和",dealerFan}});
+            Check(total.FanText=="基础2番" && total.ScoreText=="6番封顶","dealer display never changes base fan or cap "+dealerFan);
+        }
         Check(ChangchunRuleBootstrap.TileName(46)=="白" && ChangchunRuleBootstrap.TileName(47)=="发","tile artwork honor IDs");
         var ready=new List<int>{11,12,13,21,22,23,31,32,33,45,45,45,19};
         Check(ChangchunHandCalculator.Waits(ready,new List<string>()).SetEquals(new[]{19}),"ordinary wait");
         Check(ChangchunHandCalculator.Score(new List<int>(ready){19},new List<string>(),19)==2,"menqing and narrow wait");
+        var domains=new Dictionary<string,int[]> { {"yao",new[]{11,21,31}}, {"jiu",new[]{19,29,39}}, {"wind",new[]{41,42,43}}, {"dragon",new[]{45,46,47}} };
+        foreach(var domain in domains) foreach(bool joker in new[]{false,true}) foreach(bool added in new[]{false,true}) {
+            var physical=domain.Value.ToList();var logical=domain.Value.ToList();
+            if(joker) physical[0]=31;
+            if(added) {physical.Add(joker?31:domain.Value[0]);logical.Add(domain.Value[0]);}
+            string code=$"C{domain.Key}:{string.Join(",",physical)}:{string.Join(",",logical)}";
+            foreach(string ordinary in new string[]{null,"G18","k18","g18","s15"}) {
+                var melds=ordinary==null?new List<string>{code}:new List<string>{code,ordinary};
+                var complete=new List<int>{22,23,24,35,36,37,45,45};
+                if(ordinary==null) complete.InsertRange(0,new[]{11,12,13});
+                int expected=ordinary==null || ordinary=="G18"?2:1;
+                Check(ChangchunHandCalculator.Score(complete,melds,45)==expected,$"special menzen {code}/{ordinary}");
+                var hint=RuleTips.DescribeWaitingTile(manifest,new WaitHintQuery{HandWithWin=complete,Melds=melds,HepaiTile=45,SubRule="changchun/mil2024"});
+                Check(hint.Kind==WaitTileHint.KindRon && hint.Label==$"基础{expected}番，另计庄及和法",$"special live hint {code}/{ordinary}");
+                var before=new List<int>(complete);before.Remove(45);
+                var context=new RecordTipsContext{RoomRule="changchun",SubRule="changchun/mil2024",PlayersByPosition=new Dictionary<string,RecordTipsPlayerVisible>{["self"]=new RecordTipsPlayerVisible{CombinationTiles=melds}}};
+                var query=RecordWaitHintCalculator.BuildQueries(context,before,new List<int>{45})[0];
+                Check(RuleTips.DescribeWaitingTile(manifest,query).Label==hint.Label,$"special replay hint {code}/{ordinary}");
+                Check(manifest.VisibleMeldTiles(code,false).SequenceEqual(physical),$"special tiles stay public {code}/{ordinary}");
+            }
+        }
+        var allSpecial=domains.Select(d=>$"C{d.Key}:{string.Join(",",d.Value)}:{string.Join(",",d.Value)}").ToList();
+        Check(ChangchunHandCalculator.Score(new List<int>{28,28},allSpecial,28)==3,"four special kongs menzen plus piao");
         Check(ChangchunHandCalculator.Score(new List<int>(ready){31},new List<string>(),31)==0,"one bamboo is not ordinary joker");
         Check(ChangchunHandCalculator.Score(new List<int>{19,19},new List<string>{"k24","k29","k39","k38"},19)==2,"piao excludes narrow wait");
         Check(ChangchunHandCalculator.MeldTiles("Cwind:41,42,31:41,42,43").SequenceEqual(new[]{41,42,31}),"physical identity");

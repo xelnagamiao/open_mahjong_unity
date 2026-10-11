@@ -54,6 +54,7 @@ public class ActionButton : MonoBehaviour {
     private bool IsChiButton(){
         foreach (string a in actionTypeList){
             if (a == "chi_left" || a == "chi_mid" || a == "chi_right") return true;
+            if (a == "peng" && WashizuTile.UsesTransparentHands(GameSession.Current.SubRule)) return true;
         }
         return false;
     }
@@ -65,14 +66,14 @@ public class ActionButton : MonoBehaviour {
         int lastCutTile = NormalGameStateManager.Instance.lastCutCardID;
         var chiCandidates = NormalGameStateManager.Instance.chiCandidates;
         foreach (string action in actionTypeList){
-            if (action != "chi_left" && action != "chi_mid" && action != "chi_right") continue;
+            if (action != "chi_left" && action != "chi_mid" && action != "chi_right" && action != "peng") continue;
             int[][] pairs;
             if (chiCandidates != null && chiCandidates.TryGetValue(action, out pairs) && pairs != null && pairs.Length > 0){
                 for (int i = 0; i < pairs.Length; i++){
                     result.Add((action, i, pairs[i]));
                 }
             } else {
-                if (WenzhouGameState.Active != null) continue;
+                if (WenzhouGameState.Active != null || action == "peng") continue;
                 int[] fallback;
                 switch (action){
                     case "chi_left": fallback = new int[] { lastCutTile - 2, lastCutTile - 1 }; break;
@@ -127,7 +128,7 @@ public class ActionButton : MonoBehaviour {
         if (expandSubButtons){
             string currentButtonType = "None";
             if (isChi){
-                currentButtonType = "chi";
+                currentButtonType = actionTypeList.Contains("peng") ? "peng" : "chi";
             } else if (actionTypeList.Contains("angang")){
                 currentButtonType = "angang";
             } else if (actionTypeList.Contains("buzhang")){
@@ -178,6 +179,7 @@ public class ActionButton : MonoBehaviour {
 
         // 单一候选：直接发送
         if (isChi){
+            if (chiCands.Count == 0) return;
             var only = chiCands[0];
             Debug.Log($"选择了行动 {only.action} chiComboIndex={only.comboIndex}");
             GameCanvas.Instance.ChooseAction(only.action, 0, only.comboIndex);
@@ -230,6 +232,7 @@ public class ActionButton : MonoBehaviour {
     }
 
     private static List<(int targetTile, List<int> displayTiles)> CollectAngangOptions(List<int> handTiles) {
+        if (WuhanGameState.Active != null) return WuhanGameState.CollectAngangOptions(handTiles);
         var options = new List<(int, List<int>)>();
         var processedNorms = new HashSet<int>();
         // 不可和的花色（四川定缺）不能暗杠

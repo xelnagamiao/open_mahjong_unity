@@ -5,13 +5,15 @@ import asyncio
 import os
 import sys
 
+import pytest
+
 _SERVER_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 if _SERVER_ROOT not in sys.path:
     sys.path.insert(0, _SERVER_ROOT)
 
 from server.gamestate.verifier.autoplay import autoplay, step_once
 from server.gamestate.verifier.catalog import list_catalog
-from server.gamestate.verifier.check_contract import check_lock
+from server.gamestate.verifier.check_contract import check_lock, sha256_file
 from server.gamestate.verifier.session import VerifierError, VerifierSession
 from server.gamestate.verifier.tactical_bridge import run_presubmit
 from server.gamestate.verifier.unity_sim import UnitySim
@@ -20,6 +22,36 @@ from server.gamestate.verifier.verdict import build_verdict
 
 def test_contract_lock_matches_unity():
     assert check_lock(update=False) == 0
+
+
+def test_contract_hash_accepts_editor_line_endings_but_detects_source_changes(tmp_path):
+    source = tmp_path / "Actions.cs"
+    source.write_bytes(b"class Actions {\n    public int Value = 1;\n}\n")
+    original = sha256_file(source)
+    source.write_bytes(b"class Actions {\r\n    public int Value = 1;\r\n}\r\n")
+    assert sha256_file(source) == original
+    source.write_bytes(b"class Actions {\r\n    public int Value = 2;\r\n}\r\n")
+    assert sha256_file(source) != original
+
+
+@pytest.mark.parametrize("kind,actions,labels", [
+    ("hand", ["nuki"], ["拔北"]),
+    ("hand", ["lajihe_flower_end", "lajihe_flower_continue"], ["八花收分·流局", "八花收分·继续"]),
+    ("other", ["lajihe_flower_end", "lajihe_flower_continue"], ["八花收分·流局", "八花收分·继续"]),
+])
+def test_registered_actions_reach_the_simulated_buttons(kind, actions, labels):
+    sim = UnitySim(viewer_user_id=101)
+    message_type = "broadcast_hand_action" if kind == "hand" else "ask_other_action"
+    sim.apply({
+        "type": f"gamestate/guobiao/{message_type}",
+        f"ask_{kind}_action_info": {
+            "player_index": 0, "remaining_time": 5, "action_tick": 1,
+            "action_list": actions + ["unknown_action"], "cut_tile": 11,
+        },
+    })
+    snapshot = sim.snapshot()
+    assert snapshot["GsmSim"]["allowActionList"] == actions
+    assert [button["text"] for button in snapshot["ActionButtonSim"]["buttons"]] == labels
 
 
 def test_unity_sim_ask_hand_updates_gsm_and_buttons():

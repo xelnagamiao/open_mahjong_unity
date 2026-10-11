@@ -109,11 +109,8 @@ class HongKongCore:
                 p.hand_tiles.append(self.tiles_list.pop(0))
             self.player_list[0].hand_tiles.append(self.tiles_list.pop(0))
             self.player_list[0].has_draw_slot = True
-        for p in self.player_list:
-            if p.has_draw_slot:
-                p.hand_tiles[:] = sorted(p.hand_tiles[:-1])+p.hand_tiles[-1:]
-            else:
-                p.hand_tiles.sort()
+        # Keep the dealt order for the shared client opening animation. The
+        # dealer's draw slot remains the last tile; flower/draw rules are unchanged.
         # Ordinary initial cards, including flowers, are recorded before the
         # observable replacement sequence. No silent pre-resolution of a flower win.
 

@@ -64,8 +64,7 @@ def parse_score_changes(tick: Sequence[str], index: int) -> Optional[List[int]]:
 
 
 def relative_position(self_index: int, other_index: int, player_count: int = 4) -> str:
-    if player_count == 3:
-        return ("self", "right", "left")[(other_index - self_index) % 3]
+    # The empty fourth side is retained in sanma; turn order still uses player_count.
     if self_index == other_index:
         return "self"
     mapping = {
@@ -152,7 +151,7 @@ class RecordSim:
         return title_str(self.game_title, "blood_battle", "true").lower() != "false"
 
     def is_xueliu(self) -> bool:
-        return title_str(self.game_title, "sub_rule") in {"sichuan/xueliu", "sichuan/xueliu_exchange"}
+        return title_str(self.game_title, "sub_rule") in {"sichuan/xueliu", "sichuan/xueliu_exchange", "sichuan/xueliu_doubles", "sichuan/xueliu_doubles_duplicate"}
 
     def _next_player(self, source):
         for offset in range(1, self.player_count + 1):
@@ -182,11 +181,14 @@ class RecordSim:
         self.last_winnable_tile_id = -1
         self.last_jiagang_player_index = -1
         self.current_tiles_list = list(round_data.get("tiles_list") or [])
+        self.duplicate_walls = [list(part) for part in round_data.get("duplicate_walls", [])]
         self.backward_tiles_type = "double"
         self.replacement_draw_count = 0
         self.record_dead_wall_count = 16 if self.is_taiwan() else 0
         if self.flags.rule_id == "riichi":
             self.record_dead_wall_count = 14
+            if title_str(self.game_title, "sub_rule") == "riichi/washizu":
+                self.record_dead_wall_count = int((round_data.get("washizu") or {}).get("dead_wall_count", 13))
         if title_str(self.game_title, "sub_rule") == "zhongyong/standard":
             self.record_dead_wall_count = 14
         self.record_dead_wall_mode = "fixed_tail_16" if self.is_taiwan() else ""
@@ -251,7 +253,20 @@ class RecordSim:
             self.apply_tick(tick)
         return self.snapshot()
 
-    def _consume_wall(self, action: str) -> None:
+    def _consume_wall(self, action: str, tick=None) -> None:
+        if tick and len(tick) >= 6 and tick[2] == "dw":
+            seat = int(tick[3])
+            wall = self.duplicate_walls[seat]
+            if not wall or wall[0] != int(tick[1]):
+                raise ValueError("复式牌谱摸牌与来源牌墙不一致")
+            offset = sum(len(part) for part in self.duplicate_walls[:seat])
+            wall.pop(0)
+            self.current_tiles_list.pop(offset)
+            return
+        if title_str(self.game_title, "sub_rule") == "riichi/washizu":
+            if self.current_tiles_list:
+                self.current_tiles_list.pop(0)
+            return
         if self.flags.replacement_from_tail_end:
             if not self.current_tiles_list:
                 return
@@ -337,6 +352,9 @@ class RecordSim:
         if not tick:
             return
         action = tick[0]
+        if action == "lajihe_eight_flowers" and len(tick) >= 5:
+            self._apply_score_array(parse_score_changes(tick, 4))
+            return
         if action == "reset":
             self.current_player_index = codec.parse_tick_int(tick, 1)
             return
@@ -350,6 +368,12 @@ class RecordSim:
         acting = resolve_acting_player(tick, action, self.current_player_index)
         player = self.players[acting]
         next_player = self.current_player_index
+
+        if title_str(self.game_title, "sub_rule") == "shanghai/lajihe" and action == "state" and len(tick) >= 4 and tick[1] == "lajihe_passed_win":
+            player.tag_list = [tag for tag in player.tag_list if tag != "lajihe_passed_win"]
+            if tick[3] == "T":
+                player.tag_list.append("lajihe_passed_win")
+            return
 
         if self.is_taiwan() and action == "state":
             if len(tick) >= 4 and tick[1] == "ready" and len(tick) >= 5:
@@ -372,7 +396,7 @@ class RecordSim:
         if action in ("d", "gd", "bd", "nd"):
             player.tile_list.append(codec.parse_tick_int(tick, 1))
             player.show_hand_draw_slot_active = True
-            self._consume_wall(action)
+            self._consume_wall(action, tick)
             next_player = acting
         elif action == "c":
             cut_tile = codec.parse_tick_int(tick, 1)
@@ -412,7 +436,7 @@ class RecordSim:
             removed = codec.resolve_angang_removed_tiles(tick, player.tile_list, angang_tile, is_mo)
             player.combination_tiles.append(f"G{angang_tile}")
             player.combination_masks.append(
-                codec.build_angang_mask_from_removed(removed, self.rule_key())
+                codec.build_angang_mask_from_removed(removed, title_str(self.game_title, "sub_rule", self.rule_key()))
             )
             if is_mo:
                 player.show_hand_draw_slot_active = False
@@ -520,7 +544,9 @@ class RecordSim:
             self.players[riichi_player].score -= 1000
             self.record_riichi_sticks += 1
         elif action == "dora":
-            pass
+            if title_str(self.game_title, "sub_rule") == "riichi/washizu" and self.current_tiles_list:
+                self.current_tiles_list.pop()
+                self.record_dead_wall_count -= 1
         elif action == "gr":
             if len(tick) >= 6 and tick[1] == "gs":
                 arr = [codec.parse_tick_int(tick, 2 + i) for i in range(4)]
@@ -609,7 +635,7 @@ class RecordSim:
         if self.last_jiagang_player_index < 0 or self.last_winnable_tile_id < 10:
             return
         fans = parse_hu_fan_list(tick, 3)
-        if "错和" in fans or not {"抢杠", "抢杠和", "chankan"}.intersection(fans):
+        if "错和" in fans or not ({"抢杠", "抢杠和", "chankan"}.intersection(fans) or any(f.startswith("抢杠（") for f in fans)):
             return
         source = self.players[self.last_jiagang_player_index]
         key = f"g{codec.normalize_tile(self.last_winnable_tile_id)}"

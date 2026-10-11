@@ -447,9 +447,11 @@ public partial class GameRecordManager {
             case "hu_third": {
                 // tick: [hu_class, hepai_index, hu_score, hu_fan_json, score_changes_json, base_fu?, fu_fan_list?]
                 int fanCount = ParseHuFanList(prevTick, 3)?.Length ?? 0;
+                bool guizhou = IsGuizhouRecord();
+                if (guizhou) fanCount += GuizhouSettlementDisplay.Build(recordGuizhouInfo, ParseTickInt(prevTick, 1))?.Labels.Length ?? 0;
                 int fuFanCount = prevTick.Count > 6 ? (ParseHuFanList(prevTick, 6)?.Length ?? 0) : 0;
                 return RoundEndTiming.GetHuResultPanelDuration(fanCount, fuFanCount, 0f,
-                    confirmCountdownSeconds: RoundEndTiming.SpectatorHuConfirmCountdownSeconds);
+                    confirmCountdownSeconds: RoundEndTiming.SpectatorHuConfirmCountdownSeconds) + (guizhou ? .24f : 0f);
             }
             case "hu_riichi": {
                 // tick: [hu_riichi, hepai_index, hu_class, han, fu, yaku[], ...]

@@ -79,8 +79,7 @@ public partial class GameRecordManager
         RefreshRecordChongHint();
         RefreshRecordTips();
         RefreshRecordRulePlayerTags();
-        RefreshChangchunRecordBadge();
-        RefreshChangchunRecordReveals();
+        RecordReplay.RefreshAfterSeek?.Invoke();
         SyncRecordRonDiscardObjectAfterRebuild();
         if (IsBloodBattleRecord() && bloodRecordRevealedHands != null) {
             // 终局已经公开全部手牌，不能再用退场后的隐藏手牌覆盖自家明牌。
@@ -103,7 +102,7 @@ public partial class GameRecordManager
     }
 
     private void SyncRecordRonDiscardObjectAfterRebuild() {
-        if (IsHongKongRecordRobWin || IsHongKongRecordFlowerWin || IsGuizhouRecordRobWin || IsYixingRecordRobWin || IsChangchunRecordRobWin || IsHangzhouRecordTenWinds) return;
+        if (IsHongKongRecordRobWin || IsHongKongRecordFlowerWin || IsGuizhouRecordRobWin || IsYixingRecordRobWin || IsNanjingRecordRobWin || IsNanjingRecordForcedWin || IsChangchunRecordRobWin || IsShenyangRecordRobWin || IsHangzhouRecordTenWinds) return;
         // 鸣牌已将候选置为 -1；历史弃牌不能重新成为荣和来源。
         int winTileId = lastWinnableTileId;
         if (winTileId < 10) return;
@@ -118,7 +117,7 @@ public partial class GameRecordManager
             return;
         }
 
-        tick = NormalizeWenzhouRecordTick(tick);
+        tick = NormalizeRecordRuleTick(tick);
         string action = tick[0];
 
         if (action == "reset") {
@@ -137,7 +136,7 @@ public partial class GameRecordManager
         RecordPlayer actingPlayer = recordPlayer_to_info[actingPlayerPosition];
         int nextPlayerIndex = currentPlayerIndex;
         bool isRuleStateAction = ApplyRecordRuleActionBeforeMutation(tick);
-        nextPlayerIndex = ResolveChangchunRecordNextPlayer(tick,nextPlayerIndex);
+        nextPlayerIndex = ResolveRecordRuleNextPlayer(tick,nextPlayerIndex);
 
         if (!isRuleStateAction && (action == "d" || action == "gd" || action == "bd" || action == "nd")) {
             int dealTile = ParseTickInt(tick, 1);
@@ -145,7 +144,7 @@ public partial class GameRecordManager
             actingPlayer.showHandDrawSlotActive = true;
             waitingForDrawAfterCut = false;
 
-            if (!TryConsumeDuplicateWallTile(actingPlayerIndex, action) && !TryConsumeRecordRuleWallTile(action) && currentTilesList.Count > 0) {
+            if (!TryConsumeDuplicateWallTile(actingPlayerIndex, action, tick) && !TryConsumeRecordRuleWallTile(action) && currentTilesList.Count > 0) {
                 // 川麻杠后补牌与普通摸牌同向从头取；其他规则 gd/bd 走倒序岭上
                 bool drawFromFront = action == "d" || (action == "gd" && IsSichuanRecord());
                 if (!drawFromFront && (action == "gd" || action == "bd")) {
@@ -206,7 +205,7 @@ public partial class GameRecordManager
             int[] combinationMask = GameRecordMeldCodec.BuildAngangMaskFromRemoved(removedTiles, ResolveRecordHepaiRuleKey());
             actingPlayer.combinationTiles.Add($"G{angangTile}");
             actingPlayer.combinationMasks.Add(combinationMask);
-            if (isMoGang || IsHongzhongRecord()) {
+            if (isMoGang || IsHongzhongRecord() || IsJiujiangRecord()) {
                 actingPlayer.showHandDrawSlotActive = false;
             }
             ApplyRecordGangScoreDeltasFromTick(tick);
@@ -227,8 +226,8 @@ public partial class GameRecordManager
             int actualJia = removedTiles.Count > 0 ? removedTiles[0] : jiagangTile;
             lastWinnableTileId = actualJia;
             lastJiagangPlayerIndex = actingPlayerIndex;
-            BuildJiagangMask(actingPlayer, jiagangTile, actualJia);
-            if (isMoGang || IsHongzhongRecord()) {
+            BuildJiagangMask(actingPlayer, jiagangTile, actualJia, tick);
+            if (isMoGang || IsHongzhongRecord() || IsJiujiangRecord()) {
                 actingPlayer.showHandDrawSlotActive = false;
             }
             ApplyRecordGangScoreDeltasFromTick(tick);
@@ -367,7 +366,7 @@ public partial class GameRecordManager
                 }
 
                 if (jiagangCount > 0) {
-                    // 虹雀加杠挂在最后一组副露上，combination 仍可能是 k/s；须先碰/吃再加杠。
+                    // 普通加杠先重建基础副露，再生成追加张。
                     Game3DManager.Instance.RunMeldRebuildImmediate(position, "peng", combinationMask, i);
                     Game3DManager.Instance.RunMeldRebuildImmediate(position, "jiagang", combinationMask, i);
                 }

@@ -8,18 +8,28 @@ internal static class SichuanTips {
     public static HashSet<int> Tingpai(TingpaiQuery q) {
         // 血流弃三张后的逻辑手牌为 10 张；包含副露的标准川麻始终为 13 张。
         if (SichuanLobby.IsXueliu(q.SubRule) || q.Hand.Count + (q.Melds?.Count ?? 0) * 3 == 10) {
-            return XueliuTips.Tingpai(q.Hand, q.Melds, q.SubRule == "sichuan/xueliu_exchange" ? 4 : 3, UsesExchangeScoring(q.SubRule, q.DetailedConfig));
+            return XueliuTips.Tingpai(q.Hand, q.Melds, SichuanLobby.IsExchange(q.SubRule) ? 4 : 3, UsesExchangeScoring(q.SubRule, q.DetailedConfig));
         }
+        // 保留基本牌型的候选张；双打未缺门由 Describe 标红说明，不能提前过滤而让提示消失。
         return SichuanExternal.TingpaiCheck(q.Hand, q.Melds ?? new List<string>());
     }
 
+    internal static bool HasMissingSuit(List<int> hand, List<string> melds) {
+        var suits = new HashSet<int>();
+        foreach (int tile in hand) suits.Add(tile / 10);
+        if (melds != null) foreach (string meld in melds)
+            if (meld.Length > 1 && int.TryParse(meld.Substring(1), out int tile)) suits.Add(tile / 10);
+        return suits.Count > 0 && suits.Count <= 2;
+    }
+
     internal static bool UsesExchangeScoring(string subRule, Dictionary<string, object> config) {
-        if (subRule != "sichuan/xueliu_exchange") return false;
+        if (!SichuanLobby.IsExchange(subRule)) return false;
         return config == null || !config.TryGetValue("xueliu_exchange_scoring", out object value)
             || !bool.TryParse(value?.ToString(), out bool enabled) || enabled;
     }
 
     public static WaitTileHint Describe(WaitHintQuery q) {
+        if (SichuanLobby.IsDoubles(q.SubRule) && !HasMissingSuit(q.HandWithWin, q.Melds)) return WaitTileHint.None("需缺门");
         int dingque = q.ExcludedSuit;
         if (dingque >= 1 && dingque <= 3
             && (q.HandWithWin.Exists(t => t / 10 == dingque)
@@ -28,7 +38,7 @@ internal static class SichuanTips {
             return WaitTileHint.None("未满足");
         }
         if (SichuanLobby.IsXueliu(q.SubRule)) {
-            int meldCount = q.SubRule == "sichuan/xueliu_exchange" ? 4 : 3;
+            int meldCount = SichuanLobby.IsExchange(q.SubRule) ? 4 : 3;
             bool exchange = UsesExchangeScoring(q.SubRule, q.DetailedConfig);
             int ron = XueliuTips.Fan(q.HandWithWin, q.Melds, false, meldCount, exchange);
             int zimo = XueliuTips.Fan(q.HandWithWin, q.Melds, true, meldCount, exchange);

@@ -267,7 +267,7 @@ public class ScoreHistoryFanTooltip : MonoBehaviour {
             if (IsFlowerTile(hand[i]) && !GuangdongMilRules.IsMil(snapshot.subRule)) continue;
             concealed.Add(hand[i]);
         }
-        concealed.Sort(TileIdOrder.Comparer);
+        TileIdOrder.SortHand(concealed);
 
         for (int i = 0; i < concealed.Count; i++) {
             SpawnTile(concealed[i]);

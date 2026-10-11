@@ -148,6 +148,7 @@ const SUB_RULE_LABELS = {
   'guobiao/xiaolin': '小林',
   'guobiao/kshen': 'K神',
   'guobiao/lanshi': '蓝十',
+  'guobiao/transparent': '透明国标',
 }
 
 const RULE_LABELS = {

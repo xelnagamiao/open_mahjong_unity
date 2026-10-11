@@ -3,12 +3,14 @@ public static class SichuanRoundLabel {
     public const string ThreeHu = "three_hu";
     public const string Chajiao = "chajiao";
     public const string Liuju = "liuju";
+    public const string TeamFirstTwo = "team_first_two";
 
     public static string ToDisplayText(string label) {
         return label switch {
             ThreeHu => "三家和",
             Chajiao => "查叫",
             Liuju => "流局",
+            TeamFirstTwo => "同队先和",
             _ => "—",
         };
     }

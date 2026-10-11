@@ -25,10 +25,11 @@ public sealed class HongKongGameState : TurnBasedGameState {
         if (info.players_info!=null && IsActive)
             RefreshTags(info.players_info.ToDictionary(p=>p.player_index,p=>p.tag_list??Array.Empty<string>()));
         if (Info?.phase!="waiting_ready") CanCutPull=false;
-        HongKongLedgerPanel.Show(Info,CanCutPull && !Session.IsRealtimeSpectator);
+        RefreshLedger();
     }
 
     protected override void OnRoundStarted(GameInfo info) {
+        HongKong16LedgerPanel.Close();
         CanCutPull=false; openingSynced=info?.hongkong_info?.opening_complete==true; Accept(info);
     }
     protected override void OnAskHandAction(Response response) {
@@ -43,7 +44,9 @@ public sealed class HongKongGameState : TurnBasedGameState {
         Mirror.SelfHandTiles.AddRange(info.self_hand_tiles);
         Mirror.Self.hand_tiles_count=Mirror.SelfHandTiles.Count;
         Mirror.LastDealTileId=Mirror.SelfHandTiles.Count%3==2 ? Mirror.SelfHandTiles.Last() : 0;
-        GameCanvas.Instance.ChangeHandCards("SyncHandCards",0,Mirror.SelfHandTiles.ToArray(),null);
+        // The completion snapshot confirms the same physical hand. Preserve
+        // its cards and order so opening replacement does not sort twice.
+        GameCanvas.Instance.ChangeHandCards("SyncHandCardsPreservingOrder",0,Mirror.SelfHandTiles.ToArray(),null);
     }
     protected override void OnAskClaim(Response response) {
         Accept(response.game_info);
@@ -53,6 +56,21 @@ public sealed class HongKongGameState : TurnBasedGameState {
     protected override void OnDoAction(Response response) { Accept(response.game_info); base.OnDoAction(response); }
 
     protected override bool TryApplyFamilyWord(TableAction action,string word) {
+        if (word=="deal_buhua_tile" && action.Seat=="self") {
+            int[] tiles=action.ResolveDealTiles();
+            // 十三张闲家及十六张起手补花不增加行牌张。真正摸花后的
+            // 十四/十七张手牌仍走公共独立摸牌区，保留其摸切语义。
+            if (tiles.Length>0 && (Mirror.SelfHandTiles.Count+tiles.Length)%3!=2) {
+                Mirror.RemainTiles-=tiles.Length;
+                Mirror.LastDealTileId=0;
+                foreach (int tile in tiles) {
+                    Mirror.SelfHandTiles.Add(tile);
+                    GameCanvas.Instance.ChangeHandCards("GetCardIntoMainHand",tile,null,null);
+                    Game3DManager.Instance.Change3DTile("GetCard",tile,0,"self",false,null);
+                }
+                return true;
+            }
+        }
         if (word=="riichi") {
             // 声明不放立直棒、不扣1000分；后续横置弃牌使用通用展示。
             var player=Mirror.Info(action.Seat);
@@ -72,7 +90,8 @@ public sealed class HongKongGameState : TurnBasedGameState {
     protected override void OnShowResult(Response response) {
         if (response.show_result_info?.hongkong_info!=null) Info=response.show_result_info.hongkong_info;
         CanCutPull=false;
-        HongKongLedgerPanel.Show(Info,false);
+        HongKong16LedgerPanel.Close();
+        RefreshLedger();
         base.OnShowResult(response);
     }
 
@@ -87,15 +106,24 @@ public sealed class HongKongGameState : TurnBasedGameState {
         Clock.LastAskActionTick=response.ready_status_info.action_tick;
         Info=response.ready_status_info.hongkong_info??Info;
         CanCutPull=response.ready_status_info.can_cut_pull;
-        HongKongLedgerPanel.Show(Info,CanCutPull && !Session.IsRealtimeSpectator);
+        RefreshLedger();
         base.OnReadyStatus(response);
     }
 
     public void CutPull() {
-        if (!CanCutPull || Session.IsRealtimeSpectator) return;
+        if (Session.SubRule != New16 || !CanCutPull || Session.IsRealtimeSpectator || Info?.phase != "waiting_ready") return;
         CanCutPull=false;
-        HongKongLedgerPanel.Show(Info,false);
+        RefreshLedger();
         GameStateNetworkManager.Instance.SendAction("pull_cut",0);
+    }
+
+    private void RefreshLedger() {
+        var names = new string[4];
+        foreach (var player in Mirror.PlayerToInfo.Values)
+            if (player.original_player_index >= 0 && player.original_player_index < names.Length)
+                names[player.original_player_index] = player.username;
+        HongKong16LedgerPanel.Show(Session.SubRule, Info, names, Mirror.Self.original_player_index,
+            CanCutPull && !Session.IsRealtimeSpectator ? CutPull : (Action)null);
     }
 
     public static WaitTileHint Describe(WaitHintQuery query) {
@@ -114,6 +142,6 @@ public sealed class HongKongGameState : TurnBasedGameState {
     }
 
     public override void OnSessionReset() {
-        Info=null; CanCutPull=false; openingSynced=false; waitHints.Clear(); HongKongLedgerPanel.Hide();
+        Info=null; CanCutPull=false; openingSynced=false; waitHints.Clear(); HongKong16LedgerPanel.Hide();
     }
 }

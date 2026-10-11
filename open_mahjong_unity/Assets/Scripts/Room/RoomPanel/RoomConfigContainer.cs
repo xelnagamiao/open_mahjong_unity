@@ -135,6 +135,16 @@ public class RoomConfigContainer : MonoBehaviour {
     }
 
     private static void AddDetailedConfig(RoomInfo roomInfo, List<KeyValuePair<string, string>> result) {
+        if (roomInfo.room_rule == "shanghai" && (string.IsNullOrEmpty(roomInfo.sub_rule) || roomInfo.sub_rule == "shanghai/qiaoma")) {
+            result.Add(new KeyValuePair<string, string>("清三混二碰二",
+                ShanghaiHandCalculator.UsesQing3Hun2Peng2(roomInfo.detailed_config) ? "开" : "关"));
+            return;
+        }
+        if (roomInfo.room_rule == JiujiangGameState.RuleId) {
+            result.Add(new KeyValuePair<string,string>("起和条件","1分（含花分）"));
+            result.Add(new KeyValuePair<string,string>("补发财","自愿补牌；弃出不计分"));
+            return;
+        }
         if (roomInfo.sub_rule == GuangdongMilRules.SubRule) {
             bool minimum = roomInfo.detailed_config == null || !roomInfo.detailed_config.TryGetValue("require_minimum_score", out object raw) || raw?.ToString().ToLowerInvariant() != "false";
             result.Add(new KeyValuePair<string,string>("规则底本", "MIL 2023 花鬼"));
@@ -225,11 +235,13 @@ public class RoomConfigContainer : MonoBehaviour {
             case "room_type":
                 displayName = "规则";
                 displayValue = roomInfo.sub_rule == GuangdongMilRules.SubRule ? "广东花鬼" : RuleNameDictionary.GetWholeName(roomInfo.sub_rule);
+                if (SichuanLobby.IsDuplicate(roomInfo.sub_rule)) displayValue = SichuanLobby.IsXueliu(roomInfo.sub_rule) ? "血流双打复式" : "血战双打复式";
                 return true;
             case "game_round":
                 displayName = "圈数";
                 displayValue = roomInfo.is_duplicate
                     ? $"复式 {Mathf.Max(1, roomInfo.duplicate_round_count)} 局" : RoundTextDictionary.GetMaxRoundText(roomInfo.room_rule, roomInfo.game_round);
+                if (SichuanLobby.IsDuplicate(roomInfo.sub_rule)) { displayName = "副数"; displayValue = $"{Mathf.Max(1, roomInfo.duplicate_round_count)} 副"; }
                 return true;
             case "round_timer":
                 displayName = "局时";
@@ -267,7 +279,7 @@ public class RoomConfigContainer : MonoBehaviour {
             case "tian_di_ren_he":
                 displayName = "天地人和";
                 displayValue = roomInfo.tian_di_ren_he ? "开（各8番）" : "关";
-                return roomInfo.sub_rule == "guobiao/standard" || roomInfo.sub_rule == GuobiaoGameState.SanmaSubRule || roomInfo.sub_rule == GuobiaoGameState.BloodBattleSubRule;
+                return roomInfo.sub_rule == "guobiao/standard" || roomInfo.sub_rule == GuobiaoGameState.SanmaSubRule || roomInfo.sub_rule == GuobiaoGameState.BloodBattleSubRule || roomInfo.sub_rule == GuobiaoGameState.TransparentSubRule;
             case "blood_battle":
                 displayName = "血战到底";
                 displayValue = (roomInfo.blood_battle ?? true) ? "开" : "关";
@@ -304,13 +316,13 @@ public class RoomConfigContainer : MonoBehaviour {
                 return true;
             case "hepai_limit":
                 if (roomInfo.room_rule == "shanghai") {
-                    if (roomInfo.sub_rule == "shanghai/qinghunpeng") return false;
+                    if (roomInfo.sub_rule == "shanghai/qinghunpeng" || roomInfo.sub_rule == "shanghai/lajihe") return false;
                     displayName = "一番和";
                     displayValue = roomInfo.hepai_limit == 1 ? "开" : "关";
                     return true;
                 }
                 displayName = "起和番数";
-                displayValue = roomInfo.hepai_limit.ToString();
+                displayValue = roomInfo.hepai_limit.ToString() + (roomInfo.room_rule == "riichi" ? "（不含宝牌）" : "");
                 return true;
             case "allow_spectator":
                 displayName = "允许观战";

@@ -106,7 +106,7 @@ class YixingGameState(FlowerFlow, HandFlow, Protocol, Recording, EndOfHand, Zhon
         final, self.tiles_list = self.tiles_list[:5], self.tiles_list[5:]
         for index, offset in enumerate((0,1,3,4)):
             self.player_list[index].hand_tiles.append(final[offset])
-            self.player_list[index].hand_tiles.sort()
+            # 开局理牌由客户端执行，不能在发送起手前跳过动画与自动理牌开关。
         self.player_list[0].hand_tiles.append(final[2])
         self.player_list[0].has_draw_slot = True
         self.player_list[0].draw_kind = "normal"

@@ -50,7 +50,7 @@
     </div>
     <el-dialog v-model="regulationsVisible" title="Salasasa-萨拉飒飒麻将平台账户规约"
       width="min(760px, 94vw)" append-to-body :close-on-click-modal="false">
-      <div class="regulations-body" tabindex="0" aria-label="账户规约全文">{{ regulationsBody }}</div>
+      <div class="regulations-body" tabindex="0" aria-label="账户规约全文" data-no-translate>{{ regulationsBody }}</div>
       <template #footer>
         <el-button @click="regulationsVisible = false">关闭</el-button>
         <el-button type="primary" @click="acceptRegulations">同意规约</el-button>
@@ -60,10 +60,11 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
-import regulations from '@/content/accountRegulations.txt?raw'
+import { locale } from '@/i18n'
+import { accountRegulationsBody } from '@/content/accountRegulations'
 
 const router = useRouter()
 const route = useRoute()
@@ -72,7 +73,7 @@ const loading = ref(false)
 const error = ref('')
 const acceptedRegulations = ref(false)
 const regulationsVisible = ref(false)
-const regulationsBody = regulations.slice(regulations.indexOf('\n') + 1).trim()
+const regulationsBody = computed(() => accountRegulationsBody(locale.value))
 function acceptRegulations() {
   acceptedRegulations.value = true
   regulationsVisible.value = false

@@ -10,6 +10,7 @@ POSITIONS = ("self", "right", "top", "left")
 HAND_ALLOW = {
     "cut",
     "buhua",
+    "nuki",
     "hu_self",
     "hu_flower",
     "initial_hu",
@@ -20,6 +21,8 @@ HAND_ALLOW = {
     "jiuzhongjiupai",
     "riichi_cut",
     "pass",
+    "lajihe_flower_end",
+    "lajihe_flower_continue",
 }
 OTHER_ALLOW = {
     "chi_left",
@@ -33,6 +36,8 @@ OTHER_ALLOW = {
     "hu_third",
     "pass",
     "force_pass",
+    "lajihe_flower_end",
+    "lajihe_flower_continue",
 }
 TRANSFER_MELDS = {"chi_left", "chi_mid", "chi_right", "peng", "gang"}
 TingpaiFn = Callable[[List[int], List[str]], Sequence[int]]
@@ -352,6 +357,17 @@ class UnitySim:
         remaining = _as_int(info.get("remaining_time"), 0)
         actions = [str(item) for item in _as_list(info.get("action_list"))]
         self.gsm["CurrentPlayer"] = pos
+        phase = info.get("xueliu_exchange")
+        if phase is not None:
+            self.gsm["allowActionList"] = []
+            self.gsm["IsSelfActionRequired"] = pos == "self" and "xueliu_exchange_three" in actions
+            self._clear_buttons()
+            self.opening.update(three_tiles=self.gsm["IsSelfActionRequired"], exchange=True,
+                                dingque=False, seconds=remaining, team_exchange=dict(phase))
+            self._begin_timer(info)
+            self.network["last_ask"] = {"kind": "team_exchange", "actions": actions, "player_index": player_index}
+            self._sync_views()
+            return
         opening_actions = {"xueliu_throw_three", "xueliu_exchange_three"}
         if self.gsm["roomRule"] == "sichuan" and opening_actions.intersection(actions):
             self.gsm["allowActionList"] = []
@@ -579,7 +595,7 @@ class UnitySim:
         self._sync_views()
 
     def _is_xueliu(self):
-        return self.gsm.get("subRule") in {"sichuan/xueliu", "sichuan/xueliu_exchange"}
+        return self.gsm.get("subRule") in {"sichuan/xueliu", "sichuan/xueliu_exchange", "sichuan/xueliu_doubles", "sichuan/xueliu_doubles_duplicate"}
 
     def _begin_timer(self, info):
         remaining = _as_int(info.get("remaining_time"), 0)

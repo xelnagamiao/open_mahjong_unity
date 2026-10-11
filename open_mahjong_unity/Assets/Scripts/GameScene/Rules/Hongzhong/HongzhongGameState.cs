@@ -25,14 +25,6 @@ public sealed class HongzhongGameState : TurnBasedGameState {
         CancelPendingSettlement();
         RoundEndPresentation.Instance?.StopActiveSequence();
         Info = info.hongzhong_info; revealedHands = null; Hints.Reset(); Hints.Accept(info.hongzhong_hints);
-        // game_start builds every tile as a held tile, including reconnects.
-        // Restore the authoritative physical draw identity. Hand size alone
-        // cannot distinguish a draw from the mandatory discard after a pong.
-        if (Info?.self_has_draw_slot == true && Mirror.SelfHandTiles.Count > 0) {
-            var tiles = Mirror.SelfHandTiles.ToArray();
-            GameCanvas.Instance.ChangeHandCards("SyncHandCards", 0, tiles.Take(tiles.Length - 1).ToArray(), null);
-            GameCanvas.Instance.ChangeHandCards("GetCardNoAnimation", tiles[tiles.Length - 1], null, null);
-        }
         // Spectator initialization queries tips before this hook loads private hints.
         // Rebuild the stable marker only after the matching authoritative cache is ready.
         if (Manager?.tips == true && Mirror?.Self != null && TipsBlock.Instance != null && TipsContainer.Instance != null)

@@ -9,7 +9,12 @@ public sealed class GuangdongMilGameState : TurnBasedGameState {
     private void Accept(GuangdongPublicState state, GuangdongTips tips) {
         if (state != null) Info = state;
         if (tips != null) GuangdongServerTips.Accept(tips);
-        GuangdongLedgerPanel.Show(Info, Result);
+        RefreshAvatarTags();
+    }
+    private void RefreshAvatarTags() {
+        var tags = new Dictionary<int, string[]>();
+        foreach (var pair in Mirror.IndexToPosition) tags[pair.Key] = Mirror.Info(pair.Value)?.tag_list;
+        GameCanvas.Instance?.UpdatePlayerTagList(tags);
     }
     protected override void OnGameStartMessage(Response response) {
         GuangdongServerTips.Clear();
@@ -79,7 +84,6 @@ public sealed class GuangdongMilGameState : TurnBasedGameState {
     protected override void OnShowResult(Response response) {
         revealedHands = response.show_result_info?.revealed_hands;
         Result = response.show_result_info?.guangdong_result;
-        GuangdongLedgerPanel.Show(Info, Result);
         base.OnShowResult(response);
     }
     protected override void OnTableClosedForSettlement(SettlementEnvelope env) {
@@ -144,6 +148,7 @@ public sealed class GuangdongMilGameState : TurnBasedGameState {
         askClock.Reset();
         // Cancel a still-fading draw result before its panel is cleared for the next table.
         RoundEndPresentation.Instance?.StopActiveSequence();
-        Info = null; Result = null; revealedHands = null; GuangdongServerTips.Clear(); GuangdongServerTips.Clear(true); GuangdongLedgerPanel.Hide();
+        Info = null; Result = null; revealedHands = null; GuangdongServerTips.Clear(); GuangdongServerTips.Clear(true);
+        RefreshAvatarTags();
     }
 }

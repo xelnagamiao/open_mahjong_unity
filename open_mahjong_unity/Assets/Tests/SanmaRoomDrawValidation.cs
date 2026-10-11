@@ -54,28 +54,32 @@ public static class SanmaRoomDrawValidation {
             }
 
             var panel = UnityEngine.Object.Instantiate(source, holder.transform);
-            string[] positions = {"self", "right", "left"};
+            string[][] positionsByViewer = {
+                new[] {"self", "right", "top"}, new[] {"left", "self", "right"}, new[] {"top", "left", "self"}
+            };
             var finishAnimation = typeof(PenaltyPanel).GetMethod("RunAfterDrawNotenThreePhase", BindingFlags.Instance | BindingFlags.NonPublic);
             TMP_Text topName = Field<TMP_Text>(panel, "topUserName");
             for (int viewer = 0; viewer < 3; viewer++) {
+                string[] positions = positionsByViewer[viewer];
+                string emptyPosition = TableMirror.Seats.Single(pos => !positions.Contains(pos));
+                TMP_Text emptyName = Field<TMP_Text>(panel, emptyPosition + "UserName");
                 for (int mask = 0; mask < 8; mask++) {
                     int tenpaiCount = Enumerable.Range(0, 3).Count(seat => (mask & (1 << seat)) != 0);
                     var users = new Dictionary<string, string>();
                     var after = new Dictionary<string, int>();
                     var deltas = new Dictionary<string, int>();
-                    for (int relative = 0; relative < 3; relative++) {
-                        int seat = (viewer + relative) % 3;
+                    for (int seat = 0; seat < 3; seat++) {
                         bool tenpai = (mask & (1 << seat)) != 0;
                         int delta = tenpaiCount == 0 || tenpaiCount == 3 ? 0
                             : tenpai ? 3000 / tenpaiCount : -3000 / (3 - tenpaiCount);
-                        string pos = positions[relative];
+                        string pos = positions[seat];
                         users[pos] = "Player " + seat;
                         deltas[pos] = delta;
                         after[pos] = 35000 + delta;
                     }
                     string label = "viewer " + viewer + " tenpai " + mask;
                     panel.PreparePenaltyPanel(users, after, deltas, PenaltyPresentation.AfterDrawNotenThreePhase);
-                    Check(!topName.transform.parent.gameObject.activeSelf && topName.text == "", label + " top hidden and cleared");
+                    Check(!emptyName.transform.parent.gameObject.activeSelf && emptyName.text == "", label + " " + emptyPosition + " hidden and cleared");
                     foreach (string pos in positions) {
                         TMP_Text username = Field<TMP_Text>(panel, pos + "UserName");
                         Check(username.transform.parent.gameObject.activeSelf && username.text == users[pos], label + " " + pos + " name");
@@ -88,8 +92,8 @@ public static class SanmaRoomDrawValidation {
                     int steps = 0;
                     while (animation.MoveNext()) {
                         if (++steps > 20) throw new InvalidOperationException("Sanma UI animation did not finish.");
-                        if (topName.transform.parent.gameObject.activeSelf)
-                            throw new InvalidOperationException("Sanma UI animation restored the empty top row.");
+                        if (emptyName.transform.parent.gameObject.activeSelf)
+                            throw new InvalidOperationException("Sanma UI animation restored the empty " + emptyPosition + " row.");
                         foreach (string pos in positions) {
                             int shown = int.Parse(Field<TMP_Text>(panel, pos + "Score").text);
                             sawIntermediateScore |= shown != 35000 && shown != after[pos];
@@ -100,10 +104,10 @@ public static class SanmaRoomDrawValidation {
                     foreach (string pos in positions)
                         Check(Field<TMP_Text>(panel, pos + "Score").text == after[pos].ToString()
                             && Field<TMP_Text>(panel, pos + "Delta").text == "0", label + " " + pos + " after animation");
-                    Check(!topName.transform.parent.gameObject.activeSelf, label + " top remains hidden");
+                    Check(!emptyName.transform.parent.gameObject.activeSelf, label + " empty row remains hidden");
                     panel.PreparePenaltyPanel(users, after, deltas);
-                    Check(!topName.transform.parent.gameObject.activeSelf
-                        && Field<TMP_Text>(panel, "rightUserName").text == users["right"], label + " standard three rows");
+                    Check(!emptyName.transform.parent.gameObject.activeSelf
+                        && Field<TMP_Text>(panel, "selfUserName").text == users["self"], label + " standard three rows");
                 }
             }
             var fourUsers = new Dictionary<string, string> { ["self"] = "Self", ["left"] = "Left", ["top"] = "Top", ["right"] = "Right" };

@@ -25,13 +25,16 @@ test('three-player record rating aliases the gameplay sub-rule and rejects four-
 });
 
 test('ranked three-player summaries exclude four-player and custom modes', async () => {
-  const db={query:async sql=>({rows:sql.includes('game_player_metrics')?[]:[
-    {mode:'1/4_sanma_rank',stats:{total_games:1,total_rounds:3,fan_stats:{riichi:1}}},
-    {mode:'2/4_sanma_rank',stats:{total_games:1,total_rounds:6,fan_stats:{riichi:2}}},
-    {mode:'2/4_rank',stats:{total_games:10,total_rounds:80}},
+  const db={query:async()=>({rows:[
+    {sub_rule:'riichi/sanma',room_type:'match',mode:'1/4_sanma_rank',rank:1,metrics:{fan_stats:{riichi:1}},summary:{total_rounds:3}},
+    {sub_rule:'riichi/sanma',room_type:'match',mode:'2/4_sanma_rank',rank:2,metrics:{fan_stats:{riichi:2}},summary:{total_rounds:6}},
+    {sub_rule:'riichi/sanma',room_type:'custom',mode:'1/4_sanma',rank:1,metrics:{},summary:{total_rounds:99}},
+    ...Array.from({length:10},()=>({sub_rule:'riichi/standard',room_type:'match',mode:'2/4_rank',rank:1,metrics:{},summary:{total_rounds:8}})),
   ]})};
   const stats=await queryRankedStats(db,101);
   assert.deepEqual(stats.riichi_sanma.map(s=>s.mode),['1/4_sanma_rank','2/4_sanma_rank']);
   assert.equal(stats.riichi.length,1);
   assert.equal(stats.riichi[0].total_games,10);
+  assert.deepEqual(stats.riichi_sanma.map(s=>s.total_rounds),[3,6]);
+  assert.deepEqual(stats.riichi_sanma.map(s=>s.fan_stats.riichi),[1,2]);
 });

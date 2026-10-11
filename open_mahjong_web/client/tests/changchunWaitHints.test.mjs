@@ -63,9 +63,29 @@ test('special melds qualify using logical tiles but count physical tiles and fou
   assert.deepEqual(meldTiles(code), [31,31,31])
   assert.deepEqual(meldTiles(code,true), [11,21,31])
   const row = buildChangchunWaitData(context(hand,[code])).details.find(row => row.tile === 47)
-  assert.deepEqual([row.base_f,row.kind], [1,'dianhe'])
+  assert.deepEqual([row.base_f,row.kind], [2,'dianhe'])
   assert.deepEqual(basicWaits([31,31,31,21,22,23,11,12,13,45],[code]), [])
   assert.equal(meldTiles('Cwind:31,31,31:41,41,43'), null)
+})
+
+test('all special kongs and additions preserve menzen unless an ordinary open meld exists', () => {
+  const domains = { yao:[11,21,31], jiu:[19,29,39], wind:[41,42,43], dragon:[45,46,47] }
+  for (const [kind, domain] of Object.entries(domains)) for (const joker of [false,true]) for (const added of [false,true]) {
+    const physical = joker ? [31,...domain.slice(1)] : [...domain], logical = [...domain]
+    if (added) { physical.push(joker ? 31 : domain[0]); logical.push(domain[0]) }
+    const code = `C${kind}:${physical.join(',')}:${logical.join(',')}`
+    for (const ordinary of [null,'G18','k18','g18','s15']) {
+      const codes = ordinary ? [code,ordinary] : [code]
+      const hand = [...(ordinary ? [] : [11,12,13]),22,23,24,35,36,37,45]
+      const expected = ordinary === null || ordinary === 'G18' ? 2 : 1
+      assert.equal(basicFan([...hand,45],codes,45), expected, `${code}/${ordinary}`)
+      const row = buildChangchunWaitData(context(hand,codes)).details.find(row => row.tile === 45)
+      assert.deepEqual([row.base_f,row.label,row.kind], [expected,`${expected}番`,'dianhe'])
+      assert.deepEqual(meldTiles(code), physical)
+    }
+  }
+  const codes = Object.entries(domains).map(([kind,tiles]) => `C${kind}:${tiles.join(',')}:${tiles.join(',')}`)
+  assert.equal(basicFan([28,28],codes,28), 3) // menzen + piao; no extra single-wait fan
 })
 
 test('remaining counts use public physical melds, own concealed kongs and visible indicators', () => {

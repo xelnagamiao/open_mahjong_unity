@@ -63,7 +63,8 @@ def test_seats_rotate_and_never_create_a_fourth_player(seat):
     assert g.current_player_index == (seat + 1) % 3
     g._rotate_seats()
     assert [p.original_player_index for p in g.player_list] == [1,2,0]
-    assert get_index_relative_position(seat, (seat+2)%3, 3) == 'left'
+    expected = (('self', 'right', 'top'), ('left', 'self', 'right'), ('top', 'left', 'self'))
+    assert get_index_relative_position(seat, (seat+2)%3, 3) == expected[seat][(seat+2)%3]
 
 
 @pytest.mark.parametrize('riichi,drawn,allowed', [(False,False,True),(False,True,True),(True,False,False),(True,True,True)])

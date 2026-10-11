@@ -20,13 +20,13 @@ internal static class QinghunpengHandCalculator {
         return result;
     }
 
-    private static List<int> MeldTiles(string meld) {
+    internal static List<int> MeldTiles(string meld) {
         int tile = int.Parse(meld.Substring(1));
         return meld[0] == 's' ? new List<int> { tile - 1, tile, tile + 1 }
             : Enumerable.Repeat(tile, meld[0] == 'g' || meld[0] == 'G' ? 4 : 3).ToList();
     }
 
-    private static List<List<string>> Decompositions(List<int> hand, List<string> melds) {
+    internal static List<List<string>> Decompositions(List<int> hand, List<string> melds) {
         var result = new List<List<string>>();
         if (hand.Count + melds.Count * 3 != 14 || hand.Any(tile => !Tiles.Contains(tile))) return result;
         var all = hand.Concat(melds.SelectMany(MeldTiles)).ToList();
@@ -68,7 +68,7 @@ internal static class QinghunpengHandCalculator {
         if (all.Any(tile => !Tiles.Contains(tile)) || all.GroupBy(tile => tile).Any(group => group.Count() > 4)) return 0;
         bool honors = all.All(tile => tile >= 41);
         int suits = all.Where(tile => tile < 40).Select(tile => tile / 10).Distinct().Count();
-        bool extra = (melds.Count == 4 && melds.All(code => code[0] != 'G'))
+        bool extra = melds.Count == 4
             || (selfDraw && replacement) || lastTile || robKong;
         int best = honors ? 20 : 0;
         foreach (List<string> sets in Decompositions(hand, melds)) {

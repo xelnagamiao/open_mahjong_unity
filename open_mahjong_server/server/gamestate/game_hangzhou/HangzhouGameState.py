@@ -111,7 +111,7 @@ class HangzhouGameState(HandFlow, Protocol, Recording, Tactical, Runtime, EndOfH
         final, self.tiles_list = self.tiles_list[:5], self.tiles_list[5:]
         for index, offset in enumerate((0, 1, 3, 4)):
             self.player_list[index].hand_tiles.append(final[offset])
-            self.player_list[index].hand_tiles.sort()
+            # 开局按实际发牌顺序发送，客户端统一播放理牌；保留庄家独立摸牌张。
         dealer = self.player_list[0]
         dealer.pre_draw_tiles = list(dealer.hand_tiles)
         dealer.hand_tiles.append(final[2])

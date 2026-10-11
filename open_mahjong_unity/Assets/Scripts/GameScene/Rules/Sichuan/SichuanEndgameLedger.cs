@@ -47,7 +47,7 @@ public sealed class SichuanEndgameLedger {
     public bool TryFlushToHistory(string subRule, List<RoundSettlementSnapshot> history) {
         if (accum == null) return false;
         var merged = new Dictionary<int, int>(accum);
-        string roundLabel = ScoreHistorySettlementHelper.ResolveSichuanEndgameRoundLabel(huCount, hadChajiao);
+        string roundLabel = ScoreHistorySettlementHelper.ResolveSichuanEndgameRoundLabel(huCount, hadChajiao, subRule);
         RoundSettlementSnapshot snap = ScoreHistorySettlementHelper.CreateSichuanScoreboardSnapshot(subRule, roundLabel);
         history.Add(snap);
         SettlementPresenter.Current.ApplyLocalScoreHistory(snap, merged);

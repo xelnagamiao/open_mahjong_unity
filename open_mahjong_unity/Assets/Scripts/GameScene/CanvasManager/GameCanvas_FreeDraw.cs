@@ -17,7 +17,7 @@ public partial class GameCanvas {
         ClearHandDrawMarks();
         List<TileCard> main = GetMainHandCardsOrdered();
         if (AutoAction.Instance.IsAutoArrangeHandCards)
-            main.Sort((a, b) => TileIdOrder.Compare(a.tileId, b.tileId));
+            TileIdOrder.SortHand(main, card => card.tileId);
 
         TileCard draw = Instantiate(tileCardPrefab, handCardsContainer).GetComponent<TileCard>();
         draw.SetTile(tileId, true);

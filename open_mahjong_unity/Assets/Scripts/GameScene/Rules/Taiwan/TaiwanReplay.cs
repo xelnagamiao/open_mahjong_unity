@@ -3,8 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 
 public partial class GameRecordManager {
-    private int recordDeadWallCount;
-    private string recordDeadWallMode;
+    internal RuleReplayModule CreateTaiwanReplayModule() => new RuleReplayModule {
+        ReservedWallTiles = 16,
+        Reset = ResetTaiwanRecordState,
+        Clear = () => recordTaiwanRonBlockedPlayers.Clear(),
+        ApplyBeforeMutation = tick => { ApplyTaiwanRecordWallAction(tick[0]); return false; },
+    };
+
     private readonly HashSet<int> recordTaiwanRonBlockedPlayers = new HashSet<int>();
 
     private bool IsTaiwanRecord() {
@@ -14,27 +19,8 @@ public partial class GameRecordManager {
         return RuleRegistry.Resolve(rule, subRule)?.RuleId == TaiwanGameState.RuleId;
     }
 
-    private void ResetRecordRuleState() {
-        ResetHongKongRecordState();
-        ResetGuangdongRecordState();
-        ResetChangchunRecordState();
-        ResetGuizhouRecordState();
-        ResetYixingRecordState();
-        ResetHangzhouRecordState();
-        ResetHongzhongRecordState();
-        ResetWenzhouRecordState();
-        recordShanxiTailSingle = false;
-        sichuanRecordRevealHands = null;
+    private void ResetTaiwanRecordState() {
         recordTaiwanRonBlockedPlayers.Clear();
-        if (!IsTaiwanRecord()) {
-            recordDeadWallCount = ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", "") == "zhongyong/standard" || IsShanxiRecord() || IsRiichiRuleRecord() ? 14 : 0;
-            if (RecordRuleManifest?.RuleId == "guangdong" && !IsGuangdongMilRecord()) recordDeadWallCount = 13;
-            if (IsWenzhouRecord()) recordDeadWallCount = 4;
-            if (IsHangzhouRecord()) recordDeadWallCount = 20;
-            recordDeadWallMode = "";
-            return;
-        }
-
         recordDeadWallCount = 16;
         recordDeadWallMode = "fixed_tail_16";
         Dictionary<string, object> config = GetDetailedConfigSnapshot();
@@ -48,31 +34,6 @@ public partial class GameRecordManager {
             && !string.IsNullOrEmpty(rawMode.ToString())) {
             recordDeadWallMode = rawMode.ToString();
         }
-    }
-
-    private RuleManifest RecordRuleManifest => RuleRegistry.Resolve(
-        ReadGameTitleString(gameRecord?.gameTitle, "rule", ""),
-        ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", ""));
-
-    private bool ApplyRecordRuleActionBeforeMutation(IReadOnlyList<string> tick) {
-        if (tick == null || tick.Count == 0) return false;
-        RestoreShanxiRonDiscard(tick);
-        if (ApplyChangchunRecordAction(tick) || ApplyGuangdongRecordAction(tick) || ApplyHongKongRecordAction(tick) || ApplyTuidaoRecordAction(tick)) return true;
-        if (ApplyGuizhouRecordAction(tick)) return true;
-        if (ApplyYixingRecordAction(tick)) return true;
-        if (ApplyHangzhouRecordAction(tick)) return true;
-        if (ApplyHongzhongRecordAction(tick)) return true;
-        if (ApplyWenzhouRecordAction(tick)) return true;
-        if (RecordRuleManifest?.SupportsRobbedAddedKongSource == true) RestoreTaiwanRobbedJiagangForRecord(tick);
-        if (RecordRuleManifest?.PublicReadyStateReplay != true) return false;
-
-        string action = tick[0];
-        if (IsTaiwanRecord()) ApplyTaiwanRecordWallAction(action);
-        RestoreTaiwanRobbedJiagangForRecord(tick);
-        if (action != "state") return false;
-
-        ApplyTaiwanRecordStateTick(tick);
-        return true;
     }
 
     /// <summary>
@@ -119,34 +80,6 @@ public partial class GameRecordManager {
         sourcePlayer.combinationTiles[combinationIndex] =
             GameRecordMeldCodec.BuildCombinationKey('k', lastWinnableTileId);
         sourcePlayer.combinationMasks[combinationIndex] = restoredMask.ToArray();
-    }
-
-    private bool TryConsumeRecordRuleWallTile(string action) {
-        if (ConsumeChangchunRecordWall(action)) return true;
-        if (IsShanxiRecord()) { ConsumeShanxiRecordWallTile(action); return true; }
-        if (RecordRuleManifest?.ReplacementFromTailEnd != true) return false;
-        ConsumeTaiwanRecordWallTile(action);
-        return true;
-    }
-
-    private void RefreshRecordRulePlayerTags() {
-        if (RecordRuleManifest?.PublicReadyStateReplay != true) return;
-        RefreshTaiwanRecordPlayerTags();
-    }
-
-    private int GetRecordRemainTiles() {
-        if (IsChangchunRecord()) return ChangchunRecordRemaining();
-        if (IsDuplicateReplay) return currentTilesList.Count;
-        return Math.Max(0, currentTilesList.Count - recordDeadWallCount);
-    }
-
-    internal bool IsOriginalWallIndexNormalDrawable(int originalIndex) {
-        if (IsDuplicateReplay) return currentOriginalIndices.Contains(originalIndex);
-        if (recordDeadWallCount == 0) return true;
-        int currentPosition = currentOriginalIndices != null
-            ? currentOriginalIndices.IndexOf(originalIndex)
-            : -1;
-        return currentPosition >= 0 && currentPosition < GetRecordRemainTiles();
     }
 
     private void ApplyTaiwanRecordWallAction(string action) {
@@ -260,7 +193,7 @@ public partial class GameRecordManager {
             tags[player.playerIndex] = player.tagList.ToArray();
         }
         string rule = ReadGameTitleString(gameRecord?.gameTitle, "rule", "");
-        GameCanvas.Instance.UpdatePlayerTagList(tags, indexToPosition, rule);
+        GameCanvas.Instance.UpdatePlayerTagList(tags, indexToPosition, rule, recordGuangdongState?.ghost_discard_counts);
     }
 
 }

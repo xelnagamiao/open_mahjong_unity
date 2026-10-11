@@ -4,7 +4,13 @@ using UnityEngine;
 internal static class ShanghaiRuleBootstrap {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Register() {
+        ActionWords.Register(new ActionWordSpec { Word = "lajihe_flower_end", BlocksAutoCut = true,
+            Label = _ => "八花收分·流局" });
+        ActionWords.Register(new ActionWordSpec { Word = "lajihe_flower_continue", Kind = ActionWordKind.Pass,
+            BlocksAutoCut = true, Label = _ => "八花收分·继续" });
         RuleRegistry.Register(new RuleManifest {
+            ReplayFactory = record => record.CreateShanghaiReplayModule(),
+            BuildRoom = ShanghaiRoomBuilder.Build,
             RuleId = "shanghai",
             DefaultSubRule = "shanghai/qiaoma",
             DisplayName = "上海麻将",
@@ -12,10 +18,12 @@ internal static class ShanghaiRuleBootstrap {
             LobbySubRules = new[] {
                 new RuleLobbySubRule("shanghai/qiaoma", "上海敲麻", "上海敲麻：上海特色麻将规则，使用144张麻将牌，有着中发白当花、可以垃圾和、听牌后要敲牌报听、番种简单等特点，节奏快且易上手。"),
                 new RuleLobbySubRule("shanghai/qinghunpeng", "清混碰", "上海清混碰：上海传统麻将规则，使用144张麻将牌，以必须做出清、混一色或碰碰和才能和牌为特色，与快节奏的上海敲麻有着鲜明对比，独具特色。"),
+                new RuleLobbySubRule("shanghai/lajihe", "上海垃圾和", "上海垃圾和是上海本地的一款特色麻将规则，使用144张麻将牌，允许垃圾和的同时对点和做了花数上的限制，并有七对子、自摸加底等特色内容，节奏适中。"),
             },
             CreateRoomDefaults = new Dictionary<string, object> {
                 { CreateRoomKeys.SubRule, 0 },
                 { CreateRoomKeys.HepaiLimit, 0 },
+                { ShanghaiHandCalculator.Qing3Hun2Peng2Key, false },
                 { CreateRoomKeys.GameRound, 4 },
                 { CreateRoomKeys.RoundTimer, 3 },
                 { CreateRoomKeys.StepTimer, 1 },
@@ -28,15 +36,15 @@ internal static class ShanghaiRuleBootstrap {
                 { CreateRoomKeys.AllowSpectator, true },
             },
             GameStateFactory = () => new ShanghaiGameState(),
-            SubRuleGameStateFactory = subRule => subRule == "shanghai/qinghunpeng"
+            SubRuleGameStateFactory = subRule => subRule == LajiheHandCalculator.SubRule ? (IGameState)new LajiheGameState() : subRule == "shanghai/qinghunpeng"
                 ? (IGameState)new QinghunpengGameState() : new ShanghaiGameState(),
-            Tingpai = query => query.SubRule == "shanghai/qinghunpeng"
+            Tingpai = query => query.SubRule == LajiheHandCalculator.SubRule ? LajiheHandCalculator.Waits(query.Hand, query.Melds) : query.SubRule == "shanghai/qinghunpeng"
                 ? QinghunpengHandCalculator.Waits(query.Hand, query.Melds)
                 : ShanghaiHandCalculator.Waits(query.Hand, query.Melds),
-            DescribeWaitingTile = query => query.SubRule == "shanghai/qinghunpeng"
+            DescribeWaitingTile = query => query.SubRule == LajiheHandCalculator.SubRule ? LajiheHandCalculator.Describe(query) : query.SubRule == "shanghai/qinghunpeng"
                 ? QinghunpengHandCalculator.Describe(query) : ShanghaiHandCalculator.Describe(query),
             RecordDangerUsesWaitHint = true,
-            RecordDangerQualification = query => query.SubRule == "shanghai/qinghunpeng"
+            RecordDangerQualification = query => query.SubRule == LajiheHandCalculator.SubRule || query.SubRule == "shanghai/qinghunpeng"
                 || query.Record?.SelfTags?.Contains("declared_ready") == true,
             RoundName = round => $"第{round}局",
             RoundStatusText = RoundStatus,
@@ -45,10 +53,13 @@ internal static class ShanghaiRuleBootstrap {
             FanNameText = FanName,
             FanValueText = FanValue,
             ScoreboardFanText = query => $"{query.HuScore}分",
-            SettlementTotal = query => new SettlementTotalDisplay { FanText = query.Rule == "shanghai/qinghunpeng" ? "和牌点数" : "基本分", ScoreText = $"{query.HuScore}分" },
+            SettlementTotal = query => new SettlementTotalDisplay { FanText = query.Rule == "shanghai/qinghunpeng" || query.Rule == LajiheHandCalculator.SubRule ? "和牌点数" : "基本分", ScoreText = $"{query.HuScore}分" },
             ActionCaption = ActionCaption,
             ActionVoice = ActionVoice,
             PeekAnkan = true,
+            ReplayConcealedKongMask = (rule, tiles) => rule == LajiheHandCalculator.SubRule
+                ? new[] {0,tiles[0],0,tiles[1],0,tiles[2],0,tiles[3]}
+                : new[] {2,tiles[0],0,tiles[1],0,tiles[2],2,tiles[3]},
             SupportsRobbedAddedKongSource = true,
             ReplacementFromTailEnd = true,
             PublicReadyStateReplay = true,
@@ -71,6 +82,9 @@ internal static class ShanghaiRuleBootstrap {
 
     private static string ActionCaption(string word) {
         switch (word) {
+            case "lajihe_eight_flowers": return "八花齐";
+            case "lajihe_flower_end": return "八花收分·流局";
+            case "lajihe_flower_continue": return "八花收分·继续";
             case "riichi":
             case "riichi_cut": return "敲牌";
             case "riichi_cut_cancel": return "取消敲牌";
@@ -109,7 +123,9 @@ internal static class ShanghaiRuleBootstrap {
     }
 
     private static string FanName(string rule, string name) {
+        if ((rule == "shanghai" || rule == "shanghai/qiaoma") && TryQiaomaFanValue(name, out string fanLabel, out _)) return fanLabel;
         if (TryFlowerValue(name, out string label, out _)) return label;
+        if (rule == LajiheHandCalculator.SubRule && TryPointValue(name, out label, out _)) return label;
         if (rule == "shanghai/qinghunpeng") {
             switch (name) {
                 case "清一色": case "混碰": case "大吊车": case "杠头开花":
@@ -122,7 +138,21 @@ internal static class ShanghaiRuleBootstrap {
     }
 
     private static string FanValue(string rule, string name) {
+        if ((rule == "shanghai" || rule == "shanghai/qiaoma") && TryQiaomaFanValue(name, out _, out string fanValue)) return fanValue;
         if (TryFlowerValue(name, out _, out string value)) return value;
+        if (rule == LajiheHandCalculator.SubRule) {
+            if (TryPointValue(name, out _, out value)) return value;
+            switch (name) {
+                case "垃圾和": return "5分";
+                case "碰碰和": case "混一色": case "七对子": return "20分";
+                case "清一色": case "混碰": return "25分";
+                case "清碰": case "全风向": return "20分·1番";
+                case "全风向碰碰和": return "20分·2番";
+                case "大吊车": case "杠头开花": return "5分";
+                case "八花齐": return "每家30分";
+                default: return "";
+            }
+        }
         if (rule == "shanghai/qinghunpeng") {
             switch (name) {
                 case "混一色": case "碰碰和": return "1花";
@@ -139,5 +169,25 @@ internal static class ShanghaiRuleBootstrap {
             case "混一色": case "碰碰和": return "1番";
             default: return "";
         }
+    }
+
+    private static bool TryPointValue(string name, out string label, out string value) {
+        label = name; value = null;
+        if (string.IsNullOrEmpty(name) || !name.EndsWith("分）")) return false;
+        int start = name.IndexOf('（');
+        if (start <= 0 || !int.TryParse(name.Substring(start + 1, name.Length - start - 3), out int points)) return false;
+        label = name.Substring(0, start); value = $"{points}分";
+        return true;
+    }
+
+    private static bool TryQiaomaFanValue(string name, out string label, out string value) {
+        label = name; value = null;
+        if (string.IsNullOrEmpty(name) || !name.EndsWith("番）")) return false;
+        int start = name.IndexOf('（');
+        if (start <= 0 || !int.TryParse(name.Substring(start + 1, name.Length - start - 3), out int fan)) return false;
+        string pattern = name.Substring(0, start);
+        if (pattern != "清一色" && pattern != "混一色" && pattern != "碰碰和") return false;
+        label = pattern; value = $"{fan}番";
+        return true;
     }
 }

@@ -8,14 +8,17 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { SITE, PRERENDER_PATHS, seoEntryFor, noindexEntryFor } from '../src/seo.js'
-import { mcrPageForPath } from '../src/seo/mcr-pages.js'
-import { renderMcrDocument } from '../src/seo/mcr-render.js'
+import { staticPageForPath } from '../src/seo/pages.js'
+import { renderPageDocument } from '../src/seo/page-render.js'
 import { renderSitemap } from '../src/seo/sitemap.js'
+import { analyticsToken, cloudflareAnalyticsMarkup } from './cloudflare-analytics.mjs'
+import { originalPageContent } from './original-seo-content.mjs'
 
 const clientDir = dirname(dirname(fileURLToPath(import.meta.url)))
 // An explicit output path allows isolated validation without touching live game packages.
 const distDir = process.argv[2] ? resolve(clientDir, process.argv[2]) : join(clientDir, 'dist')
 const indexPath = join(distDir, 'index.html')
+const analyticsMarkup = cloudflareAnalyticsMarkup(analyticsToken(clientDir))
 
 let template
 try {
@@ -39,10 +42,11 @@ function replaceTag(html, pattern, tag) {
   return html.replace(pattern, tag == null ? '' : tag)
 }
 
-function renderPage(url) {
-  const landing = mcrPageForPath(url)
+async function renderPage(url) {
+  const landing = staticPageForPath(url)
   if (landing) {
-    return renderMcrDocument(landing, readFileSync(join(clientDir, 'src/seo/mcr-landing.css'), 'utf-8'), SITE.domain)
+    const css = ['mcr-landing.css', 'content-pages.css'].map((file) => readFileSync(join(clientDir, 'src/seo', file), 'utf-8')).join('\n')
+    return renderPageDocument(landing, css, SITE.domain, await originalPageContent(landing)).replace('</body>', `${analyticsMarkup}</body>`)
   }
   const seo = seoEntryFor(url) || {}
   const noindex = noindexEntryFor(url)
@@ -72,7 +76,7 @@ function renderPage(url) {
 
 let count = 0
 for (const url of PRERENDER_PATHS) {
-  const html = renderPage(url)
+  const html = await renderPage(url)
   const outPath = url === '/' ? indexPath : join(distDir, url.slice(1), 'index.html')
   mkdirSync(dirname(outPath), { recursive: true })
   writeFileSync(outPath, html, 'utf-8')
@@ -80,4 +84,4 @@ for (const url of PRERENDER_PATHS) {
 }
 
 writeFileSync(join(distDir, 'sitemap.xml'), renderSitemap(), 'utf-8')
-console.log(`[prerender-seo] 已为 ${count} 个 URL 生成 SEO 页面及 sitemap（MCR 含完整正文）`)
+console.log(`[prerender-seo] 已为 ${count} 个 URL 生成 SEO 页面及 sitemap（多语言内容页含完整正文）`)

@@ -11,14 +11,14 @@ XUELIU_EXCHANGE_RATING_RULE = 'sichuan_xueliu_exchange'
 XUELIU_EXCHANGE_SUB_RULE = 'sichuan/xueliu_exchange'
 XUELIU_EXCHANGE_QUEUE = 'sichuan_xueliu_exchange_elo_quanzhuang'
 RULES = {"guobiao": "国标麻将", "riichi": "立直麻将", "qingque": "青雀", "sichuan": "川麻血战", "riichi_sanma": "立直三麻",
-         XUELIU_EXCHANGE_RATING_RULE: "川麻血流换三张"}
+         XUELIU_EXCHANGE_RATING_RULE: "川麻血流换三张", "hongque": "虹雀"}
 GRADE_RULES = {"guobiao", "riichi", "riichi_sanma"}
 ELO_RULES = set(RULES) - GRADE_RULES
 DEFAULT_R = 1500.0
 ELO_EXPECTATION_SCALE = 2400.0
 ELO_TABLE_AVERAGE_FLOOR = 1500.0
 ELO_ALGORITHM_VERSION = "elo_2400_table_protection_v1"
-# Shared by settlement and startup rebuild; always acquire before row/game locks.
+# Rating-write lock; always acquire before row/game locks.
 RATING_WRITE_LOCK = "open_mahjong:rating_history"
 
 
@@ -51,8 +51,10 @@ for rule in ("guobiao", "riichi"):
             key = f"{tier}_{mode}" if rule == "guobiao" else f"{rule}_{tier}_{mode}"
             QUEUES[key] = RankedQueue(rule, tier, mode, rounds)
 QUEUES["qingque_elo_quanzhuang"] = RankedQueue("qingque", "elo", "quanzhuang", 4)
+QUEUES["hongque_elo_quanzhuang"] = RankedQueue("hongque", "elo", "quanzhuang", 16,
+                                            sub_rule="hongque/v1.6")
 # Keep the existing Sichuan queue ID for clients and historical records.
-QUEUES["sichuan_elo_xuezhan"] = RankedQueue("sichuan", "elo", "quanzhuang", 4)
+QUEUES["sichuan_elo_xuezhan"] = RankedQueue("sichuan", "elo", "banzhuang", 2)
 QUEUES[XUELIU_EXCHANGE_QUEUE] = RankedQueue('sichuan', 'elo', 'quanzhuang', 4,
                                           sub_rule=XUELIU_EXCHANGE_SUB_RULE)
 for tier in ('beginner', 'intermediate', 'advanced'):

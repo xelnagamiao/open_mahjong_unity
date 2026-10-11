@@ -150,7 +150,7 @@ public partial class GameRecordManager {
         if (player == null) return;
         TryGetActiveRecordRuleContext(out string roomRule, out string subRule);
         // 血流弃三张没有固定定缺；换三张使用牌谱中的真实定缺，不能从弃牌猜测。
-        if (!SichuanLobby.IsXueliu(subRule) && RuleRegistry.Resolve(roomRule, subRule)?.InfersDingqueFromDiscards == true) {
+        if (!SichuanLobby.IsXueliu(subRule) && !SichuanLobby.IsDoubles(subRule) && RuleRegistry.Resolve(roomRule, subRule)?.InfersDingqueFromDiscards == true) {
             RecordChongHintCalculator.TryInferRecordDingqueSuit(player);
         }
     }

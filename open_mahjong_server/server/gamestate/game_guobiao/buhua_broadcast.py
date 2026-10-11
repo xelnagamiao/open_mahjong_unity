@@ -4,6 +4,7 @@ import asyncio
 from ..public.hand_slot_utils import has_draw_slot, resolve_is_mo_buhua
 from ..public.game_record_manager import player_action_record_buhua, player_action_record_deal
 from .boardcast import broadcast_do_action
+from . import transparent
 
 # 手补/手杠后岭上摸牌的显示间隔（秒）；服务端真实等待，客户端即时处理即可
 HAND_SETTLE_GAP_SEC = 0.3
@@ -16,6 +17,7 @@ async def broadcast_buhua_then_deal(
     max_tile: int,
     deal_tile: int,
     is_mo_buhua: bool,
+    public_hand_snapshot=None,
 ) -> None:
     """先广播补花，等待 HAND_SETTLE_GAP_SEC，再广播补花摸牌。"""
     await broadcast_do_action(
@@ -24,6 +26,7 @@ async def broadcast_buhua_then_deal(
         action_player=action_player,
         buhua_tile=max_tile,
         is_mo_buhua=is_mo_buhua,
+        public_hand_snapshot=public_hand_snapshot,
     )
     await asyncio.sleep(HAND_SETTLE_GAP_SEC)
     await broadcast_do_action(
@@ -55,9 +58,10 @@ async def perform_buhua_and_broadcast(
         raise ValueError("本人牌山已空，不能补花")
     player = game_state.player_list[player_index]
     hand = player.hand_tiles
-    max_tile = max(hand)
+    max_tile = max(tile for tile in hand if 51 <= tile <= 58)
     is_mo_buhua = resolve_is_mo_buhua(hand, max_tile, draw_slot=has_draw_slot(player))
     hand.remove(max_tile)
+    before_replacement = transparent.public_hands(game_state)
 
     if refresh_waiting:
         from .action_check import refresh_waiting_tiles
@@ -99,5 +103,6 @@ async def perform_buhua_and_broadcast(
             max_tile=max_tile,
             deal_tile=deal_tile,
             is_mo_buhua=is_mo_buhua,
+            public_hand_snapshot=before_replacement,
         )
     return deal_tile

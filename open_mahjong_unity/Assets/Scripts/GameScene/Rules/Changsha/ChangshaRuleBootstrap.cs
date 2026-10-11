@@ -4,6 +4,8 @@ internal static class ChangshaRuleBootstrap {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Register() {
         RuleRegistry.Register(new RuleManifest {
+            ReplayFactory = record => record.CreateStandardReplayModule(),
+            BuildRoom = ChangshaRoomBuilder.Build,
             RuleId = ChangshaGameState.RuleId,
             DefaultSubRule = "changsha/classic_double_bird",
             DisplayName = "长沙麻将",

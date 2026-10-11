@@ -40,7 +40,7 @@ test('switching to another rule only submits the fields it supports', () => {
   form.room_rule = 'riichi'
   form.room_name = '  立直桌  '
   const settings = buildEventRoomSettings(form)
-  assert.deepEqual(settings.room_config, { room_name: '立直桌', starting_score: 25000 })
+  assert.deepEqual(settings.room_config, { room_name: '立直桌', starting_score: 25000, hepai_limit: 1, detailed_config: { minimum_win_score: 0 } })
   assert.equal(settings.room_rule, 'riichi')
 })
 

@@ -58,6 +58,26 @@ def test_additive_migration_preserves_national_data(db):
     assert all(('elo' not in r if rule in GRADE_RULES else r['elo']==1500) for rule,r in data['ratings'].items())
     assert data['ratings']['riichi']['rank_name']=='10级'
 
+
+def test_hongque_migration_accepts_new_pool_and_preserves_existing_ratings(db):
+    db.sql("""ALTER TABLE rule_ratings DROP CONSTRAINT rule_ratings_rule_check;
+        ALTER TABLE rule_ratings ADD CONSTRAINT rule_ratings_rule_check
+        CHECK(rule IN ('guobiao','riichi','qingque','sichuan','riichi_sanma','sichuan_xueliu_exchange'));
+        INSERT INTO rule_ratings(user_id,rule,elo,games) VALUES(11000001,'qingque',1777,8);
+    """)
+    conn = db._get_connection()
+    try:
+        with conn.cursor() as cursor:
+            ensure_rating_schema(cursor)
+        conn.commit()
+    finally:
+        db._put_connection(conn)
+    result = settle_rated_game(db, 'hongque-game', 'hongque_elo_quanzhuang', players())
+    assert result[str(USERS[0])]['elo_after'] == 1516
+    ratings = get_rank_data(db, USERS[0])['ratings']
+    assert ratings['qingque']['elo'] == 1777 and ratings['qingque']['games'] == 8
+    assert ratings['hongque']['games'] == 1
+
 @pytest.mark.parametrize('queue',list(QUEUES))
 def test_independent_atomic_settlement_and_retry(db,queue):
     spec=QUEUES[queue];inputs=players()[:spec.player_count]
@@ -162,19 +182,20 @@ def create_metric_fixture(db):
               'total_win_turn','total_fangchong_score','first_place_count','second_place_count',
               'third_place_count','fourth_place_count','fulu_round_count','cuohe_count','total_round_score')
     columns=','.join(f'{field} INT DEFAULT 0' for field in fields)
-    db.sql(f'CREATE TABLE game_player_metrics(user_id BIGINT,rule TEXT,sub_rule TEXT,match_type TEXT,room_type TEXT,{columns})')
+    db.sql(f'CREATE TABLE game_player_metrics(game_id TEXT,user_id BIGINT,rule TEXT,sub_rule TEXT,match_type TEXT,room_type TEXT,fan_stats JSONB,{columns})')
+    from .riichi.record_stats import ensure_schema
+    conn = db._get_connection()
+    try:
+        with conn.cursor() as cursor:
+            ensure_schema(cursor)
+        conn.commit()
+    finally:
+        db._put_connection(conn)
 
 
 @pytest.mark.parametrize('rule',RULES)
 def test_ranked_history_counts_only_requested_player_rule_and_matching_games(db,rule):
     create_metric_fixture(db)
-    if rule in ('riichi','riichi_sanma'):
-        from .riichi.record_stats import ensure_schema
-        conn = db._get_connection()
-        with conn.cursor() as cursor:
-            ensure_schema(cursor)
-        conn.commit()
-        db._put_connection(conn)
     fixture_index = 0
     for uid,r,mode,room_type in ((USERS[0],rule,'1/4_rank','match'),
                                  (USERS[0],rule,'1/4_rank','match'),
@@ -182,17 +203,17 @@ def test_ranked_history_counts_only_requested_player_rule_and_matching_games(db,
                                  (USERS[0],rule,'1/4','custom'),
                                  (USERS[1],rule,'1/4_rank','match'),
                                  (USERS[0],'other','1/4_rank','match')):
-        from ..match.rating_rules import ranked_record_scope
-        game_rule, sub_rule = ranked_record_scope(r) if r in RULES else (r, None)
-        db.sql('INSERT INTO game_player_metrics(user_id,rule,sub_rule,match_type,room_type,total_rounds,win_count,first_place_count,total_round_score) VALUES(%s,%s,%s,%s,%s,4,2,1,30)',(uid,game_rule,sub_rule,mode,room_type))
+        from .statistics_catalog import selection
+        definition = selection(r) if r in RULES else {'rule':r,'sub_rule':'other/test'}
+        game_rule, sub_rule = definition['rule'], definition['sub_rule']
+        gid = 'stats' + str(fixture_index)
+        fixture_index += 1
+        if r == 'riichi_sanma':
+            mode = mode.replace('/4','/4_sanma')
+        db.sql('INSERT INTO game_records(game_id,record) VALUES(%s,%s)', (gid, Json({})))
+        db.sql('INSERT INTO game_player_records VALUES(%s,%s,%s,0,1,0,%s,%s,%s,%s)', (gid,uid,str(uid),game_rule,sub_rule,mode,room_type))
+        db.sql('INSERT INTO game_player_metrics(game_id,user_id,rule,sub_rule,match_type,room_type,total_rounds,win_count,first_place_count,total_round_score) VALUES(%s,%s,%s,%s,%s,%s,4,2,1,30)',(gid,uid,game_rule,sub_rule,mode,room_type))
         if rule in ('riichi','riichi_sanma'):
-            gid = 'stats' + str(fixture_index)
-            fixture_index += 1
-            db.sql('INSERT INTO game_records(game_id,record) VALUES(%s,%s)', (gid, Json({})))
-            game_rule='riichi' if r=='riichi_sanma' else r
-            sub_rule='riichi/sanma' if r=='riichi_sanma' else r
-            if rule=='riichi_sanma': mode=mode.replace('/4','/4_sanma')
-            db.sql('INSERT INTO game_player_records VALUES(%s,%s,%s,0,1,0,%s,%s,%s,%s)', (gid,uid,str(uid),game_rule,sub_rule,mode,room_type))
             from .riichi.record_stats import VERSION
             db.sql('INSERT INTO riichi_player_game_stats VALUES(%s,%s,%s,%s)', (gid,uid,VERSION,Json({
                 'total_games':1,'total_rounds':4,'win_count':2,'first_place_count':1,'total_round_score':30})))
@@ -210,6 +231,7 @@ def test_ranked_history_counts_only_requested_player_rule_and_matching_games(db,
 
 
 def create_fan_fixture(db,rule):
+    create_metric_fixture(db)
     if rule=='riichi':
         from .riichi.store_riichi import FAN_FIELDS
         from .riichi.get_riichi_stats import get_riichi_fan_stats_total as read
@@ -225,21 +247,24 @@ def create_fan_fixture(db,rule):
 def test_fan_statistics_keep_ranked_and_custom_games_separate(db,rule):
     read,fan=create_fan_fixture(db,rule)
     db.sql(f'INSERT INTO {rule}_fan_stats(user_id,mode,{fan}) VALUES(%s,%s,3),(%s,%s,7)',(USERS[0],'1/4_rank',USERS[0],'1/4'))
-    if rule == 'riichi':
-        from .riichi.record_stats import ensure_schema
-        conn = db._get_connection()
-        with conn.cursor() as cursor:
-            ensure_schema(cursor)
-        conn.commit()
-        db._put_connection(conn)
-        for gid, mode, room, count in (('rank','1/4_rank','match',3), ('custom','1/4','custom',7)):
-            db.sql('INSERT INTO game_records(game_id,record) VALUES(%s,%s)', (gid,Json({})))
-            db.sql('INSERT INTO game_player_records VALUES(%s,%s,%s,0,1,0,%s,%s,%s,%s)',
-                (gid,USERS[0],'player',rule,rule,mode,room))
+    from .statistics_catalog import selection
+    sub_rule = selection(rule)['sub_rule']
+    for gid, mode, room, count in (('rank','1/4_rank','match',3), ('custom','1/4','custom',7)):
+        db.sql('INSERT INTO game_records(game_id,record) VALUES(%s,%s)', (gid,Json({})))
+        db.sql('INSERT INTO game_player_records VALUES(%s,%s,%s,0,1,0,%s,%s,%s,%s)',
+            (gid,USERS[0],'player',rule,sub_rule,mode,room))
+        db.sql('INSERT INTO game_player_metrics(game_id,user_id,rule,sub_rule,match_type,room_type,fan_stats) VALUES(%s,%s,%s,%s,%s,%s,%s)',
+            (gid,USERS[0],rule,sub_rule,mode,room,Json({fan:count})))
+        if rule == 'riichi':
             from .riichi.record_stats import VERSION
             db.sql('INSERT INTO riichi_player_game_stats VALUES(%s,%s,%s,%s)',
                 (gid,USERS[0],VERSION,Json({'fan_stats':{fan:count}})))
     assert read(db,USERS[0],ranked=True)[fan]==3
     assert read(db,USERS[0],ranked=False)[fan]==7
     assert read(db,USERS[0])[fan]==10
-    assert read(db,USERS[1],ranked=True)[fan]==0
+    empty = read(db,USERS[1],ranked=True)
+    if rule == 'qingque':
+        # Shared sub-rule statistics return sparse fan totals for empty history.
+        assert empty == {}
+    else:
+        assert empty[fan] == 0

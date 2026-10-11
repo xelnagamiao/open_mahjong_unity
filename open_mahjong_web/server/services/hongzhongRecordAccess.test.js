@@ -44,7 +44,7 @@ test('红中玩家记录筛选保持参数化，统计数来自通用记录索�
   const { fetchPlayerInfo, buildRecordFilters, parseRecordQuery } = require('./playerPublicApi');
   const mock = test.mock.method(pool, 'query', async sql => {
     if (sql.includes('FROM user_settings')) return { rows: [{ user_id: 101, username: '红中用户' }] };
-    if (sql.startsWith('SELECT rule, COUNT(*)')) return { rows: [{ rule: 'hongzhong', total_games: 3 }, { rule: 'guobiao', total_games: 5 }] };
+    if (sql.includes('AS rule,COUNT(*)::int AS total_games FROM game_player_records')) return { rows: [{ rule: 'hongzhong', total_games: 3 }, { rule: 'guobiao', total_games: 5 }] };
     return { rows: [] };
   });
   try {
@@ -53,10 +53,11 @@ test('红中玩家记录筛选保持参数化，统计数来自通用记录索�
     assert.equal(info.hongzhong_stats, undefined);
     const params = [];
     const clauses = buildRecordFilters(101, parseRecordQuery({ rule: 'hongzhong', sub_rule: 'hongzhong/mil2024', room_type: 'custom' }), params);
-    assert.deepEqual(params, [101, 'custom', 'hongzhong', 'hongzhong/mil2024']);
-    assert.ok(clauses.includes('gpr.rule = $3'));
-    assert.ok(clauses.includes('gpr.sub_rule = $4'));
-    const query = mock.mock.calls.find(call => call.arguments[0].startsWith('SELECT rule, COUNT(*)'));
+    assert.deepEqual(params, [101, 'custom', 'hongzhong/mil2024']);
+    const subruleFilter = clauses.find(clause => clause.endsWith(' = $3'));
+    assert.ok(subruleFilter.includes('gpr.sub_rule'));
+    assert.ok(subruleFilter.includes('game_title'), '按原始牌谱解析子规则，避免旧索引混入其他子规则');
+    const query = mock.mock.calls.find(call => call.arguments[0].includes('AS rule,COUNT(*)::int AS total_games FROM game_player_records'));
     assert.deepEqual(query.arguments[1], [101]);
   } finally { mock.mock.restore(); }
 });

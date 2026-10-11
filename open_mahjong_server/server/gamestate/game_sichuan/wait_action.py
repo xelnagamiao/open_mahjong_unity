@@ -10,7 +10,7 @@ import asyncio
 from ..public.lifecycle import start_owned_task
 import time
 import logging
-from .action_check import check_action_after_cut, check_action_jiagang, refresh_waiting_tiles, _xueliu_angang_preserves_waiting, _xueliu_jiagang_preserves_waiting
+from .action_check import check_action_after_cut, check_action_jiagang, refresh_waiting_tiles, _xueliu_post_hu_kong_allowed, is_xueliu_required_hu
 from .boardcast import broadcast_refresh_player_tag_list
 from .shunhe import (
     activate_shunhe_if_tenpai_discard,
@@ -54,7 +54,7 @@ def _suit(tile: int) -> int:
 def _enforce_dingque_first(player, tile_id: int):
     """若玩家手牌仍含定缺花色，强制返回一张定缺花色牌作为实际切牌（自动纠正非法切牌）。"""
     dingque = getattr(player, "dingque_suit", 0)
-    if dingque not in (1, 2, 3):
+    if getattr(player, "can_hold_dingque", False) or dingque not in (1, 2, 3):
         return tile_id
     if _suit(tile_id) == dingque:
         return tile_id
@@ -94,8 +94,22 @@ def _prepare_dingque_cut_action(player, action_data: dict):
 
 async def _handle_cut_shunhe(self, player, was_tenpai: bool):
     """听牌出牌后激活待生效顺和。"""
+    if getattr(self, "is_doubles", False):
+        return
     if activate_shunhe_if_tenpai_discard(player, was_tenpai):
         await broadcast_refresh_player_tag_list(self)
+
+
+def _has_winning_hand_after_peng(self, player, tile_id):
+    """SBR 顺和例外：碰后先检查完整和型，不能将待切的手牌当作听牌手牌。"""
+    args = (player.hand_tiles, player.combination_tiles, [], tile_id, player.dingque_suit)
+    if getattr(self, "is_xueliu", False):
+        fan, names = self.calculation_service.Sichuan_xueliu_hepai_check(
+            *args, meld_count=self.xueliu_meld_count
+        )
+    else:
+        fan, names = self.calculation_service.Sichuan_hepai_check(*args)
+    return bool(names) and fan >= self.hepai_limit
 
 
 async def wait_action(self):
@@ -106,11 +120,21 @@ async def wait_action(self):
     player_index = None
     action_data = None
     action_type = None
-    xueliu_claim_window = getattr(self, "is_xueliu", False) and self.game_status in (
+    multi_ron_window = self.game_status in (
         "waiting_action_after_cut", "waiting_action_qianggang"
     )
-    accepted_winners = set()
+    submitted_actions = {}
     timeout_grace = 0 if self.game_status == "waiting_ready" else self.step_time
+
+    # 必和不等待点击或超时；其他玩家仍独立响应，保留一炮多响窗口。
+    for index in list(self.waiting_players_list):
+        if not is_xueliu_required_hu(self, index):
+            continue
+        submitted_actions[index] = "hu"
+        self.action_dict[index] = []
+        self.waiting_players_list.remove(index)
+        if action_type is None:
+            action_type, player_index, action_data = "hu", index, {"action_type": "hu"}
 
     while self.waiting_players_list and any(self.player_list[i].remaining_time + timeout_grace > get_ask_elapsed(self, i) for i in self.waiting_players_list):
         task_list = []
@@ -145,15 +169,21 @@ async def wait_action(self):
                         self.action_events[temp_player_index].clear()
                     continue
                 actor = self.player_list[temp_player_index]
-                if getattr(self, "is_xueliu", False) and actor.post_hu_lock and temp_action_type in ("angang", "jiagang"):
-                    check = _xueliu_angang_preserves_waiting if temp_action_type == "angang" else _xueliu_jiagang_preserves_waiting
-                    if not check(self, actor, temp_action_data.get("target_tile")):
+                from .duplicate_wall import can_draw
+                if temp_action_type in ("gang", "angang", "jiagang") and not can_draw(self, temp_player_index):
+                    continue
+                if getattr(self, "is_xueliu", False) and actor.post_hu_lock and temp_action_type in ("gang", "angang", "jiagang"):
+                    target = temp_action_data.get("target_tile")
+                    if temp_action_type == "gang":
+                        # 明杠以实际弃牌为准，不信任客户端自行提供的目标牌。
+                        discards = self.player_list[self.current_player_index].discard_tiles
+                        target = discards[-1] if discards else None
+                    if not _xueliu_post_hu_kong_allowed(self, actor, temp_action_type, target):
                         if self.action_queues[temp_player_index].empty():
                             self.action_events[temp_player_index].clear()
                         continue
-                if temp_action_type == "hu":
-                    accepted_winners.add(temp_player_index)
-                elif temp_action_type == "force_pass":
+                submitted_actions[temp_player_index] = temp_action_type
+                if temp_action_type == "force_pass":
                     tactical_mark_player_force_passed(self, temp_player_index)
                 temp_action_data = dict(temp_action_data)
                 used_int_time = int(get_ask_elapsed(self, temp_player_index))
@@ -168,7 +198,7 @@ async def wait_action(self):
                 for check_player_index in self.waiting_players_list:
                     for action in self.action_dict[check_player_index]:
                         if self.action_priority[temp_action_type] < self.action_priority[action] or (
-                            xueliu_claim_window and temp_action_type == "hu" and action == "hu"
+                            multi_ron_window and temp_action_type == "hu" and action == "hu"
                         ):
                             do_interrupt = False
 
@@ -181,17 +211,20 @@ async def wait_action(self):
                     action_type = temp_action_type
                     player_index = temp_player_index
 
-                tactical_immediate_break = (
-                    getattr(self, "tactical_call", False)
-                    and not is_decline_action(temp_action_type)
-                    and self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
-                )
-                if do_interrupt or (tactical_immediate_break and not xueliu_claim_window):
+                if do_interrupt:
                     self.waiting_players_list = []
 
     if self.waiting_players_list:
         for i in self.waiting_players_list:
             self.player_list[i].remaining_time = 0
+
+    # 已胡后对手点炮必须胡：断线/超时也不能绕过；队友点炮仍可选择过。
+    for i in self.waiting_players_list:
+        if self.action_dict.get(i) == ["hu"]:
+            submitted_actions[i] = "hu"
+            if action_type != "hu":
+                action_type, player_index, action_data = "hu", i, {"action_type": "hu"}
+            self.action_dict[i] = []
 
     action_type, player_index, action_data, _ = await apply_tactical_claim_if_needed(
         self,
@@ -200,13 +233,20 @@ async def wait_action(self):
         action_data,
         broadcast_do_action=broadcast_do_action,
         broadcast_ask_other_action=broadcast_ask_other_action,
+        submitted_actions=submitted_actions,
     )
 
-    if xueliu_claim_window:
+    if multi_ron_window:
+        # 标准血战与血流都允许一炮多响，但可和不等于已报和。
+        # 每位候选须独立响应；过、放弃及超时者仅记录顺和，不参与本次结算。
         # 战术再问中抢断碰/杠的和牌也属于本轮有效响应，不能被主询问的集合过滤掉。
         if action_type == "hu" and player_index is not None:
-            accepted_winners.add(player_index)
+            submitted_actions[player_index] = "hu"
+        accepted_winners = {i for i, action in submitted_actions.items() if action == "hu"}
         skipped = set(self.sichuan_hu_results) - accepted_winners
+        if action_type == "peng":
+            # 碰代替和须先判断碰后的完整手牌，不能在执行碰牌前施加顺和。
+            skipped.discard(player_index)
         if apply_passed_win_shunhe(self, skipped):
             await broadcast_refresh_player_tag_list(self)
         if action_type == "hu":
@@ -268,6 +308,8 @@ async def wait_action(self):
                     player.combination_tiles.append(f"G{angang_tile}")
                     add_mask = [2, removed[0], 0, removed[1], 0, removed[2], 2, removed[3]]
                     player.combination_mask.append(add_mask)
+                    if getattr(self, "is_xueliu", False) and player.post_hu_lock:
+                        refresh_waiting_tiles(self, self.current_player_index)
                     # 下雨2：暗杠收未和牌每人 2 分
                     gang_changes = self._record_gang_score(self.current_player_index, angang_tile, "xiayu2")
                     player_action_record_angang(self, angang_tile=angang_tile, is_mo_gang=is_mo_gang, combination_mask=add_mask,
@@ -308,6 +350,8 @@ async def wait_action(self):
                             player.combination_mask[combination_index].insert(idx, 3)
                             break
                     player.combination_tiles[combination_index] = f"g{normal_jia}"
+                    if getattr(self, "is_xueliu", False) and player.post_hu_lock:
+                        refresh_waiting_tiles(self, self.current_player_index)
                     # 下雨1：摸牌加杠收未和牌每人 1 分；手牌加杠不收分（并清除待退税杠，避免杠上炮误退更早的刮风/下雨）
                     gang_changes = None
                     if getattr(self, "is_xueliu", False):
@@ -407,8 +451,8 @@ async def wait_action(self):
                     # SBR：碰代替和后须仍处于可和牌状态，本次放弃才构成顺和
                     if passed_hu_for_claim:
                         refresh_waiting_tiles(self, player_index)
-                        if self.player_list[player_index].waiting_tiles and apply_passed_win_shunhe(
-                            self, [player_index]
+                        if _has_winning_hand_after_peng(self, self.player_list[player_index], tile_id) and apply_passed_win_shunhe(
+                            self, [player_index], activate=True
                         ):
                             await broadcast_refresh_player_tag_list(self)
 
@@ -451,6 +495,8 @@ async def wait_action(self):
                     self.player_list[discarder].discard_origin_tiles.append(tile_id)
                     self.player_list[player_index].combination_mask.append(combination_mask)
                     clear_draw_slot(self.player_list[player_index])
+                    if getattr(self, "is_xueliu", False) and self.player_list[player_index].post_hu_lock:
+                        refresh_waiting_tiles(self, player_index)
                     # 点炮者上一杠的杠上炮可能性消失：玩家被碰/杠走了牌
                     self._clear_paofen_pending(discarder)
                     self.current_player_index = player_index

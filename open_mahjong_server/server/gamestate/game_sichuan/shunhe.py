@@ -46,10 +46,11 @@ def clear_shunhe(player) -> bool:
     return changed or tag_changed
 
 
-def record_skipped_win_fan(player, passed_fan: int) -> bool:
+def record_skipped_win_fan(player, passed_fan: int, *, activate: bool = False) -> bool:
     """记录跳过和牌番数；听牌时立即生效，否则待听牌出牌后生效。返回 tag 是否变化。
 
     已生效时取 max，避免多次放弃时用更低番覆盖、或误用残留结果抬高/压低上限。
+    碰后仍为完整和型时使用 activate，不能用待切牌张数的听牌缓存判定。
     """
     try:
         passed_fan = int(passed_fan)
@@ -59,7 +60,7 @@ def record_skipped_win_fan(player, passed_fan: int) -> bool:
     if active_cap is not None:
         player.shunhe_passed_max_fan = max(int(active_cap), passed_fan)
         return sync_shunhe_tag(player)
-    if player.waiting_tiles:
+    if activate or player.waiting_tiles:
         player.shunhe_passed_max_fan = passed_fan
         player.shunhe_skipped_fan = None
         return sync_shunhe_tag(player)
@@ -103,21 +104,27 @@ def player_has_ron_hu_result(game_state, player_index: int) -> bool:
     return bool(info) and not info.get("is_zimo")
 
 
-def apply_passed_win_shunhe(game_state, hu_eligible_indexes: Iterable[int]) -> bool:
+def apply_passed_win_shunhe(game_state, hu_eligible_indexes: Iterable[int], *, activate: bool = False) -> bool:
     """有和牌机会但未和牌：记录跳过番数；若顺和已生效则刷新 tag。"""
+    if getattr(game_state, "is_doubles", False):
+        return False
     changed = False
     for idx in hu_eligible_indexes:
+        if getattr(game_state, "is_xueliu_doubles", False) and not game_state._can_score_between(game_state.current_player_index, idx):
+            continue
         info = game_state.sichuan_hu_results.get(idx)
         if not info:
             continue
         fan = info.get("fan", 0)
-        if record_skipped_win_fan(game_state.player_list[idx], fan):
+        if record_skipped_win_fan(game_state.player_list[idx], fan, activate=activate):
             changed = True
     return changed
 
 
 def record_passed_self_draw_shunhe(game_state, player_index: int) -> bool:
     """摸牌后放弃自摸：记录跳过番数。"""
+    if getattr(game_state, "is_doubles", False):
+        return False
     info = game_state.sichuan_hu_results.get(player_index)
     if not info or not info.get("is_zimo"):
         return False

@@ -9,7 +9,8 @@ from .clock import RoomActionClock, TimedActionQueue
 from ...game_calculation.shanxi import rules as sx
 from ..game_taiwan.TaiwanGameState import TaiwanGameState
 from ..game_taiwan.action_check import hu_action_for_player
-from ..game_taiwan.boardcast import broadcast_game_start, broadcast_result, broadcast_game_end
+from ..game_taiwan.boardcast import broadcast_game_start, broadcast_game_end
+from .result import broadcast_result, restore_terminal_result
 from ..game_guobiao.combination_mask_view import build_revealed_angang_masks
 from ..public.game_record_manager import (
     capture_player_entry_order, init_game_record, init_game_round, player_action_record_hu,
@@ -54,6 +55,7 @@ class ShanxiGameState(TaiwanGameState):
 
     def _reset_taiwan_players(self):
         super()._reset_taiwan_players()
+        self._terminal_result = None
         self.kong_ledger = []
         self.tail_single = False
         self.concealed_discard_actor = None
@@ -61,6 +63,10 @@ class ShanxiGameState(TaiwanGameState):
             player.passed_pungs = set()
             player.concealed_discards = {}
             player.discard_origin_tiles = []
+
+    async def player_reconnect(self, user_id):
+        await super().player_reconnect(user_id)
+        await restore_terminal_result(self, user_id)
 
     def action_clock(self, player, reconnecting=False):
         if not self.room_action_clock.active():
@@ -114,8 +120,8 @@ class ShanxiGameState(TaiwanGameState):
         for index, player in enumerate(self.player_list):
             player.hand_tiles.append(last[index])
         self.player_list[0].hand_tiles.append(last[4])
-        for player in self.player_list:
-            player.hand_tiles.sort()
+        # 保留实际发牌顺序。开局理牌由客户端同一动画队列执行，并尊重自动理牌开关；
+        # 服务端先排序会让山西跳过这段演出，也会覆盖关闭自动理牌时的原始手牌顺序。
 
     def public_tiles(self):
         result = []

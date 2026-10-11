@@ -27,6 +27,9 @@ ALTER TABLE duplicate_walls ALTER COLUMN use_flowers SET DEFAULT TRUE;
 ALTER TABLE duplicate_walls ALTER COLUMN use_flowers SET NOT NULL;
 ALTER TABLE duplicate_walls ADD COLUMN IF NOT EXISTS round_count INTEGER NOT NULL DEFAULT 1
   CHECK (round_count IN (1, 4, 8, 12, 16));
+ALTER TABLE duplicate_walls DROP CONSTRAINT IF EXISTS duplicate_walls_round_count_check;
+ALTER TABLE duplicate_walls ADD CONSTRAINT duplicate_walls_round_count_check CHECK (
+  round_count IN (1, 4, 8, 12, 16) OR (rule = 'sichuan/xueliu_doubles_duplicate' AND round_count > 0));
 ALTER TABLE duplicate_walls ADD COLUMN IF NOT EXISTS round_tiles JSONB
   CHECK (round_tiles IS NULL OR (jsonb_typeof(round_tiles) = 'array' AND jsonb_array_length(round_tiles) = round_count));
 CREATE INDEX IF NOT EXISTS idx_duplicate_walls_owner ON duplicate_walls(owner_user_id, scope, created_at);

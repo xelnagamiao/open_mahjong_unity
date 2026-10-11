@@ -84,7 +84,8 @@ internal static class ChangchunHandCalculator {
             int fan=0;
             if(shape.Seven) fan=before.Count(t=>t==win)==3?4:3;
             else {
-                if(codes.All(c=>c[0]=='G')) fan++;
+                // Public special kongs preserve menzen, including later additions.
+                if(codes.All(c=>c[0]=='G' || c[0]=='C')) fan++;
                 if(shape.Sequences.Count==0 && codes.All(c=>c[0]!='s')) fan+=2;
                 else if(single || shape.Pair==win || shape.Sequences.Any(m=>m==win || m%10==2 && win==m+1 || m%10==8 && win==m-1)) fan++;
             }

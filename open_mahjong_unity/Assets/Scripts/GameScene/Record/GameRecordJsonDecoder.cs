@@ -102,10 +102,14 @@ public static class GameRecordJsonDecoder {
         round.dealerIndex = roundData["dealer_index"].Value<int>();
         round.startPlayerIndex = roundData["start_player_index"].Value<int>();
 
+        round.washizu = (roundData["washizu"] as JObject)?.ToObject<WashizuRoundExtras>();
         round.hongkong = (roundData["hongkong"] as JObject)?.ToObject<HongKongInfo>();
         round.guizhou = (roundData["guizhou"] as JObject)?.ToObject<GuizhouInfo>();
         round.yixing = (roundData["yixing"] as JObject)?.ToObject<YixingInfo>();
+        round.nanjing = (roundData["nanjing"] as JObject)?.ToObject<NanjingInfo>();
         round.hangzhou = (roundData["hangzhou"] as JObject)?.ToObject<HangzhouInfo>();
+        round.nanchang = (roundData["nanchang"] as JObject)?.ToObject<NanchangInfo>();
+        round.nanchangHints = (roundData["nanchang_hints"] as JObject)?.ToObject<Dictionary<int, Dictionary<string, NanchangWait[]>>>();
         round.wenzhou = (roundData["wenzhou"] as JObject)?.ToObject<WenzhouInfo>();
         round.wenzhouWaits = (roundData["wenzhou_waits"] as JObject)?.ToObject<Dictionary<int, Dictionary<string, WenzhouWait[]>>>();
         round.detailedConfig = (roundData["detailed_config"] as JObject)?.ToObject<Dictionary<string, object>>();
@@ -177,13 +181,41 @@ public static class GameRecordJsonDecoder {
             }
             return;
         }
+        if (act == "nanchang" && tick.Count >= 4 && tick[1] == "state" && round.nanchang?.start_scores?.Length == 4) {
+            int[] scores = Newtonsoft.Json.JsonConvert.DeserializeObject<int[]>(tick[3]);
+            if (scores?.Length == 4) {
+                var changes = new int[4];
+                for (int i = 0; i < 4; i++) changes[i] = scores[i] - round.nanchang.start_scores[i];
+                round.scoreChanges = new List<int>(ConvertPlayerIndexScoreChangesToOriginal(changes, round.seats));
+            }
+            return;
+        }
+        if (act == "nanjing" && tick.Count >= 4 && tick[1] == "state" && round.nanjing?.start_scores?.Length == 4) {
+            int[] scores = Newtonsoft.Json.JsonConvert.DeserializeObject<int[]>(tick[3]);
+            if (scores?.Length == 4) {
+                var changes = new int[4];
+                for (int i = 0; i < 4; i++) changes[i] = scores[i] - round.nanjing.start_scores[i];
+                round.scoreChanges = new List<int>(ConvertPlayerIndexScoreChangesToOriginal(changes, round.seats));
+            }
+            return;
+        }
         int[] sc = null;
-        if (tick.Count >= 5 && (act == "hu_self" || act == "hu_first" || act == "hu_second" || act == "hu_third")) {
+        if (act == "nanjing" && tick.Count >= 3 && tick[1] == "score") {
+            sc = ParseInlineGangScoreChanges(tick);
+        } else if (tick.Count >= 5 && (act == "hu_self" || act == "hu_first" || act == "hu_second" || act == "hu_third" || act == "lajihe_eight_flowers")) {
             sc = ParseScoreChangesFromTick(tick, 4);
         } else if (act == "guangdong" && tick.Count >= 3 && (tick[1] == "kong_score" || tick[1] == "refund_kongs")) {
             sc = ParseScoreChangesFromTick(tick, 2);
+        } else if (act == "wuhan" && tick.Count >= 3 && tick[1] == "bonus") {
+            sc = ParseScoreChangesFromTick(tick, 2);
         } else if (act == "hongzhong" && tick.Count >= 3 && (tick[1] == "kong_score" || tick[1] == "kong_refund")) {
             sc = ParseScoreChangesFromTick(tick, 2);
+        } else if (act == "sy" && tick.Count >= 2) {
+            var e = Newtonsoft.Json.Linq.JObject.Parse(tick[1]);
+            if ((string)e["kind"] == "egg") {
+                sc = new int[4];
+                for (int i=0;i<4;i++) sc[i]=(int?)e["changes"]?[i.ToString()]??0;
+            }
         } else if (act == "cc" && tick.Count >= 2) {
             var e = Newtonsoft.Json.Linq.JObject.Parse(tick[1]);
             if ((string)e["kind"] == "kong_score") {
@@ -297,6 +329,8 @@ public static class GameRecordJsonDecoder {
     /// </summary>
     public static int ResolveRecordActingPlayerIndex(List<string> tick, string action, int defaultPlayer) {
         if (tick == null || tick.Count == 0) return defaultPlayer;
+        if ((action == "d" || action == "gd") && tick.Count >= 6 && tick[2] == "dw"
+            && int.TryParse(tick[5], out int drawer) && drawer >= 0 && drawer < 4) return drawer;
         if ((action == "bh" || action == "bd" || action == "cl" || action == "cm" || action == "cr"
              || action == "p" || action == "g") && tick.Count >= 3) {
             if (!int.TryParse(tick[2]?.Trim(), out int seat)) return defaultPlayer;
@@ -311,7 +345,7 @@ public static class GameRecordJsonDecoder {
             return seat;
         }
         if ((action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third"
-             || action == "hu_riichi" || action == "riichi") && tick.Count >= 2) {
+             || action == "hu_riichi" || action == "riichi" || action == "lajihe_eight_flowers") && tick.Count >= 2) {
             if (!int.TryParse(tick[1]?.Trim(), out int seat)) return defaultPlayer;
             return seat;
         }

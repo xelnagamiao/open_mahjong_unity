@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 
@@ -18,6 +19,17 @@ public class SimpleRoundPanel : MonoBehaviour {
     [SerializeField] private TMP_Text roomNowRoundText;
 
     public void UpdateRoomInfo(GameInfo gameInfo, string roomType) {
+        bool paired = gameInfo.duplicate_match != null;
+        var seedHint = GetComponentsInChildren<TMP_Text>(true).FirstOrDefault(t => t.name == "RandomorFushi");
+        if (seedHint) seedHint.gameObject.SetActive(!paired);
+        roomNowRoundText.enableAutoSizing = paired;
+        roomNowRoundText.fontSizeMin = 18;
+        roomNowRoundText.fontSizeMax = 38;
+        roomNowRoundText.textWrappingMode = TextWrappingModes.NoWrap;
+        roomNowRoundText.overflowMode = paired ? TextOverflowModes.Ellipsis : TextOverflowModes.Overflow;
+        if (!paired) roomNowRoundText.fontSize = 38;
+        GameRoundText.enableAutoSizing = false;
+        GameRoundText.fontSize = 28;
         string rule = RuleNameDictionary.GetWholeName(roomType);
         // 较长子规则名称必须留在自己的标题栏，避免覆盖右侧局制。
         ruleText.enableAutoSizing = true;
@@ -43,5 +55,33 @@ public class SimpleRoundPanel : MonoBehaviour {
         isSetRandomSeedText.text = gameInfo.is_duplicate
             ? "复式:" + DuplicateWallDisplay.TypeName(gameInfo.duplicate_wall_type)
             : gameInfo.isPlayerSetRandomSeed ? "复现:开" : "复现:关";
+        UpdateDuplicateStatus(gameInfo.duplicate_match);
+    }
+
+    public void UpdateSupplementalLines(string first, string second, string third) {
+        TMP_Text[] labels = { isCuoheOpenText, isTipsOpenText, isSetRandomSeedText };
+        string[] values = { first, second, third };
+        for (int i = 0; i < labels.Length; i++) {
+            if (labels[i] == null) continue;
+            labels[i].enableAutoSizing = true;
+            labels[i].fontSizeMin = 12;
+            labels[i].fontSizeMax = 20;
+            labels[i].text = values[i];
+        }
+    }
+
+    public void UpdateDuplicateStatus(DuplicateMatchInfo info) {
+        if (info == null) return;
+        ruleText.text = info.scoring == "imp" ? "血战双打复式" : "血流双打复式";
+        GameRoundText.text = $"{info.planned_boards} 副";
+        GameRoundText.enableAutoSizing = true;
+        GameRoundText.fontSizeMin = 18;
+        GameRoundText.fontSizeMax = 28;
+        GameRoundText.textWrappingMode = TextWrappingModes.NoWrap;
+        isSetRandomSeedText.text = info.table == "closed" ? "闭室" : "开室";
+        isCuoheOpenText.text = info.scoring == "imp" ? "IMP" : "副差分";
+        if (info.waiting) roomNowRoundText.text = "等待对室";
+        else if (info.status == "completed") roomNowRoundText.text = "比赛结束";
+        else if (info.status == "interrupted") roomNowRoundText.text = "等待赛务";
     }
 }

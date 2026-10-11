@@ -132,6 +132,8 @@ public partial class GameCanvas : MonoBehaviour {
     /// </summary>
     private void StopAndClearChangeHandCardQueue()
     {
+        CancelDingqueReveal();
+        ClearXueliuExchangePresentation();
         StopFreeDrawAnimation(finish: false);
         _handLayoutAnimEpoch++;
         while (changeHandCardQueue.Count > 0) changeHandCardQueue.Dequeue();
@@ -389,6 +391,14 @@ public partial class GameCanvas : MonoBehaviour {
             isPlayerSetRandomSeed = ReadBoolValue(gameRecord.gameTitle, "is_player_set_random_seed", false)
                 || ReadBoolValue(gameRecord.gameTitle, "isPlayerSetRandomSeed", false)
         };
+        if (SichuanLobby.IsDuplicate(subRule)) {
+            gameInfo.duplicate_match = new DuplicateMatchInfo {
+                table = ReadStringValue(gameRecord.gameTitle, "duplicate_table", "open"),
+                scoring = SichuanLobby.IsXueliu(subRule) ? "raw_difference" : "imp",
+                planned_boards = gameRecord.gameRound.rounds.Count,
+                status = "replay",
+            };
+        }
         roundPanel.UpdateRoomInfo(
             gameInfo,
             ruleForPanel,
@@ -435,11 +445,14 @@ public partial class GameCanvas : MonoBehaviour {
     public void UpdatePlayerTagList(
         Dictionary<int, string[]> player_to_tag_list,
         IReadOnlyDictionary<int, string> player_positions = null,
-        string roomRule = null
+        string roomRule = null,
+        int[] ghostDiscardCounts = null
     ) {
         bool useLiveContext = player_positions == null;
         if (useLiveContext) {
             player_positions = NormalGameStateManager.Instance.indexToPosition;
+            roomRule ??= GameSession.Current.RoomRule;
+            ghostDiscardCounts = (RuleRegistry.ActiveGameState as GuangdongMilGameState)?.Info?.ghost_discard_counts;
         }
         if (player_to_tag_list == null || player_positions == null) return;
 
@@ -469,7 +482,9 @@ public partial class GameCanvas : MonoBehaviour {
 
                 // 更新面板的标签列表
                 if (targetPanel != null) {
-                    targetPanel.UpdateTagList(tag_list, roomRule);
+                    int? ghostCount = ghostDiscardCounts != null && player_index >= 0 && player_index < ghostDiscardCounts.Length
+                        ? ghostDiscardCounts[player_index] : (int?)null;
+                    targetPanel.UpdateTagList(tag_list, roomRule, ghostCount);
                 }
             }
         }

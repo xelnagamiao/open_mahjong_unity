@@ -670,6 +670,8 @@ class ChangshaRulesTest(unittest.TestCase):
         state = SimpleNamespace(
             initial_hu_types={0: ["四喜"]},
             player_list=players,
+            round_index=7,
+            game_record={"game_round": {"round_index_7": {"action_ticks": []}}},
         )
         state._score_initial_hu = lambda player_index, hu_types: {
             "actual_hu_score": 6,
@@ -688,6 +690,8 @@ class ChangshaRulesTest(unittest.TestCase):
             asyncio.run(ChangshaGameState._settle_initial_hu(state, 0))
 
         self.assertEqual(payloads[0]["hepai_player_hand"], [11, 11, 11, 11])
+        self.assertEqual(state.game_record['game_round']['round_index_7']['initial_hu_events'],
+                         [{'seat': 0, 'fans': ['四喜']}])
 
     def test_follow_hu_blocks_same_or_lower_after_pass(self):
         state = SimpleNamespace(

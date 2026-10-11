@@ -353,6 +353,7 @@
         <el-table :data="detail.recent_login_ips || []" size="small" empty-text="暂无登录记录">
 
           <el-table-column prop="ip_address" label="IP" min-width="140" />
+          <el-table-column prop="country_name" label="国家／地区（估算）" min-width="160" />
 
           <el-table-column label="登录时间" min-width="180">
 
@@ -371,13 +372,10 @@
           </el-table-column>
 
         </el-table>
-
+        <p>按登录网络估算，不代表国籍或常住地。无法识别时显示未知。<a href="https://db-ip.com" target="_blank" rel="noopener noreferrer">IP Geolocation by DB-IP</a></p>
       </el-card>
 
-
-
       <el-card class="block">
-
         <template #header>最近对局</template>
 
         <el-table :data="detail.recent_games" size="small">

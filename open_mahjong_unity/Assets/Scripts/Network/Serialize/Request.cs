@@ -36,6 +36,10 @@ public class CreateGBRoomRequest { // 创建国标房间请求
     public string event_id; // 赛事房间：有则 room_type=events
 }
 
+public class CreateShanghaiRoomRequest : CreateGBRoomRequest {
+    public Dictionary<string, object> detailed_config;
+}
+
 public class CreateRiichiRoomRequest { // 创建立直麻将房间请求
     public bool claim_protection;
     public Dictionary<string, object> detailed_config;
@@ -160,6 +164,7 @@ public class LeaveRoomRequest { // 离开房间请求
 }
 
 public class StartGameRequest { // 开始游戏请求
+    public int? roster_revision;
     public string type;
     public string room_id;
 }
@@ -277,6 +282,7 @@ public class KickPlayerFromRoomRequest { // 房主移除玩家请求
 }
 
 public class SetReadyRequest { // 设置准备状态请求
+    public int? roster_revision;
     public string type;
     public string room_id;
     public bool ready;

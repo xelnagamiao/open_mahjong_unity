@@ -7,11 +7,12 @@ public sealed class AvatarFrameGraphic : MaskableGraphic {
     public const int DefaultItemId = 2201;
     public const int B1ItemId = 2202;
     private const float Thickness = 3f;
+    private const float OuterCornerRadius = 8f;
     [SerializeField] private int appearanceItemId = DefaultItemId;
     private UnityEngine.UI.Image portraitOwner;
 
     public static Color BuiltinColor(int itemId) {
-        if (itemId == 0 || itemId == DefaultItemId) return new Color32(220, 199, 160, 255);
+        if (itemId == 0 || itemId == DefaultItemId) return new Color32(239, 194, 61, 255);
         if (itemId == B1ItemId) return new Color32(122, 205, 228, 255);
         return Color.clear;
     }
@@ -22,7 +23,7 @@ public sealed class AvatarFrameGraphic : MaskableGraphic {
         var corners = portrait.GetComponent<AvatarPortraitCorners>();
         if (tint.a > 0) {
             if (corners == null) corners = portrait.gameObject.AddComponent<AvatarPortraitCorners>();
-            corners.SetRadius(OuterRadius(itemId) - Thickness);
+            corners.SetRadius(OuterCornerRadius - Thickness);
             corners.enabled = true;
         } else if (corners != null) corners.enabled = false;
         var child = portrait.transform.Find("InventoryAvatarFrame");
@@ -66,7 +67,7 @@ public sealed class AvatarFrameGraphic : MaskableGraphic {
             var max = rectTransform.InverseTransformPoint(portraitOwner.rectTransform.TransformPoint(portraitRect.max));
             r = Rect.MinMaxRect(min.x - Thickness, min.y - Thickness, max.x + Thickness, max.y + Thickness);
         }
-        float radius = Mathf.Min(OuterRadius(appearanceItemId), Mathf.Min(r.width, r.height) * .5f);
+        float radius = Mathf.Min(OuterCornerRadius, Mathf.Min(r.width, r.height) * .5f);
         if (r.width <= Thickness * 2 || r.height <= Thickness * 2) return;
         const int segments = 12;
         const int count = 4 * (segments + 1);
@@ -78,7 +79,8 @@ public sealed class AvatarFrameGraphic : MaskableGraphic {
             for (int i = 0; i < count; i++) {
                 float angle = (-90 + i / (segments + 1) * 90 + (i % (segments + 1)) * 90f / segments) * Mathf.Deg2Rad;
                 float light = Mathf.Clamp01((-.6f * Mathf.Cos(angle) + .8f * Mathf.Sin(angle) + 1) * .5f);
-                var shade = strip <= 1 ? Tint(.78f + .14f * light)
+                var shade = appearanceItemId == DefaultItemId ? GoldShade(strip, light)
+                    : strip <= 1 ? Tint(.78f + .14f * light)
                     : strip == 2 ? Color.Lerp(color, new Color(1, 1, 1, color.a), .12f + .46f * light)
                     : strip == 3 ? Tint(.86f + .14f * light)
                     : Tint(.80f - .20f * light);
@@ -98,7 +100,16 @@ public sealed class AvatarFrameGraphic : MaskableGraphic {
 
     private Color Tint(float brightness) => new Color(color.r * brightness, color.g * brightness, color.b * brightness, color.a);
 
-    private static float OuterRadius(int itemId) => itemId == B1ItemId ? 8f : 4f;
+    private Color GoldShade(int strip, float light) {
+        // A warm crest wraps around all four sides, with only a slight directional bias.
+        // Use the catalog tint as the body color so palette changes remain data-driven.
+        var shadow = new Color(color.r * .60f, color.g * .40f, color.b * .20f, color.a);
+        var highlight = new Color(1f, .96f, .72f, color.a);
+        if (strip <= 1) return Color.Lerp(shadow, color, .44f + .10f * light);
+        if (strip == 2) return Color.Lerp(color, highlight, .50f + .18f * light);
+        if (strip == 3) return Color.Lerp(shadow, color, .86f + .10f * light);
+        return Color.Lerp(shadow, color, .34f + .08f * (1f - light));
+    }
 
     internal static Vector3 RoundedPoint(Rect r, float radius, int index, int segments) {
         int corner = index / (segments + 1);

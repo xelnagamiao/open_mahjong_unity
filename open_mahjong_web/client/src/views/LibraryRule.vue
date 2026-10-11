@@ -69,6 +69,7 @@
 <script setup>
 import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { locale, tr } from '@/i18n'
 import LibraryDiscussion from '@/components/LibraryDiscussion.vue'
 import RuleIdentityPanel from '@/components/RuleIdentityPanel.vue'
 import { useMahjongCatalog } from '@/composables/useMahjongCatalog'
@@ -145,9 +146,9 @@ const catalogEntry = computed(() => {
 const entry = computed(() => specialTag.value || lib.value || catalogEntry.value)
 
 watch(
-  entry,
-  (e) => {
-    if (e) document.title = `${e.title || e.label} · 麻雀图书馆`
+  [entry, locale],
+  ([e]) => {
+    if (e) document.title = `${tr(e.title || e.label)} · ${tr('麻雀图书馆')}`
   },
   { immediate: true },
 )

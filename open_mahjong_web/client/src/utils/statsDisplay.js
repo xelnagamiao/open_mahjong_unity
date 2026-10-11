@@ -179,7 +179,8 @@ export const sumTierFans = (fansByTier, tiers) => {
  */
 export function buildAllFanEntries(fans, fanDict, winCount, fanValues, sortBy = 'count') {
   const dict = fanDict || {};
-  const dictKeys = Object.keys(dict);
+  // 新规则用规范番种名作键；不能因旧客户端字典缺项而丢掉已统计数据。
+  const dictKeys = [...new Set([...Object.keys(dict), ...Object.keys(fans || {})])];
   const keys = fanValues
     ? [
       ...Object.keys(fanValues).filter((key) => Object.prototype.hasOwnProperty.call(dict, key)),

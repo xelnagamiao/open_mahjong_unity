@@ -190,6 +190,19 @@ public static class GameRecordMeldCodec {
     /// 格式：吃/碰 [code, mingpai, player, h1, h2]；杠 [code, mingpai, player, h1, h2, h3]
     /// </summary>
     public static List<int> ResolveHandTiles(IReadOnlyList<string> tick, string recordAction, int mingpaiTileId) {
+        if (HongqueTileVisual.IsHongqueId(mingpaiTileId)) {
+            // 虹雀允许任意长度的合法组；当前 tick 的余下字段都是实际手牌 ID。
+            var stored = new List<int>();
+            if (tick == null || tick.Count < 5)
+                throw new System.InvalidOperationException("虹雀鸣牌记录缺少完整手牌。");
+            for (int i = 3; i < tick.Count; i++) {
+                int tile = ParseTickInt(tick, i);
+                if (!HongqueTileVisual.IsHongqueId(tile))
+                    throw new System.InvalidOperationException("虹雀鸣牌记录包含无效牌 ID。");
+                stored.Add(tile);
+            }
+            return stored;
+        }
         int expected = HandTileCount(recordAction);
         if (tick != null && tick.Count >= 3 + expected) {
             var stored = new List<int>(expected);
@@ -217,13 +230,14 @@ public static class GameRecordMeldCodec {
 
     public static int[] BuildMingpaiMask(string recordAction, int mingpaiTileId,
         IReadOnlyList<int> handTiles, string relativeToDiscardPlayer) {
-        if (recordAction == "cl" || recordAction == "cm" || recordAction == "cr") {
-            return new[] { 1, mingpaiTileId, 0, handTiles[0], 0, handTiles[1] };
+        if (HongqueTileVisual.IsHongqueId(mingpaiTileId)) {
+            var mask = new List<int> { 1, mingpaiTileId };
+            foreach (int tile in handTiles) { mask.Add(0); mask.Add(tile); }
+            return mask.ToArray();
         }
-
         int r1 = handTiles[0];
         int r2 = handTiles[1];
-        if (recordAction == "p") {
+        if (recordAction == "p" || recordAction == "cl" || recordAction == "cm" || recordAction == "cr") {
             if (relativeToDiscardPlayer == "left") return new[] { 1, mingpaiTileId, 0, r1, 0, r2 };
             if (relativeToDiscardPlayer == "right") return new[] { 0, r1, 0, r2, 1, mingpaiTileId };
             return new[] { 0, r1, 1, mingpaiTileId, 0, r2 };

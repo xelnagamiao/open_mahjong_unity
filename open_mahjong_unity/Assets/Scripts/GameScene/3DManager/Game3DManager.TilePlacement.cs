@@ -129,6 +129,7 @@ public partial class Game3DManager {
 
     // Animator 在 Update 后采样，这里仅处理正在倒牌的组。静止牌没有每帧放置开销。
     private void LateUpdate() {
+        RefreshWashizuPresentation();
         RefreshTileLightingFrame();
         bool anyActive = false;
         foreach (RevealingHandPlacement placement in revealingHandPlacements) {

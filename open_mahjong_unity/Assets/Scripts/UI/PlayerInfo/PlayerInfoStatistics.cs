@@ -15,7 +15,7 @@ public sealed class PlayerInfoStatistics : MonoBehaviour {
     private int userId;
     private string currentRule;
     private bool ranked;
-    private string CacheKey => currentRule+(ranked&&currentRule!="guobiao"?"_rank":"");
+    private string CacheKey => currentRule+(ranked?"_rank":"");
     private bool refreshing;
     private LayoutElement contentMinimum;
     private float naturalContentHeight;
@@ -26,7 +26,7 @@ public sealed class PlayerInfoStatistics : MonoBehaviour {
         cache.Clear();
         failedRules.Clear();
         currentRule = null;
-        if (loadedRule != null && loadedStats != null) cache[loadedRule] = loadedStats;
+
         // 未完成请求仍保留其用户归属；切换玩家后旧回复不能写进新玩家缓存。
     }
 
@@ -75,7 +75,7 @@ public sealed class PlayerInfoStatistics : MonoBehaviour {
                 riichi_details = PlayerInfoRuleCatalog.IsRiichi(currentRule) ? new Dictionary<string, int>() : null };
             Add(PlayerInfoStatsFormatter.RuleName(currentRule)+"总计（匹配）", PlayerInfoStatsFormatter.GameDetails(total, currentRule));
         }
-        if(currentRule!="sichuan" && currentRule!=RankedRules.XueliuExchangeRule)Add(PlayerInfoStatsFormatter.FanCaption(currentRule, ranked),
+        if(PlayerInfoRuleCatalog.HasFanStats(currentRule))Add(PlayerInfoStatsFormatter.FanCaption(currentRule, ranked),
             PlayerInfoStatsFormatter.FanDetails(currentRule, ranked ? response?.ranked_fan_stats : response?.total_fan_stats));
         for (int i = index; i < entries.Count; i++) entries[i].gameObject.SetActive(false);
         refreshing = false;
@@ -117,22 +117,13 @@ public sealed class PlayerInfoStatistics : MonoBehaviour {
             || inFlightUsers.ContainsKey(CacheKey) || DataNetworkManager.Instance == null) return;
         var network = DataNetworkManager.Instance;
         string id = userId.ToString();
-        if(ranked && currentRule!="guobiao") {
+        if(ranked) {
             inFlightUsers[CacheKey]=userId;network.GetRankedStats(id,currentRule,userId+":"+CacheKey);return;
         }
-        switch (currentRule) {
-            case "guobiao": inFlightUsers[currentRule] = userId; network.GetGuobiaoStats(id); break;
-            case "riichi": inFlightUsers[currentRule] = userId; network.GetRiichiStats(id); break;
-            case "qingque": inFlightUsers[currentRule] = userId; network.GetQingqueStats(id); break;
-            case "classical": inFlightUsers[currentRule] = userId; network.GetClassicalStats(id); break;
-            case "jiandan": inFlightUsers[currentRule] = userId; network.GetJiandanStats(id); break;
-            default:
-                string requestId = System.Guid.NewGuid().ToString("N");
-                inFlightUsers[CacheKey] = userId;
-                filteredRequests[requestId] = CacheKey;
-                network.GetRuleStats(id, currentRule, requestId);
-                break;
-        }
+        string requestId = System.Guid.NewGuid().ToString("N");
+        inFlightUsers[CacheKey] = userId;
+        filteredRequests[requestId] = CacheKey;
+        network.GetRuleStats(id, currentRule, requestId);
     }
 
     public void ReceiveFiltered(Response response) {

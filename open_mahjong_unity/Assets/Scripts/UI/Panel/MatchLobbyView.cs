@@ -26,7 +26,7 @@ public sealed class MatchLobbyView : MonoBehaviour {
     [SerializeField] private CanvasGroup queueOpacity;
     [SerializeField, Min(.01f)] private float transitionDuration=.24f;
     private readonly List<MatchButton> selected=new List<MatchButton>(MaximumSelections);
-    private readonly int[] rememberedRules={0,1,2,3};
+    private readonly int[] rememberedRules=System.Array.ConvertAll(RankedRules.FamilyRuleIndices,rules=>rules[0]);
     private Dictionary<string,int> playerCounts;
     private int activeRule,renderedState=-1,lastSecond=-1;
     private int renderedVersion=-1;

@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System;
+using System.Linq;
 
 /// <summary>
 /// 牌 id 排序工具。
@@ -11,6 +13,23 @@ using System.Collections.Generic;
 /// </summary>
 public static class TileIdOrder {
     public static readonly Comparer<int> Comparer = Comparer<int>.Create(Compare);
+
+    /// <summary>整手牌的固定比较器；虹雀先决定色环切口，再比较，避免循环比较破坏传递性。</summary>
+    public static IComparer<int> HandComparer(IEnumerable<int> tiles) {
+        int[] ids = tiles.ToArray();
+        if (ids.Length == 0 || ids.Any(id => !HongqueTileVisual.IsHongqueId(id))) return Comparer;
+        int[] ordered = HongqueDisplayOrder.Hand(ids).Distinct().ToArray();
+        var ranks = new Dictionary<int, int>();
+        for (int i = 0; i < ordered.Length; i++) ranks[ordered[i]] = i;
+        return Comparer<int>.Create((a, b) => ranks[a].CompareTo(ranks[b]));
+    }
+
+    public static void SortHand(int[] tiles) => Array.Sort(tiles, HandComparer(tiles));
+    public static void SortHand(List<int> tiles) => tiles.Sort(HandComparer(tiles));
+    public static void SortHand<T>(List<T> tiles, Func<T, int> id) {
+        IComparer<int> comparer = HandComparer(tiles.Select(id));
+        tiles.Sort((a, b) => comparer.Compare(id(a), id(b)));
+    }
 
     private const int Chun = 45;
     private const int Haku = 46;
@@ -167,6 +186,7 @@ public static class TileIdOrder {
     /// 将赤 5（105/205/305）归一化为同色普通 5（15/25/35），其余 id 不变。
     /// </summary>
     public static int Normalize(int tile) {
+        tile = WashizuTile.Face(tile);
         if (tile == 105) return 15;
         if (tile == 205) return 25;
         if (tile == 305) return 35;

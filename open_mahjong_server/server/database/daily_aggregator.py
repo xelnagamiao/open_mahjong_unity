@@ -107,92 +107,44 @@ def aggregate_daily_stats(db_manager, stat_date: date, max_online: int = None) -
             db_manager._put_connection(conn)
 
 
+def _write_scene_statistics(cursor, stat_date: date):
+    """仅刷新指定统计日的场次基础和番种快照，保留 sub_rule。"""
+    if not isinstance(stat_date, date):
+        raise ValueError("场次聚合必须指定统计日期")
+    day = _stat_date_expr("created_at")
+    predicate = f"{day} = %s"
+    params = (stat_date,)
+    for table in ("scene_daily_stats", "scene_tier_fan_daily"):
+        cursor.execute(f"DELETE FROM {table} WHERE stat_date=%s", params)
+    dims = "stat_date,room_type,match_tier,event_id,rule,sub_rule,game_type"
+    metrics = [k for k in _SCENE_METRIC_COLUMNS if k not in ("total_games", "total_rounds")]
+    per_game = ",".join(f"SUM({key}) AS {key}" for key in metrics)
+    totals = ",".join(f"SUM({key})" for key in metrics)
+    cursor.execute(f"""INSERT INTO scene_daily_stats ({dims},{','.join(_SCENE_METRIC_COLUMNS)})
+        SELECT {dims},COUNT(*),SUM(total_rounds),{totals} FROM (
+            SELECT {day} AS stat_date,game_id,room_type,match_tier,event_id,rule,sub_rule,game_type,
+                MAX(total_rounds) AS total_rounds,{per_game}
+            FROM game_player_metrics WHERE {predicate} AND sub_rule IS NOT NULL
+            GROUP BY {day},game_id,room_type,match_tier,event_id,rule,sub_rule,game_type
+        ) games GROUP BY {dims}""", params)
+    cursor.execute(f"""INSERT INTO scene_tier_fan_daily(stat_date,match_tier,rule,sub_rule,fan_field,fan_count)
+        SELECT {day},match_tier,rule,sub_rule,fan.key,SUM(fan.value::int)
+        FROM game_player_metrics CROSS JOIN LATERAL jsonb_each_text(COALESCE(fan_stats,'{{}}'::jsonb)) fan
+        WHERE {predicate} AND match_tier IS NOT NULL AND room_type IN ('match','events')
+        GROUP BY {day},match_tier,rule,sub_rule,fan.key""", params)
+
+
 def aggregate_scene_daily_stats(db_manager, stat_date: date) -> None:
-    """聚合某统计日的 scene_daily_stats（天梯四档 + 比赛场）。
-
-    单日 DELETE + INSERT，04:00 定时任务调用，开销可控。
-    """
-    conn = None
+    conn = db_manager._get_connection()
     try:
-        conn = db_manager._get_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            f"""
-            DELETE FROM scene_daily_stats
-            WHERE stat_date = %s
-              AND (
-                (room_type = 'match' AND match_tier IN ({MATCH_TIER_SQL}))
-                OR room_type = 'events'
-              )
-            """,
-            (stat_date,),
-        )
-
-        date_expr = _stat_date_expr("created_at")
-        inner = f"""
-            SELECT
-                %s::date AS stat_date,
-                room_type, match_tier, event_id, rule, game_type,
-                COUNT(DISTINCT game_id) AS total_games,
-                SUM(per_game_rounds) AS total_rounds,
-                SUM(win_count) AS win_count,
-                SUM(self_draw_count) AS self_draw_count,
-                SUM(deal_in_count) AS deal_in_count,
-                SUM(total_fan_score) AS total_fan_score,
-                SUM(total_win_turn) AS total_win_turn,
-                SUM(total_fangchong_score) AS total_fangchong_score,
-                SUM(first_place_count) AS first_place_count,
-                SUM(second_place_count) AS second_place_count,
-                SUM(third_place_count) AS third_place_count,
-                SUM(fourth_place_count) AS fourth_place_count,
-                SUM(fulu_round_count) AS fulu_round_count,
-                SUM(cuohe_count) AS cuohe_count,
-                SUM(total_round_score) AS total_round_score
-            FROM (
-                SELECT game_id, room_type, match_tier, event_id, rule, game_type,
-                       MAX(total_rounds) AS per_game_rounds,
-                       SUM(win_count) AS win_count,
-                       SUM(self_draw_count) AS self_draw_count,
-                       SUM(deal_in_count) AS deal_in_count,
-                       SUM(total_fan_score) AS total_fan_score,
-                       SUM(total_win_turn) AS total_win_turn,
-                       SUM(total_fangchong_score) AS total_fangchong_score,
-                       SUM(first_place_count) AS first_place_count,
-                       SUM(second_place_count) AS second_place_count,
-                       SUM(third_place_count) AS third_place_count,
-                       SUM(fourth_place_count) AS fourth_place_count,
-                       SUM(fulu_round_count) AS fulu_round_count,
-                       SUM(cuohe_count) AS cuohe_count,
-                       SUM(total_round_score) AS total_round_score
-                FROM game_player_metrics
-                WHERE {date_expr} = %s
-                  AND (
-                    (room_type = 'match' AND match_tier IN ({MATCH_TIER_SQL}))
-                    OR (room_type = 'events' AND event_id IS NOT NULL)
-                  )
-                GROUP BY game_id, room_type, match_tier, event_id, rule, game_type
-            ) g
-            GROUP BY room_type, match_tier, event_id, rule, game_type
-        """
-        cols = ("stat_date, room_type, match_tier, event_id, rule, game_type, "
-                + ", ".join(_SCENE_METRIC_COLUMNS))
-        cursor.execute(
-            f"INSERT INTO scene_daily_stats ({cols}) {inner}",
-            (stat_date, stat_date),
-        )
+        with conn.cursor() as cursor:
+            _write_scene_statistics(cursor, stat_date)
         conn.commit()
-        logger.info("scene_daily_stats 已聚合 %s（天梯四档 + 比赛场）", stat_date)
-        from .tier_fan_aggregator import increment_scene_tier_fan_for_date
-        increment_scene_tier_fan_for_date(db_manager, stat_date)
-    except Error as e:
-        logger.error("聚合 scene_daily_stats 失败 %s: %s", stat_date, e, exc_info=True)
-        if conn:
-            conn.rollback()
+    except Exception:
+        conn.rollback()
         raise
     finally:
-        if conn:
-            cursor.close()
-            db_manager._put_connection(conn)
+        db_manager._put_connection(conn)
 
 
 def run_daily_aggregation(db_manager, stat_date: date, max_online: int = None) -> None:
@@ -265,7 +217,7 @@ def run_startup_stats_restore(
     since_date: date = DEFAULT_RESTORE_SINCE,
     date_to: Optional[date] = None,
 ) -> None:
-    """增量恢复遗漏指标，并重聚合已结束的统计日；不生成当天半成品快照。"""
+    """按日补齐已写入的实时指标，不扫描历史牌谱或重建逐局指标。"""
     end = current_stat_date() - timedelta(days=1)
     if date_to is not None:
         end = min(end, date_to)
@@ -278,16 +230,9 @@ def run_startup_stats_restore(
             pass
     if end < since_date:
         return
-    from .backfill_game_player_metrics import (
-        backfill_missing_game_player_metrics, fill_event_match_tier_on_records,
-    )
-    from .riichi.record_stats import backfill_stats as backfill_riichi_stats
-    fill_event_match_tier_on_records(db_manager)
-    backfill_riichi_stats(db_manager)
-    rows = backfill_missing_game_player_metrics(db_manager, date_from=since_date, date_to=end)
     run_catchup_aggregation(db_manager, since_date=since_date, date_to=end)
     _set_meta_value(db_manager, STATS_CATCHUP_THROUGH_META_KEY, end.isoformat())
-    logger.info("统计维护完成（metrics 增量 %d 行，完整统计日至 %s）", rows, end)
+    logger.info("统计维护完成（使用结算时实时写入的指标，完整统计日至 %s）", end)
 
 
 def run_catchup_aggregation(

@@ -24,7 +24,9 @@ public class SichuanGameState : TurnBasedGameState {
 
     private readonly SichuanEndgameLedger ledger = new SichuanEndgameLedger();
     private int lastXueliuWinTick;
+    private int lastXueliuGangTick;
     private int snapshotActionTick;
+    private bool dingquePresentationShown;
 
     // =====================================================================
     // 开局
@@ -36,8 +38,12 @@ public class SichuanGameState : TurnBasedGameState {
         PendingContinueAfterResult = false;
         ledger.Reset();
         lastXueliuWinTick = 0;
+        lastXueliuGangTick = 0;
+        RefreshXueliuScoreboard();
+        dingquePresentationShown = false;
         GameCanvas.Instance.HideDingqueSelection();
         GameCanvas.Instance.HideXueliuThrowThreeSelection();
+        GameCanvas.Instance.ClearXueliuExchangePresentation();
         // 重连/进入局中时，从 players_info.dingque_suit 恢复各家定缺标记
         if (gameInfo?.players_info == null) return;
         var map = new Dictionary<int, int>();
@@ -48,8 +54,11 @@ public class SichuanGameState : TurnBasedGameState {
         if (map.Count > 0) {
             GameCanvas.Instance.UpdatePlayerDingque(map);
             SetSelfDingqueFromMap(map);
+            dingquePresentationShown = map.Count == 4;
+            foreach (int suit in map.Values) dingquePresentationShown &= suit >= 1 && suit <= 3;
         }
         RefreshSelfStatusIndicators();
+        GameCanvas.Instance.UpdateSichuanTeams(gameInfo.sichuan_teams?.team_by_player_index, keepDingque: SichuanLobby.IsXueliuDoubles(Session.SubRule));
     }
 
     // =====================================================================
@@ -58,10 +67,14 @@ public class SichuanGameState : TurnBasedGameState {
 
     protected override bool HandleExtraMessage(string suffix, Response response) {
         switch (suffix) {
+            case "duplicate_status":
+                Clock.Clear("duplicate_status");
+                RoundPanel.Instance?.UpdateDuplicateStatus(response.duplicate_match_info);
+                return true;
             case "xueliu_continue":
                 ApplyXueliuContinue(response.game_info);
                 if (SichuanLobby.IsXueliu(Session.SubRule) && GameCanvas.Instance != null) {
-                    GameCanvas.Instance.ChangeHandCards("SyncHandCards", 0, Mirror.SelfHandTiles.ToArray(), null);
+                    GameCanvas.Instance.ChangeHandCards("SyncHandCardsPreservingOrder", 0, Mirror.SelfHandTiles.ToArray(), null);
                 }
                 return true;
             case "ask_dingque":
@@ -77,6 +90,15 @@ public class SichuanGameState : TurnBasedGameState {
 
     protected override void OnAskHandAction(Response response) {
         AskHandActionGBInfo info = response.ask_hand_action_info;
+        if (info?.xueliu_exchange != null) {
+            if (info.action_tick < Clock.LastAskActionTick) return;
+            Clock.LastAskActionTick = info.action_tick;
+            Manager.AskHandAction(info.remaining_time, info.player_index, System.Array.Empty<string>(), null, 0);
+            if (!GameCanvas.Instance.ShowXueliuExchangePresentation(info)) return;
+            if (!Session.IsRealtimeSpectator && !GameRecordManager.Instance.IsSpectating && info.player_index == Session.SelfIndex)
+                GameCanvas.Instance.ShowXueliuTeamExchange(info);
+            return;
+        }
         if (info != null && info.action_list != null &&
             (System.Array.IndexOf(info.action_list, "xueliu_throw_three") >= 0 || System.Array.IndexOf(info.action_list, "xueliu_exchange_three") >= 0)) {
             Clock.LastAskActionTick = info.action_tick;
@@ -96,6 +118,7 @@ public class SichuanGameState : TurnBasedGameState {
     /// 必须同步 LastAskActionTick，否则 SendAction("dingque") 会因旧 tick 被服务端丢弃，表现为定缺卡死。
     /// </summary>
     private void OnAskDingque(Response response) {
+        GameCanvas.Instance.ClearXueliuExchangePresentation();
         Debug.Log($"收到定缺询问: {response.ask_hand_action_info}");
         if (response.ask_hand_action_info != null) {
             Clock.LastAskActionTick = response.ask_hand_action_info.action_tick;
@@ -115,7 +138,12 @@ public class SichuanGameState : TurnBasedGameState {
         Debug.Log($"收到定缺完成: {response.show_result_info?.player_to_dingque}");
         if (response.show_result_info == null) return;
         GameCanvas.Instance.HideDingqueSelection();
-        GameCanvas.Instance.UpdatePlayerDingque(response.show_result_info.player_to_dingque);
+        var suits = response.show_result_info.player_to_dingque;
+        if (suits == null || suits.Count == 0) return;
+        if (!dingquePresentationShown) {
+            dingquePresentationShown = true;
+            GameCanvas.Instance.PlayDingqueReveal(suits);
+        }
         SetSelfDingqueFromMap(response.show_result_info.player_to_dingque);
         // 定缺完成后若已有手牌且轮到操作，立刻刷新定缺置灰（不等 askHandAction）
         GameCanvas.Instance.RefreshHandTileSelectability();
@@ -153,6 +181,7 @@ public class SichuanGameState : TurnBasedGameState {
 
     /// <summary>手牌仍有定缺花色时须优先打出（类比日麻立直锁手仅可打摸入牌）。</summary>
     public bool MustCutDingqueFirst() {
+        if (SichuanLobby.IsXueliuDoubles(Session.SubRule)) return false;
         if (SelfDingqueSuit < 1 || SelfDingqueSuit > 3) return false;
         return GameCanvas.Instance.SelfHandHasDingqueSuitTile(SelfDingqueSuit);
     }
@@ -175,15 +204,23 @@ public class SichuanGameState : TurnBasedGameState {
         // 战术申请不改变牌桌且复用询问帧号，仍需发声；帧号 0 兼容旧协议。
         if (info != null && info.is_claim != true && snapshotActionTick > 0
             && info.action_tick > 0 && info.action_tick <= snapshotActionTick) return;
+        if (info != null && info.is_claim != true && SichuanLobby.IsXueliu(Session.SubRule)
+            && info.action_tick > 0 && info.action_tick <= lastXueliuGangTick
+            && GameCanvas.HasNonZeroGangScoreChanges(info.gang_score_changes)) return;
         base.OnDoAction(response);
     }
 
     private void ApplyXueliuContinue(GameInfo info) {
         if (info?.players_info == null || !SichuanLobby.IsXueliu(Session.SubRule)) return;
+        if (info.action_tick > 0 && info.action_tick < System.Math.Max(snapshotActionTick,
+            System.Math.Max(lastXueliuWinTick, lastXueliuGangTick))) return;
+        snapshotActionTick = System.Math.Max(snapshotActionTick, info.action_tick);
+        var scores = new Dictionary<int, int>();
         foreach (PlayerInfo player in info.players_info) {
             string seat = Mirror.SeatOf(player.player_index);
             PlayerInfoClass current = Mirror.Info(seat);
             if (current == null) continue;
+            scores[player.player_index] = player.score;
             int flowerCount = current.huapai_list?.Count ?? 0;
             current.huapai_list = new List<int>(player.huapai_list ?? System.Array.Empty<int>());
             for (int i = flowerCount; i < current.huapai_list.Count; i++) {
@@ -206,6 +243,8 @@ public class SichuanGameState : TurnBasedGameState {
                 Mirror.LastDealTileId = 0;
             }
         }
+        Presenter.ApplyScores(scores);
+        RefreshXueliuScoreboard();
     }
 
     // =====================================================================
@@ -249,10 +288,16 @@ public class SichuanGameState : TurnBasedGameState {
 
     /// <summary>杠即时分变：累加分数并飘字。</summary>
     protected override void OnActionPlayed(TableAction action) {
-        if (action.Silent || !ContainsGangAction(action.Words)) return;
+        bool xueliu = SichuanLobby.IsXueliu(Session.SubRule);
+        if ((!xueliu && action.Silent) || !ContainsGangAction(action.Words)) return;
         if (!GameCanvas.HasNonZeroGangScoreChanges(action.GangScoreChanges)) return;
+        if (xueliu) {
+            if (action.ActionTick > 0 && action.ActionTick <= System.Math.Max(snapshotActionTick, lastXueliuGangTick)) return;
+            lastXueliuGangTick = action.ActionTick;
+        }
         Presenter.ApplyScoreDeltas(action.GangScoreChanges);
-        GameCanvas.Instance.ShowGangScoreFloats(action.GangScoreChanges);
+        RefreshXueliuScoreboard();
+        if (!action.Silent) GameCanvas.Instance.ShowGangScoreFloats(action.GangScoreChanges);
     }
 
     // =====================================================================
@@ -263,15 +308,14 @@ public class SichuanGameState : TurnBasedGameState {
         ShowResultInfo info = response.show_result_info;
         if (SichuanLobby.IsXueliu(Session.SubRule) && info != null && info.round_continues == true) {
             int tick = info.action_tick;
-            if (tick > 0 && tick <= System.Math.Max(snapshotActionTick, lastXueliuWinTick)) return;
+            if (tick > 0 && tick <= System.Math.Max(snapshotActionTick,
+                System.Math.Max(lastXueliuWinTick, lastXueliuGangTick))) return;
             lastXueliuWinTick = tick;
         }
         base.OnShowResult(response);
     }
 
     private void PresentXueliuWin(SettlementEnvelope env) {
-        AppendScoreboard(env);
-        Presenter.ApplyScores(env.ScoresAfter);
         if (GameCanvas.HasNonZeroGangScoreChanges(env.ScoreChanges)) {
             GameCanvas.Instance.ShowGangScoreFloats(env.ScoreChanges, 0f);
         }
@@ -303,7 +347,17 @@ public class SichuanGameState : TurnBasedGameState {
     }
 
     protected override void PresentSettlement(SettlementEnvelope env) {
-        if (SichuanLobby.IsXueliu(Session.SubRule) && env.IsHu && env.NextStatus == "round_continue" && string.IsNullOrEmpty(env.LiujuStep)) {
+        bool xueliu = SichuanLobby.IsXueliu(Session.SubRule);
+        if (xueliu) {
+            if (env.ScoresAfter != null && env.ScoresAfter.Count > 0) {
+                Presenter.ApplyScores(env.ScoresAfter);
+            } else {
+                Presenter.ApplyScoreDeltas(env.GangRefundChanges);
+                Presenter.ApplyScoreDeltas(env.ScoreChanges);
+            }
+            RefreshXueliuScoreboard(env.LiujuStep == "chajiao" ? SichuanRoundLabel.Chajiao : null);
+        }
+        if (xueliu && env.IsHu && env.NextStatus == "round_continue" && string.IsNullOrEmpty(env.LiujuStep)) {
             PresentXueliuWin(env);
             return;
         }
@@ -319,13 +373,13 @@ public class SichuanGameState : TurnBasedGameState {
         bool isEndgameScoreStep = SichuanEndgameLedger.IsEndgameScoreStep(env.LiujuStep);
 
         // 血战中途和牌/抢杠：杠上炮等即时退回刮风下雨分并飘字（流局 cha_refund 由面板分支单独处理）
-        if (env.LiujuStep != "cha_refund" && GameCanvas.HasNonZeroGangScoreChanges(env.GangRefundChanges)) {
+        if (!xueliu && env.LiujuStep != "cha_refund" && GameCanvas.HasNonZeroGangScoreChanges(env.GangRefundChanges)) {
             Presenter.ApplyScoreDeltas(env.GangRefundChanges);
             GameCanvas.Instance.ShowGangScoreFloats(env.GangRefundChanges);
         }
 
         // 计分板：终局分步只写一行；中途和牌不写（终局统一结算）；其余走简化计分板
-        if (isEndgameScoreStep) {
+        if (!xueliu && isEndgameScoreStep) {
             if (env.LiujuStep == "reveal_hu") {
                 ledger.Begin();
             } else if (env.LiujuStep == "settle_hu") {
@@ -338,7 +392,7 @@ public class SichuanGameState : TurnBasedGameState {
             if (env.LiujuStatusFinal && ledger.TryFlushToHistory(Session.SubRule, Mirror.RoundSettlementHistory)) {
                 GameSceneUIManager.Instance.UpdateScoreRecord();
             }
-        } else if (!isMidGameHu) {
+        } else if (!xueliu && !isMidGameHu) {
             AppendScoreboard(env);
         }
 
@@ -412,6 +466,14 @@ public class SichuanGameState : TurnBasedGameState {
     }
 
     /// <summary>简化计分板：不写番种/手牌，主番留空。</summary>
+    private void RefreshXueliuScoreboard(string roundLabel = null) {
+        if (!SichuanLobby.IsXueliu(Session.SubRule)) return;
+        XueliuScoreHistory.Refresh(Session.SubRule, Mirror.CurrentRound, Mirror.PlayerToInfo.Values,
+            Mirror.RoundSettlementHistory, roundLabel);
+        GameSceneUIManager.Instance.UpdateScoreRecord();
+    }
+
+    /// <summary>血战沿用终局简化计分板。</summary>
     protected override void AppendScoreboard(SettlementEnvelope env) {
         Dictionary<int, int> scoreChanges = env.ScoreChanges;
         if (scoreChanges == null || scoreChanges.Count == 0) {
@@ -429,10 +491,12 @@ public class SichuanGameState : TurnBasedGameState {
     public override void OnSessionReset() {
         snapshotActionTick = 0;
         lastXueliuWinTick = 0;
+        lastXueliuGangTick = 0;
         SelfDingqueSuit = 0;
         PendingContinueAfterResult = false;
         ledger.Reset();
         if (GameCanvas.Instance != null) GameCanvas.Instance.HideDingqueSelection();
         if (GameCanvas.Instance != null) GameCanvas.Instance.HideXueliuThrowThreeSelection();
+        if (GameCanvas.Instance != null) GameCanvas.Instance.ClearXueliuExchangePresentation();
     }
 }

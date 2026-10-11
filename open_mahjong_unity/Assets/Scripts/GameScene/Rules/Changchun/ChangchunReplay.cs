@@ -4,6 +4,19 @@ using System.Linq;
 using Newtonsoft.Json.Linq;
 
 public partial class GameRecordManager {
+    internal RuleReplayModule CreateChangchunReplayModule() => new RuleReplayModule {
+        Reset = ResetChangchunRecordState,
+        Clear = ResetChangchunRecordState,
+        ApplyBeforeMutation = ApplyChangchunRecordAction,
+        NextPlayer = ResolveChangchunRecordNextPlayer,
+        ConsumeWallTile = ConsumeChangchunRecordWall,
+        RemainingTiles = ChangchunRecordRemaining,
+        StateActions = { "cc" },
+        AnnounceBeforeAction = (tick, position, voice) => PlayChangchunRecordAnnouncement(tick),
+        AfterVisibleMutation = RefreshChangchunRecordEvent,
+        RefreshAfterSeek = () => { RefreshChangchunRecordBadge(); RefreshChangchunRecordReveals(); },
+    };
+
     private int recordCcBaoSlot=-1,recordCcBaoTile,recordCcBaoRevision;
     private readonly Dictionary<int,int> recordCcSeen=new Dictionary<int,int>();
     private readonly Dictionary<int,int> recordCcTailTiles=new Dictionary<int,int>();

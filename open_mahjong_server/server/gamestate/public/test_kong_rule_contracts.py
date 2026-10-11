@@ -11,7 +11,7 @@ from ..game_zhongyong import NanqueGameState, ZhongyongGameState
 @pytest.mark.parametrize("state_type,mask,private", [
     (ZhongyongGameState, [2, 13] * 4, False),
     (NanqueGameState, [2, 13] * 4, True),
-    (HangzhouGameState, [2, 13] * 4, True),
+    (HangzhouGameState, [2, 13, 0, 13, 0, 13, 2, 13], False),
     (WenzhouGameState, [2, 13] * 4, True),
     (YixingGameState, [2, 13, 0, 13, 2, 13, 2, 13], False),
     (HongKongGameState, [0, 13] * 4, False),

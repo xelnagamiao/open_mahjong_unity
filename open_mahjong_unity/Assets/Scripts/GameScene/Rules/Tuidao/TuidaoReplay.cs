@@ -2,6 +2,16 @@ using System.Collections.Generic;
 using Newtonsoft.Json;
 
 public partial class GameRecordManager {
+    internal RuleReplayModule CreateTuidaoReplayModule() {
+        if (IsGuangdongMilRecord()) return CreateGuangdongMilReplayModule();
+        return new RuleReplayModule("tuidao") {
+            ReservedWallTiles = 13,
+            ApplyBeforeMutation = ApplyTuidaoRecordAction,
+            AnnounceBeforeAction = (tick, position, voice) => PlayTuidaoRecordAnnouncement(tick),
+            AfterSilentMutation = tick => SyncRecordBoardScores(),
+        };
+    }
+
     private void RemoveTuidaoWonDiscard(IReadOnlyList<string> tick) {
         if (tick.Count < 8 || (tick[0] != "hu_first" && tick[0] != "hu_second" && tick[0] != "hu_third")) return;
         // 本规则只有一个赢家；既有紧凑 tick 在和牌张后写放铳者/收回标记。

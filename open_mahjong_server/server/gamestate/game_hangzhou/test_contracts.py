@@ -56,21 +56,40 @@ def test_absolute_replay_scores_never_undo_an_already_recorded_win():
     assert running == [29, -6, -14, -9]
 
 
-def test_draw_concealed_kong_and_burn_are_hidden_in_every_live_view():
+def test_concealed_kong_exposes_middle_tiles_but_draw_and_burn_stay_private():
     s = turn([11] * 4 + PLAIN[4:], wall_tail=[45, 47])
     act(s, 0, "angang", target_tile=11)
+    mask = [2, 11, 0, 11, 0, 11, 2, 11]
+    assert s.player_list[0].combination_mask == [mask]
     for viewer in range(4):
         info = s.build_game_start_payload(viewer)["game_info"]
         own = viewer == 0
-        assert info["players_info"][0]["combination_tiles"] == ["G11" if own else "G0"]
-        assert info["players_info"][0]["combination_mask"] == [[2, 11 if own else 0] * 4]
+        assert info["players_info"][0]["combination_tiles"] == ["G11"]
+        assert info["players_info"][0]["combination_mask"] == [mask]
+        assert all((p["hand_tiles"] is not None) == (i == viewer)
+                   for i, p in enumerate(info["players_info"]))
         kong = next(p for p in s.outbound_payloads if p.get("player_index") == viewer and p.get("action") == "angang")
         draw = next(p for p in s.outbound_payloads if p.get("player_index") == viewer and p.get("action") == "deal_gang_tile")
         burn = next(p for p in s.outbound_payloads if p.get("player_index") == viewer and p.get("action") == "hangzhou_tail_burn")
-        assert kong["tile"] == (11 if own else 0)
+        assert kong["tile"] == 11 and kong["meld_code"] == "G11"
+        assert kong["do_action_info"]["combination_target"] == "G11"
+        assert kong["do_action_info"]["combination_mask"] == mask
         assert draw["tile"] == (47 if own else None)
         assert burn["tile"] == 0 and burn["do_action_info"]["hangzhou_burn_count"] == 1
         assert info["hangzhou_info"]["ledger"] is None
+        restored = s.restore_payloads(viewer)[0]["game_info"]["players_info"][0]
+        assert restored["combination_tiles"] == ["G11"]
+        assert restored["combination_mask"] == [mask]
+
+    async def check_spectator():
+        ws = SimpleNamespace(send_json=AsyncMock())
+        s.game_server = SimpleNamespace(user_id_to_connection={999: SimpleNamespace(websocket=ws)})
+        await s.send_realtime_spectator_snapshot(999, 1)
+        snapshot = ws.send_json.call_args_list[0].args[0]["game_info"]
+        assert snapshot["players_info"][0]["combination_tiles"] == ["G11"]
+        assert snapshot["players_info"][0]["combination_mask"] == [mask]
+        assert snapshot["players_info"][0]["hand_tiles"] is None
+    asyncio.run(check_spectator())
 
 
 def test_added_kong_targets_old_pung_and_forced_cut_is_draw_identity():

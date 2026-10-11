@@ -18,20 +18,21 @@ public static class HeJuezhangTableCounter {
         IReadOnlyList<string> combinations,
         int? pendingCutTileId = null,
         bool strictCombinationMatch = false) {
+        hepaiTile = WashizuTile.Face(hepaiTile);
         int count = 0;
 
         if (discardLists != null) {
             foreach (IReadOnlyList<int> discards in discardLists) {
                 if (discards == null) continue;
                 foreach (int tile in discards) {
-                    if (tile == hepaiTile) count++;
+                    if (WashizuTile.Face(tile) == hepaiTile) count++;
                 }
             }
         }
 
         count += CountInCombinations(hepaiTile, combinations, strictCombinationMatch);
 
-        if (pendingCutTileId.HasValue && pendingCutTileId.Value == hepaiTile) {
+        if (pendingCutTileId.HasValue && WashizuTile.Face(pendingCutTileId.Value) == hepaiTile) {
             count++;
         }
 

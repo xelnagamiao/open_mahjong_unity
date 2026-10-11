@@ -7,6 +7,7 @@ const { writeAudit } = require('../../utils/audit');
 const { fetchUserStatsBundle } = require('../../services/playerStats');
 const { normalizeUsername, validateUsername } = require('../../utils/username');
 const { rewriteGameRecordSnapshots } = require('../../utils/gameRecordUsername');
+const { getAccountGeography } = require('../../services/accountGeography');
 
 const GAME_SERVER_BASE_URL = config.calcServer.baseUrl.replace(/\/$/, '');
 const GAME_SERVER_TIMEOUT_MS = config.calcServer.timeoutMs;
@@ -173,6 +174,15 @@ router.get('/search', async (req, res) => {
   }
 });
 
+router.get('/geography', async (req, res) => {
+  try {
+    res.json({ success: true, data: await getAccountGeography().distribution() });
+  } catch (err) {
+    console.error('admin account geography:', err.message);
+    res.status(503).json({ success: false, message: '暂时无法读取账号分布，请稍后重试' });
+  }
+});
+
 router.get('/:userId', async (req, res) => {
   try {
     const userId = parseInt(req.params.userId, 10);
@@ -235,7 +245,9 @@ router.get('/:userId', async (req, res) => {
         user_config: configRes.rows[0] || null,
         rank_data: rankRes.rows[0] || null,
         recent_games: recordsRes.rows,
-        recent_login_ips: loginIpsRes.rows,
+        recent_login_ips: await Promise.all(loginIpsRes.rows.map(async (row) => ({
+          ...row, ...await getAccountGeography().lookup(row.ip_address),
+        }))),
         online: onlineStatus.online,
         game_record_count: recordCount.rows[0].cnt,
         ...stats,

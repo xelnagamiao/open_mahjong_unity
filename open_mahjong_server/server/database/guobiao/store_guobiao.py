@@ -142,7 +142,7 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
                 )
                 game_id = candidate_id
                 break
-            except Error as dup_err:
+            except Exception as dup_err:
                 conn.rollback()
                 logger.warning(f'game_id 碰撞: {candidate_id}, 重试...')
                 continue
@@ -197,8 +197,9 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
                     pt_change
                 ))
                 saved_count += 1
-            except Error as e:
+            except Exception as e:
                 logger.warning(f'跳过玩家对局记录存储: user_id={player.user_id}, username={player.username}, error={e}')
+                raise
         logger.info(f'已为 {saved_count} 名玩家保存对局记录到 game_player_records 表')
         
         from ..player_recent_records import update_player_recent_records
@@ -206,22 +207,17 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
             update_player_recent_records(cursor, game_id, game_record)
         from ..duplicate_walls import link_duplicate_record
         link_duplicate_record(cursor, game_id, game_record)
+        # 牌谱、参与者和统计同事务发布，成功保存不依赖后续回填。
+        from ..scene_stats import record_game_metrics
+        record_game_metrics(db_manager, game_id, game_record, player_list, {
+            "rule": rule, "sub_rule": sub_rule, "room_type": room_type,
+            "match_tier": match_tier, "event_id": event_id, "match_type": match_type,
+        }, cursor=cursor)
         conn.commit()
-        logger.info(f'游戏记录已保存，game_id: {game_id}')
-        # 写入每玩家每局原始指标，供每日 4 点聚合 scene_daily_stats
-        try:
-            from ..scene_stats import record_game_metrics
-            if sub_rule in ("guobiao/blood_battle", "guobiao/sanma"):
-                return game_id  # 独立子规则不写入按四人国标聚合的标准场景统计。
-            record_game_metrics(db_manager, game_id, game_record, player_list, {
-                "rule": rule, "sub_rule": sub_rule, "room_type": room_type,
-                "match_tier": match_tier, "event_id": event_id, "match_type": match_type,
-            })
-        except Exception as e:
-            logger.warning(f"写入 game_player_metrics 失败: {e}")
+        logger.info("牌谱及子规则统计已保存，game_id: %s", game_id)
         return game_id
         
-    except Error as e:
+    except Exception as e:
         logger.error(f'存储游戏记录失败: {e}', exc_info=True)
         if conn:
             conn.rollback()
@@ -233,217 +229,13 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
 
 # 存储国标麻将游戏基础统计数据到 guobiao_history_stats 表
 def store_guobiao_game_stats(db_manager, game_id: str, player_list: list, room_type: str, match_type: str, total_rounds: int):
-    """
-    存储国标麻将游戏基础统计数据到 guobiao_history_stats 表
-
-    Args:
-        db_manager: DatabaseManager 实例
-        game_id: 游戏ID（由 store_guobiao_game_record 返回）
-        player_list: 玩家列表，每个玩家包含 record_counter 属性
-        room_type: 房间类型（custom/match，保留参数以兼容调用方）
-        match_type: 局数类型（如 "4/4"、"4/4_rank"），排位带 _rank，作为统计 mode
-        total_rounds: 实际进行的局数
-    """
-    conn = None
-    try:
-        # 对局包含机器人时，不保存统计
-        if any(getattr(p, "user_id", 0) <= 10 for p in player_list):
-            logger.info("对局包含机器人，跳过基础统计保存")
-            return
-
-        conn = db_manager._get_connection()
-        cursor = conn.cursor()
-        
-        rule = "guobiao"
-        mode = match_type  # 用真实 match_type（排位带 _rank）作 mode，与 game_player_records 一致
-
-        stats_columns = [
-            "total_games",
-            "total_rounds",
-            "win_count",
-            "self_draw_count",
-            "deal_in_count",
-            "total_fan_score",
-            "total_win_turn",
-            "total_fangchong_score",
-            "first_place_count",
-            "second_place_count",
-            "third_place_count",
-            "fourth_place_count",
-            "fulu_round_count",
-            "cuohe_count",
-            "total_round_score",
-        ]
-        
-        # 更新每个玩家的基础统计数据
-        for player in player_list:
-            user_id = player.user_id
-            
-            # 跳过游客（只统计注册用户 user_id > 10000000）
-            if user_id <= 10000000:
-                continue
-            
-            # 检查用户是否存在
-            cursor.execute("SELECT 1 FROM users WHERE user_id = %s", (user_id,))
-            if cursor.fetchone() is None:
-                continue
-            
-            counter = player.record_counter
-            win_count = counter.zimo_times + counter.dianhe_times
-            
-            stats_increment = {
-                "total_games": 1,
-                "total_rounds": total_rounds,
-                "win_count": win_count,
-                "self_draw_count": counter.zimo_times,
-                "deal_in_count": counter.fangchong_times,
-                "total_fan_score": counter.win_score,
-                "total_win_turn": counter.win_turn,
-                "total_fangchong_score": counter.fangchong_score,
-                "first_place_count": 1 if counter.rank_result == 1 else 0,
-                "second_place_count": 1 if counter.rank_result == 2 else 0,
-                "third_place_count": 1 if counter.rank_result == 3 else 0,
-                "fourth_place_count": 1 if counter.rank_result == 4 else 0,
-                "fulu_round_count": counter.fulu_times,
-                "cuohe_count": counter.cuohe_times,
-                "total_round_score": counter.round_score_total,
-            }
-            
-            insert_columns = ["user_id", "rule", "mode"] + stats_columns
-            insert_values = [
-                user_id,
-                rule,
-                mode,
-                *[stats_increment.get(col, 0) for col in stats_columns]
-            ]
-            
-            update_clauses = ", ".join(
-                f"{col} = guobiao_history_stats.{col} + EXCLUDED.{col}"
-                for col in stats_columns
-            )
-            
-            cursor.execute(f"""
-                INSERT INTO guobiao_history_stats (
-                    {', '.join(insert_columns)}
-                ) VALUES (
-                    {', '.join(['%s'] * len(insert_columns))}
-                )
-                ON CONFLICT (user_id, rule, mode) DO UPDATE SET
-                    {update_clauses},
-                    updated_at = CURRENT_TIMESTAMP
-            """, insert_values)
-        
-        conn.commit()
-        logger.info(f'基础统计数据已保存，game_id: {game_id}')
-        
-    except Error as e:
-        logger.error(f'存储基础统计数据失败: {e}', exc_info=True)
-        if conn:
-            conn.rollback()
-    finally:
-        if conn:
-            cursor.close()
-            db_manager._put_connection(conn)
+    """兼容入口：按完整子规则从逐局指标覆盖累计，重试不会翻倍。"""
+    from ..legacy_statistics import refresh_legacy_statistics
+    refresh_legacy_statistics(db_manager, game_id, "guobiao")
 
 # 存储国标麻将游戏番种统计数据到 guobiao_fan_stats 表
 def store_guobiao_fan_stats(db_manager, game_id: str, player_list: list, room_type: str, match_type: str):
-    """
-    存储国标麻将游戏番种统计数据到 guobiao_fan_stats 表
-    
-    Args:
-        db_manager: DatabaseManager 实例
-        game_id: 游戏ID（由 store_guobiao_game_record 返回）
-        player_list: 玩家列表，每个玩家包含 record_counter 属性
-        room_type: 房间类型（custom/match，保留参数以兼容调用方）
-        match_type: 局数类型（如 "4/4"、"4/4_rank"），排位带 _rank，作为统计 mode
-    """
-    conn = None
-    try:
-        # 对局包含机器人时，不保存统计
-        if any(getattr(p, "user_id", 0) <= 10 for p in player_list):
-            logger.info("对局包含机器人，跳过番种统计保存")
-            return
-
-        conn = db_manager._get_connection()
-        cursor = conn.cursor()
-        
-        rule = "guobiao"
-        mode = match_type  # 用真实 match_type（排位带 _rank）作 mode，与 history_stats 一致
-        
-        # 更新每个玩家的番种统计数据
-        for player in player_list:
-            user_id = player.user_id
-            
-            # 跳过游客（只统计注册用户 user_id > 10000000）
-            if user_id <= 10000000:
-                continue
-            
-            # 检查用户是否存在
-            cursor.execute("SELECT 1 FROM users WHERE user_id = %s", (user_id,))
-            if cursor.fetchone() is None:
-                continue
-            
-            counter = player.record_counter
-            
-            fan_increment = {field: 0 for field in FAN_FIELDS}
-            recorded_fans = getattr(counter, "recorded_fans", [])
-            for fan_entry in recorded_fans:
-                if isinstance(fan_entry, list):
-                    fan_iterable = fan_entry
-                else:
-                    fan_iterable = [fan_entry]
-                
-                for fan_name in fan_iterable:
-                    if not isinstance(fan_name, str):
-                        continue
-                    if "*" in fan_name:
-                        base_name, _, count_str = fan_name.partition("*")
-                        base_name = base_name.strip()
-                        if base_name in STACKABLE_FANS and base_name in FAN_NAME_TO_FIELD:
-                            try:
-                                count_val = int(count_str.strip())
-                            except ValueError:
-                                logger.warning(f"无法解析番种数量: {fan_name}")
-                                continue
-                            field = FAN_NAME_TO_FIELD[base_name]
-                            fan_increment[field] += count_val
-                    elif fan_name in FAN_NAME_TO_FIELD:
-                        field = FAN_NAME_TO_FIELD[fan_name]
-                        fan_increment[field] += 1
-            
-            insert_columns = ["user_id", "rule", "mode"] + FAN_FIELDS
-            insert_values = [
-                user_id,
-                rule,
-                mode,
-                *[fan_increment.get(col, 0) for col in FAN_FIELDS]
-            ]
-            
-            update_clauses = ", ".join(
-                f"{col} = guobiao_fan_stats.{col} + EXCLUDED.{col}"
-                for col in FAN_FIELDS
-            )
-            
-            cursor.execute(f"""
-                INSERT INTO guobiao_fan_stats (
-                    {', '.join(insert_columns)}
-                ) VALUES (
-                    {', '.join(['%s'] * len(insert_columns))}
-                )
-                ON CONFLICT (user_id, rule, mode) DO UPDATE SET
-                    {update_clauses},
-                    updated_at = CURRENT_TIMESTAMP
-            """, insert_values)
-        
-        conn.commit()
-        logger.info(f'番种统计数据已保存，game_id: {game_id}')
-        
-    except Error as e:
-        logger.error(f'存储番种统计数据失败: {e}', exc_info=True)
-        if conn:
-            conn.rollback()
-    finally:
-        if conn:
-            cursor.close()
-            db_manager._put_connection(conn)
+    """兼容入口：按完整子规则从逐局指标覆盖累计，重试不会翻倍。"""
+    from ..legacy_statistics import refresh_legacy_statistics
+    refresh_legacy_statistics(db_manager, game_id, "guobiao")
 

@@ -120,9 +120,8 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     private void OnEnable()
     {
         if (tileImage != null && tileId >= 0) RefreshVisual();
-        // Unity 的 EventSystem 在“物体出现在鼠标下方”时不会自动触发 OnPointerEnter。
-        // 这里做一次主动检测，确保提示能立刻出现。
-        StartCoroutine(CheckHoverOnEnableNextFrame());
+        // EventSystem 每帧按最上层命中派发进入/离开事件，鼠标不动时新摸入的牌也适用。
+        // 不在这里补设悬停：被遮挡或动画途中的牌可能收不到对应的离开事件，导致提示残留。
     }
 
     private void Update() {
@@ -226,16 +225,8 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     }
 
     private static bool ShouldUseHandCutConfirm() {
-        if (!GameSettings.Current.IsHandCutConfirmEnabled) {
-            return false;
-        }
-        if (RiichiCutSelectionController.Instance.IsActive) {
-            return false;
-        }
-        if (GameCanvas.Instance.IsHandRecordPlayback()) {
-            return false;
-        }
-        return true;
+        // 普通切牌、立直/报听候选切牌共用同一确认与提示流程；确认后才区分发送的动作。
+        return GameSettings.Current.IsHandCutConfirmEnabled && !GameCanvas.Instance.IsHandRecordPlayback();
     }
 
     private bool IsSameCardReleasePoint(Vector2 screenPosition) {
@@ -409,6 +400,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         if (faceBackground != null && faceBackground.enabled) {
             faceBackground.color = color;
         }
+        WashizuTile.ApplyHandVisual(transform, tileId, faceBackground, tileImage);
     }
 
     /// <summary>
@@ -509,37 +501,6 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         {
             Debug.Log($"切牌后无听牌");
             TipsContainer.Instance.EndCutPreviewTips();
-        }
-    }
-
-    private System.Collections.IEnumerator CheckHoverOnEnableNextFrame()
-    {
-        // 等一帧，保证 UI 布局/RectTransform 已就绪，否则射线检测可能拿到旧位置
-        yield return null;
-
-        if (!isActiveAndEnabled) yield break;
-        if (EventSystem.current == null) yield break;
-        if (HandCardDragController.SuppressPointerHover) yield break;
-
-        // 构造一次 PointerEventData，进行 UI Raycast
-        PointerEventData pointerData = new PointerEventData(EventSystem.current)
-        {
-            position = Input.mousePosition
-        };
-
-        List<RaycastResult> results = new List<RaycastResult>();
-        EventSystem.current.RaycastAll(pointerData, results);
-
-        // 找到射线命中的第一个 TileCard 是否就是自己（或自己的子物体）
-        foreach (var r in results)
-        {
-            if (r.gameObject == null) continue;
-            if (r.gameObject == gameObject || r.gameObject.transform.IsChildOf(transform))
-            {
-                isHovering = true;
-                CheckCutTileTips();
-                break;
-            }
         }
     }
 

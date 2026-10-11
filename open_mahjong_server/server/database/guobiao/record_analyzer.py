@@ -179,7 +179,7 @@ def reconstruct_round_win_turns(rd: Dict[str, Any]) -> Dict[int, int]:
 
 def seat_to_original_map(seats) -> Dict[int, int]:
     """seats[original] = seat → {seat: original}。缺省视为 seat==original。"""
-    if not isinstance(seats, list) or len(seats) != 4:
+    if not isinstance(seats, list) or len(seats) not in (3, 4):
         return {0: 0, 1: 1, 2: 2, 3: 3}
     m: Dict[int, int] = {}
     for orig, seat in enumerate(seats):
@@ -187,7 +187,7 @@ def seat_to_original_map(seats) -> Dict[int, int]:
             m[int(seat)] = int(orig)
         except (TypeError, ValueError):
             pass
-    if len(m) == 4:
+    if set(m) == set(range(len(seats))) and len(m) == len(seats):
         return m
     return {0: 0, 1: 1, 2: 2, 3: 3}
 

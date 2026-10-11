@@ -92,7 +92,7 @@ public partial class Game3DManager {
         for (int i = 0; i < mainSourceCount; i++) {
             mainTiles.Add(handTiles[i]);
         }
-        mainTiles.Sort(TileIdOrder.Compare);
+        TileIdOrder.SortHand(mainTiles);
 
         int mainCount = mainTiles.Count;
         ComputeRecordShowTargetPositions(showCardsPosition, direction, mainCount, hasDraw, rotation,
@@ -187,11 +187,7 @@ public partial class Game3DManager {
             }
         }
 
-        allCards.Sort((a, b) => {
-            int idA = a.GetComponent<Tile3D>()?.GetTileId() ?? 0;
-            int idB = b.GetComponent<Tile3D>()?.GetTileId() ?? 0;
-            return TileIdOrder.Compare(idA, idB);
-        });
+        TileIdOrder.SortHand(allCards, card => card.GetComponent<Tile3D>()?.GetTileId() ?? 0);
 
         Vector3 startPos = HandRowOrigin(showCardsPosition, direction);
         float step = handStep;
@@ -292,7 +288,7 @@ public partial class Game3DManager {
                     if (tile3D == null) continue;
                     if (preferDraw != tile3D.isRecordDrawSlotPinned) continue;
                     if (!RecordShowTileIdMatches(tile3D, tileId)
-                        && RiichiTileUtil.Normalize(tile3D.GetTileId()) != RiichiTileUtil.Normalize(tileId)) {
+                        && !WashizuTile.SameCopyKind(tile3D.GetTileId(), tileId)) {
                         continue;
                     }
                     if (tile3D.isRecordDrawSlotPinned) {

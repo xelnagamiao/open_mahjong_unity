@@ -29,28 +29,36 @@ public partial class NormalGameStateManager {
         MatchFoundedPanel.Instance?.StopCountdownAndHide();
         GameHost.Current.SwitchWindow("game"); // 切换到游戏场景
 
+        // A reconnect snapshot already contains completed flowers and rivers.
+        // Cancel direct draw/flower coroutines as well as queued hand work before rebuilding it.
+        Game3DManager.Instance.StopAllRunningAnimations();
         Game3DManager.Instance.Clear3DTile(); // 清空3D手牌
 
         InitializeSetInfo(gameInfo, isNewMatch); // 初始化对局数据
         GameCanvas.Instance.InitializeUIInfo(gameInfo,indexToPosition); // 初始化面板信息
         BoardCanvas.Instance.InitializeBoardInfo(gameInfo,indexToPosition); // 初始化桌面信息
 
-        // 获取自己的手牌信息（从 PlayerInfo 中获取）
-        PlayerInfo selfPlayerInfo = GetSelfPlayerInfo(gameInfo);
-        int[] selfHandTilesArray = selfPlayerInfo.hand_tiles;
-
-        // 初始化手牌区域
-        GameCanvas.Instance.ChangeHandCards("InitHandCards",0,selfHandTilesArray,null);
-
-        // 初始化他人手牌区域
-        Game3DManager.Instance.Change3DTile("InitHandCards",0,0,null,false,null);
-
-        // 初始化游戏开始UI（观战者不显示自动操作）
+        // 先恢复操作区和自动行为，再创建手牌。局末隐藏的操作区不能在理牌已启动后
+        // 才 OnEnable，也不能让开局按上局尚未初始化的自动行为抢先执行。
         if (IsRealtimeSpectator) {
             GameSceneUIManager.Instance.InitRealtimeSpectatorStart();
         } else {
             GameSceneUIManager.Instance.InitGameStart();
         }
+
+        // 获取自己的手牌信息（从 PlayerInfo 中获取）
+        PlayerInfo selfPlayerInfo = GetSelfPlayerInfo(gameInfo);
+        int[] selfHandTilesArray = selfPlayerInfo.hand_tiles;
+
+        // 初始化手牌区域
+        bool openingDrawSlot = RuleRegistry.Current?.OpeningHandHasDrawSlot?.Invoke(gameInfo) == true;
+        GameCanvas.Instance.ChangeHandCards(openingDrawSlot ? "InitHandCardsWithDrawSlot" : "InitHandCards",
+            0,selfHandTilesArray,null);
+
+        // 初始化他人手牌区域
+        Game3DManager.Instance.Change3DTile("InitHandCards",0,0,null,false,null);
+
+        // 初始化游戏开始UI（观战者不显示自动操作）
 
         // InitGameStart内的HideGameRecord 会将鼠标输入置为 Idle，在此之后进入对局输入模式
         GameSceneMouseInputController.Instance.SetState(GameSceneMouseInputController.StateGame);

@@ -1,0 +1,19 @@
+/* Additional styles apply only to the new standalone SEO content pages. */
+.content-page .mcr-header nav { flex-wrap: wrap; gap: 10px 20px; }
+.content-page .mcr-context-nav { padding-top: 22px; }
+.content-page .mcr-toc { padding: 24px; margin-bottom: 32px; background: #eaf0e5; border-radius: 8px; }
+.content-page .mcr-toc ul { margin-bottom: 0; padding-left: 22px; columns: 2; column-gap: 40px; }
+.content-page .mcr-toc li { break-inside: avoid; margin: 8px 0; }
+.content-page h2[id] { scroll-margin-top: 24px; }
+.content-page .mcr-rule-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.content-page .mcr-rule-cards article { border: 1px solid var(--mcr-line); border-radius: 8px; padding: 24px; background: #fffdf8; }
+.content-page .mcr-rule-cards h3 { margin-top: 0; }
+.content-page .mcr-rule-cards p { margin-bottom: 0; }
+.content-page .mcr-references { padding-left: 22px; }
+.content-page .mcr-references li { margin-bottom: 12px; }
+@media (max-width: 640px) {
+  .content-page .mcr-header { flex-wrap: wrap; }
+  .content-page .mcr-rule-cards { grid-template-columns: 1fr; }
+  .content-page .mcr-toc ul { columns: 1; }
+  .mcr-page[data-page-language="zh-CN"] .mcr-header { flex-wrap: wrap; }
+}

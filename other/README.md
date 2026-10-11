@@ -8,6 +8,7 @@
 | 麻将牌模型源文件与规范导出 | `3Dcard/` |
 | 桌布、桌框、缝线及可编辑源文件 | `Tablecloth/` |
 | 段位配表、PSD、商店展示素材 | 本目录配表、PSD 与 `steamstorepage/` |
+| 麻将规则支持、匹配与统计能力配表 | [麻将规则支持表.xlsx](麻将规则支持表.xlsx) |
 | 麻将规则与可追溯的参考资料 | `rule/` |
 | Unity Android / WebGL / Windows 三端构建工具 | [UnityBatchBuild](UnityBatchBuild/README.md) |
 
@@ -16,3 +17,5 @@
 Git 忽略的 `.om_workspace/`。主项目运行代码与维护中的导入器属于对应项目目录。
 
 更新 Unity 使用的素材时，保留项目里已有的 `.meta` 与 GUID，并核对源素材和运行时版本。
+
+规则支持表是唯一维护版，后续增删数据保留现有十一列、一子规则一行及配色。最左侧“规则序号”从 1 逐行连续编号；匹配填“是／否”，基础统计和番种统计填“有／无”。Unity 创房面板内的支持表在烘焙与构建时从此文件同步；维护流程和校验命令见 [规则支持表说明](../open_mahjong_server/docs/statistics-subrules.md)。

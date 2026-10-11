@@ -13,6 +13,7 @@
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="search" :loading="loading">搜索</el-button>
+          <AccountGeography />
         </el-form-item>
       </el-form>
       <el-table :data="items" v-loading="loading" style="margin-top: 16px">
@@ -76,6 +77,7 @@ import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import adminApi from '@/api/adminClient'
 import { getSponsorStatus } from '@/utils/sponsor'
+import AccountGeography from '@/components/admin/AccountGeography.vue'
 
 const query = ref('10000001')
 const items = ref([])

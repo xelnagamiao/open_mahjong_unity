@@ -45,6 +45,8 @@ const TAG_MAP = {
   'mil-hangzhou': ['mil-hangzhou', '杭州麻将（推广）'],
   huama: ['huama', '花麻', '算花'],
   suzhou: ['suzhou', '苏州麻将', '苏麻'],
+  shenyang: ['shenyang', '沈阳麻将', '喜杠', '旋风杠'],
+  'mil-shenyang': ['mil-shenyang', '沈阳麻将（推广）'],
   nanjing: ['nanjing', '南京麻将', '论花'],
   wenzhou: ['wenzhou', '温州麻将'],
   'mil-wenzhou': ['mil-wenzhou', '温州麻将（试点）'],

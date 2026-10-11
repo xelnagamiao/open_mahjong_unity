@@ -104,8 +104,62 @@ def test_special_is_one_meld_and_fulfils_logical_suits():
     code="Cyao:31,31,31:11,21,31"
     hand=[14,15,16,17,18,19,45,45,45,47,47]
     detail=r.score(hand,[code],winning_tile=47)
-    assert detail and "门清" not in detail["fan_names"]
+    assert detail and detail["fan_names"] == ["门清", "夹/单吊/单和"]
     assert not r.valid_hand(hand,[code,code],complete=True)
+
+
+@pytest.mark.parametrize("kind", r.SPECIAL_DOMAINS)
+@pytest.mark.parametrize("one_bamboo", [False, True])
+@pytest.mark.parametrize("added", [False, True])
+@pytest.mark.parametrize("ordinary", [None, "G18", "k18", "g18", "s15"])
+def test_special_kong_menzen_depends_only_on_ordinary_open_melds(kind,one_bamboo,added,ordinary):
+    logical = r.SPECIAL_DOMAINS[kind][:3]
+    physical = (31, *logical[1:]) if one_bamboo else logical
+    code = r.special_code(kind, physical, logical)
+    if added:
+        code = r.add_special(code, 31 if one_bamboo else logical[0], logical[0])
+    melds = [code] + ([ordinary] if ordinary else [])
+    hand = ([11,12,13] if ordinary is None else []) + [22,23,24,35,36,37,45,45]
+    detail = r.score(hand, melds, winning_tile=45)
+    expected_menzen = ordinary in (None, "G18")
+    assert detail is not None
+    assert ("门清" in detail["fan_names"]) is expected_menzen
+    assert detail["raw_fan"] == (2 if expected_menzen else 1)
+    # Menzen is a scoring rule; publicly exposed special tiles stay exposed.
+    assert not r.parse_meld(code).concealed
+
+
+def test_four_special_kongs_keep_menzen_and_piao_without_double_single_wait():
+    melds = [r.special_code(kind, domain[:3], domain[:3]) for kind, domain in r.SPECIAL_DOMAINS.items()]
+    detail = r.score([28,28], melds, winning_tile=28)
+    assert detail["fan_names"] == ["门清", "飘和"]
+    assert detail["raw_fan"] == 3
+
+
+@pytest.mark.parametrize("winner,fan,discarder,expected", [
+    (0,2,None,{1:16,2:16,3:16}),
+    (1,2,None,{0:16,2:8,3:8}),
+    (0,2,1,{1:16,2:8,3:8}),
+    (1,2,0,{0:16,2:4,3:4}),
+    (1,2,2,{0:8,2:8,3:4}),
+    (1,5,2,{0:64,2:64,3:32}),
+    (0,5,None,{1:64,2:64,3:64}),
+])
+@pytest.mark.parametrize("dealer", range(4))
+@pytest.mark.parametrize("bao_seen", [True, False])
+def test_dealer_fan_is_payer_specific_before_cap_and_baozhuang(winner,fan,discarder,expected,dealer,bao_seen):
+    # Explicit expected payments, rotated to exercise every physical seat.
+    seat = lambda value: None if value is None else (value + dealer) % 4
+    delta, parts = r.payments(seat(winner), fan, dealer=dealer, discarder=seat(discarder), bao_seen=bao_seen)
+    assert {part["payer"]: part["score"] for part in parts} == {seat(p): n for p,n in expected.items()}
+    assert delta[seat(winner)] == sum(expected.values())
+    assert sum(delta.values()) == 0
+    for part in parts:
+        assert 2 ** part["fan"] == part["score"]
+        responsible = seat(discarder) if discarder is not None and not bao_seen else part["payer"]
+        assert part["responsible"] == responsible
+    if discarder is not None and not bao_seen:
+        assert delta[seat(discarder)] == -sum(expected.values())
 
 
 @pytest.mark.parametrize("code",["",None,"Cbogus:11,21,31:11,21,31","Cyao:11,21:11,21",

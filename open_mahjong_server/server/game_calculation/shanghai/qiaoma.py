@@ -12,6 +12,28 @@ WINDS = (41, 42, 43, 44)
 TILES = NUMBERS + WINDS
 FLOWERS = (45, 46, 47, 51, 52, 53, 54, 55, 56, 57, 58)
 SUB_RULE = "shanghai/qiaoma"
+QING3_HUN2_PENG2 = "qing3_hun2_peng2"
+
+
+def normalize_room_config(config=None, sub_rule=SUB_RULE):
+    if config is None:
+        config = {}
+    if not isinstance(config, dict) or set(config) - {QING3_HUN2_PENG2}:
+        raise ValueError("不支持的上海敲麻细则")
+    enabled = config.get(QING3_HUN2_PENG2, False)
+    if type(enabled) is not bool:
+        raise ValueError("清三混二碰二配置必须为布尔值")
+    if sub_rule != SUB_RULE:
+        if enabled:
+            raise ValueError("清三混二碰二仅适用于上海敲麻")
+        return None
+    return {QING3_HUN2_PENG2: enabled}
+
+
+def display_fan_names(names, qing3_hun2_peng2=False):
+    """结算与牌谱携带番值，统计仍使用原来的番种名。"""
+    values = {"清一色": 3, "混一色": 2, "碰碰和": 2} if qing3_hun2_peng2 else {}
+    return [f"{name}（{values[name]}番）" if name in values else name for name in names]
 
 
 def meld_tiles(code):
@@ -89,7 +111,7 @@ def physical_flower_count(flowers, melds=(), concealed_sets=()):
 
 
 def score(hand, melds=(), flowers=(), *, declared_ready=False, self_draw=False,
-          replacement=False, rob_kong=False, min_fan=0):
+          replacement=False, rob_kong=False, min_fan=0, qing3_hun2_peng2=False):
     if not declared_ready:
         return None
     candidates = []
@@ -102,9 +124,10 @@ def score(hand, melds=(), flowers=(), *, declared_ready=False, self_draw=False,
         all_tiles = list(hand) + [t for code in melds for t in meld_tiles(code)]
         suits = {t // 10 for t in all_tiles if t in NUMBERS}
         if len(suits) == 1:
-            fans.append(("混一色", 1) if any(t in WINDS for t in all_tiles) else ("清一色", 2))
+            fans.append(("混一色", 2 if qing3_hun2_peng2 else 1) if any(t in WINDS for t in all_tiles)
+                        else ("清一色", 3 if qing3_hun2_peng2 else 2))
         if all(code[0] in "kgG" for code in tuple(melds) + sets):
-            fans.append(("碰碰和", 1))
+            fans.append(("碰碰和", 2 if qing3_hun2_peng2 else 1))
         regular_fan = sum(value for _, value in fans)
         flower_count = physical_flower_count(flowers, melds, sets)
         no_flowers = flower_count == 0

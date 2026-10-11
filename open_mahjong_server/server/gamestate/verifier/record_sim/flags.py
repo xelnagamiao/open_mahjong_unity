@@ -73,6 +73,8 @@ _BY_RULE: dict[str, RecordRuleFlags] = {
         record_hu_tile_tick_index=7,
     ),
     "taiwan": RecordRuleFlags(rule_id="taiwan", replacement_from_tail_end=True),
+    "shanghai": RecordRuleFlags(rule_id="shanghai", replacement_from_tail_end=True, peek_ankan=True,
+                               supports_robbed_added_kong_source=True),
     "guobiao": RecordRuleFlags(rule_id="guobiao", supports_robbed_added_kong_source=True),
     "qingque": RecordRuleFlags(rule_id="qingque"),
     "zhongyong": RecordRuleFlags(rule_id="zhongyong", replacement_from_tail_end=True),
@@ -89,7 +91,9 @@ def resolve_record_flags(
     if "jiandan" in {rid, title_rule, title_sub}:
         raise ValueError("旧版南雀牌谱已停止支持，请使用中庸麻将下的新南雀牌谱。")
     if rid in _BY_RULE:
-        if rid == "sichuan" and _title_str(game_title, "sub_rule") in {"sichuan/xueliu", "sichuan/xueliu_exchange"}:
+        if _title_str(game_title, "sub_rule", rule or "") == "shanghai/lajihe":
+            return replace(_BY_RULE[rid], face_down_ankan=True, peek_ankan=False)
+        if rid == "sichuan" and _title_str(game_title, "sub_rule") in {"sichuan/xueliu", "sichuan/xueliu_exchange", "sichuan/xueliu_doubles", "sichuan/xueliu_doubles_duplicate"}:
             return replace(_BY_RULE[rid], infers_dingque_from_discards=False)
         return _BY_RULE[rid]
     return RecordRuleFlags(rule_id=rid)

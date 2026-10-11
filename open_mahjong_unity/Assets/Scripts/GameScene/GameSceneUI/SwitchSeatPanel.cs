@@ -49,14 +49,13 @@ public class SwitchSeatPanel : MonoBehaviour {
     }
 
     public static Dictionary<string, string> ThreePlayerPositionMapping(int selfIndex) {
-        string[] positions = { "self", "right", "left" };
         // Before the new game_start, the client still has the previous hand's seats.
         // Across each wind, old seats 0 and 1 exchange; old seat 2 stays in place.
         int[] destinations = { 1, 0, 2 };
         var mapping = new Dictionary<string, string>();
         for (int seat = 0; seat < 3; seat++) {
-            string from = positions[(seat - selfIndex + 3) % 3];
-            string to = positions[(destinations[seat] - selfIndex + 3) % 3];
+            string from = TableMirror.RelativeSeat(selfIndex, seat);
+            string to = TableMirror.RelativeSeat(selfIndex, destinations[seat]);
             mapping[from] = to;
         }
         return mapping;
@@ -65,11 +64,16 @@ public class SwitchSeatPanel : MonoBehaviour {
     private IEnumerator ShowThreePlayerSwitch(int gameRound) {
         var state = NormalGameStateManager.Instance;
         var players = state.player_to_info;
-        SelfName.text = StreamerModeHelper.FormatGamestatePlayerName(players["self"].username, "self", players["self"].userId);
-        RightName.text = StreamerModeHelper.FormatGamestatePlayerName(players["right"].username, "right", players["right"].userId);
-        LeftName.text = StreamerModeHelper.FormatGamestatePlayerName(players["left"].username, "left", players["left"].userId);
-        TopPanel.SetActive(false);
-        TopName.text = "";
+        var names = new Dictionary<string, TMP_Text> {
+            ["self"] = SelfName, ["right"] = RightName, ["top"] = TopName, ["left"] = LeftName
+        };
+        foreach (string position in TableMirror.Seats) {
+            bool occupied = state.indexToPosition.ContainsValue(position);
+            GetPanelByPosition(position).SetActive(occupied);
+            var player = players[position];
+            names[position].text = occupied
+                ? StreamerModeHelper.FormatGamestatePlayerName(player.username, position, player.userId) : "";
+        }
         int wind = (gameRound - 1) / 3;
         NextRoundName.text = "东南西北"[wind - 1] + "圈=>" + "东南西北"[wind] + "圈";
         gameObject.SetActive(true);
@@ -88,7 +92,7 @@ public class SwitchSeatPanel : MonoBehaviour {
             yield return ShowThreePlayerSwitch(gameRound);
             yield break;
         }
-        TopPanel.SetActive(true);
+        foreach (string position in TableMirror.Seats) GetPanelByPosition(position).SetActive(true);
         // 获取自身索引
         int selfIndex = NormalGameStateManager.Instance.selfIndex;
         // 获取自身索引进1的索引(东南西北=>东 也就是上轮换位后的初始位)

@@ -1,4 +1,6 @@
 import { fr, frTextPatterns } from './fr.js'
+import { auditEnglish, auditShared } from './audit-messages.js'
+import { libraryAuditMessages } from './library-audit.js'
 
 const en = {
   '用户名 / 邮箱': 'Username / email',
@@ -1787,6 +1789,15 @@ const zhHK = new Proxy({}, {
   },
 })
 
+for (const [language, target] of Object.entries({ en, fr, ja })) {
+  for (const [source, translated] of Object.entries(libraryAuditMessages[language])) {
+    // Preserve existing game terminology, including the FFMJ scoring names.
+    if (target[source] == null) target[source] = translated
+  }
+}
+Object.assign(en, auditEnglish, auditShared.en)
+Object.assign(fr, auditShared.fr)
+Object.assign(ja, auditShared.ja)
 export const messages = { 'zh-CN': {}, 'zh-TW': zhTW, 'zh-HK': zhHK, en, ja, fr }
 
 export const textPatterns = {

@@ -1,3 +1,5 @@
+const { statisticsSelection } = require('../services/statisticsCatalog');
+const { INFO_FAN_DICT } = require('../constants/playerFanDicts');
 const express = require('express');
 const router = express.Router();
 const { guobiaoFanDict } = require('../constants/guobiaoFanDict');
@@ -54,6 +56,9 @@ router.get('/queue-status', async (_req, res) => {
 
 router.get('/stats', async (req, res) => {
   try {
+    const def = statisticsSelection(req.query.rule || 'guobiao');
+    if (!def) return res.status(400).json({ success: false, message: '此规则没有基础统计' });
+    const rule = def.key;
     const asOfDate = await getAsOfStatDate();
     const days = Math.min(365, Math.max(7, parseInt(req.query.days, 10) || 30));
     let dateFrom = typeof req.query.date_from === 'string' ? req.query.date_from.slice(0, 10) : null;
@@ -67,9 +72,9 @@ router.get('/stats', async (req, res) => {
 
     const eventId = typeof req.query.event_id === 'string' ? req.query.event_id.trim() : '';
     const [totals, fans, daily, events] = await Promise.all([
-      querySceneTotals({ asOfDate, eventId: eventId || null }),
-      querySceneTotalsFans({ asOfDate, eventId: eventId || null }),
-      querySceneDailyGames({ dateFrom, dateTo, asOfDate, eventId: eventId || null }),
+      querySceneTotals({ asOfDate, rule, eventId: eventId || null }),
+      querySceneTotalsFans({ asOfDate, rule, eventId: eventId || null }),
+      querySceneDailyGames({ dateFrom, dateTo, asOfDate, rule, eventId: eventId || null }),
       listPlatformEvents(),
     ]);
 
@@ -80,7 +85,8 @@ router.get('/stats', async (req, res) => {
         fans,
         daily,
         events,
-        fan_dict: guobiaoFanDict,
+        fan_dict: def.fan_stats ? INFO_FAN_DICT[def.fan_key] || {} : null,
+        supports_fan_stats: def.fan_stats,
       },
       meta: {
         as_of_date: asOfDate,
@@ -122,6 +128,7 @@ router.get('/recent-records', async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 20;
     const offset = parseInt(req.query.offset, 10) || 0;
     const data = await queryRecentLadderRecords({
+      rule: req.query.rule || "guobiao",
       matchTier,
       eventId: eventId || null,
       limit,

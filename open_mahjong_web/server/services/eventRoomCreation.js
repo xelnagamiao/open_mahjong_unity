@@ -17,6 +17,13 @@ function createEventRoomCreationService({ duplicateWalls, proxyToGameServer, wri
     if (body.auto_duplicate !== undefined && typeof body.auto_duplicate !== 'boolean') fail(400, '自动生成复式密钥开关必须为布尔值');
     if (body.duplicate_enabled !== undefined && typeof body.duplicate_enabled !== 'boolean') fail(400, '复式开关必须为布尔值');
     const roomConfig = { ...(body.room_config || {}) };
+    const paired = ['sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate'].includes(roomConfig.sub_rule);
+    if (paired) {
+      if (rule !== 'sichuan' || event.kind !== 'event') fail(400, '复式双打只能在比赛场中创建');
+      if (body.auto_duplicate || body.duplicate_enabled || roomConfig.duplicate_key || roomConfig.random_seed) fail(400, '复式双打由后台统一生成配对牌墙');
+      const rounds = roomConfig.duplicate_round_count;
+      if (!ROUND_COUNTS.includes(rounds)) fail(400, '比赛副数请选择 1、4、8、12 或 16 副');
+    }
     if (body.auto_duplicate && body.duplicate_enabled !== true) fail(400, '请先开启复式');
     if (body.duplicate_enabled === false && roomConfig.duplicate_key) fail(400, '请先开启复式');
     if (body.duplicate_enabled) {
@@ -42,6 +49,7 @@ function createEventRoomCreationService({ duplicateWalls, proxyToGameServer, wri
     const result = () => ({
       ...(items.length === 1 ? items[0] : {}), items,
       requested_count: count, created_count: items.length,
+      ...(paired ? { paired: true, created_pair_count: items.length, created_room_count: items.length * 2 } : {}),
       generated_key_count: generated.walls.length, duplicate_quota: generated.quota,
     });
     for (let index = 0; index < count; index += 1) {

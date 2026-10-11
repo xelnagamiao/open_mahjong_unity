@@ -1,15 +1,11 @@
-<template>
-  <div v-if="page" v-html="content" />
-</template>
+<template><div /></template>
 
 <script setup>
-import { computed } from 'vue'
+import { onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { mcrPageForPath } from '@/seo/mcr-pages.js'
-import { renderMcrContent } from '@/seo/mcr-render.js'
-import '@/seo/mcr-landing.css'
 
+// These URLs are complete static documents. Internal SPA navigation must use
+// the same source-derived document, rather than a second copy of its prose.
 const route = useRoute()
-const page = computed(() => mcrPageForPath(route.path))
-const content = computed(() => page.value ? renderMcrContent(page.value) : '')
+onMounted(() => window.location.replace(route.fullPath))
 </script>

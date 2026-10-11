@@ -120,10 +120,12 @@ def test_hidden_transfer_can_only_be_taken_once_when_players_race() -> None:
 def test_invalid_or_occupied_transfer_keeps_tile_and_visibility() -> None:
     async def scenario():
         state, sockets = _make_state()
-        state.player_list[0].hand_tiles.extend([19, 22])
+        state.player_list[0].hand_tiles.extend([19, 22, 23, 24])
         await state.handle_command(101, {"action": "transfer_put", "tile": 18, "face_down": True})
         assert state.transfer_tile is None and not state.transfer_face_down
         await state.handle_command(101, {"action": "transfer_put", "tile": 19, "face_down": True})
+        await state.handle_command(101, {"action": "transfer_put", "tile": 23})
+        await state.handle_command(101, {"action": "transfer_put", "tile": 24})
         tick = state.action_tick
         await state.handle_command(101, {"action": "transfer_put", "tile": 22, "face_down": False})
         assert state.transfer_tile == 19 and state.transfer_face_down
@@ -371,6 +373,7 @@ def test_table_action_actor_is_event_scoped_and_preserves_existing_fields() -> N
         assert set(table) == {
             "votes", "transfer_tile", "transfer_face_down", "score_revision", "scores", "revealed",
             "revealed_player_index", "revealed_hand", "last_river_player", "last_river_tile",
+            "transfer_tiles", "hand_counts", "river_tokens", "flower_tokens",
         }
         await state.player_reconnect(101)
         reconnect = sockets[101].messages[-1]
@@ -397,7 +400,7 @@ def test_votes_require_all_four() -> None:
     asyncio.run(scenario())
 
 
-def test_transfer_slot_is_single_and_serialized() -> None:
+def test_legacy_transfer_take_consumes_first_entry_only() -> None:
     async def scenario():
         state, _ = _make_state()
         state.player_list[0].hand_tiles.append(11)
@@ -406,12 +409,14 @@ def test_transfer_slot_is_single_and_serialized() -> None:
         assert state.transfer_tile == 11
         await state.handle_command(102, {"action": "transfer_put", "tile": 12})
         assert state.transfer_tile == 11
-        assert 12 in state.player_list[1].hand_tiles
+        assert 12 not in state.player_list[1].hand_tiles
         await state.handle_command(103, {"action": "transfer_take"})
-        assert state.transfer_tile is None
+        assert state.transfer_tile == 12
         assert 11 in state.player_list[2].hand_tiles
         await state.handle_command(104, {"action": "transfer_take"})
         assert 11 not in state.player_list[3].hand_tiles
+        assert 12 in state.player_list[3].hand_tiles
+        assert state.transfer_tile is None
 
     asyncio.run(scenario())
 

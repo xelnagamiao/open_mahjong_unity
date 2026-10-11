@@ -37,7 +37,7 @@ public partial class Game3DManager {
             out position, out rotation, out size);
     }
 
-    /// <summary>转移区沿整个中心盘的外沿描边；没有中心盘时预留两张牌宽、高的区域。</summary>
+    /// <summary>转移区沿整个中心盘的外沿描边；没有中心盘时预留三张牌及编号的区域。</summary>
     public bool TryGetTransferPlacementPreview(out Vector3 position, out Quaternion rotation, out Vector2 size) {
         position = Vector3.zero;
         rotation = Quaternion.identity;
@@ -51,7 +51,7 @@ public partial class Game3DManager {
                 centerPanel.TransformVector(Vector3.up * centerPanel.rect.height), point, normal,
                 out position, out rotation, out size);
         }
-        return TryGetPlacementRegion(point, RightDirection.normalized * (widthSpacing * 2f),
+        return TryGetPlacementRegion(point, RightDirection.normalized * (widthSpacing * 3.4f),
             BackDirection.normalized * (heightSpacing * 2f), point, normal,
             out position, out rotation, out size);
     }

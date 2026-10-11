@@ -31,6 +31,7 @@ namespace Riichi {
         }
 
         public static int Normalize(int tileId) {
+            tileId = WashizuTileEncoding.Face(tileId);
             if (tileId == 105) return 15;
             if (tileId == 205) return 25;
             if (tileId == 305) return 35;

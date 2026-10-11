@@ -7,6 +7,7 @@ import logging
 
 from ..public.logic_common import get_index_relative_position, next_current_num
 from .rule_logic import option, ankan_allowed, is_first_draw
+from ...game_calculation.riichi.win_requirements import meets_win_requirements
 
 logger = logging.getLogger(__name__)
 
@@ -44,13 +45,8 @@ def check_jiuzhongjiupai(hand_tiles: List[int]) -> bool:
 
 
 def _normalize(tile: int) -> int:
-    if tile == 105:
-        return 15
-    if tile == 205:
-        return 25
-    if tile == 305:
-        return 35
-    return tile
+    from ...game_calculation.riichi.washizu_tiles import normalize
+    return normalize(tile)
 
 
 def _enumerate_chi_pairs(hand_tiles: List[int], req_a: int, req_b: int) -> List[List[int]]:
@@ -156,6 +152,9 @@ def check_action_after_cut(self, cut_tile: int):
             hand_norm = [_normalize(t) for t in item.hand_tiles]
             if hand_norm.count(normal_cut) >= 2:
                 temp_action_dict[item.player_index].append("peng")
+                from .washizu import enabled, call_candidates
+                if enabled(self):
+                    item.chi_candidates['peng'] = call_candidates(item.hand_tiles, cut_tile)
             if kan_allowed and hand_norm.count(normal_cut) >= 3 and len(self.tiles_list) > self.dead_wall_count:
                 temp_action_dict[item.player_index].append("gang")
 
@@ -418,6 +417,9 @@ def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepa
     is_houtei = hepai_type == "ron" and len(self.tiles_list) <= self.dead_wall_count
 
     is_first_action = is_first_draw(self, player)
+    from .washizu import enabled, prepare_ura
+    if enabled(self) and "riichi" in player.tag_list:
+        prepare_ura(self)
     ura_dora = self.ura_dora_indicators if "riichi" in player.tag_list else []
 
     ctx = {
@@ -443,6 +445,7 @@ def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepa
         "tsumi_number": self.honba,
         "is_sanma": self.sub_rule == 'riichi/sanma',
         "nuki_count": len(player.huapai_list),
+        "hepai_limit": getattr(self, "hepai_limit", 1),
     }
     ctx.update(getattr(self, 'detailed_config', {}))
 
@@ -458,12 +461,14 @@ def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepa
         )
         return
 
-    # 起和番数限制：低于 hepai_limit 的和牌需开启 open_cuohe 才允许宣告，并在结算时走错和流程
-    if int(result.get("han", 0)) < int(getattr(self, "hepai_limit", 1)):
+    # 起和番只计役；起和线按含宝牌的闲家荣和等值。未达门槛仅可走错和。
+    if not meets_win_requirements(result, getattr(self, "hepai_limit", 1), option(self, 'minimum_win_score')):
         if not getattr(self, "open_cuohe", False):
             logger.info(
                 f"[riichi hepai blocked by hepai_limit] player={player_index} type={hepai_type} "
-                f"han={result.get('han')} limit={self.hepai_limit} yaku={result.get('yaku')}"
+                f"yaku_han={result.get('yaku_han')} limit={self.hepai_limit} "
+                f"standard_score={result.get('standard_ron_score')} score_limit={option(self, 'minimum_win_score')} "
+                f"yaku={result.get('yaku')}"
             )
             return
 

@@ -227,7 +227,7 @@ internal static class TuidaoHandCalculator {
         if (query == null) return WaitTileHint.None("未起和");
         BaseScore ron = Score(query.HandWithWin, query.Melds, query.HepaiTile, false);
         if (ron == null) return WaitTileHint.None("未起和");
-        string label = $"基础{ron.Fan}番{ron.Points}分";
+        string label = $"{ron.Fan}番{ron.Points}分";
         BaseScore tsumo = Score(query.HandWithWin, query.Melds, query.HepaiTile, true);
         if (tsumo != null && tsumo.Fan != ron.Fan) label += $"\n自摸{tsumo.Fan}番{tsumo.Points}分";
         return WaitTileHint.Ron(label);

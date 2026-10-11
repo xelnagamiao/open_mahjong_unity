@@ -73,11 +73,11 @@ public sealed class FreeModeActivityLog {
             switch (word) {
                 case "cut":
                     category = FreeModeActivityCategory.Discard;
-                    description = "打出「" + TileName(action.cut_tile) + "」";
+                    description = action.concealed_discard == true ? "将一张暗牌放入弃牌区" : "打出「" + TileName(action.cut_tile) + "」";
                     break;
                 case "free_to_flower":
                     category = FreeModeActivityCategory.Discard;
-                    description = "将「" + TileName(action.buhua_tile) + "」放入补花区";
+                    description = action.free_face_down ? "将一张暗牌放入补花区" : "将「" + TileName(action.buhua_tile) + "」放入补花区";
                     break;
                 case "deal_tile":
                     category = FreeModeActivityCategory.Draw;
@@ -95,11 +95,13 @@ public sealed class FreeModeActivityLog {
                     break;
                 case "free_recall_river":
                     category = FreeModeActivityCategory.MeldAndTransfer;
-                    description = "从弃牌区收回「" + TileName(action.cut_tile) + "」";
+                    description = action.free_face_down && !IsNamedTile(action.deal_tile) ? "从弃牌区收回一张暗牌"
+                        : "从弃牌区收回「" + TileName(action.deal_tile ?? action.cut_tile) + "」";
                     break;
                 case "free_recall_flower":
                     category = FreeModeActivityCategory.MeldAndTransfer;
-                    description = "从补花区收回「" + TileName(action.buhua_tile ?? action.cut_tile) + "」";
+                    description = action.free_face_down && !IsNamedTile(action.deal_tile) ? "从补花区收回一张暗牌"
+                        : "从补花区收回「" + TileName(action.deal_tile ?? action.buhua_tile ?? action.cut_tile) + "」";
                     break;
                 case "free_recall_meld":
                     category = FreeModeActivityCategory.MeldAndTransfer;
@@ -109,11 +111,15 @@ public sealed class FreeModeActivityLog {
                     category = FreeModeActivityCategory.MeldAndTransfer;
                     description = action.transfer_face_down
                         ? "将一张暗牌放入转移区" : "将「" + TileName(action.cut_tile) + "」放入转移区";
+                    if (action.transfer_slots != null) description += "（编号 " + string.Join("、", action.transfer_slots) + "）";
                     break;
                 case "free_transfer_take":
                     category = FreeModeActivityCategory.MeldAndTransfer;
-                    description = IsNamedTile(action.deal_tile)
-                        ? "从转移区取走「" + TileName(action.deal_tile) + "」" : "从转移区取走一张暗牌";
+                    var takenNames = new List<string>();
+                    foreach (int tile in action.deal_tiles ?? new[] { action.deal_tile ?? 0 })
+                        takenNames.Add(IsNamedTile(tile) ? TileName(tile) : "暗牌");
+                    description = "从转移区收回" + (action.transfer_slots != null ? " " + string.Join("、", action.transfer_slots) + " 号" : "牌")
+                        + "（" + string.Join("、", takenNames) + "）";
                     if (action.transfer_face_down && revealed.TryGetValue(action.action_player, out bool wasRevealed) && wasRevealed)
                         description += "，并将手牌竖起";
                     break;

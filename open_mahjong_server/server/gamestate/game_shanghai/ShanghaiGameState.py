@@ -140,7 +140,9 @@ class ShanghaiGameState(TaiwanGameState):
             missed_win_blocks_self_draw=False, missed_win_blocks_claims=False,
             seven_flowers_steal_eighth_enabled=False,
         )
-        self.rules_dict = {"edition": "MIL2024", "fan_cap": 3}
+        self.qing3_hun2_peng2 = (room_data.get("detailed_config") or {}).get(qiaoma.QING3_HUN2_PENG2) is True
+        self.rules_dict = {"edition": "MIL2024", "fan_cap": 3,
+                           qiaoma.QING3_HUN2_PENG2: self.qing3_hun2_peng2}
         self.dead_wall_count = 0
         self.hepai_limit = 1 if room_data.get("hepai_limit", 0) == 1 else 0
         from .bot import shanghai_smart_bot_action
@@ -174,6 +176,7 @@ class ShanghaiGameState(TaiwanGameState):
             declared_ready=player.declared_ready, self_draw=source == "self_draw",
             replacement=source == "self_draw" and self.last_draw_after_kong,
             rob_kong=source == "robbing_kong", min_fan=self.hepai_limit,
+            qing3_hun2_peng2=self.qing3_hun2_peng2,
         )
 
     def ready_candidate_cuts(self, player_index):
@@ -475,6 +478,7 @@ class ShanghaiGameState(TaiwanGameState):
                 player.round_number_history.append(self.current_round)
             counter = winner.record_counter
             counter.recorded_fans.append(labels)
+            labels = qiaoma.display_fan_names(labels, self.qing3_hun2_peng2)
             counter.win_score += detail["base_score"]
             counter.win_turn += self.xunmu
             if item["source"] == "self_draw":

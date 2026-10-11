@@ -25,7 +25,7 @@ def _wait_hints(hand,melds,flowers,rules,seat,round_wind,ready,streak):
 
 def private_hints(state,index):
     p = state.player_list[index]
-    if not state.tips or p.is_bot or p.is_hu or any(t>50 for t in p.hand_tiles):
+    if not (state.tips or state.count_tips) or p.is_bot or p.is_hu or any(t>50 for t in p.hand_tiles):
         return {}
     complete = len(p.hand_tiles)==state.rules.structure.concealed_tile_count(len(p.combination_tiles),complete=True)
     cuts = sorted(legal_discards(state,index)) if complete else [None]

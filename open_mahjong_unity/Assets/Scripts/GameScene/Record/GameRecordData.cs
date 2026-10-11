@@ -28,7 +28,16 @@ public class RiichiRoundExtras {
 /// 单局数据
 /// </summary>
 [Serializable]
+public class WashizuRoundExtras {
+    public int version;
+    public int draw_limit = 70;
+    public int[] dora_indicators;
+    public int dead_wall_count = 13;
+}
+
+[Serializable]
 public class Round {
+    public WashizuRoundExtras washizu;
     public int roundIndex;
     public int currentRound;
     public List<int> seats;
@@ -39,8 +48,11 @@ public class Round {
     public HongKongInfo hongkong;
     public GuizhouInfo guizhou;
     public YixingInfo yixing;
+    public NanjingInfo nanjing;
     public HangzhouInfo hangzhou;
     public WenzhouInfo wenzhou;
+    public NanchangInfo nanchang;
+    public Dictionary<int, Dictionary<string, NanchangWait[]>> nanchangHints;
     public Dictionary<int, Dictionary<string, WenzhouWait[]>> wenzhouWaits;
     public Dictionary<string, object> detailedConfig;
     public int p0UserId;

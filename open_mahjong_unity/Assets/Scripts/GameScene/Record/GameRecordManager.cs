@@ -294,7 +294,6 @@ public partial class GameRecordManager : MonoBehaviour {
     [SerializeField] private List<Round> _roundsListForInspector;
 
     public void HideGameRecord() {
-        GuangdongLedgerPanel.Hide();
         StopRecordAutoPlay();
         InvalidateRecordDelayedAdvances();
         recordShareGameId = null;
@@ -533,8 +532,8 @@ public partial class GameRecordManager : MonoBehaviour {
         foreach (string position in new[] { "self", "right", "top", "left" })
             recordPlayer_to_info[position] = new RecordPlayer { userId = -1, playerIndex = -1, originalPlayerIndex = -1 };
         if (RecordPlayerCount == 3) {
-            string[] positions = { "self", "right", "left" };
-            for (int offset = 0; offset < 3; offset++) indexToPosition[(selectedPlayerIndex + offset) % 3] = positions[offset];
+            for (int index = 0; index < 3; index++)
+                indexToPosition[index] = TableMirror.RelativeSeat(selectedPlayerIndex, index);
         } else if (selectedPlayerIndex == 0) {
             indexToPosition[0] = "self";
             indexToPosition[1] = "right";
@@ -615,18 +614,15 @@ public partial class GameRecordManager : MonoBehaviour {
             else if (recordPlayer.playerIndex == 3){
                 recordPlayer.tileList = new List<int>(gameRecord.gameRound.rounds[currentRoundIndex].p3Tiles);
             }
-            if (IsHongzhongRecord()) {
-                recordPlayer.showHandDrawSlotActive =
-                    recordPlayer.playerIndex == gameRecord.gameRound.rounds[currentRoundIndex].startPlayerIndex
-                    && recordPlayer.tileList.Count == 14;
-            }
         }
 
-        InitializeHangzhouRecordDrawSlots();
+        RecordReplay.InitializePlayers?.Invoke();
         if (refreshView) {
             // 初始化玩家UI
             GameCanvas.Instance.InitializeUIInfoFromRecord(recordPlayerList, indexToPosition, userIdToUsername);
+            RefreshRecordRulePlayerTags();
             GameCanvas.Instance.UpdatePlayerDingque(recordPlayerList.ToDictionary(p => p.playerIndex, p => p.dingqueSuit), indexToPosition);
+            RefreshDoublesRecordTeams();
 
             // 初始化中心操作盘Controlpanel
             int startRemainTiles = 0;
@@ -837,7 +833,7 @@ public partial class GameRecordManager : MonoBehaviour {
             return;
         }
 
-        List<string> tick = NormalizeWenzhouRecordTick(roundData.actionTicks[currentNode]);
+        List<string> tick = NormalizeRecordRuleTick(roundData.actionTicks[currentNode]);
         string action = tick[0];
         int previousPlayerIndex = currentPlayerIndex;
         int actingPlayerIndex = GameRecordJsonDecoder.ResolveRecordActingPlayerIndex(tick, action, currentPlayerIndex);
@@ -847,19 +843,16 @@ public partial class GameRecordManager : MonoBehaviour {
         string displayAction = (action == "ca" && tick.Count >= 3)
             ? ToDisplayAction(tick[2])
             : ToDisplayAction(action);
-        bool isRecordState = action == "cc" || action == "state" || action == "hongkong" || action == "tuidao" || action == "guizhou" || action == "yixing" || action == "hangzhou" || action == "wenzhou" || action == "guangdong" || action == "hongzhong";
-        PlayTuidaoRecordAnnouncement(tick);
-        PlayShanghaiRecordAnnouncement(tick);
-        PlayHangzhouRecordAnnouncement(tick,currentPlayerPosition,currentRecordPlayer.voice_used);
-        PlayChangchunRecordAnnouncement(tick);
+        bool isRecordState = action == "state" || RecordReplay.StateActions.Contains(action);
+        RecordReplay.AnnounceBeforeAction?.Invoke(tick, currentPlayerPosition, currentRecordPlayer.voice_used);
         if (action != "riichi" && action != "rk" && !isRecordState && !ShouldSkipRecordTickVoice(action)) {
             SoundManager.Instance.PlayActionSound(currentPlayerPosition, displayAction, currentRecordPlayer.voice_used);
             SoundManager.Instance.PlayPhysicsSound(displayAction);
         }
         int nextPlayerIndex = currentPlayerIndex;
         bool isRuleStateAction = ApplyRecordRuleActionBeforeMutation(tick);
-        nextPlayerIndex = ResolveChangchunRecordNextPlayer(tick,nextPlayerIndex);
-        if (action == "cc") RefreshChangchunRecordEvent(tick);
+        nextPlayerIndex = ResolveRecordRuleNextPlayer(tick,nextPlayerIndex);
+        RecordReplay.AfterVisibleMutation?.Invoke(tick);
 
         if (!isRuleStateAction && (action == "d" || action == "gd" || action == "bd" || action == "nd")) {
             int dealTile = ParseTickInt(tick, 1);
@@ -867,7 +860,7 @@ public partial class GameRecordManager : MonoBehaviour {
             currentRecordPlayer.showHandDrawSlotActive = true;
             waitingForDrawAfterCut = false;
 
-            if (!TryConsumeDuplicateWallTile(actingPlayerIndex, action) && !TryConsumeRecordRuleWallTile(action) && currentTilesList.Count > 0) {
+            if (!TryConsumeDuplicateWallTile(actingPlayerIndex, action, tick) && !TryConsumeRecordRuleWallTile(action) && currentTilesList.Count > 0) {
                 // 川麻杠后补牌与普通摸牌同向从头取；其他规则 gd/bd 走倒序岭上
                 bool drawFromFront = action == "d" || (action == "gd" && IsSichuanRecord());
                 if (!drawFromFront && (action == "gd" || action == "bd")) {
@@ -973,7 +966,7 @@ public partial class GameRecordManager : MonoBehaviour {
                 ApplyRecordAngangHandCardRemoval(removedTiles, isMoGang);
             }
             Game3DManager.Instance.Change3DTile("angang", angangTile, removedTiles.Count, currentPlayerPosition, false, combinationMask, isMoGang: isMoGang);
-            if (isMoGang || IsHongzhongRecord()) {
+            if (isMoGang || IsHongzhongRecord() || IsJiujiangRecord()) {
                 currentRecordPlayer.showHandDrawSlotActive = false;
             }
             GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, "angang");
@@ -999,7 +992,7 @@ public partial class GameRecordManager : MonoBehaviour {
             // 抢杠和：被抢的加杠牌即和牌张，登记为可和牌张供随后 hu_* 追加
             lastWinnableTileId = actualJia;
             lastJiagangPlayerIndex = actingPlayerIndex;
-            int[] combinationMask = BuildJiagangMask(currentRecordPlayer, jiagangTile, actualJia);
+            int[] combinationMask = BuildJiagangMask(currentRecordPlayer, jiagangTile, actualJia, tick);
             if (currentPlayerPosition == "self") {
                 if (isMoGang) {
                     GameCanvas.Instance.ChangeHandCards("RemoveGetCard", actualJia, null, null);
@@ -1008,7 +1001,7 @@ public partial class GameRecordManager : MonoBehaviour {
                 }
             }
             Game3DManager.Instance.Change3DTile("jiagang", actualJia, 1, currentPlayerPosition, isMoGang, combinationMask);
-            if (isMoGang || IsHongzhongRecord()) {
+            if (isMoGang || IsHongzhongRecord() || IsJiujiangRecord()) {
                 currentRecordPlayer.showHandDrawSlotActive = false;
             }
             GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, "jiagang");
@@ -1168,7 +1161,7 @@ public partial class GameRecordManager : MonoBehaviour {
         }
         else if (action == "dora") {
             int doraTile = ParseTickInt(tick, 1);
-            recordRiichiDoraIndicators.Add(doraTile);
+            ApplyRecordRiichiDoraTick(doraTile);
             nextPlayerIndex = actingPlayerIndex;
         }
         else if (action == "ryuukyoku") {
@@ -1208,6 +1201,7 @@ public partial class GameRecordManager : MonoBehaviour {
 
         currentPlayerIndex = nextPlayerIndex;
         currentNode++;
+        Game3DManager.Instance.RefreshWashizuRecordHands();
         // 与对局侧一致：仅在回合流转（下一家行动）时整理手牌，摸牌后同一家继续行动不排序
         if (!isRecordState && nextPlayerIndex != actingPlayerIndex) {
             GameCanvas.Instance.ChangeHandCards("ReSetHandCards", 0, null, null);
@@ -1218,6 +1212,7 @@ public partial class GameRecordManager : MonoBehaviour {
         RefreshRecordChongHint();
         RefreshRecordTips();
         if (isRuleStateAction) RefreshRecordRulePlayerTags();
+        else RecordReplay.RefreshAfterAction?.Invoke();
     }
 
     /// <summary>
@@ -1452,7 +1447,18 @@ public partial class GameRecordManager : MonoBehaviour {
         }
         if (maxRound > 0) sb.AppendLine($"最大局数: {maxRound}局");
         if (gt.ContainsKey("hepai_limit")) {
-            sb.AppendLine($"起和番: {ReadGameTitleInt(gt, "hepai_limit", 0)}");
+            sb.AppendLine($"起和番: {ReadGameTitleInt(gt, "hepai_limit", 0)}{(ruleKey == "riichi" ? "（不含宝牌）" : "")}");
+        }
+        if (ruleKey == "riichi" && DetailedConfigRegistry.TryGet("riichi", out var definition)
+            && definition.TryGetOption("minimum_win_score", out var winLine)) {
+            object value = winLine.DefaultValue;
+            if (gt.TryGetValue("detailed_config", out object rawConfig)) {
+                if (rawConfig is JObject configObject && configObject.TryGetValue(winLine.Key, out var token))
+                    value = token;
+                else if (rawConfig is IDictionary<string, object> config && config.TryGetValue(winLine.Key, out object stored))
+                    value = stored;
+            }
+            sb.AppendLine($"起和线: {winLine.FormatValue(value)}");
         }
         if (gt.ContainsKey("open_cuohe")) sb.AppendLine($"错和: {(ReadGameTitleBool(gt, "open_cuohe", false) ? "开" : "关")}");
         if (gt.ContainsKey("tips")) sb.AppendLine($"提示: {(ReadGameTitleBool(gt, "tips", false) ? "开" : "关")}");
@@ -1805,11 +1811,11 @@ public partial class GameRecordManager : MonoBehaviour {
             yield return new WaitForSeconds(HepaiRevealTiming.RecordShowCardsPanelDelaySeconds);
             yield break;
         }
-        if (IsHongKongRecordFlowerWin) {
+        if (IsHongKongRecordFlowerWin || IsNanjingRecordForcedWin) {
             yield return new WaitForSeconds(HepaiRevealTiming.RecordShowCardsPanelDelaySeconds);
             yield break;
         }
-        bool xueliuQianggang = (IsXueliuRecord() && huClass != "hu_self" && lastJiagangPlayerIndex >= 0) || IsHongKongRecordRobWin || IsGuizhouRecordRobWin || IsYixingRecordRobWin || IsWenzhouRecordRobWin || IsChangchunRecordRobWin;
+        bool xueliuQianggang = (IsXueliuRecord() && huClass != "hu_self" && lastJiagangPlayerIndex >= 0) || IsHongKongRecordRobWin || IsGuizhouRecordRobWin || IsYixingRecordRobWin || IsNanjingRecordRobWin || IsWenzhouRecordRobWin || IsChangchunRecordRobWin || IsShenyangRecordRobWin;
         if (!xueliuQianggang) SyncRecordRonDiscardObjectForPresentation(huClass, huFan, discardPos, hepaiTile);
         if (huPosition == "self") {
             RoundEndPresentation.Instance.HideSelfGameplayControl(revealSelfHand: false);
@@ -2099,17 +2105,15 @@ public partial class GameRecordManager : MonoBehaviour {
     }
 
     private bool IsHongqueRecord() {
-        return RecordManifest()?.JiagangExtendsLastMeld == true;
+        return RecordManifest()?.RecordKongHasMeldIndex == true;
     }
 
-    private int[] BuildJiagangMask(RecordPlayer recordPlayer, int jiagangTile, int actualJiaTile) {
-        if (IsHongqueRecord() && recordPlayer.combinationMasks != null && recordPlayer.combinationMasks.Count > 0) {
-            int lastMeldIdx = recordPlayer.combinationMasks.Count - 1;
-            List<int> hongqueMask = new List<int>(recordPlayer.combinationMasks[lastMeldIdx]);
-            hongqueMask.Add(3);
-            hongqueMask.Add(actualJiaTile);
-            recordPlayer.combinationMasks[lastMeldIdx] = hongqueMask.ToArray();
-            return recordPlayer.combinationMasks[lastMeldIdx];
+    private int[] BuildJiagangMask(RecordPlayer recordPlayer, int jiagangTile, int actualJiaTile, IReadOnlyList<string> tick) {
+        if (IsHongqueRecord()) {
+            if (tick.Count != 4 || !int.TryParse(tick[3], out int meldIndex))
+                throw new System.InvalidOperationException("虹雀牌谱缺少杠牌目标组，请先运行一次性牌谱迁移脚本。");
+            return HongqueDisplayOrder.ExtendRecordedMeld(recordPlayer.combinationMasks,
+                recordPlayer.combinationTiles, meldIndex, actualJiaTile);
         }
         string kCombo = GameRecordMeldCodec.BuildCombinationKey('k', jiagangTile);
         int idx = GameRecordMeldCodec.FindCombinationIndex(recordPlayer.combinationTiles, kCombo);
@@ -2133,34 +2137,7 @@ public partial class GameRecordManager : MonoBehaviour {
     }
 
     private string GetRelativePosition(int selfIndex, int otherIndex) {
-        if (RecordPlayerCount == 3) {
-            return new[] { "self", "right", "left" }[(otherIndex - selfIndex + 3) % 3];
-        }
-        if (selfIndex == 0) {
-            if (otherIndex == 1) return "right";
-            if (otherIndex == 2) return "top";
-            if (otherIndex == 3) return "left";
-            return "self";
-        }
-        if (selfIndex == 1) {
-            if (otherIndex == 0) return "left";
-            if (otherIndex == 2) return "right";
-            if (otherIndex == 3) return "top";
-            return "self";
-        }
-        if (selfIndex == 2) {
-            if (otherIndex == 0) return "top";
-            if (otherIndex == 1) return "left";
-            if (otherIndex == 3) return "right";
-            return "self";
-        }
-        if (selfIndex == 3) {
-            if (otherIndex == 0) return "right";
-            if (otherIndex == 1) return "top";
-            if (otherIndex == 2) return "left";
-            return "self";
-        }
-        return "self";
+        return TableMirror.RelativeSeat(selfIndex, otherIndex);
     }
 
     private void BuildXunmuToNodeAndCreateItems() {
@@ -2265,53 +2242,21 @@ public partial class GameRecordManager : MonoBehaviour {
         }
     }
 
-    private static bool IsRecordSilentTick(List<string> tick) {
+    private bool IsRecordSilentTick(List<string> tick) {
         if (tick == null || tick.Count == 0) return true;
         string action = tick[0];
-        return action == "reset" || action == "ask_hand" || action == "ask_other" || action == "ca" || action == "hongkong" || action == "tuidao" || action == "guizhou" || action == "yixing" || action == "hangzhou" || action == "wenzhou" || action == "guangdong" || action == "hongzhong";
+        return action == "reset" || action == "ask_hand" || action == "ask_other" || action == "ca"
+            || RecordReplay.SilentActions.Contains(action);
     }
 
     private void ApplyRecordSilentTick(List<string> tick) {
         if (tick == null || tick.Count == 0) return;
-        if (ApplyGuangdongRecordAction(tick)) {
-            SyncRecordBoardScores();
-            if (indexToPosition.TryGetValue(currentPlayerIndex, out string position)) BoardCanvas.Instance?.ShowCurrentPlayer(position, GetRecordRemainTiles());
+        tick = NormalizeRecordRuleTick(tick);
+        if (ApplyRecordRuleActionBeforeMutation(tick)) {
+            RecordReplay.AfterSilentMutation?.Invoke(tick);
             return;
         }
-        if (ApplyHongzhongRecordAction(tick)) {
-            SyncRecordBoardScores(); RefreshCurrentRecordTexts(); RefreshTileListViewIfVisible(); return;
-        }
-        if (ApplyTuidaoRecordAction(tick)) {
-            SyncRecordBoardScores();
-            return;
-        }
-        if (ApplyWenzhouRecordAction(tick)) {
-            SyncRecordBoardScores();
-            if (tick[1] == "meld" || tick[1] == "kong_claim_source") RefreshGuizhouRecordMelds();
-            return;
-        }
-        if (ApplyHangzhouRecordAction(tick)) { SyncRecordBoardScores(); return; }
-        if (ApplyYixingRecordAction(tick)) {
-            SyncRecordBoardScores(); return;
-        }
-        if (ApplyGuizhouRecordAction(tick)) {
-            RefreshRecordRulePlayerTags();
-            SyncRecordBoardScores();
-            if (tick[1] == "reveal_kongs") RefreshGuizhouRecordMelds();
-            return;
-        }
-        if (ApplyHongKongRecordAction(tick)) {
-            RefreshRecordRulePlayerTags();
-            SyncRecordBoardScores();
-            if (tick[1] == "opening_complete") {
-                GameCanvas.Instance.ChangeHandCards("InitHandCardsFromRecord",0,recordPlayer_to_info["self"].tileList.ToArray(),null);
-                Game3DManager.Instance.Change3DTile("InitHandCardsFromRecord",0,0,null,false,null);
-            }
-            return;
-        }
-        if (tick[0] == "reset") {
-            currentPlayerIndex = ParseTickInt(tick, 1);
-        }
+        if (tick[0] == "reset") currentPlayerIndex = ParseTickInt(tick, 1);
     }
 
     private void ConsumeRecordSilentTicks(Round roundData) {
@@ -2319,8 +2264,7 @@ public partial class GameRecordManager : MonoBehaviour {
         while (currentNode < roundData.actionTicks.Count && IsRecordSilentTick(roundData.actionTicks[currentNode])) {
             ApplyRecordSilentTick(roundData.actionTicks[currentNode]);
             // 声明仍不占独立操作步；仅顺序播放报声，GotoAction 的状态重建保持静音。
-            PlayHongKongRecordAnnouncement(roundData.actionTicks[currentNode]);
-            PlayGuizhouRecordAnnouncement(roundData.actionTicks[currentNode]);
+            RecordReplay.AnnounceAfterSilentAction?.Invoke(roundData.actionTicks[currentNode]);
             currentNode++;
         }
     }
@@ -2389,8 +2333,7 @@ public partial class GameRecordManager : MonoBehaviour {
         int recordMaxRound = ReadGameTitleInt(gameRecord.gameTitle, "max_round", 0);
         int totalRounds = recordMaxRound > 0 ? recordMaxRound * RecordPlayerCount : 0;
         if (RecordPlayerCount == 3) {
-            player_to_info["left"] = player_to_info["top"];
-            player_to_info.Remove("top");
+            player_to_info.Remove("left");
         }
         string subRule = ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "");
         ScoreHistoryPanel.Instance.UpdateScoreRecord(rule, player_to_info, settlements, totalRounds,

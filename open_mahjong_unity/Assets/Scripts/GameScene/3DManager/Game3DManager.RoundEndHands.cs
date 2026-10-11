@@ -20,15 +20,25 @@ public partial class Game3DManager {
         if (request == null || request.HepaiPlayerHand == null || request.HepaiPlayerHand.Length == 0) {
             yield break;
         }
+        // A fast win response can arrive before the discard/draw animation has
+        // created its physical tile. Let its owner finish before taking or revealing it.
+        int generation = _handAnimationGeneration;
+        while (HasPendingRecordStepAnimations(request.WinnerPosition)
+            || (IsHandAnimPlayer(request.DiscardPlayerPosition)
+                && HasPendingRecordStepAnimations(request.DiscardPlayerPosition))) {
+            yield return null;
+            if (generation != _handAnimationGeneration) yield break;
+        }
         ResetHandRevealAnimators();
         string pos = request.WinnerPosition;
+        SuspendWashizuPublicHand(pos);
         PosPanel3D panel = GetPosPanel(pos);
         if (panel == null) yield break;
         int[] hand = request.HepaiPlayerHand;
         int winTileId = hand[hand.Length - 1];
         int[] closed = new int[hand.Length - 1];
         System.Array.Copy(hand, closed, closed.Length);
-        System.Array.Sort(closed, TileIdOrder.Comparer);
+        TileIdOrder.SortHand(closed);
         ForceHandRevealIdle(panel);
         ClearHandCardsPosition(panel.cardsPosition);
         if (request.IsQianggang && request.WinTileMode == HepaiWinTilePresentMode.RonInstantThenPause) {
@@ -342,6 +352,7 @@ public partial class Game3DManager {
         anim.Update(0f);
     }
     private void LayRoundEndFaceHandAtPosition(string playerPosition, int[] hepaiPlayerHand) {
+        SuspendWashizuPublicHand(playerPosition);
         PosPanel3D panel = GetPosPanel(playerPosition);
         ForceHandRevealIdle(panel);
         Transform target = panel.cardsPosition;
@@ -349,19 +360,20 @@ public partial class Game3DManager {
         int last = hepaiPlayerHand[hepaiPlayerHand.Length - 1];
         int[] closed = new int[hepaiPlayerHand.Length - 1];
         System.Array.Copy(hepaiPlayerHand, closed, closed.Length);
-        System.Array.Sort(closed, TileIdOrder.Comparer);
+        TileIdOrder.SortHand(closed);
         for (int i = 0; i < closed.Length; i++) {
             Set3DTile(closed[i], target, "Record", playerPosition);
         }
         Set3DTile(last, target, "Record", playerPosition, usePresentationCopy: true);
     }
     private void LayRoundEndClosedFaceHandAtPosition(string playerPosition, IList<int> handTiles) {
+        SuspendWashizuPublicHand(playerPosition);
         PosPanel3D panel = GetPosPanel(playerPosition);
         ForceHandRevealIdle(panel);
         Transform target = panel.cardsPosition;
         ClearHandCardsPosition(target);
         List<int> sorted = new List<int>(handTiles);
-        sorted.Sort(TileIdOrder.Comparer);
+        TileIdOrder.SortHand(sorted);
         for (int i = 0; i < sorted.Count; i++) {
             Set3DTile(sorted[i], target, "Record", playerPosition);
         }

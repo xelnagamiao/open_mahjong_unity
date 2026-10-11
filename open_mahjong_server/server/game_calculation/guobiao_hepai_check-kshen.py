@@ -301,7 +301,8 @@ class Chinese_Hepai_Check:
         allow_list = []
         if check_done_list:
             for i in check_done_list:
-                allow_list.append(self.fan_count(i,get_tile,way_to_hepai))
+                # 派生的暗转明/同风条件仅属于当前拆分，不能影响后续拆分或调用方。
+                allow_list.append(self.fan_count(i, get_tile, list(way_to_hepai)))
 
         fancount_time_end = time()
         logger.debug(f"番种计算耗时：{fancount_time_end - fancount_time_start}秒")

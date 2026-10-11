@@ -167,7 +167,7 @@ def test_every_bot_entry_uses_room_speed_and_includes_calculation_time(monkeypat
         else:
             monkeypatch.setattr(module, "get_ai_action", send)
         if hasattr(module, "count_visible_tiles"):
-            monkeypatch.setattr(module, "count_visible_tiles", lambda _: [0] * 34)
+            monkeypatch.setattr(module, "count_visible_tiles", lambda _, viewer_index=0: [0] * 34)
         if kind == "heuristic":
             monkeypatch.setattr(module, "context_from_game", lambda *_: NS(scorer=None))
         async def calculate(*args, **kwargs):

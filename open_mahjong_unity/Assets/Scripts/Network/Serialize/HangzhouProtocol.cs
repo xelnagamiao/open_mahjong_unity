@@ -3,10 +3,16 @@ using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
 
 [Serializable]
+public sealed class HangzhouWaitDetail {
+    public int fan, base_score;
+}
+[Serializable]
 public class HangzhouHints {
     public int[] source_hand_tiles, waiting_tiles;
     public string[] source_melds;
     public Dictionary<int, int[]> waiting_by_discard;
+    public Dictionary<int, HangzhouWaitDetail> waiting_details;
+    public Dictionary<int, Dictionary<int, HangzhouWaitDetail>> waiting_details_by_discard;
 }
 [Serializable]
 public sealed class HangzhouInfo : HangzhouHints {

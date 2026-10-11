@@ -2,6 +2,33 @@ using System;
 using System.Collections.Generic;
 
 public partial class GameRecordManager {
+    internal RuleReplayModule CreateShanghaiReplayModule() => new RuleReplayModule("lajihe_eight_flowers") {
+        ApplyBeforeMutation = ApplyLajiheRecordAction,
+        AnnounceBeforeAction = (tick, position, voice) => PlayShanghaiRecordAnnouncement(tick),
+        AfterSilentMutation = tick => SyncRecordBoardScores(),
+    };
+
+    private bool ApplyLajiheRecordAction(IReadOnlyList<string> tick) {
+        if (ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", "") != LajiheHandCalculator.SubRule
+            || tick == null || tick.Count == 0) return false;
+        if (tick[0] == "lajihe_eight_flowers" && tick.Count >= 5) {
+            var changes = Newtonsoft.Json.JsonConvert.DeserializeObject<int[]>(tick[4]);
+            var deltas = new Dictionary<int, int>();
+            MapTickScoreChangesToDeltas(changes, deltas);
+            ApplyScoreDeltas(deltas, out _, out _);
+            return true;
+        }
+        if (tick[0] == "state" && tick.Count >= 4 && tick[1] == "lajihe_passed_win") {
+            int index = int.Parse(tick[2]);
+            if (indexToPosition.TryGetValue(index, out string position) && recordPlayer_to_info.TryGetValue(position, out RecordPlayer player)) {
+                player.tagList.Remove("lajihe_passed_win");
+                if (tick[3] == "T") player.tagList.Add("lajihe_passed_win");
+            }
+            return true;
+        }
+        return false;
+    }
+
     private void PlayShanghaiRecordAnnouncement(IReadOnlyList<string> tick) {
         if (RecordRuleManifest?.RuleId != "shanghai" || tick == null || tick.Count < 5
             || tick[0] != "state" || tick[1] != "ready"

@@ -13,6 +13,8 @@
 from __future__ import annotations
 
 from .xueliu_exchange_rules import FAN_VALUES as XUELIU_EXCHANGE_FAN_VALUES
+from .doubles_rules import DOUBLES_SUB_RULE, XUELIU_DOUBLES_SUB_RULE
+from .duplicate_rules import SBR_DUPLICATE, XUELIU_DUPLICATE
 from dataclasses import dataclass
 from typing import Iterable, Mapping, Sequence
 
@@ -20,7 +22,7 @@ from typing import Iterable, Mapping, Sequence
 XUELIU_SUB_RULE = "sichuan/xueliu"
 XUELIU_EXCHANGE_SUB_RULE = "sichuan/xueliu_exchange"
 SICHUAN_STANDARD_SUB_RULE = "sichuan/standard"
-SUPPORTED_SICHUAN_SUB_RULES = frozenset({SICHUAN_STANDARD_SUB_RULE, XUELIU_SUB_RULE, XUELIU_EXCHANGE_SUB_RULE})
+SUPPORTED_SICHUAN_SUB_RULES = frozenset({SICHUAN_STANDARD_SUB_RULE, XUELIU_SUB_RULE, XUELIU_EXCHANGE_SUB_RULE, DOUBLES_SUB_RULE, XUELIU_DOUBLES_SUB_RULE, SBR_DUPLICATE, XUELIU_DUPLICATE})
 
 # Public constants keep the UI/room profile and score tests on one source of
 # truth. These are blood-flow hand-shape values, not the MIL/SBR standard values.
@@ -48,7 +50,7 @@ class XueliuRuleProfile:
     """
 
     sub_rule: str = XUELIU_SUB_RULE
-    version: int = 3
+    version: int = 4
     tile_count: int = 108
     choose_missing_suit: bool = False
     discard_three: bool = True
@@ -57,9 +59,11 @@ class XueliuRuleProfile:
     discard_three_same_suit: bool = True
     allow_chi: bool = False
     allow_tian_hu: bool = False
-    allow_post_hu_ming_gang: bool = False
+    allow_post_hu_ming_gang: bool = True
     allow_post_hu_angang: bool = True
     allow_post_hu_jiagang: bool = True
+    post_hu_kong_wait_rule: str = "includes_all_won_tiles"
+    post_hu_hand_kong_requires_drawn_tile: bool = True
     end_when_wall_exhausted: bool = True
     hu_winner_stays_active: bool = True
     flower_pig_multiplier: int = 2
@@ -83,6 +87,8 @@ class XueliuRuleProfile:
             "allow_post_hu_ming_gang": self.allow_post_hu_ming_gang,
             "allow_post_hu_angang": self.allow_post_hu_angang,
             "allow_post_hu_jiagang": self.allow_post_hu_jiagang,
+            "post_hu_kong_wait_rule": self.post_hu_kong_wait_rule,
+            "post_hu_hand_kong_requires_drawn_tile": self.post_hu_hand_kong_requires_drawn_tile,
             "end_when_wall_exhausted": self.end_when_wall_exhausted,
             "hu_winner_stays_active": self.hu_winner_stays_active,
             "flower_pig_multiplier": self.flower_pig_multiplier,
@@ -99,7 +105,7 @@ XUELIU_EXCHANGE_RULE_PROFILE = XueliuRuleProfile(sub_rule=XUELIU_EXCHANGE_SUB_RU
 def is_xueliu_sub_rule(sub_rule: str | None) -> bool:
     """Return whether *sub_rule* selects the blood-flow ruleset."""
 
-    return sub_rule in (XUELIU_SUB_RULE, XUELIU_EXCHANGE_SUB_RULE)
+    return sub_rule in (XUELIU_SUB_RULE, XUELIU_EXCHANGE_SUB_RULE, XUELIU_DOUBLES_SUB_RULE, XUELIU_DUPLICATE)
 
 
 def is_valid_discard_three(tiles: Sequence[int]) -> bool:

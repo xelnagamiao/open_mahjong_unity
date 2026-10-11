@@ -38,7 +38,8 @@ class Protocol:
         data = wire.player_info_payload(self, index, viewer, reveal_final=ended)
         data["hand_tiles"] = list(p.hand_tiles) if index == viewer or ended else None
         data["hand_tiles_count"] = len(p.hand_tiles)
-        data["combination_tiles"] = wire.public_melds_for_viewer(p, viewer, reveal_final=ended)
+        # Hangzhou exposes the middle two kong tiles, so the meld's tile kind is public.
+        data["combination_tiles"] = wire.public_melds_for_viewer(p, viewer, reveal_final=True)
         data["combination_mask"] = wire.public_combination_masks_for_viewer(p, viewer, reveal_final=ended)
         data["remaining_time"] = (self._clock_parts(index)[0] if not ended and not self._tactical_recheck_active
                                   else math.ceil(max(0.0, p.remaining_time)))
@@ -114,9 +115,6 @@ class Protocol:
                 info["silent"] = True
             if action == "jiagang":
                 info["combination_target"] = f"k{event['tile']}"
-            if action == "angang" and viewer != actor:
-                payload["tile"], payload["meld_code"] = 0, "G0"
-                info["combination_target"], info["combination_mask"] = "G0", [2, 0] * 4
             if action == "hangzhou_tail_burn":
                 payload["tile"] = 0
                 info["hangzhou_burn_count"] = event["burn_count"]

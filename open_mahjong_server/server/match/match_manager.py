@@ -330,10 +330,12 @@ class MatchManager:
             from ..gamestate.game_guobiao.GuobiaoGameState import GuobiaoGameState
             from ..gamestate.game_riichi.RiichiGameState import RiichiGameState
             from ..gamestate.game_mmcr.QingqueGameState import QingqueGameState
+            from ..gamestate.game_hongque.HongqueGameState import HongqueGameState
             from ..gamestate.game_sichuan.SichuanGameState import SichuanGameState
             from ..gamestate.game_sichuan.XueliuGameState import XueliuGameState
             state_class = dict(guobiao=GuobiaoGameState, riichi=RiichiGameState,
-                               qingque=QingqueGameState, sichuan=SichuanGameState)[room_data['room_rule']]
+                               qingque=QingqueGameState, sichuan=SichuanGameState,
+                               hongque=HongqueGameState)[room_data['room_rule']]
             if room_data['room_rule'] == 'sichuan' and room_data['sub_rule'] == 'sichuan/xueliu_exchange':
                 state_class = XueliuGameState
             gamestate_id = str(uuid.uuid4())
@@ -351,7 +353,10 @@ class MatchManager:
                 game_state.match_rating_algorithm = SANMA_PT_ALGORITHM if QUEUES[queue_type].player_count == 3 else RIICHI_PT_ALGORITHM
             for player in game_state.player_list:
                 if player.user_id not in self.game_server.user_id_to_connection:
-                    player.tag_list.append("offline")
+                    if room_data['room_rule'] == 'hongque':
+                        player.online = False
+                    else:
+                        player.tag_list.append("offline")
 
             gsm = self.game_server.gamestate_manager
             gsm.register_game(game_state, room_data)

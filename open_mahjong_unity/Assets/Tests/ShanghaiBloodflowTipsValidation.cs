@@ -100,6 +100,16 @@ public static class ShanghaiBloodflowTipsValidation {
             Verify("弃三张三门基本听张", threeSuits, 35, Context("sichuan/xueliu"), "未满足", WaitTileHint.KindNone);
             var honorPairs = new List<int> { 41,41,42,42,43,43,44,44,45,45,46,46,47 };
             Verify("清混碰乱风向", honorPairs, 47, Context("shanghai/qinghunpeng"), "20花（20分）", WaitTileHint.KindRon);
+            foreach (var codes in new[] {
+                new List<string> { "G11", "s15", "s18", "k41" },
+                new List<string> { "G11", "k22", "k33", "k41" },
+                new List<string> { "G11", "G14", "G22", "G25" },
+            }) {
+                Verify("清混碰暗杠计入大吊车" + string.Join(",", codes), new List<int> { 45 }, 45,
+                    Context("shanghai/qinghunpeng", codes), "10花（10分）", WaitTileHint.KindRon);
+            }
+            Verify("清混碰三个暗杠不单独构成大吊车", new List<int> { 25,25,25,45 }, 45,
+                Context("shanghai/qinghunpeng", new List<string> { "G11", "G14", "G22" }), "7花（7分）", WaitTileHint.KindRon);
             var sevenPairs = new List<int> { 12,12,14,14,16,16,22,22,24,24,26,26,28 };
             Verify("换三张七对", sevenPairs, 28, Context("sichuan/xueliu_exchange", dingque: 3), "7番", WaitTileHint.KindRon);
             var invalid = new List<int> { 11,11,11,11,12,13,21,22,23,31,32,33,41 };

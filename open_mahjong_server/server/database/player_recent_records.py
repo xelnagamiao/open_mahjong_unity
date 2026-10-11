@@ -9,7 +9,9 @@ from ..gamestate.public.guobiao_win_snapshot import restore_guobiao_best_wins
 
 
 logger = logging.getLogger(__name__)
-RULES = ("guobiao", "riichi", "qingque", "classical", "jiandan", "zhongyong", "sichuan", "changsha", "taiwan", "hongque", "guizhou", "yixing", "wenzhou", "hangzhou", "guangdong", "hongzhong")
+from .statistics_catalog import RULES as STATISTICS_RULES, BY_SUB_RULE, resolve_record_statistics_identity
+RULES = tuple(row["key"] for row in STATISTICS_RULES if row["basic_stats"])
+
 CATEGORIES = ("match", "custom")
 RECENT_LIMIT = 10
 # 老牌谱 end_time 与 CURRENT_TIMESTAMP 一样没有时区；与原服务器的本地时区对齐。
@@ -20,7 +22,7 @@ def ensure_schema(cursor):
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS player_recent_records (
             user_id BIGINT NOT NULL,
-            rule VARCHAR(10) NOT NULL,
+            rule VARCHAR(96) NOT NULL,
             room_type VARCHAR(16) NOT NULL CHECK (room_type IN ('match', 'custom')),
             placements JSONB NOT NULL DEFAULT '[]'::jsonb,
             big_win JSONB,
@@ -66,7 +68,7 @@ def update_player_recent_records(cursor, game_id, record=None):
     stored_record, created_at = row
     record = record if record is not None else stored_record
     cursor.execute("""
-        SELECT user_id, rule, room_type, rank, match_type
+        SELECT user_id, rule, room_type, rank, match_type, sub_rule
         FROM game_player_records WHERE game_id = %s ORDER BY user_id, rule, room_type
     """, (game_id,))
     players = cursor.fetchall()
@@ -80,11 +82,13 @@ def update_player_recent_records(cursor, game_id, record=None):
     if any(user_id <= 10 for user_id in title_users) or any(row[0] <= 10 for row in players):
         cursor.execute("DELETE FROM player_recent_record_errors WHERE game_id = %s", (game_id,))
         return
-    # Existing Unity clients use the jiandan cache key for Nanque; standard Zhongyong stays separate.
-    if title.get("sub_rule") == "zhongyong/nanque":
-        players = [(uid, "jiandan" if rule == "zhongyong" else rule, category, rank, mode)
-                   for uid, rule, category, rank, mode in players]
-    players = [row for row in players if row[1] in RULES and row[2] in CATEGORIES]
+    normalized = []
+    for uid, rule, category, rank, mode, sub in players:
+        _, sub = resolve_record_statistics_identity(record, rule, sub, mode)
+        definition = BY_SUB_RULE.get(sub)
+        if definition and definition["basic_stats"] and category in CATEGORIES:
+            normalized.append((uid, definition["key"], category, rank, mode))
+    players = normalized
     if not players:
         cursor.execute("DELETE FROM player_recent_record_errors WHERE game_id = %s", (game_id,))
         return
@@ -156,40 +160,22 @@ def retry_player_recent_record_errors(db_manager, batch_size=100):
 
 def get_player_recent_records(db_manager, user_id):
     result = {rule: {category: {"placements": [], "big_win": None} for category in CATEGORIES} for rule in RULES}
-    from ..match.rating_rules import XUELIU_EXCHANGE_RATING_RULE
-    result[XUELIU_EXCHANGE_RATING_RULE] = {category: {"placements": [], "big_win": None} for category in CATEGORIES}
-    result['riichi_sanma'] = {category: {"placements": [], "big_win": None} for category in CATEGORIES}
     conn = db_manager._get_connection()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT rule, room_type, placements, big_win FROM player_recent_records WHERE user_id = %s", (user_id,))
-            for rule, category, placements, big_win in cursor.fetchall():
-                if rule in result and category in CATEGORIES:
-                    result[rule][category] = {"placements": placements, "big_win": big_win if rule == "guobiao" else None}
-            # Rated variants use the saved sub-rule rather than the shared game-rule cache.
-            for rating_rule, sub_rule in (('sichuan', 'sichuan/standard'),
-                                          (XUELIU_EXCHANGE_RATING_RULE, 'sichuan/xueliu_exchange')):
-                cursor.execute("""SELECT gpr.game_id,
-                        jsonb_build_object('game_title', jsonb_build_object('end_time', gr.record #>> '{game_title,end_time}')),
-                        gr.created_at, gpr.rank, gpr.match_type
-                    FROM game_player_records gpr JOIN game_records gr ON gr.game_id=gpr.game_id
-                    WHERE gpr.user_id=%s AND gpr.rule='sichuan' AND gpr.room_type='match'
-                      AND COALESCE(NULLIF(gpr.sub_rule, ''), 'sichuan/standard')=%s
-                    ORDER BY gr.created_at DESC, gpr.game_id DESC LIMIT %s""", (user_id, sub_rule, RECENT_LIMIT))
-                result[rating_rule]['match']['placements'] = [
-                    dict(game_id=gid, ended_at=ended_at(record, created_at), rank=rank, match_type=mode)
-                    for gid, record, created_at, rank, mode in reversed(cursor.fetchall())]
-            for rating_rule in ('riichi', 'riichi_sanma'):
-                cursor.execute("""SELECT gpr.game_id,
-                        jsonb_build_object('game_title', jsonb_build_object('end_time', gr.record #>> '{game_title,end_time}')),
-                        gr.created_at, gpr.rank, gpr.match_type
-                    FROM game_player_records gpr JOIN game_records gr ON gr.game_id=gpr.game_id
-                    WHERE gpr.user_id=%s AND gpr.rule='riichi' AND gpr.room_type='match'
-                      AND (COALESCE(gpr.sub_rule, '')='riichi/sanma')=%s
-                    ORDER BY gr.created_at DESC, gpr.game_id DESC LIMIT %s""", (user_id, rating_rule == 'riichi_sanma', RECENT_LIMIT))
-                result[rating_rule]['match']['placements'] = [
-                    dict(game_id=gid, ended_at=ended_at(record, created_at), rank=rank, match_type=mode)
-                    for gid, record, created_at, rank, mode in reversed(cursor.fetchall())]
+            cursor.execute("""SELECT sub_rule,room_type,game_id,created_at,rank,match_type FROM (
+                SELECT m.*,ROW_NUMBER() OVER(PARTITION BY sub_rule,room_type ORDER BY created_at DESC,game_id DESC) AS n
+                FROM game_player_metrics m WHERE user_id=%s AND room_type IN ('custom','match')
+            ) rows WHERE n<=%s ORDER BY created_at,game_id""", (user_id, RECENT_LIMIT))
+            for sub, category, gid, created, rank, mode in cursor.fetchall():
+                definition = BY_SUB_RULE.get(sub)
+                if definition and definition["key"] in result:
+                    result[definition["key"]][category]["placements"].append(dict(
+                        game_id=gid,ended_at=ended_at({},created),rank=rank,match_type=mode))
+            cursor.execute("SELECT room_type,big_win FROM player_recent_records WHERE user_id=%s AND rule='guobiao'", (user_id,))
+            for category, best in cursor.fetchall():
+                if category in CATEGORIES:
+                    result['guobiao'][category]['big_win'] = best
         conn.commit()
         return result
     except Exception:

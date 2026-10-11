@@ -2,7 +2,32 @@
 
 using System.Collections.Generic;
 
+public class DuplicateMatchInfo {
+    public string id;
+    public string status;
+    public string table;
+    public bool waiting;
+    public string scoring;
+    public int planned_boards;
+    public int completed_boards;
+    public int[] scores;
+    public string[] waiting_tables;
+    public List<DuplicateBoardResult> boards;
+}
+public class DuplicateBoardResult {
+    public int number;
+    public int[] raw_difference;
+    public int[] scores;
+}
+
 public class RoomInfo {
+    public string duplicate_match_id;
+    public string duplicate_table;
+    public string duplicate_peer_room_id;
+    public string duplicate_status;
+    public string duplicate_scoring;
+    public int[] team_by_seat;
+    public int roster_revision;
     public bool? use_flowers; // 旧消息缺省含花，蓝十始终无花
     public bool tian_di_ren_he;
     public bool is_duplicate;
@@ -144,6 +169,7 @@ public class EventDetailInfo {
 }
 
 public class GameEndInfo { // 显示游戏结束结果
+    public DuplicateMatchInfo duplicate_match;
     public bool is_duplicate;
     public int duplicate_round_count;
     public string duplicate_wall_type;
@@ -156,22 +182,30 @@ public class GameEndInfo { // 显示游戏结束结果
 }
 
 public class ShowResultInfo {
+    public WuhanInfo wuhan_info;
+    public WuhanHints wuhan_hints;
     public HangzhouInfo hangzhou_info;
     public string hangzhou_win_source;
     public Newtonsoft.Json.Linq.JObject hangzhou_fan_details;
     public HongzhongInfo hongzhong_info;
     public GuangdongResult guangdong_result;
+    public ShenyangInfo shenyang;
     public ChangchunInfo changchun;
     public Dictionary<int, int[]> revealed_hands;
     public GuizhouInfo guizhou_info;
     public YixingInfo yixing_info;
+    public NanjingInfo nanjing_info;
+    public NanjingHints nanjing_hints;
     public WenzhouInfo wenzhou_info;
+    public NanchangInfo nanchang_info;
     public Dictionary<int,int> guizhou_round_changes;
     public Dictionary<int,int[]> guizhou_end_hands;
     public Dictionary<int,int[]> wenzhou_end_hands;
+    public Dictionary<int,int[]> nanchang_end_hands;
     public GuizhouFan[] guizhou_fan_details;
     public YixingScoreInfo yixing_fan_details;
     public Dictionary<int,int> yixing_round_changes;
+    public Dictionary<int,int> nanjing_round_changes;
     public HongKongInfo hongkong_info;
     public string hongkong_flower_win;
     public Dictionary<int,int> hongkong_round_changes;
@@ -265,15 +299,35 @@ public class ShowShuheWeiInfo { // 数和尾结算信息
     public string next_status;
 }
 
+public class XueliuExchangeInfo {
+    public int stage;
+    public int[] active_players;
+    public bool selection_done;
+    public int teammate_suit;
+    public int outgoing_suit;
+    public bool animating;
+    public float animation_seconds;
+}
+
 public class AskHandActionGBInfo {
+    public WuhanInfo wuhan_info;
+    public WuhanHints wuhan_hints;
+    public bool? lajihe_passed_win;
+    public XueliuExchangeInfo xueliu_exchange;
     public HangzhouInfo hangzhou_info;
+    public JiujiangInfo jiujiang_info;
+    public JiujiangHints jiujiang_hints;
     public HongzhongHints hongzhong_hints;
     public GuangdongTips guangdong_tips;
+    public ShenyangInfo shenyang;
     public ChangchunInfo changchun;
     public Dictionary<string, int[]> kong_candidates; // 询问手牌操作
     public GuizhouInfo guizhou_info;
     public YixingInfo yixing_info;
+    public NanjingInfo nanjing_info;
+    public NanjingHints nanjing_hints;
     public WenzhouInfo wenzhou_info;
+    public NanchangInfo nanchang_info;
     public Dictionary<string,int[]> guizhou_kong_tiles;
     public string[] action_list; // 操作列表
     public int remaining_time; // 剩余局时
@@ -309,11 +363,20 @@ public class AskOtherActionGBInfo { // 询问切牌后操作
 }
 
 public class DoActionInfo {
+    public WuhanInfo wuhan_info;
+    public WuhanHints wuhan_hints;
+    public int? draw_from_seat;
+    public Dictionary<int, int[]> washizu_hands; // public projection: glass IDs and zero for opaque copies
+    public bool? lajihe_passed_win;
     public HangzhouInfo hangzhou_info;
+    public JiujiangInfo jiujiang_info;
+    public JiujiangHints jiujiang_hints;
     public HongzhongHints hongzhong_hints; // 执行操作
     public WenzhouInfo wenzhou_info;
+    public NanchangInfo nanchang_info;
     public GuangdongPublicState guangdong_state;
     public GuangdongTips guangdong_tips;
+    public ShenyangInfo shenyang;
     public ChangchunInfo changchun;
     public string[] action_list;
     public int[] duplicate_remaining_tiles; // 非复式省略；0 表示该家牌山已摸完
@@ -330,6 +393,8 @@ public class DoActionInfo {
     public bool? is_timeout_action; // 服务端等待超时后代为执行的切牌
     public int? deal_tile;          // 可空类型
     public bool transfer_face_down; // 自由模式暗面转移；未知牌值为 0，旧服务端默认为明面。
+    public int[] transfer_slots;
+    public bool free_face_down;
     public int[] deal_tiles;
     public int? buhua_tile;         // 可空类型
     public string combination_target; // 可空类型
@@ -353,6 +418,7 @@ public class DoActionInfo {
 }
 
 public class PlayerInfo {
+    public int? team_id;
     public int[] known_concealed_discards; // 房间信息中单个玩家信息
     public string username;             // 玩家名
     public int user_id;                  // 玩家uid
@@ -393,18 +459,31 @@ public class PlayerInfo {
 }
 
 public class GameInfo {
+    public WuhanInfo wuhan_info;
+    public WuhanHints wuhan_hints;
+    public DuplicateMatchInfo duplicate_match;
+    public Dictionary<int, int[]> washizu_hands; // public projection: glass IDs and zero for opaque copies
+    public bool? lajihe_passed_win;
+    public SichuanTeamsInfo sichuan_teams;
     public HangzhouInfo hangzhou_info;
     public HongzhongInfo hongzhong_info;
+    public JiujiangInfo jiujiang_info;
+    public JiujiangHints jiujiang_hints;
     public HongzhongHints hongzhong_hints; // 游戏开始时传递房间信息
     public GuangdongPublicState guangdong_state;
     public GuangdongTips guangdong_tips;
+    public ShenyangInfo shenyang;
     public ChangchunInfo changchun;
     public GuizhouInfo guizhou_info;
     public YixingInfo yixing_info;
+    public NanjingInfo nanjing_info;
+    public NanjingHints nanjing_hints;
     public WenzhouInfo wenzhou_info;
+    public NanchangInfo nanchang_info;
     public HongKongInfo hongkong_info;
     public Dictionary<string,HongKongWait[]> hongkong_waits;
     public Dictionary<string,WenzhouWait[]> wenzhou_waits;
+    public Dictionary<string,NanchangWait[]> nanchang_hints;
     public bool? use_flowers;
     public bool tian_di_ren_he;
     public bool is_duplicate;
@@ -481,7 +560,10 @@ public class ReadyStatusInfo {
     public HangzhouInfo hangzhou_info; // 准备状态信息
     public GuizhouInfo guizhou_info;
     public YixingInfo yixing_info;
+    public NanjingInfo nanjing_info;
+    public NanjingHints nanjing_hints;
     public WenzhouInfo wenzhou_info;
+    public NanchangInfo nanchang_info;
     public int action_tick;
     public HongKongInfo hongkong_info;
     public bool can_cut_pull;
@@ -665,6 +747,10 @@ public class SpectatorInfo { // 观战信息
     public string player4_name; // 玩家4 用户名
     public string gamestate_id; // 游戏状态ID
     public string event_id;
+    public string room_type;
+    public string match_queue_type;
+    public string match_tier;
+    public int[] team_by_player_index;
 }
 
 public class FriendInfo { // 好友 / 关注信息
@@ -820,6 +906,7 @@ public class HongquePlayerInfo {
 public class HongqueStateInfo {
     public string sync_mode;
     public int room_id;
+    public string room_type;
     public string phase;
     public int round;
     public int max_round;
@@ -847,6 +934,10 @@ public class HongqueStateInfo {
 }
 
 public class FreeTableInfo {
+    public FreeTransferTileInfo[] transfer_tiles;
+    public Dictionary<string, int> hand_counts;
+    public Dictionary<string, int[]> river_tokens;
+    public Dictionary<string, int[]> flower_tokens;
     public Dictionary<string, string> votes;
     public int? transfer_tile;
     public bool transfer_face_down;
@@ -859,6 +950,13 @@ public class FreeTableInfo {
     public int[] revealed_hand;
     public int? last_river_player;
     public int? last_river_tile;
+}
+
+public class FreeTransferTileInfo {
+    public int slot;
+    public int tile;
+    public bool face_down;
+    public int token;
 }
 
 public class RecentPlacement {
@@ -896,6 +994,7 @@ public class PlayerRecentRecordsResponse {
 }
 
 public class Response { // 所有后端的返回数据都由Response类接收
+    public DuplicateMatchInfo duplicate_match_info;
     [Newtonsoft.Json.JsonIgnore]
     public double? received_monotonic; // 本机收件时间，禁止从网络字段赋值
     public string rating_rule, data_request_id;

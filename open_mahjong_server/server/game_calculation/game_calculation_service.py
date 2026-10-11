@@ -178,7 +178,8 @@ class GameCalculationService:
         检查和牌；获取结果后调用实例的剔除方法（剔除番值=0）再 return 到服务器。
         """
         with self._lock:
-            score, fan_list = self._hepai_check.hepai_check(hand_list, tiles_combination, way_to_hepai, get_tile)
+            from .riichi.washizu_tiles import face
+            score, fan_list = self._hepai_check.hepai_check([face(t) for t in hand_list], tiles_combination, way_to_hepai, face(get_tile))
             return self._hepai_check.filter_zero_value_fans(score, fan_list)
 
     def GB_hepai_decompose(self, hand_list: List[int], tiles_combination: List,
@@ -189,7 +190,8 @@ class GameCalculationService:
         非和牌返回空列表。
         """
         with self._lock:
-            return self._hepai_check.hepai_decompose(hand_list, tiles_combination, way_to_hepai, get_tile)
+            from .riichi.washizu_tiles import face
+            return self._hepai_check.hepai_decompose([face(t) for t in hand_list], tiles_combination, way_to_hepai, face(get_tile))
 
     def GB_xiaolin_hepai_check(self, hand_list: List[int], tiles_combination: List,
                    way_to_hepai: List[str], get_tile: int) -> Tuple[int, List[str]]:
@@ -229,7 +231,8 @@ class GameCalculationService:
             等待牌的集合
         """
         with self._lock:
-            return self._tingpai_check.tingpai_check(hand_tile_list, combination_list)
+            from .riichi.washizu_tiles import face
+            return self._tingpai_check.tingpai_check([face(t) for t in hand_tile_list], combination_list)
 
     def Jiandan_tingpai_check(
         self,

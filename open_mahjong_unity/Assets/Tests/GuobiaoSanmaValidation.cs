@@ -21,11 +21,11 @@ public static class GuobiaoSanmaValidation {
             && MahjongPlayerCount.ForSubRule("riichi/sanma") == 3, "capacities isolated");
         for (int seat = 0; seat < 3; seat++) {
             var mapping = SwitchSeatPanel.ThreePlayerPositionMapping(seat);
-            string[] positions = { "self", "right", "left" };
-            Check(mapping.Count == 3 && !mapping.ContainsKey("top")
-                && mapping[positions[(3 - seat) % 3]] == positions[(4 - seat) % 3]
-                && mapping[positions[(4 - seat) % 3]] == positions[(3 - seat) % 3]
-                && mapping[positions[(5 - seat) % 3]] == positions[(5 - seat) % 3], "wind switch map " + seat);
+            string[][] positions = { new[] { "self", "right", "top" }, new[] { "left", "self", "right" }, new[] { "top", "left", "self" } };
+            Check(mapping.Count == 3 && !mapping.ContainsKey(new[] { "left", "top", "right" }[seat])
+                && mapping[positions[seat][0]] == positions[seat][1]
+                && mapping[positions[seat][1]] == positions[seat][0]
+                && mapping[positions[seat][2]] == positions[seat][2], "wind switch map " + seat);
         }
         foreach (int count in new[] { 3, 4 }) {
             foreach (int circles in new[] { 1, 2, 4 }) {
@@ -58,9 +58,9 @@ public static class GuobiaoSanmaValidation {
             mirror.IndexToPosition = new Dictionary<int, string>();
             for (int seat = 0; seat < 3; seat++) {
                 mirror.BuildSeatMap(seat, new[] {0, 1, 2});
-                Check(mirror.IndexToPosition.Count == 3 && mirror.IndexToPosition[seat] == "self"
-                    && mirror.IndexToPosition[(seat + 1) % 3] == "right"
-                    && mirror.IndexToPosition[(seat + 2) % 3] == "left", "seat map " + seat);
+                string[][] expected = { new[] { "self", "right", "top" }, new[] { "left", "self", "right" }, new[] { "top", "left", "self" } };
+                Check(mirror.IndexToPosition.Count == 3
+                    && Enumerable.Range(0, 3).All(index => mirror.IndexToPosition[index] == expected[seat][index]), "seat map " + seat);
             }
         } finally { mirror.IndexToPosition = oldMap; GameSession.Current.SubRule = oldSub; }
         var hand = new List<int> {21, 24, 27, 32, 35, 38, 41, 42, 43, 44, 45, 46, 47};

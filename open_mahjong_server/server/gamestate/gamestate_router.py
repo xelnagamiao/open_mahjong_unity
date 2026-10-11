@@ -41,9 +41,29 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
         await handle_cut_tile(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/GB/send_action":
         await handle_send_action(game_server, Connect_id, message, websocket)
+    elif message_type in {"gamestate/jiujiang/cut_tile", "gamestate/jiujiang/send_action", "gamestate/jiujiang/riichi_cut"}:
+        state = game_server.gamestate_manager.get_game_state_by_gamestate_id(message.get("gamestate_id"))
+        if state is None or getattr(state, "room_rule", None) != "jiujiang":
+            return
+        if message_type.endswith("/cut_tile"):
+            await handle_cut_tile(game_server, Connect_id, message, websocket)
+        elif message_type.endswith("/riichi_cut"):
+            await handle_riichi_cut(game_server, Connect_id, message, websocket)
+        else:
+            await handle_send_action(game_server, Connect_id, message, websocket)
     elif message_type in {"gamestate/changchun/cut_tile", "gamestate/changchun/send_action", "gamestate/changchun/riichi_cut"}:
         state = game_server.gamestate_manager.get_game_state_by_gamestate_id(message.get("gamestate_id"))
         if state is None or getattr(state, "room_rule", None) != "changchun":
+            return
+        if message_type.endswith("/cut_tile"):
+            await handle_cut_tile(game_server, Connect_id, message, websocket)
+        elif message_type.endswith("/riichi_cut"):
+            await handle_riichi_cut(game_server, Connect_id, message, websocket)
+        else:
+            await handle_send_action(game_server, Connect_id, message, websocket)
+    elif message_type in {"gamestate/shenyang/cut_tile", "gamestate/shenyang/send_action", "gamestate/shenyang/riichi_cut"}:
+        state = game_server.gamestate_manager.get_game_state_by_gamestate_id(message.get("gamestate_id"))
+        if state is None or getattr(state, "room_rule", None) != "shenyang":
             return
         if message_type.endswith("/cut_tile"):
             await handle_cut_tile(game_server, Connect_id, message, websocket)
@@ -81,6 +101,14 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
             await handle_cut_tile(game_server, Connect_id, message, websocket)
         else:
             await handle_send_action(game_server, Connect_id, message, websocket)
+    elif message_type in {"gamestate/wuhan/cut_tile", "gamestate/wuhan/send_action"}:
+        state = game_server.gamestate_manager.get_game_state_by_gamestate_id(message.get("gamestate_id"))
+        if state is None or getattr(state, "room_rule", None) != "wuhan":
+            return
+        if message_type.endswith("/cut_tile"):
+            await handle_cut_tile(game_server, Connect_id, message, websocket)
+        else:
+            await handle_send_action(game_server, Connect_id, message, websocket)
     elif message_type in {"gamestate/hongzhong/cut_tile", "gamestate/hongzhong/send_action"}:
         state = game_server.gamestate_manager.get_game_state_by_gamestate_id(message.get("gamestate_id"))
         if state is None or getattr(state, "room_rule", None) != "hongzhong":
@@ -92,8 +120,14 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
     elif message_type in {"gamestate/hangzhou/cut_tile", "gamestate/hangzhou/send_action"}:
         from .game_hangzhou.get_action import handle_action
         await handle_action(game_server, Connect_id, message, websocket)
+    elif message_type in {"gamestate/nanchang/cut_tile", "gamestate/nanchang/send_action"}:
+        from .game_nanchang.get_action import handle_action
+        await handle_action(game_server, Connect_id, message, websocket)
     elif message_type in {"gamestate/wenzhou/cut_tile", "gamestate/wenzhou/send_action"}:
         from .game_wenzhou.get_action import handle_action
+        await handle_action(game_server, Connect_id, message, websocket)
+    elif message_type in {"gamestate/nanjing/cut_tile", "gamestate/nanjing/send_action"}:
+        from .game_nanjing.get_action import handle_action
         await handle_action(game_server, Connect_id, message, websocket)
     elif message_type in {"gamestate/yixing/cut_tile", "gamestate/yixing/send_action"}:
         from .game_yixing.get_action import handle_action

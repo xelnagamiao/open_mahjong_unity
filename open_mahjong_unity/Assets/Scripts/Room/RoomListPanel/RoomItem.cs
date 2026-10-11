@@ -22,6 +22,7 @@ public class RoomItem : MonoBehaviour {
     [SerializeField] private Color eventLowerColor = new Color(.22f, .22f, .22f);
 
     private RoomInfo data;
+    private int pairColorIndex = -1;
     private static readonly Color ReadyColor = new Color(.92f, .92f, .92f);
     private static readonly Color MutedColor = new Color(.78f, .78f, .78f);
 
@@ -30,8 +31,9 @@ public class RoomItem : MonoBehaviour {
     }
     private void OnEnable() { StreamerModeHelper.OnChanged += RefreshDisplay; }
     private void OnDisable() { StreamerModeHelper.OnChanged -= RefreshDisplay; }
-    public void SetRoomInfo(RoomInfo roomData) {
+    public void SetRoomInfo(RoomInfo roomData, int groupColorIndex = -1) {
         data = roomData;
+        pairColorIndex = groupColorIndex;
         RefreshDisplay();
     }
 
@@ -47,14 +49,27 @@ public class RoomItem : MonoBehaviour {
         Set(roomName, title);
         Set(playRule, rule);
         string status = data.is_game_running ? "对局中" : count >= capacity ? "满员" : "等待";
+        bool pairEnded = !string.IsNullOrEmpty(data.duplicate_match_id) && (data.duplicate_status == "completed" || data.duplicate_status == "cancelled");
+        if (pairEnded) status = "已结束";
+        else if (!string.IsNullOrEmpty(data.duplicate_match_id) && data.duplicate_status == "interrupted") status = "待赛务处理";
+        else if (!string.IsNullOrEmpty(data.duplicate_match_id) && data.duplicate_status == "ready") status = "等待对室";
         Set(gameStatus, $"{status} · {count}/{capacity} · {(data.has_password ? "有密码" : "公开")}");
         if (gameStatus != null) gameStatus.color = data.is_game_running ? new Color(1f, .77f, .44f) : ReadyColor;
         Set(configSummary, BuildSummary(data));
         if (upperPartImage != null) upperPartImage.color = isEvent ? eventUpperColor : normalUpperColor;
         if (lowerPartImage != null) lowerPartImage.color = isEvent ? eventLowerColor : normalLowerColor;
+        if (!string.IsNullOrEmpty(data.duplicate_match_id)) {
+            // Adjacent open/closed rows share the original underlays, without adding badges.
+            int hue = 0;
+            foreach (char ch in data.duplicate_match_id) hue = (hue * 31 + ch) % 3;
+            if (pairColorIndex >= 0) hue = pairColorIndex % 3;
+            Color tint = hue == 0 ? new Color(.23f, .32f, .44f) : hue == 1 ? new Color(.29f, .27f, .40f) : new Color(.20f, .34f, .34f);
+            if (upperPartImage != null) upperPartImage.color = tint;
+            if (lowerPartImage != null) lowerPartImage.color = tint * new Color(.78f, .78f, .78f, 1);
+        }
         if (joinButton != null) {
-            joinButton.interactable = count < capacity && !data.is_game_running;
-            Set(joinButton.GetComponentInChildren<TMP_Text>(), data.is_game_running ? "对局中" : count >= capacity ? "已满员" : "加入房间");
+            joinButton.interactable = !pairEnded && count < capacity && !data.is_game_running;
+            Set(joinButton.GetComponentInChildren<TMP_Text>(), pairEnded ? "已结束" : data.is_game_running ? "对局中" : count >= capacity ? "已满员" : "加入房间");
         }
 
         var details = new StringBuilder();
@@ -69,8 +84,9 @@ public class RoomItem : MonoBehaviour {
                 if (seat < playerStates.Length) Set(playerStates[seat], "");
                 continue;
             }
-            bool occupied = seat < count;
-            int id = occupied ? data.player_list[seat] : 0;
+            int[] seats = !string.IsNullOrEmpty(data.duplicate_match_id) ? data.seat_list ?? data.player_list : data.player_list;
+            bool occupied = seats != null && seat < seats.Length && seats[seat] >= 0;
+            int id = occupied ? seats[seat] : 0;
             string name = occupied ? PlayerName(data, id) : "等待加入";
             if (occupied && masked) name = StreamerModeHelper.FormatRoomPlayerName(name, id);
             string state = !occupied ? "空位" : id == data.host_user_id ? "房主" :
@@ -94,6 +110,8 @@ public class RoomItem : MonoBehaviour {
     }
 
     public static string BuildSummary(RoomInfo room) {
+        if (!string.IsNullOrEmpty(room.duplicate_match_id))
+            return $"{(room.duplicate_table == "closed" ? "闭室" : "开室")} · 对室 #{room.duplicate_peer_room_id}  ·  {room.duplicate_round_count} 副  ·  {(room.duplicate_scoring == "imp" ? "IMP" : "分差累计")}";
         string switches = $"  ·  错和{(room.open_cuohe ? "开" : "关")}  ·  提示{(room.tips ? "开" : "关")}";
         if (room.is_duplicate)
             switches += "  ·  " + DuplicateWallDisplay.TypeName(room.duplicate_wall_type);
@@ -102,7 +120,7 @@ public class RoomItem : MonoBehaviour {
             + $"  ·  {room.round_timer}/{room.step_timer}秒";
         if (room.room_rule == "guobiao" || RuleRegistry.Resolve(room.room_rule, room.sub_rule)?.ShowsHepaiLimitInRoomList == true)
             summary += $"  ·  {room.hepai_limit}番起和";
-        else if (room.room_rule == "shanghai" && room.sub_rule != "shanghai/qinghunpeng")
+        else if (room.room_rule == "shanghai" && (string.IsNullOrEmpty(room.sub_rule) || room.sub_rule == "shanghai/qiaoma"))
             summary += room.hepai_limit == 1 ? "  ·  一番和开" : "  ·  一番和关";
         else if (room.room_rule == "riichi" && room.red_dora.HasValue)
             summary += room.red_dora.Value ? "  ·  赤宝牌开" : "  ·  赤宝牌关";

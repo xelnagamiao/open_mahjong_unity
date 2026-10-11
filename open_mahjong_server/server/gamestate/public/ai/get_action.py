@@ -6,13 +6,8 @@ from ..hand_slot_utils import hand_contains_tile, has_draw_slot, infer_bot_cut_c
 logger = logging.getLogger(__name__)
 
 def _normalize_tile(tile: int) -> int:
-    if tile == 105:
-        return 15
-    if tile == 205:
-        return 25
-    if tile == 305:
-        return 35
-    return tile
+    from ....game_calculation.riichi.washizu_tiles import normalize
+    return normalize(tile)
 
 def _count_normalized(hand_tiles: list, normal_tile: int) -> int:
     return sum(1 for t in hand_tiles if _normalize_tile(t) == normal_tile)
@@ -112,6 +107,12 @@ async def get_ai_action(game_state, player_index: int, action_type: str, cutClas
             )
             return
 
+        # A call chooses actual glass/opaque copies, not just their face value.
+        if getattr(game_state, 'sub_rule', None) in ('riichi/washizu', 'guobiao/transparent') and action_type in ('chi_left', 'chi_mid', 'chi_right', 'peng'):
+            from ...game_riichi.washizu import valid_call_choice
+            if not valid_call_choice(current_player, action_type, chi_combo_index):
+                return
+
         # 操作合法，将操作数据放入队列
         if action_type in ("cut", "riichi_cut"): # 切牌/立直切
             # 验证切牌的TileId是否在玩家手牌中
@@ -156,7 +157,8 @@ async def get_ai_action(game_state, player_index: int, action_type: str, cutClas
                 # 暗杠验证：要求目标牌在自己手上有4张
                 target_tile = _normalize_tile(target_tile)
                 tile_count = _count_normalized(current_player.hand_tiles, target_tile)
-                if tile_count < 4:
+                single = getattr(game_state, "is_single_tile_kong", None)
+                if tile_count < 4 and not (callable(single) and single(player_index, target_tile)):
                     logger.warning(f"暗杠失败：手牌中没有足够的牌进行暗杠, player_index={player_index}, target_tile={target_tile}, count={tile_count}, hand_tiles={current_player.hand_tiles}")
                     return  # 丢弃命令
             await game_state.action_queues[player_index].put({
@@ -272,6 +274,12 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
                 )
                 return
 
+        # A call chooses actual glass/opaque copies, not just their face value.
+        if getattr(game_state, 'sub_rule', None) in ('riichi/washizu', 'guobiao/transparent') and action_type in ('chi_left', 'chi_mid', 'chi_right', 'peng'):
+            from ...game_riichi.washizu import valid_call_choice
+            if not valid_call_choice(current_player, action_type, chi_combo_index):
+                return
+
         # 操作合法，将操作数据放入队列
         if action_type in ("cut", "riichi_cut"): # 切牌/立直切
             # 验证切牌的TileId是否在玩家手牌中
@@ -343,7 +351,8 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
                 # 暗杠验证：要求目标牌在自己手上有4张
                 target_tile = _normalize_tile(target_tile)
                 tile_count = _count_normalized(current_player.hand_tiles, target_tile)
-                if tile_count < 4:
+                single = getattr(game_state, "is_single_tile_kong", None)
+                if tile_count < 4 and not (callable(single) and single(player_index, target_tile)):
                     logger.warning(f"暗杠失败：手牌中没有足够的牌进行暗杠, player_index={player_index}, user_id={user_id}, target_tile={target_tile}, count={tile_count}, hand_tiles={current_player.hand_tiles}")
                     return  # 丢弃命令
             await game_state.action_queues[player_index].put({

@@ -38,10 +38,7 @@ namespace Riichi {
         private static List<int> NormalizeHand(List<int> handTileList) {
             var res = new List<int>(handTileList.Count);
             foreach (int t in handTileList) {
-                if (t == 105) res.Add(15);
-                else if (t == 205) res.Add(25);
-                else if (t == 305) res.Add(35);
-                else res.Add(t);
+                res.Add(RiichiTileUtil.Normalize(t));
             }
             res.Sort();
             return res;

@@ -92,7 +92,8 @@ export function basicFan(hand: number[], codes: string[], win: number): number {
     let fan = 0
     if (shape.seven) fan = count(before, win) === 3 ? 4 : 3
     else {
-      if (codes.every(c => c[0] === 'G')) fan++
+      // Public special kongs preserve menzen, including later additions.
+      if (codes.every(c => c[0] === 'G' || c[0] === 'C')) fan++
       if (!shape.sequences.length && codes.every(c => c[0] !== 's')) fan += 2
       else if (single || shape.pair === win || shape.sequences.some(m => m === win || (m % 10 === 2 && win === m + 1) || (m % 10 === 8 && win === m - 1))) fan++
     }
