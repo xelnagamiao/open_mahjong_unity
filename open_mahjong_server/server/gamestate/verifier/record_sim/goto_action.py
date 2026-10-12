@@ -195,6 +195,8 @@ class RecordSim:
         self.record_taiwan_ron_blocked = set()
         riichi = round_data.get("riichi") or {}
         self.record_riichi_sticks = int(riichi.get("riichi_sticks") or 0)
+        if self.flags.rule_id == "filipino":
+            self.record_dead_wall_count = 0
         self.players = {}
         seats = round_data.get("seats") or list(range(self.player_count))
         if sorted(seats) != list(range(self.player_count)):
@@ -205,6 +207,8 @@ class RecordSim:
                 original_player_index=seats.index(seat),
                 player_index=seat,
                 tile_list=tiles,
+                score=int((round_data.get("start_scores") or [0]*4)[seat]) if self.flags.rule_id == "filipino" else 0,
+                show_hand_draw_slot_active=len(tiles) % 3 == 2 if self.flags.rule_id == "filipino" else False,
                 dingque_suit=int((round_data.get("dingque_suits") or {}).get(str(seat),
                     (round_data.get("dingque_suits") or {}).get(seat, 0))),
             )
@@ -252,6 +256,44 @@ class RecordSim:
             validate_kan_mo_gang_tick(tick, round_key)
             self.apply_tick(tick)
         return self.snapshot()
+
+    def _apply_filipino_tick(self, tick):
+        kind = tick[1]
+        if kind == 'score':
+            self._apply_score_array(parse_score_changes(tick, 4))
+        elif kind == 'state':
+            for seat, score in enumerate(json.loads(tick[3])):
+                self.players[seat].score = score
+        elif kind == 'opening_complete':
+            hands, slots = json.loads(tick[2]), json.loads(tick[3])
+            for seat, player in self.players.items():
+                player.tile_list = list(hands[seat])
+                player.show_hand_draw_slot_active = slots[seat]
+            self.current_player_index = 0
+        elif kind == 'meld_face':
+            player = self.players[int(tick[2])]
+            at = int(tick[3])
+            player.combination_tiles[at] = tick[4]
+            player.combination_masks[at] = json.loads(tick[5])
+        elif kind == 'bounce':
+            player = self.players[int(tick[2])]
+            player.tile_list.pop()
+            player.huapai_list.append(int(tick[4]))
+            player.combination_masks[int(tick[5])] = json.loads(tick[6])
+            player.show_hand_draw_slot_active = False
+        elif kind == 'win_source':
+            winner, payer, tile = int(tick[2]), int(tick[3]), int(tick[5])
+            self.players[winner].show_hand_draw_slot_active = False
+            self.last_winnable_tile_id = tile
+            self.last_jiagang_player_index = payer if tick[4] == 'rob_kong' else -1
+            if payer >= 0:
+                source = self.players[payer]
+                if tick[4] == 'rob_kong':
+                    source.tile_list.pop()
+                    source.show_hand_draw_slot_active = False
+                else:
+                    self.last_discard_player_index = payer
+                    self._remove_claimed_discard(tile)
 
     def _consume_wall(self, action: str, tick=None) -> None:
         if tick and len(tick) >= 6 and tick[2] == "dw":
@@ -352,6 +394,9 @@ class RecordSim:
         if not tick:
             return
         action = tick[0]
+        if action == "filipino" and self.flags.rule_id == "filipino":
+            self._apply_filipino_tick(tick)
+            return
         if action == "lajihe_eight_flowers" and len(tick) >= 5:
             self._apply_score_array(parse_score_changes(tick, 4))
             return
@@ -395,7 +440,7 @@ class RecordSim:
 
         if action in ("d", "gd", "bd", "nd"):
             player.tile_list.append(codec.parse_tick_int(tick, 1))
-            player.show_hand_draw_slot_active = True
+            player.show_hand_draw_slot_active = len(player.tile_list) % 3 == 2 if self.flags.rule_id == "filipino" else True
             self._consume_wall(action, tick)
             next_player = acting
         elif action == "c":

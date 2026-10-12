@@ -200,7 +200,9 @@ public static class GameRecordJsonDecoder {
             return;
         }
         int[] sc = null;
-        if (act == "nanjing" && tick.Count >= 3 && tick[1] == "score") {
+        if (act == "filipino" && tick.Count >= 5 && tick[1] == "score") {
+            sc = ParseScoreChangesFromTick(tick, 4);
+        } else if (act == "nanjing" && tick.Count >= 3 && tick[1] == "score") {
             sc = ParseInlineGangScoreChanges(tick);
         } else if (tick.Count >= 5 && (act == "hu_self" || act == "hu_first" || act == "hu_second" || act == "hu_third" || act == "lajihe_eight_flowers")) {
             sc = ParseScoreChangesFromTick(tick, 4);

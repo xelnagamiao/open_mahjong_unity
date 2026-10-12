@@ -1,10 +1,10 @@
 {
-  "git_head": "35014fe25a62bd497e01033c57dcf185c2dcd6ae",
+  "git_head": "a77ed3dc9ee6251c694cd11975ea18d5b88ef725",
   "sim_client_version": 3,
   "files": {
     "open_mahjong_unity/Assets/Scripts/Network/Serialize/Response.cs": {
-      "sha256": "eb99abbb36fa30c23e520cf65931a8140e1372db552eecc785a4c61238db9456",
-      "size": 48292
+      "sha256": "24256d4e47feb158d49f89c3d934386a63aefc67289f08d57aaa6c4948708a11",
+      "size": 48409
     },
     "open_mahjong_unity/Assets/Scripts/Network/GameStateNetworkManager.cs": {
       "sha256": "39471f6b5e424254d499c915f63d7d99dbcbf41e64c0be2e784a86801bec7d9c",
@@ -23,8 +23,8 @@
       "size": 69253
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordJsonDecoder.cs": {
-      "sha256": "bbc4a3ea7536972f38bc6f58864ad4f01b7d7bf05c9a678c103800907870ca45",
-      "size": 20113
+      "sha256": "abaed4297134a71bfbc60b829e09fac8c707a6d440140b0816fde8f06b526076",
+      "size": 20247
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordData.cs": {
       "sha256": "be2748393ffa77a5c13a9386b0945a301c611641d3040f16b970fdc7a79dfa86",
@@ -43,8 +43,8 @@
       "size": 4711
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordManager.GotoAction.cs": {
-      "sha256": "5e8bc6379bab3a8d4e6e3f633a10f0564699dd6eaccf93e0f9f5e65fb5cede98",
-      "size": 19253
+      "sha256": "ebe6f131eadee3b2bd7f8952ed2157b053ecdf67c86dc00a897754669405ed6f",
+      "size": 19351
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordManager.RuleModule.cs": {
       "sha256": "ca79022806bc6d1ac86e19fa8567d10ee6eb47fb3e1447f19f64237094f3750e",
@@ -97,6 +97,26 @@
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Taiwan/TaiwanReplay.cs": {
       "sha256": "44dbb3afca438241d221391f3754f1fec631e6683481b750b82e1a62bf6dedf0",
       "size": 9227
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Filipino/FilipinoGameState.cs": {
+      "sha256": "39196d37855320a2200cc670fd1bd35589e86f7c249b79d124bd82bf8674ac8b",
+      "size": 2287
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Filipino/FilipinoReplay.cs": {
+      "sha256": "af414c42ff6ba421f2982d25038c68f179b70f27ac4acda7a911e8daed0bf735",
+      "size": 2253
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Filipino/FilipinoShape.cs": {
+      "sha256": "161405dc66daa4749f40f1b685a84d2a956459dc048f20b9c5f61797cc0403d7",
+      "size": 2948
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Filipino/FilipinoRuleBootstrap.cs": {
+      "sha256": "715e841cc728a50a73818c63113c558d8fe183751e8cd51ffb3474f6c9512f49",
+      "size": 2325
+    },
+    "open_mahjong_unity/Assets/Scripts/Network/Serialize/FilipinoProtocol.cs": {
+      "sha256": "d3250f3f7d2a788cb27b6f5a99571c077edfd7b39399af2388046b0f0c26cc04",
+      "size": 276
     }
   },
   "unity_hand_actions": [

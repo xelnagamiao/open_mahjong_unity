@@ -21,6 +21,7 @@ from .game_jiandan.JiandanGameState import JiandanGameState
 from .game_zhongyong import ZhongyongGameState, NanqueGameState
 from .game_taiwan.TaiwanGameState import TaiwanGameState
 from .game_hongkong import HongKongGameState
+from .game_filipino import FilipinoGameState
 from .game_guizhou import GuizhouGameState
 from .game_hangzhou import HangzhouGameState
 from .game_yixing import YixingGameState
@@ -63,6 +64,7 @@ class GameStateManager:
         self.room_id_to_JiandanGameState: Dict[str, JiandanGameState] = {}
         self.room_id_to_ZhongyongGameState: Dict[str, ZhongyongGameState] = {}
         self.room_id_to_TaiwanGameState: Dict[str, TaiwanGameState] = {}
+        self.room_id_to_FilipinoGameState: Dict[str, FilipinoGameState] = {}
         self.room_id_to_HongKongGameState: Dict[str, HongKongGameState] = {}
         self.room_id_to_TuidaoGameState: Dict[str, TuidaoGameState] = {}
         self.room_id_to_ShanghaiGameState: Dict[str, ShanghaiGameState] = {}
@@ -177,7 +179,7 @@ class GameStateManager:
             "changsha": ChangshaGameState, "classical": ClassicalGameState,
             "riichi": RiichiGameState, "sichuan": SichuanGameState,
             "jiandan": JiandanGameState, "zhongyong": ZhongyongGameState, "taiwan": TaiwanGameState,
-            "shanghai": ShanghaiGameState, "hongque": HongqueGameState, "hongkong": HongKongGameState, "guangdong": TuidaoGameState,
+            "shanghai": ShanghaiGameState, "hongque": HongqueGameState, "hongkong": HongKongGameState, "filipino": FilipinoGameState, "guangdong": TuidaoGameState,
             "shanxi": ShanxiGameState, "wuhan": WuhanGameState, "shenyang": ShenyangGameState,
             "changchun": ChangchunGameState,
             "free": FreeGameState, "guizhou": GuizhouGameState, "yixing": YixingGameState, "nanjing": NanjingGameState, "wenzhou": WenzhouGameState, "nanchang": NanchangGameState, "hangzhou": HangzhouGameState, "hongzhong": HongzhongGameState, "jiujiang": JiujiangGameState,
@@ -400,6 +402,8 @@ class GameStateManager:
             return self.room_id_to_ShanghaiGameState.get(room_id)
         elif room_id in self.room_id_to_HongqueGameState:
             return self.room_id_to_HongqueGameState.get(room_id)
+        elif room_id in self.room_id_to_FilipinoGameState:
+            return self.room_id_to_FilipinoGameState.get(room_id)
         elif room_id in self.room_id_to_HongKongGameState:
             return self.room_id_to_HongKongGameState.get(room_id)
         elif room_id in self.room_id_to_TuidaoGameState:

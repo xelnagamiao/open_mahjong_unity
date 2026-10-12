@@ -206,6 +206,7 @@ public class ShowResultInfo {
     public YixingScoreInfo yixing_fan_details;
     public Dictionary<int,int> yixing_round_changes;
     public Dictionary<int,int> nanjing_round_changes;
+    public FilipinoInfo filipino_info;
     public HongKongInfo hongkong_info;
     public string hongkong_flower_win;
     public Dictionary<int,int> hongkong_round_changes;
@@ -480,6 +481,7 @@ public class GameInfo {
     public NanjingHints nanjing_hints;
     public WenzhouInfo wenzhou_info;
     public NanchangInfo nanchang_info;
+    public FilipinoInfo filipino_info;
     public HongKongInfo hongkong_info;
     public Dictionary<string,HongKongWait[]> hongkong_waits;
     public Dictionary<string,WenzhouWait[]> wenzhou_waits;
@@ -565,6 +567,7 @@ public class ReadyStatusInfo {
     public WenzhouInfo wenzhou_info;
     public NanchangInfo nanchang_info;
     public int action_tick;
+    public FilipinoInfo filipino_info;
     public HongKongInfo hongkong_info;
     public bool can_cut_pull;
     public Dictionary<int, bool> player_to_ready; // 玩家索引到准备状态的映射 {player_index: ready}

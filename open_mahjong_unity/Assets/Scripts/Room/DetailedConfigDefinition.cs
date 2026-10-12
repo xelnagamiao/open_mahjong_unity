@@ -400,6 +400,7 @@ internal static class DetailedConfigRegistry {
             { taiwan.RuleKey, taiwan },
             { "riichi", RiichiRoomRules.CreateDefinition() },
             { "hongkong", HongKong_Create_RoomConfig.Definition() },
+            { "filipino", Filipino_Create_RoomConfig.Definition() },
         };
     }
 }
