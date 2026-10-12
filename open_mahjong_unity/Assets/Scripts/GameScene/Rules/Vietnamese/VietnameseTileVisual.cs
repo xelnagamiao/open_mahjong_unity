@@ -4,6 +4,8 @@ public static class VietnameseTileVisual {
     private static readonly Dictionary<int,Sprite> sprites=new Dictionary<int,Sprite>();
     private static readonly string[] Names={"总","筒","索","万","大花","喜","元","合"};
     public static bool IsExtra(int tile)=>(tile>=59 && tile<=66)||(tile>=71 && tile<=78);
+    // Other regional rules reuse these physical IDs for different flowers/animals.
+    public static bool IsCurrentRuleTile(int tile)=>IsExtra(tile) && RuleRegistry.Current?.RuleId=="vietnamese";
     public static string Name(int tile) {
         if(tile>=71 && tile<=78)return Names[tile-71];
         if(tile>=59 && tile<=62)return $"王{tile-58}";

@@ -36,8 +36,18 @@ public static class VietnameseValidation {
         normal[13]=76;Check("wind joker cannot be dots",!VietnameseShape.IsComplete(normal));
         int[] multi={71,78,74,21,22,23,31,32,33,41,41,41,72,25};
         Check("multiple jokers in a group",VietnameseShape.IsComplete(multi));
-        foreach(int tile in Enumerable.Range(59,8).Concat(Enumerable.Range(71,8))) {
-            Check("tile face "+tile,TileFaceResolver.LoadSprite(tile)!=null && TileFaceResolver.LoadTableTexture(tile)!=null && TileFaceResolver.ShouldLayerHandFace(tile));
+        var previous=RuleRegistry.Current;
+        string previousSubRule=RuleRegistry.CurrentSubRule;
+        try {
+            RuleRegistry.SetCurrent("vietnamese","vietnamese/classic160");
+            foreach(int tile in Enumerable.Range(59,8).Concat(Enumerable.Range(71,8))) {
+                var texture=VietnameseTileVisual.Texture(tile);
+                Check("tile face "+tile,texture!=null && TileFaceResolver.LoadSprite(tile)?.texture==texture
+                    && TileFaceResolver.LoadTableTexture(tile)==texture && TileFaceResolver.ShouldLayerHandFace(tile));
+            }
+        } finally {
+            if(previous==null)RuleRegistry.ClearCurrent();
+            else RuleRegistry.SetCurrent(previous.RuleId,previousSubRule);
         }
         var packet=JsonConvert.DeserializeObject<Response>("{\"game_info\":{\"vietnamese_info\":{\"base_hand_tiles\":13,\"self_has_draw_slot\":true,\"claim_options\":[{\"id\":5,\"kind\":\"k\",\"face\":25,\"tiles\":[25,71]}]}}}");
         Check("physical claim option preserved",packet.game_info.vietnamese_info.claim_options[0].tiles.SequenceEqual(new[]{25,71}));
