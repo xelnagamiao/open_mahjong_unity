@@ -16,6 +16,9 @@ public static class FilipinoValidation {
         void Check(string name,bool value) { if(!value) throw new InvalidOperationException(name); checks.Add(name); }
         typeof(FilipinoRuleBootstrap).GetMethod("Register",BindingFlags.Static|BindingFlags.NonPublic).Invoke(null,null);
         var manifest=RuleRegistry.Resolve("filipino","filipino/classic16");
+        Check("published rulebook source",RulebookPanelController.ResolveRulebookUrl(manifest.RulebookPath(null,null),"http://127.0.0.1")=="https://gingsbrain.blogspot.com/2010/10/how-to-play-filipino-mahjong.html");
+        Check("existing site rulebook route",RulebookPanelController.ResolveRulebookUrl("/rulebook/guobiao","http://127.0.0.1")=="http://127.0.0.1/rulebook/guobiao");
+        Check("readable settlement labels",FilipinoScoreText.Name("PH|和牌|4")=="和牌" && FilipinoScoreText.Value("PH|和牌|4")=="4点");
         Check("authoritative state/channel",manifest.GameStateFactory() is FilipinoGameState && manifest.OutboundChannel=="filipino");
         Check("17 tile complete hand",HandStructures.Resolve("filipino",null).CompleteHandTileCount==17);
         Check("flower replacement/replay",manifest.HasFlowerReplacement && manifest.ReplacementFromTailEnd && manifest.ReplayFactory!=null);

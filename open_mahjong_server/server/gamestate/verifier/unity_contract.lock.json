@@ -1,5 +1,5 @@
 {
-  "git_head": "520f0f3b003a582ebd51cebf33184a46959d4f69",
+  "git_head": "a77ed3dc9ee6251c694cd11975ea18d5b88ef725",
   "sim_client_version": 3,
   "files": {
     "open_mahjong_unity/Assets/Scripts/Network/Serialize/Response.cs": {
@@ -111,8 +111,8 @@
       "size": 2948
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Filipino/FilipinoRuleBootstrap.cs": {
-      "sha256": "eae99c8e89e133633b35ca5e9344ae12f4abf6ccf4f83cd2d807fb26b732d6fd",
-      "size": 1845
+      "sha256": "715e841cc728a50a73818c63113c558d8fe183751e8cd51ffb3474f6c9512f49",
+      "size": 2325
     },
     "open_mahjong_unity/Assets/Scripts/Network/Serialize/FilipinoProtocol.cs": {
       "sha256": "d3250f3f7d2a788cb27b6f5a99571c077edfd7b39399af2388046b0f0c26cc04",

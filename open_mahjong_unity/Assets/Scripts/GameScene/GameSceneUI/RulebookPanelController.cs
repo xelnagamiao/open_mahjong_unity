@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -64,8 +65,14 @@ public class RulebookPanelController : MonoBehaviour {
         return string.IsNullOrEmpty(displayName) ? "麻将" : displayName;
     }
 
+    /// <summary>Published HTTPS sources are supported alongside the existing site routes.</summary>
+    public static string ResolveRulebookUrl(string path, string webUrl) {
+        return Uri.TryCreate(path, UriKind.Absolute, out var source) && source.Scheme == Uri.UriSchemeHttps
+            ? source.AbsoluteUri : (webUrl ?? "").TrimEnd('/') + path;
+    }
+
     private void OnOpenRulebookClicked() {
-        string url = GameHost.Current.WebUrl.TrimEnd('/') + _currentPath;
+        string url = ResolveRulebookUrl(_currentPath, GameHost.Current.WebUrl);
         Application.OpenURL(url);
     }
 }
