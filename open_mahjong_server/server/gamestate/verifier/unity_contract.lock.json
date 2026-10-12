@@ -1,10 +1,10 @@
 {
-  "git_head": "35014fe25a62bd497e01033c57dcf185c2dcd6ae",
+  "git_head": "520f0f3b003a582ebd51cebf33184a46959d4f69",
   "sim_client_version": 3,
   "files": {
     "open_mahjong_unity/Assets/Scripts/Network/Serialize/Response.cs": {
-      "sha256": "eb99abbb36fa30c23e520cf65931a8140e1372db552eecc785a4c61238db9456",
-      "size": 48292
+      "sha256": "0006cb1a07d7ff478e32e7e2979f9def6712128495a7034027ae2eac3f78398b",
+      "size": 48421
     },
     "open_mahjong_unity/Assets/Scripts/Network/GameStateNetworkManager.cs": {
       "sha256": "39471f6b5e424254d499c915f63d7d99dbcbf41e64c0be2e784a86801bec7d9c",
@@ -39,12 +39,12 @@
       "size": 2121
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/RecordHuHandBuilder.cs": {
-      "sha256": "a92106d7434b79aedb149ee621a575d0a7c2fe314297415fe34e504af44e8d75",
-      "size": 4711
+      "sha256": "be37b1a78dc71b7cf714e76d0a12f438664f21a61220564acaed1c3006bdf8b0",
+      "size": 4831
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordManager.GotoAction.cs": {
-      "sha256": "5e8bc6379bab3a8d4e6e3f633a10f0564699dd6eaccf93e0f9f5e65fb5cede98",
-      "size": 19253
+      "sha256": "4206f32b82d6261950b46ad458dbb3065ac1128659d4d202567e699748e499fd",
+      "size": 19353
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordManager.RuleModule.cs": {
       "sha256": "ca79022806bc6d1ac86e19fa8567d10ee6eb47fb3e1447f19f64237094f3750e",
@@ -97,6 +97,26 @@
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Taiwan/TaiwanReplay.cs": {
       "sha256": "44dbb3afca438241d221391f3754f1fec631e6683481b750b82e1a62bf6dedf0",
       "size": 9227
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Vietnamese/VietnameseGameState.cs": {
+      "sha256": "8e6cd254f6e0707695d34f9f1b13f7381249e72ad67321febaa51f447fd63dfd",
+      "size": 3680
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Vietnamese/VietnameseReplay.cs": {
+      "sha256": "c83fcc02432f0845742e16b8758f5492e8f33e84e39d51834ed068a8c5b7e35a",
+      "size": 3904
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Vietnamese/VietnameseShape.cs": {
+      "sha256": "4f5a5d07141aac072506af9f0f6f00879b7ae0315c9e8aaf18cf127c2f9a2380",
+      "size": 3584
+    },
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Vietnamese/VietnameseRuleBootstrap.cs": {
+      "sha256": "c8e13d57e0352675c9f2380c595040b311e8a0088d8c326be999c8326898bcbb",
+      "size": 3391
+    },
+    "open_mahjong_unity/Assets/Scripts/Network/Serialize/VietnameseProtocol.cs": {
+      "sha256": "d355c740bb6fbee478bbcbbec2cb082b5816da28426e50835655b807679a132c",
+      "size": 567
     }
   },
   "unity_hand_actions": [

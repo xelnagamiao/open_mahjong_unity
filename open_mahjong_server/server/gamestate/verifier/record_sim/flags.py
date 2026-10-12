@@ -47,6 +47,7 @@ class RecordRuleFlags:
 
 
 _BY_RULE: dict[str, RecordRuleFlags] = {
+    "vietnamese": RecordRuleFlags(rule_id="vietnamese", replacement_from_tail_end=True),
     "sichuan": RecordRuleFlags(
         rule_id="sichuan",
         kong_replacement_from_front=True,

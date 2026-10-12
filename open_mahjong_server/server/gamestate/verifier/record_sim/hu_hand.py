@@ -41,5 +41,7 @@ def try_parse_hepai_tile(tick: Sequence[str], rule: Optional[str]) -> int:
 
 
 def is_flower_win(tick: Sequence[str], rule: Optional[str]) -> bool:
+    if resolve_record_flags(rule=rule).rule_id == "vietnamese":
+        return False
     tile = try_parse_hepai_tile(tick, rule)
     return 51 <= tile <= 58

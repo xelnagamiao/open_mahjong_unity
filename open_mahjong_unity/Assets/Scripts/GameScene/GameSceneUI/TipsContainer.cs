@@ -513,7 +513,7 @@ public partial class TipsContainer : MonoBehaviour
                     foreach (int tile in WashizuTile.VisibleMeldTiles(mask)) AddVisibleTile(tile, roomRule);
                 continue;
             }
-            if (roomRule == WenzhouGameState.RuleId && playerInfo.combination_masks != null) {
+            if ((roomRule == WenzhouGameState.RuleId || roomRule == VietnameseGameState.RuleId) && playerInfo.combination_masks != null) {
                 foreach (var mask in playerInfo.combination_masks) for (int i = 1; mask != null && i < mask.Length; i += 2) AddVisibleTile(mask[i], roomRule);
                 continue;
             }

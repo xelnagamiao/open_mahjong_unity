@@ -2,14 +2,32 @@
   "sim_client_version": 3,
   "rule": "guobiao",
   "table_variants": {
-    "guobiao/standard": { "player_count": 4, "hands_per_wind": 4 },
+    "guobiao/standard": {
+      "player_count": 4,
+      "hands_per_wind": 4
+    },
     "guobiao/sanma": {
       "player_count": 3,
       "hands_per_wind": 3,
-      "removed_tiles": [12, 13, 14, 15, 16, 17, 18],
-      "seat_positions": ["self", "right", "top"],
+      "removed_tiles": [
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18
+      ],
+      "seat_positions": [
+        "self",
+        "right",
+        "top"
+      ],
       "seat_index_modulus": 4,
-      "ron_actions": ["hu_first", "hu_second"],
+      "ron_actions": [
+        "hu_first",
+        "hu_second"
+      ],
       "score_changes_count": 3,
       "record_seats_count": 3,
       "fourth_seat_is_placeholder": true
@@ -46,7 +64,11 @@
     "ready",
     "force_pass",
     "lajihe_flower_end",
-    "lajihe_flower_continue"
+    "lajihe_flower_continue",
+    "vn_claim",
+    "vn_replace",
+    "vn_bounce",
+    "hu_special"
   ],
   "unity_contract_files": [
     "open_mahjong_unity/Assets/Scripts/Network/Serialize/Response.cs",
@@ -72,7 +94,12 @@
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Zhongyong/ZhongyongGameState.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Zhongyong/NanqueGameState.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Guobiao/GuobiaoBloodBattleReplay.cs",
-    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Taiwan/TaiwanReplay.cs"
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Taiwan/TaiwanReplay.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Vietnamese/VietnameseGameState.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Vietnamese/VietnameseReplay.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Vietnamese/VietnameseShape.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Vietnamese/VietnameseRuleBootstrap.cs",
+    "open_mahjong_unity/Assets/Scripts/Network/Serialize/VietnameseProtocol.cs"
   ],
   "component_profiles": {
     "sichuan/xueliu": {
@@ -93,6 +120,12 @@
     "zhongyong/nanque": {
       "blood_battle": true,
       "deferred_score_settlement": true
+    },
+    "vietnamese/classic160": {
+      "base_hand_tiles": 13,
+      "replacement_from_tail_end": true,
+      "basic_statistics": true,
+      "fan_statistics": false
     }
   },
   "special_phase_actions": {

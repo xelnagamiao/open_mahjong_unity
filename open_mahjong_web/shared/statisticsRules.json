@@ -1116,6 +1116,29 @@
       ],
       "ranked_modes": [],
       "matchmaking": false
+    },
+    {
+      "key": "vietnamese",
+      "rule": "vietnamese",
+      "sub_rule": "vietnamese/classic160",
+      "family_name": "越南",
+      "sub_rule_name": "Classic 160张",
+      "stats_name": "越南（Classic160）",
+      "standard": true,
+      "basic_stats": true,
+      "fan_stats": false,
+      "fan_key": null,
+      "player_count": 4,
+      "home_header": false,
+      "home_label": "",
+      "custom_modes": [
+        "1/4",
+        "2/4",
+        "3/4",
+        "4/4"
+      ],
+      "ranked_modes": [],
+      "matchmaking": false
     }
   ]
 }

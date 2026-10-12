@@ -155,6 +155,7 @@ public partial class CreatePanel : MonoBehaviour {
     private void Start() {
         BindFixedCreateControls();
         BindDetailedConfigControls("taiwan");
+        BindDetailedConfigControls("vietnamese");
         BindDetailedConfigControls("hongkong");
         BindDetailedConfigControls("riichi");
         EnsureRuleDropdownOptions();

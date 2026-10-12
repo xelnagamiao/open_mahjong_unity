@@ -10,6 +10,7 @@ using UnityEngine.UI;
 /// <summary>所有规则共用的按钮顺序回归；从 Editor bridge 显式调用 Run。</summary>
 public static class ActionButtonOrderValidation {
     public static readonly Dictionary<string, string[]> RuleActions = new Dictionary<string, string[]> {
+        { "vietnamese", new[] { "hu_self", "hu_special", "buhua", "vn_replace", "vn_bounce", "vn_claim", "angang", "jiagang", "pass" } },
         { "nanchang", new[] { "hu_self", "nc_jingdiao", "nc_draw", "angang", "gang", "peng", "chi_mid", "pass" } },
         { "nanjing", new[] { "hu_self", "buhua", "angang", "jiagang", "peng", "gang", "pass" } },
         { "shenyang", new[] { "hu_self", "sy_xi", "sy_wind", "sy_reveal", "sy_hide", "sy_pass", "angang", "peng", "chi_left", "pass" } },

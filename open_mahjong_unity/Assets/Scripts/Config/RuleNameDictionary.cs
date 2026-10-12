@@ -6,6 +6,8 @@ using System.Collections.Generic;
 public static class RuleNameDictionary {
     /// <summary>sub_rule（或 main rule）-> 长显示名</summary>
     public static readonly Dictionary<string, string> WholeName = new Dictionary<string, string> {
+        { "vietnamese", "越南麻将" },
+        { "vietnamese/classic160", "越南麻将" },
         // 从sub_rule获得
         { "qingque/standard", "青雀" },
         { "guobiao/blood_battle", "国标麻将(血战到底)" },
@@ -56,6 +58,8 @@ public static class RuleNameDictionary {
 
     /// <summary>sub_rule -> 短显示名（预留，可按需补全）</summary>
     public static readonly Dictionary<string, string> ShortName = new Dictionary<string, string> {
+        { "vietnamese", "越南麻将" },
+        { "vietnamese/classic160", "越南麻将" },
         { "guobiao/blood_battle", "国标血战" },
         { "guobiao/standard", "国标" },
         { "guobiao/sanma", "三人国标" },

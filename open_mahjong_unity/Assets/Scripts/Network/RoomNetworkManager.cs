@@ -374,6 +374,26 @@ public partial class RoomNetworkManager : MonoBehaviour {
     }
 
     /// <summary>创建指定子规则的香港麻将房间。</summary>
+    public async void Create_Vietnamese_Room(Vietnamese_Create_RoomConfig config) {
+        if (!TryBeginCreateRequest()) return;
+        try {
+            if (!TryResolveRandomSeed(config.RandomSeed, out string seed, out string error)) {
+                CancelPendingRoomEntry(); NotificationManager.Instance.ShowTip("create_room",false,error); return;
+            }
+            var request = new {
+                type="room/create_Vietnamese_room",rule="vietnamese",sub_rule=config.SubRule??VietnameseGameState.Classic160,
+                roomname=config.RoomName,gameround=config.GameRound,password=config.Password,random_seed=seed,
+                roundTimerValue=config.RoundTimer,stepTimerValue=config.StepTimer,tips=config.Tips,
+                count_tips=config.CountTips,pointer_tips=config.PointerTips,tourist_limit=config.TouristLimit,
+                allow_spectator=config.AllowSpectator,event_id=string.IsNullOrEmpty(config.EventId)?null:config.EventId,
+                detailed_config=config.NormalizedConfig(),
+            };
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            CancelPendingRoomEntry(); Debug.LogError($"创建越南麻将房间失败: {e.Message}");
+        }
+    }
+
     public async void Create_HongKong_Room(HongKong_Create_RoomConfig config) {
         if (!TryBeginCreateRequest()) return;
         try {
