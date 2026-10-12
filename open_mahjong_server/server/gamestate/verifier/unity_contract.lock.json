@@ -1,5 +1,5 @@
 {
-  "git_head": "520f0f3b003a582ebd51cebf33184a46959d4f69",
+  "git_head": "efae6c340ba60b550a96db6a1924751c545fafe9",
   "sim_client_version": 3,
   "files": {
     "open_mahjong_unity/Assets/Scripts/Network/Serialize/Response.cs": {
@@ -111,8 +111,8 @@
       "size": 3584
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Vietnamese/VietnameseRuleBootstrap.cs": {
-      "sha256": "c8e13d57e0352675c9f2380c595040b311e8a0088d8c326be999c8326898bcbb",
-      "size": 3391
+      "sha256": "282d19403587fa6264a2ee8c7d40f8c06bc82bdd610de2578ac3682e704a8881",
+      "size": 6174
     },
     "open_mahjong_unity/Assets/Scripts/Network/Serialize/VietnameseProtocol.cs": {
       "sha256": "d355c740bb6fbee478bbcbbec2cb082b5816da28426e50835655b807679a132c",

@@ -16,6 +16,9 @@ public static class VietnameseValidation {
         void Check(string name,bool value){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
         typeof(VietnameseRuleBootstrap).GetMethod("Register",BindingFlags.Static|BindingFlags.NonPublic).Invoke(null,null);
         var manifest=RuleRegistry.Resolve("vietnamese","vietnamese/classic160");
+        Check("published rulebook source",RulebookPanelController.ResolveRulebookUrl(manifest.RulebookPath(null,null),"http://127.0.0.1")=="https://drive.google.com/file/d/1ETjCEPo-fVDKkcQwZ_mK3qCsop5fhagD/view");
+        Check("existing site rulebook route",RulebookPanelController.ResolveRulebookUrl("/rulebook/guobiao","http://127.0.0.1")=="http://127.0.0.1/rulebook/guobiao");
+        Check("readable settlement units",VietnameseScoreText.Amount(7)=="1满 + 1番" && VietnameseScoreText.Name("VN|seat_flowers|1")=="正花");
         Check("state/channel",manifest.GameStateFactory() is VietnameseGameState && manifest.OutboundChannel=="vietnamese");
         Check("13 tile base hand",HandStructures.Resolve("vietnamese").BaseHandTileCount==13);
         Check("robbed kong and tail replacement",manifest.SupportsRobbedAddedKongSource && manifest.ReplacementFromTailEnd);

@@ -7,6 +7,7 @@ using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
+using TMPro;
 using UnityEngine.SceneManagement;
 
 /// <summary>Opt-in offline scene/render smoke; private data and loopback-only transports.</summary>
@@ -46,17 +47,29 @@ public sealed class VietnameseTableSmoke : MonoBehaviour {
             var response=JsonConvert.DeserializeObject<Response>(item["packet"].ToString());
             typeof(UserDataManager).GetProperty("UserId").SetValue(UserDataManager.Instance,response.game_info.players_info[0].user_id);
             GameStateNetworkManager.Instance.HandleGameStateMessage(response);
-            yield return new WaitForSecondsRealtime(1.2f);
+            yield return new WaitForSecondsRealtime((float?)item["delay_seconds"]??1.2f);
             Check(RuleRegistry.Current?.RuleId=="vietnamese","active rule");
             var mirror=TableMirror.Current;
             Check(mirror.SelfHandTiles.OrderBy(t=>t).SequenceEqual(response.game_info.self_hand_tiles.OrderBy(t=>t)),"reconnected private hand");
             Check(Game3DManager.Instance!=null && GameCanvas.Instance!=null,"live 2D/3D scene");
+            if(response.show_result_info!=null) {
+                // During a reveal the live table is an animation source, not a
+                // fresh reconnect projection. Assert the delivered result UI.
+                Check(EndResultPanel.Instance!=null && EndResultPanel.Instance.gameObject.activeInHierarchy,"settlement panel visible");
+                foreach(var expected in response.game_info.players_info) {
+                    var actual=mirror.PlayerToInfo[mirror.IndexToPosition[expected.player_index]];
+                    Check(actual.score==expected.score,"settled score");
+                }
+                var labels=EndResultPanel.Instance.GetComponentsInChildren<TMP_Text>(true);
+                Check(labels.Any(label=>label.text.Contains(VietnameseScoreText.Amount(response.show_result_info.hu_score))),"settlement amount rendered");
+            } else {
             foreach(var expected in response.game_info.players_info) {
                 var actual=mirror.PlayerToInfo[mirror.IndexToPosition[expected.player_index]];
                 Check(actual.discard_tiles.SequenceEqual(expected.discard_tiles??Array.Empty<int>()),"river");
                 Check(actual.combination_tiles.SequenceEqual(expected.combination_tiles??Array.Empty<string>()),"melds");
                 Check(actual.huapai_list.SequenceEqual(expected.huapai_list??Array.Empty<int>()),"bonuses");
                 Check(actual.score==expected.score,"score");
+            }
             }
             yield return new WaitForEndOfFrame();
             Texture2D screen=CaptureTable();
@@ -69,7 +82,7 @@ public sealed class VietnameseTableSmoke : MonoBehaviour {
         // A hidden batch player's swapchain can be black; render the actual
         // scene/canvas to a private target instead of accepting a blank capture.
         var camera=Camera.main??Camera.allCameras.First();
-        var canvases=FindObjectsByType<Canvas>(FindObjectsSortMode.None).Where(c=>c.isRootCanvas && c.renderMode==RenderMode.ScreenSpaceOverlay).ToArray();
+        var canvases=FindObjectsByType<Canvas>().Where(c=>c.isRootCanvas && c.renderMode==RenderMode.ScreenSpaceOverlay).ToArray();
         foreach(var canvas in canvases){canvas.renderMode=RenderMode.ScreenSpaceCamera;canvas.worldCamera=camera;canvas.planeDistance=1;}
         Canvas.ForceUpdateCanvases();
         var target=new RenderTexture(1280,720,24);target.Create();

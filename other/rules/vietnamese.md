@@ -130,3 +130,6 @@ empty and no matching/ranking queue has been introduced.
 See [integration and validation](variant-integration.md). The tests and isolated
 Windows build provide finite coverage; they do not establish all device targets
 or four human clients on an external network.
+
+The Chinese client labels phán as 番 and mủn as 满 (six 番 = one 满),
+using the same payment values while avoiding missing glyphs in the existing fonts.

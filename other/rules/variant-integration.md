@@ -36,9 +36,9 @@ The existing unified record/metrics writer stores this rule/subrule identity.
 Basic statistics are enabled, fan-category statistics and matching/rating queues
 are not. No schema-wide reset or production migration is needed for this change.
 The web change is the statistics catalog; a new browser-playable rules engine
-and an online rulebook page are not included. The existing Unity rulebook button
-therefore needs the corresponding website documentation page before publication;
-source documentation for this branch is in this directory.
+is outside this Unity feature. The Unity rulebook button opens the published
+HTTPS source directly, while existing rules retain their website routes. Source
+differences and configuration choices are documented in this directory.
 
 ## Reproduce server validation
 
@@ -111,7 +111,11 @@ server snapshots through `GameStateNetworkManager` into the actual scene,
 asserts TableMirror data and renders the real URP camera/canvases into a private
 target. The script requires nonblank pixels; inspect PNGs as well. Its test
 transport is loopback-only, and it never logs into shared services. The fixture
-is offline: it is not a four-client live network end-to-end test.
+is offline: it is not a four-client live network end-to-end test. The exporter
+also emits `settlement-smoke.json`; use it with the same table-smoke switch to
+wait for the result animation and assert final scores, amount text and visible
+result panel. During that animation the table is a reveal source rather than a
+fresh reconnect projection, so final result UI has its own assertions.
 
 ## Other monorepo checks and limits
 
