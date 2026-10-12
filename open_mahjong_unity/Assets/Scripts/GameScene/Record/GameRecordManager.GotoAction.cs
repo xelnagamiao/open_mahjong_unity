@@ -141,7 +141,8 @@ public partial class GameRecordManager
         if (!isRuleStateAction && (action == "d" || action == "gd" || action == "bd" || action == "nd")) {
             int dealTile = ParseTickInt(tick, 1);
             actingPlayer.tileList.Add(dealTile);
-            actingPlayer.showHandDrawSlotActive = true;
+            actingPlayer.showHandDrawSlotActive = RecordRuleManifest?.RuleId == "filipino"
+                ? actingPlayer.tileList.Count % 3 == 2 : true;
             waitingForDrawAfterCut = false;
 
             if (!TryConsumeDuplicateWallTile(actingPlayerIndex, action, tick) && !TryConsumeRecordRuleWallTile(action) && currentTilesList.Count > 0) {
