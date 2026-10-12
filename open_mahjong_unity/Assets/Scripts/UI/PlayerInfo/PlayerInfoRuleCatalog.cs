@@ -65,6 +65,7 @@ public static class PlayerInfoRuleCatalog {
         new Entry("nanjing", "nanjing", "nanjing/mil2024", "南京麻将（MIL 2024）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
         new Entry("nanchang", "nanchang", "nanchang/mil2026", "南昌麻将（MIL 2026）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
         new Entry("filipino", "filipino", "filipino/classic16", "菲律宾（classic16）", 4, false, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
+        new Entry("vietnamese", "vietnamese", "vietnamese/classic160", "越南（Classic160）", 4, false, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
     };
     private static Entry Find(string key) => Array.Find(Entries, e => e.Key == (key == "jiandan" ? Nanque : key));
     public static List<KeyValuePair<string,string>> OtherRules(bool ranked) {

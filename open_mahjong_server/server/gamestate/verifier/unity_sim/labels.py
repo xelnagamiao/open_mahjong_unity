@@ -33,6 +33,10 @@ BUTTON_TEXT: Dict[str, str] = {
     "pass": "取消",
     "force_pass": "放弃",
     "ready": "准备",
+    "vn_claim": "吃碰杠",
+    "vn_replace": "补鬼",
+    "vn_bounce": "弹鬼",
+    "hu_special": "无花无叶和",
 }
 
 DISPLAY_TEXT: Dict[str, str] = {

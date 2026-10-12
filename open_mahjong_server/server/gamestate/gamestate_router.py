@@ -90,6 +90,9 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
     elif message_type in {"gamestate/filipino/cut_tile", "gamestate/filipino/send_action"}:
         from .game_filipino.get_action import handle_action
         await handle_action(game_server, Connect_id, message, websocket)
+    elif message_type in {"gamestate/vietnamese/cut_tile", "gamestate/vietnamese/send_action"}:
+        from .game_vietnamese.get_action import handle_action
+        await handle_action(game_server, Connect_id, message, websocket)
     elif message_type in {"gamestate/hongkong/cut_tile", "gamestate/hongkong/send_action"}:
         from .game_hongkong.get_action import handle_action
         await handle_action(game_server, Connect_id, message, websocket)

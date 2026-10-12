@@ -2,6 +2,7 @@ from ..database.duplicate_walls import apply_duplicate_room_config, load_duplica
 from typing import Dict, Optional
 from .room_validators import GBRoomValidator, MMCValidator, RiichiRoomValidator, SichuanRoomValidator, ChangshaRoomValidator, JiandanRoomValidator, TaiwanRoomValidator, FreeRoomValidator, ShanghaiRoomValidator
 from .filipino_room import FilipinoRoomValidator, create_filipino_room
+from .vietnamese_room import VietnameseRoomValidator, create_vietnamese_room
 from .hongkong_room import HongKongRoomValidator, create_hongkong_room
 from .guizhou_room import GuizhouRoomValidator, create_guizhou_room
 from .hangzhou_room import HangzhouRoomValidator, create_hangzhou_room, enforce_hangzhou_tactical_room
@@ -56,6 +57,7 @@ class RoomManager:
             "taiwan": TaiwanRoomValidator,
             "hongkong": HongKongRoomValidator,
             "filipino": FilipinoRoomValidator,
+            "vietnamese": VietnameseRoomValidator,
             "guizhou": GuizhouRoomValidator,
             "yixing": YixingRoomValidator,
             "nanjing": NanjingRoomValidator,
@@ -1258,6 +1260,8 @@ class RoomManager:
 
     async def create_Filipino_room(self, player_id, **config):
         return await create_filipino_room(self, player_id, **config)
+    async def create_Vietnamese_room(self, player_id, **config):
+        return await create_vietnamese_room(self, player_id, **config)
 
     async def create_HongKong_room(self, player_id, **config):
         return await create_hongkong_room(self, player_id, **config)
@@ -2277,7 +2281,7 @@ class RoomManager:
                     **{key: room_config[key] for key in ("use_flowers", "tian_di_ren_he", "open_cuohe", "tactical_call", "claim_protection", "allow_spectator", "tourist_limit", "count_tips", "pointer_tips", "hepai_limit") if key in room_config},
                 )
                 hepai_limit = 0
-            elif rule in ("filipino", "guizhou", "nanjing", "yixing", "wenzhou", "nanchang", "hongzhong", "hangzhou", "changchun", "jiujiang"):
+            elif rule in ("filipino", "vietnamese", "guizhou", "nanjing", "yixing", "wenzhou", "nanchang", "hongzhong", "hangzhou", "changchun", "jiujiang"):
                 validated = self.room_validators[rule](
                     **{**base_config, **{key: room_config[key] for key in ("game_round", "round_timer", "step_timer") if key in room_config}},
                     sub_rule=sub_rule, tips=room_config.get("tips", True),

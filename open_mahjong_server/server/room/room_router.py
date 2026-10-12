@@ -138,6 +138,9 @@ async def _dispatch_room_message(game_server, Connect_id: str, message: dict, we
     elif message_type == "room/create_Filipino_room":
         from .filipino_room import handle_create_filipino_room
         await handle_create_filipino_room(game_server, Connect_id, message, websocket)
+    elif message_type == "room/create_Vietnamese_room":
+        from .vietnamese_room import handle_create_vietnamese_room
+        await handle_create_vietnamese_room(game_server, Connect_id, message, websocket)
     elif message_type == "room/create_HongKong_room":
         from .hongkong_room import handle_create_hongkong_room
         await handle_create_hongkong_room(game_server, Connect_id, message, websocket)

@@ -64,7 +64,11 @@
     "ready",
     "force_pass",
     "lajihe_flower_end",
-    "lajihe_flower_continue"
+    "lajihe_flower_continue",
+    "vn_claim",
+    "vn_replace",
+    "vn_bounce",
+    "hu_special"
   ],
   "unity_contract_files": [
     "open_mahjong_unity/Assets/Scripts/Network/Serialize/Response.cs",
@@ -95,7 +99,12 @@
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Filipino/FilipinoReplay.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Filipino/FilipinoShape.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Filipino/FilipinoRuleBootstrap.cs",
-    "open_mahjong_unity/Assets/Scripts/Network/Serialize/FilipinoProtocol.cs"
+    "open_mahjong_unity/Assets/Scripts/Network/Serialize/FilipinoProtocol.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Vietnamese/VietnameseGameState.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Vietnamese/VietnameseReplay.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Vietnamese/VietnameseShape.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Vietnamese/VietnameseRuleBootstrap.cs",
+    "open_mahjong_unity/Assets/Scripts/Network/Serialize/VietnameseProtocol.cs"
   ],
   "component_profiles": {
     "sichuan/xueliu": {
@@ -119,6 +128,12 @@
     },
     "filipino/classic16": {
       "base_hand_tiles": 16,
+      "replacement_from_tail_end": true,
+      "basic_statistics": true,
+      "fan_statistics": false
+    },
+    "vietnamese/classic160": {
+      "base_hand_tiles": 13,
       "replacement_from_tail_end": true,
       "basic_statistics": true,
       "fan_statistics": false

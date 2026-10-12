@@ -197,6 +197,8 @@ class RecordSim:
         self.record_riichi_sticks = int(riichi.get("riichi_sticks") or 0)
         if self.flags.rule_id == "filipino":
             self.record_dead_wall_count = 0
+        if self.flags.rule_id == "vietnamese":
+            self.record_dead_wall_count = 26
         self.players = {}
         seats = round_data.get("seats") or list(range(self.player_count))
         if sorted(seats) != list(range(self.player_count)):
@@ -207,8 +209,8 @@ class RecordSim:
                 original_player_index=seats.index(seat),
                 player_index=seat,
                 tile_list=tiles,
-                score=int((round_data.get("start_scores") or [0]*4)[seat]) if self.flags.rule_id == "filipino" else 0,
-                show_hand_draw_slot_active=len(tiles) % 3 == 2 if self.flags.rule_id == "filipino" else False,
+                score=int((round_data.get("start_scores") or [0]*4)[seat]) if self.flags.rule_id in {"filipino", "vietnamese"} else 0,
+                show_hand_draw_slot_active=len(tiles) % 3 == 2 if self.flags.rule_id in {"filipino", "vietnamese"} else False,
                 dingque_suit=int((round_data.get("dingque_suits") or {}).get(str(seat),
                     (round_data.get("dingque_suits") or {}).get(seat, 0))),
             )
@@ -257,7 +259,7 @@ class RecordSim:
             self.apply_tick(tick)
         return self.snapshot()
 
-    def _apply_filipino_tick(self, tick):
+    def _apply_variant_tick(self, tick):
         kind = tick[1]
         if kind == 'score':
             self._apply_score_array(parse_score_changes(tick, 4))
@@ -394,8 +396,8 @@ class RecordSim:
         if not tick:
             return
         action = tick[0]
-        if action == "filipino" and self.flags.rule_id == "filipino":
-            self._apply_filipino_tick(tick)
+        if action == self.flags.rule_id and action in {"filipino", "vietnamese"}:
+            self._apply_variant_tick(tick)
             return
         if action == "lajihe_eight_flowers" and len(tick) >= 5:
             self._apply_score_array(parse_score_changes(tick, 4))
@@ -440,7 +442,7 @@ class RecordSim:
 
         if action in ("d", "gd", "bd", "nd"):
             player.tile_list.append(codec.parse_tick_int(tick, 1))
-            player.show_hand_draw_slot_active = len(player.tile_list) % 3 == 2 if self.flags.rule_id == "filipino" else True
+            player.show_hand_draw_slot_active = len(player.tile_list) % 3 == 2 if self.flags.rule_id in {"filipino", "vietnamese"} else True
             self._consume_wall(action, tick)
             next_player = acting
         elif action == "c":

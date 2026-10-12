@@ -1,13 +1,13 @@
 # Variant integration and isolated validation
 
-This branch adds filipino to the existing Open Mahjong monorepo. The repository
+The integrated rules add Filipino classic16 and Vietnamese Classic 160 to the existing Open Mahjong monorepo. The repository
 contains the Python game server, Unity client, Vue/Node website and Go chat
 server; a separate authoritative game-server repository is not required here.
 The implementation was based on commit `520f0f3b003a582ebd51cebf33184a46959d4f69`.
 
 ## Architecture
 
-The new rule owns its tile model, legal shape/scoring evaluator, player state,
+Each new rule owns its tile model, legal shape/scoring evaluator, player state,
 explicit state machine, protocol adapter, recording adapter and bot. The design
 uses Guobiao's separation between an active-player decision and a discard
 response window: clients submit choices, and the server validates and resolves
@@ -32,7 +32,7 @@ the real C# replay code and the Python record simulator. Original tile faces are
 provided for Vietnamese's additional flowers and jokers.
 
 The server statistics catalog is the source for the generated Unity/web catalog.
-The existing unified record/metrics writer stores this rule/subrule identity.
+The existing unified record/metrics writer stores each rule/subrule identity.
 Basic statistics are enabled, fan-category statistics and matching/rating queues
 are not. No schema-wide reset or production migration is needed for this change.
 The web change is the statistics catalog; a new browser-playable rules engine
@@ -49,15 +49,17 @@ From `open_mahjong_server`, use Python 3.12 and PowerShell:
 $env:PYTHONPATH = (Get-Location).Path + ';' + (Join-Path (Get-Location) 'tests/database')
 $env:PYTHONIOENCODING = 'utf-8'
 python -m pytest --import-mode=importlib -c server/pytest.ini server tests -q --junitxml=../.om_workspace/validation/server-full.xml
-python -m pytest --import-mode=importlib -c server/pytest.ini server/game_calculation/filipino server/gamestate/game_filipino -q
+python -m pytest --import-mode=importlib -c server/pytest.ini server/game_calculation/filipino server/gamestate/game_filipino server/game_calculation/vietnamese server/gamestate/game_vietnamese -q
 python -m server.gamestate.verifier.check_contract
-python -m server.gamestate.game_filipino.export_validation --output ../.om_workspace/validation/fixtures
+python -m server.gamestate.game_filipino.export_validation --output ../.om_workspace/validation/filipino-fixtures
+python -m server.gamestate.game_vietnamese.export_validation --output ../.om_workspace/validation/vietnamese-fixtures
 ```
 
 The repository default full-suite command excludes the seven Guobiao heuristic
 `selfplay` cases. Those are a separate lab workload, including 63 full matches;
 they must not be described as passed by the command above. Database cases skip
-without `TEST_DATABASE_DSN`. To run `tests/database/test_filipino_integration.py`,
+without `TEST_DATABASE_DSN`. To run `tests/database/test_filipino_integration.py` and
+`tests/database/test_vietnamese_integration.py`,
 set that variable through a private environment, using a disposable test DB
 account allowed to create/drop schemas. The fixture creates and drops a unique
 `subrule_test_<uuid>` schema, never the shared application schema. Do not commit
@@ -86,7 +88,9 @@ Unity.exe -batchmode -nographics -projectPath <branch>/open_mahjong_unity -execu
 Unity.exe -batchmode -nographics -projectPath <branch>/open_mahjong_unity -executeMethod FilipinoValidation.BuildBatch -logFile <branch>/.om_workspace/validation/unity-build.log
 ```
 
-The runner invokes all public optional-argument `Run` methods ending in
+Both rule runners (`FilipinoValidation` and `VietnameseValidation`) are included
+in the integrated project. Either RunBatch invokes both sets of checks; the
+resulting player includes both rules. The runner invokes all public optional-argument `Run` methods ending in
 `Validation`; failures retain their exception in `unity-client-tests.json` and
 return nonzero. This is the repository's custom batch-validation convention,
 not an assertion that an NUnit EditMode/PlayMode suite ran. New checks cover the
@@ -99,7 +103,10 @@ and product `FilipinoMahjongValidation`, isolating player preferences from the
 installed client, then restores the project's settings. Launch hidden on Windows
 with `Start-Process -WindowStyle Hidden`; retain output logs and exit codes.
 
-The compiled player has two explicit opt-in checks:
+The compiled player has two explicit opt-in checks for each rule. The same
+executable accepts `--filipino-audit`, `--filipino-table-smoke`,
+`--vietnamese-audit` and `--vietnamese-table-smoke`; use fixtures exported for
+the matching rule:
 
 ```text
 FilipinoMahjong.exe -batchmode -nographics --filipino-audit <fixtures>/filipino-0.json <output>/native-replay.json -logFile <output>/native-replay.log
@@ -134,5 +141,8 @@ file after the run. Do not change the shared chat service's key.
 
 These checks cover finite scripted scenarios. Human input, latency/loss,
 multiple live Unity clients, mobile/WebGL/Steam publication, localization polish,
-and long-term load/performance remain separate acceptance work. Neither branch
-should be merged or published solely because its compilation succeeds.
+and long-term load/performance remain separate acceptance work. Both classic
+rule sets are integrated together. Vietnamese Modern (168/176/184 tiles) remains
+unsupported. Validation results and remaining limits must be reported using
+the actual runs, not inferred from compilation. Local integration does not
+imply that a build has been published.

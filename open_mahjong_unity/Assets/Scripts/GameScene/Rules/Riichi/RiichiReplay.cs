@@ -34,7 +34,7 @@ public partial class GameRecordManager {
     /// <summary>立直及香港牌谱起手分（按 original 0~3），从牌谱读取，不按当前规则回推。</summary>
     private int[] GetRecordStartingScoresByOriginal() {
         var scores = new int[4];
-        if ((!IsRiichiRuleRecord() && !IsHongKongRecord()) || gameRecord?.gameTitle == null) return scores;
+        if ((!IsRiichiRuleRecord() && !IsHongKongRecord() && RecordRuleManifest?.RuleId != "vietnamese") || gameRecord?.gameTitle == null) return scores;
         var gt = gameRecord.gameTitle;
         if (gt.TryGetValue("starting_scores", out object arrObj)) {
             if (arrObj is JArray arr && arr.Count >= RecordPlayerCount) {

@@ -36,6 +36,7 @@ public partial class CreatePanel {
         EnsureChangshaOptionControls(); EnsureWallOptionControls(); BakeRiichiDetailsPanel();
         BakeHongKongDetailsPanel();
         BakeFilipinoDetailsPanel();
+        BakeVietnameseDetailsPanel();
         BakeYixingRoomControls();
         BakeShanghaiRoomControls();
         EnsureRuleDropdownOptions(); InitCuoheTypeDropdown();

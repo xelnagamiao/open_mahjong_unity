@@ -261,6 +261,10 @@ public class MahjongObjectPool : MonoBehaviour {
     /// </summary>
     public GameObject Spawn(int type, Vector3 position, Quaternion rotation) {
         int logicalType = type;
+        if(VietnameseTileVisual.IsExtra(type) && !poolDictionary.ContainsKey(type)) {
+            var queue=new Queue<GameObject>();var extra=Instantiate(tile3DPrefab,transform);
+            extra.SetActive(false);SetupPooledTile(extra);ApplyCardTexture(extra,type);queue.Enqueue(extra);poolDictionary[type]=queue;
+        }
         type = WashizuTile.Face(type);
         if (HongqueTileVisual.IsHongqueId(type) && !poolDictionary.ContainsKey(type)) {
             // 兼容旧入口/重连：正常虹雀对局会在首个快照时整批预热。
@@ -342,7 +346,7 @@ public class MahjongObjectPool : MonoBehaviour {
 
     /// <summary>独立展示实例不借用实体牌池；调用方注销悬停并 Destroy，不能 Return。</summary>
     public GameObject CreatePresentationTile(int tileId) {
-        if (tile3DPrefab == null || (!spriteCache.ContainsKey(WashizuTile.Face(tileId)) && !HongqueTileVisual.IsHongqueId(tileId)))
+        if (tile3DPrefab == null || (!spriteCache.ContainsKey(WashizuTile.Face(tileId)) && !HongqueTileVisual.IsHongqueId(tileId) && !VietnameseTileVisual.IsExtra(tileId)))
             return null;
         CardBackManager.EnsureSavedConfigApplied();
         GameObject tile = Instantiate(tile3DPrefab);
