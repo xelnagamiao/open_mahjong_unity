@@ -10,7 +10,10 @@ public sealed class VietnameseGameState : TurnBasedGameState {
     protected override void OnRoundStarted(GameInfo info) {Accept(info);}
     protected override void OnAskHandAction(Response response) {Accept(response.game_info);base.OnAskHandAction(response);}
     protected override void OnAskClaim(Response response) {
-        Accept(response.game_info);Clock.PendingAskFromJiagang=Info?.phase=="waiting_action_qianggang";base.OnAskClaim(response);
+        Accept(response.game_info);Clock.PendingAskFromJiagang=Info?.phase=="waiting_action_qianggang";
+        var info=response.ask_other_action_info;
+        if(info!=null)info.action_list=ClaimActions(info.action_list,Info);
+        base.OnAskClaim(response);
     }
     protected override void OnDoAction(Response response) {
         Accept(response.game_info);
@@ -43,8 +46,14 @@ public sealed class VietnameseGameState : TurnBasedGameState {
         Info=response.ready_status_info.vietnamese_info??Info;base.OnReadyStatus(response);
     }
     public override void OnSessionReset() {Info=null;}
-    public static IReadOnlyList<ActionCandidate> ClaimChoices(string word) =>
-        (Active?.Info?.claim_options??Array.Empty<VietnameseClaimOption>()).Select(o=>new ActionCandidate("vn_claim",o.tiles,o.id,
+    public static string[] ClaimActions(IEnumerable<string> words,VietnameseInfo info) =>
+        (words??Array.Empty<string>()).SelectMany(word=>word=="vn_claim"
+            ? new[]{"vn_chi","vn_peng","vn_gang"}.Where(w=>(info?.claim_options??Array.Empty<VietnameseClaimOption>()).Any(o=>o.kind==ClaimKind(w)))
+            : new[]{word}).ToArray();
+    static string ClaimKind(string word)=>word=="vn_chi"?"s":word=="vn_peng"?"k":word=="vn_gang"?"g":null;
+    public static IReadOnlyList<ActionCandidate> ClaimChoices(string word) => ClaimChoices(word,Active?.Info);
+    public static IReadOnlyList<ActionCandidate> ClaimChoices(string word,VietnameseInfo info) =>
+        (info?.claim_options??Array.Empty<VietnameseClaimOption>()).Where(o=>word=="vn_claim" || o.kind==ClaimKind(word)).Select(o=>new ActionCandidate("vn_claim",o.tiles,o.id,
             (o.kind=="s"?"吃":o.kind=="k"?"碰":"杠")+" · "+VietnameseTileVisual.Name(o.face))).ToArray();
     public static IReadOnlyList<ActionCandidate> BounceChoices(string word) =>
         (Active?.Info?.bounce_candidates??Array.Empty<int>()).Select(t=>new ActionCandidate("vn_bounce",new[]{t},t,"弹"+VietnameseTileVisual.Name(t))).ToArray();

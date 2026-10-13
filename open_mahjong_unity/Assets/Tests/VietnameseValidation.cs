@@ -53,6 +53,17 @@ public static class VietnameseValidation {
         Check("physical claim option preserved",packet.game_info.vietnamese_info.claim_options[0].tiles.SequenceEqual(new[]{25,71}));
         Check("draw slot snapshot",manifest.OpeningHandHasDrawSlot(packet.game_info));
         Check("custom words stop auto discard",ActionWords.BlocksAutoCut("vn_replace") && ActionWords.BlocksAutoCut("vn_claim"));
+        var claims=new VietnameseInfo{claim_options=new[]{
+            new VietnameseClaimOption{id=1,kind="s",face=24,tiles=new[]{23,71}},
+            new VietnameseClaimOption{id=2,kind="k",face=25,tiles=new[]{25,72}},
+            new VietnameseClaimOption{id=3,kind="g",face=25,tiles=new[]{25,25,25}}}};
+        Check("separate platform meld buttons",VietnameseGameState.ClaimActions(new[]{"vn_claim","hu","pass"},claims).SequenceEqual(new[]{"vn_chi","vn_peng","vn_gang","hu","pass"}));
+        foreach(var pair in new[]{("vn_chi",ActionWordKind.Chi,1),("vn_peng",ActionWordKind.Peng,2),("vn_gang",ActionWordKind.MingGang,3)}) {
+            var choices=VietnameseGameState.ClaimChoices(pair.Item1,claims);
+            Check("standard meld category "+pair.Item1,ActionWords.KindOf(pair.Item1)==pair.Item2);
+            Check("physical selection id "+pair.Item1,choices.Count==1 && choices[0].ActionType=="vn_claim" && choices[0].TargetTile==pair.Item3);
+        }
+        Check("only offered meld buttons",VietnameseGameState.ClaimActions(new[]{"vn_claim","pass"},packet.game_info.vietnamese_info).SequenceEqual(new[]{"vn_peng","pass"}));
         var room=manifest.BuildRoom(new RoomCreationInput{RoomName="越南验证",SubRule=VietnameseGameState.Classic160,GameRound=1,RoundTimer=20,StepTimer=5});
         Check("versioned room config",room.IsValid && ((Vietnamese_Create_RoomConfig)room.Configuration).NormalizedConfig().Count==11);
         var scene=EditorSceneManager.OpenScene("Assets/Scenes/MainScene.unity",OpenSceneMode.Single);

@@ -26,6 +26,11 @@ internal static class VietnameseRuleBootstrap {
             SettlementHasNoWinTile=labels=>labels!=null && labels.Contains("VN|safe_discard_declaration|0"),
         });
         ActionWords.Register(new ActionWordSpec{Word="vn_claim",Kind=ActionWordKind.Other,DisplayPriority=20,BlocksAutoCut=true,Label=w=>"吃碰杠",Expand=VietnameseGameState.ClaimChoices});
+        // Keep the platform's separate meld buttons, colors and auto-pass filters.
+        // Each physical choice still submits the server's opaque vn_claim ID.
+        ActionWords.Register(new ActionWordSpec{Word="vn_chi",Kind=ActionWordKind.Chi,BlocksAutoCut=true,Label=w=>"吃",Expand=VietnameseGameState.ClaimChoices});
+        ActionWords.Register(new ActionWordSpec{Word="vn_peng",Kind=ActionWordKind.Peng,BlocksAutoCut=true,Label=w=>"碰",Expand=VietnameseGameState.ClaimChoices});
+        ActionWords.Register(new ActionWordSpec{Word="vn_gang",Kind=ActionWordKind.MingGang,BlocksAutoCut=true,Label=w=>"杠",Expand=VietnameseGameState.ClaimChoices});
         ActionWords.Register(new ActionWordSpec{Word="vn_replace",Kind=ActionWordKind.Other,DisplayPriority=40,BlocksAutoCut=true,Label=w=>"补鬼",Expand=VietnameseGameState.ReplacementChoices});
         ActionWords.Register(new ActionWordSpec{Word="vn_bounce",Kind=ActionWordKind.Other,DisplayPriority=30,BlocksAutoCut=true,Label=w=>"弹鬼",Expand=VietnameseGameState.BounceChoices});
         ActionWords.Register(new ActionWordSpec{Word="hu_special",Kind=ActionWordKind.Tsumo,DisplayPriority=50,Label=w=>"无花无叶和"});
