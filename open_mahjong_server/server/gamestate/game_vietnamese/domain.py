@@ -222,7 +222,6 @@ class VietnameseDomain:
             # Unity sends a sibling index in its independently arranged UI;
             # sorting, dragging and replacement can change that visual order.
             # Authorize the physical tile and hand/draw source, not UI order.
-            if pos>=len(held):raise ValueError('手切位置越界')
             pos=held.index(tile)
         elif pos>=0 and p.hand_tiles[pos]!=tile:raise ValueError('牌值与位置不符')
         elif pos<0:pos=p.hand_tiles.index(tile)

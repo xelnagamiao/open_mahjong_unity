@@ -89,8 +89,15 @@ public sealed class VietnameseInteractionAudit : MonoBehaviour {
             if(operation=="draw" || operation=="hand") {
                 var card=operation=="draw"?GameCanvas.Instance.GetDrawTile():GameCanvas.Instance.HandCardsContainer.GetComponentsInChildren<TileCard>().First(t=>t.tileId==(int)command["tile"]);
                 Check(card!=null,name+": clickable tile");
-                if(operation=="hand")card.transform.SetAsFirstSibling();
-                if(operation=="hand")Check(card.transform.GetSiblingIndex()==0,name+": reordered visual index zero");
+                if(operation=="hand") {
+                    bool tail=(bool?)command["visual_tail"]??false;
+                    if(tail) {
+                        var draw=GameCanvas.Instance.GetDrawTile();
+                        draw.isDrawSlotPinned=false;draw.transform.SetAsFirstSibling();
+                        card.transform.SetAsLastSibling();
+                    } else card.transform.SetAsFirstSibling();
+                    Check(card.transform.GetSiblingIndex()==(tail?GameCanvas.Instance.HandCardsContainer.childCount-1:0),name+": rearranged visual index");
+                }
                 typeof(TileCard).GetMethod("OnTileClick",Private).Invoke(card,null);
             } else if(operation=="choice") {
                 var button=buttons.Single(b=>b.actionTypeList.Contains((string)command["word"]));

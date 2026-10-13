@@ -87,6 +87,10 @@ async def exercise(ws, report):
     response = await exchange('draw-slot-after-replacement', s, packets(s, False), 'draw', 'cut', hand=list(s.player_list[0].hand_tiles))
     assert response['cutClass'] is True and response['cutIndex'] >= 0
 
+    s = turn(NORMAL)
+    await exchange('held-tile-at-visual-tail', s, packets(s), 'hand', 'cut', tile=11, visual_tail=True)
+    assert s.player_list[0].discard_tiles == [11]
+
     s = state();s.initialize_round()
     s.player_list[0].hand_tiles = list(NORMAL[:-1]) + [ANY]
     s.opening_queue = [0];s.open_action_window(s.opening_window())
