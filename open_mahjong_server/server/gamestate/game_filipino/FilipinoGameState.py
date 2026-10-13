@@ -247,8 +247,6 @@ class FilipinoGameState(Protocol, Recording, ZhongyongGameState):
                 raise ValueError("手切牌不存在")
             # cutIndex is a Unity sibling index; sorting/manual arrangement is
             # local to the client. Validate tile ownership and hand/draw source.
-            if position >= len(held):
-                raise ValueError("手切位置越界")
             position = held.index(tile)
         elif position >= 0:
             if p.hand_tiles[position] != tile:
