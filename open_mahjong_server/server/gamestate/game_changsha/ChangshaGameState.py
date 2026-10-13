@@ -178,6 +178,7 @@ class ChangshaGameState:
             self.bird_count = 2
         self.dealer_bird = room_data.get("dealer_bird", True)
         self.base_score_no_dealer = bool(room_data.get("base_score_no_dealer", False))
+        self.small_hu_self_draw_only = bool(room_data.get("small_hu_self_draw_only", False))
         self.small_hu_score = max(1, int(room_data.get("small_hu_score", 2)))
         self.big_hu_score = max(1, int(room_data.get("big_hu_score", 8)))
         self.initial_hu_enabled = {
@@ -325,6 +326,7 @@ class ChangshaGameState:
                         'base_score_no_dealer': getattr(self, 'base_score_no_dealer', False),
                         'small_hu_score': getattr(self, 'small_hu_score', 2),
                         'big_hu_score': getattr(self, 'big_hu_score', 8),
+                        'detailed_config': {'small_hu_self_draw_only': getattr(self, 'small_hu_self_draw_only', False)},
                         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed,
                         'players_info': []
                     }
