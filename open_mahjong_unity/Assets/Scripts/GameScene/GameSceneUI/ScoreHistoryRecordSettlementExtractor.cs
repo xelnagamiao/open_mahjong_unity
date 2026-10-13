@@ -474,6 +474,10 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
         RecordHuHandBuilder.TryParseHepaiTile(tick, rule, out int hepaiTile);
         string displayHuClass = RecordHuHandBuilder.IsFlowerWin(tick, rule) ? "hu_self" : huClass;
         int[] hand = BuildScoreboardHuHand(huPlayer.tileList, displayHuClass, hepaiTile, lastDiscardTileId);
+        int changshaHandIndex = ChangshaRecordCodec.OpenKongSelfDrawHandIndex(tick);
+        if (ChangshaFanText.IsChangshaRule(rule) && changshaHandIndex >= 0) {
+            hand = JArray.Parse(tick[changshaHandIndex]).ToObject<int[]>();
+        }
 
         int winnerDelta = 0;
         int[] scoreChanges = ParseScoreChanges(tick, 4);

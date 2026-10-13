@@ -735,6 +735,9 @@ public partial class RoomNetworkManager : MonoBehaviour {
                 base_score_no_dealer = config.BaseScoreNoDealer,
                 small_hu_score = config.SmallHuScore,
                 big_hu_score = config.BigHuScore,
+                small_hu_self_draw_only = config.SmallHuSelfDrawOnly,
+                score_cap_type = config.ScoreCapType,
+                score_cap_value = config.ScoreCapType == "none" ? 0 : config.ScoreCapValue,
                 event_id = string.IsNullOrEmpty(config.EventId) ? null : config.EventId
             };
             Debug.Log($"发送创建长沙麻将房间消息: {config.RoomName}, {config.GameRound}, {config.SubRule}, open_kong={config.OpenKongReplacementCount}, bird_count={config.BirdCount}, dealer_bird={config.DealerBird}, no_dealer_score={config.BaseScoreNoDealer}");

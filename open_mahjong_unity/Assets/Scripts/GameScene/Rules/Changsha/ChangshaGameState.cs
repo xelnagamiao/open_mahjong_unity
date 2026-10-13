@@ -13,11 +13,19 @@ public class ChangshaGameState : TurnBasedGameState {
     public bool BaseScoreNoDealer { get; private set; }
     public int SmallHuScore { get; private set; } = 2;
     public int BigHuScore { get; private set; } = 8;
+    public ChangshaRuleSettings RuleSettings { get; private set; } = new ChangshaRuleSettings();
 
     protected override void OnRoundStarted(GameInfo gameInfo) {
         BaseScoreNoDealer = gameInfo.base_score_no_dealer ?? false;
         SmallHuScore = Mathf.Max(gameInfo.small_hu_score ?? 2, 1);
         BigHuScore = Mathf.Max(gameInfo.big_hu_score ?? 8, 1);
+        RuleSettings = ChangshaRuleSettings.FromGameInfo(gameInfo);
+        Game3DManager.Instance?.ClearChangshaOpenKongTilesImmediate();
+        if (RuleSettings.open_kong_player.HasValue && RuleSettings.open_kong_tiles != null
+            && RuleSettings.open_kong_tiles.Length > 0
+            && Manager.indexToPosition.TryGetValue(RuleSettings.open_kong_player.Value, out string seat)) {
+            Game3DManager.Instance?.ShowChangshaOpenKongTiles(seat, RuleSettings.open_kong_tiles, restore: true);
+        }
     }
 
     /// <summary>剩一张时亮出海底暗牌提示，否则收起。</summary>
@@ -31,6 +39,16 @@ public class ChangshaGameState : TurnBasedGameState {
 
     /// <summary>海底切牌：不走普通弃牌落位，单独摆到海底位置并记入镜像。</summary>
     protected override bool TryApplyFamilyWord(TableAction action, string word) {
+        if (word == "deal_gang_tile" && action.DealTiles != null && action.DealTiles.Length > 0
+            && System.Array.TrueForAll(action.DealTiles, ChangshaFanText.IsChangshaTileId)) {
+            // 服务端仅对公开开杠发送真实数组；普通补张本家用标量，他家数组为0。
+            Game3DManager.Instance?.ShowChangshaOpenKongTiles(action.Seat, action.DealTiles);
+            if (action.Seat != "self") {
+                Mirror.RemainTiles -= action.DealTiles.Length;
+                Mirror.Info(action.Seat).hand_tiles_count += action.DealTiles.Length;
+                return true;
+            }
+        }
         if (word != "cut" || !action.SeaBottomDiscard) return false;
         if (!action.CutTile.HasValue || action.CutTile.Value <= 0) {
             Debug.LogError("长沙海底弃牌缺少牌值");
@@ -50,6 +68,7 @@ public class ChangshaGameState : TurnBasedGameState {
 
     protected override void OnTableClosedForSettlement(SettlementEnvelope env) {
         Game3DManager.Instance?.ClearChangshaSeaBottomConcealedTile();
+        Game3DManager.Instance?.ClearChangshaOpenKongTiles();
     }
 
     protected override SettlementEnvelope BuildEnvelope(ShowResultInfo info) {
@@ -64,5 +83,7 @@ public class ChangshaGameState : TurnBasedGameState {
         BaseScoreNoDealer = false;
         SmallHuScore = 2;
         BigHuScore = 8;
+        RuleSettings = new ChangshaRuleSettings();
+        Game3DManager.Instance?.ClearChangshaOpenKongTilesImmediate();
     }
 }

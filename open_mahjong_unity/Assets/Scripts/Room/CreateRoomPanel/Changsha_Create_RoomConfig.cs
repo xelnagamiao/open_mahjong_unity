@@ -27,6 +27,9 @@ public class Changsha_Create_RoomConfig {
     public bool BaseScoreNoDealer { get; set; }
     public int SmallHuScore { get; set; } = 2;
     public int BigHuScore { get; set; } = 8;
+    public bool SmallHuSelfDrawOnly { get; set; }
+    public string ScoreCapType { get; set; } = "none";
+    public int ScoreCapValue { get; set; }
     public string EventId { get; set; }
 
     public bool Validate(out string error, bool passwordToggle, bool setRandomSeedToggle) {
@@ -48,8 +51,8 @@ public class Changsha_Create_RoomConfig {
             error = "长沙麻将对局数量必须是4/8/16";
             return false;
         }
-        if (OpenKongReplacementCount < 1 || OpenKongReplacementCount > 4) {
-            error = "开杠张数必须在1到4之间";
+        if (OpenKongReplacementCount != 2 && OpenKongReplacementCount != 4) {
+            error = "开杠张数必须是2或4";
             return false;
         }
         if (BirdCount != 0 && BirdCount != 1 && BirdCount != 2 && BirdCount != 4) {
@@ -62,6 +65,14 @@ public class Changsha_Create_RoomConfig {
         }
         if (BigHuScore < 1 || BigHuScore > 999) {
             error = "大胡分数必须在1到999之间";
+            return false;
+        }
+        if (ScoreCapType != "none" && ScoreCapType != "big_hu" && ScoreCapType != "score") {
+            error = "封顶类型无效";
+            return false;
+        }
+        if (ScoreCapType != "none" && (ScoreCapValue < 1 || ScoreCapValue > 1000000)) {
+            error = "封顶数值必须在1到1000000之间";
             return false;
         }
         if (RoundTimer < 0) {
@@ -78,5 +89,12 @@ public class Changsha_Create_RoomConfig {
         }
         error = null;
         return true;
+    }
+
+    /// <summary>常用分值按1/2/4个大胡的最高含鸟付款生成；经典庄闲最大单大胡底分为7。</summary>
+    public static int[] ScoreCapPresets(string type, bool noDealer, int bigHuScore, int birdCount) {
+        if (type == "big_hu") return new[] { 2, 3, 4 };
+        int maximumSingleHu = (noDealer ? System.Math.Max(bigHuScore, 1) : 7) * (1 << birdCount);
+        return new[] { maximumSingleHu, maximumSingleHu * 2, maximumSingleHu * 4 };
     }
 }

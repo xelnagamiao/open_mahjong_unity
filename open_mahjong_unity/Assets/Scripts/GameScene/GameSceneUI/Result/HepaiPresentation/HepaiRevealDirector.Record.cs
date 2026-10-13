@@ -22,6 +22,10 @@ public static partial class HepaiRevealDirector {
         request.RecordRule = recordRule;
         if (hepaiTile > 0) request.HepaiTile = hepaiTile;
         ConfigureRuleSpecificRecordRequest(request, recordRule, huFan);
+        if (ChangshaFanText.IsChangshaRule(recordRule)) {
+            // 展开模式重建权威和牌快照，显示可胡补牌，并替换同一赢家上一张荣和牌。
+            request.RestoreRecordHandFromSnapshot = true;
+        }
         return request;
     }
 

@@ -561,6 +561,7 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     public void Change3DTile(string actionType,int tileId,int removeCount,string PlayerPosition,bool cut_class,int[] combination_mask, bool isRiichi = false, bool isMoGang = false, bool playCutPhysicsSound = false, string meldDiscarderPos = null, int meldClaimedTile = 0, bool concealedDiscard = false){
+        if (TryEnqueueChangshaOpenKongAction(actionType, tileId, PlayerPosition, combination_mask, isRiichi, playCutPhysicsSound)) return;
         // 牌谱重建/重连的无动画分支直接执行，避免队列协程逐帧处理
         if (actionType == "SetDiscardWithoutAnimation" || actionType == "SetBuhuacardWithoutAnimation" || actionType == "SetRecordDiscardWithoutAnimation"){
             PosPanel3D panel = GetPosPanel(PlayerPosition);
@@ -789,7 +790,9 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     public void RefreshRecordHandDisplay(){
-        Change3DTile("InitHandCardsFromRecord",0,0,null,false,null);
+        if (GameRecordManager.Instance == null || !GameRecordManager.Instance.TryRefreshChangshaOpenKongRecordHands()) {
+            Change3DTile("InitHandCardsFromRecord",0,0,null,false,null);
+        }
         if (GameRecordManager.Instance != null) {
             GameRecordManager.Instance.RefreshRecordChongHint();
         }
@@ -907,6 +910,7 @@ public partial class Game3DManager : MonoBehaviour {
 
     // 清除3D手牌
     public void Clear3DTile(){
+        ClearChangshaOpenKongTilesImmediate();
         ClearAllLastDiscardAndJiagang();
         // 重置组合牌指针
         selfSetCombinationsPoint = selfPosPanel.combinationsPosition.position;
