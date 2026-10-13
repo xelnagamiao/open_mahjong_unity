@@ -286,8 +286,8 @@ class ChangshaRoomValidator(BaseModel):
 
     @validator('open_kong_replacement_count')
     def validate_open_kong_replacement_count(cls, v):
-        if v < 1 or v > 4:
-            raise ValueError('open_kong_replacement_count must be between 1 and 4')
+        if v not in (2, 4):
+            raise ValueError('长沙开杠张数必须是2或4')
         return v
 
     @validator('bird_count')

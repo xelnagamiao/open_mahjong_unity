@@ -83,6 +83,19 @@ class ChangshaScoreCapTest(unittest.TestCase):
             state._score_changsha_win(winner, ["清一色", "杠上炮"], False, 0, batch_cap_totals=totals)
         self.assertEqual([p.score for p in state.player_list], [-20, 10, 10, 0])
 
+    def test_record_settlement_score_matches_actual_capped_payment(self):
+        for is_self_draw in (True, False):
+            state = self.make_state('score', 10)
+            state.hu_class = 'hu_self' if is_self_draw else 'hu_first'
+            winner = 0 if is_self_draw else 1
+            result = state._score_changsha_win(winner, ['清一色', '杠上开花' if is_self_draw else '杠上炮'], is_self_draw, 0)
+            score_changes = [player.score for player in state.player_list]
+            state._record_changsha_hu_result(result['actual_hu_score'], result['fan_display'], winner, score_changes, result['birds'])
+            tick = state.game_record['game_round']['round_index_1']['action_ticks'][-1]
+            self.assertEqual(tick[2], 30 if is_self_draw else 10)
+            self.assertEqual(tick[2], state.player_list[winner].score)
+            self.assertEqual(tick[4], score_changes)
+
     def test_initial_hu_ignores_both_cap_types(self):
         for cap_type in ("big_hu", "score"):
             state = self.make_state(cap_type, 1)

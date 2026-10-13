@@ -120,6 +120,10 @@ def _build_game_start_payload_for_viewer(self, viewer_index: int) -> dict:
             'small_hu_self_draw_only': getattr(self, 'small_hu_self_draw_only', False),
             'score_cap_type': getattr(self, 'score_cap_type', 'none'),
             'score_cap_value': getattr(self, 'score_cap_value', 0),
+            'open_kong_dice': list(getattr(self, 'open_kong_dice', [])),
+            'open_kong_wall_positions': list(getattr(self, 'open_kong_wall_positions', [])),
+            'open_kong_player': self.current_player_index if getattr(self, 'forced_cut_tiles', []) else None,
+            'open_kong_tiles': list(getattr(self, 'forced_cut_tiles', [])),
         },
         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed, # 是否玩家设置了随机种子
         'players_info': [] # ↓玩家信息
@@ -481,10 +485,14 @@ def _build_do_action_payload(
 ):
     viewer_mask = combination_mask
     viewer_target = combination_target
-    viewer_deal_tile = sanitize_deal_tile_for_viewer(deal_tile, action_player, viewer_index)
+    open_kong_batch = "deal_gang_tile" in action_list and getattr(self, "pending_gang_forced_discard", False)
+    viewer_deal_tile = deal_tile if open_kong_batch else sanitize_deal_tile_for_viewer(deal_tile, action_player, viewer_index)
     viewer_deal_tiles = None
-    if deal_tiles is not None:
-        viewer_deal_tiles = list(deal_tiles) if action_player == viewer_index else [0 for _ in deal_tiles]
+    if "deal_gang_tile" in action_list and not open_kong_batch:
+        # 普通补张只给本家标量牌值；数组中的真实牌仅用于公开开杠批次。
+        viewer_deal_tiles = None if action_player == viewer_index else [0]
+    elif deal_tiles is not None:
+        viewer_deal_tiles = list(deal_tiles) if open_kong_batch or action_player == viewer_index else [0 for _ in deal_tiles]
     return {
         "action_list": action_list,
         "action_player": action_player,
