@@ -25,6 +25,19 @@ def act(s, replies=None):
     return s.apply_action_results(window, responses)
 
 
+def test_unity_draw_slot_visual_index_zero():
+    s=turn(NORMAL)
+    act(s,{0:dict(action_type='cut',TileId=NORMAL[-1],cutClass=True,cutIndex=0)})
+    assert s.player_list[0].discard_tiles==[NORMAL[-1]]
+
+
+def test_unity_manual_hand_order_is_not_server_order():
+    s=turn(NORMAL)
+    tile=NORMAL[-3]
+    act(s,{0:dict(action_type='cut',TileId=tile,cutClass=False,cutIndex=0)})
+    assert s.player_list[0].discard_tiles==[tile]
+
+
 def turn(hand, **config):
     s = state(**config)
     s.tiles_list = [18] * 30
@@ -166,7 +179,8 @@ def test_reconnect_and_network_reject_observer_stale_tick_and_duplicate():
     assert s.action_queues[0].empty() and ws.send_json.await_count == 1
     asyncio.run(handle_action(server, "owner", message, ws))
     asyncio.run(handle_action(server, "owner", message, ws))
-    assert s.action_queues[0].qsize() == 1 and ws.send_json.await_count == 2
+    assert s.action_queues[0].qsize() == 1 and ws.send_json.await_count == 3
+    assert ws.send_json.call_args.args[0]['type'].endswith('/broadcast_hand_action')
     restored = s.restore_payloads(0)
     assert restored[-1]["action_tick"] == s.server_action_tick
 
@@ -197,7 +211,7 @@ def test_late_network_action_is_rejected_before_queue_mutation():
     asyncio.run(run())
 
 
-def test_hand_cut_index_must_match_physical_tile_before_mutation():
+def test_hand_cut_visual_index_must_be_in_range_before_mutation():
     s=turn(NORMAL);before=list(s.player_list[0].hand_tiles)
-    with pytest.raises(ValueError):act(s,{0:dict(action_type='cut',TileId=before[3],cutIndex=0,cutClass=False)})
+    with pytest.raises(ValueError):act(s,{0:dict(action_type='cut',TileId=before[3],cutIndex=999,cutClass=False)})
     assert s.player_list[0].hand_tiles==before
