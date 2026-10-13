@@ -238,16 +238,18 @@ class FilipinoGameState(Protocol, Recording, ZhongyongGameState):
         if draw is not None and type(draw) is not bool:
             raise ValueError("非法摸切标识")
         if draw is True:
-            if not p.has_draw_slot or p.hand_tiles[-1] != tile or position not in (-1, len(p.hand_tiles) - 1):
+            if not p.has_draw_slot or p.hand_tiles[-1] != tile:
                 raise ValueError("摸切必须是当前摸牌")
             position = len(p.hand_tiles) - 1
         elif draw is False:
             held = p.hand_tiles[:-1] if p.has_draw_slot else p.hand_tiles
             if tile not in held:
                 raise ValueError("手切牌不存在")
-            if position >= 0 and (position >= len(held) or held[position] != tile):
-                raise ValueError("手切位置与牌值不符")
-            position = held.index(tile) if position < 0 else position
+            # cutIndex is a Unity sibling index; sorting/manual arrangement is
+            # local to the client. Validate tile ownership and hand/draw source.
+            if position >= len(held):
+                raise ValueError("手切位置越界")
+            position = held.index(tile)
         elif position >= 0:
             if p.hand_tiles[position] != tile:
                 raise ValueError("舍牌牌值不符")

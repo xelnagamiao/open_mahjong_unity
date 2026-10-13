@@ -20,3 +20,6 @@ async def handle_action(server,connection_id,message,websocket):
             cutIndex=message.get("cutIndex",-1),cutClass=message.get("cutClass"),target_tile=message.get("targetTile"))
     except (TypeError,ValueError):
         await websocket.send_json(dict(type="tips",success=False,message="该动作已失效或不符合菲律宾规则"))
+        payload=state.build_pending_action_payload(index)
+        if payload:
+            await websocket.send_json(payload)
