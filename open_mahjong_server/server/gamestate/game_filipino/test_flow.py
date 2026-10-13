@@ -215,3 +215,10 @@ def test_hand_cut_visual_index_must_be_in_range_before_mutation():
     s=turn(NORMAL);before=list(s.player_list[0].hand_tiles)
     with pytest.raises(ValueError):act(s,{0:dict(action_type='cut',TileId=before[3],cutIndex=999,cutClass=False)})
     assert s.player_list[0].hand_tiles==before
+
+
+def test_held_tile_at_visual_tail_after_arranging_drawn_tile():
+    s=turn(NORMAL)
+    act(s,{0:dict(action_type='cut',TileId=11,cutIndex=len(NORMAL)-1,cutClass=False)})
+    assert s.player_list[0].discard_tiles==[11]
+    assert s.player_list[0].hand_tiles.count(NORMAL[-1])==NORMAL.count(NORMAL[-1])
