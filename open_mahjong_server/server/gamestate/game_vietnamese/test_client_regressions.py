@@ -26,10 +26,17 @@ def test_opening_timeout_keeps_optional_joker(joker):
     assert not s.player_list[0].huapai_list
 
 
-def test_unity_draw_slot_has_visual_index_zero():
+def test_unity_draw_slot_accepts_independent_visual_index():
     s = turn(NORMAL)
     act(s, {0: dict(action_type='cut', TileId=NORMAL[-1], cutClass=True, cutIndex=0)})
     assert s.player_list[0].discard_tiles == [NORMAL[-1]]
+
+
+def test_held_tile_can_have_last_visual_index_after_draw_is_arranged():
+    s = turn(NORMAL)
+    act(s, {0: dict(action_type='cut', TileId=11, cutClass=False, cutIndex=len(NORMAL)-1)})
+    assert s.player_list[0].discard_tiles == [11]
+    assert s.player_list[0].hand_tiles.count(NORMAL[-1]) == NORMAL.count(NORMAL[-1])
 
 
 def test_sorted_or_manually_arranged_hand_after_replacement():
