@@ -88,7 +88,7 @@ def test_added_kong_rob_is_provisional():
 
 def test_invalid_responses_do_not_mutate():
     s=turn(NORMAL);before=deepcopy(s.player_list[0].hand_tiles)
-    with pytest.raises(ValueError):act(s,{0:dict(action_type='cut',TileId=25,cutIndex=0,cutClass=False)})
+    with pytest.raises(ValueError):act(s,{0:dict(action_type='cut',TileId=47,cutIndex=0,cutClass=False)})
     assert s.player_list[0].hand_tiles==before
     with pytest.raises(ValueError):act(s,{0:dict(action_type='vn_claim',target_tile=999)})
 

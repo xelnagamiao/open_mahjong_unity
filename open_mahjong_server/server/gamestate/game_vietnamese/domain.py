@@ -214,13 +214,16 @@ class VietnameseDomain:
         if type(pos) is not int or pos<-1 or pos>=len(p.hand_tiles):raise ValueError('非法舍牌位置')
         if draw is not None and type(draw) is not bool:raise ValueError('非法摸切标识')
         if draw is True:
-            if not p.has_draw_slot or p.hand_tiles[-1]!=tile or pos not in (-1,len(p.hand_tiles)-1):raise ValueError('非法摸切')
+            if not p.has_draw_slot or p.hand_tiles[-1]!=tile:raise ValueError('非法摸切')
             pos=len(p.hand_tiles)-1
         elif draw is False:
             held=p.hand_tiles[:-1] if p.has_draw_slot else p.hand_tiles
             if tile not in held:raise ValueError('手切牌不存在')
-            if pos>=0 and (pos>=len(held) or held[pos]!=tile):raise ValueError('手切位置不符')
-            pos=held.index(tile) if pos<0 else pos
+            # Unity sends a sibling index in its independently arranged UI;
+            # sorting, dragging and replacement can change that visual order.
+            # Authorize the physical tile and hand/draw source, not UI order.
+            if pos>=len(held):raise ValueError('手切位置越界')
+            pos=held.index(tile)
         elif pos>=0 and p.hand_tiles[pos]!=tile:raise ValueError('牌值与位置不符')
         elif pos<0:pos=p.hand_tiles.index(tile)
         return tile,pos,p.has_draw_slot and pos==len(p.hand_tiles)-1
@@ -284,6 +287,7 @@ class VietnameseDomain:
         p=self.player_list[index];tile,pos,mo=self.validated_cut(index,data)
         if p.nfnl_eligible:
             if p.has_draw_slot and p.last_drawn_tile in BONUS+JOKERS and tile!=p.last_drawn_tile and p.draw_count>0:p.nfnl_eligible=False
+            elif index==0 and p.draw_count==0 and any(t in BONUS for t in p.hand_tiles) and tile not in BONUS:p.nfnl_eligible=False
             elif any(t in JOKERS for t in p.hand_tiles) and tile not in JOKERS+BONUS:p.nfnl_eligible=False
         self.discard_safety=self.assess_discard_safety(index,tile)
         if p.has_draw_slot:p.missed_win.clear();p.missed_pung.clear()
@@ -372,16 +376,16 @@ class VietnameseDomain:
         return threats
 
     def safe_tiles_by_threat(self,index):
-        p=self.player_list[index];result={}
+        p=self.player_list[index];result={};legal=self.legal_discard_tiles(index)
         for target in range(4):
             if target==index:continue
             for kind,unsafe in self.public_threats(target).items():
-                result[(target,kind)]={t for t in p.hand_tiles if t in TILES and t not in unsafe}
+                result[(target,kind)]={t for t in legal if not any(represents(t,u,discard_bonus=True) for u in unsafe)}
         # Bonus tiles can complete any permitted face and are unsafe for liability.
         result[(-1,'bonus')]={t for t in p.hand_tiles if t in TILES}
         if len(self.tiles_list)-26<4:
             pool={t for player in self.player_list for t in player.discard_tiles}
-            result[(-1,'last_four')]={t for t in p.hand_tiles if t in pool}
+            result[(-1,'last_four')]=legal & pool
         return result
 
     def assess_discard_safety(self,index,tile):
@@ -410,7 +414,10 @@ class VietnameseDomain:
             if source in ('self_draw','special') and name in p.liability_feeders:return p.liability_feeders[name],quote
             if source=='discard':
                 dangerous=name in threats and any(represents(tile,t) for t in threats[name])
-                if (dangerous or name in p.liability_feeders) and self.discard_safety.get((winner,name)):
+                # Only twelve-tile liability explicitly transfers payment to a
+                # later discarder. Dragon/wind feeding covers a self-drawn win.
+                transferred=name in ('full_flush','all_terminals','all_honors') and name in p.liability_feeders
+                if (dangerous or transferred) and self.discard_safety.get((winner,name)):
                     return payer,quote
         return None,quote
 

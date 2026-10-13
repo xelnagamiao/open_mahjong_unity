@@ -117,7 +117,7 @@ class VietnameseGameState(VietnameseDomain, Protocol, Recording, ZhongyongGameSt
         actions = self.action_dict[index]
         if "buhua" in actions:
             data = dict(action_type="buhua")
-        elif "vn_replace" in actions and "cut" not in actions:
+        elif "vn_replace" in actions and "cut" not in actions and "pass" not in actions:
             from ...game_calculation.vietnamese.tiles import JOKERS
             data = dict(action_type="vn_replace", target_tile=sum(1 << JOKERS.index(t) for t in self.replacement_candidates(index)))
         elif "hu_self" in actions and "cut" not in actions:

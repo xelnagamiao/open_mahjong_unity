@@ -51,7 +51,10 @@ Three dice break the wall. Deal three packets of four, then the last tiles with
 the dealer taking the first and third stack tops. Opening replacement proceeds
 around the seats; new replacements are considered on the next cycle. Flowers
 must be replaced unless the hand is eligible to discard bonus tiles; joker
-replacement is optional and is selected explicitly. Replacement batches are
+replacement is optional and is selected explicitly. An opening timeout chooses
+pass when it is legal, preserving held jokers. Automatic flower replacement
+does not select any of the seven true jokers. Big Flower is still a flower.
+Replacement batches are
 recorded because their timing changes scoring. Replacement draws come from the
 wall tail. The final 26 tiles are reserved; neither ordinary nor supplemental
 draws can consume them. The last discard can still win.
@@ -126,6 +129,15 @@ claims, remaining wall and action ticks survive reconnect and saved replay.
 Basic game/score/win/deal-in metrics are persisted using the unified writer.
 Settlement pattern labels explain payments, but fan-category aggregates remain
 empty and no matching/ranking queue has been introduced.
+
+The client follows the platform's separate chow, pung and kong buttons, including
+their standard colors, order and automatic pass filters. Each button expands only
+its own physical tile/joker choices. Replacement and bounce remain distinct
+manual actions. The server validates tile ownership and whether a discard came
+from the hand or the draw; a client UI sibling index is not a server array index.
+
+The 2026-10-13 source review, corrected edge cases and explicitly unsupported
+book alternatives are recorded in [the full audit](vietnamese-audit-20261013.md).
 
 See [integration and validation](variant-integration.md). The tests and isolated
 Windows build provide finite coverage; they do not establish all device targets

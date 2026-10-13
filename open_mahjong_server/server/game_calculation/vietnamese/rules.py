@@ -103,10 +103,11 @@ def bonus_score(flowers, replacements, hand_jokers, seat, rules):
     seat_count=sum((t-51)%4==seat for t in flowers-scored)
     if seat_count:
         patterns['seat_flowers']=seat_count
-    if rules.eight_flowers and len(flowers)>=8:
-        patterns['eight_flowers']=12 if len(flowers)>=10 else 6
     # replacements contain physical tile, batch identity, and initial-deal flag.
     replaced={r['tile']:r for r in replacements}
+    flower_count=len(flowers)+(BIG_FLOWER in replaced)
+    if rules.eight_flowers and flower_count>=8:
+        patterns['eight_flowers']=12 if flower_count>=10 else 6
     suppress=set()
     for color,group in (('blue',{ANY,DOT,BAMBOO,CHARACTER}),('red',{BIG_FLOWER,WIND,DRAGON,NUMBER})):
         if group <= (set(hand_jokers)|set(replaced)):
@@ -164,7 +165,8 @@ def score(hand, melds=(), flowers=(), replacements=(), *, winning_tile=None, sel
             pat['fully_closed']=1
         if self_draw and winning_tile in hand:
             before=list(hand);before.remove(winning_tile)
-            waits=natural_waits(tuple(sorted(before)),len(melds))
+            own_tiles=Counter(before)+Counter(t for group in physical_melds for t in group)
+            waits=[t for t in natural_waits(tuple(sorted(before)),len(melds)) if own_tiles[t]<4]
             if len(waits)==1 and (represents(winning_tile,pair) or any(k=='s' and represents(winning_tile,t) for k,v in sets for t in (v-1,v,v+1))):
                 pat['single_wait']=1
         if all(k=='s' for k,v in allsets) and pair not in (41+seat,round_wind,45,46,47):
@@ -223,8 +225,7 @@ def score(hand, melds=(), flowers=(), replacements=(), *, winning_tile=None, sel
     if not candidates:
         return None
     bonus=bonus_score(flowers,replacements,[t for t in physical if t in JOKERS],seat,rules)
-    if nfnl_eligible and len(discarded_bonus)<3:
-        for k,v in bonus_score((),[dict(tile=t,batch=i,opening=False) for i,t in enumerate(discarded_bonus) if t in JOKERS],(),seat,rules).items(): bonus[k]=bonus.get(k,0)+v
+    discarded_joker_bonus=bonus_score((),[dict(tile=t,batch=i,opening=False) for i,t in enumerate(discarded_bonus) if t in JOKERS],(),seat,rules) if nfnl_eligible and len(discarded_bonus)<3 else {}
     situation={}
     for flag,name in ((replacement_win,'replacement_win'),(last_tile,'last_tile'),(rob_kong,'rob_kong')):
         if flag: situation[name]=1
@@ -241,6 +242,8 @@ def score(hand, melds=(), flowers=(), replacements=(), *, winning_tile=None, sel
             del pat['single_wait'];del pat['fully_closed'];pat['wait_closed_bonus']=6
         pat=progressive(pat)
         pat.update(bonus);pat.update(situation)
+        if 'true_no_flowers_leaves' in pat:
+            pat.update(discarded_joker_bonus)
         if not pat and no_jokers: pat['no_jokers_mosquito']=6
         scored.append(Score(sum(pat.values()),tuple(sorted(pat.items())),quads))
     return max(scored,key=lambda q:(payment_value(q.phan,True,rules,q.quads),q.phan,q.patterns))
