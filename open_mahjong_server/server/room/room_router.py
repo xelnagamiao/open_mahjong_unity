@@ -266,6 +266,8 @@ async def handle_create_Changsha_room(game_server, Connect_id: str, message: dic
         count_tips=message.get("count_tips", False),
         pointer_tips=message.get("pointer_tips", True),
         small_hu_self_draw_only=message.get("small_hu_self_draw_only", False),
+        score_cap_type=message.get("score_cap_type", "none"),
+        score_cap_value=message.get("score_cap_value", 0),
     )
     await websocket.send_json(response.dict(exclude_none=True))
 
