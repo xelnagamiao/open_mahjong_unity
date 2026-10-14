@@ -23,6 +23,7 @@ from ..public.hand_slot_utils import clear_draw_slot, normalize_tile
 from ..public.claim_protection import begin_claim_protection_interval
 from ..public.tactical_claim import add_tactical_force_pass_options
 from .init_tiles import init_changsha_tiles
+from .open_kong import normalize_open_kong_count, roll_open_kong_dice, open_kong_tile_positions
 from ..public.next_game_round import next_game_round_random_switchseat as next_game_round_changsha_switchseat
 from ..public.round_end_timing import (
     hu_result_ready_wait_seconds,
@@ -31,6 +32,7 @@ from ..public.round_end_timing import (
 from ..public.spectator_rules import too_many_ai_for_spectator
 from ..public.vote_manager import vote_checkpoint
 from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_cut, player_action_record_hu, player_action_record_liuju, player_action_record_round_end, end_game_record, build_score_changes_by_seat, build_score_changes_dict, capture_player_entry_order, remember_local_record_detail
+from ..public.game_record_manager import append_action_tick
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...game_calculation.changsha.changsha_hepai_check import (
     BIG_HU_NAMES,
@@ -173,8 +175,7 @@ class ChangshaGameState:
         self.hepai_limit = 1 # 长沙起和限制固定为1
         self.tourist_limit = room_data.get("tourist_limit", False) # 游客限制
         self.allow_spectator_config = room_data.get("allow_spectator", True) # 允许观战配置
-        self.open_kong_replacement_count = int(room_data.get("open_kong_replacement_count", 2))
-        self.open_kong_replacement_count = min(4, max(1, self.open_kong_replacement_count))
+        self.open_kong_replacement_count = normalize_open_kong_count(room_data.get("open_kong_replacement_count", 2))
         self.bird_count = int(room_data.get("bird_count", 2))
         if self.bird_count not in (0, 1, 2, 4):
             self.bird_count = 2
@@ -185,6 +186,14 @@ class ChangshaGameState:
         self.score_cap_value = int(room_data.get("score_cap_value", 0))
         self.small_hu_score = max(1, int(room_data.get("small_hu_score", 2)))
         self.big_hu_score = max(1, int(room_data.get("big_hu_score", 8)))
+        self.detailed_config = {
+            "small_hu_self_draw_only": self.small_hu_self_draw_only,
+            "score_cap_type": self.score_cap_type, "score_cap_value": self.score_cap_value,
+            "open_kong_replacement_count": self.open_kong_replacement_count,
+            "base_score_no_dealer": self.base_score_no_dealer,
+            "small_hu_score": self.small_hu_score, "big_hu_score": self.big_hu_score,
+            "bird_count": self.bird_count, "dealer_bird": self.dealer_bird,
+        }
         self.initial_hu_enabled = {
             INITIAL_HU_NAMES["siXi"]: room_data.get("initial_hu_si_xi", True),
             INITIAL_HU_NAMES["banBanHu"]: room_data.get("initial_hu_ban_ban_hu", True),
@@ -214,6 +223,10 @@ class ChangshaGameState:
         self.last_draw_was_gang = False # 用于判断杠上炮情境
         self.pending_gang_replacement_count = 0
         self.pending_gang_forced_discard = False
+        self.open_kong_sequence = 0
+        self.open_kong_dice = []
+        self.open_kong_wall_positions = []
+        self.pending_open_kong_positions = None
         self.forced_cut_tile = None
         self.forced_cut_tiles = []
         self.pending_gang_replacement_hu_player_index = None
@@ -334,6 +347,10 @@ class ChangshaGameState:
                             'small_hu_self_draw_only': getattr(self, 'small_hu_self_draw_only', False),
                             'score_cap_type': getattr(self, 'score_cap_type', 'none'),
                             'score_cap_value': getattr(self, 'score_cap_value', 0),
+                            'open_kong_dice': list(getattr(self, 'open_kong_dice', [])),
+                            'open_kong_wall_positions': list(getattr(self, 'open_kong_wall_positions', [])),
+                            'open_kong_player': self.current_player_index if getattr(self, 'forced_cut_tiles', []) else None,
+                            'open_kong_tiles': list(getattr(self, 'forced_cut_tiles', [])),
                         },
                         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed,
                         'players_info': []
@@ -476,6 +493,10 @@ class ChangshaGameState:
         raise ValueError(f"未找到座位 {player_index} 的玩家")
 
     def _reset_changsha_round_state(self) -> None:
+        self.open_kong_sequence = 0
+        self.open_kong_dice = []
+        self.open_kong_wall_positions = []
+        self.pending_open_kong_positions = None
         self.pending_gang_replacement_count = 0
         self.pending_gang_forced_discard = False
         self.forced_cut_tile = None
@@ -801,8 +822,16 @@ class ChangshaGameState:
         return bool(self.calculation_service.Changsha_tingpai_check(remaining, melds))
 
     def prepare_gang_replacement(self, count: int, forced_discard: bool = False) -> None:
+        """每次开杠建立新骰子批次，补张沿旧单张流程；即使开出0张也保留已声明的锁手。"""
         self.pending_gang_replacement_count = max(0, int(count))
-        self.pending_gang_forced_discard = forced_discard and self.pending_gang_replacement_count > 0
+        self.pending_gang_forced_discard = forced_discard
+        self.pending_open_kong_positions = None
+        if forced_discard:
+            self.open_kong_sequence = getattr(self, 'open_kong_sequence', 0) + 1
+            self.open_kong_dice = roll_open_kong_dice(getattr(self, 'round_random_seed', 0), getattr(self, 'current_round', 1), self.open_kong_sequence)
+            self.open_kong_wall_positions = open_kong_tile_positions(len(self.tiles_list), count, self.open_kong_dice, getattr(self, "backward_tiles_list_type", "double") == "single")
+            self.pending_open_kong_positions = list(self.open_kong_wall_positions)
+            self.pending_gang_replacement_count = len(self.pending_open_kong_positions)
         self.forced_cut_tile = None
         self.forced_cut_tiles = []
         self.pending_gang_replacement_hu_player_index = None
@@ -972,6 +1001,19 @@ class ChangshaGameState:
             return list(self.pending_gang_replacement_hu_hand)
         return self.player_list[player_index].hand_tiles
 
+    def _record_changsha_hu_result(self, hu_score, hu_fan, winner, score_changes, bird_tiles):
+        """开杠自摸记录实际和牌快照，回放不能将同批不能胡的补牌混入结算手牌。"""
+        if self.hu_class == 'hu_self' and getattr(self, 'pending_gang_replacement_hu_player_index', None) == winner:
+            append_action_tick(self, [
+                self.hu_class, winner, hu_score, hu_fan, score_changes,
+                self.pending_gang_replacement_hu_tile, list(bird_tiles or []),
+                'changsha_open_kong_win', list(self._hepai_display_hand(winner)),
+            ])
+            return
+        player_action_record_hu(self, hu_class=self.hu_class, hu_score=hu_score,
+                               hu_fan=hu_fan, hepai_player_index=winner,
+                               score_changes=score_changes, bird_tiles=bird_tiles)
+
     def next_status_after_claim_window(self) -> str:
         if self.pending_gang_forced_discard and self.pending_gang_replacement_count > 0:
             self.forced_cut_tile = None
@@ -1106,6 +1148,72 @@ class ChangshaGameState:
             self.game_status = "waiting_action_after_cut"
         else:
             self.game_status = self.next_status_after_claim_window()
+
+    async def deal_gang_replacements(self):
+        """执行已声明杠的补牌批次，零张开杠直接交给下家。"""
+        is_open_kong = getattr(self, 'pending_open_kong_positions', None) is not None
+        self.dihe_possible = False
+        self.last_draw_was_gang = True
+        self.refresh_waiting_tiles(self.current_player_index)
+        player = self.player_list[self.current_player_index]
+        pre_draw_waiting_tiles = set(player.waiting_tiles)
+        pre_draw_hand_tiles = list(player.hand_tiles)
+        if is_open_kong:
+            positions = list(self.pending_open_kong_positions)
+            deal_tiles = [self.tiles_list[position] for position in positions]
+            # 取到末墩的前一张但保留海底后，尾部变为半墩，后续骰子/补张继续按半墩计数。
+            if getattr(self, 'backward_tiles_list_type', 'double') == 'double' and len(self.tiles_list) - 2 in positions:
+                self.backward_tiles_list_type = 'single'
+            for position in sorted(positions, reverse=True):
+                self.tiles_list.pop(position)
+            player.hand_tiles.extend(deal_tiles)
+            player.has_draw_slot = bool(deal_tiles)
+            self.pending_open_kong_positions = None
+            round_record = self.game_record['game_round'][f'round_index_{self.round_index}']
+            round_record.setdefault('changsha_open_kong_batches', []).append({
+                'sequence': self.open_kong_sequence, 'player': self.current_player_index,
+                'dice': list(self.open_kong_dice), 'positions': positions,
+                'tiles': list(deal_tiles),
+            })
+        else:
+            deal_tiles = []
+            for _ in range(max(1, self.pending_gang_replacement_count)):
+                if not self.tiles_list:
+                    break
+                deal_tiles.append(player.get_gang_tile(self.tiles_list, self))
+        self.pending_gang_replacement_count = 0
+        if not deal_tiles:
+            self.pending_gang_forced_discard = False
+            self.last_draw_was_gang = False
+            self.action_dict = {i: [] for i in range(4)}
+            self.waiting_players_list = []
+            self.game_status = 'deal_card' if is_open_kong else 'END'
+            return
+        self.clear_hu_pass_on_draw(self.current_player_index)
+        for tile_order, tile in enumerate(deal_tiles):
+            if is_open_kong:
+                # 牌谱逐张回放，换算为此前补牌已移除后的当前墙索引。
+                replay_position = positions[tile_order] - sum(previous < positions[tile_order] for previous in positions[:tile_order])
+                append_action_tick(self, ['gd', tile, self.current_player_index, 'changsha_open_kong', replay_position, list(deal_tiles)])
+            else:
+                player_action_record_deal(self, deal_tile=tile, deal_type='gd')
+        if self.pending_gang_forced_discard:
+            self.forced_cut_tile = deal_tiles[-1]
+            self.forced_cut_tiles = list(deal_tiles)
+        await self.broadcast_do_action(action_list=['deal_gang_tile'], action_player=self.current_player_index,
+                                       deal_tile=deal_tiles[-1], deal_tiles=deal_tiles if is_open_kong else None)
+        if self.pending_gang_forced_discard:
+            if self._collect_gang_replacement_hu_result(self.current_player_index, pre_draw_hand_tiles,
+                                                       deal_tiles, pre_draw_waiting_tiles):
+                self.action_dict = {i: [] for i in range(4)}
+                self.action_dict[self.current_player_index] = ['hu_self', 'pass']
+                self.waiting_players_list = [self.current_player_index]
+                self.game_status = 'waiting_gang_replacement_self_hu'
+                return
+            await self.continue_after_gang_replacement_self_hu_pass()
+            return
+        self.action_dict = check_action_hand_action(self, self.current_player_index, is_get_gang_tile=True)
+        self.game_status = 'waiting_hand_action'
 
     def _score_changsha_win(
         self,
@@ -1335,6 +1443,7 @@ class ChangshaGameState:
         init_game_record(self)
         # 牌谱/观战用：子规则与起和限制写入 game_title，客户端据此做番表显示
         self.game_record["game_title"]["sub_rule"] = self.sub_rule
+        self.game_record["game_title"]["detailed_config"] = dict(self.detailed_config)
         self.game_record["game_title"]["hepai_limit"] = self.hepai_limit
         if self.match_tier is not None:
             self.game_record["game_title"]["match_tier"] = self.match_tier
@@ -1401,56 +1510,8 @@ class ChangshaGameState:
                         self.game_status = "waiting_hand_action" # 切换到摸牌后状态
 
                     # 杠后摸牌操作：当前玩家进行摸牌
-                    case "deal_card_after_gang": # 杠后发牌历时行为
-                        if self.tiles_list == []:
-                            self.game_status = "END"
-                            break
-                        if self.pending_gang_replacement_count <= 0:
-                            self.prepare_gang_replacement(1, False)
-                        self.dihe_possible = False # 庄家暗杠/加杠/明杠后，地和不再可能
-                        self.last_draw_was_gang = True
-                        self.refresh_waiting_tiles(self.current_player_index)
-                        player = self.player_list[self.current_player_index]
-                        pre_draw_waiting_tiles = set(player.waiting_tiles)
-                        pre_draw_hand_tiles = list(player.hand_tiles)
-                        deal_tiles = []
-                        draw_count = max(1, self.pending_gang_replacement_count)
-                        for _ in range(draw_count):
-                            if self.tiles_list == []:
-                                break
-                            deal_item = self.player_list[self.current_player_index].get_gang_tile(self.tiles_list, self)
-                            deal_tiles.append(deal_item)
-                            player_action_record_deal(self,deal_tile = deal_item,deal_type = "gd")
-                        if not deal_tiles:
-                            self.game_status = "END"
-                            break
-                        deal_tile = deal_tiles[-1]
-                        self.clear_hu_pass_on_draw(self.current_player_index)
-                        self.pending_gang_replacement_count = 0
-                        await self.broadcast_do_action(
-                            action_list = ["deal_gang_tile"],
-                            action_player = self.current_player_index,
-                            deal_tile = deal_tile,
-                            deal_tiles = deal_tiles,
-                        )
-                        if self.pending_gang_forced_discard:
-                            self.forced_cut_tile = deal_tile
-                            self.forced_cut_tiles = list(deal_tiles)
-                            if self._collect_gang_replacement_hu_result(
-                                self.current_player_index,
-                                pre_draw_hand_tiles,
-                                deal_tiles,
-                                pre_draw_waiting_tiles,
-                            ):
-                                self.action_dict = {0: [], 1: [], 2: [], 3: []}
-                                self.action_dict[self.current_player_index] = ["hu_self", "pass"]
-                                self.waiting_players_list = [self.current_player_index]
-                                self.game_status = "waiting_gang_replacement_self_hu"
-                                continue
-                            await self.continue_after_gang_replacement_self_hu_pass()
-                            continue
-                        self.action_dict = check_action_hand_action(self,self.current_player_index,is_get_gang_tile=True)
-                        self.game_status = "waiting_hand_action" # 切换到摸牌后状态
+                    case "deal_card_after_gang": # 杠后补牌批次
+                        await self.deal_gang_replacements()
 
                     # 等待手牌操作：
                     case "waiting_hand_action": # 摸牌,加杠,暗杠,补花后行为
@@ -1639,9 +1700,8 @@ class ChangshaGameState:
             if gang_replacement_multi_ron:
                 pass
             elif self.hu_class in ["hu_self","hu_first","hu_second","hu_third"]:
-                player_action_record_hu(self, hu_class=self.hu_class, hu_score=hu_score,
-                                        hu_fan=hu_fan, hepai_player_index=hepai_player_index,
-                                        score_changes=score_changes, bird_tiles=bird_tiles)
+                # 牌谱使用最终实收总分，与含鸟/封顶后的广播及计分板一致。
+                self._record_changsha_hu_result(actual_hu_score, hu_fan, hepai_player_index, score_changes, bird_tiles)
             else:
                 player_action_record_liuju(self)
             player_action_record_round_end(self)

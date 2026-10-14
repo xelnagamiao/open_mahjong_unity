@@ -11,6 +11,7 @@ from .hongzhong_room import HongzhongRoomValidator, create_hongzhong_room
 from .guangdong_room import GuangdongRoomValidator
 from .shanxi_room import ShanxiRoomValidator
 from ..response import Response, public_room_data
+from ..gamestate.game_changsha.open_kong import normalize_open_kong_count
 from .room_seats import get_seats, seat_player, unseat_player
 from ..gamestate.public.ai.guobiao_heuristic_gate import guobiao_heuristic_bot_reject_reason
 from ..game_calculation.game_calculation_service import Chinese_Hepai_Check
@@ -2222,7 +2223,7 @@ class RoomManager:
                     open_cuohe=False,
                     tactical_call=bool(room_config.get("tactical_call", False)),
                     claim_protection=room_config.get("claim_protection", True),
-                    open_kong_replacement_count=int(room_config.get("open_kong_replacement_count", 2)),
+                    open_kong_replacement_count=normalize_open_kong_count(room_config.get("open_kong_replacement_count", 2)),
                     initial_hu_si_xi=bool(room_config.get("initial_hu_si_xi", True)),
                     initial_hu_ban_ban_hu=bool(room_config.get("initial_hu_ban_ban_hu", True)),
                     initial_hu_que_yi_se=bool(room_config.get("initial_hu_que_yi_se", True)),
