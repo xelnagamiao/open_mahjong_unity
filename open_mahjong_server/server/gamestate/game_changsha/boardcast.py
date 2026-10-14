@@ -116,7 +116,11 @@ def _build_game_start_payload_for_viewer(self, viewer_index: int) -> dict:
         'base_score_no_dealer': getattr(self, 'base_score_no_dealer', False),
         'small_hu_score': getattr(self, 'small_hu_score', 2),
         'big_hu_score': getattr(self, 'big_hu_score', 8),
-        'detailed_config': {'small_hu_self_draw_only': getattr(self, 'small_hu_self_draw_only', False)},
+        'detailed_config': {
+            'small_hu_self_draw_only': getattr(self, 'small_hu_self_draw_only', False),
+            'score_cap_type': getattr(self, 'score_cap_type', 'none'),
+            'score_cap_value': getattr(self, 'score_cap_value', 0),
+        },
         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed, # 是否玩家设置了随机种子
         'players_info': [] # ↓玩家信息
     }

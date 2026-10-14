@@ -538,7 +538,8 @@ class RoomManager:
                                    small_hu_score: int = 2,
                                    big_hu_score: int = 8,
                                    event_id: Optional[str] = None, count_tips: bool = False, pointer_tips: bool = True,
-                                   small_hu_self_draw_only: bool = False) -> Response:
+                                   small_hu_self_draw_only: bool = False,
+                                   score_cap_type: str = "none", score_cap_value: int = 0) -> Response:
         """创建长沙麻将房间。当前接入经典双鸟规则。"""
         try:
             if player_id not in self.game_server.players:
@@ -583,6 +584,8 @@ class RoomManager:
                 "small_hu_score": small_hu_score,
                 "big_hu_score": big_hu_score,
                 "small_hu_self_draw_only": small_hu_self_draw_only,
+                "score_cap_type": score_cap_type,
+                "score_cap_value": score_cap_value,
             }
 
             try:
@@ -2231,6 +2234,8 @@ class RoomManager:
                     small_hu_score=int(room_config.get("small_hu_score", 2)),
                     big_hu_score=int(room_config.get("big_hu_score", 8)),
                     small_hu_self_draw_only=room_config.get("small_hu_self_draw_only", False),
+                    score_cap_type=room_config.get("score_cap_type", "none"),
+                    score_cap_value=room_config.get("score_cap_value", 0),
                 )
                 hepai_limit = 1
         except Exception as e:

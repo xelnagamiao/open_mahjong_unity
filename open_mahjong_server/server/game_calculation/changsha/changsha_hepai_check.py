@@ -302,12 +302,16 @@ def changsha_base_from_fans(
     small_hu_score: int = 2,
     big_hu_score: int = 8,
     base_score_no_dealer: bool = False,
+    big_hu_limit=None,
 ) -> int:
     """计算单个付款方在扎鸟翻倍前应付的长沙基础分。"""
     if not fan_list:
         return 0
     big_count = sum(BIG_HU_WEIGHTS.get(name, 1) for name in fan_list if name in BIG_HU_NAMES)
     if big_count > 0:
+        # 豪华七小对等沿用既有大胡权重；数量上限限制权重之和，鸟在外层另算。
+        if big_hu_limit is not None:
+            big_count = min(big_count, max(0, int(big_hu_limit)))
         if base_score_no_dealer:
             return max(1, int(big_hu_score)) * big_count
         return (7 if dealer_related else 6) * big_count

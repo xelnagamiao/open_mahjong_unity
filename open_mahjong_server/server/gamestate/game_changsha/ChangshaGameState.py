@@ -33,6 +33,8 @@ from ..public.vote_manager import vote_checkpoint
 from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_cut, player_action_record_hu, player_action_record_liuju, player_action_record_round_end, end_game_record, build_score_changes_by_seat, build_score_changes_dict, capture_player_entry_order, remember_local_record_detail
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...game_calculation.changsha.changsha_hepai_check import (
+    BIG_HU_NAMES,
+    BIG_HU_WEIGHTS,
     INITIAL_HU_NAMES,
     changsha_initial_hu_reveal_tiles,
     changsha_base_from_fans,
@@ -179,6 +181,8 @@ class ChangshaGameState:
         self.dealer_bird = room_data.get("dealer_bird", True)
         self.base_score_no_dealer = bool(room_data.get("base_score_no_dealer", False))
         self.small_hu_self_draw_only = bool(room_data.get("small_hu_self_draw_only", False))
+        self.score_cap_type = room_data.get("score_cap_type", "none")
+        self.score_cap_value = int(room_data.get("score_cap_value", 0))
         self.small_hu_score = max(1, int(room_data.get("small_hu_score", 2)))
         self.big_hu_score = max(1, int(room_data.get("big_hu_score", 8)))
         self.initial_hu_enabled = {
@@ -326,7 +330,11 @@ class ChangshaGameState:
                         'base_score_no_dealer': getattr(self, 'base_score_no_dealer', False),
                         'small_hu_score': getattr(self, 'small_hu_score', 2),
                         'big_hu_score': getattr(self, 'big_hu_score', 8),
-                        'detailed_config': {'small_hu_self_draw_only': getattr(self, 'small_hu_self_draw_only', False)},
+                        'detailed_config': {
+                            'small_hu_self_draw_only': getattr(self, 'small_hu_self_draw_only', False),
+                            'score_cap_type': getattr(self, 'score_cap_type', 'none'),
+                            'score_cap_value': getattr(self, 'score_cap_value', 0),
+                        },
                         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed,
                         'players_info': []
                     }
@@ -1107,7 +1115,9 @@ class ChangshaGameState:
         discarder: int = None,
         birds_override: Optional[List[int]] = None,
         bird_origin_override: Optional[int] = None,
+        batch_cap_totals: Optional[Dict[Any, int]] = None,
     ):
+        """逐家付款并保持收支守恒；同批共享配对累计表，起手胡不经过此封顶路径。"""
         birds = self._draw_changsha_birds(self.bird_count) if birds_override is None else list(birds_override)
         if birds_override is None and not birds and self.bird_count > 0 and self._is_sea_bottom_win(fan_list):
             sea_bottom_bird = self._sea_bottom_bird_tile(winner)
@@ -1123,9 +1133,33 @@ class ChangshaGameState:
         for payer in payers:
             dealer_related = winner == 0 or payer == 0
             base = self._changsha_base_from_fans(fan_list, dealer_related)
+            uncapped_base = base
+            cap_type = getattr(self, "score_cap_type", "none")
+            cap_value = getattr(self, "score_cap_value", 0)
+            pair = (payer, winner)
+            # 同一付款方给不同赢家的额度独立；同批同一配对不会因换和牌张而重置。
+            used = (batch_cap_totals or {}).get(pair, 0)
+            if cap_type == "big_hu":
+                # 数量封顶先截大胡权重，之后仍按该笔实际中鸟数翻倍。
+                big_weight = sum(BIG_HU_WEIGHTS.get(name, 1) for name in fan_list if name in BIG_HU_NAMES)
+                remaining = max(0, cap_value - used)
+                base = changsha_base_from_fans(
+                    fan_list, dealer_related,
+                    small_hu_score=self.small_hu_score,
+                    big_hu_score=self.big_hu_score,
+                    base_score_no_dealer=self.base_score_no_dealer,
+                    big_hu_limit=remaining,
+                )
+                if batch_cap_totals is not None:
+                    batch_cap_totals[pair] = used + min(big_weight, remaining)
             hit_count = sum(1 for seat in bird_seats if seat in (winner, payer))
             multiplier = 2 ** hit_count
             payment = base * multiplier
+            if cap_type == "score":
+                # 分值封顶包含鸟；后续结果只可使用同一配对尚未支付的余额。
+                payment = min(payment, max(0, cap_value - used))
+                if batch_cap_totals is not None:
+                    batch_cap_totals[pair] = used + payment
             self._player_by_index(winner).score += payment
             self._player_by_index(payer).score -= payment
             total_win += payment
@@ -1136,9 +1170,13 @@ class ChangshaGameState:
                 "hit_count": hit_count,
                 "multiplier": multiplier,
                 "payment": payment,
+                "uncapped_payment": uncapped_base * multiplier,
             })
 
         fan_display = list(fan_list or [])
+        if getattr(self, "score_cap_type", "none") != "none":
+            unit = "大" if self.score_cap_type == "big_hu" else "分"
+            fan_display.append(f"封顶:{self.score_cap_value}{unit}")
         if birds:
             bird_text = "鸟牌:" + ",".join(self._format_changsha_bird_tile(tile) for tile in birds)
             active_seats = {winner, *payers}
@@ -1170,9 +1208,11 @@ class ChangshaGameState:
             ),
         )
         shared_birds = self._draw_changsha_birds(self.bird_count)
+        # 整批只扎一次鸟，各张、各赢家共用；付款方始终是开杠者。
         multi_ron = len(events) > 1
         total_hu_score = 0
         last_fan_display: List[str] = []
+        batch_cap_totals = {}
 
         for event_index, event in enumerate(events):
             winner = event["winner"]
@@ -1183,6 +1223,7 @@ class ChangshaGameState:
                 player.original_player_index: player.score
                 for player in self.player_list
             }
+            cap_options = {"batch_cap_totals": batch_cap_totals} if getattr(self, "score_cap_type", "none") != "none" else {}
             score_info = self._score_changsha_win(
                 winner,
                 fan_list,
@@ -1190,6 +1231,7 @@ class ChangshaGameState:
                 self.current_player_index,
                 birds_override=shared_birds,
                 bird_origin_override=self.current_player_index if self.base_score_no_dealer else None,
+                **cap_options,
             )
             actual_hu_score = score_info["actual_hu_score"]
             fan_display = score_info["fan_display"]
