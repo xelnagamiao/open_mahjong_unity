@@ -17,6 +17,10 @@ public partial class Game3DManager {
         BuhuaTile,
         FreeMeld,
         FreeClaimRiver,
+        ChangshaOpenKongBatch,
+        ChangshaOpenKongDiscard,
+        ChangshaOpenKongRemoveHand,
+        ChangshaOpenKongMeld,
     }
 
     private sealed class HandAnimOp {
@@ -32,6 +36,7 @@ public partial class Game3DManager {
         public bool MergeBeforeDraw;
         public int MeldIndex;
         public int[] HandTiles;
+        public string ChangshaMeldAction;
         public HandAnimOp RiverClaim;
         public bool Completed;
     }
@@ -209,6 +214,18 @@ public partial class Game3DManager {
             StopFreeDrawReflow(op.PlayerPosition, finish: true);
 
         switch (op.Kind) {
+            case HandAnimOpKind.ChangshaOpenKongBatch:
+                RenderChangshaOpenKongTiles(op.PlayerPosition, op.HandTiles);
+                break;
+            case HandAnimOpKind.ChangshaOpenKongDiscard:
+                yield return DiscardChangshaOpenKongTile(op);
+                break;
+            case HandAnimOpKind.ChangshaOpenKongRemoveHand:
+                yield return RemoveChangshaOpenKongHandTiles(op);
+                break;
+            case HandAnimOpKind.ChangshaOpenKongMeld:
+                StartMeldPresentation(op.ChangshaMeldAction, op.PlayerPosition, op.CombinationMask);
+                break;
             case HandAnimOpKind.RemoveCards:
                 yield return RemoveHandCardsFromQueue(panel.cardsPosition, op);
                 break;

@@ -144,6 +144,15 @@ public partial class GameRecordManager : MonoBehaviour {
     /// 荣和 tick 推演：正确和牌写入和牌张；局中错和续局不写入手牌（展示由 BuildDisplayHand 拼）。
     /// </summary>
     private void ApplyRecordRonHuToHandState(List<string> tick, string action) {
+        int changshaHandIndex = ChangshaRecordCodec.OpenKongSelfDrawHandIndex(tick);
+        if (RecordRuleManifest?.RuleId == "changsha" && changshaHandIndex >= 0) {
+            int winner = ParseTickInt(tick, 1);
+            if (indexToPosition.TryGetValue(winner, out string seat) && recordPlayer_to_info.TryGetValue(seat, out RecordPlayer player)) {
+                player.tileList = new List<int>(ParseTickIntArray(tick, changshaHandIndex));
+                player.showHandDrawSlotActive = true;
+            }
+            return;
+        }
         if (IsXueliuRecord()) {
             ApplyXueliuRecordWin(tick, action);
             return;
@@ -173,7 +182,10 @@ public partial class GameRecordManager : MonoBehaviour {
             huPlayer.tileList.RemoveAt(huPlayer.tileList.Count - 1);
             huPlayer.showHandDrawSlotActive = false;
         }
-        if (RecordHuHandBuilder.NeedsRonTile(huPlayer.tileList, recordRule)) {
+        if (ChangshaFanText.IsChangshaRule(recordRule)) {
+            huPlayer.tileList = new List<int>(ChangshaRecordCodec.BuildWinningHand(huPlayer.tileList, huPlayer.hasRonWinningTile, winTile));
+            huPlayer.hasRonWinningTile = huPlayer.tileList.Count % 3 == 2;
+        } else if (RecordHuHandBuilder.NeedsRonTile(huPlayer.tileList, recordRule)) {
             huPlayer.tileList.Add(winTile);
             huPlayer.hasRonWinningTile = true;
         }
@@ -867,7 +879,11 @@ public partial class GameRecordManager : MonoBehaviour {
             currentRecordPlayer.showHandDrawSlotActive = true;
             waitingForDrawAfterCut = false;
 
-            if (!TryConsumeDuplicateWallTile(actingPlayerIndex, action) && !TryConsumeRecordRuleWallTile(action) && currentTilesList.Count > 0) {
+            bool publicChangshaDraw = RecordRuleManifest?.RuleId == "changsha" && ChangshaRecordCodec.IsPublicKongDraw(tick);
+            if (publicChangshaDraw) {
+                backwardTilesType = ChangshaRecordCodec.TailTypeAfterPublicDraw(tick, currentTilesList.Count, backwardTilesType);
+                ChangshaRecordCodec.ConsumePublicKongDraw(tick, currentTilesList, currentOriginalIndices, consumedBackIndices);
+            } else if (!TryConsumeDuplicateWallTile(actingPlayerIndex, action) && !TryConsumeRecordRuleWallTile(action) && currentTilesList.Count > 0) {
                 // 川麻杠后补牌与普通摸牌同向从头取；其他规则 gd/bd 走倒序岭上
                 bool drawFromFront = action == "d" || (action == "gd" && IsSichuanRecord());
                 if (!drawFromFront && (action == "gd" || action == "bd")) {
@@ -889,9 +905,10 @@ public partial class GameRecordManager : MonoBehaviour {
                 }
             }
 
+            if (publicChangshaDraw) Game3DManager.Instance.ShowChangshaOpenKongTiles(currentPlayerPosition, ParseTickIntArray(tick, 5));
             if (currentPlayerPosition == "self") {
                 GameCanvas.Instance.ChangeHandCards("GetCard", dealTile, null, null);
-            } else {
+            } else if (!publicChangshaDraw) {
                 Game3DManager.Instance.Change3DTile("GetCard", dealTile, 0, currentPlayerPosition, false, null);
             }
             nextPlayerIndex = actingPlayerIndex;
@@ -1075,7 +1092,7 @@ public partial class GameRecordManager : MonoBehaviour {
                 bool isChangshaHu = ChangshaFanText.IsChangshaRule(recordRule)
                     || ChangshaFanText.IsChangshaRule(recordSubRule);
                 int[] changshaBirdTiles = isChangshaHu
-                    ? ChangshaFanText.ResolveBirdTiles(ParseTickIntArray(tick, 6))
+                    ? ChangshaFanText.ResolveBirdTiles(ParseTickIntArray(tick, ChangshaRecordCodec.BirdIndex(tick)))
                     : null;
                 if (IsHongzhongRecord()) changshaBirdTiles = HongzhongRecordInfo?.bird_tiles;
                 RiichiEndResultExtras extras = null;
@@ -1114,7 +1131,7 @@ public partial class GameRecordManager : MonoBehaviour {
                         action, hepaiPlayerIndex, resolvedHepaiTile, multiRonFlag, ronDiscarderIndex,
                         recycleDiscard, isQianggangHu);
                 } else {
-                    ShowRecordResult(action, huScore, huFan, hepaiPlayerIndex, hepaiPlayerHand, hepaiPlayerHuapai, hepaiPlayerCombinationMask, playerToScoreBefore, playerToScoreAfter, baseFu, fuFanList, extras, changshaBirdTiles);
+                    ShowRecordResult(action, huScore, huFan, hepaiPlayerIndex, hepaiPlayerHand, hepaiPlayerHuapai, hepaiPlayerCombinationMask, playerToScoreBefore, playerToScoreAfter, baseFu, fuFanList, extras, changshaBirdTiles, isChangshaHu ? ChangshaRecordCodec.ParseBatchRon(tick) : null);
                 }
                 TryRefreshRecordScoreTable();
             }
@@ -1722,7 +1739,7 @@ public partial class GameRecordManager : MonoBehaviour {
         int[] hepaiPlayerHand, int[] hepaiPlayerHuapai, int[][] hepaiPlayerCombinationMask,
         Dictionary<int, int> playerToScoreBefore, Dictionary<int, int> playerToScoreAfter,
         int? baseFu = null, string[] fuFanList = null, RiichiEndResultExtras riichiExtras = null,
-        int[] changshaBirdTiles = null) {
+        int[] changshaBirdTiles = null, ChangshaRonRecord changshaRon = null) {
         if (huClass == "jiuzhongjiupai" || SpecialLiujuCaptions.IsRiichiAbort(huClass)) {
             if (playerToScoreAfter != null && playerToScoreAfter.Count > 0) {
                 BoardCanvas.Instance.UpdatePlayerScores(playerToScoreAfter, indexToPosition);
@@ -1735,14 +1752,14 @@ public partial class GameRecordManager : MonoBehaviour {
         _recordHuPresentationCoroutine = StartCoroutine(CoShowRecordResultWithPresentation(
             huClass, huScore, huFan, hepaiPlayerIndex, hepaiPlayerHand, hepaiPlayerHuapai,
             hepaiPlayerCombinationMask, playerToScoreBefore, playerToScoreAfter, baseFu, fuFanList, riichiExtras,
-            changshaBirdTiles));
+            changshaBirdTiles, changshaRon));
     }
 
     private IEnumerator CoShowRecordResultWithPresentation(
         string huClass, int huScore, string[] huFan, int hepaiPlayerIndex,
         int[] hepaiPlayerHand, int[] hepaiPlayerHuapai, int[][] hepaiPlayerCombinationMask,
         Dictionary<int, int> playerToScoreBefore, Dictionary<int, int> playerToScoreAfter,
-        int? baseFu, string[] fuFanList, RiichiEndResultExtras riichiExtras, int[] changshaBirdTiles) {
+        int? baseFu, string[] fuFanList, RiichiEndResultExtras riichiExtras, int[] changshaBirdTiles, ChangshaRonRecord changshaRon) {
         BeginRecordHuPresentation();
         try {
         Dictionary<string, string> positionToUsername = new Dictionary<string, string>();
@@ -1763,7 +1780,7 @@ public partial class GameRecordManager : MonoBehaviour {
         if (playerToScoreAfter != null && playerToScoreAfter.Count > 0) {
             BoardCanvas.Instance.UpdatePlayerScores(playerToScoreAfter, indexToPosition);
         }
-        yield return CoAnnounceRecordHuAndReveal(huClass, huFan, huPosition, hepaiPlayerHand);
+        yield return CoAnnounceRecordHuAndReveal(huClass, huFan, huPosition, hepaiPlayerHand, changshaRon);
 
         MarkPendingRecordCuoheContinue(huPosition, huFan);
 
@@ -1781,7 +1798,7 @@ public partial class GameRecordManager : MonoBehaviour {
     /// 「和牌动画」只控制面板里番种是否逐条出现，不跳过这一步。
     /// </summary>
     private IEnumerator CoAnnounceRecordHuAndReveal(
-        string huClass, string[] huFan, string huPosition, int[] hepaiPlayerHand) {
+        string huClass, string[] huFan, string huPosition, int[] hepaiPlayerHand, ChangshaRonRecord changshaRon = null) {
         string roomType = ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "").ToLowerInvariant();
         if (string.IsNullOrEmpty(roomType)) {
             roomType = ReadGameTitleString(gameRecord.gameTitle, "rule", "").ToLowerInvariant();
@@ -1792,8 +1809,12 @@ public partial class GameRecordManager : MonoBehaviour {
         SoundManager.Instance.PlayActionSound(huPosition, presentationAction);
 
         string recordRule = ResolveRecordHepaiRuleKey();
+        if (ChangshaFanText.IsChangshaRule(recordRule)) {
+            // 公开补牌仍占用有限实体池，必须等前序摸切完成并回收后才倒牌。
+            yield return Game3DManager.Instance.PrepareChangshaOpenKongHuReveal();
+        }
         bool showCardsExpanded = HepaiRevealDirector.IsRecordShowCardsExpanded(huPosition);
-        string discardPos = ResolveRecordRonDiscarderPosition(null);
+        string discardPos = ResolveRecordRonDiscarderPosition(changshaRon != null ? (int?)changshaRon.Discarder : null);
         int hepaiTile = hepaiPlayerHand != null && hepaiPlayerHand.Length > 0
             ? hepaiPlayerHand[hepaiPlayerHand.Length - 1]
             : -1;
@@ -1818,6 +1839,10 @@ public partial class GameRecordManager : MonoBehaviour {
             HepaiPresentationRequest request = HepaiRevealDirector.BuildRecordRequest(
                 huPosition, huClass, hepaiPlayerHand, huFan, recordRule, showCardsExpanded, hepaiTile, discardPos);
             if (xueliuQianggang) request.IsQianggang = true;
+            if (changshaRon != null) {
+                request.HepaiTile = changshaRon.HepaiTile;
+                request.RecycleDiscardAfterPresent = changshaRon.RecycleDiscard;
+            }
             yield return HepaiRevealDirector.PlayRecord(request);
         } else {
             yield return new WaitForSeconds(HepaiRevealTiming.RecordShowCardsPanelDelaySeconds);
