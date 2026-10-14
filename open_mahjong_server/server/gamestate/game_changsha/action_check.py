@@ -383,6 +383,9 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
 
 
     if result[0] >= 1:
+        # 卡摸只限制标准小胡接炮；地胡、杠上炮等已由上面的情境判断转成大胡。
+        if hepai_type != "handgot" and getattr(self, "small_hu_self_draw_only", False) and result[1] == ["小胡"]:
+            return
         passed_base = getattr(self, "player_passed_hu_base", {}).get(player_index)
         if hepai_type != "handgot" and passed_base is not None and result[0] <= passed_base:
             logger.info(

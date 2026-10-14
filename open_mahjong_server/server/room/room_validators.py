@@ -235,6 +235,7 @@ class ChangshaRoomValidator(BaseModel):
     base_score_no_dealer: bool = False
     small_hu_score: int = 2
     big_hu_score: int = 8
+    small_hu_self_draw_only: StrictBool = False
 
     @validator('room_name')
     def validate_room_name(cls, v):
