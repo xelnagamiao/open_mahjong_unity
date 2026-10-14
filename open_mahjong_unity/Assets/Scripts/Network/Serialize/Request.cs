@@ -122,6 +122,9 @@ public class CreateChangshaRoomRequest { // 创建长沙麻将房间请求
     public bool base_score_no_dealer;
     public int small_hu_score;
     public int big_hu_score;
+    public bool small_hu_self_draw_only;
+    public string score_cap_type = "none";
+    public int score_cap_value;
     public string event_id; // 赛事房间：有则 room_type=events
 }
 

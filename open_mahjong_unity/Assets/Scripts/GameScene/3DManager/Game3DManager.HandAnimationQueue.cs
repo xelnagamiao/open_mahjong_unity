@@ -18,6 +18,10 @@ public partial class Game3DManager {
         FreeMeld,
         FreeClaimRiver,
         WashizuOrder,
+        ChangshaOpenKongBatch,
+        ChangshaOpenKongDiscard,
+        ChangshaOpenKongRemoveHand,
+        ChangshaOpenKongMeld,
     }
 
     private sealed class HandAnimOp {
@@ -33,6 +37,7 @@ public partial class Game3DManager {
         public bool MergeBeforeDraw;
         public int MeldIndex;
         public int[] HandTiles;
+        public string ChangshaMeldAction;
         public HandAnimOp RiverClaim;
         public bool Completed;
         public WashizuHandLayout WashizuLayout;
@@ -213,6 +218,18 @@ public partial class Game3DManager {
         switch (op.Kind) {
             case HandAnimOpKind.WashizuOrder:
                 yield return AnimateWashizuRealtimeRow(op.PlayerPosition, panel, op.WashizuLayout);
+                break;
+            case HandAnimOpKind.ChangshaOpenKongBatch:
+                RenderChangshaOpenKongTiles(op.PlayerPosition, op.HandTiles);
+                break;
+            case HandAnimOpKind.ChangshaOpenKongDiscard:
+                yield return DiscardChangshaOpenKongTile(op);
+                break;
+            case HandAnimOpKind.ChangshaOpenKongRemoveHand:
+                yield return RemoveChangshaOpenKongHandTiles(op);
+                break;
+            case HandAnimOpKind.ChangshaOpenKongMeld:
+                StartMeldPresentation(op.ChangshaMeldAction, op.PlayerPosition, op.CombinationMask);
                 break;
             case HandAnimOpKind.RemoveCards:
                 yield return RemoveHandCardsFromQueue(panel.cardsPosition, op);
@@ -395,6 +412,7 @@ public partial class Game3DManager {
     }
 
     private void EnqueueDiscardHandWork(string playerPosition, int tileId, bool cutClass, bool isRiichi, bool playCutPhysicsSound, bool concealedDiscard = false) {
+        if (TryEnqueueChangshaOpenKongAction("Discard", tileId, playerPosition, null, isRiichi, playCutPhysicsSound)) return;
         EnqueueHandAnimOp(playerPosition, new HandAnimOp {
             Kind = HandAnimOpKind.DiscardTile,
             TileId = tileId,

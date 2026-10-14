@@ -47,7 +47,7 @@ public class RoomConfigContainer : MonoBehaviour {
         { "changsha", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
             "tips", "open_kong_replacement_count", "initial_hu_types", "bird_count",
-            "dealer_bird", "base_score", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
+            "dealer_bird", "base_score", "small_hu_self_draw_only", "score_cap", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
         } },
         { "guizhou", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
@@ -314,7 +314,7 @@ public class RoomConfigContainer : MonoBehaviour {
                 return true;
             case "open_kong_replacement_count":
                 displayName = "开杠张数";
-                displayValue = $"{Mathf.Clamp(roomInfo.open_kong_replacement_count, 1, 4)}张";
+                displayValue = (roomInfo.open_kong_replacement_count == 4 ? "4张" : "2张") + "(骰子取牌)";
                 return true;
             case "initial_hu_types":
                 displayName = "起手胡";
@@ -333,6 +333,16 @@ public class RoomConfigContainer : MonoBehaviour {
                 displayValue = roomInfo.base_score_no_dealer
                     ? $"不分庄闲 小胡{Mathf.Max(roomInfo.small_hu_score, 1)}/大胡{Mathf.Max(roomInfo.big_hu_score, 1)}"
                     : "区分庄闲 1/2/6/7";
+                return true;
+            case "small_hu_self_draw_only":
+                displayName = "卡摸";
+                displayValue = roomInfo.small_hu_self_draw_only ? "小胡仅自摸" : "关闭";
+                return true;
+            case "score_cap":
+                displayName = "计分封顶";
+                displayValue = roomInfo.score_cap_type == "big_hu"
+                    ? $"每家最多{roomInfo.score_cap_value}大，鸟另计"
+                    : roomInfo.score_cap_type == "score" ? $"每家最多{roomInfo.score_cap_value}分(含鸟)" : "不封顶";
                 return true;
             case "has_password":
                 displayName = "密码";

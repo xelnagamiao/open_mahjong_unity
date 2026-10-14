@@ -15,6 +15,7 @@ public partial class GameRecordManager
 
         // 重新推理手牌前清空所有正在执行的3D动画，避免与重建画面冲突
         Game3DManager.Instance.StopAllRunningAnimations();
+        Game3DManager.Instance.ClearChangshaOpenKongTilesImmediate();
         // 跳转/快进会中断渐隐协程，先销毁残留的操作文本，避免「补花」等字卡死
         GameCanvas.Instance.ClearActionDisplay();
         GameCanvas.Instance.ClearActionButton();
@@ -66,6 +67,7 @@ public partial class GameRecordManager
 
         Game3DManager.Instance.Change3DTile("InitHandCardsFromRecord", 0, 0, null, false, null);
         RebuildRecord3DTableWithoutAnimation();
+        RestoreChangshaRecordOpenKongBatch(roundData.actionTicks, safeActionIndex);
         if (IsBloodBattleRecord() && bloodRecordRevealedHands != null) {
             Game3DManager.Instance.RevealSichuanLiujuAllHands(bloodRecordRevealedHands);
         }
@@ -88,6 +90,25 @@ public partial class GameRecordManager
             RestoreRecordSelfHandContainer();
         }
         SyncRecordBoardScores();
+    }
+
+    /// <summary>切换牌谱明牌时先释放旧公开行，再重建手牌和剩余批次，避免重复借用实体牌。</summary>
+    public bool TryRefreshChangshaOpenKongRecordHands() {
+        if (RecordRuleManifest?.RuleId != "changsha" || gameRecord?.gameRound?.rounds == null
+            || !gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round round)) return false;
+        if (ChangshaRecordCodec.CurrentOpenKongBatch(round.actionTicks, currentNode, tick => ParseTickIntArray(tick, 5)) == null) return false;
+        Game3DManager.Instance.ClearChangshaOpenKongTilesImmediate();
+        Game3DManager.Instance.Change3DTile("InitHandCardsFromRecord", 0, 0, null, false, null);
+        RestoreChangshaRecordOpenKongBatch(round.actionTicks, currentNode);
+        return true;
+    }
+
+    private void RestoreChangshaRecordOpenKongBatch(List<List<string>> ticks, int node) {
+        if (RecordRuleManifest?.RuleId != "changsha") return;
+        ChangshaOpenKongRecord batch = ChangshaRecordCodec.CurrentOpenKongBatch(ticks, node, tick => ParseTickIntArray(tick, 5));
+        if (batch != null && indexToPosition.TryGetValue(batch.Player, out string seat)) {
+            Game3DManager.Instance.ShowChangshaOpenKongTiles(seat, batch.PublicTiles.ToArray(), restore: true, restoredHandTiles: batch.DrawnHandTiles.ToArray());
+        }
     }
 
     /// <summary>跳转重建后把中心盘分数对齐推演结果，避免杠分飘字留在「局首」。</summary>
@@ -145,7 +166,10 @@ public partial class GameRecordManager
                 ? actingPlayer.tileList.Count % 3 == 2 : true;
             waitingForDrawAfterCut = false;
 
-            if (!TryConsumeDuplicateWallTile(actingPlayerIndex, action, tick) && !TryConsumeRecordRuleWallTile(action) && currentTilesList.Count > 0) {
+            if (RecordRuleManifest?.RuleId == "changsha" && ChangshaRecordCodec.IsPublicKongDraw(tick)) {
+                backwardTilesType = ChangshaRecordCodec.TailTypeAfterPublicDraw(tick, currentTilesList.Count, backwardTilesType);
+                ChangshaRecordCodec.ConsumePublicKongDraw(tick, currentTilesList, currentOriginalIndices, consumedBackIndices);
+            } else if (!TryConsumeDuplicateWallTile(actingPlayerIndex, action, tick) && !TryConsumeRecordRuleWallTile(action) && currentTilesList.Count > 0) {
                 // 川麻杠后补牌与普通摸牌同向从头取；其他规则 gd/bd 走倒序岭上
                 bool drawFromFront = action == "d" || (action == "gd" && IsSichuanRecord());
                 if (!drawFromFront && (action == "gd" || action == "bd")) {

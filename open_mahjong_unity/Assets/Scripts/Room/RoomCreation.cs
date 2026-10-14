@@ -13,6 +13,9 @@ public sealed class RoomCreationInput {
     public bool CuoHe, RedDora, AllowKuikae, OpenXiru, OpenTobi, UseFlowers, TianDiRenHe, JokerMultiWait, BloodBattle;
     public bool GuangdongMinimumScore, ShanghaiQing3Hun2Peng2, ShanghaiTianQiao, ShanghaiSelfDrawExtraBase, YixingSevenPairs;
     public int OpenKongCount, BirdCount, SmallHuScore, BigHuScore;
+    public bool SmallHuSelfDrawOnly;
+    public string ScoreCapType = "none";
+    public int ScoreCapValue;
     public bool InitialSiXi, InitialBanBanHu, InitialQueYiSe, InitialLiuLiuShun, InitialSanTong, DealerBird, BaseScoreNoDealer;
     public bool WallWan, WallTong, WallSuo, WallWinds, WallDragons, WallFlowers;
     public Dictionary<string, object> DetailedConfig = new Dictionary<string, object>();

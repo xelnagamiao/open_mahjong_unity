@@ -31,6 +31,9 @@ internal static class ChangshaRoomBuilder {
             BaseScoreNoDealer = input.BaseScoreNoDealer,
             SmallHuScore = input.SmallHuScore,
             BigHuScore = input.BigHuScore,
+            SmallHuSelfDrawOnly = input.SmallHuSelfDrawOnly,
+            ScoreCapType = input.ScoreCapType,
+            ScoreCapValue = input.ScoreCapValue,
             EventId = input.EventId,
         };
 

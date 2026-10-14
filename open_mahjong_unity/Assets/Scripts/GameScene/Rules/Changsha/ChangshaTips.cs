@@ -19,6 +19,10 @@ internal static class ChangshaTips {
         if (result.Item2 != null && result.Item2.Count > 0) {
             label = $"{result.Item2[0]} {label}";
         }
+        bool smallHuOnly = result.Item2 != null && result.Item2.Count == 1 && result.Item2[0] == "小胡";
+        if (score > 0 && smallHuOnly && state != null && state.RuleSettings.small_hu_self_draw_only) {
+            return WaitTileHint.TsumoOnly(label + " 仅自摸");
+        }
         return score > 0 ? WaitTileHint.Ron(label) : WaitTileHint.None(label);
     }
 }

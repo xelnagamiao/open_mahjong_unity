@@ -31,6 +31,9 @@ internal static class ChangshaLobby {
             { CreateRoomKeys.CsBaseScoreNoDealer, false },
             { CreateRoomKeys.CsSmallHuScore, 2 },
             { CreateRoomKeys.CsBigHuScore, 8 },
+            { CreateRoomKeys.CsSmallHuSelfDrawOnly, false },
+            { CreateRoomKeys.CsScoreCapType, "none" },
+            { CreateRoomKeys.CsScoreCapValue, 0 },
         };
     }
 }

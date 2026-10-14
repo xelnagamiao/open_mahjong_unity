@@ -1,6 +1,7 @@
 // 5.Response 接收数据类型
 
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 [System.Serializable]
 public sealed class FourJokersHintSnapshot {
@@ -107,6 +108,9 @@ public class RoomInfo {
     public bool base_score_no_dealer;
     public int small_hu_score;
     public int big_hu_score;
+    public bool small_hu_self_draw_only;
+    public string score_cap_type = "none";
+    public int score_cap_value;
     public bool wall_wan;
     public bool wall_tong;
     public bool wall_suo;
@@ -115,6 +119,21 @@ public class RoomInfo {
     public bool wall_flowers;
     public Dictionary<string, object> detailed_config; // 当前规则的详细配置
     public string event_id; // 赛事房间关联的赛事 ID
+}
+
+public class ChangshaRuleSettings {
+    public bool small_hu_self_draw_only;
+    public string score_cap_type = "none";
+    public int score_cap_value;
+    public int[] open_kong_dice;
+    public int[] open_kong_wall_positions;
+    public int? open_kong_player;
+    public int[] open_kong_tiles;
+
+    public static ChangshaRuleSettings FromGameInfo(GameInfo info) {
+        return info?.detailed_config == null ? new ChangshaRuleSettings()
+            : JsonConvert.DeserializeObject<ChangshaRuleSettings>(JsonConvert.SerializeObject(info.detailed_config)) ?? new ChangshaRuleSettings();
+    }
 }
 
 public class EventListEntry {

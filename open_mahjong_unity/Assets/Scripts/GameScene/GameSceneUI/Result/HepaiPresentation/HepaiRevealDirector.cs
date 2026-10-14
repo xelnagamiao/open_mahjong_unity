@@ -22,6 +22,10 @@ public static partial class HepaiRevealDirector {
         }
 
         string ruleKey = ResolveLiveRuleKey();
+        if (ChangshaFanText.IsChangshaRule(ruleKey)) {
+            // 长沙公开补牌与倒牌共用四张实体池，实时结算也要等队列回收后再展示。
+            yield return Game3DManager.Instance.PrepareChangshaOpenKongHuReveal();
+        }
         string discardPos = NormalGameStateManager.Instance.lastDiscardPlayerPosition;
         HepaiPresentationRequest request = BuildRequestCore(winnerPos, huClass, hepaiPlayerHand, huFan, ruleKey, discardPos);
         ConfigureRuleSpecificRonRequest(request, ruleKey, isQianggang, ronDiscarderIndex, hepaiTile);

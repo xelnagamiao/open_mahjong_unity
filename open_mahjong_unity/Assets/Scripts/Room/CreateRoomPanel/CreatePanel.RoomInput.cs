@@ -20,6 +20,8 @@ public partial class CreatePanel {
             BloodBattle = ReadRoomToggle(BloodBattleToggle, DefaultsOf(_ruleState).TryGetValue(CreateRoomKeys.BloodBattle, out var blood) && (bool)blood),
             OpenKongCount = GetChangshaOpenKongCount(), BirdCount = GetChangshaBirdCount(),
             SmallHuScore = ReadChangshaScore(ChangshaSmallHuScoreInput, 2), BigHuScore = ReadChangshaScore(ChangshaBigHuScoreInput, 8),
+            SmallHuSelfDrawOnly = ReadRoomToggle(ChangshaKamoToggle),
+            ScoreCapType = GetChangshaScoreCapType(), ScoreCapValue = GetChangshaScoreCapValue(),
             PasswordEnabled = ReadRoomToggle(passwordToggle),
             RandomSeedEnabled = ReadRoomToggle(SetRandomSeedToggle),
             HepaiLimitEnabled = ReadRoomToggle(InputHepaiLimitToggle),

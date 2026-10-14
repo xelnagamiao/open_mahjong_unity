@@ -185,7 +185,7 @@ public partial class CreatePanel {
             : null;
         if (ChangshaOpenKongDropdown != null) {
             ChangshaOpenKongDropdown.ClearOptions();
-            ChangshaOpenKongDropdown.AddOptions(new List<string> { "1张", "2张", "3张", "4张" });
+            ChangshaOpenKongDropdown.AddOptions(new List<string> { "2张", "4张" });
             SetChangshaOpenKongCount(2);
         }
 

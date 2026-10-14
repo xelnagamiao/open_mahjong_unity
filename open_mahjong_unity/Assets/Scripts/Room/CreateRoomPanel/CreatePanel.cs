@@ -165,6 +165,7 @@ public partial class CreatePanel : MonoBehaviour {
     private void Start() {
         BindFixedCreateControls();
         BindFuzhouMainControls();
+        EnsureChangshaKamoAndCapControls();
         BindDetailedConfigControls("taiwan");
         BindDetailedConfigControls("filipino");
         BindDetailedConfigControls("vietnamese");
@@ -357,6 +358,13 @@ public partial class CreatePanel : MonoBehaviour {
                 break;
             case CreateRoomKeys.CsBigHuScore:
                 if (ChangshaBigHuScoreInput != null) ChangshaBigHuScoreInput.text = ((int)value).ToString();
+                break;
+            case CreateRoomKeys.CsSmallHuSelfDrawOnly:
+                if (ChangshaKamoToggle != null) ChangshaKamoToggle.SetIsOnWithoutNotify((bool)value);
+                break;
+            case CreateRoomKeys.CsScoreCapType: SetChangshaScoreCapType((string)value); break;
+            case CreateRoomKeys.CsScoreCapValue:
+                if (ChangshaCapValueInput != null) ChangshaCapValueInput.SetTextWithoutNotify(((int)value).ToString());
                 break;
             case CreateRoomKeys.WallWan: if (WallWanToggle != null) WallWanToggle.isOn = (bool)value; break;
             case CreateRoomKeys.WallTong: if (WallTongToggle != null) WallTongToggle.isOn = (bool)value; break;
@@ -603,6 +611,9 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private void SetChangshaOptionsVisible(bool visible) {
+        SetToggleVisible(ChangshaKamoToggle, visible);
+        if (ChangshaCapRow != null) ChangshaCapRow.SetActive(visible);
+        if (ChangshaCapTypePanel != null) ChangshaCapTypePanel.SetActive(visible);
         if (ChangshaOpenKongPanel != null) ChangshaOpenKongPanel.SetActive(visible);
         if (ChangshaBirdCountPanel != null) ChangshaBirdCountPanel.SetActive(visible);
         SetToggleVisible(ChangshaInitialSiXiToggle, visible);
@@ -614,6 +625,7 @@ public partial class CreatePanel : MonoBehaviour {
         SetToggleVisible(ChangshaBaseScoreNoDealerToggle, visible);
         if (ChangshaScoreRow != null) ChangshaScoreRow.SetActive(visible);
         RefreshChangshaScoreInputVisibility();
+        RefreshChangshaCapPresets();
     }
 
     private static void SetToggleVisible(Toggle toggle, bool visible) {
@@ -622,13 +634,13 @@ public partial class CreatePanel : MonoBehaviour {
 
     private void SetChangshaOpenKongCount(int count) {
         if (ChangshaOpenKongDropdown == null) return;
-        ChangshaOpenKongDropdown.value = Mathf.Clamp(count, 1, 4) - 1;
+        ChangshaOpenKongDropdown.value = count == 4 ? 1 : 0;
         ChangshaOpenKongDropdown.RefreshShownValue();
     }
 
     private int GetChangshaOpenKongCount() {
         return ChangshaOpenKongDropdown != null
-            ? Mathf.Clamp(ChangshaOpenKongDropdown.value + 1, 1, 4)
+            ? (ChangshaOpenKongDropdown.value == 1 ? 4 : 2)
             : 2;
     }
 

@@ -1,4 +1,4 @@
-from pydantic import StrictBool
+from pydantic import StrictBool, StrictInt
 from dataclasses import asdict
 from pydantic import BaseModel, validator
 from typing import Optional, Union, Any, Dict
@@ -276,6 +276,23 @@ class ChangshaRoomValidator(BaseModel):
     base_score_no_dealer: bool = False
     small_hu_score: int = 2
     big_hu_score: int = 8
+    small_hu_self_draw_only: StrictBool = False
+    score_cap_type: str = "none"
+    score_cap_value: StrictInt = 0
+
+    @validator('score_cap_type')
+    def validate_score_cap_type(cls, v):
+        if v not in ("none", "big_hu", "score"):
+            raise ValueError('长沙封顶类型无效')
+        return v
+
+    @validator('score_cap_value', always=True)
+    def validate_score_cap_value(cls, v, values):
+        if values.get('score_cap_type') == 'none':
+            return 0
+        if not 1 <= v <= 1000000:
+            raise ValueError('长沙封顶数值必须在1到1000000之间')
+        return v
 
     @validator('room_name')
     def validate_room_name(cls, v):
@@ -310,8 +327,8 @@ class ChangshaRoomValidator(BaseModel):
 
     @validator('open_kong_replacement_count')
     def validate_open_kong_replacement_count(cls, v):
-        if v < 1 or v > 4:
-            raise ValueError('open_kong_replacement_count must be between 1 and 4')
+        if v not in (2, 4):
+            raise ValueError('长沙开杠张数必须是2或4')
         return v
 
     @validator('bird_count')

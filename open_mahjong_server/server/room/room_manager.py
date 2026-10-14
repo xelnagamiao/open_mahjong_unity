@@ -21,6 +21,7 @@ from .shenyang_room import ShenyangRoomValidator
 from .shanxi_room import ShanxiRoomValidator
 from .wuhan_room import WuhanRoomValidator
 from ..response import Response, public_room_data
+from ..gamestate.game_changsha.open_kong import normalize_open_kong_count
 from .room_seats import get_seats, seat_player, unseat_player
 from ..gamestate.public.ai.guobiao_heuristic_gate import guobiao_heuristic_bot_reject_reason
 from ..game_calculation.game_calculation_service import Chinese_Hepai_Check
@@ -584,7 +585,9 @@ class RoomManager:
                                    base_score_no_dealer: bool = False,
                                    small_hu_score: int = 2,
                                    big_hu_score: int = 8,
-                                   event_id: Optional[str] = None, count_tips: bool = False, pointer_tips: bool = True) -> Response:
+                                   event_id: Optional[str] = None, count_tips: bool = False, pointer_tips: bool = True,
+                                   small_hu_self_draw_only: bool = False,
+                                   score_cap_type: str = "none", score_cap_value: int = 0) -> Response:
         """创建长沙麻将房间。当前接入经典双鸟规则。"""
         try:
             if player_id not in self.game_server.players:
@@ -628,6 +631,9 @@ class RoomManager:
                 "base_score_no_dealer": base_score_no_dealer,
                 "small_hu_score": small_hu_score,
                 "big_hu_score": big_hu_score,
+                "small_hu_self_draw_only": small_hu_self_draw_only,
+                "score_cap_type": score_cap_type,
+                "score_cap_value": score_cap_value,
             }
 
             try:
@@ -2379,7 +2385,7 @@ class RoomManager:
                     open_cuohe=False,
                     tactical_call=bool(room_config.get("tactical_call", False)),
                     claim_protection=room_config.get("claim_protection", True),
-                    open_kong_replacement_count=int(room_config.get("open_kong_replacement_count", 2)),
+                    open_kong_replacement_count=normalize_open_kong_count(room_config.get("open_kong_replacement_count", 2)),
                     initial_hu_si_xi=bool(room_config.get("initial_hu_si_xi", True)),
                     initial_hu_ban_ban_hu=bool(room_config.get("initial_hu_ban_ban_hu", True)),
                     initial_hu_que_yi_se=bool(room_config.get("initial_hu_que_yi_se", True)),
@@ -2390,6 +2396,9 @@ class RoomManager:
                     base_score_no_dealer=bool(room_config.get("base_score_no_dealer", False)),
                     small_hu_score=int(room_config.get("small_hu_score", 2)),
                     big_hu_score=int(room_config.get("big_hu_score", 8)),
+                    small_hu_self_draw_only=room_config.get("small_hu_self_draw_only", False),
+                    score_cap_type=room_config.get("score_cap_type", "none"),
+                    score_cap_value=room_config.get("score_cap_value", 0),
                 )
                 hepai_limit = 1
         except Exception as e:
