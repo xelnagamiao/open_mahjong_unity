@@ -4,9 +4,9 @@
 - 连庄：亲家（index 0）和牌 / 荒牌流局听牌 / 途中特殊流局
 - 荒牌流局：本场 +1；亲家不听则过庄并继续 +1 本场
 - 特殊流局：九种九牌、四风连打、四杠散了、四人立直、三家和流局（配置允许时）
-- 本场+场供：自摸 100/家、荣和 300 由出铳家一次付清
+- 本场+场供：自摸 100/家、荣和三麻 200 / 四麻 300 由出铳家一次付清
 - 使用 mahjong 库计算番/符/点数
-- 荒片流局听牌结算：总计 3000 在听牌家均分
+- 荒牌流局听牌结算：默认三麻 2000 / 四麻 3000，在听牌家均分
 """
 import random
 import asyncio
@@ -14,6 +14,7 @@ import time
 import math
 import logging
 from copy import deepcopy
+from ...game_calculation.riichi.sanma import honba_total
 from ...game_calculation.riichi.win_requirements import meets_win_requirements
 from typing import Dict, List, Optional, Any
 
@@ -151,7 +152,7 @@ class RiichiPlayer:
     def get_gang_tile(self, tiles_list, gamestate):
         from ...game_calculation.riichi.sanma import replacement_index
         # 三麻第 5~8 张补牌绕过所有宝牌/里宝指示牌；末尾仍保留 14 张。
-        element = tiles_list.pop(0 if gamestate.sub_rule == 'riichi/washizu' else replacement_index(gamestate.rinshan_count, gamestate.sub_rule == 'riichi/sanma'))
+        element = tiles_list.pop(0 if gamestate.sub_rule in ('riichi/washizu', 'riichi/washizu_realtime') else replacement_index(gamestate.rinshan_count, gamestate.sub_rule == 'riichi/sanma'))
         self.hand_tiles.append(element)
         self.has_draw_slot = True
         gamestate.rinshan_count += 1
@@ -221,7 +222,7 @@ class RiichiGameState:
         self.hepai_way: str = room_data.get("hepai_way", "multi_ron")  # head_bump / multi_ron / three_ron_abort
         self.open_xiru: bool = room_data.get("open_xiru", True)
         self.open_tobi: bool = room_data.get("open_tobi", True)
-        if self.sub_rule == 'riichi/washizu':
+        if self.sub_rule in ('riichi/washizu', 'riichi/washizu_realtime'):
             if len(self.player_list) != 4:
                 raise ValueError('鹫巢麻将需要四位玩家')
             self.red_dora = False
@@ -310,6 +311,15 @@ class RiichiGameState:
         # 实时观战者（与传统观战独立的低延迟管道，由 FriendManager 维护）
         self.realtime_spectators = []
 
+    def decorate_record_cut_tick(self, tick):
+        if self.sub_rule != 'riichi/washizu_realtime':
+            return
+        key = getattr(self.player_list[self.current_player_index], '_realtime_cut_key', None)
+        if key is not None:
+            while len(tick) < 4:
+                tick.append('')
+            tick.extend(['wk', key])
+
     async def send_to_realtime_spectators(self, player_index: int, response):
         """把同一份 Response 转发给挂在 player_index 座位上的所有实时观战者。"""
         from ..public.spectator_rules import deliver_realtime_spectator_message
@@ -345,7 +355,9 @@ class RiichiGameState:
                     base = _build_base_game_info(self)
                     viewer_pi = next((pp.player_index for pp in self.player_list if pp.user_id == user_id), 0)
                     infos = [_build_player_info(pp, user_id, viewer_pi) for pp in self.player_list]
-                    game_info = GameInfo(**{**base, "players_info": infos, "self_hand_tiles": None})
+                    from .realtime_hand import layouts_for_viewer
+                    game_info = GameInfo(**{**base, "players_info": infos, "self_hand_tiles": None,
+                                           "washizu_layouts": layouts_for_viewer(self, viewer_pi)})
                     response = Response(type="gamestate/riichi/game_start", success=True, message="重连成功", game_info=game_info)
                     await conn.websocket.send_json(response.dict(exclude_none=True))
                     await reconnected_send_pending_ask(self, user_id)
@@ -800,7 +812,7 @@ class RiichiGameState:
         return match_should_end(self, renchan, self.current_round if current_round is None else current_round)
 
     def _compute_last_renchan(self) -> bool:
-        if self.sub_rule == 'riichi/washizu':
+        if self.sub_rule in ('riichi/washizu', 'riichi/washizu_realtime'):
             return False
         """Settle 后、局数推进前：本局是否连庄（不修改状态）。"""
         if self._cuohe_triggered:
@@ -887,7 +899,7 @@ class RiichiGameState:
             )
             player_action_record_liuju(self)
         else:
-            # 荒牌流局：听牌家均分 3000 分；供托立直棒留场，先结算尚未提交的立直供托
+            # 荒牌流局：按配置分配罚符；供托立直棒留场，先结算尚未提交的立直供托
             await _accept_pending_riichi(self)
             self.hu_class = "ryuukyoku"
             changes = await self._settle_ryuukyoku()
@@ -1015,7 +1027,7 @@ class RiichiGameState:
             # 荣和：出铳家全额支付；本场棒仅第一家荣和者收取
             loser_index = self.current_player_index
             total = score_info.get("main", 0) * _mult(loser_index)
-            honba_bonus = self.honba * 300 if apply_honba else 0
+            honba_bonus = self.honba * honba_total(len(self.player_list)) if apply_honba else 0
             score_changes[loser_index] -= total + honba_bonus
             score_changes[winner_index] += total + honba_bonus
 
@@ -1052,7 +1064,7 @@ class RiichiGameState:
 
         apply_pao(self, score_changes, winner_index, result, apply_honba)
         if langyong:
-            langyong_scored_points = score_changes[winner_index] - (self.honba * 300 if apply_honba else 0)
+            langyong_scored_points = score_changes[winner_index] - (self.honba * honba_total(len(self.player_list)) if apply_honba else 0)
 
         # 场供立直棒给予第一家荣和胜者
         collected = self.riichi_sticks if apply_riichi_sticks else 0
@@ -1232,7 +1244,7 @@ class RiichiGameState:
         )
 
     async def _settle_ryuukyoku(self) -> Dict[int, int]:
-        """荒牌流局：听牌家均分 3000"""
+        """荒牌流局：按配置在听牌家与未听牌家之间分配罚符。"""
         for p in self.player_list:
             self.refresh_waiting_tiles(p.player_index)
         tenpai_indexes = [p.player_index for p in self.player_list if self._is_ryuukyoku_tenpai(p)]
@@ -1262,7 +1274,7 @@ class RiichiGameState:
         """
         if not option(self, "kan_dora"):
             return
-        if self.sub_rule == 'riichi/washizu':
+        if self.sub_rule in ('riichi/washizu', 'riichi/washizu_realtime'):
             if len(self.kan_dora_indicators) >= 4:
                 return
             from .washizu import draw_indicator
@@ -1356,7 +1368,7 @@ class RiichiGameState:
     # ========== 观战 ==========
 
     def build_record_round_fields(self):
-        if self.sub_rule != 'riichi/washizu':
+        if self.sub_rule not in ('riichi/washizu', 'riichi/washizu_realtime'):
             return {}
         return {'washizu': {
             'version': 1,
@@ -1385,7 +1397,9 @@ class RiichiGameState:
         conn = self.game_server.user_id_to_connection[spectator_user_id]
         base = _build_base_game_info(self)
         infos = [_build_player_info(p, viewer.user_id, view_player_index) for p in self.player_list]
-        game_info = GameInfo(**{**base, "players_info": infos, "self_hand_tiles": None, "view_player_index": view_player_index})
+        from .realtime_hand import layouts_for_viewer
+        game_info = GameInfo(**{**base, "players_info": infos, "self_hand_tiles": None, "view_player_index": view_player_index,
+                               "washizu_layouts": layouts_for_viewer(self, view_player_index)})
         await conn.websocket.send_json(Response(
             type="gamestate/riichi/game_start",
             success=True,

@@ -17,6 +17,7 @@ import {
 } from './guobiaoXunmu.js'
 import { analyzeRiichiRecords } from './riichiRecordStats.js'
 import { sichuanScoreChanges } from './sichuanReplay.js'
+import { recordWinValues } from './recordWinValues.js'
 
 const HU_ACTIONS = new Set(['hu_self', 'hu_first', 'hu_second', 'hu_third']);
 const RON_ACTIONS = new Set(['hu_first', 'hu_second', 'hu_third']);
@@ -181,7 +182,8 @@ export function listSortedRoundEntries(record) {
 /**
  * 统一解析和牌 tick（国标 hu_* 与日麻 hu_riichi）。
  * 日麻: [hu_riichi, seat, hu_class, han, fu, yaku[], score_changes[], ...]
- * 其他: [hu_class, seat, fanScore, yaku[], score_changes[], ...]
+ * 其他: [hu_class, seat, 原始和牌数值, yaku[], score_changes[], ...]
+ * fanScore 保留旧接口名，统计时由 recordWinValues 按规则转换单位。
  */
 export function parseHuTick(tick) {
   if (!Array.isArray(tick) || tick.length === 0) return null;
@@ -229,19 +231,43 @@ function analyzeOneRecord(record, userId, acc) {
   if (!gameRound || typeof gameRound !== 'object') return;
 
   const roundKeys = Object.keys(gameRound).filter((k) => k.startsWith('round_index_'));
+  const title = record.game_title || {};
+  const sichuan = title.rule === 'sichuan';
+  const ownTurns = sichuan || ['zhongyong', 'jiandan', 'nanque', 'nanjing', 'nanchang', 'malaysia', 'fuzhou'].includes(title.rule);
+  const dealerTurns = ['qingque', 'classical', 'shenyang', 'wuhan'].includes(title.rule);
+  let winValues = 0;
   acc.total_games += 1;
-  acc.total_rounds += roundKeys.length;
 
   for (const key of roundKeys) {
     const rd = gameRound[key] || {};
     const seats = resolveRoundSeats(rd);
     const mySeat = seatForOriginal(seats, originalIndex);
     const ticks = rd.action_ticks || [];
+    if (title.rule && title.rule !== 'guobiao' && !ticks.some(t => t?.[0] === 'end')) continue;
+    acc.total_rounds += 1;
     let hadFulu = false;
+    let actor = rd.start_player_index ?? rd.dealer_index ?? 0;
+    let opening = true;
+    const cuts = Array(seats.length).fill(0);
+    const retired = new Set();
 
-    for (const tick of ticks) {
+    for (const [tickIndex, tick] of ticks.entries()) {
       if (!Array.isArray(tick) || tick.length === 0) continue;
       const code = tick[0];
+      if (code === 'end') break;
+      if (code === 'reset') actor = tickInt(tick, 1, actor);
+      else if (code === 'd' || code === 'mo') {
+        const explicit = tickInt(tick, 2);
+        if (explicit != null) actor = explicit;
+        else if (!opening) {
+          actor = (actor + 1) % seats.length;
+          for (let i = 0; i < seats.length && retired.has(actor); i++) actor = (actor + 1) % seats.length;
+        }
+        opening = false;
+      } else if (['gd', 'bd', 'bh'].includes(code) || VISIBLE_FULU_CODES.has(code)) {
+        actor = tickInt(tick, 2, actor);
+        if (VISIBLE_FULU_CODES.has(code)) opening = false;
+      } else if (code === 'c') { cuts[actor] += 1; opening = false; }
 
       if (VISIBLE_FULU_CODES.has(code) && tickInt(tick, 2) === mySeat) {
         hadFulu = true;
@@ -259,26 +285,31 @@ function analyzeOneRecord(record, userId, acc) {
         continue;
       }
 
-      if (myDelta > 0) {
+      const payer = RON_ACTIONS.has(hu.huClass)
+        ? (sichuan ? (tick.length >= 9 ? tickInt(tick, 7, actor) : actor)
+          : (hu.winnerSeat - { hu_first: 1, hu_second: 2, hu_third: 3 }[hu.huClass] + seats.length) % seats.length)
+        : null;
+      const values = recordWinValues(title, rd, tick, tickIndex, hu, payer);
+      if (hu.winnerSeat === mySeat) {
         if (hu.huClass === 'hu_self') acc.self_draw_count += 1;
         else acc.deal_in_win_count += 1; // 荣和计数（并入 win_count）
-        acc.total_fan_score += hu.fanScore;
+        winValues += values.win;
+        if (ownTurns) acc.total_win_turn += cuts[mySeat] + 1;
+        else if (dealerTurns) acc.total_win_turn += cuts[0] + 1;
         addFanStats(acc, hu.yaku);
-      } else if (RON_ACTIONS.has(hu.huClass) && myDelta < 0) {
-        // 放铳：取本局负分最小者为放铳方
-        const neg = sc.filter((x) => x < 0);
-        if (neg.length && myDelta === Math.min(...neg)) {
-          acc.deal_in_count += 1;
-          acc.total_fangchong_score += hu.fanScore;
-        }
+      } else if (payer === mySeat) {
+        acc.deal_in_count += 1;
+        acc.total_fangchong_score += values.loss;
       }
+      if (sichuan && title.blood_battle) { retired.add(hu.winnerSeat); actor = hu.winnerSeat; }
     }
 
     if (hadFulu) acc.fulu_round_count += 1;
 
     // 和巡推理：本局该 seat 的和巡总和
-    acc.total_win_turn += (reconstructRoundWinTurns(rd)[mySeat] || 0);
+    if (!ownTurns && !dealerTurns) acc.total_win_turn += (reconstructRoundWinTurns(rd)[mySeat] || 0);
   }
+  acc.total_fan_score += title.rule === 'qingque' ? Math.round(winValues) : winValues;
 }
 
 function assignCompetitionRanks(ranked) {
@@ -314,6 +345,8 @@ export function analyzeRecords(items, userId) {
     return analyzeRiichiRecords(items, userId);
   }
   const acc = {
+    rule: (items[0]?.record ?? items[0])?.game_title?.rule,
+    sub_rule: (items[0]?.record ?? items[0])?.game_title?.sub_rule,
     total_games: 0,
     total_rounds: 0,
     self_draw_count: 0,

@@ -24,8 +24,16 @@ from ..public.hand_slot_utils import normalize_tile, mark_draw_slot
 from ...game_calculation.riichi.washizu_tiles import FACES, is_transparent
 
 
-def state(**settings):
-    return sanma(sub_rule=glass.SUB_RULE, **settings)
+_sub_rule = glass.SUB_RULE
+
+
+@pytest.fixture(params=glass.SUB_RULES, autouse=True)
+def transparent_variant(request, monkeypatch):
+    monkeypatch.setattr(__import__(__name__, fromlist=['_sub_rule']), '_sub_rule', request.param)
+
+
+def state(sub_rule=None, **settings):
+    return sanma(sub_rule=sub_rule or _sub_rule, **settings)
 
 
 def physical(hand):
@@ -161,7 +169,7 @@ def test_public_projection_reconnect_masks_and_claims(viewer):
     g=state(); p=g.player_list[0]; p.hand_tiles=[15,2044,2012,41,2011]
     p.combination_tiles=['G22'];p.combination_mask=[[2,22,2,2022,2,2022,2,2022]]
     info=_build_game_start_payload_for_viewer(g,viewer)
-    assert info['washizu_hands'][0]==[2011,2012,2044,0,0]
+    assert info['washizu_hands'][0]==([0,2044,2012,0,2011] if g.sub_rule==glass.REALTIME_SUB_RULE else [2011,2012,2044,0,0])
     for index, player in enumerate(info['players_info']):
         assert player['hand_tiles']==g.player_list[index].hand_tiles if index==viewer else player['hand_tiles'] is None
     mask=info['players_info'][0]['combination_mask'][0]
@@ -291,6 +299,12 @@ def test_complete_matches_record_replay_and_protocol(flowers,circles,seed,calls,
         assert len(g.game_record['game_round'])==4*circles
         assert counts['cut']>100 and bool(counts['buhua'])==flowers
         assert not any(r.levelname=='ERROR' for r in caplog.records)
+        results = [call.args[0]['show_result_info']
+                   for conn in g.game_server.user_id_to_connection.values()
+                   for call in conn.websocket.send_json.call_args_list
+                   if call.args[0].get('show_result_info')]
+        assert results, 'full matches must reach actual settlement broadcasts'
+        assert all(not result.get('revealed_angang_masks') for result in results)
         return g,dict(counts)
     g,counts=asyncio.run(run())
     from ..verifier.record_sim.goto_action import RecordSim,stringify_tick
@@ -311,7 +325,7 @@ def test_complete_matches_record_replay_and_protocol(flowers,circles,seed,calls,
     assert totals==[p.score for p in sorted(g.player_list,key=lambda p:p.original_player_index)]
     directory=os.environ.get('GUOBIAO_TRANSPARENT_FIXTURES_DIR')
     if directory:
-        out=Path(directory);out.mkdir(parents=True,exist_ok=True);name=f'gb-transparent-{int(flowers)}-{circles}-{seed}'
+        out=Path(directory);out.mkdir(parents=True,exist_ok=True);name=f'{g.sub_rule.rsplit("/",1)[-1]}-{int(flowers)}-{circles}-{seed}'
         def save(suffix,obj):(out/(name+suffix+'.json')).write_text(json.dumps(obj,ensure_ascii=False,default=str),encoding='utf-8')
         save('',g.game_record);save('-frames',frames);save('-actions',counts)
         for uid,conn in g.game_server.user_id_to_connection.items():save(f'-viewer-{uid}',[call.args[0] for call in conn.websocket.send_json.call_args_list])

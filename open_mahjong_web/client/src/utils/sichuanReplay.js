@@ -5,7 +5,7 @@ export function sichuanDoublesSummary(detail) {
   const teams = title.team_by_player_index
   if (!Array.isArray(teams) || teams.length !== 4 || teams.filter(t => t === 0).length !== 2 || teams.filter(t => t === 1).length !== 2) return null
   return {
-    teams: [0, 1].map(team => ({ id: team, name: team === 0 ? 'A队' : 'B队',
+    teams: [0, 1].map(team => ({ id: team, name: title.sub_rule.endsWith('_duplicate') ? ['蓝队', '红队'][team] : ['A队', 'B队'][team],
       players: teams.flatMap((t, index) => t === team ? [String(title[`p${index}_name`] || `座位${index + 1}`)] : []),
     })),
     result: detail.record.doubles_result || title.doubles_result || null,

@@ -436,6 +436,7 @@
 </template>
 
 <script setup>
+import { huahunFanPoints } from "../../utils/guobiaoHuahun.js"
 import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -763,6 +764,7 @@ function scrollSettlementHand(event) {
 }
 
 const resultFans = computed(() => (roundResult.value?.hu_fan ?? []).map((name) => {
+  if (adapter?.gameInfo?.sub_rule === "guobiao/huahun" && huahunFanPoints(name) != null) return {name, value: `${huahunFanPoints(name)}番`}
   if (adapter?.gameInfo?.sub_rule === 'guobiao/lanshi') {
     const points = lanshiFanPoints(name)
     return { name: translateFanName(name), value: points == null ? '' : `${points}分` }
@@ -833,8 +835,8 @@ function pickScoreboardMainFan(fans) {
   const fan = [...fans]
     .filter((fan) => !String(fan).startsWith('花牌'))
     .sort((left, right) => {
-      const leftValue = adapter?.gameInfo?.sub_rule === 'guobiao/lanshi' ? lanshiFanPoints(left) ?? 0 : resolveFanLabel(left, ['guobiao']).totalValue ?? 0
-      const rightValue = adapter?.gameInfo?.sub_rule === 'guobiao/lanshi' ? lanshiFanPoints(right) ?? 0 : resolveFanLabel(right, ['guobiao']).totalValue ?? 0
+      const leftValue = adapter?.gameInfo?.sub_rule === 'guobiao/lanshi' ? lanshiFanPoints(left) ?? 0 : (adapter?.gameInfo?.sub_rule === 'guobiao/huahun' ? huahunFanPoints(left) : null) ?? resolveFanLabel(left, ['guobiao']).totalValue ?? 0
+      const rightValue = adapter?.gameInfo?.sub_rule === 'guobiao/lanshi' ? lanshiFanPoints(right) ?? 0 : (adapter?.gameInfo?.sub_rule === 'guobiao/huahun' ? huahunFanPoints(right) : null) ?? resolveFanLabel(right, ['guobiao']).totalValue ?? 0
       return rightValue - leftValue
     })[0]
   return fan ? translateFanName(fan) : '—'

@@ -7,6 +7,9 @@ public class RecordTipsContext {
     public string RoomRule;
     public string SubRule;
     public int HepaiLimit;
+    public bool JokerMultiWait;
+    public string NoJokerBonus = "add8";
+    public bool BlackFlowerProgressive = true;
     public int CurrentRound;
     public int SelfPlayerIndex;
     public int RemainTiles;

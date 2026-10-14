@@ -48,6 +48,8 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
             ExtractRoundRows(round, subRule, gameRecord.gameTitle, result);
             for (int i = firstRow; i < result.Count; i++) {
                 result[i].roundIndex = round.roundIndex;
+                if (result[i].snapshot != null)
+                    result[i].snapshot.handJokerTiles = TileIdOrder.RecordHandJokers(rule, subRule, round);
             }
         }
         ApplyRiichiFinalScores(gameRecord.gameTitle, rule, result);
@@ -137,6 +139,10 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
                 // 杠分与即时退税不单独占计分行，统一并入本局末次结算。
                 AccumulateSeatScores(immediateScores, GameRecordJsonDecoder.ParseInlineGangScoreChanges(tick));
             }
+            if (action == "singapore" && tick.Count >= 3) {
+                if (tick[1] == "payment") AccumulateSeatScores(immediateScores, ParseScoreChanges(tick, 2));
+                continue;
+            }
             if (action == "riichi") {
                 if (tick.Count >= 2 && int.TryParse(tick[1], out int payer) && payer >= 0 && payer < 4)
                     riichiPayments[payer] -= 1000;
@@ -202,6 +208,22 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
                 }
                 continue;
             }
+            if (rule == FuzhouGameState.RuleId && action == "fuzhou" && tick.Count >= 3) {
+                if (tick[1] == "qiangjin_take") players[ParseInt(tick,2)].tileList.Add(ParseInt(tick,3));
+                else if (tick[1] == "win_source") {
+                    lastWinnableTileId=ParseInt(tick,5);lastDiscardPlayerIndex=ParseInt(tick,3);
+                    var info=Newtonsoft.Json.JsonConvert.DeserializeObject<FuzhouInfo>(tick[6]);
+                    if(info?.final_hands!=null) foreach(var pair in info.final_hands) players[pair.Key].tileList=new List<int>(pair.Value);
+                } else if(tick[1] == "state" && lastRow != null && round.fuzhou?.start_scores?.Length == 4 && tick.Count > 3) {
+                    int[] scores=JArray.Parse(tick[3]).ToObject<int[]>();
+                    var changes=new int[4];for(int i=0;i<4;i++) changes[i]=scores[i]-round.fuzhou.start_scores[i];
+                    lastRow.scoreChangesByOriginal=GameRecordJsonDecoder.ConvertPlayerIndexScoreChangesToOriginal(changes,round.seats);
+                    var info=Newtonsoft.Json.JsonConvert.DeserializeObject<FuzhouInfo>(tick[2]);
+                    if(lastRow.snapshot?.hepaiPlayerIndex>=0 && info?.final_hands!=null && info.final_hands.TryGetValue(lastRow.snapshot.hepaiPlayerIndex,out int[] hand))
+                        lastRow.snapshot.hepaiPlayerHand=hand;
+                }
+                continue;
+            }
             if (rule == NanjingGameState.RuleId && action == "nanjing" && tick.Count >= 3) {
                 if (tick[1] == "win_source") {
                     lastWinnableTileId = ParseInt(tick, 5);
@@ -218,6 +240,23 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
                         && info.final_hands.TryGetValue(lastRow.snapshot.hepaiPlayerIndex, out int[] hand))
                         lastRow.snapshot.hepaiPlayerHand = hand;
                     while (output.Count > firstRoundRow + 1) output.RemoveAt(firstRoundRow);
+                }
+                continue;
+            }
+
+            if (action == "malaysia" && tick.Count >= 3) {
+                if (tick[1] == "win_source") {
+                    lastWinnableTileId=ParseInt(tick,5); int payer=ParseInt(tick,3);
+                    if(payer>=0) lastDiscardPlayerIndex=payer;
+                    if(tick[4]=="rob_kong" && payer>=0) RemoveOneTile(players[payer].tileList,lastWinnableTileId);
+                } else if(tick[1]=="redeem") {
+                    var p=players[ParseInt(tick,2)];p.tileList[p.tileList.Count-1]=81;
+                    p.combinationMasks[ParseInt(tick,4)][2*ParseInt(tick,5)+1]=ParseInt(tick,3);
+                } else if(tick[1]=="state" && lastRow!=null) {
+                    var info=Newtonsoft.Json.JsonConvert.DeserializeObject<MalaysiaInfo>(tick[2]);
+                    var changes=new int[4];
+                    foreach(var pair in info.round_changes) changes[pair.Key]=pair.Value;
+                    lastRow.scoreChangesByOriginal=changes;
                 }
                 continue;
             }

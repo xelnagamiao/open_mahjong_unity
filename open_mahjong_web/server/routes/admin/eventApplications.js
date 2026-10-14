@@ -12,6 +12,20 @@ function normalizeName(name) {
   return { value: text };
 }
 
+router.get('/pending-counts', async (req, res) => {
+  try {
+    const result = await pool.query(`SELECT
+      COUNT(*) FILTER (WHERE kind = 'event')::int AS event,
+      COUNT(*) FILTER (WHERE kind = 'base')::int AS base
+      FROM event_applications WHERE status = 'pending'`);
+    res.set('Cache-Control', 'no-store');
+    res.json({ success: true, data: result.rows[0] || { event: 0, base: 0 } });
+  } catch (error) {
+    console.error('admin application counts:', error.message);
+    res.status(500).json({ success: false, message: '获取待审核数量失败' });
+  }
+});
+
 router.get('/', async (req, res) => {
   try {
     const status = String(req.query.status || '').trim();

@@ -269,8 +269,9 @@ public partial class Game3DManager : MonoBehaviour {
         currentPosition = PlaceTileOnTable(currentPosition, rotation);
         Debug.Log($"创建卡片 {SetPosition.childCount}, 牌ID: {tileId}");
         // 血流花区存放历次和牌标记，多响时同一张牌会出现多份展示副本。
+        GameRecordManager.ResolveActionRuleContext(null, null, out _, out string presentationSubRule);
         bool xueliuMarker = (SetType == "Buhua" || SetType == "BuhuaWithoutAnimation")
-            && SichuanLobby.IsXueliu(GameSession.Current.SubRule);
+            && SichuanLobby.IsXueliu(presentationSubRule);
         GameObject cardObj = (usePresentationCopy || xueliuMarker)
             ? MahjongObjectPool.Instance.SpawnPresentationTile(tileId, currentPosition, rotation)
             : (tileId == 0 ? MahjongObjectPool.Instance.SpawnBlankTile(currentPosition, rotation) : MahjongObjectPool.Instance.Spawn(tileId, currentPosition, rotation));

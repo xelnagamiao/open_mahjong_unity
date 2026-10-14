@@ -1,5 +1,5 @@
 import { isMobile } from 'pixi.js'
-import { STANDARD_FACE_IDS, isFlowerFaceId, mmcrFaceId } from '../../lib/tileFaceAsset'
+import { STANDARD_FACE_IDS, isFlowerFaceId, mmcrFaceId, tileFaceAssetUrl } from '../../lib/tileFaceAsset'
 
 // ── Geometry ──────────────────────────────────────────────────────────
 export const TILE_WIDTH = 360
@@ -37,7 +37,7 @@ export const TILE_TEXTURE_PATHS: { alias: string; src: string; data?: { autoGene
   })),
   ...TABLE_FACE_IDS.map((id) => ({
     alias: `black-${id}`,
-    src: `${TILE_ROOT}/Black/${id}.svg`,
+    src: tileFaceAssetUrl(id, { baseUrl: ASSET_ROOT, black: true }),
   })),
   ...FLOWER_IDS.map((id) => ({
     alias: `unity-${id}`,

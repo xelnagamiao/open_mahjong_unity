@@ -2,11 +2,14 @@ const { normalizeWuhanRoomConfig } = require('./wuhanRoomSettings');
 const { randomUUID, createHash } = require('node:crypto');
 const { normalizeGuizhouRoomConfig } = require('./guizhouRoomSettings');
 const { normalizeYixingRoomConfig } = require('./yixingRoomSettings');
+const { normalizeMalaysiaRoomConfig } = require('./malaysiaRoomSettings');
 const { normalizeShenyangRoomConfig } = require('./shenyangRoomSettings');
 const { normalizeNanjingRoomConfig } = require('./nanjingRoomSettings');
+const { normalizeFuzhouRoomConfig } = require('./fuzhouRoomSettings');
 const { normalizeWenzhouRoomConfig } = require('./wenzhouRoomSettings');
 const { normalizeNanchangRoomConfig } = require('./nanchangRoomSettings');
 const { normalizeHangzhouRoomConfig } = require('./hangzhouRoomSettings');
+const { normalizeSingaporeRoomConfig } = require('./singaporeRoomSettings');
 const { normalizeJiujiangRoomConfig } = require('./jiujiangRoomSettings');
 const { normalizeHongzhongRoomConfig } = require('./hongzhongRoomSettings');
 const { normalizeGuangdongDetails, GUANGDONG_SUB_RULES } = require('./guangdongRoomSettings');
@@ -29,28 +32,24 @@ const DEFAULT_SUB_RULES = Object.freeze({
   guangdong: 'guangdong/tuidao_mil2024',
   guizhou: 'guizhou/standard',
   yixing: 'yixing/standard',
+  malaysia: 'malaysia/traditional84',
   shenyang: 'shenyang/mil2025',
   nanjing: 'nanjing/mil2024',
+  fuzhou: 'fuzhou/standard',
   wuhan: 'wuhan/mil2025',
   wenzhou: 'wenzhou/mil2024',
   nanchang: 'nanchang/mil2026',
   hangzhou: 'hangzhou/mil2025',
   hongzhong: 'hongzhong/mil2024',
+  singapore: 'singapore/spgg2024',
   jiujiang: 'jiujiang/standard',
   changchun: 'changchun/mil2024',
   shanxi: 'shanxi/mil2023',
 });
 const GUOBIAO_SUB_RULES = new Set([
-  'guobiao/standard', 'guobiao/xiaolin', 'guobiao/kshen', 'guobiao/lanshi',
+  'guobiao/sixteen', 'guobiao/standard', 'guobiao/xiaolin', 'guobiao/kshen', 'guobiao/lanshi',
+  'guobiao/huahun', 'guobiao/four_jokers', 'guobiao/transparent', 'guobiao/transparent_realtime',
 ]);
-const COMMON_CONFIG_KEYS = [
-  'room_name', 'sub_rule', 'game_round', 'round_timer', 'step_timer',
-  'tips', 'tourist_limit', 'allow_spectator', 'duplicate_key',
-];
-const GUOBIAO_CONFIG_KEYS = [
-  ...COMMON_CONFIG_KEYS, 'hepai_limit', 'open_cuohe', 'cuohe_type',
-  'tactical_call', 'claim_protection', 'use_flowers',
-];
 const has = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isRevision = (value) => Number.isSafeInteger(value) && value >= 0;
@@ -69,11 +68,14 @@ function defaultConfig(rule = 'guobiao') {
   if (rule === 'wuhan') return normalizeWuhanRoomConfig({}, SettingsError);
   if (rule === 'guizhou') return normalizeGuizhouRoomConfig({}, SettingsError);
   if (rule === 'yixing') return normalizeYixingRoomConfig({}, SettingsError);
+  if (rule === 'malaysia') return normalizeMalaysiaRoomConfig({}, SettingsError);
   if (rule === 'shenyang') return normalizeShenyangRoomConfig({}, SettingsError);
   if (rule === 'nanjing') return normalizeNanjingRoomConfig({}, SettingsError);
+  if (rule === 'fuzhou') return normalizeFuzhouRoomConfig({}, SettingsError);
   if (rule === 'wenzhou') return normalizeWenzhouRoomConfig({}, SettingsError);
   if (rule === 'nanchang') return normalizeNanchangRoomConfig({}, SettingsError);
   if (rule === 'hangzhou') return normalizeHangzhouRoomConfig({}, SettingsError);
+  if (rule === 'singapore') return normalizeSingaporeRoomConfig({}, SettingsError);
   if (rule === 'jiujiang') return normalizeJiujiangRoomConfig({}, SettingsError);
   if (rule === 'hongzhong') return normalizeHongzhongRoomConfig({}, SettingsError);
   if (rule === 'changchun') return normalizeChangchunRoomConfig({}, SettingsError);
@@ -91,6 +93,7 @@ function defaultConfig(rule = 'guobiao') {
   if (rule === 'guangdong') return { ...common, tactical_call: true, detailed_config: { edition: 'mil-tuidao-2024-om1', fan_cap: 32, wildcards: false } };
   if (rule === 'shanxi') return { ...common, detailed_config: { rule_version: 'mil-shanxi-2023-om1' } };
   if (rule === 'riichi') return { ...common, starting_score: 25000, hepai_limit: 1, detailed_config: { minimum_win_score: 0 } };
+  if (rule === 'sichuan') return { ...common, tactical_call: true };
   if (rule !== 'guobiao') return common;
   return {
     ...common,
@@ -100,6 +103,9 @@ function defaultConfig(rule = 'guobiao') {
     tactical_call: true,
     claim_protection: true,
     use_flowers: true,
+    tian_di_ren_he: false,
+    joker_multi_wait: false,
+    no_joker_bonus: "add8", black_flower_progressive: true,
   };
 }
 
@@ -122,23 +128,25 @@ function normalizeRoomConfig(rule, raw) {
   if (rule === 'wuhan') return normalizeWuhanRoomConfig(raw, SettingsError);
   if (rule === 'guizhou') return normalizeGuizhouRoomConfig(raw, SettingsError);
   if (rule === 'yixing') return normalizeYixingRoomConfig(raw, SettingsError);
+  if (rule === 'malaysia') return normalizeMalaysiaRoomConfig(raw, SettingsError);
   if (rule === 'shenyang') return normalizeShenyangRoomConfig(raw, SettingsError);
   if (rule === 'nanjing') return normalizeNanjingRoomConfig(raw, SettingsError);
+  if (rule === 'fuzhou') return normalizeFuzhouRoomConfig(raw, SettingsError);
   if (rule === 'wenzhou') return normalizeWenzhouRoomConfig(raw, SettingsError);
   if (rule === 'nanchang') return normalizeNanchangRoomConfig(raw, SettingsError);
   if (rule === 'hangzhou') return normalizeHangzhouRoomConfig(raw, SettingsError);
+  if (rule === 'singapore') return normalizeSingaporeRoomConfig(raw, SettingsError);
   if (rule === 'jiujiang') return normalizeJiujiangRoomConfig(raw, SettingsError);
   if (rule === 'hongzhong') return normalizeHongzhongRoomConfig(raw, SettingsError);
   if (rule === 'changchun') return normalizeChangchunRoomConfig(raw, SettingsError);
   if (!isObject(raw)) throw new SettingsError(400, '对局设置必须是对象');
-  const allowed = rule === 'guobiao' ? GUOBIAO_CONFIG_KEYS
-    : rule === 'riichi' ? [...COMMON_CONFIG_KEYS, 'starting_score', 'hepai_limit', 'detailed_config']
-      : rule === 'guangdong' ? [...COMMON_CONFIG_KEYS, 'detailed_config', 'tactical_call']
-        : ['hongkong', 'shanxi'].includes(rule) ? [...COMMON_CONFIG_KEYS, 'detailed_config'] : COMMON_CONFIG_KEYS;
+  // Keep the accepted fields and switch validation in sync with each rule's defaults.
+  const defaults = defaultConfig(rule);
+  const allowed = [...Object.keys(defaults), 'duplicate_key'];
   for (const key of Object.keys(raw)) {
     if (!allowed.includes(key)) throw new SettingsError(400, `不支持的对局设置字段：${key}`);
   }
-  const config = { ...defaultConfig(rule), ...raw };
+  const config = { ...defaults, ...raw };
   if (typeof config.room_name !== 'string' || config.room_name.trim().length > 128) {
     throw new SettingsError(400, '房间名必须是最多 128 字的文本');
   }
@@ -148,13 +156,13 @@ function normalizeRoomConfig(rule, raw) {
       throw new SettingsError(400, '复式密钥格式不正确');
     }
     config.duplicate_key = config.duplicate_key.trim();
-    if (rule !== 'guobiao' && config.duplicate_key) {
-      throw new SettingsError(400, '新复式仅支持国标麻将');
+    if (!supportsWall(rule, config.sub_rule) && config.duplicate_key) {
+      throw new SettingsError(400, '此子规则不支持复式密钥，仅支持国标标准、小林、K神、蓝十和川麻血流');
     }
   }
   const validSubRule = rule === 'guobiao'
     ? GUOBIAO_SUB_RULES.has(config.sub_rule)
-    : rule === 'sichuan' ? ['sichuan/standard', 'sichuan/doubles', 'sichuan/xueliu_doubles'].includes(config.sub_rule)
+    : rule === 'sichuan' ? ['sichuan/standard', 'sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/doubles', 'sichuan/xueliu_doubles'].includes(config.sub_rule)
     : rule === 'hongkong' ? ['hongkong/qingzhang', 'hongkong/new13', 'hongkong/new16', 'hongkong/new13_gametower', 'hongkong/new13_lianhuise', 'hongkong/qingzhang_lianhuise'].includes(config.sub_rule)
       : rule === 'guangdong' ? GUANGDONG_SUB_RULES.includes(config.sub_rule) : config.sub_rule === DEFAULT_SUB_RULES[rule];
   if (!validSubRule) throw new SettingsError(400, '不支持的对局子规则');
@@ -196,8 +204,7 @@ function normalizeRoomConfig(rule, raw) {
   }
   integerField(config, 'round_timer', 0, 1000, '局时');
   integerField(config, 'step_timer', 0, 100, '步时');
-  const booleanKeys = ['tips', 'tourist_limit', 'allow_spectator'];
-  if (rule === 'guangdong') booleanKeys.push('tactical_call');
+  const booleanKeys = Object.keys(defaults).filter(key => typeof defaults[key] === 'boolean');
   if (rule === 'riichi') {
     integerField(config, 'starting_score', 1000, 1000000, '起始点数');
     if (config.starting_score % 100 !== 0) throw new SettingsError(400, '起始点数必须为 100 的倍数');
@@ -212,12 +219,20 @@ function normalizeRoomConfig(rule, raw) {
   if (rule === 'guobiao') {
     integerField(config, 'hepai_limit', 1, 64, '起和番');
     integerField(config, 'cuohe_type', 0, 1, '错和形式');
-    booleanKeys.push('open_cuohe', 'tactical_call', 'claim_protection', 'use_flowers');
   }
   for (const key of booleanKeys) {
     if (typeof config[key] !== 'boolean') throw new SettingsError(400, `${key}必须是布尔值`);
   }
   if (rule === 'guobiao' && config.sub_rule === 'guobiao/lanshi') config.use_flowers = false;
+  if (rule === 'guobiao') {
+    if (!['add8', 'double', 'none'].includes(config.no_joker_bonus)) throw new SettingsError(400, '无癞子奖励必须为+8分、翻倍或不额外加分');
+    if (config.sub_rule === 'guobiao/sixteen' && config.duplicate_key) throw new SettingsError(400, '国标十六张不能使用普通复式牌墙');
+    if (config.sub_rule === 'guobiao/huahun') {
+      config.hepai_limit = 8; config.use_flowers = true;
+      if (config.duplicate_key) throw new SettingsError(400, '花混癞子不能使用普通复式牌墙');
+    }
+  }
+  if (rule === 'guobiao' && !['guobiao/huahun', 'guobiao/four_jokers'].includes(config.sub_rule)) config.joker_multi_wait = false;
   if (config.tips && config.open_cuohe) throw new SettingsError(400, '提示与错和不能同时开启');
   if (rule === 'guobiao' && !config.open_cuohe) config.cuohe_type = 0;
   return config;
@@ -290,12 +305,17 @@ function preserveLegacyAuto(settings, snapshot) {
   return presetId;
 }
 
+function supportsWall(rule, subRule) {
+  return (rule === 'guobiao' && ['guobiao/standard', 'guobiao/xiaolin', 'guobiao/kshen', 'guobiao/lanshi'].includes(subRule || DEFAULT_SUB_RULES.guobiao))
+    || (rule === 'sichuan' && ['sichuan/xueliu', 'sichuan/xueliu_exchange'].includes(subRule));
+}
+
 function hasRetiredDuplicate(snapshot) {
-  return isObject(snapshot) && snapshot.room_rule !== 'guobiao' && Boolean(snapshot.room_config?.duplicate_key);
+  return isObject(snapshot) && !supportsWall(snapshot.room_rule, snapshot.room_config?.sub_rule) && Boolean(snapshot.room_config?.duplicate_key);
 }
 
 function readStoredSnapshot(snapshot) {
-  if (!isObject(snapshot) || snapshot.room_rule === 'guobiao' || !isObject(snapshot.room_config)) return snapshot;
+  if (!isObject(snapshot) || supportsWall(snapshot.room_rule, snapshot.room_config?.sub_rule) || !isObject(snapshot.room_config)) return snapshot;
   const room_config = { ...snapshot.room_config };
   delete room_config.duplicate_key;
   // This field was exposed only for the retired non-Guobiao duplicate setup.

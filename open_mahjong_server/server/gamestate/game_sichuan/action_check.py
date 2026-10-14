@@ -7,6 +7,7 @@
 - 一炮多响：本次弃牌所有可和玩家结果都暂存到 self.sichuan_hu_results[idx]。
 - 顺和：跳过自摸/点炮/抢杠（含碰杠放弃）记录番数；听牌时立即生效，至下次摸牌前不可点和≤跳过番的牌（自摸不受限，tag: shunhe_N，仅本人可见）。
 """
+from collections import Counter
 from typing import Dict
 from .duplicate_wall import can_draw, wall_exhausted
 from ..public.tactical_claim import add_tactical_force_pass_options
@@ -22,6 +23,28 @@ def _suit(tile: int) -> int:
     return tile // 10
 
 
+def _xueliu_kong_waits(self, hand, melds, action: str, tile: int) -> set:
+    """在副本上模拟杠后的听牌，供实际开杠与保杠过和共用。"""
+    if action not in ("gang", "angang", "jiagang") or type(tile) is not int:
+        return set()
+    tile = normalize_tile(tile)
+    hand = [normalize_tile(t) for t in hand]
+    melds = list(melds)
+    count = {"gang": 3, "angang": 4, "jiagang": 1}[action]
+    if hand.count(tile) < count:
+        return set()
+    for _ in range(count):
+        hand.remove(tile)
+    if action == "jiagang":
+        if f"k{tile}" not in melds:
+            return set()
+        melds[melds.index(f"k{tile}")] = f"g{tile}"
+    else:
+        melds.append(f"{'G' if action == 'angang' else 'g'}{tile}")
+    return set(self.calculation_service.Sichuan_xueliu_tingpai_check(
+        hand, melds, meld_count=getattr(self, "xueliu_meld_count", 3)))
+
+
 def _xueliu_post_hu_kong_allowed(self, player, action: str, tile: int) -> bool:
     """三种杠都须保留全部实际和过的牌；暗杠、加杠还须使用本次摸牌。"""
     if action not in ("gang", "angang", "jiagang") or type(tile) is not int:
@@ -33,23 +56,39 @@ def _xueliu_post_hu_kong_allowed(self, player, action: str, tile: int) -> bool:
             return False
     if _suit(tile) == getattr(player, "dingque_suit", 0):
         return False
-    hand = [normalize_tile(t) for t in player.hand_tiles]
-    melds = list(player.combination_tiles)
-    count = {"gang": 3, "angang": 4, "jiagang": 1}[action]
-    if hand.count(tile) < count:
-        return False
-    for _ in range(count):
-        hand.remove(tile)
-    if action == "jiagang":
-        if f"k{tile}" not in melds:
-            return False
-        melds[melds.index(f"k{tile}")] = f"g{tile}"
-    else:
-        melds.append(f"{'G' if action == 'angang' else 'g'}{tile}")
-    waits = set(self.calculation_service.Sichuan_xueliu_tingpai_check(
-        hand, melds, meld_count=getattr(self, "xueliu_meld_count", 3)))
+    waits = _xueliu_kong_waits(self, player.hand_tiles, player.combination_tiles, action, tile)
     won_tiles = {normalize_tile(t) for t in player.huapai_list}
     return bool(waits) and won_tiles.issubset(waits)
+
+
+def xueliu_ron_preserves_kong(self, player_index: int, incoming_tile: int) -> bool:
+    """这次和牌若会禁掉原本合法的后续杠，允许过和；不预知牌墙内容。"""
+    player = self.player_list[player_index]
+    if not getattr(self, "is_xueliu", False) or not player.has_won:
+        return False
+    won_tiles = {normalize_tile(t) for t in player.huapai_list}
+    incoming_tile = normalize_tile(incoming_tile)
+    if not won_tiles or incoming_tile in won_tiles or not can_draw(self, player_index):
+        return False
+    # 响应点炮/抢杠时应是待摸的锁定手牌；摸牌槽不属于未来可保留的牌型。
+    hand = list(player.hand_tiles)
+    if get_valid_draw_slot_tile(player) is not None:
+        hand.pop()
+    counts = Counter(normalize_tile(t) for t in hand)
+    candidates = [("gang", tile, hand) for tile, count in counts.items() if count == 3]
+    # 旧手里的第四枚不能留作日后加杠；这里只模拟未来新摸到的第四枚。
+    for meld in player.combination_tiles:
+        if meld.startswith("k"):
+            tile = normalize_tile(int(meld[1:]))
+            if counts[tile] == 0:
+                candidates.append(("jiagang", tile, [*hand, tile]))
+    for action, tile, candidate_hand in candidates:
+        if _suit(tile) == player.dingque_suit:
+            continue
+        waits = _xueliu_kong_waits(self, candidate_hand, player.combination_tiles, action, tile)
+        if waits and won_tiles.issubset(waits) and incoming_tile not in waits:
+            return True
+    return False
 
 
 def xueliu_post_hu_kong_candidates(self, player_index):
@@ -144,7 +183,13 @@ def check_hepai(self, temp_action_dict, hepai_tile, player_index, hepai_type, is
     if not fan_list or fan < getattr(self, "hepai_limit", 0):
         return
     # 血流使用独立的 10/11 张牌型检查；标准血战继续使用 MIL/SBR 检查。
-    if not getattr(self, "is_doubles", False) and hepai_type in ("dianhe", "qianggang") and not (getattr(self, "is_xueliu_doubles", False) and (player.has_won or not self._can_score_between(self.current_player_index, player_index))) and is_blocked_by_shunhe(player, fan):
+    shunhe_exempt = (
+        getattr(self, "is_doubles", False)
+        or (getattr(self, "is_xueliu", False) and player.has_won)
+        or (getattr(self, "is_xueliu_doubles", False)
+            and not self._can_score_between(self.current_player_index, player_index))
+    )
+    if not shunhe_exempt and hepai_type in ("dianhe", "qianggang") and is_blocked_by_shunhe(player, fan):
         logger.info(
             f"四川顺和拦截：player={player_index} type={hepai_type} tile={hepai_tile} "
             f"fan={fan} cap={getattr(player, 'shunhe_passed_max_fan', None)}"
@@ -165,17 +210,19 @@ def check_hepai(self, temp_action_dict, hepai_tile, player_index, hepai_type, is
         temp_action_dict[player_index].append("hu")
 
 
-def _enforce_doubles_required_hu(self, actions):
-    if getattr(self, "is_xueliu_doubles", False):
+def _enforce_xueliu_required_hu(self, actions, incoming_tile):
+    if getattr(self, "is_xueliu", False):
         for index, choices in actions.items():
-            if "hu" in choices and self.player_list[index].has_won and self._can_score_between(self.current_player_index, index):
+            if ("hu" in choices and self.player_list[index].has_won
+                    and self._can_score_between(self.current_player_index, index)
+                    and not xueliu_ron_preserves_kong(self, index, incoming_tile)):
                 actions[index] = ["hu"]
     return actions
 
 
 def is_xueliu_required_hu(self, player_index):
-    """血流双打和过后，对手点炮/加杠由服务器直接和牌。"""
-    return (getattr(self, "is_xueliu_doubles", False)
+    """全部血流和后，未命中保杠例外的对手点炮/抢杠由服务器直接和牌。"""
+    return (getattr(self, "is_xueliu", False)
             and self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
             and self.action_dict.get(player_index) == ["hu"]
             and self.player_list[player_index].has_won
@@ -217,7 +264,7 @@ def check_action_after_cut(self, cut_tile):
             temp_action_dict[i].append("pass")
 
     temp_action_dict[self.current_player_index] = []
-    return _enforce_doubles_required_hu(self, add_tactical_force_pass_options(self, temp_action_dict))
+    return _enforce_xueliu_required_hu(self, add_tactical_force_pass_options(self, temp_action_dict), cut_tile)
 
 
 def check_action_jiagang(self, jiagang_tile):
@@ -232,7 +279,7 @@ def check_action_jiagang(self, jiagang_tile):
     for i in temp_action_dict:
         if temp_action_dict[i]:
             temp_action_dict[i].append("pass")
-    return _enforce_doubles_required_hu(self, add_tactical_force_pass_options(self, temp_action_dict))
+    return _enforce_xueliu_required_hu(self, add_tactical_force_pass_options(self, temp_action_dict), jiagang_tile)
 
 
 def _has_jiagang(self, player):

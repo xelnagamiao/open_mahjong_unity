@@ -40,7 +40,7 @@ public partial class AutoAction : MonoBehaviour{
     private MessagePrefab timeoutReturnDialog;
 
     // 公共属性，供外部访问
-    public bool IsAutoArrangeHandCards { get => isAutoArrangeHandCards; }
+    public bool IsAutoArrangeHandCards { get => !WashizuTile.IsRealtimeHandOrder && isAutoArrangeHandCards; }
     public bool IsAutoBuhua { get => isAutoBuhua; }
     public bool IsAutoHepai { get => isAutoHepai; }
     public bool IsAutoCut { get => isAutoCut || isAutoCutLocked; }
@@ -91,7 +91,7 @@ public partial class AutoAction : MonoBehaviour{
     }
 
     // 初始化自动行为配置（由 GameSceneUIManager 调用）
-    public void Initialize() {
+    public void Initialize(bool isNewMatch = false) {
         gameObject.SetActive(true); // 显示自动行为组件
         DismissTimeoutReturnDialog();
         AutoActionPolicy.Current.ResetTimeoutAutoMoqieTracking();
@@ -102,7 +102,9 @@ public partial class AutoAction : MonoBehaviour{
         isAutoCut = false;
         isAutoCutLocked = false;
         isAutoBuhua = GameSettings.Current.OpeningAutoBuhuaEnabled;
-        // 自动理牌保留 current 值；自动补花按设置在每局开局时重置
+        // 新对局恢复自动理牌；同场续局和重连保留手动选择。
+        // 鹫巢实时手牌由 IsAutoArrangeHandCards 的规则约束继续强制关闭。
+        if (isNewMatch) isAutoArrangeHandCards = true;
 
         // 鸣牌/牌张面板初始隐藏
         if (mingPaiPanel != null) mingPaiPanel.SetActive(false);
@@ -126,7 +128,7 @@ public partial class AutoAction : MonoBehaviour{
     }
 
     /// <summary>实时观战：仅保留自动排列手牌，其余自动操作与鸣牌展开隐藏且不起效。</summary>
-    public void InitializeForSpectator() {
+    public void InitializeForSpectator(bool isNewMatch = false) {
         gameObject.SetActive(true);
         DismissTimeoutReturnDialog();
         AutoActionPolicy.Current.ResetTimeoutAutoMoqieTracking();
@@ -136,6 +138,7 @@ public partial class AutoAction : MonoBehaviour{
         isAutoCut = false;
         isAutoCutLocked = false;
         isAutoBuhua = false;
+        if (isNewMatch) isAutoArrangeHandCards = true;
 
         if (mingPaiPanel != null) mingPaiPanel.SetActive(false);
         if (tilePassSettingPanel != null) tilePassSettingPanel.SetPanelVisible(false);
@@ -240,6 +243,7 @@ public partial class AutoAction : MonoBehaviour{
 
     // 切换自动排列手牌
     private void ToggleArrangeHandCards(){
+        if (WashizuTile.IsRealtimeHandOrder) return;
         bool enabling = !isAutoArrangeHandCards;
         ToggleAutoOption(ref isAutoArrangeHandCards, arrangeHandCardsText);
         if (enabling && isAutoArrangeHandCards) {
@@ -248,8 +252,18 @@ public partial class AutoAction : MonoBehaviour{
     }
 
     public void SetAutoArrangeHandCards(bool value) {
+        if (WashizuTile.IsRealtimeHandOrder) return;
         isAutoArrangeHandCards = value;
-        UpdateTextColor(arrangeHandCardsText, isAutoArrangeHandCards);
+        UpdateTextColor(arrangeHandCardsText, IsAutoArrangeHandCards);
+    }
+
+    public void RefreshArrangeRule() {
+        if (arrangeHandCardsText == null) return;
+        bool manual = WashizuTile.IsRealtimeHandOrder;
+        arrangeHandCardsText.text = manual ? "手" : "理";
+        var button = arrangeHandCardsText.GetComponent<Button>();
+        if (button != null) button.interactable = !manual;
+        UpdateTextColor(arrangeHandCardsText, IsAutoArrangeHandCards);
     }
 
     // 切换自动胡牌
@@ -400,7 +414,7 @@ public partial class AutoAction : MonoBehaviour{
 
     // 更新所有文本颜色
     private void UpdateAllTextColors(){
-        UpdateTextColor(arrangeHandCardsText, isAutoArrangeHandCards);
+        RefreshArrangeRule();
         UpdateTextColor(autoHepaiText, isAutoHepai);
         UpdateTextColor(autoCutCardText, IsAutoCut);
         UpdateTextColor(autoPassText, isAutoPass);

@@ -4,6 +4,7 @@
 import logging
 from psycopg2 import Error
 from psycopg2.extras import RealDictCursor
+from ..statistics_catalog import normalize_match_type
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +81,7 @@ def get_rank_record_list(db_manager, limit: int = 20, rule: str = "guobiao") -> 
                     "created_at": str(row["created_at"]),
                     "rule": row["rule"],
                     "sub_rule": row.get("sub_rule"),
-                    "match_type": row.get("match_type"),
+                    "match_type": normalize_match_type(row.get("match_type"), row.get("sub_rule")),
                     "match_queue_type": row.get("match_queue_type"),
                     "players": [],
                 }

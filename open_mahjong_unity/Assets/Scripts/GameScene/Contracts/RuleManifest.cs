@@ -54,6 +54,12 @@ public sealed class RuleManifest {
 
     /// <summary>规则提供的实体牌角标；不改变牌面或牌值。</summary>
     public Func<int, string> TileBadgeText;
+    /// <summary>手牌中优先排到最左侧的实体癞子；参数为子规则，不影响副露与牌河排序。</summary>
+    public Func<string, IEnumerable<int>> HandJokerTiles;
+    /// <summary>历史结算使用该局保存的癞子，不能读取当前对局的翻牌。</summary>
+    public Func<Round, IEnumerable<int>> RecordHandJokerTiles;
+    /// <summary>在首次创建手牌前装载翻精/翻财快照，避免起手与重连按上一局的癞子排序。</summary>
+    public Action<GameInfo> PrepareHandDisplay;
     /// <summary>可见副露的实际牌；第二参数为是否本家。null 沿用普通副露编码，空数组表示牌值不可见。</summary>
     public Func<string, bool, int[]> VisibleMeldTiles;
 
@@ -164,6 +170,8 @@ public sealed class RuleManifest {
 
     /// <summary>按子规则和馆规选择站内规则书路径；null 时使用 /rulebook/{RulebookKey}。</summary>
     public Func<string, IDictionary<string, object>, string> RulebookPath;
+
+    public Func<string, IDictionary<string, object>, string> RulebookText;
 
     // ---------- 大厅 / 建房 ----------
 

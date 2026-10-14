@@ -176,13 +176,8 @@ def next_game_round_guobiao_switchseat(self):
             i.tag_list.remove("peida")
         i.player_index = back_current_num(i.player_index, player_count)
 
-    if player_count == 3:
-        # Reverse neighbours between wind rounds, so every pair plays both sides.
-        if self.current_round in (4, 7, 10):
-            seats = (0, 2, 1) if self.current_round in (4, 10) else (0, 1, 2)
-            for player in self.player_list:
-                player.player_index = seats[player.original_player_index]
-    elif self.current_round in [5, 9, 13]:
+    # 三人国标不换位：只轮转风位，三人的相对顺序在所有风圈保持不变。
+    if player_count == 4 and self.current_round in [5, 9, 13]:
         if self.current_round == 5:
             for i in self.player_list:
                 if i.original_player_index == 0:

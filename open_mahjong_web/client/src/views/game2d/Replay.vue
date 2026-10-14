@@ -28,49 +28,41 @@
 
         <div v-if="replay && sceneReady" class="replay-board-tools">
           <button type="button" :class="{ 'is-active': showOtherHands }" @click="toggleOtherHands">
-            {{ showOtherHands ? '隐藏他家手牌' : '显示他家手牌' }}
+            {{ tr(showOtherHands ? '隐藏他家手牌' : '显示他家手牌') }}
           </button>
-          <button type="button" :class="{ 'is-active': playWinAnimation }" @click="playWinAnimation = !playWinAnimation">
-            播放和牌动画
-          </button>
+          <button type="button" :class="{ 'is-active': playWinAnimation }" @click="playWinAnimation = !playWinAnimation">{{ tr('播放和牌动画') }}</button>
           <button
             type="button"
             :class="{ 'is-active': chongHintEnabled }"
-            :title="isHangzhouReplay ? '查看牌山时标出摸牌预测（仅自摸）' : '标红他家待牌；查看牌山时标出摸牌预测'"
+            :title="tr(isHangzhouReplay ? '查看牌山时标出摸牌预测（仅自摸）' : '标红他家待牌；查看牌山时标出摸牌预测')"
             @click="toggleChongHint"
           >
-            {{ isHangzhouReplay ? '摸牌预测' : '铳张提示' }}
+            {{ tr(isHangzhouReplay ? '摸牌预测' : '铳张提示') }}
           </button>
-          <button type="button" :class="{ 'is-active': showMoqieMode }" @click="toggleMoqieHint">
-            显示手摸切
-          </button>
-          <button type="button" :class="{ 'is-active': wallVisible }" @click="wallVisible = !wallVisible">
-            查看牌山
-          </button>
+          <button type="button" :class="{ 'is-active': showMoqieMode }" @click="toggleMoqieHint">{{ tr('显示手摸切') }}</button>
+          <button type="button" :class="{ 'is-active': wallVisible }" @click="wallVisible = !wallVisible">{{ tr('查看牌山') }}</button>
           <button type="button" :class="{ 'is-active': scoreboardOpen }" @click="scoreboardOpen = !scoreboardOpen">
-            {{ scoreboardOpen ? '关闭计分板' : '打开计分板' }}
+            {{ tr(scoreboardOpen ? '关闭计分板' : '打开计分板') }}
           </button>
-          <button type="button" :class="{ 'is-active': settingsOpen }" @click="settingsOpen = !settingsOpen">
-            游戏设置
-          </button>
+          <button type="button" :class="{ 'is-active': settingsOpen }" @click="settingsOpen = !settingsOpen">{{ tr('游戏设置') }}</button>
         </div>
 
         <div v-if="wallVisible" class="replay-wall-layer">
-        <section class="replay-wall" aria-label="当前牌山">
+        <section class="replay-wall" :aria-label="tr('当前牌山')">
           <header>
-            <strong>牌山阅览</strong>
-            <span>剩余 {{ remainingWall.length }} 张</span>
+            <strong>{{ tr('牌山阅览') }}</strong>
+            <span>{{ tr('剩余 {count} 张', { count: remainingWall.length }) }}</span>
             <span v-if="chongHintEnabled" class="replay-wall__legend">
-              <i v-if="!isHangzhouReplay" class="is-danger">铳张</i><i class="is-predicted">摸牌预测</i>
+              <i v-if="!isHangzhouReplay" class="is-danger">{{ tr('铳张') }}</i><i class="is-predicted">{{ tr('摸牌预测') }}</i>
             </span>
             <button type="button" @click="wallVisible = false">×</button>
           </header>
           <div class="replay-wall__content">
             <details v-if="duplicateInitialPartitions.length" class="duplicate-initial-wall">
-              <summary>本局完整初始牌墙（{{ duplicateInitialPartitions.reduce((total, tiles) => total + tiles.length, 0) }} 张）</summary>
+              <summary>{{ tr('本局完整初始牌墙（{count} 张）', { count: duplicateInitialPartitions.reduce((total, tiles) => total + tiles.length, 0) }) }}</summary>
               <section v-for="(tiles, original) in duplicateInitialPartitions" :key="original" class="replay-wall__section">
-                <h3>{{ original + 1 }} 号 · {{ winds[original] }}位 · 前 {{ original === 0 ? 14 : 13 }} 张为起始手牌</h3>
-                <div class="replay-wall__hand-tiles"><span v-for="(tile, index) in tiles" :key="index"><TileFaceImage :src="mmcrTileAsset(tile)" :face-id="mmcrFaceId(tile)" :scale="0.86" :alt="`第 ${index + 1} 张`" /></span></div>
+                <h3>{{ tr('{player} 号 · {wind}位 · 前 {count} 张为起始手牌', { player: original + 1, wind: tr(winds[original]), count: original === 0 ? 14 : 13 }) }}</h3>
+                <div class="replay-wall__hand-tiles"><span v-for="(tile, index) in tiles" :key="index"><TileFaceImage :src="mmcrTileAsset(tile)" :face-id="mmcrFaceId(tile)" :scale="0.86" :alt="tr('第 {index} 张', { index: index + 1 })" /></span></div>
               </section>
             </details>
             <section
@@ -78,7 +70,7 @@
               :key="`initial-hand-${seat}`"
               class="replay-wall__section replay-wall__section--hand"
             >
-              <h3>{{ winds[seat] }}家初始手牌</h3>
+              <h3>{{ tr('{wind}家初始手牌', { wind: tr(winds[seat]) }) }}</h3>
               <div class="replay-wall__hand-tiles">
                 <span v-for="(tile, index) in hand" :key="`${seat}-${index}-${tile}`">
                   <TileFaceImage :src="mmcrTileAsset(tile)" :face-id="mmcrFaceId(tile)" :scale="0.86" />
@@ -86,7 +78,7 @@
               </div>
             </section>
             <section v-for="group in wallGroups" :key="group.label" class="replay-wall__section replay-wall__section--wall">
-              <h3>{{ group.label }}</h3>
+              <h3>{{ tr(group.label) }}</h3>
               <div class="replay-wall__rows">
                 <div v-for="row in Math.ceil(group.tiles.length / 4)" :key="`wall-row-${row}`" class="replay-wall__row">
                   <span
@@ -164,7 +156,7 @@
           <section
             v-if="roundResult.kind === 'draw'"
             class="end-result-panel end-result-panel--draw"
-            aria-label="本局流局"
+            :aria-label="tr('本局流局')"
           >
             <div
               v-for="seat in resultPlayers"
@@ -180,12 +172,12 @@
                 {{ seat.value > 0 ? '+' : '' }}{{ seat.value }}
               </span>
             </div>
-            <div class="end-result-draw-title">流局</div>
-            <button type="button" class="end-result-ready-button" @click="finishTerminalResult">确定</button>
+            <div class="end-result-draw-title">{{ tr('流局') }}</div>
+            <button type="button" class="end-result-ready-button" @click="finishTerminalResult">{{ tr('确定') }}</button>
           </section>
 
-          <section v-else class="end-result-panel end-result-panel--win" aria-label="本局和牌结算">
-            <div v-if="resultClosedTiles.length || resultWinTile" class="end-result-hand">
+          <section v-else class="end-result-panel end-result-panel--win" :aria-label="tr('本局和牌结算')">
+            <div v-if="resultClosedTiles.length || resultWinTile" class="end-result-hand" :style="resultHandStyle">
               <span v-for="(tile, index) in resultClosedTiles" :key="`closed-${index}`" class="end-result-tile">
                 <TileFaceImage :src="mmcrTileAsset(tile)" :face-id="mmcrFaceId(tile)" />
               </span>
@@ -195,11 +187,11 @@
               </span>
               <span class="end-result-hand__split" />
               <span v-if="resultWinTile" class="end-result-tile is-winning">
-                <TileFaceImage :src="mmcrTileAsset(resultWinTile)" :face-id="mmcrFaceId(resultWinTile)" alt="和牌张" />
+                <TileFaceImage :src="mmcrTileAsset(resultWinTile)" :face-id="mmcrFaceId(resultWinTile)" :alt="tr('和牌张')" />
               </span>
             </div>
             <div v-if="resultFlowerTiles.length" class="end-result-flowers">
-              <span class="end-result-flowers__label">花</span>
+              <span class="end-result-flowers__label">{{ tr('花') }}</span>
               <span v-for="(tile, index) in resultFlowerTiles" :key="`flower-${index}`" class="end-result-tile end-result-tile--flower">
                 <TileFaceImage :src="mmcrTileAsset(tile)" :face-id="mmcrFaceId(tile)" />
               </span>
@@ -210,16 +202,16 @@
                 :key="`${fan.name}-${index}`"
                 class="end-result-fan"
                 :class="{ 'is-visible': index < revealedFanCount }"
-                :style="{ '--fan-name-size': `${fanNameFontSize(fan.name)}px` }"
+                :style="{ '--fan-name-size': `${fanNameFontSize(translateFanName(fan.name))}px` }"
               >
-                <span>{{ fan.name }}</span>
-                <strong>{{ fan.value }}</strong>
+                <span>{{ translateFanName(fan.name) }}</span>
+                <strong>{{ tr(fan.value) }}</strong>
               </div>
             </div>
             <div class="end-result-total" :class="{ 'is-visible': showResultTotal }">
               <div class="end-result-total__line">
                 <span class="end-result-total__method">{{ winMethodLabel }}</span>
-                <strong>{{ roundResult.fan }}</strong><span>{{ detail?.rule === 'changchun' ? '基础番' : detail?.rule === 'guizhou' ? '基本分' : ['yixing', 'hangzhou', 'jiujiang', 'shanxi', 'nanchang'].includes(detail?.rule || '') ? '分' : detail?.rule === 'wenzhou' ? '倍' : '番' }}</span>
+                <strong>{{ roundResult.fan }}</strong><span>{{ tr(detail?.rule === 'changchun' ? '基础番' : detail?.rule === 'guizhou' ? '基本分' : ['fuzhou', 'malaysia', 'yixing', 'hangzhou', 'jiujiang', 'shanxi', 'nanchang'].includes(detail?.rule || '') ? '分' : detail?.rule === 'wenzhou' ? '倍' : '番') }}</span>
               </div>
             </div>
             <div class="end-result-diamond">
@@ -238,45 +230,48 @@
                 </div>
               </article>
             </div>
-            <button v-if="showResultConfirm" type="button" class="end-result-ready-button" @click="finishTerminalResult">
-              确定
-            </button>
+            <button v-if="showResultConfirm" type="button" class="end-result-ready-button" @click="finishTerminalResult">{{ tr('确定') }}</button>
           </section>
         </div>
 
         <HongzhongReplayDetail v-if="detail?.rule === 'hongzhong'" :info="hongzhongInfo" :ledger="hongzhongKongEvents" />
         <ChangchunReplayDetail v-if="changchunInfo" :info="changchunInfo" />
-        <section v-if="nanchangInfo" class="nanchang-replay-info" aria-label="南昌精牌与结算">
-          <strong>正精 {{ wenzhouTileName(nanchangInfo.indicator) }} · 副精 {{ wenzhouTileName(nanchangInfo.secondary) }}</strong>
-          <p>四人单打 · 精牌翻开后仍在牌墙中，可正常摸取。</p>
-          <p v-for="row in nanchangLedgerRows(nanchangInfo)" :key="row.seat">{{ ['东起','南起','西起','北起'][row.original] }}：精分{{ row.jing }}，杠分{{ row.kong }}，和牌{{ row.win }}，本副{{ row.total }}分</p>
+        <section v-if="nanchangInfo" class="nanchang-replay-info" :aria-label="tr('南昌精牌与结算')">
+          <strong>{{ tr('正精 {primary} · 副精 {secondary}', { primary: tr(wenzhouTileName(nanchangInfo.indicator)), secondary: tr(wenzhouTileName(nanchangInfo.secondary)) }) }}</strong>
+          <p>{{ tr('四人单打 · 精牌翻开后仍在牌墙中，可正常摸取。') }}</p>
+          <p v-for="row in nanchangLedgerRows(nanchangInfo)" :key="row.seat">{{ tr('{seat}：精分{jing}，杠分{kong}，和牌{win}，本副{total}分', { seat: tr(['东起','南起','西起','北起'][row.original]), jing: row.jing, kong: row.kong, win: row.win, total: row.total }) }}</p>
         </section>
-        <section v-if="wenzhouInfo" class="wenzhou-replay-info" aria-label="温州翻财与结算">
-          <strong>财神 {{ wenzhouTileName(wenzhouInfo.caishen) }} · 连庄{{ wenzhouInfo.dealer_streak || 0 }}次</strong>
-          <p>{{ wenzhouInfo.caishen === 46 ? '白板为财神' : `白板固定代${wenzhouTileName(wenzhouInfo.white_natural)}` }}；牌面保留实体身份。</p>
-          <p v-for="row in wenzhouLedgerRows(wenzhouInfo)" :key="row.seat">{{ ['东起','南起','西起','北起'][row.original] }}：财神{{ row.count }}张，财分{{ row.caishen }}，本局{{ row.total }}分</p>
-          <p v-for="(entry, index) in wenzhouLedgerEntries(wenzhouInfo)" :key="`ledger-${index}`">{{ entry }}</p>
+        <section v-if="fuzhouInfo" class="wenzhou-replay-info" aria-label="福州开金与宣言">
+          <strong>金牌 {{ fuzhouInfo.gold_tile ? wenzhouTileName(fuzhouInfo.gold_tile) : '未开金' }} · 连庄 {{ fuzhouInfo.dealer_streak || 0 }} 次</strong>
+          <p>留牌 {{ fuzhouDisplay.reserve }} 张；{{ fuzhouDisplay.lastFour ? '末四张，只摸不打' : '字牌及八花均作花牌' }}</p>
+          <p v-for="(decl,index) in fuzhouInfo.declarations" :key="index">{{ ['东起','南起','西起','北起'][index] }}：{{ decl.youjin === 2 ? '二游' : decl.youjin === 1 ? '一游' : decl.golden_middle ? '听金坎' : decl.discarded_gold ? '已打金，仅自摸' : '普通行牌' }}</p>
+        </section>
+        <section v-if="wenzhouInfo" class="wenzhou-replay-info" :aria-label="tr('温州翻财与结算')">
+          <strong>{{ tr('财神 {tile} · 连庄{count}次', { tile: tr(wenzhouTileName(wenzhouInfo.caishen)), count: wenzhouInfo.dealer_streak || 0 }) }}</strong>
+          <p>{{ wenzhouInfo.caishen === 46 ? tr('白板为财神；牌面保留实体身份。') : tr('白板固定代{tile}；牌面保留实体身份。', { tile: tr(wenzhouTileName(wenzhouInfo.white_natural)) }) }}</p>
+          <p v-for="row in wenzhouLedgerRows(wenzhouInfo)" :key="row.seat">{{ tr('{seat}：财神{count}张，财分{caishen}，本局{total}分', { seat: tr(['东起','南起','西起','北起'][row.original]), count: row.count, caishen: row.caishen, total: row.total }) }}</p>
+          <p v-for="(entry, index) in wenzhouLedgerEntries(wenzhouInfo)" :key="`ledger-${index}`">{{ tr(entry) }}</p>
         </section>
         <GuizhouReplayLedger v-if="guizhouInfo?.ledger" :info="guizhouInfo" :players="detail?.players || []" />
         <HangzhouReplayState :info="hangzhouInfo" />
         <GuangdongReplayLedger v-if="guangdongInfo" :info="guangdongInfo" :players="detail?.players || []" :seats="currentRound?.seats || [0, 1, 2, 3]" />
         <div v-if="loading || errorMessage" class="replay-state">
           <div class="replay-state__card">
-            <strong>{{ errorMessage ? '无法打开牌谱' : '正在读取牌谱' }}</strong>
-            <span>{{ errorMessage || '正在重建 2D 牌桌…' }}</span>
-            <button v-if="errorMessage" type="button" @click="router.push('/2d')">返回 2D 大厅</button>
+            <strong>{{ tr(errorMessage ? '无法打开牌谱' : '正在读取牌谱') }}</strong>
+            <span>{{ tr(errorMessage || '正在重建 2D 牌桌…') }}</span>
+            <button v-if="errorMessage" type="button" @click="router.push('/2d')">{{ tr('返回 2D 大厅') }}</button>
           </div>
         </div>
 
-        <div v-if="replay && sceneReady" class="replay-controls" aria-label="牌谱播放控制">
+        <div v-if="replay && sceneReady" class="replay-controls" :aria-label="tr('牌谱播放控制')">
           <div class="replay-controls__row">
-            <button type="button" title="上一局" :disabled="terminalLocked" @click="changeRound(-1)">«</button>
-            <button type="button" title="上一步" :disabled="terminalLocked" @click="step(-1)">‹</button>
-            <button type="button" class="is-play" :disabled="terminalLocked" @click="togglePlaying">{{ playing ? '暂停' : '播放' }}</button>
-            <button type="button" title="下一步" :disabled="terminalLocked" @click="step(1)">›</button>
-            <button type="button" title="下一局" :disabled="terminalLocked" @click="changeRound(1)">»</button>
+            <button type="button" :title="tr('上一局')" :disabled="terminalLocked" @click="changeRound(-1)">«</button>
+            <button type="button" :title="tr('上一步')" :disabled="terminalLocked" @click="step(-1)">‹</button>
+            <button type="button" class="is-play" :disabled="terminalLocked" @click="togglePlaying">{{ tr(playing ? '暂停' : '播放') }}</button>
+            <button type="button" :title="tr('下一步')" :disabled="terminalLocked" @click="step(1)">›</button>
+            <button type="button" :title="tr('下一局')" :disabled="terminalLocked" @click="changeRound(1)">»</button>
             <label class="replay-controls__select">
-              <span>局</span>
+              <span>{{ tr('局') }}</span>
               <select :value="roundIndex" :disabled="terminalLocked" @change="selectRound(Number(($event.target as HTMLSelectElement).value))">
                 <option v-for="(round, index) in replay.rounds" :key="`round-select-${index}`" :value="index">
                   {{ roundSelectLabel(round, index) }}
@@ -284,12 +279,12 @@
               </select>
             </label>
             <label class="replay-controls__select">
-              <span>巡目</span>
+              <span>{{ tr('巡目') }}</span>
               <select :value="xunmuSelectValue" :disabled="terminalLocked" @change="selectXunmu(($event.target as HTMLSelectElement).value)">
                 <option v-for="(_, index) in currentXunmuNodes" :key="`xunmu-${index}`" :value="String(index)">
-                  {{ index }}巡
+                  {{ tr('{count}巡', { count: index }) }}
                 </option>
-                <option v-if="currentXunmuNodes.at(-1) !== maxNode" value="end">本局终点</option>
+                <option v-if="currentXunmuNodes.at(-1) !== maxNode" value="end">{{ tr('本局终点') }}</option>
               </select>
             </label>
             <span class="replay-controls__status">
@@ -304,7 +299,7 @@
             :max="maxNode"
             step="1"
             :disabled="terminalLocked"
-            aria-label="牌谱节点"
+            :aria-label="tr('牌谱节点')"
           />
         </div>
       </section>
@@ -312,43 +307,43 @@
       <aside class="replay-sidebar">
         <header class="replay-header">
           <div>
-            <p class="replay-header__eyebrow">SALASASA 2D 牌谱</p>
+            <p class="replay-header__eyebrow">{{ tr('SALASASA 2D 牌谱') }}</p>
             <h1>{{ detail?.game_id || route.params.gameId }}</h1>
           </div>
-          <button type="button" class="replay-icon-button" title="返回大厅" @click="router.push('/2d')">×</button>
+          <button type="button" class="replay-icon-button" :title="tr('返回大厅')" @click="router.push('/2d')">×</button>
         </header>
 
         <div v-if="!localRecord" class="replay-share">
           <div class="replay-share__split">
             <div class="replay-share__row">
               <button type="button" class="replay-primary-button replay-primary-button--2d" @click="copyShareLink('2d')">
-                {{ copiedKind === '2d' ? '链接已复制' : '复制分享链接' }}
+                {{ tr(copiedKind === '2d' ? '链接已复制' : '复制分享链接') }}
               </button>
               <button
                 type="button"
                 class="replay-primary-button replay-primary-button--2d-node"
                 @click="copyShareLink('2d-node')"
               >
-                {{ copiedKind === '2d-node' ? '已复制' : '复制当前Node' }}
+                {{ tr(copiedKind === '2d-node' ? '已复制' : '复制当前Node') }}
               </button>
             </div>
             <div class="replay-share__row">
               <button type="button" class="replay-primary-button replay-primary-button--3d" @click="copyShareLink('3d')">
-                {{ copiedKind === '3d' ? '已复制' : '复制3D链接' }}
+                {{ tr(copiedKind === '3d' ? '已复制' : '复制3D链接') }}
               </button>
               <button
                 type="button"
                 class="replay-primary-button replay-primary-button--3d-node"
                 @click="copyShareLink('3d-node')"
               >
-                {{ copiedKind === '3d-node' ? '已复制' : '复制3D Node' }}
+                {{ tr(copiedKind === '3d-node' ? '已复制' : '复制3D Node') }}
               </button>
             </div>
           </div>
         </div>
 
         <section v-if="replay" class="replay-section">
-          <h2>选择小局</h2>
+          <h2>{{ tr('选择小局') }}</h2>
           <div class="replay-rounds">
             <button
               v-for="(_, index) in replay.rounds"
@@ -371,7 +366,7 @@
             class="replay-round-tooltip"
             :style="{ left: `${roundTooltipPosition.x}px`, top: `${roundTooltipPosition.y}px` }"
           >
-            <strong>第 {{ hoveredRoundIndex + 1 }} 局分数变动</strong>
+            <strong>{{ tr('第 {round} 局分数变动', { round: hoveredRoundIndex + 1 }) }}</strong>
             <span
               v-for="row in roundScoreChangeRows(hoveredRoundIndex)"
               :key="`${hoveredRoundIndex}-${row.original}`"
@@ -386,7 +381,7 @@
         </section>
 
         <section v-if="replay" class="replay-section">
-          <h2>查看视角</h2>
+          <h2>{{ tr('查看视角') }}</h2>
           <div class="replay-viewpoints">
             <button
               v-for="player in viewpointPlayers"
@@ -395,7 +390,7 @@
               :class="{ 'is-active': viewerOriginal === player.original }"
               @click="viewerOriginal = player.original"
             >
-              <span>{{ player.wind }}</span>
+              <span :title="tr(player.wind)">{{ player.windShort }}</span>
               <strong data-no-translate>{{ player.username }}</strong>
               <small>{{ player.score }}</small>
             </button>
@@ -403,24 +398,25 @@
         </section>
 
         <section v-if="detail" class="replay-section replay-meta">
-          <h2>对局信息</h2>
+          <h2>{{ tr('对局信息') }}</h2>
           <div ref="gameInfoScrollElement" class="replay-meta__scroll" @wheel.prevent="onGameInfoWheel">
             <dl>
               <div v-for="row in gameInfoRows" :key="row.label">
-                <dt>{{ row.label }}</dt>
-                <dd :class="{ 'is-code': row.code }" :data-no-translate="/^玩家 |^入场顺序$/.test(row.label) ? '' : null">{{ row.value }}</dd>
+                <dt>{{ tr(row.label) }}</dt>
+                <dd :class="{ 'is-code': row.code }" :data-no-translate="row.verbatim ? '' : null">{{ row.verbatim ? row.value : tr(row.value) }}</dd>
               </div>
             </dl>
           </div>
         </section>
 
-        <p class="replay-keyboard">鼠标左键下一步、右键上一步，滚轮切换巡目；键盘 ←/→ 步进，Shift + ←/→ 切换小局，空格播放或暂停。</p>
+        <p class="replay-keyboard">{{ tr('鼠标左键下一步、右键上一步，滚轮切换巡目；键盘 ←/→ 步进，Shift + ←/→ 切换小局，空格播放或暂停。') }}</p>
       </aside>
     </div>
   </main>
 </template>
 
 <script setup lang="ts">
+import { huahunFanPoints } from "../../utils/guobiaoHuahun.js"
 import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { sichuanDoublesSummary } from '@/utils/sichuanReplay.js'
@@ -474,9 +470,13 @@ import TileFaceImage from './TileFaceImage.vue'
 import GuizhouReplayLedger from '@/components/GuizhouReplayLedger.vue'
 import { guizhouInfoAt, guizhouReadyAt, parseGuizhouFan } from '@/utils/guizhouReplay.js'
 import { buildGuizhouWaitData, guizhouRonWaitingTiles } from '@/game2d/calc/guizhou/waitTips'
+import { relativeSeat } from '@/game2d/lib/seatLayout.js'
+import { parseFuzhouFan, fuzhouInfoAt, fuzhouHintsAt, fuzhouWaitDataAt, fuzhouReserve, isFuzhouV2 } from '@/utils/fuzhouReplay.js'
+import { parseMalaysiaFan, malaysiaInfoAt } from '@/utils/malaysiaReplay.js'
 import { parseYixingFan } from '@/utils/yixingReplay.js'
 import { parseWenzhouFan, wenzhouInfoAt, wenzhouTileName, wenzhouLedgerRows, wenzhouLedgerEntries, wenzhouWaitData, wenzhouWaitsAt } from '@/utils/wenzhouReplay.js'
 import { parseNanchangFan, nanchangInfoAt, nanchangLedgerRows, nanchangWaitData, nanchangWaitsAt } from '@/utils/nanchangReplay.js'
+import { jokerFirstSortKey } from '@/game2d/lib/handJokers.js'
 import { parseHangzhouFan, hangzhouInfoAt, hangzhouKnownTiles, hangzhouWaitDataAt, hangzhouNormalDrawableWallIndices } from '@/utils/hangzhouReplay.js'
 import HangzhouReplayState from '@/components/HangzhouReplayState.vue'
 import HongzhongReplayDetail from '@/components/HongzhongReplayDetail.vue'
@@ -513,11 +513,11 @@ const showOtherHands = ref(true)
 const playWinAnimation = ref(false)
 const chongHintEnabled = ref(true)
 const isHangzhouReplay = computed(() => detail.value?.rule === 'hangzhou')
-const replayRoundLabeler = computed(() => isHangzhouReplay.value ? hangzhouRoundLabel
+const replayRoundLabeler = computed(() => isHangzhouReplay.value || detail.value?.rule === 'fuzhou' ? hangzhouRoundLabel
   : detail.value?.rule === 'shanxi' ? shanxiRoundLabel : null)
 
 function shanxiRoundLabel(round: number) {
-  return `第${round}庄`
+  return tr('第{round}庄', { round })
 }
 const hangzhouRoundLabel = (number: number) => tr(`第${number}局`)
 const showMoqieMode = ref(true)
@@ -549,13 +549,15 @@ const currentRound = computed(() => replay.value?.rounds[roundIndex.value])
 const winds = ['东', '南', '西', '北']
 const viewpointPlayers = computed(() => {
   if (!replay.value || !currentRound.value) return []
-  return [0, 1, 2, 3].map((original) => {
+  return Array.from({length: replay.value?.playerCount || 4}, (_, original) => {
     const seat = replay.value!.rounds[roundIndex.value].seats?.[original] ?? original
     const player = replay.value!.playerForSeat(currentRound.value!, seat)
     return {
       original,
       wind: winds[seat] || String(seat + 1),
-      username: player?.username || `玩家 ${original + 1}`,
+      windShort: locale.value === 'en' ? ['E', 'S', 'W', 'N'][seat]
+        : locale.value === 'fr' ? ['E', 'S', 'O', 'N'][seat] : tr(winds[seat] || String(seat + 1)),
+      username: player?.username || tr(`玩家 ${original + 1}`),
       score: currentScores.value[original] ?? player?.score ?? 0,
     }
   })
@@ -564,7 +566,7 @@ const viewpointPlayers = computed(() => {
 const formattedCreatedAt = computed(() => {
   if (!detail.value?.created_at) return '—'
   const date = new Date(detail.value.created_at)
-  return Number.isNaN(date.getTime()) ? detail.value.created_at : date.toLocaleString('zh-CN', { hour12: false })
+  return Number.isNaN(date.getTime()) ? detail.value.created_at : date.toLocaleString(locale.value, { hour12: false })
 })
 
 const roomLabel = computed(() => {
@@ -577,6 +579,7 @@ interface GameInfoRow {
   label: string
   value: string
   code?: boolean
+  verbatim?: boolean
 }
 
 function hasGameTitleField(title: Record<string, unknown>, key: string): boolean {
@@ -584,8 +587,7 @@ function hasGameTitleField(title: Record<string, unknown>, key: string): boolean
 }
 
 function enabledLabel(value: unknown): string {
-  if (value === true || value === 1 || String(value).toLowerCase() === 'true') return '开启'
-  return locale.value === 'fr' ? tr('关') : '关闭'
+  return tr(value === true || value === 1 || String(value).toLowerCase() === 'true' ? '开' : '关')
 }
 
 function compactRecordTime(value: unknown): string {
@@ -606,7 +608,9 @@ function ruleDisplayName(rule: unknown): string {
     hongkong: '香港麻将',
     guangdong: '广东麻将',
     guizhou: '贵州麻将',
+    malaysia: '马来西亚三人麻将',
     yixing: '宜兴麻将',
+    fuzhou: '福州麻将',
     wenzhou: '温州麻将',
     nanchang: '南昌麻将',
     hangzhou: '杭州麻将',
@@ -622,25 +626,30 @@ function ruleDisplayName(rule: unknown): string {
 function subRuleDisplayName(subRule: unknown): string {
   const names: Record<string, string> = {
     'guobiao/standard': '国标标准',
+    'guobiao/huahun': '国标（花混癞子）',
+  'guobiao/sixteen': '国标麻将（十六张）',
+  'guobiao/four_jokers': '国标麻将(四癞子)',
     'sichuan/doubles': '血战双打·2V2', 'sichuan/xueliu_doubles': '血流双打·2V2',
     'hongzhong/mil2024': 'MIL 红中2024',
     'jiujiang/standard': '九江麻将',
     'changchun/mil2024': 'MIL 长春2024',
     'hangzhou/mil2025': 'MIL 杭州2025',
     'shanxi/mil2023': 'MIL 山西2023',
+    'fuzhou/standard': '福州十六张',
   }
   const key = String(subRule ?? '')
   return names[key] || key || '—'
 }
 
 function roundModeLabel(maxRound: unknown, queueType: unknown): string {
+  if (detail.value?.rule === 'fuzhou') return tr('{count} 局', { count: Math.max(1, Number(maxRound) || 1) * (isFuzhouV2(detail.value?.record?.game_title?.rule_version) ? 4 : 6) })
   if (detail.value?.rule === 'shanxi') {
     const count = Number(maxRound)
-    return Number.isFinite(count) && count > 0 ? `${Math.trunc(count) * 4}庄` : '—'
+    return Number.isFinite(count) && count > 0 ? tr('{count}庄', { count: Math.trunc(count) * 4 }) : '—'
   }
   if (isHangzhouReplay.value) {
     const count = Number(maxRound)
-    return Number.isFinite(count) && count > 0 ? `${Math.trunc(count) * 4}局` : '—'
+    return Number.isFinite(count) && count > 0 ? tr('{count} 局', { count: Math.trunc(count) * 4 }) : '—'
   }
   const queue = String(queueType ?? '').toLowerCase()
   if (queue.endsWith('_dongfeng')) return '东风'
@@ -650,7 +659,7 @@ function roundModeLabel(maxRound: unknown, queueType: unknown): string {
   if (count === 1) return '东风'
   if (count === 2) return '半庄'
   if (count === 4) return '全庄'
-  return Number.isFinite(count) && count > 0 ? `${count} 圈` : '—'
+  return Number.isFinite(count) && count > 0 ? tr('{count} 圈', { count }) : '—'
 }
 
 function matchTierLabel(value: unknown): string {
@@ -667,9 +676,9 @@ function matchTierLabel(value: unknown): string {
 const gameInfoRows = computed<GameInfoRow[]>(() => {
   const title = detail.value?.record?.game_title || {}
   const rows: GameInfoRow[] = []
-  const push = (label: string, value: unknown, code = false) => {
+  const push = (label: string, value: unknown, code = false, verbatim = code || /^玩家 |^入场顺序$/.test(label)) => {
     const text = String(value ?? '').trim()
-    if (text) rows.push({ label, value: text, code })
+    if (text) rows.push({ label, value: text, code, verbatim })
   }
   const queueType = title.match_queue_type
   const queueTier = String(queueType ?? '').split('_')[0]
@@ -677,11 +686,16 @@ const gameInfoRows = computed<GameInfoRow[]>(() => {
   push('规则', ruleDisplayName(title.rule ?? detail.value?.rule))
   const doubles = sichuanDoublesSummary(detail.value)
   if (doubles) {
-    for (const team of doubles.teams) push(team.name, team.players.join(' / '))
+    for (const team of doubles.teams) push(team.name, team.players.join(' / '), false, true)
     if (doubles.result) {
       const result = doubles.result
-      push('团队累计副分', `A队 ${result.scores[0]} / B队 ${result.scores[1]}`)
-      push('盘分', `A队 ${result.match_points[0]} / B队 ${result.match_points[1]}`)
+      const scoreText = (scores: Record<number, number>) => doubles.teams.map(team => `${tr(team.name)} ${scores[team.id]}`).join(' / ')
+      if (result.small_scores && result.imp_scores) {
+        push('团队累计副分', scoreText(result.small_scores))
+        push('团队累计 IMP', scoreText(result.imp_scores))
+        push('胜负依据', result.reason === 'imp' ? 'IMP' : '副分')
+      } else push(result.reason === 'imp' ? '团队累计 IMP' : '团队累计副分', scoreText(result.scores))
+      push('盘分', scoreText(result.match_points))
       push('胜负判定', result.reason === 'last_positive_board' ? '同分，追平队胜' : result.reason === 'draw' ? '平局，各0.5盘分' : '按团队累计副分')
     }
   }
@@ -690,7 +704,7 @@ const gameInfoRows = computed<GameInfoRow[]>(() => {
   if (hasGameTitleField(title, 'sub_rule') || detail.value?.sub_rule) {
     push('子规则', subRuleDisplayName(title.sub_rule ?? detail.value?.sub_rule))
   }
-  if (detail.value?.match_type) {
+  if (detail.value?.match_type && detail.value?.rule !== 'fuzhou') {
     push('对局类型', String(detail.value.match_type).includes('rank') ? '排位对局' : detail.value.match_type)
   }
   if (hasGameTitleField(title, 'match_tier') || queueTier) {
@@ -699,15 +713,20 @@ const gameInfoRows = computed<GameInfoRow[]>(() => {
   if (hasGameTitleField(title, 'max_round') || queueType) {
     push('局制', roundModeLabel(title.max_round, queueType))
   }
-  if (title.rule === 'jiujiang') push('起和分', '1分（含花分）')
+  if (title.rule === 'fuzhou') push('底分', `${title.detailed_config?.base_score ?? (isFuzhouV2(title.rule_version) ? 15 : 10)}分`)
+  else if (title.rule === 'jiujiang') push('起和分', '1分（含花分）')
   else if (detail.value?.rule === 'shanxi') push('起和牌值', '自摸≥3点，点和≥6点（须报听）')
-  else if (hasGameTitleField(title, 'hepai_limit')) push('起和番', `${Number(title.hepai_limit) || 0} 番${title.rule === 'riichi' ? '（不含宝牌）' : ''}`)
+  else if (hasGameTitleField(title, 'hepai_limit')) push('起和番', tr(title.rule === 'riichi' ? '{count} 番（不含宝牌）' : '{count} 番', { count: Number(title.hepai_limit) || 0 }))
   if (title.rule === 'riichi') push('起和线', riichiWinLineLabel(title.detailed_config?.minimum_win_score ?? 0))
   if (title.rule === 'shanghai' && (title.sub_rule || 'shanghai/qiaoma') === 'shanghai/qiaoma') {
     push('清三混二碰二', enabledLabel(title.detailed_config?.qing3_hun2_peng2 === true))
+    push('开启天敲', title.detailed_config?.enable_tian_qiao === true ? '开（2番）' : '关')
   }
-  if (hasGameTitleField(title, 'round_timer')) push('局时', `${Number(title.round_timer) || 0} 秒`)
-  if (hasGameTitleField(title, 'step_timer')) push('步时', `${Number(title.step_timer) || 0} 秒`)
+  if (title.rule === 'shanghai' && title.sub_rule === 'shanghai/lajihe') {
+    push('自摸再加一底', enabledLabel(title.detailed_config?.self_draw_extra_base === true))
+  }
+  if (hasGameTitleField(title, 'round_timer')) push('局时', tr('{count} 秒', { count: Number(title.round_timer) || 0 }))
+  if (hasGameTitleField(title, 'step_timer')) push('步时', tr('{count} 秒', { count: Number(title.step_timer) || 0 }))
   if (hasGameTitleField(title, 'open_cuohe')) push('错和', enabledLabel(title.open_cuohe))
   if (hasGameTitleField(title, 'tips')) push('对局提示', enabledLabel(title.tips))
   if (hasGameTitleField(title, 'allow_spectator')) push('允许观战', enabledLabel(title.allow_spectator))
@@ -718,9 +737,14 @@ const gameInfoRows = computed<GameInfoRow[]>(() => {
   }
   if (hasGameTitleField(title, 'duplicate_wall_type')) push('复式', ({ manual: '手动牌山', seed: '复现牌山', key: '密钥牌山' } as Record<string, string>)[String(title.duplicate_wall_type)] || title.duplicate_wall_type)
   if (hasGameTitleField(title, 'duplicate_key')) push('复式密钥', title.duplicate_key, true)
-  if (hasGameTitleField(title, 'duplicate_round_count')) push('复式局数', `${title.duplicate_round_count} 局`)
+  if (hasGameTitleField(title, 'duplicate_round_count')) push('复式局数', tr('{count} 局', { count: title.duplicate_round_count }))
   if (hasGameTitleField(title, 'duplicate_seed')) push('复式种子', title.duplicate_seed, true)
   if (hasGameTitleField(title, 'use_flowers')) push('花牌', enabledLabel(title.use_flowers))
+  if (title.sub_rule === 'guobiao/huahun') {
+    push('无癞子奖励', title.no_joker_bonus === 'none' ? '不额外加分' : title.no_joker_bonus === 'double' ? '无癞子翻倍' : '无癞子+8分')
+    push('黑花递增计分', enabledLabel(title.black_flower_progressive !== false))
+  }
+  if (['guobiao/huahun', 'guobiao/four_jokers'].includes(title.sub_rule)) push('癞子多面听', enabledLabel(!!title.joker_multi_wait))
   if (title.tian_di_ren_he) push('天地人和', '开启（各8番）')
   if (hasGameTitleField(title, 'start_time')) push('开始时间', compactRecordTime(title.start_time))
 
@@ -762,6 +786,13 @@ const hongzhongKongEvents = computed(() => detail.value?.rule === 'hongzhong' ? 
 const hongzhongInfo = computed(() => detail.value?.rule === 'hongzhong' ? hongzhongInfoAt(currentRound.value, node.value) : null)
 const changchunInfo = computed(() => detail.value?.rule === 'changchun' ? changchunInfoAt(currentRound.value, node.value, currentRound.value?.seats?.[viewerOriginal.value] ?? viewerOriginal.value) : null)
 const hangzhouInfo = computed(() => detail.value?.rule === 'hangzhou' ? hangzhouInfoAt(currentRound.value, node.value) : null)
+const fuzhouInfo = computed(() => detail.value?.rule === 'fuzhou' ? fuzhouInfoAt(currentRound.value,node.value) : null)
+const fuzhouDisplay = computed(() => {
+  if (!fuzhouInfo.value || !replay.value) return {reserve:18,lastFour:false}
+  const snapshot=replay.value.build(roundIndex.value,node.value).snapshot
+  const reserve=fuzhouReserve(snapshot.seats.map(seat=>({melds:seat.melds,flowers:(seat.flower_tiles || []).map(mmcrTileToSalasasa)})), fuzhouInfo.value.rule_version ?? detail.value?.record?.game_title?.rule_version)
+  return {reserve,lastFour:snapshot.state.remaining_tile_count<=4}
+})
 const wenzhouInfo = computed(() => detail.value?.rule === 'wenzhou' ? wenzhouInfoAt(currentRound.value, node.value) : null)
 const nanchangInfo = computed(() => detail.value?.rule === 'nanchang' ? nanchangInfoAt(currentRound.value, node.value) : null)
 const guizhouInfo = computed(() => detail.value?.rule === 'guizhou' ? guizhouInfoAt(currentRound.value, node.value) : null)
@@ -778,12 +809,13 @@ const roundResult = computed(() => {
   })
   if (!tick) return null
   const action = String(tick[0] ?? '')
-  const scoreValues = nanchangInfo.value?.ledger?.changes ? nanchangInfo.value.ledger.changes : wenzhouInfo.value?.round_changes ? wenzhouInfo.value.round_changes : action === 'liuju' && guizhouInfo.value?.ledger ? guizhouInfo.value.ledger.score_changes
+  const malaysiaInfo = detail.value?.rule === 'malaysia' ? malaysiaInfoAt(round, node.value) : null
+  const scoreValues = malaysiaInfo?.round_changes ? round.seats!.map((_, seat) => malaysiaInfo.round_changes[round.seats!.indexOf(seat)]) : nanchangInfo.value?.ledger?.changes ? nanchangInfo.value.ledger.changes : wenzhouInfo.value?.round_changes ? wenzhouInfo.value.round_changes : action === 'liuju' && guizhouInfo.value?.ledger ? guizhouInfo.value.ledger.score_changes
     : action === 'ryuukyoku' || action === 'liuju' ? tick[2] : tick[4]
   const changes = Array.isArray(scoreValues)
     ? scoreValues.slice(0, 4).map((value, seat) => ({
       seat,
-      player: replay.value?.playerForSeat(round, seat)?.username || `玩家 ${seat + 1}`,
+      player: replay.value?.playerForSeat(round, seat)?.username || tr(`玩家 ${seat + 1}`),
       value: Number(value) || 0,
     }))
     : []
@@ -791,7 +823,7 @@ const roundResult = computed(() => {
   const winnerSeat = Number(tick[1]) || 0
   return {
     kind: 'win' as const,
-    player: replay.value?.playerForSeat(round, winnerSeat)?.username || `玩家 ${winnerSeat + 1}`,
+    player: replay.value?.playerForSeat(round, winnerSeat)?.username || tr(`玩家 ${winnerSeat + 1}`),
     fan: guangdongInfo.value ? Number(guangdongInfo.value.result?.fan ?? (Array.isArray(tick[3]) ? tick[3].reduce((sum, label) => { const parts = String(label).split('|'); return sum + (parts[0] === 'GD' && /^\d+$/.test(parts[2] || '') ? Number(parts[2]) : 0) }, 0) : 0)) : Number(tick[2]) || 0,
     fans: Array.isArray(tick[3]) ? tick[3].map(String) : [],
     changes,
@@ -821,7 +853,7 @@ const resultClosedTiles = computed(() => {
     tiles,
     resultWinTile.value,
     resultWinner.value?.melds.length ?? 0,
-    mmcrSettlementSortKey,
+    tile => jokerFirstSortKey(tile, resultPosition.value?.snapshot.hand_joker_tiles ?? [], mmcrSettlementSortKey),
   )
 })
 function expandResultMeld(meld: MeldSnapshot): number[] {
@@ -829,12 +861,24 @@ function expandResultMeld(meld: MeldSnapshot): number[] {
   return Array(meld.type === 'kong' ? 4 : 3).fill(meld.tile)
 }
 const resultMeldTiles = computed(() => (resultWinner.value?.melds ?? []).flatMap(expandResultMeld))
+// Five melds and extra kong tiles should leave the winning tile visible.
+// On narrow screens keep readable tiles and the existing horizontal scroll.
+const resultHandStyle = computed(() => {
+  if (detail.value?.rule !== 'fuzhou') return undefined
+  const tileCount = resultClosedTiles.value.length + resultMeldTiles.value.length + (resultWinTile.value ? 1 : 0)
+  return { '--end-result-tile-width': `clamp(24px, calc((100% - 40px) / ${Math.max(1, tileCount)}), 42px)` }
+})
 const resultFlowerTiles = computed(() => resultWinner.value?.flower_tiles ?? [])
 const resultFans = computed(() => roundResult.value?.kind === 'win'
   ? roundResult.value.fans.map((name) => {
+    if ((detail.value?.sub_rule || detail.value?.record?.game_title?.sub_rule) === "guobiao/huahun" && huahunFanPoints(name) != null) return {name, value: `${huahunFanPoints(name)}番`}
     if (detail.value?.rule === 'shanxi') return parseShanxiFan(name)
     const guizhouFan = detail.value?.rule === 'guizhou' ? parseGuizhouFan(name) : null
     if (guizhouFan) return guizhouFan
+    const fuzhouFan = detail.value?.rule === 'fuzhou' ? parseFuzhouFan(name) : null
+    if (fuzhouFan) return fuzhouFan
+    const malaysiaFan = detail.value?.rule === 'malaysia' ? parseMalaysiaFan(name) : null
+    if (malaysiaFan) return malaysiaFan
     const yixingFan = detail.value?.rule === 'yixing' ? parseYixingFan(name) : null
     if (yixingFan) return yixingFan
     const wenzhouFan = detail.value?.rule === 'wenzhou' ? parseWenzhouFan(name) : null
@@ -849,7 +893,7 @@ const resultFans = computed(() => roundResult.value?.kind === 'win'
       const encoded = name.match(/^(.+)（(\d+)(番|花)）$/)
       if (encoded) return { name: encoded[1], value: `${encoded[2]}${encoded[3]}` }
       const profile = detail.value.record?.game_title?.detailed_config?.qing3_hun2_peng2 === true
-      const fans: Record<string, number> = { '清一色': profile ? 3 : 2, '混一色': profile ? 2 : 1, '碰碰和': profile ? 2 : 1, '门清': 1, '大吊车': 1, '杠开': 1, '抢杠': 1 }
+      const fans: Record<string, number> = { '清一色': profile ? 3 : 2, '混一色': profile ? 2 : 1, '碰碰和': profile ? 2 : 1, '门清': 1, '大吊车': 1, '杠开': 1, '抢杠': 1, '天敲': 2 }
       return { name, value: fans[name] == null ? '' : `${fans[name]}番` }
     }
     const guangdongFan = guangdongInfo.value ? parseGuangdongFan(name) : null
@@ -890,8 +934,8 @@ const resultPlayers = computed(() => {
   const changes = new Map((roundResult.value?.changes ?? []).map((change) => [change.seat, change.value]))
   return snapshot.seats.map((seat) => ({
     seat: seat.seat_index,
-    relative: (seat.seat_index - viewerSeat + 4) % 4,
-    player: seat.username || `玩家 ${seat.seat_index + 1}`,
+    relative: relativeSeat(seat.seat_index, viewerSeat, replay.value?.playerCount || 4),
+    player: seat.username || tr(`玩家 ${seat.seat_index + 1}`),
     score: seat.score,
     value: changes.get(seat.seat_index) ?? 0,
   }))
@@ -933,6 +977,15 @@ const predictedWallIndices = computed(() => {
   const predicted = new Set<number>()
   if (!snapshot || !chongHintEnabled.value || tiles.length === 0) return predicted
   if (tiles.some(item => item.originalPlayer !== undefined)) {
+    if (tiles.some(item => item.commonActive)) {
+      const anchor = waitingForDrawAfterCut(snapshot) ? Number(snapshot.state.last_actor) : Number(snapshot.state.current_player)
+      const offset = (Number(snapshot.viewer.seat_index) - anchor + 3) % 4
+      let remaining = 0
+      tiles.forEach((item, index) => {
+        if (!item.consumed && remaining++ % 4 === offset) predicted.add(index)
+      })
+      return predicted
+    }
     tiles.forEach((item, index) => {
       if (!item.consumed && item.originalPlayer === viewerOriginal.value) predicted.add(index)
     })
@@ -967,7 +1020,7 @@ const wallTilesWithHints = computed(() => {
     isPredicted: chongHintEnabled.value && predictedWallIndices.value.has(index),
   }))
 })
-const initialHands = computed(() => replay.value?.initialHandsAt(roundIndex.value) ?? [])
+const initialHands = computed(() => replay.value?.initialHandsAt(roundIndex.value, node.value) ?? [])
 const duplicateInitialPartitions = computed(() => {
   const title = detail.value?.record.game_title
   const tiles = title?.duplicate_round_tiles?.[Number(currentRound.value?.current_round || 1) - 1] || title?.duplicate_tiles
@@ -977,7 +1030,9 @@ const duplicateInitialPartitions = computed(() => {
 })
 const wallGroups = computed(() => {
   if (Array.isArray(currentRound.value?.duplicate_walls)) {
-    return [0, 1, 2, 3].map(original => ({ label: `${original + 1} 号玩家固定牌山`, tiles: wallTilesWithHints.value.filter(item => item.originalPlayer === original) }))
+    const groups = [0, 1, 2, 3].map(original => ({ label: tr('{player} 号玩家固定牌山', { player: original + 1 }), tiles: wallTilesWithHints.value.filter(item => item.originalPlayer === original && !item.shared) }))
+    if (currentRound.value.duplicate_wall_layout === 'xueliu') groups.push({ label: '公共牌墙', tiles: wallTilesWithHints.value.filter(item => item.shared) })
+    return groups
   }
   return [{ label: '牌山', tiles: wallTilesWithHints.value }]
 })
@@ -996,14 +1051,14 @@ const xunmuSelectValue = computed(() => (
 ))
 const scoreboardPlayers = computed(() => {
   if (!replay.value || !detail.value) return []
-  return [0, 1, 2, 3].map((original) => {
+  return Array.from({length: replay.value?.playerCount || 4}, (_, original) => {
     const player = detail.value!.players.find((item) => item.original_player_index === original)
       || detail.value!.players[original]
     return {
       player_index: original,
       original_player_index: original,
       user_id: player?.user_id ?? 0,
-      username: player?.username ?? `玩家 ${original + 1}`,
+      username: player?.username ?? tr(`玩家 ${original + 1}`),
       score: Number(player?.score ?? 0),
       score_history: replay.value!.rounds.map((_, index) => {
         const value = replay.value!.roundScoreChangesByOriginal(index)[original] ?? 0
@@ -1022,7 +1077,7 @@ const scoreboardSettlements = computed(() => replay.value?.rounds.map((round) =>
   if (action === 'liuju' || action === 'ryuukyoku') return '流局'
   const fans = Array.isArray(terminal[3]) ? terminal[3].map(String) : []
   const mainFan = fans.find((fan) => !fan.startsWith('花牌')) || fans[0]
-  return (detail.value?.rule === 'guizhou' ? parseGuizhouFan(mainFan)?.name : detail.value?.rule === 'yixing' ? parseYixingFan(mainFan)?.name : detail.value?.rule === 'nanchang' ? parseNanchangFan(mainFan)?.name : detail.value?.rule === 'wenzhou' ? parseWenzhouFan(mainFan)?.name : detail.value?.rule === 'hangzhou' ? parseHangzhouFan(mainFan)?.name : detail.value?.rule === 'shanxi' ? parseShanxiFan(mainFan).name : isGuangdongMilRecord(detail.value) ? parseGuangdongFan(mainFan)?.name : mainFan) || `${Number(terminal[2]) || 0}${['guizhou', 'yixing', 'hangzhou', 'jiujiang', 'shanxi', 'nanchang'].includes(detail.value?.rule || '') ? '分' : '番'}`
+  return (detail.value?.rule === 'fuzhou' ? parseFuzhouFan(mainFan)?.name : detail.value?.rule === 'malaysia' ? parseMalaysiaFan(mainFan)?.name : detail.value?.rule === 'guizhou' ? parseGuizhouFan(mainFan)?.name : detail.value?.rule === 'yixing' ? parseYixingFan(mainFan)?.name : detail.value?.rule === 'nanchang' ? parseNanchangFan(mainFan)?.name : detail.value?.rule === 'wenzhou' ? parseWenzhouFan(mainFan)?.name : detail.value?.rule === 'hangzhou' ? parseHangzhouFan(mainFan)?.name : detail.value?.rule === 'shanxi' ? parseShanxiFan(mainFan).name : isGuangdongMilRecord(detail.value) ? parseGuangdongFan(mainFan)?.name : mainFan) || `${Number(terminal[2]) || 0}${['fuzhou', 'malaysia', 'guizhou', 'yixing', 'hangzhou', 'jiujiang', 'shanxi', 'nanchang'].includes(detail.value?.rule || '') ? '分' : '番'}`
 }) ?? [])
 
 function stopPlaying() {
@@ -1224,7 +1279,7 @@ function advanceAnimatedStep() {
   }
   // Guizhou has silent physical mutations (opening-kong reveals and the
   // unique source tile of multi-ron). Apply those before the next animation.
-  if (ticks.slice(node.value, playNode).some((entry) => ['guizhou', 'wenzhou', 'nanchang'].includes(String(entry[0])))) {
+  if (ticks.slice(node.value, playNode).some((entry) => ['fuzhou', 'malaysia', 'guizhou', 'wenzhou', 'nanchang'].includes(String(entry[0])))) {
     const before = replay.value.build(roundIndex.value, playNode, viewerOriginal.value, showOtherHands.value)
     decorateSnapshotRanks(before.snapshot)
     scene.flushFromSnapshot(before.snapshot)
@@ -1253,7 +1308,7 @@ function advanceAnimatedStep() {
     // Replay stepping uses the same board mutation path as the live game. In
     // particular, chow/pung/kong now move tiles out of the river and hand instead
     // of replacing the whole table with the post-action snapshot.
-    if (['wenzhou', 'nanchang'].includes(detail.value?.rule || '') && ['cl', 'cm', 'cr', 'p', 'g', 'ag', 'jg'].includes(action)) {
+    if (['fuzhou', 'malaysia', 'wenzhou', 'nanchang'].includes(detail.value?.rule || '') && ['cl', 'cm', 'cr', 'p', 'g', 'ag', 'jg'].includes(action)) {
       let physicalNode = nextNode
       while (physicalNode < ticks.length && isRecordSilentTick(ticks[physicalNode])) physicalNode++
       const physical = replay.value.build(roundIndex.value, physicalNode, viewerOriginal.value, showOtherHands.value)
@@ -1337,12 +1392,12 @@ function roundOutcomeClass(index: number) {
 function roundScoreChangeRows(index: number) {
   if (!replay.value) return []
   const changes = replay.value.roundScoreChangesByOriginal(index)
-  return [0, 1, 2, 3].map((original) => {
+  return Array.from({length: replay.value?.playerCount || 4}, (_, original) => {
     const player = detail.value?.players.find((item) => item.original_player_index === original)
       || detail.value?.players[original]
     return {
       original,
-      username: player?.username || `玩家 ${original + 1}`,
+      username: player?.username || tr(`玩家 ${original + 1}`),
       change: changes[original] ?? 0,
     }
   })
@@ -1458,6 +1513,8 @@ function waitDataForSnapshot(snapshot: ActiveSessionSnapshot) {
     return buildShanxiWaitData({ hand, combinations: viewer.melds.map(meldKey), publicTiles }, viewer.drawn_tile != null)
   }
   const title = detail.value?.record.game_title ?? {}
+  if (detail.value?.rule === 'malaysia') return null
+  if (detail.value?.rule === 'fuzhou') return fuzhouWaitDataAt(currentRound.value,node.value,viewer.seat_index,hand,viewer.melds.map(meldKey),hangzhouKnownTiles(snapshot,mmcrTileToSalasasa))
   if (detail.value?.rule === 'wenzhou') return wenzhouWaitData(currentRound.value, node.value, viewer.seat_index, hand, snapshot, mmcrTileToSalasasa)
   if (detail.value?.rule === 'guizhou') return buildGuizhouWaitData({
     hand, combinations: viewer.melds.map(meldKey),
@@ -1473,6 +1530,8 @@ function waitDataForSnapshot(snapshot: ActiveSessionSnapshot) {
     playerIndex: viewer.seat_index,
     currentRound: Number(currentRound.value?.current_round ?? roundIndex.value + 1),
     hepaiLimit: Number(title.hepai_limit ?? 8),
+    jokerMultiWait: !!title.joker_multi_wait,
+    noJokerBonus: title.no_joker_bonus, blackFlowerProgressive: title.black_flower_progressive,
     subRule: String(detail.value?.sub_rule ?? 'guobiao'),
     seatDiscards: snapshot.seats.map((seat) => seat.discard_pile.map(mmcrTileToSalasasa)),
     seatCombinations: snapshot.seats.map((seat) => seat.melds.map(meldKey)),
@@ -1488,7 +1547,12 @@ function waitingTilesForSnapshotSeat(seat: ActiveSessionSnapshot['seats'][number
     const hints = jiujiangHintsAt(currentRound.value,node.value,seat.seat_index,hand,seat.melds.map(meldKey))
     return new Set<number>((hints?.waiting_tiles || []).filter((tile: number)=>hints.waiting_details?.[tile]?.kind === 'dianhe').map(salasasaTileToMmcr))
   }
+  if (detail.value?.rule === 'malaysia') return new Set<number>()
   if (detail.value?.rule === 'hongzhong') return new Set<number>() // This rule never permits a discard win.
+  if (detail.value?.rule === 'fuzhou') {
+    const hints=fuzhouHintsAt(currentRound.value,node.value,seat.seat_index,hand,seat.melds.map(meldKey))
+    return new Set<number>((hints?.waiting_tiles || []).filter((tile: number)=>hints.waiting_details?.[tile]?.kind === 'ron').map(salasasaTileToMmcr))
+  }
   if (detail.value?.rule === 'wenzhou') return new Set<number>(wenzhouWaitsAt(currentRound.value, node.value, seat.seat_index, hand).map((wait: { tile: number }) => salasasaTileToMmcr(wait.tile)))
   if (detail.value?.rule === 'guizhou') return new Set(guizhouRonWaitingTiles(hand, seat.melds.map(meldKey),
     guizhouReadyAt(currentRound.value, node.value, seat.seat_index)).map(salasasaTileToMmcr))
@@ -1650,7 +1714,7 @@ async function uploadBackgroundImage(file: File) {
     persistAppearance({ ...appearance.value, backgroundImageEnabled: true })
     scene?.setBackgroundImage(backgroundImage.value.dataUrl)
   } catch {
-    ElMessage.error('背景图片保存失败')
+    ElMessage.error(tr('背景图片保存失败'))
   }
 }
 
@@ -1661,7 +1725,7 @@ async function clearBackgroundImage() {
     persistAppearance({ ...appearance.value, backgroundImageEnabled: false })
     scene?.setBackgroundImage(null)
   } catch {
-    ElMessage.error('背景图片移除失败')
+    ElMessage.error(tr('背景图片移除失败'))
   }
 }
 
@@ -1691,13 +1755,13 @@ async function copyShareLink(kind: '2d' | '2d-node' | '3d' | '3d-node') {
     await navigator.clipboard.writeText(url)
     copiedKind.value = kind
     if (kind === '2d-node' || kind === '3d-node') {
-      ElMessage.success(`已复制${kind === '3d-node' ? '3D' : '2D'}当前位置（第${round}局 node ${node.value}）`)
+      ElMessage.success(tr('已复制{mode}当前位置（第{round}局 node {node}）', { mode: kind === '3d-node' ? '3D' : '2D', round, node: node.value }))
     }
     window.setTimeout(() => {
       if (copiedKind.value === kind) copiedKind.value = null
     }, 1800)
   } catch {
-    ElMessage.error(`复制失败，请手动复制：${url}`)
+    ElMessage.error(tr('复制失败，请手动复制：{url}', { url }))
   }
 }
 
@@ -1830,17 +1894,23 @@ watch(locale, () => {
 watch(() => route.params.gameId, loadRecord)
 
 onMounted(() => {
+  window.addEventListener('four-jokers-waits-ready', refreshFourJokersHints)
   window.addEventListener('keydown', onKeydown)
   void loadRecord()
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('four-jokers-waits-ready', refreshFourJokersHints)
   window.removeEventListener('keydown', onKeydown)
   stopPlaying()
   clearResultTimers()
   scene?.destroy()
   scene = null
 })
+
+function refreshFourJokersHints() {
+  if (resultPosition.value?.snapshot) refreshReplayHints(resultPosition.value.snapshot)
+}
 </script>
 
 <style src="./Game.css"></style>

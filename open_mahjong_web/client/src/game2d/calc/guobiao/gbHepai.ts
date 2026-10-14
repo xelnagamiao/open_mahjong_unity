@@ -1089,9 +1089,9 @@ export class Chinese_Hepai_Check {
             + countOccurrences(combination_str, 'k')
             + countOccurrences(combination_str, 'g')
           if (
-            combination_str.length > 0 &&
+            player_tiles.initial_combination_count === 4 &&
             [...combination_str].every((c) => !['S', 'K', 'G', 'z'].includes(c)) &&
-            way_to_hepai.includes('和单张')
+            player_tiles.combination_list.includes(`q${get_tile}`)
           ) {
             player_tiles.fan_list.push('quanqiuren')
           } else if (small_count === 0) {

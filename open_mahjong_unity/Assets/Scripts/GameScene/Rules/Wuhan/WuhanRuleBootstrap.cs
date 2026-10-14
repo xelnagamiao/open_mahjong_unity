@@ -28,6 +28,9 @@ internal static class WuhanRuleBootstrap {
             DescribeWaitingTile = query => query.Record != null
                 ? GameRecordManager.Instance?.DescribeWuhanWaiting(query) : WuhanGameState.Active?.DescribeWaiting(query),
             TileBadgeText = Badge, LiveVisibleIndicators = () => CurrentInfo?.indicator is int tile ? new[] { tile } : Array.Empty<int>(),
+            HandJokerTiles = _ => WuhanPresentation.DisplayedInfo?.joker is int tile ? new[] { tile } : Array.Empty<int>(),
+            PrepareHandDisplay = info => WuhanPresentation.Apply(info?.wuhan_info, false),
+            RecordHandJokerTiles = RecordJokers,
             VisibleMeldTiles = (code, self) => !self && code?.StartsWith("G") == true ? Array.Empty<int>() : null,
             FanValueText = (rule, name) => name == "风一色" ? "金顶" : name == "硬和" ? "1番" : "主3番\n叠1番",
             SettlementTotal = query => new SettlementTotalDisplay {
@@ -46,4 +49,13 @@ internal static class WuhanRuleBootstrap {
     public static WuhanInfo CurrentInfo => GameRecordManager.Instance?.ShouldShowRecordTips() == true
         ? GameRecordManager.Instance.WuhanRecordInfo : WuhanGameState.Active?.Info;
     public static string Badge(int tile) => CurrentInfo?.joker == tile ? "癞" : (CurrentInfo?.skins ?? Array.Empty<int>()).Contains(tile) ? "皮" : null;
+    private static IEnumerable<int> RecordJokers(Round round) {
+        if (round?.actionTicks == null) return Array.Empty<int>();
+        foreach (var tick in round.actionTicks) {
+            if (tick.Count >= 3 && tick[0] == "wuhan" && tick[1] == "indicator"
+                && int.TryParse(tick[2], out int indicator))
+                return new[] { WuhanGameState.InfoFromIndicator(indicator).joker.Value };
+        }
+        return Array.Empty<int>();
+    }
 }

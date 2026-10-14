@@ -44,6 +44,15 @@ Shader "Custom/WashizuGlassTile"
         _GrayScale ("Gray Scale", Range(0, 1)) = 0.0
         _FrontRotation ("Front Rotation (度)", Range(0, 360)) = 0.0
         [HideInInspector] _TileInstanceParams ("Tile Instance Params", Vector) = (0,0,0,0)
+        [HideInInspector] _InkPass ("Opaque paint layer", Float) = 0
+        [HideInInspector] _Cull ("Cull", Float) = 0
+        [HideInInspector] _ZWrite ("ZWrite", Float) = 0
+
+        _GlassBodyColor ("Glass Body Color", Color) = (0.30,0.43,0.56,1)
+        _GlassPearlColor ("Glass Front Surface", Color) = (0.75,0.83,0.90,1)
+        _GlassDensity ("Glass Optical Density", Range(0,1)) = 0.18
+        _GlassFaceFrost ("Glass Front Surface Reflection", Range(0,1)) = 0.16
+        _GlassFacetContrast ("Glass Facet Contrast", Range(0,0.5)) = 0.30
 
         // Matte cel shading: two albedo-multiplied tones, without additive
         // highlights, reflections, or a separately brightened bevel/face mask.
@@ -62,8 +71,8 @@ Shader "Custom/WashizuGlassTile"
         Pass {
             Name "Glass"
             Tags { "LightMode"="UniversalForward" }
-            Cull Off
-            ZWrite Off
+            Cull [_Cull]
+            ZWrite [_ZWrite]
             Blend SrcAlpha OneMinusSrcAlpha
             HLSLPROGRAM
             #pragma target 3.0
@@ -77,6 +86,12 @@ Shader "Custom/WashizuGlassTile"
             float _FrontRotation;
             float _TableFaceImageScale;
             float _FrontTexContain;
+            float _InkPass;
+            half4 _GlassBodyColor;
+            half4 _GlassPearlColor;
+            half _GlassDensity;
+            half _GlassFaceFrost;
+            half _GlassFacetContrast;
         CBUFFER_END
         TEXTURE2D(_FrontTex); SAMPLER(sampler_FrontTex);
         UNITY_INSTANCING_BUFFER_START(TilePerInstance)
@@ -135,9 +150,20 @@ Shader "Custom/WashizuGlassTile"
                 half printed=saturate(i.color.r);
                 half paper=min(art.r,min(art.g,art.b));
                 half ink=(1-smoothstep(.58h,.93h,paper))*coverage*printed;
+                // Paint is a depth-writing surface drawn before the outer glass.
+                // Both sides of the paint remain opaque, including inverted kongs.
+                if (_InkPass > .5) {
+                    clip(ink-.02h);
+                    half3 paint=art.rgb*tint.rgb;
+                    paint=lerp(paint,dot(paint,half3(.299,.587,.114)).xxx,saturate(grayAmount));
+                    return half4(paint,ink*tint.a);
+                }
                 float3 n=normalize(i.normalWS), no=normalize(i.normalOS);
                 float3 v=SafeNormalize(GetWorldSpaceViewDir(i.positionWS));
                 half exterior=IS_FRONT_VFACE(facing,1.0h,0.0h);
+                // Retain the far printed plane when looking through a standing
+                // tile. Interior side/back faces would add a second fog layer.
+                clip(exterior+printed-.001h);
                 half grazing=pow(1-saturate(abs(dot(n,v))),4);
                 // Bevels are identified in object space. World-space axes made the
                 // old shader turn an entire rotated face blue instead of its edges.
@@ -148,8 +174,8 @@ Shader "Custom/WashizuGlassTile"
                 half highlight=saturate(.22h+ceiling*.65h+strip*.42h);
                 half lightSide=saturate(dot(n,normalize(float3(-.55,.85,-.25)))*.5h+.5h);
                 half rim=saturate(bevel*(.18h+highlight*.52h+lightSide*.30h)+grazing*.18h);
-                // Soft internal reflections follow each physical face, extending inward
-                // beyond the bevel. The centre transmits almost all of the cloth.
+                // Soft reflections follow each physical face and extend inward
+                // beyond the bevel, independently of the glass body below.
                 float3 local=i.positionOS/float3(.0100,.0133,.0065);
                 float3 axis=abs(no);
                 float2 face=axis.z>max(axis.x,axis.y) ? local.xy : (axis.y>axis.x ? local.xz : local.zy);
@@ -158,20 +184,39 @@ Shader "Custom/WashizuGlassTile"
                 half broadRim=exp2(-min(fromEdge.x,fromEdge.y)*7);
                 half sweep=exp2(-32*pow(face.x*.65+face.y*.34-.40,2));
                 half directional=saturate(.38+dot(n,normalize(float3(-.55,.85,-.25)))*.55);
-                half reflectionAlpha=edgeBand*.30h+broadRim*.16h+sweep*.13h*directional;
-                half alpha=saturate(.006h + rim*.79h + reflectionAlpha)*lerp(.24h,1.0h,exterior);
-                half3 rgb=lerp(half3(.40,.43,.47),half3(.94,.97,1.0),saturate(highlight+edgeBand*.45));
-                // Glass transmits the table; the painted artwork does not. The
-                // same opaque paint is visible from either side of its surface.
-                half sideCoating=saturate(i.color.b)*exterior*(.045h+lightSide*.065h);
-                rgb=lerp(rgb,half3(.42,.46,.52),sideCoating*2);
-                alpha=max(alpha,sideCoating);
-                half frontPaper=printed*exterior*.38h;
-                rgb=lerp(rgb,half3(.72,.75,.79),frontPaper);
-                alpha=max(alpha,frontPaper);
-                half inkAlpha=ink;
-                half combined=inkAlpha+alpha*(1-inkAlpha);
-                rgb=(art.rgb*inkAlpha+rgb*alpha*(1-inkAlpha))/max(combined,.0001h);
+                // A closed piece of glass has visible volume across its broad
+                // faces, not only along its bevel. Approximate the optical path
+                // through the tile box so oblique views and thick side faces
+                // carry more body color than a face-on view.
+                float3 viewOS=SafeNormalize(TransformWorldToObjectDir(v));
+                float3 toExit=(float3(.0100,.0133,.0065)+sign(viewOS)*i.positionOS)
+                    /max(abs(viewOS),.0001);
+                half thickness=clamp(min(toExit.x,min(toExit.y,toExit.z))/.013, .15, 2.8);
+                half bodyAlpha=(1-exp2(-_GlassDensity*thickness))*exterior;
+                half broadFace=smoothstep(.80h,.98h,abs(no.z));
+                half faceHeight=saturate(local.y*.5+.5);
+                half facetLight=saturate(n.y*.5h+.5h);
+                half facetTone=lerp(1-_GlassFacetContrast,1,facetLight);
+                half frostAlpha=_GlassFaceFrost*printed*(.72h+faceHeight*.28h);
+                half3 bodyRgb=_GlassBodyColor.rgb*facetTone;
+                half3 frostRgb=_GlassPearlColor.rgb*(.84h+lightSide*.16h);
+                half alpha=1-(1-bodyAlpha)*(1-frostAlpha);
+                half3 rgb=(bodyRgb*bodyAlpha*(1-frostAlpha)+frostRgb*frostAlpha)/max(alpha,.0001h);
+                // A subdued lower thickness band separates the standing body
+                // from the cloth. It follows the tile throughout a reveal.
+                half lowerBand=exp2(-max(local.y+1,0)*13)*broadFace*(1-abs(n.y))*.16h*exterior;
+                rgb=lerp(rgb,_GlassBodyColor.rgb*.52h,lowerBand);
+                alpha=1-(1-alpha)*(1-lowerBand);
+                half reflectionAlpha=saturate(rim*.60h+edgeBand*.22h+broadRim*.12h+sweep*.13h*directional)*lerp(.12h,1.0h,exterior);
+                half3 reflectionRgb=lerp(half3(.50,.59,.68),half3(.94,.97,1.0),saturate(highlight+edgeBand*.45));
+                rgb=(rgb*alpha*(1-reflectionAlpha)+reflectionRgb*reflectionAlpha)/max(alpha*(1-reflectionAlpha)+reflectionAlpha,.0001h);
+                alpha=1-(1-alpha)*(1-reflectionAlpha);
+                // The faint face surface is visible from either side at the
+                // same physical depth as the opaque ink, never on the back shell.
+                alpha*=1-ink;
+                // Face-on paint lies on the outer surface; glass behind it fails
+                // the depth test. Viewed from the back, the glass covers the paint.
+                half combined=alpha;
                 // A small, filtered refraction contribution softens cloth seen
                 // through the glass. Most transmission still uses alpha blending,
                 // preserving other transparent tiles behind this one. The current
@@ -187,7 +232,8 @@ Shader "Custom/WashizuGlassTile"
                     transmitted+=SampleSceneColor(refractedUV-pixel*float2(1.2,0))*.15h;
                     transmitted+=SampleSceneColor(refractedUV+pixel*float2(0,1.2))*.15h;
                     transmitted+=SampleSceneColor(refractedUV-pixel*float2(0,1.2))*.15h;
-                    half transmission=(1-combined)*.28h*exterior;
+                    // Paint lies on the surface; refraction acts only on clear glass.
+                    half transmission=(1-combined)*.10h*exterior*(1-ink);
                     rgb=(rgb*combined+transmitted*transmission)/max(combined+transmission,.0001h);
                     combined+=transmission;
                 }

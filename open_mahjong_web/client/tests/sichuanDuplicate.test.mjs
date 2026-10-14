@@ -26,4 +26,12 @@ test('groups use authoritative pair id, preserve independent rooms and put open 
 test('new bloodflow record stays continuous-win and team-aware',()=>{
   const record={rule:'sichuan',record:{game_title:{rule:'sichuan',sub_rule:'sichuan/xueliu_doubles_duplicate',team_by_player_index:[1,0,1,0]}}}
   assert.ok(isSichuanBloodFlow(record)); assert.equal(sichuanDoublesSummary(record).teams.length,2)
+  assert.deepEqual(sichuanDoublesSummary(record).teams.map(team => team.name), ['蓝队', '红队'])
+})
+
+test('paired replay preserves both score totals and the selected winner', () => {
+  const result = { scores: { 0: 80, 1: 60 }, small_scores: { 0: 80, 1: 60 }, imp_scores: { 0: 4, 1: 6 },
+    winner_team_id: 0, reason: 'raw_difference', match_points: { 0: 1, 1: 0 } }
+  const detail = { record: { game_title: { sub_rule: 'sichuan/xueliu_doubles_duplicate', team_by_player_index: [0, 1, 0, 1] }, doubles_result: result } }
+  assert.deepEqual(sichuanDoublesSummary(detail).result, result)
 })

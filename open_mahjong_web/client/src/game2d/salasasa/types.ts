@@ -65,6 +65,7 @@ export interface SalasasaPlayerInfo {
 }
 
 export interface SalasasaGameInfo {
+  four_jokers_hints?: import('../calc/guobiao/fourJokers').FourJokersSnapshot
   room_id: number
   gamestate_id: string
   current_player_index: number
@@ -84,11 +85,15 @@ export interface SalasasaGameInfo {
   sub_rule?: string
   tips?: boolean
   hepai_limit?: number
+  joker_multi_wait?: boolean
+  no_joker_bonus?: string
+  black_flower_progressive?: boolean
   dealer_index?: number
   players_info: SalasasaPlayerInfo[]
 }
 
 export interface SalasasaAskHandInfo {
+  four_jokers_hints?: import('../calc/guobiao/fourJokers').FourJokersSnapshot
   action_list: string[]
   remaining_time: number
   step_remaining?: number | null
@@ -97,6 +102,7 @@ export interface SalasasaAskHandInfo {
   player_index: number
   remain_tiles: number
   forced_cut_tiles?: number[]
+  forbidden_cut_tiles?: number[]
   action_tick: number
   dealer_index?: number
   opening_buhua_complete?: boolean

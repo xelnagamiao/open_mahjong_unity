@@ -373,13 +373,15 @@
       "default": 3000,
       "values": [
         0,
+        2000,
         3000
       ],
       "choices": [
         "无",
-        "场上3000点"
+        "场上2000点（三麻默认）",
+        "场上3000点（四麻默认）"
       ],
-      "help": "一至三家听牌时，不听者均摊支付给听牌者。"
+      "help": "听牌者均分总额，不听者均摊支付。三麻默认2000点，四麻默认3000点；全听或全不听不支付。"
     },
     {
       "section": "终局与顺位",
@@ -950,7 +952,7 @@
         "four_kan_abort": true,
         "nagashi_mangan": true,
         "nagashi_allow_calls": true,
-        "noten_penalty": 3000,
+        "noten_penalty": 2000,
         "tenpai_renchan": true,
         "agari_yame": true,
         "tenpai_yame": true,
@@ -1010,7 +1012,7 @@
         "four_kan_abort": true,
         "nagashi_mangan": true,
         "nagashi_allow_calls": true,
-        "noten_penalty": 3000,
+        "noten_penalty": 2000,
         "tenpai_renchan": true,
         "agari_yame": true,
         "tenpai_yame": true,

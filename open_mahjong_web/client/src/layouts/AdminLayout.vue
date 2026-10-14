@@ -7,7 +7,12 @@
           v-for="item in menuItems"
           :key="item.index"
           :index="item.index"
-        >{{ item.label }}</el-menu-item>
+        >
+          <span>{{ item.label }}</span>
+          <el-badge v-if="item.badge && notifications.counts[item.badge] > 0"
+            :value="notifications.counts[item.badge]" :max="99" type="danger" class="menu-badge"
+            :aria-label="`${item.label}：${notifications.counts[item.badge]} 条待审核`" />
+        </el-menu-item>
       </el-menu>
     </el-aside>
     <el-container class="admin-body">
@@ -23,15 +28,35 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAdminAuthStore } from '@/stores/adminAuth'
+import { useAdminNotificationsStore } from '@/stores/adminNotifications'
 import { useMobile } from '@/composables/useMobile'
 import { usePanelViewportLock } from '@/composables/usePanelViewportLock'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAdminAuthStore()
+const notifications = useAdminNotificationsStore()
+let notificationTimer
+function refreshNotifications() {
+  if (!document.hidden) notifications.refresh()
+}
+onMounted(() => {
+  refreshNotifications()
+  notificationTimer = setInterval(refreshNotifications, 30000)
+  document.addEventListener('visibilitychange', refreshNotifications)
+  window.addEventListener('focus', refreshNotifications)
+})
+onBeforeUnmount(() => {
+  clearInterval(notificationTimer)
+  document.removeEventListener('visibilitychange', refreshNotifications)
+  window.removeEventListener('focus', refreshNotifications)
+  notifications.reset()
+})
+watch(() => auth.token, () => { notifications.reset(); refreshNotifications() })
+watch(() => route.path, refreshNotifications)
 const { isMobile } = useMobile()
 usePanelViewportLock()
 
@@ -44,11 +69,12 @@ const menuItems = [
   { index: '/admin/inventory', label: '物品' },
   { index: '/admin/events', label: '赛事' },
   { index: '/admin/bases', label: '基地' },
-  { index: '/admin/event-applications', label: '办赛申请' },
-  { index: '/admin/base-applications', label: '基地申请' },
+  { index: '/admin/event-applications', label: '办赛申请', badge: 'event' },
+  { index: '/admin/base-applications', label: '基地申请', badge: 'base' },
   { index: '/admin/tile-content', label: '牌面审核' },
   { index: '/admin/rank', label: '段位' },
   { index: '/admin/games', label: '对局记录' },
+  { index: '/admin/room-control', label: '房间管理' },
   { index: '/admin/game-control', label: '对局管理' },
   { index: '/admin/audit', label: '审计' },
   { index: '/admin/messages', label: '消息' },
@@ -76,6 +102,7 @@ function onLogout() {
 </script>
 
 <style scoped>
+.menu-badge { margin-left: auto; line-height: 1; }
 .admin-layout {
   min-height: 100vh;
   height: 100vh;

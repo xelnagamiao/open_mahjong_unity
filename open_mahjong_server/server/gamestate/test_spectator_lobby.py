@@ -1,5 +1,8 @@
 """Public spectator-room metadata stays aligned with the displayed player order."""
+import asyncio
+import json
 from types import SimpleNamespace as NS
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -55,7 +58,115 @@ def test_doubles_missing_team_metadata_is_not_invented():
     assert listing(state(sub_rule="sichuan/doubles"))[0].team_by_player_index == [-1] * 4
 
 
+@pytest.mark.parametrize("sub_rule,count", [
+    ("guobiao/standard", 4), ("riichi/standard", 4),
+    ("guobiao/sanma", 3), ("riichi/sanma", 3),
+])
+@pytest.mark.parametrize("room_type", ["custom", "match"])
+def test_list_supports_rule_player_count_and_preserves_wire_names(sub_rule, count, room_type):
+    players = state().player_list[:count]
+    players[1].username = ""
+    infos = listing(state(room_rule=sub_rule.split("/")[0], sub_rule=sub_rule,
+                         room_type=room_type, player_list=players, match_tier="advanced"))
+    assert len(infos) == 1
+    payload = infos[0].model_dump(exclude_none=True)
+    assert [payload[f"player{i}_name"] for i in range(1, 5)] == [
+        "P0", "21", "P2", "P3" if count == 4 else "",
+    ]
+    assert payload["sub_rule"] == sub_rule and payload["gamestate_id"] == "game"
+    assert payload["room_type"] == room_type
+    assert payload.get("match_tier") == ("advanced" if room_type == "match" else None)
+    assert "team_by_player_index" not in payload
+
+
+@pytest.mark.parametrize("sub_rule,count", [
+    ("guobiao/standard", 3), ("riichi/standard", 3),
+    ("guobiao/sanma", 2), ("riichi/sanma", 2),
+])
+def test_incomplete_tables_stay_out_of_spectator_list(sub_rule, count):
+    assert listing(state(sub_rule=sub_rule, player_list=state().player_list[:count])) == []
+
+
+@pytest.mark.parametrize("sub_rule", ["guobiao/sanma", "riichi/sanma"])
+@pytest.mark.parametrize("ai_count", [0, 1, 2, 3])
+def test_sanma_uses_existing_ai_visibility_limit(sub_rule, ai_count):
+    players = [NS(username=f"P{i}", user_id=i + 1 if i < ai_count else 20 + i)
+               for i in range(3)]
+    assert bool(listing(state(sub_rule=sub_rule, player_list=players))) == (ai_count < 3)
+
+
+@pytest.mark.parametrize("sub_rule", ["guobiao/standard", "guobiao/sanma", "riichi/sanma"])
 @pytest.mark.parametrize("changes", [dict(lifecycle_state="finished"), dict(spectator_enabled=False),
     dict(player_list=[NS(username="AI", user_id=i) for i in range(4)])])
-def test_visibility_guards_remain(changes):
-    assert listing(state(**changes)) == []
+def test_visibility_guards_remain(changes, sub_rule):
+    count = 3 if sub_rule.endswith("/sanma") else 4
+    game = state(sub_rule=sub_rule, player_list=state().player_list[:count])
+    for key, value in changes.items():
+        setattr(game, key, value)
+    assert listing(game) == []
+
+
+@pytest.mark.parametrize("rule", ["guobiao", "riichi"])
+def test_sanma_list_to_delayed_spectator_keeps_three_seats_and_delay(rule, monkeypatch):
+    from .game_guobiao.GuobiaoGameState import GuobiaoGameState
+    from .game_riichi.RiichiGameState import RiichiGameState
+    from .gamestate_router import handle_add_spectator, handle_get_spectator_list
+
+    now = [1000.0]
+    monkeypatch.setattr("server.gamestate.public.spectator_manager.time", NS(time=lambda: now[0]))
+
+    async def run():
+        socket = NS(send_json=AsyncMock())
+        viewer = NS(user_id=999, websocket=socket)
+        server = NS(room_manager=NS(rooms={}), players={"viewer": viewer},
+                    user_id_to_connection={999: viewer},
+                    match_manager=NS(blocks_spectator=lambda uid: False))
+        server.gamestate_manager = GameStateManager(server)
+        room = dict(player_list=[101, 102, 103], room_id="room", room_rule=rule,
+                    sub_rule=f"{rule}/sanma", room_type="custom", round_timer=20,
+                    step_timer=5, game_round=1, tips=False, allow_spectator=True)
+        game_class = GuobiaoGameState if rule == "guobiao" else RiichiGameState
+        game = game_class(server, room, NS(), NS(get_rank_data=lambda uid: None), "sanma-game")
+        for seat, player in enumerate(game.player_list):
+            player.player_index = player.original_player_index = seat
+        game.lifecycle_state = "running"
+        server.gamestate_manager.gamestate_id_to_game_state[game.gamestate_id] = game
+        spectator = game.spectator_manager
+        spectator.record_game_title()
+        spectator.record_round_start()
+        spectator.record_tick(["c", 21, "F"])
+        try:
+            await handle_get_spectator_list(server, "viewer", {}, socket)
+            response = socket.send_json.call_args.args[0]
+            assert response["success"] and len(response["spectator_list"]) == 1
+            info = response["spectator_list"][0]
+            assert info["player4_name"] == "" and info["sub_rule"] == room["sub_rule"]
+            request = {"gamestate_id": info["gamestate_id"]}
+
+            await handle_add_spectator(server, "viewer", request, socket)
+            assert socket.send_json.call_args.args[0]["success"] is False
+            assert not spectator.spectator_connections
+            assert spectator.spectator_delay == 180
+
+            now[0] += 100
+            spectator.record_tick(["d", 22])
+            now[0] += 81
+            socket.send_json.reset_mock()
+            await handle_add_spectator(server, "viewer", request, socket)
+            messages = [call.args[0] for call in socket.send_json.call_args_list]
+            assert messages[0]["type"] == "spectator/add_spectator" and messages[0]["success"]
+            assert messages[1]["type"] == "spectator/record_init"
+            record = json.loads(messages[1]["message_info"]["content"])
+            assert record["game_title"]["player_count"] == 3
+            assert record["game_title"]["sub_rule"] == room["sub_rule"]
+            assert "p3_uid" not in record["game_title"] and len(record["players_settings"]) == 3
+            header = record["game_round"][f"round_index_{game.round_index}"]
+            assert header["seats"] == [0, 1, 2] and "p3_tiles" not in header
+            assert header["action_ticks"] == [["c", 21, "F"]]
+            assert spectator._get_new_updates(viewer.user_id, 1101) == [
+                {"type": "ticks", "round_index": game.round_index, "new_ticks": [["d", 22]]},
+            ]
+        finally:
+            await spectator.cleanup()
+
+    asyncio.run(run())

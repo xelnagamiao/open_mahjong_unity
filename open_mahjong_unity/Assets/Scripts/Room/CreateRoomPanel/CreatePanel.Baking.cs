@@ -31,10 +31,11 @@ public partial class CreatePanel {
     public void BakeFixedRoomUi() {
         if (!roomPresentationBaked) throw new InvalidOperationException("Create room layout must be authored first.");
         BakeClaimProtectionControl();
-        EnsureHintToggles(); EnsureDuplicateWallControls(); EnsureGuobiaoFlowerControls(); EnsureTianDiRenHeControls();
+        EnsureHintToggles(); EnsureDuplicateWallControls(); EnsureGuobiaoFlowerControls(); EnsureTianDiRenHeControls(); EnsureJokerMultiWaitControls(); EnsureHuahunControls();
         EnsureRiichiOptionToggles(); EnsureRiichiStartingScorePanel(); EnsureCuoheTypePanel();
         EnsureChangshaOptionControls(); EnsureWallOptionControls(); BakeRiichiDetailsPanel();
         BakeHongKongDetailsPanel();
+        BakeFuzhouMainControls();
         BakeFilipinoDetailsPanel();
         BakeVietnameseDetailsPanel();
         BakeYixingRoomControls();
@@ -337,6 +338,43 @@ public partial class CreatePanel {
         GuobiaoFlowersToggle.group = null;
         GuobiaoFlowersToggle.onValueChanged = new Toggle.ToggleEvent();
         GuobiaoFlowersLabel = GuobiaoFlowersToggle.GetComponentInChildren<TMP_Text>(true);
+    }
+
+    private void EnsureHuahunControls() {
+        HuahunBonusPanel = EnsureClonedDropdownPanel(HepaiWayPanel, HuahunBonusPanel, "HuahunBonusPanel", "无癞子奖励");
+        HuahunBonusDropdown = HuahunBonusPanel.GetComponentInChildren<TMP_Dropdown>(true);
+        HuahunBonusDropdown.onValueChanged = new TMP_Dropdown.DropdownEvent();
+        HuahunBonusDropdown.ClearOptions();
+        HuahunBonusDropdown.AddOptions(HuahunRules.BonusLabels.ToList());
+        HuahunBonusDropdown.SetValueWithoutNotify(0);
+        HuahunBonusDropdown.RefreshShownValue();
+        HuahunBonusPanel.transform.SetSiblingIndex(0);
+        var bonusLabel = HuahunBonusPanel.GetComponentsInChildren<TMP_Text>(true).First(t => !t.GetComponentInParent<TMP_Dropdown>(true));
+        bonusLabel.enableAutoSizing = true;
+        bonusLabel.fontSizeMin = 24;
+        RoomStyleDropdown(HuahunBonusDropdown, stepTimer.captionText.fontSizeMax);
+        HuahunBonusPanel.SetActive(false);
+        if (HuahunDoubleToggle) {
+            DestroyImmediate(HuahunDoubleToggle.gameObject);
+            HuahunDoubleToggle = null;
+        }
+        BlackFlowerProgressiveToggle = EnsureClonedToggle(TacticalCallToggle, BlackFlowerProgressiveToggle, "BlackFlowerProgressive", "黑花递增计分", true);
+        BlackFlowerProgressiveToggle.group = null;
+        BlackFlowerProgressiveToggle.onValueChanged = new Toggle.ToggleEvent();
+        BlackFlowerProgressiveToggle.gameObject.SetActive(false);
+        RoomGet<CreateRoomHelpTrigger>(HuahunBonusPanel).Configure(this, "无癞子奖励：可选无癞子+8分（默认）、无癞子翻倍或不额外加分。先以不含花分和奖励的牌型番判定起和，再对牌型番加黑花分进行奖励；国标支付底分8不变。花杠不享受无癞子奖励。");
+        RoomGet<CreateRoomHelpTrigger>(BlackFlowerProgressiveToggle.gameObject).Configure(this, "黑花递增计分：开启时梅兰竹菊1、2、3、4朵合计4、8、16、32番；关闭时每朵1番。花分不计入起和门槛。");
+    }
+
+    private void EnsureJokerMultiWaitControls() {
+        if (JokerMultiWaitToggle != null) return;
+        JokerMultiWaitToggle = EnsureClonedToggle(TacticalCallToggle, null, "JokerMultiWait", "癞子多面听", false);
+        if (JokerMultiWaitToggle == null) return;
+        JokerMultiWaitToggle.group = null;
+        JokerMultiWaitToggle.onValueChanged = new Toggle.ToggleEvent();
+        JokerMultiWaitToggle.transform.SetSiblingIndex(TianDiRenHeToggle.transform.GetSiblingIndex() + 1);
+        RoomGet<CreateRoomHelpTrigger>(JokerMultiWaitToggle.gameObject).Configure(this, FourJokersTips.MultiWaitDescription);
+        JokerMultiWaitToggle.gameObject.SetActive(false);
     }
 
     private void EnsureTianDiRenHeControls() {

@@ -1,12 +1,13 @@
 """上海垃圾和：基础番择高、花分、七对子及全风向。
 
-四张相同牌可作两对，大吊车包含暗杠；自摸采用规则正文的 +5/+10。
+四张相同牌可作两对，大吊车包含暗杠；自摸默认 +5/+10，可选再加一底（5分）。
 """
 from collections import Counter
 
 from .qinghunpeng import NUMBERS, HONORS, TILES, FLOWERS, valid_tiles, decompositions
 
 SUB_RULE = "shanghai/lajihe"
+SELF_DRAW_EXTRA_BASE = "self_draw_extra_base"
 
 
 def flower_points(count):
@@ -28,7 +29,8 @@ def physical_flowers(flowers, melds, sets):
     return total
 
 
-def score(hand, melds=(), flowers=(), *, self_draw=False, replacement=False, rob_kong=False):
+def score(hand, melds=(), flowers=(), *, self_draw=False, replacement=False, rob_kong=False,
+          self_draw_extra_base=False):
     tiles = valid_tiles(hand, melds)
     if tiles is None:
         return None
@@ -65,7 +67,7 @@ def score(hand, melds=(), flowers=(), *, self_draw=False, replacement=False, rob
         labels = [pattern]
         extra = 0
         if rob_kong or self_draw:
-            value = 5 if garbage else 10
+            value = (5 if garbage else 10) + (5 if self_draw_extra_base else 0)
             extra += value
             labels.append(f"{'抢杠' if rob_kong else '自摸'}（{value}分）")
         if len(melds) == 4:

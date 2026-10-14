@@ -153,6 +153,9 @@ async def offline_auto_action(game_state, player_index: int, action_list: list, 
                 return
             if "cut" in action_list and current_player.hand_tiles:
                 tile_id, cut_index, is_moqie = _pick_offline_cut_tile(current_player)
+                if getattr(game_state, "sub_rule", "") == "guobiao/huahun":
+                    from ....game_calculation.guobiao_huahun import auto_cut
+                    tile_id, cut_index, is_moqie = auto_cut(current_player, (tile_id, cut_index, is_moqie))
                 logger.info(
                     f"掉线托管 {player_index} ({current_player.username}) 选择 cut, tile_id={tile_id}, moqie={is_moqie}"
                 )
@@ -168,6 +171,9 @@ async def offline_auto_action(game_state, player_index: int, action_list: list, 
                 return
             if "cut" in action_list and current_player.hand_tiles:
                 tile_id, cut_index, is_moqie = _pick_offline_cut_tile(current_player)
+                if getattr(game_state, "sub_rule", "") == "guobiao/huahun":
+                    from ....game_calculation.guobiao_huahun import auto_cut
+                    tile_id, cut_index, is_moqie = auto_cut(current_player, (tile_id, cut_index, is_moqie))
                 logger.info(
                     f"掉线托管 {player_index} ({current_player.username}) 选择 cut, tile_id={tile_id}, moqie={is_moqie}"
                 )

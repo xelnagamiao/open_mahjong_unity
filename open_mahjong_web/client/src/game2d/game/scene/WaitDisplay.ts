@@ -123,14 +123,17 @@ export class WaitDisplay extends Container {
     if (this.entryList.length === 0) return
 
     const size = this.entryList.length
+    const columns = Math.min(size, 12)
+    const rows = Math.ceil(size / columns)
     const itemSep = TILE_SEP * 2.9
-    const totalWidth = size * TILE_WIDTH * 0.7 + size * itemSep
+    const totalWidth = columns * (TILE_WIDTH * 0.7 + itemSep)
+    const rowHeight = TILE_HEIGHT * 1.3
 
     // Background
     this.backgroundGraphic = new Graphics()
     this.backgroundGraphic.roundRect(
-      -totalWidth / 2 - itemSep / 2, -TILE_HEIGHT * 0.52,
-      totalWidth + itemSep, TILE_HEIGHT * 1.3,
+      -totalWidth / 2 - itemSep / 2, -TILE_HEIGHT * 0.52 - (rows - 1) * rowHeight,
+      totalWidth + itemSep, rows * rowHeight,
       TILE_RADIUS,
     )
     this.backgroundGraphic.fill({ color: FRONT_COLOR, alpha: 0.8 })
@@ -139,8 +142,8 @@ export class WaitDisplay extends Container {
 
     // Position entries
     this.entryList.forEach((entry, i) => {
-      entry.x = -totalWidth / 2 + (i + 0.5) * (TILE_WIDTH * 0.7 + itemSep)
-      entry.y = 0
+      entry.x = -totalWidth / 2 + (i % columns + 0.5) * (TILE_WIDTH * 0.7 + itemSep)
+      entry.y = (Math.floor(i / columns) - rows + 1) * rowHeight
       this.addChild(entry)
     })
 

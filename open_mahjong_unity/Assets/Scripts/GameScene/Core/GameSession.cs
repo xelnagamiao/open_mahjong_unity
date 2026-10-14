@@ -30,6 +30,9 @@ public sealed class GameSession {
     public string SubRule;
     /// <summary>起和番限制。</summary>
     public int HepaiLimit = 8;
+    public bool JokerMultiWait;
+    public string NoJokerBonus = "add8";
+    public bool BlackFlowerProgressive = true;
     /// <summary>当前规则的详细配置（服务端 detailed_config 原样拷贝）。</summary>
     public Dictionary<string, object> DetailedConfig = new Dictionary<string, object>();
     public bool Tips;
@@ -81,6 +84,9 @@ public sealed class GameSession {
             ? new Dictionary<string, object>(gameInfo.detailed_config)
             : new Dictionary<string, object>();
         HepaiLimit = gameInfo.hepai_limit ?? 8;
+        JokerMultiWait = gameInfo.joker_multi_wait;
+        NoJokerBonus = gameInfo.no_joker_bonus ?? "add8";
+        BlackFlowerProgressive = gameInfo.black_flower_progressive;
         RoomStepTime = gameInfo.step_time;
         RoomRoundTime = gameInfo.round_time;
         FanTips = gameInfo.tips;
@@ -104,5 +110,7 @@ public sealed class GameSession {
         RoomRule = null;
         SubRule = null;
         DetailedConfig.Clear();
+        JokerMultiWait = false;
+        NoJokerBonus = "add8"; BlackFlowerProgressive = true;
     }
 }

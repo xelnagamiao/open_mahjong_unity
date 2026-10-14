@@ -4,7 +4,7 @@ import secrets
 import uuid
 
 from ..response import Response, public_room_data
-from ..game_calculation.sichuan.duplicate_rules import BOARD_COUNTS, make_board, team_by_seat
+from ..game_calculation.sichuan.duplicate_rules import BOARD_COUNTS, make_board, team_by_seat, board_from_tiles
 from ..database.sichuan_duplicate import PairedMatchStore
 from ..gamestate.public.sichuan_duplicate import PairedMatch, new_match
 
@@ -16,7 +16,15 @@ async def create_pair(manager, event_id, sub_rule, config, password, created_by)
     count = config.get("duplicate_round_count", 8 if sub_rule == "sichuan/doubles_duplicate" else 16)
     if type(count) is not int or count not in BOARD_COUNTS:
         return Response(type="tips", success=False, message="复式副数必须为 1、4、8、12 或 16")
-    if config.get("random_seed") or config.get("duplicate_key"):
+    source = None
+    if config.get("duplicate_key") and sub_rule == "sichuan/xueliu_doubles_duplicate":
+        from ..database.duplicate_walls import load_duplicate_wall, validate_duplicate_wall
+        source = load_duplicate_wall(manager.game_server.db_manager, config["duplicate_key"])
+        validate_duplicate_wall(source, {"room_rule": "sichuan", "sub_rule": sub_rule, "event_id": event_id})
+        if source.get("event_id") != event_id:
+            return Response(type="tips", success=False, message="开闭室须使用本比赛的血流复式密钥")
+        count = source["round_count"]
+    if config.get("random_seed") or (config.get("duplicate_key") and source is None):
         return Response(type="tips", success=False, message="复式双打的牌墙由比赛后台统一生成")
     match_id, seed = str(uuid.uuid4()), secrets.token_hex(32)
     rooms = {}
@@ -24,6 +32,7 @@ async def create_pair(manager, event_id, sub_rule, config, password, created_by)
         for table, label in (("open", "开室"), ("closed", "闭室")):
             room_config = dict(config, allow_spectator=False, game_round=max(1, count // 4),
                                room_name=f"{config.get('room_name') or '复式双打'} · {label}")
+            room_config.pop("duplicate_key", None)
             response = await manager.create_empty_event_room(event_id, "sichuan", room_config,
                 password=password, created_by=created_by, broadcast=False, _paired_internal=True)
             if not response.success:
@@ -31,7 +40,12 @@ async def create_pair(manager, event_id, sub_rule, config, password, created_by)
             room_id = response.room_info["room_id"]
             rooms[table] = manager.rooms[room_id]
         snapshot = new_match(match_id, sub_rule, {table: room["room_id"] for table, room in rooms.items()},
+                             [board_from_tiles(tiles, n) for n, tiles in enumerate(source["round_tiles"], 1)] if source else
                              [make_board(seed, n) for n in range(1, count + 1)], seed)
+        if source:
+            snapshot.update(source_wall_id=source["id"], key=source["key"], wall_type=source["wall_type"])
+            if source.get("seed") is not None:
+                snapshot["seed"] = source["seed"]
         store = PairedMatchStore(manager.game_server.db_manager)
         for table, room in rooms.items():
             room.update(duplicate_match_id=match_id, duplicate_table=table,

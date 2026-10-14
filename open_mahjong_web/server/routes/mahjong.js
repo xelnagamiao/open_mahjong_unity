@@ -8,6 +8,19 @@ const TZIAKCHA_BASE_URL = 'https://tziakcha.net';
 const TZIAKCHA_TIMEOUT_MS = 12_000;
 const TZIAKCHA_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
 
+// Same authoritative solver as live play; an open hint row requests scoring
+// on demand instead of the browser enumerating four wildcard replacements.
+for (const route of ['waits', 'hint']) {
+  router.post(`/gb/four-jokers/${route}`, async (req, res) => {
+    try {
+      const { status, data } = await proxyToCalcServer(`/calc/gb/four-jokers/${route}`, req.body);
+      return res.status(status).json(data);
+    } catch (error) {
+      return res.status(503).json({ success: false, message: '四癞子提示暂不可用' });
+    }
+  });
+}
+
 function parseTziakchaInput(value) {
   const input = String(value || '').trim();
   if (!input || input.length > 512) throw new Error('请输入雀渣牌谱链接或牌谱 ID');

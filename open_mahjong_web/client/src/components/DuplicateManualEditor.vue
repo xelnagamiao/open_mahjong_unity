@@ -1,9 +1,10 @@
 <template>
   <div class="manual-editor">
-    <div class="editor-heading"><strong>完整牌墙 {{ allTiles.length }} / {{ rule.tile_count }} 张</strong><el-button size="small" :disabled="disabled || !allTiles.length" @click="clear">清空全部</el-button></div>
+    <div class="editor-heading"><strong>{{ bloodflow ? '血流复式' : '标准' }}牌山 {{ allTiles.length }} / {{ rule.tile_count }} 张</strong><el-button size="small" :disabled="disabled || !allTiles.length" @click="clear">清空全部</el-button></div>
+    <p v-if="bloodflow" class="layout-help">每家起手 13 张、固定牌墙 8 张，公共牌墙 24 张。庄家第 14 张取自固定墙；一家摸完后，剩余固定牌按东南西北接到公共墙前。</p>
     <div class="target-controls">
-      <label>添加 / 移动到 <select v-model.number="targetSeat" :disabled="disabled" aria-label="目标座位"><option v-for="(name, seat) in seatNames" :key="seat" :value="seat">{{ name }}位 · {{ seat + 1 }} 号</option></select></label>
-      <select v-model="targetZone" :disabled="disabled" aria-label="目标区域"><option value="hand">起始手牌</option><option value="wall">剩余牌山</option></select>
+      <label>添加 / 移动到 <select v-model.number="targetSeat" :disabled="disabled" aria-label="目标座位"><option v-for="(name, seat) in seatNames" :key="seat" :value="seat">{{ seat === 4 ? name : `${name}位 · ${seat + 1} 号` }}</option></select></label>
+      <select v-model="targetZone" :disabled="disabled" aria-label="目标区域"><option v-if="targetSeat !== 4" value="hand">起始手牌</option><option value="wall">{{ wallLabel(targetSeat) }}</option></select>
       <strong>{{ targetLabel }} {{ draft[targetSeat][targetZone].length }} / {{ zoneLimit(targetSeat, targetZone) }} 张</strong>
     </div>
     <div class="tile-palette" aria-label="可添加的麻将牌">
@@ -13,10 +14,10 @@
     </div>
     <div class="selection-actions"><span>{{ selectionLabel }}</span><el-button size="small" :disabled="disabled || !selected || targetFull || sameTarget" @click="moveToTarget">移至当前区域</el-button><el-button size="small" :disabled="disabled || !selected || selected.index === 0" @click="shift(-1)">前移</el-button><el-button size="small" :disabled="disabled || !selected || selected.index >= selectedLength - 1" @click="shift(1)">后移</el-button><el-button size="small" type="danger" :disabled="disabled || !selected" @click="remove">删除选中牌</el-button></div>
     <div class="seat-grid">
-      <section v-for="(player, seat) in draft" :key="seat" class="seat-section"><h3>{{ seat + 1 }} 号 · {{ seatNames[seat] }}位</h3>
-        <div v-for="zone in ['hand', 'wall']" :key="zone" class="tile-zone" :class="{ active: targetSeat === seat && targetZone === zone }">
-          <button type="button" class="zone-heading" :disabled="disabled" @click="targetSeat = seat; targetZone = zone">{{ zone === 'hand' ? '起始手牌' : '剩余牌山' }} <b>{{ player[zone].length }} / {{ zoneLimit(seat, zone) }}</b><span v-if="targetSeat === seat && targetZone === zone">当前添加区域</span></button>
-          <div class="placed-tiles"><button v-for="(tile, index) in player[zone]" :key="index" type="button" :disabled="disabled" :aria-label="`选择${seatNames[seat]}位${zone === 'hand' ? '手牌' : '牌山'}第${index + 1}张${tileName(tile)}`" :class="{ selected: selected?.seat === seat && selected?.zone === zone && selected?.index === index }" @click="selected = { seat, zone, index }"><TileChip :tile-id="tile" size="sm" /><small>{{ index + 1 }}</small></button><span v-if="!player[zone].length" class="empty-zone">选择此区域后，点击上方牌面添加</span></div>
+      <section v-for="(player, seat) in draft" :key="seat" class="seat-section" :class="{ 'common-section': seat === 4 }"><h3>{{ seat === 4 ? '公共牌墙' : `${seat + 1} 号 · ${seatNames[seat]}位` }}</h3>
+        <div v-for="zone in seat === 4 ? ['wall'] : ['hand', 'wall']" :key="zone" class="tile-zone" :class="{ active: targetSeat === seat && targetZone === zone }">
+          <button type="button" class="zone-heading" :disabled="disabled" @click="targetSeat = seat; targetZone = zone">{{ zone === 'hand' ? '起始手牌' : wallLabel(seat) }} <b>{{ player[zone].length }} / {{ zoneLimit(seat, zone) }}</b><span v-if="targetSeat === seat && targetZone === zone">当前添加区域</span></button>
+          <div class="placed-tiles"><button v-for="(tile, index) in player[zone]" :key="index" type="button" :disabled="disabled" :aria-label="`选择${zoneName(seat, zone)}第${index + 1}张${tileName(tile)}`" :class="{ selected: selected?.seat === seat && selected?.zone === zone && selected?.index === index }" @click="selected = { seat, zone, index }"><TileChip :tile-id="tile" size="sm" /><small>{{ index + 1 }}</small></button><span v-if="!player[zone].length" class="empty-zone">选择此区域后，点击上方牌面添加</span></div>
         </div>
       </section>
     </div>
@@ -24,37 +25,43 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import TileChip from './TileChip.vue'
 import { createDuplicateDraft, duplicateRoundSeats, duplicateZoneLimit, flattenDuplicateDraft, moveDuplicateTile, tileCounts } from '@/utils/duplicateWalls'
 const props = defineProps({ modelValue: { type: Array, required: true }, rule: { type: Object, required: true }, round: { type: Number, default: 1 }, disabled: Boolean })
 const emit = defineEmits(['update:modelValue'])
 const draft = computed(() => props.modelValue)
-const seatNames = computed(() => duplicateRoundSeats(props.round).map(seat => ['东', '南', '西', '北'][seat]))
+const bloodflow = computed(() => props.rule.wall_layout === 'xueliu')
+const seatNames = computed(() => [...duplicateRoundSeats(props.round, props.rule.wall_layout).map(seat => ['东', '南', '西', '北'][seat]), ...(bloodflow.value ? ['公共牌墙'] : [])])
 const dealerSeat = computed(() => duplicateRoundSeats(props.round).indexOf(0))
 const targetSeat = ref(0)
 const targetZone = ref('hand')
+watch(targetSeat, seat => { if (seat === 4) targetZone.value = 'wall' }, { flush: 'sync' })
 const selected = ref(null)
 const allTiles = computed(() => flattenDuplicateDraft(draft.value))
 const counts = computed(() => tileCounts(allTiles.value))
 const tileGroups = computed(() => [1, 2, 3, 4, 5].map(suit => props.rule.tiles.filter(tile => Math.floor(tile.tile / 10) === suit)).filter(group => group.length))
-const zoneLimit = (seat, zone) => duplicateZoneLimit(props.rule.tile_count, seat, zone, dealerSeat.value)
-const targetLabel = computed(() => `${seatNames.value[targetSeat.value]}位${targetZone.value === 'hand' ? '手牌' : '牌山'}`)
+const zoneLimit = (seat, zone) => duplicateZoneLimit(props.rule.tile_count, seat, zone, dealerSeat.value, props.rule.wall_layout)
+const wallLabel = seat => bloodflow.value ? (seat === 4 ? '公共牌墙' : '固定牌墙') : '剩余牌山'
+const zoneName = (seat, zone) => seat === 4 ? '公共牌墙' : `${seatNames.value[seat]}位${zone === 'hand' ? '手牌' : '牌山'}`
+const targetLabel = computed(() => targetSeat.value === 4 ? '公共牌墙' : `${seatNames.value[targetSeat.value]}位${targetZone.value === 'hand' ? '手牌' : wallLabel(targetSeat.value)}`)
 const targetFull = computed(() => draft.value[targetSeat.value][targetZone.value].length >= zoneLimit(targetSeat.value, targetZone.value))
 const sameTarget = computed(() => selected.value?.seat === targetSeat.value && selected.value?.zone === targetZone.value)
 const selectedLength = computed(() => selected.value ? draft.value[selected.value.seat][selected.value.zone].length : 0)
-const selectionLabel = computed(() => selected.value ? `已选${seatNames.value[selected.value.seat]}位${selected.value.zone === 'hand' ? '手牌' : '牌山'}第 ${selected.value.index + 1} 张` : '点击已放置的牌可选择、移动或删除')
+const selectionLabel = computed(() => selected.value ? `已选${zoneName(selected.value.seat, selected.value.zone)}第 ${selected.value.index + 1} 张` : '点击已放置的牌可选择、移动或删除')
 const tileName = tile => props.rule.tiles.find(item => item.tile === tile)?.label || String(tile)
 function change(edit) { const next = draft.value.map(seat => ({ hand: [...seat.hand], wall: [...seat.wall] })); edit(next); emit('update:modelValue', next) }
 function add(tile) { if (props.disabled || targetFull.value || counts.value[tile] >= props.rule.tiles.find(item => item.tile === tile)?.count) return; change(next => next[targetSeat.value][targetZone.value].push(tile)) }
-function clear() { selected.value = null; emit('update:modelValue', createDuplicateDraft()) }
+function clear() { selected.value = null; emit('update:modelValue', createDuplicateDraft(props.rule.wall_layout)) }
 function remove() { if (!selected.value || props.disabled) return; const source = selected.value; change(next => next[source.seat][source.zone].splice(source.index, 1)); selected.value = null }
-function moveToTarget() { if (!selected.value || props.disabled) return; change(next => moveDuplicateTile(next, selected.value, { seat: targetSeat.value, zone: targetZone.value }, props.rule.tile_count, dealerSeat.value)); selected.value = null }
-function shift(offset) { if (!selected.value || props.disabled) return; const source = selected.value; change(next => moveDuplicateTile(next, source, { ...source, index: source.index + offset }, props.rule.tile_count, dealerSeat.value)); selected.value = { ...source, index: source.index + offset } }
+function moveToTarget() { if (!selected.value || props.disabled) return; change(next => moveDuplicateTile(next, selected.value, { seat: targetSeat.value, zone: targetZone.value }, props.rule.tile_count, dealerSeat.value, props.rule.wall_layout)); selected.value = null }
+function shift(offset) { if (!selected.value || props.disabled) return; const source = selected.value; change(next => moveDuplicateTile(next, source, { ...source, index: source.index + offset }, props.rule.tile_count, dealerSeat.value, props.rule.wall_layout)); selected.value = { ...source, index: source.index + offset } }
 </script>
 
 <style scoped>
 .manual-editor { padding: 16px; background: #f6f8f7; border: 1px solid #dce5df; border-radius: 8px; }
+.layout-help { font-size: 12px; color: #526960; line-height: 1.7; margin: 10px 0; }
+.common-section { grid-column: 1 / -1; }
 .editor-heading,.target-controls,.selection-actions { display:flex;align-items:center;gap:10px;flex-wrap:wrap; }
 .editor-heading { justify-content:space-between; }.empty-zone { color:#737d88;font-size:12px;line-height:1.6; }.target-controls { padding:10px 0; }.target-controls select { padding:7px;border:1px solid #b8c8c0;border-radius:4px;background:#fff;color:#234b42; }.target-controls strong { font-size:13px; }
 .palette-row,.palette-tiles { display:flex;align-items:center;gap:5px; }.palette-row { margin:5px 0; }.palette-tiles { flex-wrap:wrap; }.palette-label { width:24px;flex:none;font-weight:600; }.tile-palette button,.placed-tiles button { border:0;background:transparent;padding:2px;display:flex;flex-direction:column;align-items:center;cursor:pointer; }.tile-palette small,.placed-tiles small { font-size:10px;color:#60766c;line-height:1.3; }.tile-palette button:disabled { opacity:.45;cursor:not-allowed; }

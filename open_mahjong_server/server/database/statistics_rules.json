@@ -26,7 +26,34 @@
         "2/4_rank",
         "4/4_rank"
       ],
-      "matchmaking": true
+      "matchmaking": true,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
+    },
+    {
+      "key": "guobiao_sixteen",
+      "rule": "guobiao",
+      "sub_rule": "guobiao/sixteen",
+      "family_name": "国标",
+      "sub_rule_name": "十六张",
+      "stats_name": "国标（十六张）",
+      "standard": false,
+      "basic_stats": true,
+      "fan_stats": true,
+      "fan_key": "guobiao",
+      "player_count": 4,
+      "home_header": false,
+      "home_label": "",
+      "custom_modes": [
+        "1/4",
+        "2/4",
+        "3/4",
+        "4/4"
+      ],
+      "ranked_modes": [],
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "guobiao_transparent",
@@ -49,7 +76,84 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
+    },
+    {
+      "key": "guobiao_transparent_realtime",
+      "rule": "guobiao",
+      "sub_rule": "guobiao/transparent_realtime",
+      "family_name": "国标",
+      "sub_rule_name": "国标透明（实时手牌）",
+      "stats_name": "国标（透明实时手牌）",
+      "standard": false,
+      "basic_stats": true,
+      "fan_stats": false,
+      "fan_key": null,
+      "player_count": 4,
+      "home_header": false,
+      "home_label": "",
+      "custom_modes": [
+        "1/4",
+        "2/4",
+        "3/4",
+        "4/4"
+      ],
+      "ranked_modes": [],
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
+    },
+    {
+      "key": "guobiao_huahun",
+      "rule": "guobiao",
+      "sub_rule": "guobiao/huahun",
+      "family_name": "国标",
+      "sub_rule_name": "花混癞子",
+      "stats_name": "国标（花混癞子）",
+      "standard": false,
+      "basic_stats": true,
+      "fan_stats": true,
+      "fan_key": "guobiao",
+      "player_count": 4,
+      "home_header": false,
+      "home_label": "",
+      "custom_modes": [
+        "1/4",
+        "2/4",
+        "3/4",
+        "4/4"
+      ],
+      "ranked_modes": [],
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
+    },
+    {
+      "key": "guobiao_four_jokers",
+      "rule": "guobiao",
+      "sub_rule": "guobiao/four_jokers",
+      "family_name": "国标",
+      "sub_rule_name": "四癞子",
+      "stats_name": "国标（四癞子）",
+      "standard": false,
+      "basic_stats": true,
+      "fan_stats": true,
+      "fan_key": "guobiao",
+      "player_count": 4,
+      "home_header": false,
+      "home_label": "",
+      "custom_modes": [
+        "1/4",
+        "2/4",
+        "3/4",
+        "4/4"
+      ],
+      "ranked_modes": [],
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "guobiao_xiaolin",
@@ -72,7 +176,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "guobiao_kshen",
@@ -95,7 +201,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "guobiao_lanshi",
@@ -118,7 +226,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "guobiao_sanma",
@@ -135,13 +245,15 @@
       "home_header": false,
       "home_label": "",
       "custom_modes": [
-        "1/4_sanma",
-        "2/4_sanma",
-        "3/4_sanma",
-        "4/4_sanma"
+        "1/3",
+        "2/3",
+        "3/3",
+        "4/3"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "guobiao_blood_battle",
@@ -164,7 +276,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "riichi",
@@ -190,7 +304,9 @@
         "1/4_rank",
         "2/4_rank"
       ],
-      "matchmaking": true
+      "matchmaking": true,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "riichi_langyong",
@@ -213,7 +329,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "riichi_washizu",
@@ -236,7 +354,34 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
+    },
+    {
+      "key": "riichi_washizu_realtime",
+      "rule": "riichi",
+      "sub_rule": "riichi/washizu_realtime",
+      "family_name": "立直",
+      "sub_rule_name": "鹫巢麻将（实时手牌）",
+      "stats_name": "立直（鹫巢实时手牌）",
+      "standard": false,
+      "basic_stats": true,
+      "fan_stats": false,
+      "fan_key": null,
+      "player_count": 4,
+      "home_header": false,
+      "home_label": "",
+      "custom_modes": [
+        "1/4",
+        "2/4",
+        "3/4",
+        "4/4"
+      ],
+      "ranked_modes": [],
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "riichi_sanma",
@@ -253,16 +398,18 @@
       "home_header": false,
       "home_label": "",
       "custom_modes": [
-        "1/4_sanma",
-        "2/4_sanma",
-        "3/4_sanma",
-        "4/4_sanma"
+        "1/3",
+        "2/3",
+        "3/3",
+        "4/3"
       ],
       "ranked_modes": [
-        "1/4_sanma_rank",
-        "2/4_sanma_rank"
+        "1/3_rank",
+        "2/3_rank"
       ],
-      "matchmaking": true
+      "matchmaking": true,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "qingque",
@@ -287,7 +434,9 @@
       "ranked_modes": [
         "4/4_rank"
       ],
-      "matchmaking": true
+      "matchmaking": true,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "points"
     },
     {
       "key": "classical",
@@ -310,7 +459,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "fu",
+      "deal_in_stat_unit": "fu"
     },
     {
       "key": "sichuan",
@@ -335,7 +486,9 @@
       "ranked_modes": [
         "2/4_rank"
       ],
-      "matchmaking": true
+      "matchmaking": true,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "sichuan_xueliu",
@@ -358,7 +511,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "sichuan_xueliu_exchange",
@@ -383,7 +538,9 @@
       "ranked_modes": [
         "4/4_rank"
       ],
-      "matchmaking": true
+      "matchmaking": true,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "sichuan_doubles",
@@ -406,7 +563,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "sichuan_xueliu_doubles",
@@ -429,7 +588,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "sichuan_doubles_duplicate",
@@ -452,7 +613,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "sichuan_xueliu_doubles_duplicate",
@@ -475,7 +638,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "changsha",
@@ -497,7 +662,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "base_points",
+      "deal_in_stat_unit": "base_points"
     },
     {
       "key": "zhongyong",
@@ -520,7 +687,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "base_points",
+      "deal_in_stat_unit": "base_points"
     },
     {
       "key": "nanque",
@@ -543,7 +712,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "base_points",
+      "deal_in_stat_unit": "base_points"
     },
     {
       "key": "taiwan",
@@ -566,7 +737,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "tai",
+      "deal_in_stat_unit": "tai"
     },
     {
       "key": "shanghai",
@@ -589,7 +762,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "base_points",
+      "deal_in_stat_unit": "base_points"
     },
     {
       "key": "shanghai_qinghunpeng",
@@ -612,7 +787,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "base_points",
+      "deal_in_stat_unit": "base_points"
     },
     {
       "key": "shanghai_lajihe",
@@ -635,7 +812,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "base_points",
+      "deal_in_stat_unit": "base_points"
     },
     {
       "key": "hongkong",
@@ -658,7 +837,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "hongkong_new13_gametower",
@@ -681,7 +862,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "hongkong_new13_lianhuise",
@@ -704,7 +887,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "hongkong_qingzhang_lianhuise",
@@ -727,7 +912,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "hongkong_new16",
@@ -750,7 +937,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "guangdong",
@@ -773,7 +962,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "base_points",
+      "deal_in_stat_unit": "base_points"
     },
     {
       "key": "guangdong_tuidao",
@@ -796,7 +987,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "base_points",
+      "deal_in_stat_unit": "base_points"
     },
     {
       "key": "shanxi",
@@ -819,7 +1012,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "base_points",
+      "deal_in_stat_unit": "base_points"
     },
     {
       "key": "changchun",
@@ -842,7 +1037,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "guizhou",
@@ -865,7 +1062,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "base_points",
+      "deal_in_stat_unit": "base_points"
     },
     {
       "key": "yixing",
@@ -888,7 +1087,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "base_points",
+      "deal_in_stat_unit": "base_points"
     },
     {
       "key": "wenzhou",
@@ -911,7 +1112,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "multiplier",
+      "deal_in_stat_unit": "multiplier"
     },
     {
       "key": "hangzhou",
@@ -934,7 +1137,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "base_points",
+      "deal_in_stat_unit": "base_points"
     },
     {
       "key": "hongzhong",
@@ -957,7 +1162,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
     },
     {
       "key": "jiujiang",
@@ -980,7 +1187,34 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "base_points",
+      "deal_in_stat_unit": "base_points"
+    },
+    {
+      "key": "singapore",
+      "rule": "singapore",
+      "sub_rule": "singapore/spgg2024",
+      "family_name": "新加坡",
+      "sub_rule_name": "SPGG 2024",
+      "stats_name": "新加坡麻将（SPGG 2024）",
+      "standard": true,
+      "basic_stats": true,
+      "fan_stats": false,
+      "fan_key": null,
+      "player_count": 4,
+      "home_header": false,
+      "home_label": "",
+      "custom_modes": [
+        "1/4",
+        "2/4",
+        "3/4",
+        "4/4"
+      ],
+      "ranked_modes": [],
+      "matchmaking": false,
+      "win_stat_unit": "points",
+      "deal_in_stat_unit": "points"
     },
     {
       "key": "hongque",
@@ -1005,7 +1239,9 @@
       "ranked_modes": [
         "16/4_rank"
       ],
-      "matchmaking": true
+      "matchmaking": true,
+      "win_stat_unit": "base_points",
+      "deal_in_stat_unit": "base_points"
     },
     {
       "key": "free",
@@ -1023,7 +1259,9 @@
       "home_label": "",
       "custom_modes": [],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "none",
+      "deal_in_stat_unit": "none"
     },
     {
       "key": "wuhan",
@@ -1046,7 +1284,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "points",
+      "deal_in_stat_unit": "points"
     },
     {
       "key": "shenyang",
@@ -1069,7 +1309,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "points",
+      "deal_in_stat_unit": "points"
     },
     {
       "key": "nanjing",
@@ -1092,7 +1334,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "base_points",
+      "deal_in_stat_unit": "points"
     },
     {
       "key": "nanchang",
@@ -1115,7 +1359,34 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "base_points",
+      "deal_in_stat_unit": "base_points"
+    },
+    {
+      "key": "malaysia",
+      "rule": "malaysia",
+      "sub_rule": "malaysia/traditional84",
+      "family_name": "马来西亚",
+      "sub_rule_name": "传统84张三人",
+      "stats_name": "马来西亚（传统三人）",
+      "standard": true,
+      "basic_stats": true,
+      "fan_stats": false,
+      "fan_key": null,
+      "player_count": 3,
+      "home_header": false,
+      "home_label": "",
+      "custom_modes": [
+        "1/3",
+        "2/3",
+        "3/3",
+        "4/3"
+      ],
+      "ranked_modes": [],
+      "matchmaking": false,
+      "win_stat_unit": "none",
+      "deal_in_stat_unit": "none"
     },
     {
       "key": "filipino",
@@ -1138,7 +1409,9 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "base_points",
+      "deal_in_stat_unit": "base_points"
     },
     {
       "key": "vietnamese",
@@ -1161,7 +1434,64 @@
         "4/4"
       ],
       "ranked_modes": [],
-      "matchmaking": false
+      "matchmaking": false,
+      "win_stat_unit": "base_points",
+      "deal_in_stat_unit": "base_points"
+    },
+    {
+      "key": "fuzhou",
+      "rule": "fuzhou",
+      "sub_rule": "fuzhou/standard",
+      "family_name": "福州",
+      "sub_rule_name": "十六张规则书版",
+      "stats_name": "福州麻将（十六张）",
+      "standard": false,
+      "basic_stats": true,
+      "fan_stats": false,
+      "fan_key": null,
+      "player_count": 4,
+      "home_header": false,
+      "home_label": "",
+      "custom_modes": [
+        "1/4",
+        "2/4",
+        "3/4",
+        "4/4"
+      ],
+      "ranked_modes": [],
+      "matchmaking": false,
+      "win_stat_unit": "base_points",
+      "deal_in_stat_unit": "base_points"
     }
-  ]
+  ],
+  "stat_value_units": {
+    "fan": {
+      "win_label": "平均和番",
+      "deal_in_label": "平均铳番"
+    },
+    "fu": {
+      "win_label": "平均和牌符数",
+      "deal_in_label": "平均放铳符数"
+    },
+    "tai": {
+      "win_label": "平均和牌台数",
+      "deal_in_label": "平均放铳台数"
+    },
+    "base_points": {
+      "win_label": "平均和牌基本分",
+      "deal_in_label": "平均放铳基本分"
+    },
+    "points": {
+      "win_label": "平均和牌得分",
+      "deal_in_label": "平均放铳失分"
+    },
+    "multiplier": {
+      "win_label": "平均和牌倍数",
+      "deal_in_label": "平均放铳倍数"
+    },
+    "none": {
+      "win_label": null,
+      "deal_in_label": null
+    }
+  }
 }

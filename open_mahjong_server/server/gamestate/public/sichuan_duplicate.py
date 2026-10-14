@@ -9,7 +9,7 @@ import hashlib
 import json
 import secrets
 
-from ...game_calculation.sichuan.duplicate_rules import make_board, score_board, rule_profile, team_by_seat
+from ...game_calculation.sichuan.duplicate_rules import make_board, score_board, score_totals, rule_profile, team_by_seat, board_from_tiles, flatten_board, XUELIU_DUPLICATE
 
 
 class PairedMatch:
@@ -25,6 +25,11 @@ class PairedMatch:
     @property
     def completed(self):
         return self.data["status"] == "completed"
+
+    @property
+    def imp_scale(self):
+        profile = self.data["profile"]
+        return profile.get("imp_scale", "jj" if profile["sub_rule"] == XUELIU_DUPLICATE else "sbr")
 
     def board(self, number):
         if self.data["status"] != "running" or number != self.data["completed_boards"] + 1:
@@ -44,6 +49,7 @@ class PairedMatch:
         info["waiting_tables"] = sorted(self.data.get("pending", {}))
         if self.completed:
             info.update(scores=list(self.data["scores"]), boards=deepcopy(self.data["results"]))
+            info.update(score_totals(self.data["results"], imp_scale=self.imp_scale))
         return info
 
     async def submit(self, table, number, scores, adjustments, record, checkpoint=None):
@@ -76,10 +82,13 @@ class PairedMatch:
             candidate.setdefault("pending_checkpoints", {})[table] = deepcopy(checkpoint)
             event = self.events.setdefault(number, asyncio.Event())
             if len(pending) == 2:
-                result = score_board(pending["open"]["delta"], pending["closed"]["delta"], scoring=candidate["profile"]["scoring"])
+                result = score_board(pending["open"]["delta"], pending["closed"]["delta"],
+                                     scoring=candidate["profile"]["scoring"], imp_scale=self.imp_scale,
+                                     board_score_cap=candidate["profile"].get("board_score_cap"))
                 result.update(number=number, tables=deepcopy(pending))
                 candidate["results"].append(result)
                 candidate["scores"] = [candidate["scores"][i] + result["scores"][i] for i in range(2)]
+                candidate.update(score_totals(candidate["results"], imp_scale=self.imp_scale))
                 candidate["completed_boards"] = number
                 candidate["checkpoints"] = candidate.pop("pending_checkpoints")
                 candidate["pending"] = {}
@@ -88,7 +97,7 @@ class PairedMatch:
                 if at_end and (candidate["profile"]["tied_match"] == "draw" or not tied):
                     candidate["status"] = "completed"
                 elif at_end:
-                    candidate["boards"].append(make_board(candidate["seed"], number + 1))
+                    candidate["boards"].append(make_board(candidate["seed"], number + 1, layout=candidate["profile"].get("wall_layout", "standard")))
             self.save(candidate)
             if self.data["completed_boards"] >= number:
                 event.set()
@@ -128,7 +137,7 @@ class PairedMatch:
         candidate.setdefault("voided_boards", []).append({"number": number,
             "board": candidate["boards"][number - 1], "pending": candidate.get("pending", {}),
             "reason": candidate.get("interruption", "interrupted")})
-        candidate["boards"][number - 1] = make_board(secrets.token_hex(32), number)
+        candidate["boards"][number - 1] = make_board(secrets.token_hex(32), number, layout=candidate["profile"].get("wall_layout", "standard"))
         candidate.update(status="waiting", pending={}, pending_checkpoints={})
         self.save(candidate)
         self.ready.clear()
@@ -138,7 +147,10 @@ class PairedMatch:
 
 
 def new_match(match_id, sub_rule, room_ids, boards, seed):
-    return {"id": match_id, "profile": rule_profile(sub_rule), "room_ids": room_ids,
+    profile = rule_profile(sub_rule)
+    boards = [board_from_tiles(flatten_board(b), b["number"], layout=profile["wall_layout"]) for b in boards]
+    return {"id": match_id, "profile": profile, "room_ids": room_ids,
             "boards": deepcopy(boards), "seed": seed, "planned_boards": len(boards),
-            "completed_boards": 0, "scores": [0, 0], "results": [], "pending": {},
+            "completed_boards": 0, "scores": [0, 0], "small_scores": [0, 0], "imp_scores": [0, 0],
+            "results": [], "pending": {},
             "status": "waiting", "revision": 0, "members": {}}

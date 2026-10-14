@@ -105,9 +105,19 @@ public partial class CreatePanel : MonoBehaviour {
     [SerializeField] private TMP_InputField DuplicateKeyInput;
     [SerializeField] private Toggle GuobiaoFlowersToggle;
     [SerializeField] private UnityEngine.UI.Toggle TianDiRenHeToggle;
+    [SerializeField] private UnityEngine.UI.Toggle JokerMultiWaitToggle;
+    // Kept only to migrate the old scene toggle when baking the dropdown.
+    [SerializeField, HideInInspector] private UnityEngine.UI.Toggle HuahunDoubleToggle;
+    [SerializeField] private UnityEngine.UI.Toggle BlackFlowerProgressiveToggle;
+    [SerializeField] private GameObject HuahunBonusPanel;
+    [SerializeField] private TMP_Dropdown HuahunBonusDropdown;
     [SerializeField] private TMP_Text GuobiaoFlowersLabel;
 
-    private string SelectedDuplicateKey => _ruleState == "guobiao" && DuplicateWallToggle != null && DuplicateWallToggle.isOn
+    private bool SupportsDuplicateWall => (_ruleState == "guobiao" && GetSelectedSubRule() != GuobiaoGameState.SanmaSubRule
+        && !GuobiaoGameState.IsTransparentSubRule(GetSelectedSubRule())
+        && !GuobiaoGameState.UsesAuthoritativeTips(GetSelectedSubRule()))
+        || (_ruleState == "sichuan" && (GetSelectedSubRule() == "sichuan/xueliu" || GetSelectedSubRule() == "sichuan/xueliu_exchange"));
+    private string SelectedDuplicateKey => SupportsDuplicateWall && DuplicateWallToggle != null && DuplicateWallToggle.isOn
         ? DuplicateKeyInput?.text.Trim() ?? "" : "";
 
     [Header("按钮")]
@@ -154,6 +164,7 @@ public partial class CreatePanel : MonoBehaviour {
 
     private void Start() {
         BindFixedCreateControls();
+        BindFuzhouMainControls();
         BindDetailedConfigControls("taiwan");
         BindDetailedConfigControls("filipino");
         BindDetailedConfigControls("vietnamese");
@@ -279,6 +290,8 @@ public partial class CreatePanel : MonoBehaviour {
             case GuangdongMilRules.MinimumScoreKey: if (GuangdongMinimumScoreToggle) GuangdongMinimumScoreToggle.isOn = (bool)value; break;
             case YixingRuleBootstrap.SevenPairsKey: if (YixingSevenPairsToggle) YixingSevenPairsToggle.isOn = (bool)value; break;
             case ShanghaiHandCalculator.Qing3Hun2Peng2Key: if (ShanghaiQing3Hun2Peng2Toggle) ShanghaiQing3Hun2Peng2Toggle.isOn = (bool)value; break;
+            case ShanghaiHandCalculator.EnableTianQiaoKey: if (ShanghaiTianQiaoToggle) ShanghaiTianQiaoToggle.isOn = (bool)value; break;
+            case LajiheHandCalculator.SelfDrawExtraBaseKey: if (ShanghaiSelfDrawExtraBaseToggle) ShanghaiSelfDrawExtraBaseToggle.isOn = (bool)value; break;
             case CreateRoomKeys.GameRound:      SelectGameTime((int)value); break;
             case CreateRoomKeys.RoundTimer:     roundTimer.value = (int)value; break;
             case CreateRoomKeys.StepTimer:      stepTimer.value = (int)value; break;
@@ -314,6 +327,15 @@ public partial class CreatePanel : MonoBehaviour {
             case CreateRoomKeys.TacticalCall:   TacticalCallToggle.isOn = (bool)value; break;
             case CreateRoomKeys.UseFlowers:
                 if (GuobiaoFlowersToggle != null) GuobiaoFlowersToggle.SetIsOnWithoutNotify((bool)value);
+                break;
+            case CreateRoomKeys.NoJokerBonus:
+                if (HuahunBonusDropdown) HuahunBonusDropdown.SetValueWithoutNotify(HuahunRules.BonusIndex((string)value));
+                break;
+            case CreateRoomKeys.BlackFlowerProgressive:
+                if (BlackFlowerProgressiveToggle) BlackFlowerProgressiveToggle.SetIsOnWithoutNotify((bool)value);
+                break;
+            case CreateRoomKeys.JokerMultiWait:
+                if (JokerMultiWaitToggle != null) JokerMultiWaitToggle.SetIsOnWithoutNotify((bool)value);
                 break;
             case CreateRoomKeys.TianDiRenHe:
                 if (TianDiRenHeToggle != null) TianDiRenHeToggle.SetIsOnWithoutNotify((bool)value);
@@ -378,7 +400,7 @@ public partial class CreatePanel : MonoBehaviour {
         InputHepaiLimitToggle.gameObject.SetActive(showHepaiLimit);
         InputHepaiLimitPlane.SetActive(showHepaiLimit && InputHepaiLimitToggle.isOn && !IsShanghaiQiaoma);
 
-        bool isWashizu = _ruleState == "riichi" && GetSelectedRiichiSubRule() == WashizuTile.SubRule;
+        bool isWashizu = _ruleState == "riichi" && WashizuTile.IsWashizu(GetSelectedRiichiSubRule());
         if (isWashizu) {
             RedDoraToggle.SetIsOnWithoutNotify(false);
             XiruToggle?.SetIsOnWithoutNotify(false);
@@ -400,6 +422,7 @@ public partial class CreatePanel : MonoBehaviour {
         if (YixingSevenPairsToggle) YixingSevenPairsToggle.gameObject.SetActive(visible.ContainsKey(YixingRuleBootstrap.SevenPairsKey));
         RefreshGuangdongControls();
         RefreshShanghaiControls();
+        RefreshFuzhouControls();
         SetCommonCreateControlsVisible(visible);
         ApplyGameRoundDisplayForRule();
         RefreshCuoheTypePanelVisibility();
@@ -500,15 +523,23 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private void SetCommonCreateControlsVisible(Dictionary<string, object> visible) {
+        bool huahun = _ruleState == "guobiao" && GetSelectedSubRule() == GuobiaoGameState.HuahunSubRule;
+        if (HuahunBonusPanel) HuahunBonusPanel.SetActive(huahun);
+        if (BlackFlowerProgressiveToggle) BlackFlowerProgressiveToggle.gameObject.SetActive(huahun);
+        if (huahun) { InputHepaiLimitToggle.gameObject.SetActive(false); InputHepaiLimitToggle.SetIsOnWithoutNotify(false); }
+        if (JokerMultiWaitToggle != null) {
+            bool fourJokers = _ruleState == "guobiao" && GuobiaoGameState.IsJokerSubRule(GetSelectedSubRule());
+            JokerMultiWaitToggle.gameObject.SetActive(fourJokers);
+            if (!fourJokers) JokerMultiWaitToggle.SetIsOnWithoutNotify(false);
+        }
         if (TianDiRenHeToggle != null) {
             string subRule = GetSelectedSubRule();
-            bool supported = _ruleState == "guobiao" && (subRule == "guobiao/standard" || subRule == GuobiaoGameState.SanmaSubRule || subRule == GuobiaoGameState.BloodBattleSubRule || subRule == GuobiaoGameState.TransparentSubRule);
+            bool supported = _ruleState == "guobiao" && (subRule == "guobiao/standard" || subRule == GuobiaoGameState.SanmaSubRule || subRule == GuobiaoGameState.BloodBattleSubRule || GuobiaoGameState.IsTransparentSubRule(subRule) || GuobiaoGameState.UsesAuthoritativeTips(subRule));
             TianDiRenHeToggle.gameObject.SetActive(supported);
             if (!supported) TianDiRenHeToggle.SetIsOnWithoutNotify(false);
         }
         if (DuplicateWallToggle != null) {
-            bool supported = _ruleState == "guobiao" && GetSelectedSubRule() != GuobiaoGameState.SanmaSubRule
-                && GetSelectedSubRule() != GuobiaoGameState.TransparentSubRule;
+            bool supported = SupportsDuplicateWall;
             DuplicateWallToggle.gameObject.SetActive(supported);
             if (!supported) {
                 DuplicateWallToggle.isOn = false;
@@ -532,16 +563,18 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private void RefreshDuplicateWallOptions() {
-        bool enabled = _ruleState == "guobiao" && DuplicateWallToggle != null && DuplicateWallToggle.isOn;
+        bool enabled = SupportsDuplicateWall && DuplicateWallToggle != null && DuplicateWallToggle.isOn;
         if (AllowSpectatorToggle != null) {
             if (enabled && !_duplicateWasEnabled) _spectatorBeforeDuplicate = AllowSpectatorToggle.isOn;
-            if (!enabled && _duplicateWasEnabled && _ruleState == "guobiao") AllowSpectatorToggle.isOn = _spectatorBeforeDuplicate;
+            if (!enabled && _duplicateWasEnabled && SupportsDuplicateWall) AllowSpectatorToggle.isOn = _spectatorBeforeDuplicate;
         }
         _duplicateWasEnabled = enabled;
         if (GuobiaoFlowersToggle != null) {
             bool isLanshi = _ruleState == "guobiao" && GetSelectedSubRule() == "guobiao/lanshi";
             GuobiaoFlowersToggle.gameObject.SetActive(_ruleState == "guobiao");
-            GuobiaoFlowersToggle.interactable = !enabled && !isLanshi;
+            bool huahun = GetSelectedSubRule() == GuobiaoGameState.HuahunSubRule;
+            GuobiaoFlowersToggle.interactable = !enabled && !isLanshi && !huahun;
+            if (huahun) GuobiaoFlowersToggle.SetIsOnWithoutNotify(true);
             if (isLanshi) GuobiaoFlowersToggle.SetIsOnWithoutNotify(false);
             if (GuobiaoFlowersLabel != null) {
                 GuobiaoFlowersLabel.text = enabled ? "花牌\n<size=65%>跟随复式设置</size>"
@@ -629,6 +662,17 @@ public partial class CreatePanel : MonoBehaviour {
         bool isChangsha = _ruleState == "changsha";
         bool usesFixedHandCount = _ruleState == "shanghai" || _ruleState == "zhongyong" || _ruleState == "guangdong" || _ruleState == GuizhouGameState.RuleId || _ruleState == JiujiangGameState.RuleId || _ruleState == HongzhongGameState.RuleId || _ruleState == HangzhouGameState.RuleId;
         if (!showRound) return;
+        if (_ruleState == FuzhouGameState.RuleId) {
+            SetToggleLabel(gameTime1Button,"6局");SetToggleLabel(gameTime2Button,"12局");
+            SetToggleLabel(gameTime3Button,"18局");SetToggleLabel(gameTime4Button,"24局");
+            gameTime3Button.gameObject.SetActive(true);return;
+        }
+        if (_ruleState == MalaysiaGameState.RuleId) {
+            SetToggleLabel(gameTime1Button,"3局"); SetToggleLabel(gameTime2Button,"6局");
+            SetToggleLabel(gameTime3Button,"9局"); SetToggleLabel(gameTime4Button,"12局");
+            gameTime3Button.gameObject.SetActive(true); return;
+        }
+
         if (isChangsha && gameTime3Button != null && gameTime3Button.isOn) {
             SelectGameTime(4);
         }

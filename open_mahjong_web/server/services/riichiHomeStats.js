@@ -20,7 +20,7 @@ function querySql(withSummaries) {
       WHERE p.rule='riichi' AND p.room_type IN ('match','custom','events')
     ), samples AS (
       SELECT *,CASE WHEN match_type ~ '^[0-9]+/(3|4)(_sanma)?(_rank)?$'
-          THEN split_part(match_type,'/',1)||'/4'||CASE WHEN sanma THEN '_sanma' ELSE '' END
+          THEN split_part(match_type,'/',1)||CASE WHEN sanma THEN '/3' ELSE '/4' END
             ||CASE WHEN room_type='match' THEN '_rank' ELSE '' END
           ELSE match_type END AS mode,
           CASE WHEN sanma THEN 3 ELSE 4 END AS player_count,

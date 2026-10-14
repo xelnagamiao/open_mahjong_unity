@@ -319,7 +319,7 @@ public static class AutoReconnect {
         }
         Debug.Log("[AutoReconnect] 登录成功");
 
-        // Phase 3: 同步房间状态（断线时服务端已将玩家移出房间，需按服务端权威数据刷新）
+        // Phase 3: 按服务端同步房间成员身份；双打对局断线时仍会保留原房间座位。
         Debug.Log("[AutoReconnect] [3/4] 同步房间状态");
         RoomNetworkManager.Instance.SyncMyRoom();
         const float roomSyncTimeout = 5f;
@@ -359,9 +359,9 @@ public static class AutoReconnect {
             {
                 Debug.LogWarning("[AutoReconnect] 未收到 reconnect_ask，对局已不存在");
                 UserDataManager.Instance.SetGamestateId("");
-                UserDataManager.Instance.SetRoomId(UserDataManager.ROOM_ID_NONE);
                 GameSceneTeardown.ResetToIdle();
-                WindowsManager.Instance.SwitchWindow("menu");
+                // 对局结束不代表退出房间，保留 Phase 3 已确认的成员身份。
+                WindowsManager.Instance.SwitchWindow(LobbyStateGuard.IsInRoom ? "room" : "menu");
                 NotificationManager.Instance.ShowTip("重连", false, "对局已结束");
                 OnSucceeded(skipAllTips: true);
                 yield break;
@@ -378,9 +378,8 @@ public static class AutoReconnect {
             {
                 Debug.LogWarning("[AutoReconnect] 重回对局超时，清理残留会话状态");
                 UserDataManager.Instance.SetGamestateId("");
-                UserDataManager.Instance.SetRoomId(UserDataManager.ROOM_ID_NONE);
                 GameSceneTeardown.ResetToIdle();
-                WindowsManager.Instance.SwitchWindow("menu");
+                WindowsManager.Instance.SwitchWindow(LobbyStateGuard.IsInRoom ? "room" : "menu");
                 NotificationManager.Instance.ShowTip("重连", false, "重回对局超时");
                 OnSucceeded(skipAllTips: true);
                 yield break;

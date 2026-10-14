@@ -28,8 +28,10 @@ def normalize_riichi_config(raw=None, sub_rule=None):
         if not any(type(value) is type(allowed) and value == allowed for allowed in item['values']):
             raise ValueError(f"{item['label']}的值无效：{value!r}")
         result[key] = value
-    if sub_rule in ('riichi/standard', 'riichi/langyong', 'riichi/washizu') and result['rank_points'].startswith('sanma_'):
+    if sub_rule in ('riichi/standard', 'riichi/langyong', 'riichi/washizu', 'riichi/washizu_realtime') and result['rank_points'].startswith('sanma_'):
         raise ValueError('三人顺位点仅适用于三人立直子规则')
+    if sub_rule in ('riichi/standard', 'riichi/langyong', 'riichi/washizu', 'riichi/washizu_realtime') and result['noten_penalty'] == 2000:
+        raise ValueError('2000点不听罚符仅适用于三人立直；四人立直请选择3000点或无罚符')
     return result
 
 
@@ -42,6 +44,6 @@ def preset_room_config(preset_id):
 
 
 def validate_riichi_sub_rule(value):
-    if value not in ('riichi/standard', 'riichi/langyong', 'riichi/sanma', 'riichi/washizu'):
+    if value not in ('riichi/standard', 'riichi/langyong', 'riichi/sanma', 'riichi/washizu', 'riichi/washizu_realtime'):
         raise ValueError('不支持的立直麻将子规则')
     return value

@@ -47,7 +47,7 @@ public class SimpleRoundPanel : MonoBehaviour {
         GameRoundText.text = RoundTextDictionary.GetMaxRoundText(baseRule, gameInfo.max_round);
         if (gameInfo.is_duplicate) GameRoundText.text = $"复式 {Mathf.Max(1, gameInfo.duplicate_round_count)} 局";
         roomNowRoundText.text = RuleRegistry.Resolve(baseRule)?.RoundStatusText?.Invoke(gameInfo)
-            ?? RoundTextDictionary.GetRoundName(baseRule, gameInfo.current_round);
+            ?? RoundTextDictionary.GetRoundName(roomType, gameInfo.current_round);
 
         isCuoheOpenText.text = RuleRegistry.Resolve(baseRule)?.RoundSupplementText?.Invoke(gameInfo)
             ?? (gameInfo.open_cuohe ? "错和:开" : "错和:关");

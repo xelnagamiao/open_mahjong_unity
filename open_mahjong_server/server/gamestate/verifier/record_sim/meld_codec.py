@@ -122,6 +122,8 @@ from .flags import resolve_record_flags
 
 
 def build_angang_mask_from_removed(removed_tiles: Sequence[int], rule: str) -> list[int]:
+    if rule == 'guobiao/huahun' and sorted(removed_tiles) == [51, 52, 53, 54]:
+        return [value for tile in removed_tiles for value in (0, tile)]
     r0 = removed_tiles[0] if removed_tiles else 0
     r1 = removed_tiles[1] if len(removed_tiles) > 1 else r0
     r2 = removed_tiles[2] if len(removed_tiles) > 2 else r0

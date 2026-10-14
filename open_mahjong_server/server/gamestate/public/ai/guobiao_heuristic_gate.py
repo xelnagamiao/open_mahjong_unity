@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-GUOBIAO_HEURISTIC_ALLOWED_SUB_RULES = frozenset(("guobiao/standard", "guobiao/blood_battle"))
+GUOBIAO_HEURISTIC_ALLOWED_SUB_RULES = frozenset(("guobiao/standard", "guobiao/blood_battle", "guobiao/four_jokers", "guobiao/huahun", "guobiao/sixteen"))
 GUOBIAO_HEURISTIC_UNSUPPORTED_MSG = "高性能罗伯特暂未支持该国标变种规则"
 GUOBIAO_HEURISTIC_NON_GUOBIAO_MSG = "高性能罗伯特仅可加入国标标准、国标血战到底或虹雀房间"
 

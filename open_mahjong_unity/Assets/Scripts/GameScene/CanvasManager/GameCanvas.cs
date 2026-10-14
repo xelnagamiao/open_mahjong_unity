@@ -148,6 +148,7 @@ public partial class GameCanvas : MonoBehaviour {
     }
 
     public void ClearHandCardQueue() {
+        ResetWashizuRealtimeHand();
         StopAndClearChangeHandCardQueue();
     }
 

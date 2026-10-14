@@ -33,7 +33,8 @@ test('table and settlement IDs use matching ranks without changing red fives', (
 
 test('honors use international wind and dragon letters; unknown and back tiles have no label', () => {
   assert.deepEqual([41, 42, 43, 44, 45, 46, 47].map(tileFaceLabel), ['E', 'S', 'W', 'N', 'R', 'Wh', 'G'])
-  for (const id of [0, -1, 101, 102, 40, 48, 59, 41.5]) {
+  assert.equal(tileFaceLabel(59), 'J')
+  for (const id of [0, -1, 101, 102, 40, 48, 60, 41.5]) {
     assert.equal(tileFaceLabel(id), '')
   }
 })

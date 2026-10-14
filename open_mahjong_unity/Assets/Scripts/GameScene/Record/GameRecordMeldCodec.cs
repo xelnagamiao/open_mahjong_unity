@@ -253,6 +253,38 @@ public static class GameRecordMeldCodec {
         return new[] { 0, r1, 1, mingpaiTileId, 0, r2, 0, r3 };
     }
 
+    /// <summary>
+    /// 三人桌左右两家在几何上正对。协议/牌谱仍按行牌顺序保存来源，只有桌面摆牌时
+    /// 将两家互鸣的来源牌移到中间；不改权威 mask，也不改和牌面板中的本家视角副露。
+    /// </summary>
+    public static int[] ForTableDisplay(int[] mask, string callerPosition, int playerCount) {
+        if (playerCount != 3 || mask == null || mask.Length % 2 != 0
+                || (callerPosition != "left" && callerPosition != "right")) return mask;
+        var hand = new List<int>();
+        var claimed = new List<int>();
+        var added = new List<int>();
+        int sourceSlot = -1;
+        for (int i = 0; i < mask.Length; i += 2) {
+            switch (mask[i]) {
+                case 0: hand.Add(0); hand.Add(mask[i + 1]); break;
+                case 1:
+                    if (sourceSlot >= 0) return mask;
+                    sourceSlot = hand.Count / 2;
+                    claimed.Add(1); claimed.Add(mask[i + 1]);
+                    break;
+                case 3: added.Add(3); added.Add(mask[i + 1]); break;
+                default: return mask; // 暗杠和特殊规则的显示 sign 保持原样。
+            }
+        }
+        if (claimed.Count != 2 || (hand.Count != 4 && hand.Count != 6)
+                || added.Count > 2 || (added.Count > 0 && hand.Count != 4)) return mask;
+        bool acrossEmptySeat = callerPosition == "right" ? sourceSlot == hand.Count / 2 : sourceSlot == 0;
+        if (!acrossEmptySeat) return mask;
+        added.AddRange(claimed); // 加杠牌始终跟随原碰的来源牌。
+        hand.InsertRange(2, added);
+        return hand.ToArray();
+    }
+
     private static int FindRemoveIndex(List<int> tileList, int norm, bool preferExact) {
         if (preferExact) {
             for (int i = 0; i < tileList.Count; i++) {

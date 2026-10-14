@@ -33,7 +33,7 @@ def sanitize_combination_target_for_viewer(
         return None
     if owner_index == viewer_index:
         return target
-    if target.startswith("G"):
+    if target.startswith("G") and target != "G51":
         return "G0"
     return target
 
@@ -43,7 +43,7 @@ def sanitize_combination_tiles_for_viewer(
 ) -> List[str]:
     if owner_index == viewer_index:
         return combination_tiles
-    return ["G0" if t.startswith("G") else t for t in combination_tiles]
+    return ["G0" if t.startswith("G") and t != "G51" else t for t in combination_tiles]
 
 
 def sanitize_combination_masks_for_viewer(

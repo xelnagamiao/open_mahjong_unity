@@ -80,6 +80,8 @@ def _prepare(hand, melds, policy):
                 natural[INDEX[logical]] += 1
         if policy.closed_cap is not None and any(n > policy.closed_cap for n in natural):
             return None
+        if any(natural[INDEX[t]] > limit for t, limit in policy.closed_limits):
+            return None
         # Counts fit in one byte (at most 17 concealed tiles). Keep global
         # cache capacities while avoiding 34-slot tuple keys and their slices.
         return hand, external, bytes(natural), tuple(jokers), physical
@@ -94,7 +96,8 @@ def _group_engine(counts, sequences, cap, budget, allowed, targets, pairs):
     def transitions(rank, prev1, prev2, pair_left):
         minimum = counts[rank]
         pending = prev1 + prev2
-        maximum = min(minimum + budget, cap) if cap else minimum + budget
+        limit = cap[rank] if isinstance(cap, tuple) else cap
+        maximum = min(minimum + budget, limit) if isinstance(cap, tuple) or cap else minimum + budget
         if not (allowed >> rank) & 1:
             maximum = 0
         for pair in range(1 + int(bool(pair_left and (pairs >> rank) & 1))):
@@ -138,8 +141,11 @@ def _group_domains(policy):
 
 def _group_inputs(counts, budget, policy):
     domains = _group_domains(policy)
+    limits = dict(policy.closed_limits)
     for (start, end, sequences), masks in zip(GROUPS, domains):
-        yield (counts[start:end], sequences, policy.closed_cap or 0, budget,
+        cap = (tuple(limits.get(t, policy.closed_cap or 17) for t in TILES[start:end])
+               if limits else policy.closed_cap or 0)
+        yield (counts[start:end], sequences, cap, budget,
                *masks)
 
 
@@ -177,7 +183,7 @@ def _minimum_group_jokers(counts, pair, sequences):
 
 @lru_cache(maxsize=32768)
 def _standard(counts, jokers, policy, pair_required=True):
-    if (policy.closed_cap is None and policy.logical_tiles == TILES
+    if (policy.closed_cap is None and not policy.closed_limits and policy.logical_tiles == TILES
             and policy.joker_targets is None and policy.pair_tiles is None):
         needs = [_minimum_group_jokers(counts[a:b], False, sequence) for a, b, sequence in GROUPS]
         total = sum(needs)
@@ -208,10 +214,12 @@ def _pairs_engine(counts, budget, policy, singleton):
     domain = set(policy.logical_tiles)
     targets = domain if policy.joker_targets is None else set(policy.joker_targets)
     mask = (1 << (budget + 1)) - 1
+    limits = dict(policy.closed_limits)
 
     def choices(i, single_left):
         n = counts[i]
         limit = min(n + budget, policy.closed_cap) if policy.closed_cap else n + budget
+        limit = min(limit, limits.get(TILES[i], limit))
         if TILES[i] not in domain:
             limit = 0
         for total in range(n, limit + 1):
@@ -234,7 +242,7 @@ def _pairs_engine(counts, budget, policy, singleton):
 
 @lru_cache(maxsize=32768)
 def _pairs(counts, jokers, policy, singleton=False):
-    if policy.closed_cap is None and policy.logical_tiles == TILES and policy.joker_targets is None:
+    if policy.closed_cap is None and not policy.closed_limits and policy.logical_tiles == TILES and policy.joker_targets is None:
         # Every odd natural count needs one partner, except the optional lone
         # tile. With no existing odd count, that singleton costs one joker.
         need = abs(sum(n % 2 for n in counts) - int(singleton))
@@ -258,7 +266,8 @@ def _orphan_templates(counts, jokers, policy):
             required = 2 if tile == pair else 1
             deficit = required - counts[INDEX[tile]]
             if (deficit < 0 or (deficit and tile not in targets)
-                    or (policy.closed_cap is not None and required > policy.closed_cap)):
+                    or (policy.closed_cap is not None and required > policy.closed_cap)
+                    or required > dict(policy.closed_limits).get(tile, required)):
                 valid = False
                 break
             cost += deficit

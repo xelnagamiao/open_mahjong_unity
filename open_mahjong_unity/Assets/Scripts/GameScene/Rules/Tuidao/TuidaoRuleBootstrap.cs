@@ -31,6 +31,7 @@ internal static class TuidaoRuleBootstrap {
             DescribeWaitingTile = query => GuangdongMilRules.IsMil(query.SubRule) ? GuangdongServerTips.Describe(query) : TuidaoHandCalculator.Describe(query),
             RoundName = round => $"第{round}局", MaxRoundText = rounds => $"{rounds * 4}局",
             RoundSupplementText = info => GuangdongMilRules.IsMil(info.sub_rule) ? "花鬼" : "无癞子",
+            HandJokerTiles = subRule => GuangdongMilRules.IsMil(subRule) ? new[] {55,56,57,58} : System.Array.Empty<int>(),
             FanNameText = (rule, name) => GuangdongMilRules.IsMil(rule) ? GuangdongMilRules.FanName(name) : name,
             FanValueText = (rule, name) => GuangdongMilRules.IsMil(rule) ? GuangdongMilRules.FanValue(name) : TuidaoHandCalculator.FanValues.TryGetValue(name, out int value) ? $"{value}番" : "",
             ScoreboardFanText = query => GuangdongMilRules.IsMil(query.Rule) ? $"基本分{query.HuScore}分" : $"{query.HuScore}番",

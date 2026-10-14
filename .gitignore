@@ -33,7 +33,9 @@
 !/open_mahjong_server/scripts/
 /open_mahjong_server/scripts/*
 !/open_mahjong_server/scripts/sync_statistics_catalog.py
+!/open_mahjong_server/scripts/backfill_statistics_values.py
 !/open_mahjong_server/scripts/validate_rule_support_table.py
+!/open_mahjong_server/scripts/validate_singapore_clients.py
 /open_mahjong_server/server/error_log/
 /open_mahjong_server/server/local_config.py
 /open_mahjong_server/logs/
@@ -130,6 +132,7 @@ secret_key.txt
 
 # 供开源用户使用的三端构建工具；缓存、日志和产物仍忽略。
 !/other/UnityBatchBuild/build-all.ps1
+!/other/UnityBatchBuild/validate-singapore.ps1
 !/other/UnityBatchBuild/build-all.bat
 !/other/UnityBatchBuild/Android.lnk
 !/other/UnityBatchBuild/WebGL.lnk

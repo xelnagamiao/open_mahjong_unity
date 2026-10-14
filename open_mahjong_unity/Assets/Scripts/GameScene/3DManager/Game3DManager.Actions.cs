@@ -92,6 +92,10 @@ public partial class Game3DManager : MonoBehaviour
         if (panel.combination3DObjects == null || groupIndex >= panel.combination3DObjects.Length) yield break;
         SetParent = panel.combination3DObjects[groupIndex];
         if (SetParent == null || combination_mask == null) yield break;
+        int playerCount = GameRecordManager.Instance != null && GameRecordManager.Instance.gameObject.activeSelf
+            ? GameRecordManager.Instance.indexToPosition.Count
+            : NormalGameStateManager.Instance?.indexToPosition.Count ?? 4;
+        combination_mask = GameRecordMeldCodec.ForTableDisplay(combination_mask, playerIndex, playerCount);
         combination_mask = HongqueDisplayOrder.MeldMask(combination_mask);
 
         if (playerIndex == "self")

@@ -43,6 +43,21 @@ def seated_room():
                 host_user_id=101, roster_revision=7, ready_list=[102,103], duplicate_status='ready')
 
 
+@pytest.mark.parametrize('kind',['manual','seed','key'])
+@run_async
+async def test_bloodflow_pair_uses_saved_eight_and_common_layout(rooms,monkeypatch,kind):
+    from ..game_calculation.sichuan.duplicate_rules import make_board,flatten_board
+    boards=[make_board('chosen',n,layout='xueliu') for n in range(1,5)]
+    wall=dict(id=19,key='dup_'+'b'*32,rule='sichuan/xueliu',wall_type=kind,event_id='evt_pair',
+              use_flowers=False,round_count=4,round_tiles=[flatten_board(b) for b in boards],tiles=flatten_board(boards[0]),seed='chosen')
+    monkeypatch.setattr('server.database.duplicate_walls.load_duplicate_wall',lambda *_:deepcopy(wall))
+    result=await create_pair(rooms,'evt_pair',XUELIU_DUPLICATE,{'sub_rule':XUELIU_DUPLICATE,'duplicate_key':wall['key']},'',101)
+    assert result.success and len(rooms.rooms)==2
+    assert rooms.saved[0]['boards']==boards
+    assert rooms.saved[0]['source_wall_id']==19 and rooms.saved[0]['wall_type']==kind
+    assert all(room['duplicate_round_count']==4 for room in rooms.rooms.values())
+
+
 @pytest.mark.parametrize('actor,source,target',[(101,0,2),(101,1,3),(102,1,3),(101,0,0)])
 def test_fixed_seat_changes_preserve_teams_and_host(actor,source,target):
     room=seated_room(); before=deepcopy(room)

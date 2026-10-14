@@ -85,9 +85,18 @@ public static class JiujiangValidation {
             properties[1].SetValue(null,new GameSession {RoomRule=JiujiangGameState.RuleId,SubRule=JiujiangGameState.SubRule});
             properties[2].SetValue(null,ui);properties[3].SetValue(null,null);
             properties[4].SetValue(null,manager);
-            foreach(int rotation in Enumerable.Range(0,4)) foreach(int reconnect in Enumerable.Range(0,3)) {
+            var examples=new[] {
+                new {name="原有结算",winner=0,score=3,huClass="hu_self",
+                    fans=new[]{"自摸（1分）"},changes=new Dictionary<int,int>{{0,12},{1,-4},{2,-4},{3,-4}}},
+                new {name="标注图第14副",winner=0,score=1,huClass="hu_self",
+                    fans=new[]{"自摸（1分）"},changes=new Dictionary<int,int>{{0,16},{1,-4},{2,-6},{3,-6}}},
+                new {name="标注图第7副",winner=1,score=3,huClass="hu_third",
+                    fans=new[]{"明箭刻（1分）","明杠（1分）","发财（1分）"},
+                    changes=new Dictionary<int,int>{{0,0},{1,4},{2,-4},{3,0}}},
+            };
+            foreach(var example in examples) foreach(int rotation in Enumerable.Range(0,4)) foreach(int reconnect in Enumerable.Range(0,3)) {
                 var mirror=new TableMirror {CurrentRound=3};properties[0].SetValue(null,mirror);
-                var changes=new Dictionary<int,int>{{0,12},{1,-4},{2,-4},{3,-4}};
+                var changes=example.changes;
                 var after=new Dictionary<int,int>();
                 string[] positions={"self","right","top","left"};
                 for(int seat=0;seat<4;seat++) {
@@ -99,16 +108,16 @@ public static class JiujiangValidation {
                 }
                 for(int i=0;i<(reconnect==2?3:2);i++) mirror.RoundSettlementHistory.Add(new RoundSettlementSnapshot());
                 var state=new JiujiangGameState();
-                var env=new SettlementEnvelope {WinnerIndex=(4-rotation)%4,HuClass="hu_self",HuScore=3,
-                    FanLabels=new[]{"自摸（1分）"},ScoreChanges=changes,ScoresAfter=after};
+                var env=new SettlementEnvelope {WinnerIndex=(example.winner+4-rotation)%4,HuClass=example.huClass,HuScore=example.score,
+                    FanLabels=example.fans,ScoreChanges=changes,ScoresAfter=after};
                 for(int replay=0;replay<2;replay++) {
                     append.Invoke(state,new object[]{env});
                     for(int seat=0;seat<4;seat++) {
                         var player=mirror.Info(positions[seat]);
-                        check($"结算与重连/{rotation}/{reconnect}/{replay}/{seat}",player.score==after[seat] && player.score_history.Count==3
+                        check($"结算与重连/{example.name}/{rotation}/{reconnect}/{replay}/{seat}",player.score==after[seat] && player.score_history.Count==3
                             && player.round_number_history.SequenceEqual(new[]{1,2,3}) && int.Parse(player.score_history.Last())==changes[player.original_player_index]);
                     }
-                    check($"结算快照不重复/{rotation}/{reconnect}/{replay}",mirror.RoundSettlementHistory.Count==3);
+                    check($"结算快照不重复/{example.name}/{rotation}/{reconnect}/{replay}",mirror.RoundSettlementHistory.Count==3);
                 }
             }
         } finally {for(int i=0;i<properties.Length;i++) properties[i].SetValue(null,previous[i]);}

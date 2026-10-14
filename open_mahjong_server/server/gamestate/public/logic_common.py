@@ -30,8 +30,8 @@ def assign_competition_final_ranks(player_list) -> None:
 # 输入自身索引和他家索引，获取相对位置
 def get_index_relative_position(self_index: int, other_index: int, player_count: int = 4) -> str:
     """
-    获取四边牌桌上的实际相对位置，三人局保留空座位。
-    player_count 仅保留调用兼容；行牌顺序另由 next_current_num 等方法按人数计算。
+    三人桌本家、下家、上家固定在下、右、左，对家始终空缺。
+    以三人循环计算，过庄的风位编号轮转不会改变玩家的相对位置。
     
     Args:
         self_index: 自身玩家索引 (0-3)
@@ -40,6 +40,8 @@ def get_index_relative_position(self_index: int, other_index: int, player_count:
     Returns:
         相对位置字符串: "left", "right", "top", "self"
     """
+    if player_count == 3:
+        return ("self", "right", "left")[(other_index - self_index) % 3]
     if self_index == 0:
         if other_index == 1:
             return "right"

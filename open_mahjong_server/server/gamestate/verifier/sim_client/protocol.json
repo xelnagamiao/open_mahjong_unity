@@ -6,6 +6,35 @@
       "player_count": 4,
       "hands_per_wind": 4
     },
+    "guobiao/four_jokers": {
+      "player_count": 4,
+      "hands_per_wind": 4,
+      "additional_tiles": [
+        59,
+        59,
+        59,
+        59
+      ],
+      "joker_tiles": [
+        59
+      ],
+      "replacement_flower_tiles": [
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58
+      ],
+      "optional_hint_snapshot": "four_jokers_hints",
+      "joker_multi_wait": {
+        "default": false,
+        "false": "resolve joker identities before evaluating single-wait fans",
+        "true": "exclude single-wait fans when the completed hand contains jokers"
+      }
+    },
     "guobiao/sanma": {
       "player_count": 3,
       "hands_per_wind": 3,
@@ -31,6 +60,93 @@
       "score_changes_count": 3,
       "record_seats_count": 3,
       "fourth_seat_is_placeholder": true
+    },
+    "malaysia/traditional84": {
+      "player_count": 3,
+      "hands_per_wind": 3,
+      "seat_positions": [
+        "self",
+        "right",
+        "left"
+      ],
+      "score_changes_count": 3,
+      "record_seats_count": 3,
+      "tile_count": 84,
+      "fly_tile": 81
+    },
+    "guobiao/huahun": {
+      "player_count": 4,
+      "hands_per_wind": 4,
+      "wall_size": 144,
+      "joker_tiles": [
+        51,
+        52,
+        53,
+        54
+      ],
+      "replacement_flower_tiles": [
+        55,
+        56,
+        57,
+        58
+      ],
+      "minimum_by_joker_count": [
+        8,
+        8,
+        16,
+        32,
+        64
+      ],
+      "no_joker_bonus": {
+        "default": "add8",
+        "choices": [
+          "add8",
+          "double",
+          "none"
+        ],
+        "after_flower_score": true
+      },
+      "black_flower_progressive": {
+        "default": true,
+        "on": [
+          0,
+          4,
+          8,
+          16,
+          32
+        ],
+        "off": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "joker_multi_wait": {
+        "default": false,
+        "false": "resolve joker identities before evaluating single-wait fans",
+        "true": "exclude single-wait fans when the completed hand contains jokers"
+      },
+      "optional_hint_snapshot": "four_jokers_hints",
+      "optional_forbidden_cuts": "forbidden_cut_tiles",
+      "joker_discard": "current draw only",
+      "flower_kong": {
+        "action": "angang",
+        "target": 51,
+        "code": "G51",
+        "removed": [
+          51,
+          52,
+          53,
+          54
+        ],
+        "mask_sign": 0,
+        "draw_count": 1,
+        "fan": 88,
+        "remaining_shape": "three melds and a pair",
+        "no_joker_bonus": false
+      }
     }
   },
   "hand_actions": [
@@ -95,6 +211,10 @@
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Zhongyong/NanqueGameState.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Guobiao/GuobiaoBloodBattleReplay.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Taiwan/TaiwanReplay.cs",
+    "open_mahjong_unity/Assets/Scripts/Network/Serialize/MalaysiaProtocol.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Malaysia/MalaysiaGameState.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Malaysia/MalaysiaRuleBootstrap.cs",
+    "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Malaysia/MalaysiaReplay.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Filipino/FilipinoGameState.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Filipino/FilipinoReplay.cs",
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Filipino/FilipinoShape.cs",
@@ -125,6 +245,35 @@
     "zhongyong/nanque": {
       "blood_battle": true,
       "deferred_score_settlement": true
+    },
+    "malaysia/traditional84": {
+      "state_machine": [
+        "waiting",
+        "waiting_buhua_action",
+        "waiting_hand_action",
+        "onlycut_after_action",
+        "waiting_action_after_cut",
+        "waiting_action_qianggang",
+        "END",
+        "waiting_ready",
+        "finished"
+      ],
+      "action_prefixes": [
+        "malaysia_peng:",
+        "malaysia_chi:",
+        "malaysia_redeem:"
+      ],
+      "hand_actions": [
+        "malaysia_fly"
+      ],
+      "record_events": [
+        "payment",
+        "redeem",
+        "win_source",
+        "state"
+      ],
+      "basic_statistics": true,
+      "fan_statistics": false
     },
     "filipino/classic16": {
       "base_hand_tiles": 16,

@@ -54,10 +54,10 @@ Shader "UI/WashizuHandGlass" {
                 float sideGlow=pow(saturate(abs(p.x)/.32),12);
                 float foot=exp(-pow((uv.y-.027)/.012,2));
                 float diagonal=exp(-pow((uv.x+uv.y*.8-.86)/.18,2));
-                float3 frontColor=float3(.85,.895,1.005) + (uv.y-.60)*.12;
+                float3 frontColor=float3(.55,.62,.74) + (uv.y-.60)*.12;
                 frontColor -= exp(-pow((uv.y-.053)/.040,2))*float3(.20,.20,.225);
                 float3 rgb=lerp(float3(.08,.15,.31),frontColor,front);
-                float alpha=lerp(.08,.44,front);
+                float alpha=lerp(.16,.57,front);
                 float capY=saturate((uv.y-.88)/.12);
                 float capReflection=exp(-pow((uv.x+uv.y*.20-.29)/.16,2))*.78*(.72+.28*capY)
                     +exp(-pow((uv.x-.97)/.20,2))*.34*(.85+.15*capY);

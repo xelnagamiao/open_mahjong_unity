@@ -50,6 +50,32 @@ test('paired rules reject bases, other rule families, foreign walls and invalid 
   assert.equal(calls.length,0);
 });
 
+test('ordinary bloodflow modes generate the shared bloodflow wall format for every room', async () => {
+  for (const sub_rule of ['sichuan/xueliu', 'sichuan/xueliu_exchange']) {
+    const { service, calls, batches } = fixture();
+    await service.create(event, 10, { room_rule: 'sichuan', room_count: 3,
+      room_config: { sub_rule }, duplicate_enabled: true, auto_duplicate: true, duplicate_round_count: 4 });
+    assert.equal(batches[0].body.rule, 'sichuan/xueliu');
+    assert.equal(batches[0].body.round_count, 4);
+    assert.deepEqual(calls.map(call => call.body.room_config.duplicate_key), ['key_0', 'key_1', 'key_2']);
+    assert.ok(calls.every(call => call.body.room_config.sub_rule === sub_rule));
+  }
+});
+
+test('bloodflow paired rooms bind one existing wall to one open/closed pair without generating another key', async () => {
+  const body = { room_rule: 'sichuan', room_count: 1,
+    room_config: { sub_rule: 'sichuan/xueliu_doubles_duplicate', duplicate_round_count: 8, duplicate_key: 'dup_saved' } };
+  const { service, calls, batches } = fixture();
+  const result = await service.create(event, 10, body);
+  assert.equal(result.created_pair_count, 1);
+  assert.equal(result.created_room_count, 2);
+  assert.equal(calls[0].body.room_config.duplicate_key, 'dup_saved');
+  assert.equal(batches.length, 0);
+  const invalid = fixture();
+  await assert.rejects(invalid.service.create(event, 10, { ...body, room_count: 3 }), /一个已有牌山/);
+  assert.equal(invalid.calls.length + invalid.batches.length, 0);
+});
+
 test('every room count creates that many rooms with the same settings, password and audit', async () => {
   assert.deepEqual(ROOM_COUNTS, [1, 3, 5, 8, 10, 20]);
   for (const room_count of ROOM_COUNTS) {

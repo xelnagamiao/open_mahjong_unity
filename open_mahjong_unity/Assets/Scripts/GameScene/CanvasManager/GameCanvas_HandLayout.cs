@@ -177,6 +177,13 @@ public partial class GameCanvas {
         return true;
     }
 
+    /// <summary>翻癞子后经手牌队列重新排序；保留独立摸牌张，并尊重手动理牌设置。</summary>
+    public void RefreshRuleHandOrder() {
+        if (!isActiveAndEnabled || handCardsContainer == null || handCardsContainer.childCount == 0) return;
+        if (!IsHandRecordPlayback() && AutoAction.Instance?.IsAutoArrangeHandCards != true) return;
+        ChangeHandCards("SortMainHandCards", 0, null, null);
+    }
+
     /// <summary>
     /// 主列按牌值排序并布局，摸牌张保持独立不参与排序；与发牌后理牌相同使用移动动画。
     /// </summary>

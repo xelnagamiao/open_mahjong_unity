@@ -193,12 +193,12 @@ class ZhongyongGameState(HandFlow, RoundRecording):
         self.round_record_finalized = False
         self.bot_tasks: set[asyncio.Task] = set()
         self.bot_action_ticks: dict[int, int] = {}
-        self.action_events: Dict[int, asyncio.Event] = {i: asyncio.Event() for i in range(4)}
-        self.action_queues: Dict[int, asyncio.Queue] = {i: asyncio.Queue() for i in range(4)}
+        self.action_events: Dict[int, asyncio.Event] = {i: asyncio.Event() for i in range(len(self.player_list))}
+        self.action_queues: Dict[int, asyncio.Queue] = {i: asyncio.Queue() for i in range(len(self.player_list))}
         self.waiting_players_list: list[int] = []
-        self.action_dict: Dict[int, list[str]] = {i: [] for i in range(4)}
-        self.hand_action_is_gang_draw: Dict[int, bool] = {i: False for i in range(4)}
-        self.natural_draw_count: Dict[int, int] = {i: 0 for i in range(4)}
+        self.action_dict: Dict[int, list[str]] = {i: [] for i in range(len(self.player_list))}
+        self.hand_action_is_gang_draw: Dict[int, bool] = {i: False for i in range(len(self.player_list))}
+        self.natural_draw_count: Dict[int, int] = {i: 0 for i in range(len(self.player_list))}
         self.opening_action_taken = False
         self.opening_flow_interrupted = False
         self.live_pending_window: Optional[dict] = None
@@ -474,7 +474,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
         that after the selected responses are known.
         """
         self.waiting_players_list = [idx for idx, actions in self.action_dict.items() if actions]
-        for idx in range(4):
+        for idx in range(len(self.player_list)):
             self.action_events[idx].clear()
             while not self.action_queues[idx].empty():
                 self.action_queues[idx].get_nowait()
@@ -612,7 +612,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
         self.live_pending_window = window
         self.game_status = window.get("status", self.game_status)
         actions = window.get("actions") or {}
-        self.action_dict = {idx: list(actions.get(idx, [])) for idx in range(4)}
+        self.action_dict = {idx: list(actions.get(idx, [])) for idx in range(len(self.player_list))}
         self.waiting_players_list = [idx for idx, items in self.action_dict.items() if items]
         self.server_action_tick += 1
         window["action_tick"] = self.server_action_tick
@@ -635,7 +635,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
             # 与青雀一致：行动窗口通知所有视角。只有实际需要决策的玩家
             # 携带非空 action_list；其他真人客户端仍可由通用 ask 路径同步
             # 当前行动者与服务端权威余牌数，无需规则专用客户端刷新逻辑。
-            for idx in [action_player_index] + [i for i in range(4) if i != action_player_index]:
+            for idx in [action_player_index] + [i for i in range(len(self.player_list)) if i != action_player_index]:
                 # An empty response ask would disclose the still-hidden cut.
                 if cut_tile is not None and not self.action_dict.get(idx):
                     continue
@@ -662,7 +662,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
         if action_info.get("action", "").startswith("hu"):
             if self.is_nanque:
                 from .boardcast import mid_win_payload
-                payloads = [mid_win_payload(self, idx, action_info["player"]) for idx in range(4)]
+                payloads = [mid_win_payload(self, idx, action_info["player"]) for idx in range(len(self.player_list))]
                 self.outbound_payloads.extend(payloads)
                 self.outbound_payloads.append({"_pause": 1.7})
                 return payloads
@@ -672,7 +672,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
                 **visible_action_payload(self, idx, action_info, reveal_final=reveal_final),
                 "player_index": idx,
             }
-            for idx in range(4)
+            for idx in range(len(self.player_list))
         ]
         self.outbound_payloads.extend(payloads)
         return payloads
@@ -697,7 +697,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
         return game_start_payload(self, player_index, reveal_final=self.game_status in {"END", "waiting_ready"})
 
     def emit_game_start_payloads(self) -> list[dict]:
-        payloads = [self.build_game_start_payload(idx) for idx in range(4)]
+        payloads = [self.build_game_start_payload(idx) for idx in range(len(self.player_list))]
         self.outbound_payloads.extend(payloads)
         return payloads
 
@@ -714,7 +714,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
     def emit_ready_status_payloads(self) -> list[dict]:
         from .boardcast import ready_status_payload
 
-        payloads = [ready_status_payload(self, idx) for idx in range(4)]
+        payloads = [ready_status_payload(self, idx) for idx in range(len(self.player_list))]
         self.outbound_payloads.extend(payloads)
         return payloads
 
@@ -723,7 +723,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
         from ..public.logic_common import assign_strict_final_ranks
 
         assign_strict_final_ranks(list(self.player_list))
-        payloads = [game_end_payload(self, idx) for idx in range(4)]
+        payloads = [game_end_payload(self, idx) for idx in range(len(self.player_list))]
         self.outbound_payloads.extend(payloads)
         return payloads
 
@@ -731,7 +731,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
         if self.lifecycle_completed:
             return
         self.lifecycle_completed = True
-        self.action_dict = {idx: [] for idx in range(4)}
+        self.action_dict = {idx: [] for idx in range(len(self.player_list))}
         self.waiting_players_list = []
         self.emit_ready_status_payloads()
         await self.flush_outbound_payloads()
@@ -741,7 +741,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
 
         assign_strict_final_ranks(list(self.player_list))
         game_id = self.persist_game_record()
-        remember_local_record_detail(self, game_id, f"{self.max_round}/4")
+        remember_local_record_detail(self, game_id, f"{self.max_round}/{len(self.player_list)}")
 
         self.emit_game_end_payloads()
         await self.flush_outbound_payloads()
@@ -831,9 +831,9 @@ class ZhongyongGameState(HandFlow, RoundRecording):
         from .boardcast import final_settlement_payloads
         from ..public.round_end_timing import hu_result_ready_pre_panel_seconds, sichuan_settle_hu_panel_wait_seconds
         self.apply_deferred_score_changes()
-        views = [final_settlement_payloads(self, idx) for idx in range(4)]
+        views = [final_settlement_payloads(self, idx) for idx in range(len(self.player_list))]
         for step in range(len(views[0])):
-            for idx in range(4):
+            for idx in range(len(self.player_list)):
                 await self._send_claim_protection_payload(idx, views[idx][step])
             info = views[0][step]["show_result_info"]
             if self.is_nanque and step < len(views[0]) - 1:
@@ -1066,10 +1066,10 @@ class ZhongyongGameState(HandFlow, RoundRecording):
         self.advance_dealer_after_round()
         self.current_player_index = self.dealer_index
         self.live_pending_window = None
-        self.action_dict = {idx: [] for idx in range(4)}
+        self.action_dict = {idx: [] for idx in range(len(self.player_list))}
         self.waiting_players_list = []
-        self.hand_action_is_gang_draw = {idx: False for idx in range(4)}
-        self.natural_draw_count = {idx: 0 for idx in range(4)}
+        self.hand_action_is_gang_draw = {idx: False for idx in range(len(self.player_list))}
+        self.natural_draw_count = {idx: 0 for idx in range(len(self.player_list))}
         self.opening_action_taken = False
         self.opening_flow_interrupted = False
         self.bot_action_ticks = {}
@@ -1086,14 +1086,14 @@ class ZhongyongGameState(HandFlow, RoundRecording):
         self.ended_by = None
         self.game_status = "waiting"
         self.live_pending_window = None
-        self.action_dict = {idx: [] for idx in range(4)}
+        self.action_dict = {idx: [] for idx in range(len(self.player_list))}
         self.waiting_players_list = []
-        for idx in range(4):
+        for idx in range(len(self.player_list)):
             self.action_events[idx].clear()
             while not self.action_queues[idx].empty():
                 self.action_queues[idx].get_nowait()
-        self.hand_action_is_gang_draw = {idx: False for idx in range(4)}
-        self.natural_draw_count = {idx: 0 for idx in range(4)}
+        self.hand_action_is_gang_draw = {idx: False for idx in range(len(self.player_list))}
+        self.natural_draw_count = {idx: 0 for idx in range(len(self.player_list))}
         self.opening_action_taken = False
         self.opening_flow_interrupted = False
         self.bot_action_ticks = {}

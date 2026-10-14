@@ -190,6 +190,21 @@ public class GameStateNetworkManager : MonoBehaviour {
         }
     }
 
+    public async void SendWashizuHandOrder(int[] tiles, int[] keys, int drawIndex, bool drawPinned, int round, int revision, int requestId) {
+        if (GameSession.Current.IsRealtimeSpectator || !WashizuTile.IsRealtimeSubRule(GameSession.Current.SubRule)) return;
+        try {
+            var request = new {
+                type = GameSession.Current.SubRule == GuobiaoGameState.TransparentRealtimeSubRule
+                    ? "gamestate/guobiao/reorder_hand" : "gamestate/riichi/reorder_hand", gamestate_id = UserDataManager.Instance.GamestateId,
+                tiles, keys, draw_index = drawIndex, draw_pinned = drawPinned,
+                round_index = round, revision, request_id = requestId
+            };
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"发送手牌排列失败: {e.Message}");
+        }
+    }
+
     /// <summary>
     /// 发送对局表情包（格式 pack/id，如 turtle/3）。实时观战者不发送。
     /// </summary>

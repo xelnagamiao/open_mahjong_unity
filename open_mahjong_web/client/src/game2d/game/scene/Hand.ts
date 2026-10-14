@@ -10,6 +10,7 @@ import { DiscardHelper } from './DiscardHelper'
 import { WaitDisplay } from './WaitDisplay'
 import { splitWinningTileFromRevealedHand } from '../../lib/settlementHand.js'
 import { buildMeldStacks, hasMeldStacks, isMeldStack } from '../../lib/meldStack.js'
+import { jokerFirstSortKey } from '../../lib/handJokers.js'
 
 export type MeldType = 'chow' | 'pung' | 'kong'
 
@@ -49,6 +50,15 @@ export class Hand extends Container {
   private readonly handScale: number
   private readonly replayStyle: boolean
   private readonly matchHighlight: RiverMatchHighlight | null
+  private jokerTiles: number[] = []
+
+  setJokerTiles(tiles: number[]): void {
+    this.jokerTiles = [...tiles]
+  }
+
+  private sortWeight(tile: number): number {
+    return jokerFirstSortKey(tile, this.jokerTiles, handSortWeight)
+  }
 
   constructor(
     direction: number,
@@ -358,12 +368,12 @@ export class Hand extends Container {
   }
 
   sortRightList(): void {
-    this.rightList.sort((a, b) => handSortWeight(b.tid) - handSortWeight(a.tid))
+    this.rightList.sort((a, b) => this.sortWeight(b.tid) - this.sortWeight(a.tid))
   }
 
   revealHand(tiles: number[], drawnTile: number | null = null): void {
     this.discardIndex = -1
-    const sorted = [...tiles].sort((left, right) => handSortWeight(right) - handSortWeight(left))
+    const sorted = [...tiles].sort((left, right) => this.sortWeight(right) - this.sortWeight(left))
 
     while (this.rightList.length > sorted.length) {
       const extra = this.rightList.pop()
@@ -496,6 +506,8 @@ export class Hand extends Container {
 
   // ── Discard interaction ──────────────────────────────────────────
 
+  forbiddenDiscards = new Set<number>()
+
   waitDiscard(
     onDiscard: (tid: number, useDrawnTile: boolean) => void,
     requireConfirmation = false,
@@ -503,7 +515,7 @@ export class Hand extends Container {
     this.unwaitDiscard()
     this.requireDiscardConfirmation = requireConfirmation
 
-    if (this.drawnTile) {
+    if (this.drawnTile && !this.forbiddenDiscards.has(this.drawnTile.tid)) {
       const dt = this.drawnTile
       this.bindClick(dt, () => {
         this.discardIndex = -1
@@ -514,6 +526,7 @@ export class Hand extends Container {
 
     for (let i = 0; i < this.rightList.length; i += 1) {
       const t = this.rightList[i]
+      if (this.forbiddenDiscards.has(t.tid)) continue
       let hy = TILE_HEIGHT / 2 + TILE_WIDTH * 1.5
       if (i % 2 === 1) hy += 2.5 * TILE_WIDTH
       this.bindClick(t, () => {
@@ -844,7 +857,30 @@ export class Hand extends Container {
     this.updateDisplay(true)
   }
 
-  cKongFromHand(tid: number, useDrawnTile: boolean, faceDown?: boolean[]): void {
+  cKongFromHand(tid: number, useDrawnTile: boolean, faceDown?: boolean[], physicalTiles?: number[]): void {
+    if (physicalTiles?.length === 4) {
+      const removed: Tile[] = []
+      const drawn = this.drawnTile
+      const usesDrawn = useDrawnTile && drawn != null
+      let usedDrawn = false
+      for (const face of physicalTiles) {
+        if (usesDrawn && !usedDrawn && (drawn!.tid === face || !drawn!.shown)) {
+          removed.push(drawn!); this.drawnTile = null; usedDrawn = true
+        } else {
+          const found = this.popMultiple(face, 1)
+          if (!found.length) {
+            this.restoreHand(removed.filter(t => t !== drawn)); this.drawnTile = drawn; return
+          }
+          removed.push(found[0]!)
+        }
+      }
+      this.unwaitDiscard()
+      removed.forEach((tile,index)=>{
+        tile.setRecordDangerHighlighted(false); tile.updateTid(physicalTiles[index]!)
+        tile.setConcealedFaceDown(false); this.appendLeftList(tile,false)
+      })
+      this.settleDrawnTile(); this.updateDisplay(true); return
+    }
     const need = useDrawnTile ? 3 : 4
     let fd: Tile | null = null
     if (useDrawnTile && this.drawnTile) {

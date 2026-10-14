@@ -15,12 +15,17 @@ public partial class GameRecordManager {
         RemainingTiles = () => Math.Max(0, currentTilesList.Count - recordDeadWallCount),
         RefreshAfterAction = () => WuhanPresentation.Apply(WuhanRecordInfo, false),
         RefreshAfterSeek = () => WuhanPresentation.Apply(WuhanRecordInfo, true),
-        AfterSilentMutation = tick => { SyncRecordBoardScores(); RefreshCurrentRecordTexts(); RefreshTileListViewIfVisible(); WuhanPresentation.Apply(WuhanRecordInfo, true); }
+        AfterSilentMutation = tick => {
+            SyncRecordBoardScores();
+            RefreshCurrentRecordTexts();
+            WuhanPresentation.Apply(WuhanRecordInfo, true);
+            RefreshTileListViewIfVisible();
+        }
     };
     public WuhanInfo WuhanRecordInfo { get; private set; }
     private bool wuhanTailSingle;
     private readonly WuhanHintsCache[] recordWuhanHints = { new WuhanHintsCache(), new WuhanHintsCache(), new WuhanHintsCache(), new WuhanHintsCache() };
-    private void ResetWuhanRecordState() { WuhanRecordInfo = null; wuhanTailSingle = false; foreach (var cache in recordWuhanHints) cache.Reset(); }
+    private void ResetWuhanRecordState() { WuhanRecordInfo = new WuhanInfo { skins = new[] {45} }; WuhanPresentation.Apply(WuhanRecordInfo, false); wuhanTailSingle = false; foreach (var cache in recordWuhanHints) cache.Reset(); }
     private bool ConsumeWuhanRecordWallTile(string action) {
         if (action != "d" && action != "gd") return false;
         if (currentTilesList.Count == 0) return true;

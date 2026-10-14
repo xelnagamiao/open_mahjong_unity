@@ -14,6 +14,8 @@ FAN_VALUES = {
     name: Chinese_Hepai_Check.count_model_dict.get(key, 0)
     for key, name in Chinese_Hepai_Check.eng_to_chinese_dict.items()
 }
+FAN_VALUES.update({'花杠': 88, '无癞子加番': 8, '黑花1朵': 4,
+                   '黑花2朵': 8, '黑花3朵': 16, '黑花4朵': 32})
 
 
 def fan_list(value):
@@ -32,14 +34,25 @@ def win_order(win):
 
 
 def make_snapshot(hand, melds, flowers, *, total_fan, fans, win_type,
-                  winning_tile, round_index, action_index, combination_mask=None):
+                  winning_tile, round_index, action_index, combination_mask=None,
+                  sub_rule=None):
     hand = [int(tile) for tile in hand]
     melds = [[int(tile) for tile in group] for group in melds]
     all_tiles = hand + [tile for group in melds for tile in group]
-    if len(hand) + 3 * len(melds) != 14 or any(len(group) not in (3, 4) for group in melds):
+    if len(hand) + 3 * len(melds) != (17 if sub_rule == "guobiao/sixteen" else 14) or any(len(group) not in (3, 4) for group in melds):
         raise ValueError("和牌手牌与副露数量不完整")
-    if any(face(tile) not in TILES for tile in all_tiles) or any(count > 4 for count in Counter(map(face, all_tiles)).values()):
+    domain = TILES | ({51, 52, 53, 54} if sub_rule == 'guobiao/huahun' else {59} if sub_rule == 'guobiao/four_jokers' else set())
+    if any(face(tile) not in domain for tile in all_tiles) or any(count > 4 for count in Counter(map(face, all_tiles)).values()):
         raise ValueError("和牌牌面包含非法牌号或超过四张同牌")
+    if any(59 in group for group in melds):
+        raise ValueError("红花癞子不能进入副露")
+    if sub_rule == 'guobiao/huahun':
+        counts = Counter(all_tiles)
+        if any(counts[t] > 1 for t in (51, 52, 53, 54)):
+            raise ValueError("春夏秋冬各只有一张")
+        if any(any(t in (51, 52, 53, 54) for t in group)
+               and sorted(group) != [51, 52, 53, 54] for group in melds):
+            raise ValueError("春夏秋冬仅能以完整花杠进入副露")
     if winning_tile not in hand:
         raise ValueError("和牌张未包含在手牌中")
     fans = fan_list(fans)
@@ -68,6 +81,7 @@ def capture_guobiao_win(gs, hu_class, hu_score, hu_fan, player_index, winning_ti
         total_fan=hu_score, fans=hu_fan, win_type=hu_class,
         winning_tile=winning_tile, round_index=gs.round_index,
         action_index=gs.player_action_tick, combination_mask=masks,
+        sub_rule=getattr(gs, 'sub_rule', None),
     )
     best = record.setdefault("player_best_wins", {})
     key = str(player.user_id)
@@ -123,6 +137,7 @@ def _round_wins(record, round_data, round_index):
                 hand, melds[winner], flowers[winner], total_fan=tick[2], fans=tick[3],
                 win_type=action, winning_tile=winning_tile,
                 round_index=round_index, action_index=index,
+                sub_rule=title.get('sub_rule'),
             )
             continue
         actor = int(tick[2]) if action in ("bh", "bd", "cl", "cm", "cr", "p", "g") and len(tick) > 2 else current

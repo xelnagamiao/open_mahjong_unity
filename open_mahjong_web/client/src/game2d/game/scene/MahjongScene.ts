@@ -33,6 +33,7 @@ import {
   normalizeAssistSettings,
   type AssistSettings,
 } from '../../lib/assistSettings'
+import { relativeSeat, absoluteSeat as seatAtDirection } from '../../lib/seatLayout.js'
 import { tr } from '../../../i18n'
 
 export type { WaitInfoData, AssistSettings }
@@ -50,8 +51,8 @@ type ViewerSyncContext = {
 type ScenePresentationMode = 'game' | 'replay'
 
 /** Direction conversion helper: absolute seat → viewer-relative. */
-function transDir(absoluteDir: number, selfDir: number): number {
-  return (absoluteDir + 4 - selfDir) % 4
+function transDir(absoluteDir: number, selfDir: number, playerCount = 4): number {
+  return relativeSeat(absoluteDir, selfDir, playerCount)
 }
 
 function backendMeldFromRel(actorSeat: number, targetSeat: number): number {
@@ -132,6 +133,7 @@ export class MahjongScene {
 
   // ── State ─────────────────────────────────────────────────────────
   private selfDir = 0
+  private playerCount = 4
   private names: [string, string, string, string] = ['', '', '', '']
   private ranks: [string, string, string, string] = ['', '', '', '']
   private scores: [number, number, number, number] = [0, 0, 0, 0]
@@ -258,7 +260,7 @@ export class MahjongScene {
    */
   setReplayDangerTiles(dangerBySeat: Map<number, Set<number>> | null): void {
     for (let localDir = 0; localDir < this.hands.length; localDir += 1) {
-      const absoluteSeat = (localDir + this.selfDir) % 4
+      const absoluteSeat = seatAtDirection(localDir, this.selfDir, this.playerCount)
       const danger = dangerBySeat?.get(absoluteSeat) ?? new Set<number>()
       const hand = this.hands[localDir]
       for (const tile of [...hand.rightList, ...(hand.drawnTile ? [hand.drawnTile] : [])]) {
@@ -424,6 +426,9 @@ export class MahjongScene {
 
   destroy(): void {
     this.duplicateRemainingTiles.fill(undefined)
+    this.present.fill(false)
+    this.names.fill('')
+    this.scores.fill(0)
     this.destroyed = true
     this.mountGeneration += 1
     if (this.resizeFrame !== null) {
@@ -709,6 +714,7 @@ export class MahjongScene {
   }
 
   private rememberViewer(viewer: Record<string, any>): void {
+    if (this.hands[0]) this.hands[0].forbiddenDiscards = new Set(viewer.forbidden_discard_tiles ?? [])
     this.currentPendingStatus = typeof viewer.pending === 'string' ? viewer.pending : 'none'
     const incoming = Array.isArray(viewer.available_actions)
       ? viewer.available_actions as Array<Record<string, any>>
@@ -780,11 +786,12 @@ export class MahjongScene {
   }
 
   private seatWindLabel(localDir: number): string {
-    return ['東', '南', '西', '北'][(localDir + this.selfDir) % 4] ?? ''
+    return ['東', '南', '西', '北'][seatAtDirection(localDir, this.selfDir, this.playerCount)] ?? ''
   }
 
   private applyCenterScores(): void {
     for (let i = 0; i < 4; i += 1) {
+      if (this.playerCount === 3 && i === 2) continue
       this.rivers[i]?.setPlayerInfo(this.ranks[i], this.names[i], !this.present[i], this.duplicateRemainingTiles[i])
       this.stateDisplay.setScore(
         this.names[i],
@@ -1538,6 +1545,7 @@ export class MahjongScene {
     const revealAllHands = Boolean(snapshot.reveal_all_hands)
     this.openingReplacementTile = null
     this.selfDir = viewer.seat_index
+    this.playerCount = seats.length === 3 ? 3 : 4
     this.currentStageCounter = state.stage_counter
     this.rememberViewer(viewer as Record<string, any>)
     this.deferredPending = null
@@ -1597,10 +1605,14 @@ export class MahjongScene {
     }
 
     // Populate seats
+    for (const hand of this.hands) hand.setJokerTiles(snapshot.hand_joker_tiles ?? [])
     this.duplicateRemainingTiles.fill(undefined)
+    this.present.fill(false)
+    this.names.fill('')
+    this.scores.fill(0)
     const localSeats: (SeatSnapshot | null)[] = [null, null, null, null]
     for (const seat of seats) {
-      const localDir = transDir(seat.seat_index, this.selfDir)
+      const localDir = transDir(seat.seat_index, this.selfDir, this.playerCount)
       localSeats[localDir] = seat
     }
 
@@ -1691,14 +1703,14 @@ export class MahjongScene {
     const waitingDiscarderSeat = readWaitingDiscarderSeat(snapshot)
     if (waitingDiscarderSeat !== null) {
       this.lastDiscarderSeat = waitingDiscarderSeat
-      this.rivers[transDir(waitingDiscarderSeat, this.selfDir)].setWaitingState(true, false)
+      this.rivers[transDir(waitingDiscarderSeat, this.selfDir, this.playerCount)].setWaitingState(true, false)
     }
 
     // Display
     this.stateDisplay.setRound(this.round, this.appearance.roundLabelFormat, this.roundLabelFormatter?.(this.round))
     this.applyCenterScores()
     this.stateDisplay.setRemaining(this.remainingTiles)
-    this.stateDisplay.setCurrent(transDir(this.currentDir, this.selfDir))
+    this.stateDisplay.setCurrent(transDir(this.currentDir, this.selfDir, this.playerCount))
     this.tempDisplay.clear()
     this.tempDisplay.visible = false
     if (state.ended && Array.isArray(state.final_scores)) {
@@ -1730,7 +1742,7 @@ export class MahjongScene {
     if (!this.mounted) return
     this.roundEnded = false
     this.countdown.stop()
-    const winnerDir = transDir(Number(winnerSeat) || 0, this.selfDir)
+    const winnerDir = transDir(Number(winnerSeat) || 0, this.selfDir, this.playerCount)
     const hand = this.hands[winnerDir]
     if (!hand) return
     if (!isSelfDraw && hand.drawnTile) {
@@ -1778,7 +1790,7 @@ export class MahjongScene {
     this.rememberViewer(viewer)
 
     const actorSeat: number = event.actor_seat ?? 0
-    const actorDir = transDir(actorSeat, this.selfDir)
+    const actorDir = transDir(actorSeat, this.selfDir, this.playerCount)
     const tile: number | undefined = event.tile
     const claimDiscarderSeat = typeof event.discarder_seat === 'number'
       && event.discarder_seat >= 0
@@ -1801,6 +1813,9 @@ export class MahjongScene {
       switch (kind) {
         case 'start': {
           this.duplicateRemainingTiles.fill(undefined)
+    this.present.fill(false)
+    this.names.fill('')
+    this.scores.fill(0)
           // New round: clear all tiles and reposition based on the new seat wind
           this.roundEnded = false
           this.openingReplacementTile = null
@@ -1846,7 +1861,8 @@ export class MahjongScene {
           ]
 
           // Viewer seat_index already reflects the new seat after shuffle/rotation
-          this.selfDir = viewer.seat_index as number ?? this.selfDir
+          this.selfDir = viewer.seat_index
+    this.playerCount = seats.length === 3 ? 3 : 4 as number ?? this.selfDir
           this.updateDirectionLabels()
 
           // Reset scores (names will be repopulated in Phase B from seat_status)
@@ -1920,7 +1936,7 @@ export class MahjongScene {
         }
         case 'chow': {
           this.lastDiscarderSeat = claimDiscarderSeat
-          const discarderRelDir = transDir(claimDiscarderSeat, this.selfDir)
+          const discarderRelDir = transDir(claimDiscarderSeat, this.selfDir, this.playerCount)
           const centralTile = tile ?? 0
           const chowMode = event.ui64_value ?? 0
           this.hands[actorDir].chowFromRiver(this.rivers[discarderRelDir], centralTile, chowMode)
@@ -1932,7 +1948,7 @@ export class MahjongScene {
         }
         case 'pung': {
           this.lastDiscarderSeat = claimDiscarderSeat
-          const discarderRelDir = transDir(claimDiscarderSeat, this.selfDir)
+          const discarderRelDir = transDir(claimDiscarderSeat, this.selfDir, this.playerCount)
           const meldFromRel = backendMeldFromRel(actorSeat, claimDiscarderSeat)
           const t = tile ?? 0
           this.hands[actorDir].pungFromRiver(this.rivers[discarderRelDir], meldFromRel, t)
@@ -1944,7 +1960,7 @@ export class MahjongScene {
         }
         case 'melded_kong': {
           this.lastDiscarderSeat = claimDiscarderSeat
-          const discarderRelDir = transDir(claimDiscarderSeat, this.selfDir)
+          const discarderRelDir = transDir(claimDiscarderSeat, this.selfDir, this.playerCount)
           const t = tile ?? 0
           const meldFromRel = backendMeldFromRel(actorSeat, claimDiscarderSeat)
           this.hands[actorDir].meldedKongFromRiver(this.rivers[discarderRelDir], meldFromRel, t)
@@ -1976,9 +1992,9 @@ export class MahjongScene {
           const t = tile ?? 0
           const useDrawn = event.use_drawn_tile ?? false
           if (actorDir === 0) {
-            this.hands[0].cKongFromHand(t, useDrawn, event.concealed_face_down)
+            this.hands[0].cKongFromHand(t, useDrawn, event.concealed_face_down, event.physical_tiles)
           } else {
-            this.hands[actorDir].cKongFromHand(t, useDrawn, event.concealed_face_down)
+            this.hands[actorDir].cKongFromHand(t, useDrawn, event.concealed_face_down, event.physical_tiles)
           }
           if (this.presentationMode === 'replay' && !event.silent) {
             this.showReplayClaimLabel(actorDir, tr('杠'), true)
@@ -2069,7 +2085,7 @@ export class MahjongScene {
     // ── Phase B: UI update (BOTH categories) ───────────────────────
     // Seat status
     for (const ss of seatStatus) {
-      const dir = transDir(ss.seat_index as number, this.selfDir)
+      const dir = transDir(ss.seat_index as number, this.selfDir, this.playerCount)
       this.names[dir] = displayPlayerName(ss.username)
       this.duplicateRemainingTiles[dir] = ss.duplicate_remaining_tile_count as number | undefined
       if (typeof ss.rank === 'string') this.ranks[dir] = ss.rank || '—'
@@ -2101,7 +2117,7 @@ export class MahjongScene {
     const currentPlayer = readCurrentPlayer(state)
     if (currentPlayer !== null) {
       this.currentDir = currentPlayer
-      this.stateDisplay.setCurrent(transDir(this.currentDir, this.selfDir))
+      this.stateDisplay.setCurrent(transDir(this.currentDir, this.selfDir, this.playerCount))
     }
     // Round & remaining
     const rc: number = state.round_counter ?? -1
@@ -2138,9 +2154,9 @@ export class MahjongScene {
       this.tempDisplay.clear()
       const win = event.win as Record<string, any>
       const selfDrawn = kind === 'self_drawn_win'
-      const winnerName = this.names[transDir(event.actor_seat ?? 0, this.selfDir)] ?? ''
+      const winnerName = this.names[transDir(event.actor_seat ?? 0, this.selfDir, this.playerCount)] ?? ''
       const shooterSeat = readResultSourceSeat(kind, state, this.lastDiscarderSeat)
-      const shooterName = selfDrawn ? '' : (this.names[transDir(shooterSeat, this.selfDir)] ?? '')
+      const shooterName = selfDrawn ? '' : (this.names[transDir(shooterSeat, this.selfDir, this.playerCount)] ?? '')
       const fan: number = win.win_fan ?? 0
       const fans: string[] = win.win_fans ?? []
       const bp: number = win.win_base_point ?? 0
@@ -2168,7 +2184,7 @@ export class MahjongScene {
 
   handlePlayerLeft(seat: number): void {
     if (this.presentationMode === 'replay' && this.replayRecordVersion < 6) return
-    const dir = transDir(seat, this.selfDir)
+    const dir = transDir(seat, this.selfDir, this.playerCount)
     this.present[dir] = false
     this.stateDisplay.setPresent(dir, false)
     this.rivers[dir]?.setPlayerName(this.names[dir], true)
@@ -2176,7 +2192,7 @@ export class MahjongScene {
 
   handlePlayerResumed(seat: number): void {
     if (this.presentationMode === 'replay' && this.replayRecordVersion < 6) return
-    const dir = transDir(seat, this.selfDir)
+    const dir = transDir(seat, this.selfDir, this.playerCount)
     this.present[dir] = true
     this.stateDisplay.setPresent(dir, true)
     this.rivers[dir]?.setPlayerName(this.names[dir], false)
@@ -2194,7 +2210,7 @@ export class MahjongScene {
 
     const kind = typeof event.kind === 'string' ? event.kind : ''
     const actorSeat = typeof event.actor_seat === 'number' ? event.actor_seat : 0
-    const actorDir = transDir(actorSeat, this.selfDir)
+    const actorDir = transDir(actorSeat, this.selfDir, this.playerCount)
 
     if (category === 'claim') {
       const labelMap: Record<string, string> = {
@@ -2262,7 +2278,11 @@ export class MahjongScene {
 
     this.deferredPending = null
     this.duplicateRemainingTiles.fill(undefined)
+    this.present.fill(false)
+    this.names.fill('')
+    this.scores.fill(0)
     for (let i = 0; i < 4; i += 1) {
+      if (this.playerCount === 3 && i === 2) continue
       this.rivers[i]?.setPlayerInfo(this.ranks[i], this.names[i], !this.present[i])
     }
     this.currentViewerActions = []
@@ -2389,7 +2409,7 @@ export class MahjongScene {
   private showFinalScores(scoresBySeat: number[]): void {
     this.tempDisplay.clear()
     for (let seat = 0; seat < 4; seat += 1) {
-      const dir = transDir(seat, this.selfDir)
+      const dir = transDir(seat, this.selfDir, this.playerCount)
       this.tempDisplay.setScore(
         this.names[dir] ?? '',
         scoresBySeat[seat] ?? this.scores[dir] ?? 0,
@@ -2409,7 +2429,7 @@ export class MahjongScene {
   ): void {
     const kind = event.kind ?? ''
     const actorSeat = typeof event.actor_seat === 'number' ? event.actor_seat : 0
-    const actorDir = transDir(actorSeat, this.selfDir)
+    const actorDir = transDir(actorSeat, this.selfDir, this.playerCount)
     const tile = typeof event.tile === 'number' ? event.tile : null
 
     if (
@@ -2437,7 +2457,7 @@ export class MahjongScene {
     const selfDrawn = kind === 'self_drawn_win'
     const winnerName = this.names[actorDir] ?? displayPlayerName(null)
     const shooterIdx = sourceActorSeat ?? this.lastDiscarderSeat
-    const shooterName = this.names[transDir(shooterIdx, this.selfDir)] ?? displayPlayerName(null)
+    const shooterName = this.names[transDir(shooterIdx, this.selfDir, this.playerCount)] ?? displayPlayerName(null)
     const fan: number = win.win_fan ?? 0
     const fans: string[] = win.win_fans ?? []
     const bp: number = win.win_base_point ?? 0

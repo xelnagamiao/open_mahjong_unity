@@ -168,10 +168,11 @@ def _base_game_info(self):
     }
     from ..public.game_record_manager import build_player_entry_order_fields
     base.update(build_player_entry_order_fields(self))
-    if getattr(self, "duplicate_match", None):
+    if getattr(self, "duplicate_key", None):
         from ..public.duplicate_wall import duplicate_fields, duplicate_remaining_tile_counts
-        base.update(duplicate_fields(self), duplicate_match={**self.duplicate_match.public_info(), "table": self.duplicate_table, "waiting": self.game_status == "duplicate_wait"},
-                    duplicate_remaining_tiles=duplicate_remaining_tile_counts(self), salt=None, commitment=None)
+        base.update(duplicate_fields(self), duplicate_remaining_tiles=duplicate_remaining_tile_counts(self), salt=None, commitment=None)
+        if getattr(self, "duplicate_match", None):
+            base["duplicate_match"] = {**self.duplicate_match.public_info(), "table": self.duplicate_table, "waiting": self.game_status == "duplicate_wait"}
     return base
 
 
@@ -861,6 +862,9 @@ async def broadcast_game_end(self):
             **({"team_id": player.team_id, "team_score": self.team_result["scores"][player.team_id],
                 "team_match_points": self.team_result["match_points"][player.team_id],
                 "team_result_reason": self.team_result["reason"]} if getattr(self, "is_team_game", False) else {}),
+            **({"team_small_score": self.team_result["small_scores"][player.team_id],
+                "team_imp_score": self.team_result["imp_scores"][player.team_id]}
+               if getattr(self, "duplicate_match", None) else {}),
             **rating_result_fields(player),
             rank=player.record_counter.rank_result, score=player.score, pt=0,
             username=player.username, original_player_index=player.original_player_index,

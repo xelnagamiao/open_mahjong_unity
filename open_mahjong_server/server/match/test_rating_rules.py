@@ -163,7 +163,7 @@ def test_queue_config_and_real_game_construction(queue):
             assert info['detailed_config'] == preset['detailed_config']
             assert info['hepai_way'] == preset['hepai_way']
         assert game.match_queue_type==queue
-        assert queue_type_to_match_type(queue)==f'{spec.rounds}/4' + ('_sanma_rank' if spec.player_count == 3 else '_rank')
+        assert queue_type_to_match_type(queue)==f'{spec.rounds}/{spec.player_count}_rank'
         assert len(game.player_list)==spec.player_count
         assert server.match_manager.playing_counts[queue]==spec.player_count
         await server.gamestate_manager.cleanup_game_state_complete(game.gamestate_id)
@@ -251,7 +251,7 @@ def test_settlement_dispatch_only_for_matching_rule(queue):
         assert db.settle_rated_game.call_args.kwargs['rating_algorithm'] == ('riichi_sanma_place_pt_v1' if spec.player_count == 3 else 'grade_place_pt_v1')
         assert [p['match_points'] for p in db.settle_rated_game.call_args.args[2]] == [60,10,-20,-50][:spec.player_count]
     state.room_type='custom';db.settle_rated_game.reset_mock()
-    assert settle_ranked_game(state)==f'{spec.rounds}/4'
+    assert settle_ranked_game(state)==f'{spec.rounds}/{spec.player_count}'
     db.settle_rated_game.assert_not_called()
     state.room_type='match';state.room_rule='unsupported'
     with pytest.raises(ValueError):settle_ranked_game(state)

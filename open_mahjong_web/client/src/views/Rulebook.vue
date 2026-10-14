@@ -22,7 +22,7 @@
         <section :key="active.key" class="rule-section">
           <div class="rule-intro">
             <h2>{{ active.label }}</h2>
-            <p>{{ activeDescription }}</p>
+            <p v-if="activeDescription">{{ activeDescription }}</p>
           </div>
 
           <div v-if="active.key === 'hongkong'" class="tab-bar" aria-label="香港麻将子规则">
@@ -39,7 +39,10 @@
               @click="setGuangdongProfile(profile.subRule)">{{ profile.label }}</button>
           </div>
 
-          <div class="docs-grid">
+          <div v-if="active.inlineText" class="inline-rule-text">
+            <p v-for="line in active.inlineText" :key="line">{{ line }}</p>
+          </div>
+          <div v-else class="docs-grid">
             <div
               v-for="doc in activeDocs"
               :key="doc.url"
@@ -71,6 +74,7 @@ import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { hongKongRulebooks, hongKongRulebook } from '../constants/hongKongRulebooks.js'
 import { milRulebooks, milRulebook } from '../constants/milRulebooks.js'
+import { HUAHUN_RULE_TEXT } from '../utils/guobiaoHuahun.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -102,10 +106,30 @@ const rules = [
     ]
   },
   {
+    key: 'guobiao-sixteen',
+    label: '国标十六张',
+    description: '依据《新编 MCR》推定的本站十六张扩展：十七张和牌、五组一对，八番起和。',
+    docs: [{ title: '国标十六张：扩展规则与牌例', desc: '逐番适用表、五面子复合计番、固定十四张特殊牌形及独听补则。', url: '/rulebooks/guobiao-sixteen.html' },
+      { title: '底本：新编 MCR', desc: 'Natsuki 编著，2025年8月版；十六张的扩展约定见上文。', url: '/rulebooks/guobiao-mcr.pdf', filename: '新编MCR.pdf' }],
+  },
+  {
     key: 'guobiao-lanshi',
     label: '蓝十改',
     description: '采用《蓝十魔改规则第4版》的四人赛制：136张无花，5分起和、100分封顶，半全铳半分付。PDF中的三人赛制仅供阅读，本平台当前只提供四人房。',
     docs: [{title: '蓝十魔改规则第4版', desc: '四人规则与番种牌例；线下赛事编排、裁判与纪律条款供参考。', url: '/rulebooks/guobiao-lanshi.pdf', filename: '蓝十魔改规则第4版.pdf'}]
+  },
+  {
+    key: 'guobiao-huahun',
+    label: '国标花混癞子',
+    description: '',
+    inlineText: HUAHUN_RULE_TEXT,
+    docs: []
+  },
+  {
+    key: 'guobiao-four-jokers',
+    label: '国标四癞子',
+    description: '新增四张红花癞子，按合法替代的最高国标番计分。',
+    docs: [{ title: '国标四癞子：本站规则', desc: '红花留手、替代限制、八番起和、计分与牌例。', url: '/rulebooks/guobiao-four-jokers.html' }]
   },
   {
     key: 'guobiao-transparent',
@@ -206,6 +230,14 @@ const rules = [
     docs: milRulebooks.changchun,
   },
   {
+    key: 'singapore', label: '新加坡四人麻将', short: '新加坡', categories: ['platform', 'local'], accent: '#247b68',
+    description: 'SPGG 2024：148张，1台起和、5台封顶，花季与动物婚配即时支付；含平台补充约定。',
+    docs: [
+      { title: '新加坡 SPGG 平台规则', desc: '完整规则说明、计分及补充口径。', url: '/rulebooks/singapore-spgg2024.html', filename: 'singapore-spgg2024.html' },
+      { title: 'SPGG 2024 英文原文', desc: 'Singapore Polytechnic Graduates Guild 发布。', url: 'https://www.spgg.org.sg/web/content/114907/', filename: 'spgg-2024.pdf' },
+    ],
+  },
+  {
     key: 'jiujiang', label: '九江麻将', short: '九江', categories: ['platform', 'local', 'custom'], accent: '#467b85',
     description: '九江麻将是九江地区一个没落的麻将规则，目前九江地区通行红中麻将，本规则是芋蔗凭借小时候的记忆和一定程度上的改良复现的一种失传规则，如发现任何问题或者能够提供九江麻将的资料的玩家可以联系Q2264033554',
     docs: [{ title: '九江麻将规则书', desc: '芋蔗提供的更新版规则书。', url: '/rulebooks/jiujiang.docx', filename: '九江麻将规则书.docx' }],
@@ -235,12 +267,28 @@ const rules = [
     description: milRulebooks.shenyang[0].desc, docs: milRulebooks.shenyang,
   },
   {
+    key: 'fuzhou', label: '福州麻将', short: '福州', categories: ['platform', 'local'], accent: '#a77831',
+    description: '十六张手牌，全部字牌及八花补花，开金、抢金、听金坎、一游及二游；动态留墩，最后四张只摸不打。',
+    docs: [
+      { title: '福州麻将规则与平台补则', url: '/rulebooks/fuzhou.html', filename: 'fuzhou.html' },
+      { title: '福州麻将规则书原文', url: '/rulebooks/fuzhou.docx', filename: '福州麻将规则书.docx' },
+    ],
+  },
+  {
     key: 'nanjing', label: '南京麻将', short: '南京', categories: ['platform', 'mil'], accent: '#947344',
     description: milRulebooks.nanjing[0].desc, docs: milRulebooks.nanjing,
   },
   {
     key: 'nanchang', label: '南昌麻将', short: '南昌', categories: ['platform', 'mil'], accent: '#587a69',
     description: milRulebooks.nanchang[0].desc, docs: milRulebooks.nanchang,
+  },
+  {
+    key: 'malaysia', label: '马来西亚三人麻将', short: '马来三麻', categories: ['platform', 'local'], accent: '#316c64',
+    description: '传统84张：筒、字、16花与4飞，东南西三席，5番起和；依据 Cheah / Sloper 定型文及平台补充条款。',
+    docs: [
+      { title: '马来西亚三人麻将平台规则书', url: '/rulebooks/malaysia.html' },
+      { title: 'Cheah / Sloper 英文定型文', url: 'https://www.sloperama.com/mahjongg/malaysian.html' },
+    ],
   },
   {
     key: 'yixing', label: '宜兴麻将', short: '宜兴', categories: ['platform', 'local'], accent: '#537c69',
@@ -410,6 +458,8 @@ const downloadDoc = (url, filename) => {
 </script>
 
 <style scoped>
+.inline-rule-text { font-size: 16px; line-height: 1.9; }
+.inline-rule-text p { margin: 0 0 20px; }
 .rulebook {
   --accent: #a78bfa;
   --accent-deep: #7c5fd4;

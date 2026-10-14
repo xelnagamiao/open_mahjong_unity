@@ -15,7 +15,7 @@ export function tileSvgFile(id) {
 
 /** 牌面 SVG 公共路径；无资源时返回 null（回退 Unicode） */
 export function tileSvgUrl(id) {
-  if (id >= 51 && id <= 58) return `/game2d-assets/textures/riichi-mahjong-tiles/Regular/${id}.svg`
+  if (id >= 51 && id <= 59) return `/game2d-assets/textures/riichi-mahjong-tiles/Regular/${id}.svg`
   const file = tileSvgFile(id)
   return file ? `/tiles/${file}` : null
 }
@@ -53,7 +53,7 @@ export const TILE_NAME = {
   41: '东', 42: '南', 43: '西', 44: '北',
   45: '中', 46: '白', 47: '发',
   51: '春', 52: '夏', 53: '秋', 54: '冬',
-  55: '梅', 56: '兰', 57: '竹', 58: '菊'
+  55: '梅', 56: '兰', 57: '竹', 58: '菊', 59: '红花癞子'
 };
 
 /** 单张牌转为 m/p/s/z 简写（与 tilesToNotationText 字序一致：z 为 1东2南3西4北5白6发7中） */
@@ -64,6 +64,7 @@ export function tileIdToNotation(id) {
   if (id >= 31 && id <= 39) return `${id - 30}s`
   const z = { 41: '1z', 42: '2z', 43: '3z', 44: '4z', 46: '5z', 47: '6z', 45: '7z' }
   if (z[id]) return z[id]
+  if (id === 59) return '红花癞子'
   if (id >= 51 && id <= 58) return `${id - 50}花`
   return `#${id}`
 }
@@ -73,7 +74,7 @@ export const TILE_SHORT = {
   41: '东', 42: '南', 43: '西', 44: '北',
   45: '中', 46: '白', 47: '发',
   51: '春', 52: '夏', 53: '秋', 54: '冬',
-  55: '梅', 56: '兰', 57: '竹', 58: '菊'
+  55: '梅', 56: '兰', 57: '竹', 58: '菊', 59: '红花癞子'
 };
 
 // 数牌花色色调（用于卡片背景）

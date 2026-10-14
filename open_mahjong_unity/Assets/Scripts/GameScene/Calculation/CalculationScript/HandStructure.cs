@@ -33,7 +33,9 @@ public static class HandStructures {
     public static readonly HandStructure SixteenTile = new HandStructure(5);
 
     public static HandStructure Resolve(string roomRule, string subRule = null) {
-        if (IsRule(roomRule, "filipino") || IsRule(roomRule, "filipino/classic16") || IsRule(subRule, "filipino/classic16")
+        if (IsRule(roomRule, "guobiao/sixteen") || IsRule(subRule, "guobiao/sixteen")
+            || IsRule(roomRule, "fuzhou") || IsRule(roomRule, "fuzhou/standard") || IsRule(subRule, "fuzhou/standard")
+            || IsRule(roomRule, "filipino") || IsRule(roomRule, "filipino/classic16") || IsRule(subRule, "filipino/classic16")
             || IsRule(roomRule, "taiwan") || IsRule(roomRule, "taiwan/standard")
             || IsRule(subRule, "taiwan/standard") || IsRule(roomRule, "hongkong/new16")
             || IsRule(subRule, "hongkong/new16") || IsRule(roomRule, "wenzhou")

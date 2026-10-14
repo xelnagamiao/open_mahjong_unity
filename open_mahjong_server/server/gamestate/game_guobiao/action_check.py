@@ -1,6 +1,9 @@
 from typing import Dict
 import logging
 from . import blood_battle, transparent
+from ...game_calculation import guobiao_sixteen as sixteen
+from ...game_calculation import guobiao_four_jokers as four_jokers
+from ...game_calculation import guobiao_huahun as huahun
 from .duplicate_rules import duplicate_rules_for
 from .sanma import filter_tiles, round_wind, ron_action
 from ..public.logic_common import get_index_relative_position, next_current_num
@@ -14,6 +17,8 @@ logger = logging.getLogger(__name__)
 # 切牌后检查 存储 吃chi_left chi_mid chi_right 碰peng 杠gang 胡hu 操作
 def check_action_after_cut(self,cut_tile):
     temp_action_dict:Dict[int,list] = {i: [] for i in range(len(self.player_list))}
+    if four_jokers.is_joker(self, cut_tile):
+        return temp_action_dict
     duplicate_rules = duplicate_rules_for(self)
 
     if blood_battle.enabled(self):
@@ -107,7 +112,7 @@ def check_action_buhua(self,player_index):
     duplicate_rules = duplicate_rules_for(self)
     if duplicate_rules and not duplicate_rules.can_draw(player_index):
         return temp_action_dict
-    if any(51 <= carditem <= 58 for carditem in self.player_list[player_index].hand_tiles):
+    if any(four_jokers.is_flower(self, carditem) for carditem in self.player_list[player_index].hand_tiles):
         temp_action_dict[player_index].append("buhua")
         temp_action_dict[player_index].append("pass")
     return temp_action_dict
@@ -123,7 +128,7 @@ def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_a
     # 如果牌堆内仍有牌则可以补花暗杠加杠
     if duplicate_rules.can_draw(player_index) if duplicate_rules else self.tiles_list != []:
         # 如果手牌中有花牌 则可以补花
-        if any(51 <= carditem <= 58 for carditem in player_item.hand_tiles):
+        if any(four_jokers.is_flower(self, carditem) for carditem in player_item.hand_tiles):
             if self.tiles_list != []:
                 temp_action_dict[player_index].append("buhua")
 
@@ -131,10 +136,15 @@ def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_a
         processed_cards = set()
         normal_hand = [normalize_tile(t) for t in player_item.hand_tiles]
         for carditem in normal_hand:
+            if four_jokers.is_joker(self, carditem):
+                continue
             if carditem not in processed_cards and normal_hand.count(carditem) == 4:
                 if self.tiles_list != []:
                     temp_action_dict[player_index].append("angang")
                     processed_cards.add(carditem)
+        if huahun.enabled(self) and huahun.can_flower_kong(player_item.hand_tiles):
+            if "angang" not in temp_action_dict[player_index]:
+                temp_action_dict[player_index].append("angang")
                 
         # 如果组合牌中有加杠 则可以加杠
         for combination_tile in player_item.combination_tiles:
@@ -181,6 +191,10 @@ def refresh_waiting_tiles(self,player_index,is_first_action=False):
     waiting_check = (self.calculation_service.GB_lanshi_tingpai_check
                      if getattr(self, "sub_rule", "") == "guobiao/lanshi"
                      else self.calculation_service.GB_tingpai_check)
+    if sixteen.enabled(self):
+        waiting_check = sixteen.waiting_tiles
+    elif four_jokers.enabled(self):
+        waiting_check = four_jokers.for_state(self).waiting_tiles
     current_player_waiting_tiles = waiting_check(
         current_player_hand_tiles,
         current_player_combination_tiles
@@ -194,7 +208,7 @@ def refresh_waiting_tiles(self,player_index,is_first_action=False):
 def opening_win_fan(self, player_index, hepai_type, is_get_gang_tile=False):
     """可选天地人和；补花不打断，任何吃碰杠（包括暗杠）均打断。"""
     if (not getattr(self, "tian_di_ren_he", False)
-            or getattr(self, "sub_rule", "guobiao/standard") not in ("guobiao/standard", "guobiao/sanma", "guobiao/blood_battle", transparent.SUB_RULE)
+            or getattr(self, "sub_rule", "guobiao/standard") not in ("guobiao/standard", "guobiao/sanma", "guobiao/blood_battle", transparent.SUB_RULE, four_jokers.SUB_RULE, huahun.SUB_RULE, sixteen.SUB_RULE)
             or is_get_gang_tile
             or any(player.combination_tiles for player in self.player_list)):
         return None
@@ -214,6 +228,8 @@ def opening_win_fan(self, player_index, hepai_type, is_get_gang_tile=False):
 
 # 检查和牌操作
 def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_first_action=False,is_get_gang_tile=False):
+    if four_jokers.is_joker(self, hepai_tile) and hepai_type != "handgot":
+        return
     if blood_battle.enabled(self) and getattr(self.player_list[player_index], "is_hu", False):
         return
     # 和牌操作
@@ -307,7 +323,16 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
             way_to_hepai.remove("和绝张")
 
     # 使用计算服务类检查和牌（根据子规则选择检查方法）
-    if hasattr(self, 'sub_rule') and self.sub_rule == "guobiao/xiaolin":
+    if sixteen.enabled(self):
+        result = sixteen.hepai_check(tiles_list, combination_tiles, way_to_hepai, hepai_tile, not is_first_action)
+    elif huahun.enabled(self):
+        result = huahun.hepai_check(tiles_list, combination_tiles, way_to_hepai, hepai_tile,
+            getattr(self, "joker_multi_wait", False), not is_first_action,
+            getattr(self, "no_joker_bonus", "add8"), getattr(self, "black_flower_progressive", True))
+    elif four_jokers.enabled(self):
+        result = four_jokers.hepai_check(tiles_list, combination_tiles, way_to_hepai, hepai_tile,
+                                       getattr(self, "joker_multi_wait", False), not is_first_action)
+    elif hasattr(self, 'sub_rule') and self.sub_rule == "guobiao/xiaolin":
         result = self.calculation_service.GB_xiaolin_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
     elif hasattr(self, 'sub_rule') and self.sub_rule == "guobiao/kshen":
         result = self.calculation_service.GB_kshen_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
@@ -328,7 +353,9 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
     # 花牌不计起和门槛；错和模式仍允许合法但不足番的牌型报和。
     hepai_limit = getattr(self, 'hepai_limit', 8)
     huapai_count = way_to_hepai.count("花牌")
-    if result[0] - huapai_count >= hepai_limit or self.open_cuohe:
+    enough = (huahun.qualifying_fan(result) >= huahun.minimum(tiles_list, combination_tiles)
+              if huahun.enabled(self) else result[0] - huapai_count >= hepai_limit)
+    if enough or self.open_cuohe:
         action = ron_action(player_index, self.current_player_index, len(self.player_list))
         temp_action_dict[player_index].append(action)
         self.result_dict[action] = result

@@ -2,6 +2,8 @@ export const SICHUAN_DUPLICATE_RULES = Object.freeze([
   'sichuan/doubles_duplicate', 'sichuan/xueliu_doubles_duplicate',
 ])
 export const isSichuanDuplicate = subRule => SICHUAN_DUPLICATE_RULES.includes(subRule)
+export const isXueliuWallRule = subRule => ['sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/xueliu_doubles_duplicate'].includes(subRule)
+export const supportsDuplicateKey = form => (form.room_rule === 'guobiao' && ['guobiao/standard', 'guobiao/xiaolin', 'guobiao/kshen', 'guobiao/lanshi'].includes(form.sub_rule || 'guobiao/standard')) || (form.room_rule === 'sichuan' && isXueliuWallRule(form.sub_rule))
 export const sichuanDuplicateLabel = subRule => subRule === 'sichuan/doubles_duplicate' ? '血战双打复式' : '血流双打复式'
 
 // Pair by server-issued match id, never by name or adjacent room numbers.

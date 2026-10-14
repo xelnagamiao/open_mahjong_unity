@@ -1,3 +1,5 @@
+from .four_jokers_runtime import evaluate_actions
+from ...game_calculation import guobiao_huahun as huahun
 # 等待玩家操作处理
 import asyncio
 from ..public.lifecycle import start_owned_task
@@ -308,7 +310,7 @@ async def wait_action(self):
                     player_action_record_cut(self,cut_tile = tile_id,is_moqie = is_moqie)
                     # 广播切牌操作
                     refresh_waiting_tiles(self, self.current_player_index)
-                    pre_action_dict = check_action_after_cut(self, tile_id)
+                    pre_action_dict = await evaluate_actions(self, check_action_after_cut, tile_id)
                     begin_claim_protection_interval(self, pre_action_dict, self.current_player_index)
                     await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie,cut_tile_index = cut_tile_index) # 广播切牌动画 切牌玩家索引 手模切 切牌id 操作帧
                     self.action_dict = pre_action_dict
@@ -325,11 +327,24 @@ async def wait_action(self):
                     player = self.player_list[self.current_player_index]
                     hand = player.hand_tiles
                     draw_slot = has_draw_slot(player)
-                    is_mo_gang = resolve_is_mo_gang(hand, normal_angang, draw_slot=draw_slot)
-                    removed = remove_angang_tiles(hand, normal_angang, draw_slot=draw_slot)
+                    flower_kong = huahun.enabled(self) and normal_angang == 51
+                    if flower_kong:
+                        if not huahun.can_flower_kong(hand) or not self.tiles_list:
+                            return
+                        is_mo_gang = draw_slot and hand[-1] in huahun.JOKERS
+                        removed = list(huahun.JOKERS)
+                        if is_mo_gang:
+                            drawn = hand[-1]
+                            removed.remove(drawn)
+                            removed.insert(0, drawn)
+                        for tile in removed:
+                            hand.remove(tile)
+                    else:
+                        is_mo_gang = resolve_is_mo_gang(hand, normal_angang, draw_slot=draw_slot)
+                        removed = remove_angang_tiles(hand, normal_angang, draw_slot=draw_slot)
                     clear_draw_slot(player)
                     self.player_list[self.current_player_index].combination_tiles.append(f"G{normal_angang}")
-                    add_combination_mask = [2, removed[0], 2, removed[1], 2, removed[2], 2, removed[3]]
+                    add_combination_mask = [flag for tile in removed for flag in (0 if flower_kong else 2, tile)]
                     self.player_list[self.current_player_index].combination_mask.append(add_combination_mask)
                     player_action_record_angang(self, angang_tile=normal_angang, is_mo_gang=is_mo_gang,
                                                 combination_mask=add_combination_mask)
@@ -394,7 +409,7 @@ async def wait_action(self):
                     self.jiagang_tile = actual_jia # 存储抢杠牌
                     self.qianggang_action_dict = {}
                     self.qianggang_responses = {}
-                    self.action_dict = check_action_jiagang(self,actual_jia) # 检查是否有人可以抢杠
+                    self.action_dict = await evaluate_actions(self, check_action_jiagang,actual_jia) # 检查是否有人可以抢杠
                     if any(self.action_dict[i] for i in self.action_dict):
                         self.game_status = "waiting_action_qianggang" # 如果有则执行 等待抢杠行为 转移行为
                     else:
@@ -428,13 +443,17 @@ async def wait_action(self):
                         getattr(self, "_opening_buhua_complete_pending", False)
                     ),
                 )
+                if huahun.enabled(self):
+                    tile_id, is_moqie = huahun.timeout_cut(player, tile_id, is_moqie)
                 remove_cut_tile(hand, tile_id, is_moqie, draw_slot=draw_slot)
                 clear_draw_slot(player)
+                from ..game_riichi.realtime_hand import note_cut
+                player._realtime_cut_key = note_cut(self, player, tile_id, is_moqie)
                 self.player_list[self.current_player_index].discard_tiles.append(tile_id)
                 player_action_record_cut(self,cut_tile = tile_id,is_moqie = is_moqie)
                 # 广播摸切操作
                 refresh_waiting_tiles(self, self.current_player_index)
-                pre_action_dict = check_action_after_cut(self, tile_id)
+                pre_action_dict = await evaluate_actions(self, check_action_after_cut, tile_id)
                 begin_claim_protection_interval(self, pre_action_dict, self.current_player_index)
                 await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie,is_timeout_action = True) # 广播摸切动画 摸切玩家索引 手模切 摸切牌id 操作帧
                 self.action_dict = pre_action_dict
@@ -627,7 +646,7 @@ async def wait_action(self):
                     player_action_record_cut(self,cut_tile = tile_id,is_moqie = is_moqie)
                     # 广播切牌动画
                     refresh_waiting_tiles(self, self.current_player_index)
-                    pre_action_dict = check_action_after_cut(self, tile_id)
+                    pre_action_dict = await evaluate_actions(self, check_action_after_cut, tile_id)
                     begin_claim_protection_interval(self, pre_action_dict, self.current_player_index)
                     await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie,cut_tile_index = cut_tile_index)
                     self.action_dict = pre_action_dict
@@ -644,13 +663,17 @@ async def wait_action(self):
                 hand = player.hand_tiles
                 is_moqie = False
                 tile_id = pick_timeout_discard_tile(hand)
+                if huahun.enabled(self):
+                    tile_id, is_moqie = huahun.timeout_cut(player, tile_id, False)
                 remove_cut_tile(hand, tile_id, is_moqie, draw_slot=False)
                 clear_draw_slot(player)
+                from ..game_riichi.realtime_hand import note_cut
+                player._realtime_cut_key = note_cut(self, player, tile_id, is_moqie)
                 self.player_list[self.current_player_index].discard_tiles.append(tile_id) # 将出牌加入弃牌堆
                 # 牌谱记录摸切
                 player_action_record_cut(self,cut_tile = tile_id,is_moqie = is_moqie)
                 refresh_waiting_tiles(self, self.current_player_index)
-                pre_action_dict = check_action_after_cut(self, tile_id)
+                pre_action_dict = await evaluate_actions(self, check_action_after_cut, tile_id)
                 begin_claim_protection_interval(self, pre_action_dict, self.current_player_index)
                 await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie,is_timeout_action = True)
                 self.action_dict = pre_action_dict

@@ -23,13 +23,20 @@ public partial class Game3DManager {
     // Uses the same animation queue as ordinary hands. A snapshot may arrive before
     // a flying tile lands; never texture a pool object while the old action owns it.
     private void RefreshWashizuPresentation() {
+        FollowWashizuReadingRows();
         if (washizuDirtySeats.Count == 0 || MahjongObjectPool.Instance == null) return;
         foreach (string seat in WashizuOpponentSeats) {
             if (!washizuDirtySeats.Contains(seat) || HasPendingHandAnimWork(seat)) continue;
             PosPanel3D panel = GetPosPanel(seat);
             if (panel == null || !washizuPublicHands.TryGetValue(seat, out int[] cards)) continue;
             // Full-hand reveal in a replay or settlement takes precedence.
-            if (panel.cardsPosition.childCount != cards.Length) continue;
+            Transform row = IsWashizuExpandedReplay ? panel.ShowCardsPosition : panel.cardsPosition;
+            if (row.childCount != cards.Length) continue;
+            if (washizuRealtimeLayouts.TryGetValue(seat, out WashizuHandLayout layout)) {
+                washizuDirtySeats.Remove(seat);
+                EnqueueHandAnimOp(seat, new HandAnimOp { Kind = HandAnimOpKind.WashizuOrder, WashizuLayout = layout });
+                continue;
+            }
             ApplyWashizuStandingRow(panel, cards);
             RenderWashizuReadingRow(seat, panel, cards);
             washizuDirtySeats.Remove(seat);
@@ -71,8 +78,27 @@ public partial class Game3DManager {
             if (tile==null) continue;
             tile.name="WashizuPublic_"+cards[i];
             tile.transform.SetParent(panel.ShowCardsPosition,true);
+            tile.GetComponent<WashizuReadingSurface>().Follow(
+                MahjongObjectPool.GetTile3D(panel.cardsPosition.GetChild(i).gameObject),
+                panel.cardsPosition, inward.normalized*readingInset);
             row.Add(tile);
             Card3DHoverManager.Instance?.RegisterCard(tile,cards[i]);
+        }
+    }
+
+    // Track the physical pool lease through every sorting frame. A discarded or
+    // recycled tile must lose its old reading aid before the next render.
+    private void FollowWashizuReadingRows() {
+        if (washizuReadingRows.Count == 0) return;
+        GetTileSurface(out Vector3 point, out Vector3 normal);
+        foreach (List<GameObject> row in washizuReadingRows.Values) {
+            for (int i=row.Count-1;i>=0;i--) {
+                GameObject tile=row[i];
+                if (tile != null && tile.activeSelf && tile.GetComponent<WashizuReadingSurface>()
+                    .FollowOnTable(point, normal, tileSurfaceClearance)) continue;
+                if (tile != null && tile.activeSelf) MahjongObjectPool.Instance?.Return(-1,tile);
+                row.RemoveAt(i);
+            }
         }
     }
 
@@ -93,6 +119,8 @@ public partial class Game3DManager {
     }
 
     public void ClearWashizuPresentation() {
+        washizuRealtimeLayouts.Clear();
+        washizuRealtimeTiles.Clear();
         foreach (string seat in WashizuOpponentSeats) ClearWashizuReadingRow(seat);
         washizuReadingRows.Clear();washizuPublicHands.Clear();washizuDirtySeats.Clear();washizuRevealedSeats.Clear();
     }
@@ -102,6 +130,12 @@ public partial class Game3DManager {
         if (record==null || !record.IsTransparentRecord()) return;
         foreach (string seat in WashizuOpponentSeats) {
             if (washizuRevealedSeats.Contains(seat)) continue;
+            if (record.IsWashizuRealtimeRecord()) {
+                if (!record.recordPlayer_to_info.TryGetValue(seat, out var realtimePlayer)) continue;
+                var layout = record.GetWashizuRecordLayout(seat, IsWashizuExpandedReplay);
+                SetWashizuRealtimeLayouts(new Dictionary<int, WashizuHandLayout> { [realtimePlayer.playerIndex] = layout }, record.indexToPosition);
+                continue;
+            }
             ClearWashizuReadingRow(seat);
             if (RecordSetting.Instance != null && RecordSetting.Instance.IsShowCardsMode) {
                 washizuPublicHands.Remove(seat);washizuDirtySeats.Remove(seat);continue;

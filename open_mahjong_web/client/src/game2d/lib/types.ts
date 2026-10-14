@@ -115,6 +115,7 @@ export interface SeatSnapshot {
 }
 
 export interface ViewerSnapshot {
+  forbidden_discard_tiles?: number[]
   seat_index: number
   pending: string
   decision_timer_ms: number | null
@@ -143,6 +144,7 @@ export interface ActiveSessionSnapshot {
   viewer: ViewerSnapshot
   result_event?: GameEventSnapshot | null
   reveal_all_hands?: boolean
+  hand_joker_tiles?: number[]
 }
 
 export type SessionSnapshot = PendingSnapshot | ActiveSessionSnapshot

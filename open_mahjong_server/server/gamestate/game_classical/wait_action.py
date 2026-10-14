@@ -185,7 +185,7 @@ async def wait_action(self):
                     removed = remove_angang_tiles(hand, normal_angang, draw_slot=draw_slot)
                     clear_draw_slot(player)
                     self.player_list[self.current_player_index].combination_tiles.append(f"G{normal_angang}")
-                    add_combination_mask = [2, removed[0], 2, removed[1], 2, removed[2], 2, removed[3]]
+                    add_combination_mask = [2, removed[0], 0, removed[1], 0, removed[2], 2, removed[3]]
                     self.player_list[self.current_player_index].combination_mask.append(add_combination_mask)
                     player_action_record_angang(self, angang_tile=normal_angang, is_mo_gang=is_mo_gang,
                                                 combination_mask=add_combination_mask)

@@ -6,6 +6,7 @@ from .guobiao.record_analyzer import (
     _parse_hu_tick, _tick_int, RON_ACTIONS, VISIBLE_FULU_CODES, reconstruct_round_win_turns,
 )
 from .guobiao.round_score_utils import _parse_score_changes, resolve_round_seats
+from .statistics_values import sichuan_win_fan, statistic_units
 
 
 def analyze_shared_record_for_player(record, original_index):
@@ -13,8 +14,9 @@ def analyze_shared_record_for_player(record, original_index):
                total_fan_score=0, total_win_turn=0, total_fangchong_score=0,
                fulu_round_count=0, cuohe_count=0, total_round_score=0)
     title = record.get("game_title") or {}
+    win_unit, loss_unit = statistic_units(title)
     sichuan = title.get("rule") == "sichuan"
-    own_turns = sichuan or title.get("rule") in ("zhongyong", "jiandan", "nanque", "nanjing", "nanchang")
+    own_turns = sichuan or title.get("rule") in ("zhongyong", "jiandan", "nanque", "nanjing", "nanchang", "malaysia", "fuzhou")
     dealer_cut_turns = title.get("rule") in ("qingque", "classical", "shenyang", "wuhan")
     fractional_fan_total = Decimal(0)
     for rd in (record.get("game_round") or {}).values():
@@ -51,7 +53,7 @@ def analyze_shared_record_for_player(record, original_index):
         turn_totals = reconstruct_round_win_turns({**rd, "seats": seats})
         if not own_turns and not dealer_cut_turns:
             out["total_win_turn"] += turn_totals.get(seat, 0)
-        for tick in ticks:
+        for tick_index, tick in enumerate(ticks):
             if not isinstance(tick, list) or not tick:
                 continue
             code = tick[0]
@@ -88,14 +90,20 @@ def analyze_shared_record_for_player(record, original_index):
             if hu:
                 winner = hu["winner_seat"]
                 fan_score = hu["fan_score"]
+                invalid = any("错和" in str(fan) for fan in (hu["yaku"] or []))
+                if sichuan and not invalid:
+                    fan_score = sichuan_win_fan(title, rd, tick, tick_index)
+                if title.get("rule") == "malaysia":
+                    # This rule records basic payment points in the hu tick.
+                    # Fan aggregates are intentionally deferred, not payment totals.
+                    fan_score = 0
                 if title.get("rule") == "classical":
                     # hu_score records total income; cumulative counters use total fu.
                     # The shuhewei panel preserves each player's exact total fu.
                     fan_score = (classical_fu[winner] if classical_fu is not None
                                  else fan_score // (6 if winner == 0 else 4))
-                if title.get("rule") in ("shenyang", "wuhan") and changes is not None:
+                if win_unit == "points" and changes is not None:
                     fan_score = max(0, changes[winner])
-                invalid = any("错和" in str(fan) for fan in (hu["yaku"] or []))
                 if invalid:
                     out["cuohe_count"] += int(winner == seat)
                 elif winner == seat:
@@ -119,7 +127,7 @@ def analyze_shared_record_for_player(record, original_index):
                         payer = _tick_int(tick, 7, actor) if len(tick) >= 9 else actor
                     if payer == seat:
                         out["deal_in_count"] += 1
-                        if title.get("rule") in ("qingque", "wuhan", "nanjing") and changes is not None:
+                        if loss_unit == "points" and changes is not None:
                             out["total_fangchong_score"] += max(0, -changes[seat])
                         else:
                             out["total_fangchong_score"] += fan_score
@@ -140,6 +148,10 @@ def analyze_shared_record_for_player(record, original_index):
             elif code == "sy" and len(tick) > 1 and isinstance(tick[1], dict) and tick[1].get("kind") == "egg":
                 delta = tick[1].get("changes") or {}
                 changes = _parse_score_changes([delta.get(i, delta.get(str(i), 0)) for i in range(count)])
+            elif code == "singapore" and len(tick) > 2 and tick[1] == "payment":
+                changes = _parse_score_changes(tick[2])
+            elif title.get("rule") == "malaysia" and code == "malaysia" and len(tick) > 2 and tick[1] == "payment":
+                changes = _parse_score_changes(tick[2])
             elif "gs" in tick:
                 at = tick.index("gs")
                 changes = _parse_score_changes(tick[at + 1:at + 1 + count])

@@ -7,7 +7,7 @@
 - 一炮多响：逐家等待确认，仅结算实际报和者；过和或超时者继续行牌并受顺和限制。
 - 刮风下雨：点杠/摸杠加杠/暗杠即时收分，流局没叫者退税、杠上炮/抢杠退税。
 - 流局查大叫：没叫者按有叫者理论最大番支付基本分；花猪均按没叫查叫，分被动（原始出牌全为定缺）/主动（曾打非定缺且手含定缺→没叫 + 额外扣 24 分）。
-- 定庄：上副最先和者为庄；并列最先（一炮多响）则点炮者为庄；流局连庄。
+- 定庄：普通血战上副最先和者为庄；并列最先（一炮多响）则点炮者为庄；流局连庄。SBR 双打每副轮庄。
 """
 import asyncio
 import json
@@ -236,7 +236,7 @@ class SichuanGameState:
         self.room_random_seed = room_data.get("random_seed", 0)
         self.open_cuohe = False
         self.show_moqie_hint = room_data.get("show_moqie_hint", False)
-        self.tactical_call = room_data.get("tactical_call", False)
+        self.tactical_call = room_data.get("tactical_call", True)
         from ..public.claim_protection import room_claim_protection_enabled
         self.claim_protection = room_claim_protection_enabled(room_data)
         self.tactical_pre_grace_delay = room_data.get("tactical_pre_grace_delay", 0.5)
@@ -301,6 +301,9 @@ class SichuanGameState:
         from ..game_classical.spectator_manager import SpectatorManager
         self.spectator_manager = SpectatorManager(self, delay=180.0, enabled=self.spectator_enabled)
         self.realtime_spectators = []
+        if room_data.get("duplicate_key") and not room_data.get("duplicate_match_id"):
+            from ..public.duplicate_wall import configure_duplicate_state
+            configure_duplicate_state(self, room_data)
 
     # ============ 网络/重连/掉线（与古典一致） ============
 
@@ -545,10 +548,10 @@ class SichuanGameState:
         pass
 
     def _is_match_end(self):
-        return self.current_round >= self.max_round * 4
+        return self.current_round >= getattr(self, "duplicate_round_count", self.max_round * 4)
 
     def _should_play_round(self):
-        return self.current_round <= self.max_round * 4
+        return self.current_round <= getattr(self, "duplicate_round_count", self.max_round * 4)
 
     def _reset_round_state(self):
         if self.is_team_game:
@@ -775,12 +778,12 @@ class SichuanGameState:
             else:
                 self.player_list[w].record_counter.dianhe_times += 1
                 self.player_list[discarder].record_counter.fangchong_times += 1
-                self.player_list[discarder].record_counter.fangchong_score += base
+                self.player_list[discarder].record_counter.fangchong_score += fan
             self.hu_order_counter += 1
             self.player_list[w].hu_order = self.hu_order_counter
             self.player_list[w].is_hu = True
             self.player_list[w].record_counter.recorded_fans.append(fan_list)
-            self.player_list[w].record_counter.win_score += base
+            self.player_list[w].record_counter.win_score += fan
             if defer_score and self.hu_order_counter <= len(HU_ORDER_TAGS):
                 hu_tag = HU_ORDER_TAGS[self.hu_order_counter - 1]
                 if hu_tag not in self.player_list[w].tag_list:
@@ -805,7 +808,7 @@ class SichuanGameState:
                 self.deferred_hu_settlements.append({'winner': w, 'base': base, 'fan': fan, 'fan_list': list(fan_list), 'is_zimo': is_zimo, 'discarder': discarder, 'hepai_tile': hepai_tile, 'multi_ron': multi_ron, 'hu_class': hu_class, 'hu_order': self.hu_order_counter})
                 await broadcast_refresh_player_tag_list(self)
             hu_changes_list = [changes.get(i, 0) for i in range(4)]
-            player_action_record_hu(self, hu_class=hu_class, hu_score=base, hu_fan=fan_list, hepai_player_index=w, score_changes=hu_changes_list, hepai_tile=hepai_tile, multi_ron=multi_ron if not is_zimo else None, ron_discarder_index=discarder if not is_zimo else None, recycle_discard=recycle_discard if not is_zimo else None)
+            player_action_record_hu(self, statistics_fan=fan, hu_class=hu_class, hu_score=base, hu_fan=fan_list, hepai_player_index=w, score_changes=hu_changes_list, hepai_tile=hepai_tile, multi_ron=multi_ron if not is_zimo else None, ron_discarder_index=discarder if not is_zimo else None, recycle_discard=recycle_discard if not is_zimo else None)
             player_to_score = {p.player_index: p.score for p in self.player_list}
             if defer_score or ron_i < len(winners) - 1:
                 next_status = 'round_continue'
@@ -1139,6 +1142,8 @@ class SichuanGameState:
         return best_hand
 
     def _decide_next_dealer(self) -> int:
+        if self.is_doubles:
+            return next_current_num(self.dealer_index)
         if self.first_win_event:
             winners = self.first_win_event["winners"]
             if len(winners) > 1 and self.first_win_event.get("discarder") is not None:

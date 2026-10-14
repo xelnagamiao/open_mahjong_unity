@@ -131,7 +131,7 @@ def test_invalid_config_rejected_at_room_boundary(invalid):
 @pytest.mark.parametrize("sub_rule", ["shanghai/qinghunpeng", "shanghai/lajihe"])
 def test_other_shanghai_rules_cannot_enable_profile(sub_rule):
     args = dict(room_name="上海", game_round=1, round_timer=20, step_timer=5, sub_rule=sub_rule)
-    assert ShanghaiRoomValidator(**args).detailed_config is None
+    assert ShanghaiRoomValidator(**args).detailed_config == ({"self_draw_extra_base":False} if sub_rule=="shanghai/lajihe" else None)
     with pytest.raises(ValueError, match="仅适用于上海敲麻"):
         ShanghaiRoomValidator(**args, detailed_config={qiaoma.QING3_HUN2_PENG2: True})
 

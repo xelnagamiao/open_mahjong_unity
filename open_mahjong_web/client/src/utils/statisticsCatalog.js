@@ -1,5 +1,6 @@
 import catalog from '../../../shared/statisticsRules.json' with { type: 'json' };
 export const STATISTICS_RULES = catalog.rules.filter(row => row.basic_stats);
+export const STATISTIC_VALUE_UNITS = catalog.stat_value_units;
 const canonicalKey = key => ['jiandan', 'jiandan/standard', 'nanque/standard'].includes(key) ? 'nanque' : key;
 export const statisticsSelection = key => STATISTICS_RULES.find(row => row.key === canonicalKey(key) || row.sub_rule === key);
 export const statisticRuleKey = row => row.sub_rule

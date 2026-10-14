@@ -53,7 +53,8 @@ def test_profile_skips_opening_and_forces_blood_battle_zero_fan():
     asyncio.run(state._opening_phase())
     assert state.blood_battle and state.hepai_limit == 0
     assert all(p.dingque_suit == 0 for p in state.player_list)
-    assert state.game_record["game_title"]["doubles_rule_profile"]["version"] == "sbr2025-doubles-v1"
+    assert state.game_record["game_title"]["doubles_rule_profile"]["version"] == "sbr2025-doubles-v2"
+    assert state.game_record["game_title"]["doubles_rule_profile"]["dealer_rotation"] == "each_board"
 
 
 @pytest.mark.parametrize("seed", range(12))

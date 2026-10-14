@@ -41,6 +41,7 @@ public class RiichiGameState : TurnBasedGameState {
         acceptedRiichiPlayers.Clear();
         washizuPublicHands = gameInfo.washizu_hands;
         Game3DManager.Instance?.SetWashizuPublicHands(washizuPublicHands, Mirror.IndexToPosition);
+        ApplyRealtimeHandLayouts(gameInfo.washizu_layouts);
         Honba = gameInfo.honba ?? 0;
         RiichiSticks = gameInfo.riichi_sticks ?? 0;
         DoraIndicators = gameInfo.dora_indicators != null ? new List<int>(gameInfo.dora_indicators) : new List<int>();
@@ -79,9 +80,24 @@ public class RiichiGameState : TurnBasedGameState {
     protected override void OnDoAction(Response response) {
         if (response.do_action_info?.is_claim != true && response.do_action_info?.washizu_hands != null)
             washizuPublicHands = response.do_action_info.washizu_hands;
+        // Deletions can start their first animation frame synchronously. Make
+        // removed physical keys available before that frame chooses a tile.
+        if (response.do_action_info?.is_claim != true) ApplyRealtimeHandLayouts(response.do_action_info?.washizu_layouts);
         base.OnDoAction(response);
         if (response.do_action_info?.is_claim != true && response.do_action_info?.washizu_hands != null)
             Game3DManager.Instance?.SetWashizuPublicHands(response.do_action_info.washizu_hands, Mirror.IndexToPosition);
+    }
+
+    private void ApplyRealtimeHandLayouts(Dictionary<int, WashizuHandLayout> layouts, Response acknowledgement = null) {
+        if (Session.SubRule != WashizuTile.RealtimeSubRule || layouts == null) return;
+        Game3DManager.Instance?.SetWashizuRealtimeLayouts(layouts, Mirror.IndexToPosition);
+        if (layouts.TryGetValue(Session.SelfIndex, out WashizuHandLayout self))
+            GameCanvas.Instance.ReceiveWashizuSelfLayout(self, acknowledgement);
+        foreach (var pair in layouts) {
+            if (pair.Key == Session.SelfIndex) continue;
+            if (washizuPublicHands == null) washizuPublicHands = new Dictionary<int, int[]>();
+            washizuPublicHands[pair.Key] = pair.Value.tiles;
+        }
     }
 
     protected override void OnActionPlayed(TableAction action) {
@@ -115,6 +131,10 @@ public class RiichiGameState : TurnBasedGameState {
 
     protected override bool HandleExtraMessage(string suffix, Response response) {
         switch (suffix) {
+            case "hand_order":
+                if (response.gamestate_id != UserDataManager.Instance.GamestateId) return true;
+                ApplyRealtimeHandLayouts(response.washizu_layouts, response);
+                return true;
             case "declare_riichi":
                 OnRiichiDeclared(response);
                 return true;

@@ -12,6 +12,11 @@ def player_count(sub_rule):
     return 3 if sub_rule == SANMA else 4
 
 
+def honba_total(count):
+    """Per counter: sanma 200, yonma 300; tsumo still charges 100 per payer."""
+    return (count - 1) * 100
+
+
 def replacement_index(count, sanma=False):
     # Keep all five dora/ura pairs out of either draw stream. After the first
     # four replacements the ten indicator tiles occupy the end of the wall.

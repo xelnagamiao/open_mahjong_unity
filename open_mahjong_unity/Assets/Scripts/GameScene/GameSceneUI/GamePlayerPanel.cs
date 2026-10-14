@@ -234,7 +234,6 @@ public partial class GamePlayerPanel : MonoBehaviour {
             if (roomRule == "shanghai" || roomRule == "shanxi" || roomRule == "guangdong") {
                 var partners = new System.Collections.Generic.List<string>();
                 foreach (string tag in tag_list) {
-                    if (tag == "declared_ready") SetPlayerVariable(VariableDeclaredReady, roomRule == "shanghai" ? "已敲牌" : "已报听");
                     if (tag != null && tag.StartsWith("chengbao_")
                         && int.TryParse(tag.Substring(9), out int seat) && seat >= 0 && seat < 4)
                         partners.Add(new[] { "东", "南", "西", "北" }[seat]);
@@ -243,6 +242,8 @@ public partial class GamePlayerPanel : MonoBehaviour {
             }
             int langyongCount = -1;
             foreach(var item in tag_list) {
+                if (item == "declared_ready") SetPlayerVariable(VariableDeclaredReady,
+                    roomRule == "shanghai" ? (System.Array.IndexOf(tag_list, "tian_qiao") >= 0 ? "已天敲" : "已敲牌") : "已报听");
                 if (item == "offline") {
                     playerIslossconnPicture.gameObject.SetActive(true);
                 }

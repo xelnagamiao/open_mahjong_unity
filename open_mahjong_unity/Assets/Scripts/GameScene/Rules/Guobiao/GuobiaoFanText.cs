@@ -182,6 +182,7 @@ internal static class GuobiaoFanText {
     }
 
     public static string FanValue(string subRule, string fanName) {
+        if (subRule == GuobiaoGameState.HuahunSubRule && HuahunRules.FanValue(fanName) is string flowerValue) return flowerValue;
         if ((subRule == "guobiao/standard" || subRule == GuobiaoGameState.SanmaSubRule) && GameSettings.Current.IsEnglish) {
             return FanToDisplayGuobiaoEnglish.TryGetValue(fanName, out string englishDisplay) ? englishDisplay : "0Fan";
         }

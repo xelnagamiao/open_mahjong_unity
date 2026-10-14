@@ -36,8 +36,8 @@ async def play_match(seed):
                 actions = info['action_list']
                 choice = next((a for a in actions if a.startswith('hu')), None)
                 tile = cut_index = None
-                if 'xueliu_exchange_three' in actions:
-                    await submit(state, index, 'xueliu_exchange_three', tick=info['action_tick'], selected_tiles=state._default_xueliu_throw_tiles(index))
+                if state.xueliu_opening_action in actions:
+                    await submit(state, index, state.xueliu_opening_action, tick=info['action_tick'], selected_tiles=state._default_xueliu_throw_tiles(index))
                     return
                 if 'dingque' in actions:
                     suit = min((1,2,3), key=lambda s: sum(t//10==s for t in player.hand_tiles))
@@ -45,10 +45,10 @@ async def play_match(seed):
                     return
                 if choice is None:
                     if 'cut' in actions:
-                        choice, tile, cut_index = choose_hand(list(player.hand_tiles), list(player.combination_tiles), count_visible_tiles(state), actions, 4, player.dingque_suit, player.post_hu_lock)
+                        choice, tile, cut_index = choose_hand(list(player.hand_tiles), list(player.combination_tiles), count_visible_tiles(state), actions, state.xueliu_meld_count, player.dingque_suit, player.post_hu_lock)
                     elif 'peng' in actions or 'gang' in actions:
                         tile = state.player_list[state.current_player_index].discard_tiles[-1]
-                        choice = choose_claim(list(player.hand_tiles), list(player.combination_tiles), count_visible_tiles(state), actions, tile, 4, player.dingque_suit)
+                        choice = choose_claim(list(player.hand_tiles), list(player.combination_tiles), count_visible_tiles(state), actions, tile, state.xueliu_meld_count, player.dingque_suit)
                     else:
                         choice = 'pass'
                 fields = {'targetTile': tile} if choice in ('angang', 'jiagang') else {}

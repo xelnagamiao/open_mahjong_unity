@@ -25,6 +25,11 @@ internal static class NanchangRuleBootstrap {
             OpeningHandHasDrawSlot=info=>info?.nanchang_info?.self_has_draw_slot==true,
             Tingpai=NanchangGameState.Waiting,DescribeWaitingTile=NanchangGameState.Describe,
             TileBadgeText=NanchangTableIndicators.Badge,VisibleMeldTiles=VisibleMeld,
+            HandJokerTiles=_=>NanchangTableIndicators.DisplayedInfo is NanchangInfo info
+                ? new[]{info.indicator,info.secondary} : Array.Empty<int>(),
+            PrepareHandDisplay=info=>NanchangTableIndicators.Refresh(info?.nanchang_info),
+            RecordHandJokerTiles=round=>round?.nanchang is NanchangInfo info
+                ? new[]{info.indicator,info.secondary} : Array.Empty<int>(),
             FanNameText=(rule,label)=>NanchangText.FanName(label),FanValueText=(rule,label)=>NanchangText.FanValue(label),
             SettlementTotal=q=>new SettlementTotalDisplay {FanText=$"和牌 {q.HuScore}分",ScoreText=q.WinnerPointDelta.HasValue?$"{q.WinnerPointDelta.Value:+#;-#;0}分":""},
             SettlementFootnote=q=>"本副净分包含和牌、精分及杠分",ScoreboardFanText=q=>$"{q.HuScore}分",

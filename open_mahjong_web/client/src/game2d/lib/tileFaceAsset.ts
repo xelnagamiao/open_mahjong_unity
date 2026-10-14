@@ -9,7 +9,7 @@ export const STANDARD_FACE_IDS: number[] = [
   ...Array.from({ length: 9 }, (_, i) => 31 + i),
   ...Array.from({ length: 7 }, (_, i) => 41 + i),
   ...Array.from({ length: 8 }, (_, i) => 51 + i),
-  105, 205, 305,
+  59, 105, 205, 305, 61,62,63,64,71,72,73,74,81,
 ]
 
 export function isFlowerFaceId(id: number): boolean {
@@ -28,6 +28,7 @@ export function salasasaFaceId(tile: number): number {
 export function mmcrFaceId(tid: number): number {
   const value = Number(tid)
   if (!value) return 0
+  if ([61,62,63,64,71,72,73,74,81].includes(value - 0x100)) return value - 0x100
   const suit = value & 0xe0
   const rank = value & 0x0f
   if (suit === 0x40) return 10 + rank
@@ -50,6 +51,6 @@ export function tileFaceAssetUrl(
   if (isFlowerFaceId(faceId) && options.unityFlower) {
     return `${root}/Unity/${faceId}.svg`
   }
-  const folder = options.black && !isFlowerFaceId(faceId) ? 'Black' : 'Regular'
+  const folder = options.black && !isFlowerFaceId(faceId) && ![61,62,63,64,71,72,73,74,81].includes(faceId) ? 'Black' : 'Regular'
   return `${root}/${folder}/${faceId}.svg`
 }

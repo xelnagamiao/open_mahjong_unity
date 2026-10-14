@@ -26,6 +26,17 @@ public partial class GameRecordManager {
 
     private bool TryConsumeDuplicateWallTile(int playerIndex, string action, List<string> tick = null) {
         if (tick != null && tick.Count >= 6 && tick[2] == "dw" && int.TryParse(tick[3], out int sourceSeat)) {
+            if (sourceSeat == -1 && gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round commonRound)
+                && commonRound.duplicateWallLayout == "xueliu") {
+                int commonStart = commonRound.duplicateWalls.Sum(part => part?.Count ?? 0);
+                int commonPosition = currentOriginalIndices.FindIndex(index => index >= commonStart);
+                if (commonPosition >= 0) {
+                    consumedBackIndices.Add(currentOriginalIndices[commonPosition]);
+                    currentTilesList.RemoveAt(commonPosition);
+                    currentOriginalIndices.RemoveAt(commonPosition);
+                }
+                return true;
+            }
             RecordPlayer source = recordPlayerList.Find(p => p.originalPlayerIndex == sourceSeat);
             playerIndex = source != null ? source.playerIndex : sourceSeat;
         }
@@ -57,6 +68,29 @@ public partial class GameRecordManager {
 
     internal bool TryGetDuplicateDrawIndices(ICollection<int> indices, int count) {
         if (!TryGetDuplicateWallRange(selectedPlayerIndex, out int start, out int end)) return false;
+        if (gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round flowRound)
+            && flowRound.duplicateWallLayout == "xueliu") {
+            int offset = 0;
+            bool rolled = false;
+            foreach (var part in flowRound.duplicateWalls) {
+                int stop = offset + (part?.Count ?? 0);
+                if (!currentOriginalIndices.Any(i => i >= offset && i < stop)) rolled = true;
+                offset = stop;
+            }
+            if (rolled) {
+                // All remaining indices already have the shared queue's E/S/W/N order.
+                int anchor = IsWaitingForDrawAfterCutForChongHint && LastDiscardPlayerIndexForChongHint >= 0
+                    ? LastDiscardPlayerIndexForChongHint : currentPlayerIndex;
+                int next = (selectedPlayerIndex - anchor + 3) % 4;
+                int position = 0;
+                foreach (int index in currentOriginalIndices) {
+                    if (position++ % 4 != next) continue;
+                    indices.Add(index);
+                    if (--count <= 0) break;
+                }
+                return true;
+            }
+        }
         foreach (int index in currentOriginalIndices) {
             if (index < start || index >= end) continue;
             indices.Add(index);
@@ -197,6 +231,21 @@ public partial class GameRecordManager {
         sectionContainer.gameObject.SetActive(true);
         List<int> sorted = handTiles.OrderBy(t => t, TileIdOrder.HandComparer(handTiles)).ToList();
         SpawnTilesInRows(sectionContainer, sorted);
+    }
+
+    /// <summary>翻癞子或回退后更新四家初始手牌；牌山的原始索引和摸牌顺序保持不变。</summary>
+    public void RefreshInitialHandJokerOrder() {
+        if (!isActiveAndEnabled || gameRecord == null) return;
+        foreach (Transform section in new[] { player0HandsContainer, player1HandsContainer,
+            player2HandsContainer, player3HandsContainer }) {
+            if (section == null) continue;
+            StaticCard[] cards = section.GetComponentsInChildren<StaticCard>(true);
+            int[] tiles = cards.Select(card => card.TileId).ToArray();
+            TileIdOrder.SortHand(tiles);
+            for (int i = 0; i < cards.Length; i++) cards[i].SetTileOnlyImage(tiles[i]);
+        }
+        RefreshTileListLayout();
+        UpdateHandSectionDimming();
     }
 
     private void SpawnTilesInRows(Transform sectionContainer, IList<int> tileIds) {

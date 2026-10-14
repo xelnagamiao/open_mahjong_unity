@@ -1,4 +1,4 @@
-const { statisticsSelection, subRuleSql, statsKeySql } = require('./statisticsCatalog');
+const { statisticsSelection, subRuleSql, statsKeySql, normalizeMatchType } = require('./statisticsCatalog');
 const { aggregatePlayerRows, fetchMetricRows, allPlayerRuleStats } = require('./subrulePlayerStats');
 const { withRecordMetadataQuery } = require('./recordMetadataQuery');
 /**
@@ -13,10 +13,10 @@ const { aggregateRiichiStats, fetchRiichiRows } = require('./riichiStats');
 const LIST_PAGE_MAX = 50;
 
 const GAME_TYPE_MATCH_TYPES = {
-  dongfeng: ['1/4', '1/4_rank', '1/4_sanma', '1/4_sanma_rank'],
-  banzhuang: ['2/4', '2/4_rank', '2/4_sanma', '2/4_sanma_rank'],
-  xifeng: ['3/4', '3/4_sanma', '3/4_sanma_rank'],
-  quanzhuang: ['4/4', '4/4_rank', '4/4_sanma', '4/4_sanma_rank'],
+  dongfeng: ['1/4', '1/4_rank', '1/3', '1/3_rank', '1/4_sanma', '1/4_sanma_rank', '1/3_sanma', '1/3_sanma_rank'],
+  banzhuang: ['2/4', '2/4_rank', '2/3', '2/3_rank', '2/4_sanma', '2/4_sanma_rank', '2/3_sanma', '2/3_sanma_rank'],
+  xifeng: ['3/4', '3/3', '3/3_rank', '3/4_sanma', '3/4_sanma_rank', '3/3_sanma', '3/3_sanma_rank'],
+  quanzhuang: ['4/4', '4/4_rank', '4/3', '4/3_rank', '4/4_sanma', '4/4_sanma_rank', '4/3_sanma', '4/3_sanma_rank'],
   hands8: ['8/4'], hands12: ['12/4'], hands16: ['16/4'],
 };
 
@@ -137,7 +137,7 @@ function buildRecordMeta(gameRecord, playersRows) {
   return {
     rule,
     sub_rule: subRule,
-    match_type: matchType,
+    match_type: normalizeMatchType(matchType, subRule),
     room_type: roomType,
     event_id: eventId,
   };
@@ -312,7 +312,7 @@ async function fetchPlayerRecords(userId, query, offset, limit) {
         metaByGame.set(row.game_id, {
           rule: row.rule || '',
           sub_rule: row.sub_rule || null,
-          match_type: row.match_type || null,
+          match_type: normalizeMatchType(row.match_type || null, row.sub_rule),
           room_type: row.room_type || null,
           match_tier: row.match_tier || null,
           event_id: row.event_id || null,

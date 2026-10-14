@@ -21,7 +21,7 @@ from .flags import resolve_record_flags
 from .hu_hand import is_flower_win, needs_ron_tile, try_parse_hepai_tile
 
 
-SKIP_ACTIONS = {"ask_hand", "ask_other", "ca"}
+SKIP_ACTIONS = {"ask_hand", "ask_other", "ca", "wo"}
 
 
 def stringify_tick(tick: Sequence[Any]) -> List[str]:
@@ -64,7 +64,8 @@ def parse_score_changes(tick: Sequence[str], index: int) -> Optional[List[int]]:
 
 
 def relative_position(self_index: int, other_index: int, player_count: int = 4) -> str:
-    # The empty fourth side is retained in sanma; turn order still uses player_count.
+    if player_count == 3:
+        return ("self", "right", "left")[(other_index - self_index) % 3]
     if self_index == other_index:
         return "self"
     mapping = {
@@ -182,12 +183,14 @@ class RecordSim:
         self.last_jiagang_player_index = -1
         self.current_tiles_list = list(round_data.get("tiles_list") or [])
         self.duplicate_walls = [list(part) for part in round_data.get("duplicate_walls", [])]
+        if round_data.get("duplicate_wall_layout") == "xueliu":
+            self.duplicate_walls.append(list(round_data.get("duplicate_common_wall", [])))
         self.backward_tiles_type = "double"
         self.replacement_draw_count = 0
         self.record_dead_wall_count = 16 if self.is_taiwan() else 0
         if self.flags.rule_id == "riichi":
             self.record_dead_wall_count = 14
-            if title_str(self.game_title, "sub_rule") == "riichi/washizu":
+            if title_str(self.game_title, "sub_rule") in ("riichi/washizu", "riichi/washizu_realtime"):
                 self.record_dead_wall_count = int((round_data.get("washizu") or {}).get("dead_wall_count", 13))
         if title_str(self.game_title, "sub_rule") == "zhongyong/standard":
             self.record_dead_wall_count = 14
@@ -300,6 +303,8 @@ class RecordSim:
     def _consume_wall(self, action: str, tick=None) -> None:
         if tick and len(tick) >= 6 and tick[2] == "dw":
             seat = int(tick[3])
+            if seat == -1 and len(self.duplicate_walls) == 5:
+                seat = 4
             wall = self.duplicate_walls[seat]
             if not wall or wall[0] != int(tick[1]):
                 raise ValueError("复式牌谱摸牌与来源牌墙不一致")
@@ -307,7 +312,7 @@ class RecordSim:
             wall.pop(0)
             self.current_tiles_list.pop(offset)
             return
-        if title_str(self.game_title, "sub_rule") == "riichi/washizu":
+        if title_str(self.game_title, "sub_rule") in ("riichi/washizu", "riichi/washizu_realtime"):
             if self.current_tiles_list:
                 self.current_tiles_list.pop(0)
             return
@@ -591,7 +596,7 @@ class RecordSim:
             self.players[riichi_player].score -= 1000
             self.record_riichi_sticks += 1
         elif action == "dora":
-            if title_str(self.game_title, "sub_rule") == "riichi/washizu" and self.current_tiles_list:
+            if title_str(self.game_title, "sub_rule") in ("riichi/washizu", "riichi/washizu_realtime") and self.current_tiles_list:
                 self.current_tiles_list.pop()
                 self.record_dead_wall_count -= 1
         elif action == "gr":

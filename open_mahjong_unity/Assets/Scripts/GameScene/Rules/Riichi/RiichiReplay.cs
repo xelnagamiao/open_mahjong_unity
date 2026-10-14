@@ -8,6 +8,12 @@ using Newtonsoft.Json.Linq;
 public partial class GameRecordManager {
     internal RuleReplayModule CreateRiichiReplayModule() => new RuleReplayModule {
         ReservedWallTiles = 14,
+        Reset = () => washizuRecordOrders.Clear(),
+        Clear = () => washizuRecordOrders.Clear(),
+        InitializePlayers = InitializeWashizuRecordOrders,
+        ApplyBeforeMutation = ApplyWashizuOrderTick,
+        AfterVisibleMutation = RefreshWashizuOrderTick,
+        StateActions = { "wo" },
         ConsumeWallTile = action => {
             if (!IsWashizuRecord()) return false;
             // Washizu kan replacements share the front pool with ordinary draws.

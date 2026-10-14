@@ -13,9 +13,9 @@ public sealed class WuhanGameState : TurnBasedGameState {
     private UnityEngine.Coroutine settlementCoroutine;
     private Game3DManager settlementHost;
 
-    private void Accept(WuhanInfo info) {
+    private void Accept(WuhanInfo info, bool refreshBadges = false) {
         if (info == null) return;
-        bool changed = Info?.indicator != info.indicator;
+        bool changed = refreshBadges || Info?.indicator != info.indicator;
         Info = info;
         WuhanPresentation.Apply(info, changed);
     }
@@ -43,7 +43,8 @@ public sealed class WuhanGameState : TurnBasedGameState {
     protected override void OnRoundStarted(GameInfo info) {
         CancelPendingSettlement();
         RoundEndPresentation.Instance?.StopActiveSequence();
-        Info = null; Accept(info.wuhan_info); revealedHands = null; Hints.Reset(); Hints.Accept(info.wuhan_hints);
+        Accept(info.wuhan_info ?? new WuhanInfo { skins = new[] {45} }, true);
+        revealedHands = null; Hints.Reset(); Hints.Accept(info.wuhan_hints);
         if (Manager?.tips == true && Mirror?.Self != null && TipsBlock.Instance != null && TipsContainer.Instance != null)
             TipsBlock.Instance.ShowTipsBlock(Mirror.SelfHandTiles, Mirror.Self.combination_tiles ?? new List<string>());
     }

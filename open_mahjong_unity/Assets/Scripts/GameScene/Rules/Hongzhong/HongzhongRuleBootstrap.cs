@@ -32,6 +32,7 @@ internal static class HongzhongRuleBootstrap {
             DescribeWaitingTile = q => q.Record != null
                 ? GameRecordManager.Instance?.DescribeHongzhongWaiting(q) : HongzhongGameState.Active?.DescribeWaiting(q),
             TileBadgeText = tile => tile == 45 ? "癞" : null,
+            HandJokerTiles = _ => new[] { 45 },
             FanValueText = (rule,name) => Fans.TryGetValue(name,out int value) ? $"{value}番" : "",
             SettlementTotal = q => new SettlementTotalDisplay { FanText=$"{q.HuScore}番",ScoreText=$"基本分 {1 << Math.Min(4,q.HuScore)}分" },
             ScoreboardFanText = q => $"{q.HuScore}番",

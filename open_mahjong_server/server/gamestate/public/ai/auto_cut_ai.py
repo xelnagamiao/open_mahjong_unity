@@ -91,6 +91,9 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
                 return
             if "cut" in action_list and current_player.hand_tiles:
                 tile_id, cut_index, is_moqie = _pick_auto_cut_tile(current_player)
+                if getattr(game_state, "sub_rule", "") == "guobiao/huahun":
+                    from ....game_calculation.guobiao_huahun import auto_cut
+                    tile_id, cut_index, is_moqie = auto_cut(current_player, (tile_id, cut_index, is_moqie))
                 logger.info(f"机器人 {player_index} ({current_player.username}) 选择 cut, tile_id={tile_id}, moqie={is_moqie}")
                 await submit_bot_action(get_ai_action, game_state, player_index, "cut", is_moqie, tile_id, cut_index, None)
                 return
@@ -108,6 +111,9 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
                 return
             if "cut" in action_list and current_player.hand_tiles:
                 tile_id, cut_index, is_moqie = _pick_auto_cut_tile(current_player)
+                if getattr(game_state, "sub_rule", "") == "guobiao/huahun":
+                    from ....game_calculation.guobiao_huahun import auto_cut
+                    tile_id, cut_index, is_moqie = auto_cut(current_player, (tile_id, cut_index, is_moqie))
                 logger.info(f"机器人 {player_index} ({current_player.username}) 选择 cut, tile_id={tile_id}, moqie={is_moqie}")
                 await submit_bot_action(get_ai_action, game_state, player_index, "cut", is_moqie, tile_id, cut_index, None)
                 return

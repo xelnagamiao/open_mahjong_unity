@@ -18,7 +18,7 @@ public class RiichiRoundPanel : MonoBehaviour {
     [Header("场况显示：数量")]
     [Tooltip("场供立直棒（1000点棒）数量")]
     [SerializeField] private TMP_Text riichiSticksCountText;
-    [Tooltip("本场（300点棒/100点棒）数量")]
+    [Tooltip("本场数量：三麻每本场200点，四麻300点；自摸每家另付100点")]
     [SerializeField] private TMP_Text honbaCountText;
 
     [Header("场况显示：宝牌指示槽位（手动拖入 StaticCard）")]

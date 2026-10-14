@@ -24,6 +24,8 @@ public sealed class TileContactShadow : MonoBehaviour {
     internal static HashSet<TileContactShadow> ActiveTiles => Active;
     internal MeshFilter Body { get; private set; }
     internal Renderer BodyRenderer { get; private set; }
+    // Reading aids have no volume; glass bodies retain a softer contact shadow.
+    public float OpacityMultiplier { get; set; } = 1f;
 
     static TileContactShadow() {
         SceneManager.sceneUnloaded += scene => {

@@ -22,6 +22,7 @@ public static class SanmaSeatingValidation {
             foreach (string rule in new[] {"riichi", "guobiao"}) {
                 foreach (int count in new[] {3, 4}) {
                     GameSession.Current.SubRule = rule + (count == 3 ? "/sanma" : "/standard");
+                    var positions = count == 3 ? new[] { new[] { "self", "right", "left" }, new[] { "left", "self", "right" }, new[] { "right", "left", "self" } } : expected;
                     for (int viewer = 0; viewer < count; viewer++) {
                         // Reuse the same mirror and deliberately seed every side with stale four-player data.
                         foreach (string pos in TableMirror.Seats) {
@@ -35,12 +36,12 @@ public static class SanmaSeatingValidation {
                         mirror.BuildSeatMap(viewer, Enumerable.Range(0, count).Reverse().ToArray());
                         string label = rule + " " + count + " viewer " + viewer;
                         Check(mirror.IndexToPosition.Count == count && Enumerable.Range(0, count)
-                            .All(i => mirror.IndexToPosition[i] == expected[viewer][i]), label + " snapshot map");
+                            .All(i => mirror.IndexToPosition[i] == positions[viewer][i]), label + " snapshot map");
                         foreach (var pair in mirror.IndexToPosition)
                             mirror.Info(pair.Value).original_player_index = pair.Key;
                         mirror.ClearUnoccupiedSeatData();
                         if (count == 3) {
-                            string empty = expected[viewer][3];
+                            string empty = "top";
                             var info = mirror.Info(empty);
                             Check(info.original_player_index == -1 && info.hand_tiles_count == 0
                                 && string.IsNullOrEmpty(info.username) && info.discard_tiles.Count == 0
@@ -52,7 +53,7 @@ public static class SanmaSeatingValidation {
                             label + " scoreboard identities");
                         mirror.BuildSeatMap(viewer);
                         Check(mirror.IndexToPosition.Count == count && Enumerable.Range(0, count)
-                            .All(i => mirror.IndexToPosition[i] == expected[viewer][i]), label + " fallback map");
+                            .All(i => mirror.IndexToPosition[i] == positions[viewer][i]), label + " fallback map");
                     }
                 }
             }

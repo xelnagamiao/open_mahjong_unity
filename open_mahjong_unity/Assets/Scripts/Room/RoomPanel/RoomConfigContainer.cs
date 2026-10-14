@@ -21,7 +21,7 @@ public class RoomConfigContainer : MonoBehaviour {
         } },
         { "guobiao", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
-            "tips", "use_flowers", "tian_di_ren_he", "open_cuohe", "cuohe_type", "tactical_call", "has_password", "tourist_limit", "hepai_limit", "allow_spectator",
+            "tips", "use_flowers", "tian_di_ren_he", "joker_multi_wait", "no_joker_bonus", "black_flower_progressive", "open_cuohe", "cuohe_type", "tactical_call", "has_password", "tourist_limit", "hepai_limit", "allow_spectator",
         } },
         { "riichi", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
@@ -135,9 +135,25 @@ public class RoomConfigContainer : MonoBehaviour {
     }
 
     private static void AddDetailedConfig(RoomInfo roomInfo, List<KeyValuePair<string, string>> result) {
+        if(roomInfo.room_rule==FuzhouGameState.RuleId) {
+            object baseScore=10;
+            if(roomInfo.detailed_config!=null && roomInfo.detailed_config.TryGetValue("base_score",out object configured)) baseScore=configured;
+            result.Add(new KeyValuePair<string,string>("底分",$"{baseScore}分"));
+            result.Add(new KeyValuePair<string,string>("花牌","全部字牌及八花"));
+            result.Add(new KeyValuePair<string,string>("末四张","只摸不打，不补花"));
+            return;
+        }
+
         if (roomInfo.room_rule == "shanghai" && (string.IsNullOrEmpty(roomInfo.sub_rule) || roomInfo.sub_rule == "shanghai/qiaoma")) {
             result.Add(new KeyValuePair<string, string>("清三混二碰二",
                 ShanghaiHandCalculator.UsesQing3Hun2Peng2(roomInfo.detailed_config) ? "开" : "关"));
+            result.Add(new KeyValuePair<string, string>("开启天敲",
+                ShanghaiHandCalculator.UsesTianQiao(roomInfo.detailed_config) ? "开（2番）" : "关"));
+            return;
+        }
+        if (roomInfo.room_rule == "shanghai" && roomInfo.sub_rule == LajiheHandCalculator.SubRule) {
+            result.Add(new KeyValuePair<string, string>("自摸再加一底",
+                LajiheHandCalculator.UsesSelfDrawExtraBase(roomInfo.detailed_config) ? "开" : "关"));
             return;
         }
         if (roomInfo.room_rule == JiujiangGameState.RuleId) {
@@ -276,10 +292,22 @@ public class RoomConfigContainer : MonoBehaviour {
                 displayValue = roomInfo.sub_rule != "guobiao/lanshi" && (roomInfo.use_flowers ?? true) ? "有花" : "无花";
                 if (roomInfo.is_duplicate) displayValue += "\n跟随复式设置";
                 return true;
+            case "no_joker_bonus":
+                displayName = "无癞子奖励";
+                displayValue = HuahunRules.BonusLabels[HuahunRules.BonusIndex(roomInfo.no_joker_bonus)];
+                return roomInfo.sub_rule == GuobiaoGameState.HuahunSubRule;
+            case "black_flower_progressive":
+                displayName = "黑花递增计分";
+                displayValue = roomInfo.black_flower_progressive ? "开" : "关";
+                return roomInfo.sub_rule == GuobiaoGameState.HuahunSubRule;
+            case "joker_multi_wait":
+                displayName = "癞子多面听";
+                displayValue = roomInfo.joker_multi_wait ? "开" : "关";
+                return GuobiaoGameState.IsJokerSubRule(roomInfo.sub_rule);
             case "tian_di_ren_he":
                 displayName = "天地人和";
                 displayValue = roomInfo.tian_di_ren_he ? "开（各8番）" : "关";
-                return roomInfo.sub_rule == "guobiao/standard" || roomInfo.sub_rule == GuobiaoGameState.SanmaSubRule || roomInfo.sub_rule == GuobiaoGameState.BloodBattleSubRule || roomInfo.sub_rule == GuobiaoGameState.TransparentSubRule;
+                return roomInfo.sub_rule == "guobiao/standard" || roomInfo.sub_rule == GuobiaoGameState.SanmaSubRule || roomInfo.sub_rule == GuobiaoGameState.BloodBattleSubRule || GuobiaoGameState.IsTransparentSubRule(roomInfo.sub_rule);
             case "blood_battle":
                 displayName = "血战到底";
                 displayValue = (roomInfo.blood_battle ?? true) ? "开" : "关";

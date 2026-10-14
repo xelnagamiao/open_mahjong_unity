@@ -41,6 +41,16 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
         await handle_cut_tile(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/GB/send_action":
         await handle_send_action(game_server, Connect_id, message, websocket)
+    elif message_type in {"gamestate/singapore/cut_tile", "gamestate/singapore/send_action"}:
+        state = game_server.gamestate_manager.get_game_state_by_gamestate_id(message.get("gamestate_id"))
+        if state is None or getattr(state, "room_rule", None) != "singapore":
+            return
+        if type(message.get("action_tick")) is not int:
+            return
+        if message_type.endswith("/cut_tile"):
+            await handle_cut_tile(game_server, Connect_id, message, websocket)
+        else:
+            await handle_send_action(game_server, Connect_id, message, websocket)
     elif message_type in {"gamestate/jiujiang/cut_tile", "gamestate/jiujiang/send_action", "gamestate/jiujiang/riichi_cut"}:
         state = game_server.gamestate_manager.get_game_state_by_gamestate_id(message.get("gamestate_id"))
         if state is None or getattr(state, "room_rule", None) != "jiujiang":
@@ -83,6 +93,9 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
         await handle_riichi_cut(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/riichi/send_action":
         await handle_send_action(game_server, Connect_id, message, websocket)
+    elif message_type in {"gamestate/riichi/reorder_hand", "gamestate/guobiao/reorder_hand"}:
+        from .game_riichi.realtime_hand import handle_reorder
+        await handle_reorder(game_server, Connect_id, message, websocket)
     elif message_type in {"gamestate/jiandan/cut_tile", "gamestate/zhongyong/cut_tile"}:
         await handle_jiandan_cut_tile(game_server, Connect_id, message)
     elif message_type in {"gamestate/jiandan/send_action", "gamestate/zhongyong/send_action"}:
@@ -132,8 +145,14 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
     elif message_type in {"gamestate/wenzhou/cut_tile", "gamestate/wenzhou/send_action"}:
         from .game_wenzhou.get_action import handle_action
         await handle_action(game_server, Connect_id, message, websocket)
+    elif message_type in {"gamestate/fuzhou/cut_tile", "gamestate/fuzhou/send_action"}:
+        from .game_fuzhou.get_action import handle_action
+        await handle_action(game_server, Connect_id, message, websocket)
     elif message_type in {"gamestate/nanjing/cut_tile", "gamestate/nanjing/send_action"}:
         from .game_nanjing.get_action import handle_action
+        await handle_action(game_server, Connect_id, message, websocket)
+    elif message_type in {"gamestate/malaysia/cut_tile", "gamestate/malaysia/send_action"}:
+        from .game_malaysia.get_action import handle_action
         await handle_action(game_server, Connect_id, message, websocket)
     elif message_type in {"gamestate/yixing/cut_tile", "gamestate/yixing/send_action"}:
         from .game_yixing.get_action import handle_action

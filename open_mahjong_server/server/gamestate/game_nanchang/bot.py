@@ -1,4 +1,4 @@
-import asyncio
+import time
 from collections import Counter
 from ..public.ai.pacing import wait_bot_delay
 from ...game_calculation.nanchang import rules as book
@@ -28,7 +28,7 @@ def choose_action(state,index,actions):
 
 
 async def play_bot(state,index,tick):
-    await wait_bot_delay(state)
+    await wait_bot_delay(state,time.monotonic())
     if tick != state.server_action_tick or index not in state.waiting_players_list or not state.action_queues[index].empty():
         return
     try:

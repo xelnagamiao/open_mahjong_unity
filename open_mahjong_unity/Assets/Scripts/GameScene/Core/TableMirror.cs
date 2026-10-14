@@ -91,8 +91,12 @@ public sealed class TableMirror {
 
     // ---- 变更 ----
 
-    /// <summary>桌面始终是四个方位；三人只占 0/1/2，空位随观察视角旋转，不能按行牌人数压缩。</summary>
-    public static string RelativeSeat(int selfIndex, int otherIndex) {
+    /// <summary>三人固定为本家下、下家右、上家左；轮庄编号变化不移动玩家或空席。</summary>
+    public static string RelativeSeat(int selfIndex, int otherIndex, int playerCount = 4) {
+        if (playerCount == 3) {
+            int threeOffset = ((otherIndex - selfIndex) % 3 + 3) % 3;
+            return threeOffset == 0 ? "self" : threeOffset == 1 ? "right" : "left";
+        }
         int offset = ((otherIndex - selfIndex) % 4 + 4) % 4;
         return offset == 0 ? "self" : offset == 1 ? "right" : offset == 2 ? "top" : "left";
     }
@@ -102,13 +106,13 @@ public sealed class TableMirror {
         IndexToPosition.Clear();
         if (playerIndexes == null || playerIndexes.Count == 0) {
             for (int i = 0; i < MahjongPlayerCount.ForSubRule(GameSession.Current.SubRule); i++) {
-                IndexToPosition[i] = RelativeSeat(selfIndex, i);
+                IndexToPosition[i] = RelativeSeat(selfIndex, i, MahjongPlayerCount.ForSubRule(GameSession.Current.SubRule));
             }
             return;
         }
         for (int i = 0; i < playerIndexes.Count; i++) {
             int index = playerIndexes[i];
-            IndexToPosition[index] = RelativeSeat(selfIndex, index);
+            IndexToPosition[index] = RelativeSeat(selfIndex, index, playerIndexes.Count);
         }
     }
 

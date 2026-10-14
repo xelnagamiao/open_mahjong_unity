@@ -41,14 +41,16 @@ public partial class NormalGameStateManager {
         // 先恢复操作区和自动行为，再创建手牌。局末隐藏的操作区不能在理牌已启动后
         // 才 OnEnable，也不能让开局按上局尚未初始化的自动行为抢先执行。
         if (IsRealtimeSpectator) {
-            GameSceneUIManager.Instance.InitRealtimeSpectatorStart();
+            GameSceneUIManager.Instance.InitRealtimeSpectatorStart(isNewMatch);
         } else {
-            GameSceneUIManager.Instance.InitGameStart();
+            GameSceneUIManager.Instance.InitGameStart(isNewMatch);
         }
 
         // 获取自己的手牌信息（从 PlayerInfo 中获取）
         PlayerInfo selfPlayerInfo = GetSelfPlayerInfo(gameInfo);
         int[] selfHandTilesArray = selfPlayerInfo.hand_tiles;
+
+        RuleRegistry.Current?.PrepareHandDisplay?.Invoke(gameInfo);
 
         // 初始化手牌区域
         bool openingDrawSlot = RuleRegistry.Current?.OpeningHandHasDrawSlot?.Invoke(gameInfo) == true;
@@ -221,6 +223,9 @@ public partial class NormalGameStateManager {
             ? new Dictionary<string, object>(gameInfo.detailed_config)
             : new Dictionary<string, object>();
         hepaiLimit = gameInfo.hepai_limit ?? RuleRegistry.Current?.DefaultHepaiLimit ?? 8;
+        Session.JokerMultiWait = gameInfo.joker_multi_wait;
+        Session.NoJokerBonus = gameInfo.no_joker_bonus ?? "add8";
+        Session.BlackFlowerProgressive = gameInfo.black_flower_progressive;
         roomStepTime = gameInfo.step_time; // 存储步时
         roomRoundTime = gameInfo.round_time; // 存储局时
         remainTiles = gameInfo.tile_count; // 存储剩余牌数

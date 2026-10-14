@@ -394,6 +394,7 @@ const routes = [
       { path: 'tile-content', name: 'AdminTileContent', component: AdminTileContent, meta: { title: '牌面审核' } },
       { path: 'rank', name: 'AdminRank', component: AdminRank, meta: { title: '段位管理' } },
       { path: 'games', name: 'AdminGames', component: AdminGames, meta: { title: '对局记录管理' } },
+      { path: 'room-control', name: 'AdminRoomControl', component: () => import('@/views/admin/RoomControl.vue'), meta: { title: '房间管理' } },
       { path: 'game-control', name: 'AdminGameControl', component: AdminGameControl, meta: { title: '对局管理' } },
       { path: 'audit', name: 'AdminAudit', component: AdminAudit, meta: { title: '操作审计' } },
       { path: 'messages', name: 'AdminMessages', component: AdminMessages, meta: { title: '消息推送' } },

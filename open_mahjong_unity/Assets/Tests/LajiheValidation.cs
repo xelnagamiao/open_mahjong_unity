@@ -60,6 +60,27 @@ public static class LajiheValidation {
         query.HandWithWin=new List<int>{11};
         hint=manifest.DescribeWaitingTile(query);
         Check("未满足提示零分且保留禁和颜色",hint.Kind==WaitTileHint.KindNone && hint.Label=="0番0分");
+        Check("自摸再加一底默认关闭",manifest.CreateRoomDefaults[LajiheHandCalculator.SelfDrawExtraBaseKey] is bool defaultExtra && !defaultExtra);
+        foreach (bool enabled in new[] {false,true}) {
+            var config=new Dictionary<string,object>{{LajiheHandCalculator.SelfDrawExtraBaseKey,enabled}};
+            string suffix=enabled?"开":"关";
+            Check("垃圾和自摸额外底"+suffix,LajiheHandCalculator.Score(plain,null,0,true,selfDrawExtraBase:enabled)==(enabled?15:10));
+            Check("一番自摸额外底参与翻倍"+suffix,LajiheHandCalculator.Score(honors,null,0,true,selfDrawExtraBase:enabled)==(enabled?70:60));
+            Check("抢杠额外底只加一次"+suffix,LajiheHandCalculator.Score(honors,null,0,true,true,true,enabled)==(enabled?70:60));
+            Check("普通点和不加额外底"+suffix,LajiheHandCalculator.Score(plain,null,2,false,selfDrawExtraBase:enabled)==5);
+            Check("额外底不放宽点和花数门槛"+suffix,LajiheHandCalculator.Score(plain,null,0,false,selfDrawExtraBase:enabled)==0);
+            query=new WaitHintQuery {SubRule=LajiheHandCalculator.SubRule,HandWithWin=plain,Melds=new List<string>(),SelfFlowers=new List<int>(),DetailedConfig=config};
+            hint=manifest.DescribeWaitingTile(query);
+            Check("实时额外底提示仅显示番分"+suffix,hint.Kind==WaitTileHint.KindTsumoOnly && hint.Label==(enabled?"0番15分":"0番10分"));
+            var context=new RecordTipsContext {RoomRule="shanghai",SubRule=LajiheHandCalculator.SubRule,SelfPlayerIndex=0,
+                SelfHuapaiList=new List<int>(),SelfTags=new List<string>(),DetailedConfig=config,SelfCombinationMasks=new List<int[]>()};
+            var recordHint=RecordWaitHintCalculator.BuildQueries(context,plain.Take(13).ToList(),new List<int>{41}).Single();
+            Check("牌谱额外底读取本局配置"+suffix,manifest.DescribeWaitingTile(recordHint).Label==hint.Label);
+            var fields=RoomConfigContainer.BuildDisplayFields(new RoomInfo {room_rule="shanghai",sub_rule=LajiheHandCalculator.SubRule,detailed_config=config});
+            Check("房间显示额外底开关"+suffix,fields.Any(f=>f.Key=="自摸再加一底" && f.Value==suffix));
+            var otherFields=RoomConfigContainer.BuildDisplayFields(new RoomInfo {room_rule="shanghai",sub_rule="shanghai/qiaoma",detailed_config=config});
+            Check("额外底选项仅垃圾和显示"+suffix,!otherFields.Any(f=>f.Key=="自摸再加一底"));
+        }
         Check("番种显示基础番",manifest.FanValueText(LajiheHandCalculator.SubRule,"全风向碰碰和")=="20分·2番");
         Check("番种显示额外分",manifest.FanNameText(LajiheHandCalculator.SubRule,"抢杠（5分）")=="抢杠"
             && manifest.FanValueText(LajiheHandCalculator.SubRule,"抢杠（5分）")=="5分");
@@ -86,7 +107,7 @@ public static class LajiheValidation {
     public static int RunParity(string json) {
         var rows=JsonConvert.DeserializeObject<List<OracleRow>>(json);
         foreach (var row in rows) {
-            int actual=LajiheHandCalculator.Score(row.hand,row.melds,row.flowers,row.self_draw,row.replacement,row.rob_kong);
+            int actual=LajiheHandCalculator.Score(row.hand,row.melds,row.flowers,row.self_draw,row.replacement,row.rob_kong,row.self_draw_extra_base);
             if(actual!=row.expected) throw new InvalidOperationException($"计分不一致: {JsonConvert.SerializeObject(row)} => {actual}");
         }
         return rows.Count;
@@ -94,7 +115,7 @@ public static class LajiheValidation {
 
     private class OracleRow {
         public List<int> hand; public List<string> melds; public int flowers;
-        public bool self_draw; public bool replacement; public bool rob_kong; public int expected;
+        public bool self_draw; public bool replacement; public bool rob_kong; public bool self_draw_extra_base; public int expected;
     }
 }
 #endif

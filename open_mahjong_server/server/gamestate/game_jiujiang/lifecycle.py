@@ -3,7 +3,7 @@ import asyncio
 import random
 
 from ...game_calculation.jiujiang import patterns as book
-from ...game_calculation.jiujiang.scoring import payments
+from ...game_calculation.jiujiang.scoring import exposed_flower_points, payments
 from ..game_taiwan.boardcast import broadcast_game_start, broadcast_game_end
 from .result import broadcast_result
 from ..game_guobiao.combination_mask_view import build_revealed_angang_masks
@@ -55,8 +55,11 @@ class JiujiangLifecycle:
         ready = {p.player_index for p in self.player_list if
                  book.structural_waits(tuple(sorted(p.hand_tiles)),tuple(p.combination_tiles))}
         declared = {p.player_index for p in self.player_list if p.declared_ready}
+        # 各输家赔自己的明花，不能复用胡牌者的计分明细；弃掉的发财不计入。
+        payer_flowers = {p.player_index:exposed_flower_points(p.combination_tiles,p.huapai_list)
+                         for p in self.player_list if p.player_index != item["index"]}
         return payments(item["index"],item["detail"]["base_score"],discarder=item.get("payer"),
-            exposed_flowers=item["detail"]["exposed_flower_points"],ready=ready,declared=declared)
+            payer_flowers=payer_flowers,ready=ready,declared=declared)
 
     async def _settle_hand(self,scores_before):
         match_end = self.current_round>=self.max_round*4

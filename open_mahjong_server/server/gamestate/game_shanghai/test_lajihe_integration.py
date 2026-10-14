@@ -2,7 +2,7 @@
 import asyncio
 import json
 from collections import Counter
-from types import SimpleNamespace
+from types import MethodType, SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -93,6 +93,43 @@ def test_creation_dispatch_and_lifecycle():
             await asyncio.sleep(0)
             await server.gamestate_manager.cleanup_game_state_complete(gamestate_id=state.gamestate_id)
             assert not server.gamestate_manager.gamestate_id_to_game_state
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("configured", [None,False,True])
+def test_extra_base_create_start_reconnect_spectator_and_record(configured):
+    from ...server import GameServer
+    from ...room.room_router import handle_room_message
+    from ...game_calculation.shanghai import lajihe as rule
+    from ..test_room_lifecycle import make_server, USERS
+    from ..game_taiwan.boardcast import broadcast_game_start, send_realtime_spectator_snapshot
+    async def run():
+        server=make_server(USERS)
+        server.db_manager.get_user_settings.return_value={"username":"lajihe-test"}
+        server.room_manager._broadcast_room_info=AsyncMock()
+        server.create_Shanghai_room=MethodType(GameServer.create_Shanghai_room,server)
+        server.players[str(USERS[0])].current_room_id=None
+        request=dict(type="room/create_Shanghai_room",roomname="自摸再加一底",gameround=1,password="",
+                     roundTimerValue=30,stepTimerValue=5,tips=True,sub_rule=rule.SUB_RULE)
+        if configured is not None: request["detailed_config"]={rule.SELF_DRAW_EXTRA_BASE:configured}
+        socket=AsyncMock()
+        await handle_room_message(server,str(USERS[0]),request,socket)
+        response=socket.send_json.await_args.args[0]
+        assert response["success"],response
+        room=response["room_info"]; expected=configured is True
+        assert room["detailed_config"]=={rule.SELF_DRAW_EXTRA_BASE:expected}
+        assert server.room_manager.rooms[room["room_id"]]["detailed_config"]==room["detailed_config"]
+        state=make_state(**{**room,"player_list":USERS.copy(),"allow_spectator":True})
+        state.master_seed=144; state.init_tiles()
+        state.game_record["game_title"].update(state.build_record_title_fields())
+        assert state.game_record["game_title"]["detailed_config"][rule.SELF_DRAW_EXTRA_BASE] is expected
+        state.game_server.user_id_to_connection[USERS[0]]=SimpleNamespace(websocket=socket)
+        for send in (lambda:broadcast_game_start(state),lambda:send_reconnect_game_state(state,state.player_list[0])):
+            await send()
+            assert socket.send_json.await_args.args[0]["game_info"]["detailed_config"][rule.SELF_DRAW_EXTRA_BASE] is expected
+        state.game_server.user_id_to_connection[999]=SimpleNamespace(websocket=socket)
+        await send_realtime_spectator_snapshot(state,999,0)
+        assert socket.send_json.await_args.args[0]["game_info"]["detailed_config"][rule.SELF_DRAW_EXTRA_BASE] is expected
     asyncio.run(run())
 
 

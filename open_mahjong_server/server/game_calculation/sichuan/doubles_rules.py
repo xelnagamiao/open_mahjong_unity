@@ -8,8 +8,9 @@ from .duplicate_rules import SBR_DUPLICATE, XUELIU_DUPLICATE
 def is_team_sub_rule(sub_rule):
     return sub_rule in (DOUBLES_SUB_RULE, XUELIU_DOUBLES_SUB_RULE, SBR_DUPLICATE, XUELIU_DUPLICATE)
 DOUBLES_RULE_PROFILE = {
-    "version": "sbr2025-doubles-v1",
+    "version": "sbr2025-doubles-v2",
     "format": "single_table_2v2",
+    "dealer_rotation": "each_board",
     "choose_missing_suit": False,
     "require_missing_suit_to_win": True,
     "shunhe": False,

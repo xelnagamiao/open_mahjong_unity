@@ -123,7 +123,13 @@ async def xueliu_smart_bot_action(state, index, actions, status):
     if not await _wait_until_actionable(state, index) or not bot_action_is_current(state, index, tick):
         return
     player = state.player_list[index]
-    choice = next((a for a in actions if a.startswith('hu')), None)
+    teammate_claim = (
+        getattr(state, 'is_team_game', False)
+        and status in ('waiting_action_after_cut', 'waiting_action_qianggang')
+        and player.team_id == state.player_list[state.current_player_index].team_id
+    )
+    # 仅改变机器人的取舍；真人仍可和队友牌，自摸及对手点炮照常优先和。
+    choice = None if teammate_claim else next((a for a in actions if a.startswith('hu')), None)
     tile, cut_index = None, None
     if choice is None:
         visible = count_visible_tiles(state)

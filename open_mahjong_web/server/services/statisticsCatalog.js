@@ -25,4 +25,11 @@ function statsKeySql(subExpression) {
   return `(CASE ${subExpression} ${STATISTICS_RULES.filter(r => r.basic_stats).map(r => `WHEN ${quote(r.sub_rule)} THEN ${quote(r.key)}`).join(' ')} END)`;
 }
 
-module.exports = { STATISTICS_RULES, statisticsSelection, subRuleSql, statsKeySql };
+function normalizeMatchType(mode, subRule) {
+  const match = /^(\d+)\/(3|4)(?:_sanma)?(_rank)?$/.exec(mode || '');
+  if (!match) return mode;
+  const sanma = ['riichi/sanma','guobiao/sanma'].includes(subRule) || mode.includes('_sanma') || match[2] === '3';
+  return `${match[1]}/${sanma ? 3 : 4}${match[3] || ''}`;
+}
+
+module.exports = { STATISTICS_RULES, statisticsSelection, subRuleSql, statsKeySql, normalizeMatchType };

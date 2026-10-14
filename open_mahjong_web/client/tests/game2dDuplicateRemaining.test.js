@@ -143,3 +143,20 @@ test('复式回放读取牌谱版本，v2 尾部补牌高亮与剩余牌山一�
   delete record.record.game_title.duplicate_rules_version
   assert.deepEqual(new RecordReplay(record).remainingWallAt(0, 1), [0x42, 0x43, 0x61])
 })
+
+test('血流固定墙滚入公共墙后继续计数，来源 -1 支持步进与任意回退', () => {
+  const ticks = [['d',11,'dw',0,7,0],['gd',12,'dw',1,6,3],['d',13,'dw',1,7,2],
+    ['d',14,'dw',2,6,1],['d',15,'dw',2,7,0],['d',16,'dw',3,7,3],
+    ['d',21,'dw',-1,0,2],['d',22,'dw',-1,1,1]]
+  const record = { game_id:'xueliu-wall', created_at:'', rule:'sichuan', players:[], record:{
+    game_title:{rule:'sichuan',sub_rule:'sichuan/xueliu'}, game_round:{0:{seats:[0,1,2,3],
+      duplicate_wall_layout:'xueliu',duplicate_walls:[[11],[12,13],[14,15],[16]],
+      duplicate_common_wall:[21,22],action_ticks:ticks}},
+  }}
+  const replay = new RecordReplay(record)
+  for (const node of [0,1,6,7,8,0,7,2,8]) {
+    assert.equal(replay.remainingWallAt(0,node).length,8-node)
+    assert.equal(replay.build(0,node).snapshot.state.remaining_tile_count,8-node)
+    if (node) assert.deepEqual(countsOf(replay.build(0,node).snapshot.seats),[0,0,0,0])
+  }
+})

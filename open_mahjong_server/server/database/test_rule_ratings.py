@@ -218,7 +218,7 @@ def test_ranked_history_counts_only_requested_player_rule_and_matching_games(db,
             db.sql('INSERT INTO riichi_player_game_stats VALUES(%s,%s,%s,%s)', (gid,uid,VERSION,Json({
                 'total_games':1,'total_rounds':4,'win_count':2,'first_place_count':1,'total_round_score':30})))
     data={r['mode']:r for r in get_ranked_history(db,USERS[0],rule)}
-    if rule=='riichi_sanma':data={mode.replace('_sanma',''):row for mode,row in data.items()}
+    if rule=='riichi_sanma':data={mode.replace('/3','/4'):row for mode,row in data.items()}
     assert set(data)=={'1/4_rank','2/4_rank'}
     assert data['1/4_rank']['total_games']==2
     assert data['1/4_rank']['total_rounds']==8

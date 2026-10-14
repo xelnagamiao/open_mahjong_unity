@@ -566,6 +566,7 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     public void Change3DTile(string actionType,int tileId,int removeCount,string PlayerPosition,bool cut_class,int[] combination_mask, bool isRiichi = false, bool isMoGang = false, bool playCutPhysicsSound = false, string meldDiscarderPos = null, int meldClaimedTile = 0, bool concealedDiscard = false){
+        SyncWashizuRecordOrderBeforeAnimation();
         // 牌谱重建/重连的无动画分支直接执行，避免队列协程逐帧处理
         if (actionType == "SetDiscardWithoutAnimation" || actionType == "SetBuhuacardWithoutAnimation" || actionType == "SetRecordDiscardWithoutAnimation"){
             PosPanel3D panel = GetPosPanel(PlayerPosition);

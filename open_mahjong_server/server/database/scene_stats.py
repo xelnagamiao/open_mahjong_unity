@@ -17,6 +17,7 @@ _GAME_TYPE_MAP = {
     "1/4": "dongfeng", "1/4_rank": "dongfeng",
     "2/4": "banzhuang", "2/4_rank": "banzhuang",
     "1/4_sanma_rank": "dongfeng", "2/4_sanma_rank": "banzhuang",
+    "1/3_rank": "dongfeng", "2/3_rank": "banzhuang",
     "3/4": "xifeng",
     "4/4": "quanzhuang", "4/4_rank": "quanzhuang",
 }

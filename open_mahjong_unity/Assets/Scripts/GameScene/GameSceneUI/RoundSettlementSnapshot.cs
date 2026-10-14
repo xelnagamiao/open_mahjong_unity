@@ -18,6 +18,7 @@ public class RoundSettlementSnapshot {
     public int? han;
     public int? fu;
     public int[] hepaiPlayerHand;
+    public int[] handJokerTiles;
     public int[][] combinationMask;
     public string subRule;
     /// <summary>四川：计分板主番 simplified 类型（three_hu / chajiao / liuju）。</summary>

@@ -226,7 +226,7 @@ def queue_type_to_match_type(queue_type: str) -> str:
     game_round = queue_type_to_game_round(queue_type)
     from .rating_rules import QUEUES
     spec = QUEUES.get(queue_type)
-    return f"{game_round}/4" + ("_sanma" if spec and spec.player_count == 3 else "") + "_rank"
+    return f"{game_round}/{spec.player_count if spec else 4}_rank"
 
 
 def queue_type_to_display_name(queue_type: str) -> str:
@@ -257,7 +257,7 @@ def queue_type_to_room_config(queue_type: str) -> dict:
         config.update(room_rule=spec.rule, sub_rule=spec.sub_rule or f'{spec.rule}/standard', game_round=spec.rounds,
                       match_tier=spec.tier, hepai_limit=0 if spec.rule == 'sichuan' else 1, open_cuohe=False,
                       step_timer=8 if spec.tier=='intermediate' else 5,
-                      tactical_call=False, tips=spec.tier in ('beginner','elo'), pointer_tips=True)
+                      tactical_call=spec.rule == 'sichuan', tips=spec.tier in ('beginner','elo'), pointer_tips=True)
         if spec.sub_rule == 'sichuan/xueliu_exchange':
             config.update(blood_battle=False, detailed_config={'xueliu_exchange_scoring': True})
         if spec.rule == 'hongque':

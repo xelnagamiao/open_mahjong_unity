@@ -118,7 +118,7 @@ def test_inaccessible_retired_walls_do_not_prevent_end():
 @pytest.mark.parametrize("mode,expected", [("imp",[3,0]),("raw_difference",[8,0])])
 def test_no_double_subtraction(mode, expected):
     result = score_board([18,-18],[-10,10], scoring=mode)
-    assert result == {"raw_difference":[8,-8],"scores":expected}
+    assert result == {"raw_difference":[8,-8], "small_scores":[8,0], "imp_scores":[3,0], "scores":expected}
 
 
 def pair(sub=SBR_DUPLICATE, count=1):
@@ -215,7 +215,7 @@ async def test_barrier_privacy_and_idempotency(first, sub):
     task = asyncio.create_task(p.submit(first,1,[20,-20],[0,0],{"test":1}))
     await asyncio.sleep(0)
     assert not task.done()
-    assert "scores" not in p.public_info() and "boards" not in p.public_info()
+    assert not {"scores", "boards", "small_scores", "imp_scores"} & p.public_info().keys()
     await p.submit(second,1,[-8,8],[0,0],{"test":2})
     await task
     assert p.completed
@@ -232,7 +232,7 @@ async def test_xueliu_tie_adds_same_board_for_both_tables():
     p, _ = pair(XUELIU_DUPLICATE)
     await asyncio.gather(p.submit("open",1,[20,-20],[0,0],{}), p.submit("closed",1,[-20,20],[0,0],{}))
     assert not p.completed and len(p.data["boards"]) == 2
-    assert p.board(2) == make_board("seed",2)
+    assert p.board(2) == make_board("seed",2,layout="xueliu")
     await asyncio.gather(p.submit("open",2,[2,-2],[0,0],{}), p.submit("closed",2,[0,0],[0,0],{}))
     assert p.completed and p.data["scores"] == [2,0]
 

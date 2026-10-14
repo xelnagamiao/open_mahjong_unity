@@ -29,8 +29,9 @@ def duplicate_remaining_tile_counts(state):
 def configure_duplicate_state(state, room):
     if not room.get("duplicate_key"):
         return
-    if room.get("room_rule") != "guobiao":
-        raise ValueError("复式牌墙仅支持国标麻将（含蓝十改）")
+    from ...database.duplicate_walls import supports_duplicate_room
+    if not supports_duplicate_room(room):
+        raise ValueError("复式牌墙仅支持国标麻将（含蓝十改）和川麻血流")
     if room.get("sub_rule") == "guobiao/sanma":
         raise ValueError("三人国标不支持四人复式牌墙")
     if room.get("sub_rule") == "guobiao/blood_battle":

@@ -41,6 +41,8 @@ public static class RoundTextDictionary {
     public static string GetRoundName(string rule, int currentRound) {
         if (rule == "guobiao/sanma") return ThreePlayerWindSeatRoundName(currentRound);
         if (rule == "guobiao/standard") return WindSeatRoundName(currentRound);
+        if (rule == "riichi/sanma") return RiichiRoundText.SanmaName(currentRound);
+        if (rule == "riichi/standard") return WindNumberRoundName(currentRound);
         var hook = RuleRegistry.Resolve(rule, rule)?.RoundName;
         return hook != null ? hook(currentRound) : $"第{currentRound}局";
     }

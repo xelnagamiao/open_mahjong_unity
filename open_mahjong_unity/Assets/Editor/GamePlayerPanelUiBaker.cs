@@ -57,10 +57,10 @@ public static class GamePlayerPanelUiBaker {
             group.sizeDelta = rowSize;
         }
         if (downward) {
-            float textEdge = Mathf.Max(
-                RectTransformUtility.CalculateRelativeRectTransformBounds(panel.transform, panel.transform.Find("Username")).max.x,
-                RectTransformUtility.CalculateRelativeRectTransformBounds(panel.transform, panel.transform.Find("Title")).max.x);
-            group.anchoredPosition = new Vector2(Mathf.Max(group.anchoredPosition.x, textEdge + 4f), group.anchoredPosition.y);
+            var edge = (UnityEngine.UI.Image)serialized.FindProperty("playerProfileEdgePicture").objectReferenceValue;
+            Bounds avatarBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(panel.transform, edge.rectTransform);
+            // 对家数值列从头像右上方紧邻排列，避免按头衔宽度定位而留出大块空隙。
+            group.anchoredPosition = new Vector2(avatarBounds.max.x + 4f, avatarBounds.max.y + 4f);
         }
         var layout = group.GetComponent<UnityEngine.UI.VerticalLayoutGroup>()
             ?? Undo.AddComponent<UnityEngine.UI.VerticalLayoutGroup>(group.gameObject);

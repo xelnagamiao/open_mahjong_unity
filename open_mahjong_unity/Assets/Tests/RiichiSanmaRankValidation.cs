@@ -50,15 +50,20 @@ public static class RiichiSanmaRankValidation {
         Check(labels.Length==4&&labels.All(x=>x!=null)&&labels.Distinct().Count()==4,"trend labels authored for three and four player views");
         string rule=RiichiSanmaRankConfig.Rule;
         var modes=PlayerInfoStatsFormatter.Modes(rule,true);
-        Check(modes.SequenceEqual(new[]{"2/4_sanma_rank","1/4_sanma_rank"}),"profile queries only two three player modes");
-        Check(PlayerInfoStatsFormatter.ModeCaption(rule,modes[0],true).Contains("半庄"),"three player half game caption");
+        Check(modes.SequenceEqual(new[]{"1/3_rank","2/3_rank"}),"profile queries only two three player modes");
+        Check(PlayerInfoStatsFormatter.ModeCaption(rule,"2/3_rank",true).Contains("半庄"),"three player half game caption");
+        Check(PlayerInfoStatsFormatter.Modes(rule,true,new RuleStatsResponse{history_stats=new[]{
+            new PlayerStatsInfo{rule=rule,mode="1/4_sanma_rank"},
+            new PlayerStatsInfo{rule=rule,mode="2/3_sanma_rank"}}}).SequenceEqual(modes),
+            "legacy three player modes merge into canonical modes");
         var stats=new RuleStatsResponse{history_stats=new PlayerStatsInfo[]{
             new PlayerStatsInfo{rule=rule,mode=modes[0],total_games=2,riichi_details=new Dictionary<string,int>{{"riichi_round_count",3}}},
             new PlayerStatsInfo{rule=rule,mode=modes[1],total_games=1,riichi_details=new Dictionary<string,int>{{"riichi_round_count",1}}},
             new PlayerStatsInfo{rule="riichi",mode="2/4_rank",total_games=99,riichi_details=new Dictionary<string,int>{{"riichi_round_count",99}}}}};
         var total=PlayerInfoStatsFormatter.Aggregate(stats,rule,modes);
         Check(total.total_games==3&&total.riichi_details["riichi_round_count"]==4,"three player profile excludes four player games and retains details");
-        Check(RankedRules.Policy.Contains("三人立直")&&RankedRules.Policy.Contains("第二名不变"),"policy explains three player placement scoring");
+        Check(RiichiSanmaRankConfig.DescribeQueue("riichi_sanma_beginner_dongfeng").Contains("三人和四人立直的段位、PT 与场次独立累计"),
+            "queue description explains independent three player progression");
         return JsonConvert.SerializeObject(new{success=true,count=checks.Count,checks});
     }
 }

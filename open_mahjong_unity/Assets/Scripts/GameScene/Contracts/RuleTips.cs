@@ -33,6 +33,9 @@ public sealed class WaitHintQuery {
     public int HuapaiCount;
     public string SubRule;
     public int HepaiLimit;
+    public bool JokerMultiWait;
+    public string NoJokerBonus = "add8";
+    public bool BlackFlowerProgressive = true;
     public int SelfIndex;
     public int CurrentRound;
     public List<int> SelfFlowers;

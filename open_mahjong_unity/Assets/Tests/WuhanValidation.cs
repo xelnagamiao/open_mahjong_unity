@@ -22,6 +22,7 @@ public static class WuhanValidation {
             var info = WuhanGameState.InfoFromIndicator(tile);
             Check("indicator " + tile, info.skins.Length == 3 && info.skins.Contains(45) && !info.skins.Contains(info.joker.Value));
         }
+        ValidateIndicatorRefresh(Check);
         var preview = EditorSceneManager.NewPreviewScene();
         var root = new GameObject("WuhanValidation", typeof(RectTransform), typeof(Canvas));
         root.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
@@ -71,6 +72,52 @@ public static class WuhanValidation {
             Check("bonus replay rotation",rd.scoreChanges.SequenceEqual(new[]{-100,-100,-100,300}));
             return new {passed=checks.Count,checks};
         } finally { EditorSceneManager.ClosePreviewScene(preview); }
+    }
+
+    private static void ValidateIndicatorRefresh(Action<string, bool> check) {
+        var root = new GameObject("WuhanIndicatorRefresh", typeof(RectTransform), typeof(Canvas));
+        var handPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/GameScene/TileCard.prefab");
+        var staticPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/GameScene/StaticTileCard.prefab");
+        var tiles = new[] {11,12,13,37,38,39,45};
+        var hands = new List<TileCard>();
+        var previews = new List<StaticCard>();
+        var state = (WuhanGameState)RuleRegistry.SetCurrent("wuhan", "wuhan/mil2025");
+        var accept = typeof(WuhanGameState).GetMethod("Accept", BindingFlags.NonPublic | BindingFlags.Instance);
+        void Reveal(int tile) => accept.Invoke(state, accept.GetParameters().Select((p, i) => i == 0 ? (object)WuhanGameState.InfoFromIndicator(tile) : Type.Missing).ToArray());
+        string Caption(Component card) => card.GetComponentsInChildren<TMP_Text>().FirstOrDefault(t => t.name == "RuleTileBadge")?.text ?? "";
+        void CheckBadges(string phase, int? joker, params int[] skins) {
+            foreach (int tile in tiles) {
+                string expected = tile == joker ? "癞" : skins.Contains(tile) ? "皮" : "";
+                check($"{phase} hand {tile}", Caption(hands.Single(c => c.tileId == tile)) == expected);
+                check($"{phase} preview {tile}", Caption(previews.Single(c => c.TileId == tile)) == expected);
+            }
+        }
+        try {
+            state.OnGameStart(new GameInfo {wuhan_info=new WuhanInfo {skins=new[] {45}}});
+            foreach (int tile in tiles) {
+                var hand = UnityEngine.Object.Instantiate(handPrefab, root.transform).GetComponent<TileCard>();
+                hand.SetTile(tile, false);
+                hands.Add(hand);
+                var preview = UnityEngine.Object.Instantiate(staticPrefab, root.transform).GetComponent<StaticCard>();
+                preview.SetTileOnlyImage(tile);
+                previews.Add(preview);
+            }
+            CheckBadges("before first reveal", null, 45);
+            Reveal(38);
+            CheckBadges("first reveal", 39, 37, 38, 45);
+            state.OnGameStart(new GameInfo {wuhan_info=new WuhanInfo {skins=new[] {45}}});
+            CheckBadges("next hand clears previous markers", null, 45);
+            Reveal(12);
+            CheckBadges("next reveal", 13, 11, 12, 45);
+            state.OnGameStart(new GameInfo());
+            CheckBadges("missing opening snapshot clears markers", null, 45);
+            check("missing opening snapshot resets indicator", state.Info?.indicator == null && state.Info?.joker == null);
+            state.OnGameStart(new GameInfo {wuhan_info=WuhanGameState.InfoFromIndicator(38)});
+            CheckBadges("reconnect restores markers", 39, 37, 38, 45);
+        } finally {
+            RuleRegistry.ClearCurrent();
+            UnityEngine.Object.DestroyImmediate(root);
+        }
     }
 }
 #endif

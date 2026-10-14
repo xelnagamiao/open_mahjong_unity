@@ -55,6 +55,49 @@ public static class SichuanDoublesValidation {
         return $"Sichuan doubles: {checks} checks passed";
     }
 
+    public static string ValidateRotatingBoardWinds() {
+        if (!Application.isPlaying || !string.IsNullOrEmpty(UserDataManager.Instance.GamestateId))
+            throw new InvalidOperationException("需要无在线对局的 Play Mode");
+        var board = BoardCanvas.Instance;
+        var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        string[] positions = {"self", "right", "top", "left"};
+        string[] winds = {"东", "南", "西", "北"};
+        var labels = positions.ToDictionary(s => s, s =>
+            (TMPro.TMP_Text)typeof(BoardCanvas).GetField("player_" + s + "_index", flags).GetValue(board));
+        var texts = board.GetComponentsInChildren<TMPro.TMP_Text>(true).ToDictionary(t => t, t => t.text);
+        var turns = positions.Select(s => (UnityEngine.UI.Image)typeof(BoardCanvas)
+            .GetField("player_" + s + "_current_image", flags).GetValue(board))
+            .ToDictionary(i => i.gameObject, i => i.gameObject.activeSelf);
+        int checks = 0;
+        try {
+            foreach (string sub in new[] {"sichuan/doubles", "sichuan/doubles_duplicate", "sichuan/standard", "sichuan/xueliu_doubles"})
+            for (int view = 0; view < 4; view++)
+            for (int round = 1; round <= 8; round++) {
+                int dealer = (round - 1) % 4;
+                var info = SichuanPresentationValidation.Fixture(sub, view, round);
+                info.dealer_index = info.current_player_index = dealer;
+                var map = Enumerable.Range(0, 4).ToDictionary(i => i, i => positions[(i - view + 4) % 4]);
+                var recordPlayers = info.players_info.Select(p => new GameRecordManager.RecordPlayer {
+                    playerIndex=p.player_index, userId=p.user_id,
+                }).ToList();
+                for (int source = 0; source < 2; source++) {
+                    if (source == 0) board.InitializeBoardInfo(info, map);
+                    else board.InitializeBoardInfoFromRecord(recordPlayers, map, null, "sichuan", round, 55, sub, dealer);
+                    foreach (var player in info.players_info) {
+                        int wind = SichuanLobby.IsDoubles(sub) ? (player.player_index - dealer + 4) % 4 : player.player_index;
+                        if (labels[map[player.player_index]].text != winds[wind])
+                            throw new Exception($"{sub} 第{round}副 视角{view} 来源{source} 座位{player.player_index} 风位错误，应为{winds[wind]}");
+                        checks++;
+                    }
+                }
+            }
+        } finally {
+            foreach (var entry in texts) entry.Key.text = entry.Value;
+            foreach (var entry in turns) entry.Key.SetActive(entry.Value);
+        }
+        return $"Sichuan live/replay board winds: {checks} checks passed";
+    }
+
     public static string ShowAndValidateRoom(string subRule = "sichuan/doubles") {
         if (!Application.isPlaying) throw new InvalidOperationException("Room UI validation requires Play Mode");
         int uid = UserDataManager.Instance.UserId;

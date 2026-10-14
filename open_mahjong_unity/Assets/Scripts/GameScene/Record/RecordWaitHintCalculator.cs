@@ -53,6 +53,8 @@ public static class RecordWaitHintCalculator {
                 HuapaiCount = ctx.SelfHuapaiList?.Count ?? 0,
                 SubRule = ctx.SubRule,
                 HepaiLimit = ctx.HepaiLimit,
+                JokerMultiWait = ctx.JokerMultiWait,
+                NoJokerBonus = ctx.NoJokerBonus, BlackFlowerProgressive = ctx.BlackFlowerProgressive,
                 SelfIndex = ctx.SelfPlayerIndex,
                 CurrentRound = ctx.CurrentRound,
                 SelfFlowers = ctx.SelfHuapaiList != null ? new List<int>(ctx.SelfHuapaiList) : new List<int>(),
@@ -111,6 +113,7 @@ public static class RecordWaitHintCalculator {
     public static int Remaining(int tile, Dictionary<int, int> visible, RuleManifest manifest) {
         int key = manifest?.NormalizeTileId != null ? manifest.NormalizeTileId(tile) : tile;
         int supply = manifest?.RuleId == "guangdong" && GuangdongMilRules.IsGhost(tile) ? 1 : 4;
+        if (manifest?.RuleId == "guobiao" && HuahunRules.IsJoker(tile)) supply = 1;
         return Mathf.Clamp(supply - (visible.TryGetValue(key, out int used) ? used : 0), 0, supply);
     }
 }

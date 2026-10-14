@@ -15,11 +15,12 @@ from ..game_taiwan.boardcast import send_reconnect_game_state, broadcast_do_acti
 MODULE = "server.gamestate.game_shanghai.LajiheGameState"
 
 
-def make_state():
+def make_state(**room_overrides):
     server=SimpleNamespace(user_id_to_connection={},gamestate_manager=SimpleNamespace(),room_manager=SimpleNamespace())
     state=LajiheGameState(server,{
         "room_id":"123456","player_list":[101,102,103,104],"sub_rule":rule.SUB_RULE,
         "round_timer":0,"step_timer":0,"game_round":1,"tips":True,"room_type":"custom","allow_spectator":False,
+        **room_overrides,
     },None,None,"lajihe-test")
     for i,p in enumerate(state.player_list):
         p.player_index=p.original_player_index=i
@@ -45,6 +46,57 @@ def test_registration_rules_wall_and_public_concealed_kong():
     assert ShanghaiRoomValidator(room_name="垃圾和",game_round=1,round_timer=30,step_timer=5,sub_rule=rule.SUB_RULE).hepai_limit==0
     with pytest.raises(ValueError):
         ShanghaiRoomValidator(room_name="垃圾和",game_round=1,round_timer=30,step_timer=5,sub_rule=rule.SUB_RULE,hepai_limit=1)
+
+
+@pytest.mark.parametrize("config", [None, {}, {rule.SELF_DRAW_EXTRA_BASE:False}, {rule.SELF_DRAW_EXTRA_BASE:True}])
+def test_extra_base_config_defaults_and_state(config):
+    expected = bool(config and config.get(rule.SELF_DRAW_EXTRA_BASE))
+    validated = ShanghaiRoomValidator(room_name="垃圾和",game_round=1,round_timer=30,step_timer=5,
+                                     sub_rule=rule.SUB_RULE,detailed_config=config)
+    assert validated.detailed_config == {rule.SELF_DRAW_EXTRA_BASE:expected}
+    state = make_state(detailed_config=validated.detailed_config)
+    assert state.self_draw_extra_base is expected
+    assert state.build_game_info_fields()["detailed_config"][rule.SELF_DRAW_EXTRA_BASE] is expected
+    assert state.build_record_title_fields()["detailed_config"][rule.SELF_DRAW_EXTRA_BASE] is expected
+
+
+@pytest.mark.parametrize("invalid", [None,0,1,"true","false",[],{}])
+def test_extra_base_config_requires_boolean(invalid):
+    with pytest.raises(ValueError,match="必须为布尔值"):
+        ShanghaiRoomValidator(room_name="垃圾和",game_round=1,round_timer=30,step_timer=5,
+                             sub_rule=rule.SUB_RULE,detailed_config={rule.SELF_DRAW_EXTRA_BASE:invalid})
+
+
+@pytest.mark.parametrize("sub_rule", ["shanghai/qiaoma","shanghai/qinghunpeng"])
+def test_extra_base_config_is_lajihe_only(sub_rule):
+    with pytest.raises(ValueError,match="仅适用于上海垃圾和"):
+        ShanghaiRoomValidator(room_name="上海",game_round=1,round_timer=30,step_timer=5,
+                             sub_rule=sub_rule,detailed_config={rule.SELF_DRAW_EXTRA_BASE:True})
+
+
+@pytest.mark.parametrize("enabled", [False,True])
+@pytest.mark.parametrize("source", ["discard","self_draw","robbing_kong"])
+def test_extra_base_settlement_and_record(enabled,source):
+    async def run():
+        state = make_state(detailed_config={rule.SELF_DRAW_EXTRA_BASE:enabled})
+        state.run_hu_result_ready_phase=AsyncMock()
+        player=state.player_list[1]
+        player.hand_tiles=HONORS.copy() if source=="self_draw" else HONORS[:-1]
+        detail=state.score_candidate(1,source,47)
+        points=40 if source=="discard" else (70 if enabled else 60)
+        assert detail["base_score"]==points
+        state.pending_winners=[{"index":1,"payer":None if source=="self_draw" else 0,"source":source,
+                                "hu_class":"hu_self" if source=="self_draw" else "hu_first","tile":47,"detail":detail}]
+        await state._settle_hand({p.original_player_index:p.score for p in state.player_list})
+        expected={"discard":[-40,40,0,0],"self_draw":[-points,3*points,-points,-points],
+                  "robbing_kong":[-3*points,3*points,0,0]}[source]
+        assert [p.score for p in state.player_list]==expected
+        hu=next(t for t in ticks(state) if t[0] in ("hu_self","hu_first"))
+        assert hu[2]==points and hu[4]==expected
+        if source!="discard":
+            label="自摸" if source=="self_draw" else "抢杠"
+            assert f"{label}（{15 if enabled else 10}分）" in hu[3]
+    asyncio.run(run())
 
 
 @pytest.mark.parametrize("flowers,can_ron",[(0,False),(1,False),(2,True)])

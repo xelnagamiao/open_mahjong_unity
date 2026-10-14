@@ -32,7 +32,7 @@ test('ranked three-player summaries exclude four-player and custom modes', async
     ...Array.from({length:10},()=>({sub_rule:'riichi/standard',room_type:'match',mode:'2/4_rank',rank:1,metrics:{},summary:{total_rounds:8}})),
   ]})};
   const stats=await queryRankedStats(db,101);
-  assert.deepEqual(stats.riichi_sanma.map(s=>s.mode),['1/4_sanma_rank','2/4_sanma_rank']);
+  assert.deepEqual(stats.riichi_sanma.map(s=>s.mode),['1/3_rank','2/3_rank']);
   assert.equal(stats.riichi.length,1);
   assert.equal(stats.riichi[0].total_games,10);
   assert.deepEqual(stats.riichi_sanma.map(s=>s.total_rounds),[3,6]);

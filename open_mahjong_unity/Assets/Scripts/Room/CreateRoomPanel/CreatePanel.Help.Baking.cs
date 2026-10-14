@@ -76,6 +76,7 @@ public partial class CreatePanel {
         InputHelp(passwordInput, "输入密码：设置房间密码");
         InputHelp(RiichiStartingScoreInput, "起始点数：输入 1000–1000000 的整数，并且必须是 100 的倍数");
         Help(GuobiaoFlowersToggle, "花牌：选择牌山是否包含花牌");
+        Help(JokerMultiWaitToggle, "癞子多面听：国标癞子场的标准设计是先将癞子确定为任意手牌，然后再计算听牌型，因此手持癞子的多面听在癞子确定为符合条件的手牌时，仍可计算独听；开启此设计后，手持癞子的多面听均不计算独听。");
         Help(TianDiRenHeToggle, "天地人和：仅标准国标与血战到底可开启，各加计8番。天和：庄家起手直接自摸；地和：闲家和庄家打出的第一张牌；人和：闲家首次摸牌自摸。全桌吃、碰、杠（含暗杠）均打断，补花不打断。");
         Help(stepTimer, "步时：每次操作的基础思考时间。");
         Help(roundTimer, "局时：每局可用的额外思考时间，步时耗尽后消耗。");

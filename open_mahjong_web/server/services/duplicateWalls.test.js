@@ -133,8 +133,8 @@ test('manual series require every round and keep every chosen tile order', () =>
   assert.deepEqual(legacy.round_tiles, [legacy.tiles]);
 });
 
-test('new walls support only Guobiao and Lanshi with exact tile multiplicities', () => {
-  const sizes = { guobiao: 144, 'guobiao/lanshi': 136 };
+test('new walls support Guobiao, Lanshi and bloodflow with exact tile multiplicities', () => {
+  const sizes = { guobiao: 144, 'guobiao/lanshi': 136, 'sichuan/xueliu': 108 };
   assert.deepEqual(catalog().rules.map((item) => item.rule), Object.keys(sizes));
   for (const [rule, size] of Object.entries(sizes)) {
     assert.equal(fullWall(rule).length, size);
@@ -329,4 +329,30 @@ test('sharing native records checks current key state and denies missing keys', 
   const missingKeyDb = { async query() { return { rows: [] }; } };
   assert.equal(await sharedSourceIsLocked(missingKeyDb, source), true);
   assert.equal(await sharedSourceIsLocked(() => { throw new Error('should not need DB'); }, '[{"type":"start_game"}]'), false);
+});
+
+test('unlocked paired data returns both persisted score totals and per-board conversions', async () => {
+  const key = `dup_${'1'.repeat(32)}`;
+  const data = { profile: { scoring: 'raw_difference' }, scores: [0, 140], small_scores: [0, 140], imp_scores: [0, 8],
+    planned_boards: 2, completed_boards: 2, record_ids: { open: 'open', closed: 'closed' }, results: [
+      { number: 1, raw_difference: [-90, 90], small_scores: [0, 80], imp_scores: [0, 4], scores: [0, 80], tables: { open: { delta: [-100, 100] }, closed: { delta: [10, -10] } } },
+      { number: 2, raw_difference: [-60, 60], small_scores: [0, 60], imp_scores: [0, 4], scores: [0, 60], tables: { open: { delta: [-100, 100] }, closed: { delta: [40, -40] } } },
+    ] };
+  let unlocked = false, status = 'running';
+  const pool = { async query(sql) {
+    if (sql.includes('dw.is_unlocked = TRUE')) return { rows: unlocked ? [{ id: '1', key, rule: 'sichuan/xueliu_doubles_duplicate', is_unlocked: true }] : [] };
+    if (sql.includes('WITH matched_games')) return { rows: [] };
+    if (sql.includes('FROM sichuan_duplicate_matches')) return { rows: [{ status, data }] };
+    throw new Error(`Unexpected query: ${sql}`);
+  } };
+  const service = createDuplicateWallService(pool);
+  await assert.rejects(service.publicDetail(key), { status: 404 });
+  unlocked = true;
+  assert.equal((await service.publicDetail(key)).paired_match, undefined);
+  status = 'completed';
+  const result = (await service.publicDetail(key)).paired_match;
+  assert.deepEqual(result.small_scores, [0, 140]);
+  assert.deepEqual(result.imp_scores, [0, 8]);
+  assert.deepEqual(result.boards, data.results);
+  assert.deepEqual(result.scores, [0, 140]);
 });

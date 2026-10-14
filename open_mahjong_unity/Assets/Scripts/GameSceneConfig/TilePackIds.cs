@@ -90,7 +90,7 @@ public static class TilePackIds {
     }
 
     public static bool IsStandardFaceId(int tileId) {
-        if (tileId == 2 || tileId == 105 || tileId == 205 || tileId == 305) {
+        if (tileId == 59 || tileId == 2 || tileId == 105 || tileId == 205 || tileId == 305) {
             return true;
         }
         int suit = tileId / 10;
@@ -120,6 +120,7 @@ public static class TilePackIds {
         for (int rank = 1; rank <= 8; rank++) {
             ids.Add(50 + rank);
         }
+        ids.Add(59);
         ids.Add(105);
         ids.Add(205);
         ids.Add(305);

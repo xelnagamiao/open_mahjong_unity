@@ -115,6 +115,13 @@ async def test_eight_clients_complete_paired_game(sub, cls, seed):
         assert len(ends) == 8, 'all eight clients must receive the serialized final result'
         assert all('master_seed' not in e and 'salt' not in e and 'record_detail' not in e for e in ends)
         assert all(e['duplicate_match']['status'] == 'completed' for e in ends)
+        for end in ends:
+            for key in ('small_scores', 'imp_scores'):
+                assert end['duplicate_match'][key] == pair.data[key]
+            for player in end['player_final_data'].values():
+                team = player['team_id']
+                assert player['team_small_score'] == pair.data['small_scores'][team]
+                assert player['team_imp_score'] == pair.data['imp_scores'][team]
     finally:
         for t in tasks:
             if not t.done(): t.cancel()

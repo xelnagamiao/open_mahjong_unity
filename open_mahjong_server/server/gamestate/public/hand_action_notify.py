@@ -54,6 +54,11 @@ async def apply_player_cut(
     player = gamestate.player_list[player_index]
     hand = player.hand_tiles
     tile_id = action_data.get("TileId")
+    if getattr(gamestate, "sub_rule", "") == "guobiao/huahun":
+        from ...game_calculation.guobiao_huahun import legal_cut
+        if not legal_cut(player, tile_id, action_data.get("cutClass")):
+            await send_game_tip(gamestate, player_index, "癞子只能在摸到当巡摸切，不能手切")
+            return None
     cut_index = action_data.get("cutIndex")
     draw_slot = has_draw_slot(player)
 
@@ -133,4 +138,7 @@ async def apply_player_cut(
         return None
 
     clear_draw_slot(player)
+    if getattr(gamestate, "sub_rule", "") == "guobiao/transparent_realtime":
+        from ..game_riichi.realtime_hand import note_cut
+        player._realtime_cut_key = note_cut(gamestate, player, removed, is_moqie, cut_index)
     return removed, is_moqie, cut_index

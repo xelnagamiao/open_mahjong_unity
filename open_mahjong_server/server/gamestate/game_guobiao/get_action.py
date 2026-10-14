@@ -45,6 +45,10 @@ async def get_ai_action(game_state, player_index: int, action_type: str, cutClas
             return
 
         # 操作合法，将操作数据放入队列
+        if action_type == "cut" and getattr(game_state, "sub_rule", "") == "guobiao/huahun":
+            from ...game_calculation.guobiao_huahun import legal_cut
+            if not legal_cut(current_player, TileId, cutClass):
+                return
         if action_type == "cut": # 切牌操作
             # 验证切牌的TileId是否在玩家手牌中
             if not hand_contains_tile(current_player.hand_tiles, TileId):
@@ -69,9 +73,15 @@ async def get_ai_action(game_state, player_index: int, action_type: str, cutClas
                     logger.warning(f"加杠失败：玩家没有碰牌形成的刻子, player_index={player_index}, target_tile={target_tile}, combination_tiles={current_player.combination_tiles}")
                     return  # 丢弃命令
             elif action_type == "angang":
+                if getattr(game_state, "sub_rule", "") == "guobiao/four_jokers" and target_tile == 59:
+                    return  # 红花只能参与和牌，不能用其他牌的暗杠权限杠红花。
                 # 暗杠验证：要求目标牌在自己手上有4张
                 tile_count = current_player.hand_tiles.count(target_tile)
-                if tile_count < 4:
+                flower_kong = False
+                if getattr(game_state, "sub_rule", "") == "guobiao/huahun" and target_tile == 51:
+                    from ...game_calculation.guobiao_huahun import can_flower_kong
+                    flower_kong = bool(game_state.tiles_list) and can_flower_kong(current_player.hand_tiles)
+                if not flower_kong and tile_count < 4:
                     logger.warning(f"暗杠失败：手牌中没有足够的牌进行暗杠, player_index={player_index}, target_tile={target_tile}, count={tile_count}, hand_tiles={current_player.hand_tiles}")
                     return  # 丢弃命令
             await game_state.action_queues[player_index].put({
@@ -135,6 +145,10 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
             return
 
         # 操作合法，将操作数据放入队列
+        if action_type == "cut" and getattr(game_state, "sub_rule", "") == "guobiao/huahun":
+            from ...game_calculation.guobiao_huahun import legal_cut
+            if not legal_cut(current_player, TileId, cutClass):
+                return
         if action_type == "cut": # 切牌操作
             # 验证切牌的TileId是否在玩家手牌中
             if not hand_contains_tile(current_player.hand_tiles, TileId):
@@ -172,9 +186,15 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
                     logger.warning(f"加杠失败：玩家没有碰牌形成的刻子, player_index={player_index}, user_id={user_id}, target_tile={target_tile}, combination_tiles={current_player.combination_tiles}")
                     return  # 丢弃命令
             elif action_type == "angang":
+                if getattr(game_state, "sub_rule", "") == "guobiao/four_jokers" and target_tile == 59:
+                    return  # 红花只能参与和牌，不能用其他牌的暗杠权限杠红花。
                 # 暗杠验证：要求目标牌在自己手上有4张
                 tile_count = current_player.hand_tiles.count(target_tile)
-                if tile_count < 4:
+                flower_kong = False
+                if getattr(game_state, "sub_rule", "") == "guobiao/huahun" and target_tile == 51:
+                    from ...game_calculation.guobiao_huahun import can_flower_kong
+                    flower_kong = bool(game_state.tiles_list) and can_flower_kong(current_player.hand_tiles)
+                if not flower_kong and tile_count < 4:
                     logger.warning(f"暗杠失败：手牌中没有足够的牌进行暗杠, player_index={player_index}, user_id={user_id}, target_tile={target_tile}, count={tile_count}, hand_tiles={current_player.hand_tiles}")
                     return  # 丢弃命令
             await game_state.action_queues[player_index].put({

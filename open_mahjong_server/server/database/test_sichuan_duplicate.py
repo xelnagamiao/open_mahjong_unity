@@ -57,3 +57,20 @@ def test_restore_read_transaction_and_json_shapes(monkeypatch,failure):
         cursor.fetchall.return_value=[(data,),(json.dumps(data),)]
         assert store.unfinished()==[data,data];conn.commit.assert_called_once()
     db._put_connection.assert_called_once_with(conn)
+
+
+@pytest.mark.parametrize('existing,paired,ok', [(True,False,True),(False,False,False),(True,True,False)])
+def test_attach_saved_wall_locks_and_binds_once_without_using_another_quota(monkeypatch,existing,paired,ok):
+    db,conn,cursor,data,store=fixture(monkeypatch)
+    data.update(source_wall_id=55,key='dup_saved',wall_type='manual')
+    cursor.fetchone.side_effect=[(25,100), (55,) if existing else None, ('other-pair',) if paired else None]
+    if ok:
+        store.create(data,event_id='evt_test',owner_id=101,name='manual')
+        assert data['wall_id']==55 and data['key']=='dup_saved'
+        conn.commit.assert_called_once()
+        assert not any('INSERT INTO duplicate_walls' in c.args[0] for c in cursor.execute.call_args_list)
+    else:
+        with pytest.raises(ValueError): store.create(data,event_id='evt_test',owner_id=101,name='manual')
+        conn.rollback.assert_called_once()
+        conn.commit.assert_not_called()
+    db._put_connection.assert_called_once_with(conn)

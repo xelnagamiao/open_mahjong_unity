@@ -10,6 +10,23 @@ public static class WashizuPresentationValidation {
     public static object Run() {
         var checks=new List<string>();
         void Check(bool ok,string label) {if(!ok)throw new Exception("Washizu visual: "+label); checks.Add(label);}
+        var closed = new[] {2011,12,2013,2021,22,2023,2031,32,2033,2041,41,2041,2045};
+        var snapshot = new[] {2011,2013,2021,2023,2031,2033,2041,2041,2045,2045,0,0,0,0};
+        var expected = new[] {2011,2013,2021,2023,2031,2033,2041,2041,2045,12,22,32,41};
+        Check(WashizuTile.OrderRevealedHand(closed,snapshot).SequenceEqual(expected),"reveal keeps public glass group and excludes extra winning copy");
+        Check(WashizuTile.OrderRevealedHand(closed.Reverse().ToArray(),snapshot).SequenceEqual(expected),"server winning-hand order cannot reshuffle public glass");
+        Check(closed[1]==12 && snapshot[9]==2045 && snapshot[10]==0,"reveal leaves server hand and public snapshot intact");
+        Check(WashizuTile.OrderRevealedHand(new[]{2011,11,2011},new[]{2011,2011,0})
+            .SequenceEqual(new[]{2011,2011,11}),"same face preserves glass and opaque multiplicities");
+        Check(WashizuTile.OrderRevealedHand(new[]{2011,2013,12},new[]{2013,2011,0})
+            .SequenceEqual(new[]{2013,2011,12}),"reveal follows existing public order instead of re-sorting it");
+        Check(WashizuTile.OrderRevealedHand(new[]{2013,12,2011},new[]{2011,0})
+            .SequenceEqual(new[]{2011,2013,12}),"new glass copy stays before opaque group");
+        var standard = (int[])closed.Clone();TileIdOrder.SortHand(standard);
+        Check(WashizuTile.OrderRevealedHand(closed,null).SequenceEqual(standard),"self and expanded replay retain normal sorting");
+        Check(WashizuTile.OrderRevealedHand(new[]{13,11,12},new[]{0,0,0})
+            .SequenceEqual(new[]{11,12,13}),"all opaque public hand reveals normally");
+        Check(WashizuTile.OrderRevealedHand(Array.Empty<int>(),new[]{2045}).Length==0,"empty closed hand does not duplicate winning tile");
         var pool=MahjongObjectPool.Instance;
         Check(pool!=null,"pool available");
         var position=new Vector3(0,-2000,0);
@@ -26,12 +43,15 @@ public static class WashizuPresentationValidation {
                 pool.SetPresentationFace(opaque,2011);
                 Check(state.GetTileId()==2011,"glass logical identity "+i);
                 Check(state.TileMaterial.shader.name=="Custom/WashizuGlassTile","glass material "+i);
-                Check(shadow==null || !shadow.enabled,"glass transmits contact region "+i);
+                Check(shadow==null || (shadow.enabled==shadowEnabled && shadow.OpacityMultiplier>0f && shadow.OpacityMultiplier<1f),"glass retains soft contact shadow "+i);
+                var ink=opaque.GetComponentsInChildren<Renderer>().FirstOrDefault(r=>r.enabled && r.sharedMaterial!=null && r.sharedMaterial.name.StartsWith("WashizuInk_"));
+                Check(ink!=null && ink.sharedMaterial.GetFloat("_ZWrite")==1f && ink.sharedMaterial.renderQueue<=2500,"opaque paint contributes color and depth before glass "+i);
                 Check(outline==null || !outline.enabled,"no opaque support strokes "+i);
                 pool.SetPresentationFace(opaque,11);
                 Check(state.GetTileId()==11 && state.TileMaterial.shader.name=="Custom/ThreeDTiles","opaque texture restored "+i);
                 Check(shadow==null || shadow.enabled==shadowEnabled,"opaque contact shadow restored "+i);
                 Check(outline==null || outline.enabled==outlineEnabled,"opaque contour restored "+i);
+                Check(ink!=null && !ink.enabled,"paint layer disabled on opaque reuse "+i);
                 Check(body.sharedMesh==original,"glass never replaces physical tile mesh "+i);
             }
         } finally {pool.Return(-1,opaque);}
@@ -42,7 +62,7 @@ public static class WashizuPresentationValidation {
             Check(reading.GetComponent<Tile3D>().TileMaterial.shader.name=="Custom/WashizuReadingFace","paper shader");
             pool.SetPresentationFace(reading,13);
             Check(reading.GetComponent<Tile3D>().TileMaterial.shader.name=="Custom/WashizuReadingFace","paper remains flat after face refresh");
-            Check(reading.GetComponent<TileContactShadow>()?.enabled!=true,"paper does not project solid tile shadow");
+            Check(reading.GetComponent<TileContactShadow>()==null || reading.GetComponent<TileContactShadow>().OpacityMultiplier==0f,"paper does not project solid tile shadow");
             Check(reading.GetComponent<WashizuReadingSurface>().IsReadingSurface,"reading lease classified");
         } finally {pool.Return(-1,reading);}
         Check(readingBody.sharedMesh==original,"reading quad restores physical mesh on return");

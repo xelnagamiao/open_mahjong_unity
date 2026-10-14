@@ -1023,7 +1023,9 @@ class Chinese_Hepai_Check:
                     player_tiles.fan_list.append("haidilaoyue") # 海底捞月（牌墙空荣和）
                 case "点和":
                     self.debug_print(player_tiles.combination_list)
-                    if combination_str != "" and all(i not in ["S","K","G","z"] for i in combination_str) and "和单张" in way_to_hepai:
+                    if (player_tiles.initial_combination_count == 4
+                            and all(i not in ["S","K","G","z"] for i in combination_str)
+                            and f"q{get_tile}" in player_tiles.combination_list):
                         player_tiles.fan_list.append("quanqiuren") # 全求人
                     elif combination_str.count("s") + combination_str.count("k") + combination_str.count("g") == 0:
                         player_tiles.fan_list.append("menqianqing") # 门前清

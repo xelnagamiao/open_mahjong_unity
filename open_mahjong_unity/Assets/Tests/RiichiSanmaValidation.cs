@@ -50,7 +50,7 @@ public static class RiichiSanmaValidation {
             mirror.IndexToPosition = new Dictionary<int,string>();
             for (int seat = 0; seat < 3; seat++) {
                 mirror.BuildSeatMap(seat, new[] {0,1,2});
-                string[][] expected = { new[] { "self", "right", "top" }, new[] { "left", "self", "right" }, new[] { "top", "left", "self" } };
+                string[][] expected = { new[] { "self", "right", "left" }, new[] { "left", "self", "right" }, new[] { "right", "left", "self" } };
                 Check(mirror.IndexToPosition.Count == 3
                     && Enumerable.Range(0, 3).All(index => mirror.IndexToPosition[index] == expected[seat][index]), "seat map " + seat);
             }

@@ -98,8 +98,8 @@ def test_rule_query_rejects_mixed_variants_and_keeps_legacy_three_player_modes()
                     dict(player_count=3),dict(room_type="match")):
         with pytest.raises(ValueError):
             validate_selection(dict(rule="guangdong_tuidao",**changes))
-    assert canonical_mode("1/3",3) == "1/4_sanma"
-    assert canonical_mode("2/4_sanma_rank",3) == "2/4_sanma"
+    assert canonical_mode("1/3",3) == "1/3"
+    assert canonical_mode("2/4_sanma_rank",3) == "2/3"
     assert canonical_mode("2/4",4) == "2/4"
     assert validate_selection(dict(rule="shanghai_qinghunpeng",source_rule="shanghai",
         sub_rule="shanghai/qinghunpeng",player_count=4)) == "shanghai_qinghunpeng"

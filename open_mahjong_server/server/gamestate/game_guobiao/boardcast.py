@@ -1,9 +1,15 @@
+from .four_jokers_runtime import prepare_hints, cached_hints
 from ...response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info,Game_end_info,Player_final_data,Switch_seat_info,Refresh_player_tag_list_info,Ready_status_info
 from typing import List, Dict, Optional
 import logging
 import asyncio
 from ..public.lifecycle import start_owned_task
 from . import blood_battle, transparent
+from ..game_riichi import realtime_hand
+from ...game_calculation import guobiao_four_jokers as four_jokers
+from ...game_calculation import guobiao_sixteen as sixteen
+from ...game_calculation import guobiao_huahun as huahun
+from .four_jokers_bot import bot_action as four_jokers_bot_action
 from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.offline import offline_auto_action
 from ..public.ai.smart_bot_ai import smart_bot_action
@@ -46,6 +52,10 @@ async def _send_ask_response_to_viewer(
     from ..public.outbound_pipe import send_to_viewer, schedule_viewer_send
 
     current_player = self.player_list[viewer_index]
+    if response.ask_hand_action_info is not None:
+        response.ask_hand_action_info.four_jokers_hints = await prepare_hints(self, viewer_index)
+        if huahun.enabled(self):
+            response.ask_hand_action_info.forbidden_cut_tiles = huahun.forbidden_cuts(current_player)
     if current_player.user_id not in self.game_server.user_id_to_connection:
         logger.warning(
             f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过 ask 广播"
@@ -83,9 +93,14 @@ def _build_game_start_payload_for_viewer(self, viewer_index: int) -> dict:
         "action_tick": self.server_action_tick, # 操作帧
         'max_round': self.max_round, # 最大局数
         'washizu_hands': transparent.public_hands(self),
+        'washizu_layouts': realtime_hand.layouts_for_viewer(self, viewer_index),
+        'four_jokers_hints': cached_hints(self, viewer_index),
         'tile_count': len(self.tiles_list), # 牌山剩余牌数
         'use_flowers': getattr(self, 'use_flowers', True),
         'tian_di_ren_he': getattr(self, 'tian_di_ren_he', False),
+        'joker_multi_wait': getattr(self, 'joker_multi_wait', False),
+        'no_joker_bonus': getattr(self, 'no_joker_bonus', 'add8'),
+        'black_flower_progressive': getattr(self, 'black_flower_progressive', True),
         'duplicate_remaining_tiles': duplicate_remaining_tile_counts(self),
         'commitment': self.commitment,  # 承诺值
         'salt': self.salt, # 盐字符串
@@ -175,6 +190,7 @@ async def broadcast_game_start(self):
                 continue
 
             player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+            await prepare_hints(self, current_player.player_index)
             game_info = GameInfo(**_build_game_start_payload_for_viewer(self, current_player.player_index))
             response = Response(
                 type="gamestate/guobiao/game_start",
@@ -207,6 +223,7 @@ async def send_realtime_spectator_snapshot(self, spectator_user_id: int, view_pl
         from ..public.outbound_pipe import drain_viewer
         await drain_viewer(self, view_player_index)
     conn = self.game_server.user_id_to_connection[spectator_user_id]
+    await prepare_hints(self, view_player_index)
     payload = _build_game_start_payload_for_viewer(self, view_player_index)
     payload["view_player_index"] = view_player_index
     response = Response(
@@ -222,6 +239,10 @@ async def send_realtime_spectator_snapshot(self, spectator_user_id: int, view_pl
 # 广播询问手牌操作 补花 加杠 暗杠 自摸 出牌
 async def broadcast_ask_hand_action(self):
     self.server_action_tick += 1
+    # Publish the decision window before the first await: a fast client can
+    # reply while hints or the remaining seats are still being sent.
+    self.waiting_players_list = [i for i, actions in self.action_dict.items() if actions]
+    self._waiting_action_tick = self.server_action_tick
     begin_ask_round(self)
     # 当前行动者优先发送并 await；其余座位只入队，避免被受保护观众的
     # delayed meld / post_gap 串行拖住（否则吃碰后要等 ~0.5–1.2s 才能出牌）。
@@ -248,12 +269,12 @@ async def broadcast_ask_hand_action(self):
             elif current_player.user_id == 2:
                 if player_actions:
                     logger.info(f"派发牌效机器人操作 seat={seat_index} status={bot_ask_hand_game_status(self, seat_index)} actions={player_actions}")
-                    start_owned_task(self, smart_bot_action(self, seat_index, player_actions, bot_ask_hand_game_status(self, seat_index)))
+                    start_owned_task(self, (four_jokers_bot_action if (four_jokers.enabled(self) or sixteen.enabled(self)) else smart_bot_action)(self, seat_index, player_actions, bot_ask_hand_game_status(self, seat_index)))
                 continue
             elif current_player.user_id == 3:
                 if player_actions:
                     logger.info(f"派发高性能罗伯特操作 seat={seat_index} status={bot_ask_hand_game_status(self, seat_index)} actions={player_actions}")
-                    start_owned_task(self, guobiao_heuristic_action(self, seat_index, player_actions, bot_ask_hand_game_status(self, seat_index)))
+                    start_owned_task(self, (four_jokers_bot_action if (four_jokers.enabled(self) or sixteen.enabled(self)) else guobiao_heuristic_action)(self, seat_index, player_actions, bot_ask_hand_game_status(self, seat_index)))
                 continue
             elif current_player.user_id < 10:
                 if player_actions:
@@ -295,8 +316,9 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
         cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
     self.server_action_tick += 1
     # 战术打断再问：在派发 AI 前同步 waiting tick，避免机器人因 tick 不一致拒动
-    if is_tactical_recheck:
-        self._waiting_action_tick = self.server_action_tick
+    if not is_tactical_recheck:
+        self.waiting_players_list = [i for i, actions in self.action_dict.items() if actions]
+    self._waiting_action_tick = self.server_action_tick
     begin_ask_round(self)
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
@@ -319,12 +341,12 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
             elif current_player.user_id == 2:
                 if player_actions:
                     logger.info(f"派发牌效机器人操作 seat={seat_index} status={self.game_status} actions={player_actions}")
-                    start_owned_task(self, smart_bot_action(self, seat_index, player_actions, self.game_status))
+                    start_owned_task(self, (four_jokers_bot_action if (four_jokers.enabled(self) or sixteen.enabled(self)) else smart_bot_action)(self, seat_index, player_actions, self.game_status))
                 continue
             elif current_player.user_id == 3:
                 if player_actions:
                     logger.info(f"派发高性能罗伯特操作 seat={seat_index} status={self.game_status} actions={player_actions}")
-                    start_owned_task(self, guobiao_heuristic_action(self, seat_index, player_actions, self.game_status))
+                    start_owned_task(self, (four_jokers_bot_action if (four_jokers.enabled(self) or sixteen.enabled(self)) else guobiao_heuristic_action)(self, seat_index, player_actions, self.game_status))
                 continue
             elif current_player.user_id < 10:
                 if player_actions:
@@ -391,6 +413,8 @@ async def reconnected_send_pending_ask_for_viewer(
                 message="发牌，并询问手牌操作",
                 ask_hand_action_info=Ask_hand_action_info(
                     remaining_time=remaining_sent,
+                    forbidden_cut_tiles=huahun.forbidden_cuts(player) if huahun.enabled(self) else None,
+                    four_jokers_hints=await prepare_hints(self, view_player_index),
                     step_remaining=step_sent,
                     player_index=self.current_player_index,
                     remain_tiles=len(self.tiles_list),
@@ -457,6 +481,7 @@ def _build_do_action_payload(
     is_timeout_action=False,
     duplicate_remaining_tiles=None,
     public_hand_snapshot=None,
+    realtime_layout_snapshot=None,
 ):
     viewer_mask = combination_mask
     viewer_target = combination_target
@@ -469,6 +494,7 @@ def _build_do_action_payload(
     return {
         "duplicate_remaining_tiles": list(duplicate_remaining_tiles) if duplicate_remaining_tiles is not None else duplicate_remaining_tile_counts(self),
         "washizu_hands": (public_hand_snapshot if public_hand_snapshot is not None else transparent.public_hands(self)) if not is_claim else None,
+        "washizu_layouts": (realtime_layout_snapshot.get(viewer_index) if realtime_layout_snapshot is not None else realtime_hand.layouts_for_viewer(self, viewer_index)) if not is_claim else None,
         "action_list": action_list,
         "action_player": action_player,
         "action_tick": self.server_action_tick,
@@ -541,12 +567,15 @@ async def broadcast_do_action(
     cut_from_player: int = None,
     is_timeout_action: bool = False,
     public_hand_snapshot=None,
+    realtime_layout_snapshot=None,
     ):
     # Capture before any awaits: protected/deferred viewers receive this action's
     # counts, even if another draw happens before their queued payload is sent.
     remaining_tiles = duplicate_remaining_tile_counts(self)
     if public_hand_snapshot is None:
         public_hand_snapshot = transparent.public_hands(self)
+    if realtime_layout_snapshot is None and realtime_hand.enabled(self) and not is_claim:
+        realtime_layout_snapshot = {p.player_index: realtime_hand.layouts_for_viewer(self, p.player_index) for p in self.player_list}
     # 战术鸣牌的实际行为静默执行：申请阶段已发声/动画，本次仅状态变更
     if not is_claim and not silent and getattr(self, "_tactical_silent_action", False):
         silent = True
@@ -621,6 +650,7 @@ async def broadcast_do_action(
                 is_timeout_action=is_timeout_action,
                 duplicate_remaining_tiles=remaining_tiles,
                 public_hand_snapshot=public_hand_snapshot,
+                realtime_layout_snapshot=realtime_layout_snapshot,
             )
 
             # 出牌对受保护观众延迟：暂存，待鸣牌/申请/pass/超时触发 flush
@@ -696,6 +726,7 @@ async def broadcast_result(self,
                           revealed_angang_masks: Optional[dict] = None,
                           silent: bool = False,
                           next_status: Optional[str] = None, **blood_fields):
+    hepai_player_hand = realtime_hand.ordered_reveal(self, hepai_player_index, hepai_player_hand, winning_tile=True)
     # 战术鸣牌：胡牌结算复用申请阶段的发声/动画，本次静默
     if not silent and getattr(self, "_tactical_silent_action", False):
         silent = True

@@ -1,4 +1,4 @@
-"""九江计分与逐家支付；歧义按 2026-10-10 用户确认解释。"""
+"""九江计分与逐家支付；赔付对象按 2026-10-12 用户确认解释。"""
 from .patterns import (DRAGONS, FA, TILES, SUB_RULE, big_hu_candidates, structural_waits)
 
 
@@ -24,7 +24,7 @@ def flower_details(melds=(), sets=(), flowers=(), *, winning_tile=None, self_dra
 
 
 def exposed_flower_points(melds=(), flowers=()):
-    """额外赔付只取和牌前已经公开的花分，不含暗杠或立牌内的箭刻。"""
+    """该玩家和牌前已亮明的花分；发财基础分只计一次，不含暗杠、暗箭刻。"""
     public = tuple(code for code in melds if code[0] != "G")
     return sum(value for _, value in flower_details(public, (), flowers))
 
@@ -81,14 +81,15 @@ def score(hand, melds=(), flowers=(), *, winning_tile=None, self_draw=False,
     return max(results, key=lambda item:(item["base_score"], item["big_points"]), default=None)
 
 
-def payments(winner, points, *, discarder=None, dealer=0, exposed_flowers=0, ready=(), declared=()):
-    """先合并每个输家的额外支付，再对涉及庄家的那一份翻倍。"""
+def payments(winner, points, *, discarder=None, dealer=0, payer_flowers=None, ready=(), declared=()):
+    """未听输家赔自己的明花分，再合并报听赔付，对涉及庄家的支付翻倍。"""
     ready, declared = set(ready), set(declared)
+    payer_flowers = payer_flowers or {}
     changes, breakdown = {i:0 for i in range(4)}, []
     for payer in (range(4) if discarder is None else (discarder,)):
         if payer == winner:
             continue
-        flowers = 0 if payer in ready else exposed_flowers
+        flowers = 0 if payer in ready else payer_flowers.get(payer, 0)
         reported = 10 if payer in declared else 0
         multiplier = 2 if dealer in (winner, payer) else 1
         value = (points + flowers + reported) * multiplier

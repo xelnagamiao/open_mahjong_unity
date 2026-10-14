@@ -12,6 +12,7 @@ from ..public.round_end_timing import ROUND_END_HAND_REVEAL_SEC, sichuan_chajiao
 from ...game_calculation.sichuan.xueliu_rules import XUELIU_RULE_PROFILE, XUELIU_EXCHANGE_RULE_PROFILE, is_xueliu_sub_rule
 from .SichuanGameState import SichuanGameState, SichuanPlayer
 from .action_check import refresh_waiting_tiles
+from .shunhe import clear_shunhe
 from ..public.game_record_manager import init_game_round
 from ..public.hand_slot_utils import clear_draw_slot
 logger = logging.getLogger(__name__)
@@ -339,14 +340,15 @@ class XueliuGameState(SichuanGameState):
             else:
                 self.player_list[w].record_counter.dianhe_times += 1
                 self.player_list[discarder].record_counter.fangchong_times += 1
-                self.player_list[discarder].record_counter.fangchong_score += -changes.get(discarder, -base)
+                self.player_list[discarder].record_counter.fangchong_score += fan
             self.hu_order_counter += 1
             self.player_list[w].hu_order = self.hu_order_counter
             self.player_list[w].has_won = True
             self.player_list[w].win_count += 1
             self.player_list[w].post_hu_lock = True
+            clear_shunhe(self.player_list[w])
             self.player_list[w].record_counter.recorded_fans.append(fan_list)
-            self.player_list[w].record_counter.win_score += base
+            self.player_list[w].record_counter.win_score += fan
             # 最后一张和牌之后仍有查叫，结束/下一局按钮只由查叫最终面板发出。
             round_continues = True
             hepai_tile = info.get('hepai_tile', 0)
@@ -359,7 +361,7 @@ class XueliuGameState(SichuanGameState):
                 hu_class = ['hu_first', 'hu_second', 'hu_third'][min(ron_idx, 2)]
                 ron_idx += 1
             hu_changes_list = [changes.get(i, 0) for i in range(4)]
-            player_action_record_hu(self, hu_class=hu_class, hu_score=base, hu_fan=fan_list, hepai_player_index=w, score_changes=hu_changes_list, hepai_tile=hepai_tile, multi_ron=multi_ron if not is_zimo else None, ron_discarder_index=discarder if not is_zimo else None, recycle_discard=recycle_discard if not is_zimo else None)
+            player_action_record_hu(self, statistics_fan=fan, hu_class=hu_class, hu_score=base, hu_fan=fan_list, hepai_player_index=w, score_changes=hu_changes_list, hepai_tile=hepai_tile, multi_ron=multi_ron if not is_zimo else None, ron_discarder_index=discarder if not is_zimo else None, recycle_discard=recycle_discard if not is_zimo else None)
             # 和牌张离开行牌用手牌，作为可累积的公开花区牌保存；不亮暗手。
             if is_zimo:
                 self.player_list[w].hand_tiles.pop()

@@ -18,7 +18,7 @@
           <el-form-item label="局数" required>
             <el-radio-group v-model="form.round_count"><el-radio-button v-for="count in DUPLICATE_ROUND_COUNTS" :key="count" :value="count">{{ count }} 局</el-radio-button></el-radio-group>
           </el-form-item>
-          <el-form-item label="花牌"><el-switch v-model="form.use_flowers" :disabled="form.rule === 'guobiao/lanshi'" active-text="有花" inactive-text="无花" /><span class="flower-summary">{{ selectedRule?.tile_count || '—' }} 张</span></el-form-item>
+          <el-form-item v-if="form.rule !== 'sichuan/xueliu'" label="花牌"><el-switch v-model="form.use_flowers" :disabled="form.rule === 'guobiao/lanshi'" active-text="有花" inactive-text="无花" /><span class="flower-summary">{{ selectedRule?.tile_count || '—' }} 张</span></el-form-item>
           <el-form-item label="牌山类型" required>
             <div class="type-grid" role="group" aria-label="牌山类型">
               <button v-for="type in wallTypes" :key="type.value" type="button" class="type-card" :class="{ selected: form.wall_type === type.value }" :aria-pressed="form.wall_type === type.value" :disabled="busy || loading || loadingCatalog" @click="form.wall_type = type.value">
@@ -30,7 +30,7 @@
           <el-form-item v-if="form.wall_type === 'seed'" label="随机种子" required><el-input v-model="form.seed" maxlength="128" show-word-limit placeholder="1–128 个字符的文本种子" autocomplete="off" /><p class="help">一个种子生成整场牌山。相同规则、花牌设置、局数和种子生成相同的手牌与牌山。</p></el-form-item>
           <template v-if="form.wall_type === 'manual' && selectedRule">
             <div class="round-tabs" role="group" aria-label="编辑各局牌山"><button v-for="round in form.round_count" :key="round" type="button" :class="{ selected: editingRound === round }" :aria-pressed="editingRound === round" :disabled="busy" @click="editingRound = round"><strong>{{ duplicateRoundLabel(round) }}</strong><span>{{ flattenDuplicateDraft(manualDrafts[round - 1]).length }} / {{ selectedRule.tile_count }} 张</span></button></div>
-            <p class="help">{{ duplicateRoundLabel(editingRound) }} · 玩家编号按开房座位固定，风位随国标换庄、换位。</p>
+            <p class="help">{{ selectedRule.wall_layout === 'xueliu' ? `第 ${editingRound} 副 · 东南西北固定座位，庄家按副号轮转。` : `${duplicateRoundLabel(editingRound)} · 玩家编号按开房座位固定，风位随国标换庄、换位。` }}</p>
             <DuplicateManualEditor :key="`${form.rule}-${form.use_flowers}-${editingRound}`" v-model="manualDraft" :rule="selectedRule" :round="editingRound" :disabled="busy || loading || loadingCatalog" />
           </template>
           <p class="help">密钥默认锁定，解除锁定后公开牌谱。</p>
@@ -48,7 +48,7 @@
         <el-table-column label="操作" min-width="140"><template #default="{ row }"><el-button v-if="row.wall_type !== 'key'" link @click="inspectedWall = row">查看手牌与牌山</el-button><el-button v-if="row.is_unlocked" link type="primary" @click="$router.push({ path: '/player-data/duplicate', query: { key: row.key } })">查看对局</el-button><el-button link type="danger" :disabled="busy || !row.is_unlocked" :title="row.is_unlocked ? '删除后公开记录仍保留' : '解除锁定后可删除'" @click="deleteWall(row)">删除</el-button></template></el-table-column>
       </el-table></el-card>
     </template>
-    <el-dialog :model-value="Boolean(inspectedWall)" title="手牌与牌山" width="min(760px, 96vw)" @close="inspectedWall = null"><template v-if="inspectedWall && inspectedWall.wall_type !== 'key'"><p>{{ inspectedWall.name }} · {{ wallTypeLabel(inspectedWall.wall_type) }}</p><p v-if="inspectedWall.seed != null" class="seed-value">种子：{{ inspectedWall.seed }}</p><el-select v-if="inspectedWall.round_count > 1" v-model="inspectedRound" aria-label="查看牌山局数"><el-option v-for="round in inspectedWall.round_count" :key="round" :value="round" :label="duplicateRoundLabel(round)" /></el-select><div v-for="(wall, seat) in splitDuplicateWall(inspectedTiles, inspectedWall.tile_count)" :key="seat" class="seat-wall"><strong>{{ seat + 1 }} 号 · {{ ['东', '南', '西', '北'][inspectedSeats[seat]] }}位</strong><p class="help">起始手牌 {{ inspectedHandCount(seat) }} 张</p><div class="tile-strip readonly"><TileChip v-for="(tile, index) in wall.slice(0, inspectedHandCount(seat))" :key="index" :tile-id="tile" size="sm" /></div><p class="help">剩余牌山</p><div class="tile-strip readonly"><TileChip v-for="(tile, index) in wall.slice(inspectedHandCount(seat))" :key="index" :tile-id="tile" size="sm" /></div></div></template></el-dialog>
+    <el-dialog :model-value="Boolean(inspectedWall)" title="手牌与牌山" width="min(760px, 96vw)" @close="inspectedWall = null"><template v-if="inspectedWall && inspectedWall.wall_type !== 'key'"><p>{{ inspectedWall.name }} · {{ wallTypeLabel(inspectedWall.wall_type) }}</p><p v-if="inspectedWall.seed != null" class="seed-value">种子：{{ inspectedWall.seed }}</p><el-select v-if="inspectedWall.round_count > 1" v-model="inspectedRound" aria-label="查看牌山局数"><el-option v-for="round in inspectedWall.round_count" :key="round" :value="round" :label="duplicateRoundLabel(round)" /></el-select><div v-for="(wall, seat) in splitDuplicateWall(inspectedTiles, inspectedWall.tile_count, inspectedWall.wall_layout)" :key="seat" class="seat-wall"><strong>{{ seat === 4 ? '公共牌墙' : `${seat + 1} 号 · ${['东', '南', '西', '北'][inspectedSeats[seat]]}位` }}</strong><p v-if="seat < 4" class="help">起始手牌 {{ inspectedHandCount(seat) }} 张</p><div class="tile-strip readonly"><TileChip v-for="(tile, index) in wall.slice(0, inspectedHandCount(seat))" :key="index" :tile-id="tile" size="sm" /></div><p class="help">{{ inspectedWall.wall_layout === 'xueliu' ? (seat === 4 ? '公共牌墙' : '固定牌墙') : '剩余牌山' }}</p><div class="tile-strip readonly"><TileChip v-for="(tile, index) in wall.slice(inspectedHandCount(seat))" :key="index" :tile-id="tile" size="sm" /></div></div></template></el-dialog>
   </div>
 </template>
 
@@ -85,8 +85,8 @@ const createdWall = ref(null)
 const inspectedWall = ref(null)
 const inspectedRound = ref(1)
 const inspectedTiles = computed(() => inspectedWall.value?.round_tiles?.[inspectedRound.value - 1] || inspectedWall.value?.tiles || [])
-const inspectedSeats = computed(() => duplicateRoundSeats(inspectedRound.value))
-const inspectedHandCount = seat => inspectedSeats.value[seat] === 0 ? 14 : 13
+const inspectedSeats = computed(() => duplicateRoundSeats(inspectedRound.value, inspectedWall.value?.wall_layout))
+const inspectedHandCount = seat => seat === 4 ? 0 : inspectedWall.value?.wall_layout === 'xueliu' ? 13 : inspectedSeats.value[seat] === 0 ? 14 : 13
 const form = reactive({ name: '', rule: '', wall_type: 'key', seed: '', use_flowers: false, round_count: 1 })
 const selectedRule = computed(() => duplicateRuleWithFlowers(rules.value.find(rule => rule.rule === form.rule), form.use_flowers))
 const busy = computed(() => creating.value || mutatingId.value !== null)
@@ -179,8 +179,8 @@ async function deleteWall(row) {
   finally { mutatingId.value = null }
 }
 
-watch(() => form.rule, () => { form.use_flowers = false; manualDrafts.value = Array.from({ length: 16 }, createDuplicateDraft) })
-watch(() => form.use_flowers, () => { manualDrafts.value = Array.from({ length: 16 }, createDuplicateDraft) })
+watch(() => form.rule, () => { form.use_flowers = false; manualDrafts.value = Array.from({ length: 16 }, () => createDuplicateDraft(selectedRule.value?.wall_layout)) })
+watch(() => form.use_flowers, () => { manualDrafts.value = Array.from({ length: 16 }, () => createDuplicateDraft(selectedRule.value?.wall_layout)) })
 watch(() => form.round_count, count => { editingRound.value = Math.min(editingRound.value, count) })
 watch(inspectedWall, () => { inspectedRound.value = 1 })
 watch(eligibleEvents, events => { if (!events.some(event => String(event.event_id) === eventId.value)) eventId.value = events[0] ? String(events[0].event_id) : '' }, { immediate: true })

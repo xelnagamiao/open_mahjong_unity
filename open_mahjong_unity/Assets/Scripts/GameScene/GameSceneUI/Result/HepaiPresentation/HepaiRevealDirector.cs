@@ -61,7 +61,10 @@ public static partial class HepaiRevealDirector {
         bool isSelfDraw = huClass == "hu_self";
 
         HepaiWinTilePresentMode mode;
-        if (isSelfDraw) {
+        if (ManifestOf(ruleKey)?.SettlementHasNoWinTile?.Invoke(huFan) == true) {
+            mode = HepaiWinTilePresentMode.RonInstantThenPause;
+        }
+        else if (isSelfDraw) {
             mode = HepaiWinTilePresentMode.TsumoTravel;
         }
         else if (travelsFromRiver && !isCuohe) {

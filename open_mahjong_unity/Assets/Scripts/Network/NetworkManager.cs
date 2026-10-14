@@ -603,6 +603,8 @@ public partial class NetworkManager : MonoBehaviour {
             FriendNetworkManager.Instance?.ListFriends();
             FriendNetworkManager.Instance?.ListFriendRequests();
             StartCoroutine(LoadNoticeBadgeIndex());
+            // 完全重新登录也要恢复服务端保留的房间；自动重连有自己的同步阶段。
+            if (!AutoReconnect.IsActive) RoomNetworkManager.Instance?.SyncMyRoom();
         }
     }
 

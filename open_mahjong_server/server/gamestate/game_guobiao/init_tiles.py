@@ -5,6 +5,8 @@ from ..public.hand_slot_utils import clear_draw_slot
 from .guobiao_debug import apply_guobiao_debug_hands, prepare_debug_wall
 from .sanma import filter_tiles
 from . import transparent
+from ...game_calculation import guobiao_sixteen as sixteen
+from ...game_calculation import guobiao_four_jokers as four_jokers
 
 
 def init_guobiao_tiles(self):
@@ -31,11 +33,17 @@ def init_guobiao_tiles(self):
                                if transparent.enabled(self) else [tile] * 4)
     # 蓝十改（MCR 1001—2025）已删除花牌：牌堆不含花牌，客户端无需改动，
     # 不摸到花牌即不会触发补花/花牌计分。
-    if getattr(self, "sub_rule", None) != "guobiao/lanshi" and getattr(self, "use_flowers", True):
+    if getattr(self, "sub_rule", None) != "guobiao/lanshi" and (getattr(self, "use_flowers", True) or self.sub_rule == "guobiao/huahun"):
         self.tiles_list.extend(hua_tiles_set)
+    if self.sub_rule == four_jokers.SUB_RULE:
+        self.tiles_list.extend([four_jokers.JOKER] * 4)
 
     # 生成本局随机种子并洗牌
     _shuffle_and_deal_guobiao(self)
+    if self.sub_rule == transparent.REALTIME_SUB_RULE:
+        from ..game_riichi.realtime_hand import initialize_hand
+        for player in self.player_list:
+            initialize_hand(self, player)
 
 
 def _shuffle_and_deal_guobiao(self) -> None:
@@ -55,7 +63,7 @@ def _shuffle_and_deal_guobiao(self) -> None:
     else:
         # 分配每位玩家13张牌
         for player in self.player_list:
-            for _ in range(13):
+            for _ in range(16 if sixteen.enabled(self) else 13):
                 player.get_tile(self.tiles_list, mark_draw_slot=False)
         # 国标：庄家额外摸一张。
         # 不标记摸牌区：客户端 InitHandCards 把 14 张平铺展示（无 currentGetTile 标记），

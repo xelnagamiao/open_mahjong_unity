@@ -9,6 +9,15 @@ public partial class GameRecordManager {
     };
 
     private bool ApplyLajiheRecordAction(IReadOnlyList<string> tick) {
+        if (ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", "shanghai/qiaoma") == "shanghai/qiaoma"
+            && tick != null && tick.Count >= 5 && tick[0] == "state" && tick[1] == "ready"
+            && int.TryParse(tick[2], out int readySeat)
+            && indexToPosition.TryGetValue(readySeat, out string readyPosition)
+            && recordPlayer_to_info.TryGetValue(readyPosition, out RecordPlayer readyPlayer)) {
+            readyPlayer.tagList.Remove("tian_qiao");
+            if (tick[3] == "tian_qiao" && tick[4] == "T") readyPlayer.tagList.Add("tian_qiao");
+            // 通用解析器继续恢复 declared_ready 与 readyQualification。
+        }
         if (ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", "") != LajiheHandCalculator.SubRule
             || tick == null || tick.Count == 0) return false;
         if (tick[0] == "lajihe_eight_flowers" && tick.Count >= 5) {

@@ -106,6 +106,8 @@ public static class TileFaceResolver {
 
     public static Sprite LoadSprite(int tileId, bool applyWhiteDragonFaceSetting = true) {
         if(VietnameseTileVisual.IsCurrentRuleTile(tileId))return VietnameseTileVisual.Sprite(tileId);
+        if (SingaporeTileVisual.IsAnimal(tileId)) return SingaporeTileVisual.Sprite(tileId);
+        if (MalaysiaTileVisual.Contains(tileId)) return MalaysiaTileVisual.Sprite(tileId);
         EnsureLoaded();
         if (HongqueTileVisual.IsHongqueId(tileId)) {
             return HongqueTileVisual.LoadSprite(tileId);
@@ -141,6 +143,8 @@ public static class TileFaceResolver {
 
     public static Texture2D LoadTableTexture(int tileId) {
         if(VietnameseTileVisual.IsCurrentRuleTile(tileId))return VietnameseTileVisual.Texture(tileId);
+        if (SingaporeTileVisual.IsAnimal(tileId)) return SingaporeTileVisual.Texture(tileId);
+        if (MalaysiaTileVisual.Contains(tileId)) return MalaysiaTileVisual.Texture(tileId);
         EnsureLoaded();
         if (HongqueTileVisual.IsHongqueId(tileId)) {
             return HongqueTileVisual.LoadTableTexture(tileId);
@@ -166,6 +170,8 @@ public static class TileFaceResolver {
     /// <summary>按实际图案来源返回排版尺度；缺图回退与直接使用官方保持一致。</summary>
     public static float TableImageScaleFor(int tileId, bool applyWhiteDragonFaceSetting = true) {
         if(VietnameseTileVisual.IsCurrentRuleTile(tileId))return 1f;
+        if (SingaporeTileVisual.IsAnimal(tileId)) return 1f;
+        if (MalaysiaTileVisual.Contains(tileId)) return 1f;
         EnsureLoaded();
         if (HongqueTileVisual.IsHongqueId(tileId)) return 1f;
         int faceId = ResolveFaceId(tileId, applyWhiteDragonFaceSetting);
@@ -193,6 +199,8 @@ public static class TileFaceResolver {
 
     public static Sprite LoadTableSprite(int tileId, bool applyWhiteDragonFaceSetting = true) {
         if(VietnameseTileVisual.IsCurrentRuleTile(tileId))return VietnameseTileVisual.Sprite(tileId);
+        if (SingaporeTileVisual.IsAnimal(tileId)) return SingaporeTileVisual.Sprite(tileId);
+        if (MalaysiaTileVisual.Contains(tileId)) return MalaysiaTileVisual.Sprite(tileId);
         EnsureLoaded();
         if (HongqueTileVisual.IsHongqueId(tileId)) {
             return HongqueTileVisual.LoadSprite(tileId);
@@ -228,10 +236,11 @@ public static class TileFaceResolver {
 
     public static bool ShouldLayerHandFace(int tileId) {
         if(VietnameseTileVisual.IsCurrentRuleTile(tileId))return true;
+        if (SingaporeTileVisual.IsAnimal(tileId)) return true;
         tileId = WashizuTile.Face(tileId);
         // 缺失上传牌面也会回退到透明官方图，因此不能按“是否有上传图”跳过底图。
         return tileId != ConfigManager.HandBackImageId && tileId != 1
-            && !HongqueTileVisual.IsHongqueId(tileId) && TilePackIds.IsStandardFaceId(tileId);
+            && !HongqueTileVisual.IsHongqueId(tileId) && (TilePackIds.IsStandardFaceId(tileId) || MalaysiaTileVisual.Contains(tileId));
     }
 
     public static Sprite LoadHandBackground() {

@@ -63,7 +63,7 @@ def test_seats_rotate_and_never_create_a_fourth_player(seat):
     assert g.current_player_index == (seat + 1) % 3
     g._rotate_seats()
     assert [p.original_player_index for p in g.player_list] == [1,2,0]
-    expected = (('self', 'right', 'top'), ('left', 'self', 'right'), ('top', 'left', 'self'))
+    expected = (('self', 'right', 'left'), ('left', 'self', 'right'), ('right', 'left', 'self'))
     assert get_index_relative_position(seat, (seat+2)%3, 3) == expected[seat][(seat+2)%3]
 
 
@@ -160,7 +160,7 @@ def test_tsumo_payments_and_settlement_conserve_points(seat,mode):
 
 
 @pytest.mark.parametrize('tenpai', [list(c) for n in range(4) for c in combinations(range(3),n)])
-@pytest.mark.parametrize('penalty', [0,3000])
+@pytest.mark.parametrize('penalty', [0,2000,3000])
 def test_every_three_player_noten_distribution(tenpai,penalty):
     g=sanma();g.detailed_config['noten_penalty']=penalty
     changes,winners=draw_payments(g,tenpai)
@@ -172,7 +172,7 @@ def test_every_three_player_noten_distribution(tenpai,penalty):
 @pytest.mark.parametrize('preset', ['sanma_majsoul', 'sanma_tenhou'])
 @pytest.mark.parametrize('tenpai', [list(c) for n in range(4) for c in combinations(range(3), n)])
 @pytest.mark.parametrize('rotation', range(3))
-@pytest.mark.parametrize('penalty', [0, 3000])
+@pytest.mark.parametrize('penalty', [0, 2000, 3000])
 def test_draw_result_record_and_history_only_include_three_real_players(preset, tenpai, rotation, penalty):
     g = sanma(preset)
     g.detailed_config['noten_penalty'] = penalty

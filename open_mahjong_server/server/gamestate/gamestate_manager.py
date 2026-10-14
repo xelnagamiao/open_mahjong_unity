@@ -26,11 +26,14 @@ from .game_vietnamese import VietnameseGameState
 from .game_guizhou import GuizhouGameState
 from .game_hangzhou import HangzhouGameState
 from .game_yixing import YixingGameState
+from .game_malaysia import MalaysiaGameState
 from .game_nanjing import NanjingGameState
+from .game_fuzhou import FuzhouGameState
 from .game_wenzhou.WenzhouGameState import WenzhouGameState
 from .game_nanchang.NanchangGameState import NanchangGameState
 from .game_hongzhong.HongzhongGameState import HongzhongGameState
 from .game_jiujiang.JiujiangGameState import JiujiangGameState
+from .game_singapore.SingaporeGameState import SingaporeGameState
 from .game_tuidao import TuidaoGameState
 from .game_guangdong import GuangdongGameState
 from .game_shenyang import ShenyangGameState
@@ -74,10 +77,12 @@ class GameStateManager:
         self.room_id_to_FreeGameState: Dict[str, FreeGameState] = {}
         self.room_id_to_GuizhouGameState: Dict[str, GuizhouGameState] = {}
         self.room_id_to_YixingGameState: Dict[str, YixingGameState] = {}
+        self.room_id_to_MalaysiaGameState: Dict[str, MalaysiaGameState] = {}
         self.room_id_to_WenzhouGameState: Dict[str, WenzhouGameState] = {}
         self.room_id_to_HangzhouGameState: Dict[str, HangzhouGameState] = {}
         self.room_id_to_HongzhongGameState: Dict[str, HongzhongGameState] = {}
         self.room_id_to_JiujiangGameState: Dict[str, JiujiangGameState] = {}
+        self.room_id_to_SingaporeGameState: Dict[str, SingaporeGameState] = {}
         self.room_id_to_ShanxiGameState: Dict[str, ShanxiGameState] = {}
         self.room_id_to_ChangchunGameState: Dict[str, ChangchunGameState] = {}
         # gamestate_id 到游戏状态的映射（主要管理方式）
@@ -88,6 +93,7 @@ class GameStateManager:
         self.room_id_to_WuhanGameState: Dict[str, WuhanGameState] = {}
         self.room_id_to_ShenyangGameState: Dict[str, ShenyangGameState] = {}
         self.room_id_to_NanjingGameState: Dict[str, NanjingGameState] = {}
+        self.room_id_to_FuzhouGameState: Dict[str, FuzhouGameState] = {}
         self._closing_games = {}
         self.sichuan_duplicate_matches = {}
     
@@ -107,6 +113,8 @@ class GameStateManager:
             return Response(type="error_message", success=False, message="房间不存在")
             
         room_data = self.game_server.room_manager.rooms[room_id]
+        if room_data.get("admin_closing"):
+            return Response(type="error_message", success=False, message="房间正在关闭")
         from ..room.changchun_room import enforce_changchun_tactical_room
         enforce_changchun_tactical_room(room_data)
         from ..room.tuidao_room import enforce_tuidao_tactical_room
@@ -184,7 +192,7 @@ class GameStateManager:
             "shanghai": ShanghaiGameState, "hongque": HongqueGameState, "hongkong": HongKongGameState, "filipino": FilipinoGameState, "vietnamese": VietnameseGameState, "guangdong": TuidaoGameState,
             "shanxi": ShanxiGameState, "wuhan": WuhanGameState, "shenyang": ShenyangGameState,
             "changchun": ChangchunGameState,
-            "free": FreeGameState, "guizhou": GuizhouGameState, "yixing": YixingGameState, "nanjing": NanjingGameState, "wenzhou": WenzhouGameState, "nanchang": NanchangGameState, "hangzhou": HangzhouGameState, "hongzhong": HongzhongGameState, "jiujiang": JiujiangGameState,
+            "free": FreeGameState, "guizhou": GuizhouGameState, "yixing": YixingGameState, "nanjing": NanjingGameState, "fuzhou": FuzhouGameState, "wenzhou": WenzhouGameState, "nanchang": NanchangGameState, "hangzhou": HangzhouGameState, "hongzhong": HongzhongGameState, "jiujiang": JiujiangGameState, "singapore": SingaporeGameState, "malaysia": MalaysiaGameState,
         }
         state_class = classes.get(room_data["room_rule"])
         if room_data["room_rule"] == "guangdong" and room_data.get("sub_rule") == "guangdong/mil2023":
@@ -412,6 +420,8 @@ class GameStateManager:
             return self.room_id_to_HongKongGameState.get(room_id)
         elif room_id in self.room_id_to_TuidaoGameState:
             return self.room_id_to_TuidaoGameState.get(room_id)
+        elif room_id in self.room_id_to_MalaysiaGameState:
+            return self.room_id_to_MalaysiaGameState.get(room_id)
         elif room_id in self.room_id_to_YixingGameState:
             return self.room_id_to_YixingGameState.get(room_id)
         elif room_id in self.room_id_to_GuizhouGameState:
@@ -485,9 +495,10 @@ class GameStateManager:
         获取所有正在进行的游戏的观战列表
         
         Returns:
-            观战信息列表，每个元素包含规则、4个玩家ID和gamestate_id
+            观战信息列表，每个元素包含规则、玩家名称和gamestate_id
         """
         from ..response import SpectatorInfo
+        from .public.player_count import player_count_for_sub_rule
         from .public.spectator_rules import too_many_ai_for_spectator
         from ..game_calculation.sichuan.doubles_rules import is_team_sub_rule
         spectator_list = []
@@ -496,8 +507,9 @@ class GameStateManager:
         for gamestate_id, game_state in self.gamestate_id_to_game_state.items():
             if getattr(game_state, "lifecycle_state", "running") != "running":
                 continue
-            # 确保游戏状态有玩家列表且至少有4个玩家
-            if hasattr(game_state, 'player_list') and len(game_state.player_list) >= 4:
+            # 按子规则检查人数，三麻满 3 人即可进入观战列表。
+            required_players = player_count_for_sub_rule(getattr(game_state, "sub_rule", None))
+            if hasattr(game_state, 'player_list') and len(game_state.player_list) >= required_players:
                 # 含 3 个及以上 AI(uid<=10) 的对局不开放观战
                 if too_many_ai_for_spectator(game_state.player_list):
                     continue
@@ -508,11 +520,13 @@ class GameStateManager:
                 rule = game_state.room_rule or ""
                 sub_rule = getattr(game_state, "sub_rule", None) or rule
                 
-                # 获取4个玩家的用户名（用于显示）
+                # 保留四个名称字段兼容现有客户端，三麻的第四个名称留空。
                 player1_name = game_state.player_list[0].username or str(game_state.player_list[0].user_id)
                 player2_name = game_state.player_list[1].username or str(game_state.player_list[1].user_id)
                 player3_name = game_state.player_list[2].username or str(game_state.player_list[2].user_id)
-                player4_name = game_state.player_list[3].username or str(game_state.player_list[3].user_id)
+                player4_name = (
+                    game_state.player_list[3].username or str(game_state.player_list[3].user_id)
+                ) if len(game_state.player_list) > 3 else ""
                 
                 # 创建观战信息
                 room_id = getattr(game_state, "room_id", None)

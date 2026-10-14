@@ -50,6 +50,14 @@ public partial class BoardCanvas : MonoBehaviour {
         Instance = this;
     }
 
+    private string SeatWindText(int playerIndex, string roomRule, string subRule, int? dealerIndex) {
+        // SBR 双打网络座位固定，风位随庄家轮转；分队、牌河和操作索引仍绑定原座位。
+        int wind = playerIndex;
+        if (roomRule == "sichuan" && SichuanLobby.IsDoubles(subRule) && dealerIndex >= 0 && dealerIndex < 4)
+            wind = (playerIndex - dealerIndex.Value + 4) % 4;
+        return PositionToChineseCharacter.TryGetValue(wind, out string text) ? text : "?";
+    }
+
     public void InitializeBoardInfo(GameInfo gameInfo,Dictionary<int, string> indexToPosition){
         // 换位/新局会关掉黄条但不清缓存；同座首行动会因 shownCurrentPlayer 早退导致指示不亮
         CoroutineManager.Instance?.StopNamed(CoroutineKeys.BoardCurrentFlash);
@@ -59,21 +67,22 @@ public partial class BoardCanvas : MonoBehaviour {
         // 设置玩家位置、分数、索引(东南西北)、回合标记
         foreach (var player in gameInfo.players_info){
             if (!indexToPosition.TryGetValue(player.player_index, out string position)) continue;
+            string wind = SeatWindText(player.player_index, gameInfo.room_rule, gameInfo.sub_rule, gameInfo.dealer_index);
             if (position == "self"){ // 通过player_index确定玩家位置
                 player_self_score.text = player.score.ToString(); // 设置玩家分数
-                player_self_index.text = PositionToChineseCharacter[player.player_index]; // 设置玩家索引
+                player_self_index.text = wind;
                 player_self_current_image.gameObject.SetActive(false); // 设置玩家回合标记
             } else if (position == "left"){
                 player_left_score.text = player.score.ToString();
-                player_left_index.text = PositionToChineseCharacter[player.player_index];
+                player_left_index.text = wind;
                 player_left_current_image.gameObject.SetActive(false);
             } else if (position == "top"){
                 player_top_score.text = player.score.ToString();
-                player_top_index.text = PositionToChineseCharacter[player.player_index];
+                player_top_index.text = wind;
                 player_top_current_image.gameObject.SetActive(false);
             } else if (position == "right"){
                 player_right_score.text = player.score.ToString();
-                player_right_index.text = PositionToChineseCharacter[player.player_index];
+                player_right_index.text = wind;
                 player_right_current_image.gameObject.SetActive(false);
             }
         }
@@ -85,7 +94,7 @@ public partial class BoardCanvas : MonoBehaviour {
         // 所有规则统一经过 RoundTextDictionary；新增规则只登记一处局名映射，
         // 中心盘不再维护一份容易漏项的规则分支。
         CurrentRoundText.text = RoundTextDictionary.GetRoundName(
-            gameInfo.room_rule,
+            string.IsNullOrEmpty(gameInfo.sub_rule) ? gameInfo.room_rule : gameInfo.sub_rule,
             gameInfo.current_round);
     }
 
@@ -96,7 +105,9 @@ public partial class BoardCanvas : MonoBehaviour {
         Dictionary<int, int> userIdToScore,
         string roomType,
         int currentRound,
-        int remainTiles
+        int remainTiles,
+        string subRule = null,
+        int? dealerIndex = null
     ) {
         CoroutineManager.Instance?.StopNamed(CoroutineKeys.BoardCurrentFlash);
         shownCurrentPlayer = null;
@@ -110,7 +121,7 @@ public partial class BoardCanvas : MonoBehaviour {
             if (userIdToScore != null && userIdToScore.TryGetValue(recordPlayer.userId, out int parsedScore)) {
                 score = parsedScore;
             }
-            string playerIndexText = PositionToChineseCharacter.TryGetValue(recordPlayer.playerIndex, out string indexText) ? indexText : "?";
+            string playerIndexText = SeatWindText(recordPlayer.playerIndex, roomType, subRule, dealerIndex);
 
             if (position == "self") {
                 player_self_score.text = score.ToString();
@@ -133,7 +144,7 @@ public partial class BoardCanvas : MonoBehaviour {
 
         remiansTilesText.text = $"余:{Mathf.Max(remainTiles, 0)}";
 
-        CurrentRoundText.text = RoundTextDictionary.GetRoundName(roomType, currentRound);
+        CurrentRoundText.text = RoundTextDictionary.GetRoundName(string.IsNullOrEmpty(subRule) ? roomType : subRule, currentRound);
 
         baselineScores[player_self_score] = player_self_score.text;
         baselineScores[player_left_score] = player_left_score.text;

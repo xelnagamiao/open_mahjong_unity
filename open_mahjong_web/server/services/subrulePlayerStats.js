@@ -1,5 +1,5 @@
 const { BASE_KEYS, DETAIL_KEYS, RIICHI_STATS_VERSION } = require('./riichiStats');
-const { statisticsSelection } = require('./statisticsCatalog');
+const { statisticsSelection, normalizeMatchType } = require('./statisticsCatalog');
 
 function aggregatePlayerRows(rows, definition) {
   const out = Object.fromEntries(BASE_KEYS.map(key => [key, 0]));
@@ -50,6 +50,7 @@ async function allPlayerRuleStats(db, userId) {
   for (const row of rows) {
     const def = statisticsSelection(row.sub_rule);
     if (!def) continue;
+    row.mode = normalizeMatchType(row.mode, def.sub_rule);
     const key = `${def.key}:${row.room_type}:${row.mode}`;
     if (!groups.has(key)) groups.set(key, { def, rows: [] });
     groups.get(key).rows.push(row);

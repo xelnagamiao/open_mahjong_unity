@@ -561,6 +561,8 @@ async def _execute_cut(
     player.discard_riichi_flags.append(horizontal_flag)
     player.kuikae_forbidden_tiles = []
     player.riichi_marker_pending = False
+    from .realtime_hand import note_cut
+    player._realtime_cut_key = note_cut(self, player, tile_id, is_moqie, cut_tile_index)
     player_action_record_cut(self, cut_tile=tile_id, is_moqie=is_moqie, is_riichi_horizontal=horizontal_flag)
 
     if self.current_player_index == 0:
@@ -633,10 +635,11 @@ async def _execute_cut(
 
 
 def _is_first_discard_untouched(self, player_index: int) -> bool:
-    """双立直条件：本家尚未弃牌，且此前无人吃、碰或杠（包括暗杠）。"""
+    """双立直条件：本家尚未弃牌，且此前无人鸣牌、暗杠或成功拔北。"""
     if self.player_list[player_index].discard_origin_tiles:
         return False
-    return not any(p.combination_tiles for p in self.player_list)
+    # 拔北不占副露组，但同样中断全桌首巡；已经成立的双立直不受后续拔北影响。
+    return not any(p.combination_tiles or p.huapai_list for p in self.player_list)
 
 
 def _commit_pending_riichi(self):

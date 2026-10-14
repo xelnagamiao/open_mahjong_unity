@@ -7,67 +7,76 @@ public static class PlayerInfoRuleCatalog {
         ShanghaiQinghunpeng = "shanghai_qinghunpeng", Nanque = "nanque";
     public static readonly string[] PrimaryRules = { "guobiao", "riichi", "qingque", "sichuan" };
     private sealed class Entry {
-        public readonly string Key, Rule, SubRule, Name;
+        public readonly string Key, Rule, SubRule, Name, WinValueLabel, DealInValueLabel;
         public readonly int Players;
         public readonly bool Fans, Standard;
         public readonly string[] CustomModes, RankedModes;
-        public Entry(string key, string rule, string subRule, string name, int players, bool fans, bool standard, string[] customModes, string[] rankedModes) {
+        public Entry(string key, string rule, string subRule, string name, int players, bool fans, bool standard, string[] customModes, string[] rankedModes, string winValueLabel, string dealInValueLabel) {
             Key=key; Rule=rule; SubRule=subRule; Name=name; Players=players; Fans=fans; Standard=standard;
             CustomModes=customModes; RankedModes=rankedModes;
+            WinValueLabel=winValueLabel; DealInValueLabel=dealInValueLabel;
         }
     }
     private static readonly Entry[] Entries = {
-        new Entry("guobiao", "guobiao", "guobiao/standard", "国标（标准）", 4, true, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{"1/4_rank", "2/4_rank", "4/4_rank"}),
-        new Entry("guobiao_transparent", "guobiao", "guobiao/transparent", "国标（透明）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("guobiao_xiaolin", "guobiao", "guobiao/xiaolin", "国标（小林改）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("guobiao_kshen", "guobiao", "guobiao/kshen", "国标（K神）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("guobiao_lanshi", "guobiao", "guobiao/lanshi", "国标（蓝十改）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("guobiao_sanma", "guobiao", "guobiao/sanma", "国标（三人）", 3, true, false, new string[]{"1/4_sanma", "2/4_sanma", "3/4_sanma", "4/4_sanma"}, new string[]{}),
-        new Entry("guobiao_blood_battle", "guobiao", "guobiao/blood_battle", "国标（血战到底）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("riichi", "riichi", "riichi/standard", "立直（标准四人）", 4, true, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{"1/4_rank", "2/4_rank"}),
-        new Entry("riichi_langyong", "riichi", "riichi/langyong", "立直（浪涌）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("riichi_washizu", "riichi", "riichi/washizu", "立直（鹫巢）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("riichi_sanma", "riichi", "riichi/sanma", "立直（三人）", 3, true, false, new string[]{"1/4_sanma", "2/4_sanma", "3/4_sanma", "4/4_sanma"}, new string[]{"1/4_sanma_rank", "2/4_sanma_rank"}),
-        new Entry("qingque", "qingque", "qingque/standard", "青雀（标准）", 4, true, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{"4/4_rank"}),
-        new Entry("classical", "classical", "classical/standard", "古典麻将（标准）", 4, true, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("sichuan", "sichuan", "sichuan/standard", "川麻（血战到底）", 4, false, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{"2/4_rank"}),
-        new Entry("sichuan_xueliu", "sichuan", "sichuan/xueliu", "川麻（血流弃三张）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("sichuan_xueliu_exchange", "sichuan", "sichuan/xueliu_exchange", "川麻（血流换三张）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{"4/4_rank"}),
-        new Entry("sichuan_doubles", "sichuan", "sichuan/doubles", "川麻（血战双打）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("sichuan_xueliu_doubles", "sichuan", "sichuan/xueliu_doubles", "川麻（血流双打）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("sichuan_doubles_duplicate", "sichuan", "sichuan/doubles_duplicate", "川麻（血战双打复式）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("sichuan_xueliu_doubles_duplicate", "sichuan", "sichuan/xueliu_doubles_duplicate", "川麻（血流双打复式）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("changsha", "changsha", "changsha/classic_double_bird", "长沙麻将（经典双鸟）", 4, true, false, new string[]{"1/4", "2/4", "4/4"}, new string[]{}),
-        new Entry("zhongyong", "zhongyong", "zhongyong/standard", "中庸麻将（标准）", 4, true, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("nanque", "zhongyong", "zhongyong/nanque", "南雀", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("taiwan", "taiwan", "taiwan/standard", "台湾麻将（标准）", 4, true, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("shanghai", "shanghai", "shanghai/qiaoma", "上海麻将（敲麻）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("shanghai_qinghunpeng", "shanghai", "shanghai/qinghunpeng", "上海麻将（清混碰）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("shanghai_lajihe", "shanghai", "shanghai/lajihe", "上海麻将（垃圾和）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("hongkong", "hongkong", "hongkong/qingzhang", "港麻（清章十三）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("hongkong_new13_gametower", "hongkong", "hongkong/new13_gametower", "港麻（新章十三·Wiki）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("hongkong_new13_lianhuise", "hongkong", "hongkong/new13_lianhuise", "港麻（新章十三·恋绘色）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("hongkong_qingzhang_lianhuise", "hongkong", "hongkong/qingzhang_lianhuise", "港麻（新章十三·恋绘色魔改）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("hongkong_new16", "hongkong", "hongkong/new16", "港麻（新章十六）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("guangdong", "guangdong", "guangdong/mil2023", "广东麻将（花鬼 MIL2023）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("guangdong_tuidao", "guangdong", "guangdong/tuidao_mil2024", "广东麻将（推倒和 MIL2024）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("shanxi", "shanxi", "shanxi/mil2023", "山西麻将（MIL 2023）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("changchun", "changchun", "changchun/mil2024", "长春麻将（MIL 2024）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("guizhou", "guizhou", "guizhou/standard", "贵州麻将（MIL2023）", 4, false, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("yixing", "yixing", "yixing/standard", "宜兴麻将（标准）", 4, false, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("wenzhou", "wenzhou", "wenzhou/mil2024", "温州麻将（MIL 2024）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("hangzhou", "hangzhou", "hangzhou/mil2025", "杭州麻将（MIL 2025）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("hongzhong", "hongzhong", "hongzhong/mil2024", "红中麻将（MIL 2024）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("jiujiang", "jiujiang", "jiujiang/standard", "九江麻将（标准）", 4, false, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("hongque", "hongque", "hongque/v1.6", "虹雀²（v1.6）", 4, true, false, new string[]{"4/4", "8/4", "12/4", "16/4"}, new string[]{"16/4_rank"}),
-        new Entry("wuhan", "wuhan", "wuhan/mil2025", "武汉麻将（MIL 2025）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("shenyang", "shenyang", "shenyang/mil2025", "沈阳麻将（MIL 2025）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("nanjing", "nanjing", "nanjing/mil2024", "南京麻将（MIL 2024）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("nanchang", "nanchang", "nanchang/mil2026", "南昌麻将（MIL 2026）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("filipino", "filipino", "filipino/classic16", "菲律宾（classic16）", 4, false, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
-        new Entry("vietnamese", "vietnamese", "vietnamese/classic160", "越南（Classic160）", 4, false, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}),
+        new Entry("guobiao", "guobiao", "guobiao/standard", "国标（标准）", 4, true, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{"1/4_rank", "2/4_rank", "4/4_rank"}, "平均和番", "平均铳番"),
+        new Entry("guobiao_sixteen", "guobiao", "guobiao/sixteen", "国标（十六张）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("guobiao_transparent", "guobiao", "guobiao/transparent", "国标（透明）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("guobiao_transparent_realtime", "guobiao", "guobiao/transparent_realtime", "国标（透明实时手牌）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("guobiao_huahun", "guobiao", "guobiao/huahun", "国标（花混癞子）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("guobiao_four_jokers", "guobiao", "guobiao/four_jokers", "国标（四癞子）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("guobiao_xiaolin", "guobiao", "guobiao/xiaolin", "国标（小林改）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("guobiao_kshen", "guobiao", "guobiao/kshen", "国标（K神）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("guobiao_lanshi", "guobiao", "guobiao/lanshi", "国标（蓝十改）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("guobiao_sanma", "guobiao", "guobiao/sanma", "国标（三人）", 3, true, false, new string[]{"1/3", "2/3", "3/3", "4/3"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("guobiao_blood_battle", "guobiao", "guobiao/blood_battle", "国标（血战到底）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("riichi", "riichi", "riichi/standard", "立直（标准四人）", 4, true, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{"1/4_rank", "2/4_rank"}, "平均和番", "平均铳番"),
+        new Entry("riichi_langyong", "riichi", "riichi/langyong", "立直（浪涌）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("riichi_washizu", "riichi", "riichi/washizu", "立直（鹫巢）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("riichi_washizu_realtime", "riichi", "riichi/washizu_realtime", "立直（鹫巢实时手牌）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("riichi_sanma", "riichi", "riichi/sanma", "立直（三人）", 3, true, false, new string[]{"1/3", "2/3", "3/3", "4/3"}, new string[]{"1/3_rank", "2/3_rank"}, "平均和番", "平均铳番"),
+        new Entry("qingque", "qingque", "qingque/standard", "青雀（标准）", 4, true, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{"4/4_rank"}, "平均和番", "平均放铳失分"),
+        new Entry("classical", "classical", "classical/standard", "古典麻将（标准）", 4, true, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌符数", "平均放铳符数"),
+        new Entry("sichuan", "sichuan", "sichuan/standard", "川麻（血战到底）", 4, false, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{"2/4_rank"}, "平均和番", "平均铳番"),
+        new Entry("sichuan_xueliu", "sichuan", "sichuan/xueliu", "川麻（血流弃三张）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("sichuan_xueliu_exchange", "sichuan", "sichuan/xueliu_exchange", "川麻（血流换三张）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{"4/4_rank"}, "平均和番", "平均铳番"),
+        new Entry("sichuan_doubles", "sichuan", "sichuan/doubles", "川麻（血战双打）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("sichuan_xueliu_doubles", "sichuan", "sichuan/xueliu_doubles", "川麻（血流双打）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("sichuan_doubles_duplicate", "sichuan", "sichuan/doubles_duplicate", "川麻（血战双打复式）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("sichuan_xueliu_doubles_duplicate", "sichuan", "sichuan/xueliu_doubles_duplicate", "川麻（血流双打复式）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("changsha", "changsha", "changsha/classic_double_bird", "长沙麻将（经典双鸟）", 4, true, false, new string[]{"1/4", "2/4", "4/4"}, new string[]{}, "平均和牌基本分", "平均放铳基本分"),
+        new Entry("zhongyong", "zhongyong", "zhongyong/standard", "中庸麻将（标准）", 4, true, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌基本分", "平均放铳基本分"),
+        new Entry("nanque", "zhongyong", "zhongyong/nanque", "南雀", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌基本分", "平均放铳基本分"),
+        new Entry("taiwan", "taiwan", "taiwan/standard", "台湾麻将（标准）", 4, true, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌台数", "平均放铳台数"),
+        new Entry("shanghai", "shanghai", "shanghai/qiaoma", "上海麻将（敲麻）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌基本分", "平均放铳基本分"),
+        new Entry("shanghai_qinghunpeng", "shanghai", "shanghai/qinghunpeng", "上海麻将（清混碰）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌基本分", "平均放铳基本分"),
+        new Entry("shanghai_lajihe", "shanghai", "shanghai/lajihe", "上海麻将（垃圾和）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌基本分", "平均放铳基本分"),
+        new Entry("hongkong", "hongkong", "hongkong/qingzhang", "港麻（清章十三）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("hongkong_new13_gametower", "hongkong", "hongkong/new13_gametower", "港麻（新章十三·Wiki）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("hongkong_new13_lianhuise", "hongkong", "hongkong/new13_lianhuise", "港麻（新章十三·恋绘色）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("hongkong_qingzhang_lianhuise", "hongkong", "hongkong/qingzhang_lianhuise", "港麻（新章十三·恋绘色魔改）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("hongkong_new16", "hongkong", "hongkong/new16", "港麻（新章十六）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("guangdong", "guangdong", "guangdong/mil2023", "广东麻将（花鬼 MIL2023）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌基本分", "平均放铳基本分"),
+        new Entry("guangdong_tuidao", "guangdong", "guangdong/tuidao_mil2024", "广东麻将（推倒和 MIL2024）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌基本分", "平均放铳基本分"),
+        new Entry("shanxi", "shanxi", "shanxi/mil2023", "山西麻将（MIL 2023）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌基本分", "平均放铳基本分"),
+        new Entry("changchun", "changchun", "changchun/mil2024", "长春麻将（MIL 2024）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("guizhou", "guizhou", "guizhou/standard", "贵州麻将（MIL2023）", 4, false, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌基本分", "平均放铳基本分"),
+        new Entry("yixing", "yixing", "yixing/standard", "宜兴麻将（标准）", 4, false, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌基本分", "平均放铳基本分"),
+        new Entry("wenzhou", "wenzhou", "wenzhou/mil2024", "温州麻将（MIL 2024）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌倍数", "平均放铳倍数"),
+        new Entry("hangzhou", "hangzhou", "hangzhou/mil2025", "杭州麻将（MIL 2025）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌基本分", "平均放铳基本分"),
+        new Entry("hongzhong", "hongzhong", "hongzhong/mil2024", "红中麻将（MIL 2024）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
+        new Entry("jiujiang", "jiujiang", "jiujiang/standard", "九江麻将（标准）", 4, false, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌基本分", "平均放铳基本分"),
+        new Entry("singapore", "singapore", "singapore/spgg2024", "新加坡麻将（SPGG 2024）", 4, false, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌得分", "平均放铳失分"),
+        new Entry("hongque", "hongque", "hongque/v1.6", "虹雀²（v1.6）", 4, true, false, new string[]{"4/4", "8/4", "12/4", "16/4"}, new string[]{"16/4_rank"}, "平均和牌基本分", "平均放铳基本分"),
+        new Entry("wuhan", "wuhan", "wuhan/mil2025", "武汉麻将（MIL 2025）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌得分", "平均放铳失分"),
+        new Entry("shenyang", "shenyang", "shenyang/mil2025", "沈阳麻将（MIL 2025）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌得分", "平均放铳失分"),
+        new Entry("nanjing", "nanjing", "nanjing/mil2024", "南京麻将（MIL 2024）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌基本分", "平均放铳失分"),
+        new Entry("nanchang", "nanchang", "nanchang/mil2026", "南昌麻将（MIL 2026）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌基本分", "平均放铳基本分"),
+        new Entry("malaysia", "malaysia", "malaysia/traditional84", "马来西亚（传统三人）", 3, false, true, new string[]{"1/3", "2/3", "3/3", "4/3"}, new string[]{}, null, null),
+        new Entry("filipino", "filipino", "filipino/classic16", "菲律宾（classic16）", 4, false, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌基本分", "平均放铳基本分"),
+        new Entry("vietnamese", "vietnamese", "vietnamese/classic160", "越南（Classic160）", 4, false, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌基本分", "平均放铳基本分"),
+        new Entry("fuzhou", "fuzhou", "fuzhou/standard", "福州麻将（十六张）", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌基本分", "平均放铳基本分"),
     };
-    private static Entry Find(string key) => Array.Find(Entries, e => e.Key == (key == "jiandan" ? Nanque : key));
+    private static Entry Find(string key) => Array.Find(Entries, e => e.Key == (key == "jiandan" ? Nanque : key) || e.SubRule == key);
     public static List<KeyValuePair<string,string>> OtherRules(bool ranked) {
         var rows = new List<KeyValuePair<string,string>>();
         foreach (var row in Entries) {
@@ -83,6 +92,8 @@ public static class PlayerInfoRuleCatalog {
     public static bool IsRiichi(string key) => SourceRule(key)=="riichi";
     public static bool Supports(string key) => Find(key)!=null;
     public static bool HasFanStats(string key) => Find(key)?.Fans ?? false;
+    public static string WinValueLabel(string key) => Find(key)?.WinValueLabel;
+    public static string DealInValueLabel(string key) => Find(key)?.DealInValueLabel;
     public static bool IsStandard(string key) => Find(key)?.Standard ?? false;
     public static string[] Modes(string key, bool ranked) {
         var row = Find(key);

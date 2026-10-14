@@ -97,6 +97,11 @@ public partial class GameCanvas{
             ChangeType = "InitHandCards";
         }
 
+        if (ChangeType == "SortMainHandCards") {
+            yield return SortMainHandByTileIdWrapped();
+            yield break;
+        }
+
         // 初始化手牌（全部直接创建）
         if (ChangeType == "InitHandCards" || ChangeType == "InitHandCardsWithDrawSlot"){
             if (TilesList == null){
@@ -109,6 +114,10 @@ public partial class GameCanvas{
                 tileCard.handSortIndex = i;
             }
             LayoutHandCardsFromCurrentOrder();
+            if (WashizuTile.IsRealtimeHandOrder && TryApplyWashizuSelfLayout()) {
+                washizuApplySelfLayout = false;
+                yield break;
+            }
             if (ChangeType == "InitHandCardsWithDrawSlot") {
                 // 独立摸牌区在首次建手牌时就确定，不先整手排序再删牌/重建。
                 if (AutoAction.Instance.IsAutoArrangeHandCards) yield return SortMainHandByTileIdWrapped();
@@ -152,6 +161,10 @@ public partial class GameCanvas{
             LayoutHandCardsFromCurrentOrder();
             // 重建后补涂铳张遮罩：RefreshRecordChongHint 在入队前同步执行，此时新牌尚未创建
             GameRecordManager.Instance?.ReapplySelf2DHandChongOverlay();
+            if (WashizuTile.IsRealtimeHandOrder) {
+                TryApplyWashizuSelfLayout(GameRecordManager.Instance.GetWashizuRecordLayout("self", true));
+                yield break;
+            }
         }
 
         // 起手补花后仍未取得行牌张：补回主列，不冒充独立摸牌张。
@@ -257,7 +270,7 @@ public partial class GameCanvas{
 
         // 牌谱/观战手切：按 tileId 删一张，摸切区/主列兜底与对局 RemoveHandCard 相同
         else if (ChangeType == "RemoveHandCardRecord"){
-            TryRemoveCutHandCard(tileId, isMoqie: false, cutTileIndex: null);
+            TryRemoveCutHandCard(tileId, isMoqie: false, cutTileIndex: cut_tile_index);
         }
 
         // 手切 删除手牌区手牌（对局模式用 cut_tile_index）
@@ -396,7 +409,7 @@ public partial class GameCanvas{
         // 牌谱回放/观战回放依赖 cut_tile_index，不能在客户端额外重排顺序
         bool isRecordPlayback = GameRecordManager.Instance.gameObject.activeSelf;
         // 牌谱模式始终按牌值排序；对局模式在勾选自动排序时排序
-        if (isRecordPlayback || ( AutoAction.Instance.IsAutoArrangeHandCards)){
+        if ((isRecordPlayback && !WashizuTile.IsRealtimeHandOrder) || AutoAction.Instance.IsAutoArrangeHandCards){
             TileIdOrder.SortHand(tileCards, card => card.tileId);
         }
         // 对局且不勾选自动排序时保持原有顺序

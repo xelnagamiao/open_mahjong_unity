@@ -23,6 +23,11 @@ internal static class WenzhouRuleBootstrap {
             },
             GameStateFactory = () => new WenzhouGameState(), OutboundChannel = "wenzhou",
             OpeningHandHasDrawSlot = info => info?.wenzhou_info?.self_has_draw_slot == true,
+            HandJokerTiles = _ => WenzhouTableIndicators.DisplayedInfo is WenzhouInfo info
+                ? new[] { info.caishen } : System.Array.Empty<int>(),
+            PrepareHandDisplay = info => WenzhouTableIndicators.Refresh(info?.wenzhou_info),
+            RecordHandJokerTiles = round => round?.wenzhou is WenzhouInfo info
+                ? new[] { info.caishen } : System.Array.Empty<int>(),
             Tingpai = WenzhouGameState.Waiting, DescribeWaitingTile = WenzhouGameState.Describe,
             FanNameText = (rule, label) => WenzhouText.FanName(label),
             FanValueText = (rule, label) => WenzhouText.FanValue(label),

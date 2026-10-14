@@ -29,7 +29,7 @@ DIRECTIONS = (
 def test_physical_geometry_is_independent_of_turn_order(count):
     for viewer in range(count):
         for player in range(count):
-            expected = DIRECTIONS[viewer][player]
+            expected = ("self", "right", "left")[(player-viewer)%3] if count == 3 else DIRECTIONS[viewer][player]
             assert get_index_relative_position(viewer, player, count) == expected
             assert relative_position(viewer, player, count) == expected
         assert next_current_num(viewer, count) == (viewer + 1) % count
@@ -41,8 +41,8 @@ def new_game(rule, count):
     return guobiao_game(sub_rule="guobiao/sanma" if count == 3 else "guobiao/standard")
 
 
-def sideways_slot(actor, source, tile_count):
-    direction = DIRECTIONS[actor][source]
+def sideways_slot(actor, source, tile_count, count=3):
+    direction = ("self", "right", "left")[(source-actor)%3] if count == 3 else DIRECTIONS[actor][source]
     return {"left": 0, "top": 1, "right": tile_count - 1}[direction]
 
 
@@ -71,7 +71,7 @@ def test_authoritative_calls_reconnect_and_replay_share_actual_source(rule, coun
             await asyncio.wait_for(task, 3)
         mask = game.player_list[actor].combination_mask[-1]
         tile_count = 4 if action == "gang" else 3
-        assert mask[::2].index(1) == sideways_slot(actor, source, tile_count)
+        assert mask[::2].index(1) == sideways_slot(actor, source, tile_count, count)
         assert sorted(mask[1::2]) == sorted(hand + [25])
         assert not game.player_list[source].discard_tiles
         assert game.current_player_index == actor
@@ -98,7 +98,7 @@ def test_authoritative_calls_reconnect_and_replay_share_actual_source(rule, coun
             before = deepcopy(mask)
             await commit_kan(game)
             added = game.player_list[actor].combination_mask[-1]
-            slot = sideways_slot(actor, source, 3)
+            slot = sideways_slot(actor, source, 3, count)
             assert added == before[:slot * 2] + [3, 25] + before[slot * 2:]
     asyncio.run(run())
 

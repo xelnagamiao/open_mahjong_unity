@@ -50,7 +50,7 @@ class XueliuRuleProfile:
     """
 
     sub_rule: str = XUELIU_SUB_RULE
-    version: int = 4
+    version: int = 5
     tile_count: int = 108
     choose_missing_suit: bool = False
     discard_three: bool = True
@@ -64,6 +64,8 @@ class XueliuRuleProfile:
     allow_post_hu_jiagang: bool = True
     post_hu_kong_wait_rule: str = "includes_all_won_tiles"
     post_hu_hand_kong_requires_drawn_tile: bool = True
+    post_hu_opponent_ron_required: bool = True
+    post_hu_ron_kong_exception: str = "loses_legal_kong"
     end_when_wall_exhausted: bool = True
     hu_winner_stays_active: bool = True
     flower_pig_multiplier: int = 2
@@ -89,6 +91,8 @@ class XueliuRuleProfile:
             "allow_post_hu_jiagang": self.allow_post_hu_jiagang,
             "post_hu_kong_wait_rule": self.post_hu_kong_wait_rule,
             "post_hu_hand_kong_requires_drawn_tile": self.post_hu_hand_kong_requires_drawn_tile,
+            "post_hu_opponent_ron_required": self.post_hu_opponent_ron_required,
+            "post_hu_ron_kong_exception": self.post_hu_ron_kong_exception,
             "end_when_wall_exhausted": self.end_when_wall_exhausted,
             "hu_winner_stays_active": self.hu_winner_stays_active,
             "flower_pig_multiplier": self.flower_pig_multiplier,

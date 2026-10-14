@@ -84,8 +84,17 @@ public partial class TipsContainer : MonoBehaviour
             }
             PendingFanHint pending = _pendingFanHints.Dequeue();
             if (pending.View == null) continue;
+            // Four-joker hands can wait on all 35 faces. Keep other pages
+            // queued until visible instead of calculating their exact fans.
+            if (GuobiaoGameState.UsesAuthoritativeTips(pending.Query.SubRule) && !pending.View.gameObject.activeInHierarchy) {
+                _pendingFanHints.Enqueue(pending);
+                yield return null;
+                continue;
+            }
             bool cached = GuobiaoTips.TryDescribeCached(pending.Query, out WaitTileHint hint);
-            if (!cached) hint = RuleTips.DescribeWaitingTile(pending.Manifest, pending.Query);
+            if (!cached && GuobiaoGameState.UsesAuthoritativeTips(pending.Query.SubRule)) {
+                yield return FourJokersTips.Resolve(pending.Query, result => hint = result);
+            } else if (!cached) hint = RuleTips.DescribeWaitingTile(pending.Manifest, pending.Query);
             if (generation != _fanHintGeneration) yield break;
             if (pending.View != null) {
                 pending.View.SetHint(hint, pending.Remaining, pending.ShowFan, pending.ShowCount);
@@ -210,6 +219,7 @@ public partial class TipsContainer : MonoBehaviour
     /// 结果渲染进与其他规则相同的 TileContainer/FanContainer。
     /// </summary>
     public void SetHongqueTips(HongqueScoreHintInfo[] waitHints, HongqueScoreHintInfo winHint) {
+        visibleHintSubRule = "hongque";
         CancelPendingFanHints();
         List<Transform> toDestroy = new List<Transform>();
         foreach (Transform child in TileContainer.transform) toDestroy.Add(child);
@@ -243,6 +253,7 @@ public partial class TipsContainer : MonoBehaviour
     /// 虹雀假想弃牌预览：渲染统一 C# 计分入口的结果，和实际弃牌后的右侧听牌共用同一路径。
     /// </summary>
     public void SetHongqueCutPreviewHints(HongqueScoreHintInfo[] waitHints, int pendingCutTileId) {
+        visibleHintSubRule = "hongque";
         CancelPendingFanHints();
         _pendingCutTileId = pendingCutTileId;
         List<Transform> toDestroy = new List<Transform>();
@@ -384,6 +395,8 @@ public partial class TipsContainer : MonoBehaviour
                 HuapaiCount = selfInfo.huapai_list?.Count ?? 0,
                 SubRule = gameManager.subRule,
                 HepaiLimit = gameManager.hepaiLimit,
+                JokerMultiWait = GameSession.Current.JokerMultiWait,
+                NoJokerBonus = GameSession.Current.NoJokerBonus, BlackFlowerProgressive = GameSession.Current.BlackFlowerProgressive,
                 SelfIndex = gameManager.selfIndex,
                 CurrentRound = gameManager.currentRound,
                 SelfFlowers = selfInfo.huapai_list != null ? new List<int>(selfInfo.huapai_list) : new List<int>(),
@@ -397,6 +410,7 @@ public partial class TipsContainer : MonoBehaviour
 
     /// <summary>问族这张和牌张该怎么标，然后摆牌 + 写标签。族未声明时只摆牌。</summary>
     private void RenderWaitingTile(RuleManifest manifest, WaitHintQuery query) {
+        visibleHintSubRule = query.SubRule;
         WaitTileHint hint = null;
         // Guobiao uses only the copied hand/meld/way lists in this query. Other rules keep their
         // synchronous path because they may depend on live rule state or replay context.
@@ -569,6 +583,7 @@ public partial class TipsContainer : MonoBehaviour
         int key = GetVisibleCountKey(waitingTile, _recordTipsContext?.RoomRule ?? GameSession.Current.RoomRule);
         int used = _visibleTileCounts.TryGetValue(key, out int count) ? count : 0;
         int supply = GuangdongMilRules.IsMil(_recordTipsContext?.SubRule ?? GameSession.Current.SubRule) && GuangdongMilRules.IsGhost(waitingTile) ? 1 : 4;
+        if ((_recordTipsContext?.SubRule ?? GameSession.Current.SubRule) == GuobiaoGameState.HuahunSubRule && HuahunRules.IsJoker(waitingTile)) supply = 1;
         return Mathf.Clamp(supply - used, 0, supply);
     }
 

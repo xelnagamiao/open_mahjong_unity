@@ -8,5 +8,5 @@ public partial class GameRecordManager {
 
     public bool IsWashizuRecord() => gameRecord?.gameTitle != null
         && gameRecord.gameTitle.TryGetValue("sub_rule", out object value)
-        && value?.ToString() == WashizuTile.SubRule;
+        && WashizuTile.IsWashizu(value?.ToString());
 }

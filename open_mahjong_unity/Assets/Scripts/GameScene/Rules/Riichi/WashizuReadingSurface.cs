@@ -8,7 +8,26 @@ public sealed class WashizuReadingSurface : MonoBehaviour {
     private Renderer tileRenderer;
     private ShadowCastingMode originalShadows;
     private bool originalReceiveShadows;
+    private Tile3D source;
+    private uint sourceLease;
+    private Transform sourceHand;
+    private Vector3 tableOffset;
     public bool IsReadingSurface { get; private set; }
+
+    public void Follow(Tile3D tile, Transform hand, Vector3 offset) {
+        source=tile;
+        sourceLease=tile.PoolLeaseVersion;
+        sourceHand=hand;
+        tableOffset=offset;
+    }
+
+    public bool FollowOnTable(Vector3 point, Vector3 normal, float clearance) {
+        if (!IsReadingSurface || source == null || !source.gameObject.activeInHierarchy
+            || source.PoolLeaseVersion != sourceLease || source.transform.parent != sourceHand) return false;
+        Vector3 position=source.transform.position+tableOffset;
+        transform.position=position+normal*(clearance-Vector3.Dot(position-point,normal));
+        return true;
+    }
 
     public void Show(ref Mesh sharedQuad) {
         if (IsReadingSurface) return;
@@ -37,6 +56,8 @@ public sealed class WashizuReadingSurface : MonoBehaviour {
     }
 
     public void Restore() {
+        source=null;
+        sourceHand=null;
         if (!IsReadingSurface) return;
         if (meshFilter != null) meshFilter.sharedMesh = originalMesh;
         if (tileRenderer != null) {

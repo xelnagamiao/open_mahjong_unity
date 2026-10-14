@@ -4,11 +4,13 @@ internal static class GuobiaoRuleBootstrap {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Register() {
         RuleRegistry.Register(new RuleManifest {
-            ReplayFactory = record => record.CreateStandardReplayModule(),
+            ReplayFactory = record => record.IsWashizuRealtimeRecord()
+                ? record.CreateRealtimeTransparentReplayModule() : record.CreateStandardReplayModule(),
             BuildRoom = GuobiaoRoomBuilder.Build,
             RuleId = GuobiaoGameState.RuleId,
             DefaultSubRule = "guobiao/standard",
-            RulebookPath = (subRule, config) => subRule == GuobiaoGameState.TransparentSubRule ? "/rulebook/guobiao-transparent" : subRule == "guobiao/lanshi" ? "/rulebook/guobiao-lanshi" : "/rulebook/guobiao",
+            RulebookText = (subRule, config) => subRule == GuobiaoGameState.HuahunSubRule ? HuahunRules.RulebookText : null,
+            RulebookPath = (subRule, config) => subRule == GuobiaoGameState.SixteenSubRule ? "/rulebook/guobiao-sixteen" : subRule == GuobiaoGameState.HuahunSubRule ? "/rulebook/guobiao-huahun" : subRule == GuobiaoGameState.FourJokersSubRule ? "/rulebook/guobiao-four-jokers" : GuobiaoGameState.IsTransparentSubRule(subRule) ? "/rulebook/guobiao-transparent" : subRule == "guobiao/lanshi" ? "/rulebook/guobiao-lanshi" : "/rulebook/guobiao",
             DisplayName = "国标麻将",
             LobbyOrder = 0,
             LobbySubRules = GuobiaoLobby.SubRules,
@@ -18,8 +20,12 @@ internal static class GuobiaoRuleBootstrap {
             StatsFanNames = RankConfig.GuobiaoFanTranslation,
             GameStateFactory = () => new GuobiaoGameState(),
             NormalizeTileId = WashizuTile.Face,
+            PrepareHandDisplay = info => GameCanvas.Instance.PrepareWashizuRealtimeHand(info),
+            HandJokerTiles = sub => sub == GuobiaoGameState.HuahunSubRule ? new[] {51,52,53,54} : sub == GuobiaoGameState.FourJokersSubRule ? new[] {59} : System.Array.Empty<int>(),
+            TileBadgeText = tile => RuleRegistry.CurrentSubRule == GuobiaoGameState.HuahunSubRule && HuahunRules.IsJoker(tile) ? "癞" : RuleRegistry.CurrentSubRule == GuobiaoGameState.FourJokersSubRule && tile == 59 ? "癞" : null,
             Tingpai = GuobiaoTips.Tingpai,
             DescribeWaitingTile = GuobiaoTips.Describe,
+            ReplayConcealedKongMask = HuahunRules.ReplayKongMask,
             FanNameText = GuobiaoFanText.FanName,
             FanValueText = GuobiaoFanText.FanValue,
             RoundName = round => GameSession.Current.SubRule == GuobiaoGameState.SanmaSubRule

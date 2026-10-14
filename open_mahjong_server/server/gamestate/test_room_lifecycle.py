@@ -97,6 +97,51 @@ def test_online_owner_can_leave_bot_lobby_without_ending_game():
     asyncio.run(run())
 
 
+@pytest.mark.parametrize("sub_rule", ["sichuan/doubles", "sichuan/xueliu_doubles"])
+@pytest.mark.parametrize("disconnected", [False, True])
+def test_doubles_owner_can_sync_preserved_room_after_game_ends(sub_rule, disconnected):
+    from server.room.room_seats import get_seats
+
+    async def run():
+        server = make_server(USERS)
+        room = make_room(USERS, "sichuan")
+        room.update(sub_rule=sub_rule, team_by_seat=[0, 1, 0, 1])
+        get_seats(room)
+        server.room_manager.rooms["1"] = room
+        gm = server.gamestate_manager
+        game_type = module.XueliuGameState if "xueliu" in sub_rule else module.SichuanGameState
+        with patch.object(game_type, "run_game_loop", parked_loop):
+            try:
+                assert await gm.start_game(str(USERS[0]), "1", roster_revision=room["roster_revision"]) is None
+                state = gm.get_game_state_by_room_id("1")
+                await asyncio.sleep(0)
+                result = await server.room_manager.leave_room(str(USERS[0]), "1")
+                assert not result.success and "锁定" in result.message
+                assert server.players[str(USERS[0])].current_room_id == "1"
+                if disconnected:
+                    # Other players keep the match alive while its owner is in the background.
+                    await gm.player_disconnect(USERS[0])
+                    assert gm.is_user_in_active_game(USERS[0])
+                await gm.cleanup_game_state_complete(gamestate_id=state.gamestate_id)
+                assert not gm.is_user_in_active_game(USERS[0])
+                assert not room["is_game_running"] and room["ready_list"] == []
+                assert room["host_user_id"] == USERS[0]
+                assert room["player_list"] == USERS and room["team_by_seat"] == [0, 1, 0, 1]
+                # A fresh connection has no cached room id: membership must come from the roster.
+                server.players[str(USERS[0])].current_room_id = None
+                sync = await server.room_manager.sync_my_room(str(USERS[0]))
+                assert sync.success and sync.room_info["room_id"] == "1"
+                assert server.players[str(USERS[0])].current_room_id == "1"
+                for uid in USERS[1:]:
+                    await server.room_manager.set_player_ready(str(uid), "1", True, room["roster_revision"])
+                assert await gm.start_game(str(USERS[0]), "1", roster_revision=room["roster_revision"]) is None
+                assert gm.get_game_state_by_room_id("1") is not state
+            finally:
+                for gid in list(gm.gamestate_id_to_game_state):
+                    await gm.cleanup_game_state_complete(gamestate_id=gid)
+    asyncio.run(run())
+
+
 def test_four_players_leave_lobby_and_reconnect_in_turn():
     async def run():
         async with game() as (server, room, state):

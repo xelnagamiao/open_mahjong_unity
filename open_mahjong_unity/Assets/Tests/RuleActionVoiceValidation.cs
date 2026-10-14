@@ -31,7 +31,7 @@ public static class RuleActionVoiceValidation {
             ("hongzhong", HongzhongGameState.SubRule, null, "hu", "buhua"),
             ("shanghai", "shanghai/qiaoma", "ting", "hu", "hua"),
             ("shanghai", "shanghai/qinghunpeng", null, "zimo", "buhua"),
-            ("shanxi", "shanxi/mil2023", "baoting", "hu", "buhua"),
+            ("shanxi", "shanxi/mil2023", "ting", "hu", "buhua"),
             ("guangdong", TuidaoRuleBootstrap.SubRule, "ting", "hu", "buhua"),
             ("guangdong", GuangdongMilRules.SubRule, null, "hu", "buhua"),
             ("wenzhou", WenzhouGameState.SubRule, null, "hu", "buhua"),

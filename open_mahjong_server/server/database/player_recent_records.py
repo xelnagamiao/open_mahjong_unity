@@ -9,7 +9,7 @@ from ..gamestate.public.guobiao_win_snapshot import restore_guobiao_best_wins
 
 
 logger = logging.getLogger(__name__)
-from .statistics_catalog import RULES as STATISTICS_RULES, BY_SUB_RULE, resolve_record_statistics_identity
+from .statistics_catalog import RULES as STATISTICS_RULES, BY_SUB_RULE, resolve_record_statistics_identity, normalize_match_type
 RULES = tuple(row["key"] for row in STATISTICS_RULES if row["basic_stats"])
 
 CATEGORIES = ("match", "custom")
@@ -171,7 +171,7 @@ def get_player_recent_records(db_manager, user_id):
                 definition = BY_SUB_RULE.get(sub)
                 if definition and definition["key"] in result:
                     result[definition["key"]][category]["placements"].append(dict(
-                        game_id=gid,ended_at=ended_at({},created),rank=rank,match_type=mode))
+                        game_id=gid,ended_at=ended_at({},created),rank=rank,match_type=normalize_match_type(mode,sub)))
             cursor.execute("SELECT room_type,big_win FROM player_recent_records WHERE user_id=%s AND rule='guobiao'", (user_id,))
             for category, best in cursor.fetchall():
                 if category in CATEGORIES:

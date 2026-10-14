@@ -103,6 +103,9 @@ public class EndGamePanel : MonoBehaviour {
                 display.pt.text = paired
                     ? $"<line-height=20><size=20>全队 {playerData["team_score"]} {scoreUnit}\n两室合计</size></line-height>"
                     : $"<line-height=20><size=20>队分 {playerData["team_score"]}\n{points:0.#}盘分</size></line-height>";
+                if (paired && playerData.TryGetValue("team_small_score", out object smallScore) && smallScore != null
+                    && playerData.TryGetValue("team_imp_score", out object impScore) && impScore != null)
+                    display.pt.text = $"<line-height=20><size=20>全队 {smallScore} 副分\n{impScore} IMP</size></line-height>";
             }
         }
         normalizedMasterSeed = CommitmentSaltDisplay.NormalizeCommitment(master_seed);
@@ -118,7 +121,7 @@ public class EndGamePanel : MonoBehaviour {
         }
         if (GameSession.Current.IsDuplicate) {
             string scoring = teamResult?["team_result_reason"]?.ToString();
-            string title = scoring == "imp" ? "血战双打复式 · IMP" : scoring == "raw_difference" ? "血流双打复式 · 副差分" : "复式 · " + DuplicateWallDisplay.TypeName(GameSession.Current.DuplicateWallType);
+            string title = scoring == "imp" ? "血战双打复式\n按 IMP 判定" : scoring == "raw_difference" ? "血流双打复式\n按副分判定" : "复式 · " + DuplicateWallDisplay.TypeName(GameSession.Current.DuplicateWallType);
             gameRandomSeed.text = title
                 + "\n牌谱须在密钥解除锁定后到数据站查看，不保存本地牌谱。";
         }

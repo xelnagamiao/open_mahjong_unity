@@ -48,7 +48,9 @@ public class Round {
     public HongKongInfo hongkong;
     public GuizhouInfo guizhou;
     public YixingInfo yixing;
+    public MalaysiaInfo malaysia;
     public NanjingInfo nanjing;
+    public FuzhouInfo fuzhou;
     public HangzhouInfo hangzhou;
     public WenzhouInfo wenzhou;
     public NanchangInfo nanchang;
@@ -65,6 +67,8 @@ public class Round {
     public List<int> p3Tiles;
     public List<int> tilesList;
     public List<List<int>> duplicateWalls;
+    public List<int> duplicateCommonWall;
+    public string duplicateWallLayout;
     public List<List<string>> actionTicks;
 
     /// <summary>

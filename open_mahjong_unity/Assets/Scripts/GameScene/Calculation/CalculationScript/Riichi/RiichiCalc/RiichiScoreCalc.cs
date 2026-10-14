@@ -55,7 +55,7 @@ namespace Riichi {
         /// <summary>从和牌者本笔 score_changes 中去掉场供与本场。</summary>
         public static int StripFieldBonuses(int winnerDelta, bool isTsumo, int honba, int riichiSticksCollected, int playerCount = 4) {
             int points = winnerDelta - Math.Max(0, riichiSticksCollected) * 1000;
-            int honbaBonus = Math.Max(0, honba) * (isTsumo ? (playerCount - 1) * 100 : 300);
+            int honbaBonus = Math.Max(0, honba) * (playerCount - 1) * 100;
             if (honbaBonus <= 0) {
                 return Math.Max(0, points);
             }

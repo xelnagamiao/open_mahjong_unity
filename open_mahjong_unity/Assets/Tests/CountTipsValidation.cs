@@ -166,7 +166,8 @@ public static class CountTipsValidation {
                 view.SetHint(hint, 3, false, true);
                 Check(name, Lines(view).SequenceEqual(new[] {expected}));
             }
-            foreach (string sub in GuobiaoLobby.SubRules.Select(sub => sub.Key)) {
+            Check("四癞子未请求前不伪造番数", GuobiaoTips.Describe(Query(GuobiaoGameState.FourJokersSubRule)) == null);
+            foreach (string sub in GuobiaoLobby.SubRules.Select(sub => sub.Key).Where(sub => sub != GuobiaoGameState.FourJokersSubRule)) {
                 var query = Query(sub); query.HepaiLimit = 999;
                 Actual(sub + "/真实未起和", GuobiaoTips.Describe(query), "未起和");
                 query.HepaiLimit = 0;

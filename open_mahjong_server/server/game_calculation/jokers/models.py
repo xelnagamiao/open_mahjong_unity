@@ -25,11 +25,13 @@ class JokerPolicy:
     closed_cap: int | None = None
     shapes: tuple = ("standard",)
     pair_tiles: tuple | None = None
+    # Optional per-face closed limits, e.g. four minus the exposed copies.
+    closed_limits: tuple = ()
 
     def __post_init__(self):
         for field in ("joker_tiles", "logical_tiles", "physical_tiles", "shapes"):
             object.__setattr__(self, field, tuple(getattr(self, field)))
-        for field in ("natural_map", "physical_limits"):
+        for field in ("natural_map", "physical_limits", "closed_limits"):
             object.__setattr__(self, field, tuple(tuple(x) for x in getattr(self, field)))
         for field in ("joker_targets", "pair_tiles"):
             value = getattr(self, field)
@@ -47,7 +49,7 @@ class JokerPolicy:
                 raise ValueError("tile domains must contain unique integer ids")
         if not set(self.logical_tiles) <= set(TILES):
             raise ValueError("logical tiles must be ordinary project tile ids")
-        if not set(self.physical_tiles) <= set(TILES + tuple(range(51, 59))):
+        if not set(self.physical_tiles) <= set(TILES + tuple(range(51, 60)) + (81,)):
             raise ValueError("unsupported physical tile id")
         if not set(self.joker_tiles) <= set(self.physical_tiles):
             raise ValueError("joker kinds must be physical tiles")
@@ -66,6 +68,11 @@ class JokerPolicy:
             raise ValueError("invalid physical tile supply")
         if not set(self.shapes) <= {"standard", "seven_pairs", "eight_pairs", "thirteen_orphans"}:
             raise ValueError("unknown wildcard structural shape")
+        if (any(len(x) != 2 for x in self.closed_limits)
+                or len(dict(self.closed_limits)) != len(self.closed_limits)
+                or any(t not in self.logical_tiles or type(n) is not int or n < 0
+                       for t, n in self.closed_limits)):
+            raise ValueError("invalid per-face closed limit")
 
     def natural(self, physical):
         return dict(self.natural_map).get(physical, physical)

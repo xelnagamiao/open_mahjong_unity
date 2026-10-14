@@ -27,7 +27,7 @@
           <el-input v-model="draftName" maxlength="40" show-word-limit placeholder="例如：小组赛 · 东南战" />
         </el-form-item>
         <el-form-item v-if="form.room_rule !== 'guobiao'" label="规则">
-          <el-select v-model="form.room_rule">
+          <el-select v-model="form.room_rule" @change="changeEventRoomRule(form, $event)">
             <el-option v-for="rule in ruleOptions" :key="rule.value" :label="rule.label" :value="rule.value" />
           </el-select>
         </el-form-item>
@@ -38,7 +38,7 @@
       <GuobiaoEmptyRoomConfig v-if="form.room_rule === 'guobiao'" :model-value="form" :show-password="false" panel-layout>
         <template #before-sub-rule>
           <el-form-item label="规则">
-            <el-select v-model="form.room_rule">
+            <el-select v-model="form.room_rule" @change="changeEventRoomRule(form, $event)">
               <el-option v-for="rule in ruleOptions" :key="rule.value" :label="rule.label" :value="rule.value" />
             </el-select>
           </el-form-item>
@@ -53,13 +53,16 @@
       <HongKongRoomConfig v-else-if="form.room_rule === 'hongkong'" :form="form" />
       <TuidaoRoomConfig v-else-if="form.room_rule === 'guangdong'" :form="form" />
       <GuizhouRoomConfig v-else-if="form.room_rule === 'guizhou'" :form="form" :show-password="false" />
+      <SingaporeRoomConfig v-else-if="form.room_rule === 'singapore'" :form="form" :show-password="false" />
       <JiujiangRoomConfig v-else-if="form.room_rule === 'jiujiang'" :form="form" :show-password="false" />
       <WuhanRoomConfig v-else-if="form.room_rule === 'wuhan'" :form="form" :show-password="false" />
       <HongzhongRoomConfig v-else-if="form.room_rule === 'hongzhong'" :form="form" :show-password="false" />
       <ChangchunRoomConfig v-else-if="form.room_rule === 'changchun'" :form="form" :show-password="false" />
       <YixingRoomConfig v-else-if="form.room_rule === 'yixing'" :form="form" :show-password="false" />
+      <MalaysiaRoomConfig v-else-if="form.room_rule === 'malaysia'" :form="form" :show-password="false" />
       <ShenyangRoomConfig v-else-if="form.room_rule === 'shenyang'" :form="form" :show-password="false" />
       <NanjingRoomConfig v-else-if="form.room_rule === 'nanjing'" :form="form" :show-password="false" />
+      <FuzhouRoomConfig v-else-if="form.room_rule === 'fuzhou'" :form="form" :show-password="false" />
       <WenzhouRoomConfig v-else-if="form.room_rule === 'wenzhou'" :form="form" :show-password="false" />
       <NanchangRoomConfig v-else-if="form.room_rule === 'nanchang'" :form="form" :show-password="false" />
       <HangzhouRoomConfig v-else-if="form.room_rule === 'hangzhou'" :form="form" :show-password="false" />
@@ -86,17 +89,20 @@ import HongKongRoomConfig from '@/components/HongKongRoomConfig.vue'
 import TuidaoRoomConfig from '@/components/TuidaoRoomConfig.vue'
 import GuizhouRoomConfig from '@/components/GuizhouRoomConfig.vue'
 import YixingRoomConfig from '@/components/YixingRoomConfig.vue'
+import MalaysiaRoomConfig from '@/components/MalaysiaRoomConfig.vue'
 import ShenyangRoomConfig from '@/components/ShenyangRoomConfig.vue'
 import NanjingRoomConfig from '@/components/NanjingRoomConfig.vue'
+import FuzhouRoomConfig from '@/components/FuzhouRoomConfig.vue'
 import WenzhouRoomConfig from '@/components/WenzhouRoomConfig.vue'
 import NanchangRoomConfig from '@/components/NanchangRoomConfig.vue'
 import HangzhouRoomConfig from '@/components/HangzhouRoomConfig.vue'
+import SingaporeRoomConfig from '@/components/SingaporeRoomConfig.vue'
 import JiujiangRoomConfig from '@/components/JiujiangRoomConfig.vue'
 import WuhanRoomConfig from '@/components/WuhanRoomConfig.vue'
 import HongzhongRoomConfig from '@/components/HongzhongRoomConfig.vue'
 import ChangchunRoomConfig from '@/components/ChangchunRoomConfig.vue'
 import RiichiRoomConfig from '@/components/RiichiRoomConfig.vue'
-import { buildEventRoomSettings, clearUnsupportedDuplicateRoom, createEventRoomForm } from '@/utils/eventRoomSettings'
+import { buildEventRoomSettings, changeEventRoomRule, clearUnsupportedDuplicateRoom, createEventRoomForm } from '@/utils/eventRoomSettings'
 
 const props = defineProps({
   settingsDoc: { type: Object, required: true },
@@ -109,7 +115,7 @@ const props = defineProps({
 const selectedKey = ref('default')
 const draftName = ref('')
 const form = reactive(createEventRoomForm())
-watch(() => form.room_rule, () => clearUnsupportedDuplicateRoom(form), { flush: 'sync' })
+watch(() => [form.room_rule, form.sub_rule], () => clearUnsupportedDuplicateRoom(form), { flush: 'sync' })
 const initialSignature = ref('')
 const draftRevision = ref(0)
 const conflict = ref(false)

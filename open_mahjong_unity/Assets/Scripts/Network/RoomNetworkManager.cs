@@ -125,7 +125,7 @@ public partial class RoomNetworkManager : MonoBehaviour {
             || (!string.IsNullOrEmpty(_pendingEnterRoomId) && _pendingEnterRoomId == roomId);
         bool reconnectLobbySync = AutoReconnect.IsActive && !AutoReconnect.ExpectGameRestore;
 
-        if (roomId == _leavingRoomId) return;
+        // 退出成功前仍是房间成员，必须接收更新；退出被拒绝时也不能屏蔽终局解锁广播。
         bool currentRoom = UserDataManager.Instance.RoomId == roomId;
         if (!pendingOk && !reconnectLobbySync && !currentRoom) return;
         if (currentRoom && !pendingOk && !string.IsNullOrEmpty(_roomInstanceId)
@@ -315,6 +315,8 @@ public partial class RoomNetworkManager : MonoBehaviour {
                 random_seed = randomSeed,
                 duplicate_key = config.DuplicateKey,
                 use_flowers = config.SubRule != "guobiao/lanshi" && config.UseFlowers,
+                no_joker_bonus = config.NoJokerBonus, black_flower_progressive = config.BlackFlowerProgressive,
+                joker_multi_wait = GuobiaoGameState.IsJokerSubRule(config.SubRule) && config.JokerMultiWait,
                 tian_di_ren_he = (config.SubRule == "guobiao/standard" || config.SubRule == GuobiaoGameState.SanmaSubRule || config.SubRule == GuobiaoGameState.BloodBattleSubRule) && config.TianDiRenHe,
                 open_cuohe = config.CuoHe,
                 cuohe_type = config.CuoheType,
@@ -623,7 +625,7 @@ public partial class RoomNetworkManager : MonoBehaviour {
         }
     }
 
-    public async void Create_Shanghai_Room(Qingque_Create_RoomConfig config, bool oneFanMinimum = false, bool qing3Hun2Peng2 = false) {
+    public async void Create_Shanghai_Room(Qingque_Create_RoomConfig config, bool oneFanMinimum = false, bool qing3Hun2Peng2 = false, bool enableTianQiao = false, bool selfDrawExtraBase = false) {
         if (!TryBeginCreateRequest()) return;
         try {
             if (!TryResolveRandomSeed(config.RandomSeed, out string randomSeed, out string seedError)) {
@@ -648,7 +650,11 @@ public partial class RoomNetworkManager : MonoBehaviour {
                 open_cuohe = false,
                 hepai_limit = (config.SubRule ?? "shanghai/qiaoma") == "shanghai/qiaoma" && oneFanMinimum ? 1 : 0,
                 detailed_config = (config.SubRule ?? "shanghai/qiaoma") == "shanghai/qiaoma"
-                    ? new Dictionary<string, object> { { ShanghaiHandCalculator.Qing3Hun2Peng2Key, qing3Hun2Peng2 } } : null,
+                    ? new Dictionary<string, object> {
+                        { ShanghaiHandCalculator.Qing3Hun2Peng2Key, qing3Hun2Peng2 },
+                        { ShanghaiHandCalculator.EnableTianQiaoKey, enableTianQiao },
+                    } : config.SubRule == LajiheHandCalculator.SubRule
+                        ? new Dictionary<string, object> { { LajiheHandCalculator.SelfDrawExtraBaseKey, selfDrawExtraBase } } : null,
                 tourist_limit = config.TouristLimit,
                 allow_spectator = config.AllowSpectator,
                 event_id = string.IsNullOrEmpty(config.EventId) ? null : config.EventId
@@ -710,6 +716,7 @@ public partial class RoomNetworkManager : MonoBehaviour {
             }
 
             var request = new CreateSichuanRoomRequest {
+                duplicate_key = config.DuplicateKey,
                 type = "room/create_Sichuan_room",
                 rule = config.Rule,
                 claim_protection = config.ClaimProtection,
@@ -900,10 +907,8 @@ public partial class RoomNetworkManager : MonoBehaviour {
     public async void LeaveRoom(string roomId) {
         _leavingRoomId = roomId;
         ClearPendingRoomEntry();
-        // 先清本地房间 ID，避免离开完成前的滞后 refresh 或误点加入把用户带回房间页
-        if (!string.IsNullOrEmpty(roomId) && roomId != UserDataManager.ROOM_ID_NONE) {
-            UserDataManager.Instance.SetRoomId("");
-        }
+        // 服务端可能拒绝退出（例如双打对局锁定阵容）。收到成功回执后再清成员身份。
+        // 此前 RoomId 仍阻止重复加入；成功后滞后广播由当前房间/待进入检查过滤。
         var request = new LeaveRoomRequest {
             type = "room/leave_room",
             room_id = roomId

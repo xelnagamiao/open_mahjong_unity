@@ -2,7 +2,7 @@
 
 
 def player_count_for_sub_rule(sub_rule):
-    return 3 if sub_rule in ("riichi/sanma", "guobiao/sanma") else 4
+    return 3 if sub_rule in ("riichi/sanma", "guobiao/sanma", "malaysia/traditional84") else 4
 
 
 def game_player_count(state):

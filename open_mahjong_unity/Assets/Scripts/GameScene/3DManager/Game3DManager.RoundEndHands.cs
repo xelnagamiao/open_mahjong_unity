@@ -31,14 +31,14 @@ public partial class Game3DManager {
         }
         ResetHandRevealAnimators();
         string pos = request.WinnerPosition;
-        SuspendWashizuPublicHand(pos);
         PosPanel3D panel = GetPosPanel(pos);
         if (panel == null) yield break;
         int[] hand = request.HepaiPlayerHand;
         int winTileId = hand[hand.Length - 1];
         int[] closed = new int[hand.Length - 1];
         System.Array.Copy(hand, closed, closed.Length);
-        TileIdOrder.SortHand(closed);
+        closed = OrderRoundEndClosedHand(pos, closed);
+        SuspendWashizuPublicHand(pos);
         ForceHandRevealIdle(panel);
         ClearHandCardsPosition(panel.cardsPosition);
         if (request.IsQianggang && request.WinTileMode == HepaiWinTilePresentMode.RonInstantThenPause) {
@@ -52,7 +52,10 @@ public partial class Game3DManager {
                 yield return CoGuobiaoRonTravelFromRiver(pos, panel, closed, winTileId, request.DiscardPlayerPosition);
                 break;
             case HepaiWinTilePresentMode.RonInstantThenPause:
-                LayRoundEndFaceHandAtPosition(pos, hand);
+                for (int i = 0; i < closed.Length; i++) {
+                    Set3DTile(closed[i], panel.cardsPosition, "Record", pos);
+                }
+                Set3DTile(winTileId, panel.cardsPosition, "Record", pos, usePresentationCopy: true);
                 yield return new WaitForSeconds(HepaiRevealTiming.TravelSeconds);
                 break;
         }
@@ -352,30 +355,49 @@ public partial class Game3DManager {
         anim.Update(0f);
     }
     private void LayRoundEndFaceHandAtPosition(string playerPosition, int[] hepaiPlayerHand) {
+        int last = hepaiPlayerHand[hepaiPlayerHand.Length - 1];
+        int[] closed = new int[hepaiPlayerHand.Length - 1];
+        System.Array.Copy(hepaiPlayerHand, closed, closed.Length);
+        closed = OrderRoundEndClosedHand(playerPosition, closed);
         SuspendWashizuPublicHand(playerPosition);
         PosPanel3D panel = GetPosPanel(playerPosition);
         ForceHandRevealIdle(panel);
         Transform target = panel.cardsPosition;
         ClearHandCardsPosition(target);
-        int last = hepaiPlayerHand[hepaiPlayerHand.Length - 1];
-        int[] closed = new int[hepaiPlayerHand.Length - 1];
-        System.Array.Copy(hepaiPlayerHand, closed, closed.Length);
-        TileIdOrder.SortHand(closed);
         for (int i = 0; i < closed.Length; i++) {
             Set3DTile(closed[i], target, "Record", playerPosition);
         }
         Set3DTile(last, target, "Record", playerPosition, usePresentationCopy: true);
     }
     private void LayRoundEndClosedFaceHandAtPosition(string playerPosition, IList<int> handTiles) {
+        int[] sorted = OrderRoundEndClosedHand(playerPosition, handTiles);
         SuspendWashizuPublicHand(playerPosition);
         PosPanel3D panel = GetPosPanel(playerPosition);
         ForceHandRevealIdle(panel);
         Transform target = panel.cardsPosition;
         ClearHandCardsPosition(target);
-        List<int> sorted = new List<int>(handTiles);
-        TileIdOrder.SortHand(sorted);
-        for (int i = 0; i < sorted.Count; i++) {
+        for (int i = 0; i < sorted.Length; i++) {
             Set3DTile(sorted[i], target, "Record", playerPosition);
         }
+    }
+
+    private int[] OrderRoundEndClosedHand(string playerPosition, IList<int> closedTiles) {
+        if (WashizuTile.IsRealtimeHandOrder) {
+            var record = GameRecordManager.Instance;
+            var layout = record != null && record.gameObject.activeSelf
+                ? record.GetWashizuRecordLayout(playerPosition, true) : null;
+            if (layout != null && layout.tiles.Length == closedTiles.Count + 1 && layout.drawn_key != 0) {
+                var order = new System.Collections.Generic.List<int>();
+                for (int i=0;i<layout.tiles.Length;i++) if (layout.keys[i] != layout.drawn_key) order.Add(layout.tiles[i]);
+                return WashizuHandOrder.OrderSubset(closedTiles, order);
+            }
+            // Live settlement payloads are already ordered by the server. Replay
+            // derives the same order from wo ticks without sorting logical hands.
+            return WashizuHandOrder.OrderSubset(closedTiles, layout?.tiles ?? closedTiles);
+        }
+        // Capture the public ordering before SuspendWashizuPublicHand releases it.
+        // Self hands and expanded replay hands have no concealed public row.
+        washizuPublicHands.TryGetValue(playerPosition, out int[] publicHand);
+        return WashizuTile.OrderRevealedHand(closedTiles, publicHand);
     }
 }

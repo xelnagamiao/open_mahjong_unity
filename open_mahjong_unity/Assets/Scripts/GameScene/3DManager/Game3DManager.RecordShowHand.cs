@@ -10,6 +10,26 @@ public partial class Game3DManager {
     /// <summary>主列末张与摸牌区间隔（对齐 2D 摸牌区 half-gap）。</summary>
     private const float RecordDrawSlotGapFactor = 0.5f;
 
+    /// <summary>翻癞子这一静默步骤没有摸打动画；就地重排展开的主列，保持摸牌/和牌张独立。</summary>
+    public void RefreshRecordJokerHandOrder() {
+        if (GameRecordManager.Instance == null || !GameRecordManager.Instance.gameObject.activeSelf) return;
+        foreach (string position in new[] { "left", "top", "right" }) {
+            Transform row = GetPosPanel(position)?.ShowCardsPosition;
+            if (row == null || !TryGetRecordShowHandLayout(position, out Vector3 direction, out Quaternion rotation)) continue;
+            var main = new List<Transform>();
+            foreach (Transform card in row) {
+                Tile3D tile = card.GetComponent<Tile3D>();
+                if (tile != null && !tile.isRecordDrawSlotPinned) main.Add(card);
+            }
+            TileIdOrder.SortHand(main, card => card.GetComponent<Tile3D>().GetTileId());
+            Vector3 origin = HandRowOrigin(row, direction);
+            for (int i = 0; i < main.Count; i++) {
+                main[i].SetSiblingIndex(i);
+                main[i].position = PlaceTileOnTable(origin + direction.normalized * handStep * i, rotation);
+            }
+        }
+    }
+
     private bool TryGetRecordShowHandLayout(string playerPosition, out Vector3 direction, out Quaternion rotation) {
         direction = Vector3.zero;
         rotation = Quaternion.identity;
@@ -92,7 +112,13 @@ public partial class Game3DManager {
         for (int i = 0; i < mainSourceCount; i++) {
             mainTiles.Add(handTiles[i]);
         }
-        TileIdOrder.SortHand(mainTiles);
+        var realtime = GameRecordManager.Instance?.GetWashizuRecordLayout(playerPosition, true);
+        if (realtime != null) {
+            // The draw may have been merged into the middle of a manually arranged hand.
+            hasDraw = realtime.draw_pinned && realtime.drawn_key != 0;
+            mainTiles = new List<int>(realtime.tiles);
+            if (hasDraw) { drawTileId = mainTiles[mainTiles.Count - 1]; mainTiles.RemoveAt(mainTiles.Count - 1); }
+        } else TileIdOrder.SortHand(mainTiles);
 
         int mainCount = mainTiles.Count;
         ComputeRecordShowTargetPositions(showCardsPosition, direction, mainCount, hasDraw, rotation,
@@ -187,7 +213,8 @@ public partial class Game3DManager {
             }
         }
 
-        TileIdOrder.SortHand(allCards, card => card.GetComponent<Tile3D>()?.GetTileId() ?? 0);
+        if (!WashizuTile.IsRealtimeHandOrder)
+            TileIdOrder.SortHand(allCards, card => card.GetComponent<Tile3D>()?.GetTileId() ?? 0);
 
         Vector3 startPos = HandRowOrigin(showCardsPosition, direction);
         float step = handStep;
@@ -209,13 +236,13 @@ public partial class Game3DManager {
             yield break;
         }
 
-        Transform targetCard = null;
-        if (fromDrawSlot) {
+        Transform targetCard = FindRemovedWashizuTile(playerPosition, showCardsPosition, tileId);
+        if (targetCard == null && fromDrawSlot) {
             Tile3D drawTile = GetRecordShowDrawTile3D(showCardsPosition);
             if (drawTile != null && RecordShowTileIdMatches(drawTile, tileId)) {
                 targetCard = drawTile.transform;
             }
-        } else {
+        } else if (targetCard == null) {
             for (int i = 0; i < showCardsPosition.childCount; i++) {
                 Transform child = showCardsPosition.GetChild(i);
                 Tile3D tile3D = child.GetComponent<Tile3D>();

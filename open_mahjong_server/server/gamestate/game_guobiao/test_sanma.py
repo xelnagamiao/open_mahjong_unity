@@ -118,7 +118,7 @@ def test_turn_wrap_chow_and_claim_order(source):
     assert ron_action(next_seat, source, 3) == "hu_first"
     assert ron_action((source + 2) % 3, source, 3) == "hu_second"
     assert ron_action(source, source, 3) == "hu_self"
-    expected = (("self", "right", "top"), ("left", "self", "right"), ("top", "left", "self"))
+    expected = (("self", "right", "left"), ("left", "self", "right"), ("right", "left", "self"))
     assert get_index_relative_position(source, next_seat, 3) == expected[source][next_seat]
     assert get_index_relative_position(source, (source + 2) % 3, 3) == expected[source][(source + 2) % 3]
     player_index_next(g)

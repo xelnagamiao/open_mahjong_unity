@@ -66,8 +66,8 @@ public static class PlayerInfoStatsFormatter {
 
     static string NormalizeMode(string mode, bool sanma) {
         if (mode == null) return null;
-        // 旧三人局制使用 /3，统一到当前 /4_sanma；普通四人 /4 不可混入三人。
-        if (sanma && mode.Contains("/3")) return mode.Replace("/3", "/4_sanma");
+        // 保留旧三人数据读取兼容，界面统一展示实际人数 /3。
+        if (sanma) return mode.Replace("/4_sanma", "/3").Replace("/3_sanma", "/3");
         return mode;
     }
 
@@ -111,6 +111,8 @@ public static class PlayerInfoStatsFormatter {
         rule = rule ?? stats.rule;
         if (PlayerInfoRuleCatalog.IsRiichi(rule)) return RiichiDetails(stats, PlayerInfoRuleCatalog.PlayerCount(rule) == 3);
         bool guobiao = PlayerInfoRuleCatalog.SourceRule(rule) == "guobiao";
+        bool singapore = PlayerInfoRuleCatalog.SourceRule(rule) == "singapore";
+        bool malaysia = PlayerInfoRuleCatalog.SourceRule(rule) == "malaysia";
         bool sanma = PlayerInfoRuleCatalog.PlayerCount(rule) == 3;
         int games = stats.total_games ?? 0, rounds = stats.total_rounds ?? 0, wins = stats.win_count ?? 0;
         int dealIns = stats.deal_in_count ?? 0;
@@ -124,10 +126,13 @@ public static class PlayerInfoStatsFormatter {
         if (guobiao) Add("错和率", Ratio(stats.cuohe_count, rounds, true));
         Add("自摸率", Ratio(stats.self_draw_count, wins, true));
         Add("放铳率", Ratio(stats.deal_in_count, rounds, true));
-        Add("平均和番", Ratio(stats.total_fan_score, wins));
+        string winValueLabel = PlayerInfoRuleCatalog.WinValueLabel(rule);
+        string dealInValueLabel = PlayerInfoRuleCatalog.DealInValueLabel(rule);
+        if (winValueLabel != null) Add(winValueLabel, Ratio(stats.total_fan_score, wins));
         Add("平均和巡", Ratio(stats.total_win_turn, wins));
-        Add("平均铳番", Ratio(stats.total_fangchong_score, dealIns));
-        if (guobiao) Add("局均点", Ratio(stats.total_round_score, games));
+        if (dealInValueLabel != null) Add(dealInValueLabel, Ratio(stats.total_fangchong_score, dealIns));
+        if (malaysia) Add("累计净得分", (stats.total_round_score ?? 0).ToString());
+        if (guobiao || singapore || malaysia) Add("局均点", Ratio(stats.total_round_score, games));
         Add("一位率", Ratio(stats.first_place_count, games, true));
         Add("二位率", Ratio(stats.second_place_count, games, true));
         Add("三位率", Ratio(stats.third_place_count, games, true));

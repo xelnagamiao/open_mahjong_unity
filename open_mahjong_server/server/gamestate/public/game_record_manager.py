@@ -81,6 +81,10 @@ def build_game_title_data(gs) -> Dict[str, Any]:
         # is_player_set_random_seed: 是否玩家指定随机种子（场景复现）
         "is_player_set_random_seed": gs.isPlayerSetRandomSeed,
     }
+    from ..game_riichi.realtime_hand import enabled as realtime_hand_enabled
+    if realtime_hand_enabled(gs):
+        # Older Washizu records assigned physical keys after grouping the initial hand.
+        title['realtime_initial_order'] = 'deal'
     # hepai_limit: 起和番限制（国标/青雀/古典/立直，有该属性时写入）
     if hasattr(gs, "hepai_limit"):
         title["hepai_limit"] = gs.hepai_limit
@@ -133,6 +137,9 @@ def build_game_title_data(gs) -> Dict[str, Any]:
         title["player_count"] = len(gs.player_list)
         title["use_flowers"] = getattr(gs, "use_flowers", getattr(gs, "sub_rule", None) != "guobiao/lanshi")
         title["tian_di_ren_he"] = getattr(gs, "tian_di_ren_he", False)
+        title["joker_multi_wait"] = getattr(gs, "joker_multi_wait", False)
+        title["no_joker_bonus"] = getattr(gs, "no_joker_bonus", "add8")
+        title["black_flower_progressive"] = getattr(gs, "black_flower_progressive", True)
         if getattr(gs, "sub_rule", None) == "guobiao/lanshi":
             from ...game_calculation.lanshi_v4 import RULE_VERSION
             title["rule_version"] = RULE_VERSION
@@ -196,6 +203,9 @@ def build_round_header_data(gs) -> Dict[str, Any]:
         }
     if getattr(gs, "duplicate_key", None):
         round_data["duplicate_walls"] = [list(part) for part in gs.tiles_list.parts]
+        if hasattr(gs.tiles_list, "common"):
+            round_data["duplicate_wall_layout"] = "xueliu"
+            round_data["duplicate_common_wall"] = list(gs.tiles_list.common)
     extra = getattr(gs, "build_record_round_fields", None)
     if callable(extra):
         round_data.update(extra())
@@ -440,7 +450,7 @@ def player_action_record_hu(self, hu_class: str, hu_score, hu_fan: list,
                             hepai_player_index: int, score_changes: List[int],
                             base_fu=None, fu_fan_list=None,
                             hepai_tile=None, multi_ron=None, ron_discarder_index=None,
-                            recycle_discard=None, bird_tiles=None):
+                            recycle_discard=None, bird_tiles=None, statistics_fan=None):
     if hepai_tile is None:
         hepai_tile = resolve_hepai_tile_for_record(self, hu_class, hepai_player_index)
     tick = [hu_class, hepai_player_index, hu_score, hu_fan, score_changes]
@@ -457,6 +467,11 @@ def player_action_record_hu(self, hu_class: str, hu_score, hu_fan: list,
         tick.append(1 if recycle_discard else 0)
     if bird_tiles:
         tick.append(list(bird_tiles))
+    if statistics_fan is not None:
+        # A separate round field preserves the positional replay protocol.
+        # Store the raw fan before caps, payment conversion and team adjustments.
+        rd = self.game_record["game_round"][f"round_index_{self.round_index}"]
+        rd.setdefault("win_fan_by_tick", {})[str(len(rd["action_ticks"]))] = int(statistics_fan)
     append_action_tick(self, tick)
     if self.game_record.get("game_title", {}).get("rule") == "guobiao":
         from .guobiao_win_snapshot import capture_guobiao_win

@@ -106,7 +106,9 @@ public static class GameRecordJsonDecoder {
         round.hongkong = (roundData["hongkong"] as JObject)?.ToObject<HongKongInfo>();
         round.guizhou = (roundData["guizhou"] as JObject)?.ToObject<GuizhouInfo>();
         round.yixing = (roundData["yixing"] as JObject)?.ToObject<YixingInfo>();
+        round.malaysia = (roundData["malaysia"] as JObject)?.ToObject<MalaysiaInfo>();
         round.nanjing = (roundData["nanjing"] as JObject)?.ToObject<NanjingInfo>();
+        round.fuzhou = (roundData["fuzhou"] as JObject)?.ToObject<FuzhouInfo>();
         round.hangzhou = (roundData["hangzhou"] as JObject)?.ToObject<HangzhouInfo>();
         round.nanchang = (roundData["nanchang"] as JObject)?.ToObject<NanchangInfo>();
         round.nanchangHints = (roundData["nanchang_hints"] as JObject)?.ToObject<Dictionary<int, Dictionary<string, NanchangWait[]>>>();
@@ -128,6 +130,8 @@ public static class GameRecordJsonDecoder {
         if (roundData["p3_tiles"] != null) round.p3Tiles = roundData["p3_tiles"].ToObject<List<int>>() ?? new List<int>();
         if (roundData["tiles_list"] != null) round.tilesList = roundData["tiles_list"].ToObject<List<int>>() ?? new List<int>();
         if (roundData["duplicate_walls"] != null) round.duplicateWalls = roundData["duplicate_walls"].ToObject<List<List<int>>>();
+        round.duplicateWallLayout = roundData.Value<string>("duplicate_wall_layout");
+        if (roundData["duplicate_common_wall"] != null) round.duplicateCommonWall = roundData["duplicate_common_wall"].ToObject<List<int>>();
     }
 
     public static void ApplyPlayerUserIds(Round round, Dictionary<int, int> playerUserIds) {
@@ -172,6 +176,14 @@ public static class GameRecordJsonDecoder {
     public static void AccumulateScoreChangesFromTick(Round round, List<string> tick) {
         if (round == null || tick == null || tick.Count == 0) return;
         string act = tick[0];
+        if (act == "malaysia" && tick.Count >= 3 && tick[1] == "payment") {
+            int[] payment = JArray.Parse(tick[2]).ToObject<int[]>();
+            int[] original = ConvertPlayerIndexScoreChangesToOriginal(payment, round.seats);
+            round.scoreChanges ??= new List<int>(new int[4]);
+            for (int i=0; i<original.Length; i++) round.scoreChanges[i] += original[i];
+            return;
+        }
+
         if (act == "wenzhou" && tick.Count >= 4 && tick[1] == "state" && round.wenzhou?.start_scores?.Length == 4) {
             int[] scores = Newtonsoft.Json.JsonConvert.DeserializeObject<int[]>(tick[3]);
             if (scores?.Length == 4) {
@@ -200,6 +212,9 @@ public static class GameRecordJsonDecoder {
             return;
         }
         int[] sc = null;
+        if (act == "singapore" && tick.Count >= 3 && tick[1] == "payment") {
+            sc = ParseScoreChangesFromTick(tick, 2);
+        } else
         if (act == "filipino" && tick.Count >= 5 && tick[1] == "score") {
             sc = ParseScoreChangesFromTick(tick, 4);
         } else if (act == "nanjing" && tick.Count >= 3 && tick[1] == "score") {
@@ -338,7 +353,7 @@ public static class GameRecordJsonDecoder {
             if (!int.TryParse(tick[2]?.Trim(), out int seat)) return defaultPlayer;
             return seat;
         }
-        if ((action == "ca" || action == "rk" || action == "nuki") && tick.Count >= 2) {
+        if ((action == "ca" || action == "rk" || action == "nuki" || action == "wo") && tick.Count >= 2) {
             if (!int.TryParse(tick[1]?.Trim(), out int seat)) return defaultPlayer;
             return seat;
         }

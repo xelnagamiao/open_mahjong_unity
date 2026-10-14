@@ -11,7 +11,7 @@ export const duplicateWallsApi = {
   catalog: () => request('get', '/catalog'),
   mine: (params) => request('get', '/mine', { params }),
   create: (data) => {
-    if (!isDuplicateWallRule(data?.rule)) return Promise.reject(new Error('复式牌墙仅支持国标麻将'))
+    if (!isDuplicateWallRule(data?.rule)) return Promise.reject(new Error('复式牌墙仅支持国标麻将和川麻血流'))
     return request('post', '/', { data })
   },
   unlock: (id) => request('patch', `/${encodeURIComponent(id)}`, { data: { is_unlocked: true } }),

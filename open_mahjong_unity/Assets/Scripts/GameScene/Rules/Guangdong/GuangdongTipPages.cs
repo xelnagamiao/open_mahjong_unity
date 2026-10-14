@@ -8,9 +8,11 @@ public partial class TipsContainer {
     private TMP_Text guangdongHintPageText;
     private Button guangdongHintPrevious, guangdongHintNext;
     private int guangdongHintPage, guangdongHintCount = -1;
+    private string visibleHintSubRule;
     private void UpdateGuangdongHintPages() {
         const int perPage = 10;
-        bool active = GuangdongMilRules.IsMil(_recordTipsContext?.SubRule ?? GameSession.Current.SubRule);
+        string subRule = visibleHintSubRule ?? _recordTipsContext?.SubRule ?? GameSession.Current.SubRule;
+        bool active = GuangdongMilRules.IsMil(subRule) || GuobiaoGameState.UsesAuthoritativeTips(subRule);
         int count = TileContainer.transform.childCount;
         bool paged = active && count > perPage;
         if (guangdongHintCount != count) { guangdongHintCount = count; guangdongHintPage = 0; }

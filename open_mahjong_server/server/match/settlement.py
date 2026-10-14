@@ -6,7 +6,7 @@ from .riichi_rank_calculator import LEGACY_PT_ALGORITHM
 def settle_ranked_game(state):
     queue = getattr(state, 'match_queue_type', None)
     if state.room_type != 'match':
-        return f'{state.max_round}/4'
+        return f'{state.max_round}/{len(state.player_list)}'
     spec = QUEUES.get(queue)
     if not spec or spec.rule != state.room_rule:
         raise ValueError('排位对局的规则与队列不一致')
@@ -36,7 +36,7 @@ def settle_ranked_game(state):
     if spec.rule == 'riichi':
         state.game_record['game_title']['rating_algorithm'] = next(iter(result.values())).get(
             'rating_algorithm', LEGACY_PT_ALGORITHM)
-    return f'{spec.rounds}/4' + ('_sanma' if spec.player_count == 3 else '') + '_rank'
+    return f'{spec.rounds}/{spec.player_count}_rank'
 
 
 def rating_result_fields(player):

@@ -14,6 +14,7 @@ public partial class CreatePanel {
         DuplicateWallToggle.isOn = false;
         GuobiaoFlowersToggle.SetIsOnWithoutNotify(true);
         if (TianDiRenHeToggle) TianDiRenHeToggle.SetIsOnWithoutNotify(false);
+        if (JokerMultiWaitToggle) JokerMultiWaitToggle.SetIsOnWithoutNotify(false);
         InputHepaiLimitToggle.SetIsOnWithoutNotify(false); HepaiLimitInput.text = "8";
         tipsToggle.SetIsOnWithoutNotify(tier == 0);
         countTipsToggle.SetIsOnWithoutNotify(false);

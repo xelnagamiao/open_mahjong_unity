@@ -24,6 +24,9 @@ public class CreateGBRoomRequest { // 创建国标房间请求
     public string password;
     public string duplicate_key; // 数据库中的复式牌墙密钥
     public bool use_flowers = true; // 国标花牌；复式由保存的牌墙覆盖
+    public bool joker_multi_wait;
+    public string no_joker_bonus = "add8";
+    public bool black_flower_progressive = true;
     public bool tian_di_ren_he; // 标准国标/三人国标/血战：天地人和各 8 番
     public string random_seed; // 场景复现主种子：64 位 hex 字符串，空或 "0" 表示关
     public bool open_cuohe; // 是否开启错和
@@ -69,6 +72,7 @@ public class CreateRiichiRoomRequest { // 创建立直麻将房间请求
 }
 
 public class CreateSichuanRoomRequest { // 创建四川麻将（血战到底）房间请求
+    public string duplicate_key;
     public bool claim_protection = true;
     public string type;
     public string rule;

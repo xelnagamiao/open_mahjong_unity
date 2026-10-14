@@ -110,6 +110,9 @@ def apply_passed_win_shunhe(game_state, hu_eligible_indexes: Iterable[int], *, a
         return False
     changed = False
     for idx in hu_eligible_indexes:
+        # 血流和后合法保杠过和不能拦截下一张必和牌，也不生成顺和提示。
+        if getattr(game_state, "is_xueliu", False) and game_state.player_list[idx].has_won:
+            continue
         if getattr(game_state, "is_xueliu_doubles", False) and not game_state._can_score_between(game_state.current_player_index, idx):
             continue
         info = game_state.sichuan_hu_results.get(idx)
@@ -123,7 +126,8 @@ def apply_passed_win_shunhe(game_state, hu_eligible_indexes: Iterable[int], *, a
 
 def record_passed_self_draw_shunhe(game_state, player_index: int) -> bool:
     """摸牌后放弃自摸：记录跳过番数。"""
-    if getattr(game_state, "is_doubles", False):
+    if (getattr(game_state, "is_doubles", False)
+            or (getattr(game_state, "is_xueliu", False) and game_state.player_list[player_index].has_won)):
         return False
     info = game_state.sichuan_hu_results.get(player_index)
     if not info or not info.get("is_zimo"):

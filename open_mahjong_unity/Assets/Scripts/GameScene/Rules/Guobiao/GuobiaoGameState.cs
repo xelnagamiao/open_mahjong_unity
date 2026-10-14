@@ -4,6 +4,11 @@
 /// </summary>
 public partial class GuobiaoGameState : TurnBasedGameState {
     public const string RuleId = "guobiao";
+    public const string SixteenSubRule = "guobiao/sixteen";
+    public static bool UsesAuthoritativeTips(string sub) => IsJokerSubRule(sub) || sub == SixteenSubRule;
+    public const string HuahunSubRule = "guobiao/huahun";
+    public static bool IsJokerSubRule(string sub) => sub == FourJokersSubRule || sub == HuahunSubRule;
+    public const string FourJokersSubRule = "guobiao/four_jokers";
     public const string SanmaSubRule = "guobiao/sanma";
 
     public static GuobiaoGameState Active => RuleRegistry.ActiveGameState as GuobiaoGameState;
@@ -15,6 +20,7 @@ public partial class GuobiaoGameState : TurnBasedGameState {
 
     protected override void OnRoundStarted(GameInfo gameInfo) {
         cuohe.Clear();
+        FourJokersTips.Accept(gameInfo.four_jokers_hints);
         RestoreBloodBattle(gameInfo);
         RestoreTransparentHands(gameInfo);
     }
@@ -26,7 +32,8 @@ public partial class GuobiaoGameState : TurnBasedGameState {
 
     protected override SettlementEnvelope BuildEnvelope(ShowResultInfo info) {
         SettlementEnvelope env = base.BuildEnvelope(info);
-        LastEndExtras = info.revealed_angang_masks != null && info.revealed_angang_masks.Count > 0
+        LastEndExtras = !IsTransparentSubRule(Session.SubRule)
+            && info.revealed_angang_masks != null && info.revealed_angang_masks.Count > 0
             ? new GuobiaoEndResultExtras { RevealedAngangMasks = info.revealed_angang_masks }
             : null;
         env.Extras = LastEndExtras;

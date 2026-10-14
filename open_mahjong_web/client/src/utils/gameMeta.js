@@ -1,3 +1,8 @@
+import catalog from '../../../shared/statisticsRules.json' with { type: 'json' }
+
+const CATALOG_RULE_LABELS = Object.fromEntries(catalog.rules.map(row => [row.rule, row.family_name]))
+const CATALOG_SUB_RULE_LABELS = Object.fromEntries(catalog.rules.map(row => [row.sub_rule, row.stats_name]))
+
 const ROOM_TYPE_LABELS = {
   custom: '自定义房',
   match: '排位匹配',
@@ -7,6 +12,7 @@ const RULE_LABELS = {
   shenyang: '沈阳麻将',
   nanchang: '南昌麻将',
   wuhan: '武汉麻将',
+  singapore: '新加坡麻将',
   jiujiang: '九江麻将',
   guobiao: '国标',
   riichi: '立直',
@@ -20,6 +26,7 @@ const SUB_RULE_LABELS = {
   'shenyang/mil2025': '沈阳麻将（MIL 2025）',
   'nanchang/mil2026': '南昌麻将（MIL 2026 四人单打）',
   'wuhan/mil2025': '武汉麻将（MIL 2025）',
+  'singapore/spgg2024': '新加坡麻将',
   'jiujiang/standard': '九江麻将',
   'shanghai/lajihe': '上海垃圾和',
   'guobiao/standard': '国标麻将(标准)',
@@ -27,6 +34,10 @@ const SUB_RULE_LABELS = {
   'guobiao/kshen': 'K神麻将',
   'guobiao/lanshi': '国标麻将(蓝十改)',
   'guobiao/transparent': '透明国标麻将',
+  'guobiao/transparent_realtime': '国标透明（实时手牌）',
+  'guobiao/huahun': '国标（花混癞子）',
+  'guobiao/sixteen': '国标麻将（十六张）',
+  'guobiao/four_jokers': '国标麻将(四癞子)',
   'qingque/standard': '青雀',
   'classical/standard': '古典麻雀',
   'sichuan/standard': '四川麻将(血战到底)',
@@ -41,12 +52,12 @@ export function formatRoomType(roomType) {
 
 export function formatRule(rule) {
   if (!rule) return '-'
-  return RULE_LABELS[rule] || rule
+  return RULE_LABELS[rule] || CATALOG_RULE_LABELS[rule] || rule
 }
 
 export function formatSubRule(subRule) {
   if (!subRule) return '-'
-  return SUB_RULE_LABELS[subRule] || subRule
+  return SUB_RULE_LABELS[subRule] || CATALOG_SUB_RULE_LABELS[subRule] || subRule
 }
 
 export function pickGameMeta(players = []) {

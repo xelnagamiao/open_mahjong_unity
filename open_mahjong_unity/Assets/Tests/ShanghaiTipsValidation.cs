@@ -145,6 +145,39 @@ public static class ShanghaiTipsValidation {
                 && manifest.FanValueText("shanghai/qiaoma", encoded) == $"{pattern.Fan}番");
         }
         Check("缺省牌谱番值维持旧清一色", ShanghaiHandCalculator.Score(new List<int> {11,12,13,12,13,14,15,16,17,19,19}, new List<string> {"s18"}, 1, false) == 8);
+        Check("天敲默认关闭", manifest.CreateRoomDefaults[ShanghaiHandCalculator.EnableTianQiaoKey] is bool defaultTian && !defaultTian);
+        var tianHand = new List<int>(plain) {44};
+        Check("天敲额外两番与门清叠加", ShanghaiHandCalculator.Score(tianHand, new List<string>(), 1, false, 1, false, true) == 16);
+        Check("天敲不改变缺省计分", ShanghaiHandCalculator.Score(tianHand, new List<string>(), 1, false) == 4);
+        Check("天敲无花按三番封顶", ShanghaiHandCalculator.Score(tianHand, new List<string>(), 0, false, 1, false, true) == 88);
+        foreach (var row in new[] {
+            new {Name="首次出牌候选", Tags=new List<string>(), Discards=new List<int>(), Melds=new List<string>(), Qual=(string)null, Expected=true},
+            new {Name="再次出牌", Tags=new List<string>(), Discards=new List<int>{15}, Melds=new List<string>(), Qual=(string)null, Expected=false},
+            new {Name="有人暗杠", Tags=new List<string>(), Discards=new List<int>(), Melds=new List<string>{"G11"}, Qual=(string)null, Expected=false},
+            new {Name="普通报敲不能升级", Tags=new List<string>{"declared_ready"}, Discards=new List<int>(), Melds=new List<string>(), Qual="public", Expected=false},
+            new {Name="已天敲后鸣牌保留", Tags=new List<string>{"declared_ready","tian_qiao"}, Discards=new List<int>{15}, Melds=new List<string>{"k11"}, Qual="tian_qiao", Expected=true},
+            new {Name="权威牌谱资格", Tags=new List<string>{"declared_ready"}, Discards=new List<int>{15}, Melds=new List<string>(), Qual="tian_qiao", Expected=true},
+            new {Name="缺少旧谱状态不推断", Tags=(List<string>)null, Discards=new List<int>(), Melds=new List<string>(), Qual=(string)null, Expected=false},
+        }) {
+            foreach (bool enabled in new[] {false,true}) {
+                var ctx = new RecordTipsContext {
+                    RoomRule="shanghai",SubRule="shanghai/qiaoma",SelfTags=row.Tags,ReadyQualification=row.Qual,
+                    SelfHuapaiList=new List<int>{51},DetailedConfig=new Dictionary<string,object>{{"enable_tian_qiao",enabled}},
+                    PlayersByPosition=new Dictionary<string,RecordTipsPlayerVisible>{
+                        {"self",new RecordTipsPlayerVisible{DiscardTiles=row.Discards,CombinationTiles=new List<string>()}},
+                        {"left",new RecordTipsPlayerVisible{DiscardTiles=new List<int>(),CombinationTiles=row.Melds}},
+                    },
+                };
+                var query = RecordWaitHintCalculator.BuildQueries(ctx,plain,new List<int>{44}).Single();
+                bool expected = enabled && row.Expected;
+                string suffix = row.Name + (enabled ? "开" : "关");
+                Check("天敲资格"+suffix, ShanghaiHandCalculator.CountsTianQiao(query) == expected);
+                Check("天敲实时与牌谱提示"+suffix, RuleTips.DescribeWaitingTile(manifest,query).Label == $"敲牌后 {(expected ? 16 : 4)}分");
+            }
+        }
+        Check("天敲结算番值", manifest.FanNameText("shanghai/qiaoma","天敲（2番）") == "天敲"
+            && manifest.FanValueText("shanghai/qiaoma","天敲（2番）") == "2番"
+            && manifest.FanValueText("shanghai/qiaoma","天敲") == "2番");
         return checks.ToArray();
     }
 }

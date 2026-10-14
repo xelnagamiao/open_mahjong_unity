@@ -1,5 +1,6 @@
 """Pure decisions for riichi actions, round endings and final results."""
 from ...game_calculation.riichi.rule_config import normalize_riichi_config
+from ...game_calculation.riichi.sanma import honba_total
 from ...game_calculation.riichi.riichi_tile_converter import tile_id_to_34, convert_combination
 
 DEFAULTS = normalize_riichi_config()
@@ -166,8 +167,8 @@ def apply_pao(game, changes, winner, result, apply_honba):
                 if seat != winner: changes[seat] += game.honba * 100
             changes[liable] -= game.honba * 100 * (len(game.player_list) - 1)
         elif option(game, 'pao_honba') == 'liable':
-            changes[game.current_player_index] += game.honba * 300
-            changes[liable] -= game.honba * 300
+            changes[game.current_player_index] += game.honba * honba_total(len(game.player_list))
+            changes[liable] -= game.honba * honba_total(len(game.player_list))
 
 
 def finalize_scores(game):

@@ -48,8 +48,10 @@ async def handle_room_message(game_server, Connect_id: str, message: dict, webso
     token = None
     try:
         if message.get("type", "").strip("/").startswith("room/create_") and message.get("duplicate_key"):
-            if message.get("type", "").strip("/") != "room/create_GB_room":
-                raise ValueError("复式牌墙仅支持国标麻将（含蓝十改）")
+            from ..database.duplicate_walls import XUELIU_WALL_SUBRULES
+            kind = message.get("type", "").strip("/")
+            if kind != "room/create_GB_room" and not (kind == "room/create_Sichuan_room" and message.get("sub_rule") in XUELIU_WALL_SUBRULES):
+                raise ValueError("复式牌墙仅支持国标麻将（含蓝十改）和川麻血流")
             if message.get("sub_rule") == "guobiao/blood_battle":
                 raise ValueError("国标血战暂不支持复式牌墙")
             wall = load_duplicate_wall(game_server.db_manager, message["duplicate_key"])
@@ -111,9 +113,15 @@ async def _dispatch_room_message(game_server, Connect_id: str, message: dict, we
     elif message_type == "room/create_Guizhou_room":
         from .guizhou_room import handle_create_guizhou_room
         await handle_create_guizhou_room(game_server, Connect_id, message, websocket)
+    elif message_type in {"room/create_Singapore_room", "room/create_singapore_room"}:
+        from .singapore_room import handle_create_singapore_room
+        await handle_create_singapore_room(game_server, Connect_id, message, websocket)
     elif message_type in {"room/create_Jiujiang_room", "room/create_jiujiang_room"}:
         from .jiujiang_room import handle_create_jiujiang_room
         await handle_create_jiujiang_room(game_server, Connect_id, message, websocket)
+    elif message_type in {"room/create_Malaysia_room", "room/create_malaysia_room"}:
+        from .malaysia_room import handle_create_malaysia_room
+        await handle_create_malaysia_room(game_server, Connect_id, message, websocket)
     elif message_type in {"room/create_Wuhan_room", "room/create_wuhan_room"}:
         from .wuhan_room import handle_create_wuhan_room
         await handle_create_wuhan_room(game_server, Connect_id, message, websocket)
@@ -129,6 +137,9 @@ async def _dispatch_room_message(game_server, Connect_id: str, message: dict, we
     elif message_type == "room/create_Wenzhou_room":
         from .wenzhou_room import handle_create_wenzhou_room
         await handle_create_wenzhou_room(game_server, Connect_id, message, websocket)
+    elif message_type in {"room/create_Fuzhou_room", "room/create_fuzhou_room"}:
+        from .fuzhou_room import handle_create_fuzhou_room
+        await handle_create_fuzhou_room(game_server, Connect_id, message, websocket)
     elif message_type in {"room/create_Nanjing_room", "room/create_nanjing_room"}:
         from .nanjing_room import handle_create_nanjing_room
         await handle_create_nanjing_room(game_server, Connect_id, message, websocket)
@@ -226,6 +237,9 @@ async def handle_create_GB_room(game_server, Connect_id: str, message: dict, web
         pointer_tips=message.get("pointer_tips", True),
         use_flowers=message.get("use_flowers", True),
         tian_di_ren_he=message.get("tian_di_ren_he", False),
+        joker_multi_wait=message.get("joker_multi_wait", False),
+        no_joker_bonus=message.get("no_joker_bonus", "add8"),
+        black_flower_progressive=message.get("black_flower_progressive", True),
     )
     await websocket.send_json(response.dict(exclude_none=True))
 
@@ -463,7 +477,7 @@ async def handle_create_Sichuan_room(game_server, Connect_id: str, message: dict
         message.get("sub_rule", "sichuan/standard"),
         message.get("tourist_limit", False),
         message.get("allow_spectator", True),
-        message.get("tactical_call", False),
+        message.get("tactical_call", True),
         message.get("blood_battle", True),
         message.get("claim_protection", True),
         message.get("event_id"),

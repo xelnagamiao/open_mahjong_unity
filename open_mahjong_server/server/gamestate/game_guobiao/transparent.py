@@ -10,16 +10,21 @@ from ..game_riichi.washizu import public_hand, call_candidates, valid_call_choic
 from ..public.logic_common import get_index_relative_position
 
 SUB_RULE = "guobiao/transparent"
+REALTIME_SUB_RULE = "guobiao/transparent_realtime"
+SUB_RULES = (SUB_RULE, REALTIME_SUB_RULE)
 CHOICE_ACTIONS = ("chi_left", "chi_mid", "chi_right", "peng")
 
 
 def enabled(game):
-    return getattr(game, "sub_rule", None) == SUB_RULE
+    return getattr(game, "sub_rule", None) in SUB_RULES
 
 
 def public_hands(game):
     if not enabled(game):
         return None
+    if getattr(game, 'sub_rule', None) == REALTIME_SUB_RULE:
+        from ..game_riichi.realtime_hand import layout_for_viewer
+        return {p.player_index: layout_for_viewer(game, p, -1)['tiles'] for p in game.player_list}
     return {p.player_index: public_hand(p.hand_tiles) for p in game.player_list}
 
 

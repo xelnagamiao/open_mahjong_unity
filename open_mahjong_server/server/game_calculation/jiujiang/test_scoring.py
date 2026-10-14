@@ -94,15 +94,22 @@ def test_missing_winning_tile_does_not_invent_a_single_wait_bonus():
 @pytest.mark.parametrize('winner,dealer,self_draw,is_ready,is_declared',itertools.product(range(4),range(4),(False,True),(False,True),(False,True)))
 def test_each_payment_and_dealer_doubling(winner,dealer,self_draw,is_ready,is_declared):
     payer=(winner+1)%4
-    actual,rows=payments(winner,7,discarder=None if self_draw else payer,dealer=dealer,exposed_flowers=5,
+    flowers={0:0,1:1,2:4,3:5}
+    actual,rows=payments(winner,7,discarder=None if self_draw else payer,dealer=dealer,payer_flowers=flowers,
         ready=range(4) if is_ready else (),declared=range(4) if is_declared else ())
     assert sum(actual.values())==0 and len(rows)==(3 if self_draw else 1)
     for row in rows:
-        expected=(7+(0 if is_ready else 5)+(10 if is_declared else 0))*(2 if dealer in (winner,row['payer']) else 1)
+        expected=(7+(0 if is_ready else flowers[row['payer']])+(10 if is_declared else 0))*(2 if dealer in (winner,row['payer']) else 1)
         assert row['points']==expected and actual[row['payer']]==-expected
     assert actual[winner]==sum(r['points'] for r in rows)
 
 
 def test_selfdraw_payers_have_independent_surcharges():
-    changes,rows=payments(1,7,exposed_flowers=5,ready={0,2},declared={2,3})
+    changes,rows=payments(1,7,payer_flowers={0:1,1:4,2:2,3:5},ready={0,2},declared={2,3})
     assert changes=={0:-14,1:53,2:-17,3:-22}
+
+
+def test_no_payer_flowers_and_winner_flowers_do_not_create_compensation():
+    expected={0:-2,1:4,2:-1,3:-1}
+    assert payments(1,1)[0]==expected
+    assert payments(1,1,payer_flowers={1:6})[0]==expected

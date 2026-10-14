@@ -13,12 +13,12 @@
             type="button"
             :class="{ on: activeRule === r.value }"
             @click="selectRule(r.value)"
-          >{{ r.label }}</button>
+          >{{ tr(r.label) }}</button>
         </div>
         <label class="rule-picker">
-          <span>全部规则</span>
-          <select :value="activeRule" aria-label="选择全部规则" @change="selectRule($event.target.value)">
-            <option v-for="rule in allRuleOptions" :key="rule.value" :value="rule.value">{{ rule.label }}</option>
+          <span>{{ tr('全部规则') }}</span>
+          <select :value="activeRule" :aria-label="tr('选择全部规则')" @change="selectRule($event.target.value)">
+            <option v-for="rule in allRuleOptions" :key="rule.value" :value="rule.value">{{ tr(rule.label) }}</option>
           </select>
         </label>
       </div>
@@ -32,7 +32,7 @@
                 type="button"
                 :class="{ on: activeScene === s.value }"
                 @click="activeScene = s.value"
-              >{{ s.label }}</button>
+              >{{ tr(s.label) }}</button>
             </div>
             <span class="filter-sep" aria-hidden="true" />
             <div class="tier-tabs sub">
@@ -47,7 +47,7 @@
                 type="button"
                 :class="{ on: activeMode === m.value }"
                 @click="activeMode = m.value"
-              >{{ m.label }}</button>
+              >{{ tr(m.label) }}</button>
             </div>
           </div>
           <div v-if="loading" class="tip">加载中…</div>
@@ -225,7 +225,7 @@ import axios from 'axios'
 import { HOME_RULE_DEFS, homeRuleOptions, homeSceneOptions, homeModeOptions, homeDefaultScene, selectHomeStats, buildHomeStatsRows } from '@/utils/homeStats'
 import { eventStatusLabel } from '@/utils/eventMeta'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
-import { locale } from '@/i18n'
+import { locale, tr } from '@/i18n'
 import DiscordEntry from '@/components/DiscordEntry.vue'
 
 const auth = usePlayerAuthStore()

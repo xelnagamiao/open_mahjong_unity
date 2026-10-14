@@ -23,7 +23,7 @@ def test_rule_snapshot_records_post_hu_kong_constraint(mode):
     assert profile["allow_post_hu_ming_gang"] is True
     assert profile["post_hu_kong_wait_rule"] == "includes_all_won_tiles"
     assert profile["post_hu_hand_kong_requires_drawn_tile"] is True
-    assert profile["version"] == ("xueliu-single-table-2v2-v2" if mode == "xueliu_doubles" else 4)
+    assert profile["version"] == ("xueliu-single-table-2v2-v3" if mode == "xueliu_doubles" else 5)
     if mode == "xueliu_doubles":
         assert state.game_record["game_title"]["doubles_rule_profile"] == profile
 
@@ -320,7 +320,7 @@ def test_each_actual_win_extends_required_kong_wait_set(mode):
 
 
 @pytest.mark.parametrize("teammate", [False, True])
-def test_doubles_required_enemy_hu_still_takes_precedence_over_legal_kong(teammate):
+def test_doubles_may_take_legal_kong_instead_of_a_win_that_would_forbid_it(teammate):
     state, _, seat = changed_wait_state("xueliu_doubles", won_tiles=(18,))
     player = state.player_list[seat]
     player.hand_tiles = [13, 13, 13, 15, 15, 15, 16, 17, 26, 26]
@@ -329,7 +329,11 @@ def test_doubles_required_enemy_hu_still_takes_precedence_over_legal_kong(teamma
     refresh_waiting_tiles(state, seat)
     assert _xueliu_post_hu_kong_allowed(state, player, "gang", 15)
     actions = check_action_after_cut(state, 15)[seat]
-    assert actions == (["hu", "gang", "pass"] if teammate else ["hu"])
+    # 和五万会使原本合法的杠五万失效，因此对手出牌也保留杠/过的选择。
+    assert actions == ["hu", "gang", "pass"]
+    player.huapai_list.append(15)
+    assert not _xueliu_post_hu_kong_allowed(state, player, "gang", 15)
+    assert check_action_after_cut(state, 15)[seat] == (["hu", "pass"] if teammate else ["hu"])
 
 
 @pytest.mark.parametrize("mode", FLOW_MODES)

@@ -65,6 +65,8 @@ def test_four_boards_finish_with_private_snapshots_and_consistent_team_record(se
     state, messages = asyncio.run(play_match(seed))
     assert len(state.team_round_history) == 4
     assert len(state.game_record['game_round']) == 4
+    for board, record in enumerate(state.game_record['game_round'].values()):
+        assert record['dealer_index'] == record['start_player_index'] == board % 4
     assert state.team_result == state.game_record['doubles_result']
     teams = state.game_record['game_title']['team_by_player_index']
     assert teams[0] == teams[2] != teams[1] == teams[3]
@@ -74,6 +76,8 @@ def test_four_boards_finish_with_private_snapshots_and_consistent_team_record(se
         payload = entry['message']
         assert not entry['type'].endswith('ask_dingque')
         if 'game_info' in payload:
+            info = payload['game_info']
+            assert info['dealer_index'] == (info['current_round'] - 1) % 4
             for player in payload['game_info']['players_info']:
                 if player['user_id'] != entry['user_id']:
                     assert 'hand_tiles' not in player

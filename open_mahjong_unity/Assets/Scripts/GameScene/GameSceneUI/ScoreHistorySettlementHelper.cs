@@ -286,6 +286,7 @@ public static class ScoreHistorySettlementHelper {
             han = riichiExtras?.Han,
             fu = riichiExtras?.Fu,
             hepaiPlayerHand = hepaiPlayerHand != null ? (int[])hepaiPlayerHand.Clone() : null,
+            handJokerTiles = TileIdOrder.CurrentHandJokers(),
             combinationMask = CloneCombinationMask(combinationMask),
             subRule = subRule,
         };

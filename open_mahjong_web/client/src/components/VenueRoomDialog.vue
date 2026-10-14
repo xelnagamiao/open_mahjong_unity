@@ -15,7 +15,7 @@
       <slot name="before-settings" />
       <div class="room-top">
         <el-form-item label="规则">
-          <el-select v-model="form.room_rule" style="width: 100%">
+          <el-select v-model="form.room_rule" style="width: 100%" @change="changeEventRoomRule(form, $event)">
             <el-option
               v-for="opt in roomRuleOptions"
               :key="opt.value"
@@ -42,13 +42,16 @@
       <SichuanRoomConfig v-else-if="form.room_rule === 'sichuan'" :form="form" :allow-paired="showAutoDuplicate" />
       <TuidaoRoomConfig v-else-if="form.room_rule === 'guangdong'" :form="form" :show-password="showPassword" />
       <GuizhouRoomConfig v-else-if="form.room_rule === 'guizhou'" :form="form" :show-password="showPassword" />
+      <SingaporeRoomConfig v-else-if="form.room_rule === 'singapore'" :form="form" :show-password="showPassword" />
       <JiujiangRoomConfig v-else-if="form.room_rule === 'jiujiang'" :form="form" :show-password="showPassword" />
       <WuhanRoomConfig v-else-if="form.room_rule === 'wuhan'" :form="form" :show-password="showPassword" />
       <HongzhongRoomConfig v-else-if="form.room_rule === 'hongzhong'" :form="form" :show-password="showPassword" />
       <ChangchunRoomConfig v-else-if="form.room_rule === 'changchun'" :form="form" :show-password="showPassword" />
       <YixingRoomConfig v-else-if="form.room_rule === 'yixing'" :form="form" :show-password="showPassword" />
+      <MalaysiaRoomConfig v-else-if="form.room_rule === 'malaysia'" :form="form" :show-password="showPassword" />
       <ShenyangRoomConfig v-else-if="form.room_rule === 'shenyang'" :form="form" :show-password="showPassword" />
       <NanjingRoomConfig v-else-if="form.room_rule === 'nanjing'" :form="form" :show-password="showPassword" />
+      <FuzhouRoomConfig v-else-if="form.room_rule === 'fuzhou'" :form="form" :show-password="showPassword" />
       <WenzhouRoomConfig v-else-if="form.room_rule === 'wenzhou'" :form="form" :show-password="showPassword" />
       <NanchangRoomConfig v-else-if="form.room_rule === 'nanchang'" :form="form" :show-password="showPassword" />
       <HangzhouRoomConfig v-else-if="form.room_rule === 'hangzhou'" :form="form" :show-password="showPassword" />
@@ -67,13 +70,17 @@
           <div><strong>闭室</strong><span>东西红队 · 南北蓝队</span></div>
         </div>
         <el-form-item label="比赛副数">
-          <el-select v-model="form.duplicate_round_count" aria-label="比赛副数">
+          <el-select v-model="form.duplicate_round_count" aria-label="比赛副数" :disabled="Boolean(form.duplicate_key?.trim())">
             <el-option v-for="count in DUPLICATE_ROUND_COUNTS" :key="count" :label="`${count} 副`" :value="count" />
           </el-select>
         </el-form-item>
-        <p class="duplicate-help">{{ form.sub_rule === 'sichuan/doubles_duplicate' ? '逐副按 SBR IMP 计分，保留副差分明细。' : '逐副累计双桌分差，整场平分时两室同步加副。' }}每组自动生成同一套牌墙，两室同时就绪后开始。</p>
+        <template v-if="form.sub_rule === 'sichuan/xueliu_doubles_duplicate'">
+          <DuplicateRoomField v-model="form.duplicate_key" />
+          <p class="duplicate-help">可填入本比赛的血流手动、种子或密钥牌山；副数跟随密钥。留空则为每组自动生成牌山。</p>
+        </template>
+        <p class="duplicate-help">{{ form.sub_rule === 'sichuan/doubles_duplicate' ? '逐副按 SBR IMP 计分，保留副差分明细。' : '逐副分差以 80 分封顶累计，同时记录 JJ IMP；按副分判定，平分时两室同步加副。' }}每组自动生成同一套牌墙，两室同时就绪后开始。</p>
       </div>
-      <div v-if="form.room_rule === 'guobiao'" class="duplicate-settings">
+      <div v-if="supportsDuplicateKey(form) && !paired" class="duplicate-settings">
         <div class="room-top">
           <el-form-item label="复式">
             <el-switch v-model="form.duplicate_enabled" aria-label="复式" />
@@ -114,20 +121,23 @@ import HongKongRoomConfig from '@/components/HongKongRoomConfig.vue'
 import TuidaoRoomConfig from '@/components/TuidaoRoomConfig.vue'
 import GuizhouRoomConfig from '@/components/GuizhouRoomConfig.vue'
 import YixingRoomConfig from '@/components/YixingRoomConfig.vue'
+import MalaysiaRoomConfig from '@/components/MalaysiaRoomConfig.vue'
 import ShenyangRoomConfig from '@/components/ShenyangRoomConfig.vue'
 import NanjingRoomConfig from '@/components/NanjingRoomConfig.vue'
+import FuzhouRoomConfig from '@/components/FuzhouRoomConfig.vue'
 import WenzhouRoomConfig from '@/components/WenzhouRoomConfig.vue'
 import NanchangRoomConfig from '@/components/NanchangRoomConfig.vue'
 import HangzhouRoomConfig from '@/components/HangzhouRoomConfig.vue'
+import SingaporeRoomConfig from '@/components/SingaporeRoomConfig.vue'
 import JiujiangRoomConfig from '@/components/JiujiangRoomConfig.vue'
 import WuhanRoomConfig from '@/components/WuhanRoomConfig.vue'
 import HongzhongRoomConfig from '@/components/HongzhongRoomConfig.vue'
 import ChangchunRoomConfig from '@/components/ChangchunRoomConfig.vue'
 import RiichiRoomConfig from '@/components/RiichiRoomConfig.vue'
-import { clearUnsupportedDuplicateRoom } from '@/utils/eventRoomSettings'
+import { changeEventRoomRule, clearUnsupportedDuplicateRoom } from '@/utils/eventRoomSettings'
 import { EVENT_ROOM_COUNTS } from '@/utils/eventRoomCreation'
 import { DUPLICATE_ROUND_COUNTS } from '@/utils/duplicateWalls'
-import { isSichuanDuplicate } from '@/utils/sichuanDuplicate'
+import { isSichuanDuplicate, supportsDuplicateKey } from '@/utils/sichuanDuplicate'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -151,7 +161,7 @@ watch(() => props.form.sub_rule, value => {
 const quotaLoading = ref(false)
 const quotaError = ref('')
 let quotaVersion = 0
-const autoDuplicate = computed(() => props.showAutoDuplicate && props.form.room_rule === 'guobiao' && props.form.duplicate_enabled && props.form.auto_duplicate)
+const autoDuplicate = computed(() => props.showAutoDuplicate && supportsDuplicateKey(props.form) && !paired.value && props.form.duplicate_enabled && props.form.auto_duplicate)
 const quotaProblem = computed(() => {
   if (!props.modelValue || !autoDuplicate.value) return ''
   if (quotaLoading.value) return '正在读取复式密钥额度…'
@@ -162,7 +172,8 @@ const quotaProblem = computed(() => {
 })
 const creationProblem = computed(() => {
   if (quotaProblem.value) return quotaProblem.value
-  if (props.form.room_rule === 'guobiao' && props.form.duplicate_enabled && !autoDuplicate.value && !props.form.duplicate_key?.trim()) {
+  if (paired.value && props.form.duplicate_key?.trim() && props.form.room_count !== 1) return '一个已有牌山只能绑定一组开闭室'
+  if (supportsDuplicateKey(props.form) && !paired.value && props.form.duplicate_enabled && !autoDuplicate.value && !props.form.duplicate_key?.trim()) {
     return props.showAutoDuplicate ? '请输入复式密钥或开启自动生成复式密钥' : '请输入复式密钥'
   }
   return ''
@@ -173,9 +184,9 @@ function duplicateRoundLabel(count) {
   return mode ? `${count} 局（${mode}）` : `${count} 局`
 }
 
-watch(() => props.form.room_rule, () => {
+watch(() => [props.form.room_rule, props.form.sub_rule], () => {
   clearUnsupportedDuplicateRoom(props.form)
-  if (props.form.room_rule !== 'guobiao') {
+  if (!supportsDuplicateKey(props.form) || paired.value) {
     props.form.duplicate_enabled = false
     props.form.auto_duplicate = false
   }

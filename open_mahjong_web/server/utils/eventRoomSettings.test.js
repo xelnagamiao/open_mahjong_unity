@@ -38,7 +38,8 @@ test('empty and invalid stored rows return fresh independent defaults matching t
   assert.deepEqual(first.manual.room_config, {
     room_name: '', sub_rule: 'guobiao/standard', game_round: 4, round_timer: 20,
     step_timer: 5, tips: false, tourist_limit: false, allow_spectator: true,
-    hepai_limit: 8, open_cuohe: false, cuohe_type: 0, tactical_call: true, claim_protection: true, use_flowers: true,
+    hepai_limit: 8, open_cuohe: false, cuohe_type: 0, tactical_call: true, claim_protection: true, use_flowers: true, tian_di_ren_he: false, joker_multi_wait: false,
+    no_joker_bonus: 'add8', black_flower_progressive: true,
   });
   assert.deepEqual(first.auto_match, { enabled: false, ...first.manual, updated_by: null });
   assert.deepEqual(readRoomSettings('not-json'), first);
@@ -46,6 +47,16 @@ test('empty and invalid stored rows return fresh independent defaults matching t
   first.manual.room_config.step_timer = 80;
   assert.equal(first.auto_match.room_config.step_timer, 5);
   assert.equal(readRoomSettings({}).manual.room_config.step_timer, 5);
+});
+
+test('flower-mixed no-joker rewards survive preset save and selection for all three modes', () => {
+  for (const bonus of ['add8', 'double', 'none']) {
+    const doc = createPreset(undefined, 'huahun', { room_config: { sub_rule: 'guobiao/huahun', no_joker_bonus: bonus } }).settings;
+    const selected = resolveRoomSelection(doc, { revision: doc.revision, preset_id: 'huahun' });
+    assert.equal(selected.room_config.no_joker_bonus, bonus);
+    assert.equal(readRoomSettings(JSON.stringify(doc)).presets[0].room_config.no_joker_bonus, bonus);
+  }
+  assert.throws(() => createPreset(undefined, 'huahun', { room_config: { sub_rule: 'guobiao/huahun', no_joker_bonus: 'invalid' } }), errorStatus(400, /无癞子奖励/));
 });
 
 test('the default is shared with automatic matching until a named preset is selected, without input mutation', () => {

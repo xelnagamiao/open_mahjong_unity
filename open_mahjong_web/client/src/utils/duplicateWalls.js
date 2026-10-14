@@ -1,7 +1,8 @@
 export const DUPLICATE_WALL_LABELS = Object.freeze({ manual: '手动牌山', seed: '复现牌山', key: '密钥牌山' })
 export const DUPLICATE_ROUND_COUNTS = Object.freeze([1, 4, 8, 12, 16])
 
-export function duplicateRoundSeats(round = 1) {
+export function duplicateRoundSeats(round = 1, layout = 'standard') {
+  if (layout === 'xueliu') return [0, 1, 2, 3];
   const index = Math.max(0, Math.min(15, Number(round) - 1))
   const circleSeats = [[0, 1, 2, 3], [1, 0, 3, 2], [3, 2, 0, 1], [2, 3, 1, 0]]
   return circleSeats[Math.floor(index / 4)].map(seat => (seat - index % 4 + 4) % 4)
@@ -12,7 +13,7 @@ export function duplicateRoundLabel(round) {
 }
 
 export function isDuplicateWallRule(rule) {
-  return rule === 'guobiao' || rule === 'guobiao/lanshi'
+  return rule === 'guobiao' || rule === 'guobiao/lanshi' || rule === 'sichuan/xueliu'
 }
 
 export function duplicateWallLabel(value) {
@@ -54,24 +55,26 @@ export function validateManualWall(tiles, rule) {
   return ''
 }
 
-export function splitDuplicateWall(tiles, tileCount) {
+export function splitDuplicateWall(tiles, tileCount, layout = 'standard') {
+  if (layout === 'xueliu') return [...Array.from({ length: 4 }, (_, i) => tiles.slice(i * 21, (i + 1) * 21)), tiles.slice(84)]
   const perSeat = Math.floor(Number(tileCount) / 4)
   return Array.from({ length: 4 }, (_, index) => tiles.slice(index * perSeat, (index + 1) * perSeat))
 }
 
 export function duplicateRuleWithFlowers(rule, useFlowers = true) {
   if (!rule) return null
-  const enabled = rule.rule !== 'guobiao/lanshi' && useFlowers !== false
+  const enabled = rule.rule === 'guobiao' && useFlowers !== false
   const option = rule.flower_options?.find(item => item.use_flowers === enabled)
   const tiles = option?.tiles || rule.tiles.filter(item => enabled || Number(item.tile) < 50)
   return { ...rule, use_flowers: enabled, tiles, tile_count: option?.tile_count || tiles.reduce((total, item) => total + Number(item.count), 0) }
 }
 
-export function createDuplicateDraft() {
-  return Array.from({ length: 4 }, () => ({ hand: [], wall: [] }))
+export function createDuplicateDraft(layout = 'standard') {
+  return Array.from({ length: layout === 'xueliu' ? 5 : 4 }, () => ({ hand: [], wall: [] }))
 }
 
-export function duplicateZoneLimit(tileCount, seat, zone, dealerSeat = 0) {
+export function duplicateZoneLimit(tileCount, seat, zone, dealerSeat = 0, layout = 'standard') {
+  if (layout === 'xueliu') return seat === 4 ? (zone === 'wall' ? 24 : 0) : (zone === 'hand' ? 13 : 8)
   const handCount = seat === dealerSeat ? 14 : 13
   return zone === 'hand' ? handCount : Number(tileCount) / 4 - handCount
 }
@@ -81,12 +84,13 @@ export function flattenDuplicateDraft(draft) {
 }
 
 export function validateDuplicateDraft(draft, rule, dealerSeat = 0) {
-  if (!Array.isArray(draft) || draft.length !== 4) return '请设置四位玩家的手牌与牌山'
-  for (let seat = 0; seat < 4; seat++) {
+  const bloodflow = rule?.wall_layout === 'xueliu'
+  if (!Array.isArray(draft) || draft.length !== (bloodflow ? 5 : 4)) return bloodflow ? '请设置四家固定牌墙及公共牌墙' : '请设置四位玩家的手牌与牌山'
+  for (let seat = 0; seat < draft.length; seat++) {
     for (const zone of ['hand', 'wall']) {
-      const limit = duplicateZoneLimit(rule?.tile_count, seat, zone, dealerSeat)
+      const limit = duplicateZoneLimit(rule?.tile_count, seat, zone, dealerSeat, rule?.wall_layout)
       if (!Array.isArray(draft[seat]?.[zone]) || draft[seat][zone].length !== limit) {
-        return `请补齐 ${seat + 1} 号玩家${zone === 'hand' ? '手牌' : '牌山'}（${draft[seat]?.[zone]?.length || 0} / ${limit} 张）`
+        return `请补齐 ${seat === 4 ? '公共牌墙' : `${seat + 1} 号玩家${zone === 'hand' ? '手牌' : '牌山'}`}（${draft[seat]?.[zone]?.length || 0} / ${limit} 张）`
       }
     }
   }
@@ -94,11 +98,11 @@ export function validateDuplicateDraft(draft, rule, dealerSeat = 0) {
 }
 
 /** Move one existing tile without shifting any other player's partition. */
-export function moveDuplicateTile(draft, source, target, tileCount, dealerSeat = 0) {
+export function moveDuplicateTile(draft, source, target, tileCount, dealerSeat = 0, layout = 'standard') {
   const from = draft[source?.seat]?.[source?.zone]
   const to = draft[target?.seat]?.[target?.zone]
   if (!from || !to || !Number.isInteger(source.index) || source.index < 0 || source.index >= from.length) return false
-  if (from !== to && to.length >= duplicateZoneLimit(tileCount, target.seat, target.zone, dealerSeat)) return false
+  if (from !== to && to.length >= duplicateZoneLimit(tileCount, target.seat, target.zone, dealerSeat, layout)) return false
   const index = Math.max(0, Math.min(to.length - (from === to ? 1 : 0), target.index ?? to.length))
   const [tile] = from.splice(source.index, 1)
   to.splice(index, 0, tile)

@@ -1,3 +1,5 @@
+import { statisticsSelection, STATISTIC_VALUE_UNITS } from './statisticsCatalog.js';
+
 export const ratio = (n, d, suffix = '%') =>
   (!d || d <= 0 ? '0.00' + suffix : (((Number(n) || 0) / d) * 100).toFixed(2) + suffix);
 
@@ -83,16 +85,30 @@ export const mergePlayerRankStats = (base, rankRow) => {
 
 const PLAYER_SETTLEMENT_LABELS = new Set(['总对局', '平均顺位', '局均点', '一位率', '二位率', '三位率', '四位率']);
 
+function applyValueUnits(rows, rule) {
+  const definition = statisticsSelection(rule);
+  return rows.map(row => {
+    const win = row.label === '平均和番';
+    if (!win && row.label !== '平均铳番') return row;
+    const unit = definition?.[win ? 'win_stat_unit' : 'deal_in_stat_unit'] || 'fan';
+    const label = STATISTIC_VALUE_UNITS[unit][win ? 'win_label' : 'deal_in_label'];
+    return label ? { ...row, label } : null;
+  }).filter(Boolean);
+}
+
 /** 玩家个人统计（PlayerData）；未提供的明细不能显示为 0 或沿用全历史值。 */
-export const buildPlayerStatsRows = (s, { detailed = true, rule = s?.rule } = {}) => {
-  if (rule === 'riichi') return buildRiichiStatsRows(s, detailed);
-  return buildStatsRowsBase(s, playerFuluRate).map((row) => {
+export const buildPlayerStatsRows = (s, { detailed = true, rule = s?.sub_rule || s?.rule } = {}) => {
+  const family = statisticsSelection(rule)?.rule || rule;
+  if (family === 'riichi') return buildRiichiStatsRows(s, detailed);
+  return applyValueUnits(buildStatsRowsBase(s, playerFuluRate)
+    .filter(row => family !== 'malaysia' || !['四位率', '错和率'].includes(row.label))
+    .map((row) => {
     if ((!detailed && !PLAYER_SETTLEMENT_LABELS.has(row.label))
       || (row.label === '局均点' && s.total_round_score == null)) {
       return { ...row, value: '—' };
     }
     return row;
-  });
+  }).filter(row => !(family === 'singapore' && row.label === '错和率')), rule);
 };
 
 function buildRiichiStatsRows(s, detailed) {
@@ -141,7 +157,8 @@ export function buildRiichiAdvancedStatsGroups(s) {
 }
 
 /** 平台全站聚合统计（管理后台 / 平台数据页） */
-export const buildPlatformStatsRows = (s) => buildStatsRowsBase(s, platformFuluRate);
+export const buildPlatformStatsRows = (s, { rule = s?.sub_rule || s?.rule } = {}) =>
+  applyValueUnits(buildStatsRowsBase(s, platformFuluRate), rule);
 
 /** 场次“总计”页签需要累加的原始计数字段（比率类指标由 buildPlatformStatsRows 基于合计重新计算） */
 export const SCENE_TOTAL_KEYS = [

@@ -3,10 +3,11 @@ import asyncio
 import copy
 from types import SimpleNamespace
 import unittest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from server.gamestate.game_classical import boardcast as classical
 from server.gamestate.game_classical.ClassicalGameState import ClassicalGameState
+from server.gamestate.game_classical.wait_action import wait_action as wait_classical_action
 from server.gamestate.game_mmcr import boardcast as qingque
 from server.gamestate.game_mmcr.QingqueGameState import QingqueGameState
 from server.gamestate.game_taiwan.boardcast import _build_do_action_payload
@@ -17,7 +18,8 @@ from server.response import GameInfo
 def make_state(rule):
     players = [DummyPlayer(i, 100 + i, [11 + i]) for i in range(4)]
     for player in players:
-        _attach_angang(player, 31 + player.player_index)
+        flags = (2, 0, 0, 2) if rule == "classical" else (2, 2, 2, 2)
+        _attach_angang(player, 31 + player.player_index, mask_flags=flags)
         player.combination_tiles.extend(["k22", "g23"])
         player.combination_mask.extend([[0, 22, 1, 22, 0, 22], [0, 23, 1, 23, 0, 23, 0, 23]])
     sockets = {p.user_id: SimpleNamespace(websocket=SimpleNamespace(send_json=AsyncMock())) for p in players}
@@ -35,7 +37,7 @@ def make_state(rule):
 
 
 class ConcealedKongVisibilityTest(unittest.TestCase):
-    def test_live_and_reconnect_snapshots_hide_other_players_kongs(self):
+    def test_live_and_reconnect_snapshots_follow_each_rules_kong_visibility(self):
         for rule, wire in (("classical", classical), ("qingque", qingque)):
             with self.subTest(rule=rule):
                 state = make_state(rule)
@@ -45,14 +47,15 @@ class ConcealedKongVisibilityTest(unittest.TestCase):
                     # Check the serialized packet as well as the builder.
                     players = GameInfo(**payload).model_dump(exclude_none=True)["players_info"]
                     for owner, info in enumerate(players):
-                        expected_tile = f"G{31 + owner}" if owner == viewer else "G0"
-                        expected_mask = [2, 31 + owner] * 4 if owner == viewer else [2, 0] * 4
+                        visible = rule == "classical" or owner == viewer
+                        expected_tile = f"G{31 + owner}" if visible else "G0"
+                        expected_mask = state.player_list[owner].combination_mask[0] if visible else [2, 0] * 4
                         self.assertEqual(info["combination_tiles"], [expected_tile, "k22", "g23"])
                         self.assertEqual(info["combination_mask"][0], expected_mask)
                         self.assertEqual(info["combination_mask"][1:], state.player_list[owner].combination_mask[1:])
                 self.assertEqual([(p.combination_tiles, p.combination_mask) for p in state.player_list], before)
 
-    def test_actual_reconnect_handler_hides_other_players_kongs(self):
+    def test_actual_reconnect_handler_preserves_each_rules_kong_visibility(self):
         for rule, state_type in (("classical", ClassicalGameState), ("qingque", QingqueGameState)):
             with self.subTest(rule=rule):
                 state = make_state(rule)
@@ -60,8 +63,9 @@ class ConcealedKongVisibilityTest(unittest.TestCase):
                     asyncio.run(state_type.player_reconnect(state, 100 + viewer))
                     packet = state.game_server.user_id_to_connection[100 + viewer].websocket.send_json.await_args.args[0]
                     for owner, info in enumerate(packet["game_info"]["players_info"]):
-                        self.assertEqual(info["combination_tiles"][0], f"G{31 + owner}" if owner == viewer else "G0")
-                        self.assertEqual(info["combination_mask"][0], [2, 31 + owner] * 4 if owner == viewer else [2, 0] * 4)
+                        visible = rule == "classical" or owner == viewer
+                        self.assertEqual(info["combination_tiles"][0], f"G{31 + owner}" if visible else "G0")
+                        self.assertEqual(info["combination_mask"][0], state.player_list[owner].combination_mask[0] if visible else [2, 0] * 4)
 
     def test_realtime_spectator_receives_only_the_watched_seats_view(self):
         for rule, wire in (("classical", classical), ("qingque", qingque)):
@@ -71,31 +75,61 @@ class ConcealedKongVisibilityTest(unittest.TestCase):
                 socket = state.game_server.user_id_to_connection[999].websocket
                 packet = socket.send_json.await_args.args[0]
                 players = packet["game_info"]["players_info"]
-                self.assertEqual(players[0]["combination_tiles"][0], "G0")
-                self.assertEqual(players[0]["combination_mask"][0], [2, 0] * 4)
+                self.assertEqual(players[0]["combination_tiles"][0], "G31" if rule == "classical" else "G0")
+                self.assertEqual(players[0]["combination_mask"][0], state.player_list[0].combination_mask[0] if rule == "classical" else [2, 0] * 4)
                 self.assertEqual(players[1]["combination_tiles"][0], "G32")
-                self.assertEqual(players[1]["combination_mask"][0], [2, 32] * 4)
+                self.assertEqual(players[1]["combination_mask"][0], state.player_list[1].combination_mask[0])
                 expected = wire._build_game_start_payload_for_viewer(state, 1)
                 expected["view_player_index"] = 1
                 self.assertEqual(packet["game_info"], GameInfo(**expected).model_dump(exclude_none=True))
 
-    def test_classical_angang_broadcast_is_private_for_all_seats_and_observers(self):
+    def test_classical_angang_broadcast_shows_middle_tiles_to_all_seats_and_observers(self):
         state = make_state("classical")
-        mask = [2, 35] * 4
+        mask = [2, 35, 0, 35, 0, 35, 2, 35]
         asyncio.run(classical.broadcast_do_action(
             state, ["angang"], 0, combination_mask=mask, combination_target="G35", is_mo_gang=True,
         ))
         for viewer in range(4):
             packet = state.game_server.user_id_to_connection[100 + viewer].websocket.send_json.await_args.args[0]
             info = packet["do_action_info"]
-            self.assertEqual(info["combination_target"], "G35" if viewer == 0 else "G0")
-            self.assertEqual(info["combination_mask"], mask if viewer == 0 else [2, 0] * 4)
+            self.assertEqual(info["combination_target"], "G35")
+            self.assertEqual(info["combination_mask"], mask)
             self.assertEqual(info["action_list"], ["angang"])
             self.assertTrue(info["is_mo_gang"])
             spectator_view, response = state.send_to_realtime_spectators.await_args_list[viewer].args
             self.assertEqual(spectator_view, viewer)
             self.assertEqual(response.model_dump(exclude_none=True), packet)
-        self.assertEqual(mask, [2, 35] * 4)
+        self.assertEqual(mask, [2, 35, 0, 35, 0, 35, 2, 35])
+
+    def test_classical_angang_action_builds_two_visible_middle_tiles(self):
+        async def run_action():
+            state = make_state("classical")
+            player = state.player_list[0]
+            player.hand_tiles = [11, 12, 13, 21, 22, 23, 31, 32, 33, 41, 35, 35, 35, 35]
+            player.has_draw_slot = True
+            state.game_status = "waiting_hand_action"
+            state.action_dict[0] = ["angang"]
+            state.action_priority = {"angang": 0}
+            state.action_queues = {i: asyncio.Queue() for i in range(4)}
+            state.action_events = {i: asyncio.Event() for i in range(4)}
+            with patch("server.gamestate.game_classical.wait_action.player_action_record_angang") as record:
+                task = asyncio.create_task(wait_classical_action(state))
+                await asyncio.sleep(0)
+                state.action_queues[0].put_nowait({"action_type": "angang", "target_tile": 35})
+                state.action_events[0].set()
+                await asyncio.wait_for(task, timeout=2)
+                expected = [2, 35, 0, 35, 0, 35, 2, 35]
+                self.assertEqual(player.combination_mask[-1], expected)
+                self.assertEqual(player.combination_tiles[-1], "G35")
+                self.assertNotIn(35, player.hand_tiles)
+                self.assertEqual(record.call_args.kwargs["combination_mask"], expected)
+                self.assertEqual(state.game_status, "deal_card_after_gang")
+                for viewer in range(4):
+                    packet = state.game_server.user_id_to_connection[100 + viewer].websocket.send_json.await_args.args[0]
+                    self.assertEqual(packet["do_action_info"]["combination_mask"], expected)
+                    self.assertEqual(packet["do_action_info"]["combination_target"], "G35")
+
+        asyncio.run(run_action())
 
     def test_classical_public_melds_are_unchanged(self):
         state = make_state("classical")
@@ -116,7 +150,7 @@ class ConcealedKongVisibilityTest(unittest.TestCase):
 
     def test_classical_settlement_still_reveals_the_winners_real_kong(self):
         state = make_state("classical")
-        mask = [2, 35] * 4
+        mask = [2, 35, 0, 35, 0, 35, 2, 35]
         scores = {i: 0 for i in range(4)}
         names = {i: [] for i in range(4)}
         asyncio.run(classical.broadcast_shuhewei(

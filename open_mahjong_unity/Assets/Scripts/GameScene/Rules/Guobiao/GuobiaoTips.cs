@@ -54,6 +54,7 @@ internal static class GuobiaoTips {
     }
 
     public static HashSet<int> Tingpai(TingpaiQuery q) {
+        if (GuobiaoGameState.UsesAuthoritativeTips(q.SubRule)) return FourJokersTips.Waiting(q);
         List<string> melds = q.Melds ?? NoMelds;
         // A drawn hand is not a waiting hand. Kong melds still count as one completed set here.
         if (q.Hand.Count + melds.Count * 3 != 13) return new HashSet<int>();
@@ -71,6 +72,7 @@ internal static class GuobiaoTips {
     }
 
     public static WaitTileHint Describe(WaitHintQuery q) {
+        if (GuobiaoGameState.UsesAuthoritativeTips(q.SubRule)) return FourJokersTips.Describe(q);
         string key = HintKey(q);
         if (HintCache.TryGetValue(key, out HintSnapshot cached)) return cached.Copy();
         WaitTileHint hint;
@@ -80,6 +82,7 @@ internal static class GuobiaoTips {
     }
 
     public static bool TryDescribeCached(WaitHintQuery q, out WaitTileHint hint) {
+        if (GuobiaoGameState.UsesAuthoritativeTips(q.SubRule)) return FourJokersTips.TryDescribeCached(q, out hint);
         if (HintCache.TryGetValue(HintKey(q), out HintSnapshot cached)) {
             hint = cached.Copy();
             return true;

@@ -75,7 +75,7 @@
             :name="t.value"
           >
             <div v-if="activeTierTotals" class="stats-grid">
-              <div v-for="row in buildPlatformStatsRows(activeTierTotals)" :key="row.label" class="stats-cell">
+              <div v-for="row in buildPlatformStatsRows(activeTierTotals, { rule: 'guobiao' })" :key="row.label" class="stats-cell">
                 <span class="stats-label">{{ row.label }}</span>
                 <span class="stats-value">{{ row.value }}</span>
               </div>

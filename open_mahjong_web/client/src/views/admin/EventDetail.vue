@@ -318,8 +318,10 @@ const RULE_LABELS = {
   zhongyong: '中庸麻将',
   guizhou: '贵州麻将',
   yixing: '宜兴麻将',
+  malaysia: '马来西亚三人麻将',
   shenyang: '沈阳麻将',
   nanjing: '南京麻将',
+  fuzhou: '福州麻将',
   wuhan: '武汉麻将',
   nanchang: '南昌麻将',
 }
@@ -360,8 +362,10 @@ const roomDialogVisible = ref(false)
 const roomRuleOptions = [
   { value: 'guizhou', label: '贵州麻将' },
   { value: 'yixing', label: '宜兴麻将' },
+  { value: 'malaysia', label: '马来西亚三人麻将' },
   { value: 'shenyang', label: '沈阳麻将' },
   { value: 'nanjing', label: '南京麻将' },
+  { value: 'fuzhou', label: '福州麻将' },
   { value: 'wuhan', label: '武汉麻将' },
   { value: 'nanchang', label: '南昌麻将' },
   { value: 'guobiao', label: '国标' },

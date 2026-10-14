@@ -1,5 +1,5 @@
 import { computed, ref, watch } from 'vue'
-import { messages, textPatterns } from './messages'
+import { messages, textPatterns } from './messages.js'
 import { SUPPORTED_LOCALES, normalizeLocale, requestedGameLocale } from './locale-utils.js'
 import { staticPageForPath } from '../seo/pages.js'
 

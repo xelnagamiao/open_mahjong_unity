@@ -12,6 +12,15 @@ DEFAULTS = {row["rule"]: row["sub_rule"] for row in reversed(RULES)}
 DEFAULTS["guangdong"] = "guangdong/tuidao_mil2024"
 
 
+def normalize_match_type(mode, sub_rule=None):
+    """Legacy three-player metadata stays readable, but all responses use /3."""
+    match = re.fullmatch(r"(\d+)/(3|4)(?:_sanma)?(_rank)?", mode or "")
+    if not match:
+        return mode
+    sanma = sub_rule in ('riichi/sanma', 'guobiao/sanma', 'malaysia/traditional84') or '_sanma' in mode or match[2] == '3'
+    return f"{match[1]}/{3 if sanma else 4}" + (match[3] or '')
+
+
 def resolve_statistics_identity(rule, sub_rule=None, title=None, match_type=None):
     title = title or {}
     rule = rule or title.get("rule")

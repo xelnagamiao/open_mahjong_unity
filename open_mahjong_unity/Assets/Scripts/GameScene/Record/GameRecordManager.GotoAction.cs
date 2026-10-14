@@ -102,7 +102,7 @@ public partial class GameRecordManager
     }
 
     private void SyncRecordRonDiscardObjectAfterRebuild() {
-        if (IsHongKongRecordRobWin || IsHongKongRecordFlowerWin || IsGuizhouRecordRobWin || IsYixingRecordRobWin || IsNanjingRecordRobWin || IsNanjingRecordForcedWin || IsChangchunRecordRobWin || IsShenyangRecordRobWin || IsHangzhouRecordTenWinds) return;
+        if (IsHongKongRecordRobWin || IsHongKongRecordFlowerWin || IsGuizhouRecordRobWin || IsYixingRecordRobWin || IsNanjingRecordRobWin || IsNanjingRecordForcedWin || IsFuzhouRecordRobWin || IsFuzhouRecordForcedWin || IsChangchunRecordRobWin || IsShenyangRecordRobWin || IsHangzhouRecordTenWinds) return;
         // 鸣牌已将候选置为 -1；历史弃牌不能重新成为荣和来源。
         int winTileId = lastWinnableTileId;
         if (winTileId < 10) return;

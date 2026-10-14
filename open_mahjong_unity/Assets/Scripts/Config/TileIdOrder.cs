@@ -15,9 +15,36 @@ public static class TileIdOrder {
     public static readonly Comparer<int> Comparer = Comparer<int>.Create(Compare);
 
     /// <summary>整手牌的固定比较器；虹雀先决定色环切口，再比较，避免循环比较破坏传递性。</summary>
-    public static IComparer<int> HandComparer(IEnumerable<int> tiles) {
+    public static IComparer<int> HandComparer(IEnumerable<int> tiles) => HandComparer(tiles, CurrentHandJokers());
+
+    public static int[] CurrentHandJokers() {
+        RuleManifest manifest = RuleRegistry.Current;
+        string subRule = RuleRegistry.CurrentSubRule;
+        if (TryGetRecordRule(out string recordRule, out string recordSubRule)) {
+            manifest = RuleRegistry.Resolve(recordRule, recordSubRule);
+            subRule = recordSubRule ?? manifest?.DefaultSubRule;
+        }
+        return (manifest?.HandJokerTiles?.Invoke(subRule) ?? Array.Empty<int>()).ToArray();
+    }
+
+    public static int[] RecordHandJokers(string rule, string subRule, Round round) {
+        var manifest = RuleRegistry.Resolve(rule, subRule);
+        var jokers = manifest?.RecordHandJokerTiles != null
+            ? manifest.RecordHandJokerTiles(round) : manifest?.HandJokerTiles?.Invoke(subRule);
+        return (jokers ?? Array.Empty<int>()).ToArray();
+    }
+
+    /// <summary>固定本次排序的癞子集合；普通牌仍遵循用户花色设置，且不修改实体牌 id。</summary>
+    public static IComparer<int> HandComparer(IEnumerable<int> tiles, IEnumerable<int> jokerTiles) {
         int[] ids = tiles.ToArray();
-        if (ids.Length == 0 || ids.Any(id => !HongqueTileVisual.IsHongqueId(id))) return Comparer;
+        if (ids.Length == 0 || ids.Any(id => !HongqueTileVisual.IsHongqueId(id))) {
+            var jokers = new HashSet<int>(jokerTiles ?? Array.Empty<int>());
+            if (jokers.Count == 0) return Comparer;
+            return Comparer<int>.Create((a, b) => {
+                int priority = jokers.Contains(b).CompareTo(jokers.Contains(a));
+                return priority != 0 ? priority : Compare(a, b);
+            });
+        }
         int[] ordered = HongqueDisplayOrder.Hand(ids).Distinct().ToArray();
         var ranks = new Dictionary<int, int>();
         for (int i = 0; i < ordered.Length; i++) ranks[ordered[i]] = i;

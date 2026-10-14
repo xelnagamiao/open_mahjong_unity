@@ -43,7 +43,7 @@ internal static class SichuanLobby {
             { CreateRoomKeys.RandomSeed, false },
             { CreateRoomKeys.TouristLimit, false },
             { CreateRoomKeys.AllowSpectator, true },
-            { CreateRoomKeys.TacticalCall, false },
+            { CreateRoomKeys.TacticalCall, true },
             { CreateRoomKeys.BloodBattle, true },
             { CreateRoomKeys.HepaiLimit, 0 },
         };

@@ -11,6 +11,9 @@ public static class CreateRoomKeys {
     public const string PointerTips = "pointer_tips";
     public const string UseFlowers = "use_flowers";
     public const string TianDiRenHe = "tian_di_ren_he";
+    public const string NoJokerBonus = "no_joker_bonus";
+    public const string BlackFlowerProgressive = "black_flower_progressive";
+    public const string JokerMultiWait = "joker_multi_wait";
     public const string Password = "password";
     public const string RandomSeed = "random_seed";
     public const string TouristLimit = "tourist_limit";

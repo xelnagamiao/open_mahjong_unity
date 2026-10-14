@@ -8,6 +8,13 @@ from contextvars import ContextVar
 
 duplicate_room_context = ContextVar("duplicate_room_context", default=None)
 SUPPORTED_RULES = {"guobiao"}
+XUELIU_WALL_RULE = "sichuan/xueliu"
+XUELIU_WALL_SUBRULES = frozenset(("sichuan/xueliu", "sichuan/xueliu_exchange", "sichuan/xueliu_doubles_duplicate"))
+
+
+def supports_duplicate_room(room):
+    return room.get("room_rule") == "guobiao" or (
+        room.get("room_rule") == "sichuan" and room.get("sub_rule") in XUELIU_WALL_SUBRULES)
 
 
 def load_duplicate_wall(db, key):
@@ -32,17 +39,20 @@ def load_duplicate_wall(db, key):
 def validate_duplicate_wall(wall, room):
     rule = room.get("room_rule", "")
     sub_rule = room.get("sub_rule", "")
-    if sub_rule == "guobiao/transparent":
-        raise ValueError("透明国标不支持普通复式牌墙，请使用随机种子复现牌局")
+    if sub_rule in ("guobiao/transparent", "guobiao/transparent_realtime", "guobiao/four_jokers", "guobiao/huahun", "guobiao/sixteen"):
+        raise ValueError("此子规则不支持普通复式牌墙，请使用随机种子复现牌局")
     if sub_rule == "guobiao/sanma":
         raise ValueError("三人国标不支持四人复式牌墙")
-    if rule not in SUPPORTED_RULES:
-        raise ValueError("复式牌墙仅支持国标麻将（含蓝十改）")
-    if wall["rule"] not in (rule, sub_rule):
+    bloodflow = rule == "sichuan" and sub_rule in XUELIU_WALL_SUBRULES
+    if not supports_duplicate_room(room):
+        raise ValueError("复式牌墙仅支持国标麻将（含蓝十改）和川麻血流")
+    if wall["rule"] not in ((XUELIU_WALL_RULE,) if bloodflow else (rule, sub_rule)):
         raise ValueError("复式牌墙的玩法与房间不一致")
     if wall.get("event_id") and wall["event_id"] != room.get("event_id"):
         raise ValueError("比赛复式牌墙只能用于所属比赛")
-    numbers = list(range(11, 20)) + list(range(21, 30)) + list(range(31, 40)) + list(range(41, 48))
+    numbers = list(range(11, 20)) + list(range(21, 30)) + list(range(31, 40))
+    if not bloodflow:
+        numbers += list(range(41, 48))
     expected = Counter({tile: 4 for tile in numbers})
     use_flowers = wall.get("use_flowers")
     if use_flowers is None:
@@ -50,6 +60,8 @@ def validate_duplicate_wall(wall, room):
         use_flowers = any(tile in range(51, 59) for tile in wall.get("tiles", []))
     if type(use_flowers) is not bool:
         raise ValueError("复式牌墙花牌设置必须为布尔值")
+    if bloodflow and use_flowers:
+        raise ValueError("血流复式牌墙不能包含花牌")
     if (sub_rule == "guobiao/lanshi" or wall["rule"] == "guobiao/lanshi") and use_flowers:
         raise ValueError("蓝十改复式牌墙不能包含花牌")
     if use_flowers:
@@ -66,7 +78,7 @@ def validate_duplicate_wall(wall, room):
         raise ValueError("复式首局牌山数据不一致")
     for index, tiles in enumerate(rounds, 1):
         if not isinstance(tiles, list) or any(type(tile) is not int for tile in tiles) or Counter(tiles) != expected:
-            raise ValueError(f"第 {index} 局复式牌墙牌组与国标子规则不一致（请核对花牌与蓝十改设置）")
+            raise ValueError(f"第 {index} 局复式牌墙牌组与{'血流子规则（108 张数牌）' if bloodflow else '国标子规则（请核对花牌与蓝十改设置）'}不一致")
     wall.update(round_count=count, round_tiles=rounds, use_flowers=use_flowers)
 
 
@@ -105,7 +117,7 @@ def reserve_duplicate_game(db, wall_id):
             row = cursor.fetchone()
             if not row:
                 raise ValueError("复式牌墙已删除，无法开始对局")
-            if row[1].split("/", 1)[0] != "guobiao" and row[1] not in ("sichuan/doubles_duplicate", "sichuan/xueliu_doubles_duplicate"):
+            if row[1].split("/", 1)[0] != "guobiao" and row[1] not in (XUELIU_WALL_RULE, "sichuan/doubles_duplicate", "sichuan/xueliu_doubles_duplicate"):
                 raise ValueError("复式牌墙仅支持国标麻将（含蓝十改）")
             cursor.execute("INSERT INTO duplicate_games (game_id, wall_id) VALUES (%s, %s)", (game_id, wall_id))
         conn.commit()

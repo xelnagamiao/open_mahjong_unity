@@ -10,7 +10,11 @@ test('observed fan labels are retained when an older display dictionary lacks th
 
 test('catalog exposes exactly the reviewed capabilities and all available modes', () => {
   assert(STATISTICS_RULES.length >= 43);
-  assert.equal(STATISTICS_RULES.filter(r=>r.fan_stats).length, 21);
+  assert.equal(STATISTICS_RULES.filter(r=>r.fan_stats).length, 24);
+  assert.equal(statisticsSelection('guobiao_huahun').sub_rule, 'guobiao/huahun');
+  assert.equal(statisticsSelection('guobiao_huahun').matchmaking, false);
+  assert.equal(statisticsSelection('guobiao_four_jokers').sub_rule, 'guobiao/four_jokers');
+  assert.equal(statisticsSelection('guobiao_four_jokers').matchmaking, false);
   assert.equal(STATISTICS_RULES.filter(r=>r.matchmaking).length, 7);
   for (const row of STATISTICS_RULES) {
     assert.equal(homeSceneOptions(row.key).length > 2, row.matchmaking, row.key);
@@ -20,7 +24,7 @@ test('catalog exposes exactly the reviewed capabilities and all available modes'
   }
   assert.deepEqual(statisticsSelection('hongque').custom_modes, ['4/4','8/4','12/4','16/4']);
   assert.deepEqual(statisticsSelection('hongque').ranked_modes, ['16/4_rank']);
-  assert.deepEqual(statisticsSelection('riichi_sanma').ranked_modes, ['1/4_sanma_rank','2/4_sanma_rank']);
+  assert.deepEqual(statisticsSelection('riichi_sanma').ranked_modes, ['1/3_rank','2/3_rank']);
   assert.deepEqual(statisticsSelection('changsha').custom_modes, ['1/4','2/4','4/4']);
   assert.equal(statisticsSelection('free'), undefined);
 });

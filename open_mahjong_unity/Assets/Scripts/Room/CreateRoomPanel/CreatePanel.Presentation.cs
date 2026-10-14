@@ -12,7 +12,8 @@ public partial class CreatePanel {
     private void RefreshHepaiLimitCaption() {
         var label = InputHepaiLimitToggle.GetComponentInChildren<TMP_Text>(true);
         if (!label) return;
-        if (defaultHepaiLimitCaption == null) defaultHepaiLimitCaption = label.text;
+        if (string.IsNullOrWhiteSpace(defaultHepaiLimitCaption))
+            defaultHepaiLimitCaption = string.IsNullOrWhiteSpace(label.text) ? "修改起和番" : label.text;
         label.text = IsShanghaiQiaoma ? "一番和" : defaultHepaiLimitCaption;
     }
     private const float RoomRuleCaptionFontSize = 28;
@@ -25,7 +26,7 @@ public partial class CreatePanel {
         tipsToggle, countTipsToggle, CuoHeheToggle, passwordToggle, TacticalCallToggle, ClaimProtectionToggle,
         TouristLimitToggle, InputHepaiLimitToggle, AllowSpectatorToggle, RedDoraToggle,
         KuikaeToggle, XiruToggle, TobiToggle, SetRandomSeedToggle, DuplicateWallToggle,
-        GuobiaoFlowersToggle, TianDiRenHeToggle, pointerTipsToggle, BloodBattleToggle, ChangshaInitialSiXiToggle,
+        GuobiaoFlowersToggle, TianDiRenHeToggle, JokerMultiWaitToggle, BlackFlowerProgressiveToggle, pointerTipsToggle, BloodBattleToggle, ChangshaInitialSiXiToggle,
         ChangshaInitialBanBanHuToggle, ChangshaInitialQueYiSeToggle, ChangshaInitialLiuLiuShunToggle,
         ChangshaInitialSanTongToggle, ChangshaDealerBirdToggle, ChangshaBaseScoreNoDealerToggle,
         WallWanToggle, WallTongToggle, WallSuoToggle, WallWindsToggle, WallDragonsToggle, WallFlowersToggle, YixingSevenPairsToggle, GuangdongMinimumScoreToggle
@@ -68,7 +69,7 @@ public partial class CreatePanel {
         RoomFieldState(PasswordPanel, passwordInput, true, passwordToggle.isOn);
         RoomFieldState(SetRandomSeedPanel, randomSeedInput, true, SetRandomSeedToggle.isOn);
         RoomFieldState(InputHepaiLimitPlane, HepaiLimitInput, InputHepaiLimitToggle.gameObject.activeSelf && !IsShanghaiQiaoma, InputHepaiLimitToggle.isOn);
-        RoomFieldState(DuplicateWallPanel, DuplicateKeyInput, _ruleState == "guobiao", DuplicateWallToggle && DuplicateWallToggle.isOn);
+        RoomFieldState(DuplicateWallPanel, DuplicateKeyInput, SupportsDuplicateWall, DuplicateWallToggle && DuplicateWallToggle.isOn);
         bool cuoheVisible = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.CuoheType) && CuoHeheToggle.gameObject.activeSelf;
         if (CuoheTypePanel) CuoheTypePanel.SetActive(cuoheVisible);
         if (CuoheTypeDropdown) CuoheTypeDropdown.interactable = CuoHeheToggle.isOn;

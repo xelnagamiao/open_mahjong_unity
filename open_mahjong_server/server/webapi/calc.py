@@ -3,10 +3,10 @@
 由 server 在创建 GameServer 后调用 register_calc_routes(app, game_server) 挂载。
 """
 import logging
-from typing import List
+from typing import List, Literal
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictBool
 
 
 class GBCalcRequest(BaseModel):
@@ -20,6 +20,23 @@ class GBCalcRequest(BaseModel):
 class GBTingpaiRequest(BaseModel):
     hand_tiles: List[int] = Field(..., description="手牌")
     tiles_combination: List[str] = Field(default_factory=list, description="副露列表")
+
+
+class FourJokersWaitRequest(BaseModel):
+    hand_tiles: List[int] = Field(..., max_items=17)
+    tiles_combination: List[str] = Field(default_factory=list, max_items=5)
+    sub_rule: Literal["guobiao/four_jokers", "guobiao/huahun", "guobiao/sixteen"] = "guobiao/four_jokers"
+
+
+class FourJokersHintRequest(FourJokersWaitRequest):
+    ron_way: List[str] = Field(default_factory=list, max_items=20)
+    self_way: List[str] = Field(default_factory=list, max_items=20)
+    get_tile: int
+    hepai_limit: int = Field(8, ge=1, le=64)
+    joker_multi_wait: StrictBool = False
+    allow_single_wait: StrictBool = True
+    no_joker_bonus: Literal["add8", "double", "none"] = "add8"
+    black_flower_progressive: StrictBool = True
 
 
 def _augment_way_with_flowers(way_to_hepai: List[str], flower_tiles: List[int]) -> List[str]:
@@ -59,6 +76,37 @@ def _augment_way_with_he_dan_zhang(
 def register_calc_routes(app: FastAPI, game_server) -> None:
     """将 /calc/* 路由挂到已创建的 FastAPI app 上。"""
     calc = game_server.calculation_service
+
+    @app.post('/calc/gb/sixteen/waits')
+    @app.post('/calc/gb/four-jokers/waits')
+    async def four_jokers_waits(req: FourJokersWaitRequest):
+        from ..game_calculation.guobiao_four_jokers import hint_snapshot
+        if req.sub_rule == "guobiao/huahun":
+            from ..game_calculation.guobiao_huahun import hint_snapshot
+        if req.sub_rule == "guobiao/sixteen":
+            from ..game_calculation.guobiao_sixteen import hint_snapshot
+        from ..gamestate.public.ai.bot_executor import run_room_bot_cpu
+        result = await run_room_bot_cpu(game_server, hint_snapshot, req.hand_tiles, req.tiles_combination)
+        result["sub_rule"] = req.sub_rule
+        return result
+
+    @app.post('/calc/gb/sixteen/hint')
+    @app.post('/calc/gb/four-jokers/hint')
+    async def four_jokers_hint(req: FourJokersHintRequest):
+        from ..game_calculation.guobiao_four_jokers import calculate_hint
+        from ..gamestate.public.ai.bot_executor import run_room_bot_cpu
+        if req.sub_rule == "guobiao/sixteen":
+            from ..game_calculation.guobiao_sixteen import calculate_hint
+            return await run_room_bot_cpu(game_server, calculate_hint, req.hand_tiles, req.tiles_combination,
+                req.ron_way, req.self_way, req.get_tile, req.hepai_limit, req.allow_single_wait)
+        if req.sub_rule == "guobiao/huahun":
+            from ..game_calculation.guobiao_huahun import calculate_hint
+            return await run_room_bot_cpu(game_server, calculate_hint, req.hand_tiles, req.tiles_combination,
+                req.ron_way, req.self_way, req.get_tile, req.hepai_limit, req.joker_multi_wait,
+                req.allow_single_wait, req.no_joker_bonus, req.black_flower_progressive)
+        return await run_room_bot_cpu(game_server, calculate_hint, req.hand_tiles, req.tiles_combination,
+                                     req.ron_way, req.self_way, req.get_tile, req.hepai_limit,
+                                     req.joker_multi_wait, req.allow_single_wait)
 
     @app.post("/calc/gb/score")
     async def calc_gb_score(req: GBCalcRequest):

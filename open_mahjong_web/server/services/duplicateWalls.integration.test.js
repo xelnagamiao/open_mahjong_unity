@@ -63,7 +63,7 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
       try {
         const catalogResponse = await request('/catalog');
         assert.equal(catalogResponse.status, 200);
-        assert.deepEqual((await catalogResponse.json()).data.rules.map((item) => item.rule), ['guobiao', 'guobiao/lanshi']);
+        assert.deepEqual((await catalogResponse.json()).data.rules.map((item) => item.rule), ['guobiao', 'guobiao/lanshi', 'sichuan/xueliu']);
         assert.equal((await request('/mine')).status, 401);
         assert.equal((await request('', 'POST', undefined, body)).status, 401);
         assert.equal((await request('', 'POST', 'invalid-token', body)).status, 401);
@@ -129,6 +129,31 @@ test('PostgreSQL duplicate quotas, record permissions and public results', {
         assert.equal(noFlowerDto.seed, 'public-known-text');
         assert.equal((await request('', 'POST', token(901), { ...body, use_flowers: 'false' })).status, 400);
       } finally { await new Promise((resolve) => server.close(resolve)); }
+    });
+
+    await t.test('bloodflow manual, seed and key walls persist the 108-tile layout and keep hidden keys private', async () => {
+      for (const [index, wall_type] of ['manual', 'seed', 'key'].entries()) {
+        const owner = 81200 + index;
+        const input = { scope: 'personal', rule: 'sichuan/xueliu', wall_type, round_count: 4,
+          seed: 'bloodflow-db', round_tiles: Array.from({ length: 4 }, () => fullWall('sichuan/xueliu')) };
+        const { wall } = await service.create(owner, input);
+        assert.equal(wall.wall_layout, 'xueliu');
+        assert.equal(wall.tile_count, 108);
+        assert.equal(wall.round_count, 4);
+        assert.equal(wall.use_flowers, false);
+        const stored = (await pool.query('SELECT * FROM duplicate_walls WHERE id=$1', [wall.id])).rows[0];
+        assert.equal(stored.round_tiles.length, 4);
+        for (const tiles of stored.round_tiles) {
+          assert.equal(tiles.slice(84).length, 24);
+          assert.deepEqual([...tiles].sort((a,b)=>a-b), fullWall('sichuan/xueliu'));
+        }
+        const mine = (await service.mine(owner)).items[0];
+        if (wall_type === 'key') {
+          assert.equal('tiles' in mine, false);
+          assert.equal('round_tiles' in mine, false);
+          assert.equal('seed' in mine, false);
+        } else assert.deepEqual(mine.round_tiles, stored.round_tiles);
+      }
     });
 
     await t.test('concurrent creation and deletion cannot bypass the five-per-day limit', async () => {

@@ -11,6 +11,7 @@ export function shouldShowTileLabels(mode: TileLabelMode, language: string): boo
 
 export function tileFaceLabel(faceId: number): string {
   if (!Number.isInteger(faceId)) return ''
+  if (faceId === 59) return 'J'
   if ([105, 205, 305].includes(faceId)) return '5'
   if ([1, 2, 3].includes(Math.floor(faceId / 10)) && faceId % 10 >= 1 && faceId % 10 <= 9) {
     return String(faceId % 10)
@@ -20,7 +21,7 @@ export function tileFaceLabel(faceId: number): string {
     return labels[faceId - 41]
   }
   if (faceId >= 51 && faceId <= 58) return String((faceId - 51) % 4 + 1)
-  return ''
+  return ({61:'Cat',62:'Rat',63:'Hen',64:'Bug',71:'1',72:'2',73:'3',74:'4',81:'Fly'} as Record<number,string>)[faceId] || ''
 }
 
 export function tileFaceLabelColor(faceId: number): string {

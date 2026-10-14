@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.U2D;
 
@@ -32,6 +33,7 @@ public class MahjongObjectPool : MonoBehaviour {
     private Dictionary<int, Queue<GameObject>> poolDictionary;
     private Dictionary<int, Sprite> spriteCache = new Dictionary<int, Sprite>();
     private readonly Dictionary<Material, Material> washizuMaterials = new Dictionary<Material, Material>();
+    private readonly Dictionary<Material, Material> washizuInkMaterials = new Dictionary<Material, Material>();
     private readonly Dictionary<Material, Material> washizuReadingMaterials = new Dictionary<Material, Material>();
     private Mesh washizuReadingMesh;
     private Dictionary<int, Material> hongqueMaterialCache = new Dictionary<int, Material>();
@@ -48,6 +50,7 @@ public class MahjongObjectPool : MonoBehaviour {
         }
 
         CacheAllSprites(cardAtlas);
+        foreach (int id in MalaysiaTileVisual.Ids) spriteCache[id] = MalaysiaTileVisual.Sprite(id);
         InitializePool();
     }
 
@@ -60,7 +63,7 @@ public class MahjongObjectPool : MonoBehaviour {
             21, 22, 23, 24, 25, 26, 27, 28, 29,
             31, 32, 33, 34, 35, 36, 37, 38, 39,
             41, 42, 43, 44, 45, 46, 47,
-            51, 52, 53, 54, 55, 56, 57, 58,
+            51, 52, 53, 54, 55, 56, 57, 58, 59,
             105, 205, 305 // 立直麻将：赤 5m / 赤 5p / 赤 5s
         };
 
@@ -93,9 +96,9 @@ public class MahjongObjectPool : MonoBehaviour {
             11, 12, 13, 14, 15, 16, 17, 18, 19,
             21, 22, 23, 24, 25, 26, 27, 28, 29,
             31, 32, 33, 34, 35, 36, 37, 38, 39,
-            41, 42, 43, 44, 45, 46, 47
+            41, 42, 43, 44, 45, 46, 47, 81
         };
-        foreach (int tileId in standardTiles) {
+        foreach (int tileId in standardTiles.Concat(new[] {59})) {
             Queue<GameObject> objectPool = new Queue<GameObject>();
             for (int i = 0; i < 4; i++) {
                 GameObject obj = Instantiate(tile3DPrefab);
@@ -108,7 +111,8 @@ public class MahjongObjectPool : MonoBehaviour {
             poolDictionary[tileId] = objectPool;
         }
 
-        int[] flowerTiles = { 51, 52, 53, 54, 55, 56, 57, 58 };
+        // 花牌、动物牌和人头牌各一张实体，独立对象池支持补花和牌谱。
+        int[] flowerTiles = { 51, 52, 53, 54, 55, 56, 57, 58, 61, 62, 63, 64, 71, 72, 73, 74 };
         foreach (int tileId in flowerTiles) {
             Queue<GameObject> objectPool = new Queue<GameObject>();
             GameObject obj = Instantiate(tile3DPrefab);
@@ -195,6 +199,9 @@ public class MahjongObjectPool : MonoBehaviour {
             if (material != null) action(material);
         }
         foreach (Material material in washizuMaterials.Values) {
+            if (material != null) action(material);
+        }
+        foreach (Material material in washizuInkMaterials.Values) {
             if (material != null) action(material);
         }
         foreach (Material material in washizuReadingMaterials.Values) {
@@ -431,9 +438,23 @@ public class MahjongObjectPool : MonoBehaviour {
                     Shader shader = Resources.Load<Shader>("Washizu/TransparentTile");
                     if (shader == null) { Debug.LogError("Washizu glass shader is missing"); return; }
                     glass = new Material(source) { shader = shader, name = "WashizuGlass_" + source.name, renderQueue = 3000 };
+                    glass.SetFloat("_InkPass", 0f);
+                    // Keep the far printed plane visible through the body.
+                    // The shader rejects unneeded interior side/back surfaces.
+                    glass.SetFloat("_Cull", 0f);
+                    glass.SetFloat("_ZWrite", 0f);
                     washizuMaterials[source] = glass;
                 }
-                tile3D.SetGlassMaterial(glass);
+                if (!washizuInkMaterials.TryGetValue(glass, out Material ink) || ink == null) {
+                    // Include opaque paint in the camera color/depth before glass
+                    // refraction, so the paint never samples the cloth behind it.
+                    ink = new Material(glass) { name = "WashizuInk_" + source.name, renderQueue = 2450 };
+                    ink.SetFloat("_InkPass", 1f);
+                    ink.SetFloat("_Cull", 0f);
+                    ink.SetFloat("_ZWrite", 1f);
+                    washizuInkMaterials[glass] = ink;
+                }
+                tile3D.SetGlassMaterial(glass, ink);
             }
             tile3D.SetTileIds(tileId, face);
             return;
@@ -495,6 +516,8 @@ public class MahjongObjectPool : MonoBehaviour {
     }
 
     private void ClearWashizuMaterials() {
+        foreach (Material ink in washizuInkMaterials.Values) if (ink != null) Destroy(ink);
+        washizuInkMaterials.Clear();
         foreach (Material glass in washizuMaterials.Values) if (glass != null) Destroy(glass);
         washizuMaterials.Clear();
         foreach (Material paper in washizuReadingMaterials.Values) if (paper != null) Destroy(paper);

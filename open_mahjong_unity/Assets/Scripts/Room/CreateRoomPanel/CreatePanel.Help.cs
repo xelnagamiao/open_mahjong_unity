@@ -62,6 +62,7 @@ public partial class CreatePanel {
         if (_ruleState == "guobiao") ApplyGuobiaoTierPreset(0);
         else if (_ruleState == "riichi") ApplyRiichiPreset(0);
         else if (_ruleState == "hongkong") ResetHongKongMainControls();
+        else if (_ruleState == FuzhouGameState.RuleId) ResetFuzhouControls();
     }
 
     private void ResetRoomDefaults() {

@@ -3,29 +3,29 @@
     class="scoreboard-layer"
     role="dialog"
     aria-modal="true"
-    aria-label="计分板"
+    :aria-label="tr('计分板')"
     @click.self="$emit('close')"
   >
     <section class="scoreboard-panel">
       <header class="scoreboard-panel__header">
-        <h2>计分板</h2>
-        <button type="button" aria-label="关闭计分板" @click="$emit('close')">×</button>
+        <h2>{{ tr('计分板') }}</h2>
+        <button type="button" :aria-label="tr('关闭计分板')" @click="$emit('close')">×</button>
       </header>
 
       <div class="scoreboard-panel__scroll">
         <table class="scoreboard-table">
           <thead>
             <tr>
-              <th rowspan="2" class="scoreboard-table__round">局数</th>
-              <th rowspan="2" class="scoreboard-table__fan">主番</th>
+              <th rowspan="2" class="scoreboard-table__round">{{ tr('局数') }}</th>
+              <th rowspan="2" class="scoreboard-table__fan">{{ tr('主番') }}</th>
               <th v-for="player in orderedPlayers" :key="player.player_index" colspan="2" data-no-translate>
                 {{ player.username || `#${player.user_id}` }}
               </th>
             </tr>
             <tr>
               <template v-for="player in orderedPlayers" :key="`sub-${player.player_index}`">
-                <th>本局</th>
-                <th>分值</th>
+                <th>{{ tr('本局') }}</th>
+                <th>{{ tr('分值') }}</th>
               </template>
             </tr>
           </thead>
@@ -39,16 +39,14 @@
               @keydown.enter="selectable && !row.predicted && $emit('select-row', row.sourceIndex)"
             >
               <th>{{ row.roundLabel }}</th>
-              <td>{{ row.predicted ? '' : (row.mainFan || '—') }}</td>
+              <td>{{ row.predicted ? '' : translateFanName(row.mainFan || '—') }}</td>
               <template v-for="cell in row.players" :key="`${row.key}-${cell.seat}`">
                 <td :class="scoreClass(cell.deltaValue)">{{ cell.delta }}</td>
                 <td>{{ cell.total }}</td>
               </template>
             </tr>
             <tr v-if="!rows.length">
-              <td class="scoreboard-table__empty" :colspan="2 + orderedPlayers.length * 2">
-                尚无结算记录
-              </td>
+              <td class="scoreboard-table__empty" :colspan="2 + orderedPlayers.length * 2">{{ tr('尚无结算记录') }}</td>
             </tr>
           </tbody>
         </table>
@@ -60,6 +58,7 @@
 <script setup>
 import { computed } from 'vue'
 import { locale, roundLabelKey, tr } from '@/i18n'
+import { translateFanName } from '@/i18n/fanNames'
 
 const props = defineProps({
   players: { type: Array, default: () => [] },

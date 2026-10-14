@@ -66,14 +66,9 @@ def test_reconnect_spectator_and_pydantic_envelopes_preserve_private_fields():
 
 
 @pytest.mark.parametrize('seed',[811,812])
-def test_complete_async_bot_games_have_four_scored_rounds(monkeypatch,seed):
-    from . import bot
-    from ..public.ai import pacing
-    async def immediate(*a,**kw):return None
-    monkeypatch.setattr(bot,'wait_bot_delay',immediate)
-    monkeypatch.setattr(pacing,'bot_delay',lambda *a,**kw:0)
+def test_complete_async_bot_games_have_four_scored_rounds(seed):
     async def play():
-        data={**NanchangGameState._default_room_data(),'player_list':[1,2,3,4],'random_seed':seed,'game_round':1}
+        data={**NanchangGameState._default_room_data(),'player_list':[1,2,3,4],'random_seed':seed,'game_round':1,'bot_speed':'instant'}
         s=NanchangGameState(room_data=data,calculation_service=object())
         await asyncio.wait_for(s.run_game_loop(),30)
         assert s.machine.phase==P.FINISHED and len(s.game_record['game_round'])==4
@@ -84,3 +79,24 @@ def test_complete_async_bot_games_have_four_scored_rounds(monkeypatch,seed):
             metrics=analyze_shared_record_for_player(s.game_record,p.original_player_index)
             assert metrics['total_rounds']==4 and metrics['total_round_score']==p.score
     asyncio.run(play())
+
+
+@pytest.mark.parametrize('speed',['instant','fast','medium','slow'])
+def test_scheduled_bot_discards_without_waiting_for_timeout(speed):
+    async def check():
+        s=state();s.bot_speed=speed;p=s.player_list[0]
+        p.user_id=1;p.hand_tiles=NORMAL[:-1]+[47];p.has_draw_slot=True
+        p.remaining_time=0;s.step_time=0
+        w=s.open_action_window(s.begin_turn(0))
+        assert w['actions'][0]==['cut']
+        # Exercise the real scheduler and pacing helper. A crashed bot would
+        # otherwise be hidden by the action window's automatic timeout discard.
+        results=await asyncio.wait_for(s.wait_action(),3)
+        response=results[0]
+        assert response['action_type']=='cut'
+        assert not response.get('is_timeout_action',False)
+        assert response['_receipt_tick']==w['action_tick']
+        assert response['TileId'] in p.hand_tiles
+        s.apply_action_results(w,results)
+        assert len(p.hand_tiles)==13 and p.discard_tiles==[response['TileId']]
+    asyncio.run(check())

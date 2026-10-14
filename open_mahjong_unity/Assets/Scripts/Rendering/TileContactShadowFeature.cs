@@ -122,7 +122,7 @@ public sealed class TileContactShadowFeature : ScriptableRendererFeature {
             GeometryUtility.CalculateFrustumPlanes(data.camera, _planes);
             int count = 0;
             foreach (TileContactShadow tile in TileContactShadow.ActiveTiles) {
-                if (tile == null || !tile.isActiveAndEnabled || tile.Body == null || tile.Body.sharedMesh == null) continue;
+                if (tile == null || !tile.isActiveAndEnabled || tile.OpacityMultiplier <= 0f || tile.Body == null || tile.Body.sharedMesh == null) continue;
                 Renderer body = tile.BodyRenderer;
                 if (body == null || !body.enabled || body.forceRenderingOff || (data.camera.cullingMask & (1 << body.gameObject.layer)) == 0) continue;
                 var scene = tile.gameObject.scene;
@@ -158,7 +158,7 @@ public sealed class TileContactShadowFeature : ScriptableRendererFeature {
                 // Flat tiles need a lighter base than standing tiles. Use the face
                 // normal so discards, reveals and face-down tiles share one rule.
                 float poseOpacity = Mathf.Lerp(1f, data.flatOpacityRatio, Mathf.SmoothStep(0f, 1f, projection.FlatAlignment));
-                _opacities[count] = new Vector4(data.opacity * poseOpacity * contact * (1f - Mathf.SmoothStep(0f, 1f, lift)), 0f, 0f, 0f);
+                _opacities[count] = new Vector4(data.opacity * tile.OpacityMultiplier * poseOpacity * contact * (1f - Mathf.SmoothStep(0f, 1f, lift)), 0f, 0f, 0f);
                 count++;
                 tileCount++;
                 if (count == Capacity) { Submit(context, count); count = 0; }

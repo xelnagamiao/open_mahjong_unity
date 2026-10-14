@@ -43,6 +43,7 @@ from ..public.claim_protection import (begin_discard, send_cut,
     stage_protected_cut, schedule_meld)
 from ..public.outbound_pipe import send_to_viewer, schedule_viewer_send
 from ..public.ask_timing import begin_ask_round, note_ask_delivered
+from .realtime_hand import layouts_for_viewer
 
 
 async def _deliver(self, viewer, payload):
@@ -188,6 +189,7 @@ def _build_player_info(player, viewer_uid: int, viewer_player_index: int) -> dic
 
 
 async def broadcast_game_start(self):
+    from .realtime_hand import layouts_for_viewer
     ensure_hand_draw_source_round(self)
     base = _build_base_game_info(self)
     for cp in self.player_list:
@@ -198,7 +200,8 @@ async def broadcast_game_start(self):
                 continue
             player_conn = self.game_server.user_id_to_connection[cp.user_id]
             infos = [_build_player_info(p, cp.user_id, cp.player_index) for p in self.player_list]
-            game_info = GameInfo(**{**base, "players_info": infos, "self_hand_tiles": None})
+            game_info = GameInfo(**{**base, "players_info": infos, "self_hand_tiles": None,
+                                    "washizu_layouts": layouts_for_viewer(self, cp.player_index)})
             response = Response(type="gamestate/riichi/game_start", success=True, message="游戏开始", game_info=game_info)
             await _send_response(self, cp.player_index, response)
         except Exception as e:
@@ -343,7 +346,8 @@ async def broadcast_do_action(
                 message="返回操作内容",
                 do_action_info=Do_action_info(
                     washizu_hands=public_hands(self),
-                    tile_count=max(0, len(self.tiles_list)-self.dead_wall_count) if self.sub_rule == 'riichi/washizu' else None,
+                    washizu_layouts=layouts_for_viewer(self, cp.player_index) if not is_claim else None,
+                    tile_count=max(0, len(self.tiles_list)-self.dead_wall_count) if self.sub_rule in ('riichi/washizu', 'riichi/washizu_realtime') else None,
                     action_list=action_list,
                     action_player=action_player,
                     action_tick=self.server_action_tick,
@@ -419,6 +423,13 @@ async def broadcast_result(
     silent: bool = False,
     next_status: Optional[str] = None,
 ):
+    from .realtime_hand import ordered_reveal
+    hepai_player_hand = ordered_reveal(self, hepai_player_index, hepai_player_hand, winning_tile=True)
+    if tenpai_hands is not None:
+        tenpai_hands = {pi: ordered_reveal(self, int(pi), hand) for pi, hand in tenpai_hands.items()}
+    if simultaneous_hu_hands is not None:
+        simultaneous_hu_hands = {pi: ordered_reveal(self, int(pi), hand, winning_tile=True)
+                                 for pi, hand in simultaneous_hu_hands.items()}
     # 和牌分变只描述本次结算；计分板还须计入此前支付的立直棒。
     history_before = getattr(self, "_score_history_scores_before", None)
     score_history_changes = None

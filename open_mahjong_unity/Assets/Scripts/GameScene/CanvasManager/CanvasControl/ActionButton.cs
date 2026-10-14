@@ -234,6 +234,8 @@ public class ActionButton : MonoBehaviour {
     private static List<(int targetTile, List<int> displayTiles)> CollectAngangOptions(List<int> handTiles) {
         if (WuhanGameState.Active != null) return WuhanGameState.CollectAngangOptions(handTiles);
         var options = new List<(int, List<int>)>();
+        if (GameSession.Current.SubRule == GuobiaoGameState.HuahunSubRule && HuahunRules.CanFlowerKong(handTiles))
+            options.Add((51, new List<int> {51,52,53,54}));
         var processedNorms = new HashSet<int>();
         // 不可和的花色（四川定缺）不能暗杠
         int excludedSuit = RuleRegistry.ActiveGameState?.ExcludedSuit ?? 0;

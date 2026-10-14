@@ -1,6 +1,7 @@
 # 数据路由处理器
 import logging
 import asyncio
+from .statistics_catalog import normalize_match_type
 from functools import partial
 from ..response import Response, Rule_stats_response, Player_stats_info, Record_info, Record_detail, Player_record_info, Player_info_response, UserSettings, LeaderboardEntry
 
@@ -146,7 +147,7 @@ async def handle_get_record_list(game_server, Connect_id: str, message: dict, we
                 game_id=game_record['game_id'],
                 rule=game_record['rule'],
                 sub_rule=game_record.get('sub_rule'),
-                match_type=game_record.get('match_type'),
+                match_type=normalize_match_type(game_record.get('match_type'), game_record.get('sub_rule')),
                 created_at=game_record['created_at'],
                 players=players_info,
                 is_favorite=bool(game_record.get('is_favorite')),
@@ -300,7 +301,7 @@ async def handle_get_rank_record_list(game_server, Connect_id: str, message: dic
             records = await _run_record_read(game_server.db_manager.get_rank_record_list, limit=limit, rule=rule)
             response.record_list = [Record_info(
                 game_id=r['game_id'], rule=r.get('rule') or '', sub_rule=r.get('sub_rule'),
-                match_type=r.get('match_type'), match_queue_type=r.get('match_queue_type'),
+                match_type=normalize_match_type(r.get('match_type'), r.get('sub_rule')), match_queue_type=r.get('match_queue_type'),
                 created_at=r.get('created_at') or '', players=[Player_record_info(**p) for p in r.get('players',[])]) for r in records]
             response.success = True
             response.message = f"获取到 {len(records)} 局对局"

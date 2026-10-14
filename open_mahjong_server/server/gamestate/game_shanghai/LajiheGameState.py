@@ -30,10 +30,13 @@ class LajiheGameState(QinghunpengGameState):
     draw_debt_enabled = False
     concealed_kongs_public = True
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, game_server, room_data, calculation_service, db_manager, gamestate_id):
+        super().__init__(game_server, room_data, calculation_service, db_manager, gamestate_id)
         self.rules = replace(self.rules, chow_discard_restriction_mode="strict")
-        self.rules_dict = {"edition": "lajihe", "self_draw_garbage": 5, "self_draw_other": 10}
+        self.self_draw_extra_base = (room_data.get("detailed_config") or {}).get(calculation.SELF_DRAW_EXTRA_BASE) is True
+        extra = 5 if self.self_draw_extra_base else 0
+        self.rules_dict = {"edition": "lajihe", "self_draw_garbage": 5 + extra, "self_draw_other": 10 + extra,
+                           calculation.SELF_DRAW_EXTRA_BASE: self.self_draw_extra_base}
         self.smart_bot_action = lajihe_bot
 
     def _reset_taiwan_players(self):
@@ -61,7 +64,7 @@ class LajiheGameState(QinghunpengGameState):
             hand.append(tile)
         return calculation.score(hand, player.combination_tiles, player.huapai_list,
             self_draw=source == "self_draw", replacement=source == "self_draw" and self.last_draw_after_kong,
-            rob_kong=source == "robbing_kong")
+            rob_kong=source == "robbing_kong", self_draw_extra_base=self.self_draw_extra_base)
 
     def enter_water(self, player_index):
         if self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang"):

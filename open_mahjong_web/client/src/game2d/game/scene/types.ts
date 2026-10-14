@@ -49,6 +49,7 @@ export interface ViewerAction {
 }
 
 export interface ViewerSnapshot {
+  forbidden_discard_tiles?: number[]
   seat_index: number
   pending?: string
   decision_timer_ms: number | null
@@ -93,4 +94,6 @@ export interface ActiveSessionSnapshot {
     scores?: number[]
   } | null
   reveal_all_hands?: boolean
+  /** Physical joker ids in the same encoding as hand_tiles; presentation only. */
+  hand_joker_tiles?: number[]
 }

@@ -3,7 +3,7 @@ from copy import deepcopy
 
 from .SichuanGameState import SichuanGameState
 from .XueliuDoublesGameState import XueliuDoublesGameState
-from ...game_calculation.sichuan.duplicate_rules import team_by_seat
+from ...game_calculation.sichuan.duplicate_rules import team_by_seat, flatten_board
 
 
 class DuplicateMixin:
@@ -13,12 +13,10 @@ class DuplicateMixin:
         self.duplicate_table = room_data["duplicate_table"]
         self.duplicate_match.states[self.duplicate_table] = self
         self.duplicate_key = room_data["duplicate_key"]
-        self.duplicate_wall_type = "key"
+        self.duplicate_wall_type = self.duplicate_match.data.get("wall_type", "key")
         self.duplicate_round_count = self.duplicate_match.data["planned_boards"]
         self._duplicate_seed = self.duplicate_match.data["seed"]
-        self._duplicate_round_tiles = [
-            [t for i in range(4) for t in board["hands"][i] + board["walls"][i]]
-            for board in self.duplicate_match.data["boards"]]
+        self._duplicate_round_tiles = [flatten_board(board) for board in self.duplicate_match.data["boards"]]
         self._duplicate_tiles = self._duplicate_round_tiles[0]
         self._duplicate_game_id = room_data["duplicate_game_id"]
         self.duplicate_adjustments = [0, 0]
@@ -124,18 +122,20 @@ class DuplicateMixin:
         # completion. Reuse its end timestamp so crash recovery is identical.
         self.game_record = deepcopy(data["checkpoints"][self.duplicate_table]["game_record"])
         scores = data["scores"]
+        public_result = self.duplicate_match.public_info()
         winner = None if scores[0] == scores[1] else int(scores[1] > scores[0])
         self.team_result = {"scores": dict(enumerate(scores)), "winner_team_id": winner,
+                            "small_scores": dict(enumerate(public_result["small_scores"])),
+                            "imp_scores": dict(enumerate(public_result["imp_scores"])),
                             "reason": data["profile"]["scoring"], "match_points": {
                                 t: .5 if winner is None else int(t == winner) for t in (0, 1)},
                             "extra_boards": max(0, data["completed_boards"] - data["planned_boards"])}
         self.game_record["doubles_result"] = deepcopy(self.team_result)
         self.game_record["game_title"]["doubles_result"] = deepcopy(self.team_result)
-        self.game_record["duplicate_match"] = self.duplicate_match.public_info()
+        self.game_record["duplicate_match"] = public_result
         self.game_record["duplicate_match"]["ready_tables"] = []
         self.game_record["duplicate_boards"] = deepcopy(data["boards"])
-        self.game_record["game_title"]["duplicate_round_tiles"] = [
-            [t for i in range(4) for t in b["hands"][i] + b["walls"][i]] for b in data["boards"]]
+        self.game_record["game_title"]["duplicate_round_tiles"] = [flatten_board(b) for b in data["boards"]]
         for player in self.player_list:
             player.record_counter.rank_result = 1 if winner is None or player.team_id == winner else 2
 

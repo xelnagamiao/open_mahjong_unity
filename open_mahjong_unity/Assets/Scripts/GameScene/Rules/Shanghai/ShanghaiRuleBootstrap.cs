@@ -24,6 +24,8 @@ internal static class ShanghaiRuleBootstrap {
                 { CreateRoomKeys.SubRule, 0 },
                 { CreateRoomKeys.HepaiLimit, 0 },
                 { ShanghaiHandCalculator.Qing3Hun2Peng2Key, false },
+                { ShanghaiHandCalculator.EnableTianQiaoKey, false },
+                { LajiheHandCalculator.SelfDrawExtraBaseKey, false },
                 { CreateRoomKeys.GameRound, 4 },
                 { CreateRoomKeys.RoundTimer, 3 },
                 { CreateRoomKeys.StepTimer, 1 },
@@ -138,6 +140,7 @@ internal static class ShanghaiRuleBootstrap {
     }
 
     private static string FanValue(string rule, string name) {
+        if ((rule == "shanghai" || rule == "shanghai/qiaoma") && name == "天敲") return "2番";
         if ((rule == "shanghai" || rule == "shanghai/qiaoma") && TryQiaomaFanValue(name, out _, out string fanValue)) return fanValue;
         if (TryFlowerValue(name, out _, out string value)) return value;
         if (rule == LajiheHandCalculator.SubRule) {
@@ -186,7 +189,7 @@ internal static class ShanghaiRuleBootstrap {
         int start = name.IndexOf('（');
         if (start <= 0 || !int.TryParse(name.Substring(start + 1, name.Length - start - 3), out int fan)) return false;
         string pattern = name.Substring(0, start);
-        if (pattern != "清一色" && pattern != "混一色" && pattern != "碰碰和") return false;
+        if (pattern != "清一色" && pattern != "混一色" && pattern != "碰碰和" && pattern != "天敲") return false;
         label = pattern; value = $"{fan}番";
         return true;
     }

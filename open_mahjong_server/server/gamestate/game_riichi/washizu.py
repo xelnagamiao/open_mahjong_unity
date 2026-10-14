@@ -1,10 +1,10 @@
 """Washizu's public hand projection and shared shuffled draw pool."""
 from collections import Counter
 from itertools import combinations
-from ...game_calculation.riichi.washizu_tiles import SUB_RULE, is_transparent, normalize
+from ...game_calculation.riichi.washizu_tiles import SUB_RULES, REALTIME_SUB_RULE, is_transparent, normalize
 
 def enabled(game):
-    return getattr(game, 'sub_rule', None) == SUB_RULE
+    return getattr(game, 'sub_rule', None) in SUB_RULES
 
 def public_hand(tiles):
     visible = sorted((t for t in tiles if is_transparent(t)), key=normalize)
@@ -13,6 +13,9 @@ def public_hand(tiles):
 def public_hands(game):
     if not enabled(game):
         return None
+    if getattr(game, 'sub_rule', None) == REALTIME_SUB_RULE:
+        from .realtime_hand import layout_for_viewer
+        return {p.player_index: layout_for_viewer(game, p, -1)['tiles'] for p in game.player_list}
     # Sort the public projection independently of the owner's private hand order.
     return {p.player_index: public_hand(p.hand_tiles) for p in game.player_list}
 
@@ -29,6 +32,10 @@ def valid_call_choice(player, action, index):
     return not (Counter(options[index]) - available)
 
 def init_pool_after_deal(game):
+    if getattr(game, 'sub_rule', None) == REALTIME_SUB_RULE:
+        from .realtime_hand import initialize_hand
+        for player in game.player_list:
+            initialize_hand(game, player)
     game.dora_indicators = [game.tiles_list.pop()]
     game.kan_dora_indicators = []
     game.ura_dora_indicators = []

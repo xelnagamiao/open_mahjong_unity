@@ -21,10 +21,12 @@ import type {
 } from './types'
 import type { WaitInfoData } from '../game/scene/WaitDisplay'
 import { buildLocalWaitData, type WaitInfoData as LocalWaitInfoData } from '../calc/guobiao/waitTips'
+import { acceptFourJokersSnapshot } from '../calc/guobiao/fourJokers'
 
 /** Salasasa/server tile ids: 45中 46白 47发 → mmcr honor ranks z5/z6/z7 (same order). */
 export function salasasaTileToMmcr(tile: number | null | undefined): number {
   if (!tile || tile < 0) return 0
+  if ([61,62,63,64,71,72,73,74,81].includes(tile)) return 0x100 + tile
   const normalized = tile === 105 ? 15 : tile === 205 ? 25 : tile === 305 ? 35 : tile
   const suit = Math.floor(normalized / 10)
   const rank = normalized % 10
@@ -32,12 +34,13 @@ export function salasasaTileToMmcr(tile: number | null | undefined): number {
   if (suit === 2 && rank >= 1 && rank <= 9) return 0x60 | rank
   if (suit === 3 && rank >= 1 && rank <= 9) return 0xc0 | rank
   if (suit === 4 && rank >= 1 && rank <= 7) return 0xa0 | rank
-  if (suit === 5 && rank >= 1 && rank <= 8) return 0xe0 | rank
+  if (suit === 5 && rank >= 1 && rank <= 9) return 0xe0 | rank
   return 0
 }
 
 export function mmcrTileToSalasasa(tile: number | null | undefined): number {
   if (!tile) return 0
+  if ([61,62,63,64,71,72,73,74,81].includes(tile - 0x100)) return tile - 0x100
   const suit = tile & 0xe0
   const rank = tile & 0x0f
   if (suit === 0x40) return 10 + rank
@@ -57,7 +60,7 @@ function parseMeld(target: string, mask: number[] | undefined, ownerSeat: number
   const horizontalTilePosition = reserved && horizontalPairIndex >= 0
     ? mask!.slice(0, horizontalPairIndex).filter((value, index) => index % 2 === 0 && !isMeldStack(value) && value !== 3 && value !== 4).length
     : horizontalPairIndex >= 0 ? Math.floor(horizontalPairIndex / 2) : 0
-  const presentation = reserved
+  const presentation = reserved || target === "G51"
     ? { physical_mask: mask!.map((value, index) => index % 2 ? salasasaTileToMmcr(value) : value) } : {}
   const meldFromRel = ([1, 2, 3][horizontalTilePosition] ?? 1) as number
   void ownerSeat
@@ -305,6 +308,7 @@ export class SalasasaGameAdapter {
   }
 
   private fromGameInfo(game: SalasasaGameInfo): ActiveSessionSnapshot {
+    acceptFourJokersSnapshot(game.four_jokers_hints)
     if (game.room_rule !== 'guobiao') throw new Error('2D 客户端仅支持国标对局')
     const playersInfo = normalizePlayersInfo(game.players_info, this.userId)
     const normalizedGame = { ...game, players_info: playersInfo }
@@ -325,6 +329,7 @@ export class SalasasaGameAdapter {
       this.seatCombinations[seat] = [...(player.combination_tiles ?? [])]
     }
     const snapshot: ActiveSessionSnapshot = {
+      hand_joker_tiles: game.sub_rule === 'guobiao/huahun' ? [51,52,53,54].map(salasasaTileToMmcr) : game.sub_rule === 'guobiao/four_jokers' ? [salasasaTileToMmcr(59)] : [],
       phase: 'active',
       session_id: game.room_id,
       state: {
@@ -407,6 +412,8 @@ export class SalasasaGameAdapter {
         playerIndex: this.selfSeat,
         currentRound: Number(this.gameInfoValue.current_round ?? 1),
         hepaiLimit: Number(this.gameInfoValue.hepai_limit ?? 8),
+        jokerMultiWait: !!this.gameInfoValue.joker_multi_wait,
+        noJokerBonus: this.gameInfoValue.no_joker_bonus, blackFlowerProgressive: this.gameInfoValue.black_flower_progressive,
         subRule: this.gameInfoValue.sub_rule ?? 'guobiao/standard',
         seatDiscards: this.seatDiscards.map((list) => [...list]),
         seatCombinations,
@@ -417,13 +424,16 @@ export class SalasasaGameAdapter {
   }
 
   private fromHandPrompt(info: SalasasaAskHandInfo): GameEventPayload {
+    acceptFourJokersSnapshot(info.four_jokers_hints)
     const snapshot = this.ensureSnapshot()
     snapshot.state.remaining_tile_count = info.remain_tiles
     // ask_hand 会同步给四家，但只有当前座位能得到操作按钮。
     const ownActions = info.player_index === this.selfSeat ? info.action_list : []
+    const forbidden = info.forbidden_cut_tiles ?? []
     const viewer: ViewerSnapshot = {
       seat_index: snapshot.viewer.seat_index,
       pending: ownActions.length ? 'decision' : 'none',
+      forbidden_discard_tiles: forbidden.map(salasasaTileToMmcr),
       decision_timer_ms: ownActions.length
         ? this.decisionTimerMs(info.remaining_time, false, info.step_remaining, info.remaining_time_ms, info.step_remaining_ms)
         : null,
@@ -706,6 +716,7 @@ export class SalasasaGameAdapter {
         : undefined,
       use_drawn_tile: info.cut_class ?? info.is_mo_gang ?? info.is_mo_buhua ?? false,
       ui64_value: ui64Value,
+      ...(info.combination_target === "G51" ? { physical_tiles: [51,52,53,54].map(salasasaTileToMmcr), concealed_face_down: [false,false,false,false] } : {}),
       silent: Boolean(info.silent),
     })
   }
@@ -715,7 +726,9 @@ export class SalasasaGameAdapter {
     for (const tile of this.selfHandRaw.filter((value) => value > 0 && value < 50)) {
       counts.set(tile, (counts.get(tile) ?? 0) + 1)
     }
-    return [...counts.entries()].filter(([, count]) => count >= 4).map(([tile]) => tile)
+    const result = [...counts.entries()].filter(([, count]) => count >= 4).map(([tile]) => tile)
+    if (this.gameInfoValue?.sub_rule === "guobiao/huahun" && [51,52,53,54].every(t=>this.selfHandRaw.includes(t))) result.push(51)
+    return result
   }
 
   private addedKongCandidates(): number[] {
@@ -727,7 +740,7 @@ export class SalasasaGameAdapter {
   }
 
   private flowerCandidates(): number[] {
-    return this.selfHandRaw.filter((tile) => tile >= 51 && tile <= 58)
+    return this.selfHandRaw.filter((tile) => tile >= (this.gameInfoValue?.sub_rule === "guobiao/huahun" ? 55 : 51) && tile <= 58)
   }
 
   private removeSelfTile(tile: number, count = 1): void {
@@ -763,7 +776,8 @@ export class SalasasaGameAdapter {
           break
         case 'angang': {
           const tile = Number(info.combination_target?.slice(1))
-          this.removeSelfTile(tile, 4)
+          if (this.gameInfoValue?.sub_rule === "guobiao/huahun" && tile === 51) [51,52,53,54].forEach(t=>this.removeSelfTile(t))
+          else this.removeSelfTile(tile, 4)
           if (info.combination_target) this.selfMeldTargets.push(info.combination_target)
           break
         }
@@ -858,6 +872,9 @@ export class SalasasaGameAdapter {
     const kind = String(payload.kind ?? '')
     const stageCounter = Number(payload.stage_counter ?? this.snapshotValue?.state.stage_counter ?? 0)
     if (kind === 'discard_tile') {
+      const tile = mmcrTileToSalasasa(Number(payload.tile))
+      if (this.gameInfoValue?.sub_rule === 'guobiao/huahun' && [51,52,53,54].includes(tile)
+        && (!payload.use_drawn_tile || (this.snapshotValue?.viewer.forbidden_discard_tiles ?? []).includes(Number(payload.tile)))) return null
       return {
         type: 'gamestate/GB/cut_tile',
         cutClass: Boolean(payload.use_drawn_tile),

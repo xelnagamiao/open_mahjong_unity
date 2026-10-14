@@ -45,7 +45,8 @@ def test_settlement_all_win_sources_and_seats(source, winner, payer):
         state.pending_winners = [{'index':winner,'payer':payer,'source':source,'tile':25,'detail':detail,'hu_class':hu_class}]
         expected = {i:0 for i in range(4)}
         for loser in ([i for i in range(4) if i != winner] if payer is None else [payer]):
-            amount = detail['base_score'] + (6 if loser % 2 == 0 else 0) + (10 if loser == (winner+1)%4 else 0)
+            # 输家没有明花，即便胡牌者明花为6分也不能向输家额外收取。
+            amount = detail['base_score'] + (10 if loser == (winner+1)%4 else 0)
             amount *= 2 if 0 in (loser,winner) else 1
             expected[loser] -= amount
             expected[winner] += amount

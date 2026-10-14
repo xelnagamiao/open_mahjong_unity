@@ -5,8 +5,7 @@ using TMPro;
 using System.Collections.Generic;
 
 /// <summary>
-/// 游戏页规则书弹窗：显示「打开 X 规则规则书」与「返回」两个按钮。
-/// 点击打开按钮时跳转到 web 站对应规则的规则书页面（不同规则 → 不同页签）。
+/// 游戏页规则书弹窗，支持直接显示规则文本或打开对应的规则书页面。
 /// 弹窗显示/关闭复用现有的 PanelPopupTransition 淡入淡出。
 /// </summary>
 [RequireComponent(typeof(CanvasGroup))]
@@ -19,11 +18,16 @@ public class RulebookPanelController : MonoBehaviour {
     [SerializeField] private Button backButton;
     [SerializeField] private TMP_Text titleText;
     [SerializeField] private TMP_Text openButtonText;
+    [SerializeField] private TMP_Text inlineRuleText;
 
     private string _currentPath;
+    private bool _layoutCaptured;
+    private Vector2 _compactSize, _compactPosition, _compactAnchorMin, _compactAnchorMax;
+    private Vector2 _compactTitleSize, _compactTitlePosition, _compactBackPosition;
 
     private void Awake() {
         if (popup == null) popup = GetComponent<PanelPopupTransition>();
+        CaptureCompactLayout();
         gameObject.SetActive(false);
         openRulebookButton.onClick.AddListener(OnOpenRulebookClicked);
         backButton.onClick.AddListener(Close);
@@ -33,6 +37,7 @@ public class RulebookPanelController : MonoBehaviour {
     public void Open(string roomRule, string subRule = null, IDictionary<string, object> detailedConfig = null) {
         _currentPath = ResolveRulebookPath(roomRule, subRule, detailedConfig);
         ApplyTexts(roomRule, subRule);
+        ApplyInlineText(RuleRegistry.Resolve(roomRule, subRule)?.RulebookText?.Invoke(subRule, detailedConfig));
         popup.Show();
     }
 
@@ -47,6 +52,47 @@ public class RulebookPanelController : MonoBehaviour {
         string ruleName = RuleDisplayName(roomRule, subRule);
         titleText.text = $"{ruleName}规则书";
         openButtonText.text = $"打开{ruleName}规则书";
+    }
+
+    private void CaptureCompactLayout() {
+        if (_layoutCaptured) return;
+        var rect = (RectTransform)transform;
+        _compactSize = rect.sizeDelta;
+        _compactPosition = rect.anchoredPosition;
+        _compactAnchorMin = rect.anchorMin;
+        _compactAnchorMax = rect.anchorMax;
+        _compactTitleSize = titleText.rectTransform.sizeDelta;
+        _compactTitlePosition = titleText.rectTransform.anchoredPosition;
+        _compactBackPosition = ((RectTransform)backButton.transform).anchoredPosition;
+        _layoutCaptured = true;
+    }
+
+    private void ApplyInlineText(string text) {
+        CaptureCompactLayout();
+        bool inline = !string.IsNullOrEmpty(text);
+        var rect = (RectTransform)transform;
+        var backRect = (RectTransform)backButton.transform;
+        openRulebookButton.gameObject.SetActive(!inline);
+        inlineRuleText.gameObject.SetActive(inline);
+        inlineRuleText.text = text ?? "";
+        if (inline) {
+            var available = ((RectTransform)rect.parent).rect.size;
+            var size = new Vector2(Mathf.Min(1240f, available.x - 80f), Mathf.Min(820f, available.y - 100f));
+            rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = size;
+            titleText.rectTransform.sizeDelta = new Vector2(size.x - 88f, _compactTitleSize.y);
+            titleText.rectTransform.anchoredPosition = new Vector2(0f, size.y * .5f - 54f);
+            backRect.anchoredPosition = new Vector2(0f, -size.y * .5f + 55f);
+        } else {
+            rect.anchorMin = _compactAnchorMin;
+            rect.anchorMax = _compactAnchorMax;
+            rect.anchoredPosition = _compactPosition;
+            rect.sizeDelta = _compactSize;
+            titleText.rectTransform.sizeDelta = _compactTitleSize;
+            titleText.rectTransform.anchoredPosition = _compactTitlePosition;
+            backRect.anchoredPosition = _compactBackPosition;
+        }
     }
 
     /// <summary>规则族可按子规则选择文档；未声明时沿用规则书页签。</summary>
@@ -72,6 +118,7 @@ public class RulebookPanelController : MonoBehaviour {
     }
 
     private void OnOpenRulebookClicked() {
+        if (inlineRuleText.gameObject.activeSelf) return;
         string url = ResolveRulebookUrl(_currentPath, GameHost.Current.WebUrl);
         Application.OpenURL(url);
     }

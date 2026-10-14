@@ -17,9 +17,7 @@
       :aria-pressed="open"
       aria-controls="replay-independent-wall-panel"
       @click="open = !open"
-    >
-      侧边牌山
-    </button>
+    >{{ tr('侧边牌山') }}</button>
     <section
       v-if="open"
       id="replay-independent-wall-panel"
@@ -32,7 +30,7 @@
         '--wall-tile-width': `${fit.tileWidth}px`,
         '--wall-group-columns': fit.columns,
       }"
-      aria-label="侧边牌山"
+      :aria-label="tr('侧边牌山')"
       @keydown.esc.prevent="open = false"
     >
       <header class="replay-independent-wall__header">
@@ -40,8 +38,8 @@
           ref="handleElement"
           type="button"
           class="replay-independent-wall__handle"
-          aria-label="移动侧边牌山，方向键调整位置"
-          title="拖动调整位置，也可用方向键移动"
+          :aria-label="tr('移动侧边牌山，方向键调整位置')"
+          :title="tr('拖动调整位置，也可用方向键移动')"
           @pointerdown="startDrag"
           @pointermove="moveDrag"
           @pointerup="endDrag"
@@ -49,17 +47,17 @@
           @lostpointercapture="drag = null"
           @keydown="moveWithKeyboard"
         >
-          余 {{ remaining }}/{{ tiles.length }}
+          {{ tr('余 {remaining}/{total}', { remaining, total: tiles.length }) }}
         </button>
         <span v-if="hintsEnabled" class="replay-wall__legend">
-          <i v-if="showsRonDanger !== false" class="is-danger" title="铳张" aria-label="铳张">铳</i><i class="is-predicted" title="摸牌预测" aria-label="摸牌预测">预</i>
+          <i v-if="showsRonDanger !== false" class="is-danger" :title="tr('铳张')" :aria-label="tr('铳张')">{{ locale === 'fr' ? 'D' : tr('铳') }}</i><i class="is-predicted" :title="tr('摸牌预测')" :aria-label="tr('摸牌预测')">{{ locale === 'fr' ? 'P' : tr('预') }}</i>
         </span>
       </header>
       <div
         ref="scrollElement"
         class="replay-independent-wall__scroll"
         role="region"
-        aria-label="完整牌山，已摸牌淡化，可滚动查看"
+        :aria-label="tr('完整牌山，已摸牌淡化，可滚动查看')"
         tabindex="0"
       >
         <div class="replay-independent-wall__rows">
@@ -67,7 +65,7 @@
             v-for="(row, rowIndex) in rows"
             :key="rowIndex"
             class="replay-wall__row"
-            :aria-label="`第 ${rowIndex * 4 + 1} 至 ${rowIndex * 4 + row.length} 张`"
+            :aria-label="tr('第 {start} 至 {end} 张', { start: rowIndex * 4 + 1, end: rowIndex * 4 + row.length })"
           >
             <span
               v-for="(item, offset) in row"
@@ -78,11 +76,11 @@
                 'is-predicted': item.isPredicted,
               }"
             >
-              <TileFaceImage :src="tileAsset(item.tile)" :face-id="mmcrFaceId(item.tile)" :scale="0.86" :alt="`第 ${rowIndex * 4 + offset + 1} 张${item.consumed ? '，已摸' : ''}`" />
+              <TileFaceImage :src="tileAsset(item.tile)" :face-id="mmcrFaceId(item.tile)" :scale="0.86" :alt="tr(item.consumed ? '第 {index} 张，已摸' : '第 {index} 张', { index: rowIndex * 4 + offset + 1 })" />
             </span>
           </div>
         </div>
-        <span v-if="!tiles.length" class="replay-independent-wall__empty">暂无牌山</span>
+        <span v-if="!tiles.length" class="replay-independent-wall__empty">{{ tr('暂无牌山') }}</span>
       </div>
     </section>
   </div>
@@ -90,6 +88,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { locale, tr } from '@/i18n'
 import type { ReplayWallTile } from '@/game2d/replay/recordReplay'
 import { mmcrFaceId } from '@/game2d/lib/tileFaceAsset'
 import TileFaceImage from './TileFaceImage.vue'
@@ -236,7 +235,7 @@ watch(open, async (visible) => {
   const focusTarget = visible ? handleElement.value : toggleElement.value
   focusTarget?.focus({ preventScroll: true })
 })
-watch([() => props.hintsEnabled, () => props.tiles.length], () => { void updateLayout() })
+watch([locale, () => props.hintsEnabled, () => props.tiles.length], () => { void updateLayout() })
 watch(() => props.roundIndex, () => {
   if (scrollElement.value) {
     scrollElement.value.scrollTop = 0

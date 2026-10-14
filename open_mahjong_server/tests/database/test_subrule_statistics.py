@@ -16,7 +16,20 @@ from server.database.scene_stats import record_game_metrics
 def test_catalog_has_one_entry_per_subrule_and_no_free_statistics():
     assert len(RULES) == len({r['key'] for r in RULES}) == len({r['sub_rule'] for r in RULES})
     assert all(r['basic_stats'] == (r['rule'] != 'free') for r in RULES)
-    assert sum(r['fan_stats'] for r in RULES) == 21
+    assert sum(r['fan_stats'] for r in RULES) == 24
+    four_jokers = next(r for r in RULES if r['sub_rule'] == 'guobiao/four_jokers')
+    assert four_jokers['fan_stats'] and four_jokers['fan_key'] == 'guobiao'
+    assert resolve_statistics_identity('riichi', 'riichi/washizu_realtime') == ('riichi', 'riichi/washizu_realtime')
+    realtime = next(r for r in RULES if r['sub_rule'] == 'riichi/washizu_realtime')
+    assert realtime['basic_stats'] and not realtime['fan_stats'] and realtime['fan_key'] is None
+    assert resolve_statistics_identity('guobiao', 'guobiao/transparent_realtime') == ('guobiao', 'guobiao/transparent_realtime')
+    mcr_realtime = next(r for r in RULES if r['sub_rule'] == 'guobiao/transparent_realtime')
+    assert mcr_realtime['basic_stats'] and not mcr_realtime['fan_stats'] and mcr_realtime['fan_key'] is None
+    fuzhou_entry = next(r for r in RULES if r['sub_rule'] == 'fuzhou/standard')
+    assert fuzhou_entry['basic_stats'] and not fuzhou_entry['fan_stats'] and fuzhou_entry['fan_key'] is None
+    assert resolve_statistics_identity('fuzhou', 'fuzhou/standard') == ('fuzhou', 'fuzhou/standard')
+    sixteen_entry = next(r for r in RULES if r['sub_rule'] == 'guobiao/sixteen')
+    assert sixteen_entry['basic_stats'] and sixteen_entry['fan_stats'] and sixteen_entry['fan_key'] == 'guobiao'
     assert sum(r['matchmaking'] for r in RULES) == 7
     assert resolve_statistics_identity('hongkong', 'hongkong/new13', {'detailed_config': {'new13_version':'lianhuise'}}) == ('hongkong','hongkong/new13_lianhuise')
     assert resolve_statistics_identity('riichi', None, {}, '1/3') == ('riichi','riichi/sanma')
@@ -100,18 +113,18 @@ def test_legacy_accumulators_keep_same_mode_variants_separate(db):
     from server.database.legacy_statistics import refresh_legacy_statistics
     player = SimpleNamespace(user_id=10000101, username='test', score=24, original_player_index=0,
                              record_counter=SimpleNamespace(rank_result=1))
-    for sub in ('guobiao/standard','guobiao/transparent','guobiao/xiaolin'):
+    for sub in ('guobiao/standard','guobiao/transparent','guobiao/transparent_realtime','guobiao/xiaolin'):
         gid, record = seed(db,sub,wins=1)
         scene = dict(rule='guobiao',sub_rule=sub,room_type='custom',match_type='1/4')
         record_game_metrics(db,gid,record,[player],scene)
         refresh_legacy_statistics(db,gid,'guobiao')
     assert db.sql('SELECT rule,total_games FROM guobiao_history_stats ORDER BY rule') == [
-        ('guobiao/standard',1),('guobiao/transparent',1),('guobiao/xiaolin',1)]
+        ('guobiao/standard',1),('guobiao/transparent',1),('guobiao/transparent_realtime',1),('guobiao/xiaolin',1)]
     assert db.sql('SELECT rule,pinghe FROM guobiao_fan_stats ORDER BY rule') == [
         ('guobiao/standard',1),('guobiao/transparent',1)]
     refresh_legacy_statistics(db,'g1','guobiao')
     refresh_legacy_statistics(db,'g1','guobiao')
-    assert db.sql('SELECT SUM(total_games) FROM guobiao_history_stats') == [(3,)]
+    assert db.sql('SELECT SUM(total_games) FROM guobiao_history_stats') == [(4,)]
 
 
 @pytest.mark.parametrize('title,index,expected', [

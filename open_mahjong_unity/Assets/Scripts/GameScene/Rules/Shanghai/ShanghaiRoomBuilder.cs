@@ -26,6 +26,8 @@ internal static class ShanghaiRoomBuilder {
             return RoomCreationRequest.Invalid($"创建房间失败: {error}");
         }
         return RoomCreationRequest.Valid(config, network => network.Create_Shanghai_Room(config, (input.SubRule == "shanghai/qiaoma") && input.HepaiLimitEnabled,
-            (input.SubRule == "shanghai/qiaoma") && input.ShanghaiQing3Hun2Peng2));
+            (input.SubRule == "shanghai/qiaoma") && input.ShanghaiQing3Hun2Peng2,
+            (input.SubRule == "shanghai/qiaoma") && input.ShanghaiTianQiao,
+            (input.SubRule == LajiheHandCalculator.SubRule) && input.ShanghaiSelfDrawExtraBase));
     }
 }

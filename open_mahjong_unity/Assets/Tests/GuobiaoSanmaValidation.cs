@@ -16,22 +16,14 @@ public static class GuobiaoSanmaValidation {
             checks.Add(name);
         }
         const string sub = "guobiao/sanma";
-        Check(GuobiaoLobby.SubRules.Length == 6 && GuobiaoLobby.SubRules[5].Key == sub, "subrule registered last");
+        Check(GuobiaoLobby.SubRules.Count(rule => rule.Key == sub) == 1, "subrule registered uniquely");
         Check(MahjongPlayerCount.ForSubRule(sub) == 3 && MahjongPlayerCount.ForSubRule("guobiao/standard") == 4
             && MahjongPlayerCount.ForSubRule("riichi/sanma") == 3, "capacities isolated");
-        for (int seat = 0; seat < 3; seat++) {
-            var mapping = SwitchSeatPanel.ThreePlayerPositionMapping(seat);
-            string[][] positions = { new[] { "self", "right", "top" }, new[] { "left", "self", "right" }, new[] { "top", "left", "self" } };
-            Check(mapping.Count == 3 && !mapping.ContainsKey(new[] { "left", "top", "right" }[seat])
-                && mapping[positions[seat][0]] == positions[seat][1]
-                && mapping[positions[seat][1]] == positions[seat][0]
-                && mapping[positions[seat][2]] == positions[seat][2], "wind switch map " + seat);
-        }
         foreach (int count in new[] { 3, 4 }) {
             foreach (int circles in new[] { 1, 2, 4 }) {
                 for (int wind = 1; wind <= 3; wind++) {
                     int nextRound = count * wind + 1;
-                    Check(SwitchSeatPanel.IsWindChange(nextRound, circles, count) == (wind < circles),
+                    Check(SwitchSeatPanel.IsWindChange(nextRound, circles, count) == (count == 4 && wind < circles),
                         "wind switch limit " + count + "/" + circles + "/" + wind);
                 }
             }
@@ -58,7 +50,7 @@ public static class GuobiaoSanmaValidation {
             mirror.IndexToPosition = new Dictionary<int, string>();
             for (int seat = 0; seat < 3; seat++) {
                 mirror.BuildSeatMap(seat, new[] {0, 1, 2});
-                string[][] expected = { new[] { "self", "right", "top" }, new[] { "left", "self", "right" }, new[] { "top", "left", "self" } };
+                string[][] expected = { new[] { "self", "right", "left" }, new[] { "left", "self", "right" }, new[] { "right", "left", "self" } };
                 Check(mirror.IndexToPosition.Count == 3
                     && Enumerable.Range(0, 3).All(index => mirror.IndexToPosition[index] == expected[seat][index]), "seat map " + seat);
             }

@@ -27,8 +27,8 @@ def init_riichi_tiles(self):
                 self.tiles_list.remove(normal_id)
                 self.tiles_list.append(aka_id)
 
-    from ...game_calculation.riichi.washizu_tiles import SUB_RULE, make_tiles
-    if getattr(self, 'sub_rule', None) == SUB_RULE:
+    from ...game_calculation.riichi.washizu_tiles import SUB_RULES, make_tiles
+    if getattr(self, 'sub_rule', None) in SUB_RULES:
         self.tiles_list = make_tiles()
     _shuffle_and_deal(self)
 

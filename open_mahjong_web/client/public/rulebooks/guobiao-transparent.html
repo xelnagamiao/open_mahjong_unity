@@ -2,7 +2,7 @@
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>透明国标麻将 · 本站规则</title>
 <style>body{font:17px/1.85 system-ui,"Microsoft YaHei",sans-serif;color:#263247;background:#f3f6fa;margin:0}main{max-width:880px;margin:40px auto;background:white;padding:44px;border-radius:16px}h1{font-size:34px;line-height:1.3}h2{font-size:22px;margin-top:30px}a{color:#2263b8}.lead{font-size:20px;color:#52677f}table{border-collapse:collapse;width:100%}td,th{padding:12px 15px;border-bottom:1px solid #dbe3ed;text-align:left}aside{padding:16px 20px;background:#eef4fc;border-left:4px solid #6b91b8}footer{margin-top:40px;color:#68798c;font-size:14px}@media(max-width:600px){main{margin:0;padding:24px;border-radius:0}}@media print{body{background:white}main{margin:0;max-width:none;padding:0}a{color:inherit}}</style></head>
 <body><main><p>OPEN MAHJONG · 四人子规则</p><h1>透明国标麻将</h1><p class="lead">沿用本站标准国标的计番、补花与牌局流程，加入“三透一暗”。</p>
-<h2>牌组与公开信息</h2><p>万、筒、索及字牌的每一种牌，均有三张透明牌和一张不透明牌，共136张常规牌。默认另加春夏秋冬、梅兰竹菊八张花牌，共144张；关闭房间的花牌开关时为136张。</p><p>透明牌的牌体透明，牌面图案不透明。所有玩家都能看到他家手中的透明牌，桌面另显示清晰的辅助牌面。不透明手牌的牌值和排列位置不向他家公开；公开手牌单独整理，不能据此推断持有者的手牌顺序或哪张不透明牌刚刚摸入。</p>
+<h2>牌组与公开信息</h2><p>万、筒、索及字牌的每一种牌，均有三张透明牌和一张不透明牌，共136张常规牌。默认另加春夏秋冬、梅兰竹菊八张花牌，共144张；关闭房间的花牌开关时为136张。</p><p>透明牌的牌体透明，牌面图案不透明。所有玩家都能看到他家手中的透明牌，桌面另显示清晰的辅助牌面。普通透明国标模式下，不透明手牌的牌值和排列位置不向他家公开；公开手牌单独整理，不能据此推断持有者的手牌顺序或哪张不透明牌刚刚摸入。</p>
 <h2>吃、碰、杠与补花</h2><table><thead><tr><th>操作</th><th>处理方式</th></tr></thead><tbody>
 <tr><td>吃、碰</td><td>同牌值有透明与不透明牌可选时，先选择具体用牌组合。实际使用的牌保留各自材质。</td></tr>
 <tr><td>明杠、加杠</td><td>沿用标准国标的成杠、抢杠与补牌流程；牌的透明属性不会被改变。</td></tr>
@@ -11,5 +11,8 @@
 </tbody></table>
 <h2>和牌与计分</h2><p>默认八番起和，花牌不计入起和门槛。番种、底分、自摸、点和与庄位轮换全部沿用<a href="/rulebook/guobiao">本站标准国标规则</a>。透明属性不增加或减少番数，也不改变门前清、暗刻、暗杠等判定。透明手牌不属于弃牌或副露，不额外计入“和绝张”的桌面已见牌。</p><aside>例：非花牌番数为7番，另有1张花牌，合计虽为8番，仍不满足默认八番起和；非花牌部分达到8番后，花牌再计入结算总番。</aside>
 <h2>摸牌与房间设置</h2><p>使用普通国标牌墙，正常摸牌从墙头取得，补花、杠后补牌沿用国标补牌位置；牌墙耗尽按国标流局。此子规则没有鹫巢日麻的70次摸牌限制，也不加入立直、宝牌、里宝牌或头跳等日麻规则。</p><p>国标房间原有的起和番、花牌、天地人和、错和、战术鸣牌、鸣牌保护及提示开关继续生效，以房间设置为准。当前不使用普通复式牌墙密钥；可通过房间随机种子复现透明牌分配。</p>
+<h2 id="realtime">高级变体：国标透明（实时手牌）</h2>
+<p>选择「国标透明（实时手牌）」后，保留以上国标计番、八番起和、花牌补花和牌局流程，额外公开每位玩家的实际摆牌位置。</p>
+<ul><li>每局开局保留发牌乱序，不按牌种或透明属性排列，并关闭自动理牌。未经玩家整理的初始位置不包含理牌信息。</li><li>拖动手牌后，其他三家同步看到相同的排列与移动动画，桌面辅助牌面随对应的透明牌移动。暗牌只公开位置，牌值始终隐藏。</li><li>摸牌先进入独立摸牌位，可手动拖入主列；打牌、吃碰杠和补花保留剩余牌的相对顺序。补花的新牌追加至摸牌位。</li><li>重连、实时观战和牌谱保留摆牌顺序；和牌展示不重新排序。暗杠在局中维持透明牌可见，局末不额外翻开暗牌。</li><li>摆牌不延长行动时间。进入普通规则的新对局会默认开启自动理牌。此变体使用独立的数据统计，不统计番种。</li></ul>
 <h2>重连、观战与牌谱</h2><p>重连会恢复当前透明手牌及真实副露。实时观战沿用所选座位的权限。牌谱保留每张牌的透明属性：普通视角公开透明牌，开启全手牌查看后才展示不透明手牌。切换视角、跳转节点、回退和补牌都应保留同一张牌的材质。</p>
 <footer>本站透明国标子规则说明 · 2026-10-11。此玩法是标准国标的透明牌变体，并非另一个国标番种表。<br><a href="/rulebook/guobiao">标准国标规则资料</a> · <a href="/rulebook/washizu">日麻鹫巢规则对照</a></footer></main></body></html>

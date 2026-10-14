@@ -18,7 +18,7 @@ class XueliuDoublesGameState(XueliuGameState):
             raise ValueError("血流双打状态机不支持此子规则")
         super()._configure_rule()
         self.xueliu_rule_profile.update(
-            sub_rule=self.sub_rule, version="xueliu-single-table-2v2-v2",
+            sub_rule=self.sub_rule, version="xueliu-single-table-2v2-v3",
             format="single_table_2v2", exchange_direction=2,
             exchange_order="ES_WN,SW_NE,WN_ES,NE_SW",
             teammate_exchange_visibility="suit_only_after_first_group",

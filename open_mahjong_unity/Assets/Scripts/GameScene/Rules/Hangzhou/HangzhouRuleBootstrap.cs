@@ -30,6 +30,7 @@ internal static class HangzhouRuleBootstrap {
             DescribeWaitingTile = query => query.Record != null
                 ? GameRecordManager.Instance?.DescribeHangzhouWaiting(query) : HangzhouGameState.Active?.Hints.Describe(query),
             TileBadgeText = tile => tile == HangzhouGameState.Joker ? "财" : null,
+            HandJokerTiles = _ => new[] { HangzhouGameState.Joker },
             FanNameText = (rule,label) => HangzhouFanText.Name(label), FanValueText = (rule,label) => HangzhouFanText.Value(label),
             SettlementTotal = query => new SettlementTotalDisplay { FanText = $"基本分 {query.HuScore}分", ScoreText = query.WinnerPointDelta.HasValue ? $"{query.WinnerPointDelta.Value:+#;-#;0}分" : "" },
             ScoreboardFanText = query => $"基本分 {query.HuScore}分",

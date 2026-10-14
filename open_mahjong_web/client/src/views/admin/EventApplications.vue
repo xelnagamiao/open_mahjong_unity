@@ -165,6 +165,9 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import adminApi from '@/api/adminClient'
 import EventPreviewCard from '@/components/EventPreviewCard.vue'
 import ApplicationRemarkThread from '@/components/ApplicationRemarkThread.vue'
+import { useAdminNotificationsStore } from '@/stores/adminNotifications'
+
+const notifications = useAdminNotificationsStore()
 import { parseVenueKind, venueAdminDetailPath } from '@/utils/eventMeta'
 
 const route = useRoute()
@@ -263,6 +266,7 @@ async function load() {
     })
     items.value = res.data?.data?.items || []
     total.value = res.data?.data?.total || 0
+    notifications.refresh()
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '加载失败')
   } finally {

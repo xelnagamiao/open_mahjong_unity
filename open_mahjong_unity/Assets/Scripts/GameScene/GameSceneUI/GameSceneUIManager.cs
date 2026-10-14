@@ -171,7 +171,7 @@ public class GameSceneUIManager : MonoBehaviour
     /// <summary>
     /// 初始化游戏开始（清空临时面板并显示自动行为组件）
     /// </summary>
-    public void InitGameStart() {
+    public void InitGameStart(bool isNewMatch = false) {
         EndResultPanel.Instance.ClearEndResultPanel(); // 清空和牌结算面板
         EndGamePanel.Instance.ClearEndGamePanel();       // 清空游戏结束面板
         SwitchSeatPanel.Instance.ClearSwitchSeatPanel(); // 清空换位面板
@@ -184,7 +184,7 @@ public class GameSceneUIManager : MonoBehaviour
         TipsBlock.Instance.HideTipsBlock(); // 隐藏提示面板
         TipsContainer.Instance.HideTips(); // 隐藏提示容器
         AutoAction.Instance.gameObject.SetActive(true);
-        AutoAction.Instance.Initialize(); // 初始化自动行为组件
+        AutoAction.Instance.Initialize(isNewMatch); // 初始化自动行为组件
         RecordSetting.Instance.gameObject.SetActive(false);
         // 自定义房间对局显示投票暂停/结束按钮；匹配对局/其它模式隐藏全部退出按钮
         bool isCustomRoom = NormalGameStateManager.Instance.roomType == "custom";
@@ -195,7 +195,7 @@ public class GameSceneUIManager : MonoBehaviour
     }
 
     /// <summary>实时观战进入对局：清空临时面板，仅显示自动排列手牌。</summary>
-    public void InitRealtimeSpectatorStart() {
+    public void InitRealtimeSpectatorStart(bool isNewMatch = false) {
         ResetRealtimeSpectatorUi();
         EndResultPanel.Instance.ClearEndResultPanel();
         EndGamePanel.Instance.ClearEndGamePanel();
@@ -208,7 +208,7 @@ public class GameSceneUIManager : MonoBehaviour
         ClearScoreRecordUi();
         TipsBlock.Instance.HideTipsBlock();
         TipsContainer.Instance.HideTips();
-        AutoAction.Instance.InitializeForSpectator();
+        AutoAction.Instance.InitializeForSpectator(isNewMatch);
         RecordSetting.Instance.gameObject.SetActive(false);
         ExitButtonManager.Instance.ShowForRealtimeSpectator();
         RoundEndPresentation.Instance.ShowSelfGameplayControlAndResyncHand3D();

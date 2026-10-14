@@ -46,6 +46,10 @@ def test_room_creation_exposes_actual_hongque_hand_count() -> None:
         )
         manager = RoomManager(game_server)
         for configured_rounds, actual_hands in ((1, 4), (2, 8), (3, 12), (4, 16)):
+            # Each case starts outside a room; room-entry protection forbids
+            # creating a second room without leaving the first one.
+            connection.current_room_id = None
+            manager = RoomManager(game_server)
             response = await manager.create_Hongque_room(
                 "connection-1", "round-normalization", configured_rounds,
                 "", 20, 5, True,

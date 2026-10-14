@@ -43,6 +43,14 @@ export const LIBRARY_SECTIONS = [
 ]
 
 export const LIBRARY_RULES = [
+  {
+    key: 'fuzhou', label: '福州麻将', short: '福州', categories: ['platform', 'local'], accent: '#a77831',
+    description: '十六张手牌，全部字牌及八花补花，开金、抢金、听金坎、一游及二游；动态留墩，最后四张只摸不打。',
+    resources: [
+      { title: '福州麻将规则与平台补则', url: '/rulebooks/fuzhou.html', filename: 'fuzhou.html' },
+      { title: '福州麻将规则书原文', url: '/rulebooks/fuzhou.docx', filename: '福州麻将规则书.docx' },
+    ],
+  },
   { key: 'shenyang', label: '沈阳麻将', short: '沈阳', categories: ['platform', 'mil'], accent: '#587c88', description: milRulebooks.shenyang[0].desc, resources: milRulebooks.shenyang },
   { key: 'nanchang', label: '南昌麻将', short: '南昌', categories: ['platform', 'local', 'mil'], accent: '#297b74', description: milRulebooks.nanchang[0].desc, resources: milRulebooks.nanchang },
   {
@@ -54,6 +62,14 @@ export const LIBRARY_RULES = [
     key: 'changchun', label: '长春麻将', short: '长春', categories: ['platform', 'mil'], accent: '#5c779a',
     description: milRulebooks.changchun[0].desc,
     resources: milRulebooks.changchun,
+  },
+  {
+    key: 'singapore', label: '新加坡四人麻将', short: '新加坡', categories: ['platform', 'local'], accent: '#247b68',
+    description: 'SPGG 2024：148张，1台起和、5台封顶，花季与动物婚配即时支付；含平台补充约定。',
+    resources: [
+      { title: '新加坡 SPGG 平台规则', desc: '完整规则说明、计分及补充口径。', url: '/rulebooks/singapore-spgg2024.html', filename: 'singapore-spgg2024.html' },
+      { title: 'SPGG 2024 英文原文', desc: 'Singapore Polytechnic Graduates Guild 发布。', url: 'https://www.spgg.org.sg/web/content/114907/', filename: 'spgg-2024.pdf' },
+    ],
   },
   {
     key: 'jiujiang', label: '九江麻将', short: '九江', categories: ['platform', 'local', 'custom'], accent: '#467b85',
@@ -108,6 +124,11 @@ export const LIBRARY_RULES = [
         desc: 'Natsuki 编著的《新编 MCR》。',
         url: '/rulebooks/guobiao-mcr.pdf',
         filename: '新编MCR.pdf',
+      },
+      {
+        title: '国标十六张：扩展规则与牌例',
+        desc: '以新编 MCR 为底本的本站十六张扩展，含逐番适用表与五面子计分补则。',
+        url: '/rulebooks/guobiao-sixteen.html',
       },
     ],
   },

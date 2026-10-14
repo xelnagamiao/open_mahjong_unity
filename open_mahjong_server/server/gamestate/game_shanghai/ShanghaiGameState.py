@@ -141,8 +141,10 @@ class ShanghaiGameState(TaiwanGameState):
             seven_flowers_steal_eighth_enabled=False,
         )
         self.qing3_hun2_peng2 = (room_data.get("detailed_config") or {}).get(qiaoma.QING3_HUN2_PENG2) is True
+        self.enable_tian_qiao = (room_data.get("detailed_config") or {}).get(qiaoma.ENABLE_TIAN_QIAO) is True
         self.rules_dict = {"edition": "MIL2024", "fan_cap": 3,
-                           qiaoma.QING3_HUN2_PENG2: self.qing3_hun2_peng2}
+                           qiaoma.QING3_HUN2_PENG2: self.qing3_hun2_peng2,
+                           qiaoma.ENABLE_TIAN_QIAO: self.enable_tian_qiao}
         self.dead_wall_count = 0
         self.hepai_limit = 1 if room_data.get("hepai_limit", 0) == 1 else 0
         from .bot import shanghai_smart_bot_action
@@ -157,6 +159,8 @@ class ShanghaiGameState(TaiwanGameState):
             player.passed_pungs = set()
             player.opening_flowers_done = False
             player.locked_waits = set()
+            player.tian_qiao = False
+            player.tag_list[:] = [tag for tag in player.tag_list if tag != "tian_qiao"]
             player.tag_list[:] = [tag for tag in player.tag_list if not tag.startswith("chengbao_")]
 
     def refresh_waits(self, player_index):
@@ -177,6 +181,7 @@ class ShanghaiGameState(TaiwanGameState):
             replacement=source == "self_draw" and self.last_draw_after_kong,
             rob_kong=source == "robbing_kong", min_fan=self.hepai_limit,
             qing3_hun2_peng2=self.qing3_hun2_peng2,
+            tian_qiao=self.enable_tian_qiao and player.tian_qiao,
         )
 
     def ready_candidate_cuts(self, player_index):
@@ -193,8 +198,22 @@ class ShanghaiGameState(TaiwanGameState):
         return candidates
 
     def _declare_ready(self, player_index):
+        player = self.player_list[player_index]
+        # 在弃牌提交后调用；累计弃牌数不会因这张牌被吃碰杠而减少。
+        if not player.declared_ready:
+            player.tian_qiao = bool(self.enable_tian_qiao and player.discard_count == 1
+                                   and not self.table_claim_or_kong
+                                   and not any(item.combination_tiles for item in self.player_list))
+            if player.tian_qiao and "tian_qiao" not in player.tag_list:
+                player.tag_list.append("tian_qiao")
         super()._declare_ready(player_index)
         self.player_list[player_index].locked_waits = set(self.refresh_waits(player_index))
+
+    def _record_ready_state(self, player_index):
+        player = self.player_list[player_index]
+        if not getattr(player, "tian_qiao", False):
+            return super()._record_ready_state(player_index)
+        self._record_state("ready", player_index, "tian_qiao", "T")
 
     def _register_initial_heavenly_ready(self):
         pass

@@ -9,6 +9,18 @@ def init_sichuan_tiles(self):
         from .duplicate_wall import init_duplicate_board
         init_duplicate_board(self, self.duplicate_match.board(self.current_round))
         return
+    if getattr(self, "duplicate_key", None):
+        from ...game_calculation.sichuan.duplicate_rules import board_from_tiles
+        from .duplicate_wall import init_duplicate_board
+        index = self.current_round - 1
+        if not 0 <= index < len(self._duplicate_round_tiles):
+            raise ValueError("本局超出已保存的血流复式牌山范围")
+        if getattr(self, "_duplicate_dealt_round", None) == index:
+            raise ValueError("本局复式牌山已发牌")
+        self._duplicate_dealt_round = index
+        init_duplicate_board(self, board_from_tiles(self._duplicate_round_tiles[index], self.current_round))
+        self.round_random_seed = 0
+        return
     sth_tiles_set = [
         11, 12, 13, 14, 15, 16, 17, 18, 19,  # 万
         21, 22, 23, 24, 25, 26, 27, 28, 29,  # 饼

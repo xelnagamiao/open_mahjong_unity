@@ -17,6 +17,7 @@ public partial class Game3DManager {
         BuhuaTile,
         FreeMeld,
         FreeClaimRiver,
+        WashizuOrder,
     }
 
     private sealed class HandAnimOp {
@@ -34,6 +35,7 @@ public partial class Game3DManager {
         public int[] HandTiles;
         public HandAnimOp RiverClaim;
         public bool Completed;
+        public WashizuHandLayout WashizuLayout;
     }
 
     private static readonly string[] HandAnimPlayerPositions = { "self", "left", "top", "right" };
@@ -209,6 +211,9 @@ public partial class Game3DManager {
             StopFreeDrawReflow(op.PlayerPosition, finish: true);
 
         switch (op.Kind) {
+            case HandAnimOpKind.WashizuOrder:
+                yield return AnimateWashizuRealtimeRow(op.PlayerPosition, panel, op.WashizuLayout);
+                break;
             case HandAnimOpKind.RemoveCards:
                 yield return RemoveHandCardsFromQueue(panel.cardsPosition, op);
                 break;

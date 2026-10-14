@@ -53,9 +53,30 @@ public static class SanmaRoomDrawValidation {
                 Check(Field<TMP_Text[]>(roomItem, "playerNames")[2].text == "等待加入", spec.Item2 + " third vacancy");
             }
 
+            var roundSource = Resources.FindObjectsOfTypeAll<SimpleRoundPanel>().First(p => p.gameObject.scene.IsValid()
+                && !EditorSceneManager.IsPreviewScene(p.gameObject.scene));
+            var roundPanel = UnityEngine.Object.Instantiate(roundSource, holder.transform);
+            string previousSubRule = GameSession.Current.SubRule;
+            try {
+                // A replay must use its own sub-rule after leaving a live game.
+                GameSession.Current.SubRule = "guobiao/standard";
+                foreach (int count in new[] {3, 4}) {
+                    string subRule = "guobiao/" + (count == 3 ? "sanma" : "standard");
+                    for (int round = 1; round <= count * 4; round++) {
+                        roundPanel.UpdateRoomInfo(new GameInfo {room_rule = "guobiao", sub_rule = subRule,
+                            current_round = round, max_round = 4}, subRule);
+                        string expected = "东南西北"[(round - 1) / count] + "风" + "东南西北"[(round - 1) % count];
+                        Check(Field<TMP_Text>(roundPanel, "roomNowRoundText").text == expected,
+                            subRule + " independent round panel " + round);
+                    }
+                }
+            } finally {
+                GameSession.Current.SubRule = previousSubRule;
+            }
+
             var panel = UnityEngine.Object.Instantiate(source, holder.transform);
             string[][] positionsByViewer = {
-                new[] {"self", "right", "top"}, new[] {"left", "self", "right"}, new[] {"top", "left", "self"}
+                new[] {"self", "right", "left"}, new[] {"left", "self", "right"}, new[] {"right", "left", "self"}
             };
             var finishAnimation = typeof(PenaltyPanel).GetMethod("RunAfterDrawNotenThreePhase", BindingFlags.Instance | BindingFlags.NonPublic);
             TMP_Text topName = Field<TMP_Text>(panel, "topUserName");

@@ -1183,6 +1183,7 @@ public partial class EndResultPanel : MonoBehaviour {
         int[] hand,
         int[][] combinationMask,
         EndResultTileLayout tileLayout) {
+        SetOccupiedSeats(recordView?.IndexToPosition?.Values);
         Dictionary<string, string> names = recordView?.PositionToUsername;
         SelfUserName.text = names != null && names.TryGetValue("self", out string selfName) ? selfName : "";
         LeftUserName.text = names != null && names.TryGetValue("left", out string leftName) ? leftName : "";
@@ -1221,6 +1222,7 @@ public partial class EndResultPanel : MonoBehaviour {
 
     /// <summary>按 缓存准备状态 + 被检查座位 重绘所有座位面板配色。</summary>
     private void ApplySeatVisuals() {
+        SetOccupiedSeats(NormalGameStateManager.Instance.indexToPosition.Values);
         foreach (var kvp in NormalGameStateManager.Instance.indexToPosition) {
             int seat = kvp.Key;
             string position = kvp.Value;
@@ -1266,6 +1268,13 @@ public partial class EndResultPanel : MonoBehaviour {
         ApplySeatVisual("left", SeatVisual.Normal);
         ApplySeatVisual("top", SeatVisual.Normal);
         ApplySeatVisual("right", SeatVisual.Normal);
+    }
+
+    public void SetOccupiedSeats(ICollection<string> positions) {
+        foreach (string position in new[] { "self", "left", "top", "right" }) {
+            Image background = SeatBackground(position);
+            if (background != null) background.gameObject.SetActive(positions == null || positions.Contains(position));
+        }
     }
 
     /// <summary>

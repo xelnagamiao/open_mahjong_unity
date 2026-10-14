@@ -714,6 +714,7 @@ import {
 import { buildPlayerStatsRows, dateRangeToQueryParams, STATS_DATE_SHORTCUTS } from '@/utils/statsDisplay'
 
 const RULE_LABELS = {
+  singapore: '新加坡麻将',
   jiujiang: '九江麻将',
   guobiao: '国标',
   riichi: '立直',
@@ -726,8 +727,10 @@ const RULE_LABELS = {
   guangdong: '广东麻将',
   guizhou: '贵州麻将',
   yixing: '宜兴麻将',
+  malaysia: '马来西亚三人麻将',
   shenyang: '沈阳麻将',
   nanjing: '南京麻将',
+  fuzhou: '福州麻将',
   wuhan: '武汉麻将',
   nanchang: '南昌麻将',
   shanxi: '山西麻将',
@@ -810,6 +813,7 @@ const roomDialogTitle = computed(() => isBase.value ? '创建基地房间' : '�
 const roomSettingsSummary = computed(() => eventRoomSettingsSummary(manualSettings.value, RULE_LABELS))
 const matchingSettingsSummary = computed(() => eventRoomSettingsSummary(settingsForChoice(matchingPresetChoice.value) || {}, RULE_LABELS))
 const roomRuleOptions = [
+  { value: 'singapore', label: '新加坡麻将' },
   { value: 'jiujiang', label: '九江麻将' },
   { value: 'guobiao', label: '国标' },
   { value: 'riichi', label: '立直' },
@@ -822,8 +826,10 @@ const roomRuleOptions = [
   { value: 'guangdong', label: '广东麻将' },
   { value: 'guizhou', label: '贵州麻将' },
   { value: 'yixing', label: '宜兴麻将' },
+  { value: 'malaysia', label: '马来西亚三人麻将' },
   { value: 'shenyang', label: '沈阳麻将' },
   { value: 'nanjing', label: '南京麻将' },
+  { value: 'fuzhou', label: '福州麻将' },
   { value: 'wuhan', label: '武汉麻将' },
   { value: 'nanchang', label: '南昌麻将' },
   { value: 'shanxi', label: '山西麻将' },

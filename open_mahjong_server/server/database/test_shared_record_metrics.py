@@ -13,9 +13,9 @@ def blood_record():
                 ["p", 11, 2, 11, 11], ["c", 13, "F"],
                 ["hu_self", 2, 1, ["平和"], [0, 0, 0, 0], 14],
                 ["d", 19], ["c", 19, "F"],
-                ["hu_first", 1, 2, ["平和"], [0, 0, 0, 0], 19, 0, 3, 1],
+                ["hu_first", 1, 2, ["大对子"], [0, 0, 0, 0], 19, 0, 3, 1],
                 ["liuju", "settle_hu", "hu_self", 2, 1, ["平和"], [-2, -2, 6, -2], 0],
-                ["liuju", "settle_hu", "hu_first", 1, 2, ["平和"], [0, 2, 0, -2], 0],
+                ["liuju", "settle_hu", "hu_first", 1, 2, ["大对子"], [0, 2, 0, -2], 0],
                 ["liuju", "chajiao", 3, "no_ting", "[]", [0, -1, 0, 1], 1], ["end"]]}}}
 
 
@@ -25,7 +25,7 @@ def test_blood_replay_counts_visible_wins_once_and_deferred_money_once():
     assert [r['total_round_score'] for r in rows] == [-2, -1, 6, -3]
     assert rows[1]['total_win_turn'] == rows[2]['total_win_turn'] == 2
     assert rows[2]['fulu_round_count'] == 1
-    assert rows[3]['deal_in_count'] == 1 and rows[3]['total_fangchong_score'] == 2
+    assert rows[3]['deal_in_count'] == 1 and rows[3]['total_fangchong_score'] == 1
     assert rows[0]['deal_in_count'] == 0  # hu_first is not distance from payer in Sichuan.
 
 
@@ -51,7 +51,7 @@ def test_live_scene_writer_uses_the_same_completed_blood_replay():
     record_game_metrics(db, 'blood', blood_record(), [player], dict(rule='sichuan',
         sub_rule='sichuan/standard', room_type='match', match_tier='elo', match_type='4/4_rank'))
     values = cur.execute.call_args.args[1]
-    assert values[13:18] == (1, 1, 0, 1, 2)
+    assert values[13:18] == (1, 1, 0, 0, 2)
     assert values[23] == 1 and values[25] == 6
     conn.commit.assert_called_once()
 

@@ -5,6 +5,8 @@ from ..public.hand_slot_utils import has_draw_slot, resolve_is_mo_buhua
 from ..public.game_record_manager import player_action_record_buhua, player_action_record_deal
 from .boardcast import broadcast_do_action
 from . import transparent
+from ..game_riichi import realtime_hand
+from ...game_calculation import guobiao_four_jokers as joker_rules
 
 # 手补/手杠后岭上摸牌的显示间隔（秒）；服务端真实等待，客户端即时处理即可
 HAND_SETTLE_GAP_SEC = 0.3
@@ -18,6 +20,7 @@ async def broadcast_buhua_then_deal(
     deal_tile: int,
     is_mo_buhua: bool,
     public_hand_snapshot=None,
+    realtime_layout_snapshot=None,
 ) -> None:
     """先广播补花，等待 HAND_SETTLE_GAP_SEC，再广播补花摸牌。"""
     await broadcast_do_action(
@@ -27,6 +30,7 @@ async def broadcast_buhua_then_deal(
         buhua_tile=max_tile,
         is_mo_buhua=is_mo_buhua,
         public_hand_snapshot=public_hand_snapshot,
+        realtime_layout_snapshot=realtime_layout_snapshot,
     )
     await asyncio.sleep(HAND_SETTLE_GAP_SEC)
     await broadcast_do_action(
@@ -58,14 +62,17 @@ async def perform_buhua_and_broadcast(
         raise ValueError("本人牌山已空，不能补花")
     player = game_state.player_list[player_index]
     hand = player.hand_tiles
-    max_tile = max(tile for tile in hand if 51 <= tile <= 58)
+    max_tile = max(tile for tile in hand if joker_rules.is_flower(game_state, tile))
     is_mo_buhua = resolve_is_mo_buhua(hand, max_tile, draw_slot=has_draw_slot(player))
     hand.remove(max_tile)
     before_replacement = transparent.public_hands(game_state)
+    before_layouts = ({p.player_index: realtime_hand.layouts_for_viewer(game_state, p.player_index) for p in game_state.player_list}
+                      if realtime_hand.enabled(game_state) else None)
 
     if refresh_waiting:
         from .action_check import refresh_waiting_tiles
-        refresh_waiting_tiles(game_state, player_index)
+        from .four_jokers_runtime import evaluate_actions
+        await evaluate_actions(game_state, refresh_waiting_tiles, player_index)
 
     if huapai_before_draw:
         player.huapai_list.append(max_tile)
@@ -104,5 +111,6 @@ async def perform_buhua_and_broadcast(
             deal_tile=deal_tile,
             is_mo_buhua=is_mo_buhua,
             public_hand_snapshot=before_replacement,
+            realtime_layout_snapshot=before_layouts,
         )
     return deal_tile

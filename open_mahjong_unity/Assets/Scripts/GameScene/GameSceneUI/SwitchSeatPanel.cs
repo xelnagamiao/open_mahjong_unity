@@ -43,43 +43,9 @@ public class SwitchSeatPanel : MonoBehaviour {
     }
 
     public static bool IsWindChange(int nextRound, int maxRound, int playerCount) {
-        return nextRound > 1 && (nextRound - 1) % playerCount == 0
+        return playerCount == 4 && nextRound > 1 && (nextRound - 1) % playerCount == 0
             && nextRound <= playerCount * 3 + 1
             && (maxRound <= 0 || nextRound <= maxRound * playerCount);
-    }
-
-    public static Dictionary<string, string> ThreePlayerPositionMapping(int selfIndex) {
-        // Before the new game_start, the client still has the previous hand's seats.
-        // Across each wind, old seats 0 and 1 exchange; old seat 2 stays in place.
-        int[] destinations = { 1, 0, 2 };
-        var mapping = new Dictionary<string, string>();
-        for (int seat = 0; seat < 3; seat++) {
-            string from = TableMirror.RelativeSeat(selfIndex, seat);
-            string to = TableMirror.RelativeSeat(selfIndex, destinations[seat]);
-            mapping[from] = to;
-        }
-        return mapping;
-    }
-
-    private IEnumerator ShowThreePlayerSwitch(int gameRound) {
-        var state = NormalGameStateManager.Instance;
-        var players = state.player_to_info;
-        var names = new Dictionary<string, TMP_Text> {
-            ["self"] = SelfName, ["right"] = RightName, ["top"] = TopName, ["left"] = LeftName
-        };
-        foreach (string position in TableMirror.Seats) {
-            bool occupied = state.indexToPosition.ContainsValue(position);
-            GetPanelByPosition(position).SetActive(occupied);
-            var player = players[position];
-            names[position].text = occupied
-                ? StreamerModeHelper.FormatGamestatePlayerName(player.username, position, player.userId) : "";
-        }
-        int wind = (gameRound - 1) / 3;
-        NextRoundName.text = "东南西北"[wind - 1] + "圈=>" + "东南西北"[wind] + "圈";
-        gameObject.SetActive(true);
-        yield return StartCoroutine(PerformSwitchAnimation(ThreePlayerPositionMapping(state.selfIndex)));
-        yield return new WaitForSeconds(ServerWaitSeconds - AnimationDuration);
-        gameObject.SetActive(false);
     }
 
     // Start is called before the first frame update
@@ -89,7 +55,7 @@ public class SwitchSeatPanel : MonoBehaviour {
         // 重置面板位置到初始位置
         ResetPanelPositions();
         if (MahjongPlayerCount.ForSubRule(NormalGameStateManager.Instance.subRule) == 3) {
-            yield return ShowThreePlayerSwitch(gameRound);
+            gameObject.SetActive(false);
             yield break;
         }
         foreach (string position in TableMirror.Seats) GetPanelByPosition(position).SetActive(true);

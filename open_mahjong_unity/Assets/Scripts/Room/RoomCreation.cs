@@ -3,13 +3,15 @@ using System.Collections.Generic;
 
 /// <summary>A snapshot of the room form. Builders never read or change scene objects.</summary>
 public sealed class RoomCreationInput {
+    public string NoJokerBonus = "add8";
+    public bool BlackFlowerProgressive = true;
     public string Rule, SubRule, RoomName, Password, RandomSeed, EventId, DuplicateKey;
     public int GameRound, RoundTimer, StepTimer, CuoheType, HepaiWayIndex;
     public string HepaiLimitText, StartingScoreText;
     public bool PasswordEnabled, RandomSeedEnabled, HepaiLimitEnabled, HepaiLimitVisible, DuplicateEnabled;
     public bool Tips, CountTips, PointerTips, TouristLimit, AllowSpectator, ClaimProtection, TacticalCall;
-    public bool CuoHe, RedDora, AllowKuikae, OpenXiru, OpenTobi, UseFlowers, TianDiRenHe, BloodBattle;
-    public bool GuangdongMinimumScore, ShanghaiQing3Hun2Peng2, YixingSevenPairs;
+    public bool CuoHe, RedDora, AllowKuikae, OpenXiru, OpenTobi, UseFlowers, TianDiRenHe, JokerMultiWait, BloodBattle;
+    public bool GuangdongMinimumScore, ShanghaiQing3Hun2Peng2, ShanghaiTianQiao, ShanghaiSelfDrawExtraBase, YixingSevenPairs;
     public int OpenKongCount, BirdCount, SmallHuScore, BigHuScore;
     public bool InitialSiXi, InitialBanBanHu, InitialQueYiSe, InitialLiuLiuShun, InitialSanTong, DealerBird, BaseScoreNoDealer;
     public bool WallWan, WallTong, WallSuo, WallWinds, WallDragons, WallFlowers;

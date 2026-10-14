@@ -63,7 +63,11 @@ class PlayerInfo(BaseModel):
     xueliu_throw_tiles: Optional[List[int]] = None  # 血流：开局甩掉的三张
 
 class GameInfo(BaseModel):
+    four_jokers_hints: Optional[dict] = None
+    washizu_layouts: Optional[Dict[int, dict]] = None
     wuhan_info: Optional[dict] = None
+    malaysia_info: Optional[dict] = None
+    malaysia_hints: Optional[dict] = None
     wuhan_hints: Optional[dict] = None
     duplicate_match: Optional[dict] = None
     washizu_hands: Optional[Dict[int, List[int]]] = None  # 仅公开透明牌；不透明牌用 0 占位
@@ -71,6 +75,8 @@ class GameInfo(BaseModel):
     sichuan_teams: Optional[dict] = None
     hongzhong_info: Optional[dict] = None  # MIL 红中：仅本人或获准视角的实体摸牌槽快照
     jiujiang_info: Optional[dict] = None
+    singapore_info: Optional[dict] = None
+    singapore_hints: Optional[dict] = None
     jiujiang_hints: Optional[dict] = None
     hongzhong_hints: Optional[dict] = None  # 按物理手牌与副露匹配的权威听牌快照
     hangzhou_info: Optional[dict] = None  # MIL 2025 state; hints scoped to recipient
@@ -82,6 +88,9 @@ class GameInfo(BaseModel):
     changchun: Optional[Dict[str, object]] = None  # 长春宝牌严格按接收者资格生成
     use_flowers: Optional[bool] = None  # 国标花牌开关；蓝十改固定关闭
     tian_di_ren_he: bool = False  # 标准国标/三人国标/血战：天地人和各加计 8 番
+    joker_multi_wait: bool = False
+    no_joker_bonus: str = "add8"
+    black_flower_progressive: bool = True
     is_duplicate: bool = False
     duplicate_round_count: Optional[int] = None
     duplicate_wall_type: Optional[str] = None
@@ -149,11 +158,16 @@ class GameInfo(BaseModel):
         return str(v)
 
 class Ask_hand_action_info(BaseModel):
+    four_jokers_hints: Optional[dict] = None
     wuhan_info: Optional[dict] = None
+    malaysia_info: Optional[dict] = None
+    malaysia_hints: Optional[dict] = None
     wuhan_hints: Optional[dict] = None
     lajihe_passed_win: Optional[bool] = None
     xueliu_exchange: Optional[dict] = None  # 两阶段换牌；仅接收视角可见队友换出花色
     jiujiang_info: Optional[dict] = None
+    singapore_info: Optional[dict] = None
+    singapore_hints: Optional[dict] = None
     jiujiang_hints: Optional[dict] = None
     hongzhong_hints: Optional[dict] = None  # 按物理手牌与副露匹配的权威听牌快照
     hangzhou_info: Optional[dict] = None  # MIL 2025 state; hints scoped to recipient
@@ -202,12 +216,17 @@ class Ask_other_action_info(BaseModel):
     is_tactical_recheck: Optional[bool] = None
 
 class Do_action_info(BaseModel):
+    washizu_layouts: Optional[Dict[int, dict]] = None
     wuhan_info: Optional[dict] = None
+    malaysia_info: Optional[dict] = None
+    malaysia_hints: Optional[dict] = None
     wuhan_hints: Optional[dict] = None
     draw_from_seat: Optional[int] = None
     washizu_hands: Optional[Dict[int, List[int]]] = None  # 仅公开透明牌；不透明牌用 0 占位
     lajihe_passed_win: Optional[bool] = None
     jiujiang_info: Optional[dict] = None
+    singapore_info: Optional[dict] = None
+    singapore_hints: Optional[dict] = None
     jiujiang_hints: Optional[dict] = None
     hongzhong_hints: Optional[dict] = None  # 按物理手牌与副露匹配的权威听牌快照
     hangzhou_burn_count: Optional[int] = None
@@ -262,8 +281,11 @@ class Do_action_info(BaseModel):
 class Show_result_info(BaseModel):
     nanchang_end_hands: Optional[Dict[int, List[int]]] = None
     wuhan_info: Optional[dict] = None
+    malaysia_info: Optional[dict] = None
+    malaysia_hints: Optional[dict] = None
     wuhan_hints: Optional[dict] = None
     jiujiang_payments: Optional[List[dict]] = None
+    singapore_info: Optional[dict] = None
     hangzhou_win_source: Optional[str] = None
     hangzhou_fan_details: Optional[dict] = None
     hangzhou_round_changes: Optional[Dict[int, int]] = None
@@ -367,6 +389,8 @@ class Player_final_data(BaseModel):
     competition_points: Optional[float] = None
     team_id: Optional[int] = None
     team_score: Optional[int] = None
+    team_small_score: Optional[int] = None
+    team_imp_score: Optional[int] = None
     team_match_points: Optional[float] = None
     team_result_reason: Optional[str] = None
     user_id: Optional[int] = None
@@ -672,6 +696,8 @@ class Player_recent_records_response(BaseModel):
 
 
 class Response(BaseModel):
+    washizu_layouts: Optional[Dict[int, dict]] = None
+    hand_order_request_id: Optional[int] = None
     duplicate_match_info: Optional[dict] = None
     rating_rule: Optional[str] = None
     data_request_id: Optional[str] = None

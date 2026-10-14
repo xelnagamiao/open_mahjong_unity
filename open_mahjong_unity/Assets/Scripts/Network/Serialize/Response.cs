@@ -2,6 +2,23 @@
 
 using System.Collections.Generic;
 
+[System.Serializable]
+public sealed class FourJokersHintSnapshot {
+    public string sub_rule = "guobiao/four_jokers";
+    public int[] hand, waits;
+    public string[] melds;
+    public Dictionary<int, int[]> discard_waits;
+}
+
+public class WashizuHandLayout {
+    public int round_index;
+    public int revision;
+    public int[] tiles;
+    public int[] keys;
+    public int drawn_key;
+    public bool draw_pinned;
+}
+
 public class DuplicateMatchInfo {
     public string id;
     public string status;
@@ -11,6 +28,8 @@ public class DuplicateMatchInfo {
     public int planned_boards;
     public int completed_boards;
     public int[] scores;
+    public int[] small_scores;
+    public int[] imp_scores;
     public string[] waiting_tables;
     public List<DuplicateBoardResult> boards;
 }
@@ -18,6 +37,8 @@ public class DuplicateBoardResult {
     public int number;
     public int[] raw_difference;
     public int[] scores;
+    public int[] small_scores;
+    public int[] imp_scores;
 }
 
 public class RoomInfo {
@@ -29,6 +50,9 @@ public class RoomInfo {
     public int[] team_by_seat;
     public int roster_revision;
     public bool? use_flowers; // 旧消息缺省含花，蓝十始终无花
+    public bool joker_multi_wait;
+    public string no_joker_bonus = "add8";
+    public bool black_flower_progressive = true;
     public bool tian_di_ren_he;
     public bool is_duplicate;
     public int duplicate_round_count;
@@ -182,6 +206,7 @@ public class GameEndInfo { // 显示游戏结束结果
 }
 
 public class ShowResultInfo {
+    public SingaporeInfo singapore_info;
     public WuhanInfo wuhan_info;
     public WuhanHints wuhan_hints;
     public HangzhouInfo hangzhou_info;
@@ -194,7 +219,11 @@ public class ShowResultInfo {
     public Dictionary<int, int[]> revealed_hands;
     public GuizhouInfo guizhou_info;
     public YixingInfo yixing_info;
+    public MalaysiaInfo malaysia_info;
+    public MalaysiaHints malaysia_hints;
     public NanjingInfo nanjing_info;
+    public FuzhouInfo fuzhou_info;
+    public FuzhouHints fuzhou_hints;
     public NanjingHints nanjing_hints;
     public WenzhouInfo wenzhou_info;
     public NanchangInfo nanchang_info;
@@ -312,13 +341,17 @@ public class XueliuExchangeInfo {
 }
 
 public class AskHandActionGBInfo {
+    public Dictionary<string,int[]> fuzhou_declaration_candidates;
+    public FourJokersHintSnapshot four_jokers_hints;
     public WuhanInfo wuhan_info;
     public WuhanHints wuhan_hints;
     public bool? lajihe_passed_win;
     public XueliuExchangeInfo xueliu_exchange;
     public HangzhouInfo hangzhou_info;
     public JiujiangInfo jiujiang_info;
+    public SingaporeInfo singapore_info;
     public JiujiangHints jiujiang_hints;
+    public SingaporeHints singapore_hints;
     public HongzhongHints hongzhong_hints;
     public GuangdongTips guangdong_tips;
     public ShenyangInfo shenyang;
@@ -326,7 +359,11 @@ public class AskHandActionGBInfo {
     public Dictionary<string, int[]> kong_candidates; // 询问手牌操作
     public GuizhouInfo guizhou_info;
     public YixingInfo yixing_info;
+    public MalaysiaInfo malaysia_info;
+    public MalaysiaHints malaysia_hints;
     public NanjingInfo nanjing_info;
+    public FuzhouInfo fuzhou_info;
+    public FuzhouHints fuzhou_hints;
     public NanjingHints nanjing_hints;
     public WenzhouInfo wenzhou_info;
     public NanchangInfo nanchang_info;
@@ -349,7 +386,8 @@ public class AskHandActionGBInfo {
     public string ready_qualification;
 }
 
-public class AskOtherActionGBInfo { // 询问切牌后操作
+public class AskOtherActionGBInfo {
+    public Dictionary<string,int[]> fuzhou_declaration_candidates; // 询问切牌后操作
     public string[] action_list; // 操作列表
     public int remaining_time; // 剩余局时
     public int? step_remaining; // 重连补发的剩余步时；缺省则叠房间完整步时
@@ -365,6 +403,10 @@ public class AskOtherActionGBInfo { // 询问切牌后操作
 }
 
 public class DoActionInfo {
+    public Dictionary<int, WashizuHandLayout> washizu_layouts;
+    public MalaysiaInfo malaysia_info;
+    public MalaysiaHints malaysia_hints;
+    public int? malaysia_meld_index, malaysia_redeemed_tile;
     public WuhanInfo wuhan_info;
     public WuhanHints wuhan_hints;
     public int? draw_from_seat;
@@ -372,7 +414,9 @@ public class DoActionInfo {
     public bool? lajihe_passed_win;
     public HangzhouInfo hangzhou_info;
     public JiujiangInfo jiujiang_info;
+    public SingaporeInfo singapore_info;
     public JiujiangHints jiujiang_hints;
+    public SingaporeHints singapore_hints;
     public HongzhongHints hongzhong_hints; // 执行操作
     public WenzhouInfo wenzhou_info;
     public NanchangInfo nanchang_info;
@@ -461,6 +505,8 @@ public class PlayerInfo {
 }
 
 public class GameInfo {
+    public FourJokersHintSnapshot four_jokers_hints;
+    public Dictionary<int, WashizuHandLayout> washizu_layouts;
     public WuhanInfo wuhan_info;
     public WuhanHints wuhan_hints;
     public DuplicateMatchInfo duplicate_match;
@@ -470,7 +516,9 @@ public class GameInfo {
     public HangzhouInfo hangzhou_info;
     public HongzhongInfo hongzhong_info;
     public JiujiangInfo jiujiang_info;
+    public SingaporeInfo singapore_info;
     public JiujiangHints jiujiang_hints;
+    public SingaporeHints singapore_hints;
     public HongzhongHints hongzhong_hints; // 游戏开始时传递房间信息
     public GuangdongPublicState guangdong_state;
     public GuangdongTips guangdong_tips;
@@ -478,7 +526,11 @@ public class GameInfo {
     public ChangchunInfo changchun;
     public GuizhouInfo guizhou_info;
     public YixingInfo yixing_info;
+    public MalaysiaInfo malaysia_info;
+    public MalaysiaHints malaysia_hints;
     public NanjingInfo nanjing_info;
+    public FuzhouInfo fuzhou_info;
+    public FuzhouHints fuzhou_hints;
     public NanjingHints nanjing_hints;
     public WenzhouInfo wenzhou_info;
     public NanchangInfo nanchang_info;
@@ -489,6 +541,9 @@ public class GameInfo {
     public Dictionary<string,WenzhouWait[]> wenzhou_waits;
     public Dictionary<string,NanchangWait[]> nanchang_hints;
     public bool? use_flowers;
+    public bool joker_multi_wait;
+    public string no_joker_bonus = "add8";
+    public bool black_flower_progressive = true;
     public bool tian_di_ren_he;
     public bool is_duplicate;
     public int duplicate_round_count;
@@ -564,7 +619,11 @@ public class ReadyStatusInfo {
     public HangzhouInfo hangzhou_info; // 准备状态信息
     public GuizhouInfo guizhou_info;
     public YixingInfo yixing_info;
+    public MalaysiaInfo malaysia_info;
+    public MalaysiaHints malaysia_hints;
     public NanjingInfo nanjing_info;
+    public FuzhouInfo fuzhou_info;
+    public FuzhouHints fuzhou_hints;
     public NanjingHints nanjing_hints;
     public WenzhouInfo wenzhou_info;
     public NanchangInfo nanchang_info;
@@ -1000,6 +1059,8 @@ public class PlayerRecentRecordsResponse {
 }
 
 public class Response { // 所有后端的返回数据都由Response类接收
+    public Dictionary<int, WashizuHandLayout> washizu_layouts;
+    public int? hand_order_request_id;
     public DuplicateMatchInfo duplicate_match_info;
     [Newtonsoft.Json.JsonIgnore]
     public double? received_monotonic; // 本机收件时间，禁止从网络字段赋值

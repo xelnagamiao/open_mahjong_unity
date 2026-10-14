@@ -1409,9 +1409,9 @@ public class Chinese_Hepai_Check {
                     case "点和":
                         if (debug) DebugPrint(string.Join(",", player_tiles.combination_list));
                         int small_count = combination_str.Count(c => c == 's' || c == 'k' || c == 'g');
-                        if (!string.IsNullOrEmpty(combination_str) &&
+                        if (player_tiles.initial_combination_count == 4 &&
                             combination_str.All(c => !new[] { 'S', 'K', 'G', 'z' }.Contains(c)) &&
-                            way_to_hepai.Contains("和单张"))
+                            player_tiles.combination_list.Contains($"q{get_tile}"))
                         {
                             player_tiles.fan_list.Add("quanqiuren"); // 全求人
                         }

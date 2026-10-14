@@ -46,7 +46,7 @@ def validate_selection(message):
 
 def canonical_mode(mode, count):
     match = re.fullmatch(r"([1-4])/(?:3|4)(?:_sanma)?(?:_rank)?", mode or "")
-    return f"{match[1]}/4" + ("_sanma" if count == 3 else "") if match else (mode or "")
+    return f"{match[1]}/{count}" if match else (mode or "")
 
 
 def get_rule_history(db, user_id, rule, room_type="custom"):

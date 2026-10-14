@@ -604,7 +604,7 @@ const showStatsTable = computed(() => !!activeStats.value)
 const statsDisplay = computed(() => {
   if (!activeStats.value) return []
   const rows = buildPlayerStatsRows(activeStats.value, {
-    rule: currentRuleDef.value?.sourceRule, detailed: detailedStatsAvailable.value,
+    rule: currentRuleDef.value?.key || currentRuleDef.value?.sourceRule, detailed: detailedStatsAvailable.value,
   })
   return currentRuleDef.value?.playerCount === 3 ? rows.filter(row => row.label !== '四位率') : rows
 })

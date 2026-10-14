@@ -43,6 +43,7 @@ router.use('/inventory', require('./inventory'));
 router.use('/rank', rankRoutes);
 router.use('/games', gamesRoutes);
 router.use('/game-control', gameControlRoutes);
+router.use('/room-control', require('./rooms'));
 router.use('/audit', auditRoutes);
 router.use('/messages', messagesRoutes);
 router.use('/mail', mailRoutes);

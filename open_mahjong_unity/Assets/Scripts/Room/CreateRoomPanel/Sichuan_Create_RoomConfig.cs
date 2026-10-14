@@ -16,9 +16,10 @@ public class Sichuan_Create_RoomConfig {
     public bool Tips { get; set; }
     public bool CountTips { get; set; }
     public string RandomSeed { get; set; }
+    public string DuplicateKey { get; set; }
     public bool TouristLimit { get; set; }
     public bool AllowSpectator { get; set; }
-    public bool TacticalCall { get; set; }
+    public bool TacticalCall { get; set; } = true;
     public bool BloodBattle { get; set; }
     public int HepaiLimit { get; set; }
     public string EventId { get; set; }

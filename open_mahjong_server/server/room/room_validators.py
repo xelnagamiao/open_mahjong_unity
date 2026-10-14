@@ -8,8 +8,19 @@ from ..game_calculation.taiwan.rules import TaiwanRules
 from ..game_calculation.sichuan.xueliu_rules import validate_sichuan_sub_rule
 from ..game_calculation.riichi.rule_config import normalize_riichi_config, validate_riichi_sub_rule
 from ..game_calculation.shanghai.qiaoma import normalize_room_config as normalize_qiaoma_config
+from ..game_calculation.shanghai import lajihe
 
 class GBRoomValidator(BaseModel):
+    joker_multi_wait: StrictBool = False
+    black_flower_progressive: StrictBool = True
+    no_joker_bonus: str = "add8"
+
+    @validator("no_joker_bonus", pre=True)
+    def validate_no_joker_bonus(cls, value):
+        if value not in ("add8", "double", "none"):
+            raise ValueError("无癞子奖励必须为+8分、翻倍或不额外加分")
+        return value
+
     use_flowers: bool = True
     tian_di_ren_he: bool = False
     room_name: str
@@ -81,7 +92,19 @@ class ShanghaiRoomValidator(GBRoomValidator):
 
     @validator("detailed_config", pre=True, always=True)
     def validate_detailed_config(cls, value, values):
-        return normalize_qiaoma_config(value, values.get("sub_rule", "shanghai/qiaoma"))
+        sub_rule = values.get("sub_rule", "shanghai/qiaoma")
+        if sub_rule == lajihe.SUB_RULE:
+            config = {} if value is None else value
+            if not isinstance(config, dict):
+                raise ValueError("不支持的上海垃圾和细则")
+            enabled = config.get(lajihe.SELF_DRAW_EXTRA_BASE, False)
+            if type(enabled) is not bool:
+                raise ValueError("自摸再加一底配置必须为布尔值")
+            normalize_qiaoma_config({k: v for k, v in config.items() if k != lajihe.SELF_DRAW_EXTRA_BASE}, sub_rule)
+            return {lajihe.SELF_DRAW_EXTRA_BASE: enabled}
+        if isinstance(value, dict) and lajihe.SELF_DRAW_EXTRA_BASE in value:
+            raise ValueError("自摸再加一底仅适用于上海垃圾和")
+        return normalize_qiaoma_config(value, sub_rule)
 
 
 class RiichiRoomValidator(BaseModel):
@@ -101,7 +124,7 @@ class RiichiRoomValidator(BaseModel):
 
     @validator('red_dora', 'open_xiru', pre=True, always=True)
     def washizu_fixed_flags(cls, value, values):
-        return False if values.get('sub_rule') == 'riichi/washizu' else value
+        return False if values.get('sub_rule') in ('riichi/washizu', 'riichi/washizu_realtime') else value
 
     @validator('starting_score', pre=True, always=True)
     def validate_starting_score(cls, v, values):
@@ -161,7 +184,7 @@ class RiichiRoomValidator(BaseModel):
     def validate_hepai_way(cls, v, values):
         if v not in ("head_bump", "multi_ron", "three_ron_abort"):
             raise ValueError('hepai_way 必须在 head_bump / multi_ron / three_ron_abort 中')
-        return 'head_bump' if values.get('sub_rule') == 'riichi/washizu' else v
+        return 'head_bump' if values.get('sub_rule') in ('riichi/washizu', 'riichi/washizu_realtime') else v
 
     @validator('hepai_limit')
     def validate_hepai_limit(cls, v):
@@ -178,7 +201,7 @@ class SichuanRoomValidator(BaseModel):
     step_timer: int
     random_seed: Union[int, str] = 0
     show_moqie_hint: bool = False
-    tactical_call: bool = False
+    tactical_call: bool = True
     claim_protection: StrictBool = True
     blood_battle: bool = True  # 血战到底：开=和牌后续打至三家和或流局；关=一家和牌即结束本盘
 

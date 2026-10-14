@@ -256,6 +256,7 @@ public class Tile3D : MonoBehaviour
             TileInstanceParamsId,
             new Vector4(instanceGrayScale, instanceTableImageScale, frontFaceHalfTurn ? 1f : 0f, 0f));
         cardRenderer.SetPropertyBlock(propBlock, tileMaterialIndex);
+        if (glassInkRenderer != null && glassInkRenderer.enabled) glassInkRenderer.SetPropertyBlock(propBlock);
         RuleTileBadge3D.Apply(cardRenderer, currentVisibleFaceTileId, !IsConcealedFaceDown || isPeekFaceUp);
     }
 
@@ -361,11 +362,11 @@ public class Tile3D : MonoBehaviour
     private Renderer[] opaqueOutlines;
     private bool[] opaqueOutlineEnabled;
     private TileContactShadow opaqueContactShadow;
-    private bool opaqueContactShadowEnabled;
+    private float opaqueContactShadowOpacity;
+    private MeshRenderer glassInkRenderer;
     private bool hasTransparentPresentation;
 
-    // Opaque support strokes and filled contact shadows would show through glass
-    // (and leave a floating cuboid behind a flat reading aid). Preserve pool state.
+    // Hide opaque support strokes, while preserving the pooled shadow policy.
     private void SetTransparentPresentation(bool transparent) {
         if (transparent == hasTransparentPresentation) return;
         if (transparent) {
@@ -386,18 +387,18 @@ public class Tile3D : MonoBehaviour
             }
             opaqueContactShadow=GetComponent<TileContactShadow>();
             if (opaqueContactShadow != null) {
-                opaqueContactShadowEnabled=opaqueContactShadow.enabled;
-                opaqueContactShadow.enabled=false;
+                opaqueContactShadowOpacity=opaqueContactShadow.OpacityMultiplier;
             }
         } else {
             if (opaqueOutlines != null) for (int i=0;i<opaqueOutlines.Length;i++)
                 if (opaqueOutlines[i] != null) opaqueOutlines[i].enabled=opaqueOutlineEnabled[i];
-            if (opaqueContactShadow != null) opaqueContactShadow.enabled=opaqueContactShadowEnabled;
+            if (opaqueContactShadow != null) opaqueContactShadow.OpacityMultiplier=opaqueContactShadowOpacity;
+            if (glassInkRenderer != null) glassInkRenderer.enabled=false;
         }
         hasTransparentPresentation=transparent;
     }
 
-    public void SetGlassMaterial(Material material) {
+    public void SetGlassMaterial(Material material, Material inkMaterial = null) {
         InitializeComponents();
         if (material == null || cardRenderer == null || tileMaterialIndex < 0) return;
         Material[] materials = cardRenderer.sharedMaterials;
@@ -405,6 +406,24 @@ public class Tile3D : MonoBehaviour
         cardRenderer.sharedMaterials = materials;
         sharedTileMaterial = material;
         SetTransparentPresentation(true);
+        if (opaqueContactShadow != null)
+            opaqueContactShadow.OpacityMultiplier=inkMaterial != null ? .38f : 0f;
+        if (inkMaterial != null && glassInkRenderer == null) {
+            var inkObject=new GameObject("Washizu opaque paint");
+            inkObject.layer=cardRenderer.gameObject.layer;
+            inkObject.transform.SetParent(cardRenderer.transform, false);
+            inkObject.AddComponent<MeshFilter>().sharedMesh=cardRenderer.GetComponent<MeshFilter>().sharedMesh;
+            glassInkRenderer=inkObject.AddComponent<MeshRenderer>();
+            glassInkRenderer.shadowCastingMode=UnityEngine.Rendering.ShadowCastingMode.Off;
+            glassInkRenderer.receiveShadows=false;
+        }
+        if (glassInkRenderer != null) {
+            glassInkRenderer.enabled=inkMaterial != null;
+            if (inkMaterial != null) {
+                glassInkRenderer.GetComponent<MeshFilter>().sharedMesh=cardRenderer.GetComponent<MeshFilter>().sharedMesh;
+                glassInkRenderer.sharedMaterial=inkMaterial;
+            }
+        }
         ApplyPropertyBlock();
     }
 

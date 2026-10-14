@@ -13,18 +13,19 @@ const FLOWERS = [51, 52, 53, 54, 55, 56, 57, 58];
 const RULES = {
   guobiao: { label: '国标麻将', base: [...NUMBER_TILES, ...HONORS], flowers: FLOWERS },
   'guobiao/lanshi': { label: '国标蓝十改（无花）', base: [...NUMBER_TILES, ...HONORS] },
+  'sichuan/xueliu': { label: '川麻血流复式', base: NUMBER_TILES, wall_layout: 'xueliu' },
 };
 
 function fail(status, message) { throw Object.assign(new Error(message), { status }); }
 function tileLabel(tile) { return LABELS[tile] || `${tile % 10}${({ 1: '万', 2: '筒', 3: '条' })[Math.floor(tile / 10)]}`; }
 function normalizeUseFlowers(rule, value) {
-  if (!Object.hasOwn(RULES, rule)) fail(400, '新复式仅支持国标麻将');
+  if (!Object.hasOwn(RULES, rule)) fail(400, '新复式仅支持国标麻将和川麻血流');
   if (value !== undefined && typeof value !== 'boolean') fail(400, 'use_flowers 必须为布尔值');
-  return rule === 'guobiao/lanshi' ? false : value ?? true;
+  return rule !== 'guobiao' ? false : value ?? true;
 }
 function tileSpec(rule, useFlowers) {
   const spec = Object.hasOwn(RULES, rule) ? RULES[rule] : null;
-  if (!spec) fail(400, '新复式仅支持国标麻将');
+  if (!spec) fail(400, '新复式仅支持国标麻将和川麻血流');
   const flowers = normalizeUseFlowers(rule, useFlowers) ? FLOWERS : [];
   return [...spec.base.map((tile) => ({ tile, label: tileLabel(tile), count: 4 })),
     ...flowers.map((tile) => ({ tile, label: tileLabel(tile), count: 1 }))];
@@ -32,7 +33,7 @@ function tileSpec(rule, useFlowers) {
 function fullWall(rule, useFlowers) { return tileSpec(rule, useFlowers).flatMap(({ tile, count }) => Array(count).fill(tile)); }
 function catalog() {
   return { rules: Object.entries(RULES).map(([rule, spec]) => ({
-    rule, label: spec.label, tiles: tileSpec(rule), tile_count: fullWall(rule).length,
+    rule, label: spec.label, wall_layout: spec.wall_layout || 'standard', tiles: tileSpec(rule), tile_count: fullWall(rule).length,
     use_flowers: normalizeUseFlowers(rule), supports_flower_toggle: rule === 'guobiao',
     flower_options: (rule === 'guobiao' ? [true, false] : [false]).map((useFlowers) => ({
       use_flowers: useFlowers, tiles: tileSpec(rule, useFlowers), tile_count: fullWall(rule, useFlowers).length,
@@ -116,6 +117,7 @@ function wallDto(row, ownerView = false) {
   dto.event_name = row.scope === 'event' ? row.event_name ?? null : null;
   dto.is_deleted = row.deleted_at != null;
   dto.round_count = row.round_count ?? 1;
+  dto.wall_layout = ['sichuan/xueliu', 'sichuan/xueliu_doubles_duplicate'].includes(row.rule) ? 'xueliu' : 'standard';
   dto.use_flowers = typeof row.use_flowers === 'boolean' ? row.use_flowers
     : Array.isArray(row.tiles) ? row.tiles.some((tile) => FLOWERS.includes(tile)) : null;
   // Historical walls remain manageable even when their rule is no longer creatable.
@@ -287,6 +289,7 @@ function createDuplicateWallService(pool) {
       const pair = (await pool.query('SELECT status,data FROM sichuan_duplicate_matches WHERE wall_id=$1', [wall.id])).rows[0];
       if (pair?.status === 'completed') pairedMatch = {
         status: pair.status, scoring: pair.data.profile.scoring, scores: pair.data.scores,
+        small_scores: pair.data.small_scores, imp_scores: pair.data.imp_scores,
         planned_boards: pair.data.planned_boards, completed_boards: pair.data.completed_boards,
         boards: pair.data.results, record_ids: pair.data.record_ids,
       };

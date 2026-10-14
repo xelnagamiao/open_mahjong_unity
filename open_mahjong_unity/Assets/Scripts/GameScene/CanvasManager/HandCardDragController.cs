@@ -409,7 +409,7 @@ public class HandCardDragController : MonoBehaviour {
     private void ApplyHandLayoutForDiscard(TileCard discardCard) {
         List<TileCard> main;
         TileCard draw;
-        if (OrderChanged(activeGapIndex, activeMergeDraw)) {
+        if (OrderChanged(activeGapIndex, activeMergeDraw) && !WashizuTile.IsRealtimeHandOrder) {
             main = BuildOrderForInsert(activeGapIndex, activeMergeDraw);
             draw = gameCanvas.GetPinnedDrawTile();
             gameCanvas.SetHandArranged(true);
@@ -734,6 +734,7 @@ public class HandCardDragController : MonoBehaviour {
         Dictionary<RectTransform, Vector2> positions = gameCanvas.BuildHandLayoutPositions(order, draw, null);
         gameCanvas.ApplyHandLayoutPositions(positions, order, draw);
         gameCanvas.SetHandArranged(true);
+        gameCanvas.PublishWashizuHandOrder();
         if (AutoAction.Instance.IsAutoArrangeHandCards) {
             AutoAction.Instance.SetAutoArrangeHandCards(false);
         }

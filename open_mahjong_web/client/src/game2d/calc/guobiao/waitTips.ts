@@ -12,10 +12,13 @@ import {
 } from './index'
 
 import { hepaiCheckLanshi, tingpaiCheckLanshi } from './lanshiV4'
+import { buildFourJokersWaitData, type FourJokersHintRequest } from './fourJokers'
 
 const FLOWERS = new Set([51, 52, 53, 54, 55, 56, 57, 58])
 
 export interface WaitDetail {
+  label?: string
+  four_jokers_request?: FourJokersHintRequest
   tile: number
   base_f: number
   selfdrawn_f: number
@@ -35,6 +38,9 @@ export interface WaitTipsContext {
   playerIndex: number
   currentRound: number
   hepaiLimit: number
+  jokerMultiWait?: boolean
+  noJokerBonus?: string
+  blackFlowerProgressive?: boolean
   subRule: string
   /** Discard piles for seats 0-3 (Salasasa tile ids). */
   seatDiscards: number[][]
@@ -62,7 +68,7 @@ function scoreHepai(
   return Math.max(0, Number(result.fan) || 0)
 }
 
-function buildBaseWay(ctx: WaitTipsContext, waitCount: number): string[] {
+export function buildBaseWay(ctx: WaitTipsContext, waitCount: number): string[] {
   const way: string[] = []
   for (let i = 0; i < ctx.flowerCount; i += 1) way.push('花牌')
   const roundIndex = Math.max(1, Number(ctx.currentRound) || 1)
@@ -77,7 +83,7 @@ function buildBaseWay(ctx: WaitTipsContext, waitCount: number): string[] {
 }
 
 /** C# HeJuezhangTableCounter: river + k/s melds only (no g/G), optional pending cut. */
-function countShowTilesOnTable(
+export function countShowTilesOnTable(
   hepaiTile: number,
   seatDiscards: number[][],
   seatCombinations: string[][],
@@ -114,7 +120,7 @@ function expandMeldTiles(target: string): number[] {
   return []
 }
 
-function remainingCount(
+export function remainingCount(
   hand: number[],
   seatDiscards: number[][],
   seatCombinations: string[][],
@@ -199,6 +205,7 @@ export function buildLocalWaitData(
   try {
     if (!ctx.tips) return null
     if (ctx.hand.some((tile) => FLOWERS.has(tile))) return null
+    if (['guobiao/huahun', 'guobiao/four_jokers', 'guobiao/sixteen'].includes(ctx.subRule)) return buildFourJokersWaitData(ctx, options.includeDiscards)
 
     if (!options.includeDiscards) {
       const details = detailsForHand(ctx, ctx.hand)

@@ -272,6 +272,9 @@ class GameServer:
                 except Exception:
                     logging.exception("清理断线玩家的赛事准备记录失败")
             # 帮助玩家自动离开房间（异步执行）
+            if not player.current_room_id and player.user_id:
+                room = self.room_manager.find_player_room(player.user_id)
+                player.current_room_id = room["room_id"] if room else None
             if player.current_room_id:
                 await self.room_manager.leave_room(Connect_id, player.current_room_id)
                 logging.info(f"玩家 {Connect_id} 已离开房间 {player.current_room_id}")
@@ -347,11 +350,13 @@ class GameServer:
             player.username = username
             player.is_tourist = is_tourist
             self.user_id_to_connection[user_id] = player # 存储用户ID到玩家连接的映射
+            room = self.room_manager.find_player_room(user_id)
+            player.current_room_id = room["room_id"] if room else None
             logging.info(f"已存储{'游客' if is_tourist else '玩家'} user_id={user_id}, username={username} 的会话数据")
 
     # 创建国标房间
-    async def create_GB_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, cuohe_type: int = 0, event_id=None, count_tips: bool = False, use_flowers: bool = True, pointer_tips: bool = True, tian_di_ren_he: bool = False) -> Response:
-        return await self.room_manager.create_GB_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, open_cuohe, sub_rule, hepai_limit, tourist_limit, allow_spectator, tactical_call, claim_protection, cuohe_type, event_id, count_tips=count_tips, use_flowers=use_flowers, pointer_tips=pointer_tips, tian_di_ren_he=tian_di_ren_he)
+    async def create_GB_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, cuohe_type: int = 0, event_id=None, count_tips: bool = False, use_flowers: bool = True, pointer_tips: bool = True, tian_di_ren_he: bool = False, joker_multi_wait: bool = False, no_joker_bonus: str = "add8", black_flower_progressive: bool = True) -> Response:
+        return await self.room_manager.create_GB_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, open_cuohe, sub_rule, hepai_limit, tourist_limit, allow_spectator, tactical_call, claim_protection, cuohe_type, event_id, count_tips=count_tips, use_flowers=use_flowers, pointer_tips=pointer_tips, tian_di_ren_he=tian_di_ren_he, joker_multi_wait=joker_multi_wait, no_joker_bonus=no_joker_bonus, black_flower_progressive=black_flower_progressive)
 
     # 创建青雀房间
     async def create_Qingque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "qingque/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, event_id=None, count_tips: bool = False, pointer_tips: bool = True) -> Response:
@@ -477,12 +482,16 @@ from .webapi.admin_message import register_admin_message_routes
 from .webapi.admin_user import register_admin_user_routes
 from .webapi.admin_game import register_admin_game_routes
 from .webapi.admin_event_room import register_admin_event_room_routes
+from .webapi.admin_room import register_admin_room_routes
 register_calc_routes(app, game_server)
 register_admin_message_routes(app, game_server)
 register_admin_user_routes(app, game_server)
 register_inventory_routes(app, game_server)
 register_admin_game_routes(app, game_server)
 register_admin_event_room_routes(app, game_server)
+register_admin_room_routes(app, game_server, proxy_secret=(
+    os.environ.get("PLAYER_JWT_SECRET") or os.environ.get("ADMIN_JWT_SECRET")
+    or getattr(Config, "player_jwt_secret", "") or getattr(Config, "admin_jwt_secret", "")))
 
 @app.websocket("/game/{Connect_id}")
 async def message_input(websocket: WebSocket, Connect_id: str):

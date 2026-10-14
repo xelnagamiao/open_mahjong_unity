@@ -23,8 +23,8 @@ public partial class Game3DManager : MonoBehaviour {
             } else requested.Add(discardTileId);
             for (int i=0;i<removeCount && cardPosition.childCount>0;i++) {
                 int target=i<requested.Count && WashizuTile.IsTransparent(requested[i]) ? requested[i] : 0;
-                Transform chosen=null;
-                for (int j=0;j<cardPosition.childCount;j++) {
+                Transform chosen=FindRemovedWashizuTile(playerPosition, cardPosition, target);
+                for (int j=0;chosen==null && j<cardPosition.childCount;j++) {
                     Transform child=cardPosition.GetChild(j);
                     if (MahjongObjectPool.GetTile3D(child.gameObject)?.GetTileId()==target) { chosen=child;break; }
                 }
