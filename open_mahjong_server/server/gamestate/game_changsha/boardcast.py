@@ -225,6 +225,7 @@ async def send_realtime_spectator_snapshot(self, spectator_user_id: int, view_pl
 async def broadcast_ask_hand_action(self):
     self.server_action_tick += 1
     begin_ask_round(self)
+    bot_status = "waiting_hand_action" if self.game_status == "waiting_gang_replacement_self_hu" else bot_ask_hand_game_status(self, self.current_player_index)
     forced_cut_tiles = _forced_cut_tiles_for_hand_ask(
         self, self.current_player_index
     )
@@ -239,17 +240,17 @@ async def broadcast_ask_hand_action(self):
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 if self.action_dict.get(i, []):
-                    start_owned_task(self, auto_cut_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
+                    start_owned_task(self, auto_cut_action(self, i, self.action_dict[i], bot_status))
                 continue
 
             # 机器人 user_id < 10 整段视为机器人，分发对应 AI
             if current_player.user_id == 0:
                 if self.action_dict.get(i, []):
-                    start_owned_task(self, auto_cut_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
+                    start_owned_task(self, auto_cut_action(self, i, self.action_dict[i], bot_status))
                 continue
             elif current_player.user_id == 2:
                 if self.action_dict.get(i, []):
-                    start_owned_task(self, smart_bot_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
+                    start_owned_task(self, smart_bot_action(self, i, self.action_dict[i], bot_status))
                 continue
             elif current_player.user_id < 10:
                 continue
@@ -298,7 +299,15 @@ async def broadcast_ask_hand_action(self):
 async def broadcast_ask_other_action(self, remaining_time_override: Optional[int] = None, is_tactical_recheck: bool = False):
     cut_tile = getattr(self, "current_claim_cut_tile", None)
     if cut_tile is None:
+        if self.game_status == "waiting_gang_replacement_ron":
+            logger.error("长沙开杠补牌荣和询问缺少服务端指定牌张，停止发送旧河牌兼容数据")
+            return
         cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
+    bot_game_status = (
+        "waiting_action_after_cut"
+        if self.game_status == "waiting_gang_replacement_ron"
+        else self.game_status
+    )
     self.server_action_tick += 1
     # 战术打断再问：在派发 AI 前同步 waiting tick，避免机器人因 tick 不一致拒动
     if is_tactical_recheck:
@@ -311,17 +320,17 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 if self.action_dict.get(i, []):
-                    start_owned_task(self, auto_cut_action(self, i, self.action_dict[i], self.game_status))
+                    start_owned_task(self, auto_cut_action(self, i, self.action_dict[i], bot_game_status))
                 continue
 
             # 机器人 user_id < 10 整段视为机器人，分发对应 AI
             if current_player.user_id == 0:
                 if self.action_dict.get(i, []):
-                    start_owned_task(self, auto_cut_action(self, i, self.action_dict[i], self.game_status))
+                    start_owned_task(self, auto_cut_action(self, i, self.action_dict[i], bot_game_status))
                 continue
             elif current_player.user_id == 2:
                 if self.action_dict.get(i, []):
-                    start_owned_task(self, smart_bot_action(self, i, self.action_dict[i], self.game_status))
+                    start_owned_task(self, smart_bot_action(self, i, self.action_dict[i], bot_game_status))
                 continue
             elif current_player.user_id < 10:
                 continue
@@ -389,7 +398,7 @@ async def reconnected_send_pending_ask_for_viewer(
     player_conn = self.game_server.user_id_to_connection[connection_user_id]
     player = self.player_list[view_player_index]
     remaining_sent, step_sent = _reconnect_clock(self, player)
-    if self.game_status == "waiting_hand_action":
+    if self.game_status in ("waiting_hand_action", "waiting_gang_replacement_self_hu"):
         if view_player_index == self.current_player_index:
             response = Response(
                 type="gamestate/changsha/broadcast_hand_action",
@@ -410,9 +419,14 @@ async def reconnected_send_pending_ask_for_viewer(
             )
             await player_conn.websocket.send_json(response.dict(exclude_none=True))
             logger.info(f"重连补发 ask_hand 给玩家 {player.username}，剩余时间 {remaining_sent}s")
-    elif self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang"):
+    elif self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang", "waiting_gang_replacement_ron"):
         if self.action_dict.get(view_player_index):
-            cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
+            cut_tile = getattr(self, "current_claim_cut_tile", None)
+            if cut_tile is None:
+                if self.game_status == "waiting_gang_replacement_ron":
+                    logger.error("长沙开杠批次重连缺少当前响应牌")
+                    return
+                cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
             response = Response(
                 type="gamestate/changsha/ask_other_action",
                 success=True,
@@ -684,6 +698,10 @@ async def broadcast_result(self,
                           initial_hu_payer_details: Optional[List[Dict]] = None,
                           bird_tiles: Optional[List[int]] = None,
                           round_continues: Optional[bool] = None,
+                          hepai_tile: Optional[int] = None,
+                          multi_ron: Optional[bool] = None,
+                          ron_discarder_index: Optional[int] = None,
+                          recycle_discard: Optional[bool] = None,
                           silent: bool = False,
                           next_status: Optional[str] = None):
     # 战术鸣牌：胡牌结算复用申请阶段的发声/动画，本次静默
@@ -726,6 +744,10 @@ async def broadcast_result(self,
                         initial_hu_payer_details=initial_hu_payer_details,
                         bird_tiles=bird_tiles,
                         round_continues=round_continues,
+                        hepai_tile=hepai_tile,
+                        multi_ron=multi_ron,
+                        ron_discarder_index=ron_discarder_index,
+                        recycle_discard=recycle_discard,
                         silent=True if silent else None,
                         next_status=next_status,
                     )
