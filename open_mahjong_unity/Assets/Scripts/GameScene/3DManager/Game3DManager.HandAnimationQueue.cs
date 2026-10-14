@@ -406,6 +406,7 @@ public partial class Game3DManager {
     }
 
     private void EnqueueDiscardHandWork(string playerPosition, int tileId, bool cutClass, bool isRiichi, bool playCutPhysicsSound, bool concealedDiscard = false) {
+        if (TryEnqueueChangshaOpenKongAction("Discard", tileId, playerPosition, null, isRiichi, playCutPhysicsSound)) return;
         EnqueueHandAnimOp(playerPosition, new HandAnimOp {
             Kind = HandAnimOpKind.DiscardTile,
             TileId = tileId,

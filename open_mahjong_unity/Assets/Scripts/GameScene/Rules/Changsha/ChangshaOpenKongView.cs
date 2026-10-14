@@ -64,6 +64,7 @@ public partial class Game3DManager {
 
     /// <summary>亮牌摸切只回收该张亮牌；亮牌续暗杠只从暗手移除其余原手牌，避免误删原手。</summary>
     private bool TryEnqueueChangshaOpenKongAction(string action, int tile, string seat, int[] mask, bool riichi, bool physicsSound) {
+        if (RuleRegistry.Current?.RuleId != "changsha" || !IsHandAnimPlayer(seat)) return false;
         if (!changshaOpenKongPendingTiles.TryGetValue(seat, out List<int> pending) || pending.Count == 0) return false;
         if (action == "Discard" || action == "RecordDiscard") {
             int index = pending.IndexOf(tile);
