@@ -39,6 +39,8 @@ internal static class MalaysiaRuleBootstrap {
         });
         ActionWords.Register(new ActionWordSpec { Word="malaysia_peng:", Kind=ActionWordKind.Peng, Label=w=>w.EndsWith(":0")?"碰":$"碰（{w.Split(':')[1]}飞）" });
         ActionWords.Register(new ActionWordSpec { Word="malaysia_chi:", Kind=ActionWordKind.Chi, Label=w=>ChowLabel(w) });
+        ActionWords.Register(new ActionWordSpec { Word="malaysia_chi", Kind=ActionWordKind.Chi, Label=_=>"吃", BlocksAutoCut=true, Expand=MalaysiaGameState.ClaimChoices });
+        ActionWords.Register(new ActionWordSpec { Word="malaysia_peng", Kind=ActionWordKind.Peng, Label=_=>"碰", BlocksAutoCut=true, Expand=MalaysiaGameState.ClaimChoices });
         ActionWords.Register(new ActionWordSpec { Word="malaysia_redeem:", Kind=ActionWordKind.Other, Label=_=>"赎飞", BlocksAutoCut=true });
         ActionWords.Register(new ActionWordSpec { Word="malaysia_fly", Kind=ActionWordKind.Other, Label=_=>"飞当花", BlocksAutoCut=true });
     }

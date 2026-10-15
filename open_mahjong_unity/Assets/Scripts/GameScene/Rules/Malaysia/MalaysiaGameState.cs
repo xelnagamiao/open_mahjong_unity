@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -7,11 +8,14 @@ public sealed class MalaysiaGameState : TurnBasedGameState {
     public MalaysiaInfo Info { get; private set; }
     public readonly MalaysiaHintsCache Hints = new MalaysiaHintsCache();
     private DoActionInfo actionInfo;
+    private string[] claimWords = Array.Empty<string>();
+    private int claimTile;
     private void Accept(MalaysiaInfo info, MalaysiaHints hints=null) {
         if (info != null) Info=info;
         Hints.Accept(hints);
     }
     protected override void OnRoundStarted(GameInfo info) {
+        claimWords=Array.Empty<string>();
         Info=null; Hints.Reset(); Accept(info.malaysia_info,info.malaysia_hints);
         RefreshFlowers();
     }
@@ -22,6 +26,11 @@ public sealed class MalaysiaGameState : TurnBasedGameState {
     protected override void OnAskClaim(Response r) {
         Accept(r.game_info?.malaysia_info,r.game_info?.malaysia_hints);
         Clock.PendingAskFromJiagang=Info?.phase=="waiting_action_qianggang";
+        if(r.ask_other_action_info!=null) {
+            claimWords=r.ask_other_action_info.action_list??Array.Empty<string>();
+            claimTile=r.ask_other_action_info.cut_tile;
+            r.ask_other_action_info.action_list=GroupClaimActions(claimWords);
+        }
         base.OnAskClaim(r);
     }
     protected override void OnDoAction(Response r) {
@@ -96,5 +105,38 @@ public sealed class MalaysiaGameState : TurnBasedGameState {
         GameCanvas.Instance?.SetPlayerFlowerCounts(Mirror.IndexToPosition.ToDictionary(s=>s.Key,s=>Mirror.Info(s.Value)?.huapai_list?.Count ?? 0),Mirror.IndexToPosition);
         EndResultPanel.Instance?.SetOccupiedSeats(Mirror.IndexToPosition.Values);
     }
-    public override void OnSessionReset() { Info=null; Hints.Reset(); GameCanvas.Instance?.SetPlayerFlowerCounts(null,null); EndResultPanel.Instance?.SetOccupiedSeats(null); }
+    public override void OnSessionReset() { Info=null; claimWords=Array.Empty<string>(); Hints.Reset(); GameCanvas.Instance?.SetPlayerFlowerCounts(null,null); EndResultPanel.Instance?.SetOccupiedSeats(null); }
+
+    // One button per meld kind; the shared candidate pager preserves every
+    // physical fly choice without pushing kong/win/pass outside the screen.
+    public static string[] GroupClaimActions(IEnumerable<string> words) {
+        var result=new List<string>();var groups=new HashSet<string>();
+        foreach(string word in words??Array.Empty<string>()) {
+            string group=word.StartsWith("malaysia_chi:")?"malaysia_chi":word.StartsWith("malaysia_peng:")?"malaysia_peng":null;
+            if(group==null)result.Add(word);
+            else if(groups.Add(group))result.Add(group);
+        }
+        return result.ToArray();
+    }
+    public static IReadOnlyList<ActionCandidate> ClaimChoices(string group) =>
+        ClaimChoices(group,Active?.claimWords,Active?.claimTile??0);
+
+    public static IReadOnlyList<ActionCandidate> ClaimChoices(string group,IEnumerable<string> offered,int discard) {
+        var choices=new List<ActionCandidate>();
+        foreach(string word in offered??Array.Empty<string>()) {
+            var parts=word.Split(':');
+            if(parts[0]!=group)continue;
+            if(group=="malaysia_peng" && parts.Length==2 && int.TryParse(parts[1],out int flies) && flies>=0 && flies<=2) {
+                var tiles=Enumerable.Repeat(discard,3-flies).Concat(Enumerable.Repeat(81,flies)).ToArray();
+                choices.Add(new ActionCandidate(word,tiles,caption:flies==0?"碰 · 不用飞":"碰 · "+flies+"飞"));
+            } else if(group=="malaysia_chi" && parts.Length==3 && int.TryParse(parts[1],out int middle) && int.TryParse(parts[2],out int wild)
+                && middle>=22 && middle<=28 && discard>=middle-1 && discard<=middle+1
+                && (wild==0 || wild!=discard && wild>=middle-1 && wild<=middle+1)) {
+                var tiles=Enumerable.Range(middle-1,3).Select(t=>t==wild?81:t).ToArray();
+                string caption="吃 "+(middle%10-1)+(middle%10)+(middle%10+1)+(wild==0?" · 不用飞":" · 飞代"+(wild%10)+"筒");
+                choices.Add(new ActionCandidate(word,tiles,caption:caption));
+            }
+        }
+        return choices;
+    }
 }

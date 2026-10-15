@@ -10,6 +10,8 @@ from ...game_calculation.malaysia import rules as R
 
 class Runtime:
     def open_action_window(self, window):
+        self._active_deadlines = {}
+        self._received_at = {}
         for i in range(3):
             self.action_events[i].clear()
             while not self.action_queues[i].empty():
@@ -20,14 +22,22 @@ class Runtime:
         if type(i) is not int or i not in range(3) or not self.action_queues[i].empty():
             raise ValueError("非法座位或重复响应")
         self.validate_response(i, dict(action_type=action_type, **kwargs), self.action_dict.get(i, []))
+        now = asyncio.get_running_loop().time()
+        deadline = getattr(self, '_active_deadlines', {}).get(i)
+        if deadline is not None and now > deadline:
+            raise ValueError("操作时限已过")
         await super().submit_action(i, action_type, **kwargs)
+        self._received_at[i] = now
 
     def automatic_action(self, i, *, bot=False):
         p, actions = self.player_list[i], self.action_dict[i]
-        for a in ("ready", "buhua", "hu_self", "hu"):
+        for a in ("ready", "buhua"):
             if a in actions:
                 return dict(action_type=a)
         if bot:
+            for a in ("hu_self", "hu"):
+                if a in actions:
+                    return dict(action_type=a)
             for a in actions:
                 if a.startswith("malaysia_redeem:"):
                     return dict(action_type=a)
@@ -51,6 +61,11 @@ class Runtime:
             tile = min(legal, key=lambda t: (keep(t), t)) if bot else next(t for t in reversed(p.hand_tiles) if t in legal)
             pos = len(p.hand_tiles) - 1 if p.has_draw_slot and p.hand_tiles[-1] == tile else p.hand_tiles.index(tile)
             return dict(action_type="cut", TileId=tile, cutIndex=pos, cutClass=p.has_draw_slot and pos == len(p.hand_tiles) - 1)
+        # No optional decision remains (for example, a hand containing only
+        # flies). Keep the window progressing without treating timeout as bot play.
+        for a in ("hu_self", "hu", "malaysia_fly"):
+            if a in actions:
+                return dict(action_type=a)
         raise RuntimeError("操作窗口没有可执行的自动动作")
 
     def _build_timeout_action(self, i):
@@ -86,6 +101,7 @@ class Runtime:
             if self.player_list[i].is_bot:
                 seconds = max(seconds, bot_delay(self) + .1)
             deadlines[i] = started + max(0, seconds)
+        self._active_deadlines = deadlines
         while self.waiting_players_list:
             for i in list(self.waiting_players_list):
                 if not self.action_queues[i].empty():
@@ -94,7 +110,7 @@ class Runtime:
                     self.action_dict[i] = []
                     self.action_events[i].clear()
                     if self.machine.phase != P.READY:
-                        self._consume_time_bank(i, loop.time() - started)
+                        self._consume_time_bank(i, max(0, self._received_at.pop(i, loop.time()) - started))
                 elif loop.time() >= deadlines[i]:
                     responses[i] = self._build_timeout_action(i)
             if not self.waiting_players_list:

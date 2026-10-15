@@ -87,7 +87,9 @@ class HandFlow:
         if drawn is not None and type(drawn) is not bool:
             raise ValueError("出牌类型无效")
         if drawn:
-            if not p.has_draw_slot or p.hand_tiles[-1] != tile or position not in (-1, len(p.hand_tiles) - 1):
+            # Unity sends its visual sibling index, including zero for the
+            # separate draw slot. Only the physical draw identity authorizes it.
+            if not p.has_draw_slot or p.hand_tiles[-1] != tile:
                 raise ValueError("摸切牌不匹配")
             position = len(p.hand_tiles) - 1
         elif drawn is False:

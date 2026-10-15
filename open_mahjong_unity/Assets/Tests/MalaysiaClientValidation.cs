@@ -67,7 +67,11 @@ public sealed class MalaysiaClientValidation : MonoBehaviour {
         // Opening flowers can already have been submitted by the normal automatic replacement UI.
         if(state.LastAskActionTick>tick)yield break;
         Check(state.LastAskActionTick==tick,"action tick differs from client");
-        if(action!="ready") Check(state.allowActionList.Contains(action),"offered action missing in UI: "+action);
+        if(action!="ready") {
+            string group=action.StartsWith("malaysia_chi:")?"malaysia_chi":action.StartsWith("malaysia_peng:")?"malaysia_peng":null;
+            bool offered=state.allowActionList.Contains(action) || group!=null && MalaysiaGameState.ClaimChoices(group).Any(c=>c.ActionType==action);
+            Check(offered,"offered action missing in UI: "+action);
+        }
         if(action=="cut") {
             int tile=(int)m["tile"];bool drawn=(bool)m["drawn"];
             TileCard card=null;

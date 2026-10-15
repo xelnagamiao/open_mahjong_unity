@@ -20,3 +20,9 @@ async def handle_action(server,connection_id,message,websocket):
             cutIndex=message.get("cutIndex",-1),cutClass=message.get("cutClass"),target_tile=message.get("targetTile"))
     except (TypeError,ValueError):
         await websocket.send_json(dict(type="tips",success=False,message="该动作已失效或不符合马来西亚三人规则"))
+        # Choosing a button clears the client's choices. Restore them only if
+        # this seat still owes a response, not after an already queued choice.
+        if index in state.waiting_players_list and state.action_queues[index].empty():
+            payload = state.build_pending_action_payload(index)
+            if payload:
+                await websocket.send_json(payload)
