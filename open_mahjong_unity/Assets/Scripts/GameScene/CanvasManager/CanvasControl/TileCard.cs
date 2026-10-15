@@ -172,6 +172,11 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         if (!skipSameCardCheck && !pressCard.IsSameCardReleasePoint(releaseScreenPos)) {
             return false;
         }
+        // 换六张阶段点击手牌只调整选牌，不发送普通出牌请求。
+        if (GameCanvas.Instance != null && GameCanvas.Instance.TryHandleChangshaExchangeTileClick(pressCard)) {
+            lastHandledPointerFrame = Time.frameCount;
+            return true;
+        }
         // 血流开局选三张使用同一套手牌点击命中，但不发送普通 cut。
         if (GameCanvas.Instance != null && GameCanvas.Instance.TryHandleXueliuTileClick(pressCard)) {
             lastHandledPointerFrame = Time.frameCount;

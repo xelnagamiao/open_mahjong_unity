@@ -86,6 +86,10 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
         if (round?.actionTicks == null || round.seats == null || round.seats.Count < playerCount) {
             return;
         }
+        if (subRule == ChangshaGameState.ExchangeSixSubRule) {
+            ExtractExchangeSixRoundRows(round, gameTitle, output);
+            return;
+        }
 
         int roundNumber = round.currentRound > 0 ? round.currentRound : round.roundIndex;
 

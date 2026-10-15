@@ -406,6 +406,11 @@ async def reconnected_send_pending_ask_for_viewer(
         return
     player_conn = self.game_server.user_id_to_connection[connection_user_id]
     player = self.player_list[view_player_index]
+    exchange_flow = getattr(self, "exchange_six", None)
+    if exchange_flow is not None:
+        await exchange_flow.send_snapshot(connection_user_id, view_player_index)
+        if self.game_status == "waiting_changsha_exchange_six":
+            return
     remaining_sent, step_sent = _reconnect_clock(self, player)
     if self.game_status in ("waiting_hand_action", "waiting_gang_replacement_self_hu"):
         if view_player_index == self.current_player_index:
@@ -716,7 +721,8 @@ async def broadcast_result(self,
                           ron_discarder_index: Optional[int] = None,
                           recycle_discard: Optional[bool] = None,
                           silent: bool = False,
-                          next_status: Optional[str] = None):
+                          next_status: Optional[str] = None,
+                          simultaneous_hu_hands: Optional[Dict[int, List[int]]] = None):
     # 战术鸣牌：胡牌结算复用申请阶段的发声/动画，本次静默
     if not silent and getattr(self, "_tactical_silent_action", False):
         silent = True
@@ -756,10 +762,11 @@ async def broadcast_result(self,
                         initial_hu_bird_seats=initial_hu_bird_seats,
                         initial_hu_payer_details=initial_hu_payer_details,
                         bird_tiles=bird_tiles,
-                        round_continues=round_continues,
                         hepai_tile=hepai_tile,
                         multi_ron=multi_ron,
+                        simultaneous_hu_hands=simultaneous_hu_hands,
                         ron_discarder_index=ron_discarder_index,
+                        round_continues=round_continues,
                         recycle_discard=recycle_discard,
                         silent=True if silent else None,
                         next_status=next_status,

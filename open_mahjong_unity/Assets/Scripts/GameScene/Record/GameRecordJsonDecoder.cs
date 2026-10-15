@@ -167,6 +167,7 @@ public static class GameRecordJsonDecoder {
     /// </summary>
     public static void AccumulateScoreChangesFromTick(Round round, List<string> tick) {
         if (round == null || tick == null || tick.Count == 0) return;
+        if (GameRecordManager.AccumulateExchangeSixDrawScore(round, tick)) return;
         string act = tick[0];
         if (act == "wenzhou" && tick.Count >= 4 && tick[1] == "state" && round.wenzhou?.start_scores?.Length == 4) {
             int[] scores = Newtonsoft.Json.JsonConvert.DeserializeObject<int[]>(tick[3]);

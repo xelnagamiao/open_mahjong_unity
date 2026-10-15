@@ -24,11 +24,16 @@ internal static class ChangshaRuleBootstrap {
             FaceDownAnkan = true,
             DefaultHepaiLimit = 1,
         });
+        ChangshaExchangeSixActions.Register();
     }
 
     /// <summary>长沙：明杠/暗杠/加杠都叫"开杠"；补花不飘字。</summary>
     private static string ChangshaActionCaption(string word) {
         switch (word) {
+            case "changsha_kong_continue":
+                return "续杠收牌";
+            case "changsha_batch_claim":
+                return string.Empty;
             case "gang":
             case "angang":
             case "jiagang":

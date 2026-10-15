@@ -11,6 +11,7 @@ public partial class GameRecordManager
             return;
         }
         int safeActionIndex = Mathf.Clamp(actionIndex, 0, roundData.actionTicks.Count);
+        if (IsExchangeSixRecord()) Game3DManager.Instance.ClearChangshaExchangeHands();
         InvalidateRecordDelayedAdvances();
 
         // 重新推理手牌前清空所有正在执行的3D动画，避免与重建画面冲突
@@ -83,6 +84,7 @@ public partial class GameRecordManager
         RefreshRecordRulePlayerTags();
         RefreshChangchunRecordBadge();
         RefreshChangchunRecordReveals();
+        RefreshExchangeSixRecordPresentation();
         SyncRecordRonDiscardObjectAfterRebuild();
         if (IsBloodBattleRecord() && bloodRecordRevealedHands != null) {
             // 终局已经公开全部手牌，不能再用退场后的隐藏手牌覆盖自家明牌。
@@ -140,6 +142,8 @@ public partial class GameRecordManager
         }
 
         tick = NormalizeWenzhouRecordTick(tick);
+        tick = NormalizeExchangeSixTerminalTick(tick);
+        if (ApplyExchangeSixRecordTick(tick)) return;
         string action = tick[0];
 
         if (action == "reset") {

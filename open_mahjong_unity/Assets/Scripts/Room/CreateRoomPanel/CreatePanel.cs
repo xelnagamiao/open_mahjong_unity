@@ -386,12 +386,12 @@ public partial class CreatePanel : MonoBehaviour {
         if (TobiToggle != null) TobiToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.OpenTobi));
         HepaiWayPanel.SetActive(visible.ContainsKey(CreateRoomKeys.HepaiWay));
         ClaimProtectionToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.ClaimProtection));
-        TacticalCallToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.TacticalCall) && !isBloodBattle);
+        TacticalCallToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.TacticalCall) && !isBloodBattle && !IsChangshaExchangeSix);
         if (BloodBattleToggle != null) {
             BloodBattleToggle.gameObject.SetActive(
                 visible.ContainsKey(CreateRoomKeys.BloodBattle) && !isSichuanXueLiu);
         }
-        SetChangshaOptionsVisible(DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.CsBirdCount));
+        SetChangshaOptionsVisible(DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.CsBirdCount) && !IsChangshaExchangeSix);
         SetWallOptionsVisible(visible.ContainsKey(CreateRoomKeys.WallWan));
         if (YixingSevenPairsToggle) YixingSevenPairsToggle.gameObject.SetActive(visible.ContainsKey(YixingRuleBootstrap.SevenPairsKey));
         RefreshGuangdongControls();
@@ -557,6 +557,7 @@ public partial class CreatePanel : MonoBehaviour {
 
     private void RefreshChangshaScoreInputVisibility() {
         bool visible = _ruleState == "changsha"
+            && !IsChangshaExchangeSix
             && ChangshaBaseScoreNoDealerToggle != null
             && ChangshaBaseScoreNoDealerToggle.isOn;
         if (ChangshaSmallHuScorePanel != null) ChangshaSmallHuScorePanel.SetActive(visible);
@@ -1132,13 +1133,14 @@ public partial class CreatePanel : MonoBehaviour {
 
     private void CreateChangshaRoom() {
         var config = new Changsha_Create_RoomConfig {
+            ExchangeSelectionSeconds = exchangeSixSelectionTime ? exchangeSixSelectionTime.value + 10 : 30,
             ClaimProtection = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.ClaimProtection) && ClaimProtectionToggle.isOn,
             RoomName = roomNameInput.text.Trim(),
             GameRound = GetSelectedGameTime(),
             Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
             RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
             Rule = "changsha",
-            SubRule = "changsha/classic_double_bird",
+            SubRule = GetSelectedSubRule(),
             RoundTimer = GetSelectedRoundTimer(),
             StepTimer = GetSelectedStepTimer(),
             Tips = tipsToggle.isOn,

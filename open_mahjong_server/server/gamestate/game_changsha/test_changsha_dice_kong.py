@@ -54,6 +54,7 @@ class BatchCalculation:
 
 def make_batch_state(tile_count=30, count=2, winners=(), self_tiles=(), hand=None):
     state = ChangshaGameState.__new__(ChangshaGameState)
+    state.exchange_six = None
     state.player_list = [ChangshaPlayer(100 + i, f'p{i}', [30 + i], 10) for i in range(4)]
     state.player_list[0].hand_tiles = list(hand or [11] * 4 + [12, 13, 14, 22, 23, 24, 27, 28, 29, 25])
     for i, player in enumerate(state.player_list):
