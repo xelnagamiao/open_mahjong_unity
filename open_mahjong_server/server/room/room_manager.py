@@ -587,8 +587,8 @@ class RoomManager:
                                    big_hu_score: int = 8,
                                    event_id: Optional[str] = None, count_tips: bool = False, pointer_tips: bool = True,
                                    small_hu_self_draw_only: bool = False,
-                                   score_cap_type: str = "none", score_cap_value: int = 0) -> Response:
-        """创建长沙麻将房间。当前接入经典双鸟规则。"""
+                                   score_cap_type: str = "none", score_cap_value: int = 0, exchange_selection_seconds: int = 30) -> Response:
+        """创建长沙房间，按所选子规则加载经典双鸟或固定换六张配置。"""
         try:
             if player_id not in self.game_server.players:
                 return Response(type="tips", success=False, message="请先登录")
@@ -634,8 +634,11 @@ class RoomManager:
                 "small_hu_self_draw_only": small_hu_self_draw_only,
                 "score_cap_type": score_cap_type,
                 "score_cap_value": score_cap_value,
+                "exchange_selection_seconds": exchange_selection_seconds,
             }
 
+            from ..gamestate.game_changsha.exchange_six_config import normalize_config
+            room_config = normalize_config(room_config, sub_rule)
             try:
                 validator_class = self.room_validators["changsha"]
                 validated_config = validator_class(**room_config)
@@ -2380,6 +2383,8 @@ class RoomManager:
                 )
                 hepai_limit = validated.detailed_config["minimum_tai"]
             else:
+                from ..gamestate.game_changsha.exchange_six_config import normalize_config
+                room_config = normalize_config(room_config, sub_rule)
                 validated = self.room_validators["changsha"](
                     **base_config,
                     open_cuohe=False,
@@ -2399,6 +2404,7 @@ class RoomManager:
                     small_hu_self_draw_only=room_config.get("small_hu_self_draw_only", False),
                     score_cap_type=room_config.get("score_cap_type", "none"),
                     score_cap_value=room_config.get("score_cap_value", 0),
+                    exchange_selection_seconds=room_config.get("exchange_selection_seconds", 30),
                 )
                 hepai_limit = 1
         except Exception as e:

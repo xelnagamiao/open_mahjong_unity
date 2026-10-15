@@ -13,6 +13,7 @@ public sealed class RoomCreationInput {
     public bool CuoHe, RedDora, AllowKuikae, OpenXiru, OpenTobi, UseFlowers, TianDiRenHe, JokerMultiWait, BloodBattle;
     public bool GuangdongMinimumScore, ShanghaiQing3Hun2Peng2, ShanghaiTianQiao, ShanghaiSelfDrawExtraBase, YixingSevenPairs;
     public int OpenKongCount, BirdCount, SmallHuScore, BigHuScore;
+    public int ExchangeSelectionSeconds = 30;
     public bool SmallHuSelfDrawOnly;
     public string ScoreCapType = "none";
     public int ScoreCapValue;

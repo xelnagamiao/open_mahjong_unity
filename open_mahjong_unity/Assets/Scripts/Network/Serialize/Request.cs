@@ -95,6 +95,7 @@ public class CreateSichuanRoomRequest { // 创建四川麻将（血战到底）�
 }
 
 public class CreateChangshaRoomRequest { // 创建长沙麻将房间请求
+    public int exchange_selection_seconds = 30;
     public bool claim_protection = true;
     public string type;
     public string rule;

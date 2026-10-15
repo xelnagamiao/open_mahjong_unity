@@ -667,6 +667,30 @@
       "deal_in_stat_unit": "base_points"
     },
     {
+      "key": "changsha_exchange_six",
+      "rule": "changsha",
+      "sub_rule": "changsha/exchange_six",
+      "family_name": "长沙",
+      "sub_rule_name": "换六张",
+      "stats_name": "长沙麻将（换六张）",
+      "standard": false,
+      "basic_stats": true,
+      "fan_stats": true,
+      "fan_key": "changsha",
+      "player_count": 4,
+      "home_header": false,
+      "home_label": "",
+      "custom_modes": [
+        "1/4",
+        "2/4",
+        "4/4"
+      ],
+      "ranked_modes": [],
+      "matchmaking": false,
+      "win_stat_unit": "points",
+      "deal_in_stat_unit": "points"
+    },
+    {
       "key": "zhongyong",
       "rule": "zhongyong",
       "sub_rule": "zhongyong/standard",

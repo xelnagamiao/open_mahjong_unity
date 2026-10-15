@@ -66,6 +66,7 @@ public partial class CreatePanel {
     }
 
     private void ResetRoomDefaults() {
+        if (exchangeSixSelectionTime) exchangeSixSelectionTime.SetValueWithoutNotify(20);
         int subRule = SubRuleDropdown.value;
         CancelDetailedConfigChanges();
         DuplicateWallToggle.isOn = false;

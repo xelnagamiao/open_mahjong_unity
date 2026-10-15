@@ -176,6 +176,7 @@ public partial class GameCanvas : MonoBehaviour {
     /// 退出对局/牌谱/观战后还原 2D 玩家信息与手牌区。
     /// </summary>
     public void ResetForExit() {
+        HideExchangeSixState();
         ClearHandCardQueue();
         HandCardSelectionController.Instance.DisarmAll();
         for (int i = handCardsContainer.childCount - 1; i >= 0; i--) {
