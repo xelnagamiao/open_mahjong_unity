@@ -165,7 +165,7 @@ public partial class CreatePanel {
     /// <summary>更新可达到的常用分值，保留自定义文本，并阻止刷新事件重入和重复改值。</summary>
     private void RefreshChangshaCapPresets() {
         if (refreshingChangshaCaps || ChangshaCapPresetDropdown == null) return;
-        bool enabled = _ruleState == "changsha" && GetChangshaScoreCapType() != "none";
+        bool enabled = _ruleState == "changsha" && !IsChangshaExchangeSix && GetChangshaScoreCapType() != "none";
         ChangshaCapPresetPanel.SetActive(enabled);
         if (ChangshaCapValuePanel != null) ChangshaCapValuePanel.SetActive(enabled);
         if (!enabled) return;

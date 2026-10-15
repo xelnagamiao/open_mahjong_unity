@@ -44,6 +44,7 @@ public static class PlayerInfoRuleCatalog {
         new Entry("sichuan_doubles_duplicate", "sichuan", "sichuan/doubles_duplicate", "川麻（血战双打复式）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
         new Entry("sichuan_xueliu_doubles_duplicate", "sichuan", "sichuan/xueliu_doubles_duplicate", "川麻（血流双打复式）", 4, true, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和番", "平均铳番"),
         new Entry("changsha", "changsha", "changsha/classic_double_bird", "长沙麻将（经典双鸟）", 4, true, false, new string[]{"1/4", "2/4", "4/4"}, new string[]{}, "平均和牌基本分", "平均放铳基本分"),
+        new Entry("changsha_exchange_six", "changsha", "changsha/exchange_six", "长沙麻将（换六张）", 4, true, false, new string[]{"1/4", "2/4", "4/4"}, new string[]{}, "平均和牌得分", "平均放铳失分"),
         new Entry("zhongyong", "zhongyong", "zhongyong/standard", "中庸麻将（标准）", 4, true, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌基本分", "平均放铳基本分"),
         new Entry("nanque", "zhongyong", "zhongyong/nanque", "南雀", 4, false, false, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌基本分", "平均放铳基本分"),
         new Entry("taiwan", "taiwan", "taiwan/standard", "台湾麻将（标准）", 4, true, true, new string[]{"1/4", "2/4", "3/4", "4/4"}, new string[]{}, "平均和牌台数", "平均放铳台数"),

@@ -19,6 +19,7 @@ public partial class CreatePanel {
             OpenTobi = ReadRoomToggle(TobiToggle, DefaultsOf(_ruleState).TryGetValue(CreateRoomKeys.OpenTobi, out var tobi) && (bool)tobi),
             BloodBattle = ReadRoomToggle(BloodBattleToggle, DefaultsOf(_ruleState).TryGetValue(CreateRoomKeys.BloodBattle, out var blood) && (bool)blood),
             OpenKongCount = GetChangshaOpenKongCount(), BirdCount = GetChangshaBirdCount(),
+            ExchangeSelectionSeconds = exchangeSixSelectionTime ? exchangeSixSelectionTime.value + 10 : 30,
             SmallHuScore = ReadChangshaScore(ChangshaSmallHuScoreInput, 2), BigHuScore = ReadChangshaScore(ChangshaBigHuScoreInput, 8),
             SmallHuSelfDrawOnly = ReadRoomToggle(ChangshaKamoToggle),
             ScoreCapType = GetChangshaScoreCapType(), ScoreCapValue = GetChangshaScoreCapValue(),

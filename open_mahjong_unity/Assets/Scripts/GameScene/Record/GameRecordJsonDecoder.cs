@@ -175,6 +175,7 @@ public static class GameRecordJsonDecoder {
     /// </summary>
     public static void AccumulateScoreChangesFromTick(Round round, List<string> tick) {
         if (round == null || tick == null || tick.Count == 0) return;
+        if (GameRecordManager.AccumulateExchangeSixDrawScore(round, tick)) return;
         string act = tick[0];
         if (act == "malaysia" && tick.Count >= 3 && tick[1] == "payment") {
             int[] payment = JArray.Parse(tick[2]).ToObject<int[]>();

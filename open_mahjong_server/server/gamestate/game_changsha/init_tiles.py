@@ -22,6 +22,8 @@ def init_changsha_tiles(self):
 def _shuffle_and_deal_changsha(self) -> None:
     """长沙：种子生成、洗牌、发牌。"""
     self.round_random_seed = derive_round_seed(self.master_seed, self.current_round)
+    if getattr(self, "exchange_six", None) is not None:
+        self.exchange_six.prepare_deal()
     random.seed(self.round_random_seed)
     random.shuffle(self.tiles_list)
     for player in self.player_list:

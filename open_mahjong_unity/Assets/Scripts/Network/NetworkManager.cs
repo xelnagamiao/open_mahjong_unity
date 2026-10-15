@@ -634,7 +634,7 @@ public partial class NetworkManager : MonoBehaviour {
             if (!jsonStr.Contains("\"type\":\"pong\"")) {
                 Debug.Log($"收到服务器消息: {jsonStr}");
             }
-            var response = JsonConvert.DeserializeObject<Response>(jsonStr);
+            Response response = ChangshaExchangeSixResponse.Decode(jsonStr);
             response.received_monotonic = receivedAt ?? (System.Diagnostics.Stopwatch.GetTimestamp()
                 / (double)System.Diagnostics.Stopwatch.Frequency);
 

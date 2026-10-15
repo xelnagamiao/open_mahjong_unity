@@ -52,6 +52,8 @@ def collect_subrule_fans(record, original_index, sub_rule):
         return (analyze_riichi_record(record, original_index) or {}).get("fan_stats", {})
     rule = definition["rule"]
     mapping = _fan_mapping(rule)
+    if sub_rule == "changsha/exchange_six":
+        mapping = {**mapping, **{name: name for name in ("十三将", "无对十三将", "全幺九", "报听", "明牌", "闷杠")}}
     from .guobiao.record_analyzer import _parse_hu_tick
     from .guobiao.round_score_utils import resolve_round_seats
     counts = Counter()
@@ -70,6 +72,9 @@ def collect_subrule_fans(record, original_index, sub_rule):
     for rd in (record.get("game_round") or {}).values():
         if not isinstance(rd, dict):
             continue
+        if sub_rule == "changsha/exchange_six":
+            from .changsha.exchange_six_record import statistics_round
+            rd = statistics_round(rd)
         seats = resolve_round_seats(rd)
         if original_index not in range(len(seats)):
             continue

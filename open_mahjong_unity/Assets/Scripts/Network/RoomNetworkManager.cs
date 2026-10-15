@@ -762,6 +762,7 @@ public partial class RoomNetworkManager : MonoBehaviour {
                 rule = config.Rule,
                 claim_protection = config.ClaimProtection,
                 sub_rule = config.SubRule ?? "changsha/classic_double_bird",
+                exchange_selection_seconds = config.ExchangeSelectionSeconds,
                 roomname = config.RoomName,
                 gameround = config.GameRound,
                 roundTimerValue = config.RoundTimer,

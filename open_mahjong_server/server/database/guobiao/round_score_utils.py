@@ -91,6 +91,11 @@ def extract_player_round_deltas(record: Dict[str, Any], original_player_index: i
             if not tick:
                 continue
             action = tick[0]
+            if (record.get("game_title") or {}).get("sub_rule") == "changsha/exchange_six" and action == "changsha_exchange_six_draw_scores":
+                changes = _parse_score_changes(tick[1])
+                if changes is not None and seat_idx < len(changes):
+                    round_delta += changes[seat_idx]
+                continue
             if action not in _HU_ACTIONS or len(tick) < 5:
                 continue
             score_changes = _parse_score_changes(tick[4])

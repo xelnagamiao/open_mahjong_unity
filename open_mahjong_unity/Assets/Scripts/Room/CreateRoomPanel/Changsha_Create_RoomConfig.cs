@@ -10,6 +10,7 @@ public class Changsha_Create_RoomConfig {
     public string SubRule { get; set; }
     public int RoundTimer { get; set; }
     public int StepTimer { get; set; }
+    public int ExchangeSelectionSeconds { get; set; } = 30;
     public bool Tips { get; set; }
     public bool CountTips { get; set; }
     public string RandomSeed { get; set; }
@@ -33,6 +34,25 @@ public class Changsha_Create_RoomConfig {
     public string EventId { get; set; }
 
     public bool Validate(out string error, bool passwordToggle, bool setRandomSeedToggle) {
+        if (SubRule == "changsha/exchange_six") {
+            if (ExchangeSelectionSeconds < 10 || ExchangeSelectionSeconds > 60) {
+                error = "选六张时间必须在10到60秒之间";
+                return false;
+            }
+            // 固定子规则忽略隐藏的普通设置，控件原值保留供切回经典双鸟时恢复。
+            TacticalCall = false;
+            OpenKongReplacementCount = 4;
+            BirdCount = 2;
+            DealerBird = false;
+            BaseScoreNoDealer = true;
+            SmallHuScore = 2;
+            BigHuScore = 8;
+            SmallHuSelfDrawOnly = false;
+            ScoreCapType = "none";
+            ScoreCapValue = 0;
+            InitialHuSiXi = true;
+            InitialHuBanBanHu = InitialHuQueYiSe = InitialHuLiuLiuShun = InitialHuSanTong = false;
+        }
         if (string.IsNullOrEmpty(RoomName)) {
             error = "房间名不能为空";
             return false;

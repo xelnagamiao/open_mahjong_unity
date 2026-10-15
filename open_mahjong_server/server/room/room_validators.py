@@ -256,6 +256,14 @@ class SichuanRoomValidator(BaseModel):
 
 
 class ChangshaRoomValidator(BaseModel):
+    exchange_selection_seconds: int = 30
+
+    @validator('exchange_selection_seconds', pre=True)
+    def validate_exchange_selection_seconds(cls, v):
+        if type(v) is not int or not 10 <= v <= 60:
+            raise ValueError('选六张时间必须为10到60秒的整数')
+        return v
+
     room_name: str
     game_round: int
     round_timer: int

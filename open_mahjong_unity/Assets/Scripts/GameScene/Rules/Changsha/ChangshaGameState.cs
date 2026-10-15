@@ -1,4 +1,6 @@
 using UnityEngine;
+using System.Linq;
+using System.Collections.Generic;
 
 /// <summary>
 /// 长沙麻将。对应服务端 game_changsha/ChangshaGameState。
@@ -14,8 +16,73 @@ public class ChangshaGameState : TurnBasedGameState {
     public int SmallHuScore { get; private set; } = 2;
     public int BigHuScore { get; private set; } = 8;
     public ChangshaRuleSettings RuleSettings { get; private set; } = new ChangshaRuleSettings();
+    public const string ExchangeSixSubRule = "changsha/exchange_six";
+    public ChangshaExchangeSixState ExchangeSixSnapshot { get; private set; }
+
+    public override bool TryChooseAction(string action) {
+        if (Session.SubRule == ExchangeSixSubRule && ChangshaExchangeSixActions.TryChoose(action, ExchangeSixSnapshot)) return true;
+        return base.TryChooseAction(action);
+    }
+
+    protected override bool HandleExtraMessage(string suffix, Response response) {
+        if (suffix != "exchange_six_state") return base.HandleExtraMessage(suffix, response);
+        var packet = response as ChangshaExchangeSixResponse;
+        if (packet?.state?.private_state == null || packet.state.public_state == null) return true;
+        if (packet.gamestate_id != Session.GamestateId || Session.SubRule != ExchangeSixSubRule) return true;
+        GameCanvas.Instance?.QueueExchangeSixSnapshot(packet.state);
+        return true;
+    }
+
+    public void ApplyExchangeSixSnapshot(ChangshaExchangeSixState snapshot) {
+        if (ExchangeSixSnapshot != null && snapshot.revision < ExchangeSixSnapshot.revision) return;
+        ExchangeSixSnapshot = snapshot;
+        // show_result owns the final hand/reveal animation. The following snapshot
+        // still contains the pre-win concealed hand and must not rebuild it.
+        if (snapshot.phase == "settlement") {
+            Clock.AllowActionList.Clear();
+            Clock.IsSelfActionRequired = false;
+            GameSceneMouseInputController.Instance?.SetActionInputPhase(GameSceneMouseInputController.InputPhaseNone);
+            GameCanvas.Instance?.StopTimeRunning();
+            GameCanvas.Instance?.HideExchangeSixState();
+            return;
+        }
+        var hand = snapshot.private_state.hand_tiles ?? new int[0];
+        bool changed = !Mirror.SelfHandTiles.SequenceEqual(hand);
+        Mirror.SelfHandTiles = new List<int>(hand);
+        Mirror.Self.hand_tiles = hand;
+        Mirror.Self.hand_tiles_count = hand.Length;
+        Mirror.RemainTiles = snapshot.public_state.remaining_tiles;
+        if (snapshot.public_state.hand_counts != null) foreach (var entry in snapshot.public_state.hand_counts) {
+            var player = Mirror.Info(Mirror.SeatOf(entry.Key));
+            if (player != null) player.hand_tiles_count = entry.Value;
+        }
+        Clock.LastAskActionTick = snapshot.action_tick;
+        Clock.AllowActionList = new List<string>(snapshot.private_state.action_list ?? new string[0]);
+        Clock.IsSelfActionRequired = Clock.AllowActionList.Count > 0 && !Session.IsRealtimeSpectator;
+        Clock.ForbiddenCutTiles.Clear();
+        Clock.ForcedCutTiles.Clear();
+        Clock.ApplyCurrentPlayerIndicator(Mirror.SeatOf(snapshot.public_state.current_player_index));
+        GameSceneMouseInputController.Instance?.SetActionInputPhase(!Clock.IsSelfActionRequired
+            ? GameSceneMouseInputController.InputPhaseNone
+            : Clock.AllowActionList.Contains("cut") || snapshot.phase == "exchange"
+                ? GameSceneMouseInputController.InputPhaseAskHand : GameSceneMouseInputController.InputPhaseAskOther);
+        if (Clock.IsSelfActionRequired) GameCanvas.Instance?.LoadingRemianTime(snapshot.remaining_time, snapshot.step_remaining);
+        else GameCanvas.Instance?.StopTimeRunning();
+        GameCanvas.Instance?.ShowExchangeSixState(snapshot, changed);
+        Game3DManager.Instance?.SyncChangshaExchangeHands(snapshot.public_state);
+    }
+
+    public override bool CanCutTile(int tileId) {
+        if (Session.SubRule != ExchangeSixSubRule || ExchangeSixSnapshot == null) return base.CanCutTile(tileId);
+        var own = ExchangeSixSnapshot.private_state;
+        if (ExchangeSixSnapshot.phase == "exchange") return (own.action_list ?? new string[0]).Contains("changsha_exchange_six");
+        return (own.action_list ?? new string[0]).Contains("cut") && (own.cut_tiles ?? new int[0]).Contains(tileId);
+    }
 
     protected override void OnRoundStarted(GameInfo gameInfo) {
+        ExchangeSixSnapshot = null;
+        GameCanvas.Instance?.HideExchangeSixState();
+        Game3DManager.Instance?.ClearChangshaExchangeHands();
         BaseScoreNoDealer = gameInfo.base_score_no_dealer ?? false;
         SmallHuScore = Mathf.Max(gameInfo.small_hu_score ?? 2, 1);
         BigHuScore = Mathf.Max(gameInfo.big_hu_score ?? 8, 1);
@@ -39,6 +106,32 @@ public class ChangshaGameState : TurnBasedGameState {
 
     /// <summary>海底切牌：不走普通弃牌落位，单独摆到海底位置并记入镜像。</summary>
     protected override bool TryApplyFamilyWord(TableAction action, string word) {
+        if (Session.SubRule == ExchangeSixSubRule && word == "changsha_batch_claim") {
+            Game3DManager.Instance?.PrepareChangshaBatchClaim(Mirror.SeatOf(action.CutFromPlayer.Value), action.CutTile.Value, action.Seat);
+            return true;
+        }
+        if (Session.SubRule == ExchangeSixSubRule && word == "changsha_kong_continue") {
+            int continuationTile = action.CutTile.Value;
+            Mirror.RemoveClaimedDiscard(action.Seat, continuationTile);
+            Game3DManager.Instance?.ReturnChangshaContinuationTile(action.Seat, continuationTile);
+            if (action.Seat == "self") {
+                Mirror.SelfHandTiles.Add(continuationTile);
+                GameCanvas.Instance?.ChangeHandCards("GetCard", continuationTile, null, null);
+            } else {
+                Mirror.Info(action.Seat).hand_tiles_count++;
+                Game3DManager.Instance?.Change3DTile("GetCard", continuationTile, 0, action.Seat, false, null);
+            }
+            return true;
+        }
+        if (Session.SubRule == ExchangeSixSubRule && word == "cut" && action.CutTiles != null && action.CutTiles.Length > 0) {
+            foreach (int replacementTile in action.CutTiles) {
+                Mirror.AddDiscard(action.Seat, replacementTile, false);
+                Game3DManager.Instance?.Change3DTile("SetDiscardWithoutAnimation", replacementTile, 0, action.Seat, true, null);
+            }
+            Mirror.LastCutCardID = action.CutTiles[action.CutTiles.Length - 1];
+            Mirror.LastDiscardPlayerPosition = action.Seat;
+            return true;
+        }
         if (word == "deal_gang_tile" && action.DealTiles != null && action.DealTiles.Length > 0
             && System.Array.TrueForAll(action.DealTiles, ChangshaFanText.IsChangshaTileId)) {
             // 服务端仅对公开开杠发送真实数组；普通补张本家用标量，他家数组为0。
@@ -67,6 +160,9 @@ public class ChangshaGameState : TurnBasedGameState {
     }
 
     protected override void OnTableClosedForSettlement(SettlementEnvelope env) {
+        if (Session.SubRule == ExchangeSixSubRule && env.IsHu && env.HuClass != "hu_self" && env.RonDiscarderIndex.HasValue)
+            Game3DManager.Instance?.RegisterChangshaPublicRiverTile(Mirror.SeatOf(env.RonDiscarderIndex.Value), env.WinTile);
+        Game3DManager.Instance?.ClearChangshaExchangeHands();
         Game3DManager.Instance?.ClearChangshaSeaBottomConcealedTile();
         Game3DManager.Instance?.ClearChangshaOpenKongTiles();
     }
@@ -78,7 +174,19 @@ public class ChangshaGameState : TurnBasedGameState {
         return env;
     }
 
+    protected override void AppendScoreboard(SettlementEnvelope env) {
+        if (Session.SubRule != ExchangeSixSubRule) {
+            base.AppendScoreboard(env);
+            return;
+        }
+        // 四喜已经即时刷分。历史记完整局差，账面分数按服务端绝对分写入，不能再加一次。
+        Presenter.AppendScoreboard(env, null, env.ScoreChanges);
+    }
+
     public override void OnSessionReset() {
+        ExchangeSixSnapshot = null;
+        GameCanvas.Instance?.HideExchangeSixState();
+        Game3DManager.Instance?.ClearChangshaExchangeHands();
         Game3DManager.Instance?.ClearChangshaSeaBottomConcealedTile();
         BaseScoreNoDealer = false;
         SmallHuScore = 2;

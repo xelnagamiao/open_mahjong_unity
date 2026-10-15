@@ -489,6 +489,7 @@ public partial class GameRecordManager : MonoBehaviour {
 
         // 初始化牌山列表（当前牌山和原始牌山）
         ResetDuplicateReplayDraws();
+        if (IsExchangeSixRecord()) ResetExchangeSixRecord();
         if (roundDataForSeats != null) {
             originalTilesList = roundDataForSeats.tilesList != null ? new List<int>(roundDataForSeats.tilesList) : new List<int>();
             currentTilesList = new List<int>(originalTilesList);
@@ -848,6 +849,8 @@ public partial class GameRecordManager : MonoBehaviour {
         }
 
         List<string> tick = NormalizeRecordRuleTick(roundData.actionTicks[currentNode]);
+        if (AdvanceExchangeSixRecord(tick)) return;
+        tick = NormalizeExchangeSixTerminalTick(tick);
         string action = tick[0];
         int previousPlayerIndex = currentPlayerIndex;
         int actingPlayerIndex = GameRecordJsonDecoder.ResolveRecordActingPlayerIndex(tick, action, currentPlayerIndex);
@@ -1790,7 +1793,10 @@ public partial class GameRecordManager : MonoBehaviour {
         if (playerToScoreAfter != null && playerToScoreAfter.Count > 0) {
             BoardCanvas.Instance.UpdatePlayerScores(playerToScoreAfter, indexToPosition);
         }
-        yield return CoAnnounceRecordHuAndReveal(huClass, huFan, huPosition, hepaiPlayerHand, changshaRon);
+        if (IsExchangeSixRecord() && exchangeSixRecordWins != null && exchangeSixRecordWins.Length > 1)
+            yield return AnnounceExchangeSixRecordWinners(huClass);
+        else
+            yield return CoAnnounceRecordHuAndReveal(huClass, huFan, huPosition, hepaiPlayerHand, changshaRon);
 
         MarkPendingRecordCuoheContinue(huPosition, huFan);
 
@@ -1841,7 +1847,10 @@ public partial class GameRecordManager : MonoBehaviour {
             yield break;
         }
         bool xueliuQianggang = (IsXueliuRecord() && huClass != "hu_self" && lastJiagangPlayerIndex >= 0) || IsHongKongRecordRobWin || IsGuizhouRecordRobWin || IsYixingRecordRobWin || IsNanjingRecordRobWin || IsFuzhouRecordRobWin || IsWenzhouRecordRobWin || IsChangchunRecordRobWin || IsShenyangRecordRobWin;
-        if (!xueliuQianggang) SyncRecordRonDiscardObjectForPresentation(huClass, huFan, discardPos, hepaiTile);
+        if (!xueliuQianggang) {
+            if (IsExchangeSixRecord()) Game3DManager.Instance.RegisterChangshaPublicRiverTile(discardPos, hepaiTile);
+            else SyncRecordRonDiscardObjectForPresentation(huClass, huFan, discardPos, hepaiTile);
+        }
         if (huPosition == "self") {
             RoundEndPresentation.Instance.HideSelfGameplayControl(revealSelfHand: false);
         }

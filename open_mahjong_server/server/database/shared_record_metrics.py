@@ -16,12 +16,16 @@ def analyze_shared_record_for_player(record, original_index):
     title = record.get("game_title") or {}
     win_unit, loss_unit = statistic_units(title)
     sichuan = title.get("rule") == "sichuan"
+    exchange_six = title.get("rule") == "changsha" and title.get("sub_rule") == "changsha/exchange_six"
     own_turns = sichuan or title.get("rule") in ("zhongyong", "jiandan", "nanque", "nanjing", "nanchang", "malaysia", "fuzhou")
-    dealer_cut_turns = title.get("rule") in ("qingque", "classical", "shenyang", "wuhan")
+    dealer_cut_turns = exchange_six or title.get("rule") in ("qingque", "classical", "shenyang", "wuhan")
     fractional_fan_total = Decimal(0)
     for rd in (record.get("game_round") or {}).values():
         if not isinstance(rd, dict):
             continue
+        if exchange_six:
+            from .changsha.exchange_six_record import statistics_round
+            rd = statistics_round(rd)
         ticks = rd.get("action_ticks") or []
         if not any(isinstance(t, list) and t and t[0] == "end" for t in ticks):
             continue
@@ -134,6 +138,12 @@ def analyze_shared_record_for_player(record, original_index):
                 if sichuan and not invalid and title.get("blood_battle"):
                     retired.add(winner)
                     actor = winner
+            elif exchange_six and code == "changsha_four_joy":
+                # Four-joy dictionaries use original indices; hu vectors use seats.
+                delta = tick[4]
+                changes = [0] * count
+                for original, mapped in enumerate(seats):
+                    changes[mapped] = int(delta.get(original, delta.get(str(original), 0)))
             elif code == "blood" and len(tick) > 6 and tick[1] == "settle_hu":
                 # Visible hu ticks already supplied the counters; this event supplies payment only.
                 changes = _parse_score_changes(tick[6])
