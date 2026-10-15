@@ -231,7 +231,9 @@ class SingaporeGameState(SingaporeLifecycle, TaiwanGameState):
         tile = data.get("TileId")
         if type(tile) is not int or tile not in book.TILES or any(t in self.flower_tiles for t in self.player_list[index].hand_tiles): return
         old_count = self.player_list[index].discard_count
-        fresh = tile not in self.sg_discarded
+        # SPGG A12 uses the current discard pool and explicitly excludes tiles
+        # claimed into exposed pungs/chows. Historical discards are insufficient.
+        fresh = not any(tile in player.discard_tiles for player in self.player_list)
         self.sg_fresh_discard = fresh and self.sg_last_drawer == index and self.sg_last_draw_count > 0
         await super().execute_cut(index, data, is_timeout_action=is_timeout_action)
         if self.player_list[index].discard_count > old_count:
