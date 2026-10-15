@@ -263,6 +263,12 @@
         "malaysia_chi:",
         "malaysia_redeem:"
       ],
+      "claim_display_groups": {
+        "malaysia_chi:": "malaysia_chi",
+        "malaysia_peng:": "malaysia_peng"
+      },
+      "physical_claim_choices_per_page": 4,
+      "claim_choice_submits_original_action": true,
       "hand_actions": [
         "malaysia_fly"
       ],

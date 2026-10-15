@@ -103,12 +103,12 @@
       "size": 1276
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Malaysia/MalaysiaGameState.cs": {
-      "sha256": "767766d69bfb73755168e0effea492854d260bf43fff46574462f441d27ba867",
-      "size": 5381
+      "sha256": "da972cfa064ef8bc81bbbcbd6c06712ebdce141ed9d7bed6ff08df9bd5f8c5ce",
+      "size": 7953
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Malaysia/MalaysiaRuleBootstrap.cs": {
-      "sha256": "fed0f95068d3e6471cc847b1799d0177bd213c480ec7688b6c694aa03c88bdc2",
-      "size": 4164
+      "sha256": "eacf04bbe220f48a7b2b5c2473289277d8e947f9322aa93ac1f413e4e90696fe",
+      "size": 4514
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Malaysia/MalaysiaReplay.cs": {
       "sha256": "5b6fb805686f39b6bf68e8aca1786f6b93b93c182b8a7a441d5ea7ecc9b30f05",
