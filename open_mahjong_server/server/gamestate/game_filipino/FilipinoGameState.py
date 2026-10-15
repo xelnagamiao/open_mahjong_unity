@@ -330,6 +330,7 @@ class FilipinoGameState(Protocol, Recording, ZhongyongGameState):
 
     def commit_kong(self, index, tile, action):
         p = self.player_list[index]
+        is_mo_gang = p.has_draw_slot and p.hand_tiles[-1] == tile
         if action == "angang":
             for _ in range(4):
                 p.hand_tiles.remove(tile)
@@ -344,7 +345,7 @@ class FilipinoGameState(Protocol, Recording, ZhongyongGameState):
             p.combination_tiles[position] = code
             p.combination_mask[position] = mask
         p.has_draw_slot = False
-        self._event(action, index, tile=tile, meld_code=code, combination_mask=mask, is_mo_gang=True)
+        self._event(action, index, tile=tile, meld_code=code, combination_mask=mask, is_mo_gang=is_mo_gang)
         self.award(index, self.rules.secret_points if action == "angang" else self.rules.sagasa_points,
                    "暗杠" if action == "angang" else "Sagasa")
         return self.draw_for(index, kind="kong")
@@ -404,8 +405,10 @@ class FilipinoGameState(Protocol, Recording, ZhongyongGameState):
     def end_hand(self, winner=None):
         self.ended_by = "wall" if winner is None else "win"
         self.match_finishing = self.current_round >= self.max_round * 4
-        if self.rules.dealer_mode == "rotate" or winner is None:
+        if self.rules.dealer_mode == "rotate":
             self.next_dealer = 1
+        elif winner is None:
+            self.next_dealer = 0
         elif self.rules.dealer_mode == "winner":
             self.next_dealer = winner
         else:

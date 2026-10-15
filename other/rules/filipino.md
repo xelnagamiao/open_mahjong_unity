@@ -59,6 +59,7 @@ dealer. A platform match lasts `game_round * 4` completed hands, including draws
 | Opening award | Ging no flowers; Manila zero or one with a different fractional amount | No flowers = 1 default; optional one flower = 1 is a normalized house option, not an exact Manila currency table |
 | Escalera, flush, early win | Ging describes ambitions but leaves these payment amounts unclear | Manila's quarter/quarter/half normalized to 1/1/2 |
 | Double dice / dealer | Not a single consistent general convention | Double dice off; winner-roll default; rotation/winner are explicit house alternatives |
+| Dealer after a drawn hand | Ging says to rebuild the wall but does not explicitly select the next dealer | Retain the current dealer for winner-roll and winner modes; only the explicit rotation option rotates after a draw |
 | Physical errors | Printed rules permit table penalties for mistakes | Illegal requests rejected before state mutation; no simulated physical misdeal/dead-hand penalty |
 
 The UI's **Manila payment options** preset only changes payment/bonus settings;
