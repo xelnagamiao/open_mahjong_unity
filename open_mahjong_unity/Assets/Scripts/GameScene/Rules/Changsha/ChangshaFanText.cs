@@ -135,6 +135,16 @@ internal static class ChangshaFanText {
 
     public static string FanValue(string subRule, string fanName) {
         if (IsBirdEntry(fanName)) return "结算";
+        if (subRule == ChangshaGameState.ExchangeSixSubRule) {
+            if (fanName == "小胡" || fanName == "四喜") return "2分";
+            if (fanName == "豪华七小对" || fanName == "无对十三将" || fanName == "全幺九") return "2大";
+            if (fanName == "双豪华七小对") return "3大";
+            if (fanName == "三豪华七小对") return "4大";
+            if (FanToDisplayChangsha.ContainsKey(fanName) || fanName == "报听" || fanName == "明牌"
+                || fanName == "十三将" || fanName == "闷杠") return "1大";
+            // 整组说明与逐付款分解已经含实际底分和鸟倍数，不再当成未知单番名显示0番。
+            return "按组结算";
+        }
         return FanToDisplayChangsha.TryGetValue(fanName, out string display) ? display : "0番";
     }
 

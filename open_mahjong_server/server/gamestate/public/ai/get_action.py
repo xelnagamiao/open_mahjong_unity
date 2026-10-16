@@ -263,6 +263,12 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
             )
             return
 
+        exchange_flow = getattr(game_state, "exchange_six", None)
+        if exchange_flow is not None and game_state.game_status == "waiting_changsha_exchange_six":
+            await exchange_flow.submit(player_index, action_type, action_tick=action_tick,
+                                       selected_tiles=selected_tiles, target_tile=target_tile, tile_id=TileId)
+            return
+
         if action_type == "force_pass" and live_force_pass:
             tactical_mark_player_force_passed(game_state, player_index)
             if player_index not in game_state.waiting_players_list:

@@ -115,6 +115,9 @@ class ChangshaPlayer:
 class ChangshaGameState:
     # ChangshaGameState负责一个长沙麻将对局进程，init属性包含游戏房间状态 player_list 包含玩家数据
     def __init__(self, game_server, room_data: dict, calculation_service: GameCalculationService, db_manager: DatabaseManager, gamestate_id: str):
+        from .exchange_six_config import SUB_RULE, normalize_config
+        room_data = normalize_config(room_data, room_data.get("sub_rule"))
+        self.exchange_selection_seconds = room_data.get("exchange_selection_seconds", 30)
         # 传入游戏服务器
         self.game_server = game_server # 游戏服务器
         # 传入全局计算服务
@@ -271,6 +274,10 @@ class ChangshaGameState:
         self.spectator_manager = SpectatorManager(self, delay=180.0, enabled=self.spectator_enabled)
         # 实时观战者（由 FriendManager 维护，结构: List[RealtimeSpectator]）
         self.realtime_spectators = []
+        self.exchange_six = None
+        if self.sub_rule == SUB_RULE:
+            from .exchange_six import ExchangeSixFlow
+            self.exchange_six = ExchangeSixFlow(self)
 
     async def send_to_realtime_spectators(self, player_index: int, response):
         from ..public.spectator_rules import deliver_realtime_spectator_message
@@ -419,6 +426,8 @@ class ChangshaGameState:
                 logger.info(f"已取消游戏循环任务，room_id: {self.room_id}")
             except Exception as e:
                 logger.error(f"取消游戏循环任务时出错，room_id: {self.room_id}, 错误: {e}")
+        if self.exchange_six is not None:
+            self.exchange_six.reset()
 
     async def run_game_loop(self):
         """
@@ -497,6 +506,8 @@ class ChangshaGameState:
         self.open_kong_dice = []
         self.open_kong_wall_positions = []
         self.pending_open_kong_positions = None
+        if getattr(self, "exchange_six", None) is not None:
+            self.exchange_six.reset()
         self.pending_gang_replacement_count = 0
         self.pending_gang_forced_discard = False
         self.forced_cut_tile = None
@@ -1444,6 +1455,10 @@ class ChangshaGameState:
         # 牌谱/观战用：子规则与起和限制写入 game_title，客户端据此做番表显示
         self.game_record["game_title"]["sub_rule"] = self.sub_rule
         self.game_record["game_title"]["detailed_config"] = dict(self.detailed_config)
+        if self.exchange_six is not None:
+            from .exchange_six_config import RULE_VERSION
+            self.game_record["game_title"]["changsha_exchange_six_rule_version"] = RULE_VERSION
+            self.game_record["game_title"]["exchange_selection_seconds"] = self.exchange_selection_seconds
         self.game_record["game_title"]["hepai_limit"] = self.hepai_limit
         if self.match_tier is not None:
             self.game_record["game_title"]["match_tier"] = self.match_tier
@@ -1458,7 +1473,8 @@ class ChangshaGameState:
             self.last_draw_was_gang = False
             self.current_player_index = 0 # 初始玩家索引
             self.dihe_possible = True # 地和标志：庄家首次切牌且未暗杠时，被他家荣和即为地和
-            self._detect_initial_hu_types()
+            if self.exchange_six is None:
+                self._detect_initial_hu_types()
 
             # 广播游戏开始
             await self.broadcast_game_start()
@@ -1466,16 +1482,22 @@ class ChangshaGameState:
             # 牌谱记录对局头
             init_game_round(self)
 
+            if self.exchange_six is not None:
+                await self.exchange_six.opening()
+
             if self.initial_hu_types:
                 await self._resolve_initial_hu_choices()
 
             # 初始行为（长沙规则：庄家开局已为14张）
             self.game_status = "waiting_hand_action"  # 初始行动
-            self.refresh_waiting_tiles(self.current_player_index, is_first_action=True) # 用庄家前13张手牌计算听牌
-            logger.info(f"第一位行动玩家{self.current_player_index}的手牌等待牌为{self.player_list[self.current_player_index].waiting_tiles}")
-            self.action_dict = check_action_hand_action(self,self.current_player_index,is_first_action=True) # 允许可执行的手牌操作（天和检测）
-            await self.broadcast_ask_hand_action() # 广播手牌操作
-            await self.wait_action() # 等待手牌操作
+            if self.exchange_six is not None:
+                await self.exchange_six.hand_action(first=True)
+            else:
+                self.refresh_waiting_tiles(self.current_player_index, is_first_action=True) # 用庄家前13张手牌计算听牌
+                logger.info(f"第一位行动玩家{self.current_player_index}的手牌等待牌为{self.player_list[self.current_player_index].waiting_tiles}")
+                self.action_dict = check_action_hand_action(self,self.current_player_index,is_first_action=True) # 允许可执行的手牌操作（天和检测）
+                await self.broadcast_ask_hand_action() # 广播手牌操作
+                await self.wait_action() # 等待手牌操作
 
             # 游戏主循环
             while self.game_status != "END":
@@ -1488,6 +1510,9 @@ class ChangshaGameState:
                             self.game_status = "END" # 结束游戏
                             break
                         if len(self.tiles_list) == 1:
+                            if self.exchange_six is not None:
+                                await self.exchange_six.sea_bottom(start=(self.current_player_index + 1) % 4)
+                                continue
                             self.sea_bottom_candidates = self._sea_bottom_waiting_candidates()
                             if not self._prepare_next_sea_bottom_choice():
                                 self.game_status = "END"
@@ -1495,7 +1520,12 @@ class ChangshaGameState:
                         else:
                             self.next_current_index() # 切换到下一个玩家
                         self.last_draw_was_gang = False
-                        self.refresh_waiting_tiles(self.current_player_index) # 摸牌前更新听牌
+                        if self.exchange_six is not None and await self.exchange_six.before_draw("normal"):
+                            continue
+                        if self.exchange_six is not None:
+                            self.exchange_six.update_waits(self.current_player_index)
+                        else:
+                            self.refresh_waiting_tiles(self.current_player_index) # 摸牌前更新听牌
                         self.player_list[self.current_player_index].get_tile(self.tiles_list) # 摸牌
                         self.clear_hu_pass_on_draw(self.current_player_index)
                         # 牌谱记录摸牌
@@ -1506,20 +1536,32 @@ class ChangshaGameState:
                             action_player = self.current_player_index,
                             deal_tile = self.player_list[self.current_player_index].hand_tiles[-1],
                         )
-                        self.action_dict = check_action_hand_action(self,self.current_player_index) # 允许可执行的手牌操作
-                        self.game_status = "waiting_hand_action" # 切换到摸牌后状态
+                        if self.exchange_six is not None:
+                            await self.exchange_six.after_normal_draw(self.player_list[self.current_player_index].hand_tiles[-1])
+                        else:
+                            self.action_dict = check_action_hand_action(self,self.current_player_index) # 允许可执行的手牌操作
+                            self.game_status = "waiting_hand_action" # 切换到摸牌后状态
 
                     # 杠后摸牌操作：当前玩家进行摸牌
                     case "deal_card_after_gang": # 杠后补牌批次
+                        if self.exchange_six is not None:
+                            await self.exchange_six.draw_after_kong()
+                            continue
                         await self.deal_gang_replacements()
 
                     # 等待手牌操作：
                     case "waiting_hand_action": # 摸牌,加杠,暗杠,补花后行为
+                        if self.exchange_six is not None:
+                            await self.exchange_six.hand_action()
+                            continue
                         await self.broadcast_ask_hand_action() # 广播手牌操作
                         await self.wait_action() # 等待手牌操作
 
                     # 等待鸣牌操作：
                     case "waiting_action_after_cut": # 出牌后询问碰杠和行为
+                        if self.exchange_six is not None:
+                            await self.exchange_six.claims([self.current_claim_cut_tile])
+                            continue
                         await self.broadcast_ask_other_action() # 广播是否碰杠和
                         await self.wait_action() # 等待碰杠和操作
 
@@ -1556,7 +1598,8 @@ class ChangshaGameState:
             bird_tiles = None
 
             # 记录结算前的分数（用于计算本局分数变化）
-            scores_before = {player.original_player_index: player.score for player in self.player_list}
+            scores_before = (self.exchange_six.round_scores_before if self.exchange_six is not None
+                             else {player.original_player_index: player.score for player in self.player_list})
 
 
             gang_replacement_multi_ron = self.hu_class == "gang_replacement_multi_ron"
@@ -1569,6 +1612,8 @@ class ChangshaGameState:
                 hu_fan = settlement["last_fan_display"]
 
             # 荣和
+            elif self.exchange_six is not None and self.exchange_six.wins:
+                hepai_player_index, hu_score, hu_fan, bird_tiles = await self.exchange_six.settle()
             elif self.hu_class in ["hu_self","hu_first","hu_second","hu_third"]:
                 if self.hu_class == "hu_self":
                     hu_score, hu_fan = self.result_dict["hu_self"] # 获取和牌分数和番数
@@ -1663,7 +1708,8 @@ class ChangshaGameState:
                 liuju_score_changes = build_score_changes_dict(self.player_list, scores_before)
                 await broadcast_result(self,
                                        hepai_player_index = None, # 和牌玩家索引
-                                       player_to_score = None, # 所有玩家分数
+                                       player_to_score = ({p.player_index: p.score for p in self.player_list}
+                                                          if self.exchange_six is not None else None), # 四喜已即时入账，终局按权威总分落账
                                        hu_score = hu_score, # 和牌分数
                                        hu_fan = None, # 和牌番种
                                        hu_class = self.hu_class, # 和牌类别(流局)
@@ -1699,10 +1745,17 @@ class ChangshaGameState:
             # 牌谱记录和牌/流局 + end 标记
             if gang_replacement_multi_ron:
                 pass
+            elif self.exchange_six is not None and self.exchange_six.wins:
+                player_action_record_hu(self, hu_class=self.hu_class, hu_score=hu_score,
+                                        hu_fan=hu_fan, hepai_player_index=hepai_player_index,
+                                        score_changes=score_changes, bird_tiles=bird_tiles,
+                                        hepai_tile=self.exchange_six.wins[hepai_player_index][0]["tiles"][0])
             elif self.hu_class in ["hu_self","hu_first","hu_second","hu_third"]:
-                # 牌谱使用最终实收总分，与含鸟/封顶后的广播及计分板一致。
                 self._record_changsha_hu_result(actual_hu_score, hu_fan, hepai_player_index, score_changes, bird_tiles)
             else:
+                if self.exchange_six is not None:
+                    from ..public.game_record_manager import append_action_tick
+                    append_action_tick(self, ["changsha_exchange_six_draw_scores", score_changes])
                 player_action_record_liuju(self)
             player_action_record_round_end(self)
 
@@ -1742,7 +1795,7 @@ class ChangshaGameState:
                 if gang_replacement_multi_ron:
                     self._advance_after_gang_replacement_ron(gang_replacement_settlement)
                 elif self.hu_class in ["hu_self","hu_first","hu_second","hu_third"] and hepai_player_index is not None:
-                    self._make_player_next_dealer(hepai_player_index)
+                    self._make_player_next_dealer(self.exchange_six.next_dealer if self.exchange_six is not None else hepai_player_index)
                     next_game_round_changsha_switchseat(self, keep_dealer_seat=True)
                 elif self.hu_class == "liuju" and self.sea_bottom_player_index is not None:
                     self._make_player_next_dealer(self.sea_bottom_player_index)

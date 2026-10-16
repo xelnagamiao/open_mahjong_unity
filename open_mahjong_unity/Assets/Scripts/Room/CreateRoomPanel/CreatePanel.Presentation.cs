@@ -62,6 +62,7 @@ public partial class CreatePanel {
     }
 
     private void RefreshRoomPresentation(bool animate = false) {
+        RefreshExchangeSixSelectionTime();
         if (!roomPresentationBaked) return;
         RefreshTierPresets();
         SubRuleText.text = "子规则"; SubRuleText.gameObject.SetActive(true); SubRuleDropdown.gameObject.SetActive(true);
@@ -80,7 +81,7 @@ public partial class CreatePanel {
         if (roundTimer) roundTimer.transform.parent.gameObject.SetActive(roundTimer.gameObject.activeSelf);
         var rounds = RoomContent.Find("RoundSelection"); if (rounds) rounds.gameObject.SetActive(gameTime1Button.gameObject.activeSelf);
         if (GuobiaoFlowersLabel) GuobiaoFlowersLabel.text = "花牌";
-        bool changsha = _ruleState == "changsha";
+        bool changsha = _ruleState == "changsha" && !IsChangshaExchangeSix;
         if (ChangshaScoreRow) {
             ChangshaScoreRow.SetActive(changsha);
             if (changsha) {
