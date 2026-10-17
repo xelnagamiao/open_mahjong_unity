@@ -14,12 +14,12 @@ from ..public.game_record_manager import append_action_tick
 from ..public.random_seed_manager import derive_round_seed
 from ..public.ai.bot_executor import run_room_bot_cpu
 from .lifecycle import GuangdongMatchMixin
-from .tips import GuangdongTipsMixin
+from .client_context import GuangdongClientContextMixin
 from .timing import GuangdongTimingMixin
 from .tactical import GuangdongTacticalMixin
 
 
-class GuangdongGameState(GuangdongTacticalMixin, GuangdongMatchMixin, GuangdongTipsMixin, GuangdongTimingMixin, TaiwanGameState):
+class GuangdongGameState(GuangdongTacticalMixin, GuangdongMatchMixin, GuangdongClientContextMixin, GuangdongTimingMixin, TaiwanGameState):
     flower_tiles = ()  # 55–58 是留在手内的实体鬼，不能自动补花。
     structure_tiles = book.TILES
     concealed_kongs_public = True  # 原书五-5：先公示，再仅扣两侧两张。
@@ -58,7 +58,6 @@ class GuangdongGameState(GuangdongTacticalMixin, GuangdongMatchMixin, GuangdongT
         self._score_event = None
         self._terminal_result = None
         self.direct_kong_payer = None
-        self._tips_cache = {}
         self._recorded_tips = {}
         self._candidate_cache = {}
         for player in self.player_list:

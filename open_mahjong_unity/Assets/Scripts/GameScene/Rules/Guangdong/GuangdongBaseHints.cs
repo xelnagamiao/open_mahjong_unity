@@ -7,6 +7,7 @@ using System.Linq;
 /// 只计算普通点和/自摸及起和门槛；实战行动资格仍由服务端裁定。
 /// </summary>
 internal static class GuangdongBaseHints {
+    internal static readonly object Sync = new object();
     private static readonly int[] Tiles = Enumerable.Range(1, 3)
         .SelectMany(s => Enumerable.Range(1, 9).Select(r => s * 10 + r))
         .Concat(Enumerable.Range(41, 7)).ToArray();
@@ -27,7 +28,7 @@ internal static class GuangdongBaseHints {
     private static string Key(IEnumerable<int> hand, IEnumerable<string> melds) =>
         string.Join(",", (hand ?? Array.Empty<int>()).OrderBy(t => t)) + "|"
         + string.Join(",", (melds ?? Array.Empty<string>()).OrderBy(t => t, StringComparer.Ordinal));
-    internal static void Clear() { waitCache.Clear(); fanCache.Clear(); }
+    internal static void Clear() { lock(Sync){waitCache.Clear(); fanCache.Clear();} }
 
     private static bool Prepare(List<int> hand, List<string> melds, int nominal, out Hand result) {
         result = null;
@@ -173,6 +174,9 @@ internal static class GuangdongBaseHints {
             (((PairResources(hand)[0] & (1 << hand.ghosts)) != 0) || Orphan(hand));
     }
     internal static HashSet<int> Waiting(List<int> hand, List<string> melds) {
+        lock(Sync)return WaitingCore(hand,melds);
+    }
+    private static HashSet<int> WaitingCore(List<int> hand, List<string> melds) {
         string key = Key(hand, melds);
         if (waitCache.TryGetValue(key, out var cached)) return new HashSet<int>(cached);
         var waits = new HashSet<int>();
@@ -265,6 +269,9 @@ internal static class GuangdongBaseHints {
         return best;
     }
     internal static GuangdongWait Evaluate(List<int> complete, List<string> melds, int winningTile, bool minimum, int discardedGhosts) {
+        lock(Sync)return EvaluateCore(complete,melds,winningTile,minimum,discardedGhosts);
+    }
+    private static GuangdongWait EvaluateCore(List<int> complete, List<string> melds, int winningTile, bool minimum, int discardedGhosts) {
         var wait = new GuangdongWait { tile = winningTile, ron_fan = 0, self_draw_fan = 0, ron_score = 0, self_draw_score = 0 };
         if (!Prepare(complete, melds, 14, out var hand) || !complete.Contains(winningTile)
             || discardedGhosts < 0 || discardedGhosts > 4 || hand.ghosts + discardedGhosts > 4) return wait;

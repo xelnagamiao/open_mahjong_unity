@@ -12,6 +12,20 @@ public static class RiichiWinRequirementsValidation {
             if (!condition) throw new InvalidOperationException("Riichi win requirements: " + name);
             checks.Add(name);
         }
+        var fifthCopy = new List<int> {41,41,41,41,22,23,24,32,33,34,45,45,45};
+        Check(RiichiExternal.TingpaiCheck(fifthCopy, new List<string>()).Count == 0, "concealed fifth copy is not tenpai");
+        var ownedWait = new TingpaiQuery {
+            SubRule="riichi/standard", Hand=new List<int>{11,22,23,24,32,33,34,45,45,45},
+            Melds=new List<string>{"k11"}, DetailedConfig=new Dictionary<string,object>{{"tenpai_owned_tiles","concealed"}}
+        };
+        Check(RiichiTips.Tingpai(ownedWait).SetEquals(new[]{11}), "online formal tenpai excludes only concealed exhaustion");
+        ownedWait.DetailedConfig["tenpai_owned_tiles"]="all";
+        Check(RiichiTips.Tingpai(ownedWait).Count == 0, "M League formal tenpai includes own melds");
+        var drawPlayers = new[] { new GameRecordManager.RecordPlayer {
+            playerIndex=0, tileList=ownedWait.Hand, combinationTiles=ownedWait.Melds
+        }};
+        Check(RiichiDrawRecord.BuildTenpaiTiles(new[]{1}, drawPlayers, ownedWait.DetailedConfig).Count == 0,
+            "draw replay uses its own formal tenpai rule");
         var hand = new List<int> {22,23,24,33,34,35,36,37,38,28,28};
         var melds = new List<string> {"s13"};
         var ctx = new RiichiHandContext {PlayerWind=42, DoraIndicators=new List<int> {27,27}};

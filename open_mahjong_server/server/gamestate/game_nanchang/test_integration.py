@@ -6,7 +6,8 @@ import pytest
 from .test_state import state,cut,NORMAL
 from .NanchangGameState import NanchangGameState
 from .state_machine import Phase as P
-from .hints import private_hints,hand_key
+from server.gamestate.game_nanchang.client_context import private_context as private_hints
+from tests.local_hint_oracles.nanchang import for_hand
 from .bot import choose_action
 from .timing import ActionClock
 from ...database.shared_record_metrics import analyze_shared_record_for_player
@@ -20,7 +21,12 @@ def test_future_waits_do_not_borrow_special_current_event(context):
     if context=='earth':s.discard_log=[(0,41)]
     if context=='kong':p.after_kong=True
     expected=s.score_win(index,'self_draw',41,private=True,preview=True)
-    hints=private_hints(s,index)[hand_key(NORMAL[:-1])]
+    request=private_hints(s,index)['__local__'][0]['local_request']
+    assert request['hand']==NORMAL
+    assert not {'after_kong','heaven','earth'} & request['context'].keys()
+    # The reference scorer still checks the ordinary future-win contract;
+    # production packets contain inputs for the local client instead of scores.
+    hints=for_hand(s,index,NORMAL[:-1],[*p.discard_origin_tiles,41])
     row=next(r for r in hints if r['tile']==41)
     assert row['self_draw_points']==expected['points']
     actual=s.score_win(index,'self_draw',41,private=True)

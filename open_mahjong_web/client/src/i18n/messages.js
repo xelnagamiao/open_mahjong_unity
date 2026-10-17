@@ -3,6 +3,7 @@ import { auditEnglish, auditShared } from './audit-messages.js'
 import { libraryAuditMessages } from './library-audit.js'
 import { game2dMessages, game2dTextPatterns } from './game2d-messages.js'
 import { statisticsMessages } from './statistics-messages.js'
+import { guobiaoRulesMessages } from './guobiao-rules-messages.js'
 
 const en = {
   '用户名 / 邮箱': 'Username / email',
@@ -1644,6 +1645,7 @@ Object.assign(ja, {
 
 const traditionalPhrases = {
   '复式': '複式',
+  '复计': '複計',
   '牌面角标': '牌面角標', '跟随语言': '跟隨語言',
   '完整支持繁体中文、英语、日语': '完整支援繁體中文、英文、日文',
   '下载选中({count})': '下載所選項目（{count}）', '下载筛选结果(ZIP)': '下載篩選結果（ZIP）',
@@ -1756,12 +1758,13 @@ const traditionalCharMap = {
   驳: '駁', 验: '驗', 骑: '騎', 骗: '騙', 骤: '驟', 鱼: '魚', 鲜: '鮮', 鸟: '鳥',
   鸡: '雞', 鸣: '鳴', 鸭: '鴨', 鹅: '鵝', 鹰: '鷹', 麦: '麥', 黄: '黃', 黎: '黎',
   齐: '齊', 齿: '齒', 龙: '龍', 龟: '龜', 铳: '銃', 癞: '癩', 鹫: '鷲', 涌: '湧',
+  饼: '餅', 诈: '詐', 抢: '搶', 墙: '牆', 杠: '槓', 状: '狀', 确: '確',
 }
 
 function toTraditional(text) {
   let result = text
   for (const [source, target] of Object.entries(traditionalPhrases)) result = result.split(source).join(target)
-  return [...result].map((char) => traditionalCharMap[char] || char).join('')
+  return [...result].map((char) => traditionalCharMap[char] || char).join('').replaceAll('若乾', '若干')
 }
 
 const zhTW = new Proxy({}, {
@@ -1783,7 +1786,7 @@ const hongKongPhrases = {
 function toHongKongTraditional(text) {
   let result = text
   for (const [source, target] of Object.entries(hongKongPhrases)) result = result.split(source).join(target)
-  return [...result].map((char) => traditionalCharMap[char] || char).join('')
+  return [...result].map((char) => traditionalCharMap[char] || char).join('').replaceAll('若乾', '若干')
 }
 
 const zhHK = new Proxy({}, {
@@ -1802,7 +1805,7 @@ Object.assign(en, auditEnglish, auditShared.en)
 Object.assign(fr, auditShared.fr)
 Object.assign(ja, auditShared.ja)
 for (const [language, target] of Object.entries({ en, fr, ja })) {
-  for (const [source, translated] of Object.entries({ ...game2dMessages[language], ...statisticsMessages[language] })) {
+  for (const [source, translated] of Object.entries({ ...game2dMessages[language], ...statisticsMessages[language], ...guobiaoRulesMessages[language] })) {
     if (target[source] == null || target[source] === source) target[source] = translated
   }
 }

@@ -32,16 +32,22 @@ public static class PlayerInfoStatsFormatter {
             string mode = NormalizeMode(row.mode, PlayerInfoRuleCatalog.PlayerCount(rule) == 3);
             if (mode.EndsWith("_rank") == ranked && !modes.Contains(mode)) modes.Add(mode);
         }
+        // 展示时按局制长度降序：全庄、东西、半庄（东南）、东风，历史局制也参与排序。
+        modes.Sort((left, right) => {
+            int.TryParse(left.Split('/')[0], out int leftLength);
+            int.TryParse(right.Split('/')[0], out int rightLength);
+            return rightLength.CompareTo(leftLength);
+        });
         return modes.ToArray();
     }
 
     public static string ModeCaption(string rule, string mode, bool ranked) {
         if (string.IsNullOrEmpty(mode)) return RuleName(rule) + "总计" + CategorySuffix(rule, ranked);
-        if (ranked && rule == "hongque" && mode == "16/4_rank") return "虹雀 · 全庄（16局）（Elo 匹配）";
+        if (ranked && rule == "hongque") return "虹雀 · " + mode.Split('/')[0] + "局（Elo 匹配）";
         if (rule == RiichiSanmaRankConfig.Rule) return RuleName(rule) + " · " + RiichiModeCaption(mode) + CategorySuffix(rule, ranked);
         if (rule == PlayerInfoRuleCatalog.GuobiaoSanma) return RuleName(rule) + " · "
             + RoundTextDictionary.GetMatchTypeDisplay("guobiao", mode.Replace("_sanma", "")) + CategorySuffix(rule, ranked);
-        if(ranked&&(rule=="sichuan" || rule==RankedRules.XueliuExchangeRule))return RankedRules.Name(rule)+(mode=="4/4_rank"?" · 全庄（16局）":mode=="2/4_rank"?" · 半庄（8局）":" · 四局（历史）")+"（Elo 匹配）";
+        if(ranked&&(rule=="sichuan" || rule==RankedRules.XueliuExchangeRule))return RankedRules.Name(rule)+(mode=="4/4_rank"?" · 全庄（16局，历史）":mode=="2/4_rank"?" · 半庄（8局）":" · 四局（历史）")+"（Elo 匹配）";
         string match = rule == "riichi" && mode == "2/4" ? "半庄（东南战）"
             : rule == "riichi" && mode == "3/4" ? "东南西战（历史）"
             : rule == "riichi" && mode == "4/4" ? "全庄战（历史）"

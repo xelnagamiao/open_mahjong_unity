@@ -31,16 +31,18 @@ def test_timeout_cut_and_flower_use_legal_action_and_consume_only_own_bank():
     asyncio.run(run())
 
 
-def test_fixed_response_expiry_preserves_bank_and_passes_claim():
+def test_claim_expiry_consumes_bank_and_passes_claim():
     async def run():
         s = state_with(); s.player_list[1].hand_tiles = WIN[:-1]
+        s.step_time = 5
+        for p in s.player_list: p.remaining_time = 17
         open_turn(s); act(s, {0: dict(action_type='cut', TileId=29, cutClass=True)})
         for i in s.waiting_players_list:
-            s.player_list[i].remaining_time = 17
-            s.action_clocks[i].start(s._timing_now()-4)
+            s.action_clocks[i].start(s._timing_now()-23)
         result = await s.wait_action()
         assert result and all(a['action_type']=='pass' for a in result.values())
-        assert all(s.player_list[i].remaining_time == 17 for i in result)
+        assert all(s.player_list[i].remaining_time == 0 for i in result)
+        assert s.player_list[0].remaining_time == 17
         act(s, result)
         assert s.machine.phase in (P.TURN, P.REPLACEMENT)
     asyncio.run(run())
@@ -152,9 +154,10 @@ def test_reconnect_and_spectator_preserve_authority_and_only_reveal_selected_han
     asyncio.run(run())
 
 
-def test_full_match_driver_keeps_all_physical_tiles_and_finishes_six_dealer_changes():
+@pytest.mark.parametrize('duration',[1,2,4])
+def test_full_match_driver_keeps_all_physical_tiles_and_counts_only_dealer_changes(duration):
     async def run():
-        data = FuzhouGameState._default_room_data(); data['random_seed'] = 15
+        data = FuzhouGameState._default_room_data(); data['random_seed'] = 15; data['game_round'] = duration
         s = FuzhouGameState(room_data=data,calculation_service=object())
         observed, windows = [], 0
         async def flush():
@@ -163,7 +166,7 @@ def test_full_match_driver_keeps_all_physical_tiles_and_finishes_six_dealer_chan
         async def decide(timeout=None):
             nonlocal windows
             windows += 1
-            assert windows < 5000, 'match did not converge'
+            assert windows < 5000*duration, 'match did not converge'
             assert s.physical_inventory() == Counter(book.PHYSICAL)
             return {i:choose_action(s,i,s.action_dict[i]) for i in list(s.waiting_players_list)}
         s.flush_outbound_payloads = flush
@@ -171,9 +174,9 @@ def test_full_match_driver_keeps_all_physical_tiles_and_finishes_six_dealer_chan
         s.complete_game_lifecycle = AsyncMock()
         await s.run_game_loop()
         assert s.machine.phase == P.FINISHED
-        assert s.next_dealer_changes == 6 and s.match_finishing
+        assert s.next_dealer_changes == duration*4 and s.match_finishing
         assert sum(p.score for p in s.player_list) == 0
-        assert len(s.game_record['game_round']) >= 6
+        assert len(s.game_record['game_round']) >= duration*4
         assert len({len(p.score_history) for p in s.player_list}) == 1
         assert 'gamestate/fuzhou/game_start' in observed
         s.complete_game_lifecycle.assert_awaited_once()

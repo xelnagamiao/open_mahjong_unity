@@ -1,7 +1,7 @@
+from ..public.action_window import prepare_action_window, start_waiting_clocks
 # 等待玩家操作处理
 import asyncio
 from ..public.lifecycle import start_owned_task
-import time
 import logging
 from .action_check import check_action_after_cut, check_action_jiagang, refresh_waiting_tiles
 from .boardcast import broadcast_do_action, broadcast_ready_status, broadcast_ask_other_action
@@ -28,40 +28,19 @@ from ..public.claim_protection import (
     finalize_claim_protection,
     )
 from ..public.tactical_claim import (
-    init_tactical_round_state,
     apply_tactical_claim_if_needed,
     is_decline_action,
     tactical_mark_player_force_passed,
 )
-from ..public.ask_timing import get_ask_elapsed, note_ask_delivered
+from ..public.ask_timing import get_ask_elapsed
 from .boardcast import _send_do_action_payload_to_viewer
 
 logger = logging.getLogger(__name__)
 
 # 等待玩家行动
 async def wait_action(self):
-    self.waiting_players_list = [] # [2,3]
-
-
-    # 清空所有队列，防止上一轮残留的事件影响新一轮
-    for i in range(4):
-        while not self.action_queues[i].empty():
-            try:
-                self.action_queues[i].get_nowait()
-                logger.debug(f"清空玩家{i}队列中的残留事件")
-            except:
-                break
-
-    # 遍历所有可行动玩家，获取行动玩家列表和等待时间列表
-    for player_index, action_list in self.action_dict.items():
-        if action_list:  # 如果玩家有可用操作 将玩家加入列表并重置事件状态
-            self.waiting_players_list.append(player_index)
-            self.action_events[player_index].clear()
-
-    for player_index in self.waiting_players_list:
-        note_ask_delivered(self, player_index)
-
-    init_tactical_round_state(self)
+    prepare_action_window(self)
+    start_waiting_clocks(self)
 
     # 如果等待玩家列表不为空且有玩家剩余时间小于(已用时间-步时)，则停止等待
     player_index = None # 保存操作玩家索引 (如果玩家有操作则左侧三个变量有值 否则为None)

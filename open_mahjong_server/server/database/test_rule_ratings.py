@@ -105,6 +105,20 @@ def test_same_game_concurrent_retry_applies_once(db):
     assert get_rank_data(db,USERS[0])['ratings']['qingque']['games']==1
 
 
+@pytest.mark.parametrize('queue,k,deltas', [
+    ('hongque_elo_banzhuang',16,[8,2.67,-2.67,-8]),
+    ('hongque_elo_quanzhuang',32,[16,5.33,-5.33,-16]),
+])
+def test_hongque_length_k_is_used_by_atomic_settlement(db, queue, k, deltas):
+    from ..match.rating_rules import HONGQUE_ELO_ALGORITHM_VERSION
+    result = settle_rated_game(db, 'hongque-length', queue, players())
+    assert [result[str(uid)]['elo_delta'] for uid in USERS] == deltas
+    assert all(row['rating_k'] == k and row['rating_algorithm'] == HONGQUE_ELO_ALGORITHM_VERSION
+               for row in result.values())
+    assert settle_rated_game(db, 'hongque-length', queue, players()) == result
+    assert all(get_rank_data(db, uid)['ratings']['hongque']['games'] == 1 for uid in USERS)
+
+
 def test_riichi_points_cost_and_algorithm_are_saved_and_retry_does_not_recalculate(db):
     from ..match.riichi_rank_calculator import RIICHI_PT_ALGORITHM
     for uid in USERS:

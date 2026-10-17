@@ -18,7 +18,9 @@ import { buildHongzhongRoomPayload, loadHongzhongForm } from './hongzhongRoomCon
 import { buildChangchunRoomPayload, loadChangchunForm } from './changchunRoomConfig.js'
 import { buildGuangdongRoomPayload, loadGuangdongForm, guangdongRows, guangdongProfiles } from './guangdongRoomConfig.js'
 import { loadHongKongForm, hongKongDetail, hongKongRows, hkProfiles, hkProfileLabel } from './hongKongRoomConfig.js'
-import { riichiWinRequirements, riichiWinLineLabel } from './riichiWinRequirements.js'
+import { riichiWinLineLabel } from './riichiWinRequirements.js'
+import { loadRiichiForm, buildRiichiRoomPayload, selectedRiichiPreset } from './riichiRoomConfig.js'
+import { loadChangshaForm, buildChangshaRoomPayload, changshaRows } from './changshaRoomConfig.js'
 
 export function clearUnsupportedDuplicateRoom(form) {
   if (!supportsDuplicateKey(form)) form.duplicate_key = ''
@@ -54,10 +56,9 @@ export function createEventRoomForm(settings = {}) {
   if (form.room_rule === 'singapore') loadSingaporeForm(form, config)
   if (form.room_rule === 'jiujiang') loadJiujiangForm(form, config)
   if (form.room_rule === 'changchun') loadChangchunForm(form, config)
+  if (form.room_rule === 'changsha') loadChangshaForm(form, config)
   if (form.room_rule === 'riichi') {
-    form.sub_rule = config.sub_rule || 'riichi/standard'
-    form.riichi_hepai_limit = config.hepai_limit ?? 1
-    form.minimum_win_score = config.detailed_config?.minimum_win_score ?? 0
+    loadRiichiForm(form, config)
   }
   form.password = String(settings.password || '')
   clearUnsupportedDuplicateRoom(form)
@@ -76,6 +77,7 @@ export function changeEventRoomRule(form, rule) {
 }
 
 export function buildEventRoomSettings(form) {
+  if (form.room_rule === 'changsha') return buildChangshaRoomPayload(form)
   if (form.room_rule === 'guizhou') return buildGuizhouRoomPayload(form)
   if (form.room_rule === 'yixing') return buildYixingRoomPayload(form)
   if (form.room_rule === 'malaysia') return buildMalaysiaRoomPayload(form)
@@ -110,15 +112,7 @@ export function buildEventRoomSettings(form) {
     }
   }
   if (form.room_rule === 'riichi') {
-    const score = form.starting_score
-    if (!Number.isInteger(score) || score < 1000 || score > 1000000 || score % 100 !== 0) {
-      throw new Error('起始点数须为 1000–1000000 之间的整数，且为 100 的倍数')
-    }
-    return {
-      room_rule: 'riichi',
-      room_config: { ...(roomName ? { room_name: roomName } : {}), starting_score: score, ...riichiWinRequirements(form) },
-      password: String(form.password || '').trim(),
-    }
+    return buildRiichiRoomPayload(form)
   }
   if (form.room_rule === 'sichuan') {
     return {
@@ -145,8 +139,9 @@ export function eventRoomSettingsSummary(settings, ruleLabels = {}) {
   const config = settings.room_config || {}
   const isDuplicate = Boolean(form.duplicate_key || config.is_duplicate || config.duplicate_wall_type)
   const duplicate = isDuplicate ? ` · ${duplicateWallLabel(config.duplicate_wall_type) === '—' ? '复式' : duplicateWallLabel(config.duplicate_wall_type)}` : ''
-  if (form.room_rule === 'riichi') return `${rule} · 起始 ${form.starting_score} 点 · ${form.riichi_hepai_limit} 番起和（不含宝牌） · 起和线：${riichiWinLineLabel(form.minimum_win_score)}${duplicate}`
+  if (form.room_rule === 'riichi') return `${selectedRiichiPreset(form)?.label || rule + ' · 自定义'} · 起始 ${form.starting_score} 点 · ${form.riichi_hepai_limit} 番起和（不含宝牌） · 起和线：${riichiWinLineLabel(form.minimum_win_score)}${duplicate}`
   if (form.room_rule === 'hongkong') return `${rule} · ${hkProfileLabel(form)}`
+  if (form.room_rule === 'changsha') return `${rule} · ${form.game_round * 4}局 · 开杠${form.open_kong_replacement_count}张 · ${form.small_hu_self_draw_only ? '卡摸' : '小胡可点和'}`
   if (form.room_rule === 'guangdong') return `${guangdongProfiles.find(p => p.value === form.sub_rule)?.label || form.sub_rule} · ${form.game_round * 4}局`
   if (form.room_rule === 'guizhou') return `${rule} · MIL 2023 · ${form.game_round * 4}局`
   if (form.room_rule === 'hangzhou') return `${rule} · MIL 2025 · ${form.game_round * 4}局`
@@ -198,7 +193,7 @@ export function eventRoomSettingsRows(settings, ruleLabels = {}) {
     'shanxi/mil2023': 'MIL山西（2023）',
     'riichi/standard': '立直标准', 'qingque/standard': '青雀标准', 'classical/standard': '古典标准',
     'hongkong/qingzhang': '清章十三张', 'hongkong/new13': '新章十三张', 'hongkong/new16': '新章十六张',
-    'sichuan/standard': '四川标准', 'sichuan/doubles': '血战双打·2V2', 'sichuan/xueliu_doubles': '血流双打·2V2', 'changsha/classic_double_bird': '长沙经典双鸟', 'taiwan/standard': '台湾标准',
+    'sichuan/standard': '四川标准', 'sichuan/doubles': '血战双打·2V2', 'sichuan/xueliu_doubles': '血流双打·2V2', 'changsha/classic_double_bird': '长沙经典双鸟', 'changsha/exchange_six': '长沙换六张', 'taiwan/standard': '台湾标准',
   }
   const rows = [
     { label: '规则', value: ruleLabels[form.room_rule] || form.room_rule },
@@ -225,6 +220,11 @@ export function eventRoomSettingsRows(settings, ruleLabels = {}) {
   if (form.room_rule === 'hongkong') {
     rows.push(...hongKongRows(form))
   }
+  if (form.room_rule === 'changsha') {
+    const row = rows.find(item => item.label === '圈数')
+    if (row) { row.label = '局数'; row.value = `${form.game_round * 4}局` }
+    rows.push(...changshaRows(form))
+  }
   if (form.room_rule === 'shenyang') {
     const round = rows.find(item => item.label === '圈数')
     if (round) { round.label = '局数'; round.value = `${form.game_round * 4}局` }
@@ -237,7 +237,7 @@ export function eventRoomSettingsRows(settings, ruleLabels = {}) {
     if (row) { row.label = '局数'; row.value = `${form.game_round * 4}局` }
     const timer = rows.find(item => item.label === '局时')
     if (timer) { timer.label = '局时储备'; timer.value = `${form.round_timer} 秒` }
-    rows.push({ label: '底分', value: `${form.fuzhou_base_score ?? 10}分` }, { label: '花牌', value: '全部字牌及八花' }, { label: '末四张', value: '只摸不打，不补花' })
+    rows.push({ label: '底分', value: `${form.fuzhou_base_score ?? 15}分` }, { label: '花牌', value: '全部字牌及八花' }, { label: '末四张', value: '只摸不打，不补花' })
   }
   if (form.room_rule === 'nanjing') {
     const row = rows.find(item => item.label === '圈数')
@@ -283,6 +283,8 @@ export function eventRoomSettingsRows(settings, ruleLabels = {}) {
   }
   if (form.room_rule === 'guobiao') rows.push({ label: '起和番', value: `${form.hepai_limit} 番` })
   if (form.room_rule === 'riichi') rows.push(
+    { label: '日麻预设', value: selectedRiichiPreset(form)?.label || '自定义规则' },
+    { label: '人数', value: form.sub_rule === 'riichi/sanma' ? '3人' : '4人' },
     { label: '起始点数', value: `${form.starting_score} 点` },
     { label: '起和番', value: `${form.riichi_hepai_limit} 番（不含宝牌）` },
     { label: '起和线', value: riichiWinLineLabel(form.minimum_win_score) },

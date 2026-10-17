@@ -1,0 +1,247 @@
+{
+  "id": "guobiao",
+  "source": "other/rule/inclued_rule/新编MCR.pdf",
+  "pages": [
+    {
+      "id": "rules",
+      "title": "游戏规则",
+      "sections": [
+        {
+          "id": "introduction",
+          "title": "1. 规则简介 · 国际标准麻将",
+          "body": "使用一副144张的标准麻将牌，牌张分为序数牌、字牌、花牌共3类42种。\n\n和牌型共5条，分为基本和牌型、特殊和牌型2类；基本和牌型有2条，分别为普通基本和牌型、组合龙基本和牌型；特殊和牌型有3条，分别为七对特殊和牌型、全不靠特殊和牌型、十三幺特殊和牌型。",
+          "sourcePages": [
+            1,
+            2
+          ],
+          "sources": [
+            "other/rule/inclued_rule/新编MCR.pdf"
+          ]
+        },
+        {
+          "id": "minimum",
+          "title": "2. 起和番",
+          "body": "和牌成立所需达成的最小番种分值，为8分。\n\n手牌满足和牌型且除花牌外所有番种分之和达到起和分方可和牌。",
+          "sourcePages": [
+            6,
+            9
+          ],
+          "sources": [
+            "other/rule/inclued_rule/新编MCR.pdf"
+          ]
+        },
+        {
+          "id": "room-defaults",
+          "title": "房间默认配置 · 标准国标",
+          "body": "初级场\n起和番：8；局时：20秒；步时：5秒\n番数提示：开启；错和：关闭；指针提示：开启；战术鸣牌：开启\n\n中级场\n起和番：8；局时：20秒；步时：8秒\n番数提示：关闭；错和：开启；指针提示：开启；战术鸣牌：开启\n\n高级场\n起和番：8；局时：20秒；步时：5秒\n番数提示：关闭；错和：开启；指针提示：开启；战术鸣牌：开启\n\n最高场（MCRPL）\n起和番：8；局时：20秒；步时：5秒\n番数提示：关闭；错和：开启；指针提示：关闭；战术鸣牌：开启",
+          "sourcePages": [],
+          "sources": [
+            "open_mahjong_server/server/match/rank_calculator.py",
+            "open_mahjong_unity/Assets/Scripts/Room/CreateRoomPanel/CreatePanel.TierPresets.cs"
+          ],
+          "contentKind": "configuration"
+        },
+        {
+          "id": "variant-defaults",
+          "title": "子规则默认起和",
+          "body": "标准国标：8番。\n\nK神麻将：8番。\n\n小林改：1番。\n\n蓝十改：5分。",
+          "sourcePages": [],
+          "sources": [
+            "open_mahjong_unity/Assets/Scripts/Room/CreateRoomPanel/CreatePanel.cs#GetGuobiaoSubRuleDefaultHepaiLimit"
+          ],
+          "contentKind": "configuration"
+        },
+        {
+          "id": "custom-minimum",
+          "title": "修改起和番",
+          "body": "修改起和番：开启后将弃用规则的默认起和设置，输入1-64的整数设置起和番",
+          "sourcePages": [],
+          "sources": [
+            "open_mahjong_unity/Assets/Scripts/Room/CreateRoomPanel/CreatePanel.Help.Baking.cs"
+          ]
+        },
+        {
+          "id": "claim-priority",
+          "title": "3. 战术鸣牌 · 优先级",
+          "body": "鸣牌按照优先级降序排列依次为和牌、杠牌、碰牌、吃牌，当场上有两家或三家对同一张牌宣布鸣牌时，该牌张归属于所宣布鸣牌优先级最高且成立者，一旦该牌张归属确定，未获得该牌的一家或两家的鸣牌均不成立。",
+          "sourcePages": [
+            7
+          ],
+          "sources": [
+            "other/rule/inclued_rule/新编MCR.pdf"
+          ]
+        },
+        {
+          "id": "claim-wait",
+          "title": "战术鸣牌 · 吃牌等待",
+          "body": "宣布吃牌后应等待约3秒，为他人留予充足时间决定是否执行碰牌、杠牌；若在3秒等待时间内所吃牌张被他家碰、杠，则碰牌家或杠牌家的鸣牌成立，自家的吃牌不成立；\n\n若一家宣布吃牌，且其在等待约3秒后已将被吃牌张自牌池中取走并与两张亮明的立牌摆放为副露，则一概不允许他家再碰牌、杠牌；即使此时宣布碰牌或杠牌并亮明有关立牌，碰牌、杠牌也不成立。",
+          "sourcePages": [
+            7,
+            8
+          ],
+          "sources": [
+            "other/rule/inclued_rule/新编MCR.pdf"
+          ]
+        },
+        {
+          "id": "platform-claim",
+          "title": "平台战术鸣牌设置",
+          "body": "示例一：玩家 A 出牌 T，玩家 B 可吃、玩家 C 可碰。此时 C 选择跳过，但 B 点击了吃牌；由于仍存在可执行的更高优先级操作，系统会再次询问 C 是否要碰，以模拟国标线下允许刻意用碰打断别人吃的情形。\n\n示例二：玩家 A 出牌 T，玩家 B 可吃或和牌，玩家 C 可碰。B 选择吃，C 用碰打断了 B 的吃；此时 B 不再能用和去打断 C 的碰。这符合国标不允许玩家在鸣牌发声后更改自己要执行动作的规则。\n\n房间配置中可开关战术鸣牌。关闭时走「等待最高优先级操作执行完成」的原始流程。开启时，首次询问仍使用房间步时加剩余局时；只有有效申请后的抢断再询问使用独立5秒，不扣普通局时。",
+          "sourcePages": [],
+          "sources": [
+            "open_mahjong_web/client/src/views/UsageGuide.vue#tactical-call"
+          ]
+        },
+        {
+          "id": "claim-timing",
+          "title": "鸣牌与摸牌时机",
+          "body": "其中，加杠、暗杠、补花一律只能在摸牌之后进行，吃牌、碰牌后只能出牌而不能加杠、暗杠、补花。",
+          "sourcePages": [
+            7
+          ],
+          "sources": [
+            "other/rule/inclued_rule/新编MCR.pdf"
+          ]
+        },
+        {
+          "id": "flowers",
+          "title": "补花与杠上开花",
+          "body": "补花时，需宣布补花并将立牌中或摸得的若干花牌亮明，随后从牌墙尾部摸取与亮明牌张数量相同的牌。补花摸得花牌或立牌中仍有花牌时，可继续补花，也可暂不补花，亦可在出牌时将花牌打出。若杠牌后摸得花牌，再使用花牌补花后成自摸和，则番种“杠上开花”不成立。",
+          "sourcePages": [
+            7
+          ],
+          "sources": [
+            "other/rule/inclued_rule/新编MCR.pdf"
+          ]
+        },
+        {
+          "id": "last-tile",
+          "title": "海底牌处理",
+          "body": "牌墙所剩最后一张牌被某家摸起后，该家不得加杠、暗杠、补花，只允许和牌；若不能和牌则必须打出一张牌，是为“海底牌”。海底牌打出后，其余三家不得对海底牌执行吃、碰、杠，只允许和牌；若无人和牌则荒庄。",
+          "sourcePages": [
+            9
+          ],
+          "sources": [
+            "other/rule/inclued_rule/新编MCR.pdf"
+          ]
+        },
+        {
+          "id": "multiple-claims",
+          "title": "多人宣布和牌",
+          "body": "若某家打出一张牌后有多家宣布和牌，则以点炮者的逆时针顺序判定，顺序在前者优先获得该牌；若顺序在前者错和或诈和，则在对其执行相应处罚后，和牌张按顺序向后传递至下一个宣布和牌者，直到某家和牌成立为止。一旦某家和牌成立，本盘立即结束，剩余宣布和牌的一家或两家无论是否存在错和、诈和违规，均不予处罚。",
+          "sourcePages": [
+            9
+          ],
+          "sources": [
+            "other/rule/inclued_rule/新编MCR.pdf"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "scoring",
+      "title": "计分原则",
+      "sections": [
+        {
+          "id": "interpretation",
+          "title": "解释原则",
+          "body": "若同一手牌根据和牌型、面子组合、和牌张归属的不同而存在两种或多种牌姿解释，则数番时只能取一种解释计分，不得在已确定的解释下数番后再取另一解释数番；在解释时，任何副露与暗杠均不得拆分与立牌重组。",
+          "sourcePages": [
+            14
+          ],
+          "sources": [
+            "other/rule/inclued_rule/新编MCR.pdf"
+          ]
+        },
+        {
+          "id": "concealed",
+          "title": "门清原则",
+          "body": "除不求人、门前清两个番种自身之外，成立时手牌必然处于门清状态的番种（九莲宝灯、连七对、十三幺、四暗刻、七对、七星不靠、全不靠）在点和成立时门前清不成立，自摸成立时不求人不成立。",
+          "sourcePages": [
+            16
+          ],
+          "sources": [
+            "other/rule/inclued_rule/新编MCR.pdf"
+          ]
+        },
+        {
+          "id": "specified",
+          "title": "规定原则",
+          "body": "若番种定义规定番种1成立时不计番种2，则番种1成立时番种2不成立；\n\n若番种定义规定番种3成立时减计若干数量的番种4，则番种3成立时减计相应数量的番种4；\n\n若番种定义规定番种5成立时和牌中若干个面子不计番种6，则番种5成立时不得使用相应的面子成立番种6；\n\n若番种定义规定番种7不可复计，则番种7成立时只能计一次。",
+          "sourcePages": [
+            17
+          ],
+          "sources": [
+            "other/rule/inclued_rule/新编MCR.pdf"
+          ]
+        },
+        {
+          "id": "combination",
+          "title": "组合原则",
+          "body": "一色四节高、一色三节高以及所有四顺子番种（一色双龙会、一色四同顺、一色四步高、三色双龙会）与三顺子番种（一色三同顺、清龙、一色三步高、花龙、三色三同顺、三色三步高）之中只能成立其一；\n\n三同刻成立时，双同刻不成立；",
+          "sourcePages": [
+            17
+          ],
+          "sources": [
+            "other/rule/inclued_rule/新编MCR.pdf"
+          ]
+        },
+        {
+          "id": "four-sequences",
+          "title": "组合原则 · 四顺子番种",
+          "body": "四顺子番种成立时，任何双顺子番种（一般高、喜相逢、连六、老少副）均不成立；",
+          "sourcePages": [
+            17
+          ],
+          "sources": [
+            "other/rule/inclued_rule/新编MCR.pdf"
+          ]
+        },
+        {
+          "id": "count-once",
+          "title": "组合原则 · 套算一次",
+          "body": "三顺子番种成立时，仅当第4个面子为顺子，且该顺子与组成三顺子番种的3副顺子中的1副满足某个双顺子番种的定义时，方可成立至多1分符合相应定义的双顺子番种；",
+          "sourcePages": [
+            17
+          ],
+          "sources": [
+            "other/rule/inclued_rule/新编MCR.pdf"
+          ]
+        },
+        {
+          "id": "two-sequences",
+          "title": "组合原则 · 双顺子计分上限",
+          "body": "任何四顺子番种、三顺子番种均不成立时，双顺子番种在4副顺子之间至多成立3分，3副顺子之间至多成立2分，2副顺子之间至多成立1分。",
+          "sourcePages": [
+            17
+          ],
+          "sources": [
+            "other/rule/inclued_rule/新编MCR.pdf"
+          ]
+        },
+        {
+          "id": "single-wait",
+          "title": "独听原则",
+          "body": "仅当只有一种牌能使手牌满足和牌型，且被解释为基本和牌型计番时，方成立符合相应定义的独听番种（边张、嵌张、单吊将）。独听番种只能同时成立其一，若听牌可解释为两种或三种类型的独听时只能选取其一成立。其中，若和牌型为组合龙基本和牌型，则仅当只有一种牌能使手牌满足和牌型，且该牌可解释为将牌的单吊将或非副露顺子的边张、嵌张时，方成立符合相应定义的独听番种。若庄家使用14张配牌宣布和牌，无论在时间上最后摸得的牌张是什么，一律不成立任何独听番种。",
+          "sourcePages": [
+            20
+          ],
+          "sources": [
+            "other/rule/inclued_rule/新编MCR.pdf"
+          ]
+        },
+        {
+          "id": "settlement",
+          "title": "比赛分结算",
+          "body": "若某家点和和牌成立，则未和牌的三家向和牌家各支付8分，其中点炮家需再支付与和牌番种分等值的分数；\n\n若某家自摸和牌成立，则未和牌的三家向和牌家各支付8分外加与和牌番种分等值的分数；\n\n若荒庄，则各家比赛分不发生变动。",
+          "sourcePages": [
+            9
+          ],
+          "sources": [
+            "other/rule/inclued_rule/新编MCR.pdf"
+          ]
+        }
+      ]
+    }
+  ]
+}

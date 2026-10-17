@@ -23,7 +23,7 @@ from ..public.logic_common import assign_competition_final_ranks
 from ..public.round_end_timing import liuju_ready_wait_seconds
 from ...database.fulu_utils import record_fulu_rounds_for_players
 from .result import broadcast_result
-from .hints import compute_hand, match_hint
+from .action_score import prepare_draw_score
 from ..public.ai.bot_executor import run_room_bot_cpu
 from .timing import ActionClock, TimedActionQueue, PHASES, collect_responses
 
@@ -59,7 +59,7 @@ class HongzhongGameState(TaiwanGameState):
         super()._reset_taiwan_players()
         if hasattr(self, "action_clock"):
             self.action_clock.reset()
-        self._hint_generation = getattr(self, "_hint_generation", 0) + 1
+        self._score_generation = getattr(self, "_score_generation", 0) + 1
         self.kong_ledger = []
         self.birds = []
         self._score_event = None
@@ -67,7 +67,7 @@ class HongzhongGameState(TaiwanGameState):
         self._hand_settled = False
         self._tail_upper_next = True
         self._round_start_scores = {p.original_player_index: p.score for p in self.player_list}
-        self._hint_cache = {}
+        self._local_contexts = {}
         self._score_cache = {}
         self._recorded_hints = {}
 
@@ -76,7 +76,7 @@ class HongzhongGameState(TaiwanGameState):
         window = self.action_clock.ensure()
         if window is not None and player is not None and self.is_action_pending(player.player_index):
             # A reconnect can send the first ask while the original broadcast is
-            # still warming private hints. Its response must already be accepted.
+            # still preparing the actual draw score. Its response must already be accepted.
             self.prepare_action_window()
             self._open_pending_action_players(window)
         await super().player_reconnect(user_id)
@@ -150,8 +150,7 @@ class HongzhongGameState(TaiwanGameState):
 
     def refresh_waits(self, index):
         player = self.player_list[index]
-        payload = match_hint(self._hint_cache.get(index), player.hand_tiles, player.combination_tiles)
-        player.waiting_tiles = set(payload["waiting_tiles"]) if payload else book.waits(player.hand_tiles, player.combination_tiles)
+        player.waiting_tiles = book.waits(player.hand_tiles, player.combination_tiles)
         return player.waiting_tiles
 
     def score_candidate(self, index, source, tile=None, **_):
@@ -166,25 +165,41 @@ class HongzhongGameState(TaiwanGameState):
             winning_tile=tile,
             replacement=self.last_draw_after_kong)
 
-    async def _warm_hints(self, index):
+    async def _prepare_draw_score(self, index):
         player = self.player_list[index]
-        generation, round_index = self._hint_generation, self.round_index
+        generation, round_index = self._score_generation, self.round_index
         key = (tuple(player.hand_tiles), tuple(player.combination_tiles), player.last_drawn_tile, self.last_draw_after_kong)
-        payload, detail = await run_room_bot_cpu(self, compute_hand, *key)
+        from ..public.local_hint_context import hint_context
+        cached = self._score_cache.get(index)
+        if not player.has_draw_slot or len(player.hand_tiles) + 3 * len(player.combination_tiles) != 14:
+            # Cut/claim snapshots only copy local inputs; no CPU job is needed.
+            self._local_contexts[index] = hint_context("hongzhong", player.hand_tiles, player.combination_tiles)
+            self._score_cache.pop(index, None)
+            self._record_client_context(index)
+            return
+        elif cached and cached[0] == key:
+            payload, detail = hint_context("hongzhong", player.hand_tiles, player.combination_tiles), cached[1]
+        else:
+            payload, detail = await run_room_bot_cpu(self, prepare_draw_score, *key)
         # 计算不持有牌局锁；换局、轮庄或后续动作可能先于工作进程结束。
         # 丢弃过期结果，尤其不能将上一局手牌提示记录到新一局牌谱。
-        if (generation != self._hint_generation or round_index != self.round_index
+        if (generation != self._score_generation or round_index != self.round_index
                 or self.player_list[index] is not player
+                or not player.has_draw_slot
                 or key != (tuple(player.hand_tiles), tuple(player.combination_tiles),
                            player.last_drawn_tile, self.last_draw_after_kong)):
             return
-        self._hint_cache[index] = payload
+        self._local_contexts[index] = payload
         self._score_cache[index] = (key, detail)
-        self._record_hints(index)
+        self._record_client_context(index)
 
-    def _record_hints(self, index):
-        payload = self._hint_cache.get(index)
+    def _record_client_context(self, index):
+        payload = self._local_contexts.get(index)
+        if payload:
+            payload = deepcopy(payload)
         blocked = "peida" in self.player_list[index].tag_list
+        if payload and payload.get("local_request"):
+            payload["local_request"]["context"]["blocked"] = blocked
         key = (tuple(payload["source_hand_tiles"]), tuple(payload["source_melds"]), blocked) if payload else None
         round_key = f"round_index_{self.round_index}"
         if (payload and round_key in self.game_record.get("game_round", {})
@@ -193,7 +208,7 @@ class HongzhongGameState(TaiwanGameState):
             self._recorded_hints[index] = key
 
     async def _prepare_hand_action_after_draw(self):
-        await self._warm_hints(self.current_player_index)
+        await self._prepare_draw_score(self.current_player_index)
         await super()._prepare_hand_action_after_draw()
 
     def ready_candidate_cuts(self, index):
@@ -219,7 +234,7 @@ class HongzhongGameState(TaiwanGameState):
         player.has_draw_slot = True
         player.last_drawn_tile = player.hand_tiles[-1]
         # 开局提示在 game_start 前预热；这里补上庄家独立摸牌槽的计分缓存。
-        await self._warm_hints(0)
+        await self._prepare_draw_score(0)
 
     def build_concealed_kong_mask(self, tiles):
         # 暗杠先亮明、最终只扣两端；中间两张保持可见。
@@ -283,7 +298,9 @@ class HongzhongGameState(TaiwanGameState):
 
     def build_private_game_info_fields(self, index):
         player = self.player_list[index]
-        payload = match_hint(self._hint_cache.get(index), player.hand_tiles, player.combination_tiles)
+        from ..public.local_hint_context import hint_context
+        payload = hint_context("hongzhong", player.hand_tiles, player.combination_tiles,
+                               blocked="peida" in player.tag_list)
         # Physical draw identity is needed even with strategic hints disabled.
         # This hook is called for the receiving player or authorized view seat.
         fields = {"hongzhong_info": {
@@ -301,7 +318,7 @@ class HongzhongGameState(TaiwanGameState):
         before = self.player_list[index].discard_count
         await super().execute_cut(index, data, is_timeout_action=is_timeout_action)
         if self.player_list[index].discard_count != before:
-            await self._warm_hints(index)
+            await self._prepare_draw_score(index)
 
     async def _pay_kong(self, index, kind, tile, *, payer=None, drawn=True):
         changes = book.kong_payments(index, kind, payer=payer, drawn=drawn)
@@ -345,7 +362,7 @@ class HongzhongGameState(TaiwanGameState):
         if action not in ("peng", "gang") or action not in self.check_discard_actions(tile).get(index, []):
             return
         await super().execute_claim(index, action)
-        await self._warm_hints(index)
+        await self._prepare_draw_score(index)
         if action == "gang":
             await self._pay_kong(index, "direct", tile, payer=payer)
 
@@ -447,11 +464,11 @@ class HongzhongGameState(TaiwanGameState):
             self.init_tiles()
             self.current_player_index = 0
             for index in range(4):
-                await self._warm_hints(index)
+                await self._prepare_draw_score(index)
             await broadcast_game_start(self)
             init_game_round(self)
             for index in range(4):
-                self._record_hints(index)
+                self._record_client_context(index)
             await self._run_hand()
             if await self._settle_hand(before):
                 break

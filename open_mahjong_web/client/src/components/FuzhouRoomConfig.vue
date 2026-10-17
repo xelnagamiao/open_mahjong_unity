@@ -2,7 +2,7 @@
   <div class="fuzhou-room-config">
     <div class="settings">
       <el-form-item label="子规则"><el-select v-model="form.sub_rule"><el-option :value="FUZHOU_SUB_RULE" label="福州十六张" /></el-select></el-form-item>
-      <el-form-item label="局数"><el-select v-model="form.game_round"><el-option v-for="round in [1,2,3,4]" :key="round" :value="round" :label="`${round * 6}局（不含连庄）`" /></el-select></el-form-item>
+      <el-form-item label="局数"><el-select v-model="form.game_round"><el-option v-for="[round,label] in [[1,'一圈（4局）'],[2,'半庄（8局）'],[4,'一雀（16局）']]" :key="round" :value="round" :label="label" /></el-select></el-form-item>
       <el-form-item label="局时储备（秒）"><el-input-number v-model="form.round_timer" :min="0" :max="1000" :precision="0" /></el-form-item>
       <el-form-item label="步时（秒）"><el-input-number v-model="form.step_timer" :min="0" :max="100" :precision="0" /></el-form-item>
       <el-form-item v-if="showPassword" label="房间密码"><el-input v-model="form.password" type="password" show-password clearable /></el-form-item>

@@ -6,18 +6,24 @@ using TMPro;
 /// 计分板主番单元格：须挂在接收射线的 TMP_Text 同一 GameObject 上。
 /// </summary>
 [RequireComponent(typeof(RectTransform))]
-public class ScoreHistoryMainFanCell : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler {
+public class ScoreHistoryMainFanCell : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler {
     private RoundSettlementSnapshot _snapshot;
     private ScoreHistoryFanTooltip _tooltip;
     private string _subRule;
-    private UnityEngine.UI.Image _highlight;
+    private UnityEngine.UI.Toggle _toggle;
 
     public void Bind(RoundSettlementSnapshot snapshot, string label, string subRule, ScoreHistoryFanTooltip tooltip) {
         _snapshot = snapshot;
         _subRule = subRule;
         _tooltip = tooltip;
-        if (_highlight == null) _highlight = ScoreHistoryCellVisuals.CreateHighlight(transform);
-        SetHighlighted(false);
+        if (_toggle == null) {
+            var text = GetComponent<TMP_Text>();
+            _toggle = ScoreHistoryCellVisuals.CreateToggle(text,
+                ScoreHistoryCellVisuals.EnsureToggleGroup(transform.parent, true));
+            _toggle.onValueChanged.AddListener(OnSelectionChanged);
+        }
+        _toggle.interactable = snapshot != null && snapshot.CanShowTooltip;
+        SetPinned(false);
         ScoreHistoryCellTextUtil.ApplyLabel(gameObject, label, snapshot != null && snapshot.CanShowTooltip);
     }
 
@@ -33,19 +39,19 @@ public class ScoreHistoryMainFanCell : MonoBehaviour, IPointerEnterHandler, IPoi
         if (_tooltip != null) _tooltip.LeaveCell(this);
     }
 
-    public void OnPointerClick(PointerEventData eventData) {
-        if (eventData.button != PointerEventData.InputButton.Left || eventData.dragging) return;
+    private void OnSelectionChanged(bool selected) {
         if (_tooltip == null) _tooltip = ScoreHistoryFanTooltip.Instance;
         if (_tooltip == null || _snapshot == null || !_snapshot.CanShowTooltip) return;
-        _tooltip.TogglePinnedCell(this, _snapshot, _subRule);
+        if (selected) _tooltip.TogglePinnedCell(this, _snapshot, _subRule);
+        else _tooltip.ReleaseCell(this);
     }
 
-    public void SetHighlighted(bool highlighted) {
-        if (_highlight != null) _highlight.enabled = highlighted;
+    public void SetPinned(bool pinned) {
+        if (_toggle != null) _toggle.SetIsOnWithoutNotify(pinned);
     }
 
     private void OnDisable() {
         if (_tooltip != null) _tooltip.ReleaseCell(this);
-        SetHighlighted(false);
+        SetPinned(false);
     }
 }

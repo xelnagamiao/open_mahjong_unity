@@ -1,0 +1,1234 @@
+[
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 37,
+      "points": 185
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 37,
+      "points": 185
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 37,
+      "points": 185
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 37,
+      "points": 185
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 37,
+      "points": 185
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 39,
+      "points": 195
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 54,
+      "points": 270
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 5,
+      "fan_total": 56,
+      "points": 280
+    }
+  },
+  {
+    "hand": [
+      "AX3",
+      "AY3",
+      "BX3",
+      "AX4",
+      "AY4",
+      "BX4",
+      "AX5",
+      "AY5",
+      "BX5",
+      "AX6",
+      "AY6"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BX6",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 8,
+      "fan_total": 27,
+      "points": 216
+    }
+  },
+  {
+    "hand": [
+      "AX3",
+      "AY3",
+      "BX3",
+      "AX4",
+      "AY4",
+      "BX4",
+      "AX5",
+      "AY5",
+      "BX5",
+      "AX6",
+      "AY6"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BX6",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 8,
+      "fan_total": 27,
+      "points": 216
+    }
+  },
+  {
+    "hand": [
+      "AX3",
+      "AY3",
+      "BX3",
+      "AX4",
+      "AY4",
+      "BX4",
+      "AX5",
+      "AY5",
+      "BX5",
+      "AX6",
+      "AY6"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BX6",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 8,
+      "fan_total": 27,
+      "points": 216
+    }
+  },
+  {
+    "hand": [
+      "AX3",
+      "AY3",
+      "BX3",
+      "AX4",
+      "AY4",
+      "BX4",
+      "AX5",
+      "AY5",
+      "BX5",
+      "AX6",
+      "AY6"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BX6",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 8,
+      "fan_total": 27,
+      "points": 216
+    }
+  },
+  {
+    "hand": [
+      "AX3",
+      "AY3",
+      "BX3",
+      "AX4",
+      "AY4",
+      "BX4",
+      "AX5",
+      "AY5",
+      "BX5",
+      "AX6",
+      "AY6",
+      "BX6"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BX6",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 8,
+      "fan_total": 27,
+      "points": 216
+    }
+  },
+  {
+    "hand": [
+      "AX3",
+      "AY3",
+      "BX3",
+      "AX4",
+      "AY4",
+      "BX4",
+      "AX5",
+      "AY5",
+      "BX5",
+      "AX6",
+      "AY6",
+      "BX6"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BX6",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 8,
+      "fan_total": 29,
+      "points": 232
+    }
+  },
+  {
+    "hand": [
+      "AX3",
+      "AY3",
+      "BX3",
+      "AX4",
+      "AY4",
+      "BX4",
+      "AX5",
+      "AY5",
+      "BX5",
+      "AX6",
+      "AY6",
+      "BX6"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BX6",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 8,
+      "fan_total": 44,
+      "points": 352
+    }
+  },
+  {
+    "hand": [
+      "AX3",
+      "AY3",
+      "BX3",
+      "AX4",
+      "AY4",
+      "BX4",
+      "AX5",
+      "AY5",
+      "BX5",
+      "AX6",
+      "AY6",
+      "BX6"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "BX6",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 8,
+      "fan_total": 46,
+      "points": 368
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "AX4",
+      "AX5",
+      "AX6",
+      "AX7",
+      "AX8",
+      "AX9",
+      "AY1",
+      "AY2"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AY3",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 11,
+      "fan_total": 30,
+      "points": 330
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "AX4",
+      "AX5",
+      "AX6",
+      "AX7",
+      "AX8",
+      "AX9",
+      "AY1",
+      "AY2"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AY3",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 11,
+      "fan_total": 30,
+      "points": 330
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "AX4",
+      "AX5",
+      "AX6",
+      "AX7",
+      "AX8",
+      "AX9",
+      "AY1",
+      "AY2"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AY3",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 11,
+      "fan_total": 30,
+      "points": 330
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "AX4",
+      "AX5",
+      "AX6",
+      "AX7",
+      "AX8",
+      "AX9",
+      "AY1",
+      "AY2"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AY3",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 11,
+      "fan_total": 30,
+      "points": 330
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "AX4",
+      "AX5",
+      "AX6",
+      "AX7",
+      "AX8",
+      "AX9",
+      "AY1",
+      "AY2",
+      "AY3"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AY3",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 11,
+      "fan_total": 30,
+      "points": 330
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "AX4",
+      "AX5",
+      "AX6",
+      "AX7",
+      "AX8",
+      "AX9",
+      "AY1",
+      "AY2",
+      "AY3"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AY3",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 11,
+      "fan_total": 32,
+      "points": 352
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "AX4",
+      "AX5",
+      "AX6",
+      "AX7",
+      "AX8",
+      "AX9",
+      "AY1",
+      "AY2",
+      "AY3"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AY3",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 11,
+      "fan_total": 47,
+      "points": 517
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3",
+      "AX4",
+      "AX5",
+      "AX6",
+      "AX7",
+      "AX8",
+      "AX9",
+      "AY1",
+      "AY2",
+      "AY3"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AY3",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 11,
+      "fan_total": 49,
+      "points": 539
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BX4",
+        "BX5",
+        "BX6"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 20,
+      "points": 60
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BX4",
+        "BX5",
+        "BX6"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 20,
+      "points": 60
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BX4",
+        "BX5",
+        "BX6"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 20,
+      "points": 60
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2"
+    ],
+    "melds": [
+      [
+        "BX4",
+        "BX5",
+        "BX6"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 20,
+      "points": 60
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BX4",
+        "BX5",
+        "BX6"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 20,
+      "points": 60
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BX4",
+        "BX5",
+        "BX6"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 22,
+      "points": 66
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BX4",
+        "BX5",
+        "BX6"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 20,
+      "points": 60
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX2",
+      "AX3"
+    ],
+    "melds": [
+      [
+        "BX4",
+        "BX5",
+        "BX6"
+      ]
+    ],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 3,
+      "fan_total": 22,
+      "points": 66
+    }
+  },
+  {
+    "hand": [],
+    "melds": [
+      [
+        "AX1",
+        "AX2",
+        "AX3"
+      ]
+    ],
+    "context": {
+      "tile": "AX4",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": null
+  },
+  {
+    "hand": [],
+    "melds": [
+      [
+        "AX1",
+        "AX2",
+        "AX3"
+      ]
+    ],
+    "context": {
+      "tile": "AX4",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": null
+  },
+  {
+    "hand": [],
+    "melds": [
+      [
+        "AX1",
+        "AX2",
+        "AX3"
+      ]
+    ],
+    "context": {
+      "tile": "AX4",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": null
+  },
+  {
+    "hand": [],
+    "melds": [
+      [
+        "AX1",
+        "AX2",
+        "AX3"
+      ]
+    ],
+    "context": {
+      "tile": "AX4",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": null
+  },
+  {
+    "hand": [
+      "AX4"
+    ],
+    "melds": [
+      [
+        "AX1",
+        "AX2",
+        "AX3"
+      ]
+    ],
+    "context": {
+      "tile": "AX4",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 4,
+      "fan_total": 33,
+      "points": 132
+    }
+  },
+  {
+    "hand": [
+      "AX4"
+    ],
+    "melds": [
+      [
+        "AX1",
+        "AX2",
+        "AX3"
+      ]
+    ],
+    "context": {
+      "tile": "AX4",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 4,
+      "fan_total": 35,
+      "points": 140
+    }
+  },
+  {
+    "hand": [
+      "AX4"
+    ],
+    "melds": [
+      [
+        "AX1",
+        "AX2",
+        "AX3"
+      ]
+    ],
+    "context": {
+      "tile": "AX4",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 4,
+      "fan_total": 33,
+      "points": 132
+    }
+  },
+  {
+    "hand": [
+      "AX4"
+    ],
+    "melds": [
+      [
+        "AX1",
+        "AX2",
+        "AX3"
+      ]
+    ],
+    "context": {
+      "tile": "AX4",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 4,
+      "fan_total": 35,
+      "points": 140
+    }
+  },
+  {
+    "hand": [
+      "AX1"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": null
+  },
+  {
+    "hand": [
+      "AX1"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": null
+  },
+  {
+    "hand": [
+      "AX1"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": null
+  },
+  {
+    "hand": [
+      "AX1"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX3",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": null
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX3"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": null
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX3"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": null
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX3"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": null
+  },
+  {
+    "hand": [
+      "AX1",
+      "AX3"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "AX3",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": null
+  },
+  {
+    "hand": [
+      "AX1",
+      "BX2",
+      "CX3",
+      "DX4",
+      "EX5",
+      "FX6"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "GX7",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 9,
+      "fan_total": 24,
+      "points": 216
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "BX2",
+      "CX3",
+      "DX4",
+      "EX5",
+      "FX6"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "GX7",
+      "self_draw": false,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 9,
+      "fan_total": 24,
+      "points": 216
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "BX2",
+      "CX3",
+      "DX4",
+      "EX5",
+      "FX6"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "GX7",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 9,
+      "fan_total": 24,
+      "points": 216
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "BX2",
+      "CX3",
+      "DX4",
+      "EX5",
+      "FX6"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "GX7",
+      "self_draw": false,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 9,
+      "fan_total": 24,
+      "points": 216
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "BX2",
+      "CX3",
+      "DX4",
+      "EX5",
+      "FX6",
+      "GX7"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "GX7",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 9,
+      "fan_total": 24,
+      "points": 216
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "BX2",
+      "CX3",
+      "DX4",
+      "EX5",
+      "FX6",
+      "GX7"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "GX7",
+      "self_draw": true,
+      "before_first_discard": false,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 9,
+      "fan_total": 26,
+      "points": 234
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "BX2",
+      "CX3",
+      "DX4",
+      "EX5",
+      "FX6",
+      "GX7"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "GX7",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": false
+    },
+    "expected": {
+      "base": 9,
+      "fan_total": 41,
+      "points": 369
+    }
+  },
+  {
+    "hand": [
+      "AX1",
+      "BX2",
+      "CX3",
+      "DX4",
+      "EX5",
+      "FX6",
+      "GX7"
+    ],
+    "melds": [],
+    "context": {
+      "tile": "GX7",
+      "self_draw": true,
+      "before_first_discard": true,
+      "wall_empty": true
+    },
+    "expected": {
+      "base": 9,
+      "fan_total": 43,
+      "points": 387
+    }
+  }
+]

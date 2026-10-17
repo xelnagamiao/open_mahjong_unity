@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { DUPLICATE_ROUND_COUNTS, duplicateRoundSeats, duplicateRoundLabel, createDuplicateDraft, duplicateRuleWithFlowers, duplicateZoneLimit, flattenDuplicateDraft, moveDuplicateTile, validateDuplicateDraft, duplicateRoomLabel, isDuplicateGameRecord, isDuplicateWallRule, splitDuplicateWall, tileCounts, validateDuplicateSeed, validateManualWall } from '../src/utils/duplicateWalls.js'
 import { saveLocalGameRecord } from '../src/utils/localGameRecordStore.js'
 import { duplicateReplayWall } from '../src/utils/duplicateReplayWall.js'
-import { buildEventRoomSettings, clearUnsupportedDuplicateRoom, createEventRoomForm, eventRoomSettingsRows } from '../src/utils/eventRoomSettings.js'
+import { buildEventRoomSettings, changeEventRoomRule, clearUnsupportedDuplicateRoom, createEventRoomForm, eventRoomSettingsRows } from '../src/utils/eventRoomSettings.js'
 
 const catalog = { tile_count: 8, tiles: [{ tile: 11, count: 4 }, { tile: 12, count: 4 }] }
 
@@ -78,7 +78,7 @@ test('non-Guobiao saved presets discard legacy duplicate keys and preserve ordin
     assert.equal(form.duplicate_key, '')
     const result = buildEventRoomSettings(form)
     assert.equal('duplicate_key' in result.room_config, false)
-    assert.equal('red_dora' in result.room_config, false)
+    assert.equal('red_dora' in result.room_config, room_rule === 'riichi')
     assert.equal(eventRoomSettingsRows(result).some(row => row.label === '复式密钥'), false)
     assert.equal(settings.room_config.duplicate_key, 'dup_old', 'loading must not mutate the original saved preset')
     if (room_rule === 'riichi') assert.equal(result.room_config.starting_score, 30000)
@@ -94,6 +94,7 @@ test('switching away from Guobiao clears keys; stale injected keys cannot enter 
     assert.throws(() => buildEventRoomSettings(form), /仅支持国标/)
     clearUnsupportedDuplicateRoom(form)
     assert.equal(form.duplicate_key, '')
+    changeEventRoomRule(form, room_rule)
     assert.equal('duplicate_key' in buildEventRoomSettings(form).room_config, false)
     form.room_rule = 'guobiao'
     clearUnsupportedDuplicateRoom(form)

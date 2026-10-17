@@ -21,6 +21,21 @@ def test_elo_equal_players_and_ties():
     with pytest.raises(ValueError): elo_deltas([float('nan')]*4,[1,2,3,4])
 
 
+def test_hongque_half_and_full_games_use_separate_k_in_one_pool():
+    from .rating_rules import HONGQUE_ELO_ALGORITHM_VERSION
+    half = QUEUES['hongque_elo_banzhuang']
+    full = QUEUES['hongque_elo_quanzhuang']
+    assert half.rating_rule == full.rating_rule == 'hongque'
+    assert (half.elo_k, full.elo_k) == (16, 32)
+    assert half.elo_algorithm == full.elo_algorithm == HONGQUE_ELO_ALGORITHM_VERSION
+    assert elo_deltas([1500]*4, [1,2,3,4], k=half.elo_k) == [8,2.67,-2.67,-8]
+    assert elo_deltas([1500]*4, [1,2,3,4], k=full.elo_k) == [16,5.33,-5.33,-16]
+    assert elo_deltas([1500]*4, [1,1,1,1], k=half.elo_k) == [0]*4
+    # The protection bonus scales with K before rounding, not after settlement.
+    assert elo_deltas([1000]*4, [1,2,3,4], k=half.elo_k) == [9.88,4.55,-0.79,-6.12]
+    assert all(spec.elo_k == 32 for spec in QUEUES.values() if spec.rule != 'hongque')
+
+
 @pytest.mark.parametrize('place,expected', [(1,11.52),(2,0.85),(3,-9.82),(4,-20.48)])
 def test_large_gap_uses_2400_point_expectation(place,expected):
     places=[place]+[p for p in (1,2,3,4) if p!=place]
@@ -62,8 +77,8 @@ def test_elo_game_starts_with_configured_length_regardless_of_rating(rule):
         server=server_fixture();manager=server.match_manager
         manager.committed_users.clear();manager.winning_queues.clear()
         queue=next(q for q,s in QUEUES.items() if s.rating_rule==rule)
-        expected_mode, expected_rounds = ('banzhuang', 2) if rule == 'sichuan' else ('quanzhuang', 16 if rule == 'hongque' else 4)
-        assert [(s.mode,s.rounds) for s in QUEUES.values() if s.rating_rule==rule]==[(expected_mode,expected_rounds)]
+        expected_mode, expected_rounds = ('banzhuang', 2) if rule in ('sichuan', 'sichuan_xueliu_exchange') else (('banzhuang', 8) if rule == 'hongque' else ('quanzhuang', 4))
+        assert [(s.mode,s.rounds) for s in QUEUES.values() if s.rating_rule==rule]==([(expected_mode,expected_rounds),('quanzhuang',16)] if rule=='hongque' else [(expected_mode,expected_rounds)])
         ratings=dict(zip(USERS,[600,2600,1100,1900]))
         server.db_manager.get_rank_data.side_effect=lambda uid: {'ratings':{rule:{**default_rating(rule),'elo':ratings[uid]}}}
         started=asyncio.Event()
@@ -79,7 +94,7 @@ def test_elo_game_starts_with_configured_length_regardless_of_rating(rule):
             assert (await manager.join_queue(str(USERS[3]),queue)).success
             await asyncio.wait_for(started.wait(),1)
         game=next(iter(server.gamestate_manager.gamestate_id_to_game_state.values()))
-        assert game.max_round==(16 if rule=='hongque' else expected_rounds)
+        assert game.max_round==(8 if rule=='hongque' else expected_rounds)
         if rule == 'sichuan':
             assert game.sub_rule == 'sichuan/standard' and game.max_round * 4 == 8
             assert queue_type_to_match_type(queue) == '2/4_rank'
@@ -95,12 +110,12 @@ def test_elo_game_starts_with_configured_length_regardless_of_rating(rule):
         for uid in USERS:
             payload=server.user_id_to_connection[uid].websocket.send_json.call_args.args[0]
             assert payload['type']=='match/match_found'
-            assert ('半庄战' if rule == 'sichuan' else '全庄战') in payload['message']
+            assert ('半庄战' if rule in ('sichuan', 'sichuan_xueliu_exchange') else ('8局战' if rule == 'hongque' else '全庄战')) in payload['message']
         await server.gamestate_manager.cleanup_game_state_complete(game.gamestate_id)
     asyncio.run(run())
 
 
-@pytest.mark.parametrize('queue',['qingque_elo_dongfeng','qingque_elo_banzhuang','hongque_elo_dongfeng','hongque_elo_banzhuang'])
+@pytest.mark.parametrize('queue',['qingque_elo_dongfeng','qingque_elo_banzhuang','hongque_elo_dongfeng'])
 def test_removed_short_elo_queues_cannot_be_joined(queue):
     async def run():
         server=server_fixture();server.match_manager.committed_users.clear()
@@ -109,7 +124,7 @@ def test_removed_short_elo_queues_cannot_be_joined(queue):
     asyncio.run(run())
 
 
-@pytest.mark.parametrize('queue',['qingque_elo_quanzhuang','sichuan_elo_xuezhan','sichuan_xueliu_exchange_elo_quanzhuang','hongque_elo_quanzhuang'])
+@pytest.mark.parametrize('queue',['qingque_elo_quanzhuang','sichuan_elo_xuezhan','sichuan_xueliu_exchange_elo_banzhuang','hongque_elo_banzhuang','hongque_elo_quanzhuang'])
 def test_elo_queue_uses_arrival_order_and_keeps_the_fifth_player(queue):
     async def run():
         server=server_fixture();manager=server.match_manager

@@ -1,3 +1,5 @@
+from ..public.ask_timing import get_ask_elapsed
+from ..public.action_window import prepare_action_window, start_waiting_clocks
 from ..public.claim_protection import begin_claim_protection_interval, finalize_claim_protection
 from .boardcast import _send_do_action_payload_to_viewer, broadcast_update_dora
 """
@@ -5,7 +7,6 @@ from .boardcast import _send_do_action_payload_to_viewer, broadcast_update_dora
 """
 import asyncio
 from ..public.lifecycle import start_owned_task
-import time
 import logging
 from .rule_logic import option, ankan_allowed, record_pao_call
 
@@ -108,16 +109,9 @@ def _ron_eligible_indexes_from_action_dict(action_dict) -> list[int]:
 
 
 async def wait_action(self):
-    self.waiting_players_list = []
+    prepare_action_window(self)
+    start_waiting_clocks(self)
     self._pending_ron_claims = {}
-    used_time = 0
-
-    for i in range(len(self.player_list)):
-        while not self.action_queues[i].empty():
-            try:
-                self.action_queues[i].get_nowait()
-            except Exception:
-                break
 
     # 真实玩家立直后若只剩 "cut"，给客户端 0.5 秒提交自动摸切；超时后服务端强制摸切。
     # AI 仍进入自动行为入口，由 AI 统一停顿后提交摸切，保证视觉节奏一致。
@@ -127,7 +121,6 @@ async def wait_action(self):
         is_riichi = "riichi" in cur_player.tag_list or "daburu_riichi" in cur_player.tag_list
         if is_riichi and cur_player.user_id > 10 and self.action_dict.get(cur, []) == ["cut"]:
             self.waiting_players_list = [cur]
-            self.action_events[cur].clear()
             try:
                 await asyncio.wait_for(self.action_events[cur].wait(), timeout=0.5)
             except asyncio.TimeoutError:
@@ -151,18 +144,13 @@ async def wait_action(self):
         ron_eligible_snapshot = sorted(set(_ron_eligible_indexes_from_action_dict(self.action_dict))
                                        | set(getattr(self, '_ron_shape_waiters', [])))
 
-    for player_index, action_list in self.action_dict.items():
-        if action_list:
-            self.waiting_players_list.append(player_index)
-            self.action_events[player_index].clear()
-
     player_index = None
     action_data = None
     action_type = None
 
     timeout_grace = 0 if self.game_status == "waiting_ready" else self.step_time
 
-    while self.waiting_players_list and any(self.player_list[i].remaining_time + timeout_grace > used_time for i in self.waiting_players_list):
+    while self.waiting_players_list and any(self.player_list[i].remaining_time + timeout_grace > get_ask_elapsed(self, i) for i in self.waiting_players_list):
         task_list = []
         task_to_player = {}
         for waiting_player_index in self.waiting_players_list:
@@ -172,27 +160,25 @@ async def wait_action(self):
         timer_task = start_owned_task(self, asyncio.sleep(1))
         task_list.append(timer_task)
 
-        time_start = time.time()
         done, pending = await asyncio.wait(task_list, return_when=asyncio.FIRST_COMPLETED)
-        time_end = time.time()
 
         for t in pending:
             t.cancel()
 
         for t in done:
             if t == timer_task:
-                used_time += 1
+                continue
             else:
                 temp_player_index = task_to_player[t]
                 temp_action_data = await self.action_queues[temp_player_index].get()
-                self.action_events[temp_player_index].clear()
+                if self.action_queues[temp_player_index].empty():
+                    self.action_events[temp_player_index].clear()
                 temp_action_type = temp_action_data.get("action_type")
                 temp_action_data = dict(temp_action_data)
                 if not _is_valid_cut_action(self, temp_player_index, temp_action_data):
                     continue
 
-                used_time += time_end - time_start
-                used_int_time = int(used_time)
+                used_int_time = int(get_ask_elapsed(self, temp_player_index))
                 if timeout_grace > 0 and used_int_time >= timeout_grace:
                     self.player_list[temp_player_index].remaining_time -= (used_int_time - timeout_grace)
 
@@ -592,8 +578,9 @@ async def _execute_cut(
         if indicator is not None:
             new_indicators.append(indicator)
     refresh_waiting_tiles(self, self.current_player_index)
-    if option(self, 'furiten_clear') == 'discard':
+    if option(self, 'furiten_clear') == 'discard' and player.temp_furiten_drawn:
         player.temp_furiten = False
+    player.temp_furiten_drawn = False
     tags_changed = self.sync_furiten_tags()
     self.action_dict = check_action_after_cut(self, tile_id)
     if getattr(self, "_pending_four_kan_abort", False):
@@ -655,6 +642,8 @@ def _commit_pending_riichi(self):
             p.pending_riichi = False
             p.score -= 1000
             self.riichi_sticks += 1
+            from .doubles import accepted_deposit
+            accepted_deposit(self, p)
             p.riichi_paid_this_round = True
             player_action_record_riichi(self, player_index=p.player_index, is_daburu=p.pending_daburu)
             if option(self, 'ippatsu') and not getattr(p, "skip_ippatsu", False) and "ippatsu" not in p.tag_list:
@@ -688,6 +677,7 @@ def _apply_passed_ron_furiten(self, ron_eligible_indexes):
     for pi in ron_eligible_indexes:
         p = self.player_list[pi]
         p.temp_furiten = True
+        p.temp_furiten_drawn = False
         if "riichi" in p.tag_list or "daburu_riichi" in p.tag_list:
             p.riichi_furiten = True
 

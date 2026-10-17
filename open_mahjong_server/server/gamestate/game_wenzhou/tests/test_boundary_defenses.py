@@ -88,7 +88,10 @@ def test_defensive_helpers_reject_unavailable_physical_claims_without_mutation()
 
 def test_empty_or_stale_hint_paths_do_not_invent_actions():
     state=make_state(tips=True)
-    assert state.authoritative_waits(0) == {}
+    from .test_overwater_waits import local_request, reference_rows
+    packet = state.client_context(0)
+    assert local_request(packet)["hand"] == []
+    assert reference_rows(packet) == {}
     assert turn_actions(state,0,discard_only=True) == empty_actions()
     assert state._adapt({"success":True},0) == {"success":True,"player_index":0}
     state.player_list[0].hand_tiles=JUNK+[11,13]

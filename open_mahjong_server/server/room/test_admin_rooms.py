@@ -170,3 +170,22 @@ def test_room_http_create_list_close_and_local_proxy_boundary():
         assert status == 200 and not server.room_manager.rooms
         assert (await request(app, "GET", "/admin/rooms", host="203.0.113.1"))[0] == 403
     asyncio.run(run())
+
+
+def test_changsha_web_options_reach_the_created_room():
+    async def run():
+        server = make_server([])
+        app = FastAPI()
+        register_admin_room_routes(app, server, proxy_secret="test-room-admin-secret")
+        config = dict(open_kong_replacement_count=4, small_hu_self_draw_only=True,
+                      score_cap_type="score", score_cap_value=64, count_tips=True,
+                      pointer_tips=False, show_moqie_hint=True, claim_protection=False,
+                      base_score_no_dealer=True, small_hu_score=3, big_hu_score=9,
+                      bird_count=4, dealer_bird=False, initial_hu_san_tong=False)
+        status, created = await request(app, "POST", "/admin/rooms/create", {
+            "room_rule": "changsha", "room_config": config, "created_by": USERS[0]})
+        assert status == 200, created
+        room = next(iter(server.room_manager.rooms.values()))
+        for key, value in config.items():
+            assert room[key] == value, key
+    asyncio.run(run())

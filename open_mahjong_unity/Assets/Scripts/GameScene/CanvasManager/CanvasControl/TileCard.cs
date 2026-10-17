@@ -20,6 +20,9 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     [SerializeField] private Image faceBackground; // 标准手牌的牌体底图
     [SerializeField] private Button tileButton;  // 按钮组件
 
+    // The full-size hit surface follows both hover and armed lift, independent of artwork scaling.
+    public Transform BadgeAnchor => tileButton != null ? tileButton.transform : transform;
+
     // 将私有字段改为公共属性
     public int tileId;   // 牌的ID（如"11"表示一万）
     public bool currentGetTile;   // 摸牌标记：仅用于服务端摸切/手切判定（拖入手牌排序后仍需保留）
@@ -480,6 +483,10 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
         // 执行听牌检测
         HashSet<int> waitingTiles = RuleTips.ComputeWaiting(RuleRegistry.Current, new TingpaiQuery {
+            OnReady = () => {
+                if (this != null && isActiveAndEnabled && (isHovering || ignoreHoverGate && HandCardSelectionController.Instance?.IsArmed(this) == true))
+                    CheckCutTileTips(ignoreHoverGate);
+            },
             SubRule = GameSession.Current.SubRule,
             Hand = tempHandTiles,
             Melds = NormalGameStateManager.Instance.player_to_info["self"].combination_tiles ?? new List<string>(),

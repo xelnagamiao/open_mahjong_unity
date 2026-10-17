@@ -22,15 +22,15 @@ test('every legal Hongque meld has continuous adjacent colours and numbers', () 
     assert.deepEqual([...actual].sort(), [...source].sort())
     assert.deepEqual(meldDisplayOrder(actual),actual)
     assert.deepEqual(meldDisplayOrder([...source].reverse()),actual)
-    assert.deepEqual(handDisplayOrder(source),actual)
+    assert.deepEqual(handDisplayOrder(source),[...source].sort())
   }
 })
 
-test('reported wrap and arbitrary hand ordering, without moving equal-colour numbers backwards', () => {
+test('melds wrap but hands retain table ordering, without moving equal-colour numbers backwards', () => {
   assert.deepEqual(meldDisplayOrder(['AX5','GX5','GY5']),['AX5','GY5','GX5'])
   const hand=['AX6','FX2','GY4','AX1','GX5']
   assert.equal(sortHandCodes(hand),hand)
-  assert.deepEqual(hand,['AX1','AX6','GY4','GX5','FX2'])
+  assert.deepEqual(hand,['AX1','AX6','FX2','GX5','GY4'])
   assert.deepEqual(handDisplayOrder(hand),hand)
   assert.deepEqual(handDisplayOrder([]),[])
   assert.deepEqual(meldDisplayOrder(['AX1','CX7']),['AX1','CX7'])

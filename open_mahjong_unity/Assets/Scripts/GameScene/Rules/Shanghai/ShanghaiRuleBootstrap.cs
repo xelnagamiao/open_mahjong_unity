@@ -59,9 +59,7 @@ internal static class ShanghaiRuleBootstrap {
             ActionCaption = ActionCaption,
             ActionVoice = ActionVoice,
             PeekAnkan = true,
-            ReplayConcealedKongMask = (rule, tiles) => rule == LajiheHandCalculator.SubRule
-                ? new[] {0,tiles[0],0,tiles[1],0,tiles[2],0,tiles[3]}
-                : new[] {2,tiles[0],0,tiles[1],0,tiles[2],2,tiles[3]},
+            ReplayConcealedKongMask = (rule, tiles) => new[] {2,tiles[0],0,tiles[1],0,tiles[2],2,tiles[3]},
             SupportsRobbedAddedKongSource = true,
             ReplacementFromTailEnd = true,
             PublicReadyStateReplay = true,
@@ -153,6 +151,7 @@ internal static class ShanghaiRuleBootstrap {
                 case "全风向碰碰和": return "20分·2番";
                 case "大吊车": case "杠头开花": return "5分";
                 case "八花齐": return "每家30分";
+                case "敲锣": return "30分封顶";
                 default: return "";
             }
         }

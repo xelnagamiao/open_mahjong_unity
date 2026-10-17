@@ -35,7 +35,8 @@ public static class RiichiExternal {
     public static HashSet<int> TingpaiCheck(
         List<int> handTileList,
         List<string> combinationList,
-        bool debug = false) {
-        return RiichiTingpaiCheck.TingpaiCheckStatic(handTileList, combinationList, debug);
+        bool debug = false,
+        bool countMelds = false) {
+        return RiichiTingpaiCheck.TingpaiCheckStatic(handTileList, combinationList, debug, countMelds);
     }
 }

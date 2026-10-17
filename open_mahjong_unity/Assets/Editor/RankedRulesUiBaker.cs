@@ -337,9 +337,10 @@ public static class RankedRulesUiBaker {
         Undo.RegisterFullObjectHierarchyUndo(data.gameObject,"Add Hongque rating option");
         var pages=lobby.transform.Find("MatchLayout/RulePages");
         var hongque=pages.Find("Hongque");
+        bool addedPage=!hongque;
         if(!hongque){hongque=Object.Instantiate(pages.Find("Qingque"),pages,false);hongque.name="Hongque";}
         ConfigureEloCards(hongque,MatchButton.MatchRule.Hongque,lobby,policy);
-        // The new page needs only its full-game card, not the template's retired short queues.
+        // Keep only the two supported Hongque match lengths.
         foreach(var unused in hongque.GetComponentsInChildren<MatchButton>(true).Where(c=>!c.IsAvailable).ToArray())
             Undo.DestroyObjectImmediate(unused.gameObject);
         hongque.gameObject.SetActive(false);
@@ -350,7 +351,7 @@ public static class RankedRulesUiBaker {
         var dropdown=Ref<TMP_Dropdown>(data,"ruleDropdown");
         dropdown.ClearOptions();dropdown.AddOptions(RankedRules.Names.ToList());dropdown.RefreshShownValue();
         Ref<GameObject>(policy,"eloContent").GetComponent<TMP_Text>().text=RankedRules.EloDescription;
-        BakeMatchNavigation();
+        if(addedPage)BakeMatchNavigation();
         Validate();EditorSceneManager.MarkSceneDirty(scene);EditorSceneManager.SaveScene(scene);
     }
 
@@ -436,19 +437,28 @@ public static class RankedRulesUiBaker {
     static void ConfigureEloCards(Transform page,MatchButton.MatchRule rule,MatchLobbyView lobby,RankPolicyPanel policy,MatchButton template=null){
         var grid=page.Find("Cards");
         var cards=grid.GetComponentsInChildren<MatchButton>(true);
-        var card=cards.FirstOrDefault(c=>new SerializedObject(c).FindProperty("gameType").intValue==(int)MatchButton.MatchGameType.Quanzhuang)??cards.FirstOrDefault();
-        if(!card){if(!template)throw new Exception("Elo 场次模板缺失");card=Object.Instantiate(template,grid,false);card.name="Elo_0";}
-        // Keep the authored cards recoverable, with one configured length per Elo rule.
-        foreach(var existing in cards)existing.gameObject.SetActive(existing==card);
-        card.gameObject.SetActive(true);
-        var gameType=rule==MatchButton.MatchRule.Sichuan?MatchButton.MatchGameType.Banzhuang:MatchButton.MatchGameType.Quanzhuang;
-        Number(card,"rule",(int)rule);Number(card,"gameType",(int)gameType);Number(card,"tier",0);
-        Set(card,"lobbyView",lobby);Set(card,"policyPanel",policy);
-        foreach(var t in card.GetComponentsInChildren<TMP_Text>(true)){
-            if(t.name=="Level")t.text="Elo 匹配";
-            if(t.name=="Round")t.text=RankedRules.Name(card.RuleId)+(rule==MatchButton.MatchRule.Sichuan?" · 半庄战（8副）":" · 全庄战");
+        var types=rule==MatchButton.MatchRule.Hongque
+            ?new[]{MatchButton.MatchGameType.Banzhuang,MatchButton.MatchGameType.Quanzhuang}
+            :new[]{rule==MatchButton.MatchRule.Sichuan||rule==MatchButton.MatchRule.SichuanXueliuExchange?MatchButton.MatchGameType.Banzhuang:MatchButton.MatchGameType.Quanzhuang};
+        foreach(var existing in cards)existing.gameObject.SetActive(false);
+        foreach(var gameType in types){
+            var card=cards.FirstOrDefault(c=>new SerializedObject(c).FindProperty("gameType").intValue==(int)gameType);
+            if(!card){
+                var source=cards.FirstOrDefault()??template;
+                if(!source)throw new Exception("Elo 场次模板缺失");
+                card=Object.Instantiate(source,grid,false);card.name="Elo_"+gameType;
+            }
+            card.gameObject.SetActive(true);card.transform.SetAsLastSibling();
+            Number(card,"rule",(int)rule);Number(card,"gameType",(int)gameType);Number(card,"tier",0);
+            Set(card,"lobbyView",lobby);Set(card,"policyPanel",policy);
+            foreach(var t in card.GetComponentsInChildren<TMP_Text>(true)){
+                if(t.name=="Level")t.text="Elo 匹配";
+                if(t.name=="Round")t.text=RankedRules.Name(card.RuleId)+(rule==MatchButton.MatchRule.Hongque
+                    ?(gameType==MatchButton.MatchGameType.Banzhuang?" · 8局战":" · 16局战")
+                    :rule==MatchButton.MatchRule.Sichuan||rule==MatchButton.MatchRule.SichuanXueliuExchange?" · 半庄战（8副）":" · 全庄战");
+            }
+            ApplyEloTitleFont(card);
         }
-        ApplyEloTitleFont(card);
         var note=page.Find("EloSummary");if(note)Undo.DestroyObjectImmediate(note.gameObject);
     }
 
@@ -462,6 +472,7 @@ public static class RankedRulesUiBaker {
         var pages=lobby.transform.Find("MatchLayout/RulePages");
         ConfigureEloCards(pages.Find("Qingque"),MatchButton.MatchRule.Qingque,lobby,policy);
         ConfigureEloCards(pages.Find("Sichuan"),MatchButton.MatchRule.Sichuan,lobby,policy);
+        ConfigureEloCards(pages.Find("SichuanXueliuExchange"),MatchButton.MatchRule.SichuanXueliuExchange,lobby,policy);
         var entries=pages.GetComponentsInChildren<MatchButton>(true).Where(c=>c.IsAvailable).ToArray();
         Array(lobby,"entries",entries);Array(lobby.GetComponent<MatchPanel>(),"matchButtons",entries);
         Ref<GameObject>(policy,"eloContent").GetComponent<TMP_Text>().text=RankedRules.EloDescription;
@@ -528,7 +539,7 @@ public static class RankedRulesUiBaker {
         if(!Ref<Button>(Find<UserContainer>(),"rankSwitchButton")||!Ref<TMP_Text>(Find<UserContainer>(),"eloScoreText")||!Ref<TMP_Text>(Find<PlayerInfoPanel>(),"emptyWinText"))throw new Exception("玩家面板引用缺失");
         var lobby=Find<MatchLobbyView>();var so=new SerializedObject(lobby);if(so.FindProperty("rulePages").arraySize!=RankedRules.Ids.Length)throw new Exception("匹配规则页未烘焙");
         var cards=lobby.GetComponentsInChildren<MatchButton>(true).Where(c=>c.IsAvailable).ToArray();
-        if(cards.Length!=28||cards.Select(c=>c.QueueType).Distinct().Count()!=28)throw new Exception("匹配卡片队列必须是 28 个唯一入口");
+        if(cards.Length!=29||cards.Select(c=>c.QueueType).Distinct().Count()!=29)throw new Exception("匹配卡片队列必须是 29 个唯一入口");
         if(cards.Count(c=>c.RuleId==RiichiSanmaRankConfig.Rule)!=6)throw new Exception("三人立直匹配入口缺失");
         foreach(string field in new[]{"ruleButtons","selectedTabs","rulePlayerCounts"})
             if(so.FindProperty(field).arraySize!=RankedRules.FamilyNames.Length)throw new Exception("匹配页必须有五个规则入口："+field);
@@ -539,9 +550,10 @@ public static class RankedRulesUiBaker {
         if(!Ref<GameObject>(lobby,"variantBar")||!Ref<TMP_Text>(lobby,"variantHint"))throw new Exception("匹配页玩法切换行缺失");
         foreach(string rule in new[]{"qingque","sichuan",RankedRules.XueliuExchangeRule,"hongque"}){
             var eloCards=cards.Where(c=>c.RuleId==rule).ToArray();
-            var expectedType=rule=="sichuan"?MatchButton.MatchGameType.Banzhuang:MatchButton.MatchGameType.Quanzhuang;
-            if(eloCards.Length!=1||!eloCards[0].gameObject.activeSelf||new SerializedObject(eloCards[0]).FindProperty("gameType").intValue!=(int)expectedType)throw new Exception(rule+" 匹配局制不正确");
-            foreach(var title in eloCards[0].GetComponentsInChildren<TMP_Text>(true).Where(t=>t.name=="Level"))
+            var expectedTypes=rule=="hongque"?new[]{1,2}:new[]{rule=="sichuan"||rule==RankedRules.XueliuExchangeRule?1:2};
+            if(!eloCards.Select(c=>new SerializedObject(c).FindProperty("gameType").intValue).OrderBy(x=>x).SequenceEqual(expectedTypes)
+                ||eloCards.Any(c=>!c.gameObject.activeSelf))throw new Exception(rule+" 匹配局制不正确");
+            foreach(var title in eloCards.SelectMany(c=>c.GetComponentsInChildren<TMP_Text>(true)).Where(t=>t.name=="Level"))
                 if(AssetDatabase.GetAssetPath(title.font)!=SolidFontPath||title.fontSharedMaterial!=title.font.material)throw new Exception("Elo 标题必须使用常规字体及材质");
         }
         foreach(var card in cards)if(!Ref<RankPolicyPanel>(card,"policyPanel")||!Ref<MatchLobbyView>(card,"lobbyView"))throw new Exception("匹配卡片引用缺失");

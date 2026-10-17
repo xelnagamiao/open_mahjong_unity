@@ -47,6 +47,13 @@ public sealed class RuleManifest {
     /// <summary>单张和牌张的提示行（番/台/分/仅自摸/未起和……）。</summary>
     public Func<WaitHintQuery, WaitTileHint> DescribeWaitingTile;
 
+    /// <summary>牌谱听牌所用的未摸牌手牌；变长组合规则不能按张数取模推断摸牌。</summary>
+    public Func<GameRecordManager.RecordPlayer, List<int>> RecordTipsHand;
+    /// <summary>从完整副露掩码枚举可见牌，供变长或非标准组合计数。</summary>
+    public Func<List<int[]>, IEnumerable<int>> RecordVisibleMeldTiles;
+    /// <summary>一种牌的实体总数；未声明时沿用普通麻将的四张规则。</summary>
+    public Func<int, int> TileCopies;
+
     /// <summary>
     /// 计数/排序前把牌 id 归一：同一张牌有多个 id 的规则（日麻赤宝牌 15/25/35）在此声明；null 表示 id 即牌。
     /// </summary>
@@ -84,6 +91,9 @@ public sealed class RuleManifest {
 
     /// <summary>有补花流程；false 时隐藏"自动补花"设置。</summary>
     public bool HasFlowerReplacement = true;
+
+    /// <summary>自动补花的响应延迟；null 沿用通用0.3秒，规则可按当前阶段覆盖。</summary>
+    public Func<float> AutoBuhuaDelay;
 
     /// <summary>起手/重连快照的末张须保留在独立摸牌区。null 时全部属于主列。</summary>
     public Func<GameInfo, bool> OpeningHandHasDrawSlot;
@@ -125,7 +135,7 @@ public sealed class RuleManifest {
     public Func<string, string> FuValueText;
 
     /// <summary>(rule, 番名列表, 和牌分) → 是否播放 Gong_hu 大和音效。null 表示不播。</summary>
-    public Func<string, string[], int, bool> PlaysGongHuSound;
+    public Func<string, string[], double, bool> PlaysGongHuSound;
 
     /// <summary>结算面板"总计"栏文案（副/番/点/满贯）。null 表示 <see cref="SettlementTotalQuery.DefaultDisplay"/>。</summary>
     public Func<SettlementTotalQuery, SettlementTotalDisplay> SettlementTotal;
@@ -161,6 +171,9 @@ public sealed class RuleManifest {
 
     /// <summary>房间 game_round → 总局数文案（"东风战" / "4局" / "八局"）。null 表示通用风圈文案。</summary>
     public Func<int, string> MaxRoundText;
+
+    /// <summary>需要按已保存规则版本显示局制时使用；为空沿用 MaxRoundText。</summary>
+    public Func<GameInfo, string> MaxRoundInfoText;
 
     /// <summary>服务端 max_round 已是实际局数而非风圈数（虹雀 4/8/16）。</summary>
     public bool MaxRoundIsHandCount;

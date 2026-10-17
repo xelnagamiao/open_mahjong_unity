@@ -37,7 +37,9 @@ class ActionClock:
 
 class Runtime:
     def fixed_response_window(self):
-        return self.machine.phase in (P.RESPONSE,P.KONG) or self.machine.phase==P.REPLACEMENT and not self.opening_replacement
+        # Meld and rob-kong decisions use the room's step time and remaining
+        # hand bank, just like discarding. Only in-play flower replacement is fixed.
+        return self.machine.phase==P.REPLACEMENT and not self.opening_replacement
 
     def open_action_window(self,window):
         fixed = self.fixed_response_window()
@@ -74,7 +76,9 @@ class Runtime:
     def _build_timeout_action(self,index):
         actions = self.action_dict.get(index,[])
         data = None
-        if "buhua" in actions:
+        if "fuzhou_flower_win" in actions:
+            data = dict(action_type="fuzhou_flower_win")
+        elif "buhua" in actions:
             data = dict(action_type="buhua")
         elif "cut" in actions:
             p = self.player_list[index]

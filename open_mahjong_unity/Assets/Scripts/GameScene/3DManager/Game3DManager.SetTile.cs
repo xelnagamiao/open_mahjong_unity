@@ -181,7 +181,9 @@ public partial class Game3DManager : MonoBehaviour {
             // 正常出牌已按玩家串行；仍保留定向取消，供鸣牌取走河牌及重建使用。
             StopDiscardMoveCoroutine(PlayerPosition);
             bool moveCompleted = false;
-            Coroutine moveCo = StartCoroutine(MoveCardFromRemovePosition(cardObj, currentPosition, startPosition, () => moveCompleted = true));
+            Coroutine moveCo = StartCoroutine(MoveCardFromRemovePosition(cardObj, currentPosition, startPosition, () => {
+                moveCompleted = true;
+            }));
             _discardMoveCoroutinesByPlayer[PlayerPosition] = moveCo;
             // Unity 中 yield return 一个被 StopCoroutine 停掉的协程可能不再恢复。
             // 同时等待自然完成或登记被取消，确保吃碰取走飞牌后同家队列仍可继续。

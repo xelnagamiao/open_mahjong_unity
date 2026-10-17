@@ -8,7 +8,7 @@ import pytest
 from .test_state import make_state,drawn,ticks
 from .JiujiangGameState import JiujiangGameState
 from . import bot
-from .hints import compute_hand
+from tests.local_hint_oracles.jiujiang import compute_hand
 from .result import broadcast_result
 from ...game_calculation.jiujiang.test_scoring import PLAIN
 from ..game_taiwan.TaiwanGameState import TaiwanGameState
@@ -98,17 +98,24 @@ def test_illegal_actions_and_hint_switches():
     asyncio.run(run())
 
 
-@pytest.mark.parametrize('mutation',['generation','player','hand'])
-def test_stale_async_hint_computation_is_discarded(mutation):
+@pytest.mark.parametrize('mutation',['hand','melds','flowers'])
+def test_local_hint_packet_is_immutable_and_refreshes_without_cpu(mutation):
+    from copy import deepcopy
     async def run():
         state=make_state();state.player_list[0].hand_tiles=PLAIN[:-1]
-        async def change(state,fn,*args):
-            if mutation=='generation': state._hint_generation+=1
-            elif mutation=='player': state.player_list[0]=state.player_list[1]
-            else: state.player_list[0].hand_tiles=[11]
-            return fn(*args)
-        with patch(MODULE+'.run_room_bot_cpu',change): await state.prepare_private_fields([0])
-        assert 0 not in state._hint_cache
+        cpu=AsyncMock(side_effect=AssertionError('UI previews must stay on the client'))
+        with patch('server.gamestate.public.ai.bot_executor.run_room_bot_cpu',cpu):
+            await state.prepare_private_fields([0])
+            packet=state._client_contexts[0][1];saved=deepcopy(packet)
+            player=state.player_list[0]
+            if mutation=='hand': player.hand_tiles.append(25)
+            elif mutation=='melds': player.combination_tiles.append('G45')
+            else: player.huapai_list.append(51)
+            await state.prepare_private_fields([0])
+        cpu.assert_not_awaited()
+        assert packet==saved
+        assert state._client_contexts[0][1]!=packet
+        assert 'waiting_details' not in state._client_contexts[0][1]
     asyncio.run(run())
 
 

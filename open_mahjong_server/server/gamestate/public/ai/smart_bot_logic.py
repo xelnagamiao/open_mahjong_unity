@@ -126,7 +126,7 @@ def count_visible_tiles(game_state, viewer_index=None) -> List[int]:
         comb_arr = combination_to_34array(getattr(player, 'combination_tiles', []))
         for i in range(34):
             visible[i] += comb_arr[i]
-    if getattr(game_state, 'sub_rule', None) in ('riichi/washizu', 'riichi/washizu_realtime', 'guobiao/transparent', 'guobiao/transparent_realtime') and viewer_index is not None:
+    if getattr(game_state, 'sub_rule', None) in ('riichi/washizu', 'riichi/washizu_realtime', 'riichi/washizu_doubles', 'guobiao/transparent', 'guobiao/transparent_realtime') and viewer_index is not None:
         from ....game_calculation.riichi.washizu_tiles import is_transparent
         for player in game_state.player_list:
             if player.player_index == viewer_index:

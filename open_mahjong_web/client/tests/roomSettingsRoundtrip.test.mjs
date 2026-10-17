@@ -11,7 +11,7 @@ const profiles = {
   guobiao: ['standard', 'xiaolin', 'kshen', 'lanshi', 'transparent', 'transparent_realtime', 'huahun', 'four_jokers', 'sixteen'],
   riichi: ['standard'], qingque: ['standard'], classical: ['standard'], taiwan: ['standard'],
   sichuan: ['standard', 'xueliu', 'xueliu_exchange', 'doubles', 'xueliu_doubles'],
-  changsha: ['classic_double_bird'],
+  changsha: ['classic_double_bird', 'exchange_six'],
   hongkong: ['qingzhang', 'new13', 'new13_gametower', 'new13_lianhuise', 'qingzhang_lianhuise', 'new16'],
   guangdong: ['tuidao_mil2024', 'mil2023'], guizhou: ['standard'], yixing: ['standard'],
   malaysia: ['traditional84'], shenyang: ['mil2025'], nanjing: ['mil2024'], fuzhou: ['standard'],
@@ -42,6 +42,33 @@ function roundtrip(form) {
   assert.deepEqual(reopened.presets[0].room_config, selected.room_config)
   return selected.room_config
 }
+
+test('Changsha options survive manual, preset, automatic matching and reopen', () => {
+  for (const score_cap_type of ['none', 'big_hu', 'score']) {
+    const form = createEventRoomForm({ room_rule: 'changsha', room_config: {
+      game_round: 2, open_kong_replacement_count: 4, small_hu_self_draw_only: true,
+      score_cap_type, score_cap_value: 64, claim_protection: false, bird_count: 4,
+      base_score_no_dealer: true, small_hu_score: 3, big_hu_score: 9, count_tips: true,
+      pointer_tips: false, show_moqie_hint: true, initial_hu_san_tong: false,
+    } })
+    const config = roundtrip(form)
+    assert.equal(config.open_kong_replacement_count, 4)
+    assert.equal(config.small_hu_self_draw_only, true)
+    assert.equal(config.score_cap_value, score_cap_type === 'none' ? 0 : 64)
+  }
+})
+
+test('Changsha validation rejects invalid and cross-rule options on both sides', () => {
+  for (const bad of [{ open_kong_replacement_count: 5 }, { small_hu_self_draw_only: 'false' },
+    { score_cap_type: 'fan' }, { score_cap_type: 'score', score_cap_value: 0 },
+    { score_cap_type: 'big_hu', score_cap_value: 1.5 }, { game_round: 3 }, { bird_count: 3 }]) {
+    const form = createEventRoomForm({ room_rule: 'changsha', room_config: bad })
+    assert.throws(() => buildEventRoomSettings(form))
+    assert.throws(() => change(readRoomSettings({}), 'manual', { room_rule: 'changsha', room_config: bad }))
+  }
+  assert.throws(() => change(readRoomSettings({}), 'manual', { room_rule: 'guobiao', room_config: { small_hu_self_draw_only: true } }))
+  assert.equal(roundtrip(createEventRoomForm({ room_rule: 'changsha', room_config: { open_kong_replacement_count: 3 } })).open_kong_replacement_count, 2)
+})
 
 for (const [room_rule, subRules] of Object.entries(profiles)) {
   for (const sub of subRules) {

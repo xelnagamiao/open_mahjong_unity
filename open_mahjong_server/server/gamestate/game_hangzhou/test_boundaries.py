@@ -7,7 +7,7 @@ import pytest
 
 from .actions import empty_actions, kong_tiles, turn_actions
 from .bot import choose_action
-from .hints import private_hints
+from server.gamestate.game_hangzhou.client_context import private_context as private_hints
 from .test_flow import PLAIN, FLOAT, turn, act, river
 from .state_machine import Phase as P
 from .HangzhouGameState import HangzhouGameState
@@ -124,7 +124,7 @@ def test_empty_unstarted_restore_and_short_invalid_hint_are_safe():
     s = HangzhouGameState()
     s.tips = True
     assert len(s.restore_payloads(0)) == 1
-    assert private_hints(s,0)["waiting_tiles"] == []
+    assert "waiting_tiles" not in private_hints(s,0)
     assert s._adapt({"type":"gamestate/hangzhou/ready_status"},0)["player_index"] == 0
     asyncio.run(s.send_realtime_spectator_snapshot(999,0))
 

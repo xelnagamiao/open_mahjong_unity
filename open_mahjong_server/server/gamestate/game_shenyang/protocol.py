@@ -4,7 +4,7 @@ from copy import deepcopy
 from ...game_calculation.shenyang import rules as book
 from ..game_guobiao.combination_mask_view import get_combination_fields_for_viewer
 from ..public.game_record_manager import append_action_tick
-from . import hints
+from . import client_context
 
 
 class ShenyangProtocol:
@@ -17,9 +17,9 @@ class ShenyangProtocol:
     build_record_round_fields = build_record_title_fields
 
     async def prepare_private_fields(self, indices):
-        requests = {i: hints.request(self, i) for i in indices}
+        requests = {i: client_context.request(self, i) for i in indices}
         tick = self.server_action_tick, self.round_index
-        values = await asyncio.to_thread(lambda: {i: hints.compute(*r) for i, r in requests.items()})
+        values = {i: client_context.local_context(*r) for i, r in requests.items()}
         if tick == (self.server_action_tick, self.round_index):
             self._prepared_hints.update(values)
             if f"round_index_{self.round_index}" in self.game_record.get("game_round", {}):

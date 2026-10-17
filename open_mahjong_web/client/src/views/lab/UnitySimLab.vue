@@ -188,7 +188,7 @@
 <script>
 import LabInspector from './LabInspector.vue'
 import LabTable from './LabTable.vue'
-import { ACTION_TEXT } from './labUnityMap'
+import { actionText as ruleActionText } from './labUnityMap'
 import { salasasaFaceId, tileFaceAssetUrl } from '@/game2d/lib/tileFaceAsset'
 
 const API = '/verifier-api'
@@ -320,7 +320,7 @@ export default {
       const names = waiting.map((seat) => {
         const mine = Number(seat.player_index) === self
         const acts = (seat.client_actions || []).filter((item) => item !== 'cut')
-        const verb = acts.length ? acts.map((item) => ACTION_TEXT[item] || item).join('/') : '切牌'
+        const verb = acts.length ? acts.map((item) => this.actionText(item)).join('/') : '切牌'
         return `${mine ? '本家' : (seat.username || `P${seat.player_index}`)} ${verb}`
       })
       return `等待 ${names.join('、')}`
@@ -691,7 +691,7 @@ export default {
       })
     },
     actionText(action) {
-      return ACTION_TEXT[action] || action
+      return ruleActionText(action, this.components?.GsmSim?.roomRule)
     },
     tileUrl(tile) {
       const id = salasasaFaceId(Number(tile) || 0)

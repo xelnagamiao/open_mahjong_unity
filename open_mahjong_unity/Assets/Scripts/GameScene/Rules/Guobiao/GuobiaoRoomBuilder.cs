@@ -19,7 +19,7 @@ internal static class GuobiaoRoomBuilder {
             UseFlowers = subRule == GuobiaoGameState.HuahunSubRule || (subRule != "guobiao/lanshi" && input.UseFlowers),
             NoJokerBonus = input.NoJokerBonus, BlackFlowerProgressive = input.BlackFlowerProgressive,
             JokerMultiWait = GuobiaoGameState.IsJokerSubRule(subRule) && input.JokerMultiWait,
-            TianDiRenHe = (subRule == "guobiao/standard" || subRule == GuobiaoGameState.SanmaSubRule || subRule == GuobiaoGameState.BloodBattleSubRule || GuobiaoGameState.IsTransparentSubRule(subRule) || GuobiaoGameState.UsesAuthoritativeTips(subRule)) && input.TianDiRenHe,
+            TianDiRenHe = (subRule == "guobiao/standard" || subRule == GuobiaoGameState.SanmaSubRule || subRule == GuobiaoGameState.BloodBattleSubRule || GuobiaoGameState.IsTransparentSubRule(subRule) || GuobiaoGameState.UsesAsyncLocalTips(subRule)) && input.TianDiRenHe,
             Rule = "guobiao",
             SubRule = subRule,
             RoundTimer = input.RoundTimer,

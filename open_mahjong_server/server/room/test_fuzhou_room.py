@@ -34,7 +34,7 @@ def test_creation_failure_does_not_mutate_rooms(failure):
     asyncio.run(run())
 
 
-@pytest.mark.parametrize('options', [dict(detailed_config={'base_score':11}),dict(gameround=True),
+@pytest.mark.parametrize('options', [dict(detailed_config={'base_score':11}),dict(gameround=True),dict(gameround=3),
     dict(tips=1),dict(use_flowers=False),dict(claim_protection=True),dict(sub_rule='fuzhou/unknown')])
 def test_invalid_settings_fail_atomically(options):
     async def run():

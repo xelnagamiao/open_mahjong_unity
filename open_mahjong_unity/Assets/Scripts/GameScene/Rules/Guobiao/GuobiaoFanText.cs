@@ -197,9 +197,9 @@ internal static class GuobiaoFanText {
     }
 
     /// <summary>和牌累计番数扣除花牌后达到 64 番播放 Gong_hu。</summary>
-    public static bool PlaysGongHu(string subRule, string[] huFan, int huScore) {
+    public static bool PlaysGongHu(string subRule, string[] huFan, double huScore) {
         if (huFan == null) return false;
-        int fanWithoutFlowers = huScore;
+        double fanWithoutFlowers = huScore;
         foreach (string fanKey in huFan) {
             if (!string.IsNullOrEmpty(fanKey) && fanKey.StartsWith("花牌")
                 && FanTextDictionary.TryParseSingleFanValue(FanValue(subRule, fanKey), out int flowerFan)) {

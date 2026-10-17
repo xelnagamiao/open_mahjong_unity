@@ -32,7 +32,7 @@ public static class FanTextDictionary {
     }
 
     /// <summary>是否播放 Gong_hu 音效（大番 / 役满 / 高分，由族定义）。</summary>
-    public static bool ShouldPlayGongHuSound(string rule, string[] huFan, int huScore = 0) {
+    public static bool ShouldPlayGongHuSound(string rule, string[] huFan, double huScore = 0) {
         var hook = ManifestOf(rule)?.PlaysGongHuSound;
         return hook != null && hook(rule, huFan, huScore);
     }

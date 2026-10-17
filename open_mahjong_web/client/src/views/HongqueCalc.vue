@@ -141,7 +141,7 @@
                 type="success"
                 effect="plain"
                 size="small"
-              >{{ fan.name }} ×{{ fan.count }}（{{ fan.value }} 番）</el-tag>
+              >{{ fanDisplayText(fan) }}</el-tag>
             </div>
           </div>
           <div v-else class="msg-inline">该牌型不能构成和牌（所有牌必须全部组成 3 张及以上的合法牌组）。</div>
@@ -209,7 +209,7 @@
           </div>
           <div class="decomp-fans">
             <el-tag v-for="(fan, fIdx) in item.fans" :key="fIdx" size="small" effect="plain">
-              {{ fan.name }} ×{{ fan.count }}
+              {{ fanDisplayText(fan) }}
             </el-tag>
           </div>
         </div>
@@ -233,6 +233,10 @@ import {
 
 const TILE_BASE_URL = '/game2d-assets/hongque-hand/'
 const MAX_TOTAL_TILES = 14
+
+function fanDisplayText(fan) {
+  return `${fan.name}${fan.count > 1 ? `*${fan.count}` : ''} ${fan.total}番`
+}
 
 const COLOUR_GROUPS = [
   { codePrefix: 'AX', label: '红', colour: 0 },

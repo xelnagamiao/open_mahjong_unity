@@ -13,7 +13,7 @@ from .test_sanma import sanma
 from .action_check import (check_action_after_cut, check_action_hand_action, check_action_jiagang,
                            check_action_buhua, refresh_waiting_tiles, opening_win_fan)
 from .init_tiles import init_guobiao_tiles
-from .four_jokers_runtime import evaluate_actions, prepare_hints
+from .four_jokers_runtime import evaluate_actions
 from .four_jokers_bot import choose_action, choose_cut
 from .boardcast import _build_game_start_payload_for_viewer
 from ...game_calculation import guobiao_sixteen as rule
@@ -123,13 +123,11 @@ def test_manual_flower_replacement_snapshots_and_hint_identity():
     assert "buhua" in check_action_hand_action(g, 0)[0]
     g.player_list[0].hand_tiles = HAND[:]
     async def run():
-        await prepare_hints(g, 0)
         data = _build_game_start_payload_for_viewer(g, 0)
         assert data["sub_rule"] == rule.SUB_RULE
-        assert data["four_jokers_hints"]["sub_rule"] == rule.SUB_RULE
-        assert data["four_jokers_hints"]["discard_waits"][46] == [46]
+        assert "four_jokers_hints" not in data
+        assert data["players_info"][0]["hand_tiles"] == HAND
         assert all(not row.get("hand_tiles") for row in data["players_info"][1:])
-        assert await prepare_hints(g, 0) == data["four_jokers_hints"]
     asyncio.run(run())
 
 

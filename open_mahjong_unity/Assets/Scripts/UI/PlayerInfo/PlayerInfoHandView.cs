@@ -11,9 +11,22 @@ public sealed class PlayerInfoHandView : MonoBehaviour {
     [SerializeField] private List<RawImage> faces = new List<RawImage>();
     private readonly Dictionary<int, Texture2D> textures = new Dictionary<int, Texture2D>();
     private readonly HashSet<int> groupStarts = new HashSet<int>();
+    private readonly HashSet<int> faceDownTiles = new HashSet<int>();
+    private Texture2D tileBack;
     private int tileCount;
 
     public void SetHand(int[] concealed, params int[][] melds) {
+        faceDownTiles.Clear();
+        SetContent(concealed, melds);
+    }
+
+    public void SetExample(int[][] groups, int[] faceDownIndices) {
+        faceDownTiles.Clear();
+        if (faceDownIndices != null) foreach (int index in faceDownIndices) faceDownTiles.Add(index);
+        SetContent(null, groups);
+    }
+
+    private void SetContent(int[] concealed, int[][] melds) {
         tileCount = 0;
         groupStarts.Clear();
         Append(concealed, false);
@@ -27,13 +40,25 @@ public sealed class PlayerInfoHandView : MonoBehaviour {
         if (separate && tileCount > 0) groupStarts.Add(tileCount);
         foreach (int id in tiles) {
             if (tileCount == faces.Count) CreateTile();
+            bool faceDown = faceDownTiles.Contains(tileCount);
             var face = faces[tileCount++];
             face.transform.parent.gameObject.SetActive(true);
             if (!textures.TryGetValue(id, out var texture)) {
-                texture = Resources.Load<Texture2D>($"image/Cards/Faces/official/table/{id}");
+                texture = Resources.Load<Texture2D>(HongqueTileVisual.IsHongqueId(id)
+                    ? HongqueTileVisual.HandResourcePath(id) : $"image/Cards/Faces/official/hand/{id}");
                 textures[id] = texture;
             }
             face.texture = texture;
+            face.enabled = !faceDown;
+            // Hand artwork and its backing share the same full-canvas registration.
+            // Insets from table artwork would shrink and offset the symbols a second time.
+            face.rectTransform.anchorMin = Vector2.zero;
+            face.rectTransform.anchorMax = Vector2.one;
+            face.rectTransform.offsetMin = face.rectTransform.offsetMax = Vector2.zero;
+            var background = face.transform.parent.GetComponent<RawImage>();
+            if (faceDown && !tileBack) tileBack = Resources.Load<Texture2D>("image/Cards/Surfaces/backs/hand-default");
+            background.texture = faceDown ? tileBack : tileBackground;
+            background.enabled = faceDown || !HongqueTileVisual.IsHongqueId(id);
         }
     }
 
@@ -49,8 +74,8 @@ public sealed class PlayerInfoHandView : MonoBehaviour {
         faceObject.transform.SetParent(tile.transform, false);
         var face = faceObject.GetComponent<RawImage>();
         face.raycastTarget = false;
-        face.rectTransform.anchorMin = new Vector2(5f / 48, 7f / 72);
-        face.rectTransform.anchorMax = new Vector2(43f / 48, 62f / 72);
+        face.rectTransform.anchorMin = Vector2.zero;
+        face.rectTransform.anchorMax = Vector2.one;
         face.rectTransform.offsetMin = face.rectTransform.offsetMax = Vector2.zero;
         faces.Add(face);
     }
@@ -61,14 +86,19 @@ public sealed class PlayerInfoHandView : MonoBehaviour {
         if (tileCount == 0) return;
         var area = ((RectTransform)transform).rect;
         float naturalWidth = tileCount * tileWidth + groupStarts.Count * meldGap;
-        float scale = Mathf.Clamp01(Mathf.Min(area.width / naturalWidth, area.height / (tileWidth * 1.5f)));
+        float heightRatio = tileBackground ? (float)tileBackground.height / tileBackground.width : 389f / 272;
+        float scale = Mathf.Clamp01(Mathf.Min(area.width / naturalWidth, area.height / (tileWidth * heightRatio)));
         float width = tileWidth * scale, x = 0;
         for (int i = 0; i < tileCount; i++) {
             if (groupStarts.Contains(i)) x += meldGap * scale;
             var tile = (RectTransform)faces[i].transform.parent;
             tile.anchorMin = tile.anchorMax = tile.pivot = new Vector2(0, 1);
-            tile.sizeDelta = new Vector2(width, width * 1.5f);
-            tile.anchoredPosition = new Vector2(x, 0);
+            var background = tile.GetComponent<RawImage>();
+            var texture = background.enabled ? background.texture : faces[i].texture;
+            float aspect = texture ? (float)texture.width / texture.height : 1 / heightRatio;
+            float height = Mathf.Min(width * heightRatio, width / aspect);
+            tile.sizeDelta = new Vector2(height * aspect, height);
+            tile.anchoredPosition = new Vector2(x + (width - tile.rect.width) * .5f, 0);
             x += width;
         }
     }

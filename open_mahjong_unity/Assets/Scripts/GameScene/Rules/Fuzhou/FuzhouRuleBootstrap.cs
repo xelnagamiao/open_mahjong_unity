@@ -4,7 +4,7 @@ using System.Linq;
 using UnityEngine;
 
 internal static class FuzhouRuleBootstrap {
-    public const string Description="福州十六张：144张，全部字牌及八花逐张补花，补花后开金；十七张和牌，支持抢金、三金倒、听金坎、一游及二游，动态留墩，末四张只摸不打。";
+    public const string Description="福州麻将是一款采用17张和牌机制的地方麻将规则，旨在寻求一种在传统麻将框架内、以开金为核心的做大、抢金、留墩防守三者平衡的博弈游戏，同时试图为三金倒、金龙、游金等特殊和牌提供基于难度和收益的赋分参照；如发现规则漏洞或有任何建议，可在群906497522提交。";
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Register() {
         foreach(string key in new[]{FuzhouGameState.RuleId,FuzhouGameState.SubRule}) {
@@ -26,16 +26,19 @@ internal static class FuzhouRuleBootstrap {
             RecordHandJokerTiles=round=>round?.fuzhou?.gold_tile>0?new[]{round.fuzhou.gold_tile}:Array.Empty<int>(),
             PrepareHandDisplay=info=>FuzhouTableIndicators.Refresh(info?.fuzhou_info),
             LiveVisibleIndicators=()=>FuzhouTableIndicators.DisplayedInfo?.indicator_claimed==false?FuzhouTableIndicators.GoldTiles:Array.Empty<int>(),
-            TileBadgeText=tile=>tile==FuzhouTableIndicators.DisplayedInfo?.gold_tile?"金":null,
+            TileBadgeText=tile=>FuzhouTableIndicators.DisplayedInfo?.gold_tile>0 && tile==FuzhouTableIndicators.DisplayedInfo.gold_tile?"金":null,
             Tingpai=q=>GameRecordManager.Instance?.ShouldShowRecordTips()==true
                 ?GameRecordManager.Instance.FuzhouWaiting(q):FuzhouGameState.Active?.Hints.Waiting(q)??new HashSet<int>(),
             DescribeWaitingTile=q=>q.Record!=null?GameRecordManager.Instance?.DescribeFuzhouWaiting(q):FuzhouGameState.Active?.Hints.Describe(q),
             FanNameText=(rule,label)=>FanText(label,false),FanValueText=(rule,label)=>FanText(label,true),
             SettlementTotal=q=>new SettlementTotalDisplay {FanText=$"和牌点数 {q.HuScore}分",ScoreText=q.WinnerPointDelta.HasValue?$"{q.WinnerPointDelta.Value:+#;-#;0}分":""},
             ScoreboardFanText=q=>$"{q.HuScore}分",RoundName=RoundName,
-            RoundStatusText=q=>RoundName(q.current_round),MaxRoundText=r=>$"{r*6}局",
+            RoundStatusText=q=>q.fuzhou_info?.rule_version=="fuzhou-user-20261014-v1"?LegacyRoundName(q.current_round):RoundName(q.current_round),
+            MaxRoundText=r=>$"{r*4}局",
+            MaxRoundInfoText=q=>$"{q.max_round*(q.fuzhou_info?.rule_version=="fuzhou-user-20261014-v1"?6:4)}局",
             RoundIndicators=info=>FuzhouTableIndicators.FieldState(info?.fuzhou_info??FuzhouTableIndicators.DisplayedInfo),
             HasFlowerReplacement=true,ReplacementFromTailEnd=true,PeekAnkan=true,
+            AutoBuhuaDelay=()=>FuzhouGameState.Active?.Info?.gold_tile==0 ? 0f : 0.3f,
             ReplayConcealedKongMask=(rule,tiles)=>new[]{2,tiles[0],0,tiles[1],0,tiles[2],2,tiles[3]},
             SupportsRobbedAddedKongSource=false,RonWinTileTravelsFromRiver=true,RecordDangerUsesWaitHint=true,
             AdjustHepaiPresentation=(request,robbed)=> {if(robbed){request.WinTileMode=HepaiWinTilePresentMode.RonInstantThenPause;request.RestoreRecordHandFromSnapshot=true;request.IsQianggang=false;}},
@@ -44,6 +47,8 @@ internal static class FuzhouRuleBootstrap {
             ActionVoice=word=>word=="hu_self"?"hu":null,DefaultHepaiLimit=0,RulebookKey="fuzhou",
         });
         ActionWords.Register(new ActionWordSpec {Word="sanjin",Kind=ActionWordKind.Tsumo,Label=_=>"三金倒"});
+        ActionWords.Register(new ActionWordSpec {Word="fuzhou_flower_win",Kind=ActionWordKind.Tsumo,
+            Label=_=>"花和",BlocksAutoCut=true,RequiresManualChoice=true});
         foreach(string word in new[]{"youjin","tingjin","qiangjin"}) {
             string captured=word;
             ActionWords.Register(new ActionWordSpec {Word=word,BlocksAutoCut=true,Label=_=>Caption(captured),Expand=_=>Candidates(captured)});
@@ -58,7 +63,8 @@ internal static class FuzhouRuleBootstrap {
             return tiles.Select(tile=>new ActionCandidate(word,new[]{tile},tile,$"{Caption(word)}：打{TileText(tile)}")).ToArray();
         return word=="qiangjin"?new[]{new ActionCandidate(word,Array.Empty<int>(),0,"抢金")}:Array.Empty<ActionCandidate>();
     }
-    public static string RoundName(int round) {int n=Math.Max(0,round-1)%6;return $"{(n<3?"东":"南")}{n%3+1}局";}
+    public static string RoundName(int round)=>$"第{round}局";
+    internal static string LegacyRoundName(int round) {int n=Math.Max(0,round-1)%6;return $"{(n<3?"东":"南")}{n%3+1}局";}
     public static string TileText(int tile)=>tile>=11 && tile<=39?$"{tile%10}{new[]{"万","饼","条"}[tile/10-1]}":"未开金";
     internal static string FanText(string label,bool value) {var p=label?.Split('|');return p?.Length==4&&p[0]=="FZ"?p[value?2:3]+(value?"分":""):value?"":label;}
 }
@@ -72,9 +78,9 @@ public static class FuzhouTableIndicators {
             var d=info.declarations[i];
             if(d!=null && (d.youjin>0||d.golden_middle)) declaration+=$" {new[]{"东","南","西","北"}[i]}{(d.golden_middle?"听金坎":d.youjin==2?"二游":"一游")}";
         }
-        return new RoundIndicatorDisplay {Tiles=info?.gold_tile>0?new[]{info.gold_tile}:Array.Empty<int>(),
-            Caption=info?.gold_tile>0?$"金 {FuzhouRuleBootstrap.TileText(info.gold_tile)}{declaration}":"补花后开金",
-            Counter=info==null?"":$"连庄{info.dealer_streak} · 留{info.reserved_tiles}张"+(info.last_four?" · 末四张":"")};
+        return new RoundIndicatorDisplay {Tiles=new[]{info?.gold_tile>0?info.gold_tile:0},
+            Caption=(declaration+(info?.last_four==true?" 末四张":"")).Trim(),
+            Counter=info==null?"":$"连庄：{info.dealer_streak} 死牌：{info.reserved_tiles}"};
     }
     public static void Refresh(FuzhouInfo info) {
         bool changed=DisplayedInfo?.gold_tile!=info?.gold_tile;

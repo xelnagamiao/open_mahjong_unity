@@ -6,7 +6,8 @@ survive network messages and records; only calculation normalizes them.
 """
 SUB_RULE = 'riichi/washizu'
 REALTIME_SUB_RULE = 'riichi/washizu_realtime'
-SUB_RULES = (SUB_RULE, REALTIME_SUB_RULE)
+from .washizu_doubles import SUB_RULE as DOUBLES_SUB_RULE
+SUB_RULES = (SUB_RULE, REALTIME_SUB_RULE, DOUBLES_SUB_RULE)
 OFFSET = 2000
 FACES = tuple(range(11, 20)) + tuple(range(21, 30)) + tuple(range(31, 40)) + tuple(range(41, 48))
 

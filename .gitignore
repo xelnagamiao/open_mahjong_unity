@@ -34,6 +34,7 @@
 /open_mahjong_server/scripts/*
 !/open_mahjong_server/scripts/sync_statistics_catalog.py
 !/open_mahjong_server/scripts/backfill_statistics_values.py
+!/open_mahjong_server/scripts/repair_hongque_record_fans.py
 !/open_mahjong_server/scripts/validate_rule_support_table.py
 !/open_mahjong_server/scripts/validate_singapore_clients.py
 /open_mahjong_server/server/error_log/

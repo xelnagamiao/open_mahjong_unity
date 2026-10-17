@@ -419,11 +419,14 @@ const SCENE_OPTIONS = [
 
 const LENGTH_OPTIONS = computed(() => {
   const def = statisticsSelection(currentRule.value)
-  const modes = ['custom', 'events'].includes(scene.value) ? def?.custom_modes : def?.ranked_modes
+  const custom = ['custom', 'events'].includes(scene.value)
+  const historical = custom ? [] : (def?.historical_ranked_modes || [])
+  const modes = custom ? def?.custom_modes : [...(def?.ranked_modes || []), ...historical]
   return [...new Set((modes || []).map(mode => mode.split('/')[0]))].reverse().map(value => ({
     value,
     label: def?.rule === 'hongque' ? `${value}局` : def?.rule === 'changsha' ? `${Number(value) * 4}局`
-      : ({4:'全庄战',3:'东西战',2:'半庄战',1:'东风战'})[value] || `[${value}/4]`,
+      : (({4:'全庄战',3:'东西战',2:'半庄战',1:'东风战'})[value] || `[${value}/4]`)
+        + (historical.includes(`${value}/${def?.player_count}_rank`) ? '（历史）' : ''),
   }))
 })
 

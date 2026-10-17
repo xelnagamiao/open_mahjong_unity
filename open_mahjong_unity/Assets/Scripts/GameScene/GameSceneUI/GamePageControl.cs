@@ -41,6 +41,7 @@ public class GamePageControl : MonoBehaviour {
     }
 
     private void OnDisable() {
+        if (rulebookPanelController) rulebookPanelController.HideImmediate();
         NetworkManager.Instance.OnLatencyChanged -= HandleLatencyChanged;
         rulebookButton.onClick.RemoveListener(OnRulebookClicked);
         backToMenuButton.onClick.RemoveListener(OnBackToMenuClicked);
@@ -71,8 +72,7 @@ public class GamePageControl : MonoBehaviour {
             rulebookPanelController.Close();
             return;
         }
-        var gsm = NormalGameStateManager.Instance;
-        rulebookPanelController.Open(gsm.roomRule, gsm.subRule, gsm.detailedConfig);
+        rulebookPanelController.OpenCurrent();
     }
 
     private void OnBackToMenuClicked() {

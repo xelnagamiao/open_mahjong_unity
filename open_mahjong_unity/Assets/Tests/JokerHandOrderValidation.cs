@@ -94,7 +94,7 @@ public static class JokerHandOrderValidation {
             int[] ordinary = (int[])sample.Clone(); TileIdOrder.SortHand(ordinary);
             Check(ordinary.SequenceEqual(sample.OrderBy(t => t, TileIdOrder.Comparer)), "rule exit has no leaked joker");
             int[] rainbow = {1001, 1131, 1121};
-            Check(rainbow.OrderBy(t => t, TileIdOrder.HandComparer(rainbow, new[] {1131})).SequenceEqual(HongqueDisplayOrder.Hand(rainbow)), "Hongque colour circle unchanged");
+            Check(rainbow.OrderBy(t => t, TileIdOrder.HandComparer(rainbow, new[] {1131})).SequenceEqual(new[]{1001,1121,1131}), "Hongque playing hands retain table order without joker reinterpretation");
             Check(TileIdOrder.Compare(46, 11) > 0, "non-hand comparer stays ordinary");
             var historicalRound = new Round {nanchang=new NanchangInfo {indicator=42,secondary=43},
                 wenzhou=new WenzhouInfo {caishen=19},actionTicks=new List<List<string>> {new List<string>{"wuhan","indicator","29"}}};

@@ -41,7 +41,7 @@ def test_registration_rules_wall_and_public_concealed_kong():
     tiles=state.tiles_list+[t for p in state.player_list for t in p.hand_tiles]
     assert Counter(tiles)==Counter([t for t in rule.TILES for _ in range(4)]+list(rule.FLOWERS))
     assert state.sub_rule==rule.SUB_RULE and state.concealed_kongs_public
-    assert state.build_concealed_kong_mask([45]*4)==[0,45]*4
+    assert state.build_concealed_kong_mask([45]*4)==[2,45,0,45,0,45,2,45]
     assert not state.draw_debt_enabled and not state.rules.public_ready_enabled
     assert ShanghaiRoomValidator(room_name="垃圾和",game_round=1,round_timer=30,step_timer=5,sub_rule=rule.SUB_RULE).hepai_limit==0
     with pytest.raises(ValueError):
@@ -83,7 +83,7 @@ def test_extra_base_settlement_and_record(enabled,source):
         player=state.player_list[1]
         player.hand_tiles=HONORS.copy() if source=="self_draw" else HONORS[:-1]
         detail=state.score_candidate(1,source,47)
-        points=40 if source=="discard" else (70 if enabled else 60)
+        points=40 if source=="discard" else 30
         assert detail["base_score"]==points
         state.pending_winners=[{"index":1,"payer":None if source=="self_draw" else 0,"source":source,
                                 "hu_class":"hu_self" if source=="self_draw" else "hu_first","tile":47,"detail":detail}]
@@ -154,7 +154,7 @@ def test_only_fourth_chow_is_kuikae_exception(third_meld):
     asyncio.run(run())
 
 
-def test_pass_win_blocks_all_waits_until_actual_draw_not_claim():
+def test_pass_win_blocks_ron_until_actual_draw_not_claim_but_allows_rob_kong():
     async def run():
         state=make_state();p=state.player_list[1];p.hand_tiles=HONORS[:-1]
         state.player_list[0].discard_tiles=[47];state.game_status="waiting_action_after_cut"
@@ -163,7 +163,7 @@ def test_pass_win_blocks_all_waits_until_actual_draw_not_claim():
         assert p.lajihe_passed_win
         for tile in rule.HONORS:
             assert state.score_candidate(1,"discard",tile) is None
-            assert state.score_candidate(1,"robbing_kong",tile) is None
+            assert state.score_candidate(1,"robbing_kong",tile) is not None
         state.player_list[0].discard_tiles=[41]
         await state.execute_claim(1,"peng")
         assert p.lajihe_passed_win
@@ -176,7 +176,8 @@ def test_pass_win_blocks_all_waits_until_actual_draw_not_claim():
 def test_pass_pung_blocks_same_tile_and_replacement_clears_it():
     async def run():
         state=make_state();p=state.player_list[1];p.hand_tiles=[11,11,21,21,12,14,16,18,22,24,26,28,51]
-        state.player_list[0].discard_tiles=[11];state.game_status="waiting_action_after_cut"
+        state.current_player_index=3  # 对家弃牌仍可先碰，再补起手花。
+        state.player_list[3].discard_tiles=[11];state.game_status="waiting_action_after_cut"
         await state.resolve_discard_responses({1:{"action_type":"pass"}},state.check_discard_actions(11))
         assert p.passed_pungs=={11}
         assert "peng" not in state.check_discard_actions(11)[1]
@@ -308,7 +309,7 @@ def test_multi_win_settlement_and_dealer(count,source):
             "tile":47,"detail":state.score_candidate(i,source,47)} for i in range(1,count+1)]
         before={p.original_player_index:p.score for p in state.player_list}
         await state._settle_hand(before)
-        per=40 if source=="discard" else 180
+        per=40 if source=="discard" else 90
         assert [p.score for p in state.player_list]==[-per*count]+[per]*count+[0]*(3-count)
         assert state.next_dealer()==(1 if count==1 else 0)
         assert state.huangfan_count==0

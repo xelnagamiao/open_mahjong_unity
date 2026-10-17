@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 public sealed class FuzhouGameState : TurnBasedGameState {
-    public const string RuleId="fuzhou",SubRule="fuzhou/standard",RuleVersion="fuzhou-user-20261014-v1";
+    public const string RuleId="fuzhou",SubRule="fuzhou/standard",RuleVersion="fuzhou-user-20261015-v2";
     public static FuzhouGameState Active=>RuleRegistry.ActiveGameState as FuzhouGameState;
     public FuzhouInfo Info { get; private set; }
     public readonly FuzhouHintsCache Hints=new FuzhouHintsCache();
@@ -14,24 +14,34 @@ public sealed class FuzhouGameState : TurnBasedGameState {
     private Response pendingReady,pendingEnd;
     public Dictionary<string,int[]> DeclarationCandidates {get;private set;}=new Dictionary<string,int[]>();
     public FuzhouDeclaration SelfDeclaration=>Info?.declarations!=null && Session.SelfIndex>=0 && Session.SelfIndex<Info.declarations.Length?Info.declarations[Session.SelfIndex]:null;
-    public override bool IsSelfLocked=>Info?.last_four==true || SelfDeclaration?.golden_middle==true || SelfDeclaration?.youjin>0;
-    public override bool CanCutTile(int tileId)=>Info?.last_four!=true && base.CanCutTile(tileId);
+    public bool IsFlowerWinChoice=>Info?.phase=="waiting_flower_win";
+    public override bool IsSelfLocked=>IsFlowerWinChoice || Info?.last_four==true || SelfDeclaration?.golden_middle==true || SelfDeclaration?.youjin>0;
+    public override bool CanCutTile(int tileId)=>!IsFlowerWinChoice && Info?.last_four!=true && base.CanCutTile(tileId);
     public WaitTileHint DescribeWaiting(WaitHintQuery query)=>Hints.Describe(query);
     private void Accept(GameInfo info) {
         if(info==null) return;
         Info=info.fuzhou_info??Info;Hints.Accept(info.fuzhou_hints);FuzhouTableIndicators.Refresh(Info);
+        RefreshPlayerStatus();
     }
     protected override void OnRoundStarted(GameInfo info) {
         OnSessionReset();Accept(info);RefreshFlowers();
-        if(Session.Tips && Info?.final_hands==null && Mirror.Self!=null)
-            TipsBlock.Instance?.ShowTipsBlock(Mirror.SelfHandTiles,Mirror.Self.combination_tiles??new List<string>());
+        RefreshWaitingTips();
+    }
+    private void RefreshWaitingTips() {
+        if(!Session.Tips || Info?.final_hands!=null || Mirror.Self==null) return;
+        // Query the settled hand while retaining the real draw in the mirror.
+        // Rebuild after authoritative updates even when no earlier waits existed
+        // (notably before gold was revealed).
+        var hand=new List<int>(Mirror.SelfHandTiles);
+        if(Info?.self_has_draw_slot==true && hand.Count%3==2) hand.RemoveAt(hand.Count-1);
+        TipsBlock.Instance?.ShowTipsBlock(hand,Mirror.Self.combination_tiles??new List<string>());
     }
     protected override void OnAskHandAction(Response response) {
         Accept(response.game_info);DeclarationCandidates=response.ask_hand_action_info?.fuzhou_declaration_candidates??new Dictionary<string,int[]>();
-        base.OnAskHandAction(response);
+        base.OnAskHandAction(response);RefreshWaitingTips();
     }
     protected override void OnAskClaim(Response response) {
-        Accept(response.game_info);DeclarationCandidates=response.ask_other_action_info?.fuzhou_declaration_candidates??new Dictionary<string,int[]>();Clock.PendingAskFromJiagang=Info?.phase=="waiting_action_qianggang";base.OnAskClaim(response);
+        Accept(response.game_info);DeclarationCandidates=response.ask_other_action_info?.fuzhou_declaration_candidates??new Dictionary<string,int[]>();Clock.PendingAskFromJiagang=Info?.phase=="waiting_action_qianggang";base.OnAskClaim(response);RefreshWaitingTips();
     }
     protected override void OnDoAction(Response response) {
         Accept(response.game_info);
@@ -53,7 +63,7 @@ public sealed class FuzhouGameState : TurnBasedGameState {
                     mirror.huapai_list=(player.huapai_list??System.Array.Empty<int>()).ToList();
                 }
             }
-        RefreshFlowers();
+        RefreshFlowers();RefreshWaitingTips();
     }
     protected override bool TryApplyFamilyWord(TableAction action,string word) {
         if(word=="deal_buhua_tile" && action.Seat=="self") {
@@ -73,7 +83,13 @@ public sealed class FuzhouGameState : TurnBasedGameState {
     private void RefreshFlowers() {
         GameCanvas.Instance?.SetPlayerFlowerCounts(Mirror.IndexToPosition.ToDictionary(x=>x.Key,x=>Mirror.Info(x.Value)?.huapai_list?.Count??0),Mirror.IndexToPosition);
     }
-    public override void OnPlayerTagsRefreshed() {base.OnPlayerTagsRefreshed();if(Session.Tips) TipsContainer.Instance?.RefreshTenpaiTipsIfCached();}
+    private void RefreshPlayerStatus() => GameCanvas.Instance?.SetFuzhouPlayerStatus(Info,Mirror.IndexToPosition);
+    public override void OnPlayerTagsRefreshed() {
+        base.OnPlayerTagsRefreshed();
+        // 通用标签会重置报听项；福州以服务端宣告快照恢复统一布局组中的状态。
+        RefreshPlayerStatus();
+        RefreshWaitingTips();
+    }
     protected override void OnShowResult(Response response) {
         var info=response.show_result_info;
         if(info==null || !acceptedWinners.Add(info.hepai_player_index)) return;
@@ -137,6 +153,7 @@ public sealed class FuzhouGameState : TurnBasedGameState {
         if(response.ready_status_info==null) return;
         Clock.LastAskActionTick=response.ready_status_info.action_tick;
         Info=response.ready_status_info.fuzhou_info??Info;
+        RefreshPlayerStatus();
         if(pendingSettlement) pendingReady=response;
         else base.OnReadyStatus(response);
     }
@@ -146,5 +163,6 @@ public sealed class FuzhouGameState : TurnBasedGameState {
     }
     public override void OnSessionReset() {
         generation++;Info=null;Hints.Reset();DeclarationCandidates.Clear();FuzhouTableIndicators.Refresh(null);settlements.Clear();acceptedWinners.Clear();pendingSettlement=false;pendingReady=pendingEnd=null;
+        GameCanvas.Instance?.SetFuzhouPlayerStatus(null,null);
     }
 }

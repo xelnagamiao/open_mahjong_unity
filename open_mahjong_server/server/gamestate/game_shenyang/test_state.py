@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from .ShenyangGameState import ShenyangGameState
-from . import hints
+from tests.local_hint_oracles import shenyang as hints
 from ...game_calculation.shenyang import rules as b
 from ...game_calculation.shenyang.test_rules import READY
 from ..public.game_record_manager import init_game_record, init_game_round
@@ -218,7 +218,10 @@ def test_hints_priority_and_complete_wire_roundtrip():
     packet=GameInfo(**s.build_private_game_info_fields(0),room_id='123456',gamestate_id='sy-test',tips=True,
         current_player_index=0,action_tick=0,max_round=1,tile_count=20,current_round=1,
         step_time=5,round_time=20,room_type='custom',room_rule='shenyang',players_info=[])
-    assert packet.model_dump()['shenyang']['hints']['waiting'][19]['status']=='self_draw'
+    preview=packet.model_dump()['shenyang']['hints']
+    assert 'waiting' not in preview
+    assert preview['local_request']['hand']==list(READY)
+    assert preview['local_request']['context']['passed_fan']==6
 
 
 def test_rob_added_kong_rolls_back_fourth_tile_and_never_pays_egg():

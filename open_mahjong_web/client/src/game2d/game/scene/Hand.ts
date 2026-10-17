@@ -36,6 +36,7 @@ function handSortWeight(tid: number): number {
 export class Hand extends Container {
   readonly direction: number
   readonly leftList: Tile[] = []
+  readonly publicKongTiles: Tile[] = []
   rightList: Tile[] = []
   drawnTile: Tile | null = null
   leftListLength = 0
@@ -343,6 +344,19 @@ export class Hand extends Container {
     this.applyTileStyle(tile)
     this.bindWaitHover(tile)
     this.rightList.push(tile)
+  }
+
+  /** Replay-only public replacement row; these tiles cannot be removed from the concealed hand. */
+  setPublicKongTiles(tiles: number[]): void {
+    for (const tile of this.publicKongTiles.splice(0)) { tile.removeFromParent(); tile.destroy({ children: true }) }
+    for (let index = 0; index < tiles.length; index++) {
+      const tile = this.createVisibleTile(tiles[index])
+      this.publicKongTiles.push(tile)
+      this.applyTileStyle(tile)
+      tile.scale.set(this.handScale)
+      tile.generalMove(this, (index - (tiles.length - 1) / 2) * (TILE_WIDTH + TILE_SEP) * this.handScale,
+        -(TILE_HEIGHT + TILE_SEP) * this.handScale, 0, 0, true).catch(() => {})
+    }
   }
 
   // ── Display geometry ─────────────────────────────────────────────

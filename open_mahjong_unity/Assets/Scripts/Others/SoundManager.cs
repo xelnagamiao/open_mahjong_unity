@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class SoundManager : MonoBehaviour {
+public partial class SoundManager : MonoBehaviour {
     public static SoundManager Instance { get; private set; }
 
     [Header("音效配置")]
@@ -24,6 +24,7 @@ public class SoundManager : MonoBehaviour {
         if (audioSource == null) {
             audioSource = gameObject.AddComponent<AudioSource>();
         }
+        EnsureSeatVoiceSources();
     }
 
     public void PlayActionButtonAppearSound() {
@@ -55,15 +56,7 @@ public class SoundManager : MonoBehaviour {
         if (voiceKey == null) return;
 
         // 根据玩家位置获取对应玩家的音色ID
-        int voiceId = 1; // 默认音色ID
-        if (voiceIdOverride.HasValue) {
-            voiceId = voiceIdOverride.Value;
-        } else if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.player_to_info.ContainsKey(playerPosition)) {
-            voiceId = NormalGameStateManager.Instance.player_to_info[playerPosition].voice_used;
-        } else {
-            // 如果无法从NormalGameStateManager获取，则使用用户设置的音色ID作为后备
-            voiceId = UserDataManager.Instance.VoiceId;
-        }
+        int voiceId = ResolvePlayerVoiceId(playerPosition, voiceIdOverride);
 
         string voicePath = voiceIdToPath.ContainsKey(voiceId) ? voiceIdToPath[voiceId] : voiceIdToPath[1];
         string audioTarget;
@@ -73,7 +66,7 @@ public class SoundManager : MonoBehaviour {
 
         if (soundToPlay != null) {
             float volume = ConfigManager.Instance.GetVoiceVolumeRatio();
-            audioSource.PlayOneShot(soundToPlay, volume);
+            PlaySeatVoice(playerPosition, soundToPlay, volume);
             Debug.Log($"播放音效: {actionType}, 音色: {voicePath}, 资源: {loadedTarget}, 音量: {volume}");
         } else {
             Debug.LogWarning($"未找到音效文件: {audioTarget}");
@@ -139,14 +132,7 @@ public class SoundManager : MonoBehaviour {
     /// 播放立直宣告语音；按指定方位玩家的音色挑选 riichi 资源，加载失败时回退默认音色。
     /// </summary>
     public void PlayRiichiVoice(string playerPosition, int? voiceIdOverride = null) {
-        int voiceId = 1;
-        if (voiceIdOverride.HasValue) {
-            voiceId = voiceIdOverride.Value;
-        } else if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.player_to_info.ContainsKey(playerPosition)) {
-            voiceId = NormalGameStateManager.Instance.player_to_info[playerPosition].voice_used;
-        } else {
-            voiceId = UserDataManager.Instance.VoiceId;
-        }
+        int voiceId = ResolvePlayerVoiceId(playerPosition, voiceIdOverride);
         string voicePath = voiceIdToPath.ContainsKey(voiceId) ? voiceIdToPath[voiceId] : voiceIdToPath[1];
         AudioClip clip = Resources.Load<AudioClip>($"Sound/{voicePath}/riichi");
         if (clip == null) clip = Resources.Load<AudioClip>($"Sound/{voiceIdToPath[1]}/riichi");
@@ -155,7 +141,7 @@ public class SoundManager : MonoBehaviour {
             return;
         }
         float volume = ConfigManager.Instance.GetVoiceVolumeRatio();
-        audioSource.PlayOneShot(clip, volume);
+        PlaySeatVoice(playerPosition, clip, volume);
     }
 
     public void PlayGameStartSound() {
@@ -171,10 +157,12 @@ public class SoundManager : MonoBehaviour {
         audioSource.PlayOneShot(soundToPlay, volume * 0.4f);
     }
 
-    public void PlayPhysicsSound(/* Vector3 position, 物理音效发出位置 */string actionType){
+    public void PlayPhysicsSound(string actionType){
         string fileName;
         if (actionType == "cut") {
-            fileName = "SFX_UI_Click_Organic_Plastic_Select_2";
+            // 旧调用保留桌心兜底；正常出牌在原播放时机传入即将落牌的槽位。
+            PlayDiscardImpact(null);
+            return;
         } else if (actionType == "Gong_hu") {
             if (ConfigManager.Instance != null && !ConfigManager.Instance.GongHuSoundEnabled) {
                 return;

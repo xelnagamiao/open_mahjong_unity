@@ -1,7 +1,8 @@
+from ..public.ask_timing import get_ask_elapsed
+from ..public.action_window import prepare_action_window, start_waiting_clocks
 # 等待玩家操作处理
 import asyncio
 from ..public.lifecycle import start_owned_task
-import time
 import logging
 from .action_check import check_action_after_cut, check_action_jiagang, refresh_waiting_tiles
 from .boardcast import broadcast_do_action, broadcast_ready_status
@@ -28,23 +29,8 @@ logger = logging.getLogger(__name__)
 
 # 等待玩家行动
 async def wait_action(self):
-    self.waiting_players_list = [] # [2,3]
-    used_time = 0 # 已用时间
-
-    # 清空所有队列，防止上一轮残留的事件影响新一轮
-    for i in range(4):
-        while not self.action_queues[i].empty():
-            try:
-                self.action_queues[i].get_nowait()
-                logger.debug(f"清空玩家{i}队列中的残留事件")
-            except:
-                break
-
-    # 遍历所有可行动玩家，获取行动玩家列表和等待时间列表
-    for player_index, action_list in self.action_dict.items():
-        if action_list:  # 如果玩家有可用操作 将玩家加入列表并重置事件状态
-            self.waiting_players_list.append(player_index)
-            self.action_events[player_index].clear()
+    prepare_action_window(self)
+    start_waiting_clocks(self)
 
     # 如果等待玩家列表不为空且有玩家剩余时间小于(已用时间-步时)，则停止等待
     player_index = None # 保存操作玩家索引 (如果玩家有操作则左侧三个变量有值 否则为None)
@@ -54,7 +40,7 @@ async def wait_action(self):
     # waiting_ready
     timeout_grace = 0 if self.game_status == "waiting_ready" else self.step_time
 
-    while self.waiting_players_list and any(self.player_list[i].remaining_time + timeout_grace > used_time for i in self.waiting_players_list):
+    while self.waiting_players_list and any(self.player_list[i].remaining_time + timeout_grace > get_ask_elapsed(self, i) for i in self.waiting_players_list):
 
         # 给每个可行动者创建一个消息队列任务，同时创建一个计时器任务
         task_list = []  # 任务列表
@@ -70,12 +56,10 @@ async def wait_action(self):
         task_list.append(timer_task)
 
         # 等待计时器完成1s等待或者任意玩家进行操作
-        time_start = time.time()
         done, pending = await asyncio.wait(
             task_list,
             return_when=asyncio.FIRST_COMPLETED
         )
-        time_end = time.time()
 
         # 取消未完成的任务
         for task in pending:
@@ -85,7 +69,7 @@ async def wait_action(self):
         for task in done:
             # 计时器完成 增加已用时间 注意：这里不需要重置任务，因为下一次循环开始时会创建新的任务
             if task == timer_task: 
-                used_time += 1
+                continue
             # 玩家操作完成，获取玩家索引
             else:
                 # 使用映射获取玩家索引
@@ -97,8 +81,7 @@ async def wait_action(self):
                 temp_action_data = dict(temp_action_data)
                 logger.debug(f"复制后: temp_player_index={temp_player_index}, temp_action_data={temp_action_data}")
 
-                used_time += time_end - time_start # 服务器计算操作时间
-                used_int_time = int(used_time) # 变量整数时间
+                used_int_time = int(get_ask_elapsed(self, temp_player_index)) # 变量整数时间
                 if timeout_grace > 0 and used_int_time >= timeout_grace: # 扣除玩家超出步时的时间
                     self.player_list[temp_player_index].remaining_time -= (used_int_time - timeout_grace)
                

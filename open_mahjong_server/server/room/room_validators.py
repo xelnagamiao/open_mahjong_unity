@@ -1,3 +1,4 @@
+from ..game_calculation.riichi.washizu_tiles import SUB_RULES as WASHIZU_SUB_RULES
 from pydantic import StrictBool, StrictInt
 from dataclasses import asdict
 from pydantic import BaseModel, validator
@@ -120,11 +121,15 @@ class RiichiRoomValidator(BaseModel):
     def validate_detailed_config(cls, value, values):
         return normalize_riichi_config(value, values.get('sub_rule'))
 
+    @validator('open_tobi', pre=True, always=True)
+    def captain_tobi(cls, value, values):
+        return True if values.get('sub_rule') == 'riichi/washizu_doubles' else value
+
     starting_score: int = None
 
     @validator('red_dora', 'open_xiru', pre=True, always=True)
     def washizu_fixed_flags(cls, value, values):
-        return False if values.get('sub_rule') in ('riichi/washizu', 'riichi/washizu_realtime') else value
+        return False if values.get('sub_rule') in WASHIZU_SUB_RULES else value
 
     @validator('starting_score', pre=True, always=True)
     def validate_starting_score(cls, v, values):
@@ -184,7 +189,7 @@ class RiichiRoomValidator(BaseModel):
     def validate_hepai_way(cls, v, values):
         if v not in ("head_bump", "multi_ron", "three_ron_abort"):
             raise ValueError('hepai_way 必须在 head_bump / multi_ron / three_ron_abort 中')
-        return 'head_bump' if values.get('sub_rule') in ('riichi/washizu', 'riichi/washizu_realtime') else v
+        return 'head_bump' if values.get('sub_rule') in WASHIZU_SUB_RULES else v
 
     @validator('hepai_limit')
     def validate_hepai_limit(cls, v):
@@ -287,6 +292,8 @@ class ChangshaRoomValidator(BaseModel):
     small_hu_self_draw_only: StrictBool = False
     score_cap_type: str = "none"
     score_cap_value: StrictInt = 0
+    count_tips: StrictBool = False
+    pointer_tips: StrictBool = True
 
     @validator('score_cap_type')
     def validate_score_cap_type(cls, v):

@@ -208,17 +208,19 @@ public sealed class NanchangGameState : TurnBasedGameState {
         base.OnReadyStatus(response);
     }
     public static string HandKey(IEnumerable<int> hand) => string.Join(",", hand.OrderBy(t => t));
-    private static NanchangWait[] ReadWaits(IEnumerable<int> hand, int? player = null) {
+    private static NanchangWait[] ReadWaits(IEnumerable<int> hand, int? player = null, Action ready = null) {
         var record = GameRecordManager.Instance;
         var snapshot = record != null && record.gameObject.activeSelf ? record.NanchangReplayWaitsFor(player) : Active?.waits;
-        return LookupWaits(snapshot, hand);
+        return LookupWaits(snapshot, hand, ready);
     }
-    internal static NanchangWait[] LookupWaits(Dictionary<string, NanchangWait[]> snapshot, IEnumerable<int> hand) {
+    internal static NanchangWait[] LookupWaits(Dictionary<string, NanchangWait[]> snapshot, IEnumerable<int> hand, Action ready = null) {
+        var request=snapshot?.Values.SelectMany(rows=>rows??Array.Empty<NanchangWait>()).FirstOrDefault(row=>row?.local_request!=null)?.local_request;
+        if(request!=null)return LocalHintSnapshots.Rows(request,hand,ready)?.Properties().Select(p=>p.Value.ToObject<NanchangWait>()).ToArray()??Array.Empty<NanchangWait>();
         string key = HandKey(hand);
         return snapshot != null && snapshot.TryGetValue(key, out var value) ? value : Array.Empty<NanchangWait>();
     }
     private static bool SameMelds(NanchangWait row, List<string> melds) => (row.melds ?? Array.Empty<string>()).OrderBy(m=>m).SequenceEqual((melds ?? new List<string>()).OrderBy(m=>m));
-    public static HashSet<int> Waiting(TingpaiQuery query) => new HashSet<int>(ReadWaits(query.Hand, query.RecordPlayerIndex).Where(w=>SameMelds(w,query.Melds)).Select(w => w.tile));
+    public static HashSet<int> Waiting(TingpaiQuery query) => new HashSet<int>(ReadWaits(query.Hand, query.RecordPlayerIndex, query.OnReady).Where(w=>SameMelds(w,query.Melds)).Select(w => w.tile));
     public static WaitTileHint Describe(WaitHintQuery query) {
         if(query?.HandWithWin==null) return WaitTileHint.None("未满足");
         var hand = new List<int>(query.HandWithWin); hand.Remove(query.HepaiTile);

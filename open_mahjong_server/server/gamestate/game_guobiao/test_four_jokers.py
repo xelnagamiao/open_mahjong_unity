@@ -120,17 +120,15 @@ def test_reject_red_kong_even_when_another_kong_is_allowed(api):
     assert s.action_queues[0].empty()
 
 
-def test_snapshots_private_stable_and_lazy_scoring():
-    from .four_jokers_runtime import prepare_hints
+def test_snapshots_keep_own_hand_without_server_hint_scoring():
     from .boardcast import _build_game_start_payload_for_viewer
     s=state();s.tips=True;s.player_list[0].hand_tiles=BASE[:-1]+[59]
     async def run():
-        await prepare_hints(s,0)
         return _build_game_start_payload_for_viewer(s,0)
     with patch.object(Chinese_Hepai_Check,'hepai_check',side_effect=AssertionError('eager hint scoring')):
         data=asyncio.run(run())
-    assert data['four_jokers_hints']['hand']==s.player_list[0].hand_tiles
-    assert '59' in json.dumps(data['four_jokers_hints'])
+    assert 'four_jokers_hints' not in data
+    assert data['players_info'][0]['hand_tiles']==s.player_list[0].hand_tiles
     assert all(not p.get('hand_tiles') for p in data['players_info'][1:])
     assert rule.calculate_hint(BASE[:-1]+[59],[],['点和'],['自摸'],59,8)['kind']=='zimo'
 

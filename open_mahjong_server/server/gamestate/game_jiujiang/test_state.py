@@ -145,7 +145,10 @@ def test_private_hints_and_hidden_kong_on_reconnect_and_action():
         state=make_state();p=state.player_list[0];p.hand_tiles=PLAIN[:-1]
         for q in state.player_list: state.game_server.user_id_to_connection[q.user_id]=SimpleNamespace(websocket=AsyncMock())
         await state.prepare_private_fields(range(4))
-        assert state.build_private_game_info_fields(0)['jiujiang_hints']['waiting_details'][25]['points']==2
+        preview=state.build_private_game_info_fields(0)['jiujiang_hints']
+        assert 'waiting_details' not in preview
+        assert preview['local_request']['rule']=='jiujiang'
+        assert preview['local_request']['hand']==list(PLAIN[:-1])
         assert not state.build_private_do_action_info(0,1)
         p.combination_mask=[[2,45]*4];p.combination_tiles=['G45']
         await broadcast_do_action(state,['angang'],0,combination_mask=[2,45]*4,combination_target='G45')

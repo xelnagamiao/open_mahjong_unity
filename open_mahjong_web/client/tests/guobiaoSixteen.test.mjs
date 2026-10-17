@@ -12,6 +12,14 @@ const {applyRoomSettingsChange,readRoomSettings}=require('../../server/utils/eve
 const sub='guobiao/sixteen'
 const bundled=await build({stdin:{contents:"export * from './fourJokers';export * from './waitTips'",resolveDir:fileURLToPath(new URL('../src/game2d/calc/guobiao',import.meta.url)),loader:'ts'},bundle:true,write:false,platform:'node',format:'esm'})
 const tips=await import('data:text/javascript;base64,'+Buffer.from(bundled.outputFiles[0].text).toString('base64'))
+async function localWaitData(ctx,options) {
+  for(let i=0;i<200;i++) {
+    const data=tips.buildLocalWaitData(ctx,options)
+    if(data)return data
+    await new Promise(resolve=>setTimeout(resolve,10))
+  }
+  assert.fail('Local sixteen-tile job did not finish')
+}
 
 for(const flowers of [false,true]) for(const opening of [false,true])
 for(const wrong of [false,true]) for(const limit of [1,8,32,64]) {
@@ -36,15 +44,15 @@ test('sixteen rejects ordinary duplicate walls in direct, event and persisted pr
   assert.throws(()=>applyRoomSettingsChange({}, {kind:'preset-create',body:{revision:0,name:'非法牌墙',room_rule:'guobiao',room_config:{sub_rule:sub,duplicate_key}},userId:1}),/复式/)
   assert.deepEqual(recordHandJokers({rule:'guobiao',sub_rule:sub},{},0),[])
 })
-test('sixteen uses all seventeen tiles in authority hint requests and separates caches',()=>{
+test('sixteen uses all seventeen tiles in local hint jobs and separates caches',async()=>{
   const hand=[11,12,13,21,22,23,31,32,33,41,41,41,45,45,45,46]
   tips.acceptFourJokersSnapshot({sub_rule:sub,hand,melds:[],waits:[46],discard_waits:{}})
   tips.acceptFourJokersSnapshot({sub_rule:'guobiao/four_jokers',hand,melds:[],waits:[59],discard_waits:{}})
-  const old=globalThis.fetch;globalThis.fetch=()=>{throw Error('must use current authority snapshot')}
+  const old=globalThis.fetch;globalThis.fetch=()=>{throw Error('Hints must not use HTTP')}
   try {
     const ctx={tips:true,hand,combinations:[],flowerCount:2,playerIndex:0,currentRound:1,hepaiLimit:8,subRule:sub,
       seatDiscards:[[],[46],[],[]],seatCombinations:[[],[],[],[]]}
-    const rows=tips.buildLocalWaitData(ctx,{includeDiscards:false})
+    const rows=await localWaitData(ctx,{includeDiscards:false})
     assert.deepEqual(rows.details.map(d=>d.tile),[46])
     assert.equal(rows.details[0].remaining_count,2)
     const body=rows.details[0].four_jokers_request
@@ -53,15 +61,15 @@ test('sixteen uses all seventeen tiles in authority hint requests and separates 
     assert.equal(hand.length,16)
     const complete=[...hand,46]
     tips.acceptFourJokersSnapshot({sub_rule:sub,hand:complete,melds:[],waits:[],discard_waits:{46:[46]}})
-    const discards=tips.buildLocalWaitData({...ctx,hand:complete},{includeDiscards:true})
+    const discards=await localWaitData({...ctx,hand:complete},{includeDiscards:true})
     assert.equal(discards.type,'waits_all')
     assert.ok(discards.details.some(d=>d.discard_tile===46&&d.adds[0].tile===46))
   } finally {globalThis.fetch=old}
 })
-test('five exposed melds produce a two-tile scoring request',()=>{
+test('five exposed melds produce a two-tile scoring request',async()=>{
   const hand=[45],melds=['s12','s25','s38','k41','k22']
   tips.acceptFourJokersSnapshot({sub_rule:sub,hand,melds,waits:[45],discard_waits:{}})
-  const rows=tips.buildLocalWaitData({tips:true,hand,combinations:melds,flowerCount:0,playerIndex:0,currentRound:1,
+  const rows=await localWaitData({tips:true,hand,combinations:melds,flowerCount:0,playerIndex:0,currentRound:1,
     hepaiLimit:8,subRule:sub,seatDiscards:[[],[],[],[]],seatCombinations:[melds,[],[],[]]},{includeDiscards:false})
   assert.equal(rows.details[0].four_jokers_request.tiles_combination.length,5)
   assert.deepEqual(rows.details[0].four_jokers_request.hand_tiles,[45,45])

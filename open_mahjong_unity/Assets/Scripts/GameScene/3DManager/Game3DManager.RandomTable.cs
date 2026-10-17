@@ -330,7 +330,8 @@ public partial class Game3DManager : MonoBehaviour
         // 吃：同花色连续三张（40%）
         if (roll >= 60 && TryTakeChi(counts, rng, out List<int> chi))
         {
-            return new List<int> { 0, chi[0], 1, chi[1], 0, chi[2] };
+            // 吃牌只能来自上家，横牌放在上家一端；中间横置表示对家来牌。
+            return new List<int> { 1, chi[0], 0, chi[1], 0, chi[2] };
         }
 
         // 杠：四张同牌（15%）

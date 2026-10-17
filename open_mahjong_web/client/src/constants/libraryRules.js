@@ -211,7 +211,7 @@ export const LIBRARY_RULES = [
     resources: [
       {
         title: '虹雀² v1.6 规则书',
-        desc: '虹雀² v1.6 完整规则说明。',
+        desc: '虹雀² v1.6 规则书，包含基本规则、番种说明及牌例。',
         url: '/rulebooks/hongque-v1.6.pdf',
         filename: '虹雀² v1.6.pdf',
       },

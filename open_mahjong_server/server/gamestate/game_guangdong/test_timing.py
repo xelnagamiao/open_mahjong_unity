@@ -57,7 +57,6 @@ def state_for_claim(**options):
         connection = SimpleNamespace(user_id=player.user_id, websocket=Socket())
         state.game_server.user_id_to_connection[player.user_id] = connection
         state.game_server.players[str(player.user_id)] = connection
-    state.prepare_private_fields = AsyncMock()
     return state
 
 

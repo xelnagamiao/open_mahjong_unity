@@ -93,7 +93,6 @@ class ExchangeSixFlow:
         self.settlements = []
         self.kong_dice = []
         self.kong_positions = []
-        self.hint_cache = {}
         self.round_scores_before = {p.original_player_index: p.score for p in self.state.player_list}
 
     def waits(self, seat, hand=None, melds=None, *, for_report=False):
@@ -252,35 +251,20 @@ class ExchangeSixFlow:
                                "selected_tiles": list(self.submissions.get(seat, [])),
                                "action_list": list(state.action_dict.get(seat, [])) if seat in state.waiting_players_list else [],
                                "targets": dict(self.targets[seat]), "cut_tiles": cut_tiles,
-                               "has_draw_slot": player.has_draw_slot, "hints": self.hand_hints(seat, cut_tiles)},
+                               "has_draw_slot": player.has_draw_slot, "local_hint_context": self.client_context(seat, cut_tiles)},
             ),
         )
 
-    def hand_hints(self, seat, cut_tiles):
-        """只给本人发送听牌提示，按服务器的报听、锁手和胡牌资格计算。"""
+    def client_context(self, seat, cut_tiles):
+        """Own-hand rule state only; clients enumerate waits and future scores."""
+        from ..public.local_hint_context import hint_context
         player = self.state.player_list[seat]
-        key = (tuple(player.hand_tiles), tuple(player.combination_tiles), tuple(cut_tiles),
-               seat in self.reported_ready, seat in self.open_hands, seat in self.disqualified,
-               "peida" in player.tag_list,
-               self.small_hu_forbidden_seat,
-               tuple((tile, tuple(fans)) for tile, fans in self.locked_patterns.get(seat, {}).items()))
-        if seat in self.hint_cache and self.hint_cache[seat][0] == key:
-            return self.hint_cache[seat][1]
-        def describe(hand):
-            return [{"tile": tile, "score": score, "fans": fans,
-                     "blocked_small_hu": seat == self.small_hu_forbidden_seat and big_weight(fans) == 0}
-                    for tile in sorted(self.waits(seat, hand))
-                    for score, fans in [self.result(seat, tile, hand=list(hand) + [tile], ignore_small_hu_ban=True)]
-                    if score]
-        hints = {"hand": list(player.hand_tiles), "melds": list(player.combination_tiles),
-                 "waits": describe(player.hand_tiles), "discard_waits": {}}
-        if len(player.hand_tiles) % 3 == 2:
-            for tile in cut_tiles:
-                hand = list(player.hand_tiles)
-                hand.remove(tile)
-                hints["discard_waits"][str(tile)] = describe(hand)
-        self.hint_cache[seat] = (key, hints)
-        return hints
+        return hint_context("changsha_exchange_six", player.hand_tiles, player.combination_tiles,
+            cuts=cut_tiles, reported_ready=seat in self.reported_ready,
+            open_hand=seat in self.open_hands,
+            blocked=seat in self.disqualified or "peida" in player.tag_list,
+            small_hu_forbidden=seat == self.small_hu_forbidden_seat,
+            locked_patterns=self.locked_patterns.get(seat))["local_request"]
 
     async def send_snapshot(self, connection_user_id, view_seat):
         connection = self.state.game_server.user_id_to_connection.get(connection_user_id)

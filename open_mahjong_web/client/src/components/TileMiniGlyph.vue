@@ -25,19 +25,21 @@ import {
 import { useTileFaceStyle, TILE_FACE_STYLE } from '@/composables/useTileFaceStyle'
 
 const props = defineProps({
-  tileId: { type: Number, required: true }
+  tileId: { type: Number, required: true },
+  faceDown: { type: Boolean, default: false }
 })
 
 const { tileFaceStyle } = useTileFaceStyle()
 const artFailed = ref(false)
-watch([() => props.tileId, tileFaceStyle], () => { artFailed.value = false })
+watch([() => props.tileId, () => props.faceDown, tileFaceStyle], () => { artFailed.value = false })
 
 const faceStyle = computed(() => tileFaceStyle.value)
-const tip = computed(() => TILE_NAME[props.tileId] || tileIdToNotation(props.tileId))
-const glyph = computed(() => TILE_UNICODE[props.tileId] || tileIdToNotation(props.tileId))
+const tip = computed(() => props.faceDown ? '牌背' : TILE_NAME[props.tileId] || tileIdToNotation(props.tileId))
+const glyph = computed(() => props.faceDown ? '\u{1F02B}' : TILE_UNICODE[props.tileId] || tileIdToNotation(props.tileId))
 
 const artSrc = computed(() => {
   if (artFailed.value) return null
+  if (props.faceDown) return '/tiles/faces/back.png'
   if (tileFaceStyle.value === TILE_FACE_STYLE.oblique) {
     return tileSvgUrl(props.tileId) || tileFacePngUrl(props.tileId)
   }

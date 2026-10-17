@@ -10,7 +10,7 @@ def parse_fan_label(value, rule):
     if not isinstance(value, str):
         return None, 0
     name = value.strip()
-    # 虹雀旧谱的 |N 是番值，新谱的 *N 才是达成数量。
+    # 虹雀标签“番名*次数|合计番值”：|N 是番值，*N 才是达成数量。
     if rule == "hongque":
         name = re.sub(r"\|\d+(?:\.\d+)?$", "", name)
     count = 1

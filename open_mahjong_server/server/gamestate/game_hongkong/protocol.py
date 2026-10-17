@@ -6,7 +6,7 @@ from ..game_zhongyong import boardcast as wire
 from .state_machine import HongKongPhase as P
 from .action_check import ready_discards
 from ...game_calculation.hongkong import structural_waits
-from .hints import private_hints
+from .client_context import private_context
 
 
 class HongKongProtocol:
@@ -26,7 +26,7 @@ class HongKongProtocol:
             info["detailed_config"] = dict(self.detailed_config)
             info["hepai_limit"] = self.rules.minimum_fan
             info["hongkong_info"] = self.hongkong_info()
-            info["hongkong_waits"] = private_hints(self,viewer) if viewer in range(4) else {}
+            info["hongkong_waits"] = private_context(self,viewer) if viewer in range(4) else {}
             info["players_info"] = [self._player_view(i,viewer) for i in range(4)]
             info["self_hand_tiles"] = list(self.player_list[viewer].hand_tiles) if viewer in range(4) else None
         return payload

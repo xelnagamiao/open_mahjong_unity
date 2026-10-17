@@ -1,3 +1,4 @@
+import {resolveLocalHintSnapshot} from './localHintSnapshots.js'
 /** Replay uses the physical birds and substitutions stored by the server. */
 export function hongzhongInfoAt(round, node) {
   let info = null
@@ -22,7 +23,7 @@ export function hongzhongHintsAt(round, node, seat, physicalHand, physicalMelds)
     if (tick?.[0] !== 'hongzhong' || tick[1] !== 'hints' || !Number.isInteger(tick[2]) || tick[2] < 0 || tick[2] > 3) continue
     cache[tick[2]] = tick[3]
   }
-  const hints = cache[seat]
+  const hints = resolveLocalHintSnapshot(cache[seat])
   if (!hints || typeof hints !== 'object' || !Array.isArray(hints.source_hand_tiles) || !Array.isArray(hints.source_melds)) return null
   const same = (a, b) => {
     const left = [...a].sort(), right = [...b].sort()

@@ -1,3 +1,7 @@
+from ...game_calculation.riichi.washizu_tiles import SUB_RULES as WASHIZU_SUB_RULES
+from ..public.action_window import prepare_action_window, prepare_ready_window
+from ..public.ready_phase import ready_status_by_seat
+from ..public.ask_timing import send_ask_response_to_viewer as _send_ask_response_to_viewer
 """
 立直麻将广播：沿用 classical 的消息布局，新增 declare_riichi / riichi_accepted / update_dora；
 GameInfo 额外携带 honba / riichi_sticks / dora_indicators / kan_dora_indicators / hepai_way / red_dora。
@@ -42,7 +46,7 @@ from ..public.claim_protection import (
 from ..public.claim_protection import (begin_discard, send_cut,
     stage_protected_cut, schedule_meld)
 from ..public.outbound_pipe import send_to_viewer, schedule_viewer_send
-from ..public.ask_timing import begin_ask_round, note_ask_delivered
+from ..public.ask_timing import begin_ask_round
 from .realtime_hand import layouts_for_viewer
 
 
@@ -75,38 +79,6 @@ async def _send_do_action_payload_to_viewer(self, viewer, payload):
     await send_to_viewer(self, viewer, deliver, delay_before=take_post_meld_gap_delay(self, viewer))
 
 
-async def _send_ask_response_to_viewer(
-    self, viewer_index: int, response, *, block: bool = True
-) -> None:
-    """经 outbound_pipe 发送 ask，保证排在延迟鸣牌/第二追赶之后；送达时起算计时。
-
-    block=True：await 本条（用于当前行动者，立刻可操作）。
-    block=False：仅 schedule 入队（旁观者可带 post_gap，不拖住主循环/行动者）。
-    """
-    from ..public.outbound_pipe import send_to_viewer, schedule_viewer_send
-
-    current_player = self.player_list[viewer_index]
-    if current_player.user_id not in self.game_server.user_id_to_connection:
-        logger.warning(
-            f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过 ask 广播"
-        )
-        return
-    player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-    delay_before = take_post_meld_gap_delay(self, viewer_index)
-    ask_tick = self.server_action_tick
-
-    async def _do():
-        await player_conn.websocket.send_json(response.dict(exclude_none=True))
-        await self.send_to_realtime_spectators(viewer_index, response)
-        # A delayed observer ask may belong to a decision window already closed.
-        # It must not start the clock for a newer ask waiting behind it.
-        if self.server_action_tick == ask_tick:
-            note_ask_delivered(self, viewer_index)
-
-    if block:
-        await send_to_viewer(self, viewer_index, _do, delay_before=delay_before)
-    else:
-        schedule_viewer_send(self, viewer_index, _do, delay_before=delay_before)
 
 
 def _tag_list_for_viewer(tags, subject_player_index: int, viewer_player_index: int) -> list:
@@ -123,7 +95,9 @@ def _player_to_tag_list_for_viewer(player_list, viewer_player_index: int) -> dic
 
 def _build_base_game_info(self) -> dict:
     from .washizu import public_hands
+    from .doubles import public_state
     info = {
+        "washizu_doubles": public_state(self),
         "washizu_hands": public_hands(self),
         "room_id": self.room_id,
         "gamestate_id": self.gamestate_id,
@@ -163,6 +137,8 @@ def _build_base_game_info(self) -> dict:
 def _build_player_info(player, viewer_uid: int, viewer_player_index: int) -> dict:
     return {
         "user_id": player.user_id,
+        "team_id": getattr(player, "team_id", None),
+        "team_role": getattr(player, "team_role", None),
         "username": player.username,
         "hand_tiles_count": len(player.hand_tiles),
         "hand_tiles": player.hand_tiles if player.user_id == viewer_uid else None,
@@ -213,6 +189,7 @@ async def broadcast_game_start(self):
 
 async def broadcast_ask_hand_action(self):
     self.server_action_tick += 1
+    prepare_action_window(self, new_ask=True)
     begin_ask_round(self)
     for i in [self.current_player_index] + [j for j in range(len(self.player_list)) if j != self.current_player_index]:
         cp = self.player_list[i]
@@ -259,6 +236,7 @@ async def broadcast_ask_hand_action(self):
 async def broadcast_ask_other_action(self):
     cut_tile = self.jiagang_tile if self.game_status == 'waiting_action_qianggang' else self.player_list[self.current_player_index].discard_tiles[-1]
     self.server_action_tick += 1
+    prepare_action_window(self, new_ask=True)
     begin_ask_round(self)
     for i, cp in enumerate(self.player_list):
         try:
@@ -291,7 +269,7 @@ async def broadcast_ask_other_action(self):
                     chi_candidates=cp.chi_candidates if cp.chi_candidates else None,
                 ),
             )
-            await _send_ask_response_to_viewer(self, i, response)
+            await _send_ask_response_to_viewer(self, i, response, block=False)
         except Exception as e:
             logger.error(f"riichi broadcast_ask_other_action 失败: {e}")
     if hasattr(self, "spectator_manager"):
@@ -347,7 +325,7 @@ async def broadcast_do_action(
                 do_action_info=Do_action_info(
                     washizu_hands=public_hands(self),
                     washizu_layouts=layouts_for_viewer(self, cp.player_index) if not is_claim else None,
-                    tile_count=max(0, len(self.tiles_list)-self.dead_wall_count) if self.sub_rule in ('riichi/washizu', 'riichi/washizu_realtime') else None,
+                    tile_count=max(0, len(self.tiles_list)-self.dead_wall_count) if self.sub_rule in WASHIZU_SUB_RULES else None,
                     action_list=action_list,
                     action_player=action_player,
                     action_tick=self.server_action_tick,
@@ -577,6 +555,10 @@ async def broadcast_game_end(self):
             rank=player.record_counter.rank_result,
             score=player.score,
             pt=getattr(player, 'riichi_points', 0),
+            **({"team_id": player.team_id, "team_role": player.team_role,
+                "team_score": self.team_result["scores"][player.team_id],
+                "team_match_points": self.team_result["match_points"][player.team_id],
+                "team_result_reason": self.team_result["reason"]} if self.is_team_game else {}),
             username=player.username,
             original_player_index=player.original_player_index,
         )
@@ -597,6 +579,7 @@ async def broadcast_game_end(self):
                     salt=self.salt,
                     player_final_data=player_final_data,
                     record_detail=local_record_detail_for_end(self),
+                    team_result=getattr(self, "team_result", None),
                 ),
             )
             await _send_response(self, cp.player_index, response)
@@ -638,10 +621,8 @@ async def broadcast_refresh_player_tag_list(self):
 
 
 async def broadcast_ready_status(self):
-    player_to_ready = {}
-    for player in self.player_list:
-        pending = self.action_dict.get(player.player_index, [])
-        player_to_ready[player.player_index] = "ready" not in pending
+    prepare_ready_window(self)
+    player_to_ready = ready_status_by_seat(self)
     info = Ready_status_info(player_to_ready=player_to_ready)
     for cp in self.player_list:
         try:

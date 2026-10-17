@@ -36,9 +36,10 @@ test('manual keys remain reusable and invalid batch settings are rejected before
   form.auto_duplicate = true
   assert.throws(() => buildEventRoomCreation(form), /已有密钥/)
   form.duplicate_key = ''
-  form.room_rule = 'riichi'
-  assert.throws(() => buildEventRoomCreation(form), /仅支持国标/)
-  form.room_rule = 'guobiao'
+  const riichiForm = createEventRoomCreationForm({ room_rule: 'riichi' })
+  riichiForm.duplicate_enabled = true
+  riichiForm.auto_duplicate = true
+  assert.throws(() => buildEventRoomCreation(riichiForm), /仅支持国标/)
   form.duplicate_round_count = 2
   assert.throws(() => buildEventRoomCreation(form), /复式局数/)
   form.auto_duplicate = false

@@ -32,7 +32,7 @@ public partial class NormalGameStateManager {
     public void AppendExternalRoundSettlementSnapshot(
         int hepaiPlayerIndex,
         Dictionary<int, int> playerToScore,
-        int huScore,
+        double huScore,
         string[] huFan,
         string huClass,
         int[] hepaiPlayerHand,

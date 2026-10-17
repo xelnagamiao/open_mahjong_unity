@@ -415,6 +415,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
                 "TileId": TileId,
                 "cutIndex": cutIndex,
                 "cutClass": cutClass,
+                "_action_tick": self.server_action_tick,
             }
         )
         self.action_events[player_index].set()
@@ -473,11 +474,8 @@ class ZhongyongGameState(HandFlow, RoundRecording):
         not resolve priority or mutate hand state; the public driver helpers do
         that after the selected responses are known.
         """
-        self.waiting_players_list = [idx for idx, actions in self.action_dict.items() if actions]
-        for idx in range(len(self.player_list)):
-            self.action_events[idx].clear()
-            while not self.action_queues[idx].empty():
-                self.action_queues[idx].get_nowait()
+        from ..public.action_window import prepare_action_window
+        prepare_action_window(self, tactical=False)
 
         self.schedule_bot_actions()
         results: Dict[int, dict] = {}
@@ -556,6 +554,8 @@ class ZhongyongGameState(HandFlow, RoundRecording):
                 self.action_dict[player.player_index] = ["ready"]
         self.waiting_players_list = [idx for idx, actions in self.action_dict.items() if actions]
         self.server_action_tick += 1
+        from ..public.action_window import prepare_action_window
+        prepare_action_window(self, new_ask=True, tactical=False)
         self.emit_ready_status_payloads()
         await self.flush_outbound_payloads()
         if timeout is None:
@@ -615,6 +615,8 @@ class ZhongyongGameState(HandFlow, RoundRecording):
         self.action_dict = {idx: list(actions.get(idx, [])) for idx in range(len(self.player_list))}
         self.waiting_players_list = [idx for idx, items in self.action_dict.items() if items]
         self.server_action_tick += 1
+        from ..public.action_window import prepare_action_window
+        prepare_action_window(self, new_ask=True, tactical=False)
         window["action_tick"] = self.server_action_tick
         self.emit_window_payloads(window)
         return window
@@ -757,14 +759,33 @@ class ZhongyongGameState(HandFlow, RoundRecording):
 
     async def flush_outbound_payloads(self) -> None:
         """Send newly recorded payloads to connected players where possible."""
+        ask_deliveries = []
         while self.outbound_send_cursor < len(self.outbound_payloads):
             payload = self.outbound_payloads[self.outbound_send_cursor]
             self.outbound_send_cursor += 1
             if "_pause" in payload:
+                await asyncio.gather(*ask_deliveries)
+                ask_deliveries.clear()
                 await asyncio.sleep(payload["_pause"])
                 continue
             player_index = payload.get("player_index")
             if player_index is None:
+                continue
+            ask_info = payload.get("ask_hand_action_info") or payload.get("ask_other_action_info")
+            if ask_info is not None and self.room_rule in ("zhongyong", "nanque", "jiandan"):
+                # Enqueue each seat immediately in its own FIFO. A slow viewer
+                # must not hold back another player's actionable prompt. Derived
+                # regional engines retain their own delivery/clock contracts.
+                from ..public.outbound_pipe import schedule_viewer_send
+                from ..public.claim_protection import take_post_meld_gap_delay
+                async def deliver_ask(vi=player_index, p=payload):
+                    await self._deliver_claim_payload(vi, p)
+                delivery = schedule_viewer_send(
+                    self, player_index, deliver_ask,
+                    delay_before=take_post_meld_gap_delay(self, player_index),
+                )
+                if ask_info.get("action_list"):
+                    ask_deliveries.append(delivery)
                 continue
             action_list = (payload.get("do_action_info") or {}).get("action_list") or []
             is_cut = bool(action_list) and action_list[0] == "cut"
@@ -823,6 +844,7 @@ class ZhongyongGameState(HandFlow, RoundRecording):
                 if is_real_meld and _ipv(self, player_index):
                     mark_post_meld_gap(self, player_index)
 
+        await asyncio.gather(*ask_deliveries)
         if self._final_result_pending:
             self._final_result_pending = False
             await self.present_final_settlements()

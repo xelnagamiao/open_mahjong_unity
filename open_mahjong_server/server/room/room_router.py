@@ -180,7 +180,7 @@ async def _dispatch_room_message(game_server, Connect_id: str, message: dict, we
     elif message_type == "room/set_team":
         response = await game_server.room_manager.set_room_team(
             Connect_id, message.get("room_id"), revision=message.get("roster_revision"),
-            seat_index=message.get("seat_index"), team_id=message.get("team_id"))
+            seat_index=message.get("seat_index"), team_id=message.get("team_id"), role_id=message.get("role_id"))
         if response is not None:
             await websocket.send_json(response.model_dump(exclude_none=True))
     elif message_type == "room/move_duplicate_seat":

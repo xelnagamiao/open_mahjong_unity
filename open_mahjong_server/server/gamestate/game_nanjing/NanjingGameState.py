@@ -94,7 +94,6 @@ class NanjingGameState(FlowerFlow, HandFlow, Protocol, Recording, EndOfHand, Zho
         self.kong_chain_count = 0
         self.domain_events = []
         self.round_settlement = None
-        self._nanjing_hint_cache = {}
         self.round_changes = [0]*4
         self.round_start_scores = [p.score for p in self.player_list]
         physical = list(PHYSICAL)
@@ -210,7 +209,7 @@ class NanjingGameState(FlowerFlow, HandFlow, Protocol, Recording, EndOfHand, Zho
         fixed_window = self.fixed_response_window()
         deadlines = {}
         for i in self.waiting_players_list:
-            seconds = (timeout if timeout is not None else 8) if self.machine.phase == P.READY else (3 if self.machine.phase in (P.RESPONSE, P.KONG) or self.machine.phase == P.REPLACEMENT and self.opening_queue is None else self.step_time+self.player_list[i].remaining_time)
+            seconds = (timeout if timeout is not None else 8) if self.machine.phase == P.READY else (3 if fixed_window else self.step_time+self.player_list[i].remaining_time)
             if self.player_list[i].is_bot:
                 from ..public.ai.pacing import bot_delay
                 seconds = max(seconds, bot_delay(self)+0.1)
@@ -250,7 +249,9 @@ class NanjingGameState(FlowerFlow, HandFlow, Protocol, Recording, EndOfHand, Zho
         return responses
 
     def fixed_response_window(self):
-        return self.machine.phase in (P.RESPONSE, P.KONG) or self.machine.phase == P.REPLACEMENT and self.opening_queue is None
+        # Online meld/rob-kong decisions share the room's step and hand bank.
+        # The rulebook's separate in-play flower-replacement limit is unchanged.
+        return self.machine.phase == P.REPLACEMENT and self.opening_queue is None
 
     async def run_game_loop(self):
         try:

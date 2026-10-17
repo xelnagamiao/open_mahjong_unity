@@ -253,7 +253,7 @@ def hepai_check(hand, melds, way, winning_tile, joker_multi_wait=False, allow_si
 
 
 def hint_snapshot(hand, melds):
-    """Structural hints only; never multiply exact scoring by 14*35 draws."""
+    """Web calculator API only; gameplay previews are computed by clients."""
     hand, melds = tuple(hand), tuple(melds)
     result = dict(hand=list(hand), melds=list(melds), waits=[], discard_waits={})
     if len(hand) + 3 * len(melds) == 13:
@@ -266,7 +266,7 @@ def hint_snapshot(hand, melds):
 
 
 def calculate_hint(hand, melds, ron_way, self_way, tile, limit, joker_multi_wait=False, allow_single_wait=True):
-    """Called on demand by an open hint row, in a calculation worker."""
+    """Web calculator API only; not a gameplay broadcast or Unity hint service."""
     flowers = ron_way.count('花牌')
     ron, _ = hepai_check(hand, melds, ron_way, tile, joker_multi_wait, allow_single_wait)
     if ron > 0 and ron - flowers >= limit:

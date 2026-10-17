@@ -19,6 +19,7 @@ public sealed class SingaporePayment {
 public sealed class SingaporeWaitDetail { public int points; public string kind; }
 [Serializable]
 public sealed class SingaporeHints {
+    public Newtonsoft.Json.Linq.JObject local_request;
     public int[] source_hand_tiles, waiting_tiles;
     public string[] source_melds;
     public Dictionary<int,int[]> waiting_by_discard;

@@ -24,6 +24,7 @@ public sealed class FuzhouWaitDetail {
 }
 [Serializable]
 public sealed class FuzhouHints {
+    public Newtonsoft.Json.Linq.JObject local_request;
     public int[] source_hand_tiles, waiting_tiles;
     public string[] source_melds;
     public Dictionary<int,int[]> waiting_by_discard;

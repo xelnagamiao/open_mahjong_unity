@@ -4,11 +4,14 @@ using System.Linq;
 
 public sealed class FuzhouHintsCache {
     private FuzhouHints hints;
+    private System.Action onLocalReady;
+    private bool RememberReady(TingpaiQuery q) { onLocalReady=q.OnReady; return true; }
     public void Reset() { hints=null; }
     public void Accept(FuzhouHints value) { if(value?.source_hand_tiles!=null) hints=value; }
     private static bool Same(IEnumerable<int> a,IEnumerable<int> b) => a!=null && b!=null && a.OrderBy(t=>t).SequenceEqual(b.OrderBy(t=>t));
     private bool Rows(List<int> hand,List<string> melds,out int[] waits,out Dictionary<int,FuzhouWaitDetail> details) {
         waits=null;details=null;
+        if(hints?.local_request!=null) { var local=LocalHintSnapshots.Read<FuzhouHints>(hints.local_request,onLocalReady); if(local==null)return false; hints=local; }
         if(hints==null || hand==null || !(hints.source_melds??Array.Empty<string>()).OrderBy(x=>x).SequenceEqual((melds??new List<string>()).OrderBy(x=>x))) return false;
         if(Same(hand,hints.source_hand_tiles)) { waits=hints.waiting_tiles;details=hints.waiting_details;return true; }
         if(hand.Count+1!=hints.source_hand_tiles.Length || hints.waiting_by_discard==null) return false;
@@ -19,7 +22,7 @@ public sealed class FuzhouHintsCache {
         }
         return false;
     }
-    public HashSet<int> Waiting(TingpaiQuery query) => query!=null && Rows(query.Hand,query.Melds,out var waits,out _)
+    public HashSet<int> Waiting(TingpaiQuery query) => query!=null && RememberReady(query) && Rows(query.Hand,query.Melds,out var waits,out _)
         ? new HashSet<int>(waits??Array.Empty<int>()) : new HashSet<int>();
     public WaitTileHint Describe(WaitHintQuery query,bool blocked=false) {
         if(query?.HandWithWin==null) return null;
@@ -30,7 +33,7 @@ public sealed class FuzhouHintsCache {
         if(details==null || !details.TryGetValue(query.HepaiTile,out var row) || row==null) return null;
         if(row.kind=="unmet") return WaitTileHint.None("未满足");
         if(row.kind=="not_ready") return WaitTileHint.None("未起和");
-        if(row.kind=="self_only") return WaitTileHint.TsumoOnly("仅自摸");
+        if(row.kind=="self_only") return WaitTileHint.TsumoOnly(row.points>0?$"{row.points}分":"仅自摸");
         return row.kind=="ron" ? WaitTileHint.Ron(row.points>0?$"{row.points}分":"可和") : WaitTileHint.None("未满足");
     }
 }

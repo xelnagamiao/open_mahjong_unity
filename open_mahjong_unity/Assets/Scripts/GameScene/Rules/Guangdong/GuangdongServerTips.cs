@@ -4,6 +4,7 @@ using System.Linq;
 
 /// <summary>实战索引权威基本提示；牌谱按快照补算同一基本牌型及起和门槛。</summary>
 internal static class GuangdongServerTips {
+    private static readonly Dictionary<int,Newtonsoft.Json.Linq.JObject> localRequests=new Dictionary<int,Newtonsoft.Json.Linq.JObject>();
     private static readonly Dictionary<string, GuangdongWait[]> live = new Dictionary<string, GuangdongWait[]>();
     private static readonly Dictionary<int, Dictionary<string, GuangdongWait[]>> replay = new Dictionary<int, Dictionary<string, GuangdongWait[]>>();
     private static string Key(IEnumerable<int> hand, IEnumerable<string> melds) =>
@@ -14,9 +15,11 @@ internal static class GuangdongServerTips {
         return cache;
     }
     internal static void Clear(bool record = false) {
+        foreach(int key in localRequests.Keys.Where(k=>record?k>=0:k<0).ToArray())localRequests.Remove(key);
         if(record) { replay.Clear(); GuangdongBaseHints.Clear(); } else live.Clear();
     }
     internal static void Accept(GuangdongTips tips, bool record = false, int seat = 0) {
+        int source=record?seat:-1;if(tips?.local_request!=null)localRequests[source]=tips.local_request;else localRequests.Remove(source);
         var cache = Cache(record, seat);
         cache.Clear();
         if (tips?.hand == null) return;
@@ -31,6 +34,7 @@ internal static class GuangdongServerTips {
         return Waiting(query, query.RecordPlayerIndex.HasValue, query.RecordPlayerIndex ?? 0);
     }
     internal static HashSet<int> Waiting(TingpaiQuery query, bool record, int seat = 0) {
+        if(localRequests.TryGetValue(record?seat:-1,out var request))return new HashSet<int>(LocalHintSnapshots.Rows(request,query.Hand,query.OnReady)?.Properties().Select(p=>int.Parse(p.Name))??Enumerable.Empty<int>());
         if (record) return GuangdongBaseHints.Waiting(query.Hand, query.Melds);
         string key = Key(query.Hand, query.Melds);
         var cache = Cache(record, seat);
@@ -39,6 +43,10 @@ internal static class GuangdongServerTips {
     private static string Format(string label, int? fan, int? score) => label
         + (fan.HasValue ? fan.Value + "番" : "") + (score.HasValue ? score.Value + "分" : "");
     internal static WaitTileHint Describe(WaitHintQuery query) {
+        if(localRequests.TryGetValue(query.Record?.SelfPlayerIndex??-1,out var request)) {
+            var before=new List<int>(query.HandWithWin);before.Remove(query.HepaiTile);var row=LocalHintSnapshots.Rows(request,before)?[query.HepaiTile.ToString()];
+            return row==null?null:new WaitTileHint{Kind=(string)row["kind"],Label=(string)row["label"]};
+        }
         if (query.Record != null) return GuangdongBaseHints.Describe(query);
         var hand = new List<int>(query.HandWithWin ?? new List<int>());
         hand.Remove(query.HepaiTile);

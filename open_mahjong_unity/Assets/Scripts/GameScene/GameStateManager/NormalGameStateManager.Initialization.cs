@@ -243,6 +243,7 @@ public partial class NormalGameStateManager {
 
         Session.FanTips = gameInfo.tips;
         Session.CountTips = gameInfo.count_tips;
+        Session.PointerTips = gameInfo.pointer_tips;
         tips = gameInfo.tips || gameInfo.count_tips; // 任一种提示开启即可显示听牌入口
         showMoqieHint = gameInfo.show_moqie_hint; // 手摸切灰显
         isOpenCuoHe = gameInfo.open_cuohe; // 存储是否开启错和

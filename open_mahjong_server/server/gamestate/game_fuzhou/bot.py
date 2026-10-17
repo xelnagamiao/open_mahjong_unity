@@ -7,11 +7,9 @@ from .actions import legal_cuts, kong_tiles
 
 def choose_action(state,index,actions):
     p = state.player_list[index]
-    for action in ("hu_self","sanjin","hu","qiangjin","buhua","ready"):
+    for action in ("fuzhou_flower_win","hu_self","sanjin","hu","qiangjin","buhua","ready"):
         if action in actions:
             result = dict(action_type=action)
-            if action=="qiangjin" and index==state.dealer_index:
-                result["target_tile"] = min(state.qiangjin_cuts(index))
             return result
     for action in ("angang","jiagang"):
         if action in actions:
@@ -36,7 +34,8 @@ def choose_action(state,index,actions):
 async def play_bot(state,index,tick):
     started = time.monotonic()
     action = choose_action(state,index,list(state.action_dict[index]))
-    if action["action_type"]!="pass":
+    automatic_opening_flower = state.opening_replacement and action["action_type"]=="buhua"
+    if action["action_type"]!="pass" and not automatic_opening_flower:
         await wait_bot_delay(state,started)
     if tick==state.server_action_tick and index in state.waiting_players_list and state.action_queues[index].empty():
         try:

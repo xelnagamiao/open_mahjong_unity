@@ -7,7 +7,7 @@ using UnityEngine;
 public partial class GameCanvas {
     private WashizuHandLayout washizuSelfLayout;
     private Coroutine washizuSelfSync;
-    private bool washizuOrderDirty, washizuAwaitingOrder, washizuApplySelfLayout;
+    private bool washizuOrderDirty, washizuAwaitingOrder, washizuApplySelfLayout, washizuAutoArrangePending;
     private int washizuOrderRequest;
     private float washizuOrderSentAt, washizuRetryAfter;
     private string washizuSyncGame;
@@ -15,13 +15,21 @@ public partial class GameCanvas {
 
     public void PrepareWashizuRealtimeHand(GameInfo info) {
         ResetWashizuRealtimeHand();
-        AutoAction.Instance?.RefreshArrangeRule();
+        AutoAction.Instance?.PrepareRealtimeHandOrder(info);
         if (!WashizuTile.IsRealtimeSubRule(info.sub_rule)) return;
         washizuSyncGame = info.gamestate_id;
         if (info.washizu_layouts != null && info.washizu_layouts.TryGetValue(GameSession.Current.SelfIndex, out var layout)) {
             washizuSelfLayout = layout;
             washizuApplySelfLayout = true;
+            washizuAutoArrangePending = AutoAction.Instance?.IsAutoArrangeHandCards == true;
+            EnsureWashizuSelfSync();
         }
+    }
+
+    public void RequestWashizuAutoArrange() {
+        if (!WashizuTile.IsRealtimeHandOrder || IsHandRecordPlayback()) return;
+        washizuAutoArrangePending = true;
+        EnsureWashizuSelfSync();
     }
 
     private void ResetWashizuRealtimeHand() {
@@ -30,7 +38,7 @@ public partial class GameCanvas {
         washizuSelfLayout = null;
         washizuSelfKeys.Clear();
         washizuSyncGame = null;
-        washizuOrderDirty = washizuAwaitingOrder = washizuApplySelfLayout = false;
+        washizuOrderDirty = washizuAwaitingOrder = washizuApplySelfLayout = washizuAutoArrangePending = false;
         washizuRetryAfter = 0;
     }
 
@@ -38,6 +46,8 @@ public partial class GameCanvas {
         if (!WashizuTile.IsRealtimeHandOrder || GameSession.Current.IsRealtimeSpectator
             || IsHandRecordPlayback() || washizuSelfLayout == null) return;
         washizuOrderDirty = true;
+        // 自动理牌与拖拽使用同一条物理牌顺序同步；不让尚未应用的旧快照覆盖本地操作。
+        if (BindWashizuSelfKeys(washizuSelfLayout, CurrentWashizuCards())) washizuApplySelfLayout = false;
         EnsureWashizuSelfSync();
     }
 
@@ -53,6 +63,7 @@ public partial class GameCanvas {
                 || !SameWashizuTiles(washizuSelfLayout.tiles, layout.tiles);
             washizuSelfLayout = layout;
             if (handChanged) {
+                washizuAutoArrangePending = true;
                 // A draw/discard may cross an in-flight drag. The existing 2D
                 // hand mutation preserves survivors, so rebase that local order
                 // on the new revision instead of snapping back to the old order.
@@ -94,6 +105,15 @@ public partial class GameCanvas {
             && washizuSyncGame == UserDataManager.Instance.GamestateId) {
             if (!IsChangeHandCardProcessing && !IsHandReflowAnimating && !HandCardDragController.SuppressPointerHover) {
                 if (washizuApplySelfLayout && TryApplyWashizuSelfLayout()) washizuApplySelfLayout = false;
+                if (washizuAutoArrangePending && !washizuApplySelfLayout) {
+                    washizuAutoArrangePending = false;
+                    if (AutoAction.Instance?.IsAutoArrangeHandCards == true && !IsHandRecordPlayback()) {
+                        SortMainHandByTileIdIfNeeded();
+                        // 先完成本次移动，再发送稳定的排列；点击发生在摸牌/补花中也不会丢失。
+                        yield return null;
+                        continue;
+                    }
+                }
                 if (washizuAwaitingOrder && Time.unscaledTime - washizuOrderSentAt > 5f) {
                     washizuAwaitingOrder = false;
                     washizuOrderDirty = true;

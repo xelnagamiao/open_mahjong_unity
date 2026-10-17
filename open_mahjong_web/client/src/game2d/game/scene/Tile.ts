@@ -3,7 +3,8 @@ import {
   TILE_WIDTH, TILE_HEIGHT, TILE_RADIUS, LINE_WIDTH,
   FRONT_COLOR, BACK_COLOR, BORDER_COLOR, ANIMATION_TIME,
 } from './constants'
-import { getTexture, getTileFaceLabel, getTileFaceLabelColor, isBlackTileFaceTheme, isUnityFlowerFace } from './textures'
+import { getTexture, getTileFaceLabel, getTileFaceLabelColor, isBlackTileFaceTheme, isUnityFlowerFace, isGuobiaoTileFace } from './textures'
+import { GUOBIAO_FACE_SCALE } from '../../lib/tileFaceAsset'
 
 export const TILE_HOVER_TINT = 0xe0e0e0
 export const TILE_SELECTED_TINT = 0xb8d9ff
@@ -307,9 +308,15 @@ export class Tile extends Container {
   private fitSpriteToTileFace(): void {
     if (!this.sprite) return
     // Flower vectors already contain their optical margin; don't shrink them like a full tile image.
-    const faceScale = isUnityFlowerFace(this.tid) ? 0.94 : 5 / 6
-    this.sprite.width = TILE_WIDTH * faceScale
-    this.sprite.height = TILE_HEIGHT * faceScale
+    if (isGuobiaoTileFace(this.tid)) {
+      // The 400×532 table artwork includes its margins; use its calibrated display area.
+      const texture = this.sprite.texture
+      this.sprite.scale.set(Math.min(TILE_WIDTH / texture.width, TILE_HEIGHT / texture.height) * GUOBIAO_FACE_SCALE)
+    } else {
+      const faceScale = isUnityFlowerFace(this.tid) ? 0.94 : 5 / 6
+      this.sprite.width = TILE_WIDTH * faceScale
+      this.sprite.height = TILE_HEIGHT * faceScale
+    }
     this.sprite.y = 0
   }
 

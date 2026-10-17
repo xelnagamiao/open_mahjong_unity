@@ -165,7 +165,7 @@ public static class ScoreHistorySettlementHelper {
         int roundIndex,
         int scoreHistoryCount,
         IReadOnlyList<RoundSettlementSnapshot> roundSettlements) {
-        if (roundSettlements == null || roundSettlements.Count == 0) {
+        if (roundSettlements == null) {
             var mgr = NormalGameStateManager.Instance;
             var live = mgr != null ? mgr.roundSettlementHistory : null;
             if (live == null || live.Count == 0) return null;
@@ -211,7 +211,7 @@ public static class ScoreHistorySettlementHelper {
             for (int i = 0; i < snapshot.huFan.Length; i++) {
                 string fanKey = snapshot.huFan[i];
                 if (sb.Length > 0) sb.Append(' ');
-                sb.Append(GetFanNameForScoreHistory(subRule, fanKey));
+                sb.Append(FanTextDictionary.GetFanNameDisplayText(subRule, fanKey));
                 sb.Append(' ');
                 sb.Append(FanTextDictionary.GetFanDisplayText(subRule, fanKey));
             }
@@ -246,7 +246,7 @@ public static class ScoreHistorySettlementHelper {
         string huClass,
         int hepaiPlayerIndex,
         string winnerUsername,
-        int huScore,
+        double huScore,
         string[] huFan,
         int[] hepaiPlayerHand,
         int[][] combinationMask,

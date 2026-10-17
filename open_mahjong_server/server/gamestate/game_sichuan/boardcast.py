@@ -1,3 +1,6 @@
+from ..public.action_window import prepare_ready_window
+from ..public.ready_phase import ready_status_by_seat
+from ..public.ask_timing import send_ask_response_to_viewer as _send_ask_response_to_viewer
 """四川麻将（血战到底）广播。消息前缀 gamestate/sichuan/*。"""
 from ...response import (
     Response, GameInfo, Ask_hand_action_info, Ask_other_action_info, Do_action_info,
@@ -31,7 +34,7 @@ from .shunhe import tag_list_for_viewer
 from .action_window import prepare_action_window
 from .action_check import xueliu_post_hu_kong_candidates, is_xueliu_required_hu
 
-from ..public.ask_timing import begin_ask_round, note_ask_delivered, reconnect_clock
+from ..public.ask_timing import begin_ask_round, reconnect_clock
 
 logger = logging.getLogger(__name__)
 XUELIU_DOUBLES_SECOND_EXCHANGE_DELAY_SEC = 3.0
@@ -39,38 +42,6 @@ XUELIU_DOUBLES_SECOND_EXCHANGE_DELAY_SEC = 3.0
 DINGQUE_REVEAL_DELAY_SEC = 1.0
 
 
-async def _send_ask_response_to_viewer(
-    self, viewer_index: int, response, *, block: bool = True
-) -> None:
-    """经 outbound_pipe 发送 ask，保证排在延迟鸣牌/第二追赶之后；送达时起算计时。
-
-    block=True：await 本条（用于当前行动者，立刻可操作）。
-    block=False：仅 schedule 入队（旁观者可带 post_gap，不拖住主循环/行动者）。
-    """
-    from ..public.outbound_pipe import send_to_viewer, schedule_viewer_send
-
-    current_player = self.player_list[viewer_index]
-    if current_player.user_id not in self.game_server.user_id_to_connection:
-        logger.warning(
-            f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过 ask 广播"
-        )
-        return
-    player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-    delay_before = take_post_meld_gap_delay(self, viewer_index)
-    ask_tick = self.server_action_tick
-
-    async def _do():
-        await player_conn.websocket.send_json(response.dict(exclude_none=True))
-        await self.send_to_realtime_spectators(viewer_index, response)
-        # A delayed observer ask may belong to a decision window already closed.
-        # It must not start the clock for a newer ask waiting behind it.
-        if self.server_action_tick == ask_tick:
-            note_ask_delivered(self, viewer_index)
-
-    if block:
-        await send_to_viewer(self, viewer_index, _do, delay_before=delay_before)
-    else:
-        schedule_viewer_send(self, viewer_index, _do, delay_before=delay_before)
 
 
 def _sync_xueliu_score_history(self):
@@ -307,8 +278,8 @@ async def broadcast_dingque_done(self):
 
 async def broadcast_ask_hand_action(self):
     self.server_action_tick += 1
-    begin_ask_round(self)
     prepare_action_window(self, new_ask=True)
+    begin_ask_round(self)
     # 当前行动者优先 await；其余座位 schedule，避免 post_gap/延迟鸣牌卡住出牌权
     seat_order = [self.current_player_index] + [
         i for i in range(len(self.player_list)) if i != self.current_player_index
@@ -444,8 +415,8 @@ async def broadcast_xueliu_throw_three_ask(self):
 async def broadcast_ask_other_action(self, remaining_time_override: Optional[int] = None, is_tactical_recheck: bool = False):
     cut_tile = self.jiagang_tile if self.game_status == "waiting_action_qianggang" else self.player_list[self.current_player_index].discard_tiles[-1]
     self.server_action_tick += 1
-    begin_ask_round(self)
     prepare_action_window(self, new_ask=True, is_tactical_recheck=is_tactical_recheck)
+    begin_ask_round(self)
     for i, current_player in enumerate(self.player_list):
         try:
             required_hu = is_xueliu_required_hu(self, i)
@@ -485,7 +456,7 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
                         is_tactical_recheck=is_tactical_recheck if is_tactical_recheck else None,
                     ),
                 )
-                await _send_ask_response_to_viewer(self, i, response)
+                await _send_ask_response_to_viewer(self, i, response, block=is_tactical_recheck)
             elif not is_tactical_recheck:
                 response = Response(
                     type="gamestate/sichuan/ask_other_action", success=True, message="询问操作",
@@ -916,12 +887,8 @@ async def broadcast_refresh_player_tag_list(self):
 
 
 async def broadcast_ready_status(self):
-    if self.game_status == "waiting_ready":
-        prepare_action_window(self)
-    player_to_ready = {}
-    for player in self.player_list:
-        pending = self.action_dict.get(player.player_index, [])
-        player_to_ready[player.player_index] = "ready" not in pending
+    prepare_ready_window(self)
+    player_to_ready = ready_status_by_seat(self)
     ready_info = Ready_status_info(player_to_ready=player_to_ready)
     for current_player in self.player_list:
         try:

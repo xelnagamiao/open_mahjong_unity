@@ -10,6 +10,9 @@ public static class MatchQueueDisplayText {
     public static readonly Dictionary<string, string> ExplicitTitles = new Dictionary<string, string> {
         // Keep the transport ID while showing the current eight-hand length.
         { "sichuan_elo_xuezhan", "川麻血战-Elo 匹配-半庄战（8副）" },
+        { "sichuan_xueliu_exchange_elo_banzhuang", "川麻血流换三张-Elo 匹配-半庄战（8副）" },
+        { "hongque_elo_banzhuang", "虹雀-Elo 匹配-8局战" },
+        { "hongque_elo_quanzhuang", "虹雀-Elo 匹配-16局战" },
     };
 
     private const string RuleTitle = "国标麻将";

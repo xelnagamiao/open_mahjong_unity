@@ -1,5 +1,5 @@
 <template>
-  <span class="tile-face-image" :style="{ '--face-scale': `${scale * 100}%` }">
+  <span class="tile-face-image" :style="{ '--face-scale': `${displayScale * 100}%` }">
     <img class="tile-face-image__art" :src="src" :alt="alt">
     <span v-if="label" class="tile-face-image__label" :style="{ color: tileFaceLabelColor(faceId) }" aria-hidden="true" data-no-translate>{{ label }}</span>
   </span>
@@ -9,6 +9,7 @@
 import { computed, inject } from 'vue'
 import { locale } from '@/i18n'
 import { shouldShowTileLabels, tileFaceLabel, tileFaceLabelColor } from '@/game2d/lib/tileLabels'
+import { tileFaceDisplayScale } from '@/game2d/lib/tileFaceAsset'
 
 const props = defineProps({
   src: { type: String, required: true },
@@ -17,6 +18,7 @@ const props = defineProps({
   scale: { type: Number, default: 0.84 },
 })
 const enabled = inject('game2d.tileLabelsEnabled', computed(() => shouldShowTileLabels('auto', locale.value)))
+const displayScale = computed(() => tileFaceDisplayScale(props.src, props.scale))
 const label = computed(() => enabled.value ? tileFaceLabel(props.faceId) : '')
 </script>
 

@@ -19,7 +19,8 @@ def test_private_joker_waits_do_not_leak_to_other_viewers_and_are_versioned():
     s = turn(FLOAT, tips=True)
     snapshot = s.build_game_start_payload(0)["game_info"]
     assert snapshot["hangzhou_info"]["source_hand_tiles"] == FLOAT
-    assert snapshot["hangzhou_info"]["waiting_by_discard"][46]
+    assert 46 in snapshot["hangzhou_info"]["local_request"]["cuts"]
+    assert "waiting_by_discard" not in snapshot["hangzhou_info"]
     assert snapshot["self_has_draw_slot"]
     for viewer in range(4):
         data = s.build_game_start_payload(viewer)["game_info"]

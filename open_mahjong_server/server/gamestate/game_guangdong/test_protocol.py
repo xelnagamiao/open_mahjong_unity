@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from . import tips
+from tests.local_hint_oracles import guangdong as tips
 from .test_state import HAND, draw, hand, make_state, ticks
 from ...game_calculation.guangdong import rules
 from ...game_calculation.guangdong.scoring import Context
@@ -16,7 +16,7 @@ from ...game_calculation.guangdong.settlement import kong_payments
 from ..game_taiwan import boardcast
 
 
-TIP_MODULE = "server.gamestate.game_guangdong.tips"
+CPU_MODULE = "server.gamestate.public.ai.bot_executor"
 TIME_MODULE = "server.gamestate.public.spectator_manager.time.time"
 MELDS = ("k11", "k22", "k33")
 
@@ -39,7 +39,7 @@ async def actual_cpu(_state, function, *args):
 
 @pytest.fixture
 def cpu():
-    with patch(f"{TIP_MODULE}.run_room_bot_cpu", new=AsyncMock(side_effect=actual_cpu)) as bridge:
+    with patch(f"{CPU_MODULE}.run_room_bot_cpu", new=AsyncMock(side_effect=actual_cpu)) as bridge:
         yield bridge
 
 
@@ -127,92 +127,68 @@ def test_hint_switches_supply_structure_for_count_only_rooms(cpu, fan, count):
         assert "guangdong_tips" not in fields and cpu.await_count == 0
         return
     payload = fields["guangdong_tips"]
-    assert {item["tile"] for item in payload["waits"]} == set(rules.structural_waits(player.hand_tiles))
-    assert len(payload["waits"]) == 36
+    assert payload["local_request"]["hand"] == sorted(player.hand_tiles)
+    assert not {"waits", "discard_waits"} & payload.keys()
+    cpu.assert_not_awaited()
     asyncio.run(boardcast.broadcast_do_action(state, ["cut"], 1, cut_tile=46))
     own = inbox(state, 0)[-1]["do_action_info"]["guangdong_tips"]
     assert own["hand"] == sorted(player.hand_tiles)
-    assert any(tick[2] == 0 and tick[3]["waits"] == payload["waits"] for tick in tip_ticks(state))
+    assert any(tick[2] == 0 and tick[3]["local_request"] == payload["local_request"] for tick in tip_ticks(state))
 
 
-def test_prepare_cache_skips_invalid_seats_reuses_snapshot_and_getters_are_read_only(cpu):
+def test_local_inputs_skip_invalid_seats_and_getters_are_read_only(cpu):
     state = protocol_state()
-    fallback = state.guangdong_tips(0)
-    assert not fallback["waits"]
-    asyncio.run(state.prepare_private_fields((-1, 0, 4)))
-    assert cpu.await_count == 1 and set(state._tips_cache) == {0}
-    expected = state.guangdong_tips(0)
-    assert expected["waits"]
+    expected = state.local_context(0)
+    before = deepcopy(state.player_list[0].hand_tiles)
+    assert expected["local_request"]["hand"] == sorted(before)
     for _ in range(2):
         assert state.build_private_game_info_fields(0)["guangdong_tips"] == expected
         assert state.build_private_game_info_fields(-1) == {}
         assert state.build_private_game_info_fields(4) == {}
-        asyncio.run(state.prepare_private_fields((0,)))
-    assert cpu.await_count == 1
+    assert state.player_list[0].hand_tiles == before
     state.player_list[0].hand_tiles.reverse()
-    asyncio.run(state.prepare_private_fields((0,)))
-    assert cpu.await_count == 1  # 排序与 UI 槽位改变不使相同的牌值缓存失效。
-    state.player_list[0].hand_tiles[-1] = 46
-    assert state.guangdong_tips(0)["waits"] == []
-    asyncio.run(state.prepare_private_fields((0,)))
-    assert cpu.await_count == 2
+    assert state.local_context(0) == expected
+    assert not hasattr(state, "_tips_cache")
+    assert not hasattr(state, "prepare_private_fields")
+    assert not {"waits", "discard_waits"} & expected.keys()
+    cpu.assert_not_awaited()
 
 
 @pytest.mark.parametrize("change", ("hand", "meld", "passed", "ghost_count", "last_wall", "configuration"))
-def test_cpu_result_for_stale_snapshot_is_discarded(change):
+def test_local_inputs_are_immutable_and_only_scoring_context_changes_them(cpu, change):
     state = protocol_state()
-
-    async def compute_then_change(_state, function, *args):
-        payload = function(*args)
-        player = state.player_list[0]
-        if change == "hand":
-            player.hand_tiles[-1] = 46
-        elif change == "meld":
-            player.combination_tiles[0] = "k18"
-        elif change == "passed":
-            player.passed_base_score = 100
-        elif change == "ghost_count":
-            player.discarded_ghosts = 1
-        elif change == "last_wall":
-            state.tiles_list.clear()
-        else:
-            state.rules_dict["require_minimum_score"] = False
-        return payload
-
-    with patch(f"{TIP_MODULE}.run_room_bot_cpu", new=AsyncMock(side_effect=compute_then_change)):
-        asyncio.run(state.prepare_private_fields((0,)))
-    assert 0 not in state._tips_cache
-    assert state.guangdong_tips(0)["waits"] == []
+    older = state.local_context(0)
+    saved = deepcopy(older)
+    player = state.player_list[0]
+    if change == "hand":
+        player.hand_tiles[-1] = 46
+    elif change == "meld":
+        player.combination_tiles[0] = "k18"
+    elif change == "passed":
+        player.passed_base_score = 100
+    elif change == "ghost_count":
+        player.discarded_ghosts = 1
+    elif change == "last_wall":
+        state.tiles_list.clear()
+    else:
+        state.rules_dict["require_minimum_score"] = False
+    newer = state.local_context(0)
+    cpu.assert_not_awaited()
+    assert older == saved
+    assert (newer != older) is (change in ('hand', 'meld', 'ghost_count', 'configuration'))
+    assert not {"waits", "discard_waits"} & newer.keys()
 
 
-def test_out_of_order_cpu_results_keep_newer_snapshot():
+def test_each_packet_captures_current_inputs_without_shared_result_cache(cpu):
     state = protocol_state()
-
-    async def scenario():
-        started, resume = asyncio.Event(), asyncio.Event()
-        calls = 0
-
-        async def reordered_cpu(_state, function, *args):
-            nonlocal calls
-            calls += 1
-            result = function(*args)
-            if calls == 1:
-                started.set()
-                await resume.wait()
-            return result
-
-        with patch(f"{TIP_MODULE}.run_room_bot_cpu", new=AsyncMock(side_effect=reordered_cpu)):
-            old_task = asyncio.create_task(state.prepare_private_fields((0,)))
-            await started.wait()
-            state.player_list[0].hand_tiles[-1] = 46
-            await state.prepare_private_fields((0,))
-            newer = deepcopy(state.guangdong_tips(0))
-            resume.set()
-            await old_task
-        assert state.guangdong_tips(0) == newer
-        assert newer["hand"][-1] == 46 and newer["waits"]
-
-    asyncio.run(scenario())
+    older = state.local_context(0)
+    state.player_list[0].hand_tiles[-1] = 46
+    newer = state.local_context(0)
+    assert newer["hand"][-1] == 46 and older["local_request"]["hand"][-1] == 45
+    assert newer["local_request"]["hand"] == newer["hand"]
+    newer["local_request"]["hand"].clear()
+    assert state.local_context(0)["local_request"]["hand"][-1] == 46
+    cpu.assert_not_awaited()
 
 
 @pytest.mark.parametrize("event", ("start", "ask", "do", "reconnect"))
@@ -238,14 +214,14 @@ def test_tips_disabled_never_computes_transmits_or_records_private_tips(cpu, eve
 def test_all_four_start_and_reconnect_messages_have_only_their_own_hand_and_tips(cpu):
     state = protocol_state()
     asyncio.run(boardcast.broadcast_game_start(state))
-    assert cpu.await_count == 1
+    assert cpu.await_count == 0
     for index in range(4):
         assert_private_hand(inbox(state, index)[0]["game_info"], state, index)
         asyncio.run(state.player_reconnect(state.player_list[index].user_id))
         snapshots = [m for m in inbox(state, index) if "game_info" in m]
         assert len(snapshots) == 2
         assert_private_hand(snapshots[-1]["game_info"], state, index)
-    assert cpu.await_count == 1
+    assert cpu.await_count == 0
 
 
 @pytest.mark.parametrize("active", range(4))
@@ -393,8 +369,8 @@ def test_record_deduplicates_tips_and_ordinary_spectator_waits_full_delay(cpu):
     with patch(TIME_MODULE, return_value=1000):
         asyncio.run(boardcast.broadcast_game_start(state))
     with patch(TIME_MODULE, return_value=1010):
-        state.record_guangdong_tips(0)
-        state.record_guangdong_tips(0)
+        state.record_local_context(0)
+        state.record_local_context(0)
     assert len(tip_ticks(state)) == 1
     assert manager._build_spectator_record(999) is None
     before = manager._build_spectator_record(1009)
@@ -409,7 +385,7 @@ def test_record_deduplicates_tips_and_ordinary_spectator_waits_full_delay(cpu):
     assert update is not None
     assert manager._get_new_updates(900, 2000) is None
     state.game_record["game_round"].clear()
-    state.record_guangdong_tips(1)
+    state.record_local_context(1)
     assert 1 not in state._recorded_tips
 
 

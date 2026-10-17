@@ -10,6 +10,9 @@ public class MeunPanel : MonoBehaviour {
     [SerializeField] private Button matchEntryButton;
     [SerializeField] private TMP_Text matchPlayerCountText;
 
+    [Header("规则阅读入口")]
+    [SerializeField] private RulebookPanelController rulebookPanelController;
+
     private void Awake() {
         if (Instance != null && Instance != this) {
             Destroy(gameObject);
@@ -31,7 +34,12 @@ public class MeunPanel : MonoBehaviour {
     }
 
     private void OnDisable() {
+        if (rulebookPanelController) rulebookPanelController.HideImmediate();
         NetworkPollingManager.Instance.StopMenuMatchPlayerCountPolling();
+    }
+
+    public void OpenFanTable() {
+        rulebookPanelController.Open("guobiao");
     }
 
     // 设置用户信息（通过UserContainer处理UI，UserDataManager管理数据）

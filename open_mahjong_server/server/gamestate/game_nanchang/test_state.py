@@ -139,16 +139,20 @@ def test_three_ledgers_settle_once_and_winner_becomes_dealer():
 
 
 def test_hints_priority_and_do_not_leak_other_jing():
-    from .hints import private_hints
+    from server.gamestate.game_nanchang.client_context import private_context as private_hints
+    from tests.local_hint_oracles.nanchang import for_hand
     s=state(); s.tips=True
     p=s.player_list[1]; p.hand_tiles=NORMAL[:12]+[45]; p.discard_origin_tiles=[45]
     a=private_hints(s,1)
     s.player_list[2].hand_tiles=[45]*2+[11]*2
     assert private_hints(s,1)==a
-    waits=next(iter(a.values()))
+    request=a['__local__'][0]['local_request']
+    assert request['hand']==p.hand_tiles and request['context']['discarded']==[45]
+    waits=for_hand(s,1,p.hand_tiles,p.discard_origin_tiles)
     assert any(w['status']=='self_draw_only' for w in waits)
-    p.tag_list=['peida']; s._wait_cache={}
-    assert all(w['status']=='unmet' for w in next(iter(private_hints(s,1).values())))
+    p.tag_list=['peida']; s._reference_wait_cache={}
+    assert private_hints(s,1)['__local__'][0]['local_request']['context']['peida']
+    assert all(w['status']=='unmet' for w in for_hand(s,1,p.hand_tiles,p.discard_origin_tiles))
 
 
 def test_seeded_action_branches_conserve_all_physical_tiles():

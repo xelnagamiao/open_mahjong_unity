@@ -253,13 +253,15 @@
       "default": 4,
       "values": [
         1,
+        3,
         4
       ],
       "choices": [
         "至少1张",
-        "至少4张"
+        "至少3张（三麻一巡）",
+        "至少4张（四麻一巡）"
       ],
-      "help": "声明立直后是否必须还有自己的摸牌机会；摸到海底牌后均不可立直。"
+      "help": "声明立直后是否必须还有自己的摸牌机会；三人预设至少3张，四人网麻预设至少4张。摸到海底牌后均不可立直。"
     },
     {
       "section": "立直与流局",
@@ -272,9 +274,9 @@
       ],
       "choices": [
         "下次摸牌",
-        "下次打牌"
+        "下次摸牌后打牌"
       ],
-      "help": "放过和牌后的临时振听解除时机；立直振听不解除。"
+      "help": "放过和牌后的临时振听解除时机。吃碰后未摸牌就打牌不解除；立直振听本局内不解除。"
     },
     {
       "section": "立直与流局",
@@ -365,6 +367,21 @@
         "开"
       ],
       "help": "流局满贯是否允许自己吃碰杠；自己的弃牌被他家鸣走始终不成立。"
+    },
+    {
+      "section": "立直与流局",
+      "key": "tenpai_owned_tiles",
+      "label": "形式听牌耗尽判定",
+      "default": "concealed",
+      "values": [
+        "concealed",
+        "all"
+      ],
+      "choices": [
+        "仅暗手四张不听",
+        "自家手牌与副露合计四张不听"
+      ],
+      "help": "仅暗手：暗手已有四张的牌不能作为听张，副露不计入耗尽判定（天凤、雀魂）。全部自家牌：手牌与副露合计已有四张也不能作为听张（M联赛）。他家手牌、牌河和宝牌指示牌不影响形式听牌。"
     },
     {
       "section": "立直与流局",
@@ -734,7 +751,8 @@
         "sanma_tsumo": "loss",
         "nuki_ron": "all",
         "nuki_rinshan": true,
-        "minimum_win_score": 0
+        "minimum_win_score": 0,
+        "tenpai_owned_tiles": "concealed"
       }
     },
     {
@@ -793,7 +811,8 @@
         "sanma_tsumo": "loss",
         "nuki_ron": "all",
         "nuki_rinshan": true,
-        "minimum_win_score": 0
+        "minimum_win_score": 0,
+        "tenpai_owned_tiles": "concealed"
       }
     },
     {
@@ -852,7 +871,8 @@
         "sanma_tsumo": "loss",
         "nuki_ron": "all",
         "nuki_rinshan": true,
-        "minimum_win_score": 0
+        "minimum_win_score": 0,
+        "tenpai_owned_tiles": "concealed"
       }
     },
     {
@@ -911,7 +931,8 @@
         "sanma_tsumo": "loss",
         "nuki_ron": "all",
         "nuki_rinshan": true,
-        "minimum_win_score": 0
+        "minimum_win_score": 0,
+        "tenpai_owned_tiles": "all"
       }
     },
     {
@@ -944,7 +965,7 @@
         "kan_dora_timing": "after_discard",
         "kokushi_ankan_ron": false,
         "riichi_kan_rule": "wait",
-        "riichi_min_live_tiles": 4,
+        "riichi_min_live_tiles": 3,
         "furiten_clear": "discard",
         "kyuushu_abort": true,
         "four_winds_abort": false,
@@ -970,7 +991,8 @@
         "sanma_tsumo": "loss",
         "nuki_ron": "all",
         "nuki_rinshan": true,
-        "minimum_win_score": 0
+        "minimum_win_score": 0,
+        "tenpai_owned_tiles": "concealed"
       },
       "sub_rule": "riichi/sanma"
     },
@@ -1004,7 +1026,7 @@
         "kan_dora_timing": "after_discard",
         "kokushi_ankan_ron": true,
         "riichi_kan_rule": "wait",
-        "riichi_min_live_tiles": 4,
+        "riichi_min_live_tiles": 3,
         "furiten_clear": "draw",
         "kyuushu_abort": true,
         "four_winds_abort": false,
@@ -1030,7 +1052,8 @@
         "sanma_tsumo": "loss",
         "nuki_ron": "all",
         "nuki_rinshan": true,
-        "minimum_win_score": 0
+        "minimum_win_score": 0,
+        "tenpai_owned_tiles": "concealed"
       },
       "sub_rule": "riichi/sanma"
     }

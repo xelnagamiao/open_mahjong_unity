@@ -115,7 +115,7 @@ public partial class CreatePanel : MonoBehaviour {
 
     private bool SupportsDuplicateWall => (_ruleState == "guobiao" && GetSelectedSubRule() != GuobiaoGameState.SanmaSubRule
         && !GuobiaoGameState.IsTransparentSubRule(GetSelectedSubRule())
-        && !GuobiaoGameState.UsesAuthoritativeTips(GetSelectedSubRule()))
+        && !GuobiaoGameState.UsesAsyncLocalTips(GetSelectedSubRule()))
         || (_ruleState == "sichuan" && (GetSelectedSubRule() == "sichuan/xueliu" || GetSelectedSubRule() == "sichuan/xueliu_exchange"));
     private string SelectedDuplicateKey => SupportsDuplicateWall && DuplicateWallToggle != null && DuplicateWallToggle.isOn
         ? DuplicateKeyInput?.text.Trim() ?? "" : "";
@@ -408,6 +408,8 @@ public partial class CreatePanel : MonoBehaviour {
         InputHepaiLimitToggle.gameObject.SetActive(showHepaiLimit);
         InputHepaiLimitPlane.SetActive(showHepaiLimit && InputHepaiLimitToggle.isOn && !IsShanghaiQiaoma);
 
+        bool isCaptain = _ruleState == "riichi" && WashizuDoubles.IsEnabled(GetSelectedRiichiSubRule());
+        if (isCaptain) TobiToggle?.SetIsOnWithoutNotify(true);
         bool isWashizu = _ruleState == "riichi" && WashizuTile.IsWashizu(GetSelectedRiichiSubRule());
         if (isWashizu) {
             RedDoraToggle.SetIsOnWithoutNotify(false);
@@ -417,7 +419,7 @@ public partial class CreatePanel : MonoBehaviour {
         RedDoraToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.RedDora) && !isWashizu);
         if (KuikaeToggle != null) KuikaeToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.AllowKuikae) && !isLangyong);
         if (XiruToggle != null) XiruToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.OpenXiru) && !isWashizu);
-        if (TobiToggle != null) TobiToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.OpenTobi));
+        if (TobiToggle != null) TobiToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.OpenTobi) && !isCaptain);
         HepaiWayPanel.SetActive(visible.ContainsKey(CreateRoomKeys.HepaiWay) && !isWashizu);
         ClaimProtectionToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.ClaimProtection));
         TacticalCallToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.TacticalCall) && !isBloodBattle && !IsChangshaExchangeSix);
@@ -486,6 +488,7 @@ public partial class CreatePanel : MonoBehaviour {
                 ApplyRiichiPreset(1);
                 SubRuleDropdown.SetValueWithoutNotify(index);
             }
+            if (WashizuDoubles.IsEnabled(selectedSubRule)) SelectGameTime(2);
             RiichiStartingScoreInput.text = selectedSubRule == "riichi/sanma" ? "35000" : selectedSubRule == "riichi/langyong" ? "50000" : "25000";
         }
         // 日麻子规则（标准 / 浪涌）不涉及起和番/错和的二次收窄，仅国标需处理。
@@ -542,7 +545,7 @@ public partial class CreatePanel : MonoBehaviour {
         }
         if (TianDiRenHeToggle != null) {
             string subRule = GetSelectedSubRule();
-            bool supported = _ruleState == "guobiao" && (subRule == "guobiao/standard" || subRule == GuobiaoGameState.SanmaSubRule || subRule == GuobiaoGameState.BloodBattleSubRule || GuobiaoGameState.IsTransparentSubRule(subRule) || GuobiaoGameState.UsesAuthoritativeTips(subRule));
+            bool supported = _ruleState == "guobiao" && (subRule == "guobiao/standard" || subRule == GuobiaoGameState.SanmaSubRule || subRule == GuobiaoGameState.BloodBattleSubRule || GuobiaoGameState.IsTransparentSubRule(subRule) || GuobiaoGameState.UsesAsyncLocalTips(subRule));
             TianDiRenHeToggle.gameObject.SetActive(supported);
             if (!supported) TianDiRenHeToggle.SetIsOnWithoutNotify(false);
         }
@@ -676,9 +679,10 @@ public partial class CreatePanel : MonoBehaviour {
         bool usesFixedHandCount = _ruleState == "shanghai" || _ruleState == "zhongyong" || _ruleState == "guangdong" || _ruleState == GuizhouGameState.RuleId || _ruleState == JiujiangGameState.RuleId || _ruleState == HongzhongGameState.RuleId || _ruleState == HangzhouGameState.RuleId;
         if (!showRound) return;
         if (_ruleState == FuzhouGameState.RuleId) {
-            SetToggleLabel(gameTime1Button,"6局");SetToggleLabel(gameTime2Button,"12局");
-            SetToggleLabel(gameTime3Button,"18局");SetToggleLabel(gameTime4Button,"24局");
-            gameTime3Button.gameObject.SetActive(true);return;
+            SetToggleLabel(gameTime1Button,"一圈 4局");SetToggleLabel(gameTime2Button,"半庄 8局");
+            SetToggleLabel(gameTime4Button,"一雀 16局");
+            if(gameTime3Button.isOn) SelectGameTime(4);
+            gameTime3Button.gameObject.SetActive(false);return;
         }
         if (_ruleState == MalaysiaGameState.RuleId) {
             SetToggleLabel(gameTime1Button,"3局"); SetToggleLabel(gameTime2Button,"6局");

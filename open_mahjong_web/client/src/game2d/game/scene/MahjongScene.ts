@@ -388,6 +388,9 @@ export class MahjongScene {
     hostElement.replaceChildren(this.app.canvas)
     this.layout()
     window.addEventListener('resize', this.handleResize)
+    window.addEventListener('orientationchange', this.handleResize)
+    window.visualViewport?.addEventListener('resize', this.handleResize)
+    window.screen.orientation?.addEventListener('change', this.handleResize)
     if (typeof ResizeObserver !== 'undefined') {
       this.resizeObserver = new ResizeObserver(() => this.scheduleResizeAndLayout())
       this.resizeObserver.observe(hostElement)
@@ -441,6 +444,9 @@ export class MahjongScene {
     this.clearScoreDifferenceTimeout()
     this.stopLatencyMeasurement()
     window.removeEventListener('resize', this.handleResize)
+    window.removeEventListener('orientationchange', this.handleResize)
+    window.visualViewport?.removeEventListener('resize', this.handleResize)
+    window.screen.orientation?.removeEventListener('change', this.handleResize)
     this.resizeObserver?.disconnect()
     this.resizeObserver = null
     document.removeEventListener('contextmenu', this.handleRightClick)
@@ -1298,6 +1304,7 @@ export class MahjongScene {
       for (const tile of hand.rightList) {
         tile.setCoverColor(coverColor)
       }
+      if (this.presentationMode === 'replay') for (const tile of hand.publicKongTiles) tile.setCoverColor(coverColor)
       hand.drawnTile?.setCoverColor(coverColor)
     }
   }
@@ -1665,7 +1672,7 @@ export class MahjongScene {
       }
 
       // Hand tiles
-      if (localDir === 0 || (revealAllHands && Array.isArray(seat.hand_tiles))) {
+      if (localDir === 0 || ((revealAllHands || (this.presentationMode === 'replay' && seat.hand_revealed)) && Array.isArray(seat.hand_tiles))) {
         for (const tid of seat.hand_tiles ?? []) {
           const tile = Tile.newInvisible(tid)
           tile.updateTid(tid)
@@ -1691,6 +1698,7 @@ export class MahjongScene {
         }
       }
       const nosort = state.last_event_kind === 'predraw'
+      if (this.presentationMode === 'replay') this.hands[localDir].setPublicKongTiles(seat.public_kong_tiles ?? [])
       if (this.presentationMode === 'replay') {
         this.hands[localDir].updateDisplay(false, true, false, true, !nosort)
       } else {

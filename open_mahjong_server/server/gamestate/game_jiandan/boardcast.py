@@ -431,10 +431,9 @@ def final_settlement_payloads(game_state: Any, viewer_index: Optional[int]) -> l
 
 
 def ready_status_payload(game_state: Any, viewer_index: Optional[int]) -> dict:
-    player_to_ready = {}
-    for player in game_state.player_list:
-        pending = game_state.action_dict.get(player.player_index, [])
-        player_to_ready[player.player_index] = "ready" not in pending
+    from ..public.ready_phase import ready_status_by_seat
+
+    player_to_ready = ready_status_by_seat(game_state)
     return {
         "type": "gamestate/jiandan/ready_status",
         "success": True,

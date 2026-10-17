@@ -9,14 +9,14 @@
 | 国标麻将 | 原级段制、PT | 初级、中级、高级、MCRPL，各有东风／半庄／全庄，12 个队列 |
 | 立直麻将 | M 规比赛分驱动的争一 PT | 初级、中级、高级，各有东风／半庄，6 个队列 |
 | 青雀 | Elo R | 全庄战，1 个队列 |
-| 川麻血战 | Elo R | 全庄战（16 局），1 个队列 |
+| 川麻血战 | Elo R | 半庄战（8 副），1 个队列 |
 | 立直三麻 | 独立级段制、PT | 初级、中级、高级，各有东风／半庄，6 个队列 |
-| 川麻血流换三张 | 独立 Elo R | 全庄战（16 局），1 个队列 |
-| 虹雀 | 独立 Elo R | 全庄战（16 局），1 个队列 |
+| 川麻血流换三张 | 独立 Elo R | 半庄战（8 副），1 个队列 |
+| 虹雀 | 独立 Elo R | 8 局或 16 局，2 个队列 |
 
 七种规则独立记分。国标、四人及三人立直只结算段位和 PT；青雀、虹雀、川麻血战、血流换三张初始 R 为 1500。国标段位继续以原 `rank_data.guobiao_rank/guobiao_score` 为准，包含管理员既有赋分。四人立直保留段位名称和升降级门槛，PT 改为 `q × (k × M - C)`：M 为 M 规比赛分，半庄 q=1、东风 q=0.7；初级／中级／高级 k=0.3／0.6／1，C 是按段位和场次设置的统一扣分。准入条件读取立直自身段位。原资格授权和国标 MCRPL 规则保留。
 
-血流换三张固定使用 `sichuan/xueliu_exchange` 子规则、`sichuan_xueliu_exchange_elo_quanzhuang` 队列和 `sichuan_xueliu_exchange` 评分池。其 Elo、排行榜、匹配统计及近期战绩独立于血战，旧版子规则为空的川麻匹配记录仍归血战。完整规则见 [换三张设计稿](../../open_mahjong_server/docs/sichuan-xueliu-exchange-design.md)。
+血流换三张固定使用 `sichuan/xueliu_exchange` 子规则、`sichuan_xueliu_exchange_elo_banzhuang` 队列和 `sichuan_xueliu_exchange` 评分池。新对局为 8 副，统计写入 `2/4_rank`。历史全庄的 `4/4_rank`、原队列与完整牌谱继续保留；Elo 和累计场数延续，不重置或重算。其 Elo、排行榜、匹配统计及近期战绩独立于血战，旧版子规则为空的川麻匹配记录仍归血战。完整规则见 [换三张设计稿](../../open_mahjong_server/docs/sichuan-xueliu-exchange-design.md)。
 
 三人立直按最终顺位计算 PT：东风初级、中级、高级的第一名分别 +30、+50、+70，第二名均为 0，第三名对应 −30、−50、−70；半庄乘 1.5。使用独立 `riichi_sanma` 评分池和 `sanma_tenhou` 玩法预设，同点按起始座次排序。完整说明见 [三人立直段位计分](../../open_mahjong_server/docs/riichi-sanma-rank-progression.md)。
 
@@ -26,7 +26,7 @@
 
 Elo 使用 K=32、2400 分母和桌均 R 低于 1500 时的保护奖励，详见 [平台评分](../../open_mahjong_server/docs/platform-ratings.md)。四人立直匹配房采用 `mleague` 预设，比赛分为 `(终局点数 - 30000)/1000 + [50,10,-10,-30]`，一位奖励已含头名奖。同点分摊顺位奖励，供托余差不拆开共享名次。完整配表见 [立直段位计分](../../open_mahjong_server/docs/riichi-rank-progression.md)。已有段位与 PT 保留，十段固定 100/100 PT。
 
-虹雀固定使用 `hongque/v1.6` 子规则、`hongque_elo_quanzhuang` 队列和独立 `hongque` 评分池。全庄为 16 手：房间与状态的 `game_round=16`，排位统计使用 `4/4_rank`。终局按虹雀既有名次排序结算，客户端等待包含 Elo 的权威终局消息，再显示积分变化。`Tools/Mahjong/Main Scene/Add Hongque Elo Match` 增量添加虹雀页、数据页选项及第五个顶部标签，保留原场次样式。
+虹雀固定使用 `hongque/v1.6` 子规则、`hongque_elo_banzhuang`／`hongque_elo_quanzhuang` 队列和独立 `hongque` 评分池。分别为 8 手／16 手：房间与状态的 `game_round=8`／`16`，排位统计使用 `8/4_rank`／`16/4_rank`。终局按虹雀既有名次排序结算，客户端等待包含 Elo 的权威终局消息，再显示积分变化。`Tools/Mahjong/Main Scene/Add Hongque Elo Match` 增量添加虹雀页、数据页选项及第五个顶部标签，保留原场次样式。
 
 ## 交互
 
@@ -69,7 +69,7 @@ Elo 使用 K=32、2400 分母和桌均 R 低于 1500 时的保护奖励，详见
 
 `Tools/Mahjong/Main Scene/Update Riichi Ranked Descriptions` 维护立直专用计分表、段位扣分表、机制说明和结算明细，并保存主场景。固定表格使用原生 UI 预制体，国标表格与立直表格按规则切换；运行时不生成固定表格。
 
-`Tools/Mahjong/Main Scene/Update Ranked Queue Options` 可增量更新已有场景的全庄入口、说明与提示文案，并保留其他面板样式。`Tools/Mahjong/Main Scene/Bake Ranked Rules UI` 是完整编辑器维护工具。只在编辑模式、主场景中运行；保存下拉模板、七套规则页、28 个匹配卡片、说明弹窗、空状态文本、按钮事件与序列化引用，并更新排行榜条目预制体。不会在游戏启动时克隆 MainCanvas 或用代码临时生成固定页面。
+`Tools/Mahjong/Main Scene/Update Ranked Queue Options` 可增量更新已有场景的匹配入口、说明与提示文案，并保留其他面板样式。`Tools/Mahjong/Main Scene/Bake Ranked Rules UI` 是完整编辑器维护工具。只在编辑模式、主场景中运行；保存下拉模板、七套规则页、29 个匹配卡片、说明弹窗、空状态文本、按钮事件与序列化引用，并更新排行榜条目预制体。不会在游戏启动时克隆 MainCanvas 或用代码临时生成固定页面。
 
 固定字号、颜色、锚点和宽度在场景或预制体上维护。主项目现有 Alibaba 静态 SDF 字体覆盖新增中文、英文和数字；原段位描边字体保留。结算使用“至”表达 R 的前后变化，避免原静态图集未包含的箭头字符。排行榜 PT／R 列以右侧为锚点，自动字号控制在烘焙范围内。
 
@@ -79,7 +79,7 @@ Elo 使用 K=32、2400 分母和桌均 R 低于 1500 时的保护奖励，详见
 
 需要同时更新 `open_mahjong_server` 并重启。启动数据库初始化会增量创建 `rule_ratings` 和 `rating_settlements`。四人立直新排位局在创建时固定 `riichi_mleague_pt_v1`，三人立直固定 `riichi_sanma_place_pt_v1`；切换前已开始的对局沿用旧算法，历史结算与现有 PT 保留。整桌三人或四人评分结算在同一事务完成，按玩家 ID 排序加锁；游戏 ID 为幂等键，重复投递不会重复扣加分，失败会回滚整桌玩家。
 
-国标原 12 个队列 ID 保留。其他规则使用 `riichi_<tier>_<mode>`、`riichi_sanma_<tier>_<mode>`、`qingque_elo_quanzhuang`、`hongque_elo_quanzhuang`、`sichuan_elo_xuezhan` 和 `sichuan_xueliu_exchange_elo_quanzhuang`。登录、资料和结算保留旧国标字段，并增加规则评分数据。数据请求增加 `rule` 和 `data_request_id`，回复原样携带。川麻保留 `sichuan_elo_xuezhan` 协议标识，但局制为全庄、`game_round=4`。客户端和服务端应一并更新。
+国标原 12 个队列 ID 保留。其他规则使用 `riichi_<tier>_<mode>`、`riichi_sanma_<tier>_<mode>`、`qingque_elo_quanzhuang`、`hongque_elo_banzhuang`／`hongque_elo_quanzhuang`、`sichuan_elo_xuezhan` 和 `sichuan_xueliu_exchange_elo_banzhuang`。登录、资料和结算保留旧国标字段，并增加规则评分数据。数据请求增加 `rule` 和 `data_request_id`，回复原样携带。川麻血战保留 `sichuan_elo_xuezhan` 协议标识，血战和血流换三张的新匹配均为半庄、`game_round=2`。血流换三张原全庄队列只用于历史识别和结算。客户端和服务端应一并更新。
 
 玩家资料的其余自定义玩法通过 `data/get_rule_stats` 查询，传入统计标识、实际房间规则、子规则、人数与请求标识，回复使用现有 `rule_stats` 结构并回显 `data_request_id`。同一大类下的三人场、广东两种玩法及南雀分别筛选历史样本；切换规则后迟到的回复只更新对应缓存。
 

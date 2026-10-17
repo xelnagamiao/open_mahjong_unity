@@ -1,11 +1,12 @@
 import asyncio
+from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from .test_flow import make_state, indicator, hand, draw, PURE, HAND
-from .hints import compute_hand, describe
+from tests.local_hint_oracles.wuhan import compute_hand, describe
 from ...room.wuhan_room import create_wuhan_room, handle_create_wuhan_room
 from ...response import Response
 
@@ -73,16 +74,23 @@ def test_hint_point_range_and_discard_preview_use_bilateral_payments():
     assert preview['waiting_details_by_discard'][25][15]==row
 
 
-def test_claim_collector_wakes_on_revision_then_closes_without_charging_bank():
+def test_claim_collector_accepts_revision_while_another_player_is_pending():
     async def run():
         s=make_state();indicator(s);s.game_status='waiting_action_after_cut'
-        s.claim_response_seconds=.08;s.action_dict={0:[],1:['peng','pass'],2:[],3:[]}
-        s.prepare_action_window();s.on_action_window_broadcast();s.on_action_window_delivered(1)
+        now=[100];s.action_clock.now=lambda:now[0]
+        s.action_dict={0:[],1:['peng','pass'],2:['pass'],3:[]}
+        s.prepare_action_window();s.on_action_window_broadcast()
+        s.on_action_window_delivered(1);s.on_action_window_delivered(2)
         task=asyncio.create_task(s.collect_action_responses())
-        await asyncio.sleep(.01);s.action_queues[1].put_nowait({'action_type':'peng'});s.action_events[1].set()
-        await asyncio.sleep(.01);s.action_queues[1].put_nowait({'action_type':'pass'});s.action_events[1].set()
+        await asyncio.sleep(0);now[0]=104
+        s.action_queues[1].put_nowait({'action_type':'peng'});s.action_events[1].set()
+        await asyncio.sleep(0);now[0]=107
+        s.action_queues[1].put_nowait({'action_type':'pass'});s.action_events[1].set()
+        await asyncio.sleep(0);now[0]=109
+        s.action_queues[2].put_nowait({'action_type':'pass'});s.action_events[2].set()
         response,_=await asyncio.wait_for(task,1)
-        assert response=={1:{'action_type':'pass'}} and s.player_list[1].remaining_time==20
+        assert response=={1:{'action_type':'pass'},2:{'action_type':'pass'}}
+        assert s.player_list[1].remaining_time==18 and s.player_list[2].remaining_time==16
         assert not s.waiting_players_list
     asyncio.run(run())
 
@@ -152,16 +160,20 @@ def test_cut_guards_and_public_push_gold_liability():
     asyncio.run(run())
 
 
-def test_private_worker_cannot_publish_a_result_for_an_old_table():
+def test_local_hint_context_copies_and_refreshes_the_public_table_without_cpu():
     async def run():
         s=make_state(tips=True);indicator(s);hand(s,0,PURE,['s12'])
-        async def changed_table(*args):
-            s.player_list[1].huapai_list.append(45)
-            return {'source_hand_tiles':list(PURE),'source_melds':['s12']}
-        with patch('server.gamestate.game_wuhan.WuhanGameState.run_room_bot_cpu',side_effect=changed_table):
+        with patch('server.gamestate.public.ai.bot_executor.run_room_bot_cpu',side_effect=AssertionError('Client preview invoked server CPU')) as worker:
             await s.prepare_private_fields([0])
-        assert 'wuhan_hints' not in s.build_private_game_info_fields(0)
-        await s.prepare_private_fields([0]);assert 'wuhan_hints' in s.build_private_game_info_fields(0)
+            before=s.build_private_game_info_fields(0)['wuhan_hints']
+            table=deepcopy(before['local_request']['context']['table'])
+            s.player_list[1].huapai_list.append(45)
+            await s.prepare_private_fields([0])
+        after=s.build_private_game_info_fields(0)['wuhan_hints']
+        assert before['local_request']['context']['table']==table
+        assert after['local_request']['context']['table']==s.table_snapshot()
+        assert after!=before and 'waiting_details' not in after
+        worker.assert_not_called()
     asyncio.run(run())
 
 
@@ -198,7 +210,9 @@ def test_disabled_live_hints_remain_available_to_replay_without_leaking():
         assert 'wuhan_hints' not in s.build_private_game_info_fields(0)
         ticks=s.game_record['game_round']['round_index_1']['action_ticks']
         recorded=[tick[3] for tick in ticks if tick[:3]==['wuhan','hints',0]]
-        assert recorded and recorded[-1]['waiting_details'][15]['label']=='仅自摸'
+        assert recorded and 'waiting_details' not in recorded[-1]
+        assert recorded[-1]['local_request']['hand']==PURE
+        assert recorded[-1]['local_request']['melds']==['s12']
         s.count_tips=True
         assert s.build_private_game_info_fields(0)['wuhan_hints']==recorded[-1]
     asyncio.run(run())

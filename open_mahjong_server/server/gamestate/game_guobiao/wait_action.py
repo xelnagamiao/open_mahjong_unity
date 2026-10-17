@@ -1,3 +1,4 @@
+from ..public.action_window import prepare_action_window, start_waiting_clocks
 from .four_jokers_runtime import evaluate_actions
 from ...game_calculation import guobiao_huahun as huahun
 # 等待玩家操作处理
@@ -32,13 +33,12 @@ from ..public.claim_protection import (
     finalize_claim_protection,
     )
 from ..public.tactical_claim import (
-    init_tactical_round_state,
     apply_tactical_claim_if_needed,
     is_decline_action,
     tactical_mark_player_committed,
     tactical_mark_player_force_passed,
 )
-from ..public.ask_timing import get_ask_elapsed, note_ask_delivered
+from ..public.ask_timing import get_ask_elapsed
 from .boardcast import _send_do_action_payload_to_viewer
 
 logger = logging.getLogger(__name__)
@@ -78,7 +78,6 @@ def requeue_tactical_batch_remainder(game_state, submissions, initial_submission
 
 # 等待玩家行动
 async def wait_action(self):
-    self.waiting_players_list = [] # [2,3]
     collect_blood = blood_battle.enabled(self) and self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
     if collect_blood:
         self.blood_pending_claims = {}
@@ -88,44 +87,8 @@ async def wait_action(self):
             self.qianggang_action_dict = {i: list(actions) for i, actions in self.action_dict.items()}
         qianggang_responses = self.qianggang_responses
 
-    # 玩家可能在询问广播尚未遍历完四家时就已回复。这里若无条件清空，
-    # 会把本轮的有效回复一并删除，牌局只能等到超时。仅丢弃明确属于旧 tick 的操作。
-    expected_action_tick = getattr(self, "server_action_tick", None)
-    for i in range(len(self.player_list)):
-        retained_actions = []
-        while not self.action_queues[i].empty():
-            try:
-                queued_action = self.action_queues[i].get_nowait()
-                queued_tick = queued_action.get("_action_tick")
-                if queued_tick is None or queued_tick == expected_action_tick:
-                    retained_actions.append(queued_action)
-                else:
-                    logger.debug(
-                        "丢弃旧操作: player=%s queued_tick=%s expected_tick=%s",
-                        i,
-                        queued_tick,
-                        expected_action_tick,
-                    )
-            except:
-                break
-        for queued_action in retained_actions:
-            self.action_queues[i].put_nowait(queued_action)
-
-    # 遍历所有可行动玩家，获取行动玩家列表和等待时间列表
-    self._waiting_action_tick = expected_action_tick
-    for player_index, action_list in self.action_dict.items():
-        if action_list:
-            self.waiting_players_list.append(player_index)
-            self.action_events[player_index].clear()
-            # 保留本轮 tick 已到达的回复，避免 clear() 抹掉事件。
-            if not self.action_queues[player_index].empty():
-                self.action_events[player_index].set()
-
-    # 机器人/掉线未走 ask websocket：以 wait 开始为送达起点，避免 elapsed 永为 0 永不超时
-    for player_index in self.waiting_players_list:
-        note_ask_delivered(self, player_index)
-
-    init_tactical_round_state(self)
+    prepare_action_window(self)
+    start_waiting_clocks(self)
 
     # 如果等待玩家列表不为空且有玩家剩余时间小于(已用时间-步时)，则停止等待
     player_index = None # 保存操作玩家索引 (如果玩家有操作则左侧三个变量有值 否则为None)

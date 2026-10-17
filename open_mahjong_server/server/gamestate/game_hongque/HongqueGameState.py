@@ -7,7 +7,6 @@ import time
 from typing import Any, Optional, Sequence
 
 from .rules import classify_meld
-from .scoring import best_win_result
 from .player import HongquePlayer
 from .action_check import (
     can_self_draw_win,
@@ -93,10 +92,8 @@ class HongqueGameState:
         self.room_rule = "hongque"
         self.sub_rule = room_data.get("sub_rule", "hongque/v1.6")
         self.room_type = room_data.get("room_type", "custom")
-        self.allow_spectator_config = False
-        self.spectator_enabled = False
+        self.allow_spectator_config = bool(room_data.get("allow_spectator", True))
         self.realtime_spectators: list = []
-        self.spectator_manager = None
         self.game_record: dict = {}
         self.player_action_tick = 0
         self.tiles_list: list[int] = []
@@ -173,6 +170,7 @@ class HongqueGameState:
         self.action_dict: dict[int, list] = {index: [] for index in range(4)}
         self.waiting_players_list: list[int] = []
         self._in_wait_action = False
+        self._restoring_after_pause = False
         self._driving_local = False
         self._starting_round = False
         self.players: list[HongquePlayer] = []
@@ -191,6 +189,10 @@ class HongqueGameState:
             ))
         self.player_list = self.players
         capture_player_entry_order(self)
+        from ..public.spectator_rules import too_many_ai_for_spectator
+        from ..public.spectator_manager import SpectatorManager
+        self.spectator_enabled = self.allow_spectator_config and not too_many_ai_for_spectator(self.players)
+        self.spectator_manager = SpectatorManager(self, delay=180.0, enabled=self.spectator_enabled)
 
     @property
     def round_index(self) -> int:
@@ -224,7 +226,7 @@ class HongqueGameState:
         """国标式主循环：历时状态推进，询问状态阻塞 wait_action，超时在等待结束后处理。"""
         await self._start_round()
         while self.state_machine.status is not HongqueStatus.END:
-            await vote_checkpoint(self)
+            await self._pause_checkpoint()
             if self._starting_round:
                 await asyncio.sleep(0.05)
                 continue
@@ -246,6 +248,36 @@ class HongqueGameState:
                     break
                 case _:
                     await asyncio.sleep(0.05)
+
+    async def _pause_checkpoint(self) -> None:
+        vote = getattr(self, "vote_manager", None)
+        if vote is None or vote.phase != "pause_pending":
+            return
+        self._restoring_after_pause = True
+        started = time.monotonic()
+        try:
+            await vote_checkpoint(self)
+            # Hongque opens clocks before the next checkpoint. Preserve their
+            # remaining budget and refresh actions cleared by the pause UI.
+            paused_for = time.monotonic() - started
+            for field in ("turn_started_at", "turn_deadline", "claim_started_at"):
+                value = getattr(self, field)
+                if value is not None:
+                    setattr(self, field, value + paused_for)
+            self.claim_deadlines = {seat: deadline + paused_for
+                                    for seat, deadline in self.claim_deadlines.items()}
+            if self.claim_window is not None and self.claim_window.deadline is not None:
+                self.claim_window.deadline += paused_for
+            self._advance_tick()
+            if self.claim_window is not None:
+                self.claim_window.note_asked(self.claim_window.pending, self.action_tick)
+            await self.broadcast_state(events_override=[])
+            if self.claim_window is not None:
+                for seat in tuple(self.claim_window.pending):
+                    if self.players[seat].user_id in (2, 3):
+                        self._schedule_bot_claim(seat, self.action_tick)
+        finally:
+            self._restoring_after_pause = False
 
     def _record_event(self, event_type: str, **payload: Any) -> dict:
         self.event_sequence += 1
@@ -555,14 +587,8 @@ class HongqueGameState:
         self._ready_event.set()
         await self.broadcast_ready_status()
 
-    async def send_ready_status_to(self, player_index: int) -> None:
-        player = self.players[player_index]
-        if player.is_bot or not player.online or self.game_server is None:
-            return
-        connection = getattr(self.game_server, "user_id_to_connection", {}).get(player.user_id)
-        if connection is None or getattr(connection, "websocket", None) is None:
-            return
-        await connection.websocket.send_json({
+    def _ready_status_packet(self) -> dict:
+        return {
             "type": "gamestate/hongque/ready_status",
             "success": True,
             "message": "准备状态更新",
@@ -572,7 +598,11 @@ class HongqueGameState:
                     for item in self.players
                 },
             },
-        })
+        }
+
+    async def send_ready_status_to(self, player_index: int) -> None:
+        from .boardcast import send_player_packet
+        await send_player_packet(self, player_index, self._ready_status_packet())
 
     async def broadcast_ready_status(self) -> None:
         await asyncio.gather(*(
@@ -652,6 +682,12 @@ class HongqueGameState:
                     await self._wait_for_hu_ready(fan_count)
             else:
                 await asyncio.sleep(liuju_ready_wait_seconds())
+            # Ready handling runs in its own task. It must not deal the next
+            # round while the main loop is suspended at the shared checkpoint.
+            while self._restoring_after_pause or getattr(getattr(self, "vote_manager", None), "phase", "idle") in {
+                "paused", "resume_voting", "resume_countdown"
+            }:
+                await asyncio.sleep(0.05)
             game_ended = False
             async with self._lock:
                 if self.phase != "round_end":
@@ -674,6 +710,7 @@ class HongqueGameState:
     async def _complete_game_lifecycle(self) -> None:
         persist_and_remember(self)
         await hongque_broadcast_game_end(self)
+        await self.spectator_manager.send_final_record_and_close()
         await asyncio.sleep(4)
         if self.game_server is None:
             return
@@ -682,39 +719,24 @@ class HongqueGameState:
             await manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
 
 
-    @staticmethod
-    def _score_hint(result: Optional[dict], tile: Optional[str] = None) -> Optional[dict]:
-        if result is None:
-            return None
-        return {
-            "tile": tile,
-            "base": result["base"],
-            "fan_total": result["fan_total"],
-            "points": result["points"],
-            "fans": result["fans"],
-            "self_draw_only": False,
-        }
-
-    def _viewer_win_hint(self, viewer: HongquePlayer, actions: Sequence[str]) -> Optional[dict]:
+    def _viewer_win_context(self, viewer: HongquePlayer, actions: Sequence[str]) -> Optional[dict]:
+        """Send public scoring conditions; display-only scoring belongs to the client."""
         if self.phase == "turn" and "win" in actions:
-            return self._score_hint(best_win_result(
-                viewer.hand,
-                viewer.melds,
-                self_draw=True,
-                before_first_discard=not any(item.discards for item in self.players),
-                wall_empty=not self.wall,
-                allow_kong_win=True,
-            ), viewer.drawn_tile or (viewer.hand[-1] if viewer.hand else None))
+            return {
+                "tile": viewer.drawn_tile or (viewer.hand[-1] if viewer.hand else None),
+                "self_draw": True,
+                "before_first_discard": not any(item.discards for item in self.players),
+                "wall_empty": not self.wall,
+            }
         if self.phase == "claim" and "claim" in actions and self.last_discard is not None:
             options = self.claim_options.get(viewer.index, ())
             if any(option.get("kind") == "win" for option in options):
-                return self._score_hint(best_win_result(
-                    viewer.hand + [self.last_discard["tile"]],
-                    viewer.melds,
-                    self_draw=False,
-                    before_first_discard=False,
-                    wall_empty=not self.wall,
-                ), self.last_discard["tile"])
+                return {
+                    "tile": self.last_discard["tile"],
+                    "self_draw": False,
+                    "before_first_discard": False,
+                    "wall_empty": not self.wall,
+                }
         return None
 
 
@@ -758,6 +780,7 @@ class HongqueGameState:
             await self.broadcast_state(events_override=[presence])
 
     async def cleanup_game_state(self) -> None:
+        await self.spectator_manager.cleanup()
         current = asyncio.current_task()
         self._cancel_bot_claim_tasks()
         for task in (
@@ -771,10 +794,16 @@ class HongqueGameState:
             await asyncio.gather(self.game_task, return_exceptions=True)
 
     async def add_spectator(self, user_id: int, connection: Any) -> None:
-        raise ValueError("虹雀规则不支持观战")
+        await self.spectator_manager.add_spectator(user_id, connection)
 
     async def remove_spectator(self, user_id: int) -> None:
-        return None
+        await self.spectator_manager.remove_spectator(user_id)
+
+    async def send_realtime_spectator_snapshot(self, spectator_user_id: int, host_player_index: int) -> None:
+        from .boardcast import state_packet, send_to_connection
+        await send_to_connection(self, spectator_user_id, state_packet(self, host_player_index, sync_mode="reconnect"))
+        if self._ready_phase_active:
+            await send_to_connection(self, spectator_user_id, self._ready_status_packet())
 
 
 # 发牌/摸牌、广播、机器人和战术鸣牌都走拆分模块；鸣牌权威在 wait_action。

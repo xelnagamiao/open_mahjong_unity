@@ -13,6 +13,7 @@
       </div>
       <el-space wrap class="lobby-header__actions">
         <LanguageSelect variant="lobby" />
+        <el-button @click="router.push('/2d/demo')">设定牌桌</el-button>
         <el-icon v-if="session.restoring" class="is-loading"><Loading /></el-icon>
         <template v-if="session.player">
           <el-tag :type="session.status === 'online' ? 'success' : 'warning'">

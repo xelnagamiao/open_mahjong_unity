@@ -21,6 +21,7 @@ def public_room_data(value):
 
 
 class PlayerInfo(BaseModel):
+    team_role: Optional[str] = None
     team_id: Optional[int] = None
     user_id: int  # 用户ID
     username: str  # 用户名（用于显示）
@@ -63,7 +64,7 @@ class PlayerInfo(BaseModel):
     xueliu_throw_tiles: Optional[List[int]] = None  # 血流：开局甩掉的三张
 
 class GameInfo(BaseModel):
-    four_jokers_hints: Optional[dict] = None
+    washizu_doubles: Optional[dict] = None
     washizu_layouts: Optional[Dict[int, dict]] = None
     wuhan_info: Optional[dict] = None
     malaysia_info: Optional[dict] = None
@@ -78,10 +79,10 @@ class GameInfo(BaseModel):
     singapore_info: Optional[dict] = None
     singapore_hints: Optional[dict] = None
     jiujiang_hints: Optional[dict] = None
-    hongzhong_hints: Optional[dict] = None  # 按物理手牌与副露匹配的权威听牌快照
-    hangzhou_info: Optional[dict] = None  # MIL 2025 state; hints scoped to recipient
+    hongzhong_hints: Optional[dict] = None  # 本地计算输入，不包含提示结果
+    hangzhou_info: Optional[dict] = None  # MIL 2025 state; local calculation inputs scoped to recipient
     guangdong_state: Optional[Dict[str, object]] = None  # MIL 广东：公共出鬼/杠账快照
-    guangdong_tips: Optional[Dict[str, object]] = None  # 仅本人或授权视角的权威听牌提示
+    guangdong_tips: Optional[Dict[str, object]] = None  # 仅本人或授权视角的本地计算输入
     nanchang_info: Optional[dict] = None
     nanchang_hints: Optional[dict] = None
     shenyang: Optional[Dict[str, object]] = None
@@ -158,7 +159,6 @@ class GameInfo(BaseModel):
         return str(v)
 
 class Ask_hand_action_info(BaseModel):
-    four_jokers_hints: Optional[dict] = None
     wuhan_info: Optional[dict] = None
     malaysia_info: Optional[dict] = None
     malaysia_hints: Optional[dict] = None
@@ -169,8 +169,8 @@ class Ask_hand_action_info(BaseModel):
     singapore_info: Optional[dict] = None
     singapore_hints: Optional[dict] = None
     jiujiang_hints: Optional[dict] = None
-    hongzhong_hints: Optional[dict] = None  # 按物理手牌与副露匹配的权威听牌快照
-    hangzhou_info: Optional[dict] = None  # MIL 2025 state; hints scoped to recipient
+    hongzhong_hints: Optional[dict] = None  # 本地计算输入，不包含提示结果
+    hangzhou_info: Optional[dict] = None  # MIL 2025 state; local calculation inputs scoped to recipient
     guangdong_tips: Optional[Dict[str, object]] = None
     nanchang_info: Optional[dict] = None
     nanchang_hints: Optional[dict] = None
@@ -228,9 +228,9 @@ class Do_action_info(BaseModel):
     singapore_info: Optional[dict] = None
     singapore_hints: Optional[dict] = None
     jiujiang_hints: Optional[dict] = None
-    hongzhong_hints: Optional[dict] = None  # 按物理手牌与副露匹配的权威听牌快照
+    hongzhong_hints: Optional[dict] = None  # 本地计算输入，不包含提示结果
     hangzhou_burn_count: Optional[int] = None
-    hangzhou_info: Optional[dict] = None  # MIL 2025 state; hints scoped to recipient
+    hangzhou_info: Optional[dict] = None  # MIL 2025 state; local calculation inputs scoped to recipient
     guangdong_state: Optional[Dict[str, object]] = None
     guangdong_tips: Optional[Dict[str, object]] = None
     nanchang_info: Optional[dict] = None
@@ -289,7 +289,7 @@ class Show_result_info(BaseModel):
     hangzhou_win_source: Optional[str] = None
     hangzhou_fan_details: Optional[dict] = None
     hangzhou_round_changes: Optional[Dict[int, int]] = None
-    hangzhou_info: Optional[dict] = None  # MIL 2025 state; hints scoped to recipient
+    hangzhou_info: Optional[dict] = None  # MIL 2025 state; local calculation inputs scoped to recipient
     guangdong_result: Optional[Dict[str, object]] = None  # MIL 广东：替代见证、系数、奖马和杠账
     nanchang_info: Optional[dict] = None
     nanchang_hints: Optional[dict] = None
@@ -303,7 +303,7 @@ class Show_result_info(BaseModel):
     blood_round_changes: Optional[Dict[int, int]] = None
     hepai_player_index: Optional[int] = None  # 和牌玩家索引
     player_to_score: Optional[Dict[int, int]] = None  # 所有玩家分数
-    hu_score: Optional[int] = None  # 和牌分数
+    hu_score: Optional[float] = None  # 规则计分值（青雀为小数番）；实际分变在 score_changes
     hu_fan: Optional[List[str]] = None  # 和牌番种
     hu_class: str  # 和牌类别
     hepai_player_hand: Optional[List[int]] = None  # 和牌玩家手牌
@@ -386,6 +386,7 @@ class Show_shuhewei_info(BaseModel):
     next_status: Optional[str] = None  # "round_continue" | "round_end_by_ready" | "match_end"
 
 class Player_final_data(BaseModel):
+    team_role: Optional[str] = None
     competition_points: Optional[float] = None
     team_id: Optional[int] = None
     team_score: Optional[int] = None
@@ -455,7 +456,7 @@ class Refresh_player_tag_list_info(BaseModel):
 class Ready_status_info(BaseModel):
     action_tick: Optional[int] = None
     nanchang_info: Optional[dict] = None
-    hangzhou_info: Optional[dict] = None  # MIL 2025 state; hints scoped to recipient
+    hangzhou_info: Optional[dict] = None  # MIL 2025 state; local calculation inputs scoped to recipient
     """准备状态信息"""
     player_to_ready: Dict[int, bool]  # 玩家索引到准备状态的映射 {player_index: ready}
 

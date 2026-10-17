@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && node scripts/prerender-seo.mjs",
+    "build:unity-hints": "node scripts/build-unity-local-hints.mjs",
     "preview": "vite preview",
     "test:seo": "node --test tests/mcrSeo.test.mjs",
     "test:hand-analysis": "node --test tests/handAnalysis.test.mjs tests/guobiaoCalculator.test.mjs tests/gbHepai.test.js src/utils/pailiShanten.test.mjs",

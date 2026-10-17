@@ -2,15 +2,18 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-/// <summary>Match authoritative hints to the exact physical hand and melds. No local wildcard solver.</summary>
+/// <summary>Matches local calculations or saved legacy rows to the exact physical hand.</summary>
 public sealed class HangzhouHintsCache {
     private HangzhouHints hints;
+    private System.Action onLocalReady;
+    private bool RememberReady(TingpaiQuery q) { onLocalReady=q.OnReady; return true; }
     public void Reset() { hints = null; }
     public void Accept(HangzhouHints value) { if (value?.source_hand_tiles != null) hints = value; }
     private static bool Same(IEnumerable<int> a, IEnumerable<int> b) => a != null && b != null && a.OrderBy(x => x).SequenceEqual(b.OrderBy(x => x));
     private bool TryRows(List<int> hand, List<string> melds, out int[] waits,
         out Dictionary<int, HangzhouWaitDetail> details) {
         waits = null; details = null;
+        if(hints?.local_request!=null) { var local=LocalHintSnapshots.Read<HangzhouHints>(hints.local_request,onLocalReady); if(local==null)return false; hints=local; }
         if (hints == null || hand == null) return false;
         if (!(hints.source_melds ?? Array.Empty<string>()).OrderBy(x => x).SequenceEqual((melds ?? new List<string>()).OrderBy(x => x))) return false;
         if (Same(hand, hints.source_hand_tiles)) {
@@ -27,8 +30,7 @@ public sealed class HangzhouHintsCache {
         }
         return false;
     }
-    public HashSet<int> Waiting(TingpaiQuery query) => query != null
-        && TryRows(query.Hand, query.Melds, out var waits, out _)
+    public HashSet<int> Waiting(TingpaiQuery query) => query != null && RememberReady(query) && TryRows(query.Hand, query.Melds, out var waits, out _)
         ? new HashSet<int>(waits ?? Array.Empty<int>()) : new HashSet<int>();
 
     public WaitTileHint Describe(WaitHintQuery query) {

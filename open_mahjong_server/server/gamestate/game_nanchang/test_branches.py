@@ -172,12 +172,13 @@ def test_win_turn_counts_actual_discards_after_another_player_claims_the_river(s
 
 
 def test_german_hint_range_covers_dezhongde_without_exposing_opponent_hands():
-    from .hints import private_hints,hand_key
+    from server.gamestate.game_nanchang.client_context import private_context as private_hints
+    from tests.local_hint_oracles.nanchang import for_hand
     s=state();s.tips=True;p=s.player_list[1];p.hand_tiles=NORMAL[:-1];p.has_draw_slot=False
     first=deepcopy(private_hints(s,1))
-    row=next(r for r in first[hand_key(p.hand_tiles)] if r['tile']==41)
+    row=next(r for r in for_hand(s,1,p.hand_tiles,p.discard_origin_tiles) if r['tile']==41)
     assert row['points_max']>row['points_min']>0
     for i in (0,2,3):s.player_list[i].hand_tiles=[11]*3+[21,22,23,31,32,33,42,42,43,44]
-    s._wait_cache={}
+    s._reference_wait_cache={}
     assert first==private_hints(s,1)
     assert row['points_min']<=s.score_win(1,'discard',41,payer=0,preview=True)['points']<=row['points_max']

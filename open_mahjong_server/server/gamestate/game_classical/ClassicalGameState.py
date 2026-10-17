@@ -1,9 +1,7 @@
 import random
 import asyncio
 from typing import Any, Dict, List, Optional
-import time
 import logging
-import math
 from .action_check import check_action_hand_action, refresh_waiting_tiles, check_kokushi, check_jiuzhongjiupai
 from .wait_action import wait_action
 from .boardcast import (
@@ -30,6 +28,7 @@ from ..public.round_end_timing import (
     liuju_ready_wait_seconds,
     shuhewei_ready_wait_seconds,
 )
+from ..public.ready_phase import run_result_ready_phase
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
 from ..public.random_seed_manager import setup_random_seed_system
@@ -587,24 +586,8 @@ class ClassicalGameState:
                         shuhewei_extra_wait,
                         self.hu_class in ["hu_self", "hu_first", "hu_second", "hu_third"],
                     )
-                    ready_phase_deadline = time.time() + wait_time
 
-                    self.action_dict = {}
-                    for player in self.player_list:
-                        if player.user_id <= 10:
-                            self.action_dict[player.player_index] = []
-                        else:
-                            self.action_dict[player.player_index] = ["ready"]
-                            player.remaining_time = math.ceil(wait_time)
-
-                    self.game_status = "waiting_ready"
-                    await broadcast_ready_status(self)
-                    while any(self.action_dict[i] for i in self.action_dict):
-                        for p in self.player_list:
-                            if self.action_dict.get(p.player_index):
-                                p.remaining_time = max(0, int(ready_phase_deadline - time.time()))
-                        if await wait_action(self) is False:
-                            break
+                    await run_result_ready_phase(self, wait_time, broadcast_ready_status)
 
             if self.next_status == "match_end":
                 logger.info("最后一局结束，不再推进局数")

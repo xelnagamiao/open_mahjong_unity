@@ -1,3 +1,5 @@
+from ..public.action_window import prepare_ready_window
+from ..public.ready_phase import ready_status_by_seat
 """台湾麻将广播。"""
 
 from ...response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info,Game_end_info,Player_final_data,Switch_seat_info,Refresh_player_tag_list_info,Ready_status_info
@@ -17,6 +19,8 @@ from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
 from ..public.hand_slot_utils import bot_ask_hand_game_status
 from ..public.hand_draw_source import ensure_hand_draw_source_round, get_hand_draw_source, update_hand_draw_source
 from ..public.ask_timing import begin_ask_round, note_ask_delivered, reconnect_clock
+from ..public.ask_timing import send_ask_response_to_viewer
+from ..public.action_window import open_action_ingress
 from ..public.game_record_manager import local_record_detail_for_end
 logger = logging.getLogger(__name__)
 
@@ -351,8 +355,10 @@ async def send_realtime_spectator_snapshot(
 # 广播询问手牌操作 补花 加杠 暗杠 自摸 出牌
 async def broadcast_ask_hand_action(self):
     self.server_action_tick += 1
+    open_action_ingress(self)
     await _prepare_private_rule_fields(self, (self.current_player_index,))
     begin_ask_round(self)
+    deliveries = []
     for current_player in self.player_list:
         try:
             seat_index = current_player.player_index
@@ -397,7 +403,6 @@ async def broadcast_ask_hand_action(self):
                 )
                 continue
 
-            player_conn = self.game_server.user_id_to_connection[current_player.user_id]
             clock_hook = getattr(self, "action_clock", None)
             remaining_sent, step_sent = clock_hook(current_player) if callable(clock_hook) else (current_player.remaining_time, None)
             response = Response(
@@ -415,14 +420,13 @@ async def broadcast_ask_hand_action(self):
                     **private_info,
                 ),
             )
-            await player_conn.websocket.send_json(response.dict(exclude_none=True))
-            note_ask_delivered(self, seat_index)
-            await self.send_to_realtime_spectators(current_player.player_index, response)
+            deliveries.append(send_ask_response_to_viewer(self, seat_index, response))
             logger.info(f"已向玩家 {current_player.username} 广播手牌操作信息")
         except Exception as e:
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 广播手牌操作信息失败: {e}")
             # 允许广播出错，继续向其他玩家广播
 
+    await asyncio.gather(*deliveries)
     # 为观战系统记录 ask_hand tick（在循环外确保只记录一次）
     if hasattr(self, 'spectator_manager'):
         self.spectator_manager.record_ask_hand(self.current_player_index, self.action_dict.get(self.current_player_index, []))
@@ -431,7 +435,9 @@ async def broadcast_ask_hand_action(self):
 async def broadcast_ask_other_action(self, *, remaining_time_override=None, is_tactical_recheck=False):
     cut_tile = _pending_other_action_tile(self)
     self.server_action_tick += 1
+    open_action_ingress(self)
     begin_ask_round(self)
+    deliveries = []
     for current_player in self.player_list:
         try:
             seat_index = current_player.player_index
@@ -469,7 +475,6 @@ async def broadcast_ask_other_action(self, *, remaining_time_override=None, is_t
                 )
                 continue
 
-            player_conn = self.game_server.user_id_to_connection[current_player.user_id]
             clock_hook = getattr(self, "claim_clock", None)
             remaining_sent, step_sent = clock_hook(current_player) if clock_hook else (current_player.remaining_time, None)
             clock_fields = getattr(self, "claim_clock_fields", None)
@@ -491,15 +496,14 @@ async def broadcast_ask_other_action(self, *, remaining_time_override=None, is_t
                     player_index=seat_index,
                 ),
             )
-            await player_conn.websocket.send_json(response.dict(exclude_none=True))
-            note_ask_delivered(self, seat_index)
-            await self.send_to_realtime_spectators(current_player.player_index, response)
+            deliveries.append(send_ask_response_to_viewer(self, seat_index, response))
             logger.info(f"已向玩家 {current_player.username} 广播询问操作信息")
 
         except Exception as e:
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 广播询问操作信息失败: {e}")
             # 允许广播出错，继续向其他玩家广播
 
+    await asyncio.gather(*deliveries)
     # 为观战系统记录 ask_other tick（汇总所有有操作的玩家）
     if hasattr(self, 'spectator_manager'):
         player_action_map = {}
@@ -945,16 +949,8 @@ async def broadcast_refresh_player_tag_list(self):
 # 广播准备状态
 async def broadcast_ready_status(self):
     """广播所有玩家的准备状态"""
-    # 判断准备状态
-    player_to_ready = {}
-    for player in self.player_list:
-        # 如果玩家仍在等待准备，说明未准备
-        # 使用.get()方法安全访问，如果键不存在或值为空列表，说明已准备
-        action_list = self.action_dict.get(player.player_index, [])
-        if action_list and "ready" in action_list:
-            player_to_ready[player.player_index] = False
-        else:
-            player_to_ready[player.player_index] = True
+    prepare_ready_window(self)
+    player_to_ready = ready_status_by_seat(self)
 
     ready_info = Ready_status_info(
         player_to_ready=player_to_ready

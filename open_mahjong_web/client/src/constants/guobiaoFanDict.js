@@ -154,10 +154,10 @@ export function parseGuobiaoFanLabel(raw) {
   return { name, count, value, total: value * count }
 }
 
-/** 国标计算器番种构成展示：清龙 ×1（16 番） */
+/** 番种构成使用累计番数：清龙 16番、一般高*2 2番。 */
 export function formatGuobiaoFanComposition(raw) {
   const fan = parseGuobiaoFanLabel(raw)
   if (!fan.name) return String(raw || '')
-  if (!fan.value) return fan.count > 1 ? `${fan.name} ×${fan.count}` : fan.name
-  return `${fan.name} ×${fan.count}（${fan.value} 番）`
+  const name = `${fan.name}${fan.count > 1 ? `*${fan.count}` : ''}`
+  return fan.value ? `${name} ${fan.total}番` : name
 }

@@ -1,5 +1,6 @@
 """复刻 Unity GameRecordManager.ApplyActionToRecordState（跳转推演，无动画）。"""
 from __future__ import annotations
+from ....game_calculation.riichi.washizu_tiles import SUB_RULES as WASHIZU_SUB_RULES
 
 import json
 import re
@@ -190,7 +191,7 @@ class RecordSim:
         self.record_dead_wall_count = 16 if self.is_taiwan() else 0
         if self.flags.rule_id == "riichi":
             self.record_dead_wall_count = 14
-            if title_str(self.game_title, "sub_rule") in ("riichi/washizu", "riichi/washizu_realtime"):
+            if title_str(self.game_title, "sub_rule") in WASHIZU_SUB_RULES:
                 self.record_dead_wall_count = int((round_data.get("washizu") or {}).get("dead_wall_count", 13))
         if title_str(self.game_title, "sub_rule") == "zhongyong/standard":
             self.record_dead_wall_count = 14
@@ -312,7 +313,7 @@ class RecordSim:
             wall.pop(0)
             self.current_tiles_list.pop(offset)
             return
-        if title_str(self.game_title, "sub_rule") in ("riichi/washizu", "riichi/washizu_realtime"):
+        if title_str(self.game_title, "sub_rule") in WASHIZU_SUB_RULES:
             if self.current_tiles_list:
                 self.current_tiles_list.pop(0)
             return
@@ -447,7 +448,7 @@ class RecordSim:
 
         if action in ("d", "gd", "bd", "nd"):
             player.tile_list.append(codec.parse_tick_int(tick, 1))
-            player.show_hand_draw_slot_active = len(player.tile_list) % 3 == 2 if self.flags.rule_id in {"filipino", "vietnamese"} else True
+            player.show_hand_draw_slot_active = len(player.tile_list) % 3 == 2 if self.flags.rule_id in {"filipino", "vietnamese", "shanghai"} else True
             self._consume_wall(action, tick)
             next_player = acting
         elif action == "c":
@@ -596,7 +597,7 @@ class RecordSim:
             self.players[riichi_player].score -= 1000
             self.record_riichi_sticks += 1
         elif action == "dora":
-            if title_str(self.game_title, "sub_rule") in ("riichi/washizu", "riichi/washizu_realtime") and self.current_tiles_list:
+            if title_str(self.game_title, "sub_rule") in WASHIZU_SUB_RULES and self.current_tiles_list:
                 self.current_tiles_list.pop()
                 self.record_dead_wall_count -= 1
         elif action == "gr":

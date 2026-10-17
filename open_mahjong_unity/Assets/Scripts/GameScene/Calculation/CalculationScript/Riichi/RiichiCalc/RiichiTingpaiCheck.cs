@@ -12,7 +12,7 @@ namespace Riichi {
             11, 19, 21, 29, 31, 39, 41, 42, 43, 44, 45, 46, 47
         };
 
-        public HashSet<int> TingpaiCheck(List<int> handTileList, List<string> combinationList) {
+        public HashSet<int> TingpaiCheck(List<int> handTileList, List<string> combinationList, bool countMelds = false) {
             var normalized = NormalizeHand(handTileList);
 
             _waitingTiles.Clear();
@@ -26,13 +26,30 @@ namespace Riichi {
             var pt = new RiichiPlayerTiles(normalized, combinationList, completeStep);
             NormalCheck(pt);
 
-            _waitingTiles.RemoveWhere(t => InvalidTiles.Contains(t));
+            var owned = new Dictionary<int, int>();
+            void CountTile(int tile) {
+                tile = RiichiTileUtil.Normalize(tile);
+                owned[tile] = owned.TryGetValue(tile, out int count) ? count + 1 : 1;
+            }
+            foreach (int tile in normalized) CountTile(tile);
+            if (countMelds) {
+                foreach (string meld in combinationList) {
+                    if (string.IsNullOrEmpty(meld) || !int.TryParse(meld.Substring(1), out int tile)) continue;
+                    if (meld[0] == 's') {
+                        CountTile(tile - 1); CountTile(tile); CountTile(tile + 1);
+                    } else {
+                        int count = meld[0] == 'g' || meld[0] == 'G' ? 4 : 3;
+                        for (int i = 0; i < count; i++) CountTile(tile);
+                    }
+                }
+            }
+            _waitingTiles.RemoveWhere(t => InvalidTiles.Contains(t) || (owned.TryGetValue(t, out int count) && count >= 4));
             return new HashSet<int>(_waitingTiles);
         }
 
-        public static HashSet<int> TingpaiCheckStatic(List<int> handTileList, List<string> combinationList, bool debug = false) {
+        public static HashSet<int> TingpaiCheckStatic(List<int> handTileList, List<string> combinationList, bool debug = false, bool countMelds = false) {
             var checker = new RiichiTingpaiCheck();
-            return checker.TingpaiCheck(handTileList, combinationList);
+            return checker.TingpaiCheck(handTileList, combinationList, countMelds);
         }
 
         private static List<int> NormalizeHand(List<int> handTileList) {

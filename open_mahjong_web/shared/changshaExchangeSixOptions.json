@@ -1,0 +1,17 @@
+{
+  "tactical_call": false,
+  "open_kong_replacement_count": 4,
+  "bird_count": 2,
+  "dealer_bird": false,
+  "base_score_no_dealer": true,
+  "small_hu_score": 2,
+  "big_hu_score": 8,
+  "small_hu_self_draw_only": false,
+  "score_cap_type": "none",
+  "score_cap_value": 0,
+  "initial_hu_si_xi": true,
+  "initial_hu_ban_ban_hu": false,
+  "initial_hu_que_yi_se": false,
+  "initial_hu_liu_liu_shun": false,
+  "initial_hu_san_tong": false
+}

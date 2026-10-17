@@ -16,6 +16,7 @@ public sealed class NanchangInfo {
 
 [Serializable]
 public sealed class NanchangWait {
+    public JObject local_request;
     public int tile, points, points_min, points_max, self_draw_points;
     public string status;
     public bool self_draw;

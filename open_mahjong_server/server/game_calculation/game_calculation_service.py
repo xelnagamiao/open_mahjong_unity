@@ -240,7 +240,7 @@ class GameCalculationService:
         combination_list: List[str],
         context: Dict[str, Any] = None,
     ) -> Set[int]:
-        """Return Jiandan waits for server validation and non-authoritative UI hints."""
+        """Return Jiandan waits for authoritative action and win validation."""
         with self._lock:
             return jiandan_tingpai_check(hand_tile_list, combination_list, context)
 

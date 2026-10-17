@@ -33,11 +33,17 @@ class FuzhouGameState(FlowerFlow, HandFlow, Runtime, Protocol, Recording, EndOfH
         super().__init__(game_server, data, calculation_service, db_manager, gamestate_id)
         if len(self.player_list) != 4:
             raise ValueError("福州需要四名玩家")
+        if self.max_round not in (1,2,4):
+            raise ValueError("福州时长只能为一圈、半庄或一雀")
         self.player_list = [FuzhouPlayer(**vars(p)) for p in self.player_list]
         self.player_entry_order = [p.user_id for p in self.player_list]
         self.action_policy = ActionPolicy()
         self.use_flowers, self.dead_wall_count = True, 18
         self.rule_version, self.detailed_config = book.VERSION, config
+        # Draw the first dealer independently of the shuffled first-hand wall;
+        # the committed master seed makes both choices reproducible.
+        self.initial_dealer = random.Random(derive_round_seed(self.master_seed,0)).randrange(4)
+        self.dealer_index = self.current_player_index = self.initial_dealer
         self.bot_speed = data.get("bot_speed", "normal")
         self.dealer_streak, self.dealer_changes = 0, 0
         self.match_finishing = False
@@ -66,6 +72,7 @@ class FuzhouGameState(FlowerFlow, HandFlow, Runtime, Protocol, Recording, EndOfH
         self.jin = None
         self.indicator_claimed = False
         self.opening_replacement = False
+        self.dealer_first_discard_pending = True
         self.replacement_pending = self.pending_kong = None
         self.in_last_four = False
         self.sea_queue = []
@@ -75,7 +82,6 @@ class FuzhouGameState(FlowerFlow, HandFlow, Runtime, Protocol, Recording, EndOfH
         self.round_start_scores = [p.score for p in self.player_list]
         self.round_settlement = None
         self.domain_events, self.dice = [], []
-        self._fuzhou_hint_cache = {}
 
     def initialize_round(self, *, wall=None):
         if self.machine.phase != P.START:
@@ -101,7 +107,7 @@ class FuzhouGameState(FlowerFlow, HandFlow, Runtime, Protocol, Recording, EndOfH
         dealer = self.player_list[self.dealer_index]
         dealer.hand_tiles.append(self.tiles_list.pop(0))
         dealer.has_draw_slot = True
-        dealer.draw_kind = "normal"
+        dealer.draw_kind = "opening"
         self.current_player_index = self.dealer_index
 
     def update_reserve(self):
@@ -116,7 +122,8 @@ class FuzhouGameState(FlowerFlow, HandFlow, Runtime, Protocol, Recording, EndOfH
             base_score=self.detailed_config["base_score"], special=special,
             context=book.WinContext(source=source,winning_tile=tile,dealer_streak=self.dealer_streak,
                 after_ready_kong=source=="self_draw" and p.after_ready_kong,
-                heavenly=heavenly,qiangjin=qiangjin,golden_middle=p.golden_middle,youjin=p.youjin))
+                heavenly=heavenly,qiangjin=qiangjin,golden_middle=p.golden_middle,youjin=p.youjin,
+                last_four=self.in_last_four and p.draw_kind=="sea"))
 
     def can_win(self, index, source, tile, *, payer=None):
         p = self.player_list[index]
@@ -132,13 +139,19 @@ class FuzhouGameState(FlowerFlow, HandFlow, Runtime, Protocol, Recording, EndOfH
         cards = p.hand_tiles if source=="self_draw" else p.hand_tiles+[tile]
         return book.is_complete(cards,p.combination_tiles,jin=self.jin)
 
+    def can_flower_win(self, index):
+        p = self.player_list[index]
+        return bool(self.jin and not p.is_hu and p.has_draw_slot and p.hand_tiles
+                    and p.draw_kind not in ("", "opening") and len(p.huapai_list) >= 20
+                    and self.score_win(index,"self_draw",p.hand_tiles[-1],special="flower") is not None)
+
     def can_three_gold(self, index):
         p = self.player_list[index]
-        if not self.jin or p.is_hu or p.hand_tiles.count(self.jin) != 3:
+        if not self.jin or p.is_hu or not p.has_draw_slot or p.draw_kind=="opening" or p.hand_tiles.count(self.jin) != 3:
             return False
-        if (p.golden_middle or p.youjin) and (not p.has_draw_slot or p.hand_tiles[-1] not in p.locked_waits):
+        if (p.golden_middle or p.youjin) and p.hand_tiles[-1] not in p.locked_waits and not self.can_flower_win(index):
             return False
-        return self.score_win(index,"self_draw",special="three_gold") is not None
+        return self.score_win(index,"self_draw",p.hand_tiles[-1],special="three_gold") is not None
 
     def legal_discard_tiles(self, index):
         return legal_cuts(self,index)

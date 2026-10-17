@@ -22,6 +22,7 @@ public sealed class WenzhouInfo {
 
 [Serializable]
 public sealed class WenzhouWait {
+    public JObject local_request;
     public int tile, ron_multiplier, self_draw_multiplier;
     public bool ron, self_draw;
 }

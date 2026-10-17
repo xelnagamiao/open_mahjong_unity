@@ -22,23 +22,23 @@ def test_room_rejects_unsupported_values(bad):
     with pytest.raises(ValueError):NanjingRoomValidator(**{'room_name':'南京测试','round_timer':20,'step_timer':5,**bad})
 
 
-def test_fixed_reaction_clock_reconnect_expiry_and_no_bank_consumption():
+def test_room_reaction_clock_reconnect_expiry_and_bank_consumption():
     async def check():
-        s=turn();s.player_list[1].hand_tiles=PLAIN[:-1];s.player_list[1].remaining_time=20
+        s=turn();s.step_time=5;s.player_list[1].hand_tiles=PLAIN[:-1];s.player_list[1].remaining_time=20
         act(s,action_type='cut',TileId=22,cutClass=True)
         s._timing_now=lambda:100
         clock=s.action_clocks[1];clock.start(100)
         s._timing_now=lambda:101.5
         info=s.build_pending_action_payload(1)['ask_other_action_info']
-        assert info['remaining_time']==0 and info['step_remaining']==2
-        s._timing_now=lambda:103
+        assert info['remaining_time']==20 and info['step_remaining']==4
+        s._timing_now=lambda:125
         with pytest.raises(ValueError,match='耗尽'):await s.submit_action(1,'hu')
-        s._timing_now=lambda:102.5
+        s._timing_now=lambda:107
         await s.submit_action(1,'hu')
         for i in list(s.waiting_players_list):
             if i!=1:await s.submit_action(i,'pass')
         responses=await s.wait_action()
-        assert s.player_list[1].remaining_time==20 and responses[1]['action_type']=='hu'
+        assert s.player_list[1].remaining_time==18 and responses[1]['action_type']=='hu'
     asyncio.run(check())
 
 

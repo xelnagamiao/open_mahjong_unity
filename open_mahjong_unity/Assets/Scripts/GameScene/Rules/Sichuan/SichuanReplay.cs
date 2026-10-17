@@ -16,6 +16,21 @@ public partial class GameRecordManager {
 
     private void RefreshDoublesRecordTeams() {
         string subRule = ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "");
+        if (WashizuDoubles.IsEnabled(subRule)) {
+            if (!gameRecord.gameTitle.TryGetValue("team_by_player_index", out object teamValue)
+                || !gameRecord.gameTitle.TryGetValue("team_role_by_player_index", out object roleValue)) return;
+            int[] originalTeams = JArray.FromObject(teamValue).ToObject<int[]>();
+            string[] originalRoles = JArray.FromObject(roleValue).ToObject<string[]>();
+            if (originalTeams.Length != 4 || originalRoles.Length != 4) return;
+            var teams = new int[4]; var roles = new string[4];
+            foreach (var player in recordPlayerList) {
+                if (player.playerIndex < 0 || player.playerIndex > 3 || player.originalPlayerIndex < 0 || player.originalPlayerIndex > 3) continue;
+                teams[player.playerIndex] = originalTeams[player.originalPlayerIndex];
+                roles[player.playerIndex] = originalRoles[player.originalPlayerIndex];
+            }
+            GameCanvas.Instance.UpdateWashizuRoles(teams, roles, indexToPosition);
+            return;
+        }
         if (!SichuanLobby.IsTeamMode(subRule)) return;
         if (gameRecord.gameTitle.TryGetValue("team_by_player_index", out object value) && value != null) {
             int[] teams = JArray.FromObject(value).ToObject<int[]>();
@@ -178,7 +193,7 @@ public partial class GameRecordManager {
     }
 
     /// <summary>血战中途和牌：仅当 score_changes 全 0 时视为延迟入账。</summary>
-    private static bool IsDeferredSichuanHuScore(int huScore, int[] scoreChanges) {
+    private static bool IsDeferredSichuanHuScore(double huScore, int[] scoreChanges) {
         if (scoreChanges == null) return true;
         foreach (int c in scoreChanges) {
             if (c != 0) return false;

@@ -40,7 +40,7 @@ public class MatchButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHand
     public string ModeTitle => modeLabel != null ? modeLabel.text : "";
     public string RuleId => rule == MatchRule.SichuanXueliuExchange ? RankedRules.XueliuExchangeRule : rule == MatchRule.RiichiSanma ? RiichiSanmaRankConfig.Rule : rule.ToString().ToLowerInvariant();
     public bool IsElo => !RankedRules.IsGrade(RuleId);
-    public bool IsAvailable => rule==MatchRule.Guobiao || (rule==MatchRule.Riichi || rule==MatchRule.RiichiSanma) && tier!=MatchTier.MCRPL && gameType<=MatchGameType.Banzhuang || rule==MatchRule.Sichuan && gameType==MatchGameType.Banzhuang || (rule==MatchRule.Qingque || rule==MatchRule.SichuanXueliuExchange || rule==MatchRule.Hongque) && gameType==MatchGameType.Quanzhuang;
+    public bool IsAvailable => rule==MatchRule.Guobiao || (rule==MatchRule.Riichi || rule==MatchRule.RiichiSanma) && tier!=MatchTier.MCRPL && gameType<=MatchGameType.Banzhuang || (rule==MatchRule.Sichuan || rule==MatchRule.SichuanXueliuExchange) && gameType==MatchGameType.Banzhuang || rule==MatchRule.Qingque && gameType==MatchGameType.Quanzhuang || rule==MatchRule.Hongque && (gameType==MatchGameType.Banzhuang || gameType==MatchGameType.Quanzhuang);
     [SerializeField] private RankPolicyPanel policyPanel;
     public void SetSelected(bool value) {
         selected = value;

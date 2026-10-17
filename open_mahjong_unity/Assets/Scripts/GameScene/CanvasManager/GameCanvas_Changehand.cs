@@ -409,7 +409,7 @@ public partial class GameCanvas{
         // 牌谱回放/观战回放依赖 cut_tile_index，不能在客户端额外重排顺序
         bool isRecordPlayback = GameRecordManager.Instance.gameObject.activeSelf;
         // 牌谱模式始终按牌值排序；对局模式在勾选自动排序时排序
-        if ((isRecordPlayback && !WashizuTile.IsRealtimeHandOrder) || AutoAction.Instance.IsAutoArrangeHandCards){
+        if (isRecordPlayback ? !WashizuTile.IsRealtimeHandOrder : AutoAction.Instance.IsAutoArrangeHandCards){
             TileIdOrder.SortHand(tileCards, card => card.tileId);
         }
         // 对局且不勾选自动排序时保持原有顺序
@@ -421,6 +421,8 @@ public partial class GameCanvas{
             tileCards[i].transform.SetSiblingIndex(i);
             targetPositions[cardRect] = layoutPositions[cardRect];
         }
+
+        if (!isRecordPlayback && AutoAction.Instance.IsAutoArrangeHandCards) PublishWashizuHandOrder();
 
         // 检查是否需要动画：比较每个手牌的当前位置和目标位置
         bool needsAnimation = false;

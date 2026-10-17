@@ -2,6 +2,7 @@ import asyncio
 import time
 from collections import Counter
 from ..public.ai.pacing import wait_bot_delay, bot_delay
+from ..public.action_window import prepare_action_window
 from ..public.vote_manager import vote_checkpoint
 from .phases import P
 from . import actions as A
@@ -155,9 +156,13 @@ class Runtime:
     async def run_round_ready_phase(self, timeout=None):
         self.machine.transition(P.READY)
         self.live_pending_window = None
+        # Ready may arrive during the first broadcast, before wait_action has
+        # replaced the previous hand's (possibly expired) receive deadline.
+        self._active_deadlines = {}
+        self._received_at = {}
         self.server_action_tick += 1
         self.action_dict = {i: ["ready"] if not p.is_bot and not self.match_finishing else [] for i, p in enumerate(self.player_list)}
-        self.waiting_players_list = [i for i, a in self.action_dict.items() if a]
+        prepare_action_window(self, new_ask=True, tactical=False)
         self.emit_ready_status_payloads()
         await self.flush_outbound_payloads()
         if self.waiting_players_list:

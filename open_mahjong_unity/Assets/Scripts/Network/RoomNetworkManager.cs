@@ -1024,6 +1024,17 @@ public partial class RoomNetworkManager : MonoBehaviour {
         }
     }
 
+    public async void SetCaptainRole(string roomId, int revision, int seatIndex, int roleId) {
+        try {
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(new {
+                type = "room/set_team", room_id = roomId, roster_revision = revision,
+                seat_index = seatIndex, role_id = roleId,
+            }));
+        } catch (Exception e) {
+            NotificationManager.Instance.ShowTip("team", false, "身份选择失败：" + e.Message);
+        }
+    }
+
     public async void SetTeam(string roomId, int revision, int seatIndex, int teamId) {
         try {
             await GetWebSocket().SendText(JsonConvert.SerializeObject(new {

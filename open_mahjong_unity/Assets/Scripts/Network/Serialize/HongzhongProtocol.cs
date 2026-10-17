@@ -33,6 +33,7 @@ public sealed class HongzhongWaitDetail {
 }
 [Serializable]
 public sealed class HongzhongHints {
+    public Newtonsoft.Json.Linq.JObject local_request;
     public int hint_version;
     public bool win_blocked;
     public int[] source_hand_tiles, waiting_tiles;

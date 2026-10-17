@@ -93,8 +93,6 @@ def resolve_record_flags(
     if "jiandan" in {rid, title_rule, title_sub}:
         raise ValueError("旧版南雀牌谱已停止支持，请使用中庸麻将下的新南雀牌谱。")
     if rid in _BY_RULE:
-        if _title_str(game_title, "sub_rule", rule or "") == "shanghai/lajihe":
-            return replace(_BY_RULE[rid], face_down_ankan=True, peek_ankan=False)
         if rid == "sichuan" and _title_str(game_title, "sub_rule") in {"sichuan/xueliu", "sichuan/xueliu_exchange", "sichuan/xueliu_doubles", "sichuan/xueliu_doubles_duplicate"}:
             return replace(_BY_RULE[rid], infers_dingque_from_discards=False)
         return _BY_RULE[rid]

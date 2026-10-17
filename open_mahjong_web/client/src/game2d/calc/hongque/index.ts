@@ -954,14 +954,6 @@ function fitsArithmeticSlots(values: number[], slotCount: number): boolean {
   return false
 }
 
-function orderedTiles(shape: MeldShape): HongqueTile[] {
-  const tiles = shape.tiles.map(parseTile)
-  if (shape.baseKind === 'sequence') {
-    return tiles.sort((a, b) => (shape.numberStep < 0 ? b.number - a.number : a.number - b.number))
-  }
-  return tiles.sort((a, b) => a.colour - b.colour)
-}
-
 function mergeEntries(entries: FanEntry[]): FanEntry[] {
   const merged = new Map<string, FanEntry>()
   for (const item of entries) {
@@ -997,11 +989,12 @@ function sameShapeFans(shapes: MeldShape[], baseKind: string, names: Map<number,
 }
 
 function sameColourLayoutFans(shapes: MeldShape[]): FanEntry[] {
-  // 同花系列：按（长度，花色对应）分组，组内取最高档，不同分组可复计。
+  // 规则书第 5 页：花色及重数一一对应，与牌组类型、数字方向及颜色环起点无关。
+  // 保留重复花色，统一排序后比较；仅用于计分，不改变手牌或牌组的显示顺序。
   const buckets = new Map<string, number>()
   for (const shape of shapes) {
-    const ordered = orderedTiles(shape)
-    const key = JSON.stringify([ordered.length, ordered.map((tile) => tile.colour)])
+    const colours = shape.tiles.map((code) => parseTile(code).colour).sort((a, b) => a - b)
+    const key = JSON.stringify([colours.length, colours])
     buckets.set(key, (buckets.get(key) || 0) + 1)
   }
   const entries: FanEntry[] = []
@@ -1154,8 +1147,8 @@ function scorePartition(
   } else if (colourCoverCount === 3) {
     fans.push(entry('三色', 6))
   }
-  if (tiles.length && tiles.every((tile) => tile.colour % 2 === 0)) fans.push(entry('全纯色', 1))
-  if (tiles.length && tiles.every((tile) => tile.colour % 2 === 1)) fans.push(entry('全半色', 1))
+  if (tiles.length && tiles.every((tile) => tile.colour % 2 === 0)) fans.push(entry('全纯色', 2))
+  if (tiles.length && tiles.every((tile) => tile.colour % 2 === 1)) fans.push(entry('全半色', 2))
 
   const numbers = [...new Set(tiles.map((tile) => tile.number))].sort((a, b) => a - b)
   const allTriplets = shapes.length > 0 && shapes.every((shape) => shape.baseKind === 'triplet')

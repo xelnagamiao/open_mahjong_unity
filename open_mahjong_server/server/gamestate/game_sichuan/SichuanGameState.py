@@ -12,7 +12,6 @@
 import asyncio
 import json
 import logging
-import math
 import random
 import time
 from typing import Any, Dict, List, Optional, Tuple
@@ -48,7 +47,7 @@ from ..public.round_end_timing import (
     ROUND_END_HAND_REVEAL_SEC,
     HU_CONFIRM_COUNTDOWN_SEC,
 )
-from ..public.ready_phase import run_sichuan_liuju_final_ready_phase
+from ..public.ready_phase import run_result_ready_phase, run_sichuan_liuju_final_ready_phase
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
 from ..public.random_seed_manager import setup_random_seed_system
@@ -1161,37 +1160,11 @@ class SichuanGameState:
             await self._ready_phase_immediate()
             return
         wait_time = shuhewei_ready_wait_seconds(0.0, True)
-        ready_deadline = time.time() + wait_time
-        self.action_dict = {}
-        for player in self.player_list:
-            if player.user_id <= 10:
-                self.action_dict[player.player_index] = []
-            else:
-                self.action_dict[player.player_index] = ["ready"]
-                player.remaining_time = math.ceil(wait_time)
-        self.game_status = "waiting_ready"
-        await broadcast_ready_status(self)
-        while any(self.action_dict[i] for i in self.action_dict):
-            for p in self.player_list:
-                if self.action_dict.get(p.player_index):
-                    p.remaining_time = max(0, int(ready_deadline - time.time()))
-            if await self.wait_action() is False:
-                break
+        await run_result_ready_phase(self, wait_time, broadcast_ready_status)
 
     async def _ready_phase_immediate(self):
         """无流局结算面板时：广播准备并等待全员确认（无额外倒计时）。"""
-        self.action_dict = {}
-        for player in self.player_list:
-            if player.user_id <= 10:
-                self.action_dict[player.player_index] = []
-            else:
-                self.action_dict[player.player_index] = ["ready"]
-                player.remaining_time = 0
-        self.game_status = "waiting_ready"
-        await broadcast_ready_status(self)
-        while any(self.action_dict[i] for i in self.action_dict):
-            if await self.wait_action() is False:
-                break
+        await run_result_ready_phase(self, 0, broadcast_ready_status)
 
 
 # 挂载方法

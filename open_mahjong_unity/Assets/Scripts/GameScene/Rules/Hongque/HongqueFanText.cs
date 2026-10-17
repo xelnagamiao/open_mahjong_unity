@@ -12,7 +12,7 @@ internal static class HongqueFanText {
     }
 
     /// <summary>和牌总分达到 30 播放 Gong_hu。</summary>
-    public static bool PlaysGongHu(string subRule, string[] huFan, int huScore) => huScore >= 30;
+    public static bool PlaysGongHu(string subRule, string[] huFan, double huScore) => huScore >= 30;
 
     /// <summary>总计栏：底 + 累加番 + 点。</summary>
     public static SettlementTotalDisplay SettlementTotal(SettlementTotalQuery q) {

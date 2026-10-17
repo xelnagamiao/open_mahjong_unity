@@ -173,8 +173,13 @@ public class RoomConfigContainer : MonoBehaviour {
         }
         if (!DetailedConfigRegistry.TryGet(roomInfo.room_rule, out DetailedConfigDefinition definition)) return;
         IDictionary<string, object> values = roomInfo.detailed_config;
+        if (WashizuDoubles.IsEnabled(roomInfo.sub_rule)) {
+            result.Add(new KeyValuePair<string, string>("双打胜负", "主将点数高者胜，同分和局"));
+            result.Add(new KeyValuePair<string, string>("终场供托", "退还原出资者"));
+        }
         if (roomInfo.room_rule == "hongkong") definition = HongKong_Create_RoomConfig.Definition(roomInfo.sub_rule,values);
         foreach (DetailedConfigOption option in definition.Options) {
+            if (WashizuDoubles.IsEnabled(roomInfo.sub_rule) && option.Key == "end_deposits") continue;
             if (roomInfo.room_rule == "hongkong" && !HongKong_Create_RoomConfig.OptionVisible(option.Key,roomInfo.sub_rule,values)) continue;
             object raw = option.DefaultValue;
             if (values != null && values.TryGetValue(option.Key, out object stored)) raw = stored;
@@ -251,6 +256,7 @@ public class RoomConfigContainer : MonoBehaviour {
             case "room_type":
                 displayName = "规则";
                 displayValue = roomInfo.sub_rule == GuangdongMilRules.SubRule ? "广东花鬼" : RuleNameDictionary.GetWholeName(roomInfo.sub_rule);
+                if (WashizuDoubles.IsEnabled(roomInfo.sub_rule)) displayValue = "鹫巢麻将\n（双打）";
                 if (SichuanLobby.IsDuplicate(roomInfo.sub_rule)) displayValue = SichuanLobby.IsXueliu(roomInfo.sub_rule) ? "血流双打复式" : "血战双打复式";
                 return true;
             case "game_round":
@@ -390,7 +396,7 @@ public class RoomConfigContainer : MonoBehaviour {
             case "open_tobi":
                 if (!roomInfo.open_tobi.HasValue) return false;
                 displayName = "击飞";
-                displayValue = roomInfo.open_tobi.Value ? "开" : "关";
+                displayValue = WashizuDoubles.IsEnabled(roomInfo.sub_rule) ? "仅主将负分结束" : roomInfo.open_tobi.Value ? "开" : "关";
                 return true;
             case "hepai_way":
                 if (string.IsNullOrEmpty(roomInfo.hepai_way)) return false;

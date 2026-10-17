@@ -88,88 +88,6 @@
 
 .game-fan-table-trigger { margin-top: auto; }
 
-.guobiao-fan-table {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
-}
-
-.guobiao-fan-table__button {
-  width: 100%;
-  min-height: 36px;
-  white-space: nowrap;
-}
-
-.guobiao-fan-table__panel {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  z-index: 45;
-  display: flex;
-  flex-direction: column;
-  width: min(560px, calc(100% - 20px));
-  max-height: min(76dvh, 680px);
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 10px;
-  background: rgba(20, 24, 26, 0.98);
-  color: #f1f3f2;
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.46);
-}
-
-.guobiao-fan-table__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
-  background: #252b2e;
-}
-.guobiao-fan-table__header div { display: grid; gap: 3px; }
-.guobiao-fan-table__header strong { font-size: 16px; }
-.guobiao-fan-table__header span { color: #aeb8ba; font-size: 11px; }
-.guobiao-fan-table__close {
-  width: 30px;
-  height: 30px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 5px;
-  background: #30383b;
-  color: #fff;
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-}
-.guobiao-fan-table__groups { min-height: 0; overflow-y: auto; padding: 8px; }
-.guobiao-fan-table__group { border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
-.guobiao-fan-table__group-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  min-height: 38px;
-  padding: 7px 9px;
-  border: 0;
-  background: transparent;
-  color: #f3f4f2;
-  font-size: 15px;
-  font-weight: 700;
-  text-align: left;
-  cursor: pointer;
-}
-.guobiao-fan-table__group-header:hover { background: rgba(255, 255, 255, 0.08); }
-.guobiao-fan-table__chevron { color: #df7d23; font-size: 19px; font-weight: 400; }
-.guobiao-fan-table__entries { display: grid; gap: 6px; padding: 0 8px 9px; }
-.guobiao-fan-table__entry {
-  padding: 8px 10px;
-  border-left: 3px solid #df7d23;
-  background: rgba(255, 255, 255, 0.07);
-}
-.guobiao-fan-table__name { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.guobiao-fan-table__name strong { font-size: 14px; }
-.guobiao-fan-table__name span { color: #f0a157; font-size: 12px; white-space: nowrap; }
-.guobiao-fan-table__entry p { margin: 4px 0 0; color: #d8dfdf; font-size: 12px; line-height: 1.5; }
-.guobiao-fan-table__entry .guobiao-fan-table__example { color: #aebabb; }
-.guobiao-fan-table__example span { color: #df9a53; }
-
 .game-vote-start {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -791,6 +709,21 @@
   color: #ffb5b5;
 }
 
+.mahjongGame .game-felt-rail .scene-appearance-toggle__button.game-demo-exit-button {
+  border-color: #db6a70;
+  background: #b4232c;
+  color: #ffffff;
+}
+
+.mahjongGame .game-felt-rail .scene-appearance-toggle__button.game-demo-exit-button:hover {
+  background: #cc3039;
+}
+
+.mahjongGame .game-felt-rail .game-demo-exit-button:focus-visible {
+  outline: 2px solid #ff8f95;
+  outline-offset: 2px;
+}
+
 .game-loading {
   position: absolute;
   inset: 0;
@@ -1380,11 +1313,11 @@
 }
 
 /*
- * Wide desktop: sidebar sits beside the table. Lock the page to one viewport
+ * Desktop and phone landscape: sidebar sits beside the table. Lock the page to one viewport
  * and let the rail scroll, so opening settings cannot grow a blank strip
- * under the felt. Narrower layouts keep page-level scroll for phones.
+ * under the felt. Phone portrait keeps its existing page-level scroll.
  */
-@media (min-width: 901px) {
+@media (min-width: 901px), (orientation: landscape) {
   html:has(.mahjongGame:not(.replay-page)),
   body:has(.mahjongGame:not(.replay-page)) {
     height: 100%;
@@ -1411,6 +1344,10 @@
     min-height: 0;
   }
 
+  .mahjongGame:not(.replay-page) .game-page__layout {
+    padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+  }
+
   .mahjongGame:not(.replay-page) .game-felt-rail {
     align-self: stretch;
     min-height: 0;
@@ -1420,7 +1357,7 @@
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 900px) and (orientation: portrait) {
   .game-page__layout { height: auto; gap: 10px; padding: 12px; }
   .game-page__board-panel { flex: 1 1 auto; min-height: 0; }
   .game-page__stage-shell { height: auto; }
@@ -1450,6 +1387,9 @@
   .game-page__sidebar-card { min-width: 0; padding: 8px 10px; }
   .game-page__sidebar-card .player-name { font-size: 13px; }
   .game-page__sidebar-card .player-rating { font-size: 10px; }
+}
+
+@media (max-width: 900px) {
   .end-result-panel--draw {
     width: min(64%, 360px);
     max-height: min(52%, 360px);
@@ -1476,6 +1416,23 @@
   .end-result-draw-title { font-size: clamp(36px, 10vw, 56px); letter-spacing: 0.2em; text-indent: 0.2em; }
   .end-result-visibility { top: 8px; right: 8px; }
   .end-result-ready-button { right: 10px; bottom: 8px; min-width: 96px; padding: 7px 12px; font-size: 14px; }
+}
+
+/* Scale the existing desktop controls to the available landscape dimensions. */
+@media (max-width: 900px) and (orientation: landscape) {
+  .mahjongGame:not(.replay-page) .game-page__layout {
+    padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
+  }
+  .game-felt-rail { width: clamp(140px, 22vw, 198px); min-width: 0; padding: 8px; }
+  .game-felt-rail .scene-appearance-panel__field { flex-wrap: wrap; }
+  .game-felt-rail .scene-appearance-panel__select { flex: 1 1 106px; width: 100%; min-width: 0; max-width: 100%; }
+  .game-stage-panel { max-height: calc(100% - 222px); }
+}
+
+/* Leave room for the existing floating assist controls without covering tiles. */
+@media (max-width: 1200px) and (orientation: landscape) {
+  .mahjongGame:not(.replay-page) .game-felt-playfield .game-stage { width: calc(100% - 150px); }
+  .game-stage-toolbar { transform: scale(.65); transform-origin: top right; }
 }
 
 @media (max-width: 560px) {

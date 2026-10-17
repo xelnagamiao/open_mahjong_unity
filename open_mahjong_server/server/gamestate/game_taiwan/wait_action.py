@@ -7,6 +7,7 @@ import time
 from typing import Dict, Optional, Tuple
 
 from ..public.ask_timing import get_ask_elapsed
+from ..public.action_window import retain_current_tick_actions
 from .action_check import HU_ACTIONS, is_forced_ready_win
 from .boardcast import broadcast_ready_status
 
@@ -65,13 +66,8 @@ async def _collect_responses(game_state) -> Tuple[Dict[int, dict], Dict[int, lis
     }
     game_state.waiting_players_list = list(allowed)
 
-    # 台湾状态机会在广播前清空旧窗口；这里不能再清队列，否则会误删广播后
-    # 机器人立即提交的本窗口回复。
-    for index in range(4):
-        event = game_state.action_events[index]
-        queue = game_state.action_queues[index]
-        if event.is_set() and queue.empty():
-            event.clear()
+    # 广播期间已到达的回复属于本窗口；只过滤旧包并恢复对应事件。
+    retain_current_tick_actions(game_state)
 
     if not allowed:
         return {}, allowed

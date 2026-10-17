@@ -1,3 +1,4 @@
+from ...game_calculation.riichi.washizu_tiles import SUB_RULES as WASHIZU_SUB_RULES
 """
 立直麻将 GameState：
 - player_index 0 恒为亲家；过庄时 back_current_num 轮转座位（与国标一致）
@@ -10,8 +11,6 @@
 """
 import random
 import asyncio
-import time
-import math
 import logging
 from copy import deepcopy
 from ...game_calculation.riichi.sanma import honba_total
@@ -47,6 +46,7 @@ from ..public.round_end_timing import (
     sichuan_settle_hu_panel_wait_seconds,
 )
 from ..public.ready_phase import run_hu_result_ready_phase as run_synced_hu_ready_phase
+from ..public.ready_phase import run_result_ready_phase
 from ..public.game_record_manager import (
     capture_player_entry_order,
     init_game_record,
@@ -126,7 +126,8 @@ class RiichiPlayer:
         self.pending_riichi = False
         self.pending_daburu = False
         self.riichi_turn: Optional[int] = None
-        self.temp_furiten = False  # 同巡振听：自家放过本巡他家弃牌中的听张后，至下一次出牌后不可荣和
+        self.temp_furiten = False  # 同巡振听：按规则在下一次摸牌或摸打完成时解除
+        self.temp_furiten_drawn = False  # 吃碰后的打牌不算完成下一次摸打
         self.riichi_furiten = False  # 立直振听：立直状态下放过荣和后永久振听到本局结束
         self.ryuukyoku_declared_tenpai = True  # 荒牌流局时是否按听牌申报，立直家固定视为听牌
         self.riichi_candidate_cuts: Dict[int, List[int]] = {}
@@ -148,13 +149,15 @@ class RiichiPlayer:
         self.hand_tiles.append(element)
         if mark_draw_slot:
             self.has_draw_slot = True
+            self.temp_furiten_drawn = True
 
     def get_gang_tile(self, tiles_list, gamestate):
         from ...game_calculation.riichi.sanma import replacement_index
         # 三麻第 5~8 张补牌绕过所有宝牌/里宝指示牌；末尾仍保留 14 张。
-        element = tiles_list.pop(0 if gamestate.sub_rule in ('riichi/washizu', 'riichi/washizu_realtime') else replacement_index(gamestate.rinshan_count, gamestate.sub_rule == 'riichi/sanma'))
+        element = tiles_list.pop(0 if gamestate.sub_rule in WASHIZU_SUB_RULES else replacement_index(gamestate.rinshan_count, gamestate.sub_rule == 'riichi/sanma'))
         self.hand_tiles.append(element)
         self.has_draw_slot = True
+        self.temp_furiten_drawn = True
         gamestate.rinshan_count += 1
 
 
@@ -222,7 +225,7 @@ class RiichiGameState:
         self.hepai_way: str = room_data.get("hepai_way", "multi_ron")  # head_bump / multi_ron / three_ron_abort
         self.open_xiru: bool = room_data.get("open_xiru", True)
         self.open_tobi: bool = room_data.get("open_tobi", True)
-        if self.sub_rule in ('riichi/washizu', 'riichi/washizu_realtime'):
+        if self.sub_rule in WASHIZU_SUB_RULES:
             if len(self.player_list) != 4:
                 raise ValueError('鹫巢麻将需要四位玩家')
             self.red_dora = False
@@ -236,6 +239,9 @@ class RiichiGameState:
             self.starting_scores: Optional[List[int]] = [int(x) for x in raw_starting_scores]
         else:
             self.starting_scores = None
+
+        from .doubles import configure
+        configure(self, room_data)
 
         self._pending_ron_claims: dict = {}
         self.multi_ron_queue: Optional[list] = None
@@ -393,7 +399,8 @@ class RiichiGameState:
         capture_player_entry_order(self)
         # 随机座位
         rng = random.Random(self.master_seed)
-        rng.shuffle(self.player_list)
+        from .doubles import shuffle_players
+        shuffle_players(self, rng)
         for i, p in enumerate(self.player_list):
             p.player_index = i
             p.original_player_index = i
@@ -402,6 +409,8 @@ class RiichiGameState:
 
         init_game_record(self)
         self.game_record["game_title"]["sub_rule"] = self.sub_rule
+        from .doubles import record_profile
+        record_profile(self)
         self.game_record["game_title"]["red_dora"] = self.red_dora
         if self.match_tier is not None:
             self.game_record["game_title"]["match_tier"] = self.match_tier
@@ -618,22 +627,7 @@ class RiichiGameState:
                     else:
                         wait_time = 8.0
 
-                    deadline = time.time() + wait_time
-                    self.action_dict = {}
-                    for p in self.player_list:
-                        if p.user_id <= 10:
-                            self.action_dict[p.player_index] = []
-                        else:
-                            self.action_dict[p.player_index] = ["ready"]
-                            p.remaining_time = math.ceil(wait_time)
-                    self.game_status = "waiting_ready"
-                    await broadcast_ready_status(self)
-                    while any(self.action_dict[i] for i in self.action_dict):
-                        for p in self.player_list:
-                            if self.action_dict.get(p.player_index):
-                                p.remaining_time = max(0, int(deadline - time.time()))
-                        if await wait_action(self) is False:
-                            break
+                    await run_result_ready_phase(self, wait_time, broadcast_ready_status)
 
             if self.next_status == "match_end":
                 break
@@ -653,6 +647,7 @@ class RiichiGameState:
                 p.pending_daburu = False
                 p.riichi_turn = None
                 p.temp_furiten = False
+                p.temp_furiten_drawn = False
                 p.riichi_furiten = False
                 p.ryuukyoku_declared_tenpai = True
                 p.riichi_candidate_cuts = {}
@@ -701,6 +696,10 @@ class RiichiGameState:
         await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
 
     def _assign_final_ranks(self):
+        if self.is_team_game:
+            from .doubles import assign_final_ranks
+            assign_final_ranks(self)
+            return
         if option(self, 'tie_break') == 'shared':
             # Use the pre-deposit scores: 400/300/300 rounding must not split a tie.
             tie_scores = self._riichi_final_tie_scores
@@ -717,6 +716,8 @@ class RiichiGameState:
         self._score_history_scores_before = dict(self._round_scores_before)
 
     def _append_round_score_history(self):
+        from .doubles import record_round
+        record_round(self)
         for p in self.player_list:
             delta = p.score - self._round_scores_before[p.original_player_index]
             p.score_history.append(f"+{delta}" if delta > 0 else str(delta))
@@ -812,8 +813,6 @@ class RiichiGameState:
         return match_should_end(self, renchan, self.current_round if current_round is None else current_round)
 
     def _compute_last_renchan(self) -> bool:
-        if self.sub_rule in ('riichi/washizu', 'riichi/washizu_realtime'):
-            return False
         """Settle 后、局数推进前：本局是否连庄（不修改状态）。"""
         if self._cuohe_triggered:
             return True
@@ -1071,6 +1070,8 @@ class RiichiGameState:
         if apply_riichi_sticks:
             score_changes[winner_index] += collected * 1000
             self.riichi_sticks = 0
+            from .doubles import collected_deposits
+            collected_deposits(self)
 
         # 应用
         for p in self.player_list:
@@ -1101,6 +1102,9 @@ class RiichiGameState:
             self.player_list[self.current_player_index].record_counter.fangchong_times += 1
             self.player_list[self.current_player_index].record_counter.fangchong_score += han
 
+        # 结算展示与牌谱使用同一份已按规则过滤的指示牌。
+        from .rule_logic import win_indicators
+        win_dora, win_ura = win_indicators(self, winner)
         # 记录
         player_action_record_hu_riichi(
             self,
@@ -1110,8 +1114,8 @@ class RiichiGameState:
             fu=fu,
             yaku=yaku,
             score_changes=[score_changes.get(i, 0) for i in range(len(self.player_list))],
-            dora_indicators=list(self.dora_indicators) + list(self.kan_dora_indicators),
-            ura_dora_indicators=list(self.ura_dora_indicators + self.ura_kan_dora_indicators) if "riichi" in self.player_list[winner_index].tag_list else [],
+            dora_indicators=win_dora,
+            ura_dora_indicators=win_ura,
             aka_count=aka_count,
             honba=self.honba,
             riichi_sticks_collected=collected,
@@ -1134,8 +1138,8 @@ class RiichiGameState:
             aka_count=aka_count,
             dora_count=_count_bonus_yaku(yaku, "宝牌"),
             ura_dora_count=_count_bonus_yaku(yaku, "里宝牌"),
-            dora_indicators=list(self.dora_indicators) + list(self.kan_dora_indicators),
-            ura_dora_indicators=list(self.ura_dora_indicators + self.ura_kan_dora_indicators) if "riichi" in self.player_list[winner_index].tag_list else [],
+            dora_indicators=win_dora,
+            ura_dora_indicators=win_ura,
             honba=self.honba,
             riichi_sticks_collected=collected,
             score_changes={p.original_player_index: score_changes[p.player_index] for p in self.player_list},
@@ -1182,6 +1186,8 @@ class RiichiGameState:
             if getattr(p, 'riichi_paid_this_round', False):
                 score_changes[p.player_index] += 1000
                 self.riichi_sticks -= 1
+                from .doubles import refund_current_deposit
+                refund_current_deposit(self, p)
                 p.riichi_paid_this_round = False
 
         for p in self.player_list:
@@ -1195,12 +1201,12 @@ class RiichiGameState:
                 yaku.append("错和")
 
         self._cuohe_triggered = True
+        if self.is_team_game:
+            self.next_status = 'match_end' if self._riichi_match_should_end(True, self.current_round) else 'round_end_by_ready'
 
-        # 错和也展示宝牌/里宝指示牌：番数由 yaku 内的"宝牌*N/里宝牌*N"统计得出，立直家才显示里宝。
-        cuohe_ura_indicators = (
-            list(self.ura_dora_indicators + self.ura_kan_dora_indicators)
-            if "riichi" in self.player_list[offender_index].tag_list else []
-        )
+        # 错和展示也遵循宝牌开关，与合法和牌和计番保持一致。
+        from .rule_logic import win_indicators
+        cuohe_dora_indicators, cuohe_ura_indicators = win_indicators(self, self.player_list[offender_index])
         cuohe_dora_count = _count_bonus_yaku(yaku, "宝牌")
         cuohe_ura_count = _count_bonus_yaku(yaku, "里宝牌")
 
@@ -1212,7 +1218,7 @@ class RiichiGameState:
             fu=fu,
             yaku=yaku,
             score_changes=[score_changes.get(i, 0) for i in range(len(self.player_list))],
-            dora_indicators=list(self.dora_indicators) + list(self.kan_dora_indicators),
+            dora_indicators=cuohe_dora_indicators,
             ura_dora_indicators=cuohe_ura_indicators,
             aka_count=aka_count,
             honba=self.honba,
@@ -1226,6 +1232,7 @@ class RiichiGameState:
             # player_to_score 按当局座位 player_index 为键，score_changes 按 original_player_index 为键（与国标约定一致）。
             player_to_score={p.player_index: p.score for p in self.player_list},
             hu_score=cuohe_total_penalty,
+            next_status=self.next_status if self.is_team_game else None,
             hu_fan=yaku,
             hu_class=self.hu_class,
             hepai_player_hand=self.player_list[offender_index].hand_tiles,
@@ -1235,7 +1242,7 @@ class RiichiGameState:
             aka_count=aka_count,
             dora_count=cuohe_dora_count,
             ura_dora_count=cuohe_ura_count,
-            dora_indicators=list(self.dora_indicators) + list(self.kan_dora_indicators),
+            dora_indicators=cuohe_dora_indicators,
             ura_dora_indicators=cuohe_ura_indicators,
             honba=self.honba,
             riichi_sticks_collected=0,
@@ -1274,7 +1281,7 @@ class RiichiGameState:
         """
         if not option(self, "kan_dora"):
             return
-        if self.sub_rule in ('riichi/washizu', 'riichi/washizu_realtime'):
+        if self.sub_rule in WASHIZU_SUB_RULES:
             if len(self.kan_dora_indicators) >= 4:
                 return
             from .washizu import draw_indicator
@@ -1283,7 +1290,7 @@ class RiichiGameState:
             player_action_record_new_dora(self, tile_id=new_ind)
             if broadcast:
                 await broadcast_update_dora(self, new_indicator=new_ind, is_kan_dora=True)
-            return
+            return new_ind
         next_kan_number = len(self.kan_dora_indicators) + 1
         if next_kan_number > 4:
             return
@@ -1368,7 +1375,7 @@ class RiichiGameState:
     # ========== 观战 ==========
 
     def build_record_round_fields(self):
-        if self.sub_rule not in ('riichi/washizu', 'riichi/washizu_realtime'):
+        if self.sub_rule not in WASHIZU_SUB_RULES:
             return {}
         return {'washizu': {
             'version': 1,

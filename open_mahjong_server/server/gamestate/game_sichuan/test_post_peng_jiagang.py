@@ -11,6 +11,7 @@ from .test_doubles import make_state as make_battle_doubles
 from .test_xueliu_doubles import make_state as make_flow_doubles
 from ..public.hand_slot_utils import has_draw_slot
 from ..public.lifecycle import cancel_auxiliary_tasks
+from ..public.outbound_pipe import drain_viewer
 
 
 FLOW_MODES = ("xueliu", "xueliu_exchange", "xueliu_doubles")
@@ -180,6 +181,7 @@ def test_post_peng_jiagang_can_be_robbed_or_continue_to_draw(mode, response):
             assert len(actor.gang_score_records) == 1
             reply_on_ask(state, 2, response)
             await state.broadcast_ask_other_action()
+            await drain_viewer(state, 2)
             asks = [m["message"]["ask_other_action_info"] for m in messages
                     if m["user_id"] == robber.user_id and m["message"].get("ask_other_action_info")]
             assert asks[-1]["cut_tile"] == 21, "抢杠提示必须显示加杠牌"

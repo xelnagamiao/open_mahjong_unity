@@ -259,6 +259,7 @@ public partial class GameCanvas {
             draw.transform.SetSiblingIndex(main.Count);
         }
 
+        PublishWashizuHandOrder();
         if (needsAnimation) {
             List<RectTransform> cards = new List<RectTransform>(targetPositions.Keys);
             List<Vector2> targets = new List<Vector2>();

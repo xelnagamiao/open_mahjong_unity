@@ -65,8 +65,8 @@ public static class LajiheValidation {
             var config=new Dictionary<string,object>{{LajiheHandCalculator.SelfDrawExtraBaseKey,enabled}};
             string suffix=enabled?"开":"关";
             Check("垃圾和自摸额外底"+suffix,LajiheHandCalculator.Score(plain,null,0,true,selfDrawExtraBase:enabled)==(enabled?15:10));
-            Check("一番自摸额外底参与翻倍"+suffix,LajiheHandCalculator.Score(honors,null,0,true,selfDrawExtraBase:enabled)==(enabled?70:60));
-            Check("抢杠额外底只加一次"+suffix,LajiheHandCalculator.Score(honors,null,0,true,true,true,enabled)==(enabled?70:60));
+            Check("一番自摸翻倍后敲锣"+suffix,LajiheHandCalculator.Score(honors,null,0,true,selfDrawExtraBase:enabled)==30);
+            Check("抢杠敲锣且额外底只加一次"+suffix,LajiheHandCalculator.Score(honors,null,0,true,true,true,enabled)==30);
             Check("普通点和不加额外底"+suffix,LajiheHandCalculator.Score(plain,null,2,false,selfDrawExtraBase:enabled)==5);
             Check("额外底不放宽点和花数门槛"+suffix,LajiheHandCalculator.Score(plain,null,0,false,selfDrawExtraBase:enabled)==0);
             query=new WaitHintQuery {SubRule=LajiheHandCalculator.SubRule,HandWithWin=plain,Melds=new List<string>(),SelfFlowers=new List<int>(),DetailedConfig=config};
@@ -85,8 +85,10 @@ public static class LajiheValidation {
         Check("番种显示额外分",manifest.FanNameText(LajiheHandCalculator.SubRule,"抢杠（5分）")=="抢杠"
             && manifest.FanValueText(LajiheHandCalculator.SubRule,"抢杠（5分）")=="5分");
         Check("八花选择保护",ActionWords.TryGet("lajihe_flower_end",out var action) && action.BlocksAutoCut);
-        Check("暗杠四张公开",GameRecordMeldCodec.BuildAngangMaskFromRemoved(new[]{45,45,45,45},LajiheHandCalculator.SubRule)
-            .SequenceEqual(new[]{0,45,0,45,0,45,0,45}));
+        Check("暗杠两暗两亮",GameRecordMeldCodec.BuildAngangMaskFromRemoved(new[]{45,45,45,45},LajiheHandCalculator.SubRule)
+            .SequenceEqual(new[]{2,45,0,45,0,45,2,45}));
+        var concealedDisplay=SettlementMeldLayoutBuilder.Build(new[]{GameRecordMeldCodec.BuildAngangMaskFromRemoved(new[]{45,45,45,45},LajiheHandCalculator.SubRule)})[0];
+        Check("暗杠结算牌面两暗两亮",concealedDisplay.Select(tile=>tile.FaceDown).SequenceEqual(new[]{true,false,false,true}));
         Check("原敲麻暗杠保持",GameRecordMeldCodec.BuildAngangMaskFromRemoved(new[]{41,41,41,41},"shanghai/qiaoma")
             .SequenceEqual(new[]{2,41,0,41,0,41,2,41}));
         var tick = new List<string>{"lajihe_eight_flowers","0","30","[\"八花齐\"]","[90,-30,-30,-30]"};
@@ -100,6 +102,20 @@ public static class LajiheValidation {
         var rows=ScoreHistoryRecordSettlementExtractor.ExtractScoreRows(record);
         Check("八花后流局两条计分历史",rows.Count==2 && rows[0].snapshot.huFan[0]=="八花齐" && rows[1].snapshot.isLiuju);
         Check("八花不伪造和牌与亮手",!rows[0].snapshot.hasWin && !rows[0].snapshot.CanShowHandPreview);
+        foreach (int flowerCount in new[]{0,1}) {
+            var bigSingle=new WaitHintQuery {SubRule=LajiheHandCalculator.SubRule,HandWithWin=new List<int>{41,41},
+                Melds=new List<string>{"s12","s22","s32","k19"},SelfFlowers=Enumerable.Range(51,flowerCount).ToList(),
+                Record=new RecordTipsContext{SelfTags=new List<string>()}};
+            var bigHint=manifest.DescribeWaitingTile(bigSingle);
+            Check("低花数大吊车可接铳提示"+flowerCount,bigHint.Kind==WaitTileHint.KindRon && bigHint.Label=="0番10分");
+        }
+        Check("敲锣前25分",LajiheHandCalculator.Score(plain,null,7,true)==25);
+        Check("30分恰好敲锣",LajiheHandCalculator.Score(plain,null,8,true)==30);
+        Check("加底达35分敲锣",LajiheHandCalculator.Score(plain,null,8,true,selfDrawExtraBase:true)==30);
+        Check("补牌超过30分敲锣",LajiheHandCalculator.Score(plain,null,8,true,replacement:true)==30);
+        Check("抢杠超过30分敲锣",LajiheHandCalculator.Score(plain,null,8,false,robKong:true,selfDrawExtraBase:true)==30);
+        Check("普通接铳保持高于30分",LajiheHandCalculator.Score(honors,null,0,false)==40);
+        Check("敲锣结算文案",manifest.FanValueText(LajiheHandCalculator.SubRule,"敲锣")=="30分封顶");
         return checks.ToArray();
     }
 

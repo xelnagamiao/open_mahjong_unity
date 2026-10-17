@@ -9,7 +9,7 @@ from .get_action import handle_action
 from .state_machine import HongKongPhase as P
 from ...game_calculation.hongkong.models import PROFILES
 from ...room.hongkong_room import HongKongRoomValidator, create_hongkong_room
-from .hints import private_hints
+from server.gamestate.game_hongkong.client_context import private_context as private_hints
 
 
 @pytest.mark.parametrize('profile',PROFILES)
@@ -53,7 +53,7 @@ def test_network_identity_tick_and_invalid_payload_cannot_enter_queue():
 
 
 @pytest.mark.parametrize('profile',PROFILES)
-def test_private_wait_previews_match_authoritative_baseline(profile):
+def test_private_wait_inputs_match_authoritative_state_without_scoring(profile, monkeypatch):
     state = make_state(profile)
     state.tips = True
     open_round(state)
@@ -64,11 +64,16 @@ def test_private_wait_previews_match_authoritative_baseline(profile):
     p.hand_tiles = hand
     p.combination_tiles=[]
     p.huapai_list=[]
+    monkeypatch.setattr('server.game_calculation.hongkong.structural_waits',
+                        lambda *a, **k: pytest.fail('private hints must not run server scoring'))
     hints = private_hints(state,2)
-    key = ','.join(map(str,sorted(hand)))
-    assert any(h['tile']==45 for h in hints[key])
+    request = hints['__local__'][0]['local_request']
+    assert request['hand'] == hand and request['melds'] == []
+    assert request['context']['profile'] == profile and request['context']['seat'] == 2
     assert state.build_game_start_payload(2)['game_info']['hongkong_waits']==hints
-    assert key not in state.build_game_start_payload(1)['game_info']['hongkong_waits']
+    other = state.build_game_start_payload(1)['game_info']['hongkong_waits']
+    if other:
+        assert other['__local__'][0]['local_request']['hand'] == state.player_list[1].hand_tiles
     state.tips = False
     assert not private_hints(state,2)
 
@@ -87,7 +92,7 @@ def test_wait_eligibility_is_available_with_either_hint_switch(profile, tips, co
     player.hand_tiles = hand + ([19] if drawn else [])
     player.combination_tiles, player.huapai_list = [], []
     expected = private_hints(state, 2)
-    assert expected and any(row['tile'] == 45 for rows in expected.values() for row in rows)
+    assert expected['__local__'][0]['local_request']['hand'] == player.hand_tiles
 
     state.tips, state.count_tips = tips, count_tips
     actual = private_hints(state, 2)
@@ -95,7 +100,9 @@ def test_wait_eligibility_is_available_with_either_hint_switch(profile, tips, co
     info = state.build_game_start_payload(2)['game_info']
     assert info['hongkong_waits'] == actual
     assert info['tips'] is tips and info['count_tips'] is count_tips
-    assert ','.join(map(str, sorted(hand))) not in state.build_game_start_payload(1)['game_info']['hongkong_waits']
+    other = state.build_game_start_payload(1)['game_info']['hongkong_waits']
+    if other:
+        assert other['__local__'][0]['local_request']['hand'] == state.player_list[1].hand_tiles
 
 
 def test_ready_reconnect_and_observer_restore_rule_metadata_and_never_other_hands():

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildEventRoomSettings, createEventRoomForm, eventRoomSettingsSummary, eventRoomSettingsRows } from '../src/utils/eventRoomSettings.js'
+import { buildEventRoomSettings, changeEventRoomRule, createEventRoomForm, eventRoomSettingsSummary, eventRoomSettingsRows } from '../src/utils/eventRoomSettings.js'
 
 test('manual, automatic and dialog forms do not mutate their shared preset', () => {
   const preset = {
@@ -37,10 +37,17 @@ test('zero timers and disabled booleans survive the persisted settings round tri
 
 test('switching to another rule only submits the fields it supports', () => {
   const form = createEventRoomForm()
-  form.room_rule = 'riichi'
+  changeEventRoomRule(form, 'riichi')
   form.room_name = '  立直桌  '
   const settings = buildEventRoomSettings(form)
-  assert.deepEqual(settings.room_config, { room_name: '立直桌', starting_score: 25000, hepai_limit: 1, detailed_config: { minimum_win_score: 0 } })
+  assert.equal(settings.room_config.room_name, '立直桌')
+  assert.equal(settings.room_config.sub_rule, 'riichi/standard')
+  assert.equal(settings.room_config.starting_score, 25000)
+  assert.equal(settings.room_config.hepai_limit, 1)
+  assert.equal(settings.room_config.detailed_config.minimum_win_score, 0)
+  for (const key of ['use_flowers', 'cuohe_type', 'tactical_call', 'claim_protection', 'duplicate_key']) {
+    assert.equal(key in settings.room_config, false, key)
+  }
   assert.equal(settings.room_rule, 'riichi')
 })
 

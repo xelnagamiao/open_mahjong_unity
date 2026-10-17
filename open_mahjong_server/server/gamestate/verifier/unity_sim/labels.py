@@ -28,7 +28,7 @@ BUTTON_TEXT: Dict[str, str] = {
     "chi_left": "吃",
     "chi_mid": "吃",
     "chi_right": "吃",
-    "jiuzhongjiupai": "九老峰回",
+    "jiuzhongjiupai": "九种九牌",
     "riichi_cut": "立直",
     "pass": "取消",
     "force_pass": "放弃",
@@ -73,7 +73,7 @@ def display_text(action: str) -> str:
     return DISPLAY_TEXT.get(action, "")
 
 
-def build_action_buttons(action_list: Iterable[str], *, kind: str) -> List[dict]:
+def build_action_buttons(action_list: Iterable[str], *, kind: str, room_rule: str = "") -> List[dict]:
     """对齐 SetActionButton：cut 不生成按钮；吃/暗杠/加杠/补张合并。"""
     filtered = filter_client_actions(list(action_list or []), kind=kind)
     is_sea_bottom = "sea_bottom" in filtered
@@ -93,6 +93,10 @@ def build_action_buttons(action_list: Iterable[str], *, kind: str) -> List[dict]
                 groups[group]["actions"].append(action)
             continue
         text = BUTTON_TEXT.get(action, action)
+        if action == "jiuzhongjiupai" and room_rule.split("/")[0] == "classical":
+            text = "九老峰回"
+        if action == "buhua":
+            text = {"jiujiang": "补发财", "wuhan": "杠"}.get(room_rule.split("/")[0], text)
         if action == "pass" and is_sea_bottom:
             text = "不要"
         buttons.append({"text": text, "actions": [action]})

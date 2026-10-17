@@ -360,7 +360,8 @@ public partial class Game3DManager {
             if (existingDraw != null) {
                 MahjongObjectPool.Instance.Return(-1, existingDraw.gameObject);
             }
-            winObj = TryTakeLastDiscardObjectForRon(winTileId, request.DiscardPlayerPosition);
+            if (!RecordRonSourceAlreadyPresented(request))
+                winObj = TryTakeLastDiscardObjectForRon(winTileId, request.DiscardPlayerPosition);
         }
 
         Vector3? endPos = ComputeRecordShowDrawSlotPosition(showCards, direction, rotation);
@@ -368,7 +369,9 @@ public partial class Game3DManager {
 
         if (winObj == null) {
             Vector3 spawnPos = isSelfDraw ? PlaceTileOnTable(showCards.position, rotation) : endPos.Value;
-            winObj = MahjongObjectPool.Instance.Spawn(winTileId, spawnPos, rotation);
+            // 多家点和共用一张实体河牌；后续赢家只需要展示副本。
+            winObj = isSelfDraw ? MahjongObjectPool.Instance.Spawn(winTileId, spawnPos, rotation)
+                : MahjongObjectPool.Instance.SpawnPresentationTile(winTileId, spawnPos, rotation);
         }
         if (winObj == null) yield break;
 

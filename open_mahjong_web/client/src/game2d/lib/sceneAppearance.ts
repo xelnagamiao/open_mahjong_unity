@@ -7,7 +7,7 @@ import {
 import { normalizeTileLabelMode, type TileLabelMode } from './tileLabels'
 
 export type FlowerAreaDisplay = 'always' | 'when-present' | 'never'
-export type TileFaceTheme = 'regular' | 'black'
+export type TileFaceTheme = 'guobiao' | 'regular' | 'black'
 export type FlowerFaceTheme = 'flat' | 'unity'
 /** Unity MoqieShortcutMode: 0 双击 1 右键 2 无 */
 export type MoqieShortcutMode = 0 | 1 | 2
@@ -50,7 +50,7 @@ const HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i
 export const MAX_TILE_COVER_COLORS = 8
 
 export const DEFAULT_SCENE_APPEARANCE: SceneAppearanceSettings = {
-  interfaceTheme: 'light',
+  interfaceTheme: 'dark',
   backgroundColorTable: '#999999',
   backgroundColorOutside: '#666666',
   backgroundImageEnabled: false,
@@ -143,7 +143,9 @@ export function normalizeSceneAppearanceSettings(
     ? Math.max(0, Math.min(tileCoverColors.length - 1, lastRaw))
     : 0
   return {
-    interfaceTheme: value?.interfaceTheme === 'dark' ? 'dark' : 'light',
+    interfaceTheme: value?.interfaceTheme === 'light' || value?.interfaceTheme === 'dark'
+      ? value.interfaceTheme
+      : DEFAULT_SCENE_APPEARANCE.interfaceTheme,
     backgroundColorTable: normalizeHexColor(value?.backgroundColorTable, DEFAULT_SCENE_APPEARANCE.backgroundColorTable),
     backgroundColorOutside: normalizeHexColor(value?.backgroundColorOutside, DEFAULT_SCENE_APPEARANCE.backgroundColorOutside),
     backgroundImageEnabled: normalizeBoolean(value?.backgroundImageEnabled, DEFAULT_SCENE_APPEARANCE.backgroundImageEnabled),
@@ -170,7 +172,7 @@ export function normalizeSceneAppearanceSettings(
       1.8,
       DEFAULT_SCENE_APPEARANCE.flowerAreaLabelScale,
     ),
-    tileFaceTheme: value?.tileFaceTheme === 'black' ? 'black' : 'regular',
+    tileFaceTheme: value?.tileFaceTheme === 'guobiao' || value?.tileFaceTheme === 'black' ? value.tileFaceTheme : 'regular',
     tileLabelMode: normalizeTileLabelMode(value?.tileLabelMode),
     flowerFaceTheme: value?.flowerFaceTheme === 'flat' ? 'flat' : 'unity',
     moqieShortcutMode: normalizeShortcutMode(value?.moqieShortcutMode, DEFAULT_SCENE_APPEARANCE.moqieShortcutMode),

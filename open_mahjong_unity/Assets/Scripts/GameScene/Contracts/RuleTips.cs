@@ -3,12 +3,15 @@ using UnityEngine;
 
 /// <summary>听牌查询：手牌（不含将要打出的牌）+ 副露字串 + 房间细则。由 RuleManifest.Tingpai 消费。</summary>
 public sealed class TingpaiQuery {
+    /// <summary>Refresh the current view when a local background calculation completes.</summary>
+    public System.Action OnReady;
     public int? PlayerIndex;
     /// <summary>牌谱座位，用于读取各座位的权威提示快照；实时查询留空。</summary>
     public int? RecordPlayerIndex;
     public string SubRule;
     public List<int> Hand;
     public List<string> Melds;
+    public List<int[]> MeldMasks;
     public Dictionary<string, object> DetailedConfig;
     /// <summary>不可和的花色（四川定缺：1 万 / 2 饼 / 3 条；0 表示无）。</summary>
     public int ExcludedSuit;

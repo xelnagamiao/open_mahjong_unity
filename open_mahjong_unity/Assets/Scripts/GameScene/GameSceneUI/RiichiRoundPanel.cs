@@ -33,6 +33,8 @@ public class RiichiRoundPanel : MonoBehaviour {
     private bool indicatorLayoutInitialized;
 
     public void UpdateRoomInfo(GameInfo gameInfo, string roomType) {
+        var manifest = RuleRegistry.Resolve(roomType, roomType)
+            ?? RuleRegistry.Resolve(gameInfo.room_rule, gameInfo.sub_rule);
         if (ruleText != null) {
             ruleText.enableAutoSizing = true;
             ruleText.fontSizeMin = 16f;
@@ -43,15 +45,15 @@ public class RiichiRoundPanel : MonoBehaviour {
         }
 
         if (GameRoundText != null) {
-            GameRoundText.text = RoundTextDictionary.GetMaxRoundText(roomType, gameInfo.max_round);
+            GameRoundText.text = manifest?.MaxRoundInfoText?.Invoke(gameInfo)
+                ?? RoundTextDictionary.GetMaxRoundText(roomType, gameInfo.max_round);
         }
 
         if (roomNowRoundText != null) {
-            roomNowRoundText.text = RoundTextDictionary.GetRoundName(roomType, gameInfo.current_round);
+            roomNowRoundText.text = manifest?.RoundStatusText?.Invoke(gameInfo)
+                ?? RoundTextDictionary.GetRoundName(roomType, gameInfo.current_round);
         }
 
-        var manifest = RuleRegistry.Resolve(roomType, roomType)
-            ?? RuleRegistry.Resolve(gameInfo.room_rule, gameInfo.sub_rule);
         if (manifest?.RoundIndicators != null) {
             RefreshRuleIndicators(manifest.RoundIndicators(gameInfo));
             return;

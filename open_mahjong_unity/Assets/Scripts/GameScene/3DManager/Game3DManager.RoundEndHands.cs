@@ -66,15 +66,36 @@ public partial class Game3DManager {
     /// <summary>多家荣和：同一帧摆好全部赢家手牌并同时触发倒牌动画。</summary>
     public IEnumerator PlayMultipleHepaiHandReveals(IList<HepaiPresentationRequest> requests) {
         if (requests == null || requests.Count == 0) yield break;
+        // 与单家荣和相同，先等弃牌落河；快响应不能在实体牌生成前取走牌源。
+        int generation = _handAnimationGeneration;
+        foreach (HepaiPresentationRequest request in requests) {
+            if (request == null) continue;
+            while ((IsHandAnimPlayer(request.WinnerPosition)
+                    && HasPendingRecordStepAnimations(request.WinnerPosition))
+                || (IsHandAnimPlayer(request.DiscardPlayerPosition)
+                    && HasPendingRecordStepAnimations(request.DiscardPlayerPosition))) {
+                yield return null;
+                if (generation != _handAnimationGeneration) yield break;
+            }
+        }
         ResetHandRevealAnimators();
         List<PosPanel3D> revealPanels = new List<PosPanel3D>();
+        var claimedSources = new HashSet<string>();
         for (int i = 0; i < requests.Count; i++) {
             HepaiPresentationRequest request = requests[i];
             if (request == null || request.HepaiPlayerHand == null || request.HepaiPlayerHand.Length == 0) continue;
             PosPanel3D panel = GetPosPanel(request.WinnerPosition);
             if (panel == null) continue;
             ForceHandRevealIdle(panel);
-            LayRoundEndFaceHandAtPosition(request.WinnerPosition, request.HepaiPlayerHand);
+            bool takeRiver = request.WinTileMode == HepaiWinTilePresentMode.GuobiaoRonTravelFromRiver;
+            int winningId = request.HepaiPlayerHand[request.HepaiPlayerHand.Length - 1];
+            string sourceKey = request.DiscardPlayerPosition + ":" + winningId;
+            bool firstClaim = takeRiver && claimedSources.Add(sourceKey);
+            GameObject source = firstClaim
+                ? TryTakeLastDiscardObjectForRon(winningId, request.DiscardPlayerPosition) : null;
+            // 一炮多响共享同一实体牌；后续赢家才使用展示副本。首家缺牌源时不能凭空补牌。
+            LayRoundEndFaceHandAtPosition(request.WinnerPosition, request.HepaiPlayerHand,
+                source, spawnWinningCopy: !firstClaim);
             revealPanels.Add(panel);
         }
         if (revealPanels.Count == 0) yield break;
@@ -116,6 +137,11 @@ public partial class Game3DManager {
         }
         ResetHandRevealAnimators();
         bool isSelfWinner = request.WinnerPosition == "self";
+        if ((isSelfWinner || !request.IsRecordShowCardsExpanded)
+            && request.WinTileMode == HepaiWinTilePresentMode.GuobiaoRonTravelFromRiver
+            && RecordRonSourceAlreadyPresented(request)) {
+            request.WinTileMode = HepaiWinTilePresentMode.RonInstantThenPause;
+        }
         // 自家和牌：无论是否展开明牌，均与对局相同的全套倒牌演出
         if (isSelfWinner) {
             yield return PlayHepaiHandReveal(request);
@@ -132,6 +158,23 @@ public partial class Game3DManager {
             yield break;
         }
         yield return PlayHepaiHandReveal(request);
+    }
+    // 回放逐家展示多响结算。第一家的真实来源已移入手牌后，后续赢家使用展示副本。
+    // 仍有真实河牌/加杠牌时优先使用它，避免把后续另一张同牌误认成同一来源。
+    private bool RecordRonSourceAlreadyPresented(HepaiPresentationRequest request) {
+        int tile = request.HepaiTile;
+        if (request.HuClass == "hu_self" || tile < 10) return false;
+        if (ResolveLastDiscardObject(request.DiscardPlayerPosition, tile) != null
+            || TryResolveJiagangSourceObject(request.DiscardPlayerPosition, tile) != null) return false;
+        var record = GameRecordManager.Instance;
+        if (record == null) return false;
+        foreach (var pair in record.recordPlayer_to_info) {
+            var player = pair.Value;
+            if (pair.Key != request.WinnerPosition && player != null && player.hasRonWinningTile
+                && player.tileList != null && player.tileList.Count > 0
+                && player.tileList[player.tileList.Count-1] == tile) return true;
+        }
+        return false;
     }
     private static bool ShouldRecordShowCardsGuobiaoWinMove(HepaiPresentationRequest request) {
         if (request == null || !request.IsRecordShowCardsExpanded) return false;
@@ -242,6 +285,14 @@ public partial class Game3DManager {
         if (jiagangObj != null) {
             RegisterLastJiagang(sourcePlayerPosition, jiagangObj, expectedTileId);
             return;
+        }
+        // 同一张牌的第二/第三条和牌节点没有新的河牌来源，无需再次登记。
+        int ronWinners = 0;
+        if (GameRecordManager.Instance != null) {
+            foreach (var player in GameRecordManager.Instance.recordPlayer_to_info.Values) {
+                if (player != null && player.hasRonWinningTile && player.tileList.Count > 0
+                    && player.tileList[player.tileList.Count-1] == expectedTileId && ++ronWinners > 1) return;
+            }
         }
         Debug.LogWarning(
             $"SyncRecordLastDiscardForRon: 无法为荣和建立登记 source={sourcePlayerPosition}, tile={expectedTileId}");
@@ -354,7 +405,8 @@ public partial class Game3DManager {
         }
         anim.Update(0f);
     }
-    private void LayRoundEndFaceHandAtPosition(string playerPosition, int[] hepaiPlayerHand) {
+    private void LayRoundEndFaceHandAtPosition(string playerPosition, int[] hepaiPlayerHand,
+        GameObject winningTile = null, bool spawnWinningCopy = true) {
         int last = hepaiPlayerHand[hepaiPlayerHand.Length - 1];
         int[] closed = new int[hepaiPlayerHand.Length - 1];
         System.Array.Copy(hepaiPlayerHand, closed, closed.Length);
@@ -367,7 +419,15 @@ public partial class Game3DManager {
         for (int i = 0; i < closed.Length; i++) {
             Set3DTile(closed[i], target, "Record", playerPosition);
         }
-        Set3DTile(last, target, "Record", playerPosition, usePresentationCopy: true);
+        if (winningTile != null) {
+            winningTile.transform.SetParent(target, worldPositionStays: true);
+            winningTile.GetComponent<Tile3D>()?.SetBackOrientationUpright();
+            winningTile.transform.SetPositionAndRotation(
+                GetRecordHandSlotWorldPosition(playerPosition, target, closed.Length),
+                RecordHandTileRotation(playerPosition));
+        } else if (spawnWinningCopy) {
+            Set3DTile(last, target, "Record", playerPosition, usePresentationCopy: true);
+        }
     }
     private void LayRoundEndClosedFaceHandAtPosition(string playerPosition, IList<int> handTiles) {
         int[] sorted = OrderRoundEndClosedHand(playerPosition, handTiles);

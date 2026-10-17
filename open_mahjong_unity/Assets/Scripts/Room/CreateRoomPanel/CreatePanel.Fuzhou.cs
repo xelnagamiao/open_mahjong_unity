@@ -14,7 +14,7 @@ public partial class CreatePanel {
         if(!_fuzhouBaseScore) {Debug.LogError("福州麻将主页面设置尚未烘焙。",this);return;}
         _fuzhouBaseScore.onValueChanged.RemoveAllListeners();
         _fuzhouBaseScore.ClearOptions();_fuzhouBaseScore.AddOptions(FuzhouBaseScores.Select(x=>$"{x}分").ToList());
-        _fuzhouBaseScore.SetValueWithoutNotify(0);RoomDropdownTemplateHeight(_fuzhouBaseScore);
+        _fuzhouBaseScore.SetValueWithoutNotify(1);RoomDropdownTemplateHeight(_fuzhouBaseScore);
         RefreshFuzhouControls();
     }
     private void RefreshFuzhouControls() {
@@ -22,9 +22,9 @@ public partial class CreatePanel {
         if(root) root.gameObject.SetActive(_ruleState==FuzhouGameState.RuleId);
     }
     private Dictionary<string,object> FuzhouConfigValues()=>new Dictionary<string,object> {
-        {"base_score",FuzhouBaseScores[Mathf.Clamp(_fuzhouBaseScore?_fuzhouBaseScore.value:0,0,2)]},
+        {"base_score",FuzhouBaseScores[Mathf.Clamp(_fuzhouBaseScore?_fuzhouBaseScore.value:1,0,2)]},
     };
-    private void ResetFuzhouControls() {if(_fuzhouBaseScore) _fuzhouBaseScore.SetValueWithoutNotify(0);}
+    private void ResetFuzhouControls() {if(_fuzhouBaseScore) _fuzhouBaseScore.SetValueWithoutNotify(1);}
 #if UNITY_EDITOR
     public void BakeFuzhouMainControls() {
         var root=RoomContent.Find("FuzhouSettings") as RectTransform;
@@ -45,7 +45,7 @@ public partial class CreatePanel {
         var dropdown=row.GetComponentInChildren<TMP_Dropdown>(true);
         if(!dropdown) {dropdown=Instantiate(SubRuleDropdown,row);dropdown.name="Dropdown";}
         dropdown.onValueChanged=new TMP_Dropdown.DropdownEvent();
-        dropdown.ClearOptions();dropdown.AddOptions(FuzhouBaseScores.Select(x=>$"{x}分").ToList());dropdown.SetValueWithoutNotify(0);
+        dropdown.ClearOptions();dropdown.AddOptions(FuzhouBaseScores.Select(x=>$"{x}分").ToList());dropdown.SetValueWithoutNotify(1);
         CopyHongKongFieldRect((RectTransform)stepTimer.transform,(RectTransform)dropdown.transform);
         RoomStyleDropdown(dropdown,stepTimer.captionText.fontSizeMax);
         dropdown.captionText.font=stepTimer.captionText.font;dropdown.captionText.fontSize=stepTimer.captionText.fontSize;

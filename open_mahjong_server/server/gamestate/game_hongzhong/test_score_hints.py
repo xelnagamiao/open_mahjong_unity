@@ -3,7 +3,7 @@ from copy import deepcopy
 
 import pytest
 
-from .hints import compute_hand, match_hint
+from tests.local_hint_oracles.hongzhong import compute_hand, match_hint
 from .test_flow import HAND, hand, make_state, ticks
 from ...game_calculation.hongzhong import rules as book
 
@@ -55,16 +55,17 @@ def test_peida_keeps_structural_waits_and_marks_only_qualification():
     player = hand(state, 0, HAND)
     payload, _ = compute_hand(tuple(HAND), (), None, False)
     cached = deepcopy(payload)
-    state._hint_cache[0] = payload
+    state._local_contexts[0] = payload
     assert state.build_private_game_info_fields(0)["hongzhong_hints"]["win_blocked"] is False
-    state._record_hints(0)
+    state._record_client_context(0)
     player.tag_list.append("peida")
     private = state.build_private_game_info_fields(0)["hongzhong_hints"]
-    assert private["waiting_tiles"] == [28,45] and private["win_blocked"] is True
-    assert private["waiting_details"] == cached["waiting_details"]
-    assert state._hint_cache[0] == cached
-    state._record_hints(0)
-    state._record_hints(0)
+    assert private["local_request"]["hand"] == HAND and private["win_blocked"] is True
+    assert private["local_request"]["context"]["blocked"] is True
+    assert not {"waiting_tiles", "waiting_details"} & private.keys()
+    assert state._local_contexts[0] == cached
+    state._record_client_context(0)
+    state._record_client_context(0)
     recorded = [tick for tick in ticks(state) if tick[:2] == ["hongzhong","hints"]]
     assert [tick[3]["win_blocked"] for tick in recorded] == [False,True]
 
@@ -83,10 +84,11 @@ def test_private_hints_are_available_for_either_hint_toggle(tips, count):
     state = make_state(tips=tips, count_tips=count)
     hand(state, 0, HAND)
     payload, _ = compute_hand(tuple(HAND), (), None, False)
-    state._hint_cache[0] = payload
+    state._local_contexts[0] = payload
     fields = state.build_private_game_info_fields(0)
     assert ("hongzhong_hints" in fields) is (tips or count)
     assert fields["hongzhong_info"]["self_has_draw_slot"] is False
     if tips or count:
-        assert fields["hongzhong_hints"]["waiting_tiles"] == [28,45]
-        assert fields["hongzhong_hints"]["waiting_details"][45] == {"fan":0,"base_score":1}
+        assert fields["hongzhong_hints"]["local_request"]["hand"] == HAND
+        assert "waiting_tiles" not in fields["hongzhong_hints"]
+        assert "waiting_details" not in fields["hongzhong_hints"]

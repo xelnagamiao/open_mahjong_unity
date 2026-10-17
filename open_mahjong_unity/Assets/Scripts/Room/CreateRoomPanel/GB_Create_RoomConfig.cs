@@ -29,7 +29,7 @@ public class GB_Create_RoomConfig {
     public string EventId { get; set; }
 
     public bool Validate(out string error,bool passwordToggle,bool setRandomSeedToggle) {
-        if ((GuobiaoGameState.IsTransparentSubRule(SubRule) || GuobiaoGameState.UsesAuthoritativeTips(SubRule)) && !string.IsNullOrWhiteSpace(DuplicateKey)) {
+        if ((GuobiaoGameState.IsTransparentSubRule(SubRule) || GuobiaoGameState.UsesAsyncLocalTips(SubRule)) && !string.IsNullOrWhiteSpace(DuplicateKey)) {
             error = "此子规则不能使用普通复式牌墙，可用随机种子复现牌局";
             return false;
         }

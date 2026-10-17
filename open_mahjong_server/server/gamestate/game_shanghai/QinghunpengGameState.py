@@ -171,11 +171,24 @@ class QinghunpengGameState(TaiwanGameState):
                 result[player_index].remove(action)
         return result
 
+    def should_defer_opening_discard_response(self, index):
+        """起手有花的下家先等其他家响应，补完花后再响应上家舍牌。"""
+        player = self.player_list[index]
+        return (
+            index == (self.current_player_index + 1) % 4
+            and self.opening_claim_window != index
+            and not player.opening_flowers_done
+            and player.normal_draw_count == 0
+            and any(tile in self.flower_tiles for tile in player.hand_tiles)
+        )
+
     def check_discard_actions(self, tile):
         actions = {index: [] for index in range(4)}
         for distance in (1, 2, 3):
             index = (self.current_player_index + distance) % 4
             if self.opening_claim_window is not None and index != self.opening_claim_window:
+                continue
+            if self.should_defer_opening_discard_response(index):
                 continue
             player = self.player_list[index]
             detail = self.score_candidate(index, "discard", tile)

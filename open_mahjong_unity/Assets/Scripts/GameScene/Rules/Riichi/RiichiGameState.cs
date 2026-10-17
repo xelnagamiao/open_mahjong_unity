@@ -38,6 +38,9 @@ public class RiichiGameState : TurnBasedGameState {
     // =====================================================================
 
     protected override void OnRoundStarted(GameInfo gameInfo) {
+        if (WashizuDoubles.IsEnabled(Session.SubRule) && gameInfo.washizu_doubles != null)
+            GameCanvas.Instance.UpdateWashizuRoles(gameInfo.washizu_doubles.team_by_player_index,
+                gameInfo.washizu_doubles.team_role_by_player_index, Mirror.IndexToPosition);
         acceptedRiichiPlayers.Clear();
         washizuPublicHands = gameInfo.washizu_hands;
         Game3DManager.Instance?.SetWashizuPublicHands(washizuPublicHands, Mirror.IndexToPosition);

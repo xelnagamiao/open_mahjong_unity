@@ -177,7 +177,7 @@ public partial class EndResultPanel : MonoBehaviour {
         SetPanelContentVisible(true);
     }
 
-    public void StartShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
+    public void StartShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, double hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
         if (showResultCoroutine != null) {
             StopCoroutine(showResultCoroutine);
             showResultCoroutine = null;
@@ -187,7 +187,7 @@ public partial class EndResultPanel : MonoBehaviour {
             RoundEndTiming.HuConfirmCountdownSeconds));
     }
 
-    public void PrepareShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, RiichiEndResultExtras riichiExtras = null, Dictionary<int, int> scoreChanges = null, bool suppressHandReveal = false, EndResultTileLayout tileLayout = EndResultTileLayout.HuWithWinTile) {
+    public void PrepareShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, double hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, RiichiEndResultExtras riichiExtras = null, Dictionary<int, int> scoreChanges = null, bool suppressHandReveal = false, EndResultTileLayout tileLayout = EndResultTileLayout.HuWithWinTile) {
         if (showResultCoroutine != null) {
             StopCoroutine(showResultCoroutine);
             showResultCoroutine = null;
@@ -195,12 +195,12 @@ public partial class EndResultPanel : MonoBehaviour {
         InitializeShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, riichiExtras, scoreChanges, suppressHandReveal, tileLayout);
     }
 
-    public void PlayPreparedShowResult(int hu_score, string[] hu_fan, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
+    public void PlayPreparedShowResult(double hu_score, string[] hu_fan, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
         PlayPreparedShowResult(hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras,
             RoundEndTiming.HuConfirmCountdownSeconds);
     }
 
-    public void PlayPreparedShowResult(int hu_score, string[] hu_fan, int? base_fu, string[] fu_fan_list,
+    public void PlayPreparedShowResult(double hu_score, string[] hu_fan, int? base_fu, string[] fu_fan_list,
         RiichiEndResultExtras riichiExtras, float confirmCountdownSeconds, bool allowConfirmClick = true) {
         if (showResultCoroutine != null) {
             StopCoroutine(showResultCoroutine);
@@ -214,7 +214,7 @@ public partial class EndResultPanel : MonoBehaviour {
     public void PrepareSichuanSettleHuSingle(
         int hepaiPlayerIndex,
         Dictionary<int, int> player_to_score,
-        int huScore,
+        double huScore,
         string[] huFan,
         string huClass,
         int[] hepaiPlayerHand,
@@ -231,7 +231,7 @@ public partial class EndResultPanel : MonoBehaviour {
     /// <summary>牌谱终局 settle_hu：名字/手牌/加减分走国标牌谱同一套填充，不读对局镜像。</summary>
     public void PrepareSichuanSettleHuRecord(
         int hepaiPlayerIndex,
-        int huScore,
+        double huScore,
         string[] huFan,
         int[] hepaiPlayerHand,
         int[][] hepaiPlayerCombinationMask,
@@ -301,7 +301,7 @@ public partial class EndResultPanel : MonoBehaviour {
     }
 
     public IEnumerator CoPlaySichuanSettleHuRoutine(
-        int huScore, string[] huFan, bool isFinalPanel, bool waitForRecordConfirm = false) {
+        double huScore, string[] huFan, bool isFinalPanel, bool waitForRecordConfirm = false) {
         if (showResultCoroutine != null) {
             StopCoroutine(showResultCoroutine);
             showResultCoroutine = null;
@@ -376,7 +376,7 @@ public partial class EndResultPanel : MonoBehaviour {
         yield return CoPlaySichuanChaRefundCountdown(isFinalPanel);
     }
 
-    public void StartRecordResult(int hepai_player_index, int hu_score, string[] hu_fan, string hu_class, string roomType,
+    public void StartRecordResult(int hepai_player_index, double hu_score, string[] hu_fan, string hu_class, string roomType,
         Dictionary<int, string> indexToPosition, Dictionary<string, string> positionToUsername,
         int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
         Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after, bool isSpectator = false,
@@ -392,13 +392,13 @@ public partial class EndResultPanel : MonoBehaviour {
             changshaBirdTiles);
     }
 
-    public IEnumerator ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
+    public IEnumerator ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, double hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
         InitializeShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, riichiExtras);
         yield return PlayShowResultRoutine(hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras,
             RoundEndTiming.HuConfirmCountdownSeconds);
     }
 
-    public void InitializeShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, RiichiEndResultExtras riichiExtras = null, Dictionary<int, int> scoreChanges = null, bool suppressHandReveal = false, EndResultTileLayout tileLayout = EndResultTileLayout.HuWithWinTile) {
+    public void InitializeShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, double hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, RiichiEndResultExtras riichiExtras = null, Dictionary<int, int> scoreChanges = null, bool suppressHandReveal = false, EndResultTileLayout tileLayout = EndResultTileLayout.HuWithWinTile) {
         EnsureGameResultLifecycle();
         currentState = StateGame;
         currentWinnerPointDelta = null;
@@ -489,7 +489,7 @@ public partial class EndResultPanel : MonoBehaviour {
     /// 与 PlayPreparedShowResult 的区别：后者启动协程即返回，无法被上层 yield 等待。
     /// </summary>
     public IEnumerator PlayPreparedShowResultCoroutine(
-        int hu_score, string[] hu_fan, int? base_fu = null, string[] fu_fan_list = null,
+        double hu_score, string[] hu_fan, int? base_fu = null, string[] fu_fan_list = null,
         RiichiEndResultExtras riichiExtras = null, float confirmCountdownSeconds = -1f,
         bool allowConfirmClick = true, bool skipConfirmCountdown = false,
         bool waitForClickNoCountdown = false) {
@@ -498,7 +498,7 @@ public partial class EndResultPanel : MonoBehaviour {
             confirmCountdownSeconds, allowConfirmClick, skipConfirmCountdown, waitForClickNoCountdown);
     }
 
-    private IEnumerator PlayShowResultRoutine(int hu_score, string[] hu_fan, int? base_fu = null, string[] fu_fan_list = null,
+    private IEnumerator PlayShowResultRoutine(double hu_score, string[] hu_fan, int? base_fu = null, string[] fu_fan_list = null,
         RiichiEndResultExtras riichiExtras = null, float confirmCountdownSeconds = -1f,
         bool allowConfirmClick = true, bool skipConfirmCountdown = false,
         bool waitForClickNoCountdown = false) {
@@ -589,7 +589,7 @@ public partial class EndResultPanel : MonoBehaviour {
     /// - 牌谱/观战不显示对局准备状态，四家使用正常座位底色
     /// - 同步展示后显示「确认」按钮；观战模式下不显示确认，由 end tick 驱动下一局
     /// </summary>
-    public void DisplayRecordResult(int hepai_player_index, int hu_score, string[] hu_fan, string hu_class, string roomType,
+    public void DisplayRecordResult(int hepai_player_index, double hu_score, string[] hu_fan, string hu_class, string roomType,
         Dictionary<int, string> indexToPosition, Dictionary<string, string> positionToUsername,
         int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
         Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after, bool isSpectator = false,
@@ -664,7 +664,7 @@ public partial class EndResultPanel : MonoBehaviour {
     }
 
     private IEnumerator PlayRecordFanRevealRoutine(
-        string roomType, int huScore, string[] huFan, int? baseFu, string[] fuFanList,
+        string roomType, double huScore, string[] huFan, int? baseFu, string[] fuFanList,
         RiichiEndResultExtras riichiExtras, bool isSpectator) {
         yield return RevealGuizhouChicken();
         if (HasFuList(roomType) && fuFanList != null) {
@@ -902,7 +902,7 @@ public partial class EndResultPanel : MonoBehaviour {
 
         if (layout == EndResultTileLayout.ClosedHandWithMelds) {
             int[] sortedHand = (int[])hand.Clone();
-            TileIdOrder.SortHand(sortedHand);
+            sortedHand = SortSettlementHand(sortedHand);
             for (int i = 0; i < sortedHand.Length; i++) {
                 SpawnStaticTile(sortedHand[i]);
             }
@@ -914,7 +914,7 @@ public partial class EndResultPanel : MonoBehaviour {
         int lastCard = hand[hand.Length - 1];
         int[] closedHand = (int[])hand.Clone();
         System.Array.Resize(ref closedHand, closedHand.Length - 1);
-        TileIdOrder.SortHand(closedHand);
+        closedHand = SortSettlementHand(closedHand);
 
         for (int i = 0; i < closedHand.Length; i++) {
             SpawnStaticTile(closedHand[i]);
@@ -923,6 +923,13 @@ public partial class EndResultPanel : MonoBehaviour {
         SpawnCombinationTiles(combinationMask);
         SpawnHideSplit();
         SpawnStaticTile(lastCard);
+    }
+
+    internal static int[] SortSettlementHand(int[] hand) {
+        if (hand.Length > 0 && System.Array.TrueForAll(hand, HongqueTileVisual.IsHongqueId))
+            return HongqueDisplayOrder.SettlementHand(hand);
+        TileIdOrder.SortHand(hand);
+        return hand;
     }
 
     private void SpawnStaticTile(int tileId) {
@@ -1281,7 +1288,7 @@ public partial class EndResultPanel : MonoBehaviour {
     /// 显示总计面板。古典麻将显示副数+番数+点数+满贯，国标/青雀仅显示番数+点数，
     /// 立直麻将显示番（han）+符（fu）+点数。
     /// </summary>
-    private void ShowTotalPanel(string rule, int huScore, string[] huFan, int? baseFu, RiichiEndResultExtras riichiExtras = null) {
+    private void ShowTotalPanel(string rule, double huScore, string[] huFan, int? baseFu, RiichiEndResultExtras riichiExtras = null) {
         ShowTotalPanel(guizhouSettlement != null ? guizhouSettlement.TotalDisplay()
             : BuildTotalDisplay(rule, huScore, huFan, baseFu, riichiExtras, currentWinnerPointDelta));
     }
@@ -1335,7 +1342,7 @@ public partial class EndResultPanel : MonoBehaviour {
 
     /// <summary>总计文案：族清单的 SettlementTotal 钩子给出；未声明的族用通用"番 + 点"。</summary>
     private static SettlementTotalDisplay BuildTotalDisplay(
-        string rule, int huScore, string[] huFan, int? baseFu, RiichiEndResultExtras riichiExtras, int? winnerPointDelta) {
+        string rule, double huScore, string[] huFan, int? baseFu, RiichiEndResultExtras riichiExtras, int? winnerPointDelta) {
         var query = new SettlementTotalQuery {
             Rule = rule,
             HuScore = huScore,
@@ -1407,7 +1414,7 @@ public partial class EndResultPanel : MonoBehaviour {
         }
     }
 
-    private static void TryPlayGongHuSound(string rule, string[] huFan, int huScore) {
+    private static void TryPlayGongHuSound(string rule, string[] huFan, double huScore) {
         if (!FanTextDictionary.ShouldPlayGongHuSound(rule, huFan, huScore)) {
             return;
         }

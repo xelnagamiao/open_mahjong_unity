@@ -175,6 +175,7 @@
 .replay-viewpoints strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .replay-viewpoints small { color: #b8bdbe; font-size: 10px; }
 .replay-viewpoints button.is-active small { color: rgba(255, 255, 255, 0.8); }
+.replay-winners button { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
 .replay-page:lang(fr) .replay-viewpoints button { grid-template-columns: 50px minmax(0, 1fr); column-gap: 6px; }
 .replay-page:lang(fr) .replay-primary-button { white-space: normal; line-height: 1.2; padding: 6px 8px; }
 .replay-meta {

@@ -34,6 +34,32 @@ def test_contract_hash_accepts_editor_line_endings_but_detects_source_changes(tm
     assert sha256_file(source) != original
 
 
+@pytest.mark.parametrize("suffix", ["game_start", "reconnect"])
+def test_start_and_reconnect_restore_snapshot_and_preserve_fractional_fan(suffix):
+    sim = UnitySim(viewer_user_id=102)
+    sim.apply({
+        "type": f"gamestate/guobiao/{suffix}",
+        "game_info": {
+            "room_rule": "guobiao", "tile_count": 58, "current_round": 2,
+            "players_info": [
+                {"user_id": 101, "player_index": 0, "score": -9, "hand_tiles_count": 13},
+                {"user_id": 102, "player_index": 1, "score": 27, "hand_tiles": [11, 12, 13]},
+                {"user_id": 103, "player_index": 2, "score": -9, "hand_tiles_count": 13},
+                {"user_id": 104, "player_index": 3, "score": -9, "hand_tiles_count": 13},
+            ],
+        },
+    })
+    assert sim.gsm["selfIndex"] == 1
+    assert sim.gsm["selfHandTiles"] == [11, 12, 13]
+    assert sim.gsm["remainTiles"] == 58
+    assert sim.board["scores"]["self"] == 27
+    sim.apply({
+        "type": "gamestate/guobiao/show_result",
+        "show_result_info": {"hepai_player_index": 1, "hu_score": 0.5, "hu_class": "hu_self"},
+    })
+    assert sim.end_result["hu_score"] == 0.5
+
+
 @pytest.mark.parametrize("kind,actions,labels", [
     ("hand", ["nuki"], ["拔北"]),
     ("hand", ["lajihe_flower_end", "lajihe_flower_continue"], ["八花收分·流局", "八花收分·继续"]),

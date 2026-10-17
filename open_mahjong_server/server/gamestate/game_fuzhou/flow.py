@@ -24,27 +24,33 @@ class HandFlow:
         return self._window(P.DISCARD_ONLY if discard_only else P.TURN,index,
                             actions=turn_actions(self,index,discard_only))
 
-    def qiangjin_cuts(self,index):
+    def can_qiangjin(self,index):
         p = self.player_list[index]
-        if p.hand_tiles.count(self.jin) >= 2:
-            return set()
-        if index != self.dealer_index:
-            return {0} if book.is_complete(p.hand_tiles+[self.jin],jin=self.jin) else set()
-        return {t for t in set(p.hand_tiles) if book.is_complete(
-            p.hand_tiles[:p.hand_tiles.index(t)]+p.hand_tiles[p.hand_tiles.index(t)+1:]+[self.jin],jin=self.jin)}
+        return bool(self.jin and not self.indicator_claimed and book.is_complete(
+            p.hand_tiles+[self.jin],p.combination_tiles,jin=self.jin,indicator_claimed=True))
+
+    def after_gold_window(self):
+        # Opening flower totals and three golds do not end the hand. They
+        # become eligible only after this player's subsequent completed draw.
+        p = self.player_list[self.dealer_index]
+        if book.is_complete(p.hand_tiles,jin=self.jin):
+            return self._window(P.HEAVEN,self.dealer_index,
+                actions={**empty_actions(),self.dealer_index:["hu_self","pass"]})
+        return self.opening_claim_window()
 
     def opening_claim_window(self):
+        """Non-dealers claim the indicator before the dealer's first cut."""
         actions = empty_actions()
-        for i,p in enumerate(self.player_list):
-            if self.can_three_gold(i):
-                actions[i].append("sanjin")
-            if i == self.dealer_index and book.is_complete(p.hand_tiles,jin=self.jin):
-                actions[i].append("hu_self")
-            if self.qiangjin_cuts(i):
-                actions[i].append("qiangjin")
-            if actions[i]:
-                actions[i].append("pass")
+        for i in range(4):
+            if i != self.dealer_index and self.can_qiangjin(i):
+                actions[i] = ["qiangjin","pass"]
         return self._window(P.OPENING,self.dealer_index,self.jin,actions)
+
+    def dealer_gold_window(self,tile):
+        actions = empty_actions()
+        if self.can_qiangjin(self.dealer_index):
+            actions[self.dealer_index] = ["qiangjin","pass"]
+        return self._window(P.DEALER_GOLD,self.dealer_index,tile,actions)
 
     def validate_response(self,index,data,offered):
         if type(index) is not int or index not in range(4) or not isinstance(data,dict):
@@ -62,10 +68,11 @@ class HandFlow:
             tile = data.get("target_tile")
             if type(tile) is not int or tile not in declaration_cuts(self,index,action):
                 raise ValueError("非法宣言切牌")
-        elif action == "qiangjin" and index == self.dealer_index:
-            tile = data.get("target_tile")
-            if type(tile) is not int or tile not in self.qiangjin_cuts(index):
-                raise ValueError("庄家抢金须选择合法的第一张切牌")
+        elif action == "qiangjin":
+            eligible = (self.machine.phase==P.OPENING and index!=self.dealer_index
+                        or self.machine.phase==P.DEALER_GOLD and index==self.dealer_index)
+            if not eligible or not self.can_qiangjin(index):
+                raise ValueError("当前不是该选手的抢金阶段或未构成标准和牌")
 
     def _cut_identity(self,index,data):
         p = self.player_list[index]
@@ -106,7 +113,7 @@ class HandFlow:
         for i,data in responses.items():
             self.validate_response(i,data,offered[i])
         phase = P(window["status"])
-        if phase == P.OPENING:
+        if phase in (P.HEAVEN,P.OPENING,P.DEALER_GOLD):
             result = self._opening_response(window,responses)
         elif phase in (P.TURN,P.DISCARD_ONLY):
             result = self._turn(window,responses[window["player"]])
@@ -116,6 +123,10 @@ class HandFlow:
             result = self._response(window,responses)
         elif phase == P.KONG:
             result = self._kong_response(window,responses)
+        elif phase == P.FLOWER_WIN:
+            actor = window["player"]
+            special = "flower" if responses[actor]["action_type"]=="fuzhou_flower_win" else "three_gold"
+            result = self.settle_win(actor,"self_draw",self.player_list[actor].hand_tiles[-1],special=special)
         elif phase == P.SEA:
             actor = window["player"]
             action = responses[actor]["action_type"]
@@ -126,22 +137,19 @@ class HandFlow:
         return self.open_action_window(result)
 
     def _opening_response(self,window,responses):
-        def priority(index):
-            action = responses[index]["action_type"]
-            rank = 0 if action=="sanjin" else 1 if action=="hu_self" else 3 if index==self.dealer_index else 2
-            return rank,(index-self.dealer_index)%4
+        if self.machine.phase==P.HEAVEN:
+            if responses[self.dealer_index]["action_type"]=="hu_self":
+                p = self.player_list[self.dealer_index]
+                return self.settle_win(self.dealer_index,"self_draw",p.hand_tiles[-1],heavenly=True)
+            return self.opening_claim_window()
         claims = [i for i,data in responses.items() if data["action_type"] != "pass"]
         if not claims:
+            if self.machine.phase==P.DEALER_GOLD:
+                return self._window(P.RESPONSE,self.dealer_index,window["tile"],
+                    claim_actions(self,self.dealer_index,window["tile"]))
             return self.begin_turn(self.dealer_index)
-        winner = min(claims,key=priority)
-        p,action = self.player_list[winner],responses[winner]["action_type"]
-        if action == "sanjin":
-            return self.settle_win(winner,"self_draw",special="three_gold")
-        if action == "hu_self":
-            return self.settle_win(winner,"self_draw",p.hand_tiles[-1],heavenly=True)
-        if winner == self.dealer_index:
-            tile = responses[winner]["target_tile"]
-            self._discard(winner,dict(TileId=tile))
+        winner = min(claims,key=lambda i:(i-self.dealer_index)%4)
+        p = self.player_list[winner]
         # The indicator is the actual claimed seventeenth tile. Record a
         # transfer, not a fourth hidden joker or an invented river discard.
         self.indicator_claimed = True
@@ -154,7 +162,8 @@ class HandFlow:
         actor,action = window["player"],data["action_type"]
         p = self.player_list[actor]
         if action in ("hu_self","sanjin"):
-            return self.settle_win(actor,"self_draw",p.hand_tiles[-1],special="three_gold" if action=="sanjin" else None)
+            return self.settle_win(actor,"self_draw",p.hand_tiles[-1],special="three_gold" if action=="sanjin" else None,
+                heavenly=action=="hu_self" and p.draw_kind=="opening" and actor==self.dealer_index)
         if action in ("angang","jiagang"):
             self.pending_kong = dict(actor=actor,tile=data["target_tile"],concealed=action=="angang",
                 ready=bool(p.waiting_tiles),is_mo_gang=p.hand_tiles[-1]==data["target_tile"])
@@ -177,6 +186,9 @@ class HandFlow:
             self._event(action,actor,tile=tile)
         else:
             tile = self._discard(actor,data)
+        if actor==self.dealer_index and self.dealer_first_discard_pending:
+            self.dealer_first_discard_pending = False
+            return self.dealer_gold_window(tile)
         return self._window(P.RESPONSE,actor,tile,claim_actions(self,actor,tile))
 
     def _discard(self,actor,data):

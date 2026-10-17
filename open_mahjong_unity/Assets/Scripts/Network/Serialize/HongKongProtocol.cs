@@ -21,6 +21,7 @@ public sealed class HongKongPull {
 }
 
 public sealed class HongKongWait {
+    public Newtonsoft.Json.Linq.JObject local_request;
     public int tile;
     public bool ron;
     public bool self_draw;

@@ -31,6 +31,9 @@ public partial class AutoAction : MonoBehaviour{
 
     [Header("自动操作配置")]
     private bool isAutoArrangeHandCards = true; // 是否自动排列手牌
+    private string arrangeRealtimeGame;
+    private int arrangeRealtimeRound = -1;
+    private int arrangeRealtimeSeat = -1;
     private bool isAutoBuhua = true; // 是否自动补花
     private bool isAutoHepai = false; // 是否自动胡牌
     private bool isAutoCut = false; // 是否自动出牌
@@ -40,7 +43,7 @@ public partial class AutoAction : MonoBehaviour{
     private MessagePrefab timeoutReturnDialog;
 
     // 公共属性，供外部访问
-    public bool IsAutoArrangeHandCards { get => !WashizuTile.IsRealtimeHandOrder && isAutoArrangeHandCards; }
+    public bool IsAutoArrangeHandCards { get => isAutoArrangeHandCards; }
     public bool IsAutoBuhua { get => isAutoBuhua; }
     public bool IsAutoHepai { get => isAutoHepai; }
     public bool IsAutoCut { get => isAutoCut || isAutoCutLocked; }
@@ -102,9 +105,8 @@ public partial class AutoAction : MonoBehaviour{
         isAutoCut = false;
         isAutoCutLocked = false;
         isAutoBuhua = GameSettings.Current.OpeningAutoBuhuaEnabled;
-        // 新对局恢复自动理牌；同场续局和重连保留手动选择。
-        // 鹫巢实时手牌由 IsAutoArrangeHandCards 的规则约束继续强制关闭。
-        if (isNewMatch) isAutoArrangeHandCards = true;
+        // 普通对局恢复自动理牌；实时手牌开局默认关闭，随后允许玩家自行开启。
+        if (isNewMatch) isAutoArrangeHandCards = !WashizuTile.IsRealtimeHandOrder;
 
         // 鸣牌/牌张面板初始隐藏
         if (mingPaiPanel != null) mingPaiPanel.SetActive(false);
@@ -138,7 +140,7 @@ public partial class AutoAction : MonoBehaviour{
         isAutoCut = false;
         isAutoCutLocked = false;
         isAutoBuhua = false;
-        if (isNewMatch) isAutoArrangeHandCards = true;
+        if (isNewMatch) isAutoArrangeHandCards = !WashizuTile.IsRealtimeHandOrder;
 
         if (mingPaiPanel != null) mingPaiPanel.SetActive(false);
         if (tilePassSettingPanel != null) tilePassSettingPanel.SetPanelVisible(false);
@@ -243,26 +245,39 @@ public partial class AutoAction : MonoBehaviour{
 
     // 切换自动排列手牌
     private void ToggleArrangeHandCards(){
-        if (WashizuTile.IsRealtimeHandOrder) return;
         bool enabling = !isAutoArrangeHandCards;
         ToggleAutoOption(ref isAutoArrangeHandCards, arrangeHandCardsText);
         if (enabling && isAutoArrangeHandCards) {
-            GameCanvas.Instance.SortMainHandByTileIdIfNeeded();
+            if (WashizuTile.IsRealtimeHandOrder) GameCanvas.Instance.RequestWashizuAutoArrange();
+            else GameCanvas.Instance.SortMainHandByTileIdIfNeeded();
         }
     }
 
     public void SetAutoArrangeHandCards(bool value) {
-        if (WashizuTile.IsRealtimeHandOrder) return;
         isAutoArrangeHandCards = value;
         UpdateTextColor(arrangeHandCardsText, IsAutoArrangeHandCards);
     }
 
+    /// <summary>每局保留发牌乱序；同一局重连保留玩家已经选择的理牌开关。</summary>
+    public void PrepareRealtimeHandOrder(GameInfo info) {
+        if (info == null || !WashizuTile.IsRealtimeSubRule(info.sub_rule)) return;
+        int seat = GameSession.Current.SelfIndex;
+        int round = info.washizu_layouts != null && info.washizu_layouts.TryGetValue(seat, out var layout)
+            ? layout.round_index : info.current_round;
+        if (arrangeRealtimeGame != info.gamestate_id || arrangeRealtimeRound != round || arrangeRealtimeSeat != seat)
+            isAutoArrangeHandCards = false;
+        arrangeRealtimeGame = info.gamestate_id;
+        arrangeRealtimeRound = round;
+        arrangeRealtimeSeat = seat;
+        RefreshArrangeRule();
+    }
+
     public void RefreshArrangeRule() {
         if (arrangeHandCardsText == null) return;
-        bool manual = WashizuTile.IsRealtimeHandOrder;
-        arrangeHandCardsText.text = manual ? "手" : "理";
+        // 文字统一由侧栏负责，展开显示“自动理牌”、收起显示“理”。
+        RefreshSidebarPresentation();
         var button = arrangeHandCardsText.GetComponent<Button>();
-        if (button != null) button.interactable = !manual;
+        if (button != null) button.interactable = true;
         UpdateTextColor(arrangeHandCardsText, IsAutoArrangeHandCards);
     }
 

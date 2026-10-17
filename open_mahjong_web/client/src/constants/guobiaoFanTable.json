@@ -1,0 +1,839 @@
+{
+  "source": "新编MCR，第七章：番种定义（书内第21–49页）",
+  "entries": [
+    {
+      "number": 1,
+      "name": "大四喜",
+      "fan": 88,
+      "description": "和牌中有四种风牌的四副刻子，计88分。不计碰碰和、圈风刻、门风刻、幺九刻。",
+      "note": "",
+      "context": "",
+      "example": "111z 222z 333z 444z 55m",
+      "sourcePage": 30
+    },
+    {
+      "number": 2,
+      "name": "大三元",
+      "fan": 88,
+      "description": "和牌中有三种箭牌的三副刻子，计88分。这三副刻子不计幺九刻。",
+      "note": "",
+      "context": "",
+      "example": "555z 666z 777z 123m 99p",
+      "sourcePage": 30
+    },
+    {
+      "number": 3,
+      "name": "绿一色",
+      "fan": 88,
+      "description": "由牌面仅以绿色着色的牌，即二、三、四、六、八条与发财六种牌组成的和牌，计88分。不计混一色。",
+      "note": "",
+      "context": "",
+      "example": "234s 234s 666s 888s 66z",
+      "sourcePage": 31
+    },
+    {
+      "number": 4,
+      "name": "九莲宝灯",
+      "fan": 88,
+      "description": "由一种花色的1、9各三张，2、3、4、5、6、7、8各一张共十三张序数牌的立牌外加该花色任意一张序数牌的和牌张组成的基本和牌型，计88分。不计清一色、无字，减计1个幺九刻。",
+      "note": "",
+      "context": "门前清；最右一张为和牌张",
+      "example": "1112345678999m 5m",
+      "sourcePage": 31
+    },
+    {
+      "number": 5,
+      "name": "四杠",
+      "fan": 88,
+      "description": "和牌中有四副杠牌，计88分。不计碰碰和、单吊将。",
+      "note": "",
+      "context": "四组均为已完成的杠；杠牌按四张展示",
+      "example": "1111m 2222p 3333s 5555z 77z",
+      "sourcePage": 32
+    },
+    {
+      "number": 6,
+      "name": "连七对",
+      "fan": 88,
+      "description": "由花色相同、序数依次递增1的七个对子组成的特殊和牌型，计88分。不计七对、清一色、无字。",
+      "note": "",
+      "context": "特殊和牌型 · 连续七对",
+      "example": "11m 22m 33m 44m 55m 66m 77m",
+      "sourcePage": 32
+    },
+    {
+      "number": 7,
+      "name": "十三幺",
+      "fan": 88,
+      "description": "由任意一种幺九牌的对子外加其余十二种幺九牌各一张组成的特殊和牌型。不计混幺九、五门齐。",
+      "note": "",
+      "context": "特殊和牌型 · 最右一张为和牌张",
+      "example": "19m 19p 19s 1234567z 1z",
+      "sourcePage": 33
+    },
+    {
+      "number": 8,
+      "name": "清幺九",
+      "fan": 64,
+      "description": "由序数牌1、9组成的和牌，计64分。不计碰碰和、全带幺、双同刻、幺九刻、无字。",
+      "note": "",
+      "context": "",
+      "example": "111m 999m 111p 999s 99p",
+      "sourcePage": 33
+    },
+    {
+      "number": 9,
+      "name": "小四喜",
+      "fan": 64,
+      "description": "和牌中有三副风牌的刻子、第四种风牌的将牌，计64分。组成小四喜的三副刻子不计三风刻、幺九刻。",
+      "note": "",
+      "context": "",
+      "example": "111z 222z 333z 123m 44z",
+      "sourcePage": 34
+    },
+    {
+      "number": 10,
+      "name": "小三元",
+      "fan": 64,
+      "description": "和牌中有两副箭牌的刻子、第三种箭牌的将牌，计64分。组成小三元的两副刻子不计双箭刻、幺九刻。",
+      "note": "",
+      "context": "",
+      "example": "555z 666z 123m 789p 77z",
+      "sourcePage": 34
+    },
+    {
+      "number": 11,
+      "name": "字一色",
+      "fan": 64,
+      "description": "由字牌组成的和牌，计64分。不计碰碰和、全带幺、幺九刻。",
+      "note": "",
+      "context": "",
+      "example": "111z 222z 333z 555z 77z",
+      "sourcePage": 35
+    },
+    {
+      "number": 12,
+      "name": "四暗刻",
+      "fan": 64,
+      "description": "和牌中有四副暗刻，计64分。不计碰碰和。",
+      "note": "",
+      "context": "四组刻子均为暗刻；自摸和牌",
+      "example": "111m 333p 555s 777z 22m",
+      "sourcePage": 35
+    },
+    {
+      "number": 13,
+      "name": "一色双龙会",
+      "fan": 64,
+      "description": "由一种花色的123、789顺子各两副以及该花色的5的将牌组成的基本和牌型，计64分。不计清一色、平和、无字。",
+      "note": "",
+      "context": "",
+      "example": "123m 123m 789m 789m 55m",
+      "sourcePage": 35
+    },
+    {
+      "number": 14,
+      "name": "一色四同顺",
+      "fan": 48,
+      "description": "和牌中有花色、序数均相同的四副顺子，计48分。不计四归一。",
+      "note": "",
+      "context": "第一组为吃牌",
+      "example": "123m 123m 123m 123m 55p",
+      "sourcePage": 36
+    },
+    {
+      "number": 15,
+      "name": "一色四节高",
+      "fan": 48,
+      "description": "和牌中有花色相同、序数依次递增1的四副刻子，计48分。不计碰碰和。",
+      "note": "",
+      "context": "",
+      "example": "222m 333m 444m 555m 77p",
+      "sourcePage": 36
+    },
+    {
+      "number": 16,
+      "name": "一色四步高",
+      "fan": 32,
+      "description": "和牌中有花色相同、序数依次递增1或2的四副顺子，且这四副顺子之间的递增数均相同，计32分。",
+      "note": "",
+      "context": "",
+      "example": "123m 234m 345m 456m 77p",
+      "sourcePage": 36
+    },
+    {
+      "number": 17,
+      "name": "三杠",
+      "fan": 32,
+      "description": "和牌中杠牌恰有三副，计32分。",
+      "note": "",
+      "context": "前三组为杠；杠牌按四张展示",
+      "example": "1111m 5555p 9999s 234m 66z",
+      "sourcePage": 37
+    },
+    {
+      "number": 18,
+      "name": "混幺九",
+      "fan": 32,
+      "description": "和牌中包含字牌且序数牌只包含1、9，计32分。不计碰碰和、全带幺、幺九刻。",
+      "note": "",
+      "context": "",
+      "example": "111m 999p 111s 555z 22z",
+      "sourcePage": 37
+    },
+    {
+      "number": 19,
+      "name": "七对",
+      "fan": 24,
+      "description": "由七个对子组成的特殊和牌型，计24分。",
+      "note": "",
+      "context": "特殊和牌型 · 七对",
+      "example": "11m 44m 77m 22p 55p 88s 66z",
+      "sourcePage": 38
+    },
+    {
+      "number": 20,
+      "name": "七星不靠",
+      "fan": 24,
+      "description": "由七种字牌各一张，外加一种花色的147、另一花色的258、第三种花色的369共九种序数牌中任意七种牌各一张组成的特殊和牌型，计24分。不计全不靠、五门齐。",
+      "note": "",
+      "context": "特殊和牌型 · 七种字牌齐全",
+      "example": "147m 25p 36s 1234567z",
+      "sourcePage": 38
+    },
+    {
+      "number": 21,
+      "name": "全双刻",
+      "fan": 24,
+      "description": "由序数牌2、4、6、8的刻子、将牌组成的基本和牌型，计24分。不计碰碰和、断幺、无字。",
+      "note": "",
+      "context": "",
+      "example": "222m 444m 666p 888s 22p",
+      "sourcePage": 38
+    },
+    {
+      "number": 22,
+      "name": "清一色",
+      "fan": 24,
+      "description": "由一种花色的序数牌组成的和牌，计24分。不计无字。",
+      "note": "",
+      "context": "",
+      "example": "123m 345m 567m 999m 22m",
+      "sourcePage": 39
+    },
+    {
+      "number": 23,
+      "name": "一色三同顺",
+      "fan": 24,
+      "description": "和牌中有花色、序数均相同的三副顺子，计24分。",
+      "note": "",
+      "context": "第一组为吃牌",
+      "example": "234m 234m 234m 789p 55s",
+      "sourcePage": 39
+    },
+    {
+      "number": 24,
+      "name": "一色三节高",
+      "fan": 24,
+      "description": "和牌中有花色相同、序数依次递增1的三副刻子，计24分。",
+      "note": "",
+      "context": "",
+      "example": "333m 444m 555m 678p 22s",
+      "sourcePage": 39
+    },
+    {
+      "number": 25,
+      "name": "全大",
+      "fan": 24,
+      "description": "由序数牌7、8、9组成的和牌，计24分。不计大于五、无字。",
+      "note": "",
+      "context": "",
+      "example": "789m 777p 888p 999s 88m",
+      "sourcePage": 40
+    },
+    {
+      "number": 26,
+      "name": "全中",
+      "fan": 24,
+      "description": "由序数牌4、5、6组成的和牌，计24分。不计断幺、无字。",
+      "note": "",
+      "context": "",
+      "example": "456m 444p 555p 666s 55m",
+      "sourcePage": 40
+    },
+    {
+      "number": 27,
+      "name": "全小",
+      "fan": 24,
+      "description": "由序数牌1、2、3组成的和牌，计24分。不计小于五、无字。",
+      "note": "",
+      "context": "",
+      "example": "123m 111p 222p 333s 22m",
+      "sourcePage": 40
+    },
+    {
+      "number": 28,
+      "name": "清龙",
+      "fan": 16,
+      "description": "和牌中有花色相同的123、456、789三副顺子，计16分。",
+      "note": "",
+      "context": "",
+      "example": "123m 456m 789m 234p 55s",
+      "sourcePage": 41
+    },
+    {
+      "number": 29,
+      "name": "三色双龙会",
+      "fan": 16,
+      "description": "由一种花色的123、789两副顺子，外加另一花色的123、789两副顺子以及第三种花色的5的将牌组成的基本和牌型，计16分。不计平和、无字。",
+      "note": "",
+      "context": "",
+      "example": "123m 789m 123p 789p 55s",
+      "sourcePage": 41
+    },
+    {
+      "number": 30,
+      "name": "一色三步高",
+      "fan": 16,
+      "description": "和牌中有花色相同、序数依次递增1或2的三副顺子，且这三副顺子之间的递增数均相同，计16分。",
+      "note": "",
+      "context": "",
+      "example": "123m 345m 567m 789p 22s",
+      "sourcePage": 42
+    },
+    {
+      "number": 31,
+      "name": "全带五",
+      "fan": 16,
+      "description": "普通基本和牌型的每副顺子、刻子、将牌均含有序数牌5，计16分。不计断幺、无字。",
+      "note": "",
+      "context": "",
+      "example": "345m 456p 567s 555m 55s",
+      "sourcePage": 42
+    },
+    {
+      "number": 32,
+      "name": "三同刻",
+      "fan": 16,
+      "description": "和牌中有分属三种花色、序数相同的三副刻子，计16分。",
+      "note": "",
+      "context": "",
+      "example": "555m 555p 555s 123m 77z",
+      "sourcePage": 42
+    },
+    {
+      "number": 33,
+      "name": "三暗刻",
+      "fan": 16,
+      "description": "和牌中暗刻恰有三副，计16分。",
+      "note": "",
+      "context": "前三组为暗刻；第四组为明顺",
+      "example": "111m 333p 555s 789m 22p",
+      "sourcePage": 43
+    },
+    {
+      "number": 34,
+      "name": "全不靠",
+      "fan": 12,
+      "description": "由一种花色的147、另一花色的258、第三种花色的369、七种字牌共十六种牌中任意十四种牌各一张组成的特殊和牌型，计12分。不计五门齐。",
+      "note": "",
+      "context": "特殊和牌型 · 十四种牌各一张",
+      "example": "147m 258p 36s 123456z",
+      "sourcePage": 43
+    },
+    {
+      "number": 35,
+      "name": "组合龙",
+      "fan": 12,
+      "description": "和牌中有一种花色的147、另一花色的258、第三种花色的369，计12分。",
+      "note": "",
+      "context": "前三组为组合龙；另有一副顺子和一对将",
+      "example": "147m 258p 369s 123m 55p",
+      "sourcePage": 44
+    },
+    {
+      "number": 36,
+      "name": "大于五",
+      "fan": 12,
+      "description": "由序数牌6、7、8、9组成的和牌，计12分。不计无字。",
+      "note": "",
+      "context": "",
+      "example": "678m 666p 888p 999s 77m",
+      "sourcePage": 44
+    },
+    {
+      "number": 37,
+      "name": "小于五",
+      "fan": 12,
+      "description": "由序数牌1、2、3、4组成的和牌，计12分。不计无字。",
+      "note": "",
+      "context": "",
+      "example": "123m 111p 333p 444s 22m",
+      "sourcePage": 44
+    },
+    {
+      "number": 38,
+      "name": "三风刻",
+      "fan": 12,
+      "description": "和牌中风牌的刻子恰有三副，计12分。这三副刻子不计幺九刻。",
+      "note": "",
+      "context": "",
+      "example": "111z 222z 333z 456m 55p",
+      "sourcePage": 45
+    },
+    {
+      "number": 39,
+      "name": "花龙",
+      "fan": 8,
+      "description": "和牌中有一种花色的123、另一花色的456、第三种花色的789三副顺子，计8分。",
+      "note": "",
+      "context": "",
+      "example": "123m 456p 789s 222m 55p",
+      "sourcePage": 45
+    },
+    {
+      "number": 40,
+      "name": "推不倒",
+      "fan": 8,
+      "description": "由牌面为中心对称图形的牌，即一、二、三、四、五、八、九饼，二、四、五、六、八、九条与白板十四种牌组成的和牌，计8分。不计缺一门。",
+      "note": "",
+      "context": "",
+      "example": "123p 234p 888s 999p 77z",
+      "sourcePage": 46
+    },
+    {
+      "number": 41,
+      "name": "三色三同顺",
+      "fan": 8,
+      "description": "和牌中有分属三种花色、序数相同的三副顺子，计8分。",
+      "note": "",
+      "context": "",
+      "example": "234m 234p 234s 789m 55p",
+      "sourcePage": 46
+    },
+    {
+      "number": 42,
+      "name": "三色三节高",
+      "fan": 8,
+      "description": "和牌中有分属三种花色、序数依次递增1的三副刻子，计8分。",
+      "note": "",
+      "context": "",
+      "example": "333m 444p 555s 789m 22p",
+      "sourcePage": 47
+    },
+    {
+      "number": 43,
+      "name": "无番和",
+      "fan": 8,
+      "description": "不满足除无番和、花牌两个番种外任何番种定义的基本和牌型，计8分。",
+      "note": "",
+      "context": "已有吃牌；南风作将；以两面听点和八条",
+      "example": "123m 456p 678s 555m 22z",
+      "sourcePage": 47
+    },
+    {
+      "number": 44,
+      "name": "妙手回春",
+      "fan": 8,
+      "description": "自摸牌墙所剩最后一张牌，计8分。不计自摸。",
+      "note": "",
+      "context": "最右一张为牌墙最后一张，自摸",
+      "example": "123m 456p 789s 222p 5m 5m",
+      "sourcePage": 47
+    },
+    {
+      "number": 45,
+      "name": "海底捞月",
+      "fan": 8,
+      "description": "和牌墙摸完后别家打出的牌，计8分。",
+      "note": "",
+      "context": "最右一张为牌墙摸完后的弃牌，点和",
+      "example": "123m 456p 789s 222p 5m 5m",
+      "sourcePage": 47
+    },
+    {
+      "number": 46,
+      "name": "杠上开花",
+      "fan": 8,
+      "description": "自摸杠牌后摸进的牌，计8分。不计自摸。",
+      "note": "",
+      "context": "第一组为杠；杠后补进最右一张，自摸",
+      "example": "1111m 234p 678s 456m 5p 5p",
+      "sourcePage": 47
+    },
+    {
+      "number": 47,
+      "name": "抢杠和",
+      "fan": 8,
+      "description": "和他家用于加杠的牌，计8分。不计和绝张。",
+      "note": "",
+      "context": "最右一张为他家用于加杠的牌，抢杠和",
+      "example": "123m 46p 789s 222m 55s 5p",
+      "sourcePage": 47
+    },
+    {
+      "number": 48,
+      "name": "碰碰和",
+      "fan": 6,
+      "description": "由四副刻子、将牌组成的基本和牌型，计6分。",
+      "note": "",
+      "context": "第一组为碰牌",
+      "example": "111m 333p 555s 777m 22z",
+      "sourcePage": 48
+    },
+    {
+      "number": 49,
+      "name": "混一色",
+      "fan": 6,
+      "description": "和牌中包含字牌且序数牌只包含一种花色，计6分。",
+      "note": "",
+      "context": "",
+      "example": "123m 456m 789m 555z 22m",
+      "sourcePage": 48
+    },
+    {
+      "number": 50,
+      "name": "三色三步高",
+      "fan": 6,
+      "description": "和牌中有分属三种花色、序数依次递增1的三副顺子，计6分。",
+      "note": "",
+      "context": "",
+      "example": "123m 234p 345s 678m 55p",
+      "sourcePage": 48
+    },
+    {
+      "number": 51,
+      "name": "五门齐",
+      "fan": 6,
+      "description": "和牌中有三种花色的序数牌、风牌、箭牌，计6分。",
+      "note": "",
+      "context": "",
+      "example": "123m 456p 789s 111z 55z",
+      "sourcePage": 49
+    },
+    {
+      "number": 52,
+      "name": "全求人",
+      "fan": 6,
+      "description": "普通基本和牌型的所有面子均为明顺或明刻，点和和牌，计6分。不计单吊将。",
+      "note": "",
+      "context": "前四组均已吃、碰或明杠；点和最右一张",
+      "example": "123m 456p 789s 222m 5p 5p",
+      "sourcePage": 49
+    },
+    {
+      "number": 53,
+      "name": "双暗杠",
+      "fan": 6,
+      "description": "和牌中杠牌恰有两副且均为暗杠，计6分。不计双暗刻。",
+      "note": "",
+      "context": "前两组均为暗杠",
+      "example": "1111m 5555p 234s 678m 22p",
+      "sourcePage": 49,
+      "faceDownTiles": [
+        0,
+        3,
+        4,
+        7
+      ]
+    },
+    {
+      "number": 54,
+      "name": "双箭刻",
+      "fan": 6,
+      "description": "和牌中箭牌的刻子恰有两副，计6分。这两副刻子不计幺九刻。",
+      "note": "",
+      "context": "",
+      "example": "555z 666z 123m 789p 22s",
+      "sourcePage": 50
+    },
+    {
+      "number": 55,
+      "name": "全带幺",
+      "fan": 4,
+      "description": "普通基本和牌型的每副顺子、刻子、将牌均含有幺九牌，计4分。",
+      "note": "",
+      "context": "",
+      "example": "123m 789m 111p 999s 11z",
+      "sourcePage": 50
+    },
+    {
+      "number": 56,
+      "name": "不求人",
+      "fan": 4,
+      "description": "未吃、碰、明杠，自摸和牌，计4分。不计自摸。",
+      "note": "",
+      "context": "全副未吃、碰、明杠；自摸最右一张",
+      "example": "123m 456p 789s 222m 5p 5p",
+      "sourcePage": 50
+    },
+    {
+      "number": 57,
+      "name": "双明杠",
+      "fan": 4,
+      "description": "和牌中杠牌恰有两副且均为明杠，计4分。",
+      "note": "",
+      "context": "前两组均为明杠",
+      "example": "1111m 5555p 234s 678m 22p",
+      "sourcePage": 51
+    },
+    {
+      "number": 58,
+      "name": "和绝张",
+      "fan": 4,
+      "description": "一种牌在牌池、各家副露以及补花中已亮明三张，和所剩的第四张牌，计4分。",
+      "note": "",
+      "context": "已有三张五饼公开亮明；最右一张为第四张",
+      "example": "123m 46p 789s 222m 55s 5p",
+      "sourcePage": 51
+    },
+    {
+      "number": 59,
+      "name": "箭刻",
+      "fan": 2,
+      "description": "和牌中箭牌的刻子恰有一副，计2分。这副刻子不计幺九刻。",
+      "note": "",
+      "context": "",
+      "example": "555z 123m 456p 789s 22m",
+      "sourcePage": 51
+    },
+    {
+      "number": 60,
+      "name": "圈风刻",
+      "fan": 2,
+      "description": "和牌中有一副风牌的刻子，其风牌与当前圈风相同，计2分。这副刻子不计幺九刻。",
+      "note": "",
+      "context": "东圈；第一组为东风刻子",
+      "example": "111z 123m 456p 789s 55m",
+      "sourcePage": 52
+    },
+    {
+      "number": 61,
+      "name": "门风刻",
+      "fan": 2,
+      "description": "和牌中有一副风牌的刻子，其风牌与自家门风相同，计2分。这副刻子不计幺九刻。",
+      "note": "",
+      "context": "南家；第一组为南风刻子",
+      "example": "222z 123m 456p 789s 55m",
+      "sourcePage": 52
+    },
+    {
+      "number": 62,
+      "name": "门前清",
+      "fan": 2,
+      "description": "未吃、碰、明杠，点和和牌，计2分。",
+      "note": "",
+      "context": "全副未吃、碰、明杠；点和最右一张",
+      "example": "123m 456p 789s 222m 5p 5p",
+      "sourcePage": 52
+    },
+    {
+      "number": 63,
+      "name": "平和",
+      "fan": 2,
+      "description": "由四副顺子、序数牌的将牌组成的基本和牌型，或由一种花色的147、另一花色的258、第三种花色的369、一副顺子、序数牌的将牌组成的基本和牌型，计2分。不计无字。",
+      "note": "",
+      "context": "",
+      "example": "123m 345m 456p 789s 55p",
+      "sourcePage": 53
+    },
+    {
+      "number": 64,
+      "name": "四归一",
+      "fan": 2,
+      "description": "和牌中有不以杠形式存在的四张相同牌，每种计2分。",
+      "note": "",
+      "context": "",
+      "example": "123m 333m 456p 789s 55p",
+      "sourcePage": 53
+    },
+    {
+      "number": 65,
+      "name": "双同刻",
+      "fan": 2,
+      "description": "和牌中有花色不同、序数相同的两副刻子，每组计2分。",
+      "note": "",
+      "context": "",
+      "example": "555m 555p 123s 789m 22p",
+      "sourcePage": 53
+    },
+    {
+      "number": 66,
+      "name": "双暗刻",
+      "fan": 2,
+      "description": "和牌中暗刻恰有两副，计2分。",
+      "note": "",
+      "context": "前两组为暗刻；其余为顺子",
+      "example": "111m 333p 456s 789m 55p",
+      "sourcePage": 54
+    },
+    {
+      "number": 67,
+      "name": "暗杠",
+      "fan": 2,
+      "description": "和牌中杠牌恰有一副且为暗杠，计2分。",
+      "note": "",
+      "context": "第一组为暗杠",
+      "example": "1111m 234p 678s 456m 55p",
+      "sourcePage": 54,
+      "faceDownTiles": [
+        0,
+        3
+      ]
+    },
+    {
+      "number": 68,
+      "name": "断幺",
+      "fan": 2,
+      "description": "由序数牌2、3、4、5、6、7、8组成的和牌，计2分。不计无字。",
+      "note": "",
+      "context": "",
+      "example": "234m 345p 456s 678m 55p",
+      "sourcePage": 54
+    },
+    {
+      "number": 69,
+      "name": "一般高",
+      "fan": 1,
+      "description": "和牌中有花色、序数均相同的两副顺子，每组计1分。",
+      "note": "",
+      "context": "",
+      "example": "234m 234m 456p 789s 55p",
+      "sourcePage": 55
+    },
+    {
+      "number": 70,
+      "name": "喜相逢",
+      "fan": 1,
+      "description": "和牌中有花色不同、序数相同的两副顺子，每组计1分。",
+      "note": "",
+      "context": "",
+      "example": "234m 234p 456s 789m 55p",
+      "sourcePage": 55
+    },
+    {
+      "number": 71,
+      "name": "连六",
+      "fan": 1,
+      "description": "和牌中有花色相同、序数相差3的两副顺子，每组计1分。",
+      "note": "",
+      "context": "",
+      "example": "123m 456m 345p 789s 55p",
+      "sourcePage": 55
+    },
+    {
+      "number": 72,
+      "name": "老少副",
+      "fan": 1,
+      "description": "和牌中有一种花色的123、789两副顺子，计1分。",
+      "note": "",
+      "context": "",
+      "example": "123m 789m 456p 234s 55p",
+      "sourcePage": 55
+    },
+    {
+      "number": 73,
+      "name": "幺九刻",
+      "fan": 1,
+      "description": "和牌中有幺九牌的刻子，每副计1分。",
+      "note": "",
+      "context": "",
+      "example": "111m 234p 567s 789m 55p",
+      "sourcePage": 56
+    },
+    {
+      "number": 74,
+      "name": "明杠",
+      "fan": 1,
+      "description": "和牌中杠牌恰有一副且为明杠，计1分。",
+      "note": "",
+      "context": "第一组为明杠",
+      "example": "1111m 234p 678s 456m 55p",
+      "sourcePage": 56
+    },
+    {
+      "number": 75,
+      "name": "缺一门",
+      "fan": 1,
+      "description": "和牌中序数牌只包含两种花色，计1分。",
+      "note": "",
+      "context": "",
+      "example": "123m 456m 789p 555z 22p",
+      "sourcePage": 56
+    },
+    {
+      "number": 76,
+      "name": "无字",
+      "fan": 1,
+      "description": "由序数牌组成的和牌，计1分。",
+      "note": "",
+      "context": "",
+      "example": "111m 234p 345s 456m 77p",
+      "sourcePage": 57
+    },
+    {
+      "number": 77,
+      "name": "边张",
+      "fan": 1,
+      "description": "听牌为基本和牌型的序数为123或789的一副顺子中的3或7，且整手牌只听这一种牌，计1分。",
+      "note": "",
+      "context": "整手只听三万；最右一张为和牌张",
+      "example": "12m 456p 789s 555z 22p 3m",
+      "sourcePage": 57
+    },
+    {
+      "number": 78,
+      "name": "嵌张",
+      "fan": 1,
+      "description": "听牌为基本和牌型的一副顺子中序数在中间的牌，且整手牌只听这一种牌，计1分。",
+      "note": "",
+      "context": "整手只听三万；最右一张为和牌张",
+      "example": "24m 456p 789s 555z 22p 3m",
+      "sourcePage": 57
+    },
+    {
+      "number": 79,
+      "name": "单吊将",
+      "fan": 1,
+      "description": "听牌在基本和牌型中用于构成将牌，且整手牌只听这一种牌，计1分。",
+      "note": "",
+      "context": "整手只听二饼；最右一张为和牌张",
+      "example": "123m 456p 789s 555z 2p 2p",
+      "sourcePage": 58
+    },
+    {
+      "number": 80,
+      "name": "自摸",
+      "fan": 1,
+      "description": "自摸和牌，计1分。",
+      "note": "",
+      "context": "已有吃牌；自摸最右一张",
+      "example": "234m 234m 456p 678p 5p 5p",
+      "sourcePage": 58
+    },
+    {
+      "number": 81,
+      "name": "花牌",
+      "fan": 1,
+      "description": "使用春、夏、秋、冬、梅、兰、竹、菊八种牌中的若干张牌补花，每张计1分。",
+      "note": "花牌不计入起和分，和牌成立后才能成立花牌分。",
+      "context": "补出的花牌示意；每张 1 番",
+      "example": "1234f 5678f",
+      "sourcePage": 58
+    },
+    {
+      "number": 82,
+      "name": "明暗杠",
+      "fan": 5,
+      "description": "和牌中杠牌恰有两副且为明杠、暗杠各一副，计5分。",
+      "note": "",
+      "context": "第一组为明杠，第二组为暗杠",
+      "example": "1111m 5555p 234s 678m 22p",
+      "sourcePage": 58,
+      "faceDownTiles": [
+        4,
+        7
+      ]
+    }
+  ]
+}

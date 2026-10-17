@@ -44,10 +44,10 @@ public static class HongqueDisplayOrder {
     }
 
     /// <summary>
-    /// 任意手牌在最大空缺处切开色环；原切口同样好时保留原顺序。
+    /// 仅结算展示在最大空缺处切开色环；对局中的手牌始终按牌表顺序。
     /// 若整手恰好是一组，直接使用组内顺序。同色数字仍升序，不推断或拆分玩家的牌组。
     /// </summary>
-    public static int[] Hand(IEnumerable<int> tiles) {
+    public static int[] SettlementHand(IEnumerable<int> tiles) {
         int[] source = tiles?.ToArray() ?? Array.Empty<int>();
         if (source.Length == 0 || source.Any(id => !HongqueTileVisual.IsHongqueId(id))) return source;
         if (HongqueScoring.ClassifyMeld(source.ToList()) != null) return Meld(source);

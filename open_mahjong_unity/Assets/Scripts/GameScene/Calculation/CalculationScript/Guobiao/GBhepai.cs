@@ -226,6 +226,8 @@ public class Chinese_Hepai_Check {
             { "qianzhang", 1 }, { "dandiaojiang", 1 }, { "zimo", 1 }, { "huapai", 1 }, { "mingangang", 5 }
         };
 
+        public static Dictionary<string,int> CopyFanValues() => new Dictionary<string,int>(count_model_dict);
+        public static Dictionary<string,string> CopyFanLabels() => new Dictionary<string,string>(EngToChineseDict);
         internal static readonly Dictionary<string, string> EngToChineseDict = new Dictionary<string, string>
         {
             { "tianhe", "天和" }, { "dihe", "地和" }, { "renhe", "人和" },
@@ -339,7 +341,7 @@ public class Chinese_Hepai_Check {
                 Normal_check(player_tiles_item, check_done_list);
             }
 
-            var fancount_time_start = Time.realtimeSinceStartup;
+            var fancount_time_start = debug ? Time.realtimeSinceStartup : 0;
             // 计算番种
             var allow_list = new List<Tuple<int, List<string>>>();
             if (check_done_list.Count > 0) {
@@ -351,7 +353,7 @@ public class Chinese_Hepai_Check {
                 }
             }
 
-            var fancount_time_end = Time.realtimeSinceStartup;
+            var fancount_time_end = debug ? Time.realtimeSinceStartup : 0;
             if (debug) DebugPrint($"番种计算耗时：{fancount_time_end - fancount_time_start}秒");
 
             // 对比返回元组的第一个元素，只返回第一个元素最大的元组

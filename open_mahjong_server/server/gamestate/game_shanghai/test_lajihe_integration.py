@@ -18,9 +18,10 @@ from ..gamestate_router import handle_gamestate_message
 
 
 @pytest.mark.parametrize("seed", [1,7,13,41,47,144,1729,2024,2026,31337,65535,8675309])
-def test_four_protocol_clients_complete_entire_match(seed):
+@pytest.mark.parametrize("extra_base", [False, True])
+def test_four_protocol_clients_complete_entire_match(seed, extra_base):
     async def run():
-        state=make_state();state.room_random_seed=seed;state.round_time=30;state.step_time=5
+        state=make_state(detailed_config={"self_draw_extra_base":extra_base});state.room_random_seed=seed;state.round_time=30;state.step_time=5
         state.game_server.gamestate_manager.cleanup_game_state_complete=AsyncMock()
         messages=[];tasks=[];submitted=Counter()
         async def respond(uid,allowed,tick):
@@ -138,7 +139,8 @@ def test_reconnect_preserves_private_hand_public_kong_and_pending_flower_choice(
         state=make_state();state.master_seed=144;state.init_tiles()
         for p in state.player_list:
             state.game_server.user_id_to_connection[p.user_id]=SimpleNamespace(websocket=AsyncMock())
-        state.player_list[0].combination_mask=[[0,45]*4];state.player_list[0].combination_tiles=["G45"]
+        mask=state.build_concealed_kong_mask([45]*4)
+        state.player_list[0].combination_mask=[mask];state.player_list[0].combination_tiles=["G45"]
         state.player_list[0].huapai_list=list(range(51,59));state.player_list[0].eight_flowers_paid=True
         state.player_list[0].score=90
         state.game_status="waiting_flower_choice"
@@ -151,16 +153,17 @@ def test_reconnect_preserves_private_hand_public_kong_and_pending_flower_choice(
         start=next(p["game_info"] for p in packets if "game_info" in p)
         assert start["sub_rule"]=="shanghai/lajihe"
         assert any(p.get("ask_hand_action_info",{}).get("action_list")==state.action_dict[0] for p in packets)
-        await broadcast_do_action(state,["angang"],0,combination_mask=[0,45]*4,combination_target="G45")
+        await broadcast_do_action(state,["angang"],0,combination_mask=mask,combination_target="G45")
         other=state.game_server.user_id_to_connection[102].websocket.send_json.await_args.args[0]
-        assert other["do_action_info"]["combination_mask"]==[0,45]*4
+        assert other["do_action_info"]["combination_mask"]==[2,45,0,45,0,45,2,45]
         assert other["do_action_info"]["combination_target"]=="G45"
     asyncio.run(run())
 
 
-def test_four_real_websocket_peers_finish_match_via_production_action_router():
+@pytest.mark.parametrize("extra_base", [False, True])
+def test_four_real_websocket_peers_finish_match_via_production_action_router(extra_base):
     async def run():
-        state=make_state();state.room_random_seed=41;state.round_time=30;state.step_time=5
+        state=make_state(detailed_config={"self_draw_extra_base":extra_base});state.room_random_seed=41;state.round_time=30;state.step_time=5
         server=state.game_server
         server.players={str(p.user_id):SimpleNamespace(user_id=p.user_id) for p in state.player_list}
         server.gamestate_manager.get_game_state_by_gamestate_id=lambda gid: state if gid==state.gamestate_id else None

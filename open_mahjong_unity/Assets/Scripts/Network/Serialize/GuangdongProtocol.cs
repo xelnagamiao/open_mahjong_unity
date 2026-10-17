@@ -23,6 +23,7 @@ public sealed class GuangdongWait {
 }
 [Serializable]
 public sealed class GuangdongTips {
+    public Newtonsoft.Json.Linq.JObject local_request;
     public int[] hand;
     public string[] melds;
     public GuangdongWait[] waits;

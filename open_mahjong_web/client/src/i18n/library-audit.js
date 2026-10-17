@@ -1,5 +1,7 @@
 // Interface labels and the existing MCR entry. Bibliographic source texts remain distinct from UI copy.
 const rows = [
+  ['国标十六张：扩展规则与牌例', '16-tile MCR: extended rules and examples', 'MCR à 16 tuiles : règles étendues et exemples', '16枚中国公式：拡張ルールと牌例'],
+  ['以新编 MCR 为底本的本站十六张扩展，含逐番适用表与五面子计分补则。', 'This platform’s 16-tile extension of revised MCR, with a pattern applicability table and additional scoring rules for five melds.', 'L’extension à 16 tuiles du MCR révisé proposée par cette plateforme, avec un tableau des combinaisons applicables et des règles de calcul supplémentaires pour cinq groupes.', '新編MCRを基にした本プラットフォームの16枚拡張。各役の適用表と5面子の計点補則を含みます。'],
   ['Natsuki 编著的《新编 MCR》。', 'Revised MCR, written by Natsuki.', 'La nouvelle édition MCR, rédigée par Natsuki.', 'Natsuki 編著の「新編 MCR」。'],
   ['四人立直麻将，支持多种规则预设及役种、计分和流局设置', 'Four-player Riichi mahjong, with multiple rule presets and settings for yaku, scoring and drawn hands.', 'Mahjong riichi à quatre joueurs, avec plusieurs préréglages et des options pour les yaku, le calcul des points et les donnes nulles.', '4人打ちリーチ麻雀。複数のルールプリセットと、役・点数計算・流局の設定に対応。'],
   ['GGHK 立直麻将规则书', 'GGHK Riichi Mahjong Rulebook', 'Règles du mahjong riichi de la GGHK', 'GGHK リーチ麻雀ルールブック'],

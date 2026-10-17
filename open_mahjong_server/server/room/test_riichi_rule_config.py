@@ -65,6 +65,8 @@ def test_unity_catalog_matches_server():
     asset = root/'open_mahjong_unity/Assets/Resources/RiichiRuleOptions.json'
     assert asset.is_file(), 'Main Unity catalog must be present in the workspace'
     assert json.loads(asset.read_text(encoding='utf-8')) == catalog()
+    web_catalog = root/'open_mahjong_web/shared/riichiRuleOptions.json'
+    assert json.loads(web_catalog.read_text(encoding='utf-8')) == catalog()
     web_option = root/'open_mahjong_web/shared/riichiWinRequirements.json'
     assert json.loads(web_option.read_text(encoding='utf-8')) == next(o for o in catalog()['options'] if o['key'] == 'minimum_win_score')
 

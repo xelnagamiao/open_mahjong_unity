@@ -267,6 +267,12 @@ const routes = [
     meta: { title: 'Salasasa 2D 国标麻将' }
   },
   {
+    path: '/2d/demo',
+    name: 'Game2DTableDemo',
+    component: () => import('@/views/game2d/TableDemo.vue'),
+    meta: { title: '2D 设定牌桌 - Salasasa', noindex: true }
+  },
+  {
     path: '/2d/game',
     name: 'Game2D',
     component: () => import('@/views/game2d/Game.vue'),

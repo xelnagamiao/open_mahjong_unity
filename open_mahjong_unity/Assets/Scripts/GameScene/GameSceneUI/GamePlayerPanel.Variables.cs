@@ -13,6 +13,9 @@ public partial class GamePlayerPanel {
     public const string VariableGhosts = "ghosts";
     public const string VariableHangzhouDealer = "hangzhou_dealer";
     public const string VariableHangzhouForcedCut = "hangzhou_forced_cut";
+    public const string VariableYoujin = "youjin";
+    public const string VariableSelfDrawOnly = "self_draw_only";
+    public const string VariableWashizuRole = "washizu_role";
 
     [Serializable]
     private sealed class PlayerVariable {
@@ -48,6 +51,14 @@ public partial class GamePlayerPanel {
 
     public void SetYixingFlowerCount(int? count) {
         SetPlayerVariable(VariableFlowers, count.HasValue ? $"花数 {Mathf.Max(0, count.Value)}" : null);
+    }
+
+    public void SetFuzhouStatus(FuzhouInfo info, int seat) {
+        FuzhouDeclaration declaration = info?.declarations != null && seat >= 0 && seat < info.declarations.Length
+            ? info.declarations[seat] : null;
+        SetPlayerVariable(VariableYoujin, declaration?.youjin > 0 ? $"游金：{declaration.youjin}" : null);
+        SetPlayerVariable(VariableSelfDrawOnly, declaration?.discarded_gold == true ? "仅限自摸" : null);
+        SetPlayerVariable(VariableDeclaredReady, declaration?.golden_middle == true ? "报听" : null);
     }
 
     public void SetHangzhouStatus(HangzhouInfo info, int seat) {

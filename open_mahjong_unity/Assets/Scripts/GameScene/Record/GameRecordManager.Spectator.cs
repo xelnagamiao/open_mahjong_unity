@@ -724,11 +724,7 @@ public partial class GameRecordManager {
     }
 
     private static List<string> ConvertTickArrayToList(JArray tickArr) {
-        var tick = new List<string>();
-        foreach (JToken elem in tickArr) {
-            tick.Add(elem is JArray arr ? arr.ToString() : (elem?.ToString() ?? ""));
-        }
-        return tick;
+        return GameRecordJsonDecoder.ParseActionTick(tickArr);
     }
 
     private void RemoveAskTicksFromAllRounds() {

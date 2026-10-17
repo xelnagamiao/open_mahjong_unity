@@ -1,7 +1,6 @@
 import random
 import asyncio
 from typing import Any, Dict, List, Optional
-import time
 import logging
 from .action_check import check_action_hand_action, check_only_cut, refresh_waiting_tiles
 from .wait_action import wait_action
@@ -26,6 +25,7 @@ from ..public.round_end_timing import (
     hu_result_ready_wait_seconds,
     liuju_ready_wait_seconds,
 )
+from ..public.ready_phase import run_result_ready_phase
 from ..public.spectator_rules import too_many_ai_for_spectator
 from ..public.vote_manager import vote_checkpoint
 from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_hu, player_action_record_liuju, player_action_record_round_end, end_game_record, build_score_changes_by_seat, build_score_changes_dict, capture_player_entry_order, remember_local_record_detail
@@ -590,11 +590,11 @@ class QingqueGameState:
 
                 score_changes_dict = build_score_changes_dict(self.player_list, scores_before)
 
-                # 广播和牌结算结果（使用实际和牌分数，而不是番数）
+                # 与牌谱共用精算番值；实际得分通过 score_changes 传递。
                 await broadcast_result(self,
                                        hepai_player_index = hepai_player_index, # 和牌玩家索引
                                        player_to_score = player_to_score, # 所有玩家分数
-                                       hu_score = actual_hu_score, # 和牌分数（整数）
+                                       hu_score = hu_score, # 青雀精算番值（保留小数）
                                        hu_fan = hu_fan, # 和牌番种
                                        hu_class = self.hu_class, # 和牌类别
                                        hepai_player_hand = he_hand, # 和牌玩家手牌
@@ -673,24 +673,7 @@ class QingqueGameState:
                 else:
                     fan_count = len(hu_fan) if hu_fan else 0
                     wait_time = hu_result_ready_wait_seconds(fan_count)
-                    ready_phase_deadline = time.time() + wait_time
-
-                    self.action_dict = {}
-                    for player in self.player_list:
-                        if player.user_id <= 10:
-                            self.action_dict[player.player_index] = []
-                        else:
-                            self.action_dict[player.player_index] = ["ready"]
-                            player.remaining_time = int(wait_time)
-
-                    self.game_status = "waiting_ready"
-                    await broadcast_ready_status(self)
-                    while any(self.action_dict[i] for i in self.action_dict):
-                        for p in self.player_list:
-                            if self.action_dict.get(p.player_index):
-                                p.remaining_time = max(0, int(ready_phase_deadline - time.time()))
-                        if await wait_action(self) is False:
-                            break
+                    await run_result_ready_phase(self, wait_time, broadcast_ready_status)
 
             if self.current_round < self.max_round * 4:
                 # 开启下一局的准备工作

@@ -69,14 +69,21 @@ test('提示缓存隔离子规则、奖励、黑花开关，季节牌只有1张'
   const hand=[11,12,13,21,22,23,31,32,33,44,44,44,45]
   wild.acceptFourJokersSnapshot({sub_rule:sub,hand,melds:[],waits:[45,51,52,53,54],discard_waits:{}})
   const ctx={hand,combinations:[],tips:true,subRule:sub,noJokerBonus:'double',blackFlowerProgressive:false,playerIndex:0,currentRound:1,hepaiLimit:8,flowerCount:2,seatDiscards:[[51],[],[],[]],seatCombinations:[[],[],[],[]]}
-  const d=wild.buildFourJokersWaitData(ctx,false).details
+  let data=null
+  for(let i=0;i<200&&!data;i++){data=wild.buildFourJokersWaitData(ctx,false);if(!data)await new Promise(r=>setTimeout(r,10))}
+  assert.ok(data,'Local huahun wait job must finish')
+  const d=data.details
   assert.equal(d.find(x=>x.tile===52).remaining_count,1);assert.equal(d.find(x=>x.tile===51).remaining_count,0)
   assert.ok(d.every(x=>x.four_jokers_request.no_joker_bonus==='double'&&!x.four_jokers_request.black_flower_progressive))
   const before=globalThis.fetch;let calls=0
-  globalThis.fetch=async(_url,opt)=>{calls++;const q=JSON.parse(opt.body);return {ok:true,json:async()=>({kind:'zimo',label:q.no_joker_bonus,score:q.black_flower_progressive?16:9})}}
+  globalThis.fetch=async()=>{calls++;throw Error('Hints must not use HTTP')}
   try {
     const req=d[0].four_jokers_request
-    for(const bonus of ['add8','double','none'])for(const progressive of [false,true])await wild.resolveFourJokersHint({...req,no_joker_bonus:bonus,black_flower_progressive:progressive})
-    assert.equal(calls,6)
+    for(const progressive of [false,true]) {
+      const results=await Promise.all(['add8','double','none'].map(bonus=>wild.resolveFourJokersHint({...req,no_joker_bonus:bonus,black_flower_progressive:progressive})))
+      assert.equal(results[0].score,results[2].score+8)
+      assert.equal(results[1].score,results[2].score*2)
+    }
+    assert.equal(calls,0)
   }finally{globalThis.fetch=before}
 })

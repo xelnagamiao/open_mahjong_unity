@@ -118,7 +118,7 @@ public partial class Game3DManager {
         }
         PosPanel3D panel = GetPosPanel(op.PlayerPosition);
         if (panel == null) yield break;
-        if (op.PlayCutPhysicsSound) SoundManager.Instance.PlayPhysicsSound("cut");
+        if (op.PlayCutPhysicsSound) PlayDiscardSound(op.PlayerPosition, op.IsRiichi);
         yield return Set3DTileCoroutine(op.TileId, panel.discardsPosition, "Discard", op.PlayerPosition,
             ShouldApplyMoqieDiscardGray(true), isRiichi: op.IsRiichi);
     }

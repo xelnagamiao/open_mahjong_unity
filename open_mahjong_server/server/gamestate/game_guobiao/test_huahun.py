@@ -9,7 +9,7 @@ from .test_sanma import sanma
 from .action_check import check_action_after_cut, check_action_hand_action, check_action_buhua, refresh_waiting_tiles, check_hepai
 from .init_tiles import init_guobiao_tiles
 from .four_jokers_bot import choose_action, choose_cut
-from .four_jokers_runtime import evaluate_actions, prepare_hints
+from .four_jokers_runtime import evaluate_actions
 from .boardcast import _build_game_start_payload_for_viewer
 from ...game_calculation import guobiao_huahun as rule
 from ...game_calculation.test_guobiao_four_jokers import BASE, SEVEN_FAN_CASES

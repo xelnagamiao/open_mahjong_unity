@@ -82,9 +82,11 @@ def apply_hongque_debug_hands(game_state) -> None:
     scenario = resolve_debug_scenario(game_state)
     if scenario == "double_ron":
         _apply_double_ron(game_state.players)
+        _rebuild_wall_excluding_hands(game_state)
         _fix_opening_draw_event(game_state)
     elif scenario == "tactical_all_claims":
         _apply_tactical_all_claims(game_state.players)
+        _rebuild_wall_excluding_hands(game_state)
         _fix_opening_draw_event(game_state)
     elif scenario == "ones_nines":
         _apply_ones_nines(game_state.players)
@@ -114,32 +116,10 @@ def _fix_opening_draw_event(game_state) -> None:
 
 def _apply_double_ron(players) -> None:
     """上家(3)（庄家）12 张含孤张 AX1，首打 AX1；自家(0)/下家(1)听 AX1，对家(2)不听。"""
-    ron = _DEBUG_RON_TILE
-    # 上家 / 庄家 / 首打：12 张唯一牌且不可和（不能天和），AX1 为孤张手切。
-    # 注意：手牌必须全唯一，否则牌效 AI 的 mask_from_codes 会抛异常导致机器人等到超时。
-    players[3].hand = [
-        ron,
-        "EY2", "DY8", "AX6", "FY5", "CY1", "FY3", "EY7", "EX9", "BX1", "AX5", "BY6",
-    ]
-    players[3].drawn_tile = "BY6"
-    # 自家(0)：AX1 补成 AX1,AX2,AX3 → 4 组和牌
-    players[0].hand = [
-        "AX2", "AX3",
-        "BX4", "BX5", "BX6",
-        "CX4", "CX5", "CX6",
-        "DX4", "DX5", "DX6",
-    ]
-    # 下家(1)：AX1 补成 AX1,AX2,AX3 → 4 组和牌
-    players[1].hand = [
-        "AX2", "AX3",
-        "BX1", "BX2", "BX3",
-        "CX7", "CX8", "CX9",
-        "DX7", "DX8", "DX9",
-    ]
-    # 对家(2)：11 张唯一牌，AX1 无法成和（不能荣和）。
-    players[2].hand = [
-        "FX6", "GY9", "GY4", "DY2", "BY1", "EX8", "AX6", "DX7", "FY8", "BX1", "GY1",
-    ]
+    # 沿用三家可和牌例的互不重叠手牌，将首家旋转到上家；
+    # 对家换掉 GY9 使其不能和，避免两位赢家共用 AX2/AX3 的非法固定牌例。
+    _apply_tactical_all_claims([players[3], players[0], players[1], players[2]])
+    players[2].hand[-1] = "EX9"
 
 
 def _apply_tactical_all_claims(players) -> None:

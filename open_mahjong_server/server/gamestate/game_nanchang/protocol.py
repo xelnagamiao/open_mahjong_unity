@@ -2,7 +2,7 @@ import math
 from ..game_zhongyong import boardcast as wire
 from ...game_calculation.nanchang import rules as book
 from .actions import CHOWS,claim_tiles,legal_cuts,kong_tiles
-from .hints import private_hints
+from .client_context import private_context
 from .state_machine import Phase as P
 
 
@@ -42,7 +42,7 @@ class Protocol:
                         players_info=[self._player_view(i,viewer) for i in range(4)])
             if viewer in range(4):
                 info["self_hand_tiles"] = list(self.player_list[viewer].hand_tiles)
-                info["nanchang_hints"] = private_hints(self,viewer)
+                info["nanchang_hints"] = private_context(self,viewer)
         return payload
 
     def build_game_start_payload(self,index):
@@ -75,7 +75,7 @@ class Protocol:
             from ..public.game_record_manager import append_action_tick
             snapshots = self.__dict__.setdefault("_record_hints",{})
             for i in range(4):
-                current = private_hints(self,i,for_record=True)
+                current = private_context(self,i,for_record=True)
                 if current != snapshots.get(i):
                     append_action_tick(self,["nanchang","waits",i,current])
                     snapshots[i] = current

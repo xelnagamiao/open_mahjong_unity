@@ -1,3 +1,4 @@
+import {resolveLocalHintSnapshot} from './localHintSnapshots.js'
 /** The rule's physical gold indicator is saved, never regenerated during replay. */
 export function fuzhouInfoAt(round,node) {
   let info=round?.fuzhou || null
@@ -48,12 +49,17 @@ export function applyFuzhouPhysical(states,tick) {
   return kind==='kaijin'||kind==='kaijin_flower' ? 1 : 0
 }
 
-export function fuzhouReserve(states) {
+// Missing versions are legacy records. Never reinterpret their tail indicator.
+export const isFuzhouV2 = version => version === 'fuzhou-user-20261015-v2'
+
+export function fuzhouReserve(states, version) {
   let total=18
   for(const state of states) {
     for(const meld of state.melds) if(meld.type==='kong') total+=meld.concealed?2:1
     const flowers=state.flowers || []
     for(let t=41;t<=47;t++) if(flowers.filter(v=>v===t).length===4) total+=2
+    if(isFuzhouV2(version)) for(const group of [[51,52,53,54],[55,56,57,58]])
+      if(group.every(t=>flowers.includes(t))) total+=2
   }
   return total
 }
@@ -63,6 +69,7 @@ export function fuzhouHintsAt(round,node,seat,hand,melds) {
   let hints=null
   for(const tick of (round?.action_ticks || []).slice(0,Math.max(0,node)))
     if(tick[0]==='fuzhou'&&tick[1]==='hints') hints=tick[2]?.[seat] || null
+  hints=resolveLocalHintSnapshot(hints)
   if(!hints||!same(hints.source_melds || [],melds)) return null
   if(same(hints.source_hand_tiles,hand)) return hints
   if(hints.source_hand_tiles?.length===hand.length+1)

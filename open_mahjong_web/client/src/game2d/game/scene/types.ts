@@ -36,6 +36,10 @@ export interface SeatSnapshot {
   discard_drawn_flags?: boolean[]
   melds: MeldSnapshot[]
   flower_tiles?: number[]
+  /** Public kong replacement tiles, kept separate from the concealed hand. */
+  public_kong_tiles?: number[]
+  /** Explicit open hand, independent of the replay viewer reveal toggle. */
+  hand_revealed?: boolean
   hand_tiles?: number[]
   drawn_tile?: number | null
 }

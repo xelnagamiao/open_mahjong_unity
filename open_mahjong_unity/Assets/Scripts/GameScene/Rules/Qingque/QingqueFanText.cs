@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 
 /// <summary>青雀番文本：番值由服务端精算，表内全部为"精算"。</summary>
 internal static class QingqueFanText {
@@ -27,5 +28,17 @@ internal static class QingqueFanText {
 
     public static string FanValue(string subRule, string fanName) {
         return FanToDisplayQingque.TryGetValue(fanName, out string display) ? display : "0番";
+    }
+
+    // 青雀按整组番种联合精算，单个番种不具有可相加的固定番值。
+    public static string FormatFan(double fan) => fan.ToString("0.#####", CultureInfo.InvariantCulture) + "番";
+
+    public static string ScoreboardFanText(SettlementTotalQuery query) => FormatFan(query.HuScore);
+
+    public static SettlementTotalDisplay SettlementTotal(SettlementTotalQuery query) {
+        return new SettlementTotalDisplay {
+            FanText = FormatFan(query.HuScore),
+            ScoreText = query.WinnerPointDelta.HasValue ? $"{query.WinnerPointDelta.Value:+#;-#;0}分" : "",
+        };
     }
 }

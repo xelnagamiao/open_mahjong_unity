@@ -40,6 +40,45 @@ def get_ask_elapsed(game_state, viewer_index: int) -> float:
     return max(0.0, time.time() - t0)
 
 
+async def send_ask_response_to_viewer(game_state, viewer_index, response, *, block=True):
+    """Keep each viewer's FIFO, without serializing independent claim prompts.
+
+    Main claim broadcasts enqueue with block=False; tactical rechecks await
+    delivery before starting their separate, fixed grace period.
+    """
+    from .claim_protection import take_post_meld_gap_delay
+    from .outbound_pipe import send_to_viewer, schedule_viewer_send
+
+    player = game_state.player_list[viewer_index]
+    conn = game_state.game_server.user_id_to_connection.get(player.user_id)
+    if conn is None:
+        note_ask_delivered(game_state, viewer_index)
+        return
+    ask_tick = game_state.server_action_tick
+    delay = take_post_meld_gap_delay(game_state, viewer_index)
+    pending = getattr(game_state, "_ask_pending_delivery", None)
+    if pending is None:
+        pending = game_state._ask_pending_delivery = {}
+    pending[viewer_index] = ask_tick
+
+    async def deliver():
+        try:
+            await conn.websocket.send_json(response.dict(exclude_none=True))
+        finally:
+            # Player delivery starts the clock, independently of spectator I/O.
+            # Failed sends still expire, and an old queued ask cannot clock a new one.
+            if game_state.server_action_tick == ask_tick:
+                note_ask_delivered(game_state, viewer_index)
+            if pending.get(viewer_index) == ask_tick:
+                pending.pop(viewer_index, None)
+        await game_state.send_to_realtime_spectators(viewer_index, response)
+
+    if block:
+        await send_to_viewer(game_state, viewer_index, deliver, delay_before=delay)
+    else:
+        schedule_viewer_send(game_state, viewer_index, deliver, delay_before=delay)
+
+
 def _ceil_remaining_seconds(value: float) -> int:
     if value <= 0:
         return 0

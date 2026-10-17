@@ -35,7 +35,7 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
     /// 展开为"每次结算一行"的计分板行：分值变化、局号、主番快照三者严格对齐。
     /// 国标同一 round_index 内的多次错和与最终和牌会各占一行（局号相同）。
     /// </summary>
-    public static List<RecordScoreRow> ExtractScoreRows(GameRecord gameRecord) {
+    public static List<RecordScoreRow> ExtractScoreRows(GameRecord gameRecord, bool includeUnsettledRounds = false) {
         var result = new List<RecordScoreRow>();
         if (gameRecord?.gameRound?.rounds == null) return result;
 
@@ -44,8 +44,15 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
         subRule = ScoreHistorySettlementHelper.ResolveSubRule(rule, subRule);
 
         foreach (Round round in gameRecord.gameRound.GetRoundsList()) {
+            if (round == null) continue;
             int firstRow = result.Count;
             ExtractRoundRows(round, subRule, gameRecord.gameTitle, result);
+            // 阅览列表只使用实际存在的局；尚未结算的观战局也保留入口，分数留空而不是伪造零分结算。
+            if (includeUnsettledRounds && result.Count == firstRow) {
+                result.Add(new RecordScoreRow {
+                    roundNumber = round.currentRound > 0 ? round.currentRound : round.roundIndex,
+                });
+            }
             for (int i = firstRow; i < result.Count; i++) {
                 result[i].roundIndex = round.roundIndex;
                 if (result[i].snapshot != null)
@@ -584,7 +591,7 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
         int lastDiscardTileId,
         Dictionary<string, object> gameTitle) {
         string[] huFan = ParseFanList(tick, 3);
-        int huScore = ParseInt(tick, 2);
+        double huScore = ParseFanScore(tick, 2);
         int? baseFu = null;
         string[] fuFanList = null;
         if (RuleRegistry.Resolve(subRule, subRule)?.HuTickFollowsShuhewei == true) {
@@ -737,6 +744,12 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
     private static string ReadTitleString(Dictionary<string, object> title, string key, string fallback) {
         if (title == null || !title.TryGetValue(key, out object val) || val == null) return fallback;
         return val.ToString();
+    }
+
+    private static double ParseFanScore(List<string> tick, int index) {
+        if (index >= tick.Count) return 0;
+        return double.TryParse(tick[index], System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out double value) ? value : 0;
     }
 
     private static int ParseInt(List<string> tick, int index) {

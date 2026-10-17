@@ -166,7 +166,8 @@ public partial class GameRecordManager
         if (!isRuleStateAction && (action == "d" || action == "gd" || action == "bd" || action == "nd")) {
             int dealTile = ParseTickInt(tick, 1);
             actingPlayer.tileList.Add(dealTile);
-            actingPlayer.showHandDrawSlotActive = (RecordRuleManifest?.RuleId == "filipino" || RecordRuleManifest?.RuleId == "vietnamese")
+            actingPlayer.showHandDrawSlotActive = (RecordRuleManifest?.RuleId == "filipino" || RecordRuleManifest?.RuleId == "vietnamese"
+                || RecordRuleManifest?.RuleId == "shanghai")
                 ? actingPlayer.tileList.Count % 3 == 2 : true;
             waitingForDrawAfterCut = false;
 

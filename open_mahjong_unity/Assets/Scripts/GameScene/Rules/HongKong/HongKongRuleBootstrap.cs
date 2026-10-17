@@ -23,7 +23,7 @@ internal static class HongKongRuleBootstrap {
             },
             CreateRoomDefaults=defaults, LobbyHasDetailedConfig=true,
             GameStateFactory=()=>new HongKongGameState(), OutboundChannel="hongkong",
-            Tingpai=HongKongShape.Waiting, DescribeWaitingTile=HongKongGameState.Describe,
+            Tingpai=HongKongGameState.Waiting, DescribeWaitingTile=HongKongGameState.Describe,
             FanNameText=HongKongFanText.Name, FanValueText=HongKongFanText.Value,
             SettlementTotal=HongKongFanText.Total, ScoreboardFanText=q=>$"{q.HuScore}{HongKongFanText.Unit(q.Rule)}",
             RoundName=RoundTextDictionary.WindNumberRoundName, DefaultHepaiLimit=0,

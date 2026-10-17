@@ -31,13 +31,13 @@ public partial class GameRecordManager {
             return;
         }
 
-        List<int> handForCheck = RecordChongHintCalculator.NormalizeHandForTingpai(selfPlayer.tileList);
+        TryGetActiveRecordRuleContext(out string roomRule, out string subRule);
+        List<int> handForCheck = RecordChongHintCalculator.NormalizeHandForTingpai(selfPlayer, roomRule, subRule);
         if (handForCheck == null) {
             HideRecordTips();
             return;
         }
 
-        TryGetActiveRecordRuleContext(out string roomRule, out string subRule);
         Dictionary<string, object> detailedConfig = GetDetailedConfigSnapshot();
         HashSet<int> waiting = RecordChongHintCalculator.ComputeWaitingTilesForPlayer(selfPlayer, roomRule, detailedConfig, subRule);
         if (waiting.Count == 0) {
@@ -116,7 +116,7 @@ public partial class GameRecordManager {
                 view.Hide();
                 continue;
             }
-            List<int> hand = RecordChongHintCalculator.NormalizeHandForTingpai(player.tileList);
+            List<int> hand = RecordChongHintCalculator.NormalizeHandForTingpai(player, roomRule, subRule);
             if (hand == null) {
                 view.Hide();
                 continue;
@@ -125,6 +125,7 @@ public partial class GameRecordManager {
             HashSet<int> waiting = RuleTips.ComputeWaiting(manifest, new TingpaiQuery {
                 SubRule = subRule,
                 Hand = hand, Melds = player.combinationTiles, PlayerIndex = player.playerIndex,
+                MeldMasks = player.combinationMasks,
                 DetailedConfig = ctx.DetailedConfig, ExcludedSuit = player.dingqueSuit,
                 RecordPlayerIndex = player.playerIndex,
             });
@@ -135,10 +136,13 @@ public partial class GameRecordManager {
             var visible = RecordWaitHintCalculator.CountVisibleTiles(ctx, player.tileList);
             var entries = new List<RecordPlayerWaits.Entry>();
             foreach (WaitHintQuery query in RecordWaitHintCalculator.BuildQueries(ctx, hand, waiting.ToList())) {
+                WaitTileHint hint = RuleTips.DescribeWaitingTile(manifest, query);
+                if (GuobiaoGameState.UsesAsyncLocalTips(query.SubRule) && hint == null)
+                    yield return FourJokersTips.Resolve(query, result => hint = result);
                 entries.Add(new RecordPlayerWaits.Entry {
                     Tile = query.HepaiTile,
                     Remaining = RecordWaitHintCalculator.Remaining(query.HepaiTile, visible, manifest),
-                    Hint = RuleTips.DescribeWaitingTile(manifest, query),
+                    Hint = hint,
                 });
                 yield return null;
             }

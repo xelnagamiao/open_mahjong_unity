@@ -1,3 +1,4 @@
+from ..game_calculation.team_rules import is_team_sub_rule
 from ..database.duplicate_walls import apply_duplicate_room_config, load_duplicate_wall
 from typing import Dict, Optional
 from .room_validators import GBRoomValidator, MMCValidator, RiichiRoomValidator, SichuanRoomValidator, ChangshaRoomValidator, JiandanRoomValidator, TaiwanRoomValidator, FreeRoomValidator, ShanghaiRoomValidator
@@ -814,12 +815,12 @@ class RoomManager:
         self, player_id: str, room_name: str, gameround: int, password: str,
         roundTimerValue: int, stepTimerValue: int, tips: bool,
         random_seed: int = 0, sub_rule: str = "hongque/v1.6",
-        tourist_limit: bool = False, allow_spectator: bool = False,
+        tourist_limit: bool = False, allow_spectator: bool = True,
         hepai_way: str = "multi_ron",
         count_tips: bool = False,
         pointer_tips: bool = True,
     ) -> Response:
-        """Create a memory-only Hongque prototype room."""
+        """Create a Hongque room using the shared room and spectator lifecycle."""
         try:
             if player_id not in self.game_server.players:
                 return Response(type="tips", success=False, message="请先登录")
@@ -846,7 +847,7 @@ class RoomManager:
                 "hepai_limit": 0,
                 "open_cuohe": False,
                 "tourist_limit": tourist_limit,
-                "allow_spectator": False,
+                "allow_spectator": bool(allow_spectator),
                 "hepai_way": hepai_way if hepai_way in ("head_bump", "multi_ron") else "multi_ron",
                 "max_player": 4,
                 "player_list": [player.user_id],
@@ -1694,7 +1695,7 @@ class RoomManager:
 
             room_data = self.rooms[room_id]
             player = self.game_server.players[Connect_id]
-            if room_data.get("sub_rule") in ("sichuan/doubles", "sichuan/xueliu_doubles", "sichuan/doubles_duplicate", "sichuan/xueliu_doubles_duplicate") and room_data.get("is_game_running"):
+            if is_team_sub_rule(room_data.get("sub_rule")) and room_data.get("is_game_running"):
                 return Response(type="error_message", success=False, message="双打对局中阵容已锁定，请通过对局离开或重连")
             
             if not player.user_id:
@@ -1976,7 +1977,7 @@ class RoomManager:
         await self._broadcast_room_info(room_id)
         return None
 
-    async def set_room_team(self, Connect_id, room_id, *, revision, seat_index=None, team_id=None):
+    async def set_room_team(self, Connect_id, room_id, *, revision, seat_index=None, team_id=None, role_id=None):
         from .room_teams import assign_team
         room = self.rooms.get(room_id)
         player = self.game_server.players.get(Connect_id)
@@ -1985,7 +1986,7 @@ class RoomManager:
         get_seats(room)
         self._sync_room_host(room)
         try:
-            assign_team(room, player.user_id, seat_index, team_id, revision)
+            assign_team(room, player.user_id, seat_index, team_id, revision, role_id=role_id)
         except ValueError as exc:
             return Response(type="error_message", success=False, message=str(exc))
         await self._broadcast_room_info(room_id)
@@ -2030,7 +2031,7 @@ class RoomManager:
                 return Response(type="tips", success=False, message="房主无需准备")
 
             from .room_teams import validate_revision
-            if room_data.get("sub_rule") in ("sichuan/doubles", "sichuan/xueliu_doubles", "sichuan/doubles_duplicate", "sichuan/xueliu_doubles_duplicate"):
+            if is_team_sub_rule(room_data.get("sub_rule")):
                 validate_revision(room_data, roster_revision)
             ready_list = room_data.setdefault("ready_list", [])
             if ready:
@@ -2090,9 +2091,11 @@ class RoomManager:
 
         seats = get_seats(room_data)
         room_data["seat_list"] = [user_id if user_id > 10 else -1 for user_id in seats]
-        if room_data.get("sub_rule") in ("sichuan/doubles", "sichuan/xueliu_doubles", "sichuan/doubles_duplicate", "sichuan/xueliu_doubles_duplicate"):
+        if is_team_sub_rule(room_data.get("sub_rule")):
             from .room_teams import invalidate_ready
             room_data["team_by_seat"] = [team if uid > 10 else -1 for uid, team in zip(seats, room_data["team_by_seat"])]
+            if "team_role_by_seat" in room_data:
+                room_data["team_role_by_seat"] = [role if uid > 10 else -1 for uid, role in zip(seats, room_data["team_role_by_seat"])]
             invalidate_ready(room_data)
         room_data["player_list"] = [user_id for user_id in player_list if user_id > 10]
 
@@ -2124,7 +2127,7 @@ class RoomManager:
         room.pop("active_gamestate_id", None)
         room["is_game_running"] = False
         room["ready_list"] = []
-        if room.get("sub_rule") in ("sichuan/doubles", "sichuan/xueliu_doubles", "sichuan/doubles_duplicate", "sichuan/xueliu_doubles_duplicate"):
+        if is_team_sub_rule(room.get("sub_rule")):
             from .room_teams import invalidate_ready
             invalidate_ready(room)
         if room.get("duplicate_match_id"):
@@ -2388,6 +2391,9 @@ class RoomManager:
                 validated = self.room_validators["changsha"](
                     **base_config,
                     open_cuohe=False,
+                    show_moqie_hint=room_config.get("show_moqie_hint", False),
+                    count_tips=room_config.get("count_tips", False),
+                    pointer_tips=room_config.get("pointer_tips", True),
                     tactical_call=bool(room_config.get("tactical_call", False)),
                     claim_protection=room_config.get("claim_protection", True),
                     open_kong_replacement_count=normalize_open_kong_count(room_config.get("open_kong_replacement_count", 2)),

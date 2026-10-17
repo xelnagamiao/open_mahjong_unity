@@ -55,14 +55,7 @@ public sealed class ChangshaExchangeSixPrivate {
     public Dictionary<string, int[]> targets;
     public int[] cut_tiles;
     public bool has_draw_slot;
-    public ChangshaExchangeSixHints hints;
-}
-
-public sealed class ChangshaExchangeSixHints {
-    public int[] hand;
-    public string[] melds;
-    public ChangshaExchangeSixWait[] waits;
-    public Dictionary<int, ChangshaExchangeSixWait[]> discard_waits;
+    public Newtonsoft.Json.Linq.JObject local_hint_context;
 }
 
 public sealed class ChangshaExchangeSixWait {

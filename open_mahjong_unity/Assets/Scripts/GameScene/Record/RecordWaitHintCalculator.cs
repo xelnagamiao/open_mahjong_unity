@@ -85,6 +85,10 @@ public static class RecordWaitHintCalculator {
             if (entry.Key != "self" && WashizuTile.UsesTransparentHands(ctx.SubRule) && player?.PublicHandTiles != null)
                 foreach (int tile in player.PublicHandTiles) if (WashizuTile.IsTransparent(tile)) Add(tile);
             if (player?.DiscardTiles != null) foreach (int tile in player.DiscardTiles) Add(tile);
+            if (manifest?.RecordVisibleMeldTiles != null) {
+                foreach (int tile in manifest.RecordVisibleMeldTiles(player?.CombinationMasks)) Add(tile);
+                continue;
+            }
             if (WashizuTile.UsesTransparentHands(ctx.SubRule) && player?.CombinationMasks != null) {
                 foreach (var mask in player.CombinationMasks)
                     foreach (int tile in WashizuTile.VisibleMeldTiles(mask)) Add(tile);
@@ -114,6 +118,7 @@ public static class RecordWaitHintCalculator {
         int key = manifest?.NormalizeTileId != null ? manifest.NormalizeTileId(tile) : tile;
         int supply = manifest?.RuleId == "guangdong" && GuangdongMilRules.IsGhost(tile) ? 1 : 4;
         if (manifest?.RuleId == "guobiao" && HuahunRules.IsJoker(tile)) supply = 1;
+        if (manifest?.TileCopies != null) supply = Mathf.Max(0, manifest.TileCopies(tile));
         return Mathf.Clamp(supply - (visible.TryGetValue(key, out int used) ? used : 0), 0, supply);
     }
 }

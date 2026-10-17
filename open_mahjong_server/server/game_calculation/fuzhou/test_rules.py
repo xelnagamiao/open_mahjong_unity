@@ -45,14 +45,14 @@ def test_flowers_are_accounted_separately():
     for flowers in ([41] * 5, [51, 51], [11], [True]):
         with pytest.raises(ValueError):
             flower_points(flowers)
-    assert reserved_tiles([(["g11", "G21"], [41] * 4), ([], [51, 52, 53, 54])]) == 23
+    assert reserved_tiles([(["g11", "G21"], [41] * 4), ([], [51, 52, 53, 54])]) == 25
 
 
 def test_fixed_quote_and_exclusive_suit():
     q = score_hand(HAND, jin=39)
-    assert q["points"] == 40
+    assert q["points"] == 45
     assert sum(row["points"] for row in q["items"]) == q["points"]
-    assert score_hand(HAND, flowers=[51], jin=39)["points"] == 26
+    assert score_hand(HAND, flowers=[51], jin=39)["points"] == 31
     pure = [11, 12, 13, 14, 15, 16, 17, 18, 19, 11, 11, 11, 14, 14, 14, 19, 19]
     q = score_hand(pure, jin=29)
     assert {r["id"] for r in q["items"]} >= {"pure_suit"}
@@ -64,37 +64,39 @@ def test_fixed_quote_and_exclusive_suit():
 
 def test_gold_pair_dragon_and_separate_three_gold_declaration():
     pair = HAND[:-2] + [39, 39]
-    assert score_hand(pair, jin=39)["points"] == 102
+    assert score_hand(pair, jin=39)["points"] == 107
     dragon = HAND[:12] + [39] * 3 + [29, 29]
     q = score_hand(dragon, jin=39)
-    assert q["points"] == 163
+    assert q["points"] == 168
     assert "gold_dragon" in {r["id"] for r in q["items"]}
     q = score_hand(dragon, jin=39, special="three_gold")
-    assert q["points"] == 53
+    assert q["points"] == 58
     assert q["pattern_points"] == 40 and q["witness"] is None
-    assert score_hand(dragon[:-1], jin=39, special="three_gold")
+    assert score_hand(dragon[:-1], jin=39, special="three_gold") is None
     assert score_hand(pair, jin=39, special="three_gold") is None
 
 
 def test_flower_win_shape_exception_and_suppression():
     flowers = [tile for tile in range(41, 46) for _ in range(4)]
-    quote = score_hand([11, 15, 29], flowers=flowers, jin=39, special="flower",
+    incomplete = HAND[:-1] + [18]
+    assert not is_complete(incomplete, jin=39)
+    quote = score_hand(incomplete, flowers=flowers, jin=39, special="flower",
                        context=WinContext(heavenly=True, youjin=2))
     assert quote["pattern_points"] == 60
-    assert quote["points"] == 100
+    assert quote["points"] == 105
     assert score_hand([11], flowers=flowers[:-1], jin=39, special="flower") is None
     assert score_hand(HAND, jin=39, special="unknown") is None
 
 
-def test_context_additions_and_double_youjin_excludes_gold_pair():
+def test_context_additions_and_double_youjin_stacks_gold_pair():
     pair = HAND[:-2] + [39, 39]
     q = score_hand(pair, jin=39, flowers=[51], context=WinContext(youjin=2, dealer_streak=2))
-    assert q["points"] == 10 + 1 + 2 + 6 + 15 + 120
+    assert q["points"] == 15 + 1 + 2 + 6 + 15 + 120 + 60
     ids = {row["id"] for row in q["items"]}
-    assert "gold_pair" not in ids
+    assert "gold_pair" in ids
     q = score_hand(HAND, jin=39, context=WinContext(source="rob_kong", winning_tile=29,
         after_ready_kong=True, heavenly=True, qiangjin=True, golden_middle=True))
-    assert q["points"] == 40 + 15 + 10 + 40 + 30 + 40
+    assert q["points"] == 45 + 15 + 10 + 40 + 30 + 40
     assert score_hand(HAND, jin=39, context=WinContext(source="discard", winning_tile=39)) is None
     assert score_hand(HAND, jin=39, context=WinContext(source="invalid")) is None
     assert score_hand(HAND[:-1], jin=39) is None
@@ -124,7 +126,7 @@ def test_payments_each_seat(winner):
 
 
 def test_strict_config_and_accounting_inputs():
-    assert normalize_config()["base_score"] == 10
+    assert normalize_config()["base_score"] == 15
     assert normalize_config({"base_score": 20})["base_score"] == 20
     for raw in ([], {"base_score": True}, {"base_score": 0}, {"x": 1}, {"rule_version": "other"}):
         with pytest.raises(ValueError):
@@ -142,11 +144,11 @@ def test_strict_config_and_accounting_inputs():
 def test_five_pungs_and_five_exposed_meld_pair_score_all_seventeen_tiles():
     pungs = [11]*3 + [21]*3 + [31]*3 + [18]*3 + [28]*3 + [23]*2
     q = score_hand(pungs, jin=39)
-    assert q['points'] == 10 + 30 + 15
+    assert q['points'] == 15 + 30 + 15
     assert 'all_pungs' in {row['id'] for row in q['items']}
     melds = ['k11','k21','k31','k18','k28']
     q = score_hand([23,23], melds, jin=39)
-    assert q['points'] == 10 + 30 + 15 + 60
+    assert q['points'] == 15 + 30 + 15 + 60
     assert {'single_pair','all_pungs'} <= {row['id'] for row in q['items']}
     assert score_hand([23,23], melds[:-1], jin=39) is None
     assert score_hand([23,23,24], melds, jin=39) is None

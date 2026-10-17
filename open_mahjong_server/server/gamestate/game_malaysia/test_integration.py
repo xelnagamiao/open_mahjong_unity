@@ -51,16 +51,22 @@ def test_authenticated_seat_stale_tick_duplicate_and_outsider():
         assert ws.send_json.call_args.args[0]['success'] is False
     asyncio.run(run())
 
-def test_hints_private_and_concealed_kong_projection():
+def test_hints_private_and_concealed_kong_projection(monkeypatch):
     s=state();arrange(s,[[21,22,23,24,25,26,27,28,29,29],[22],[23]])
     s.tips=True;p=s.player_list[0]
     p.melds=[R.Meld('kong',(45,)*4,(45,)*4,concealed=True)];p.combination_tiles=['G45'];p.combination_mask=[[2,45]*4]
+    monkeypatch.setattr(R, 'waits', lambda *a, **k: pytest.fail('private hints must not search on the server'))
     for viewer in range(3):
         payload=s.build_game_start_payload(viewer)['game_info']
         assert payload['self_hand_tiles']==s.player_list[viewer].hand_tiles
         assert payload['malaysia_hints']['source_hand_tiles']==s.player_list[viewer].hand_tiles
         assert list(payload['malaysia_info']['melds'][0][0]['physical'])==([45]*4 if viewer==0 else [0]*4)
-    assert s.hints(0) is s.hints(0)
+    first=s.client_context(0)
+    assert first == s.client_context(0)
+    assert not {'waiting_tiles', 'waiting_by_discard'} & first.keys()
+    assert list(first['local_request']['context']['meld_records'][0]['physical']) == [45]*4
+    p.hand_tiles.append(29)
+    assert len(first['source_hand_tiles']) == 10  # Saved inputs cannot change later.
 
 def test_actual_loop_three_rounds_and_exact_once_persistence():
     async def run():

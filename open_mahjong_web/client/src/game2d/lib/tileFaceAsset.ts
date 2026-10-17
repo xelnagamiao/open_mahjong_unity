@@ -16,6 +16,31 @@ export function isFlowerFaceId(id: number): boolean {
   return id >= 51 && id <= 58
 }
 
+/** Existing Unity/Snow table artwork, including the three red fives. */
+export const GUOBIAO_FACE_IDS = STANDARD_FACE_IDS.filter(id =>
+  (id >= 11 && id <= 47) || isFlowerFaceId(id) || [105, 205, 305].includes(id))
+
+// The table pack already contains the calibrated suit layouts and optical margins.
+// Match its om-table-image-scale-v1 metadata instead of padding the hand pack again.
+export const GUOBIAO_FACE_SCALE = 0.93
+const GUOBIAO_FACE_ROOT = 'game2d-assets/textures/guobiao-mahjong-tiles/table'
+
+/** DOM faces share the Pixi display area; other packs keep their existing scale. */
+export function tileFaceDisplayScale(src: string, fallbackScale: number): number {
+  return src.includes(`${GUOBIAO_FACE_ROOT}/`) ? GUOBIAO_FACE_SCALE : fallbackScale
+}
+
+type FaceStyleOptions = { black?: boolean, guobiao?: boolean, unityFlower?: boolean }
+
+/** Shared by DOM images and Pixi so every view selects the same artwork. */
+export function tileFaceAssetVariant(faceId: number, options: FaceStyleOptions): 'guobiao' | 'unity' | 'black' | 'regular' {
+  const flower = isFlowerFaceId(faceId)
+  if (options.guobiao && GUOBIAO_FACE_IDS.includes(faceId) && (!flower || options.unityFlower)) return 'guobiao'
+  if (flower && options.unityFlower) return 'unity'
+  if (options.black && !flower && ![61, 62, 63, 64, 71, 72, 73, 74, 81].includes(faceId)) return 'black'
+  return 'regular'
+}
+
 /** 牌谱/结算用的服务端 ID。赤宝 105/205/305 保留原值。 */
 export function salasasaFaceId(tile: number): number {
   const value = Number(tile)
@@ -41,16 +66,11 @@ export function mmcrFaceId(tid: number): number {
 
 export function tileFaceAssetUrl(
   faceId: number,
-  options: { baseUrl: string, black?: boolean, unityFlower?: boolean },
+  options: { baseUrl: string } & FaceStyleOptions,
 ): string {
+  const variant = tileFaceAssetVariant(faceId, options)
+  if (variant === 'guobiao') return `${options.baseUrl}${GUOBIAO_FACE_ROOT}/${faceId}.png`
   const root = `${options.baseUrl}game2d-assets/textures/riichi-mahjong-tiles`
-  if (!faceId) {
-    const folder = options.black ? 'Black' : 'Regular'
-    return `${root}/${folder}/Back.svg`
-  }
-  if (isFlowerFaceId(faceId) && options.unityFlower) {
-    return `${root}/Unity/${faceId}.svg`
-  }
-  const folder = options.black && !isFlowerFaceId(faceId) && ![61,62,63,64,71,72,73,74,81].includes(faceId) ? 'Black' : 'Regular'
-  return `${root}/${folder}/${faceId}.svg`
+  const folder = variant === 'unity' ? 'Unity' : variant === 'black' ? 'Black' : 'Regular'
+  return `${root}/${folder}/${faceId || 'Back'}.svg`
 }

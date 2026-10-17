@@ -47,6 +47,7 @@ internal static class RiichiRoomBuilder {
             EventId = input.EventId,
         };
 
+        WashizuDoubles.Apply(config);
         if (!config.Validate(out string error, input.PasswordEnabled, input.RandomSeedEnabled)) {
             return RoomCreationRequest.Invalid($"创建房间失败: {error}");
         }

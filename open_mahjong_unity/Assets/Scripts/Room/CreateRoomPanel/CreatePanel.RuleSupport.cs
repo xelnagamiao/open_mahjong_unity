@@ -45,7 +45,7 @@ public partial class CreatePanel {
 
 #if UNITY_EDITOR
     public void BakeRuleSupportTableUi(string[] headers, string[][] rows, bool[] standard, string sourceHash, TMP_FontAsset tableFont) {
-        if (headers.Length != 11 || rows.Length != standard.Length || rows.Any(row => row.Length != headers.Length))
+        if (headers.Length != 10 || rows.Length != standard.Length || rows.Any(row => row.Length != headers.Length))
             throw new InvalidOperationException("麻将规则支持表列数或行数不一致。");
         var entry = RoomRect("RuleSupportButton", addRuleButton.transform.parent);
         ruleSupportButton = RoomGet<UnityEngine.UI.Button>(entry.gameObject);
@@ -92,7 +92,7 @@ public partial class CreatePanel {
         closeText.alignment = TextAlignmentOptions.Center;
         RoomFill(closeText.rectTransform);
 
-        float[] widths = { 110, 140, 144, 208, 224, 320, 176, 112, 112, 372, 154 };
+        float[] widths = { 110, 140, 144, 208, 224, 320, 176, 112, 112, 372 };
         float tableWidth = widths.Sum();
         var headerViewport = RoomRect("HeaderViewport", dialog);
         RoomFill(headerViewport, 20, 84, 40, 0);
@@ -134,6 +134,7 @@ public partial class CreatePanel {
         ruleSupportScroll.verticalScrollbar = Bar("VerticalScrollbar");
         ruleSupportScroll.verticalScrollbarVisibility = UnityEngine.UI.ScrollRect.ScrollbarVisibility.Permanent;
         for (int row = content.childCount - 1; row >= rows.Length; row--) DestroyImmediate(content.GetChild(row).gameObject);
+        for (int col = ruleSupportHeader.childCount - 1; col >= headers.Length; col--) DestroyImmediate(ruleSupportHeader.GetChild(col).gameObject);
         float x = 0;
         for (int col = 0; col < headers.Length; col++) {
             string heading = col == 0 ? "规则\n序号" : col == 2 ? "首页\n显示名"
@@ -147,6 +148,7 @@ public partial class CreatePanel {
         for (int row = 0; row < rows.Length; row++) {
             if (rows[row][1] != mainRule) { group++; mainRule = rows[row][1]; }
             var line = RoomRect("Rule_" + rows[row][0], content);
+            for (int col = line.childCount - 1; col >= headers.Length; col--) DestroyImmediate(line.GetChild(col).gameObject);
             Color background = group % 2 == 0 ? Color.white : new Color32(244, 247, 250, 255);
             float height = 62;
             x = 0;
@@ -209,6 +211,8 @@ public partial class CreatePanel {
             throw new InvalidOperationException(name + " 麻将规则支持表未同步或初始显示状态错误。");
         if (ruleSupportScroll.horizontal || ruleSupportScroll.horizontalScrollbar || !ruleSupportPanel.GetComponent<RuleSupportTableLayout>())
             throw new InvalidOperationException(name + " 支持表必须自动适配宽度，仅允许纵向滚动。");
+        if (ruleSupportHeader.childCount != headers.Length || ruleSupportScroll.content.Cast<Transform>().Any(row => row.childCount != headers.Length))
+            throw new InvalidOperationException(name + " 支持表列数不一致或存在已删除的列。");
         for (int col = 0; col < headers.Length; col++)
             if (ruleSupportHeader.GetChild(col).GetComponentInChildren<TMP_Text>().text.Replace("\n", "") != headers[col])
                 throw new InvalidOperationException(name + " 支持表表头不一致。");

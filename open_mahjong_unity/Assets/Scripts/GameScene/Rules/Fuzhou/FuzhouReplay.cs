@@ -6,7 +6,7 @@ using Newtonsoft.Json;
 public partial class GameRecordManager {
     internal RuleReplayModule CreateFuzhouReplayModule()=>new RuleReplayModule("fuzhou") {
         ReservedWallTiles=18, Reset=ResetFuzhouRecordState,
-        Clear=()=>{recordFuzhouInfo=null;recordFuzhouWinSource=null;recordFuzhouForced=false;recordFuzhouWinTick=null;recordFuzhouWinApplied=false;FuzhouTableIndicators.Refresh(null);},
+        Clear=()=>{recordFuzhouInfo=null;recordFuzhouWinSource=null;recordFuzhouForced=false;recordFuzhouWinTick=null;recordFuzhouWinApplied=false;FuzhouTableIndicators.Refresh(null);GameCanvas.Instance?.SetFuzhouPlayerStatus(null,null);},
         ApplyBeforeMutation=ApplyFuzhouRecordAction,
         RefreshAfterAction=RefreshFuzhouRecordPresentation,
         RefreshPlayerTags=RefreshFuzhouRecordPresentation,
@@ -21,6 +21,13 @@ public partial class GameRecordManager {
     private bool recordFuzhouWinApplied;
     private readonly FuzhouHintsCache[] recordFuzhouHints={new FuzhouHintsCache(),new FuzhouHintsCache(),new FuzhouHintsCache(),new FuzhouHintsCache()};
     private bool IsFuzhouRecord()=>RecordRuleManifest?.RuleId==FuzhouGameState.RuleId;
+    private bool IsFuzhouV2Record=>recordFuzhouInfo?.rule_version==FuzhouGameState.RuleVersion;
+    private string FuzhouRecordRoundName(int number) {
+        var rounds=gameRecord?.gameRound?.rounds;
+        bool legacy=rounds!=null && rounds.TryGetValue(currentRoundIndex,out Round round)
+            && round.fuzhou?.rule_version=="fuzhou-user-20261014-v1";
+        return legacy?FuzhouRuleBootstrap.LegacyRoundName(number):FuzhouRuleBootstrap.RoundName(number);
+    }
     private bool IsFuzhouRecordRobWin=>IsFuzhouRecord() && recordFuzhouWinSource=="rob_kong";
     private bool IsFuzhouRecordForcedWin=>IsFuzhouRecord() && recordFuzhouForced;
     private List<int> FuzhouRecordVisibleIndicators()=>recordFuzhouInfo?.gold_tile>0 && !recordFuzhouInfo.indicator_claimed
@@ -31,6 +38,7 @@ public partial class GameRecordManager {
         if(IsFuzhouRecord() && gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex,out Round round))
             recordFuzhouInfo=JsonConvert.DeserializeObject<FuzhouInfo>(JsonConvert.SerializeObject(round.fuzhou));
         FuzhouTableIndicators.Refresh(recordFuzhouInfo);
+        GameCanvas.Instance?.SetFuzhouPlayerStatus(recordFuzhouInfo,indexToPosition);
     }
     private void RefreshFuzhouRecordPresentation() {
         if(!IsFuzhouRecord()) return;
@@ -38,8 +46,11 @@ public partial class GameRecordManager {
         // custom snapshot. Recompute from the public physical tiles.
         recordDeadWallCount=18+recordPlayerList.Sum(p=>
             (p.combinationTiles?.Sum(m=>m.StartsWith("G")?2:m.StartsWith("g")?1:0)??0)
-            +(p.huapaiList?.Where(t=>t>=41 && t<=47).GroupBy(t=>t).Count(g=>g.Count()==4)??0)*2);
+            +(p.huapaiList?.Where(t=>t>=41 && t<=47).GroupBy(t=>t).Count(g=>g.Count()==4)??0)*2
+            +(IsFuzhouV2Record && p.huapaiList!=null
+                ?new[]{51,55}.Count(start=>Enumerable.Range(start,4).All(p.huapaiList.Contains))*2:0));
         GameCanvas.Instance?.SetPlayerFlowerCounts(recordPlayerList.ToDictionary(p=>p.playerIndex,p=>p.huapaiList?.Count??0),indexToPosition);
+        GameCanvas.Instance?.SetFuzhouPlayerStatus(recordFuzhouInfo,indexToPosition);
         if(recordFuzhouInfo!=null) recordFuzhouInfo.reserved_tiles=recordDeadWallCount;
         FuzhouTableIndicators.Refresh(recordFuzhouInfo);
     }
@@ -83,7 +94,7 @@ public partial class GameRecordManager {
                 int actor=int.Parse(tick[2]),tile=int.Parse(tick[3]);
                 var player=recordPlayerList.First(p=>p.playerIndex==actor);
                 recordFuzhouInfo=JsonConvert.DeserializeObject<FuzhouInfo>(tick[4]);
-                if(tick[1]=="kaijin" || tick[1]=="kaijin_flower") ConsumeTaiwanRecordWallTile("bd");
+                if(tick[1]=="kaijin" || tick[1]=="kaijin_flower") ConsumeTaiwanRecordWallTile(IsFuzhouV2Record?"d":"bd");
                 if(tick[1]=="kaijin_flower") player.huapaiList.Add(tile);
                 if(tick[1]=="qiangjin_take") {player.tileList.Add(tile);player.showHandDrawSlotActive=true;}
                 break;

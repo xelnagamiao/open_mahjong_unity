@@ -66,6 +66,7 @@ def test_hidden_observer_does_not_receive_other_action_ask(monkeypatch):
         sockets={p.user_id:NS(websocket=NS(send_json=AsyncMock())) for p in g.player_list}
         g.game_server.user_id_to_connection=sockets;g.send_to_realtime_spectators=AsyncMock()
         await b.broadcast_ask_other_action(g)
+        await asyncio.gather(*(drain_viewer(g, i) for i in range(4)))
         assert sockets[101].websocket.send_json.await_count==1
         assert sockets[102].websocket.send_json.await_count==0
         close_outbound_pipes(g)

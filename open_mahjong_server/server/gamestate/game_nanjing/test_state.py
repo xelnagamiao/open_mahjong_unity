@@ -8,7 +8,7 @@ import pytest
 from .NanjingGameState import NanjingGameState
 from .actions import claim_actions, kong_tiles
 from .bot import choose_action
-from .hints import build_hints
+from tests.local_hint_oracles.nanjing import build_hints
 from .state_machine import Phase as P
 from ...game_calculation.nanjing.rules import PHYSICAL, parse_meld
 

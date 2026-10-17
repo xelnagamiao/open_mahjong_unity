@@ -1,5 +1,6 @@
 """Seat-bound temporary teams; repeated bot user IDs never identify a team member."""
-from ..game_calculation.sichuan.doubles_rules import is_team_sub_rule
+from ..game_calculation.team_rules import is_team_sub_rule
+from ..game_calculation.riichi.washizu_doubles import enabled as is_captain_mode, valid_roles
 
 
 def ensure_teams(room):
@@ -10,6 +11,19 @@ def ensure_teams(room):
         room["team_by_seat"] = team_by_seat(room["duplicate_table"])
     room.setdefault("roster_revision", 0)
     seats = room["seat_list"]
+    if is_captain_mode(room.get("sub_rule")):
+        if "team_role_by_seat" not in room:
+            room["team_role_by_seat"] = [-1] * len(seats)
+            for index, user_id in enumerate(seats):
+                if user_id >= 0:
+                    roles = room["team_role_by_seat"]
+                    roles[index] = next(role for role in range(4) if role not in roles)
+        roles = room["team_role_by_seat"]
+        if (not isinstance(roles, list) or len(roles) != len(seats)
+                or any(type(role) is not int or role not in (-1, 0, 1, 2, 3) for role in roles)
+                or len([role for role in roles if role >= 0]) != len({role for role in roles if role >= 0})):
+            raise ValueError("房间主将身份数据无效，请重新入座")
+        room["team_by_seat"] = [role // 2 if role >= 0 else -1 for role in roles]
     if "team_by_seat" not in room:
         teams = [-1] * len(seats)
         for index, user_id in enumerate(seats):
@@ -24,6 +38,14 @@ def roster_changed(room, seat_index, joined):
     if teams is None:
         return
     if room.get("duplicate_table"):
+        invalidate_ready(room)
+        return
+    if is_captain_mode(room.get("sub_rule")):
+        roles = room["team_role_by_seat"]
+        roles[seat_index] = -1
+        if joined:
+            roles[seat_index] = next(role for role in range(4) if role not in roles)
+        ensure_teams(room)
         invalidate_ready(room)
         return
     teams[seat_index] = -1
@@ -54,8 +76,11 @@ def validate_team_start(room, revision=None):
     if len(teams) != 4 or teams.count(0) != 2 or teams.count(1) != 2:
         raise ValueError("双打需要 A、B 两队各两名玩家")
 
+    if is_captain_mode(room.get("sub_rule")) and not valid_roles(room.get("team_role_by_seat")):
+        raise ValueError("需要A队主将、A队助手、B队主将、B队助手各一人")
 
-def assign_team(room, actor, seat_index, team_id, revision):
+
+def assign_team(room, actor, seat_index, team_id, revision, *, role_id=None):
     if room.get("duplicate_table"):
         raise ValueError("复式队伍由开闭室座位固定，请调整入座位置")
     teams = ensure_teams(room)
@@ -69,6 +94,23 @@ def assign_team(room, actor, seat_index, team_id, revision):
         raise ValueError("请选择有玩家的座位")
     if actor != room.get("host_user_id") and seats[seat_index] != actor:
         raise ValueError("只能选择自己的队伍")
+    if is_captain_mode(room.get("sub_rule")):
+        if type(role_id) is not int or role_id not in range(4):
+            raise ValueError("请选择A队主将、A队助手、B队主将或B队助手")
+        roles = room["team_role_by_seat"]
+        if roles[seat_index] == role_id:
+            return
+        occupied = next((i for i, role in enumerate(roles) if role == role_id and seats[i] >= 0), None)
+        if occupied is not None:
+            if actor != room.get("host_user_id"):
+                raise ValueError("该身份已被选择，请由房主交换身份")
+            roles[occupied] = roles[seat_index]
+        roles[seat_index] = role_id
+        ensure_teams(room)
+        invalidate_ready(room)
+        return
+    if role_id is not None:
+        raise ValueError("该房间不支持主将身份")
     if type(team_id) is not int or team_id not in (-1, 0, 1):
         raise ValueError("队伍编号无效")
     if teams[seat_index] == team_id:

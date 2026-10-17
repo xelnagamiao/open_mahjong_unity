@@ -58,8 +58,8 @@ public static class GuobiaoFourJokersValidation {
         var snapshot = response.game_info.four_jokers_hints;
         FourJokersTips.Accept(snapshot);
         var query = new TingpaiQuery {Hand=snapshot.hand.ToList(),Melds=new List<string>(),SubRule=sub};
-        var waiting = GuobiaoTips.Tingpai(query);
-        Check(waiting.SetEquals(new[]{45,59}), "authoritative waits preserve red flower");
+        var waiting = LocalHintValidation.WaitForLocal(query);
+        Check(waiting.SetEquals(new[]{45,59}), "local waits preserve red flower");
         waiting.Clear();
         Check(GuobiaoTips.Tingpai(query).Count == 2, "hint cache is not mutable by callers");
         Check(snapshot.hand.Length == 13 && !snapshot.hand.Contains(59), "hint lookup does not alter hand");

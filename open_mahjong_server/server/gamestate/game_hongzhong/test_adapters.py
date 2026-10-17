@@ -6,7 +6,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from . import bot, hints, result
+from tests.local_hint_oracles import hongzhong as hints
+from . import bot, result
 from .test_flow import HAND, draw, hand, make_state, ticks
 from ...game_calculation.hongzhong import rules as book
 from ..game_taiwan.boardcast import (broadcast_game_start, send_realtime_spectator_snapshot,
@@ -53,7 +54,7 @@ def test_actual_self_draw_acceptance_and_replacement():
 def test_real_cut_invalid_cut_ready_forgery_and_timeout():
     async def scenario():
         state = make_state(); player = hand(state, 0, HAND); draw(player, 45)
-        await state._warm_hints(0)
+        await state._prepare_draw_score(0)
         before = deepcopy(player.hand_tiles)
         await state.execute_cut(0, {"TileId": 45, "cutClass": True}, declare_ready=True)
         await state.execute_cut(0, {"TileId": 19, "cutClass": False})
@@ -61,7 +62,7 @@ def test_real_cut_invalid_cut_ready_forgery_and_timeout():
         await state.execute_timeout_cut(0)
         assert player.discard_tiles == [45]
         assert player.hand_tiles == HAND and not player.has_draw_slot
-        assert state._hint_cache[0]["source_hand_tiles"] == HAND
+        assert state._local_contexts[0]["source_hand_tiles"] == HAND
         assert state.game_status == "deal_card"
         assert not player.declared_ready
         state.current_player_index = 0
@@ -201,7 +202,7 @@ def test_network_snapshots_reconnect_and_spectator_reveal_only_viewed_seat():
         state = make_state(allow_spectator=True, room_id=987001)
         for i in range(4):
             hand(state, i, [t + (i % 3) * 10 for t in HAND if t < 20] + [45])
-            state._hint_cache[i] = hints.compute_hand(tuple(state.player_list[i].hand_tiles), (), None, False)[0]
+            state._local_contexts[i] = hints.compute_hand(tuple(state.player_list[i].hand_tiles), (), None, False)[0]
             state.game_server.user_id_to_connection[101 + i] = connection()
         state.game_server.user_id_to_connection[999] = connection()
         state.send_to_realtime_spectators = AsyncMock()

@@ -1,0 +1,154 @@
+{
+  "id": "sichuan",
+  "displayName": "川麻血战",
+  "rulebookPath": "/rulebook/sichuan",
+  "source": "四川麻将（SBR）竞赛规则（试行2025版），第20–21页",
+  "categories": [
+    {
+      "key": "0",
+      "label": "0番"
+    },
+    {
+      "key": "1",
+      "label": "1番"
+    },
+    {
+      "key": "2",
+      "label": "2番"
+    }
+  ],
+  "entries": [
+    {
+      "number": 1,
+      "name": "平和",
+      "fan": 0,
+      "category": "0",
+      "valueText": "0 番",
+      "description": "不带任何番种的和牌，基本分为1分。",
+      "note": "",
+      "context": "",
+      "example": "123m 456m 789p 234p 55m",
+      "sourcePage": 20
+    },
+    {
+      "number": 2,
+      "name": "杠",
+      "fan": 1,
+      "category": "1",
+      "valueText": "每组 1 番",
+      "description": "4张开杠的相同的牌。",
+      "note": "",
+      "context": "第一组为杠",
+      "example": "1111m 234m 345p 678p 99m",
+      "sourcePage": 20
+    },
+    {
+      "number": 3,
+      "name": "根",
+      "fan": 1,
+      "category": "1",
+      "valueText": "每组 1 番",
+      "description": "4张未开杠的相同的牌。",
+      "note": "",
+      "context": "",
+      "example": "111m 123m 345p 678p 99m",
+      "sourcePage": 20
+    },
+    {
+      "number": 4,
+      "name": "大对子",
+      "fan": 1,
+      "category": "1",
+      "valueText": "1 番",
+      "description": "有4组刻子或杠的基本和牌型。",
+      "note": "",
+      "context": "",
+      "example": "111m 444m 666p 888p 99m",
+      "sourcePage": 20
+    },
+    {
+      "number": 5,
+      "name": "金钩钓",
+      "fan": 1,
+      "category": "1",
+      "valueText": "1 番",
+      "description": "明牌为4组刻子或杠，手牌只剩1张牌单吊和牌（必然是大对子，故牌型至少2番）。",
+      "note": "",
+      "context": "前四组为明牌；末张为和牌张",
+      "example": "111m 444m 666p 888p 9m 9m",
+      "sourcePage": 21
+    },
+    {
+      "number": 6,
+      "name": "清一色",
+      "fan": 2,
+      "category": "2",
+      "valueText": "2 番",
+      "description": "和牌中只有一种花色。",
+      "note": "",
+      "context": "",
+      "example": "123m 345m 567m 999m 22m",
+      "sourcePage": 21
+    },
+    {
+      "number": 7,
+      "name": "七对",
+      "fan": 2,
+      "category": "2",
+      "valueText": "2 番",
+      "description": "七个对子组成的和牌型。",
+      "note": "",
+      "context": "",
+      "example": "11m 33m 55m 77m 22p 44p 88p",
+      "sourcePage": 21
+    },
+    {
+      "number": 8,
+      "name": "杠上花",
+      "fan": 1,
+      "category": "1",
+      "valueText": "1 番",
+      "description": "和自己开杠后摸的补牌（算自摸和牌）。",
+      "note": "",
+      "context": "第一组为杠；末张为杠后补牌",
+      "example": "1111m 234m 345p 678p 9m 9m",
+      "sourcePage": 21
+    },
+    {
+      "number": 9,
+      "name": "杠上炮",
+      "fan": 1,
+      "category": "1",
+      "valueText": "1 番",
+      "description": "和其他选手开杠后打出或再次加杠的牌（杠成立，开杠选手和牌时将计入番数。但这个杠不得分）。",
+      "note": "",
+      "context": "末张为和牌张",
+      "example": "123m 456m 789p 234p 5m 5m",
+      "sourcePage": 21
+    },
+    {
+      "number": 10,
+      "name": "抢杠",
+      "fan": 1,
+      "category": "1",
+      "valueText": "1 番",
+      "description": "和其他选手加杠的牌（加杠不成立，开杠选手和牌时此开杠行为不计入番数）。",
+      "note": "",
+      "context": "末张为他家加杠的牌",
+      "example": "123m 456m 789p 24p 55m 3p",
+      "sourcePage": 21
+    },
+    {
+      "number": 11,
+      "name": "海底",
+      "fan": 1,
+      "category": "1",
+      "valueText": "1 番",
+      "description": "自摸和牌墙的最后一张牌，或和其他选手打出的海底牌（牌墙摸完后打出的牌）。",
+      "note": "",
+      "context": "末张为和牌张",
+      "example": "123m 456m 789p 234p 5m 5m",
+      "sourcePage": 21
+    }
+  ]
+}

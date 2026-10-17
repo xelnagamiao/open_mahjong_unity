@@ -7,6 +7,7 @@ public sealed class JiujiangInfo { public bool self_has_draw_slot; }
 public sealed class JiujiangWaitDetail { public int points; public string kind; }
 [Serializable]
 public sealed class JiujiangHints {
+    public Newtonsoft.Json.Linq.JObject local_request;
     public int[] source_hand_tiles, waiting_tiles;
     public string[] source_melds;
     public Dictionary<int,int[]> waiting_by_discard;

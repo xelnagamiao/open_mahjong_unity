@@ -1,8 +1,8 @@
 """Independent ratings and atomic, idempotent ranked settlement."""
 from psycopg2.extras import Json, RealDictCursor
 from datetime import datetime, timedelta, timezone
-from ..match.rating_rules import (RULES, GRADE_RULES, QUEUES, DEFAULT_R,
-    ELO_ALGORITHM_VERSION, RATING_WRITE_LOCK, default_rating, elo_deltas)
+from ..match.rating_rules import (RULES, GRADE_RULES, get_ranked_queue, DEFAULT_R,
+    RATING_WRITE_LOCK, default_rating, elo_deltas)
 from ..match.rank_calculator import calculate_pt, apply_pt, get_rank_index
 from ..match.riichi_rank_calculator import RIICHI_PT_ALGORITHM, LEGACY_PT_ALGORITHM, riichi_pt_details
 from ..match.sanma_rank_calculator import SANMA_PT_ALGORITHM, sanma_pt_details
@@ -53,7 +53,9 @@ def read_ratings(cursor, user_id, national_rank="10级", national_score=0):
 
 
 def settle_rated_game(db, game_id, queue_type, players, ended_at=None, rating_algorithm=None):
-    spec = QUEUES[queue_type]
+    spec = get_ranked_queue(queue_type)
+    if spec is None:
+        raise ValueError('不支持的匹配队列')
     rating_rule = spec.rating_rule
     if (len(players) != spec.player_count or len({p["user_id"] for p in players}) != spec.player_count
             or any(p["user_id"] <= 10000000 or type(p['place']) is not int
@@ -99,7 +101,7 @@ def settle_rated_game(db, game_id, queue_type, players, ended_at=None, rating_al
                     rank, score = national
                 before[uid] = (rank,float(score),None if spec.graded else float(elo),games)
             changes = [0.0] * len(players) if spec.graded else elo_deltas(
-                [before[p['user_id']][2] for p in players], [p['place'] for p in players])
+                [before[p['user_id']][2] for p in players], [p['place'] for p in players], k=spec.elo_k)
             result = {}
             for player, delta in zip(players, changes):
                 uid = player['user_id']
@@ -129,7 +131,7 @@ def settle_rated_game(db, game_id, queue_type, players, ended_at=None, rating_al
                 result[str(uid)].update(details)
                 if not spec.graded:
                     result[str(uid)].update(elo_before=elo, elo_after=new_elo, elo_delta=delta,
-                                           rating_algorithm=ELO_ALGORITHM_VERSION)
+                                           rating_algorithm=spec.elo_algorithm, rating_k=spec.elo_k)
                 cur.execute("UPDATE rule_ratings SET rank_name=%s,rank_score=%s,elo=%s,games=%s,updated_at=CURRENT_TIMESTAMP WHERE user_id=%s AND rule=%s", (new_rank,new_score,new_elo,games+1,uid,rating_rule))
                 if spec.rule == 'guobiao':
                     cur.execute("UPDATE rank_data SET guobiao_rank=%s,guobiao_score=%s,updated_at=CURRENT_TIMESTAMP WHERE user_id=%s", (new_rank,new_score,uid))

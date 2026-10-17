@@ -60,6 +60,7 @@ public static class RuleNameDictionary {
         { "riichi/sanma", "三人立直麻将" },
         { "riichi/washizu", "鹫巢麻将" },
         { "riichi/washizu_realtime", "鹫巢麻将（实时手牌）" },
+        { "riichi/washizu_doubles", "鹫巢麻将（双打）" },
         { "free", "自由模式" },
         { "free/standard", "自由模式" },
     };
@@ -119,6 +120,7 @@ public static class RuleNameDictionary {
         { "riichi/sanma", "三麻" },
         { "riichi/washizu", "鹫巢" },
         { "riichi/washizu_realtime", "鹫巢实时手牌" },
+        { "riichi/washizu_doubles", "鹫巢双打" },
         { "free", "自由" },
         { "free/standard", "自由" },
     };

@@ -1,0 +1,16 @@
+Snow (雪枫) Guobiao tile artwork already distributed with this project.
+Source: other/tiles/packs/official/table/ (the calibrated Unity table tile pack).
+table/ contains 45 byte-for-byte PNG copies: 34 ordinary faces, 8 flowers, 3 red fives.
+The 400x532 canvas, suit layouts, colors and PNG metadata are unchanged.
+Pixi and DOM render at the pack's 0.93 display scale with preserved aspect ratio.
+The table/ URL separates these assets from the previously cached padded hand pack.
+Flower IDs 51-58 follow 春夏秋冬梅兰竹菊.
+See other/tiles/README.md for source artwork and layout provenance.
+
+The 2D Guobiao fan table follows Unity PlayerInfoHandView's separate hand rendering:
+hand/ contains 42 unchanged 272x389 PNGs from other/tiles/packs/official/hand/.
+surfaces/front.png and surfaces/back.png are unchanged copies of
+other/tiles/surfaces/backgrounds/hand-default.png and backs/hand-default.png.
+These files also match Assets/Resources/image/Cards in the Unity project byte for byte.
+Hand faces overlay the entire matching backing canvas with no additional inset.
+Face-down example tiles show only the back surface, with no face image underneath.

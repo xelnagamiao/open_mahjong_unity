@@ -61,8 +61,8 @@ def score(hand, melds=(), flowers=(), *, self_draw=False, replacement=False, rob
     for pattern, base, fan, pair, sets in candidates:
         count = physical_flowers(flowers, melds, sets)
         garbage = pattern == "垃圾和"
-        # 抢杠按自摸处理，不受垃圾和的点和花数门槛限制。
-        if garbage and count < 2 and not (self_draw or rob_kong):
+        # 仅有垃圾和（基础番、额外番一起判断）才要求两花接铳。
+        if garbage and count < 2 and not (self_draw or rob_kong or len(melds) == 4):
             continue
         labels = [pattern]
         extra = 0
@@ -79,11 +79,16 @@ def score(hand, melds=(), flowers=(), *, self_draw=False, replacement=False, rob
         added = flower_points(count)
         labels.append(f"花数（{count}花）")
         labels.append(f"花分（{added}分）")
-        results.append({"is_win": True, "base_score": (base + extra + added) * (1 << fan),
+        uncapped = (base + extra + added) * (1 << fan)
+        gong = (self_draw or rob_kong) and uncapped >= 30
+        if gong:
+            labels.append("敲锣")
+        results.append({"is_win": True, "base_score": 30 if gong else uncapped, "uncapped_score": uncapped,
                         "basic_points": base, "extra_points": extra, "flower_points": added,
                         "fan": fan, "physical_flowers": count, "fan_names": labels,
                         "pattern": pattern, "pair": pair, "concealed_sets": list(sets)})
-    return max(results, key=lambda item: (item["base_score"], item["basic_points"] * (1 << item["fan"])), default=None)
+    # 先按完整点数择高，再应用自摸敲锣，保留实际采用的番种和番数。
+    return max(results, key=lambda item: (item["uncapped_score"], item["basic_points"] * (1 << item["fan"])), default=None)
 
 
 def waits(hand, melds=()):

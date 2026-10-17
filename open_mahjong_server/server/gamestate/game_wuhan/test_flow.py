@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from .WuhanGameState import WuhanGameState
-from .hints import compute_hand
+from tests.local_hint_oracles.wuhan import compute_hand
 from ...game_calculation.wuhan import rules as book
 from ..public.game_record_manager import init_game_record, init_game_round
 
@@ -132,7 +132,9 @@ def test_hint_discard_map_private_and_stale_cache():
     s=make_state(tips=True);indicator(s);p=hand(s,0,PURE+[25],['s12'])
     asyncio.run(s.prepare_private_fields([0]))
     payload=s.build_private_game_info_fields(0)['wuhan_hints']
-    assert 25 in payload['waiting_by_discard'] and 15 in payload['waiting_by_discard'][25]
+    assert 'waiting_by_discard' not in payload
+    assert payload['local_request']['hand']==PURE+[25]
+    assert payload['local_request']['melds']==['s12']
     assert 'wuhan_hints' not in s.build_private_game_info_fields(1)
     p.combination_tiles=['s23']
     assert 'wuhan_hints' not in s.build_private_game_info_fields(0)
@@ -215,16 +217,16 @@ def test_bonus_once_and_settlement_statistics(kind):
     assert len(s._terminal_result['show_result_info']['revealed_hands'])==4
 
 
-def test_claim_clock_three_seconds_revision_late_and_reconnect():
+def test_claim_room_clock_revision_late_and_reconnect():
     s=make_state();indicator(s);s.game_status='waiting_action_after_cut';s.action_dict={0:[],1:['peng','pass'],2:[],3:[]}
     clock=s.action_clock;now=[1.0];clock.now=lambda:now[0]
     s.prepare_action_window();s.on_action_window_broadcast();s.on_action_window_delivered(1)
-    assert s.claim_clock(s.player_list[1])==(0,3)
+    assert s.claim_clock(s.player_list[1])==(20,5)
     now[0]=2;s.action_queues[1].put_nowait({'action_type':'peng'})
     now[0]=3;s.action_queues[1].put_nowait({'action_type':'pass'})
-    assert s.claim_clock(s.player_list[1],True)==(0,1)
+    assert s.claim_clock(s.player_list[1],True)==(20,3)
     s.on_action_window_delivered(1);s.prepare_action_window()
-    now[0]=4.1;s.action_queues[1].put_nowait({'action_type':'peng'})
+    now[0]=26;s.action_queues[1].put_nowait({'action_type':'peng'})
     responses,_=asyncio.run(s.collect_action_responses())
     assert responses=={1:{'action_type':'pass'}} and s.player_list[1].remaining_time==20
 
@@ -234,7 +236,7 @@ def test_robbing_window_and_hand_budget():
     s.game_status='waiting_action_qianggang';s.action_dict={0:[],1:['hu_left','pass'],2:[],3:[]}
     s.on_action_window_broadcast();s.on_action_window_delivered(1)
     now[0]=4.5
-    assert s.claim_clock(s.player_list[1],True)==(0,0)
+    assert s.claim_clock(s.player_list[1],True)==(20,2)
     s.game_status='waiting_hand_action';s.action_dict={0:['cut'],1:[],2:[],3:[]}
     s.prepare_action_window();s.on_action_window_broadcast();s.on_action_window_delivered(0)
     now[0]=11.5;s.action_queues[0].put_nowait({'action_type':'cut','TileId':11})

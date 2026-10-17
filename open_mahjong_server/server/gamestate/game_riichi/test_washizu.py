@@ -128,9 +128,10 @@ def test_score_is_independent_of_glass_and_ura_query_does_not_change_draws():
 
 
 @pytest.mark.parametrize('seed',[20261010, 12345])
-def test_complete_washizu_match_preserves_copies_and_terminates(seed,caplog):
+@pytest.mark.parametrize('sub_rule', ['riichi/washizu', 'riichi/washizu_realtime'])
+def test_complete_washizu_match_preserves_copies_and_terminates(seed,sub_rule,caplog):
     async def run():
-        g=washizu_game();g.max_round=1;g.room_random_seed=seed
+        g=washizu_game();g.sub_rule=sub_rule;g.max_round=1;g.room_random_seed=seed
         for p in g.player_list: p.hand_tiles=[];p.has_draw_slot=False
         g.game_server.gamestate_manager=SimpleNamespace(cleanup_game_state_complete=AsyncMock())
         g.game_server.room_manager=SimpleNamespace(finish_custom_game_room=AsyncMock())
@@ -173,7 +174,8 @@ def test_complete_washizu_match_preserves_copies_and_terminates(seed,caplog):
                     for mask in p.combination_mask:physical+=mask[1::2]
                 assert Counter(physical)==Counter(make_tiles()), (g.game_status,actions,Counter(physical)-Counter(make_tiles()))
             assert sum(p.score for p in g.player_list)+g.riichi_sticks*1000==g._starting_score()*4
-            assert g.round_index<=4
+            assert g.current_round <= 4
+            assert g.round_index <= 100  # Repeated dealer hands do not advance the scheduled round.
         g.wait_action=automated_wait
         with patch('server.gamestate.game_riichi.RiichiGameState.asyncio.sleep',instant_sleep), patch('server.gamestate.game_riichi.RiichiGameState.run_synced_hu_ready_phase',new=AsyncMock()), patch('server.gamestate.game_riichi.RiichiGameState.vote_checkpoint',new=AsyncMock()):
             await asyncio.wait_for(g.game_loop_riichi(),timeout=60)

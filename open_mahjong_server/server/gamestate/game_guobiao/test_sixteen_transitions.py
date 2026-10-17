@@ -81,8 +81,8 @@ def test_reconnect_restores_full_hand_settings_waits_and_pending_action(seat,ope
         messages=[c.args[0] for c in g.game_server.user_id_to_connection[p.user_id].websocket.send_json.await_args_list]
         info=next(m['game_info'] for m in messages if m['type'].endswith('game_start'))
         assert info['sub_rule']==rule.SUB_RULE and info['tian_di_ren_he']==opening
-        assert info['four_jokers_hints']['hand']==HAND
-        assert info['four_jokers_hints']['sub_rule']==rule.SUB_RULE
+        assert info.get('four_jokers_hints') is None
+        assert next(row['hand_tiles'] for row in info['players_info'] if row['player_index']==seat)==HAND
         for row in info['players_info']:
             assert bool(row.get('hand_tiles'))==(row['player_index']==seat)
         ask=next(m['ask_hand_action_info'] for m in messages if m['type'].endswith('broadcast_hand_action'))

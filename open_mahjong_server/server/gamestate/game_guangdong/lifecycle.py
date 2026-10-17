@@ -121,7 +121,7 @@ class GuangdongMatchMixin:
             init_game_round(self)
             await broadcast_game_start(self)
             for i in range(4):
-                self.record_guangdong_tips(i)
+                self.record_local_context(i)
             await self._run_hand()
             if await self._settle_hand(before):
                 break

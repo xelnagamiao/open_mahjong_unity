@@ -10,6 +10,32 @@ def option(game, key):
     return getattr(game, 'detailed_config', {}).get(key, DEFAULTS[key])
 
 
+def win_indicators(game, player):
+    """Only publish indicators actually enabled for this winner's calculation."""
+    dora = list(game.dora_indicators)
+    if option(game, 'kan_dora'):
+        dora.extend(game.kan_dora_indicators)
+    ura = []
+    if 'riichi' in player.tag_list or 'daburu_riichi' in player.tag_list:
+        if option(game, 'ura_dora'):
+            ura.extend(game.ura_dora_indicators)
+        if option(game, 'kan_dora') and option(game, 'kan_ura_dora'):
+            ura.extend(game.ura_kan_dora_indicators)
+    return dora, ura
+
+
+def filter_waits(game, hand, melds, waits):
+    """Formal tenpai may count concealed tiles only, or all tiles owned by self."""
+    from collections import Counter
+    from .action_check import _normalize
+    owned = Counter(_normalize(t) for t in hand)
+    if option(game, 'tenpai_owned_tiles') == 'all':
+        for meld in melds:
+            owned.update(convert_combination(meld)[1])
+    return {t for t in waits if owned[t] < 4
+            and not (game.sub_rule == 'riichi/sanma' and 12 <= t <= 18)}
+
+
 def is_first_draw(game, player):
     return not player.discard_origin_tiles and not any(p.combination_tiles or p.huapai_list for p in game.player_list)
 
@@ -26,8 +52,10 @@ def ankan_allowed(game, player, tile):
     before = [_normalize(t) for t in player.hand_tiles[:-1]]
     after = [_normalize(t) for t in player.hand_tiles if _normalize(t) != normal]
     melds = list(player.combination_tiles) + [f'G{normal}']
-    old_waits = game.calculation_service.Riichi_tingpai_check(before, player.combination_tiles)
-    new_waits = game.calculation_service.Riichi_tingpai_check(after, melds)
+    old_waits = filter_waits(game, before, player.combination_tiles,
+                           game.calculation_service.Riichi_tingpai_check(before, player.combination_tiles))
+    new_waits = filter_waits(game, after, melds,
+                           game.calculation_service.Riichi_tingpai_check(after, melds))
     if not old_waits or set(old_waits) != set(new_waits):
         return False
     if option(game, 'riichi_kan_rule') == 'wait':
@@ -57,6 +85,9 @@ def ankan_allowed(game, player, tile):
 
 
 def match_should_end(game, renchan, round_after):
+    if getattr(game, 'is_team_game', False):
+        from .doubles import should_end
+        return should_end(game, round_after)
     if game.open_tobi and any(p.score < 0 for p in game.player_list):
         return True
     if getattr(game, '_cuohe_triggered', False):
@@ -173,6 +204,9 @@ def apply_pao(game, changes, winner, result, apply_honba):
 
 def finalize_scores(game):
     """Settle deposits once, then calculate result points without rewriting table scores."""
+    if getattr(game, 'is_team_game', False):
+        from .doubles import finalize
+        return finalize(game)
     if getattr(game, '_riichi_finalized', False):
         return
     game._riichi_finalized = True

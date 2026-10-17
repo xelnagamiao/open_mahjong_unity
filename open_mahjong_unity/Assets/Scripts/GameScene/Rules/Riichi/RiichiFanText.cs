@@ -104,7 +104,7 @@ internal static class RiichiFanText {
     }
 
     /// <summary>含役满播放 Gong_hu。</summary>
-    public static bool PlaysGongHu(string subRule, string[] huFan, int huScore) {
+    public static bool PlaysGongHu(string subRule, string[] huFan, double huScore) {
         if (huFan == null) return false;
         foreach (string fanKey in huFan) {
             if (FanValue(subRule, fanKey).Contains("役满")) return true;

@@ -131,11 +131,22 @@ public partial class GamePlayerPanel : MonoBehaviour {
         if (playerDingqueImage != null) playerDingqueImage.color = DingqueColors[suit];
     }
 
+    private static readonly Color TeamAColor = new Color(.15f, .48f, .82f, .85f);
+    private static readonly Color TeamBColor = new Color(.82f, .18f, .22f, .85f);
     private Image sichuanTeamBackground;
     private Color originalNameBackgroundColor;
     public int SichuanTeamId { get; private set; } = -1;
 
+    public void SetWashizuRole(int team, string role) {
+        SetSichuanTeam(team);
+        SetPlayerVariable(VariableWashizuRole, WashizuDoubles.RoleLabel(team, role));
+        TMP_Text label = FindPlayerVariable(VariableWashizuRole);
+        if (label != null && label.transform.parent.TryGetComponent(out Image background))
+            background.color = team == 0 ? TeamAColor : TeamBColor;
+    }
+
     public void SetSichuanTeam(int team, bool keepDingque = false) {
+        SetPlayerVariable(VariableWashizuRole, null);
         // 队色直接染现有 ID 底板；不新增方块，也不占用定缺卡的位置。
         if (sichuanTeamBackground == null && playerNameText != null) {
             sichuanTeamBackground = playerNameText.transform.parent?.Find("BackGround")?.GetComponent<Image>();
@@ -143,8 +154,8 @@ public partial class GamePlayerPanel : MonoBehaviour {
         }
         SichuanTeamId = team == 0 || team == 1 ? team : -1;
         if (sichuanTeamBackground == null) return;
-        sichuanTeamBackground.color = team == 0 ? new Color(.15f, .48f, .82f, .85f)
-            : team == 1 ? new Color(.82f, .18f, .22f, .85f) : originalNameBackgroundColor;
+        sichuanTeamBackground.color = team == 0 ? TeamAColor
+            : team == 1 ? TeamBColor : originalNameBackgroundColor;
     }
 
     public RectTransform DingqueAnchor => playerDingqueImage != null ? playerDingqueImage.rectTransform : null;

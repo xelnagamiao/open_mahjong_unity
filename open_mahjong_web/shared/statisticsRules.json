@@ -384,6 +384,31 @@
       "deal_in_stat_unit": "fan"
     },
     {
+      "key": "riichi_washizu_doubles",
+      "rule": "riichi",
+      "sub_rule": "riichi/washizu_doubles",
+      "family_name": "立直",
+      "sub_rule_name": "鹫巢麻将（双打）",
+      "stats_name": "立直（鹫巢双打）",
+      "standard": false,
+      "basic_stats": true,
+      "fan_stats": false,
+      "fan_key": null,
+      "player_count": 4,
+      "home_header": false,
+      "home_label": "",
+      "custom_modes": [
+        "1/4",
+        "2/4",
+        "3/4",
+        "4/4"
+      ],
+      "ranked_modes": [],
+      "matchmaking": false,
+      "win_stat_unit": "fan",
+      "deal_in_stat_unit": "fan"
+    },
+    {
       "key": "riichi_sanma",
       "rule": "riichi",
       "sub_rule": "riichi/sanma",
@@ -536,6 +561,9 @@
         "4/4"
       ],
       "ranked_modes": [
+        "2/4_rank"
+      ],
+      "historical_ranked_modes": [
         "4/4_rank"
       ],
       "matchmaking": true,
@@ -1261,7 +1289,8 @@
         "16/4"
       ],
       "ranked_modes": [
-        "16/4_rank"
+        "16/4_rank",
+        "8/4_rank"
       ],
       "matchmaking": true,
       "win_stat_unit": "base_points",

@@ -7,8 +7,8 @@
 - 和牌（自摸/点炮/抢杠）不立即结束，交由主循环 settle_win 处理血战续打。
 """
 import asyncio
+from ..public.action_window import prepare_action_window, start_waiting_clocks
 from ..public.lifecycle import start_owned_task
-import time
 import logging
 from .action_check import check_action_after_cut, check_action_jiagang, refresh_waiting_tiles, _xueliu_post_hu_kong_allowed, is_xueliu_required_hu
 from .boardcast import broadcast_refresh_player_tag_list
@@ -40,8 +40,7 @@ from ..public.tactical_claim import (
     is_decline_action,
     tactical_mark_player_force_passed,
 )
-from .action_window import prepare_action_window
-from ..public.ask_timing import get_ask_elapsed, note_ask_delivered
+from ..public.ask_timing import get_ask_elapsed
 from .boardcast import _send_do_action_payload_to_viewer
 
 logger = logging.getLogger(__name__)
@@ -114,8 +113,7 @@ def _has_winning_hand_after_peng(self, player, tile_id):
 
 async def wait_action(self):
     prepare_action_window(self)
-    for player_index in self.waiting_players_list:
-        note_ask_delivered(self, player_index)
+    start_waiting_clocks(self)
 
     player_index = None
     action_data = None
@@ -146,9 +144,7 @@ async def wait_action(self):
         timer_task = start_owned_task(self, asyncio.sleep(1))
         task_list.append(timer_task)
 
-        time_start = time.time()
         done, pending = await asyncio.wait(task_list, return_when=asyncio.FIRST_COMPLETED)
-        time_end = time.time()
         for task in pending:
             task.cancel()
 

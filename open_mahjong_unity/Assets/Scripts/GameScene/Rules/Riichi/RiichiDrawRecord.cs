@@ -3,7 +3,8 @@ using System.Collections.Generic;
 /// <summary>荒牌牌谱按当局座位的听牌申报标记，从已重建的终局手牌恢复听张。</summary>
 public static class RiichiDrawRecord {
     public static Dictionary<int, int[]> BuildTenpaiTiles(IReadOnlyList<int> tenpaiFlags,
-        IEnumerable<GameRecordManager.RecordPlayer> players) {
+        IEnumerable<GameRecordManager.RecordPlayer> players,
+        Dictionary<string, object> detailedConfig = null, string subRule = "riichi/standard") {
         var result = new Dictionary<int, int[]>();
         if (tenpaiFlags == null || players == null) return result;
         foreach (var player in players) {
@@ -12,6 +13,8 @@ public static class RiichiDrawRecord {
             var waiting = RiichiTips.Tingpai(new TingpaiQuery {
                 Hand = player.tileList,
                 Melds = player.combinationTiles,
+                DetailedConfig = detailedConfig,
+                SubRule = subRule,
             });
             if (waiting.Count == 0) continue;
             var tiles = new List<int>(waiting);

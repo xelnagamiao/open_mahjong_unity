@@ -20,33 +20,18 @@ class Protocol:
             round_changes={p.original_player_index:self.round_changes[i] for i, p in enumerate(self.player_list)} if ended else None,
             settlement=self.round_settlement if ended else None)
 
-    def hints(self, i):
+    def client_context(self, i):
+        from ..public.local_hint_context import hint_context
         p = self.player_list[i]
-        hand, melds = tuple(p.hand_tiles), tuple(p.melds)
-        cache_key = (hand, melds, tuple(p.huapai_list), i)
-        cached = getattr(self, "_hint_cache", {})
-        if cache_key in cached:
-            return cached[cache_key]
-        result = dict(source_hand_tiles=list(hand), source_melds=list(p.combination_tiles), waiting_tiles=[], waiting_by_discard={})
-        if not any(t in R.BONUS for t in hand):
-            if len(hand) % 3 == 1:
-                result["waiting_tiles"] = sorted(R.waits(hand, melds))
-            else:
-                for t in A.cuts(p):
-                    left = list(hand)
-                    left.remove(t)
-                    result["waiting_by_discard"][str(t)] = sorted(R.waits(tuple(left), melds))
-        # Keep only one current recipient entry per seat; global solver caches
-        # are already bounded. No full hands in a process-global hint cache.
-        self._hint_cache = {cache_key:result}
-        return result
+        return hint_context("malaysia", p.hand_tiles, p.combination_tiles,
+                            cuts=A.cuts(p), meld_records=[m.as_dict() for m in p.melds])
 
     def adapt(self, payload, viewer):
         payload["player_index"] = viewer
         info = payload.get("game_info")
         if info is not None:
             info.update(detailed_config=dict(self.detailed_config), malaysia_info=self.public_info(viewer),
-                        malaysia_hints=self.hints(viewer) if viewer in range(3) and self.tips else None, hepai_limit=5,
+                        malaysia_hints=self.client_context(viewer) if viewer in range(3) and self.tips else None, hepai_limit=5,
                         player_entry_order=list(self.player_entry_order))
             for i, p in enumerate(self.player_list):
                 info["players_info"][i]["huapai_list"] = list(p.huapai_list)
@@ -66,7 +51,7 @@ class Protocol:
             p = self.player_list[actor]
             info["deal_tile_type"] = {"normal":"deal_tile", "flower":"deal_buhua_tile", "kong":"deal_gang_tile"}.get(p.draw_kind) if p.has_draw_slot and phase == P.TURN else None
             info["malaysia_info"] = self.public_info(i)
-            info["malaysia_hints"] = self.hints(i) if self.tips else None
+            info["malaysia_hints"] = self.client_context(i) if self.tips else None
             if i == actor:
                 info["forbidden_cut_tiles"] = sorted(set(p.hand_tiles) - A.cuts(p))
                 info["kong_candidates"] = {a:A.kongs(self, i, a) for a in ("angang", "jiagang")}
@@ -94,7 +79,7 @@ class Protocol:
             payload = W.visible_action_payload(self, i, event)
             info = payload["do_action_info"]
             info["malaysia_info"] = self.public_info(i)
-            info["malaysia_hints"] = self.hints(i) if self.tips else None
+            info["malaysia_hints"] = self.client_context(i) if self.tips else None
             if event["action"] == "buhua":
                 info.update(buhua_tile=event["tile"], is_mo_buhua=event.get("is_mo_buhua", False))
             if event["action"] == "malaysia_payment":

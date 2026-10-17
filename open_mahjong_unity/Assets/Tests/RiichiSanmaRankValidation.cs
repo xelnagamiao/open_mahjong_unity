@@ -50,7 +50,7 @@ public static class RiichiSanmaRankValidation {
         Check(labels.Length==4&&labels.All(x=>x!=null)&&labels.Distinct().Count()==4,"trend labels authored for three and four player views");
         string rule=RiichiSanmaRankConfig.Rule;
         var modes=PlayerInfoStatsFormatter.Modes(rule,true);
-        Check(modes.SequenceEqual(new[]{"1/3_rank","2/3_rank"}),"profile queries only two three player modes");
+        Check(modes.SequenceEqual(new[]{"2/3_rank","1/3_rank"}),"profile shows three player half game before east game");
         Check(PlayerInfoStatsFormatter.ModeCaption(rule,"2/3_rank",true).Contains("半庄"),"three player half game caption");
         Check(PlayerInfoStatsFormatter.Modes(rule,true,new RuleStatsResponse{history_stats=new[]{
             new PlayerStatsInfo{rule=rule,mode="1/4_sanma_rank"},

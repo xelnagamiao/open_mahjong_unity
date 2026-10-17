@@ -1,4 +1,5 @@
 import asyncio
+from tests.local_hint_oracles.changsha_exchange_six import compute as reference_hints
 from collections import Counter
 from types import SimpleNamespace
 import unittest
@@ -594,16 +595,16 @@ class ExchangeSixFlowTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(state.player_list[1].discard_tiles[-1], 33)
                 self.assertEqual(len(state.player_list[1].hand_tiles), 13)
 
-    async def test_authoritative_hints_preserve_reported_pair_and_discard_context(self):
+    async def test_local_inputs_preserve_reported_pair_and_discard_context(self):
         state = make_state()
         flow = state.exchange_six
         state.player_list[0].hand_tiles = [11, 11, 12, 13, 14, 21, 22, 23, 24, 25, 26, 31, 32]
-        self.assertNotIn(33, {item["tile"] for item in flow.hand_hints(0, [])["waits"]})
+        self.assertNotIn(33, {item["tile"] for item in reference_hints(flow.client_context(0, []))["waits"]})
         flow.reported_ready.add(0)
-        hints = flow.hand_hints(0, [])
+        hints = reference_hints(flow.client_context(0, []))
         self.assertEqual(next(item["score"] for item in hints["waits"] if item["tile"] == 33), 8)
         state.player_list[0].hand_tiles.append(33)
-        hints = flow.hand_hints(0, [33])
+        hints = reference_hints(flow.client_context(0, [33]))
         self.assertEqual(hints["waits"], [])
         self.assertIn(33, {item["tile"] for item in hints["discard_waits"]["33"]})
 
@@ -1024,14 +1025,14 @@ class ExchangeSixFlowTests(unittest.IsolatedAsyncioTestCase):
         flow.small_hu_forbidden_seat = 1
         self.assertEqual(flow.result(1, 33), (0, []))
         self.assertIn(33, flow.waits(1))
-        hint = next(row for row in flow.packet(1).state.private_state["hints"]["waits"] if row["tile"] == 33)
+        hint = next(row for row in reference_hints(flow.packet(1).state.private_state["local_hint_context"])["waits"] if row["tile"] == 33)
         self.assertTrue(hint["blocked_small_hu"])
         for ways in (("海底",), ("杠上炮",), ("抢杠胡",)):
             self.assertEqual(flow.result(1, 33, ways=ways)[0], 8)
         for declaration in (flow.reported_ready, flow.open_hands):
             declaration.add(1)
             self.assertEqual(flow.result(1, 33)[0], 8)
-            self.assertFalse(next(row for row in flow.hand_hints(1, [])["waits"] if row["tile"] == 33)["blocked_small_hu"])
+            self.assertFalse(next(row for row in reference_hints(flow.client_context(1, []))["waits"] if row["tile"] == 33)["blocked_small_hu"])
             declaration.remove(1)
         for seat in (2, 3):
             state.player_list[seat].tag_list.append("peida")

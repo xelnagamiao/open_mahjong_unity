@@ -4,11 +4,14 @@ using System.Linq;
 
 public sealed class NanjingHintsCache {
     private NanjingHints hints;
+    private System.Action onLocalReady;
+    private bool RememberReady(TingpaiQuery q) { onLocalReady=q.OnReady; return true; }
     public void Reset() { hints=null; }
     public void Accept(NanjingHints value) { if(value?.source_hand_tiles!=null) hints=value; }
     private static bool Same(IEnumerable<int> a,IEnumerable<int> b) => a!=null && b!=null && a.OrderBy(t=>t).SequenceEqual(b.OrderBy(t=>t));
     private bool Rows(List<int> hand,List<string> melds,out int[] waits,out Dictionary<int,NanjingWaitDetail> details) {
         waits=null;details=null;
+        if(hints?.local_request!=null) { var local=LocalHintSnapshots.Read<NanjingHints>(hints.local_request,onLocalReady); if(local==null)return false; hints=local; }
         if(hints==null || hand==null || !(hints.source_melds??Array.Empty<string>()).OrderBy(x=>x).SequenceEqual((melds??new List<string>()).OrderBy(x=>x))) return false;
         if(Same(hand,hints.source_hand_tiles)) { waits=hints.waiting_tiles;details=hints.waiting_details;return true; }
         if(hand.Count+1!=hints.source_hand_tiles.Length || hints.waiting_by_discard==null) return false;
@@ -19,7 +22,7 @@ public sealed class NanjingHintsCache {
         }
         return false;
     }
-    public HashSet<int> Waiting(TingpaiQuery query) => query!=null && Rows(query.Hand,query.Melds,out var waits,out _)
+    public HashSet<int> Waiting(TingpaiQuery query) => query!=null && RememberReady(query) && Rows(query.Hand,query.Melds,out var waits,out _)
         ? new HashSet<int>(waits??Array.Empty<int>()) : new HashSet<int>();
     public WaitTileHint Describe(WaitHintQuery query,bool blocked=false) {
         if(query?.HandWithWin==null) return null;

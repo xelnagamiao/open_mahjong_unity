@@ -53,7 +53,7 @@ public static class HongqueDisplayOrderValidation {
             Check(HongqueDisplayOrder.Meld(ordered).SequenceEqual(ordered), "idempotent meld");
             Check(HongqueDisplayOrder.Meld(input.Reverse()).SequenceEqual(ordered), "input permutation independent");
             Check(HongqueDisplayOrder.Meld(input.Skip(1).Concat(input.Take(1))).SequenceEqual(ordered), "rotated input independent");
-            Check(HongqueDisplayOrder.Hand(input).SequenceEqual(ordered), "complete hand group agrees");
+            Check(HongqueDisplayOrder.SettlementHand(input).SequenceEqual(ordered), "complete hand group agrees");
             int[] mask = input.SelectMany((id,i) => new[] {i == 0 ? 1 : i == input.Length-1 ? 3 : 0,id}).ToArray();
             int[] display = HongqueDisplayOrder.MeldMask(mask);
             Check(GameRecordMeldCodec.ExtractTileByFlag(display,1) == input[0]
@@ -67,10 +67,12 @@ public static class HongqueDisplayOrderValidation {
         for (int subset = 1; subset < (1 << 14); subset++) {
             int[] source = Enumerable.Range(0,14).Where(c => (subset & (1<<c)) != 0)
                 .Select(c => 1000+c*10+c%9+1).Reverse().ToArray();
-            int[] actual = (int[])source.Clone(); TileIdOrder.SortHand(actual);
+            int[] playingHand = (int[])source.Clone(); TileIdOrder.SortHand(playingHand);
+            Check(playingHand.SequenceEqual(source.OrderBy(x=>x)), "playing hand retains table order for every colour subset");
+            int[] actual = EndResultPanel.SortSettlementHand(source);
             Check(actual.OrderBy(x=>x).SequenceEqual(source.OrderBy(x=>x)), "hand conserves tiles");
-            Check(HongqueDisplayOrder.Hand(actual).SequenceEqual(actual), "hand idempotent");
-            Check(HongqueDisplayOrder.Hand(source.Reverse()).SequenceEqual(actual), "hand independent of incoming order");
+            Check(HongqueDisplayOrder.SettlementHand(actual).SequenceEqual(actual), "hand idempotent");
+            Check(HongqueDisplayOrder.SettlementHand(source.Reverse()).SequenceEqual(actual), "hand independent of incoming order");
             if (actual.Length > 1 && HongqueScoring.ClassifyMeld(actual.ToList()) == null) {
                 int[] colours = actual.Select(Colour).OrderBy(x=>x).ToArray();
                 int maxGap = Enumerable.Range(0,colours.Length).Max(i => Mod(colours[(i+1)%colours.Length]-colours[i]));
@@ -83,7 +85,7 @@ public static class HongqueDisplayOrderValidation {
             hands++;
         }
         Check(HongqueDisplayOrder.Meld(Ids("AX5","GX5","GY5")).SequenceEqual(Ids("AX5","GY5","GX5")), "reported red-purple-wrap case");
-        Check(HongqueDisplayOrder.Hand(Ids("AX6","FX2","GY4","AX1","GX5")).SequenceEqual(Ids("AX1","AX6","GY4","GX5","FX2")), "same colour numbers stay ascending");
+        Check(HongqueDisplayOrder.SettlementHand(Ids("AX6","FX2","GY4","AX1","GX5")).SequenceEqual(Ids("AX1","AX6","GY4","GX5","FX2")), "same colour numbers stay ascending");
         foreach (int[] malformed in new[]{new[]{0,1005,101,1135,0,1125},new[]{0,1005,2,1135,0,1125},new[]{0,1005,0,1005,0,1125},new[]{0,1005,0,1125,0}})
             Check(HongqueDisplayOrder.MeldMask(malformed).SequenceEqual(malformed), "no reinterpretation of malformed/hidden/stacked mask");
         if (checkStandardTiles) {

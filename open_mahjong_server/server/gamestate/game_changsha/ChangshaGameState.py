@@ -1,7 +1,6 @@
 import random
 import asyncio
 from typing import Any, Dict, List, Optional
-import time
 import logging
 from .action_check import check_action_after_cut, check_action_after_gang_forced_cut, check_action_after_batch_gang_forced_cut, check_action_after_batch_gang_meld, check_action_hand_action, check_hepai, check_only_cut, refresh_waiting_tiles, filter_open_kong_replacement_actions
 from .wait_action import wait_action
@@ -29,6 +28,7 @@ from ..public.round_end_timing import (
     hu_result_ready_wait_seconds,
     liuju_ready_wait_seconds,
 )
+from ..public.ready_phase import run_result_ready_phase
 from ..public.spectator_rules import too_many_ai_for_spectator
 from ..public.vote_manager import vote_checkpoint
 from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_cut, player_action_record_hu, player_action_record_liuju, player_action_record_round_end, end_game_record, build_score_changes_by_seat, build_score_changes_dict, capture_player_entry_order, remember_local_record_detail
@@ -1776,24 +1776,7 @@ class ChangshaGameState:
                 else:
                     fan_count = len(hu_fan) if hu_fan else 0
                     wait_time = hu_result_ready_wait_seconds(fan_count)
-                    ready_phase_deadline = time.time() + wait_time
-
-                    self.action_dict = {}
-                    for player in self.player_list:
-                        if player.user_id <= 10:
-                            self.action_dict[player.player_index] = []
-                        else:
-                            self.action_dict[player.player_index] = ["ready"]
-                            player.remaining_time = int(wait_time)
-
-                    self.game_status = "waiting_ready"
-                    await broadcast_ready_status(self)
-                    while any(self.action_dict[i] for i in self.action_dict):
-                        for p in self.player_list:
-                            if self.action_dict.get(p.player_index):
-                                p.remaining_time = max(0, int(ready_phase_deadline - time.time()))
-                        if await wait_action(self) is False:
-                            break
+                    await run_result_ready_phase(self, wait_time, broadcast_ready_status)
 
             if self.current_round < self.max_round * 4:
                 # 开启下一局的准备工作

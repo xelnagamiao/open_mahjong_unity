@@ -56,6 +56,11 @@ def wall_tiles_list_for_record(wall: Sequence[str]) -> list[int]:
 
 
 def fan_labels(fans) -> list[str]:
+    """Keep achievement count and authoritative fan value in separate fields.
+
+    Unity reads the final ``|total``; statistics read the optional ``*count``.
+    A repeated two-fan pattern therefore becomes ``双同顺*2|4``.
+    """
     labels: list[str] = []
     for item in fans or ():
         if isinstance(item, str):
@@ -65,7 +70,8 @@ def fan_labels(fans) -> list[str]:
         count = int(item.get("count") or 1)
         if not name:
             continue
-        labels.append(f"{name}*{count}" if count > 1 else name)
+        label = f"{name}*{count}" if count > 1 else name
+        labels.append(f"{label}|{int(item['total'])}")
     return labels
 
 
@@ -95,6 +101,8 @@ def snapshot_round_header(game_state) -> None:
         init_game_record(game_state)
     game_state.tiles_list = wall_tiles_list_for_record(game_state.wall)
     init_game_round(game_state)
+    game_state.spectator_manager.record_game_title()
+    game_state.spectator_manager.record_round_start()
 
 
 def record_cut(game_state, player, code: str, is_moqie: bool) -> None:

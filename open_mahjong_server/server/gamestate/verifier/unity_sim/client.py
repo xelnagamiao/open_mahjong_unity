@@ -254,7 +254,7 @@ class UnitySim:
         self.game3d["claim_glow"] = {"tile": 0, "on": False}
 
     def _set_buttons(self, actions: Sequence[str], *, kind: str) -> None:
-        buttons = build_action_buttons(actions, kind=kind)
+        buttons = build_action_buttons(actions, kind=kind, room_rule=self.gsm["roomRule"])
         self.action_button = {"buttons": buttons, "visible": bool(buttons)}
 
     def _show_display(self, pos: str, action: str) -> None:
@@ -665,7 +665,7 @@ def apply_message(sim: UnitySim, message: Dict[str, Any]) -> Dict[str, Any]:
     sim.network["last_type"] = msg_type
     sim.network["last_suffix"] = suffix
     sim.network["message_count"] = int(sim.network.get("message_count") or 0) + 1
-    if suffix == "game_start":
+    if suffix in {"game_start", "reconnect"}:
         sim._handle_game_start(payload)
     elif suffix == "broadcast_hand_action":
         sim._handle_ask_hand(payload)

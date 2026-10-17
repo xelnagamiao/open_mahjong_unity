@@ -1146,7 +1146,7 @@ export class Chinese_Hepai_Check {
           }
         }
       } else if (zimo_or_not) {
-        for (let i of REPEL_MODEL_DICT[`${fan}_zimo`]) {
+        for (let i of REPEL_MODEL_DICT[`${fan}_zimo`] ?? []) {
           if ((i !== "yaojiuke")) {
             need_to_remove.push(i)
           } else if ((i === "yaojiuke")) {
@@ -1157,7 +1157,7 @@ export class Chinese_Hepai_Check {
           }
         }
       } else {
-        for (let i of REPEL_MODEL_DICT[`${fan}_dianhe`]) {
+        for (let i of REPEL_MODEL_DICT[`${fan}_dianhe`] ?? []) {
           if ((i !== "yaojiuke")) {
             need_to_remove.push(i)
           } else if ((i === "yaojiuke")) {

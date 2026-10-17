@@ -72,7 +72,7 @@ public static class RecordChongHintCalculator {
     };
     var result = new HashSet<int>();
     foreach (WaitHintQuery query in RecordWaitHintCalculator.BuildQueries(
-      ctx, NormalizeHandForTingpai(player.tileList), new List<int>(waiting))) {
+      ctx, NormalizeHandForTingpai(player, roomRule, subRule), new List<int>(waiting))) {
       if ((manifest.RecordDangerQualification?.Invoke(query) ?? true)
           && RuleTips.DescribeWaitingTile(manifest, query)?.Kind == WaitTileHint.KindRon) {
         result.Add(TileIdOrder.Normalize(query.HepaiTile));
@@ -87,7 +87,7 @@ public static class RecordChongHintCalculator {
     IDictionary<string, object> detailedConfig = null, string subRule = null) {
     if (player == null) return new HashSet<int>();
 
-    List<int> handForCheck = NormalizeHandForTingpai(player.tileList);
+    List<int> handForCheck = NormalizeHandForTingpai(player, roomRule, subRule);
     if (handForCheck == null) return new HashSet<int>();
 
     List<string> combinations = player.combinationTiles ?? new List<string>();
@@ -95,6 +95,7 @@ public static class RecordChongHintCalculator {
       Hand = handForCheck,
       PlayerIndex = player.playerIndex,
       Melds = combinations,
+      MeldMasks = player.combinationMasks,
       DetailedConfig = detailedConfig as Dictionary<string, object>
         ?? (detailedConfig != null ? new Dictionary<string, object>(detailedConfig) : null),
       ExcludedSuit = player.dingqueSuit,
@@ -106,6 +107,14 @@ public static class RecordChongHintCalculator {
       normalized.Add(TileIdOrder.Normalize(tileId));
     }
     return normalized;
+  }
+
+  public static List<int> NormalizeHandForTingpai(
+    GameRecordManager.RecordPlayer player, string roomRule, string subRule = null) {
+    if (player == null) return null;
+    var manifest = RuleRegistry.Resolve(roomRule, subRule);
+    return manifest?.RecordTipsHand != null ? manifest.RecordTipsHand(player)
+      : NormalizeHandForTingpai(player.tileList);
   }
 
   /// <summary>

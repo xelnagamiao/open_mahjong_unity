@@ -89,7 +89,7 @@ assert(winner.wins[0].xunmu === 1, `xunmu ${winner.wins[0].xunmu}`)
 assert(sharePathForWin(winner.wins[0]) === '/2d/record/gid-test?round=1&node=0', sharePathForWin(winner.wins[0]))
 assert(sharePathForWin3d(winner.wins[0]) === '/game-unity?recordId=gid-test&round=1&node=0', sharePathForWin3d(winner.wins[0]))
 assert(filterWinsByFan(winner.wins, 'qingyise').length === 1, 'qingyise filter')
-assert(winner.wins[0].yakuText === '清一色 ×1（24 番）、自摸 ×1（1 番）', winner.wins[0].yakuText)
+assert(winner.wins[0].yakuText === '清一色 24番、自摸 1番', winner.wins[0].yakuText)
 assert(filterWinsByFan(winner.wins, COUFAN_KEY).length === 0, 'coufan filter empty')
 assert(winner.fulu_at_win[0] === 1, 'menqing win')
 

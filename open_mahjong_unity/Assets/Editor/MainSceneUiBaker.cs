@@ -40,6 +40,7 @@ public static class MainSceneUiBaker {
             MarkHierarchy(panel.gameObject);
         }
         RuleSupportTableBaker.Bake(scene);
+        GuobiaoFanTableUiBaker.Bake(scene);
         Validate(scene);
         EditorSceneManager.MarkSceneDirty(scene);
     }
@@ -51,6 +52,7 @@ public static class MainSceneUiBaker {
     }
 
     public static void Validate(Scene scene) {
+        GuobiaoFanTableUiBaker.Validate(scene);
         RuleSupportTableBaker.Validate(scene);
         foreach (var panel in Find<CreatePanel>(scene)) {
             var serialized = new SerializedObject(panel);

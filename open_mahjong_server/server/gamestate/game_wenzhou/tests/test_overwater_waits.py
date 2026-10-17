@@ -1,6 +1,6 @@
 """MIL VI.6 uses a multiplier threshold across all winning tile identities."""
 
-import random
+from copy import deepcopy
 
 import pytest
 
@@ -11,6 +11,30 @@ from .test_flow import JUNK, cut, open_claim, open_turn
 
 
 MIXED_WAIT = [11,12,14,15,16,21,22,23,31,32,33,41,41,41,42,42]
+
+
+def local_request(payload):
+    assert set(payload) == {'__local__'}
+    return payload['__local__'][0]['local_request']
+
+
+def reference_rows(payload, cut=None):
+    """Independent oracle for the inputs transported to the client."""
+    from ....game_calculation.wenzhou.rules import hand_multiplier, waiting_tiles
+    request = local_request(payload)
+    hand = list(request['hand'])
+    context = request['context']
+    melds, caishen = context['meld_records'], context['caishen']
+    threshold = context['passed_multiplier']
+    if cut is not None:
+        threshold = max(threshold, hand_multiplier(hand, melds, caishen=caishen, winning_tile=cut) or 0)
+        hand.remove(cut)
+    result = {}
+    for tile in waiting_tiles(hand, melds, caishen=caishen):
+        ron = hand_multiplier(hand+[tile], melds, caishen=caishen, winning_tile=tile) or 0
+        own = hand_multiplier(hand+[tile], melds, caishen=caishen, winning_tile=tile, self_draw=True) or 0
+        result[tile] = dict(ron=ron>threshold, self_draw=own>0, ron_multiplier=ron, self_draw_multiplier=own)
+    return result
 
 
 def test_passing_soft_win_blocks_all_equal_soft_waits_but_allows_higher_hard_win():
@@ -89,35 +113,39 @@ def test_chow_does_not_clear_passed_win_threshold():
     assert_conserved(state)
 
 
-def test_wait_hint_preserves_physical_tiles_and_observer_specific_overwater():
+def test_wait_hint_preserves_physical_tiles_and_observer_specific_overwater(monkeypatch):
     state = fixture_state({1: MIXED_WAIT}, caishen=11, actor=0, tips=True)
     state.player_list[1].passed_win_multiplier = 1
     info = state.build_game_start_payload(1)["game_info"]
-    key = ",".join(map(str, sorted(MIXED_WAIT)))
-    assert set(info["wenzhou_waits"]) == {key}
-    waits = {row["tile"]: row for row in info["wenzhou_waits"][key]}
+    request = local_request(info['wenzhou_waits'])
+    assert request['hand'] == MIXED_WAIT and request['context']['passed_multiplier'] == 1
+    assert not hasattr(state, '_waits_for_hand')
+    assert state.build_game_start_payload(1)['game_info']['wenzhou_waits'] == info['wenzhou_waits']
+    waits = reference_rows(info['wenzhou_waits'])
     assert waits[13]["ron"] and waits[13]["ron_multiplier"] == 2
     assert not waits[14]["ron"] and waits[14]["ron_multiplier"] == 1
     assert waits[14]["self_draw"] and waits[14]["self_draw_multiplier"] == 2
     assert 46 in waits and not waits[46]["ron"]
     other = state.build_game_start_payload(2)["game_info"]["wenzhou_waits"]
-    assert key not in other
-    assert state.authoritative_waits(-1) == {} and state.authoritative_waits(4) == {}
+    assert local_request(other)['hand'] == state.player_list[2].hand_tiles
+    assert state.client_context(-1) == {} and state.client_context(4) == {}
 
 
 def test_drawn_hand_hints_include_each_physical_cut_and_own_discard_threshold():
     hand = MIXED_WAIT + [14]
     state = fixture_state({0: hand}, caishen=11, tips=True)
-    cache = state.authoritative_waits(0)
-    assert len(cache) == len(set(hand))
-    candidate = sorted(MIXED_WAIT)
-    waits = {row["tile"]: row for row in cache[",".join(map(str,candidate))]}
+    cache = state.client_context(0)
+    assert local_request(cache)['hand'] == hand
+    waits = reference_rows(cache, 14)
     assert waits[13]["ron"]
     assert not waits[14]["ron"]
     assert waits[14]["self_draw"]
-    # Returned overwater flags must not mutate the cached structural entries.
-    intrinsic = {row["tile"]: row for row in state._waits_for_hand(candidate, [])}
-    assert intrinsic[14]["ron"] is True
+    # Computing eligibility from a copied request must not alter the original.
+    intrinsic = deepcopy(cache)
+    local_request(intrinsic)['hand'].remove(14)
+    local_request(intrinsic)['context']['passed_multiplier'] = 0
+    assert reference_rows(intrinsic)[14]['ron'] is True
+    assert local_request(cache)['hand'] == hand
 
 
 @pytest.mark.parametrize('tips,count_tips', [(False, False), (False, True), (True, False), (True, True)])
@@ -126,38 +154,21 @@ def test_wait_eligibility_and_overwater_survive_count_only_mode(tips, count_tips
     hand = MIXED_WAIT + ([14] if drawn else [])
     state = fixture_state({1: hand}, caishen=11, actor=1 if drawn else 0, tips=True)
     state.player_list[1].passed_win_multiplier = 1
-    expected = state.authoritative_waits(1)
-    key = ','.join(map(str, sorted(MIXED_WAIT)))
-    waits = {row['tile']: row for row in expected[key]}
+    expected = state.client_context(1)
+    waits = reference_rows(expected, 14 if drawn else None)
     assert waits[13]['ron'] and not waits[14]['ron'] and waits[14]['self_draw']
 
     state.tips, state.count_tips = tips, count_tips
-    assert state.authoritative_waits(1) == (expected if tips or count_tips else {})
+    assert state.client_context(1) == (expected if tips or count_tips else {})
     info = state.build_game_start_payload(1)['game_info']
     assert info['wenzhou_waits'] == (expected if tips or count_tips else {})
     assert info['tips'] is tips and info['count_tips'] is count_tips
-    assert state.authoritative_waits(1, for_record=True) == expected
-    assert key not in state.build_game_start_payload(2)['game_info']['wenzhou_waits']
+    assert state.client_context(1, for_record=True) == expected
+    other = state.build_game_start_payload(2)['game_info']['wenzhou_waits']
+    if other:
+        assert local_request(other)['hand'] == state.player_list[2].hand_tiles
 
 
-def test_wait_cache_bounded_identity_sensitive_and_reset_between_rounds():
-    state = make_state(tips=True)
-    state.initialize_round()
-    deck = [tile for tile in range(11,48) if tile % 10 in range(1,10) and (tile < 40 or tile <= 47) for _ in range(4)]
-    rng = random.Random(2702)
-    for _ in range(140):
-        rng.shuffle(deck)
-        state._waits_for_hand(deck[:16], [])
-    assert len(state._wait_cache) == 128
-    hand = sorted(WAIT)
-    first = state._waits_for_hand(hand, [])
-    assert state._waits_for_hand(list(reversed(hand)), []) is first
-    previous = len(state._wait_cache)
-    state.caishen = 11 if state.caishen != 11 else 12
-    state._waits_for_hand(hand, [])
-    assert len(state._wait_cache) == min(128, previous + 1)
-    state.initialize_round()
-    assert not state._wait_cache
 
 
 def test_can_win_guards_retired_player_invalid_source_or_missing_draw():
@@ -195,3 +206,20 @@ def test_rob_concealed_kong_and_nonwinning_ron_cannot_settle():
     state.pending_kong = dict(actor=0, tile=19, concealed=True)
     with pytest.raises(ValueError, match="加杠"):
         state.settle_win(1, "rob_kong", 19, payer=0)
+
+
+def test_local_inputs_follow_new_round_and_caishen_without_server_preview_cache():
+    state = make_state(tips=True)
+    state.initialize_round()
+    first = state.client_context(0)
+    saved = deepcopy(first)
+    state.caishen = 11 if state.caishen != 11 else 12
+    newer = state.client_context(0)
+    assert local_request(newer)['context']['caishen'] == state.caishen
+    assert first == saved and newer != first
+    state.initialize_round()
+    fresh = local_request(state.client_context(0))
+    assert fresh['hand'] == state.player_list[0].hand_tiles
+    assert fresh['context']['caishen'] == state.caishen
+    assert first == saved
+    assert not hasattr(state, '_wait_cache')

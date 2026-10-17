@@ -384,6 +384,7 @@ public partial class GameCanvas : MonoBehaviour {
             max_round = maxRound,
             current_round = currentRound,
             detailed_config = roundData?.detailedConfig,
+            fuzhou_info = roundData?.fuzhou,
             commitment = CommitmentSaltDisplay.ReadCommitmentFromGameTitle(gameRecord.gameTitle),
             salt = CommitmentSaltDisplay.ReadSaltFromGameTitle(gameRecord.gameTitle),
             honba = honba,
@@ -661,7 +662,7 @@ public partial class GameCanvas : MonoBehaviour {
             } else if (inRiichiCutMode) {
                 selectable = candidates.ContainsKey(tc.tileId);
             } else if (selfReadyLocked) {
-                selectable = tc.currentGetTile;
+                selectable = tc.currentGetTile && (state == null || state.CanCutTile(tc.tileId));
             } else {
                 selectable = !forbidden.Contains(tc.tileId) && (state == null || state.CanCutTile(tc.tileId));
             }

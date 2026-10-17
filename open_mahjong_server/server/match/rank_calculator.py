@@ -211,9 +211,10 @@ def parse_queue_type(queue_type: str) -> Optional[Tuple[str, str]]:
 
 def queue_type_to_game_round(queue_type: str) -> int:
     """队列类型转游戏局数"""
-    from .rating_rules import QUEUES
-    if queue_type in QUEUES:
-        return QUEUES[queue_type].rounds
+    from .rating_rules import get_ranked_queue
+    spec = get_ranked_queue(queue_type)
+    if spec:
+        return spec.rounds
     parsed = parse_queue_type(queue_type)
     if not parsed:
         return 4
@@ -224,20 +225,20 @@ def queue_type_to_game_round(queue_type: str) -> int:
 def queue_type_to_match_type(queue_type: str) -> str:
     """队列类型转统计 mode（如 1/4_rank）"""
     game_round = queue_type_to_game_round(queue_type)
-    from .rating_rules import QUEUES
-    spec = QUEUES.get(queue_type)
+    from .rating_rules import get_ranked_queue
+    spec = get_ranked_queue(queue_type)
     return f"{game_round}/{spec.player_count if spec else 4}_rank"
 
 
 def queue_type_to_display_name(queue_type: str) -> str:
     """队列类型转显示名"""
-    from .rating_rules import QUEUES, RULES
-    spec = QUEUES.get(queue_type)
+    from .rating_rules import get_ranked_queue, RULES
+    spec = get_ranked_queue(queue_type)
     if spec and spec.rule != 'guobiao':
         tier = {'beginner':'初级场','intermediate':'中级场','advanced':'高级场','elo':'Elo 匹配'}[spec.tier]
         mode = {'dongfeng':'东风战','banzhuang':'半庄战','quanzhuang':'全庄战','xuezhan':'血战到底'}[spec.mode]
         if spec.rule == 'hongque':
-            mode += f'（{spec.rounds}局）'
+            mode = f'{spec.rounds}局战'
         return f'{RULES[spec.rating_rule]} · {tier} · {mode}'
     parsed = parse_queue_type(queue_type)
     if not parsed:

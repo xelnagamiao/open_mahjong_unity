@@ -19,15 +19,14 @@ from ..public.logic_common import assign_competition_final_ranks
 from ..public.random_seed_manager import setup_random_seed_system, derive_round_seed
 from ..public.round_end_timing import liuju_ready_wait_seconds
 from ...database.fulu_utils import record_fulu_rounds_for_players
-from ..public.ai.bot_executor import run_room_bot_cpu
-from .hints import compute_hand
+from .client_context import local_context
 from .timing import ActionClock, TimedActionQueue, PHASES, collect_responses
 
 
 class WuhanGameState(TaiwanGameState):
     flower_tiles = ()
     structure_tiles = book.TILES
-    claim_response_seconds = 3
+    claim_response_seconds = None  # Online claims use the configured room clock.
 
     def __init__(self, game_server, room_data, calculation_service, db_manager, gamestate_id):
         if room_data.get("sub_rule", book.SUB_RULE) != book.SUB_RULE:
@@ -62,9 +61,9 @@ class WuhanGameState(TaiwanGameState):
         self._terminal_result = None
         self._hand_settled = False
         self._score_event = None
-        self._hint_cache = {}
-        self._hint_keys = {}
-        self._recorded_hints = {}
+        self._client_contexts = {}
+        self._context_keys = {}
+        self._recorded_contexts = {}
         self._recorded_public = None
         self._generation = getattr(self, "_generation", 0) + 1
         self.rain = {}
@@ -461,22 +460,22 @@ class WuhanGameState(TaiwanGameState):
             p = self.player_list[index]
             args = (list(p.hand_tiles), list(p.combination_tiles), self.indicator, table, index, "peida" in p.tag_list, self.sea_phase, next((q.player_index for q in self.player_list if q.original_player_index == self.previous_gold), None))
             key = repr(args)
-            if self._hint_keys.get(index) == key:
+            if self._context_keys.get(index) == key:
                 continue
-            payload = await run_room_bot_cpu(self, compute_hand, *args)
+            payload = local_context(*args)
             if generation != self._generation or self.player_list[index] is not p or args[0] != p.hand_tiles or args[1] != p.combination_tiles or table != self.table_snapshot():
                 continue
-            self._hint_keys[index], self._hint_cache[index] = key, payload
+            self._context_keys[index], self._client_contexts[index] = key, payload
             round_key = f"round_index_{self.round_index}"
-            if round_key in self.game_record.get("game_round", {}) and self._recorded_hints.get(index) != key:
+            if round_key in self.game_record.get("game_round", {}) and self._recorded_contexts.get(index) != key:
                 append_action_tick(self, ["wuhan", "hints", index, payload])
-                self._recorded_hints[index] = key
+                self._recorded_contexts[index] = key
 
     def build_private_game_info_fields(self, index):
         p = self.player_list[index]
         info = {**self.public_info(), "self_has_draw_slot": p.has_draw_slot, "last_drawn_tile": p.last_drawn_tile}
         fields = {"wuhan_info": info}
-        payload = self._hint_cache.get(index)
+        payload = self._client_contexts.get(index)
         if payload and (self.tips or self.count_tips) and sorted(payload["source_hand_tiles"]) == sorted(p.hand_tiles) and payload["source_melds"] == p.combination_tiles:
             fields["wuhan_hints"] = payload
         return fields

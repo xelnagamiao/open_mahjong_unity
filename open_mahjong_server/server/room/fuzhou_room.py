@@ -23,6 +23,12 @@ class FuzhouRoomValidator(GBRoomValidator):
     tian_di_ren_he: StrictBool = False
     detailed_config: dict[str,Any] = Field(default_factory=normalize_config)
 
+    @validator("game_round")
+    def valid_duration(cls,value):
+        if value not in (1,2,4):
+            raise ValueError("福州时长只能为一圈、半庄或一雀")
+        return value
+
     @validator("sub_rule")
     def valid_profile(cls,value):
         if value!=SUB_RULE:

@@ -9,7 +9,8 @@ import math
 
 XUELIU_EXCHANGE_RATING_RULE = 'sichuan_xueliu_exchange'
 XUELIU_EXCHANGE_SUB_RULE = 'sichuan/xueliu_exchange'
-XUELIU_EXCHANGE_QUEUE = 'sichuan_xueliu_exchange_elo_quanzhuang'
+XUELIU_EXCHANGE_QUEUE = 'sichuan_xueliu_exchange_elo_banzhuang'
+XUELIU_EXCHANGE_LEGACY_QUEUE = 'sichuan_xueliu_exchange_elo_quanzhuang'
 RULES = {"guobiao": "国标麻将", "riichi": "立直麻将", "qingque": "青雀", "sichuan": "川麻血战", "riichi_sanma": "立直三麻",
          XUELIU_EXCHANGE_RATING_RULE: "川麻血流换三张", "hongque": "虹雀"}
 GRADE_RULES = {"guobiao", "riichi", "riichi_sanma"}
@@ -18,6 +19,7 @@ DEFAULT_R = 1500.0
 ELO_EXPECTATION_SCALE = 2400.0
 ELO_TABLE_AVERAGE_FLOOR = 1500.0
 ELO_ALGORITHM_VERSION = "elo_2400_table_protection_v1"
+HONGQUE_ELO_ALGORITHM_VERSION = "hongque_elo_2400_length_k_v2"
 # Rating-write lock; always acquire before row/game locks.
 RATING_WRITE_LOCK = "open_mahjong:rating_history"
 
@@ -30,6 +32,8 @@ class RankedQueue:
     rounds: int
     player_count: int = 4
     sub_rule: str = ''
+    elo_k: float = 32.0
+    elo_algorithm: str = ELO_ALGORITHM_VERSION
 
     @property
     def rating_rule(self):
@@ -51,15 +55,30 @@ for rule in ("guobiao", "riichi"):
             key = f"{tier}_{mode}" if rule == "guobiao" else f"{rule}_{tier}_{mode}"
             QUEUES[key] = RankedQueue(rule, tier, mode, rounds)
 QUEUES["qingque_elo_quanzhuang"] = RankedQueue("qingque", "elo", "quanzhuang", 4)
+QUEUES["hongque_elo_banzhuang"] = RankedQueue("hongque", "elo", "banzhuang", 8,
+                                            sub_rule="hongque/v1.6", elo_k=16.0,
+                                            elo_algorithm=HONGQUE_ELO_ALGORITHM_VERSION)
 QUEUES["hongque_elo_quanzhuang"] = RankedQueue("hongque", "elo", "quanzhuang", 16,
-                                            sub_rule="hongque/v1.6")
+                                            sub_rule="hongque/v1.6",
+                                            elo_algorithm=HONGQUE_ELO_ALGORITHM_VERSION)
 # Keep the existing Sichuan queue ID for clients and historical records.
 QUEUES["sichuan_elo_xuezhan"] = RankedQueue("sichuan", "elo", "banzhuang", 2)
-QUEUES[XUELIU_EXCHANGE_QUEUE] = RankedQueue('sichuan', 'elo', 'quanzhuang', 4,
+QUEUES[XUELIU_EXCHANGE_QUEUE] = RankedQueue('sichuan', 'elo', 'banzhuang', 2,
                                           sub_rule=XUELIU_EXCHANGE_SUB_RULE)
 for tier in ('beginner', 'intermediate', 'advanced'):
     for mode, rounds in (('dongfeng', 1), ('banzhuang', 2)):
         QUEUES[f'riichi_sanma_{tier}_{mode}'] = RankedQueue('riichi', tier, mode, rounds, 3)
+
+
+HISTORICAL_QUEUES = {
+    XUELIU_EXCHANGE_LEGACY_QUEUE: RankedQueue('sichuan', 'elo', 'quanzhuang', 4,
+                                             sub_rule=XUELIU_EXCHANGE_SUB_RULE),
+}
+
+
+def get_ranked_queue(queue_type):
+    """Resolve saved games as well as active queues; only QUEUES accepts joins."""
+    return QUEUES.get(queue_type) or HISTORICAL_QUEUES.get(queue_type)
 
 
 def ranked_record_scope(rule):
@@ -87,7 +106,7 @@ def default_rating(rule):
 
 
 def elo_deltas(ratings, places, k=32.0):
-    """D=2400, K=32, with the agreed 1500 table-average protection.
+    """D=2400, queue-specific K, with the agreed 1500 table-average protection.
 
     Ordinary Elo is rounded to a zero-sum base. When the table mean is below
     1500, raise each virtual opponent by the same shortfall and add the rounded

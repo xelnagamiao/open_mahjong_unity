@@ -11,6 +11,7 @@ import asyncio
 import logging
 
 from .wait_action import actions_for_viewer
+from ..public.spectator_rules import deliver_realtime_spectator_message
 
 _TABLE_SNAPSHOT_MODES = {"round_start", "reconnect"}
 logger = logging.getLogger(__name__)
@@ -24,6 +25,14 @@ def visible_event(source: dict, viewer_index: int) -> dict:
 
 
 def _table_snapshot(game_state, viewer) -> dict:
+    current = game_state.players[game_state.current_player_index]
+    pending_draw = None
+    if game_state.phase == "turn" and current.drawn_tile:
+        pending_draw = visible_event({"type": "draw", "player": current.index,
+                                      "tile": current.drawn_tile}, viewer.index)
+    last_discard = game_state.last_discard
+    if last_discard and last_discard["tile"] not in game_state.players[last_discard["player"]].discards:
+        last_discard = None
     return {
         "room_id": int(game_state.room_id),
         "room_type": game_state.room_type,
@@ -31,6 +40,8 @@ def _table_snapshot(game_state, viewer) -> dict:
         "round_time": game_state.round_time,
         "step_time": game_state.step_time,
         "hand": list(viewer.hand),
+        "pending_draw": pending_draw,
+        "last_discard": dict(last_discard) if last_discard else None,
         "players": [{
             "index": player.index,
             "user_id": player.user_id,
@@ -58,7 +69,7 @@ def build_state(game_state, viewer_index: int, *, sync_mode: str = "events",
     actions, candidates = game_state._legal_turn_actions(viewer)
     if game_state.phase == "claim":
         actions, candidates = actions_for_viewer(game_state, viewer_index)
-    win_hint = game_state._viewer_win_hint(viewer, actions)
+    win_context = game_state._viewer_win_context(viewer, actions)
     remaining_time, step_remaining = game_state._remaining_clock(viewer)
     state = {
         "sync_mode": sync_mode,
@@ -84,9 +95,7 @@ def build_state(game_state, viewer_index: int, *, sync_mode: str = "events",
         ],
         "legal_actions": actions,
         "candidates": candidates,
-        "win_hint": win_hint,
-        "waiting_tiles": [],
-        "waiting_hints": [],
+        "local_win_context": win_context,
     }
     claim_window = getattr(game_state, "claim_window", None)
     if claim_window is not None:
@@ -97,16 +106,7 @@ def build_state(game_state, viewer_index: int, *, sync_mode: str = "events",
     return state
 
 
-async def send_state_to(game_state, player_index: int, **kwargs) -> None:
-    player = game_state.players[player_index]
-    if player.is_bot or not player.online or game_state.game_server is None:
-        return
-    connection = getattr(game_state.game_server, "user_id_to_connection", {}).get(
-        player.user_id
-    )
-    if (connection is None or getattr(connection, "websocket", None) is None
-            or getattr(connection, "event_disconnecting", False)):
-        return
+def state_packet(game_state, player_index: int, **kwargs) -> dict:
     sync_mode = kwargs.get("sync_mode", "events")
     if sync_mode not in {"events", "round_start", "reconnect"}:
         raise ValueError(f"invalid Hongque sync mode: {sync_mode}")
@@ -114,19 +114,39 @@ async def send_state_to(game_state, player_index: int, **kwargs) -> None:
         "round_start": "gamestate/hongque/game_start",
         "reconnect": "gamestate/hongque/reconnect",
     }.get(sync_mode, "gamestate/hongque/update")
-    payload = {
+    return {
         "type": message_type,
         "success": True,
         "message": game_state.message,
         "gamestate_id": game_state.gamestate_id,
         "hongque_state": build_state(game_state, player_index, **kwargs),
     }
+
+
+async def send_to_connection(game_state, user_id: int, payload: dict) -> None:
+    connection = getattr(game_state.game_server, "user_id_to_connection", {}).get(user_id)
+    if (connection is None or getattr(connection, "websocket", None) is None
+            or getattr(connection, "event_disconnecting", False)):
+        return
     try:
         await connection.websocket.send_json(payload)
     except Exception:
         # A recipient can close after presence was checked. Other recipients and
         # the disconnect lifecycle must still finish when that send fails.
-        logger.debug("虹雀状态发送失败 user_id=%s", player.user_id, exc_info=True)
+        logger.debug("虹雀状态发送失败 user_id=%s", user_id, exc_info=True)
+
+
+async def send_player_packet(game_state, player_index: int, payload: dict) -> None:
+    player = game_state.players[player_index]
+    if not player.is_bot and player.online:
+        await send_to_connection(game_state, player.user_id, payload)
+    await deliver_realtime_spectator_message(game_state, player_index, payload)
+
+
+async def send_state_to(game_state, player_index: int, **kwargs) -> None:
+    if not getattr(game_state.game_server, "user_id_to_connection", None):
+        return
+    await send_player_packet(game_state, player_index, state_packet(game_state, player_index, **kwargs))
 
 
 async def broadcast_state(game_state, **kwargs) -> None:
@@ -168,12 +188,5 @@ async def broadcast_game_end(game_state) -> None:
     }
     if game_state.game_server is None:
         return
-    connections = getattr(game_state.game_server, "user_id_to_connection", {}) or {}
     for player in game_state.players:
-        if player.is_bot or not player.online:
-            continue
-        connection = connections.get(player.user_id)
-        websocket = getattr(connection, "websocket", None) if connection is not None else None
-        if websocket is None:
-            continue
-        await websocket.send_json(payload)
+        await send_player_packet(game_state, player.index, payload)

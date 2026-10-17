@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using TMPro;
-public class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
+public partial class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
 {
     public static ScoreHistoryPanel Instance { get; private set; }
     [SerializeField] private GameObject Tmp_Text_Prefab;
@@ -26,6 +26,7 @@ public class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
     [SerializeField] private Color scoreGainColor = Color.green;
     [SerializeField] private Color scoreLossColor = Color.red;
     [SerializeField] private Color tsumoLossColor = new Color32(0, 128, 255, 255);
+    [SerializeField, Min(1f)] private float scrollSensitivity = 120f;
     private GameObject dismissArea;
     private Canvas tableCanvas;
     private float borderWidth = -1f;
@@ -46,7 +47,9 @@ public class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
             return;
         }
         EnsureReferences();
-        var scrollbar = GetComponentInChildren<UnityEngine.UI.ScrollRect>(true)?.verticalScrollbar;
+        var scrollRect = GetComponentInChildren<UnityEngine.UI.ScrollRect>(true);
+        if (scrollRect != null) scrollRect.scrollSensitivity = scrollSensitivity;
+        var scrollbar = scrollRect != null ? scrollRect.verticalScrollbar : null;
         if (scrollbar != null) {
             var relay = scrollbar.GetComponent<ScoreHistoryBackgroundClickRelay>();
             if (relay == null) relay = scrollbar.gameObject.AddComponent<ScoreHistoryBackgroundClickRelay>();
@@ -227,6 +230,7 @@ public class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
 
     public void Close()
     {
+        roundSelections.Clear();
         EnsureMainFanColumnSetup();
         ClearContainer(MainFanContainer);
 
@@ -256,18 +260,21 @@ public class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
     public void UpdateScoreRecord(string rule, IReadOnlyDictionary<string, PlayerInfoClass> player_to_info, IReadOnlyList<RoundSettlementSnapshot> roundSettlements, int totalRounds = 0, bool maskPlayerNames = false, string subRuleFallback = null, IReadOnlyList<int> recordRoundIndices = null)
     {
         var mgr = NormalGameStateManager.Instance;
-        if (string.IsNullOrEmpty(subRuleFallback)) subRuleFallback = mgr?.subRule;
+        bool fromRecord = recordRoundIndices != null;
+        if (string.IsNullOrEmpty(subRuleFallback) && !fromRecord) subRuleFallback = mgr?.subRule;
         bool isSanma = MahjongPlayerCount.ForSubRule(ScoreHistorySettlementHelper.ResolveSubRule(rule, subRuleFallback)) == 3;
         int playerCount = isSanma ? 3 : 4;
         var sorted = SelectScoreboardPlayers(player_to_info, isSanma);
         if (sorted.Count < playerCount) return;
-        if (roundSettlements == null || roundSettlements.Count == 0) {
+        if (roundSettlements == null && !fromRecord) {
             roundSettlements = mgr != null ? mgr.roundSettlementHistory : null;
         }
 
-        // 总局数（用于预测未来局名占位）：优先用调用方传入，其次由实时对局的 maxRound 按族换算（风圈数×4 或本身即局数）
-        if (totalRounds <= 0 && mgr != null) {
-            totalRounds = isSanma ? mgr.maxRound * 3 : RoundTextDictionary.ToTotalHands(mgr.roomRule, mgr.maxRound);
+        // 只有实时对局预测赛程；牌谱即使缺少 max_round，也不能借用上一场对局的配置或结算。
+        if (fromRecord) totalRounds = 0;
+        else if (totalRounds <= 0 && mgr != null) {
+            totalRounds = RoundTextDictionary.ToTotalHands(
+                ScoreHistorySettlementHelper.ResolveSubRule(rule, subRuleFallback), mgr.maxRound);
         }
 
         List<int> roundNumberHistory = sorted[0].round_number_history ?? new List<int>();
@@ -371,6 +378,9 @@ public class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
         IReadOnlyList<int> recordRoundIndices = null)
     {
         EnsureMainFanColumnSetup();
+        isRecordScoreboard = recordRoundIndices != null;
+        roundSelections.Clear();
+        EnsureSelectionGroups();
         if (RoundIndexContainer != null)
         {
             ClearContainer(RoundIndexContainer.transform);
@@ -378,16 +388,17 @@ public class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
         ClearContainer(MainFanContainer);
 
         var mgr = NormalGameStateManager.Instance;
-        if (roundSettlements == null || roundSettlements.Count == 0) {
+        if (roundSettlements == null && !isRecordScoreboard) {
             roundSettlements = mgr != null ? mgr.roundSettlementHistory : null;
         }
+        roundSettlements ??= System.Array.Empty<RoundSettlementSnapshot>();
 
         if (RuleRegistry.Resolve(rule, rule) == null) {
             Debug.LogError($"未知的规则类型: {rule}");
             return;
         }
 
-        if (string.IsNullOrEmpty(subRuleFallback) && mgr != null) {
+        if (string.IsNullOrEmpty(subRuleFallback) && mgr != null && !isRecordScoreboard) {
             subRuleFallback = mgr.subRule;
         }
         string subRule = ScoreHistorySettlementHelper.ResolveSubRule(rule, subRuleFallback);
@@ -411,9 +422,8 @@ public class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
             TMP_Text text = textObj.GetComponent<TMP_Text>();
             if (text != null) {
                 text.text = ScoreboardRoundName(rule, subRule, roundNumber);
-                if (recordRoundIndices != null && i < recordRoundIndices.Count) {
-                    textObj.AddComponent<ScoreHistoryRoundCell>().Bind(text, recordRoundIndices[i]);
-                }
+                BindRoundSelection(text, roundNumber,
+                    recordRoundIndices != null && i < recordRoundIndices.Count ? recordRoundIndices[i] : -1);
             }
 
             CreateMainFanCell(i, scoreHistoryCount, roundCount, subRule, roundSettlements);
@@ -422,7 +432,9 @@ public class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
         // 预测局名占位：计分板尚未自动延伸到的后续局，用灰色局名 + 空白单元格补齐，
         // 与日麻"对局列表依次递增"一致（连庄/错和会出现同一局名多行，预测从已用最大局号+1 起）。
         var predictedRoundNumbers = new List<int>();
-        if (totalRounds > 0) {
+        if (!isRecordScoreboard) {
+            // 延长赛/额外局也要显示正在进行的场次。
+            if (mgr != null) totalRounds = Mathf.Max(totalRounds, mgr.currentRound);
             for (int rn = maxPlayedRoundNumber + 1; rn <= totalRounds; rn++) {
                 predictedRoundNumbers.Add(rn);
             }
@@ -431,8 +443,9 @@ public class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
             GameObject textObj = CreateCell(RoundIndexContainer.transform);
             TMP_Text text = textObj.GetComponent<TMP_Text>();
             if (text != null) {
-                text.text = $"<color=#C0C0C0>{ScoreboardRoundName(rule, subRule, rn)}</color>";
-                text.raycastTarget = false;
+                text.text = ScoreboardRoundName(rule, subRule, rn);
+                text.color = new Color32(192, 192, 192, 255);
+                BindRoundSelection(text, rn, -1);
             }
             AddEmptyCell(MainFanContainer);
         }
@@ -453,6 +466,7 @@ public class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
             if (player.userNameText != null)
             {
                 player.userNameText.text = player.username;
+                BindPlayerSelection(player.userNameText, player.originIndex);
             }
 
             ClearContainer(player.roundScoreContainer);
@@ -467,6 +481,11 @@ public class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
             for (int i = 0; i < player.scoreHistory.Count; i++)
             {
                 string scoreChange = player.scoreHistory[i];
+                if (string.IsNullOrEmpty(scoreChange)) {
+                    AddEmptyCell(player.roundScoreContainer);
+                    AddEmptyCell(player.gameScoreContainer);
+                    continue;
+                }
 
                 int scoreValue = 0;
                 if (scoreChange.StartsWith("+"))
@@ -536,6 +555,7 @@ public class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
                 AddEmptyCell(player.gameScoreContainer);
             }
         }
+        RefreshSelections();
     }
 
     private static int SumScoreHistoryDeltas(List<string> history) {
@@ -589,11 +609,6 @@ public class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
         if (MainFanContainer == null || Tmp_Text_Prefab == null) {
             EnsureMainFanColumnSetup();
             if (MainFanContainer == null || Tmp_Text_Prefab == null) return;
-        }
-
-        if (roundSettlements == null || roundSettlements.Count == 0) {
-            var mgr = NormalGameStateManager.Instance;
-            roundSettlements = mgr != null ? mgr.roundSettlementHistory : null;
         }
 
         RoundSettlementSnapshot snapshot = ScoreHistorySettlementHelper.ResolveSettlementForRow(

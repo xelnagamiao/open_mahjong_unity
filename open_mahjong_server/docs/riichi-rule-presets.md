@@ -1,6 +1,6 @@
 # 立直麻将规则预设
 
-规则目录为 `server/game_calculation/riichi/rule_options.json`。普通建房、比赛建房、服务端计算、Unity 创建房间及牌谱使用同一组键名。Unity 副本位于 `Assets/Resources/RiichiRuleOptions.json`，目录一致性由 `test_riichi_rule_config.py` 检查。
+规则目录为 `server/game_calculation/riichi/rule_options.json`。普通建房、比赛建房、服务端计算、Unity 创建房间及牌谱使用同一组键名。Unity 副本位于 `Assets/Resources/RiichiRuleOptions.json`，Web 副本位于 `open_mahjong_web/shared/riichiRuleOptions.json`，三份目录一致性由 `test_riichi_rule_config.py` 检查。Web 场馆默认配置、命名预设和自动匹配保存完整的基础与详细规则。
 
 ## 预设定义
 
@@ -10,6 +10,8 @@
 | 天凤规 | 四人食断赤牌，半庄 | 25000／30000 | +20/+10/-10/-20 | 三家荣和流局 | 有／有／有 |
 | A规 | 日本职业麻将联盟 A 规则 | 30000／30000 | 联盟浮动顺位点 | 头跳 | 无／无／无 |
 | ML规 | M 联赛四人规则 | 25000／30000 | +30/+10/-10/-30 | 头跳 | 有／有／有 |
+| 雀魂三麻 | 三人段位战，半庄 | 35000／35000 | +15/0/-15 | 双响 | 有／有／有 |
+| 天凤三麻 | 三人食断赤牌，半庄 | 35000／40000 | +20/0/-20 | 双响 | 有／有／有 |
 
 A 规按日本职业麻将联盟 A 规则解释，ML 规按 M 联赛解释。预设包含牌局与计分设置；平台段位分、赛事身份及线下处罚流程不由房间预设模拟。起始与返还点的差额作为头名奖励结算，表中的顺位点不重复包含这部分。
 
@@ -19,14 +21,14 @@ A 规按日本职业麻将联盟 A 规则解释，ML 规按 M 联赛解释。预
 
 ## 新增配置
 
-41 项详细配置按以下分组显示，所有分组同时存在，顶部选择用于滚动定位。
+42 项详细配置按以下分组显示。Unity 详细面板以顶部选择滚动定位；Web 以分组折叠面板显示，三人专属选项仅在三麻中显示。
 
 | 分组 | 配置键 |
 | --- | --- |
 | 和牌门槛 | `minimum_win_score` |
 | 役种、宝牌与符数 | `open_tanyao`、`ippatsu`、`ura_dora`、`kan_dora`、`kan_ura_dora`、`double_yakuman`、`multiple_yakuman`、`kiriage_mangan`、`kazoe_limit`、`yakuman_limit`、`double_wind_pair_fu` |
 | 杠、立直与振听 | `kan_dora_timing`、`kokushi_ankan_ron`、`riichi_kan_rule`、`riichi_min_live_tiles`、`furiten_clear` |
-| 流局与连庄 | `kyuushu_abort`、`four_winds_abort`、`four_riichi_abort`、`four_kan_abort`、`nagashi_mangan`、`nagashi_allow_calls`、`noten_penalty`、`tenpai_renchan` |
+| 流局与连庄 | `kyuushu_abort`、`four_winds_abort`、`four_riichi_abort`、`four_kan_abort`、`nagashi_mangan`、`nagashi_allow_calls`、`tenpai_owned_tiles`、`noten_penalty`、`tenpai_renchan` |
 | 终局 | `agari_yame`、`tenpai_yame`、`target_score`、`extension_rounds`、`return_score`、`rank_points`、`tie_break`、`end_deposits` |
 | 包牌与错和 | `pao`、`pao_suukantsu`、`pao_scope`、`pao_honba`、`chombo_penalty` |
 | 三人麻将 | `sanma_tsumo`、`nuki_ron`、`nuki_rinshan` |
@@ -63,6 +65,10 @@ Unity 听牌提示使用同样的门槛，保留提示阶段不计算未公开�
 - `kazoe_limit` 控制累计番数上限；真正役满由 `double_yakuman`、`multiple_yakuman`、`yakuman_limit` 控制，宝牌不会叠加到真正役满上。
 - `kan_dora_timing` 控制明杠／加杠后的翻牌时机，暗杠即时翻牌。取消杠宝牌时不产生其指示牌或对应杠里宝牌收益。
 - `riichi_kan_rule` 可要求仅听牌相同、拆解不变，或拆解与役数条件不降低；暗杠抢和仅允许已启用的国士无双分支。
+- `riichi_min_live_tiles` 为当前摸牌后牌山剩余活牌下限。雀魂／天凤四麻为 4，三麻为 3；A／ML 为 1，允许无下一次摸牌机会的立直，但禁止最后摸牌后的立直。旧自定义配置显式填写 4 时仍保留原值。
+- `tenpai_owned_tiles` 控制形式听牌的自有牌耗尽判断。所有规则均排除暗手已持有四张的第五张等待；ML 规还计入自己的副露／杠牌。雀魂／天凤按官网说明只计暗手。A 规现行公开对照表仅注明允许形式听牌，未明确副露耗尽这一边界，暂保留原有暗手口径。
+- `furiten_clear=discard` 在实际摸牌后的打牌解除临时振听；吃碰后直接打牌不会提前解除。`draw` 在摸牌时解除。立直后振听不因摸牌或打牌解除。
+- 和牌及错和结算消息、牌谱 `hu_riichi` 中的宝牌指示牌遵守同一组开关。A 规不发送或记录里宝指示牌；关闭杠宝也同时排除杠里宝。自定义的普通里宝与杠里宝开关保持独立。
 - `chombo_penalty=penalty_20000` 从最终比赛点扣 20，不把桌面实点直接减 20000。本局已成立立直的供托退回，前局留存供托保留。
 - 同分顺位点在剩余供托分配前确定。ML 规三人并列头名时，每根剩余供托按 400/300/300 分配。
 
@@ -87,6 +93,10 @@ python -m pytest server/game_calculation/riichi server/gamestate/game_riichi ser
 `test_match_simulation.py` 驱动四个预设及浪涌的真实完整对局循环，检查牌张数量、点数守恒、结束条件和记录配置。其他测试覆盖配置有效值、计分、振听、立直、杠、抢杠、多响、包牌、终局、重连、超时与实际消息序列化。
 
 2026-09-24 验收：服务端组合回归 384 项及 11 个子测试通过，C# / Python 计分对照 4520 组无差异，Web 相关回归 31 项通过。主场景两个实际 Windows 客户端完成四预设的开房与加入（96 项检查），并与两个机器人完成 ML 规半庄 11 局、真实断线重连及终局结算（84 项检查）。机器人对局按现有策略仅保存本机牌谱，云端牌谱查询不会返回该记录。
+
+2026-10-16 核对以[日本职业麻将联盟现行规则表（2026-04-01 版）](https://www.ma-jan.or.jp/activity/game_rule.html)、[M 联赛官方规则](https://m-league.jp/about/)、[天凤官方手册](https://tenhou.net/man/)、[雀魂官方对局规则](https://mahjongsoul.com/news/46)为依据。修正 A 规结算泄露里宝指示牌、三麻立直牌山下限、第五张等待、ML 自有副露耗尽听牌、吃碰后错误解除临时振听，以及 Web 保存时丢失高级配置的问题。新增 `test_preset_audit.py` 覆盖六套预设的真实计分、结算消息与牌谱一致性，`client/tests/riichiPresets.test.mjs` 覆盖六套预设经 Web 编辑、保存、自动匹配和重新载入的往返。
+
+核对范围是程序可执行的牌局和点数规则。场馆自定义配置、浪涌／鹫巢等扩展玩法不应被称为官方规则；线下裁判裁量、口头宣告处罚、礼仪、赛事积分与账号段位系统也不由这些预设完整模拟。公开规则未明确的边界保留说明，不能仅凭回归通过认定获得官方认证。
 
 最终主场景包构建成功，0 errors。真实对局本机牌谱的可见回放通过 93 项检查，覆盖 11 局起始／结算点数、和牌手牌、展开的 3D 手牌、荣和展示副本及回退重置，运行无 Error/Exception。牌谱展开手牌中的荣和末张使用展示副本，保留牌河或抢杠来源处的实体牌；切局和跳回局首会清除此标记。
 

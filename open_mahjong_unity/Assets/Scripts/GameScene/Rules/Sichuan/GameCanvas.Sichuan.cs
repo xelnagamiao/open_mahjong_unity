@@ -341,6 +341,12 @@ public partial class GameCanvas {
         }
     }
 
+    public void UpdateWashizuRoles(int[] teams, string[] roles, Dictionary<int, string> positions) {
+        if (teams == null || roles == null || teams.Length != 4 || roles.Length != 4 || positions == null) return;
+        for (int i = 0; i < 4; i++)
+            if (positions.TryGetValue(i, out string position)) GetPanelByPosition(position)?.SetWashizuRole(teams[i], roles[i]);
+    }
+
     public void UpdateSichuanTeams(int[] teams, Dictionary<int, string> positions = null, bool keepDingque = false) {
         if (teams == null || teams.Length != 4) return;
         positions = positions ?? NormalGameStateManager.Instance?.indexToPosition;

@@ -16,10 +16,11 @@ public static class RiichiSanmaValidation {
         }
         var catalog = JObject.Parse(Resources.Load<TextAsset>("RiichiRuleOptions").text);
         Check(RiichiLobby.SubRules.Any(rule => rule.Key == "riichi/sanma"), "riichi subrule registered");
-        Check(catalog["presets"].Count() == 6 && catalog["options"].Count() == 41, "complete catalogue");
+        Check(catalog["presets"].Count() == 6 && catalog["options"].Count() == 42, "complete catalogue");
         foreach (int index in new[] {4,5}) {
             Check(RiichiRoomRules.Presets[index].SubRule == "riichi/sanma", "preset subrule " + index);
             Check((int)RiichiRoomRules.Presets[index].Room["starting_score"] == 35000, "starting score " + index);
+            Check((int)RiichiRoomRules.Presets[index].Values["riichi_min_live_tiles"] == 3, "last riichi needs three live tiles " + index);
         }
         Check(RiichiRoundText.SanmaName(3) == "东三局" && RiichiRoundText.SanmaName(4) == "南一局"
             && RiichiRoundText.SanmaName(7) == "西一局" && RiichiRoundText.SanmaName(12) == "北三局", "three hands per wind");

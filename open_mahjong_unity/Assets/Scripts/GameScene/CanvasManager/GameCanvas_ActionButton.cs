@@ -82,7 +82,7 @@ public partial class GameCanvas : MonoBehaviour {
         actionButton.enabled = false;
         TMP_Text label = actionButton.TextObject;
         ConfigureActionButtonText(label);
-        label.text = StandardActionCaptions.Resolve(null, "riichi_cut_cancel");
+        label.text = ButtonCaption("riichi_cut_cancel");
         label.raycastTarget = false;
         Button button = actionButton.GetComponent<Button>();
         button.onClick = new Button.ButtonClickedEvent();
@@ -343,7 +343,7 @@ public partial class GameCanvas : MonoBehaviour {
                 Debug.Log($"补花");
                 ActionButton ActionButtonObj = CreateActionButton(colorPreset);
                 TMP_Text buttonText = ActionButtonObj.TextObject;
-                buttonText.text = action_list[i] == "nuki" ? "拔北" : "补花";
+                buttonText.text = ButtonCaption(action_list[i]);
                 Debug.Log($"补花按钮: {ActionButtonObj}");
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
@@ -392,11 +392,11 @@ public partial class GameCanvas : MonoBehaviour {
                 chiButton.actionTypeList.Add(action_list[i]);
                 Debug.Log($"添加吃牌选项: {action_list[i]}");
             }
-            // 九老峰回
+            // 共用协议动作，日麻为九种九牌，古典为九老峰回。
             else if (action_list[i] == "jiuzhongjiupai"){
                 ActionButton ActionButtonObj = CreateActionButton(colorPreset);
                 TMP_Text buttonText = ActionButtonObj.TextObject;
-                buttonText.text = "九老峰回";
+                buttonText.text = ButtonCaption("jiuzhongjiupai");
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
             // 听牌声明（仅在服务器允许时下发；点击后进入声明切牌选择模式）

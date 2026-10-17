@@ -1,16 +1,16 @@
 """Physical Fuzhou tiles and five-meld scoring; no transport or mutable state.
 
-The golden indicator is removed from play. Its remaining three physical copies
-are wild only inside a winning closed hand. All honours are replacement flowers.
+The golden indicator is set aside unless claimed by qiangjin. Its remaining
+copies are wild only inside a winning closed hand. All honours are flowers.
 """
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 
 from ..jokers import JokerPolicy, can_win, structural_waits, iter_winning_shapes, can_form_melds
 
 SUB_RULE = "fuzhou/standard"
-VERSION = "fuzhou-user-20261014-v1"
+VERSION = "fuzhou-user-20261015-v2"
 NUMBERS = tuple(s * 10 + n for s in (1, 2, 3) for n in range(1, 10))
 HONORS = tuple(range(41, 48))
 FLOWERS = HONORS + tuple(range(51, 59))
@@ -24,18 +24,18 @@ def normalize_config(raw=None):
         raise ValueError("未知福州馆规设置")
     if raw.get("rule_version", VERSION) != VERSION:
         raise ValueError("不支持的福州规则版本")
-    base = raw.get("base_score", 10)
+    base = raw.get("base_score", 15)
     if type(base) is not int or base not in (10, 15, 20):
         raise ValueError("福州底分只能为10、15或20")
     return dict(rule_version=VERSION, base_score=base)
 
 
-@lru_cache(maxsize=27)
-def policy(jin):
+@lru_cache(maxsize=54)
+def policy(jin, indicator_claimed=False):
     if type(jin) is not int or jin not in NUMBERS:
         raise ValueError("金指示牌必须是序数牌")
     return JokerPolicy(joker_tiles=(jin,), logical_tiles=NUMBERS,
-                       physical_tiles=NUMBERS, physical_limits=((jin, 3),), meld_count=5)
+                       physical_tiles=NUMBERS, physical_limits=((jin, 4 if indicator_claimed else 3),), meld_count=5)
 
 
 def meld_tiles(meld):
@@ -54,7 +54,7 @@ def meld_tiles(meld):
     return (tile,) * (3 if meld[0] == "k" else 4)
 
 
-def valid_tiles(hand, melds=(), flowers=(), *, jin=None, allow_flowers=False):
+def valid_tiles(hand, melds=(), flowers=(), *, jin=None, allow_flowers=False, indicator_claimed=False):
     try:
         if jin is not None:
             policy(jin)
@@ -67,13 +67,13 @@ def valid_tiles(hand, melds=(), flowers=(), *, jin=None, allow_flowers=False):
         if jin in physical:
             return False
         counts = Counter(list(hand) + physical + list(flowers))
-        return all(n <= (1 if t >= 51 else 3 if t == jin else 4) for t, n in counts.items())
+        return all(n <= (1 if t >= 51 else 3 if t == jin and not indicator_claimed else 4) for t, n in counts.items())
     except (ValueError, TypeError):
         return False
 
 
-def is_complete(hand, melds=(), *, jin):
-    return valid_tiles(hand, melds, jin=jin) and can_win(hand, melds, policy=policy(jin))
+def is_complete(hand, melds=(), *, jin, indicator_claimed=False):
+    return valid_tiles(hand, melds, jin=jin, indicator_claimed=indicator_claimed) and can_win(hand, melds, policy=policy(jin, indicator_claimed))
 
 
 def waiting_tiles(hand, melds=(), *, jin):
@@ -93,9 +93,10 @@ def flower_points(flowers):
 
 
 def reserved_tiles(players):
-    """Four identical honour flowers extend the wall once, without double fees."""
+    """Each complete honour or seasonal flower group extends the wall once."""
     return 18 + sum(sum(1 if m[0] == "g" else 2 if m[0] == "G" else 0 for m in melds)
                     + 2 * sum(Counter(flowers)[t] == 4 for t in HONORS)
+                    + 2 * sum(all(t in flowers for t in group) for group in (range(51, 55), range(55, 59)))
                     for melds, flowers in players)
 
 
@@ -141,18 +142,18 @@ class WinContext:
     qiangjin: bool = False
     golden_middle: bool = False
     youjin: int = 0
+    last_four: bool = False
 
 
-def _shape_patterns(shape, hand, melds, jin, context):
+def _pattern_rows(hand, melds, jin, *, all_pungs, gold_dragon, gold_pair):
     patterns = []
-    if all(g.kind in ("triplet", "kong") for g in shape.melds):
-        patterns.append(("all_pungs", 15, "碰碰胡"))
+    if all_pungs:
+        patterns.append(("all_pungs", 15, "碰碰和"))
     if len(hand) == 2 and len(melds) == 5:
         patterns.append(("single_pair", 60, "大吊车"))
-    if any(g.kind == "triplet" and g.logical == (jin,) * 3 and g.physical == (jin,) * 3
-           and not g.external for g in shape.groups):
+    if gold_dragon:
         patterns.append(("gold_dragon", 120, "金龙"))
-    if context.youjin != 2 and any(g.kind == "pair" and g.physical == (jin, jin) for g in shape.groups):
+    if gold_pair:
         patterns.append(("gold_pair", 60, "金雀"))
     physical = list(hand) + [t for m in melds for t in meld_tiles(m)]
     natural_suits = {t // 10 for t in physical if t != jin}
@@ -161,8 +162,57 @@ def _shape_patterns(shape, hand, melds, jin, context):
     return patterns
 
 
-def score_hand(hand, melds=(), flowers=(), *, jin, context=None, base_score=10, special=None):
-    """Return a full decomposition-backed additive quote, or None.
+def _shape_patterns(shape, hand, melds, jin, context):
+    return _pattern_rows(hand, melds, jin,
+        all_pungs=all(g.kind in ("triplet", "kong") for g in shape.melds),
+        gold_dragon=any(g.kind == "triplet" and g.physical == (jin,) * 3
+                        and not g.external for g in shape.groups),
+        gold_pair=any(g.kind == "pair" and g.physical == (jin, jin) for g in shape.groups))
+
+
+def _can_all_pungs(hand, melds, jin, *, needs_pair):
+    if any(m[0] == "s" for m in melds):
+        return False
+    counts = Counter(t for t in hand if t != jin)
+    gold = hand.count(jin)
+    # No logical copy cap applies in Fuzhou. Once the pair is selected, each
+    # natural face has one exact minimum wildcard cost to complete triplets.
+    for pair in (None, *counts) if needs_pair else (None,):
+        pair_cost = max(0, 2-counts.get(pair, 0)) if needs_pair else 0
+        needed = sum((-max(0, n-(2 if pair == t else 0))) % 3 for t, n in counts.items())
+        if pair_cost+needed <= gold and (gold-pair_cost-needed) % 3 == 0:
+            return True
+    return False
+
+
+def _best_pattern_rows(hand, melds, jin, context):
+    """Exact scoring projection when no physical decomposition is requested.
+
+    At most four gold tiles are physical, so gold dragon and gold pair cannot
+    coexist. Dragon (120) always outranks pair (60) plus all pungs (15).
+    Reserve that physical group, then check the remaining structure and whether
+    the same allocation can also be all pungs. Suit and single-pair awards are
+    invariant across decompositions. No wildcard assignment is approximated.
+    """
+    gold = hand.count(jin)
+    natural = [t for t in hand if t != jin]
+    current_policy = policy(jin, context.qiangjin)
+    for size in (3, 2, 0):
+        if gold < size:
+            continue
+        rest = natural + [jin]*(gold-size)
+        if size == 3 and not can_win(rest, melds, replace(current_policy, meld_count=4)):
+            continue
+        if size == 2 and not can_form_melds(rest, melds, policy=current_policy):
+            continue
+        return _pattern_rows(hand, melds, jin,
+            all_pungs=_can_all_pungs(rest, melds, jin, needs_pair=size != 2),
+            gold_dragon=size == 3, gold_pair=size == 2)
+
+
+def score_hand(hand, melds=(), flowers=(), *, jin, context=None, base_score=15, special=None,
+               include_witness=True):
+    """Return an additive quote, with a physical decomposition by default.
 
     Special automatic-shape wins are explicit so the state machine owns the
     choice and precedence. They suppress other special patterns, not base items.
@@ -174,33 +224,45 @@ def score_hand(hand, melds=(), flowers=(), *, jin, context=None, base_score=10, 
         raise ValueError("非法底分")
     if type(context.dealer_streak) is not int or context.dealer_streak < 0 or context.youjin not in (0, 1, 2):
         raise ValueError("非法连庄或游金状态")
-    if not valid_tiles(hand, melds, flowers, jin=jin, allow_flowers=special == "flower"):
+    # Once twenty flowers were already exposed, a final-four flower completes
+    # the mandatory win decision without being exposed or replaced itself.
+    final_flower = (context.last_four and context.source == "self_draw"
+                    and special in ("flower", "three_gold") and len(flowers) >= 20
+                    and bool(hand) and hand[-1] in FLOWERS
+                    and all(t in NUMBERS for t in hand[:-1]))
+    if not valid_tiles(hand, melds, flowers, jin=jin, allow_flowers=final_flower,
+                       indicator_claimed=context.qiangjin):
         return None
     if context.source in ("discard", "rob_kong") and context.winning_tile == jin:
         return None
+    if special is not None and context.source != "self_draw":
+        return None
     patterns, witness = [], None
     if special == "flower":
-        if len(flowers) < 20:
+        if len(flowers) < 20 or len(hand) + len(melds) * 3 != 17:
             return None
-        patterns = [("flower_win", 60, "花胡")]
+        patterns = [("flower_win", 60, "花和")]
     elif special == "three_gold":
-        if hand.count(jin) != 3 or len(hand) + len(melds) * 3 not in (16, 17):
+        if hand.count(jin) != 3 or len(hand) + len(melds) * 3 != 17:
             return None
         patterns = [("three_gold", 40, "三金倒")]
     elif special is not None:
         return None
     else:
-        if not is_complete(hand, melds, jin=jin):
+        if not is_complete(hand, melds, jin=jin, indicator_claimed=context.qiangjin):
             return None
-        winning_index = len(hand) - 1 if context.winning_tile is not None and hand[-1] == context.winning_tile else None
-        best = -1
-        for shape in iter_winning_shapes(hand, melds, policy=policy(jin), winning_index=winning_index):
-            candidate = _shape_patterns(shape, hand, melds, jin, context)
-            value = sum(row[1] for row in candidate)
-            if value > best:
-                patterns, best = candidate, value
-                witness = dict(assignment=list(shape.assignment),
-                               groups=[dict(kind=g.kind, physical=list(g.physical), logical=list(g.logical)) for g in shape.groups])
+        if not include_witness:
+            patterns = _best_pattern_rows(hand, melds, jin, context)
+        else:
+            winning_index = len(hand) - 1 if context.winning_tile is not None and hand[-1] == context.winning_tile else None
+            best = -1
+            for shape in iter_winning_shapes(hand, melds, policy=policy(jin, context.qiangjin), winning_index=winning_index):
+                candidate = _shape_patterns(shape, hand, melds, jin, context)
+                value = sum(row[1] for row in candidate)
+                if value > best:
+                    patterns, best = candidate, value
+                    witness = dict(assignment=list(shape.assignment),
+                                   groups=[dict(kind=g.kind, physical=list(g.physical), logical=list(g.logical)) for g in shape.groups])
         if context.after_ready_kong:
             patterns.append(("kong_draw", 10, "杠上开花"))
         if context.source == "rob_kong":
@@ -210,7 +272,7 @@ def score_hand(hand, melds=(), flowers=(), *, jin, context=None, base_score=10, 
         if not flowers and not any(m[0] in "gG" for m in melds):
             patterns.append(("no_flowers_kongs", 30, "无花无杠"))
         if context.heavenly:
-            patterns.append(("heavenly", 40, "天胡"))
+            patterns.append(("heavenly", 40, "天和"))
         if context.qiangjin:
             patterns.append(("qiangjin", 30, "抢金"))
         if context.golden_middle:

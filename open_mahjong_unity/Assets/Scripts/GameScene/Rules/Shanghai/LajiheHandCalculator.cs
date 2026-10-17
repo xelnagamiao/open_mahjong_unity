@@ -42,7 +42,7 @@ internal static class LajiheHandCalculator {
         bool honors = all.All(t => t >= 41);
         int suits = all.Where(t => t < 40).Select(t => t / 10).Distinct().Count();
         bool mixed = all.Any(t => t >= 41);
-        int best = 0, bestFan = 0, bestBasic = 0;
+        int best = 0, bestRaw = 0, bestFan = 0, bestBasic = 0;
         void Candidate(int basic, int fan, IEnumerable<string> sets) {
             int physical = flowers;
             foreach (string code in melds.Concat(sets)) {
@@ -50,15 +50,17 @@ internal static class LajiheHandCalculator {
                 physical += int.Parse(code.Substring(1)) >= 41 ? 1 : 0;
                 physical += code[0] == 'G' ? 2 : code[0] == 'g' ? 1 : 0;
             }
-            if (basic == 5 && physical < 2 && !selfDraw && !robKong) return;
+            if (basic == 5 && physical < 2 && !selfDraw && !robKong && melds.Count != 4) return;
             int extra = (selfDraw || robKong) ? (basic == 5 ? 5 : 10) + (selfDrawExtraBase ? 5 : 0) : 0;
             if (melds.Count == 4) extra += 5;
             if (selfDraw && replacement && !robKong) extra += 5;
-            int points = (basic + extra + FlowerPoints(physical)) * (1 << fan);
+            int raw = (basic + extra + FlowerPoints(physical)) * (1 << fan);
+            int points = selfDraw || robKong ? Math.Min(raw, 30) : raw;
             int basicPoints = basic * (1 << fan);
             // 与服务端采用同一个择高结果，提示番数不能从总分反推。
-            if (points > best || (points == best && basicPoints > bestBasic)) {
+            if (raw > bestRaw || (raw == bestRaw && basicPoints > bestBasic)) {
                 best = points;
+                bestRaw = raw;
                 bestFan = fan;
                 bestBasic = basicPoints;
             }

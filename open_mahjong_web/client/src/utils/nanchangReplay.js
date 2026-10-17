@@ -1,3 +1,4 @@
+import {localHintRows} from './localHintSnapshots.js'
 export function parseNanchangFan(label) {
   const fields=String(label || '').split('|')
   return fields.length>=4 && fields[0]==='NC' ? {name:fields[3],value:fields[1]+fields[2]} : null
@@ -17,7 +18,8 @@ export function nanchangWaitsAt(round,node,seat,hand) {
   let cache=object(round?.nanchang_hints?.[seat]) || {}
   for(const tick of (round?.action_ticks || []).slice(0,Math.max(0,node)))
     if(tick[0]==='nanchang' && tick[1]==='waits' && Number(tick[2])===seat)cache=object(tick[3]) || {}
-  return cache[[...hand].sort((a,b)=>a-b).join(',')] || []
+  const request=cache.__local__?.[0]?.local_request
+  return request?localHintRows(request,hand):cache[[...hand].sort((a,b)=>a-b).join(',')] || []
 }
 export function nanchangHint(wait) {
   if(!wait || wait.status==='unmet')return {label:'未满足',kind:'wuyi'}

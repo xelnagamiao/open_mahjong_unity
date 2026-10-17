@@ -401,12 +401,14 @@ test('retired non-Guobiao duplicate defaults cannot turn into automatic ordinary
   assert.equal(clean.manual.room_rule, 'riichi');
   assert.equal(clean.manual.room_config.starting_score, 30000);
   assert.equal(clean.manual.room_config.step_timer, 12);
-  assert.equal('duplicate_key' in clean.manual.room_config || 'red_dora' in clean.manual.room_config, false);
+  assert.equal('duplicate_key' in clean.manual.room_config, false);
+  assert.equal(clean.manual.room_config.red_dora, false);
   assert.equal(clean.presets[0].preset_id, 'old-riichi');
   assert.equal(clean.presets[0].room_rule, 'riichi');
   assert.equal(clean.presets[0].room_config.starting_score, 40000);
   assert.equal(clean.presets[0].room_config.round_timer, 42);
-  assert.equal('duplicate_key' in clean.presets[0].room_config || 'red_dora' in clean.presets[0].room_config, false);
+  assert.equal('duplicate_key' in clean.presets[0].room_config, false);
+  assert.equal(clean.presets[0].room_config.red_dora, false);
   assert.equal(readRoomSettings({ ...stored, auto_match: { enabled: true, preset_id: 'old-riichi' } }).auto_match.enabled, false);
   assert.equal(stored.manual.room_config.duplicate_key, `dup_${'b'.repeat(32)}`);
   assert.equal(stored.presets[0].room_config.red_dora, false);

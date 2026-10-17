@@ -250,7 +250,10 @@ def test_private_packets_reconnect_and_hidden_kong():
         state=make_state();p=state.player_list[0];p.hand_tiles=list(PLAIN[:-1])
         for q in state.player_list: state.game_server.user_id_to_connection[q.user_id]=SimpleNamespace(websocket=AsyncMock())
         await state.prepare_private_fields(range(4))
-        assert state.build_private_game_info_fields(0)['singapore_hints']['waiting_details'][25]['kind']=='zimo'
+        preview=state.build_private_game_info_fields(0)['singapore_hints']
+        assert 'waiting_details' not in preview
+        assert preview['local_request']['rule']=='singapore'
+        assert preview['local_request']['hand']==list(PLAIN[:-1])
         p.combination_mask=[[2,45]*4];p.combination_tiles=['G45']
         await broadcast_do_action(state,['angang'],0,combination_mask=[2,45]*4,combination_target='G45')
         packet=state.game_server.user_id_to_connection[102].websocket.send_json.await_args.args[0]
@@ -292,14 +295,18 @@ def test_eight_flowers_auto_win_interrupts_opening_replacement():
     asyncio.run(run())
 
 
-def test_hint_worker_does_not_publish_result_for_changed_hand(monkeypatch):
+def test_local_hint_inputs_refresh_after_hand_changes_without_server_worker(monkeypatch):
     async def run():
         state=make_state();state.player_list[0].hand_tiles=list(PLAIN[:-1])
-        async def worker(s,fn,*args):
-            value=fn(*args)
-            state.player_list[0].hand_tiles[0]=19
-            return value
-        monkeypatch.setattr('server.gamestate.game_singapore.SingaporeGameState.run_room_bot_cpu',worker)
+        worker=AsyncMock(side_effect=AssertionError('UI previews must stay on the client'))
+        monkeypatch.setattr('server.gamestate.public.ai.bot_executor.run_room_bot_cpu',worker)
         await state.prepare_private_fields([0])
-        assert 'singapore_hints' not in state.build_private_game_info_fields(0)
+        before=state.build_private_game_info_fields(0)['singapore_hints']
+        state.player_list[0].hand_tiles[0]=19
+        await state.prepare_private_fields([0])
+        after=state.build_private_game_info_fields(0)['singapore_hints']
+        assert before['local_request']['hand']==list(PLAIN[:-1])
+        assert after['local_request']['hand']==state.player_list[0].hand_tiles
+        assert 'waiting_details' not in after
+        worker.assert_not_awaited()
     asyncio.run(run())

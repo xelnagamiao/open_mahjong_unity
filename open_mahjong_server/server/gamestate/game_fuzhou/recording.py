@@ -1,5 +1,5 @@
 from ..public import game_record_manager as record
-from .hints import build_hints
+from .client_context import local_context
 
 
 class Recording:
@@ -60,7 +60,7 @@ class Recording:
 
     def record_hints(self):
         if self._has_active_round_record():
-            record.append_action_tick(self,["fuzhou","hints",[build_hints(self,i) for i in range(4)]])
+            record.append_action_tick(self,["fuzhou","hints",[local_context(self,i) for i in range(4)]])
 
     def finalize_round_recording(self):
         if not self._has_active_round_record():

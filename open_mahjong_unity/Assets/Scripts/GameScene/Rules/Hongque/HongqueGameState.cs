@@ -38,12 +38,14 @@ public sealed class HongqueGameState : GameStateBase {
     private int lastProcessedEventId;
     private bool selfHasUnmergedDraw;
     private bool gameEndShown;
+    private Coroutine multiRonSequence;
     private string lastActionUiKey;
     private string lastTipsUiKey;
     private int lastDiscardTileId;
     private int lastDiscardPlayerIndex = -1;
 
     private static MonoBehaviour Host => GameSession.Current.Host;
+    private static bool IsSpectating => GameSession.Current.IsRealtimeSpectator;
 
     // ---- IGameState ----
 
@@ -53,7 +55,7 @@ public sealed class HongqueGameState : GameStateBase {
             case "reconnect":
             case "update":
                 ApplyState(response.gamestate_id, response.hongque_state);
-                if (response.hongque_state != null && response.hongque_state.sync_mode == "reconnect") {
+                if (!IsSpectating && response.hongque_state != null && response.hongque_state.sync_mode == "reconnect") {
                     AutoReconnect.OnGameRestored();
                 }
                 return true;
@@ -75,17 +77,20 @@ public sealed class HongqueGameState : GameStateBase {
     }
 
     public override bool TryChooseAction(string actionType) {
+        if (IsActive && IsSpectating) return true;
         return IsActive && TryChooseEncodedAction(actionType);
     }
 
     public override bool TryCutTile(int tileId) {
         if (!IsActive || !HongqueTileVisual.IsHongqueId(tileId)) return false;
+        if (IsSpectating) return true;
         SendDiscard(tileId);
         return true;
     }
 
     public override bool TryConfirmRoundResult() {
         if (!IsActive || !IsRoundEnd) return false;
+        if (IsSpectating) return true;
         ConfirmRoundResult();
         return true;
     }
@@ -111,6 +116,7 @@ public sealed class HongqueGameState : GameStateBase {
     }
 
     public override void OnSessionReset() {
+        StopResultSequence();
         state = null;
         gamestateId = null;
         tableInitialized = false;
@@ -174,8 +180,16 @@ public sealed class HongqueGameState : GameStateBase {
 
         bool reconnectRestore = state.sync_mode == "reconnect";
         bool roundStart = state.sync_mode == "round_start";
-        HongqueEventInfo openingDraw = reconnectRestore ? null : FindOpeningDrawEvent(state);
-        if (!tableInitialized || newMatch || reconnectRestore || roundStart) {
+        HongqueEventInfo openingDraw = reconnectRestore ? state.pending_draw : FindOpeningDrawEvent(state);
+        bool rebuildTable = !tableInitialized || newMatch || reconnectRestore || roundStart;
+        if (rebuildTable) {
+            StopResultSequence();
+            gameEndShown = false;
+            // Rebuilding the table also clears controls, even at the same action tick.
+            lastActionUiKey = null;
+            lastTipsUiKey = null;
+            lastDiscardTileId = 0;
+            lastDiscardPlayerIndex = -1;
             GameInfo tableState = BuildGameInfo(openingDraw);
             NormalGameStateManager.Instance.InitializeGame(true, state.message, tableState);
             tableInitialized = true;
@@ -185,6 +199,15 @@ public sealed class HongqueGameState : GameStateBase {
                 ApplyIncrementalEvent(openingDraw);
             }
             MarkEventsProcessed(state);
+            if (state.last_discard != null) {
+                lastDiscardTileId = HongqueTileVisual.FromCode(state.last_discard.tile);
+                lastDiscardPlayerIndex = state.last_discard.player;
+                var gsm = NormalGameStateManager.Instance;
+                if (gsm.indexToPosition.TryGetValue(lastDiscardPlayerIndex, out string discardPosition)) {
+                    gsm.lastDiscardPlayerPosition = discardPosition;
+                    Game3DManager.Instance.SyncRecordLastDiscardForRon(discardPosition, lastDiscardTileId);
+                }
+            }
         } else if (state.phase == "round_end" || state.phase == "game_end") {
             // The hand/table mutations have already arrived as incremental
             // events.  Settlement is an overlay and must not rebuild the table.
@@ -194,7 +217,7 @@ public sealed class HongqueGameState : GameStateBase {
             // protocol error, never permission to reconstruct the table.
             ApplyEventBatch(state);
         }
-        ShowRoundResult(previousState, state);
+        ShowRoundResult(previousState, state, rebuildTable);
         if (state.phase == "round_end" || state.phase == "game_end") {
             // Settlement owns the UI until the shared ready phase completes.
             // Do not let the generic no-action branch manufacture a new timer.
@@ -253,6 +276,7 @@ public sealed class HongqueGameState : GameStateBase {
     }
 
     private async void Send(string action, string tile = null, string candidateId = null) {
+        if (!IsActive || IsSpectating) return;
         try {
             var request = new {
                 type = "gamestate/hongque/action",
@@ -275,7 +299,7 @@ public sealed class HongqueGameState : GameStateBase {
             return;
         }
         List<string> actions = new List<string>();
-        string[] legalActions = state.legal_actions ?? Array.Empty<string>();
+        string[] legalActions = IsSpectating ? Array.Empty<string>() : state.legal_actions ?? Array.Empty<string>();
         if (legalActions.Contains("discard")) actions.Add("cut");
         if (legalActions.Contains("win")) actions.Add(HongqueActionWords.Win);
         if (legalActions.Contains("supplement")) actions.Add(HongqueActionWords.Supplement);
@@ -319,6 +343,11 @@ public sealed class HongqueGameState : GameStateBase {
             gsm.SwitchCurrentPlayer(
                 "self", switchType, state.remaining_time, state.you,
                 false, null, state.step_remaining);
+        } else if (IsSpectating) {
+            gsm.SwitchCurrentPlayer("None", "ClearAction", 0);
+            if (gsm.indexToPosition.TryGetValue(state.current_player, out string position)) {
+                BoardCanvas.Instance.ShowCurrentPlayer(position, state.wall_count);
+            }
         } else if (state.phase != "turn") {
             // resolving 是出牌事件与鸣牌询问之间的中间帧；claim 无操作表示本家
             // 已经回答。两者都只能清理输入，不能用 AskHandAction(0, ...)
@@ -356,7 +385,10 @@ public sealed class HongqueGameState : GameStateBase {
             state.count_tips.ToString(),
             state.current_player.ToString(),
             state.you.ToString(),
-            state.win_hint?.tile ?? string.Empty,
+            state.local_win_context?.tile ?? state.win_hint?.tile ?? string.Empty,
+            state.local_win_context?.self_draw.ToString() ?? string.Empty,
+            state.local_win_context?.before_first_discard.ToString() ?? string.Empty,
+            state.wall_count.ToString(),
             lastDiscardTileId.ToString(),
             handKey,
             meldKey
@@ -369,7 +401,13 @@ public sealed class HongqueGameState : GameStateBase {
             return;
         }
         HongqueScoreHintInfo[] waits = Array.Empty<HongqueScoreHintInfo>();
-        bool showStableWaits = state.win_hint == null
+        HongqueScoreHintInfo winHint = state.win_hint;
+        if (state.local_win_context != null && gsm != null && gsm.player_to_info != null
+                && gsm.player_to_info.TryGetValue("self", out PlayerInfoClass currentMelds)) {
+            winHint = HongqueScoring.BuildWinHint(gsm.selfHandTiles,
+                currentMelds.combination_masks, state.local_win_context);
+        }
+        bool showStableWaits = winHint == null
             && (state.phase == "turn" || state.phase == "claim")
             && !(state.phase == "turn" && state.current_player == state.you);
         if (showStableWaits && gsm != null && gsm.player_to_info != null
@@ -379,8 +417,8 @@ public sealed class HongqueGameState : GameStateBase {
                 selfMelds.combination_masks,
                 lastDiscardPlayerIndex == state.you ? lastDiscardTileId : (int?)null);
         }
-        if (state.win_hint != null || waits.Length > 0) {
-            TipsBlock.Instance.ShowHongqueTips(waits, state.win_hint);
+        if (winHint != null || waits.Length > 0) {
+            TipsBlock.Instance.ShowHongqueTips(waits, winHint);
             return;
         }
         TipsBlock.Instance.HideTipsBlock();
@@ -643,9 +681,16 @@ public sealed class HongqueGameState : GameStateBase {
         Send("ready");
     }
 
-    private void ShowRoundResult(HongqueStateInfo previous, HongqueStateInfo current) {
+    private void StopResultSequence() {
+        if (multiRonSequence != null && Host != null) Host.StopCoroutine(multiRonSequence);
+        multiRonSequence = null;
+        RoundEndPresentation.Instance?.StopActiveSequence();
+    }
+
+    private void ShowRoundResult(HongqueStateInfo previous, HongqueStateInfo current, bool restored) {
         if (current?.round_result == null || current.phase != "round_end") return;
-        if (previous != null && previous.phase == "round_end" && previous.action_tick == current.action_tick) return;
+        if (!restored && previous != null && previous.phase == "round_end"
+                && previous.round == current.round && previous.action_tick == current.action_tick) return;
         int[] winners = current.round_result.winner_indices ?? Array.Empty<int>();
         NormalGameStateManager gsm = NormalGameStateManager.Instance;
         if (current.round_result.scores == null || current.round_result.scores.Count != 4) {
@@ -656,7 +701,7 @@ public sealed class HongqueGameState : GameStateBase {
         gsm.SwitchCurrentPlayer("None", "ClearAction", 0);
         TipsBlock.Instance?.HideTipsBlock();
         TipsContainer.Instance?.HideTips();
-        RecordScoreboardSettlements(current, scores);
+        RecordScoreboardSettlements(current, restored);
         foreach (KeyValuePair<int, string> seat in gsm.indexToPosition) {
             if (scores.TryGetValue(seat.Key, out int score) && gsm.player_to_info.TryGetValue(seat.Value, out PlayerInfoClass info)) {
                 info.score = score;
@@ -668,13 +713,14 @@ public sealed class HongqueGameState : GameStateBase {
             return;
         }
         if (current.round_result.winners == null || current.round_result.winners.Length == 0) return;
+        // Ready status may arrive while hands are still being revealed.
+        EndResultPanel.Instance?.BeginGameResultLifecycle();
 
         if (current.round_result.multi_ron && current.round_result.winners.Length > 1) {
             // 多家和：按服务端座位顺序依次展示每位赢家的结算面板，
             // 中间面板自动关闭，最后一家才进入确认/准备阶段。
-            EndResultPanel.Instance?.BeginGameResultLifecycle();
             EndResultPanel.Instance?.SetReadyStatusVisible(false);
-            Host.StartCoroutine(ShowMultiRonSequence(current, scores));
+            multiRonSequence = Host.StartCoroutine(ShowMultiRonSequence(current, scores));
             return;
         }
 
@@ -686,36 +732,38 @@ public sealed class HongqueGameState : GameStateBase {
         PresentHuResult(result, scores, current, finalPanel: true);
     }
 
-    private static void RecordScoreboardSettlements(
-        HongqueStateInfo current, Dictionary<int, int> finalScores) {
+    private static void RecordScoreboardSettlements(HongqueStateInfo current, bool restored) {
         NormalGameStateManager gsm = NormalGameStateManager.Instance;
         if (gsm == null || current?.round_result == null) return;
         HongqueWinnerResultInfo[] winners = current.round_result.winners
             ?? Array.Empty<HongqueWinnerResultInfo>();
-        if (winners.Length == 0) {
-            gsm.AppendExternalRoundSettlementSnapshot(
-                -1, finalScores, 0, Array.Empty<string>(), "liuju",
-                Array.Empty<int>(), Array.Empty<int[]>(), null,
-                new Dictionary<int, int>());
-            return;
+        int count = Math.Max(1, winners.Length);
+        int scoreRows = gsm.player_to_info.Values.Max(info => info.score_history?.Count ?? 0);
+        if (restored) {
+            // Full snapshots already include these score rows. Restore only their
+            // explanations, without adding scores or duplicate history entries.
+            while (gsm.roundSettlementHistory.Count < scoreRows) gsm.roundSettlementHistory.Add(null);
         }
-        // 服务端 score_history 按整局只追加一行；多家和的逐家面板仍分别展示，
-        // 但计分板必须合并成同一局的一行，否则下一局同步时行数不一致会清空快照。
-        int primaryWinnerIndex = current.round_result.winner_indices?.FirstOrDefault()
-            ?? winners.FirstOrDefault(item => item != null)?.player
-            ?? -1;
-        HongqueWinnerResultInfo result = winners.FirstOrDefault(
-            item => item != null && item.player == primaryWinnerIndex)
-            ?? winners.FirstOrDefault(item => item != null);
-        if (result == null) return;
-        string huClass = current.round_result.reason == "self_draw" ? "hu_self" : "hu";
-        Dictionary<int, int> roundChanges = current.round_result.score_changes != null
-            ? new Dictionary<int, int>(current.round_result.score_changes)
-            : new Dictionary<int, int>();
-        gsm.AppendExternalRoundSettlementSnapshot(
-            result.player, finalScores, result.points, BuildFanTokens(result), huClass,
-            ConvertTiles(result.hand), BuildResultMeldMasks(result.melds),
-            result.@base, roundChanges);
+        for (int i = 0; i < count; i++) {
+            HongqueWinnerResultInfo result = winners.Length == 0 ? null : winners[i];
+            int winner = result?.player ?? -1;
+            var changes = new Dictionary<int, int>();
+            foreach (int seat in gsm.indexToPosition.Keys) changes[seat] = seat == winner ? result.points : 0;
+            string huClass = result == null ? "liuju"
+                : current.round_result.reason == "self_draw" ? "hu_self" : "hu";
+            string username = winner >= 0 ? gsm.player_to_info[gsm.indexToPosition[winner]].username : "";
+            var snapshot = ScoreHistorySettlementHelper.CreateFromShowResult(
+                gsm.subRule, huClass, winner, username, result?.points ?? 0, BuildFanTokens(result),
+                ConvertTiles(result?.hand), BuildResultMeldMasks(result?.melds),
+                result?.@base, null, null, changes);
+            if (restored) {
+                int row = scoreRows - count + i;
+                if (row >= 0) gsm.roundSettlementHistory[row] = snapshot;
+            } else {
+                SettlementPresenter.Current.AppendScoreboard(snapshot, changes);
+            }
+        }
+        GameSceneUIManager.Instance.UpdateScoreRecord();
     }
 
     private static string[] BuildFanTokens(HongqueWinnerResultInfo result) {
@@ -809,7 +857,7 @@ public sealed class HongqueGameState : GameStateBase {
         string[] fanTokens = BuildFanTokens(result);
         string huClass = current.round_result.reason == "self_draw" ? "hu_self" : "hu";
         // 与其他麻将规则共用完整结算链：清操作与提示 -> 和牌字样/音效 -> 3D 倒牌 -> 结算面板。
-        // room_rule=hongque 会使用普通荣和的原地倒牌，不会进入国标“从河里拿回和牌张”的分支。
+        // 荣和复用河牌移入流程，计分用完整手牌只传给通用结算，不改变桌面手牌数据。
         yield return RoundEndPresentation.Instance.PresentHuResultSequenceCoroutine(
             result.player, scores, result.points, fanTokens, huClass,
             ConvertTiles(result.hand), Array.Empty<int>(),
@@ -828,7 +876,7 @@ public sealed class HongqueGameState : GameStateBase {
         string[] fanTokens = BuildFanTokens(result);
         string huClass = current.round_result.reason == "self_draw" ? "hu_self" : "hu";
         // 与其他麻将规则共用完整结算链：清操作与提示 -> 和牌字样/音效 -> 3D 倒牌 -> 结算面板。
-        // room_rule=hongque 会使用普通荣和的原地倒牌，不会进入国标“从河里拿回和牌张”的分支。
+        // 荣和复用河牌移入流程，计分用完整手牌只传给通用结算，不改变桌面手牌数据。
         RoundEndPresentation.Instance.PresentHuResultSequence(
             result.player, scores, result.points, fanTokens, huClass,
             ConvertTiles(result.hand), Array.Empty<int>(),
@@ -929,8 +977,10 @@ public sealed class HongqueGameState : GameStateBase {
         return new GameInfo {
             room_id = state.room_id,
             gamestate_id = gamestateId,
+            view_player_index = IsSpectating ? state.you : (int?)null,
             tips = state.tips,
             count_tips = state.count_tips,
+            pointer_tips = state.pointer_tips,
             current_player_index = state.current_player,
             action_tick = state.action_tick,
             max_round = state.max_round,

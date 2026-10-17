@@ -130,10 +130,17 @@
           :value="appearance.tileFaceTheme"
           @change="$emit('tile-face-theme', $event.target.value)"
         >
-          <option value="regular">标准白色</option>
-          <option value="black">FluffyStuff 黑色</option>
+          <option value="guobiao">国标麻将</option>
+          <option value="regular">立直麻将（白色）</option>
+          <option value="black">立直麻将（黑色）</option>
         </select>
       </label>
+      <div class="tile-face-preview" :class="{ 'is-black': appearance.tileFaceTheme === 'black' }" role="group" aria-label="牌面预览">
+        <span v-for="tile in previewTiles" :key="tile.id" class="tile-face-preview__tile">
+          <TileFaceImage :src="previewTileSrc(tile.id)" :face-id="tile.id" :alt="tr(tile.name)" />
+        </span>
+      </div>
+      <p class="scene-appearance-panel__hint">切换立即生效，自动记住选择；牌桌、牌谱和结算同步使用。</p>
       <label class="scene-appearance-panel__field">
         <span class="scene-appearance-panel__label">牌面角标</span>
         <select
@@ -299,6 +306,8 @@
 import { ref } from 'vue'
 import { locale, tr } from '@/i18n'
 import { shouldShowTileLabels } from '@/game2d/lib/tileLabels'
+import { tileFaceAssetUrl } from '@/game2d/lib/tileFaceAsset'
+import TileFaceImage from './TileFaceImage.vue'
 
 const props = defineProps({
   appearance: { type: Object, required: true },
@@ -321,6 +330,18 @@ const emit = defineEmits([
 const fileInput = ref(null)
 const draggingCoverIndex = ref(null)
 const dropCoverIndex = ref(null)
+const previewTiles = [
+  { id: 11, name: '1万' }, { id: 21, name: '1筒' }, { id: 31, name: '1条' },
+  { id: 41, name: '东风' }, { id: 46, name: '白板' }, { id: 47, name: '发财' },
+]
+
+function previewTileSrc(faceId) {
+  return tileFaceAssetUrl(faceId, {
+    baseUrl: import.meta.env.BASE_URL,
+    guobiao: props.appearance.tileFaceTheme === 'guobiao',
+    black: props.appearance.tileFaceTheme === 'black',
+  })
+}
 
 function emitColor(name, event) {
   emit(name, event.target.value)
@@ -365,3 +386,9 @@ function selectImage(event) {
   event.target.value = ''
 }
 </script>
+
+<style scoped>
+.tile-face-preview { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; }
+.tile-face-preview__tile { aspect-ratio: 3 / 4; min-width: 0; overflow: hidden; border: 1px solid #606060; border-radius: 4px; background: #f7f7f0; }
+.tile-face-preview.is-black .tile-face-preview__tile { background: #1e1e1e; }
+</style>

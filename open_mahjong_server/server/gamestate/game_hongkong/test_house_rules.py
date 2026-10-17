@@ -9,7 +9,7 @@ from .test_branches import table, act, opening_flow
 from .bot import choose_action
 from .state_machine import HongKongPhase as P
 from .action_check import claim_actions, ready_discards
-from .hints import private_hints
+from server.gamestate.game_hongkong.client_context import private_context as private_hints
 from ...game_calculation.hongkong.models import HongKongRules, PROFILES, ORPHANS
 from ...game_calculation.hongkong.test_hongkong_calculation import tiles
 from ...room.hongkong_room import HongKongRoomValidator
@@ -47,7 +47,9 @@ def test_discard_multiwinner_switch_and_self_draw_only_authority(profile,version
     detail=dict(new13_version=version,win_claim=claim,self_draw_only=self_only)
     state,window=table(profile,hands={0:actor,1:first,2:second},detailed_config=detail)
     state.tips=True
-    assert all(h['ron'] is False for hints in private_hints(state,1).values() for h in hints) if self_only else True
+    request=private_hints(state,1)['__local__'][0]['local_request']
+    assert request['context']['self_draw_only'] is self_only
+    assert request['hand']==first
     window=act(state,window,**{"0":dict(action_type="cut",TileId=41)})
     if self_only:
         assert all("hu" not in a for a in window["actions"].values())

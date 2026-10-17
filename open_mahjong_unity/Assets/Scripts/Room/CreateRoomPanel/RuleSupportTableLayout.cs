@@ -10,7 +10,7 @@ public sealed class RuleSupportTableLayout : MonoBehaviour {
     private TMP_Text[][] labels;
     private TMP_Text[] headings;
     private float lastWidth = -1, lastScale = -1;
-    private static readonly float[] ColumnWeights = { 48, 96, 88, 172, 188, 240, 66, 66, 66, 304, 106 };
+    private static readonly float[] ColumnWeights = { 48, 96, 88, 172, 188, 240, 66, 66, 66, 304 };
 
     public void Configure(UnityEngine.UI.ScrollRect tableScroll, RectTransform tableHeader, RectTransform tableDialog) {
         scroll = tableScroll; header = tableHeader; dialog = tableDialog;

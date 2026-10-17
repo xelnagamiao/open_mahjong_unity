@@ -1,5 +1,6 @@
 import type { WaitTipsContext, WaitInfoData, WaitDetail } from './waitTips'
 import { buildBaseWay, countShowTilesOnTable, remainingCount } from './waitTips'
+import { localHintJob } from '../localHintJobs'
 
 export interface FourJokersSnapshot {
   sub_rule?: string; hand: number[]; melds: string[]; waits: number[]; discard_waits: Record<string, number[]>
@@ -19,14 +20,10 @@ function remember<T>(cache: Map<string,T>, id: string, value: T) {
   if (cache.size >= 128 && !cache.has(id)) cache.delete(cache.keys().next().value!)
   cache.set(id,value)
 }
-async function post<T>(route: string, body: unknown): Promise<T | null> {
-  try {
-    const res = await fetch(`/api/mahjong/gb/four-jokers/${route}`, { method:'POST',
-      headers:{'Content-Type':'application/json'}, body:JSON.stringify(body), signal:AbortSignal.timeout(15000) })
-    return res.ok ? await res.json() : null
-  } catch { return null }
-}
 export function acceptFourJokersSnapshot(snapshot?: FourJokersSnapshot) {
+  // Legacy network snapshots are ignored; only local worker results populate this cache.
+}
+function acceptLocalSnapshot(snapshot?: FourJokersSnapshot) {
   if (!Array.isArray(snapshot?.hand)) return
   const {hand, melds=[]} = snapshot!
   if (hand.length % 3 === 1) remember(waits,key(hand,melds,snapshot!.sub_rule),[...(snapshot!.waits || [])])
@@ -40,14 +37,14 @@ function requestWaits(ctx: WaitTipsContext) {
   const id=key(ctx.hand,ctx.combinations,ctx.subRule)
   if(fetching.size>=2 || fetching.has(id) || Date.now()<(failed.get(id)||0))return
   fetching.add(id)
-  void post<FourJokersSnapshot>('waits',{sub_rule:ctx.subRule,hand_tiles:ctx.hand,tiles_combination:ctx.combinations}).then(snapshot=>{
+  void localHintJob<FourJokersSnapshot>('guobiao.waits',{sub_rule:ctx.subRule,hand_tiles:[...ctx.hand],tiles_combination:[...ctx.combinations]}).then(snapshot=>{
     fetching.delete(id)
     if(!snapshot){remember(failed,id,Date.now()+5000);return}
-    acceptFourJokersSnapshot(snapshot)
+    acceptLocalSnapshot(snapshot)
     if(typeof window !== 'undefined')window.dispatchEvent(new Event('four-jokers-waits-ready'))
-  })
+  }).catch(error=>{fetching.delete(id);remember(failed,id,Date.now()+1000);console.error('Local wait calculation failed',error)})
 }
-// At most two exact computations in flight. The caller checks that its UI
+// At most two local jobs in flight. The caller checks that its UI
 // entry still exists; only visible hint rows request exact scoring.
 let active=0
 const queue: Array<()=>void> = []
@@ -56,10 +53,11 @@ export function resolveFourJokersHint(body: FourJokersHintRequest): Promise<Four
   const id=JSON.stringify(body)
   if(hints.has(id))return hints.get(id)!
   if(queue.length>=64)return Promise.resolve(null)
+  const input:FourJokersHintRequest=JSON.parse(id)
   const task=new Promise<FourJokersHint|null>(resolve=>{
-    queue.push(()=>{active++;void post<FourJokersHint>('hint',body).then(result=>{
+    queue.push(()=>{active++;void localHintJob<FourJokersHint>('guobiao.score',input).then(result=>{
       active--;if(!result)hints.delete(id);resolve(result);drain()
-    })});drain()
+    }).catch(error=>{active--;hints.delete(id);resolve(null);drain();console.error('Local fan calculation failed',error)})});drain()
   })
   remember(hints,id,task);return task
 }

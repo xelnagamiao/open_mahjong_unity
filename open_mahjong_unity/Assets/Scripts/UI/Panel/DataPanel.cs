@@ -56,6 +56,11 @@ public class DataPanel : MonoBehaviour {
     }
 
     private void OnEnable() {
+        // 场景中的下拉框可能仍为未选择状态，打开页面时与当前查询规则同步。
+        if (ruleDropdown != null) {
+            ruleDropdown.SetValueWithoutNotify(System.Array.IndexOf(RankedRules.Ids, CurrentRule));
+            ruleDropdown.RefreshShownValue();
+        }
         RefreshLadderRecords();
     }
 

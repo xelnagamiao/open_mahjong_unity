@@ -1,3 +1,4 @@
+const washizuCaptain = require('../../shared/washizuDoubles.json');
 const { normalizeWuhanRoomConfig } = require('./wuhanRoomSettings');
 const { randomUUID, createHash } = require('node:crypto');
 const { normalizeGuizhouRoomConfig } = require('./guizhouRoomSettings');
@@ -15,7 +16,7 @@ const { normalizeHongzhongRoomConfig } = require('./hongzhongRoomSettings');
 const { normalizeGuangdongDetails, GUANGDONG_SUB_RULES } = require('./guangdongRoomSettings');
 
 const { normalizeChangchunRoomConfig } = require('./changchunRoomSettings');
-const riichiWinLine = require('../../shared/riichiWinRequirements.json');
+const riichiRules = require('../../shared/riichiRuleOptions.json');
 
 const MAX_PRESETS = 50;
 // A v1 custom automatic setting may need one extra row during migration.
@@ -64,6 +65,9 @@ class SettingsError extends Error {
   }
 }
 
+const changshaOptions = require('../../shared/changshaRoomOptions.json');
+const exchangeOptions = require('../../shared/changshaExchangeSixOptions.json');
+
 function defaultConfig(rule = 'guobiao') {
   if (rule === 'wuhan') return normalizeWuhanRoomConfig({}, SettingsError);
   if (rule === 'guizhou') return normalizeGuizhouRoomConfig({}, SettingsError);
@@ -92,8 +96,11 @@ function defaultConfig(rule = 'guobiao') {
   if (rule === 'hongkong') return { ...common, detailed_config: { flowers: false, new13_full_shoot: true } };
   if (rule === 'guangdong') return { ...common, tactical_call: true, detailed_config: { edition: 'mil-tuidao-2024-om1', fan_cap: 32, wildcards: false } };
   if (rule === 'shanxi') return { ...common, detailed_config: { rule_version: 'mil-shanxi-2023-om1' } };
-  if (rule === 'riichi') return { ...common, starting_score: 25000, hepai_limit: 1, detailed_config: { minimum_win_score: 0 } };
+  if (rule === 'riichi') return { ...common, starting_score: 25000, hepai_limit: 1,
+    red_dora: true, allow_kuikae: false, open_xiru: true, open_tobi: true,
+    hepai_way: 'multi_ron', open_cuohe: false, detailed_config: {} };
   if (rule === 'sichuan') return { ...common, tactical_call: true };
+  if (rule === 'changsha') return { ...common, ...Object.fromEntries(Object.entries(changshaOptions).map(([key, option]) => [key, option.default])) };
   if (rule !== 'guobiao') return common;
   return {
     ...common,
@@ -142,11 +149,16 @@ function normalizeRoomConfig(rule, raw) {
   if (!isObject(raw)) throw new SettingsError(400, '对局设置必须是对象');
   // Keep the accepted fields and switch validation in sync with each rule's defaults.
   const defaults = defaultConfig(rule);
-  const allowed = [...Object.keys(defaults), 'duplicate_key'];
+  const allowed = [...Object.keys(defaults), 'duplicate_key', ...(rule === 'changsha' ? ['exchange_selection_seconds'] : [])];
   for (const key of Object.keys(raw)) {
     if (!allowed.includes(key)) throw new SettingsError(400, `不支持的对局设置字段：${key}`);
   }
   const config = { ...defaults, ...raw };
+  if (rule === 'changsha' && config.sub_rule === 'changsha/exchange_six') {
+    Object.assign(config, exchangeOptions);
+    if (!has(raw, 'exchange_selection_seconds')) config.exchange_selection_seconds = 30;
+    integerField(config, 'exchange_selection_seconds', 10, 60, '换牌时间');
+  }
   if (typeof config.room_name !== 'string' || config.room_name.trim().length > 128) {
     throw new SettingsError(400, '房间名必须是最多 128 字的文本');
   }
@@ -162,6 +174,8 @@ function normalizeRoomConfig(rule, raw) {
   }
   const validSubRule = rule === 'guobiao'
     ? GUOBIAO_SUB_RULES.has(config.sub_rule)
+    : rule === 'changsha' ? ['changsha/classic_double_bird', 'changsha/exchange_six'].includes(config.sub_rule)
+    : rule === 'riichi' ? ['riichi/standard', 'riichi/sanma', washizuCaptain.sub_rule].includes(config.sub_rule)
     : rule === 'sichuan' ? ['sichuan/standard', 'sichuan/xueliu', 'sichuan/xueliu_exchange', 'sichuan/doubles', 'sichuan/xueliu_doubles'].includes(config.sub_rule)
     : rule === 'hongkong' ? ['hongkong/qingzhang', 'hongkong/new13', 'hongkong/new16', 'hongkong/new13_gametower', 'hongkong/new13_lianhuise', 'hongkong/qingzhang_lianhuise'].includes(config.sub_rule)
       : rule === 'guangdong' ? GUANGDONG_SUB_RULES.includes(config.sub_rule) : config.sub_rule === DEFAULT_SUB_RULES[rule];
@@ -202,19 +216,41 @@ function normalizeRoomConfig(rule, raw) {
   if (rule === 'changsha' && ![1, 2, 4].includes(config.game_round)) {
     throw new SettingsError(400, '长沙麻将圈数必须为 1、2 或 4');
   }
+  if (rule === 'changsha') {
+    if ([1, 3].includes(config.open_kong_replacement_count)) config.open_kong_replacement_count = 2;
+    if (config.score_cap_type === 'none') config.score_cap_value = 0;
+    for (const [key, option] of Object.entries(changshaOptions)) {
+      if (key === 'score_cap_value' && config.score_cap_type === 'none') continue;
+      if (option.values && !option.values.includes(config[key])) throw new SettingsError(400, `无效的长沙设置：${option.label}`);
+      if (option.min !== undefined) integerField(config, key, option.min, option.max, option.label);
+    }
+  }
   integerField(config, 'round_timer', 0, 1000, '局时');
   integerField(config, 'step_timer', 0, 100, '步时');
   const booleanKeys = Object.keys(defaults).filter(key => typeof defaults[key] === 'boolean');
   if (rule === 'riichi') {
+    if (!has(raw, 'starting_score') && config.sub_rule === 'riichi/sanma') config.starting_score = 35000;
     integerField(config, 'starting_score', 1000, 1000000, '起始点数');
     if (config.starting_score % 100 !== 0) throw new SettingsError(400, '起始点数必须为 100 的倍数');
     integerField(config, 'hepai_limit', 1, 64, '起和番（不含宝牌）');
     const detail = config.detailed_config;
-    if (!isObject(detail) || Object.keys(detail).some(key => key !== 'minimum_win_score')
-      || (has(detail, 'minimum_win_score') && !riichiWinLine.values.includes(detail.minimum_win_score))) {
-      throw new SettingsError(400, '无效的日麻起和线');
+    if (!isObject(detail) || Object.keys(detail).some(key => !riichiRules.options.some(o => o.key === key))) {
+      throw new SettingsError(400, '无效的日麻详细规则或起和线');
     }
-    config.detailed_config = { minimum_win_score: detail.minimum_win_score ?? 0 };
+    const sanma = config.sub_rule === 'riichi/sanma' ? riichiRules.presets.find(p => p.id === 'sanma_majsoul').values : {};
+    config.detailed_config = Object.fromEntries(riichiRules.options.map(o => {
+      const value = has(detail, o.key) ? detail[o.key] : (sanma[o.key] ?? o.default);
+      if (!o.values.includes(value)) throw new SettingsError(400, `无效的日麻${o.label}`);
+      return [o.key, value];
+    }));
+    if (config.sub_rule !== 'riichi/sanma' && (config.detailed_config.rank_points.startsWith('sanma_') || config.detailed_config.noten_penalty === 2000)) {
+      throw new SettingsError(400, '三人顺位点和2000点不听罚符仅适用于三人立直');
+    }
+    if (!['multi_ron', 'three_ron_abort', 'head_bump'].includes(config.hepai_way)) throw new SettingsError(400, '无效的多家荣和方式');
+    if (config.sub_rule === washizuCaptain.sub_rule) {
+      Object.assign(config, washizuCaptain.room);
+      Object.assign(config.detailed_config, washizuCaptain.detailed_config);
+    }
   }
   if (rule === 'guobiao') {
     integerField(config, 'hepai_limit', 1, 64, '起和番');
@@ -318,8 +354,6 @@ function readStoredSnapshot(snapshot) {
   if (!isObject(snapshot) || supportsWall(snapshot.room_rule, snapshot.room_config?.sub_rule) || !isObject(snapshot.room_config)) return snapshot;
   const room_config = { ...snapshot.room_config };
   delete room_config.duplicate_key;
-  // This field was exposed only for the retired non-Guobiao duplicate setup.
-  if (snapshot.room_rule === 'riichi') delete room_config.red_dora;
   return { ...snapshot, room_config };
 }
 

@@ -7,7 +7,8 @@ public sealed class ShenyangHintsCache {
     public void Reset() { current=null; }
     public void Accept(ShenyangHints hints) { if(hints?.source_hand_tiles!=null) current=hints; }
     private static bool Same(IEnumerable<int> a,IEnumerable<int> b) => a!=null && b!=null && a.OrderBy(t=>t).SequenceEqual(b.OrderBy(t=>t));
-    private Dictionary<int,ShenyangWaitDetail> Rows(List<int> hand,List<string> melds) {
+    private Dictionary<int,ShenyangWaitDetail> Rows(List<int> hand,List<string> melds,Action ready=null) {
+        if(current?.local_request!=null)return LocalHintSnapshots.Rows(current.local_request,hand,ready)?.ToObject<Dictionary<int,ShenyangWaitDetail>>();
         if(current==null || hand==null || !(melds??new List<string>()).OrderBy(c=>c).SequenceEqual((current.source_melds??Array.Empty<string>()).OrderBy(c=>c))) return null;
         if(Same(hand,current.source_hand_tiles)) return current.waiting;
         if(hand.Count+1!=current.source_hand_tiles.Length || current.by_discard==null) return null;
@@ -17,7 +18,7 @@ public sealed class ShenyangHintsCache {
         }
         return null;
     }
-    public HashSet<int> Waiting(TingpaiQuery q) => new HashSet<int>(Rows(q?.Hand,q?.Melds)?.Keys.AsEnumerable() ?? Enumerable.Empty<int>());
+    public HashSet<int> Waiting(TingpaiQuery q) => new HashSet<int>(Rows(q?.Hand,q?.Melds,q?.OnReady)?.Keys.AsEnumerable() ?? Enumerable.Empty<int>());
     public WaitTileHint Describe(WaitHintQuery q) {
         if(q?.HandWithWin==null) return null;
         var before=new List<int>(q.HandWithWin);

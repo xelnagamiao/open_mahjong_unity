@@ -30,6 +30,7 @@ public sealed class WuhanWaitDetail {
 }
 [Serializable]
 public sealed class WuhanHints {
+    public Newtonsoft.Json.Linq.JObject local_request;
     public bool win_blocked;
     public int[] source_hand_tiles, waiting_tiles;
     public string[] source_melds;

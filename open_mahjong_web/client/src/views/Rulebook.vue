@@ -141,7 +141,7 @@ const rules = [
     key: 'washizu',
     label: '鹫巢麻将',
     description: '四人三透一暗，透明手牌公开；本站完整规则与外部资料。',
-    docs: [{ title: '鹫巢麻将：本站规则与牌例', desc: '含透明牌、吃碰选牌、70次摸牌、宝牌、头跳和回放说明。', url: '/rulebooks/washizu.html' },
+    docs: [{ title: '鹫巢麻将：本站规则与牌例', desc: '含透明牌、70次摸牌、实时手牌、双打主将制和回放说明。', url: '/rulebooks/washizu.html' },
       { title: '雀魂2021年明镜之战攻略（日文）', desc: '非官方活动说明，可参考透明牌和选牌方式；与本站的可配置日麻细则并非完全相同。', url: 'https://mahjongsoul.info/2021-10event/' },
       { title: '原作式鹫巢麻将规则（日文）', desc: '用于对照无牌山玩法；其70次弃牌计数与本站70次摸牌不同。', url: 'https://ketto.com/zw/wasirule.shtml' } ]
   },
@@ -356,9 +356,9 @@ const rules = [
       url: '/rulebooks/shanghai-qinghunpeng.docx',
       filename: '上海清混碰规则.docx'
     }, {
-      title: '上海垃圾和规则',
-      desc: '上海垃圾和是上海本地的一款特色麻将规则，使用144张麻将牌，允许垃圾和的同时对点和做了花数上的限制，并有七对子、自摸加底等特色内容，节奏适中。',
-      url: '/rulebooks/shanghai-lajihe.docx',
+      title: '上海垃圾和规则（2026-10-17 修订）',
+      desc: '上海垃圾和是上海本地的一款特色麻将规则，使用144张麻将牌，允许垃圾和的同时对点和做了花数上的限制，并有七对子、自摸加底等特色内容，节奏适中。平台补充约定：自摸达到30分时敲锣，每家支付30分；抢杠视作自摸，同样按30分封顶，由杠者支付三份。暗杠显示为暗、亮、亮、暗。自摸再加一底默认关闭。',
+      url: '/rulebooks/shanghai-lajihe.docx?v=20261017',
       filename: '上海垃圾和规则.docx'
     }]
   },
@@ -398,7 +398,7 @@ const rules = [
     docs: [
       {
         title: '虹雀² v1.6 规则书',
-        desc: '虹雀² v1.6 完整规则说明。',
+        desc: '虹雀² v1.6 规则书，包含基本规则、番种说明及牌例。',
         url: '/rulebooks/hongque-v1.6.pdf',
         filename: '虹雀² v1.6.pdf'
       }

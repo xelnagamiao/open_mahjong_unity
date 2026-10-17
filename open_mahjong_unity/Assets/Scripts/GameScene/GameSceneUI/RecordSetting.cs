@@ -15,6 +15,10 @@ public class RecordSetting : MonoBehaviour {
 
     [SerializeField] private TMP_Text showAnonymousPlayersText; // 匿名玩家
 
+    [Header("牌谱控制台")]
+    [SerializeField] private TMP_Text showConsoleText;
+    [SerializeField] private GameObject controlPanel;
+
     [Header("颜色配置")]
     [SerializeField] private Color falseColor = Color.white;
     [SerializeField] private Color trueColor = new Color(1f, 0.5f, 0f);
@@ -28,8 +32,10 @@ public class RecordSetting : MonoBehaviour {
     private bool isShowChongHint = true;
     public bool IsShowChongHint { get => isShowChongHint; }
 
-    private bool isShowWaitingTiles = false;
+    private bool isShowWaitingTiles = true;
     public bool IsShowWaitingTiles => isShowWaitingTiles;
+
+    private bool isShowConsole = true;
 
     private bool isShowHepaiAnimation = false;
     public bool IsShowHepaiAnimation { get => isShowHepaiAnimation; }
@@ -73,6 +79,7 @@ public class RecordSetting : MonoBehaviour {
         if (showAnonymousPlayersText != null) {
             AddClickListener(showAnonymousPlayersText, ToggleAnonymousPlayers);
         }
+        AddClickListener(showConsoleText, ToggleShowConsole);
         RefreshUI();
     }
 
@@ -116,6 +123,11 @@ public class RecordSetting : MonoBehaviour {
         GameRecordManager.Instance?.RefreshRecordPlayerWaits();
     }
 
+    private void ToggleShowConsole() {
+        isShowConsole = !isShowConsole;
+        RefreshUI();
+    }
+
     private void ToggleAnonymousPlayers() {
         isAnonymousPlayers = !isAnonymousPlayers;
         RefreshUI();
@@ -144,6 +156,12 @@ public class RecordSetting : MonoBehaviour {
         }
         if (showAnonymousPlayersText != null) {
             showAnonymousPlayersText.color = isAnonymousPlayers ? trueColor : falseColor;
+        }
+        if (showConsoleText != null) {
+            showConsoleText.color = isShowConsole ? trueColor : falseColor;
+        }
+        if (controlPanel != null) {
+            controlPanel.SetActive(isShowConsole);
         }
     }
 

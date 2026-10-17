@@ -1,3 +1,4 @@
+import {resolveLocalHintSnapshot} from './localHintSnapshots.js'
 /** User-facing labels only; the saved event/payment objects remain unchanged. */
 export function hangzhouActionLabel(tick) {
   if (tick?.[0] !== 'hangzhou') return null
@@ -65,6 +66,7 @@ export function hangzhouWaitDataAt(round, node, seat, hand, melds, knownTiles) {
   for (const tick of (round?.action_ticks || []).slice(0, Math.max(0, node))) {
     if (tick[0] === 'hangzhou' && tick[1] === 'hints' && Number(tick[2]) === seat) hints = tick[3]
   }
+  hints=resolveLocalHintSnapshot(hints)
   if (!hints || !Array.isArray(hints.source_hand_tiles) || !sameTiles(hints.source_melds || [], melds)) return null
   const details = waits => [...new Set(Array.isArray(waits) ? waits : [])].filter(physicalTile).sort((a, b) => a - b).map(tile => ({
     tile, base_f: 0,

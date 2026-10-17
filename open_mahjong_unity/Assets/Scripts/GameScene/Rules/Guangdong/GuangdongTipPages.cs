@@ -12,7 +12,7 @@ public partial class TipsContainer {
     private void UpdateGuangdongHintPages() {
         const int perPage = 10;
         string subRule = visibleHintSubRule ?? _recordTipsContext?.SubRule ?? GameSession.Current.SubRule;
-        bool active = GuangdongMilRules.IsMil(subRule) || GuobiaoGameState.UsesAuthoritativeTips(subRule);
+        bool active = GuangdongMilRules.IsMil(subRule) || GuobiaoGameState.UsesAsyncLocalTips(subRule);
         int count = TileContainer.transform.childCount;
         bool paged = active && count > perPage;
         if (guangdongHintCount != count) { guangdongHintCount = count; guangdongHintPage = 0; }

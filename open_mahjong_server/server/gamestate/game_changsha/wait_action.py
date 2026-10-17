@@ -1,7 +1,7 @@
+from ..public.action_window import prepare_action_window, start_waiting_clocks
 # 等待玩家操作处理
 import asyncio
 from ..public.lifecycle import start_owned_task
-import time
 import logging
 from .action_check import check_action_after_cut, check_action_after_batch_gang_forced_cut, check_action_jiagang, refresh_waiting_tiles
 from .boardcast import broadcast_do_action, broadcast_ready_status, broadcast_ask_other_action
@@ -28,12 +28,11 @@ from ..public.claim_protection import (
     finalize_claim_protection,
     )
 from ..public.tactical_claim import (
-    init_tactical_round_state,
     apply_tactical_claim_if_needed,
     is_decline_action,
     tactical_mark_player_force_passed,
 )
-from ..public.ask_timing import get_ask_elapsed, note_ask_delivered
+from ..public.ask_timing import get_ask_elapsed
 from .boardcast import _send_do_action_payload_to_viewer
 
 logger = logging.getLogger(__name__)
@@ -181,22 +180,10 @@ async def _execute_jiagang_replacement(self, player_index: int, target_tile: int
 
 async def _wait_gang_replacement_ron(self):
     """等待本批所有可荣和玩家选择，接受和牌时保留该玩家全部可胡补牌。"""
-    self._waiting_action_tick = getattr(self, "server_action_tick", None)
-    self.waiting_players_list = [
-        player_index
-        for player_index, actions in self.action_dict.items()
-        if actions
-    ]
+    prepare_action_window(self)
+    start_waiting_clocks(self)
     waiting_players = self.waiting_players_list
     accepted_players = []
-
-    for player_index in waiting_players:
-        note_ask_delivered(self, player_index)
-        # 广播会异步触发 AI，真人也可能立即响应；保留等待入口前已经到达的本批操作。
-        if self.action_queues[player_index].empty():
-            self.action_events[player_index].clear()
-        else:
-            self.action_events[player_index].set()
 
     while waiting_players:
         # 各座位按各自送达时间到期，不能借用另一位玩家的剩余时间继续和牌。
@@ -288,14 +275,9 @@ async def _wait_gang_replacement_ron(self):
 
 async def _wait_gang_replacement_self_hu(self):
     """等待开杠者选择杠上花或过，保留广播期间已到达的操作。"""
-    self._waiting_action_tick = getattr(self, "server_action_tick", None)
+    prepare_action_window(self)
+    start_waiting_clocks(self)
     player_index = self.current_player_index
-    self.waiting_players_list = [player_index]
-    note_ask_delivered(self, player_index)
-    if self.action_queues[player_index].empty():
-        self.action_events[player_index].clear()
-    else:
-        self.action_events[player_index].set()
 
     action_data = None
     while self.player_list[player_index].remaining_time + self.step_time > get_ask_elapsed(self, player_index):
@@ -342,27 +324,8 @@ async def wait_action(self):
     if self.game_status == "waiting_gang_replacement_ron":
         return await _wait_gang_replacement_ron(self)
 
-    self.waiting_players_list = [] # [2,3]
-
-    # 清空所有队列，防止上一轮残留的事件影响新一轮
-    for i in range(4):
-        while not self.action_queues[i].empty():
-            try:
-                self.action_queues[i].get_nowait()
-                logger.debug(f"清空玩家{i}队列中的残留事件")
-            except:
-                break
-
-    # 遍历所有可行动玩家，获取行动玩家列表和等待时间列表
-    for player_index, action_list in self.action_dict.items():
-        if action_list:  # 如果玩家有可用操作 将玩家加入列表并重置事件状态
-            self.waiting_players_list.append(player_index)
-            self.action_events[player_index].clear()
-
-    for player_index in self.waiting_players_list:
-        note_ask_delivered(self, player_index)
-
-    init_tactical_round_state(self)
+    prepare_action_window(self)
+    start_waiting_clocks(self)
 
     # 如果等待玩家列表不为空且有玩家剩余时间小于(已用时间-步时)，则停止等待
     player_index = None # 保存操作玩家索引 (如果玩家有操作则左侧三个变量有值 否则为None)

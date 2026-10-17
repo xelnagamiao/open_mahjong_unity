@@ -352,6 +352,7 @@ def hepai_check(hand, melds, way, winning_tile, allow_single_wait=True):
 
 
 def hint_snapshot(hand, melds):
+    """Web calculator API only; gameplay clients build their own previews."""
     result = dict(hand=list(hand), melds=list(melds), waits=[], discard_waits={})
     size = len(hand) + 3 * len(melds)
     if size == HAND_SIZE:
@@ -365,6 +366,7 @@ def hint_snapshot(hand, melds):
 
 
 def calculate_hint(hand, melds, ron_way, self_way, tile, limit, allow_single_wait=True):
+    """Web calculator API only; not a gameplay broadcast or Unity hint service."""
     ron, _ = hepai_check(hand, melds, ron_way, tile, allow_single_wait)
     if ron > 0 and ron - ron_way.count("花牌") >= limit:
         return dict(kind="dianhe", label=f"{ron}番", score=ron)

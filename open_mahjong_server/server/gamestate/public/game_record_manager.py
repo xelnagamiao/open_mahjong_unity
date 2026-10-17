@@ -491,7 +491,7 @@ def player_action_record_gang_refund(self, gang_score_changes):
 def player_action_record_sichuan_liuju_step(self, step: str, *payload):
     append_action_tick(self, ["liuju", step, *payload])
 
-# 牌谱记录九老峰回流局 ["jiuzhongjiupai"]
+# 牌谱记录共用流局短码：日麻“九种九牌”/古典“九老峰回” ["jiuzhongjiupai"]
 def player_action_record_jiuzhongjiupai(self):
     append_action_tick(self, ["jiuzhongjiupai"])
 

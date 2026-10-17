@@ -1,8 +1,7 @@
-"""Viewer-safe physical snapshots; authoritative waits never expose other hands."""
+"""Viewer-safe physical snapshots; client calculation inputs never expose other hands."""
 
 import math
 
-from ...game_calculation.wenzhou.rules import hand_multiplier, waiting_tiles
 from ..game_zhongyong import boardcast as wire
 from .actions import CHOWS, kong_tiles, natural, needed_tiles, physical_for
 from .state_machine import Phase as P
@@ -35,45 +34,19 @@ class Protocol:
         data["combination_mask"] = wire.public_combination_masks_for_viewer(p,viewer,reveal_final=ended)
         return data
 
-    def _waits_for_hand(self, hand, melds):
-        key = (self.caishen,tuple(sorted(hand)),tuple((m["code"],tuple(m["physical"])) for m in melds))
-        if key in self._wait_cache:
-            self._wait_cache.move_to_end(key)
-            return self._wait_cache[key]
-        result = []
-        for tile in sorted(waiting_tiles(hand,melds,caishen=self.caishen)):
-            ron = hand_multiplier(list(hand)+[tile],melds,caishen=self.caishen,winning_tile=tile,self_draw=False)
-            zimo = hand_multiplier(list(hand)+[tile],melds,caishen=self.caishen,winning_tile=tile,self_draw=True)
-            result.append(dict(tile=tile, ron=ron is not None, self_draw=zimo is not None,
-                               ron_multiplier=ron or 0,
-                               self_draw_multiplier=zimo or 0))
-        self._wait_cache[key] = result
-        if len(self._wait_cache) > 128:
-            self._wait_cache.popitem(last=False)
-        return result
 
-    def authoritative_waits(self, viewer, *, for_record=False):
+    def client_context(self, viewer, *, for_record=False):
         # Replays expose their own analysis controls independently of live room
         # tips. Count-only rooms also need eligibility from the same scorer.
         if viewer not in range(4) or (not (self.tips or self.count_tips) and not for_record) or self.machine.phase in (P.END,P.READY,P.FINISHED):
             return {}
+        from ..public.local_hint_context import hint_context
         p = self.player_list[viewer]
-        hand, hands = sorted(p.hand_tiles), []
-        base_size = 16-3*len(p.meld_records)
-        if len(hand) == base_size:
-            hands.append((hand, p.passed_win_multiplier))
-        elif len(hand) == base_size+1:
-            for cut in sorted(set(hand)):
-                rest = list(hand)
-                rest.remove(cut)
-                discarded_win = hand_multiplier(hand,p.meld_records,caishen=self.caishen,winning_tile=cut,self_draw=False)
-                threshold = max(p.passed_win_multiplier,discarded_win or 0)
-                hands.append((rest,threshold))
-        result = {}
-        for candidate, threshold in hands:
-            result[",".join(map(str,candidate))] = [dict(item,ron=item["ron"] and item["ron_multiplier"] > threshold)
-                for item in self._waits_for_hand(candidate,p.meld_records)]
-        return result
+        records = list(p.meld_records)
+        request = hint_context("wenzhou", p.hand_tiles, [m["code"] for m in records],
+            caishen=self.caishen, meld_records=records,
+            passed_multiplier=p.passed_win_multiplier)["local_request"]
+        return {"__local__": [dict(local_request=request)]}
 
     def _adapt(self, payload, viewer):
         payload["player_index"] = viewer
@@ -82,7 +55,7 @@ class Protocol:
             info["detailed_config"] = dict(self.detailed_config)
             info["wenzhou_info"] = self.wenzhou_info()
             info["wenzhou_info"]["self_has_draw_slot"] = viewer in range(4) and self.player_list[viewer].has_draw_slot
-            info["wenzhou_waits"] = self.authoritative_waits(viewer)
+            info["wenzhou_waits"] = self.client_context(viewer)
             info["players_info"] = [self._player_view(i,viewer) for i in range(4)]
             info["self_hand_tiles"] = list(self.player_list[viewer].hand_tiles) if viewer in range(4) else None
         return payload

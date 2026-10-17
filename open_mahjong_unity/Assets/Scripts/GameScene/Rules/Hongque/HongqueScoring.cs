@@ -35,6 +35,24 @@ public static class HongqueScoring {
         new Dictionary<string, HongqueWinScore>();
     private const int BestWinResultCacheLimit = 1024;
 
+    public static HongqueScoreHintInfo BuildWinHint(
+        List<int> hand, List<int[]> melds, HongqueWinHintContext context) {
+        if (context == null || hand == null) return null;
+        var completeHand = new List<int>(hand);
+        if (!context.self_draw) {
+            if (string.IsNullOrEmpty(context.tile)) return null;
+            completeHand.Add(HongqueTileVisual.FromCode(context.tile));
+        }
+        HongqueWinScore score = BestWinResult(completeHand, melds,
+            context.self_draw, context.before_first_discard, context.wall_empty,
+            allowKongWin: context.self_draw);
+        return score == null ? null : new HongqueScoreHintInfo {
+            tile = context.tile, points = score.Points,
+            @base = score.Base, fan_total = score.FanTotal,
+            fans = Array.Empty<HongqueFanInfo>(),
+        };
+    }
+
     /// <summary>新对局/新牌局开始时清空计分缓存。</summary>
     public static void ClearCaches() {
         BestWinResultCache.Clear();
@@ -211,21 +229,6 @@ public static class HongqueScoring {
         return false;
     }
 
-    private static List<int> OrderedTiles(HongqueMeldShape shape) {
-        if (shape.BaseKind == "sequence") {
-            List<int> ordered = shape.Tiles
-                .OrderBy(t => NumberOf(t))
-                .ThenBy(t => ColourOf(t))
-                .ToList();
-            // 与服务端 scoring._ordered_tiles 一致：递减顺子按数字降序读，
-            // 保证“同花（长度+花色对应）”的匹配方向一致——
-            // 递增与递减的同花色顺子可以互为双同花，漏掉反转会少算同花。
-            if (shape.NumberStep < 0) ordered.Reverse();
-            return ordered;
-        }
-        return shape.Tiles.OrderBy(t => ColourOf(t)).ToList();
-    }
-
     private static List<FanEntry> MergeEntries(List<FanEntry> entries) {
         Dictionary<string, FanEntry> merged = new Dictionary<string, FanEntry>();
         foreach (FanEntry item in entries) {
@@ -260,11 +263,11 @@ public static class HongqueScoring {
     }
 
     private static List<FanEntry> SameColourLayoutFans(List<HongqueMeldShape> shapes) {
-        // 同花系列：按（长度，花色对应）分组，组内取最高档，不同分组可复计。
+        // 规则书第 5 页：花色及重数一一对应，与牌组类型、数字方向及颜色环起点无关。
+        // 保留重复花色，统一排序后比较；仅用于计分，不改变手牌或牌组的显示顺序。
         Dictionary<string, int> buckets = new Dictionary<string, int>();
         foreach (HongqueMeldShape shape in shapes) {
-            List<int> ordered = OrderedTiles(shape);
-            string key = ordered.Count + "|" + string.Join(",", ordered.Select(ColourOf));
+            string key = shape.Tiles.Count + "|" + string.Join(",", shape.Tiles.Select(ColourOf).OrderBy(c => c));
             buckets.TryGetValue(key, out int count);
             buckets[key] = count + 1;
         }
@@ -397,8 +400,8 @@ public static class HongqueScoring {
         else if (distinctColourLevels == allTiles.Count) fans.Add(new FanEntry { Name = "光谱", Value = 6 });
         else if (primaryColourCount == 2) fans.Add(new FanEntry { Name = "双色", Value = 12 });
         else if (primaryColourCount == 3) fans.Add(new FanEntry { Name = "三色", Value = 6 });
-        if (allTiles.Count > 0 && allTiles.All(t => ColourOf(t) % 2 == 0)) fans.Add(new FanEntry { Name = "全纯色", Value = 1 });
-        if (allTiles.Count > 0 && allTiles.All(t => ColourOf(t) % 2 == 1)) fans.Add(new FanEntry { Name = "全半色", Value = 1 });
+        if (allTiles.Count > 0 && allTiles.All(t => ColourOf(t) % 2 == 0)) fans.Add(new FanEntry { Name = "全纯色", Value = 2 });
+        if (allTiles.Count > 0 && allTiles.All(t => ColourOf(t) % 2 == 1)) fans.Add(new FanEntry { Name = "全半色", Value = 2 });
 
         List<int> numbers = allTiles.Select(NumberOf).Distinct().OrderBy(n => n).ToList();
         bool allTriplets = shapes.Count > 0 && shapes.All(s => s.BaseKind == "triplet");

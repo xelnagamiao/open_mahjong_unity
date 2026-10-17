@@ -199,9 +199,9 @@ test('kong payments, refunds, deferred wins and chajiao agree at every seek and 
 test('Sichuan analysis score and rank include kong transfers and endgame settlement', () => {
   const d = detail({ seats: [2, 3, 0, 1], tiles_list: [], action_ticks: [
     ['ag', 11, 'F', 'gs', 6, -2, -2, -2],
-    ['hu_first', 1, 2, ['基本胡'], [0, 0, 0, 0], 24],
+    ['hu_first', 1, 2, ['平和'], [0, 0, 0, 0], 24],
     ['liuju', 'reveal_hu', '{}'],
-    ['liuju', 'settle_hu', 'hu_first', 1, 2, ['基本胡'], [-2, 2, 0, 0], 1], ['end'],
+    ['liuju', 'settle_hu', 'hu_first', 1, 2, ['平和'], [-2, 2, 0, 0], 1], ['end'],
   ] }, { p0_uid: 100, p1_uid: 101, p2_uid: 102, p3_uid: 103 })
   assert.deepEqual([100, 101, 102, 103].map(uid => analyzeRecords([d], uid).total_round_score), [-2, -2, 4, 0])
   assert.deepEqual([100, 101, 102, 103].map(uid => resolveRecordRank(d.record, uid)), [3, 3, 1, 2])

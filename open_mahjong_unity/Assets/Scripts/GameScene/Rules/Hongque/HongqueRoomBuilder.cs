@@ -23,7 +23,7 @@ internal static class HongqueRoomBuilder {
             CountTips = input.CountTips,
             PointerTips = input.PointerTips,
             TouristLimit = input.TouristLimit,
-            AllowSpectator = false,
+            AllowSpectator = input.AllowSpectator,
             TacticalCall = false,
             HepaiWay = hepaiWay,
             EventId = input.EventId,

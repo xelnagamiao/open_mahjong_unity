@@ -156,7 +156,7 @@ def test_replay_award_missed_win_and_public_concealed_kong():
     sim.apply_tick(stringify_tick(['state','lajihe_passed_win',2,'F']))
     assert not sim.players[2].tag_list
     sim.apply_tick(stringify_tick(['ag',45,'F']))
-    assert sim.players[0].combination_masks==[[0,45]*4]
+    assert sim.players[0].combination_masks==[[2,45,0,45,0,45,2,45]]
 
 
 @pytest.mark.parametrize('label',['抢杠（5分）','抢杠（10分）'])
@@ -220,7 +220,7 @@ def test_initial_direct_kong_replaces_flowers_before_kong_tile_and_empty_tail_ke
     async def run():
         state=make_state();p=state.player_list[0]
         p.hand_tiles=[11]*3+[12,14,16,18,21,23,25,27,29,51]
-        state.current_player_index=3;state.player_list[3].discard_tiles=[11];state.tiles_list=[22,23,24]
+        state.current_player_index=2;state.player_list[2].discard_tiles=[11];state.tiles_list=[22,23,24]
         await state.execute_claim(0,'gang');p.lajihe_passed_win=True
         await state._deal_supplement()
         assert p.lajihe_passed_win and state.action_dict[0]==['buhua']

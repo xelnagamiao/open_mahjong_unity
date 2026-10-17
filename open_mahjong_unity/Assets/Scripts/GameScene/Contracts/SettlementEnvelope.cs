@@ -26,7 +26,7 @@ public sealed class SettlementEnvelope {
     /// <summary>本次分变 {player_index: delta}；服务端未给时由呈现层按 ScoresAfter 与镜像推算。</summary>
     public Dictionary<int, int> ScoreChanges;
     /// <summary>和牌分值（番 / 点 / 台，按族解释）。</summary>
-    public int HuScore;
+    public double HuScore;
     /// <summary>番种 key 列表（文案表按族翻译）。</summary>
     public string[] FanLabels;
     /// <summary>底 / 副（古典、虹雀）。</summary>
@@ -85,7 +85,7 @@ public sealed class SettlementEnvelope {
 public sealed class SettlementTotalQuery {
     /// <summary>room_rule 或 sub_rule。</summary>
     public string Rule;
-    public int HuScore;
+    public double HuScore;
     public string[] HuFan;
     public int? BaseFu;
     /// <summary>族专有扩展（RiichiEndResultExtras …），与 <see cref="SettlementEnvelope.Extras"/> 同物。</summary>

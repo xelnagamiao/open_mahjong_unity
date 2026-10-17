@@ -13,7 +13,7 @@ public static class GuobiaoSixteenValidation {
         Check(GuobiaoLobby.SubRules.Count(r => r.Key == sub) == 1, "one sixteeen-tile subrule in Guobiao lobby");
         Check(GuobiaoLobby.SubRules[0].Key == "guobiao/standard", "standard remains the default");
         Check(!GuobiaoGameState.IsJokerSubRule(sub), "sixteen tiles do not enable joker settings");
-        Check(GuobiaoGameState.UsesAuthoritativeTips(sub), "authoritative scoring and waits");
+        Check(GuobiaoGameState.UsesAsyncLocalTips(sub), "local asynchronous scoring and waits");
         Check(MahjongPlayerCount.ForSubRule(sub) == 4, "four seats");
         var structure = HandStructures.Resolve("guobiao", sub);
         Check(structure.BaseHandTileCount == 16 && structure.CompleteHandTileCount == 17, "sixteen and seventeen tile layouts");
@@ -32,7 +32,7 @@ public static class GuobiaoSixteenValidation {
         var snapshot = response.game_info.four_jokers_hints;
         FourJokersTips.Accept(snapshot);
         var query = new TingpaiQuery { Hand=snapshot.hand.ToList(), Melds=new List<string>(), SubRule=sub };
-        Check(GuobiaoTips.Tingpai(query).SetEquals(new[] {46}), "live and reconnect accept sixteen-tile waits");
+        Check(LocalHintValidation.WaitForLocal(query).SetEquals(new[] {46}), "live and reconnect calculate sixteen-tile waits locally");
         var returned = GuobiaoTips.Tingpai(query); returned.Clear();
         Check(GuobiaoTips.Tingpai(query).Count == 1, "immutable cached waits");
         query.Hand.Add(46);

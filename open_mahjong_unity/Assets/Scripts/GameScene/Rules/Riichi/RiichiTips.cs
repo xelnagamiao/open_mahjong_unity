@@ -8,7 +8,9 @@ using UnityEngine;
 /// </summary>
 internal static class RiichiTips {
     public static HashSet<int> Tingpai(TingpaiQuery q) {
-        var waits = RiichiExternal.TingpaiCheck(q.Hand, q.Melds ?? new List<string>(), false);
+        bool countMelds = q.DetailedConfig != null && q.DetailedConfig.TryGetValue("tenpai_owned_tiles", out var scope)
+            && scope?.ToString() == "all";
+        var waits = RiichiExternal.TingpaiCheck(q.Hand, q.Melds ?? new List<string>(), false, countMelds);
         if ((q.SubRule ?? GameSession.Current.SubRule) == "riichi/sanma") waits.RemoveWhere(tile => tile >= 12 && tile <= 18);
         return waits;
     }

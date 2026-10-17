@@ -54,8 +54,11 @@ export const DEFAULT_ASSIST_SETTINGS: AssistSettings = {
 const STORAGE_KEY = 'salasasa.game2d.assistSettings'
 
 function defaultConfirmDiscard(): boolean {
-  return typeof window !== 'undefined'
-    && window.matchMedia('(max-width: 560px) and (pointer: coarse)').matches
+  if (typeof window === 'undefined') return false
+  // Device input, not viewport width: a phone may enter in landscape or desktop-site mode.
+  // The user-agent fallback also covers mobile browsers with an attached mouse.
+  return window.matchMedia?.('(pointer: coarse)').matches === true
+    || /Android|iPhone|iPad|iPod|Mobile/i.test(window.navigator?.userAgent ?? '')
 }
 
 function normalizeTileId(value: unknown): number | null {
@@ -150,12 +153,12 @@ export function resetRoundAssistSettings(settings: AssistSettings): AssistSettin
 
 export function loadStoredAssistSettings(): AssistSettings {
   const raw = localStorage.getItem(STORAGE_KEY)
-  if (!raw) return { ...DEFAULT_ASSIST_SETTINGS, silentTiles: [] }
+  if (!raw) return normalizeAssistSettings(null)
   try {
     return normalizeAssistSettings(JSON.parse(raw) as Partial<AssistSettings>)
   } catch {
     localStorage.removeItem(STORAGE_KEY)
-    return { ...DEFAULT_ASSIST_SETTINGS, silentTiles: [] }
+    return normalizeAssistSettings(null)
   }
 }
 

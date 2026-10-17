@@ -41,7 +41,6 @@ class NanchangGameState(HandFlow,Protocol,Recording,Runtime,EndOfHand,ZhongyongG
         self.round_changes,self.round_start_scores = [0]*4,[0]*4
         self.round_settlement = None
         self.kong_ledger,self.jing_transfers = [],[]
-        self._wait_cache = {}
 
     @property
     def game_status(self):
@@ -68,7 +67,6 @@ class NanchangGameState(HandFlow,Protocol,Recording,Runtime,EndOfHand,ZhongyongG
         self.round_changes = [0]*4
         self.round_start_scores = [p.score for p in self.player_list]
         self.domain_events,self.kong_ledger,self.jing_transfers = [],[],[]
-        self._wait_cache = {}
         self.tail_upper_next = True
         self._action_clocks,self._action_deadlines = {},{}
         physical = [t for t in book.TILES for _ in range(4)]

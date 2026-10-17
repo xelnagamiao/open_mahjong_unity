@@ -228,6 +228,10 @@ public sealed class AutoActionPolicy {
             return false;
         }
 
+        if (AllowActions.Any(ActionWords.RequiresManualChoice)) {
+            return false;
+        }
+
         // 杠后补牌保留完整的手动决策窗口：不自动和牌、不自动补花。
         // 自动摸切由 ShouldStartAutoCut 中同一条件拦截。
         if (dealTileType == "deal_gang_tile") {
@@ -256,6 +260,7 @@ public sealed class AutoActionPolicy {
 
         if (AllowActions.Contains("buhua") && AutoAction.Instance.IsAutoBuhua) {
             actionType = "buhua";
+            delaySeconds = Mathf.Max(0f, Session.Rule?.AutoBuhuaDelay?.Invoke() ?? delaySeconds);
             return true;
         }
 

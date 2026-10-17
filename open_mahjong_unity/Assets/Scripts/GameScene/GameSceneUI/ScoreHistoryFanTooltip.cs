@@ -185,7 +185,6 @@ public class ScoreHistoryFanTooltip : MonoBehaviour {
         if (_pinnedCell != null) return;
         ClearCellSelection();
         _hoveredCell = cell;
-        cell.SetHighlighted(true);
         Show(snapshot, subRule);
     }
 
@@ -200,7 +199,7 @@ public class ScoreHistoryFanTooltip : MonoBehaviour {
         }
         ClearCellSelection();
         _pinnedCell = cell;
-        cell.SetHighlighted(true);
+        cell.SetPinned(true);
         Show(snapshot, subRule);
     }
 
@@ -209,8 +208,7 @@ public class ScoreHistoryFanTooltip : MonoBehaviour {
     }
 
     private void ClearCellSelection() {
-        if (_hoveredCell != null) _hoveredCell.SetHighlighted(false);
-        if (_pinnedCell != null) _pinnedCell.SetHighlighted(false);
+        if (_pinnedCell != null) _pinnedCell.SetPinned(false);
         _hoveredCell = null;
         _pinnedCell = null;
     }
@@ -267,7 +265,10 @@ public class ScoreHistoryFanTooltip : MonoBehaviour {
             if (IsFlowerTile(hand[i]) && !GuangdongMilRules.IsMil(snapshot.subRule)) continue;
             concealed.Add(hand[i]);
         }
-        concealed.Sort(TileIdOrder.HandComparer(concealed, snapshot.handJokerTiles));
+        if (concealed.Count > 0 && concealed.TrueForAll(HongqueTileVisual.IsHongqueId))
+            concealed = new List<int>(HongqueDisplayOrder.SettlementHand(concealed));
+        else
+            concealed.Sort(TileIdOrder.HandComparer(concealed, snapshot.handJokerTiles));
 
         for (int i = 0; i < concealed.Count; i++) {
             SpawnTile(concealed[i]);

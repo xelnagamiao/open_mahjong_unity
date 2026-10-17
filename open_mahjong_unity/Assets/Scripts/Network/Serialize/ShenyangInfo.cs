@@ -30,6 +30,7 @@ public sealed class ShenyangPayment {
 }
 [Serializable]
 public sealed class ShenyangHints {
+    public JObject local_request;
     public int[] source_hand_tiles;
     public string[] source_melds;
     public Dictionary<int,ShenyangWaitDetail> waiting;

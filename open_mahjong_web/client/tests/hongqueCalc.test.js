@@ -26,6 +26,35 @@ function fanMap(result) {
   return map
 }
 
+for (let colour = 0; colour < 14; colour++) for (const openHand of [false, true]) for (const selfDraw of [false, true]) {
+  test(`colour fan is 2: colour=${colour}, open=${openHand}, selfDraw=${selfDraw}`, () => {
+    const prefix = `${'ABCDEFG'[Math.floor(colour / 2)]}${colour % 2 ? 'Y' : 'X'}`
+    const group = [1, 2, 3].map(n => prefix + n)
+    const result = bestWinResult(openHand ? [] : group, openHand ? [{ tiles: group }] : [], { ...flags, selfDraw })
+    const name = colour % 2 ? '全半色' : '全纯色'
+    assert.deepEqual(result.fans.find(fan => fan.name === name), { name, value: 2, count: 1, total: 2 })
+    assert.equal(result.fans.some(fan => fan.name === (colour % 2 ? '全纯色' : '全半色')), false)
+    assert.equal(result.points, result.base * result.fanTotal)
+  })
+}
+
+test('mixed pure and half tiles receive neither colour fan', () => {
+  const result = bestWinResult(['AX1', 'AY2', 'BX3'], [], flags)
+  assert.equal(result.fans.some(fan => ['全纯色', '全半色'].includes(fan.name)), false)
+})
+
+test('revised rulebook page 8 examples match their updated fan totals and points', () => {
+  const cases = [
+    [[Array.from({length: 9}, (_, i) => `FX${i+1}`), [1,3,5,7,9].map(n => `EX${n}`)], 11, 31, 341],
+    [[[...'ABCDEF'].map(c => `${c}Y3`), [...'ABCDEF'].map(c => `${c}Y5`)], 9, 33, 297],
+    [['GY4 AY4 BY4 CY4 DY4 EY4', 'GY1 GY3 GY5', 'GY7 GY8 GY9'].map(s => s.split(' ')), 6, 17, 102],
+  ]
+  for (const [groups, base, fans, points] of cases) {
+    const result = bestWinResult([], groups.map(tiles => ({tiles})), {...flags, selfDraw: false})
+    assert.deepEqual([result.base, result.fanTotal, result.points], [base, fans, points])
+  }
+})
+
 test('hongque: minimal concealed win base * fan sum', () => {
   const result = bestWinResult(['AX1', 'AX2', 'AX3'], [], flags)
   assert.ok(result)
@@ -36,12 +65,12 @@ test('hongque: minimal concealed win base * fan sum', () => {
     金龙: 6,
     全带幺: 2,
     清顺: 1,
-    全纯色: 1,
+    全纯色: 2,
     门清: 1,
     平和: 1,
   })
-  assert.equal(result.fanTotal, 36)
-  assert.equal(result.points, 180)
+  assert.equal(result.fanTotal, 37)
+  assert.equal(result.points, 185)
 })
 
 test('hongque: rulebook 1008 point example (all 14 colour levels of number 1)', () => {
@@ -87,7 +116,7 @@ test('hongque: exposed groups complete the win, no pair head', () => {
   assert.ok(result)
   assert.deepEqual(result.pair, [])
   assert.equal(result.concealed, false)
-  assert.equal(result.points, 57)
+  assert.equal(result.points, 60)
 })
 
 test('hongque: 全带幺 accepts a 123 meld extended with 4', () => {

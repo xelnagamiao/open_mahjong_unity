@@ -30,6 +30,11 @@ class LajiheGameState(QinghunpengGameState):
     draw_debt_enabled = False
     concealed_kongs_public = True
 
+    def build_concealed_kong_mask(self, tiles):
+        # 公开牌值供各家辨认花数，同时以两端牌背区别于明杠。
+        return [value for position, tile in enumerate(tiles)
+                for value in (2 if position in (0, 3) else 0, tile)]
+
     def __init__(self, game_server, room_data, calculation_service, db_manager, gamestate_id):
         super().__init__(game_server, room_data, calculation_service, db_manager, gamestate_id)
         self.rules = replace(self.rules, chow_discard_restriction_mode="strict")
@@ -53,7 +58,7 @@ class LajiheGameState(QinghunpengGameState):
 
     def score_candidate(self, player_index, source, tile=None, **_):
         player = self.player_list[player_index]
-        if player.lajihe_passed_win:
+        if player.lajihe_passed_win and source != "robbing_kong":
             return None
         if source == "self_draw" and self.opening_before_draw is not None:
             return None
@@ -126,6 +131,8 @@ class LajiheGameState(QinghunpengGameState):
         for distance in (1, 2, 3):
             index = (self.current_player_index + distance) % 4
             if self.opening_claim_window is not None and index != self.opening_claim_window:
+                continue
+            if self.should_defer_opening_discard_response(index):
                 continue
             player = self.player_list[index]
             detail = self.score_candidate(index, "discard", tile)

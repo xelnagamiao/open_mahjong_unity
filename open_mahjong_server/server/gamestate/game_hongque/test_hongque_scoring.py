@@ -1,6 +1,40 @@
 import pytest
 
-from server.gamestate.game_hongque.scoring import best_win_result
+from server.gamestate.game_hongque.scoring import best_win_result, score_partition
+from server.gamestate.game_hongque.tile import HongqueTile
+
+
+@pytest.mark.parametrize('colour', range(14))
+@pytest.mark.parametrize('open_hand', [False, True])
+@pytest.mark.parametrize('self_draw', [False, True])
+def test_pure_and_half_colours_are_two_fan(colour, open_hand, self_draw):
+    group = [HongqueTile(colour, n).code for n in (1, 2, 3)]
+    result = best_win_result([] if open_hand else group,
+        [{'tiles': group}] if open_hand else [], self_draw=self_draw,
+        before_first_discard=False, wall_empty=False)
+    expected = '全半色' if colour % 2 else '全纯色'
+    other = '全纯色' if colour % 2 else '全半色'
+    fans = {fan['name']: fan for fan in result['fans']}
+    assert fans[expected] == {'name': expected, 'value': 2, 'count': 1, 'total': 2}
+    assert other not in fans
+    assert result['points'] == result['base'] * result['fan_total']
+
+
+def test_mixed_pure_and_half_colours_do_not_gain_either_fan():
+    result = best_win_result('AX1 AY2 BX3'.split(), [],
+        self_draw=True, before_first_discard=False, wall_empty=False)
+    assert not {'全纯色', '全半色'} & {fan['name'] for fan in result['fans']}
+
+
+@pytest.mark.parametrize('groups,base,fans,points', [
+    ([['FX' + str(n) for n in range(1, 10)], ['EX' + str(n) for n in (1, 3, 5, 7, 9)]], 11, 31, 341),
+    ([[letter + 'Y3' for letter in 'ABCDEF'], [letter + 'Y5' for letter in 'ABCDEF']], 9, 33, 297),
+    (['GY4 AY4 BY4 CY4 DY4 EY4'.split(), 'GY1 GY3 GY5'.split(), 'GY7 GY8 GY9'.split()], 6, 17, 102),
+])
+def test_revised_rulebook_page_eight_examples(groups, base, fans, points):
+    result = score_partition([], [{'tiles': group} for group in groups],
+        self_draw=False, before_first_discard=False, wall_empty=False)
+    assert (result['base'], result['fan_total'], result['points']) == (base, fans, points)
 
 
 def test_scoring_uses_rulebook_base_times_fan_sum() -> None:
@@ -15,7 +49,7 @@ def test_scoring_uses_rulebook_base_times_fan_sum() -> None:
     assert result["base"] == 5  # 3 base + 2 concealed
     assert {fan["name"]: fan["total"] for fan in result["fans"]} == {
         "清一色": 18,
-        "全纯色": 1,
+        "全纯色": 2,
         "三数": 6,
         "平和": 1,
         "金龙": 6,
@@ -23,8 +57,8 @@ def test_scoring_uses_rulebook_base_times_fan_sum() -> None:
         "清顺": 1,
         "门清": 1,
     }
-    assert result["fan_total"] == 36
-    assert result["points"] == 180
+    assert result["fan_total"] == 37
+    assert result["points"] == 185
 
 
 def test_zero_fan_hand_is_exactly_one_point() -> None:
@@ -287,9 +321,9 @@ def test_same_triplet_counts_groups_regardless_of_length() -> None:
 
 
 def test_same_flower_matches_opposite_direction_sequences() -> None:
-    # 同花按“长度 + 花色对应”匹配，方向由顺子自身决定：
+    # 同花按“长度 + 花色对应”匹配，不依赖顺子的数字方向：
     # 递增顺子 AX1 AY2 BX3 BY4 与递减顺子 BY1 BX2 AY3 AX4 花色对应相同，
-    # 应互为双同花；客户端 OrderedTiles 若不反转递减顺子会漏算。
+    # 应互为双同花。
     hand = [
         "AX1", "AY2", "BX3", "BY4",
         "BY1", "BX2", "AY3", "AX4",

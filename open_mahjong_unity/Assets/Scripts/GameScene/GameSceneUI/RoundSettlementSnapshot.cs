@@ -10,7 +10,7 @@ public class RoundSettlementSnapshot {
     public string huClass;
     public int hepaiPlayerIndex = -1;
     public string winnerUsername;
-    public int huScore;
+    public double huScore;
     public int winnerScoreDelta;
     public string[] huFan;
     public string[] fuFanList;

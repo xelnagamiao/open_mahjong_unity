@@ -57,6 +57,7 @@
       <JiujiangRoomConfig v-else-if="form.room_rule === 'jiujiang'" :form="form" :show-password="false" />
       <WuhanRoomConfig v-else-if="form.room_rule === 'wuhan'" :form="form" :show-password="false" />
       <HongzhongRoomConfig v-else-if="form.room_rule === 'hongzhong'" :form="form" :show-password="false" />
+      <ChangshaRoomConfig v-else-if="form.room_rule === 'changsha'" :form="form" :show-password="false" />
       <ChangchunRoomConfig v-else-if="form.room_rule === 'changchun'" :form="form" :show-password="false" />
       <YixingRoomConfig v-else-if="form.room_rule === 'yixing'" :form="form" :show-password="false" />
       <MalaysiaRoomConfig v-else-if="form.room_rule === 'malaysia'" :form="form" :show-password="false" />
@@ -100,6 +101,7 @@ import SingaporeRoomConfig from '@/components/SingaporeRoomConfig.vue'
 import JiujiangRoomConfig from '@/components/JiujiangRoomConfig.vue'
 import WuhanRoomConfig from '@/components/WuhanRoomConfig.vue'
 import HongzhongRoomConfig from '@/components/HongzhongRoomConfig.vue'
+import ChangshaRoomConfig from '@/components/ChangshaRoomConfig.vue'
 import ChangchunRoomConfig from '@/components/ChangchunRoomConfig.vue'
 import RiichiRoomConfig from '@/components/RiichiRoomConfig.vue'
 import { buildEventRoomSettings, changeEventRoomRule, clearUnsupportedDuplicateRoom, createEventRoomForm } from '@/utils/eventRoomSettings'

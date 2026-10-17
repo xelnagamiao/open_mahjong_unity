@@ -34,7 +34,7 @@ internal static class HongzhongRuleBootstrap {
             TileBadgeText = tile => tile == 45 ? "癞" : null,
             HandJokerTiles = _ => new[] { 45 },
             FanValueText = (rule,name) => Fans.TryGetValue(name,out int value) ? $"{value}番" : "",
-            SettlementTotal = q => new SettlementTotalDisplay { FanText=$"{q.HuScore}番",ScoreText=$"基本分 {1 << Math.Min(4,q.HuScore)}分" },
+            SettlementTotal = q => new SettlementTotalDisplay { FanText=$"{q.HuScore}番",ScoreText=$"基本分 {1 << (int)Math.Min(4,q.HuScore)}分" },
             ScoreboardFanText = q => $"{q.HuScore}番",
             ActionVoice = word => word == "hu_self" ? "hu" : null,
             RoundName = round => $"第{round}局", MaxRoundText = rounds => $"{rounds*4}局",

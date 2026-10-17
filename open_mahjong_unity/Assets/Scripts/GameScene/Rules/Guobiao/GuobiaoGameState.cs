@@ -5,7 +5,7 @@
 public partial class GuobiaoGameState : TurnBasedGameState {
     public const string RuleId = "guobiao";
     public const string SixteenSubRule = "guobiao/sixteen";
-    public static bool UsesAuthoritativeTips(string sub) => IsJokerSubRule(sub) || sub == SixteenSubRule;
+    public static bool UsesAsyncLocalTips(string sub) => IsJokerSubRule(sub) || sub == SixteenSubRule;
     public const string HuahunSubRule = "guobiao/huahun";
     public static bool IsJokerSubRule(string sub) => sub == FourJokersSubRule || sub == HuahunSubRule;
     public const string FourJokersSubRule = "guobiao/four_jokers";

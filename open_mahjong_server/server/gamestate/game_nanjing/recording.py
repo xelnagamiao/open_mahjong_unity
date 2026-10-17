@@ -65,5 +65,5 @@ class Recording:
     def record_hints(self):
         if not self._has_active_round_record():
             return
-        from .hints import build_hints
-        record.append_action_tick(self,["nanjing","hints",[build_hints(self,i) for i in range(4)]])
+        from .client_context import local_context
+        record.append_action_tick(self,["nanjing","hints",[local_context(self,i) for i in range(4)]])

@@ -39,7 +39,7 @@ internal static class VietnameseRuleBootstrap {
 internal static class VietnameseScoreText {
     // The existing Chinese result fonts cover these units. One mun is six phan;
     // use 番/满 here instead of displaying unsupported accented Latin glyphs.
-    public static string Amount(int phan)=>phan<6?$"{phan}番":$"{phan/6}满"+(phan%6==0?"":$" + {phan%6}番");
+    public static string Amount(double phan)=>phan<6?$"{phan}番":$"{System.Math.Floor(phan/6)}满"+(phan%6==0?"":$" + {phan%6}番");
     private static readonly Dictionary<string,string> Names=new Dictionary<string,string> {
         {"fully_closed","门前清"},
         {"single_wait","单种待牌"},

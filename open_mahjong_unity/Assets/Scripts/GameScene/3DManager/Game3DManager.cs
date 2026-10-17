@@ -710,7 +710,7 @@ public partial class Game3DManager : MonoBehaviour {
 
         if (actionType == "Discard" || actionType == "RecordDiscard") {
             if (IsRecordShowCardsModeActive() && PlayerPosition != "self") {
-                yield return RecordDiscardShowCardsCoroutine(PlayerPosition, tileId, cut_class, isRiichi);
+                yield return RecordDiscardShowCardsCoroutine(PlayerPosition, tileId, cut_class, isRiichi, concealedDiscard, playCutPhysicsSound);
                 yield break;
             }
             if (IsSelfCardsPosition(panel.cardsPosition)) {
@@ -719,11 +719,9 @@ public partial class Game3DManager : MonoBehaviour {
             else {
                 yield return RemoveHandCardsCoroutine(panel.cardsPosition, 1, cut_class, tileId, null, skipRearrange: true, PlayerPosition);
             }
-            if (playCutPhysicsSound) {
-                SoundManager.Instance.PlayPhysicsSound("cut");
-            }
             bool moqieGrayOnDiscard = ShouldApplyMoqieDiscardGray(cut_class);
-            yield return Set3DTileCoroutine(tileId, panel.discardsPosition, "Discard", PlayerPosition, moqieGrayOnDiscard, isRiichi: isRiichi);
+            if (playCutPhysicsSound) PlayDiscardSound(PlayerPosition, isRiichi);
+            yield return Set3DTileCoroutine(concealedDiscard ? 0 : tileId, panel.discardsPosition, "Discard", PlayerPosition, moqieGrayOnDiscard, isRiichi: isRiichi);
             if (PlayerPosition != "self" && DiscardSettlePauseSec > 0f) {
                 yield return new WaitForSeconds(DiscardSettlePauseSec);
             }

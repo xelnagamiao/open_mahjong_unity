@@ -36,23 +36,3 @@ async def evaluate_actions(state, check, *args, **kwargs):
     for player, waiting in zip(state.player_list, waits):
         player.waiting_tiles = waiting
     return actions
-
-
-async def prepare_hints(state, index):
-    if not (rules.enabled(state) or sixteen.enabled(state)) or not (getattr(state, 'tips', False) or getattr(state, 'count_tips', False)):
-        return None
-    player = state.player_list[index]
-    key = (tuple(player.hand_tiles), tuple(player.combination_tiles))
-    cache = getattr(state, '_four_jokers_hints', None)
-    if cache is None:
-        cache = state._four_jokers_hints = {}
-    if index not in cache or cache[index][0] != key:
-        hints = await run_room_bot_cpu(state, (sixteen if sixteen.enabled(state) else rules.for_state(state)).hint_snapshot, *key)
-        hints["sub_rule"] = state.sub_rule
-        cache[index] = key, hints
-    return cache[index][1]
-
-
-def cached_hints(state, index):
-    entry = getattr(state, '_four_jokers_hints', {}).get(index)
-    return entry[1] if entry else None

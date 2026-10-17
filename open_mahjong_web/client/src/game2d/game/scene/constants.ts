@@ -1,5 +1,5 @@
 import { isMobile } from 'pixi.js'
-import { STANDARD_FACE_IDS, isFlowerFaceId, mmcrFaceId, tileFaceAssetUrl } from '../../lib/tileFaceAsset'
+import { STANDARD_FACE_IDS, GUOBIAO_FACE_IDS, isFlowerFaceId, mmcrFaceId, tileFaceAssetUrl } from '../../lib/tileFaceAsset'
 
 // ── Geometry ──────────────────────────────────────────────────────────
 export const TILE_WIDTH = 360
@@ -43,6 +43,11 @@ export const TILE_TEXTURE_PATHS: { alias: string; src: string; data?: { autoGene
     alias: `unity-${id}`,
     src: `${TILE_ROOT}/Unity/${id}.svg`,
     // Preserve fine strokes when the high-resolution artwork is reduced to table size.
+    data: { autoGenerateMipmaps: true },
+  })),
+  ...GUOBIAO_FACE_IDS.map((id) => ({
+    alias: `guobiao-${id}`,
+    src: tileFaceAssetUrl(id, { baseUrl: ASSET_ROOT, guobiao: true, unityFlower: true }),
     data: { autoGenerateMipmaps: true },
   })),
 ]

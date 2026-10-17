@@ -1,5 +1,5 @@
 """Shared end-of-game bridge. Custom rooms never change ratings."""
-from .rating_rules import QUEUES
+from .rating_rules import get_ranked_queue
 from .riichi_rank_calculator import LEGACY_PT_ALGORITHM
 
 
@@ -7,7 +7,7 @@ def settle_ranked_game(state):
     queue = getattr(state, 'match_queue_type', None)
     if state.room_type != 'match':
         return f'{state.max_round}/{len(state.player_list)}'
-    spec = QUEUES.get(queue)
+    spec = get_ranked_queue(queue)
     if not spec or spec.rule != state.room_rule:
         raise ValueError('排位对局的规则与队列不一致')
     if (len(state.player_list) != spec.player_count

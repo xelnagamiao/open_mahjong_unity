@@ -2,7 +2,7 @@
 import math
 from ..game_zhongyong import boardcast as wire
 from .actions import legal_cuts, kong_tiles, declaration_cuts
-from .hints import build_hints
+from .client_context import local_context
 from .state_machine import Phase as P
 
 
@@ -41,7 +41,7 @@ class Protocol:
             info["fuzhou_info"] = self.fuzhou_info()
             if viewer in range(4):
                 info["fuzhou_info"]["self_has_draw_slot"] = self.player_list[viewer].has_draw_slot
-                info["fuzhou_hints"] = build_hints(self,viewer)
+                info["fuzhou_hints"] = local_context(self,viewer)
             info["players_info"] = [self._player_view(i,viewer) for i in range(4)]
             info["self_hand_tiles"] = list(self.player_list[viewer].hand_tiles) if viewer in range(4) else None
         return payload
@@ -53,31 +53,30 @@ class Protocol:
         phase = P(window["status"])
         actor = window["player"] if window.get("player") is not None else self.current_player_index
         payload = wire.ask_action_payload(self,index,self.action_dict.get(index,[]),action_player_index=actor,
-            # Opening declarations can include the dealer's heavenly self-draw.
-            # Send their hand-action prompt; a discard-claim prompt filters out
-            # self-draw in clients. Other seats still claim the gold indicator.
+            # Non-dealers claim the exposed indicator before any cut; the
+            # dealer's later claim is a separate hand prompt with no new cut.
             cut_tile=window.get("tile") if phase==P.RESPONSE or phase==P.OPENING and index!=self.dealer_index else None,
             rob_kong_tile=window.get("tile") if phase==P.KONG else None)
         info = payload.get("ask_hand_action_info") or payload.get("ask_other_action_info")
         if info is not None:
             p = self.player_list[index]
-            info.update(fuzhou_info=self.fuzhou_info(),fuzhou_hints=build_hints(self,index),
+            info.update(fuzhou_info=self.fuzhou_info(),fuzhou_hints=local_context(self,index),
                         remaining_time=math.ceil(max(0,p.remaining_time)))
             clock = self.action_clocks.get(index)
             if clock:
                 info["remaining_time"],info["step_remaining"] = clock.parts(self._timing_now())
-            if phase in (P.TURN,P.DISCARD_ONLY,P.SEA):
+            if phase in (P.TURN,P.DISCARD_ONLY,P.SEA,P.FLOWER_WIN):
                 active = self.player_list[actor]
                 info["deal_tile_type"] = {"normal":"deal_tile","kong":"deal_gang_tile","flower":"deal_buhua_tile","sea":"deal_tile"}.get(active.draw_kind) if active.has_draw_slot else None
                 if index==actor:
-                    legal = legal_cuts(self,index) if phase!=P.SEA else set()
+                    legal = legal_cuts(self,index) if phase not in (P.SEA,P.FLOWER_WIN) else set()
                     info["forbidden_cut_tiles"] = sorted(set(p.hand_tiles)-legal)
-                    info["kong_candidates"] = {a:sorted(kong_tiles(self,index,a)) for a in ("angang","jiagang")}
-                    info["fuzhou_declaration_candidates"] = {a:sorted(declaration_cuts(self,index,a)) for a in ("youjin","tingjin")}
+                    info["kong_candidates"] = {a:sorted(kong_tiles(self,index,a)) for a in ("angang","jiagang") if a in self.action_dict[index]}
+                    info["fuzhou_declaration_candidates"] = {a:sorted(declaration_cuts(self,index,a)) for a in ("youjin","tingjin") if a in self.action_dict[index]}
             else:
                 info["deal_tile_type"] = None
-            if phase==P.OPENING:
-                info["fuzhou_declaration_candidates"] = {"qiangjin":sorted(self.qiangjin_cuts(index))} if index==self.dealer_index else {}
+            if phase in (P.HEAVEN,P.OPENING,P.DEALER_GOLD):
+                info["fuzhou_declaration_candidates"] = {}
         return self._adapt(payload,index)
 
     def emit_window_payloads(self,window):
@@ -97,7 +96,7 @@ class Protocol:
     def emit_visible_action_payloads(self,event,*,reveal_final=False):
         self.record_visible_action(event)
         action = event["action"]
-        if action.startswith("hu"):
+        if action.startswith("hu") or action=="deal_buhua_tile" and event.get("combined_replacement"):
             return []
         payloads = []
         for viewer in range(4):
@@ -107,6 +106,10 @@ class Protocol:
                 info["combination_target"] = f"k{event['tile']}"
             if action=="buhua":
                 info.update(buhua_tile=event["tile"],is_mo_buhua=event.get("is_mo_buhua",False))
+                if event.get("replacement_tile") is not None:
+                    info["action_list"].append("deal_buhua_tile")
+                    info["deal_tile"] = wire.sanitize_deal_tile_for_viewer(
+                        event["replacement_tile"],event["player"],viewer)
             info["fuzhou_info"] = self.fuzhou_info()
             # Gold flips and dynamic reserves consume drawable tiles too;
             # qiangjin transfers the exposed indicator without a second draw.
@@ -115,6 +118,10 @@ class Protocol:
         self.outbound_payloads.extend(payloads)
         if action=="buhua":
             from ..game_guobiao.buhua_broadcast import HAND_SETTLE_GAP_SEC
+            # Opening sends flower + replacement together, then keeps one
+            # 0.3-second beat before the next seat. There is no second client
+            # wait, so automatic opening replacement is about twice as fast
+            # as the original 0.3-second client + 0.3-second split delivery.
             self.outbound_payloads.append({"_pause":HAND_SETTLE_GAP_SEC})
         return payloads
 

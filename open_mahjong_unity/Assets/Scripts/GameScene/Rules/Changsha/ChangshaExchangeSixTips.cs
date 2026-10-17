@@ -1,29 +1,48 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Newtonsoft.Json.Linq;
 
-// 实战使用服务器给出的出牌后听牌提示；回放按记录恢复报听、相公和锁定牌型。
+// 实战只接收规则状态，听牌和分数由客户端有界任务队列计算。
 internal static class ChangshaExchangeSixTips {
     internal static string Key(IEnumerable<int> hand, IEnumerable<string> melds) =>
         string.Join(",", (hand ?? Array.Empty<int>()).OrderBy(tile => tile)) + "|" +
         string.Join(",", (melds ?? Array.Empty<string>()).OrderBy(meld => meld));
 
-    internal static ChangshaExchangeSixWait[] Live(List<int> hand, List<string> melds) {
-        var hints = ChangshaGameState.Active?.ExchangeSixSnapshot?.private_state?.hints;
-        if (hints?.hand == null) return Array.Empty<ChangshaExchangeSixWait>();
-        string key = Key(hand, melds);
-        if (key == Key(hints.hand, hints.melds)) return hints.waits ?? Array.Empty<ChangshaExchangeSixWait>();
-        if (hints.discard_waits != null) foreach (var item in hints.discard_waits) {
-            var remaining = new List<int>(hints.hand);
-            if (remaining.Remove(item.Key) && key == Key(remaining, hints.melds)) return item.Value;
+    internal static ChangshaExchangeSixWait[] Live(List<int> hand, List<string> melds, Action ready = null) {
+        var request = ChangshaGameState.Active?.ExchangeSixSnapshot?.private_state?.local_hint_context;
+        return FromRequest(request, hand, melds, ready);
+    }
+
+    internal static ChangshaExchangeSixWait[] FromRequest(JObject request, List<int> hand, List<string> melds, Action ready = null) {
+        if (request == null || Key(Array.Empty<int>(), melds) != Key(Array.Empty<int>(), request["melds"]?.ToObject<string[]>()))
+            return Array.Empty<ChangshaExchangeSixWait>();
+        return LocalHintSnapshots.Rows(request, hand, ready)?.Properties()
+            .Select(row => row.Value.ToObject<ChangshaExchangeSixWait>()).ToArray() ?? Array.Empty<ChangshaExchangeSixWait>();
+    }
+
+    internal static ChangshaExchangeSixWait ComputeRow(List<int> hand, List<string> melds, int tile, JObject context) {
+        if (RegionalLocalCalculator.Bool(context, "blocked")) return null;
+        var fans = ChangshaExchangeSixShape.Fans(hand, melds, RegionalLocalCalculator.Bool(context, "reported_ready"));
+        if (fans.Count == 0) return null;
+        if (context["locked_patterns"] is JObject locked) {
+            if (locked[tile.ToString()] == null) return null;
+            fans = locked[tile.ToString()].ToObject<List<string>>();
         }
-        return Array.Empty<ChangshaExchangeSixWait>();
+        if (RegionalLocalCalculator.Bool(context, "reported_ready")) fans.Add("报听");
+        if (RegionalLocalCalculator.Bool(context, "open_hand")) fans.Add("明牌");
+        if (fans.Count == 0) fans.Add("小胡");
+        if (fans.Count > 1) fans.Remove("小胡");
+        int score = ChangshaExchangeSixShape.Score(fans);
+        fans.Sort(StringComparer.Ordinal);
+        return new ChangshaExchangeSixWait {tile = tile, fans = fans.ToArray(), score = score,
+            blocked_small_hu = RegionalLocalCalculator.Bool(context, "small_hu_forbidden") && score == 2};
     }
 
     internal static HashSet<int> Waiting(TingpaiQuery query) {
         var waits = query.RecordPlayerIndex.HasValue
             ? GameRecordManager.Instance.ExchangeSixRecordWaits(query.RecordPlayerIndex.Value, query.Hand, query.Melds)
-            : Live(query.Hand, query.Melds);
+            : Live(query.Hand, query.Melds, query.OnReady);
         return new HashSet<int>(waits.Select(wait => wait.tile));
     }
 
@@ -39,7 +58,7 @@ internal static class ChangshaExchangeSixTips {
     }
 }
 
-// 仅用于牌谱提示的固定玩法基础算牌；不改变普通长沙算牌器。
+// 实战与牌谱共用的换六张基础算牌。
 internal static class ChangshaExchangeSixShape {
     internal static readonly int[] Tiles = Enumerable.Range(11, 9).Concat(Enumerable.Range(21, 9)).Concat(Enumerable.Range(31, 9)).ToArray();
     private static readonly HashSet<int> Terminals = new HashSet<int> {11, 19, 21, 29, 31, 39};

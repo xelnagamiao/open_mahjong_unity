@@ -64,7 +64,6 @@ class GuangdongTacticalMixin:
         # Application is cosmetic: no tile mutation, no draw-slot reset and no
         # executable replay tick. The existing replay tracker records losers as ca.
         state.server_action_tick += 1
-        await state.prepare_private_fields(range(4))
         track_claim_application(state, action_player, action_list[0], cut_tile)
         for index in range(4):
             payload = boardcast._build_do_action_payload(state, action_list, action_player, index, cut_tile=cut_tile)

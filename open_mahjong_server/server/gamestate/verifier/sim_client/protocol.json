@@ -1,5 +1,13 @@
 {
   "sim_client_version": 3,
+  "local_hint_transport": {
+    "calculation": "client",
+    "regional_input": "local_request carries copied own hand, melds and scoring context; legacy precomputed replay rows remain readable",
+    "hongque_input": "local_win_context carries tile, self_draw, before_first_discard and wall_empty; no precomputed hint result fields",
+    "changsha_exchange_six_input": "private_state.local_hint_context carries copied own hand, melds, cuts and eligibility context; no private_state.hints",
+    "guobiao_input": "wildcard and sixteen-tile clients use their local hand and rule context; no server hint result field is emitted",
+    "authority": "win actions, settlement and bot decisions remain server-authoritative"
+  },
   "rule": "guobiao",
   "table_variants": {
     "guobiao/standard": {
@@ -28,7 +36,7 @@
         57,
         58
       ],
-      "optional_hint_snapshot": "four_jokers_hints",
+      "client_computed_hints": true,
       "joker_multi_wait": {
         "default": false,
         "false": "resolve joker identities before evaluating single-wait fans",
@@ -128,7 +136,7 @@
         "false": "resolve joker identities before evaluating single-wait fans",
         "true": "exclude single-wait fans when the completed hand contains jokers"
       },
-      "optional_hint_snapshot": "four_jokers_hints",
+      "client_computed_hints": true,
       "optional_forbidden_cuts": "forbidden_cut_tiles",
       "joker_discard": "current draw only",
       "flower_kong": {

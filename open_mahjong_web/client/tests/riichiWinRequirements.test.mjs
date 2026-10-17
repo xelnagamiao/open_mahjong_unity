@@ -31,7 +31,8 @@ test('all win lines survive editing, Node validation, persistence and display', 
 test('legacy rooms default to one actual han and no score line', () => {
   const stored=persist({starting_score:30000})
   assert.equal(stored.room_config.hepai_limit,1)
-  assert.deepEqual(stored.room_config.detailed_config,{minimum_win_score:0})
+  assert.equal(stored.room_config.detailed_config.minimum_win_score,0)
+  assert.equal(stored.room_config.detailed_config.ura_dora,true)
   const form=createEventRoomForm(stored)
   form.room_rule='guobiao'
   assert.equal(buildEventRoomSettings(form).room_config.detailed_config,undefined)

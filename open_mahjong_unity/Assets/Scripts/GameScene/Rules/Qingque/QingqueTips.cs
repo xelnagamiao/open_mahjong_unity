@@ -20,8 +20,6 @@ internal static class QingqueTips {
     }
 
     private static string FormatFan(double fan) {
-        return System.Math.Abs(fan % 1) < 0.0001
-            ? $"{fan:F0}番"
-            : $"{fan:F2}番".TrimEnd('0').TrimEnd('.');
+        return QingqueFanText.FormatFan(fan);
     }
 }

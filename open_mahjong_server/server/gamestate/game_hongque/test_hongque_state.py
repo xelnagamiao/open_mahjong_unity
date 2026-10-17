@@ -203,8 +203,8 @@ def test_server_snapshot_leaves_tenpai_hint_scoring_to_client() -> None:
     state.phase = "turn"
 
     snapshot = state.build_state(1)
-    assert snapshot["waiting_tiles"] == []
-    assert snapshot["waiting_hints"] == []
+    assert "waiting_tiles" not in snapshot
+    assert "waiting_hints" not in snapshot
 
 
 def test_event_updates_omit_table_snapshot() -> None:
@@ -950,7 +950,7 @@ async def _exercise_debug_double_ron() -> None:
     assert state.dealer_index == 3
     assert state.current_player_index == 3
     assert "AX1" in p[3].hand
-    # 上家不可天和（含重复牌，无法成和）。
+    # 上家不可天和（AX1 为孤张，无法成和）。
     actions, _ = state._legal_turn_actions(p[3])
     assert "win" not in actions
     # 开局摸牌事件与覆盖后的手牌一致，避免客户端白牌/多一张。
@@ -1233,8 +1233,9 @@ async def _exercise_group_wait_self_win() -> None:
 
     snapshot = state.build_state(0)
     assert "win" in snapshot["legal_actions"]
-    assert snapshot["win_hint"]["points"] > 0
-    assert snapshot["win_hint"]["base"] > 0
+    assert "win_hint" not in snapshot
+    assert snapshot["local_win_context"]["self_draw"] is True
+    assert snapshot["local_win_context"]["tile"] == "AX3"
 
     await state.submit_action(player.user_id, "win", action_tick=state.action_tick)
 
@@ -1271,7 +1272,9 @@ async def _exercise_group_wait_ron() -> None:
     assert state.phase == "claim"
     ron = next(option for option in state.claim_options[1] if option["kind"] == "win")
     snapshot = state.build_state(1)
-    assert snapshot["win_hint"]["points"] > 0
+    assert "win_hint" not in snapshot
+    assert snapshot["local_win_context"]["self_draw"] is False
+    assert snapshot["local_win_context"]["tile"] == "AX3"
     await state.submit_action(
         winner.user_id,
         "claim",

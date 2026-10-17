@@ -30,7 +30,7 @@ class Rig:
             self.state.game_server.user_id_to_connection[player.user_id] = SimpleNamespace(
                 websocket=SimpleNamespace(send_json=send))
         self.state.send_to_realtime_spectators = AsyncMock()
-        self.state._warm_hints = AsyncMock()
+        self.state._prepare_draw_score = AsyncMock()
         self.state.spectator_manager.record_ask_hand = lambda *_: None
         self.state.spectator_manager.record_ask_other = lambda *_: None
 

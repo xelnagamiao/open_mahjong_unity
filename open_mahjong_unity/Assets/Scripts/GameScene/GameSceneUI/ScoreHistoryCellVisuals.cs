@@ -42,8 +42,45 @@ public static class ScoreHistoryCellVisuals {
         }
     }
 
-    public static UnityEngine.UI.Image CreateHighlight(Transform cell) {
-        var highlight = new GameObject("HoverHighlight", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+    /// <summary>所有计分板选项共用原生 Toggle：ColorTint 处理悬停/按下，graphic 处理持续选中与淡入淡出。</summary>
+    public static UnityEngine.UI.Toggle CreateToggle(TMPro.TMP_Text text, UnityEngine.UI.ToggleGroup group = null) {
+        var toggle = text.GetComponent<UnityEngine.UI.Toggle>();
+        if (toggle != null) return toggle;
+
+        var hover = CreateHighlight(text.transform, "HoverHighlight", Color.white);
+        var selected = CreateHighlight(text.transform, "SelectedHighlight", new Color(.12f, .55f, 1f, .38f));
+        toggle = text.gameObject.AddComponent<UnityEngine.UI.Toggle>();
+        toggle.targetGraphic = hover;
+        toggle.graphic = selected;
+        toggle.transition = UnityEngine.UI.Selectable.Transition.ColorTint;
+        toggle.toggleTransition = UnityEngine.UI.Toggle.ToggleTransition.Fade;
+        toggle.navigation = new UnityEngine.UI.Navigation { mode = UnityEngine.UI.Navigation.Mode.Automatic };
+        var colors = UnityEngine.UI.ColorBlock.defaultColorBlock;
+        colors.normalColor = Color.clear;
+        colors.highlightedColor = new Color(1f, 1f, 1f, .16f);
+        colors.selectedColor = colors.highlightedColor;
+        colors.pressedColor = new Color(.10f, .35f, .70f, .55f);
+        colors.disabledColor = Color.clear;
+        colors.fadeDuration = .12f;
+        toggle.colors = colors;
+        toggle.SetIsOnWithoutNotify(false);
+        selected.canvasRenderer.SetAlpha(0f);
+        hover.canvasRenderer.SetColor(Color.clear);
+        toggle.group = group;
+        text.raycastTarget = true;
+        return toggle;
+    }
+
+    public static UnityEngine.UI.ToggleGroup EnsureToggleGroup(Transform parent, bool allowSwitchOff) {
+        var group = parent.GetComponent<UnityEngine.UI.ToggleGroup>();
+        if (group == null) group = parent.gameObject.AddComponent<UnityEngine.UI.ToggleGroup>();
+        group.allowSwitchOff = allowSwitchOff;
+        return group;
+    }
+
+    private static UnityEngine.UI.Image CreateHighlight(Transform cell, string name, Color color) {
+        var highlight = new GameObject(name, typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(UnityEngine.UI.LayoutElement));
+        highlight.layer = cell.gameObject.layer;
         highlight.transform.SetParent(cell, false);
         highlight.transform.SetAsFirstSibling();
         var rect = (RectTransform)highlight.transform;
@@ -51,10 +88,10 @@ public static class ScoreHistoryCellVisuals {
         rect.anchorMax = Vector2.one;
         rect.offsetMin = Vector2.one * DefaultBorderWidth;
         rect.offsetMax = -Vector2.one * DefaultBorderWidth;
+        highlight.GetComponent<UnityEngine.UI.LayoutElement>().ignoreLayout = true;
         var image = highlight.GetComponent<UnityEngine.UI.Image>();
-        image.color = new Color(1f, 1f, 1f, .18f);
+        image.color = color;
         image.raycastTarget = false;
-        image.enabled = false;
         return image;
     }
 }

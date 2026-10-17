@@ -1,0 +1,30 @@
+{
+  "sub_rule": "riichi/washizu_doubles",
+  "label": "鹫巢麻将（双打）",
+  "roles": [
+    "A队主将",
+    "A队助手",
+    "B队主将",
+    "B队助手"
+  ],
+  "room": {
+    "red_dora": false,
+    "open_xiru": false,
+    "open_tobi": true,
+    "hepai_way": "head_bump"
+  },
+  "detailed_config": {
+    "pao": false,
+    "pao_suukantsu": false,
+    "rank_points": "none",
+    "return_score": 0,
+    "end_deposits": "discard",
+    "chombo_penalty": "fixed_9000",
+    "tenpai_renchan": true,
+    "agari_yame": false,
+    "tenpai_yame": false,
+    "target_score": 0,
+    "extension_rounds": 0,
+    "tie_break": "shared"
+  }
+}

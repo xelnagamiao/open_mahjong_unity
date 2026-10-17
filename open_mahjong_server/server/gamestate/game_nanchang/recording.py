@@ -1,5 +1,5 @@
 from ..public import game_record_manager as record
-from .hints import private_hints
+from .client_context import private_context
 from ...game_calculation.nanchang import rules as book
 
 
@@ -24,7 +24,7 @@ class Recording:
     def build_record_round_fields(self):
         self._record_hints = {}
         return dict(nanchang=dict(self.nanchang_info(),start_scores=list(self.round_start_scores)),
-                    nanchang_hints={i:private_hints(self,i,for_record=True) for i in range(4)})
+                    nanchang_hints={i:private_context(self,i,for_record=True) for i in range(4)})
 
     def record_visible_action(self,event):
         if not self._has_active_round_record():

@@ -46,7 +46,6 @@ class WenzhouGameState(HandFlow, Protocol, Recording, Session, EndOfHand, Zhongy
         self.ledger, self.domain_events, self.dice = [], [], []
         self.caishen = self.indicator = 46
         self.indicator_index = 0
-        self._wait_cache = OrderedDict()
 
     @property
     def game_status(self):
@@ -78,7 +77,6 @@ class WenzhouGameState(HandFlow, Protocol, Recording, Session, EndOfHand, Zhongy
         self.round_changes, self.caishen_changes, self.caishen_counts = [0]*4, [0]*4, []
         self.round_settlement = self.pending_kong = None
         self.ledger, self.domain_events, self.next_dealer_dice = [], [], []
-        self._wait_cache.clear()
         self._recorded_waits = {}
         rng = random.Random(self.round_random_seed)
         self.dice = list(dice) if dice is not None else [rng.randint(1,6) for _ in range(4)]

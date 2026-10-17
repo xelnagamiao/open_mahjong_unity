@@ -500,7 +500,7 @@ class GameStateManager:
         from ..response import SpectatorInfo
         from .public.player_count import player_count_for_sub_rule
         from .public.spectator_rules import too_many_ai_for_spectator
-        from ..game_calculation.sichuan.doubles_rules import is_team_sub_rule
+        from ..game_calculation.team_rules import is_team_sub_rule
         spectator_list = []
         
         # 遍历所有游戏状态

@@ -14,14 +14,20 @@ WIN = [11,12,13,14,15,16,21,22,23,31,32,33,37,37,37,29,29]
 
 
 def state_with(hand=None, *, jin=39):
-    state = FuzhouGameState(calculation_service=object())
+    # These pre-existing hand examples use the explicitly supported low base.
+    data = FuzhouGameState._default_room_data()
+    data['detailed_config'] = {'base_score': 10}
+    state = FuzhouGameState(room_data=data, calculation_service=object())
+    state.dealer_index = state.current_player_index = 0
     state.initialize_round()
     state.jin = jin
+    state.dealer_first_discard_pending = False
     for p in state.player_list:
         p.hand_tiles = []
         p.has_draw_slot = False
     state.player_list[0].hand_tiles = list(WIN if hand is None else hand)
     state.player_list[0].has_draw_slot = len(state.player_list[0].hand_tiles)%3==2
+    state.player_list[0].draw_kind = 'normal'
     available = list(book.PHYSICAL)
     available.remove(jin)
     for tile in state.player_list[0].hand_tiles:
@@ -48,7 +54,7 @@ def open_turn(state,index=0):
 def test_initial_deal_and_seed_reproducibility():
     s = FuzhouGameState(calculation_service=object())
     s.initialize_round()
-    assert [len(p.hand_tiles) for p in s.player_list]==[17,16,16,16]
+    assert [len(p.hand_tiles) for p in s.player_list]==[17 if i==s.initial_dealer else 16 for i in range(4)]
     assert len(s.tiles_list)==79
     assert s.physical_inventory()==Counter(book.PHYSICAL)
     wall = list(book.PHYSICAL)
@@ -61,8 +67,9 @@ def test_initial_deal_and_seed_reproducibility():
         FuzhouGameState(calculation_service=object()).initialize_round(wall=wall[:-1])
 
 
-def test_opening_replacement_alternates_after_nonflower_but_chains_flower():
+def test_opening_replacement_alternates_after_every_tile_including_a_new_flower():
     s = FuzhouGameState(calculation_service=object())
+    s.dealer_index = 0
     s.initialize_round()
     # This fixture tests the transition order separately from complete-wall tests.
     for p in s.player_list:
@@ -73,14 +80,14 @@ def test_opening_replacement_alternates_after_nonflower_but_chains_flower():
     w = s.open_action_window(s.opening_window())
     assert w["player"]==0
     act(s,{0:dict(action_type="buhua")})
-    assert s.live_pending_window["player"]==0
-    assert s.replacement_pending==(0,44)
-    act(s,{0:dict(action_type="buhua")})
     assert s.live_pending_window["player"]==1
+    assert 44 in s.player_list[0].hand_tiles
     act(s,{1:dict(action_type="buhua")})
     assert s.live_pending_window["player"]==0
-    assert s.player_list[0].huapai_list==[41,44]
-    assert 42 in s.player_list[0].hand_tiles
+    assert s.replacement_pending==(0,42)
+    assert s.player_list[0].huapai_list==[41]
+    act(s,{0:dict(action_type="buhua")})
+    assert s.replacement_pending==(0,44)
 
 
 @pytest.mark.parametrize("seed",range(12))
@@ -100,7 +107,7 @@ def test_full_wall_rounds_conserve_all_physical_tiles(seed):
         act(s,responses)
     assert s.machine.phase==P.END
     assert sum(s.round_changes)==0
-    assert P.REPLACEMENT in seen and P.OPENING in seen
+    assert P.REPLACEMENT in seen and seen & {P.HEAVEN,P.OPENING}
 
 
 def test_gold_cannot_be_discard_claimed_or_melded():

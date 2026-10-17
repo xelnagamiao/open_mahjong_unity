@@ -18,6 +18,8 @@ internal static class QingqueRuleBootstrap {
             Tingpai = QingqueTips.Tingpai,
             DescribeWaitingTile = QingqueTips.Describe,
             FanValueText = QingqueFanText.FanValue,
+            SettlementTotal = QingqueFanText.SettlementTotal,
+            ScoreboardFanText = QingqueFanText.ScoreboardFanText,
             RoundName = RoundTextDictionary.WindNumberRoundName,
         });
     }

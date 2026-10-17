@@ -152,14 +152,7 @@ public static class GameRecordJsonDecoder {
             foreach (JToken tickToken in actionTicks) {
                 JArray tickArr = tickToken as JArray;
                 if (tickArr == null) continue;
-                var tick = new List<string>();
-                foreach (JToken elem in tickArr) {
-                    if (elem is JArray arr) {
-                        tick.Add(arr.ToString());
-                    } else {
-                        tick.Add(elem?.ToString() ?? "");
-                    }
-                }
+                List<string> tick = ParseActionTick(tickArr);
                 round.actionTicks.Add(tick);
                 ValidateKanMoGangTick(tick, $"round_index_{roundIndex}");
                 AccumulateScoreChangesFromTick(round, tick);
@@ -167,6 +160,17 @@ public static class GameRecordJsonDecoder {
         }
 
         return round;
+    }
+
+    /// <summary>牌谱加载与观战增量共用的 tick 解码；小数保持 JSON 的点号格式。</summary>
+    public static List<string> ParseActionTick(JArray tickArray) {
+        var tick = new List<string>(tickArray.Count);
+        foreach (JToken value in tickArray) {
+            tick.Add(value?.Type == JTokenType.Float
+                ? value.ToString(Newtonsoft.Json.Formatting.None)
+                : value?.ToString() ?? "");
+        }
+        return tick;
     }
 
     /// <summary>

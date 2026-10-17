@@ -1,4 +1,4 @@
-from .four_jokers_runtime import evaluate_actions, prepare_hints
+from .four_jokers_runtime import evaluate_actions
 from ...game_calculation import guobiao_sixteen as sixteen
 from ..public.duplicate_wall import DuplicateFinished, finish_duplicate_game, draw_tile_for_player, duplicate_remaining_tile_counts, duplicate_match_complete
 from . import blood_battle, transparent
@@ -354,7 +354,6 @@ class GuobiaoGameState:
                         'tile_count': len(self.tiles_list),
                         'washizu_hands': transparent.public_hands(self),
                         'washizu_layouts': realtime_hand.layouts_for_viewer(self, p.player_index),
-                        'four_jokers_hints': await prepare_hints(self, p.player_index),
                         'use_flowers': self.use_flowers,
                         'tian_di_ren_he': self.tian_di_ren_he,
                         'joker_multi_wait': self.joker_multi_wait,

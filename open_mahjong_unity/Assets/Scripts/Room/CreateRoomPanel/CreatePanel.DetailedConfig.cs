@@ -545,7 +545,7 @@ public partial class CreatePanel {
     }
 
     private void ConfirmDetailedConfigChanges(DetailedConfigState state) {
-        if (state.Definition.RuleKey == "riichi" && state.PendingRoomPreset >= 0) {
+        if (state.Definition.RuleKey == "riichi" && state.PendingRoomPreset >= 0 && !WashizuDoubles.IsEnabled(GetSelectedRiichiSubRule())) {
             ApplyRiichiCommonPreset(state.PendingRoomPreset);
             state.PendingRoomPreset = -1;
         }
@@ -584,6 +584,16 @@ public partial class CreatePanel {
         DetailedConfigState state = GetDetailedConfigState(ruleKey);
         if (state == null || state.Panel == null || state.Panel.activeSelf) return true;
         CaptureDetailedConfigSnapshot(state);
+        if (ruleKey == "riichi") {
+            bool captain = WashizuDoubles.IsEnabled(GetSelectedRiichiSubRule());
+            foreach (string key in WashizuDoubles.FixedOptions.Keys) {
+                var row = state.Content.Find("DetailedConfig_" + key);
+                if (row) row.gameObject.SetActive(!captain);
+            }
+            if (state.PresetDropdown) state.PresetDropdown.transform.parent.gameObject.SetActive(!captain);
+            if (captain && state.PresetDescription) state.PresetDescription.text = WashizuDoubles.Description;
+            else RefreshDetailedConfigPresetSelection(state);
+        }
         ShowSettingsDialog(state.Panel);
         Canvas.ForceUpdateCanvases();
         if (state.Scroll != null) state.Scroll.verticalNormalizedPosition = 1f;

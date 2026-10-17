@@ -1,12 +1,12 @@
 export const FUZHOU_RULE = 'fuzhou'
 export const FUZHOU_SUB_RULE = 'fuzhou/standard'
-export const FUZHOU_VERSION = 'fuzhou-user-20261014-v1'
-export const FUZHOU_DESCRIPTION = '福州十六张：144张，全部字牌及八花逐张补花，补花后开金；十七张和牌，支持抢金、三金倒、听金坎、一游及二游，动态留墩，末四张只摸不打。'
+export const FUZHOU_VERSION = 'fuzhou-user-20261015-v2'
+export const FUZHOU_DESCRIPTION = '福州麻将是一款采用17张和牌机制的地方麻将规则，旨在寻求一种在传统麻将框架内、以开金为核心的做大、抢金、留墩防守三者平衡的博弈游戏，同时试图为三金倒、金龙、游金等特殊和牌提供基于难度和收益的赋分参照；如发现规则漏洞或有任何建议，可在群906497522提交。'
 const SWITCHES = { tips: true, count_tips: false, pointer_tips: true, tourist_limit: false, allow_spectator: true }
 export function loadFuzhouForm(form, config = {}) {
   form.sub_rule = FUZHOU_SUB_RULE
   for (const [key, fallback] of Object.entries({ game_round: 1, round_timer: 20, step_timer: 5, ...SWITCHES })) form[key] = config[key] ?? fallback
-  form.fuzhou_base_score = config.detailed_config?.base_score ?? 10
+  form.fuzhou_base_score = config.detailed_config?.base_score ?? 15
   return form
 }
 export function buildFuzhouRoomPayload(form) {
@@ -24,8 +24,9 @@ export function buildFuzhouRoomPayload(form) {
   if (String(form.duplicate_key || '').trim()) throw new Error('福州不支持复式牌墙')
   const room_name = String(form.room_name || '').trim()
   if (room_name.length > 128) throw new Error('房间名最多128字')
-  const base = form.fuzhou_base_score ?? 10
+  const base = form.fuzhou_base_score ?? 15
   if (![10,15,20].includes(base)) throw new Error('底分只能为10、15或20')
+  if (![1,2,4].includes(form.game_round)) throw new Error('福州时长只能为一圈、半庄或一雀')
   return {
     room_rule: FUZHOU_RULE, password: String(form.password || '').trim(),
     room_config: {

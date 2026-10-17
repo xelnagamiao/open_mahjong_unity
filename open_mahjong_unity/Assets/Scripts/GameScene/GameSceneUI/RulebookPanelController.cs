@@ -20,12 +20,22 @@ public class RulebookPanelController : MonoBehaviour {
     [SerializeField] private TMP_Text openButtonText;
     [SerializeField] private TMP_Text inlineRuleText;
 
+    [Header("番表")]
+    [SerializeField] private GuobiaoFanTablePanel fanTablePanel;
+
     private string _currentPath;
     private bool _layoutCaptured;
+    private bool _manualFromFanTable;
+    private bool _returnAfterClose;
+    private bool _initialized;
     private Vector2 _compactSize, _compactPosition, _compactAnchorMin, _compactAnchorMax;
     private Vector2 _compactTitleSize, _compactTitlePosition, _compactBackPosition;
 
-    private void Awake() {
+    private void Awake() => Initialize();
+
+    private void Initialize() {
+        if (_initialized) return;
+        _initialized = true;
         if (popup == null) popup = GetComponent<PanelPopupTransition>();
         CaptureCompactLayout();
         gameObject.SetActive(false);
@@ -33,25 +43,84 @@ public class RulebookPanelController : MonoBehaviour {
         backButton.onClick.AddListener(Close);
     }
 
+    /// <summary>对局、实时观战与牌谱共用的入口；牌谱配置不能回退到上一场对局。</summary>
+    public void OpenCurrent() {
+        var record = GameRecordManager.Instance;
+        if (record && record.TryGetActiveRecordRuleContext(out string roomRule, out string subRule)) {
+            Open(roomRule, subRule, record.GetDetailedConfigSnapshot());
+            return;
+        }
+        var session = GameSession.Current;
+        Open(session.RoomRule, session.SubRule, session.DetailedConfig);
+    }
+
     /// <summary>显示弹窗。房间规则与子规则决定跳转目标和按钮上显示的规则名。</summary>
     public void Open(string roomRule, string subRule = null, IDictionary<string, object> detailedConfig = null) {
+        Initialize();
+        _manualFromFanTable = _returnAfterClose = false;
         _currentPath = ResolveRulebookPath(roomRule, subRule, detailedConfig);
+        if (fanTablePanel) fanTablePanel.HideImmediate();
+        // 旧牌谱可能只存 sub_rule；番表与完整说明书须使用同一份规则解析结果。
+        string resolvedRule = RuleRegistry.Resolve(roomRule, subRule)?.RuleId ?? roomRule;
+        string fanRuleId = MahjongFanCatalog.ForRoom(resolvedRule, subRule);
+        if (fanRuleId != null && fanTablePanel) {
+            popup.HideImmediate();
+            fanTablePanel.Open(fanRuleId, _currentPath);
+            return;
+        }
         ApplyTexts(roomRule, subRule);
         ApplyInlineText(RuleRegistry.Resolve(roomRule, subRule)?.RulebookText?.Invoke(subRule, detailedConfig));
         popup.Show();
     }
 
     public void Close() {
+        if (_manualFromFanTable) {
+            _returnAfterClose = true;
+            popup.Hide();
+            return;
+        }
+        if (fanTablePanel) fanTablePanel.HideImmediate();
         popup.Hide();
     }
 
+    public void HideImmediate() {
+        _manualFromFanTable = _returnAfterClose = false;
+        if (fanTablePanel) fanTablePanel.HideImmediate();
+        popup.HideImmediate();
+    }
+
+    private void OnDisable() {
+        bool resume = _returnAfterClose && transform.parent && transform.parent.gameObject.activeInHierarchy;
+        _manualFromFanTable = _returnAfterClose = false;
+        if (!fanTablePanel) return;
+        if (resume) fanTablePanel.Resume();
+        else fanTablePanel.HideImmediate();
+    }
+
+    public void OpenManualConfirmation(string ruleName, string path) {
+        Initialize();
+        _currentPath = path;
+        _manualFromFanTable = true;
+        _returnAfterClose = false;
+        fanTablePanel.HideImmediate();
+        ApplyRuleName(ruleName);
+        ApplyInlineText(null);
+        transform.SetAsLastSibling();
+        popup.Show();
+        if (UnityEngine.EventSystems.EventSystem.current)
+            UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(openRulebookButton.gameObject);
+    }
+
     /// <summary>规则书弹窗是否处于显示中（含收起动画尚未结束的阶段）。</summary>
-    public bool IsOpen => gameObject.activeSelf;
+    public bool IsOpen => gameObject.activeSelf || (fanTablePanel && fanTablePanel.IsOpen);
 
     private void ApplyTexts(string roomRule, string subRule) {
-        string ruleName = RuleDisplayName(roomRule, subRule);
+        ApplyRuleName(RuleDisplayName(roomRule, subRule));
+    }
+
+    private void ApplyRuleName(string ruleName) {
         titleText.text = $"{ruleName}规则书";
-        openButtonText.text = $"打开{ruleName}规则书";
+        openButtonText.text = "查看规则书（跳转网页）";
     }
 
     private void CaptureCompactLayout() {

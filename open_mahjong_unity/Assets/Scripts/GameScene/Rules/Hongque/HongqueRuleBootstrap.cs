@@ -9,7 +9,7 @@ internal static class HongqueRuleBootstrap {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Register() {
         RuleRegistry.Register(new RuleManifest {
-            ReplayFactory = record => record.CreateStandardReplayModule(),
+            ReplayFactory = record => record.CreateHongqueReplayModule(),
             BuildRoom = HongqueRoomBuilder.Build,
             RuleId = HongqueGameState.RuleId,
             DefaultSubRule = "hongque/v1.6",
@@ -21,8 +21,15 @@ internal static class HongqueRuleBootstrap {
             RecordKongHasMeldIndex = true,
             GameStateFactory = () => new HongqueGameState(),
             VerticalMelds = true,
+            RonWinTileTravelsFromRiver = true,
             MeldSpacingEnabled = true,
             TipsProvidedByGameState = true,
+            Tingpai = HongqueRecordTips.Waiting,
+            DescribeWaitingTile = HongqueRecordTips.Describe,
+            RecordTipsHand = HongqueRecordTips.HandBeforeDraw,
+            RecordVisibleMeldTiles = HongqueRecordTips.VisibleMeldTiles,
+            TileCopies = _ => 1,
+            RecordDangerUsesWaitHint = true,
             FanNameText = HongqueFanText.FanName,
             FanValueText = HongqueFanText.FanValue,
             RoundName = HongqueFanText.RoundName,

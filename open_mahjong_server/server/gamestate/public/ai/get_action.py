@@ -108,7 +108,7 @@ async def get_ai_action(game_state, player_index: int, action_type: str, cutClas
             return
 
         # A call chooses actual glass/opaque copies, not just their face value.
-        if getattr(game_state, 'sub_rule', None) in ('riichi/washizu', 'riichi/washizu_realtime', 'guobiao/transparent', 'guobiao/transparent_realtime') and action_type in ('chi_left', 'chi_mid', 'chi_right', 'peng'):
+        if getattr(game_state, 'sub_rule', None) in ('riichi/washizu', 'riichi/washizu_realtime', 'riichi/washizu_doubles', 'guobiao/transparent', 'guobiao/transparent_realtime') and action_type in ('chi_left', 'chi_mid', 'chi_right', 'peng'):
             from ...game_riichi.washizu import valid_call_choice
             if not valid_call_choice(current_player, action_type, chi_combo_index):
                 return
@@ -291,7 +291,7 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
                 return
 
         # A call chooses actual glass/opaque copies, not just their face value.
-        if getattr(game_state, 'sub_rule', None) in ('riichi/washizu', 'riichi/washizu_realtime', 'guobiao/transparent', 'guobiao/transparent_realtime') and action_type in ('chi_left', 'chi_mid', 'chi_right', 'peng'):
+        if getattr(game_state, 'sub_rule', None) in ('riichi/washizu', 'riichi/washizu_realtime', 'riichi/washizu_doubles', 'guobiao/transparent', 'guobiao/transparent_realtime') and action_type in ('chi_left', 'chi_mid', 'chi_right', 'peng'):
             from ...game_riichi.washizu import valid_call_choice
             if not valid_call_choice(current_player, action_type, chi_combo_index):
                 return

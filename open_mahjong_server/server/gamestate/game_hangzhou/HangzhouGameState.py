@@ -62,8 +62,7 @@ class HangzhouGameState(HandFlow, Protocol, Recording, Tactical, Runtime, EndOfH
         self.domain_events = []
         self.dice = []
         self._recorded_hint_keys = {}
-        self._prepared_hints = {}
-        self._async_hints_enabled = False
+        self._client_context_enabled = False
 
     @property
     def game_status(self):
@@ -93,7 +92,6 @@ class HangzhouGameState(HandFlow, Protocol, Recording, Tactical, Runtime, EndOfH
         self.cai_discard_locks = set()
         self.burned_tiles, self.domain_events = [], []
         self._recorded_hint_keys = {}
-        self._prepared_hints = {}
         physical = [t for t in TILES for _ in range(4)]
         rng = random.Random(self.round_random_seed)
         self.dice = [rng.randint(1, 6), rng.randint(1, 6)]

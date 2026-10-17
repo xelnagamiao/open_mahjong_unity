@@ -37,13 +37,6 @@ def _fits_arithmetic_slots(values: Sequence[int], slot_count: int) -> bool:
     return False
 
 
-def _ordered_tiles(shape: MeldShape) -> list[HongqueTile]:
-    tiles = [HongqueTile.parse(code) for code in shape.tiles]
-    if shape.base_kind == "sequence":
-        return sorted(tiles, key=lambda tile: tile.number, reverse=shape.number_step < 0)
-    return sorted(tiles, key=lambda tile: tile.colour)
-
-
 def _merge_entries(entries: Sequence[dict]) -> list[dict]:
     """同名番种合并为一条带 count 的记录（与清顺等按组复计的展示一致）。"""
     merged: dict[str, dict] = {}
@@ -82,11 +75,14 @@ def _same_shape_fans(shapes: Sequence[MeldShape], base_kind: str, names: dict[in
 
 
 def _same_colour_layout_fans(shapes: Sequence[MeldShape]) -> list[dict]:
-    """同花系列：按（长度，花色对应）分组，组内取最高档，不同分组可复计。"""
+    """同花系列按花色及重数对应，组内取最高档，不同分组可复计。"""
     buckets: dict[tuple[int, tuple[int, ...]], int] = defaultdict(int)
     for shape in shapes:
-        ordered = _ordered_tiles(shape)
-        buckets[(len(ordered), tuple(tile.colour for tile in ordered))] += 1
+        # 规则书第 5 页不限制牌组类型或数字方向。统一按花色排序，
+        # 避免跨红紫边界的顺子与刻子、不同起点的完整颜色环漏算。
+        # 保留重复花色，不能用 set，否则长顺子的不同花色重数会误配。
+        colours = tuple(sorted(HongqueTile.parse(code).colour for code in shape.tiles))
+        buckets[(len(colours), colours)] += 1
     entries: list[dict] = []
     for count in buckets.values():
         if count >= 4:
@@ -222,9 +218,9 @@ def score_partition(
     elif colour_count == 3:
         fans.append(_entry("三色", 6))
     if tiles and all(tile.colour % 2 == 0 for tile in tiles):
-        fans.append(_entry("全纯色", 1))
+        fans.append(_entry("全纯色", 2))
     if tiles and all(tile.colour % 2 == 1 for tile in tiles):
-        fans.append(_entry("全半色", 1))
+        fans.append(_entry("全半色", 2))
 
     numbers = sorted({tile.number for tile in tiles})
     all_triplets = all(shape.base_kind == "triplet" for shape in shapes)

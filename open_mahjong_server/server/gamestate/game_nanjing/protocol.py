@@ -5,7 +5,7 @@ import math
 from ..game_zhongyong import boardcast as wire
 from .actions import legal_cuts, kong_tiles
 from .state_machine import Phase as P
-from .hints import build_hints
+from .client_context import local_context
 
 
 class Protocol:
@@ -42,7 +42,7 @@ class Protocol:
             info["nanjing_info"] = self.nanjing_info()
             if viewer in range(4):
                 info["nanjing_info"]["self_has_draw_slot"] = self.player_list[viewer].has_draw_slot
-                info["nanjing_hints"] = build_hints(self,viewer)
+                info["nanjing_hints"] = local_context(self,viewer)
             info["players_info"] = [self._player_view(i,viewer) for i in range(4)]
             info["self_hand_tiles"] = list(self.player_list[viewer].hand_tiles) if viewer in range(4) else None
         return payload
@@ -61,7 +61,7 @@ class Protocol:
             p = self.player_list[index]
             info["remaining_time"] = math.ceil(max(0,p.remaining_time))
             info["nanjing_info"] = self.nanjing_info()
-            info["nanjing_hints"] = build_hints(self,index)
+            info["nanjing_hints"] = local_context(self,index)
             clock=self.action_clocks.get(index)
             if clock:
                 info["remaining_time"],info["step_remaining"]=clock.parts(self._timing_now())

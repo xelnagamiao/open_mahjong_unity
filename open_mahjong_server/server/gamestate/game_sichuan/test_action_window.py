@@ -87,6 +87,7 @@ def test_first_peng_click_during_ask_is_executed_once(mode, repeats, claim_prote
             await state.broadcast_do_action(action_list=["cut"], action_player=0, cut_tile=15)
             reply_on_ask(state, seat, "peng", repeats=repeats)
             await state.broadcast_ask_other_action()
+            await drain_viewer(state, seat)
             assert state.action_queues[seat].qsize() == repeats, "the advertised action must already be receivable"
             await asyncio.wait_for(wait_action(state), 1)
             assert state.current_player_index == seat

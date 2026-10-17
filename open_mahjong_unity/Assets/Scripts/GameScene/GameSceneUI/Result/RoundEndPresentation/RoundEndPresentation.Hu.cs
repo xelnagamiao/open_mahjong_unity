@@ -5,7 +5,7 @@ using UnityEngine;
 public partial class RoundEndPresentation {
     /// <summary>开始和牌结果流程。</summary>
     public void PresentHuResultSequence(
-        int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class,
+        int hepai_player_index, Dictionary<int, int> player_to_score, double hu_score, string[] hu_fan, string hu_class,
         int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
         int? base_fu, string[] fu_fan_list, RiichiEndResultExtras riichiExtras, Dictionary<int, int> score_changes = null,
         bool isSilent = false, bool playPresentationEffects = true,
@@ -23,7 +23,7 @@ public partial class RoundEndPresentation {
 
     /// <summary>协程版和牌结算：供虹雀多家和按顺序逐家展示，等上一家面板播完再进下家。</summary>
     public IEnumerator PresentHuResultSequenceCoroutine(
-        int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class,
+        int hepai_player_index, Dictionary<int, int> player_to_score, double hu_score, string[] hu_fan, string hu_class,
         int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
         int? base_fu, string[] fu_fan_list, RiichiEndResultExtras riichiExtras, Dictionary<int, int> score_changes = null,
         bool isSilent = false, bool playPresentationEffects = true,
@@ -40,7 +40,7 @@ public partial class RoundEndPresentation {
     }
 
     private IEnumerator HuResult(
-        int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class,
+        int hepai_player_index, Dictionary<int, int> player_to_score, double hu_score, string[] hu_fan, string hu_class,
         int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
         int? base_fu, string[] fu_fan_list, RiichiEndResultExtras riichiExtras, Dictionary<int, int> score_changes,
         bool isSilent, bool playPresentationEffects,

@@ -126,11 +126,21 @@ public sealed class HongKongGameState : TurnBasedGameState {
             CanCutPull && !Session.IsRealtimeSpectator ? CutPull : (Action)null);
     }
 
+    private static Newtonsoft.Json.Linq.JObject LocalRequest => Active?.waitHints.Values.SelectMany(rows=>rows??Array.Empty<HongKongWait>()).FirstOrDefault(row=>row?.local_request!=null)?.local_request;
+    public static HashSet<int> Waiting(TingpaiQuery query) {
+        var request=query.RecordPlayerIndex.HasValue?null:LocalRequest;
+        if(request==null)return HongKongShape.Waiting(query);
+        var rows=LocalHintSnapshots.Rows(request,query.Hand,query.OnReady);
+        return rows==null?new HashSet<int>():new HashSet<int>(rows.Properties().Select(p=>int.Parse(p.Name)));
+    }
     public static WaitTileHint Describe(WaitHintQuery query) {
         var hand=new List<int>(query.HandWithWin);
         hand.Remove(query.HepaiTile);
         string key=string.Join(",",hand.OrderBy(t=>t));
-        if (query.Record==null && Active?.waitHints.TryGetValue(key,out var waits)==true) {
+        var request=query.Record==null?LocalRequest:null;
+        var local=request==null?null:LocalHintSnapshots.Rows(request,hand)?.Properties().Select(p=>p.Value.ToObject<HongKongWait>()).ToArray();
+        HongKongWait[] waits=local;
+        if (local!=null || query.Record==null && Active?.waitHints.TryGetValue(key,out waits)==true) {
             var hint=waits.FirstOrDefault(h=>h.tile==query.HepaiTile);
             if (hint!=null) {
                 if (hint.ron) return WaitTileHint.Ron($"{hint.ron_fan}{HongKongFanText.Unit(query.SubRule)}起");

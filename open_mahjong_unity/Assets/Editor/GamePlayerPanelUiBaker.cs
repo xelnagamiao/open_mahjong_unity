@@ -15,14 +15,17 @@ public static class GamePlayerPanelUiBaker {
         GamePlayerPanel.VariableRemainingTiles, GamePlayerPanel.VariableDeclaredReady,
         GamePlayerPanel.VariableChengbao, GamePlayerPanel.VariableFlowers, GamePlayerPanel.VariableGhosts,
         GamePlayerPanel.VariableHangzhouDealer, GamePlayerPanel.VariableHangzhouForcedCut,
+        GamePlayerPanel.VariableYoujin, GamePlayerPanel.VariableSelfDrawOnly, GamePlayerPanel.VariableWashizuRole,
     };
     private static readonly string[] Names = {
         "WavePoint", "FreeHandCount", "DuplicateRemainingTiles", "DeclaredReady", "Chengbao", "YixingFlowers", "GuangdongGhosts",
         "HangzhouDealer", "HangzhouForcedCut",
+        "Youjin", "SelfDrawOnly", "WashizuRole",
     };
     private static readonly string[] Examples = {
         "浪涌点数*1", "手牌 13", "余牌 18", "已报听", "承包东南", "花数 3", "打鬼 2",
         "3老庄 ×8", "仅摸切",
+        "游金：1", "仅限自摸", "A队主将",
     };
 
     [MenuItem("Tools/Mahjong/Main Scene/Bake Player Panels")]
@@ -59,8 +62,8 @@ public static class GamePlayerPanelUiBaker {
         if (downward) {
             var edge = (UnityEngine.UI.Image)serialized.FindProperty("playerProfileEdgePicture").objectReferenceValue;
             Bounds avatarBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(panel.transform, edge.rectTransform);
-            // 对家数值列从头像右上方紧邻排列，避免按头衔宽度定位而留出大块空隙。
-            group.anchoredPosition = new Vector2(avatarBounds.max.x + 4f, avatarBounds.max.y + 4f);
+            // 对家紧贴头像框右侧 4px，首项底边对齐头像底边并向下排列；用户名和头衔宽度不参与定位。
+            group.anchoredPosition = new Vector2(avatarBounds.max.x + 4f, avatarBounds.min.y + rowSize.y);
         }
         var layout = group.GetComponent<UnityEngine.UI.VerticalLayoutGroup>()
             ?? Undo.AddComponent<UnityEngine.UI.VerticalLayoutGroup>(group.gameObject);

@@ -26,25 +26,9 @@ export function meldDisplayOrder(codes: string[]): string[] {
   return best ?? source
 }
 
+/** Playing hands keep the fixed tile-table order, independent of the other tiles. */
 export function handDisplayOrder(codes: string[]): string[] {
-  if (!codes.length) return []
-  if (classifyMeld(codes)) return meldDisplayOrder(codes)
-  const natural = [...codes].sort()
-  const colours = [...new Set(codes.map(colour))].sort((a, b) => a - b)
-  if (colours.length < 2) return natural
-  const gaps = colours.map((c, i) => mod(colours[(i + 1) % colours.length] - c))
-  const maxGap = Math.max(...gaps)
-  if (14 + colours[0] - colours[colours.length - 1] === maxGap) return natural
-  let best: string[] | null = null
-  for (let i = 0; i < colours.length; i++) {
-    if (gaps[i] !== maxGap) continue
-    const left = colours[i], right = colours[(i + 1) % colours.length]
-    const forward = [...codes].sort((a, b) => mod(colour(a) - right) - mod(colour(b) - right) || number(a) - number(b))
-    const backward = [...codes].sort((a, b) => mod(left - colour(a)) - mod(left - colour(b)) || number(a) - number(b))
-    if (earlier(forward, best)) best = forward
-    if (earlier(backward, best)) best = backward
-  }
-  return best ?? natural
+  return [...codes].sort()
 }
 
 export function sortHandCodes(codes: string[]): string[] {

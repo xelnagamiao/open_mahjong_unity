@@ -5,7 +5,7 @@ import math
 from ..game_zhongyong import boardcast as wire
 from ...game_calculation.hangzhou.rules import JOKER
 from .actions import kong_tiles, legal_cuts
-from .hints import private_hints
+from .client_context import private_context
 from .state_machine import Phase as P
 
 
@@ -27,7 +27,7 @@ class Protocol:
                     match_finishing=self.match_finishing, ledger=self.round_settlement if ended else None)
         if viewer in (0, 1, 2, 3) and not ended:
             data["self_has_draw_slot"] = self.player_list[viewer].has_draw_slot
-            hints = private_hints(self, viewer)
+            hints = private_context(self, viewer)
             data.update(hints)
             self.record_hints(viewer, hints)
         return data
@@ -176,7 +176,7 @@ class Protocol:
             if p.user_id == user_id:
                 if "offline" in p.tag_list:
                     p.tag_list.remove("offline")
-                await self.prepare_private_hints(index)
+                await self.prepare_client_context(index)
                 for payload in self.restore_payloads(index):
                     await self.send_payload_to_player(index, payload)
                 return
@@ -186,7 +186,7 @@ class Protocol:
             return
         connection = self.game_server.user_id_to_connection.get(user_id)
         if connection is not None and connection.websocket is not None:
-            await self.prepare_private_hints(index)
+            await self.prepare_client_context(index)
             for payload in self.restore_payloads(index):
                 self._refresh_clock_payload(index, payload)
                 await connection.websocket.send_json(payload)

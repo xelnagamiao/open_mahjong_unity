@@ -1,6 +1,13 @@
 // Complete sentences keep replay and room labels reactive without translating user data.
 // Columns: source, English, Japanese, French. Traditional Chinese uses the shared converter.
 const entries = [
+  ['设定牌桌', 'Table setup', '卓の設定', 'Réglage de la table'],
+  ['随机牌桌', 'Randomize table', '卓をランダム生成', 'Table aléatoire'],
+  ['退出牌桌', 'Leave table', '卓を退出', 'Quitter la table'],
+  ['立直麻将（白色）', 'Riichi (white)', 'リーチ麻雀（白）', 'Riichi (blanc)'],
+  ['立直麻将（黑色）', 'Riichi (black)', 'リーチ麻雀（黒）', 'Riichi (noir)'],
+  ['牌面预览', 'Tile face preview', '牌のプレビュー', 'Aperçu des tuiles'],
+  ['切换立即生效，自动记住选择；牌桌、牌谱和结算同步使用。', 'Changes apply immediately and are saved for tables, replays and results.', '変更は即座に反映・保存され、対局・牌譜・精算画面で共通です。', 'Le choix est appliqué et enregistré pour les tables, les relectures et les résultats.'],
   ['本局流局', 'Drawn hand', '流局', 'Manche nulle'],
   ['本局和牌结算', 'Win settlement', '和了精算', 'Décompte de victoire'],
   ['正在重建 2D 牌桌…', 'Rebuilding the 2D table…', '2D卓を復元中…', 'Reconstruction de la table 2D…'],

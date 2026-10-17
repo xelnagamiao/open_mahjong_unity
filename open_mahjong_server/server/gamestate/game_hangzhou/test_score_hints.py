@@ -4,10 +4,20 @@ import asyncio
 
 import pytest
 
-from . import hints
+from tests.local_hint_oracles import hangzhou as hints
 from .test_flow import FLOAT, PLAIN, act, turn
 from ...game_calculation.hangzhou.rules import RULE_VERSION
 from ...response import Response
+
+
+def resolve_in_test(wire):
+    """Independent server oracle for the inputs now evaluated by the client."""
+    assert not {"waiting_tiles", "waiting_details_by_discard"} & wire.keys()
+    request = wire["local_request"]
+    frozen = hints.HintRequest(tuple(request["hand"]), tuple(request["melds"]),
+                               tuple(request["cuts"]), RULE_VERSION,
+                               request["context"]["cai_piao_count"])
+    return hints.to_wire(frozen, hints.compute(frozen))
 
 
 @pytest.mark.parametrize("hand,cai,tile,fan,points", [
@@ -31,10 +41,10 @@ def test_wait_scores_cover_plain_jokers_pairs_piao_and_cap(hand, cai, tile, fan,
 
 def test_white_cut_preview_matches_post_cut_hint_and_actual_next_draw():
     s = turn(FLOAT, tips=True)
-    preview = hints.private_hints(s, 0)["waiting_details_by_discard"][46]
+    preview = resolve_in_test(hints.private_hints(s, 0))["waiting_details_by_discard"][46]
     assert preview[47] == dict(fan=2, base_score=4)
     act(s, 0, "cut", TileId=46, cutClass=True)
-    assert hints.private_hints(s, 0)["waiting_details"] == preview
+    assert resolve_in_test(hints.private_hints(s, 0))["waiting_details"] == preview
     s.tiles_list.remove(47)
     s.tiles_list.insert(0, 47)
     s.open_action_window(s.draw_for(0))
@@ -47,29 +57,29 @@ def test_discard_preview_clears_previous_kong_bonus_and_only_white_extends_piao(
     p = s.player_list[0]
     p.after_kong = p.drawn_after_cai = True
     p.cai_piao_count = 1
-    rows = hints.private_hints(s, 0)["waiting_details_by_discard"]
+    rows = resolve_in_test(hints.private_hints(s, 0))["waiting_details_by_discard"]
     assert rows[46][47] == dict(fan=3, base_score=8)
     assert rows[41][47] == dict(fan=1, base_score=2)
     act(s, 0, "cut", TileId=41, cutClass=False)
     assert not p.after_kong and p.cai_piao_count == 0
-    assert hints.private_hints(s, 0)["waiting_details"] == rows[41]
+    assert resolve_in_test(hints.private_hints(s, 0))["waiting_details"] == rows[41]
 
 
 def test_async_snapshot_freezes_its_cai_history_and_wire_mutation_does_not_poison_cache():
     async def run():
         s = turn(FLOAT, tips=True)
-        s._async_hints_enabled = True
+        s._client_context_enabled = True
         s.player_list[0].cai_piao_count = 1
         before = s.build_game_start_payload(0)
         s.player_list[0].cai_piao_count = 0
         assert await hints.prepare(s, payloads=[before])
         wire = Response(**before).model_dump(exclude_none=True)["game_info"]["hangzhou_info"]
         assert wire["source_cai_piao_count"] == 1
-        assert wire["waiting_details_by_discard"][46][47] == dict(fan=3, base_score=8)
+        assert resolve_in_test(wire)["waiting_details_by_discard"][46][47] == dict(fan=3, base_score=8)
         current = hints.private_hints(s, 0)
-        assert current["waiting_details_by_discard"][46][47] == dict(fan=2, base_score=4)
-        current["waiting_details_by_discard"][46][47]["fan"] = 99
-        assert hints.private_hints(s, 0)["waiting_details_by_discard"][46][47]["fan"] == 2
+        assert resolve_in_test(current)["waiting_details_by_discard"][46][47] == dict(fan=2, base_score=4)
+        current["local_request"]["context"]["cai_piao_count"] = 99
+        assert resolve_in_test(hints.private_hints(s, 0))["waiting_details_by_discard"][46][47]["fan"] == 2
         assert all(p.get("hand_tiles") is None for p in before["game_info"]["players_info"][1:])
     asyncio.run(run())
 
@@ -89,6 +99,6 @@ def test_replay_records_changed_scores_even_with_identical_hand_and_waits():
     s.record_hints(0, hints.private_hints(s, 0))
     second = snapshots()[-1]
     assert len(snapshots()) == count + 1
-    assert first["waiting_by_discard"] == second["waiting_by_discard"]
-    assert first["waiting_details_by_discard"][46][47] == dict(fan=2, base_score=4)
-    assert second["waiting_details_by_discard"][46][47] == dict(fan=3, base_score=8)
+    assert resolve_in_test(first)["waiting_by_discard"] == resolve_in_test(second)["waiting_by_discard"]
+    assert resolve_in_test(first)["waiting_details_by_discard"][46][47] == dict(fan=2, base_score=4)
+    assert resolve_in_test(second)["waiting_details_by_discard"][46][47] == dict(fan=3, base_score=8)

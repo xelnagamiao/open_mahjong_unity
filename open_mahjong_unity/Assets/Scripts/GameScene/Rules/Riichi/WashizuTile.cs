@@ -6,7 +6,8 @@ using System.Collections.Generic;
 public static class WashizuTile {
     public const string SubRule = "riichi/washizu";
     public const string RealtimeSubRule = "riichi/washizu_realtime";
-    public static bool IsWashizu(string subRule) => subRule == SubRule || subRule == RealtimeSubRule;
+    public const string DoublesSubRule = "riichi/washizu_doubles";
+    public static bool IsWashizu(string subRule) => subRule == SubRule || subRule == RealtimeSubRule || subRule == DoublesSubRule;
     public static bool IsRealtimeSubRule(string subRule) => subRule == RealtimeSubRule || subRule == GuobiaoGameState.TransparentRealtimeSubRule;
     public static bool IsRealtimeHandOrder {
         get {

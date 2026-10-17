@@ -1,4 +1,6 @@
-from .four_jokers_runtime import prepare_hints, cached_hints
+from ..public.action_window import prepare_action_window, prepare_ready_window
+from ..public.ready_phase import ready_status_by_seat
+from ..public.ask_timing import send_ask_response_to_viewer
 from ...response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info,Game_end_info,Player_final_data,Switch_seat_info,Refresh_player_tag_list_info,Ready_status_info
 from typing import List, Dict, Optional
 import logging
@@ -36,47 +38,15 @@ from ..public.claim_protection import (
 )
 from ..public.game_record_manager import local_record_detail_for_end
 from ..public.duplicate_wall import duplicate_remaining_tile_counts
-from ..public.ask_timing import begin_ask_round, note_ask_delivered, reconnect_clock
+from ..public.ask_timing import begin_ask_round, reconnect_clock
 
 logger = logging.getLogger(__name__)
 
 
-async def _send_ask_response_to_viewer(
-    self, viewer_index: int, response, *, block: bool = True
-) -> None:
-    """经 outbound_pipe 发送 ask，保证排在延迟鸣牌/第二追赶之后；送达时起算计时。
-
-    block=True：await 本条（用于当前行动者，立刻可操作）。
-    block=False：仅 schedule 入队（旁观者可带 post_gap，不拖住主循环/行动者）。
-    """
-    from ..public.outbound_pipe import send_to_viewer, schedule_viewer_send
-
-    current_player = self.player_list[viewer_index]
-    if response.ask_hand_action_info is not None:
-        response.ask_hand_action_info.four_jokers_hints = await prepare_hints(self, viewer_index)
-        if huahun.enabled(self):
-            response.ask_hand_action_info.forbidden_cut_tiles = huahun.forbidden_cuts(current_player)
-    if current_player.user_id not in self.game_server.user_id_to_connection:
-        logger.warning(
-            f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过 ask 广播"
-        )
-        return
-    player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-    delay_before = take_post_meld_gap_delay(self, viewer_index)
-    ask_tick = self.server_action_tick
-
-    async def _do():
-        await player_conn.websocket.send_json(response.dict(exclude_none=True))
-        await self.send_to_realtime_spectators(viewer_index, response)
-        # A delayed observer ask may belong to a decision window already closed.
-        # It must not start the clock for a newer ask waiting behind it.
-        if self.server_action_tick == ask_tick:
-            note_ask_delivered(self, viewer_index)
-
-    if block:
-        await send_to_viewer(self, viewer_index, _do, delay_before=delay_before)
-    else:
-        schedule_viewer_send(self, viewer_index, _do, delay_before=delay_before)
+async def _send_ask_response_to_viewer(self, viewer_index, response, *, block=True):
+    if response.ask_hand_action_info is not None and huahun.enabled(self):
+        response.ask_hand_action_info.forbidden_cut_tiles = huahun.forbidden_cuts(self.player_list[viewer_index])
+    await send_ask_response_to_viewer(self, viewer_index, response, block=block)
 
 # 广播游戏开始/重连 方法
 def _build_game_start_payload_for_viewer(self, viewer_index: int) -> dict:
@@ -94,7 +64,6 @@ def _build_game_start_payload_for_viewer(self, viewer_index: int) -> dict:
         'max_round': self.max_round, # 最大局数
         'washizu_hands': transparent.public_hands(self),
         'washizu_layouts': realtime_hand.layouts_for_viewer(self, viewer_index),
-        'four_jokers_hints': cached_hints(self, viewer_index),
         'tile_count': len(self.tiles_list), # 牌山剩余牌数
         'use_flowers': getattr(self, 'use_flowers', True),
         'tian_di_ren_he': getattr(self, 'tian_di_ren_he', False),
@@ -190,7 +159,6 @@ async def broadcast_game_start(self):
                 continue
 
             player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-            await prepare_hints(self, current_player.player_index)
             game_info = GameInfo(**_build_game_start_payload_for_viewer(self, current_player.player_index))
             response = Response(
                 type="gamestate/guobiao/game_start",
@@ -223,7 +191,6 @@ async def send_realtime_spectator_snapshot(self, spectator_user_id: int, view_pl
         from ..public.outbound_pipe import drain_viewer
         await drain_viewer(self, view_player_index)
     conn = self.game_server.user_id_to_connection[spectator_user_id]
-    await prepare_hints(self, view_player_index)
     payload = _build_game_start_payload_for_viewer(self, view_player_index)
     payload["view_player_index"] = view_player_index
     response = Response(
@@ -239,10 +206,7 @@ async def send_realtime_spectator_snapshot(self, spectator_user_id: int, view_pl
 # 广播询问手牌操作 补花 加杠 暗杠 自摸 出牌
 async def broadcast_ask_hand_action(self):
     self.server_action_tick += 1
-    # Publish the decision window before the first await: a fast client can
-    # reply while hints or the remaining seats are still being sent.
-    self.waiting_players_list = [i for i, actions in self.action_dict.items() if actions]
-    self._waiting_action_tick = self.server_action_tick
+    prepare_action_window(self, new_ask=True)
     begin_ask_round(self)
     # 当前行动者优先发送并 await；其余座位只入队，避免被受保护观众的
     # delayed meld / post_gap 串行拖住（否则吃碰后要等 ~0.5–1.2s 才能出牌）。
@@ -315,10 +279,7 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
     else:
         cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
     self.server_action_tick += 1
-    # 战术打断再问：在派发 AI 前同步 waiting tick，避免机器人因 tick 不一致拒动
-    if not is_tactical_recheck:
-        self.waiting_players_list = [i for i, actions in self.action_dict.items() if actions]
-    self._waiting_action_tick = self.server_action_tick
+    prepare_action_window(self, new_ask=True, is_tactical_recheck=is_tactical_recheck)
     begin_ask_round(self)
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
@@ -370,7 +331,7 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
                         chi_candidates=getattr(current_player, "chi_candidates", None) if transparent.enabled(self) else None,
                     )
                 )
-                await _send_ask_response_to_viewer(self, seat_index, response)
+                await _send_ask_response_to_viewer(self, seat_index, response, block=is_tactical_recheck)
                 logger.info(f"已向玩家 {current_player.username} 广播询问操作信息")
 
         except Exception as e:
@@ -414,7 +375,6 @@ async def reconnected_send_pending_ask_for_viewer(
                 ask_hand_action_info=Ask_hand_action_info(
                     remaining_time=remaining_sent,
                     forbidden_cut_tiles=huahun.forbidden_cuts(player) if huahun.enabled(self) else None,
-                    four_jokers_hints=await prepare_hints(self, view_player_index),
                     step_remaining=step_sent,
                     player_index=self.current_player_index,
                     remain_tiles=len(self.tiles_list),
@@ -946,16 +906,8 @@ async def broadcast_refresh_player_tag_list(self):
 # 广播准备状态
 async def broadcast_ready_status(self):
     """广播所有玩家的准备状态"""
-    # 判断准备状态
-    player_to_ready = {}
-    for player in self.player_list:
-        # 如果玩家仍在等待准备，说明未准备
-        # 使用.get()方法安全访问，如果键不存在或值为空列表，说明已准备
-        action_list = self.action_dict.get(player.player_index, [])
-        if action_list and "ready" in action_list:
-            player_to_ready[player.player_index] = False
-        else:
-            player_to_ready[player.player_index] = True
+    prepare_ready_window(self)
+    player_to_ready = ready_status_by_seat(self)
     
     ready_info = Ready_status_info(
         player_to_ready=player_to_ready

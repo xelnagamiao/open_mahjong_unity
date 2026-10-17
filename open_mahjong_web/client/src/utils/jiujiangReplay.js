@@ -1,3 +1,4 @@
+import {resolveLocalHintSnapshot} from './localHintSnapshots.js'
 /** Never reuse another seat's hints, or an older hand's still-cached hints. */
 export function jiujiangHintsAt(round, node, seat, physicalHand, physicalMelds) {
   if (!Number.isInteger(seat) || seat < 0 || seat > 3 || !Array.isArray(physicalHand) || !Array.isArray(physicalMelds)) return null
@@ -6,7 +7,7 @@ export function jiujiangHintsAt(round, node, seat, physicalHand, physicalMelds) 
     if (tick?.[0] !== 'jiujiang' || tick[1] !== 'hints' || !Number.isInteger(tick[2]) || tick[2] < 0 || tick[2] > 3) continue
     cache[tick[2]] = tick[3]
   }
-  const hints = cache[seat]
+  const hints = resolveLocalHintSnapshot(cache[seat])
   if (!hints || typeof hints !== 'object' || !Array.isArray(hints.source_hand_tiles) || !Array.isArray(hints.source_melds)) return null
   const same = (a, b) => {
     const left = [...a].sort(), right = [...b].sort()

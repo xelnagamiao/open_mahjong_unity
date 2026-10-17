@@ -11,6 +11,7 @@ from .test_double_riichi import make_game
 from .wait_action import wait_action
 from .boardcast import broadcast_game_start
 from ..public.ai.get_action import get_ai_action
+from ...game_calculation.riichi.washizu_tiles import SUB_RULES, make_tiles, normalize
 
 
 class AuditFinished(Exception):
@@ -18,7 +19,17 @@ class AuditFinished(Exception):
 
 
 async def run_kan_case(rule, kind, timing='after_discard', enabled=True):
-    g = make_game(0)[0] if rule == 'four' else sanma(rule)
+    transparent = rule in SUB_RULES
+    if rule == 'riichi/washizu_doubles':
+        from .test_washizu_doubles import captain_game
+        g = captain_game()[0]
+    elif transparent or rule == 'four':
+        g = make_game(0)[0]
+        if transparent:
+            g.sub_rule = rule
+            g.red_dora = False
+    else:
+        g = sanma(rule)
     g.room_id = 825014
     g.room_random_seed = 20261014
     g.gamestate_id = f'{rule}-{kind}-{timing}-{enabled}'
@@ -37,20 +48,25 @@ async def run_kan_case(rule, kind, timing='after_discard', enabled=True):
         g.game_server.user_id_to_connection[p.user_id] = SimpleNamespace(websocket=Socket(i))
     def initial(game):
         ids = [11,19,*range(21,30),*range(31,40),*range(41,48)] if count == 3 else [*range(11,20),*range(21,30),*range(31,40),*range(41,48)]
-        pool = ids * 4
+        pool = make_tiles() if transparent else ids * 4
         caller = 0 if kind == 'angang' else 1
         held = 2 if kind == 'jiagang' else 3
-        draws = [31] + ([22,23,24][:count-1] + [31] if kind == 'jiagang' else [])
-        for tile in [31] * held + draws: pool.remove(tile)
+        held_tiles = [2031 if transparent else 31] * held
+        draws = [31] + ([22,23,24][:count-1] + [2031 if transparent else 31] if kind == 'jiagang' else [])
+        for tile in held_tiles + draws: pool.remove(tile)
         # Keep the last physical 31 reserved for a later kakan, not in a filler hand.
         import random
         random.Random(1407).shuffle(pool)
         for i, p in enumerate(game.player_list):
-            p.hand_tiles = [31] * held if i == caller else []
+            p.hand_tiles = list(held_tiles) if i == caller else []
             while len(p.hand_tiles) < 13: p.hand_tiles.append(pool.pop())
             p.has_draw_slot = False
             p.discard_tiles = []; p.discard_origin_tiles = []
         game.tiles_list = draws + pool
+        if transparent:
+            from .washizu import init_pool_after_deal
+            init_pool_after_deal(game)
+            return
         game.dead_wall_count = 14
         game._dora_slots = [game.tiles_list[-6-2*i] for i in range(5)]
         game._ura_slots = [game.tiles_list[-5-2*i] for i in range(5)]
@@ -75,7 +91,7 @@ async def run_kan_case(rule, kind, timing='after_discard', enabled=True):
             p = g.player_list[seat]
             if kind == 'angang' and not done:
                 choices = [(seat, 'angang', None, 31)]
-            elif kind == 'jiagang' and seat == 1 and 'k31' in p.combination_tiles and 31 in p.hand_tiles and not done:
+            elif kind == 'jiagang' and seat == 1 and 'k31' in p.combination_tiles and any(normalize(t) == 31 for t in p.hand_tiles) and not done:
                 choices = [(seat, 'jiagang', None, 31)]
             else:
                 tile = 31 if calls == 1 else p.hand_tiles[-1]

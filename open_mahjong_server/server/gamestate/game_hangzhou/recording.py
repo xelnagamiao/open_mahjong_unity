@@ -1,4 +1,4 @@
-"""Physical replay plus versioned public state and per-seat hint snapshots."""
+"""Physical replay plus versioned public state and per-seat local calculation inputs."""
 
 from ..public import game_record_manager as record
 
@@ -30,8 +30,8 @@ class Recording:
         if not hints or not self._has_active_round_record():
             return
         key = (tuple(hints["source_hand_tiles"]), tuple(hints["source_melds"]),
-               tuple((tile, tuple(waits)) for tile, waits in hints["waiting_by_discard"].items()),
-               tuple(hints["waiting_tiles"]), hints.get("source_cai_piao_count", 0))
+               hints.get("source_cai_piao_count", 0),
+               tuple((hints.get("local_request") or {}).get("cuts", ())))
         if self._recorded_hint_keys.get(index) != key:
             self._recorded_hint_keys[index] = key
             record.append_action_tick(self, ["hangzhou", "hints", index, hints])

@@ -1,0 +1,21 @@
+{
+  "open_kong_replacement_count": { "label": "开杠张数", "default": 2, "values": [2, 4] },
+  "small_hu_self_draw_only": { "label": "卡摸（小胡仅自摸）", "default": false },
+  "score_cap_type": { "label": "封顶方式", "default": "none", "values": ["none", "big_hu", "score"], "choices": ["不封顶", "大胡数封顶", "分数封顶"] },
+  "score_cap_value": { "label": "封顶数值", "default": 0, "min": 1, "max": 1000000 },
+  "bird_count": { "label": "扎鸟张数", "default": 2, "values": [0, 1, 2, 4] },
+  "dealer_bird": { "label": "庄鸟", "default": true },
+  "base_score_no_dealer": { "label": "基础分不计庄闲", "default": false },
+  "small_hu_score": { "label": "小胡基础分", "default": 2, "min": 1, "max": 999 },
+  "big_hu_score": { "label": "大胡基础分", "default": 8, "min": 1, "max": 999 },
+  "initial_hu_si_xi": { "label": "起手四喜", "default": true },
+  "initial_hu_ban_ban_hu": { "label": "起手板板胡", "default": true },
+  "initial_hu_que_yi_se": { "label": "起手缺一色", "default": true },
+  "initial_hu_liu_liu_shun": { "label": "起手六六顺", "default": true },
+  "initial_hu_san_tong": { "label": "起手三同", "default": true },
+  "tactical_call": { "label": "战术鸣牌", "default": false },
+  "claim_protection": { "label": "鸣牌保护", "default": true },
+  "show_moqie_hint": { "label": "摸切提示", "default": false },
+  "count_tips": { "label": "剩余张数提示", "default": false },
+  "pointer_tips": { "label": "指针提示", "default": true }
+}

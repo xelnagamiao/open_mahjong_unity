@@ -60,6 +60,7 @@ public class EndGamePanel : MonoBehaviour {
             .Select(kv => kv.Value)
             .OrderBy(v => System.Convert.ToInt32(v["rank"]))
             .ThenBy(v => v.TryGetValue("team_id", out object team) && team != null ? System.Convert.ToInt32(team) : -1)
+            .ThenBy(v => v.TryGetValue("team_role", out object role) && role?.ToString() == "assistant" ? 1 : 0)
             .ThenBy(v => v.ContainsKey("original_player_index") && v["original_player_index"] != null
                 ? System.Convert.ToInt32(v["original_player_index"])
                 : int.MaxValue)
@@ -96,13 +97,16 @@ public class EndGamePanel : MonoBehaviour {
                 bool paired = scoring == "imp" || scoring == "raw_difference";
                 string teamName = System.Convert.ToInt32(teamId) == 0 ? (paired ? "蓝队" : "A队") : (paired ? "红队" : "B队");
                 float points = System.Convert.ToSingle(playerData["team_match_points"]);
-                display.username.text = teamName + " · " + display.username.text;
+                string role = playerData.TryGetValue("team_role", out object roleValue) ? roleValue?.ToString() : null;
+                bool captain = role == "captain" || role == "assistant";
+                display.username.text = (captain ? WashizuDoubles.RoleLabel(System.Convert.ToInt32(teamId), role) : teamName) + " · " + display.username.text;
                 display.rank.text = points == .5f ? "平" : points == 1 ? "胜" : "负";
                 display.score.text = "个人 " + playerData["score"];
                 string scoreUnit = scoring == "imp" ? "IMP" : scoring == "raw_difference" ? "副差分" : "队分";
                 display.pt.text = paired
                     ? $"<line-height=20><size=20>全队 {playerData["team_score"]} {scoreUnit}\n两室合计</size></line-height>"
                     : $"<line-height=20><size=20>队分 {playerData["team_score"]}\n{points:0.#}盘分</size></line-height>";
+                if (captain) display.pt.text = $"<line-height=20><size=20>主将 {playerData["team_score"]}点\n{points:0.#}比赛分</size></line-height>";
                 if (paired && playerData.TryGetValue("team_small_score", out object smallScore) && smallScore != null
                     && playerData.TryGetValue("team_imp_score", out object impScore) && impScore != null)
                     display.pt.text = $"<line-height=20><size=20>全队 {smallScore} 副分\n{impScore} IMP</size></line-height>";
@@ -115,7 +119,8 @@ public class EndGamePanel : MonoBehaviour {
         var teamResult = sorted.FirstOrDefault(v => v.ContainsKey("team_result_reason"));
         if (teamResult != null) {
             string reason = teamResult["team_result_reason"]?.ToString();
-            string reasonLabel = reason == "last_positive_board" ? "同分，追平队胜"
+            bool captain = teamResult.TryGetValue("team_role", out object roleValue) && roleValue != null;
+            string reasonLabel = captain ? WashizuDoubles.ResultReason(reason) : reason == "last_positive_board" ? "同分，追平队胜"
                 : reason == "draw" ? "平局，各0.5盘分" : "按团队累计副分";
             gameRandomSeed.text = "<size=24>双打判定：" + reasonLabel + "\n" + gameRandomSeed.text + "</size>";
         }

@@ -182,7 +182,7 @@
 
 ### 5.5 其他
 
-- `jiuzhongjiupai`：九老峰回流局
+- `jiuzhongjiupai`：共用流局短码；立直麻将（含三人）显示“九种九牌”，古典麻将显示“九老峰回”。显示文案按 `game_title.rule` 区分。
 
 ---
 

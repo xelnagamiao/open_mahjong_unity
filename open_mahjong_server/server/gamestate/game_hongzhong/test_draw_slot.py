@@ -67,7 +67,7 @@ async def prepare_stage(stage, tips=True):
         await state.execute_claim(1, "gang")
         await state._deal_supplement()
     await state._prepare_hand_action_after_draw()
-    for index in range(4): await state._warm_hints(index)
+    for index in range(4): await state._prepare_draw_score(index)
     return state
 
 

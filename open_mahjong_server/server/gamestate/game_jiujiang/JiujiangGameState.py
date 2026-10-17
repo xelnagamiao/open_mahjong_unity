@@ -11,8 +11,7 @@ from ..game_taiwan.boardcast import broadcast_do_action, broadcast_refresh_playe
 from ..public.hand_action_notify import apply_player_cut
 from ..public.hand_slot_utils import has_draw_slot
 from ..public.game_record_manager import append_action_tick, player_action_record_cut
-from ..public.ai.bot_executor import run_room_bot_cpu
-from .hints import compute_hand
+from .client_context import local_context
 from .lifecycle import JiujiangLifecycle
 
 
@@ -38,7 +37,7 @@ class JiujiangGameState(JiujiangLifecycle, TaiwanGameState):
 
     def _reset_taiwan_players(self):
         super()._reset_taiwan_players()
-        self._hint_cache, self._recorded_hints = {}, {}
+        self._client_contexts, self._recorded_contexts = {}, {}
         self._hint_generation = getattr(self,"_hint_generation",0) + 1
         self._terminal_result = None
         self._tail_upper_next = True
@@ -198,24 +197,24 @@ class JiujiangGameState(JiujiangLifecycle, TaiwanGameState):
             key = (tuple(player.hand_tiles),tuple(player.combination_tiles),tuple(player.huapai_list),
                    player.declared_ready,player.first_discard_done)
             generation = self._hint_generation
-            cached = self._hint_cache.get(index)
+            cached = self._client_contexts.get(index)
             if cached is None or cached[0] != key:
-                payload = await run_room_bot_cpu(self,compute_hand,*key)
+                payload = local_context(*key)
                 if generation != self._hint_generation or self.player_list[index] is not player: continue
                 current = (tuple(player.hand_tiles),tuple(player.combination_tiles),tuple(player.huapai_list),
                            player.declared_ready,player.first_discard_done)
                 if current != key: continue
-                self._hint_cache[index] = (key,payload)
+                self._client_contexts[index] = (key,payload)
             if (f"round_index_{self.round_index}" in self.game_record.get("game_round",{})
-                    and self._recorded_hints.get(index) != key):
-                append_action_tick(self,["jiujiang","hints",index,self._hint_cache[index][1]])
-                self._recorded_hints[index] = key
+                    and self._recorded_contexts.get(index) != key):
+                append_action_tick(self,["jiujiang","hints",index,self._client_contexts[index][1]])
+                self._recorded_contexts[index] = key
 
     def build_private_game_info_fields(self, index):
         player = self.player_list[index]
         fields = {"jiujiang_info":{"self_has_draw_slot":has_draw_slot(player)}}
         if self.tips or self.count_tips:
-            cached = self._hint_cache.get(index)
+            cached = self._client_contexts.get(index)
             if cached: fields["jiujiang_hints"] = cached[1]
         return fields
 

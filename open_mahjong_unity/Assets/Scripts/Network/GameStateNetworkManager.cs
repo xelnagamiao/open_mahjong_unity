@@ -44,9 +44,10 @@ public class GameStateNetworkManager : MonoBehaviour {
         }
         if (RuleRegistry.TryParseGameStateType(response.type, out string rule, out string suffix)) {
             // Login can reconnect the transport before the player accepts table
-            // restoration. A game_start snapshot must establish the table first;
+            // restoration. An explicit start/reconnect snapshot establishes the table;
             // broadcasts received on the login screen belong to the old session.
-            if (suffix != "game_start" && string.IsNullOrEmpty(GameSession.Current.RoomRule)) {
+            if (suffix != "game_start" && suffix != "reconnect"
+                    && string.IsNullOrEmpty(GameSession.Current.RoomRule)) {
                 return;
             }
             IGameState state = ResolveGameStateForMessage(rule, suffix);

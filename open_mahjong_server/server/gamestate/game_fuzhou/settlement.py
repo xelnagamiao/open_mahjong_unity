@@ -47,10 +47,8 @@ class EndOfHand:
         repeats = winner is None or winner==self.dealer_index
         self.next_dealer_streak = self.dealer_streak+1 if repeats else 0
         self.next_dealer_changes = self.dealer_changes+(0 if repeats else 1)
-        # The supplied six-deal schedule keeps physical seats fixed.
-        schedule = (0,1,2,3,2,1)
-        self.next_dealer = schedule[self.next_dealer_changes%6]
-        self.match_finishing = self.next_dealer_changes >= self.max_round*6
+        self.next_dealer = self.dealer_index if repeats else (self.dealer_index+1)%4
+        self.match_finishing = self.next_dealer_changes >= self.max_round*4
         self.ended_by = "wall" if winner is None else "win"
         self.machine.transition(P.END)
 
@@ -73,8 +71,16 @@ class EndOfHand:
     def advance_round_after_ready(self):
         if self.machine.phase!=P.READY or self.match_finishing:
             raise RuntimeError("当前不能开始下一局")
+        rotate = self.next_dealer_changes != self.dealer_changes and self.next_dealer_changes%4==0
         self.dealer_changes,self.dealer_streak = self.next_dealer_changes,self.next_dealer_streak
         self.dealer_index = self.current_player_index = self.next_dealer
+        if rotate:
+            # Every original player moves counterclockwise to the next seat.
+            # Move player objects (scores, histories and identity) together.
+            self.player_list = self.player_list[-1:] + self.player_list[:-1]
+            for i,p in enumerate(self.player_list):
+                p.player_index = i
+            self.dealer_index = self.current_player_index = (self.dealer_index+1)%4
         self.current_round = self.dealer_changes+1
         self.round_index += 1
         self.machine.transition(P.START)

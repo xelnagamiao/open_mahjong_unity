@@ -7,13 +7,13 @@ internal static class GuobiaoLobby {
             new RuleLobbySubRule("guobiao/xiaolin", "国标麻将(小林改)", "小林改版国标麻将，对国标麻将进行了番数平衡，还处于测试版，取消了8番起胡和底分，改为点和得分x2，自摸番三。非竞技规则，只为娱乐。"),
             new RuleLobbySubRule("guobiao/kshen", "K神麻将", "K神改版国标麻将，新增镜同、四连刻等番种，复合番100封顶，默认8番起和。小牌点炮无责：点和12分以下三家各付n；12分以上两家各付12，放铳者付3n-24。自摸三家各付n。可开启错和、可自定义起和番。出现计分bug可在群里向q975653345反馈"),
             new RuleLobbySubRule("guobiao/lanshi", "国标麻将(蓝十改)", "采用《蓝十魔改规则第4版》的四人赛制，136张无花。对国标麻将的番种表进行了全面的修改，并根据番种的难度调整了评分，5分起和，授受制为半全铳半分付。如在测试中发现设计问题或有任何建议，可以联系规则制定人蓝十QQ1002094810。"),
-            new RuleLobbySubRule("guobiao/blood_battle", "国标麻将(血战到底)", "标准国标番种，8番起和。和牌后退场，三家和牌或牌墙耗尽结束本局。仅仍在场者付分；同一炮多响的赢家互不付底分。由下一位未和玩家取得吃牌权；和牌后从本次最后和牌者之后续打。和牌张排在花牌后，终局统一结算。不查叫、不收杠分；暂不支持错和、战术鸣牌和复式牌墙。"),
-            new RuleLobbySubRule(GuobiaoGameState.SanmaSubRule, "三人国标", "三人对局，万子仅保留一万和九万，其余沿用标准国标。默认8番起和，花牌不计起和门槛，可吃碰杠。保留花牌及天地人和开关，每圈3盘、每盘换庄。自摸两家各付番数加8；点和放铳者付番数加8，另一家付8。错和分付为-20/+10，固定扣40模式不变。四人复式牌墙不适用。"),
-            new RuleLobbySubRule(GuobiaoGameState.TransparentSubRule, "透明国标", "四人标准国标，每种常规牌3张透明、1张不透明。透明手牌对所有人公开，吃碰可选用透明或不透明牌。默认8番起和，花牌不计起和门槛，保留花牌补花、正常牌墙与庄位轮换；没有70次摸牌限制。可使用国标房间的花牌、天地人和、错和和战术鸣牌设置。暂不支持普通复式牌墙。"),
-            new RuleLobbySubRule(GuobiaoGameState.TransparentRealtimeSubRule, "国标透明（实时手牌）", "沿用透明国标的八番起和、花牌补花与正常牌局流程。开局保留发牌乱序，关闭自动理牌；拖动手牌后，其他玩家同步看到相同位置和移动动画。暗牌只公开位置，不公开牌值；重连和牌谱保留摆牌顺序。独立统计，不统计番种；暂不支持普通复式牌墙。"),
+            new RuleLobbySubRule("guobiao/blood_battle", "国标麻将(血战到底)", "国标麻将(血战到底)，8番起和。和牌后继续对局，三家和牌或牌墙耗尽结束本局。"),
+            new RuleLobbySubRule(GuobiaoGameState.SanmaSubRule, "三人国标", "三人国标对局，万子保留一万和九万。"),
+            new RuleLobbySubRule(GuobiaoGameState.TransparentSubRule, "透明国标", "国标麻将（透明），每种麻将牌3张透明、1张不透明。透明手牌对所有人公开，是日麻瓦西子麻将的国标变体。"),
+            new RuleLobbySubRule(GuobiaoGameState.TransparentRealtimeSubRule, "国标透明（实时手牌）", "国标麻将（透明），每种麻将牌3张透明、1张不透明。透明手牌对所有人公开，并且支持手牌实施排序。"),
             new RuleLobbySubRule(GuobiaoGameState.HuahunSubRule, "国标（花混癞子）", HuahunRules.Description),
             new RuleLobbySubRule(GuobiaoGameState.FourJokersSubRule, "国标麻将(四癞子)", FourJokersTips.Description),
-            new RuleLobbySubRule(GuobiaoGameState.SixteenSubRule, "国标麻将（十六张）", "依据新编MCR推广的本站十六张规则。闲家16张，庄家17张，五组面子加一对；组合龙加两组面子和一对。默认8番起和，花牌不计门槛，沿用国标补花、支付、换庄和房间设置。十四张专用特殊牌形不适用；四暗刻、四杠及五组面子组合限制见十六张补则。独立统计，普通复式牌墙不适用。"),
+            new RuleLobbySubRule(GuobiaoGameState.SixteenSubRule, "国标麻将（十六张）", "国标麻将十六张将玩家手牌从十三张变更为十六张，目前番数计算完全沿用标准国标的算法，未来可能为多牌以后的平衡性进行微调。"),
         };
 
     public static Dictionary<string, object> Defaults() {

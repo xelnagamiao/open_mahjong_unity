@@ -1,5 +1,5 @@
 <template>
-  <div v-if="!session.player && !session.restoring" class="game-blocked">
+  <div v-if="!demo && !session.player && !session.restoring" class="game-blocked">
     <div class="game-blocked-card">
       <h1>需要先登录</h1>
       <p>登录后才能恢复或进入国标对局。</p>
@@ -405,8 +405,20 @@
               </div>
 
               <div class="game-felt-rail__section game-fan-table-trigger">
-                <GuobiaoFanTable />
+                <GuobiaoFanTable :interface-theme="appearance.interfaceTheme" />
               </div>
+              <template v-if="demo">
+                <div class="game-felt-rail__section">
+                  <button type="button" class="scene-appearance-toggle__button" :disabled="!sceneReady" @click="randomizeDemoTable">
+                    随机牌桌
+                  </button>
+                </div>
+                <div class="game-felt-rail__section">
+                  <button type="button" class="scene-appearance-toggle__button game-demo-exit-button" @click="exitDemoTable">
+                    退出牌桌
+                  </button>
+                </div>
+              </template>
             </aside>
           </div>
         </div>
@@ -450,6 +462,7 @@ import GameVotePanel from './GameVotePanel.vue'
 import GuobiaoFanTable from '@/components/GuobiaoFanTable.vue'
 import { useGame2dSessionStore } from '@/stores/game2dSession'
 import { MahjongScene } from '@/game2d/game/scene/MahjongScene'
+import { createDemoState, demoSnapshot, applyDemoInput, advanceDemoTurn, DEMO_PLAYERS } from '@/game2d/demo/tableDemo'
 import { GAME_SOUND_ASSETS, getPreloadedSoundUrl } from '@/game2d/game/resources'
 import { SalasasaGameAdapter } from '@/game2d/salasasa/gameAdapter'
 import { salasasaClient } from '@/game2d/salasasa/client'
@@ -491,6 +504,7 @@ const HU_FAN_REVEAL_INTERVAL_MS = 500
 const HU_BEFORE_TOTAL_MS = 500
 const HU_CONFIRM_COUNTDOWN_SEC = 8
 
+const props = defineProps({ demo: Boolean, demoScenario: { type: String, default: 'random' } })
 const router = useRouter()
 const session = useGame2dSessionStore()
 const stageElement = ref(null)
@@ -530,6 +544,8 @@ const showReadyButton = ref(false)
 const readyCountdown = ref(0)
 
 let scene = null
+let demoState = props.demo ? createDemoState(props.demoScenario === 'claim' ? 'claim' : props.demoScenario === 'discard' ? 'discard' : 'random') : null
+let demoTurnTimer = null
 let adapter = null
 let unsubscribe = null
 let mounted = false
@@ -1138,9 +1154,33 @@ function flushPendingGameResponses(currentAdapter, currentScene) {
   for (const response of queued) applyMessage(response, currentAdapter, currentScene)
 }
 
+function randomizeDemoTable() {
+  if (!props.demo || !scene || !sceneReady.value) return
+  window.clearTimeout(demoTurnTimer)
+  demoState = createDemoState('random')
+  scene.flushFromSnapshot(demoSnapshot(demoState))
+}
+
+function exitDemoTable() {
+  if (!props.demo) return
+  window.clearTimeout(demoTurnTimer)
+  router.push('/2d')
+}
+
+function scheduleDemoTurn() {
+  window.clearTimeout(demoTurnTimer)
+  if (demoState?.phase !== 'opponents') return
+  demoTurnTimer = window.setTimeout(() => {
+    if (!mounted || !scene || !demoState) return
+    advanceDemoTurn(demoState)
+    scene.flushFromSnapshot(demoSnapshot(demoState))
+    scheduleDemoTurn()
+  }, 650)
+}
+
 async function mountScene() {
-  if (!mounted || scene || !session.player || !stageElement.value) return
-  const currentAdapter = new SalasasaGameAdapter(session.player.user_id)
+  if (!mounted || scene || (!props.demo && !session.player) || !stageElement.value) return
+  const currentAdapter = props.demo ? null : new SalasasaGameAdapter(session.player.user_id)
   adapter = currentAdapter
   const currentScene = new MahjongScene((type, payload) => {
     if (type === 'appearance.lastTileCoverIndex' && typeof payload?.index === 'number') {
@@ -1148,6 +1188,13 @@ async function mountScene() {
       return
     }
     if (type === 'ping' || type !== 'game.input') return
+    if (demoState) {
+      if (applyDemoInput(demoState, payload)) {
+        currentScene.flushFromSnapshot(demoSnapshot(demoState))
+        scheduleDemoTurn()
+      }
+      return
+    }
     const outgoing = currentAdapter.encodeSceneInput(payload)
     if (!outgoing || !salasasaClient.send(outgoing)) ElMessage.error('操作未发送，请等待连接恢复')
   })
@@ -1165,6 +1212,15 @@ async function mountScene() {
     currentScene.loadSound(sound.alias, audio)
   }
   sceneReady.value = true
+  if (demoState) {
+    sidebarPlayers.value = DEMO_PLAYERS.map((player, seat) => ({
+      player_index: seat, user_id: -(seat + 1), username: player.name,
+      guobiao_rank: '—', guobiao_score: 0, score: player.score,
+    }))
+    currentScene.flushFromSnapshot(demoSnapshot(demoState))
+    hasSnapshot.value = true
+    return
+  }
   flushPendingGameResponses(currentAdapter, currentScene)
   if (salasasaClient.lastVoteUpdate?.vote_info) {
     applyVoteInfo(salasasaClient.lastVoteUpdate.vote_info)
@@ -1172,6 +1228,7 @@ async function mountScene() {
 }
 
 function destroyScene() {
+  window.clearTimeout(demoTurnTimer)
   resetMatchEndConfirmation()
   clearRoundResultUi()
   clearVoteState()
@@ -1377,6 +1434,7 @@ function faceAssetOptions(faceId) {
   return {
     baseUrl: import.meta.env.BASE_URL,
     black: appearance.value.tileFaceTheme === 'black',
+    guobiao: appearance.value.tileFaceTheme === 'guobiao',
     unityFlower: appearance.value.flowerFaceTheme === 'unity' && faceId >= 51 && faceId <= 58,
   }
 }
@@ -1392,7 +1450,7 @@ function tileAsset(tile) {
 }
 
 watch(() => session.player?.user_id, async (userId) => {
-  if (!mounted) return
+  if (!mounted || props.demo) return
   if (!userId) {
     destroyScene()
     return
@@ -1403,7 +1461,8 @@ watch(() => session.player?.user_id, async (userId) => {
 
 watch(() => session.status, (status, previousStatus) => {
   if (
-    status !== 'offline'
+    props.demo
+    || status !== 'offline'
     || previousStatus === 'offline'
     || leavingActiveGame
     || finalResult.value
@@ -1439,7 +1498,7 @@ watch(locale, () => {
 })
 
 onBeforeRouteLeave(async () => {
-  if (!hasSnapshot.value || finalResult.value || leavingActiveGame) return true
+  if (props.demo || !hasSnapshot.value || finalResult.value || leavingActiveGame) return true
   try {
     await ElMessageBox.confirm(
       tr('游戏正在对局中，您确定要退出吗？'),
@@ -1461,7 +1520,7 @@ onBeforeRouteLeave(async () => {
 
 onMounted(async () => {
   mounted = true
-  unsubscribe = salasasaClient.subscribe(handleResponse)
+  if (!props.demo) unsubscribe = salasasaClient.subscribe(handleResponse)
   try {
     backgroundImage.value = await loadStoredSceneBackgroundImage()
   } catch {
@@ -1469,7 +1528,7 @@ onMounted(async () => {
   } finally {
     backgroundImageLoading.value = false
   }
-  await session.init()
+  if (!props.demo) await session.init()
   await nextTick()
   await mountScene()
 })

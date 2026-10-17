@@ -41,10 +41,10 @@ public static class RuleSupportTableBaker {
             return (string)c.Attribute("t") == "s" ? strings[int.Parse(value)]
                 : (string)c.Attribute("t") == "inlineStr" ? string.Concat(c.Descendants(ns + "t").Select(t => t.Value)) : value;
         });
-        string[] Row(int row) => Enumerable.Range(0, 11).Select(col => cells.TryGetValue(((char)('B' + col)).ToString() + row, out var value) ? value : "").ToArray();
+        string[] Row(int row) => Enumerable.Range(0, 10).Select(col => cells.TryGetValue(((char)('B' + col)).ToString() + row, out var value) ? value : "").ToArray();
         var headers = Row(5);
-        if (!headers.SequenceEqual(new[] { "规则序号", "主规则", "首页显示名", "子规则名", "数据统计名", "规则标识", "是否提供匹配", "基础统计", "番种统计", "数据统计类型", "备注" }))
-            throw new InvalidDataException("麻将规则支持表必须保留十一列名称和顺序。");
+        if (!headers.SequenceEqual(new[] { "规则序号", "主规则", "首页显示名", "子规则名", "数据统计名", "规则标识", "是否提供匹配", "基础统计", "番种统计", "数据统计类型" }))
+            throw new InvalidDataException("麻将规则支持表必须保留十列名称和顺序。");
         var rows = Enumerable.Range(6, cells.Keys.Select(address => int.Parse(new string(address.Where(char.IsDigit).ToArray()))).Max() - 5)
             .Select(Row).Where(row => row[5].Length > 0).ToArray();
         if (rows.Length == 0 || rows.Select(row => row[5]).Distinct().Count() != rows.Length

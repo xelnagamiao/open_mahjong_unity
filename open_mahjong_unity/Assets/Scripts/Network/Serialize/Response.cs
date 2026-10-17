@@ -49,6 +49,7 @@ public class RoomInfo {
     public string duplicate_status;
     public string duplicate_scoring;
     public int[] team_by_seat;
+    public int[] team_role_by_seat;
     public int roster_revision;
     public bool? use_flowers; // 旧消息缺省含花，蓝十始终无花
     public bool joker_multi_wait;
@@ -265,7 +266,7 @@ public class ShowResultInfo {
     public Dictionary<int, int> blood_round_changes; // 显示结算结果
     public int hepai_player_index; // 和牌玩家索引
     public Dictionary<int, int> player_to_score; // 所有玩家分数
-    public int hu_score; // 和牌分数
+    public double hu_score; // 和牌分数
     public string[] hu_fan; // 和牌番种
     public string hu_class; // 和牌类别
     public int[] hepai_player_hand; // 和牌玩家手牌
@@ -484,6 +485,7 @@ public class DoActionInfo {
 
 public class PlayerInfo {
     public int? team_id;
+    public string team_role;
     public int[] known_concealed_discards; // 房间信息中单个玩家信息
     public string username;             // 玩家名
     public int user_id;                  // 玩家uid
@@ -523,7 +525,14 @@ public class PlayerInfo {
     public int[] xueliu_throw_tiles;    // 血流：开局甩掉的三张
 }
 
+public class WashizuDoublesInfo {
+    public int[] team_by_player_index;
+    public string[] team_role_by_player_index;
+    public Dictionary<int, int> captain_scores;
+}
+
 public class GameInfo {
+    public WashizuDoublesInfo washizu_doubles;
     public FourJokersHintSnapshot four_jokers_hints;
     public Dictionary<int, WashizuHandLayout> washizu_layouts;
     public WuhanInfo wuhan_info;
@@ -966,6 +975,14 @@ public class HongqueScoreHintInfo {
 }
 
 [System.Serializable]
+public class HongqueWinHintContext {
+    public string tile;
+    public bool self_draw;
+    public bool before_first_discard;
+    public bool wall_empty;
+}
+
+[System.Serializable]
 public class HongquePlayerInfo {
     public int index;
     public int user_id;
@@ -988,6 +1005,9 @@ public class HongquePlayerInfo {
 
 [System.Serializable]
 public class HongqueStateInfo {
+    public bool pointer_tips = true;
+    public HongqueEventInfo pending_draw;
+    public HongqueEventInfo last_discard;
     public string sync_mode;
     public int room_id;
     public string room_type;
@@ -1012,6 +1032,7 @@ public class HongqueStateInfo {
     public string[] legal_actions;
     public HongqueCandidateInfo[] candidates;
     public HongqueScoreHintInfo win_hint;
+    public HongqueWinHintContext local_win_context;
     public string[] waiting_tiles;
     public HongqueScoreHintInfo[] waiting_hints;
     public HongquePlayerInfo[] players;

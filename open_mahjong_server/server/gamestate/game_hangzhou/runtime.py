@@ -207,7 +207,7 @@ class Runtime:
         return responses
 
     async def run_game_loop(self):
-        self._async_hints_enabled = True
+        self._client_context_enabled = True
         try:
             self.start_game_recording()
             while True:
@@ -237,15 +237,15 @@ class Runtime:
             await asyncio.gather(*tasks, return_exceptions=True)
 
     async def flush_outbound_payloads(self):
-        if self._async_hints_enabled:
-            from .hints import prepare
-            await prepare(self, payloads=self.outbound_payloads[self.outbound_send_cursor:])
+        if self._client_context_enabled:
+            from .client_context import attach_contexts
+            await attach_contexts(self, payloads=self.outbound_payloads[self.outbound_send_cursor:])
         await super().flush_outbound_payloads()
 
-    async def prepare_private_hints(self, index):
-        if self._async_hints_enabled:
-            from .hints import prepare
-            await prepare(self, indices=(index,))
+    async def prepare_client_context(self, index):
+        if self._client_context_enabled:
+            from .client_context import attach_contexts
+            await attach_contexts(self, indices=(index,))
 
     async def run_round_ready_phase(self, timeout=None):
         self.machine.transition(P.READY)

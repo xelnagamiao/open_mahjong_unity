@@ -1,3 +1,4 @@
+import { isExchangeSix, exchangeSixStatisticsRound } from './changshaExchangeSixReplay.js';
 /**
  * 牌谱客户端分析器：从 record JSON 重建目标玩家的统计指标。
  * 与服务端 backfill_history_stats / round_score_utils 逻辑一致，
@@ -234,17 +235,19 @@ function analyzeOneRecord(record, userId, acc) {
   const title = record.game_title || {};
   const sichuan = title.rule === 'sichuan';
   const ownTurns = sichuan || ['zhongyong', 'jiandan', 'nanque', 'nanjing', 'nanchang', 'malaysia', 'fuzhou'].includes(title.rule);
-  const dealerTurns = ['qingque', 'classical', 'shenyang', 'wuhan'].includes(title.rule);
+  const dealerTurns = isExchangeSix(title) || ['qingque', 'classical', 'shenyang', 'wuhan'].includes(title.rule);
   let winValues = 0;
   acc.total_games += 1;
 
   for (const key of roundKeys) {
-    const rd = gameRound[key] || {};
+    const sourceRound = gameRound[key] || {};
+    const rd = isExchangeSix(record.game_title) ? exchangeSixStatisticsRound(sourceRound) : sourceRound;
     const seats = resolveRoundSeats(rd);
     const mySeat = seatForOriginal(seats, originalIndex);
     const ticks = rd.action_ticks || [];
     if (title.rule && title.rule !== 'guobiao' && !ticks.some(t => t?.[0] === 'end')) continue;
     acc.total_rounds += 1;
+    if (isExchangeSix(title)) for (const t of ticks) if (t[0] === 'changsha_four_joy' && t[1] === mySeat) acc.fan_stats['四喜'] = (acc.fan_stats['四喜'] || 0) + 1;
     let hadFulu = false;
     let actor = rd.start_player_index ?? rd.dealer_index ?? 0;
     let opening = true;
@@ -296,7 +299,9 @@ function analyzeOneRecord(record, userId, acc) {
         winValues += values.win;
         if (ownTurns) acc.total_win_turn += cuts[mySeat] + 1;
         else if (dealerTurns) acc.total_win_turn += cuts[0] + 1;
-        addFanStats(acc, hu.yaku);
+        if (isExchangeSix(title)) {
+          for (const fan of hu.yaku) acc.fan_stats[fan] = (acc.fan_stats[fan] || 0) + 1;
+        } else addFanStats(acc, hu.yaku);
       } else if (payer === mySeat) {
         acc.deal_in_count += 1;
         acc.total_fangchong_score += values.loss;
@@ -394,10 +399,12 @@ function computeFinalScore(record, originalIndex) {
   let total = 0;
   for (const key of Object.keys(gameRound)) {
     if (!key.startsWith('round_index_')) continue;
-    const rd = gameRound[key] || {};
+    const sourceRound = gameRound[key] || {};
+    const rd = isExchangeSix(record.game_title) ? exchangeSixStatisticsRound(sourceRound) : sourceRound;
     const seats = resolveRoundSeats(rd);
     const mySeat = seatForOriginal(seats, originalIndex);
-    for (const tick of rd.action_ticks || []) {
+    for (const tick of sourceRound.action_ticks || []) {
+      if (isExchangeSix(record.game_title) && tick[0] === 'changsha_exchange_six_draw_scores') { total += Number(tick[1][mySeat]) || 0; continue; }
       const sichuanChanges = record?.game_title?.rule === 'sichuan' ? sichuanScoreChanges(tick) : null;
       if (sichuanChanges) {
         total += sichuanChanges[mySeat] || 0;

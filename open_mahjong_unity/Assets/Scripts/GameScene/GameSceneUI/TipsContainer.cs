@@ -86,13 +86,13 @@ public partial class TipsContainer : MonoBehaviour
             if (pending.View == null) continue;
             // Four-joker hands can wait on all 35 faces. Keep other pages
             // queued until visible instead of calculating their exact fans.
-            if (GuobiaoGameState.UsesAuthoritativeTips(pending.Query.SubRule) && !pending.View.gameObject.activeInHierarchy) {
+            if (GuobiaoGameState.UsesAsyncLocalTips(pending.Query.SubRule) && !pending.View.gameObject.activeInHierarchy) {
                 _pendingFanHints.Enqueue(pending);
                 yield return null;
                 continue;
             }
             bool cached = GuobiaoTips.TryDescribeCached(pending.Query, out WaitTileHint hint);
-            if (!cached && GuobiaoGameState.UsesAuthoritativeTips(pending.Query.SubRule)) {
+            if (!cached && GuobiaoGameState.UsesAsyncLocalTips(pending.Query.SubRule)) {
                 yield return FourJokersTips.Resolve(pending.Query, result => hint = result);
             } else if (!cached) hint = RuleTips.DescribeWaitingTile(pending.Manifest, pending.Query);
             if (generation != _fanHintGeneration) yield break;
@@ -131,7 +131,7 @@ public partial class TipsContainer : MonoBehaviour
     public bool HasCachedTenpaiTips => _hasCachedTenpaiTips
         && (_cachedWaitingTiles.Count > 0 || _cachedHongqueWinHint != null);
 
-    /// <summary>缓存虹雀提示：稳定听牌由 C# 本地计算，即时可和提示沿用服务端动作结果。</summary>
+    /// <summary>缓存虹雀本地听牌与即时可和提示；可和资格仍来自服务端动作。</summary>
     public void CacheHongqueTips(HongqueScoreHintInfo[] waitHints, HongqueScoreHintInfo winHint) {
         _cachedHongqueWaitHints = waitHints ?? Array.Empty<HongqueScoreHintInfo>();
         _cachedHongqueWinHint = winHint;

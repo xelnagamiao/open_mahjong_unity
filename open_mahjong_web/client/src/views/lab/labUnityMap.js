@@ -1,3 +1,5 @@
+import { specialDrawCaption } from '../../utils/specialDrawCaptions.js'
+
 export const UNITY_PANELS = [
   { key: 'NetworkManagerSim', name: 'GameStateNetworkManager' },
   { key: 'GsmSim', name: 'NormalGameStateManager' },
@@ -32,10 +34,18 @@ export const ACTION_TEXT = {
   chi_left: '吃',
   chi_mid: '吃',
   chi_right: '吃',
-  jiuzhongjiupai: '九老峰回',
+  jiuzhongjiupai: '九种九牌',
   riichi_cut: '立直',
   pass: '取消',
   force_pass: '放弃',
   ready: '准备',
   cut: '切',
+}
+
+export function actionText(action, rule) {
+  if (action === 'buhua') {
+    const caption = { jiujiang: '补发财', wuhan: '杠' }[String(rule).split('/')[0]]
+    if (caption) return caption
+  }
+  return specialDrawCaption(action, rule) || ACTION_TEXT[action] || action
 }

@@ -38,18 +38,18 @@ public static class HongqueReplayLayoutValidation {
             }
             var draw=cards[3]; draw.currentGetTile=true; draw.isDrawSlotPinned=true;
             Check(canvas.GetMainHandCardsOrdered().Count==3 && canvas.GetDrawTile()==draw && canvas.GetPinnedDrawTile()==draw,"draw tile excluded from automatic sort");
-            Check(!canvas.IsMainHandSortedByTileId(),"old table order is recognised as unsorted");
+            Check(canvas.IsMainHandSortedByTileId(),"table order is retained for playing hands");
             var main=canvas.GetMainHandCardsOrdered();
             TileIdOrder.SortHand(main,card=>card.tileId);
             canvas.ApplyHandLayoutPositions(canvas.BuildHandLayoutPositions(main,draw),main,draw);
-            Check(canvas.GetMainHandCardsOrdered().Select(t=>t.tileId).SequenceEqual(new[]{1005,1135,1125}),"real hand components use red-redpurple-purple order");
+            Check(canvas.GetMainHandCardsOrdered().Select(t=>t.tileId).SequenceEqual(new[]{1005,1125,1135}),"real hand components retain red-purple-redpurple table order");
             Check(canvas.IsMainHandSortedByTileId(),"corrected hand does not repeatedly reorder");
             Check(main.Select(t=>((RectTransform)t.transform).anchoredPosition.x).SequenceEqual(new[]{50f,150f,250f}),"main tiles occupy contiguous slots");
             Check(((RectTransform)draw.transform).anchoredPosition.x==430f && draw.currentGetTile && draw.isDrawSlotPinned,"independent draw gap and identity retained");
             main.Reverse();
             for(int i=0;i<main.Count;i++) main[i].handSortIndex=i;
             canvas.LayoutHandCardsFromCurrentOrder();
-            Check(canvas.GetMainHandCardsOrdered().Select(t=>t.tileId).SequenceEqual(new[]{1125,1135,1005}),"manual arrangement remains unchanged");
+            Check(canvas.GetMainHandCardsOrdered().Select(t=>t.tileId).SequenceEqual(new[]{1135,1125,1005}),"manual arrangement remains unchanged");
             draw.isDrawSlotPinned=false;
             Check(canvas.GetMainHandCardsOrdered().Count==4 && canvas.GetPinnedDrawTile()==null && canvas.GetDrawTile()==draw,"dragged draw joins main row but retains discard identity");
 

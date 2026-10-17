@@ -257,7 +257,7 @@ def check_action_hand_action(self, player_index: int, is_get_gang_tile: bool = F
         temp_action_dict[player_index].append('nuki')
     temp_action_dict[player_index].append("cut")
 
-    # 立直宣告：门前清 + 听牌 + 击飞时点数须≥1000 + 未立直；并要求剩余可摸牌 ≥4（即剩余 ≤3 时禁止立直），
+    # 立直宣告：门前清 + 听牌 + 击飞时点数须≥1000 + 未立直；按配置检查剩余可摸牌（三麻预设3、四麻网麻预设4），
     # 与广播给客户端的 remain_tiles = max(0, len(tiles_list) - dead_wall_count) 同一口径。
     can_declare_riichi = (
         _is_menqianqing(player_item.combination_tiles)
@@ -287,8 +287,8 @@ def refresh_waiting_tiles(self, player_index: int, is_first_action: bool = False
     if len(current_hand) % 3 == 2:
         current_hand = current_hand[:-1]
     waiting = self.calculation_service.Riichi_tingpai_check(current_hand, player_item.combination_tiles)
-    if self.sub_rule == 'riichi/sanma':
-        waiting = set(waiting) - set(range(12, 19))
+    from .rule_logic import filter_waits
+    waiting = filter_waits(self, current_hand, player_item.combination_tiles, waiting)
     if waiting != player_item.waiting_tiles:
         player_item.waiting_tiles = waiting
         logger.info(f"玩家{player_index}的等待牌更新为{sorted(player_item.waiting_tiles)}")
@@ -308,8 +308,8 @@ def refresh_waiting_tiles_after_cut(self, player_index: int):
             temp = hand[:i] + hand[i + 1:]
             temp_norm = [_normalize(t) for t in temp]
             waits = self.calculation_service.Riichi_tingpai_check(temp_norm, player_item.combination_tiles)
-            if self.sub_rule == 'riichi/sanma':
-                waits = set(waits) - set(range(12, 19))
+            from .rule_logic import filter_waits
+            waits = filter_waits(self, temp_norm, player_item.combination_tiles, waits)
             checked_norm[key] = sorted(list(waits)) if waits else []
         waits = checked_norm[key]
         if waits:

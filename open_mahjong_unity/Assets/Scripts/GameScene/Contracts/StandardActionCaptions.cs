@@ -16,6 +16,7 @@ public static class StandardActionCaptions {
             case "buzhang": return "补张";
             case "buhua": return "补花";
             case "nuki": return "拔北";
+            case "jiuzhongjiupai": return "九种九牌";
             case "riichi":
             case "riichi_cut":
                 return "立直";
@@ -37,6 +38,8 @@ public static class StandardActionCaptions {
     public static string Resolve(RuleManifest manifest, string word) {
         string caption = manifest?.ActionCaption?.Invoke(word);
         if (caption != null) return caption;
+        if (word == "jiuzhongjiupai")
+            return SpecialLiujuCaptions.JiuzhongjiupaiCaption(manifest?.RuleId ?? "riichi");
         caption = ActionWords.LabelOf(word);
         if (caption != null) return caption;
         return Caption(word);

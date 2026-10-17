@@ -193,12 +193,13 @@ def qualifying_fan(result):
 
 
 def hint_snapshot(hand, melds):
+    """Web calculator API only; gameplay clients build their own previews."""
     result = dict(sub_rule=SUB_RULE, hand=list(hand), melds=list(melds), waits=[], discard_waits={})
     if len(hand) + 3 * len(melds) == 13:
         result["waits"] = sorted(waiting_tiles(hand, melds))
     elif len(hand) + 3 * len(melds) == 14:
-        # The authoritative snapshot filters retained jokers using draw-slot
-        # state. The stateless endpoint includes only ordinary discard rows.
+        # The stateless Web tool includes only ordinary discard rows.
+        # Gameplay clients apply the actual draw-slot restriction locally.
         for cut in sorted(set(hand) - set(JOKERS)):
             rest = list(hand); rest.remove(cut)
             result["discard_waits"][cut] = sorted(waiting_tiles(rest, melds))
@@ -207,6 +208,7 @@ def hint_snapshot(hand, melds):
 
 def calculate_hint(hand, melds, ron_way, self_way, tile, limit=8, joker_multi_wait=False,
                    allow_single_wait=True, no_joker_bonus="add8", black_flower_progressive=True):
+    """Web calculator API only; not a gameplay broadcast or Unity hint service."""
     scores = []
     for way, kind, prefix in ((ron_way, "dianhe", ""), (self_way, "zimo", "自摸")):
         result = hepai_check(hand, melds, way, tile, joker_multi_wait, allow_single_wait,

@@ -7,9 +7,8 @@ from ..game_taiwan import action_check as actions
 from ..game_taiwan.boardcast import broadcast_do_action
 from ..public.game_record_manager import append_action_tick
 from ..public.hand_slot_utils import has_draw_slot, retain_opening_first_player_draw_slot
-from ..public.ai.bot_executor import run_room_bot_cpu
 from .lifecycle import SingaporeLifecycle
-from .hints import compute_hints
+from .client_context import local_context
 
 
 class SingaporeGameState(SingaporeLifecycle, TaiwanGameState):
@@ -49,7 +48,7 @@ class SingaporeGameState(SingaporeLifecycle, TaiwanGameState):
         self.sg_last_drawer = None
         self._terminal_result = None
         self._settled_round = None
-        self._hint_cache, self._recorded_hints = {}, {}
+        self._client_contexts, self._recorded_contexts = {}, {}
 
     def _register_initial_heavenly_ready(self): pass
     def _revoke_qualification(self, *args, **kwargs): pass
@@ -305,19 +304,19 @@ class SingaporeGameState(SingaporeLifecycle, TaiwanGameState):
         for index in indices:
             p = self.player_list[index]
             key = (tuple(p.hand_tiles), tuple(p.combination_tiles), tuple(p.huapai_list), index, self._round_wind())
-            if self._hint_cache.get(index, (None,))[0] != key:
-                hints = await run_room_bot_cpu(self, compute_hints, *key)
+            if self._client_contexts.get(index, (None,))[0] != key:
+                hints = local_context(*key)
                 if self.player_list[index] is not p or tuple(p.hand_tiles) != key[0]: continue
-                self._hint_cache[index] = (key, hints)
-            if f"round_index_{self.round_index}" in self.game_record.get("game_round", {}) and self._recorded_hints.get(index) != key:
-                append_action_tick(self, ["singapore", "hints", index, self._hint_cache[index][1]])
-                self._recorded_hints[index] = key
+                self._client_contexts[index] = (key, hints)
+            if f"round_index_{self.round_index}" in self.game_record.get("game_round", {}) and self._recorded_contexts.get(index) != key:
+                append_action_tick(self, ["singapore", "hints", index, self._client_contexts[index][1]])
+                self._recorded_contexts[index] = key
 
     def build_private_game_info_fields(self, index):
         info = {**self.public_info(), "self_has_draw_slot": has_draw_slot(self.player_list[index])}
         fields = {"singapore_info": info}
-        if (self.tips or self.count_tips) and index in self._hint_cache:
-            fields["singapore_hints"] = self._hint_cache[index][1]
+        if (self.tips or self.count_tips) and index in self._client_contexts:
+            fields["singapore_hints"] = self._client_contexts[index][1]
         return fields
 
     def build_private_hand_action_info(self, index):

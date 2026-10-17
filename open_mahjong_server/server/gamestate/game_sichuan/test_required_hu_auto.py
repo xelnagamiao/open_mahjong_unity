@@ -77,6 +77,7 @@ def test_teammate_and_first_win_keep_optional_hu_pass(source, won, rob):
         assert state.action_dict[0] == ["hu", "pass"]
         try:
             await state.broadcast_ask_other_action()
+            await drain_viewer(state, 0)
             ask = next(m["message"]["ask_other_action_info"] for m in messages
                        if m["user_id"] == state.player_list[0].user_id and "ask_other_action_info" in m["message"])
             assert ask["action_list"] == ["hu", "pass"]

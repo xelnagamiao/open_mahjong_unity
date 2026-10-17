@@ -16,7 +16,7 @@ async def handle_action(server, connection_id, message, websocket):
     live_force_pass = (type(tick) is int and action == "force_pass"
                        and tactical_force_pass_is_live(state, index, tick))
     if type(tick) is not int or (tick != state.server_action_tick and not live_force_pass):
-        await state.prepare_private_hints(index)
+        await state.prepare_client_context(index)
         payload = state.build_ready_status_payload(index) if state.game_status == "waiting_ready" else state.build_pending_action_payload(index)
         if payload:
             await state._send_timed_payload(index, payload, websocket)

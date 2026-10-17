@@ -1,3 +1,6 @@
+from ..public.action_window import prepare_action_window, prepare_ready_window
+from ..public.ready_phase import ready_status_by_seat
+from ..public.ask_timing import send_ask_response_to_viewer as _send_ask_response_to_viewer
 from ...response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info,Game_end_info,Player_final_data,Switch_seat_info,Refresh_player_tag_list_info,Ready_status_info
 from typing import List, Dict, Optional
 import logging
@@ -20,44 +23,12 @@ from ..public.claim_protection import (
     take_post_meld_gap_delay,
     REAL_MELD_ACTIONS,
 )
-from ..public.ask_timing import begin_ask_round, note_ask_delivered, reconnect_clock
+from ..public.ask_timing import begin_ask_round, reconnect_clock
 from ...game_calculation.changsha.changsha_hepai_check import INITIAL_HU_NAMES
 
 logger = logging.getLogger(__name__)
 
 
-async def _send_ask_response_to_viewer(
-    self, viewer_index: int, response, *, block: bool = True
-) -> None:
-    """经 outbound_pipe 发送 ask，保证排在延迟鸣牌/第二追赶之后；送达时起算计时。
-
-    block=True：await 本条（用于当前行动者，立刻可操作）。
-    block=False：仅 schedule 入队（旁观者可带 post_gap，不拖住主循环/行动者）。
-    """
-    from ..public.outbound_pipe import send_to_viewer, schedule_viewer_send
-
-    current_player = self.player_list[viewer_index]
-    if current_player.user_id not in self.game_server.user_id_to_connection:
-        logger.warning(
-            f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过 ask 广播"
-        )
-        return
-    player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-    delay_before = take_post_meld_gap_delay(self, viewer_index)
-    ask_tick = self.server_action_tick
-
-    async def _do():
-        await player_conn.websocket.send_json(response.dict(exclude_none=True))
-        await self.send_to_realtime_spectators(viewer_index, response)
-        # A delayed observer ask may belong to a decision window already closed.
-        # It must not start the clock for a newer ask waiting behind it.
-        if self.server_action_tick == ask_tick:
-            note_ask_delivered(self, viewer_index)
-
-    if block:
-        await send_to_viewer(self, viewer_index, _do, delay_before=delay_before)
-    else:
-        schedule_viewer_send(self, viewer_index, _do, delay_before=delay_before)
 
 
 def _forced_cut_tiles_for_hand_ask(self, player_index: int) -> List[int]:
@@ -233,6 +204,7 @@ async def send_realtime_spectator_snapshot(self, spectator_user_id: int, view_pl
 # 广播询问手牌操作 补花 加杠 暗杠 自摸 出牌
 async def broadcast_ask_hand_action(self):
     self.server_action_tick += 1
+    prepare_action_window(self, new_ask=True)
     begin_ask_round(self)
     bot_status = "waiting_hand_action" if self.game_status == "waiting_gang_replacement_self_hu" else bot_ask_hand_game_status(self, self.current_player_index)
     forced_cut_tiles = _forced_cut_tiles_for_hand_ask(
@@ -318,9 +290,7 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
         else self.game_status
     )
     self.server_action_tick += 1
-    # 战术打断再问：在派发 AI 前同步 waiting tick，避免机器人因 tick 不一致拒动
-    if is_tactical_recheck:
-        self._waiting_action_tick = self.server_action_tick
+    prepare_action_window(self, new_ask=True, is_tactical_recheck=is_tactical_recheck)
     begin_ask_round(self)
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
@@ -358,7 +328,7 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
                         is_tactical_recheck=is_tactical_recheck if is_tactical_recheck else None,
                     )
                 )
-                await _send_ask_response_to_viewer(self, i, response)
+                await _send_ask_response_to_viewer(self, i, response, block=is_tactical_recheck)
                 logger.info(f"已向玩家 {current_player.username} 广播询问操作信息")
             elif not is_tactical_recheck:
                 # 发送通用信息（战术鸣牌的再询问不需要给无可选操作的玩家额外发送通用通知）
@@ -373,7 +343,7 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
                         action_tick=self.server_action_tick
                     )
                 )
-                await _send_ask_response_to_viewer(self, i, response)
+                await _send_ask_response_to_viewer(self, i, response, block=False)
                 logger.info(f"已向玩家 {current_player.username} 广播通用询问操作信息")
         except Exception as e:
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 广播询问操作信息失败: {e}")
@@ -922,11 +892,8 @@ async def broadcast_refresh_player_tag_list(self):
 # 广播准备状态
 async def broadcast_ready_status(self):
     """广播所有玩家的准备状态"""
-    # 判断准备状态
-    player_to_ready = {}
-    for player in self.player_list:
-        # 如果玩家不在等待列表中，说明已准备
-        player_to_ready[player.player_index] = player.player_index not in self.waiting_players_list
+    prepare_ready_window(self)
+    player_to_ready = ready_status_by_seat(self)
 
     ready_info = Ready_status_info(
         player_to_ready=player_to_ready

@@ -15,7 +15,7 @@ public partial class RoundEndPresentation {
     public void EnqueueSichuanSettleHu(
         int hepaiPlayerIndex,
         Dictionary<int, int> player_to_score,
-        int huScore,
+        double huScore,
         string[] huFan,
         string huClass,
         int[] hepaiPlayerHand,
@@ -61,7 +61,7 @@ public partial class RoundEndPresentation {
     private IEnumerator CoSichuanSettleHuStep(
         int hepaiPlayerIndex,
         Dictionary<int, int> player_to_score,
-        int huScore,
+        double huScore,
         string[] huFan,
         string huClass,
         int[] hepaiPlayerHand,

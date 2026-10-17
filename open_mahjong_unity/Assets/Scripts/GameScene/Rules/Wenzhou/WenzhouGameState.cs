@@ -221,16 +221,18 @@ public sealed class WenzhouGameState : TurnBasedGameState {
         return result;
     }
     public static string HandKey(IEnumerable<int> hand) => string.Join(",", hand.OrderBy(t => t));
-    private static WenzhouWait[] ReadWaits(IEnumerable<int> hand, int? player = null) {
+    private static WenzhouWait[] ReadWaits(IEnumerable<int> hand, int? player = null, Action ready=null) {
         var record = GameRecordManager.Instance;
         var snapshot = record != null && record.gameObject.activeSelf ? record.WenzhouReplayWaitsFor(player) : Active?.waits;
+        var request=snapshot?.Values.SelectMany(v=>v).FirstOrDefault(w=>w?.local_request!=null)?.local_request;
+        if(request!=null)return LocalHintSnapshots.Rows(request,hand,ready)?.Properties().Select(p=>p.Value.ToObject<WenzhouWait>()).ToArray()??Array.Empty<WenzhouWait>();
         return LookupWaits(snapshot, hand);
     }
     internal static WenzhouWait[] LookupWaits(Dictionary<string, WenzhouWait[]> snapshot, IEnumerable<int> hand) {
         string key = HandKey(hand);
         return snapshot != null && snapshot.TryGetValue(key, out var value) ? value : Array.Empty<WenzhouWait>();
     }
-    public static HashSet<int> Waiting(TingpaiQuery query) => new HashSet<int>(ReadWaits(query.Hand, query.PlayerIndex).Select(w => w.tile));
+    public static HashSet<int> Waiting(TingpaiQuery query) => new HashSet<int>(ReadWaits(query.Hand, query.RecordPlayerIndex??query.PlayerIndex,query.OnReady).Select(w => w.tile));
     public static WaitTileHint Describe(WaitHintQuery query) {
         var hand = new List<int>(query.HandWithWin); hand.Remove(query.HepaiTile);
         var hint = ReadWaits(hand, query.Record?.SelfPlayerIndex).FirstOrDefault(w => w.tile == query.HepaiTile);

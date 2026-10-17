@@ -25,19 +25,19 @@ def record(s):
     return s
 
 
-def test_twentieth_flower_during_gold_flip_wins_before_indicator_is_removed():
+def test_twentieth_flower_during_gold_flip_does_not_interrupt_the_indicator_reveal():
     from collections import Counter
     s=record(state_with());s.tiles_list.append(s.jin);s.jin=None
     s.machine.phase=P.REPLACEMENT
     flowers=[41]*4+[42]*4+[43]*4+[44]*4+[45]*3
     for tile in flowers:s.tiles_list.remove(tile)
     s.player_list[0].huapai_list=flowers
-    s.tiles_list.remove(45);s.tiles_list.append(45);s.update_reserve()
+    s.tiles_list.remove(45);s.tiles_list.insert(0,45);s.update_reserve()
     assert s.physical_inventory()==Counter(book.PHYSICAL)
     s.open_action_window(s.open_gold())
-    assert s.machine.phase==P.END and s.jin is None
+    assert s.jin is not None
     assert s.dead_wall_count==28 and len(s.player_list[0].huapai_list)==20
-    assert s.round_changes==[300,-100,-100,-100]
+    assert [e['action'] for e in s.domain_events][:2]==['kaijin_flower','kaijin']
     assert s.physical_inventory()==Counter(book.PHYSICAL)
 
 
@@ -51,8 +51,8 @@ def test_last_four_can_declare_three_gold_without_discard_or_extra_replacement()
 
 
 def test_heavenly_win_when_no_three_gold_has_priority():
-    s=state_with();s.machine.phase=P.OPENING
-    s.open_action_window(s.opening_claim_window())
+    s=state_with();s.machine.phase=P.REPLACEMENT
+    s.open_action_window(s.after_gold_window())
     responses={i:dict(action_type='hu_self' if i==0 else 'pass') for i,a in s.action_dict.items() if a}
     act(s,responses)
     assert s.round_changes==[240,-80,-80,-80]
@@ -66,46 +66,46 @@ def test_opening_heavenly_win_uses_hand_prompt_without_drawing_twice(dealer):
     for i, player in enumerate(s.player_list):
         player.has_draw_slot = i == dealer
     s.dealer_index = s.current_player_index = dealer
-    s.machine.phase = P.OPENING
-    s.open_action_window(s.opening_claim_window())
+    s.machine.phase = P.REPLACEMENT
+    s.open_action_window(s.after_gold_window())
     for i in range(4):
         payload = s.build_pending_action_payload(i)
         if i == dealer:
             # The client's discard-claim filter intentionally excludes hu_self.
-            # A hand prompt preserves both heavenly win and dealer qiangjin.
+            # Heaven precedes both qiangjin windows; no discard is offered yet.
             assert payload['type'] == 'gamestate/fuzhou/broadcast_hand_action'
             info = payload['ask_hand_action_info']
-            assert {'hu_self', 'qiangjin', 'pass'} <= set(info['action_list'])
+            assert info['action_list'] == ['hu_self','pass']
             assert info['player_index'] == dealer and info['deal_tile_type'] is None
             assert len(payload['game_info']['self_hand_tiles']) == 17
-            assert 29 in info['fuzhou_declaration_candidates']['qiangjin']
+            assert info['fuzhou_declaration_candidates'] == {}
         else:
-            assert payload['ask_hand_action_info'] is None
-            assert payload['ask_other_action_info']['cut_tile'] == s.jin
-            assert 'hu_self' not in payload['ask_other_action_info']['action_list']
+            assert not payload['ask_hand_action_info']['action_list']
+            assert payload['game_info']['self_hand_tiles'] == s.player_list[i].hand_tiles
     responses = {i: dict(action_type='hu_self' if i == dealer else 'pass') for i, a in s.action_dict.items() if a}
     act(s, responses)
     assert s.round_settlement['winner'] == dealer
     assert s.deferred_hu_settlements[0]['heavenly']
 
 
-def test_opening_priority_three_gold_before_heaven_and_non_dealer_before_dealer():
+def test_idle_non_dealer_cannot_declare_three_gold_and_non_dealer_qiangjin_has_priority():
     s = state_with()
-    s.machine.phase=P.OPENING
+    s.machine.phase=P.REPLACEMENT
     s.player_list[1].hand_tiles=[39]*3+[11,12,13,14,15,16,21,22,23,31,32,33,19]
-    w=s.open_action_window(s.opening_claim_window())
+    w=s.open_action_window(s.after_gold_window())
     responses={i:dict(action_type="pass") for i,a in w["actions"].items() if a}
     responses[0]=dict(action_type="hu_self")
-    responses[1]=dict(action_type="sanjin")
+    assert 'sanjin' not in w['actions'][1]
     act(s,responses)
-    assert s.round_settlement["winner"]==1 and s.round_settlement["score"]["special"]=="three_gold"
+    assert s.round_settlement["winner"]==0 and s.deferred_hu_settlements[0]['heavenly']
     t=state_with()
     t.machine.phase=P.OPENING
     t.player_list[1].hand_tiles=WIN[:-1]
     t.player_list[2].hand_tiles=WIN[:-1]
     w=t.open_action_window(t.opening_claim_window())
     responses={i:dict(action_type="pass") for i,a in w["actions"].items() if a}
-    responses.update({0:dict(action_type="qiangjin",target_tile=29),1:dict(action_type="qiangjin"),2:dict(action_type="qiangjin")})
+    assert not w['actions'][0]
+    responses.update({1:dict(action_type="qiangjin"),2:dict(action_type="qiangjin")})
     act(t,responses)
     assert t.round_settlement["winner"]==1 and t.indicator_claimed
     assert t.player_list[1].hand_tiles[-1]==39
@@ -113,22 +113,23 @@ def test_opening_priority_three_gold_before_heaven_and_non_dealer_before_dealer(
 
 
 def test_dealer_qiangjin_discards_then_takes_indicator():
-    s=record(state_with())
-    s.machine.phase=P.OPENING
-    w=s.open_action_window(s.opening_claim_window())
-    responses={i:dict(action_type="pass") for i,a in w["actions"].items() if a}
-    responses[0]=dict(action_type="qiangjin",target_tile=29)
-    act(s,responses)
-    assert s.player_list[0].discard_tiles==[29]
+    s=record(state_with(WIN[:-1]+[18]))
+    s.dealer_first_discard_pending=True
+    open_turn(s)
+    act(s,{0:dict(action_type='cut',TileId=18,cutClass=True)})
+    assert s.machine.phase==P.DEALER_GOLD
+    assert s.player_list[0].discard_tiles==[18] and len(s.player_list[0].hand_tiles)==16
+    act(s,{0:dict(action_type='qiangjin')})
+    assert s.player_list[0].discard_tiles==[18]
     assert len(s.player_list[0].hand_tiles)==17 and s.player_list[0].hand_tiles[-1]==39
     s.finalize_round_recording()
     ticks=s.game_record['game_round']['round_index_1']['action_ticks']
     assert any(t[:2]==['fuzhou','qiangjin_take'] for t in ticks)
 
 
-def test_two_gold_cannot_qiangjin_and_bad_dealer_cut_is_atomic():
-    s=state_with(WIN[:-2]+[39,39])
-    assert not s.qiangjin_cuts(0)
+def test_two_gold_standard_shape_can_qiangjin_and_bad_dealer_cut_is_atomic():
+    s=state_with(WIN[:12]+[39,39,29,29])
+    assert s.can_qiangjin(0)
     s=state_with()
     s.machine.phase=P.OPENING
     w=s.open_action_window(s.opening_claim_window())
@@ -144,20 +145,24 @@ def test_gold_flip_collects_honor_and_four_equal_flowers_extend_reserve():
     s.jin=None
     s.machine.phase=P.REPLACEMENT
     s.player_list[0].huapai_list=[41]*3
-    s.tiles_list=[11]*40+[28,41]
+    s.tiles_list=[41,28]+[11]*40
     s.open_action_window(s.open_gold())
     assert s.jin==28 and s.dead_wall_count==20
     assert s.player_list[0].huapai_list==[41]*4
     assert [e['action'] for e in s.domain_events]==['kaijin_flower','kaijin']
 
 
-def test_twentieth_flower_wins_before_replacement_and_without_shape():
+def test_twentieth_flower_wins_after_replacement_and_without_standard_shape():
     s=record(state_with(WIN[:-1]+[51]))
     s.player_list[0].huapai_list=[41]*4+[42]*4+[43]*4+[44]*4+[45]*3
+    s.tiles_list.append(18)
     open_turn(s)
     before=len(s.tiles_list)
     act(s,{0:dict(action_type="buhua")})
-    assert s.machine.phase==P.END and len(s.tiles_list)==before
+    assert s.machine.phase==P.FLOWER_WIN and s.round_settlement is None
+    act(s,{0:dict(action_type="fuzhou_flower_win")})
+    assert s.machine.phase==P.END and len(s.tiles_list)==before-1
+    assert len(s.player_list[0].hand_tiles)==17 and s.player_list[0].hand_tiles[-1]==18
     assert s.round_settlement["score"]["special"]=="flower"
     assert s.build_final_settlement_payload(0)["show_result_info"]["skip_hand_reveal"]
 
@@ -277,7 +282,7 @@ def test_tingjin_locks_golden_middle_and_rejects_other_joker_substitution():
     assert 'gold_middle' in [r['id'] for r in s.score_win(0,'self_draw',17)['items']]
 
 
-@pytest.mark.parametrize('bad',[dict(sub_rule='fuzhou/other'),dict(use_flowers=False),dict(tactical_call=True),dict(game_round=True),dict(step_timer='5'),dict(round_timer=-1),dict(detailed_config={'base_score':11}),dict(detailed_config={'flower':False})])
+@pytest.mark.parametrize('bad',[dict(sub_rule='fuzhou/other'),dict(use_flowers=False),dict(tactical_call=True),dict(game_round=True),dict(game_round=3),dict(step_timer='5'),dict(round_timer=-1),dict(detailed_config={'base_score':11}),dict(detailed_config={'flower':False})])
 def test_strict_room_settings_reject_unsupported_values(bad):
     with pytest.raises(ValueError):
         FuzhouRoomValidator(**{'room_name':'福州','round_timer':20,'step_timer':5,**bad})
@@ -309,23 +314,23 @@ def test_router_authentication_stale_ticks_and_illegal_actions():
     asyncio.run(run())
 
 
-def test_fixed_reaction_clock_has_no_bank_charge_and_reconnect_preserves_deadline():
+def test_reaction_clock_uses_room_step_and_reconnect_preserves_deadline():
     async def run():
-        s=state_with();s.player_list[1].hand_tiles=WIN[:-1]
+        s=state_with();s.player_list[1].hand_tiles=WIN[:-1];s.step_time=5
         for p in s.player_list:p.remaining_time=20
         open_turn(s)
         act(s,{0:dict(action_type='cut',TileId=29,cutClass=True)})
         c=s.action_clocks[1];c.start(100);c.start(200)
         s._timing_now=lambda:101.5
         info=s.build_pending_action_payload(1)['ask_other_action_info']
-        assert info['remaining_time']==0 and info['step_remaining']==2
-        assert c.deadline==103
-        s._timing_now=lambda:103
+        assert info['remaining_time']==20 and info['step_remaining']==4
+        assert c.deadline==125
+        s._timing_now=lambda:125
         with pytest.raises(ValueError):await s.submit_action(1,'hu')
-        s._timing_now=lambda:102
+        s._timing_now=lambda:107
         for i in s.waiting_players_list:await s.submit_action(i,'hu' if i==1 else 'pass')
         await s.wait_action()
-        assert s.player_list[1].remaining_time==20
+        assert s.player_list[1].remaining_time==18
     asyncio.run(run())
 
 
