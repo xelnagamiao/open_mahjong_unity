@@ -208,9 +208,11 @@ class ExchangeSixFlow:
         state.action_events[seat].set()
         return True
 
-    def packet(self, seat):
+    def packet(self, seat, *, private_notices=True):
         state = self.state
         bank, step = reconnect_clock(state, state.player_list[seat])
+        if self.phase == "deal_dice":
+            bank, step = 0, 0
         if self.phase == "exchange":
             bank = math.ceil(max(0, state.exchange_selection_seconds - get_ask_elapsed(state, seat))) if seat in state.waiting_players_list else 0
             step = 0
@@ -251,7 +253,9 @@ class ExchangeSixFlow:
                                "selected_tiles": list(self.submissions.get(seat, [])),
                                "action_list": list(state.action_dict.get(seat, [])) if seat in state.waiting_players_list else [],
                                "targets": dict(self.targets[seat]), "cut_tiles": cut_tiles,
-                               "has_draw_slot": player.has_draw_slot, "local_hint_context": self.client_context(seat, cut_tiles)},
+                               "has_draw_slot": player.has_draw_slot, "local_hint_context": self.client_context(seat, cut_tiles),
+                               "open_hand_pass_hint": private_notices and bool(self.greedy_pass_patterns[seat])
+                                                      and seat in self.open_hands},
             ),
         )
 
@@ -270,7 +274,7 @@ class ExchangeSixFlow:
         connection = self.state.game_server.user_id_to_connection.get(connection_user_id)
         if connection is None:
             return
-        response = self.packet(view_seat)
+        response = self.packet(view_seat, private_notices=connection_user_id == self.state.player_list[view_seat].user_id)
         try:
             await connection.websocket.send_json(response.dict(exclude_none=True))
         except Exception:
@@ -280,7 +284,7 @@ class ExchangeSixFlow:
         self.revision += 1
         for player in self.state.player_list:
             await self.send_snapshot(player.user_id, player.player_index)
-            await self.state.send_to_realtime_spectators(player.player_index, self.packet(player.player_index))
+            await self.state.send_to_realtime_spectators(player.player_index, self.packet(player.player_index, private_notices=False))
 
     async def run_stage(self, phase, actions, default_action):
         """换牌独立计时；其余阶段沿用步时和局时，暂停及重连不重置预算。"""
@@ -496,6 +500,7 @@ class ExchangeSixFlow:
     async def opening(self):
         self.round_scores_before = {p.original_player_index: p.score for p in self.state.player_list}
         append_action_tick(self.state, ["changsha_deal_dice", list(self.deal_dice), self.small_hu_forbidden_seat])
+        await self.show_deal_dice()
         await self.exchange()
         second_dice = self.second_exchange_dice()
         if second_dice is not None:
@@ -534,6 +539,16 @@ class ExchangeSixFlow:
         self.opening_done = True
         self.state.current_player_index = 0
         self.phase = "playing"
+
+    async def show_deal_dice(self):
+        # 禁小胡骰子先展示，再建立选六张窗口，动画不占选牌时间。
+        self.phase = "deal_dice"
+        self.state.waiting_players_list = []
+        self.state.action_dict = {seat: [] for seat in range(4)}
+        await self.broadcast()
+        await vote_checkpoint(self.state)
+        await asyncio.sleep(1.5)
+        await vote_checkpoint(self.state)
 
     def update_waits(self, seat):
         waits = self.waits(seat)
@@ -645,6 +660,9 @@ class ExchangeSixFlow:
             if priority:
                 melds.append((-priority, (seat - opener) % 4, tiles.index(data["target_tile"]), seat, data))
         self.claim_tiles = []
+        if any(results.values()):
+            # 过胡限制在收齐回应后才成立，立即刷新本人的提示，不能等下一次询问。
+            await self.broadcast()
         if melds:
             _, _, _, seat, data = min(melds, key=lambda item: item[:3])
             if suppress_hu:
@@ -874,6 +892,12 @@ class ExchangeSixFlow:
             if clear_pass:
                 state.clear_hu_pass_after_own_discard(seat)
 
+    async def wait_for_kong_display(self):
+        # 纯展示时间不占玩家操作预算；恢复后再开他家胡窗，避免看牌时间被倒计时吃掉。
+        await vote_checkpoint(self.state)
+        await asyncio.sleep(1.2)
+        await vote_checkpoint(self.state)
+
     async def resolve_kong_batch(self, tiles):
         state = self.state
         seat = state.current_player_index
@@ -903,6 +927,7 @@ class ExchangeSixFlow:
                 state.hu_class = "hu_self"
                 state.game_status = "END"
                 return
+        await self.wait_for_kong_display()
         await self.discard_batch(tiles, clear_pass=False)
         if await self.claims(tiles, kong=True, allow_meld=False):
             return
@@ -1121,6 +1146,7 @@ class ExchangeSixFlow:
             player.discard_tiles.append(tile)
             player_action_record_cut(state, cut_tile=tile, is_moqie=is_draw_cut)
             state.clear_hu_pass_after_own_discard(seat)
+            self.update_waits(seat)
             self.first_draw_pending.discard(seat)
             if seat == 0:
                 self.pending_ready_discard = None

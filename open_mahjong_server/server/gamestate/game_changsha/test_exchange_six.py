@@ -41,6 +41,9 @@ def make_state(bot_seats=()):
     state.game_record = {"game_round": {"round_index_1": {"action_ticks": []}}}
     state.round_random_seed = 2345
     init_changsha_tiles(state)
+    # 规则测试跳过纯展示等待；展示顺序专项通过真实入口单独验证。
+    state.exchange_six.wait_for_kong_display = AsyncMock()
+    state.exchange_six.show_deal_dice = AsyncMock()
     # 固定手牌回归不依赖随机禁手座位；禁手专项另从真实抓牌骰子入口验证。
     state.exchange_six.small_hu_forbidden_seat = None
     state.exchange_six.round_scores_before = {player.original_player_index: player.score for player in state.player_list}
@@ -93,6 +96,141 @@ class ExchangeSixCalculationTests(unittest.TestCase):
 
 
 class ExchangeSixFlowTests(unittest.IsolatedAsyncioTestCase):
+    async def test_deal_dice_display_precedes_selection_and_restores_without_reroll(self):
+        from server.gamestate.game_changsha.exchange_six import ExchangeSixFlow
+        state = make_state()
+        flow = state.exchange_six
+        dice = list(flow.deal_dice)
+        forbidden = flow.small_hu_forbidden_seat = (sum(dice) - 1) % 4
+        initial_time = [player.remaining_time for player in state.player_list]
+        flow.show_deal_dice = ExchangeSixFlow.show_deal_dice.__get__(flow)
+        pauses = []
+        original_sleep = asyncio.sleep
+        async def pause(seconds):
+            if seconds != 1.5:
+                await original_sleep(seconds)
+                return
+            pauses.append(seconds)
+            self.assertEqual(flow.phase, "deal_dice")
+            self.assertFalse(state.waiting_players_list)
+            for seat in range(4):
+                packet = flow.packet(seat).state
+                self.assertEqual(packet.remaining_time, 0)
+                self.assertEqual(packet.step_remaining, 0)
+                self.assertEqual(packet.private_state["action_list"], [])
+                self.assertEqual(packet.public_state["deal_dice"], dice)
+                self.assertEqual(packet.public_state["small_hu_forbidden_seat"], forbidden)
+            await self.submit(state, 0, flow.default_selection(0))
+            self.assertTrue(state.action_queues[0].empty())
+            await flow.send_snapshot(state.player_list[0].user_id, 0)
+            self.assertEqual(flow.deal_dice, dice)
+            self.assertEqual([player.remaining_time for player in state.player_list], initial_time)
+        async def exchange():
+            self.assertEqual(pauses, [1.5])
+            # 真正建立选牌窗口，确认此时才开始独立的选牌预算。
+            task = asyncio.create_task(flow.run_stage("exchange", {0: [EXCHANGE_ACTION]},
+                lambda seat: {"action_type": EXCHANGE_ACTION, "selected_tiles": flow.default_selection(seat)}))
+            await self.wait_for_opening(state)
+            self.assertEqual(flow.packet(0).state.remaining_time, state.exchange_selection_seconds)
+            await self.submit(state, 0, flow.default_selection(0))
+            await asyncio.wait_for(task, 1)
+        with patch("server.gamestate.game_changsha.exchange_six.asyncio.sleep", side_effect=pause), \
+             patch.object(flow, "exchange", side_effect=exchange), \
+             patch.object(flow, "four_joy", new=AsyncMock()), \
+             patch("server.gamestate.game_changsha.exchange_six.get_ask_elapsed", return_value=0):
+            # 只在开局展示阶段和选牌入口检查；其后的声明仍沿原流程。
+            task = asyncio.create_task(flow.opening())
+            await self.wait_for_opening(state)
+            while flow.phase != "declarations":
+                await asyncio.sleep(0)
+            for seat in range(4):
+                await self.action(state, seat, "pass")
+            await asyncio.wait_for(task, 1)
+        for connection in state.game_server.user_id_to_connection.values():
+            packets = [message["state"] for message in connection.websocket.messages
+                       if message.get("type") == "gamestate/changsha/exchange_six_state"]
+            self.assertEqual(packets[0]["phase"], "deal_dice")
+        ticks = state.game_record["game_round"]["round_index_1"]["action_ticks"]
+        self.assertEqual(sum(tick[0] == "changsha_deal_dice" for tick in ticks), 1)
+
+    async def test_open_hand_pass_notice_is_private_restored_and_cleared_by_changed_waits(self):
+        state = make_state()
+        flow = state.exchange_six
+        flow.actual_draw_counts = {seat: 2 for seat in range(4)}
+        state.send_to_realtime_spectators = AsyncMock()
+        player = state.player_list[1]
+        player.hand_tiles = [12,12,12,13,14,21,22,23,24,25,26,31,32]
+        flow.open_hands.add(1)
+        for other in state.player_list[2:]:
+            other.tag_list.append("peida")
+        self.assertFalse(flow.packet(1).state.private_state["open_hand_pass_hint"])
+        task = asyncio.create_task(flow.claims([33], allow_meld=False))
+        await self.wait_for_opening(state)
+        await self.action(state, 1, "pass")
+        await asyncio.wait_for(task, 1)
+        self.assertTrue(flow.packet(1).state.private_state["open_hand_pass_hint"])
+        for seat in (0, 2, 3):
+            self.assertFalse(flow.packet(seat).state.private_state["open_hand_pass_hint"])
+        socket = state.game_server.user_id_to_connection[player.user_id].websocket
+        self.assertTrue(socket.messages[-1]["state"]["private_state"]["open_hand_pass_hint"])
+        self.assertTrue(state.send_to_realtime_spectators.await_args_list)
+        for call in state.send_to_realtime_spectators.await_args_list:
+            self.assertFalse(call.args[1].state.private_state["open_hand_pass_hint"])
+        await flow.send_snapshot(player.user_id, 1)
+        self.assertTrue(socket.messages[-1]["state"]["private_state"]["open_hand_pass_hint"])
+        observer = FakeSocket()
+        state.game_server.user_id_to_connection[999] = SimpleNamespace(websocket=observer)
+        await flow.send_snapshot(999, 1)
+        self.assertFalse(observer.messages[-1]["state"]["private_state"]["open_hand_pass_hint"])
+        self.assertFalse(flow.packet(1, private_notices=False).state.private_state["open_hand_pass_hint"])
+        # 摸切不改变听牌，明牌贪大限制仍保留。
+        state.current_player_index = 1
+        player.hand_tiles.append(39)
+        player.has_draw_slot = True
+        await flow.after_normal_draw(39)
+        task = asyncio.create_task(flow.hand_action())
+        await self.wait_for_opening(state)
+        await self.action(state, 1, "cut", tile=39)
+        await asyncio.wait_for(task, 1)
+        self.assertTrue(flow.packet(1).state.private_state["open_hand_pass_hint"])
+        # 再摸一张后换切原手，实际听牌改变时应及时撤下提示。
+        player.hand_tiles.append(39)
+        player.has_draw_slot = True
+        await flow.after_normal_draw(39)
+        task = asyncio.create_task(flow.hand_action())
+        await self.wait_for_opening(state)
+        await self.action(state, 1, "cut", tile=31)
+        await asyncio.wait_for(task, 1)
+        self.assertFalse(flow.packet(1).state.private_state["open_hand_pass_hint"])
+
+    async def test_kong_display_pause_precedes_batch_discard_and_claim_window(self):
+        from server.gamestate.game_changsha.exchange_six import ExchangeSixFlow
+        state = make_state()
+        flow = state.exchange_six
+        flow.actual_draw_counts = {seat: 2 for seat in range(4)}
+        state.player_list[0].hand_tiles = [11,14,17,19,21,24,27,29,31,34]
+        state.player_list[0].combination_tiles = ["G12"]
+        events = []
+        async def pause(seconds):
+            events.append(("pause", seconds, list(state.player_list[0].discard_tiles)))
+            self.assertFalse(state.waiting_players_list)
+        original_discard = flow.discard_batch
+        async def discard(tiles, **kwargs):
+            events.append(("discard", list(tiles)))
+            await original_discard(tiles, **kwargs)
+        async def claims(tiles, **kwargs):
+            events.append(("claims", list(tiles)))
+            return False
+        flow.wait_for_kong_display = ExchangeSixFlow.wait_for_kong_display.__get__(flow)
+        with patch("server.gamestate.game_changsha.exchange_six.asyncio.sleep", side_effect=pause), \
+             patch.object(flow, "discard_batch", side_effect=discard), \
+             patch.object(flow, "claims", side_effect=claims):
+            await flow.resolve_kong_batch([18,28,38,39])
+        self.assertEqual(events[0], ("pause", 1.2, []))
+        self.assertEqual(events[1], ("discard", [18,28,38,39]))
+        self.assertEqual(events[2][0], "claims")
+        self.assertEqual(state.player_list[0].discard_tiles, [18,28,38,39])
+
     async def test_bot_stage_respects_room_speed_without_delaying_human_ingress(self):
         state = make_state(bot_seats=(0,))
         flow = state.exchange_six
