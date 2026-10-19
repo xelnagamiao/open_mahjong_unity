@@ -6,7 +6,7 @@ import { createRequire } from 'node:module'
 import { build } from 'esbuild'
 import { loadChangshaForm, buildChangshaRoomPayload, changshaRows } from '../src/utils/changshaRoomConfig.js'
 import { changshaInfoAt } from '../src/utils/changshaReplay.js'
-import { exchangeSixInfoAt, exchangeSixStatisticsRound, exchangeSixResultTick } from '../src/utils/changshaExchangeSixReplay.js'
+import { exchangeSixInfoAt, exchangeSixStatisticsRound, exchangeSixResultTick, exchangeSixChoiceText, exchangeSixActionNames } from '../src/utils/changshaExchangeSixReplay.js'
 import { changshaShapeFans, exchangeSixWaits } from '../src/utils/changshaWaits.js'
 import { analyzeRecords } from '../src/utils/recordAnalyzer.js'
 const require = createRequire(import.meta.url)
@@ -102,4 +102,53 @@ test('declarations, disqualification, locked fans and small-hu ban affect replay
  const info=exchangeSixInfoAt(round,4), hand=[11,12,13,14,21,22,23,24,25,26,31,32,33]
  assert.deepEqual(exchangeSixWaits(hand,[],info,1).map(w=>[w.tile,w.fans]),[[11,['报听','明牌']]])
  info.disqualified=[1]; assert.deepEqual(exchangeSixWaits(hand,[],info,1),[])
+})
+
+test('exchange choices preserve hands, scores and wall and can be sought backward', () => {
+ const detail = structuredClone(fixtures[0].detail), round = detail.record.game_round.round_index_1
+ round.action_ticks = [['changsha_deal_dice', [1, 2], 2], ['changsha_exchange_choice_start', 0],
+   ['changsha_exchange_decision', 0, 3, 'changsha_no_exchange']]
+ const replay = new RecordReplay(detail), original = replay.build(0, 0).snapshot
+ for (let viewer = 0; viewer < 4; viewer++) {
+   const before = replay.build(0, 0, viewer).snapshot
+   const after = replay.build(0, 3, viewer).snapshot
+   assert.deepEqual(after.seats.map(tiles), before.seats.map(tiles))
+   assert.deepEqual(after.seats.map(s => s.score), before.seats.map(s => s.score))
+   assert.deepEqual(replay.remainingWallAt(0, 3), replay.remainingWallAt(0, 0))
+ }
+ assert.equal(exchangeSixInfoAt(round, 2).choicePhase, 'exchange_start_choice')
+ assert.equal(exchangeSixChoiceText(exchangeSixInfoAt(round, 3)), '北家选择：全桌不换')
+ assert.equal(exchangeSixInfoAt(round, 3).completedRounds, 0)
+ assert.equal(exchangeSixInfoAt(round, 1).choice, null)
+ assert.deepEqual(replay.build(0, 0).snapshot, original)
+ assert.equal(exchangeSixActionNames.changsha_exchange_decision, '换牌决定')
+})
+
+test('second exchange uses current hands and records the completed rounds and timeout choice', () => {
+ const detail = structuredClone(fixtures[0].detail), round = detail.record.game_round.round_index_1
+ const initial = structuredClone(round.action_ticks)
+ const hands = fixtures[0].expected.hands.map(hand => [...hand])
+ const outgoing = hands.map(hand => hand.slice(0, 6)), offset = 3
+ const final = hands.map((hand, seat) => {
+   const kept = [...hand]
+   for (const tile of outgoing[seat]) kept.splice(kept.indexOf(tile), 1)
+   return sorted([...kept, ...outgoing[(seat + offset) % 4]])
+ })
+ round.action_ticks = [
+   ['changsha_exchange_choice_start', 0], ['changsha_exchange_decision', 0, -1, 'changsha_begin_exchange'],
+   ...initial, ['changsha_exchange_choice_start', 1], ['changsha_exchange_decision', 1, 2, 'changsha_exchange_again'],
+   ['changsha_exchange_start', 2, [], 0], ['changsha_exchange_roll', 2, [4, 4], offset],
+   ['changsha_exchange_six', [4, 4], offset, outgoing, [], 2],
+ ]
+ const replay = new RecordReplay(detail), end = round.action_ticks.length
+ for (let viewer = 0; viewer < 4; viewer++) {
+   assert.deepEqual(replay.build(0, end, viewer).snapshot.seats.map(s => sorted(tiles(s))), final.map(h => sorted(h.map(mm))))
+   assert.deepEqual(replay.build(0, initial.length + 2, viewer).snapshot.seats.map(s => sorted(tiles(s))), hands.map(h => sorted(h.map(mm))))
+ }
+ assert.equal(exchangeSixInfoAt(round, end).completedRounds, 2)
+ assert.equal(exchangeSixChoiceText(exchangeSixInfoAt(round, end)), '西家选择：再换一轮')
+ const timeout = {action_ticks: [...initial, ['changsha_exchange_decision', 1, -1, 'changsha_no_exchange']]}
+ assert.equal(exchangeSixChoiceText(exchangeSixInfoAt(timeout, timeout.action_ticks.length)), '超时默认：不再换牌')
+ const oldRound = {action_ticks: initial.map(t => t[0] === 'changsha_exchange_six' ? t.slice(0, 5) : t)}
+ assert.equal(exchangeSixInfoAt(oldRound, oldRound.action_ticks.length).completedRounds, 1)
 })

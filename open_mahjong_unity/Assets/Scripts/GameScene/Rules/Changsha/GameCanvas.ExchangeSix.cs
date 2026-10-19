@@ -46,7 +46,7 @@ public partial class GameCanvas {
                 });
             }
             if (snapshot.phase == "exchange_dice") yield return PlayExchangeSixDice(snapshot.public_state.dice);
-            if (snapshot.phase == "exchange_received") {
+            if (snapshot.phase == "exchange_received" || snapshot.phase == "deal_dice_received") {
                 while (exchangeSixHandSync != null) yield return null;
                 // 收牌确认排在实际手牌同步后；观战/回放不能代替玩家确认。
                 if (!NormalGameStateManager.Instance.IsRealtimeSpectator
@@ -133,7 +133,8 @@ public partial class GameCanvas {
         if (exchangeSixPanel == null || !exchangeSixPanel.activeSelf || exchangeSixState == null) return;
         if (exchangeSixState.phase != "deal_dice" && exchangeSixState.phase != "exchange" && exchangeSixState.phase != "exchange_dice"
             && exchangeSixState.phase != "exchange_start_choice" && exchangeSixState.phase != "exchange_repeat_choice"
-            && exchangeSixState.phase != "exchange_received") return;
+            && exchangeSixState.phase != "exchange_received" && exchangeSixState.phase != "deal_dice_received"
+            && exchangeSixState.phase != "exchange_decision") return;
         // 以实际手牌上沿定位，选中牌抬起及窗口缩放后仍留出间距。
         var bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(transform, handCardsContainer);
         var canvasRect = ((RectTransform)transform).rect;
@@ -257,7 +258,8 @@ public partial class GameCanvas {
         string phase = snapshot.phase;
         bool isChoice = phase == "exchange_start_choice" || phase == "exchange_repeat_choice";
         exchangeSixButtons.GetComponent<GridLayoutGroup>().constraintCount = phase == "exchange_repeat_choice" ? 2 : 1;
-        bool isExchange = phase == "deal_dice" || isChoice || phase == "exchange_received" || phase == "exchange" || phase == "exchange_dice";
+        bool isExchange = phase == "deal_dice" || phase == "deal_dice_received" || phase == "exchange_decision"
+            || isChoice || phase == "exchange_received" || phase == "exchange" || phase == "exchange_dice";
         var panelRect = (RectTransform)exchangeSixPanel.transform;
         panelRect.anchorMin = panelRect.anchorMax = isExchange ? new Vector2(.5f, 0) : new Vector2(.5f, .82f);
         panelRect.pivot = new Vector2(.5f, isExchange ? 0 : 1);
@@ -271,6 +273,8 @@ public partial class GameCanvas {
         exchangeSixStatus.alignment = isExchange ? TextAlignmentOptions.Center : TextAlignmentOptions.TopLeft;
         exchangeSixStatus.fontSize = isExchange ? 30 : 24;
         string title = phase == "deal_dice" ? "掷骰决定本局禁小胡" : phase == "exchange_start_choice" ? "2秒内可选不换，任意一人选择后全桌跳过换牌"
+            : phase == "deal_dice_received" ? "等待四家看完开局骰子"
+            : phase == "exchange_decision" ? "换牌决定"
             : phase == "exchange_repeat_choice" ? "是否再换一轮？最先提交的选择生效，2秒无人选择则不换"
             : phase == "exchange_received" ? "等待四家收到换后的手牌"
             : phase == "exchange" ? "第" + data.exchange_round + "轮换六张" : phase == "exchange_dice" ? "四家已选定，掷骰换牌" : phase == "four_joy" ? "四喜" : phase == "declarations" ? "开局声明"
@@ -287,6 +291,16 @@ public partial class GameCanvas {
             for (int die = 0; die < 2; die++) SetExchangeSixDie(die, dice[die]);
         var positions = isRecordPlayback
             ? GameRecordManager.Instance.indexToPosition : TableMirror.Current.IndexToPosition;
+        if (phase == "exchange_decision" && data.exchange_choice != null) {
+            var choice = data.exchange_choice;
+            string actor = "超时默认";
+            if (choice.seat.HasValue && positions.TryGetValue(choice.seat.Value, out string choicePosition))
+                actor = choicePosition == "self" ? "你选择" : choicePosition == "left" ? "左侧玩家选择"
+                    : choicePosition == "top" ? "对家选择" : "右侧玩家选择";
+            string decision = choice.action == "changsha_exchange_again" ? "再换一轮"
+                : choice.action == "changsha_begin_exchange" ? "开始换牌" : choice.round == 0 ? "全桌不换" : "不再换牌";
+            exchangeSixStatus.text += "\n" + actor + "：" + decision;
+        }
         if (phase == "deal_dice" && !exchangeSixDealDicePlaying && data.small_hu_forbidden_seat.HasValue
             && positions.TryGetValue(data.small_hu_forbidden_seat.Value, out string forbiddenPosition)) {
             string player = forbiddenPosition == "self" ? "你" : forbiddenPosition == "left" ? "左侧玩家"
@@ -321,7 +335,7 @@ public partial class GameCanvas {
                     ExchangeSixButton(phase == "exchange_start_choice" ? "不换" : "不换了",
                         () => ChangshaExchangeSixInput.Send("changsha_no_exchange", snapshot.action_tick));
             }
-            else if (phase == "exchange_received") { }
+            else if (phase == "exchange_received" || phase == "deal_dice_received") { }
             else SetActionButton(ChangshaExchangeSixActions.DisplayWords(snapshot));
         }
         exchangeSixPublicCards.gameObject.SetActive(publicTiles != null && publicTiles.Length > 0);

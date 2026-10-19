@@ -1,5 +1,6 @@
 export const isExchangeSix = title => title?.sub_rule === 'changsha/exchange_six'
 export const exchangeSixActionNames = {
+  changsha_exchange_choice_start: '换牌选择', changsha_exchange_decision: '换牌决定',
   changsha_deal_dice: '抓牌骰子', changsha_exchange_start: '选择六张', changsha_exchange_roll: '换牌骰子',
   changsha_exchange_six: '交换六张', changsha_declaration: '报听或明牌', changsha_four_joy: '四喜',
   changsha_actual_draw: '取牌', changsha_lock_patterns: '锁定听牌', changsha_hidden_draw: '闷杠摸牌',
@@ -11,12 +12,24 @@ const remove = (list, tile) => { const i = list.lastIndexOf(tile); if (i >= 0) l
 const held = state => { if (state.drawn != null) { state.hand.push(state.drawn); state.drawn = null } }
 
 export function exchangeSixInfoAt(round, node) {
-  const info = { ready: [], open: [], disqualified: [], forbidden: null, dealDice: [], dice: [], offset: 0, round: 0, locks: {}, settlements: [], birds: [], fourJoy: [] }
+  const info = { ready: [], open: [], disqualified: [], forbidden: null, dealDice: [], dice: [], offset: 0, round: 0, completedRounds: 0, choicePhase: null, choice: null, locks: {}, settlements: [], birds: [], fourJoy: [] }
   for (const t of (round?.action_ticks || []).slice(0, node)) {
     if (t[0] === 'changsha_deal_dice') { info.dealDice = t[1]; info.forbidden = t[2] }
-    if (t[0] === 'changsha_exchange_start') info.round = t[1]
+    if (t[0] === 'changsha_exchange_choice_start') {
+      info.choicePhase = t[1] === 0 ? 'exchange_start_choice' : 'exchange_repeat_choice'
+      info.choice = null
+    }
+    if (t[0] === 'changsha_exchange_decision') {
+      info.choicePhase = null
+      info.choice = { round: t[1], seat: t[2] < 0 ? null : t[2], action: t[3] }
+    }
+    if (t[0] === 'changsha_exchange_start') { info.round = t[1]; info.choicePhase = null }
     if (t[0] === 'changsha_exchange_roll') { info.dice = t[2]; info.offset = t[3] }
-    if (t[0] === 'changsha_exchange_six') { info.dice = t[1]; info.offset = t[2]; info.disqualified = t[4]; info.round = t[5] }
+    if (t[0] === 'changsha_exchange_six') {
+      info.dice = t[1]; info.offset = t[2]; info.disqualified = t[4]
+      info.round = Number.isInteger(t[5]) ? t[5] : info.completedRounds + 1
+      info.completedRounds = info.round
+    }
     if (t[0] === 'changsha_declaration') {
       if (t[2] === 'changsha_report_ready') info.ready.push(t[1])
       if (t[2] === 'changsha_open_hand') info.open.push(t[1])
@@ -26,6 +39,17 @@ export function exchangeSixInfoAt(round, node) {
     if (t[0] === 'changsha_exchange_six_win') { info.settlements = t[1]; info.birds = t[2] }
   }
   return info
+}
+
+export function exchangeSixChoiceText(info) {
+  if (info.choicePhase === 'exchange_start_choice') return '开局选择：2秒内任意一家可选择不换'
+  if (info.choicePhase === 'exchange_repeat_choice') return '第二轮选择：最先提交生效，2秒无人选择则不换'
+  const choice = info.choice
+  if (!choice) return ''
+  const actor = choice.seat == null ? '超时默认' : `${['东家', '南家', '西家', '北家'][choice.seat]}选择`
+  const result = choice.action === 'changsha_exchange_again' ? '再换一轮'
+    : choice.action === 'changsha_begin_exchange' ? '开始换牌' : choice.round === 0 ? '全桌不换' : '不再换牌'
+  return `${actor}：${result}`
 }
 
 // Apply only this subrule's physical events. Ordinary cuts/melds still use the shared replay.

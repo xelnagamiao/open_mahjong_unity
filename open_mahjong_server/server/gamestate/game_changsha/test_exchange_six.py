@@ -44,6 +44,7 @@ def make_state(bot_seats=()):
     # 规则测试跳过纯展示等待；展示顺序专项通过真实入口单独验证。
     state.exchange_six.wait_for_kong_display = AsyncMock()
     state.exchange_six.show_deal_dice = AsyncMock()
+    state.exchange_six.wait_for_receipt = AsyncMock()
     # 旧规则专项固定为换一轮；自愿决定与收牌边界由test_exchange_choice走真实入口覆盖。
     state.exchange_six.choose_exchange = AsyncMock(side_effect=lambda *, after_first=False: not after_first)
     # 固定手牌回归不依赖随机禁手座位；禁手专项另从真实抓牌骰子入口验证。

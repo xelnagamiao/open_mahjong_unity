@@ -14,10 +14,58 @@ from .boardcast import reconnected_send_pending_ask
 def live_state(bot_seats=()):
     state = make_state(bot_seats)
     del state.exchange_six.choose_exchange
+    del state.exchange_six.wait_for_receipt
     return state
 
 
 class ExchangeChoiceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_initial_choice_waits_for_all_clients_to_finish_deal_animation(self):
+        state = live_state()
+        flow = state.exchange_six
+        banks = [player.remaining_time for player in state.player_list]
+        with patch.object(flow, "four_joy", new=AsyncMock()):
+            task = asyncio.create_task(flow.opening())
+            try:
+                await self.wait_phase(state, "deal_dice_received")
+                receipt_tick = state.server_action_tick
+                for seat in range(4):
+                    packet = flow.packet(seat).state
+                    self.assertEqual((packet.remaining_time, packet.step_remaining), (0, 0))
+                for seat in range(3):
+                    await self.action(state, seat, "changsha_exchange_seen")
+                await self.action(state, 3, "changsha_exchange_seen", tick=receipt_tick - 1)
+                for _ in range(100):
+                    if state.waiting_players_list == [3]:
+                        break
+                    await asyncio.sleep(.001)
+                self.assertEqual(flow.phase, "deal_dice_received")
+                self.assertEqual(state.waiting_players_list, [3])
+                await self.action(state, 3, "changsha_exchange_seen")
+                await self.wait_phase(state, "exchange_start_choice")
+                self.assertEqual(flow.packet(3).state.remaining_time, 2)
+                await self.action(state, 3, NO_EXCHANGE_ACTION)
+                await self.wait_phase(state, "declarations")
+                for seat in range(4):
+                    await self.action(state, seat, "pass")
+                await asyncio.wait_for(task, 1)
+                self.assertEqual([player.remaining_time for player in state.player_list], banks)
+            finally:
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+
+    async def test_receipt_fallback_is_independent_of_large_time_bank_and_bot_speed(self):
+        for bots in ((), (0, 1, 2, 3)):
+            for after_exchange in (False, True):
+                state = live_state(bots)
+                for player in state.player_list:
+                    player.remaining_time = 3600
+                elapsed = 0 if bots else 10
+                with patch("server.gamestate.game_changsha.exchange_six.get_ask_elapsed", return_value=elapsed), \
+                     patch("server.gamestate.game_changsha.exchange_six.bot_delay", return_value=5):
+                    await asyncio.wait_for(state.exchange_six.wait_for_receipt(after_exchange=after_exchange), 1)
+                self.assertEqual([player.remaining_time for player in state.player_list], [3600] * 4)
+                self.assertFalse(state.waiting_players_list)
+
     async def test_fast_first_response_during_broadcast_still_delivers_all_four_buttons(self):
         state = live_state()
         flow = state.exchange_six
@@ -57,6 +105,9 @@ class ExchangeChoiceTests(unittest.IsolatedAsyncioTestCase):
     async def wait_phase(self, state, phase, *, round_number=None):
         for _ in range(1000):
             flow = state.exchange_six
+            if flow.phase == "deal_dice_received" and phase != "deal_dice_received":
+                for seat in list(state.waiting_players_list):
+                    await self.action(state, seat, "changsha_exchange_seen")
             if flow.phase == phase and state.waiting_players_list and (round_number is None or flow.exchange_round == round_number):
                 return
             await asyncio.sleep(.001)

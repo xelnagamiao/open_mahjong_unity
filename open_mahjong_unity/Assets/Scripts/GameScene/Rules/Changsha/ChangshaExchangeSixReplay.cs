@@ -85,10 +85,13 @@ public partial class GameRecordManager {
 
     private bool ApplyExchangeSixRecordTick(List<string> tick) {
         if (!IsExchangeSixRecord() || tick == null || tick.Count == 0) return false;
+        if (exchangeSixRecordChoicePhase == "exchange_decision" || exchangeSixRecordChoicePhase == "deal_dice")
+            exchangeSixRecordChoicePhase = null;
         if (tick[0] == "d" || tick[0] == "gd") exchangeSixRecordFourJoy.Remove(currentPlayerIndex);
         if (!tick[0].StartsWith("changsha_")) return false;
         string action = tick[0];
         if (action == "changsha_deal_dice") {
+            exchangeSixRecordChoicePhase = "deal_dice";
             exchangeSixRecordDealDice = JsonConvert.DeserializeObject<int[]>(tick[1]);
             exchangeSixRecordSmallHuForbiddenSeat = ParseTickInt(tick, 2);
         } else if (action == "changsha_exchange_choice_start") {
@@ -97,7 +100,7 @@ public partial class GameRecordManager {
         } else if (action == "changsha_exchange_decision") {
             int seat = ParseTickInt(tick, 2);
             exchangeSixRecordChoice = new ChangshaExchangeSixChoice {round = ParseTickInt(tick, 1), seat = seat < 0 ? (int?)null : seat, action = tick[3]};
-            exchangeSixRecordChoicePhase = null;
+            exchangeSixRecordChoicePhase = "exchange_decision";
         } else if (action == "changsha_exchange_start") {
             exchangeSixRecordChoicePhase = null;
             exchangeSixRecordRound = ParseTickInt(tick, 1);

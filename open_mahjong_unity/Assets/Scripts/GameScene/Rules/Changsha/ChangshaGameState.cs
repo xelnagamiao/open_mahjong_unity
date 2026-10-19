@@ -59,7 +59,7 @@ public class ChangshaGameState : TurnBasedGameState {
         Clock.LastAskActionTick = snapshot.action_tick;
         Clock.AllowActionList = new List<string>(snapshot.private_state.action_list ?? new string[0]);
         Clock.IsSelfActionRequired = Clock.AllowActionList.Count > 0 && !Session.IsRealtimeSpectator
-            && snapshot.phase != "exchange_received";
+            && snapshot.phase != "exchange_received" && snapshot.phase != "deal_dice_received";
         Clock.ForbiddenCutTiles.Clear();
         Clock.ForcedCutTiles.Clear();
         Clock.ApplyCurrentPlayerIndicator(Mirror.SeatOf(snapshot.public_state.current_player_index));

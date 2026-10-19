@@ -3,7 +3,8 @@
     <summary>{{ tr('长沙开杠与结算') }}</summary>
     <p>{{ tr(info.kamo ? '卡摸（小胡仅自摸）' : '小胡可点和') }} · {{ capLabel }}</p>
     <template v-if="info.exchange">
-      <p>换六张 · 第{{ info.exchange.round }}轮 · 换牌骰子 {{ info.exchange.dice.join(' + ') || '未掷' }}</p>
+      <p>换六张 · 已完成{{ info.exchange.completedRounds }}轮<span v-if="info.exchange.round"> · 第{{ info.exchange.round }}轮骰子 {{ info.exchange.dice.join(' + ') || '未掷' }}</span></p>
+      <p v-if="exchangeSixChoiceText(info.exchange)">{{ exchangeSixChoiceText(info.exchange) }}</p>
       <p v-if="info.exchange.dealDice.length">抓牌骰子 {{ info.exchange.dealDice.join(' + ') }} · {{ winds[info.exchange.forbidden] }}禁普通小胡</p>
       <p v-if="info.exchange.ready.length">报听：{{ info.exchange.ready.map(s => winds[s]).join('、') }}</p>
       <p v-if="info.exchange.open.length">明牌：{{ info.exchange.open.map(s => winds[s]).join('、') }}</p>
@@ -36,6 +37,7 @@ import { salasasaTileToMmcr as toMmcr } from '@/game2d/salasasa/gameAdapter'
 import { mmcrFaceId } from '@/game2d/lib/tileFaceAsset'
 import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { tr } from '@/i18n'
+import { exchangeSixChoiceText } from '@/utils/changshaExchangeSixReplay.js'
 const props = defineProps({ info: { type: Object, required: true }, tileAsset: { type: Function, required: true } })
 const wideScreen = ref(true)
 let screenQuery
