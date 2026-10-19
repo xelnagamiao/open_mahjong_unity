@@ -336,6 +336,15 @@ class ExchangeSixFlow:
                             if chosen is None:
                                 continue
                             self.submissions[seat] = chosen
+                        if phase == "declarations":
+                            # 声明一经确认就生效并广播，不能等其他玩家选完才公开手牌。
+                            if data["action_type"] == "changsha_open_hand":
+                                self.open_hands.add(seat)
+                            elif data["action_type"] == "changsha_report_ready":
+                                self.reported_ready.add(seat)
+                                if seat == 0:
+                                    self.pending_ready_discard = data["target_tile"]
+                            append_action_tick(state, ["changsha_declaration", seat, data["action_type"], data.get("target_tile")])
                         answers[seat] = data
                         if phase != "exchange":
                             player.remaining_time = max(0, player.remaining_time - max(0, int(elapsed - state.step_time)))
@@ -516,15 +525,8 @@ class ExchangeSixFlow:
                 actions[seat] = choices
             answers = await self.run_stage("declarations", actions, lambda seat: {"action_type": "pass"})
             for seat, data in answers.items():
-                if data["action_type"] == "changsha_open_hand":
-                    self.open_hands.add(seat)
-                elif data["action_type"] == "changsha_report_ready":
-                    self.reported_ready.add(seat)
-                    if seat == 0:
-                        self.pending_ready_discard = data["target_tile"]
-                else:
+                if data["action_type"] == "pass":
                     pending.discard(seat)
-                append_action_tick(self.state, ["changsha_declaration", seat, data["action_type"], data.get("target_tile")])
                 if seat in self.open_hands and seat in self.reported_ready:
                     pending.discard(seat)
             await self.broadcast()

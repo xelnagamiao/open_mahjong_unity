@@ -798,6 +798,47 @@ class ExchangeSixFlowTests(unittest.IsolatedAsyncioTestCase):
             await flow.settle()
         self.assertEqual([p.score for p in state.player_list], [96, -32, -32, -32])
 
+    async def test_open_hand_is_public_while_other_declarations_are_pending(self):
+        state = make_state()
+        flow = state.exchange_six
+        hand = [11, 12, 13, 14, 15, 16, 21, 22, 23, 31, 32, 33, 38]
+        state.player_list[1].hand_tiles = hand.copy()
+        with patch.object(flow, "exchange", new=AsyncMock()), patch.object(flow, "four_joy", new=AsyncMock()):
+            task = asyncio.create_task(flow.opening())
+            try:
+                await self.wait_for_opening(state)
+                await self.action(state, 1, "changsha_open_hand")
+                for _ in range(100):
+                    if 1 not in state.waiting_players_list:
+                        break
+                    await asyncio.sleep(0)
+                self.assertNotIn(1, state.waiting_players_list)
+                self.assertFalse(task.done())
+                self.assertEqual(set(state.waiting_players_list), {0, 2, 3})
+                for seat in range(4):
+                    message = state.game_server.user_id_to_connection[100 + seat].websocket.messages[-1]
+                    public = message["state"]["public_state"]
+                    self.assertEqual(public["open_hand_seats"], [1])
+                    self.assertEqual(public["open_hands"], {"1": hand})
+                await reconnected_send_pending_ask(state, 102)
+                reconnect = state.game_server.user_id_to_connection[102].websocket.messages[-1]
+                self.assertEqual(reconnect["state"]["public_state"]["open_hands"], {"1": hand})
+                ticks = state.game_record["game_round"]["round_index_1"]["action_ticks"]
+                self.assertEqual(ticks.count(["changsha_declaration", 1, "changsha_open_hand", 0]), 1)
+                first_tick = state.server_action_tick
+                for seat in (0, 2, 3):
+                    await self.action(state, seat, "pass")
+                for _ in range(100):
+                    if state.server_action_tick != first_tick:
+                        break
+                    await asyncio.sleep(0)
+                await self.action(state, 1, "pass")
+                await asyncio.wait_for(task, 1)
+                self.assertEqual(ticks.count(["changsha_declaration", 1, "changsha_open_hand", 0]), 1)
+            finally:
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+
     async def test_real_pass_then_large_kong_batch_discard_clears_pass_before_next_draw(self):
         class Dice:
             def randint(self, lower, upper):
