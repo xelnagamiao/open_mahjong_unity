@@ -19,6 +19,8 @@ public partial class GameRecordManager {
     private int[] exchangeSixRecordExchangeDice = Array.Empty<int>();
     private bool exchangeSixRecordExchanging;
     private bool exchangeSixRecordRolling;
+    private string exchangeSixRecordChoicePhase;
+    private ChangshaExchangeSixChoice exchangeSixRecordChoice;
     private int? exchangeSixRecordSmallHuForbiddenSeat;
     private readonly Dictionary<int, List<int>> exchangeSixRecordFourJoy = new Dictionary<int, List<int>>();
 
@@ -35,6 +37,8 @@ public partial class GameRecordManager {
         exchangeSixRecordRound = exchangeSixRecordCompletedRounds = exchangeSixRecordSourceOffset = 0;
         exchangeSixRecordExchanging = false;
         exchangeSixRecordRolling = false;
+        exchangeSixRecordChoicePhase = null;
+        exchangeSixRecordChoice = null;
         exchangeSixRecordSmallHuForbiddenSeat = null;
     }
 
@@ -87,7 +91,15 @@ public partial class GameRecordManager {
         if (action == "changsha_deal_dice") {
             exchangeSixRecordDealDice = JsonConvert.DeserializeObject<int[]>(tick[1]);
             exchangeSixRecordSmallHuForbiddenSeat = ParseTickInt(tick, 2);
+        } else if (action == "changsha_exchange_choice_start") {
+            exchangeSixRecordChoicePhase = ParseTickInt(tick, 1) == 0 ? "exchange_start_choice" : "exchange_repeat_choice";
+            exchangeSixRecordChoice = null;
+        } else if (action == "changsha_exchange_decision") {
+            int seat = ParseTickInt(tick, 2);
+            exchangeSixRecordChoice = new ChangshaExchangeSixChoice {round = ParseTickInt(tick, 1), seat = seat < 0 ? (int?)null : seat, action = tick[3]};
+            exchangeSixRecordChoicePhase = null;
         } else if (action == "changsha_exchange_start") {
+            exchangeSixRecordChoicePhase = null;
             exchangeSixRecordRound = ParseTickInt(tick, 1);
             exchangeSixRecordExchangeDice = JsonConvert.DeserializeObject<int[]>(tick[2]);
             exchangeSixRecordSourceOffset = ParseTickInt(tick, 3);
@@ -203,9 +215,10 @@ public partial class GameRecordManager {
         var counts = recordPlayerList.ToDictionary(player => player.playerIndex, player => player.tileList.Count);
         Game3DManager.Instance?.SyncChangshaExchangeRecordHands(open, fourJoy, indexToPosition, counts);
         GameCanvas.Instance?.ShowExchangeSixState(new ChangshaExchangeSixState {
-            phase = exchangeSixRecordExchanging ? exchangeSixRecordRolling ? "exchange_dice" : "exchange" : exchangeSixRecordPublicTiles.Length > 0 ? "open_kong_public" : "playing",
+            phase = exchangeSixRecordChoicePhase ?? (exchangeSixRecordExchanging ? exchangeSixRecordRolling ? "exchange_dice" : "exchange" : exchangeSixRecordPublicTiles.Length > 0 ? "open_kong_public" : "playing"),
             public_state = new ChangshaExchangeSixPublic {kong_tiles = exchangeSixRecordPublicTiles, kong_dice = exchangeSixRecordDice,
                 exchange_round = exchangeSixRecordRound, completed_exchange_rounds = exchangeSixRecordCompletedRounds,
+                exchange_choice = exchangeSixRecordChoice,
                 dice = exchangeSixRecordExchangeDice, source_offset = exchangeSixRecordSourceOffset,
                 deal_dice = exchangeSixRecordDealDice, small_hu_forbidden_seat = exchangeSixRecordSmallHuForbiddenSeat,
                 reported_ready_seats = exchangeSixRecordReady.ToArray(), open_hand_seats = exchangeSixRecordOpen.ToArray(),

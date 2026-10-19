@@ -30,6 +30,7 @@ public sealed class ChangshaExchangeSixPublic {
     public int exchange_round;
     public int completed_exchange_rounds;
     public int exchange_selection_seconds = 30;
+    public ChangshaExchangeSixChoice exchange_choice;
     public int[] submitted_seats;
     public int[] disqualified_seats;
     public int[] reported_ready_seats;
@@ -46,6 +47,12 @@ public sealed class ChangshaExchangeSixPublic {
     public Dictionary<int, int> hand_counts;
     public int remaining_tiles;
     public ChangshaExchangeSixSettlement[] settlements;
+}
+
+public sealed class ChangshaExchangeSixChoice {
+    public int? seat;
+    public string action;
+    public int round;
 }
 
 public sealed class ChangshaExchangeSixPrivate {
