@@ -104,6 +104,11 @@ public partial class Game3DManager {
             // 明牌使用展示副本，避免占用牌河和副露共用的牌对象。
             Set3DTile(tile, panel.ShowCardsPosition, "Record", seat, usePresentationCopy: true);
         }
+        // Record 默认朝向要配合倒牌动画；公开行不播该动画，须直接把牌面朝上。
+        foreach (Transform tile in panel.ShowCardsPosition) {
+            tile.rotation = RiverTileWorldRotation(seat);
+            tile.position = PlaceTileOnTable(tile.position, tile.rotation);
+        }
         exchangeSixShownHands[seat] = revealed;
         exchangeSixConcealedHidden[seat] = hideConcealed;
         exchangeSixHandUpdates[seat] = null;
