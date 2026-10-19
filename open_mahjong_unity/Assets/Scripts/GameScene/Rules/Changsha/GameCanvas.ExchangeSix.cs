@@ -8,6 +8,7 @@ using UnityEngine.UI;
 public partial class GameCanvas {
     private GameObject exchangeSixPanel;
     private TMP_Text exchangeSixStatus;
+    private TMP_Text exchangeSixPrivateNotice;
     private Transform exchangeSixButtons;
     private Transform exchangeSixPublicCards;
     private Transform exchangeSixDiceRow;
@@ -16,6 +17,8 @@ public partial class GameCanvas {
     private readonly List<TileCard> exchangeSixSelection = new List<TileCard>();
     private Coroutine exchangeSixHandSync;
     private Coroutine exchangeSixSnapshotPlayback;
+    private bool exchangeSixDealDiceShown;
+    private bool exchangeSixDealDicePlaying;
     private readonly Queue<ChangshaExchangeSixState> exchangeSixSnapshots = new Queue<ChangshaExchangeSixState>();
 
     public void QueueExchangeSixSnapshot(ChangshaExchangeSixState snapshot) {
@@ -27,9 +30,20 @@ public partial class GameCanvas {
         while (exchangeSixSnapshots.Count > 0) {
             var snapshot = exchangeSixSnapshots.Dequeue();
             if (GameSession.Current.SubRule != ChangshaGameState.ExchangeSixSubRule) break;
+            bool playDealDice = snapshot.phase == "deal_dice" && !exchangeSixDealDiceShown;
+            if (playDealDice) {
+                exchangeSixDealDiceShown = true;
+                exchangeSixDealDicePlaying = true;
+            }
             ChangshaGameState.Active?.ApplyExchangeSixSnapshot(snapshot);
             yield return null;
             while (IsChangeHandCardProcessing) yield return null;
+            if (playDealDice) {
+                yield return PlayExchangeSixDice(snapshot.public_state.deal_dice, () => {
+                    exchangeSixDealDicePlaying = false;
+                    RenderExchangeSixState();
+                });
+            }
             if (snapshot.phase == "exchange_dice") yield return PlayExchangeSixDice(snapshot.public_state.dice);
             // 先显示一帧四张公开牌，再显示闷杠那张私密摸牌。
             if (snapshot.phase == "blind_kong_public") yield return new WaitForSecondsRealtime(.2f);
@@ -99,8 +113,13 @@ public partial class GameCanvas {
     }
 
     private void LateUpdate() {
+        if (exchangeSixPrivateNotice != null && exchangeSixPrivateNotice.gameObject.activeSelf) {
+            var handBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(transform, handCardsContainer);
+            var canvasBounds = ((RectTransform)transform).rect;
+            exchangeSixPrivateNotice.rectTransform.anchoredPosition = new Vector2(handBounds.center.x, handBounds.max.y - canvasBounds.yMin + 106);
+        }
         if (exchangeSixPanel == null || !exchangeSixPanel.activeSelf || exchangeSixState == null) return;
-        if (exchangeSixState.phase != "exchange" && exchangeSixState.phase != "exchange_dice") return;
+        if (exchangeSixState.phase != "deal_dice" && exchangeSixState.phase != "exchange" && exchangeSixState.phase != "exchange_dice") return;
         // 以实际手牌上沿定位，选中牌抬起及窗口缩放后仍留出间距。
         var bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(transform, handCardsContainer);
         var canvasRect = ((RectTransform)transform).rect;
@@ -116,9 +135,9 @@ public partial class GameCanvas {
         }
     }
 
-    private IEnumerator PlayExchangeSixDice(int[] dice) {
+    private IEnumerator PlayExchangeSixDice(int[] dice, System.Action settled = null) {
         if (dice == null || dice.Length != 2) yield break;
-        // 动画只显示过程，最终点数与换牌方向始终使用服务器结果。
+        // 两次骰子共用动画，最终点数始终使用各自的服务端结果。
         float elapsed = 0;
         while (elapsed < 1f) {
             for (int die = 0; die < 2; die++) {
@@ -132,6 +151,7 @@ public partial class GameCanvas {
             SetExchangeSixDie(die, dice[die]);
             exchangeSixDiceRow.GetChild(die).localRotation = Quaternion.identity;
         }
+        settled?.Invoke();
         yield return new WaitForSecondsRealtime(.5f);
     }
 
@@ -169,6 +189,7 @@ public partial class GameCanvas {
         bool newWindow = exchangeSixState == null || exchangeSixState.action_tick != snapshot.action_tick;
         if (newWindow || handChanged) ClearExchangeSixSelection();
         exchangeSixState = snapshot;
+        ShowExchangeSixPrivateNotice(snapshot.private_state.open_hand_pass_hint);
         ClearActionButton();
         if (handChanged) {
             if (exchangeSixHandSync != null) StopCoroutine(exchangeSixHandSync);
@@ -189,6 +210,28 @@ public partial class GameCanvas {
         exchangeSixHandSync = null;
     }
 
+    private void ShowExchangeSixPrivateNotice(bool visible) {
+        // 私人规则提示不放在公开座位标签上，观战和回放都不展示。
+        visible = visible && !NormalGameStateManager.Instance.IsRealtimeSpectator
+            && !(GameRecordManager.Instance != null && GameRecordManager.Instance.gameObject.activeSelf);
+        if (exchangeSixPrivateNotice == null && visible) {
+            exchangeSixPrivateNotice = ExchangeSixLabel("ChangshaOpenHandPassNotice", transform);
+            exchangeSixPrivateNotice.fontSize = 24;
+            exchangeSixPrivateNotice.color = Color.white;
+            exchangeSixPrivateNotice.outlineWidth = .2f;
+            exchangeSixPrivateNotice.outlineColor = Color.black;
+            exchangeSixPrivateNotice.alignment = TextAlignmentOptions.Center;
+            exchangeSixPrivateNotice.raycastTarget = false;
+            var rect = exchangeSixPrivateNotice.rectTransform;
+            rect.anchorMin = rect.anchorMax = new Vector2(.5f, 0);
+            rect.pivot = new Vector2(.5f, 0);
+            rect.sizeDelta = new Vector2(940, 72);
+        }
+        if (exchangeSixPrivateNotice == null) return;
+        exchangeSixPrivateNotice.text = "已过胡：听牌不变时，同牌型须升番才能再接炮。\n改变听牌后解除；自摸不受影响。";
+        exchangeSixPrivateNotice.gameObject.SetActive(visible);
+    }
+
     private void RenderExchangeSixState() {
         var snapshot = exchangeSixState;
         var data = snapshot.public_state;
@@ -198,7 +241,7 @@ public partial class GameCanvas {
         bool isRecordPlayback = GameRecordManager.Instance != null && GameRecordManager.Instance.gameObject.activeSelf;
         bool readOnly = NormalGameStateManager.Instance.IsRealtimeSpectator || isRecordPlayback;
         string phase = snapshot.phase;
-        bool isExchange = phase == "exchange" || phase == "exchange_dice";
+        bool isExchange = phase == "deal_dice" || phase == "exchange" || phase == "exchange_dice";
         var panelRect = (RectTransform)exchangeSixPanel.transform;
         panelRect.anchorMin = panelRect.anchorMax = isExchange ? new Vector2(.5f, 0) : new Vector2(.5f, .82f);
         panelRect.pivot = new Vector2(.5f, isExchange ? 0 : 1);
@@ -211,20 +254,26 @@ public partial class GameCanvas {
         exchangeSixStatus.outlineColor = Color.black;
         exchangeSixStatus.alignment = isExchange ? TextAlignmentOptions.Center : TextAlignmentOptions.TopLeft;
         exchangeSixStatus.fontSize = isExchange ? 30 : 24;
-        string title = phase == "exchange" ? "第" + data.exchange_round + "轮换六张" : phase == "exchange_dice" ? "四家已选定，掷骰换牌" : phase == "four_joy" ? "四喜" : phase == "declarations" ? "开局声明"
+        string title = phase == "deal_dice" ? "掷骰决定本局禁小胡" : phase == "exchange" ? "第" + data.exchange_round + "轮换六张" : phase == "exchange_dice" ? "四家已选定，掷骰换牌" : phase == "four_joy" ? "四喜" : phase == "declarations" ? "开局声明"
             : phase == "before_draw" ? "摸牌前选择闷杠" : phase == "blind_kong_declared" ? "已声明闷杠，即将开牌"
             : phase == "blind_kong_view" ? "闷杠本家查看摸牌" : phase == "claims" ? "胡牌或鸣牌"
             : phase.StartsWith("sea_") || phase == "sea_bottom" ? "海底" : phase.Contains("kong") ? "开杠" : "换六张固定玩法";
         string direction = data.source_offset == 1 ? "下家" : data.source_offset == 3 ? "上家" : "对家";
         exchangeSixStatus.text = title + (phase == "exchange" ? "\n已选 " + exchangeSixSelection.Count + "/6，最多两种花色；选定后掷骰" : phase == "exchange_dice" ? "\n拿" + direction + "的六张" : "")
             + (readOnly ? "\n回放" : "");
-        int[] dice = phase == "exchange_dice" ? data.dice : phase.Contains("kong") ? data.kong_dice : null;
-        if (dice != null && dice.Length == 2) exchangeSixStatus.text += "\n骰子 " + dice[0] + "、" + dice[1] + "，合计 " + dice.Sum();
-        exchangeSixDiceRow.gameObject.SetActive(phase == "exchange_dice");
-        if (phase == "exchange_dice" && dice != null && dice.Length == 2)
+        int[] dice = phase == "deal_dice" ? data.deal_dice : phase == "exchange_dice" ? data.dice : phase.Contains("kong") ? data.kong_dice : null;
+        if (!exchangeSixDealDicePlaying && dice != null && dice.Length == 2) exchangeSixStatus.text += "\n骰子 " + dice[0] + "、" + dice[1] + "，合计 " + dice.Sum();
+        exchangeSixDiceRow.gameObject.SetActive(phase == "deal_dice" || phase == "exchange_dice");
+        if ((phase == "deal_dice" || phase == "exchange_dice") && dice != null && dice.Length == 2)
             for (int die = 0; die < 2; die++) SetExchangeSixDie(die, dice[die]);
         var positions = isRecordPlayback
             ? GameRecordManager.Instance.indexToPosition : TableMirror.Current.IndexToPosition;
+        if (phase == "deal_dice" && !exchangeSixDealDicePlaying && data.small_hu_forbidden_seat.HasValue
+            && positions.TryGetValue(data.small_hu_forbidden_seat.Value, out string forbiddenPosition)) {
+            string player = forbiddenPosition == "self" ? "你" : forbiddenPosition == "left" ? "左侧玩家"
+                : forbiddenPosition == "top" ? "对家" : "右侧玩家";
+            exchangeSixStatus.text += "\n本局" + player + "不能胡普通小胡，四喜仍可收分";
+        }
         ShowExchangeSixDeclarations(data, positions);
         if (phase == "exchange" && exchangeSixSelection.Select(card => card.tileId / 10).Distinct().Count() == 3)
             exchangeSixStatus.text = title + "\n三门：提交后判相公，本局不能胡\n已选 " + exchangeSixSelection.Count + "/6";
@@ -250,7 +299,7 @@ public partial class GameCanvas {
         }
         exchangeSixPublicCards.gameObject.SetActive(publicTiles != null && publicTiles.Length > 0);
         // 换牌提示与确认跟随手牌；鸣牌/声明继续走原生操作条。
-        exchangeSixPanel.SetActive(phase == "exchange" || phase == "exchange_dice"
+        exchangeSixPanel.SetActive(phase == "deal_dice" || phase == "exchange" || phase == "exchange_dice"
             || (publicTiles != null && publicTiles.Length > 0 && phase.Contains("kong")));
         RefreshHandTileSelectability();
     }
@@ -298,6 +347,10 @@ public partial class GameCanvas {
         ClearExchangeSixSelection();
         if (exchangeSixHandSync != null) { StopCoroutine(exchangeSixHandSync); exchangeSixHandSync = null; }
         exchangeSixState = null;
+        exchangeSixDealDiceShown = false;
+        exchangeSixDealDicePlaying = false;
+        if (exchangeSixDiceRow != null) foreach (Transform die in exchangeSixDiceRow) die.localRotation = Quaternion.identity;
+        if (exchangeSixPrivateNotice != null) exchangeSixPrivateNotice.gameObject.SetActive(false);
         if (exchangeSixPanel != null) exchangeSixPanel.SetActive(false);
         foreach (var panel in new[] {PlayerSelfPanel, PlayerLeftPanel, PlayerTopPanel, PlayerRightPanel}) panel?.ShowExchangeSixDeclaration("");
     }
@@ -308,7 +361,7 @@ public partial class GameCanvas {
             if ((data.reported_ready_seats ?? new int[0]).Contains(entry.Key)) labels.Add("报听");
             if ((data.open_hand_seats ?? new int[0]).Contains(entry.Key)) labels.Add("明牌");
             if ((data.disqualified_seats ?? new int[0]).Contains(entry.Key)) labels.Add("相公");
-            if (data.small_hu_forbidden_seat == entry.Key) labels.Add("禁小胡");
+            if (!exchangeSixDealDicePlaying && data.small_hu_forbidden_seat == entry.Key) labels.Add("禁小胡");
             var panel = entry.Value == "self" ? PlayerSelfPanel : entry.Value == "left" ? PlayerLeftPanel : entry.Value == "top" ? PlayerTopPanel : PlayerRightPanel;
             panel?.ShowExchangeSixDeclaration(string.Join(" / ", labels));
         }
