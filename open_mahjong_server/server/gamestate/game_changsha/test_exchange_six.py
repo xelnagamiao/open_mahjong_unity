@@ -44,6 +44,8 @@ def make_state(bot_seats=()):
     # 规则测试跳过纯展示等待；展示顺序专项通过真实入口单独验证。
     state.exchange_six.wait_for_kong_display = AsyncMock()
     state.exchange_six.show_deal_dice = AsyncMock()
+    # 旧规则专项固定为换一轮；自愿决定与收牌边界由test_exchange_choice走真实入口覆盖。
+    state.exchange_six.choose_exchange = AsyncMock(side_effect=lambda *, after_first=False: not after_first)
     # 固定手牌回归不依赖随机禁手座位；禁手专项另从真实抓牌骰子入口验证。
     state.exchange_six.small_hu_forbidden_seat = None
     state.exchange_six.round_scores_before = {player.original_player_index: player.score for player in state.player_list}
@@ -435,7 +437,7 @@ class ExchangeSixFlowTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(all(len(tiles) == 6 and len({tile // 10 for tile in tiles}) <= 2 for tiles in flow.submissions.values()))
             self.assertEqual(state.waiting_players_list, [])
 
-    async def test_opening_reserved_hook_defaults_one_and_delays_four_joy_until_final_exchange(self):
+    async def test_opening_choice_delays_four_joy_until_final_exchange(self):
         for second_dice, expected_rounds in ((None, 1), ([1, 1], 2)):
             state = make_state((0, 1, 2, 3))
             flow = state.exchange_six
@@ -443,6 +445,7 @@ class ExchangeSixFlowTests(unittest.IsolatedAsyncioTestCase):
             async def observe_four_joy(seat, tiles):
                 observed_rounds.append((flow.completed_exchange_rounds, flow.exchange_closed))
             with patch.object(flow, "second_exchange_dice", return_value=second_dice), \
+                 patch.object(flow, "choose_exchange", new=AsyncMock(side_effect=[True, second_dice is not None])), \
                  patch.object(flow, "four_joy", side_effect=observe_four_joy):
                 await asyncio.wait_for(flow.opening(), 1)
             self.assertEqual(observed_rounds, [(expected_rounds, True)] * 4)
@@ -452,7 +455,7 @@ class ExchangeSixFlowTests(unittest.IsolatedAsyncioTestCase):
                 await flow.exchange(dice=[1, 1])
             flow.reset()
             self.assertEqual((flow.exchange_round, flow.completed_exchange_rounds, flow.exchange_closed), (0, 0, False))
-            self.assertIsNone(flow.second_exchange_dice())
+            self.assertEqual(len(flow.second_exchange_dice()), 2)
 
     async def test_second_exchange_requires_explicit_valid_server_dice_and_no_overlapping_window(self):
         state = make_state((0, 1, 2, 3))
@@ -910,8 +913,8 @@ class ExchangeSixFlowTests(unittest.IsolatedAsyncioTestCase):
         state = make_state()
         flow = state.exchange_six
         state.player_list[0].hand_tiles = [12, 12, 12, 13, 14, 21, 22, 23, 24, 25, 26, 31, 32, 33]
-        # 原子换牌已另行真实入口覆盖；此处保留一副确定天胡手牌检查后续声明顺序。
-        with patch.object(flow, "exchange", new=AsyncMock()):
+        # 开局选择不换，保留一副确定天胡手牌检查后续声明顺序。
+        with patch.object(flow, "choose_exchange", new=AsyncMock(return_value=False)):
             task = asyncio.create_task(flow.opening())
             await self.wait_for_opening(state)
             self.assertEqual(flow.phase, "declarations")
