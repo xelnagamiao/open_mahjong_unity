@@ -2928,6 +2928,9 @@ class TaiwanGameState:
 
     def _declared_ready_auto_jiagang_tile(self, player_index: int) -> Optional[int]:
         player = self.player_list[player_index]
+        from ..public.ai.auto_cut_policy import is_auto_cut_bot
+        if is_auto_cut_bot(player):
+            return None
         if (
             not self.rules.declared_ready_auto_added_kong
             or not getattr(player, "ready_locked", False)

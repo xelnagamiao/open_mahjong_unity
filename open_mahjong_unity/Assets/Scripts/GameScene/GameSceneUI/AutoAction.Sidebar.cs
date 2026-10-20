@@ -33,6 +33,8 @@ public partial class AutoAction {
     private readonly Vector3[] sidebarPopupCorners = new Vector3[4];
     private bool sidebarPopupLayoutDirty;
     public bool IsSidebarExpanded { get; private set; }
+    public RectTransform SidebarFooter => sidebarHandle != null
+        ? sidebarHandle.transform as RectTransform : transform as RectTransform;
 
     private void InitializeSidebar() {
         sidebarRect = transform as RectTransform;

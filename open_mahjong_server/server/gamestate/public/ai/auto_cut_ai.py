@@ -71,6 +71,20 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
     try:
         current_player = game_state.player_list[player_index]
 
+        # Rule-specific continuation windows are ordinary play, not optional
+        # wins or melds. Respond explicitly instead of waiting for a timeout.
+        continuation = next((a for a in ("lajihe_flower_continue", "cc_draw", "cc_pass", "sy_hide", "sy_pass")
+                             if a in action_list), None)
+        if continuation is not None:
+            if await _wait_until_actionable(game_state, player_index):
+                # Some rule hooks already queue their mandatory continuation
+                # while delivering the window (for example Shenyang).
+                queue = getattr(game_state, "action_queues", {}).get(player_index)
+                if queue is not None and not queue.empty():
+                    return
+                await submit_bot_action(get_ai_action, game_state, player_index, continuation, None, None, None, None)
+            return
+
         if game_status in _PASS_WAIT_STATUSES:
             await _submit_pass_when_ready(game_state, player_index, action_list, current_player)
             return

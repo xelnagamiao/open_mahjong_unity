@@ -401,6 +401,7 @@ internal static class DetailedConfigRegistry {
             { "riichi", RiichiRoomRules.CreateDefinition() },
             { "hongkong", HongKong_Create_RoomConfig.Definition() },
             { "filipino", Filipino_Create_RoomConfig.Definition() },
+            { "shangrao", Shangrao_Create_RoomConfig.Definition() },
             { "vietnamese", Vietnamese_Create_RoomConfig.Definition() },
         };
     }

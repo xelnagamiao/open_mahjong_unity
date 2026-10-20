@@ -37,6 +37,10 @@ def _fan_mapping(rule):
         from ..game_calculation.taiwan.fan import FAN_DEFINITIONS
         # 连庄拉庄为结算附加台数，不能当作达成 N 次的番种。
         return {definition[0]: definition[0] for definition in FAN_DEFINITIONS.values()}
+    if rule == "shanghai":
+        from .statistics_fans import QIAOMA_NAMES
+        # 花数、底花、封顶说明都是结算信息，不是番种达成。
+        return {name: name for name in QIAOMA_NAMES}
     return None
 
 

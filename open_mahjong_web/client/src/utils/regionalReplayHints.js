@@ -2,9 +2,9 @@ import {resolveLocalHintSnapshot} from './localHintSnapshots.js'
 
 /** These rows are previews only. They never grant an action or change settlement. */
 export function regionalReplayHints(rule,round,node,seat,hand,melds,config={}) {
-  let value=null,ghosts=0
+  let value=rule==='shangrao'?round?.shangrao_hints?.[seat]??null:null,ghosts=0
   for(const tick of (round?.action_ticks??[]).slice(0,Math.max(0,node))){
-    if(tick?.[0]===rule&&tick[1]==='hints') {
+    if(tick?.[0]===rule&&(tick[1]==='hints'||rule==='shangrao'&&tick[1]==='waits')) {
       if(rule==='nanjing')value=tick[2]?.[seat]??value
       else if(Number(tick[2])===seat)value=tick[3]
     }

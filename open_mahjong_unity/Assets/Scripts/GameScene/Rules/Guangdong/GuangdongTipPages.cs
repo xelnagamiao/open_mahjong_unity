@@ -12,7 +12,8 @@ public partial class TipsContainer {
     private void UpdateGuangdongHintPages() {
         const int perPage = 10;
         string subRule = visibleHintSubRule ?? _recordTipsContext?.SubRule ?? GameSession.Current.SubRule;
-        bool active = GuangdongMilRules.IsMil(subRule) || GuobiaoGameState.UsesAsyncLocalTips(subRule);
+        bool active = GuangdongMilRules.IsMil(subRule) || GuobiaoGameState.UsesAsyncLocalTips(subRule)
+            || subRule == ShangraoGameState.SubRule;
         int count = TileContainer.transform.childCount;
         bool paged = active && count > perPage;
         if (guangdongHintCount != count) { guangdongHintCount = count; guangdongHintPage = 0; }
@@ -46,6 +47,11 @@ public partial class TipsContainer {
             guangdongHintNext.onClick.AddListener(()=>{guangdongHintPage++;UpdateContainerSize();});
         }
         guangdongHintPager.SetActive(true); guangdongHintPager.transform.SetAsLastSibling();
+        bool stableWidth = subRule == ShangraoGameState.SubRule;
+        var tileLayout = TileContainer.GetComponent<HorizontalLayoutGroup>();
+        float pagerWidth = stableWidth ? perPage * HintWidth + (perPage - 1) * tileLayout.spacing + tileLayout.padding.horizontal : 302f;
+        ((RectTransform)guangdongHintPager.transform).sizeDelta = new Vector2(pagerWidth, 33);
+        guangdongHintPager.GetComponent<HorizontalLayoutGroup>().childAlignment = stableWidth ? TextAnchor.MiddleRight : TextAnchor.MiddleCenter;
         guangdongHintPageText.text = $"{guangdongHintPage+1}/{pages}";
         guangdongHintPrevious.interactable = guangdongHintPage > 0;
         guangdongHintNext.interactable = guangdongHintPage+1 < pages;

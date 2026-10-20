@@ -1,7 +1,24 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public partial class Game3DManager {
+    /// <summary>Queue a phase boundary after earlier draws and before subsequent hand actions.</summary>
+    public void ConsolidateAllHands() {
+        foreach (string seat in HandAnimPlayerPositions)
+            EnqueueHandAnimOp(seat, new HandAnimOp { Kind = HandAnimOpKind.Consolidate });
+    }
+
+    private IEnumerator ConsolidateHandFromQueue(string seat, PosPanel3D panel) {
+        // Expanded replay may still have a flower flight outside the standing-hand queue.
+        while (_recordHandAnimationsByPlayer.TryGetValue(seat, out int count) && count > 0) yield return null;
+        StopHandDrawReflow(seat, finish: true);
+        if (washizuRealtimeLayouts.TryGetValue(seat, out var layout)) layout.draw_pinned = false;
+        yield return IsRecordShowCardsModeActive() && seat != "self"
+            ? RearrangeRecordShowMergeAllWithAnimation(panel.ShowCardsPosition, seat, preserveDrawSource: true)
+            : Rearrange3DCardsWithAnimation(panel.cardsPosition);
+    }
+
     // 检测手牌是否需要排列（检查手牌位置是否整齐）
     private bool NeedsRearrangement(Transform cardPosition) {
         if (cardPosition.childCount == 0) {

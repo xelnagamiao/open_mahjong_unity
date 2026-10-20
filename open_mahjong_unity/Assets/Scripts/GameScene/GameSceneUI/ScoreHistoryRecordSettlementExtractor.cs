@@ -199,6 +199,16 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
                 }
                 continue;
             }
+            if (rule == ShangraoGameState.RuleId && action == "shangrao" && tick.Count >= 3) {
+                if (tick[1] == "payment") AccumulateSeatScores(immediateScores, JObject.Parse(tick[2])["changes"].ToObject<int[]>());
+                else if (tick[1] == "win_source") lastWinnableTileId = ParseInt(tick, 5);
+                else if (tick[1] == "state" && lastRow != null && round.shangrao?.start_scores?.Length == 4 && tick.Count > 3) {
+                    int[] scores = JArray.Parse(tick[3]).ToObject<int[]>();
+                    var changes = new int[4]; for (int i = 0; i < 4; i++) changes[i] = scores[i] - round.shangrao.start_scores[i];
+                    lastRow.scoreChangesByOriginal = GameRecordJsonDecoder.ConvertPlayerIndexScoreChangesToOriginal(changes, round.seats);
+                }
+                continue;
+            }
             if (rule == NanchangGameState.RuleId && action == "nanchang" && tick.Count >= 3) {
                 if (tick[1] == "meld" && tick.Count >= 5) {
                     var player = players[ParseInt(tick, 2)];
@@ -874,21 +884,8 @@ public static partial class ScoreHistoryRecordSettlementExtractor {
         string huClass,
         int hepaiTile,
         int lastWinnableTileId) {
-        if (closedHand == null || closedHand.Count == 0) return Array.Empty<int>();
-        if (huClass == "hu_self") {
-            var self = new int[closedHand.Count];
-            for (int i = 0; i < closedHand.Count; i++) self[i] = closedHand[i];
-            return self;
-        }
-        int winTile = hepaiTile >= 10 ? hepaiTile : (lastWinnableTileId >= 10 ? lastWinnableTileId : 0);
-        if (winTile < 10) {
-            var fallback = new int[closedHand.Count];
-            for (int i = 0; i < closedHand.Count; i++) fallback[i] = closedHand[i];
-            return fallback;
-        }
-        var hand = new int[closedHand.Count + 1];
-        for (int i = 0; i < closedHand.Count; i++) hand[i] = closedHand[i];
-        hand[closedHand.Count] = winTile;
-        return hand;
+        // 计分板模拟器保留和牌前手牌；与回放共用构造器，明确尚未写入荣和张。
+        return RecordHuHandBuilder.BuildDisplayHand(
+            closedHand, huClass, hepaiTile, lastWinnableTileId, hasRonWinningTile: false);
     }
 }

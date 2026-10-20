@@ -74,6 +74,7 @@ public partial class GameRecordManager {
     }
 
     internal bool IsOriginalWallIndexNormalDrawable(int originalIndex) {
+        if (IsShangraoRecord()) return originalIndex != recordShangraoIndicatorSlot && currentOriginalIndices.Contains(originalIndex);
         if (IsDuplicateReplay) return currentOriginalIndices.Contains(originalIndex);
         if (recordDeadWallCount == 0) return true;
         int currentPosition = currentOriginalIndices != null ? currentOriginalIndices.IndexOf(originalIndex) : -1;

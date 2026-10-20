@@ -13,14 +13,18 @@ internal static class QingqueRuleBootstrap {
             LobbySubRules = QingqueLobby.SubRules,
             CreateRoomDefaults = QingqueLobby.Defaults(),
             DefaultHepaiLimit = 1,
+            PeekAnkan = true,
             StatsFanNames = RankConfig.QingqueFanTranslation,
             GameStateFactory = () => new QingqueGameState(),
             Tingpai = QingqueTips.Tingpai,
             DescribeWaitingTile = QingqueTips.Describe,
             FanValueText = QingqueFanText.FanValue,
+            PlaysGongHuSound = (rule, fans, score) => score > 18.5,
             SettlementTotal = QingqueFanText.SettlementTotal,
             ScoreboardFanText = QingqueFanText.ScoreboardFanText,
+            ScoreboardMainFanRank = QingqueFanText.ScoreboardMainFanRank,
             RoundName = RoundTextDictionary.WindNumberRoundName,
+            MaxRoundInfoText = info => info.unlimited_rounds ? "无固定时限" : RoundTextDictionary.GetMaxRoundText(info.max_round),
         });
     }
 }

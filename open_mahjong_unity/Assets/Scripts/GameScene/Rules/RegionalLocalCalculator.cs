@@ -44,6 +44,7 @@ internal static partial class RegionalLocalCalculator {
         if(rule=="hongkong")return new HongKongLocal(melds,c).Waiting(hand);
         if(rule=="shenyang")return ShenyangWaiting(hand,melds,false);
         if(rule=="nanchang")return new NanchangLocal(melds,c).Waiting(hand);
+        if(rule=="shangrao")return new ShangraoLocal(melds,c).Waiting(hand);
         if(rule=="wuhan")return WuhanWaiting(hand,melds,c);
         if(rule=="guangdong")return GuangdongBaseHints.Waiting(hand,melds).OrderBy(t=>t).ToArray();
         var h=Prepare(rule,hand,melds,c,false);if(h==null)return System.Array.Empty<int>();
@@ -110,6 +111,7 @@ internal static partial class RegionalLocalCalculator {
         switch(rule) {
             case "changsha_exchange_six":return JObject.FromObject(ChangshaExchangeSixTips.ComputeRow(hand,melds,win,c));
             case "nanchang":return new NanchangLocal(melds,c).Describe(hand,win,cut);
+            case "shangrao":return new ShangraoLocal(melds,c).Describe(hand,win,cut);
             case "hongkong":return new HongKongLocal(melds,c).Describe(hand,win);
             case "shenyang":return ShenyangDescribe(hand,melds,win,c,cut);
             case "wuhan":return WuhanDescribe(hand,melds,win,c);
@@ -157,13 +159,14 @@ internal static partial class RegionalLocalCalculator {
         result["source_hand_tiles"]=new JArray(hand);result["source_melds"]=new JArray(melds);result["waiting_tiles"]=new JArray();result["waiting_details"]=new JObject();result["waiting_by_discard"]=new JObject();result["waiting_details_by_discard"]=new JObject();
         result["win_blocked"]=Bool(c,"blocked");
         var nanchang=rule=="nanchang"?new NanchangLocal(melds,c):null;
+        var shangrao=rule=="shangrao"?new ShangraoLocal(melds,c):null;
         var hongkong=rule=="hongkong"?new HongKongLocal(melds,c):null;
         IEnumerable<int> Rows(List<int> before,int? cut) {
-            var waits=nanchang?.Waiting(before)??hongkong?.Waiting(before)??Waiting(rule,before,melds,c);
+            var waits=shangrao?.Waiting(before)??nanchang?.Waiting(before)??hongkong?.Waiting(before)??Waiting(rule,before,melds,c);
             yield return 0;
             var details=new JObject();
             foreach(int tile in waits) {
-                var row=nanchang?.Describe(before.Concat(new[]{tile}).ToList(),tile,cut)??hongkong?.Describe(before.Concat(new[]{tile}).ToList(),tile)??Describe(rule,before.Concat(new[]{tile}).ToList(),melds,tile,c,cut);
+                var row=shangrao?.Describe(before.Concat(new[]{tile}).ToList(),tile,cut)??nanchang?.Describe(before.Concat(new[]{tile}).ToList(),tile,cut)??hongkong?.Describe(before.Concat(new[]{tile}).ToList(),tile)??Describe(rule,before.Concat(new[]{tile}).ToList(),melds,tile,c,cut);
                 row["tile"]=tile;
                 details[tile.ToString()]=row;
                 yield return 0;

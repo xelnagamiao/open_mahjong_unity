@@ -57,13 +57,14 @@ def turn_actions(state, index, discard_only=False):
 
 
 def claim_actions(state, actor, tile, rob=False):
+    from ..public.ai.auto_cut_policy import is_auto_cut_bot
     actions = empty_actions()
     for index, p in enumerate(state.player_list):
         if index == actor:
             continue
         if state.can_win(index, "rob_kong" if rob else "discard", tile, payer=actor):
             actions[index].append("hu")
-            if not p.declared_ready and (rob or state.hot_discard):
+            if not is_auto_cut_bot(p) and not p.declared_ready and (rob or state.hot_discard):
                 continue  # VIII.6: mandatory win, even after passing a lower hand.
         if not rob and not p.declared_ready:
             count = p.hand_tiles.count(tile)

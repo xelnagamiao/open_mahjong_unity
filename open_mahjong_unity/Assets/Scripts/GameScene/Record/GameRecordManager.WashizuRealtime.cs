@@ -32,6 +32,7 @@ public partial class GameRecordManager {
         // A ron tile stays in the river; keep its hand display in the separate
         // winning slot so replay rendering borrows a presentation copy.
         order.Reconcile(player.tileList, player.showHandDrawSlotActive || player.hasRonWinningTile);
+        if (player.DrawSlotIsMerged) order.MergeDrawSlot();
         return order.Snapshot(currentRoundIndex, reveal);
     }
 

@@ -64,8 +64,10 @@ def _choose_hand_action(hand, combs, meld_count, visible, dingque, action_list):
                     if evaluate_hand(test, meld_count, visible) >= evaluate_hand(hand, meld_count, visible):
                         return "jiagang", tile
     if "cut" in actions and hand:
-        cut_hand = cut_candidate_hand(physical_hand, dingque)
-        tile, _ = find_best_cut(cut_hand, meld_count, visible)
+        # Dingque restricts candidates, not the hand being evaluated.
+        allowed = set(cut_candidate_hand(physical_hand, dingque))
+        forbidden = {normalize_tile(t) for t in physical_hand if t not in allowed}
+        tile, _ = find_best_cut(physical_hand, meld_count, visible, forbidden)
         return "cut", tile
     return "pass", None
 
@@ -146,8 +148,9 @@ async def smart_bot_action(game_state, player_index: int, action_list: list, gam
         current_player = game_state.player_list[player_index]
 
         if game_status in ("waiting_initial_hu", "waiting_sea_bottom"):
-            if "pass" in action_list and await _wait_until_actionable(game_state, player_index):
-                await submit_bot_action(get_ai_action, game_state, player_index, "pass", None, None, None, None)
+            action = next((a for a in ("initial_hu", "sea_bottom", "pass") if a in action_list), None)
+            if action and await _wait_until_actionable(game_state, player_index):
+                await submit_bot_action(get_ai_action, game_state, player_index, action, None, None, None, None)
             return
 
         if game_status == "waiting_hand_action":

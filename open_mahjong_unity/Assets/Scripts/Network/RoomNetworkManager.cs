@@ -353,6 +353,7 @@ public partial class RoomNetworkManager : MonoBehaviour {
                 sub_rule = config.SubRule ?? "qingque/standard",
                 roomname = config.RoomName,
                 gameround = config.GameRound,
+                unlimited_rounds = config.UnlimitedRounds,
                 roundTimerValue = config.RoundTimer,
                 stepTimerValue = config.StepTimer,
                 tips = config.Tips,

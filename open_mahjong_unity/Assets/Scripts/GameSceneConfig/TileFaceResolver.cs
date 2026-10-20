@@ -121,7 +121,7 @@ public static class TileFaceResolver {
         int faceId = ResolveFaceId(tileId, applyWhiteDragonFaceSetting);
         string packId = CurrentPackId();
         if (TilePackIds.IsBuiltinPack(packId)) {
-            Sprite builtin = Resources.Load<Sprite>(TilePackIds.BuiltinHandResource(packId, faceId));
+            Sprite builtin = BuiltinTileSprites.Hand(packId, faceId);
             if (builtin != null) {
                 return builtin;
             }
@@ -134,7 +134,7 @@ public static class TileFaceResolver {
         if (OfficialSpriteCache.TryGetValue(faceId, out Sprite cached) && cached != null) {
             return cached;
         }
-        Sprite official = Resources.Load<Sprite>(TilePackIds.BuiltinHandResource(TilePackIds.PackOfficial, faceId));
+        Sprite official = BuiltinTileSprites.Hand(TilePackIds.PackOfficial, faceId);
         if (official != null) {
             OfficialSpriteCache[faceId] = official;
         }
@@ -208,7 +208,7 @@ public static class TileFaceResolver {
         int faceId = ResolveFaceId(tileId, applyWhiteDragonFaceSetting);
         string packId = CurrentPackId();
         if (packId == TilePackIds.PackOfficial) {
-            return Resources.Load<Sprite>(TilePackIds.BuiltinTableResource(TilePackIds.PackOfficial, faceId));
+            return BuiltinTileSprites.OfficialTable(faceId);
         }
         if (TilePackIds.IsBuiltinLayeredPack(packId)) {
             Sprite builtin = Resources.Load<Sprite>(TilePackIds.BuiltinTableResource(packId, faceId));
@@ -231,7 +231,7 @@ public static class TileFaceResolver {
             return created;
         }
         // 缺失的桌面牌面仍回退桌面资源，不能把完整手牌牌体贴进 3D 预览。
-        return Resources.Load<Sprite>(TilePackIds.BuiltinTableResource(TilePackIds.PackOfficial, faceId));
+        return BuiltinTileSprites.OfficialTable(faceId);
     }
 
     public static bool ShouldLayerHandFace(int tileId) {
@@ -400,14 +400,15 @@ public static class TileFaceResolver {
     private static bool HasPackHandFace(int faceId) {
         string packId = CurrentPackId();
         if (TilePackIds.IsBuiltinPack(packId)) {
-            return Resources.Load<Sprite>(TilePackIds.BuiltinHandResource(packId, faceId)) != null;
+            return BuiltinTileSprites.Hand(packId, faceId) != null;
         }
         return CustomHandSprites.ContainsKey(faceId);
     }
 
     private static bool HasPackTableFace(int faceId) {
         string packId = CurrentPackId();
-        if (packId == TilePackIds.PackOfficial || TilePackIds.IsBuiltinLayeredPack(packId)) {
+        if (packId == TilePackIds.PackOfficial) return BuiltinTileSprites.OfficialTable(faceId) != null;
+        if (TilePackIds.IsBuiltinLayeredPack(packId)) {
             return Resources.Load<Texture2D>(TilePackIds.BuiltinTableResource(packId, faceId)) != null;
         }
         return CustomTableTextures.ContainsKey(faceId);

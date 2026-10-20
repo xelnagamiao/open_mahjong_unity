@@ -11,6 +11,7 @@ const ROOM_TYPE_LABELS = {
 const RULE_LABELS = {
   shenyang: '沈阳麻将',
   nanchang: '南昌麻将',
+  shangrao: '上饶麻将',
   wuhan: '武汉麻将',
   singapore: '新加坡麻将',
   jiujiang: '九江麻将',
@@ -25,6 +26,7 @@ const RULE_LABELS = {
 const SUB_RULE_LABELS = {
   'shenyang/mil2025': '沈阳麻将（MIL 2025）',
   'nanchang/mil2026': '南昌麻将（MIL 2026 四人单打）',
+  'shangrao/standard': '上饶麻将',
   'wuhan/mil2025': '武汉麻将（MIL 2025）',
   'singapore/spgg2024': '新加坡麻将',
   'jiujiang/standard': '九江麻将',

@@ -1,3 +1,4 @@
+from ..public.ai.auto_cut_policy import is_auto_cut_bot, choose_auto_cut_action
 from collections import Counter
 import time
 
@@ -14,6 +15,8 @@ def shanten(hand, meld_count):
 
 def choose_action(state,index,actions):
     p = state.player_list[index]
+    if is_auto_cut_bot(p):
+        return choose_auto_cut_action(p, actions, legal_cuts(state,index) if "cut" in actions else None)
     for action in ("hu_self","hu","buhua","ready"):
         if action in actions:
             return dict(action_type=action)

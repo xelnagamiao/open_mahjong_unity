@@ -1,5 +1,6 @@
 """A deterministic legal-action bot; never reads opponents' concealed tiles."""
 import time
+from ..public.ai.auto_cut_policy import is_auto_cut_bot, choose_auto_cut_action
 from collections import Counter
 from ...game_calculation.vietnamese.tiles import TILES,JOKERS,BONUS
 from ..public.ai.pacing import wait_bot_delay
@@ -7,6 +8,10 @@ from ..public.ai.pacing import wait_bot_delay
 
 def choose_action(state,index):
     offered=state.action_dict[index];p=state.player_list[index]
+    if is_auto_cut_bot(p):
+        if 'vn_replace' in offered and (state.opening_queue is not None or 'cut' not in offered):
+            return dict(action_type='vn_replace',target_tile=sum(1<<JOKERS.index(t) for t in state.replacement_candidates(index)))
+        return choose_auto_cut_action(p, offered, state.legal_discard_tiles(index) if 'cut' in offered else None)
     for action in ('hu_self','hu','hu_special','buhua'):
         if action in offered:return dict(action_type=action)
     if 'vn_replace' in offered and (state.opening_queue is not None or 'cut' not in offered):

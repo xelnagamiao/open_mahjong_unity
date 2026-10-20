@@ -32,6 +32,14 @@ public partial class GameCanvas {
         EnsureWashizuSelfSync();
     }
 
+    private void ConsolidateWashizuDrawSlot(bool preserveDrawSource) {
+        if (washizuSelfLayout == null || IsHandRecordPlayback()) return;
+        // A replacement's cached layout may still be waiting for its animation.
+        // Advance it at the same phase boundary as the rendered hand.
+        washizuSelfLayout.draw_pinned = false;
+        if (!preserveDrawSource) washizuSelfLayout.drawn_key = 0;
+    }
+
     private void ResetWashizuRealtimeHand() {
         if (washizuSelfSync != null) StopCoroutine(washizuSelfSync);
         washizuSelfSync = null;

@@ -7,7 +7,8 @@ internal static class QingqueRoomBuilder {
         var config = new Qingque_Create_RoomConfig {
             ClaimProtection = input.Defaults.ContainsKey(CreateRoomKeys.ClaimProtection) && input.ClaimProtection,
             RoomName = input.RoomName,
-            GameRound = input.GameRound,
+            GameRound = input.UnlimitedRounds ? 4 : input.GameRound,
+            UnlimitedRounds = input.UnlimitedRounds,
             Password = input.PasswordEnabled ? input.Password : "",
             RandomSeed = input.RandomSeedEnabled ? input.RandomSeed : "",
             Rule = "qingque",

@@ -10,6 +10,7 @@ public class SpectatorPrefab : MonoBehaviour {
     [SerializeField] private TextMeshProUGUI Player3NameText;
     [SerializeField] private TextMeshProUGUI Player4NameText;
     [SerializeField] private TextMeshProUGUI GamestateIdText;
+    [SerializeField] private TextMeshProUGUI RoundProgressText;
     [SerializeField] private Button SpectateButton;
     [SerializeField] private ColorStyle colorStyle;
     [SerializeField] private Image cardBackground;
@@ -50,6 +51,7 @@ public class SpectatorPrefab : MonoBehaviour {
             GamestateIdText.richText = false;
             GamestateIdText.text = $"游戏 ID  {info.gamestate_id}";
         }
+        if (RoundProgressText != null) RoundProgressText.text = SpectatorRoomPresentation.RoundProgress(info);
         ApplyColor(info);
         if (SpectateButton != null) SpectateButton.interactable = !string.IsNullOrWhiteSpace(info.gamestate_id);
         gamestate_id = info.gamestate_id;

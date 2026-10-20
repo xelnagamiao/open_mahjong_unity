@@ -224,6 +224,8 @@ class PlayerConnection:
         self.username: Optional[str] = None  # 用户名
         self.current_room_id: Optional[str] = None # 所在房间ID
         self.is_tourist: bool = False  # 是否为游客
+        self.release_version: Optional[int] = None  # 客户端兼容版本号
+        self.version_declaration: str = "unknown"  # 客户端自报的发行版声明，旧客户端可能未提供
 
 # 主服务器
 class GameServer:
@@ -359,8 +361,8 @@ class GameServer:
         return await self.room_manager.create_GB_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, open_cuohe, sub_rule, hepai_limit, tourist_limit, allow_spectator, tactical_call, claim_protection, cuohe_type, event_id, count_tips=count_tips, use_flowers=use_flowers, pointer_tips=pointer_tips, tian_di_ren_he=tian_di_ren_he, joker_multi_wait=joker_multi_wait, no_joker_bonus=no_joker_bonus, black_flower_progressive=black_flower_progressive)
 
     # 创建青雀房间
-    async def create_Qingque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "qingque/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, event_id=None, count_tips: bool = False, pointer_tips: bool = True) -> Response:
-        return await self.room_manager.create_Qingque_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, False, sub_rule, tourist_limit, allow_spectator, tactical_call, claim_protection, event_id, count_tips=count_tips, pointer_tips=pointer_tips)
+    async def create_Qingque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "qingque/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, event_id=None, count_tips: bool = False, pointer_tips: bool = True, unlimited_rounds: bool = False) -> Response:
+        return await self.room_manager.create_Qingque_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, False, sub_rule, tourist_limit, allow_spectator, tactical_call, claim_protection, event_id, count_tips=count_tips, pointer_tips=pointer_tips, unlimited_rounds=unlimited_rounds)
 
     # 创建长沙麻将房间
     async def create_Changsha_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "changsha/classic_double_bird", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, open_kong_replacement_count: int = 2, initial_hu_si_xi: bool = True, initial_hu_ban_ban_hu: bool = True, initial_hu_que_yi_se: bool = True, initial_hu_liu_liu_shun: bool = True, initial_hu_san_tong: bool = True, bird_count: int = 2, dealer_bird: bool = True, base_score_no_dealer: bool = False, small_hu_score: int = 2, big_hu_score: int = 8, event_id=None, count_tips: bool = False, pointer_tips: bool = True, small_hu_self_draw_only: bool = False, score_cap_type: str = "none", score_cap_value: int = 0, exchange_selection_seconds: int = 30) -> Response:
@@ -514,6 +516,13 @@ async def message_input(websocket: WebSocket, Connect_id: str):
 
             if message["type"] == "send_release_version":
                 release_version = message["release_version"]
+                declaration = message.get("version_declaration")
+                player = game_server.players[Connect_id]
+                player.release_version = release_version
+                player.version_declaration = (
+                    declaration.strip() or "unknown" if isinstance(declaration, str) else "unknown"
+                )
+                # 声明用于区分发行版，不作为真实性认证或额外的兼容性限制。
                 if release_version != Config.release_version:
                     from .response import MessageInfo
                     response = Response(
@@ -522,7 +531,12 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                         message="error_version",
                         message_info=MessageInfo(
                             title="版本检查失败",
-                            content="您的客户端版本与服务器版本不匹配，请更新客户端到最新版本后再试。"
+                            required_release_version=Config.release_version,
+                            content=(
+                                "您的客户端版本高于服务器版本，请等待服务器更新完毕后再试。"
+                                if release_version > Config.release_version
+                                else "您的客户端版本与服务器版本不匹配，请更新客户端到最新版本后再试。"
+                            )
                         )
                     )
                     await websocket.send_json(response.dict(exclude_none=True))

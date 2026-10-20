@@ -9,7 +9,8 @@ public sealed class PlayerInfoHandView : MonoBehaviour {
     [SerializeField, Min(1)] private float tileWidth = 40;
     [SerializeField, Min(0)] private float meldGap = 9;
     [SerializeField] private List<RawImage> faces = new List<RawImage>();
-    private readonly Dictionary<int, Texture2D> textures = new Dictionary<int, Texture2D>();
+    private readonly Dictionary<int, Sprite> sprites = new Dictionary<int, Sprite>();
+    private readonly Dictionary<RawImage, float> faceAspectRatios = new Dictionary<RawImage, float>();
     private readonly HashSet<int> groupStarts = new HashSet<int>();
     private readonly HashSet<int> faceDownTiles = new HashSet<int>();
     private Texture2D tileBack;
@@ -43,17 +44,22 @@ public sealed class PlayerInfoHandView : MonoBehaviour {
             bool faceDown = faceDownTiles.Contains(tileCount);
             var face = faces[tileCount++];
             face.transform.parent.gameObject.SetActive(true);
-            if (!textures.TryGetValue(id, out var texture)) {
-                texture = Resources.Load<Texture2D>(HongqueTileVisual.IsHongqueId(id)
-                    ? HongqueTileVisual.HandResourcePath(id) : $"image/Cards/Faces/official/hand/{id}");
-                textures[id] = texture;
+            if (!sprites.TryGetValue(id, out var sprite) || sprite == null) {
+                sprite = HongqueTileVisual.IsHongqueId(id)
+                    ? HongqueTileVisual.LoadSprite(id) : BuiltinTileSprites.Hand(TilePackIds.PackOfficial, id);
+                sprites[id] = sprite;
             }
-            face.texture = texture;
+            face.texture = sprite != null ? sprite.texture : null;
+            Vector4 uv = sprite != null ? UnityEngine.Sprites.DataUtility.GetOuterUV(sprite) : new Vector4(0, 0, 1, 1);
+            face.uvRect = Rect.MinMaxRect(uv.x, uv.y, uv.z, uv.w);
+            Vector4 padding = sprite != null ? UnityEngine.Sprites.DataUtility.GetPadding(sprite) : Vector4.zero;
+            Vector2 canvas = sprite != null ? sprite.rect.size : Vector2.one;
+            faceAspectRatios[face] = canvas.x / canvas.y;
             face.enabled = !faceDown;
             // Hand artwork and its backing share the same full-canvas registration.
-            // Insets from table artwork would shrink and offset the symbols a second time.
-            face.rectTransform.anchorMin = Vector2.zero;
-            face.rectTransform.anchorMax = Vector2.one;
+            // Atlas packing trims transparent borders; restore that space around the sampled region.
+            face.rectTransform.anchorMin = new Vector2(padding.x / canvas.x, padding.y / canvas.y);
+            face.rectTransform.anchorMax = new Vector2(1 - padding.z / canvas.x, 1 - padding.w / canvas.y);
             face.rectTransform.offsetMin = face.rectTransform.offsetMax = Vector2.zero;
             var background = face.transform.parent.GetComponent<RawImage>();
             if (faceDown && !tileBack) tileBack = Resources.Load<Texture2D>("image/Cards/Surfaces/backs/hand-default");
@@ -96,6 +102,7 @@ public sealed class PlayerInfoHandView : MonoBehaviour {
             var background = tile.GetComponent<RawImage>();
             var texture = background.enabled ? background.texture : faces[i].texture;
             float aspect = texture ? (float)texture.width / texture.height : 1 / heightRatio;
+            if (!background.enabled && faceAspectRatios.TryGetValue(faces[i], out float faceAspect)) aspect = faceAspect;
             float height = Mathf.Min(width * heightRatio, width / aspect);
             tile.sizeDelta = new Vector2(height * aspect, height);
             tile.anchoredPosition = new Vector2(x + (width - tile.rect.width) * .5f, 0);

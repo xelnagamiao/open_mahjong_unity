@@ -66,6 +66,7 @@ public static class RecordWaitHintCalculator {
         return result;
     }
 
+    /// <summary>只扣待计算玩家自己的手牌及其已知的公开牌；牌谱明牌展示不改变可见性。</summary>
     public static Dictionary<int, int> CountVisibleTiles(
         RecordTipsContext ctx, List<int> hand, int? pendingCut = null) {
         var counts = new Dictionary<int, int>();
@@ -99,10 +100,24 @@ public static class RecordWaitHintCalculator {
                 continue;
             }
             if (player?.CombinationTiles == null) continue;
-            foreach (string meld in player.CombinationTiles) {
+            for (int meldIndex = 0; meldIndex < player.CombinationTiles.Count; meldIndex++) {
+                string meld = player.CombinationTiles[meldIndex];
                 int[] explicitTiles = manifest?.VisibleMeldTiles?.Invoke(meld, entry.Key == "self");
                 if (explicitTiles != null) { foreach (int physicalTile in explicitTiles) Add(physicalTile); continue; }
                 if (string.IsNullOrEmpty(meld) || meld.Length < 2 || !int.TryParse(meld.Substring(1), out int tile)) continue;
+                if (meld[0] == 'G') {
+                    int[] mask = player.CombinationMasks != null && meldIndex < player.CombinationMasks.Count
+                        ? player.CombinationMasks[meldIndex] : null;
+                    bool known = entry.Key == "self" || manifest?.PeekAnkan == true;
+                    // 掩码保留实际规则的公开状态（如花杠），不读取回放的“显示手牌”开关。
+                    for (int j = 0; mask != null && j + 1 < mask.Length; j += 2)
+                        if (mask[j] != 2 && mask[j + 1] > 0) known = true;
+                    if (!known) continue;
+                    if (mask != null && mask.Length > 0) {
+                        for (int j = 1; j < mask.Length; j += 2) if (mask[j] > 0) Add(mask[j]);
+                        continue;
+                    }
+                }
                 switch (char.ToLowerInvariant(meld[0])) {
                     case 's': Add(tile - 1); Add(tile); Add(tile + 1); break;
                     case 'k': Add(tile); Add(tile); Add(tile); break;

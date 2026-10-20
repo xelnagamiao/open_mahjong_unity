@@ -161,6 +161,7 @@ public partial class Game3DManager {
         Transform showCards = panel.ShowCardsPosition;
         if (!TryGetRecordShowHandLayout(playerPosition, out Vector3 direction, out Quaternion rotation)) yield break;
 
+        HandDrawReflow reflow = PrepareHandDrawReflow(playerPosition, showCards, direction);
         Vector3? drawPosition = ComputeRecordShowDrawSlotPosition(showCards, direction, rotation);
         Vector3 spawnPosition = drawPosition ?? PlaceTileOnTable(HandRowOrigin(showCards, direction), rotation);
 
@@ -176,6 +177,7 @@ public partial class Game3DManager {
 
         Card3DHoverManager.Instance.RegisterCard(cardObj, tileId);
 
+        StartHandDrawReflow(playerPosition, reflow);
         yield return null;
     }
 
@@ -196,11 +198,11 @@ public partial class Game3DManager {
     /// <summary>
     /// 出牌/手补/鸣牌后：摸牌张归并进主列，全体按 tileId 排序并动画归位（对齐对局 RearrangeHandCardsWithAnimation）。
     /// </summary>
-    private IEnumerator RearrangeRecordShowMergeAllWithAnimation(Transform showCardsPosition, string playerPosition) {
+    private IEnumerator RearrangeRecordShowMergeAllWithAnimation(Transform showCardsPosition, string playerPosition, bool preserveDrawSource = false) {
         if (showCardsPosition == null || showCardsPosition.childCount == 0) yield break;
         if (!TryGetRecordShowHandLayout(playerPosition, out Vector3 direction, out Quaternion rotation)) yield break;
 
-        ClearRecordPlayerDrawSlotState(playerPosition);
+        if (!preserveDrawSource) ClearRecordPlayerDrawSlotState(playerPosition);
 
         List<Transform> allCards = new List<Transform>();
         for (int i = 0; i < showCardsPosition.childCount; i++) {
@@ -232,6 +234,7 @@ public partial class Game3DManager {
     /// fromDrawSlot=true 表示摸切/摸补/摸杠，仅从摸牌区删除；false 表示手切/手补/手杠，从主列删除。
     /// </summary>
     private IEnumerator RemoveRecordShowHandCardCoroutine(Transform showCardsPosition, int tileId, bool fromDrawSlot, string playerPosition) {
+        StopHandDrawReflow(playerPosition, finish: true);
         if (showCardsPosition.childCount == 0) {
             yield break;
         }
@@ -294,6 +297,7 @@ public partial class Game3DManager {
     /// 牌谱展开模式：根据组合掩码从 ShowCardsPosition 中删除指定手牌（跳过 flag=1 河牌来源位）。
     /// </summary>
     private IEnumerator RemoveRecordShowHandCardsByMaskCoroutine(Transform showCardsPosition, int[] combinationMask, string playerPosition) {
+        StopHandDrawReflow(playerPosition, finish: true);
         if (showCardsPosition == null || combinationMask == null) yield break;
 
         List<int> tilesToRemove = new List<int>();

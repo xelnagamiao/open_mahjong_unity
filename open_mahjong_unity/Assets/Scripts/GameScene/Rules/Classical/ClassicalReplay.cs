@@ -139,9 +139,9 @@ public partial class GameRecordManager {
                 List<string> huTick = PeekFollowingHuTick();
                 int[] hepaiPlayerHand = huTick != null
                     ? RecordHuHandBuilder.BuildDisplayHandFromTick(
-                        huTick, recordRule, huPlayer.tileList, huClass, lastWinnableTileId)
+                        huTick, recordRule, huPlayer.tileList, huClass, lastWinnableTileId, huPlayer.hasRonWinningTile)
                     : RecordHuHandBuilder.BuildDisplayHand(
-                        huPlayer.tileList, huClass, 0, lastWinnableTileId, recordRule);
+                        huPlayer.tileList, huClass, 0, lastWinnableTileId, huPlayer.hasRonWinningTile);
                 yield return CoAnnounceRecordHuAndReveal(huClass, huFan, huPosition, hepaiPlayerHand);
             }
 

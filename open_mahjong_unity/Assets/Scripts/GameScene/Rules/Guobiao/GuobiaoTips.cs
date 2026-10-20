@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Profiling;
 
-/// <summary>国标听牌与和牌张提示：按子规则选番表，未起和时改按自摸重算。</summary>
+/// <summary>国标听牌与和牌张提示：按子规则选番表，分别判定点和与自摸资格。</summary>
 internal static class GuobiaoTips {
     private const int CacheCapacity = 128;
     private static readonly Dictionary<string, int[]> WaitingCache = new Dictionary<string, int[]>();
@@ -114,11 +114,12 @@ internal static class GuobiaoTips {
         // The calculators append derived wind conditions. Keep the caller's query and cache key stable.
         var ronWay = new List<string>(q.MergedWay);
         Tuple<int, List<string>> ron = Check(q.SubRule, q.HandWithWin, q.Melds, ronWay, q.HepaiTile);
-        if (ron.Item1 - q.HuapaiCount >= q.HepaiLimit) {
-            return WaitTileHint.Ron($"{ron.Item1}番");
-        }
         Tuple<int, List<string>> zimo = Check(q.SubRule, q.HandWithWin, q.Melds, q.BuildZimoWay(), q.HepaiTile);
-        return zimo.Item1 - q.HuapaiCount >= q.HepaiLimit
+        bool canZimo = zimo.Item1 - q.HuapaiCount >= q.HepaiLimit;
+        if (ron.Item1 - q.HuapaiCount >= q.HepaiLimit) {
+            return canZimo ? WaitTileHint.Ron($"{ron.Item1}番") : WaitTileHint.RonOnly();
+        }
+        return canZimo
             ? WaitTileHint.TsumoOnly("仅自摸")
             : WaitTileHint.None("未起和");
     }

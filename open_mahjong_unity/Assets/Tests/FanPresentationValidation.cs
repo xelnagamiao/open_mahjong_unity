@@ -26,7 +26,7 @@ public static class FanPresentationValidation {
         try {
             foreach (string locale in new[] {"zh-CN", "en-US", "de-DE", "fr-FR"}) {
                 CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(locale);
-                foreach (double fan in new[] {1, 3.60616, 8.01904, 8.93625}) {
+                foreach (double fan in new[] {1, 3.60616, 8.01904, 8.93625, 18.49999, 18.5, 18.50001}) {
                     int baseScore = (int)Math.Round(fan * fan);
                     string fanText = fan.ToString("0.#####", CultureInfo.InvariantCulture) + "番";
                     foreach (string huClass in new[] {"hu_self", "hu_first", "hu_second", "hu_third"}) {
@@ -44,6 +44,8 @@ public static class FanPresentationValidation {
                         var info = JsonConvert.DeserializeObject<ShowResultInfo>(infoJson);
                         var envelope = envelopeProbe.Read(info);
                         Check(info.hu_score == fan && envelope.HuScore == fan, locale + " network precision");
+                        Check(FanTextDictionary.ShouldPlayGongHuSound("qingque/standard", fans, envelope.HuScore) == (fan > 18.5),
+                            "live/realtime Qingque gong uses precise fan total");
                         Check(envelope.ScoreChanges[winner] == baseScore * 3, "integer payment is separate");
                         var live = ScoreHistorySettlementHelper.CreateFromShowResult("qingque/standard", huClass,
                             winner, "test", envelope.HuScore, fans, new[]{31,31}, Array.Empty<int[]>(), null, null, null, null);
@@ -64,6 +66,8 @@ public static class FanPresentationValidation {
                                 Check(rows.Count == 1, "one winner row");
                                 var snapshot = rows[0].snapshot;
                                 Check(snapshot.huScore == fan && snapshot.winnerScoreDelta == changes[winner], "record/observer fan and points");
+                                Check(FanTextDictionary.ShouldPlayGongHuSound("qingque/standard", fans, snapshot.huScore) == (fan > 18.5),
+                                    "record/observer Qingque gong uses precise fan total");
                                 Check(ScoreHistorySettlementHelper.BuildScoreSummaryText("qingque/standard", snapshot)
                                     == fanText + " +" + changes[winner] + "分", "record/observer scoreboard summary");
                                 var total = (SettlementTotalDisplay)totalMethod.Invoke(null, new object[]{
@@ -96,6 +100,16 @@ public static class FanPresentationValidation {
         Check(FanTextDictionary.ShouldPlayGongHuSound("hongque/v1.6",Array.Empty<string>(),30), "Hongque gong threshold");
         Check(!FanTextDictionary.ShouldPlayGongHuSound("guobiao/standard",new[]{"花牌*1"},64), "Guobiao gong excludes flowers");
 
+        foreach (string rule in new[] { "qingque", "qingque/standard" }) {
+            Check(!FanTextDictionary.ShouldPlayGongHuSound(rule, null, 18.5), "Qingque 18.5 is below gong threshold");
+            Check(FanTextDictionary.ShouldPlayGongHuSound(rule, null, 18.50001), "Qingque gong does not require a fan-name list");
+            int[] mask = GameRecordMeldCodec.BuildAngangMaskFromRemoved(new[] { 35, 35, 35, 35 }, rule);
+            Check(mask.SequenceEqual(new[] { 2, 35, 0, 35, 0, 35, 2, 35 }), "Qingque replay kong is back-face-face-back");
+            var group = SettlementMeldLayoutBuilder.Build(new[] { mask })[0];
+            Check(group.Select(tile => tile.FaceDown).SequenceEqual(new[] { true, false, false, true }),
+                "Qingque settlement kong is back-face-face-back");
+        }
+
         int subRules=0;
         foreach(var manifest in RuleRegistry.All) {
             foreach(string key in (manifest.LobbySubRules ?? Array.Empty<RuleLobbySubRule>()).Select(s=>s.Key)
@@ -109,7 +123,7 @@ public static class FanPresentationValidation {
                 Check(summary.EndsWith("+192分",StringComparison.Ordinal),key+" integer points unchanged");
             }
         }
-        return $"PASS: {checks} checks, {RuleRegistry.All.Count()} rule families, {subRules} subrules; 4 cultures × 4 fan totals × 4 win routes × 4 seat rotations × record/spectator.";
+        return $"PASS: {checks} checks, {RuleRegistry.All.Count()} rule families, {subRules} subrules; 4 cultures × 7 fan totals × 4 win routes × 4 seat rotations × record/spectator; Qingque gong boundary and concealed kongs.";
     }
 
     private static string RecordJson(JArray tick, int rotation, bool tsumo) {

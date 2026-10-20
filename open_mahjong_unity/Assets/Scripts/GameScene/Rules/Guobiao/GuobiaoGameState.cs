@@ -19,6 +19,10 @@ public partial class GuobiaoGameState : TurnBasedGameState {
     public GuobiaoEndResultExtras LastEndExtras { get; private set; }
 
     protected override void OnRoundStarted(GameInfo gameInfo) {
+        ResetOpeningFlowers();
+        PlayerInfo self = OpeningSelfPlayer(gameInfo);
+        Mirror.LastDealTileId = self?.has_draw_slot == true && self.hand_tiles?.Length > 0
+            ? self.hand_tiles[self.hand_tiles.Length - 1] : 0;
         cuohe.Clear();
         FourJokersTips.Accept(gameInfo.four_jokers_hints);
         RestoreBloodBattle(gameInfo);
@@ -45,6 +49,7 @@ public partial class GuobiaoGameState : TurnBasedGameState {
     }
 
     public override void OnSessionReset() {
+        ResetOpeningFlowers();
         cuohe.Clear();
         LastEndExtras = null;
         bloodPendingContinue = false;

@@ -31,6 +31,7 @@ from .game_nanjing import NanjingGameState
 from .game_fuzhou import FuzhouGameState
 from .game_wenzhou.WenzhouGameState import WenzhouGameState
 from .game_nanchang.NanchangGameState import NanchangGameState
+from .game_shangrao.ShangraoGameState import ShangraoGameState
 from .game_hongzhong.HongzhongGameState import HongzhongGameState
 from .game_jiujiang.JiujiangGameState import JiujiangGameState
 from .game_singapore.SingaporeGameState import SingaporeGameState
@@ -90,6 +91,7 @@ class GameStateManager:
         # 用户ID到游戏状态的映射（用于快速查找玩家所在的活跃游戏）
         self.user_id_to_game_state: Dict[int, Any] = {}
         self.room_id_to_NanchangGameState: Dict[str, NanchangGameState] = {}
+        self.room_id_to_ShangraoGameState: Dict[str, ShangraoGameState] = {}
         self.room_id_to_WuhanGameState: Dict[str, WuhanGameState] = {}
         self.room_id_to_ShenyangGameState: Dict[str, ShenyangGameState] = {}
         self.room_id_to_NanjingGameState: Dict[str, NanjingGameState] = {}
@@ -192,7 +194,7 @@ class GameStateManager:
             "shanghai": ShanghaiGameState, "hongque": HongqueGameState, "hongkong": HongKongGameState, "filipino": FilipinoGameState, "vietnamese": VietnameseGameState, "guangdong": TuidaoGameState,
             "shanxi": ShanxiGameState, "wuhan": WuhanGameState, "shenyang": ShenyangGameState,
             "changchun": ChangchunGameState,
-            "free": FreeGameState, "guizhou": GuizhouGameState, "yixing": YixingGameState, "nanjing": NanjingGameState, "fuzhou": FuzhouGameState, "wenzhou": WenzhouGameState, "nanchang": NanchangGameState, "hangzhou": HangzhouGameState, "hongzhong": HongzhongGameState, "jiujiang": JiujiangGameState, "singapore": SingaporeGameState, "malaysia": MalaysiaGameState,
+            "free": FreeGameState, "guizhou": GuizhouGameState, "yixing": YixingGameState, "nanjing": NanjingGameState, "fuzhou": FuzhouGameState, "wenzhou": WenzhouGameState, "nanchang": NanchangGameState, "shangrao": ShangraoGameState, "hangzhou": HangzhouGameState, "hongzhong": HongzhongGameState, "jiujiang": JiujiangGameState, "singapore": SingaporeGameState, "malaysia": MalaysiaGameState,
         }
         state_class = classes.get(room_data["room_rule"])
         if room_data["room_rule"] == "guangdong" and room_data.get("sub_rule") == "guangdong/mil2023":
@@ -495,7 +497,7 @@ class GameStateManager:
         获取所有正在进行的游戏的观战列表
         
         Returns:
-            观战信息列表，每个元素包含规则、玩家名称和gamestate_id
+            观战信息列表，每个元素包含规则、玩家名称、gamestate_id 和当前局次
         """
         from ..response import SpectatorInfo
         from .public.player_count import player_count_for_sub_rule
@@ -538,6 +540,16 @@ class GameStateManager:
                 teams = None
                 if is_team_sub_rule(sub_rule):
                     teams = [getattr(player, "team_id", -1) for player in game_state.player_list[:4]]
+                # 使用圈内局号而非含连庄的 round_index，与对局中的风位进度一致。
+                max_round = getattr(game_state, "max_round", None)
+                total_rounds = None
+                if getattr(game_state, "unlimited_rounds", False):
+                    total_rounds = 0
+                elif getattr(game_state, "duplicate_round_count", None) is not None:
+                    total_rounds = game_state.duplicate_round_count
+                elif max_round is not None and max_round > 0:
+                    # 虹雀的 max_round 已是副数；其他规则保存圈数，三麻每圈三副。
+                    total_rounds = max_round if rule == "hongque" else max_round * required_players
                 spectator_info = SpectatorInfo(
                     rule=rule,
                     sub_rule=sub_rule,
@@ -551,6 +563,8 @@ class GameStateManager:
                     match_queue_type=(getattr(game_state, "match_queue_type", None) or room.get("match_queue_type")) if ranked else None,
                     match_tier=(getattr(game_state, "match_tier", None) or room.get("match_tier")) if ranked else None,
                     team_by_player_index=teams,
+                    current_round=getattr(game_state, "current_round", None),
+                    total_rounds=total_rounds,
                 )
                 spectator_list.append(spectator_info)
         

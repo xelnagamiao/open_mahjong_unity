@@ -25,8 +25,9 @@ class FakeSocket:
         self.messages.append(message)
 
 
-def make_state(bot_seats=()):
-    ids = [seat if seat in bot_seats else 100 + seat for seat in range(4)]
+def make_state(bot_seats=(), *, dealt=True):
+    # These rule scenarios need bots that may win/claim. ID 0 is draw-discard only.
+    ids = [2 if seat in bot_seats else 100 + seat for seat in range(4)]
     connections = {uid: SimpleNamespace(user_id=uid, websocket=FakeSocket()) for uid in ids if uid > 10}
     server = SimpleNamespace(user_id_to_connection=connections,
                              players={f"conn-{seat}": connections[uid] for seat, uid in enumerate(ids) if uid > 10})
@@ -40,7 +41,8 @@ def make_state(bot_seats=()):
         player.original_player_index = seat
     state.game_record = {"game_round": {"round_index_1": {"action_ticks": []}}}
     state.round_random_seed = 2345
-    init_changsha_tiles(state)
+    if dealt:
+        init_changsha_tiles(state)
     # 规则测试跳过纯展示等待；展示顺序专项通过真实入口单独验证。
     state.exchange_six.wait_for_kong_display = AsyncMock()
     state.exchange_six.show_deal_dice = AsyncMock()
@@ -836,7 +838,7 @@ class ExchangeSixFlowTests(unittest.IsolatedAsyncioTestCase):
             await asyncio.gather(task, return_exceptions=True)
 
     async def test_full_four_round_loop_uses_fixed_mode_and_preserves_scores(self):
-        state = make_state(bot_seats=(0, 1, 2, 3))
+        state = make_state(bot_seats=(0, 1, 2, 3), dealt=False)
         state.game_server.gamestate_manager = SimpleNamespace(cleanup_game_state_complete=AsyncMock())
         state.db_manager = SimpleNamespace(store_changsha_game_record=lambda *args: "local-test-record")
         with patch("server.gamestate.game_changsha.ChangshaGameState.liuju_ready_wait_seconds", return_value=0), \
@@ -1542,7 +1544,7 @@ class ExchangeSixFlowTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any("付给" in label and "鸟乘" in label for label in final["hu_fan"]))
 
     async def test_audit_four_joy_draw_loop_sends_absolute_scores_without_double_count(self):
-        state = make_state(bot_seats=(0,1,2,3))
+        state = make_state(bot_seats=(0,1,2,3), dealt=False)
         state.game_server.gamestate_manager = SimpleNamespace(cleanup_game_state_complete=AsyncMock())
         state.db_manager = SimpleNamespace(store_changsha_game_record=lambda *args: "audit-record")
         captured = []

@@ -36,18 +36,20 @@ public static class RecordHuHandBuilder {
 
     /// <summary>
     /// 从 hu_* / hu_riichi tick 与推演手牌构建和牌展示数组。
+    /// 调用方必须明确告知荣和张是否已写入推演手牌，不能由张数或牌面推断。
     /// </summary>
     public static int[] BuildDisplayHandFromTick(
         List<string> tick,
         string rule,
         IReadOnlyList<int> closedHand,
         string huClass,
-        int lastWinnableTileId) {
+        int lastWinnableTileId,
+        bool hasRonWinningTile) {
         TryParseHepaiTile(tick, rule, out int hepaiTile);
         if (IsFlowerWin(tick, rule)) {
-            return BuildDisplayHand(closedHand, "hu_self", 0, 0, rule);
+            return BuildDisplayHand(closedHand, "hu_self", 0, 0, hasRonWinningTile: false);
         }
-        return BuildDisplayHand(closedHand, huClass, hepaiTile, lastWinnableTileId, rule);
+        return BuildDisplayHand(closedHand, huClass, hepaiTile, lastWinnableTileId, hasRonWinningTile);
     }
 
     /// <summary>和牌触发牌为花牌时，按花胡处理且不将触发花加入暗手。</summary>
@@ -60,52 +62,29 @@ public static class RecordHuHandBuilder {
     }
 
     /// <summary>
-    /// 构建和牌面板用手牌：荣和时按手牌结构在末尾追加和牌张。
+    /// 返回完整和牌展示快照，末项为和牌张，不修改输入。
+    /// 自摸的摸牌已在手牌末尾；荣和只在推演状态尚未接收时追加一次。
+    /// 变长牌组、空暗手及同牌复数均由这个显式状态处理，不依赖张数取模。
     /// </summary>
     public static int[] BuildDisplayHand(
         IReadOnlyList<int> closedHand,
         string huClass,
         int hepaiTile,
         int lastWinnableTileId,
-        string rule = null) {
-        if (closedHand == null || closedHand.Count == 0) return Array.Empty<int>();
+        bool hasRonWinningTile) {
+        if (closedHand == null) return Array.Empty<int>();
         int[] hand = new int[closedHand.Count];
         for (int i = 0; i < closedHand.Count; i++) hand[i] = closedHand[i];
 
-        if (huClass == "hu_self") return hand;
+        if (huClass == "hu_self" || hasRonWinningTile) return hand;
 
         int winTile = hepaiTile >= 10 ? hepaiTile : (lastWinnableTileId >= 10 ? lastWinnableTileId : 0);
-        if (winTile <= 10) return hand;
-
-        if (!NeedsRonTile(hand, rule)) {
-            return hand;
-        }
+        if (winTile < 10) return hand;
 
         int[] extended = new int[hand.Length + 1];
         Array.Copy(hand, extended, hand.Length);
         extended[hand.Length] = winTile;
         return extended;
-    }
-
-    /// <summary>
-    /// 荣和前暗手张数：标准麻将 3n+1（写入后 3n+2）；虹雀听牌 3n+2（写入后 3n）。
-    /// </summary>
-    public static bool NeedsRonTile(IReadOnlyList<int> hand) {
-        return NeedsRonTile(hand, null);
-    }
-
-    public static bool NeedsRonTile(IReadOnlyList<int> hand, string rule) {
-        if (hand == null) return false;
-        return IsHongqueHand(hand, rule) ? hand.Count % 3 == 2 : hand.Count % 3 == 1;
-    }
-
-    public static bool IsHongqueHand(IReadOnlyList<int> hand, string rule) {
-        if (RuleRegistry.Resolve(rule, rule)?.RuleId == HongqueGameState.RuleId) return true;
-        if (hand == null) return false;
-        for (int i = 0; i < hand.Count; i++) {
-            if (HongqueTileVisual.IsHongqueId(hand[i])) return true;
-        }
-        return false;
     }
 
     private static int ParseTickInt(IReadOnlyList<string> tick, int index) {

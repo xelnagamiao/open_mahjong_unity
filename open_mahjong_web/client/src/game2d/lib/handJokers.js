@@ -1,3 +1,4 @@
+import {shangraoInfoAt} from '../../utils/shangraoReplay.js'
 import { nanchangInfoAt } from '../../utils/nanchangReplay.js'
 import { fuzhouInfoAt } from '../../utils/fuzhouReplay.js'
 import { wenzhouInfoAt } from '../../utils/wenzhouReplay.js'
@@ -11,6 +12,7 @@ export function recordHandJokers(detail, round, node) {
   if (rule === 'guobiao' && subRule === 'guobiao/four_jokers') tiles = [59]
   else if (rule === 'guobiao' && subRule === 'guobiao/huahun') tiles = [51,52,53,54]
   else if (rule === 'fuzhou') tiles = [fuzhouInfoAt(round,node)?.gold_tile]
+  else if (rule === 'shangrao') tiles = [shangraoInfoAt(round,node)?.bao]
   else if (rule === 'malaysia') tiles = [81]
   else if (rule === 'hangzhou') tiles = [46]
   else if (rule === 'hongzhong') tiles = [45]

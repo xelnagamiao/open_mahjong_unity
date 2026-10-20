@@ -1,6 +1,7 @@
 """Public-information choices run outside the socket event loop."""
 
 import asyncio
+from ..public.ai.auto_cut_policy import is_auto_cut_bot, choose_auto_cut_action
 from collections import Counter
 from copy import copy
 from types import SimpleNamespace
@@ -19,6 +20,8 @@ def _connections(hand):
 
 def choose_action(state, index, actions):
     p = state.player_list[index]
+    if is_auto_cut_bot(p):
+        return choose_auto_cut_action(p, actions, legal_cuts(state, index) if "cut" in actions else None)
     for action in ("hu_self", "ready"):
         if action in actions:
             return dict(action_type=action)

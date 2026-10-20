@@ -205,7 +205,7 @@ function fillFanByTier(rawByTier) {
 async function querySceneTotalsFans({ asOfDate, tier, rule, eventId } = {}) {
   const def = statisticsSelection(rule || "guobiao");
   if (!def?.fan_stats) return {};
-  const fanKeys = Object.keys(INFO_FAN_DICT[def.fan_key] || {});
+  const fanKeys = Object.keys(INFO_FAN_DICT[def.sub_rule] || {});
   const where = [];
   const params = [];
   if (isEventScope(eventId)) {

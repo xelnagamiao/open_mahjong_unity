@@ -130,7 +130,8 @@
           class="chip"
           :class="{ selected: length === null }"
           @click="selectLength(null)"
-        >全部局制</button>
+          v-if="currentRuleDef?.fanField"
+        >番数总计</button>
         <button
           v-for="l in LENGTH_OPTIONS"
           :key="l.value"
@@ -374,7 +375,7 @@ import { avg, buildPlayerStatsRows, dateRangeToQueryParams, rankRatePieLabel, ra
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import playerApi, { getPlayerToken } from '@/api/playerClient'
 import { tr } from '@/i18n'
-import { GUOBIAO_FAN_VALUES, listGuobiaoFanEntries } from '@/constants/guobiaoFanDict'
+import { GUOBIAO_FAN_VALUES } from '@/constants/guobiaoFanDict'
 import { getLocalRecordIdSet, putLocalRecords } from '../utils/recordLocalStore'
 import { confirmRecordDownload } from '../utils/recordDownloadConfirm'
 import { getPromotionProgress } from '@/constants/rankTable'
@@ -403,7 +404,7 @@ const downloadQuotaTip = computed(() => {
 
 const RULE_DEFS = STATISTICS_RULES.map(row => ({ key: row.key, label: row.stats_name,
   sourceRule: row.rule, subRule: row.sub_rule, standard: row.standard,
-  fanField: row.fan_stats ? row.fan_key : null, playerCount: row.player_count,
+  fanField: row.fan_stats ? row.sub_rule : null, playerCount: row.player_count,
   matchmaking: row.matchmaking }))
 
 const SCENE_OPTIONS = [
@@ -422,7 +423,7 @@ const LENGTH_OPTIONS = computed(() => {
   const custom = ['custom', 'events'].includes(scene.value)
   const historical = custom ? [] : (def?.historical_ranked_modes || [])
   const modes = custom ? def?.custom_modes : [...(def?.ranked_modes || []), ...historical]
-  return [...new Set((modes || []).map(mode => mode.split('/')[0]))].reverse().map(value => ({
+  return [...new Set((modes || []).map(mode => mode.split('/')[0]))].sort((a, b) => Number(b) - Number(a)).map(value => ({
     value,
     label: def?.rule === 'hongque' ? `${value}局` : def?.rule === 'changsha' ? `${Number(value) * 4}局`
       : (({4:'全庄战',3:'东西战',2:'半庄战',1:'东风战'})[value] || `[${value}/4]`)
@@ -488,7 +489,7 @@ const ptProgressTitle = computed(() => {
 
 const currentRule = ref('guobiao')
 const scene = ref('rank')
-const length = ref(null)
+const length = ref('4')
 const selectedEventId = ref(null)
 const eventOptions = ref([])
 const dateRange = ref(null)
@@ -601,8 +602,9 @@ const rankStatsForFilter = computed(() => rankStatsCache.value[filterKey.value] 
 const activeStats = computed(() => rankStatsForFilter.value)
 
 const detailedStatsAvailable = computed(() => activeStats.value?.details_available === true)
-const needsLocalAnalysis = computed(() => !!activeStats.value && !detailedStatsAvailable.value)
-const showStatsTable = computed(() => !!activeStats.value)
+const needsLocalAnalysis = computed(() => length.value != null && !!activeStats.value && !detailedStatsAvailable.value)
+// General statistics belong to one length; only fan achievements have a total view.
+const showStatsTable = computed(() => length.value != null && !!activeStats.value)
 
 const statsDisplay = computed(() => {
   if (!activeStats.value) return []
@@ -701,21 +703,17 @@ const fanEntries = computed(() => {
         ? `${count} 枚 · ${avg(count, wins)} 枚/和牌` : `${count} · ${ratio(count, wins)}`,
     }
   }
-  if (currentRule.value === 'guobiao') {
-    return listGuobiaoFanEntries()
-      .map((item) => toRow(item.key, item.name, item.value || GUOBIAO_FAN_VALUES[item.key] || 0))
-      .sort((a, b) => b.count - a.count || a.pts - b.pts || a.name.localeCompare(b.name, 'zh-CN'))
-  }
   const d = currentFanDict.value || {}
+  const guobiao = currentRuleDef.value?.sourceRule === 'guobiao'
   return [...new Set([...Object.keys(d), ...Object.keys(counts)])]
-    .map(key => toRow(key, d[key] || key, 0))
-    .sort((a, b) => b.count - a.count || String(a.name).localeCompare(String(b.name), 'zh-CN'))
+    .map(key => toRow(key, d[key] || key, guobiao ? GUOBIAO_FAN_VALUES[key] || 0 : 0))
+    .sort((a, b) => b.count - a.count || a.pts - b.pts || String(a.name).localeCompare(String(b.name), 'zh-CN'))
 })
 
 const switchRule = (rule) => {
   currentRule.value = rule
-  length.value = ''
   if (!currentRuleDef.value?.matchmaking && !['custom', 'events'].includes(scene.value)) scene.value = 'custom'
+  length.value = LENGTH_OPTIONS.value[0]?.value ?? null
   rankStatsCache.value = {}
   scopeCountsFromApi.value = null
   onFilterChange()
@@ -723,7 +721,8 @@ const switchRule = (rule) => {
 
 const selectScene = (s) => {
   scene.value = s
-  if (!LENGTH_OPTIONS.value.some(option => option.value === length.value)) length.value = ''
+  if (!LENGTH_OPTIONS.value.some(option => option.value === length.value))
+    length.value = currentRuleDef.value?.fanField && length.value === null ? null : LENGTH_OPTIONS.value[0]?.value ?? null
   if (s === 'events') loadEventOptions()
   else selectedEventId.value = null
   onFilterChange()
@@ -1191,8 +1190,8 @@ const searchPlayer = async (rawKey, isManual = true) => {
       playerInfo.value = infoResp.data.data
       const defaultRule = RULE_DEFS.find(d => (playerInfo.value.stats_by_rule?.[d.key] || []).length > 0)
       currentRule.value = defaultRule ? defaultRule.key : 'guobiao'
-      scene.value = defaultRule?.recordsOnly ? 'custom' : 'rank'
-      length.value = null
+      scene.value = defaultRule?.matchmaking ? 'rank' : 'custom'
+      length.value = LENGTH_OPTIONS.value[0]?.value ?? null
       selectedEventId.value = null
       dateRange.value = null
       page.current = 1
@@ -1244,7 +1243,7 @@ const resetForm = () => {
   searched.value = false
   currentRule.value = 'guobiao'
   scene.value = 'rank'
-  length.value = null
+  length.value = LENGTH_OPTIONS.value[0]?.value ?? null
   selectedEventId.value = null
   dateRange.value = null
   rankStatsCache.value = {}

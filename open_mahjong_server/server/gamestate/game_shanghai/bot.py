@@ -1,10 +1,22 @@
 """敲麻机器人：合法报听、锁手与食替约束下使用公共牌效计算。"""
 from ..public.ai.pacing import paced_bot, submit_bot_action
 from ..public.ai.smart_bot_ai import smart_bot_action, _wait_until_actionable, _BOT_DELAY
-from ..public.ai.smart_bot_logic import find_best_cut, count_visible_tiles
+from ..public.ai.smart_bot_logic import find_best_cut, find_best_cut_score, evaluate_hand, count_visible_tiles
 from ..public.ai.bot_executor import run_room_bot_cpu, bot_action_is_current
 from ..public.ai.get_action import get_ai_action
 from ..public.hand_slot_utils import has_draw_slot, infer_bot_cut_class
+
+
+def choose_kong(hand, melds, visible, candidates, forbidden):
+    baseline = find_best_cut_score(hand, len(melds), visible, forbidden)
+    for action, tile in candidates:
+        rest = list(hand)
+        for _ in range(4 if action == "angang" else 1):
+            rest.remove(tile)
+        count = len(melds) + (action == "angang")
+        if evaluate_hand(rest, count, visible) >= baseline:
+            return action, tile
+    return None
 
 
 @paced_bot(lambda: _BOT_DELAY)
@@ -48,8 +60,31 @@ async def shanghai_smart_bot_action(state, index, actions, status):
             infer_bot_cut_class(hand, tile, cut_index, draw_slot=has_draw_slot(player)) if action == "cut" else None,
             tile if action == "cut" else None, cut_index, tile if action != "cut" else None)
         return
-    candidates = player.riichi_candidate_cuts
     forbidden = set(player.kuikae_forbidden_tiles)
+    kongs = []
+    for kong_action, kind in (("angang", "G"), ("jiagang", "added")):
+        if kong_action not in actions:
+            continue
+        for candidate in sorted(set(hand)):
+            if kong_action == "angang" and hand.count(candidate) != 4:
+                continue
+            if kong_action == "jiagang" and f"k{candidate}" not in player.combination_tiles:
+                continue
+            allowed = getattr(state, "_kong_allowed", None)
+            if callable(allowed) and not allowed(index, candidate, kind):
+                continue
+            if player.ready_locked and not state._kong_preserves_waits(index, candidate, kind):
+                continue
+            kongs.append((kong_action, candidate))
+    if kongs:
+        kong = await run_room_bot_cpu(state, choose_kong, hand, list(player.combination_tiles),
+                                     count_visible_tiles(state), kongs, forbidden)
+        if not bot_action_is_current(state, index, tick):
+            return
+        if kong:
+            await submit_bot_action(get_ai_action, state, index, kong[0], None, None, None, kong[1])
+            return
+    candidates = player.riichi_candidate_cuts
     action = "cut"
     if "riichi_cut" in actions and candidates:
         forbidden.update(set(hand) - set(candidates))

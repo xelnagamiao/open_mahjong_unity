@@ -36,7 +36,6 @@ public sealed class HongqueGameState : GameStateBase {
     private bool tableInitialized;
     private int displayedRound = -1;
     private int lastProcessedEventId;
-    private bool selfHasUnmergedDraw;
     private bool gameEndShown;
     private Coroutine multiRonSequence;
     private string lastActionUiKey;
@@ -122,7 +121,6 @@ public sealed class HongqueGameState : GameStateBase {
         tableInitialized = false;
         displayedRound = -1;
         lastProcessedEventId = 0;
-        selfHasUnmergedDraw = false;
         gameEndShown = false;
         lastActionUiKey = null;
         lastTipsUiKey = null;
@@ -163,7 +161,6 @@ public sealed class HongqueGameState : GameStateBase {
         HongqueStateInfo previousState = state;
         if (newMatch) {
             lastProcessedEventId = 0;
-            selfHasUnmergedDraw = false;
             gameEndShown = false;
             lastActionUiKey = null;
             lastTipsUiKey = null;
@@ -194,7 +191,6 @@ public sealed class HongqueGameState : GameStateBase {
             NormalGameStateManager.Instance.InitializeGame(true, state.message, tableState);
             tableInitialized = true;
             displayedRound = state.round;
-            selfHasUnmergedDraw = false;
             if (openingDraw != null) {
                 ApplyIncrementalEvent(openingDraw);
             }
@@ -484,11 +480,6 @@ public sealed class HongqueGameState : GameStateBase {
         if (actionEvent.type == "draw" || actionEvent.type == "supplement") {
             bool isSupplement = actionEvent.type == "supplement";
             int tileId = string.IsNullOrEmpty(actionEvent.tile) ? 0 : HongqueTileVisual.FromCode(actionEvent.tile);
-            if (actionEvent.player == state.you && selfHasUnmergedDraw) {
-                // 补牌可以在同一回合连续发生。先把上一张摸牌收进主列，随后
-                // deal_tile 才能把新牌放到唯一的最右摸牌位；两步均走原手牌队列。
-                GameCanvas.Instance.ChangeHandCards("ReSetHandCards", 0, null, null);
-            }
             if (isSupplement && gsm.indexToPosition.TryGetValue(actionEvent.player, out string supplementPosition)) {
                 // 补牌不移出花牌：使用专属报声，再由静音的补牌摸牌动作加入新张。
                 GameCanvas.Instance.ShowActionDisplay(supplementPosition, HongqueActionWords.Supplement, RuleId);
@@ -499,7 +490,6 @@ public sealed class HongqueGameState : GameStateBase {
                 new[] { isSupplement ? "deal_buhua_tile" : "deal_tile" },
                 actionEvent.player, null, null, null, null,
                 tileId, null, null, null, null, isSilent: isSupplement);
-            if (actionEvent.player == state.you) selfHasUnmergedDraw = true;
             return;
         }
         if (actionEvent.type == "discard") {
@@ -509,7 +499,6 @@ public sealed class HongqueGameState : GameStateBase {
             gsm.DoAction(
                 new[] { "cut" }, actionEvent.player, tileId, null, null, actionEvent.cut_class,
                 null, null, null, null, null, isSilent: false);
-            if (actionEvent.player == state.you) selfHasUnmergedDraw = false;
             return;
         }
 
@@ -541,7 +530,6 @@ public sealed class HongqueGameState : GameStateBase {
             null, null, null, meldMask, target,
             isSilent: rainbow || claimApplied, cut_from_player: actionEvent.from_player);
         NormalizeHongqueMeldMasks(actionEvent.player);
-        if (actionEvent.player == state.you) selfHasUnmergedDraw = false;
         if (rainbow && !claimApplied
                 && gsm.indexToPosition.TryGetValue(actionEvent.player, out string position)) {
             GameCanvas.Instance.ShowActionDisplay(position, HongqueActionWords.Rainbow, RuleId);
@@ -637,7 +625,6 @@ public sealed class HongqueGameState : GameStateBase {
         SoundManager.Instance.PlayActionSound(position, "gang");
         GameCanvas.Instance.ShowActionDisplay(position, "gang", "hongque");
         Game3DManager.Instance.RebuildPlayerMelds(position);
-        selfHasUnmergedDraw = false;
     }
 
     private static int[] ToVerticalMeldMask(int[] mask) {

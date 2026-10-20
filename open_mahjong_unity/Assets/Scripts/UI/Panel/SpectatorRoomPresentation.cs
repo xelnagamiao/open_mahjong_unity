@@ -7,6 +7,31 @@ public static class SpectatorRoomPresentation {
     public enum FormatFilter { All, Individual, Doubles }
     public static readonly string[] TierKeys = { "", "mcrpl", "advanced", "intermediate", "beginner", "elo" };
 
+    public static string RoundProgress(SpectatorInfo info) {
+        if (info?.current_round == null || info.current_round <= 0) return "—/—";
+        string total = !info.total_rounds.HasValue || info.total_rounds < 0 ? "—"
+            : info.total_rounds == 0 ? "不限" : info.total_rounds.Value.ToString();
+        string rule = !string.IsNullOrEmpty(info.sub_rule) ? info.sub_rule : info.rule ?? "";
+        // These families' general hooks read the active game. Use this row's explicit variant instead.
+        if (rule == "guobiao" || rule.StartsWith("guobiao/", StringComparison.Ordinal))
+            rule = rule == "guobiao/sanma" ? rule : "guobiao/standard";
+        else if (rule == "riichi" || rule.StartsWith("riichi/", StringComparison.Ordinal))
+            rule = rule == "riichi/sanma" ? rule : "riichi/standard";
+        string round = RoundTextDictionary.GetRoundName(rule, info.current_round.Value);
+        if (round.StartsWith("第", StringComparison.Ordinal))
+            return $"第{info.current_round.Value}/{total}{round[round.Length - 1]}";
+
+        if (round.EndsWith("局", StringComparison.Ordinal)) round = round.Substring(0, round.Length - 1);
+        string match = total;
+        if (info.total_rounds > 0) {
+            int players = MahjongPlayerCount.ForSubRule(rule);
+            match = info.total_rounds.Value % players == 0 &&
+                RoundTextDictionary.MaxRoundText.TryGetValue(info.total_rounds.Value / players, out string name)
+                ? name : $"{total}副";
+        }
+        return $"{round}/{match}";
+    }
+
     public static bool IsRanked(SpectatorInfo info) => info != null &&
         (string.Equals(info.room_type, "match", StringComparison.OrdinalIgnoreCase) ||
          string.IsNullOrEmpty(info.room_type) && !string.IsNullOrEmpty(info.match_queue_type));

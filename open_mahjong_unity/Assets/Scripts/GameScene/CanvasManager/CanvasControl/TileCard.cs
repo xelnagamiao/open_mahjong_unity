@@ -450,7 +450,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         // 鼠标移到/移出其它手牌都不改变提示（否则移开任意牌都会把立起牌的固定提示清掉）。
         if (!ShouldUseHandCutConfirm())
         {
-            TipsContainer.Instance.EndCutPreviewTips();
+            TipsContainer.Instance.EndCutPreviewTipsAfterPointerExit(eventData);
         }
         // 恢复所有3D卡牌
         Card3DHoverManager.Instance.OnCardExit();

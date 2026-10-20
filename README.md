@@ -139,6 +139,23 @@ open_mahjong_unity/
 - **网络**: WebSocket (Nativewebsocket)
 - **平台**: PC/Web/Android/iOS
 
+客户端发行版配置位于 `open_mahjong_unity/Assets/Scripts/Config/ConfigManager.cs`：
+
+- `releaseVersion = 30`：与 Python 配置 `Config.release_version` 比较的兼容版本号。
+- `clientVersion = "0.4.84.0"`：客户端详细版本字符串，当前不随校验请求发送，也不参与服务器版本校验。
+- `versionDeclaration = "offcial"`：发行版声明，官方默认值为 `offcial`；修改版应改为自己的标识，例如 `modified/my-fork`。
+
+WebSocket 连接建立后、账号登录前，Unity 发送以下版本校验消息：
+
+```json
+{"type":"send_release_version","release_version":30,"version_declaration":"offcial"}
+```
+
+服务端将版本号和声明保存在当前连接中，收到消息的日志也包含声明。旧客户端未提供声明、声明为空或不是字符串时记为 `unknown`。声明只作发行版识别，不验证客户端真实性，也不单独阻止修改版连接；兼容性仍由 `release_version` 判断。版本号相等时校验通过，不发送单独回包；不相等时发送 `message="error_version"` 并断开连接，弹窗标题为“版本检查失败”，正文按版本号高低区分：
+
+- 客户端版本高于服务器：“您的客户端版本高于服务器版本，请等待服务器更新完毕后再试。”
+- 客户端版本低于服务器：“您的客户端版本与服务器版本不匹配，请更新客户端到最新版本后再试。”
+
 ### 游戏服务器 (open_mahjong_server、open_mahjong_chat_server)
 
 - **框架**: FastAPI
@@ -186,4 +203,4 @@ open_mahjong_unity/
 
 以及游玩salasasa平台的所有玩家！
 
-*最后更新：2026年10月6日 dev ver 0.4.79.0*
+*最后更新：2026年10月20日 dev ver 0.4.84.0*

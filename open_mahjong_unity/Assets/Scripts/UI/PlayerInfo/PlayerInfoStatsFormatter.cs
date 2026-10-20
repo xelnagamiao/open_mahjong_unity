@@ -181,8 +181,9 @@ public static class PlayerInfoStatsFormatter {
         if (counts == null) { fields.Add(new KeyValuePair<string, string>("暂无数据", "")); return fields; }
         var manifest = RuleRegistry.Resolve(PlayerInfoRuleCatalog.SourceRule(rule));
         var seen = new HashSet<string>();
-        if (manifest?.StatsFanNames != null) {
-            foreach (var fan in manifest.StatsFanNames) {
+        var names = PlayerInfoRuleCatalog.FanNames(rule);
+        if (names != null) {
+            foreach (var fan in names) {
                 counts.TryGetValue(fan.Key, out int count);
                 fields.Add(new KeyValuePair<string, string>(fan.Value, count.ToString()));
                 seen.Add(fan.Key);

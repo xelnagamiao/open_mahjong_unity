@@ -31,7 +31,7 @@ public partial class CreatePanel {
         ChangshaInitialSanTongToggle, ChangshaDealerBirdToggle, ChangshaBaseScoreNoDealerToggle,
         WallWanToggle, WallTongToggle, WallSuoToggle, WallWindsToggle, WallDragonsToggle, WallFlowersToggle, YixingSevenPairsToggle, GuangdongMinimumScoreToggle
     };
-    private Toggle[] RoomRoundToggles => new[] { gameTime1Button, gameTime2Button, gameTime3Button, gameTime4Button };
+    private Toggle[] RoomRoundToggles => new[] { gameTime1Button, gameTime2Button, gameTime3Button, gameTime4Button, unlimitedRoundsToggle };
 
 
     private void BindFixedCreateControls() {

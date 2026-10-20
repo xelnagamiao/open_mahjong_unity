@@ -17,6 +17,7 @@ internal static class HongqueFanText {
     /// <summary>总计栏：底 + 累加番 + 点。</summary>
     public static SettlementTotalDisplay SettlementTotal(SettlementTotalQuery q) {
         return new SettlementTotalDisplay {
+            Layout = SettlementTotalDisplay.LayoutKind.FuFanScore,
             FuText = q.BaseFu.HasValue ? $"{q.BaseFu.Value}底" : null,
             FanText = $"{FanTotal(q.HuFan)}番",
             ScoreText = $"{q.HuScore}点",

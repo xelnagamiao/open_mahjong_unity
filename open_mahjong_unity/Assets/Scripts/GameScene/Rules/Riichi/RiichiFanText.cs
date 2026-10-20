@@ -90,13 +90,14 @@ internal static class RiichiFanText {
         return "0番";
     }
 
-    /// <summary>总计栏：符 + 番 + 点（浪涌带倍数）。无扩展时退回通用显示。</summary>
+    /// <summary>总计栏：番 + 符 + 点（浪涌带倍数）。无扩展时退回通用显示。</summary>
     public static SettlementTotalDisplay SettlementTotal(SettlementTotalQuery q) {
         RiichiEndResultExtras extras = q.ExtrasAs<RiichiEndResultExtras>();
         if (extras == null) return q.DefaultDisplay();
         return new SettlementTotalDisplay {
-            FuText = $"{extras.Fu}符",
+            Layout = SettlementTotalDisplay.LayoutKind.FanFuScore,
             FanText = $"{extras.Han}番",
+            FuText = $"{extras.Fu}符",
             ScoreText = extras.LangyongMultiplier > 1
                 ? $"{q.HuScore}点*{extras.LangyongMultiplier}"
                 : $"{q.HuScore}点",

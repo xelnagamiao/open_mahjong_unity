@@ -98,10 +98,8 @@ public sealed class ChangchunGameState : TurnBasedGameState {
         RefreshSelfStatusIndicators();
     }
     public override void RefreshSelfStatusIndicators() {
-        string text=Info?.bao_exhausted==true ? "无宝" : Info?.bao_visible==true ? (Info.bao_tile>0 ? "宝："+ChangchunRuleBootstrap.TileName(Info.bao_tile) : "未翻宝") : "宝牌未可见";
-        bool finalFour=Info?.window=="final_four";
-        if(finalFour) text+="\n末四张";
-        GameCanvas.Instance?.SetSelfStatusIndicator(GameCanvas.StatusSlotShunhe,true,$"<size={(finalFour ? 16 : 24)}>{text}</size>");
+        GameCanvas.Instance?.SetSelfBaoIndicator(Info?.bao_visible==true, Info?.bao_tile??0,
+            Info?.bao_exhausted==true, Info?.window=="final_four");
         if(Info?.tail_tiles!=null) ChangchunTailTiles.Render(Info.tail_tiles.ToDictionary(t=>(int)t["player"],t=>(int)t["tile"]),Mirror.IndexToPosition,revealedHands!=null);
     }
     protected override void OnDoAction(Response response) {

@@ -1,5 +1,10 @@
 {
-  "sim_client_version": 3,
+  "sim_client_version": 4,
+  "replay_hand_state": {
+    "ron_tile": "hasRonWinningTile records whether the replay state has appended the winning tile; never infer this from hand length or tile identity",
+    "changsha_multiple_ron": "replace the previously appended winning tile when the same player wins on another kong replacement tile",
+    "guobiao_opening_reset": "reset preserves draw source only for the first acting player; all visual draw slots merge into the hand"
+  },
   "local_hint_transport": {
     "calculation": "client",
     "regional_input": "local_request carries copied own hand, melds and scoring context; legacy precomputed replay rows remain readable",
@@ -312,6 +317,8 @@
     ]
   },
   "scope_notes": [
+    "opening_buhua_complete and has_draw_slot describe Unity presentation boundaries; the component simulator does not verify animation queues, merged draw-slot layout or elapsed presentation time.",
+    "Shangrao integration, unlimited-round UI, Android update prompts, spectator progress and settlement layout are outside the Guobiao component simulation; use their dedicated tests and Unity validation.",
     "rule identifies the interactive lab session default; component and record regressions cover the listed additional profiles.",
     "Dedicated opening selectors do not extend the common hand-action or other-action button allowlists.",
     "Settlement label formatting is verified in Unity using the active replay rule context; component-state simulations do not render these labels.",

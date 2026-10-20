@@ -21,6 +21,7 @@ internal static class VietnameseRuleBootstrap {
             RoundName=RoundTextDictionary.WindNumberRoundName,RoundStatusText=i=>RoundTextDictionary.WindNumberRoundName(i.current_round),
             RoundSupplementText=i=>"160张",DefaultHepaiLimit=0,
             FanNameText=(rule,label)=>VietnameseScoreText.Name(label),FanValueText=(rule,label)=>VietnameseScoreText.Value(label),
+            ScoreboardMainFanRank=(rule,label)=>VietnameseScoreText.ScoreboardRank(label),
             SettlementTotal=q=>new SettlementTotalDisplay{FanText=VietnameseScoreText.Amount(q.HuScore),ScoreText=q.WinnerPointDelta.HasValue?$"{q.WinnerPointDelta.Value:+#;-#;0}点":""},
             ScoreboardFanText=q=>VietnameseScoreText.Amount(q.HuScore),
             SettlementHasNoWinTile=labels=>labels!=null && labels.Contains("VN|safe_discard_declaration|0"),
@@ -98,4 +99,10 @@ internal static class VietnameseScoreText {
         return key.Replace('_',' ');
     }
     public static string Value(string label){var p=label?.Split('|');return p?.Length>=3 && p[1]!="safe_discard_declaration" && int.TryParse(p[2],out int n)?Amount(n):"";}
+    // 标签保存的仍是番；“满 + 番”只是显示换算，主番比较直接使用原值。
+    public static double ScoreboardRank(string label) {
+        var parts = label?.Split('|');
+        return parts?.Length >= 3 && parts[0] == "VN" && parts[1] != "safe_discard_declaration"
+            && int.TryParse(parts[2], out int value) ? value : 0;
+    }
 }

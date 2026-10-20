@@ -1,4 +1,5 @@
 import time
+from ..public.ai.auto_cut_policy import is_auto_cut_bot, choose_auto_cut_action
 from collections import Counter
 from ..public.ai.pacing import wait_bot_delay
 from ...game_calculation.nanchang import rules as book
@@ -7,6 +8,8 @@ from .actions import legal_cuts,kong_tiles
 
 def choose_action(state,index,actions):
     p = state.player_list[index]
+    if is_auto_cut_bot(p):
+        return choose_auto_cut_action(p, actions, legal_cuts(state,index) if "cut" in actions else None)
     for action in ("hu_self","hu","nc_jingdiao","ready","nc_draw"):
         if action in actions:
             return dict(action_type=action)

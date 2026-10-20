@@ -131,6 +131,9 @@ async def _dispatch_room_message(game_server, Connect_id: str, message: dict, we
     elif message_type in {"room/create_Hangzhou_room", "room/create_hangzhou_room"}:
         from .hangzhou_room import handle_create_hangzhou_room
         await handle_create_hangzhou_room(game_server, Connect_id, message, websocket)
+    elif message_type in {"room/create_Shangrao_room", "room/create_shangrao_room"}:
+        from .shangrao_room import handle_create_shangrao_room
+        await handle_create_shangrao_room(game_server, Connect_id, message, websocket)
     elif message_type in {"room/create_Nanchang_room", "room/create_nanchang_room"}:
         from .nanchang_room import handle_create_nanchang_room
         await handle_create_nanchang_room(game_server, Connect_id, message, websocket)
@@ -271,6 +274,7 @@ async def handle_create_Qingque_room(game_server, Connect_id: str, message: dict
         message.get("event_id"),
         count_tips=message.get("count_tips", False),
         pointer_tips=message.get("pointer_tips", True),
+        unlimited_rounds=message.get("unlimited_rounds", False),
     )
     await websocket.send_json(response.dict(exclude_none=True))
 

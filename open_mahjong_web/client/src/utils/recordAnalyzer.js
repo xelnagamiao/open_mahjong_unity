@@ -234,7 +234,7 @@ function analyzeOneRecord(record, userId, acc) {
   const roundKeys = Object.keys(gameRound).filter((k) => k.startsWith('round_index_'));
   const title = record.game_title || {};
   const sichuan = title.rule === 'sichuan';
-  const ownTurns = sichuan || ['zhongyong', 'jiandan', 'nanque', 'nanjing', 'nanchang', 'malaysia', 'fuzhou'].includes(title.rule);
+  const ownTurns = sichuan || ['zhongyong', 'jiandan', 'nanque', 'nanjing', 'nanchang', 'shangrao', 'malaysia', 'fuzhou'].includes(title.rule);
   const dealerTurns = isExchangeSix(title) || ['qingque', 'classical', 'shenyang', 'wuhan'].includes(title.rule);
   let winValues = 0;
   acc.total_games += 1;

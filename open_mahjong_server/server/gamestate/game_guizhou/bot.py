@@ -1,5 +1,6 @@
 """A public-information bot. Decisions are constrained by the human action list."""
 
+from ..public.ai.auto_cut_policy import is_auto_cut_bot, choose_auto_cut_action
 from collections import Counter
 import time
 
@@ -45,6 +46,8 @@ def pick_cut(state, index, hand=None, meld_count=None, legal=None):
 
 def choose_action(state, index, actions):
     p = state.player_list[index]
+    if is_auto_cut_bot(p):
+        return choose_auto_cut_action(p, actions, legal_cuts(state, index) if "cut" in actions else None)
     for action in ("hu_self", "hu", "baoting_initial", "ready", "guizhou_ready"):
         if action in actions:
             return dict(action_type=action)

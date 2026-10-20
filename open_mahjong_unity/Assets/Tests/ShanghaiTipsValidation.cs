@@ -147,9 +147,18 @@ public static class ShanghaiTipsValidation {
         Check("缺省牌谱番值维持旧清一色", ShanghaiHandCalculator.Score(new List<int> {11,12,13,12,13,14,15,16,17,19,19}, new List<string> {"s18"}, 1, false) == 8);
         Check("天敲默认关闭", manifest.CreateRoomDefaults[ShanghaiHandCalculator.EnableTianQiaoKey] is bool defaultTian && !defaultTian);
         var tianHand = new List<int>(plain) {44};
-        Check("天敲额外两番与门清叠加", ShanghaiHandCalculator.Score(tianHand, new List<string>(), 1, false, 1, false, true) == 16);
+        Check("天敲两番不复合门清", ShanghaiHandCalculator.Score(tianHand, new List<string>(), 1, false, 1, false, true) == 8);
         Check("天敲不改变缺省计分", ShanghaiHandCalculator.Score(tianHand, new List<string>(), 1, false) == 4);
-        Check("天敲无花按三番封顶", ShanghaiHandCalculator.Score(tianHand, new List<string>(), 0, false, 1, false, true) == 88);
+        Check("天敲无花仅计两番", ShanghaiHandCalculator.Score(tianHand, new List<string>(), 0, false, 1, false, true) == 44);
+        Check("天敲自摸不复合门清", ShanghaiHandCalculator.Score(tianHand, new List<string>(), 1, true, 1, false, true) == 8);
+        Check("天敲有花按两番计算", ShanghaiHandCalculator.Score(tianHand, new List<string>(), 3, false, 1, false, true) == 16);
+        var tianKongHand = new List<int> {21,22,23,31,32,33,17,18,19,44,44};
+        Check("天敲暗杠不恢复门清", ShanghaiHandCalculator.Score(tianKongHand, new List<string>{"G11"}, 1, false, 1, false, true) == 16);
+        Check("普通暗杠仍计门清", ShanghaiHandCalculator.Score(tianKongHand, new List<string>{"G11"}, 1, false, 1, false, false) == 8);
+        foreach (bool profile in new[] {false,true}) {
+            Check("天敲仍可复合混一色"+profile, ShanghaiHandCalculator.Score(new List<int>{11,12,13,12,13,14,15,16,17,17,18,19,44,44}, new List<string>(), 1, false, 1, profile, true) == 16);
+            Check("天敲仍可复合碰碰和"+profile, ShanghaiHandCalculator.Score(new List<int>{11,11,11,14,14,14,21,21,21,31,31,31,44,44}, new List<string>(), 1, false, 1, profile, true) == 16);
+        }
         foreach (var row in new[] {
             new {Name="首次出牌候选", Tags=new List<string>(), Discards=new List<int>(), Melds=new List<string>(), Qual=(string)null, Expected=true},
             new {Name="再次出牌", Tags=new List<string>(), Discards=new List<int>{15}, Melds=new List<string>(), Qual=(string)null, Expected=false},
@@ -172,7 +181,7 @@ public static class ShanghaiTipsValidation {
                 bool expected = enabled && row.Expected;
                 string suffix = row.Name + (enabled ? "开" : "关");
                 Check("天敲资格"+suffix, ShanghaiHandCalculator.CountsTianQiao(query) == expected);
-                Check("天敲实时与牌谱提示"+suffix, RuleTips.DescribeWaitingTile(manifest,query).Label == $"敲牌后 {(expected ? 16 : 4)}分");
+                Check("天敲实时与牌谱提示"+suffix, RuleTips.DescribeWaitingTile(manifest,query).Label == $"敲牌后 {(expected ? 8 : 4)}分");
             }
         }
         Check("天敲结算番值", manifest.FanNameText("shanghai/qiaoma","天敲（2番）") == "天敲"

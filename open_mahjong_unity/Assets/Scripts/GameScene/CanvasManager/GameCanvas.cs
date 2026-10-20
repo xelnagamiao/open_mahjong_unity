@@ -77,7 +77,7 @@ public partial class GameCanvas : MonoBehaviour {
     public Transform HandCardsContainer => handCardsContainer;
     public RectTransform HandCardsContainerRect => handCardsContainer as RectTransform;
     public bool IsChangeHandCardProcessing => isChangeHandCardProcessing;
-    public bool IsHandReflowAnimating => _handReflowAnimDepth > 0 || _freeDrawAnimation != null;
+    public bool IsHandReflowAnimating => _handReflowAnimDepth > 0 || _drawReflowAnimation != null;
     public void SetHandArranged(bool value) { isArranged = value; }
 
     private int _handReflowAnimDepth;
@@ -134,7 +134,7 @@ public partial class GameCanvas : MonoBehaviour {
     {
         CancelDingqueReveal();
         ClearXueliuExchangePresentation();
-        StopFreeDrawAnimation(finish: false);
+        StopDrawReflowAnimation(finish: false);
         _handLayoutAnimEpoch++;
         while (changeHandCardQueue.Count > 0) changeHandCardQueue.Dequeue();
         if (isChangeHandCardProcessing && _processChangeHandCardQueueCoroutine != null)
@@ -374,6 +374,7 @@ public partial class GameCanvas : MonoBehaviour {
         }
 
         GameInfo gameInfo = new GameInfo {
+            unlimited_rounds = ReadBoolValue(gameRecord.gameTitle, "unlimited_rounds", false),
             is_duplicate = ReadBoolValue(gameRecord.gameTitle, "is_duplicate", false),
             duplicate_round_count = ReadIntValue(gameRecord.gameTitle, "duplicate_round_count", 1),
             duplicate_wall_type = ReadStringValue(gameRecord.gameTitle, "duplicate_wall_type", ""),
@@ -504,9 +505,13 @@ public partial class GameCanvas : MonoBehaviour {
     public const string StatusSlotShunhe = "shunhe";
     public const string StatusSlotLangyongWave = "langyong_wave";
 
+    private static readonly Color StatusBlue = new Color32(50, 114, 191, 255);
+
     private struct StatusSlot {
         public GameObject Root;
         public TMP_Text Text;
+        public SelfStatusBanner Banner;
+        public Color Color;
     }
 
     private Dictionary<string, StatusSlot> statusSlots;
@@ -515,10 +520,19 @@ public partial class GameCanvas : MonoBehaviour {
         get {
             if (statusSlots == null) {
                 statusSlots = new Dictionary<string, StatusSlot> {
-                    { StatusSlotFuriten, new StatusSlot { Root = selfFuritenIndicator } },
-                    { StatusSlotShunhe, new StatusSlot { Root = selfShunheIndicator, Text = selfShunheText } },
-                    { StatusSlotLangyongWave, new StatusSlot { Root = langyongWaveIndicator } },
+                    { StatusSlotFuriten, new StatusSlot { Root = selfFuritenIndicator, Color = new Color32(190, 59, 67, 255) } },
+                    { StatusSlotShunhe, new StatusSlot { Root = selfShunheIndicator, Text = selfShunheText, Color = new Color32(151, 102, 28, 255) } },
+                    { StatusSlotLangyongWave, new StatusSlot { Root = langyongWaveIndicator, Color = StatusBlue } },
                 };
+                foreach (string name in new List<string>(statusSlots.Keys)) {
+                    StatusSlot slot = statusSlots[name];
+                    if (slot.Root == null) continue;
+                    slot.Banner = slot.Root.GetComponent<SelfStatusBanner>() ?? slot.Root.AddComponent<SelfStatusBanner>();
+                    slot.Banner.Initialize(slot.Text, StaticCardPrefab, slot.Color);
+                    statusSlots[name] = slot;
+                    var parent = slot.Root.transform.parent;
+                    if (parent.GetComponent<SelfStatusStack>() == null) parent.gameObject.AddComponent<SelfStatusStack>();
+                }
             }
             return statusSlots;
         }
@@ -527,15 +541,24 @@ public partial class GameCanvas : MonoBehaviour {
     /// <summary>收起全部状态标记。标签刷新 / 开局 / 退出时调用，之后由族按需再点亮。</summary>
     public void ClearSelfStatusIndicators() {
         foreach (StatusSlot slot in StatusSlots.Values) {
-            if (slot.Root != null) slot.Root.SetActive(false);
+            if (slot.Banner != null) slot.Banner.Hide();
         }
     }
 
     /// <summary>点亮 / 收起一个状态标记；text 非空时写入槽内文字。未配置的槽静默忽略。</summary>
-    public void SetSelfStatusIndicator(string slotName, bool visible, string text = null) {
-        if (!StatusSlots.TryGetValue(slotName, out StatusSlot slot) || slot.Root == null) return;
-        slot.Root.SetActive(visible);
-        if (visible && text != null && slot.Text != null) slot.Text.text = text;
+    public void SetSelfStatusIndicator(string slotName, bool visible, string text = null, int tileId = 0, Color? color = null) {
+        if (!StatusSlots.TryGetValue(slotName, out StatusSlot slot) || slot.Banner == null) return;
+        if (!visible) { slot.Banner.Hide(); return; }
+        slot.Banner.SetColor(color ?? slot.Color);
+        slot.Banner.SetContent(text, tileId);
+        slot.Root.SetActive(true);
+    }
+
+    /// <summary>Only an authorized private snapshot may provide the persistent bao tile.</summary>
+    public void SetSelfBaoIndicator(bool visible, int tile, bool exhausted, bool finalFour) {
+        string text = exhausted ? "无宝" : visible && tile > 0 ? "宝牌" : "";
+        if (finalFour) text += text.Length > 0 ? "\n末四张" : "末四张";
+        SetSelfStatusIndicator(StatusSlotShunhe, text.Length > 0, text, visible && !exhausted ? tile : 0, StatusBlue);
     }
 
     /// <summary>清空后让当前族重新点亮自己的标记（对局路径；牌谱路径只清空）。</summary>

@@ -70,6 +70,7 @@ def build_game_title_data(gs) -> Dict[str, Any]:
         "salt": gs.salt,
         # max_round: 风圈数（1=东风、2=半庄、4=全庄）
         "max_round": gs.max_round,
+        "unlimited_rounds": getattr(gs, "unlimited_rounds", False),
         # open_cuohe: 是否开启错和
         "open_cuohe": gs.open_cuohe,
         # tips: 是否开启提示

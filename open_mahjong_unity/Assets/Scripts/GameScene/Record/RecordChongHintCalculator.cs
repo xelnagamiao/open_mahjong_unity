@@ -74,7 +74,7 @@ public static class RecordChongHintCalculator {
     foreach (WaitHintQuery query in RecordWaitHintCalculator.BuildQueries(
       ctx, NormalizeHandForTingpai(player, roomRule, subRule), new List<int>(waiting))) {
       if ((manifest.RecordDangerQualification?.Invoke(query) ?? true)
-          && RuleTips.DescribeWaitingTile(manifest, query)?.Kind == WaitTileHint.KindRon) {
+          && RuleTips.DescribeWaitingTile(manifest, query)?.CanRon == true) {
         result.Add(TileIdOrder.Normalize(query.HepaiTile));
       }
     }

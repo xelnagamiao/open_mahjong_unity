@@ -87,6 +87,8 @@ public partial class NormalGameStateManager {
         GameSceneUIManager.ResetRealtimeSpectatorUi();
         // 重置自身命令
         TurnClock.Current.Clear("GameEnd");
+        UnlimitedRoundPanel.Instance?.ResetState();
+        ExitButtonManager.Instance?.HideAll();
         IsGameActive = false;
         PlayerSession.Current.SetGamestateId("");
         SwitchSeatPanel.Instance.ClearSwitchSeatPanel();

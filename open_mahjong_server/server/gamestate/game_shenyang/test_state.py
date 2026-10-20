@@ -17,6 +17,7 @@ def make_state():
     room=dict(room_id='123456',player_list=[10000101,10000102,10000103,10000104],round_timer=20,step_timer=5,
               game_round=1,tips=True,room_type='custom',allow_spectator=False)
     s=ShenyangGameState(server,room,None,None,'shenyang-test')
+    s.bot_speed='instant'  # Rule tests bypass the live manager's bot pacing setup.
     for i,p in enumerate(s.player_list):p.player_index=p.original_player_index=i
     s.tiles_list=list(b.TILES)
     init_game_record(s);init_game_round(s)

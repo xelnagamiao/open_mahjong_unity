@@ -71,6 +71,7 @@ const TAG_MAP = {
   wuhan: ['wuhan', '武汉麻将'],
   kawuxing: ['kawuxing', '卡五星', '掐五星'],
   nanchang: ['nanchang', '南昌麻将'],
+  shangrao: ['shangrao', '上饶麻将'],
   dongbei: ['dongbei', '东北麻将'],
   'dongbei-yaobao': ['yaobao', '摇宝'],
   'dongbei-xiadan': ['xiadan', '下蛋'],

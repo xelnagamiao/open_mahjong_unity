@@ -137,7 +137,7 @@ test('牌谱实际稳定与预览入口消费红中权威分值，放铳层始�
 // Minimal drawing mocks execute the production renderer and forwarding code;
 // they do not replace the renderer's eligibility, label, color or alpha logic.
 const drawing = await bundled({ stdin: { resolveDir: fileURLToPath(new URL('../src/game2d/game/scene/', import.meta.url)), contents:
-  "export { WaitDisplay } from './WaitDisplay'; export { WaitEntry } from './WaitEntry'; export { Container } from 'pixi.js'", loader: 'ts' },
+  "export { WaitDisplay } from './WaitDisplay'; export { WaitEntry } from './WaitEntry'; export { Container } from 'pixi.js'; export { resolveFourJokersHint } from '../../calc/guobiao/fourJokers'", loader: 'ts' },
   define: { 'import.meta.env.BASE_URL': '"/"' },
   plugins: [{ name: 'headless-drawing', setup(build) {
     build.onResolve({ filter: /^(pixi\.js|\.\/Tile|\.\.\/fontLoader|\.\.\/\.\.\/\.\.\/i18n)$/ }, args => ({ path: args.path, namespace: 'drawing-mock' }))
@@ -159,6 +159,11 @@ test('显式0番自摸及未满足资格正确着色，旧国标数字入口行�
   const entry = (base, self, count = 4, hint) => inspectEntry(new WaitEntry(null, 0, 0, 28, base, self, count, '番', hint))
   assert.deepEqual(entry(8, 10), { label: '8番', color: 0x000000, alpha: 1 })
   assert.deepEqual(entry(0, 5), { label: '仅自摸', color: 0x777777, alpha: 0.78 })
+  assert.deepEqual(entry(8, 0, 4, { kind: 'ron_only', label: '仅点和' }), { label: '仅点和', color: 0x777777, alpha: 0.78 })
+  assert.deepEqual(entry(8, 0, 4, { kind: 'ron_only' }), { label: '仅点和', color: 0x777777, alpha: 0.78 })
+  assert.equal(entry(8, 0, 0, { kind: 'ron_only', label: '仅点和' }).alpha, 0.58)
+  // Older regional records can carry only the ron value; do not infer an exclusion from missing self-draw data.
+  assert.equal(entry(8, 0).label, '8番')
   assert.deepEqual(entry(0, 0), { label: '未起和', color: 0x8b2f2f, alpha: 0.58 })
   assert.deepEqual(entry(0, 0, 4, { kind: 'zimo', label: '0番\n自摸1分' }), { label: '0番\n自摸1分', color: 0x777777, alpha: 0.78 })
   assert.deepEqual(entry(0, 0, 4, { kind: 'wuyi', label: '未满足' }), { label: '未满足', color: 0x8b2f2f, alpha: 0.58 })
@@ -177,4 +182,12 @@ test('WaitDisplay把稳定和切牌提示的标签与资格传给实际WaitEntry
   display.setData(null)
   assert.equal(display.visible, false)
   assert.equal(display.children.length, 0)
+})
+
+test('异步算牌返回仅点和时，实际渲染器采用仅自摸的提示样式', async () => {
+  const request = { sub_rule: 'guobiao/four_jokers', hand_tiles: [25,25], tiles_combination: ['s12','s24','s36','s17'],
+    get_tile: 25, ron_way: ['点和','和单张'], self_way: ['自摸','和单张'], hepai_limit: 8 }
+  const entry = new drawing.WaitEntry(null, 0, 0, 25, 0, 0, 3, '番', { label: '…', four_jokers_request: request })
+  await drawing.resolveFourJokersHint(request)
+  assert.deepEqual(inspectEntry(entry), { label: '仅点和', color: 0x777777, alpha: 0.78 })
 })

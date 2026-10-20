@@ -33,7 +33,7 @@ public partial class CreatePanel {
         ShanghaiTianQiaoToggle.SetIsOnWithoutNotify(false);
         ShanghaiTianQiaoToggle.transform.SetSiblingIndex(ShanghaiQing3Hun2Peng2Toggle.transform.GetSiblingIndex() + 1);
         RoomGet<CreateRoomHelpTrigger>(ShanghaiTianQiaoToggle.gameObject).Configure(this,
-            "开启天敲：首次出牌时报敲，且此前无人吃、碰、杠（包括暗杠），和牌加2番。补花不打断资格；与其他番种叠加，仍按三番封顶计分。");
+            "开启天敲：首次出牌时报敲，且此前无人吃、碰、杠（包括暗杠），和牌计2番。补花不打断资格；不与门前清复合，可与其余番种叠加，仍按三番封顶计分。");
         ShanghaiTianQiaoToggle.gameObject.SetActive(false);
         BakeLajiheRoomControls();
         UnityEditor.EditorUtility.SetDirty(this);

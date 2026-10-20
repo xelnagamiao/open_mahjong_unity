@@ -43,6 +43,7 @@ public static class GameSceneTeardown {
         }
 
         VotePanel.Instance?.Hide();
+        UnlimitedRoundPanel.Instance?.ResetState();
 
         if (RankChangePanel.Instance != null) {
             RankChangePanel.Instance.gameObject.SetActive(false);

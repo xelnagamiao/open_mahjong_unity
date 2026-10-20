@@ -69,12 +69,6 @@ public sealed class PlayerInfoStatistics : MonoBehaviour {
                     riichi_details = PlayerInfoRuleCatalog.IsRiichi(currentRule) ? new Dictionary<string, int>() : null };
             Add(PlayerInfoStatsFormatter.ModeCaption(currentRule, mode, ranked), PlayerInfoStatsFormatter.GameDetails(modeStats, currentRule));
         }
-        if (ranked) {
-            var total = PlayerInfoStatsFormatter.Aggregate(response, currentRule, modes);
-            if (total == null && response?.history_stats != null) total = new PlayerStatsInfo { rule = currentRule,
-                riichi_details = PlayerInfoRuleCatalog.IsRiichi(currentRule) ? new Dictionary<string, int>() : null };
-            Add(PlayerInfoStatsFormatter.RuleName(currentRule)+"总计（匹配）", PlayerInfoStatsFormatter.GameDetails(total, currentRule));
-        }
         if(PlayerInfoRuleCatalog.HasFanStats(currentRule))Add(PlayerInfoStatsFormatter.FanCaption(currentRule, ranked),
             PlayerInfoStatsFormatter.FanDetails(currentRule, ranked ? response?.ranked_fan_stats : response?.total_fan_stats));
         for (int i = index; i < entries.Count; i++) entries[i].gameObject.SetActive(false);

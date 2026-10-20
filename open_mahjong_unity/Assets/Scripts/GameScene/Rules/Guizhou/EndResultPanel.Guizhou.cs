@@ -65,81 +65,8 @@ public partial class EndResultPanel {
         : (labels ?? new string[0]).Concat(guizhouSettlement.Labels).ToArray();
 
     private void ClearGuizhouSettlement() {
-        RestoreGuizhouTotalLayout();
         guizhouSettlement = null;
         guizhouChickenRevealed = false;
         if (guizhouChickenReveal != null) guizhouChickenReveal.SetActive(false);
-    }
-
-    private sealed class GuizhouRectSnapshot {
-        private readonly RectTransform rect;
-        private readonly Vector2 anchorMin, anchorMax, pivot, position, size;
-        public GuizhouRectSnapshot(RectTransform value) {
-            rect=value; anchorMin=rect.anchorMin; anchorMax=rect.anchorMax; pivot=rect.pivot;
-            position=rect.anchoredPosition; size=rect.sizeDelta;
-        }
-        public void Restore() {
-            rect.anchorMin=anchorMin; rect.anchorMax=anchorMax; rect.pivot=pivot;
-            rect.anchoredPosition=position; rect.sizeDelta=size;
-        }
-    }
-    private sealed class GuizhouTextSnapshot {
-        private readonly TMP_Text text;
-        private readonly GuizhouRectSnapshot rect;
-        private readonly float size, min, max;
-        private readonly bool autoSize, fitterEnabled;
-        private readonly TextWrappingModes wrapping;
-        private readonly TextAlignmentOptions alignment;
-        private readonly UnityEngine.UI.ContentSizeFitter fitter;
-        public GuizhouTextSnapshot(TMP_Text value) {
-            text=value; rect=new GuizhouRectSnapshot(text.rectTransform);
-            size=text.fontSize; min=text.fontSizeMin; max=text.fontSizeMax; autoSize=text.enableAutoSizing;
-            wrapping=text.textWrappingMode; alignment=text.alignment;
-            fitter=text.GetComponent<UnityEngine.UI.ContentSizeFitter>(); fitterEnabled=fitter != null && fitter.enabled;
-        }
-        public void Restore() {
-            rect.Restore(); text.fontSize=size; text.fontSizeMin=min; text.fontSizeMax=max;
-            text.enableAutoSizing=autoSize; text.textWrappingMode=wrapping; text.alignment=alignment;
-            if (fitter != null) fitter.enabled=fitterEnabled;
-        }
-    }
-    private GuizhouRectSnapshot guizhouTotalRect;
-    private GuizhouTextSnapshot[] guizhouTotalTexts;
-    private bool guizhouTotalLayoutEnabled;
-
-    private void ApplyGuizhouTotalLayout() {
-        if (guizhouSettlement == null || FanCountTotalPanel == null) return;
-        var root = (RectTransform)FanCountTotalPanel.transform;
-        var layout = root.GetComponent<UnityEngine.UI.HorizontalLayoutGroup>();
-        if (guizhouTotalRect == null) {
-            guizhouTotalRect = new GuizhouRectSnapshot(root);
-            guizhouTotalTexts = new TMP_Text[] { TotalFan, TotalFu, TotalScore }.Where(t=>t!=null)
-                .Select(t=>new GuizhouTextSnapshot(t)).ToArray();
-            guizhouTotalLayoutEnabled = layout != null && layout.enabled;
-        }
-        if (layout != null) layout.enabled=false;
-        root.anchorMin=root.anchorMax=new Vector2(.5f,.5f); root.pivot=new Vector2(0,1);
-        root.anchoredPosition=new Vector2(20,-55); root.sizeDelta=new Vector2(840,160);
-        PlaceGuizhouTotal(TotalFan, new Vector2(0,0), new Vector2(620,58), 42);
-        PlaceGuizhouTotal(TotalFu, new Vector2(0,-64), new Vector2(620,50), 34);
-        PlaceGuizhouTotal(TotalScore, new Vector2(635,-30), new Vector2(205,76), 54);
-    }
-    private static void PlaceGuizhouTotal(TMP_Text text, Vector2 position, Vector2 size, float fontSize) {
-        if (text == null) return;
-        var fitter=text.GetComponent<UnityEngine.UI.ContentSizeFitter>();
-        if (fitter != null) fitter.enabled=false;
-        var rect=text.rectTransform;
-        rect.anchorMin=rect.anchorMax=new Vector2(0,1); rect.pivot=new Vector2(0,1);
-        rect.anchoredPosition=position; rect.sizeDelta=size;
-        text.fontSize=fontSize; text.enableAutoSizing=false;
-        text.textWrappingMode=TextWrappingModes.NoWrap; text.alignment=TextAlignmentOptions.MidlineLeft;
-    }
-    private void RestoreGuizhouTotalLayout() {
-        if (guizhouTotalRect == null) return;
-        guizhouTotalRect.Restore();
-        foreach (var text in guizhouTotalTexts) text.Restore();
-        var layout = FanCountTotalPanel.GetComponent<UnityEngine.UI.HorizontalLayoutGroup>();
-        if (layout != null) layout.enabled=guizhouTotalLayoutEnabled;
-        guizhouTotalRect=null; guizhouTotalTexts=null;
     }
 }

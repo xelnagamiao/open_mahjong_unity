@@ -24,7 +24,7 @@ public sealed class HandTileAtlasBuild : IPreprocessBuildWithReport
     {
         if (EditorSettings.spritePackerMode != SpritePackerMode.SpriteAtlasV2)
             throw new BuildFailedException("Hand tile atlases require the project's existing Sprite Atlas V2 mode.");
-        string folder = Root + pack + "/hand";
+        string folder = BuiltinTileSprites.SourceRoot + pack + "/hand";
         string path = Root + pack + "/HandAtlas.spriteatlasv2";
         string[] sources = Directory.GetFiles(folder, "*.png").OrderBy(p => p, StringComparer.Ordinal).ToArray();
         Sprite[] sprites = sources.Select(p => AssetDatabase.LoadAssetAtPath<Sprite>(p.Replace('\\', '/'))).ToArray();

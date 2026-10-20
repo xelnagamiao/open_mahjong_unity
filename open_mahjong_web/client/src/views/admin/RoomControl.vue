@@ -97,7 +97,7 @@ const roomRuleOptions = [
   ['guobiao', '国标'], ['riichi', '立直'], ['qingque', '青雀'], ['classical', '古典'], ['sichuan', '四川'],
   ['changsha', '长沙麻将'], ['taiwan', '台湾麻将'], ['hongkong', '香港麻将'], ['guizhou', '贵州麻将'],
   ['yixing', '宜兴麻将'], ['shenyang', '沈阳麻将'], ['nanjing', '南京麻将'], ['fuzhou', '福州麻将'], ['wuhan', '武汉麻将'],
-  ['nanchang', '南昌麻将'], ['wenzhou', '温州麻将'], ['hangzhou', '杭州麻将'], ['jiujiang', '九江麻将'],
+  ['shangrao', '上饶麻将'], ['nanchang', '南昌麻将'], ['wenzhou', '温州麻将'], ['hangzhou', '杭州麻将'], ['jiujiang', '九江麻将'],
   ['hongzhong', '红中麻将'], ['changchun', '长春麻将'], ['guangdong', '广东麻将'], ['shanxi', '山西麻将'],
 ].map(([value, label]) => ({ value, label }))
 const filteredItems = computed(() => items.value.filter(room => {

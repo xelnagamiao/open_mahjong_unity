@@ -17,6 +17,7 @@ const ALLOWED_RULE_KEYS = new Set([
   'fuzhou',
   'wenzhou',
   'nanchang',
+  'shangrao',
   'hangzhou',
   'hongzhong',
   'singapore',

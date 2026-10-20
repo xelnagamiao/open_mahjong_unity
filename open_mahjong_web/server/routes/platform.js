@@ -85,7 +85,7 @@ router.get('/stats', async (req, res) => {
         fans,
         daily,
         events,
-        fan_dict: def.fan_stats ? INFO_FAN_DICT[def.fan_key] || {} : null,
+        fan_dict: def.fan_stats ? INFO_FAN_DICT[def.sub_rule] || {} : null,
         supports_fan_stats: def.fan_stats,
       },
       meta: {

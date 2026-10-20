@@ -116,7 +116,7 @@ public class RoomItem : MonoBehaviour {
         if (room.is_duplicate)
             switches += "  ·  " + DuplicateWallDisplay.TypeName(room.duplicate_wall_type);
         if (room.room_rule == "free") return "自由配牌  ·  " + (room.is_player_set_random_seed ? "场景复现开启" : "随机牌山") + switches;
-        string summary = RoundTextDictionary.GetMaxRoundText(room.room_rule, room.game_round)
+        string summary = (room.room_rule == "qingque" && room.unlimited_rounds ? "无固定时限" : RoundTextDictionary.GetMaxRoundText(room.room_rule, room.game_round))
             + $"  ·  {room.round_timer}/{room.step_timer}秒";
         if (room.room_rule == "guobiao" || RuleRegistry.Resolve(room.room_rule, room.sub_rule)?.ShowsHepaiLimitInRoomList == true)
             summary += $"  ·  {room.hepai_limit}番起和";

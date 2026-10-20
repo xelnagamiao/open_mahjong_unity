@@ -213,7 +213,8 @@ class ShanxiGameState(TaiwanGameState):
         result = {i: [] for i in range(4)}
         player = self.player_list[player_index]
         detail = self.score_candidate(player_index, "self_draw")
-        if detail:
+        from ..public.ai.auto_cut_policy import is_auto_cut_bot
+        if detail and not is_auto_cut_bot(player):
             self.result_dict["hu_self"] = detail
             result[player_index] = ["hu_self"]
             return result
@@ -228,6 +229,7 @@ class ShanxiGameState(TaiwanGameState):
         return result
 
     def check_discard_actions(self, tile):
+        from ..public.ai.auto_cut_policy import is_auto_cut_bot
         result = {i: [] for i in range(4)}
         discarder = self.player_list[self.current_player_index]
         if not discarder.discard_tiles or discarder.discard_tiles[-1] == 0:
@@ -240,7 +242,7 @@ class ShanxiGameState(TaiwanGameState):
             detail = self.score_candidate(index, "discard", tile)
             if detail:
                 action = hu_action_for_player(self.current_player_index, index)
-                result[index] = [action]
+                result[index] = [action, "pass"] if is_auto_cut_bot(player) else [action]
                 self.result_dict[action] = detail
                 continue
             if self.can_take_normal_tile():
@@ -303,9 +305,10 @@ class ShanxiGameState(TaiwanGameState):
         return payload
 
     async def execute_cut(self, index, data, *, declare_ready=False, is_timeout_action=False):
+        from ..public.ai.auto_cut_policy import is_auto_cut_bot
         if index != self.current_player_index:
             return
-        if self.score_candidate(index, "self_draw"):
+        if not is_auto_cut_bot(self.player_list[index]) and self.score_candidate(index, "self_draw"):
             self.accept_self_draw(index)
             return
         self.concealed_discard_actor = index if declare_ready else None

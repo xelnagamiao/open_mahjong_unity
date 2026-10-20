@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>台湾听牌与和牌张提示：台数比起和线，未达则按自摸重算；听牌资格（听牌/天听）影响台数。</summary>
+/// <summary>台湾听牌与和牌张提示：分别比较点和、自摸台数与起和线；听牌资格（听牌/天听）影响台数。</summary>
 internal static class TaiwanTips {
     public static HashSet<int> Tingpai(TingpaiQuery q) {
         return TaiwanExternal.TingpaiCheck(q.Hand, q.Melds ?? new List<string>(), q.DetailedConfig);
@@ -17,11 +17,11 @@ internal static class TaiwanTips {
 
         var ron = TaiwanExternal.HepaiCheck(
             q.HandWithWin, q.Melds, q.HepaiTile, false, seatWind, roundWind, flowers, q.DetailedConfig, readyQualification);
-        if (ron.Item1 >= q.HepaiLimit) {
-            return WaitTileHint.Ron($"{ron.Item1}台");
-        }
         var zimo = TaiwanExternal.HepaiCheck(
             q.HandWithWin, q.Melds, q.HepaiTile, true, seatWind, roundWind, flowers, q.DetailedConfig, readyQualification);
+        if (ron.Item1 >= q.HepaiLimit) {
+            return zimo.Item1 >= q.HepaiLimit ? WaitTileHint.Ron($"{ron.Item1}台") : WaitTileHint.RonOnly();
+        }
         return zimo.Item1 >= q.HepaiLimit
             ? WaitTileHint.TsumoOnly("仅自摸")
             : WaitTileHint.None("未起和");

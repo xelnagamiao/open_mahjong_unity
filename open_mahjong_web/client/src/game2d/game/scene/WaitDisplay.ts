@@ -12,7 +12,7 @@ export interface WaitDetail {
   remaining_count: number
   unit?: string
   label?: string
-  kind?: 'dianhe' | 'zimo' | 'wuyi'
+  kind?: 'dianhe' | 'ron_only' | 'zimo' | 'wuyi'
 }
 
 export interface WaitAddDetail {
@@ -22,7 +22,7 @@ export interface WaitAddDetail {
   remaining_count: number
   unit?: string
   label?: string
-  kind?: 'dianhe' | 'zimo' | 'wuyi'
+  kind?: 'dianhe' | 'ron_only' | 'zimo' | 'wuyi'
 }
 
 export interface WaitsMessage {

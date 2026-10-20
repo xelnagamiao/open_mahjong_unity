@@ -17,7 +17,7 @@ public class TipsFanCount : MonoBehaviour
 
     [Header("颜色设置")]
     public Color dianheColor = Color.green; // 点和颜色（绿色，可和牌）
-    public Color zimoColor = Color.yellow; // 自摸颜色（黄色，仅自摸）
+    public Color zimoColor = Color.yellow; // 单一和法颜色（黄色，仅自摸 / 仅点和）
     public Color wuyiColor = new Color32(166, 0, 0, 255); // 未起和 / 无役（与提示预制体一致的红色）
     public Color exhaustedColor = new Color(0.55f, 0.55f, 0.55f, 1f); // 听牌张已用尽（灰色）
 
@@ -47,14 +47,14 @@ public class TipsFanCount : MonoBehaviour
         secondHintText.text = twoLines ? lines[1] : "";
         secondHintText.gameObject.SetActive(twoLines);
         secondChip.gameObject.SetActive(twoLines);
-        // 枚数可占第一、二或三行：仅自摸用同款黄底，可点和保留蓝底。
+        // 枚数可占第一、二或三行：单一和法用同款黄底，两种和法均可保留蓝底。
         string firstLine = lines[0].Trim();
         bool countOnly = !twoLines && firstLine.EndsWith("枚")
             && int.TryParse(firstLine.Substring(0, firstLine.Length - 1), out _);
-        Color countColor = (countKind ?? colorType) == WaitTileHint.KindTsumoOnly ? zimoColor
+        Color countColor = (countKind ?? colorType) == WaitTileHint.KindTsumoOnly || (countKind ?? colorType) == WaitTileHint.KindRonOnly ? zimoColor
             : (countKind ?? colorType) == WaitTileHint.KindNone ? wuyiColor : new Color32(70,86,126,255);
         Color fanColor = colorType == "exhausted" ? exhaustedColor
-            : colorType == "zimo" ? zimoColor
+            : colorType == WaitTileHint.KindTsumoOnly || colorType == WaitTileHint.KindRonOnly ? zimoColor
             : colorType == "wuyi" ? wuyiColor
             : colorType == "dianhe" ? dianheColor : countColor;
         SetChipColor(firstChip, countOnly ? countColor : fanColor);

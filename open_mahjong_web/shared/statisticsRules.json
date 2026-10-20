@@ -497,11 +497,14 @@
       "stats_name": "川麻（血战到底）",
       "standard": true,
       "basic_stats": true,
-      "fan_stats": false,
-      "fan_key": null,
+      "fan_stats": true,
+      "fan_key": "sichuan",
       "player_count": 4,
       "home_header": true,
       "home_label": "川麻(血战)",
+      "historical_ranked_modes": [
+        "4/4_rank"
+      ],
       "custom_modes": [
         "1/4",
         "2/4",
@@ -1515,6 +1518,31 @@
       "matchmaking": false,
       "win_stat_unit": "base_points",
       "deal_in_stat_unit": "base_points"
+    },
+    {
+      "key": "shangrao",
+      "rule": "shangrao",
+      "sub_rule": "shangrao/standard",
+      "family_name": "上饶",
+      "sub_rule_name": "飞宝麻将",
+      "stats_name": "上饶麻将",
+      "standard": false,
+      "basic_stats": true,
+      "fan_stats": false,
+      "fan_key": null,
+      "player_count": 4,
+      "home_header": false,
+      "home_label": "",
+      "custom_modes": [
+        "1/4",
+        "2/4",
+        "3/4",
+        "4/4"
+      ],
+      "ranked_modes": [],
+      "matchmaking": false,
+      "win_stat_unit": "points",
+      "deal_in_stat_unit": "none"
     }
   ],
   "stat_value_units": {

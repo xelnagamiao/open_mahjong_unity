@@ -18,6 +18,7 @@ const FLOWERS = new Set([51, 52, 53, 54, 55, 56, 57, 58])
 
 export interface WaitDetail {
   label?: string
+  kind?: 'dianhe' | 'ron_only' | 'zimo' | 'wuyi'
   four_jokers_request?: FourJokersHintRequest
   tile: number
   base_f: number
@@ -188,6 +189,7 @@ function detailsForHand(
       tile,
       base_f: ronAllowed ? ronFan : 0,
       selfdrawn_f: tsumoAllowed ? tsumoFan : 0,
+      ...(ronAllowed && !tsumoAllowed ? { kind: 'ron_only' as const, label: '仅点和' } : {}),
       remaining_count: remainingCount(hand, ctx.seatDiscards, ctx.seatCombinations, tile, pendingCut),
     })
   }

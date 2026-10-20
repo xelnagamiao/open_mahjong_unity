@@ -130,10 +130,7 @@ public partial class GameRecordManager {
     private void RefreshChangchunRecordBadge() {
         if(!IsChangchunRecord()) return;
         bool visible=recordCcRevealed || recordCcSeen.TryGetValue(selectedPlayerIndex,out int revision) && revision==recordCcBaoRevision;
-        string text=recordCcNoBao ? "无宝" : visible && recordCcBaoTile>0 ? "宝："+ChangchunRuleBootstrap.TileName(recordCcBaoTile) : "宝牌未可见";
-        bool finalFour=recordCcTailRemaining.HasValue;
-        if(finalFour) text+="\n末四张";
-        GameCanvas.Instance?.SetSelfStatusIndicator(GameCanvas.StatusSlotShunhe,true,$"<size={(finalFour ? 16 : 24)}>{text}</size>");
+        GameCanvas.Instance?.SetSelfBaoIndicator(visible, recordCcBaoTile, recordCcNoBao, recordCcTailRemaining.HasValue);
         int self=recordPlayer_to_info.TryGetValue("self",out var player) ? player.playerIndex : -1;
         ChangchunTailTiles.Render(recordCcTailTiles.ToDictionary(t=>t.Key,t=>recordCcRevealed || t.Key==self ? t.Value : 0),indexToPosition,recordCcRevealed);
     }

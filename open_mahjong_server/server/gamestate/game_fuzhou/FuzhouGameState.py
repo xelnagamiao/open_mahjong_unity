@@ -141,6 +141,9 @@ class FuzhouGameState(FlowerFlow, HandFlow, Runtime, Protocol, Recording, EndOfH
 
     def can_flower_win(self, index):
         p = self.player_list[index]
+        from ..public.ai.auto_cut_policy import is_auto_cut_bot
+        if is_auto_cut_bot(p):
+            return False
         return bool(self.jin and not p.is_hu and p.has_draw_slot and p.hand_tiles
                     and p.draw_kind not in ("", "opening") and len(p.huapai_list) >= 20
                     and self.score_win(index,"self_draw",p.hand_tiles[-1],special="flower") is not None)

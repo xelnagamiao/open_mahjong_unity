@@ -55,6 +55,7 @@ public sealed class TableMirror {
     public int CurrentRound;
     /// <summary>最大风圈数（1=东风 2=半庄 3=东西 4=全庄）。</summary>
     public int MaxRound;
+    public bool UnlimitedRounds;
 
     /// <summary>上一张切牌的 id。</summary>
     public int LastCutCardID;
@@ -261,6 +262,7 @@ public sealed class TableMirror {
 
     /// <summary>退出对局时清空本局游标（座位映射与四家资料保留给表现层做善后）。</summary>
     public void ResetForExit() {
+        UnlimitedRounds = false;
         SelfHandTiles.Clear();
         LastCutCardID = 0;
         LastDiscardPlayerPosition = null;

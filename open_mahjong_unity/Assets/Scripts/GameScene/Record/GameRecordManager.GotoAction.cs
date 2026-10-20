@@ -146,7 +146,7 @@ public partial class GameRecordManager
         string action = tick[0];
 
         if (action == "reset") {
-            currentPlayerIndex = ParseTickInt(tick, 1);
+            if (!ApplyRecordRuleActionBeforeMutation(tick)) currentPlayerIndex = ParseTickInt(tick, 1);
             return;
         }
 

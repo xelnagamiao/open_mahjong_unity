@@ -9,6 +9,7 @@ public partial class CreatePanel {
             Rule = _ruleState, SubRule = GetSelectedSubRule(), RoomName = roomNameInput.text.Trim(),
             Password = passwordInput.text.Trim(), RandomSeed = randomSeedInput.text.Trim(), EventId = _venueEventId,
             DuplicateKey = SelectedDuplicateKey, DuplicateEnabled = ReadRoomToggle(DuplicateWallToggle),
+            UnlimitedRounds = _ruleState == "qingque" && string.IsNullOrEmpty(_venueEventId) && ReadRoomToggle(unlimitedRoundsToggle),
             GameRound = GetSelectedGameTime(), RoundTimer = GetSelectedRoundTimer(), StepTimer = GetSelectedStepTimer(),
             CuoheType = GetSelectedCuoheType(), HepaiWayIndex = HepaiWayDropdown.value,
             HepaiLimitText = HepaiLimitInput.text.Trim(), HepaiLimitVisible = InputHepaiLimitToggle.gameObject.activeSelf,

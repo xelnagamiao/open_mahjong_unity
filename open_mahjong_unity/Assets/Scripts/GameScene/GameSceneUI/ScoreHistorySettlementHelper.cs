@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 
 /// <summary>
@@ -53,12 +54,15 @@ public static class ScoreHistorySettlementHelper {
         foreach (string fanKey in huFan) {
             if (fanKey == "错和") return "错和";
         }
-        // 日麻等规则服务端未必按番降序；按番数字典取最大值（排除花牌/宝牌等乘算项）。
+        // 只选主番，不排序或改写结算的原始番种列表。
+        var rankOverride = ManifestOf(subRule)?.ScoreboardMainFanRank;
+        bool comparePoints = rankOverride == null && HasOnlyPointValues(subRule, huFan);
         string bestFan = "";
-        int bestRank = int.MinValue;
+        double bestRank = double.NegativeInfinity;
         foreach (string fanKey in huFan) {
             if (ShouldExcludeFromMainFanPick(fanKey)) continue;
-            int rank = GetFanRankForMainPick(subRule, fanKey);
+            double rank = rankOverride != null ? rankOverride(subRule, fanKey)
+                : GetFanRankForMainPick(subRule, fanKey, comparePoints);
             if (rank > bestRank) {
                 bestRank = rank;
                 bestFan = StripFanMultiplier(fanKey);
@@ -68,7 +72,7 @@ public static class ScoreHistorySettlementHelper {
     }
 
     /// <summary>
-    /// 主番选取时排除花牌/鸟牌/宝牌类乘算项，不参与最大番比较。
+    /// 主番选取时排除花牌/鸟牌/宝牌及无癞子翻倍等附加项，不参与最大番比较。
     /// </summary>
     public static bool ShouldExcludeFromMainFanPick(string fanKey) {
         if (string.IsNullOrEmpty(fanKey)) return true;
@@ -77,6 +81,8 @@ public static class ScoreHistorySettlementHelper {
             || fanKey.StartsWith("里宝牌")
             || fanKey.StartsWith("赤宝牌")
             || fanKey.StartsWith("拔北宝牌")
+            || fanKey == "无癞子翻倍"
+            || fanKey.StartsWith("无癞子翻倍*")
             || fanKey.StartsWith("鸟牌:")
             || fanKey.StartsWith("中鸟:")
             || fanKey.StartsWith("中鸟x")
@@ -84,30 +90,35 @@ public static class ScoreHistorySettlementHelper {
     }
 
     /// <summary>主番比较用排序权重：双倍役满 &gt; 役满 &gt; 满贯 &gt; 普通番数。</summary>
-    private static int GetFanRankForMainPick(string subRule, string fanKey) {
+    private static double GetFanRankForMainPick(string subRule, string fanKey, bool comparePoints) {
         string display = FanTextDictionary.GetFanDisplayText(subRule, fanKey);
         if (string.IsNullOrEmpty(display)) return 0;
         if (display.Contains("双倍役满")) return 26000;
         if (display.Contains("役满")) return 13000;
-        if (display == "满贯") return 10000;
-        if (display.EndsWith("番")
-            && int.TryParse(display.Substring(0, display.Length - 1), out int fan)) {
-            return fan;
-        }
-        if (display.EndsWith("翻")
-            && int.TryParse(display.Substring(0, display.Length - 1), out int classicalFan)) {
-            return classicalFan;
-        }
-        if (display.EndsWith("台")
-            && int.TryParse(display.Substring(0, display.Length - 1), out int taiwanTai)) {
-            return taiwanTai;
-        }
-        if (display.EndsWith("Fan")
-            && int.TryParse(display.Substring(0, display.Length - 3), out int engFan)) {
-            return engFan;
-        }
-        return 0;
+        if (display == "满贯" || display == "满番") return 10000;
+        int suffixLength = display.EndsWith("Fan", StringComparison.Ordinal) ? 3
+            : display.EndsWith("番") || display.EndsWith("翻") || display.EndsWith("台")
+                || (comparePoints && IsPointValue(display)) ? 1 : 0;
+        return suffixLength > 0 && double.TryParse(display.Substring(0, display.Length - suffixLength),
+            NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingWhite
+                | NumberStyles.AllowTrailingWhite, CultureInfo.InvariantCulture, out double value) ? value : 0;
     }
+
+    // 分/点规则也需要择高；只有整组都是单一分值才比较，保留花、倍数、分·番等混合结算的原有处理。
+    private static bool HasOnlyPointValues(string subRule, string[] huFan) {
+        bool hasPoints = false;
+        foreach (string fanKey in huFan) {
+            if (ShouldExcludeFromMainFanPick(fanKey)) continue;
+            string display = FanTextDictionary.GetFanDisplayText(subRule, fanKey);
+            if (string.IsNullOrEmpty(display)) continue;
+            if (!IsPointValue(display) || !double.TryParse(display.Substring(0, display.Length - 1),
+                NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out _)) return false;
+            hasPoints = true;
+        }
+        return hasPoints;
+    }
+
+    private static bool IsPointValue(string display) => display.EndsWith("分") || display.EndsWith("点");
 
     /// <summary>
     /// 断线重连后若局号列表与分值行数不一致则对齐（优先保留服务端已下发的完整局号；仅一条局号且多行分值时按 1..N 重建）。

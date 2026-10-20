@@ -9,11 +9,6 @@ from ..public.lifecycle import start_owned_task
 from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.offline import offline_auto_action
 from ..public.ai.smart_bot_ai import smart_bot_action
-from ..game_guobiao.combination_mask_view import (
-    get_combination_fields_for_viewer,
-    sanitize_angang_mask,
-    sanitize_combination_target_for_viewer,
-)
 from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
 from ..public.hand_slot_utils import bot_ask_hand_game_status
 from ..public.hand_draw_source import ensure_hand_draw_source_round, get_hand_draw_source, update_hand_draw_source
@@ -48,6 +43,8 @@ def _build_game_start_payload_for_viewer(self, viewer_index: int) -> dict:
         "pointer_tips": getattr(self, "pointer_tips", True),
         'current_player_index': self.current_player_index, # 当前轮到的玩家索引
         "action_tick": self.server_action_tick, # 操作帧
+        'unlimited_rounds': self.unlimited_rounds,
+        'unlimited_info': self.unlimited_session.snapshot(),
         'max_round': self.max_round, # 最大局数
         'tile_count': len(self.tiles_list), # 牌山剩余牌数
         'commitment': self.commitment,  # 承诺值
@@ -72,7 +69,6 @@ def _build_game_start_payload_for_viewer(self, viewer_index: int) -> dict:
     viewer_player = self.player_list[viewer_index]
     players_info = []
     for player in self.player_list:
-        combo_tiles, combo_masks = get_combination_fields_for_viewer(player, viewer_index)
         players_info.append({
             'user_id': player.user_id, # 用户ID
             'username': player.username, # 用户名（用于显示）
@@ -80,8 +76,8 @@ def _build_game_start_payload_for_viewer(self, viewer_index: int) -> dict:
             'hand_tiles': player.hand_tiles if player.user_id == viewer_player.user_id else None,  # 只有视角玩家的手牌
             'discard_tiles': player.discard_tiles, # 弃牌
             'discard_origin_tiles': player.discard_origin_tiles, # 理论弃牌
-            'combination_tiles': combo_tiles, # 组合（他家暗杠牌值隐藏）
-            "combination_mask": combo_masks, # 组合形状
+            'combination_tiles': player.combination_tiles, # 青雀暗杠中间两张亮牌，牌种对所有视角可见
+            "combination_mask": player.combination_mask, # 组合形状
             "huapai_list": player.huapai_list, # 花牌列表
             'remaining_time': player.remaining_time, # 剩余局时
             'player_index': player.player_index, # 东南西北位置
@@ -379,13 +375,6 @@ def _build_do_action_payload(
     cut_from_player=None,
     is_timeout_action=False,
 ):
-    viewer_mask = combination_mask
-    viewer_target = combination_target
-    if action_list and "angang" in action_list:
-        viewer_mask = sanitize_angang_mask(combination_mask, action_player, viewer_index)
-        viewer_target = sanitize_combination_target_for_viewer(
-            combination_target, action_player, viewer_index
-        )
     viewer_deal_tile = sanitize_deal_tile_for_viewer(deal_tile, action_player, viewer_index)
     return {
         "action_list": action_list,
@@ -397,8 +386,8 @@ def _build_do_action_payload(
         "is_timeout_action": True if is_timeout_action else None,
         "deal_tile": viewer_deal_tile,
         "buhua_tile": buhua_tile,
-        "combination_mask": viewer_mask,
-        "combination_target": viewer_target,
+        "combination_mask": combination_mask,
+        "combination_target": combination_target,
         "is_claim": True if is_claim else None,
         "silent": True if silent else None,
         "is_mo_gang": is_mo_gang,

@@ -19,7 +19,7 @@ export class WaitEntry extends Container {
     selfDrawnF: number,
     remainingCount: number,
     unit = '番',
-    hint?: {label?: string; kind?: 'dianhe' | 'zimo' | 'wuyi'; four_jokers_request?: FourJokersHintRequest},
+    hint?: {label?: string; kind?: 'dianhe' | 'ron_only' | 'zimo' | 'wuyi'; four_jokers_request?: FourJokersHintRequest},
   ) {
     super()
     this.x = x
@@ -27,14 +27,16 @@ export class WaitEntry extends Container {
     this.scale.set(0.7)
 
     const selfDrawnOnly = hint?.kind ? hint.kind === 'zimo' : selfDrawnF > 0 && baseF <= 0
+    const ronOnly = hint?.kind === 'ron_only'
+    const singleMethod = selfDrawnOnly || ronOnly
     const notEnough = hint?.kind ? hint.kind === 'wuyi' : selfDrawnF <= 0 && baseF <= 0
-    const fanLabel = tr(hint?.label ?? (baseF > 0 ? `${Math.round(baseF)}${unit}` : selfDrawnOnly ? '仅自摸' : '未起和'))
+    const fanLabel = tr(hint?.label ?? (ronOnly ? '仅点和' : baseF > 0 ? `${Math.round(baseF)}${unit}` : selfDrawnOnly ? '仅自摸' : '未起和'))
     const fanText = new Text({
       text: fanLabel,
       style: {
         fontFamily: getGameFontFamily(),
         fontSize: fanLabel.length > 3 ? 142 : 185,
-        fill: notEnough ? 0x8b2f2f : selfDrawnOnly ? 0x777777 : 0x000000,
+        fill: notEnough ? 0x8b2f2f : singleMethod ? 0x777777 : 0x000000,
         align: 'center',
       },
     })
@@ -59,7 +61,7 @@ export class WaitEntry extends Container {
     const tile = new Tile(tid, true)
     tile.eventMode = 'passive'
     tile.cursor = 'default'
-    tile.alpha = notEnough || remainingCount <= 0 ? 0.58 : selfDrawnOnly ? 0.78 : 1.0
+    tile.alpha = notEnough || remainingCount <= 0 ? 0.58 : singleMethod ? 0.78 : 1.0
     this.addChild(tile)
 
     if (hint?.four_jokers_request) {
@@ -70,7 +72,7 @@ export class WaitEntry extends Container {
         fanText.text = tr(result?.label ?? '提示暂不可用')
         fanText.style.fontSize = fanText.text.length > 3 ? 142 : 185
         fanText.style.fill = result?.kind === 'wuyi' ? 0x8b2f2f : result?.kind === 'dianhe' ? 0x000000 : 0x777777
-        tile.alpha = remainingCount <= 0 || result?.kind === 'wuyi' ? 0.58 : result?.kind === 'zimo' ? 0.78 : 1
+        tile.alpha = remainingCount <= 0 || result?.kind === 'wuyi' ? 0.58 : result?.kind === 'zimo' || result?.kind === 'ron_only' ? 0.78 : 1
       })
     }
 

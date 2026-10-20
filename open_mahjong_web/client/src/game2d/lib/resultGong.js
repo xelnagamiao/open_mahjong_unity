@@ -11,6 +11,7 @@ export function shouldPlayGuobiaoGong(fanNames, totalFan) {
 }
 
 export function shouldPlayResultGong(fanNames, totalFan, rule = 'guobiao') {
+  if (rule === 'qingque' || rule.startsWith('qingque/')) return totalFan > 18.5
   return rule === 'guobiao' || rule.startsWith('guobiao/')
     ? shouldPlayGuobiaoGong(fanNames, totalFan)
     : hasSingleFanAtLeast(fanNames, 32, 'guobiao')

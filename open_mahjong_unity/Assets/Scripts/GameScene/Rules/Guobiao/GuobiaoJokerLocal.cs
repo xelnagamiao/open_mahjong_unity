@@ -141,8 +141,9 @@ internal static class GuobiaoJokerLocal {
         int ghosts=q.HandWithWin.Count(t=>Huahun(q.SubRule)?Seasons.Contains(t):t==59)+((q.Melds?.Contains("G51")??false)?4:0);
         int limit=Huahun(q.SubRule)?new[]{8,8,16,32,64}[Math.Min(4,ghosts)]:q.HepaiLimit;
         var ron=Score(q.HandWithWin,q.Melds,q.MergedWay,q.HepaiTile,q.SubRule,q.JokerMultiWait,q.NoJokerBonus,q.BlackFlowerProgressive);
-        if(ron.score>0&&ron.qualifying>=limit)return WaitTileHint.Ron($"{ron.score}番");
         var self=Score(q.HandWithWin,q.Melds,q.BuildZimoWay(),q.HepaiTile,q.SubRule,q.JokerMultiWait,q.NoJokerBonus,q.BlackFlowerProgressive);
-        return self.score>0&&self.qualifying>=limit?WaitTileHint.TsumoOnly($"自摸{self.score}番"):WaitTileHint.None("未起和");
+        bool canSelf=self.score>0&&self.qualifying>=limit;
+        if(ron.score>0&&ron.qualifying>=limit)return canSelf?WaitTileHint.Ron($"{ron.score}番"):WaitTileHint.RonOnly();
+        return canSelf?WaitTileHint.TsumoOnly($"自摸{self.score}番"):WaitTileHint.None("未起和");
     }
 }

@@ -52,6 +52,7 @@ public sealed class GuizhouSettlementDisplay {
         ? "一二三四五六七八九"[tile % 10 - 1] + new[] { "", "万", "筒", "条" }[tile / 10] : "";
 
     public SettlementTotalDisplay TotalDisplay() => new SettlementTotalDisplay {
+        Layout = SettlementTotalDisplay.LayoutKind.Breakdown,
         FanText = $"和牌得分 {HandScore}分",
         FuText = $"杠{KongScore:+#;-#;0}分  捉鸡{ChickenScore:+#;-#;0}分",
         ScoreText = $"{Total:+#;-#;0}分",

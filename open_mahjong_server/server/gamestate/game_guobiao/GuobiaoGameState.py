@@ -585,6 +585,7 @@ class GuobiaoGameState:
                 self.player_list,
                 self.current_player_index,
             )
+            realtime_hand.merge_draw_slots(self)
 
             await evaluate_actions(self, refresh_waiting_tiles, self.current_player_index, is_first_action=True) # 检查手牌等待牌
             logger.info(f"第一位行动玩家{self.current_player_index}的手牌等待牌为{self.player_list[self.current_player_index].waiting_tiles}")

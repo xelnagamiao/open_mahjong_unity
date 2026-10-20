@@ -74,6 +74,7 @@ import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { hongKongRulebooks, hongKongRulebook } from '../constants/hongKongRulebooks.js'
 import { milRulebooks, milRulebook } from '../constants/milRulebooks.js'
+import {shangraoRulebooks, SHANGRAO_DESCRIPTION} from '@/constants/shangraoRulebooks.js'
 import { HUAHUN_RULE_TEXT } from '../utils/guobiaoHuahun.js'
 
 const route = useRoute()
@@ -277,6 +278,10 @@ const rules = [
   {
     key: 'nanjing', label: '南京麻将', short: '南京', categories: ['platform', 'mil'], accent: '#947344',
     description: milRulebooks.nanjing[0].desc, docs: milRulebooks.nanjing,
+  },
+  {
+    key: 'shangrao', label: '上饶麻将', short: '上饶', categories: ['platform','local'], accent: '#587a69',
+    description: SHANGRAO_DESCRIPTION, docs: shangraoRulebooks,
   },
   {
     key: 'nanchang', label: '南昌麻将', short: '南昌', categories: ['platform', 'mil'], accent: '#587a69',

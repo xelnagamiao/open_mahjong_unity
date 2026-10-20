@@ -12,6 +12,17 @@
 
 ## 当前牌谱格式
 
+### 和牌手牌的归属
+
+和牌张是否已经加入手牌是状态信息，不能通过张数除以 3 的余数或查找相同牌面推断。虹雀允许变长牌组，三张暗手也可能等待第四张完成和牌；普通麻将还可能有多张相同牌面。
+
+- 服务端 `round_result.winners[].hand` 是完整和牌手牌，末项为实际和牌张。点和只在结算快照追加外来张，不改变玩家原手牌。
+- 牌谱与延时观战由 `ApplyRecordRonHuToHandState` 接收点和张，并将 `RecordPlayer.hasRonWinningTile` 设为真；顺序播放和跳转重建共用这一状态变更。重复投影不能再次追加。
+- `RecordHuHandBuilder` 必须显式接收该状态。已经接收的手牌只复制；未接收的手牌才在展示副本末尾追加。自摸沿用原有摸牌位，不再额外补牌。
+- 计分板模拟器保留和牌前手牌，因此向同一构造器传入未接收状态。结算面板和三维倒牌消费完整快照，不自行猜测或补正牌张。
+
+这个修正不改变牌谱格式。原有 `hu_*` 中的和牌张保持有效，旧牌谱重新读取即可正确显示，无需重写分数或添加旧格式分支。
+
 虹雀杠牌 tick 现在必须带本家目标副露索引（从 0 开始）：
 
 ```json
@@ -35,6 +46,7 @@
 - 服务端：`.venv/Scripts/python.exe -m pytest server/gamestate/game_hongque -q`
 - 网页（`open_mahjong_web/client`）：`node --test tests/hongqueDisplayOrder.test.js tests/hongqueCalc.test.js`
 - Unity Pipeline：主线程执行 `HongqueReplayLayoutValidation.Run()` 和 `MeldStackValidation.Run()`。
+- 和牌张回归：`RecordWinningHandValidation.Run()` 覆盖三种张数余数、四个座位、顺序/跳转、重复投影、自摸、同牌复数及共用规则入口；`HongqueRuntimeValidation` 还检查实际观战面板和三维牌张。
 - Unity 穷举：`HongqueDisplayOrderValidation.Run(false)` 是纯数据检查，可从 Pipeline 派发后台任务。它覆盖全部 4,787 种合法组及 16,383 种非空花色集合；默认 `Run()` 还验证普通麻将排序，需在主线程运行。
 
 验证包括花色/数字连续性、无丢牌或重复、输入不变、重复排序稳定、来源标记跟随牌、长鸣牌完整读取、扩展非末组、手动顺序、独立摸牌位、牌谱跳转和结算一致性，以及其他麻将的赤五和叠牌显示。

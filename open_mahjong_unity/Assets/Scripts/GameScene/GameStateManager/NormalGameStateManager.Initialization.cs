@@ -45,6 +45,7 @@ public partial class NormalGameStateManager {
         } else {
             GameSceneUIManager.Instance.InitGameStart(isNewMatch);
         }
+        UnlimitedRoundPanel.Instance?.Initialize(gameInfo, !IsRealtimeSpectator);
 
         // 获取自己的手牌信息（从 PlayerInfo 中获取）
         PlayerInfo selfPlayerInfo = GetSelfPlayerInfo(gameInfo);
@@ -231,6 +232,7 @@ public partial class NormalGameStateManager {
         remainTiles = gameInfo.tile_count; // 存储剩余牌数
         currentRound = gameInfo.current_round; // 存储当前轮数
         maxRound = gameInfo.max_round;
+        Mirror.UnlimitedRounds = gameInfo.unlimited_rounds;
 
         // 获取自己的手牌信息（从 PlayerInfo 中获取）
         PlayerInfo selfPlayerInfo = GetSelfPlayerInfo(gameInfo);

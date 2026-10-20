@@ -45,6 +45,46 @@ def test_room_metadata_fallback():
     assert info.match_tier == "beginner" and info.event_id == "fallback"
 
 
+@pytest.mark.parametrize("rule,sub_rule,players,circles,current,expected", [
+    ("guobiao", "guobiao/standard", 4, 4, 2, 16),
+    ("guobiao", "guobiao/standard", 4, 1, 4, 4),
+    ("guobiao", "guobiao/standard", 4, 2, 5, 8),
+    ("guobiao", "guobiao/sanma", 3, 4, 2, 12),
+    ("riichi", "riichi/sanma", 3, 2, 4, 6),
+    ("riichi", "riichi/standard", 4, 2, 9, 8),
+    ("hongque", "hongque/v1.6", 4, 8, 2, 8),
+])
+def test_round_progress_uses_rule_schedule(rule, sub_rule, players, circles, current, expected):
+    game = state(room_rule=rule, sub_rule=sub_rule, player_list=state().player_list[:players],
+                 current_round=current, max_round=circles, round_index=current + 5)
+    info = listing(game)[0]
+    assert (info.current_round, info.total_rounds) == (current, expected)
+    payload = info.model_dump(exclude_none=True)
+    assert (payload["current_round"], payload["total_rounds"]) == (current, expected)
+
+
+def test_round_progress_refreshes_without_counting_renchan():
+    game = state(room_rule="riichi", sub_rule="riichi/standard",
+                 current_round=2, max_round=4, round_index=3)
+    assert listing(game)[0].current_round == 2
+    game.round_index += 1
+    assert listing(game)[0].current_round == 2
+    game.current_round += 1
+    assert listing(game)[0].current_round == 3
+
+
+def test_unlimited_round_progress_does_not_report_a_fixed_total():
+    info = listing(state(room_rule="qingque", sub_rule="qingque/standard",
+                         current_round=19, max_round=4, unlimited_rounds=True))[0]
+    assert (info.current_round, info.total_rounds) == (19, 0)
+    assert info.model_dump(exclude_none=True)["total_rounds"] == 0
+
+
+def test_missing_round_metadata_is_not_invented():
+    payload = listing(state())[0].model_dump(exclude_none=True)
+    assert "current_round" not in payload and "total_rounds" not in payload
+
+
 @pytest.mark.parametrize("rule", ["sichuan/doubles", "sichuan/xueliu_doubles"])
 def test_teams_follow_rotated_player_order_not_original_seats(rule):
     players = [NS(username=name, user_id=uid, team_id=team) for name, uid, team in
@@ -141,6 +181,7 @@ def test_sanma_list_to_delayed_spectator_keeps_three_seats_and_delay(rule, monke
             assert response["success"] and len(response["spectator_list"]) == 1
             info = response["spectator_list"][0]
             assert info["player4_name"] == "" and info["sub_rule"] == room["sub_rule"]
+            assert (info["current_round"], info["total_rounds"]) == (1, 3)
             request = {"gamestate_id": info["gamestate_id"]}
 
             await handle_add_spectator(server, "viewer", request, socket)

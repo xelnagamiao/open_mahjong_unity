@@ -108,6 +108,10 @@ public sealed class SettlementTotalQuery {
 /// 结算面板"总计"一栏的最终文案。由族（或过渡期的默认构造器）从信封算好，面板只负责摆字。
 /// </summary>
 public sealed class SettlementTotalDisplay {
+    public enum LayoutKind { FanFuScore, FuFanScore, Breakdown }
+
+    /// <summary>统一布局的列序/明细样式；日麻默认番、符、点，古典/红雀保留副/底在番之前。</summary>
+    public LayoutKind Layout;
     /// <summary>番/翻/台一栏；null 表示隐藏该栏（台湾）。</summary>
     public string FanText;
     /// <summary>副/符/底一栏；null 表示隐藏。</summary>

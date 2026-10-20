@@ -733,6 +733,7 @@ const RULE_LABELS = {
   fuzhou: '福州麻将',
   wuhan: '武汉麻将',
   nanchang: '南昌麻将',
+  shangrao: '上饶麻将',
   shanxi: '山西麻将',
   jiandan: '南雀',
   zhongyong: '中庸麻将',
@@ -832,6 +833,7 @@ const roomRuleOptions = [
   { value: 'fuzhou', label: '福州麻将' },
   { value: 'wuhan', label: '武汉麻将' },
   { value: 'nanchang', label: '南昌麻将' },
+  { value: 'shangrao', label: '上饶麻将' },
   { value: 'shanxi', label: '山西麻将' },
 ]
 const roomForm = reactive(createEventRoomCreationForm())

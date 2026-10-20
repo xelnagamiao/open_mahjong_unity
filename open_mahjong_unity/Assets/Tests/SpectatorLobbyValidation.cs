@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
@@ -31,6 +32,39 @@ public static class SpectatorLobbyValidation {
         Check(SpectatorRoomPresentation.Priority(Ranked("future_tier")) == 0, "unknown ranked tiers remain above custom");
         Check(!SpectatorRoomPresentation.HasTeams(new SpectatorInfo { sub_rule = "sichuan/doubles" }), "missing team data never guessed");
 
+        foreach (var type in typeof(RuleRegistry).Assembly.GetTypes().Where(t => t.Name.EndsWith("RuleBootstrap")))
+            type.GetMethod("Register", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)?.Invoke(null, null);
+        var progressInfo = Newtonsoft.Json.JsonConvert.DeserializeObject<SpectatorInfo>(
+            "{\"rule\":\"guobiao\",\"sub_rule\":\"guobiao/standard\",\"gamestate_id\":\"round-test\",\"current_round\":2,\"total_rounds\":16}");
+        Check(SpectatorRoomPresentation.RoundProgress(progressInfo) == "东风南/全庄战", "wind-seat rule keeps its round name and match length");
+        foreach (var sample in new[] {
+            ("guobiao", 1, 16, "东风东/全庄战"),
+            ("guobiao/sanma", 4, 12, "南风东/全庄战"),
+            ("guobiao/transparent", 2, 16, "东风南/全庄战"),
+            ("yixing", 2, 16, "东风南/全庄战"),
+            ("wenzhou", 2, 16, "东风南/全庄战"),
+            ("riichi", 1, 8, "东一/东南战"),
+            ("riichi/standard", 2, 8, "东二/东南战"),
+            ("riichi/sanma", 4, 6, "南一/东南战"),
+            ("riichi/washizu", 5, 8, "南一/东南战"),
+            ("riichi/standard", 9, 8, "西一/东南战"),
+            ("qingque", 2, 8, "东二/东南战"),
+            ("taiwan", 2, 8, "东二/东南战"),
+            ("sichuan", 2, 16, "第2/16副"),
+            ("wuhan", 2, 16, "第2/16副"),
+            ("hongque", 2, 8, "第2/8局"),
+            ("shanxi", 2, 16, "第2/16庄"),
+            ("sichuan", 19, 0, "第19/不限副"),
+            ("guobiao", 2, 0, "东风南/不限"),
+        }) {
+            var info = new SpectatorInfo { rule = sample.Item1.Split('/')[0], sub_rule = sample.Item1,
+                current_round = sample.Item2, total_rounds = sample.Item3 };
+            Check(SpectatorRoomPresentation.RoundProgress(info) == sample.Item4, sample.Item1 + " round display " + sample.Item4);
+        }
+        Check(SpectatorRoomPresentation.RoundProgress(new SpectatorInfo { rule = "sichuan", current_round = 2 }) == "第2/—副", "unknown count total stays unknown");
+        Check(SpectatorRoomPresentation.RoundProgress(new SpectatorInfo { rule = "guobiao", current_round = 2 }) == "东风南/—", "unknown match length stays unknown");
+        Check(SpectatorRoomPresentation.RoundProgress(new SpectatorInfo()) == "—/—", "legacy payload has no invented progress");
+
         var parent = new GameObject("SpectatorValidation");
         parent.SetActive(false);
         try {
@@ -51,14 +85,27 @@ public static class SpectatorLobbyValidation {
                     "player cells follow authoritative teams after seat rotation");
                 Check(backgrounds[0].color.r > backgrounds[0].color.b && backgrounds[1].color.b > backgrounds[1].color.r,
                     "red and blue colors match server team ids");
-                Check(row.GetComponentsInChildren<TextMeshProUGUI>(true).Length == 7 &&
-                    Mathf.Abs(((RectTransform)row.transform).rect.height - 90.8435f) < .01f,
-                    "original seven texts and row height retained");
+                Check(row.GetComponentsInChildren<TextMeshProUGUI>(true).Length == 8 &&
+                    Mathf.Abs(((RectTransform)row.transform).rect.height - 90.8435f) < .01f &&
+                    Mathf.Abs(((RectTransform)row.transform).rect.width - 945.15f) < .01f,
+                    "original card width and height retained");
+                row.InitializeSpectatorItem(progressInfo);
+                Check(Label("RoundProgressText").text == "东风南/全庄战", "prefab binds public round progress");
+                Check(Label("RuleText").rectTransform.anchorMax.x == .25f &&
+                    Label("GamestateIdText").rectTransform.anchorMin.x == .25f &&
+                    Label("GamestateIdText").rectTransform.anchorMax.x == .75f &&
+                    Label("RoundProgressText").rectTransform.anchorMin.x == .75f,
+                    "rule, game id and round progress occupy requested quarter boundaries");
+                Check(!Label("RuleText").enableAutoSizing && Label("RuleText").fontSize == 25 &&
+                    !Label("GamestateIdText").enableAutoSizing && Label("GamestateIdText").fontSize == 23,
+                    "original fixed rule and game-id font sizes retained");
+                Check(!Label("RoundProgressText").raycastTarget, "progress label does not intercept spectate clicks");
                 row.InitializeSpectatorItem(new SpectatorInfo { rule = "guobiao", sub_rule = "guobiao/standard", room_type = "match", match_tier = "advanced", gamestate_id = "rank" });
                 var rail = (Image)fields.FindProperty("accentRail").objectReferenceValue;
                 Check(rail.gameObject.activeSelf && rail.color == (Color)new Color32(255, 143, 0, 255), "ranked stripe uses existing tier palette");
                 Check(backgrounds.All(image => !image.gameObject.activeSelf), "ordinary room clears team colors on reuse");
                 row.InitializeSpectatorItem(custom);
+                Check(Label("RoundProgressText").text == "—/—", "reusing row clears stale round progress");
                 Check(row.GetComponent<UnityEngine.UI.Image>().color == (Color)new Color32(82, 82, 82, 255), "custom rooms retain original grey in every variant");
                 Check(!((UnityEngine.UI.Image)fields.FindProperty("accentRail").objectReferenceValue).gameObject.activeSelf, "custom rooms have no ranked stripe");
                 Check(!((UnityEngine.UI.Button)fields.FindProperty("SpectateButton").objectReferenceValue).interactable, "missing game id disables spectate");

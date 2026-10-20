@@ -14,7 +14,6 @@ public static class TilePackIds {
 
     public const string ResourcesCardRoot = "image/Cards";
     public const string ResourcesPackRoot = ResourcesCardRoot + "/Faces";
-    public const string HongqueHandRoot = ResourcesPackRoot + "/hongque/hand";
     public const string HongqueTableRoot = ResourcesPackRoot + "/hongque/table";
     public const string OfficialAtlasResource = ResourcesPackRoot + "/official/TableAtlas";
     public const string DefaultHandBgResource = ResourcesCardRoot + "/Surfaces/backgrounds/hand-default";
@@ -72,10 +71,6 @@ public static class TilePackIds {
             return true;
         }
         return full.IndexOf("/" + needle + "/", System.StringComparison.OrdinalIgnoreCase) >= 0;
-    }
-
-    public static string BuiltinHandResource(string packId, int tileId) {
-        return ResourcesPackRoot + "/" + packId + "/" + HandDirEn + "/" + tileId;
     }
 
     public static string BuiltinTableResource(string packId, int tileId) {

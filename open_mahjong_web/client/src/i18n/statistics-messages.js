@@ -18,6 +18,7 @@ const labels = [
   ['国标（十六张）', 'MCR (16 tiles)', '国際公式（16枚）', 'MCR (16 tuiles)'],
   ['国标（透明实时手牌）', 'MCR (live transparent hands)', '国際公式（透明手牌リアルタイム）', 'MCR (mains transparentes en direct)'],
   ['福州麻将（十六张）', 'Fuzhou (16 tiles)', '福州（16枚）', 'Fuzhou (16 tuiles)'],
+  ['上饶麻将', 'Shangrao Mahjong', '上饒麻雀', 'Mahjong de Shangrao'],
   ['国标（小林改）', 'MCR (Xiaolin)', '国際公式（小林改）', 'MCR (Xiaolin)'],
   ['国标（K神）', 'MCR (Kshen)', '国際公式（K神）', 'MCR (Kshen)'],
   ['国标（蓝十改）', 'MCR (Lanshi)', '国際公式（藍十改）', 'MCR (Lanshi)'],

@@ -39,21 +39,10 @@ public static class HongqueTileVisual {
         return ColourCodes[value / 10] + (value % 10);
     }
 
-    /// <summary>手牌牌面资源路径（HQv3.1-hand）。</summary>
-    public static string HandResourcePath(int tileId) {
-        string code = ToCode(tileId);
-        return code == null ? null : TilePackIds.HongqueHandRoot + "/" + code;
-    }
-
     /// <summary>3D 卡牌牌面资源路径（HQv3.1-table）。</summary>
     public static string TableResourcePath(int tileId) {
         string code = ToCode(tileId);
         return code == null ? null : TilePackIds.HongqueTableRoot + "/" + code;
-    }
-
-    /// <summary>手牌牌面资源路径（默认手牌套）。</summary>
-    public static string ResourcePath(int tileId) {
-        return HandResourcePath(tileId);
     }
 
     /// <summary>加载 3D 卡牌牌面贴图（HQv3.1-table），供 3D 渲染使用。</summary>
@@ -72,21 +61,14 @@ public static class HongqueTileVisual {
     /// </summary>
     public static void PreloadAllTextures() {
         if (texturesPreloaded) return;
-        // Load the original Sprites so Unity can bind their atlas rects and mipmaps.
-        // Creating a new Sprite from the packed Texture2D would show the entire atlas.
-        Sprite[] sprites = Resources.LoadAll<Sprite>(TilePackIds.HongqueHandRoot);
-        foreach (Sprite sprite in sprites) {
-            if (sprite == null) continue;
-            int tileId = FromCode(sprite.name);
-            if (tileId != 0) CacheHandSprite(tileId, sprite);
-        }
+        foreach (int tileId in TilePackIds.HongqueFaceIds) LoadSprite(tileId);
         texturesPreloaded = true;
     }
 
     public static Sprite LoadSprite(int tileId) {
         if (!IsHongqueId(tileId)) return null;
         if (SpriteCache.TryGetValue(tileId, out Sprite cached) && cached != null) return cached;
-        Sprite sprite = Resources.Load<Sprite>(HandResourcePath(tileId));
+        Sprite sprite = BuiltinTileSprites.Hand("hongque", ToCode(tileId));
         if (sprite != null) CacheHandSprite(tileId, sprite);
         return sprite;
     }

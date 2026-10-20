@@ -6,6 +6,7 @@ public sealed class RoomCreationInput {
     public string NoJokerBonus = "add8";
     public bool BlackFlowerProgressive = true;
     public string Rule, SubRule, RoomName, Password, RandomSeed, EventId, DuplicateKey;
+    public bool UnlimitedRounds;
     public int GameRound, RoundTimer, StepTimer, CuoheType, HepaiWayIndex;
     public string HepaiLimitText, StartingScoreText;
     public bool PasswordEnabled, RandomSeedEnabled, HepaiLimitEnabled, HepaiLimitVisible, DuplicateEnabled;

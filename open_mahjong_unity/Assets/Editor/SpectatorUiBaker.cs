@@ -31,12 +31,8 @@ public static class SpectatorUiBaker {
             Stretch(title, new Vector2(0, .5f), Vector2.one, Vector2.zero, new Vector2(-152, 0));
             var players = (RectTransform)root.transform.Find("GameObject (1)");
             Stretch(players, Vector2.zero, new Vector2(1, .5f), Vector2.zero, new Vector2(-152, 0));
-            var rule = (TextMeshProUGUI)serialized.FindProperty("RuleText").objectReferenceValue;
-            var id = (TextMeshProUGUI)serialized.FindProperty("GamestateIdText").objectReferenceValue;
-            Stretch(rule.rectTransform, Vector2.zero, new Vector2(.49f, 1), new Vector2(16, 0), new Vector2(-10, 0));
-            TextStyle(rule, 25, TextAlignmentOptions.MidlineLeft);
-            Stretch(id.rectTransform, new Vector2(.49f, 0), Vector2.one, new Vector2(8, 0), new Vector2(-12, 0));
-            TextStyle(id, 23, TextAlignmentOptions.MidlineLeft);
+            BakeRoundHeader(root);
+            serialized.Update();
             // Remove only the extra nodes created by the earlier design proposals.
             foreach (var path in new[] { "GameObject/RoomBadge", "GameObject (1)/BlueTeam", "GameObject (1)/RedTeam",
                 "GameObject (1)/BlueTeamBackground", "GameObject (1)/RedTeamBackground" }) {
@@ -74,6 +70,38 @@ public static class SpectatorUiBaker {
         } finally { PrefabUtility.UnloadPrefabContents(root); }
         BakeVariant(HeaderPath, SpectatorPrefab.ColorStyle.TierHeader);
         BakeVariant(SoftPath, SpectatorPrefab.ColorStyle.SoftCard);
+    }
+
+    [MenuItem("Tools/Mahjong/Spectator/Bake Round Progress")]
+    public static void BakeRoundProgress() {
+        var root = PrefabUtility.LoadPrefabContents(BasePath);
+        try {
+            BakeRoundHeader(root);
+            PrefabUtility.SaveAsPrefabAsset(root, BasePath);
+        } finally { PrefabUtility.UnloadPrefabContents(root); }
+    }
+
+    private static void BakeRoundHeader(GameObject root) {
+        var serialized = new SerializedObject(root.GetComponent<SpectatorPrefab>());
+        var rule = (TextMeshProUGUI)serialized.FindProperty("RuleText").objectReferenceValue;
+        var id = (TextMeshProUGUI)serialized.FindProperty("GamestateIdText").objectReferenceValue;
+        var progress = (TextMeshProUGUI)serialized.FindProperty("RoundProgressText").objectReferenceValue;
+        if (progress == null) {
+            progress = UnityEngine.Object.Instantiate(id, id.transform.parent);
+            progress.name = "RoundProgress";
+            Assign(serialized, "RoundProgressText", progress);
+        }
+        Stretch(rule.rectTransform, Vector2.zero, new Vector2(.25f, 1), new Vector2(16, 0), new Vector2(-10, 0));
+        TextStyle(rule, 25, TextAlignmentOptions.MidlineLeft);
+        rule.fontSizeMin = 18; rule.fontSizeMax = 72;
+        Stretch(id.rectTransform, new Vector2(.25f, 0), new Vector2(.75f, 1), new Vector2(16, 0), new Vector2(-12, 0));
+        TextStyle(id, 23, TextAlignmentOptions.MidlineLeft);
+        id.fontSizeMin = 18; id.fontSizeMax = 72;
+        Stretch(progress.rectTransform, new Vector2(.75f, 0), Vector2.one, new Vector2(16, 0), new Vector2(-12, 0));
+        TextStyle(progress, 23, TextAlignmentOptions.MidlineLeft);
+        progress.richText = false;
+        progress.text = "—/—";
+        serialized.ApplyModifiedPropertiesWithoutUndo();
     }
 
     private static void BakeVariant(string path, SpectatorPrefab.ColorStyle style) {

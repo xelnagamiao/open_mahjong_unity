@@ -74,6 +74,11 @@ public class GameStateNetworkManager : MonoBehaviour {
             case "gamestate/broadcast_sticker":
                 HandleBroadcastSticker(response);
                 break;
+            case "gamestate/unlimited_update":
+                if (response.gamestate_id == NormalGameStateManager.Instance.gamestateId
+                    && NormalGameStateManager.Instance.IsGameActive)
+                    UnlimitedRoundPanel.Instance?.ApplyState(response.unlimited_info);
+                break;
             case "gamestate/vote_update":
                 HandleVoteUpdate(response);
                 break;
@@ -233,6 +238,20 @@ public class GameStateNetworkManager : MonoBehaviour {
     }
 
     // ========== 房间对局投票暂停/结束 ==========
+
+    public async void SendUnlimitedEnd(bool withdrawn) {
+        if (NormalGameStateManager.Instance.IsRealtimeSpectator) return;
+        try {
+            var request = new {
+                type = "gamestate/unlimited_end",
+                gamestate_id = UserDataManager.Instance.GamestateId,
+                withdrawn
+            };
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"发送结束／回归游戏失败: {e.Message}");
+        }
+    }
 
     private void HandleVoteUpdate(Response response) {
         VotePanel.Instance?.ApplyState(response.vote_info);

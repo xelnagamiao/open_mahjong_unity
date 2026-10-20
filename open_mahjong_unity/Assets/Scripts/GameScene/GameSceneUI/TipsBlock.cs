@@ -92,6 +92,6 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
     public void OnPointerExit(PointerEventData eventData){
         Debug.Log("鼠标离开提示棱形");
         // 鼠标离开时隐藏TipsContainer（内部会先清空内容）
-        TipsContainer.Instance.HideTips();
+        TipsContainer.Instance.HideTipsAfterPointerExit(eventData);
     }
 }

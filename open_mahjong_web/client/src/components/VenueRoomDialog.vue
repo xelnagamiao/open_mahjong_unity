@@ -55,6 +55,7 @@
       <FuzhouRoomConfig v-else-if="form.room_rule === 'fuzhou'" :form="form" :show-password="showPassword" />
       <WenzhouRoomConfig v-else-if="form.room_rule === 'wenzhou'" :form="form" :show-password="showPassword" />
       <NanchangRoomConfig v-else-if="form.room_rule === 'nanchang'" :form="form" :show-password="showPassword" />
+      <ShangraoRoomConfig v-else-if="form.room_rule === 'shangrao'" :form="form" :show-password="showPassword" />
       <HangzhouRoomConfig v-else-if="form.room_rule === 'hangzhou'" :form="form" :show-password="showPassword" />
       <RiichiRoomConfig v-else-if="form.room_rule === 'riichi'" :form="form" />
       <el-alert
@@ -128,6 +129,7 @@ import NanjingRoomConfig from '@/components/NanjingRoomConfig.vue'
 import FuzhouRoomConfig from '@/components/FuzhouRoomConfig.vue'
 import WenzhouRoomConfig from '@/components/WenzhouRoomConfig.vue'
 import NanchangRoomConfig from '@/components/NanchangRoomConfig.vue'
+import ShangraoRoomConfig from '@/components/ShangraoRoomConfig.vue'
 import HangzhouRoomConfig from '@/components/HangzhouRoomConfig.vue'
 import SingaporeRoomConfig from '@/components/SingaporeRoomConfig.vue'
 import JiujiangRoomConfig from '@/components/JiujiangRoomConfig.vue'

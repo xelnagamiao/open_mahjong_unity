@@ -13,6 +13,7 @@ from .nanjing_room import NanjingRoomValidator, create_nanjing_room
 from .fuzhou_room import FuzhouRoomValidator, create_fuzhou_room
 from .wenzhou_room import WenzhouRoomValidator, create_wenzhou_room
 from .nanchang_room import NanchangRoomValidator, create_nanchang_room
+from .shangrao_room import ShangraoRoomValidator, create_shangrao_room
 from .changchun_room import ChangchunRoomValidator
 from .hongzhong_room import HongzhongRoomValidator, create_hongzhong_room
 from .jiujiang_room import JiujiangRoomValidator, create_jiujiang_room
@@ -70,6 +71,7 @@ class RoomManager:
             "fuzhou": FuzhouRoomValidator,
             "wenzhou": WenzhouRoomValidator,
             "nanchang": NanchangRoomValidator,
+            "shangrao": ShangraoRoomValidator,
             "hangzhou": HangzhouRoomValidator,
             "hongzhong": HongzhongRoomValidator,
             "jiujiang": JiujiangRoomValidator,
@@ -433,11 +435,16 @@ class RoomManager:
 
     async def create_Qingque_room(self, player_id: str, room_name: str, gameround: int,
                                   password: str, roundTimerValue: int, stepTimerValue: int,
-                                  tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "qingque/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, event_id: Optional[str] = None, count_tips: bool = False, pointer_tips: bool = True) -> Response:
+                                  tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "qingque/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, event_id: Optional[str] = None, count_tips: bool = False, pointer_tips: bool = True, unlimited_rounds: bool = False) -> Response:
         """
         创建青雀房间。
         青雀规则不支持错和，open_cuohe 参数会被忽略，统一按 False 处理。
         """
+        if type(unlimited_rounds) is not bool:
+            return Response(type="tips", success=False, message="无固定时限设置必须为布尔值")
+        if unlimited_rounds and event_id:
+            return Response(type="tips", success=False, message="赛事房间暂不支持无固定时限")
+
         try:
             # 检查玩家是否存在
             if player_id not in self.game_server.players:
@@ -484,7 +491,7 @@ class RoomManager:
             # 传参配置 传入的参数（青雀规则不支持错和，强制为 False）
             room_config = {
                 "room_name": room_name, # 房间名
-                "game_round": gameround, # 最大局数
+                "game_round": 4 if unlimited_rounds else gameround, # 最大局数
                 "round_timer": roundTimerValue, # 局时
                 "step_timer": stepTimerValue, # 步时
                 "random_seed": random_seed, # 随机种子
@@ -511,6 +518,7 @@ class RoomManager:
             room_data = {
                 "room_id": room_id, # 房间ID
                 "room_type": "custom", # 房间类型（自定义对局）
+                "unlimited_rounds": unlimited_rounds,
                 "room_rule": "qingque", # 房间规则（用于游戏与统计）
                 "sub_rule": sub_rule, # 子规则
                 "hepai_limit": 1, # 青雀起和限制固定为1
@@ -1288,6 +1296,9 @@ class RoomManager:
 
     async def create_Hongzhong_room(self, player_id, **config):
         return await create_hongzhong_room(self, player_id, **config)
+
+    async def create_Shangrao_room(self, player_id, **config):
+        return await create_shangrao_room(self, player_id, **config)
 
     async def create_Nanchang_room(self, player_id, **config):
         return await create_nanchang_room(self, player_id, **config)
@@ -2254,6 +2265,7 @@ class RoomManager:
             "fuzhou": ("fuzhou/standard", "fuzhou"),
             "wenzhou": ("wenzhou/mil2024", "wenzhou"),
             "nanchang": ("nanchang/mil2026", "nanchang"),
+            "shangrao": ("shangrao/standard", "shangrao"),
             "hangzhou": ("hangzhou/mil2025", "hangzhou"),
             "hongzhong": ("hongzhong/mil2024", "hongzhong"),
             "jiujiang": ("jiujiang/standard", "jiujiang"),
@@ -2359,7 +2371,7 @@ class RoomManager:
                     **{key: room_config[key] for key in ("use_flowers", "tian_di_ren_he", "open_cuohe", "tactical_call", "claim_protection", "allow_spectator", "tourist_limit", "count_tips", "pointer_tips", "hepai_limit") if key in room_config},
                 )
                 hepai_limit = 0
-            elif rule in ("malaysia", "filipino", "vietnamese", "guizhou", "fuzhou", "nanjing", "yixing", "wenzhou", "nanchang", "hongzhong", "hangzhou", "changchun", "jiujiang", "singapore"):
+            elif rule in ("malaysia", "filipino", "vietnamese", "guizhou", "fuzhou", "nanjing", "yixing", "wenzhou", "nanchang", "shangrao", "hongzhong", "hangzhou", "changchun", "jiujiang", "singapore"):
                 validated = self.room_validators[rule](
                     **{**base_config, **{key: room_config[key] for key in ("game_round", "round_timer", "step_timer") if key in room_config}},
                     sub_rule=sub_rule, tips=room_config.get("tips", True),
@@ -2367,7 +2379,7 @@ class RoomManager:
                     **({"hepai_limit": room_config["hepai_limit"]} if rule in ("hongzhong", "jiujiang", "singapore") and "hepai_limit" in room_config else {}),
                     **{key: room_config[key] for key in ("use_flowers", "open_cuohe", "tactical_call", "claim_protection", "tian_di_ren_he", "allow_spectator", "tourist_limit", "count_tips", "pointer_tips") if key in room_config},
                 )
-                hepai_limit = 5 if rule == "malaysia" else 1 if rule in ("jiujiang", "nanchang", "singapore") else 0
+                hepai_limit = 5 if rule == "malaysia" else 1 if rule in ("jiujiang", "nanchang", "shangrao", "singapore") else 0
             elif rule == "hongkong":
                 validated = self.room_validators["hongkong"](
                     **base_config, sub_rule=sub_rule, tips=tips,

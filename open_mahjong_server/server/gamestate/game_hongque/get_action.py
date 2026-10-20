@@ -17,7 +17,6 @@ from .heuristic_bot import (
     choose_turn_plan as choose_turn_plan_v3,
 )
 from .rules import kong_candidates, kong_win_candidates
-from .scoring import best_win_result
 from .hongque_debug import get_debug_forced_discard
 from .wait_action import actions_for_viewer
 from ..public.ai.bot_executor import run_room_bot_cpu
@@ -49,17 +48,15 @@ async def bot_turn(game_state, tick: int) -> None:
         player_index = player.index
         smart = player.user_id == 2
         heuristic = player.user_id == 3
-        kong = tuple(dict(item) for item in (
-            kong_candidates(player.hand, player.melds)
-            + kong_win_candidates(player.hand, player.melds)
-        ))
-        before_first_discard = not any(item.discards for item in game_state.players)
-        wall_empty = not game_state.wall
+        drawn_tile = player.drawn_tile
         if smart or heuristic:
+            kong = tuple(dict(item) for item in (
+                kong_candidates(player.hand, player.melds)
+                + kong_win_candidates(player.hand, player.melds)
+            ))
             visible = visible_codes_for(game_state, player.index)
             supplements = player.supplements
             wall_count = len(game_state.wall)
-            drawn_tile = player.drawn_tile
             last_draw_was_supplement = player.last_draw_was_supplement
         if heuristic:
             opponents = tuple(
@@ -83,18 +80,7 @@ async def bot_turn(game_state, tick: int) -> None:
             opponents=opponents,
         )
     else:
-        result = await run_room_bot_cpu(
-            game_state, best_win_result, hand, melds,
-            self_draw=True, before_first_discard=before_first_discard,
-            wall_empty=wall_empty,
-        )
-        if result is not None or any(item.get("kind") == "kong_win" for item in kong):
-            plan = {"action": "win"}
-        else:
-            plan = {
-                "action": "discard",
-                "tile": game_state._rng.choice(hand) if hand else None,
-            }
+        plan = {"action": "discard", "tile": drawn_tile if drawn_tile in hand else (hand[-1] if hand else None)}
 
     await wait_bot_delay(game_state, started_at, BOT_ACTION_DELAY)
     if game_state.phase != "turn" or game_state.action_tick != tick \
@@ -119,13 +105,13 @@ async def bot_turn(game_state, tick: int) -> None:
         )
         return
     code = plan.get("tile")
-    if game_state.Debug:
+    if game_state.Debug and (smart or heuristic):
         forced = get_debug_forced_discard(game_state, player.index)
         if forced in player.hand:
             code = forced
     if code not in player.hand:
         code = player.drawn_tile if player.drawn_tile in player.hand else (
-            game_state._rng.choice(player.hand) if player.hand else None
+            player.hand[-1] if player.hand else None
         )
     if code is not None:
         await game_state.submit_action(
@@ -177,10 +163,11 @@ async def bot_claim(game_state, player_index: int, tick: int) -> None:
             melds = tuple(dict(meld) for meld in player.melds)
             candidates = tuple(dict(item) for item in candidates)
             visible = visible_codes_for(game_state, player_index)
-        claim_fn = choose_claim_plan_v3 if player.user_id == 3 else choose_claim_plan
-        plan = await run_room_bot_cpu(
-            game_state, claim_fn, hand, melds, candidates, visible
-        )
+        if player.user_id == 0:
+            plan = {"action": "pass"}
+        else:
+            claim_fn = choose_claim_plan_v3 if player.user_id == 3 else choose_claim_plan
+            plan = await run_room_bot_cpu(game_state, claim_fn, hand, melds, candidates, visible)
         await wait_bot_delay(game_state, started_at, BOT_ACTION_DELAY)
         if game_state.phase != "claim" or game_state.action_tick != tick:
             return

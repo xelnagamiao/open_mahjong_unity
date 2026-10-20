@@ -51,7 +51,7 @@ public static class GuobiaoFourJokersValidation {
         Check(manifest != null && manifest.HandJokerTiles(sub).SequenceEqual(new[]{59}), "red flower is the only joker");
         Check(TilePackIds.IsStandardFaceId(59), "red flower face registered");
         foreach (string kind in new[]{"hand","table"}) {
-            var sprite = Resources.Load<Sprite>("image/Cards/Faces/official/" + kind + "/59");
+            var sprite = kind == "hand" ? BuiltinTileSprites.Hand(TilePackIds.PackOfficial, 59) : BuiltinTileSprites.OfficialTable(59);
             Check(sprite != null && sprite.rect.width > 100, "red flower sprite " + kind);
         }
         var response = JsonConvert.DeserializeObject<Response>("{\"game_info\":{\"four_jokers_hints\":{\"hand\":[11,11,11,21,22,23,31,32,33,44,44,44,45],\"melds\":[],\"waits\":[45,59],\"discard_waits\":{}}}}");

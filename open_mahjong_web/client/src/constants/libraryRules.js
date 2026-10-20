@@ -1,5 +1,6 @@
 import { hongKongRulebooks } from './hongKongRulebooks.js'
 import { milRulebooks } from './milRulebooks.js'
+import {shangraoRulebooks, SHANGRAO_DESCRIPTION} from './shangraoRulebooks.js'
 
 /**
  * 麻雀图书馆规则目录
@@ -53,6 +54,7 @@ export const LIBRARY_RULES = [
   },
   { key: 'shenyang', label: '沈阳麻将', short: '沈阳', categories: ['platform', 'mil'], accent: '#587c88', description: milRulebooks.shenyang[0].desc, resources: milRulebooks.shenyang },
   { key: 'nanchang', label: '南昌麻将', short: '南昌', categories: ['platform', 'local', 'mil'], accent: '#297b74', description: milRulebooks.nanchang[0].desc, resources: milRulebooks.nanchang },
+  { key: 'shangrao', label: '上饶麻将', short: '上饶', categories: ['platform','local'], accent:'#587a69', description:SHANGRAO_DESCRIPTION, resources:shangraoRulebooks },
   {
     key: 'wenzhou', label: '温州麻将', short: '温州', categories: ['platform', 'local', 'mil'], accent: '#297b74',
     description: milRulebooks.wenzhou[0].desc,

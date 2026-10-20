@@ -18,8 +18,9 @@ async def jiujiang_bot_action(state,index,action_list,status):
     if action in ("cut","riichi_cut"):
         if player.ready_locked and has_draw_slot(player): tile,cut_index=player.last_drawn_tile,len(player.hand_tiles)-1
         elif action=="riichi_cut":
-            tile = sorted(player.riichi_candidate_cuts)[0]
-            cut_index = player.hand_tiles.index(tile)
+            hand = list(player.hand_tiles)
+            tile,cut_index = await run_room_bot_cpu(state,find_best_cut,hand,len(player.combination_tiles),
+                count_visible_tiles(state),set(hand)-set(player.riichi_candidate_cuts))
         else: tile,cut_index=await run_room_bot_cpu(state,find_best_cut,list(player.hand_tiles),len(player.combination_tiles),count_visible_tiles(state),set())
     elif action in ("angang","jiagang"):
         target = state._kong_candidates(index,action=="jiagang")[0]

@@ -324,6 +324,7 @@ const RULE_LABELS = {
   fuzhou: '福州麻将',
   wuhan: '武汉麻将',
   nanchang: '南昌麻将',
+  shangrao: '上饶麻将',
 }
 const GAME_TYPE_OPTIONS = [
   { value: 'quanzhuang', label: '全庄战' },
@@ -368,6 +369,7 @@ const roomRuleOptions = [
   { value: 'fuzhou', label: '福州麻将' },
   { value: 'wuhan', label: '武汉麻将' },
   { value: 'nanchang', label: '南昌麻将' },
+  { value: 'shangrao', label: '上饶麻将' },
   { value: 'guobiao', label: '国标' },
   { value: 'riichi', label: '立直' },
   { value: 'qingque', label: '青雀' },

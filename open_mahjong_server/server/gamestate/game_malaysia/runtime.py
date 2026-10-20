@@ -32,6 +32,12 @@ class Runtime:
 
     def automatic_action(self, i, *, bot=False):
         p, actions = self.player_list[i], self.action_dict[i]
+        from ..public.ai.auto_cut_policy import is_auto_cut_bot, choose_auto_cut_action
+        if is_auto_cut_bot(p):
+            # Flies cannot be discarded; exposing them draws a replacement.
+            if "malaysia_fly" in actions:
+                return dict(action_type="malaysia_fly")
+            return choose_auto_cut_action(p, actions, A.cuts(p) if "cut" in actions else None)
         for a in ("ready", "buhua"):
             if a in actions:
                 return dict(action_type=a)

@@ -111,6 +111,8 @@ public static class GameRecordJsonDecoder {
         round.fuzhou = (roundData["fuzhou"] as JObject)?.ToObject<FuzhouInfo>();
         round.hangzhou = (roundData["hangzhou"] as JObject)?.ToObject<HangzhouInfo>();
         round.nanchang = (roundData["nanchang"] as JObject)?.ToObject<NanchangInfo>();
+        round.shangrao = (roundData["shangrao"] as JObject)?.ToObject<ShangraoInfo>();
+        round.shangraoHints = (roundData["shangrao_hints"] as JObject)?.ToObject<Dictionary<int, ShangraoHints>>();
         round.nanchangHints = (roundData["nanchang_hints"] as JObject)?.ToObject<Dictionary<int, Dictionary<string, NanchangWait[]>>>();
         round.wenzhou = (roundData["wenzhou"] as JObject)?.ToObject<WenzhouInfo>();
         round.wenzhouWaits = (roundData["wenzhou_waits"] as JObject)?.ToObject<Dictionary<int, Dictionary<string, WenzhouWait[]>>>();
@@ -194,6 +196,15 @@ public static class GameRecordJsonDecoder {
             if (scores?.Length == 4) {
                 var changes = new int[4];
                 for (int i = 0; i < 4; i++) changes[i] = scores[i] - round.wenzhou.start_scores[i];
+                round.scoreChanges = new List<int>(ConvertPlayerIndexScoreChangesToOriginal(changes, round.seats));
+            }
+            return;
+        }
+        if (act == "shangrao" && tick.Count >= 4 && tick[1] == "state" && round.shangrao?.start_scores?.Length == 4) {
+            int[] scores = Newtonsoft.Json.JsonConvert.DeserializeObject<int[]>(tick[3]);
+            if (scores?.Length == 4) {
+                var changes = new int[4];
+                for (int i = 0; i < 4; i++) changes[i] = scores[i] - round.shangrao.start_scores[i];
                 round.scoreChanges = new List<int>(ConvertPlayerIndexScoreChangesToOriginal(changes, round.seats));
             }
             return;

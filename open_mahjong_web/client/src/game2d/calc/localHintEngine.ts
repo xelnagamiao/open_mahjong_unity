@@ -20,11 +20,10 @@ export function calculateLocalHint(kind:string,body:any):FourJokersSnapshot|Four
   if(kind!=='guobiao.score')throw new Error('Unknown local hint job: '+kind)
   const q=body as FourJokersHintRequest
   if(!sixteen)return describeJoker(q)
-  let maximum=0
-  for(const [way,kind,prefix] of [[q.ron_way,'dianhe',''],[q.self_way,'zimo','自摸']] as const){
-    const result=sixteenScore(q.hand_tiles,q.tiles_combination,way,q.get_tile)
-    maximum=Math.max(maximum,result.score)
-    if(result.score>0&&result.qualifying>=q.hepai_limit)return {kind,label:`${prefix}${result.score}番`,score:result.score}
-  }
-  return {kind:'wuyi',label:'未起和',score:maximum}
+  const ron=sixteenScore(q.hand_tiles,q.tiles_combination,q.ron_way,q.get_tile)
+  const self=sixteenScore(q.hand_tiles,q.tiles_combination,q.self_way,q.get_tile)
+  const canRon=ron.score>0&&ron.qualifying>=q.hepai_limit,canSelf=self.score>0&&self.qualifying>=q.hepai_limit
+  if(canRon)return {kind:canSelf?'dianhe':'ron_only',label:canSelf?`${ron.score}番`:'仅点和',score:ron.score}
+  return canSelf?{kind:'zimo',label:`自摸${self.score}番`,score:self.score}
+    :{kind:'wuyi',label:'未起和',score:Math.max(ron.score,self.score)}
 }

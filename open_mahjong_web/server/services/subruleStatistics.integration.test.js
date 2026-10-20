@@ -3,6 +3,20 @@ const assert = require('node:assert/strict');
 const { Pool } = require('pg');
 const { STATISTICS_RULES } = require('./statisticsCatalog');
 const { BASE_KEYS, RIICHI_STATS_VERSION } = require('./riichiStats');
+const { INFO_FAN_DICT } = require('../constants/playerFanDicts');
+
+test('all supported fan profiles have a complete independent display catalog', () => {
+  const enabled = STATISTICS_RULES.filter(rule => rule.fan_stats);
+  assert.equal(enabled.length, 26);
+  for (const rule of enabled) assert(Object.keys(INFO_FAN_DICT[rule.sub_rule]).length > 0, rule.sub_rule);
+  assert.equal(INFO_FAN_DICT['hongque/v1.6']['双同顺'], '双同顺');
+  assert.equal(INFO_FAN_DICT['sichuan/standard']['根'], '根');
+  assert(!INFO_FAN_DICT['sichuan/xueliu_doubles']['根']);
+  assert(!INFO_FAN_DICT['changsha/classic_double_bird']['十三将']);
+  assert.equal(INFO_FAN_DICT['changsha/exchange_six']['十三将'], '十三将');
+  assert.equal(INFO_FAN_DICT.qingque.shiergui, '十二归');
+  assert.equal(INFO_FAN_DICT.classical.luanfengheming, '鸾凤和鸣');
+});
 
 test('every statistics selection isolates its subrule and fan capability', {
   skip: !process.env.RECORD_METADATA_TEST_DATABASE_URL,
@@ -93,6 +107,20 @@ test('every statistics selection isolates its subrule and fan capability', {
     const hongqueHome = await queryRecordHomeStats(pool,['hongque']);
     assert.equal(selectHomeStats(hongqueHome,'hongque','rank','hands16').total_games,2);
     assert.equal(selectHomeStats(hongqueHome,'hongque','custom','hands4').total_games,1);
+    for (const length of [2, 4]) {
+      const gid = `sichuan-history-${length}`;
+      await pool.query('INSERT INTO game_records(game_id,record) VALUES($1,$2)', [gid,{game_title:{rule:'sichuan',sub_rule:'sichuan/standard'}}]);
+      await pool.query("INSERT INTO game_player_records VALUES($1,10000101,'sichuan','sichuan/standard','match',$2,'elo',NULL,1)",[gid,`${length}/4_rank`]);
+      await pool.query(`INSERT INTO game_player_metrics(game_id,user_id,rule,sub_rule,room_type,match_type,fan_stats,total_rounds,win_count)
+        VALUES($1,10000101,'sichuan','sichuan/standard','match',$2,$3,$4,1)`,[gid,`${length}/4_rank`,{'根':length},length*4]);
+    }
+    const short = await fetchPlayerRankStats(10000101,{rule:'sichuan',tier:'rank',game_type:'banzhuang'});
+    const historical = await fetchPlayerRankStats(10000101,{rule:'sichuan',tier:'rank',game_type:'quanzhuang'});
+    assert.equal(short.total_rounds, 8);
+    assert.equal(historical.total_rounds, 16);
+    assert.equal(short.fan_stats['根'], 2);
+    assert.equal(historical.fan_stats['根'], 4);
+    assert.equal((await fetchPlayerRankStats(10000101,{rule:'sichuan',tier:'rank'})).fan_stats['根'], 6);
     delete require.cache[platformPath];
   } finally {
     await pool.end();

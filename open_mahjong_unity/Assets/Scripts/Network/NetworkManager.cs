@@ -773,11 +773,14 @@ public partial class NetworkManager : MonoBehaviour {
                     } else if (response.message == "login_kickout") {
                         _disconnectDialogState = DisconnectDialogState.Shown;
                     }
-                    NotificationManager.Instance.ShowMessage(
+                    var serverMessage = NotificationManager.Instance.ShowMessage(
                         response.message_info.title,
                         response.message_info.content,
                         response.message
                     );
+                    if (response.message == "error_version" && serverMessage != null) {
+                        serverMessage.RequiredReleaseVersion = response.message_info.required_release_version;
+                    }
 
                     LoginPanel.Instance.ResetLoginButton();
                     break;
@@ -905,14 +908,15 @@ public partial class NetworkManager : MonoBehaviour {
         return false;
     }
 
-    // 发送发布版版本号
+    // 发送发布版版本号与发行版声明
     public async void SendReleaseVersion(){
         try {
             var request = new SendReleaseVersionRequest {
                 type = "send_release_version",
-                release_version = ConfigManager.releaseVersion
+                release_version = ConfigManager.releaseVersion,
+                version_declaration = ConfigManager.versionDeclaration
             };
-            Debug.Log($"发送发布版本号: {request.release_version}");
+            Debug.Log($"发送发布版本号: {request.release_version}, 发行版声明: {request.version_declaration}");
             await websocket.SendText(JsonConvert.SerializeObject(request));
             if (_disconnectDialogState == DisconnectDialogState.Start) {
                 _disconnectDialogState = DisconnectDialogState.Connected;

@@ -93,7 +93,7 @@ public sealed class CardDesignModelPreview : MonoBehaviour
                 var atlas = Resources.Load<SpriteAtlas>(TilePackIds.OfficialAtlasResource);
                 officialFace = atlas != null ? atlas.GetSprite("11") : null;
                 ownsOfficialFace = officialFace != null;
-                if (officialFace == null) officialFace = Resources.Load<Sprite>(TilePackIds.BuiltinTableResource(TilePackIds.PackOfficial, 11));
+                if (officialFace == null) officialFace = BuiltinTileSprites.OfficialTable(11);
             }
             var sprite = officialFace;
             if (sprite != null) {

@@ -24,8 +24,9 @@ class HandFlow:
             self.flower_pending = dict(actor=i, tile=tile, opening=True, discard_only=False)
             return self.window(P.FLOWER, i, tile, {**A.empty(), i: ["buhua"]})
         self.opening = False
+        from ..public.ai.auto_cut_policy import is_auto_cut_bot
         for i, p in enumerate(self.player_list):
-            if p.hand_tiles.count(R.FLY) == 4:
+            if p.hand_tiles.count(R.FLY) == 4 and not is_auto_cut_bot(p):
                 return self.settle_win(i, "self_draw", None, automatic=True)
         return self.begin_turn(0)
 

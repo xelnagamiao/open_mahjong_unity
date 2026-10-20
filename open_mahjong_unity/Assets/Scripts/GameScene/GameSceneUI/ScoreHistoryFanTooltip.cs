@@ -259,10 +259,11 @@ public class ScoreHistoryFanTooltip : MonoBehaviour {
 
         int[] hand = (int[])snapshot.hepaiPlayerHand.Clone();
         int lastCard = hand[hand.Length - 1];
-        // 与 EndResultPanel 完全对齐：和牌张取数组末位，剩余手牌过滤掉花牌（牌谱重放时花牌可能残留）后排序。
+        // 和牌张取数组末位；过滤牌谱中残留的普通花牌，但保留本局作为癞子的花牌。
         var concealed = new List<int>(hand.Length - 1);
         for (int i = 0; i < hand.Length - 1; i++) {
-            if (IsFlowerTile(hand[i]) && !GuangdongMilRules.IsMil(snapshot.subRule)) continue;
+            if (IsFlowerTile(hand[i]) && !GuangdongMilRules.IsMil(snapshot.subRule)
+                && (snapshot.handJokerTiles == null || System.Array.IndexOf(snapshot.handJokerTiles, hand[i]) < 0)) continue;
             concealed.Add(hand[i]);
         }
         if (concealed.Count > 0 && concealed.TrueForAll(HongqueTileVisual.IsHongqueId))
@@ -288,7 +289,7 @@ public class ScoreHistoryFanTooltip : MonoBehaviour {
         SpawnTile(lastCard);
     }
 
-    /// <summary>花牌 id 范围 51~58（春夏秋冬梅兰竹菊），手牌容器不渲染花牌，与 EndResultPanel 一致。</summary>
+    /// <summary>花牌 id 范围 51~58（春夏秋冬梅兰竹菊）；是否作为手牌显示由本局癞子标记决定。</summary>
     private static bool IsFlowerTile(int tileId) {
         return tileId >= 51 && tileId <= 58;
     }

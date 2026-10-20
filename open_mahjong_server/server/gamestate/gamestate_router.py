@@ -139,6 +139,9 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
     elif message_type in {"gamestate/hangzhou/cut_tile", "gamestate/hangzhou/send_action"}:
         from .game_hangzhou.get_action import handle_action
         await handle_action(game_server, Connect_id, message, websocket)
+    elif message_type in {"gamestate/shangrao/cut_tile", "gamestate/shangrao/send_action"}:
+        from .game_shangrao.get_action import handle_action
+        await handle_action(game_server, Connect_id, message, websocket)
     elif message_type in {"gamestate/nanchang/cut_tile", "gamestate/nanchang/send_action"}:
         from .game_nanchang.get_action import handle_action
         await handle_action(game_server, Connect_id, message, websocket)
@@ -177,6 +180,8 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
         await handle_get_spectator_list(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/send_sticker":
         await handle_send_sticker(game_server, Connect_id, message, websocket)
+    elif message_type == "gamestate/unlimited_end":
+        await handle_unlimited_end(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/vote_start":
         await handle_vote_start(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/vote_response":
@@ -687,11 +692,28 @@ async def _resolve_vote_context(game_server, Connect_id, message):
     return game_state, player_conn.user_id, None
 
 
+async def handle_unlimited_end(game_server, Connect_id, message, websocket):
+    game_state, user_id, error = await _resolve_vote_context(game_server, Connect_id, message)
+    if error:
+        await _send_vote_tip(websocket, "gamestate/unlimited_end", False, error)
+        return
+    session = getattr(game_state, "unlimited_session", None)
+    if session is None:
+        await _send_vote_tip(websocket, "gamestate/unlimited_end", False, "此房间未开启无固定时限")
+        return
+    ok, error = await session.set_withdrawn(user_id, message.get("withdrawn"))
+    if not ok:
+        await _send_vote_tip(websocket, "gamestate/unlimited_end", False, error)
+
+
 async def handle_vote_start(game_server, Connect_id, message, websocket):
     try:
         game_state, user_id, err = await _resolve_vote_context(game_server, Connect_id, message)
         if err:
             await _send_vote_tip(websocket, "gamestate/vote_start", False, err)
+            return
+        if getattr(game_state, "unlimited_rounds", False) and message.get("vote_type") == "end":
+            await _send_vote_tip(websocket, "gamestate/vote_start", False, "无固定时限对局请使用结束游戏，在本局后结算")
             return
         from .public.vote_manager import get_or_create_vote_manager
         vm = get_or_create_vote_manager(game_state)

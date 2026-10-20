@@ -129,6 +129,8 @@ public class GameSceneUIManager : MonoBehaviour
     /// </summary>
     public void ShowEndGame(string master_seed, string commitment, string salt, Dictionary<string, Dictionary<string, object>> player_final_data)
     {
+        UnlimitedRoundPanel.Instance?.ResetState();
+        ExitButtonManager.Instance?.HideAll();
         EndGamePanel.Instance.ShowGameEndPanel(master_seed, commitment, salt, player_final_data);
     }
 
@@ -215,6 +217,7 @@ public class GameSceneUIManager : MonoBehaviour
     }
 
     public void InitGameRecord() {
+        UnlimitedRoundPanel.Instance?.ResetState();
         ResetRealtimeSpectatorUi();
         EndResultPanel.Instance?.ClearEndResultPanel();
         EndGamePanel.Instance?.ClearEndGamePanel();

@@ -10,7 +10,7 @@ export interface FourJokersHintRequest {
   hand_tiles: number[]; tiles_combination: string[]; get_tile: number
   ron_way: string[]; self_way: string[]; hepai_limit: number; joker_multi_wait?: boolean
 }
-export interface FourJokersHint { kind: 'dianhe'|'zimo'|'wuyi'; label: string; score: number }
+export interface FourJokersHint { kind: 'dianhe'|'ron_only'|'zimo'|'wuyi'; label: string; score: number }
 const waits = new Map<string, number[]>()
 const hints = new Map<string, Promise<FourJokersHint | null>>()
 const fetching = new Set<string>()

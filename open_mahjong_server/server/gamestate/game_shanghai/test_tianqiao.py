@@ -45,9 +45,10 @@ def test_first_discard_for_each_seat_and_default_scores(seat, enabled):
     assert player.tian_qiao is enabled
     assert ('tian_qiao' in player.tag_list) is enabled
     detail = state.score_candidate(seat, 'discard', 44)
-    assert detail['fan'] == (3 if enabled else 1)
-    assert detail['base_score'] == (16 if enabled else 4)
+    assert detail['fan'] == (2 if enabled else 1)
+    assert detail['base_score'] == (8 if enabled else 4)
     assert ('天敲' in detail['fan_names']) is enabled
+    assert ('门清' in detail['fan_names']) is not enabled
     ready_ticks = [tick for tick in ticks(state) if tick[:2] == ['state','ready']]
     assert ready_ticks[-1] == ['state','ready',seat,'tian_qiao' if enabled else 'public','T']
 
@@ -88,6 +89,9 @@ def test_later_discard_cannot_reopen_first_discard_window(claimed_river):
     asyncio.run(discard(state, 1))
     assert state.player_list[1].discard_count == 2
     assert not state.player_list[1].tian_qiao
+    detail = state.score_candidate(1, 'discard', 44)
+    assert detail['fan'] == 1 and detail['base_score'] == 4
+    assert '门清' in detail['fan_names'] and '天敲' not in detail['fan_names']
 
 
 def test_selecting_ready_or_cancelling_never_commits_tianqiao():
@@ -121,7 +125,7 @@ def test_declaration_discard_called_later_preserves_committed_flag_and_reset_cle
     state._declare_ready(0)  # 重复补发/状态刷新不降级，也不重复加标签。
     assert state.player_list[0].tian_qiao
     assert state.player_list[0].tag_list.count('tian_qiao') == 1
-    assert state.score_candidate(0,'discard',44)['base_score'] == 16
+    assert state.score_candidate(0,'discard',44)['base_score'] == 8
     state._reset_hand_runtime()
     assert state.enable_tian_qiao
     assert not state.player_list[0].tian_qiao
@@ -155,7 +159,10 @@ def test_legal_concealed_kong_after_tianqiao_keeps_bonus():
             await state.execute_angang(0,11)
         assert player.combination_tiles == ['G11']
         assert state.table_claim_or_kong and player.tian_qiao
-        assert '天敲' in state.score_candidate(0,'discard',44)['fan_names']
+        detail = state.score_candidate(0,'discard',44)
+        assert detail['fan'] == 3  # 天敲2番 + 碰碰和1番，暗杠不恢复门清计番。
+        assert '天敲' in detail['fan_names'] and '碰碰和' in detail['fan_names']
+        assert '门清' not in detail['fan_names']
     asyncio.run(run())
 
 
@@ -171,26 +178,71 @@ def test_actual_settlement_record_and_fan_statistic_count_once():
         with patch('server.gamestate.game_shanghai.ShanghaiGameState.broadcast_result',new=AsyncMock()) as output:
             assert await state._settle_hand(before)
         assert '天敲（2番）' in output.await_args.kwargs['hu_fan']
+        assert '门清' not in output.await_args.kwargs['hu_fan']
         assert '天敲' in state.player_list[0].record_counter.recorded_fans[-1]
+        assert '门清' not in state.player_list[0].record_counter.recorded_fans[-1]
         counts=collect_subrule_fans(state.game_record,0,'shanghai/qiaoma')
         assert counts['天敲']==1 and '天敲（2番）' not in counts
+        assert counts.get('门清',0)==0
+        assert state.player_list[0].score-before[0] == 8
+        assert state.player_list[1].score-before[1] == -8
         assert sum(p.score for p in state.player_list)==sum(before.values())
     asyncio.run(run())
 
 
 @pytest.mark.parametrize('profile',[False,True])
-@pytest.mark.parametrize('source',['discard','self_draw','robbing_kong'])
+@pytest.mark.parametrize('source',['discard','self_draw','robbing_kong','replacement'])
 def test_fan_stacking_cap_and_all_win_sources(profile, source):
     state = state_for(qing3_hun2_peng2=profile)
     asyncio.run(discard(state))
     player = state.player_list[0]
-    if source == 'self_draw':
+    if source in ('self_draw','replacement'):
         player.hand_tiles.append(44); player.last_drawn_tile = 44
-    detail = state.score_candidate(0,source,44)
-    assert detail['base_score'] == 16
-    assert detail['capped_fan'] == 3
-    assert detail['fan'] == (4 if source == 'robbing_kong' else 3)
+    state.last_draw_after_kong = source == 'replacement'
+    detail = state.score_candidate(0,'self_draw' if source == 'replacement' else source,44)
+    expected_fan = 3 if source in ('robbing_kong','replacement') else 2
+    assert detail['base_score'] == 2 * (2 ** expected_fan)
+    assert detail['capped_fan'] == expected_fan
+    assert detail['fan'] == expected_fan
+    assert '门清' not in detail['fan_names']
     assert qiaoma.display_fan_names(detail['fan_names'],profile).count('天敲（2番）') == 1
+
+
+@pytest.mark.parametrize('enabled',[False,True])
+@pytest.mark.parametrize('self_draw',[False,True])
+@pytest.mark.parametrize('flowers',[[],[51],[51,52,53]])
+def test_tianqiao_and_menqing_are_mutually_exclusive_before_score_cap(enabled,self_draw,flowers):
+    detail = qiaoma.score(WAITING+[44],flowers=flowers,declared_ready=True,
+                          self_draw=self_draw,tian_qiao=enabled,min_fan=1)
+    assert detail['fan'] == (2 if enabled else 1)
+    assert detail['capped_fan'] == detail['fan']
+    assert detail['base_score'] == (1+(len(flowers) or 10)) * (4 if enabled else 2)
+    assert ('天敲' in detail['fan_names']) is enabled
+    assert ('门清' in detail['fan_names']) is not enabled
+
+
+@pytest.mark.parametrize('enabled',[False,True])
+def test_concealed_kong_keeps_tianqiao_menqing_exclusion(enabled):
+    hand = [21,22,23,31,32,33,17,18,19,44,44]
+    detail = qiaoma.score(hand,['G11'],flowers=[51],declared_ready=True,tian_qiao=enabled)
+    assert detail['physical_flowers'] == 3
+    assert detail['fan'] == (2 if enabled else 1)
+    assert detail['base_score'] == (16 if enabled else 8)
+    assert ('门清' in detail['fan_names']) is not enabled
+
+
+@pytest.mark.parametrize('profile',[False,True])
+@pytest.mark.parametrize('hand,pattern,fan',[
+    ([11,12,13,12,13,14,15,16,17,17,18,19,19,19],'清一色',2),
+    ([11,12,13,12,13,14,15,16,17,17,18,19,44,44],'混一色',1),
+    ([11,11,11,14,14,14,21,21,21,31,31,31,44,44],'碰碰和',1),
+])
+def test_tianqiao_still_combines_with_other_patterns(profile,hand,pattern,fan):
+    detail = qiaoma.score(hand,flowers=[51],declared_ready=True,tian_qiao=True,qing3_hun2_peng2=profile)
+    assert detail['fan'] == 2 + fan + int(profile)
+    assert detail['capped_fan'] == 3 and detail['base_score'] == 16
+    assert pattern in detail['fan_names'] and '天敲' in detail['fan_names']
+    assert '门清' not in detail['fan_names']
 
 
 @pytest.mark.parametrize('invalid',[1,0,'true',None,[]])

@@ -11,6 +11,9 @@ def is_forced_ready_win(game_state, player_index: int) -> bool:
     """按公开报听与天地听馆规判断玩家能否拒绝合法胡牌。"""
 
     player = game_state.player_list[player_index]
+    from ..public.ai.auto_cut_policy import is_auto_cut_bot
+    if is_auto_cut_bot(player):
+        return False
     declared_ready_forces_win = (
         bool(getattr(player, "declared_ready", False))
         and getattr(game_state.rules, "declared_ready_win_policy", "allow_pass")

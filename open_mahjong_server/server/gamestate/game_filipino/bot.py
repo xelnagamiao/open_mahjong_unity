@@ -1,3 +1,4 @@
+from ..public.ai.auto_cut_policy import is_auto_cut_bot, choose_auto_cut_action
 from collections import Counter
 from ..game_hongkong.bot import distance
 import time
@@ -7,6 +8,8 @@ from ..public.ai.pacing import wait_bot_delay
 def choose_action(state, index):
     actions = state.action_dict[index]
     p = state.player_list[index]
+    if is_auto_cut_bot(p):
+        return choose_auto_cut_action(p, actions, state.legal_discard_tiles(index) if "cut" in actions else None)
     for action in ("hu_self", "hu", "buhua", "ready"):
         if action in actions:
             return dict(action_type=action)

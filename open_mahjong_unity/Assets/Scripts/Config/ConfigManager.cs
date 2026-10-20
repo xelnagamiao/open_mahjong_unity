@@ -20,6 +20,8 @@ public partial class ConfigManager : MonoBehaviour {
     public static string chatUrl;
     public static string clientVersion;
     public static int releaseVersion;
+    // 发行版声明：官方使用 offcial，修改版请填写自己的标识（如 modified/my-fork）。
+    public static string versionDeclaration = "offcial";
     public static string githubUrl;
     public static string documentUrl;
     public static string mobileDownloadUrl;
@@ -39,7 +41,7 @@ public partial class ConfigManager : MonoBehaviour {
             releaseVersion = 30;
         }
         // 官方服务器链接网址 用于访问转到 （不影响游戏进程）
-        clientVersion = "0.4.83.0"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
+        clientVersion = "0.4.84.0"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
         webUrl = "https://salasasa.cn"; // 访问转到
         mobileDownloadUrl = "https://salasasa.cn/mobile-download"; // Android APK 版本更新下载页
         documentUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#"; // 访问转到

@@ -616,6 +616,7 @@ public partial class TipsContainer : MonoBehaviour
     }
 
     public void ShowTips(){
+        shangraoTipOpeningVersion++;
         gameObject.SetActive(true);
         UpdateContainerSize();
     }

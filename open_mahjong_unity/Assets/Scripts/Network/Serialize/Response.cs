@@ -43,6 +43,7 @@ public class DuplicateBoardResult {
 }
 
 public class RoomInfo {
+    public bool unlimited_rounds;
     public string duplicate_match_id;
     public string duplicate_table;
     public string duplicate_peer_room_id;
@@ -247,10 +248,12 @@ public class ShowResultInfo {
     public NanjingHints nanjing_hints;
     public WenzhouInfo wenzhou_info;
     public NanchangInfo nanchang_info;
+    public ShangraoInfo shangrao_info;
     public Dictionary<int,int> guizhou_round_changes;
     public Dictionary<int,int[]> guizhou_end_hands;
     public Dictionary<int,int[]> wenzhou_end_hands;
     public Dictionary<int,int[]> nanchang_end_hands;
+    public Dictionary<int,int[]> shangrao_end_hands;
     public GuizhouFan[] guizhou_fan_details;
     public YixingScoreInfo yixing_fan_details;
     public Dictionary<int,int> yixing_round_changes;
@@ -361,6 +364,7 @@ public class XueliuExchangeInfo {
 }
 
 public class AskHandActionGBInfo {
+    public bool? opening_buhua_complete;
     public Dictionary<string,int[]> fuzhou_declaration_candidates;
     public FourJokersHintSnapshot four_jokers_hints;
     public WuhanInfo wuhan_info;
@@ -387,6 +391,7 @@ public class AskHandActionGBInfo {
     public NanjingHints nanjing_hints;
     public WenzhouInfo wenzhou_info;
     public NanchangInfo nanchang_info;
+    public ShangraoInfo shangrao_info;
     public Dictionary<string,int[]> guizhou_kong_tiles;
     public string[] action_list; // 操作列表
     public int remaining_time; // 剩余局时
@@ -423,6 +428,7 @@ public class AskOtherActionGBInfo {
 }
 
 public class DoActionInfo {
+    public int? shangrao_burnt_tile;
     public Dictionary<int, WashizuHandLayout> washizu_layouts;
     public MalaysiaInfo malaysia_info;
     public MalaysiaHints malaysia_hints;
@@ -440,6 +446,7 @@ public class DoActionInfo {
     public HongzhongHints hongzhong_hints; // 执行操作
     public WenzhouInfo wenzhou_info;
     public NanchangInfo nanchang_info;
+    public ShangraoInfo shangrao_info;
     public GuangdongPublicState guangdong_state;
     public GuangdongTips guangdong_tips;
     public ShenyangInfo shenyang;
@@ -484,6 +491,7 @@ public class DoActionInfo {
 }
 
 public class PlayerInfo {
+    public bool? has_draw_slot;
     public int? team_id;
     public string team_role;
     public int[] known_concealed_discards; // 房间信息中单个玩家信息
@@ -532,6 +540,8 @@ public class WashizuDoublesInfo {
 }
 
 public class GameInfo {
+    public bool unlimited_rounds;
+    public UnlimitedRoundInfo unlimited_info;
     public WashizuDoublesInfo washizu_doubles;
     public FourJokersHintSnapshot four_jokers_hints;
     public Dictionary<int, WashizuHandLayout> washizu_layouts;
@@ -562,12 +572,14 @@ public class GameInfo {
     public NanjingHints nanjing_hints;
     public WenzhouInfo wenzhou_info;
     public NanchangInfo nanchang_info;
+    public ShangraoInfo shangrao_info;
     public FilipinoInfo filipino_info;
     public VietnameseInfo vietnamese_info;
     public HongKongInfo hongkong_info;
     public Dictionary<string,HongKongWait[]> hongkong_waits;
     public Dictionary<string,WenzhouWait[]> wenzhou_waits;
     public Dictionary<string,NanchangWait[]> nanchang_hints;
+    public ShangraoHints shangrao_hints;
     public bool? use_flowers;
     public bool joker_multi_wait;
     public string no_joker_bonus = "add8";
@@ -655,6 +667,7 @@ public class ReadyStatusInfo {
     public NanjingHints nanjing_hints;
     public WenzhouInfo wenzhou_info;
     public NanchangInfo nanchang_info;
+    public ShangraoInfo shangrao_info;
     public int action_tick;
     public FilipinoInfo filipino_info;
     public VietnameseInfo vietnamese_info;
@@ -822,6 +835,7 @@ public class LoginInfo { // 登录信息
 public class MessageInfo { // 消息信息
     public string title;    // 消息标题
     public string content;  // 消息内容
+    public int required_release_version; // 旧服务器未提供时为 0
 }
 
 public class ServerStatsInfo { // 服务器统计信息
@@ -844,6 +858,8 @@ public class SpectatorInfo { // 观战信息
     public string match_queue_type;
     public string match_tier;
     public int[] team_by_player_index;
+    public int? current_round;  // 圈内局号，连庄不递增
+    public int? total_rounds;   // 计划总副数；0 表示不限局数，null 表示未知
 }
 
 public class FriendInfo { // 好友 / 关注信息
@@ -1175,6 +1191,7 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public int[] kan_dora_indicators; // update_dora 顶层字段：杠宝牌指示牌
     public LeaderboardEntry[] leaderboard_list; // 国标段位排行榜
     public StickerInfo sticker_info; // 对局表情包广播
+    public UnlimitedRoundInfo unlimited_info;
     public VoteInfo vote_info; // 房间对局投票暂停/结束状态同步
     public HongqueStateInfo hongque_state; // 虹雀开局/重连数据或实时增量
     public FreeTableInfo free_table_info; // 自由模式桌面附加状态
@@ -1182,4 +1199,17 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public EventDetailInfo event_detail;
     public EventReadyPlayer[] ready_players;
     public EventRegistrationInfo[] registration_list;
+}
+
+public class UnlimitedRoundPlayer {
+    public int user_id;
+    public string username;
+}
+
+public class UnlimitedRoundInfo {
+    public int revision;
+    public bool enabled;
+    public List<UnlimitedRoundPlayer> withdrawn_players;
+    public UnlimitedRoundPlayer returned_player;
+    public float countdown;
 }

@@ -143,6 +143,9 @@ public sealed class RuleManifest {
     /// <summary>计分板每行摘要里的番一段（"3番" / "满贯" / "8台" / "12分"）。null 表示 "{HuScore}番"。</summary>
     public Func<SettlementTotalQuery, string> ScoreboardFanText;
 
+    /// <summary>仅供计分板选择主番的权重；null 按番值文本比较，不改变和牌番表及其顺序。</summary>
+    public Func<string, string, double> ScoreboardMainFanRank;
+
     /// <summary>计分板主番列不取最大番而由局标签决定（川麻血战：查叫 / 三家和 / 流局）。</summary>
     public bool ScoreboardMainFanFromRoundLabel;
 

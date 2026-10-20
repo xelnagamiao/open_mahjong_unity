@@ -96,7 +96,7 @@ internal static class ShanghaiHandCalculator {
         int best = 0;
         var all = hand.Concat(melds.SelectMany(MeldTiles)).ToList();
         foreach (List<string> sets in Decompositions(hand, melds)) {
-            int fan = melds.All(code => code[0] == 'G') ? 1 : 0;
+            int fan = !tianQiao && melds.All(code => code[0] == 'G') ? 1 : 0;
             if (hand.Count == 2) fan++;
             if (all.Where(tile => tile < 40).Select(tile => tile / 10).Distinct().Count() == 1)
                 fan += all.Any(tile => tile >= 41) ? (qing3Hun2Peng2 ? 2 : 1) : (qing3Hun2Peng2 ? 3 : 2);

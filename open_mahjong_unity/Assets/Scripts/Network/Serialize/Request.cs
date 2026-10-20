@@ -10,6 +10,7 @@ public class LoginRequest { // 登录请求
 }
 
 public class CreateGBRoomRequest { // 创建国标房间请求
+    public bool unlimited_rounds;
     public bool claim_protection = true;
     public string type;
     public string rule;
@@ -257,9 +258,10 @@ public class GetJiandanStatsRequest { // 获取南雀旧兼容统计数据请求
     public bool need_player_info;
 }
 
-public class SendReleaseVersionRequest { // 发送发布版本号请求
+public class SendReleaseVersionRequest { // 发送发布版本号与发行版声明请求
     public string type;
     public int release_version;
+    public string version_declaration;
 }
 
 public class GetServerStatsRequest { // 获取服务器统计信息请求

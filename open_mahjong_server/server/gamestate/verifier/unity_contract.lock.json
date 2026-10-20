@@ -1,14 +1,14 @@
 {
-  "git_head": "eb11436060ed573f4dfb1948802c1cda48734589",
-  "sim_client_version": 3,
+  "git_head": "7ed872e2d15ec9b46a67fa849daaa5701d1a4751",
+  "sim_client_version": 4,
   "files": {
     "open_mahjong_unity/Assets/Scripts/Network/Serialize/Response.cs": {
-      "sha256": "a2e5204fbb8cb5c17195016eb53de1578d485224039969d3272e7463f2897bde",
-      "size": 52213
+      "sha256": "62f546ea4215cb605b81b3a8862e7f7c88d5c7a26268b2cc5ca3582085408032",
+      "size": 53318
     },
     "open_mahjong_unity/Assets/Scripts/Network/GameStateNetworkManager.cs": {
-      "sha256": "67e9d21cbe48b6ab69aac285b50e51019168bc2796c0d5901184afee8cfcaa7b",
-      "size": 16337
+      "sha256": "de8d7117a4b578984e167ca3c33d3c80d71b163761ac349b38a174b7e3a03137",
+      "size": 17197
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/GameStateManager/NormalGameStateManager.Actions.cs": {
       "sha256": "fe211e424b24069e801a94fb2369ca11b0972258b4daeff5818ec23ccffc45fa",
@@ -19,16 +19,16 @@
       "size": 22368
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/GameSceneUI/Result/Panels/EndResultPanel.cs": {
-      "sha256": "64eb7be8fd66b00feb6c880bb37c08717092cf5f3f64f7f518b01c3c7c8bfcc0",
-      "size": 70088
+      "sha256": "8ef0b0303adc123a11142496555a306a277a0cdec27e1097e0c922f182128ca8",
+      "size": 68221
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordJsonDecoder.cs": {
-      "sha256": "8ee1206ec4132f11677c4223cb95eddc39feedb6a31859a4c32978df96c63611",
-      "size": 21532
+      "sha256": "5067b312c84d24275eb3f76605f9ab46d5f92a84b471c06c0fcc3b18396eda8a",
+      "size": 22286
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordData.cs": {
-      "sha256": "5875c697e0e03f1143b7f5b2d16c1a896d3197fdc9d42fae066f536ca8fdea56",
-      "size": 3785
+      "sha256": "3160f5e13e61bc4b84656da23d33ac5b15a2212afdec2bcd17dbee1d9619db8d",
+      "size": 3876
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordMeldCodec.cs": {
       "sha256": "579fff888d6ea7158905bbb28cfa70c32bb03dc16a9f7d16f261ab795ba5b77f",
@@ -39,24 +39,24 @@
       "size": 2121
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/RecordHuHandBuilder.cs": {
-      "sha256": "be37b1a78dc71b7cf714e76d0a12f438664f21a61220564acaed1c3006bdf8b0",
-      "size": 4831
+      "sha256": "a1db300cb2770ed446ba722cc600dad3c869d8a72293dea5030e04d9b24f589b",
+      "size": 4287
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordManager.GotoAction.cs": {
-      "sha256": "2a8299608e2d2888392ee5a050bba77681ac013102091ad9f4134678e7d57997",
-      "size": 21643
+      "sha256": "45fd969323f33e43cca8a61f539249f23c186c4312d2490546ca533f2133a3bf",
+      "size": 21691
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordManager.RuleModule.cs": {
-      "sha256": "ca79022806bc6d1ac86e19fa8567d10ee6eb47fb3e1447f19f64237094f3750e",
-      "size": 3749
+      "sha256": "0500167dc0af106bde7d84ac000794b7b4960e1e4d5f726289f70fa5f303cfe9",
+      "size": 3884
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Contracts/RuleReplayModule.cs": {
       "sha256": "611c5648c43b1e6d6a09ca2e3f0a7f4e4924f497f2b9629525f4da31600c1557",
       "size": 1544
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Core/TableMirror.cs": {
-      "sha256": "7dae841048413fdb4499dc73a2080350f3b60cf87bb21635f942a25e83bb8854",
-      "size": 12908
+      "sha256": "4388a21bb179640925575df5fcd5a6b1fbb402f5b5e08d27966401484ed16b9e",
+      "size": 12974
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Shanghai/ShanghaiRuleBootstrap.cs": {
       "sha256": "a2c4d3ca32d09532e3dc188770c81d155d729f26c102801e060d4dc19657eb6a",
@@ -75,8 +75,8 @@
       "size": 25532
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordManager.cs": {
-      "sha256": "af2a75c90a851a0cb9ed45bdd7e38a2247537b755313f3de67a632004d0971cc",
-      "size": 126541
+      "sha256": "bd582ecf1943d55c68f70f255de67f9d6411d2944448cdcf3715a9d267bfff67",
+      "size": 127234
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Record/GameRecordManager.ChongHint.cs": {
       "sha256": "97f9d9e7dffffa92f0e73f952b09408db254216a72449ee5ea4a6d360d4d9842",
@@ -147,8 +147,8 @@
       "size": 3584
     },
     "open_mahjong_unity/Assets/Scripts/GameScene/Rules/Vietnamese/VietnameseRuleBootstrap.cs": {
-      "sha256": "4456d95d241cd4a19ec27edf5623ac8b3fe687a1ad0f65585e9d3ee1397fbbe6",
-      "size": 6856
+      "sha256": "0ff8351f0207b2d0d87e6d56ec759c687798e716847b4814614b4261204e99fb",
+      "size": 7314
     },
     "open_mahjong_unity/Assets/Scripts/Network/Serialize/VietnameseProtocol.cs": {
       "sha256": "d355c740bb6fbee478bbcbbec2cb082b5816da28426e50835655b807679a132c",

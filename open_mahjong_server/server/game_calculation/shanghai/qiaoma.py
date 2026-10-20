@@ -120,7 +120,7 @@ def score(hand, melds=(), flowers=(), *, declared_ready=False, self_draw=False,
     candidates = []
     for pair, sets in decompositions(hand, melds):
         fans = []
-        if not any(code[0] != "G" for code in melds):
+        if not tian_qiao and not any(code[0] != "G" for code in melds):
             fans.append(("门清", 1))
         if len(hand) == 2:
             fans.append(("大吊车", 1))

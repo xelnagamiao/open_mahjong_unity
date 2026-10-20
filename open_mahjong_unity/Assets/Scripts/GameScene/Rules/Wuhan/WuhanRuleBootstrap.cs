@@ -33,6 +33,7 @@ internal static class WuhanRuleBootstrap {
             RecordHandJokerTiles = RecordJokers,
             VisibleMeldTiles = (code, self) => !self && code?.StartsWith("G") == true ? Array.Empty<int>() : null,
             FanValueText = (rule, name) => name == "风一色" ? "金顶" : name == "硬和" ? "1番" : "主3番\n叠1番",
+            ScoreboardMainFanRank = (rule, name) => name == "风一色" ? 10000 : name == "硬和" ? 1 : 3,
             SettlementTotal = query => new SettlementTotalDisplay {
                 FanText = "逐家6番起和", ScoreText = query.WinnerPointDelta.HasValue ? $"{query.WinnerPointDelta.Value}点" : "" },
             ScoreboardFanText = query => $"最低{query.HuScore}番",

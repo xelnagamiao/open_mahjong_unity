@@ -45,6 +45,7 @@ public partial class CreatePanel : MonoBehaviour {
     [SerializeField] private Toggle gameTime2Button;
     [SerializeField] private Toggle gameTime3Button;
     [SerializeField] private Toggle gameTime4Button;
+    [SerializeField] private Toggle unlimitedRoundsToggle;
     [SerializeField] private Toggle tipsToggle;
     [SerializeField] private Toggle countTipsToggle;
     [SerializeField] private Toggle pointerTipsToggle;
@@ -168,6 +169,7 @@ public partial class CreatePanel : MonoBehaviour {
         EnsureChangshaKamoAndCapControls();
         BindDetailedConfigControls("taiwan");
         BindDetailedConfigControls("filipino");
+        BindDetailedConfigControls("shangrao");
         BindDetailedConfigControls("vietnamese");
         BindDetailedConfigControls("hongkong");
         BindDetailedConfigControls("riichi");
@@ -376,6 +378,7 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private void SelectGameTime(int value) {
+        if (unlimitedRoundsToggle) unlimitedRoundsToggle.SetIsOnWithoutNotify(false);
         gameTime1Button.isOn = value == 1;
         gameTime2Button.isOn = value == 2;
         gameTime3Button.isOn = value == 3;
@@ -563,6 +566,11 @@ public partial class CreatePanel : MonoBehaviour {
         if (gameTime2Button != null) gameTime2Button.gameObject.SetActive(showRound);
         if (gameTime3Button != null) gameTime3Button.gameObject.SetActive(showRound && _ruleState != "changsha");
         if (gameTime4Button != null) gameTime4Button.gameObject.SetActive(showRound);
+        if (unlimitedRoundsToggle) {
+            bool supported = _ruleState == "qingque" && string.IsNullOrEmpty(_venueEventId);
+            unlimitedRoundsToggle.gameObject.SetActive(supported);
+            if (!supported && unlimitedRoundsToggle.isOn) SelectGameTime(4);
+        }
         if (roundTimer != null) roundTimer.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.RoundTimer));
         if (stepTimer != null) stepTimer.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.StepTimer));
         if (tipsToggle != null) tipsToggle.gameObject.SetActive(visible.ContainsKey(CreateRoomKeys.Tips));
@@ -676,7 +684,7 @@ public partial class CreatePanel : MonoBehaviour {
         CacheDefaultGameRoundLabels();
         bool showRound = DefaultsOf(_ruleState).ContainsKey(CreateRoomKeys.GameRound);
         bool isChangsha = _ruleState == "changsha";
-        bool usesFixedHandCount = _ruleState == "shanghai" || _ruleState == "zhongyong" || _ruleState == "guangdong" || _ruleState == GuizhouGameState.RuleId || _ruleState == JiujiangGameState.RuleId || _ruleState == HongzhongGameState.RuleId || _ruleState == HangzhouGameState.RuleId;
+        bool usesFixedHandCount = _ruleState == "shanghai" || _ruleState == "zhongyong" || _ruleState == "guangdong" || _ruleState == GuizhouGameState.RuleId || _ruleState == JiujiangGameState.RuleId || _ruleState == HongzhongGameState.RuleId || _ruleState == HangzhouGameState.RuleId || _ruleState == ShangraoGameState.RuleId;
         if (!showRound) return;
         if (_ruleState == FuzhouGameState.RuleId) {
             SetToggleLabel(gameTime1Button,"一圈 4局");SetToggleLabel(gameTime2Button,"半庄 8局");
@@ -694,10 +702,11 @@ public partial class CreatePanel : MonoBehaviour {
             SelectGameTime(4);
         }
 
-        SetToggleLabel(gameTime1Button, (isChangsha || usesFixedHandCount) ? "4局" : _defaultGameRoundLabels[0]);
-        SetToggleLabel(gameTime2Button, (isChangsha || usesFixedHandCount) ? "8局" : _defaultGameRoundLabels[1]);
-        SetToggleLabel(gameTime3Button, usesFixedHandCount ? "12局" : _defaultGameRoundLabels[2]);
-        SetToggleLabel(gameTime4Button, (isChangsha || usesFixedHandCount) ? "16局" : _defaultGameRoundLabels[3]);
+        string handUnit = _ruleState == ShangraoGameState.RuleId ? "副" : "局";
+        SetToggleLabel(gameTime1Button, (isChangsha || usesFixedHandCount) ? "4" + handUnit : _defaultGameRoundLabels[0]);
+        SetToggleLabel(gameTime2Button, (isChangsha || usesFixedHandCount) ? "8" + handUnit : _defaultGameRoundLabels[1]);
+        SetToggleLabel(gameTime3Button, usesFixedHandCount ? "12" + handUnit : _defaultGameRoundLabels[2]);
+        SetToggleLabel(gameTime4Button, (isChangsha || usesFixedHandCount) ? "16" + handUnit : _defaultGameRoundLabels[3]);
         if (gameTime3Button != null) gameTime3Button.gameObject.SetActive(!isChangsha);
     }
 
@@ -785,6 +794,7 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private int GetSelectedGameTime() {
+        if (_ruleState == "qingque" && unlimitedRoundsToggle && unlimitedRoundsToggle.isOn) return 4;
         if (_ruleState == "changsha") {
             if (gameTime1Button.isOn) return 1;
             if (gameTime2Button.isOn) return 2;

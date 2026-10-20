@@ -34,6 +34,7 @@ export interface SeatSnapshot {
   voice_id?: number
   discard_pile: number[]
   discard_drawn_flags?: boolean[]
+  discard_blue_flags?: boolean[]
   melds: MeldSnapshot[]
   flower_tiles?: number[]
   /** Public kong replacement tiles, kept separate from the concealed hand. */

@@ -8,6 +8,7 @@ public class Qingque_Create_RoomConfig {
     public bool ClaimProtection { get; set; } = true;
     public string RoomName { get; set; }
     public int GameRound { get; set; }
+    public bool UnlimitedRounds { get; set; }
     public string Password { get; set; }
     public string Rule { get; set; }
     public string SubRule { get; set; }

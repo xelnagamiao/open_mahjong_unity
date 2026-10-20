@@ -224,10 +224,12 @@ def test_hongque_distinct_protocol_shares_the_same_room_clock(monkeypatch, uid, 
         async def send(*args, **kwargs): sent.append(clock.now-100)
         state.submit_action = send
         async def calculate(*args, **kwargs):
+            assert uid != 0, "摸切机器人不应进入和牌或牌效计算"
             clock.calculate()
-            return None if uid == 0 else {"action": "discard", "tile": "AX1"}
+            return {"action": "discard", "tile": "AX1"}
         monkeypatch.setattr(module, "run_room_bot_cpu", calculate)
         await module.bot_turn(state, 1)
-        assert sent == pytest.approx([max(cost, pacing.BOT_SPEEDS[speed])])
-        assert sum(clock.waits) == pytest.approx(max(0, pacing.BOT_SPEEDS[speed]-cost))
+        computation = 0 if uid == 0 else cost
+        assert sent == pytest.approx([max(computation, pacing.BOT_SPEEDS[speed])])
+        assert sum(clock.waits) == pytest.approx(max(0, pacing.BOT_SPEEDS[speed]-computation))
     asyncio.run(run())

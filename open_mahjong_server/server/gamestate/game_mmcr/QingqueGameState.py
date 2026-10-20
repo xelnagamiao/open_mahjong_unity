@@ -17,7 +17,6 @@ from .boardcast import (
     reconnected_send_pending_ask,
     send_realtime_spectator_snapshot,
 )
-from ..game_guobiao.combination_mask_view import get_combination_fields_for_viewer
 from ..public.logic_common import next_current_index, next_current_num, assign_strict_final_ranks
 from .init_tiles import init_qingque_tiles
 from ..public.next_game_round import next_game_round_qingque_switchseat
@@ -64,7 +63,7 @@ class QingquePlayer:
         # [1,13,0,11,0,12] = 吃上家 312m s12
         # [0,17,1,17,0,17] = 碰对家 777m k17
         # [1,22,1,22,0,22,0,22] = 加杠 2222p g22
-        # [2,17,2,17,2,17,2,17] = 暗杠 7777m G17 (国标中17应使用0代替 避免暗杠信息泄露)
+        # [2,17,0,17,0,17,2,17] = 暗杠 7777m G17（暗亮亮暗，牌种对所有视角可见）
         self.combination_mask = []                    
         self.score = 0                                # 分数
         self.remaining_time = remaining_time          # 剩余时间 （局时）
@@ -143,6 +142,9 @@ class QingqueGameState:
         self.round_time = room_data["round_timer"] # 局时
         # room_rule 表示具体规则（qingque等），room_type 表示房间类型（custom/match等） sub_rule 表示子规则（qingque/standard等）
         self.room_rule = room_data["room_rule"]
+        self.unlimited_rounds = room_data.get("unlimited_rounds", False) is True and room_data["room_type"] == "custom"
+        from .unlimited_session import UnlimitedSession
+        self.unlimited_session = UnlimitedSession(self)
         self.room_type = room_data["room_type"]
         self.sub_rule = room_data.get("sub_rule") # 子规则
         self.match_tier = room_data.get("match_tier")
@@ -259,6 +261,8 @@ class QingqueGameState:
                         'current_player_index': self.current_player_index,
                         "action_tick": self.server_action_tick,
                         'max_round': self.max_round,
+                        'unlimited_rounds': self.unlimited_rounds,
+                        'unlimited_info': self.unlimited_session.snapshot(),
                         'tile_count': len(self.tiles_list),
                         'commitment': self.commitment,  # 承诺值
                         'salt': self.salt,  # 盐字符串
@@ -279,7 +283,6 @@ class QingqueGameState:
                     
                     # 构建玩家信息列表
                     for player in self.player_list:
-                        combo_tiles, combo_masks = get_combination_fields_for_viewer(player, p.player_index)
                         player_info = {
                             'user_id': player.user_id,
                             'username': player.username,
@@ -287,8 +290,8 @@ class QingqueGameState:
                             'hand_tiles': player.hand_tiles if player.user_id == user_id else None,  # 只有自己可见手牌
                             'discard_tiles': player.discard_tiles,
                             'discard_origin_tiles': player.discard_origin_tiles,
-                            'combination_tiles': combo_tiles,
-                            "combination_mask": combo_masks,
+                            'combination_tiles': player.combination_tiles,
+                            "combination_mask": player.combination_mask,
                             "huapai_list": player.huapai_list,
                             'remaining_time': player.remaining_time,
                             'player_index': player.player_index,
@@ -398,12 +401,13 @@ class QingqueGameState:
         # 牌谱/观战用：子规则与起和限制写入 game_title，客户端据此做番表显示
         self.game_record["game_title"]["sub_rule"] = self.sub_rule
         self.game_record["game_title"]["hepai_limit"] = self.hepai_limit
+        self.game_record["game_title"]["unlimited_rounds"] = self.unlimited_rounds
         if self.match_tier is not None:
             self.game_record["game_title"]["match_tier"] = self.match_tier
         if self.event_id is not None:
             self.game_record["game_title"]["event_id"] = self.event_id
         # 游戏主循环
-        while self.current_round <= self.max_round * 4:
+        while self.unlimited_rounds or self.current_round <= self.max_round * 4:
 
             init_qingque_tiles(self)  # 初始化牌山和手牌
             self.backward_tiles_list_type = "double" # 重置倒序摸牌状态
@@ -498,6 +502,8 @@ class QingqueGameState:
                     case _:
                         logger.error(f"没有匹配到游戏状态: {self.game_status}")
 
+            # Freeze the finish decision before publishing any settlement message.
+            end_after_round = self.unlimited_session.should_end_after_round()
             # 卡牌摸完 或者有人和牌
             hu_score = None
             hu_fan = None
@@ -603,7 +609,7 @@ class QingqueGameState:
                                        score_changes = score_changes_dict,
                                        next_status = (
                                            "match_end"
-                                           if self.current_round >= self.max_round * 4
+                                           if end_after_round
                                            else "round_end_by_ready"
                                        ),
                                        )
@@ -629,7 +635,7 @@ class QingqueGameState:
                                        score_changes = liuju_score_changes,
                                        next_status = (
                                            "match_end"
-                                           if self.current_round >= self.max_round * 4
+                                           if end_after_round
                                            else "round_end_by_ready"
                                        ),
                                        )
@@ -664,7 +670,7 @@ class QingqueGameState:
             # 根据和牌类型处理等待逻辑（整场最后一局跳过 waiting_ready，由客户端 match_end 收尾）
             self.next_status = (
                 "match_end"
-                if self.current_round >= self.max_round * 4
+                if end_after_round
                 else "round_end_by_ready"
             )
             if self.next_status != "match_end":
@@ -675,7 +681,7 @@ class QingqueGameState:
                     wait_time = hu_result_ready_wait_seconds(fan_count)
                     await run_result_ready_phase(self, wait_time, broadcast_ready_status)
 
-            if self.current_round < self.max_round * 4:
+            if not end_after_round:
                 # 开启下一局的准备工作
                 next_game_round_qingque_switchseat(self)
                 logger.info(f"重新开始下一局")

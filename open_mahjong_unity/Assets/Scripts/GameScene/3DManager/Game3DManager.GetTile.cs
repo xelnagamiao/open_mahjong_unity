@@ -5,49 +5,10 @@ public partial class Game3DManager : MonoBehaviour {
     // 摸牌3D显示（协程版本）
     private IEnumerator Get3DTileCoroutine(string playerIndex, string actionType) {
         if (playerIndex == "self") yield break;
-        PosPanel3D panel = GetPosPanel(playerIndex);
-        Transform cardsPosition = panel.cardsPosition;
-
-        Quaternion rotation = Quaternion.identity;
-        Vector3 direction = Vector3.zero;
-
-        if (playerIndex == "left") {
-            rotation = Quaternion.Euler(0, 90, 0); // 面朝左侧
-            direction = BackDirection; // 向后
-        }
-        else if (playerIndex == "top") {
-            rotation = Quaternion.Euler(0, 180, 0); // 面朝前侧
-            direction = LeftDirection; // 向左
-        }
-        else if (playerIndex == "right") {
-            rotation = Quaternion.Euler(0, 270, 0); // 面朝右侧
-            direction = FrontDirection; // 向前
-        }
-        else {
-            Debug.LogWarning($"未知的玩家位置: {playerIndex}");
-            yield break;
-        }
-
-        // 初始化牌生成位置 = 玩家手牌起始点 + (3D卡牌数量)*宽度间距*方向
-        Vector3 spawnPosition = Vector3.zero;
-        if (actionType == "init") {
-            spawnPosition = HandRowOrigin(cardsPosition, direction) + cardsPosition.childCount * handStep * direction;
-        }
-        // 摸牌放在该行末张之后，沿用两个原槽宽的分离距离。
-        else if (actionType == "get") {
-            spawnPosition = HandRowOrigin(cardsPosition, direction) + HandDrawSlotOffset(cardsPosition.childCount) * direction;
-        }
-
-        // 等待一帧，避免与其他操作在同一帧执行
+        // 落桌时才读取当前手牌，连续到达的摸牌不会共用提前计算的槽位。
         yield return null;
-
-        spawnPosition = PlaceTileOnTable(spawnPosition, rotation);
-        GameObject cardObj = MahjongObjectPool.Instance.SpawnBlankTile(spawnPosition, rotation);
-        if (cardObj == null) {
-            Debug.LogError("无法从对象池获取3D手牌");
-            yield break;
-        }
-        cardObj.transform.SetParent(cardsPosition, worldPositionStays: true);
+        if (actionType == "get") PlayHandDrawReflow(playerIndex);
+        else Get3DTile(playerIndex, actionType);
     }
 
     // 摸牌3D显示

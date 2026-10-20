@@ -206,7 +206,7 @@ public partial class GameCanvas {
     }
 
     private void CancelCompetingHandReflowAnimations(string reason) {
-        StopFreeDrawAnimation(finish: false);
+        StopDrawReflowAnimation(finish: false);
         // 打断队列内重排等正在写位置的 AnimateCardsToPositions，避免与出牌收拢并行撕牌
         _handLayoutAnimEpoch++;
         _handReflowAnimDepth = 0;

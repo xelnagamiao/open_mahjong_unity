@@ -69,12 +69,12 @@ test('番表使用与 Unity 完全相同的原始高清手牌、背景和牌背'
   const root = '/game2d-assets/textures/guobiao-mahjong-tiles'
   const tileIds = [...new Set(catalog.entries.flatMap(entry => parseFanExample(entry.example).flat()))]
   assert.equal(tileIds.length, 42)
-  const pairs = tileIds.map(id => [`${root}/hand/${id}.png`, `Faces/official/hand/${id}.png`])
-  pairs.push([`${root}/surfaces/front.png`, 'Surfaces/backgrounds/hand-default.png'],
-    [`${root}/surfaces/back.png`, 'Surfaces/backs/hand-default.png'])
+  const pairs = tileIds.map(id => [`${root}/hand/${id}.png`, `Art/Cards/Faces/official/hand/${id}.png`])
+  pairs.push([`${root}/surfaces/front.png`, 'Resources/image/Cards/Surfaces/backgrounds/hand-default.png'],
+    [`${root}/surfaces/back.png`, 'Resources/image/Cards/Surfaces/backs/hand-default.png'])
   for (const [webPath, unityPath] of pairs) {
     const bytes = readFileSync(new URL('../public' + webPath, import.meta.url))
-    const original = readFileSync(new URL('../../../open_mahjong_unity/Assets/Resources/image/Cards/' + unityPath, import.meta.url))
+    const original = readFileSync(new URL('../../../open_mahjong_unity/Assets/' + unityPath, import.meta.url))
     assert.deepEqual(bytes, original, webPath)
     assert.ok(bytes.readUInt32BE(16) >= 271, `${webPath}: full resolution width`)
     assert.equal(bytes.readUInt32BE(20), 389, `${webPath}: original canvas height`)

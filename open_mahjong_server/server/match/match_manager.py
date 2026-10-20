@@ -12,6 +12,7 @@ from .rank_calculator import (
     queue_type_to_display_name, parse_queue_type,
 )
 from ..response import Response
+from ..database.inventory_router import attach_game_frames
 from .rating_rules import QUEUES, RULES, default_rating
 
 logger = logging.getLogger(__name__)
@@ -288,6 +289,7 @@ class MatchManager:
                     "username": settings.get("username", username) if settings else username,
                     "title_id": settings.get("title_id", 1) if settings else 1,
                     "profile_image_id": settings.get("profile_image_id", 1) if settings else 1,
+                    "avatar_frame_id": settings.get("avatar_frame_id", 0) if settings else 0,
                     "character_id": settings.get("character_id", 1) if settings else 1,
                     "voice_id": settings.get("voice_id", 1) if settings else 1,
                 }
@@ -346,6 +348,7 @@ class MatchManager:
                 self.game_server.db_manager,
                 gamestate_id,
             )
+            attach_game_frames(game_state, room_data)
             game_state.match_queue_type = queue_type
             if room_data['room_rule'] == 'riichi':
                 from .riichi_rank_calculator import RIICHI_PT_ALGORITHM

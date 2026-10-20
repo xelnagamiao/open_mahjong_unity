@@ -81,6 +81,11 @@ public partial class GameRecordManager {
     /// </summary>
     private void ResetRecordRiichiFieldState(Round roundData) {
         recordRiichiDoraIndicators.Clear();
+        recordRiichiSticks = 0;
+        recordInitialRiichiSticks = 0;
+        recordRiichiTenbousClearedAfterHu = false;
+        // 所有规则的初始化/跳转都会调用这里；非日麻不能把暗牌山当作公开宝牌。
+        if (!IsRiichiRuleRecord()) return;
         if (IsWashizuRecord()) {
             if (roundData?.washizu?.dora_indicators != null)
                 recordRiichiDoraIndicators.AddRange(roundData.washizu.dora_indicators);
@@ -92,7 +97,6 @@ public partial class GameRecordManager {
         }
         recordRiichiSticks = roundData?.riichi?.riichiSticks ?? 0;
         recordInitialRiichiSticks = recordRiichiSticks;
-        recordRiichiTenbousClearedAfterHu = false;
     }
 
     private void ApplyRecordRiichiDoraTick(int doraTile) {

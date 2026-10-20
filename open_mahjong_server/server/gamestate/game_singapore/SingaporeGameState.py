@@ -140,7 +140,10 @@ class SingaporeGameState(SingaporeLifecycle, TaiwanGameState):
                 self._pay_instant(index, points * (2 if initial else 1), name)
 
     def _flower_special(self):
+        from ..public.ai.auto_cut_policy import is_auto_cut_bot
         for winner, player in enumerate(self.player_list):
+            if is_auto_cut_bot(player):
+                continue
             owned = set(player.huapai_list).intersection(book.FLOWERS)
             if len(owned) == 8:
                 return {"winner": winner, "payer": None, "tile": player.huapai_list[-1]}
@@ -265,6 +268,8 @@ class SingaporeGameState(SingaporeLifecycle, TaiwanGameState):
         self._automatic_meld_win(index, None, tile)
 
     def _automatic_meld_win(self, index, payer, tile):
+        from ..public.ai.auto_cut_policy import is_auto_cut_bot
+        if is_auto_cut_bot(self.player_list[index]): return
         if self.draw_reason == "capital_exhausted": return
         value = book.automatic_meld_win(self.player_list[index].combination_tiles)
         if value:

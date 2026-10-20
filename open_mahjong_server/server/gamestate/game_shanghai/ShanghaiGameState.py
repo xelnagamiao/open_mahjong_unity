@@ -288,7 +288,8 @@ class ShanghaiGameState(TaiwanGameState):
             result[player_index] = ["buhua"]
             return result
         result = turn_actions.check_action_hand_action(self, player_index)
-        if "hu_self" in result[player_index]:
+        from ..public.ai.auto_cut_policy import is_auto_cut_bot
+        if "hu_self" in result[player_index] and not is_auto_cut_bot(player):
             result[player_index] = ["hu_self"]
             return result
         if not has_draw_slot(player) and not self.opening_dealer_action:
@@ -368,10 +369,11 @@ class ShanghaiGameState(TaiwanGameState):
         return None
 
     async def execute_cut(self, player_index, action_data, *, declare_ready=False, is_timeout_action=False):
+        from ..public.ai.auto_cut_policy import is_auto_cut_bot
         # 服务端执行入口也挡住强制和牌／加杠，不能靠伪造切牌绕过。
         if any(tile in self.flower_tiles for tile in self.player_list[player_index].hand_tiles):
             return
-        if self.score_candidate(player_index, "self_draw"):
+        if not is_auto_cut_bot(self.player_list[player_index]) and self.score_candidate(player_index, "self_draw"):
             self.accept_self_draw(player_index)
             return
         forced = self._declared_ready_auto_jiagang_tile(player_index)

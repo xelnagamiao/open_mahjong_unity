@@ -18,12 +18,18 @@ public class ExitButtonManager : MonoBehaviour {
     [SerializeField] private Button votePauseButton;   // 投票暂停对局
     [SerializeField] private Button voteEndButton;     // 投票结束对局
 
+    [SerializeField] private Button unlimitedEndButton;
+    [SerializeField] private TMPro.TMP_Text unlimitedEndLabel;
+    private bool unlimitedRounds;
+    private bool locallyWithdrawn;
+
     private void Awake() {
         Instance = this;
         HideAll();
     }
 
     private void Start() {
+        if (unlimitedEndButton) unlimitedEndButton.onClick.AddListener(OnClickUnlimitedEnd);
         if (quitRealtimeSpectatorButton != null) {
             quitRealtimeSpectatorButton.onClick.AddListener(OnClickQuitRealtimeSpectator);
         }
@@ -42,6 +48,7 @@ public class ExitButtonManager : MonoBehaviour {
         if (quitRealtimeSpectatorButton != null) quitRealtimeSpectatorButton.gameObject.SetActive(false);
         if (votePauseButton != null) votePauseButton.gameObject.SetActive(false);
         if (voteEndButton != null) voteEndButton.gameObject.SetActive(false);
+        if (unlimitedEndButton) unlimitedEndButton.gameObject.SetActive(false);
     }
 
     /// <summary>牌谱模式：仅显示退出牌谱按钮。</summary>
@@ -51,6 +58,7 @@ public class ExitButtonManager : MonoBehaviour {
         if (quitRealtimeSpectatorButton != null) quitRealtimeSpectatorButton.gameObject.SetActive(false);
         if (votePauseButton != null) votePauseButton.gameObject.SetActive(false);
         if (voteEndButton != null) voteEndButton.gameObject.SetActive(false);
+        if (unlimitedEndButton) unlimitedEndButton.gameObject.SetActive(false);
     }
 
     /// <summary>直播观战 / 观战内牌谱：仅显示退出观战按钮。</summary>
@@ -60,6 +68,7 @@ public class ExitButtonManager : MonoBehaviour {
         if (quitRealtimeSpectatorButton != null) quitRealtimeSpectatorButton.gameObject.SetActive(false);
         if (votePauseButton != null) votePauseButton.gameObject.SetActive(false);
         if (voteEndButton != null) voteEndButton.gameObject.SetActive(false);
+        if (unlimitedEndButton) unlimitedEndButton.gameObject.SetActive(false);
     }
 
     /// <summary>实时观战：仅显示退出实时观战按钮。点击后调用 FriendNetworkManager.ExitRealtime()。</summary>
@@ -69,6 +78,7 @@ public class ExitButtonManager : MonoBehaviour {
         if (quitRealtimeSpectatorButton != null) quitRealtimeSpectatorButton.gameObject.SetActive(true);
         if (votePauseButton != null) votePauseButton.gameObject.SetActive(false);
         if (voteEndButton != null) voteEndButton.gameObject.SetActive(false);
+        if (unlimitedEndButton) unlimitedEndButton.gameObject.SetActive(false);
     }
 
     /// <summary>自定义房间正常对局：显示投票暂停/结束按钮，隐藏退出按钮。</summary>
@@ -78,6 +88,21 @@ public class ExitButtonManager : MonoBehaviour {
         if (quitRealtimeSpectatorButton != null) quitRealtimeSpectatorButton.gameObject.SetActive(false);
         if (votePauseButton != null) votePauseButton.gameObject.SetActive(true);
         if (voteEndButton != null) voteEndButton.gameObject.SetActive(true);
+        if (unlimitedEndButton) unlimitedEndButton.gameObject.SetActive(false);
+    }
+
+    public void ConfigureUnlimitedRounds(bool enabled, bool withdrawn) {
+        unlimitedRounds = enabled;
+        locallyWithdrawn = withdrawn;
+        if (unlimitedEndButton) unlimitedEndButton.gameObject.SetActive(enabled);
+        if (unlimitedEndLabel) unlimitedEndLabel.text = withdrawn ? "回归游戏" : "结束游戏";
+        // Only alter the ordinary vote button in an active room control bar.
+        if (voteEndButton && votePauseButton && votePauseButton.gameObject.activeSelf)
+            voteEndButton.gameObject.SetActive(!enabled);
+    }
+
+    private void OnClickUnlimitedEnd() {
+        if (unlimitedRounds) GameStateNetworkManager.Instance.SendUnlimitedEnd(!locallyWithdrawn);
     }
 
     private void OnClickQuitRealtimeSpectator() {

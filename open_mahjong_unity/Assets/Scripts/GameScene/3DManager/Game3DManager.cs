@@ -599,14 +599,14 @@ public partial class Game3DManager : MonoBehaviour {
             return;
         }
 
-        // 自由模式允许同一家连续摸切，先把旧摸牌收拢，再串行执行后续增删。
-        if (TryEnqueueFreeHandChange(actionType, tileId, PlayerPosition, cut_class, isRiichi, playCutPhysicsSound, concealedDiscard)) {
-            return;
-        }
-
         // 加杠把 isMoGang 传入 cut_class 位；暗杠走命名参数 isMoGang
         bool queueMoGang = actionType == "jiagang" ? cut_class : isMoGang;
         if (TryEnqueueAnkanHandChange(actionType, tileId, removeCount, PlayerPosition, combination_mask, queueMoGang)) {
+            return;
+        }
+        // 已有的逐家队列同时服务普通对局和自由模式；空闲摸牌立即入手，
+        // 补花中到达的摸牌等旧手牌收拢完成后再进入独立摸牌区。
+        if (TryEnqueueHandDrawOrFlower(actionType, tileId, PlayerPosition, cut_class, concealedDiscard)) {
             return;
         }
         // 从第一张起就入队，完整等待删牌、飞牌与收拢；否则直接启动的出牌不在
@@ -694,6 +694,7 @@ public partial class Game3DManager : MonoBehaviour {
         if (panel == null) {
             yield break;
         }
+        if (actionType != "GetCard") StopHandDrawReflow(PlayerPosition, finish: true);
 
         // 鸣牌保护节奏由服务器驱动：受保护观众的鸣牌帧本身被延迟 gap 后才发出，
         // 客户端到帧即呈现。认走的打牌者+牌张在派发时捕获（meldDiscarderPos/meldClaimedTile），
@@ -880,7 +881,7 @@ public partial class Game3DManager : MonoBehaviour {
     private void RenderRecordPlayerHand(string playerPosition){
         var player = GameRecordManager.Instance.recordPlayer_to_info[playerPosition];
         List<int> handTiles = player.tileList;
-        bool pinDraw = player.showHandDrawSlotActive || player.hasRonWinningTile;
+        bool pinDraw = player.HasSeparateDrawSlot || player.hasRonWinningTile;
         PosPanel3D panel = GetPosPanel(playerPosition);
         ClearPlayerRecordHandObjects(panel);
         bool isShowCardsMode = RecordSetting.Instance.IsShowCardsMode;

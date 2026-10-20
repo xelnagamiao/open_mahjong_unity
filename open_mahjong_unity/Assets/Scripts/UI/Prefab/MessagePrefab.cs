@@ -18,6 +18,7 @@ public readonly struct MessageAction {
 }
 
 public class MessagePrefab : MonoBehaviour {
+    public int RequiredReleaseVersion { get; set; }
     [SerializeField] private PanelPopupTransition popupTransition;
     [SerializeField] private TMP_Text HeaderText;
     [SerializeField] private TMP_Text ContentText;
@@ -115,10 +116,7 @@ public class MessagePrefab : MonoBehaviour {
         }
         if (type == "error_version") {
 #if UNITY_ANDROID && !UNITY_EDITOR
-            return new[] {
-                new MessageAction("关闭"),
-                new MessageAction("去下载", OpenMobileDownloadPage),
-            };
+            return AndroidVersionActions(() => AndroidAppUpdater.Open(RequiredReleaseVersion));
 #else
             return new[] { new MessageAction("好的") };
 #endif
@@ -143,6 +141,12 @@ public class MessagePrefab : MonoBehaviour {
         }
         return new[] { new MessageAction("好的") };
     }
+
+    internal static MessageAction[] AndroidVersionActions(Action update) => new[] {
+        new MessageAction("应用内更新", update),
+        new MessageAction("去下载", () => Application.OpenURL(ConfigManager.mobileDownloadUrl)),
+        new MessageAction("关闭"),
+    };
 
     private void BindActions(IReadOnlyList<MessageAction> actions) {
         int count = actions != null ? actions.Count : 0;
@@ -432,7 +436,16 @@ public class MessagePrefab : MonoBehaviour {
         AppSession.QuitOrReconnectOnDisconnectClose();
     }
 
-    private void OpenMobileDownloadPage() {
-        Application.OpenURL(ConfigManager.mobileDownloadUrl);
+    // Progress updates keep the existing buttons and popup animation intact.
+    public void UpdateContent(string content) {
+        if (closing || !hasMessage || ContentText.text == content) return;
+        ContentText.text = content;
+        LayoutMessage();
+    }
+
+    public void SetActionInteractable(int index, bool interactable) {
+        if (index >= 0 && index < activeSlots.Length && activeSlots[index].Button != null) {
+            activeSlots[index].Button.interactable = interactable;
+        }
     }
 }

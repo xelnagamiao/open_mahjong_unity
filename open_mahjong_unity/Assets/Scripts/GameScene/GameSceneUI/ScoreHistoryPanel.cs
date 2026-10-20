@@ -271,7 +271,7 @@ public partial class ScoreHistoryPanel : MonoBehaviour, IPointerClickHandler
         }
 
         // 只有实时对局预测赛程；牌谱即使缺少 max_round，也不能借用上一场对局的配置或结算。
-        if (fromRecord) totalRounds = 0;
+        if (fromRecord || TableMirror.Current.UnlimitedRounds) totalRounds = 0;
         else if (totalRounds <= 0 && mgr != null) {
             totalRounds = RoundTextDictionary.ToTotalHands(
                 ScoreHistorySettlementHelper.ResolveSubRule(rule, subRuleFallback), mgr.maxRound);

@@ -10,6 +10,7 @@ import { buildNanjingRoomPayload, loadNanjingForm } from './nanjingRoomConfig.js
 import { buildFuzhouRoomPayload, loadFuzhouForm } from './fuzhouRoomConfig.js'
 import { buildWenzhouRoomPayload, loadWenzhouForm } from './wenzhouRoomConfig.js'
 import { buildNanchangRoomPayload, loadNanchangForm } from './nanchangRoomConfig.js'
+import { buildShangraoRoomPayload, loadShangraoForm, SHANGRAO_OPTIONS } from './shangraoRoomConfig.js'
 import { buildHangzhouRoomPayload, loadHangzhouForm } from './hangzhouRoomConfig.js'
 import { buildSingaporeRoomPayload, loadSingaporeForm } from './singaporeRoomConfig.js'
 import { buildJiujiangRoomPayload, loadJiujiangForm } from './jiujiangRoomConfig.js'
@@ -50,6 +51,7 @@ export function createEventRoomForm(settings = {}) {
   if (form.room_rule === 'fuzhou') loadFuzhouForm(form, config)
   if (form.room_rule === 'wenzhou') loadWenzhouForm(form, config)
   if (form.room_rule === 'nanchang') loadNanchangForm(form, config)
+  if (form.room_rule === 'shangrao') loadShangraoForm(form, config)
   if (form.room_rule === 'hangzhou') loadHangzhouForm(form, config)
   if (form.room_rule === 'wuhan') loadWuhanForm(form, config)
   if (form.room_rule === 'hongzhong') loadHongzhongForm(form, config)
@@ -86,6 +88,7 @@ export function buildEventRoomSettings(form) {
   if (form.room_rule === 'fuzhou') return buildFuzhouRoomPayload(form)
   if (form.room_rule === 'wenzhou') return buildWenzhouRoomPayload(form)
   if (form.room_rule === 'nanchang') return buildNanchangRoomPayload(form)
+  if (form.room_rule === 'shangrao') return buildShangraoRoomPayload(form)
   if (form.room_rule === 'hangzhou') return buildHangzhouRoomPayload(form)
   if (form.room_rule === 'singapore') return buildSingaporeRoomPayload(form)
   if (form.room_rule === 'jiujiang') return buildJiujiangRoomPayload(form)
@@ -157,6 +160,7 @@ export function eventRoomSettingsSummary(settings, ruleLabels = {}) {
   if (form.room_rule === 'malaysia') return `${rule} · ${form.game_round * 3}局 · 满番叠加${form.multiple_max ? '开启' : '关闭'}`
   if (form.room_rule === 'wenzhou') return `${rule} · MIL 2024 · ${form.game_round}圈`
   if (form.room_rule === 'nanchang') return `${rule} · MIL 2026 · ${form.game_round * 4}副`
+  if (form.room_rule === 'shangrao') return `${rule} · ${form.game_round * 4}副`
   if (form.room_rule !== 'guobiao') return `${rule}${duplicate}`
   const round = ({ 1: '东风战', 2: '东南战', 3: '东西战', 4: '全庄战' })[form.game_round] || `${form.game_round} 圈`
   return `${rule} · ${isDuplicate ? (config.duplicate_round_count ? `${config.duplicate_round_count} 局` : '局数跟随密钥') : round} · 局时 ${form.round_timer}s · 步时 ${form.step_timer}s${duplicate}`
@@ -179,6 +183,7 @@ export function eventRoomSettingsRows(settings, ruleLabels = {}) {
     'fuzhou/standard': '福州十六张',
     'wenzhou/mil2024': '温州 MIL 2024',
     'nanchang/mil2026': '南昌 MIL 2026',
+    'shangrao/standard': '上饶麻将',
     'hangzhou/mil2025': 'MIL 杭州（2025）',
     'wuhan/mil2025': '武汉 MIL 2025',
     'hongzhong/mil2024': '红中 MIL 2024',
@@ -294,6 +299,10 @@ export function eventRoomSettingsRows(settings, ruleLabels = {}) {
   if (form.room_rule === 'malaysia') rows.push({ label: '满番叠加', value: enabled(form.multiple_max) }, { label: '花牌', value: '16花与4飞' }, { label: '剩余张数提示', value: enabled(form.count_tips) }, { label: '指针提示', value: enabled(form.pointer_tips) })
   if (form.room_rule === 'wenzhou') rows.push({ label: '规则版本', value: 'MIL 2024' }, { label: '财神', value: '每局翻财，非财神白板固定代本牌' }, { label: '剩余张数提示', value: enabled(form.count_tips) }, { label: '指针提示', value: enabled(form.pointer_tips) })
   if (form.room_rule === 'nanchang') rows.push({ label: '规则版本', value: 'MIL 2026 四人单打' }, { label: '精牌', value: '正副精，翻精牌仍可摸取' }, { label: '剩余张数提示', value: enabled(form.count_tips) }, { label: '指针提示', value: enabled(form.pointer_tips) })
+  if (form.room_rule === 'shangrao') {
+    const row = rows.find(item => item.label === '圈数'); if (row) { row.label='副数'; row.value=`${form.game_round * 4}副` }
+    rows.push({label:'和牌',value:'仅自摸'}, ...Object.entries(SHANGRAO_OPTIONS).map(([key,label])=>({label,value:enabled(form['shangrao_'+key])})))
+  }
   rows.push({ label: '提示', value: enabled(form.tips) })
   if (form.room_rule === 'guobiao') {
     if (form.sub_rule === 'guobiao/huahun') {

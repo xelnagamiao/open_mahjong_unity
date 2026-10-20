@@ -19,7 +19,7 @@ from .decoder import (
     validate_kan_mo_gang_tick,
 )
 from .flags import resolve_record_flags
-from .hu_hand import is_flower_win, needs_ron_tile, try_parse_hepai_tile
+from .hu_hand import is_flower_win, try_parse_hepai_tile
 
 
 SKIP_ACTIONS = {"ask_hand", "ask_other", "ca", "wo"}
@@ -112,6 +112,7 @@ class RecordPlayer:
     combination_masks: List[List[int]] = field(default_factory=list)
     huapai_list: List[int] = field(default_factory=list)
     show_hand_draw_slot_active: bool = False
+    has_ron_winning_tile: bool = False
     is_riichi: bool = False
     is_hu: bool = False
     pending_riichi_horizontal: bool = False
@@ -235,6 +236,7 @@ class RecordSim:
                     "is_riichi": player.is_riichi,
                     "is_hu": player.is_hu,
                     "show_hand_draw_slot_active": player.show_hand_draw_slot_active,
+                    "has_ron_winning_tile": player.has_ron_winning_tile,
                     "ready_qualification": player.ready_qualification,
                     "tag_list": list(player.tag_list),
                     "dingque_suit": player.dingque_suit,
@@ -410,6 +412,9 @@ class RecordSim:
             return
         if action == "reset":
             self.current_player_index = codec.parse_tick_int(tick, 1)
+            if self.flags.rule_id == "guobiao":
+                for seat, player in self.players.items():
+                    player.show_hand_draw_slot_active &= seat == self.current_player_index
             return
         if action in SKIP_ACTIONS:
             return
@@ -558,8 +563,16 @@ class RecordSim:
                 if hu_player.show_hand_draw_slot_active and hu_player.tile_list:
                     hu_player.tile_list.pop()
                     hu_player.show_hand_draw_slot_active = False
-                if win_tile >= 10 and needs_ron_tile(hu_player.tile_list, self.rule_key()):
-                    hu_player.tile_list.append(win_tile)
+                if win_tile >= 10:
+                    if self.flags.rule_id == "changsha":
+                        if hu_player.has_ron_winning_tile and hu_player.tile_list:
+                            hu_player.tile_list.pop()
+                        if len(hu_player.tile_list) % 3 == 1:
+                            hu_player.tile_list.append(win_tile)
+                        hu_player.has_ron_winning_tile = len(hu_player.tile_list) % 3 == 2
+                    elif not hu_player.has_ron_winning_tile:
+                        hu_player.tile_list.append(win_tile)
+                        hu_player.has_ron_winning_tile = True
             self._apply_score_array(parse_score_changes(tick, 4))
             if self.is_sichuan(): next_player = self._next_player(hepai)
             if self.is_concealed_blood():
@@ -576,8 +589,9 @@ class RecordSim:
             cuohe = "错和" in parse_hu_fan_list(tick, 5)
             winner.is_hu = not cuohe
             if not cuohe and tick[2] in ("hu_first", "hu_second", "hu_third"):
-                if self.last_winnable_tile_id >= 10 and needs_ron_tile(winner.tile_list, "riichi"):
+                if self.last_winnable_tile_id >= 10 and not winner.has_ron_winning_tile:
                     winner.tile_list.append(self.last_winnable_tile_id)
+                    winner.has_ron_winning_tile = True
             self._apply_score_array(parse_score_changes(tick, 6) if len(tick) > 6 else None)
             collected = codec.parse_tick_int(tick, 11) if len(tick) > 11 else 0
             if cuohe:

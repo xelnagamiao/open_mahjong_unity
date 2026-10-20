@@ -142,13 +142,15 @@ public sealed class HongKongGameState : TurnBasedGameState {
         HongKongWait[] waits=local;
         if (local!=null || query.Record==null && Active?.waitHints.TryGetValue(key,out waits)==true) {
             var hint=waits.FirstOrDefault(h=>h.tile==query.HepaiTile);
-            if (hint!=null) {
-                if (hint.ron) return WaitTileHint.Ron($"{hint.ron_fan}{HongKongFanText.Unit(query.SubRule)}起");
-                if (hint.self_draw) return WaitTileHint.TsumoOnly($"自摸{hint.self_draw_fan}{HongKongFanText.Unit(query.SubRule)}起");
-                return WaitTileHint.None("未起糊");
-            }
+            if (hint!=null) return DescribeWait(hint,query.SubRule);
         }
         return WaitTileHint.None("牌形听牌");
+    }
+
+    internal static WaitTileHint DescribeWait(HongKongWait hint,string subRule) {
+        if (hint.ron) return hint.self_draw ? WaitTileHint.Ron($"{hint.ron_fan}{HongKongFanText.Unit(subRule)}起") : WaitTileHint.RonOnly();
+        if (hint.self_draw) return WaitTileHint.TsumoOnly($"自摸{hint.self_draw_fan}{HongKongFanText.Unit(subRule)}起");
+        return WaitTileHint.None("未起糊");
     }
 
     public override void OnSessionReset() {

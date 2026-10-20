@@ -54,7 +54,7 @@ public sealed class RecordPlayerWaits : MonoBehaviour {
             string kind = entry.Hint?.Kind;
             cell.CountBackground.color = entry.Remaining <= 0 ? hintStyle.exhaustedColor
                 : kind == WaitTileHint.KindRon ? hintStyle.dianheColor
-                : kind == WaitTileHint.KindTsumoOnly ? hintStyle.zimoColor : hintStyle.wuyiColor;
+                : kind == WaitTileHint.KindTsumoOnly || kind == WaitTileHint.KindRonOnly ? hintStyle.zimoColor : hintStyle.wuyiColor;
         }
         for (int i = entries.Count; i < cells.Count; i++) cells[i].Root.gameObject.SetActive(false);
         RefreshLayout();

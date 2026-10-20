@@ -1046,11 +1046,7 @@ public partial class EndResultPanel : MonoBehaviour {
         }
 
         // 总计：0番 0点
-        FanCountTotalPanel.SetActive(true);
-        TotalFu.gameObject.SetActive(false);
-        TotalFan.text = "0番";
-        TotalScore.text = "0点";
-        TotalLimitDisplay.gameObject.SetActive(false);
+        ShowTotalPanel(new SettlementTotalDisplay { FanText = "0番", ScoreText = "0点" });
     }
 
     private static string FormatScoreWithDiff(int before, int after) {
@@ -1296,48 +1292,7 @@ public partial class EndResultPanel : MonoBehaviour {
     /// <summary>总计栏只负责摆字：读 <see cref="SettlementTotalDisplay"/>，null 字段即隐藏该栏。</summary>
     private void ShowTotalPanel(SettlementTotalDisplay display) {
         FanCountTotalPanel.SetActive(true);
-        SetTotalColumn(TotalFan, display.FanText);
-        SetTotalColumn(TotalFu, display.FuText);
-        TotalScore.text = display.ScoreText ?? string.Empty;
-        SetTotalColumn(TotalLimitDisplay, display.LimitText);
-        RebuildFanCountTotalLayout();
-        ApplyGuizhouTotalLayout();
-    }
-
-    private static void SetTotalColumn(TMP_Text label, string text) {
-        if (label == null) return;
-        bool show = text != null;
-        label.gameObject.SetActive(show);
-        if (show) label.text = text;
-    }
-
-    /// <summary>
-    /// 排法跟国标同一条：父节点 HorizontalLayoutGroup 用场景左上对齐，不控宽高。
-    /// 国标只开番+点；符/满贯是额外列，只去掉横向 ContentSizeFitter，避免和布局组抢宽度。
-    /// </summary>
-    private void RebuildFanCountTotalLayout() {
-        if (FanCountTotalPanel == null) return;
-        var layout = FanCountTotalPanel.GetComponent<HorizontalLayoutGroup>();
-        if (layout != null) {
-            layout.childAlignment = TextAnchor.UpperLeft;
-            layout.childControlWidth = false;
-            layout.childControlHeight = false;
-            layout.childForceExpandWidth = false;
-            layout.childForceExpandHeight = false;
-        }
-        RelaxExtraColumnHorizontalFitter(TotalFu);
-        RelaxExtraColumnHorizontalFitter(TotalLimitDisplay);
-        if (FanCountTotalPanel.transform is RectTransform root) {
-            LayoutRebuilder.ForceRebuildLayoutImmediate(root);
-        }
-    }
-
-    private static void RelaxExtraColumnHorizontalFitter(TMP_Text column) {
-        if (column == null) return;
-        var fitter = column.GetComponent<ContentSizeFitter>();
-        if (fitter == null) return;
-        fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        SettlementTotalLayout.Ensure(FanCountTotalPanel).Show(display, TotalFan, TotalFu, TotalScore, TotalLimitDisplay);
     }
 
     /// <summary>总计文案：族清单的 SettlementTotal 钩子给出；未声明的族用通用"番 + 点"。</summary>

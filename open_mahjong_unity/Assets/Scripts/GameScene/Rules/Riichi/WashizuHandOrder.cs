@@ -69,6 +69,12 @@ public sealed class WashizuHandOrder {
         keys = entries.Select(e => e.key).ToArray(), drawn_key = drawnKey, draw_pinned = pinned,
     };
 
+    public void MergeDrawSlot() {
+        if (!pinned) return;
+        pinned = false;
+        revision++;
+    }
+
     public int NoteCut(int tile, bool fromDraw, int physicalKey = 0) {
         var chosen = entries.FirstOrDefault(e => e.tile == tile &&
             (physicalKey != 0 ? e.key == physicalKey : fromDraw ? e.key == drawnKey : e.key != drawnKey));

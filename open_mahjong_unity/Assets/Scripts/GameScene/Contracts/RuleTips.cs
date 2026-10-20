@@ -58,13 +58,16 @@ public sealed class WaitHintQuery {
 /// <summary>一张和牌张在提示栏里的一行：标签 + 着色类别。</summary>
 public sealed class WaitTileHint {
     public const string KindRon = "dianhe";
+    public const string KindRonOnly = "ron_only";
     public const string KindTsumoOnly = "zimo";
     public const string KindNone = "wuyi";
 
     public string Label;
     public string Kind = KindRon;
+    public bool CanRon => Kind == KindRon || Kind == KindRonOnly;
 
     public static WaitTileHint Ron(string label) => new WaitTileHint { Label = label, Kind = KindRon };
+    public static WaitTileHint RonOnly(string label = "仅点和") => new WaitTileHint { Label = label, Kind = KindRonOnly };
     public static WaitTileHint TsumoOnly(string label) => new WaitTileHint { Label = label, Kind = KindTsumoOnly };
     public static WaitTileHint None(string label) => new WaitTileHint { Label = label, Kind = KindNone };
 }

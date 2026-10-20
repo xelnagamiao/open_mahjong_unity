@@ -37,6 +37,7 @@ public partial class CreatePanel {
         BakeHongKongDetailsPanel();
         BakeFuzhouMainControls();
         BakeFilipinoDetailsPanel();
+        BakeShangraoDetailsPanel();
         BakeVietnameseDetailsPanel();
         BakeYixingRoomControls();
         BakeShanghaiRoomControls();

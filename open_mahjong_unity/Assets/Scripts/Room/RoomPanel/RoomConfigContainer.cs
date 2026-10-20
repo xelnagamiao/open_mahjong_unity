@@ -263,6 +263,7 @@ public class RoomConfigContainer : MonoBehaviour {
                 displayName = "圈数";
                 displayValue = roomInfo.is_duplicate
                     ? $"复式 {Mathf.Max(1, roomInfo.duplicate_round_count)} 局" : RoundTextDictionary.GetMaxRoundText(roomInfo.room_rule, roomInfo.game_round);
+                if (roomInfo.room_rule == "qingque" && roomInfo.unlimited_rounds) displayValue = "无固定时限";
                 if (SichuanLobby.IsDuplicate(roomInfo.sub_rule)) { displayName = "副数"; displayValue = $"{Mathf.Max(1, roomInfo.duplicate_round_count)} 副"; }
                 return true;
             case "round_timer":

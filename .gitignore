@@ -20,6 +20,8 @@
 !/open_mahjong_unity/README.md
 /open_mahjong_unity/Assets/Resources/PerformanceTestRunInfo.json*
 /open_mahjong_unity/Assets/Resources/PerformanceTestRunSettings.json*
+/open_mahjong_unity/Assets/_Recovery/
+/open_mahjong_unity/Assets/_Recovery.meta
 
 # Python 项目的源码入口；虚拟环境和本机部署文件不进入仓库。
 /open_mahjong_server/*

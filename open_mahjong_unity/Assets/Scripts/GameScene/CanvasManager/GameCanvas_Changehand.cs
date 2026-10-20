@@ -9,19 +9,35 @@ public partial class GameCanvas{
 
     // 手牌处理
     public void ChangeHandCards(string ChangeType,int tileId,int[] TilesList,int? cut_tile_index){
-        // 空闲时立即接受自由摸牌；视觉收拢在后台追随最新布局，不积压后续摸牌。
-        if (IsFreeDrawChange(ChangeType) && !isChangeHandCardProcessing) {
+        // 空闲时立即接受连续摸牌；旧摸牌同时归入主列，不积压后续补牌。
+        if (ShouldUseDrawReflow(ChangeType) && !isChangeHandCardProcessing) {
             StartCoroutine(ChangeHandCardsCoroutine(ChangeType, tileId, TilesList, cut_tile_index));
             return;
         }
-        // 将手牌处理任务加入队列
-        changeHandCardQueue.Enqueue(() => {
+        EnqueueHandChange(() => {
             return StartCoroutine(ChangeHandCardsCoroutine(ChangeType,tileId,TilesList,cut_tile_index));
         });
+    }
+
+    private void EnqueueHandChange(System.Func<Coroutine> change) {
+        changeHandCardQueue.Enqueue(change);
         // 未启动执行队列则启动
         if (!isChangeHandCardProcessing){
             _processChangeHandCardQueueCoroutine = StartCoroutine(ProcessChangeHandCardQueue());
         }
+    }
+
+    /// <summary>Explicit phase boundary: merge the visual draw slot, independently of its discard source.</summary>
+    public void ConsolidateHand(bool preserveDrawSource) {
+        EnqueueHandChange(() => StartCoroutine(ConsolidateHandCoroutine(preserveDrawSource)));
+    }
+
+    private IEnumerator ConsolidateHandCoroutine(bool preserveDrawSource) {
+        handCardDragController?.AbortForHandChange("阶段结束收拢手牌");
+        StopDrawReflowAnimation(finish: true);
+        ConsolidateWashizuDrawSlot(preserveDrawSource);
+        isArranged = true;
+        yield return RearrangeHandCardsWithAnimation(clearMoqieMark: !preserveDrawSource);
     }
 
     // 处理手牌队列
@@ -54,6 +70,7 @@ public partial class GameCanvas{
         // 摸牌只新增独立摸牌张的规则（RuleManifest.PreserveDragOnDraw）允许继续抓着原手牌：
         // 不应把玩家正在进行的拖拽当成需要强制提交的冲突变更。
         if (changeType == "GetCard"
+                && !ShouldUseDrawReflow(changeType)
                 && RuleRegistry.Current != null
                 && RuleRegistry.Current.PreserveDragOnDraw
                 && handCardDragController != null
@@ -73,7 +90,7 @@ public partial class GameCanvas{
         if (ChangeType == "SyncHandCardsPreservingOrder") {
             if (TilesList == null || HandCardsMatchSnapshot(TilesList)) yield break;
             handCardDragController?.AbortForHandChange("续打手牌内容校正");
-            StopFreeDrawAnimation(finish: true);
+            StopDrawReflowAnimation(finish: true);
             ReconcileHandCardsPreservingOrder(TilesList);
             yield break;
         }
@@ -82,12 +99,12 @@ public partial class GameCanvas{
             handCardDragController?.AbortForHandChange($"手牌变更:{ChangeType}");
         }
 
-        if (IsFreeDrawChange(ChangeType)) {
-            ApplyFreeDraw(tileId, ChangeType == "GetCard");
+        if (ShouldUseDrawReflow(ChangeType)) {
+            ApplyDrawReflow(tileId, ChangeType == "GetCard");
             yield break;
         }
         // 删牌/重建等结构变更先结束这段短动画，不能让旧动画继续写新手牌的位置。
-        StopFreeDrawAnimation(finish: true);
+        StopDrawReflowAnimation(finish: true);
 
         // 续打快照与后续摸牌沿用同一队列，避免旧和牌张残留或覆盖新摸牌。
         if (ChangeType == "SyncHandCards") {
@@ -132,8 +149,9 @@ public partial class GameCanvas{
                 yield break;
             }
             // 对齐 LayRecordShowHandTiles：d/gd/bd 后末张为摸入张（含普通摸/杠摸/补摸），不可整手排序后误钉
+            GameRecordManager.RecordPlayer selfPlayer = null;
             bool pinDraw = GameRecordManager.Instance != null
-                && GameRecordManager.Instance.recordPlayer_to_info.TryGetValue("self", out GameRecordManager.RecordPlayer selfPlayer)
+                && GameRecordManager.Instance.recordPlayer_to_info.TryGetValue("self", out selfPlayer)
                 && selfPlayer.showHandDrawSlotActive
                 && TilesList.Length > 0;
             int drawTileId = pinDraw ? TilesList[TilesList.Length - 1] : 0;
@@ -156,9 +174,12 @@ public partial class GameCanvas{
                 GameObject drawObj = Instantiate(tileCardPrefab, handCardsContainer);
                 TileCard drawCard = drawObj.GetComponent<TileCard>();
                 drawCard.SetTile(drawTileId, true);
+                drawCard.isDrawSlotPinned = selfPlayer.HasSeparateDrawSlot;
                 drawCard.handSortIndex = mainTiles.Length;
             }
             LayoutHandCardsFromCurrentOrder();
+            if (selfPlayer?.DrawSlotIsMerged == true)
+                yield return RearrangeHandCardsWithAnimation(clearMoqieMark: false);
             // 重建后补涂铳张遮罩：RefreshRecordChongHint 在入队前同步执行，此时新牌尚未创建
             GameRecordManager.Instance?.ReapplySelf2DHandChongOverlay();
             if (WashizuTile.IsRealtimeHandOrder) {
@@ -182,13 +203,6 @@ public partial class GameCanvas{
 
         // 摸牌 添加摸牌区手牌
         else if (ChangeType == "GetCard"){
-            // 牌谱跳转可能停在开局补花的最后一张补牌上，此时该牌仍固定在摸牌区。
-            // 下一次正常摸牌前先将旧摸牌收拢进主列，否则新旧两张会落在同一个摸牌位置，
-            // 视觉上像是补牌被新摸牌顶掉、手牌少一张。
-            if (IsHandRecordPlayback() && GetPinnedDrawTile() != null){
-                yield return StartCoroutine(RearrangeHandCardsWithAnimation());
-            }
-
             GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
             TileCard tileCard = cardObj.GetComponent<TileCard>();
             // 同一时刻最多一张摸切语义牌：先清旧标再给新张打标

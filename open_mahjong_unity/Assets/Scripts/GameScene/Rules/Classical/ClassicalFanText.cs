@@ -71,6 +71,7 @@ internal static class ClassicalFanText {
     public static SettlementTotalDisplay SettlementTotal(SettlementTotalQuery q) {
         int fanTotal = FanTotal(q.Rule, q.HuFan);
         return new SettlementTotalDisplay {
+            Layout = SettlementTotalDisplay.LayoutKind.FuFanScore,
             FuText = q.BaseFu.HasValue ? $"{q.BaseFu.Value}副" : null,
             FanText = fanTotal >= 0 ? $"{fanTotal}番" : "满贯",
             ScoreText = $"{q.HuScore}点",

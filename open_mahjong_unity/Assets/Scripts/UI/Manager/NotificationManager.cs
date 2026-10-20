@@ -103,7 +103,17 @@ public class NotificationManager : MonoBehaviour {
             var modalCanvas = modalOwner.GetComponent<Canvas>();
             modalCanvas.overrideSorting = true;
             if (canvas != null) modalCanvas.sortingLayerID = canvas.sortingLayerID;
-            modalCanvas.sortingOrder = Mathf.Max(300, canvas != null ? canvas.sortingOrder + 1 : 300);
+            int sortingOrder = Mathf.Max(300, canvas != null ? canvas.sortingOrder + 1 : 300);
+            // Equal-order override canvases do not reliably follow sibling order.
+            // Keep nested confirmations above existing dialogs, including ones fading out.
+            foreach (var existing in parent.GetComponentsInChildren<MessagePrefab>(true)) {
+                Canvas existingCanvas = existing.GetComponentInParent<Canvas>();
+                if (existingCanvas != null && existingCanvas.overrideSorting &&
+                    existingCanvas.sortingLayerID == modalCanvas.sortingLayerID) {
+                    sortingOrder = Mathf.Max(sortingOrder, existingCanvas.sortingOrder + 1);
+                }
+            }
+            modalCanvas.sortingOrder = sortingOrder;
             var blocker = modalOwner.GetComponent<UnityEngine.UI.Image>();
             blocker.color = new Color(.04f, .06f, .09f, .55f);
             blocker.raycastTarget = true;

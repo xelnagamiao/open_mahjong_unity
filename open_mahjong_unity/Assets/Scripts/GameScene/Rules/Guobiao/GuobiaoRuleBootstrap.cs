@@ -4,8 +4,7 @@ internal static class GuobiaoRuleBootstrap {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Register() {
         RuleRegistry.Register(new RuleManifest {
-            ReplayFactory = record => record.IsWashizuRealtimeRecord()
-                ? record.CreateRealtimeTransparentReplayModule() : record.CreateStandardReplayModule(),
+            ReplayFactory = record => record.CreateGuobiaoReplayModule(),
             BuildRoom = GuobiaoRoomBuilder.Build,
             RuleId = GuobiaoGameState.RuleId,
             DefaultSubRule = "guobiao/standard",
@@ -21,6 +20,7 @@ internal static class GuobiaoRuleBootstrap {
             GameStateFactory = () => new GuobiaoGameState(),
             NormalizeTileId = WashizuTile.Face,
             PrepareHandDisplay = info => GameCanvas.Instance.PrepareWashizuRealtimeHand(info),
+            OpeningHandHasDrawSlot = info => GuobiaoGameState.OpeningSelfPlayer(info)?.has_draw_slot == true,
             HandJokerTiles = sub => sub == GuobiaoGameState.HuahunSubRule ? new[] {51,52,53,54} : sub == GuobiaoGameState.FourJokersSubRule ? new[] {59} : System.Array.Empty<int>(),
             TileBadgeText = tile => RuleRegistry.CurrentSubRule == GuobiaoGameState.HuahunSubRule && HuahunRules.IsJoker(tile) ? "癞" : RuleRegistry.CurrentSubRule == GuobiaoGameState.FourJokersSubRule && tile == 59 ? "癞" : null,
             Tingpai = GuobiaoTips.Tingpai,

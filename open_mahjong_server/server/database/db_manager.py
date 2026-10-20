@@ -3461,6 +3461,7 @@ DatabaseManager.store_wuhan_game_record = store_taiwan_game_record
 DatabaseManager.store_shenyang_game_record = store_taiwan_game_record
 DatabaseManager.store_wenzhou_game_record = store_taiwan_game_record
 DatabaseManager.store_nanchang_game_record = store_taiwan_game_record
+DatabaseManager.store_shangrao_game_record = store_taiwan_game_record
 
 # Jiandan keeps replay and statistics adapters in the rule-local database module.
 from .jiandan.store_jiandan import (

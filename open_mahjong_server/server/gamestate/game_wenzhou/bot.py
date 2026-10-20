@@ -1,6 +1,7 @@
 """Bots use their own hand and public physical tiles, never the hidden wall."""
 
 import time
+from ..public.ai.auto_cut_policy import is_auto_cut_bot, choose_auto_cut_action
 from collections import Counter
 
 from ...game_calculation.wenzhou.rules import waiting_tiles
@@ -37,6 +38,8 @@ def pick_cut(state,index):
 
 def choose_action(state,index,actions):
     p = state.player_list[index]
+    if is_auto_cut_bot(p):
+        return choose_auto_cut_action(p, actions, p.hand_tiles if "cut" in actions else None)
     for action in ("hu_self","hu","ready"):
         if action in actions:
             return dict(action_type=action)

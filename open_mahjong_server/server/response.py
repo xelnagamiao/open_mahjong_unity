@@ -64,6 +64,8 @@ class PlayerInfo(BaseModel):
     xueliu_throw_tiles: Optional[List[int]] = None  # 血流：开局甩掉的三张
 
 class GameInfo(BaseModel):
+    unlimited_rounds: bool = False
+    unlimited_info: Optional[dict] = None
     washizu_doubles: Optional[dict] = None
     washizu_layouts: Optional[Dict[int, dict]] = None
     wuhan_info: Optional[dict] = None
@@ -601,6 +603,8 @@ class SpectatorInfo(BaseModel):
     match_queue_type: Optional[str] = None
     match_tier: Optional[str] = None
     team_by_player_index: Optional[List[int]] = None
+    current_round: Optional[int] = None  # 圈内局号，连庄不递增
+    total_rounds: Optional[int] = None  # 计划总副数；0 表示不限局数，None 表示未知
 
 class FriendInfo(BaseModel):
     """好友/关注信息"""
@@ -655,6 +659,7 @@ class MessageInfo(BaseModel):
     """消息信息"""
     title: str  # 消息标题
     content: str  # 消息内容
+    required_release_version: Optional[int] = None  # 安卓更新需匹配的游戏协议版本
 
 class Sticker_info(BaseModel):
     """对局表情包广播"""
@@ -758,6 +763,7 @@ class Response(BaseModel):
     leaderboard_list: Optional[List[LeaderboardEntry]] = None
     sticker_info: Optional[Sticker_info] = None
     # 房间对局投票暂停/结束：投票状态同步（phase/vote_type/agree/refuse/total/countdown/votes/reason）
+    unlimited_info: Optional[dict] = None
     vote_info: Optional[Dict] = None
     # 赛事：当前用户可管理的 active 赛事列表 [{event_id, name, status, role}, ...]
     event_list: Optional[List[Dict]] = None

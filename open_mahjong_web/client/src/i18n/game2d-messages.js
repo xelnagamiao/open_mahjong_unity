@@ -1,6 +1,7 @@
 // Complete sentences keep replay and room labels reactive without translating user data.
 // Columns: source, English, Japanese, French. Traditional Chinese uses the shared converter.
 const entries = [
+  ['仅点和', 'Discard win only', 'ロンのみ', 'Sur écart uniquement'],
   ['设定牌桌', 'Table setup', '卓の設定', 'Réglage de la table'],
   ['随机牌桌', 'Randomize table', '卓をランダム生成', 'Table aléatoire'],
   ['退出牌桌', 'Leave table', '卓を退出', 'Quitter la table'],

@@ -185,7 +185,7 @@ public partial class GameRecordManager {
             RedDora = !gameRecord.gameTitle.TryGetValue("red_dora", out object redDora)
                 || !bool.TryParse(redDora?.ToString(), out bool redEnabled) || redEnabled,
             ReadyQualification = selfPlayer.readyQualification,
-            DoraIndicators = IsFuzhouRecord() ? FuzhouRecordVisibleIndicators() : IsChangchunRecord() ? GetChangchunRecordVisibleIndicators() : IsWenzhouRecord() && recordWenzhouInfo != null ? new List<int> { recordWenzhouInfo.indicator } : new List<int>(recordRiichiDoraIndicators),
+            DoraIndicators = IsShangraoRecord() ? ShangraoRecordVisibleTiles() : IsFuzhouRecord() ? FuzhouRecordVisibleIndicators() : IsChangchunRecord() ? GetChangchunRecordVisibleIndicators() : IsWenzhouRecord() && recordWenzhouInfo != null ? new List<int> { recordWenzhouInfo.indicator } : new List<int>(recordRiichiDoraIndicators),
             SelfDingqueSuit = selfPlayer.dingqueSuit,
             DetailedConfig = GetDetailedConfigSnapshot(),
             PlayersByPosition = new Dictionary<string, RecordTipsPlayerVisible>(),

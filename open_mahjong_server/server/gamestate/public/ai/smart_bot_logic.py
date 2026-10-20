@@ -11,7 +11,7 @@ try:
     from mahjong.shanten import Shanten
 except ImportError:
     Shanten = None
-    logger.warning("mahjong 库未安装，牌效 AI 将退化为摸切模式。请执行 pip install mahjong")
+    logger.warning("mahjong 库未安装，牌效 AI 使用通用面子向听计算。请执行 pip install mahjong 以启用日麻特殊牌型评估")
 
 # ─── 牌面编码转换 ───────────────────────────────────────────
 
@@ -105,8 +105,14 @@ def count_melds(combination_tiles: List[str]) -> int:
 # ─── 向听数计算 ────────────────────────────────────────────
 
 def calc_shanten(hand_tiles: List[int], meld_count: int = 0) -> int:
-    if Shanten is None:
-        return 99
+    # The external library only accepts up to fourteen concealed tiles. Its
+    # implicit four-meld model also misidentifies an open 16-tile hand as closed.
+    total_melds = len(hand_tiles) // 3 + meld_count
+    if len(hand_tiles) > 17 or total_melds > 5:
+        return 99  # Invalid snapshot; do not expand an unbounded structural search.
+    if total_melds > 4 or Shanten is None:
+        from .structural_shanten import distance
+        return distance([normalize_tile(t) for t in hand_tiles], meld_count, total_melds)
     arr = hand_to_34array(hand_tiles)
     try:
         return Shanten.calculate_shanten(arr)

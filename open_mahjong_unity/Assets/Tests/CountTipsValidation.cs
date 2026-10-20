@@ -42,6 +42,7 @@ public static class CountTipsValidation {
                 (name: "点和零番", hint: WaitTileHint.Ron("0番"), color: blue),
                 (name: "点和", hint: WaitTileHint.Ron("8番"), color: blue),
                 (name: "仅自摸", hint: WaitTileHint.TsumoOnly("仅自摸"), color: view.zimoColor),
+                (name: "仅点和", hint: WaitTileHint.RonOnly(), color: view.zimoColor),
                 (name: "日麻自摸有役", hint: WaitTileHint.TsumoOnly("1番"), color: view.zimoColor),
                 (name: "未起和", hint: WaitTileHint.None("未起和"), color: view.wuyiColor),
                 (name: "日麻无役", hint: WaitTileHint.None("无役"), color: view.wuyiColor),
@@ -64,7 +65,7 @@ public static class CountTipsValidation {
                         if (!fan && !count) continue;
                         Color[] colors = Colors(view);
                         Color fanColor = blocked ? view.wuyiColor : remaining == 0 ? view.exhaustedColor
-                            : sample.hint.Kind == WaitTileHint.KindTsumoOnly ? view.zimoColor : view.dianheColor;
+                            : sample.hint.Kind == WaitTileHint.KindTsumoOnly || sample.hint.Kind == WaitTileHint.KindRonOnly ? view.zimoColor : view.dianheColor;
                         Check(name + "/首行色", colors[0] == (fan || blocked ? fanColor : sample.color));
                         if (fan && count && !blocked) Check(name + "/枚数色", colors[1] == sample.color);
                         Check(name + "/行高", Mathf.Approximately(((RectTransform)view.transform).rect.height, expected.Length == 2 ? 77f : 33f));
@@ -102,7 +103,7 @@ public static class CountTipsValidation {
             foreach (RuleManifest rule in RuleRegistry.Ordered.Where(rule => !rule.HideFromLobby && rule.DescribeWaitingTile != null)) {
                 foreach (var sub in rule.LobbySubRules ?? Array.Empty<RuleLobbySubRule>()) {
                     routes.Add(sub.Key);
-                    foreach (var sample in samples.Take(6)) {
+                    foreach (var sample in samples.Take(7)) {
                         bool called = false;
                         var manifest = new RuleManifest {RuleId = rule.RuleId, DescribeWaitingTile = q => {called = true; return sample.hint;}};
                         render.Invoke(container, new object[] {manifest, Query(sub.Key)});
@@ -167,7 +168,8 @@ public static class CountTipsValidation {
                 Check(name, Lines(view).SequenceEqual(new[] {expected}));
             }
             Check("四癞子未请求前不伪造番数", GuobiaoTips.Describe(Query(GuobiaoGameState.FourJokersSubRule)) == null);
-            foreach (string sub in GuobiaoLobby.SubRules.Select(sub => sub.Key).Where(sub => sub != GuobiaoGameState.FourJokersSubRule)) {
+            // Async variants return pending here; their real scorers are covered by RonOnlyTipsValidation.
+            foreach (string sub in GuobiaoLobby.SubRules.Select(sub => sub.Key).Where(sub => !GuobiaoGameState.UsesAsyncLocalTips(sub))) {
                 var query = Query(sub); query.HepaiLimit = 999;
                 Actual(sub + "/真实未起和", GuobiaoTips.Describe(query), "未起和");
                 query.HepaiLimit = 0;

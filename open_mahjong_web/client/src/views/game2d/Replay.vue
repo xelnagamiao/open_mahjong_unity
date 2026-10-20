@@ -223,7 +223,7 @@
             <div class="end-result-total" :class="{ 'is-visible': showResultTotal }">
               <div class="end-result-total__line">
                 <span class="end-result-total__method">{{ winMethodLabel }}</span>
-                <strong>{{ roundResult.fan }}</strong><span>{{ tr(detail?.rule === 'changchun' ? '基础番' : detail?.rule === 'guizhou' ? '基本分' : ['fuzhou', 'malaysia', 'yixing', 'hangzhou', 'jiujiang', 'shanxi', 'nanchang', 'changsha'].includes(detail?.rule || '') ? '分' : detail?.rule === 'wenzhou' ? '倍' : '番') }}</span>
+                <strong>{{ roundResult.fan }}</strong><span>{{ tr(detail?.rule === 'changchun' ? '基础番' : detail?.rule === 'guizhou' ? '基本分' : ['fuzhou', 'malaysia', 'yixing', 'hangzhou', 'jiujiang', 'shanxi', 'nanchang', 'shangrao', 'changsha'].includes(detail?.rule || '') ? '分' : detail?.rule === 'wenzhou' ? '倍' : '番') }}</span>
               </div>
             </div>
             <div class="end-result-diamond">
@@ -248,6 +248,11 @@
 
         <HongzhongReplayDetail v-if="detail?.rule === 'hongzhong'" :info="hongzhongInfo" :ledger="hongzhongKongEvents" />
         <ChangchunReplayDetail v-if="changchunInfo" :info="changchunInfo" />
+        <section v-if="shangraoInfo" class="nanchang-replay-info" aria-label="上饶宝牌与结算">
+          <strong>指示牌 {{ wenzhouTileName(shangraoInfo.indicator) }} · 宝牌 {{ wenzhouTileName(shangraoInfo.bao) }}</strong>
+          <p>仅自摸；蓝色牌为杠补自动弃牌，不能吃碰杠。宝牌杠弃不计飞宝。</p>
+          <p v-if="shangraoInfo.ledger">本副净分：{{ shangraoInfo.ledger.changes.join(' / ') }}</p>
+        </section>
         <section v-if="nanchangInfo" class="nanchang-replay-info" :aria-label="tr('南昌精牌与结算')">
           <strong>{{ tr('正精 {primary} · 副精 {secondary}', { primary: tr(wenzhouTileName(nanchangInfo.indicator)), secondary: tr(wenzhouTileName(nanchangInfo.secondary)) }) }}</strong>
           <p>{{ tr('四人单打 · 精牌翻开后仍在牌墙中，可正常摸取。') }}</p>
@@ -491,6 +496,7 @@ import { parseMalaysiaFan, malaysiaInfoAt } from '@/utils/malaysiaReplay.js'
 import { parseYixingFan } from '@/utils/yixingReplay.js'
 import { parseWenzhouFan, wenzhouInfoAt, wenzhouTileName, wenzhouLedgerRows, wenzhouLedgerEntries, wenzhouWaitData, wenzhouWaitsAt } from '@/utils/wenzhouReplay.js'
 import { parseNanchangFan, nanchangInfoAt, nanchangLedgerRows, nanchangWaitData, nanchangWaitsAt } from '@/utils/nanchangReplay.js'
+import {parseShangraoFan,shangraoInfoAt,shangraoWallAt,shangraoVisibleIndicators} from '@/utils/shangraoReplay.js'
 import { jokerFirstSortKey } from '@/game2d/lib/handJokers.js'
 import { parseHangzhouFan, hangzhouInfoAt, hangzhouKnownTiles, hangzhouWaitDataAt, hangzhouNormalDrawableWallIndices } from '@/utils/hangzhouReplay.js'
 import HangzhouReplayState from '@/components/HangzhouReplayState.vue'
@@ -633,6 +639,7 @@ function ruleDisplayName(rule: unknown): string {
     fuzhou: '福州麻将',
     wenzhou: '温州麻将',
     nanchang: '南昌麻将',
+    shangrao: '上饶麻将',
     hangzhou: '杭州麻将',
     hongzhong: '红中麻将',
     jiujiang: '九江麻将',
@@ -833,6 +840,7 @@ const fuzhouDisplay = computed(() => {
   return {reserve,lastFour:snapshot.state.remaining_tile_count<=4}
 })
 const wenzhouInfo = computed(() => detail.value?.rule === 'wenzhou' ? wenzhouInfoAt(currentRound.value, node.value) : null)
+const shangraoInfo = computed(() => detail.value?.rule === 'shangrao' ? shangraoInfoAt(currentRound.value,node.value) : null)
 const nanchangInfo = computed(() => detail.value?.rule === 'nanchang' ? nanchangInfoAt(currentRound.value, node.value) : null)
 const guizhouInfo = computed(() => detail.value?.rule === 'guizhou' ? guizhouInfoAt(currentRound.value, node.value) : null)
 const guangdongInfo = computed(() => isGuangdongMilRecord(detail.value) ? guangdongInfoAt(currentRound.value, node.value) : null)
@@ -852,9 +860,9 @@ const roundResult = computed(() => {
   if (changshaInfo.value?.exchange) tick = exchangeSixResultTick(tick, changshaInfo.value.exchange.settlements, exchangeResultSeat.value)
   const action = String(tick[0] ?? '')
   const malaysiaInfo = detail.value?.rule === 'malaysia' ? malaysiaInfoAt(round, node.value) : null
-  const scoreValues = malaysiaInfo?.round_changes ? round.seats!.map((_, seat) => malaysiaInfo.round_changes[round.seats!.indexOf(seat)]) : nanchangInfo.value?.ledger?.changes ? nanchangInfo.value.ledger.changes : wenzhouInfo.value?.round_changes ? wenzhouInfo.value.round_changes : action === 'liuju' && guizhouInfo.value?.ledger ? guizhouInfo.value.ledger.score_changes
+  const scoreValues = shangraoInfo.value?.ledger?.changes ?? (malaysiaInfo?.round_changes ? round.seats!.map((_, seat) => malaysiaInfo.round_changes[round.seats!.indexOf(seat)]) : nanchangInfo.value?.ledger?.changes ? nanchangInfo.value.ledger.changes : wenzhouInfo.value?.round_changes ? wenzhouInfo.value.round_changes : action === 'liuju' && guizhouInfo.value?.ledger ? guizhouInfo.value.ledger.score_changes
     : action === 'liuju' && changshaInfo.value?.exchange ? [...ticks].reverse().find(t => t[0] === 'changsha_exchange_six_draw_scores')?.[1]
-    : action === 'ryuukyoku' || action === 'liuju' ? tick[2] : tick[4]
+    : action === 'ryuukyoku' || action === 'liuju' ? tick[2] : tick[4])
   const changes = Array.isArray(scoreValues)
     ? scoreValues.slice(0, 4).map((value, seat) => ({
       seat,
@@ -930,6 +938,7 @@ const resultFans = computed(() => roundResult.value?.kind === 'win'
     if (yixingFan) return yixingFan
     const wenzhouFan = detail.value?.rule === 'wenzhou' ? parseWenzhouFan(name) : null
     if (wenzhouFan) return wenzhouFan
+    if (detail.value?.rule === 'shangrao') return parseShangraoFan(name) || {name,value:''}
     if (detail.value?.rule === 'nanchang') return parseNanchangFan(name) || {name,value:""}
     const hangzhouFan = detail.value?.rule === 'hangzhou' ? parseHangzhouFan(name) : null
     if (hangzhouFan) return hangzhouFan
@@ -1048,6 +1057,13 @@ const predictedWallIndices = computed(() => {
   const viewerSeat = Number(snapshot.viewer.seat_index)
   const offset = (viewerSeat - anchor + 4) % 4
 
+  if (detail.value?.rule === 'shangrao') {
+    shangraoWallAt(currentRound.value, node.value).normalIndices.forEach((index: number, order: number) => {
+      if ((order + 1) % 4 === offset) predicted.add(index)
+    })
+    return predicted
+  }
+
   const hangzhouDrawable = detail.value?.rule === 'hangzhou' || detail.value?.record.game_title?.rule === 'hangzhou'
     ? hangzhouNormalDrawableWallIndices(tiles) : null
   for (let index = front + offset - 1; index < tiles.length; index += 4) {
@@ -1124,7 +1140,8 @@ const scoreboardSettlements = computed(() => replay.value?.rounds.map((round) =>
   if (action === 'liuju' || action === 'ryuukyoku') return '流局'
   const fans = Array.isArray(terminal[3]) ? terminal[3].map(String) : []
   const mainFan = fans.find((fan) => !fan.startsWith('花牌')) || fans[0]
-  return (detail.value?.rule === 'fuzhou' ? parseFuzhouFan(mainFan)?.name : detail.value?.rule === 'malaysia' ? parseMalaysiaFan(mainFan)?.name : detail.value?.rule === 'guizhou' ? parseGuizhouFan(mainFan)?.name : detail.value?.rule === 'yixing' ? parseYixingFan(mainFan)?.name : detail.value?.rule === 'nanchang' ? parseNanchangFan(mainFan)?.name : detail.value?.rule === 'wenzhou' ? parseWenzhouFan(mainFan)?.name : detail.value?.rule === 'hangzhou' ? parseHangzhouFan(mainFan)?.name : detail.value?.rule === 'shanxi' ? parseShanxiFan(mainFan).name : isGuangdongMilRecord(detail.value) ? parseGuangdongFan(mainFan)?.name : mainFan) || `${Number(terminal[2]) || 0}${['fuzhou', 'malaysia', 'guizhou', 'yixing', 'hangzhou', 'jiujiang', 'shanxi', 'nanchang'].includes(detail.value?.rule || '') ? '分' : '番'}`
+  if (detail.value?.rule === 'shangrao') return parseShangraoFan(mainFan)?.name || `${Number(terminal[2]) || 0}分`
+  return (detail.value?.rule === 'fuzhou' ? parseFuzhouFan(mainFan)?.name : detail.value?.rule === 'malaysia' ? parseMalaysiaFan(mainFan)?.name : detail.value?.rule === 'guizhou' ? parseGuizhouFan(mainFan)?.name : detail.value?.rule === 'yixing' ? parseYixingFan(mainFan)?.name : detail.value?.rule === 'nanchang' ? parseNanchangFan(mainFan)?.name : detail.value?.rule === 'wenzhou' ? parseWenzhouFan(mainFan)?.name : detail.value?.rule === 'hangzhou' ? parseHangzhouFan(mainFan)?.name : detail.value?.rule === 'shanxi' ? parseShanxiFan(mainFan).name : isGuangdongMilRecord(detail.value) ? parseGuangdongFan(mainFan)?.name : mainFan) || `${Number(terminal[2]) || 0}${['fuzhou', 'malaysia', 'guizhou', 'yixing', 'hangzhou', 'jiujiang', 'shanxi', 'nanchang', 'shangrao'].includes(detail.value?.rule || '') ? '分' : '番'}`
 }) ?? [])
 
 function stopPlaying() {
@@ -1333,7 +1350,7 @@ function advanceAnimatedStep() {
   }
   // Guizhou has silent physical mutations (opening-kong reveals and the
   // unique source tile of multi-ron). Apply those before the next animation.
-  if (ticks.slice(node.value, playNode).some((entry) => ['fuzhou', 'malaysia', 'guizhou', 'wenzhou', 'nanchang'].includes(String(entry[0])))) {
+  if (ticks.slice(node.value, playNode).some((entry) => ['fuzhou', 'malaysia', 'guizhou', 'wenzhou', 'nanchang', 'shangrao'].includes(String(entry[0])))) {
     const before = replay.value.build(roundIndex.value, playNode, viewerOriginal.value, showOtherHands.value)
     decorateSnapshotRanks(before.snapshot)
     scene.flushFromSnapshot(before.snapshot)
@@ -1367,7 +1384,7 @@ function advanceAnimatedStep() {
       // Rebuild its physical state before playing a win's call/reveal animation.
       scene.flushFromSnapshot(nextPosition.snapshot)
       if (action.startsWith('hu_')) scene.handleEvent(update)
-    } else if (['fuzhou', 'malaysia', 'wenzhou', 'nanchang'].includes(detail.value?.rule || '') && ['cl', 'cm', 'cr', 'p', 'g', 'ag', 'jg'].includes(action)) {
+    } else if (['fuzhou', 'malaysia', 'wenzhou', 'nanchang', 'shangrao'].includes(detail.value?.rule || '') && ['cl', 'cm', 'cr', 'p', 'g', 'ag', 'jg'].includes(action)) {
       let physicalNode = nextNode
       while (physicalNode < ticks.length && isRecordSilentTick(ticks[physicalNode])) physicalNode++
       const physical = replay.value.build(roundIndex.value, physicalNode, viewerOriginal.value, showOtherHands.value)
@@ -1581,9 +1598,9 @@ function waitDataForSnapshot(snapshot: ActiveSessionSnapshot) {
     return buildShanxiWaitData({ hand, combinations: viewer.melds.map(meldKey), publicTiles }, viewer.drawn_tile != null)
   }
   const title = detail.value?.record.game_title ?? {}
-  if (['guangdong', 'wuhan', 'nanjing', 'singapore', 'shenyang'].includes(detail.value?.rule ?? '')) {
+  if (['guangdong', 'wuhan', 'nanjing', 'singapore', 'shenyang', 'shangrao'].includes(detail.value?.rule ?? '')) {
     return regionalReplayWaitData(detail.value.rule, currentRound.value, node.value, viewer.seat_index,
-      hand, viewer.melds.map(meldKey), hangzhouKnownTiles(snapshot, mmcrTileToSalasasa), title.detailed_config ?? {})
+      hand, viewer.melds.map(meldKey), [...hangzhouKnownTiles(snapshot, mmcrTileToSalasasa), ...shangraoVisibleIndicators(shangraoInfo.value)], title.detailed_config ?? {})
   }
   if (detail.value?.rule === 'malaysia') return null
   if (detail.value?.rule === 'fuzhou') return fuzhouWaitDataAt(currentRound.value,node.value,viewer.seat_index,hand,viewer.melds.map(meldKey),hangzhouKnownTiles(snapshot,mmcrTileToSalasasa))
@@ -1625,7 +1642,7 @@ function waitingTilesForSnapshotSeat(seat: ActiveSessionSnapshot['seats'][number
     return new Set<number>((hints?.waiting_tiles || []).filter((tile: number)=>hints.waiting_details?.[tile]?.kind === 'dianhe').map(salasasaTileToMmcr))
   }
   if (detail.value?.rule === 'malaysia') return new Set<number>()
-  if (['guangdong', 'wuhan', 'nanjing', 'singapore', 'shenyang'].includes(detail.value?.rule ?? '')) {
+  if (['guangdong', 'wuhan', 'nanjing', 'singapore', 'shenyang', 'shangrao'].includes(detail.value?.rule ?? '')) {
     const hints = regionalReplayHints(detail.value.rule, currentRound.value, node.value, seat.seat_index,
       hand, seat.melds.map(meldKey), detail.value?.record.game_title?.detailed_config ?? {})
     return new Set<number>((hints?.waiting_tiles ?? []).filter((tile: number) =>

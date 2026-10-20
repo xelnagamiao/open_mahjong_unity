@@ -81,6 +81,17 @@ def layouts_for_viewer(game, viewer_index):
     return {p.player_index: layout_for_viewer(game, p, viewer_index) for p in game.player_list}
 
 
+def merge_draw_slots(game):
+    """Merge presentation slots at a phase boundary without consuming draw sources."""
+    if not enabled(game):
+        return
+    for player in game.player_list:
+        state = sync_hand(game, player)
+        if state['draw_pinned']:
+            state['draw_pinned'] = False
+            state['revision'] += 1
+
+
 def ordered_reveal(game, player_index, tiles, winning_tile=False):
     """Reveal opaque faces in their established positions, preserving the win slot."""
     if not enabled(game) or not tiles:

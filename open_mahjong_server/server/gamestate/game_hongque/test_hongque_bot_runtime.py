@@ -77,6 +77,26 @@ def test_ordinary_bot_passes_tactical_recheck_without_waiting_for_timeout():
     asyncio.run(exercise())
 
 
+@pytest.mark.parametrize("hand,drawn", [(["AX1", "AX2", "AX3"], "AX3"),
+                                      (["AX1", "AX2", "GY9"], "GY9")])
+def test_auto_bot_always_discards_draw_including_complete_hand(monkeypatch, hand, drawn):
+    monkeypatch.setattr(get_action, "BOT_ACTION_DELAY", 0)
+    def forbidden(*args, **kwargs):
+        raise AssertionError("摸切机器人不应评估和牌或杠牌")
+    monkeypatch.setattr(get_action, "kong_win_candidates", forbidden)
+    monkeypatch.setattr(get_action, "run_room_bot_cpu", forbidden)
+    async def exercise():
+        state = _repeated_bots(0)
+        state.phase = "turn"
+        state.current_player_index = 1
+        state.players[1].hand = list(hand)
+        state.players[1].drawn_tile = drawn
+        await state._bot_turn(state.action_tick)
+        queued = state.action_queues[1].get_nowait()
+        assert queued["action_type"] == "discard" and queued["tile"] == drawn
+    asyncio.run(exercise())
+
+
 @pytest.mark.parametrize("bot_id", [2, 3])
 @pytest.mark.parametrize("seat", [1, 2, 3])
 def test_repeated_bot_ron_reaches_its_own_seat(monkeypatch, bot_id, seat):

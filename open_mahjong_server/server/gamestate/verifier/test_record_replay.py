@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 _SERVER_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 if _SERVER_ROOT not in sys.path:
     sys.path.insert(0, _SERVER_ROOT)
@@ -15,7 +17,6 @@ from server.gamestate.public.game_record_manager import jsonable_game_record
 from server.gamestate.verifier.record_sim import (
     RecordSim,
     load_jsonc,
-    needs_ron_tile,
     parse_kan_mo_gang_flag,
     resolve_record_flags,
     stringify_tick,
@@ -109,10 +110,6 @@ def test_unity_script_translations_match_decoder_and_hand_rules():
         raise AssertionError("旧两段暗杠应抛错")
     except ValueError:
         pass
-    assert needs_ron_tile([11] * 13, "guobiao")
-    assert not needs_ron_tile([11] * 14, "guobiao")
-    assert needs_ron_tile([1001] * 11, "hongque")
-    assert not needs_ron_tile([1001] * 12, "hongque")
     assert build_angang_mask_from_removed([11, 11, 11, 11], "changsha")[0] == 0
     assert build_angang_mask_from_removed([11, 11, 11, 11], "riichi")[0] == 2
     assert build_angang_mask_from_removed([11, 11, 11, 11], "sichuan")[2] == 0
@@ -126,6 +123,22 @@ def test_unity_script_translations_match_decoder_and_hand_rules():
     assert hongque.jiagang_extends_last_meld
     classical = resolve_record_flags(rule="classical")
     assert classical.record_hu_tile_tick_index == 7
+
+
+@pytest.mark.parametrize("rule,hand,win_tile", [
+    ("guobiao", [], 11),
+    ("guobiao", [11] * 13, 11),
+    ("hongque", [1001] * 11, 1001),
+    ("hongque", [1001] * 12, 1001),
+])
+def test_ron_tile_is_recorded_once_without_guessing_from_hand_length(rule, hand, win_tile):
+    tick = ["hu_first", "0", "8", "[]", "[0,0,0,0]", str(win_tile)]
+    record = _round(rule, rule, hand, [], [], [], [], [tick, tick])
+    frames = RecordSim(record).apply_all("round_index_1")
+    for frame in frames[1:]:
+        assert frame["players"]["0"]["tile_list"] == hand + [win_tile]
+        assert frame["players"]["0"]["has_ron_winning_tile"]
+    assert RecordSim(record).goto_action("round_index_1", 2) == frames[-1]
 
 
 def test_example_jsonc_replays_without_throwing():

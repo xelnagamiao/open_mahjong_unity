@@ -305,6 +305,25 @@ class ExchangeSixFlow:
                 note_ask_delivered(self.state, player.player_index)
             await self.state.send_to_realtime_spectators(player.player_index, self.packet(player.player_index, private_notices=False))
 
+    async def bot_action(self, seat, default_action):
+        from ..public.ai.auto_cut_policy import is_auto_cut_bot, choose_auto_cut_action
+        from ..public.ai.bot_executor import run_room_bot_cpu
+        from ..public.ai.smart_bot_logic import count_visible_tiles
+        from .exchange_six_bot import choose_action
+
+        state = self.state
+        player = state.player_list[seat]
+        actions = tuple(state.action_dict[seat])
+        if self.phase in ("exchange", "blind_kong_view") or self.phase in EXCHANGE_RECEIPT_PHASES:
+            return default_action(seat)
+        forced_cut = (self.pending_ready_discard if seat == 0 and self.pending_ready_discard is not None
+                      else player.hand_tiles[-1] if player.open_kong_locked or seat in self.reported_ready else None)
+        if is_auto_cut_bot(player):
+            return choose_auto_cut_action(player, actions, [forced_cut] if forced_cut is not None else None)
+        return await run_room_bot_cpu(state, choose_action, self.phase, tuple(player.hand_tiles),
+            tuple(player.combination_tiles), tuple(count_visible_tiles(state)), actions,
+            {a: tuple(t) for a, t in self.targets[seat].items()}, seat in self.reported_ready, forced_cut)
+
     async def run_stage(self, phase, actions, default_action):
         """选牌和全桌决定独立计时，收牌确认不扣局时；暂停及重连不重置预算。"""
         state = self.state
@@ -364,7 +383,10 @@ class ExchangeSixFlow:
                             # 预算耗尽时先丢弃排队的晚到动作，不能让它抢在服务器超时决策之前。
                             while not state.action_queues[seat].empty():
                                 state.action_queues[seat].get_nowait()
-                        data = default_action(seat)
+                        tick = state.server_action_tick
+                        data = await self.bot_action(seat, default_action) if player.is_bot else default_action(seat)
+                        if tick != state.server_action_tick or seat not in state.waiting_players_list:
+                            continue
                         if expired and phase == "exchange":
                             # 晚到客户端请求被拒绝；服务器默认选牌仍走下方的牌归属校验。
                             await state.action_queues[seat].put({**data, "_action_tick": state.server_action_tick})

@@ -1,0 +1,2 @@
+-keep class cn.salasasa.updater.AndroidUpdateBridge { public static *; }
+-keep class cn.salasasa.updater.ApkUpdateProvider { *; }

@@ -10,7 +10,7 @@ using Newtonsoft.Json.Linq;
 using UnityEngine;
 
 /// <summary>Opt-in, windowless MainScene regression using authoritative server packets.</summary>
-public sealed class HongqueRuntimeValidation : MonoBehaviour {
+public sealed partial class HongqueRuntimeValidation : MonoBehaviour {
     static string folder;
     readonly List<object> checks = new List<object>();
     readonly List<string> failures = new List<string>();
@@ -106,6 +106,9 @@ public sealed class HongqueRuntimeValidation : MonoBehaviour {
             Transform row = RecordSetting.Instance.IsShowCardsMode ? panel.ShowCardsPosition : panel.cardsPosition;
             Check(row.childCount == player.tileList.Count, "replay physical hand " + position,
                 new { node=record.currentNode, expected=player.tileList.Count, actual=row.childCount });
+            if (!player.isHu && !player.hasRonWinningTile) Check3DRow(row, position, player.tileList.Count,
+                player.showHandDrawSlotActive, RecordSetting.Instance.IsShowCardsMode,
+                requireDrawSlot: RecordSetting.Instance.IsShowCardsMode);
         }
         var round = record.gameRecord.gameRound.rounds[record.currentRoundIndex];
         var drawn = new HashSet<int>(round.actionTicks.Take(record.currentNode)
@@ -145,6 +148,7 @@ public sealed class HongqueRuntimeValidation : MonoBehaviour {
             CheckRecordTable(record);
             Check(GameCanvas.Instance.HandCardsContainer.childCount == record.recordPlayer_to_info["self"].tileList.Count,
                 "seek hand rendering " + node);
+            CheckWinningRecordState(record, fixture);
             if (node == 0) {
                 var dealer = record.recordPlayer_to_info.Values.First(player => player.playerIndex == round.startPlayerIndex);
                 Check(dealer.showHandDrawSlotActive, "opening draw slot is restored in replay");
@@ -185,12 +189,18 @@ public sealed class HongqueRuntimeValidation : MonoBehaviour {
             float until = Time.realtimeSinceStartup + 45;
             int count = record.gameRecord.gameRound.rounds[1].actionTicks.Count;
             int largestSelfReveal = 0;
+            var observedWinningPanels = new HashSet<int>();
             while (record.currentNode < count && Time.realtimeSinceStartup < until) {
                 largestSelfReveal = Math.Max(largestSelfReveal,
                     Game3DManager.Instance.GetPosPanel("self").cardsPosition.childCount);
+                ObserveWinningRecordPanel(record, fixture, observedWinningPanels);
                 yield return null;
             }
             Check(record.currentNode == count, "delayed spectator consumes appended ticks");
+            CheckWinningRecordState(record, fixture);
+            if (fixture["winningHands"] is JObject expectedWinners)
+                Check(observedWinningPanels.Count == expectedWinners.Count, "delayed spectator displayed every complete winning panel",
+                    new { observed = observedWinningPanels.ToArray(), expected = expectedWinners.Count });
             if (currentCase.StartsWith("replay-multi_ron-") && seat > 0) {
                 var self=record.recordPlayer_to_info["self"];
                 // End clears presentation objects and restores the ordinary 2D hand.
@@ -229,14 +239,17 @@ public sealed class HongqueRuntimeValidation : MonoBehaviour {
         if (fixture["initial"] is JObject) {
             GameStateNetworkManager.Instance.HandleGameStateMessage(fixture["initial"].ToObject<Response>());
             yield return Idle();
+            if ((bool?)fixture["checkDrawLayout"] == true) CheckDrawLayout(fixture["initial"].ToObject<Response>().hongque_state);
         }
         if (fixture["livePackets"] is JArray live) {
-            foreach (var packet in live) {
+            for (int packetIndex = 0; packetIndex < live.Count; packetIndex++) {
+                var packet = live[packetIndex];
                 GameStateNetworkManager.Instance.HandleGameStateMessage(packet.ToObject<Response>());
                 if ((bool?)fixture["duplicateEvents"] == true && (string)packet["type"] == "gamestate/hongque/update") {
                     GameStateNetworkManager.Instance.HandleGameStateMessage(packet.ToObject<Response>());
                 }
                 yield return Idle();
+                if (fixture["drawSnapshots"] is JArray snapshots) CheckDrawLayout(snapshots[packetIndex].ToObject<HongqueStateInfo>());
             }
         } else {
             GameStateNetworkManager.Instance.HandleGameStateMessage(restore);
@@ -281,6 +294,11 @@ public sealed class HongqueRuntimeValidation : MonoBehaviour {
                 Check(EndResultPanel.Instance.gameObject.activeInHierarchy, "settlement panel restored");
                 Check((bool)typeof(EndResultPanel).GetField("readyStatusVisible", Hidden).GetValue(EndResultPanel.Instance),
                     "last winner reaches confirmation panel");
+                var result = state.round_result.multi_ron ? state.round_result.winners.Last()
+                    : state.round_result.winners.FirstOrDefault(w => w.player == state.you) ?? state.round_result.winners.First();
+                int[] resultHand = result.hand.Select(HongqueTileVisual.FromCode).ToArray();
+                int[] resultMelds = result.melds.SelectMany(m => m.tiles).Select(HongqueTileVisual.FromCode).ToArray();
+                CheckWinningPanel(resultHand, resultMelds, "live/reconnect/spectator authoritative settlement");
                 var ready = (Dictionary<int, bool>)typeof(EndResultPanel).GetField("cachedReadyStatus", Hidden).GetValue(EndResultPanel.Instance);
                 Check(ready.TryGetValue(state.you, out bool accepted) && accepted, "ready received during reveal is retained");
                 if (state.round_result.reason == "ron" && state.last_discard != null) {
@@ -298,6 +316,54 @@ public sealed class HongqueRuntimeValidation : MonoBehaviour {
             Check(gsm.roundSettlementHistory.Count == state.players[0].score_history.Length, "one settlement snapshot per server score row");
         }
         if (state.phase == "game_end") Check(EndGamePanel.Instance.gameObject.activeInHierarchy, "final ranking restored");
+        if ((bool?)fixture["probeDrawLayout"] == true) {
+            RuleRegistry.SetCurrent((string)fixture["drawProbeRule"] ?? "hongque");
+            AutoAction.Instance.SetAutoArrangeHandCards((bool?)fixture["autoArrange"] ?? true);
+            yield return ProbeDrawLayout();
+        }
+        if ((bool?)fixture["probeOpeningConsolidation"] == true) yield return ProbeOpeningConsolidation();
+    }
+
+    void CheckWinningRecordState(GameRecordManager record, JObject fixture) {
+        if (!(fixture["winningHands"] is JObject winners)) return;
+        var ticks = record.gameRecord.gameRound.rounds[1].actionTicks;
+        foreach (var item in winners.Properties()) {
+            int seat = int.Parse(item.Name);
+            if (!ticks.Take(record.currentNode).Any(t => t[0].StartsWith("hu_") && int.Parse(t[1]) == seat)) continue;
+            var player = record.recordPlayer_to_info[record.indexToPosition[seat]];
+            Check(player.hasRonWinningTile && player.tileList.SequenceEqual(item.Value.ToObject<int[]>()),
+                "spectator/seek retains explicit winning tile for " + seat, player.tileList.ToArray());
+        }
+    }
+
+    void ObserveWinningRecordPanel(GameRecordManager record, JObject fixture, HashSet<int> seen) {
+        if (!(fixture["winningHands"] is JObject winners) || !EndResultPanel.Instance.gameObject.activeInHierarchy) return;
+        var row = (GameObject)typeof(EndResultPanel).GetField("EndTilescontainer", Hidden).GetValue(EndResultPanel.Instance);
+        var cards = row.GetComponentsInChildren<StaticCard>();
+        if (cards.Length == 0) return;
+        foreach (var item in winners.Properties()) {
+            int seat = int.Parse(item.Name);
+            if (seen.Contains(seat)) continue;
+            int[] hand = item.Value.ToObject<int[]>();
+            var player = record.recordPlayer_to_info[record.indexToPosition[seat]];
+            int[] melds = player.combinationMasks.SelectMany(mask => mask.Where((tile, index) => index % 2 == 1)).ToArray();
+            // 多家和同用一张河牌，使用整行牌面辨别当前展示的赢家。
+            if (!cards.Select(card => card.TileId).OrderBy(tile => tile).SequenceEqual(hand.Concat(melds).OrderBy(tile => tile))) continue;
+            CheckWinningPanel(hand, melds, "delayed spectator panel " + seat);
+            string position = record.indexToPosition[seat];
+            var panel = Game3DManager.Instance.GetPosPanel(position);
+            Transform tiles = position != "self" && RecordSetting.Instance.IsShowCardsMode ? panel.ShowCardsPosition : panel.cardsPosition;
+            Check(tiles.GetComponentsInChildren<Tile3D>().Select(tile => tile.GetTileId()).OrderBy(tile => tile)
+                .SequenceEqual(hand.OrderBy(tile => tile)), "delayed spectator physical winning hand " + seat);
+            seen.Add(seat);
+        }
+    }
+
+    void CheckWinningPanel(int[] hand, int[] melds, string label) {
+        var row = (GameObject)typeof(EndResultPanel).GetField("EndTilescontainer", Hidden).GetValue(EndResultPanel.Instance);
+        int[] actual = row.GetComponentsInChildren<StaticCard>().Select(card => card.TileId).ToArray();
+        Check(actual.OrderBy(tile => tile).SequenceEqual(hand.Concat(melds).OrderBy(tile => tile)), label + " preserves every tile", actual);
+        Check(actual.Length > 0 && actual.Last() == hand.Last(), label + " keeps the actual winning tile separate", actual);
     }
 }
 #endif

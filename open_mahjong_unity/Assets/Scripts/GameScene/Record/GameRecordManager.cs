@@ -185,7 +185,7 @@ public partial class GameRecordManager : MonoBehaviour {
         if (ChangshaFanText.IsChangshaRule(recordRule)) {
             huPlayer.tileList = new List<int>(ChangshaRecordCodec.BuildWinningHand(huPlayer.tileList, huPlayer.hasRonWinningTile, winTile));
             huPlayer.hasRonWinningTile = huPlayer.tileList.Count % 3 == 2;
-        } else if (RecordHuHandBuilder.NeedsRonTile(huPlayer.tileList, recordRule)) {
+        } else if (!huPlayer.hasRonWinningTile) {
             huPlayer.tileList.Add(winTile);
             huPlayer.hasRonWinningTile = true;
         }
@@ -225,8 +225,19 @@ public partial class GameRecordManager : MonoBehaviour {
         public bool bloodWinMulti;
         /// <summary>四川：定缺花色（1万/2饼/3条，0=未定缺）。</summary>
         public int dingqueSuit;
-        /// <summary>展开明牌模式：末张摸牌须显示在独立摸牌区（摸牌/杠摸/补摸后为 true，摸切/摸补/摸杠消耗后为 false）。</summary>
-        public bool showHandDrawSlotActive;
+        private bool drawSourceActive;
+        /// <summary>末张是否保留摸牌来源；收拢后仍可摸切，独立显示由 HasSeparateDrawSlot 决定。</summary>
+        public bool showHandDrawSlotActive {
+            get => drawSourceActive;
+            set { drawSourceActive = value; DrawSlotIsMerged = false; }
+        }
+        public bool DrawSlotIsMerged { get; private set; }
+        public bool HasSeparateDrawSlot => drawSourceActive && !DrawSlotIsMerged;
+        public void MergeDrawSlot(bool preserveDrawSource) {
+            drawSourceActive &= preserveDrawSource;
+            DrawSlotIsMerged = true;
+        }
+        /// <summary>本局荣和张已由回放状态写入 tileList 末尾；显示层只读，不再补牌。</summary>
         public bool hasRonWinningTile;
         public List<int> huapaiList = new List<int>();
         public List<string> combinationTiles = new List<string>();
@@ -1092,7 +1103,8 @@ public partial class GameRecordManager : MonoBehaviour {
                 string[] fuFanList = null;
                 RecordHuHandBuilder.TryParseHepaiTile(tick, recordRule, out int parsedHepaiTile);
                 int[] hepaiPlayerHand = RecordHuHandBuilder.BuildDisplayHandFromTick(
-                    tick, recordRule, huPlayer.tileList, IsXueliuRecord() ? "hu_first" : action, lastWinnableTileId);
+                    tick, recordRule, huPlayer.tileList, IsXueliuRecord() ? "hu_first" : action,
+                    lastWinnableTileId, huPlayer.hasRonWinningTile);
                 int[] hepaiPlayerHuapai = huPlayer.huapaiList.ToArray();
                 int[][] hepaiPlayerCombinationMask = huPlayer.combinationMasks.ToArray();
                 bool isChangshaHu = ChangshaFanText.IsChangshaRule(recordRule)
@@ -1478,7 +1490,8 @@ public partial class GameRecordManager : MonoBehaviour {
         if (maxRound <= 0 && record?.gameRound != null) {
             maxRound = Mathf.Max(1, record.gameRound.rounds?.Count ?? 0);
         }
-        if (maxRound > 0) sb.AppendLine($"最大局数: {maxRound}局");
+        if (ReadGameTitleBool(gt, "unlimited_rounds", false)) sb.AppendLine("局数: 无固定时限");
+        else if (maxRound > 0) sb.AppendLine($"最大局数: {maxRound}局");
         if (gt.ContainsKey("hepai_limit")) {
             sb.AppendLine($"起和番: {ReadGameTitleInt(gt, "hepai_limit", 0)}{(ruleKey == "riichi" ? "（不含宝牌）" : "")}");
         }
@@ -1913,7 +1926,7 @@ public partial class GameRecordManager : MonoBehaviour {
         string recordRule = ReadGameTitleString(gameRecord.gameTitle, "rule", "riichi").ToLowerInvariant();
         ApplyRecordRonHuToHandState(tick, huClass);
         int[] hepaiPlayerHand = RecordHuHandBuilder.BuildDisplayHandFromTick(
-            tick, recordRule, huPlayer.tileList, huClass, lastWinnableTileId);
+            tick, recordRule, huPlayer.tileList, huClass, lastWinnableTileId, huPlayer.hasRonWinningTile);
         int[] hepaiPlayerHuapai = huPlayer.huapaiList.ToArray();
         int[][] hepaiPlayerCombinationMask = huPlayer.combinationMasks.ToArray();
 

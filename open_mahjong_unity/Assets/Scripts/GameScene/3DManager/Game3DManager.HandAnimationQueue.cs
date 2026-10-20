@@ -3,15 +3,16 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 暗杠/加杠手牌删收拢与杠后岭上摸牌走各家串行队列，保证「删牌 → 收拢 → 摸牌」顺序正确。
+/// 补花、暗杠/加杠与补摸走各家串行队列，保证「删牌 → 收拢 → 摸牌」顺序正确。
 /// 所有出牌（含普通出牌、牌谱与多张切）从第一张起入队，完整落河、收拢后再出下一张。
-/// 自由模式的结构变更按座位串行；空闲时摸牌立即入手，短收拢动画追随最新布局。
-/// 队列空闲时的普通摸牌 / 吃碰明杠等仍走 Change3DTileCoroutine，各家的队列互不阻塞。
+/// 普通对局与自由模式共用暗手增删队列；空闲摸牌立即入手，短收拢动画追随最新布局。
+/// 吃碰明杠及牌谱展开动画另行跟踪；各家的队列互不阻塞。
 /// </summary>
 public partial class Game3DManager {
     private enum HandAnimOpKind {
         RemoveCards,
         Rearrange,
+        Consolidate,
         DrawCard,
         DiscardTile,
         BuhuaTile,
@@ -34,7 +35,6 @@ public partial class Game3DManager {
         public bool IsRiichi;
         public bool PlayCutPhysicsSound;
         public bool ConcealedDiscard;
-        public bool MergeBeforeDraw;
         public int MeldIndex;
         public int[] HandTiles;
         public string ChangshaMeldAction;
@@ -79,6 +79,7 @@ public partial class Game3DManager {
 
     public bool HasPendingRecordStepAnimations(string playerPosition) {
         return HasPendingHandAnimWork(playerPosition)
+            || _handDrawReflows.ContainsKey(playerPosition)
             || (_recordHandAnimationsByPlayer.TryGetValue(playerPosition, out int count) && count > 0);
     }
 
@@ -152,7 +153,7 @@ public partial class Game3DManager {
 
     private void StopAllHandAnimationQueues() {
         SoundManager.Instance?.CancelTableAudio();
-        foreach (string position in HandAnimPlayerPositions) StopFreeDrawReflow(position, finish: false);
+        foreach (string position in HandAnimPlayerPositions) StopHandDrawReflow(position, finish: false);
         _handAnimationGeneration++;
         // 跳转/切局会中断嵌套动画；旧协程的 finally 不得扣减新一轮播放的计数。
         _recordHandAnimationGeneration++;
@@ -213,8 +214,8 @@ public partial class Game3DManager {
         if (panel == null) {
             yield break;
         }
-        if (op.Kind != HandAnimOpKind.DrawCard || !op.MergeBeforeDraw)
-            StopFreeDrawReflow(op.PlayerPosition, finish: true);
+        if (op.Kind != HandAnimOpKind.DrawCard)
+            StopHandDrawReflow(op.PlayerPosition, finish: true);
 
         switch (op.Kind) {
             case HandAnimOpKind.WashizuOrder:
@@ -238,15 +239,14 @@ public partial class Game3DManager {
             case HandAnimOpKind.Rearrange:
                 yield return Rearrange3DCardsWithAnimation(panel.cardsPosition);
                 break;
+            case HandAnimOpKind.Consolidate:
+                yield return ConsolidateHandFromQueue(op.PlayerPosition, panel);
+                break;
             case HandAnimOpKind.DrawCard:
                 if (op.PlayerPosition == "self") {
                     yield break;
                 }
-                if (op.MergeBeforeDraw) {
-                    PlayFreeDrawReflow(op.PlayerPosition);
-                    break;
-                }
-                yield return Get3DTileCoroutine(op.PlayerPosition, "get");
+                PlayHandDrawReflow(op.PlayerPosition);
                 break;
             case HandAnimOpKind.DiscardTile:
                 yield return DiscardTileFromQueue(panel, op);
@@ -314,26 +314,22 @@ public partial class Game3DManager {
         yield return Rearrange3DCardsWithAnimation(panel.cardsPosition);
     }
 
-    /// <summary>自由模式的他家摸牌、切牌和补花共用队列，避免旧摸牌尚未收拢就增删下一张。</summary>
-    private bool TryEnqueueFreeHandChange(string actionType, int tileId, string playerPosition,
-        bool cutClass, bool isRiichi, bool playCutPhysicsSound, bool concealedDiscard = false) {
-        if (FreeGameState.Active == null || playerPosition == "self" || !IsHandAnimPlayer(playerPosition)
+    /// <summary>各规则的暗手摸牌、补花共用逐家队列；补花的旧收拢不能吞入下一张摸牌。</summary>
+    private bool TryEnqueueHandDrawOrFlower(string actionType, int tileId, string playerPosition,
+        bool cutClass, bool concealedDiscard) {
+        if (playerPosition == "self" || !IsHandAnimPlayer(playerPosition)
                 || IsRecordShowCardsModeActive()) return false;
 
         switch (actionType) {
             case "GetCard":
                 if (!HasPendingHandAnimWork(playerPosition)) {
-                    PlayFreeDrawReflow(playerPosition);
+                    PlayHandDrawReflow(playerPosition);
                     return true;
                 }
                 EnqueueHandAnimOp(playerPosition, new HandAnimOp {
                     Kind = HandAnimOpKind.DrawCard,
                     TileId = tileId,
-                    MergeBeforeDraw = true,
                 });
-                return true;
-            case "Discard":
-                EnqueueDiscardHandWork(playerPosition, tileId, cutClass, isRiichi, playCutPhysicsSound, concealedDiscard);
                 return true;
             case "Buhua":
                 EnqueueHandAnimOp(playerPosition, new HandAnimOp {
@@ -597,9 +593,10 @@ public partial class Game3DManager {
     }
 
     private void StartHandRearrange(string playerPosition) {
+        StopHandDrawReflow(playerPosition, finish: true);
         PosPanel3D panel = GetPosPanel(playerPosition);
         if (panel != null) {
-            StartCoroutine(Rearrange3DCardsWithAnimation(panel.cardsPosition));
+            StartCoroutine(TrackRecordHandAnimation(Rearrange3DCardsWithAnimation(panel.cardsPosition), playerPosition));
         }
     }
 

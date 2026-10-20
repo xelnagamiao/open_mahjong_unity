@@ -21,7 +21,7 @@ public static class GuobiaoFanCatalogValidation {
             int[] tiles = groups.SelectMany(x => x).ToArray();
             Require(tiles.GroupBy(x => x).All(x => x.Count() <= (x.Key >= 51 ? 1 : 4)), entry.name + " 不存在第五张牌", errors);
             foreach (int tile in tiles)
-                Require(UnityEngine.Resources.Load<UnityEngine.Texture2D>("image/Cards/Faces/official/table/" + tile), entry.name + " 牌面 " + tile, errors);
+                Require(BuiltinTileSprites.OfficialTable(tile), entry.name + " 牌面 " + tile, errors);
             if (entry.number == 81) {
                 Require(tiles.Length == 8 && tiles.All(x => x >= 51 && x <= 58), "花牌八张", errors);
                 continue;

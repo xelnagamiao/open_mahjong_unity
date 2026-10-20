@@ -1648,6 +1648,8 @@ export class MahjongScene {
         riverTile?.setPersistentTint(FROM_DRAWN_TINT)
       })
 
+      seat.discard_blue_flags?.forEach((blue,index)=>{if(blue)this.rivers[localDir].tileList[index]?.setPersistentTint(0x71a9ff)})
+
       // Melds — use backend snapshot fields directly.
       for (const meld of seat.melds) {
         const meldType = meld.type === 'sequence' ? 'chow' : meld.type === 'triplet' ? 'pung' : 'kong'
