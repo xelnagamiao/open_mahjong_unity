@@ -202,23 +202,42 @@ public partial class GameCanvas {
     public void ShowExchangeSixState(ChangshaExchangeSixState snapshot, bool handChanged) {
         EnsureExchangeSixPanel();
         bool newWindow = exchangeSixState == null || exchangeSixState.action_tick != snapshot.action_tick;
+        bool exchanged = exchangeSixState != null
+            && snapshot.public_state.completed_exchange_rounds > exchangeSixState.public_state.completed_exchange_rounds;
         if (newWindow || handChanged) ClearExchangeSixSelection();
         exchangeSixState = snapshot;
         ShowExchangeSixPrivateNotice(snapshot.private_state.open_hand_pass_hint);
         ClearActionButton();
-        if (handChanged) {
+        var hand = snapshot.private_state.hand_tiles ?? new int[0];
+        var draw = GetDrawTile();
+        bool drawChanged = snapshot.private_state.has_draw_slot
+            ? hand.Length > 0 && (draw == null || draw.tileId != hand[hand.Length - 1]) : draw != null;
+        if (handChanged || exchanged || !HandCardsMatchSnapshot(hand) || drawChanged) {
             if (exchangeSixHandSync != null) StopCoroutine(exchangeSixHandSync);
-            exchangeSixHandSync = StartCoroutine(SyncExchangeSixHand(snapshot));
+            exchangeSixHandSync = StartCoroutine(SyncExchangeSixHand(snapshot, exchanged));
         }
         RenderExchangeSixState();
     }
 
-    private IEnumerator SyncExchangeSixHand(ChangshaExchangeSixState snapshot) {
-        ChangeHandCards("SyncHandCards", 0, snapshot.private_state.hand_tiles, null);
+    private IEnumerator SyncExchangeSixHand(ChangshaExchangeSixState snapshot, bool exchanged) {
+        // 先让协程句柄完成赋值，再等已有摸打动画；镜像更新不代表牌面尚未处理该动作。
+        yield return null;
         while (IsChangeHandCardProcessing) yield return null;
-        if (snapshot.private_state.has_draw_slot && handCardsContainer.childCount > 0) {
-            var card = handCardsContainer.GetChild(handCardsContainer.childCount - 1).GetComponent<TileCard>();
+        var hand = snapshot.private_state.hand_tiles ?? new int[0];
+        if (exchanged || !HandCardsMatchSnapshot(hand)) {
+            // 真正换完六张才重建。普通摸打及重连只校正差额，保留原牌和手动顺序。
+            ChangeHandCards(exchanged ? "SyncHandCards" : "SyncHandCardsPreservingOrder", 0, hand, null);
+        }
+        while (IsChangeHandCardProcessing) yield return null;
+        var draw = GetDrawTile();
+        if (snapshot.private_state.has_draw_slot && hand.Length > 0
+            && (draw == null || draw.tileId != hand[hand.Length - 1])) {
+            ClearHandDrawMarks();
+            var card = GetMainHandCardsOrdered().LastOrDefault(item => item.tileId == hand[hand.Length - 1]);
             if (card != null) card.SetTile(card.tileId, true);
+            LayoutHandCardsFromCurrentOrder();
+        } else if (!snapshot.private_state.has_draw_slot && draw != null) {
+            ClearHandDrawMarks();
             LayoutHandCardsFromCurrentOrder();
         }
         RefreshHandTileSelectability();
